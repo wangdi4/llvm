@@ -1605,9 +1605,14 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             if (nullptr != paramVal)
             {
+#ifdef BUILD_FPGA_EMULATOR
+                // FPGA emulator does not support pipe reservation.
+                *(cl_uint*)paramVal = 0;
+#else
                 // this value depends on pipe algorithm limitations, max. compute units and max. work-group size.
                 cl_uint const totalPerPipeReservationsLimit = 0x7FFFFFFE;
                 *(cl_uint*)paramVal = totalPerPipeReservationsLimit / (GetNumberOfProcessors() * CPU_MAX_WORK_GROUP_SIZE);
+#endif
             }
             return CL_DEV_SUCCESS;
         case CL_DEVICE_PIPE_MAX_PACKET_SIZE:
