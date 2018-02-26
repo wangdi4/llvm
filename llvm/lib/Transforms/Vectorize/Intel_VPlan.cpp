@@ -279,7 +279,15 @@ void VPRegionBlock::recomputeSize() {
 
 void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
   std::string StrIndent = std::string(2 * Indent, ' ');
-  OS << StrIndent << getName() << ":\n";
+  // Print name and predicate
+  OS << StrIndent << getName() << " (BP: ";
+  if (getPredicateRecipe())
+    OS << *getPredicateRecipe();
+  else
+    OS << "NULL";
+  OS << ") :\n";
+
+  // Print block body
   if (empty()) {
     OS << StrIndent << " <Empty Block>\n";
   } else {
@@ -325,7 +333,7 @@ void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
   } else {
     assert("More than 2 successors in basic block are not supported!");
   }
-  OS << "\n";
+  OS << "\n\n";
 }
 
 void VPBasicBlock::dump() const {
@@ -346,7 +354,14 @@ void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent) const {
   getOrderedBlocks(Blocks);
 
   std::string StrIndent = std::string(2 * Indent, ' ');
-  OS << StrIndent << "REGION: " << getName() << "\n";
+  // Print name and predicate
+  OS << StrIndent << "REGION: " << getName() << " (BP: ";
+  if (getPredicateRecipe())
+    OS << *getPredicateRecipe();
+  else
+    OS << "NULL";
+  OS << ")\n";
+
   SuccList.insert(Entry);
   // Main loop for printing VPRegion blocks.
   //                  Indent
@@ -372,7 +387,7 @@ void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent) const {
     OS << StrIndent << "SUCCESSORS(1):" << Successor->getName() << "\n";
   else
     OS << StrIndent << "END Region(" << getName() << ")\n";
-
+  OS << "\n";
 }
 
 void VPRegionBlock::dump() const {
