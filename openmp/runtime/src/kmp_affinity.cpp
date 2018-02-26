@@ -2028,9 +2028,17 @@ static int __kmp_affinity_create_cpuinfo_map(AddrUnsPair **address2os,
         if ((p == NULL) || (KMP_SSCANF(p + 1, "%u\n", &val) != 1))
           goto no_val;
         if (threadInfo[num_avail][osIdIndex] != UINT_MAX)
+#if KMP_ARCH_AARCH64
+          // Handle the old AArch64 /proc/cpuinfo layout differently,
+          // it contains all of the 'processor' entries listed in a
+          // single 'Processor' section, therefore the normal looking
+          // for duplicates in that section will always fail.
+          num_avail++;
+#else
           goto dup_field;
+#endif
         threadInfo[num_avail][osIdIndex] = val;
-#if KMP_OS_LINUX && USE_SYSFS_INFO
+#if KMP_OS_LINUX && !(KMP_ARCH_X86 || KMP_ARCH_X86_64)
         char path[256];
         KMP_SNPRINTF(
             path, sizeof(path),
@@ -4640,7 +4648,9 @@ void __kmp_affinity_set_init_mask(int gtid, int isa_root) {
 
   KMP_CPU_COPY(th->th.th_affin_mask, mask);
 
-  if (__kmp_affinity_verbose) {
+  if (__kmp_affinity_verbose
+      /* to avoid duplicate printing (will be correctly printed on barrier) */
+      && (__kmp_affinity_type == affinity_none || i != KMP_PLACE_ALL)) {
     char buf[KMP_AFFIN_MASK_PRINT_LEN];
     __kmp_affinity_print_mask(buf, KMP_AFFIN_MASK_PRINT_LEN,
                               th->th.th_affin_mask);

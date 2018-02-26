@@ -323,7 +323,8 @@ bool ContinuationIndenter::mustBreak(const LineState &State) {
     // We need special cases for ">>" which we have split into two ">" while
     // lexing in order to make template parsing easier.
     bool IsComparison = (Previous.getPrecedence() == prec::Relational ||
-                         Previous.getPrecedence() == prec::Equality) &&
+                         Previous.getPrecedence() == prec::Equality ||
+                         Previous.getPrecedence() == prec::Spaceship) &&
                         Previous.Previous &&
                         Previous.Previous->isNot(TT_BinaryOperator); // For >>.
     bool LHSIsBinaryExpr =
@@ -536,7 +537,8 @@ void ContinuationIndenter::addTokenOnCurrentLine(LineState &State, bool DryRun,
        (P->is(TT_ConditionalExpr) && P->is(tok::colon))) &&
       !P->isOneOf(TT_OverloadedOperator, TT_CtorInitializerComma) &&
       P->getPrecedence() != prec::Assignment &&
-      P->getPrecedence() != prec::Relational) {
+      P->getPrecedence() != prec::Relational &&
+      P->getPrecedence() != prec::Spaceship) {
     bool BreakBeforeOperator =
         P->MustBreakBefore || P->is(tok::lessless) ||
         (P->is(TT_BinaryOperator) &&
@@ -1390,7 +1392,36 @@ unsigned ContinuationIndenter::handleEndOfLine(const FormatToken &Current,
     Penalty = addMultilineToken(Current, State);
   } else if (State.Line->Type != LT_ImportStatement) {
     // We generally don't break import statements.
-    Penalty = breakProtrudingToken(Current, State, AllowBreak, DryRun);
+    LineState OriginalState = State;
+
+    // Whether we force the reflowing algorithm to stay strictly within the
+    // column limit.
+    bool Strict = false;
+    // Whether the first non-strict attempt at reflowing did intentionally
+    // exceed the column limit.
+    bool Exceeded = false;
+    std::tie(Penalty, Exceeded) = breakProtrudingToken(
+        Current, State, AllowBreak, /*DryRun=*/true, Strict);
+    if (Exceeded) {
+      // If non-strict reflowing exceeds the column limit, try whether strict
+      // reflowing leads to an overall lower penalty.
+      LineState StrictState = OriginalState;
+      unsigned StrictPenalty =
+          breakProtrudingToken(Current, StrictState, AllowBreak,
+                               /*DryRun=*/true, /*Strict=*/true)
+              .first;
+      Strict = StrictPenalty <= Penalty;
+      if (Strict) {
+        Penalty = StrictPenalty;
+        State = StrictState;
+      }
+    }
+    if (!DryRun) {
+      // If we're not in dry-run mode, apply the changes with the decision on
+      // strictness made above.
+      breakProtrudingToken(Current, OriginalState, AllowBreak, /*DryRun=*/false,
+                           Strict);
+    }
   }
   if (State.Column > getColumnLimit(State)) {
     unsigned ExcessCharacters = State.Column - getColumnLimit(State);
@@ -1480,14 +1511,14 @@ std::unique_ptr<BreakableToken> ContinuationIndenter::createBreakableToken(
   return nullptr;
 }
 
-unsigned ContinuationIndenter::breakProtrudingToken(const FormatToken &Current,
-                                                    LineState &State,
-                                                    bool AllowBreak,
-                                                    bool DryRun) {
+std::pair<unsigned, bool>
+ContinuationIndenter::breakProtrudingToken(const FormatToken &Current,
+                                           LineState &State, bool AllowBreak,
+                                           bool DryRun, bool Strict) {
   std::unique_ptr<const BreakableToken> Token =
       createBreakableToken(Current, State, AllowBreak);
   if (!Token)
-    return 0;
+    return {0, false};
   assert(Token->getLineCount() > 0);
   unsigned ColumnLimit = getColumnLimit(State);
   if (Current.is(TT_LineComment)) {
@@ -1495,13 +1526,16 @@ unsigned ContinuationIndenter::breakProtrudingToken(const FormatToken &Current,
     ColumnLimit = Style.ColumnLimit;
   }
   if (Current.UnbreakableTailLength >= ColumnLimit)
-    return 0;
+    return {0, false};
   // ColumnWidth was already accounted into State.Column before calling
   // breakProtrudingToken.
   unsigned StartColumn = State.Column - Current.ColumnWidth;
   unsigned NewBreakPenalty = Current.isStringLiteral()
                                  ? Style.PenaltyBreakString
                                  : Style.PenaltyBreakComment;
+  // Stores whether we intentionally decide to let a line exceed the column
+  // limit.
+  bool Exceeded = false;
   // Stores whether we introduce a break anywhere in the token.
   bool BreakInserted = Token->introducesBreakBeforeToken();
   // Store whether we inserted a new line break at the end of the previous
@@ -1612,7 +1646,7 @@ unsigned ContinuationIndenter::breakProtrudingToken(const FormatToken &Current,
         bool ContinueOnLine =
             ContentStartColumn + ToNextSplitColumns <= ColumnLimit;
         unsigned ExcessCharactersPenalty = 0;
-        if (!ContinueOnLine) {
+        if (!ContinueOnLine && !Strict) {
           // Similarly, if the excess characters' penalty is lower than the
           // penalty of introducing a new break, continue on the current line.
           ExcessCharactersPenalty =
@@ -1621,8 +1655,10 @@ unsigned ContinuationIndenter::breakProtrudingToken(const FormatToken &Current,
           DEBUG(llvm::dbgs()
                 << "    Penalty excess: " << ExcessCharactersPenalty
                 << "\n            break : " << NewBreakPenalty << "\n");
-          if (ExcessCharactersPenalty < NewBreakPenalty)
+          if (ExcessCharactersPenalty < NewBreakPenalty) {
+            Exceeded = true;
             ContinueOnLine = true;
+          }
         }
         if (ContinueOnLine) {
           DEBUG(llvm::dbgs() << "    Continuing on line...\n");
@@ -1817,7 +1853,7 @@ unsigned ContinuationIndenter::breakProtrudingToken(const FormatToken &Current,
 
   Token->updateNextToken(State);
 
-  return Penalty;
+  return {Penalty, Exceeded};
 }
 
 unsigned ContinuationIndenter::getColumnLimit(const LineState &State) const {

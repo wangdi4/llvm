@@ -87,7 +87,7 @@ OutputSection *LinkerScript::createOutputSection(StringRef Name,
     // There was a forward reference.
     Sec = SecRef;
   } else {
-    Sec = make<OutputSection>(Name, SHT_PROGBITS, 0);
+    Sec = make<OutputSection>(Name, SHT_NOBITS, 0);
     if (!SecRef)
       SecRef = Sec;
   }
@@ -184,6 +184,8 @@ static std::string getFilename(InputFile *File) {
 }
 
 bool LinkerScript::shouldKeep(InputSectionBase *S) {
+  if (KeptSections.empty())
+    return false;
   std::string Filename = getFilename(S->File);
   for (InputSectionDescription *ID : KeptSections)
     if (ID->FilePat.match(Filename))
@@ -533,7 +535,7 @@ void LinkerScript::addOrphanSections() {
     if (!S->Live || S->Parent)
       continue;
 
-    StringRef Name = getOutputSectionName(S->Name);
+    StringRef Name = getOutputSectionName(S);
 
     if (Config->OrphanHandling == OrphanHandlingPolicy::Error)
       error(toString(S) + " is being placed in '" + Name + "'");
@@ -672,6 +674,11 @@ void LinkerScript::assignOffsets(OutputSection *Sec) {
   if (Ctx->OutSec->Flags & SHF_COMPRESSED)
     return;
 
+  // The Size previously denoted how many InputSections had been added to this
+  // section, and was used for sorting SHF_LINK_ORDER sections. Reset it to
+  // compute the actual size value.
+  Sec->Size = 0;
+
   // We visited SectionsCommands from processSectionCommands to
   // layout sections. Now, we visit SectionsCommands again to fix
   // section offsets.
@@ -686,6 +693,8 @@ void LinkerScript::assignOffsets(OutputSection *Sec) {
     if (auto *Cmd = dyn_cast<ByteCommand>(Base)) {
       Cmd->Offset = Dot - Ctx->OutSec->Addr;
       Dot += Cmd->Size;
+      if (Ctx->MemRegion)
+        Ctx->MemRegionOffset[Ctx->MemRegion] += Cmd->Size;
       Ctx->OutSec->Size = Dot - Ctx->OutSec->Addr;
       continue;
     }

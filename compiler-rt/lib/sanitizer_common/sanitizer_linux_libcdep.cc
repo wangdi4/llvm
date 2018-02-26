@@ -14,7 +14,8 @@
 
 #include "sanitizer_platform.h"
 
-#if SANITIZER_FREEBSD || SANITIZER_LINUX || SANITIZER_NETBSD
+#if SANITIZER_FREEBSD || SANITIZER_LINUX || SANITIZER_NETBSD || \
+    SANITIZER_SOLARIS
 
 #include "sanitizer_allocator_internal.h"
 #include "sanitizer_atomic.h"
@@ -43,6 +44,11 @@
 
 #if SANITIZER_NETBSD
 #include <sys/sysctl.h>
+#include <sys/tls.h>
+#endif
+
+#if SANITIZER_SOLARIS
+#include <thread.h>
 #endif
 
 #if SANITIZER_LINUX
@@ -114,13 +120,20 @@ void GetThreadStackTopAndBottom(bool at_initialization, uptr *stack_top,
     *stack_bottom = segment.end - stacksize;
     return;
   }
+  uptr stacksize = 0;
+  void *stackaddr = nullptr;
+#if SANITIZER_SOLARIS
+  stack_t ss;
+  CHECK_EQ(thr_stksegment(&ss), 0);
+  stacksize = ss.ss_size;
+  stackaddr = (char *)ss.ss_sp - stacksize;
+#else // !SANITIZER_SOLARIS
   pthread_attr_t attr;
   pthread_attr_init(&attr);
   CHECK_EQ(pthread_getattr_np(pthread_self(), &attr), 0);
-  uptr stacksize = 0;
-  void *stackaddr = nullptr;
   my_pthread_attr_getstack(&attr, &stackaddr, &stacksize);
   pthread_attr_destroy(&attr);
+#endif // SANITIZER_SOLARIS
 
   *stack_top = (uptr)stackaddr + stacksize;
   *stack_bottom = (uptr)stackaddr;
@@ -161,7 +174,7 @@ bool SanitizerGetThreadName(char *name, int max_len) {
 }
 
 #if !SANITIZER_FREEBSD && !SANITIZER_ANDROID && !SANITIZER_GO && \
-    !SANITIZER_NETBSD
+    !SANITIZER_NETBSD && !SANITIZER_SOLARIS
 static uptr g_tls_size;
 
 #ifdef __i386__
@@ -190,7 +203,7 @@ void InitTlsSize() {
 #else
 void InitTlsSize() { }
 #endif  // !SANITIZER_FREEBSD && !SANITIZER_ANDROID && !SANITIZER_GO &&
-        // !SANITIZER_NETBSD
+        // !SANITIZER_NETBSD && !SANITIZER_SOLARIS
 
 #if (defined(__x86_64__) || defined(__i386__) || defined(__mips__) \
     || defined(__aarch64__) || defined(__powerpc64__) || defined(__s390__) \
@@ -327,7 +340,7 @@ uptr ThreadSelf() {
 }
 #endif  // (x86_64 || i386 || MIPS) && SANITIZER_LINUX
 
-#if SANITIZER_FREEBSD || SANITIZER_NETBSD
+#if SANITIZER_FREEBSD
 static void **ThreadSelfSegbase() {
   void **segbase = 0;
 # if defined(__i386__)
@@ -345,7 +358,36 @@ static void **ThreadSelfSegbase() {
 uptr ThreadSelf() {
   return (uptr)ThreadSelfSegbase()[2];
 }
-#endif  // SANITIZER_FREEBSD || SANITIZER_NETBSD
+#endif  // SANITIZER_FREEBSD
+
+#if SANITIZER_NETBSD
+static struct tls_tcb * ThreadSelfTlsTcb() {
+  struct tls_tcb * tcb;
+# ifdef __HAVE___LWP_GETTCB_FAST
+  tcb = (struct tls_tcb *)__lwp_gettcb_fast();
+# elif defined(__HAVE___LWP_GETPRIVATE_FAST)
+  tcb = (struct tls_tcb *)__lwp_getprivate_fast();
+# endif
+  return tcb;
+}
+
+uptr ThreadSelf() {
+  return (uptr)ThreadSelfTlsTcb()->tcb_pthread;
+}
+
+int GetSizeFromHdr(struct dl_phdr_info *info, size_t size, void *data) {
+  const Elf_Phdr *hdr = info->dlpi_phdr;
+  const Elf_Phdr *last_hdr = hdr + info->dlpi_phnum;
+
+  for (; hdr != last_hdr; ++hdr) {
+    if (hdr->p_type == PT_TLS && info->dlpi_tls_modid == 1) {
+      *(uptr*)data = hdr->p_memsz;
+      break;
+    }
+  }
+  return 0;
+}
+#endif  // SANITIZER_NETBSD
 
 #if !SANITIZER_GO
 static void GetTls(uptr *addr, uptr *size) {
@@ -363,7 +405,7 @@ static void GetTls(uptr *addr, uptr *size) {
   *addr = 0;
   *size = 0;
 # endif
-#elif SANITIZER_FREEBSD || SANITIZER_NETBSD
+#elif SANITIZER_FREEBSD
   void** segbase = ThreadSelfSegbase();
   *addr = 0;
   *size = 0;
@@ -376,7 +418,25 @@ static void GetTls(uptr *addr, uptr *size) {
     *addr = (uptr) dtv[2];
     *size = (*addr == 0) ? 0 : ((uptr) segbase[0] - (uptr) dtv[2]);
   }
+#elif SANITIZER_NETBSD
+  struct tls_tcb * const tcb = ThreadSelfTlsTcb();
+  *addr = 0;
+  *size = 0;
+  if (tcb != 0) {
+    // Find size (p_memsz) of dlpi_tls_modid 1 (TLS block of the main program).
+    // ld.elf_so hardcodes the index 1.
+    dl_iterate_phdr(GetSizeFromHdr, size);
+
+    if (*size != 0) {
+      // The block has been found and tcb_dtv[1] contains the base address
+      *addr = (uptr)tcb->tcb_dtv[1];
+    }
+  }
 #elif SANITIZER_ANDROID
+  *addr = 0;
+  *size = 0;
+#elif SANITIZER_SOLARIS
+  // FIXME
   *addr = 0;
   *size = 0;
 #else
@@ -387,7 +447,8 @@ static void GetTls(uptr *addr, uptr *size) {
 
 #if !SANITIZER_GO
 uptr GetTlsSize() {
-#if SANITIZER_FREEBSD || SANITIZER_ANDROID || SANITIZER_NETBSD
+#if SANITIZER_FREEBSD || SANITIZER_ANDROID || SANITIZER_NETBSD || \
+    SANITIZER_SOLARIS
   uptr addr, size;
   GetTls(&addr, &size);
   return size;
@@ -547,7 +608,8 @@ uptr GetRSS() {
   return rss * GetPageSizeCached();
 }
 
-// sysconf(_SC_NPROCESSORS_{CONF,ONLN}) cannot be used as they allocate memory.
+// sysconf(_SC_NPROCESSORS_{CONF,ONLN}) cannot be used on most platforms as
+// they allocate memory.
 u32 GetNumberOfCPUs() {
 #if SANITIZER_FREEBSD || SANITIZER_NETBSD
   u32 ncpu;
@@ -593,6 +655,8 @@ u32 GetNumberOfCPUs() {
   }
   internal_close(fd);
   return n_cpus;
+#elif SANITIZER_SOLARIS
+  return sysconf(_SC_NPROCESSORS_ONLN);
 #else
   cpu_set_t CPUs;
   CHECK_EQ(sched_getaffinity(0, sizeof(cpu_set_t), &CPUs), 0);
@@ -663,6 +727,47 @@ void LogMessageOnPrintf(const char *str) {
 
 #endif  // SANITIZER_LINUX
 
+#if SANITIZER_LINUX && !SANITIZER_GO
+// glibc crashes when using clock_gettime from a preinit_array function as the
+// vDSO function pointers haven't been initialized yet. __progname is
+// initialized after the vDSO function pointers, so if it exists, is not null
+// and is not empty, we can use clock_gettime.
+extern "C" SANITIZER_WEAK_ATTRIBUTE char *__progname;
+INLINE bool CanUseVDSO() {
+  // Bionic is safe, it checks for the vDSO function pointers to be initialized.
+  if (SANITIZER_ANDROID)
+    return true;
+  if (&__progname && __progname && *__progname)
+    return true;
+  return false;
+}
+
+// MonotonicNanoTime is a timing function that can leverage the vDSO by calling
+// clock_gettime. real_clock_gettime only exists if clock_gettime is
+// intercepted, so define it weakly and use it if available.
+extern "C" SANITIZER_WEAK_ATTRIBUTE
+int real_clock_gettime(u32 clk_id, void *tp);
+u64 MonotonicNanoTime() {
+  timespec ts;
+  if (CanUseVDSO()) {
+    if (&real_clock_gettime)
+      real_clock_gettime(CLOCK_MONOTONIC, &ts);
+    else
+      clock_gettime(CLOCK_MONOTONIC, &ts);
+  } else {
+    internal_clock_gettime(CLOCK_MONOTONIC, &ts);
+  }
+  return (u64)ts.tv_sec * (1000ULL * 1000 * 1000) + ts.tv_nsec;
+}
+#else
+// Non-Linux & Go always use the syscall.
+u64 MonotonicNanoTime() {
+  timespec ts;
+  internal_clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (u64)ts.tv_sec * (1000ULL * 1000 * 1000) + ts.tv_nsec;
+}
+#endif  // SANITIZER_LINUX && !SANITIZER_GO
+
 } // namespace __sanitizer
 
-#endif // SANITIZER_FREEBSD || SANITIZER_LINUX
+#endif  // SANITIZER_FREEBSD || SANITIZER_LINUX || SANITIZER_NETBSD

@@ -93,8 +93,7 @@ set(TSAN_HEADERS
   rtl/tsan_symbolize.h
   rtl/tsan_sync.h
   rtl/tsan_trace.h
-  rtl/tsan_update_shadow_word_inl.h
-  rtl/tsan_vector.h)
+  rtl/tsan_update_shadow_word_inl.h)
 
 set(TSAN_RUNTIME_LIBRARIES)
 add_compiler_rt_component(tsan)
@@ -204,7 +203,7 @@ if(COMPILER_RT_HAS_SYSROOT_FLAG AND NOT CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
 endif()
 
 # Build libcxx instrumented with TSan.
-if(COMPILER_RT_HAS_LIBCXX_SOURCES AND
+if(COMPILER_RT_LIBCXX_PATH AND
    COMPILER_RT_TEST_COMPILER_ID STREQUAL "Clang" AND
    NOT ANDROID)
   set(libcxx_tsan_deps)

@@ -453,9 +453,6 @@ namespace llvm {
       // Broadcast subvector to vector.
       SUBV_BROADCAST,
 
-      // Extract vector element.
-      VEXTRACT,
-
       /// SSE4A Extraction and Insertion.
       EXTRQI, INSERTQI,
 
@@ -965,6 +962,7 @@ namespace llvm {
     /// true and stores the intrinsic information into the IntrinsicInfo that was
     /// passed to the function.
     bool getTgtMemIntrinsic(IntrinsicInfo &Info, const CallInst &I,
+                            MachineFunction &MF,
                             unsigned Intrinsic) const override;
 
     /// Returns true if the target can instruction select the
@@ -1055,9 +1053,13 @@ namespace llvm {
     Value *getIRStackGuard(IRBuilder<> &IRB) const override;
 
     bool useLoadStackGuardNode() const override;
+    bool useStackGuardXorFP() const override;
     void insertSSPDeclarations(Module &M) const override;
     Value *getSDagStackGuard(const Module &M) const override;
     Value *getSSPStackGuardCheck(const Module &M) const override;
+    SDValue emitStackGuardXorFP(SelectionDAG &DAG, SDValue Val,
+                                const SDLoc &DL) const override;
+
 
     /// Return true if the target stores SafeStack pointer at a fixed offset in
     /// some non-standard address space, and populates the address space and
@@ -1168,8 +1170,6 @@ namespace llvm {
     SDValue LowerBUILD_VECTORvXi1(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerVSELECT(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerEXTRACT_VECTOR_ELT(SDValue Op, SelectionDAG &DAG) const;
-    SDValue ExtractBitFromMaskVector(SDValue Op, SelectionDAG &DAG) const;
-    SDValue InsertBitToMaskVector(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerINSERT_VECTOR_ELT(SDValue Op, SelectionDAG &DAG) const;
 
     unsigned getGlobalWrapperKind(const GlobalValue *GV = nullptr) const;
@@ -1225,8 +1225,8 @@ namespace llvm {
                         const SDLoc &dl, SelectionDAG &DAG) const override;
 
     bool supportSplitCSR(MachineFunction *MF) const override {
-      return MF->getFunction()->getCallingConv() == CallingConv::CXX_FAST_TLS &&
-          MF->getFunction()->hasFnAttribute(Attribute::NoUnwind);
+      return MF->getFunction().getCallingConv() == CallingConv::CXX_FAST_TLS &&
+          MF->getFunction().hasFnAttribute(Attribute::NoUnwind);
     }
     void initializeSplitCSR(MachineBasicBlock *Entry) const override;
     void insertCopiesSplitCSR(
