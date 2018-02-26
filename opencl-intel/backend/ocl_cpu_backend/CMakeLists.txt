@@ -293,7 +293,6 @@ set( BACKEND_PASSES
     SubGroupAdaptation
     LinearIdResolver
     Materialize
-    ReduceAlignment
     CloneBlockInvokeFuncToKernel
     ResolveBlockToStaticCall
     PatchCallbackArgs

@@ -46,7 +46,6 @@ set(OCL_BE_PASSES
     Prefetch
     PrepareKernelArgs
     PreventDivCrashes
-    ReduceAlignment
     RelaxedPass
     ResolveBlockToStaticCall
     ResolveWICall

@@ -78,7 +78,6 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeSubGroupAdaptationPass(Registry);
     intel::initializeLinearIdResolverPass(Registry);
     intel::initializePrepareKernelArgsPass(Registry);
-    intel::initializeReduceAlignmentPass(Registry);
     intel::initializeResolveWICallPass(Registry);
     intel::initializeCloneBlockInvokeFuncToKernelPass(Registry);
     intel::initializeResolveBlockToStaticCallPass(Registry);

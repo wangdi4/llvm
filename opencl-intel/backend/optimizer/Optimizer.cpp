@@ -107,7 +107,6 @@ llvm::ModulePass *createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation,
                                     std::string dumpDir);
 llvm::ModulePass *createDebugInfoPass();
-llvm::ModulePass *createReduceAlignmentPass();
 llvm::ModulePass *createProfilingInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
@@ -531,8 +530,6 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
                                pConfig->GetDumpIRDir()));
     }
     if (!HasGatherScatter) {
-      // TODO: It is not clear if these passes make sense at all.
-      PM.add(createReduceAlignmentPass());
       // no point to run for older CPU archs
       if (pConfig->GetCpuId().HasSSE41()) {
         // Workaround boolean vectors legalization issue.
