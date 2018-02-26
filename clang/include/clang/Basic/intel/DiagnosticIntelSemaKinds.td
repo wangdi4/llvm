@@ -570,9 +570,9 @@ def err_opencl_autorun_kernel_wrong_reqd_wg_size : Error<
 def err_opencl_autorun_kernel_cannot_have_arguments : Error<
   "Autorun kernel functions cannot have any arguments">;
 def err_opencl_x_y_z_arguments_must_be_one : Error<
-  "%0 X-, Y- and Z- sizes must be 1 when %1 attribute is used">;
-def err_intel_attribute_argument_is_not_zero: Error<
-  "%0 attribute must be 0">;
+  "%0 X-, Y- and Z- sizes must be 1 when %1 attribute is used and equals to 0">;
+def err_intel_attribute_argument_is_not_in_range: Error<
+  "%0 attribute must be in range from 0 to 3">;
 def err_intel_opencl_attribute_requires_extension : Error<
   "%0 attribute requires %1 extension to be enabled">;
 def warn_intel_opencl_attribute_wrong_decl_type : Warning<

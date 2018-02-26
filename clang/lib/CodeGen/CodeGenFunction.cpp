@@ -840,10 +840,11 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                     llvm::MDNode::get(Context, attrMDArgs));
   }
 
-  if (FD->hasAttr<TaskAttr>() || FD->hasAttr<MaxGlobalWorkDimAttr>()) {
-    llvm::Metadata *attrMDArgs[] = {
-        llvm::ConstantAsMetadata::get(Builder.getTrue())};
-    Fn->setMetadata("task", llvm::MDNode::get(Context, attrMDArgs));
+  if (const MaxGlobalWorkDimAttr *A = FD->getAttr<MaxGlobalWorkDimAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {llvm::ConstantAsMetadata::get(
+        Builder.getInt32(A->getMaxGlobalWorkDimValue()))};
+    Fn->setMetadata("max_global_work_dim",
+                    llvm::MDNode::get(Context, attrMDArgs));
   }
 
   if (FD->hasAttr<AutorunAttr>()) {

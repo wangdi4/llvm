@@ -2901,15 +2901,14 @@ static void handleWeakImportAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 
 #if INTEL_CUSTOMIZATION
 // Checks correctness of mutual usage of different work_group_size attributes:
-// reqd_work_group_size, work_group_size_hint, max_work_group_size, task,
+// reqd_work_group_size, work_group_size_hint, max_work_group_size,
 // max_global_work_dim
 static bool checkWorkGroupSizeValues(Sema &S, Decl *D,
                                      const AttributeList &Attr,
                                      uint32_t WGSize[3]) {
-  if (Attr.getKind() == AttributeList::AT_Task ||
-      Attr.getKind() == AttributeList::AT_MaxGlobalWorkDim) {
-    // in case of 'task' attribute we should be sure that
-    // if max_work_group_size and reqd_work_group_size attributes exist,
+  if (Attr.getKind() == AttributeList::AT_MaxGlobalWorkDim) {
+    // in case of 'max_global_work_dim' attribute equals to 1 we should be sure
+    // that if max_work_group_size and reqd_work_group_size attributes exist,
     // then they are equal (1, 1, 1)
     if (const MaxWorkGroupSizeAttr *A = D->getAttr<MaxWorkGroupSizeAttr>()) {
       if (A->getXDim() != 1 || A->getYDim() != 1 || A->getZDim() != 1) {
@@ -2931,7 +2930,7 @@ static bool checkWorkGroupSizeValues(Sema &S, Decl *D,
     // in other cases we should check that attribute value
     // >= reqd_work_group_size attribute value and
     // <= max_work_group_size attribute value
-    if (const TaskAttr *A = D->getAttr<TaskAttr>()) {
+    if (const MaxGlobalWorkDimAttr *A = D->getAttr<MaxGlobalWorkDimAttr>()) {
       if (!(WGSize[0] == 1 && WGSize[1] == 1 && WGSize[2] == 1)) {
         S.Diag(Attr.getLoc(), diag::err_opencl_x_y_z_arguments_must_be_one)
             << Attr.getName() << A;
@@ -2961,24 +2960,6 @@ static bool checkWorkGroupSizeValues(Sema &S, Decl *D,
   }
 
   return true;
-}
-
-static void handleTaskAttribute(Sema &S, Decl *D, const AttributeList &Attr) {
-  if (D->isInvalidDecl())
-    return;
-
-  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
-    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
-        << Attr.getName();
-    return;
-  }
-
-  uint32_t WGSize[3] = {1, 1, 1};
-  if (!checkWorkGroupSizeValues(S, D, Attr, WGSize))
-    return;
-
-  D->addAttr(::new (S.Context) TaskAttr(Attr.getRange(), S.Context,
-                                        Attr.getAttributeSpellingListIndex()));
 }
 
 static void handleNumComputeUnitsAttr(Sema &S, Decl *D,
@@ -3075,8 +3056,8 @@ static void handleMaxGlobalWorkDimAttr(Sema &S, Decl *D,
   const Expr *E = Attr.getArgAsExpr(0);
   if (!checkUInt32Argument(S, Attr, E, MaxGlobalWorkDim, 0))
     return;
-  if (MaxGlobalWorkDim != 0) {
-    S.Diag(Attr.getLoc(), diag::err_intel_attribute_argument_is_not_zero)
+  if (MaxGlobalWorkDim > 3) {
+    S.Diag(Attr.getLoc(), diag::err_intel_attribute_argument_is_not_in_range)
       << Attr.getName();
     return;
   }
@@ -8047,9 +8028,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_MaxWorkGroupSize:
     handleWorkGroupSize<MaxWorkGroupSizeAttr>(S, D, Attr);
     break;
-  case AttributeList::AT_Task:
-    handleTaskAttribute(S, D, Attr);
-    break;
   case AttributeList::AT_NumComputeUnits:
     handleNumComputeUnitsAttr(S, D, Attr);
     break;
@@ -8234,9 +8212,6 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
 #if INTEL_CUSTOMIZATION
-    } else if (Attr *A = D->getAttr<TaskAttr>()) {
-      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
-      D->setInvalidDecl();
     } else if (Attr *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();

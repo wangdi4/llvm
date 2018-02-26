@@ -436,13 +436,6 @@ def MaxWorkGroupSize : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
-def Task : InheritableAttr {
-  let Spellings = [GNU<"task">];
-  let Subjects = SubjectList<[Function]>;
-// FIXME: Add documentation
-  let Documentation = [Undocumented];
-}
-
 def NumComputeUnits : InheritableAttr {
   let Spellings = [GNU<"num_compute_units">];
   let LangOpts = [OpenCL];
