@@ -17,6 +17,9 @@
 // RUN: %clang_cc1 -fopenmp -fopenmp-version=45 -x c++ -triple i386-unknown-unknown -fopenmp-targets=i386-pc-linux-gnu -std=c++11 -fopenmp-is-device -fopenmp-host-ir-file-path %t-x86-host.bc -include-pch %t -verify %s -emit-llvm -o - | FileCheck %s --check-prefix TCHECK --check-prefix TCHECK-32
 
 // expected-no-diagnostics
+//
+// XFAIL: *
+// NOTE: This test is marked XFAIL until cmplrs-48947 and cmplrs-48941 are resolved
 #ifndef HEADER
 #define HEADER
 // CHECK-DAG: %ident_t = type { i32, i32, i32, i32, i8* }

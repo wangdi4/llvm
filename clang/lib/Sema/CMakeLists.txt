@@ -8,6 +8,7 @@ if (MSVC)
 # INTEL_CUSTOMIZATION
   set_source_files_properties(intel/SemaCilk.cpp intel/SemaIntelAttr.cpp
                               SemaExprCXX.cpp SemaTemplate.cpp
+                              SemaOpenMP.cpp
                               PROPERTIES COMPILE_FLAGS /bigobj)
 # end INTEL_CUSTOMIZATION
 endif()

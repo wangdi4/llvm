@@ -294,6 +294,14 @@ void CodeGenModule::applyReplacements() {
       }
     }
 
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+    // Tell the OpenMP runtime we are replacing a global that can potentially be
+    // marked "declare target".
+    if (OpenMPRuntime)
+      if (auto *NewGV = dyn_cast<llvm::GlobalValue>(Replacement))
+        OpenMPRuntime->registerGlobalReplacement(MangledName, NewGV);
+
+#endif // INTEL_CUSTOMIZATION
     // Replace old with new, but keep the old order.
     OldF->replaceAllUsesWith(Replacement);
     if (NewF) {
@@ -316,6 +324,14 @@ void CodeGenModule::applyGlobalValReplacements() {
 
     GV->replaceAllUsesWith(C);
     GV->eraseFromParent();
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+
+    // Tell the OpenMP runtime we are replacing a global that can potentially be
+    // marked "declare target".
+    if (OpenMPRuntime)
+      if (auto *NewGV = dyn_cast<llvm::GlobalValue>(C))
+        OpenMPRuntime->registerGlobalReplacement(GV->getName(), NewGV);
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -1548,6 +1564,12 @@ void CodeGenModule::EmitDeferred() {
     assert(DeferredVTables.empty());
   }
 
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+  if (LangOpts.OpenMP && !LangOpts.OpenMPIsDevice) {
+    OpenMPRuntime->registerTrackedFunction();
+  }
+
+#endif // INTEL_CUSTOMIZATION
   // Stop if we're out of both deferred vtables and deferred declarations.
   if (DeferredDeclsToEmit.empty())
     return;
@@ -1767,6 +1789,13 @@ bool CodeGenModule::MustBeEmitted(const ValueDecl *Global) {
   if (LangOpts.EmitAllDecls)
     return true;
 
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+  // In OpenMP device mode all declarations that were not filtered should be
+  // emitted.
+  if (LangOpts.OpenMPIsDevice)
+    return true;
+
+#endif // INTEL_CUSTOMIZATION
   return getContext().DeclMustBeEmitted(Global);
 }
 
@@ -1897,6 +1926,23 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
       if (LangOpts.OpenMPIsDevice && LangOpts.IntelOpenMPOffload &&
           !FD->hasAttr<OMPDeclareTargetDeclAttr>() && !FD->isMain())
         return;
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+    if (LangOpts.OpenMPIsDevice) {
+      if (const auto *FD = dyn_cast<FunctionDecl>(Global))
+        if (FD->isThisDeclarationADefinition()) {
+          if (OpenMPRuntime->MustBeEmittedForDevice(GD)) {
+            EmitGlobalDefinition(GD);
+            return;
+          }
+        }
+    }
+
+    if (!LangOpts.OpenMPIsDevice) {
+      StringRef MangledName = getMangledName(GD);
+      OpenMPRuntime->addTrackedFunction(MangledName, GD);
+    }
+
 #endif // INTEL_CUSTOMIZATION
     // If this is OpenMP device, check if it is legal to emit this global
     // normally.
@@ -2160,6 +2206,13 @@ void CodeGenModule::EmitGlobalDefinition(GlobalDecl GD, llvm::GlobalValue *GV) {
                                  Context.getSourceManager(),
                                  "Generating code for declaration");
 
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+  // If this is OpenMP device, check if it is legal to emit this global
+  // normally.
+  if (OpenMPRuntime && OpenMPRuntime->emitTargetGlobal(GD))
+    return;
+
+#endif // INTEL_CUSTOMIZATION
   if (isa<FunctionDecl>(D)) {
     // At -O0, don't generate IR for functions with available_externally
     // linkage.
@@ -2169,12 +2222,22 @@ void CodeGenModule::EmitGlobalDefinition(GlobalDecl GD, llvm::GlobalValue *GV) {
     if (const auto *Method = dyn_cast<CXXMethodDecl>(D)) {
       // Make sure to emit the definition(s) before we emit the thunks.
       // This is necessary for the generation of certain thunks.
-      if (const auto *CD = dyn_cast<CXXConstructorDecl>(Method))
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+      if (const auto *CD = dyn_cast<CXXConstructorDecl>(Method)) {
+        if (OpenMPRuntime)
+          OpenMPRuntime->registerTargetFunctionDefinition(GD);
+#endif // INTEL_CUSTOMIZATION
         ABI->emitCXXStructor(CD, getFromCtorType(GD.getCtorType()));
-      else if (const auto *DD = dyn_cast<CXXDestructorDecl>(Method))
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+      } else if (const auto *DD = dyn_cast<CXXDestructorDecl>(Method)) {
+        if (OpenMPRuntime)
+          OpenMPRuntime->registerTargetFunctionDefinition(GD);
+#endif // INTEL_CUSTOMIZATION
         ABI->emitCXXStructor(DD, getFromDtorType(GD.getDtorType()));
-      else
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+      } else
         EmitGlobalFunctionDefinition(GD, GV);
+#endif // INTEL_CUSTOMIZATION
 
       if (Method->isVirtual())
         getVTables().EmitThunks(GD);
@@ -2207,6 +2270,13 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     ForDefinition_t IsForDefinition) {
   const Decl *D = GD.getDecl();
 
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+  // Process function name as required by the OpenMP runtime
+  if (OpenMPRuntime) {
+    MangledName = OpenMPRuntime->RenameStandardFunction(MangledName);
+  }
+
+#endif // INTEL_CUSTOMIZATION
   // Lookup the entry, lazily creating it if necessary.
   llvm::GlobalValue *Entry = GetGlobalValue(MangledName);
   if (Entry) {
@@ -2774,6 +2844,11 @@ CodeGenModule::CreateRuntimeVariable(llvm::Type *Ty,
 void CodeGenModule::EmitTentativeDefinition(const VarDecl *D) {
   assert(!D->getInit() && "Cannot emit definite definitions here!");
 
+  // If this is OpenMP device, check if it is legal to emit this global
+  // normally.
+  if (OpenMPRuntime && OpenMPRuntime->emitTargetGlobal(D))
+    return;
+
   StringRef MangledName = getMangledName(D);
   llvm::GlobalValue *GV = GetGlobalValue(MangledName);
 
@@ -3120,6 +3195,11 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
     }
   }
 
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+  if (OpenMPRuntime)
+    OpenMPRuntime->registerTargetVariableDefinition(D, GV);
+
+#endif // INTEL_CUSTOMIZATION
   GV->setInitializer(Init);
   if (emitter) emitter->finalize(GV);
 
@@ -3517,6 +3597,11 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
   if (!GV->isDeclaration())
     return;
 
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+  if (OpenMPRuntime)
+    OpenMPRuntime->registerTargetFunctionDefinition(GD);
+
+#endif // INTEL_CUSTOMIZATION
   // We need to set linkage and visibility on the function before
   // generating code for it because various parts of IR generation
   // want to propagate this information down (e.g. to local static

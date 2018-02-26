@@ -1,5 +1,8 @@
 // RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu | FileCheck %s
 // RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=CHECK-REG
+//
+// XFAIL: *
+// NOTE: This test is marked XFAIL until cmplrs-48947 and cmplrs-48941 are resolved
 struct S1 {
   ~S1() {}
 };

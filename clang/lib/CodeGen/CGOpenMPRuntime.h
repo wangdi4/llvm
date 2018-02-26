@@ -200,14 +200,10 @@ class CGOpenMPRuntime {
 protected:
   CodeGenModule &CGM;
 
-#if INTEL_CUSTOMIZATION
   /// \brief Creates offloading entry for the provided entry ID \a ID,
-  /// address \a Addr, function name \a ParentName, size \a Size, and
-  /// flags \a Flags.
+  /// address \a Addr, size \a Size, and flags \a Flags.
   virtual void createOffloadEntry(llvm::Constant *ID, llvm::Constant *Addr,
-                                  StringRef ParentName,
                                   uint64_t Size, int32_t Flags = 0);
-#endif // INTEL_CUSTOMIZATION
 
   /// \brief Helper to emit outlined function for 'target' directive.
   /// \param D Directive to emit.
@@ -253,6 +249,11 @@ protected:
   //  The name can be customized depending on the target.
   //
   virtual StringRef getOutlinedHelperName() const { return ".omp_outlined."; }
+
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+public:
+  virtual StringRef RenameStandardFunction(StringRef name);
+#endif // INTEL_CUSTOMIZATION
 
   /// Emits \p Callee function call with arguments \p Args with location \p Loc.
   void emitCall(CodeGenFunction &CGF, llvm::Value *Callee,
@@ -374,18 +375,30 @@ private:
   class OffloadEntriesInfoManagerTy {
     CodeGenModule &CGM;
 
-    /// \brief Number of entries registered so far.
-    unsigned OffloadingEntriesNum;
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+    /// \brief Number of ordered entries registered so far.
+    unsigned OffloadingOrderedEntriesNum = 0u;
+#endif // INTEL_CUSTOMIZATION
 
   public:
-    /// Base class of the entries info.
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+    /// \brief Base class of the entries info.
+#endif // INTEL_CUSTOMIZATION
     class OffloadEntryInfo {
     public:
-      /// Kind of a given entry. Currently, only target regions are
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+      /// \brief Kind of a given entry. Currently, only target regions are
       /// supported.
+#endif // INTEL_CUSTOMIZATION
       enum OffloadingEntryInfoKinds : unsigned {
         // Entry is a target region.
         OFFLOAD_ENTRY_INFO_TARGET_REGION = 0,
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+        // Entry is a device global variable.
+        OFFLOAD_ENTRY_INFO_DEVICE_GLOBAL_VAR = 1,
+        // Entry is a device function.
+        OFFLOAD_ENTRY_INFO_DEVICE_FUNCTION = 2,
+#endif // INTEL_CUSTOMIZATION
         // Invalid entry info.
         OFFLOAD_ENTRY_INFO_INVALID = ~0u
       };
@@ -407,7 +420,9 @@ private:
       /// Flags associated with the device global.
       int32_t Flags;
 
-      /// Order this entry was emitted.
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+      // \brief Order this entry was emitted.
+#endif // INTEL_CUSTOMIZATION
       unsigned Order;
 
       OffloadingEntryInfoKinds Kind;
@@ -415,10 +430,13 @@ private:
 
     /// \brief Return true if a there are no entries defined.
     bool empty() const;
-    /// \brief Return number of entries defined so far.
-    unsigned size() const { return OffloadingEntriesNum; }
-    OffloadEntriesInfoManagerTy(CodeGenModule &CGM)
-        : CGM(CGM), OffloadingEntriesNum(0) {}
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+    /// \brief Return number of ordered entries defined so far.
+    unsigned getOrderedEntriesNum() const {
+      return OffloadingOrderedEntriesNum;
+    }
+    OffloadEntriesInfoManagerTy(CodeGenModule &CGM) : CGM(CGM) {}
+#endif // INTEL_CUSTOMIZATION
 
     ///
     /// Target region entries related.
@@ -475,6 +493,104 @@ private:
     void actOnTargetRegionEntriesInfo(
         const OffloadTargetRegionEntryInfoActTy &Action);
 
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+    ///
+    /// Device global variable entries related.
+    ///
+    /// \brief Device global variable entries info.
+    class OffloadEntryInfoDeviceGlobalVar : public OffloadEntryInfo {
+      // \brief Address of the entity that has to be mapped for offloading.
+      llvm::Constant *Addr;
+      // \brief Type of the global variable.
+      QualType Ty;
+      // \brief Only generate metadata for this offload entry
+      bool OnlyMetadataFlag = false;
+
+    public:
+      OffloadEntryInfoDeviceGlobalVar()
+          : OffloadEntryInfo(OFFLOAD_ENTRY_INFO_DEVICE_GLOBAL_VAR, ~0u,
+                             /*Flags=*/0u),
+            Addr(nullptr) {}
+      explicit OffloadEntryInfoDeviceGlobalVar(unsigned Order,
+                                               llvm::Constant *Addr,
+                                               QualType Ty, int32_t Flags)
+          : OffloadEntryInfo(OFFLOAD_ENTRY_INFO_DEVICE_GLOBAL_VAR, Order,
+                             Flags),
+            Addr(Addr), Ty(Ty) {}
+
+      llvm::Constant *getAddress() const { return Addr; }
+      void setAddress(llvm::Constant *V) {
+        assert(!Addr && "Address as been set before!");
+        Addr = V;
+      }
+      QualType getType() const { return Ty; }
+      void setType(QualType QTy) { Ty = QTy; }
+      bool getOnlyMetadataFlag() { return OnlyMetadataFlag; }
+      void setOnlyMetadataFlag(bool B) { OnlyMetadataFlag = B; }
+      static bool classof(const OffloadEntryInfo *Info) {
+        return Info->getKind() == OFFLOAD_ENTRY_INFO_DEVICE_GLOBAL_VAR;
+      }
+    };
+    /// \brief Initialize device global variable entry.
+    void initializeDeviceGlobalVarEntryInfo(StringRef MangledName,
+                                            unsigned Order);
+    /// \brief Register device global variable entry.
+    void registerDeviceGlobalVarEntryInfo(StringRef MangledName,
+                                          llvm::Constant *Addr, QualType Ty,
+                                          int32_t Flags,
+                                          bool isExternallyVisible);
+    /// \brief Return true if a device global variable entry with the provided
+    /// information exists.
+    bool hasDeviceGlobalVarEntryInfo(StringRef MangledName) const;
+    /// brief Applies action \a Action on all registered entries.
+    typedef llvm::function_ref<void(StringRef,
+                                    OffloadEntryInfoDeviceGlobalVar &)>
+        OffloadDeviceGlobalVarEntryInfoActTy;
+    void actOnDeviceGlobalVarEntriesInfo(
+        const OffloadDeviceGlobalVarEntryInfoActTy &Action);
+
+    ///
+    /// Device function entries related.
+    ///
+    /// \brief Device global variable entries info.
+    class OffloadEntryInfoDeviceFunction : public OffloadEntryInfo {
+      // \brief Set to true if this entry was registered.
+      bool IsRegistered = false;
+
+    public:
+      OffloadEntryInfoDeviceFunction()
+          : OffloadEntryInfo(OFFLOAD_ENTRY_INFO_DEVICE_FUNCTION, ~0u,
+                             /*Flags=*/0u) {}
+      explicit OffloadEntryInfoDeviceFunction(bool IsRegistered)
+          : OffloadEntryInfo(OFFLOAD_ENTRY_INFO_DEVICE_FUNCTION, ~0u,
+                             /*Flags=*/0u),
+            IsRegistered(IsRegistered) {}
+
+      bool isRegistered() const { return IsRegistered; }
+      void setIsRegistered(bool Val) {
+        assert(!IsRegistered && "It was registered before!");
+        IsRegistered = Val;
+      }
+
+      static bool classof(const OffloadEntryInfo *Info) {
+        return Info->getKind() == OFFLOAD_ENTRY_INFO_DEVICE_FUNCTION;
+      }
+    };
+    /// \brief Initialize device function entry.
+    void initializeDeviceFunctionEntryInfo(StringRef MangledName);
+    /// \brief Register device function entry.
+    void registerDeviceFunctionEntryInfo(StringRef MangledName);
+    /// \brief Return true if a device function entry with the provided
+    /// information exists.
+    bool hasDeviceFunctionEntryInfo(StringRef MangledName) const;
+    /// brief Applies action \a Action on all registered entries.
+    typedef llvm::function_ref<void(StringRef,
+                                    OffloadEntryInfoDeviceFunction &)>
+        OffloadDeviceFunctionEntryInfoActTy;
+    void actOnDeviceFunctionEntriesInfo(
+        const OffloadDeviceFunctionEntryInfoActTy &Action);
+
+#endif // INTEL_CUSTOMIZATION
   private:
     // Storage for target region entries kind. The storage is to be indexed by
     // file ID, device ID, parent function name and line number.
@@ -487,6 +603,20 @@ private:
     typedef llvm::DenseMap<unsigned, OffloadEntriesTargetRegionPerFile>
         OffloadEntriesTargetRegionPerDevice;
     typedef OffloadEntriesTargetRegionPerDevice OffloadEntriesTargetRegionTy;
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+
+    // Storage for device global variable entries kind. The storage is to be
+    // indexed by mangled name.
+    typedef llvm::StringMap<OffloadEntryInfoDeviceGlobalVar>
+        OffloadEntriesDeviceGlobalVarTy;
+    OffloadEntriesDeviceGlobalVarTy OffloadEntriesDeviceGlobalVar;
+
+    // Storage for device function entries kind. The storage is to be indexed by
+    // mangled name.
+    typedef llvm::StringMap<OffloadEntryInfoDeviceFunction>
+        OffloadEntriesDeviceFunctionTy;
+    OffloadEntriesDeviceFunctionTy OffloadEntriesDeviceFunction;
+#endif // INTEL_CUSTOMIZATION
     OffloadEntriesTargetRegionTy OffloadEntriesTargetRegion;
   };
   OffloadEntriesInfoManagerTy OffloadEntriesInfoManager;
@@ -620,11 +750,47 @@ private:
                             llvm::Value *TaskFunction, QualType SharedsTy,
                             Address Shareds, const OMPTaskDataTy &Data);
 
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+  /// This contains all the decls which were not specified under declare target
+  /// region, which are deferred for device code emission.
+  /// If a decl is used in target region implicitly without specifying under
+  /// declare target, deferred decl is emitted during Codegen::Release for
+  /// device codegen.
+  llvm::StringMap<GlobalDecl> TrackedDecls;
+
+  /// Struct that keeps information about the emitted definitions and
+  /// ctors/dtors so that it can be revisited when emitting declare target
+  /// entries.
+  struct DeclareTargetEntryInfo {
+    /// The declaration associated with this information.
+    const Decl *Variable;
+    /// Address of the variable or null if there is no variable.
+    llvm::Constant *VariableAddr = nullptr;
+    /// True if the associated variables requires Ctor or Dtor.
+    bool RequiresCtorDtor = false;
+    /// True if the variable associated with this information required
+    /// initialization.
+    bool PerformInitialization = false;
+  };
+
+  /// Map between a declaration name and its declare target information.
+  llvm::StringMap<DeclareTargetEntryInfo> DeclareTargetEntryInfoMap;
+
+#endif // INTEL_CUSTOMIZATION
 public:
   explicit CGOpenMPRuntime(CodeGenModule &CGM);
   virtual ~CGOpenMPRuntime() {}
   virtual void clear();
 
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+  /// The function is added tracked functions list.
+  virtual void addTrackedFunction(StringRef MangledName, GlobalDecl GD);
+
+  /// The function register all tracked functions if they have
+  /// OMPDeclareTargetDeclAttr
+  virtual void registerTrackedFunction();
+
+#endif // INTEL_CUSTOMIZATION
   /// Emit code for the specified user defined reduction construct.
   virtual void emitUserDefinedReduction(CodeGenFunction *CGF,
                                         const OMPDeclareReductionDecl *D);
@@ -1234,6 +1400,32 @@ public:
   /// \param GD Global to scan.
   virtual bool emitTargetGlobal(GlobalDecl GD);
 
+#if INTEL_CUSTOMIZATION // Under community review: D43026
+  /// \brief Check whether the function definition in \a GD must be emitted for
+  /// the device or not.
+  /// \param GD Global declaration whose definition is being emitted.
+  virtual bool MustBeEmittedForDevice(GlobalDecl GD);
+
+  /// \brief Register the function definition \a GD as meaningful for the
+  /// target.
+  /// \param GD Global declaration whose definition is being emitted.
+  virtual void registerTargetFunctionDefinition(GlobalDecl GD);
+
+  /// \brief Register the global variable definition \a D as meaningful for the
+  /// target.
+  /// \param D Global declaration whose definition is being emitted.
+  /// \param Addr Address of the global.
+  virtual void registerTargetVariableDefinition(const VarDecl *D,
+                                                llvm::Constant *Addr);
+
+  /// \brief Register a global that is replacing some other. If the global being
+  /// declare has a declare target attribute, the new one is registered as such.
+  /// \param MangledName Name of the global being replaced.
+  /// \param NewVal Global that is used to replace.
+  virtual void registerGlobalReplacement(StringRef MangledName,
+                                         llvm::GlobalValue *NewVal);
+
+#endif // INTEL_CUSTOMIZATION
   /// \brief Creates the offloading descriptor in the event any target region
   /// was emitted in the current module and return the function that registers
   /// it.

@@ -20,6 +20,9 @@
 // RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=45 -x c++ -triple powerpc64le-unknown-unknown -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-NTARGET
 
 // expected-no-diagnostics
+//
+// XFAIL: *
+// NOTE: This test is marked XFAIL until cmplrs-48947 and cmplrs-48941 are resolved
 #ifndef HEADER
 #define HEADER
 

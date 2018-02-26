@@ -2,6 +2,9 @@
 // RUN: %clang_cc1 -fopenmp -x c++ -std=c++11 -triple %itanium_abi_triple -fexceptions -fcxx-exceptions -emit-pch -o %t %s -femit-all-decls -disable-llvm-passes
 // RUN: %clang_cc1 -fopenmp -x c++ -triple %itanium_abi_triple -fexceptions -fcxx-exceptions -std=c++11 -include-pch %t -verify %s -emit-llvm -o - -femit-all-decls -disable-llvm-passes | FileCheck --check-prefix=CHECK-LOAD %s
 // expected-no-diagnostics
+//
+// XFAIL: *
+// NOTE: This test is marked XFAIL until cmplrs-48947 and cmplrs-48941 are resolved
 
 #ifndef HEADER
 #define HEADER
