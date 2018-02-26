@@ -51,16 +51,30 @@ public:
     /// @brief checks if some pipes access were not resolved statically
     bool hasFpgaPipeDynamicAccess();
 
+    /// @brief checks if there are some channels whose depths are differs from
+    /// real depth on FPGA hardware due to channel depth mode, so we should emit
+    /// diagnostic message
+    bool hasFPGAChannelsWithDepthIgnored();
 
     enum InvalidFunctionType {
         RECURSION,
         FPGA_PIPE_DYNAMIC_ACCESS
     };
 
+    enum InvalidGVType {
+        FPGA_DEPTH_IS_IGNORED
+    };
+
     /// @brief obtain functions names wich are not valid for OpenCL
     /// @param Ty is a type of invalid function
     /// @return std::vector with function names
     std::vector<std::string> GetInvalidFunctions(InvalidFunctionType Ty);
+
+    /// @brief obtain global variable names wich are not valid due to some
+    /// limitations
+    /// @param Ty is a type of global variables to search
+    /// @return std::vector with global variable names
+    std::vector<std::string> GetInvalidGlobals(InvalidGVType Ty);
 
 private:
 

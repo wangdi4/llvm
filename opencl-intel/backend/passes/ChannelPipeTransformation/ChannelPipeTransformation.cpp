@@ -375,6 +375,11 @@ static ChannelMetadata getChannelMetadata(GlobalVariable *Channel) {
   CMD.Depth = GVMetadata.PipeDepth.hasValue() ? GVMetadata.PipeDepth.get() : 0;
   CMD.IO = GVMetadata.PipeIO.hasValue() ? GVMetadata.PipeIO.get() : "";
 
+  if (!GVMetadata.PipeDepth.hasValue() &&
+      ChannelDepthEmulationMode == CHANNEL_DEPTH_MODE_DEFAULT) {
+    GVMetadata.DepthIsIgnored.set(true);
+  }
+
   return CMD;
 }
 
@@ -421,6 +426,10 @@ static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,
         ChannelGV.getMetadata(ChannelMD.PipeDepth.getID()));
     PipeGV->setMetadata(ChannelMD.PipeIO.getID(),
         ChannelGV.getMetadata(ChannelMD.PipeIO.getID()));
+    if (ChannelMD.DepthIsIgnored.hasValue()) {
+      PipeGV->setMetadata(ChannelMD.DepthIsIgnored.getID(),
+          ChannelGV.getMetadata(ChannelMD.DepthIsIgnored.getID()));
+    }
 
     VMap[&ChannelGV] = PipeGV;
 

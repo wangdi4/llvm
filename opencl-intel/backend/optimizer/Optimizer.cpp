@@ -813,6 +813,30 @@ bool Optimizer::hasFpgaPipeDynamicAccess() {
       InvalidFunctionType::FPGA_PIPE_DYNAMIC_ACCESS).empty();
 }
 
+bool Optimizer::hasFPGAChannelsWithDepthIgnored() {
+  return !GetInvalidGlobals(InvalidGVType::FPGA_DEPTH_IS_IGNORED).empty();
+}
+
+std::vector<std::string> Optimizer::GetInvalidGlobals(InvalidGVType Ty) {
+  assert(m_pModule && "Module is nullptr");
+  std::vector<std::string> Res;
+
+  for (auto &GV : m_pModule->globals()) {
+    auto GVM = MetadataAPI::GlobalVariableMetadataAPI(&GV);
+
+    switch (Ty) {
+      case FPGA_DEPTH_IS_IGNORED:
+        if (GVM.DepthIsIgnored.hasValue() && GVM.DepthIsIgnored.get()) {
+          assert(GV.getName().endswith(".pipe") &&
+              "Only global pipes are expected");
+          Res.push_back(GV.getName().drop_back(5));
+        }
+    }
+  }
+
+  return Res;
+}
+
 std::vector<std::string>
 Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) {
   assert(m_pModule && "Module is NULL");

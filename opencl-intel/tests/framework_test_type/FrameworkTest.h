@@ -161,6 +161,7 @@ void FPGAPipes();
 void FPGAPipeOrdering();
 void FPGAAutorun();
 void FPGAChannelsByValue();
+void FPGAChannelDepthEmulationDiagnosticMessage();
 void FPGAChannelDepthEmulationStrictWithDepth();
 void FPGAChannelDepthEmulationStrictWithoutDepth();
 void FPGAChannelDepthEmulationDefaultWithDepth();

@@ -17,17 +17,20 @@ namespace Intel {
 namespace MetadataAPI {
 
 struct GlobalVariableMetadataAPI {
+  typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> DepthIsIgnoredTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipePacketSizeTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipePacketAlignTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipeDepthTy;
   typedef NamedMDValue<llvm::StringRef, MDValueGlobalObjectStrategy> PipeIOTy;
 
   GlobalVariableMetadataAPI(llvm::GlobalVariable *Global) :
+        DepthIsIgnored(Global, "depth_is_ignored"),
         PipePacketSize(Global, "packet_size"),
         PipePacketAlign(Global, "packet_align"),
         PipeDepth(Global, "depth"),
         PipeIO(Global, "io") {}
 
+  NamedMDValueAccessor<DepthIsIgnoredTy> DepthIsIgnored;
   PipePacketSizeTy PipePacketSize;
   PipePacketAlignTy PipePacketAlign;
   PipeDepthTy PipeDepth;

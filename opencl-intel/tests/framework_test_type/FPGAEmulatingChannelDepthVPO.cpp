@@ -1,6 +1,6 @@
 #include "CL/cl.h"
 
-#include <algorithm>
+#include <numeric>
 #include <cstring>
 #include <string>
 

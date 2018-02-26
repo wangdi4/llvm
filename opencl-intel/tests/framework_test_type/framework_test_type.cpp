@@ -581,6 +581,7 @@ TEST(FPGA, Test_ChannelDepthEmulationDefault)
     ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationPipesDefaultWithDepth());
     ASSERT_NO_FATAL_FAILURE(
         FPGAChannelDepthEmulationPipesDefaultWithoutDepth());
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationDiagnosticMessage());
 }
 
 TEST(FPGA, Test_ChannelDepthEmulationIgnoreDepth)

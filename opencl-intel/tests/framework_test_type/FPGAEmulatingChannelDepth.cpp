@@ -1,6 +1,6 @@
 #include "CL/cl.h"
 
-#include <algorithm>
+#include <numeric>
 #include <cstring>
 #include <string>
 
@@ -198,6 +198,82 @@ static void doChannelsTest(int depth, std::vector<cl_int> &data,
 
   clReleaseKernel(reader);
   clReleaseKernel(writer);
+  clReleaseProgram(program);
+  clReleaseContext(context);
+}
+
+static void doChannelDiagnosticTest() {
+  cl_int error = CL_SUCCESS;
+  cl_platform_id platform = nullptr;
+  cl_device_id device = nullptr;
+
+  error = clGetPlatformIDs(1, &platform, nullptr);
+  ASSERT_EQ(CL_SUCCESS, error) << " clGetPlatformIDs failed.";
+
+  error = clGetDeviceIDs(platform, gDeviceType, 1, &device, nullptr);
+  ASSERT_EQ(CL_SUCCESS, error) << " clGetDeviceIDs failed to obtain device "
+                               << "of " << gDeviceType << " type.";
+
+  const cl_context_properties props[5] = {
+      CL_CONTEXT_PLATFORM, (cl_context_properties)platform,
+      CL_CONTEXT_FPGA_EMULATOR_INTEL, CL_TRUE, 0
+  };
+
+  cl_context context =
+      clCreateContext(props, 1, &device, nullptr, nullptr, &error);
+  ASSERT_EQ(CL_SUCCESS, error) << " clCreateContext failed.";
+
+  const char *program_sources = "                                            \n\
+      #pragma OPENCL EXTENSION cl_intel_channels: enable                     \n\
+      channel int c;                                                         \n\
+                                                                             \n\
+      __attribute__((max_global_work_dim(0)))                                \n\
+      __kernel void writer(__global int* data, int should_be_ok,             \n\
+          int should_be_fail, __global int* errors) {                        \n\
+        *errors = 0;                                                         \n\
+        bool res = false;                                                    \n\
+        for (int i = 0; i < should_be_ok; ++i) {                             \n\
+          res = write_channel_nb_intel(c, data[i]);                          \n\
+          if (!res) {                                                        \n\
+            ++(*errors);                                                     \n\
+          }                                                                  \n\
+        }                                                                    \n\
+        for (int i = 0; i < should_be_fail; ++i) {                           \n\
+          int idx = should_be_ok + i;                                        \n\
+          res = write_channel_nb_intel(c, data[idx]);                        \n\
+          if (res) {                                                         \n\
+            ++(*errors);                                                     \n\
+          }                                                                  \n\
+        }                                                                    \n\
+      }                                                                      \n\
+    ";
+
+  cl_program program =
+      clCreateProgramWithSource(context, 1, &program_sources, nullptr, &error);
+  ASSERT_EQ(CL_SUCCESS, error) << " clCreateProgramWithSource failed.";
+
+  cl_int build_error =
+      clBuildProgram(program, 1, &device, "", nullptr, nullptr);
+  EXPECT_EQ(CL_SUCCESS, build_error) << " clBuildProgram failed.";
+  size_t log_size = 0;
+  error = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0,
+                                nullptr, &log_size);
+  ASSERT_EQ(CL_SUCCESS, error) << " clGetProgramBuildInfo failed.";
+  std::string log("", log_size);
+  error = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
+                                log_size, &log[0], nullptr);
+  ASSERT_EQ(CL_SUCCESS, error) << " clGetProgramBuildInfo failed.";
+  if (CL_SUCCESS != build_error) {
+    std::cout << log << std::endl;
+  }
+
+  std::string expected_diag = "Warning: The default channel depths in the "
+                              "emulation flow will be different from the "
+                              "hardware flow depth (0) to speed up emulation. "
+                              "The following channels are affected:\n - c";
+  ASSERT_NE(std::string::npos, log.find(expected_diag))
+      << " expected diagnostic message not found in build log!";
+
   clReleaseProgram(program);
   clReleaseContext(context);
 }
@@ -496,5 +572,11 @@ void FPGAChannelDepthEmulationPipesIgnoreDepthWithoutDepth() {
   std::vector<cl_int> data(129);
   std::iota(data.begin(), data.end(), 0);
   ASSERT_NO_FATAL_FAILURE(doPipesTest(1, data, 129, 0));
+  UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
+}
+
+void FPGAChannelDepthEmulationDiagnosticMessage() {
+  SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "default");
+  ASSERT_NO_FATAL_FAILURE(doChannelDiagnosticTest());
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
