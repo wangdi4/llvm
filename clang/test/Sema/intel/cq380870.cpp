@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fintel-compatibility -verify %s
+// RUN: %clang_cc1 -fintel-compatibility -std=c++98 -verify %s
 
 struct I {
   unsigned n;

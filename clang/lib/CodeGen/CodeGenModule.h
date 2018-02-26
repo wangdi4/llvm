@@ -527,7 +527,7 @@ private:
 
   /// @}
 
-  llvm::DenseMap<const Decl *, bool> DeferredEmptyCoverageMappingDecls;
+  llvm::MapVector<const Decl *, bool> DeferredEmptyCoverageMappingDecls;
 
   std::unique_ptr<CoverageMappingModuleGen> CoverageMapping;
 
@@ -805,9 +805,8 @@ public:
   /// getTBAAInfoForSubobject - Get TBAA information for an access with a given
   /// base lvalue.
   TBAAAccessInfo getTBAAInfoForSubobject(LValue Base, QualType AccessType) {
-    TBAAAccessInfo TBAAInfo = Base.getTBAAInfo();
-    if (TBAAInfo.isMayAlias() || TBAAInfo.isUnionMember())
-      return TBAAInfo;
+    if (Base.getTBAAInfo().isMayAlias())
+      return TBAAAccessInfo::getMayAliasInfo();
     return getTBAAAccessInfo(AccessType);
   }
 

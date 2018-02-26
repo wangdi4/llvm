@@ -537,6 +537,14 @@ def err_va_pack_not_variadic : Error<"__builtin_va_arg_pack can only be used "
 // Intel HLS extensions
 def err_attribute_interface_invalid_type : Error<
   "string passed to %0 attribute is not a valid interface type. Valid component invocation interface types are: %1">;
+def err_attribute_argument_not_power_of_two : Error<
+  "%0 attribute argument must be a constant power of two greater than zero">;
+def err_hls_merge_dir_invalid : Error<
+  "merge direction must be 'depth' or 'width'">;
+def err_bankbits_numbanks_conflicting : Error<
+  "the number of bank_bits must be equal to ceil(log2(numbanks))">;
+def err_bankbits_non_consecutive : Error<
+  "bank_bits must be consecutive">;
 
 // Intel OpenCL FPGA extension
 def warn_opencl_attribute_only_for_local_address_space : Warning<
@@ -615,7 +623,7 @@ def warn_intel_opencl_attribute_wrong_decl_type : Warning<
   "|variables, functions, methods, types, enumerations, enumerators, labels, and non-static data members"
   "|classes and enumerations"
   "|named declarations"
-  "|OpenCL channels"
+  "|OpenCL channels or pipes"
   "|OpenCL pipes}1">,
   InGroup<IgnoredAttributes>;
 

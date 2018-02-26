@@ -84,6 +84,11 @@ static unsigned getOptimizationLevel(ArgList &Args, InputKind IK,
   if (IK.getLanguage() == InputKind::OpenCL && !Args.hasArg(OPT_cl_opt_disable))
     DefaultOpt = 2;
 
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(OPT_emit_spirv))
+    return 0; // LLVM-SPIRV translator expects not optimized IR
+#endif // INTEL_CUSTOMIZATION
+
   if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
     if (A->getOption().matches(options::OPT_O0))
       return 0;
@@ -649,6 +654,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
                         Args.hasArg(OPT_cl_no_signed_zeros) ||
                         Args.hasArg(OPT_cl_unsafe_math_optimizations) ||
                         Args.hasArg(OPT_cl_fast_relaxed_math));
+  Opts.Reassociate = Args.hasArg(OPT_mreassociate);
   Opts.FlushDenorm = Args.hasArg(OPT_cl_denorms_are_zero);
   Opts.CorrectlyRoundedDivSqrt =
       Args.hasArg(OPT_cl_fp32_correctly_rounded_divide_sqrt);
@@ -722,6 +728,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
 
   Opts.VectorizeLoop = Args.hasArg(OPT_vectorize_loops);
   Opts.VectorizeSLP = Args.hasArg(OPT_vectorize_slp);
+
+  Opts.PreferVectorWidth = Args.getLastArgValue(OPT_mprefer_vector_width_EQ);
 
   Opts.MainFileName = Args.getLastArgValue(OPT_main_file_name);
   Opts.VerifyModule = !Args.hasArg(OPT_disable_llvm_verifier);
@@ -923,6 +931,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
 
 #if INTEL_CUSTOMIZATION
   Opts.SPIRCompileOptions = Args.getLastArgValue(OPT_cl_spir_compile_options);
+  Opts.EmitOpenCLArgMetadata |= Args.hasArg(OPT_emit_spirv);
 
   // CQ#368119 - support for '/Z7' and '/Zi' options.
   if (Arg *A = Args.getLastArg(OPT_fms_debug_info_file_type)) {
@@ -1114,6 +1123,26 @@ static bool parseShowColorsArgs(const ArgList &Args, bool DefaultColor) {
           llvm::sys::Process::StandardErrHasColors());
 }
 
+static bool checkVerifyPrefixes(const std::vector<std::string> &VerifyPrefixes,
+                                DiagnosticsEngine *Diags) {
+  bool Success = true;
+  for (const auto &Prefix : VerifyPrefixes) {
+    // Every prefix must start with a letter and contain only alphanumeric
+    // characters, hyphens, and underscores.
+    auto BadChar = std::find_if(Prefix.begin(), Prefix.end(),
+                                [](char C){return !isAlphanumeric(C)
+                                                  && C != '-' && C != '_';});
+    if (BadChar != Prefix.end() || !isLetter(Prefix[0])) {
+      Success = false;
+      if (Diags) {
+        Diags->Report(diag::err_drv_invalid_value) << "-verify=" << Prefix;
+        Diags->Report(diag::note_drv_verify_prefix_spelling);
+      }
+    }
+  }
+  return Success;
+}
+
 bool clang::ParseDiagnosticArgs(DiagnosticOptions &Opts, ArgList &Args,
                                 DiagnosticsEngine *Diags,
                                 bool DefaultDiagColor, bool DefaultShowOpt) {
@@ -1201,7 +1230,18 @@ bool clang::ParseDiagnosticArgs(DiagnosticOptions &Opts, ArgList &Args,
   Opts.ShowSourceRanges = Args.hasArg(OPT_fdiagnostics_print_source_range_info);
   Opts.ShowParseableFixits = Args.hasArg(OPT_fdiagnostics_parseable_fixits);
   Opts.ShowPresumedLoc = !Args.hasArg(OPT_fno_diagnostics_use_presumed_location);
-  Opts.VerifyDiagnostics = Args.hasArg(OPT_verify);
+  Opts.VerifyDiagnostics = Args.hasArg(OPT_verify) || Args.hasArg(OPT_verify_EQ);
+  Opts.VerifyPrefixes = Args.getAllArgValues(OPT_verify_EQ);
+  if (Args.hasArg(OPT_verify))
+    Opts.VerifyPrefixes.push_back("expected");
+  // Keep VerifyPrefixes in its original order for the sake of diagnostics, and
+  // then sort it to prepare for fast lookup using std::binary_search.
+  if (!checkVerifyPrefixes(Opts.VerifyPrefixes, Diags)) {
+    Opts.VerifyDiagnostics = false;
+    Success = false;
+  }
+  else
+    std::sort(Opts.VerifyPrefixes.begin(), Opts.VerifyPrefixes.end());
   DiagnosticLevelMask DiagMask = DiagnosticLevelMask::None;
   Success &= parseDiagnosticLevelMask("-verify-ignore-unexpected=",
     Args.getAllArgValues(OPT_verify_ignore_unexpected_EQ),
@@ -1297,6 +1337,10 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
       Opts.ProgramAction = frontend::EmitAssembly; break;
     case OPT_emit_llvm_bc:
       Opts.ProgramAction = frontend::EmitBC; break;
+#if INTEL_CUSTOMIZATION
+    case OPT_emit_spirv:
+      Opts.ProgramAction = frontend::EmitSPIRV; break;
+#endif // INTEL_CUSTOMIZATION
     case OPT_emit_html:
       Opts.ProgramAction = frontend::EmitHTML; break;
     case OPT_emit_llvm:
@@ -1426,6 +1470,8 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
     = Args.hasArg(OPT_code_completion_patterns);
   Opts.CodeCompleteOpts.IncludeGlobals
     = !Args.hasArg(OPT_no_code_completion_globals);
+  Opts.CodeCompleteOpts.IncludeNamespaceLevelDecls
+    = !Args.hasArg(OPT_no_code_completion_ns_level_decls);
   Opts.CodeCompleteOpts.IncludeBriefComments
     = Args.hasArg(OPT_code_completion_brief_comments);
 
@@ -1777,11 +1823,7 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
       break;
     case InputKind::CXX:
     case InputKind::ObjCXX:
-      // The PS4 uses C++11 as the default C++ standard.
-      if (T.isPS4())
-        LangStd = LangStandard::lang_gnucxx11;
-      else
-        LangStd = LangStandard::lang_gnucxx98;
+      LangStd = LangStandard::lang_gnucxx14;
       break;
     case InputKind::RenderScript:
       LangStd = LangStandard::lang_c99;
@@ -1793,10 +1835,11 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
   Opts.LineComment = Std.hasLineComments();
   Opts.C99 = Std.isC99();
   Opts.C11 = Std.isC11();
+  Opts.C17 = Std.isC17();
   Opts.CPlusPlus = Std.isCPlusPlus();
   Opts.CPlusPlus11 = Std.isCPlusPlus11();
   Opts.CPlusPlus14 = Std.isCPlusPlus14();
-  Opts.CPlusPlus1z = Std.isCPlusPlus1z();
+  Opts.CPlusPlus17 = Std.isCPlusPlus17();
   Opts.CPlusPlus2a = Std.isCPlusPlus2a();
   Opts.Digraphs = Std.hasDigraphs();
   Opts.GNUMode = Std.isGNUMode();
@@ -1852,7 +1895,7 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
   Opts.GNUKeywords = Opts.GNUMode;
   Opts.CXXOperatorNames = Opts.CPlusPlus;
 
-  Opts.AlignedAllocation = Opts.CPlusPlus1z;
+  Opts.AlignedAllocation = Opts.CPlusPlus17;
 
   Opts.DollarIdents = !Opts.AsmPreprocessor;
 }
@@ -1943,6 +1986,56 @@ static void FillImfFuncSet(llvm::StringSet<> &ImfFuncSet) {
   for(auto & it : initArr) {
     ImfFuncSet.insert(it);
   }
+}
+
+// Get the appropriate g++ ABI version for this invocation.
+// If the user has specified a non-zero ABI version, return that.
+// If the user has specified an ABI version of 0, return the highest ABI
+// version supported in the current g++ version
+// Otherwise, return the ABI version that is the default in the current
+// g++ version
+static int getGNUFABIVersion(bool hasFABIVersionArg,
+                             int specifiedABIVersion,
+                             int GNUVersion) {
+  int appropriateABIVersion = 0;
+
+  if (hasFABIVersionArg && specifiedABIVersion != 0)
+    return specifiedABIVersion;
+  if (GNUVersion >= 70000)
+    appropriateABIVersion = 11;
+  else if (GNUVersion >= 60100)
+    appropriateABIVersion = 10;
+  else if (GNUVersion >= 50000) // Note GNU doc says 5.2
+    appropriateABIVersion = 9;
+  else if (GNUVersion >= 40900) {
+    if (hasFABIVersionArg)
+      appropriateABIVersion = 8;
+    else
+      appropriateABIVersion = 2;
+  } else if (GNUVersion >= 40800) {
+    if (hasFABIVersionArg)
+      appropriateABIVersion = 7;
+    else
+      appropriateABIVersion = 2;
+  } else if (GNUVersion >= 40700) {
+    if (hasFABIVersionArg)
+      appropriateABIVersion = 6;
+    else
+      appropriateABIVersion = 2;
+  } else if (GNUVersion >= 40600) {
+    if (hasFABIVersionArg)
+      appropriateABIVersion = 5;
+    else
+      appropriateABIVersion = 2;
+  } else if (GNUVersion >= 40500) {
+    if (hasFABIVersionArg)
+      appropriateABIVersion = 4;
+    else
+      appropriateABIVersion = 2;
+  } else
+    appropriateABIVersion = 2;
+
+  return appropriateABIVersion;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2198,6 +2291,12 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
                                        40500,
 #endif // INTEL_SPECIFIC_IL0_BACKEND
                                        Diags);
+
+  // cmplrs-417: Get the appropriate FABI version to emulate
+  Opts.GNUFABIVersion = getGNUFABIVersion(Args.hasArg(OPT_gnu_fabi_version_EQ),
+                                          Opts.GNUFABIVersion,
+                                          Opts.GNUVersion);
+
   Opts.Float128 = Opts.IntelQuad || (Opts.IntelCompat && Opts.GNUMode &&
                                      Opts.GNUVersion >= 40400);
   // CQ376358: Support -ffriend-injection option.
@@ -2407,7 +2506,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   // Mimicing gcc's behavior, trigraphs are only enabled if -trigraphs
   // is specified, or -std is set to a conforming mode.
   // Trigraphs are disabled by default in c++1z onwards.
-  Opts.Trigraphs = !Opts.GNUMode && !Opts.MSVCCompat && !Opts.CPlusPlus1z;
+  Opts.Trigraphs = !Opts.GNUMode && !Opts.MSVCCompat && !Opts.CPlusPlus17;
   Opts.Trigraphs =
       Args.hasFlag(OPT_ftrigraphs, OPT_fno_trigraphs, Opts.Trigraphs);
 
@@ -2448,7 +2547,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     && Opts.OpenCLVersion >= 200);
   Opts.BlocksRuntimeOptional = Args.hasArg(OPT_fblocks_runtime_optional);
   Opts.CoroutinesTS = Args.hasArg(OPT_fcoroutines_ts);
-  
+
   // Enable [[]] attributes in C++11 by default.
   Opts.DoubleSquareBracketAttributes =
       Args.hasFlag(OPT_fdouble_square_bracket_attributes,
@@ -2837,6 +2936,9 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
   case frontend::ASTView:
   case frontend::EmitAssembly:
   case frontend::EmitBC:
+#if INTEL_CUSTOMIZATION
+  case frontend::EmitSPIRV:
+#endif // INTEL_CUSTOMIZATION
   case frontend::EmitHTML:
   case frontend::EmitLLVM:
   case frontend::EmitLLVMOnly:

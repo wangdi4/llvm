@@ -137,9 +137,7 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
       ArrayWithObjectsMethod(nullptr), NSDictionaryDecl(nullptr),
       DictionaryWithObjectsMethod(nullptr), GlobalNewDeleteDeclared(false),
       TUKind(TUKind), NumSFINAEErrors(0),
-    // Fix for CQ374244: non-template call of template function is ambiguous.
 #if INTEL_CUSTOMIZATION
-    SuppressQualifiersOnTypeSubst(true),
     // Fix for CQ368409: Different behavior on accessing static private class
     // members.
     BuildingUsingDirective(false), ParsingTemplateArg(false),
@@ -584,7 +582,7 @@ CastKind Sema::ScalarTypeToBooleanCastKind(QualType ScalarTy) {
   case Type::STK_IntegralComplex: return CK_IntegralComplexToBoolean;
   case Type::STK_FloatingComplex: return CK_FloatingComplexToBoolean;
   }
-  return CK_Invalid;
+  llvm_unreachable("unknown scalar type kind");
 }
 
 /// \brief Used to prune the decls of Sema's UnusedFileScopedDecls vector.

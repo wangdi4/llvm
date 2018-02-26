@@ -68,7 +68,7 @@ using namespace clang;
 using namespace CodeGen;
 
 static llvm::cl::opt<bool> LimitedCoverage(
-    "limited-coverage-experimental", llvm::cl::ZeroOrMore,
+    "limited-coverage-experimental", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
     llvm::cl::desc("Emit limited coverage mapping information (experimental)"),
     llvm::cl::init(false));
 
@@ -110,6 +110,7 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
   Int16Ty = llvm::Type::getInt16Ty(LLVMContext);
   Int32Ty = llvm::Type::getInt32Ty(LLVMContext);
   Int64Ty = llvm::Type::getInt64Ty(LLVMContext);
+  HalfTy = llvm::Type::getHalfTy(LLVMContext);
   FloatTy = llvm::Type::getFloatTy(LLVMContext);
   DoubleTy = llvm::Type::getDoubleTy(LLVMContext);
   PointerWidthInBits = C.getTargetInfo().getPointerWidth(0);
@@ -1358,6 +1359,9 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
   // is handled with better precision by the receiving DSO.
   if (!CodeGenOpts.SanitizeCfiCrossDso)
     CreateFunctionTypeMetadata(FD, F);
+
+  if (getLangOpts().OpenMP && FD->hasAttr<OMPDeclareSimdDeclAttr>())
+    getOpenMPRuntime().emitDeclareSimdFunction(FD, F);
 }
 
 void CodeGenModule::addUsedGlobal(llvm::GlobalValue *GV) {
@@ -1702,7 +1706,7 @@ bool CodeGenModule::isInSanitizerBlacklist(llvm::GlobalVariable *GV,
                                            StringRef Category) const {
   // For now globals can be blacklisted only in ASan and KASan.
   const SanitizerMask EnabledAsanMask = LangOpts.Sanitize.Mask &
-      (SanitizerKind::Address | SanitizerKind::KernelAddress);
+      (SanitizerKind::Address | SanitizerKind::KernelAddress | SanitizerKind::HWAddress);
   if (!EnabledAsanMask)
     return false;
   const auto &SanitizerBL = getContext().getSanitizerBlacklist();
@@ -2888,47 +2892,37 @@ static void maybeEmitGlobalChannelMetadata(const VarDecl *D,
 
   llvm::Type *Int32Ty = llvm::IntegerType::getInt32Ty(CGM.getLLVMContext());
 
-  llvm::Metadata *ChannelDepthMD = nullptr;
-
-  if (D->hasAttr<OpenCLChannelDepthAttr>()) {
-    OpenCLChannelDepthAttr *DepthAttr = D->getAttr<OpenCLChannelDepthAttr>();
-    llvm::Metadata *ChannelDepthMDOps[] = {
-        llvm::MDString::get(CGM.getLLVMContext(), "depth"),
+  llvm::MDNode *ChannelDepthMD = nullptr;
+  if (auto *DepthAttr = D->getAttr<OpenCLDepthAttr>()) {
+    ChannelDepthMD = llvm::MDNode::get(CGM.getLLVMContext(),
         llvm::ConstantAsMetadata::get(
-            llvm::ConstantInt::get(Int32Ty, DepthAttr->getDepth(), false))};
+            llvm::ConstantInt::get(Int32Ty, DepthAttr->getDepth(), false)));
+  }
 
-    ChannelDepthMD = llvm::MDNode::get(CGM.getLLVMContext(), ChannelDepthMDOps);
+  llvm::MDNode *ChannelIOMD = nullptr;
+  if (auto *IOAttr = D->getAttr<OpenCLIOAttr>()) {
+    ChannelIOMD = llvm::MDNode::get(CGM.getLLVMContext(),
+        llvm::MDString::get(CGM.getLLVMContext(), IOAttr->getIOName()));
   }
 
   auto *PacketSize = llvm::ConstantInt::get(
       Int32Ty, CGM.getContext().getTypeSize(ChanTy->getElementType()) / 8,
       false);
-  llvm::Metadata *PacketSizeMDOps[] = {
-      llvm::MDString::get(CGM.getLLVMContext(), "packet_size"),
-      llvm::ConstantAsMetadata::get(PacketSize)};
-  llvm::Metadata *PacketSizeMD =
-      llvm::MDNode::get(CGM.getLLVMContext(), PacketSizeMDOps);
+  llvm::MDNode *PacketSizeMD = llvm::MDNode::get(CGM.getLLVMContext(),
+      llvm::ConstantAsMetadata::get(PacketSize));
 
   auto *PacketAlign = llvm::ConstantInt::get(
       Int32Ty, CGM.getContext().getTypeAlign(ChanTy->getElementType()) / 8,
       false);
-  llvm::Metadata *PacketAlignMDOps[] = {
-      llvm::MDString::get(CGM.getLLVMContext(), "packet_align"),
-      llvm::ConstantAsMetadata::get(PacketAlign)};
-  llvm::Metadata *PacketAlignMD =
-      llvm::MDNode::get(CGM.getLLVMContext(), PacketAlignMDOps);
+  llvm::MDNode *PacketAlignMD = llvm::MDNode::get(CGM.getLLVMContext(),
+      llvm::ConstantAsMetadata::get(PacketAlign));
 
-  llvm::SmallVector<llvm::Metadata *, 4> Ops;
-  Ops.push_back(llvm::ConstantAsMetadata::get(GV));
-  Ops.push_back(PacketSizeMD);
-  Ops.push_back(PacketAlignMD);
+  GV->setMetadata("packet_size", PacketSizeMD);
+  GV->setMetadata("packet_align", PacketAlignMD);
   if (ChannelDepthMD)
-    Ops.push_back(ChannelDepthMD);
-
-  CGM.getModule()
-      .getOrInsertNamedMetadata("opencl.channels")
-      ->addOperand(llvm::MDNode::get(CGM.getLLVMContext(),
-                                     ArrayRef<llvm::Metadata *>(Ops)));
+    GV->setMetadata("depth", ChannelDepthMD);
+  if (ChannelIOMD)
+    GV->setMetadata("io", ChannelIOMD);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -4552,20 +4546,14 @@ void CodeGenModule::ClearUnusedCoverageMapping(const Decl *D) {
 }
 
 void CodeGenModule::EmitDeferredUnusedCoverageMappings() {
-  std::vector<const Decl *> DeferredDecls;
-  for (const auto &I : DeferredEmptyCoverageMappingDecls) {
-    if (!I.second)
+  // We call takeVector() here to avoid use-after-free.
+  // FIXME: DeferredEmptyCoverageMappingDecls is getting mutated because
+  // we deserialize function bodies to emit coverage info for them, and that
+  // deserializes more declarations. How should we handle that case?
+  for (const auto &Entry : DeferredEmptyCoverageMappingDecls.takeVector()) {
+    if (!Entry.second)
       continue;
-    DeferredDecls.push_back(I.first);
-  }
-  // Sort the declarations by their location to make sure that the tests get a
-  // predictable order for the coverage mapping for the unused declarations.
-  if (CodeGenOpts.DumpCoverageMapping)
-    std::sort(DeferredDecls.begin(), DeferredDecls.end(),
-              [] (const Decl *LHS, const Decl *RHS) {
-      return LHS->getLocStart() < RHS->getLocStart();
-    });
-  for (const auto *D : DeferredDecls) {
+    const Decl *D = Entry.first;
     switch (D->getKind()) {
     case Decl::CXXConversion:
     case Decl::CXXMethod:

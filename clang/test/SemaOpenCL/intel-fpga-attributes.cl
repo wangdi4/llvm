@@ -19,3 +19,8 @@ __kernel void k6(__local  __attribute__((blocking)) int *a ) { // expected-warni
 
 }
 
+__kernel void k7(__global __attribute__((buffer_location(0))) int *a ) { // expected-error{{'buffer_location' attribute requires a string}}
+}
+
+__kernel void k8(__attribute__((buffer_location("DDR"))) int a ) { // expected-warning{{''buffer_location'' only applies to pointer types; type here is Builtin}}
+}

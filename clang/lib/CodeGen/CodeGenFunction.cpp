@@ -121,6 +121,9 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
   if (CGM.getCodeGenOpts().ReciprocalMath) {
     FMF.setAllowReciprocal();
   }
+  if (CGM.getCodeGenOpts().Reassociate) {
+    FMF.setAllowReassoc();
+  }
   Builder.setFastMathFlags(FMF);
 }
 
@@ -598,6 +601,15 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
 #if INTEL_CUSTOMIZATION
   // MDNode for the intel_host_accessible attribute.
   SmallVector<llvm::Metadata*, 8> argHostAccessible;
+
+  // MDNode for the intel_depth attribute for pipes.
+  SmallVector<llvm::Metadata*, 8> argPipeDepthAttr;
+
+  // MDNode for the intel_io attribute.
+  SmallVector<llvm::Metadata*, 8> argPipeIOAttr;
+
+  // MDNode for the intel_buffer_location attribute.
+  SmallVector<llvm::Metadata*, 8> argBufferLocationAttr;
 #endif // INTEL_CUSTOMIZATION
   for (unsigned i = 0, e = FD->getNumParams(); i != e; ++i) {
     const ParmVarDecl *parm = FD->getParamDecl(i);
@@ -722,6 +734,25 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
         llvm::ConstantAsMetadata::get(
             (IsHostAccessible) ? llvm::ConstantInt::getTrue(Context)
                                : llvm::ConstantInt::getFalse(Context)));
+
+    auto *DepthAttr = parm->getAttr<OpenCLDepthAttr>();
+
+    argPipeDepthAttr.push_back(
+            llvm::ConstantAsMetadata::get(
+            (DepthAttr) ? Builder.getInt32(DepthAttr->getDepth())
+                        : Builder.getInt32(0)));
+
+    auto *IOAttr = parm->getAttr<OpenCLIOAttr>();
+    argPipeIOAttr.push_back(
+        (IOAttr) ? llvm::MDString::get(Context, IOAttr->getIOName())
+                 : llvm::MDString::get(Context, ""));
+
+    auto *BufferLocationAttr = parm->getAttr<OpenCLBufferLocationAttr>();
+    argBufferLocationAttr.push_back(
+        (BufferLocationAttr)
+            ? llvm::MDString::get(Context,
+                                  BufferLocationAttr->getBufferLocation())
+            : llvm::MDString::get(Context, ""));
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -738,6 +769,12 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
 #if INTEL_CUSTOMIZATION
   Fn->setMetadata("kernel_arg_host_accessible",
                   llvm::MDNode::get(Context, argHostAccessible));
+  Fn->setMetadata("kernel_arg_pipe_depth",
+                  llvm::MDNode::get(Context, argPipeDepthAttr));
+  Fn->setMetadata("kernel_arg_pipe_io",
+                  llvm::MDNode::get(Context, argPipeIOAttr));
+  Fn->setMetadata("kernel_arg_buffer_location",
+                  llvm::MDNode::get(Context, argBufferLocationAttr));
 #endif // INTEL_CUSTOMIZATION
 
   if (CGM.getCodeGenOpts().EmitOpenCLArgMetadata)
@@ -937,6 +974,8 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
   // Apply sanitizer attributes to the function.
   if (SanOpts.hasOneOf(SanitizerKind::Address | SanitizerKind::KernelAddress))
     Fn->addFnAttr(llvm::Attribute::SanitizeAddress);
+  if (SanOpts.hasOneOf(SanitizerKind::HWAddress))
+    Fn->addFnAttr(llvm::Attribute::SanitizeHWAddress);
   if (SanOpts.has(SanitizerKind::Thread))
     Fn->addFnAttr(llvm::Attribute::SanitizeThread);
   if (SanOpts.has(SanitizerKind::Memory))
@@ -987,10 +1026,6 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
             llvm::itostr(CGM.getCodeGenOpts().XRayInstructionThreshold));
     }
   }
-
-  if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-    if (CGM.getLangOpts().OpenMP && FD->hasAttr<OMPDeclareSimdDeclAttr>())
-      CGM.getOpenMPRuntime().emitDeclareSimdFunction(FD, Fn);
 
   // Add no-jump-tables value.
   Fn->addFnAttr("no-jump-tables",

@@ -22,16 +22,16 @@ const wchar_t c2[8] = (const wchar_t *)L"a2";
 // expected-error@-1 {{array initializer must be an initializer list}}
 
 void f1(char * t = "");
-// expected-warning@-1 {{conversion from string literal to 'char *' is deprecated}}
+// expected-warning@-1 {{ISO C++11 does not allow conversion from string literal to 'char *'}}
 void f2(wchar_t * t = L"");
 // expected-warning@-1 {{conversion from string literal to 'wchar_t *'}}
 
 char *d1 = true ? "a" : "b";
-// expected-warning@-1 {{conversion from string literal to 'char *' is deprecated}}
+// expected-warning@-1 {{ISO C++11 does not allow conversion from string literal to 'char *'}}
 char *d2 = true ? d1 : "c";
-// expected-warning@-1 {{conversion from string literal to 'char *' is deprecated}}
+// expected-warning@-1 {{ISO C++11 does not allow conversion from string literal to 'char *'}}
 char *d3 = true ? "d" : d2;
-// expected-warning@-1 {{conversion from string literal to 'char *' is deprecated}}
+// expected-warning@-1 {{ISO C++11 does not allow conversion from string literal to 'char *'}}
 const char *d4 = 0;
 const char *d5 = 0;
 char *d6 = true ? d4 : d5;
