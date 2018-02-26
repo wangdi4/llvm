@@ -29,7 +29,15 @@
 #include "common_dev_limits.h"
 
 #define CPU_DEV_MAX_WI_SIZE             (8*1024)            // Maximum values that could be specified for WI in one dimension
+
+#ifdef BUILD_FPGA_EMULATOR
+// Many FPGA designs require more than 32KB local memory. 256KB should be enough
+// for most of them.
+#define CPU_DEV_LCL_MEM_SIZE            (256*1024)
+#else
 #define CPU_DEV_LCL_MEM_SIZE            (32*1024)
+#endif
+
 #define CPU_DEV_DCU_LINE_SIZE           64
 #define CPU_DEV_MAXIMUM_ALIGN           (DEV_MAXIMUM_ALIGN)
 
