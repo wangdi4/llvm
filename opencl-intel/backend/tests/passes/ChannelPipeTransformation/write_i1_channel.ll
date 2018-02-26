@@ -52,8 +52,8 @@ target triple = "x86_64-pc-linux"
 
 %opencl.channel_t = type opaque
 
-@bitchannel = common addrspace(1) global [2 x %opencl.channel_t addrspace(1)*] zeroinitializer, align 1
-@intch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
+@bitchannel = common addrspace(1) global [2 x %opencl.channel_t addrspace(1)*] zeroinitializer, align 1, !packet_size !0, !packet_align !0
+@intch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !1, !packet_align !1
 
 ; Function Attrs: convergent nounwind
 define void @send(i8 addrspace(1)* noalias %arr, i32 %size, i32 addrspace(1)* noalias %invalid) #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !13 !kernel_arg_type !14 !kernel_arg_base_type !14 !kernel_arg_type_qual !15 !kernel_arg_host_accessible !16 !kernel_arg_name !17 {
@@ -268,7 +268,6 @@ attributes #2 = { argmemonly nounwind }
 attributes #3 = { convergent }
 attributes #4 = { nounwind }
 
-!opencl.channels = !{!0, !3}
 !llvm.linker.options = !{}
 !llvm.module.flags = !{!6}
 !opencl.enable.FP_CONTRACT = !{}
@@ -280,12 +279,8 @@ attributes #4 = { nounwind }
 !llvm.ident = !{!10}
 !opencl.kernels = !{!11}
 
-!0 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @intch, !1, !2}
-!1 = !{!"packet_size", i32 4}
-!2 = !{!"packet_align", i32 4}
-!3 = !{[2 x %opencl.channel_t addrspace(1)*] addrspace(1)* @bitchannel, !4, !5}
-!4 = !{!"packet_size", i32 1}
-!5 = !{!"packet_align", i32 1}
+!0 = !{i32 4}
+!1 = !{i32 1}
 !6 = !{i32 1, !"wchar_size", i32 4}
 !7 = !{i32 1, i32 2}
 !8 = !{}
