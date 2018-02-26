@@ -129,7 +129,8 @@ namespace Validation
         /// @param [IN] runConfig       Configuration containing kernel run options.
         void RunKernel( IRunResult * runResult,
             OpenCLKernelConfiguration * pKernelConfig,
-            const ReferenceRunOptions* runConfig );
+            const ReferenceRunOptions* runConfig,
+            const std::string& cFlags );
 
         /// @brief Loads the given container from the given file in the given format
         /// @param filename [in] file to load the container from

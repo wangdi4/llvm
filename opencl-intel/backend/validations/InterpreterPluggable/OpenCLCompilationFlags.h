@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2013).
+Copyright (c) Intel Corporation (2013-2018).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -21,18 +21,21 @@ File Name:  OpenCLCompilationFlags.h
 
 #include "llvm/IR/Module.h"
 
-namespace llvm
-{
-    /// TODO: Add support for all compilation flags
-    enum RefCompilationFlags
-    {
-        CL_STD_20,
-        CL_FAST_RELAXED_MATH,
-        CL_UNIFORM_WORK_GROUP_SIZE
-    };
-    typedef std::vector<RefCompilationFlags> CompilationFlagsList;
+#include <string>
 
-    CompilationFlagsList GetCompilationFlags(llvm::Module* module);
+namespace Validation {
+
+class CompilationFlags {
+
+public:
+
+  static unsigned getCLVersionFromMetadata(llvm::Module *M);
+  static unsigned getCLVersionFromFlags(const std::string &Flags);
+
+  static bool hasFastRelaxedMathFlag(const std::string &Flags);
+  static bool hasUniformWGSizeFlag(const std::string &Flags);
+};
+
 }
 
 #endif

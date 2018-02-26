@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2013).
+Copyright (c) Intel Corporation (2013-2018).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -16,39 +16,56 @@ File Name:  OpenCLCompilationFlags.cpp
 
 \*****************************************************************************/
 #include "OpenCLCompilationFlags.h"
-#include "llvm/IR/Metadata.h"
 
-namespace llvm {
+#include "llvm/IR/Constants.h"
 
-    // ToDo: Is this used anywhere?
-    CompilationFlagsList GetCompilationFlags(llvm::Module* module)
-    {
-        CompilationFlagsList flags;
+using namespace llvm;
 
-        assert(module && "Module is not set");
-        // ToDo: use MetadataAPI for collecting the data.
-        NamedMDNode* metadata = module->getNamedMetadata("opencl.compiler.options");
-        if(metadata != NULL)
-        {
-            MDNode* flag = metadata->getOperand(0);
-            for(uint32_t i =0; flag && (i < flag->getNumOperands()); ++i)
-            {
-                MDString* flagName = dyn_cast<MDString>(flag->getOperand(i));
-                if(flagName->getString() == "-cl-fast-relaxed-math")
-                {
-                    flags.push_back(CL_FAST_RELAXED_MATH);
-                }
-                else if(flagName->getString() == "-cl-std=CL2.0")
-                {
-                    flags.push_back(CL_STD_20);
-                }
-                else if(flagName->getString() == "-cl-uniform-work-group-size")
-                {
-                    flags.push_back(CL_UNIFORM_WORK_GROUP_SIZE);
-                }
-            }
-        }
-        return flags;
-    }
+namespace Validation {
+
+unsigned CompilationFlags::getCLVersionFromMetadata(Module *M) {
+  assert(M && "Invalid module");
+
+  auto OCLVersionMD = M->getNamedMetadata("opencl.ocl.version");
+
+  if (!OCLVersionMD || !OCLVersionMD->getNumOperands())
+    return 120;
+
+  auto Op0 = OCLVersionMD->getOperand(0);
+
+  return
+    mdconst::extract<ConstantInt>(Op0->getOperand(0))->getZExtValue() * 100 +
+    mdconst::extract<ConstantInt>(Op0->getOperand(1))->getZExtValue() * 10;
+
+}
+
+unsigned CompilationFlags::getCLVersionFromFlags(const std::string &Flags) {
+  unsigned DefaultVersion = 120;
+
+  if (Flags.empty())
+    return DefaultVersion;
+
+  std::string::size_type n = Flags.find("-cl-std=CL");
+  if (n == std::string::npos)
+    return DefaultVersion;
+
+  return std::stoi(Flags.substr(n + 10, 1)) * 100 +
+         std::stoi(Flags.substr(n + 10 + 2, 1)) * 10;
+
+}
+
+bool CompilationFlags::hasFastRelaxedMathFlag(const std::string &Flags) {
+  if (Flags.empty())
+    return false;
+
+  return Flags.find("-cl-fast-relaxed-math") != std::string::npos;
+}
+
+bool CompilationFlags::hasUniformWGSizeFlag(const std::string &Flags) {
+  if (Flags.empty())
+    return false;
+
+  return Flags.find("-cl-uniform-work-group-size") != std::string::npos;
+}
 
 }

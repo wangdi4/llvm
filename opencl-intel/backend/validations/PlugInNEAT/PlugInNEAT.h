@@ -140,13 +140,13 @@ namespace llvm {
     class NEATPlugIn : public InstVisitor<NEATPlugIn>, public InterpreterPlugIn
     {
     public:
-        
+
         // map for mapping global variables to NEAT variables
         typedef std::map<const GlobalValue *, void * const>
             GlobalAddressMapTy;
 
         /// ctor
-        NEATPlugIn (bool bUseFmaNEAT, NEATPlugIn::GlobalAddressMapTy &GlobalMap, CompilationFlagsList& cFlags) :
+        NEATPlugIn (bool bUseFmaNEAT, NEATPlugIn::GlobalAddressMapTy &GlobalMap, const std::string &cFlags) :
             m_pInterp(NULL), m_pECStack(NULL), m_bUseFmaNEAT(bUseFmaNEAT), m_cFlags(cFlags), m_GlobalAddressMap(GlobalMap)
         {
             m_CurEvent = BAD_EVENT;
@@ -348,7 +348,7 @@ namespace llvm {
         NEATDataLayout  m_NTD;
         /// Use interval for mul in the NEAT if specified
         bool const m_bUseFmaNEAT;
-        CompilationFlagsList m_cFlags;
+        std::string m_cFlags;
         /// current event being handled by NEAT
         enum CurEvent {PRE_INST, POST_INST, PRE_FUNC, POST_FUNC, BAD_EVENT} m_CurEvent;
         /// get current event

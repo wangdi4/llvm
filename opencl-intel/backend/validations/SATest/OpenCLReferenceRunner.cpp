@@ -158,7 +158,10 @@ void OpenCLReferenceRunner::Run(IRunResult* runResult,
                                 const IProgramConfiguration* programConfig,
                                 const IRunComponentConfiguration* runConfig)
 {
-    const OpenCLProgramConfiguration *pProgramConfig = static_cast<const OpenCLProgramConfiguration *>(programConfig);
+    const OpenCLProgramConfiguration *pProgramConfig =
+      static_cast<const OpenCLProgramConfiguration *>(programConfig);
+    const std::string cFlags = pProgramConfig->GetCompilationFlags();
+
     const ReferenceRunOptions *pRunConfig = static_cast<const ReferenceRunOptions *>(runConfig);
 
     m_pModule = static_cast<const OpenCLProgram*>(program)->ParseToModule();
@@ -171,7 +174,7 @@ void OpenCLReferenceRunner::Run(IRunResult* runResult,
         ++it )
     {
         std::string kernelName = (*it)->GetKernelName();
-        RunKernel( runResult, *it, pRunConfig );
+        RunKernel( runResult, *it, pRunConfig, cFlags );
     }
 }
 
@@ -817,22 +820,10 @@ static void ConvertSizeTtoUint64T(const size_t *pI, std::vector<uint64_t>& O, ui
         O[i] = (uint64_t) pI[i];
 }
 
-static bool isWGSizeMustBeUniform(llvm::Module *module)
-{
-    CompilationFlagsList flagsList = GetCompilationFlags(module);
-
-    const bool cl20 = find(flagsList.begin(), flagsList.end(), CL_STD_20)
-        != flagsList.end();
-
-    const bool uniformWGSize = find(flagsList.begin(), flagsList.end(), CL_UNIFORM_WORK_GROUP_SIZE)
-        != flagsList.end();
-
-    return !cl20 || uniformWGSize;
-}
-
 void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                                        OpenCLKernelConfiguration * pKernelConfig,
-                                       const ReferenceRunOptions* runConfig )
+                                       const ReferenceRunOptions* runConfig,
+                                       const std::string& cFlags )
 {
     assert(pKernelConfig != NULL && "There is no kernel to run!");
 
@@ -880,7 +871,15 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     // convert size_t to uint64_t
     ConvertSizeTtoUint64T(pKernelConfig->GetGlobalWorkOffset(), GlobalWorkOffset, workDim);
 
-    const bool wgSizeMustUniform = isWGSizeMustBeUniform(m_pModule);
+    // For OpenCL 1.2 and lower work groups are always uniform
+    unsigned OCLVersion =
+      CompilationFlags::getCLVersionFromMetadata(m_pModule);
+    bool wgSizeMustUniform = OCLVersion <= 120;
+
+    // For OpenCL 2.0 and higher work groups are uniform if
+    // "-cl-uniform-work-group-size" compiler option was specified
+    wgSizeMustUniform |= OCLVersion > 120 &&
+                         CompilationFlags::hasUniformWGSizeFlag(cFlags);
 
     // check usage of default local work size ( == 0 )
     for(uint32_t i=0; i < workDim; ++i)
@@ -937,9 +936,6 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     // local engines
     std::vector<ExecutionEngine *> localEngines;
     std::vector<NEATPlugIn *> localNEATs;
-
-    //program compilation flags
-    CompilationFlagsList cFlags = GetCompilationFlags(m_pModule);
 
     // total number of local workitems
     const uint32_t totalLocalWIs = localWGSizes[0] * localWGSizes[1] * localWGSizes[2];

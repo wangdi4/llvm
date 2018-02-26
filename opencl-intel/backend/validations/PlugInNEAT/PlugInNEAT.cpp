@@ -4246,7 +4246,8 @@ void * NEATPlugIn::getPointerToGlobal( const GlobalValue *GV )
 
 bool NEATPlugIn::isFRMPrecisionOn()
 {
-    return ( std::find(m_cFlags.begin(), m_cFlags.end(), CL_FAST_RELAXED_MATH) != m_cFlags.end() &&
-        std::find(m_cFlags.begin(), m_cFlags.end(), CL_STD_20) != m_cFlags.end()
-        );
+    unsigned OCLVersion = CompilationFlags::getCLVersionFromFlags(m_cFlags);
+
+    return OCLVersion >= 200 &&
+           CompilationFlags::hasFastRelaxedMathFlag(m_cFlags);
 }
