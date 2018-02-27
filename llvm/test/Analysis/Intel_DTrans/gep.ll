@@ -195,7 +195,7 @@ declare noalias i8* @malloc(i64)
 ; CHECK-NOT: Read
 ; CHECK-NOT: Written
 ; CHECK: Field info: Written
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Nested structure
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.S2 = type { [32 x i32], %struct.S1, %struct.S2* }
@@ -206,7 +206,7 @@ declare noalias i8* @malloc(i64)
 ; CHECK-NOT: Read
 ; CHECK-NOT: Written
 ; CHECK: Field info: Written
-; CHECK: Safety data: Field address taken
+; CHECK: Safety data: Field address taken | Contains nested structure
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.S3 = type { %struct.S2*, %struct.S1* }
@@ -215,26 +215,26 @@ declare noalias i8* @malloc(i64)
 ; CHECK: Safety data: No issues found
 
 ; CHECK: LLVMType: %struct.S4 = type { i8, i32 }
-; CHECK: Safety data: Global instance
+; CHECK: Safety data: Global instance | Nested structure
 ; CHECK: LLVMType: %struct.S5 = type { %struct.S4, i32 }
-; CHECK: Safety data: Global instance
+; CHECK: Safety data: Global instance | Contains nested structure
 ; CHECK: LLVMType: %struct.S6 = type { [256 x i8], i32 }
 ; CHECK: Safety data: No issues found
 
 ; CHECK: LLVMType: %struct.bad.S1 = type { i32, i32, i32 }
 ; CHECK: Safety data: Bad pointer manipulation
 ; CHECK: LLVMType: %struct.bad.S2 = type { i32, i32 }
-; CHECK: Safety data: Bad pointer manipulation
+; CHECK: Safety data: Bad pointer manipulation | Nested structure
 ; CHECK: LLVMType: %struct.bad.S3 = type { i32, %struct.bad.S2 }
-; CHECK: Safety data: Bad pointer manipulation
+; CHECK: Safety data: Bad pointer manipulation | Contains nested structure
 ; CHECK: LLVMType: %struct.bad.S4 = type { i32, i32 }
 ; CHECK: Safety data: Ambiguous GEP
 ; CHECK: LLVMType: %struct.bad.S5 = type { i32, i32, i32 }
 ; CHECK: Safety data: Ambiguous GEP
 ; CHECK: LLVMType: %struct.bad.S6 = type { i32, i32 }
-; CHECK: Safety data: Bad pointer manipulation
+; CHECK: Safety data: Bad pointer manipulation | Nested structure
 ; CHECK: LLVMType: %struct.bad.S7 = type { i32, [4 x %struct.bad.S6] }
-; CHECK: Safety data: Bad pointer manipulation
+; CHECK: Safety data: Bad pointer manipulation | Contains nested structure
 
 ; CHECK: DTRANS_ArrayInfo:
 ; CHECK: LLVMType: [32 x i32]

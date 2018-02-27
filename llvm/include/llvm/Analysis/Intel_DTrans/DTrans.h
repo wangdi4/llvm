@@ -26,6 +26,7 @@ class TargetLibraryInfo;
 class Function;
 class Instruction;
 class Type;
+class StructType;
 class CallInst;
 class Value;
 
@@ -125,6 +126,18 @@ const SafetyData AmbiguousPointerTarget = 0x0000000000008000;
 /// The address of an aggregate object escaped through a function call or
 /// a return statement.
 const SafetyData AddressTaken = 0x0000000000010000;
+
+/// The structure was declared with no fields.
+const SafetyData NoFieldsInStruct = 0x0000000000020000;
+
+/// The structure is contained as a non-pointer member of another structure.
+const SafetyData NestedStruct = 0x0000000000040000;
+
+/// The structure contains another structure as a non-pointer member.
+const SafetyData ContainsNestedStruct = 0x0000000000080000;
+
+/// The structure was identified as a system object type.
+const SafetyData SystemObject = 0x0000000000100000;
 
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
@@ -256,6 +269,13 @@ void getAllocSizeArgs(AllocKind Kind, CallInst *CI, Value* &AllocSizeVal,
 /// type) whose element zero is accessed, if any.
 bool isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
                          llvm::Type **AccessedTy = nullptr);
+
+/// Check whether the specified type is the type of a known system object.
+bool isSystemObjectType(llvm::StructType *Ty);
+
+/// Get the maximum number of fields in a structure that are allowed before
+/// we are unwilling to attempts dtrans optimizations.
+unsigned getMaxFieldsInStruct();
 
 } // namespace dtrans
 

@@ -260,6 +260,24 @@ AddressTaken
 This indicates that the address of an object of the type was returned by
 a function using an anonymous type (i8* or i64).
 
+NoFieldsInStruct
+~~~~~~~~~~~~~~~~
+The type represents a structure which was defined with no fields.
+
+NestedStruct
+~~~~~~~~~~~~
+The type identifies a structure that was contained as a non-pointer member
+of another structure.
+
+ContainsNestedStruct
+~~~~~~~~~~~~~~~~~~~~
+The type identifies a structure that contains another structure as a
+non-pointer member.
+
+SystemObject
+~~~~~~~~~~~~
+The type was identified as a known system structure type.
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we

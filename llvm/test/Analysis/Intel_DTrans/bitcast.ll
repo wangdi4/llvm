@@ -104,9 +104,9 @@ define void @test8( %struct.test08.b* %pb ) {
 }
 
 ; CHECK: LLVMType: %struct.test08.a = type { i32, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Nested structure
 ; CHECK: LLVMType: %struct.test08.b = type { %struct.test08.a, i32, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Contains nested structure
 
 ; Unsafe element zero access through bitcast.
 %struct.test09.a = type { i32, i32 }
@@ -118,9 +118,9 @@ define void @test9( %struct.test09.b* %pb ) {
 }
 
 ; CHECK: LLVMType: %struct.test09.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: Bad casting | Nested structure
 ; CHECK: LLVMType: %struct.test09.b = type { %struct.test09.a, i32, i32 }
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: Bad casting | Contains nested structure
 ; CHECK: LLVMType: %struct.test09.c = type { i32, i32, i32, i32 }
 ; CHECK: Safety data: Bad casting
 
@@ -297,7 +297,9 @@ define void @test22(%struct.test22.b* %pb) {
 }
 
 ; CHECK: LLVMType: %struct.test22.a = type { i32, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Nested structure
+; CHECK: LLVMType: %struct.test22.b = type { i32, %struct.test22.a, i32 }
+; CHECK: Safety data: Contains nested structure
 
 ; Bad cast of GEP-derived pointer through an intermediate i8*
 %struct.test23.a = type { i32, i32 }
@@ -310,9 +312,9 @@ define void @test23(%struct.test23.b* %pb) {
 }
 
 ; CHECK: LLVMType: %struct.test23.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: Bad casting | Nested structure
 ; CHECK: LLVMType: %struct.test23.b = type { i32, %struct.test23.a, i32 }
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: Bad casting | Contains nested structure
 
 ; Cast of inttoptr value through an intermediate i8*
 ; Note: inttoptr will typically be used when a pointer is loaded

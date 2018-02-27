@@ -121,7 +121,7 @@ end:
 ;       the resulting value won't be used as if it were a pointer to
 ;       a %struct.test06 object, while it may refer to the %p2 argument.
 ; CHECK: LLVMType: %struct.test06 = type { i32, i32 }
-; CHECK: Safety data: Unsafe pointer merge 
+; CHECK: Safety data: Unsafe pointer merge
 
 ; Load from a GEP-based pointer with the correct type
 %struct.test07 = type { i32, i32 }
@@ -279,9 +279,9 @@ define void @test19(%struct.test19.b* %p) {
 }
 
 ; CHECK: LLVMType: %struct.test19.a = type { i32, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Nested structure
 ; CHECK: LLVMType: %struct.test19.b = type { %struct.test19.a, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Contains nested structure
 
 ; Load of nested array element zero.
 %struct.test20 = type { [16 x i32], i32 }
@@ -335,9 +335,9 @@ define void @test24(%struct.test24.b* %pb) {
 }
 
 ; CHECK: LLVMType: %struct.test24.a = type { i32, i32 }
-; CHECK: Safety data: Whole structure reference
+; CHECK: Safety data: Whole structure reference | Nested structure
 ; CHECK: LLVMType: %struct.test24.b = type { %struct.test24.a, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Contains nested structure
 
 ; Store an allocated pointer directly to memory.
 %struct.test25 = type { i32, i32 }

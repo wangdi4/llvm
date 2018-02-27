@@ -14,6 +14,7 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Analysis/Intel_DTrans/DTrans.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/BasicBlock.h"
@@ -22,6 +23,16 @@
 
 using namespace llvm;
 using namespace dtrans;
+
+bool dtrans::isSystemObjectType(llvm::StructType *Ty) {
+  if (!Ty->hasName())
+    return false;
+
+  return StringSwitch<bool>(Ty->getName())
+      .Case("struct._IO_FILE", true)
+      .Case("struct._IO_marker", true)
+      .Default(false);
+}
 
 AllocKind dtrans::getAllocFnKind(Function *F, const TargetLibraryInfo &TLI) {
   // TODO: Make this implementation more comprehensive.
@@ -153,7 +164,9 @@ void dtrans::TypeInfo::printSafetyData() {
       dtrans::GlobalPtr | dtrans::GlobalInstance | dtrans::HasInitializerList |
       dtrans::BadMemFuncSize | dtrans::BadMemFuncManipulation |
       dtrans::AmbiguousPointerTarget | dtrans::UnsafePtrMerge |
-      dtrans::AddressTaken | dtrans::UnhandledUse;
+      dtrans::AddressTaken | dtrans::NoFieldsInStruct |
+      dtrans::NestedStruct | dtrans::ContainsNestedStruct |
+      dtrans::SystemObject | dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
   static_assert(ImplementedMask ==
@@ -166,7 +179,9 @@ void dtrans::TypeInfo::printSafetyData() {
                      dtrans::HasInitializerList ^ dtrans::BadMemFuncSize ^
                      dtrans::BadMemFuncManipulation ^
                      dtrans::AmbiguousPointerTarget ^ dtrans::UnsafePtrMerge ^
-                     dtrans::AddressTaken ^ dtrans::UnhandledUse),
+                     dtrans::AddressTaken ^ dtrans::NoFieldsInStruct ^
+                     dtrans::NestedStruct ^ dtrans::ContainsNestedStruct ^
+                     dtrans::SystemObject ^ dtrans::UnhandledUse),
                 "Duplicate value used in dtrans safety conditions");
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
@@ -203,6 +218,14 @@ void dtrans::TypeInfo::printSafetyData() {
     SafetyIssues.push_back("Unsafe pointer merge");
   if (SafetyInfo & dtrans::AddressTaken)
     SafetyIssues.push_back("Address taken");
+  if (SafetyInfo & NoFieldsInStruct)
+    SafetyIssues.push_back("No fields in structure");
+  if (SafetyInfo & dtrans::NestedStruct)
+    SafetyIssues.push_back("Nested structure");
+  if (SafetyInfo & dtrans::ContainsNestedStruct)
+    SafetyIssues.push_back("Contains nested structure");
+  if (SafetyInfo & dtrans::SystemObject)
+    SafetyIssues.push_back("System object");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
   // Print the safety issues found
