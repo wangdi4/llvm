@@ -27,9 +27,9 @@ for.body:                                         ; preds = %for.body, %for.body
   %arrayidx2 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv, !dbg !31
   store i32 %0, i32* %arrayidx2, align 4, !dbg !32, !tbaa !27
 ; CHECK: remark: foo.c:3:12: streaming memory conversion failed:
-; CHECK-SAME: memory dependencies are not loop-invariant
+; CHECK-SAME: memory ordering tokens are not loop-invariant
 ; CHECK: remark: foo.c:3:10: streaming memory conversion failed:
-; CHECK-SAME: memory dependencies are not loop-invariant
+; CHECK-SAME: memory ordering tokens are not loop-invariant
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !33
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count, !dbg !23
   br i1 %exitcond, label %for.end, label %for.body, !dbg !25, !llvm.loop !34
