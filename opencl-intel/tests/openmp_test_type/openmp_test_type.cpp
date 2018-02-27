@@ -34,7 +34,7 @@ protected:
   virtual void SetUp();
   virtual void TearDown();
 
-  void runTest(const char* name);
+  void runTest(const char* name, const char* options = "");
 
   cl_platform_id   m_platform;
   cl_device_id     m_device;
@@ -83,7 +83,7 @@ void OmpTestType::TearDown() {
   if (m_device)           clReleaseDevice(m_device);
 }
 
-void OmpTestType::runTest(const char* name) {
+void OmpTestType::runTest(const char* name, const char* options) {
   cl_int error = CL_SUCCESS;
 
   std::string programSrc = "#include \"";
@@ -97,12 +97,12 @@ void OmpTestType::runTest(const char* name) {
       m_context, 1, &src, NULL, &error);
   ASSERT_EQ(CL_SUCCESS, error) << "clCreateProgramWithSource failed";
 
-  const char* options = "";
+  std::string opts(options);
 #ifdef DEBUG
-  options = "-DDEBUG"
+  opts += " -DDEBUG"
 #endif
 
-  error = clBuildProgram(program, 0, NULL, options, NULL, NULL);
+  error = clBuildProgram(program, 0, NULL, opts.c_str(), NULL, NULL);
 
   if (error != CL_SUCCESS) {
     size_t logSize;
@@ -260,3 +260,7 @@ OMP_TEST(taskloop_nested_reduction_atomic)
 OMP_TEST(taskloop_private)
 OMP_TEST(taskloop_reduction1)
 OMP_TEST(taskloop_shared)
+
+TEST_F(OmpTestType, debug) {
+  runTest("simd_func_linear", "-g");
+}

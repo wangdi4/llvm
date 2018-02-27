@@ -109,6 +109,9 @@ const char *GetOpenCLVersionStr(OPENCL_VERSION ver) {
   }
 }
 
+static bool shouldIgnoreOptionForDebug(llvm::StringRef opt) {
+  return opt.contains("openmp") || opt == "-fintel-compatibility";
+}
 
 int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   bool bProfiling   = false,
@@ -248,6 +251,9 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
       std::stringstream optionsSS(optionsClang);
       std::string buf;
       while (getline(optionsSS, buf,' ')) {
+        if (bDebug && shouldIgnoreOptionForDebug(buf)) {
+          continue;
+        }
         optionsEx << " " << buf;
       }
     }
