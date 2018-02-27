@@ -92,6 +92,7 @@
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/InstrProfiling.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTpv.h"    // INTEL
 #include "llvm/Transforms/Intel_VPO/Utils/CFGRestructuring.h" // INTEL
 #include "llvm/Transforms/PGOInstrumentation.h"
 #include "llvm/Transforms/SampleProfile.h"

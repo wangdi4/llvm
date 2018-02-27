@@ -80,6 +80,7 @@ MODULE_PASS("strip-dead-prototypes", StripDeadPrototypesPass())
 MODULE_PASS("wholeprogramdevirt", WholeProgramDevirtPass())
 MODULE_PASS("inlinelists", InlineListsPass()) // INTEL
 MODULE_PASS("verify", VerifierPass())
+MODULE_PASS("vpo-paropt-tpv", VPOParoptTpvLegacyPass()) // INTEL
 #undef MODULE_PASS
 
 #ifndef CGSCC_ANALYSIS
