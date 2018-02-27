@@ -74,7 +74,7 @@ static raw_ostream &dbgPrint() {
 /// like usage of channels or infinite loops.
 static bool isFunctionVectorizable(Function &F, LoopInfo &LI) {
   auto KMd = KernelMetadataAPI(&F);
-  if (KMd.Task.hasValue() && KMd.Task.get())
+  if (KMd.MaxGlobalWorkDim.hasValue() && KMd.MaxGlobalWorkDim.get() == 0)
     return false;
 
   Statistic::ActiveStatsT KernelStats;

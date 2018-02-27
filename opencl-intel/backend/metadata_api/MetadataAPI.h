@@ -68,7 +68,7 @@ struct KernelMetadataAPI {
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> ReqdNumSubGroupsTy;
   typedef NamedHeteroTupleMDList<llvm::Type, int32_t> VecTypeHintTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> VecLenHintTy;
-  typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> TaskTy;
+  typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> MaxGlobalWorkDimTy;
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> AutorunTy;
   typedef NamedMDList<int32_t, MDValueGlobalObjectStrategy> NumComputeUnitsTy;
 
@@ -85,7 +85,7 @@ struct KernelMetadataAPI {
         ReqdNumSubGroups(Func, "required_num_sub_groups"),
         VecTypeHint(Func, "vec_type_hint"),
         VecLenHint(Func, "intel_vec_len_hint"),
-        Task(Func, "task"),
+        MaxGlobalWorkDim(Func, "max_global_work_dim"),
         Autorun(Func, "autorun"),
         NumComputeUnits(Func, "num_compute_units")
      {
@@ -101,7 +101,7 @@ struct KernelMetadataAPI {
        MDNames.push_back(ReqdNumSubGroups.getID());
        MDNames.push_back(VecTypeHint.getID());
        MDNames.push_back(VecLenHint.getID());
-       MDNames.push_back(Task.getID());
+       MDNames.push_back(MaxGlobalWorkDim.getID());
        MDNames.push_back(Autorun.getID());
        MDNames.push_back(NumComputeUnits.getID());
      }
@@ -120,7 +120,7 @@ struct KernelMetadataAPI {
   NamedMDValueAccessor<ReqdNumSubGroupsTy> ReqdNumSubGroups;
   VecTypeHintTupleMDListAccessor<VecTypeHintTy> VecTypeHint;
   NamedMDValueAccessor<VecLenHintTy> VecLenHint;
-  NamedMDValueAccessor<TaskTy> Task;
+  NamedMDValueAccessor<MaxGlobalWorkDimTy> MaxGlobalWorkDim;
   NamedMDValueAccessor<AutorunTy> Autorun;
   WorkgroupSizeMDAccessor<NumComputeUnitsTy> NumComputeUnits;
 

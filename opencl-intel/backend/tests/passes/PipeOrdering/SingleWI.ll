@@ -4,7 +4,7 @@
 ;
 ; channel int ch;
 ;
-; __attribute__ ((task)) __kernel void foo(__global int *iters) {
+; __attribute__ ((max_global_work_dim(0))) __kernel void foo(__global int *iters) {
 ;     for (int i = 0; i < *iters; ++i) {
 ;         write_channel_intel(ch, 42);
 ;     }
@@ -26,7 +26,7 @@
 @llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @__global_pipes_ctor, i8* null }]
 
 ; Function Attrs: nounwind
-define void @foo(i32 addrspace(1)* %iters) #0 !kernel_arg_addr_space !8 !kernel_arg_access_qual !9 !kernel_arg_type !10 !kernel_arg_base_type !10 !kernel_arg_type_qual !11 !task !12 {
+define void @foo(i32 addrspace(1)* %iters) #0 !kernel_arg_addr_space !8 !kernel_arg_access_qual !9 !kernel_arg_type !10 !kernel_arg_base_type !10 !kernel_arg_type_qual !11 !max_global_work_dim !12 {
 entry:
   %write.src = alloca i32
   %iters.addr = alloca i32 addrspace(1)*, align 8
@@ -129,7 +129,7 @@ attributes #3 = { nounwind }
 !9 = !{!"none"}
 !10 = !{!"int*"}
 !11 = !{!""}
-!12 = !{i1 true}
+!12 = !{i32 0}
 !13 = !{!14, !14, i64 0}
 !14 = !{!"any pointer", !15, i64 0}
 !15 = !{!"omnipotent char", !16, i64 0}

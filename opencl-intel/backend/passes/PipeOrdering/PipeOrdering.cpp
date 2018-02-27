@@ -134,10 +134,10 @@ namespace intel {
 
     // Check if the function is a kernel
     if (std::find(m_kernels.begin(), m_kernels.end(), F) != m_kernels.end()) {
-      // If there is no 'task' attribute or it set to 'false'
+      // If there is no 'max_global_work_dim' attribute or it not equals to '0'
       // this may be an NDRange kernel
       auto KMd = KernelMetadataAPI(F);
-      if (!KMd.Task.hasValue() || !KMd.Task.get()) {
+      if (!KMd.MaxGlobalWorkDim.hasValue() || KMd.MaxGlobalWorkDim.get() != 0) {
         ProcessedFuncs.insert({F, true});
         return true;
       }

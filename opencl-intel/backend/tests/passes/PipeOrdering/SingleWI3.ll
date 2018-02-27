@@ -10,7 +10,7 @@
 ;   }
 ; }
 ;
-; __attribute__ ((task)) __kernel void boo(__global int *iters) {
+; __attribute__ ((max_global_work_dim(0))) __kernel void boo(__global int *iters) {
 ;   foo(iters);
 ; }
 ; Compile options: clang -cc1 -cl-std=CL2.0 -triple spir64-unknown-unknown-intelfpga -emit-llvm -x cl -disable-llvm-passes -finclude-default-header test.cl -o test.ll
@@ -83,7 +83,7 @@ declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
 
 ; Function Attrs: nounwind
-define void @boo(i32 addrspace(1)* %iters) #0 !kernel_arg_addr_space !8 !kernel_arg_access_qual !9 !kernel_arg_type !10 !kernel_arg_base_type !10 !kernel_arg_type_qual !11 !task !19 {
+define void @boo(i32 addrspace(1)* %iters) #0 !kernel_arg_addr_space !8 !kernel_arg_access_qual !9 !kernel_arg_type !10 !kernel_arg_base_type !10 !kernel_arg_type_qual !11 !max_global_work_dim !19 {
 entry:
   %iters.addr = alloca i32 addrspace(1)*, align 8
   store i32 addrspace(1)* %iters, i32 addrspace(1)** %iters.addr, align 8, !tbaa !12
@@ -150,4 +150,4 @@ attributes #3 = { nounwind }
 !16 = !{!17, !17, i64 0}
 !17 = !{!"int", !14, i64 0}
 !18 = !{!14, !14, i64 0}
-!19 = !{i1 true}
+!19 = !{i32 0}
