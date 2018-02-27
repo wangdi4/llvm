@@ -21,6 +21,7 @@
 #include "ChannelPipeTransformation.h"
 
 #include <llvm/ADT/DenseMap.h>
+#include <llvm/ADT/MapVector.h>
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/ADT/SmallString.h>
 #include <llvm/IR/IRBuilder.h>
@@ -81,6 +82,7 @@ struct ChannelMetadata {
 typedef ChannelMetadata PipeMetadata;
 
 typedef DenseMap<Value *, Value *> ValueToValueMap;
+typedef MapVector<Value *, Value *> ValueToValueStableMap;
 typedef DenseMap<std::pair<Function *, Type *>, Value *> AllocaMapType;
 
 typedef std::pair<Value *, Value *> ValueValuePair;
@@ -384,7 +386,7 @@ static ChannelMetadata getChannelMetadata(GlobalVariable *Channel) {
 }
 
 static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,
-                                  ValueToValueMap &VMap,
+                                  ValueToValueStableMap &VMap,
                                   OCLBuiltins &Builtins) {
   bool Changed = false;
   Function *GlobalCtor = nullptr;
@@ -751,7 +753,7 @@ static void cleanup(Module &M, SmallPtrSetImpl<Instruction *> &ToDelete,
 }
 
 static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
-                                     ValueToValueMap &GlobalVMap,
+                                     ValueToValueStableMap &GlobalVMap,
                                      OCLBuiltins &Builtins) {
   ValueToValueMap VMap;
   SmallPtrSet<Instruction *, 32> ToDelete;
@@ -839,7 +841,7 @@ bool ChannelPipeTransformation::runOnModule(Module &M) {
   }
   auto *PipeTy = PointerType::get(PipeValueTy, Utils::OCLAddressSpace::Global);
 
-  ValueToValueMap GlobalVMap;
+  ValueToValueStableMap GlobalVMap;
   bool Changed =
       replaceGlobalChannels(M, ChannelTy, PipeTy, GlobalVMap, Builtins);
   if (!Changed)
