@@ -1160,6 +1160,10 @@ AAManager PassBuilder::buildDefaultAAPipeline() {
   AA.registerFunctionAnalysis<ScopedNoAliasAA>();
   AA.registerFunctionAnalysis<TypeBasedAA>();
 
+#if INTEL_CUSTOMIZATION
+  AA.registerFunctionAnalysis<StdContainerAA>();
+#endif // INTEL_CUSTOMIZATION
+
   // Add support for querying global aliasing information when available.
   // Because the `AAManager` is a function analysis and `GlobalsAA` is a module
   // analysis, all that the `AAManager` can do is query for any *cached*

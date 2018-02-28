@@ -322,6 +322,7 @@
 ; CHECK-AA-DEFAULT: Running analysis: BasicAA
 ; CHECK-AA-DEFAULT: Running analysis: ScopedNoAliasAA
 ; CHECK-AA-DEFAULT: Running analysis: TypeBasedAA
+; CHECK-AA-DEFAULT: Running analysis: StdContainerAA  ;INTEL
 ; CHECK-AA-DEFAULT: Finished llvm::Module pass manager run
 
 ; RUN: opt -disable-output -disable-verify -debug-pass-manager %s 2>&1 \
