@@ -275,9 +275,9 @@ FunctionPass *createNonLTOGlobalOptimizerPass();
 // metadata based on the analysis of std container intrinisc.
 FunctionPass *createStdContainerOptPass();
 
-// TbaaMDPropagationPass is a pass which recovers the tbaa information
+// TbaaMDPropagationLegacyPass is a pass which recovers the tbaa information
 // for the return pointer dereferences after functions have been inlined.
-FunctionPass *createTbaaMDPropagationPass();
+FunctionPass *createTbaaMDPropagationLegacyPass();
 
 // CleanupFakeLoadsPass is a pass which removes intel.fakeload intrinsics
 // (which are needed by TbaaMDPropagationPass) after all inlining is finished.

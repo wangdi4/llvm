@@ -88,7 +88,7 @@ namespace {
       (void) llvm::createDTransOptWrapperPass();
       (void) llvm::createDTransAnalysisWrapperPass();
       (void) llvm::createNonLTOGlobalOptimizerPass();
-      (void) llvm::createTbaaMDPropagationPass();
+      (void) llvm::createTbaaMDPropagationLegacyPass();
       (void) llvm::createCleanupFakeLoadsPass();
       (void) llvm::createStdContainerOptPass();
       (void) llvm::createStdContainerAAWrapperPass();

@@ -76,76 +76,30 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "tbaa-prop"
-
 namespace {
-struct TbaaMDPropagation : public FunctionPass,
-                           public InstVisitor<TbaaMDPropagation> {
+
+struct TbaaMDPropagationImpl : public InstVisitor<TbaaMDPropagationImpl> {
 public:
-  static char ID;
-  TbaaMDPropagation() : FunctionPass(ID) {
-    initializeTbaaMDPropagationPass(*PassRegistry::getPassRegistry());
-  }
-  bool runOnFunction(Function &F);
   void visitInstruction(Instruction &I) { return; }
   void visitIntrinsicInst(IntrinsicInst &II);
-  StringRef getPassName() const override { return "TBAAPROP"; }
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesCFG();
-    AU.addPreserved<GlobalsAAWrapperPass>();
-  }
 
 private:
-  friend class InstVisitor<TbaaMDPropagation>;
+  friend class InstVisitor<TbaaMDPropagationImpl>;
 };
-}
-char TbaaMDPropagation::ID = 0;
-INITIALIZE_PASS_BEGIN(TbaaMDPropagation, "tbaa-prop",
-                      "Propagate the TbaaMD through intrinsic", false, false)
-INITIALIZE_PASS_END(TbaaMDPropagation, "tbaa-prop",
-                    "Propagate the TbaaMD through intrinsic", false, false)
-
-FunctionPass *llvm::createTbaaMDPropagationPass() {
-  return new TbaaMDPropagation();
-}
-
-PreservedAnalyses TbaaMDPropagationPass::run(Function &F,
-                                             FunctionAnalysisManager &AM) {
-  auto PA = PreservedAnalyses();
-  PA.preserve<GlobalsAA>();
-  return PA;
-}
-
-bool TbaaMDPropagation::runOnFunction(Function &F) {
-  if (skipFunction(F))
-    return false;
-
-  for (BasicBlock &BB : F) {
-    for (auto II = BB.begin(), IE = BB.end(); II != IE;) {
-      // Because we might be erasing the instruction, we need to get the
-      // instruction reference first and then increment the iterator before
-      // visiting the instruction.
-      Instruction &I = *II;
-      ++II;
-      visit(&I);
-    }
-  }
-  return false;
-}
 
 // The tbaa information is retrieved from the fakeload intrinsic
-// and attached to the pointer's dereference sites. 
-void TbaaMDPropagation::visitIntrinsicInst(IntrinsicInst &II) {
+// and attached to the pointer's dereference sites.
+void TbaaMDPropagationImpl::visitIntrinsicInst(IntrinsicInst &II) {
   MDNode *P;
   if (II.getIntrinsicID() != Intrinsic::intel_fakeload)
     return;
-  
+
   // If the only user is a return instruction, we aren't at the right level
   // of inlining yet.
   if (II.hasOneUse() && isa<ReturnInst>(II.user_back()))
     return;
   P = dyn_cast<MDNode>(
-        cast<MetadataAsValue>(II.getArgOperand(1))->getMetadata());
+      cast<MetadataAsValue>(II.getArgOperand(1))->getMetadata());
   bool HasRetUser = false;
   for (auto *User : II.users()) {
     LoadInst *LI = dyn_cast<LoadInst>(User);
@@ -170,6 +124,65 @@ void TbaaMDPropagation::visitIntrinsicInst(IntrinsicInst &II) {
     II.replaceAllUsesWith(II.getArgOperand(0));
     II.eraseFromParent();
   }
+}
+
+bool runTbaaMDPropagation(Function &F) {
+  TbaaMDPropagationImpl impl;
+  for (BasicBlock &BB : F) {
+    for (auto II = BB.begin(), IE = BB.end(); II != IE;) {
+      // Because we might be erasing the instruction, we need to get the
+      // instruction reference first and then increment the iterator before
+      // visiting the instruction.
+      Instruction &I = *II;
+      ++II;
+      impl.visit(&I);
+    }
+  }
+  return false; // FIXME: Should this return true when something changes?
+}
+
+struct TbaaMDPropagationLegacyPass : public FunctionPass {
+public:
+  static char ID;
+  TbaaMDPropagationLegacyPass() : FunctionPass(ID) {
+    initializeTbaaMDPropagationLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
+  bool runOnFunction(Function &F);
+  StringRef getPassName() const override { return "TBAAPROP"; }
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesCFG();
+    AU.addPreserved<GlobalsAAWrapperPass>();
+  }
+};
+
+} // end anonymous namespace
+
+char TbaaMDPropagationLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(TbaaMDPropagationLegacyPass, "tbaa-prop",
+                      "Propagate the TbaaMD through intrinsic", false, false)
+INITIALIZE_PASS_END(TbaaMDPropagationLegacyPass, "tbaa-prop",
+                    "Propagate the TbaaMD through intrinsic", false, false)
+
+FunctionPass *llvm::createTbaaMDPropagationLegacyPass() {
+  return new TbaaMDPropagationLegacyPass();
+}
+
+bool TbaaMDPropagationLegacyPass::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
+  return runTbaaMDPropagation(F);
+}
+
+PreservedAnalyses TbaaMDPropagationPass::run(Function &F,
+                                             FunctionAnalysisManager &AM) {
+  if (!runTbaaMDPropagation(F))
+    return PreservedAnalyses::all();
+
+  auto PA = PreservedAnalyses();
+  PA.preserveSet<CFGAnalyses>();
+  PA.preserve<GlobalsAA>();
+  return PA;
 }
 
 static bool runCleanupFakeLoads(Function &F) {
@@ -232,4 +245,3 @@ bool CleanupFakeLoadsLegacyPass::runOnFunction(Function &F) {
 
   return runCleanupFakeLoads(F);
 }
-

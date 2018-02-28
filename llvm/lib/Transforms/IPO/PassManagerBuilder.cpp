@@ -494,7 +494,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // Propagate TBAA information before SROA so that we can remove mid-function
   // fakeload intrinsics which would block SROA.
   if (EnableTbaaProp)
-    MPM.add(createTbaaMDPropagationPass());
+    MPM.add(createTbaaMDPropagationLegacyPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Break up aggregate allocas, using SSAUpdater.

@@ -416,7 +416,7 @@ void initializeStdContainerAAWrapperPassPass(PassRegistry &);
 // Pass for alias metadata propagation
 void initializeStdContainerOptPass(PassRegistry &);
 // Pass for TBAA metadata propagation
-void initializeTbaaMDPropagationPass(PassRegistry &);
+void initializeTbaaMDPropagationLegacyPassPass(PassRegistry &);
 // Pass for removing fakeload intrinisics
 void initializeCleanupFakeLoadsLegacyPassPass(PassRegistry &);
 // Pass for indirect call conversion using points-to info
