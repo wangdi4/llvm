@@ -102,14 +102,16 @@ def RI16 : RegisterClass<"CSA", [i16,f16], 16, (add RI0)>;
 def RI32 : RegisterClass<"CSA", [i32,f32], 32, (add RI0)>;
 def RI64 : RegisterClass<"CSA", [i64,f64], 64, (add RI0)>;
 
-// These classes are used for instruction descriptions.
-// They allow either channels or registers.
-// When it comes to final register assignment, they can only be assigned
-// to registers.  (The assumption is that things that could be channels
-// were explicitly identified before register allocation.)
+// The following classes can be used in the instruction information to refer to
+// either register or LICs. These classes necessarily contain CI* register
+// classes for verification purposes, but we need to prevent LLVM from trying
+// to allocate LICs if we run out of registers, hence the use of alternative
+// regalloc orders that omit the LIC physical registers.
+let AltOrders=[(add RI0)], AltOrderSelect = [{ return 1; }] in {
 def I0  : RegisterClass<"CSA", [i1],      64, (add RI0 , CI0 )>;
-def I1  : RegisterClass<"CSA", [i1],      8, (add RI1 , CI1 )>;
-def I8  : RegisterClass<"CSA", [i8],      8, (add RI8 , CI8 )>;
+def I1  : RegisterClass<"CSA", [i1],      8,  (add RI1 , CI1 )>;
+def I8  : RegisterClass<"CSA", [i8],      8,  (add RI8 , CI8 )>;
 def I16 : RegisterClass<"CSA", [i16,f16], 16, (add RI16, CI16)>;
 def I32 : RegisterClass<"CSA", [i32,f32], 32, (add RI32, CI32)>;
 def I64 : RegisterClass<"CSA", [i64,f64], 64, (add RI64, CI64)>;
+}
