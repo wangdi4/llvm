@@ -46,27 +46,71 @@ void HIRCleanup::eliminateRedundantGotos() {
 
   for (auto I = HIRC.Gotos.begin(), E = HIRC.Gotos.end(); I != E; ++I) {
     auto Goto = *I;
-
-    HLLabel *LabelSuccessor =
-        dyn_cast_or_null<HLLabel>(HNU.getLexicalControlFlowSuccessor(Goto));
-
     auto TargetBB = Goto->getTargetBBlock();
 
-    // Goto is redundant, if
-    // 1) Its lexical successor is the same as its target.
-    // Or
-    // 2) It has no lexical successor and jumps to region exit.
-    if ((LabelSuccessor && (TargetBB == LabelSuccessor->getSrcBBlock())) ||
-        (!LabelSuccessor &&
-         (TargetBB == Goto->getParentRegion()->getSuccBBlock()))) {
-      HLNodeUtils::erase(Goto);
-    } else {
-      // Link Goto to its HLLabel target, if available.
-      auto It = HIRC.Labels.find(TargetBB);
+    HLNode *CurNode = Goto;
 
-      if (It != HIRC.Labels.end()) {
-        Goto->setTargetLabel(It->second);
-        RequiredLabels.push_back(It->second);
+    // We either remove Goto as redundant by looking at its control flow
+    // successors or link it to its target HLLabel.
+    while (1) {
+      auto *Successor = HNU.getLexicalControlFlowSuccessor(CurNode);
+
+      bool Erase = false, CheckNext = false;
+
+      if (!Successor) {
+        if (TargetBB == Goto->getParentRegion()->getSuccBBlock()) {
+          // Goto is redundant if it has no lexical successor and jumps to
+          // region exit.
+          Erase = true;
+        }
+      } else if (auto LabelSuccessor = dyn_cast<HLLabel>(Successor)) {
+
+        if (TargetBB == LabelSuccessor->getSrcBBlock()) {
+          // Goto is redundant if its lexical successor is the same as its
+          // target.
+          Erase = true;
+        } else {
+          // If successor is a label, goto can still be redundant based on
+          // label's successor.
+          // Example-
+          // goto L1; << This goto is redundant.
+          // L2:
+          // L1:
+          CurNode = Successor;
+          CheckNext = true;
+        }
+      } else if (auto GotoSuccessor = dyn_cast<HLGoto>(Successor)) {
+        // If the successor is a goto which also jumps to the same bblock,
+        // this goto is redundant.
+        // Example-
+        // goto L1; << This goto is redundant.
+        // L2:
+        // goto L1;
+        auto SuccTargetBB = GotoSuccessor->getTargetBBlock();
+
+        if (!SuccTargetBB) {
+          SuccTargetBB = GotoSuccessor->getTargetLabel()->getSrcBBlock();
+        }
+
+        if (SuccTargetBB == TargetBB) {
+          Erase = true;
+        }
+      }
+
+      if (Erase) {
+        HLNodeUtils::erase(Goto);
+        break;
+
+      } else if (!CheckNext) {
+        // Link Goto to its HLLabel target, if available.
+        auto It = HIRC.Labels.find(TargetBB);
+
+        if (It != HIRC.Labels.end()) {
+          Goto->setTargetLabel(It->second);
+          RequiredLabels.push_back(It->second);
+        }
+
+        break;
       }
     }
   }
