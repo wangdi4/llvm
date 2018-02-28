@@ -83,10 +83,10 @@ bool VPOUtils::stripDirectives(BasicBlock &BB) {
     // that is used by the matching END directive. Therefore, before removing
     // I, we must first remove all its uses, if any. Failing to do that
     // will result in this assertion: "Uses remain when a value is destroyed!"
-    for (User *U : I->users())
-      if (Instruction *UI = dyn_cast<Instruction>(U)) {
+    assert(I->getNumUses() <= 1 && "Expected not more than one use!");
+    if (I->hasOneUse())
+      if (auto *UI = dyn_cast<Instruction>(*I->user_begin()))
         UI->eraseFromParent();
-      }
 
     I->eraseFromParent();
   }
