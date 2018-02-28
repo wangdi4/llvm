@@ -157,6 +157,7 @@ struct CSAInnerLoopPrep : public FunctionPass {
     const Loop *L, const Loop *outerLoop,
     std::set<Instruction *> &needsRepeating,
     std::map<Instruction *, std::set<Use *>> &repeatForUses);
+  const DebugLoc &getAnyBlockLoc(BasicBlock*);
 
   // Eventually, particularly when the simulator switches to default to shallow
   // LICs, this needs to be implemented.
@@ -197,6 +198,16 @@ bool CSAInnerLoopPrep::runOnFunction(Function &F) {
     Changed |= runOnLoop(L);
 
   return Changed;
+}
+
+// StructurizeCFG tends to remove the DebugLoc of the one terminator
+// instruction that "Loop::getLoopLoc" looks for. Find ANYTHING else here.
+const DebugLoc &CSAInnerLoopPrep::getAnyBlockLoc(BasicBlock *b) {
+  for(Instruction &i : *b)
+    if (const DebugLoc &iLoc = i.getDebugLoc())
+      return iLoc;
+
+  return b->getTerminator()->getDebugLoc();
 }
 
 bool CSAInnerLoopPrep::runOnLoop(Loop *L) {
@@ -248,19 +259,27 @@ bool CSAInnerLoopPrep::runOnLoop(Loop *L) {
   IRBuilder<>{L->getHeader()->getTerminator()}.CreateCall(
     Intrinsic::getDeclaration(m, Intrinsic::csa_pipelineable_loop_marker),
     ConstantInt::get(IntegerType::get(Context, 64), pipeliningDepth));
+  Changed = true;
+
+  // Sometimes StructurizeCFG has murdered our block terminator DebugLocs. Ask
+  // Loop for its idea of a start location, but fall back to just anything in
+  // the header otherwise.
+  DebugLoc loopLoc = L->getStartLoc() ? L->getStartLoc() :
+    getAnyBlockLoc(L->getHeader());
+  const Value* loopCode = L->getHeader();
 
   using namespace ore;
   // Report the optimization.
   if (IntrinsicDriven) {
     ORE->emit(
-      OptimizationRemark(REMARK_NAME, "ILPLPrepDone", L->getStartLoc(),
-                         L->getHeader())
+      OptimizationRemark(REMARK_NAME, "ILPLPrepDone", loopLoc,
+                         loopCode)
       << "selected loop for inner loop pipelining via directive with depth "
       << NV("PipeliningDepth", (unsigned)pipeliningDepth));
   } else {
     ORE->emit(
-      OptimizationRemark(REMARK_NAME, "ILPLPrepDone", L->getStartLoc(),
-                         L->getHeader())
+      OptimizationRemark(REMARK_NAME, "ILPLPrepDone", loopLoc,
+                         loopCode)
       << "automatically selected loop for inner loop pipelining with depth "
       << NV("PipeliningDepth", (unsigned)pipeliningDepth));
   }
@@ -336,10 +355,17 @@ uint64_t CSAInnerLoopPrep::programmerSpecifiedPipelineable(Loop *L) {
         // Also verify that the parent loop is marked as a parallel loop.
         Loop *parent = L->getParentLoop();
         if (not isLoopMarkedParallel(parent)) {
+
+          // Sometimes StructurizeCFG has murdered our block terminator DebugLocs. Ask
+          // Loop for its idea of a start location, but fall back to just anything in
+          // the header otherwise.
+          DebugLoc loopLoc = L->getStartLoc() ? L->getStartLoc() :
+            getAnyBlockLoc(L->getHeader());
+
           // Report the missed optimization.
           ORE->emit(OptimizationRemarkMissed(REMARK_NAME,
                                              "ILPLDirectiveIgnored",
-                                             L->getStartLoc(), L->getHeader())
+                                             loopLoc, L->getHeader())
                     << " ignoring pipelining directive; not in parallel loop");
 
           continue;
