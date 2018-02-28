@@ -309,6 +309,12 @@ uint64_t CSAInnerLoopPrep::programmerSpecifiedPipelineable(Loop *L) {
                 m_Intrinsic<Intrinsic::csa_pipeline_loop_entry>(
                   m_ConstantInt(pipeliningDepth)))) {
 
+        // The parent loop has a "pipeline_loop" directive with it, referring
+        // to some child loop. Is that child loop us?
+        if (not DT->dominates(pipeline_loop_entry->getParent(), L->getHeader()) or
+            not PDT->dominates(pipeline_loop_exit->getParent(), L->getHeader()))
+          continue;
+
         // Also verify that the parent loop is marked as a parallel loop.
         Loop *parent = L->getParentLoop();
         if (not isLoopMarkedParallel(parent)) {
