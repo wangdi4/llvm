@@ -502,16 +502,6 @@ class CompletionOp<GenericOp gen, CSAOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$availidx, $ldres, $stidx, $stdata, $size"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-/* // Proper relaxed channel types
-class CompletionOp<GenericOp gen, CSAOpInfo oi,
-             InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<gen, oi,
-    (outs I8:$availidx, oi.RC:$ldres),
-    (ins I8:$stidx, oi.RC:$stdata, i8imm:$size),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$availidx, $ldres, $stidx, $stdata, $size"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
-*/
-
 // We thought that hasSideEffects would capture the internal state and stream
 // output behavior, but it's really not the right thing.  From the standpoint
 // of retained state, each time a SEQ or REPEAT is triggered, it has a fresh
