@@ -10,8 +10,8 @@ TBBPATH   = ../../tbb/bin/Lin64_Release
 TBBLIB    = -ltbb
 
 INCLUDE   = -I ../../tbb/include
-LIB       = -L $(TBBPATH)
-CXXFLAGS += -std=c++11 -fPIC
+LIB       = -L $(TBBPATH) -Wl,-znoexecstack,-zrelro,-znow
+CXXFLAGS += -std=c++11 -fPIC -fstack-protector
 
 .PHONY: clean all mkdir omptbb test test_%
 .PRECIOUS: build/%.o build/test_%.exe
