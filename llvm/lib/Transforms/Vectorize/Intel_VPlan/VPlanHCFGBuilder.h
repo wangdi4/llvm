@@ -46,7 +46,7 @@ protected:
   IntelVPlanUtils PlanUtils;
 
   /// VPlan verifier utility.
-  VPlanVerifierBase *Verifier = nullptr;
+  VPlanVerifier *Verifier = nullptr;
 
   // TODO: Only used to determine if a condition is uniform. Decouple from
   // Legality.
@@ -121,6 +121,8 @@ public:
                    VPOVectorizationLegality *Legal)
       : VPlanHCFGBuilderBase(WRL, Plan, Legal), TheLoop(Lp), LI(LI), SE(SE) {
 
+    // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
+    // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
     Verifier = new VPlanVerifier(Lp, LI);
     assert((!WRLp || WRLp->getTheLoop<Loop>() == TheLoop) &&
            "Inconsistent Loop information");
