@@ -90,12 +90,12 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
 
   // Find all the intrinsic calls representing directive begin/end, and store
   // them in the set InstructionsToSplit.
-  std::set<Instruction *> InstructionsToSplit;
+  SmallVector<Instruction *, 8> InstructionsToSplit;
   InstructionsToSplit.clear();
   for (Function::iterator B = F.begin(), BE = F.end(); B != BE; ++B)
     for (BasicBlock::iterator I = B->begin(), IE = B->end(); I != IE; ++I)
       if (VPOAnalysisUtils::isIntelDirective(&*I))
-        InstructionsToSplit.insert(&*I);
+        InstructionsToSplit.push_back(&*I);
 
   unsigned Counter = 0; // Used to create unique names for newly created BBs
 
