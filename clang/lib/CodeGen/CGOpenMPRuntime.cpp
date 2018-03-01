@@ -15,6 +15,9 @@
 #include "CGCleanup.h"
 #include "CGOpenMPRuntime.h"
 #include "CodeGenFunction.h"
+#if INTEL_CUSTOMIZATION
+#include "intel/CGIntelStmtOpenMP.h"
+#endif // INTEL_CUSTOMIZATION
 #include "clang/CodeGen/ConstantInitBuilder.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/StmtOpenMP.h"
@@ -6295,6 +6298,13 @@ private:
     return ConstLength.getSExtValue() != 1;
   }
 
+#if INTEL_CUSTOMIZATION
+  // We need some of these private members (at least
+  // generateInfoForComponentList) for late-outlining. In order to
+  // reuse the code without moving it around make the class a friend.
+  friend class CGIntelOpenMP::OpenMPCodeOutliner;
+#endif // INTEL_CUSTOMIZATION
+
   /// \brief Generate the base pointers, section pointers, sizes and map type
   /// bits for the provided map type, map modifier, and expression components.
   /// \a IsFirstComponent should be set to true if the provided set of
@@ -7023,6 +7033,89 @@ static void emitOffloadingArraysArgument(
   }
 }
 
+#if INTEL_CUSTOMIZATION
+namespace CGIntelOpenMP {
+static StringRef getQualString(OpenMPMapClauseKind K) {
+  StringRef Op;
+  switch (K) {
+  case OMPC_MAP_alloc:
+    Op = "QUAL.OMP.MAP.ALLOC";
+    break;
+  case OMPC_MAP_to:
+    Op = "QUAL.OMP.MAP.TO";
+    break;
+  case OMPC_MAP_from:
+    Op = "QUAL.OMP.MAP.FROM";
+    break;
+  case OMPC_MAP_tofrom:
+  case OMPC_MAP_unknown:
+    Op = "QUAL.OMP.MAP.TOFROM";
+    break;
+  case OMPC_MAP_delete:
+    Op = "QUAL.OMP.MAP.DELETE";
+    break;
+  case OMPC_MAP_release:
+    Op = "QUAL.OMP.MAP.RELEASE";
+    break;
+  case OMPC_MAP_always:
+    llvm_unreachable("Unexpected mapping type");
+  }
+  return Op;
+}
+
+void OpenMPCodeOutliner::emitOMPMapClause(const OMPMapClause *C) {
+  MappableExprsHandler MEHandler(Directive, CGF);
+
+  auto SavedIP = CGF.Builder.saveIP();
+  setOutsideInsertPoint();
+
+  for (auto *E : C->varlists()) {
+    bool IsFirstComponentList = true;
+    MappableExprsHandler::MapBaseValuesArrayTy BasePointers;
+    MappableExprsHandler::MapValuesArrayTy Pointers;
+    MappableExprsHandler::MapValuesArrayTy Sizes;
+    MappableExprsHandler::MapFlagsArrayTy Types;
+
+    while (auto *OASE = dyn_cast<OMPArraySectionExpr>(E))
+      E = OASE->getBase()->IgnoreParenImpCasts();
+    while (auto *ME = dyn_cast<MemberExpr>(E))
+      E = ME->getBase()->IgnoreParenImpCasts();
+    auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+    addExplicit(VD);
+    for (auto L : C->decl_component_lists(VD)) {
+      assert(L.first == VD && "We got information for the wrong declaration??");
+      assert(!L.second.empty() &&
+             "Not expecting declaration with no component lists.");
+      MEHandler.generateInfoForComponentList(
+          C->getMapType(), C->getMapTypeModifier(), L.second, BasePointers,
+          Pointers, Sizes, Types, IsFirstComponentList, C->isImplicit());
+      IsFirstComponentList = false;
+    }
+    if (BasePointers.size() == 1) {
+      // This is the simple non-aggregate case.
+      llvm::Value *VBP = *BasePointers[0];
+      if (VBP == Pointers[0]) {
+        addArg(getQualString(C->getMapType()));
+        addArg(VBP);
+        emitListClause();
+        continue;
+      }
+    }
+    for (int I = 0, E = BasePointers.size(); I < E; ++I) {
+      SmallString<32> Op;
+      Op = getQualString(C->getMapType());
+      Op += (I == 0) ? ":AGGRHEAD" : ":AGGR";
+      addArg(Op);
+      addArg(*BasePointers[I]);
+      addArg(Pointers[I]);
+      addArg(Sizes[I]);
+      emitListClause();
+    }
+  }
+  CGF.Builder.restoreIP(SavedIP);
+}
+} // namespace
+#endif // INTEL_CUSTOMIZATION
 void CGOpenMPRuntime::emitTargetCall(CodeGenFunction &CGF,
                                      const OMPExecutableDirective &D,
                                      llvm::Value *OutlinedFn,

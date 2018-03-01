@@ -750,37 +750,6 @@ namespace CGIntelOpenMP {
     emitOpndClause();
   }
 
-  void OpenMPCodeOutliner::emitOMPMapClause(const OMPMapClause *Cl) {
-    StringRef Op;
-    switch (Cl->getMapType()) {
-    case OMPC_MAP_alloc:
-      Op = "QUAL.OMP.MAP.ALLOC";
-      break;
-    case OMPC_MAP_to:
-      Op = "QUAL.OMP.MAP.TO";
-      break;
-    case OMPC_MAP_from:
-      Op = "QUAL.OMP.MAP.FROM";
-      break;
-    case OMPC_MAP_tofrom:
-    case OMPC_MAP_unknown:
-      Op = "QUAL.OMP.MAP.TOFROM";
-      break;
-    case OMPC_MAP_delete:
-      Op = "QUAL.OMP.MAP.DELETE";
-      break;
-    case OMPC_MAP_release:
-      Op = "QUAL.OMP.MAP.RELEASE";
-      break;
-    case OMPC_MAP_always:
-      llvm_unreachable("Unexpected mapping type");
-    }
-    addArg(Op);
-    for (auto *E : Cl->varlists())
-      addArg(E);
-    emitListClause();
-  }
-
   void OpenMPCodeOutliner::emitOMPScheduleClause(const OMPScheduleClause *C) {
     int DefaultChunkSize = 0;
     SmallString<64> SchedString;
