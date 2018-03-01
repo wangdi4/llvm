@@ -293,6 +293,7 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
 
     llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
     llvm::WriteBitcodeToFile(composite.get(), ir_ostream);
+    pResult->setResult(CL_SUCCESS);
 
     return pResult.release();
   } catch (std::bad_alloc &e) {
