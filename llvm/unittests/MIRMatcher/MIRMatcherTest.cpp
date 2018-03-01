@@ -32,7 +32,7 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetInstrInfo.h"
+#include "llvm/CodeGen/TargetInstrInfo.h"
 #include "../lib/Target/CSA/CSA.h"
 #include "../lib/Target/CSA/CSARegisterInfo.h"
 #include "../lib/Target/CSA/CSAMatcher.h"
