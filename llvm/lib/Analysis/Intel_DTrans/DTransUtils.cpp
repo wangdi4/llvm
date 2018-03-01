@@ -80,6 +80,16 @@ void dtrans::getAllocSizeArgs(AllocKind Kind, CallInst *CI,
   llvm_unreachable("Unexpected alloc kind passed to getAllocSizeArgs");
 }
 
+bool dtrans::isFreeFn(Function *F, const TargetLibraryInfo &TLI) {
+  if (!F)
+    return false;
+  LibFunc LF;
+  if (!TLI.getLibFunc(*F, LF))
+    return false;
+  return (LF == LibFunc_free);
+}
+
+
 // This function is called to determine if a bitcast to the specified
 // destination type could be used to access element 0 of the source type.
 // If the destination type is a pointer type whose element type is the same

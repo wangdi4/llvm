@@ -263,6 +263,10 @@ AllocKind getAllocFnKind(Function *F, const TargetLibraryInfo &TLI);
 void getAllocSizeArgs(AllocKind Kind, CallInst *CI, Value* &AllocSizeVal,
                       Value* &AllocCountVal);
 
+/// Determine whether or not the specified Function is the free library
+/// function.
+bool isFreeFn(Function *F, const TargetLibraryInfo &TLI);
+
 /// Examine the specified types to determine if a bitcast from \p SrcTy to
 /// \p DestTy could be used to access the first element of SrcTy. The
 /// \p AccessedTy argument if non-null returns the type (possibly a nested

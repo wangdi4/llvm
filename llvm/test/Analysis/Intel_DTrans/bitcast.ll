@@ -266,9 +266,8 @@ define void @test20() {
   ret void
 }
 
-; FIXME: The unhandled use here is the type returned by a function call.
 ; CHECK: LLVMType: %struct.test20 = type { i32, i32 }
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: No issues found
 
 ; Bad cast of returned pointer through an intermediate i8*
 %struct.test21.a = type { i32, i32 }

@@ -712,31 +712,63 @@ public:
 
   void visitCallInst(CallInst &CI) {
     Function *F = CI.getCalledFunction();
+
+    // If the called function is a known allocation function, we need to
+    // analyze the allocation.
     dtrans::AllocKind Kind = dtrans::getAllocFnKind(F, TLI);
     if (Kind != dtrans::AK_NotAlloc) {
       analyzeAllocationCall(CI, Kind);
-    } else {
-      // If this is not an allocation call, but it returns an interesting
-      // type value, record that.
-      llvm::Type *RetTy = CI.getType();
-      if (DTInfo.isTypeOfInterest(RetTy)) {
-        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                     << "Type is returned by a call:\n"
-                     << "  " << CI << "\n");
-        // TODO: Record this information?
-        // This is probably safe, but we'll flag it for now until we're sure.
-        setBaseTypeInfoSafetyData(RetTy, dtrans::UnhandledUse);
-      }
+      return;
     }
 
+    // If this is a call to the "free" lib function, we don't need
+    // to analyze the argument.
+    if (dtrans::isFreeFn(F, TLI))
+      return;
+
+    // For all other calls, if a pointer to an aggregate type is passed as an
+    // argument to a function in a form other than its dominant type, the
+    // address has escaped. Also, if a pointer to a field is passed as an
+    // argument to a function, the address of the field has escaped.
+    // FIXME: Try to resolve indirect calls.
+    bool IsFnLocal = F ? !F->isDeclaration() : false;
     for (Value *Arg : CI.arg_operands()) {
-      if (isValueOfInterest(Arg)) {
-        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                     << "value passed as argument:\n"
+      if (!isValueOfInterest(Arg))
+        continue;
+
+      LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
+
+      if (LPI.pointsToSomeElement()) {
+        DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
+                     << "pointer to element passed as argument:\n"
                      << "  " << CI << "\n  " << *Arg << "\n");
-        // This may be safe, but we'll flag it for now until whole program
-        // function modeling is complete.
-        setValueTypeInfoSafetyData(Arg, dtrans::UnhandledUse);
+        // Selects and PHIs may have created a pointer that refers to
+        // elements in multiple aggregate types. This sets the field
+        // address taken condition for them all.
+        for (auto &PointeePair : LPI.getElementPointeeSet())
+          setBaseTypeInfoSafetyData(PointeePair.first,
+                                    dtrans::FieldAddressTaken);
+      }
+
+      // If the argument aliases an aggregate pointer type that is not the type
+      // of the argument, the address has been taken in a way we can't track.
+      // If the called function is locally defined and the type of the argument
+      // matches the aggregate pointer type, we will be able to analyze the use
+      // when we visit that function. If more than one aggregate type is
+      // aliased, we will have flagged the overloaded pointer when we visited
+      // the select or PHI that created this situation, so here we just need to
+      // worry about the types individually.
+      auto *ArgTy = Arg->getType();
+      for (auto *AliasTy : LPI.getPointerTypeAliasSet()) {
+        if (!DTInfo.isTypeOfInterest(AliasTy))
+          continue;
+        if (IsFnLocal && (AliasTy == ArgTy))
+          continue;
+        DEBUG(dbgs() << "dtrans-safety: Address taken -- "
+                     << "pointer to aggregate passed as argument:\n"
+                     << "  " << CI << "\n  " << *Arg << "\n");
+
+        setBaseTypeInfoSafetyData(AliasTy, dtrans::AddressTaken);
       }
     }
   }

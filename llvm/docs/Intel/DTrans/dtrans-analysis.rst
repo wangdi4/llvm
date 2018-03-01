@@ -387,11 +387,24 @@ class) in an attempt to verify that the size of the allocated memory is an
 exact multiple of the aggregate type size. **Currently, only constant arguments
 are handled.**
 
-**The current implementation sets the UnhandledUse safety data for any call
-that returns an aggregate type value (or a pointer to an aggregate type) or has
-an argument that is an aggregate type (or a pointer to an aggregate type).
-This is probably unnecessary, but it is done as part of the conservative
-approach to progressive implementation.**
+If the called function is the "free" function, the call is viewed as safe.
+
+If the called function is an unknown externally defined function and any of the
+arguments is a pointer to an aggregate type, that type is marked with the
+`AddressTaken`_ safety condition, and if any of the arguments is a pointer to
+an element within a structure then that structure is marked with the
+`FieldAddressTaken`_ safety condition.
+
+If the called function is a locally defined function, its arguments are handled
+as described above for external functions except that arguments which point
+to aggregate types are accepted without the `AddressTaken`_ condition being set
+if the argument type matches the type of the structure. For instance, a
+%struct.A* value can be safely passed as an argument to a call if the called
+function uses %struct.A* as the type for that argument because the uses of
+the argument can be tracked when the function is analyzed. However, if a
+%struct.A* value is cast to an i8* and then passed to a function call, we
+cannot know what the argument's original type was when we are analyzing the
+called function.
 
 Intrinsic
 ~~~~~~~~~
