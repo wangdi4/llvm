@@ -1167,6 +1167,7 @@ sections correctly.
     mopcfg.load(MF, AA, DT, MLI, false);
     bool made_chains = mopcfg.construct_chains();
     assert(made_chains);
+    (void) made_chains;
   }
 
   if (DumpMemopCFG)
@@ -2788,8 +2789,11 @@ void MemopCFG::topological_sort() {
 
   // If any nodes have predecessors remaining, that's a problem. It probably
   // means that the CFG wasn't really that irreducible.
-  for (const auto &pl : preds_left)
+  for (const auto &pl : preds_left) {
     assert(pl.second == 0);
+    (void) pl;
+  }
+
 
   // Reorder the nodes array so that the indices correspond to topo_num.
   for (int i = 0; i != int(nodes.size()); ++i) {

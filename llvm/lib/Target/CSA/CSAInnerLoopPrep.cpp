@@ -440,18 +440,21 @@ void CSAInnerLoopPrep::discoverOuterLoopContext(
   DEBUG(errs() << "\t\tinputs:\n");
   for (Value *v : inputs) {
     DEBUG(errs() << "\t\t\t" << *v << "\n");
+    (void) v;
   }
   DEBUG(errs() << "\n");
 
   DEBUG(errs() << "\t\toutputs:\n");
   for (Value *v : outputs) {
     DEBUG(errs() << "\t\t\t" << *v << "\n");
+    (void) v;
   }
   DEBUG(errs() << "\n");
 
   DEBUG(errs() << "\t\tallocas:\n");
   for (Value *v : allocas) {
     DEBUG(errs() << "\t\t\t" << *v << "\n");
+    (void) v;
   }
   DEBUG(errs() << "\n");
 

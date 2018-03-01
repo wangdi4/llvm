@@ -33,7 +33,10 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 
+
 using namespace llvm;
+
+#define DEBUG_TYPE "csa-instlowering"
 
 MCSymbol *
 CSAMCInstLower::GetGlobalAddressSymbol(const MachineOperand &MO) const {
@@ -135,7 +138,7 @@ void CSAMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
     MCOperand MCOp;
     switch (MO.getType()) {
     default:
-      MI->dump();
+      DEBUG(MI->dump());
       llvm_unreachable("unknown operand type");
     case MachineOperand::MO_Register: {
       // Ignore all implicit register operands.
@@ -169,11 +172,11 @@ void CSAMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
         break;
       case Type::FloatTyID: {
         float f = d;
-        MCOp    = MCOperand::createImm(*(int *)&f);
+        MCOp    = MCOperand::createImm(FloatToBits(f));
         break;
       }
       case Type::DoubleTyID:
-        MCOp = MCOperand::createImm(*(long long *)&d);
+        MCOp    = MCOperand::createImm(DoubleToBits(d));
         break;
       }
       break;

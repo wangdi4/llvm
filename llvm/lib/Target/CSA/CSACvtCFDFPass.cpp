@@ -3534,6 +3534,7 @@ bool CSACvtCFDFPass::replaceUndefWithIgn() {
     MachineOperand uMO = uMI->getOperand(0);
     // Ensure we're dealing with a register definition.
     assert(uMO.isDef() && uMO.isReg());
+    (void) uMO;
     // Ensure SSA form and that we have right defining instruction.
     assert(MRI->getUniqueVRegDef(uMO.getReg()) &&
            MRI->getUniqueVRegDef(uMO.getReg()) == uMI);

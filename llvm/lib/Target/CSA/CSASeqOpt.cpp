@@ -175,6 +175,7 @@ void CSASeqOpt::SequenceIndv(CSASSANode *cmpNode, CSASSANode *switchNode,
       switchNode->minstr->getOperand(0).getReg() == backedgeReg ? 1 : 0;
     assert(switchNode->minstr->getOperand(1 - switchOutIndex).getReg() ==
            backedgeReg);
+    (void) switchOutIndex;
     // no use of switch outside the loop, only use is lhdrphi
     // Find a sequence opcode that matches our compare opcode.
     unsigned seqOp;

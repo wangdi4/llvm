@@ -528,6 +528,7 @@ void ControlDependenceGraphBase::dumpRegions() {
          N != E; ++N) {
       ControlDependenceNode *node = *N;
       assert(node);
+      (void) node;
       DEBUG(errs() << "BB" << cdg2bb[node]->getNumber() << ", ");
     }
     DEBUG(errs() << "\n");

@@ -501,6 +501,7 @@ bool CSAOptDFPass::seq_is_picker_init_inst(MachineRegisterInfo *MRI,
               *pickerSense   = ival;
               MATCH_ASSERT(pat_match);
               MATCH_ASSERT(pat_ival == ival);
+              (void) pat_ival;
               //              MATCH_ASSERT(pat_match.instr(PICKER_DEF =
               //              init1(AnyLiteral)) == MI);
               MATCH_ASSERT(pat_match.reg(PICKER_DEF) == unsigned(pickval));
@@ -689,6 +690,7 @@ void CSAOptDFPass::seq_print_loop_info(
          it != current_loop.repeat_channels.end(); ++it) {
       unsigned reg = it->getFirst();
       DEBUG(errs() << "(Reg= " << reg << ", idx= " << it->getSecond() << ") ");
+      (void) reg;
     }
     DEBUG(errs() << "\n");
 
@@ -1582,6 +1584,7 @@ void CSAOptDFPass::seq_analyze_loops(
       bool can_transform = seq_identify_induction_variable(current_loop);
       DEBUG(errs() << "Loop " << current_loop.loop_id
                    << ": can transform = " << can_transform << "\n");
+      (void) can_transform;
     }
   }
 }
@@ -1603,6 +1606,7 @@ bool CSAOptDFPass::seq_identify_induction_variable(CSASeqLoopInfo &loop) {
     DEBUG(errs() << "Seq transform failed: no valid bound (e.g., possible "
                     "non-constant loop).\n");
     DEBUG(errs() << "Boundidx = " << boundIdx << "\n");
+    (void) boundIdx;
     if (loop.boundIdx() >= 0) {
       seq_debug_print_candidate(loop.candidates[loop.boundIdx()]);
     }
@@ -1834,6 +1838,7 @@ void CSAOptDFPass::seq_do_transform_loop_seq(
 
   unsigned top_i = indvarCandidate.top;
   assert(top_i == indvarCandidate.get_pick_top_op()->getReg());
+  (void) top_i;
 
   // <in_i> may or may not be an immediate, but it must come from the
   // pick.
@@ -1997,6 +2002,7 @@ void CSAOptDFPass::seq_do_transform_loop_parloop_memdep(
     scandidate, loop.header, seqInfo.pred_reg, TII, *BB, seqInfo.seq_inst);
   DEBUG(errs() << "do_transform_parloop_memdep: adding onend = " << *onend_inst
                << "\n");
+  (void) onend_inst;
 
   insToDisconnect.push_back(scandidate.pickInst);
   insToDisconnect.push_back(scandidate.switchInst);
@@ -2015,6 +2021,7 @@ void CSAOptDFPass::seq_do_transform_loop_reduction(
 
   DEBUG(errs() << "do_transform_loop_reduction: adding reduction = "
                << *red_inst << "\n");
+  (void) red_inst;
 
   insToDisconnect.push_back(scandidate.pickInst);
   insToDisconnect.push_back(scandidate.switchInst);
