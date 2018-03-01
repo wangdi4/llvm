@@ -116,10 +116,14 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::ADDE, VT, Expand);
     setOperationAction(ISD::SUBC, VT, Expand);
     setOperationAction(ISD::SUBE, VT, Expand);
-    // Note: {U,S}MUL_LOHI must be Custom selected because TableGen cannot cope
-    // with multi-output selection. This is a known weakness.
-    setOperationAction(ISD::SMUL_LOHI, VT, Custom);
-    setOperationAction(ISD::UMUL_LOHI, VT, Custom);
+    // MUL_LOHI is represented as a custom expansion of XMUL.
+    if (VT != MVT::i64) {
+      setOperationAction(ISD::SMUL_LOHI, VT, Custom);
+      setOperationAction(ISD::UMUL_LOHI, VT, Custom);
+    } else {
+      setOperationAction(ISD::SMUL_LOHI, VT, Expand);
+      setOperationAction(ISD::UMUL_LOHI, VT, Expand);
+    }
     setOperationAction(ISD::MULHS, VT, Expand);
     setOperationAction(ISD::MULHU, VT, Expand);
     setOperationAction(ISD::UREM, VT, Expand);
@@ -446,31 +450,33 @@ SDValue CSATargetLowering::LowerMUL_LOHI(SDValue Op, SelectionDAG &DAG) const {
   SDValue LHS     = Op.getOperand(0);
   SDValue RHS     = Op.getOperand(1);
   MVT partVT      = LHS.getSimpleValueType();
+  MVT doubleVT    = MVT::getIntegerVT(partVT.getSizeInBits() * 2);
   SDValue InOps[] = {LHS, RHS};
   bool isSigned   = (Op.getNode()->getOpcode() == ISD::SMUL_LOHI);
 
+  // We don't have an instruction that spits it out into two nodes, we have one
+  // that breaks it into the one node.
   unsigned opcode;
   switch (partVT.SimpleTy) {
   case MVT::i8:
-    opcode = isSigned ? CSA::MULLOHIS8 : CSA::MULLOHIU8;
+    opcode = isSigned ? CSA::XMULS8 : CSA::XMULU8;
     break;
   case MVT::i16:
-    opcode = isSigned ? CSA::MULLOHIS16 : CSA::MULLOHIU16;
+    opcode = isSigned ? CSA::XMULS16 : CSA::XMULU16;
     break;
   case MVT::i32:
-    opcode = isSigned ? CSA::MULLOHIS32 : CSA::MULLOHIU32;
-    break;
-  case MVT::i64:
-    opcode = isSigned ? CSA::MULLOHIS64 : CSA::MULLOHIU64;
+    opcode = isSigned ? CSA::XMULS32 : CSA::XMULU32;
     break;
   default:
-    return Op;
+    assert(false && "Illegal type for XMUL");
   }
 
-  SDNode *Mullohi =
-    DAG.getMachineNode(opcode, dl, DAG.getVTList(partVT, partVT), InOps);
-  SDValue Lo(Mullohi, 0);
-  SDValue Hi(Mullohi, 1);
+  SDValue Xmul = SDValue{DAG.getMachineNode(opcode, dl, doubleVT, InOps), 0};
+  SDValue Lo = DAG.getZExtOrTrunc(Xmul, dl, partVT);
+  SDValue Hi = DAG.getZExtOrTrunc(
+      DAG.getNode(ISD::SRL, dl, doubleVT, Xmul,
+        DAG.getConstant(partVT.getSizeInBits(), dl, doubleVT)),
+      dl, partVT);
   SDValue Ops[] = {Lo, Hi};
   return DAG.getMergeValues(Ops, dl);
 }

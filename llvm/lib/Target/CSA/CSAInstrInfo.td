@@ -665,15 +665,16 @@ class StreamStOp<string opStr, CSAOpInfo t, InstrItinClass itin = IIST> :
   let Itinerary = itin;
 }
 
-class MullohiOp<GenericOp gen, CSAOpInfo oi,
+class XmulOp<GenericOp gen, CSAOpInfo oi, CSAOpInfo oi2, SDNode ext,
                InstrItinClass itin = IIALU, list<Predicate> preds = []> :
   FMTGEN <gen, oi,
-    (outs oi.RC:$lo, oi.RC:$hi),
+    (outs oi2.RC:$res),
     (ins  oi.RCL:$op1, oi.RCL:$op2),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$lo, $hi, $op1, $op2"),
-    [],
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$res, $op1, $op2"),
+    [(set oi2.RC:$res, (mul (ext oi.RCL:$op1), (ext oi.RCL:$op2)))],
     !listconcat(preds,oi.Preds), itin>
     { let mayLoad = 0; let mayStore = 0; let hasSideEffects = 0; }
+
 
 class FModOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin = IIALU, list<Predicate> preds = []> :
@@ -1563,15 +1564,13 @@ def SST64    : StreamStOp<"sst64",  Ti64>;
 def SST64f   : StreamStOp<"sst64",  Tf64>;
 
 // Extended multiplication
-def MULLOHI   : GenericOp<"mullohi">;
-def MULLOHIS8  : MullohiOp<MULLOHI, Ts8,  IIMulI8>;
-def MULLOHIS16 : MullohiOp<MULLOHI, Ts16, IIMulI16>;
-def MULLOHIS32 : MullohiOp<MULLOHI, Ts32, IIMulI32>;
-def MULLOHIS64 : MullohiOp<MULLOHI, Ts64, IIMulI64>;
-def MULLOHIU8  : MullohiOp<MULLOHI, Tu8,  IIMulI8>;
-def MULLOHIU16 : MullohiOp<MULLOHI, Tu16, IIMulI16>;
-def MULLOHIU32 : MullohiOp<MULLOHI, Tu32, IIMulI32>;
-def MULLOHIU64 : MullohiOp<MULLOHI, Tu64, IIMulI64>;
+def XMUL    : GenericOp<"xmul">;
+def XMULS8  : XmulOp<XMUL, Ts8,  Ts16, sext, IIMulI8>;
+def XMULU8  : XmulOp<XMUL, Tu8,  Tu16, zext, IIMulI8>;
+def XMULS16 : XmulOp<XMUL, Ts16, Ts32, sext, IIMulI16>;
+def XMULU16 : XmulOp<XMUL, Tu16, Tu32, zext, IIMulI16>;
+def XMULS32 : XmulOp<XMUL, Ts32, Ts64, sext, IIMulI32>;
+def XMULU32 : XmulOp<XMUL, Tu32, Tu64, zext, IIMulI32>;
 
 // Atomic operations
 def ATMAND    : GenericOp<"atmand", [HasRMWAtomic]>;
