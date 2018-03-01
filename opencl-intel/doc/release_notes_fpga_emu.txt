@@ -1,10 +1,11 @@
 ================================================================================
 SUMMARY
 ================================================================================
-The Intel(R) FPGA Emulation Platform for OpenCL(TM) is an OpenCL(TM) runtime and
-compiler, which runs on an Intel(R) Core(TM) or Intel(R) Xeon(R). It is capable
-of compiling and running programs written with Intel(R) FPGA Emulation Platform
-for OpenCL(TM) extensions (e.g. with the FPGA channels extension).
+The Intel(R) FPGA Emulation Platform for OpenCL(TM) software is an OpenCL(TM)
+runtime and compiler, which runs on Intel(R) Core(TM) or Intel(R) Xeon(R)
+processors. It is capable of compiling and running programs written with
+Intel(R) FPGA Emulation Platform for OpenCL(TM) extensions (e.g. with the FPGA
+channels extension).
 
 The emulator aims to provide:
     - Rapid compilation time (seconds)
@@ -25,17 +26,16 @@ Supported operating systems:
   - Windows* 7, 8.1, 10 (64-bit)
 
 Supported hardware:
-  - Intel(R) Core(TM) CPU 5th generation (Intel(R) microarchitecture code name
-    Broadwell) or higher
-  - Intel(R) Xeon(R) CPU E5 v5 (Intel(R) microarchitecture code name Broadwell)
-    or higher
+  - 5th Generation Intel(R) Core(TM) Processor (formerly Broadwell) or higher
+  - 5th Generation Intel(R) Xeon(R) Processor E3 v4 (formerly Broadwell) or
+    higher
 
 ================================================================================
 INSTALLATION
 ================================================================================
 
 The emulator should be installed as part of the Intel(R) FPGA SDK for OpenCL(TM)
-package installation when the corresponding component is selected.
+software technology installation when the corresponding component is selected.
 
 If the installation succeeded, the following OpenCL(TM) platform will be
 available:
@@ -85,7 +85,8 @@ The following sets of environment variables affect the emulator execution:
       + -ffast-math: Forces fast math built-ins.
 
   - The following are OpenCL(TM) related environment variables (see the Intel(R)
-    OpenCL(TM) CPU RT documentation for more details):
+    SDK for OpenCL(TM) - CPU only runtime package documentation for more
+    details):
 
     * CL_CONFIG_USE_VECTORIZER (True, False): Enables or disables the NDRange
       kernel vectorizer. It does not have an effect on the OpenMP* pragma
@@ -130,9 +131,9 @@ binaries compiled for FPGA devices and vice versa.
 ================================================================================
 DEBUGGING OPENCL(TM) KERNELS ON LINUX*
 ================================================================================
-The Intel(R) FPGA Emulation Platform for OpenCL(TM) supports debugging of
-OpenCL(TM) kernels using a GNU GDB* or LLDB* debugger on Linux*. It allows for
-debugging host code and OpenCL(TM) kernels in a single debug session.
+The Intel(R) FPGA Emulation Platform for OpenCL(TM) software supports debugging
+of OpenCL(TM) kernels using a GNU GDB* or LLDB* debugger on Linux*. It allows
+for debugging host code and OpenCL(TM) kernels in a single debug session.
 
 To enable debugging mode, specific options should be passed to the build options
 string parameter in the clBuildProgram() function:
@@ -316,7 +317,16 @@ REFERENCES
     https://software.intel.com/en-us/node/695804
 3. KMP_AFFINITY interface documentation:
     https://software.intel.com/en-us/node/695817
-4. Intel(R) OpenCL(TM) CPU RT documentation:
+4. Intel(R) SDK for OpenCL(TM) - CPU only runtime package documentation:
     https://software.intel.com/en-us/iocl_tec_opg
 5. The OpenCL(TM) Specification Version 1.2
     https://www.khronos.org/registry/OpenCL/specs/opencl-1.2.pdf
+
+================================================================================
+ACKNOWLEDGEMENT
+================================================================================
+Intel and Xeon are trademarks of Intel Corporation or its subsidiaries in the
+U.S. and/or other countries.
+
+OpenCL and the OpenCL logo are trademarks of Apple Inc. used by permission by
+Khronos.
