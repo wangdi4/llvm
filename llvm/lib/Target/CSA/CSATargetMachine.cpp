@@ -190,13 +190,22 @@ public:
     Banner = std::string("After Machine CDG Pass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-    addPass(createCSAMemopOrderingPass());
-    Banner = std::string("After CSAMemopOrderingPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    if (getOptLevel() != CodeGenOpt::None) {
+      //
+      // TODO (vzakhari 3/1/2018): decide what to do at O0.
+      //       Currently, RegAllocFast used at O0 does not work properly
+      //       for CI register classes.  This workaround mimics
+      //       the pathfinding compiler behavior and disables cv-to-df
+      //       conversion (which would introduce CI).
+      //
+      addPass(createCSAMemopOrderingPass());
+      Banner = std::string("After CSAMemopOrderingPass");
+      DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-    addPass(createCSACvtCFDFPass(), false);
-    Banner = std::string("After CSACvtCFDFPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+      addPass(createCSACvtCFDFPass(), false);
+      Banner = std::string("After CSACvtCFDFPass");
+      DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    }
 
     if (RunCSAStatistics) {
       addPass(createCSAStatisticsPass(), false);
