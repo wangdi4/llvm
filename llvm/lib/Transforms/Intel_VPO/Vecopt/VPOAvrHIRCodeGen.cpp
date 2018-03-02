@@ -1692,6 +1692,7 @@ HLInst *AVRCodeGenHIR::insertReductionInitializer(Constant *Iden) {
 
   auto LvalSymbase = RedOpVecInst->getLvalDDRef()->getSymbase();
   MainLoop->addLiveInTemp(LvalSymbase);
+  MainLoop->addLiveOutTemp(LvalSymbase);
   return RedOpVecInst;
 }
 

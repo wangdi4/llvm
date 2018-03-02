@@ -21,8 +21,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/NoFolder.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
 
 #include <set>
 
@@ -1268,6 +1268,14 @@ public:
   static const HLLoop *getLowestCommonAncestorLoop(const HLLoop *Lp1,
                                                    const HLLoop *Lp2);
   static HLLoop *getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2);
+
+  /// Returns the lexical lowest common ancestor parent of Node1 and Node2.
+  /// Returns null if there is no such parent.
+  static const HLNode *
+  getLexicalLowestCommonAncestorParent(const HLNode *Node1,
+                                       const HLNode *Node2);
+  static HLNode *getLexicalLowestCommonAncestorParent(HLNode *Node1,
+                                                      HLNode *Node2);
 
   /// Returns true if the minimum value of blob can be evaluated. Returns the
   /// minimum value in \p Val.

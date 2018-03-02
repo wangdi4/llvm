@@ -2723,8 +2723,8 @@ HLNodeUtils::VALType HLNodeUtils::getMinMaxBlobValue(unsigned BlobIdx,
 
   DEBUG(dbgs() << "\tin getMaxMinBlobValue: input args " << BlobIdx
                << BoundCE->getSingleBlobCoeff() << " "
-               << BoundCE->getSingleBlobIndex() << " "
-               << BoundCE->getConstant() << "\n");
+               << BoundCE->getSingleBlobIndex() << " " << BoundCE->getConstant()
+               << "\n");
 
   auto BoundCoeff = BoundCE->getSingleBlobCoeff();
   auto BoundBlobIdx = BoundCE->getSingleBlobIndex();
@@ -3421,8 +3421,10 @@ bool HLNodeUtils::hasNonUnitStrideRefs(const HLLoop *Loop) {
 
 const HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(const HLLoop *Lp1,
                                                        const HLLoop *Lp2) {
-  assert(Lp1 && "Lp1 is null!");
-  assert(Lp2 && "Lp2 is null!");
+  if (!Lp1 || !Lp2) {
+    return nullptr;
+  }
+
   assert((Lp1->getParentRegion() == Lp2->getParentRegion()) &&
          "Lp1 and Lp2 are not in the same region!");
 
@@ -3463,6 +3465,57 @@ HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2) {
       static_cast<const HLLoop *>(Lp1), static_cast<const HLLoop *>(Lp2)));
 }
 
+const HLNode *
+HLNodeUtils::getLexicalLowestCommonAncestorParent(const HLNode *Node1,
+                                                  const HLNode *Node2) {
+  assert(Node1 && Node2 && "Node1 or Node2 is null!");
+  assert((Node1->getParentRegion() == Node2->getParentRegion()) &&
+         "Node1 and Node2 are not in the same region!");
+
+  // Represent node by its parent loop if it is in the loop preheader/postexit
+  // to avoid checking for edges cases later on in the function.
+  if (auto Inst = dyn_cast<HLInst>(Node1)) {
+    if (Inst->isInPreheaderOrPostexit()) {
+      Node1 = Node1->getParent();
+    }
+  }
+
+  if (auto Inst = dyn_cast<HLInst>(Node2)) {
+    if (Inst->isInPreheaderOrPostexit()) {
+      Node2 = Node2->getParent();
+    }
+  }
+
+  const HLNode *Parent = nullptr;
+  unsigned TopSortNum1 = Node1->getTopSortNum();
+  unsigned TopSortNum2 = Node2->getTopSortNum();
+
+  unsigned LaterNodeTopSortNum;
+
+  // Set starting parent using the node which appears earlier in HIR.
+  if (TopSortNum1 < TopSortNum2) {
+    Parent = Node1->getParent();
+    LaterNodeTopSortNum = TopSortNum2;
+  } else {
+    Parent = Node2->getParent();
+    LaterNodeTopSortNum = TopSortNum1;
+  }
+
+  // Move up the parent chain until we find a parent wich also contains the node
+  // which appears later in HIR.
+  while (Parent->getMaxTopSortNum() < LaterNodeTopSortNum) {
+    Parent = Parent->getParent();
+  }
+
+  return Parent;
+}
+
+HLNode *HLNodeUtils::getLexicalLowestCommonAncestorParent(HLNode *Node1,
+                                                          HLNode *Node2) {
+  return const_cast<HLNode *>(getLexicalLowestCommonAncestorParent(
+      static_cast<const HLNode *>(Node1), static_cast<const HLNode *>(Node2)));
+}
+
 bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
   if (NodeA->getNumPredicates() != NodeB->getNumPredicates()) {
     return false;
@@ -3500,7 +3553,7 @@ HLNodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
 }
 
 HLNodeRangeTy HLNodeUtils::replaceNodeWithBody(HLSwitch *Switch,
-                                             unsigned CaseNum) {
+                                               unsigned CaseNum) {
 
   auto NodeRange = (CaseNum == 0)
                        ? std::make_pair(Switch->default_case_child_begin(),

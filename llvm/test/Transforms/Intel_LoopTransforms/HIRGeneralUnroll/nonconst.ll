@@ -10,22 +10,35 @@
 ;    return A[2];
 ; }
 
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s
+; + DO i1 = 0, %M + -1, 1   <DO_LOOP>  <MAX_TC_EST = 500>
+; |   %2 = (@B)[0][i1];
+; |   %1 = %2  +  %1;
+; |   (@A)[0][i1] = %1;
+; + END LOOP
+
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -hir-details -S < %s 2>&1 | FileCheck %s
+
+; CHECK: REGION { modified }
 
 ; Check the main unrolled loop.
-; CHECK: REGION { modified }
-; CHECK: %[[TMP:[a-zA-Z0-9.]+]] = {{.*}}/u8 
-; CHECK: DO i1 = 0, %[[TMP]]
-; CHECK-NEXT: %2 = (@B)[0][8 * i1];
-; CHECK-NEXT: %1 = %2  +  %1;
-; CHECK-NEXT: (@A)[0][8 * i1] = %1;
+; CHECK: %[[TMP:[a-zA-Z0-9.]+]] = {{.*}}/u8
+
+; Verify that %1 becomes liveout of the main loop.
+; CHECK: LiveOut symbases: [[LIVEOUTSYM:[0-9]+]]
+
+; CHECK: DO i64 i1 = 0, %[[TMP]]
+; CHECK: %2 = (@B)[0][8 * i1];
+; CHECK: %1 = %2  +  %1;
+
+; CHECK: <LVAL-REG> NON-LINEAR i32 %1 {sb:[[LIVEOUTSYM]]}
+
+; CHECK: (@A)[0][8 * i1] = %1;
 ; CHECK: END LOOP
 
 ; Check the remainder loop.
-; CHECK: DO i1 = 8 * %[[TMP]]
+; CHECK: DO i64 i1 = 8 * %[[TMP]]
 ; CHECK: (@A)[0][i1] = %1;
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: END REGION
+; CHECK: END LOOP
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

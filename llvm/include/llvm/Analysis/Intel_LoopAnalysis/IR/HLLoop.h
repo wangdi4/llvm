@@ -695,6 +695,12 @@ public:
     }
   }
 
+  void replaceLiveInTemp(unsigned OldSymbase, unsigned NewSymbase) {
+    assert(isLiveIn(OldSymbase) && "OldSymbase is not liveout!");
+    removeLiveInTemp(OldSymbase);
+    addLiveInTemp(NewSymbase);
+  }
+
   void replaceLiveOutTemp(unsigned OldSymbase, unsigned NewSymbase) {
     assert(isLiveOut(OldSymbase) && "OldSymbase is not liveout!");
     removeLiveOutTemp(OldSymbase);

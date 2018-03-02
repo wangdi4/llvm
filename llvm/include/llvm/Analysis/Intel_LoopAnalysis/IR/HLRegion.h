@@ -16,9 +16,9 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLREGION_H
 #define LLVM_IR_INTEL_LOOPIR_HLREGION_H
 
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
+#include "llvm/IR/BasicBlock.h"
 #include <iterator>
 #include <set>
 
@@ -91,9 +91,7 @@ private:
 
 public:
   /// Returns the map between symbase and llvm.dbg.* intrinsics.
-  const DebugIntrinMap &getDebugIntrinMap() const {
-    return DbgIntrinMap;
-  }
+  const DebugIntrinMap &getDebugIntrinMap() const { return DbgIntrinMap; }
 
   /// Prints header for the region.
   void printHeader(formatted_raw_ostream &OS, unsigned Depth,
@@ -160,6 +158,10 @@ public:
   const_live_in_iterator live_in_begin() const { return IRReg.live_in_begin(); }
   const_live_in_iterator live_in_end() const { return IRReg.live_in_end(); }
 
+  const_live_out_iterator live_out_begin() const {
+    return IRReg.live_out_begin();
+  }
+  const_live_out_iterator live_out_end() const { return IRReg.live_out_end(); }
   // Returns symbase of a liveout value. Asserts, if the value is not liveout.
   unsigned getLiveOutSymbase(const Instruction *Temp) const {
     return IRReg.getLiveOutSymbase(Temp);
@@ -171,7 +173,7 @@ public:
 
   /// Returns true if this one region was created for the entire function.
   bool isFunctionLevel() const { return IRReg.isFunctionLevel(); }
-  
+
   /// Children iterator methods
   child_iterator child_begin() { return Children.begin(); }
   const_child_iterator child_begin() const { return Children.begin(); }

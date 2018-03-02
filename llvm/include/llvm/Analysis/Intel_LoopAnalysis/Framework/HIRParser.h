@@ -652,7 +652,7 @@ public:
       : DDRU(*this), DT(DT), LI(LI), SE(SE), RI(RI), HIRF(HIRF), HIRC(HIRC),
         LF(LF), ScalarSA(ScalarSA), HNU(HNU), CurNode(nullptr),
         CurRegion(nullptr), CurOutermostLoop(nullptr), CurLevel(0),
-        IsReady(false) {
+        IsReady(false), ParsingScalarLval(false) {
     // Connect contained DDRefUtils to HLNodeUtils object.
     HNU.DDRU = &DDRU;
   };
