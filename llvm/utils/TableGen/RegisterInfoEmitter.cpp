@@ -1368,15 +1368,6 @@ RegisterInfoEmitter::runTargetDesc(raw_ostream &OS, CodeGenTarget &Target,
       OS << "  extern const TargetRegisterClass " << RC.getName()
          << "RegClass = {\n    " << '&' << Target.getName()
          << "MCRegisterClasses[" << RC.getName() << "RegClassID],\n    "
-#if CSA // Ravi commented out during xmain pulldown
-#if INTEL_CUSTOMIZATION
-         // CSA EDIT: need to round up if 8 doesn't divide SpillSize!
-         << (RC.SpillSize/8) + (RC.SpillSize%8 ? 1 : 0) << ", /* SpillSize */\n    "
-         << RC.SpillAlignment/8 << ", /* SpillAlignment */\n    "
-         << "VTLists + " << VTSeqs.get(RC.VTs) << ",\n    " << RC.getName()
-         << "SubClassMask,\n    SuperRegIdxSeqs + "
-#endif
-#endif
          << RC.getName() << "SubClassMask,\n    SuperRegIdxSeqs + "
          << SuperRegIdxSeqs.get(SuperRegIdxLists[RC.EnumValue]) << ",\n    ";
       printMask(OS, RC.LaneMask);

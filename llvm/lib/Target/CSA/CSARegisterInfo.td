@@ -38,8 +38,8 @@ foreach i = 0-10 in { def CV0_#i : CSAReg<"phy0_"#i>; }
 // and registers might be assigned to those classes.
 let isVirtual = 1, CopyCost = -1 in {
   def ANYC : RegisterClass<"CSA", [i1], 64, (add (sequence "CV0_%u", 0, 10), NA, IGN)>;
-  def CI0  : RegisterClass<"CSA", [i1],      64, (add ANYC)> { let Size=1;  }
-  def CI1  : RegisterClass<"CSA", [i1],      8, (add ANYC)> { let Size=1;  }
+  def CI0  : RegisterClass<"CSA", [i1],      64, (add ANYC)> { let Size=8;  }
+  def CI1  : RegisterClass<"CSA", [i1],      8, (add ANYC)> { let Size=8;  }
   def CI8  : RegisterClass<"CSA", [i8],      8, (add ANYC)> { let Size=8;  }
   def CI16 : RegisterClass<"CSA", [i16,f16], 16, (add ANYC)> { let Size=16; }
   def CI32 : RegisterClass<"CSA", [i32,f32], 32, (add ANYC)> { let Size=32; }
@@ -95,21 +95,23 @@ def RA : CSAReg<"ra">;  // return addr
 
 
 def RI0  : RegisterClass<"CSA", [i1],      64,
-    (add (sequence "R%u", 0, 59), FP, TP, SP, RA)> { let isAllocatable = 0; }
-def RI1  : RegisterClass<"CSA", [i1],      8, (add RI0)>;
+    (add (sequence "R%u", 0, 59), FP, TP, SP, RA)> { let isAllocatable = 0; let Size = 8; }
+def RI1  : RegisterClass<"CSA", [i1],      8, (add RI0)> { let Size = 8; }
 def RI8  : RegisterClass<"CSA", [i8],      8, (add RI0)>;
 def RI16 : RegisterClass<"CSA", [i16,f16], 16, (add RI0)>;
 def RI32 : RegisterClass<"CSA", [i32,f32], 32, (add RI0)>;
 def RI64 : RegisterClass<"CSA", [i64,f64], 64, (add RI0)>;
 
-// These classes are used for instruction descriptions.
-// They allow either channels or registers.
-// When it comes to final register assignment, they can only be assigned
-// to registers.  (The assumption is that things that could be channels
-// were explicitly identified before register allocation.)
-def I0  : RegisterClass<"CSA", [i1],      64, (add RI0 , CI0 )>;
-def I1  : RegisterClass<"CSA", [i1],      8, (add RI1 , CI1 )>;
-def I8  : RegisterClass<"CSA", [i8],      8, (add RI8 , CI8 )>;
-def I16 : RegisterClass<"CSA", [i16,f16], 16, (add RI16, CI16)>;
-def I32 : RegisterClass<"CSA", [i32,f32], 32, (add RI32, CI32)>;
-def I64 : RegisterClass<"CSA", [i64,f64], 64, (add RI64, CI64)>;
+// The following classes can be used in the instruction information to refer to
+// either register or LICs. These classes necessarily contain CI* register
+// classes for verification purposes, but we need to prevent LLVM from trying
+// to allocate LICs if we run out of registers, hence the use of alternative
+// regalloc orders that omit the LIC physical registers.
+let AltOrders=[(add RI0)], AltOrderSelect = [{ return 1; }] in {
+  def I0  : RegisterClass<"CSA", [i1],      64, (add RI0 , CI0 )> { let Size = 8; }
+  def I1  : RegisterClass<"CSA", [i1],      8,  (add RI1 , CI1 )> { let Size = 8; }
+  def I8  : RegisterClass<"CSA", [i8],      8,  (add RI8 , CI8 )>;
+  def I16 : RegisterClass<"CSA", [i16,f16], 16, (add RI16, CI16)>;
+  def I32 : RegisterClass<"CSA", [i32,f32], 32, (add RI32, CI32)>;
+  def I64 : RegisterClass<"CSA", [i64,f64], 64, (add RI64, CI64)>;
+}
