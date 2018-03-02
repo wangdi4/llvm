@@ -1593,7 +1593,7 @@ def ATMXOR8   : AtomicOp<ATMXOR,  atomic_load_xor_8,  Ti8,  IIATM>;
 def ATMXOR16  : AtomicOp<ATMXOR,  atomic_load_xor_16, Ti16, IIATM>;
 def ATMXOR32  : AtomicOp<ATMXOR,  atomic_load_xor_32, Ti32, IIATM>;
 def ATMXOR64  : AtomicOp<ATMXOR,  atomic_load_xor_64, Ti64, IIATM>;
-def ATMXCHG   : GenericOp<"atmxchg">;
+def ATMXCHG   : GenericOp<"atmxchg", [HasRMWAtomic]>;
 def ATMXCHG8  : AtomicOp<ATMXCHG, atomic_swap_8,      Ti8,  IIATM>;
 def ATMXCHG16 : AtomicOp<ATMXCHG, atomic_swap_16,     Ti16, IIATM>;
 def ATMXCHG32 : AtomicOp<ATMXCHG, atomic_swap_32,     Ti32, IIATM>;

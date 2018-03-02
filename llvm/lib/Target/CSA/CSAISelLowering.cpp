@@ -154,9 +154,9 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
       setOperationAction(ISD::ATOMIC_LOAD_MIN, VT, Legal);
       setOperationAction(ISD::ATOMIC_LOAD_MAX, VT, Legal);
       setOperationAction(ISD::ATOMIC_LOAD_OR,  VT, Legal);
+      setOperationAction(ISD::ATOMIC_SWAP, VT, Legal);
       setOperationAction(ISD::ATOMIC_LOAD_XOR, VT, Legal);
     }
-    setOperationAction(ISD::ATOMIC_SWAP, VT, Legal);
     setOperationAction(ISD::ATOMIC_CMP_SWAP, VT, Legal);
 
     setOperationAction(ISD::ATOMIC_LOAD, VT, Custom);
@@ -1130,7 +1130,6 @@ CSATargetLowering::shouldExpandAtomicRMWInIR(AtomicRMWInst *AI) const {
   default:
     llvm_unreachable("Unknown atomic operation");
   case AtomicRMWInst::Xchg:
-    return AtomicExpansionKind::None;
   case AtomicRMWInst::Add:
   case AtomicRMWInst::Sub:
   case AtomicRMWInst::Or:

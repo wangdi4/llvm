@@ -1,4 +1,4 @@
-; RUN: llc -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK
+; RUN: llc -mtriple=csa -mattr=+rmwatomic < %s | FileCheck %s --check-prefix=CSA_CHECK
 target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "csa"
 
