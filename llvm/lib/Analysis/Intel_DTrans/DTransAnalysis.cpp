@@ -1167,6 +1167,13 @@ public:
   }
 
   void visitModule(Module &M) {
+    // Module's should already be materialized by the time this pass is run.
+    assert(M.isMaterialized());
+
+    // Analyze the structure types declared in the module.
+    for (StructType *Ty : M.getIdentifiedStructTypes())
+      analyzeStructureType(Ty);
+
     // Call the base InstVisitor routine to visit each function.
     InstVisitor<DTransInstVisitor>::visitModule(M);
 
@@ -1397,6 +1404,75 @@ private:
       }
     }
     return false;
+  }
+
+  // Analyze a structure definition, independent of its use in any
+  // instruction. This checks for basic issues like structure nesting
+  // and empty structures.
+  void analyzeStructureType(llvm::StructType *Ty) {
+    // Add this to our type info list.
+    dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(Ty);
+
+    // Check to see if this structure is known to be a system type.
+    if (dtrans::isSystemObjectType(Ty)) {
+      DEBUG(dbgs() << "dtrans-safety: System object:\n  " << *Ty << "\n");
+      TI->setSafetyData(dtrans::SystemObject);
+    }
+
+    // Get the number of fields in the structure.
+    unsigned NumElements = Ty->getNumElements();
+
+    // If the structure is empty, we can't need to try to optimize it.
+    if (NumElements == 0) {
+      DEBUG(dbgs() << "dtrans-safety: No fields in structure:\n  " << *Ty
+                   << "\n");
+      TI->setSafetyData(dtrans::NoFieldsInStruct);
+      return;
+    }
+
+    // I think opaque structures will report having zero fields.
+    assert(!Ty->isOpaque());
+
+    // It isn't clear to me under what circumstances a type will be reported
+    // as unsized, but if one is we definitely can't do anything with it.
+    if (!Ty->isSized()) {
+      DEBUG(dbgs() << "dtrans-safety: Unhandled use -- non-sized structure\n  "
+                   << *Ty << "\n");
+      TI->setSafetyData(dtrans::UnhandledUse);
+    }
+
+    // Walk the fields in the structure looking for nested structures.
+    for (llvm::Type *ElementTy : Ty->elements()) {
+      // If the element is a non-pointer structure, set the nested type
+      // safety conditions.
+      if (ElementTy->isStructTy()) {
+        DEBUG(dbgs() << "dtrans-safety: Nested structure\n"
+                     << "  parent: " << *Ty << "\n"
+                     << "  child : " << *ElementTy << "\n");
+        TI->setSafetyData(dtrans::ContainsNestedStruct);
+        DTInfo.getOrCreateTypeInfo(ElementTy)->setSafetyData(
+            dtrans::NestedStruct);
+        continue;
+      }
+      // If one of the fields is a vector or array, check for a contained
+      // structure type.
+      if (auto *SeqTy = dyn_cast<SequentialType>(ElementTy)) {
+        // Look through multiple layers of arrays or vectors if necessary.
+        llvm::Type *NestedTy = SeqTy;
+        while (isa<SequentialType>(NestedTy))
+          NestedTy = NestedTy->getSequentialElementType();
+        // If this was an array/vector of structures, set the nested type
+        // safety conditions.
+        if (NestedTy->isStructTy()) {
+          DEBUG(dbgs() << "dtrans-safety: Nested structure\n"
+                       << "  parent: " << *Ty << "\n"
+                       << "  child : " << *NestedTy << "\n");
+          TI->setSafetyData(dtrans::ContainsNestedStruct);
+          DTInfo.getOrCreateTypeInfo(NestedTy)->setSafetyData(
+              dtrans::NestedStruct);
+        }
+      }
+    }
   }
 
   // Verify that a bitcast from \p SrcTy to \p DestTy would be safe. The

@@ -50,7 +50,7 @@ define void @test03(%struct.test03.c* %c) {
 ; CHECK: Field LLVM Type: i16
 ; CHECK-NEXT: Field info: Written
 ; CHECK: LLVMType: %struct.test03.c = type { %struct.test03.a, %struct.test03.b }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Contains nested structure
 
 
 ; This test checks when a structure is composed of pointers to structures.
@@ -151,9 +151,9 @@ define void @test09(%struct.test09.b* %b) {
   ret void
 }
 ; CHECK: LLVMType: %struct.test09.a = type { i32, i32, i32, i32, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Nested structure
 ; CHECK: LLVMType: %struct.test09.b = type { i32, %struct.test09.a }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Contains nested structure
 
 
 ; This test checks using memset with the address of a pointer to struct member
@@ -187,9 +187,9 @@ define void @test11(%struct.test11.b* %b) {
   ret void
 }
 ; CHECK: LLVMType: %struct.test11.a = type { i32, i32, i32, i32, i32 }
-; CHECK: Safety data: Bad memfunc size
+; CHECK: Safety data: Bad memfunc size | Nested structure
 ; CHECK: LLVMType: %struct.test11.b = type { i32, %struct.test11.a, i32 }
-; CHECK: Safety data: Bad memfunc size
+; CHECK: Safety data: Bad memfunc size | Contains nested structure
 
 
 ; This test checks using memset with address of a pointer to struct member
@@ -225,9 +225,9 @@ define void @test13(%struct.test13.b* %b) {
 ; CHECK: Number of fields: 5
 ; CHECK: Field LLVM Type: i32
 ; CHECK-NEXT: Field info: Written
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Nested structure 
 ; CHECK: LLVMType: %struct.test13.b = type { i32, [10 x %struct.test13.a] }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Contains nested structure
 
 
 ; This test checks using memset with a pointer to a structure that is an array
@@ -245,9 +245,9 @@ define void @test14(%struct.test14.b* %b) {
   ret void
 }
 ; CHECK: LLVMType: %struct.test14.a = type { i32, i32, i32, i32, i32 }
-; CHECK: Safety data: Bad memfunc size
+; CHECK: Safety data: Bad memfunc size | Nested structure
 ; CHECK: LLVMType: %struct.test14.b = type { i32, [10 x %struct.test14.a] }
-; CHECK: Safety data: Bad memfunc size
+; CHECK: Safety data: Bad memfunc size | Contains nested structure
 
 
 ; This test checks using memset with the address of a scalar member of the
