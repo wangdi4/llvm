@@ -2765,18 +2765,24 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.OpenMPSimdDisabled = false;
   Opts.OpenMPTBBOnly = false;
   Opts.OpenMPTBBDisabled = false;
-  if (Opts.OpenMP) {
-    // OpenMP is enabled but we want to disable OpenMP subset
-    Opts.OpenMPSimdDisabled = Args.hasArg(OPT_fnointel_openmp_simd);
-    Opts.OpenMPTBBDisabled = Args.hasArg(OPT_fnointel_openmp_tbb);
-  } else {
-    Opts.OpenMPSimdOnly = Args.hasArg(OPT_fintel_openmp_simd);
-    Opts.OpenMPTBBOnly = Args.hasArg(OPT_fintel_openmp_tbb);
-    if (Opts.OpenMPSimdOnly || Opts.OpenMPTBBOnly)
-      Opts.OpenMP = true;
+  if (Opts.IntelOpenMP || Opts.IntelOpenMPRegion) {
+    if (Opts.OpenMP) {
+      // OpenMP is enabled but we want to disable OpenMP subset
+      Opts.OpenMPSimdDisabled = Args.hasArg(OPT_fno_openmp_simd);
+      Opts.OpenMPTBBDisabled = Args.hasArg(OPT_fnointel_openmp_tbb);
+    } else {
+      Opts.OpenMPSimdOnly = Args.hasArg(OPT_fopenmp_simd);
+      Opts.OpenMPTBBOnly = Args.hasArg(OPT_fintel_openmp_tbb);
+      if (Opts.OpenMPSimdOnly || Opts.OpenMPTBBOnly)
+        Opts.OpenMP = true;
+    }
   }
 #endif //INTEL_CUSTOMIZATION
 
+  // Check if -fopenmp-simd is specified.
+  Opts.OpenMPSimd = !Opts.OpenMP && Args.hasFlag(options::OPT_fopenmp_simd,
+                                                 options::OPT_fno_openmp_simd,
+                                                 /*Default=*/false);
   Opts.OpenMPUseTLS =
 #if INTEL_CUSTOMIZATION
       !Args.hasArg(options::OPT_fopenmp_threadprivate_legacy) &&
@@ -2785,11 +2791,13 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.OpenMPIsDevice =
       Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_is_device);
 
-  if (Opts.OpenMP) {
-    int Version =
-        getLastArgIntValue(Args, OPT_fopenmp_version_EQ, Opts.OpenMP, Diags);
-    if (Version != 0)
+  if (Opts.OpenMP || Opts.OpenMPSimd) {
+    if (int Version =
+            getLastArgIntValue(Args, OPT_fopenmp_version_EQ,
+                               Opts.OpenMPSimd ? 45 : Opts.OpenMP, Diags))
       Opts.OpenMP = Version;
+    else if (Opts.OpenMPSimd)
+      Opts.OpenMP = 45;
     // Provide diagnostic when a given target is not expected to be an OpenMP
     // device or host.
     if (!Opts.OpenMPIsDevice) {

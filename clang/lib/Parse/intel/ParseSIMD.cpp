@@ -538,7 +538,7 @@ StmtResult Parser::ParseSIMDDirective() {
     SourceLocation DeclEnd;
 
     // Still use Declarator::ForContext.
-    DeclGroupPtrTy DG = ParseSimpleDeclaration(Declarator::ForContext,
+    DeclGroupPtrTy DG = ParseSimpleDeclaration(DeclaratorContext::ForContext,
                                                DeclEnd, attrs,
                                                /*RequireSemi*/false,
                                                /*ForRangeInit*/0);

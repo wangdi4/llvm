@@ -126,6 +126,10 @@ _mm256_cvtph_ps(__m128i __a)
 }
 #endif /* __AVX2__ */
 
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__VPCLMULQDQ__)
+#include <vpclmulqdqintrin.h>
+#endif
+
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__BMI__)
 #include <bmiintrin.h>
 #endif
@@ -154,6 +158,10 @@ _mm256_cvtph_ps(__m128i __a)
 #include <avx512bwintrin.h>
 #endif
 
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512BITALG__)
+#include <avx512bitalgintrin.h>
+#endif
+
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512CD__)
 #include <avx512cdintrin.h>
 #endif
@@ -167,8 +175,22 @@ _mm256_cvtph_ps(__m128i __a)
 #include <avx512vpopcntdqvlintrin.h>
 #endif
 
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512VNNI__)
+#include <avx512vnniintrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || \
+    (defined(__AVX512VL__) && defined(__AVX512VNNI__))
+#include <avx512vlvnniintrin.h>
+#endif
+
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512DQ__)
 #include <avx512dqintrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || \
+    (defined(__AVX512VL__) && defined(__AVX512BITALG__))
+#include <avx512vlbitalgintrin.h>
 #endif
 
 #if !defined(_MSC_VER) || __has_feature(modules) || \
@@ -210,6 +232,15 @@ _mm256_cvtph_ps(__m128i __a)
 #include <avx512vbmivlintrin.h>
 #endif
 
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512VBMI2__)
+#include <avx512vbmi2intrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || \
+    (defined(__AVX512VBMI2__) && defined(__AVX512VL__))
+#include <avx512vlvbmi2intrin.h>
+#endif
+
 #ifndef __INTEL_COMPILER
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512PF__)
 #include <avx512pfintrin.h>
@@ -218,6 +249,14 @@ _mm256_cvtph_ps(__m128i __a)
 
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__PKU__)
 #include <pkuintrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__VAES__)
+#include <vaesintrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__GFNI__)
+#include <gfniintrin.h>
 #endif
 
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__RDRND__)

@@ -604,7 +604,7 @@ static llvm::Value *emitHash16Bytes(CGBuilderTy &Builder, llvm::Value *Low,
 
 bool CodeGenFunction::isNullPointerAllowed(TypeCheckKind TCK) {
   return TCK == TCK_DowncastPointer || TCK == TCK_Upcast ||
-         TCK == TCK_UpcastToVirtualBase;
+         TCK == TCK_UpcastToVirtualBase || TCK == TCK_DynamicOperation;
 }
 
 bool CodeGenFunction::isVptrCheckRequired(TypeCheckKind TCK, QualType Ty) {
@@ -612,7 +612,7 @@ bool CodeGenFunction::isVptrCheckRequired(TypeCheckKind TCK, QualType Ty) {
   return (RD && RD->hasDefinition() && RD->isDynamicClass()) &&
          (TCK == TCK_MemberAccess || TCK == TCK_MemberCall ||
           TCK == TCK_DowncastPointer || TCK == TCK_DowncastReference ||
-          TCK == TCK_UpcastToVirtualBase);
+          TCK == TCK_UpcastToVirtualBase || TCK == TCK_DynamicOperation);
 }
 
 bool CodeGenFunction::sanitizePerformTypeCheck() const {
@@ -2338,9 +2338,11 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
     GV->setThreadPrivate(true);
   else
 #endif // INTEL_CUSTOMIZATION
-  if (CGF.getLangOpts().OpenMP && VD->hasAttr<OMPThreadPrivateDeclAttr>())
+  if (CGF.getLangOpts().OpenMP && !CGF.getLangOpts().OpenMPSimd &&
+      VD->hasAttr<OMPThreadPrivateDeclAttr>()) {
     return EmitThreadPrivateVarDeclLValue(CGF, VD, T, Addr, RealVarTy,
                                           E->getExprLoc());
+  }
   LValue LV = VD->getType()->isReferenceType() ?
       CGF.EmitLoadOfReferenceLValue(Addr, VD->getType(),
                                     AlignmentSource::Decl) :
@@ -2585,7 +2587,8 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
 #if INTEL_CUSTOMIZATION
     if (!getLangOpts().OpenMPThreadPrivateLegacy)
 #endif // INTEL_CUSTOMIZATION
-    if (getLangOpts().OpenMP && VD->hasAttr<OMPThreadPrivateDeclAttr>()) {
+    if (getLangOpts().OpenMP && !getLangOpts().OpenMPSimd &&
+        VD->hasAttr<OMPThreadPrivateDeclAttr>()) {
       return EmitThreadPrivateVarDeclLValue(
           *this, VD, T, addr, getTypes().ConvertTypeForMem(VD->getType()),
           E->getExprLoc());

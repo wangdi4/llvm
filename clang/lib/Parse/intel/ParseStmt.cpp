@@ -127,7 +127,7 @@ StmtResult Parser::ParseCilkForStmt() {
     // Still use Declarator::ForContext. A new enum item CilkForContext
     // may be needed for extra checks.
 
-    DeclGroupPtrTy DG = ParseSimpleDeclaration(Declarator::ForContext,
+    DeclGroupPtrTy DG = ParseSimpleDeclaration(DeclaratorContext::ForContext,
                                                DeclEnd, attrs,
                                                /*RequireSemi*/false,
                                                /*ForRangeInit*/0);

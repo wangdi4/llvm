@@ -777,10 +777,6 @@ def fintel_openmp_region : Flag<["-"], "fintel-openmp-region">,
   HelpText<"Enable emitting of Intel specific OpenMP code with regions">;
 def fopenmp_threadprivate_legacy : Flag<["-"], "fopenmp-threadprivate-legacy">,
   HelpText<"Generate legacy OpenMP threadprivates">;
-def fintel_openmp_simd : Flag<["-"], "fopenmp-simd">,
-  HelpText<"Enable OpenMP SIMD directives">;
-def fnointel_openmp_simd : Flag<["-"], "fnoopenmp-simd">,
-  HelpText<"Disable OpenMP SIMD directives">;
 def fintel_openmp_tbb : Flag<["-"], "fopenmp-tbb">,
   HelpText<"Enable OpenMP TBB directives">;
 def fnointel_openmp_tbb : Flag<["-"], "fnoopenmp-tbb">,
