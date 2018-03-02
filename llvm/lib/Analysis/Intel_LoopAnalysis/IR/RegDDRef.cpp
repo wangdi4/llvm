@@ -1173,6 +1173,22 @@ RegDDRef::getTrailingStructOffsets(unsigned DimensionNum) const {
   return &getGEPInfo()->DimensionOffsets[DimensionNum - 1];
 }
 
+bool RegDDRef::hasNonZeroTrailingStructOffsets(unsigned DimensionNum) const {
+  auto Offsets = getTrailingStructOffsets(DimensionNum);
+
+  if (!Offsets) {
+    return false;
+  }
+
+  for (auto Offset : (*Offsets)) {
+    if (Offset != 0) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool RegDDRef::hasTrailingStructOffsets() const {
   // If the offset vector is empty return false.
   if (getGEPInfo()->DimensionOffsets.empty()) {

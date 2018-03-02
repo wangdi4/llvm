@@ -470,8 +470,15 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
                   bool CanSimplifySubs, unsigned NumAddressSimplifications);
 
   /// Returns true if \p Ref has been visited already. Sets \p AddToVisitedSet
-  /// to true to indicate that \p Ref should be added to visited set.
-  bool visited(const RegDDRef *Ref, bool &AddToVisitedSet);
+  /// to true to indicate that \p Ref should be added to visited set. Sets \p
+  /// SkipAddressSimplification to true to indicate that address simplification
+  /// for the Ref should be ignored.
+  bool visitedGEPRef(const RegDDRef *Ref, bool &AddToVisitedSet,
+                     bool &SkipAddressSimplification);
+
+  /// Processes a GEP DDRef for profitability. Returns true if Ref can be
+  /// simplified to a constant.
+  bool processGEPRef(const RegDDRef *Ref);
 
   /// Processes RegDDRef for profitability. Returns true if Ref can be
   /// simplified to a constant.
@@ -1542,11 +1549,10 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
   return CanSimplifyToConst;
 }
 
-bool HIRCompleteUnroll::ProfitabilityAnalyzer::visited(const RegDDRef *Ref,
-                                                       bool &AddToVisitedSet) {
-  if (!Ref->hasGEPInfo()) {
-    return false;
-  }
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::visitedGEPRef(
+    const RegDDRef *Ref, bool &AddToVisitedSet,
+    bool &SkipAddressSimplification) {
+  assert(Ref->hasGEPInfo() && "GEP Ref expected!");
 
   unsigned DefLevel = Ref->getDefinedAtLevel();
 
@@ -1555,18 +1561,21 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::visited(const RegDDRef *Ref,
   }
 
   for (auto &RefInfo : VisitedGEPRefs) {
-    if (DDRefUtils::areEqual(Ref, RefInfo.Ref) &&
-        (Ref->isRval() == RefInfo.Ref->isRval())) {
+    if (DDRefUtils::areEqual(Ref, RefInfo.Ref)) {
+      if (Ref->isRval() == RefInfo.Ref->isRval()) {
 
-      if (RefInfo.SimplifiedToConstSavings != 0) {
-        // Simplfied to const savings should be accounted for each occurence
-        // of the ref.
-        GEPSavings += RefInfo.SimplifiedToConstSavings;
-      } else if (Ref->isMemRef()) {
-        NumMemRefs += RefInfo.UniqueOccurences;
+        if (RefInfo.SimplifiedToConstSavings != 0) {
+          // Simplfied to const savings should be accounted for each occurence
+          // of the ref.
+          GEPSavings += RefInfo.SimplifiedToConstSavings;
+        } else if (Ref->isMemRef()) {
+          NumMemRefs += RefInfo.UniqueOccurences;
+        }
+
+        return true;
       }
 
-      return true;
+      SkipAddressSimplification = true;
     }
   }
 
@@ -1574,70 +1583,91 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::visited(const RegDDRef *Ref,
   return false;
 }
 
-bool HIRCompleteUnroll::ProfitabilityAnalyzer::processRef(const RegDDRef *Ref) {
-
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::processGEPRef(
+    const RegDDRef *Ref) {
   bool AddToVisitedSet = false;
+  bool SkipAddressSimplification = false;
 
-  if (visited(Ref, AddToVisitedSet)) {
+  if (visitedGEPRef(Ref, AddToVisitedSet, SkipAddressSimplification)) {
     return false;
   }
 
   bool CanSimplify = true;
   unsigned NumAddressSimplifications = 0;
-  unsigned NumAddressSimplificationTerms = 0;
-  bool HasGEPInfo = Ref->hasGEPInfo();
-  bool IsFirstCE = true;
-  bool HasConstantTerm = false;
+  bool AnyDimSimplified = false;
+  bool HasNonZeroDimOrOffsets = false;
 
-  for (auto CEIt = Ref->canon_begin(), E = Ref->canon_end(); CEIt != E;
-       ++CEIt) {
-    auto CE = *CEIt;
+  // Processes embedded canon exprs and computes address simplification
+  // opportunities. Address computation is associative. This means that
+  // simplification of non-consecutive dimensions can be added. For example, we
+  // will add up simplificaiton of first and third dimension for A[i1][%t][i2].
+  for (unsigned I = 1, NumDims = Ref->getNumDimensions(); I <= NumDims; ++I) {
+    auto CE = Ref->getDimensionIndex(I);
+
+    HasNonZeroDimOrOffsets =
+        HasNonZeroDimOrOffsets || Ref->hasNonZeroTrailingStructOffsets(I);
 
     if (!processCanonExpr(CE, Ref)) {
       CanSimplify = false;
 
-    } else if (HasGEPInfo) {
+    } else {
       int64_t Val;
-      bool IsConst = CE->isIntConstant(&Val);
 
-      if (IsConst) {
-        // If the CE is already constant, we haven't simplified anything but if
-        // it is non-zero there is a possibility of this getting folded if we
-        // simplify some other index.
-        if (Val != 0) {
-          HasConstantTerm = true;
-        }
+      // Process based on whether the dimension was already a constant.
+      if (CE->isIntConstant(&Val)) {
+        HasNonZeroDimOrOffsets = HasNonZeroDimOrOffsets || (Val != 0);
       } else {
-        if (IsFirstCE) {
-          ++NumAddressSimplificationTerms;
-        } else {
-          // Add one for simplification of index * stride.
+
+        if (I != 1) {
+          // This applies to first dimension as well if stride is not 1 but
+          // incorporating it leads to a skewed profitablity model causing perf
+          // regressions.
+          // TODO: fix the cost model.
+
+          // Simplification of (index * stride).
           ++NumAddressSimplifications;
-          ++NumAddressSimplificationTerms;
+
+          if (AnyDimSimplified) {
+            ++NumAddressSimplifications;
+          }
         }
+
+        AnyDimSimplified = true;
       }
     }
-
-    IsFirstCE = false;
   }
 
-  if (HasGEPInfo) {
+  if (SkipAddressSimplification) {
+    NumAddressSimplifications = 0;
+
+  } else if (AnyDimSimplified) {
+
+    // Add simplified dimensions and non-zero offsets.
+    if (HasNonZeroDimOrOffsets) {
+      ++NumAddressSimplifications;
+    }
+
     if (Ref->accessesAlloca() || Ref->accessesInternalGlobalVar()) {
       // The base address is known at compile time for global vars and stack
       // frame offset can be simplified for allocas.
-      ++NumAddressSimplificationTerms;
+      ++NumAddressSimplifications;
     }
-
-    if (NumAddressSimplificationTerms) {
-      NumAddressSimplifications += (NumAddressSimplificationTerms +
-                                    static_cast<unsigned>(HasConstantTerm) - 1);
-    }
-
-    CanSimplify = addGEPCost(Ref, AddToVisitedSet, CanSimplify,
-                             NumAddressSimplifications);
   }
 
+  CanSimplify =
+      addGEPCost(Ref, AddToVisitedSet, CanSimplify, NumAddressSimplifications);
+
   return CanSimplify;
+}
+
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::processRef(const RegDDRef *Ref) {
+  if (Ref->hasGEPInfo()) {
+    return processGEPRef(Ref);
+  }
+
+  assert(Ref->isTerminalRef() && "Unexpected ref type!");
+
+  return processCanonExpr(Ref->getSingleCanonExpr(), Ref);
 }
 
 /// Evaluates profitability of CanonExpr.

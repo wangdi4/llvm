@@ -651,6 +651,11 @@ public:
     return (getTrailingStructOffsets(DimensionNum) != nullptr);
   }
 
+  /// Returns true if \p DimensionNum has non-zero trailing offsets. For
+  /// example, it will return true for A[i].1, A[i].0.1 and false for A[i].0 and
+  /// A[i].0.0.
+  bool hasNonZeroTrailingStructOffsets(unsigned DimensionNum) const;
+
   /// Returns true if the Ref has trailing offsets for any dimension.
   bool hasTrailingStructOffsets() const;
 
