@@ -3812,7 +3812,8 @@ void Sema::InstantiateFunctionDefinition(SourceLocation PointOfInstantiation,
       PendingInstantiations.push_back(
         std::make_pair(Function, PointOfInstantiation));
     } else if (TSK == TSK_ImplicitInstantiation) {
-      if (AtEndOfTU && !getDiagnostics().hasErrorOccurred()) {
+      if (AtEndOfTU && !getDiagnostics().hasErrorOccurred() &&
+          !getSourceManager().isInSystemHeader(PatternDecl->getLocStart())) {
         Diag(PointOfInstantiation, diag::warn_func_template_missing)
           << Function;
         Diag(PatternDecl->getLocation(), diag::note_forward_template_decl);
@@ -3932,22 +3933,22 @@ void Sema::InstantiateFunctionDefinition(SourceLocation PointOfInstantiation,
                                          TemplateArgs))
       return;
 
-    if (CXXConstructorDecl *Ctor = dyn_cast<CXXConstructorDecl>(Function)) {
-      // If this is a constructor, instantiate the member initializers.
-      InstantiateMemInitializers(Ctor, cast<CXXConstructorDecl>(PatternDecl),
-                                 TemplateArgs);
-
-      // If this is an MS ABI dllexport default constructor, instantiate any
-      // default arguments.
-      if (Context.getTargetInfo().getCXXABI().isMicrosoft() &&
-          Ctor->isDefaultConstructor()) {
-        InstantiateDefaultCtorDefaultArgs(*this, Ctor);
-      }
-    }
-
     if (PatternDecl->hasSkippedBody()) {
       ActOnSkippedFunctionBody(Function);
     } else {
+      if (CXXConstructorDecl *Ctor = dyn_cast<CXXConstructorDecl>(Function)) {
+        // If this is a constructor, instantiate the member initializers.
+        InstantiateMemInitializers(Ctor, cast<CXXConstructorDecl>(PatternDecl),
+                                   TemplateArgs);
+
+        // If this is an MS ABI dllexport default constructor, instantiate any
+        // default arguments.
+        if (Context.getTargetInfo().getCXXABI().isMicrosoft() &&
+            Ctor->isDefaultConstructor()) {
+          InstantiateDefaultCtorDefaultArgs(*this, Ctor);
+        }
+      }
+
       // Instantiate the function body.
       StmtResult Body = SubstStmt(Pattern, TemplateArgs);
 
@@ -4347,7 +4348,8 @@ void Sema::InstantiateVariableDefinition(SourceLocation PointOfInstantiation,
         std::make_pair(Var, PointOfInstantiation));
     } else if (TSK == TSK_ImplicitInstantiation) {
       // Warn about missing definition at the end of translation unit.
-      if (AtEndOfTU && !getDiagnostics().hasErrorOccurred()) {
+      if (AtEndOfTU && !getDiagnostics().hasErrorOccurred() &&
+          !getSourceManager().isInSystemHeader(PatternDecl->getLocStart())) {
         Diag(PointOfInstantiation, diag::warn_var_template_missing)
           << Var;
         Diag(PatternDecl->getLocation(), diag::note_forward_template_decl);
