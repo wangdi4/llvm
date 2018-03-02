@@ -87,6 +87,18 @@ void foo1()
   __attribute__((__bank_bits__(2,3,4,5)))
   unsigned int v_twelve[64];
 
+  //CHECK: VarDecl{{.*}}v_twelve_A
+  //CHECK: NumBanksAttr{{.*}}Implicit{{$}}
+  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: BankBitsAttr
+  //CHECK-NEXT: IntegerLiteral{{.*}}5{{$}}
+  //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
+  //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
+  //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
+  __attribute__((__bank_bits__(5,4,3,2)))
+  unsigned int v_twelve_A[64];
+
   //CHECK: VarDecl{{.*}}v_thirteen
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: BankWidthAttr
@@ -548,6 +560,9 @@ void foo2()
   //expected-note@+1{{in instantiation of function template specialization}}
   tattr</*bankwidth=*/4, /*numbanks=*/8, /*numreadports=*/-1,
         /*numwriteports=*/8, /*bit1=*/2, /*bit2=*/3, /*bit3=*/4>();
+
+  tattr</*bankwidth=*/4, /*numbanks=*/8, /*numreadports=*/2,
+        /*numwriteports=*/8, /*bit1=*/4, /*bit2=*/3, /*bit3=*/2>();
 }
 
 template <typename T>

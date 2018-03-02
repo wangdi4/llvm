@@ -3450,7 +3450,7 @@ static void handleMergeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 /// when handling bank_bits they are checked for consistency.  If numbanks
 /// hasn't been added yet an implicit one is added with the correct value.
 /// If the user later adds a numbanks attribute the implicit one is removed.
-/// The values must be consecutive values (i.e. 3,4,5 or 1,2).
+/// The values must be consecutive values (i.e. 3,4,5 or 2,1).
 static void handleBankBitsAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 
   if (checkForDuplicateAttribute<BankBitsAttr>(S, D, Attr))
@@ -3476,29 +3476,32 @@ void Sema::AddBankBitsAttr(SourceRange AttrRange, Decl *D, Expr **Exprs,
                            unsigned Size, unsigned SpellingListIndex) {
   BankBitsAttr TmpAttr(AttrRange, Context, Exprs, Size, SpellingListIndex);
   SmallVector<Expr *, 8> Args;
-  SmallVector<llvm::APSInt, 8> Values;
+  SmallVector<int64_t, 8> Values;
+  bool ListIsValueDep = false;
   for (auto *E : TmpAttr.args()) {
     llvm::APSInt Value(32, /*IsUnsigned=*/false);
+    ListIsValueDep = ListIsValueDep || E->isValueDependent();
     if (!E->isValueDependent()) {
       ExprResult ICE;
       if (checkRangedIntegralArgument<BankBitsAttr>(E, &TmpAttr, ICE))
         return;
       E->EvaluateAsInt(Value, Context);
-      if (!Values.empty()) {
-        llvm::APSInt Expected(32, /*IsUnsigned=*/false);
-        Expected = Values.back() + 1;
-        // Expected == 1 would only happen for a value-dependent template
-        // which we can't check yet.
-        if (Expected != 1 && Value != Expected) {
-          Diag(AttrRange.getBegin(), diag::err_bankbits_non_consecutive)
-              << &TmpAttr;
-          return;
-        }
-      }
       E = ICE.get();
     }
     Args.push_back(E);
-    Values.push_back(Value);
+    Values.push_back(Value.getExtValue());
+  }
+
+  // Check that the list is consecutive.
+  if (!ListIsValueDep && Values.size() > 1) {
+    bool ListIsAscending = Values[0] < Values[1];
+    for (int I = 0, E = Values.size() - 1; I < E; ++I) {
+      if (Values[I + 1] != Values[I] + (ListIsAscending ? 1 : -1)) {
+        Diag(AttrRange.getBegin(), diag::err_bankbits_non_consecutive)
+            << &TmpAttr;
+        return;
+      }
+    }
   }
 
   // Check or add the related numbanks attribute.
