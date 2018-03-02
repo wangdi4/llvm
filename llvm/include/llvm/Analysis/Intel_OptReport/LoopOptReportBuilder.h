@@ -149,13 +149,13 @@ public:
   }
 
   template <typename... Args>
-  LoopOptReportThunk<T> &setOrigin(Args &&... args) {
+  LoopOptReportThunk<T> &addOrigin(Args &&... args) {
     if (!Builder.getVerbosity())
       return *this;
 
     LoopOptRemark Remark =
         LoopOptRemark::get(Builder.getContext(), std::forward<Args>(args)...);
-    getOrCreateOptReport().setOrigin(Remark);
+    getOrCreateOptReport().addOrigin(Remark);
     return *this;
   }
 

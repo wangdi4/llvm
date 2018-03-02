@@ -185,8 +185,8 @@ void printOptReport(formatted_raw_ostream &FOS, unsigned Depth,
   assert(OptReport &&
          "Client code is responsible for providing non-null OptReport");
 
-  if (OptReport.origin())
-    printOrigin(FOS, Depth, OptReport.origin());
+  for (const LoopOptRemark R : OptReport.origin())
+    printOrigin(FOS, Depth, R);
 
   for (const LoopOptRemark R : OptReport.remarks())
     printRemark(FOS, Depth, R);

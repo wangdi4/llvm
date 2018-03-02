@@ -345,11 +345,11 @@ HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
     // second to MainLoop, we move all the next siblings back there.
     LORBuilder(*MainLoop).moveSiblingsTo(*OrigLoop);
     if (VecMode)
-      LORBuilder(*OrigLoop).setOrigin("Remainder loop for vectorization");
+      LORBuilder(*OrigLoop).addOrigin("Remainder loop for vectorization");
     else if (OrigLoop->isInnermost())
-      LORBuilder(*OrigLoop).setOrigin("Remainder loop for partial unrolling");
+      LORBuilder(*OrigLoop).addOrigin("Remainder loop for partial unrolling");
     else
-      LORBuilder(*OrigLoop).setOrigin("Remainder loop for unroll-and-jam");
+      LORBuilder(*OrigLoop).addOrigin("Remainder loop for unroll-and-jam");
   }
 
   // Mark parent for invalidation

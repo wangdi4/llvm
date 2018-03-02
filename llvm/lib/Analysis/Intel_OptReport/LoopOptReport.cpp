@@ -223,9 +223,9 @@ LoopOptReport LoopOptReport::createEmptyOptReport(LLVMContext &Context) {
   return Root;
 }
 
-void LoopOptReport::setOrigin(LoopOptRemark Origin) const {
+void LoopOptReport::addOrigin(LoopOptRemark Origin) const {
   assert(Origin && "Null Origin");
-  addOptReportSingleValue(OptReport, LoopOptReportTag::Origin, Origin.get());
+  addOptReportMultiValue(OptReport, LoopOptReportTag::Origin, Origin.get());
 }
 
 void LoopOptReport::setDebugLoc(DILocation *Location) const {
@@ -261,10 +261,8 @@ void LoopOptReport::eraseSiblings() const {
   removeOptReportField(OptReport, LoopOptReportTag::NextSibling);
 }
 
-MDTuple *LoopOptReport::origin() const {
-  Metadata *MDVal =
-      findOptReportSingleValue(OptReport, LoopOptReportTag::Origin);
-  return cast_or_null<MDTuple>(MDVal);
+LoopOptReport::op_range LoopOptReport::origin() const {
+  return findOptReportMultiValue(OptReport, LoopOptReportTag::Origin);
 }
 
 const DILocation *LoopOptReport::debugLoc() const {

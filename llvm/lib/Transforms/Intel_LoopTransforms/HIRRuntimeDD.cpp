@@ -828,7 +828,7 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context,
 
   HLLoop *ModifiedLoop = Context.Loop;
   HLLoop *OrigLoop = Context.Loop->clone(&LoopMapper);
-  LORBuilder(*ModifiedLoop).setOrigin("Multiversioned loop");
+  LORBuilder(*ModifiedLoop).addOrigin("Multiversioned loop");
   LORBuilder(*OrigLoop).addRemark(OptReportVerbosity::Low,
                                   "The loop has been multiversioned");
 

@@ -213,14 +213,16 @@ Then you can call the ``OptReportOptionsPass`` method
    }
 
 
-There is a special type of remark that is called the origin. It serves to
-tell the user where the loop came from or what is the purpose of this loop.
+There are special remarks that are called origins. They serve to tell
+the user where the loop came from or what is the purpose of this loop.
 
 .. code-block:: c++
 
-   LORBuilder(*Loop).setOrigin("Remainder loop for vectorization");
+   LORBuilder(*Loop).addOrigin("Remainder loop for vectorization");
 
-It currently does not have verbosity checks.
+The method currently does not have verbosity checks.
+
+You can stack multiple origins using addOrigin method.
 
 
 If after some transformation the loop is optimized away (e.g. completely
@@ -323,7 +325,7 @@ special convention. Here is its format:
   ROOT_NODE := <!"llvm.loop.optreport">, <PROXY_OPTREPORT_NODE>
   PROXY_OPTREPORT_NODE := <!"intel.loop.optreport">, (DEBUG_LOC_NODE), (ORIGIN_NODE), (REMARKS_NODE), (FIRST_CHILD_NODE), (NEXT_SIBLING_NODE)
   DEBUG_LOC_NODE := <!"intel.optreport.debug_location">, <*DILocation>
-  ORIGIN_NODE := <!"intel.optreport.origin">, <REMARK>
+  ORIGIN_NODE := <!"intel.optreport.origin">, <REMARK>, (REMARK), ..., (REMARK)
   REMARKS_NODE := <!"intel.optreport.remarks">, <REMARK>, (REMARK), ..., (REMARK)
   FIRST_CHILD_NODE := <!"intel.optreport.first_child">, <PROXY_OPTREPORT_NODE>
   NEXT_SIBLING_NODE := <!"intel.optreport.next_sibling">, <PROXY_OPTREPORT_NODE>

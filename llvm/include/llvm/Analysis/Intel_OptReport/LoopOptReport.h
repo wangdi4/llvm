@@ -129,7 +129,7 @@ public:
   using op_range = MDTuple::op_range;
 
   // Setters.
-  void setOrigin(LoopOptRemark Origin) const;
+  void addOrigin(LoopOptRemark Origin) const;
   void setDebugLoc(DILocation *Location) const;
   void addRemark(LoopOptRemark Remark) const;
   void addChild(LoopOptReport Child) const;
@@ -137,7 +137,7 @@ public:
   void eraseSiblings() const;
 
   // Getters.
-  MDTuple *origin() const;
+  op_range origin() const;
   const DILocation *debugLoc() const;
   op_range remarks() const;
   const LoopOptReport nextSibling() const;
