@@ -81,6 +81,14 @@ void CSAMachineFunctionInfo::setLICName(unsigned vreg,
 
   if (!name.isTriviallyEmpty()) {
     std::string composed = name.str();
+    for (auto &ch : composed) {
+      if ('a' <= ch && ch <= 'z') continue;
+      if ('A' <= ch && ch <= 'Z') continue;
+      if ('0' <= ch && ch <= '9') continue;
+      if (ch == '.' || ch == '_') continue;
+      if (ch == '$' || ch == '%') continue;
+      ch = '_';
+    }
     auto baseIndex = composed.size();
     while (!namedLICs.insert(composed).second) {
       composed.resize(baseIndex);
