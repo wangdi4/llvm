@@ -19,6 +19,7 @@
 #include "CSARegisterInfo.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 
@@ -44,6 +45,9 @@ class CSAMachineFunctionInfo : public MachineFunctionInfo {
 
   MachineRegisterInfo &MRI;
   const CSAInstrInfo *TII;
+
+  mutable StringSet<> namedLICs;
+  mutable unsigned nameCounter;
 
   virtual void anchor();
 
@@ -108,7 +112,11 @@ public:
 
   /// Get a user-readable name of the LIC for the virtual register, or return
   /// an empty string if none is known.
-  StringRef getLICName(unsigned vreg) const { return getLICInfo(vreg).name; }
+  StringRef getLICName(unsigned vreg) const {
+    if (TargetRegisterInfo::isPhysicalRegister(vreg))
+      return "";
+    return getLICInfo(vreg).name;
+  }
 
   /// Set the name of the LIC to have the specified name.
   void setLICName(unsigned vreg, const Twine &name) const;

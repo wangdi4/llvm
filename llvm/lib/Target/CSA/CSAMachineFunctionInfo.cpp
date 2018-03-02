@@ -22,6 +22,7 @@ void CSAMachineFunctionInfo::anchor() {}
 
 CSAMachineFunctionInfo::CSAMachineFunctionInfo(MachineFunction &MF)
     : MRI(MF.getRegInfo()), TII(MF.getSubtarget<CSASubtarget>().getInstrInfo()),
+      nameCounter(0),
       FPFrameIndex(-1), RAFrameIndex(-1), VarArgsFrameIndex(-1) {}
 
 CSAMachineFunctionInfo::~CSAMachineFunctionInfo() {}
@@ -75,8 +76,20 @@ void CSAMachineFunctionInfo::noteNewLIC(unsigned vreg, unsigned size,
 
 void CSAMachineFunctionInfo::setLICName(unsigned vreg,
                                         const Twine &name) const {
-  // TODO: guarantee uniqueness of names.
-  getLICInfo(vreg).name = name.str();
+  if (TargetRegisterInfo::isPhysicalRegister(vreg))
+    return;
+
+  if (!name.isTriviallyEmpty()) {
+    std::string composed = name.str();
+    auto baseIndex = composed.size();
+    while (!namedLICs.insert(composed).second) {
+      composed.resize(baseIndex);
+      composed += std::to_string(++nameCounter);
+    }
+    getLICInfo(vreg).name = composed;
+  } else {
+    getLICInfo(vreg).name.clear();
+  }
 }
 
 CSAMachineFunctionInfo::LICInfo &
