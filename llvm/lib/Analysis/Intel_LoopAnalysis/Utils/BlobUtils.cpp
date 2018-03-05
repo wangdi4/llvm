@@ -497,3 +497,7 @@ bool BlobUtils::getTempBlobMostProbableConstValue(unsigned BlobIndex,
                                                   int64_t &Val) const {
   return getTempBlobMostProbableConstValue(getBlob(BlobIndex), Val);
 }
+
+bool BlobUtils::isInstBlob(BlobTy Blob) {
+  return isa<Instruction>(cast<SCEVUnknown>(Blob)->getValue());
+}

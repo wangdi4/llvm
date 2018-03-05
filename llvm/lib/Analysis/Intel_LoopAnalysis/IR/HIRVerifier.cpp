@@ -18,10 +18,10 @@
 #include "llvm/ADT/BitVector.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVerifier.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
-
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
+#include "llvm/Support/Debug.h"
 #define DEBUG_TYPE "hir-verify"
 
 using namespace llvm;
@@ -194,6 +194,7 @@ class HIRVerifierImpl final : public HLNodeVisitorBase {
 
   // The set is used to catch duplicated HLNodeNumbers.
   std::set<unsigned> HLNodeNumbers;
+  SmallDenseMap<unsigned, const HLDDNode *, 64> TempSymbaseDefMap;
 
   // The class to check scalar non-linear kill/uses
   UseKillInfo BlobUsesKills;
@@ -246,13 +247,70 @@ public:
                               NodeLevel, Symbase);
       }
     }
+
+    // The following code is used to verify loop liveins/liveouts
+    // Obtain the use loop
+    HLLoop *UseLoop = DDNode->getLexicalParentLoop();
+    // Find the use variable
+    for (auto I = DDNode->op_ddref_begin(), E = DDNode->op_ddref_end(); I != E;
+         ++I) {
+      // SelfBlob case
+      auto Ref = *I;
+      if (Ref->isSelfBlob() && !Ref->isLval()) {
+        unsigned Symbase = Ref->getSymbase();
+        unsigned Index = Ref->getSelfBlobIndex();
+
+        checkLoopLiveinLiveout(Index, Symbase, DDNode, UseLoop);
+
+        // Blob Case
+      } else {
+        for (auto Blob = Ref->blob_cbegin(), EB = Ref->blob_cend(); Blob != EB;
+             ++Blob) {
+          unsigned Symbase = (*Blob)->getSymbase();
+          unsigned Index = (*Blob)->getBlobIndex();
+
+          checkLoopLiveinLiveout(Index, Symbase, DDNode, UseLoop);
+        }
+      }
+    }
+    auto *LRef = DDNode->getLvalDDRef();
+    // Find the define variable
+    if (LRef && LRef->isTerminalRef()) {
+      // Keep the last seen definition for simplicity of implementation and
+      // compile time
+      TempSymbaseDefMap[LRef->getSymbase()] = DDNode;
+    }
     visit(static_cast<const HLNode *>(DDNode));
   }
 
+  void checkLoopLiveinLiveout(unsigned Index, unsigned UseSB,
+                              const HLDDNode *UseNode, HLLoop *UseLoop);
+
   void visit(const HLRegion *Region) {
+    TempSymbaseDefMap.clear();
     TopSortNum = 0;
     visit(static_cast<const HLNode *>(Region));
   }
+
+  void postVisit(const HLRegion *Region) {
+    for (auto I = Region->live_out_begin(), E = Region->live_out_end(); I != E;
+         ++I) {
+      unsigned Symbase = I->first;
+      auto Iter = TempSymbaseDefMap.find(Symbase);
+      assert(Iter != TempSymbaseDefMap.end() &&
+             "Could not find region live out symbase");
+      HLLoop *DefLoop = Iter->second->getLexicalParentLoop();
+      while (DefLoop != nullptr) {
+        assert(DefLoop->isLiveOut(Symbase) &&
+               "The loop expected to be a liveout loop");
+        DefLoop = DefLoop->getParentLoop();
+      }
+    }
+    BlobUsesKills.postCheckRegion();
+    postVisit(static_cast<const HLNode *>(Region));
+  }
+
+  void postVisit(const HLNode *Node) {}
 
   void visit(const HLLoop *Loop) {
     // Innermost flag verification begin
@@ -268,11 +326,6 @@ public:
   }
 
   void postVisit(const HLNode *Node) {}
-
-  void postVisit(const HLRegion *Region) {
-    BlobUsesKills.postCheckRegion();
-    postVisit(static_cast<const HLNode *>(Region));
-  }
 
   void postVisit(const HLLoop *Loop) {
     // Innermost flag verification begin
@@ -292,7 +345,55 @@ public:
     postVisit(static_cast<const HLNode *>(Loop));
   }
 };
-}
+} // namespace loopopt
+} // namespace llvm
+
+void HIRVerifierImpl::checkLoopLiveinLiveout(unsigned Index, unsigned UseSB,
+                                             const HLDDNode *UseNode,
+                                             HLLoop *UseLoop) {
+  BlobTy Blob = UseNode->getBlobUtils().getBlob(Index);
+  if (!BlobUtils::isInstBlob(Blob)) {
+    return;
+  }
+
+  HLLoop *DefLoop = nullptr;
+  const HLNode *DefNode = nullptr;
+  auto Iter = TempSymbaseDefMap.find(UseSB);
+
+  if (Iter != TempSymbaseDefMap.end()) {
+    DefNode = Iter->second;
+
+    auto LCAParent =
+        HLNodeUtils::getLexicalLowestCommonAncestorParent(DefNode, UseNode);
+
+    // Give up on verification if we cannot determine whether the definition
+    // reaches the use.
+    if (auto If = dyn_cast<HLIf>(LCAParent)) {
+      if (If->isThenChild(DefNode) != If->isThenChild(UseNode)) {
+        return;
+      }
+    } else if (auto Switch = dyn_cast<HLSwitch>(LCAParent)) {
+      if (Switch->getChildCaseNum(DefNode) !=
+          Switch->getChildCaseNum(UseNode)) {
+        return;
+      }
+    }
+
+    DefLoop = DefNode->getLexicalParentLoop();
+  }
+
+  // Get the lowest common ancestor loop of the define loop and use loop
+  HLLoop *LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(DefLoop, UseLoop);
+
+  while (UseLoop != LCALoop) {
+    assert(UseLoop->isLiveIn(UseSB) && "Temp expected to be livein to loop.");
+    UseLoop = UseLoop->getParentLoop();
+  }
+
+  while (DefLoop != LCALoop) {
+    assert(DefLoop->isLiveOut(UseSB) && "Temp expected to be liveout of loop.");
+    DefLoop = DefLoop->getParentLoop();
+  }
 }
 
 void HIRVerifier::verifyAll(const HIRFramework &HIRF) {
