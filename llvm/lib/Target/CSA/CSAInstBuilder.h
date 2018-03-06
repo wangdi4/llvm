@@ -45,10 +45,21 @@ struct MachineOp {
   MachineOp(unsigned) = delete;
 
   explicit operator bool() const { return Kind != Variant::Null; }
+  bool operator==(const MachineOp &rhs) const;
 
   bool isImm() const;
   int64_t getImm() const;
+
+  bool isReg() const;
+  unsigned getReg() const;
 };
+
+static inline bool operator==(const MachineOp &lhs, const MachineOperand &rhs) {
+  return lhs == MachineOp(rhs);
+}
+static inline bool operator==(const MachineOperand &lhs, const MachineOp &rhs) {
+  return MachineOp(lhs) == rhs;
+}
 
 static inline MachineOp OpReg(unsigned reg) {
   return MachineOp{MachineOp::Variant::RegUse, reg};
