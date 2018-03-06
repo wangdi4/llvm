@@ -3144,11 +3144,12 @@ bool Sema::CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   case Builtin::BI__builtin_intel_hls_outstream_read:
   case Builtin::BI__builtin_intel_hls_instream_write:
   case Builtin::BI__builtin_intel_hls_outstream_write: {
-    if (checkArgCount(*this, TheCall, RequiresSuccess ? 9 : 8))
+    if (checkArgCount(*this, TheCall, RequiresSuccess ? 13 : 12))
       return true;
-    // Signature is: T* Pointer, int64 bufferid, int readyLatency,
+    // Signature is: T* Pointer, int64 bufferid, int buffer, int readyLatency,
     // int bitsPerSymbol, bool firstSymbolInHighOrderBits, bool usesPackets,
-    // bool usesEmpty, bool usesValid/usesReady, <bool *success>
+    // bool usesEmpty, bool usesValid/usesReady, bool/bool* SOP, bool/bool* EOP,
+    // int/int* empty, <bool *success>
 
     // First parameter permits an arbitrary pointer type, which determines the
     // return type of this builtin.
@@ -3159,13 +3160,13 @@ bool Sema::CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
       return Diag(PointerArg->getLocStart(), diag::err_hls_builtin_arg_mismatch)
              << 0;
 
-    // Second paramter is a unique identifier for this stream.
+    // Second parameter is a unique identifier for this stream.
     Expr *BufferId = TheCall->getArg(1);
     if (!BufferId->getType()->isIntegerType())
       return Diag(BufferId->getLocStart(), diag::err_hls_builtin_arg_mismatch)
              << 1;
 
-    // ReadyLatency, positive constant integer.
+    // Buffer, a positive constant integer.
     llvm::APSInt Result;
     if (SemaBuiltinConstantArg(TheCall, 2, Result))
       return true;
@@ -3174,28 +3175,81 @@ bool Sema::CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
                   diag::err_hls_builtin_arg_mismatch)
              << 2;
 
-    // BitsPerSymbol, positive integer value that evenly divides Type size.
+    // ReadyLatency, positive constant integer.
     if (SemaBuiltinConstantArg(TheCall, 3, Result))
+      return true;
+    if (Result.isNegative())
+      return Diag(TheCall->getArg(3)->getLocStart(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 2;
+
+    // BitsPerSymbol, positive integer value that evenly divides Type size.
+    if (SemaBuiltinConstantArg(TheCall, 4, Result))
       return true;
     if (Result.isNegative() || Context.getTypeSize(Pointer->getPointeeType()) %
                                        Result.getZExtValue() !=
                                    0)
-      return Diag(TheCall->getArg(3)->getLocStart(),
+      return Diag(TheCall->getArg(4)->getLocStart(),
                   diag::err_hls_builtin_arg_mismatch)
              << 3;
 
     // FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty, UsesValid/UsesReady,
     // are all booleans.
-    for (int I = 4; I < 8; ++I) {
+    for (int I = 5; I < 9; ++I) {
       Expr *BoolArg = TheCall->getArg(I);
       if (!BoolArg->getType()->isBooleanType())
         return Diag(BoolArg->getLocStart(), diag::err_hls_builtin_arg_mismatch)
                << 4;
     }
 
+    // SOP, EOP, and Empty, for 'reads' these are pointers to bool/bool/int, for
+    // writes these are simply bool/bool/int.
+    bool ShouldBePointers =
+        BuiltinID == Builtin::BI__builtin_intel_hls_instream_read ||
+        BuiltinID == Builtin::BI__builtin_intel_hls_outstream_read ||
+        BuiltinID == Builtin::BI__builtin_intel_hls_instream_tryRead ||
+        BuiltinID == Builtin::BI__builtin_intel_hls_outstream_tryRead;
+    QualType SOP = TheCall->getArg(9)->getType();
+    QualType EOP = TheCall->getArg(10)->getType();
+    QualType Empty = TheCall->getArg(11)->getType();
+
+    if (ShouldBePointers) {
+      if (!SOP->isPointerType() && !SOP->isNullPtrType())
+        return Diag(TheCall->getArg(9)->getLocStart(),
+                    diag::err_hls_builtin_arg_mismatch)
+               << 5;
+      SOP = SOP->isNullPtrType() ? Context.BoolTy : SOP->getPointeeType();
+      if (!EOP->isPointerType() && !EOP->isNullPtrType())
+        return Diag(TheCall->getArg(10)->getLocStart(),
+                    diag::err_hls_builtin_arg_mismatch)
+               << 5;
+      EOP = EOP->isNullPtrType() ? Context.BoolTy : EOP->getPointeeType();
+      if (!Empty->isPointerType() && !Empty->isNullPtrType())
+        return Diag(TheCall->getArg(11)->getLocStart(),
+                    diag::err_hls_builtin_arg_mismatch)
+               << 9;
+      Empty = Empty->isNullPtrType() ? Context.IntTy : Empty->getPointeeType();
+    }
+
+    if (!SOP->isBooleanType())
+        return Diag(TheCall->getArg(9)->getLocStart(),
+                    diag::err_hls_builtin_arg_mismatch)
+               <<  (ShouldBePointers ? 5 : 4);
+
+    if (!EOP->isBooleanType())
+        return Diag(TheCall->getArg(10)->getLocStart(),
+                    diag::err_hls_builtin_arg_mismatch)
+               <<  (ShouldBePointers ? 5 : 4);
+
+    if (!Empty->isIntegerType())
+        return Diag(TheCall->getArg(11)->getLocStart(),
+                    diag::err_hls_builtin_arg_mismatch)
+               <<  (ShouldBePointers ? 9 : 1);
+
+
     // Last arg is a pointer to a boolean in the 'try' cases.
     if (RequiresSuccess) {
-      Expr *SuccessArg = TheCall->getArg(8);
+      Expr *SuccessArg = TheCall->getArg(12);
       const auto *SuccessPointer = dyn_cast<PointerType>(SuccessArg->getType());
       if (!SuccessPointer || !SuccessPointer->getPointeeType()->isBooleanType())
         return Diag(PointerArg->getLocStart(),

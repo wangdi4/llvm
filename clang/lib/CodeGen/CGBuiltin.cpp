@@ -937,11 +937,27 @@ static bool isHLSStreamWrite(unsigned BuiltinID) {
   }
 }
 
+static bool isHLSStreamRead(unsigned BuiltinID) {
+  switch (BuiltinID) {
+  default:
+    return false;
+  case Builtin::BI__builtin_intel_hls_instream_tryRead:
+  case Builtin::BI__builtin_intel_hls_outstream_tryRead:
+  case Builtin::BI__builtin_intel_hls_instream_read:
+  case Builtin::BI__builtin_intel_hls_outstream_read:
+    return true;
+  }
+}
+
 RValue CodeGenFunction::EmitHLSStreamBuiltin(unsigned BuiltinID,
                                              const CallExpr *E) {
   llvm::SmallVector<Value *, 8> Args;
   const Expr *PtrArg = E->getArg(0);
   const PointerType *PtrTy = cast<PointerType>(PtrArg->getType().getTypePtr());
+  llvm::Type *OverloadTy = ConvertType(PtrTy->getPointeeType());
+
+  llvm::Function *Func =
+      CGM.getIntrinsic(getHLSIntrinsic(BuiltinID), {OverloadTy});
 
   if (isHLSStreamWrite(BuiltinID)) {
     Args.push_back(EmitScalarExpr(PtrArg));
@@ -950,35 +966,62 @@ RValue CodeGenFunction::EmitHLSStreamBuiltin(unsigned BuiltinID,
   const Expr *BufferIdArg = E->getArg(1);
   Args.push_back(EmitScalarExpr(BufferIdArg));
 
-  const Expr *ReadyLatencyArg = E->getArg(2);
+  const Expr *BufferArg = E->getArg(2);
+  Args.push_back(EmitScalarExpr(BufferArg));
+
+  const Expr *ReadyLatencyArg = E->getArg(3);
   Args.push_back(EmitScalarExpr(ReadyLatencyArg));
 
-  const Expr *BitsPerSymbolArg = E->getArg(3);
+  const Expr *BitsPerSymbolArg = E->getArg(4);
   Args.push_back(EmitScalarExpr(BitsPerSymbolArg));
 
-  const Expr *FirstSymbolInHighOrderBitsArg = E->getArg(4);
+  const Expr *FirstSymbolInHighOrderBitsArg = E->getArg(5);
   Args.push_back(EmitScalarExpr(FirstSymbolInHighOrderBitsArg));
 
-  const Expr *UsesPacketsArg = E->getArg(5);
+  const Expr *UsesPacketsArg = E->getArg(6);
   Args.push_back(EmitScalarExpr(UsesPacketsArg));
 
-  const Expr *UsesEmptyArg = E->getArg(6);
+  const Expr *UsesEmptyArg = E->getArg(7);
   Args.push_back(EmitScalarExpr(UsesEmptyArg));
 
-  const Expr *UsesValidReadyArg = E->getArg(7);
+  const Expr *UsesValidReadyArg = E->getArg(8);
   Args.push_back(EmitScalarExpr(UsesValidReadyArg));
 
-  llvm::Type *OverloadTy = ConvertType(PtrTy->getPointeeType());
-
-  llvm::Function *Func =
-      CGM.getIntrinsic(getHLSIntrinsic(BuiltinID), {OverloadTy});
-  if (BuiltinID == Builtin::BI__builtin_intel_hls_instream_tryRead ||
-      BuiltinID == Builtin::BI__builtin_intel_hls_outstream_tryRead) {
+  if (isHLSStreamWrite(BuiltinID)) {
+    // Write takes SOP/EOP/Empty by value instead of as a pointer.
+    const Expr *SOPArg = E->getArg(9);
+    Args.push_back(EmitScalarExpr(SOPArg));
+    const Expr *EOPArg = E->getArg(10);
+    Args.push_back(EmitScalarExpr(EOPArg));
+    const Expr *EmptyArg = E->getArg(11);
+    Args.push_back(EmitScalarExpr(EmptyArg));
+  } else if (isHLSStreamRead(BuiltinID)) {
+    // Read returns the Success (In 'try' cases), SOP, EOP, and Empty.
     auto *Call = Builder.CreateCall(Func, Args);
-    const Expr *SuccessArg = E->getArg(8);
-    auto *Success = EmitScalarExpr(SuccessArg);
-    Builder.CreateDefaultAlignedStore(Builder.CreateExtractValue(Call, 1),
-                                      Success);
+    bool HasSuccess = false;
+
+    if (BuiltinID == Builtin::BI__builtin_intel_hls_instream_tryRead ||
+        BuiltinID == Builtin::BI__builtin_intel_hls_outstream_tryRead) {
+      HasSuccess = true;
+      const Expr *SuccessArg = E->getArg(12);
+      llvm::Value *Success = EmitScalarExpr(SuccessArg);
+      Builder.CreateDefaultAlignedStore(Builder.CreateExtractValue(Call, 1),
+                                        Success);
+    }
+
+    const Expr *SOPArg = E->getArg(9);
+    llvm::Value *SOP = EmitScalarExpr(SOPArg);
+    Builder.CreateDefaultAlignedStore(
+        Builder.CreateExtractValue(Call, 1 + HasSuccess), SOP);
+    const Expr *EOPArg = E->getArg(10);
+    llvm::Value *EOP = EmitScalarExpr(EOPArg);
+    Builder.CreateDefaultAlignedStore(
+        Builder.CreateExtractValue(Call, 2 + HasSuccess), EOP);
+    const Expr *EmptyArg = E->getArg(11);
+    llvm::Value *Empty = EmitScalarExpr(EmptyArg);
+    Builder.CreateDefaultAlignedStore(
+        Builder.CreateExtractValue(Call, 3 + HasSuccess), Empty);
+    // Return the read object.
     return RValue::get(Builder.CreateExtractValue(Call, 0));
   }
 
