@@ -30,7 +30,7 @@ using namespace llvm::vpo;
 
 INITIALIZE_PASS_BEGIN(WRegionInfo, "vpo-wrninfo",
                                    "VPO Work-Region Information", false, true)
-INITIALIZE_PASS_DEPENDENCY(WRegionCollection)
+INITIALIZE_PASS_DEPENDENCY(WRegionCollectionWrapperPass)
 INITIALIZE_PASS_END(WRegionInfo, "vpo-wrninfo",
                                  "VPO Work-Region Information", false, true)
 
@@ -45,14 +45,14 @@ WRegionInfo::WRegionInfo() : FunctionPass(ID) {
 
 void WRegionInfo::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequiredTransitive<WRegionCollection>();
+  AU.addRequiredTransitive<WRegionCollectionWrapperPass>();
 }
 
 bool WRegionInfo::runOnFunction(Function &F) {
   DEBUG(dbgs() << "\nENTER WRegionInfo::runOnFunction: "
                << F.getName() << "{\n");
   Func = &F;
-  WRC  = &getAnalysis<WRegionCollection>();
+  WRC  = &getAnalysis<WRegionCollectionWrapperPass>().getWRegionCollection();
   DT   = WRC->getDomTree();   // propagate analysis results
   LI   = WRC->getLoopInfo();
   SE   = WRC->getSE();

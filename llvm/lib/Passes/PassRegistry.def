@@ -130,6 +130,7 @@ FUNCTION_ANALYSIS("xm-opt-level", XmainOptLevelAnalysis())
 FUNCTION_ANALYSIS("hir-region-identification", loopopt::HIRRegionIdentificationAnalysis())
 FUNCTION_ANALYSIS("hir-scc-formation", loopopt::HIRSCCFormationAnalysis())
 FUNCTION_ANALYSIS("hir-framework", loopopt::HIRFrameworkAnalysis())
+FUNCTION_ANALYSIS("vpo-wrncollection", WRegionCollectionAnalysis())
 #endif // INTEL_CUSTOMIZATION
 
 #ifndef FUNCTION_ALIAS_ANALYSIS

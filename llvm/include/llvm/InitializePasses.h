@@ -469,7 +469,7 @@ void initializeHIRLoopConcatenationPass(PassRegistry&);
 void initializeHIRArrayTransposePass(PassRegistry&);
 void initializeHIRLoopFusionPass(PassRegistry&);
 // VPO WRegion Passes
-void initializeWRegionCollectionPass(PassRegistry&);
+void initializeWRegionCollectionWrapperPassPass(PassRegistry&);
 void initializeWRegionInfoPass(PassRegistry&);
 void initializeWRegionInfoAnalysisPass(PassRegistry&);
 // VPO Utility Pass

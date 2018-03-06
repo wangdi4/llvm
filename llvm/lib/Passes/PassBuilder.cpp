@@ -92,8 +92,6 @@
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/InstrProfiling.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
-#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTpv.h"    // INTEL
-#include "llvm/Transforms/Intel_VPO/Utils/CFGRestructuring.h" // INTEL
 #include "llvm/Transforms/PGOInstrumentation.h"
 #include "llvm/Transforms/SampleProfile.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
@@ -169,6 +167,10 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGen.h"
+// Intel VPO
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTpv.h"
+#include "llvm/Transforms/Intel_VPO/Utils/CFGRestructuring.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;

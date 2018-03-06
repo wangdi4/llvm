@@ -27,7 +27,6 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Pass.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
@@ -39,7 +38,30 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-wrncollection"
 
-INITIALIZE_PASS_BEGIN(WRegionCollection, "vpo-wrncollection",
+AnalysisKey WRegionCollectionAnalysis::Key;
+
+WRegionCollection WRegionCollectionAnalysis::run(Function &F,
+                                                 FunctionAnalysisManager &AM) {
+
+  DEBUG(dbgs() << "\nENTER WRegionCollectionAnalysis::run: " << F.getName()
+               << "{\n");
+
+  auto &DI = AM.getResult<DominatorTreeAnalysis>(F);
+  auto &LI = AM.getResult<LoopAnalysis>(F);
+  auto &SE = AM.getResult<ScalarEvolutionAnalysis>(F);
+  auto &TTI = AM.getResult<TargetIRAnalysis>(F);
+  auto &AC = AM.getResult<AssumptionAnalysis>(F);
+  auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
+  auto *HIRF = AM.getCachedResult<loopopt::HIRFrameworkAnalysis>(F);
+
+  WRegionCollection WRC(&F, &DI, &LI, &SE, &TTI, &AC, &TLI, HIRF);
+
+  DEBUG(dbgs() << "\n}EXIT WRegionCollectionAnalysis::run: " << F.getName()
+               << "\n");
+  return WRC;
+}
+
+INITIALIZE_PASS_BEGIN(WRegionCollectionWrapperPass, "vpo-wrncollection",
                       "VPO Work-Region Collection", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
@@ -47,20 +69,21 @@ INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_END(WRegionCollection, "vpo-wrncollection",
+INITIALIZE_PASS_END(WRegionCollectionWrapperPass, "vpo-wrncollection",
                     "VPO Work-Region Collection", false, true)
 
-char WRegionCollection::ID = 0;
+char WRegionCollectionWrapperPass::ID = 0;
 
-FunctionPass *llvm::createWRegionCollectionPass() {
-  return new WRegionCollection();
+FunctionPass *llvm::createWRegionCollectionWrapperPassPass() {
+  return new WRegionCollectionWrapperPass();
 }
 
-WRegionCollection::WRegionCollection() : FunctionPass(ID) {
-  initializeWRegionCollectionPass(*PassRegistry::getPassRegistry());
+WRegionCollectionWrapperPass::WRegionCollectionWrapperPass()
+    : FunctionPass(ID) {
+  initializeWRegionCollectionWrapperPassPass(*PassRegistry::getPassRegistry());
 }
 
-void WRegionCollection::getAnalysisUsage(AnalysisUsage &AU) const {
+void WRegionCollectionWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
@@ -68,6 +91,27 @@ void WRegionCollection::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AssumptionCacheTracker>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+}
+
+bool WRegionCollectionWrapperPass::runOnFunction(Function &F) {
+  DEBUG(dbgs() << "\nENTER WRegionCollectionWrapperPass::runOnFunction: "
+               << F.getName() << "{\n");
+
+  auto &DI = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  auto &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+  auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
+  auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  auto *HIRFA = getAnalysisIfAvailable<loopopt::HIRFrameworkWrapperPass>();
+
+  WRC.reset(
+      new WRegionCollection(&F, &DI, &LI, &SE, &TTI, &AC, &TLI,
+                            HIRFA != nullptr ? &HIRFA->getHIR() : nullptr));
+
+  DEBUG(dbgs() << "\n}EXIT WRegionCollectionWrapperPass::runOnFunction: "
+               << F.getName() << "\n");
+  return false;
 }
 
 /// \brief TBD: get associated Loop Info for a given W-Region
@@ -287,21 +331,13 @@ void WRegionCollection::buildWRGraphFromLLVMIR(Function &F) {
   return;
 }
 
-bool WRegionCollection::runOnFunction(Function &F) {
-  DEBUG(dbgs() << "\nENTER WRegionCollection::runOnFunction: "
-               << F.getName() << "{\n");
-  this->Func = &F;
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-  TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-
-  DEBUG(dbgs() << "\n}EXIT WRegionCollection::runOnFunction: "
-               << F.getName() << "\n");
-  return false;
-}
+WRegionCollection::WRegionCollection(Function *F, DominatorTree *DT,
+                                     LoopInfo *LI, ScalarEvolution *SE,
+                                     const TargetTransformInfo *TTI,
+                                     AssumptionCache *AC,
+                                     const TargetLibraryInfo *TLI,
+                                     loopopt::HIRFramework *HIRF)
+    : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI), HIRF(HIRF) {}
 
 void WRegionCollection::buildWRGraph(InputIRKind IR) {
   DEBUG(dbgs() << "\nENTER WRegionCollection::buildWRGraph(InputIR="
@@ -309,11 +345,9 @@ void WRegionCollection::buildWRGraph(InputIRKind IR) {
   if (IR == HIR) {
     // TODO: move buildWRGraphFromHIR() from WRegionUtils to WRegionCollection
     //       after Vectorizer's HIR mode starts using this new interface
-    auto *HIRFA = getAnalysisIfAvailable<loopopt::HIRFrameworkWrapperPass>();
-    assert(HIRFA && "HIR framework not available!");
-    auto &HIRF = HIRFA->getHIR();
+    assert(HIRF && "HIR framework not available!");
 
-    WRGraph = WRegionUtils::buildWRGraphFromHIR(HIRF);
+    WRGraph = WRegionUtils::buildWRGraphFromHIR(*HIRF);
   } else if (IR == LLVMIR) {
     buildWRGraphFromLLVMIR(*Func);
   } else {
@@ -323,8 +357,8 @@ void WRegionCollection::buildWRGraph(InputIRKind IR) {
   DEBUG(dbgs() << "\n} EXIT WRegionCollection::buildWRGraph\n");
 }
 
-
-void WRegionCollection::releaseMemory() {
+void WRegionCollectionWrapperPass::releaseMemory() {
+  WRC.reset();
 #if 0
   for (auto &I : WRegions) {
     delete I;
@@ -333,13 +367,9 @@ void WRegionCollection::releaseMemory() {
 #endif
 }
 
-void WRegionCollection::print(raw_ostream &OS, const Module *M) const {
+void WRegionCollection::print(raw_ostream &OS) const {
 #if !INTEL_PRODUCT_RELEASE
   /// TODO: implement later
   /// WR.print(OS);
 #endif // !INTEL_PRODUCT_RELEASE
-}
-
-void WRegionCollection::verifyAnalysis() const {
-  /// TODO: implement later
 }
