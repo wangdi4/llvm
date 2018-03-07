@@ -1175,16 +1175,20 @@ bool HLLoop::normalize() {
   int64_t Stride;
   StrideCE->isIntConstant(&Stride);
 
+  RegDDRef *UpperRef = getUpperDDRef();
+  RegDDRef *LowerRef = getLowerDDRef();
+
+  // Clone is required as we will be updating upper ref and will be using
+  // original ref to make it consistent.
+  std::unique_ptr<RegDDRef> UpperRefClone(UpperRef->clone());
+  SmallVector<const RegDDRef *, 2> Aux = {LowerRef, UpperRefClone.get()};
+
   CanonExpr *UpperCE = getUpperCanonExpr();
 
   // New Upper = (U - L) / S
   if (!CanonExprUtils::subtract(UpperCE, LowerCE, false)) {
     llvm_unreachable("[HIR-NORMALIZE] Can not subtract L from U");
   }
-
-  RegDDRef *UpperRef = getUpperDDRef();
-  RegDDRef *LowerRef = getLowerDDRef();
-  SmallVector<const RegDDRef *, 2> Aux = {LowerRef, UpperRef};
 
   UpperCE->divide(Stride);
   UpperCE->simplify(true);

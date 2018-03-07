@@ -596,8 +596,11 @@ void HIROptVarPredicate::splitLoop(
   // %LB
   BlobTy LowerBlob = BlobUtilsObj->getBlob(LowerCE->getSingleBlobIndex());
 
+  // Clone is required as we will be updating *Loop* upper ref and will be using
+  // original ref to make it consistent.
+  std::unique_ptr<RegDDRef> LoopUpperDDRef(Loop->getUpperDDRef()->clone());
   SmallVector<const RegDDRef *, 4> Aux{LHS, RHS, Loop->getLowerDDRef(),
-                                       Loop->getUpperDDRef()};
+                                       LoopUpperDDRef.get()};
 
   // Special case ==, != predicates..
   if (Pred == PredicateTy::ICMP_EQ || Pred == PredicateTy::ICMP_NE) {
