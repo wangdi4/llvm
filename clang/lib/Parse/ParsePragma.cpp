@@ -314,7 +314,9 @@ void Parser::initializePragmaHandlers() {
 
 #if INTEL_CUSTOMIZATION
   initializeIntelPragmaHandlers ();
-  if (getLangOpts().HLS) {
+  if (getLangOpts().HLS ||
+      (getLangOpts().OpenCL &&
+       getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
     LoopCoalesceHandler.reset(new PragmaLoopCoalesceHandler("loop_coalesce"));
     PP.AddPragmaHandler(LoopCoalesceHandler.get());
     IIHandler.reset(new PragmaIIHandler("ii"));
@@ -415,7 +417,9 @@ void Parser::resetPragmaHandlers() {
 
 #if INTEL_CUSTOMIZATION
   resetIntelPragmaHandlers();
-  if (getLangOpts().HLS) {
+  if (getLangOpts().HLS ||
+      (getLangOpts().OpenCL &&
+       getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
     PP.RemovePragmaHandler(LoopCoalesceHandler.get());
     LoopCoalesceHandler.reset();
     PP.RemovePragmaHandler(IIHandler.get());
