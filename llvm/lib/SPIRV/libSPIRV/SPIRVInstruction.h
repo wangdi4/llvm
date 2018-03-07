@@ -1348,6 +1348,10 @@ public:
   const std::vector<SPIRVWord> &getArguments() const{
     return Args;
   }
+  void setArguments(const std::vector<SPIRVWord> &A) {
+    Args = A;
+    setWordCount(Args.size() + FixedWordCount);
+  }
   std::vector<SPIRVValue *> getArgumentValues() {
     return getValues(Args);
   }

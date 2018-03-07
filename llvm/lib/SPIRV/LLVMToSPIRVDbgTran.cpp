@@ -70,10 +70,91 @@ void LLVMToSPIRVDbgTran::transDebugMetadata() {
   for (const DISubprogram *F : DIF.subprograms())
     transDbgEntry(F);
 
+  for (const DbgDeclareInst *DDI : DbgDeclareIntrinsics)
+    finalizeDebugDeclare(DDI);
+
+  for (const DbgValueInst *DVI : DbgValueIntrinsics)
+    finalizeDebugValue(DVI);
+
+  transLocationInfo();
+}
+
+// llvm.dbg.declare intrinsic.
+
+SPIRVValue *
+LLVMToSPIRVDbgTran::createDebugDeclarePlaceholder(const DbgDeclareInst *DbgDecl,
+                                                  SPIRVBasicBlock *BB) {
+  if (!DbgDecl->getAddress())
+    return nullptr; // The variable is dead.
+
+  DbgDeclareIntrinsics.push_back(DbgDecl);
+  using namespace SPIRVDebug::Operand::DebugDeclare;
+  SPIRVWordVec Ops(OperandCount, getDebugInfoNone()->getId());
+  SPIRVId ExtSetId = BM->getExtInstSetId(SPIRVEIS_Debug);
+  return BM->addExtInst(getVoidTy(), ExtSetId, SPIRVDebug::Declare, Ops, BB);
+}
+
+void LLVMToSPIRVDbgTran::finalizeDebugDeclare(const DbgDeclareInst *DbgDecl) {
+  SPIRVValue *V = SPIRVWriter->getTranslatedValue(DbgDecl);
+  assert(V && "llvm.dbg.declare intrinsic isn't mapped to a SPIRV instruction");
+  assert(V->isExtInst(SPIRV::SPIRVEIS_Debug, SPIRVDebug::Declare) &&
+         "llvm.dbg.declare intrinsic has been translated wrong!");
+  if (!V || !V->isExtInst(SPIRV::SPIRVEIS_Debug, SPIRVDebug::Declare))
+    return;
+  SPIRVExtInst *DD = static_cast<SPIRVExtInst *>(V);
+  SPIRVBasicBlock *BB = DD->getBasicBlock();
+  llvm::Value *Alloca = DbgDecl->getAddress();
+
+  using namespace SPIRVDebug::Operand::DebugDeclare;
+  SPIRVWordVec Ops(OperandCount);
+  Ops[DebugLocalVarIdx] = transDbgEntry(DbgDecl->getVariable())->getId();
+  Ops[VariableIdx] = SPIRVWriter->transValue(Alloca, BB)->getId();
+  Ops[ExpressionIdx] = transDbgEntry(DbgDecl->getExpression())->getId();
+  DD->setArguments(Ops);
+}
+
+// llvm.dbg.value intrinsic.
+
+SPIRVValue *
+LLVMToSPIRVDbgTran::createDebugValuePlaceholder(const DbgValueInst *DbgValue,
+                                                SPIRVBasicBlock *BB) {
+  if (!DbgValue->getValue())
+    return nullptr; // It is pointless without new value
+
+  DbgValueIntrinsics.push_back(DbgValue);
+  using namespace SPIRVDebug::Operand::DebugValue;
+  SPIRVWordVec Ops(MinOperandCount, getDebugInfoNone()->getId());
+  SPIRVId ExtSetId = BM->getExtInstSetId(SPIRVEIS_Debug);
+  return BM->addExtInst(getVoidTy(), ExtSetId, SPIRVDebug::Value, Ops, BB);
+}
+
+void LLVMToSPIRVDbgTran::finalizeDebugValue(const DbgValueInst *DbgValue) {
+  SPIRVValue *V = SPIRVWriter->getTranslatedValue(DbgValue);
+  assert(V && "llvm.dbg.value intrinsic isn't mapped to a SPIRV instruction");
+  assert(V->isExtInst(SPIRV::SPIRVEIS_Debug, SPIRVDebug::Value) &&
+         "llvm.dbg.value intrinsic has been translated wrong!");
+  if (!V || !V->isExtInst(SPIRV::SPIRVEIS_Debug, SPIRVDebug::Value))
+    return;
+  SPIRVExtInst *DV = static_cast<SPIRVExtInst *>(V);
+  SPIRVBasicBlock *BB = DV->getBasicBlock();
+  Value *Val = DbgValue->getValue();
+
+  using namespace SPIRVDebug::Operand::DebugValue;
+  SPIRVWordVec Ops(MinOperandCount);
+  Ops[DebugLocalVarIdx] = transDbgEntry(DbgValue->getVariable())->getId();
+  Ops[ValueIdx] = SPIRVWriter->transValue(Val, BB)->getId();
+  Ops[ExpressionIdx] = transDbgEntry(DbgValue->getExpression())->getId();
+  DV->setArguments(Ops);
+}
+
+// Emitting DebugScope and OpLine instructions
+
+void LLVMToSPIRVDbgTran::transLocationInfo() {
   for (const Function &F : *M) {
     for (const BasicBlock &BB : F) {
       SPIRVValue *V = SPIRVWriter->getTranslatedValue(&BB);
-      assert(V && V->isBasicBlock() && "Basic block expected to be translated");
+      assert(V && V->isBasicBlock() &&
+             "Basic block is expected to be translated");
       SPIRVBasicBlock *SBB = static_cast<SPIRVBasicBlock *>(V);
       MDNode *DbgScope = nullptr;
       MDNode *InlinedAt = nullptr;
@@ -81,58 +162,31 @@ void LLVMToSPIRVDbgTran::transDebugMetadata() {
       unsigned LineNo = 0;
       unsigned Col = 0;
       for (const Instruction &I : BB) {
-        SPIRVValue *V = nullptr;
-        if (isa<DbgInfoIntrinsic>(&I)) {
-          // Here we need to translate a debug intrinsic and find a place to
-          // insert it in the SPIRV basic block. Almost all instructions in the
-          // BB have already been translated. It means that every instruction
-          // in LLVM BB is mapped to SPIRV instruction in SPIRV BB. Except debug
-          // info intrinsics.
-          // So in the code below we search for the next LLVM instruction
-          // following the intrinsic and which is already mapped/translated,
-          // then we get the corresponding SPIRV instruction, and insert
-          // translated intrinsic before that SPIRV instruction.
-
-          // We know for sure that debug info intrinsic is not translated. So
-          // we can start the search from the next instruction.
-          const Instruction *NI = I.getNextNode();
-          while (!V && NI) {
-            V = SPIRVWriter->getTranslatedValue(NI);
-            NI = NI->getNextNode();
-          };
-          SPIRVInstruction *InsertBefore = static_cast<SPIRVInstruction *>(V);
-          if (auto *DI = dyn_cast<DbgDeclareInst>(&I))
-            V = transDebugDeclare(DI, SBB, InsertBefore);
-          else if (auto *DV = dyn_cast<DbgValueInst>(&I))
-            V = transDebugValue(DV, SBB, InsertBefore);
-        } else {
-          V = SPIRVWriter->getTranslatedValue(&I);
-        }
-        if (!V || !V->isInst())
-          continue;
-
-        // Once scope or inlining has changed emit another OpScope
         const DebugLoc &DL = I.getDebugLoc();
         if (!DL.get()) {
-          if (DbgScope || InlinedAt) { // Emit OpNoScope
+          if (DbgScope || InlinedAt) { // Emit DebugNoScope
             DbgScope = nullptr;
             InlinedAt = nullptr;
+            V = SPIRVWriter->getTranslatedValue(&I);
             transDebugLoc(DL, SBB, static_cast<SPIRVInstruction *>(V));
           }
           continue;
         }
-        // If any component of OpLine has changed emit another OpLine
+        // Once scope or inlining has changed emit another DebugScope
         if (DL.getScope() != DbgScope || DL.getInlinedAt() != InlinedAt) {
           DbgScope = DL.getScope();
           InlinedAt = DL.getInlinedAt();
+          V = SPIRVWriter->getTranslatedValue(&I);
           transDebugLoc(DL, SBB, static_cast<SPIRVInstruction *>(V));
         }
-        std::string DirAndFile = getFullPath(DL.get());
-        if (File != BM->getString(DirAndFile) || LineNo != DL.getLine() ||
+        // If any component of OpLine has changed emit another OpLine
+        SPIRVString *DirAndFile = BM->getString(getFullPath(DL.get()));
+        if (File != DirAndFile || LineNo != DL.getLine() ||
             Col != DL.getCol()) {
-          File = BM->getString(DirAndFile);
+          File = DirAndFile;
           LineNo = DL.getLine();
           Col = DL.getCol();
+          V = SPIRVWriter->getTranslatedValue(&I);
           BM->addLine(V, File->getId(), LineNo, Col);
         }
       } // Instructions
@@ -869,50 +923,6 @@ LLVMToSPIRVDbgTran::transDbgLocalVariable(const DILocalVariable *Var) {
   if (SPIRVWord argNumber = Var->getArg())
     Ops.push_back(argNumber);
   return BM->addDebugInfo(SPIRVDebug::LocalVariable, getVoidTy(), Ops);
-}
-
-// llvm.dbg.declare intrinsic.
-
-SPIRVValue *
-LLVMToSPIRVDbgTran::transDebugDeclare(const DbgDeclareInst *DbgDecl,
-                                      SPIRVBasicBlock *BB,
-                                      SPIRVInstruction *InsertBefore) {
-  llvm::Value *Alloca = DbgDecl->getAddress();
-  if (!Alloca)
-    return nullptr; // The variable is dead.
-
-  using namespace SPIRVDebug::Operand::DebugDeclare;
-  SPIRVWordVec Ops(OperandCount);
-  Ops[DebugLocalVarIdx] = transDbgEntry(DbgDecl->getVariable())->getId();
-  Ops[VariableIdx] = SPIRVWriter->transValue(Alloca, BB)->getId();
-  Ops[ExpressionIdx] = transDbgEntry(DbgDecl->getExpression())->getId();
-  SPIRVId ExtSetId = BM->getExtInstSetId(SPIRVEIS_Debug);
-  return BM->addExtInst(getVoidTy(), ExtSetId, SPIRVDebug::Declare, Ops, BB,
-                        InsertBefore);
-}
-
-// llvm.dbg.value intrinsic.
-
-SPIRVValue *
-LLVMToSPIRVDbgTran::transDebugValue(const DbgValueInst *DbgValue,
-                                    SPIRVBasicBlock *BB,
-                                    SPIRVInstruction *InsertBefore) {
-  llvm::Value *V = DbgValue->getValue();
-  if (!V)
-    return nullptr; // It is pointless without new value
-
-  using namespace SPIRVDebug::Operand::DebugValue;
-  SPIRVWordVec Ops(MinOperandCount);
-  Ops[DebugLocalVarIdx] = transDbgEntry(DbgValue->getVariable())->getId();
-  Ops[ValueIdx] = SPIRVWriter->transValue(V, BB)->getId();
-  Ops[ExpressionIdx] = transDbgEntry(DbgValue->getExpression())->getId();
-  // Clang 4.0 always generates zero offset, which means that no indexes
-  // should be added. Moreover, offset operand is to be dropped in Clang 6.0,
-  // all required information can be retrieved from the expression argument.
-
-  SPIRVId ExtSetId = BM->getExtInstSetId(SPIRVEIS_Debug);
-  return BM->addExtInst(getVoidTy(), ExtSetId, SPIRVDebug::Value, Ops, BB,
-                        InsertBefore);
 }
 
 // DWARF Operations and expressions

@@ -61,11 +61,30 @@ public:
   void transDebugMetadata();
   void setModule(Module *Mod) { M = Mod; }
 
+  // Mixing translation of regular instructions and debug info creates a mess.
+  // To avoid it we translate debug info intrinsics in two steps:
+  // 1. First time we meet debug info intrinsic during translation of a basic
+  //   block. At this time we create corresponding SPIRV debug info instruction,
+  //   but with dummy operands. Doing so we a) map llvm value to spirv value,
+  //   b) get a place for SPIRV debug info intrinsic in SPIRV basic block.
+  //   We also remember all debug intrinsics.
+  SPIRVValue *createDebugDeclarePlaceholder(const DbgDeclareInst *DbgDecl,
+                                            SPIRVBasicBlock *BB);
+  SPIRVValue *createDebugValuePlaceholder(const DbgValueInst *DbgValue,
+                                          SPIRVBasicBlock *BB);
 private:
-  SPIRVEntry *transDbgEntry(const MDNode *DIEntry);
-  SPIRVEntry *transDbgEntryImpl(const MDNode *MDN);
+  // 2. After translation of all regular instructions we deal with debug info.
+  //   We iterate over debug intrinsics stored on the first step, get its mapped
+  //   SPIRV instruction and tweak the operands.
+  void finalizeDebugDeclare(const DbgDeclareInst *DbgDecl);
+  void finalizeDebugValue(const DbgValueInst *DbgValue);
+
+  // Emit DebugScope and OpLine instructions
+  void transLocationInfo();
 
   // Dispatcher
+  SPIRVEntry *transDbgEntry(const MDNode *DIEntry);
+  SPIRVEntry *transDbgEntryImpl(const MDNode *MDN);
   template <typename T>
   SPIRVEntry *transDbgEntryRef(const TypedDINodeRef<T> &Ref,
                                SPIRVEntry *Alternate = nullptr);
@@ -123,13 +142,6 @@ private:
   // Local Variables
   SPIRVEntry *transDbgLocalVariable(const DILocalVariable *Var);
 
-  // Intrinsics
-  SPIRVValue *transDebugDeclare(const DbgDeclareInst *DbgDecl,
-                                SPIRVBasicBlock *BB,
-                                SPIRVInstruction *InsertBefore = nullptr);
-  SPIRVValue *transDebugValue(const DbgValueInst *DbgValue, SPIRVBasicBlock *BB,
-                              SPIRVInstruction *InsertBefore = nullptr);
-
   // DWARF expressions
   SPIRVEntry *transDbgExpression(const DIExpression *Expr);
 
@@ -145,7 +157,8 @@ private:
   SPIRVType *VoidT;
   SPIRVEntry *DebugInfoNone;
   SPIRVExtInst *SPIRVCU;
-
+  std::vector<const DbgDeclareInst *> DbgDeclareIntrinsics;
+  std::vector<const DbgValueInst *> DbgValueIntrinsics;
 }; // class LLVMToSPIRVDbgTran
 
 } // namespace SPIRV

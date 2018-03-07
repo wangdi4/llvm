@@ -1143,11 +1143,13 @@ SPIRVValue *LLVMToSPIRV::transIntrinsicInst(IntrinsicInst *II,
     return transLifetimeIntrinsicInst(OpLifetimeStart, II, BB);
   case Intrinsic::lifetime_end:
     return transLifetimeIntrinsicInst(OpLifetimeStop, II, BB);
+  // We don't want to mix translation of regular code and debug info, because
+  // it creates a mess, therefore translation of debug intrinsics is
+  // postponed until LLVMToSPIRVDbgTran::finalizeDebug...() methods.
   case Intrinsic::dbg_declare:
+    return DbgTran->createDebugDeclarePlaceholder(cast<DbgDeclareInst>(II), BB);
   case Intrinsic::dbg_value:
-    // Debug intrinsics are to be handled in
-    // LLVMToSPIRVDbgTran::transDebugMetadata()
-    break;
+    return DbgTran->createDebugValuePlaceholder(cast<DbgValueInst>(II), BB);
   default:
     // LLVM intrinsic functions shouldn't get to SPIRV, because they
     // would have no definition there.
