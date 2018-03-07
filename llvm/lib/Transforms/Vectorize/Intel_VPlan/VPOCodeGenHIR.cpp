@@ -1016,13 +1016,10 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
   bool InsertInMap = true;
 
   // Widen instruction operands
-  for (auto Iter = INode->op_ddref_begin(), End = INode->op_ddref_end();
+  for (auto Iter = (INode)->op_ddref_begin(), End = (INode)->op_ddref_end();
        Iter != End; ++Iter) {
-    RegDDRef *WideRef, *Ref;
-
-    Ref = *Iter;
-
-    WideRef = widenRef(Ref);
+    RegDDRef *WideRef;
+    WideRef = widenRef(*Iter);
     WideOps.push_back(WideRef);
   }
 

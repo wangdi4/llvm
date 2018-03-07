@@ -36,7 +36,6 @@
 
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
@@ -336,7 +335,8 @@ bool HIRIdiomRecognition::isUnitStrideRef(const RegDDRef *Ref,
   unsigned Level = Loop->getNestingLevel();
   auto IVSizeInBits = IVType->getPrimitiveSizeInBits();
 
-  for (CanonExpr *CE : llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
+  for (const CanonExpr *CE :
+       llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
     if (!CE->hasIV(Level)) {
       continue;
     }

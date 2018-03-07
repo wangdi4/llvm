@@ -43,7 +43,7 @@ namespace loopopt {
 class HLLoop;
 class DDRefUtils;
 
-typedef SmallVector<RegDDRef *, 16> LoopMemrefsVector;
+typedef SmallVector<const RegDDRef *, 16> LoopMemrefsVector;
 typedef LoopMemrefsVector::iterator LoopMemrefsIt;
 typedef SmallDenseMap<const RegDDRef *, OVLSMemref *, 16> HIRToVLSMemrefsMap;
 
@@ -77,7 +77,7 @@ typedef class VPOVecContextHIR VectVLSContext;
 class HIRVLSClientMemref : public OVLSMemref {
 public:
   /// Base class is initialized with NumElements=0
-  HIRVLSClientMemref(RegDDRef *Ref, VectVLSContext *Cntxt)
+  HIRVLSClientMemref(const RegDDRef *Ref, VectVLSContext *Cntxt)
       : OVLSMemref(VLSK_HIRVLSClientMemref,
                    OVLSType(Ref->getCanonExprUtils().getTypeSizeInBits(
                                 Ref->getSrcType()),

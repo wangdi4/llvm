@@ -105,7 +105,7 @@ public:
               SmallVectorImpl<RegDDRef *> &GEPRefVec)
       : HLC(HLC), RefVec(RefVec), GEPRefVec(GEPRefVec) {}
 
-  void visit(const HLDDNode *Node) {
+  void visit(HLDDNode *Node) {
     for (auto I = Node->op_ddref_begin(), E = Node->op_ddref_end(); I != E;
          ++I) {
       collectRef(*I);
@@ -113,9 +113,9 @@ public:
   }
 
   // No processing needed for Goto, Label and HLNode types
-  void visit(const HLGoto *Goto){};
-  void visit(const HLLabel *Label){};
-  void visit(const HLNode *Node) {
+  void visit(HLGoto *Goto){};
+  void visit(HLLabel *Label){};
+  void visit(HLNode *Node) {
     llvm_unreachable(" visit(HLNode *) - Node not supported\n");
   }
   void postVisit(const HLNode *Node) {}

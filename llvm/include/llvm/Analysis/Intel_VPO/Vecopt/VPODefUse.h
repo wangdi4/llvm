@@ -34,7 +34,7 @@ class IR2AVRVisitor {
 
 public:
 
-  typedef DenseMap<DDRef*, AVRValueHIR*> DDRef2AVRTy;
+  typedef DenseMap<const DDRef*, AVRValueHIR*> DDRef2AVRTy;
   typedef DenseMap<const Value*, AVR*> Value2DefAVRTy;
   typedef DenseMap<const Value*, AvrSetTy> Value2UsesAVRTy;
 

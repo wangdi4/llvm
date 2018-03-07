@@ -285,7 +285,7 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
                           HLLoop *Loop, HIRLoopStatistics *HLS)
       : LoopDDGraph(DDG), DistG(DistPreProcGraph), Loop(Loop), HLS(HLS) {}
 
-  void processOutgoingEdges(DDRef *Ref, EdgeNodeMapTy &EdgeMap) {
+  void processOutgoingEdges(const DDRef *Ref, EdgeNodeMapTy &EdgeMap) {
     DenseMap<HLNode *, DistPPNode *> &HLNodeToDistPPNode = DistG->getNodeMap();
     for (auto Edge = LoopDDGraph->outgoing_edges_begin(Ref),
               LastEdge = LoopDDGraph->outgoing_edges_end(Ref);

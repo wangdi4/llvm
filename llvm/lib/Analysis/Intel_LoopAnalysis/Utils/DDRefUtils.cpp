@@ -527,9 +527,7 @@ bool DDRefUtils::canReplaceIVByCanonExpr(const RegDDRef *Ref,
                                          bool RelaxedMode) {
 
   for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
-    CanonExpr *CurCE = (*I);
-
-    if (!CanonExprUtils::canReplaceIVByCanonExpr(CurCE, LoopLevel, CE,
+    if (!CanonExprUtils::canReplaceIVByCanonExpr((*I), LoopLevel, CE,
                                                  RelaxedMode)) {
       return false;
     }
@@ -543,9 +541,7 @@ void DDRefUtils::replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
                                       bool RelaxedMode) {
 
   for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
-    CanonExpr *CurCE = (*I);
-
-    auto Res = CanonExprUtils::replaceIVByCanonExpr(CurCE, LoopLevel, CE, IsNSW,
+    auto Res = CanonExprUtils::replaceIVByCanonExpr((*I), LoopLevel, CE, IsNSW,
                                                     RelaxedMode);
     (void)Res;
     assert(Res && "Replacement failed, caller should call "

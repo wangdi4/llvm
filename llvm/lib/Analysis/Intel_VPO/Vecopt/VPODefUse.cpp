@@ -66,11 +66,11 @@ void IR2AVRVisitor::print(raw_ostream &OS) const {
 void IR2AVRVisitor::visit(AVRValueHIR *AValueHIR) {
 
   // TODO: AVRValueHIR that represents an IV does't have a DDRef
-  if (DDRef *DDR = AValueHIR->getValue()) {
+  if (const DDRef *DDR = AValueHIR->getValue()) {
     // Register this value as the AVR holding this DDRef.
     DDRef2AVR[DDR] = AValueHIR;
 
-    if (RegDDRef *RDDR = dyn_cast<RegDDRef>(DDR)) {
+    if (const RegDDRef *RDDR = dyn_cast<RegDDRef>(DDR)) {
       // Register this value as the AVR holding any blob used by its RegDDRef.
       for (auto I = RDDR->blob_cbegin(), E = RDDR->blob_cend(); I != E; ++I)
         DDRef2AVR[*I] = AValueHIR;

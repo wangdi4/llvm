@@ -22,7 +22,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include <map>
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
@@ -190,10 +189,6 @@ private:
   // Map of avr number and widened DDRef. TODO - look into combining the two
   // maps
   std::map<int, RegDDRef *> AvrWideMap;
-
-  typedef DDRefGatherer<RegDDRef, TerminalRefs> BlobRefGatherer;
-
-  BlobRefGatherer::MapTy MemRefMap;
 
   // Reductions
   ReductionHIRMngr RHM;

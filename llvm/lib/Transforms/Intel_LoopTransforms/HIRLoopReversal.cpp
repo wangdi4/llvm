@@ -345,7 +345,7 @@ void HIRLoopReversal::AnalyzeDDInfo::visit(const HLDDNode *DDNode) {
        It != ItE; ++It) {
 
     // Selectively skip operand(s) from a SafeReduction Instruction
-    RegDDRef *Ref = (*It);
+    const RegDDRef *Ref = (*It);
     if (IsSafeReduction && findSymbase(Ref->getSymbase())) {
       continue;
     }

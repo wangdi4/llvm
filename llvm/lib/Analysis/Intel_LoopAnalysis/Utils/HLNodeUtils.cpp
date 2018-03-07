@@ -3371,7 +3371,7 @@ void NonUnitStrideMemRefs::visit(const HLDDNode *Node) {
       continue;
     }
 
-    RegDDRef *RegDDRef = *I;
+    const RegDDRef *RegDDRef = *I;
     const CanonExpr *FirstCE = nullptr;
     bool NonLinearLval = RegDDRef->isLval() && !RegDDRef->isTerminalRef();
 

@@ -44,22 +44,24 @@ public:
   /// loads/stores can be mapped as multi-dimensional subscripts with each
   /// subscript having its own canonical form.
   typedef SmallVector<CanonExpr *, 3> CanonExprsTy;
+  typedef SmallVector<const CanonExpr *, 3> ConstCanonExprsTy;
   typedef SmallVector<BlobDDRef *, 2> BlobDDRefsTy;
+  typedef SmallVector<const BlobDDRef *, 2> ConstBlobDDRefsTy;
   typedef CanonExprsTy SubscriptTy;
   typedef std::pair<unsigned, MDNode *> MDPairTy;
   typedef SmallVector<MDPairTy, 6> MDNodesTy;
 
   /// Iterators to iterate over canon exprs
   typedef CanonExprsTy::iterator canon_iterator;
-  typedef CanonExprsTy::const_iterator const_canon_iterator;
+  typedef ConstCanonExprsTy::const_iterator const_canon_iterator;
   typedef CanonExprsTy::reverse_iterator reverse_canon_iterator;
-  typedef CanonExprsTy::const_reverse_iterator const_reverse_canon_iterator;
+  typedef ConstCanonExprsTy::const_reverse_iterator const_reverse_canon_iterator;
 
   /// Iterators to iterate over blob ddrefs
   typedef BlobDDRefsTy::iterator blob_iterator;
-  typedef BlobDDRefsTy::const_iterator const_blob_iterator;
+  typedef ConstBlobDDRefsTy::const_iterator const_blob_iterator;
   typedef BlobDDRefsTy::reverse_iterator reverse_blob_iterator;
-  typedef BlobDDRefsTy::const_reverse_iterator const_reverse_blob_iterator;
+  typedef ConstBlobDDRefsTy::const_reverse_iterator const_reverse_blob_iterator;
 
 private:
   typedef SmallVector<unsigned, 2> OffsetsTy;

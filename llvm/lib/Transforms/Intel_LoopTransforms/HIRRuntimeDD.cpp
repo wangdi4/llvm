@@ -349,7 +349,7 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
   // to check all canon expressions against UB of every loop in loopnest.
   // We skip loops if its IV is absent.
   for (auto I = Lower->canon_begin(), E = Lower->canon_end(); E != I; ++I) {
-    CanonExpr *CE = *I;
+    const CanonExpr *CE = *I;
 
     if (CE->isNonLinear()) {
       return NON_LINEAR_SUBS;

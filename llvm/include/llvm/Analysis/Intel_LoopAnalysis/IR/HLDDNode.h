@@ -36,12 +36,13 @@ public:
   /// Most instructions are covered except some vector instructions which are
   /// a minority.
   typedef SmallVector<RegDDRef *, 5> RegDDRefTy;
+  typedef SmallVector<const RegDDRef *, 5> ConstRegDDRefTy;
 
   /// Iterators to iterate over RegDDRefs
   typedef RegDDRefTy::iterator ddref_iterator;
-  typedef RegDDRefTy::const_iterator const_ddref_iterator;
+  typedef ConstRegDDRefTy::const_iterator const_ddref_iterator;
   typedef RegDDRefTy::reverse_iterator reverse_ddref_iterator;
-  typedef RegDDRefTy::const_reverse_iterator const_reverse_ddref_iterator;
+  typedef ConstRegDDRefTy::const_reverse_iterator const_reverse_ddref_iterator;
 
 protected:
   HLDDNode(HLNodeUtils &HNU, unsigned SCID);

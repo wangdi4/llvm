@@ -1054,9 +1054,7 @@ bool RegDDRef::isNonLinear(void) const {
 
   // Check each dimension
   for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
-    CanonExpr *CE = (*I);
-
-    if (CE->isNonLinear()) {
+    if ((*I)->isNonLinear()) {
       return true;
     }
   }

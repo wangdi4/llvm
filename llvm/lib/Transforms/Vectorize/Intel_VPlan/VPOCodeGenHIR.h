@@ -21,7 +21,6 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include <map>
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
@@ -157,10 +156,6 @@ private:
   // Map of avr number and widened DDRef. TODO - look into combining the two
   // maps
   std::map<int, RegDDRef *> WideMap;
-
-  typedef DDRefGatherer<RegDDRef, TerminalRefs> BlobRefGatherer;
-
-  BlobRefGatherer::MapTy MemRefMap;
 
   // WRegion VecLoop Node corresponding to AVRLoop
   WRNVecLoopNode *WVecNode;

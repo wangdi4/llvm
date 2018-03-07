@@ -1026,7 +1026,7 @@ bool HLLoop::isTriangularLoop() const {
   }
 
   for (auto I = ztt_ddref_begin(), E1 = ztt_ddref_end(); I != E1; ++I) {
-    RegDDRef *RRef = *I;
+    const RegDDRef *RRef = *I;
     for (auto Iter = RRef->canon_begin(), E2 = RRef->canon_end(); Iter != E2;
          ++Iter) {
       const CanonExpr *CE = *Iter;
@@ -1136,9 +1136,9 @@ bool HLLoop::canNormalize() const {
   ForEach<const HLDDNode>::visitRange(
       child_begin(), child_end(),
       [LowerCE, Level, &Mergeable](const HLDDNode *Node) {
-        for (RegDDRef *Ref :
+        for (const RegDDRef *Ref :
              llvm::make_range(Node->ddref_begin(), Node->ddref_end())) {
-          for (CanonExpr *CE :
+          for (const CanonExpr *CE :
                llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
             if (!CE->hasIV(Level)) {
               continue;

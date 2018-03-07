@@ -1548,8 +1548,8 @@ void AVRCodeGenHIR::analyzeCallArgMemoryReferences(
 }
 
 HLInst *AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode, RegDDRef *Mask) {
-  const HLNode *Node = AvrNode->getHIRInstruction();
-  const HLInst *INode;
+  HLNode *Node = AvrNode->getHIRInstruction();
+  HLInst *INode;
   INode = dyn_cast<HLInst>(Node);
   auto CurInst = INode->getLLVMInstruction();
   SmallVector<RegDDRef *, 6> WideOps;
