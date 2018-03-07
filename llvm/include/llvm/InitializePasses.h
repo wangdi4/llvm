@@ -424,7 +424,7 @@ void initializeIndirectCallConvPass(PassRegistry &);
 // Pass for SnodeInfo analysis
 void initializeSNodeAnalysisPass(PassRegistry &);
 // Pass for register promotion for non escaped block scope global variables.
-void initializeNonLTOGlobalOptPass(PassRegistry &);
+void initializeNonLTOGlobalOptLegacyPassPass(PassRegistry &);
 // Pass for math call optimization.
 void initializeMapIntrinToImlPass(PassRegistry&);
 // Pass for indicating loopopt based throttling.
