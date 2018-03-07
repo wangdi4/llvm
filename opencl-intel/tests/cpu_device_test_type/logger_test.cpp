@@ -101,8 +101,10 @@ cl_int CPUTestLogger::clLogAddLine(cl_int client_id, cl_int log_level,
 
         // Printing to stdout brokes lit.googletest runner
         fprintf(stderr,
-            "Source file name is %s function_name %s line num %d %s\n",
-            source_file, function_name, line_num, message, va);
+            "Source file name is %s function_name %s line num %d ",
+            source_file, function_name, line_num);
+        vfprintf(stderr, message, va);
+        fprintf(stderr, "\n");
 
 		va_end(va);
 	}

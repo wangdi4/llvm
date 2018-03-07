@@ -40,6 +40,9 @@
 	#define DECLSPEC __declspec
 	#define FOPEN(file, name, mode) fopen_s(&(file), (name), (mode))
 	#define GET_THREAD_ID (unsigned int)GetThreadId(GetCurrentThread())
+	// This define is used to specify calling convention for function which will
+	// be executed in another thread. _beginthreadex Win32 API function requires
+	// stdcall calling convention
 	#define STDCALL_ENTRY_POINT _stdcall
 	#define RETURN_TYPE_ENTRY_POINT unsigned int
 #else
@@ -47,7 +50,10 @@
 	#define DECLSPEC __attribute__
 	#define FOPEN(file, name, mode) (file) = fopen((name), (mode))
 	#define GET_THREAD_ID (unsigned int)syscall(SYS_gettid)
-	#define STDCALL_ENTRY_POINT __attribute((stdcall))
+	// This define is used to specify calling convention for function which will
+	// be executed in another thread. pthread_create doesn't require any special
+	// calling convention
+	#define STDCALL_ENTRY_POINT
 	#define RETURN_TYPE_ENTRY_POINT void *
 #endif
 

@@ -66,7 +66,8 @@ bool BuildProgram(const char* szFileName, cl_dev_program* prog)
     cl_build_status     build_status;
     rc = dev_entry->clDevBuildProgram(*prog, NULL, &build_status);
 
-    printf(">>>>>>> The program %x was built, status%X\n", prog, build_status);
+    printf(">>>>>>> The program %p was built, status: %X\n",
+        (void *)prog, build_status);
 
     return CL_DEV_SUCCEEDED(rc);
 }
@@ -112,7 +113,7 @@ bool BuildFromBinary_test(const char* szDLLName, unsigned int uiTotal, const cha
     uiParams *= sizeof(cl_kernel_argument);
     if ( stParamSize != uiParams )
     {
-        printf("pclDevGetKernelInfo invalid parameters %u <-> %u\n", stParamSize, uiParams);
+        printf("pclDevGetKernelInfo invalid parameters %zu <-> %u\n", stParamSize, uiParams);
         dev_entry->clDevReleaseProgram(prog);
         return false;
     }
@@ -215,7 +216,7 @@ bool BuildFromBinary_test(const char* szDLLName, unsigned int uiTotal, const cha
     {
         if ( 0 == (unsigned int)(size_t)pKernels[i-1] )
         {
-            printf("pclDevGetProgramKernels failed to fill kernel ID array", uiTotal, uiKernels);
+            printf("pclDevGetProgramKernels failed to fill kernel ID array");
             delete []pKernels;
             dev_entry->clDevReleaseProgram(prog);
             return false;

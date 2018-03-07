@@ -425,8 +425,6 @@ bool clCopy2DImageto2DImage_Test(bool profiling)
 	cl_mem_flags flags = CL_MEM_READ_WRITE;
 	const cl_image_format format = {CL_RGBA, CL_UNORM_INT8};
 	size_t  dim[] =  {IMAGE_WIDTH, IMAGE_HEIGHT, 1};
-	void*	buffer_ptr = NULL;
-    size_t* pitch = NULL;
 	unsigned int dim_count = 2;
 	IOCLDevMemoryObject *srcMemObj, *dstMemObj;
 	//Create two image objects
@@ -792,8 +790,6 @@ bool clCopy3DImageto3DImage_Test(bool profiling)
 	cl_mem_flags flags = CL_MEM_READ_WRITE;
 	const cl_image_format format = {CL_RGBA, CL_UNORM_INT8};
 	size_t  dim[] =  {IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH};
-	void*	buffer_ptr = NULL;
-    size_t* pitch = NULL;
 	unsigned int dim_count = 3;
 	IOCLDevMemoryObject *srcMemObj, *dstMemObj;  
 	//Create two image objects

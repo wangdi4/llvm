@@ -132,7 +132,7 @@ bool clGetDeviceInfo_TypeTest()
 	{
 		if(param_value_size != sizeof(cl_device_type))
 		{
-			printf("clDevGetDeviceInfo failed param value size is in wrong size: %d instead of %d\n",param_value_size,sizeof(cl_device_type));
+			printf("clDevGetDeviceInfo failed param value size is in wrong size: %zu instead of %zu\n",param_value_size,sizeof(cl_device_type));
 			return false;
 		}
 #ifdef BUILD_FPGA_EMULATOR
@@ -141,7 +141,7 @@ bool clGetDeviceInfo_TypeTest()
 		if(device_type != CL_DEVICE_TYPE_CPU)
 #endif
 		{
-			printf("clDevGetDeviceInfo failed wrong device type %d instead of %d\n", device_type,CL_DEVICE_TYPE_CPU);
+			printf("clDevGetDeviceInfo failed wrong device type %lu instead of %d\n", device_type,CL_DEVICE_TYPE_CPU);
 			return false;
 		}
 			printf("clDevGetDeviceInfo succeeded\n");
@@ -172,7 +172,7 @@ bool clGetDeviceInfo_Test()
 	{
 		if(param_value_size != sizeof(maxWorkItemDimension))
 		{
-			printf("clDevGetDeviceInfo failed param value size is in wrong size: %d instead of %d\n",param_value_size,sizeof(cl_uint));
+			printf("clDevGetDeviceInfo failed param value size is in wrong size: %zu instead of %zu\n",param_value_size,sizeof(cl_uint));
 			ret =  false;
 		}
 		printf("maxWorkItemDimension %d\n", maxWorkItemDimension);
@@ -188,7 +188,7 @@ bool clGetDeviceInfo_Test()
 	{
 		if(param_value_size != sizeof(preferredVecortWidthShort))
 		{
-			printf("clDevGetDeviceInfo failed param value size is in wrong size: %d instead of %d\n",param_value_size,sizeof(cl_uint));
+			printf("clDevGetDeviceInfo failed param value size is in wrong size: %zu instead of %zu\n",param_value_size,sizeof(cl_uint));
 			ret =  false;
 		}
 		printf("preferredVecortWidthShort %d\n", preferredVecortWidthShort);
@@ -205,7 +205,7 @@ bool clGetDeviceInfo_Test()
 	{
 		if(param_value_size != sizeof(maxClockFreq))
 		{
-			printf("clDevGetDeviceInfo failed param value size is in wrong size: %d instead of %d\n",param_value_size,sizeof(cl_uint));
+			printf("clDevGetDeviceInfo failed param value size is in wrong size: %zu instead of %zu\n",param_value_size,sizeof(cl_uint));
 			ret =  false;
 		}
 		printf("maxClockFreq %d\n", maxClockFreq);
@@ -222,10 +222,10 @@ bool clGetDeviceInfo_Test()
 	{
 		if(param_value_size != sizeof(image2DMaxWidth))
 		{
-			printf("clDevGetDeviceInfo failed param value size is in wrong size: %d instead of %d\n",param_value_size,sizeof(cl_uint));
+			printf("clDevGetDeviceInfo failed param value size is in wrong size: %zu instead of %zu\n",param_value_size,sizeof(cl_uint));
 			ret =  false;
 		}
-		printf("image2DMaxWidth %d\n", image2DMaxWidth);
+		printf("image2DMaxWidth %zu\n", image2DMaxWidth);
 	}
 	//CL_DEVICE_IMAGE3D_MAX_DEPTH test
 	iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_IMAGE3D_MAX_DEPTH, sizeof(image3DMaxDepth), &image3DMaxDepth, &param_value_size);
@@ -238,10 +238,10 @@ bool clGetDeviceInfo_Test()
 	{
 		if(param_value_size != sizeof(image3DMaxDepth))
 		{
-			printf("clDevGetDeviceInfo failed param value size is in wrong size: %d instead of %d\n",param_value_size,sizeof(cl_uint));
+			printf("clDevGetDeviceInfo failed param value size is in wrong size: %zu instead of %zu\n",param_value_size,sizeof(cl_uint));
 			ret =  false;
 		}
-		printf("image3DMaxDepth %d\n", image3DMaxDepth);
+		printf("image3DMaxDepth %zu\n", image3DMaxDepth);
 	}
 	//CL_DEVICE_GLOBAL_MEM_CACHE_SIZE test
 	iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, sizeof(globalMemCacheSize), &globalMemCacheSize, &param_value_size);
@@ -254,10 +254,10 @@ bool clGetDeviceInfo_Test()
 	{
 		if(param_value_size != sizeof(globalMemCacheSize))
 		{
-			printf("clDevGetDeviceInfo failed param value size is in wrong size: %d instead of %d\n",param_value_size,sizeof(cl_ulong));
+			printf("clDevGetDeviceInfo failed param value size is in wrong size: %zu instead of %zu\n",param_value_size,sizeof(cl_ulong));
 			ret =  false;
 		}
-		printf("globalMemCacheSize %d\n", globalMemCacheSize);
+		printf("globalMemCacheSize %lu\n", globalMemCacheSize);
 	}
 	//CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE test
 	iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, sizeof(globalMemCacheLineSize), &globalMemCacheLineSize, &param_value_size);
@@ -270,10 +270,10 @@ bool clGetDeviceInfo_Test()
 	{
 		if(param_value_size != sizeof(globalMemCacheLineSize))
 		{
-			printf("clDevGetDeviceInfo failed param value size is in wrong size: %d instead of %d\n",param_value_size,sizeof(globalMemCacheLineSize));
+			printf("clDevGetDeviceInfo failed param value size is in wrong size: %zu instead of %zu\n",param_value_size,sizeof(globalMemCacheLineSize));
 			ret =  false;
 		}
-		printf("globalMemCacheLineSize %d\n", globalMemCacheLineSize);
+		printf("globalMemCacheLineSize %u\n", globalMemCacheLineSize);
 	}
 
 	//CL_DEVICE_PROFILING_TIMER_RESOLUTION test
@@ -287,10 +287,10 @@ bool clGetDeviceInfo_Test()
 	{
 		if(param_value_size != sizeof(profilingTimerResolution))
 		{
-			printf("clDevGetDeviceInfo failed param value size is in wrong size: %d instead of %d\n",param_value_size,sizeof(profilingTimerResolution));
+			printf("clDevGetDeviceInfo failed param value size is in wrong size: %zu instead of %zu\n",param_value_size,sizeof(profilingTimerResolution));
 			ret =  false;
 		}
-		printf("profilingTimerResolution %d\n", profilingTimerResolution);
+		printf("profilingTimerResolution %zu\n", profilingTimerResolution);
 	}
 
 	return ret;
@@ -314,7 +314,7 @@ bool clGetDeviceInfo_VendorIdTest()
 	{
 		if(param_value_size != input_size)
 		{
-			printf("clDevGetDeviceInfo failed param value size is in wrong size: %d instead of %d\n",param_value_size,input_size);
+			printf("clDevGetDeviceInfo failed param value size is in wrong size: %zu instead of %d\n",param_value_size,input_size);
 			return false;
 		}
 		printf("Vendor id is %u\n", uVendorId);
@@ -341,7 +341,7 @@ bool clGetDeviceInfo_MaxComputeUnitTest()
 	{
 		if(param_value_size != input_size)
 		{
-			printf("clDevGetDeviceInfo failed param value size is in wrong size: %d instead of %d\n",param_value_size,input_size);
+			printf("clDevGetDeviceInfo failed param value size is in wrong size: %zu instead of %d\n",param_value_size,input_size);
 			return false;
 		}
 		printf("Max Compute Units is %u\n", uCoreNum);
@@ -732,7 +732,6 @@ int CPUDeviceTest_Main()
 	EXPECT_TRUE(iThreads>0);
 
 	//Create and Init the device
-	cl_uint						dev_id = 0;
 
 	static CPUTestLogger		log_desc;
 

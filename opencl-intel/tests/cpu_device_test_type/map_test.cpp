@@ -212,6 +212,7 @@ bool clMapBuffer_Test()
 	cl_dev_cmd_param_map mapParams;
 	memset(&mapParams, 0, sizeof(cl_dev_cmd_param_map));
 	mapParams.ptr = NULL;
+	mapParams.flags = mapFlags;
 	mapParams.dim_count = dim_count;
 	memcpy(mapParams.region, region, sizeof(region));
 	memcpy(mapParams.origin, origin, sizeof(origin));
@@ -331,6 +332,7 @@ bool clMapImage_Test()
 	cl_dev_cmd_param_map mapParams;
 	memset(&mapParams, 0, sizeof(cl_dev_cmd_param_map));
 	mapParams.ptr = NULL;
+	mapParams.flags = mapFlags;
 	mapParams.dim_count = dim_count;
 	memcpy(mapParams.region, region, sizeof(region));
 	memcpy(mapParams.origin, origin, sizeof(origin));

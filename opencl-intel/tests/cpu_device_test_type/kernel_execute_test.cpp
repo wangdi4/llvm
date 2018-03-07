@@ -48,12 +48,10 @@ bool KernelExecute_Dot_Test(const char* prog_file)
     float b[] = {2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f};
     float    res[] = {-1, -1, -1, -1, -1, -1, -1, -1};
     float    tst[] = {8, 16, 24, 32, 8, 16, 24, 32};
-    float    offset = 2.f;
 
     size_t    stSizeRes = sizeof(res);
     size_t    stSizeAB = sizeof(a);
     size_t    size_res = sizeof(res)/sizeof(float);
-    size_t  objSizeAB = sizeof(a)/sizeof(float);
 
     if ( !BuildProgram(prog_file, &prog) )
     {

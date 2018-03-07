@@ -1,8 +1,3 @@
-# remove the restriction of warning as error for this component
-if (NOT WIN32)
-  remove_definitions( -Werror )
-endif (NOT WIN32)
-
 set( TARGET cpu_device_test_type )
 
 include_directories( AFTER ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export )
