@@ -16,10 +16,11 @@
 #define LLVM_ANALYSIS_VPO_WREGIONCLAUSE_H
 
 #include <vector>
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Debug.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Debug.h"
 
 namespace llvm {
 
@@ -394,6 +395,62 @@ class UniformItem : public Item
     UniformItem(VAR Orig) : Item(Orig) {}
 };
 
+//  To support an aggregate object in a MAP clause, a chain of triples is used.
+//  Each triple has a Base pointer, a Section pointer, and Size. Two classes
+//  are defined:
+//     'MapAggrTy'  represents a triple (BasePtr, SectionPtr, Size)
+//     'MapChainTy' represents a chain of triples (ie, a vector of MapAggrTy*)
+//
+//  For example, given the struct S1 and the pointer ps below:
+//
+//  struct S1 {
+//    int y;
+//    double d[50];
+//    struct S1 *next;
+//  };
+//  S1 *ps;
+//
+//  To carry out the semantics of MAP(ps->y), the libomptarget runtime needs a
+//  triple that holds these three pieces of information:
+//    * Base Pointer:           ps
+//    * Section Pointer:        &(ps->y)
+//    * Size of y:              4
+//
+//  For a longer pointer chain such MAP(ps->next->next->y), the runtime needs a
+//  triple for each component pointer dereference, as shown below:
+//
+//              Base Pointer      Section Pointer         Size in bytes
+//              ============      ===============         =============
+//   Triple#1:   ps                &(ps->next)             sizeof(S1*) = 8
+//   Triple#2:   &(ps->next)       &(ps->next->next)       sizeof(S1*) = 8
+//   Triple#3:   &(ps->next->next) &(ps->next->next->y)    sizeof(int) = 4
+//
+//  Here's an example when an array is involved. For MAP(ps->next->d) we need:
+//   Triple#1:   ps                &(ps->next)             sizeof(S1*) = 8
+//   Triple#2:   &(ps->next)       &(ps->next->d[0])       50*sizeof(double)
+//
+//  It's similar for an array section. For MAP(ps->next->d[17:25]) we need:
+//   Triple#1:   ps                &(ps->next)             sizeof(S1*) = 8
+//   Triple#2:   &(ps->next)       &(ps->next->d[17])      25*sizeof(double)
+//
+class MapAggrTy
+{
+private:
+  Value *BasePtr;
+  Value *SectionPtr;
+  Value *Size;
+public:
+  MapAggrTy(Value *BP, Value *SP, Value *Sz) : BasePtr(BP), SectionPtr(SP),
+                                               Size(Sz) {}
+  void setBasePtr(Value *BP) { BasePtr = BP; }
+  void setSectionPtr(Value *SP) { SectionPtr = SP; }
+  void setSize(Value *Sz) { Size = Sz; }
+  Value *getBasePtr() const { return BasePtr; }
+  Value *getSectionPtr() const { return SectionPtr; }
+  Value *getSize() const { return Size; }
+};
+
+typedef SmallVector<MapAggrTy*, 2> MapChainTy;
 
 //
 //   MapItem: OMP MAP clause item
@@ -403,6 +460,7 @@ class MapItem : public Item
 private:
   unsigned MapKind;                 // bit vector for map kind and modifiers
   FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
+  MapChainTy MapChain;
 
 public:
   enum WRNMapKind {
@@ -416,6 +474,13 @@ public:
   } WRNMapKind;
 
   MapItem(VAR Orig) : Item(Orig), MapKind(0), InFirstprivate(nullptr) {}
+  MapItem(MapAggrTy* Aggr): Item(nullptr), MapKind(0), InFirstprivate(nullptr){
+    MapChain.push_back(Aggr);
+  }
+
+  const MapChainTy &getMapChain() const { return MapChain; }
+        MapChainTy &getMapChain()       { return MapChain; }
+  bool getIsMapChain() const { return MapChain.size() > 0; }
 
   static unsigned getMapKindFromClauseId(int Id) {
     switch(Id) {
@@ -469,6 +534,30 @@ public:
   bool getIsMapDelete()    const { return MapKind & WRNMapDelete; }
   bool getIsMapAlways()    const { return MapKind & WRNMapAlways; }
   FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
+
+  virtual void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    if (getIsMapChain()) {
+      OS << "CHAIN(" ;
+      for (unsigned I=0; I < MapChain.size(); ++I) {
+        MapAggrTy *Aggr = MapChain[I];
+        Value *BasePtr = Aggr->getBasePtr();
+        Value *SectionPtr = Aggr->getSectionPtr();
+        Value *Size = Aggr->getSize();
+        OS << "<" ;
+        BasePtr->printAsOperand(OS, PrintType);
+        OS << ", ";
+        SectionPtr->printAsOperand(OS, PrintType);
+        OS << ", ";
+        Size->printAsOperand(OS, PrintType);
+        OS << "> ";
+      }
+      OS << ") ";
+    } else {
+      OS << "(" ;
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
+    }
+  }
 };
 
 
@@ -622,6 +711,7 @@ template <typename ClauseItem> class Clause
   protected:
     // Create a new item for VAR V and append it to the clause
     void add(VAR V) { ClauseItem *P = new ClauseItem(V); C.push_back(P); }
+    void add(ClauseItem *P) { C.push_back(P); }
 
   public:
     int getClauseID()               const { return ClauseID;     }

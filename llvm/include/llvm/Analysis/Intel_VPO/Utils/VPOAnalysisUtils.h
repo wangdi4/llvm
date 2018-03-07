@@ -75,6 +75,12 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Modifier = "NONPOD"
 ///      Id = QUAL_OMP_PRIVATE
 ///
+/// 4. MAP clause for aggregate objects. Example:
+///      FullName = "QUAL.OMP.MAP.TOFROM:AGGRHEAD"
+///      BaseName = "QUAL.OMP.MAP.TOFROM"
+///      Modifier = "AGGRHEAD"
+///      Id = QUAL_OMP_MAP_TOFROM
+///
 /// Id is the enum corresponding to BaseName.
 class ClauseSpecifier {
 private:
@@ -98,6 +104,10 @@ private:
   bool IsScheduleNonmonotonic:1;
   bool IsScheduleSimd:1;
 
+  // Map clause for aggregate objects
+  bool IsMapAggrHead:1;
+  bool IsMapAggr:1;
+
 public:
 
   // Constructor
@@ -115,6 +125,8 @@ public:
   void setIsScheduleMonotonic()    { IsScheduleMonotonic = true; }
   void setIsScheduleNonmonotonic() { IsScheduleNonmonotonic = true; }
   void setIsScheduleSimd()         { IsScheduleSimd = true; }
+  void setIsMapAggrHead()          { IsMapAggrHead = true; }
+  void setIsMapAggr()              { IsMapAggr = true; }
 
   // Getters
   StringRef getFullName() const { return FullName; }
@@ -128,6 +140,8 @@ public:
   bool getIsScheduleMonotonic() const { return IsScheduleMonotonic; }
   bool getIsScheduleNonmonotonic() const { return IsScheduleNonmonotonic; }
   bool getIsScheduleSimd() const { return IsScheduleSimd; }
+  bool getIsMapAggrHead() const { return IsMapAggrHead; }
+  bool getIsMapAggr() const { return IsMapAggr; }
 };
 
 /// \brief This class contains a set of utility functions used by VPO passes.

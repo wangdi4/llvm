@@ -511,7 +511,27 @@ LastprivateItem *WRegionUtils::wrnSeenAsLastPrivate(WRegionNode *W, Value *V) {
 
 MapItem *WRegionUtils::wrnSeenAsMap(WRegionNode *W, Value *V) {
   MapClause &Map = W->getMap();
-  return Map.findOrig(V);
+  for (MapItem *I : Map.items()) {
+    Value *Orig = I->getOrig();
+    if (Orig != nullptr) { // scalar
+      if (Orig == V)
+        return I;
+    } else { // aggregate
+      MapChainTy &MapChain = I->getMapChain();
+      for (MapAggrTy *Aggr : MapChain) {
+        Value *BasePtr = Aggr->getBasePtr();
+        if (BasePtr == V)
+          return I;
+        // break;
+        // Note: OMP4.5 doesn't allow firstprivate/lastprivate of struct
+        // fields or array sections, so to see if the fp/lp item is also in a
+        // map clause for an aggregate, we only need to look at the head of the
+        // chain (ie, the first BasePtr). For now, I'm letting it traverse the
+        // entire chain, which is typically very short anyway.
+      }
+    }
+  }
+  return nullptr;
 }
 
 // The utility checks whether the given value is used at the region

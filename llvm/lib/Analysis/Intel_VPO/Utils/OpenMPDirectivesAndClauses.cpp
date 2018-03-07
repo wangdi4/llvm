@@ -30,7 +30,8 @@ using namespace llvm::vpo;
 ClauseSpecifier::ClauseSpecifier(StringRef Name) : FullName(Name),
       IsArraySection(false), IsNonPod(false), IsUnsigned(false),
       IsConditional(false), IsScheduleMonotonic(false),
-      IsScheduleNonmonotonic(false), IsScheduleSimd(false) {
+      IsScheduleNonmonotonic(false), IsScheduleSimd(false),
+      IsMapAggrHead(false), IsMapAggr(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
 
@@ -53,7 +54,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name) : FullName(Name),
   // Temporary hack to accept "QUAL.OMP.LINEAR.VAL" and treat it as
   // "QUAL.OMP.LINEAR". Eventually, Clang will be fixed to never emit
   // "QUAL.OMP.LINEAR.VAL".
-  if (Base == "QUAL.OMP.LINEAR.VAL") 
+  if (Base == "QUAL.OMP.LINEAR.VAL")
     setId(QUAL_OMP_LINEAR);
   else
 #endif
@@ -81,8 +82,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name) : FullName(Name),
         else
           llvm_unreachable("Unknown modifier string for the SCHEDULE clause");
       }
-    }
-    else 
+    } else
       for (unsigned i=0; i < NumberOfModifierStrings; i++) {
         if (ModSubString[i] == "ARRSECT")
           setIsArraySection();
@@ -92,6 +92,10 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name) : FullName(Name),
           setIsUnsigned();
         else if (ModSubString[i] == "CONDITIONAL")  // for lastprivate clause
           setIsConditional();
+        else if (ModSubString[i] == "AGGRHEAD")     // map chain head
+          setIsMapAggrHead();
+        else if (ModSubString[i] == "AGGR")         // map chain (not head)
+          setIsMapAggr();
         else
           llvm_unreachable("Unknown modifier string for clause");
       }
@@ -114,7 +118,7 @@ StringRef VPOAnalysisUtils::getDirOrClauseString(Instruction *I) {
 
 StringRef VPOAnalysisUtils::getDirectiveString(Instruction *I, bool doClauses){
   StringRef DirString;  // ctor initializes its data to nullptr
-  if (I) { 
+  if (I) {
     IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
     if (Call) {
       Intrinsic::ID Id = Call->getIntrinsicID();
@@ -122,7 +126,7 @@ StringRef VPOAnalysisUtils::getDirectiveString(Instruction *I, bool doClauses){
           (doClauses && VPOAnalysisUtils::isIntelClause(Id)))
         // this is an llvm.intel.directive intrinsic
         DirString = VPOAnalysisUtils::getDirectiveMetadataString(Call);
-      else 
+      else
         // check if it's an llvm.directive.region.entry/exit intrinsic
         DirString = VPOAnalysisUtils::getRegionDirectiveString(I);
     }
@@ -157,7 +161,7 @@ StringRef VPOAnalysisUtils::getClauseName(int Id) {
     return "REDUCTION";
   if (VPOAnalysisUtils::isScheduleClause(Id))
     return "SCHEDULE";
-  
+
   // Regular cases: just skip "QUAL_OMP_"
   return VPOAnalysisUtils::getClauseString(Id).substr(9);
 }
@@ -165,7 +169,7 @@ StringRef VPOAnalysisUtils::getClauseName(int Id) {
 StringRef VPOAnalysisUtils::getReductionOpName(int Id) {
   assert (VPOAnalysisUtils::isReductionClause(Id) &&
           "Expected a QUAL_OMP_REDUCTION_<OP> clause");
-  
+
   // skip "QUAL_OMP_REDUCTION_"
   return VPOAnalysisUtils::getClauseString(Id).substr(19);
 }
@@ -179,7 +183,7 @@ bool VPOAnalysisUtils::isOpenMPClause(StringRef ClauseFullName) {
 }
 
 int VPOAnalysisUtils::getDirectiveID(StringRef DirFullName) {
-  if (VPOAnalysisUtils::isOpenMPDirective(DirFullName)) 
+  if (VPOAnalysisUtils::isOpenMPDirective(DirFullName))
     return IntelDirectives::DirectiveIDs[DirFullName];
   else
     return -1;
@@ -192,7 +196,7 @@ int VPOAnalysisUtils::getDirectiveID(Instruction *I)
 }
 
 int VPOAnalysisUtils::getClauseID(StringRef ClauseFullName) {
-  assert(VPOAnalysisUtils::isOpenMPClause(ClauseFullName) && 
+  assert(VPOAnalysisUtils::isOpenMPClause(ClauseFullName) &&
          "Clause string not found");
   return IntelDirectives::ClauseIDs[ClauseFullName];
 }

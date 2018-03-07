@@ -733,8 +733,30 @@ void WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
 
   if (ClauseInfo.getIsArraySection()) {
     //TODO: Parse array section arguments.
+  } else if (ClauseInfo.getIsMapAggrHead() || ClauseInfo.getIsMapAggr()) {
+    // "AGGRHEAD" or "AGGR" seen: expect 3 arguments: BasePtr, SectionPtr, Size
+    assert(NumArgs == 3 && "Malformed MAP:AGGR[HEAD] clause");
+
+    // Create a MapAggr for the triple: <BasePtr, SectionPtr, Size>.
+    Value *BasePtr    = (Value*) Args[0];
+    Value *SectionPtr = (Value*) Args[1];
+    Value *Size       = (Value*) Args[2];
+    MapAggrTy *Aggr = new MapAggrTy(BasePtr, SectionPtr, Size);
+
+    MapItem *MI;
+    if (ClauseInfo.getIsMapAggrHead()) { // Start a new chain: Add a MapItem
+      MI = new MapItem(Aggr);
+      C.add(MI);
+    } else {         // Continue the chain for the last MapItem
+      MI = C.back(); // Get the last MapItem in the MapClause
+      MapChainTy MapChain = MI->getMapChain();
+      assert(MapChain.size() > 0 && "MAP:AGGR cannot start a chain");
+      MapChain.push_back(Aggr);
+    }
+    MI->setMapKind(MapKind);
   }
   else
+    // Scalar map items; create a MapItem for each of them
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = (Value*) Args[I];
       C.add(V);
