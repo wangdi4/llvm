@@ -1466,12 +1466,11 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
     // exit; this is expected.
     LMFI->addLICAttribute(newToken, "csasim_ignore_on_exit");
 
-    // TODO: Remove this RC fixup when the simulator gets completion1.
     // TODO: Do not need to reorder 0-bit channels; we should be able to just
     // do rate-limiting with no reordering/storage once the compiler starts
     // emitting them.
     const TargetRegisterClass *compRC =
-      TII->getSizeOfRegisterClass(RC) < 8 ? &CSA::CI8RegClass : RC;
+      TII->getSizeOfRegisterClass(RC) < 1 ? &CSA::CI1RegClass : RC;
 
     MachineInstrBuilder compBuffer =
       BuildMI(*mbb, lphdr->begin(), mloopLoc,
