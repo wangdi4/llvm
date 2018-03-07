@@ -7,8 +7,6 @@ set( TARGET cpu_device_test_type )
 
 include_directories( AFTER ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export )
 
-set( IGNORE_FILES cpu_device_test_type.cpp )
-
 FIND_SOURCES( ${IGNORE_FILES} )
 CALCULATE_TARGET_SOURCES()
 
