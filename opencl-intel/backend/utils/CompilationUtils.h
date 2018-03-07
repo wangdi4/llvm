@@ -8,7 +8,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __COMPILATION_UTILS_H__
 #define __COMPILATION_UTILS_H__
 
-#include "cl_kernel_arg_type.h"
 #include "exceptions.h"
 
 #include "llvm/ADT/SetVector.h"

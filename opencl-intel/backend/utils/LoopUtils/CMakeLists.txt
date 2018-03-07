@@ -8,9 +8,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/reflection_module
   ${BACKEND_ROOT_DIR}/name_mangling
   ${BACKEND_ROOT_DIR}/metadata_api
-  ${BACKEND_ROOT_DIR}/utils
-  ${CMAKE_SOURCE_DIR}/cl_api
-  ${CMAKE_SOURCE_DIR}/framework/icd/inc
+  ${OCL_SOURCE_DIR}/framework/icd/inc
   ${CMAKE_BINARY_DIR}/include
 )
 

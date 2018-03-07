@@ -9,12 +9,9 @@ set(TARGET_SOURCE_FILES
 )
 
 include_directories(
-    ${BACKEND_ROOT_DIR}/../cl_api
     ${BACKEND_ROOT_DIR}/ocl_cpu_backend
-    ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/passes/LocalBuffAnalysis
     ${BACKEND_ROOT_DIR}/metadata_api
-    ${BACKEND_ROOT_DIR}/passes
     ${CMAKE_BINARY_DIR}/include
 )
 

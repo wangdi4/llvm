@@ -146,7 +146,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     ${BACKEND_ROOT_DIR}/utils/OclTune.h
     ${OCL_CPU_BACKEND_DIR}/export/plugin_interface.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
-    ${BACKEND_ROOT_DIR}/../externals/itt/include/jitprofiling.h
+    ${OCL_SOURCE_DIR}/externals/itt/include/jitprofiling.h
   )
 
 set (OCL_CPU_BACKEND_SOURCE_FILES
@@ -215,22 +215,17 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 include_directories(
     ${LLVM_INCLUDE_DIRS}
     ${LLVM_FE_INCLUDE_DIRS}/cclang
-    ${BACKEND_ROOT_DIR}
     ${OCL_CPU_BACKEND_DIR}
-    ${OCL_CPU_BACKEND_DIR}/export
-    ${BACKEND_ROOT_DIR}/../cl_api
-    ${CL_API_HEADERS}
+    ${OCL_SOURCE_DIR}/utils/cache_binary_handler
+    ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
+    ${OCL_SOURCE_DIR}/utils/CLElfLib
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export
-    ${BACKEND_ROOT_DIR}/../utils/cl_sys_utils/export
     ${BACKEND_ROOT_DIR}/arch_headers
     ${BACKEND_ROOT_DIR}/vectorizer/Utils
     ${BACKEND_ROOT_DIR}/optimizer
     ${BACKEND_ROOT_DIR}/plugin_manager
     ${BACKEND_ROOT_DIR}/dynamic_lib
-    ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/metadata_api
-    ${BACKEND_ROOT_DIR}/../utils/cache_binary_handler
-    ${CMAKE_SOURCE_DIR}/utils/CLElfLib
     ${CMAKE_BINARY_DIR}/include/
     ${OCL_BINARY_DIR}
 )

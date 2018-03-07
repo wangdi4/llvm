@@ -57,6 +57,7 @@ endif (WIN32)
 include_directories(
   ${LLVM_INCLUDE_DIRS}
   ${LLVM_FE_INCLUDE_DIRS}/cclang
+  ${CL_API_HEADERS}
   ${VALIDATIONS_ROOT}/DataVersion
   ${OCL_RECORDER_IMPORT_DIR}
   ${OCL_RECORDER_EXPORT_DIR}
@@ -65,8 +66,7 @@ include_directories(
   ${OCL_EXTERNAL_DIR}/tinyxml
   ${OCL_DATAMANAGER_DIR}
   ${OCL_NEAT_DIR}
-  ${CL_API_HEADERS}
-  ${CMAKE_SOURCE_DIR}/backend/plugin_manager
+  ${OCL_SOURCE_DIR}/backend/plugin_manager
   ${OCL_BINARY_DIR}
 )
 

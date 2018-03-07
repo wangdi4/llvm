@@ -9,9 +9,6 @@ include_directories(
   ${LLVM_INCLUDE_DIRS}
   ${BACKEND_ROOT_DIR}/reflection_module
   ${BACKEND_ROOT_DIR}/name_mangling
-  ${BACKEND_ROOT_DIR}/passes
-  ${BACKEND_ROOT_DIR}/utils
-  ${CMAKE_SOURCE_DIR}/cl_api
 )
 
 set(TARGET_EXTRA_SOURCE_FILES 

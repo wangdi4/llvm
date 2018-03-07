@@ -11,7 +11,6 @@ include_directories(
   ${LLVM_INCLUDE_DIRS}
   ${VALIDATIONS_ROOT}/DataManager
   ${VALIDATIONS_ROOT}/NEAT
-  ${BACKEND_ROOT_DIR}/../cl_api
   ${CL_API_HEADERS}
   ${BACKEND_ROOT_DIR}
   ${BACKEND_ROOT_DIR}/export

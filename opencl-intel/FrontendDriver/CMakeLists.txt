@@ -34,18 +34,18 @@ endif(NOT WIN32)
 include_directories( AFTER
             ${LLVM_INCLUDE_DIRS}
             ${LLVM_INCLUDE_DIRS}/cclang
-            ${CMAKE_SOURCE_DIR}/backend/name_mangling
-            ${CMAKE_SOURCE_DIR}/backend/plugin_manager
-            ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend/export
-            ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
-            ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
-            ${CMAKE_SOURCE_DIR}/utils/cache_binary_handler
-            ${CMAKE_SOURCE_DIR}/utils/CLElfLib
+            ${CL_API_HEADERS}
+            ${OCL_SOURCE_DIR}/backend/name_mangling
+            ${OCL_SOURCE_DIR}/backend/plugin_manager
+            ${OCL_SOURCE_DIR}/backend/ocl_cpu_backend/export
+            ${OCL_SOURCE_DIR}/backend/dynamic_lib
+            ${OCL_SOURCE_DIR}/externals/khronos/spirv/headers/include
+            ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
+            ${OCL_SOURCE_DIR}/utils/cache_binary_handler
+            ${OCL_SOURCE_DIR}/utils/CLElfLib
             ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
             ${OCL_BINARY_DIR}
             ${CMAKE_BINARY_DIR}/include
-            ${CL_API_HEADERS}
-            ${OCL_SOURCE_DIR}/externals/khronos/spirv/headers/include
             )
 
 if (WIN32)

@@ -35,10 +35,10 @@ add_opencl_library (${TARGET_NAME} STATIC
 
     INCLUDE_DIRS
     ../cl_hw_utils/export
-    ${CMAKE_SOURCE_DIR}/FrontendDriver
     ${LLVM_INCLUDE_DIRS}/cclang
     ${CL_API_HEADERS}
-    ${CMAKE_SOURCE_DIR}/tools/OCLProfiler/Inc
+    ${OCL_SOURCE_DIR}/FrontendDriver
+    ${OCL_SOURCE_DIR}/tools/OCLProfiler/Inc
     )
 
 # add Version.lib in Windows for GetModuleProductVersion()

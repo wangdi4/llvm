@@ -2,8 +2,6 @@ set(TARGET_NAME BuiltinCallToInst)
 
 include_directories(
     ${BACKEND_ROOT_DIR}/name_mangling
-    ${BACKEND_ROOT_DIR}/utils
-    ${BACKEND_ROOT_DIR}/passes
 )
 
 set(TARGET_INCLUDE_FILES

@@ -11,8 +11,8 @@ include_directories(
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
   COMMAND ocl-tblgen -gen-ocl-biheader
-  -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
-  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/GENERIC_CPU.td
+  -I ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/GENERIC_CPU.td
   -o ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
   DEPENDS ocl-tblgen
   COMMENT "Genereating demangled headers..."

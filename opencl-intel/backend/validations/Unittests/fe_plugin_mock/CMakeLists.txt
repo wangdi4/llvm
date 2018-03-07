@@ -1,6 +1,5 @@
 set (TARGET_NAME "FePluginMock")
 include_directories(${BACKEND_ROOT_DIR}/ocl_cpu_backend/export/)
-include_directories(${BACKEND_ROOT_DIR}/../cl_api)
 include_directories(${BACKEND_ROOT_DIR}/plugin_manager)
 
 

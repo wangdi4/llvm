@@ -1,8 +1,6 @@
 set(TARGET_NAME CleanupWrappedKernels)
 
 include_directories(
-    ${BACKEND_ROOT_DIR}/utils
-    ${BACKEND_ROOT_DIR}/passes
     ${BACKEND_ROOT_DIR}/metadata_api
 )
 

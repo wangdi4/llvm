@@ -32,6 +32,15 @@ link_directories(
 include_directories(
   ${LLVM_INCLUDE_DIRS}
   ${LLVM_FE_INCLUDE_DIRS}/cclang
+  ${LLVM_ROOT}/lib/ExecutionEngine/Interpreter
+  ${BACKEND_ROOT_DIR}/arch_headers
+  ${BACKEND_ROOT_DIR}/dynamic_lib
+  ${BACKEND_ROOT_DIR}/external/tinyxml
+  ${BACKEND_ROOT_DIR}/name_mangling
+  ${BACKEND_ROOT_DIR}/ocl_cpu_backend
+  ${BACKEND_ROOT_DIR}/ocl_cpu_backend/export
+  ${CL_API_HEADERS}
+  ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
   ${VALIDATIONS_ROOT}/SATest
   ${VALIDATIONS_ROOT}/DataVersion
   ${VALIDATIONS_ROOT}/DataManager
@@ -40,22 +49,11 @@ include_directories(
   ${VALIDATIONS_ROOT}/Comparator
   ${VALIDATIONS_ROOT}/Common
   ${VALIDATIONS_ROOT}/OCLBuiltins
-  ${VALIDATIONS_ROOT}/../external/tinyxml
-  ${BACKEND_ROOT_DIR}/../cl_api
-  ${CL_API_HEADERS}
-  ${VALIDATIONS_ROOT}/../ocl_cpu_backend
-  ${VALIDATIONS_ROOT}/../ocl_cpu_backend/export
-  ${BACKEND_ROOT_DIR}/utils
-  ${BACKEND_ROOT_DIR}/arch_headers
-  ${BACKEND_ROOT_DIR}/dynamic_lib
-  ${BACKEND_ROOT_DIR}/name_mangling
-  ${LLVM_ROOT}/lib/ExecutionEngine/Interpreter
   ${VALIDATIONS_ROOT}/InterpreterPluggable
   ${VALIDATIONS_ROOT}/PlugInNEAT
   ${VALIDATIONS_ROOT}/OCLBuilder
   ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
   ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
-  ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
   ${VALIDATIONS_ROOT}/ProgramConfiguration
 )
 

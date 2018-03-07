@@ -13,10 +13,6 @@ set( TARGET_HEADER_FILES
     imathLibd.h
 )
 
-include_directories(
-    ${BACKEND_ROOT_DIR}/../cl_api
-)
-
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
   set (ICC_PLATFORM ia32)
 else ()

@@ -2,9 +2,9 @@ set(TARGET_NAME TestTypeConversion)
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
-  ${CMAKE_SOURCE_DIR}/externals/gtest/include
-  ${CMAKE_SOURCE_DIR}/backend/utils
-  ${CMAKE_SOURCE_DIR}/backend/name_mangling
+  ${OCL_SOURCE_DIR}/externals/gtest/include
+  ${OCL_SOURCE_DIR}/backend/utils
+  ${OCL_SOURCE_DIR}/backend/name_mangling
 )
 
 add_executable(${TARGET_NAME}

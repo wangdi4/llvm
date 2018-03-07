@@ -29,21 +29,20 @@ add_library(${TARGET_NAME}
   )
 include_directories (
   ${LLVM_INCLUDE_DIRS}
-  ../Interpreter
-  ../InterpreterPluggable
-  ${BACKEND_ROOT_DIR}/validations/OCLBuiltins
-  ${BACKEND_ROOT_DIR}/../cl_api
-  ${CL_API_HEADERS}
-  ${BACKEND_ROOT_DIR}/validations/DataManager
-  ${BACKEND_ROOT_DIR}/validations/Common
-  ${BACKEND_ROOT_DIR}/validations/NEAT
-  ${BACKEND_ROOT_DIR}/validations/REFALU
-  ${BACKEND_ROOT_DIR}/validations/ImathLibd
   ${BACKEND_ROOT_DIR}/name_mangling
+  ${VALIDATIONS_ROOT}/Interpreter
+  ${CL_API_HEADERS}
+  ${VALIDATIONS_ROOT}/InterpreterPluggable
+  ${VALIDATIONS_ROOT}/OCLBuiltins
+  ${VALIDATIONS_ROOT}/DataManager
+  ${VALIDATIONS_ROOT}/Common
+  ${VALIDATIONS_ROOT}/NEAT
+  ${VALIDATIONS_ROOT}/REFALU
+  ${VALIDATIONS_ROOT}/ImathLibd
   )
 
 #During the compilation of the LLVMInterpreter the Interpreter.h file is copying to the build directory 
-#(and then to the install one - but this is irrelevant for current problem). 
+#(and then to the install one - but this is irrelevant for current problem).
 #This file is then used by IntepreterPluggable build. So we need to ensure the LLVMInterpreter is running first
 
 add_dependencies(${TARGET_NAME} LLVMInterpreter)

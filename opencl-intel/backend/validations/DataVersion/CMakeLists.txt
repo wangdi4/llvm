@@ -5,7 +5,6 @@ include_directories(
   ${VALIDATIONS_ROOT}/DataVersion
   ${VALIDATIONS_ROOT}/DataManager
   ${VALIDATIONS_ROOT}/NEAT
-  ${BACKEND_ROOT_DIR}/../cl_api
   ${CL_API_HEADERS}
 )
 

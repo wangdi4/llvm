@@ -1,10 +1,5 @@
 set(TARGET_NAME InternalizeGlobalVariables)
 
-include_directories(
-    ${BACKEND_ROOT_DIR}/utils
-    ${BACKEND_ROOT_DIR}/passes
-)
-
 set(TARGET_SOURCE_FILES
     InternalizeGlobalVariables.cpp
 )

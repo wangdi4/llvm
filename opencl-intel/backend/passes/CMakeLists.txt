@@ -2,7 +2,9 @@
 use_rtti( FALSE )
 
 include_directories(${LLVM_INCLUDE_DIRS}
-                    ${CL_API_HEADERS} )
+                    ${CL_API_HEADERS}
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+
 add_subdirectory(AddImplicitArgs)
 add_subdirectory(AutorunReplicator)
 add_subdirectory(ChannelPipeTransformation)

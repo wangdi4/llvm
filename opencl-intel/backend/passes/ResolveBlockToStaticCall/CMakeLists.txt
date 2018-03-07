@@ -8,11 +8,6 @@ set(TARGET_SOURCE_FILES
     ResolveBlockToStaticCall.cpp
 )
 
-include_directories(
-    ${BACKEND_ROOT_DIR}/utils
-    ${BACKEND_ROOT_DIR}/passes
-)
-
 add_library(${TARGET_NAME}
     ${TARGET_INCLUDE_FILES}
     ${TARGET_SOURCE_FILES}

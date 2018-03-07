@@ -9,7 +9,6 @@ set(TARGET_SOURCE_FILES
 )
 
 include_directories(
-    ${BACKEND_ROOT_DIR}/passes
     ${BACKEND_ROOT_DIR}/metadata_api
     ${CMAKE_BINARY_DIR}/include
 )

@@ -1,9 +1,5 @@
 set(TARGET_NAME SmartGVN)
 
-include_directories(
-    ${BACKEND_ROOT_DIR}/passes
-)
-
 set(TARGET_INCLUDE_FILES
     SmartGVN.h
 )

@@ -10,10 +10,7 @@ set(TARGET_SOURCE_FILES
 
 include_directories(
     ${BACKEND_ROOT_DIR}/metadata_api
-    ${BACKEND_ROOT_DIR}/passes
     ${BACKEND_ROOT_DIR}/barrier/include
-    ${BACKEND_ROOT_DIR}/utils
-    ${OCL_SOURCE_DIR}/cl_api
     ${CMAKE_BINARY_DIR}/include/
 )
 

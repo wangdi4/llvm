@@ -42,6 +42,7 @@ include_directories(
     ${OCL_SOURCE_DIR}/externals/gtest/include
     ${OCL_SOURCE_DIR}/cl_api
     ${OCL_SOURCE_DIR}/tests/test_utils/export
+    ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
     ${CL_API_HEADERS}
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/ocl_cpu_backend
@@ -49,8 +50,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/dynamic_lib
     ${BACKEND_ROOT_DIR}/ocl_cpu_backend/export
     ${BACKEND_ROOT_DIR}/arch_headers
-    ${BACKEND_ROOT_DIR}/plugin_manager
-    ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export)
+    ${BACKEND_ROOT_DIR}/plugin_manager)
 
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 

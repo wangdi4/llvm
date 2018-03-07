@@ -6,12 +6,12 @@ project (${TARGET_NAME})
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
-  ${CMAKE_SOURCE_DIR}/externals/gtest/include
   ${BACKEND_ROOT_DIR}/name_mangling
   ${BACKEND_ROOT_DIR}/reflection_module
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/OpenCL
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/Volcano
+  ${OCL_SOURCE_DIR}/externals/gtest/include
 )
 
 add_executable(

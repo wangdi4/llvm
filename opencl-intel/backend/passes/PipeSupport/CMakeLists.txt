@@ -9,11 +9,8 @@ set(TARGET_SOURCE_FILES
 )
 
 include_directories(
-    ${BACKEND_ROOT_DIR}/passes
     ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo
-    ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/metadata_api
-    ${BACKEND_ROOT_DIR}/../cl_api
 )
 
 add_library(${TARGET_NAME}

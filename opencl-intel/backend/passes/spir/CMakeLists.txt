@@ -4,12 +4,9 @@ set(TARGET_SOURCE_FILES Materialize.cpp)
 set(TARGET_INCLUDE_FILES Materialize.h)
 
 include_directories(
-  ${CMAKE_SOURCE_DIR}/cl_api
-  ${CMAKE_SOURCE_DIR}/backend/metadata_api
-  ${CMAKE_SOURCE_DIR}/backend/name_mangling
-  ${CMAKE_SOURCE_DIR}/backend/passes
-  ${CMAKE_SOURCE_DIR}/backend/passes/BuiltinLibInfo
-  ${CMAKE_SOURCE_DIR}/backend/utils
+  ${OCL_SOURCE_DIR}/backend/metadata_api
+  ${OCL_SOURCE_DIR}/backend/name_mangling
+  ${OCL_SOURCE_DIR}/backend/passes/BuiltinLibInfo
   ${CMAKE_BINARY_DIR}/include
 )
 

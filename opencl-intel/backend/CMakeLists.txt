@@ -87,6 +87,9 @@ project(Backend C CXX)
 add_definitions(${LLVM_DEFINITIONS})
 use_rtti(FALSE)
 
+include_directories (${BACKEND_ROOT_DIR}/utils
+                     ${OCL_SOURCE_DIR}/cl_api)
+
 if (LLVM_BUILD_OCL_CPU_BACKEND)
     add_subdirectory(vectorizer        "${CMAKE_CURRENT_BINARY_DIR}/vectorizer")
     add_subdirectory(barrier           "${CMAKE_CURRENT_BINARY_DIR}/barrier")
@@ -95,7 +98,6 @@ if (LLVM_BUILD_OCL_CPU_BACKEND)
     add_subdirectory(passes            "${CMAKE_CURRENT_BINARY_DIR}/passes")
     add_subdirectory(optimizer         "${CMAKE_CURRENT_BINARY_DIR}/optimizer")
     add_subdirectory(ocl_cpu_backend   "${CMAKE_CURRENT_BINARY_DIR}/ocl_cpu_backend")
-#    Disable until CORC-2317 is fixed
     add_subdirectory(ocl_cpu_debugging "${CMAKE_CURRENT_BINARY_DIR}/ocl_cpu_debugging")
     add_subdirectory(ocl_opt           "${CMAKE_CURRENT_BINARY_DIR}/ocl_opt")
     add_subdirectory(ocl_opt_img       "${CMAKE_CURRENT_BINARY_DIR}/ocl_opt_img")
@@ -137,4 +139,3 @@ endif(LLVM_BUILD_OCL_CPU_BACKEND)
 
 # copy the Clang conformance tests to the validation directory
 copy_to (${BACKEND_ROOT_DIR}/tests/Conformance.7z DESTINATION tests)
-

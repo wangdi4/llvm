@@ -1,8 +1,6 @@
 set(TARGET_NAME InternalizeNonKernelFunc)
 
 include_directories(
-    ${BACKEND_ROOT_DIR}/utils
-    ${BACKEND_ROOT_DIR}/passes
     ${BACKEND_ROOT_DIR}/metadata_api
 )
 

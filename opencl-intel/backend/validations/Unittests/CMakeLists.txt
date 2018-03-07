@@ -25,8 +25,6 @@ endif(WIN32)
 include_directories(
     ${LLVM_INCLUDE_DIRS}
     ${LLVM_FE_INCLUDE_DIRS}/cclang
-    ${BACKEND_ROOT_DIR}/../externals/gtest/include
-    ${BACKEND_ROOT_DIR}/../cl_api
     ${CL_API_HEADERS}
     ${BACKEND_ROOT_DIR}/external/tinyxml
     ${BACKEND_ROOT_DIR}/plugin_manager
@@ -47,7 +45,8 @@ include_directories(
     ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
     ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
     ${CMAKE_CURRENT_SOURCE_DIR}/Common
-    ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
+    ${OCL_SOURCE_DIR}/externals/gtest/include
+    ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
 )
 
 link_directories(

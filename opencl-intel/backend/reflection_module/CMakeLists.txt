@@ -11,7 +11,7 @@ endif( BACKEND_BUILD_VERIFICATION_LIB )
 
 add_custom_command(
   OUTPUT BuiltinList.h
-  COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/tests/name_mangling_test_type/MangledNames.h
+  COMMAND ${CMAKE_COMMAND} -E copy ${OCL_SOURCE_DIR}/tests/name_mangling_test_type/MangledNames.h
   BuiltinList.h
   DEPENDS name_mangling_test_type
   COMMENT "copying MangledNames.h ..."
@@ -21,14 +21,14 @@ add_custom_command(
 add_custom_command(
   OUTPUT CustomMappings.gen
   COMMAND ocl-tblgen -gen-vectorizer-map
-  -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
-  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/GENERIC_CPU.td
+  -I ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/GENERIC_CPU.td
   -o ${CMAKE_CURRENT_BINARY_DIR}/CustomMappings.gen
   DEPENDS ocl-tblgen
-  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/soa_relational.td
-  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v1.2.td
-  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v2.0.td
-  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v2.0WG.td
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/soa_relational.td
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v1.2.td
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v2.0.td
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v2.0WG.td
   COMMENT "generating custom mapping ..."
   VERBATIM
 )
@@ -67,8 +67,8 @@ add_library(
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
-  ${CMAKE_SOURCE_DIR}/backend/name_mangling
-  ${CMAKE_SOURCE_DIR}/backend/utils
+  ${OCL_SOURCE_DIR}/backend/name_mangling
+  ${OCL_SOURCE_DIR}/backend/utils
 )
 
 include_directories(
