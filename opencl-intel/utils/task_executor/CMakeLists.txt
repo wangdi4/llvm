@@ -26,14 +26,6 @@ endif (WIN32)
 
 link_directories( ${TBB_LIB_DIR} )
 
-# [LLVM 3.6 UPGRADE] Disable Linux warning about unused function
-# this warning occur when processing externals/itt/include/ittnotify.h
-# since it contain __itt_id __itt_id_make(void*, long long unsigned int)
-# function that is not used in every build target.
-if (NOT WIN32)
-    add_definitions( "-Wno-unused-function" )
-endif(NOT WIN32)
-
 add_definitions(-DTASK_EXECUTOR_EXPORTS
                 -D__TBB_EXECUTOR__
                 -D_USRDLL

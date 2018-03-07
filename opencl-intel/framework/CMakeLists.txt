@@ -6,7 +6,6 @@ find_package(LLVM REQUIRED)
 
 if (NOT WIN32)
   # disable warnings inherited from external componennts
-  add_definitions(-Wno-attributes)
   add_definitions(-Wno-missing-braces)
 endif (NOT WIN32)
 
@@ -103,15 +102,6 @@ endif (WIN32)
 if (DEFINED CMAKE_IMPORT_LIBRARY_PREFIX OR DEFINED CMAKE_IMPORT_LIBRARY_SUFFIX)
     set( IMPORT_LIB ${CMAKE_IMPORT_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_IMPORT_LIBRARY_SUFFIX} )
 endif (DEFINED CMAKE_IMPORT_LIBRARY_PREFIX OR DEFINED CMAKE_IMPORT_LIBRARY_SUFFIX)
-
-# [LLVM 3.6 UPGRADE] Disable Linux warning about unused function
-# this warning occur when processing externals/itt/include/ittnotify.h
-# since it contain __itt_id __itt_id_make(void*, long long unsigned int)
-# function that is not used in every build target.
-# Disable warning about converting null pointer to long int.
-if (NOT WIN32)
-    add_definitions( "-Wno-unused-function" )
-endif(NOT WIN32)
 
 link_directories( ${TBB_LIB_DIR} )
 

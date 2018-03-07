@@ -4,7 +4,14 @@
 
 # ITT/VTune integration
 add_definitions( -DUSE_ITT )
-include_directories( ${OCL_SOURCE_DIR}/externals/itt/include
+
+# From CMake documentation:
+# If the SYSTEM option is given, the compiler will be
+# told the directories are meant as system include directories on some
+# platforms. Signalling this setting might achieve effects such as the compiler
+# skipping warnings, or these fixed-install system files not being considered in
+# dependency calculations - see compiler docs.
+include_directories( SYSTEM ${OCL_SOURCE_DIR}/externals/itt/include
                      ${OCL_SOURCE_DIR}/externals/itt/ittnotify/ )
 
 # ITT libraries directory suffix
