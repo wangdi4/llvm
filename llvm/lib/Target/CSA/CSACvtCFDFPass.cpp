@@ -227,6 +227,15 @@ private:
   DenseMap<MachineBasicBlock *, unsigned> bb2rpo;
   DenseMap<MachineInstr *, MachineBasicBlock *> multiInputsPick;
   std::set<MachineBasicBlock *> dcgBBs;
+
+  /// Assign a name to the LIC.
+  /// The generated name will be a concatenation of the 5 pieces in order of
+  /// the argument, although passing in 0 for baseReg or nullptr for the
+  /// containingBlock will cause those to be treated as the empty string.
+  void nameLIC(unsigned vreg, const Twine &prefix,
+      unsigned baseReg = 0, const Twine &infix = "",
+      const MachineBasicBlock *containingBlock = nullptr,
+      const Twine &suffix = "");
 };
 } // namespace llvm
 
@@ -438,6 +447,8 @@ MachineInstr *CSACvtCFDFPass::insertSWITCHForReg(unsigned Reg,
     MachineInstr *bi                = &*loc;
     unsigned switchFalseReg         = MRI->createVirtualRegister(TRC);
     unsigned switchTrueReg          = MRI->createVirtualRegister(TRC);
+    nameLIC(switchTrueReg, "", Reg, ".switch.", cdgpBB, ".true");
+    nameLIC(switchFalseReg, "", Reg, ".switch.", cdgpBB, ".false");
     assert(bi->getOperand(0).isReg());
     // generate switch op
     const unsigned switchOpcode = TII->makeOpcode(CSA::Generic::SWITCH, TRC);
@@ -2416,6 +2427,12 @@ void CSACvtCFDFPass::setEdgePred(MachineBasicBlock *mbb,
     edgepreds[mbb] = childVect;
   }
   (*edgepreds[mbb])[childType] = ch;
+  nameLIC(ch, "", 0, "", mbb,
+    (childType == ControlDependenceNode::FALSE ? ".false.pred" :
+     childType == ControlDependenceNode::TRUE ? ".true.pred" : ".other.pred"));
+  DEBUG(dbgs() << "Edge predicate of "
+      << mbb->getName() << "->" << (*(mbb->succ_begin() + childType))->getName()
+      << " is " << PrintReg(ch) << "\n");
 }
 
 unsigned CSACvtCFDFPass::getBBPred(MachineBasicBlock *mbb) {
@@ -2612,7 +2629,8 @@ unsigned CSACvtCFDFPass::computeBBPred(MachineBasicBlock *inBB,
 
     unsigned result;
     if (bb2predcpy.find(inBB) == bb2predcpy.end()) {
-      result           = MRI->createVirtualRegister(&CSA::I1RegClass);
+      result = MRI->createVirtualRegister(&CSA::I1RegClass);
+      nameLIC(result, "", 0, "", inBB, ".pred");
       bb2predcpy[inBB] = result;
     } else {
       result = bb2predcpy[inBB];
@@ -2927,8 +2945,11 @@ void CSACvtCFDFPass::repeatOperandInLoop(
               "const prop failed");
 
             const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
-            unsigned rptIReg = LMFI->allocateLIC(TRC, "rptBackEdge");
-            unsigned rptOReg = LMFI->allocateLIC(TRC, "rptOut");
+            auto name = LMFI->getLICName(Reg);
+            unsigned rptIReg = LMFI->allocateLIC(TRC,
+                name + Twine(".loop_backedge_") + lphdr->getName());
+            unsigned rptOReg = LMFI->allocateLIC(TRC,
+                name + Twine(".loop_inner_") + lphdr->getName());
             if (repeatIn) {
               repeatIn->push_back(dMI->findRegisterDefOperand(Reg));
             }
@@ -3579,4 +3600,20 @@ bool CSACvtCFDFPass::replaceUndefWithIgn() {
 
   DEBUG(errs() << "Finished converting implicit defs to %IGN reads.\n\n");
   return modified;
+}
+
+void CSACvtCFDFPass::nameLIC(unsigned vreg, const Twine &prefix,
+    unsigned baseReg, const Twine &infix,
+    const MachineBasicBlock *containingBlock, const Twine &suffix) {
+  // Ensure that the base register has a printable name.
+  if (baseReg && LMFI->getLICName(baseReg).empty())
+    LMFI->setLICName(baseReg,
+        "lic" + Twine(TargetRegisterInfo::virtReg2Index(vreg)));
+
+  LMFI->setLICName(vreg,
+      prefix +
+      (baseReg ? LMFI->getLICName(baseReg) : "") +
+      infix +
+      (containingBlock ? containingBlock->getName() : "") +
+      suffix);
 }

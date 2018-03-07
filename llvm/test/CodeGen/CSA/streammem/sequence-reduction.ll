@@ -21,8 +21,10 @@ loop:
 ; CHECK: mov64 %[[SRC:[a-z0-9_]+]], %r2
 ; CHECK: mov64 %[[INITA:[a-z0-9_]+]], 0
 ; CHECK: mov64 %[[INITB:[a-z0-9_]+]], 0
+; CHECK: cmplts64 %[[OT:[a-z0-9_]+]], %[[INITA]], %[[LEN]]
+; CHECK: merge64 %[[SAFELEN:[a-z0-9_]+]], %[[OT]], 1, %[[LEN]]
 ; CHECK: sredaddf64 %[[REDUCE:[a-z0-9_]+]], %ign, %[[INITB]], %[[VAL:[a-z0-9_]+]], 
-; CHECK: sld64 %[[VAL]], %[[SRC]], %[[LEN]], 1, %[[OUTORD:[a-z0-9_]+]], %[[INORD]], MEMLEVEL_T0
+; CHECK: sld64 %[[VAL]], %[[SRC]], %[[SAFELEN]], 1, %[[OUTORD:[a-z0-9_]+]], %[[INORD]], MEMLEVEL_T0
 ; CHECK: mov0 %r1, %[[OUTORD]]
 
 exit:
