@@ -44,6 +44,7 @@
 ; }
 ;-----------------------------------------------------------------------------
 
+; REQUIRES: fpga-emulator
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -channel-pipe-transformation -verify %s -S | FileCheck %s --implicit-check-not @_Z19write_channel_intel --implicit-check-not @_Z21read_channel_nb_intel
 ; ModuleID = 'main'
 source_filename = "1"
