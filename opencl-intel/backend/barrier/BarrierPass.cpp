@@ -298,7 +298,6 @@ namespace intel {
       ve = m_pAllocaValues->end(); vi != ve; ++vi ) {
         AllocaInst *pAllocaInst = dyn_cast<AllocaInst>(*vi);
         assert( pAllocaInst && "container of alloca values has non AllocaInst value!" );
-        assert( !m_pDataPerValue->isOneBitElementType(pAllocaInst) && "AllocaInst with base type i1!" );
         //Get offset of alloca value in special buffer
         unsigned int offset = m_pDataPerValue->getOffset(pAllocaInst);
 
@@ -354,7 +353,6 @@ namespace intel {
     for (; vi != ve; ++vi) {
       AllocaInst *pAllocaInst = dyn_cast<AllocaInst>(*vi);
       assert( pAllocaInst && "container of alloca values has non AllocaInst value!" );
-      assert( !m_pDataPerValue->isOneBitElementType(pAllocaInst) && "AllocaInst with base type i1!" );
       //Get offset of alloca value in special buffer
       unsigned int offset = m_pDataPerValue->getOffset(pAllocaInst);
       userInsts.clear();
