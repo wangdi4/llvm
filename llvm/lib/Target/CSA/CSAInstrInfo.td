@@ -1488,6 +1488,7 @@ def SREDXOR64 : SReduceOp<SREDXOR,  Ti64, IIALU>;
 
 // TODO: new itinerary class for this one?
 def COMPLETION   : GenericOp<"completion">;
+def COMPLETION1  : CompletionOp<COMPLETION, Ti1,  IIST>;
 def COMPLETION8  : CompletionOp<COMPLETION, Ti8,  IIST>;
 def COMPLETION16 : CompletionOp<COMPLETION, Ti16, IIST>;
 def COMPLETION32 : CompletionOp<COMPLETION, Ti32, IIST>;
