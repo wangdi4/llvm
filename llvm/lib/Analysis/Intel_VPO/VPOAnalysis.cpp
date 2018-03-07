@@ -19,7 +19,7 @@ using namespace llvm;
 
 void llvm::initializeIntel_VPOAnalysis(PassRegistry &Registry) {
   initializeWRegionCollectionWrapperPassPass(Registry);
-  initializeWRegionInfoPass(Registry);
+  initializeWRegionInfoWrapperPassPass(Registry);
 
   initializeAVRGeneratePass(Registry);
   initializeAVRGenerateHIRPass(Registry);

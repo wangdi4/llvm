@@ -49,7 +49,7 @@ using namespace llvm::vpo;
 INITIALIZE_PASS_BEGIN(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
-INITIALIZE_PASS_DEPENDENCY(WRegionInfo)
+INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 INITIALIZE_PASS_END(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
                     false)
 
@@ -73,7 +73,7 @@ VPOParopt::VPOParopt(unsigned MyMode,
 
 void VPOParopt::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredID(LoopSimplifyID);
-  AU.addRequired<WRegionInfo>();
+  AU.addRequired<WRegionInfoWrapperPass>();
 }
 
 bool VPOParopt::runOnModule(Module &M) {
@@ -101,14 +101,14 @@ bool VPOParopt::runOnModule(Module &M) {
     DEBUG(dbgs() << "\n=== VPOParopt Process func: " << F->getName() <<" {\n");
 
     // Walk the W-Region Graph top-down, and create W-Region List
-    WRegionInfo &WI = getAnalysis<WRegionInfo>(*F);
+    WRegionInfo &WI = getAnalysis<WRegionInfoWrapperPass>(*F).getWRegionInfo();
     WI.buildWRGraph(WRegionCollection::LLVMIR);
 
     if (WI.WRGraphIsEmpty()) {
       DEBUG(dbgs() << "\nNo WRegion Candidates for Parallelization \n");
     }
 
-    DEBUG(WI.dump());
+    DEBUG(WI.print(dbgs()));
 
     //
     // Set up a function pass manager so that we can run some cleanup

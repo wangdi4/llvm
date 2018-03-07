@@ -48,7 +48,7 @@ using namespace llvm::vpo;
 INITIALIZE_PASS_BEGIN(VPOParoptPrepare, "vpo-paropt-prepare",
                      "VPO Paropt Prepare Function Pass", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
-INITIALIZE_PASS_DEPENDENCY(WRegionInfo)
+INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 INITIALIZE_PASS_END(VPOParoptPrepare, "vpo-paropt-prepare",
                     "VPO Paropt Prepare Function Pass", false, false)
 
@@ -70,7 +70,7 @@ VPOParoptPrepare::VPOParoptPrepare(unsigned MyMode,
 
 void VPOParoptPrepare::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredID(LoopSimplifyID);
-  AU.addRequired<WRegionInfo>();
+  AU.addRequired<WRegionInfoWrapperPass>();
 }
 
 bool VPOParoptPrepare::runOnFunction(Function &F) {
@@ -85,7 +85,7 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
     return Changed;
   }
 
-  WRegionInfo &WI = getAnalysis<WRegionInfo>();
+  WRegionInfo &WI = getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
 
   if (Mode & ParPrepare) {
     DEBUG(dbgs() << "VPOParoptPrepare: Before Par Sections Transformation");
@@ -106,7 +106,7 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
     DEBUG(dbgs() << "\nNo WRegion Candidates for Parallelization \n");
   }
 
-  DEBUG(WI.dump());
+  DEBUG(WI.print(dbgs()));
 
   DEBUG(errs() << "VPOParoptPrepare Pass: ");
   DEBUG(errs().write_escaped(F.getName()) << '\n');

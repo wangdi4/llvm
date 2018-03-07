@@ -169,6 +169,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGen.h"
 // Intel VPO
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTpv.h"
 #include "llvm/Transforms/Intel_VPO/Utils/CFGRestructuring.h"
 #endif // INTEL_CUSTOMIZATION

@@ -15,5 +15,5 @@ using namespace llvm;
 
 // void llvm::initializeWRegionInfoAnalysisPass(PassRegistry &Registry) {
 //  initializeWRegionCollectionWrapperPassPass(Registry);
-//  initializeWRegionInfoPass(Registry);
+//  initializeWRegionInfoWrapperPassPass(Registry);
 //}

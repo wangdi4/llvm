@@ -470,7 +470,7 @@ void initializeHIRArrayTransposePass(PassRegistry&);
 void initializeHIRLoopFusionPass(PassRegistry&);
 // VPO WRegion Passes
 void initializeWRegionCollectionWrapperPassPass(PassRegistry&);
-void initializeWRegionInfoPass(PassRegistry&);
+void initializeWRegionInfoWrapperPassPass(PassRegistry&);
 void initializeWRegionInfoAnalysisPass(PassRegistry&);
 // VPO Utility Pass
 void initializeVPOCFGRestructuringPass(PassRegistry&);

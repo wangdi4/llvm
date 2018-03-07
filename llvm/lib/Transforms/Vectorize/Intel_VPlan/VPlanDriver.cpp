@@ -288,7 +288,7 @@ template <class LoopType>
 void VPlanDriverBase<LoopType>::getAnalysisUsage(AnalysisUsage &AU) const {
 
   // TODO (CMPLRS-44750): Preserve analyses.
-  AU.addRequired<WRegionInfo>();
+  AU.addRequired<WRegionInfoWrapperPass>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
 }
@@ -340,7 +340,7 @@ bool VPlanDriverBase<LoopType>::runStandardMode(
 
   DEBUG(dbgs() << "VD: Stardard Vectorization mode\n");
 
-  WR = &getAnalysis<WRegionInfo>();
+  WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
   WR->buildWRGraph(IR);
   WRContainerImpl *WRGraph = WR->getWRGraph();
 
@@ -418,7 +418,7 @@ bool VPlanDriverBase<LoopType>::runCGStressTestMode(Function &Fn) {
 
 INITIALIZE_PASS_BEGIN(VPlanDriver, "VPlanDriver", "VPlan Vectorization Driver",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(WRegionInfo)
+INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
@@ -623,7 +623,7 @@ bool VPlanDriver::isVPlanCandidate(Loop *Lp) {
 
 INITIALIZE_PASS_BEGIN(VPlanDriverHIR, "VPlanDriverHIR",
                       "VPlan Vectorization Driver HIR", false, false)
-INITIALIZE_PASS_DEPENDENCY(WRegionInfo)
+INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 // INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)

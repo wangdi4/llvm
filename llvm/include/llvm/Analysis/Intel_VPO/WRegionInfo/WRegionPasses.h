@@ -25,7 +25,7 @@ class FunctionPass;
 FunctionPass *createWRegionCollectionWrapperPassPass();
 
 /// \brief This creates a pass that forms W-Region nodes.
-FunctionPass *createWRegionInfoPass();
+FunctionPass *createWRegionInfoWrapperPassPass();
 
 }
 #endif

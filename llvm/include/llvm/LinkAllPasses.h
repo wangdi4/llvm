@@ -300,7 +300,7 @@ namespace {
 
       // VPO WRegion Passes
       (void) llvm::createWRegionCollectionWrapperPassPass();
-      (void) llvm::createWRegionInfoPass();
+      (void) llvm::createWRegionInfoWrapperPassPass();
 
       // VPO Vectorizer Passes
       (void) llvm::createAVRGeneratePass();
