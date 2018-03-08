@@ -1278,6 +1278,8 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock *mbb) {
 void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
                                                          unsigned numTokensSpecified) {
   MachineLoop *mloop = MLI->getLoopFor(mbb);
+  DebugLoc mloopLoc = mloop->getStartLoc();
+
   assert(mloop->getHeader() == mbb);
   if (mbb->getFirstNonPHI() == mbb->begin())
     return;
@@ -1464,15 +1466,14 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
     // exit; this is expected.
     LMFI->addLICAttribute(newToken, "csasim_ignore_on_exit");
 
-    // TODO: Remove this RC fixup when the simulator gets completion1.
     // TODO: Do not need to reorder 0-bit channels; we should be able to just
     // do rate-limiting with no reordering/storage once the compiler starts
     // emitting them.
     const TargetRegisterClass *compRC =
-      TII->getSizeOfRegisterClass(RC) < 8 ? &CSA::CI8RegClass : RC;
+      TII->getSizeOfRegisterClass(RC) < 1 ? &CSA::CI1RegClass : RC;
 
     MachineInstrBuilder compBuffer =
-      BuildMI(*mbb, g->getParent(), g->getParent()->getDebugLoc(),
+      BuildMI(*mbb, lphdr->begin(), mloopLoc,
           TII->get(TII->makeOpcode(CSA::Generic::COMPLETION, compRC)))
           .addDef(newToken)
           .addDef(orderedOut)
@@ -1482,13 +1483,13 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
     newTokens.push_back(&compBuffer->getOperand(0));
 
     MachineInstrBuilder tokPick =
-      BuildMI(*mbb, lphdr->begin(), DebugLoc(), TII->get(CSA::PICK8), bodyToken)
+      BuildMI(*mbb, lphdr->begin(), mloopLoc, TII->get(CSA::PICK8), bodyToken)
           .addReg(cpyReg)
           .addReg(pickCtrlInverted ? backToken : newToken)
           .addReg(pickCtrlInverted ? newToken : backToken);
 
     MachineInstrBuilder tokSwitch =
-      BuildMI(*mbb, g->getParent(), g->getParent()->getDebugLoc(), TII->get(CSA::SWITCH8))
+      BuildMI(*mbb, lphdr->begin(), mloopLoc, TII->get(CSA::SWITCH8))
           .addDef(pickCtrlInverted ? backToken : outToken)
           .addDef(pickCtrlInverted ? outToken : backToken)
           .addReg(predReg)
@@ -1510,7 +1511,7 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
   }
 
   MachineInstrBuilder newGated =
-    BuildMI(*mbb, lphdr->begin(), DebugLoc(), TII->get(CSA::GATE0),
+    BuildMI(*mbb, lphdr->begin(), mloopLoc, TII->get(CSA::GATE0),
             LMFI->allocateLIC(&CSA::CI0RegClass, "newGated"))
       .addReg(haveTokens->getReg())
       .addReg(newPulse->getReg())
@@ -1518,7 +1519,7 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
 
   unsigned firstPrio          = newGated->getOperand(0).getReg();
   unsigned secondPrio         = backPulse->getReg();
-  MachineInstrBuilder any = BuildMI(*mbb, lphdr->begin(), DebugLoc(),
+  MachineInstrBuilder any = BuildMI(*mbb, lphdr->begin(), mloopLoc,
                                         TII->get(CSA::ANY0))
                                   .addDef(cpyReg)
                                   .addReg(firstPrio)
@@ -1530,7 +1531,7 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
   if (pickCtrlInverted) {
     any->getOperand(0).setReg(
       LMFI->allocateLIC(&CSA::CI1RegClass, "notLoopCtl"));
-    BuildMI(*mbb, lphdr->begin(), DebugLoc(), TII->get(CSA::NOT1), cpyReg)
+    BuildMI(*mbb, lphdr->begin(), mloopLoc, TII->get(CSA::NOT1), cpyReg)
       .addReg(any->getOperand(0).getReg())
       .setMIFlag(MachineInstr::NonSequential);
   }
