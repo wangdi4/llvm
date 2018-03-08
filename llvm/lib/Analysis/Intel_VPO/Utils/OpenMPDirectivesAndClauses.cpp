@@ -27,8 +27,8 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-ClauseSpecifier::ClauseSpecifier(StringRef Name) : FullName(Name),
-      IsArraySection(false), IsNonPod(false), IsUnsigned(false),
+ClauseSpecifier::ClauseSpecifier(StringRef Name)
+    : FullName(Name), IsArraySection(false), IsNonPod(false), IsUnsigned(false),
       IsConditional(false), IsScheduleMonotonic(false),
       IsScheduleNonmonotonic(false), IsScheduleSimd(false),
       IsMapAggrHead(false), IsMapAggr(false) {
@@ -92,9 +92,9 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name) : FullName(Name),
           setIsUnsigned();
         else if (ModSubString[i] == "CONDITIONAL")  // for lastprivate clause
           setIsConditional();
-        else if (ModSubString[i] == "AGGRHEAD")     // map chain head
+        else if (ModSubString[i] == "AGGRHEAD") // map chain head
           setIsMapAggrHead();
-        else if (ModSubString[i] == "AGGR")         // map chain (not head)
+        else if (ModSubString[i] == "AGGR") // map chain (not head)
           setIsMapAggr();
         else
           llvm_unreachable("Unknown modifier string for clause");
@@ -588,6 +588,7 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_THREAD_LIMIT:
     case QUAL_OMP_DEVICE:
     case QUAL_OMP_NORMALIZED_IV:
+    case QUAL_OMP_NORMALIZED_UB:
       return 1;
   }
   return 2; //everything else

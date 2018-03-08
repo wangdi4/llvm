@@ -235,3 +235,4 @@ def "QUAL.OMP.NAME" : Clause;
 // to carry additional information
 
 def "QUAL.OMP.NORMALIZED.IV" : Clause;
+def "QUAL.OMP.NORMALIZED.UB" : Clause;

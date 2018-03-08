@@ -95,6 +95,20 @@ private:
   /// attribute.
   void removeTargetUndeclaredGlobals(Module &M);
 
+  /// \brief Transform the use of the tid global into __kmpc_global_thread_num
+  /// or the the use of the first argument of the OMP outlined function. The use
+  /// of bid global is transformed accordingly.
+  void fixTidAndBidGlobals(Module &M);
+
+  /// \brief The utility to transform the tid/bid global variable.
+  void processUsesOfGlobals(Constant *PtrHolder,
+                            SmallVectorImpl<Instruction *> &RewriteIns,
+                            bool IsTid);
+
+  // \brief Collect the uses of the given global variable.
+  void collectUsesOfGlobals(Constant *PtrHolder,
+                            SmallVectorImpl<Instruction *> &RewriteIns);
+
   // Paropt mode.
   unsigned Mode;
 

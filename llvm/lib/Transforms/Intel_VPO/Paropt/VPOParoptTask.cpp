@@ -520,7 +520,8 @@ bool VPOParoptTransform::genTaskLoopInitCode(
           Builder.CreateInBoundsGEP(KmpSharedTy, SharedCast, Indices);
       Value *ThunkSharedVal = Builder.CreateLoad(ThunkSharedGep);
       Value *RedRes = VPOParoptUtils::genKmpcRedGetNthData(
-          W, TidPtr, ThunkSharedVal, &*Builder.GetInsertPoint(), Mode & OmpTbb);
+          W, TidPtrHolder, ThunkSharedVal, &*Builder.GetInsertPoint(),
+          Mode & OmpTbb);
       RedI->setNew(Builder.CreateBitCast(RedRes, RedI->getOrig()->getType()));
     }
   }
@@ -1006,9 +1007,9 @@ void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
                                     {Builder.getInt32(0), Builder.getInt32(5)});
     Builder.CreateStore(Builder.getInt32(0), Gep);
   }
-  VPOParoptUtils::genKmpcTaskReductionInit(W, TidPtr, Count, DummyTaskTRedRec,
-                                           &*Builder.GetInsertPoint(),
-                                           Mode & OmpTbb);
+  VPOParoptUtils::genKmpcTaskReductionInit(
+      W, TidPtrHolder, Count, DummyTaskTRedRec, &*Builder.GetInsertPoint(),
+      Mode & OmpTbb);
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genRedInitForTaskLoop\n");
 }
 
@@ -1102,8 +1103,6 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 
   W->populateBBSet();
 
-  codeExtractorPrepare(W);
-
   resetValueInIntelClauseGeneric(W, W->getIf());
 
   resetValueInTaskDependClause(W);
@@ -1152,7 +1151,6 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
     MTFnArgs.push_back(ValueZero);
     genThreadedEntryActualParmList(W, MTFnArgs);
 
-    finiCodeExtractorPrepare(MTFn, true);
     for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
       MTFnArgs.push_back((*I));
     }
@@ -1182,7 +1180,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
         DL.getTypeAllocSize(KmpTaskTTWithPrivatesTy);
     int KmpSharedTySz = DL.getTypeAllocSize(KmpSharedTy);
     CallInst *TaskAllocCI = VPOParoptUtils::genKmpcTaskAlloc(
-        W, IdentTy, TidPtr, KmpTaskTTWithPrivatesTySz, KmpSharedTySz,
+        W, IdentTy, TidPtrHolder, KmpTaskTTWithPrivatesTySz, KmpSharedTySz,
         KmpRoutineEntryPtrTy, MTFnCI->getCalledFunction(), NewCall,
         Mode & OmpTbb);
 
@@ -1197,16 +1195,17 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
       Cmp = Builder.CreateICmpNE(VIf, ConstantInt::get(VIf->getType(), 0));
     if (isLoop) {
       VPOParoptUtils::genKmpcTaskLoop(
-          W, IdentTy, TidPtr, TaskAllocCI, Cmp, LBPtr, UBPtr, STPtr,
+          W, IdentTy, TidPtrHolder, TaskAllocCI, Cmp, LBPtr, UBPtr, STPtr,
           KmpTaskTTWithPrivatesTy, NewCall, Mode & OmpTbb,
           genLastPrivateTaskDup(W, KmpTaskTTWithPrivatesTy));
     } else {
       if (!VIf) {
         if (!DummyTaskTDependRec)
-          VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtr, TaskAllocCI, NewCall);
+          VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtrHolder, TaskAllocCI,
+                                      NewCall);
         else
-          genTaskDeps(W, IdentTy, TidPtr, TaskAllocCI, DummyTaskTDependRec,
-                      NewCall, false);
+          genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
+                      DummyTaskTDependRec, NewCall, false);
       } else {
 
         TerminatorInst *ThenTerm, *ElseTerm;
@@ -1214,25 +1213,25 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
         buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, NewCall);
         IRBuilder<> ElseBuilder(ElseTerm);
         if (!DummyTaskTDependRec)
-          VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtr, TaskAllocCI,
+          VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtrHolder, TaskAllocCI,
                                       ThenTerm);
         else {
-          genTaskDeps(W, IdentTy, TidPtr, TaskAllocCI, DummyTaskTDependRec,
-                      ThenTerm, false);
-          genTaskDeps(W, IdentTy, TidPtr, TaskAllocCI, DummyTaskTDependRec,
-                      ElseTerm, true);
+          genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
+                      DummyTaskTDependRec, ThenTerm, false);
+          genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
+                      DummyTaskTDependRec, ElseTerm, true);
         }
-        VPOParoptUtils::genKmpcTaskBeginIf0(W, IdentTy, TidPtr, TaskAllocCI,
-                                            ElseTerm);
+        VPOParoptUtils::genKmpcTaskBeginIf0(W, IdentTy, TidPtrHolder,
+                                            TaskAllocCI, ElseTerm);
         MTFnArgs.clear();
-        MTFnArgs.push_back(ElseBuilder.CreateLoad(TidPtr));
+        MTFnArgs.push_back(ElseBuilder.CreateLoad(TidPtrHolder));
         MTFnArgs.push_back(ElseBuilder.CreateBitCast(
             TaskAllocCI, PointerType::getUnqual(KmpTaskTTWithPrivatesTy)));
         CallInst *SeqCI = CallInst::Create(MTFn, MTFnArgs, "", ElseTerm);
         SeqCI->setCallingConv(CS.getCallingConv());
         SeqCI->takeName(NewCall);
-        VPOParoptUtils::genKmpcTaskCompleteIf0(W, IdentTy, TidPtr, TaskAllocCI,
-                                               ElseTerm);
+        VPOParoptUtils::genKmpcTaskCompleteIf0(W, IdentTy, TidPtrHolder,
+                                               TaskAllocCI, ElseTerm);
       }
     }
 
@@ -1249,7 +1248,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 }
 
 bool VPOParoptTransform::genTaskWaitCode(WRegionNode *W) {
-  VPOParoptUtils::genKmpcTaskWait(W, IdentTy, TidPtr,
+  VPOParoptUtils::genKmpcTaskWait(W, IdentTy, TidPtrHolder,
                                   W->getEntryBBlock()->getTerminator());
   return true;
 }

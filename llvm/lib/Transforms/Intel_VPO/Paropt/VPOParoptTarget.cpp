@@ -55,7 +55,6 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
   W->populateBBSet();
 
-  codeExtractorPrepare(W);
   resetValueInIntelClauseGeneric(W, W->getIf());
   resetValueInIsDevicePtrClause(W);
   resetValueInPrivateClause(W);

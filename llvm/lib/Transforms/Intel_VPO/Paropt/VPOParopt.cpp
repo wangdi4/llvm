@@ -171,6 +171,9 @@ bool VPOParoptPass::runImpl(
     DEBUG(dbgs() << "\n}=== VPOParopt end func: " << F->getName() <<"\n");
   }
 
+  if ((Mode & OmpPar) && (Mode & ParTrans))
+    fixTidAndBidGlobals(M);
+
   genCtorList(M);
   if (Mode & OmpOffload)
     removeTargetUndeclaredGlobals(M);
@@ -185,6 +188,104 @@ bool VPOParoptPass::runImpl(
 
   DEBUG(dbgs() << "\n====== End VPO ParoptPass ======\n\n");
   return Changed;
+}
+
+// Collect the uses of the given global variable.
+void VPOParoptPass::collectUsesOfGlobals(
+    Constant *PtrHolder, SmallVectorImpl<Instruction *> &RewriteIns) {
+  for (auto IB = PtrHolder->user_begin(), IE = PtrHolder->user_end(); IB != IE;
+       IB++) {
+    if (Instruction *User = dyn_cast<Instruction>(*IB))
+      RewriteIns.push_back(User);
+  }
+}
+
+// Transform the use of the tid global into __kmpc_global_thread_num or the
+// the use of the first argument of the OMP outlined function. The use of
+// bid global is transformed accordingly.
+void VPOParoptPass::fixTidAndBidGlobals(Module &M) {
+  LLVMContext &C = M.getContext();
+  Constant *TidPtrHolder =
+      M.getOrInsertGlobal("@tid.addr", Type::getInt32Ty(C));
+  SmallVector<Instruction *, 8> RewriteIns;
+
+  collectUsesOfGlobals(TidPtrHolder, RewriteIns);
+  processUsesOfGlobals(TidPtrHolder, RewriteIns, true);
+
+  RewriteIns.clear();
+  Constant *BidPtrHolder =
+      M.getOrInsertGlobal("@bid.addr", Type::getInt32Ty(C));
+  collectUsesOfGlobals(BidPtrHolder, RewriteIns);
+  processUsesOfGlobals(BidPtrHolder, RewriteIns, false);
+}
+
+// The utility to transform the tid/bid global variable.
+void VPOParoptPass::processUsesOfGlobals(Constant *PtrHolder,
+                                     SmallVectorImpl<Instruction *> &RewriteIns,
+                                     bool IsTid) {
+
+  while (!RewriteIns.empty()) {
+    Instruction *User = RewriteIns.pop_back_val();
+
+    Function *F = User->getParent()->getParent();
+    if (F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
+                                        "mt-func")) {
+      auto IT = F->arg_begin();
+      if (!IsTid)
+        IT++;
+      User->replaceUsesOfWith(PtrHolder, &*IT);
+    } else if (IsTid && F->getAttributes().hasAttribute(
+                            AttributeList::FunctionIndex, "task-mt-func")) {
+      BasicBlock *EntryBB = &F->getEntryBlock();
+      IRBuilder<> Builder(EntryBB->getFirstNonPHI());
+      AllocaInst *TidPtr =
+          Builder.CreateAlloca(Type::getInt32Ty(F->getContext()));
+      Builder.CreateStore(&*(F->arg_begin()), TidPtr);
+      User->replaceUsesOfWith(PtrHolder, TidPtr);
+    } else {
+      BasicBlock *EntryBB = &F->getEntryBlock();
+      Instruction *Tid = nullptr;
+      AllocaInst *TidPtr = nullptr;
+      if (IsTid)
+        Tid = VPOParoptUtils::findKmpcGlobalThreadNumCall(EntryBB);
+      if (!Tid) {
+        IRBuilder<> Builder(EntryBB->getFirstNonPHI());
+        TidPtr = Builder.CreateAlloca(Type::getInt32Ty(F->getContext()));
+        if (IsTid) {
+          Tid = VPOParoptUtils::genKmpcGlobalThreadNumCall(F, TidPtr, nullptr);
+          Tid->insertBefore(EntryBB->getFirstNonPHI());
+        }
+        StoreInst *SI = nullptr;
+        if (IsTid)
+          SI = new StoreInst(Tid, TidPtr);
+        else
+          SI = new StoreInst(
+              ConstantInt::get(Type::getInt32Ty(F->getContext()), 0), TidPtr);
+        SI->insertAfter(TidPtr);
+      } else {
+        for (auto IB = Tid->user_begin(), IE = Tid->user_end(); IB != IE;
+             IB++) {
+          auto User = dyn_cast<Instruction>(*IB);
+          if (User && User->getParent() == Tid->getParent()) {
+            StoreInst *SI = dyn_cast<StoreInst>(User);
+            if (SI) {
+              Value *V = SI->getPointerOperand();
+              TidPtr = dyn_cast<AllocaInst>(V);
+              break;
+            }
+          }
+        }
+      }
+
+      if (TidPtr == nullptr) {
+        IRBuilder<> Builder(EntryBB->getFirstNonPHI());
+        TidPtr = Builder.CreateAlloca(Type::getInt32Ty(F->getContext()));
+        StoreInst *SI = new StoreInst(Tid, TidPtr);
+        SI->insertAfter(Tid);
+      }
+      User->replaceUsesOfWith(PtrHolder, TidPtr);
+    }
+  }
 }
 
 // \brief Remove routines and global variables which has no target declare

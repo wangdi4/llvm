@@ -634,6 +634,9 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_NORMALIZED_IV:
     getWRNLoopInfo().setNormIV(V);
     break;
+  case QUAL_OMP_NORMALIZED_UB:
+    getWRNLoopInfo().setNormUB(V);
+    break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpnd()");
   }
@@ -738,9 +741,9 @@ void WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
     assert(NumArgs == 3 && "Malformed MAP:AGGR[HEAD] clause");
 
     // Create a MapAggr for the triple: <BasePtr, SectionPtr, Size>.
-    Value *BasePtr    = (Value*) Args[0];
-    Value *SectionPtr = (Value*) Args[1];
-    Value *Size       = (Value*) Args[2];
+    Value *BasePtr = (Value *)Args[0];
+    Value *SectionPtr = (Value *)Args[1];
+    Value *Size = (Value *)Args[2];
     MapAggrTy *Aggr = new MapAggrTy(BasePtr, SectionPtr, Size);
 
     MapItem *MI;

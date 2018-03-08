@@ -138,6 +138,7 @@ private:
 
   /// \brief Destroys all nodes
   static void destroyAll();
+  enum { UnknownLoop, DoWhileLoop, WhileLoop };
 
 public:
   /// \brief Enumeration for types of WRegionNode Graph insert/update
@@ -302,8 +303,18 @@ public:
   /// \brief The utility to create the loop and update the loopinfo.
   static Loop *createLoop(Loop *L, Loop *PL, LoopInfo *LI);
 
-  /// \ brief The utility to add the given BB into the loop.
+  /// \brief The utility to add the given BB into the loop.
   static void updateBBForLoop(BasicBlock *BB, Loop *L, Loop *PL, LoopInfo *LI);
+
+  /// \brief Return true if the given loop is do-while loop.
+  static bool isDoWhileLoop(Loop *L);
+
+  /// \brief Return true if the given loop is while loop.
+  static bool isWhileLoop(Loop *L);
+
+  /// \brief Return the loop type (do-while, while loop or unknown loop) for the
+  /// given loop.
+  static unsigned getLoopType(Loop *L);
 };
 
 } // End VPO Namespace

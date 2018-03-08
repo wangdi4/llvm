@@ -290,7 +290,7 @@ public:
     /// \returns `true` if the calls to `__kmpc_critical` and
     /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
     static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                       AllocaInst *TidPtr,
+                                       Constant *TidPtr,
                                        const StringRef &LockNameSuffix);
 
     /// \brief Identical to the function above, but uses a default suffix for
@@ -301,7 +301,7 @@ public:
     /// \returns `true` if the calls to `__kmpc_critical` and
     /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
     static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                       AllocaInst *TidPtr);
+                                       Constant *TidPtr);
 
     /// \brief Generates a critical section around Instructions \p BeginInst
     /// and \p EndInst. The function emits calls to `__kmpc_critical`
@@ -329,8 +329,7 @@ public:
     /// \returns `true` if the calls to `__kmpc_critical` and
     /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
     static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                       AllocaInst *TidPtr,
-                                       Instruction *BeginInst,
+                                       Constant *TidPtr, Instruction *BeginInst,
                                        Instruction *EndInst,
                                        const StringRef &LockNameSuffix);
 
@@ -760,11 +759,10 @@ public:
     /// \returns `true` if the calls to `__kmpc_critical` and
     /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
     static bool genKmpcCriticalSectionImpl(WRegionNode *W, StructType *IdentTy,
-                                           AllocaInst *TidPtr,
+                                           Constant *TidPtr,
                                            Instruction *BeginInst,
                                            Instruction *EndInst,
                                            GlobalVariable *LockVar);
-
 
     /// @}
 

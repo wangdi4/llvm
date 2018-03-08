@@ -615,3 +615,63 @@ void WRegionUtils::updateBBForLoop(BasicBlock *BB, Loop *L, Loop *PL,
     LI->removeBlock(BB);
   L->addBasicBlockToLoop(BB, *LI);
 }
+
+// Return true if the given loop is do-while loop.
+bool WRegionUtils::isDoWhileLoop(Loop *L) {
+  return getLoopType(L) == DoWhileLoop;
+}
+
+// Return true if the given loop is while loop.
+bool WRegionUtils::isWhileLoop(Loop *L) {
+  return getLoopType(L) == WhileLoop;
+}
+
+// Return the loop type (do-while, while loop or unknown loop) for the given
+// loop.
+unsigned WRegionUtils::getLoopType(Loop *L) {
+
+  if (!L)
+    return UnknownLoop;
+
+  BasicBlock *H = L->getHeader();
+
+  if (!H)
+    return UnknownLoop;
+
+  BasicBlock *Incoming = nullptr, *Backedge = nullptr;
+  pred_iterator PI = pred_begin(H);
+
+  if (PI == pred_end(H))
+    return UnknownLoop;
+
+  Backedge = *PI++;
+  if (PI == pred_end(H))
+    return UnknownLoop;
+
+  Incoming = *PI++;
+  if (PI != pred_end(H))
+    return UnknownLoop;
+
+  if (L->contains(Incoming)) {
+    if (L->contains(Backedge))
+      return UnknownLoop;
+    std::swap(Incoming, Backedge);
+  } else if (!L->contains(Backedge))
+    return UnknownLoop;
+
+  BasicBlock *LatchBB = L->getLoopLatch();
+
+  if (LatchBB != Backedge)
+    return UnknownLoop;
+
+  if (LatchBB->getUniqueSuccessor()) {
+    if (std::distance(succ_begin(H), succ_end(H)) != 2)
+      return UnknownLoop;
+    for (auto SI = succ_begin(H), SE = succ_end(H); SI != SE; ++SI) {
+      if (!L->contains(*SI))
+        return WhileLoop;
+    }
+    return UnknownLoop;
+  }
+  return DoWhileLoop;
+}

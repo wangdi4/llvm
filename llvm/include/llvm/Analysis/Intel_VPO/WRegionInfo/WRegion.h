@@ -84,17 +84,22 @@ private:
   LoopInfo   *LI;
   Loop       *Lp;
   Value      *NormIV; // normalized iv created by FE
+  Value *NormUB;      // normalized ub (currently for loops from SECTIONS only)
   BasicBlock *ZTTBB; // bblock with the zero-trip test
 public:
   WRNLoopInfo(LoopInfo *L) { LI = L; Lp=nullptr; NormIV=nullptr;
-                             ZTTBB=nullptr; }
+    NormUB = nullptr;
+    ZTTBB = nullptr;
+  }
   void setLoopInfo(LoopInfo *L) { LI = L; }
   void setLoop(Loop *L) { Lp = L; }
   void setNormIV(Value *IV) { NormIV = IV; }
+  void setNormUB(Value *UB) { NormUB = UB; }
   void setZTTBB(BasicBlock *BB) { ZTTBB = BB; }
   LoopInfo *getLoopInfo() const { return LI; }
   Loop *getLoop() const { return Lp; }
   Value *getNormIV() const { return NormIV; }
+  Value *getNormUB() const { return NormUB; }
   BasicBlock *getZTTBB() const { return ZTTBB; }
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned Verbosity=1) const;

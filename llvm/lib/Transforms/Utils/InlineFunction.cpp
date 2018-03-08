@@ -28,6 +28,7 @@
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
@@ -73,6 +74,7 @@
 
 using namespace llvm;
 using namespace InlineReportTypes; // INTEL
+using namespace llvm::vpo;         // INTEL
 
 static cl::opt<bool>
 EnableNoAliasConversion("enable-noalias-to-md-conversion", cl::init(true),
@@ -1323,9 +1325,13 @@ static Value *HandleByValArgument(Value *Arg, Instruction *TheCall,
   // pointer inside the callee).
   Align = std::max(Align, ByValAlignment);
 
-  Value *NewAlloca = new AllocaInst(AggTy, DL.getAllocaAddrSpace(),
-                                    nullptr, Align, Arg->getName(),
-                                    &*Caller->begin()->begin());
+  Value *NewAlloca = new AllocaInst(
+      AggTy, DL.getAllocaAddrSpace(), nullptr, Align, Arg->getName(),
+#if INTEL_CUSTOMIZATION
+      VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller)
+          ? TheCall
+          : &*Caller->begin()->begin());
+#endif // INTEL_CUSTOMIZATION
   IFI.StaticAllocas.push_back(cast<AllocaInst>(NewAlloca));
 
   // Uses of the argument in the function should use our new alloca
@@ -1986,7 +1992,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
   // block for the callee, move them to the entry block of the caller.  First
   // calculate which instruction they should be inserted before.  We insert the
   // instructions at the end of the current alloca list.
-  {
+  if (!VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller)) { // INTEL
     BasicBlock::iterator InsertPoint = Caller->begin()->begin();
     for (BasicBlock::iterator I = FirstNewBlock->begin(),
          E = FirstNewBlock->end(); I != E; ) {
@@ -2026,7 +2032,6 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
       replaceDbgDeclareForAlloca(AI, AI, DIB, DIExpression::NoDeref, 0,
                                  DIExpression::NoDeref);
   }
-
   SmallVector<Value*,4> VarArgsToForward;
   for (unsigned i = CalledFunc->getFunctionType()->getNumParams();
        i < CS.getNumArgOperands(); i++)
@@ -2355,14 +2360,15 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
   // If we cloned in _exactly one_ basic block, and if that block ends in a
   // return instruction, we splice the body of the inlined callee directly into
   // the calling basic block.
-  if (Returns.size() == 1 && std::distance(FirstNewBlock, Caller->end()) == 1) {
+
+  if (!VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller) && // INTEL
+      Returns.size() == 1 && std::distance(FirstNewBlock, Caller->end()) == 1) {
     // Move all of the instructions right before the call.
     OrigBB->getInstList().splice(TheCall->getIterator(),
                                  FirstNewBlock->getInstList(),
                                  FirstNewBlock->begin(), FirstNewBlock->end());
     // Remove the cloned basic block.
     Caller->getBasicBlockList().pop_back();
-
     // If the call site was an invoke instruction, add a branch to the normal
     // destination.
     if (InvokeInst *II = dyn_cast<InvokeInst>(TheCall)) {

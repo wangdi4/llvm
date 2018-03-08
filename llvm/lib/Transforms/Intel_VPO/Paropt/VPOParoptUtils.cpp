@@ -1683,7 +1683,7 @@ CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
 // by emitting calls to `__kmpc_critical` before `BeginInst`, and
 // `__kmpc_end_critical` after `EndInst`.
 bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                            AllocaInst *TidPtr,
+                                            Constant *TidPtr,
                                             const StringRef &LockNameSuffix) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
@@ -1734,7 +1734,7 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
 // Wraps the above function for case when the caller does not provide a lock
 // name suffix, and uses a default lock name suffix.
 bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                            AllocaInst *TidPtr) {
+                                            Constant *TidPtr) {
   return genKmpcCriticalSection(W, IdentTy, TidPtr, "");
 }
 
@@ -2097,7 +2097,7 @@ VPOParoptUtils::genKmpcCriticalLockVar(WRegionNode *W,
 
 // Generates a critical section around Instructions `begin` and `end`.
 bool VPOParoptUtils::genKmpcCriticalSectionImpl(
-    WRegionNode *W, StructType *IdentTy, AllocaInst *TidPtr,
+    WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
     Instruction *BeginInst, Instruction *EndInst, GlobalVariable *LockVar) {
 
   assert(W != nullptr && "WRegionNode is null.");
@@ -2138,10 +2138,10 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(
 // by emitting calls to `__kmpc_critical` before `BeginInst`, and
 // `__kmpc_end_critical` after `EndInst`.
 bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                            AllocaInst *TidPtr,
+                                            Constant *TidPtr,
                                             Instruction *BeginInst,
                                             Instruction *EndInst,
-                                            const StringRef& LockNameSuffix) {
+                                            const StringRef &LockNameSuffix) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");

@@ -124,8 +124,9 @@ static cl::opt<bool> EnableLoopInterchange(
     cl::desc("Enable the new, experimental LoopInterchange Pass"));
 
 #if INTEL_CUSTOMIZATION
-static cl::opt<bool> RunVPOOpt("vpoopt", cl::init(true), cl::Hidden,
-                               cl::desc("Runs all VPO passes"));
+enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
+static cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
+                                   cl::Hidden, cl::desc("Runs all VPO passes"));
 
 static cl::opt<bool> RunVPOVecopt("vecopt",
   cl::init(false), cl::Hidden,
@@ -630,7 +631,7 @@ void PassManagerBuilder::populateModulePassManager(
 
 #if INTEL_CUSTOMIZATION
   // Process OpenMP directives at -O1 and above
-  if (RunVPOOpt & !DisableIntelProprietaryOpts)
+  if (RunVPOOpt == InvokeParoptBeforeInliner && !DisableIntelProprietaryOpts)
     addVPOPasses(MPM, false);
 #endif // INTEL_CUSTOMIZATION
 
@@ -709,6 +710,11 @@ void PassManagerBuilder::populateModulePassManager(
     RunInliner = true;
   }
 
+#if INTEL_CUSTOMIZATION
+  // Process OpenMP directives at -O1 and above
+  if (RunVPOOpt == InvokeParoptAfterInliner && !DisableIntelProprietaryOpts)
+    addVPOPasses(MPM, false);
+#endif // INTEL_CUSTOMIZATION
   MPM.add(createPostOrderFunctionAttrsLegacyPass());
   if (OptLevel > 2)
     MPM.add(createArgumentPromotionPass()); // Scalarize uninlined fn args
