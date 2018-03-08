@@ -301,6 +301,13 @@ MachineOperand CSASeqOpt::getTripCntForSeq(MachineInstr *seqInstr,
 
 MachineOperand CSASeqOpt::tripCntForSeq(MachineInstr *seqIndv,
                                         MachineInstr *pos) {
+  //
+  // TODO (vzakhari 3/7/2018): correctness of this transformation
+  //       is questionable, because we cannot compute the tripcount
+  //       by subtracting the init and bound values due to possible
+  //       overflows.  Probably we can rely on loop canonicalization
+  //       and assume that *good* loops come to us with 0 init value.
+  //
   assert(TII->isSeqOT(seqIndv));
   MachineOperand &initIndv   = seqIndv->getOperand(4);
   MachineOperand &bndIndv    = seqIndv->getOperand(5);
@@ -325,13 +332,25 @@ MachineOperand CSASeqOpt::tripCntForSeq(MachineInstr *seqIndv,
     // adjust trip counter for equal comparison
     if (indvGenOp == CSA::Generic::SEQOTGE ||
         indvGenOp == CSA::Generic::SEQOTLE) {
+      //
+      // CMPLRS-49117: stridIndv is a literal constant, so we compute
+      //               the register class for ADD operation using
+      //               the VALUE result of the SEQ operation.
+      //
+      const auto &valueOperandReg = seqIndv->getOperand(0).getReg();
       const TargetRegisterClass *TRC =
-        TII->getRegisterClass(stridIndv.getReg(), *MRI);
+        TII->getRegisterClass(valueOperandReg, *MRI);
       unsigned regTripcnt = LMFI->allocateLIC(TRC);
       MachineInstr *tripcntInstr =
         BuildMI(
           *seqIndv->getParent(), seqIndv, DebugLoc(),
-          TII->get(TII->adjustOpcode(seqIndv->getOpcode(), CSA::Generic::ADD)),
+          TII->get(TII->adjustOpcode(seqIndv->getOpcode(),
+                                     CSA::Generic::ADD,
+                                     // Use CSA::VARIANT_INT for the ADD
+                                     // explicitly, because adjustOpcode will
+                                     // fail to find unsigned variant of ADD
+                                     // otherwise.
+                                     CSA::VARIANT_INT)),
           regTripcnt)
           .add(tripcntOpnd)
           .addImm(1);

@@ -415,8 +415,14 @@ unsigned CSAInstrInfo::makeOpcode(CSA::Generic generic, unsigned size,
 }
 
 unsigned CSAInstrInfo::adjustOpcode(unsigned oldOpcode,
-                                    CSA::Generic opcode) const {
-  return makeOpcode(opcode, getLicSize(oldOpcode), getOpcodeClass(oldOpcode));
+                                    CSA::Generic opcode,
+                                    CSA::OpcodeClass override_class) const {
+  // Allow class override.
+  override_class =
+    (override_class == CSA::VARIANT_DONTCARE) ?
+    getOpcodeClass(oldOpcode) : override_class;
+
+  return makeOpcode(opcode, getLicSize(oldOpcode), override_class);
 }
 
 unsigned

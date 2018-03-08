@@ -199,9 +199,15 @@ public:
     return makeOpcode(genericOpcode, getSizeOfRegisterClass(RC), opcodeClass);
   }
 
-  /// This returns a new opcode with the same bitwidth and classification as the
-  /// input opcode. If no such opcode exists, then INVALID_OPCODE is returned.
-  unsigned adjustOpcode(unsigned opcode, CSA::Generic newOpcode) const;
+  /// \brief This returns a new opcode flavor for newOpcode
+  /// with the same bitwidth and classification as the input opcode.
+  /// override_class parameter allows overriding class achieved
+  /// from the input opcode, if it is set to anything but
+  /// CSA::VARIANT_DONTCARE.
+  /// If no such opcode exists, then INVALID_OPCODE is returned.
+  unsigned adjustOpcode(unsigned opcode, CSA::Generic newOpcode,
+                        CSA::OpcodeClass override_class =
+                        CSA::VARIANT_DONTCARE) const;
 
   /// Get the lic size for the given register class.
   unsigned getSizeOfRegisterClass(const TargetRegisterClass *RC) const;
