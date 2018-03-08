@@ -229,6 +229,10 @@ public:
     Banner = std::string("After CSAOptDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 #endif
+
+    // Register coalescing causes issues with our def-after-use nature of
+    // dataflow.
+    disablePass(&RegisterCoalescerID);
   }
 
   void addPostRegAlloc() override {
