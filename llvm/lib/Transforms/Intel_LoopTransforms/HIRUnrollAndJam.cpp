@@ -656,6 +656,9 @@ unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
 
     if (!UnrollFactor) {
       UnrollFactor = MaxUnrollFactor;
+    } else if (UnrollFactor == 1) {
+      DEBUG(dbgs() << "Skipping unroll & jam as pragma count is set to 1!\n");
+      return 0;
     }
 
     if (IsConstTC) {
