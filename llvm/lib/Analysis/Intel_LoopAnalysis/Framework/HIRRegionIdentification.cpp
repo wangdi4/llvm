@@ -483,10 +483,6 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     return true;
   }
 
-  // Increase thresholds for small trip innermost loops so that we can unroll
-  // them.
-  bool UseO3Thresholds = (OptLevel > 2) || (IsInnermostLoop && IsSmallTripLoop);
-
   if (++IfCount > MaxIfThreshold) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
                     "many ifs.\n");
@@ -528,9 +524,20 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     DomNode = DomNode->getIDom();
   }
 
+  // Increase thresholds for small trip innermost loops so that we can unroll
+  // them.
+  bool UseO3Thresholds = (OptLevel > 2) || (IsInnermostLoop && IsSmallTripLoop);
+
+  unsigned IfNestThreshold =
+      (UseO3Thresholds ? O3MaxIfNestThreshold : O2MaxIfNestThreshold);
+
+  if (UseO3Thresholds && IsInnermostLoop) {
+    // Allow 1 more If nesting for O3 innermost loops.
+    ++IfNestThreshold;
+  }
+
   // Add 1 to include reaching header node.
-  if ((IfNestCount + 1) >
-      (UseO3Thresholds ? O3MaxIfNestThreshold : O2MaxIfNestThreshold)) {
+  if ((IfNestCount + 1) > IfNestThreshold) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
                     "many nested ifs.\n");
     return false;
