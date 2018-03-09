@@ -8,7 +8,7 @@ define void @csa_fib(i64* noalias nocapture %results, i64* noalias nocapture rea
 ; at least one pick64 driven by the any0 result.
 ; CHECK-DAG:  any0 [[CTRL:%.+]], [[OUTER:%.+]], [[INNER:%.+]], %na, %na, 0
 ; CHECK-DAG:  pick64 [[INNERVAL:%.+]], [[CTRL]], [[V1:%.+]], [[V2:%.+]]
-; CHECK:  completion64 [[TOKENS:%.+]], [[ORDERED:%.+]], [[IDXIN:%.+]], [[VALIN:%.+]], [[NUMTOKENS:[0-9]+]]
+; CHECK-DAG:  completion64 [[TOKENS:%.+]], [[ORDERED:%.+]], [[IDXIN:%.+]], [[VALIN:%.+]], [[NUMTOKENS:[0-9]+]]
 entry:
   %clie_pre = tail call i32 @llvm.csa.parallel.region.entry(i32 1023)
   %cmp12 = icmp sgt i64 %size, 0
