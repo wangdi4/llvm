@@ -1411,8 +1411,42 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPParallelSectionsDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.PARALLEL.SECTIONS", "DIR.OMP.END.PARALLEL.SECTIONS");
   }
-  OpenMPCodeOutliner &OpenMPCodeOutliner::operator<<(
-                                         ArrayRef<OMPClause *> Clauses) {
+
+  static StringRef getCancelQualString(OpenMPDirectiveKind Kind) {
+    switch (Kind) {
+    case OMPD_parallel:
+      return "PARALLEL";
+    case OMPD_sections:
+      return "SECTIONS";
+    case OMPD_for:
+      return "LOOP";
+    case OMPD_taskgroup:
+      return "TASKGROUP";
+    default:
+      llvm_unreachable("Unexpected cancel region type");
+    }
+  }
+
+  void OpenMPCodeOutliner::emitOMPCancelDirective(OpenMPDirectiveKind Kind) {
+    startDirectiveIntrinsicSet("DIR.OMP.CANCEL", "DIR.OMP.END.CANCEL");
+    SmallString<32> Qual;
+    Qual = "QUAL.OMP.CANCEL.";
+    Qual += getCancelQualString(Kind);
+    addArg(Qual);
+    emitSimpleClause();
+  }
+  void OpenMPCodeOutliner::emitOMPCancellationPointDirective(
+      OpenMPDirectiveKind Kind) {
+    startDirectiveIntrinsicSet("DIR.OMP.CANCELLATION.POINT",
+                               "DIR.OMP.END.CANCELLATION.POINT");
+    SmallString<32> Qual;
+    Qual = "QUAL.OMP.CANCEL.";
+    Qual += getCancelQualString(Kind);
+    addArg(Qual);
+    emitSimpleClause();
+  }
+  OpenMPCodeOutliner &OpenMPCodeOutliner::
+  operator<<(ArrayRef<OMPClause *> Clauses) {
     for (auto *C : Clauses) {
       if (C->isImplicit())
         continue;
@@ -1600,13 +1634,20 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_parallel_sections:
     Outliner.emitOMPParallelSectionsDirective();
     break;
+  case OMPD_cancel:
+    Outliner.emitOMPCancelDirective(
+        cast<OMPCancelDirective>(S).getCancelRegion());
+    break;
+  case OMPD_cancellation_point:
+    Outliner.emitOMPCancellationPointDirective(
+        cast<OMPCancellationPointDirective>(S).getCancelRegion());
+    break;
+
   case OMPD_teams_distribute:
   case OMPD_teams_distribute_simd:
   case OMPD_teams_distribute_parallel_for:
   case OMPD_teams_distribute_parallel_for_simd:
-  case OMPD_cancel:
   case OMPD_for_simd:
-  case OMPD_cancellation_point:
   case OMPD_target_enter_data:
   case OMPD_target_exit_data:
   case OMPD_target_parallel:

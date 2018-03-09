@@ -195,6 +195,8 @@ public:
   void emitOMPSectionsDirective();
   void emitOMPSectionDirective();
   void emitOMPParallelSectionsDirective();
+  void emitOMPCancelDirective(OpenMPDirectiveKind Kind);
+  void emitOMPCancellationPointDirective(OpenMPDirectiveKind Kind);
   OpenMPCodeOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
   void emitImplicit(Expr *E, ImplicitClauseKind K);
   void emitImplicit(const VarDecl *VD, ImplicitClauseKind K);
