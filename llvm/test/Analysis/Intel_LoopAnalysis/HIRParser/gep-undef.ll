@@ -3,7 +3,7 @@
 ; |   <LVAL-REG> (LINEAR [5 x i32]* undef)[LINEAR i32 undef][LINEAR i64 sext.i32.i64(undef)] {sb:0}
 ; |   <RVAL-REG> LINEAR i32 5 * i1 {sb:4}
 
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s
 
 ; CHECK: NSW: Yes
 

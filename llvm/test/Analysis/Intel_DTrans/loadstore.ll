@@ -76,11 +76,9 @@ define void @test4( %struct.test04.a* %sa, %struct.test04.b* %sb ) {
 ; CHECK: Safety data: Unsafe pointer store
 
 ; Cast of non-instruction to struct pointer.
-; This case currently gets flagged as an unhandled use because it uses a global
-; value.
 ; This use actually meets the pointer copy idiom and so is safe.
 %struct.test05 = type { i32, %struct.test05* }
-@p.test05 = external global %struct.test05
+@p.test05 = internal unnamed_addr global %struct.test05 zeroinitializer
 define void @test5(%struct.test05* %pa.arg) {
   %ppa.as.pi = bitcast %struct.test05** getelementptr(
                                           %struct.test05,
@@ -94,7 +92,7 @@ define void @test5(%struct.test05* %pa.arg) {
 }
 
 ; CHECK: LLVMType: %struct.test05 = type { i32, %struct.test05* }
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: Global instance
 
 ; Load from aliased pointer passed across PHI and Select
 %struct.test06 = type { i32, i32 }
@@ -118,8 +116,12 @@ end:
   ret void
 }
 
+; Note: Although the load can be proven safe in this case, the %t2 phi node
+;       creates an unsafe pointer because we cannot reasonably prove that
+;       the resulting value won't be used as if it were a pointer to
+;       a %struct.test06 object, while it may refer to the %p2 argument.
 ; CHECK: LLVMType: %struct.test06 = type { i32, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Unsafe pointer merge
 
 ; Load from a GEP-based pointer with the correct type
 %struct.test07 = type { i32, i32 }
@@ -205,9 +207,9 @@ define void @test13(%struct.test13.a** %p1, %struct.test13.b** %p2) {
 }
 
 ; CHECK: LLVMType: %struct.test13.a = type { i32, i32 }
-; CHECK: Safety data: Ambiguous pointer load
+; CHECK: Safety data: Unsafe pointer merge
 ; CHECK: LLVMType: %struct.test13.b = type { i64, i64 }
-; CHECK: Safety data: Ambiguous pointer load
+; CHECK: Safety data: Unsafe pointer merge
 
 ; Store of non-aggregate to an aggregate pointer location.
 %struct.test14 = type { i32, i32 }
@@ -277,9 +279,9 @@ define void @test19(%struct.test19.b* %p) {
 }
 
 ; CHECK: LLVMType: %struct.test19.a = type { i32, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Nested structure
 ; CHECK: LLVMType: %struct.test19.b = type { %struct.test19.a, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Contains nested structure
 
 ; Load of nested array element zero.
 %struct.test20 = type { [16 x i32], i32 }
@@ -301,7 +303,7 @@ define void @test21(%struct.test21* %p) {
 }
 
 ; CHECK: LLVMType: %struct.test21 = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Mismatched element access | Ambiguous pointer load
+; CHECK: Safety data: Bad casting | Mismatched element access
 
 ; Direct load of a structure as a structure.
 %struct.test22 = type { i32, i32 }
@@ -333,8 +335,32 @@ define void @test24(%struct.test24.b* %pb) {
 }
 
 ; CHECK: LLVMType: %struct.test24.a = type { i32, i32 }
-; CHECK: Safety data: Whole structure reference
+; CHECK: Safety data: Whole structure reference | Nested structure
 ; CHECK: LLVMType: %struct.test24.b = type { %struct.test24.a, i32 }
+; CHECK: Safety data: Contains nested structure
+
+; Store an allocated pointer directly to memory.
+%struct.test25 = type { i32, i32 }
+define void @test25(%struct.test25** %pIn) {
+  %dest = bitcast %struct.test25** %pIn to i8**
+  %p = call i8* @malloc(i64 8)
+  store i8* %p, i8** %dest
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test25 = type { i32, i32 }
+; CHECK: Safety data: No issues found
+
+; Store an allocated pointer-to-pointer directly to memory.
+%struct.test26 = type { i32, i32 }
+define void @test26(%struct.test26*** %pIn) {
+  %dest = bitcast %struct.test26*** %pIn to i8**
+  %p = call i8* @malloc(i64 8)
+  store i8* %p, i8** %dest
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test26 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 
 ; Because of the way the types get printed out, all array types are
@@ -346,6 +372,7 @@ define void @test24(%struct.test24.b* %pb) {
 %struct.testA01 = type [101 x i32]
 define void @testA01(%struct.testA01* %pA, i64* %pUnknown) {
   %pA4 = getelementptr %struct.testA01, %struct.testA01* %pA, i64 0, i32 4
+
   %tmp = ptrtoint i32* %pA4 to i64
   store i64 %tmp, i64* %pUnknown
   ret void
@@ -379,3 +406,5 @@ define void @testA03(%struct.testA03* %pA, i8 %val) {
 
 ; CHECK: LLVMType: [103 x i32]
 ; CHECK: Safety data: Mismatched element access
+
+declare noalias i8* @malloc(i64)

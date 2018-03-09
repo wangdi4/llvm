@@ -13,13 +13,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
+
 #include "llvm/Support/ErrorHandling.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
+
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
-
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 
 using namespace llvm;
 using namespace loopopt;

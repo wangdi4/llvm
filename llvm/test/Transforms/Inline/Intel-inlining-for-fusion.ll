@@ -1,12 +1,16 @@
 ; INTEL CUSTOMIZATION:
 
-; RUN: opt -inline -inlining-for-fusion-heuristics=true -inline-threshold=30 -inline-for-fusion-min-arg-refs=3 -inline-for-fusion-min-callsites=3 -inline-report=7 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -inline -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=7 < %s -S 2>&1 | FileCheck %s
 
 ; Test checks that inlining happens for all foo() call sites. The inlining is supposed to be followed by loop fusion and vectorization.
 
 ; CHECK: COMPILE FUNC: bar
 ; CHECK-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 ; CHECK-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+
+; CHECK: COMPILE FUNC: baz
 ; CHECK-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 ; CHECK-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 
@@ -64,6 +68,16 @@ entry:
   %add6 = add i32 %add4, %call5
   ret i32 %add6
 }
+
+; Function Attrs: nounwind uwtable
+  define i32 @baz() local_unnamed_addr #0 {
+  entry:
+   %call = call i32 @foo(i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arr1, i64 0, i64 0), i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arr2, i64 0, i64 0))
+   %call1 = call i32 @foo(i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arr1, i64 0, i64 8), i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arr2, i64 0, i64 8))
+   %add = add i32 %call, %call1
+   ret i32 %add
+ }
+
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 

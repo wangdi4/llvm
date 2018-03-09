@@ -15,6 +15,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
@@ -61,7 +62,7 @@ const DataLayout &HLNodeUtils::getDataLayout() const {
 void HLNodeUtils::reset(Function &F) {
   DDRU = nullptr;
 
-  DummyIRBuilder = new DummyIRBuilderTy(F.getContext());
+  DummyIRBuilder.reset(new DummyIRBuilderTy(F.getContext()));
   DummyIRBuilder->SetInsertPoint(F.getEntryBlock().getTerminator());
 
   FirstDummyInst = nullptr;
@@ -128,14 +129,10 @@ void HLNodeUtils::setFirstAndLastDummyInst(Instruction *Inst) {
   LastDummyInst = Inst;
 }
 
-void HLNodeUtils::destroyAll() {
+HLNodeUtils::~HLNodeUtils() {
   for (auto &I : Objs) {
     delete I;
   }
-
-  Objs.clear();
-
-  delete DummyIRBuilder;
 }
 
 void HLNodeUtils::checkUnaryInstOperands(RegDDRef *LvalRef, RegDDRef *RvalRef,
@@ -203,7 +200,7 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
 
     auto DummyPtrType =
         PointerType::get(RvalRef->getDestType(),
-                         RvalRef->getBaseDestType()->getPointerAddressSpace());
+                         RvalRef->getBaseType()->getPointerAddressSpace());
     auto DummyPtrVal = UndefValue::get(DummyPtrType);
 
     InstVal = DummyIRBuilder->CreateLoad(DummyPtrVal, false, Name);
@@ -216,7 +213,7 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
 
     auto DummyPtrType =
         PointerType::get(LvalRef->getDestType(),
-                         LvalRef->getBaseDestType()->getPointerAddressSpace());
+                         LvalRef->getBaseType()->getPointerAddressSpace());
     auto DummyPtrVal = UndefValue::get(DummyPtrType);
 
     InstVal = DummyIRBuilder->CreateStore(DummyVal, DummyPtrVal);
@@ -1354,10 +1351,24 @@ void HLNodeUtils::insertAsFirstPreheaderNode(HLLoop *Loop, HLNode *Node) {
                                 Node->getIterator(), true, true);
 }
 
+void HLNodeUtils::insertAsFirstPreheaderNodes(HLLoop *Loop,
+                                              HLContainerTy *NodeContainer) {
+  assert(NodeContainer && "NodeContainer is null!");
+  insertAsPreheaderPostexitImpl(Loop, NodeContainer, NodeContainer->begin(),
+                                NodeContainer->end(), true, true);
+}
+
 void HLNodeUtils::insertAsLastPreheaderNode(HLLoop *Loop, HLNode *Node) {
   assert(Node && "Node is null!");
   insertAsPreheaderPostexitImpl(Loop, nullptr, Node->getIterator(),
                                 Node->getIterator(), true, false);
+}
+
+void HLNodeUtils::insertAsLastPreheaderNodes(HLLoop *Loop,
+                                             HLContainerTy *NodeContainer) {
+  assert(NodeContainer && "NodeContainer is null!");
+  insertAsPreheaderPostexitImpl(Loop, NodeContainer, NodeContainer->begin(),
+                                NodeContainer->end(), true, false);
 }
 
 void HLNodeUtils::insertAsFirstPostexitNode(HLLoop *Loop, HLNode *Node) {
@@ -1366,10 +1377,24 @@ void HLNodeUtils::insertAsFirstPostexitNode(HLLoop *Loop, HLNode *Node) {
                                 Node->getIterator(), false, true);
 }
 
+void HLNodeUtils::insertAsFirstPostexitNodes(HLLoop *Loop,
+                                             HLContainerTy *NodeContainer) {
+  assert(NodeContainer && "NodeContainer is null!");
+  insertAsPreheaderPostexitImpl(Loop, NodeContainer, NodeContainer->begin(),
+                                NodeContainer->end(), false, true);
+}
+
 void HLNodeUtils::insertAsLastPostexitNode(HLLoop *Loop, HLNode *Node) {
   assert(Node && "Node is null!");
   insertAsPreheaderPostexitImpl(Loop, nullptr, Node->getIterator(),
                                 Node->getIterator(), false, false);
+}
+
+void HLNodeUtils::insertAsLastPostexitNodes(HLLoop *Loop,
+                                            HLContainerTy *NodeContainer) {
+  assert(NodeContainer && "NodeContainer is null!");
+  insertAsPreheaderPostexitImpl(Loop, NodeContainer, NodeContainer->begin(),
+                                NodeContainer->end(), false, false);
 }
 
 bool HLNodeUtils::foundLoopInRange(HLContainerTy::iterator First,
@@ -3140,6 +3165,10 @@ bool HLNodeUtils::getPredicateResult(APInt &LHS, PredicateTy Pred, APInt &RHS) {
   }
 }
 
+HLNodeRangeTy HLNodeUtils::getHIRRange() {
+  return make_range(getHIRFramework().hir_begin(), getHIRFramework().hir_end());
+}
+
 bool HLNodeUtils::isKnownPredicate(const CanonExpr *LHS, PredicateTy Pred,
                                    const CanonExpr *RHS, bool *Result) {
   if (Pred == PredicateTy::FCMP_FALSE) {
@@ -3437,7 +3466,7 @@ bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
   return true;
 }
 
-NodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
+HLNodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
 
   auto NodeRange = ThenBody ? std::make_pair(If->then_begin(), If->then_end())
                             : std::make_pair(If->else_begin(), If->else_end());
@@ -3449,7 +3478,7 @@ NodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
   return make_range(NodeRange.first, std::next(LastNode));
 }
 
-NodeRangeTy HLNodeUtils::replaceNodeWithBody(HLSwitch *Switch,
+HLNodeRangeTy HLNodeUtils::replaceNodeWithBody(HLSwitch *Switch,
                                              unsigned CaseNum) {
 
   auto NodeRange = (CaseNum == 0)
@@ -3858,6 +3887,9 @@ public:
   }
 
   template <typename NodeTy> void postVisitImpl(NodeTy *Node) {
+    assert(Node != SkipNode &&
+           "Node is removed, should be no further actions.");
+
     IsJoinNode = true;
 
     LastNodeToRemove = nullptr;

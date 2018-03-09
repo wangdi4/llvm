@@ -14,6 +14,7 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Analysis/Intel_DTrans/DTrans.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/BasicBlock.h"
@@ -22,6 +23,16 @@
 
 using namespace llvm;
 using namespace dtrans;
+
+bool dtrans::isSystemObjectType(llvm::StructType *Ty) {
+  if (!Ty->hasName())
+    return false;
+
+  return StringSwitch<bool>(Ty->getName())
+      .Case("struct._IO_FILE", true)
+      .Case("struct._IO_marker", true)
+      .Default(false);
+}
 
 AllocKind dtrans::getAllocFnKind(Function *F, const TargetLibraryInfo &TLI) {
   // TODO: Make this implementation more comprehensive.
@@ -44,7 +55,7 @@ AllocKind dtrans::getAllocFnKind(Function *F, const TargetLibraryInfo &TLI) {
 }
 
 void dtrans::getAllocSizeArgs(AllocKind Kind, CallInst *CI,
-                              Value* &AllocSizeVal, Value* &AllocCountVal) {
+                              Value *&AllocSizeVal, Value *&AllocCountVal) {
   assert(Kind != AK_NotAlloc && Kind != AK_UserAlloc &&
          "Unexpected alloc kind passed to getAllocSizeArgs");
 
@@ -68,6 +79,16 @@ void dtrans::getAllocSizeArgs(AllocKind Kind, CallInst *CI,
 
   llvm_unreachable("Unexpected alloc kind passed to getAllocSizeArgs");
 }
+
+bool dtrans::isFreeFn(Function *F, const TargetLibraryInfo &TLI) {
+  if (!F)
+    return false;
+  LibFunc LF;
+  if (!TLI.getLibFunc(*F, LF))
+    return false;
+  return (LF == LibFunc_free);
+}
+
 
 // This function is called to determine if a bitcast to the specified
 // destination type could be used to access element 0 of the source type.
@@ -145,14 +166,33 @@ void dtrans::TypeInfo::printSafetyData() {
     return;
   }
   // TODO: As safety checks are implemented, add them here.
-  SafetyData ImplementedMask = dtrans::BadCasting | dtrans::BadAllocSizeArg |
-                               dtrans::BadPtrManipulation |
-                               dtrans::AmbiguousGEP | dtrans::VolatileData |
-                               dtrans::MismatchedElementAccess |
-                               dtrans::AmbiguousPointerLoad |
-                               dtrans::WholeStructureReference |
-                               dtrans::UnsafePointerStore |
-                               dtrans::FieldAddressTaken | dtrans::UnhandledUse;
+  const SafetyData ImplementedMask =
+      dtrans::BadCasting | dtrans::BadAllocSizeArg |
+      dtrans::BadPtrManipulation | dtrans::AmbiguousGEP | dtrans::VolatileData |
+      dtrans::MismatchedElementAccess | dtrans::WholeStructureReference |
+      dtrans::UnsafePointerStore | dtrans::FieldAddressTaken |
+      dtrans::GlobalPtr | dtrans::GlobalInstance | dtrans::HasInitializerList |
+      dtrans::BadMemFuncSize | dtrans::BadMemFuncManipulation |
+      dtrans::AmbiguousPointerTarget | dtrans::UnsafePtrMerge |
+      dtrans::AddressTaken | dtrans::NoFieldsInStruct |
+      dtrans::NestedStruct | dtrans::ContainsNestedStruct |
+      dtrans::SystemObject | dtrans::UnhandledUse;
+  // This assert is intended to catch non-unique safety condition values.
+  // It needs to be kept synchronized with the statement above.
+  static_assert(ImplementedMask ==
+                    (dtrans::BadCasting ^ dtrans::BadAllocSizeArg ^
+                     dtrans::BadPtrManipulation ^ dtrans::AmbiguousGEP ^
+                     dtrans::VolatileData ^ dtrans::MismatchedElementAccess ^
+                     dtrans::WholeStructureReference ^
+                     dtrans::UnsafePointerStore ^ dtrans::FieldAddressTaken ^
+                     dtrans::GlobalPtr ^ dtrans::GlobalInstance ^
+                     dtrans::HasInitializerList ^ dtrans::BadMemFuncSize ^
+                     dtrans::BadMemFuncManipulation ^
+                     dtrans::AmbiguousPointerTarget ^ dtrans::UnsafePtrMerge ^
+                     dtrans::AddressTaken ^ dtrans::NoFieldsInStruct ^
+                     dtrans::NestedStruct ^ dtrans::ContainsNestedStruct ^
+                     dtrans::SystemObject ^ dtrans::UnhandledUse),
+                "Duplicate value used in dtrans safety conditions");
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
     SafetyIssues.push_back("Bad casting");
@@ -166,14 +206,36 @@ void dtrans::TypeInfo::printSafetyData() {
     SafetyIssues.push_back("Volatile data");
   if (SafetyInfo & dtrans::MismatchedElementAccess)
     SafetyIssues.push_back("Mismatched element access");
-  if (SafetyInfo & dtrans::AmbiguousPointerLoad)
-    SafetyIssues.push_back("Ambiguous pointer load");
   if (SafetyInfo & dtrans::WholeStructureReference)
     SafetyIssues.push_back("Whole structure reference");
   if (SafetyInfo & dtrans::UnsafePointerStore)
     SafetyIssues.push_back("Unsafe pointer store");
   if (SafetyInfo & dtrans::FieldAddressTaken)
     SafetyIssues.push_back("Field address taken");
+  if (SafetyInfo & dtrans::GlobalPtr)
+    SafetyIssues.push_back("Global pointer");
+  if (SafetyInfo & dtrans::GlobalInstance)
+    SafetyIssues.push_back("Global instance");
+  if (SafetyInfo & dtrans::HasInitializerList)
+    SafetyIssues.push_back("Has initializer list");
+  if (SafetyInfo & dtrans::BadMemFuncSize)
+    SafetyIssues.push_back("Bad memfunc size");
+  if (SafetyInfo & dtrans::BadMemFuncManipulation)
+    SafetyIssues.push_back("Bad memfunc manipulation");
+  if (SafetyInfo & dtrans::AmbiguousPointerTarget)
+    SafetyIssues.push_back("Ambiguous pointer target");
+  if (SafetyInfo & dtrans::UnsafePtrMerge)
+    SafetyIssues.push_back("Unsafe pointer merge");
+  if (SafetyInfo & dtrans::AddressTaken)
+    SafetyIssues.push_back("Address taken");
+  if (SafetyInfo & NoFieldsInStruct)
+    SafetyIssues.push_back("No fields in structure");
+  if (SafetyInfo & dtrans::NestedStruct)
+    SafetyIssues.push_back("Nested structure");
+  if (SafetyInfo & dtrans::ContainsNestedStruct)
+    SafetyIssues.push_back("Contains nested structure");
+  if (SafetyInfo & dtrans::SystemObject)
+    SafetyIssues.push_back("System object");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
   // Print the safety issues found

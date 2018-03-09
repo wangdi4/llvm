@@ -1,10 +1,10 @@
 ; Verify that we build unknown loop with user calls at O3 but not at O2.
 
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s --check-prefix=O2
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s --check-prefix=O2
 
 ; O2-NOT: UNKNOWN
 
-; RUN: opt < %s -hir-ssa-deconstruction -xmain-opt-level=3 | opt -analyze -hir-parser -xmain-opt-level=3 | FileCheck %s --check-prefix=O3
+; RUN: opt < %s -hir-ssa-deconstruction -xmain-opt-level=3 | opt -analyze -hir-framework -hir-framework-debug=parser -xmain-opt-level=3 | FileCheck %s --check-prefix=O3
 
 ; O3: + UNKNOWN LOOP i1
 ; O3: |   <i1 = 0>

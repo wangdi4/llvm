@@ -169,15 +169,6 @@ is known to point to an i64 element is bitcast to an i32* and that i32* is
 passed to a load instruction, the loaded type would not match the expected
 element type.
 
-AmbiguousPointerLoad
-~~~~~~~~~~~~~~~~~~~~
-This indicates that a load instruction was seen with a pointer operand (the
-address of the value being loaded) which was known to alias incompatible
-pointer types. For instance, if a %struct.A** value and a %struct.B** value
-are both bitcast to i64* and then joined by either a PHI node or a select
-and the joined value is passed to a load instruction, there would be no way
-to determine the actual type of the loaded pointer.
-
 WholeStructureReference
 ~~~~~~~~~~~~~~~~~~~~~~~
 This indicates that an instruction was seen which references a non-pointer
@@ -189,14 +180,103 @@ a select or PHI node.
 
 UnsafePointerStore
 ~~~~~~~~~~~~~~~~~~
-This indicates that a pointer that is known to alias to the type for which this
-condition was set was stored to a memory location using a pointer operand that
-was not otherwise known to alias to a pointer to pointer to the type.
+This indicates either that a store instruction was seen where a pointer being
+stored was not known to be compatible with the pointer to the address at which
+it was being stored. This could mean that the value operand and the pointer
+operand (destination) were known to alias to different aggregate types or
+that the one was known to alias to an aggregate type and the other was not.
+
+For example, in the following block, %p1 is an arbitrary pointer with no known
+aliases. After it is stored in the location referenced by %tmp (%p2) any future
+loads from that address will handle it as a %struct.S pointer. Since dtrans
+does not know where the original buffer came from or how it is used, we must
+assume this is unsafe.
+
+.. code-block:: llvm
+
+  define void @f(i8* %p1, %struct.S** %p2) {
+    %tmp = bitcast %struct.S** %p2 to i8**
+    ret void store i8* %p1, i8** %tmp
+  }
+
+In the next example, the value operand %tmp1 (%p1) is known to be incompatible
+with the pointer operand %tmp2 (%p2). In this case, both %struct.A and
+%struct.B will be marked with the UnsafePointerStore condition.
+
+.. code-block:: llvm
+
+  define void @f(%struct.A* %p1, %struct.B** %p2) {
+    %tmp1 = bitcast %struct.A* %p1 to i8*
+    %tmp2 = bitcast %struct.B** %p2 to i8**
+    ret void store i8* %tmp1, i8** %tmp2
+  }
 
 FieldAddressTaken
 ~~~~~~~~~~~~~~~~~
 This indicates that the addresses of one or more fields within the type were
-either written to memory or passed to a function call.
+either written to memory, passed to a function call or returned by a
+function.
+
+GlobalPtr
+~~~~~~~~~
+This indicates that a global variable was found that is a pointer to the type.
+
+GlobalInstance
+~~~~~~~~~~~~~~
+This indicates that a global variable was found that is an instance of the type.
+
+HasInitializerList
+~~~~~~~~~~~~~~~~~~
+This indicates that a global variable was found that is an instance of the type
+and a non-zero initializer was specified for the variable.
+
+BadMemFuncSize
+~~~~~~~~~~~~~~
+This indicates that a pointer to a structure is passed to a memory function
+intrinsic (memcpy, memcpy or memset), with a size that differs from
+the native structure size of the source or destination structure.
+
+BadMemFuncManipulation
+~~~~~~~~~~~~~~~~~~~~~~
+This indicates a structure is modified via a memory function intrinsic (memcpy
+or memmove) with conflicting or unknown types for the source and destination
+parameters.
+
+AmbiguousPointerTarget
+~~~~~~~~~~~~~~~~~~~~~~
+This indicates that a pointer is passed to an intrinsic or function call,
+but the pointer is known to alias incompatible pointer types.
+
+UnsafePtrMerge
+~~~~~~~~~~~~~~
+This indicates that a PHI node or select instruction was seen which had
+incompatible incoming values. This could mean either that the incoming values
+were known to alias to incompatible aggregate types or that at least one
+incoming value was known to be a pointer to a type of interest and at least one
+other incoming value was not known to point to that type.
+
+AddressTaken
+~~~~~~~~~~~~
+This indicates that the address of an object of the type was returned by
+a function using an anonymous type (i8* or i64).
+
+NoFieldsInStruct
+~~~~~~~~~~~~~~~~
+The type represents a structure which was defined with no fields.
+
+NestedStruct
+~~~~~~~~~~~~
+The type identifies a structure that was contained as a non-pointer member
+of another structure.
+
+ContainsNestedStruct
+~~~~~~~~~~~~~~~~~~~~
+The type identifies a structure that contains another structure as a
+non-pointer member.
+
+SystemObject
+~~~~~~~~~~~~
+The type was identified as a known system structure type.
 
 UnhandledUse
 ~~~~~~~~~~~~
@@ -259,6 +339,16 @@ follow the use-chain from the value to its local source (either a function
 argument, a global value or a local instruction that defined the pointer) and
 populate the LocalPointerInfo to be returned.
 
+For DTrans optimizations to be possible, each pointer that may point to a type
+that will be optimized will in most cases need to point only to that type
+and generic equivalents such as i8* and a pointer-sized integer. If the local
+alias analysis finds just one such type, that type will be described as the
+unique dominant type for the pointer. Identifying a unique dominant type for
+a pointer will simplify the analysis of its uses. For example, when a pointer
+is used by a bitcast instruction, we are interested in whether or not the
+destination type is safe for the pointer's dominant type. If all other aliases
+of the pointer are generic equivalents, they do not need to be analyzed.
+
 
 Instruction Handling
 --------------------
@@ -297,12 +387,41 @@ class) in an attempt to verify that the size of the allocated memory is an
 exact multiple of the aggregate type size. **Currently, only constant arguments
 are handled.**
 
-**The current implementation sets the UnhandledUse safety data for any call
-that returns an aggregate type value (or a pointer to an aggregate type) or has
-an argument that is an aggregate type (or a pointer to an aggregate type).
-This is probably unnecessary, but it is done as part of the conservative
-approach to progressive implementation.**
+If the called function is the "free" function, the call is viewed as safe.
 
+If the called function is an unknown externally defined function and any of the
+arguments is a pointer to an aggregate type, that type is marked with the
+`AddressTaken`_ safety condition, and if any of the arguments is a pointer to
+an element within a structure then that structure is marked with the
+`FieldAddressTaken`_ safety condition.
+
+If the called function is a locally defined function, its arguments are handled
+as described above for external functions except that arguments which point
+to aggregate types are accepted without the `AddressTaken`_ condition being set
+if the argument type matches the type of the structure. For instance, a
+%struct.A* value can be safely passed as an argument to a call if the called
+function uses %struct.A* as the type for that argument because the uses of
+the argument can be tracked when the function is analyzed. However, if a
+%struct.A* value is cast to an i8* and then passed to a function call, we
+cannot know what the argument's original type was when we are analyzing the
+called function.
+
+Intrinsic
+~~~~~~~~~
+When a call to an intrinsic function is encountered, the DTrans analysis will
+attempt to check parameters to the function for safe uses.
+
+Currently, only calls to memset, memcpy and memove are supported.
+
+A call to memset is considered safe if the entire structure (based on the
+sizeof(%struct) size) is being set.
+
+A call to memcpy or memmove is considered safe if:
+- The entire structure is being set.
+- The data type of the source structure is the same as the data type of the
+  the destination structure.
+Otherwise, both the source and destination parameter types are marked as
+unsafe uses.
 
 GetElementPtr
 ~~~~~~~~~~~~~
@@ -375,32 +494,39 @@ interest. If it does, the uses of the bitcast must be examined to determine
 whether or not the use might present a safety issue for some DTrans
 optimization.
 
-If the destination type of the bitcast is a type of interest and the source
-value is an i8* value, the cast is only legal if one of the following
-conditions are met:
+If the source pointer operand is not a value of interest but the destination
+type is a type of interest, the destination type will be marked with the
+`BadCasting`_ safety condition. This would happen, for instance, if an
+unknown i8* value were cast as a pointer to an aggregate type.
 
-1. The source value is the result of an allocation call.
-2. The source value can be proved to locally alias to the destination type and
-   is known not to locally alias to any other type. (See `Local Pointer Type
-   Analysis`_.)
-3. The destination type points to the type of the first element in an aggregate
-   type to which the value is known to alias locally.
+If the source pointer operand is known to alias to incompatible types then
+the cast is ambiguous and each aliased type and the destination type (if
+it is a type of interest) will be marked with the `BadCasting`_ safety
+condition.
 
-If the destination type is a type of interest and the source value is not an
-i8* value, the cast can only be safe if the source value is a pointer to an
-aggregate type and the destination type points to the type of the first element
-in the aggregate type pointed to by the source value.
+If the source pointer operand is known to point to a single aggregate type
+the cast is safe if the destination type is one of the following:
 
-If the destination type is not a type of interest but the source value is a
-value of interest, the cast is only legal if one of the following conditions is
-met:
+ - The same aggregate type (for instance, an i8* value with a known type alias
+   may be cast back to its original type)
+ - A generic pointer equivalent (for instance, a pointer to an aggregate may be
+   cast to an i8* or a pointer sized integer)
+ - A type that points to the first element in the aggregate type (for instance,
+   if a structure has an i16 value as its first field, a pointer to the
+   structure may be cast to i16* to access that field)
 
-1. The destination type is i8*.
-2. The source value is a pointer to a pointer and the destination type is
-   a pointer to a pointer-sized integer (pointers are often stored to memory
-   this way in LLVM IR).
-3. The destination type points to the type of the first element in an aggregate
-   type to which the source value is known to alias locally.
+The immediate type (that is, the type as reported by LLVM) of the source
+pointer operand is not important since the local pointer analysis will have
+already proven that it is equivalent to the aliased type.
+
+If the source pointer operand is known to point to an element within an
+aggregate type, then the cast is safe if the destination type is one of the
+following:
+
+ - A type that points to the type of the element
+ - A generic pointer equivalent (for instance, i8* or a pointer-sized integer)
+ - A type that points to the type of the first field within the element (at
+   any level of nesting) if the element is an aggregate type
 
 
 PtrToInt
@@ -458,9 +584,10 @@ integer) must also be known to alias to a pointer to that type. Otherwise, the
 pointer operand aliases.
 
 If the pointer operand is known to point to an element within an aggregate
-type, the value being stored must be the same as the size of the element. If it
-does not, the `MismatchedElementAccess`_ safety condition will be set for
-the aggregate type containing the element to which the pointer operand points.
+type, the size of the value being stored must be the same as the size of the
+element. If it does not, the `MismatchedElementAccess`_ safety condition will
+be set for the aggregate type containing the element to which the pointer
+operand points.
 
 If the value operand is known to alias to a type of interest the pointer
 operand must be known to alias to a pointer to that type. If it does not, the
@@ -474,26 +601,55 @@ the `FieldAddressTaken`_ safety condition will be set for the parent type.
 
 PHI Nodes
 ~~~~~~~~~
-PHI nodes do not create new safety issues as they are only used to describe
-the flow of existing values. We will need to process PHI nodes as we
-follow the uses of values for other purposes, but the PHI node itself
-requires no special processing.
+PHI nodes may be unsafe if the incoming values do not all point to the same
+aggregate type. For instance, if one incoming value is known to be a pointer
+to some structure and another incoming value is not known to point to that
+structure, the resulting merged pointer is unsafe. Similarly, if one incoming
+value is known to point to some structure A and another incoming value is known
+to point to some structure B, the merged value is ambiguous.
+
+On the other hand, it will be common for PHI nodes to merge pointers which
+point to different elements within a structure. As long as the elements being
+pointed to all have the same type, this is safe. If pointers to elements of
+different sizes are merged, the safety issue will be detected when the merged
+value is used.
 
 
 Select
 ~~~~~~
-Select instructions do not create new safety issues as they are only used to
-describe the flow of existing values. We will need to process select
-instructions as we follow the uses of values for other purposes, but the select
-instruction itself requires no special processing.
+Select instructions may be unsafe if the incoming values do not both point to
+the same aggregate type. For instance, if one incoming value is known to be a
+pointer to some structure and the other incoming value is not known to point to
+that structure, the resulting merged pointer is unsafe. Similarly, if one
+incoming value is known to point to some structure A and the other incoming
+value is known to point to some structure B, the merged value is ambiguous.
+
+On the other hand, it will be common for selects to merge pointers which
+point to different elements within a structure. As long as the elements being
+pointed to all have the same type, this is safe. If pointers to elements of
+different sizes are merged, the safety issue will be detected when the merged
+value is used.
 
 
 Return
 ~~~~~~
-Return instructions do not require direct analysis. If the value returned is the
-address of a field within a structure, we will need to mark the containing
-field with safety data indicating that the address of the field was taken.
-However, that will be done as part of the GetElementPtr analysis.
+Return instructions must be checked to see if the address of an aggregate
+object or the address of an element within an aggregate may escape through
+the return.
+
+If the returned value is a pointer to an aggregate type but the type is
+preserved in the return value, the return is safe since our analysis will
+recognize the type at the call site. However, if the address is returned
+via an anonymous type such as i8* or i64 the type of the object whose
+address is returned will be marked with the `AddressTaken`_ safety condition.
+
+If the returned value is known to be the address of an element within an
+aggregate object, the type of the object containing the element will be
+marked with the `FieldAddressTaken`_ safety condition.
+
+In the uncommon case where an instance of an aggregate is returned the type
+of the aggregate will be marked with the `WholeStructureReference`_
+safety condition.
 
 
 ICmp
@@ -514,5 +670,22 @@ variables. **This instruction type is currently not handled.**
 Global variables
 ----------------
 Global variables are mostly tracked through their uses in the instructions of
-a program. At the module level, global variables will be examined to determine
-whether or not they have an initializer list. **This is not yet implemented.**
+a program. At the module level, the definition for each global variable will be
+visited and if its type is a type of interest, safety data for that type will
+be updated.
+
+All global variables in LLVM IR are defined as pointers. If the variable is
+an instance of an aggregate type at the source code level, the LLVM IR global
+variable will be a pointer to the global memory for that object. If the
+variable is a pointer at the source code level, the LLVM IR global variable
+will be a pointer to a pointer.
+
+As global variables with a type of interest are visited, if the variable is
+a pointer to a pointer, the `GlobalPtr`_ safety condition will be added to
+the type. Otherwise, the `GlobalInstance`_ safety condition will be added.
+
+LLVM IR requires all global variables to have an initializer. This may be
+a simple zero-initializer, or it may be specific aggregate data. If the global
+variable is an instance of a type and not a pointer to that type and the
+initializer is non-zero aggregate data, the type will be marked with the
+`HasInitializerList`_ safety condition.

@@ -908,9 +908,8 @@ void CanonExpr::replaceBlob(unsigned OldIndex, unsigned NewIndex) {
     }
   }
 
-  if (!found) {
-    assert("Old blob index not found!");
-  }
+  assert(found && "Old blob index not found!");
+  (void)found;
 }
 
 template <bool IsConstant, typename T>

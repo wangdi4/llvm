@@ -1,6 +1,6 @@
 //===------- Intel_AggInline.cpp - Aggressive Inline Analysis -*------===//
 //
-// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -42,7 +42,7 @@ static cl::opt<unsigned> InlineAggressiveCSLimit("inline-agg-callsites-limit",
 // analysis.
 //
 static cl::opt<unsigned> InlineAggressiveMallocLimit("inline-agg-malloc-limit",
-                                    cl::init(0x60000000), cl::ReallyHidden);
+                                    cl::init(0x6000000), cl::ReallyHidden);
 
 // If number of instructions in entire application is greater than
 // this limit, it will not be considered for aggressive inline analysis.
@@ -75,7 +75,7 @@ bool InlineAggressiveWrapperPass::doFinalization(Module &M) {
 }
 
 bool InlineAggressiveWrapperPass::runOnModule(Module &M) {
-  auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();
+  auto *WPA = &getAnalysis<WholeProgramWrapperPass>();
   Result.reset(new InlineAggressiveInfo(
                 InlineAggressiveInfo::runImpl(M,
                             WPA ? &WPA->getResult() : nullptr)));
@@ -625,6 +625,7 @@ bool InlineAggressiveInfo::analyzeModule(Module &M) {
     }
   }
 
+  MainRtn->addFnAttr("may_have_huge_local_malloc");
   return true;
 }
 
@@ -633,7 +634,7 @@ bool InlineAggressiveInfo::analyzeModule(Module &M) {
 //
 void InlineAggressiveWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addUsedIfAvailable<WholeProgramWrapperPass>();
+  AU.addRequired<WholeProgramWrapperPass>();
 }
 
 char InlineAggAnalysis::PassID;

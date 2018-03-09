@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s
 
 ; Verify that NSW is not applied to this multi-exit loop as the range information for the IV is computed off of the early exit by scalar evolution. 
 ; %i.024.i66183 has a range of [5, 8). 

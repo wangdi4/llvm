@@ -41,21 +41,19 @@ class IRRegion {
 public:
   typedef DenseSet<const BasicBlock *> RegionBBlocksSetTy;
   typedef SmallVector<const BasicBlock *, 32> RegionBBlocksTy;
-  typedef SmallDenseMap<unsigned, const Value *, 16> LiveInSetTy;
-  typedef SmallDenseMap<unsigned, const Instruction *, 16> LiveOutSetTy;
-  typedef SmallDenseMap<const Instruction *, unsigned, 16> ReverseLiveOutSetTy;
+  typedef SmallDenseMap<unsigned, const Value *, 16> LiveInMapTy;
+  typedef SmallDenseMap<unsigned, SmallVector<const Instruction *, 2>, 16>
+      LiveOutMapTy;
+  typedef SmallDenseMap<const Instruction *, unsigned, 16> ReverseLiveOutMapTy;
 
   /// Iterators to iterate over bblocks and live-in/live-out sets.
   typedef RegionBBlocksTy::const_iterator const_bb_iterator;
-  typedef LiveInSetTy::const_iterator const_live_in_iterator;
-  typedef LiveOutSetTy::const_iterator const_live_out_iterator;
+  typedef LiveInMapTy::const_iterator const_live_in_iterator;
+  typedef LiveOutMapTy::const_iterator const_live_out_iterator;
 
 protected:
   /// \brief Make class uncopyable.
   IRRegion(const IRRegion &) = delete;
-
-  /// \brief Make class unassignable.
-  void operator=(const IRRegion &) = delete;
 
   // Sets parent region.
   friend HLRegion;
@@ -68,18 +66,20 @@ private:
   // DenseSet of bblocks is used for faster query results to containsBBlock().
   RegionBBlocksSetTy BBlocksSet;
 
-  // Set of (symbase - initial value) pairs which need to be materialized into
+  // Map of symbase to their initial values which need to be materialized into
   // a store during HIRCG.
-  LiveInSetTy LiveInSet;
-  // Set of symbases/values whose live-out uses need to be materialized into a
-  // load during HIRCG.
-  LiveOutSetTy LiveOutSet;
+  LiveInMapTy LiveInMap;
+  // Map of symbases to vector of instructions whose liveout uses need to be
+  // materialized into loads during HIRCG. One symbase can be mapped to multiple
+  // instructions in case of single operand phis where both the phi and its
+  // operand are liveout of the region.
+  LiveOutMapTy LiveOutMap;
   // Reverse set used by CG to handle liveouts.
-  ReverseLiveOutSetTy ReverseLiveOutSet;
+  ReverseLiveOutMapTy ReverseLiveOutMap;
   HLRegion *ParentRegion;
 
   // Indicates that the region is composed of all the function bblocks.
-  const bool IsFunctionLevel;
+  bool IsFunctionLevel;
 
 public:
   IRRegion(BasicBlock *Entry, const RegionBBlocksTy &BBlocks,
@@ -88,6 +88,7 @@ public:
   /// \brief Move constructor. This is used by HIRRegionIdentification pass to
   /// push_back regions onto SmallVector.
   IRRegion(IRRegion &&);
+  IRRegion &operator =(IRRegion &&);
 
   /// \brief Dumps IRRegion.
   void dump() const;
@@ -124,50 +125,37 @@ public:
   /// \brief Adds a live-in temp (represented using Symbase) with initial value
   /// InitVal to the region.
   void addLiveInTemp(unsigned Symbase, const Value *InitVal) {
-    auto Ret = LiveInSet.insert(std::make_pair(Symbase, InitVal));
+    auto Ret = LiveInMap.insert(std::make_pair(Symbase, InitVal));
     (void)Ret;
     assert((Ret.second || (Ret.first->second == InitVal)) &&
            "Inconsistent livein value detected!");
   }
 
   /// \brief Adds a live-out temp (represented using Symbase) to the region.
-  void addLiveOutTemp(unsigned Symbase, const Instruction *Temp) {
-    auto Ret = LiveOutSet.insert(std::make_pair(Symbase, Temp));
-    (void)Ret;
-    assert((Ret.second || (Ret.first->second == Temp)) &&
-           "Inconsistent liveout value detected!");
+  void addLiveOutTemp(unsigned Symbase, const Instruction *Temp);
 
-    ReverseLiveOutSet[Temp] = Symbase;
-  }
-
-  void replaceLiveOutTemp(unsigned OldSymbase, unsigned NewSymbase) {
-    auto It = LiveOutSet.find(OldSymbase);
-    assert((It != LiveOutSet.end()) && "Old liveout temp not found!");
-
-    auto Temp = It->second;
-    LiveOutSet.erase(It);
-    addLiveOutTemp(NewSymbase, Temp);
-  }
+  void replaceLiveOutTemp(unsigned OldSymbase, unsigned NewSymbase);
 
   /// \brief Returns true if this symbase is live in to this region.
-  bool isLiveIn(unsigned Symbase) const { return LiveInSet.count(Symbase); }
+  bool isLiveIn(unsigned Symbase) const { return LiveInMap.count(Symbase); }
 
   /// \brief Returns true if this symbase is live out of this region.
-  bool isLiveOut(unsigned Symbase) const { return LiveOutSet.count(Symbase); }
+  bool isLiveOut(unsigned Symbase) const { return LiveOutMap.count(Symbase); }
+
+  bool hasLiveOuts() const { return !LiveOutMap.empty(); }
 
   const_bb_iterator bb_begin() const { return BBlocks.begin(); }
   const_bb_iterator bb_end() const { return BBlocks.end(); }
 
-  const_live_in_iterator live_in_begin() const { return LiveInSet.begin(); }
-  const_live_in_iterator live_in_end() const { return LiveInSet.end(); }
-
-  const_live_out_iterator live_out_begin() const { return LiveOutSet.begin(); }
-  const_live_out_iterator live_out_end() const { return LiveOutSet.end(); }
+  const_live_in_iterator live_in_begin() const { return LiveInMap.begin(); }
+  const_live_in_iterator live_in_end() const { return LiveInMap.end(); }
+  const_live_out_iterator live_out_begin() const { return LiveOutMap.begin(); }
+  const_live_out_iterator live_out_end() const { return LiveOutMap.end(); }
 
   // Returns symbase of a liveout value. Asserts, if the value is not liveout.
   unsigned getLiveOutSymbase(const Instruction *Temp) const {
-    auto It = ReverseLiveOutSet.find(Temp);
-    assert(It != ReverseLiveOutSet.end() && "Temp is not liveout!");
+    auto It = ReverseLiveOutMap.find(Temp);
+    assert(It != ReverseLiveOutMap.end() && "Temp is not liveout!");
 
     return It->second;
   }

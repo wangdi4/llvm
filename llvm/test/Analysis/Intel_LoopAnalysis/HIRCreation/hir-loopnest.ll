@@ -1,4 +1,4 @@
-; RUN: opt < %s -analyze -hir-creation | FileCheck %s
+; RUN: opt < %s -analyze -hir-framework -hir-framework-debug=creation | FileCheck %s
 
 ; Check sequence of gotos/labels in output of hir-creation
 ; CHECK: for.cond1.preheader:

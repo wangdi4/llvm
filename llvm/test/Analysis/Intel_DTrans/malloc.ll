@@ -303,17 +303,17 @@ done:
 ; 'bad' types should have 'Bad casting'
 ; CHECK: DTRANS Analysis Types Created
 ; CHECK: LLVMType: %struct.bad.Inner
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: Bad casting | Bad alloc size | Nested structure
 ; CHECK: LLVMType: %struct.bad.Left
 ; CHECK: Safety data: Bad casting
 ; CHECK: LLVMType: %struct.bad.Outer2
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: Bad casting | Bad alloc size | Contains nested structure
 ; CHECK: LLVMType: %struct.bad.Right
 ; CHECK: Safety data: Bad casting
 ; CHECK: LLVMType: %struct.bad.S1
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: Bad casting | Nested structure
 ; CHECK: LLVMType: %struct.bad.S2
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: Bad casting | Contains nested structure
 
 ; 'badsize' types should have 'Bad alloc size'
 ; CHECK: LLVMType: %struct.badsize.S1
@@ -325,18 +325,18 @@ done:
 
 ; 'good' types should have 'No issues found'
 ; CHECK: LLVMType: %struct.good.Inner
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Nested structure
 ; CHECK: LLVMType: %struct.good.Left
 ; CHECK: Safety data: No issues found
 ; CHECK: LLVMType: %struct.good.Middle
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Nested structure | Contains nested structure
 ; CHECK: LLVMType: %struct.good.Outer
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Contains nested structure
 ; CHECK: LLVMType: %struct.good.Right
 ; CHECK: Safety data: No issues found
 ; CHECK: LLVMType: %struct.good.S1
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Nested structure
 ; CHECK: LLVMType: %struct.good.S2
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Contains nested structure
 
 declare noalias i8* @malloc(i64)

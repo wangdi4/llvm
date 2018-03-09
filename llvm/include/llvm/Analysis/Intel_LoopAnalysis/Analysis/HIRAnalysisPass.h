@@ -120,6 +120,76 @@ public:
   virtual void markNonLoopRegionModified(const HLRegion *Reg) {}
 };
 
+template <typename T> using ProviderFunctionTy = std::function<T *(void)>;
+
+template <typename... AnalysisTys> class HIRAnalysisProviderBase;
+
+template <> class HIRAnalysisProviderBase<> {
+public:
+  template <typename T> T *get() {
+    llvm_unreachable("Requested analysis is not registered in the provider");
+    return nullptr;
+  }
+
+  template <typename... Except> struct Invoke {
+    Invoke(HIRAnalysisProviderBase<> &Provider) {}
+    template <typename F, typename... ArgsTy>
+    void operator()(F &&Func, ArgsTy... Args) {}
+  };
+
+  template <typename... Except> Invoke<Except...> invoke() {
+    return Invoke<Except...>(*this);
+  }
+};
+
+template <typename AnalysisTy, typename... AnalysisTys>
+class HIRAnalysisProviderBase<AnalysisTy, AnalysisTys...>
+    : public HIRAnalysisProviderBase<AnalysisTys...> {
+  typedef HIRAnalysisProviderBase<AnalysisTys...> Base;
+
+  ProviderFunctionTy<AnalysisTy> AnalysisFunc;
+
+public:
+  HIRAnalysisProviderBase(ProviderFunctionTy<AnalysisTy> F,
+                          ProviderFunctionTy<AnalysisTys>... Fs)
+      : Base(Fs...), AnalysisFunc(F) {}
+
+  template <typename T>
+  typename std::enable_if<std::is_same<T, AnalysisTy>::value, T>::type *get() {
+    return AnalysisFunc();
+  }
+
+  template <typename T>
+  typename std::enable_if<!std::is_same<T, AnalysisTy>::value, T>::type *get() {
+    return static_cast<Base &>(*this).template get<T>();
+  }
+
+  template <typename... Except> class Invoke {
+    typedef HIRAnalysisProviderBase<AnalysisTy, AnalysisTys...> ProviderTy;
+    ProviderTy &Provider;
+
+  public:
+    Invoke(ProviderTy &Provider) : Provider(Provider) {}
+
+    template <typename F, typename... ArgsTy>
+    void operator()(F &&Func, ArgsTy... Args) {
+      AnalysisTy *AnalysisPtr = !is_one_of<AnalysisTy, Except...>::value
+                                    ? Provider.get<AnalysisTy>()
+                                    : nullptr;
+      if (AnalysisPtr) {
+        (static_cast<HIRAnalysisPass *>(AnalysisPtr)->*Func)(
+            std::forward<ArgsTy>(Args)...);
+      }
+
+      static_cast<Base &>(Provider).template invoke<Except...>()(Func, Args...);
+    }
+  };
+
+  template <typename... Except> Invoke<Except...> invoke() {
+    return Invoke<Except...>(*this);
+  }
+};
+
 } // End namespace loopopt
 
 } // End namespace llvm

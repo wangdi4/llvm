@@ -101,7 +101,7 @@ static cl::opt<bool> AggInlAATrace("print-agg-inl-aa", cl::ReallyHidden);
 // in Analysis/Intel_AggInline.cpp
 //
 static cl::opt<unsigned> AggInlAAMallocLimit("agg-inl-aa-malloc-limit",
-                                   cl::init(0x60000000), cl::ReallyHidden);
+                                   cl::init(0x6000000), cl::ReallyHidden);
 
 //
 // Number of memory instructions that are marked with Aggressive Inline AA.

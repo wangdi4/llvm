@@ -1,10 +1,10 @@
 ; Verify that with GVN the if condition is parsed in terms of IV. This is due to GVN hoisting the initial %1 load outside the loop so that %inc114 becomes linear.
 
-; RUN: opt < %s -tbaa -gvn -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck -check-prefix=GVN %s
+; RUN: opt < %s -tbaa -gvn -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck -check-prefix=GVN %s
 
 ; GVN: |   if (i1 + %.pre + 1 <=u %sub71)
 
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; CHECK: |   if (%1 + 1 <=u %sub71)
 

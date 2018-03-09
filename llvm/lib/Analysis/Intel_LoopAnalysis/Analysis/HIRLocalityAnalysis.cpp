@@ -94,19 +94,19 @@ FunctionPass *llvm::createHIRLocalityAnalysisPass() {
 char HIRLocalityAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLocalityAnalysis, "hir-locality-analysis",
                       "HIR Locality Analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIRLocalityAnalysis, "hir-locality-analysis",
                     "HIR Locality Analysis", false, true)
 
 void HIRLocalityAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequired<HIRFramework>();
+  AU.addRequired<HIRFrameworkWrapperPass>();
 }
 
 // Performs a basic setup without actually running the locality
 // analysis.
 bool HIRLocalityAnalysis::runOnFunction(Function &F) {
-  HIRF = &getAnalysis<HIRFramework>();
+  HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   return false;
 }
 

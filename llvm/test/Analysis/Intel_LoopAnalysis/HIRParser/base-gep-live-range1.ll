@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Verify that the loop is parsed correctly. We form the following SCC:
 ; %s.addr.3.lcssa -> %s.addr.1 -> %s.addr

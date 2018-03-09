@@ -27,6 +27,7 @@ add_llvm_library(LLVMScalarOpts
   Intel_LoopOptMarker.cpp
   Intel_StdContainerOpt.cpp
   Intel_TbaaMDPropagation.cpp
+  Intel_MultiVersioning.cpp
 #endif     // INTEL_CUSTOMIZATION
   JumpThreading.cpp
   LICM.cpp

@@ -314,7 +314,7 @@ void HIRLMM::CollectMemRefs::collectMemRef(RegDDRef *Ref) {
 char HIRLMM::ID = 0;
 
 INITIALIZE_PASS_BEGIN(HIRLMM, "hir-lmm", "HIR Loop Memory Motion", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_END(HIRLMM, "hir-lmm", "HIR Loop Memory Motion", false, false)
@@ -326,7 +326,7 @@ HIRLMM::HIRLMM(void) : HIRTransformPass(ID) {
 }
 
 void HIRLMM::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequiredTransitive<HIRFramework>();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRLoopStatistics>();
   AU.setPreservesAll();
@@ -371,7 +371,7 @@ bool HIRLMM::runOnFunction(Function &F) {
   // Gather all inner-most Loop Candidates
   SmallVector<HLLoop *, 64> CandidateLoops;
 
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HIRF->getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
 
   if (CandidateLoops.empty()) {

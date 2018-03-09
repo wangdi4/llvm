@@ -1,6 +1,5 @@
 ; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-concatenation -hir-cg -print-before=hir-loop-concatenation -print-after=hir-loop-concatenation 2>&1 < %s | FileCheck %s
 
-
 ; Look for 16 loops with trip count of 4 before the transformation.
 
 ; CHECK: Dump Before HIR Loop Concatenation
@@ -56,6 +55,10 @@
 
 ; CHECK-NOT: DO i1
 
+; Verify that the reduction loop is not unrolled by pre-vec complete unroller.
+; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-concatenation -hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s -check-prefix=PREVEC_UNROLL
+
+; PREVEC_UNROLL: DO i1 = 0, 3, 1
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

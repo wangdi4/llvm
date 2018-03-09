@@ -151,7 +151,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
-    AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatistics>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
     AU.setPreservesAll();
@@ -162,7 +162,7 @@ public:
 char HIRIdiomRecognition::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRIdiomRecognition, OPT_SWITCH, OPT_DESC, false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_END(HIRIdiomRecognition, OPT_SWITCH, OPT_DESC, false, false)
@@ -464,8 +464,8 @@ bool HIRIdiomRecognition::makeStartRef(RegDDRef *Ref, HLLoop *Loop,
   Ref->setAddressOf(true);
 
   // Set destination address (i8*)
-  Ref->setBaseDestType(Type::getInt8PtrTy(
-      HIR->getContext(), Ref->getBaseDestType()->getPointerAddressSpace()));
+  Ref->setBitCastDestType(Type::getInt8PtrTy(
+      HIR->getContext(), Ref->getBaseType()->getPointerAddressSpace()));
 
   return true;
 }
@@ -736,7 +736,7 @@ bool HIRIdiomRecognition::runOnFunction(Function &F) {
   M = F.getParent();
   DL = &M->getDataLayout();
 
-  HIR = &getAnalysis<HIRFramework>();
+  HIR = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HLS = &getAnalysis<HIRLoopStatistics>();
   DDA = &getAnalysis<HIRDDAnalysis>();
 

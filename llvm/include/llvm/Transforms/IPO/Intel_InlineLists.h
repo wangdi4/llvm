@@ -1,6 +1,6 @@
 //===---------------- Intel_InlineLists.h - [No]Inline Lists  -------------===//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -15,7 +15,7 @@
 //
 
 #ifndef LLVM_TRANSFORMS_IPO_INTEL_INLINELISTS_H
-#define LLVM_TRANSFORMS_IPO_INTEL_INLINELITST_H
+#define LLVM_TRANSFORMS_IPO_INTEL_INLINELISTS_H
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"

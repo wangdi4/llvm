@@ -1,8 +1,11 @@
 |
+
 .. raw:: html
 
 	 <p><b><center><font color="red" size=6">INTEL CONFIDENTIAL</font></center></b></p>
+
 |
+
 ======================
 Open Source Guidelines
 ======================

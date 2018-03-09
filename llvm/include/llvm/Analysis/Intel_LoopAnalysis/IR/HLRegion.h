@@ -143,6 +143,8 @@ public:
   /// \brief Returns true if this symbase is live out of this region.
   bool isLiveOut(unsigned Symbase) const { return IRReg.isLiveOut(Symbase); }
 
+  bool hasLiveOuts() const { return IRReg.hasLiveOuts(); }
+
   /// BBlock iterator methods
   const_bb_iterator bb_begin() const { return IRReg.bb_begin(); }
   const_bb_iterator bb_end() const { return IRReg.bb_end(); }
@@ -150,17 +152,6 @@ public:
   /// Live-in iterator methods
   const_live_in_iterator live_in_begin() const { return IRReg.live_in_begin(); }
   const_live_in_iterator live_in_end() const { return IRReg.live_in_end(); }
-
-  /// Live-out iterator methods
-  const_live_out_iterator live_out_begin() const {
-    return IRReg.live_out_begin();
-  }
-  const_live_out_iterator live_out_end() const { return IRReg.live_out_end(); }
-
-  iterator_range<const_live_out_iterator> live_out() const {
-    return iterator_range<const_live_out_iterator>(live_out_begin(),
-                                                   live_out_end());
-  }
 
   // Returns symbase of a liveout value. Asserts, if the value is not liveout.
   unsigned getLiveOutSymbase(const Instruction *Temp) const {

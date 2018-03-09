@@ -64,8 +64,9 @@ void HIRAnalysisPass::print(raw_ostream &OS, const Module *) const {
   HIRAnalysisPass &HAP = *const_cast<HIRAnalysisPass *>(this);
 
   PrintVisitor PV(HAP, OS);
-  auto HIRF = getAnalysisIfAvailable<HIRFramework>();
-  assert(HIRF && "HIRFramework not available!");
+  auto *HIRA = getAnalysisIfAvailable<HIRFrameworkWrapperPass>();
+  assert(HIRA && "HIRFramework not available!");
 
-  HIRF->getHLNodeUtils().visitAll(PV);
+
+  HIRA->getHIR().getHLNodeUtils().visitAll(PV);
 }

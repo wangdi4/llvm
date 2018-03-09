@@ -41,13 +41,13 @@ FunctionPass *llvm::createHIRLoopStatisticsPass() {
 char HIRLoopStatistics::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopStatistics, "hir-loop-statistics",
                       "Loop Statistics Analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIRLoopStatistics, "hir-loop-statistics",
                     "Loop Statistics Analysis", false, true)
 
 void HIRLoopStatistics::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequired<HIRFramework>();
+  AU.addRequired<HIRFrameworkWrapperPass>();
 }
 
 bool HIRLoopStatistics::runOnFunction(Function &F) {
@@ -111,8 +111,7 @@ struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
         SelfLS.NumUserCalls++;
       }
 
-      SelfLS.HasCallsWithUnsafeSideEffects |=
-          !Call->onlyReadsMemory() && !Call->onlyAccessesArgMemory();
+      SelfLS.HasCallsWithUnsafeSideEffects |= HLInst::hasUnsafeSideEffect(Call);
 
       SelfLS.HasCallsWithNoDuplicate |= Call->cannotDuplicate();
     }

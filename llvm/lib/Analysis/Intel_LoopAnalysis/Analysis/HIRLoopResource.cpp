@@ -56,7 +56,7 @@ FunctionPass *llvm::createHIRLoopResourcePass() {
 char HIRLoopResource::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopResource, "hir-loop-resource",
                       "Loop Resource Analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(HIRLoopResource, "hir-loop-resource",
@@ -64,7 +64,7 @@ INITIALIZE_PASS_END(HIRLoopResource, "hir-loop-resource",
 
 void HIRLoopResource::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequired<HIRFramework>();
+  AU.addRequired<HIRFrameworkWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
 }

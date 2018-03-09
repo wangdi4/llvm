@@ -46,8 +46,8 @@ class HIRFramework;
 
 class HIRLocalityAnalysis final : public HIRAnalysisPass {
 public:
-  typedef DDRefGrouping::RefGroupTy<const RegDDRef> RefGroupTy;
-  typedef DDRefGrouping::RefGroupVecTy<const RegDDRef> RefGroupVecTy;
+  typedef DDRefGrouping::RefGroupTy<const RegDDRef *> RefGroupTy;
+  typedef DDRefGrouping::RefGroupVecTy<const RegDDRef *> RefGroupVecTy;
 
 private:
   typedef DDRefGatherer<const RegDDRef, MemRefs> LocalityRefGatherer;

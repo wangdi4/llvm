@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that the zero extended iv representation of %6: (2 * (zext i31 {-4,+,1}<%for.body> to i64)), is reverse engineered successfully into %6 blob.
 

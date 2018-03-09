@@ -1,7 +1,7 @@
-; Check that -analyze prints framework info and -hir-details-framework turns on/off framework info in regular print.
+; Check that -analyze prints framework info and -hir-framework-details turns on/off framework info in regular print.
 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework | FileCheck %s
-; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -hir-details-framework 2>&1 -S | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -hir-framework-details 2>&1 -S | FileCheck %s
 
 ; CHECK: BEGIN REGION 
 ; CHECK: EntryBB 

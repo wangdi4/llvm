@@ -59,7 +59,7 @@ public:
   void releaseMemory() override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.setPreservesAll();
   }
 
@@ -92,7 +92,7 @@ private:
 
 char HIRMVForConstUB::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRMVForConstUB, OPT_SWITCH, OPT_DESCR, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIRMVForConstUB, OPT_SWITCH, OPT_DESCR, false, false)
 
 FunctionPass *llvm::createHIRMVForConstUBPass() {
@@ -211,7 +211,7 @@ bool HIRMVForConstUB::runOnFunction(Function &F) {
     return false;
   }
 
-  auto &HIRF = getAnalysis<HIRFramework>();
+  auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   BU = &HIRF.getBlobUtils();
   DRU = &HIRF.getDDRefUtils();
 

@@ -14,11 +14,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
+
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
@@ -801,6 +803,10 @@ void HLLoop::createZtt(RegDDRef *LHS, PredicateTy Pred, RegDDRef *RHS,
 void HLLoop::createZtt(bool IsOverwrite, bool IsSigned) {
 
   assert((!hasZtt() || IsOverwrite) && "Overwriting existing Ztt.");
+
+  if (hasZtt()) {
+    removeZtt();
+  }
 
   // Don't generate Ztt for Const trip loops.
   std::unique_ptr<CanonExpr> TripCE(getTripCountCanonExpr());

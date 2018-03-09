@@ -1213,7 +1213,9 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
   // type of VL-wide vector of Ref's DestType. For addressof DDRef, desttype
   // is set to vector of pointers(scalar desttype).
   if (WideRef->hasGEPInfo()) {
-    PointerType *PtrType = cast<PointerType>(Ref->getBaseDestType());
+    Type *DstTy = Ref->getBaseType();
+    PointerType *PtrType = cast<PointerType>(DstTy);
+
     auto AddressSpace = PtrType->getAddressSpace();
 
     // Omit the range metadata as is done in loop vectorize which does
@@ -1222,7 +1224,7 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
     WideRef->setMetadata(LLVMContext::MD_range, nullptr);
 
     if (WideRef->isAddressOf()) {
-      WideRef->setBaseDestType(VecRefDestTy);
+      WideRef->setBitCastDestType(VecRefDestTy);
 
       auto StructElemTy =
           dyn_cast<StructType>(PtrType->getPointerElementType());
@@ -1233,7 +1235,7 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
         return WideRef;
       }
     } else {
-      WideRef->setBaseDestType(PointerType::get(VecRefDestTy, AddressSpace));
+      WideRef->setBitCastDestType(PointerType::get(VecRefDestTy, AddressSpace));
     }
   }
 

@@ -36,6 +36,7 @@
 #include "llvm/Transforms/IPO/Inliner.h"
 
 using namespace llvm;
+using namespace InlineReportTypes; // INTEL
 
 #define DEBUG_TYPE "inline"
 
@@ -179,10 +180,19 @@ InlineCost AMDGPUInliner::getInlineCost(CallSite CS) {
     return llvm::InlineCost::getNever();
 
   if (CS.hasFnAttr(Attribute::AlwaysInline)) {
-    if (isInlineViable(*Callee))
+#if INTEL_CUSTOMIZATION
+    InlineReason Reason = InlrNoReason;
+    if (isInlineViable(*Callee, Reason))
       return llvm::InlineCost::getAlways();
     return llvm::InlineCost::getNever();
   }
+  if (CS.hasFnAttr(Attribute::AlwaysInlineRecursive)) {
+    InlineReason Reason = InlrNoReason;
+    if (isInlineViable(*Callee, Reason))
+      return llvm::InlineCost::getAlways();
+    return llvm::InlineCost::getNever();
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (isWrapperOnlyCall(CS))
     return llvm::InlineCost::getAlways();
@@ -204,5 +214,6 @@ InlineCost AMDGPUInliner::getInlineCost(CallSite CS) {
   };
 
   return llvm::getInlineCost(CS, Callee, LocalParams, TTI, GetAssumptionCache,
-                             None, PSI, RemarksEnabled ? &ORE : nullptr);
+                             None, nullptr, nullptr, nullptr, PSI, // INTEL
+                             RemarksEnabled ? &ORE : nullptr);     // INTEL
 }

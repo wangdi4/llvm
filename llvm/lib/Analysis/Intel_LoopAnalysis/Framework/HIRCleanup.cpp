@@ -13,36 +13,18 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "HIRCleanup.h"
+
 #include "llvm/Analysis/LoopInfo.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRCleanup.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRCreation.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+
+#include "HIRCreation.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-cleanup"
-
-INITIALIZE_PASS_BEGIN(HIRCleanup, "hir-cleanup", "HIR Cleanup", false, true)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRCreation)
-INITIALIZE_PASS_END(HIRCleanup, "hir-cleanup", "HIR Cleanup", false, true)
-
-char HIRCleanup::ID = 0;
-
-FunctionPass *llvm::createHIRCleanupPass() { return new HIRCleanup(); }
-
-HIRCleanup::HIRCleanup() : FunctionPass(ID) {
-  initializeHIRCleanupPass(*PassRegistry::getPassRegistry());
-}
-
-void HIRCleanup::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequiredTransitive<LoopInfoWrapperPass>();
-  AU.addRequiredTransitive<HIRCreation>();
-}
 
 HLNode *HIRCleanup::findHIRHook(const BasicBlock *BB) const {
   auto It = LoopLatchHooks.find(BB);
@@ -50,9 +32,9 @@ HLNode *HIRCleanup::findHIRHook(const BasicBlock *BB) const {
   if (It != LoopLatchHooks.end()) {
     return It->second;
   }
-  auto Iter = HIR->Labels.find(BB);
+  auto Iter = HIRC.Labels.find(BB);
 
-  if (Iter != HIR->Labels.end()) {
+  if (Iter != HIRC.Labels.end()) {
     return Iter->second;
   }
 
@@ -62,11 +44,11 @@ HLNode *HIRCleanup::findHIRHook(const BasicBlock *BB) const {
 
 void HIRCleanup::eliminateRedundantGotos() {
 
-  for (auto I = HIR->Gotos.begin(), E = HIR->Gotos.end(); I != E; ++I) {
+  for (auto I = HIRC.Gotos.begin(), E = HIRC.Gotos.end(); I != E; ++I) {
     auto Goto = *I;
 
-    HLLabel *LabelSuccessor = dyn_cast_or_null<HLLabel>(
-        HIR->getHLNodeUtils().getLexicalControlFlowSuccessor(Goto));
+    HLLabel *LabelSuccessor =
+        dyn_cast_or_null<HLLabel>(HNU.getLexicalControlFlowSuccessor(Goto));
 
     auto TargetBB = Goto->getTargetBBlock();
 
@@ -80,9 +62,9 @@ void HIRCleanup::eliminateRedundantGotos() {
       HLNodeUtils::erase(Goto);
     } else {
       // Link Goto to its HLLabel target, if available.
-      auto It = HIR->Labels.find(TargetBB);
+      auto It = HIRC.Labels.find(TargetBB);
 
-      if (It != HIR->Labels.end()) {
+      if (It != HIRC.Labels.end()) {
         Goto->setTargetLabel(It->second);
         RequiredLabels.push_back(It->second);
       }
@@ -104,12 +86,12 @@ struct LabelNumberCompareEqual {
     return L1->getNumber() == L2->getNumber();
   }
 };
-}
+} // namespace
 
 void HIRCleanup::eliminateRedundantLabels() {
   Loop *Lp = nullptr;
 
-  for (auto I = HIR->Labels.begin(), E = HIR->Labels.end(); I != E; ++I) {
+  for (auto I = HIRC.Labels.begin(), E = HIRC.Labels.end(); I != E; ++I) {
     auto LabelBB = I->first;
     auto Label = I->second;
 
@@ -122,9 +104,8 @@ void HIRCleanup::eliminateRedundantLabels() {
 
       // This label represents loop latch bblock. We need to store the successor
       // as it is used by LoopFomation pass to find loop's bottom test.
-      if ((Lp = LI->getLoopFor(LabelBB)) && (Lp->getLoopLatch() == LabelBB)) {
-        auto LexSuccessor =
-            HIR->getHLNodeUtils().getLexicalControlFlowSuccessor(Label);
+      if ((Lp = LI.getLoopFor(LabelBB)) && (Lp->getLoopLatch() == LabelBB)) {
+        auto LexSuccessor = HNU.getLexicalControlFlowSuccessor(Label);
 
         HLContainerTy::iterator It(Label);
         assert(LexSuccessor && (&*std::next(It) == LexSuccessor) &&
@@ -138,10 +119,7 @@ void HIRCleanup::eliminateRedundantLabels() {
   }
 }
 
-bool HIRCleanup::runOnFunction(Function &F) {
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  HIR = &getAnalysis<HIRCreation>();
-
+void HIRCleanup::run() {
   eliminateRedundantGotos();
 
   // Sort RequiredLabels vector before the query phase.
@@ -152,19 +130,4 @@ bool HIRCleanup::runOnFunction(Function &F) {
                        RequiredLabels.end());
 
   eliminateRedundantLabels();
-
-  return false;
-}
-
-void HIRCleanup::releaseMemory() {
-  LoopLatchHooks.clear();
-  RequiredLabels.clear();
-}
-
-void HIRCleanup::print(raw_ostream &OS, const Module *M) const {
-  HIR->print(OS, M);
-}
-
-void HIRCleanup::verifyAnalysis() const {
-  // TODO: Implement later
 }

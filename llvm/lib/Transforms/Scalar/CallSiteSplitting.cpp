@@ -58,6 +58,7 @@
 
 #include "llvm/Transforms/Scalar/CallSiteSplitting.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PatternMatch.h"
@@ -265,15 +266,12 @@ static void splitCallSite(CallSite CS, BasicBlock *PredBB1, BasicBlock *PredBB2,
   CallSite CS2(CallInst2);
 
   // Handle PHIs used as arguments in the call-site.
-  for (auto &PI : *TailBB) {
-    PHINode *PN = dyn_cast<PHINode>(&PI);
-    if (!PN)
-      break;
+  for (PHINode &PN : TailBB->phis()) {
     unsigned ArgNo = 0;
     for (auto &CI : CS.args()) {
-      if (&*CI == PN) {
-        CS1.setArgument(ArgNo, PN->getIncomingValueForBlock(SplitBlock1));
-        CS2.setArgument(ArgNo, PN->getIncomingValueForBlock(SplitBlock2));
+      if (&*CI == &PN) {
+        CS1.setArgument(ArgNo, PN.getIncomingValueForBlock(SplitBlock1));
+        CS2.setArgument(ArgNo, PN.getIncomingValueForBlock(SplitBlock2));
       }
       ++ArgNo;
     }
@@ -386,6 +384,7 @@ struct CallSiteSplittingLegacyPass : public FunctionPass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addPreserved<WholeProgramWrapperPass>();  // INTEL
     FunctionPass::getAnalysisUsage(AU);
   }
 
@@ -416,5 +415,6 @@ PreservedAnalyses CallSiteSplittingPass::run(Function &F,
   if (!doCallSiteSplitting(F, TLI))
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
+  PA.preserve<WholeProgramAnalysis>();  // INTEL
   return PA;
 }

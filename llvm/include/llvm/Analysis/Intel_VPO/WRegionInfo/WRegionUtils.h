@@ -20,15 +20,11 @@
 
 #include "llvm/Support/Compiler.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 
 namespace llvm {
-
-namespace loopopt {
-class HIRFramework;
-}
 
 namespace vpo {
 

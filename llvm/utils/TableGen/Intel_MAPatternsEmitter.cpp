@@ -1,5 +1,5 @@
 //
-//      Copyright (c) 2016 Intel Corporation.
+//      Copyright (c) 2018 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -717,13 +717,17 @@ static bool cmpSPsAfterFiltering(const FMAExprSPTG *A, const FMAExprSPTG *B) {
 // The first DAG is just equivalent of the second one.
 void MAPatternsEmitter::removeRedundantPatterns(
                                       std::vector<FMAExprSPTG *> &SPsStorage) {
-  for (auto CurIt = SPsStorage.begin(); CurIt != SPsStorage.end(); CurIt++) {
+  for (auto CurIt = SPsStorage.begin(); CurIt != SPsStorage.end(); ++CurIt) {
     FMAExprSPTG *CurSP = *CurIt;
+    if (CurSP == nullptr)
+      continue;
 
     // Now iterate NextIt while see the same shape as CurIt has.
     auto NextIt = CurIt;
-    for (NextIt++; NextIt != SPsStorage.end();) {
+    for (++NextIt; NextIt != SPsStorage.end(); ++NextIt) {
       FMAExprSPTG *NextSP = *NextIt;
+      if (NextSP == nullptr)
+        continue;
 
       if (CurSP->Shape != NextSP->Shape)
         break;
@@ -731,9 +735,8 @@ void MAPatternsEmitter::removeRedundantPatterns(
       if (CurSP->hasSimilarOrBetterDagThan(*NextSP) &&
           CurSP->isSimilarOrMoreGeneralCaseThan(*NextSP)) {
         delete NextSP;
-        NextIt = SPsStorage.erase(NextIt);
-      } else
-        NextIt++;
+        *NextIt = nullptr;
+      }
     }
   }
 }
@@ -817,7 +820,12 @@ MAPatternsEmitter::emitX86Patterns(raw_ostream &OS,
      << SPsStorage.size() << "\n";
 
   // 3. Remove duplicated or inefficient SPs/Dags.
+  //    The function removeRedundantPatterns does not remove the elements from
+  //    the container, it only sets them to nullptr. Remove them explicitly.
   removeRedundantPatterns(SPsStorage);
+  auto E = std::remove_if(SPsStorage.begin(), SPsStorage.end(),
+                          [](FMAExprSPTG *SP){ return SP == nullptr; } );
+  SPsStorage.erase(E, SPsStorage.end());
 
   // 4. Sort SPs to make the FMA optimization working faster.
   //    Put the SPs with better DAGs first. So, the first found SP match

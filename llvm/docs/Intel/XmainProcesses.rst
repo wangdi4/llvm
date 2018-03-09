@@ -329,6 +329,8 @@ Expectations of code authors
      update your sources, it is helpful to upload a version of your changes
      that **only** reflects the update with no other changes.
 
+.. _testing-requirements:
+
 Testing Requirements
 ====================
 

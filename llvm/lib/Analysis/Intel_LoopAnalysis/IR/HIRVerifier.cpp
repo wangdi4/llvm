@@ -19,7 +19,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVerifier.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 
 #define DEBUG_TYPE "hir-verify"
 
@@ -117,12 +117,11 @@ template <bool Recursive> void HIRVerifier::verifyNode(const HLNode *N) {
 
 void HIRVerifier::verifyAll(const HIRFramework &HIRF) {
   HIRVerifierImpl V;
-  auto &HNU = HIRF.getHLNodeUtils();
-  auto Marker = HNU.getMarkerNode();
+  auto Marker = HIRF.getHLNodeUtils().getMarkerNode();
 
   (void)Marker;
   assert((!Marker || !Marker->isAttached()) &&
          "Marker node is attached to HIR!");
 
-  HNU.visitAll(V);
+  HLNodeUtils::visitRange(V, HIRF.hir_begin(), HIRF.hir_end());
 }

@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -1891,14 +1891,13 @@ void VPOCodeGen::vectorizeSelectInstruction(Instruction *Inst) {
   SelectInst *SelectI = cast<SelectInst>(Inst);
   // If the selector is loop invariant we can create a select
   // instruction with a scalar condition. Otherwise, use vector-select.
-  auto *SE = PSE.getSE();
   Value *Cond = SelectI->getOperand(0);
   Value *VCond = getVectorValue(Cond);
   Value *Op0 = getVectorValue(SelectI->getOperand(1));
   Value *Op1 = getVectorValue(SelectI->getOperand(2));
 
   bool InvariantCond =
-    SE->isLoopInvariant(PSE.getSCEV(Cond), OrigLoop);
+    Legal->isLoopInvariant(Cond);
 
   // The condition can be loop invariant  but still defined inside the
   // loop. This means that we can't just use the original 'cond' value.
@@ -3284,7 +3283,7 @@ bool VPOVectorizationLegality::isLoopInvariant(Value *V) {
   if (isLoopPrivate(V))
     return false;
   
-  return (PSE.getSE()->isLoopInvariant(PSE.getSCEV(V), TheLoop));
+  return LoopInvariants.count(V);
 }
 
 bool VPOVectorizationLegality::isLoopPrivate(Value *V) const {
@@ -3337,9 +3336,10 @@ int VPOVectorizationLegality::isConsecutivePtr(Value *Ptr) {
   if (isLoopPrivate(Ptr))
     return 1;
   
-  const ValueToValueMap &Strides = ValueToValueMap();
+  int Stride = 0;
+  if (PtrStrides.count(Ptr))
+    Stride = PtrStrides[Ptr];
 
-  int Stride = getPtrStride(PSE, Ptr, TheLoop, Strides, false);
   if (Stride == 1 || Stride == -1)
     return Stride;
 
@@ -3498,10 +3498,28 @@ void VPOVectorizationLegality::collectLoopUniformsForAnyVF() {
         Value *Cond = Br->getCondition();
         if (TheLoop->isLoopInvariant(Cond))
           Worklist.insert(Br);
+      } else if (isa<GetElementPtrInst>(&I)) {
+        // Collect invariant GEP operands
+        for (Value *Op : I.operands()) {
+          if (PSE.getSE()->isLoopInvariant(PSE.getSCEV(Op), TheLoop))
+            LoopInvariants.insert(Op);
+        }
+      } else if (isa<SelectInst>(&I)) {
+        // Collect invariant select conditions
+        Value *Cond = I.getOperand(0);
+        if (PSE.getSE()->isLoopInvariant(PSE.getSCEV(Cond), TheLoop))
+          LoopInvariants.insert(Cond);
       }
 
       // Load with loop invariant pointer
-      if (auto Ptr = getPointerOperand(&I)) {
+      Value *Ptr = getPointerOperand(&I);
+      if (Ptr && !isLoopPrivate(Ptr)) {
+        // Collect pointer stride information
+        if (!PtrStrides.count(Ptr)) {
+          const ValueToValueMap &Strides = ValueToValueMap();
+          int Stride = getPtrStride(PSE, Ptr, TheLoop, Strides, false);
+          PtrStrides[Ptr] = Stride;
+        }
         const SCEV *PtrScevAtTheLoopScope =
           PSE.getSE()->getSCEVAtScope(Ptr, TheLoop);
         if (PSE.getSE()->isLoopInvariant(PtrScevAtTheLoopScope, TheLoop) &&

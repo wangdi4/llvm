@@ -1,6 +1,6 @@
 //===----------- Intel_InlineLists.cpp - [No]Inline Lists  ----------------===//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -15,6 +15,7 @@
 //
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
 #include "llvm/ADT/StringSet.h"
+#include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
@@ -471,6 +472,10 @@ struct InlineLists : public ModulePass {
     initializeInlineListsPass(*PassRegistry::getPassRegistry());
   }
 
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesAll();
+  }
+
   bool runOnModule(Module &M) {
     if (skipModule(M))
       return false;
@@ -486,9 +491,8 @@ INITIALIZE_PASS(InlineLists, "inlinelists",
 ModulePass *llvm::createInlineListsPass() { return new InlineLists; }
 
 PreservedAnalyses InlineListsPass::run(Module &M, ModuleAnalysisManager &AM) {
-  if (!setInlineListsAttributes(M))
-    return PreservedAnalyses::all();
-  return PreservedAnalyses::none();
+  setInlineListsAttributes(M);
+  return PreservedAnalyses::all();
 }
 
 #endif // INTEL_CUSTOMIZATION

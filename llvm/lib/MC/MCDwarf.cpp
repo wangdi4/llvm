@@ -29,6 +29,7 @@
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/CommandLine.h" // INTEL
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/EndianStream.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -44,6 +45,15 @@
 #include <vector>
 
 using namespace llvm;
+
+#if INTEL_CUSTOMIZATION
+// A workaround for ld.gold internal error untill CMPLRS-48167 is fixed.
+static cl::opt<unsigned>
+    DwarfLineTableVersion("dwarf-line-version",
+                          cl::desc("Dwarf version for line table "
+                                   "(debug_line section)"),
+                          cl::init(2), cl::Hidden);
+#endif // INTEL_CUSTOMIZATION
 
 static inline uint64_t ScaleAddrDelta(MCContext &Context, uint64_t AddrDelta) {
   unsigned MinInsnLength = Context.getAsmInfo()->getMinInstAlignment();
@@ -342,6 +352,13 @@ MCDwarfLineTableHeader::Emit(MCStreamer *MCOS, MCDwarfLineTableParams Params,
   unsigned LineTableVersion = context.getDwarfVersion();
   if (context.getObjectFileInfo()->getTargetTriple().isOSDarwin())
     LineTableVersion = 2;
+
+#if INTEL_CUSTOMIZATION
+  // A workaround for ld.gold internal error untill CMPLRS-48167 is fixed.
+  // Set LineTableVersion to DwarfLineTableVersion option value (2 default).
+  LineTableVersion = DwarfLineTableVersion;
+#endif // INTEL_CUSTOMIZATION
+
   MCOS->EmitIntValue(LineTableVersion, 2);
 
   // Keep track of the bytes between the very start and where the header length

@@ -23,8 +23,12 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
+
+class DominatorTree;
+
 namespace loopopt {
 class HIRLoopStatistics;
+class HIRSafeReductionAnalysis;
 
 struct UnrollThresholds {
   unsigned LoopTripThreshold;
@@ -53,7 +57,9 @@ private:
   struct CanonExprUpdater;
   class ProfitabilityAnalyzer;
 
+  DominatorTree *DT;
   HIRLoopStatistics *HLS;
+  HIRSafeReductionAnalysis *HSRA;
 
   /// Indicates whether we are in pre or post vec mode.
   bool IsPreVec;
@@ -75,9 +81,10 @@ private:
   // Structure holding thresholds for complete unroll.
   UnrollThresholds Limits;
 
-  // Set of alloca stores that have been unrolled by complete unroll. This is
-  // used to evaluate profitability for corresponding alloca loads.
-  SmallPtrSet<const Value *, 16> UnrolledAllocaStoreBases;
+  // Maps alloca stores (represented by base ptr blob index) from previous
+  // profitable loopnests to their parent loops. This is used to evaluate
+  // profitability for alloca loads in later loopnests.
+  DenseMap<unsigned, const HLLoop *> PrevLoopnestAllocaStores;
 
 private:
   /// Returns true if loop is eligible for complete unrolling.
@@ -101,6 +108,14 @@ private:
   /// Here, j loop is added as candidate, but because of profitability, we
   /// don't add 'i' loop, then we remove 'j' loop also.
   void refineCandidates();
+
+  // Populates simplified alloca stores \p AllocaStores accumulated for \p Loop
+  // in PrevLoopnestAllocaStores data structure. \p SimplifiedNonLoopParents is
+  // used to check whether the store is unconditional.
+  void populateSimplifiedAllocaStores(
+      const HLLoop *Loop,
+      const DenseMap<unsigned, const RegDDRef *> &AllocaStores,
+      const SmallPtrSet<const HLNode *, 8> &SimplifiedNonLoopParents);
 
   /// Returns true if loop is profitable for complete unrolling.
   bool isProfitable(const HLLoop *Loop);

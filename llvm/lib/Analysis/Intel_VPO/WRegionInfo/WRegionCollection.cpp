@@ -273,10 +273,11 @@ void WRegionCollection::buildWRGraph(InputIRKind IR) {
   if (IR == HIR) {
     // TODO: move buildWRGraphFromHIR() from WRegionUtils to WRegionCollection
     //       after Vectorizer's HIR mode starts using this new interface
-    auto HIRF = getAnalysisIfAvailable<loopopt::HIRFramework>();
-    assert(HIRF && "HIR framework not available!");
+    auto *HIRFA = getAnalysisIfAvailable<loopopt::HIRFrameworkWrapperPass>();
+    assert(HIRFA && "HIR framework not available!");
+    auto &HIRF = HIRFA->getHIR();
 
-    WRGraph = WRegionUtils::buildWRGraphFromHIR(*HIRF);
+    WRGraph = WRegionUtils::buildWRGraphFromHIR(HIRF);
   } else if (IR == LLVMIR) {
     buildWRGraphFromLLVMIR(*Func);
   } else {

@@ -429,6 +429,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
     "declare i32 @__cxa_guard_acquire(%struct*)\n"
     "declare void @__cxa_guard_release(%struct*)\n"
 
+#if INTEL_CUSTOMIZATION
+    "declare i8* @__dynamic_cast(i8*, i8*, i8*, i64)\n"
+#endif // INTEL_CUSTOMIZATION
+
     "declare i32 @__nvvm_reflect(i8*)\n"
 
     "declare i8* @__memcpy_chk(i8*, i8*, i64, i64)\n"
@@ -446,7 +450,6 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
     // These are similar to the FILE* fgetc/fputc.
     "declare i32 @_IO_getc(%struct*)\n"
     "declare i32 @_IO_putc(i32, %struct*)\n"
-
     "declare i32 @__isoc99_scanf(i8*, ...)\n"
     "declare i32 @__isoc99_sscanf(i8*, i8*, ...)\n"
     "declare i8* @__strdup(i8*)\n"
@@ -461,7 +464,8 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
     "declare x86_fp80 @exp10l(x86_fp80)\n"
 #if INTEL_CUSTOMIZATION
     "declare i32 @__isoc99_fscanf(%struct*, i8*, ... )\n"
-    "declare void @__xstat64(i32, i8*, %struct*)\n"
+    "declare i32 @__xstat(i32, i8*, %struct*)\n"
+    "declare i32 @__xstat64(i32, i8*, %struct*)\n"
     "declare void @exit(i32)\n"
     "declare void @sincos(double, double*, double*)\n"
     "declare void @sincosf(float, float*, float*)\n"

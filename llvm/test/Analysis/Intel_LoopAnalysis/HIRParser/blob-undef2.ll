@@ -5,7 +5,7 @@
 ; |   <RVAL-REG> NON-LINEAR i32 undef * i1 + 2 * %0 + 1 {sb:2}
 ; |      <BLOB> NON-LINEAR i32 %0 {sb:5}
 
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s
 
 ; CHECK: NSW: Yes
 

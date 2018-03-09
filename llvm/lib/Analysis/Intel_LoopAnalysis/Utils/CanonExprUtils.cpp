@@ -21,6 +21,7 @@
 #include "llvm/Support/ErrorHandling.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
@@ -72,7 +73,7 @@ void CanonExprUtils::destroy(CanonExpr *CE) {
   delete CE;
 }
 
-void CanonExprUtils::destroyAll() {
+CanonExprUtils::~CanonExprUtils() {
   for (auto &I : Objs) {
     delete I;
   }
@@ -807,25 +808,23 @@ bool CanonExprUtils::compare(const CanonExpr *CE1, const CanonExpr *CE2) {
     return CE1->isSignedDiv();
   }
 
+  auto &CEU = CE1->getCanonExprUtils();
+
   // If CE1 and CE2 have incompatible types, order them using type info.
-  if (!mergeable(CE1, CE2)) {
-    Type *TypeA = CE1->getDestType();
-    Type *TypeB = CE2->getDestType();
+  auto Res = CEU.compare(CE1->getSrcType(), CE2->getSrcType());
 
-    // Get pointer element type (i32 from i32*) to make different pointer types
-    // be grouped together during sorting: (i32*, i32*, i64*, i64*, ...)
-    while (TypeA->isPointerTy() && TypeB->isPointerTy()) {
-      TypeA = TypeA->getPointerElementType();
-      TypeB = TypeB->getPointerElementType();
-    }
+  if (Res != 0) {
+    return Res < 0;
+  }
 
-    // Separate by type ID.
-    if (TypeA->getTypeID() != TypeB->getTypeID()) {
-      return TypeA->getTypeID() < TypeB->getTypeID();
-    }
+  Res = CEU.compare(CE1->getDestType(), CE2->getDestType());
 
-    // Separate types with the same ID by type size.
-    return TypeA->getPrimitiveSizeInBits() < TypeB->getPrimitiveSizeInBits();
+  if (Res != 0) {
+    return Res < 0;
+  }
+
+  if (CE1->isSExt() != CE2->isSExt()) {
+    return CE1->isSExt();
   }
 
   if (CE1->isNonLinear() != CE2->isNonLinear()) {
@@ -835,4 +834,57 @@ bool CanonExprUtils::compare(const CanonExpr *CE1, const CanonExpr *CE2) {
   }
 
   return false;
+}
+
+int64_t CanonExprUtils::compare(Type *Ty1, Type *Ty2) const {
+
+  // Perform trivial equality check first.
+  if (Ty1 == Ty2) {
+    return 0;
+  }
+
+  // Separate by type ID.
+  if (Ty1->getTypeID() != Ty2->getTypeID()) {
+    return Ty1->getTypeID() - Ty2->getTypeID();
+  }
+
+  bool IsTy1Sized = Ty1->isSized();
+  bool IsTy2Sized = Ty2->isSized();
+
+  if (IsTy1Sized != IsTy2Sized) {
+    return IsTy1Sized - IsTy2Sized;
+
+  } else if (IsTy1Sized && IsTy2Sized) {
+    auto Size1 = getDataLayout().getTypeSizeInBits(Ty1);
+    auto Size2 = getDataLayout().getTypeSizeInBits(Ty2);
+
+    if (Size1 != Size2) {
+      return Size1 - Size2;
+    }
+  }
+
+  // Compare subtypes. This is required to differentiate between two structures
+  // of same size, for example.
+  unsigned NumSubTypes1 = Ty1->getNumContainedTypes();
+  unsigned NumSubTypes2 = Ty2->getNumContainedTypes();
+
+  if (NumSubTypes1 != NumSubTypes2) {
+    return NumSubTypes1 - NumSubTypes2;
+  }
+
+  for (unsigned I = 0; I < NumSubTypes1; ++I) {
+    auto Res = compare(Ty1->getContainedType(I), Ty2->getContainedType(I));
+
+    if (Res != 0) {
+      return Res;
+    }
+  }
+
+  // This is not preferred as it can generate non-deterministic results across
+  // compiler runs if order of creation of type objects is non-deterministic but
+  // it is better than the alternative of returning 0 which can cause stability
+  // issues. This can happen if, for example, Ty1 and Ty2 are both structures
+  // containing function pointer members. As function is not a sized type, we
+  // need alternative checks to compare them. This is left as a TODO for now.
+  return Ty1 - Ty2;
 }

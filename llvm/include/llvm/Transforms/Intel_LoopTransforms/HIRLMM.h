@@ -1,4 +1,4 @@
-//===--- HIRLMM.h -HIR Loop Memory Motion Pass ---------- --*- C++ -*---===//
+//===--- HIRLMM.h -HIR Loop Memory Motion Pass ----------------*- C++ -*---===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //

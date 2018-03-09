@@ -135,6 +135,7 @@ void LTOCodeGenerator::initializeLTOPasses() {
   initializeDTransOptWrapperPass(R);
   initializeWholeProgramWrapperPassPass(R);
   initializeInlineAggressiveWrapperPassPass(R);
+  initializeOptimizeDynamicCastsWrapperPass(R);
 #endif // INTEL_CUSTOMIZATION
 }
 

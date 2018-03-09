@@ -35,7 +35,7 @@ bool ParVecDirectiveInsertion::runOnFunction(Function &Func) {
   if (skipFunction(Func))
     return false;
 
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   auto PVA = &getAnalysis<HIRParVecAnalysis>();
 
   // Analyze for all regions. Due to the on-demand nature of ParVecAnalysis,

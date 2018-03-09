@@ -82,6 +82,7 @@
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
+#include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"   //INTEL
 #include "llvm/Transforms/IPO/Internalize.h"
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
 #include "llvm/Transforms/IPO/PartialInlining.h"
@@ -91,6 +92,7 @@
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/InstrProfiling.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
+#include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h" // INTEL
 #include "llvm/Transforms/PGOInstrumentation.h"
 #include "llvm/Transforms/SampleProfile.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
@@ -109,6 +111,7 @@
 #include "llvm/Transforms/Scalar/IVUsersPrinter.h"
 #include "llvm/Transforms/Scalar/IndVarSimplify.h"
 #include "llvm/Transforms/Scalar/Intel_AggInlAA.h"     // INTEL
+#include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h" // INTEL
 #include "llvm/Transforms/Scalar/JumpThreading.h"
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/LoopAccessAnalysisPrinter.h"
@@ -157,6 +160,16 @@
 #include "llvm/Transforms/Vectorize/LoopVectorize.h"
 #include "llvm/Transforms/Vectorize/SLPVectorizer.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+
+// Intel Loop Optimization framework
+#include "llvm/Transforms/Intel_LoopTransforms/HIRSSADeconstruction.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGen.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -420,10 +433,10 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // We provide the opt remark emitter pass for LICM to use. We only need to do
   // this once as it is immutable.
   FPM.addPass(RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
-  FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM1)));
+  FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM1), DebugLogging));
   FPM.addPass(SimplifyCFGPass());
   FPM.addPass(InstCombinePass());
-  FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM2)));
+  FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM2), DebugLogging));
 
   // Eliminate redundancies.
   if (Level != O1) {
@@ -458,7 +471,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(JumpThreadingPass());
   FPM.addPass(CorrelatedValuePropagationPass());
   FPM.addPass(DSEPass());
-  FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass()));
+  FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass(), DebugLogging));
 
   for (auto &C : ScalarOptimizerLateEPCallbacks)
     C(FPM, Level);
@@ -523,7 +536,8 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM, bool DebugLogging,
     MPM.addPass(PGOInstrumentationGen());
 
     FunctionPassManager FPM;
-    FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));
+    FPM.addPass(
+        createFunctionToLoopPassAdaptor(LoopRotatePass(), DebugLogging));
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 
     // Add the profile lowering pass.
@@ -709,6 +723,10 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   if (RunPartialInlining)
     MPM.addPass(PartialInlinerPass());
 
+#if INTEL_CUSTOMIZATION
+  MPM.addPass(createModuleToFunctionPassAdaptor(CleanupFakeLoadsPass()));
+#endif // INTEL_CUSTOMIZATION
+
   // Remove avail extern fns and globals definitions since we aren't compiling
   // an object file for later LTO. For LTO we want to preserve these so they
   // are eligible for inlining at link-time. Note if they are unreferenced they
@@ -746,7 +764,8 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
     C(OptimizePM, Level);
 
   // First rotate loops that may have been un-rotated by prior passes.
-  OptimizePM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));
+  OptimizePM.addPass(
+      createFunctionToLoopPassAdaptor(LoopRotatePass(), DebugLogging));
 
   // Distribute loops to allow partial vectorization.  I.e. isolate dependences
   // into separate loop that would otherwise inhibit vectorization.  This is
@@ -793,7 +812,7 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   OptimizePM.addPass(LoopUnrollPass(Level));
   OptimizePM.addPass(InstCombinePass());
   OptimizePM.addPass(RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
-  OptimizePM.addPass(createFunctionToLoopPassAdaptor(LICMPass()));
+  OptimizePM.addPass(createFunctionToLoopPassAdaptor(LICMPass(), DebugLogging));
 
   // Now that we've vectorized and unrolled loops, we may have more refined
   // alignment information, try to re-derive it here.
@@ -977,6 +996,11 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // attributes where applicable.
   // FIXME: Is this really an optimization rather than a canonicalization?
   MPM.addPass(ReversePostOrderFunctionAttrsPass());
+
+#if INTEL_CUSTOMIZATION
+  // Optimize some dynamic_cast calls.
+  MPM.addPass(OptimizeDynamicCastsPass());
+#endif // INTEL_CUSTOMIZATION
 
   // Use inragne annotations on GEP indices to split globals where beneficial.
   MPM.addPass(GlobalSplitPass());
@@ -1553,7 +1577,8 @@ bool PassBuilder::parseFunctionPass(FunctionPassManager &FPM,
                                  DebugLogging))
         return false;
       // Add the nested pass manager with the appropriate adaptor.
-      FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM)));
+      FPM.addPass(
+          createFunctionToLoopPassAdaptor(std::move(LPM), DebugLogging));
       return true;
     }
     if (auto Count = parseRepeatPassName(Name)) {

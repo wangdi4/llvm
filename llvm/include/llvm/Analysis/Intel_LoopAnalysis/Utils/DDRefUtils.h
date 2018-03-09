@@ -18,7 +18,7 @@
 
 #include <map>
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRScalarSymbaseAssignment.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/BlobDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
@@ -42,7 +42,6 @@ class HIRSymbaseAssignment;
 /// Defines utilities for DDRef class and manages their creation/destruction.
 /// It contains a bunch of member functions which manipulate DDRefs.
 class DDRefUtils {
-private:
   /// Keeps track of DDRef objects.
   std::set<DDRef *> Objs;
 
@@ -66,8 +65,8 @@ private:
     return getCanonExprUtils().getHIRParser();
   }
 
-  /// Destroys all DDRefs. Called during HIR cleanup.
-  void destroyAll();
+  /// Destroys all DDRefs.
+  ~DDRefUtils();
 
   /// Creates a non-linear self blob RegDDRef from the passed in Value.
   /// Temp blobs from values are only created by framework.

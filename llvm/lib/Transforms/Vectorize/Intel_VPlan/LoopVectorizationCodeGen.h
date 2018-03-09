@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -184,6 +184,13 @@ private:
 
   /// Map of linear values and linear step
   DenseMap<Value *, int> Linears;
+
+  /// Map of pointer values and stride
+  DenseMap<Value *, int> PtrStrides;
+
+  /// Set of loop invariants - currently only GEP operands and select condition
+  /// are checked for invariance.
+  SmallPtrSet<Value *, 8> LoopInvariants;
 
   /// Map of linear items in original loop and the scalar linear item in the
   /// vector loop along with linear Step. This map is maintained only for
