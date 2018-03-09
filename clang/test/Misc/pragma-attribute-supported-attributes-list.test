@@ -4,7 +4,7 @@
 
 // if INTEL_CUSTOMIZATION
 // NOTE: The below value is currently Community value +6.
-// CHECK: #pragma clang attribute supports 72 attributes:
+// CHECK: #pragma clang attribute supports 75 attributes:
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: AMDGPUFlatWorkGroupSize (SubjectMatchRule_function)
 // CHECK-NEXT: AMDGPUNumSGPR (SubjectMatchRule_function)
@@ -62,7 +62,10 @@
 // CHECK-NEXT: ObjCSubclassingRestricted (SubjectMatchRule_objc_interface)
 // if INTEL_CUSTOMIZATION
 // CHECK-NEXT: OpenCLBlocking (SubjectMatchRule_variable)
+// CHECK-NEXT: OpenCLBufferLocation (SubjectMatchRule_variable_is_parameter)
+// CHECK-NEXT: OpenCLDepth (SubjectMatchRule_variable_is_parameter, SubjectMatchRule_variable_is_global)
 // CHECK-NEXT: OpenCLHostAccessible (SubjectMatchRule_variable)
+// CHECK-NEXT: OpenCLIO (SubjectMatchRule_variable)
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: OpenCLIntelReqdSubGroupSize (SubjectMatchRule_function)
 // CHECK-NEXT: OpenCLNoSVM (SubjectMatchRule_variable)

@@ -427,21 +427,6 @@ public:
     // Otherwise, assume the mapping is the scalar directly.
     return CGF.getOpaqueRValueMapping(E).getScalarVal();
   }
-#if INTEL_SPECIFIC_CILKPLUS
-  Value *VisitCEANIndexExpr(CEANIndexExpr *E) {
-    assert (E->getIndexExpr() && "Index expr is not set");
-    return CGF.EmitScalarExpr(E->getIndexExpr());
-  }
-
-  Value *VisitCEANBuiltinExpr(CEANBuiltinExpr *E) {
-    CodeGenFunction::LocalVarsDeclGuard Guard(CGF);
-    CGF.EmitCEANBuiltinExprBody(E);
-    if (E->getBuiltinKind() != CEANBuiltinExpr::ReduceMutating)
-      return E->getReturnExpr()->isRValue() ? Visit(E->getReturnExpr()) :
-                                              EmitLoadOfLValue(E->getReturnExpr());
-    return 0;
-  }
-#endif // INTEL_SPECIFIC_CILKPLUS
 
   Value *emitConstant(const CodeGenFunction::ConstantEmission &Constant,
                       Expr *E) {
@@ -773,12 +758,6 @@ public:
   }
   Value *VisitAsTypeExpr(AsTypeExpr *CE);
   Value *VisitAtomicExpr(AtomicExpr *AE);
-#if INTEL_SPECIFIC_CILKPLUS
-  Value *VisitCilkSpawnExpr(CilkSpawnExpr *E) {
-    CGF.EmitCilkSpawnExpr(E);
-    return 0;
-  }
-#endif // INTEL_SPECIFIC_CILKPLUS
 };
 }  // end anonymous namespace.
 
@@ -2318,11 +2297,7 @@ ScalarExprEmitter::VisitUnaryExprOrTypeTraitExpr(
       if (!eltSize.isOne())
         size = CGF.Builder.CreateNUWMul(CGF.CGM.getSize(eltSize), numElts);
 
-#if defined (INTEL_CUSTOMIZATION) && defined(INTEL_SPECIFIC_IL0_BACKEND)
-      return CGF.EmitIntelSizeof(TypeToSize, size);
-#else
       return size;
-#endif // defined (INTEL_CUSTOMIZATION) && defined(INTEL_SPECIFIC_IL0_BACKEND)
     }
   } else if (E->getKind() == UETT_OpenMPRequiredSimdAlign) {
     auto Alignment =
@@ -2335,12 +2310,7 @@ ScalarExprEmitter::VisitUnaryExprOrTypeTraitExpr(
 
   // If this isn't sizeof(vla), the result must be constant; use the constant
   // folding logic so we don't have to duplicate it here.
-#if defined (INTEL_CUSTOMIZATION) && defined(INTEL_SPECIFIC_IL0_BACKEND)
-  auto Size = Builder.getInt(E->EvaluateKnownConstInt(CGF.getContext()));
-  return CGF.EmitIntelSizeof(TypeToSize, Size);
-#else
   return Builder.getInt(E->EvaluateKnownConstInt(CGF.getContext()));
-#endif // defined (INTEL_CUSTOMIZATION) && defined(INTEL_SPECIFIC_IL0_BACKEND)
 }
 
 Value *ScalarExprEmitter::VisitUnaryReal(const UnaryOperator *E) {
@@ -3381,26 +3351,11 @@ Value *ScalarExprEmitter::VisitBinAssign(const BinaryOperator *E) {
     break;
 
   case Qualifiers::OCL_None:
-#if INTEL_SPECIFIC_CILKPLUS
-    // Cilk Plus needs the LHS evaluated first to handle cases such as
-    // array[f()] = _Cilk_spawn foo();
-    // This evaluation order requirement implies that _Cilk_spawn cannot
-    // spawn Objective C block calls.
-    if (CGF.getLangOpts().CilkPlus && E->getRHS()->isCilkSpawn()) {
-      LHS = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
-      RHS = Visit(E->getRHS());
-    } else {
-      // __block variables need to have the rhs evaluated first, plus
-      // this should improve codegen just a little.
-      RHS = Visit(E->getRHS());
-      LHS = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
-    }
-#else
     // __block variables need to have the rhs evaluated first, plus
     // this should improve codegen just a little.
     RHS = Visit(E->getRHS());
     LHS = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
-#endif // INTEL_SPECIFIC_CILKPLUS
+
     // Store the value into the LHS.  Bit-fields are handled specially
     // because the result is altered by the store, i.e., [C99 6.5.16p1]
     // 'An assignment expression has the value of the left operand after

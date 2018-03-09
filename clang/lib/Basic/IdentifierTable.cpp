@@ -97,7 +97,6 @@ IdentifierTable::IdentifierTable(const LangOptions &LangOpts,
 
 // Constants for TokenKinds.def
 namespace {
-
   enum {
     KEYC99 = 0x1,
     KEYCXX = 0x2,
@@ -122,21 +121,20 @@ namespace {
     KEYMODULES = 0x100000,
     KEYCXX2A = 0x200000,
     KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX2A,
-    KEYALL = (0x3fffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x3fffffff
+    KEYALL = (0x1fffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x1fffffff
               ~KEYNOOPENCL), // KEYNOMS18 and KEYNOOPENCL are used to exclude.
-#if INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
-    KEYCILKPLUS = 0x400000,
-    KEYFLOAT128 = 0x800000,
-    KEYRESTRICT = 0x1000000,
-    KEYMSASM = 0x2000000,
-    KEYBASES = 0x4000000,
-    KEYNOINT128 = 0x8000000,
-    KEYDECIMAL = 0x10000000,
-    KEYMSCOMPAT = 0x20000000,
-    KEYINTELALL = KEYCILKPLUS | KEYFLOAT128 | KEYRESTRICT | KEYMSASM |
-                  KEYBASES | KEYNOINT128 | KEYDECIMAL | KEYMSCOMPAT,
+#if INTEL_CUSTOMIZATION
+    KEYFLOAT128 = 0x400000,
+    KEYRESTRICT = 0x800000,
+    KEYMSASM    = 0x1000000,
+    KEYBASES    = 0x2000000,
+    KEYNOINT128 = 0x4000000,
+    KEYDECIMAL  = 0x8000000,
+    KEYMSCOMPAT = 0x10000000,
+    KEYINTELALL = KEYFLOAT128 | KEYRESTRICT | KEYMSASM |KEYBASES | KEYNOINT128 |
+                  KEYDECIMAL | KEYMSCOMPAT,
     KEYNOINTELALL = KEYALL & ~KEYINTELALL,
-#endif // INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
+#endif // INTEL_CUSTOMIZATION
   };
 
   /// \brief How a keyword is treated in the selected standard.
@@ -160,10 +158,6 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
       return KS_Enabled;
     if ((Flags & KEYNOINTELALL) == KEYNOINTELALL)
       Flags = Flags & KEYINTELALL;
-#if INTEL_SPECIFIC_CILKPLUS
-    if (LangOpts.CilkPlus && (Flags & KEYCILKPLUS))
-      return KS_Enabled;
-#endif // INTEL_SPECIFIC_CILKPLUS
     if (LangOpts.Float128 && (Flags & KEYFLOAT128))
       return KS_Extension;
     // CQ#366963 - enable/disable 'restrict' keyword in IntelCompat mode.

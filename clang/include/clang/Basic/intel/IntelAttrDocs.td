@@ -158,3 +158,58 @@ the results to one or more channels.
 .. _link: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
   }];
 }
+
+def OpenCLDepthDocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+You may have buffered or unbuffered channels/pipes in your kernel program. If there are
+imbalances in channel/pipe read and write operations, create buffered channels/pipes to prevent
+kernel stalls by including the depth attribute in your channel/pipe declaration.
+Buffered channels/pipes decouple the operation of concurrent work-items executing in
+different kernels.
+If you expect any temporary mismatch between the consumption rate and the
+production rate to the channel/pipe, set the buffer size using the depth
+attribute.
+
+Specify the depth attribute for the pipe arguments. Assign a depth attribute
+value that equals to the maximum number of packets that the pipe creates to
+hold in the host.
+  }];
+}
+
+def OpenCLIODocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+Include an io attribute in your OpenCL channel/pipe declaration to declare a
+special I/O channel/pipe to interface with input or output features of an FPGA
+board. These features might include network interfaces, PCIe, cameras, or other
+data capture or processing devices or protocols.
+
+In the Intel FPGA SDK for OpenCL channels extension, the io("chan_id") attribute
+specifies the I/O feature of an accelerator board with which a channel
+interfaces. The chan_id argument is the name of the I/O interface listed in the
+board_spec.xml file of your Custom Platform. The same I/O features can be used
+to identify I/O pipes.
+  }];
+}
+
+def OpenCLBufferLocationDocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+The board support package for your FPGA board can assemble a global memory space
+consisting of different memory technologies (for example, DRAM or SRAM). The
+board support package designates one such memory, which might consist of
+multiple interfaces, as the default memory. All buffers reside there.
+
+To instruct the host to allocate a buffer to a specific global memory type,
+insert the buffer_location("<memory_type>") attribute, where <memory_type> is
+the name of the global memory type provided by your board vendor.
+
+If you do not specify the buffer_location attribute, the host allocates the
+buffer to the default memory type automatically. To determine the default memory
+type, consult the documentation provided by your board vendor. Alternatively, in
+the board_spec.xml file of your Custom Platform, search for the memory type that
+is defined first or has the attribute default=1 assigned to it.
+  }];
+}
+

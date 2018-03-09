@@ -2901,15 +2901,14 @@ static void handleWeakImportAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 
 #if INTEL_CUSTOMIZATION
 // Checks correctness of mutual usage of different work_group_size attributes:
-// reqd_work_group_size, work_group_size_hint, max_work_group_size, task,
+// reqd_work_group_size, work_group_size_hint, max_work_group_size,
 // max_global_work_dim
 static bool checkWorkGroupSizeValues(Sema &S, Decl *D,
                                      const AttributeList &Attr,
                                      uint32_t WGSize[3]) {
-  if (Attr.getKind() == AttributeList::AT_Task ||
-      Attr.getKind() == AttributeList::AT_MaxGlobalWorkDim) {
-    // in case of 'task' attribute we should be sure that
-    // if max_work_group_size and reqd_work_group_size attributes exist,
+  if (Attr.getKind() == AttributeList::AT_MaxGlobalWorkDim) {
+    // in case of 'max_global_work_dim' attribute equals to 1 we should be sure
+    // that if max_work_group_size and reqd_work_group_size attributes exist,
     // then they are equal (1, 1, 1)
     if (const MaxWorkGroupSizeAttr *A = D->getAttr<MaxWorkGroupSizeAttr>()) {
       if (A->getXDim() != 1 || A->getYDim() != 1 || A->getZDim() != 1) {
@@ -2931,7 +2930,7 @@ static bool checkWorkGroupSizeValues(Sema &S, Decl *D,
     // in other cases we should check that attribute value
     // >= reqd_work_group_size attribute value and
     // <= max_work_group_size attribute value
-    if (const TaskAttr *A = D->getAttr<TaskAttr>()) {
+    if (const MaxGlobalWorkDimAttr *A = D->getAttr<MaxGlobalWorkDimAttr>()) {
       if (!(WGSize[0] == 1 && WGSize[1] == 1 && WGSize[2] == 1)) {
         S.Diag(Attr.getLoc(), diag::err_opencl_x_y_z_arguments_must_be_one)
             << Attr.getName() << A;
@@ -2961,24 +2960,6 @@ static bool checkWorkGroupSizeValues(Sema &S, Decl *D,
   }
 
   return true;
-}
-
-static void handleTaskAttribute(Sema &S, Decl *D, const AttributeList &Attr) {
-  if (D->isInvalidDecl())
-    return;
-
-  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
-    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
-        << Attr.getName();
-    return;
-  }
-
-  uint32_t WGSize[3] = {1, 1, 1};
-  if (!checkWorkGroupSizeValues(S, D, Attr, WGSize))
-    return;
-
-  D->addAttr(::new (S.Context) TaskAttr(Attr.getRange(), S.Context,
-                                        Attr.getAttributeSpellingListIndex()));
 }
 
 static void handleNumComputeUnitsAttr(Sema &S, Decl *D,
@@ -3075,8 +3056,8 @@ static void handleMaxGlobalWorkDimAttr(Sema &S, Decl *D,
   const Expr *E = Attr.getArgAsExpr(0);
   if (!checkUInt32Argument(S, Attr, E, MaxGlobalWorkDim, 0))
     return;
-  if (MaxGlobalWorkDim != 0) {
-    S.Diag(Attr.getLoc(), diag::err_intel_attribute_argument_is_not_zero)
+  if (MaxGlobalWorkDim > 3) {
+    S.Diag(Attr.getLoc(), diag::err_intel_attribute_argument_is_not_in_range)
       << Attr.getName();
     return;
   }
@@ -3139,25 +3120,26 @@ static void handleOpenCLBlockingAttr(Sema &S, Decl *D,
       Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
 }
 
-static void handleOpenCLChannelDepthAttr(Sema & S, Decl * D,
-                                         const AttributeList &Attr) {
+static void handleOpenCLDepthAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   if (D->isInvalidDecl())
     return;
 
-  if (!S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
+  VarDecl *VD = cast<VarDecl>(D);
+  QualType Ty = VD->getType();
+
+  // Handle array of channels case
+  QualType BaseTy = S.Context.getBaseElementType(Ty);
+  if (BaseTy->isChannelType())
+    Ty = BaseTy;
+
+  if (Ty->isChannelType() &&
+      !S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
         << Attr.getName() << "cl_intel_channels";
     return;
   }
 
-  VarDecl *VD = cast<VarDecl>(D);
-  QualType Ty = VD->getType();
-  // Handle array of channels case
-  while (auto *ArrayTy = dyn_cast<ArrayType>(Ty.getTypePtr())) {
-    Ty = ArrayTy->getElementType();
-  }
-  const Type *TypePtr = Ty.getTypePtr();
-  if (!TypePtr->isChannelType()) {
+  if (!Ty->isChannelType() && !Ty->isPipeType()) {
     S.Diag(Attr.getLoc(), diag::warn_intel_opencl_attribute_wrong_decl_type)
         << Attr.getName() << 46;
     return;
@@ -3171,36 +3153,38 @@ static void handleOpenCLChannelDepthAttr(Sema & S, Decl * D,
     return;
   }
 
-  int depth = Depth.getExtValue();
-  if (depth < 0) {
+  int DepthVal = Depth.getExtValue();
+  if (DepthVal < 0) {
     S.Diag(Attr.getLoc(), diag::warn_attribute_argument_n_negative)
         << Attr.getName() << "0";
     return;
   }
 
-  D->addAttr(::new (S.Context) OpenCLChannelDepthAttr(
-      Attr.getRange(), S.Context, depth, Attr.getAttributeSpellingListIndex()));
+  D->addAttr(::new (S.Context)
+                 OpenCLDepthAttr(Attr.getRange(), S.Context, DepthVal,
+                                 Attr.getAttributeSpellingListIndex()));
 }
 
-static void handleOpenCLChannelIOAttr(Sema & S, Decl * D,
-                                      const AttributeList &Attr) {
+static void handleOpenCLIOAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   if (D->isInvalidDecl())
     return;
 
-  if (!S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
+  VarDecl *VD = cast<VarDecl>(D);
+  QualType Ty = VD->getType();
+
+  // Handle array of channels case
+  QualType BaseTy = S.Context.getBaseElementType(Ty);
+  if (BaseTy->isChannelType())
+    Ty = BaseTy;
+
+  if (Ty->isChannelType() &&
+      !S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
         << Attr.getName() << "cl_intel_channels";
     return;
   }
 
-  VarDecl *VD = cast<VarDecl>(D);
-  QualType Ty = VD->getType();
-  // Handle array of channels case
-  while (auto *ArrayTy = dyn_cast<ArrayType>(Ty.getTypePtr())) {
-    Ty = ArrayTy->getElementType();
-  }
-  const Type *TypePtr = Ty.getTypePtr();
-  if (!TypePtr->isChannelType()) {
+  if (!Ty->isChannelType() && !Ty->isPipeType()) {
     S.Diag(Attr.getLoc(), diag::warn_intel_opencl_attribute_wrong_decl_type)
         << Attr.getName() << 46;
     return;
@@ -3208,9 +3192,9 @@ static void handleOpenCLChannelIOAttr(Sema & S, Decl * D,
 
   StringRef Str;
   if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
-    llvm_unreachable("io channel attribute should be a string");
+    return;
 
-  D->addAttr(::new (S.Context) OpenCLChannelIOAttr(
+  D->addAttr(::new (S.Context) OpenCLIOAttr(
       Attr.getRange(), S.Context, Str, Attr.getAttributeSpellingListIndex()));
 }
 
@@ -3466,7 +3450,7 @@ static void handleMergeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 /// when handling bank_bits they are checked for consistency.  If numbanks
 /// hasn't been added yet an implicit one is added with the correct value.
 /// If the user later adds a numbanks attribute the implicit one is removed.
-/// The values must be consecutive values (i.e. 3,4,5 or 1,2).
+/// The values must be consecutive values (i.e. 3,4,5 or 2,1).
 static void handleBankBitsAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 
   if (checkForDuplicateAttribute<BankBitsAttr>(S, D, Attr))
@@ -3492,29 +3476,32 @@ void Sema::AddBankBitsAttr(SourceRange AttrRange, Decl *D, Expr **Exprs,
                            unsigned Size, unsigned SpellingListIndex) {
   BankBitsAttr TmpAttr(AttrRange, Context, Exprs, Size, SpellingListIndex);
   SmallVector<Expr *, 8> Args;
-  SmallVector<llvm::APSInt, 8> Values;
+  SmallVector<int64_t, 8> Values;
+  bool ListIsValueDep = false;
   for (auto *E : TmpAttr.args()) {
     llvm::APSInt Value(32, /*IsUnsigned=*/false);
+    ListIsValueDep = ListIsValueDep || E->isValueDependent();
     if (!E->isValueDependent()) {
       ExprResult ICE;
       if (checkRangedIntegralArgument<BankBitsAttr>(E, &TmpAttr, ICE))
         return;
       E->EvaluateAsInt(Value, Context);
-      if (!Values.empty()) {
-        llvm::APSInt Expected(32, /*IsUnsigned=*/false);
-        Expected = Values.back() + 1;
-        // Expected == 1 would only happen for a value-dependent template
-        // which we can't check yet.
-        if (Expected != 1 && Value != Expected) {
-          Diag(AttrRange.getBegin(), diag::err_bankbits_non_consecutive)
-              << &TmpAttr;
-          return;
-        }
-      }
       E = ICE.get();
     }
     Args.push_back(E);
-    Values.push_back(Value);
+    Values.push_back(Value.getExtValue());
+  }
+
+  // Check that the list is consecutive.
+  if (!ListIsValueDep && Values.size() > 1) {
+    bool ListIsAscending = Values[0] < Values[1];
+    for (int I = 0, E = Values.size() - 1; I < E; ++I) {
+      if (Values[I + 1] != Values[I] + (ListIsAscending ? 1 : -1)) {
+        Diag(AttrRange.getBegin(), diag::err_bankbits_non_consecutive)
+            << &TmpAttr;
+        return;
+      }
+    }
   }
 
   // Check or add the related numbanks attribute.
@@ -3703,8 +3690,7 @@ static void handleOpenCLBufferLocationAttr(Sema & S, Decl * D,
 
   StringRef Str;
   if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
-    llvm_unreachable(
-        "argument of buffer_location attribute should be a string");
+    return;
 
   D->addAttr(::new (S.Context) OpenCLBufferLocationAttr(
       Attr.getRange(), S.Context, Str, Attr.getAttributeSpellingListIndex()));
@@ -3867,329 +3853,6 @@ static void handleVecTypeHint(Sema &S, Decl *D, const AttributeList &Attr) {
                                                ParmTSI,
                                         Attr.getAttributeSpellingListIndex()));
 }
-#if INTEL_SPECIFIC_CILKPLUS
-static void handleCilkElementalAttr(Sema &S, Decl *D,
-                                    const AttributeList &Attr) {
-  assert(Attr.getKind() == AttributeList::AT_CilkElemental);
-  D->addAttr(::new (S.Context) CilkElementalAttr(Attr.getLoc(), S.Context,
-                                                 Attr.getScopeLoc(), 0));
-}
-
-static void handleCilkMaskAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  if (!checkAttributeNumArgs(S, Attr, 0))
-    return;
-  bool Mask = false;
-  switch (Attr.getKind()) {
-  case AttributeList::AT_CilkMask:
-    Mask = true;
-    break;
-  case AttributeList::AT_CilkNoMask:
-    Mask = false;
-    break;
-  default:
-    llvm_unreachable("attribute is not 'mask' or 'nomask'");
-  }
-  D->addAttr(::new (S.Context) CilkMaskAttr(Attr.getLoc(), S.Context,
-                                            Mask, Attr.getScopeLoc(), 0));
-}
-
-template<typename A>
-A *getGroupAttr(Decl *D, SourceLocation Loc) {
-  for (specific_attr_iterator<A>
-        I = D->specific_attr_begin<A>(),
-        E = D->specific_attr_end<A>(); I != E; ++I)
-    if ((*I)->getGroup() == Loc)
-      return *I;
-  return 0;
-}
-
-static void handleCilkProcessorAttr(Sema &S, Decl *D,
-                                    const AttributeList &Attr) {
-  assert(Attr.getKind() == AttributeList::AT_CilkProcessor);
-  unsigned NumArgs = Attr.getNumArgs();
-  StringRef SR;
-  SourceLocation PLoc;
-  if (NumArgs == 1) {
-    if (Attr.getArg(0).is<Expr *>()) {
-      // Argument as string.
-      Expr *ArgExpr = Attr.getArg(0).get<Expr *>();
-      StringLiteral *SE = dyn_cast<StringLiteral>(ArgExpr);
-      if (!SE) {
-        S.Diag(ArgExpr->getLocStart(), diag::err_attribute_argument_type)
-          << Attr.getName() << AANT_ArgumentString;
-        return;
-      }
-      SR = SE->getString();
-      PLoc = ArgExpr->getExprLoc();
-    } else {
-    // Argument as identifier.
-      IdentifierLoc *ILoc = Attr.getArg(0).get<IdentifierLoc *>();
-      IdentifierInfo *ProcessorName = ILoc->Ident;
-      if (!ProcessorName) {
-        S.Diag(Attr.getLoc(), diag::err_attribute_argument_type)
-          << Attr.getName() << AANT_ArgumentIdentifier;
-        return;
-      }
-      SR = ProcessorName->getName();
-      PLoc = ILoc->Loc;
-    }
-  } else {
-    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
-      << Attr.getName() << 1;
-    return;
-  }
-  CilkProcessorAttr::CilkProcessor Processor = CilkProcessorAttr::getValue(SR);
-
-  // Check for multiple different processor attributes in one vector().
-  CilkProcessorAttr *ExistingAttr =
-    getGroupAttr<CilkProcessorAttr>(D, Attr.getScopeLoc());
-  if (ExistingAttr && ExistingAttr->getProcessor() != Processor) {
-    // CodeGen does actually allow this, so we just warn and continue.
-    S.Diag(PLoc,
-           diag::warn_cilk_elemental_inconsistent_processor);
-    S.Diag(ExistingAttr->getLocation(), diag::note_previous_attribute);
-  }
-  if (Processor == CilkProcessorAttr::Unspecified) {
-    S.Diag(PLoc,
-           diag::err_cilk_elemental_unrecognized_processor);
-    return;
-  }
-  D->addAttr(::new (S.Context)
-             CilkProcessorAttr(Attr.getRange(), S.Context,
-                               Processor, Attr.getScopeLoc(), 0));
-}
-
-static void handleCilkVecLengthAttr(Sema &S, Decl *D,
-                                    const AttributeList &Attr) {
-  assert(Attr.getKind() == AttributeList::AT_CilkVecLength);
-  if (!checkAttributeNumArgs(S, Attr, 1))
-    return;
-
-  // Check for multiple vectorlength attributes in one vector attribute.
-  if (CilkVecLengthAttr *Prev =
-        getGroupAttr<CilkVecLengthAttr>(D, Attr.getScopeLoc())) {
-    S.Diag(Attr.getLoc(), diag::err_cilk_elemental_repeated_vectorlength) << 0;
-    S.Diag(Prev->getLocation(), diag::note_previous_attribute);
-    return;
-  }
-
-  for (unsigned I = 0, NumArgs = Attr.getNumArgs(); I < NumArgs; ++I) {
-    Expr *LengthExpr = Attr.getArg(I).get<Expr *>();
-    ExprResult Result = S.CheckCilkVecLengthArg(LengthExpr);
-    if (!Result.isUsable())
-      return;
-
-    D->addAttr(::new (S.Context)
-               CilkVecLengthAttr(Attr.getRange(), S.Context,
-                                 Result.get(), Attr.getScopeLoc(), 0));
-  }
-}
-
-static bool diagnoseCilkAttrSubject(Sema &S, const FunctionDecl *FD,
-                                    const AttributeList &Attr,
-                                    IdentifierLoc *&IdLoc) {
-  assert(FD && "null function declaration");
-  IdLoc = 0;
-  if (Attr.getNumArgs() == 0) {
-    S.Diag(Attr.getLoc(), diag::err_attribute_argument_type)
-      << Attr.getName() << AANT_ArgumentIdentifier;
-    IdLoc = 0;
-    return false;
-  }
-  if (!Attr.getArg(0).is<IdentifierLoc *>()) return true;
-
-  IdLoc = Attr.getArg(0).get<IdentifierLoc *>();
-  IdentifierInfo *SubjectName = IdLoc->Ident;
-  if (!SubjectName) {
-    S.Diag(Attr.getLoc(), diag::err_attribute_argument_type)
-      << Attr.getName() << AANT_ArgumentIdentifier;
-    IdLoc = 0;
-    return false;
-  }
-
-  StringRef Name = SubjectName->getName();
-  SourceLocation Loc = IdLoc->Loc;
-
-  // Check uniform(this) and linear(this).
-  if (S.getLangOpts().CPlusPlus && Name.equals("this")) {
-    const CXXMethodDecl *Method = dyn_cast<CXXMethodDecl>(FD);
-    if (!Method || !Method->isInstance()) {
-      S.Diag(Loc, diag::err_invalid_this_use);
-      IdLoc = 0;
-      return false;
-    }
-    return true;
-  }
-
-  // Otherwise, check the subject is a function parameter name.
-  const VarDecl *Param = 0;
-  for (FunctionDecl::param_const_iterator I = FD->param_begin(),
-                                          E = FD->param_end();
-                                          I != E; ++I)
-    if ((*I)->getName().equals(Name)) {
-      Param = *I;
-      break;
-    }
-
-  if (!Param) {
-    S.Diag(Loc, diag::err_cilk_elemental_not_function_parameter);
-    IdLoc = 0;
-    return false;
-  }
-
-  return true;
-}
-
-static void handleCilkUniformAttr(Sema &S, Decl *D,
-                                  const AttributeList &Attr) {
-  const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
-  if (!FD || FD->isInvalidDecl())
-    return;
-
-  IdentifierLoc *IdLoc = 0;
-  if (!diagnoseCilkAttrSubject(S, FD, Attr, IdLoc))
-    return;
-
-  unsigned NumArgs = Attr.getNumArgs();
-  if (NumArgs > 1) {
-    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
-      << Attr.getName() << NumArgs - 1;
-    return;
-  }
-
-  // Add the uniform attribute to the function.
-  CilkUniformAttr *UniformAttr = ::new (S.Context) CilkUniformAttr(
-      Attr.getLoc(), S.Context, IdLoc ? IdLoc->Ident : 0,
-      IdLoc ? IdLoc->Loc : SourceLocation(), Attr.getScopeLoc(), 0);
-  D->addAttr(UniformAttr);
-}
-
-static void handleCilkLinearAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
-  if (!FD || FD->isInvalidDecl())
-    return;
-
-  IdentifierLoc *IdLoc = 0;
-  if (!diagnoseCilkAttrSubject(S, FD, Attr, IdLoc))
-    return;
-
-  Expr *StepExpr = 0;
-  unsigned NumArgs = Attr.getNumArgs();
-
-  if (NumArgs == 2 && Attr.getArg(1).is<IdentifierLoc *>()) {
-    IdentifierLoc *Step = Attr.getArg(1).get<IdentifierLoc *>();
-    IdentifierInfo *StepId = Step->Ident;
-    SourceLocation StepLoc = Step->Loc;
-
-    // First, check if linear step is a parameter name.
-    assert(StepId && "null step name unexpected");
-    for (unsigned i = 0, NumParams = FD->getNumParams(); i < NumParams; ++i) {
-      ParmVarDecl *StepParm = FD->getParamDecl(i);
-      if (StepParm->getName().equals(StepId->getName())) {
-        Sema::ContextRAII SavedContext(S, StepParm->getDeclContext());
-        QualType Ty = StepParm->getType().getNonReferenceType();
-        ExprResult Ref = S.BuildDeclRefExpr(StepParm, Ty, VK_LValue, StepLoc);
-        assert(Ref.isUsable() && "reference cannot fail");
-        StepExpr = Ref.get();
-        break;
-      }
-    }
-
-    // If linear step is not a parameter, we perform a lookup to find
-    // the declaration which the step identifier is referencing to.
-    if (!StepExpr) {
-      DeclarationNameInfo Name(StepId, StepLoc);
-      LookupResult Result(S, Name, Sema::LookupOrdinaryName);
-      S.LookupName(Result, S.getCurScope());
-
-      if (Result.empty()) {
-        S.Diag(StepLoc, diag::err_undeclared_var_use) << StepId;
-        return;
-      } else if (Result.isSingleResult()) {
-        NamedDecl *ND = Result.getFoundDecl();
-        assert(ND && "declaration not found");
-        if (!isa<ValueDecl>(ND)) {
-          S.Diag(StepLoc, diag::err_ref_non_value) << StepId;
-          S.Diag(ND->getLocation(), diag::note_declared_at);
-          return;
-        }
-        CXXScopeSpec SS;
-        ExprResult Ref = S.BuildDeclarationNameExpr(SS, Result, /*ADL*/false);
-        if (!Ref.isUsable())
-          return;
-        StepExpr = Ref.get();
-      } else {
-        S.Diag(StepLoc, diag::err_cilk_elemental_not_function_parameter);
-        return;
-      }
-    }
-  } else if (NumArgs == 1) {
-    // By default, the step is 1.
-    StepExpr = IntegerLiteral::Create(S.Context, llvm::APInt(32, 1),
-                                      S.Context.IntTy, SourceLocation());
-  } else if (NumArgs == 2) {
-    StepExpr = Attr.getArg(1).get<Expr *>();
-  } else {
-    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
-      << Attr.getName() << 1;
-    return;
-  }
-
-  StepExpr = S.CheckCilkLinearArg(StepExpr);
-  if (!StepExpr)
-    return;
-
-  // Add the linear attribute to the function.
-  CilkLinearAttr *LinearAttr =
-    ::new (S.Context) CilkLinearAttr(Attr.getLoc(), S.Context,
-                                     IdLoc ? IdLoc->Ident : 0,
-                                     IdLoc ? IdLoc->Loc : SourceLocation(),
-                                     StepExpr,
-                                     Attr.getScopeLoc(), 0);
-  D->addAttr(LinearAttr);
-}
-
-static void handleCilkAlignedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
-  if (!FD || FD->isInvalidDecl())
-    return;
-
-  IdentifierLoc *IdLoc = 0;
-  if (!diagnoseCilkAttrSubject(S, FD, Attr, IdLoc))
-    return;
-  Expr *AlignExpr = 0;
-  unsigned NumArgs = Attr.getNumArgs();
-
-  if (NumArgs == 1)
-    // Use default alignment for the given argument
-    AlignExpr = IntegerLiteral::Create(S.Context, llvm::APInt(32, 0),
-                                       S.Context.IntTy, SourceLocation());
-  else if (NumArgs == 2) {
-    // FIXME: is it possible to use an identifier as the alignment value?
-    //        (we don't have any spec yet about aligned attribute)
-    // FIXME: it should be done in Sema::CheckCilkAlignedArg
-    if (Attr.getArg(1).is<IdentifierLoc *>()) {
-      S.Diag(Attr.getArg(1).get<IdentifierLoc *>()->Loc,
-             diag::err_cilk_elemental_aligned_not_constant);
-      return;
-    }
-    AlignExpr = Attr.getArg(1).get<Expr *>();
-  } else {
-    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
-        << Attr.getName() << 1;
-    return;
-  }
-  if (AlignExpr)
-    AlignExpr = S.CheckCilkAlignedArg(AlignExpr);
-  if (!AlignExpr)
-    return;
-  // Add the linear attribute to the function.
-  CilkAlignedAttr *AlignAttr = ::new (S.Context) CilkAlignedAttr(
-      Attr.getLoc(), S.Context, IdLoc ? IdLoc->Ident : 0,
-      IdLoc ? IdLoc->Loc : SourceLocation(), AlignExpr, Attr.getScopeLoc(), 0);
-  D->addAttr(AlignAttr);
-}
-#endif // INTEL_SPECIFIC_CILKPLUS
 
 SectionAttr *Sema::mergeSectionAttr(Decl *D, SourceRange Range,
                                     StringRef Name,
@@ -4222,9 +3885,6 @@ static void handleSectionAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str, &LiteralLoc))
     return;
 
-#ifndef INTEL_SPECIFIC_IL0_BACKEND
-  if (!S.checkSectionName(LiteralLoc, Str))
-    return;
 #ifndef INTEL_CUSTOMIZATION
   // If the target wants to validate the section specifier, make it happen.
   std::string Error = S.Context.getTargetInfo().isValidSectionSpecifier(Str);
@@ -4232,7 +3892,6 @@ static void handleSectionAttr(Sema &S, Decl *D, const AttributeList &Attr) {
     S.Diag(LiteralLoc, diag::err_attribute_section_invalid_for_target)
     << Error;
 #endif // INTEL_CUSTOMIZATION
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 
   unsigned Index = Attr.getAttributeSpellingListIndex();
   SectionAttr *NewAttr = S.mergeSectionAttr(D, Attr.getRange(), Str, Index);
@@ -7336,88 +6995,6 @@ static void handleOpenCLAccessAttr(Sema &S, Decl *D,
 //===----------------------------------------------------------------------===//
 // Top Level Sema Entry Points
 //===----------------------------------------------------------------------===//
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-static void handleAvoidFalseShareAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  // Check the attribute arguments.
-  if (Attr.getNumArgs() > 1) {
-    S.Diag(Attr.getLoc(), diag::err_attribute_too_many_arguments) << 1;
-    return;
-  }
-
-  if (!isa<VarDecl>(D) || cast<VarDecl>(D)->getType().isNull() || 
-    cast<VarDecl>(D)->getType()->isReferenceType() || 
-    !(cast<VarDecl>(D)->isLocalVarDecl() || cast<VarDecl>(D)->isFileVarDecl())) {
-    S.Diag(Attr.getLoc(), diag::x_warn_intel_attribute_variable_only)
-      << Attr.getName();
-    return;
-  }
-
-  // Handle the case where deprecated attribute has a text message.
-  StringRef Str;
-  if (Attr.getNumArgs() == 1) {
-    StringLiteral *SE = dyn_cast<StringLiteral>(Attr.getArg(0).get<Expr *>());
-    if (!SE) {
-      S.Diag(Attr.getArg(0).get<Expr *>()->getLocStart(),
-             diag::x_err_attribute_not_string)
-        << Attr.getName();
-      return;
-    }
-    Str = SE->getString();
-  }
-
-  D->addAttr(::new (S.Context) AvoidFalseShareAttr(Attr.getRange(), S.Context, Str, 0));
-}
-
-static void handleAllocateAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  // Check the attribute arguments.
-  if (!checkAttributeNumArgs(S, Attr, 1)) {
-    return;
-  }
-
-  if (!isa<VarDecl>(D) || cast<VarDecl>(D)->getType().isNull() || 
-    cast<VarDecl>(D)->getType()->isReferenceType()) {
-    S.Diag(Attr.getLoc(), diag::x_warn_intel_attribute_variable_only)
-      << Attr.getName();
-    return;
-  }
-
-  if (isa<VarDecl>(D) && cast<VarDecl>(D)->hasLocalStorage()) {
-    S.Diag(Attr.getLoc(), diag::err_attribute_section_local_variable);
-    return;
-  }
-
-  // Handle the case where deprecated attribute has a text message.
-  StringRef Str;
-  StringLiteral *SE = dyn_cast<StringLiteral>(Attr.getArg(0).get<Expr *>());
-  if (!SE) {
-    S.Diag(Attr.getArg(0).get<Expr *>()->getLocStart(),
-           diag::x_err_attribute_not_string)
-      << Attr.getName();
-    return;
-  }
-  Str = SE->getString();
-
-  D->addAttr(::new (S.Context) SectionAttr(Attr.getRange(), S.Context, Str, 0));
-}
-
-static void handleGCCStructAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  if (TagDecl *TD = dyn_cast<TagDecl>(D)) {
-    TD->dropAttr<MSStructAttr>();
-    TD->addAttr(::new (S.Context) GCCStructAttr(Attr.getRange(), S.Context, 0));
-  }
-  else
-    S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) << Attr.getName();
-}
-
-static void handleBNDLegacyAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  D->addAttr(::new (S.Context) BNDLegacyAttr(Attr.getRange(), S.Context, 0));
-}
-
-static void handleBNDVarSizeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  D->addAttr(::new (S.Context) BNDVarSizeAttr(Attr.getRange(), S.Context, 0));
-}
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-
 /// ProcessDeclAttribute - Apply the specific attribute to the specified decl if
 /// the attribute applies to decls.  If the attribute is a type attribute, just
 /// silently ignore it if a GNU attribute.
@@ -8045,9 +7622,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_MaxWorkGroupSize:
     handleWorkGroupSize<MaxWorkGroupSizeAttr>(S, D, Attr);
     break;
-  case AttributeList::AT_Task:
-    handleTaskAttribute(S, D, Attr);
-    break;
   case AttributeList::AT_NumComputeUnits:
     handleNumComputeUnitsAttr(S, D, Attr);
     break;
@@ -8057,11 +7631,11 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_OpenCLBlocking:
     handleOpenCLBlockingAttr(S, D, Attr);
     break;
-  case AttributeList::AT_OpenCLChannelDepth:
-    handleOpenCLChannelDepthAttr(S, D, Attr);
+  case AttributeList::AT_OpenCLDepth:
+    handleOpenCLDepthAttr(S, D, Attr);
     break;
-  case AttributeList::AT_OpenCLChannelIO:
-    handleOpenCLChannelIOAttr(S, D, Attr);
+  case AttributeList::AT_OpenCLIO:
+    handleOpenCLIOAttr(S, D, Attr);
     break;
   case AttributeList::AT_OpenCLLocalMemSize:
     handleOpenCLLocalMemSizeAttr(S, D, Attr);
@@ -8140,45 +7714,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleSlaveMemoryArgumentAttr(S, D, Attr);
     break;
 #endif // INTEL_CUSTOMIZATION
-#if INTEL_SPECIFIC_CILKPLUS
-  // Cilk Plus attributes.
-  case AttributeList::AT_CilkElemental:
-    handleCilkElementalAttr(S, D, Attr);
-    break;
-  case AttributeList::AT_CilkMask:
-  case AttributeList::AT_CilkNoMask:
-    handleCilkMaskAttr(S, D, Attr);
-    break;
-  case AttributeList::AT_CilkProcessor:
-    handleCilkProcessorAttr(S, D, Attr);
-    break;
-  case AttributeList::AT_CilkLinear:
-    handleCilkLinearAttr(S, D, Attr);
-    break;
-  case AttributeList::AT_CilkAligned:
-    handleCilkAlignedAttr(S, D, Attr);
-    break;
-  case AttributeList::AT_CilkUniform:
-    handleCilkUniformAttr(S, D, Attr);
-    break;
-  case AttributeList::AT_CilkVecLength:
-    handleCilkVecLengthAttr(S, D, Attr);
-    break;
-#endif // INTEL_SPECIFIC_CILKPLUS
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  // FIXME: Unless TableGen is able to recognize IL0-specific guards, don't
-  // forget to add every attribute appearing here to the #else section below!
-  case AttributeList::AT_AvoidFalseShare:
-    handleAvoidFalseShareAttr  (S, D, Attr); break;
-  case AttributeList::AT_Allocate:
-    handleAllocateAttr  (S, D, Attr); break;
-  case AttributeList::AT_GCCStruct:
-    handleGCCStructAttr  (S, D, Attr); break;
-  case AttributeList::AT_BNDLegacy:
-    handleBNDLegacyAttr  (S, D, Attr); break;
-  case AttributeList::AT_BNDVarSize:
-    handleBNDVarSizeAttr  (S, D, Attr); break;
-#endif // INTEL_SPECIFIC_IL0_BACKEND
   case AttributeList::AT_AnyX86NoCallerSavedRegisters:
     handleNoCallerSavedRegsAttr(S, D, Attr);
     break;
@@ -8232,9 +7767,6 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
 #if INTEL_CUSTOMIZATION
-    } else if (Attr *A = D->getAttr<TaskAttr>()) {
-      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
-      D->setInvalidDecl();
     } else if (Attr *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();

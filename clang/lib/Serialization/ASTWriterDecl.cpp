@@ -145,9 +145,6 @@ namespace clang {
     void VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D);
     void VisitOMPDeclareReductionDecl(OMPDeclareReductionDecl *D);
     void VisitOMPCapturedExprDecl(OMPCapturedExprDecl *D);
-#if INTEL_CUSTOMIZATION
-    void VisitPragmaDecl(PragmaDecl *D);
-#endif  // INTEL_CUSTOMIZATION
 
     /// Add an Objective-C type parameter list to the given record.
     void AddObjCTypeParamList(ObjCTypeParamList *typeParams) {
@@ -2255,20 +2252,6 @@ void ASTWriter::WriteDecl(ASTContext &Context, Decl *D) {
   if (isRequiredDecl(D, Context, WritingModule))
     EagerlyDeserializedDecls.push_back(ID);
 }
-
-#if INTEL_CUSTOMIZATION
-void ASTDeclWriter::VisitPragmaDecl(PragmaDecl *D) {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  VisitDecl(D);
-  Record.AddStmt(D->getStmt());
-
-  Code = serialization::DECL_PRAGMA;
-#else
-  llvm_unreachable(
-    "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-}
-#endif  // INTEL_CUSTOMIZATION
 
 void ASTRecordWriter::AddFunctionDefinition(const FunctionDecl *FD) {
   // Switch case IDs are per function body.

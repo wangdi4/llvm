@@ -2502,10 +2502,7 @@ enum CXCursorKind {
    */
   CXCursor_OMPTargetTeamsDistributeSimdDirective = 279,
 
-#if INTEL_CUSTOMIZATION
-  CXCursor_CilkRankedStmt                = 280,
-  CXCursor_LastStmt                      = CXCursor_CilkRankedStmt,
-#endif /* INTEL_CUSTOMIZATION */
+  CXCursor_LastStmt = CXCursor_OMPTargetTeamsDistributeSimdDirective,
 
   /**
    * \brief Cursor that represents the translation unit itself.

@@ -58,12 +58,7 @@ namespace sema {
 class CompoundScopeInfo {
 public:
   CompoundScopeInfo()
-    : HasEmptyLoopBodies(false) 
-#if INTEL_SPECIFIC_CILKPLUS
-        ,
-        HasCilkSpawn(false)
-#endif // INTEL_SPECIFIC_CILKPLUS
-  { }
+    : HasEmptyLoopBodies(false) { }
 
   /// \brief Whether this compound stamement contains `for' or `while' loops
   /// with empty bodies.
@@ -72,13 +67,6 @@ public:
   void setHasEmptyLoopBodies() {
     HasEmptyLoopBodies = true;
   }
-#if INTEL_SPECIFIC_CILKPLUS
-  /// \brief Whether this compound statement contains _Cilk_spawn statements.
-  bool HasCilkSpawn;
-  void setHasCilkSpawn() {
-    HasCilkSpawn = true;
-  }
-#endif // INTEL_SPECIFIC_CILKPLUS
 };
 
 class PossiblyUnreachableDiag {
@@ -101,11 +89,6 @@ protected:
     SK_Block,
     SK_Lambda,
     SK_CapturedRegion
-#if INTEL_SPECIFIC_CILKPLUS
-    ,
-    SK_CilkFor,
-    SK_SIMDFor
-#endif // INTEL_SPECIFIC_CILKPLUS
   };
   
 public:
@@ -682,11 +665,7 @@ public:
 
   static bool classof(const FunctionScopeInfo *FSI) { 
     return FSI->Kind == SK_Block || FSI->Kind == SK_Lambda
-                                 || FSI->Kind == SK_CapturedRegion
-#if INTEL_SPECIFIC_CILKPLUS
-           || FSI->Kind == SK_CilkFor || FSI->Kind == SK_SIMDFor
-#endif // INTEL_SPECIFIC_CILKPLUS
-      ;
+                                 || FSI->Kind == SK_CapturedRegion;
   }
 };
 
@@ -731,19 +710,13 @@ public:
   /// \brief The kind of captured region.
   unsigned short CapRegionKind;
   unsigned short OpenMPLevel;
-#if INTEL_SPECIFIC_CILKPLUS
-  /// \brief Whether any of the capture expressions require cleanups.
-  CleanupInfo Cleanup;
-#endif // INTEL_SPECIFIC_CILKPLUS
+
   CapturedRegionScopeInfo(DiagnosticsEngine &Diag, Scope *S, CapturedDecl *CD,
                           RecordDecl *RD, ImplicitParamDecl *Context,
                           CapturedRegionKind K, unsigned OpenMPLevel)
     : CapturingScopeInfo(Diag, ImpCap_CapturedRegion),
       TheCapturedDecl(CD), TheRecordDecl(RD), TheScope(S),
       ContextParam(Context), CapRegionKind(K), OpenMPLevel(OpenMPLevel)
-#if INTEL_SPECIFIC_CILKPLUS
-      , Cleanup{}
-#endif // INTEL_SPECIFIC_CILKPLUS
   {
     Kind = SK_CapturedRegion;
   }
@@ -755,14 +728,6 @@ public:
     switch (CapRegionKind) {
     case CR_Default:
       return "default captured statement";
-#if INTEL_SPECIFIC_CILKPLUS
-    case CR_CilkSpawn:
-      return "_Cilk_spawn";
-    case CR_CilkFor:
-      return "_Cilk_for";
-    case CR_SIMDFor:
-      return "simd for";
-#endif // INTEL_SPECIFIC_CILKPLUS
     case CR_OpenMP:
       return "OpenMP region";
     }
@@ -770,230 +735,9 @@ public:
   }
 
   static bool classof(const FunctionScopeInfo *FSI) {
-    return FSI->Kind == SK_CapturedRegion 
-#if INTEL_SPECIFIC_CILKPLUS
-           || FSI->Kind == SK_CilkFor || FSI->Kind == SK_SIMDFor
-#endif // INTEL_SPECIFIC_CILKPLUS
-        ;
-
+    return FSI->Kind == SK_CapturedRegion;
   }
 };
-
-#if INTEL_SPECIFIC_CILKPLUS
-/// \brief Retains information about a Cilk for capturing region.
-class CilkForScopeInfo : public CapturedRegionScopeInfo {
-public:
-  /// \brief The source location of the Cilk for.
-  SourceLocation CilkForLoc;
-
-  /// \brief The loop control variable of this Cilk for loop.
-  const VarDecl *LoopControlVar;
-
-  /// \brief The local copy of the loop control variable.
-  VarDecl *InnerLoopControlVar;
-
-  CilkForScopeInfo(DiagnosticsEngine &Diag, Scope *S, CapturedDecl *CD,
-                   RecordDecl *RD, ImplicitParamDecl *Context,
-                   const VarDecl *VD, SourceLocation Loc)
-      : CapturedRegionScopeInfo(Diag, S, CD, RD, Context, CR_CilkFor, 0),
-        CilkForLoc(Loc), LoopControlVar(VD), InnerLoopControlVar(nullptr) {
-    Kind = SK_CilkFor;
-  }
-
-  bool isLoopControlVar(const VarDecl *VD) const {
-    return VD && (VD == LoopControlVar);
-  }
-
-  virtual ~CilkForScopeInfo();
-
-  static bool classof(const FunctionScopeInfo *FSI) {
-    return FSI->Kind == SK_CilkFor;
-  }
-};
-
-/// \brief Retains information about a Cilk for capturing region.
-class SIMDForScopeInfo : public CapturedRegionScopeInfo {
-public:
-  class SIMDVariable {
-    /// \brief Bitfield specifying kinds of this variable.
-    unsigned Kind;
-
-    /// \brief The local declaration of this variable.
-    VarDecl *LocalDecl;
-
-    /// \brief The original/outer variable declaration.
-    VarDecl *OuterDecl;
-
-    /// \brief The source location of the variable usage in the simd clause
-    SourceLocation Location;
-
-    /// \brief Constructed expression to update the outer variable.
-    Expr *UpdateExpr;
-
-    /// \brief The array index variables created for the update expression.
-    SmallVector<VarDecl *, 2> IndexVars;
-
-  public:
-    SIMDVariable(VarDecl *Var, SIMDVariableKind K, SourceLocation Loc)
-        : Kind(K), LocalDecl(0), OuterDecl(Var), Location(Loc), UpdateExpr(0) {}
-
-    void AddKind(SIMDVariableKind K) { Kind |= K; }
-
-    unsigned GetKind() const { return Kind; }
-
-    bool IsKind(SIMDVariableKind K) const { return Kind & K; }
-
-    void SetLocal(VarDecl *L) { LocalDecl = L; }
-
-    void SetUpdateExpr(Expr *E) { UpdateExpr = E; }
-
-    void SetInvalid() { Kind = SIMD_VK_Unknown; }
-
-    void SetIndexVariables(ArrayRef<VarDecl *> Vars) {
-      assert(IndexVars.empty() && "index variable set already");
-      IndexVars.append(Vars.begin(), Vars.end());
-    }
-
-    bool IsUsable() const {
-      return (Kind != SIMD_VK_Unknown) && LocalDecl;
-    }
-
-    VarDecl *GetLocal() const { return LocalDecl; }
-
-    VarDecl *GetOuter() const { return OuterDecl; }
-
-    SourceLocation GetLocation() const { return Location; }
-
-    Expr *GetUpdateExpr() const { return UpdateExpr; }
-
-    ArrayRef<VarDecl *> GetIndexVariables() const {
-      return IndexVars;
-    }
-  };
-
-private:
-  typedef llvm::DenseMap<VarDecl *, unsigned>::const_iterator const_iterator;
-  typedef llvm::DenseMap<VarDecl *, unsigned>::iterator iterator;
-
-  void addVar(VarDecl *V, SIMDVariableKind K, SourceLocation Loc) {
-    iterator I = SimdVariableMap.find(V);
-    if (I != SimdVariableMap.end())
-      SIMDVariables[I->second].AddKind(K);
-    else {
-      SimdVariableMap.insert(std::make_pair(V, SIMDVariables.size()));
-      SIMDVariables.push_back(SIMDVariable(V, K, Loc));
-    }
-  }
-
-  bool isVarKind(VarDecl *V, SIMDVariableKind Kind) const {
-    bool Result = false;
-    const_iterator I = SimdVariableMap.find(V);
-    if (I != SimdVariableMap.end())
-      Result = SIMDVariables[I->second].IsKind(Kind);
-    return Result;
-  }
-
-  /// \brief The pragma SIMD location.
-  SourceLocation PragmaLoc;
-
-  /// \brief A map of VarDecls to index into SIMDVariables.
-  llvm::DenseMap<VarDecl *, unsigned> SimdVariableMap;
-  llvm::SmallVector<SIMDVariable, 4> SIMDVariables;
-
-public:
-  SIMDForScopeInfo(DiagnosticsEngine &Diag, Scope *S, CapturedDecl *CD,
-                   RecordDecl *RD, ImplicitParamDecl *Context,
-                   SourceLocation PragmaLoc)
-      : CapturedRegionScopeInfo(Diag, S, CD, RD, Context, CR_SIMDFor, 0),
-        PragmaLoc(PragmaLoc) {
-    Kind = SK_SIMDFor;
-  }
-
-  virtual ~SIMDForScopeInfo();
-
-  void addPrivateVar(VarDecl *V, SourceLocation Loc) {
-    addVar(V, SIMD_VK_Private, Loc);
-  }
-  void addLastPrivateVar(VarDecl *V, SourceLocation Loc) {
-    addVar(V, SIMD_VK_LastPrivate, Loc);
-  }
-  void addFirstPrivateVar(VarDecl *V, SourceLocation Loc) {
-    addVar(V, SIMD_VK_FirstPrivate, Loc);
-  }
-  void addLinearVar(VarDecl *V, SourceLocation Loc) {
-    addVar(V, SIMD_VK_Linear, Loc);
-  }
-  void addReductionVar(VarDecl *V, SourceLocation Loc) {
-    addVar(V, SIMD_VK_Reduction, Loc);
-  }
-
-  bool isPrivate(VarDecl *V) const {
-    assert(V && "null variable unexpected");
-    return isVarKind(V, SIMD_VK_Private);
-  }
-
-  bool isLastPrivate(VarDecl *V) const {
-    assert(V && "null variable unexpected");
-    return isVarKind(V, SIMD_VK_LastPrivate);
-  }
-
-  bool isFirstPrivate(VarDecl *V) const {
-    assert(V && "null variable unexpected");
-    return isVarKind(V, SIMD_VK_FirstPrivate);
-  }
-
-  bool isLinear(VarDecl *V) const {
-    assert(V && "null variable unexpected");
-    return isVarKind(V, SIMD_VK_Linear);
-  }
-
-  bool isReduction(VarDecl *V) const {
-    assert(V && "null variable unexpected");
-    return isVarKind(V, SIMD_VK_Reduction);
-  }
-
-  /// \brief Returns true if the given variable is in a clause, and should be
-  /// captured.
-  bool IsSIMDVariable(VarDecl *V) const {
-    assert(V && "null variable unexpected");
-    return SimdVariableMap.count(V);
-  }
-
-  SourceLocation GetLocation(VarDecl *V) const {
-    assert(V && "null variable unexpected");
-    const_iterator I = SimdVariableMap.find(V);
-    if (I != SimdVariableMap.end())
-      return SIMDVariables[I->second].GetLocation();
-    return SourceLocation();
-  }
-
-  void UpdateVar(VarDecl *V, VarDecl *Local, Expr *Update,
-                 ArrayRef<VarDecl *> IndexVars) {
-    assert(V && "null variable unexpected");
-    const_iterator I = SimdVariableMap.find(V);
-    if (I != SimdVariableMap.end()) {
-      SIMDVariables[I->second].SetLocal(Local);
-      SIMDVariables[I->second].SetUpdateExpr(Update);
-      SIMDVariables[I->second].SetIndexVariables(IndexVars);
-    }
-  }
-
-  void SetInvalid(VarDecl *V) {
-    assert(V && "null variable unexpected");
-    const_iterator I = SimdVariableMap.find(V);
-    if (I != SimdVariableMap.end())
-      SIMDVariables[I->second].SetInvalid();
-  }
-
-  ArrayRef<SIMDVariable> getSIMDVars() const {
-    return SIMDVariables;
-  }
-
-  static bool classof(const FunctionScopeInfo *FSI) {
-    return FSI->Kind == SK_SIMDFor;
-  }
-};
-#endif // INTEL_SPECIFIC_CILKPLUS
 
 class LambdaScopeInfo final : public CapturingScopeInfo {
 public:

@@ -58,18 +58,6 @@
 // RUN: %clang -### -S -fprofile-sample-use=%S/Inputs/file.prof %s 2>&1 | FileCheck -check-prefix=CHECK-SAMPLE-PROFILE %s
 // CHECK-SAMPLE-PROFILE: "-fprofile-sample-use={{.*}}/file.prof"
 
-// RUN: %clang -fcilkplus -target x86_64-unknown-linux %s -### 2>&1 | FileCheck -check-prefix=CHECK-OPTIONS3 %s
-// CHECK-OPTIONS3: -fcilkplus
-
-// RUN: %clang -fcilkplus -target x86_64-apple-darwin %s -### 2>&1 | FileCheck -check-prefix=CHECK-OPTIONS4 %s
-// CHECK-OPTIONS4: -fcilkplus
-
-// RUN: %clang -fcilkplus -target x86_64-unknown-freebsd %s -### 2>&1 | FileCheck -check-prefix=CHECK-OPTIONS6 %s
-// CHECK-OPTIONS6: -fcilkplus
-
-// RUN: %clang -fcilkplus -target x86_64-pc-win32 %s -### 2>&1 | FileCheck -check-prefix=CHECK-OPTIONS7 %s
-// CHECK-OPTIONS7: -fcilkplus
-
 // RUN: %clang -### -S -fauto-profile=%S/Inputs/file.prof %s 2>&1 | FileCheck -check-prefix=CHECK-AUTO-PROFILE %s
 // CHECK-AUTO-PROFILE: "-fprofile-sample-use={{.*}}/file.prof"
 

@@ -1009,13 +1009,6 @@ public:
            DeclKind == FunctionTemplate;
   }
 
-#if INTEL_SPECIFIC_CILKPLUS
-  /// \brief Whether this declaration has Cilk spawns.
-  ///
-  /// Currently only FunctionDecl and CapturedDecl can have Cilk spawns.
-  bool isSpawning() const;
-#endif // INTEL_SPECIFIC_CILKPLUS
-
   /// \brief If this is a declaration that describes some template, this
   /// method returns that template declaration.
   TemplateDecl *getDescribedTemplate() const;

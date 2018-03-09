@@ -90,9 +90,6 @@ class CGObjCRuntime;
 class CGOpenCLRuntime;
 class CGOpenMPRuntime;
 class CGCUDARuntime;
-#if INTEL_SPECIFIC_CILKPLUS
-class CGCilkPlusRuntime;
-#endif // INTEL_SPECIFIC_CILKPLUS
 class BlockFieldFlags;
 class FunctionArgList;
 class CoverageMappingModuleGen;
@@ -305,36 +302,10 @@ private:
   InstrProfStats PGOStats;
   std::unique_ptr<llvm::SanitizerStatReport> SanStats;
 
-#if INTEL_SPECIFIC_CILKPLUS
-  std::unique_ptr<CGCilkPlusRuntime> CilkPlusRuntime;
-  struct ElementalVariantInfo {
-    /// \brief The CodeGen infomation of this function.
-    const CGFunctionInfo *FnInfo;
-    /// \brief The elemental function declaration.
-    const FunctionDecl *FD;
-    /// \brief The LLVM function of this declaration.
-    llvm::Function *Fn;
-    /// \brief The metadata describing this elemental function.
-    llvm::MDNode *KernelMD;
-
-    ElementalVariantInfo(const CGFunctionInfo *FnInfo, const FunctionDecl *FD,
-                         llvm::Function *Fn, llvm::MDNode *KernelMD)
-    : FnInfo(FnInfo), FD(FD), Fn(Fn), KernelMD(KernelMD) { }
-  };
-
-  /// ElementalVariantToEmit - This contains all Cilk Plus elemental function
-  /// variants to be emitted.
-  llvm::SmallVector<ElementalVariantInfo, 8> ElementalVariantToEmit;
-
-  /// ElementalAttributes - This contains all attributes of elemental functions.
-  llvm::StringMap<llvm::Function *, llvm::BumpPtrAllocator> ElementalAttributes;
-#endif // INTEL_SPECIFIC_CILKPLUS
 #if INTEL_CUSTOMIZATION
-#if INTEL_SPECIFIC_OPENMP
   // CQ#411303 Intel driver requires front-end to produce special file if
   // translation unit has any target code.
   bool HasTargetCode = false;
-#endif // INTEL_SPECIFIC_OPENMP
 #endif // INTEL_CUSTOMIZATION
 
   // A set of references that have only been seen via a weakref so far. This is
@@ -485,9 +456,6 @@ private:
   void createOpenCLRuntime();
   void createOpenMPRuntime();
   void createCUDARuntime();
-#if INTEL_SPECIFIC_CILKPLUS
-  void createCilkPlusRuntime();
-#endif // INTEL_SPECIFIC_CILKPLUS
   bool isTriviallyRecursive(const FunctionDecl *F);
   bool shouldEmitFunction(GlobalDecl GD);
   bool shouldOpportunisticallyEmitVTables();
@@ -581,86 +549,6 @@ public:
     assert(CUDARuntime != nullptr);
     return *CUDARuntime;
   }
-#if INTEL_SPECIFIC_CILKPLUS
-  CGCilkPlusRuntime &getCilkPlusRuntime() {
-    assert(CilkPlusRuntime != 0);
-    return *CilkPlusRuntime;
-  }
-
-  // A common data structure to represent vector function attributes in
-  // cilk vector functions and 'omp declare simd' functions.
-  struct CilkElementalGroup {
-    typedef SmallVector<CilkProcessorAttr::CilkProcessor, 1> ProcessorVector;
-    typedef SmallVector<QualType, 1> VecLengthForVector;
-    typedef SmallVector<unsigned, 1> VecLengthVector;
-    // Masking: 0-nomask/notinbranch, 1-mask/inbranch
-    typedef SmallVector<unsigned, 2> MaskVector;
-    typedef std::map<std::string, std::pair<int,std::string> > LinearMap;
-    typedef std::map<std::string, unsigned> AlignedMap;
-    typedef std::set<std::string> UniformSet;
-
-    ProcessorVector Processor;
-    VecLengthVector VecLength;
-    VecLengthForVector VecLengthFor;
-    LinearMap  LinearParms;
-    AlignedMap AlignedParms;
-    UniformSet UniformParms;
-    MaskVector Mask;
-
-    bool getUniformAttr(std::string Name) const {
-      return UniformParms.count(Name) != 0;
-    }
-
-    bool getLinearAttr(std::string Name, std::pair<int,std::string> *out_step) const {
-      const LinearMap::const_iterator it = LinearParms.find(Name);
-      if (it == LinearParms.end()) return false;
-      *out_step = it->second;
-      return true;
-    }
-
-    bool getAlignedAttr(std::string Name, unsigned *out_alignment) const {
-      const AlignedMap::const_iterator I = AlignedParms.find(Name);
-      if (I == AlignedParms.end()) return false;
-      *out_alignment = I->second;
-      return true;
-    }
-
-    void setLinear(std::string Name, std::string Idname, int Step) {
-      LinearParms[Name].first = Step;
-      LinearParms[Name].second = Idname;
-    }
-
-    void setAligned(std::string Name, unsigned Alignment) {
-      AlignedParms[Name] = Alignment;
-    }
-
-    void setUniform(std::string Name) {
-      UniformParms.insert(Name);
-    }
-  };
-
-  typedef llvm::SmallDenseMap<unsigned, CilkElementalGroup, 4> GroupMap;
-
-  // The following is common part for 'cilk vector functions' and
-  // 'omp declare simd' functions metadata generation.
-  //
-  void EmitVectorVariantsMetadata(const CGFunctionInfo &FnInfo,
-                                  const FunctionDecl *FD,
-                                  llvm::Function *Fn,
-                                  GroupMap &Groups);
-
-  /// Add an elemental function metadata node to the named metadata node
-  /// 'cilk.functions'.
-  void EmitCilkElementalMetadata(const CGFunctionInfo &FnInfo,
-                                 const FunctionDecl *FD, llvm::Function *Fn);
-
-  /// Emit all elemental function vector variants in this module.
-  void EmitCilkElementalVariants();
-
-  /// Emit an attribute for given elemental function.
-  void EmitCilkElementalAttribute(llvm::Function *Func, llvm::MDNode *MD,
-                                  bool IsMasked);
-#endif // INTEL_SPECIFIC_CILKPLUS
 
   ObjCEntrypoints &getObjCEntrypoints() const {
     assert(ObjCData != nullptr);
@@ -1059,14 +947,12 @@ public:
   /// "__apply_args", return a Function* for "__apply_args".
   llvm::Constant *getBuiltinIntelLibFunction(const FunctionDecl *FD,
                                              unsigned BuiltinID);
-#if INTEL_SPECIFIC_OPENMP
   // CQ#411303 Intel driver requires front-end to produce special file if
   // translation unit has any target code.
   void setHasTargetCode() { HasTargetCode = true; }
   // Write communication file for Intel driver to notify that current module
   // has target specific code and target compilation is required.
   void EmitIntelDriverTempfile();
-#endif // INTEL_SPECIFIC_OPENMP
 #endif  // INTEL_CUSTOMIZATION
   /// Given a builtin id for a function like "__builtin_fabsf", return a
   /// Function* for "fabsf".
@@ -1234,9 +1120,7 @@ public:
 
   StringRef getMangledName(GlobalDecl GD);
   StringRef getBlockMangledName(GlobalDecl GD, const BlockDecl *BD);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  void registerAsMangled(StringRef Name, GlobalDecl GD);
-#endif // INTEL_SPECIFIC_IL0_BACKEND
+
   void EmitTentativeDefinition(const VarDecl *D);
 
   void EmitVTable(CXXRecordDecl *Class);

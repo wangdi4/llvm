@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -fcilkplus -Wmaybe-uninitialized -fsyntax-only -verify %s
-// RUN: %clang_cc1 -fcilkplus -Wsometimes-uninitialized -Wconditional-uninitialized -fsyntax-only -verify %s
+// RUN: %clang_cc1 -Wmaybe-uninitialized -fsyntax-only -verify %s
+// RUN: %clang_cc1 -Wsometimes-uninitialized -Wconditional-uninitialized -fsyntax-only -verify %s
 
 
 

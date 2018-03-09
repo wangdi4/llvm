@@ -109,17 +109,6 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   CXCursorKind K = CXCursor_NotImplemented;
   
   switch (S->getStmtClass()) {
-#if INTEL_CUSTOMIZATION
-  case Stmt::PragmaStmtClass:
-#ifndef INTEL_SPECIFIC_IL0_BACKEND
-    llvm_unreachable(
-      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-#else
-    K = CXCursor_UnexposedStmt;
-    break;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-#endif  // INTEL_CUSTOMIZATION
-
   case Stmt::NoStmtClass:
     break;
   
@@ -553,21 +542,6 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::MSDependentExistsStmtClass:
     K = CXCursor_UnexposedStmt;
     break;
-#if INTEL_SPECIFIC_CILKPLUS
-  case Stmt::CEANIndexExprClass:
-  case Stmt::CEANBuiltinExprClass:
-    K = CXCursor_UnexposedExpr;
-  case Stmt::CilkSyncStmtClass:
-  case Stmt::CilkSpawnExprClass:
-  case Stmt::CilkForGrainsizeStmtClass:
-  case Stmt::CilkForStmtClass:
-  case Stmt::SIMDForStmtClass:
-    K = CXCursor_UnexposedStmt;
-    break;
-  case Stmt::CilkRankedStmtClass:
-    K = CXCursor_CilkRankedStmt;
-    break;
-#endif // INTEL_SPECIFIC_CILKPLUS
   case Stmt::OMPParallelDirectiveClass:
     K = CXCursor_OMPParallelDirective;
     break;

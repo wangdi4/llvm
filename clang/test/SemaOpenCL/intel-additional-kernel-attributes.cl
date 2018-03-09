@@ -1,22 +1,22 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir-unknown-unknown-intelfpga -fsyntax-only -verify %s
 
-__attribute__((task))
-__attribute__((max_work_group_size(1024, 1, 1))) //expected-error{{'max_work_group_size' X-, Y- and Z- sizes must be 1 when 'task' attribute is used}}
+__attribute__((max_global_work_dim(0)))
+__attribute__((max_work_group_size(1024, 1, 1))) //expected-error{{'max_work_group_size' X-, Y- and Z- sizes must be 1 when 'max_global_work_dim' attribute is used and equals to 0}}
 __kernel void kernel_1a() {
 }
 
-__attribute__((max_work_group_size(1024, 1, 1))) //expected-error{{'max_work_group_size' X-, Y- and Z- sizes must be 1 when 'task' attribute is used}}
-__attribute__((task))
+__attribute__((max_work_group_size(1024, 1, 1))) //expected-error{{'max_work_group_size' X-, Y- and Z- sizes must be 1 when 'max_global_work_dim' attribute is used and equals to 0}}
+__attribute__((max_global_work_dim(0)))
 __kernel void kernel_1b() {
 }
 
-__attribute__((reqd_work_group_size(16,16,16))) //expected-error{{'reqd_work_group_size' X-, Y- and Z- sizes must be 1 when 'task' attribute is used}}
-__attribute__((task))
+__attribute__((reqd_work_group_size(16,16,16))) //expected-error{{'reqd_work_group_size' X-, Y- and Z- sizes must be 1 when 'max_global_work_dim' attribute is used and equals to 0}}
+__attribute__((max_global_work_dim(0)))
 __kernel void kernel_2a() {
 }
 
-__attribute__((task))
-__attribute__((reqd_work_group_size(16,16,16))) //expected-error{{'reqd_work_group_size' X-, Y- and Z- sizes must be 1 when 'task' attribute is used}}
+__attribute__((max_global_work_dim(0)))
+__attribute__((reqd_work_group_size(16,16,16))) //expected-error{{'reqd_work_group_size' X-, Y- and Z- sizes must be 1 when 'max_global_work_dim' attribute is used and equals to 0}}
 __kernel void kernel_2b() {
 }
 
@@ -59,10 +59,20 @@ __attribute__((max_global_work_dim(0)))
 __kernel void kernel_4f(int a) {
 }
 
+__attribute__((autorun))
+__attribute__((max_global_work_dim(2)))
+__kernel void kernel_4g() {
+}
+
+__attribute__((max_global_work_dim(2)))
+__attribute__((autorun))
+__kernel void kernel_4h() {
+}
+
 __attribute__((autorun)) //expected-warning{{'autorun' attribute only applies to functions}}
 constant int i = 10;
 
-__attribute__((max_global_work_dim(4))) //expected-error{{'max_global_work_dim' attribute must be 0}}
+__attribute__((max_global_work_dim(4))) //expected-error{{'max_global_work_dim' attribute must be in range from 0 to 3}}
 __kernel void kernel_5a() {
 }
 

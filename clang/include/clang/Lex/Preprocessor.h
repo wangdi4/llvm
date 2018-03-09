@@ -813,10 +813,6 @@ public:
   void setDiagnostics(DiagnosticsEngine &D) { Diags = &D; }
 
   const LangOptions &getLangOpts() const { return LangOpts; }
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  LangOptions &getLangOpts() { return LangOpts; }
-  void ParseStartMapRegion(SourceLocation HashLoc, Token &FilenameTok);
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
   const TargetInfo &getTargetInfo() const { return *Target; }
   const TargetInfo *getAuxTargetInfo() const { return AuxTarget; }
   FileManager &getFileManager() const { return FileMgr; }

@@ -253,14 +253,8 @@ void Parser::initializePragmaHandlers() {
   RedefineExtnameHandler.reset(new PragmaRedefineExtnameHandler());
   PP.AddPragmaHandler(RedefineExtnameHandler.get());
 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  if (!getLangOpts().IntelCompat) {
-#endif // INTEL_SPECIFIC_IL0_BACKEND
   FPContractHandler.reset(new PragmaFPContractHandler());
   PP.AddPragmaHandler("STDC", FPContractHandler.get());
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  }
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 
   PCSectionHandler.reset(new PragmaClangSectionHandler(Actions));
   PP.AddPragmaHandler("clang", PCSectionHandler.get());
@@ -287,9 +281,6 @@ void Parser::initializePragmaHandlers() {
     PP.AddPragmaHandler(MSDetectMismatchHandler.get());
     MSPointersToMembers.reset(new PragmaMSPointersToMembers());
     PP.AddPragmaHandler(MSPointersToMembers.get());
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-    if (!getLangOpts().IntelCompat) {
-#endif // INTEL_SPECIFIC_IL0_BACKEND
     MSVtorDisp.reset(new PragmaMSVtorDisp());
     PP.AddPragmaHandler(MSVtorDisp.get());
     MSInitSeg.reset(new PragmaMSPragma("init_seg"));
@@ -304,9 +295,6 @@ void Parser::initializePragmaHandlers() {
     PP.AddPragmaHandler(MSCodeSeg.get());
     MSSection.reset(new PragmaMSPragma("section"));
     PP.AddPragmaHandler(MSSection.get());
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-    }
-#endif // INTEL_SPECIFIC_IL0_BACKEND
     MSRuntimeChecks.reset(new PragmaMSRuntimeChecksHandler());
     PP.AddPragmaHandler(MSRuntimeChecks.get());
     MSIntrinsic.reset(new PragmaMSIntrinsicHandler());
@@ -318,17 +306,11 @@ void Parser::initializePragmaHandlers() {
         new PragmaForceCUDAHostDeviceHandler(Actions));
     PP.AddPragmaHandler("clang", CUDAForceHostDeviceHandler.get());
   }
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  if (!getLangOpts().IntelCompat) {
-#endif // INTEL_SPECIFIC_IL0_BACKEND
   OptimizeHandler.reset(new PragmaOptimizeHandler(Actions));
   PP.AddPragmaHandler("clang", OptimizeHandler.get());
 
   LoopHintHandler.reset(new PragmaLoopHintHandler());
   PP.AddPragmaHandler("clang", LoopHintHandler.get());
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  }
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 
 #if INTEL_CUSTOMIZATION
   initializeIntelPragmaHandlers ();
@@ -344,17 +326,11 @@ void Parser::initializePragmaHandlers() {
     PP.AddPragmaHandler(IVDepHandler.get());
   }
 #endif // INTEL_CUSTOMIZATION
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  if (!getLangOpts().IntelCompat) {
-#endif // INTEL_SPECIFIC_IL0_BACKEND
   UnrollHintHandler.reset(new PragmaUnrollHintHandler("unroll"));
   PP.AddPragmaHandler(UnrollHintHandler.get());
 
   NoUnrollHintHandler.reset(new PragmaUnrollHintHandler("nounroll"));
   PP.AddPragmaHandler(NoUnrollHintHandler.get());
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  }
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 
   FPHandler.reset(new PragmaFPHandler());
   PP.AddPragmaHandler("clang", FPHandler.get());
@@ -403,9 +379,6 @@ void Parser::resetPragmaHandlers() {
     MSDetectMismatchHandler.reset();
     PP.RemovePragmaHandler(MSPointersToMembers.get());
     MSPointersToMembers.reset();
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-    if (!getLangOpts().IntelCompat) {
-#endif // INTEL_SPECIFIC_IL0_BACKEND
     PP.RemovePragmaHandler(MSVtorDisp.get());
     MSVtorDisp.reset();
     PP.RemovePragmaHandler(MSInitSeg.get());
@@ -420,9 +393,6 @@ void Parser::resetPragmaHandlers() {
     MSCodeSeg.reset();
     PP.RemovePragmaHandler(MSSection.get());
     MSSection.reset();
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-    }
-#endif // INTEL_SPECIFIC_IL0_BACKEND
     PP.RemovePragmaHandler(MSRuntimeChecks.get());
     MSRuntimeChecks.reset();
     PP.RemovePragmaHandler(MSIntrinsic.get());
@@ -434,9 +404,6 @@ void Parser::resetPragmaHandlers() {
     CUDAForceHostDeviceHandler.reset();
   }
 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  if (!getLangOpts().IntelCompat) {
-#endif // INTEL_SPECIFIC_IL0_BACKEND
   PP.RemovePragmaHandler("STDC", FPContractHandler.get());
   FPContractHandler.reset();
 
@@ -445,9 +412,6 @@ void Parser::resetPragmaHandlers() {
 
   PP.RemovePragmaHandler("clang", LoopHintHandler.get());
   LoopHintHandler.reset();
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  }
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 
 #if INTEL_CUSTOMIZATION
   resetIntelPragmaHandlers();
@@ -462,17 +426,11 @@ void Parser::resetPragmaHandlers() {
     IVDepHandler.reset();
   }
 #endif // INTEL_CUSTOMIZATION
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  if (!getLangOpts().IntelCompat) {
-#endif // INTEL_SPECIFIC_IL0_BACKEND
   PP.RemovePragmaHandler(UnrollHintHandler.get());
   UnrollHintHandler.reset();
 
   PP.RemovePragmaHandler(NoUnrollHintHandler.get());
   NoUnrollHintHandler.reset();
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  }
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 
   PP.RemovePragmaHandler("clang", FPHandler.get());
   FPHandler.reset();

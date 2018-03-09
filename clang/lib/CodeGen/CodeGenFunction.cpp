@@ -12,9 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenFunction.h"
-#if INTEL_SPECIFIC_CILKPLUS
-#include "intel/CGCilkPlusRuntime.h"
-#endif // INTEL_SPECIFIC_CILKPLUS
 #include "CGBlocks.h"
 #include "CGCleanup.h"
 #include "CGCUDARuntime.h"
@@ -73,10 +70,6 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
       CapturedStmtInfo(nullptr),
       CurrentPragmaInlineState(nullptr),
 #endif // INTEL_CUSTOMIZATION
-#if INTEL_SPECIFIC_CILKPLUS
-      CurCilkStackFrame(nullptr),
-      CurCGCilkImplicitSyncInfo(nullptr),
-#endif // INTEL_SPECIFIC_CILKPLUS
       SanOpts(CGM.getLangOpts().Sanitize), // INTEL
       IsSanitizerScope(false), CurFuncIsThunk(false), AutoreleaseResult(false),
       SawAsmBlock(false), IsOutlinedSEHHelper(false), BlockInfo(nullptr),
@@ -95,9 +88,6 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
 #if INTEL_CUSTOMIZATION
       StdContainerOptKindDetermined(false),
 #endif // INTEL_CUSTOMIZATION
-#if INTEL_SPECIFIC_CILKPLUS
-      ExceptionsDisabled(false),
-#endif // INTEL_SPECIFIC_CILKPLUS
       TerminateLandingPad(nullptr),
       TerminateHandler(nullptr), TrapBB(nullptr),
       ShouldEmitLifetimeMarkers(
@@ -135,9 +125,6 @@ CodeGenFunction::~CodeGenFunction() {
   // something.
   if (FirstBlockInfo)
     destroyBlockInfos(FirstBlockInfo);
-#if INTEL_SPECIFIC_CILKPLUS
-  delete CurCGCilkImplicitSyncInfo;
-#endif // INTEL_SPECIFIC_CILKPLUS
   if (getLangOpts().OpenMP && CurFn)
     CGM.getOpenMPRuntime().functionFinished(*this);
 }
@@ -312,9 +299,6 @@ llvm::DebugLoc CodeGenFunction::EmitReturnBlock() {
       // Record/return the DebugLoc of the simple 'return' expression to be used
       // later by the actual 'ret' instruction.
       llvm::DebugLoc Loc = BI->getDebugLoc();
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-      ReturnLoc = Loc;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
       Builder.SetInsertPoint(BI->getParent());
       BI->eraseFromParent();
       delete ReturnBlock.getBlock();
@@ -445,6 +429,9 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   EmitIfUsed(*this, TerminateLandingPad);
   EmitIfUsed(*this, TerminateHandler);
   EmitIfUsed(*this, UnreachableBlock);
+
+  for (const auto &FuncletAndParent : TerminateFunclets)
+    EmitIfUsed(*this, FuncletAndParent.second);
 
   if (CGM.getCodeGenOpts().EmitDeclMetadata)
     EmitDeclMetadata();
@@ -601,6 +588,15 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
 #if INTEL_CUSTOMIZATION
   // MDNode for the intel_host_accessible attribute.
   SmallVector<llvm::Metadata*, 8> argHostAccessible;
+
+  // MDNode for the intel_depth attribute for pipes.
+  SmallVector<llvm::Metadata*, 8> argPipeDepthAttr;
+
+  // MDNode for the intel_io attribute.
+  SmallVector<llvm::Metadata*, 8> argPipeIOAttr;
+
+  // MDNode for the intel_buffer_location attribute.
+  SmallVector<llvm::Metadata*, 8> argBufferLocationAttr;
 #endif // INTEL_CUSTOMIZATION
   for (unsigned i = 0, e = FD->getNumParams(); i != e; ++i) {
     const ParmVarDecl *parm = FD->getParamDecl(i);
@@ -725,6 +721,25 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
         llvm::ConstantAsMetadata::get(
             (IsHostAccessible) ? llvm::ConstantInt::getTrue(Context)
                                : llvm::ConstantInt::getFalse(Context)));
+
+    auto *DepthAttr = parm->getAttr<OpenCLDepthAttr>();
+
+    argPipeDepthAttr.push_back(
+            llvm::ConstantAsMetadata::get(
+            (DepthAttr) ? Builder.getInt32(DepthAttr->getDepth())
+                        : Builder.getInt32(0)));
+
+    auto *IOAttr = parm->getAttr<OpenCLIOAttr>();
+    argPipeIOAttr.push_back(
+        (IOAttr) ? llvm::MDString::get(Context, IOAttr->getIOName())
+                 : llvm::MDString::get(Context, ""));
+
+    auto *BufferLocationAttr = parm->getAttr<OpenCLBufferLocationAttr>();
+    argBufferLocationAttr.push_back(
+        (BufferLocationAttr)
+            ? llvm::MDString::get(Context,
+                                  BufferLocationAttr->getBufferLocation())
+            : llvm::MDString::get(Context, ""));
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -741,6 +756,12 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
 #if INTEL_CUSTOMIZATION
   Fn->setMetadata("kernel_arg_host_accessible",
                   llvm::MDNode::get(Context, argHostAccessible));
+  Fn->setMetadata("kernel_arg_pipe_depth",
+                  llvm::MDNode::get(Context, argPipeDepthAttr));
+  Fn->setMetadata("kernel_arg_pipe_io",
+                  llvm::MDNode::get(Context, argPipeIOAttr));
+  Fn->setMetadata("kernel_arg_buffer_location",
+                  llvm::MDNode::get(Context, argBufferLocationAttr));
 #endif // INTEL_CUSTOMIZATION
 
   if (CGM.getCodeGenOpts().EmitOpenCLArgMetadata)
@@ -806,10 +827,11 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                     llvm::MDNode::get(Context, attrMDArgs));
   }
 
-  if (FD->hasAttr<TaskAttr>() || FD->hasAttr<MaxGlobalWorkDimAttr>()) {
-    llvm::Metadata *attrMDArgs[] = {
-        llvm::ConstantAsMetadata::get(Builder.getTrue())};
-    Fn->setMetadata("task", llvm::MDNode::get(Context, attrMDArgs));
+  if (const MaxGlobalWorkDimAttr *A = FD->getAttr<MaxGlobalWorkDimAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {llvm::ConstantAsMetadata::get(
+        Builder.getInt32(A->getMaxGlobalWorkDimValue()))};
+    Fn->setMetadata("max_global_work_dim",
+                    llvm::MDNode::get(Context, attrMDArgs));
   }
 
   if (FD->hasAttr<AutorunAttr>()) {
@@ -1164,20 +1186,6 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
   EmitStartEHSpec(CurCodeDecl);
 
   PrologueCleanupDepth = EHStack.stable_begin();
-#if INTEL_SPECIFIC_CILKPLUS
-  // If emitting a spawning function, a Cilk stack frame will be allocated and
-  // fully initialized before processing any function parameters, which
-  // makes associated cleanups happen last.
-  //
-  // If emitting a helper function (parallel region), a Cilk stack frame will
-  // be allocated and partially initialized before processing any parameters.
-  if (getLangOpts().CilkPlus && D && D->isSpawning()) {
-    CurCGCilkImplicitSyncInfo = CreateCilkImplicitSyncInfo(*this);
-    CGM.getCilkPlusRuntime().EmitCilkParentStackFrame(*this);
-    if (CurCGCilkImplicitSyncInfo->needsImplicitSync())
-      CGM.getCilkPlusRuntime().pushCilkImplicitSyncCleanup(*this);
-  }
-#endif // INTEL_SPECIFIC_CILKPLUS
   EmitFunctionProlog(*CurFnInfo, CurFn, Args);
 
   if (D && isa<CXXMethodDecl>(D) && cast<CXXMethodDecl>(D)->isInstance()) {
@@ -1583,10 +1591,6 @@ bool CodeGenFunction::ContainsLabel(const Stmt *S, bool IgnoreCaseStmts) {
   // can't jump to one from outside their declared region.
   if (isa<LabelStmt>(S))
     return true;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  if (isa<PragmaStmt>(S))
-    return true;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
   // If this is a case/default statement, and we haven't seen a switch, we have
   // to emit the code.

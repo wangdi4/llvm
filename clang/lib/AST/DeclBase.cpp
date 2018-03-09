@@ -229,17 +229,6 @@ bool Decl::isTemplateDecl() const {
   return isa<TemplateDecl>(this);
 }
 
-#if INTEL_SPECIFIC_CILKPLUS
-bool Decl::isSpawning() const {
-  if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(this))
-    return FD->isSpawning();
-  else if (const CapturedDecl *CD = dyn_cast<CapturedDecl>(this))
-    return CD->isSpawning();
-
-  return false;
-}
-#endif // INTEL_SPECIFIC_CILKPLUS
-
 TemplateDecl *Decl::getDescribedTemplate() const {
   if (auto *FD = dyn_cast<FunctionDecl>(this))
     return FD->getDescribedFunctionTemplate();
@@ -780,16 +769,6 @@ unsigned Decl::getIdentifierNamespaceForKind(Kind DeclKind) {
       return IDNS_OMPReduction;
 
     // Never have names.
-#if INTEL_CUSTOMIZATION
-    case Pragma:
-#ifndef INTEL_SPECIFIC_IL0_BACKEND
-    llvm_unreachable(
-      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-#endif  // INTEL_CUSTOMIZATION
-#if INTEL_SPECIFIC_CILKPLUS
-    case CilkSpawn:
-#endif // INTEL_SPECIFIC_CILKPLUS
     case Friend:
     case FriendTemplate:
     case AccessSpec:

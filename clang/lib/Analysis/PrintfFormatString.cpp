@@ -79,13 +79,6 @@ static PrintfSpecifierResult ParsePrintfSpecifier(FormatStringHandler &H,
   using namespace clang::analyze_format_string;
   using namespace clang::analyze_printf;
 
-#if INTEL_CUSTOMIZATION
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  if (LO.FormatExtensions)
-    isFreeBSDKPrintf = true;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-#endif  // INTEL_CUSTOMIZATION
-
   const char *I = Beg;
   const char *Start = nullptr;
   UpdateOnReturn <const char*> UpdateBeg(Beg, I);

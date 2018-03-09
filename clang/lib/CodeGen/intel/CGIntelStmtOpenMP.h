@@ -13,7 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if INTEL_SPECIFIC_OPENMP
 #include "../CGCXXABI.h"
 #include "../CodeGenFunction.h"
 #include "../CodeGenModule.h"
@@ -153,7 +152,16 @@ class OpenMPCodeOutliner {
   void addImplicitClauses();
   void addRefsToOuter();
 
-  llvm::MapVector<const VarDecl *, OpenMPClauseKind> ImplicitMap;
+  enum ImplicitClauseKind {
+    ICK_private,
+    ICK_firstprivate,
+    ICK_shared,
+    ICK_map_tofrom,
+    ICK_normalized_iv,
+    ICK_unknown
+  };
+
+  llvm::MapVector<const VarDecl *, ImplicitClauseKind> ImplicitMap;
   llvm::DenseSet<const VarDecl *> ExplicitRefs;
   llvm::DenseSet<const VarDecl *> VarDefs;
   llvm::SmallSetVector<const VarDecl *, 32> VarRefs;
@@ -188,8 +196,8 @@ public:
   void emitOMPSectionDirective();
   void emitOMPParallelSectionsDirective();
   OpenMPCodeOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
-  void emitImplicit(Expr *E, OpenMPClauseKind K);
-  void emitImplicit(const VarDecl *VD, OpenMPClauseKind K);
+  void emitImplicit(Expr *E, ImplicitClauseKind K);
+  void emitImplicit(const VarDecl *VD, ImplicitClauseKind K);
   void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
   void addVariableRef(const VarDecl *VD) { VarRefs.insert(VD); }
   void addExplicit(const Expr *E);
@@ -264,5 +272,3 @@ public:
 };
 
 } // namespace
-
-#endif // INTEL_SPECIFIC_OPENMP

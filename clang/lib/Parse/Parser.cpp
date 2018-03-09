@@ -282,9 +282,6 @@ bool Parser::SkipUntil(ArrayRef<tok::TokenKind> Toks, SkipUntilFlags Flags) {
     case tok::annot_module_begin:
     case tok::annot_module_end:
     case tok::annot_module_include:
-#if INTEL_SPECIFIC_CILKPLUS
-    case tok::annot_pragma_simd_end:
-#endif // INTEL_SPECIFIC_CILKPLUS
       // Stop before we change submodules. They generally indicate a "good"
       // place to pick up parsing again (except in the special case where
       // we're trying to skip to EOF).
@@ -653,77 +650,6 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
 
   Decl *SingleDecl = nullptr;
   switch (Tok.getKind()) {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  case tok::annot_pragma_ivdep:
-    HandlePragmaIvdepDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_novector:
-    HandlePragmaNoVectorDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_vector:
-    HandlePragmaVectorDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_distribute_point:
-    HandlePragmaDistributeDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_loop_count:
-    HandlePragmaLoopCountDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_optimize:
-    HandlePragmaOptimizeDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_optimization_level:
-    HandlePragmaOptimizationLevelDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_noparallel:
-    HandlePragmaNoParallelDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_parallel:
-    HandlePragmaParallelDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_unroll:
-    HandlePragmaUnrollDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_unroll_and_jam:
-    HandlePragmaUnrollAndJamDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_nofusion:
-    HandlePragmaNoFusionDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_optimization_parameter:
-    HandlePragmaOptimizationParameterDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_alloc_section:
-    HandlePragmaAllocSectionDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_section:
-    HandlePragmaSectionDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_alloc_text:
-    HandlePragmaAllocTextDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_auto_inline:
-    HandlePragmaAutoInlineDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_seg:
-    HandlePragmaSegDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_check_stack:
-    HandlePragmaCheckStackDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_init_seg:
-    HandlePragmaInitSegDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_float_control:
-    HandlePragmaFloatControlDecl();
-    return DeclGroupPtrTy();
-  case tok::annot_pragma_intel_fp_contract:
-    HandlePragmaCommonOnOffDecl(Sema::IntelPragmaFPContract, false);
-    return DeclGroupPtrTy();
-  case (tok::annot_pragma_fenv_access):
-    HandlePragmaCommonOnOffDecl(Sema::IntelPragmaFEnvAccess, false);
-    return DeclGroupPtrTy();
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
   case tok::annot_pragma_vis:
     HandlePragmaVisibility();
     return nullptr;
@@ -758,11 +684,6 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
     AccessSpecifier AS = AS_none;
     return ParseOpenMPDeclarativeDirectiveWithExtDecl(AS, attrs);
   }
-#if INTEL_SPECIFIC_CILKPLUS
-  case tok::annot_pragma_simd:
-    HandlePragmaSIMD();
-    return DeclGroupPtrTy();
-#endif // INTEL_SPECIFIC_CILKPLUS
   case tok::annot_pragma_ms_pointers_to_members:
     HandlePragmaMSPointersToMembers();
     return nullptr;
@@ -863,7 +784,7 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
     // A function definition cannot start with any of these keywords.
     {
       SourceLocation DeclEnd;
-      return ParseDeclaration(Declarator::FileContext, DeclEnd, attrs);
+      return ParseDeclaration(DeclaratorContext::FileContext, DeclEnd, attrs);
     }
 
   case tok::kw_static:
@@ -873,7 +794,7 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
       Diag(ConsumeToken(), diag::warn_static_inline_explicit_inst_ignored)
         << 0;
       SourceLocation DeclEnd;
-      return ParseDeclaration(Declarator::FileContext, DeclEnd, attrs);
+      return ParseDeclaration(DeclaratorContext::FileContext, DeclEnd, attrs);
     }
     goto dont_know;
       
@@ -884,7 +805,7 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
       // Inline namespaces. Allowed as an extension even in C++03.
       if (NextKind == tok::kw_namespace) {
         SourceLocation DeclEnd;
-        return ParseDeclaration(Declarator::FileContext, DeclEnd, attrs);
+        return ParseDeclaration(DeclaratorContext::FileContext, DeclEnd, attrs);
       }
       
       // Parse (then ignore) 'inline' prior to a template instantiation. This is
@@ -893,7 +814,7 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
         Diag(ConsumeToken(), diag::warn_static_inline_explicit_inst_ignored)
           << 1;
         SourceLocation DeclEnd;
-        return ParseDeclaration(Declarator::FileContext, DeclEnd, attrs);
+        return ParseDeclaration(DeclaratorContext::FileContext, DeclEnd, attrs);
       }
     }
     goto dont_know;
@@ -908,7 +829,7 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
              diag::ext_extern_template) << SourceRange(ExternLoc, TemplateLoc);
       SourceLocation DeclEnd;
       return Actions.ConvertDeclToDeclGroup(
-                  ParseExplicitInstantiation(Declarator::FileContext,
+                  ParseExplicitInstantiation(DeclaratorContext::FileContext,
                                              ExternLoc, TemplateLoc, DeclEnd));
     }
     goto dont_know;
@@ -999,12 +920,13 @@ Parser::ParseDeclOrFunctionDefInternal(ParsedAttributesWithRange &attrs,
                                        AccessSpecifier AS) {
   MaybeParseMicrosoftAttributes(DS.getAttributes());
   // Parse the common declaration-specifiers piece.
-  ParseDeclarationSpecifiers(DS, ParsedTemplateInfo(), AS, DSC_top_level);
+  ParseDeclarationSpecifiers(DS, ParsedTemplateInfo(), AS,
+                             DeclSpecContext::DSC_top_level);
 
   // If we had a free-standing type definition with a missing semicolon, we
   // may get this far before the problem becomes obvious.
-  if (DS.hasTagDefinition() &&
-      DiagnoseMissingSemiAfterTagDefinition(DS, AS, DSC_top_level))
+  if (DS.hasTagDefinition() && DiagnoseMissingSemiAfterTagDefinition(
+                                   DS, AS, DeclSpecContext::DSC_top_level))
     return nullptr;
 
   // C99 6.7.2.3p6: Handle "struct-or-union identifier;", "enum { X };"
@@ -1084,11 +1006,11 @@ Parser::ParseDeclOrFunctionDefInternal(ParsedAttributesWithRange &attrs,
   if (getLangOpts().CPlusPlus && isTokenStringLiteral() &&
       DS.getStorageClassSpec() == DeclSpec::SCS_extern &&
       DS.getParsedSpecifiers() == DeclSpec::PQ_StorageClassSpecifier) {
-    Decl *TheDecl = ParseLinkage(DS, Declarator::FileContext);
+    Decl *TheDecl = ParseLinkage(DS, DeclaratorContext::FileContext);
     return Actions.ConvertDeclToDeclGroup(TheDecl);
   }
 
-  return ParseDeclGroup(DS, Declarator::FileContext);
+  return ParseDeclGroup(DS, DeclaratorContext::FileContext);
 }
 
 Parser::DeclGroupPtrTy
@@ -1399,7 +1321,7 @@ void Parser::ParseKNRParamDeclarations(Declarator &D) {
     }
 
     // Parse the first declarator attached to this declspec.
-    Declarator ParmDeclarator(DS, Declarator::KNRTypeListContext);
+    Declarator ParmDeclarator(DS, DeclaratorContext::KNRTypeListContext);
     ParseDeclarator(ParmDeclarator);
 
     // Handle the full declarator list.

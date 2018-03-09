@@ -60,13 +60,6 @@ llvm::Constant *CodeGenModule::getBuiltinLibFunction(const FunctionDecl *FD,
   if (FD->hasAttr<AsmLabelAttr>())
     Name = getMangledName(D);
   else
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-    if (getLangOpts().IntelCompat) {
-      // ICLANG mode: do not skip the __builtin_ prefix.
-      Name = Context.BuiltinInfo.getName(BuiltinID);
-    }
-    else
-#endif // INTEL_SPECIFIC_IL0_BACKEND
     Name = Context.BuiltinInfo.getName(BuiltinID) + 10;
 
   llvm::FunctionType *Ty =
@@ -944,11 +937,27 @@ static bool isHLSStreamWrite(unsigned BuiltinID) {
   }
 }
 
+static bool isHLSStreamRead(unsigned BuiltinID) {
+  switch (BuiltinID) {
+  default:
+    return false;
+  case Builtin::BI__builtin_intel_hls_instream_tryRead:
+  case Builtin::BI__builtin_intel_hls_outstream_tryRead:
+  case Builtin::BI__builtin_intel_hls_instream_read:
+  case Builtin::BI__builtin_intel_hls_outstream_read:
+    return true;
+  }
+}
+
 RValue CodeGenFunction::EmitHLSStreamBuiltin(unsigned BuiltinID,
                                              const CallExpr *E) {
   llvm::SmallVector<Value *, 8> Args;
   const Expr *PtrArg = E->getArg(0);
   const PointerType *PtrTy = cast<PointerType>(PtrArg->getType().getTypePtr());
+  llvm::Type *OverloadTy = ConvertType(PtrTy->getPointeeType());
+
+  llvm::Function *Func =
+      CGM.getIntrinsic(getHLSIntrinsic(BuiltinID), {OverloadTy});
 
   if (isHLSStreamWrite(BuiltinID)) {
     Args.push_back(EmitScalarExpr(PtrArg));
@@ -957,35 +966,62 @@ RValue CodeGenFunction::EmitHLSStreamBuiltin(unsigned BuiltinID,
   const Expr *BufferIdArg = E->getArg(1);
   Args.push_back(EmitScalarExpr(BufferIdArg));
 
-  const Expr *ReadyLatencyArg = E->getArg(2);
+  const Expr *BufferArg = E->getArg(2);
+  Args.push_back(EmitScalarExpr(BufferArg));
+
+  const Expr *ReadyLatencyArg = E->getArg(3);
   Args.push_back(EmitScalarExpr(ReadyLatencyArg));
 
-  const Expr *BitsPerSymbolArg = E->getArg(3);
+  const Expr *BitsPerSymbolArg = E->getArg(4);
   Args.push_back(EmitScalarExpr(BitsPerSymbolArg));
 
-  const Expr *FirstSymbolInHighOrderBitsArg = E->getArg(4);
+  const Expr *FirstSymbolInHighOrderBitsArg = E->getArg(5);
   Args.push_back(EmitScalarExpr(FirstSymbolInHighOrderBitsArg));
 
-  const Expr *UsesPacketsArg = E->getArg(5);
+  const Expr *UsesPacketsArg = E->getArg(6);
   Args.push_back(EmitScalarExpr(UsesPacketsArg));
 
-  const Expr *UsesEmptyArg = E->getArg(6);
+  const Expr *UsesEmptyArg = E->getArg(7);
   Args.push_back(EmitScalarExpr(UsesEmptyArg));
 
-  const Expr *UsesValidReadyArg = E->getArg(7);
+  const Expr *UsesValidReadyArg = E->getArg(8);
   Args.push_back(EmitScalarExpr(UsesValidReadyArg));
 
-  llvm::Type *OverloadTy = ConvertType(PtrTy->getPointeeType());
-
-  llvm::Function *Func =
-      CGM.getIntrinsic(getHLSIntrinsic(BuiltinID), {OverloadTy});
-  if (BuiltinID == Builtin::BI__builtin_intel_hls_instream_tryRead ||
-      BuiltinID == Builtin::BI__builtin_intel_hls_outstream_tryRead) {
+  if (isHLSStreamWrite(BuiltinID)) {
+    // Write takes SOP/EOP/Empty by value instead of as a pointer.
+    const Expr *SOPArg = E->getArg(9);
+    Args.push_back(EmitScalarExpr(SOPArg));
+    const Expr *EOPArg = E->getArg(10);
+    Args.push_back(EmitScalarExpr(EOPArg));
+    const Expr *EmptyArg = E->getArg(11);
+    Args.push_back(EmitScalarExpr(EmptyArg));
+  } else if (isHLSStreamRead(BuiltinID)) {
+    // Read returns the Success (In 'try' cases), SOP, EOP, and Empty.
     auto *Call = Builder.CreateCall(Func, Args);
-    const Expr *SuccessArg = E->getArg(8);
-    auto *Success = EmitScalarExpr(SuccessArg);
-    Builder.CreateDefaultAlignedStore(Builder.CreateExtractValue(Call, 1),
-                                      Success);
+    bool HasSuccess = false;
+
+    if (BuiltinID == Builtin::BI__builtin_intel_hls_instream_tryRead ||
+        BuiltinID == Builtin::BI__builtin_intel_hls_outstream_tryRead) {
+      HasSuccess = true;
+      const Expr *SuccessArg = E->getArg(12);
+      llvm::Value *Success = EmitScalarExpr(SuccessArg);
+      Builder.CreateDefaultAlignedStore(Builder.CreateExtractValue(Call, 1),
+                                        Success);
+    }
+
+    const Expr *SOPArg = E->getArg(9);
+    llvm::Value *SOP = EmitScalarExpr(SOPArg);
+    Builder.CreateDefaultAlignedStore(
+        Builder.CreateExtractValue(Call, 1 + HasSuccess), SOP);
+    const Expr *EOPArg = E->getArg(10);
+    llvm::Value *EOP = EmitScalarExpr(EOPArg);
+    Builder.CreateDefaultAlignedStore(
+        Builder.CreateExtractValue(Call, 2 + HasSuccess), EOP);
+    const Expr *EmptyArg = E->getArg(11);
+    llvm::Value *Empty = EmitScalarExpr(EmptyArg);
+    Builder.CreateDefaultAlignedStore(
+        Builder.CreateExtractValue(Call, 3 + HasSuccess), Empty);
+    // Return the read object.
     return RValue::get(Builder.CreateExtractValue(Call, 0));
   }
 
@@ -1608,7 +1644,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
         Builder.CreateCall(FnExpect, {ArgValue, ExpectedValue}, "expval");
     return RValue::get(Result);
   }
-#if defined(INTEL_CUSTOMIZATION) && !defined(INTEL_SPECIFIC_IL0_BACKEND)
+#if defined(INTEL_CUSTOMIZATION)
   // CQ#373129 - support for __assume_aligned builtin.
   case Builtin::BI__assume_aligned:
     if (!getLangOpts().IntelCompat)
@@ -1616,7 +1652,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     assert(E->getNumArgs() == 2 &&
            "Wrong number of arguments for __assume_aligned builtin");
     // Intentional fall through.
-#endif // INTEL_CUSTOMIZATION and not INTEL_SPECIFIC_IL0_BACKEND
+#endif // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_assume_aligned: {
     Value *PtrValue = EmitScalarExpr(E->getArg(0));
     Value *OffsetValue =
@@ -1929,11 +1965,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   }
   case Builtin::BImemcpy:
   case Builtin::BI__builtin_memcpy: {
-#if INTEL_SPECIFIC_IL0_BACKEND
-    // Let IL0 intrinsic table handle this.
-    if (getLangOpts().IntelCompat)
-        break;
-#endif // INTEL_SPECIFIC_IL0_BACKEND
     Address Dest = EmitPointerWithAlignment(E->getArg(0));
     Address Src = EmitPointerWithAlignment(E->getArg(1));
     Value *SizeVal = EmitScalarExpr(E->getArg(2));
@@ -1990,11 +2021,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
 
   case Builtin::BImemmove:
   case Builtin::BI__builtin_memmove: {
-#if INTEL_SPECIFIC_IL0_BACKEND
-    // Let IL0 intrinsic table handle this.
-    if (getLangOpts().IntelCompat)
-        break;
-#endif // INTEL_SPECIFIC_IL0_BACKEND
     Address Dest = EmitPointerWithAlignment(E->getArg(0));
     Address Src = EmitPointerWithAlignment(E->getArg(1));
     Value *SizeVal = EmitScalarExpr(E->getArg(2));
@@ -2007,11 +2033,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   }
   case Builtin::BImemset:
   case Builtin::BI__builtin_memset: {
-#if INTEL_SPECIFIC_IL0_BACKEND
-    // Let IL0 intrinsic table handle this.
-    if (getLangOpts().IntelCompat)
-        break;
-#endif // INTEL_SPECIFIC_IL0_BACKEND
     Address Dest = EmitPointerWithAlignment(E->getArg(0));
     Value *ByteVal = Builder.CreateTrunc(EmitScalarExpr(E->getArg(1)),
                                          Builder.getInt8Ty());
@@ -2194,42 +2215,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__sync_lock_test_and_set:
   case Builtin::BI__sync_lock_release:
   case Builtin::BI__sync_swap:
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  case Builtin::BI__atomic_store_explicit:
-  case Builtin::BI__atomic_load_explicit:
-  case Builtin::BI__atomic_exchange_explicit:
-  case Builtin::BI__atomic_compare_exchange_weak_explicit:
-  case Builtin::BI__atomic_compare_exchange_strong_explicit:
-  case Builtin::BI__atomic_fetch_add_explicit:
-  case Builtin::BI__atomic_fetch_sub_explicit:
-  case Builtin::BI__atomic_fetch_and_explicit:
-  case Builtin::BI__atomic_fetch_nand_explicit:
-  case Builtin::BI__atomic_fetch_or_explicit:
-  case Builtin::BI__atomic_fetch_xor_explicit:
-  case Builtin::BI__atomic_add_fetch_explicit:
-  case Builtin::BI__atomic_sub_fetch_explicit:
-  case Builtin::BI__atomic_and_fetch_explicit:
-  case Builtin::BI__atomic_nand_fetch_explicit:
-  case Builtin::BI__atomic_or_fetch_explicit:
-  case Builtin::BI__atomic_xor_fetch_explicit:
-  case Builtin::BI__assume_aligned: {
-    llvm::SmallVector<llvm::Value *, 4> Args;
-    auto &C = CGM.getLLVMContext();
-    Args.push_back(llvm::MetadataAsValue::get(
-        C, llvm::MDString::get(C, "ASSUME_ALIGNED")));
-    llvm::Value *Arg1 = EmitScalarExpr(E->getArg(0));
-    llvm::Value *Arg2 = EmitScalarExpr(E->getArg(1));
-    llvm::Type *UIntTy = ConvertTypeForMem(getContext().UnsignedIntTy);
-    llvm::Value *Res = Builder.CreatePtrToInt(Arg1, UIntTy);
-    llvm::Value *Sub = Builder.CreateIntCast(Arg2, UIntTy, false);
-    Sub = Builder.CreateSub(Sub, llvm::ConstantInt::get(UIntTy, 1));
-    Res = Builder.CreateAnd(Res, Sub);
-    Args.push_back(llvm::MetadataAsValue::get(
-        C, llvm::ValueAsMetadata::get(Builder.CreateIsNull(Res))));
-    llvm::Value *Fn = CGM.getIntrinsic(llvm::Intrinsic::intel_pragma);
-    return RValue::get(Builder.CreateCall(Fn, Args));
-  }
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
     llvm_unreachable("Shouldn't make it through sema");
 #if INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_return:
@@ -2495,10 +2480,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(FuncInfo);
     llvm::Constant *Func = CGM.CreateRuntimeFunction(FTy, LibCallName);
     return EmitCall(FuncInfo, CGCallee::forDirect(Func),
-                    ReturnValueSlot(), Args, // INTEL
-#if INTEL_SPECIFIC_CILKPLUS
-                    nullptr, SourceLocation(), E->isCilkSpawnCall());
-#endif // INTEL_SPECIFIC_CILKPLUS
+                    ReturnValueSlot(), Args);
   }
 
   case Builtin::BI__atomic_test_and_set: {
@@ -8674,12 +8656,18 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_storesd128_mask: {
     return EmitX86MaskedStore(*this, Ops, 16);
   }
+  case X86::BI__builtin_ia32_vpopcntb_128:
   case X86::BI__builtin_ia32_vpopcntd_128:
   case X86::BI__builtin_ia32_vpopcntq_128:
+  case X86::BI__builtin_ia32_vpopcntw_128:
+  case X86::BI__builtin_ia32_vpopcntb_256:
   case X86::BI__builtin_ia32_vpopcntd_256:
   case X86::BI__builtin_ia32_vpopcntq_256:
+  case X86::BI__builtin_ia32_vpopcntw_256:
+  case X86::BI__builtin_ia32_vpopcntb_512:
   case X86::BI__builtin_ia32_vpopcntd_512:
-  case X86::BI__builtin_ia32_vpopcntq_512: {
+  case X86::BI__builtin_ia32_vpopcntq_512:
+  case X86::BI__builtin_ia32_vpopcntw_512: {
     llvm::Type *ResultType = ConvertType(E->getType());
     llvm::Function *F = CGM.getIntrinsic(Intrinsic::ctpop, ResultType);
     return Builder.CreateCall(F, Ops);
