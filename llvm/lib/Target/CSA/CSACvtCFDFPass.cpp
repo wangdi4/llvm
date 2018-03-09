@@ -1436,7 +1436,7 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
   // Look for loop outputs.
   for (MachineOperand *g : backGang) {
     MachineInstr* outSwitch = MRI->getUniqueVRegDef(g->getReg());
-    MachineOperand *loopOutput = &outSwitch->getOperand(1);
+    MachineOperand *loopOutput = &outSwitch->getOperand(pickCtrlInverted ? 1 : 0);
     if (loopOutput->getReg() == CSA::IGN)
       continue;
     if (MRI->use_nodbg_empty(loopOutput->getReg()))

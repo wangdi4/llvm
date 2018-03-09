@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This pass implements the Loop SPMDization transformation that generates multiple loops from one loop. These loops can run in parallel. Two approaches are implemented here: the cyclic approach where each loop has a stride of k and teh blocking approach where each loop iterates over contiguous #iterations/NPEs iterations.
+// This pass implements the Loop SPMDization transformation that generates multiple loops from one loop. These loops can run in parallel. Two approaches are implemented here: the cyclic approach where each loop has a stride of k and the blocking approach where each loop iterates over contiguous #iterations/NPEs iterations.
 //
 //===----------------------------------------------------------------------===//
 
@@ -23,6 +23,9 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include <vector>
+
+#include "llvm/Transforms/Utils/UnrollLoop.h"
+
 
 using namespace llvm;
 
@@ -47,6 +50,7 @@ namespace {
     Value *UpperBound;
     Value * LowerBound;
     bool FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, BasicBlock *AfterLoop, int PE, int NPEs, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig, std::vector<Instruction *> *OldInst);
+    void setLoopAlreadySPMDized(Loop *L);
     bool FindReductionVariables(Loop *L, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig);
     PHINode *getInductionVariable(Loop *L, ScalarEvolution *SE);
     bool TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int PE, int NPEs);
@@ -60,6 +64,10 @@ namespace {
       // Skip SPMDization if optnone is set; this makes it possible to use
       // things like OptBisect with SPMDization.
       if (skipLoop(L)) return false;
+      if (MDNode *LoopID = L->getLoopID())
+        if(GetUnrollMetadata(LoopID, "llvm.loop.spmd.disable")) {
+          return true;
+        }
 
       LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
       DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
@@ -135,11 +143,6 @@ namespace {
           errs().resetColor();
           return false;
         }
-        for (auto UA = (dyn_cast<Value>(found_spmd))->user_begin(), EA = (dyn_cast<Value>(found_spmd))->user_end(); UA != EA;) {
-          Instruction *spmd_use = cast<Instruction>(*UA++);
-          spmd_use->eraseFromParent();
-        }
-        found_spmd->eraseFromParent();
         if(!L->getExitBlock()) {
           errs() << "\n";
           errs().changeColor(raw_ostream::BLUE, true);
@@ -201,7 +204,8 @@ try a different SPMDization strategy instead.
           TransformLoopInitandBound(L, SE, 0, NPEs);
         }
      
-
+        setLoopAlreadySPMDized(L);
+       
         BasicBlock *PH = SplitBlock(OrigPH, OrigPH->getTerminator(), DT, LI);
         PH->setName(L->getHeader()->getName() + ".ph");
         BasicBlock *OrigE = L->getExitBlock();
@@ -247,7 +251,7 @@ try a different SPMDization strategy instead.
           FixReductionsIfAny(NewLoop, OrigL, E, AfterLoop, PE, NPEs, &Reductions, &ReduceVarExitOrig, &ReduceVarOrig, &OldInsts); 
 
           L = NewLoop;
-          
+          setLoopAlreadySPMDized(L);       
         }
         //Fix missed Phi operands in AfterLoop
         BasicBlock::iterator bi, bie; 
@@ -269,7 +273,6 @@ try a different SPMDization strategy instead.
           }
         }
       }
-      
       return true;
     }
     void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -305,6 +308,25 @@ Pass *llvm::createLoopSPMDizationPass() {
   return new LoopSPMDization();
 }
 
+void LoopSPMDization::setLoopAlreadySPMDized(Loop *L) {
+  // Add SPMDization(disable) metadata to disable future SPMDization.
+  SmallVector<Metadata *, 4> MDs;
+  // Reserve first location for self reference to the LoopID metadata node.
+  MDs.push_back(nullptr);
+  
+  LLVMContext &Context = L->getHeader()->getContext();
+  SmallVector<Metadata *, 1> DisableOperands;
+  DisableOperands.push_back(MDString::get(Context, "llvm.loop.spmd.disable"));
+  MDNode *DisableNode = MDNode::get(Context, DisableOperands);
+  MDs.push_back(DisableNode);
+  
+  MDNode *NewLoopID = MDNode::get(Context, MDs);
+  // Set operand 0 to refer to the loop id itself.
+  NewLoopID->replaceOperandWith(0, NewLoopID);
+  L->setLoopID(NewLoopID);
+  return;
+}       
+       
 bool LoopSPMDization::FindReductionVariables(Loop *L, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig) {
   int r = 0;
   for (Instruction &I : *L->getHeader()) {
@@ -384,7 +406,7 @@ bool LoopSPMDization::FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, Ba
           Instruction *NewInstPhi; 
           PHINode *NewPhi;
           Instruction *ReduceVarExit;
-           IRBuilder<> B(AfterLoop->getFirstNonPHI());
+          IRBuilder<> B(AfterLoop->getFirstNonPHI());
           bool found_p = false;
           //look for use of the reduced value
           if (!PhiExit) {
@@ -515,57 +537,60 @@ IntrinsicInst* LoopSPMDization::detectSPMDIntrinsic(Loop *L, LoopInfo *LI, Domin
   // given basic block.
   const auto match_pair_from_block = [=, &NPEs, &approach](
     BasicBlock *BB
-  ) -> IntrinsicInst * {
+                                                           ) -> IntrinsicInst * {
     using namespace llvm::PatternMatch;
-
+    
     // The block must be exactly one loop level above the loop.
     if (LI->getLoopDepth(BB) != L->getLoopDepth() - 1) return nullptr;
-
+    
     // And it should post-dominate the loop in order to have a correct exit in
     // it.
     if (!PDT->dominates(BB, L->getHeader())) return nullptr;
-
+    
     // Try to find an exit with a paired entry.
     for (Instruction &exit : *BB) {
       Instruction *entry = nullptr;
       uint64_t NPEs_64;
       if (
-        !match(
-          &exit,
-          m_Intrinsic<Intrinsic::csa_spmdization_exit>(m_Instruction(entry))
-        ) || !match(
-          entry,
-          m_Intrinsic<Intrinsic::csa_spmdization_entry>(
-            m_ConstantInt(NPEs_64), m_Value(approach)
-          )
-        )
-      ) continue;
+          !match(
+            &exit,
+            m_Intrinsic<Intrinsic::csa_spmdization_exit>(m_Instruction(entry))
+                 ) || !match(
+                   entry,
+                   m_Intrinsic<Intrinsic::csa_spmdization_entry>(
+                     m_ConstantInt(NPEs_64), m_Value(approach)
+                                                                 )
+                             )
+          ) continue;
 
       // If one is found, make sure that the entry block is also one loop level
       // above the loop and dominates the loop.
       const BasicBlock *const entry_block = entry->getParent();
       if (LI->getLoopDepth(entry_block) != L->getLoopDepth() - 1) continue;
       if (!DT->dominates(entry_block, L->getHeader())) continue;
-
+      
       IntrinsicInst *const entry_intr = dyn_cast<IntrinsicInst>(entry);
       assert(entry_intr && "Entry intrinsic is not an intrinsic??");
       NPEs = NPEs_64;
       return entry_intr;
     }
-
+    
     return nullptr;
   };
-
+  
   // If there is a parent loop, only look inside of it for exits. Otherwise,
   // look through the entire function.
   if (Loop *const L_parent = L->getParentLoop()) {
-    for (BasicBlock *const BB : L_parent->getBlocks())
+    for (BasicBlock *const BB : L_parent->getBlocks()) {
       if (IntrinsicInst *const intr = match_pair_from_block(BB))
         return intr;
+    }
   } else {
-    for (BasicBlock &BB : *L->getHeader()->getParent())
+    for (BasicBlock &BB : *L->getHeader()->getParent()) {
       if (IntrinsicInst *const intr = match_pair_from_block(&BB))
         return intr;
+    
+    }
   }
 
   return nullptr;
@@ -885,17 +910,17 @@ bool LoopSPMDization::AddParallelIntrinsicstoLoop(Loop *L, LLVMContext& context,
   Instruction*const header_terminator = OrigPH->getTerminator();
   Instruction*const preheader_terminator = L->getLoopPreheader()->getTerminator();
   CallInst *region_entry = IRBuilder<>{header_terminator}.CreateCall(
-                      FIntr, 
-                      ConstantInt::get(IntegerType::get(context, 32), 1), 
-                      "spmd_pre"
+    FIntr, 
+    ConstantInt::get(IntegerType::get(context, 32), 1), 
+    "spmd_pre"
                                                                      );
   std::string RegionName = region_entry->getName();
   next_token = context.getMDKindID(RegionName) + 1000;
   region_entry->setOperand(0, ConstantInt::get(IntegerType::get(context, 32), next_token));
   CallInst *section_entry = IRBuilder<>{preheader_terminator}.CreateCall(
-          Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_section_entry), 
-          region_entry, 
-          "spmd_pse"
+    Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_section_entry), 
+    region_entry, 
+    "spmd_pse"
                                                                          );
   
   //IRBuilder<>{preheader_terminator}.CreateCall(
@@ -906,13 +931,13 @@ bool LoopSPMDization::AddParallelIntrinsicstoLoop(Loop *L, LLVMContext& context,
   L->getExitBlocks(exits);
   for (BasicBlock *const exit : exits) {
     IRBuilder<>{exit->getFirstNonPHI()}.CreateCall(
-            Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_section_exit),
-            section_entry
+      Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_section_exit),
+      section_entry
                                                    );
   }
   IRBuilder<>{E->getFirstNonPHI()}.CreateCall(
-             Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_region_exit), 
-             region_entry
+    Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_region_exit), 
+    region_entry
                                               );
   
   return true;
