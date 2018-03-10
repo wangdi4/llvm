@@ -168,7 +168,5 @@ PreservedAnalyses VPOParoptPreparePass::run(Function &F,
   if (!Changed)
     return PreservedAnalyses::all();
 
-  PreservedAnalyses PA;
-  PA.preserve<WRegionInfoAnalysis>();
-  return PA;
+  return PreservedAnalyses::none();;
 }

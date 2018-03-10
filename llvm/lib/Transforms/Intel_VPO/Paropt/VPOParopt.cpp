@@ -63,12 +63,17 @@ ModulePass *llvm::createVPOParoptPass(unsigned Mode,
 }
 
 VPOParopt::VPOParopt(unsigned MyMode,
-      const std::vector<std::string> &MyOffloadTargets)
-    : ModulePass(ID), Mode(MyMode) {
+                     const std::vector<std::string> &MyOffloadTargets)
+    : ModulePass(ID), Impl(MyMode, MyOffloadTargets) {
+  initializeVPOParoptPass(*PassRegistry::getPassRegistry());
+}
+
+VPOParoptPass::VPOParoptPass(unsigned MyMode,
+                             const std::vector<std::string> &MyOffloadTargets)
+    : Mode(MyMode) {
   DEBUG(dbgs() << "\n\n====== Start VPO Paropt Pass ======\n\n");
   for (const auto &T : MyOffloadTargets)
     OffloadTargets.emplace_back(Triple{T});
-  initializeVPOParoptPass(*PassRegistry::getPassRegistry());
 }
 
 void VPOParopt::getAnalysisUsage(AnalysisUsage &AU) const {
@@ -80,6 +85,30 @@ bool VPOParopt::runOnModule(Module &M) {
   if (skipModule(M))
     return false;
 
+  auto WRegionInfoGetter = [&](Function &F) -> WRegionInfo & {
+    return getAnalysis<WRegionInfoWrapperPass>(F).getWRegionInfo();
+  };
+
+  return Impl.runImpl(M, WRegionInfoGetter);
+}
+
+PreservedAnalyses VPOParoptPass::run(Module &M, ModuleAnalysisManager &AM) {
+  auto WRegionInfoGetter = [&](Function &F) -> WRegionInfo & {
+    auto &FAM =
+        AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+    return FAM.getResult<WRegionInfoAnalysis>(F);
+  };
+
+  if (!runImpl(M, WRegionInfoGetter))
+    return PreservedAnalyses::all();
+
+  return PreservedAnalyses::none();
+}
+
+bool VPOParoptPass::runImpl(
+    Module &M,
+    std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter) {
+
   bool Changed = false;
 
   /// \brief As new functions to be added, so we need to prepare the
@@ -90,7 +119,7 @@ bool VPOParopt::runOnModule(Module &M) {
     // TODO: need Front-End to set F->hasOpenMPDirective()
     if (F->isDeclaration()) // if(!F->hasOpenMPDirective()))
       continue;
-    DEBUG(dbgs() << "\n=== VPOParopt func: " << F->getName() <<" {\n");
+    DEBUG(dbgs() << "\n=== VPOParoptPass func: " << F->getName() <<" {\n");
     FnList.push_back(&*F);
   }
 
@@ -98,10 +127,10 @@ bool VPOParopt::runOnModule(Module &M) {
   // transformation and generate MT-code
   for (auto F : FnList) {
 
-    DEBUG(dbgs() << "\n=== VPOParopt Process func: " << F->getName() <<" {\n");
+    DEBUG(dbgs() << "\n=== VPOParoptPass Process func: " << F->getName() <<" {\n");
 
     // Walk the W-Region Graph top-down, and create W-Region List
-    WRegionInfo &WI = getAnalysis<WRegionInfoWrapperPass>(*F).getWRegionInfo();
+    WRegionInfo &WI = WRegionInfoGetter(*F);
     WI.buildWRGraph(WRegionCollection::LLVMIR);
 
     if (WI.WRGraphIsEmpty()) {
@@ -116,10 +145,10 @@ bool VPOParopt::runOnModule(Module &M) {
     //
     // legacy::FunctionPassManager FPM(&M);
 
-    DEBUG(errs() << "VPOParopt Pass: ");
+    DEBUG(errs() << "VPOParoptPass: ");
     DEBUG(errs().write_escaped(F->getName()) << '\n');
 
-    DEBUG(dbgs() << "\n=== VPOParopt before ParoptTransformer{\n");
+    DEBUG(dbgs() << "\n=== VPOParoptPass before ParoptTransformer{\n");
 
     // AUTOPAR | OPENMP | SIMD | OFFLOAD
     VPOParoptTransform VP(F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
@@ -127,7 +156,7 @@ bool VPOParopt::runOnModule(Module &M) {
                           WI.getTargetLibraryInfo(), Mode, OffloadTargets);
     Changed = Changed | VP.paroptTransforms();
 
-    DEBUG(dbgs() << "\n}=== VPOParopt after ParoptTransformer\n");
+    DEBUG(dbgs() << "\n}=== VPOParoptPass after ParoptTransformer\n");
 
     // Remove calls to directive intrinsics since the LLVM back end does not
     // know how to translate them.
@@ -154,13 +183,13 @@ bool VPOParopt::runOnModule(Module &M) {
     Changed = Changed | !PA.areAllPreserved();
   }
 
-  DEBUG(dbgs() << "\n====== End VPO Paropt Pass ======\n\n");
+  DEBUG(dbgs() << "\n====== End VPO ParoptPass ======\n\n");
   return Changed;
 }
 
 // \brief Remove routines and global variables which has no target declare
 // attribute.
-void VPOParopt::removeTargetUndeclaredGlobals(Module &M) {
+void VPOParoptPass::removeTargetUndeclaredGlobals(Module &M) {
   std::vector<GlobalVariable *> DeadGlobalVars; // Keep track of dead globals
   for (GlobalVariable &GV : M.globals())
     if (!GV.isTargetDeclare()) {
@@ -203,7 +232,7 @@ void VPOParopt::removeTargetUndeclaredGlobals(Module &M) {
 
 // Creates the global llvm.global_ctors initialized with
 // with the function .omp_offloading.descriptor_reg
-void VPOParopt::genCtorList(Module &M) {
+void VPOParoptPass::genCtorList(Module &M) {
   LLVMContext &C = M.getContext();
   Type *VoidPtrTy = Type::getInt8PtrTy(C);
   Type *Int32Ty = Type::getInt32Ty(C);

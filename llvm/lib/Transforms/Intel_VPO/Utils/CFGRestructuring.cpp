@@ -199,10 +199,7 @@ PreservedAnalyses VPOCFGRestructuringPass::run(Function &F,
   if (!Changed)
     return PreservedAnalyses::all();
 
-  PreservedAnalyses PA;
-  PA.preserve<DominatorTreeAnalysis>();
-  PA.preserve<LoopAnalysis>();
-  return PA;
+  return PreservedAnalyses::none();
 }
 
 FunctionPass *llvm::createVPOCFGRestructuringPass() {

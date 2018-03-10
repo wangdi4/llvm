@@ -28,9 +28,12 @@
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
+
+#include <functional>
 
 namespace llvm {
 
@@ -66,26 +69,24 @@ enum VPOParoptMode {
   OmpTbb     = 0x00000100  // emit tbb_omp_task_* calls (instead of kmpc_task_*)
 };
 
-/// \brief VPOParopt class for performing parallelization and offloading
-class VPOParopt : public ModulePass {
+} // end namespace vpo
+
+/// \brief VPOParopt Pass for the new Pass Manager. Performs parallelization and
+/// offloading transformations.
+class VPOParoptPass : public PassInfoMixin<VPOParoptPass> {
 
 public:
-  /// Pass Identification
-  static char ID;
+  explicit VPOParoptPass(unsigned MyMode = vpo::ParTrans | vpo::OmpPar |
+                                           vpo::OmpVec,
+                         const std::vector<std::string> &OffloadTargets = {});
+  ~VPOParoptPass(){};
 
-  explicit VPOParopt(unsigned MyMode = ParTrans | OmpPar | OmpVec,
-    const std::vector<std::string> &OffloadTargets = {});
-  ~VPOParopt(){};
-
-  StringRef getPassName() const override { return "VPO Paropt Pass"; }
-
-  bool runOnModule(Module &M) override;
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const;
-
-  // void print(raw_ostream &OS, const Module * = nullptr) const override;
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+  bool
+  runImpl(Module &M,
+          std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter);
 
 private:
-  WRegionInfo *WI;
   /// \brief Creates the global llvm.global_ctors initialized
   /// with the function .omp_offloading.descriptor_reg
   void genCtorList(Module &M);
@@ -99,6 +100,30 @@ private:
 
   // List of target triples for offloading.
   SmallVector<Triple, 16> OffloadTargets;
+};
+
+namespace vpo {
+/// \brief VPOParopt Pass wrapper for the old Pass Manager. Performs
+/// parallelization and offloading transformation.
+class VPOParopt : public ModulePass {
+
+public:
+  /// Pass Identification
+  static char ID;
+
+  explicit VPOParopt(unsigned MyMode = ParTrans | OmpPar | OmpVec,
+                     const std::vector<std::string> &OffloadTargets = {});
+  ~VPOParopt(){};
+
+  StringRef getPassName() const override { return "VPO Paropt Pass"; }
+
+  bool runOnModule(Module &M) override;
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const;
+
+  // void print(raw_ostream &OS, const Module * = nullptr) const override;
+
+private:
+  VPOParoptPass Impl;
 };
 
 } // end namespace vpo
