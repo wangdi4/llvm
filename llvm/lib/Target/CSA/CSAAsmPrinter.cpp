@@ -108,8 +108,6 @@ class CSAAsmPrinter : public AsmPrinter {
   bool ignoreLoc(const MachineInstr &);
   LineReader *reader;
   // To record filename to ID mapping
-  std::map<std::string, unsigned> filenameMap;
-  void recordAndEmitFilenames(Module &);
   bool doInitialization(Module &M) override;
   void emitLineNumberAsDotLoc(const MachineInstr &);
   void emitSrcInText(StringRef filename, unsigned line);
@@ -214,42 +212,6 @@ bool CSAAsmPrinter::ignoreLoc(const MachineInstr &MI) {
   }
 }
 
-void CSAAsmPrinter::recordAndEmitFilenames(Module &M) {
-  DebugInfoFinder DbgFinder;
-  DbgFinder.processModule(M);
-
-  unsigned i = 1;
-  for (const DICompileUnit *DIUnit : DbgFinder.compile_units()) {
-    StringRef Filename(DIUnit->getFilename());
-    StringRef Dirname(DIUnit->getDirectory());
-    SmallString<128> FullPathName = Dirname;
-    if (!Dirname.empty() && !sys::path::is_absolute(Filename)) {
-      sys::path::append(FullPathName, Filename);
-      Filename = FullPathName.str();
-    }
-    if (filenameMap.find(Filename.str()) != filenameMap.end())
-      continue;
-    filenameMap[Filename.str()] = i;
-    OutStreamer->EmitDwarfFileDirective(i, "", Filename.str());
-    ++i;
-  }
-
-  for (const DISubprogram *SP : DbgFinder.subprograms()) {
-    StringRef Filename(SP->getFilename());
-    StringRef Dirname(SP->getDirectory());
-    SmallString<128> FullPathName = Dirname;
-    if (!Dirname.empty() && !sys::path::is_absolute(Filename)) {
-      sys::path::append(FullPathName, Filename);
-      Filename = FullPathName.str();
-    }
-    if (filenameMap.find(Filename.str()) != filenameMap.end())
-      continue;
-    filenameMap[Filename.str()] = i;
-    OutStreamer->EmitDwarfFileDirective(i, "", Filename.str());
-    ++i;
-  }
-}
-
 bool CSAAsmPrinter::doInitialization(Module &M) {
   bool result = AsmPrinter::doInitialization(M);
 
@@ -262,8 +224,6 @@ bool CSAAsmPrinter::doInitialization(Module &M) {
     OutStreamer->AddComment("End of file scope inline assembly");
     OutStreamer->AddBlankLine();
   }
-
-  recordAndEmitFilenames(M);
 
   return result;
 }
@@ -293,21 +253,24 @@ void CSAAsmPrinter::emitLineNumberAsDotLoc(const MachineInstr &MI) {
 
   StringRef fileName(Scope->getFilename());
   StringRef dirName(Scope->getDirectory());
-  SmallString<128> FullPathName = dirName;
-  if (!dirName.empty() && !sys::path::is_absolute(fileName)) {
-    sys::path::append(FullPathName, fileName);
-    fileName = FullPathName.str();
-  }
-
-  if (filenameMap.find(fileName.str()) == filenameMap.end())
-    return;
 
   // Emit the line from the source file.
   if (InterleaveSrc)
     this->emitSrcInText(fileName.str(), curLoc.getLine());
 
   std::stringstream temp;
-  temp << "\t.loc " << filenameMap[fileName.str()] << " " << curLoc.getLine()
+
+  //
+  // EmitDwarfFileDirective() returns the file ID for the given
+  // file path.  It will only emit the file directive once
+  // for each file.
+  //
+  unsigned FileNo = OutStreamer->EmitDwarfFileDirective(0, dirName, fileName);
+
+  if (FileNo == 0)
+    return;
+
+  temp << "\t.loc " << FileNo << " " << curLoc.getLine()
        << " " << curLoc.getCol();
   OutStreamer->EmitRawText(Twine(temp.str().c_str()));
 }
@@ -315,7 +278,7 @@ void CSAAsmPrinter::emitLineNumberAsDotLoc(const MachineInstr &MI) {
 void CSAAsmPrinter::emitSrcInText(StringRef filename, unsigned line) {
   std::stringstream temp;
   LineReader *reader = this->getReader(filename.str());
-  temp << "\n//";
+  temp << "\n#";
   temp << filename.str();
   temp << ":";
   temp << line;
@@ -516,6 +479,33 @@ void CSAAsmPrinter::EmitFunctionEntryLabel() {
   // Set up
   MRI = &MF->getRegInfo();
   F   = MF->getFunction();
+
+  //
+  // CMPLRS-49165: set compilation directory DWARF emission.
+  //
+  // With -fdwarf-directory-asm (default in ICX) and unset compilation
+  // directory EmitDwarfFileDirective will use new syntax for assembly
+  // .file directory:
+  //     .file 1 "directory" "file"
+  //
+  // Neither standard 'as' nor CSA simulator can handle this.
+  //
+  // If we set the compilation directory, and the file being compiled
+  // is located in the compilation folder, then the old syntax will be used.
+  // At the same time, even if we set the compilation directory,
+  // the new syntax will be used in cases, when the file is not
+  // in the compilation directory.  So the general fix is to use
+  // -fno-dwarf-directory-asm - see CMPLRS-49173.
+  //
+  // I think setting the compilation directory is the right thing to do
+  // anyway.
+  //
+  auto *SubProgram = MF->getFunction()->getSubprogram();
+  if (SubProgram &&
+      SubProgram->getUnit()->getEmissionKind() != DICompileUnit::NoDebug) {
+    MCDwarfLineTable &Table = OutStreamer->getContext().getMCDwarfLineTable(0);
+    Table.setCompilationDir(SubProgram->getUnit()->getDirectory());
+  }
 
   // If we're wrapping the CSA assembly we need to create our own
   // global symbol declaration
