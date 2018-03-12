@@ -2813,17 +2813,32 @@ unsigned CSACvtCFDFPass::getInnerLoopPipeliningDegree(MachineLoop *L) {
   if (needDynamicPreds(L))
     return 1;
 
-  // Check if the ILPL prep pass has indicated that this loop is a target.
+  // No pipelining if we can't identify a loop header.
+	MachineBasicBlock *header = L->getHeader();
+	if (not header)
+		return 1;
+
+  // Look for a marker left by the IR prep pass in the loop header. Sometimes
+  // it gets moved here.
+	for (MachineInstr &headerInst : *header) {
+		if (headerInst.getOpcode() == CSA::CSA_PIPELINEABLE_LOOP) {
+			unsigned maxDOP = headerInst.getOperand(0).getImm();
+			// Remove the directive so that we know it was acted upon.
+			headerInst.eraseFromParentAndMarkDBGValuesForRemoval();
+			return maxDOP;
+		}
+	}
+
+  // Also check the latch. This is where it's inserted and usually found.
   MachineBasicBlock *latch = L->getLoopLatch();
   if (not latch)
     return 1;
 
-  // Otherwise, try to get the degree indicated by the preparation pass.
-  for (MachineInstr &latchPred : *latch) {
-    if (latchPred.getOpcode() == CSA::CSA_PIPELINEABLE_LOOP) {
-      unsigned maxDOP = latchPred.getOperand(0).getImm();
+	for (MachineInstr &latchInst : *latch) {
+    if (latchInst.getOpcode() == CSA::CSA_PIPELINEABLE_LOOP) {
+      unsigned maxDOP = latchInst.getOperand(0).getImm();
       // Remove the directive so that we know it was acted upon.
-      latchPred.eraseFromParentAndMarkDBGValuesForRemoval();
+      latchInst.eraseFromParentAndMarkDBGValuesForRemoval();
       return maxDOP;
     }
   }
