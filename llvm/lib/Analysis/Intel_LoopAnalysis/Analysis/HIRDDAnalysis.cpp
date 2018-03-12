@@ -522,3 +522,10 @@ void HIRDDAnalysis::GraphVerifier::visit(HLLoop *Loop) {
     }
   }
 }
+
+bool HIRDDAnalysis::doRefsAlias(const RegDDRef *SrcRef,
+                                const RegDDRef *DstRef) const {
+  DDTest DT(*AAR, SrcRef->getHLDDNode()->getHLNodeUtils(), *HLS);
+  return !DT.queryAAIndep(SrcRef, DstRef);
+}
+

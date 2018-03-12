@@ -4190,7 +4190,7 @@ static MemoryLocation getMemoryLocation(const RegDDRef *Ref) {
   return Loc;
 }
 
-bool DDTest::queryAAIndep(RegDDRef *SrcDDRef, RegDDRef *DstDDRef) {
+bool DDTest::queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef) {
   assert(SrcDDRef->isMemRef() && DstDDRef->isMemRef() &&
          "Both should be mem refs");
 

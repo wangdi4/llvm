@@ -211,6 +211,23 @@ int DDRefUtils::compareOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
   return 0;
 }
 
+bool DDRefUtils::haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2) {
+  assert(Ref1->hasGEPInfo() && "Ref1 is not a GEP DDRef!");
+  assert(Ref2->hasGEPInfo() && "Ref2 is not a GEP DDRef!");
+  assert(CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE()) &&
+         "Same base expected!");
+  assert((Ref1->getNumDimensions() == Ref2->getNumDimensions()) &&
+         "Ref1 and Ref2 have different number of dimensions!");
+
+  for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
+    if (compareOffsets(Ref1, Ref2, I)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
                               bool RelaxedMode) {
 

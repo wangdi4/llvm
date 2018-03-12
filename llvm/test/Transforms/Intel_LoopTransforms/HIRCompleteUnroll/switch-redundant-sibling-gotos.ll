@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -disable-output -hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -disable-output -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll < %s 2>&1 | FileCheck %s
 
 ; Verify that after complete unrolling the If, switch and labels are removed.
 
