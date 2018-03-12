@@ -106,3 +106,36 @@ void CodeGenFunction::EmitHLSComponentMetadata(const FunctionDecl *FD,
   Fn->setMetadata("ihc_component", llvm::MDNode::get(Ctx, ComponentMD));
   Fn->setMetadata("ihc_attrs", llvm::MDNode::get(Ctx, AttrMD));
 }
+
+void CodeGenFunction::EmitOpenCLHLSComponentMetadata(const FunctionDecl *FD,
+                                                     llvm::Function *Fn) {
+  llvm::LLVMContext &Context = getLLVMContext();
+
+  // MDNode for the local_mem_size attribute.
+  SmallVector<llvm::Metadata*, 8> ArgLocalMemSizeAttr;
+  bool IsLocalMemSizeAttr = false;
+  for (unsigned I = 0, E = FD->getNumParams(); I != E; ++I) {
+    const ParmVarDecl *parm = FD->getParamDecl(I);
+
+    auto *LocalMemSizeAttr = parm->getAttr<OpenCLLocalMemSizeAttr>();
+    if (LocalMemSizeAttr)
+      IsLocalMemSizeAttr = true;
+    ArgLocalMemSizeAttr.push_back(llvm::ConstantAsMetadata::get(
+        (LocalMemSizeAttr)
+            ? Builder.getInt32(LocalMemSizeAttr->getLocalMemSize())
+            : Builder.getInt32(0)));
+  }
+
+  if (IsLocalMemSizeAttr)
+    Fn->setMetadata("local_mem_size",
+                    llvm::MDNode::get(Context, ArgLocalMemSizeAttr));
+
+  if (const auto *MCA = FD->getAttr<MaxConcurrencyAttr>()) {
+    llvm::Value *MaxValue = EmitScalarExpr(MCA->getMax());
+    llvm::ConstantInt *MaxCI = cast<llvm::ConstantInt>(MaxValue);
+    Fn->setMetadata(
+        "max_concurrency",
+        llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(MaxCI)));
+  }
+}
+

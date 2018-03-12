@@ -1029,6 +1029,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
     if (const auto *FD = dyn_cast_or_null<FunctionDecl>(D))
       EmitHLSComponentMetadata(FD, Fn);
   }
+
+  if (getLangOpts().OpenCL &&
+      CGM.getContext().getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    // Add metadata for HLS components
+    if (const auto *FD = dyn_cast_or_null<FunctionDecl>(D))
+      EmitOpenCLHLSComponentMetadata(FD, Fn);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   if (getLangOpts().OpenCL) {

@@ -215,7 +215,7 @@ def ComponentInterface : InheritableAttr {
 def MaxConcurrency : InheritableAttr {
   let Spellings = [GNU<"max_concurrency">];
   let Args = [ExprArgument<"Max">];
-  let LangOpts = [HLS];
+  let LangOpts = [OpenCL, HLS];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
@@ -289,28 +289,28 @@ def HLSLocalVar : SubsetSubject<Var,
 def SinglePump : Attr {
   let Spellings = [GNU<"singlepump">];
   let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
-  let LangOpts = [HLS];
+  let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
 }
 
 def DoublePump : Attr {
   let Spellings = [GNU<"doublepump">];
   let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
-  let LangOpts = [HLS];
+  let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
 }
 
 def Memory : Attr {
   let Spellings = [GNU<"memory">];
   let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
-  let LangOpts = [HLS];
+  let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
 }
 
 def Register : Attr {
   let Spellings = [GNU<"register">];
   let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
-  let LangOpts = [HLS];
+  let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
 }
 
@@ -319,7 +319,7 @@ def BankWidth : Attr {
   let Spellings = [GNU<"bankwidth">];
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
-  let LangOpts = [HLS];
+  let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
     static unsigned getMinValue() {
@@ -335,7 +335,7 @@ def NumBanks : Attr {
   let Spellings = [GNU<"numbanks">];
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
-  let LangOpts = [HLS];
+  let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
     static unsigned getMinValue() {
@@ -351,7 +351,7 @@ def NumReadPorts : Attr {
   let Spellings = [GNU<"numreadports">];
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
-  let LangOpts = [HLS];
+  let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
     static unsigned getMinValue() {
@@ -367,7 +367,7 @@ def NumWritePorts : Attr {
   let Spellings = [GNU<"numwriteports">];
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
-  let LangOpts = [HLS];
+  let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
     static unsigned getMinValue() {
@@ -384,7 +384,7 @@ def NumPortsReadOnlyWriteOnly : Attr {
   let Spellings = [GNU<"numports_readonly_writeonly">];
   let Args = [ExprArgument<"NumReadPorts">, ExprArgument<"NumWritePorts">];
   let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
-  let LangOpts = [HLS];
+  let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
     static unsigned getMinValue() {
@@ -401,7 +401,7 @@ def Merge : Attr {
   let Spellings = [GNU<"merge">];
   let Args = [StringArgument<"Name">, StringArgument<"Direction">];
   let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
-  let LangOpts = [HLS];
+  let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
 }
 
@@ -410,7 +410,7 @@ def BankBits : Attr {
   let Spellings = [GNU<"bank_bits">];
   let Args = [VariadicExprArgument<"Args">];
   let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
-  let LangOpts = [HLS];
+  let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
     static unsigned getMinValue() {

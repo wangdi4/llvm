@@ -1199,7 +1199,8 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
 
 #if INTEL_CUSTOMIZATION
   // Emit annotation for HLS local variable attributes.
-  if (getLangOpts().HLS) {
+  if (getLangOpts().HLS ||
+      CGM.getContext().getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
     SmallString<256> AnnotStr;
     llvm::raw_svector_ostream Out(AnnotStr);
     if (D.hasAttr<RegisterAttr>())
