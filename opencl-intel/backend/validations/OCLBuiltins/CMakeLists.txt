@@ -68,7 +68,7 @@ add_custom_target (${TARGET_NAME} ALL
   SOURCES ${OCL_SOURCE_FILES}
 )
 
-add_library(OCLBuiltins
+add_opencl_library(OCLBuiltinsRef SHARED
   ${OCL_SOURCE_FILES}
   ${OCL_INCLUDE_FILES}
   Helpers.h
@@ -78,7 +78,7 @@ add_library(OCLBuiltins
   IWorkItemBuiltins.h
 )
 
-add_dependencies(OCLBuiltins
+add_dependencies(OCLBuiltinsRef
   ${TARGET_NAME}
 )
 
@@ -90,5 +90,7 @@ include_directories (
   ${VALIDATIONS_ROOT}/REFALU
   ${REF_CL_BUILTIN_SOURCE_DIR}
 )
+
+target_link_libraries(OCLBuiltinsRef REFALU)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )

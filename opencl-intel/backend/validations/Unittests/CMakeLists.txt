@@ -87,7 +87,7 @@ target_link_libraries(${TARGET_NAME}
     NEAT
     REFALU
     PlugInNEAT
-    OCLBuiltins
+    OCLBuiltinsRef
     googletest
     ImathLibd
     name_mangle

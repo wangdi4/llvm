@@ -90,7 +90,7 @@ target_link_libraries(${TARGET_NAME}
     LLVMInterpreterPluggable
     OclBackendUtils
     LLVMInterpreter
-    OCLBuiltins
+    OCLBuiltinsRef
     NEAT
     REFALU
     name_mangle

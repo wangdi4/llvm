@@ -1,4 +1,3 @@
-; XFAIL: *
 ; RUN: SATest -REF -config=%s.cfg -neat=1
 ; RUN: FileCheck %s <%s.ref
 ; CHECK: <Vector id="0">2 1 2 0 </Vector>
