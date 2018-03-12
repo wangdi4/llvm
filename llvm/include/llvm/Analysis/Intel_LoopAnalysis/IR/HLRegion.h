@@ -207,7 +207,7 @@ public:
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
-    return Node->getHLNodeID() == HLNode::HLRegionVal;
+    return Node->getHLNodeClassID() == HLNode::HLRegionVal;
   }
 
   /// clone() - Do not support Cloning of Region.
@@ -243,6 +243,14 @@ template <> struct LoopOptReportTraits<loopopt::HLRegion> {
     return R.getDebugLoc();
   }
 };
+
+template <>
+struct DenseMapInfo<loopopt::HLRegion *>
+    : public loopopt::DenseHLNodeMapInfo<loopopt::HLRegion> {};
+
+template <>
+struct DenseMapInfo<const loopopt::HLRegion *>
+    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLRegion> {};
 
 } // End namespace llvm
 

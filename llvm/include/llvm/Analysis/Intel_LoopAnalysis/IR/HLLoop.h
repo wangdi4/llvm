@@ -596,7 +596,7 @@ public:
 
   /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
-    return Node->getHLNodeID() == HLNode::HLLoopVal;
+    return Node->getHLNodeClassID() == HLNode::HLLoopVal;
   }
 
   /// clone() - Create a copy of 'this' HLLoop that is identical in all
@@ -825,6 +825,14 @@ template <> struct LoopOptReportTraits<loopopt::HLLoop> {
   static void traverseChildLoopsBackward(loopopt::HLLoop &Loop,
                                          LoopVisitorTy Func);
 };
+
+template <>
+struct DenseMapInfo<loopopt::HLLoop*>
+    : public loopopt::DenseHLNodeMapInfo<loopopt::HLLoop> {};
+
+template <>
+struct DenseMapInfo<const loopopt::HLLoop*>
+    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLLoop> {};
 
 } // End namespace llvm
 

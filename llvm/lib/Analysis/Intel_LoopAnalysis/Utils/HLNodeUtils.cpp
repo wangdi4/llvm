@@ -3958,7 +3958,9 @@ public:
 
       // Have to handle the label again in the context of parent loop.
       // But do not take into account previous jump;
-      LabelJumps[LastGoto->getTargetLabel()]--;
+      if (!LastGoto->isExternal()) {
+        LabelJumps[LastGoto->getTargetLabel()]--;
+      }
 
       visit(LastGoto);
     } else {

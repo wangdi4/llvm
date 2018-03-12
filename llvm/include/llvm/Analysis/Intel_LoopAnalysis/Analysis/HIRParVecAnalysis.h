@@ -24,6 +24,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Pass.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 
 namespace llvm {
 class TargetLibraryInfo;
@@ -35,7 +36,6 @@ class HIRDDAnalysis;
 class HIRSafeReductionAnalysis;
 class DDEdge;
 class HLRegion;
-class HLLoop;
 class HLSwitch;
 
 /// \brief Main data structure describing parallelizability/vectorizability

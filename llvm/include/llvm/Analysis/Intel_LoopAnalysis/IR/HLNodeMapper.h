@@ -19,10 +19,10 @@
 
 #include "llvm/ADT/DenseMap.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
+
 namespace llvm {
 namespace loopopt {
-
-class HLNode;
 
 class HLNodeMapper {
 protected:

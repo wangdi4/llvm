@@ -272,10 +272,10 @@ public:
 
   /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
-    return (Node->getHLNodeID() == HLNode::HLLoopVal) ||
-           (Node->getHLNodeID() == HLNode::HLIfVal) ||
-           (Node->getHLNodeID() == HLNode::HLInstVal) ||
-           (Node->getHLNodeID() == HLNode::HLSwitchVal);
+    return (Node->getHLNodeClassID() == HLNode::HLLoopVal) ||
+           (Node->getHLNodeClassID() == HLNode::HLIfVal) ||
+           (Node->getHLNodeClassID() == HLNode::HLInstVal) ||
+           (Node->getHLNodeClassID() == HLNode::HLSwitchVal);
   }
 
   /// Rval operand DDRef iterator methods
@@ -445,6 +445,14 @@ public:
 };
 
 } // End namespace loopopt
+
+template <>
+struct DenseMapInfo<loopopt::HLDDNode *>
+    : public loopopt::DenseHLNodeMapInfo<loopopt::HLDDNode> {};
+
+template <>
+struct DenseMapInfo<const loopopt::HLDDNode *>
+    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLDDNode> {};
 
 } // End namespace llvm
 

@@ -2719,6 +2719,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
 void HIRCompleteUnroll::releaseMemory() {
   CandidateLoops.clear();
   AvgTripCount.clear();
+  TotalTripCount.clear();
   TopLevelCandidates.clear();
   PrevLoopnestAllocaStores.clear();
 }
