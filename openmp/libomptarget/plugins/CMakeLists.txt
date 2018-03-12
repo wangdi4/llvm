@@ -69,7 +69,7 @@ add_subdirectory(x86_64)
 
 if(INTEL_CUSTOMIZATION)
 #  add_subdirectory(nios2)
-#  add_subdirectory(x86_64_mic)
+  add_subdirectory(x86_64_mic)
   add_subdirectory(csa)
 endif()
 
