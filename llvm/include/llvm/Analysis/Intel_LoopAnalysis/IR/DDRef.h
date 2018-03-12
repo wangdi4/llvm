@@ -86,7 +86,9 @@ public:
   virtual void print(formatted_raw_ostream &OS, bool Detailed = false) const;
 
   /// Returns the parent HLDDNode.
-  virtual HLDDNode *getHLDDNode() const = 0;
+  virtual const HLDDNode *getHLDDNode() const = 0;
+
+  virtual HLDDNode *getHLDDNode() = 0;
 
   /// Returns the Level of parent HLDDNode Level.
   unsigned getNodeLevel() const;
@@ -157,10 +159,14 @@ public:
   bool isLiveOutOfParentLoop() const;
 
   /// Returns ParentLoop of DDRef.
-  HLLoop *getParentLoop() const;
+  const HLLoop *getParentLoop() const;
+
+  HLLoop *getParentLoop();
 
   /// Returns lexical ParentLoop of DDRef.
-  HLLoop *getLexicalParentLoop() const;
+  const HLLoop *getLexicalParentLoop() const;
+
+  HLLoop *getLexicalParentLoop();
 };
 
 } // namespace loopopt

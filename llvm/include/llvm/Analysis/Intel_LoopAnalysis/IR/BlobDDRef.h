@@ -54,6 +54,9 @@ private:
   /// Only const-method is allowed
   CanonExpr *getSingleCanonExpr() override { return CE; }
 
+  /// Only const-method is allowed
+  HLDDNode *getHLDDNode() override;
+
   /// Returns modifiable canonical form associated with the blob.
   CanonExpr *getMutableSingleCanonExpr() { return CE; }
 
@@ -64,7 +67,7 @@ private:
 
 public:
   /// Returns HLDDNode this DDRef is attached to.
-  HLDDNode *getHLDDNode() const override;
+  const HLDDNode *getHLDDNode() const override;
 
   /// Prints BlobDDRef in a simple format.
   virtual void print(formatted_raw_ostream &OS,

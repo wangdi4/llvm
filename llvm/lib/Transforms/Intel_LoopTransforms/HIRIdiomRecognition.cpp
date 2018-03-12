@@ -64,7 +64,7 @@ namespace {
 struct MemOpCandidate {
   HLInst *DefInst;
 
-  const RegDDRef *StoreRef;
+  RegDDRef *StoreRef;
   RegDDRef *RHS;
 
   bool IsStoreNegStride;
@@ -74,7 +74,7 @@ struct MemOpCandidate {
 
   MemOpCandidate() {}
 
-  MemOpCandidate(const RegDDRef *StoreRef) : StoreRef(StoreRef) {
+  MemOpCandidate(RegDDRef *StoreRef) : StoreRef(StoreRef) {
     DefInst = cast<HLInst>(StoreRef->getHLDDNode());
     RHS = DefInst->getRvalDDRef();
   }
@@ -107,7 +107,7 @@ class HIRIdiomRecognition : public HIRTransformPass {
   bool isLegalCandidate(const HLLoop *Loop, const MemOpCandidate &Candidate);
 
   // Analyze and create the transformation candidate for the reference.
-  bool analyzeStore(HLLoop *Loop, const RegDDRef *Ref,
+  bool analyzeStore(HLLoop *Loop, RegDDRef *Ref,
                     MemOpCandidate &Candidate);
 
   // Transform \p Candidates into memset calls
@@ -359,7 +359,7 @@ bool HIRIdiomRecognition::isUnitStrideRef(const RegDDRef *Ref,
   return Size == Stride || Size == -Stride;
 }
 
-bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, const RegDDRef *Ref,
+bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, RegDDRef *Ref,
                                        MemOpCandidate &Candidate) {
   Candidate = std::move(MemOpCandidate(Ref));
 

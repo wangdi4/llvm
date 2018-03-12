@@ -435,7 +435,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
 
   /// Inserts a simplified temp blob with \p Index. It overwrite the previous
   /// entry for the same blob.
-  void insertSimplifiedTempBlob(unsigned Index, HLInst *DefInst);
+  void insertSimplifiedTempBlob(unsigned Index, const HLInst *DefInst);
 
   /// Removes the ennry for the blob with \p Index;
   void removeSimplifiedTempBlob(unsigned Index);
@@ -444,7 +444,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   /// CurNodeBlobLevel indicates the blob level of the blob in \p CurNode.
   /// Populates factor of simplified blob in \p Factor.
   bool isSimplifiedTempBlob(unsigned Index, unsigned CurNodeBlobLevel,
-                            HLDDNode *CurNode,
+                            const HLDDNode *CurNode,
                             unsigned *Factor = nullptr) const;
 
   /// level of any non-rem blob.
@@ -815,7 +815,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLLoop *Lp) {
 }
 
 void HIRCompleteUnroll::ProfitabilityAnalyzer::insertSimplifiedTempBlob(
-    unsigned Index, HLInst *DefInst) {
+    unsigned Index, const HLInst *DefInst) {
 
   for (auto &Blob : SimplifiedTempBlobs) {
     if (Blob.getIndex() == Index) {
@@ -839,7 +839,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::removeSimplifiedTempBlob(
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::isSimplifiedTempBlob(
-    unsigned Index, unsigned CurNodeBlobLevel, HLDDNode *CurNode,
+    unsigned Index, unsigned CurNodeBlobLevel, const HLDDNode *CurNode,
     unsigned *Factor) const {
   // Blob is considered to be simplified if the following two conditions hold
   // true-
@@ -1228,7 +1228,7 @@ class IntermediateAllocaStoreFinder final : public HLNodeVisitorBase {
   bool FoundEndNode;
 
 public:
-  IntermediateAllocaStoreFinder(unsigned AllocaBaseIndex, HLNode *EndNode)
+  IntermediateAllocaStoreFinder(unsigned AllocaBaseIndex, const HLNode *EndNode)
       : AllocaBaseIndex(AllocaBaseIndex), EndNode(EndNode), FoundStore(false),
         FoundEndNode(false) {}
 

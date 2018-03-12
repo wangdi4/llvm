@@ -217,7 +217,9 @@ private:
 
 public:
   /// Returns HLDDNode this DDRef is attached to.
-  HLDDNode *getHLDDNode() const override { return Node; };
+  const HLDDNode *getHLDDNode() const override { return Node; };
+
+  HLDDNode *getHLDDNode() override { return Node; };
 
   /// Prints RegDDRef.
   virtual void print(formatted_raw_ostream &OS,
