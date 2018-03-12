@@ -45,13 +45,19 @@ MachineInstr *CSASeqOpt::repeatOpndInSameLoop(MachineOperand &opnd,
                                               MachineInstr *lpCmp) {
   MachineInstr *rptInstr = MRI->getVRegDef(opnd.getReg());
   if (TII->getGenericOpcode(rptInstr->getOpcode()) == CSA::Generic::REPEATO) {
-    if (MRI->getVRegDef(rptInstr->getOperand(1).getReg()) == lpCmp) {
+    unsigned rptCtrl = rptInstr->getOperand(1).getReg();
+    while (MRI->getVRegDef(rptCtrl)->getOpcode() == CSA::MOV1)
+      rptCtrl = MRI->getVRegDef(rptCtrl)->getOperand(1).getReg();
+    if (MRI->getVRegDef(rptCtrl) == lpCmp) {
       return rptInstr;
     } else if (MRI->getVRegDef(rptInstr->getOperand(1).getReg())->getOpcode() ==
                CSA::NOT1) {
       MachineInstr *notInstr =
         MRI->getVRegDef(rptInstr->getOperand(1).getReg());
-      if (MRI->getVRegDef(notInstr->getOperand(1).getReg()) == lpCmp) {
+      unsigned notSrc = notInstr->getOperand(1).getReg();
+      while (MRI->getVRegDef(notSrc)->getOpcode() == CSA::MOV1)
+        notSrc = MRI->getVRegDef(notSrc)->getOperand(1).getReg();
+      if (MRI->getVRegDef(notSrc) == lpCmp) {
         return rptInstr;
       }
     }
@@ -510,8 +516,10 @@ void CSASeqOpt::MultiSequence(CSASSANode *switchNode, CSASSANode *addNode,
 
   // handle only positive constant address stride for now
   unsigned strideIdx = addNode->minstr->getOperand(1).isReg() ? 2 : 1;
-  isIDVCycle = isIDVCycle && addNode->minstr->getOperand(strideIdx).isImm() &&
-               addNode->minstr->getOperand(strideIdx).getImm() > 0;
+  MachineInstr *rptStride = addNode->minstr->getOperand(strideIdx).isImm() || !seqIndv ?
+                            nullptr : 
+                            repeatOpndInSameLoop(addNode->minstr->getOperand(strideIdx), seqIndv);
+  isIDVCycle = isIDVCycle && (addNode->minstr->getOperand(strideIdx).isImm() || rptStride);
   // uses of phi can only be add or address computing
   // bool phiuseOK = false;
   unsigned phidst = lhdrPickNode->minstr->getOperand(0).getReg();
@@ -598,12 +606,15 @@ void CSASeqOpt::MultiSequence(CSASSANode *switchNode, CSASSANode *addNode,
       const TargetRegisterClass *TRC =
         TII->getRegisterClass(addNode->minstr->getOperand(0).getReg(), *MRI);
       const unsigned strideOp = TII->makeOpcode(CSA::Generic::STRIDE, TRC);
+      MachineOperand &strideOpnd = addNode->minstr->getOperand(strideIdx).isReg() && rptStride ?
+                                   rptStride->getOperand(2) :
+                                   addNode->minstr->getOperand(strideIdx);
       MachineInstr *strideInstr =
         BuildMI(*lhdrPickNode->minstr->getParent(), lhdrPickNode->minstr,
                 DebugLoc(), TII->get(strideOp), seqReg)
           .addReg(seqIndv->getOperand(1).getReg())
           .add(initOpnd)
-          .add(addNode->minstr->getOperand(strideIdx));
+          .add(strideOpnd);
       strideInstr->setFlag(MachineInstr::NonSequential);
     }
     SequenceSwitchOut(switchNode, addNode, lhdrPickNode, seqIndv, seqReg,
