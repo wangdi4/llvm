@@ -16,35 +16,36 @@ add_llvm_target(CSACodeGen
   CSACvtCFDFPass.cpp
   CSADataflowCanonicalization.cpp
   CSADeadInstructionElim.cpp
+  CSAExpandInlineAsm.cpp
+  CSAFortranIntrinsics.cpp
   CSAFrameLowering.cpp
+  CSAIROpt.cpp
   CSAISelDAGToDAG.cpp
   CSAISelLowering.cpp
+  CSAInnerLoopPrep.cpp
   CSAInstBuilder.cpp
   CSAInstrInfo.cpp
   CSAIntrinsicCleaner.cpp
-  CSAIROpt.cpp
-  CSALowerAggrCopies.cpp
-  CSAInnerLoopPrep.cpp
   CSALoopIntrinsicExpander.cpp
+  CSALowerAggrCopies.cpp
   CSAMCInstLower.cpp
   CSAMachineFunctionInfo.cpp
+  CSAMemopOrdering.cpp
+  CSAMultiSeqPass.cpp
+  CSANameLICs.cpp
+  CSANormalizeDebugPass.cpp
   CSAOMPAllocaTypeFixer.cpp
   CSAOptDFPass.cpp
-  CSASeqOpt.cpp
-  CSAMultiSeqPass.cpp
   CSARedundantMovElim.cpp
   CSARegisterInfo.cpp
   CSASelectionDAGInfo.cpp
+  CSASeqOpt.cpp
   CSAStatistics.cpp
   CSAStreamingMemoryConversion.cpp
   CSAStreamingMemoryPrep.cpp
   CSASubtarget.cpp
   CSATargetMachine.cpp
   MachineCDG.cpp
-  CSAExpandInlineAsm.cpp
-  CSAMemopOrdering.cpp
-  CSAFortranIntrinsics.cpp
-  CSANormalizeDebugPass.cpp
   )
 
 add_subdirectory(AsmParser)
