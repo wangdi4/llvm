@@ -1445,19 +1445,31 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
     loopOutputs.push_back(loopOutput);
   }
 
+  // If there were no loop outputs, conceptually create a null operand which
+  // will get a trivially-used completion1 buffer to limit new cohorts with.
+  if (loopOutputs.size() == 0) {
+    loopOutputs.push_back(nullptr);
+  }
+
   // For each output, create and hook up completion buffers.
   // The completion buffers' indices (indicating space available) are used to
   // control admission into the pipeline.
   SmallVector<MachineOperand*, 4> newTokens;
   for (MachineOperand *g : loopOutputs) {
-    const TargetRegisterClass *RC = MRI->getRegClass(g->getReg());
     unsigned newToken = LMFI->allocateLIC(&CSA::CI8RegClass, "newToken");
     unsigned bodyToken = LMFI->allocateLIC(&CSA::CI8RegClass, "bodyToken");
     unsigned backToken = LMFI->allocateLIC(&CSA::CI8RegClass, "backToken");
     unsigned outToken = LMFI->allocateLIC(&CSA::CI8RegClass, "outToken");
-    unsigned orderedOut = g->getReg();
-    unsigned unorderedOut = LMFI->allocateLIC(RC, "unorderedOut");
-    g->setReg(unorderedOut);
+
+    // If g is null, then we're just flowing around indices with no
+    // corresponding data. The data in/out for the completion op will both be
+    // IGN. TODO: don't waste a "completion1" on this.
+    // Otherwise (if g is a real operand) it needs to be reordered.
+    unsigned orderedOut = g ? g->getReg() : CSA::IGN;
+    const TargetRegisterClass *RC = g ? MRI->getRegClass(g->getReg()) : &CSA::CI1RegClass;
+    unsigned unorderedOut = g ? LMFI->allocateLIC(RC, "unorderedOut") : CSA::IGN;
+    if (g)
+      g->setReg(unorderedOut);
 
     // The index/token edges need buffering.
     LMFI->setLICDepth(newToken, numTokens);
@@ -1478,7 +1490,7 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
           .addDef(newToken)
           .addDef(orderedOut)
           .addReg(outToken)
-          .addReg(g->getReg())
+          .addReg(unorderedOut)
           .addImm(numTokens);
     newTokens.push_back(&compBuffer->getOperand(0));
 
