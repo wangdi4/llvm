@@ -7035,32 +7035,45 @@ static void emitOffloadingArraysArgument(
 
 #if INTEL_CUSTOMIZATION
 namespace CGIntelOpenMP {
-static StringRef getQualString(OpenMPMapClauseKind K) {
-  StringRef Op;
-  switch (K) {
+static void getQualString(SmallString<32> &Op, const OMPMapClause *C) {
+  Op += "QUAL.OMP.MAP.";
+  switch (C->getMapTypeModifier()) {
+  case OMPC_MAP_always:
+    Op += "ALWAYS.";
+    break;
+  case OMPC_MAP_unknown:
+    break;
   case OMPC_MAP_alloc:
-    Op = "QUAL.OMP.MAP.ALLOC";
+  case OMPC_MAP_to:
+  case OMPC_MAP_from:
+  case OMPC_MAP_tofrom:
+  case OMPC_MAP_delete:
+  case OMPC_MAP_release:
+    llvm_unreachable("Unexpected map modifier");
+  }
+  switch (C->getMapType()) {
+  case OMPC_MAP_alloc:
+    Op += "ALLOC";
     break;
   case OMPC_MAP_to:
-    Op = "QUAL.OMP.MAP.TO";
+    Op += "TO";
     break;
   case OMPC_MAP_from:
-    Op = "QUAL.OMP.MAP.FROM";
+    Op += "FROM";
     break;
   case OMPC_MAP_tofrom:
   case OMPC_MAP_unknown:
-    Op = "QUAL.OMP.MAP.TOFROM";
+    Op += "TOFROM";
     break;
   case OMPC_MAP_delete:
-    Op = "QUAL.OMP.MAP.DELETE";
+    Op += "DELETE";
     break;
   case OMPC_MAP_release:
-    Op = "QUAL.OMP.MAP.RELEASE";
+    Op += "RELEASE";
     break;
   case OMPC_MAP_always:
     llvm_unreachable("Unexpected mapping type");
   }
-  return Op;
 }
 
 void OpenMPCodeOutliner::emitOMPMapClause(const OMPMapClause *C) {
@@ -7095,7 +7108,9 @@ void OpenMPCodeOutliner::emitOMPMapClause(const OMPMapClause *C) {
       // This is the simple non-aggregate case.
       llvm::Value *VBP = *BasePointers[0];
       if (VBP == Pointers[0]) {
-        addArg(getQualString(C->getMapType()));
+        SmallString<32> Op;
+        getQualString(Op, C);
+        addArg(Op);
         addArg(VBP);
         emitListClause();
         continue;
@@ -7103,7 +7118,7 @@ void OpenMPCodeOutliner::emitOMPMapClause(const OMPMapClause *C) {
     }
     for (int I = 0, E = BasePointers.size(); I < E; ++I) {
       SmallString<32> Op;
-      Op = getQualString(C->getMapType());
+      getQualString(Op, C);
       Op += (I == 0) ? ":AGGRHEAD" : ":AGGR";
       addArg(Op);
       addArg(*BasePointers[I]);

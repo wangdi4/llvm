@@ -182,6 +182,8 @@ public:
   void emitOMPTargetDirective();
   void emitOMPTargetDataDirective();
   void emitOMPTargetUpdateDirective();
+  void emitOMPTargetEnterDataDirective();
+  void emitOMPTargetExitDataDirective();
   void emitOMPTaskLoopDirective();
   void emitOMPTaskLoopSimdDirective();
   void emitOMPTaskDirective();

@@ -1378,6 +1378,14 @@ namespace CGIntelOpenMP {
     startDirectiveIntrinsicSet("DIR.OMP.TARGET.UPDATE",
                                "DIR.OMP.END.TARGET.UPDATE");
   }
+  void OpenMPCodeOutliner::emitOMPTargetEnterDataDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.TARGET.ENTER.DATA",
+                               "DIR.OMP.END.TARGET.ENTER.DATA");
+  }
+  void OpenMPCodeOutliner::emitOMPTargetExitDataDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.TARGET.EXIT.DATA",
+                               "DIR.OMP.END.TARGET.EXIT.DATA");
+  }
   void OpenMPCodeOutliner::emitOMPTaskDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.TASK", "DIR.OMP.END.TASK");
   }
@@ -1604,6 +1612,14 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
     CGM.setHasTargetCode();
     Outliner.emitOMPTargetUpdateDirective();
     break;
+  case OMPD_target_enter_data:
+    CGM.setHasTargetCode();
+    Outliner.emitOMPTargetEnterDataDirective();
+    break;
+  case OMPD_target_exit_data:
+    CGM.setHasTargetCode();
+    Outliner.emitOMPTargetExitDataDirective();
+    break;
   case OMPD_task:
     Outliner.emitOMPTaskDirective();
     break;
@@ -1648,8 +1664,6 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_teams_distribute_parallel_for:
   case OMPD_teams_distribute_parallel_for_simd:
   case OMPD_for_simd:
-  case OMPD_target_enter_data:
-  case OMPD_target_exit_data:
   case OMPD_target_parallel:
   case OMPD_target_parallel_for:
   case OMPD_target_parallel_for_simd:
