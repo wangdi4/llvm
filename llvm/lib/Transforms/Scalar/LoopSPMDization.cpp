@@ -42,13 +42,15 @@ namespace {
     }
   private:
     int next_token;
+    unsigned spmd_approach;
     Value *steptimesk; 
     Value *StepPE0;
     Value *NewInitV; 
     Value *Cond;
     Value *nbyk;
     Value *UpperBound;
-    Value * LowerBound;
+    Value *LowerBound;
+    Value *TripCountV;
     bool FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, BasicBlock *AfterLoop, int PE, int NPEs, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig, std::vector<Instruction *> *OldInst);
     void setLoopAlreadySPMDized(Loop *L);
     bool FindReductionVariables(Loop *L, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig);
@@ -81,7 +83,7 @@ namespace {
       ValueToValueMapTy VMap;
       BasicBlock *OrigPH = L->getLoopPreheader();
       Loop *OrigL = L;
-      unsigned spmd_approach = 0;
+      spmd_approach = 0;
       int NPEs;
       Value *approachV = nullptr;
       IntrinsicInst* found_spmd = detectSPMDIntrinsic(L, LI, DT, PDT, NPEs, approachV);
@@ -193,19 +195,23 @@ try a different SPMDization strategy instead.
 
           const SCEV *TripCountSC =
             SE->getAddExpr(BECountSC, SE->getConstant(BECountSC->getType(), 1));
-          Value *TripCountV = Expander.expandCodeFor(TripCountSC, 
-                                                     TripCountSC->getType(),    
-                                                     PreHeaderBR);
+          TripCountV = Expander.expandCodeFor(TripCountSC, 
+                                              TripCountSC->getType(),    
+                                              PreHeaderBR);
      
           IRBuilder<> BPR(L->getLoopPreheader()->getTerminator());
-          nbyk = BPR.CreateUDiv(TripCountV,
-                                ConstantInt::get(BECountSC->getType(), NPEs), 
-                                ".nbyk");
+          Value *nbykmightzero = BPR.CreateUDiv(TripCountV,
+                                                ConstantInt::get(BECountSC->getType(), NPEs), 
+                                                ".nbyk");
+          auto *IsZero = BPR.CreateICmpEQ(nbykmightzero, ConstantInt::get(BECountSC->getType(), 0));
+          // If n by k is zero (there will be loops with zero trip count), each loop will run at most one iteration
+          nbyk = BPR.CreateSelect(IsZero, ConstantInt::get(BECountSC->getType(), 1), nbykmightzero);
+          
           TransformLoopInitandBound(L, SE, 0, NPEs);
         }
      
         setLoopAlreadySPMDized(L);
-       
+        
         BasicBlock *PH = SplitBlock(OrigPH, OrigPH->getTerminator(), DT, LI);
         PH->setName(L->getHeader()->getName() + ".ph");
         BasicBlock *OrigE = L->getExitBlock();
@@ -686,6 +692,15 @@ bool LoopSPMDization::TransformLoopInitandBound(Loop *L, ScalarEvolution *SE, in
   if(dyn_cast<IntegerType>(kplus1timesnbyk2->getType())->getBitWidth() != dyn_cast<IntegerType>(UpperBound->getType())->getBitWidth())
     kplus1timesnbyk2 = B.CreateZExtOrTrunc(kplus1timesnbyk2, UpperBound->getType(), kplus1timesnbyk2->getName()+".trex"); 
   
+  // this handles the case where the loop enters with an init value equal to the bound
+  CmpInst *CmpCond = dyn_cast<CmpInst>(Cond);
+  if (CmpCond->getPredicate() == CmpInst::ICMP_EQ || CmpCond->getPredicate() == CmpInst::ICMP_NE) {
+    if(LatchBR->getSuccessor(0) == L->getHeader())
+      CmpCond->setPredicate(CmpInst::ICMP_SLT);
+    else 
+      CmpCond->setPredicate(CmpInst::ICMP_SGE);
+  }
+  
   if(PE == NPEs-1) 
     kplus1timesnbyk2 = UpperBound;
   
@@ -852,8 +867,16 @@ bool LoopSPMDization::ZeroTripCountCheck(Loop *L, ScalarEvolution *SE, int PE, i
     auto *Trunc = B.CreateSExt(NewInitV, TripCount->getType(), NewInitV->getName()+".sext");
     NewInitV = Trunc;  
   }
-  NewCondOp1 = NewInitV; 
-  NewCondOp0 = TripCount;
+  
+  if(spmd_approach == SPMD_CYCLIC) { 
+    NewCondOp1 = NewInitV;
+    NewCondOp0 = TripCount;
+  }
+  if(spmd_approach == SPMD_BLOCKING) { 
+    NewCondOp1 = ConstantInt::get(TripCountV->getType(), PE); 
+    NewCondOp0 = TripCountV;
+  }
+   
   if (CmpCond->getPredicate() == CmpInst::ICMP_EQ || CmpCond->getPredicate() == CmpInst::ICMP_NE) {  
     if((LatchBR->getSuccessor(0) == L->getHeader() && CmpCond->getPredicate() == CmpInst::ICMP_EQ) || (LatchBR->getSuccessor(0) != L->getHeader() && CmpCond->getPredicate() == CmpInst::ICMP_NE))
       IdxCmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_SLT, 
@@ -872,12 +895,12 @@ bool LoopSPMDization::ZeroTripCountCheck(Loop *L, ScalarEvolution *SE, int PE, i
     CmpZeroTrip = CondI->clone();
     IdxCmp = dyn_cast<Value>(CmpZeroTrip);
     if(dyn_cast<Instruction>(IdxCmp)->getOperand(1) == TripCount){ 
-      dyn_cast<Instruction>(IdxCmp)->setOperand(0, NewInitV); 
-      dyn_cast<Instruction>(IdxCmp)->setOperand(1, TripCount); 
+      dyn_cast<Instruction>(IdxCmp)->setOperand(0, NewCondOp1); 
+      dyn_cast<Instruction>(IdxCmp)->setOperand(1, NewCondOp0);
     }
     else {
-      dyn_cast<Instruction>(IdxCmp)->setOperand(1, NewInitV);
-      dyn_cast<Instruction>(IdxCmp)->setOperand(0, TripCount); 
+      dyn_cast<Instruction>(IdxCmp)->setOperand(1, NewCondOp1);
+      dyn_cast<Instruction>(IdxCmp)->setOperand(0, NewCondOp0);
     }
   }
   PreHeader->getInstList().insert(B.GetInsertPoint(), dyn_cast<Instruction>(CmpZeroTrip));
