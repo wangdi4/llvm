@@ -1716,8 +1716,8 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
       LoopEssentialValues.push_back(W->getWRNLoopInfo().getNormUB());
 
     for (auto V : LoopEssentialValues) {
-      AllocaInst *AI = dyn_cast<AllocaInst>(V);
-      assert(AI && "Expect alloca instruction for omp_iv or omp_ub");
+      assert(dyn_cast<AllocaInst>(V) &&
+             "Expect alloca instruction for omp_iv or omp_ub");
       for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
         if (LoadInst *LdInst = dyn_cast<LoadInst>(*IB))
           LdInst->setVolatile(true);
