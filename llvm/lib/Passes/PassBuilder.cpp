@@ -33,6 +33,7 @@
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_DTrans/DTransAnalysis.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
 #endif // INTEL_CUSTOMIZATION
@@ -92,6 +93,7 @@
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/InstrProfiling.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
+#include "llvm/Transforms/Intel_DTrans/DTransOpt.h" // INTEL
 #include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h" // INTEL
 #include "llvm/Transforms/PGOInstrumentation.h"
 #include "llvm/Transforms/SampleProfile.h"
@@ -200,6 +202,13 @@ static cl::opt<bool> EnableGVNSink(
 
 static Regex DefaultAliasRegex(
     "^(default|thinlto-pre-link|thinlto|lto-pre-link|lto)<(O[0123sz])>$");
+
+#if INTEL_CUSTOMIZATION
+// DTrans optimizations -- this is a placeholder for future work.
+static cl::opt<bool> EnableDTrans("enable-npm-dtrans",
+    cl::init(false), cl::Hidden,
+    cl::desc("Enable DTrans optimizations"));
+#endif // INTEL_CUSTOMIZATION
 
 static bool isOptimizingForSize(PassBuilder::OptimizationLevel Level) {
   switch (Level) {
@@ -1005,6 +1014,11 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(ReversePostOrderFunctionAttrsPass());
 
 #if INTEL_CUSTOMIZATION
+  // This optimization pass is just a placeholder, but adding it to the
+  // pipeline causes the DTransAnalysis to be run.
+  if (EnableDTrans)
+    MPM.addPass(DTransOptPass());
+
   // Optimize some dynamic_cast calls.
   MPM.addPass(OptimizeDynamicCastsPass());
 #endif // INTEL_CUSTOMIZATION
