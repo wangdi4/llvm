@@ -325,8 +325,6 @@ public:
     visit(static_cast<const HLDDNode *>(Loop));
   }
 
-  void postVisit(const HLNode *Node) {}
-
   void postVisit(const HLLoop *Loop) {
     // Innermost flag verification begin
     if (InnermostLoop) {
