@@ -494,7 +494,7 @@ LLVMToSPIRV::transType(Type *T) {
       } else if (STName.find(kSPR2TypeName::ImagePrefix) == 0) {
         assert(AddrSpc == SPIRAS_Global);
         auto SPIRVImageTy = getSPIRVImageTypeFromOCL(M, T);
-        return mapType(T, transSPIRVOpaqueType(SPIRVImageTy));
+        return mapType(T, transType(SPIRVImageTy));
       } else if (STName.startswith(kSPIRVTypeName::PrefixAndDelim))
         return transSPIRVOpaqueType(T);
       else if (OCLOpaqueTypeOpCodeMap::find(STName, &OpCode)) {
