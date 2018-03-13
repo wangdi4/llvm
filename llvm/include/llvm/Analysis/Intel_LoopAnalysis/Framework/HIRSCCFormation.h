@@ -175,11 +175,14 @@ private:
   /// identiy min/max patterns.
   static bool isCmpAndSelectPattern(Instruction *Inst1, Instruction *Inst2);
 
-  /// Returns true if \p Inst1 can reach \p Inst2 in the same bblock before
-  /// encountering \p EndInst.
-  static bool dominatesInSameBB(const Instruction *Inst1,
-                                const Instruction *Inst2,
-                                const Instruction *EndInst);
+  /// Returns true if we find any SCC instruction while trying to reach \p
+  /// TargetNode from \p CurBB via predecessor bblock traversal.
+  /// \p EndNode specifies the scope of traveral in CurBB. It is set to null
+  /// to indicate full bblock traversal.
+  bool foundIntermediateSCCNode(const BasicBlock *CurBB,
+                                const Instruction *EndNode,
+                                const Instruction *TargetNode,
+                                const SCC &CurSCC) const;
 
   /// Returns true if there is live range overlap on SCC edges originating from
   /// \p Node.
