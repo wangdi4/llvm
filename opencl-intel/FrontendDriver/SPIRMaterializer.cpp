@@ -185,7 +185,8 @@ changeImageCall(llvm::CallInst *CI,
     // Cast old sampler type(i32) with new(opaque*) before passing to builtin
     if (auto primitiveType = dyn_cast<reflection::PrimitiveType>(
             (reflection::ParamType *)FD.parameters[i])) {
-      if (primitiveType->getPrimitive() == reflection::PRIMITIVE_SAMPLER_T) {
+      if (primitiveType->getPrimitive() == reflection::PRIMITIVE_SAMPLER_T &&
+          CI->getArgOperand(i)->getType()->isIntegerTy()) {
         auto SamplerTy = getOrCreateOpaquePtrType(
             CI->getParent()->getModule(), "opencl.sampler_t", SPIRAS_Constant);
         auto IntToPtr =
