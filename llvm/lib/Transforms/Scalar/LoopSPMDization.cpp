@@ -22,12 +22,17 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
-#include <vector>
-
 #include "llvm/Transforms/Utils/UnrollLoop.h"
+#include "llvm/Analysis/OptimizationDiagnosticInfo.h"
+#include <vector>
+//#include "llvm/Support/Debug.h"
+//#include "llvm/Support/raw_ostream.h"
+
+//#include "llvm/Transforms/Scalar/LoopPassManager.h"
 
 
 using namespace llvm;
+#define DEBUG_TYPE "spmdization"
 
 #define SPMD_CYCLIC 1
 #define SPMD_BLOCKING 2
@@ -79,6 +84,8 @@ namespace {
       LLVMContext& context = L->getHeader()->getContext();
       Function *F = L->getHeader()->getParent();
       Module *M = F->getParent() ;
+      OptimizationRemarkEmitter ORE(F);
+    
       
       ValueToValueMapTy VMap;
       BasicBlock *OrigPH = L->getLoopPreheader();
@@ -145,7 +152,14 @@ namespace {
           errs().resetColor();
           return false;
         }
+        
         if(!L->getExitBlock()) {
+          /*ORE.emit(
+                    OptimizationRemarkMissed(DEBUG_TYPE, "Unstructured Code",
+                                             L->getStartLoc(), L->getHeader())
+              << "Unable to perform loop SPMDization as directed by the pragma"
+                 "because loop body has unstructured code.");
+          */
           errs() << "\n";
           errs().changeColor(raw_ostream::BLUE, true);
           errs() << "!! WARNING: COULD NOT PERFORM SPMDization !!\n";
@@ -157,6 +171,10 @@ Branches to or from an OpenMP structured block are illegal
 )help";
           return false;
         }
+        ORE.emit(
+                 OptimizationRemark(DEBUG_TYPE, "",
+                                            L->getStartLoc(), L->getHeader())
+                 << "Performed loop SPMDization as directed by the pragma.");
         
         //Fix me: We assume a maximum of 16 reductions in the loop
         std::vector<PHINode *> Reductions(16);
@@ -295,8 +313,6 @@ try a different SPMDization strategy instead.
     }
   };
 }
-
-#define DEBUG_TYPE "spmdization"
  
 char LoopSPMDization::ID = 0;
 
@@ -383,6 +399,48 @@ bool LoopSPMDization::FindReductionVariables(Loop *L, std::vector<PHINode *> *Re
   return true;
 }
 
+// Calculate the identity element of the reduction operation 
+// TODO: make it a more exhaustive set
+Value *find_reduction_identity(PHINode *Phi, Instruction *Op) {
+  Value *Ident;
+  Type *Ty = Phi->getType();
+  switch (Op->getOpcode()) {
+  case Instruction::Add:
+  case Instruction::FAdd:
+    {
+      Ident =  Constant::getNullValue(Ty);
+      break;
+    }
+  case Instruction::Or:
+  case Instruction::Xor:{
+    Ident =  Constant::getNullValue(Ty);
+    break;
+  }
+  case Instruction::Mul:{
+    Ident = ConstantInt::get(Ty, 1);
+    break;
+  }
+  case Instruction::And:{
+    Ident =  Constant::getAllOnesValue(Ty);
+    break;
+  }
+  default:{
+    // Doesn't have an identity.
+    errs() << "\n";
+    errs().changeColor(raw_ostream::BLUE, true);
+    errs() << "!! ERROR: COULD NOT PERFORM SPMDization !!\n";
+    errs().resetColor();
+    errs() << R"help(
+                Failed to find the identity element of the reduction operation.
+
+                )help";
+    Ident =  nullptr;
+    break;
+  }
+  }
+  return Ident;
+}
+
 //Handling of reductions
 bool LoopSPMDization::FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, BasicBlock *AfterLoop, int PE, int NPEs, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig, std::vector<Instruction *> *OldInsts) {
   BasicBlock *pred_AfterLoop;
@@ -401,11 +459,18 @@ bool LoopSPMDization::FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, Ba
         RedName = RedName +".PE" + std::to_string(pe);  
       if(Phi->getName().str().compare(RedName)==0) {
         Instruction *ReduceVar;
-        if (Phi->getIncomingBlock(0) == L->getLoopPreheader())
+        if (Phi->getIncomingBlock(0) == L->getLoopPreheader()) {
           ReduceVar = dyn_cast<Instruction>(Phi->getIncomingValue(1));
-        else 
+          // initialize the reduction on PE!=0 to identity
+          Value *Ident = find_reduction_identity(Phi, (*ReduceVarOrig)[r]);
+          Phi->setIncomingValue(0, Ident);  
+        }
+        else { 
           ReduceVar = dyn_cast<Instruction>(Phi->getIncomingValue(0));
-        
+          // initialize the reduction on PE!=0 to identity
+          Value *Ident = find_reduction_identity(Phi, (*ReduceVarOrig)[r]);
+          Phi->setIncomingValue(1, Ident); 
+        }
         BasicBlock::iterator i, ie;
         for (i = AfterLoop->begin(), ie = AfterLoop->end();  (i != ie); ++i) {
           PHINode *PhiExit = dyn_cast<PHINode>(&*i);
@@ -471,43 +536,7 @@ bool LoopSPMDization::FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, Ba
               BasicBlock* predecessor = *it;
               {// this is the predecessor coming from the zero trip count gard block
                 if(NewPhi->getBasicBlockIndex(predecessor) == -1 && predecessor != pred_AfterLoop) {
-                  //Fixme: move the identity value calculation to a separate function and make it an exhaustive set
-                  Value *Ident;
-                  Type *Ty = NewPhi->getType();
-                  switch ((*ReduceVarOrig)[r]->getOpcode()) {
-                  case Instruction::Add:
-                  case Instruction::FAdd:
-                    {
-                      Ident =  Constant::getNullValue(Ty);
-                      break;
-                    }
-                  case Instruction::Or:
-                  case Instruction::Xor:{
-                    Ident =  Constant::getNullValue(Ty);
-                    break;
-                  }
-                  case Instruction::Mul:{
-                    Ident = ConstantInt::get(Ty, 1);
-                    break;
-                  }
-                  case Instruction::And:{
-                    Ident =  Constant::getAllOnesValue(Ty);
-                    break;
-                  }
-                  default:{
-                    // Doesn't have an identity.
-                    errs() << "\n";
-                    errs().changeColor(raw_ostream::BLUE, true);
-                    errs() << "!! ERROR: COULD NOT PERFORM SPMDization !!\n";
-                    errs().resetColor();
-                    errs() << R"help(
-Failed to find the identity element of the reduction operation.
-
-)help";
-                    Ident =  nullptr;
-                    break;
-                  }
-                  }
+                  Value *Ident = find_reduction_identity(NewPhi, (*ReduceVarOrig)[r]);
                   NewPhi->addIncoming(Ident, predecessor);
                 }
               }
