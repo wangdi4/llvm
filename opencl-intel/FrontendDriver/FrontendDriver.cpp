@@ -97,12 +97,22 @@ int ClangFECompiler::CompileProgram(FECompileProgramDescriptor *pProgDesc,
 
   // If we get here, ClangFECompilerCompileTask::Compile() generated a SPIR-V
   // module. Now we need to translate it to LLVM IR.
-  FESPIRVProgramDescriptor SPIRVProgDesc{(*pBinaryResult)->GetIR(),
-                                         (*pBinaryResult)->GetIRSize(),
+
+  // Keep pointer to SPIR-V binary to clear it *after* parsing
+  auto *pSPIRVResult = *pBinaryResult;
+
+  FESPIRVProgramDescriptor SPIRVProgDesc{pSPIRVResult->GetIR(),
+                                         pSPIRVResult->GetIRSize(),
                                          pProgDesc->pszOptions};
-  (*pBinaryResult)->Release();
-  return ClangFECompilerParseSPIRVTask(&SPIRVProgDesc, m_sDeviceInfo)
-               .ParseSPIRV(pBinaryResult);
+
+  result = ClangFECompilerParseSPIRVTask(&SPIRVProgDesc, m_sDeviceInfo)
+      .ParseSPIRV(pBinaryResult);
+
+  // SPIR-V binary is not needed anymore, clear it.
+  // NOTE: After pSPIRVResult removing SPIRVProgDesc will be invalid.
+  pSPIRVResult->Release();
+
+  return result;
 }
 
 int ClangFECompiler::LinkPrograms(
