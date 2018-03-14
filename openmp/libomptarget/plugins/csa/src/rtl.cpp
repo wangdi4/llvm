@@ -27,6 +27,8 @@
 #include <link.h>
 #include <unistd.h>
 #include <map>
+#include <pthread.h>
+
 
 #include "omptargetplugin.h"
 #include "csa_invoke.h"
@@ -148,12 +150,24 @@ struct AllocMemEntryTy {
 class AllocatedMemoryMap: public std::map<void *, bool> {
 };
 
+struct CsaEntryInfo {
+  csa_processor *processor;
+  csa_module *module;
+  csa_entry *entry;
+  const char *entry_name;
+};
+
+typedef class std::map<std::pair<pthread_t,void*>, CsaEntryInfo> CsaEntryMap_t;
+
 /// Keep entries table per device.
 struct FuncOrGblEntryTy {
   __tgt_target_table Table;
   std::string csaAsmFile;
+  CsaEntryMap_t csaTidToEntryMap;
   AllocatedMemoryMap ExplicitlyAllocatedMemory;
 };
+
+static std::string tmp_prefix;
 
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
@@ -175,18 +189,57 @@ public:
   }
 
   // Return true if the entry is associated with device.
-  const char *findOffloadEntry(int32_t device_id, void *addr) {
+  const char *findOffloadEntry(int32_t device_id, void *addr,
+                               csa_processor **proc, csa_module **mod, csa_entry **entry) {
+
+    // Clean out the pointers
+    *proc = NULL;
+    *mod = NULL;
+    *entry = NULL;
+
     assert(device_id < (int32_t)FuncGblEntries.size() &&
            "Unexpected device id!");
     FuncOrGblEntryTy &E = FuncGblEntries[device_id];
 
+
     for (__tgt_offload_entry *i = E.Table.EntriesBegin, *e = E.Table.EntriesEnd;
          i < e; ++i) {
-      if (i->addr == addr)
+      if (i->addr == addr) {
+        pthread_t tid = pthread_self();
+        CsaEntryMap_t::iterator i = E.csaTidToEntryMap.find(std::pair<pthread_t,void*>(tid, addr));
+        if (E.csaTidToEntryMap.end() != i) {
+          *proc = i->second.processor;
+          *mod = i->second.module;
+          *entry = i->second.entry;
+        }
         return E.csaAsmFile.c_str();
+      }
     }
 
     return NULL;
+  }
+
+  bool setCsaOffloadEntryInfo(int32_t device_id, void *addr,csa_processor *proc, csa_module *mod, csa_entry *entry) {
+    assert(device_id < (int32_t)FuncGblEntries.size() &&
+           "Unexpected device id!");
+    FuncOrGblEntryTy &E = FuncGblEntries[device_id];
+
+    CsaEntryInfo mapEntry;
+    mapEntry.processor = proc;
+    mapEntry.module = mod;
+    mapEntry.entry = entry;
+    mapEntry.entry_name = (const char*)addr;
+
+    for (__tgt_offload_entry *i = E.Table.EntriesBegin, *e = E.Table.EntriesEnd;
+         i < e; ++i) {
+      if (i->addr == addr) {
+        pthread_t tid = pthread_self();
+        
+        E.csaTidToEntryMap[std::pair<pthread_t,void*>(tid, addr)] = mapEntry;
+        return true;
+      }
+    }
+    return false;
   }
 
   // Return the pointer to the target entries table.
@@ -240,6 +293,19 @@ public:
         std::string asmFile(ii->FileName); asmFile += ".s";
         remove(asmFile.c_str());
       }
+
+    for (size_t i = 0; i < FuncGblEntries.size(); i++) {
+      FuncOrGblEntryTy &E = FuncGblEntries[i];
+      for (CsaEntryMap_t::iterator i = E.csaTidToEntryMap.begin(); i != E.csaTidToEntryMap.end(); ++i) {
+        std::pair<pthread_t, void*>key = i->first;
+        std::stringstream ss;
+        ss << tmp_prefix << "-" <<key.first << i->second.entry_name;
+        fprintf(stderr, "Dumping stats to %s\n", ss.str().c_str());
+        csa_dump_statistics(i->second.processor, ss.str().c_str());
+        csa_free(i->second.processor);
+      }
+    }
+    // Cleanup CSA, dump stats!!!!
   }
 };
 
@@ -248,8 +314,6 @@ static RTLDeviceInfoTy DeviceInfo(NUMBER_OF_DEVICES);
 // How noisy we should be
 static int32_t verbosity = 0;
 static int32_t initial_fp_flags = -1;
-
-static std::string tmp_prefix;
 
 #ifdef __cplusplus
 extern "C" {
@@ -1167,6 +1231,10 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
     }
   }
 
+  csa_processor* proc = NULL;
+  csa_module* mod = NULL;
+  csa_entry* entry = NULL;
+
   // Normally this would be the code, but since we're loading assembly into
   // the simulator, the compilation gave us the address of the function name.
   const char *functionName = (const char *)tgt_entry_ptr;
@@ -1177,77 +1245,77 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
   if (NULL == assemblyFile) {
     // Find the function in the target table, which will give us the path for
     // the compiled code so we can load it into the assembler
-    assemblyFile = DeviceInfo.findOffloadEntry(device_id, tgt_entry_ptr);
+    assemblyFile = DeviceInfo.findOffloadEntry(device_id, tgt_entry_ptr, &proc, &mod, &entry);
   }
 
   if (NULL == assemblyFile) {
     return checkForExitOnError(OFFLOAD_FAIL, "Failed to find assembly file");
   }
 
-  // Allocate an CSA
-  csa_processor *processor = csa_alloc("autounit");
-  if (NULL == processor) {
-    status = checkForExitOnError(OFFLOAD_FAIL,
+  // If we've already got a CSA instance, module & entry, use them. Otherwise
+  // create them now.
+  if (NULL == proc) {
+    // Allocate an CSA
+    proc = csa_alloc("autounit");
+    if (NULL == proc) {
+      return checkForExitOnError(OFFLOAD_FAIL,
                                  "Failed to allocate CSA processor");
-  } else {
-
-    // Load the assembly file into the simulator
-    csa_module *mod = csa_assemble(assemblyFile, processor);
-    if (NULL == mod) {
-      status = checkForExitOnError(OFFLOAD_FAIL, "Failed to load module");
-    } else {
-
-      // Find the function
-      csa_entry *entry = csa_lookup(mod, functionName);
-      if (NULL == entry) {
-        std::string err("Failed to find entrypoint \"");
-        err += functionName;
-        err += "\"";
-        status = checkForExitOnError(OFFLOAD_FAIL, err.c_str());
-      } else {
-        if (initial_fp_flags >= 0) {
-          csa_set_fp_flags(processor, (unsigned int)initial_fp_flags);
-        }
-        if (verbosity) {
-          fprintf(stderr, "\nRun %u: Running %s on the CSA simulator..\n",
-                  run_count, functionName);
-        }
-
-        std::vector<void *> ptrs(arg_num);
-        for (int32_t i=0; i<arg_num; ++i) {
-          ptrs[i] = (void*)((intptr_t)tgt_args[i] + tgt_offsets[i]);
-        }
-
-        // Execute the CSA code. target() is adding an "omp handle" to the
-        // arguments array which we don't care about. So ignore it
-        assert(sizeof(csa_arg) == sizeof(ptrs[0]));
-        unsigned long long start = csa_cycle_counter(processor);
-        csa_call(entry, arg_num-1, (csa_arg *)&ptrs[0]);
-        unsigned long long cycles = csa_cycle_counter(processor) - start;
-
-        // Dump the statistics, if requested
-        if (getenv (ENV_DUMP_STATS)) {
-          std::stringstream ss;
-          ss << tmp_prefix << "-" << run_count;
-          csa_dump_statistics(processor, ss.str().c_str());
-        }
-
-        if (verbosity) {
-          fprintf(stderr, "\nRun %u: %s ran on the CSA simulator in %llu cycles\n\n",
-                  run_count, functionName, cycles);
-        }
-        if (initial_fp_flags >= 0) {
-          unsigned int flags = csa_get_fp_flags(processor);
-          fprintf(stderr, "FP Flags at completion of %s : 0x%02x\n",
-                  functionName, flags);
-          char buf[32];
-          sprintf(buf, "%u", flags);
-          setenv(ENV_RUN_FP_FLAGS, buf, 1);
-        }
-      }
     }
+
+    mod = csa_assemble(assemblyFile, proc);
+    if (NULL == mod) {
+      return checkForExitOnError(OFFLOAD_FAIL, "Failed to load module");
+    }
+
+    entry = csa_lookup(mod, functionName);
+
+    bool success = DeviceInfo.setCsaOffloadEntryInfo(device_id, tgt_entry_ptr,
+                                                     proc, mod, entry);
+    assert(success && "saving CSA offload entry information failed!");
   }
-  csa_free(processor);
+
+  if (initial_fp_flags >= 0) {
+    csa_set_fp_flags(proc, (unsigned int)initial_fp_flags);
+  }
+  if (verbosity) {
+    fprintf(stderr, "\nRun %u: Running %s on the CSA simulator..\n",
+            run_count, functionName);
+  }
+
+  std::vector<void *> ptrs(arg_num);
+  for (int32_t i=0; i<arg_num; ++i) {
+    ptrs[i] = (void*)((intptr_t)tgt_args[i] + tgt_offsets[i]);
+  }
+
+  // Execute the CSA code. target() is adding an "omp handle" to the
+  // arguments array which we don't care about. So ignore it
+  assert(sizeof(csa_arg) == sizeof(ptrs[0]));
+  unsigned long long start = csa_cycle_counter(proc);
+  csa_call(entry, arg_num-1, (csa_arg *)&ptrs[0]);
+  unsigned long long cycles = csa_cycle_counter(proc) - start;
+
+#if 0
+  // Dump the statistics, if requested
+  if (getenv (ENV_DUMP_STATS)) {
+    std::stringstream ss;
+    ss << tmp_prefix << "-" << run_count;
+    csa_dump_statistics(proc, ss.str().c_str());
+  }
+#endif
+
+  if (verbosity) {
+    fprintf(stderr, "\nRun %u: %s ran on the CSA simulator in %llu cycles\n\n",
+            run_count, functionName, cycles);
+  }
+  if (initial_fp_flags >= 0) {
+    unsigned int flags = csa_get_fp_flags(proc);
+    fprintf(stderr, "FP Flags at completion of %s : 0x%02x\n",
+            functionName, flags);
+    char buf[32];
+    sprintf(buf, "%u", flags);
+    setenv(ENV_RUN_FP_FLAGS, buf, 1);
+  }
+
   run_count++;
 
   return status;
