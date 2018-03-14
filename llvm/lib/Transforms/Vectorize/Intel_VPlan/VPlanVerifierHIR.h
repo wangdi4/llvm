@@ -31,8 +31,8 @@ private:
   // Outermost HIR loop to be vectorized.
   const HLLoop *TheLoop;
 
-  unsigned countLoopsInUnderlyingIR() const;
-  void verifyIRSpecificLoopRegion(const VPRegionBlock *Region) const;
+  unsigned countLoopsInUnderlyingIR() const override;
+  void verifyIRSpecificLoopRegion(const VPRegionBlock *Region) const override;
 
 public:
   VPlanVerifierHIR(const HLLoop *HLLp) : VPlanVerifier(), TheLoop(HLLp) {}

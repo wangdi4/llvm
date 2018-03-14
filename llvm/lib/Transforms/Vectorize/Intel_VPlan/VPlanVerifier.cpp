@@ -281,6 +281,7 @@ void VPlanVerifier::verifyHierarchicalCFG(
 }
 
 unsigned VPlanVerifier::countLoopsInUnderlyingIR() const {
+  assert(TheLoop && "TheLoop can't be null.");
   return countLoopsInLoop<Loop>(TheLoop);
 }
 

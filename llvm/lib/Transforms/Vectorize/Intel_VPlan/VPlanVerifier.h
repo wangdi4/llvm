@@ -45,9 +45,9 @@ private:
   void verifyLoopRegions(const VPRegionBlock *TopRegion) const;
   void verifyNumLoops(const VPRegionBlock *TopRegion) const;
   // Count the number of loops in the underlying IR.
-  unsigned countLoopsInUnderlyingIR() const;
+  virtual unsigned countLoopsInUnderlyingIR() const;
   // Perform IR-specific checks for IR-specific VPLoopRegion.
-  void verifyIRSpecificLoopRegion(const VPRegionBlock *Region) const {};
+  virtual void verifyIRSpecificLoopRegion(const VPRegionBlock *Region) const {};
 
 public:
   VPlanVerifier(const Loop *Lp, const LoopInfo *LInfo)
