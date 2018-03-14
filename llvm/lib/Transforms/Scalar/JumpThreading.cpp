@@ -346,6 +346,7 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<GlobalsAA>();
+  PA.preserve<InlineAggAnalysis>();   // INTEL
   return PA;
 }
 

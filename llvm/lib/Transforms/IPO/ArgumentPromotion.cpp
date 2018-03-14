@@ -994,6 +994,7 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
 #if INTEL_CUSTOMIZATION
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
+  PA.preserve<InlineAggAnalysis>();
   return PA;
 #endif // INTEL_CUSTOMIZATION
 }

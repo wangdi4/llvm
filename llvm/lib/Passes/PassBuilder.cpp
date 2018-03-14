@@ -208,6 +208,13 @@ static cl::opt<bool> EnableGVNSink(
     "enable-npm-gvn-sink", cl::init(false), cl::Hidden,
     cl::desc("Enable the GVN hoisting pass for the new PM (default = off)"));
 
+#if INTEL_CUSTOMIZATION
+// Inline Aggressive Analysis
+static cl::opt<bool> EnableInlineAggAnalysis(
+    "enable-npm-inline-aggressive-analysis", cl::init(true), cl::Hidden,
+    cl::desc("Enable Inline Aggressive Analysis for the new PM (default = on)"));
+#endif // INTEL_CUSTOMIZATION
+
 static Regex DefaultAliasRegex(
     "^(default|thinlto-pre-link|thinlto|lto-pre-link|lto)<(O[0123sz])>$");
 
@@ -1067,6 +1074,11 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 #if INTEL_CUSTOMIZATION
   // Parse -[no]inline-list option and set corresponding attributes.
   MPM.addPass(InlineListsPass());
+  // Require the InlineAggAnalysis for the module so we can query it within
+  // the inliner and AggInlAAPass.
+  if (EnableInlineAggAnalysis) {
+    MPM.addPass(RequireAnalysisPass<InlineAggAnalysis, Module>());
+  }
 #endif // INTEL_CUSTOMIZATION
   // Note: historically, the PruneEH pass was run first to deduce nounwind and
   // generally clean up exception handling overhead. It isn't clear this is
@@ -1092,6 +1104,12 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   // Break up allocas
   FPM.addPass(SROA());
+
+#if INTEL_CUSTOMIZATION
+  if (EnableInlineAggAnalysis) {
+    FPM.addPass(AggInlAAPass());
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Run a few AA driver optimizations here and now to cleanup the code.
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
