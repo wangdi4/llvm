@@ -30475,9 +30475,19 @@ static bool detectZextAbsDiff(const SDValue &Select, SDValue &Op0,
 
   // The second operand of the select should be the negation of the first
   // operand, which is implemented as 0 - SelectOp1.
+#if INTEL_CUSTOMIZATION
+  // Or, the second operand of the select could be a sub where the operands of
+  // the first sub (%4 above) are reversed.
+#endif
   if (!(SelectOp2.getOpcode() == ISD::SUB &&
         ISD::isBuildVectorAllZeros(SelectOp2.getOperand(0).getNode()) &&
-        SelectOp2.getOperand(1) == SelectOp1))
+#if INTEL_CUSTOMIZATION
+        SelectOp2.getOperand(1) == SelectOp1) &&
+      !(SelectOp2.getOpcode() == ISD::SUB &&
+        SelectOp1.getOpcode() == ISD::SUB &&
+        SelectOp2.getOperand(0) == SelectOp1.getOperand(1) &&
+        SelectOp2.getOperand(1) == SelectOp1.getOperand(0)))
+#endif
     return false;
 
   // The first operand of SetCC is the first operand of the select, which is the
