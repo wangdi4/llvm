@@ -299,7 +299,15 @@ public:
       for (CsaEntryMap_t::iterator i = E.csaTidToEntryMap.begin(); i != E.csaTidToEntryMap.end(); ++i) {
         std::pair<pthread_t, void*>key = i->first;
         std::stringstream ss;
-        ss << tmp_prefix << "-" <<key.first << i->second.entry_name;
+        ss << tmp_prefix;
+        std::string entry_name = i->second.entry_name;
+        std::string omp_prefix("__omp_offloading");
+        if (0 == entry_name.compare(0, omp_prefix.length(), omp_prefix)) {
+          ss << entry_name.substr(omp_prefix.length());
+        } else {
+          ss << entry_name;
+        }
+
         fprintf(stderr, "Dumping stats to %s\n", ss.str().c_str());
         csa_dump_statistics(i->second.processor, ss.str().c_str());
         csa_free(i->second.processor);
@@ -914,7 +922,7 @@ bool build_csa_assembly(const char *tmp_name,
     if (prefix) {
       tmp_prefix = prefix;
     } else {
-      tmp_prefix = get_process_name() + "-csa";
+      tmp_prefix = get_process_name();
     }
   } else {
     tmp_prefix = tmp_name;
