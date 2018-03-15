@@ -66,7 +66,7 @@ MachineInstr *CSASeqOpt::repeatOpndInSameLoop(MachineOperand &opnd,
 }
 
 void CSASeqOpt::FoldRptInit(MachineInstr *rptInstr) {
-  assert(MRI->hasOneUse(rptInstr->getOperand(0).getReg()));
+  assert(MRI->hasOneNonDBGUse(rptInstr->getOperand(0).getReg()));
   MachineRegisterInfo::use_iterator UI =
     MRI->use_begin(rptInstr->getOperand(0).getReg());
   MachineOperand &UseMO = *UI;
@@ -74,6 +74,7 @@ void CSASeqOpt::FoldRptInit(MachineInstr *rptInstr) {
   assert(TII->isPick(rptPick));
   unsigned pickDst = rptPick->getOperand(0).getReg();
   rptPick->removeFromParent();
+  MRI->markUsesInDebugValueAsUndef(rptInstr->getOperand(0).getReg());
   rptInstr->getOperand(0).setReg(pickDst);
 }
 
@@ -172,7 +173,7 @@ void CSASeqOpt::SequenceIndv(CSASSANode *cmpNode, CSASSANode *switchNode,
   isIDVCycle = isIDVCycle &&
                (switchNode->minstr->getOperand(1 - switchOutIndex).getReg() ==
                 backedgeReg) &&
-               MRI->hasOneUse(backedgeReg);
+               MRI->hasOneNonDBGUse(backedgeReg);
   if (isIDVCycle) {
     unsigned compareSense = idvIdx - 1;
     // 1 means: false control sig loop back, true control sig exit loop
@@ -260,6 +261,7 @@ void CSASeqOpt::SequenceIndv(CSASSANode *cmpNode, CSASSANode *switchNode,
       addNode->minstr->removeFromBundle();
     }
 
+    MRI->markUsesInDebugValueAsUndef(backedgeReg);
     switchNode->minstr->removeFromParent();
     lhdrPickNode->minstr->removeFromParent();
     cmpNode->minstr->removeFromParent();
@@ -370,7 +372,7 @@ void CSASeqOpt::SequenceApp(CSASSANode *switchNode, CSASSANode *addNode,
                             CSASSANode *lhdrPickNode) {
   unsigned phidst = lhdrPickNode->minstr->getOperand(0).getReg();
   unsigned adddst = addNode->minstr->getOperand(0).getReg();
-  if (MRI->hasOneUse(phidst) && MRI->hasOneUse(adddst)) {
+  if (MRI->hasOneNonDBGUse(phidst) && MRI->hasOneNonDBGUse(adddst)) {
     SequenceReduction(switchNode, addNode, lhdrPickNode);
   } else {
     MultiSequence(switchNode, addNode, lhdrPickNode);
@@ -415,7 +417,7 @@ void CSASeqOpt::SequenceReduction(CSASSANode *switchNode, CSASSANode *addNode,
   isIDVCycle = isIDVCycle &&
                (switchNode->minstr->getOperand(1 - switchOutIndex).getReg() ==
                 backedgeReg) &&
-               MRI->hasOneUse(backedgeReg);
+               MRI->hasOneNonDBGUse(backedgeReg);
 
   if (isIDVCycle) {
     // build reduction seqeuence.
@@ -457,7 +459,9 @@ void CSASeqOpt::SequenceReduction(CSASSANode *switchNode, CSASSANode *addNode,
     redInstr->setFlag(MachineInstr::NonSequential);
     // remove the instructions in the IDV cycle.
     switchNode->minstr->removeFromParent();
+    MRI->markUsesInDebugValueAsUndef(addNode->minstr->getOperand(0).getReg());
     addNode->minstr->removeFromBundle();
+    MRI->markUsesInDebugValueAsUndef(lhdrPickNode->minstr->getOperand(0).getReg());
     lhdrPickNode->minstr->removeFromParent();
   }
 }
@@ -526,10 +530,10 @@ void CSASeqOpt::MultiSequence(CSASSANode *switchNode, CSASSANode *addNode,
   // bool adduseOK = false;
   unsigned adddst = addNode->minstr->getOperand(0).getReg();
   // otherwise reduced to reduction
-  assert(!MRI->hasOneUse(phidst) || !MRI->hasOneUse(adddst));
+  assert(!MRI->hasOneNonDBGUse(phidst) || !MRI->hasOneNonDBGUse(adddst));
 
   isIDVCycle =
-    isIDVCycle && MRI->hasOneUse(adddst); // otherwise need to adjust init value
+    isIDVCycle && MRI->hasOneNonDBGUse(adddst); // otherwise need to adjust init value
   if (isIDVCycle) {
     MachineOperand &initOpnd =
       lhdrPickNode->minstr->getOperand(2).getReg() == backedgeReg
@@ -621,6 +625,7 @@ void CSASeqOpt::MultiSequence(CSASSANode *switchNode, CSASSANode *addNode,
                       backedgeReg);
     // remove the instructions in the IDV cycle.
     switchNode->minstr->removeFromParent();
+    MRI->markUsesInDebugValueAsUndef(adddst);
     addNode->minstr->removeFromBundle();
     lhdrPickNode->minstr->removeFromParent();
   }
@@ -685,9 +690,9 @@ void CSASeqOpt::SequenceRepeat(CSASSANode *switchNode,
   }
   unsigned switchFalse = switchNode->minstr->getOperand(0).getReg();
   unsigned switchTrue  = switchNode->minstr->getOperand(1).getReg();
-  if ((switchFalse == CSA::IGN && MRI->hasOneUse(switchTrue) &&
+  if ((switchFalse == CSA::IGN && MRI->hasOneNonDBGUse(switchTrue) &&
        switchTrue == lpbackReg) ||
-      (switchTrue == CSA::IGN && MRI->hasOneUse(switchFalse) &&
+      (switchTrue == CSA::IGN && MRI->hasOneNonDBGUse(switchFalse) &&
        switchFalse == lpbackReg)) {
     switchuseOK = true;
   }
