@@ -11798,6 +11798,9 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
     if (LHSTy->isImageType() || RHSTy->isImageType() ||
         LHSTy->isSamplerT() || RHSTy->isSamplerT() ||
         LHSTy->isPipeType() || RHSTy->isPipeType() ||
+#if INTEL_CUSTOMIZATION
+        LHSTy->isChannelType() || RHSTy->isChannelType() ||
+#endif // INTEL_CUSTOMIZATION
         LHSTy->isBlockPointerType() || RHSTy->isBlockPointerType()) {
       ResultTy = InvalidOperands(OpLoc, LHS, RHS);
       return ExprError();
