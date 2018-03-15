@@ -308,7 +308,6 @@ public:
           ss << entry_name;
         }
 
-        fprintf(stderr, "Dumping stats to %s\n", ss.str().c_str());
         csa_dump_statistics(i->second.processor, ss.str().c_str());
         csa_free(i->second.processor);
       }
