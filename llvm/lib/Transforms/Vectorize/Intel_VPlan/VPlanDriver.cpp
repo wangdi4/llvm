@@ -507,6 +507,8 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   if (VPlanConstrStressTest)
     return false;
 
+  assert(WRLp && "WRLp can be null in stress testing only!");
+
   bool ForcedVF = Simdlen > 0 ? true : VPlanDisableCostModel;
   VF = LVP.selectVF(VF, ForcedVF);
 
@@ -674,6 +676,8 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
 
 bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
                                  WRNVecLoopNode *WRLp) {
+  // TODO: How do we allow stress-testing for HIR path?
+  assert(WRLp && "WRLp should be non-null!");
 
   // TODO: Do we need legality check in HIR?. If we reach this point, the loop
   // either has been marked with SIMD directive by 'HIR Vec Directive Insertion
@@ -706,7 +710,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
 
   //TODO: No Legal for HIR.
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, nullptr /*Legal*/, DDG);
-  unsigned Simdlen = WRLp ? WRLp->getSimdlen() : 0;
+  unsigned Simdlen = WRLp->getSimdlen();
   unsigned VF = Simdlen ? Simdlen : VPlanDefaultVF;
   LVP.buildInitialVPlans(VF /*MinVF*/, VF /*MaxVF*/);
 
