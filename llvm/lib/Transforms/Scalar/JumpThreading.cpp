@@ -95,7 +95,14 @@ namespace {
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<AAResultsWrapperPass>();
       AU.addRequired<LazyValueInfoWrapperPass>();
+#ifndef INTEL_CUSTOMIZATION
+      // NOTE: While JumpThreading may preserve LazyValueInfo, it invalidates
+      // the dominator tree analysis that LazyValueInfo captures when it runs,
+      // meaning that the results from LazyValueInfo still come out incorrect.
+      // Therefore, LazyValueInfo should not be marked as preserved for our
+      // purposes.
       AU.addPreserved<LazyValueInfoWrapperPass>();
+#endif
       AU.addPreserved<GlobalsAAWrapperPass>();
       AU.addRequired<TargetLibraryInfoWrapperPass>();
     }
