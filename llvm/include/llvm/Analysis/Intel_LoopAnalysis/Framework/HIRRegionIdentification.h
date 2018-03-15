@@ -21,8 +21,8 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 
-#include "llvm/Pass.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Pass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
 
@@ -232,6 +232,10 @@ public:
   isReachableFrom(const BasicBlock *BB,
                   const SmallPtrSetImpl<const BasicBlock *> &EndBBs,
                   const SmallPtrSetImpl<const BasicBlock *> &FromBBs) const;
+
+  /// Erases all the formed regions.
+  /// NOTE: Only used by HIRSSADeconstruction pass in opt-bisect mode.
+  void discardRegions() { IRRegions.clear(); }
 };
 
 class HIRRegionIdentificationAnalysis
@@ -272,9 +276,7 @@ public:
 
   bool runOnFunction(Function &F) override;
 
-  void releaseMemory() override {
-    RI.reset();
-  }
+  void releaseMemory() override { RI.reset(); }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
