@@ -233,8 +233,29 @@ and a non-zero initializer was specified for the variable.
 BadMemFuncSize
 ~~~~~~~~~~~~~~
 This indicates that a pointer to a structure is passed to a memory function
-intrinsic (memcpy, memcpy or memset), with a size that differs from
-the native structure size of the source or destination structure.
+intrinsic (memcpy, memmove or memset) with a size that could not be analyzed
+or is invalid. Possible reasons are:
+
+* The size cannot be resolved to be a multiple of the aggregate size
+  to read/write the entire aggregate object.
+* The size cannot be resolved to be a proper subset of fields being accessed.
+* The read/write exceeds the bounds of the native structure size of the source
+  or destination object.
+* The read/write memory is smaller than the underlying object referenced,
+  such as only 2 bytes of a 4 byte element.
+
+MemFuncPartialWrite
+~~~~~~~~~~~~~~~~~~~
+This indicates that a pointer to a structure is passed to a memory function
+intrinsic (memcpy, memmove, or memset) with a size that completely covers a
+proper subset of fields within the structure. If the field is itself an
+aggregate, the entire field must be accessed, otherwise the BadMemFuncSize
+safety will be set (i.e. memset with the address of a member that is a nested
+structure must set the entire nested structure, not a portion of it)
+Transformations may need to carefully split the intrinsic operation into
+separate Load/Stores for the fields of a modified data structure when operating
+on structures with this property.
+
 
 BadMemFuncManipulation
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -417,9 +438,11 @@ A call to memset is considered safe if the entire structure (based on the
 sizeof(%struct) size) is being set.
 
 A call to memcpy or memmove is considered safe if:
+
 - The entire structure is being set.
 - The data type of the source structure is the same as the data type of the
   the destination structure.
+
 Otherwise, both the source and destination parameter types are marked as
 unsafe uses.
 

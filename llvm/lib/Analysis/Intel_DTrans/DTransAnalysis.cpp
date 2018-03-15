@@ -1857,9 +1857,13 @@ private:
   //   - The operand does not affect an aggregate data type.
   //  or
   //   - If the operand is not a pointer to a field within an aggregate, then
-  //     the size must be a multiple of the aggregate size.
+  //     the size must be a multiple of the aggregate size. (If the size is
+  //     smaller than the aggregate type and a specific subset of fields is set,
+  //     the memfunc partial write safety bit will be set)
   //   - If the operand is a pointer to a field within an aggregate, then
-  //     the size operand must equal the size of the field
+  //     the size operand must cover the size of one or more fields, in which
+  //     case the memfunc partial write safety bit will be set on the containing
+  //     structure.
   //  or
   //  - The size operand is 0.
   //
@@ -1893,82 +1897,144 @@ private:
                      << " " << I << "\n");
 
         setAllAliasedTypeSafetyData(DstLPI, dtrans::AmbiguousPointerTarget);
-      } else {
-        // If the dominant type was not identified, and the pointer is not
-        // an aliased type, we expect that we are dealing with a pointer
-        // to a scalar member element. assert this to be sure.
-
-        assert(DstLPI.pointsToSomeElement());
-
-        // For now, we do not expect to need to handle such a case.
-        DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
-                     << "No dominant type:\n"
-                     << "  " << I << "\n");
-
-        setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
+        return;
       }
 
-      return;
+      // We expect we are dealing with a pointer to scalar element member
+      // when no dominant type was found, but if not, we don't handle it
+      // in the code below.
+      if (!DstLPI.pointsToSomeElement()) {
+        setAllAliasedTypeSafetyData(DstLPI, dtrans::UnhandledUse);
+        return;
+      }
     }
 
-    // If the parameter does not point to an aggregate type, it's safe.
-    auto *DestPointeeTy = DestParentTy->getPointerElementType();
-
     // Verify the size being is valid for the type of the pointer:
-    //  - When an aggregate type is passed, require all fields to be set to
-    //    consider the access as safe. This requires that the size parameter
-    //    equals the aggregate size (or some multiple to allow for arrays).
-    //  - When a pointer to a member of another aggregate is used, make sure
-    //    the size being set is exactly the size of aggregate being set,
-    //    otherwise other parts of the parent could be overwritten when the
-    //    size written is larger than the member size.
-    // This will make it easier for transformations, such as field reordering
-    // to be able to perform the transformation.
+    //  - When an aggregate type is passed, check if the size parameter
+    //    equals the aggregate size (or some multiple to allow for arrays) and
+    //    mark all the fields as being written. If the size is smaller than
+    //    the aggregate type, try to identify which fields are being set to
+    //    mark those as written and set the safety bit to indicate only a
+    //    portion of the structure is covered.
     //
-    // NOTE: Currently, we require the size to be a multiple of the result of
-    // sizeof(TYPE) to mark the structure as safe. However, this could cause
-    // the rejection of a structure that is set based on a summation of the
-    // field sizes if the tail padding is not counted. For
-    // example, struct { int A, short B }, passing a size value of 6 will clear
-    // the structure, but we require a size equal to 8 because that is what
-    // sizeof reports. This could be added in the future, if necessary.
+    //  - When a pointer to a member of another aggregate is used, make sure
+    //    the size being set is exactly the size of aggregate being set, or
+    //    covers a proper subset of fields.
     //
     // NOTE: In the future, an additional safety check may be necessary here
     // to check if a non-zero value is being written to inhibit
     // transformations such as field shrinking. But this is not implemented
     // now because it will also require the rest of the analysis to perform
     // range checks of the values being stored in a field.
-    uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy);
-    bool DstPtrToMember = DstLPI.pointsToSomeElement();
 
-    if (DstPtrToMember) {
-      // Currently, we will invalidate if the size is larger or smaller for
-      // simplicity, we could probably allow it if the write size was smaller
-      // than an array aggregate, in the future.
-      if (!isValueEqualToSize(SetSize, ElementSize)) {
-        DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
-                     << "size does not equal member field type size:\n"
-                     << "  " << I << "\n");
+    if (DstLPI.pointsToSomeElement()) {
+      StructType *StructTy = nullptr;
+      size_t FieldNum = 0;
 
-        auto ElementPointees = DstLPI.getElementPointeeSet();
-        for (auto &PointeePair : ElementPointees) {
-          setBaseTypeInfoSafetyData(PointeePair.first, dtrans::BadMemFuncSize);
+      // Check if the pointer-to-member is a member of structure that can
+      // be analyzed.
+      if (isSimpleStructureMember(DstLPI, &StructTy, &FieldNum)) {
+        // Try to determine if a set of fields in a structure is being written.
+        unsigned int FirstField = 0;
+        unsigned int LastField = 0;
+        if (analyzePartialStructUse(StructTy, FieldNum, SetSize, &FirstField,
+                                    &LastField)) {
+          auto *ParentTI = DTInfo.getOrCreateTypeInfo(StructTy);
+
+          // If not all members of the structure were set, mark it as
+          // a partial write.
+          if (!(FirstField == 0 &&
+                LastField == (StructTy->getNumElements() - 1))) {
+            DEBUG(dbgs() << "dtrans-safety: Memfunc partial write -- "
+                         << "size is a subset of fields:\n"
+                         << "  " << I << "\n");
+
+            ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
+          }
+          markStructFieldsWritten(ParentTI, FirstField, LastField);
+        } else {
+          // The size could not be matched to the fields of the structure.
+          DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
+                       << "size does not equal member field type(s) size:\n"
+                       << "  " << I << "\n");
+
+          setBaseTypeInfoSafetyData(StructTy, dtrans::BadMemFuncSize);
         }
+
         return;
       }
-    } else if (DestPointeeTy->isAggregateType() &&
-               !isValueMultipleOfSize(SetSize, ElementSize)) {
-      DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
-                   << "size is not a multiple of type size:\n"
-                   << "  " << I << "\n");
 
-      setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncSize);
+      // The pointer to member was not able to be analyzed. It could be a member
+      // of an array type, or the element pointee set contained multiple
+      // entries.
+      if (DstLPI.getElementPointeeSet().size() != 1) {
+        DEBUG(dbgs() << "dtrans-safety: Ambiguous pointer target -- "
+                     << "Pointer to member with multiple potential target "
+                        "members:\n"
+                     << "  " << I << "\n");
+
+        setValueTypeInfoSafetyData(DestArg, dtrans::AmbiguousPointerTarget);
+      } else {
+        // This could be extended in the future to handle the case that it was
+        // member of an array.
+        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                     << "Pointer to member of array type:\n"
+                     << "  " << I << "\n");
+
+        setValueTypeInfoSafetyData(DestArg, dtrans::UnhandledUse);
+      }
+
       return;
     }
 
-    // It is a safe use. Mark all the fields as being written.
-    auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
-    markAllFieldsWritten(ParentTI);
+    // The operand is not a pointer to member if we reach this point
+    auto *DestPointeeTy = DestParentTy->getPointerElementType();
+    uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy);
+
+    if (!DestPointeeTy->isAggregateType())
+      return;
+
+    // Consider the case where the complete aggregate (or an array of
+    // aggregates is being set).
+    if (isValueMultipleOfSize(SetSize, ElementSize)) {
+      // It is a safe use. Mark all the fields as being written.
+      auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
+      markAllFieldsWritten(ParentTI);
+      return;
+    }
+
+    // Consider the case where a portion of a structure is being set, starting
+    // from the 1st field.
+    if (DestPointeeTy->isStructTy()) {
+      StructType *StructTy = cast<StructType>(DestPointeeTy);
+      unsigned int FirstField = 0;
+      unsigned int LastField = 0;
+      if (analyzePartialStructUse(StructTy, 0, SetSize, &FirstField,
+                                  &LastField)) {
+        auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
+
+        // It's possible the write covered all the fields, but excluded any
+        // padding after the last element, so check whether it was a partial
+        // write or not.
+        if (!(FirstField == 0 &&
+              LastField == (StructTy->getNumElements() - 1))) {
+          DEBUG(dbgs() << "dtrans-safety: Memfunc partial write -- "
+                       << "size is a subset of fields:\n"
+                       << "  " << I << "\n");
+
+          ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
+        }
+
+        markStructFieldsWritten(ParentTI, FirstField, LastField);
+        return;
+      }
+    }
+
+    DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
+                 << "size is not a multiple of type size:\n"
+                 << "  " << I << "\n");
+
+    setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncSize);
   }
 
   // Check the source and destination of a call to memcpy or memmove call
@@ -2037,6 +2103,7 @@ private:
 
         setAllAliasedTypeSafetyData(DstLPI, dtrans::AmbiguousPointerTarget);
         setAllAliasedTypeSafetyData(SrcLPI, dtrans::BadMemFuncManipulation);
+        return;
       } else if (!SrcParentTy &&
                  isAliasSetOverloaded(SrcLPI.getPointerTypeAliasSet())) {
         DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
@@ -2045,22 +2112,18 @@ private:
 
         setAllAliasedTypeSafetyData(DstLPI, dtrans::BadMemFuncManipulation);
         setAllAliasedTypeSafetyData(SrcLPI, dtrans::AmbiguousPointerTarget);
+        return;
       } else {
         // If the dominant type was not identified, and the pointer is not
         // an aliased type, we expect that we are dealing with a pointer
         // to a member element. assert this to be sure.
-        assert(DestParentTy || DstLPI.pointsToSomeElement());
-        assert(SrcParentTy || SrcLPI.pointsToSomeElement());
-
-        // For now, we do not expect to need to handle such a case.
-        DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation --  "
-                     << "No dominant type for either source or destination:\n"
-                     << "  " << I << "\n");
-
-        setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
-        setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncManipulation);
+        if ((!DestParentTy && !DstLPI.pointsToSomeElement()) ||
+          (!SrcParentTy && !SrcLPI.pointsToSomeElement())) {
+          setAllAliasedTypeSafetyData(DstLPI, dtrans::UnhandledUse);
+          setAllAliasedTypeSafetyData(SrcLPI, dtrans::UnhandledUse);
+          return;
+        }
       }
-      return;
     }
 
     if (DestParentTy != SrcParentTy) {
@@ -2073,60 +2136,279 @@ private:
       return;
     }
 
-    // If the parameter does not point to an aggregate type, it's safe.
-    auto *DestPointeeTy = DestParentTy->getPointerElementType();
-
-    // Verify the copy if the entire structure.
-    uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy);
     bool DstPtrToMember = DstLPI.pointsToSomeElement();
     bool SrcPtrToMember = SrcLPI.pointsToSomeElement();
 
-    if (DstPtrToMember || SrcPtrToMember) {
-      // When a pointer-to-member is used, make sure the size being set is
-      // exactly the size of aggregate being set, otherwise other parts of the
-      // parent structure could be overwritten.
-      //
-      // Currently, we will invalidate if the size is larger or smaller for
-      // simplicity, we could probably allow it if the write size was smaller
-      // than an array aggregate, in the future.
-      if (!isValueEqualToSize(SetSize, ElementSize)) {
-        DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
-                     << "size does not equal member field type size:\n"
-                     << "  " << I << "\n");
+    // For simplicity, require either both elements to be pointers to members,
+    // or neither element to be. This is a conservative approach, but otherwise
+    // any transforms will have to deal the complexity of the types when
+    // memcpy/memmove calls have to be modified.
+    if (DstPtrToMember != SrcPtrToMember) {
+      setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
+      setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncManipulation);
+      return;
+    }
 
-        if (DstPtrToMember) {
-          auto ElementPointees = DstLPI.getElementPointeeSet();
-          for (auto &PointeePair : ElementPointees) {
-            setBaseTypeInfoSafetyData(PointeePair.first,
-                                      dtrans::BadMemFuncSize);
-          }
-        }
+    if (DstPtrToMember) {
+      StructType *DstStructTy = nullptr;
+      StructType *SrcStructTy = nullptr;
+      size_t DstFieldNum = 0;
+      size_t SrcFieldNum = 0;
 
-        if (SrcPtrToMember) {
-          auto ElementPointees = SrcLPI.getElementPointeeSet();
-          for (auto &PointeePair : ElementPointees) {
-            setBaseTypeInfoSafetyData(PointeePair.first,
-                                      dtrans::BadMemFuncSize);
-          }
+      // Check if the pointer-to-member is a member of structure that can
+      // be analyzed.
+      bool DstSimple =
+          isSimpleStructureMember(DstLPI, &DstStructTy, &DstFieldNum);
+
+      if (!DstSimple) {
+        // The pointer to member was not able to be analyzed. It could be a
+        // member of an array type, or the element pointee set contained
+        // multiple entries.
+        if (DstLPI.getElementPointeeSet().size() != 1) {
+          DEBUG(dbgs() << "dtrans-safety: Ambiguous pointer target -- "
+                       << "Pointer to member with multiple potential target "
+                          "members:\n"
+                       << "  " << I << "\n");
+
+          setValueTypeInfoSafetyData(DestArg, dtrans::AmbiguousPointerTarget);
+          setValueTypeInfoSafetyData(SrcArg, dtrans::AmbiguousPointerTarget);
+        } else {
+          // This could be extended in the future to handle the case that it was
+          // member of an array.
+          DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                       << "Pointer to member of array type:\n"
+                       << "  " << I << "\n");
+
+          setValueTypeInfoSafetyData(DestArg, dtrans::UnhandledUse);
+          setValueTypeInfoSafetyData(SrcArg, dtrans::UnhandledUse);
         }
 
         return;
       }
-    } else if (DestPointeeTy->isAggregateType() &&
-               !isValueMultipleOfSize(SetSize, ElementSize)) {
-      DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
-                   << "size is not a multiple of type size:\n"
-                   << "  " << I << "\n");
 
-      setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncSize);
-      setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncSize);
+      bool SrcSimple =
+          isSimpleStructureMember(SrcLPI, &SrcStructTy, &SrcFieldNum);
+
+      // It is probably safe to copy from one set of fields to a different set
+      // of fields in the structure, if the data types for each source and
+      // destination element match, but to keep things simple for the
+      // transformations, we will currently require the same source and
+      // destination types and fields when processing the pointer to member
+      // case.
+      if (DstSimple == SrcSimple && DstStructTy == SrcStructTy &&
+          DstFieldNum == SrcFieldNum) {
+        unsigned int FirstField = 0;
+        unsigned int LastField = 0;
+        if (analyzePartialStructUse(DstStructTy, DstFieldNum, SetSize,
+                                    &FirstField, &LastField)) {
+          auto *ParentTI = DTInfo.getOrCreateTypeInfo(DstStructTy);
+
+          // If the not all members of the structure were set, mark it as
+          // a partial write.
+          if (!(FirstField == 0 &&
+                LastField == (DstStructTy->getNumElements() - 1))) {
+            DEBUG(dbgs() << "dtrans-safety: Memfunc partial write -- "
+                         << "size is a subset of fields:\n"
+                         << "  " << I << "\n");
+
+            ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
+          }
+          markStructFieldsWritten(ParentTI, FirstField, LastField);
+        } else {
+          // The size could not be matched to the fields of the structure.
+          DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
+                       << "size does not equal member field type(s) size:\n"
+                       << "  " << I << "\n");
+
+          setBaseTypeInfoSafetyData(DstStructTy, dtrans::BadMemFuncSize);
+        }
+      } else {
+        DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
+                     << "source and destination pointer to member types or "
+                        "offsets do not match:\n"
+                     << "  " << I << "\n");
+
+        setBaseTypeInfoSafetyData(DstStructTy, dtrans::BadMemFuncManipulation);
+        setBaseTypeInfoSafetyData(SrcStructTy, dtrans::BadMemFuncManipulation);
+      }
+
       return;
     }
 
-    auto *DestTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
-    markAllFieldsWritten(DestTI);
+    // The operand is not a pointer to member if we reach this point,
+    // and the source and destination types are the same.
+    auto *DestPointeeTy = DestParentTy->getPointerElementType();
+    uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy);
+
+    if (!DestPointeeTy->isAggregateType())
+      return;
+
+    // Consider the case where the complete aggregate (or an array of
+    // aggregates is being set.
+    if (isValueMultipleOfSize(SetSize, ElementSize)) {
+      // It is a safe use. Mark all the fields as being written.
+      auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
+      markAllFieldsWritten(ParentTI);
+      return;
+    }
+
+    // Consider the case where a portion of a structure is being set, starting
+    // from the 1st field.
+    if (DestPointeeTy->isStructTy()) {
+      StructType *StructTy = cast<StructType>(DestPointeeTy);
+      unsigned int FirstField = 0;
+      unsigned int LastField = 0;
+      if (analyzePartialStructUse(StructTy, 0, SetSize, &FirstField,
+                                  &LastField)) {
+        auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
+
+        // It's possible the write covered all the fields, but excluded any
+        // padding after the last element, so check whether it was a partial
+        // write or not.
+        if (!(FirstField == 0 &&
+              LastField == (StructTy->getNumElements() - 1))) {
+          DEBUG(dbgs() << "dtrans-safety: Memfunc partial write -- "
+                       << "size is a subset of fields:\n"
+                       << "  " << I << "\n");
+
+          ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
+        }
+        markStructFieldsWritten(ParentTI, FirstField, LastField);
+        return;
+      }
+    }
+
+    DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
+                 << "size is not a multiple of type size:\n"
+                 << "  " << I << "\n");
+
+    setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncSize);
   }
 
+  // Helper function for retrieving information when the \p LPI argument refers
+  // to a pointer-to-member element. This function checks that the
+  // pointer to member is a referencing a single member from a single structure.
+  // If so, it returns 'true', and saves the structure type in the \p StructTy
+  // argument, and the field number in the \p FieldNum argument. Otherwise,
+  // return 'false'.
+  bool isSimpleStructureMember(LocalPointerInfo &LPI, StructType **StructTy,
+                               size_t *FieldNum) {
+    assert(LPI.pointsToSomeElement());
+
+    *StructTy = nullptr;
+    *FieldNum = SIZE_MAX;
+
+    auto &ElementPointees = LPI.getElementPointeeSet();
+    if (ElementPointees.size() != 1)
+      return false;
+
+    auto &PointeePair = *(ElementPointees.begin());
+
+    // If the element is the first element of the structure, it is necessary
+    // to check for the possibility that it is a structure that started with
+    // a character array to find the underlying structure type.
+    // For example:
+    //   %struct.test08 = type { [200 x i8], [200 x i8], i64 }
+    //   call void @llvm.memset.p0i8.i64(i8* getelementptr(
+    //        %struct.test08, %struct.test08* @test08var, i64 0, i32 0, i64 0),
+    //       i8 0, i64 200, i32 4, i1 false)
+    if (PointeePair.second == 0) {
+      if (isAliasSetOverloaded(LPI.getPointerTypeAliasSet()))
+        return false;
+
+      for (auto *AliasTy : LPI.getPointerTypeAliasSet()) {
+        if (dtrans::isElementZeroAccess(AliasTy,
+                                        PointeePair.first->getPointerTo()) &&
+            AliasTy->getPointerElementType()->isStructTy()) {
+          *StructTy = cast<StructType>(AliasTy->getPointerElementType());
+          *FieldNum = 0;
+          return true;
+        }
+      }
+    }
+
+    // It's not the special case, so just get the type and field number if it's
+    // a struct.
+    Type *Ty = PointeePair.first;
+    if (Ty->isStructTy()) {
+      *StructTy = cast<StructType>(Ty);
+      *FieldNum = PointeePair.second;
+      return true;
+    }
+
+    return false;
+  }
+
+  // Wrapper function for analyzing structure field access which prepares
+  // parameters for that function.
+  bool analyzePartialStructUse(StructType *StructTy, size_t FieldNum,
+                               const Value *AccessSizeVal,
+                               unsigned int *FirstField,
+                               unsigned int *LastField) {
+    if (!StructTy)
+      return false;
+
+    if (!AccessSizeVal)
+      return false;
+
+    auto *AccessSizeCI = dyn_cast<ConstantInt>(AccessSizeVal);
+    if (!AccessSizeCI)
+      return false;
+
+    uint64_t AccessSize = AccessSizeCI->getLimitedValue();
+    assert(FieldNum < StructTy->getNumElements());
+
+    return analyzeStructFieldAccess(StructTy, FieldNum, AccessSize, FirstField,
+                                    LastField);
+  }
+
+  // Helper to analyze a pointer-to-member usage to determine if only a
+  // specific subset of the structure fields of \p StructTy, starting from \p
+  // FieldNum and extending by \p AccessSize bytes of the structure are
+  // touched.
+  //
+  // Return 'true' if it can be resolved to precisely match one or more
+  // adjacent fields starting with the field number identified in the 'LPI'.
+  // If so, also set the starting index into 'FirstField' and the ending index
+  // of affected fields into 'LastField'. Otherwise, return 'false'.
+  bool analyzeStructFieldAccess(StructType *StructTy, size_t FieldNum,
+                                uint64_t AccessSize, unsigned int *FirstField,
+                                unsigned int *LastField) {
+    uint64_t TypeSize = DL.getTypeAllocSize(StructTy);
+
+    // If the size is larger than the base structure size, then the write
+    // exceeds the bounds of a single structure, and it's an unsupported
+    // use.
+    if (AccessSize > TypeSize)
+      return false;
+
+    // Try to identify the range of fields being accessed based on the
+    // layout of the structure.
+    auto FieldTypes = StructTy->elements();
+    auto *SL = DL.getStructLayout(StructTy);
+    uint64_t Offset = SL->getElementOffset(FieldNum);
+
+    uint64_t LastOffset = Offset + AccessSize - 1;
+    if (LastOffset > TypeSize)
+      return false;
+
+    unsigned int LF = SL->getElementContainingOffset(LastOffset);
+
+    // Check if the last field was completely covered. If not, we do not
+    // support it. It could be safe, but could complicate transforms that need
+    // to work with nested structures.
+    uint64_t LastFieldStart = SL->getElementOffset(LF);
+    uint64_t LastFieldSize = DL.getTypeStoreSize(FieldTypes[LF]);
+    if (LastOffset < (LastFieldStart + LastFieldSize - 1))
+      return false;
+
+    *FirstField = FieldNum;
+    *LastField = LF;
+    return true;
+  }
+
+  // Mark all the fields of the type, and fields of aggregates the type contains
+  // as written.
   void markAllFieldsWritten(dtrans::TypeInfo *TI) {
     if (TI == nullptr)
       return;
@@ -2143,6 +2425,28 @@ private:
       }
     } else if (auto *AInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
       auto *ComponentTI = AInfo->getElementDTransInfo();
+      markAllFieldsWritten(ComponentTI);
+    }
+
+    return;
+  }
+
+  // A specialized form of the MarkAllFieldsWritten that is used to mark a
+  // subset of fields of a structure type as written. Any contained aggregates
+  // within the subset are marked as completely written.
+  void markStructFieldsWritten(dtrans::TypeInfo *TI, unsigned int FirstField,
+                               unsigned int LastField) {
+    assert(TI && TI->getLLVMType()->isStructTy() &&
+           "markStructFieldsWritten requires Structure type");
+
+    auto *StInfo = cast<dtrans::StructInfo>(TI);
+    assert(LastField >= FirstField && LastField < StInfo->getNumFields() &&
+           "markStructFieldsWritten with invalid field index");
+
+    for (unsigned int Idx = FirstField; Idx <= LastField; ++Idx) {
+      auto &FI = StInfo->getField(Idx);
+      FI.setWritten(true);
+      auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
       markAllFieldsWritten(ComponentTI);
     }
 

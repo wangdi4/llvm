@@ -172,9 +172,9 @@ void dtrans::TypeInfo::printSafetyData() {
       dtrans::MismatchedElementAccess | dtrans::WholeStructureReference |
       dtrans::UnsafePointerStore | dtrans::FieldAddressTaken |
       dtrans::GlobalPtr | dtrans::GlobalInstance | dtrans::HasInitializerList |
-      dtrans::BadMemFuncSize | dtrans::BadMemFuncManipulation |
-      dtrans::AmbiguousPointerTarget | dtrans::UnsafePtrMerge |
-      dtrans::AddressTaken | dtrans::NoFieldsInStruct |
+      dtrans::BadMemFuncSize | dtrans::MemFuncPartialWrite |
+      dtrans::BadMemFuncManipulation | dtrans::AmbiguousPointerTarget |
+      dtrans::UnsafePtrMerge | dtrans::AddressTaken | dtrans::NoFieldsInStruct |
       dtrans::NestedStruct | dtrans::ContainsNestedStruct |
       dtrans::SystemObject | dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
@@ -187,6 +187,7 @@ void dtrans::TypeInfo::printSafetyData() {
                      dtrans::UnsafePointerStore ^ dtrans::FieldAddressTaken ^
                      dtrans::GlobalPtr ^ dtrans::GlobalInstance ^
                      dtrans::HasInitializerList ^ dtrans::BadMemFuncSize ^
+                     dtrans::MemFuncPartialWrite ^
                      dtrans::BadMemFuncManipulation ^
                      dtrans::AmbiguousPointerTarget ^ dtrans::UnsafePtrMerge ^
                      dtrans::AddressTaken ^ dtrans::NoFieldsInStruct ^
@@ -220,6 +221,8 @@ void dtrans::TypeInfo::printSafetyData() {
     SafetyIssues.push_back("Has initializer list");
   if (SafetyInfo & dtrans::BadMemFuncSize)
     SafetyIssues.push_back("Bad memfunc size");
+  if (SafetyInfo & dtrans::MemFuncPartialWrite)
+    SafetyIssues.push_back("Memfunc partial write");
   if (SafetyInfo & dtrans::BadMemFuncManipulation)
     SafetyIssues.push_back("Bad memfunc manipulation");
   if (SafetyInfo & dtrans::AmbiguousPointerTarget)

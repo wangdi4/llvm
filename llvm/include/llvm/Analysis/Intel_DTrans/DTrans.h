@@ -115,29 +115,33 @@ const SafetyData UnsafePtrMerge = 0x0000000000001000;
 /// or memset), with a size that differs from the native structure size.
 const SafetyData BadMemFuncSize = 0x0000000000002000;
 
+/// A proper subset of fields in a structure is modified via a memory function
+/// intrinsic (memcpy, memmove, or memset).
+const SafetyData MemFuncPartialWrite = 0x0000000000004000;
+
 /// A structure is modified via a memory function intrinsic (memcpy or memmove)
 /// with conflicting or unknown types for the source and destination parameters.
-const SafetyData BadMemFuncManipulation = 0x0000000000004000;
+const SafetyData BadMemFuncManipulation = 0x0000000000008000;
 
 /// A pointer is passed to an intrinsic or library function that can alias
 /// incompatible types.
-const SafetyData AmbiguousPointerTarget = 0x0000000000008000;
+const SafetyData AmbiguousPointerTarget = 0x0000000000010000;
 
 /// The address of an aggregate object escaped through a function call or
 /// a return statement.
-const SafetyData AddressTaken = 0x0000000000010000;
+const SafetyData AddressTaken = 0x0000000000020000;
 
 /// The structure was declared with no fields.
-const SafetyData NoFieldsInStruct = 0x0000000000020000;
+const SafetyData NoFieldsInStruct = 0x0000000000040000;
 
 /// The structure is contained as a non-pointer member of another structure.
-const SafetyData NestedStruct = 0x0000000000040000;
+const SafetyData NestedStruct = 0x0000000000080000;
 
 /// The structure contains another structure as a non-pointer member.
-const SafetyData ContainsNestedStruct = 0x0000000000080000;
+const SafetyData ContainsNestedStruct = 0x0000000000100000;
 
 /// The structure was identified as a system object type.
-const SafetyData SystemObject = 0x0000000000100000;
+const SafetyData SystemObject = 0x0000000000200000;
 
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
