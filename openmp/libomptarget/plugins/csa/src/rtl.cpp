@@ -102,6 +102,8 @@
 // is run
 #define ENV_DUMP_STATS "CSA_DUMP_STATS"
 
+#define ENV_MERGED_STATS "CSA_MERGED_STATS"
+
 // If defined, leave the temporary files on disk in the user's directory
 #define ENV_SAVE_TEMPS "CSA_SAVE_TEMPS"
 
@@ -168,6 +170,37 @@ struct FuncOrGblEntryTy {
 };
 
 static std::string tmp_prefix;
+
+
+#ifdef _MSC_BUILD
+static
+std::string get_process_name() {
+  char buf[MAX_PATH];
+  char name[_MAX_FNAME];
+  GetModuleFileName(NULL, buf, MAX_PATH);
+  _splitpath_s(buf, NULL, 0, NULL, 0, name, _MAX_FNAME, NULL, 0);
+  return name;
+#else
+static
+std::string get_process_name() {
+  char buf[2048];
+
+  int ret = readlink("/proc/self/exe", buf, sizeof(buf)-1);
+  if (-1 == ret) {
+    fprintf(stderr, "Failed to get image name");
+    return "unknown-process";
+  }
+
+  buf[ret] = '\0';
+  char* name = strrchr(buf, '/');
+  if (NULL == name) {
+    return buf;
+  } else {
+    return name+1;
+  }
+}
+#endif
+
 
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
@@ -299,7 +332,7 @@ public:
       for (CsaEntryMap_t::iterator i = E.csaTidToEntryMap.begin(); i != E.csaTidToEntryMap.end(); ++i) {
         std::pair<pthread_t, void*>key = i->first;
         std::stringstream ss;
-        ss << tmp_prefix;
+        ss << get_process_name();
         std::string entry_name = i->second.entry_name;
         std::string omp_prefix("__omp_offloading");
         if (0 == entry_name.compare(0, omp_prefix.length(), omp_prefix)) {
@@ -876,35 +909,6 @@ bool fixup_bc_file(const char* tmp_name,
 
   return true;
 }
-
-#ifdef _MSC_BUILD
-static
-std::string get_process_name() {
-  char buf[MAX_PATH];
-  char name[_MAX_FNAME];
-  GetModuleFileName(NULL, buf, MAX_PATH);
-  _splitpath_s(buf, NULL, 0, NULL, 0, name, _MAX_FNAME, NULL, 0);
-  return name;
-#else
-static
-std::string get_process_name() {
-  char buf[2048];
-
-  int ret = readlink("/proc/self/exe", buf, sizeof(buf)-1);
-  if (-1 == ret) {
-    fprintf(stderr, "Failed to get image name");
-    return "unknown-process";
-  }
-
-  buf[ret] = '\0';
-  char* name = strrchr(buf, '/');
-  if (NULL == name) {
-    return buf;
-  } else {
-    return name+1;
-  }
-}
-#endif
 
 static
 bool build_csa_assembly(const char *tmp_name,
