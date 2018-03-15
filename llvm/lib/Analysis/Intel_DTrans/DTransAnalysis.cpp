@@ -2316,8 +2316,24 @@ DTransAnalysisInfo::DTransAnalysisInfo() {}
 
 DTransAnalysisInfo::~DTransAnalysisInfo() {
   // DTransAnalysisInfo owns the TypeInfo pointers in the TypeInfoMap.
-  for (auto Entry : TypeInfoMap)
-    delete Entry.second;
+  for (auto Entry : TypeInfoMap) {
+    switch (Entry.second->getTypeInfoKind()) {
+    case dtrans::TypeInfo::NonAggregateInfo:
+      delete cast<dtrans::NonAggregateTypeInfo>(Entry.second);
+      break;
+    case dtrans::TypeInfo::PtrInfo:
+      delete cast<dtrans::PointerInfo>(Entry.second);
+      break;
+    case dtrans::TypeInfo::StructInfo:
+      delete cast<dtrans::StructInfo>(Entry.second);
+      break;
+    case dtrans::TypeInfo::ArrayInfo:
+      delete cast<dtrans::ArrayInfo>(Entry.second);
+      break;
+    default:
+      llvm_unreachable("Missing cast for appropriate TypeInfo destruction");
+    }
+  }
 }
 
 bool DTransAnalysisInfo::analyzeModule(Module &M, TargetLibraryInfo &TLI) {
