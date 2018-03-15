@@ -1231,14 +1231,12 @@ void OCL20ToSPIRV::transWorkItemBuiltinsToVariables() {
       InstList.push_back(CI);
     }
     for (auto &Inst:InstList) {
-      Inst->dropAllReferences();
-      Inst->removeFromParent();
+      Inst->eraseFromParent();
     }
     WorkList.push_back(&I);
   }
   for (auto &I:WorkList) {
-    I->dropAllReferences();
-    I->removeFromParent();
+    I->eraseFromParent();
   }
 }
 
@@ -1387,8 +1385,7 @@ void OCL20ToSPIRV::visitCallDot(CallInst *CI) {
   IRBuilder<> Builder(CI);
   Value *FMulVal = Builder.CreateFMul(CI->getOperand(0), CI->getOperand(1));
   CI->replaceAllUsesWith(FMulVal);
-  CI->dropAllReferences();
-  CI->removeFromParent();
+  CI->eraseFromParent();
 }
 
 void OCL20ToSPIRV::visitCallScalToVec(CallInst *CI, StringRef MangledName,
