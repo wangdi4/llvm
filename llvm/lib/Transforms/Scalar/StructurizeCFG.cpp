@@ -970,7 +970,9 @@ bool StructurizeCFG::CSANeedRestruct() {
         std::vector<DomTreeNode*> cnv = pn->getChildren();
         for (unsigned i = 0; i < cnv.size(); i++) {
           DomTreeNode *cn = cnv[i];
-          if (bn != cn && !PDT->dominates(bn, cn)) {
+          DomTreeNode *pbn = PDT->getNode(bn->getBlock());
+          DomTreeNode *pcn = PDT->getNode(cn->getBlock());
+          if (bn != cn && !PDT->dominates(pbn, pcn)) {
             return true;
           }
         }
