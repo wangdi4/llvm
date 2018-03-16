@@ -588,3 +588,6 @@ void other()
   int i = 1;
   type_temp(i);
 }
+
+//expected-error@+1{{attribute only applies to local or static variables}}
+__attribute__((__doublepump__)) unsigned int ext_one[64];

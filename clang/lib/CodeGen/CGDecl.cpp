@@ -420,6 +420,12 @@ void CodeGenFunction::EmitStaticVarDecl(const VarDecl &D,
     CGM.AddGlobalAnnotations(&D, var);
 
 #if INTEL_CUSTOMIZATION
+  // Emit HLS attribute annotation for a local static variable.
+  if (getLangOpts().HLS ||
+      (getLangOpts().OpenCL &&
+       CGM.getContext().getTargetInfo().getTriple().isINTELFPGAEnvironment()))
+    CGM.addGlobalHLSAnnotation(&D, var);
+
   if (getLangOpts().OpenMPThreadPrivateLegacy &&
       D.hasAttr<OMPThreadPrivateDeclAttr>())
     var->setThreadPrivate(true);
@@ -1198,58 +1204,12 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     }
 
 #if INTEL_CUSTOMIZATION
-  // Emit annotation for HLS local variable attributes.
+  // Emit HLS attribute annotation for a local variable.
   if (getLangOpts().HLS ||
-      CGM.getContext().getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+      (getLangOpts().OpenCL &&
+       CGM.getContext().getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
     SmallString<256> AnnotStr;
-    llvm::raw_svector_ostream Out(AnnotStr);
-    if (D.hasAttr<RegisterAttr>())
-      Out << "{register:1}";
-    if (D.hasAttr<MemoryAttr>())
-      Out << "{register:0}";
-    if (D.hasAttr<SinglePumpAttr>())
-      Out << "{pump:1}";
-    if (D.hasAttr<DoublePumpAttr>())
-      Out << "{pump:2}";
-    if (auto *BWA = D.getAttr<BankWidthAttr>()) {
-      llvm::Value *V = EmitScalarExpr(BWA->getValue());
-      llvm::ConstantInt *CI = cast<llvm::ConstantInt>(V);
-      Out << '{' << BWA->getSpelling() << ':' << CI->getValue() << '}';
-    }
-    if (auto *NBA = D.getAttr<NumBanksAttr>()) {
-      llvm::Value *V = EmitScalarExpr(NBA->getValue());
-      llvm::ConstantInt *CI = cast<llvm::ConstantInt>(V);
-      Out << '{' << NBA->getSpelling() << ':' << CI->getValue() << '}';
-    }
-    if (auto *NRPA = D.getAttr<NumReadPortsAttr>()) {
-      llvm::Value *V = EmitScalarExpr(NRPA->getValue());
-      llvm::ConstantInt *CI = cast<llvm::ConstantInt>(V);
-      Out << '{' << NRPA->getSpelling() << ':' << CI->getValue() << '}';
-    }
-    if (auto *NWPA = D.getAttr<NumWritePortsAttr>()) {
-      llvm::Value *V = EmitScalarExpr(NWPA->getValue());
-      llvm::ConstantInt *CI = cast<llvm::ConstantInt>(V);
-      Out << '{' << NWPA->getSpelling() << ':' << CI->getValue() << '}';
-    }
-    if (auto *BBA = D.getAttr<BankBitsAttr>()) {
-      Out << '{';
-      Out << BBA->getSpelling();
-      Out << ':';
-      for (BankBitsAttr::args_iterator I = BBA->args_begin(),
-                                       E = BBA->args_end();
-           I != E; ++I) {
-        if (I != BBA->args_begin())
-          Out << ',';
-        llvm::Value *V = EmitScalarExpr(*I);
-        llvm::ConstantInt *CI = cast<llvm::ConstantInt>(V);
-        Out << CI->getValue();
-      }
-      Out << '}';
-    }
-    if (auto *MA = D.getAttr<MergeAttr>()) {
-      Out << '{' << MA->getSpelling() << ':' << MA->getName() << ':'
-          << MA->getDirection() << '}';
-    }
+    CGM.generateHLSAnnotation(&D, AnnotStr);
     if (!AnnotStr.empty()) {
       llvm::Value *V = address.getPointer();
       EmitAnnotationCall(CGM.getIntrinsic(llvm::Intrinsic::var_annotation),

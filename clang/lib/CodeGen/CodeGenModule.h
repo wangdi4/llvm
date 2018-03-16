@@ -953,6 +953,9 @@ public:
   // Write communication file for Intel driver to notify that current module
   // has target specific code and target compilation is required.
   void EmitIntelDriverTempfile();
+  void generateHLSAnnotation(const VarDecl *VD,
+                             llvm::SmallString<256> &AnnotStr);
+  void addGlobalHLSAnnotation(const VarDecl *VD, llvm::GlobalValue *GV);
 #endif  // INTEL_CUSTOMIZATION
   /// Given a builtin id for a function like "__builtin_fabsf", return a
   /// Function* for "fabsf".

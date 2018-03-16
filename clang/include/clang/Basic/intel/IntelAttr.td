@@ -278,38 +278,40 @@ def SlaveMemoryArgument : Attr {
   let Documentation = [Undocumented];
 }
 
-// HLS local variable attributes
+// HLS local or static variable attributes
 
-def HLSLocalVar : SubsetSubject<Var,
+def HLSLocalOrStaticVar : SubsetSubject<Var,
                               [{S->getKind() != Decl::ImplicitParam &&
                                 S->getKind() != Decl::ParmVar &&
-                                S->getKind() != Decl::NonTypeTemplateParm}],
-                              "local variables">;
+                                S->getKind() != Decl::NonTypeTemplateParm &&
+                                (S->getStorageClass() == SC_Static ||
+                                 S->hasLocalStorage())}],
+                              "local or static variables">;
 // No arguments.
 def SinglePump : Attr {
   let Spellings = [GNU<"singlepump">];
-  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
 }
 
 def DoublePump : Attr {
   let Spellings = [GNU<"doublepump">];
-  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
 }
 
 def Memory : Attr {
   let Spellings = [GNU<"memory">];
-  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
 }
 
 def Register : Attr {
   let Spellings = [GNU<"register">];
-  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
 }
@@ -318,7 +320,7 @@ def Register : Attr {
 def BankWidth : Attr {
   let Spellings = [GNU<"bankwidth">];
   let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
@@ -334,7 +336,7 @@ def BankWidth : Attr {
 def NumBanks : Attr {
   let Spellings = [GNU<"numbanks">];
   let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
@@ -350,7 +352,7 @@ def NumBanks : Attr {
 def NumReadPorts : Attr {
   let Spellings = [GNU<"numreadports">];
   let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
@@ -366,7 +368,7 @@ def NumReadPorts : Attr {
 def NumWritePorts : Attr {
   let Spellings = [GNU<"numwriteports">];
   let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
@@ -383,7 +385,7 @@ def NumWritePorts : Attr {
 def NumPortsReadOnlyWriteOnly : Attr {
   let Spellings = [GNU<"numports_readonly_writeonly">];
   let Args = [ExprArgument<"NumReadPorts">, ExprArgument<"NumWritePorts">];
-  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
@@ -400,7 +402,7 @@ def NumPortsReadOnlyWriteOnly : Attr {
 def Merge : Attr {
   let Spellings = [GNU<"merge">];
   let Args = [StringArgument<"Name">, StringArgument<"Direction">];
-  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
 }
@@ -409,7 +411,7 @@ def Merge : Attr {
 def BankBits : Attr {
   let Spellings = [GNU<"bank_bits">];
   let Args = [VariadicExprArgument<"Args">];
-  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
