@@ -702,6 +702,16 @@ static bool SemaBuiltinRWPipe(Sema &S, CallExpr *Call) {
     break;
 
   case 4: {
+#if INTEL_CUSTOMIZATION
+    // read/write_pipe(pipe T, reserve_id_t, uint, T*) pipe built-ins are
+    // not supported in Intel FPGA SDK for OpenCL
+    if (S.Context.getLangOpts().OpenCL &&
+        S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+      S.Diag(Call->getLocStart(), diag::err_opencl_builtin_pipe_arg_num)
+          << Call->getDirectCallee() << Call->getSourceRange();
+      return true;
+    }
+#endif // INTEL_CUSTOMIZATION
     if (checkOpenCLPipeArg(S, Call))
       return true;
     // The call with 4 arguments should be
