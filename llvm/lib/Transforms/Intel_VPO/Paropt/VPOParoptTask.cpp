@@ -1121,7 +1121,8 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   bool Changed = false;
 
   // brief extract a W-Region to generate a function
-  CodeExtractor CE(makeArrayRef(W->bbset_begin(), W->bbset_end()), DT, false);
+  CodeExtractor CE(makeArrayRef(W->bbset_begin(), W->bbset_end()), DT, false,
+                   nullptr, nullptr, false, true);
 
   assert(CE.isEligible());
 

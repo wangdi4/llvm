@@ -79,11 +79,16 @@ AggregateArgsOpt("aggregate-extracted-args", cl::Hidden,
                  cl::desc("Aggregate arguments to code-extracted functions"));
 
 /// \brief Test whether a block is valid for extraction.
-bool CodeExtractor::isBlockValidForExtraction(const BasicBlock &BB,
-                                              bool AllowVarArgs) {
+#if INTEL_CUSTOMIZATION // under community review D45904
+static bool isBlockValidForExtraction(const BasicBlock &BB,
+                                      const SetVector<BasicBlock *> &Result,
+                                      bool AllowVarArgs, bool AllowAlloca) {
+#endif // INTEL_CUSTOMIZATION
+#if !INTEL_CUSTOMIZATION // under community review D45904
   // Landing pads must be in the function where they were inserted for cleanup.
   if (BB.isEHPad())
     return false;
+#endif // INTEL_CUSTOMIZATION
   // taking the address of a basic block moved to another function is illegal
   if (BB.hasAddressTaken())
     return false;
@@ -112,17 +117,65 @@ bool CodeExtractor::isBlockValidForExtraction(const BasicBlock &BB,
     }
   }
 
-  // Don't hoist code containing allocas or invokes. If explicitly requested,
-  // allow vastart.
+#if INTEL_CUSTOMIZATION // under community review D45904
+  // If explicitly requested, allow vastart and alloca. For invoke instructions
+  // verify that extraction is valid.
+#endif // INTEL_CUSTOMIZATION
   for (BasicBlock::const_iterator I = BB.begin(), E = BB.end(); I != E; ++I) {
-#ifdef INTEL_CUSTOMIZATION
-    // Allow Alloca in the blocks for extraction. This fixes a bug in the 
-    // way the DT update is handled as well. 
-    if (isa<InvokeInst>(I))
-      return false;
-#else 
-    if (isa<AllocaInst>(I) || isa<InvokeInst>(I))
-      return false;
+#if INTEL_CUSTOMIZATION // under community review D45904
+    if (isa<AllocaInst>(I)) {
+       if (!AllowAlloca)
+         return false;
+       continue;
+    }
+
+    if (const auto *II = dyn_cast<InvokeInst>(I)) {
+      // Unwind destination (either a landingpad, catchswitch, or cleanuppad)
+      // must be a part of the subgraph which is being extracted.
+      if (auto *UBB = II->getUnwindDest())
+        if (!Result.count(UBB))
+          return false;
+      continue;
+    }
+
+    // All catch handlers of a catchswitch instruction as well as the unwind
+    // destination must be in the subgraph.
+    if (const auto *CSI = dyn_cast<CatchSwitchInst>(I)) {
+      if (auto *UBB = CSI->getUnwindDest())
+        if (!Result.count(UBB))
+          return false;
+      for (auto *HBB : CSI->handlers())
+        if (!Result.count(const_cast<BasicBlock*>(HBB)))
+          return false;
+      continue;
+    }
+
+    // Make sure that entire catch handler is within subgraph. It is sufficient
+    // to check that catch return's block is in the list.
+    if (const auto *CPI = dyn_cast<CatchPadInst>(I)) {
+      for (const auto *U : CPI->users())
+        if (const auto *CRI = dyn_cast<CatchReturnInst>(U))
+          if (!Result.count(const_cast<BasicBlock*>(CRI->getParent())))
+            return false;
+      continue;
+    }
+
+    // And do similar checks for cleanup handler - the entire handler must be
+    // in subgraph which is going to be extracted. For cleanup return should
+    // additionally check that the unwind destination is also in the subgraph.
+    if (const auto *CPI = dyn_cast<CleanupPadInst>(I)) {
+      for (const auto *U : CPI->users())
+        if (const auto *CRI = dyn_cast<CleanupReturnInst>(U))
+          if (!Result.count(const_cast<BasicBlock*>(CRI->getParent())))
+            return false;
+      continue;
+    }
+    if (const auto *CRI = dyn_cast<CleanupReturnInst>(I)) {
+      if (auto *UBB = CRI->getUnwindDest())
+        if (!Result.count(UBB))
+          return false;
+      continue;
+    }
 #endif // INTEL_CUSTOMIZATION
 
     if (const CallInst *CI = dyn_cast<CallInst>(I))
@@ -141,7 +194,9 @@ bool CodeExtractor::isBlockValidForExtraction(const BasicBlock &BB,
 /// \brief Build a set of blocks to extract if the input blocks are viable.
 static SetVector<BasicBlock *>
 buildExtractionBlockSet(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
-                        bool AllowVarArgs) {
+#if INTEL_CUSTOMIZATION // under community review D45904
+                        bool AllowVarArgs, bool AllowAlloca) {
+#endif // INTEL_CUSTOMIZATION
   assert(!BBs.empty() && "The set of blocks to extract must be non-empty");
   SetVector<BasicBlock *> Result;
 
@@ -154,32 +209,53 @@ buildExtractionBlockSet(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
 
     if (!Result.insert(BB))
       llvm_unreachable("Repeated basic blocks in extraction input");
+#if !INTEL_CUSTOMIZATION // under community review D45904
     if (!CodeExtractor::isBlockValidForExtraction(*BB, AllowVarArgs)) {
       Result.clear();
       return Result;
     }
+#endif // INTEL_CUSTOMIZATION
   }
 
-#ifndef NDEBUG
-  for (SetVector<BasicBlock *>::iterator I = std::next(Result.begin()),
-                                         E = Result.end();
-       I != E; ++I)
-    for (pred_iterator PI = pred_begin(*I), PE = pred_end(*I);
-         PI != PE; ++PI)
-      assert(Result.count(*PI) &&
-             "No blocks in this region may have entries from outside the region"
-             " except for the first block!");
-#endif
+#if INTEL_CUSTOMIZATION // under community review D45904
+  for (auto *BB : Result) {
+    if (!isBlockValidForExtraction(*BB, Result, AllowVarArgs, AllowAlloca))
+      return {};
+
+    // Make sure that the first block is not a landing pad.
+    if (BB == Result.front()) {
+      if (BB->isEHPad()) {
+        DEBUG(dbgs() << "The first block cannot be an unwind block\n");
+        return {};
+      }
+      continue;
+    }
+
+    // All blocks other than the first must not have predecessors outside of
+    // the subgraph which is being extracted.
+    for (auto *PBB : predecessors(BB))
+      if (!Result.count(PBB)) {
+        DEBUG(dbgs() << "No blocks in this region may have entries from "
+                         "outside the region except for the first block!\n");
+        return {};
+      }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return Result;
 }
 
 CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
                              bool AggregateArgs, BlockFrequencyInfo *BFI,
-                             BranchProbabilityInfo *BPI, bool AllowVarArgs)
+#if INTEL_CUSTOMIZATION // under community review D45904
+                             BranchProbabilityInfo *BPI, bool AllowVarArgs,
+                             bool AllowAlloca)
+#endif // INTEL_CUSTOMIZATION
     : DT(DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
       BPI(BPI), AllowVarArgs(AllowVarArgs),
-      Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs)) {}
+#if INTEL_CUSTOMIZATION // under community review D45904
+      Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca)) {}
+#endif // INTEL_CUSTOMIZATION
 
 CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
                              BlockFrequencyInfo *BFI,
@@ -187,7 +263,10 @@ CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
     : DT(&DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
       BPI(BPI), AllowVarArgs(false),
       Blocks(buildExtractionBlockSet(L.getBlocks(), &DT,
-                                     /* AllowVarArgs */ false)) {}
+#if INTEL_CUSTOMIZATION // under community review D45904
+                                     /* AllowVarArgs */ false,
+                                     /* AllowAlloca */ false)) {}
+#endif // INTEL_CUSTOMIZATION
 
 /// definedInRegion - Return true if the specified value is defined in the
 /// extracted region.
@@ -1188,6 +1267,12 @@ Function *CodeExtractor::extractCodeRegion() {
   emitCallAndSwitchStatement(newFunction, codeReplacer, inputs, outputs);
 
   moveCodeToFunction(newFunction);
+
+#if INTEL_CUSTOMIZATION // under community review D45904
+  // Propagate personality info to the new function if there is one.
+  if (oldFunction->hasPersonalityFn())
+    newFunction->setPersonalityFn(oldFunction->getPersonalityFn());
+#endif // INTEL_CUSTOMIZATION
 
   // Update the branch weights for the exit block.
   if (BFI && NumExitBlocks > 1)
