@@ -37,11 +37,11 @@ private:
 
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
 
-  std::shared_ptr<IntelVPlan> buildInitialVPlan(unsigned StartRangeVF,
+  std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
                                                 unsigned &EndRangeVF) {
     // Create new empty VPlan
-    std::shared_ptr<IntelVPlan> SharedPlan = std::make_shared<IntelVPlan>(VPLA);
-    IntelVPlan *Plan = SharedPlan.get();
+    std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(VPLA);
+    VPlan *Plan = SharedPlan.get();
 
     // Build hierarchical CFG
     VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, Legal, DDG);

@@ -24,7 +24,11 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_H
 
+#if INTEL_CUSTOMIZATION
 #include "Intel_VPlanValue.h"
+#else
+#include "VPlanValue.h"
+#endif //INTEL_CUSTOMIZATION
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/ilist.h"
@@ -34,11 +38,13 @@
 
 #if INTEL_CUSTOMIZATION
 #include "Intel_VPlan/VPLoopAnalysis.h"
+#include "Intel_VPlan/VPLoopInfo.h"
 #include "Intel_VPlan/VPlanInstructionData.h"
 #include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
+#include "llvm/Support/GenericDomTreeConstruction.h"
 #endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
@@ -48,12 +54,12 @@ namespace llvm {
 class InnerLoopVectorizer;
 class LoopVectorizationLegality;
 class LoopInfo;
-
 //}
 
 #if INTEL_CUSTOMIZATION
 namespace loopopt {
 class RegDDRef;
+class HLLoop;
 } // namespace loopopt
 
 namespace vpo {
@@ -435,6 +441,92 @@ public:
   /// Each recipe prints itself.
   virtual void print(raw_ostream &O, const Twine &Indent) const = 0;
 };
+
+#if INTEL_CUSTOMIZATION
+class VPMaskGenerationRecipe : public VPRecipeBase {
+  friend class VPlanUtilsLoopVectorizer;
+
+private:
+  const Value *IncomingPred;
+  const Value *LoopBackedge;
+
+public:
+  VPMaskGenerationRecipe(const Value *Pred, const Value *Backedge)
+      : VPRecipeBase(VPMaskGenerationRecipeSC), IncomingPred(Pred),
+        LoopBackedge(Backedge) {}
+
+  ~VPMaskGenerationRecipe() {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPMaskGenerationRecipeSC;
+  }
+
+  /// Print the recipe.
+  void print(raw_ostream &OS, const Twine &Indent) const override {
+    OS << " +\n" << Indent << "\"MaskGeneration";
+    OS << " " << *LoopBackedge << "\\l\"";
+  }
+
+  void dump(raw_ostream &OS) const override {
+    OS << *LoopBackedge << "\n";
+  }
+  void dump() const override {
+    dump(errs());
+  }
+
+  void execute(struct VPTransformState &State) override {
+    // TODO: vectorizing this recipe should involve generating a mask for the
+    // instructions in the loop body. i.e., a phi instruction that has incoming
+    // values using IncomingPred and LoopBackedge.
+  }
+  void executeHIR(VPOCodeGenHIR *CG) override {}
+};
+
+/// A VPConstantRecipe is a recipe which represents a constant in VPlan.
+/// This recipe represents a scalar integer w/o any relation to the source IR.
+/// The usage of this recipe is mainly beneficial when we need to argue about
+/// new recipes altering the original structure of the code and introducing new
+/// commands. e.g. consider the single-exit loop massaging, we need to
+/// represent a new \phi with respect to new constant values and compares to
+/// those same values
+class VPConstantRecipe : public VPRecipeBase {
+public:
+  VPConstantRecipe(int val) : VPRecipeBase(VPConstantSC), val(val) {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPConstantSC;
+  }
+
+  /// The method clones a uniform instruction that calculates condition
+  /// for uniform branch.
+  void execute(VPTransformState &State) override {}
+  void executeHIR(VPOCodeGenHIR *CG) override {}
+
+  Value *getValue(void) const {
+    // TODO after vectorize.
+    return nullptr;
+  }
+
+  /// Print the recipe.
+  void print(raw_ostream &OS, const Twine &Indent) const override {
+    OS << " +\n" << Indent << "\"Const " << val << "\\l\"";
+  }
+
+  void dump(raw_ostream &OS) const override {
+    OS << val << "\n";;
+  }
+  void dump() const override {
+    dump(errs());
+  }
+
+  StringRef getName() const { return "Constant: " + val; };
+
+private:
+  int val;
+   };
+#endif //INTEL_CUSTOMIZATION
 
 /// This is a concrete Recipe that models a single VPlan-level instruction.
 /// While as any Recipe it may generate a sequence of IR instructions when
@@ -1162,6 +1254,75 @@ public:
 #endif
 };
 
+#if INTEL_CUSTOMIZATION
+/// A VPPhiValueRecipe is a recipe which represents a new Phi in VPlan to
+/// facilitate the alteration of VPlan from its original source coded form.
+/// Currently the elements of the phi are constants in-order to generate the
+/// needed \phi for the single-exit loop massaging. However, this phi can be
+/// further enhanced to handle any type of value.
+class VPPhiValueRecipe : public VPRecipeBase {
+public:
+  VPPhiValueRecipe() : VPRecipeBase(VPPhiValueSC), Incoming(), Phi(nullptr) {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPLiveInBranchSC;
+  }
+
+  /// The method clones a uniform instruction that calculates condition
+  /// for uniform branch.
+  void execute(VPTransformState &State) override {}
+  void executeHIR(VPOCodeGenHIR *CG) override {}
+
+  /// Return the phi value after vectorization.
+  Value *getValue(void) const {
+    return Phi;
+  }
+
+  /// Adds a new element to the resulting \phi.
+  void addIncomingValue(VPConstantRecipe IncomingValue,
+    VPBlockBase* IncomingBlock) {
+    Incoming.push_back(IncomingPair(IncomingValue, IncomingBlock));
+  }
+
+  /// Print the recipe.
+  void print(raw_ostream &OS, const Twine &Indent) const override {
+    OS << " +\n" << Indent << "\"Phi ";
+
+    for (auto item : Incoming) {
+      OS << "[";
+      item.first.print(OS, Indent);
+      OS << ", " << item.second->getName() << "] ";
+    }
+
+    OS << "\\l\"";
+  }
+
+  void dump(raw_ostream &OS) const override {
+    OS << "Phi ";
+    for (auto Item : Incoming) {
+      Item.first.dump(OS);
+      OS << ", " << Item.second->getName() << " ";
+    }
+    OS << "\n";
+  }
+  void dump() const override {
+    dump(errs());
+  }
+
+  StringRef getName() const { return "Phi Recipe"; };
+
+  ~VPPhiValueRecipe() {
+    Phi->deleteValue();
+  }
+
+private:
+  typedef std::pair<VPConstantRecipe , VPBlockBase *> IncomingPair;
+  SmallVector<IncomingPair, 4> Incoming;
+  Value* Phi;
+};
+#endif //INTEL_CUSTOMIZATION
+
 /// VPBasicBlock serves as the leaf of the Hierarchical CFG. It represents a
 /// sequence of instructions that will appear consecutively in a basic block
 /// of the vectorized version. The VPBasicBlock takes care of the control-flow
@@ -1719,6 +1880,8 @@ struct GraphTraits<Inverse<vpo::VPRegionBlock *>>
   static unsigned size(GraphRef N) { return N->getSize(); }
 };
 
+
+
 #if INTEL_CUSTOMIZATION
 namespace vpo {
 
@@ -1735,7 +1898,9 @@ class VPlan {
 #endif
 
 private:
-  const unsigned char VPID;
+#if INTEL_CUSTOMIZATION
+  VPLoopInfo *VPLInfo = nullptr;
+#endif
 
 #if INTEL_CUSTOMIZATION
 protected:
@@ -1787,23 +1952,17 @@ public:
   /// the underlying IR.
   // TODO: To be moved to the Divergence Analysis Infrastructure
   UniformsTy UniformCBVs;
+  VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, VPBlockBase *Entry = nullptr)
+      : Entry(Entry), VPLA(VPLA) {}
 #endif
-#if INTEL_CUSTOMIZATION
-  typedef enum {
-    IntelVPlanSC,
-  } VPlanTy;
-
-  VPlan(const unsigned char SC, std::shared_ptr<VPLoopAnalysisBase> VPLA,
-        VPBlockBase *Entry = nullptr)
-      : VPID(SC), Entry(Entry), VPLA(VPLA) {}
-#else
   VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
-#endif
 
   ~VPlan() {
     if (Entry)
       VPBlockBase::deleteCFG(Entry);
 #if INTEL_CUSTOMIZATION
+    if (VPLInfo)
+      delete (VPLInfo);
     for (auto *VPConst : VPConstants)
       delete VPConst;
     for (auto *VPInst : VPExternalDefs)
@@ -1814,16 +1973,17 @@ public:
 #endif
   }
 
-#if INTEL_CUSTOMIZATION
-  unsigned getVPlanID() const { return VPID; }
-
-  /// Generate the IR code for this VPlan.
-  virtual void execute(struct VPTransformState *State);
-  virtual void executeHIR(VPOCodeGenHIR *CG) {}
-  VPLoopAnalysisBase* getVPLoopAnalysis(void) const { return VPLA.get(); }
-#else
   /// Generate the IR code for this VPlan.
   void execute(struct VPTransformState *State);
+#if INTEL_CUSTOMIZATION
+  void executeHIR(VPOCodeGenHIR *CG);
+  VPLoopInfo *getVPLoopInfo() { return VPLInfo; }
+
+  VPLoopAnalysisBase* getVPLoopAnalysis(void) const { return VPLA.get(); }
+
+  const VPLoopInfo *getVPLoopInfo() const { return VPLInfo; }
+
+  void setVPLoopInfo(VPLoopInfo *VPLI) { VPLInfo = VPLI; }
 #endif // INTEL_CUSTOMIZATION
 
   VPBlockBase *getEntry() { return Entry; }
@@ -1900,6 +2060,197 @@ private:
                                   BasicBlock *LoopLatchBB);
 };
 
+#if INTEL_CUSTOMIZATION
+class VPLoopRegion : public VPRegionBlock {
+  friend class VPlanUtils;
+
+private:
+  // Pointer to VPLoopInfo analysis information for this loop region
+  VPLoop *VPLp;
+
+protected:
+  VPLoopRegion(const unsigned char SC, const std::string &Name, VPLoop *Lp)
+      : VPRegionBlock(SC, Name), VPLp(Lp) {}
+
+public:
+  VPLoopRegion(const std::string &Name, VPLoop *Lp)
+      : VPRegionBlock(VPLoopRegionSC, Name), VPLp(Lp) {}
+
+  const VPLoop *getVPLoop() const { return VPLp; }
+  VPLoop *getVPLoop() { return VPLp; }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPBlockBase *B) {
+    return B->getVPBlockID() == VPBlockBase::VPLoopRegionSC ||
+           B->getVPBlockID() == VPBlockBase::VPLoopRegionHIRSC;
+  }
+};
+
+class VPLoopRegionHIR : public VPLoopRegion {
+  friend class VPDecomposerHIR;
+  friend class VPLoopAnalysisHIR;
+  friend class VPlanUtils;
+  friend class VPlanVerifierHIR;
+
+private:
+  // Pointer to the underlying HLLoop.
+  HLLoop *HLLp;
+
+  VPLoopRegionHIR(const std::string &Name, VPLoop *VPLp, HLLoop *HLLp)
+      : VPLoopRegion(VPLoopRegionHIRSC, Name, VPLp), HLLp(HLLp) {}
+
+  const HLLoop *getHLLoop() const { return HLLp; }
+  HLLoop *getHLLoop() { return HLLp; }
+
+public:
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPBlockBase *B) {
+    return B->getVPBlockID() == VPBlockBase::VPLoopRegionHIRSC;
+  }
+};
+#endif
+
+/// VPlanPrinter prints a given VPlan to a given output stream. The printing is
+/// indented and follows the dot format.
+class VPlanPrinter {
+  friend inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan);
+  friend inline raw_ostream &operator<<(raw_ostream &OS,
+                                        const struct VPlanIngredient &I);
+
+private:
+  raw_ostream &OS;
+  const VPlan &Plan;
+  unsigned Depth;
+  unsigned TabWidth = 2;
+  std::string Indent;
+
+  unsigned BID = 0;
+
+  SmallDenseMap<const VPBlockBase *, unsigned> BlockID;
+
+  /// Handle indentation.
+  void bumpIndent(int b) { Indent = std::string((Depth += b) * TabWidth, ' '); }
+
+  /// Print a given \p Block of the Plan.
+  void dumpBlock(const VPBlockBase *Block);
+
+  /// Print the information related to the CFG edges going out of a given
+  /// \p Block, followed by printing the successor blocks themselves.
+  void dumpEdges(const VPBlockBase *Block);
+
+  /// Print a given \p BasicBlock, including its VPRecipes, followed by printing
+  /// its successor blocks.
+  void dumpBasicBlock(const VPBasicBlock *BasicBlock);
+
+  /// Print a given \p Region of the Plan.
+  void dumpRegion(const VPRegionBlock *Region);
+
+  unsigned getOrCreateBID(const VPBlockBase *Block) {
+    return BlockID.count(Block) ? BlockID[Block] : BlockID[Block] = BID++;
+  }
+
+  const Twine getOrCreateName(const VPBlockBase *Block);
+
+  const Twine getUID(const VPBlockBase *Block);
+
+  /// Print the information related to a CFG edge between two VPBlockBases.
+  void drawEdge(const VPBlockBase *From, const VPBlockBase *To, bool Hidden,
+                const Twine &Label);
+
+  VPlanPrinter(raw_ostream &O, const VPlan &P) : OS(O), Plan(P) {}
+
+  void dump();
+
+  static void printAsIngredient(raw_ostream &O, Value *V);
+};
+
+#if !INTEL_CUSTOMIZATION
+inline raw_ostream &operator<<(raw_ostream &OS, const VPlanIngredient &I) {
+  VPlanPrinter::printAsIngredient(OS, I.V);
+  return OS;
+}
+#endif
+
+inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan) {
+  VPlanPrinter Printer(OS, Plan);
+  Printer.dump();
+  return OS;
+}
+#if INTEL_CUSTOMIZATION
+} // namespace vpo
+#endif
+
+typedef DomTreeNodeBase<vpo::VPBlockBase> VPDomTreeNode;
+
+template <>
+struct GraphTraits<VPDomTreeNode *>
+    : public DomTreeGraphTraitsBase<VPDomTreeNode, VPDomTreeNode::iterator> {};
+
+template <>
+struct GraphTraits<const VPDomTreeNode *>
+    : public DomTreeGraphTraitsBase<const VPDomTreeNode,
+                                    VPDomTreeNode::const_iterator> {};
+
+#if INTEL_CUSTOMIZATION
+namespace vpo {
+inline bool VPBlockBase::isInsideLoop() {
+  if (auto *ParentRegion = getParent()) {
+    // TODO: Use VPLoopRegion
+    if (ParentRegion->getVPBlockID() == VPLoopRegionSC) {
+      if (/*ParentRegion->getEntry() != this &&*/
+          ParentRegion->getExit() != this)
+        return true;
+    }
+    if (ParentRegion->getVPBlockID() == VPLoopRegionHIRSC) {
+      if (ParentRegion->getEntry() != this &&
+          ParentRegion->getExit() != this)
+        return true;
+    }
+    return ParentRegion->isInsideLoop();
+  }
+  return false;
+}
+
+// Set of print functions
+inline raw_ostream &operator<<(raw_ostream &OS, const VPInstruction &I) {
+  I.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS, const VPRecipeBase &R) {
+  R.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS,
+                               const VPBlockPredicateRecipe &P) {
+  P.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS,
+                               const VPEdgePredicateRecipe &P) {
+  P.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS,
+                               const VPIfTruePredicateRecipe &P) {
+  P.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS,
+                               const VPIfFalsePredicateRecipe &P) {
+  P.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS, const VPBasicBlock &BB) {
+  BB.dump(OS, 2);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS, const VPRegionBlock &RB) {
+  RB.dump(OS, 2);
+  return OS;
+}
+
+#endif // INTEL_CUSTOMIZATION
+
 /// The VPlanUtils class provides interfaces for the construction and
 /// manipulation of a VPlan.
 class VPlanUtils {
@@ -1917,6 +2268,10 @@ public:
   VPlanUtils(VPlan *Plan) : Plan(Plan) {}
 
   ~VPlanUtils() {}
+
+#if INTEL_CUSTOMIZATION
+  VPlan *getVPlan() { return Plan; }
+#endif
 
   /// Create a unique name for a new VPlan entity such as a VPBasicBlock or
   /// VPRegionBlock.
@@ -2267,150 +2622,99 @@ public:
   void clearIncomingsFromBlockPred(VPBlockPredicateRecipe *BlockPred) {
     BlockPred->clearIncomingPredicates();
   }
-#endif // INTEL_CUSTOMIZATION
-};
 
-/// VPlanPrinter prints a given VPlan to a given output stream. The printing is
-/// indented and follows the dot format.
-class VPlanPrinter {
-  friend inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan);
-  friend inline raw_ostream &operator<<(raw_ostream &OS,
-                                        const struct VPlanIngredient &I);
+  /// Creates a new recipe that represents generation of an i1 vector to be used
+  /// as a mask.
+  VPMaskGenerationRecipe *createMaskGenerationRecipe(
+    const Value *Pred, const Value *Backedge);
 
-private:
-  raw_ostream &OS;
-  const VPlan &Plan;
-  unsigned Depth;
-  unsigned TabWidth = 2;
-  std::string Indent;
-
-  unsigned BID = 0;
-
-  SmallDenseMap<const VPBlockBase *, unsigned> BlockID;
-
-  /// Handle indentation.
-  void bumpIndent(int b) { Indent = std::string((Depth += b) * TabWidth, ' '); }
-
-  /// Print a given \p Block of the Plan.
-  void dumpBlock(const VPBlockBase *Block);
-
-  /// Print the information related to the CFG edges going out of a given
-  /// \p Block, followed by printing the successor blocks themselves.
-  void dumpEdges(const VPBlockBase *Block);
-
-  /// Print a given \p BasicBlock, including its VPRecipes, followed by printing
-  /// its successor blocks.
-  void dumpBasicBlock(const VPBasicBlock *BasicBlock);
-
-  /// Print a given \p Region of the Plan.
-  void dumpRegion(const VPRegionBlock *Region);
-
-  unsigned getOrCreateBID(const VPBlockBase *Block) {
-    return BlockID.count(Block) ? BlockID[Block] : BlockID[Block] = BID++;
+  /// Create a new VPIfTruePredicateRecipe.
+  VPIfTruePredicateRecipe *
+  createIfTruePredicateRecipe(VPValue *CV,
+                              VPPredicateRecipeBase *PredecessorPredicate,
+                              BasicBlock *From, BasicBlock *To) {
+    VPIfTruePredicateRecipe *newRecipe =
+        new VPIfTruePredicateRecipe(CV, PredecessorPredicate, From, To);
+    newRecipe->setName(createUniqueName("IfT"));
+    return newRecipe;
   }
 
-  const Twine getOrCreateName(const VPBlockBase *Block);
-
-  const Twine getUID(const VPBlockBase *Block);
-
-  /// Print the information related to a CFG edge between two VPBlockBases.
-  void drawEdge(const VPBlockBase *From, const VPBlockBase *To, bool Hidden,
-                const Twine &Label);
-
-  VPlanPrinter(raw_ostream &O, const VPlan &P) : OS(O), Plan(P) {}
-
-  void dump();
-
-  static void printAsIngredient(raw_ostream &O, Value *V);
-};
-
-#if !INTEL_CUSTOMIZATION
-inline raw_ostream &operator<<(raw_ostream &OS, const VPlanIngredient &I) {
-  VPlanPrinter::printAsIngredient(OS, I.V);
-  return OS;
-}
-#endif
-
-inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan) {
-  VPlanPrinter Printer(OS, Plan);
-  Printer.dump();
-  return OS;
-}
-#if INTEL_CUSTOMIZATION
-} // namespace vpo
-#endif
-
-typedef DomTreeNodeBase<vpo::VPBlockBase> VPDomTreeNode;
-
-template <>
-struct GraphTraits<VPDomTreeNode *>
-    : public DomTreeGraphTraitsBase<VPDomTreeNode, VPDomTreeNode::iterator> {};
-
-template <>
-struct GraphTraits<const VPDomTreeNode *>
-    : public DomTreeGraphTraitsBase<const VPDomTreeNode,
-                                    VPDomTreeNode::const_iterator> {};
-
-#if INTEL_CUSTOMIZATION
-namespace vpo {
-inline bool VPBlockBase::isInsideLoop() {
-  if (auto *ParentRegion = getParent()) {
-    // TODO: Use VPLoopRegion
-    if (ParentRegion->getVPBlockID() == VPLoopRegionSC) {
-      if (/*ParentRegion->getEntry() != this &&*/
-          ParentRegion->getExit() != this)
-        return true;
-    }
-    if (ParentRegion->getVPBlockID() == VPLoopRegionHIRSC) {
-      if (ParentRegion->getEntry() != this &&
-          ParentRegion->getExit() != this)
-        return true;
-    }
-    return ParentRegion->isInsideLoop();
+  /// Create a new VPIfFalsePredicateRecipe.
+  VPIfFalsePredicateRecipe *
+  createIfFalsePredicateRecipe(VPValue *CV,
+                               VPPredicateRecipeBase *PredecessorPredicate,
+                               BasicBlock *From, BasicBlock *To) {
+    VPIfFalsePredicateRecipe *newRecipe =
+        new VPIfFalsePredicateRecipe(CV, PredecessorPredicate, From, To);
+    newRecipe->setName(createUniqueName("IfF"));
+    return newRecipe;
   }
-  return false;
-}
 
-// Set of print functions
-inline raw_ostream &operator<<(raw_ostream &OS, const VPInstruction &I) {
-  I.dump(OS);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS, const VPRecipeBase &R) {
-  R.dump(OS);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS,
-                               const VPBlockPredicateRecipe &P) {
-  P.dump(OS);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS,
-                               const VPEdgePredicateRecipe &P) {
-  P.dump(OS);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS,
-                               const VPIfTruePredicateRecipe &P) {
-  P.dump(OS);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS,
-                               const VPIfFalsePredicateRecipe &P) {
-  P.dump(OS);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS, const VPBasicBlock &BB) {
-  BB.dump(OS, 2);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS, const VPRegionBlock &RB) {
-  RB.dump(OS, 2);
-  return OS;
-}
+  VPEdgePredicateRecipe *
+  createEdgePredicateRecipe(VPPredicateRecipeBase *PredecessorPredicate,
+                            BasicBlock *From, BasicBlock *To) {
+    VPEdgePredicateRecipe *newRecipe =
+        new VPEdgePredicateRecipe(PredecessorPredicate, From, To);
+    newRecipe->setName(createUniqueName("AuxEdgeForMaskSetting"));
+    return newRecipe;
+  }
+  /// Create a new VPBlockPredicateRecipe.
+  VPBlockPredicateRecipe *createBlockPredicateRecipe(void) {
+    VPBlockPredicateRecipe *newRecipe = new VPBlockPredicateRecipe();
+    newRecipe->setName(createUniqueName("BP"));
+    return newRecipe;
+  }
 
+  /// Returns true if the edge FromBlock->ToBlock is a back-edge.
+  bool isBackEdge(const VPBlockBase *FromBlock, const VPBlockBase *ToBlock,
+                  const VPLoopInfo *VPLI) {
+    assert(FromBlock->getParent() == ToBlock->getParent() &&
+           FromBlock->getParent() != nullptr && "Must be in same region");
+    const VPLoop *FromLoop = VPLI->getLoopFor(FromBlock);
+    const VPLoop *ToLoop = VPLI->getLoopFor(ToBlock);
+    if (FromLoop == nullptr || ToLoop == nullptr || FromLoop != ToLoop) {
+      return false;
+    }
+    // A back-edge is latch->header
+    return (ToBlock == ToLoop->getHeader() && ToLoop->isLoopLatch(FromBlock));
+  }
+
+  /// Create a new and empty VPLoopRegion.
+  VPLoopRegion *createLoopRegion(VPLoop *VPL) {
+    assert (VPL && "Expected a valid VPLoop.");
+    VPLoopRegion *Loop = new VPLoopRegion(createUniqueName("loop"), VPL);
+    setReplicator(Loop, false /*IsReplicator*/);
+    return Loop;
+  }
+
+  /// Create a new and empty VPLoopRegionHIR.
+  VPLoopRegion *createLoopRegionHIR(VPLoop *VPL, HLLoop *HLLp) {
+    assert (VPL && HLLp && "Expected a valid VPLoop and HLLoop.");
+    VPLoopRegion *Loop =
+        new VPLoopRegionHIR(createUniqueName("loop"), VPL, HLLp);
+    setReplicator(Loop, false /*IsReplicator*/);
+    return Loop;
+  }
+
+  /// Returns true if Block is a loop latch
+  bool blockIsLoopLatch(const VPBlockBase *Block,
+                        const VPLoopInfo *VPLInfo) const {
+
+    if (const VPLoop *ParentVPL = VPLInfo->getLoopFor(Block)) {
+      return ParentVPL->isLoopLatch(Block);
+    }
+
+    return false;
+  }
+
+  VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
+                           VPDominatorTree &DomTree,
+                           VPPostDominatorTree &PostDomTree);
 #endif // INTEL_CUSTOMIZATION
+
+};
 } // namespace vpo
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_H
+

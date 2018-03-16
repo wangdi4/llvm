@@ -20,7 +20,7 @@ namespace vpo {
 
 class VPlanCostModelProprietary : public VPlanCostModel {
 public:
-  explicit VPlanCostModelProprietary(const IntelVPlan *Plan, unsigned VF,
+  explicit VPlanCostModelProprietary(const VPlan *Plan, unsigned VF,
                                      const TargetTransformInfo *TTI)
       : VPlanCostModel(Plan, VF, TTI) {}
 

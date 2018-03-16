@@ -18,7 +18,11 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_LOOPVECTORIZATIONPLANNER_H
 
 #include "VPLoopAnalysis.h"
+#if INTEL_CUSTOMIZATION
+#include "../Intel_VPlan.h"
+#else
 #include "VPlan.h"
+#endif
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -82,7 +86,7 @@ public:
   /// best selected VPlan.
   // void executeBestPlan(InnerLoopVectorizer &LB);
 
-  IntelVPlan *getVPlanForVF(unsigned VF) const {
+  VPlan *getVPlanForVF(unsigned VF) const {
     auto It = VPlans.find(VF);
     return It != VPlans.end() ? It->second.get() : nullptr;
   }
@@ -104,7 +108,7 @@ protected:
   /// the given \p EndRangeVF.
   // TODO: If this function becomes more complicated, move common code to base
   // class.
-  virtual std::shared_ptr<IntelVPlan>
+  virtual std::shared_ptr<VPlan>
   buildInitialVPlan(unsigned StartRangeVF, unsigned &EndRangeVF) = 0;
 
   /// \Returns a pair of the <min, max> types' width used in the underlying loop.
@@ -165,7 +169,7 @@ private:
   // SmallPtrSet<Instruction *, 4> PredicatedInstructions;
 
   /// VPlans are shared between VFs, use smart pointers.
-  DenseMap<unsigned, std::shared_ptr<IntelVPlan>> VPlans;
+  DenseMap<unsigned, std::shared_ptr<VPlan>> VPlans;
 
 protected:
   unsigned BestVF = 0;
@@ -207,8 +211,8 @@ public:
                                 VPOVectorizationLegality &Legality);
 
 private:
-  std::shared_ptr<IntelVPlan> buildInitialVPlan(unsigned StartRangeVF,
-                                                unsigned &EndRangeVF) override;
+  std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
+                                           unsigned &EndRangeVF) override;
 
   std::pair<unsigned, unsigned> getTypesWidthRangeInBits(void) const final;
 

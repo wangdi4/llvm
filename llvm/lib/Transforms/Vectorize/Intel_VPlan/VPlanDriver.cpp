@@ -237,7 +237,7 @@ void printCostModelAnalysisIfRequested(LoopVectorizationPlannerBase &LVP,
       errs() << "VPlan for VF = " << VFRequested << " was not constructed\n";
       continue;
     }
-    IntelVPlan *Plan = LVP.getVPlanForVF(VFRequested);
+    VPlan *Plan = LVP.getVPlanForVF(VFRequested);
     CostModelTy CM(Plan, VFRequested, TTI);
 
     // If different stages in VPlanDriver were proper passes under pass manager

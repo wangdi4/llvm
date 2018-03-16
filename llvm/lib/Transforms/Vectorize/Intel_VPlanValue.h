@@ -44,7 +44,7 @@ class VPIfTruePredicateRecipe;
 class VPIfFalsePredicateRecipe;
 namespace vpo {
 class VPlanPredicator;
-class IntelVPlan;
+class VPlan;
 }
 #endif
 
@@ -61,7 +61,6 @@ class VPValue {
   friend class VPIfFalsePredicateRecipe;
   friend class VPlan;
   friend class VPBasicBlock;
-  friend class IntelVPlan;
   friend class VPlanPredicator;
   friend class VPlanHCFGBuilder;
 #endif

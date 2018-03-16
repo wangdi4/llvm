@@ -8,7 +8,6 @@ add_llvm_library(LLVMVectorize
 # INTEL_CUSTOMIZATION
   Intel_VPlan.cpp
   Intel_VPlan/LoopCFU.cpp
-  Intel_VPlan/VPlan.cpp
   Intel_VPlan/LoopVectorizationCodeGen.cpp
   Intel_VPlan/LoopVectorizationPlanner.cpp
   Intel_VPlan/LoopVectorizationPlannerHIR.cpp

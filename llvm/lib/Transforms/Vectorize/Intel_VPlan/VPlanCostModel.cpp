@@ -14,11 +14,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "VPlanCostModel.h"
-#include "VPlan.h"
+#include "../Intel_VPlan.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 
 #define DEBUG_TYPE "vplan-cost-model"
-
+using namespace loopopt;
 // FIXME: The following helper functions have multiple implementations
 // in the project. They can be effectively organized in a common Load/Store
 // utilities unit. This copy is from the LoopVectorize.cpp.

@@ -14,11 +14,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "VPlanCostModelProprietary.h"
-#include "VPlan.h"
+#include "Intel_VPlan.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
-#include <llvm/Analysis/TargetTransformInfo.h>
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 #define DEBUG_TYPE "vplan-cost-model-proprietary"
+
+using namespace llvm::loopopt;
 
 // TODO: Replace this function with a call to divergence analysis when it is
 // ready.

@@ -74,7 +74,7 @@ private:
   /// used to navigate from sink blobs to their respective source blobs.
   const DDGraph &DDG;
 
-  IntelVPlanUtils &PlanUtils;
+  VPlanUtils &PlanUtils;
 
   /// Map between loop header VPBasicBlock's and their respective HLLoop's. It
   /// is populated in this phase to keep the information necessary to create
@@ -131,7 +131,7 @@ private:
   void visit(HLLabel *HLabel);
 
 public:
-  PlainCFGBuilderHIR(HLLoop *Lp, const DDGraph &DDG, IntelVPlanUtils &Utils,
+  PlainCFGBuilderHIR(HLLoop *Lp, const DDGraph &DDG, VPlanUtils &Utils,
                      SmallDenseMap<VPBasicBlock *, HLLoop *> &H2HLLp)
       : TheLoop(Lp), DDG(DDG), PlanUtils(Utils), Header2HLLoop(H2HLLp) {}
 

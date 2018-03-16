@@ -305,7 +305,7 @@ void VPlanHCFGBuilderBase::splitLoopsExit(VPLoop *VPL) {
 // the construction of the hierarchical CFG.
 void VPlanHCFGBuilderBase::simplifyNonLoopRegions() {
 
-  IntelVPlan *Plan = PlanUtils.getVPlan();
+  VPlan *Plan = PlanUtils.getVPlan();
   assert(isa<VPRegionBlock>(Plan->getEntry()) &&
          "VPlan entry is not a VPRegionBlock");
   VPRegionBlock *TopRegion = cast<VPRegionBlock>(Plan->getEntry());
@@ -412,7 +412,7 @@ void VPlanHCFGBuilderBase::simplifyNonLoopRegions() {
 // construction.
 void VPlanHCFGBuilderBase::simplifyPlainCFG() {
 
-  IntelVPlan *Plan = PlanUtils.getVPlan();
+  VPlan *Plan = PlanUtils.getVPlan();
   assert(isa<VPRegionBlock>(Plan->getEntry()) &&
          "VPlan entry is not a VPRegionBlock");
   VPRegionBlock *TopRegion = cast<VPRegionBlock>(Plan->getEntry());
@@ -624,7 +624,7 @@ void VPlanHCFGBuilder::collectUniforms(VPRegionBlock *Region) {
 
 void VPlanHCFGBuilderBase::buildHierarchicalCFG() {
 
-  IntelVPlan *Plan = PlanUtils.getVPlan();
+  VPlan *Plan = PlanUtils.getVPlan();
 
   // Build Top Region enclosing the plain CFG
   VPRegionBlock *TopRegion = buildPlainCFG();
@@ -824,7 +824,7 @@ private:
   /// Number of VPBasicBlocks in TopRegion.
   unsigned TopRegionSize = 0;
 
-  IntelVPlanUtils &PlanUtils;
+  VPlanUtils &PlanUtils;
   VPBuilder VPIRBuilder;
 
   /// Map the branches to the condition VPInstruction they are controlled by
@@ -847,7 +847,7 @@ private:
 
 public:
   PlainCFGBuilder(Loop *Lp, LoopInfo *LI, LoopVectorizationLegality *Legal,
-                  IntelVPlanUtils &Utils)
+                  VPlanUtils &Utils)
       : TheLoop(Lp), LI(LI), Legal(Legal), PlanUtils(Utils) {}
 
   VPRegionBlock *buildPlainCFG();
