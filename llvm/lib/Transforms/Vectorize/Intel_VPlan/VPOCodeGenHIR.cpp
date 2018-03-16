@@ -786,6 +786,16 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
       }
     } else {
       WideRef->setBitCastDestType(PointerType::get(VecRefDestTy, AddressSpace));
+      // When the original scalar ref does not have alignment information
+      // LLVM defaults to the ABI alignment for the ref's type. During widening,
+      // we need to set the widened ref's alignment to the ABI alignment for
+      // the scalar ref's type for such cases.
+      unsigned Alignment = Ref->getAlignment();
+      if (!Alignment) {
+        auto DL = Ref->getDDRefUtils().getDataLayout();
+        Alignment = DL.getABITypeAlignment(RefDestTy);
+        WideRef->setAlignment(Alignment);
+      }
     }
   }
 
