@@ -100,8 +100,8 @@ class CallGraph {
   /// functions that it calls.
   void addToCallGraph(Function *F);
 
-  // INTEL A list of CGReports (e.g. the InlineReport) which can be manipulated 
-  // INTEL in a minimal way outside their local context 
+  // INTEL A list of CGReports (e.g. the InlineReport) which can be manipulated
+  // INTEL in a minimal way outside their local context
   SmallVector<CallGraphReport*, 16> CGReports; // INTEL
 
 public:
@@ -164,29 +164,28 @@ public:
 
 #ifdef INTEL_CUSTOMIZATION
 
-  /// \brief Add 'Report' to the list of reports which describe how the 
-  /// call graph is being transformed.  These reports will need to be 
-  /// updated when major changes are made to the call graph (e.g. adding 
+  /// \brief Add 'Report' to the list of reports which describe how the
+  /// call graph is being transformed.  These reports will need to be
+  /// updated when major changes are made to the call graph (e.g. adding
   /// or deleting a function).
-  void registerCGReport(CallGraphReport* Report) { 
-    for (unsigned I = 0, E = CGReports.size(); I < E; ++I) { 
-      if (CGReports[I] == Report) { 
+  void registerCGReport(CallGraphReport *Report) {
+    for (unsigned I = 0, E = CGReports.size(); I < E; ++I) {
+      if (CGReports[I] == Report) {
         return;
-      } 
-    } 
-    CGReports.push_back(Report); 
-  } 
+      }
+    }
+    CGReports.push_back(Report);
+  }
 
-  /// \brief For all registered CG reports, indicate that 'OldFunction' 
+  /// \brief For all registered CG reports, indicate that 'OldFunction'
   /// has been replaced by 'NewFunction'.
-  void replaceFunctionWithFunctionInCGReports(Function* OldFunction, 
-    Function* NewFunction) {
-    for (unsigned I = 0, E = CGReports.size(); I < E; ++I) { 
+  void replaceFunctionWithFunctionInCGReports(Function *OldFunction,
+                                              Function *NewFunction) {
+    for (unsigned I = 0, E = CGReports.size(); I < E; ++I) {
       CGReports[I]->replaceFunctionWithFunction(OldFunction, NewFunction);
-    } 
+    }
   }
 #endif // INTEL_CUSTOMIZATION
-
 };
 
 /// \brief A node in the call graph for a module.

@@ -44,6 +44,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h" // INTEL
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
@@ -1186,6 +1187,46 @@ static void AddAlignmentAssumptions(CallSite CS, InlineFunctionInfo &IFI) {
   }
 }
 
+#ifdef INTEL_CUSTOMIZATION
+/// In case of new callsites appearing in the inlined code we need to have
+/// a list of original callsites and inlined callsites for correct transfer
+/// of inline report information.
+static void UpdateIFIWithoutCG(CallSite OrigCS, ValueToValueMapTy &VMap,
+                               InlineFunctionInfo &IFI) {
+  if (IFI.CG) {
+    return;
+  }
+
+  Function *Caller = OrigCS.getCalledFunction();
+  if (!Caller)
+    return;
+
+  for (Instruction &I : instructions(Caller)) {
+    CallSite OldCS(&I);
+
+    // If this isn't a call, or it is a call to an intrinsic, it can
+    // never be inlined.
+    if (!OldCS ||
+        (OldCS.getCalledFunction() && OldCS.getCalledFunction()->isIntrinsic()))
+      continue;
+
+    ValueToValueMapTy::iterator VMI = VMap.find(&I);
+
+    if (VMI == VMap.end() || VMI->second == nullptr)
+      continue;
+
+    const Instruction *OldCall = dyn_cast<const Instruction>(VMI->first);
+    Instruction *NewCall = dyn_cast<Instruction>(VMI->second);
+    if (!NewCall)
+      continue;
+
+    IFI.OriginalCalls.push_back(OldCall);
+    IFI.InlinedCalls.push_back(NewCall);
+  }
+  return;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Once we have cloned code over from a callee into the caller,
 /// update the specified callgraph to reflect the changes we made.
 /// Note that it's possible that not all code was copied over, so only
@@ -1951,8 +1992,13 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     }
 
     // Update the callgraph if requested.
-    if (IFI.CG)
+#if INTEL_CUSTOMIZATION
+    if (IFI.CG) {
       UpdateCallGraphAfterInlining(CS, FirstNewBlock, VMap, IFI);
+    } else {
+      UpdateIFIWithoutCG(CS, VMap, IFI);
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // For 'nodebug' functions, the associated DISubprogram is always null.
     // Conservatively avoid propagating the callsite debug location to
@@ -2564,4 +2610,3 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 }
 
 #endif // INTEL_CUSTOMIZATION
-

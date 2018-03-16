@@ -1,12 +1,14 @@
 ; RUN: opt -inlinelists -inline -inline-report=7 -inline-inline-list="main,f1;main,f2,22;f3" -inline-noinline-list="main,f2,21;main,f4,25" < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinelists,cgscc(inline)' -inline-report=7 -inline-inline-list="main,f1;main,f2,22;f3" -inline-noinline-list="main,f2,21;main,f4,25" < %s -S 2>&1 | FileCheck %s
+
 ; Test should force inlining and not inlining functions according to inline and noinline list options.
 
 ; CHECK: COMPILE FUNC: f2
 ; CHECK-NEXT: f1{{.*}}Callee is single basic block
- 
+
 ; CHECK: COMPILE FUNC: f4
 ; CHECK-NEXT: INLINE: f3{{.*}}Callee is always inline
- 
+
 ; CHECK: COMPILE FUNC: main
 ; CHECK-NEXT: INLINE: f1{{.*}}Callee is always inline
 ; CHECK-NEXT: INLINE: f1{{.*}}Callee is always inline

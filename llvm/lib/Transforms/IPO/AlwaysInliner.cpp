@@ -33,6 +33,13 @@ using namespace InlineReportTypes; // INTEL
 
 #define DEBUG_TYPE "inline"
 
+#if INTEL_CUSTOMIZATION
+extern cl::opt<unsigned> IntelInlineReportLevel;
+
+AlwaysInlinerPass::AlwaysInlinerPass()
+    : Report(IntelInlineReportLevel) {}
+#endif // INTEL_CUSTOMIZATION
+
 PreservedAnalyses AlwaysInlinerPass::run(Module &M, ModuleAnalysisManager &) {
   InlineFunctionInfo IFI;
   SmallSetVector<CallSite, 16> Calls;
@@ -81,6 +88,9 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M, ModuleAnalysisManager &) {
     for (Function *F : InlinedFunctions)
       M.getFunctionList().erase(F);
   }
+#if INTEL_CUSTOMIZATION
+  getReport().print();
+#endif // INTEL_CUSTOMIZATION
 
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
