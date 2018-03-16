@@ -1,5 +1,6 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -debug -S < %s
 ; TODO | FileCheck %s
+; REQUIRES: asserts
 
 ; Check that VPlanVerifier is not crashing when counting the number of loops
 ; in the underlying HIR and compare them against the number of VPLoops in VPlan.
