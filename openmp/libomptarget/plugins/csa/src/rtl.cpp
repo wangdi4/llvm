@@ -381,16 +381,17 @@ public:
           std::stringstream ss;
           ss << get_process_name();
 
-            // Do we need to strip "__omp_offloading" from the entryoint name?
-            std::string omp_prefix("__omp_offloading");
-            if (0 == entry_name.compare(0, omp_prefix.length(), omp_prefix)) {
-              // If the entrypoint starts with "__omp_offloading"
-              ss << entry_name.substr(omp_prefix.length());
-            } else {
-              // Just use the process name
-              ss << entry_name;
-            }
+          // Do we need to strip "__omp_offloading" from the entryoint name?
+          std::string omp_prefix("__omp_offloading");
+          if (0 == entry_name.compare(0, omp_prefix.length(), omp_prefix)) {
+            // If the entrypoint starts with "__omp_offloading"
+            ss << entry_name.substr(omp_prefix.length());
+          } else {
+            // Just use the process name
+            ss << entry_name;
           }
+
+          // Add the thread number
           ss << "-thd" << std::setfill('0') << std::setw(width) << num;
 
           csa_dump_statistics(i->second.processor, ss.str().c_str());
