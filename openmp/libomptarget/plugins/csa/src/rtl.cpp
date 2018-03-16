@@ -27,7 +27,10 @@
 #include <link.h>
 #include <unistd.h>
 #include <map>
+#include <iomanip>
+#include <cmath>
 #include <pthread.h>
+#include <mutex>
 
 
 #include "omptargetplugin.h"
@@ -102,7 +105,9 @@
 // is run
 #define ENV_DUMP_STATS "CSA_DUMP_STATS"
 
-#define ENV_MERGED_STATS "CSA_MERGED_STATS"
+// If defined all stats for a thread are run in a single CSA instance and
+// dumped in a single .stat file (if CSA_DUMP_STATS is defined)
+#define ENV_MERGE_STATS "CSA_MERGE_STATS"
 
 // If defined, leave the temporary files on disk in the user's directory
 #define ENV_SAVE_TEMPS "CSA_SAVE_TEMPS"
@@ -159,7 +164,7 @@ struct CsaEntryInfo {
   const char *entry_name;
 };
 
-typedef class std::map<std::pair<pthread_t,void*>, CsaEntryInfo> CsaEntryMap_t;
+typedef class std::map<std::pair<pthread_t,const void*>, CsaEntryInfo> CsaEntryMap_t;
 
 /// Keep entries table per device.
 struct FuncOrGblEntryTy {
@@ -205,6 +210,7 @@ std::string get_process_name() {
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
   std::vector<FuncOrGblEntryTy> FuncGblEntries;
+  std::mutex FuncGblEntriesMutex;
 
 public:
   std::list<DynLibTy> DynLibs;
@@ -212,8 +218,13 @@ public:
   // Record entry point associated with device.
   void createOffloadTable(int32_t device_id, __tgt_offload_entry *begin,
                           __tgt_offload_entry *end, std::string csaAsmFile) {
+
+    // Take out the lock. Automatically released when "lock" goes out of scope
+    std::lock_guard<std::mutex> lock(FuncGblEntriesMutex);
+
     assert(device_id < (int32_t)FuncGblEntries.size() &&
            "Unexpected device id!");
+
     FuncOrGblEntryTy &E = FuncGblEntries[device_id];
 
     E.Table.EntriesBegin = begin;
@@ -222,7 +233,7 @@ public:
   }
 
   // Return true if the entry is associated with device.
-  const char *findOffloadEntry(int32_t device_id, void *addr,
+  const char *findOffloadEntry(int32_t device_id, const void *addr,
                                csa_processor **proc, csa_module **mod, csa_entry **entry) {
 
     // Clean out the pointers
@@ -230,16 +241,17 @@ public:
     *mod = NULL;
     *entry = NULL;
 
+    // Take out the lock. Automatically released when "lock" goes out of scope
+    std::lock_guard<std::mutex> lock(FuncGblEntriesMutex);
+
     assert(device_id < (int32_t)FuncGblEntries.size() &&
            "Unexpected device id!");
     FuncOrGblEntryTy &E = FuncGblEntries[device_id];
 
-
-    for (__tgt_offload_entry *i = E.Table.EntriesBegin, *e = E.Table.EntriesEnd;
-         i < e; ++i) {
+    for (__tgt_offload_entry *i = E.Table.EntriesBegin, *e = E.Table.EntriesEnd; i < e; ++i) {
       if (i->addr == addr) {
         pthread_t tid = pthread_self();
-        CsaEntryMap_t::iterator i = E.csaTidToEntryMap.find(std::pair<pthread_t,void*>(tid, addr));
+        CsaEntryMap_t::iterator i = E.csaTidToEntryMap.find(std::pair<pthread_t,const void*>(tid, addr));
         if (E.csaTidToEntryMap.end() != i) {
           *proc = i->second.processor;
           *mod = i->second.module;
@@ -255,6 +267,10 @@ public:
   bool setCsaOffloadEntryInfo(int32_t device_id, void *addr,csa_processor *proc, csa_module *mod, csa_entry *entry) {
     assert(device_id < (int32_t)FuncGblEntries.size() &&
            "Unexpected device id!");
+
+    // Take out the lock. Automatically released when "lock" goes out of scope
+    std::lock_guard<std::mutex> lock(FuncGblEntriesMutex);
+
     FuncOrGblEntryTy &E = FuncGblEntries[device_id];
 
     CsaEntryInfo mapEntry;
@@ -268,7 +284,7 @@ public:
       if (i->addr == addr) {
         pthread_t tid = pthread_self();
         
-        E.csaTidToEntryMap[std::pair<pthread_t,void*>(tid, addr)] = mapEntry;
+        E.csaTidToEntryMap[std::pair<pthread_t,const void*>(tid, addr)] = mapEntry;
         return true;
       }
     }
@@ -327,25 +343,63 @@ public:
         remove(asmFile.c_str());
       }
 
+    // Are we dumping the stats files?
+    bool dumpStats = (NULL != getenv(ENV_DUMP_STATS));
+
+    // Build a map of thread IDs to simple numbers
+    typedef std::map<pthread_t, int> ThreadNumMap_t;
+    ThreadNumMap_t threadNumMap;
+    int threadNum;
+    int width = 0;
+
+    if (dumpStats) {
+      for (size_t i = 0; i < FuncGblEntries.size(); i++) {
+        FuncOrGblEntryTy &E = FuncGblEntries[i];
+        for (CsaEntryMap_t::iterator i = E.csaTidToEntryMap.begin(); i != E.csaTidToEntryMap.end(); ++i) {
+          std::pair<pthread_t, const void*>key = i->first;
+          
+          ThreadNumMap_t::iterator iter = threadNumMap.find(key.first);
+          if (threadNumMap.end() == iter) {
+            threadNumMap[key.first] = threadNum++;
+          }
+        }
+      }
+      width = ceil(log10(threadNum));
+    }
+
+    // Finish up - Dump the stats, release the CSA isntances
     for (size_t i = 0; i < FuncGblEntries.size(); i++) {
       FuncOrGblEntryTy &E = FuncGblEntries[i];
       for (CsaEntryMap_t::iterator i = E.csaTidToEntryMap.begin(); i != E.csaTidToEntryMap.end(); ++i) {
-        std::pair<pthread_t, void*>key = i->first;
-        std::stringstream ss;
-        ss << get_process_name();
-        std::string entry_name = i->second.entry_name;
-        std::string omp_prefix("__omp_offloading");
-        if (0 == entry_name.compare(0, omp_prefix.length(), omp_prefix)) {
-          ss << entry_name.substr(omp_prefix.length());
-        } else {
-          ss << entry_name;
+        if (dumpStats) {
+          std::pair<pthread_t, const void*>key = i->first;
+          std::string entry_name = i->second.entry_name;
+
+          // Get the thread number that maps to this thread ID
+          int num = threadNumMap[key.first];
+
+          std::stringstream ss;
+          ss << get_process_name();
+
+            // Do we need to strip "__omp_offloading" from the entryoint name?
+            std::string omp_prefix("__omp_offloading");
+            if (0 == entry_name.compare(0, omp_prefix.length(), omp_prefix)) {
+              // If the entrypoint starts with "__omp_offloading"
+              ss << entry_name.substr(omp_prefix.length());
+            } else {
+              // Just use the process name
+              ss << entry_name;
+            }
+          }
+          ss << "-thd" << std::setfill('0') << std::setw(width) << num;
+
+          csa_dump_statistics(i->second.processor, ss.str().c_str());
         }
 
-        csa_dump_statistics(i->second.processor, ss.str().c_str());
+        // Release csa_processor
         csa_free(i->second.processor);
       }
     }
-    // Cleanup CSA, dump stats!!!!
   }
 };
 
@@ -1224,6 +1278,13 @@ int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
 int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
     void **tgt_args, ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t team_num,
     int32_t thread_limit, uint64_t loop_tripcount /*not used*/) {
+
+  typedef std::pair<csa_processor*, csa_module*> InstanceInfo_t;
+  typedef std::map<pthread_t, InstanceInfo_t> MapThreadToProcessor_t;
+
+  static MapThreadToProcessor_t mapThreadToProcessor;
+  static std::mutex s_threadToProcessorMapMutex;
+
   // ignore team num and thread limit.
   int32_t status = OFFLOAD_SUCCESS;
   static uint32_t run_count = 0;
@@ -1266,23 +1327,54 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
   // If we've already got a CSA instance, module & entry, use them. Otherwise
   // create them now.
   if (NULL == proc) {
-    // Allocate an CSA
-    proc = csa_alloc("autounit");
-    if (NULL == proc) {
-      return checkForExitOnError(OFFLOAD_FAIL,
-                                 "Failed to allocate CSA processor");
+    bool mergeStats = (NULL != getenv(ENV_MERGE_STATS));
+    bool newInstance = false;
+    pthread_t tid = pthread_self();
+
+    if (mergeStats) {
+      {
+        std::lock_guard<std::mutex> lock(s_threadToProcessorMapMutex);
+
+        // Do we already have an instance for this thread?
+        MapThreadToProcessor_t::iterator iter = mapThreadToProcessor.find(tid);
+        if (mapThreadToProcessor.end() != iter) {
+          InstanceInfo_t instance = iter->second;
+          proc = instance.first;
+          mod = instance.second;
+          entry = csa_lookup(mod, functionName);
+        }
+      }
     }
 
-    mod = csa_assemble(assemblyFile, proc);
-    if (NULL == mod) {
-      return checkForExitOnError(OFFLOAD_FAIL, "Failed to load module");
+    // If we still didn't find it, create a new instance
+    if (NULL == entry) {
+      // Allocate an CSA
+      proc = csa_alloc("autounit");
+      if (NULL == proc) {
+        return checkForExitOnError(OFFLOAD_FAIL,
+                                   "Failed to allocate CSA processor");
+      }
+      newInstance = true;
+
+      mod = csa_assemble(assemblyFile, proc);
+      if (NULL == mod) {
+        return checkForExitOnError(OFFLOAD_FAIL, "Failed to load module");
+      }
+
+      entry = csa_lookup(mod, functionName);
+
+      if (mergeStats) {
+        std::lock_guard<std::mutex> lock(s_threadToProcessorMapMutex);
+
+        mapThreadToProcessor[tid] = InstanceInfo_t(proc,mod);
+      }
     }
 
-    entry = csa_lookup(mod, functionName);
-
-    bool success = DeviceInfo.setCsaOffloadEntryInfo(device_id, tgt_entry_ptr,
-                                                     proc, mod, entry);
-    assert(success && "saving CSA offload entry information failed!");
+    if (newInstance) {
+      bool success = DeviceInfo.setCsaOffloadEntryInfo(device_id, tgt_entry_ptr,
+                                                       proc, mod, entry);
+      assert(success && "saving CSA offload entry information failed!");
+    }
   }
 
   if (initial_fp_flags >= 0) {
