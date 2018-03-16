@@ -833,8 +833,56 @@ bool FuseGraph::isLegalDependency(const DDEdge &Edge,
 
   assert(CanonExprUtils::isValidLoopLevel(CommonLevel));
   assert(CanonExprUtils::isValidLoopLevel(StartLevel));
+
+  // Special handle case when SrcRef or DstRef is in preheader or postexit.
+  if (CommonLevel > MinMaxLevel.first) {
+    // Condition means that at least one DDRef is outside of the loop.
+
+    DEBUG(dbgs() << "Preheader/postexit edge: ");
+
+    // Possible edges before fusion are:
+    //
+    // 1: Preheader1
+    // 2:  Loop1
+    // 3: PostExit1
+    //
+    // 4: Preheader2
+    // 5:  Loop2
+    // 6: PostExit2
+    //
+    // 1 -> 4
+    // 1 -> 5
+    // 1 -> 6
+    //
+    // 2 -> 4 (!)
+    // 2 -> 6
+    //
+    // 3 -> 4 (!)
+    // 3 -> 5 (!)
+    // 3 -> 6
+    //
+    // After the fusion:
+    //
+    // 1: Preheader1
+    // 4: Preheader2
+    // 2:  Loop1
+    // 5:  Loop2
+    // 3: PostExit1
+    // 6: PostExit2
+    //
+    // Marked (!) edges are fusion preventive.
+    //
+    // Edges outgoing from preheader or incoming to postexit are all legal,
+    // other edges are fusion preventive.
+
+    HLInst *SrcInst = dyn_cast<HLInst>(SrcRef->getHLDDNode());
+    HLInst *DstInst = dyn_cast<HLInst>(DstRef->getHLDDNode());
+
+    return ((SrcInst && SrcInst->isInPreheader()) ||
+            (DstInst && DstInst->isInPostexit()));
+  }
+
   assert(CanonExprUtils::isValidLoopLevel(MinMaxLevel.second));
-  assert(CommonLevel <= MinMaxLevel.second);
 
   auto RefinedDep =
       refineDependency(SrcRef, DstRef, StartLevel, MinMaxLevel.second);
