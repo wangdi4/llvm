@@ -159,21 +159,30 @@ public:
 
   // O(log(n))
   void reheapEdge(unsigned Src, unsigned Dst) {
-    FuseEdge &Edge = getEntity(Src, Dst).Edge;
+    auto *Entity = tryGetEntity(Src, Dst);
+    if (!Entity) {
+      // Edge may be already handled and removed from the heap.
+      return;
+    }
 
     remove(Src, Dst);
-    push(Src, Dst, Edge);
+    push(Src, Dst, Entity->Edge);
   }
 
   // O(1)
   void replaceEdge(unsigned Src, unsigned Dst, unsigned NewSrc,
                    unsigned NewDst) {
-    auto &Edge = getEntity(Src, Dst);
-    Edge.Src = NewSrc;
-    Edge.Dst = NewDst;
+    auto *Entity = tryGetEntity(Src, Dst);
+    if (!Entity) {
+      // Edge may be already handled and removed from the heap.
+      return;
+    }
+
+    Entity->Src = NewSrc;
+    Entity->Dst = NewDst;
 
     Map.erase(std::make_pair(Src, Dst));
-    Map.try_emplace(std::make_pair(NewSrc, NewDst), &Edge);
+    Map.try_emplace(std::make_pair(NewSrc, NewDst), Entity);
   }
 };
 
