@@ -48,6 +48,10 @@ static cl::opt<bool>
     EnableNestedBlobVec("enable-nested-blob-vec", cl::init(false), cl::Hidden,
                         cl::desc("Enable vectorization of loops with nested blobs"));
 
+static cl::opt<bool>
+    EnableBlobCoeffVec("enable-blob-coeff-vec", cl::init(false), cl::Hidden,
+                       cl::desc("Enable vectorization of loops with blob IV coefficients"));
+
 /// Don't vectorize loops with a known constant trip count below this number if
 /// set to a non zero value.
 static cl::opt<unsigned> TinyTripCountThreshold(
@@ -487,7 +491,7 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 // Checks Canon Expr to see if we support it. Currently, we do not
 // support blob IV coefficients
 void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
-  if (CExpr->hasIVBlobCoeff(LoopLevel)) {
+  if (!EnableBlobCoeffVec && CExpr->hasIVBlobCoeff(LoopLevel)) {
     DEBUG(dbgs()
           << "VPLAN_OPTREPORT: Loop not handled - IV with blob coefficient\n");
     IsHandled = false;
@@ -1013,18 +1017,35 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
     if (CE->hasIV(NestingLevel)) {
       SmallVector<Constant *, 4> CA;
       Type *Int64Ty = CE->getSrcType();
+      unsigned BlobCoeff;
+      int64_t ConstCoeff;
 
-      CE->getIVCoeff(NestingLevel, nullptr, &IVConstCoeff);
+      CE->getIVCoeff(NestingLevel, &BlobCoeff, &ConstCoeff);
 
       for (unsigned i = 0; i < VF; ++i) {
-        CA.push_back(ConstantInt::getSigned(Int64Ty, IVConstCoeff * i));
+        CA.push_back(ConstantInt::getSigned(Int64Ty, ConstCoeff * i));
       }
       ArrayRef<Constant *> AR(CA);
       auto CV = ConstantVector::get(AR);
 
-      unsigned Idx = 0;
-      CE->getBlobUtils().createBlob(CV, true, &Idx);
-      CE->addBlob(Idx, 1);
+      if (BlobCoeff != InvalidBlobIndex) {
+        // Compute Addend = WidenedBlob * CV and add Addend to the canon expression
+        NestedBlobCG CGBlob(Ref, MainLoop->getHLNodeUtils(),
+                            WideRef->getDDRefUtils(), this, nullptr);
+
+        auto NewRef = CGBlob.visit(WideRef->getBlobUtils().getBlob(BlobCoeff));
+        auto CRef  = Ref->getDDRefUtils().createConstDDRef(CV);
+
+        auto TWideInst = MainLoop->getHLNodeUtils().createBinaryHLInst(Instruction::Mul, 
+                                                                       NewRef->clone(), CRef, ".BlobMul");
+        addInst(TWideInst, nullptr);
+        AuxRefs.push_back(TWideInst->getLvalDDRef());
+        CE->addBlob(TWideInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(), 1);
+      } else {
+        unsigned Idx = 0;
+        CE->getBlobUtils().createBlob(CV, true, &Idx);
+        CE->addBlob(Idx, 1);
+      }
     }
 
     SmallVector<unsigned, 8> BlobIndices;
