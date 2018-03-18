@@ -2382,15 +2382,26 @@ bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
 
   assert((FirstNode && LastNode) && "Could not find first/last lexical child!");
 
+  if (FirstNode == LastNode) {
+    // Both are set to 'Node' which we don't need to check.
+    return true;
+  }
+
   StructuredFlowChecker SFC(PostDomination, TargetNode,
                             FirstNode->getParentLoop(), HLS);
 
   // Don't need to recurse into loops.
-  // Do a forward traversal when going down and vice versa.
-  if (!UpwardTraversal) {
-    visitRange<true, false, true>(SFC, FirstNode, LastNode);
+  // TODO: We probably need to enhance it to recurse into multi-exit loops.
+  if (UpwardTraversal) {
+    // We want to traverse the range [FirstNode, LastNode) in the backward
+    // direction. LastNode is the incoming 'Node' and should be skipped.
+    visitRange<true, false, false>(SFC, FirstNode->getIterator(),
+                                   LastNode->getIterator());
   } else {
-    visitRange<true, false, false>(SFC, FirstNode, LastNode);
+    // We want to traverse the range (FirstNode, LastNode] in the forward
+    // direction. FirstNode is the incoming 'Node' and should be skipped.
+    visitRange<true, false, true>(SFC, ++(FirstNode->getIterator()),
+                                  ++(LastNode->getIterator()));
   }
 
   return SFC.isStructured();
@@ -2435,7 +2446,7 @@ const HLNode *HLNodeUtils::getOutermostSafeParent(const HLNode *Node1,
     }
 
     // Node2 is in range, no need to move up the parent chain.
-    if (isInTopSortNumRange(Node2, FirstNode, LastNode)) {
+    if (isInTopSortNumMaxRange(Node2, FirstNode, LastNode)) {
       break;
     }
 
@@ -2548,11 +2559,11 @@ bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
   } else if (IfParent) {
     // Check whether both nodes are in the then or else case.
     bool Node1Found =
-        isInTopSortNumRange(LastParent1, IfParent->getFirstThenChild(),
-                            IfParent->getLastThenChild());
+        isInTopSortNumMaxRange(LastParent1, IfParent->getFirstThenChild(),
+                               IfParent->getLastThenChild());
     bool Node2Found =
-        isInTopSortNumRange(LastParent2, IfParent->getFirstThenChild(),
-                            IfParent->getLastThenChild());
+        isInTopSortNumMaxRange(LastParent2, IfParent->getFirstThenChild(),
+                               IfParent->getLastThenChild());
 
     // Return false if only Node1 or Node2 was found.
     if (Node1Found ^ Node2Found) {
@@ -2568,12 +2579,12 @@ bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
     // TODO: improve it later.
     for (unsigned I = 1, E = SwitchParent->getNumCases(); I <= E; I++) {
 
-      bool Node1Found =
-          isInTopSortNumRange(LastParent1, SwitchParent->getFirstCaseChild(I),
-                              SwitchParent->getLastCaseChild(I));
-      bool Node2Found =
-          isInTopSortNumRange(LastParent2, SwitchParent->getFirstCaseChild(I),
-                              SwitchParent->getLastCaseChild(I));
+      bool Node1Found = isInTopSortNumMaxRange(
+          LastParent1, SwitchParent->getFirstCaseChild(I),
+          SwitchParent->getLastCaseChild(I));
+      bool Node2Found = isInTopSortNumMaxRange(
+          LastParent2, SwitchParent->getFirstCaseChild(I),
+          SwitchParent->getLastCaseChild(I));
 
       // Return false if only Node1 or Node2 was found.
       if (Node1Found ^ Node2Found) {
@@ -3776,7 +3787,7 @@ public:
       LabelSafeContainer = Loop;
     }
 
-    visit(static_cast<HLDDNode *>(Loop));
+    visit(static_cast<HLNode *>(Loop));
   }
 
   void visit(HLIf *If) {
@@ -3795,7 +3806,7 @@ public:
       return;
     }
 
-    visit(static_cast<HLDDNode *>(If));
+    visit(static_cast<HLNode *>(If));
   }
 
   void visit(HLSwitch *Switch) {
@@ -3820,7 +3831,7 @@ public:
       return;
     }
 
-    visit(static_cast<HLDDNode *>(Switch));
+    visit(static_cast<HLNode *>(Switch));
   }
 
   void removeSiblingGotosWithTarget(HLLabel *Label) {
@@ -4005,26 +4016,6 @@ public:
 } // namespace
 
 template <typename VisitorTy>
-static bool removeNodesImpl(HLNode *Node, bool RemoveEmptyParentNodes) {
-  HLNode *Parent = Node->getParent();
-
-#ifndef NDEBUG
-  DEBUG(dbgs() << "While removing HIR nodes from <" << Node->getNumber()
-               << ">:\n");
-  DEBUG(Node->dump());
-#endif
-
-  VisitorTy V;
-  HLNodeUtils::visit(V, Node);
-
-  if (RemoveEmptyParentNodes) {
-    V.removeEmptyNodesUntilParent(Parent);
-  }
-
-  return V.isChanged();
-}
-
-template <typename VisitorTy>
 static bool removeNodesRangeImpl(HLContainerTy::iterator Begin,
                                  HLContainerTy::iterator End,
                                  bool RemoveEmptyParentNodes) {
@@ -4050,6 +4041,12 @@ static bool removeNodesRangeImpl(HLContainerTy::iterator Begin,
   }
 
   return V.isChanged();
+}
+
+template <typename VisitorTy>
+static bool removeNodesImpl(HLNode *Node, bool RemoveEmptyParentNodes) {
+  return removeNodesRangeImpl<VisitorTy>(
+      Node->getIterator(), ++(Node->getIterator()), RemoveEmptyParentNodes);
 }
 
 bool HLNodeUtils::removeEmptyNodes(HLNode *Node, bool RemoveEmptyParentNodes) {
