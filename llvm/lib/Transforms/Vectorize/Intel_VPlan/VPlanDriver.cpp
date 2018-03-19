@@ -507,7 +507,7 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   if (VPlanConstrStressTest)
     return false;
 
-  assert(WRLp && "WRLp can be null in stress testing only!");
+  assert((WRLp || VPlanVectCand) && "WRLp can be null in stress testing only!");
 
   bool ForcedVF = Simdlen > 0 ? true : VPlanDisableCostModel;
   VF = LVP.selectVF(VF, ForcedVF);
