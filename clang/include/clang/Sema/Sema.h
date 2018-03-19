@@ -1425,6 +1425,8 @@ public:
 #if INTEL_CUSTOMIZATION
   QualType BuildChannelType(QualType T,
                             SourceLocation Loc);
+  QualType BuildArbPrecIntType(QualType T, Expr *Size,
+                              SourceLocation AttrLoc);
 #endif // INTEL_CUSTOMIZATION
 
   QualType BuildWritePipeType(QualType T,
@@ -9785,6 +9787,10 @@ public:
   GetReferenceInitStatus(Expr *Init, bool isLValueRef, QualType T,
                          Qualifiers Quals,
                          Sema::ReferenceCompareResult RefRelationships);
+  QualType CheckArbPrecIntOperands(ExprResult &LHS, ExprResult &RHS,
+                               SourceLocation Loc, bool IsCompAssign);
+  QualType CheckArbPrecIntCompareOperands(ExprResult &LHS, ExprResult &RHS,
+                                      SourceLocation Loc);
 #endif // INTEL_CUSTOMIZATION
 
   ReferenceCompareResult CompareReferenceRelationship(SourceLocation Loc,

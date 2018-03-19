@@ -2469,6 +2469,18 @@ llvm::DIType* CGDebugInfo::CreateType(const PipeType *Ty,
 llvm::DIType *CGDebugInfo::CreateType(const ChannelType *Ty, llvm::DIFile *U) {
   return getOrCreateType(Ty->getElementType(), U);
 }
+
+llvm::DIType *CGDebugInfo::CreateType(const ArbPrecIntType *Ty,
+                                      llvm::DIFile *U) {
+  StringRef Name = "ap_uint";
+  llvm::dwarf::TypeKind Encoding = llvm::dwarf::DW_ATE_unsigned;
+  if (Ty->isSignedIntegerOrEnumerationType()) {
+    Name = "ap_int";
+    Encoding = llvm::dwarf::DW_ATE_signed;
+  }
+  return DBuilder.createBasicType(Name, CGM.getContext().getTypeSize(Ty),
+                                  Encoding);
+}
 #endif // INTEL_CUSTOMIZATION
 
 llvm::DIType *CGDebugInfo::CreateEnumType(const EnumType *Ty) {
@@ -2773,6 +2785,8 @@ llvm::DIType *CGDebugInfo::CreateTypeNode(QualType Ty, llvm::DIFile *Unit) {
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
     return CreateType(cast<ChannelType>(Ty), Unit);
+  case Type::ArbPrecInt:
+    return CreateType(cast<ArbPrecIntType>(Ty), Unit);
 #endif // INTEL_CUSTOMIZATION
 
   case Type::Pipe:

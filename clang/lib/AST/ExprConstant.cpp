@@ -7318,6 +7318,7 @@ static int EvaluateBuiltinClassifyType(const CallExpr *E,
   case Type::ObjCObjectPointer:
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
+  case Type::ArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
   case Type::Atomic:

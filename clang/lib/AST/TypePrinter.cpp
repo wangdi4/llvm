@@ -201,6 +201,8 @@ bool TypePrinter::canPrefixQualifiers(const Type *T,
     case Type::Atomic:
 #if INTEL_CUSTOMIZATION
     case Type::Channel:
+    case Type::ArbPrecInt:
+    case Type::DependentSizedArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
       CanPrefixQualifiers = true;
@@ -983,8 +985,24 @@ void TypePrinter::printChannelBefore(const ChannelType *T, raw_ostream &OS) {
   spaceBeforePlaceHolder(OS);
 }
 
-void TypePrinter::printChannelAfter(const ChannelType *T, raw_ostream &OS) {
+void TypePrinter::printChannelAfter(const ChannelType *T, raw_ostream &OS) {}
+
+void TypePrinter::printArbPrecIntBefore(const ArbPrecIntType *T,
+                                        raw_ostream &OS) {
+  OS << "__ap_int(" << T->getNumBits() << ") ";
+  printBefore(T->getUnderlyingType(), OS);
 }
+void TypePrinter::printArbPrecIntAfter(const ArbPrecIntType *T,
+                                       raw_ostream &OS) {}
+void TypePrinter::printDependentSizedArbPrecIntBefore(
+    const DependentSizedArbPrecIntType *T, raw_ostream &OS) {
+  OS << "__ap_int(";
+  T->getNumBitsExpr()->printPretty(OS, nullptr, Policy);
+  OS << ") ";
+  printBefore(T->getUnderlyingType(), OS);
+}
+void TypePrinter::printDependentSizedArbPrecIntAfter(
+    const DependentSizedArbPrecIntType *T, raw_ostream &OS) {}
 #endif // INTEL_CUSTOMIZATION
 
 void TypePrinter::printPipeBefore(const PipeType *T, raw_ostream &OS) {

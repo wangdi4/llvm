@@ -960,6 +960,10 @@ namespace serialization {
       /// Intel specific type codes
       /// \brief A ChannelType record.
       TYPE_CHANNEL               = 1024,
+      /// \brief An ArbPrecIntType record.
+      TYPE_ARBPRECINT            = 1025,
+      /// \brief A DependentSizedArbPrecIntType record.
+      TYPE_DEPENDENT_SIZED_ARBPRECINT = 1026,
 #endif // INTEL_CUSTOMIZATION
       /// \brief An ExtQualType record.
       TYPE_EXT_QUAL                 = 1,

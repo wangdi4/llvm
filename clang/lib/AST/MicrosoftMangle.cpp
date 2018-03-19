@@ -2712,6 +2712,28 @@ void MicrosoftCXXNameMangler::mangleType(const ChannelType *T, Qualifiers,
   Diags.Report(Range.getBegin(), DiagID)
     << Range;
 }
+
+void MicrosoftCXXNameMangler::mangleType(const ArbPrecIntType *T, Qualifiers,
+                                         SourceRange Range) {
+  QualType UnderlyingType = T->getUnderlyingType();
+  llvm::SmallString<64> TemplateMangling;
+  llvm::raw_svector_ostream Stream(TemplateMangling);
+  MicrosoftCXXNameMangler Extra(Context, Stream);
+  Stream << "?$";
+  Extra.mangleSourceName("__ap_int");
+  Extra.mangleNumber(T->getNumBits());
+  Extra.mangleType(UnderlyingType, Range, QMM_Escape);
+  mangleArtificalTagType(TTK_Struct, TemplateMangling, {"__clang"});
+}
+
+void MicrosoftCXXNameMangler::mangleType(const DependentSizedArbPrecIntType *T,
+                                         Qualifiers, SourceRange Range) {
+  DiagnosticsEngine &Diags = Context.getDiags();
+  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+    "cannot mangle this Dependent ArbPrecInt type yet");
+  Diags.Report(Range.getBegin(), DiagID)
+    << Range;
+}
 #endif // INTEL_CUSTOMIZATION
 
 void MicrosoftMangleContextImpl::mangleCXXName(const NamedDecl *D,

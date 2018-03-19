@@ -5391,6 +5391,15 @@ bool UnnamedLocalNoLinkageFinder::VisitPipeType(const PipeType* T) {
 bool UnnamedLocalNoLinkageFinder::VisitChannelType(const ChannelType* T) {
   return false;
 }
+
+bool UnnamedLocalNoLinkageFinder::VisitArbPrecIntType(const ArbPrecIntType *T) {
+  return Visit(T->getUnderlyingType());
+}
+
+bool UnnamedLocalNoLinkageFinder::VisitDependentSizedArbPrecIntType(
+    const DependentSizedArbPrecIntType *T) {
+  return Visit(T->getUnderlyingType());
+}
 #endif // INTEL_CUSTOMIZATION
 
 bool UnnamedLocalNoLinkageFinder::VisitTagDecl(const TagDecl *Tag) {
