@@ -45,6 +45,7 @@ public:
         m_isChanged |= changeCallingConv(CI);
 #ifdef BUILD_FPGA_EMULATOR
         m_isChanged |= changePipeCall(CI, InstToRemove);
+        m_isChanged |= removeFPGARegInst(CI, InstToRemove);
 #endif
       }
     }
@@ -191,6 +192,27 @@ public:
     CI->replaceAllUsesWith(NewCI);
     InstToRemove.push_back(CI);
 
+    return true;
+  }
+
+  bool removeFPGARegInst(llvm::CallInst *CI,
+                         llvm::SmallVectorImpl<Instruction *> &InstToRemove) {
+    auto *F = CI->getCalledFunction();
+    if (!F)
+      return false;
+
+    StringRef FName = F->getName();
+    if (!FName.startswith("llvm.fpga.reg."))
+      return false;
+
+    if (!FName.startswith("llvm.fpga.reg.struct."))
+      CI->replaceAllUsesWith(CI->getArgOperand(0));
+    else {
+      Value *Dest = CI->getArgOperand(0);
+      Value *Src = CI->getArgOperand(1);
+      Dest->replaceAllUsesWith(Src);
+    }
+    InstToRemove.push_back(CI);
     return true;
   }
 
