@@ -1,6 +1,6 @@
 //===------- Intel_AggInline.h - Aggressive Inline Analysis -*------===//
 //
-// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -27,7 +27,7 @@ struct InlineAggressiveInfo {
   InlineAggressiveInfo();
   ~InlineAggressiveInfo();
 
-  static InlineAggressiveInfo runImpl(Module &M, WholeProgramInfo *WPI);
+  static InlineAggressiveInfo runImpl(Module &M, WholeProgramInfo &WPI);
   bool analyzeModule(Module &MI);
 
   bool isCallInstInAggInlList(CallSite CS);
