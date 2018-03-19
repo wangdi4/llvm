@@ -956,6 +956,7 @@ bool StructurizeCFG::CSANeedRestruct() {
       return true;
     }
   }
+#if 0
   typedef po_iterator<DomTreeNode *> po_dt_iterator;
   DomTreeNode *root = DT->getRootNode();
   for (po_dt_iterator pdt = po_dt_iterator::begin(root), END = po_dt_iterator::end(root); pdt != END; ++pdt) {
@@ -979,6 +980,7 @@ bool StructurizeCFG::CSANeedRestruct() {
       }
     }
   }
+#endif
   return false;
 }
 
