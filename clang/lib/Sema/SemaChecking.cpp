@@ -882,7 +882,7 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
       return true;
     ICEArguments &= ~(1 << ArgNo);
   }
-  
+
   switch (BuiltinID) {
   case Builtin::BI__builtin___CFStringMakeConstantString:
     assert(TheCall->getNumArgs() == 1 &&
@@ -929,12 +929,26 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   case Builtin::BI__builtin_intel_hls_mm_master_init:
   case Builtin::BI__builtin_intel_hls_mm_master_load:
     if (!Context.getLangOpts().HLS) {
-      Diag(TheCall->getLocStart(), diag::err_hls_builtin_without_fhls);
+      Diag(TheCall->getLocStart(), diag::err_hls_builtin_without_fhls) << 1;
       return ExprError();
     }
     if (CheckHLSBuiltinFunctionCall(BuiltinID, TheCall))
       return ExprError();
     break;
+  case Builtin::BI__builtin_fpga_reg: {
+    bool IsOpenCLFPGA =
+        Context.getLangOpts().OpenCL &&
+        Context.getTargetInfo().getTriple().isINTELFPGAEnvironment();
+    if (!Context.getLangOpts().HLS && !IsOpenCLFPGA) {
+      Diag(TheCall->getLocStart(), diag::err_builtin_requires_language)
+          << "__builtin_fpga_reg"
+          << ((Context.getLangOpts().OpenCL) ? "OpenCL FPGA" : "HLS");
+      return ExprError();
+    }
+    if (CheckOpenCLBuiltinFunctionCall(BuiltinID, TheCall))
+      return ExprError();
+    break;
+  }
 #endif // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_isgreater:
   case Builtin::BI__builtin_isgreaterequal:
@@ -3416,6 +3430,22 @@ bool Sema::CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
     return false;
   }
   }
+}
+
+bool Sema::CheckOpenCLBuiltinFunctionCall(unsigned BuiltinID,
+                                          CallExpr *TheCall) {
+  if (checkArgCount(*this, TheCall, 1))
+    return true;
+
+  Expr *Arg = TheCall->getArg(0);
+  QualType ArgType = Arg->getType();
+  if (!ArgType.isCXX98PODType(Context) || ArgType.getTypePtr()->isArrayType()) {
+    Diag(TheCall->getLocStart(), diag::err_fpga_reg_limitations);
+    return true;
+  }
+  TheCall->setType(ArgType);
+
+  return false;
 }
 #endif // INTEL_CUSTOMIZATION
 

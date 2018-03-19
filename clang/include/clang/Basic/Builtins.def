@@ -386,6 +386,8 @@ BUILTIN(__builtin_exit,       "vi",     "Fnc")
 // HLS FPGA Prototype
 // FIXME: Once we have an HLS Target type, these likely needs to end up in
 // the intel/BuiltinsHLS.def file.
+BUILTIN(__builtin_fpga_reg, "v.", "nt")
+
 BUILTIN(__builtin_intel_hls_instream_read, "v.", "nt")
 BUILTIN(__builtin_intel_hls_outstream_read, "v.", "nt")
 BUILTIN(__builtin_intel_hls_instream_tryRead, "v.", "nt")

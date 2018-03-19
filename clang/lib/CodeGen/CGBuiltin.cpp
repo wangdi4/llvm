@@ -1485,6 +1485,8 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__builtin_intel_hls_mm_master_init:
   case Builtin::BI__builtin_intel_hls_mm_master_load:
     return EmitHLSMemMasterBuiltin(BuiltinID, E, ReturnValue);
+  case Builtin::BI__builtin_fpga_reg:
+    return EmitFPGARegBuiltin(BuiltinID, E);
 #endif // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_stdarg_start:
   case Builtin::BI__builtin_va_start:
@@ -5643,6 +5645,31 @@ Value *CodeGenFunction::EmitIntelFPGABuiltinExpr(unsigned BuiltinID,
   }
 
   return nullptr;
+}
+
+RValue CodeGenFunction::EmitFPGARegBuiltin(unsigned BuiltinID,
+                                           const CallExpr *E) {
+  llvm::SmallVector<Value *, 2> Args;
+  const Expr *PtrArg = E->getArg(0);
+  QualType ArgType = PtrArg->getType();
+  Address StRetPtr = Address::invalid();
+
+  if (ArgType->isStructureType() || ArgType->isUnionType()) {
+    StRetPtr = CreateMemTemp(ArgType);
+    RValue RVal = EmitAnyExpr(PtrArg);
+    Args.push_back(StRetPtr.getPointer());
+    Args.push_back(RVal.getAggregatePointer());
+    auto *Func =
+        CGM.getIntrinsic(Intrinsic::fpga_reg_struct, {Args[0]->getType()});
+    Builder.CreateCall(Func, Args);
+    return convertTempToRValue(StRetPtr, ArgType, SourceLocation());
+  }
+
+  auto Val = EmitScalarExpr(PtrArg);
+  Args.push_back(Val);
+  auto *Func = CGM.getIntrinsic(Intrinsic::fpga_reg, {Args[0]->getType()});
+
+  return RValue::get(Builder.CreateCall(Func, Args));
 }
 #endif // INTEL_CUSTOMIZATION
 
