@@ -1914,14 +1914,6 @@ void Parser::ParseCXXSimpleTypeSpecifier(DeclSpec &DS) {
     DS.SetTypeSpecWidth(DeclSpec::TSW_long, Loc, PrevSpec, DiagID, Policy);
     break;
   case tok::kw___int64:
-#if INTEL_CUSTOMIZATION
-    // CQ#374966 - cmake application failed with error: redefinition with a
-    // different type. Bind '__int64' to 'long' builtin type if its width is
-    // suitable for this on target platform.
-    if (getLangOpts().IntelCompat && getTargetInfo().getLongWidth() == 64)
-      DS.SetTypeSpecWidth(DeclSpec::TSW_long, Loc, PrevSpec, DiagID, Policy);
-    else
-#endif // INTEL_CUSTOMIZATION
     DS.SetTypeSpecWidth(DeclSpec::TSW_longlong, Loc, PrevSpec, DiagID, Policy);
     break;
   case tok::kw_signed:
