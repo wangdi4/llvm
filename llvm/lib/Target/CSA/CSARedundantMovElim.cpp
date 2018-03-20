@@ -64,6 +64,10 @@ public:
   static char ID; // Pass identification, replacement for typeid
   CSARedundantMovElim() : MachineFunctionPass(ID) {}
 
+  StringRef getPassName() const override {
+    return "CSA: Redundant move elimination.";
+  }
+
 private:
   // Determine if the MOV instruction is necessary.
   //

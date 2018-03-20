@@ -98,7 +98,7 @@ public:
     IIToFU[CSA::Sched::IICtl] = CSA::FUNCUNIT::SXU;
   }
 
-  StringRef getPassName() const override { return "CSA Allocate Unit Pass"; }
+  StringRef getPassName() const override { return "CSA: Allocate Unit Pass"; }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
 };

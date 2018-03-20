@@ -126,7 +126,7 @@ public:
   CSAAsmPrinter(TargetMachine &TM, std::unique_ptr<MCStreamer> Streamer)
       : AsmPrinter(TM, std::move(Streamer)), reader() {}
 
-  StringRef getPassName() const override { return "CSA Assembly Printer"; }
+  StringRef getPassName() const override { return "CSA: Assembly Printer"; }
 
   void printOperand(const MachineInstr *MI, int OpNum, raw_ostream &O);
   bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,

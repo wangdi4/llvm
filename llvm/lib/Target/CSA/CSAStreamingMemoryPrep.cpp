@@ -31,7 +31,7 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "csa-streamem"
-#define PASS_DESC "Prepare IR for streaming memory conversion"
+#define PASS_DESC "CSA: Prepare IR for streaming memory conversion"
 
 static cl::opt<bool> EnableStreamingMemoryPrep(
   "csa-enable-streammem-prep", cl::Hidden,

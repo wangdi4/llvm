@@ -708,7 +708,7 @@ public:
   static char ID;
   CSAMemopOrdering() : MachineFunctionPass(ID) {}
   StringRef getPassName() const override {
-    return "CSA Memory Operation Ordering";
+    return "CSA: Memory Operation Ordering";
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {

@@ -76,7 +76,7 @@ struct CSAIRReductionOpt : LoopPass {
   }
   bool runOnLoop(Loop *L, LPPassManager &) override;
   StringRef getPassName() const override {
-    return "IR level reduction optimizations";
+    return "CSA: IR level reduction optimizations";
   }
 
 private:

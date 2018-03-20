@@ -45,7 +45,7 @@ struct CSAOMPAllocaTypeFixer : FunctionPass {
   bool runOnFunction(Function &) override;
 
   StringRef getPassName() const override {
-    return "Fix OpenMP bitcasted allocas";
+    return "CSA: Fix OpenMP bitcasted allocas";
   }
 };
 

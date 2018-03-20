@@ -55,7 +55,7 @@ public:
   static char ID;
   CSAMultiSeq();
 
-  StringRef getPassName() const override { return "CSA Multiple Seuqence"; }
+  StringRef getPassName() const override { return "CSA: Multiple Sequence"; }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override {

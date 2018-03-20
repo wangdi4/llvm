@@ -54,7 +54,7 @@ struct CSALowerAggrCopies : public FunctionPass {
   static const unsigned MaxAggrCopySize = 128;
 
   StringRef getPassName() const override {
-    return "Lower aggregate copies/intrinsics into loops";
+    return "CSA: Lower aggregate copies/intrinsics into loops";
   }
 };
 

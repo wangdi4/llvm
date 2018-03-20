@@ -87,7 +87,7 @@ public:
   CSACvtCFDFPass();
 
   StringRef getPassName() const override {
-    return "CSA Convert Control Flow to Data Flow";
+    return "CSA: Convert Control Flow to Data Flow";
   }
 
   bool runOnMachineFunction(MachineFunction &MF) override;

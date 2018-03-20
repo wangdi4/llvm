@@ -43,7 +43,7 @@ using namespace llvm::PatternMatch;
 #define DEBUG_TYPE "csa-ilpl-prep"
 #define REMARK_NAME "csa-ilpl"
 #define PASS_DESC                                                              \
-  "Identify and prepare inner loops for pipelining of multiple executions"
+  "CSA: Identify and prepare inner loops for pipelining of multiple executions"
 
 static cl::opt<bool> EnableILPLPrep(
   "csa-ilpl-prep", cl::Hidden,

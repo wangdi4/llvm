@@ -74,7 +74,7 @@ struct CSAFortranIntrinsics : FunctionPass {
   bool runOnFunction(Function &F) override;
 
   StringRef getPassName() const override {
-    return "Convert particular Fortran function calls to intrinsics";
+    return "CSA: Convert particular Fortran function calls to intrinsics";
   }
 };
 

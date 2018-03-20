@@ -53,6 +53,11 @@ class CSANormalizeDebug : public MachineFunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
   CSANormalizeDebug() : MachineFunctionPass(ID) {}
+
+  StringRef getPassName() const override {
+    return "CSA: Debug normalization.";
+  }
+
 };
 } // namespace
 

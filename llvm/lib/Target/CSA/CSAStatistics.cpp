@@ -54,7 +54,7 @@ public:
   static char ID;
   CSAStatistics();
 
-  StringRef getPassName() const override { return "CSA Statistics"; }
+  StringRef getPassName() const override { return "CSA: Statistics"; }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override {

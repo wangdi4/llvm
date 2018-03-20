@@ -91,7 +91,7 @@ public:
   static char ID;
   CSAExpandInlineAsm() : MachineFunctionPass(ID) {}
   StringRef getPassName() const override {
-    return "CSA Inline Assembly Expansion";
+    return "CSA: Inline Assembly Expansion";
   }
 
 private:

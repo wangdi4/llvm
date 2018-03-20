@@ -58,7 +58,7 @@ struct CSAIntrinsicCleaner : FunctionPass {
   bool runOnFunction(Function &) override;
 
   StringRef getPassName() const override {
-    return "Clean unused CSA intrinsics";
+    return "CSA: Clean unused CSA intrinsics";
   }
 
 private:

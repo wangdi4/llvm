@@ -138,7 +138,7 @@ struct CSALoopIntrinsicExpander : FunctionPass {
   bool runOnFunction(Function &) override;
 
   StringRef getPassName() const override {
-    return "Expand CSA-specific loop intrinsics";
+    return "CSA: Expand CSA-specific loop intrinsics";
   }
 
 private:

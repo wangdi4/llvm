@@ -309,6 +309,10 @@ public:
   void viewMachinePDT(void);
   void viewMachineDT(void);
   virtual bool runOnMachineFunction(MachineFunction &F);
+
+  StringRef getPassName() const override {
+    return "CSA: Machine Control Dependence Graph Construction";
+  }
 };
 
 template <>

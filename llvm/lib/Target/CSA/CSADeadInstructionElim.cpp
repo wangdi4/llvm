@@ -75,6 +75,10 @@ public:
   static char ID; // Pass identification, replacement for typeid
   CSADeadInstructionElim() : MachineFunctionPass(ID) {}
 
+  StringRef getPassName() const override {
+    return "CSA: Dead instructions elimination.";
+  }
+
 private:
   bool isLIC(unsigned Reg) const;
   bool isDead(const MachineInstr &MI) const;
