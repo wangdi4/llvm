@@ -460,11 +460,20 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   unsigned getMaxNonSimplifiedBlobLevel(const RegDDRef *Ref,
                                         bool &HasNonSimplifiedBlob) const;
 
+  /// Returns true if unique occurences of \p Ref1 in \p Loop are refined based
+  /// on locality analysis w.r.t \p Ref2. Refined occurences are set in \p
+  /// RefinedRef1Occurences.
+  bool refinedOccurencesUsingLocalityAnalysis(
+      const RegDDRef *Ref1, const RegDDRef *Ref2, bool Ref1IsUnconditional,
+      const HLLoop *Loop, unsigned &RefinedRef1Occurences) const;
+
   /// Returns true if Ref is in a sibling candidate loop of OuterLoop.
   bool isInSiblingCandidateLoop(const RegDDRef *Ref) const;
 
-  /// Returns true if \p Ref has no data dependency in \p Loop.
-  bool isDDIndependentInLoop(const RegDDRef *Ref, const HLLoop *Loop) const;
+  /// Returns true if \p Ref has no data dependency in \p Loop. Returns refined
+  /// occurences of Ref in \p RefinedOccurences.
+  bool isDDIndependentInLoop(const RegDDRef *Ref, const HLLoop *Loop,
+                             unsigned &RefinedOccurences) const;
 
   /// Computes and returns info on \p Ref in the completely unrolled
   /// loopnest such as its unique occurences. Returns 0 UniqueOccurences for a
@@ -1107,6 +1116,58 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isUnconditionallyExecuted(
   return true;
 }
 
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::
+    refinedOccurencesUsingLocalityAnalysis(
+        const RegDDRef *Ref1, const RegDDRef *Ref2, bool Ref1IsUnconditional,
+        const HLLoop *Loop, unsigned &RefinedRef1Occurences) const {
+  // There is no reuse from Ref2 to Ref1 if Ref2 is conditional.
+  if (!isUnconditionallyExecuted(Ref2, Loop)) {
+    return false;
+  }
+
+  bool Ref1IsLval = Ref1->isLval();
+  unsigned LoopLevel = Loop->getNestingLevel();
+
+  if (Ref1IsLval) {
+    // Redundant Ref1 store scenario:
+    // A[i1-1] =  << Ref2
+    // A[i1] =    << Ref1
+    if (!Ref1IsUnconditional || !Ref2->isLval()) {
+      return false;
+    }
+  } else {
+    // Redundant Ref1 load scenario 1:
+    //   = A[i1]    << Ref2
+    // if ()
+    //   = A[i1-1]  << Ref1
+    //
+    // Redundant Ref1 load scenario 2:
+    // A[i1] =         << Ref2
+    // if ()
+    //       = A[i1-1] << Ref1
+  }
+
+  int64_t Dist;
+  if (!DDRefUtils::getConstIterationDistance(Ref2, Ref1, LoopLevel, &Dist)) {
+    return false;
+  }
+
+  assert(Dist != 0 && "Non-zero distance expected!");
+  unsigned TripCount = HCU.AvgTripCount.find(Loop)->second;
+
+  // Distance should be negative for (store -> store) case but it doesn't matter
+  // as it will be accounted once per ref pair due to symmetry of checks.
+  if ((Dist < 0) || (Dist >= TripCount)) {
+    return true;
+  }
+
+  if (!RefinedRef1Occurences || (Dist < RefinedRef1Occurences)) {
+    RefinedRef1Occurences = Dist;
+  }
+
+  return true;
+}
+
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::isInSiblingCandidateLoop(
     const RegDDRef *Ref) const {
 
@@ -1156,12 +1217,14 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isInSiblingCandidateLoop(
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::isDDIndependentInLoop(
-    const RegDDRef *Ref, const HLLoop *Loop) const {
+    const RegDDRef *Ref, const HLLoop *Loop,
+    unsigned &RefinedOccurences) const {
   assert(Ref->isMemRef() && "Only mem ref is expected!");
 
   unsigned LoopLevel = Loop->getNestingLevel();
   bool IsOutermostLoop = (Loop == OuterLoop->getParentLoop());
   bool HasNonSimplifiedBlob = false;
+  RefinedOccurences = 0;
 
   // OutermostLoop is the resulting loop after complete unroll so we also need
   // to check for structural invariance to conclude DD independence.
@@ -1176,7 +1239,8 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isDDIndependentInLoop(
   }
 
   bool IsRval = Ref->isRval();
-  bool IsUnconditional = isUnconditionallyExecuted(Ref, Loop);
+  bool IsRefUnconditional = isUnconditionallyExecuted(Ref, Loop);
+  bool IsUnconditional = IsRefUnconditional;
 
   // Check whether the ref can be hoisted outside the resulting loop after
   // unrolling.
@@ -1185,13 +1249,20 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isDDIndependentInLoop(
       continue;
     }
 
-    if (IsRval && SymRef->isRval()) {
+    bool AreEqual = DDRefUtils::areEqual(Ref, SymRef);
+    bool SymRefIsRval = SymRef->isRval();
+    bool AreRval = (IsRval && SymRefIsRval);
+
+    // Guard doRefsAlias() under cheaper conditions where we know how to handle
+    // refs. These conditions are used later in the loop.
+    if (!AreEqual && !AreRval && !HCU.DDA->doRefsAlias(Ref, SymRef)) {
       continue;
     }
 
     if (IsOutermostLoop) {
       // Give up if SymRef is not contained in a candidate loop.
-      if (!HLNodeUtils::contains(OuterLoop, SymRef->getHLDDNode()) &&
+      if (!AreRval &&
+          !HLNodeUtils::contains(OuterLoop, SymRef->getHLDDNode()) &&
           !isInSiblingCandidateLoop(SymRef)) {
         return false;
       }
@@ -1199,7 +1270,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isDDIndependentInLoop(
       continue;
     }
 
-    if (DDRefUtils::areEqual(Ref, SymRef)) {
+    if (AreEqual) {
       // If there is an identical ref which is unconditional in loop, assume
       // this ref can be hoisted. This corresponds to loop memory motion's
       // profitability model.
@@ -1210,15 +1281,16 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isDDIndependentInLoop(
       continue;
     }
 
-    if (!HCU.DDA->doRefsAlias(Ref, SymRef)) {
+    if (!IsOutermostLoop &&
+        refinedOccurencesUsingLocalityAnalysis(Ref, SymRef, IsRefUnconditional,
+                                               Loop, RefinedOccurences)) {
+      // We refined Ref's occurrences using temporal locality with SymRef. No
+      // further checks required.
       continue;
     }
 
-    // If Ref has a symbolic and aliases with something, assume it is not
-    // independent. For example-
-    // Ref: A[i2+%t], SymRef A[0]
-    if (HasNonSimplifiedBlob) {
-      return false;
+    if (AreRval) {
+      continue;
     }
 
     // We know that Ref and SymRef can alias.
@@ -1226,20 +1298,31 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isDDIndependentInLoop(
     // This is to handle cases like this-
     // Ref: A[i2], SymRef: A[0]
 
+    // If Ref has a symbolic and aliases with something, assume it is not
+    // independent. For example-
+    // Ref: A[i2+%t], SymRef A[0]
+    if (HasNonSimplifiedBlob) {
+      // Invalidate refined occurences in the presence of aliasing issues.
+      RefinedOccurences = 0;
+      return false;
+    }
+
     // Give up if the refs do not look structurally similar: A[i1] and B[0].
     if ((Ref->getNumDimensions() != SymRef->getNumDimensions()) ||
         !CanonExprUtils::areEqual(Ref->getBaseCE(), SymRef->getBaseCE()) ||
         !DDRefUtils::haveEqualOffsets(Ref, SymRef)) {
+      RefinedOccurences = 0;
       return false;
     }
 
-    bool HasBlob = false;
+    bool SymRefHasBlob = false;
 
     // Check if SymRef is structurally invariant w.r.t loop or has symbolic.
     // Example where SymRef has symbolic-
     // Ref: A[i2], SymRef: A[%t]
-    if ((getMaxNonSimplifiedBlobLevel(SymRef, HasBlob) >= LoopLevel) ||
-        HasBlob) {
+    if ((getMaxNonSimplifiedBlobLevel(SymRef, SymRefHasBlob) >= LoopLevel) ||
+        SymRefHasBlob) {
+      RefinedOccurences = 0;
       return false;
     }
 
@@ -1276,23 +1359,26 @@ HIRCompleteUnroll::ProfitabilityAnalyzer::computeGEPInfo(const RegDDRef *Ref,
     auto TCIt = HCU.AvgTripCount.find(ParentLoop);
     assert((TCIt != HCU.AvgTripCount.end()) && "Trip count of loop not found!");
 
+    unsigned TripCount = TCIt->second;
     unsigned Level = ParentLoop->getNestingLevel();
+    unsigned RefinedOccurences = 0;
 
     // If ref contains IV of a loop or a blob defined at that level, all
     // references of the ref are considered unique w.r.t that level.
     // If ref is not DD independent in loop, there can be no savings
     // from unrolling.
     IsUnique = IsUnique || (MaxNonRemBlobLevel >= Level) ||
-               (IsMemRef && !isDDIndependentInLoop(Ref, ParentLoop));
+               (IsMemRef &&
+                !isDDIndependentInLoop(Ref, ParentLoop, RefinedOccurences));
 
     if (IsUnique || Ref->hasIV(Level)) {
 
-      TotalOccurences *= TCIt->second;
+      TotalOccurences *= TripCount;
 
       if (!UniqueOccurences) {
-        UniqueOccurences = TCIt->second;
+        UniqueOccurences = RefinedOccurences ? RefinedOccurences : TripCount;
       } else {
-        UniqueOccurences *= TCIt->second;
+        UniqueOccurences *= (RefinedOccurences ? RefinedOccurences : TripCount);
       }
       continue;
     }
@@ -1314,13 +1400,13 @@ HIRCompleteUnroll::ProfitabilityAnalyzer::computeGEPInfo(const RegDDRef *Ref,
       // update total occurences as the ref is not invariant without
       // unrolling.
       if (EncounteredRemBlob) {
-        TotalOccurences *= TCIt->second;
+        TotalOccurences *= TripCount;
       }
 
       continue;
 
     } else {
-      TotalOccurences *= TCIt->second;
+      TotalOccurences *= TripCount;
       EncounteredRemBlob = true;
     }
 
@@ -1339,8 +1425,9 @@ HIRCompleteUnroll::ProfitabilityAnalyzer::computeGEPInfo(const RegDDRef *Ref,
   }
 
   bool IsIndependent = false;
+  unsigned RefinedOccurences = 0;
   if (UniqueOccurences && IsMemRef && OutermostLoop &&
-      isDDIndependentInLoop(Ref, OutermostLoop)) {
+      isDDIndependentInLoop(Ref, OutermostLoop, RefinedOccurences)) {
     IsIndependent = true;
   }
 
