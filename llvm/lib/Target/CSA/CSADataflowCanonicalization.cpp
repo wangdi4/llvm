@@ -308,7 +308,8 @@ bool CSADataflowCanonicalizationPass::eliminateMovInsts(MachineInstr *MI) {
   if (!MI->getFlag(MachineInstr::NonSequential))
     return false;
 
-  if (TII->getGenericOpcode(MI->getOpcode()) != CSA::Generic::MOV)
+  if (TII->getGenericOpcode(MI->getOpcode()) != CSA::Generic::MOV &&
+      MI->getOpcode() != CSA::COPY)
     return false;
 
   if (!MI->getOperand(0).isReg() || !MI->getOperand(1).isReg())
