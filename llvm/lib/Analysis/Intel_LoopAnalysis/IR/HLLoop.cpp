@@ -21,7 +21,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
@@ -385,11 +384,6 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
 
   printPostexit(OS, Depth, Detailed);
 #endif // !INTEL_PRODUCT_RELEASE
-}
-
-void HLLoop::setNumExits(unsigned NumEx) {
-  assert(NumEx && "Number of exits cannot be zero!");
-  NumExits = NumEx;
 }
 
 unsigned

@@ -424,7 +424,10 @@ public:
   /// Returns the number of exits of the loop.
   unsigned getNumExits() const { return NumExits; }
   /// Sets the number of exits of the loop.
-  void setNumExits(unsigned NumEx);
+  void setNumExits(unsigned NumEx) {
+    assert(NumEx && "Number of exits cannot be zero!");
+    NumExits = NumEx;
+  }
 
   /// Returns the nesting level of the loop.
   unsigned getNestingLevel() const {

@@ -3612,6 +3612,10 @@ STATISTIC(RedundantInstructions,
 STATISTIC(RedundantEarlyExitLoops,
           "Number of loops with unconditional exit removed by the utility");
 
+static cl::opt<bool> DisableAggressiveRedundantLoopRemoval(
+    "disable-hir-aggressive-redundant-loop-removal", cl::init(false),
+    cl::Hidden, cl::desc("Disable aggressive redundant loop removal."));
+
 class EmptyNodeRemoverVisitorImpl : public HLNodeVisitorBase {
 protected:
   SmallPtrSet<HLNode *, 32> NodesToInvalidate;
@@ -3737,6 +3741,9 @@ public:
 struct EmptyNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {};
 
 class RedundantNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {
+  // Stack of found loop side effects for loops currently in process.
+  SmallVector<std::pair<HLLoop *, bool>, MaxLoopNestLevel> LoopSideEffects;
+
   const HLNode *SkipNode;
 
   // The class also implements DCE logic. When encounter visit(HLGoto) the
@@ -3766,6 +3773,16 @@ class RedundantNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {
   // blocks.
   bool IsJoinNode;
 
+private:
+  /// Returns true if the goto exits the loop.
+  bool isLoopExitGoto(const HLLoop *Loop, const HLGoto *Goto) const {
+    assert(Goto->getTopSortNum() > Loop->getMinTopSortNum() &&
+           Goto->getTopSortNum() <= Loop->getMaxTopSortNum() &&
+           "HLGoto doesn't belong to the loop");
+    return Goto->isExternal() ||
+           (Goto->getTargetLabel()->getTopSortNum() > Loop->getMaxTopSortNum());
+  }
+
 public:
   RedundantNodeRemoverVisitor()
       : SkipNode(nullptr), LastNodeToRemove(nullptr),
@@ -3783,12 +3800,19 @@ public:
     assert(LabelSafeContainer && "LabelSafeContainer should be defined");
     LabelSafeContainer = nullptr;
 
+    assert(LoopSideEffects.empty() && "LoopSideEffects is out of sync");
+
     EmptyNodeRemoverVisitorImpl::postVisit(Region);
   }
 
   void visit(HLLoop *Loop) {
-    uint64_t TripCount;
+    // Loop may be removed as a dead code.
+    visit(static_cast<HLDDNode *>(Loop));
+    if (SkipNode == Loop) {
+      return;
+    }
 
+    uint64_t TripCount;
     bool ConstTripLoop = Loop->isConstTripLoop(&TripCount, true);
     if (ConstTripLoop && TripCount == 0) {
       RedundantLoops++;
@@ -3797,15 +3821,17 @@ public:
       SkipNode = Loop;
       HLNodeUtils::remove(Loop);
       Changed = true;
-
       return;
     }
+
+    // Loop will stay attached.
 
     if (LabelSafeContainer == nullptr) {
       LabelSafeContainer = Loop;
     }
 
-    visit(static_cast<HLNode *>(Loop));
+    // Record new loop.
+    LoopSideEffects.emplace_back(Loop, Loop->hasLiveOutTemps());
   }
 
   void visit(HLIf *If) {
@@ -3824,7 +3850,7 @@ public:
       return;
     }
 
-    visit(static_cast<HLNode *>(If));
+    visit(static_cast<HLDDNode *>(If));
   }
 
   void visit(HLSwitch *Switch) {
@@ -3849,7 +3875,7 @@ public:
       return;
     }
 
-    visit(static_cast<HLNode *>(Switch));
+    visit(static_cast<HLDDNode *>(Switch));
   }
 
   void removeSiblingGotosWithTarget(HLLabel *Label) {
@@ -3922,6 +3948,15 @@ public:
     if (ContainerLastNode != Goto) {
       LastNodeToRemove = ContainerLastNode;
     }
+
+    // Record side effect of multiple loop exits.
+    // Note: Do not use Loop->isMultiexit() because the loop may be in
+    // inconsistent state while removing redundant nodes.
+    if (!LoopSideEffects.empty() && !LoopSideEffects.back().second) {
+      if (isLoopExitGoto(LoopSideEffects.back().first, Goto)) {
+        LoopSideEffects.back().second = true;
+      }
+    }
   }
 
   void visit(HLLabel *Label) {
@@ -3954,6 +3989,10 @@ public:
   }
 
   void postVisit(HLLoop *Loop) {
+    assert(LoopSideEffects.back().first == Loop &&
+           "LoopSideEffects is out of sync");
+    bool CurrentLoopSideEffect = LoopSideEffects.pop_back_val().second;
+
     if (LabelSafeContainer == Loop) {
       LabelSafeContainer = nullptr;
     }
@@ -3966,11 +4005,10 @@ public:
       // Stop removing nodes.
       LastNodeToRemove = nullptr;
 
-      assert((LastGoto->isExternal() ||
-              (LastGoto->getTargetLabel()->getTopSortNum() >
-               Loop->getMaxTopSortNum())) &&
+      assert(isLoopExitGoto(Loop, LastGoto) &&
              "Non exit goto found at the end of the loop.");
 
+      notifyWillRemoveNode(Loop);
       Loop->replaceByFirstIteration();
       RedundantEarlyExitLoops++;
 
@@ -3981,10 +4019,26 @@ public:
       }
 
       visit(LastGoto);
-    } else {
-      // The loop will stay attached - handle as regular node.
-      postVisitImpl(Loop);
+      return;
     }
+
+    // Remove loop if it doesn't produce any side effect.
+    bool MayRemoveRedundantLoop =
+        !DisableAggressiveRedundantLoopRemoval && !CurrentLoopSideEffect;
+
+    if (!LoopSideEffects.empty()) {
+      LoopSideEffects.back().second =
+          LoopSideEffects.back().second || CurrentLoopSideEffect;
+    }
+
+    if (MayRemoveRedundantLoop) {
+      HLNodeUtils::remove(Loop->child_begin(), Loop->child_end());
+      EmptyNodeRemoverVisitorImpl::postVisit(Loop);
+      return;
+    }
+
+    // The loop will stay attached - handle as regular node.
+    postVisitImpl(Loop);
   }
 
   template <typename NodeTy> void postVisit(NodeTy *Node) {
@@ -4000,6 +4054,30 @@ public:
     LastNodeToRemove = nullptr;
 
     EmptyNodeRemoverVisitorImpl::postVisit(Node);
+  }
+
+  void visit(HLDDNode *Node) {
+    // Record side effect of LVal or volatile memref.
+    if (!LoopSideEffects.empty() && !LoopSideEffects.back().second) {
+      for (RegDDRef *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
+        if (Ref->isMemRef() && (Ref->isVolatile() || Ref->isLval())) {
+          LoopSideEffects.back().second = true;
+        }
+      }
+    }
+
+    visit(static_cast<HLNode *>(Node));
+  }
+
+  void visit(HLInst *Inst) {
+    // Record side effect of unsafe calls.
+    if (!LoopSideEffects.empty() && !LoopSideEffects.back().second) {
+      if (Inst->isUnsafeSideEffectCallInst()) {
+        LoopSideEffects.back().second = true;
+      }
+    }
+
+    visit(static_cast<HLDDNode *>(Inst));
   }
 
   void visit(HLNode *Node) {

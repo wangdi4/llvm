@@ -41,18 +41,7 @@
 ; CHECK:   |   }
 ; CHECK:   + END LOOP
 ; CHECK: }
-; CHECK: else
-; CHECK: {
-; CHECK:   + UNKNOWN LOOP i1
-; CHECK:   |   <i1 = 0>
-; CHECK:   |   %call.i = @_ZSt18_Rb_tree_incrementPSt18_Rb_tree_node_base(&((%iter.sroa.0.090)[0]));
-; CHECK:   |   %iter.sroa.0.090 = &((%call.i)[0]);
-; CHECK:   |   if (&((%call.i)[0]) != &((%this)[0].4.0.0.1))
-; CHECK:   |   {
-; CHECK:   |      <i1 = i1 + 1>
-; CHECK:   |   }
-; CHECK:   + END LOOP
-; CHECK: }
+; CHECK-NOT:   + UNKNOWN LOOP i1
 ; CHECK: END REGION
 
 ;Module Before HIR; ModuleID = '/export/iusers/pgprokof/tests/tc_icx/benchspec/CPU/520.omnetpp_r/build/build_base_empty.0000/_ZN16MACRelayUnitBase17printAddressTableEv.ll'
