@@ -41,6 +41,7 @@ class CSAAsmParser : public MCTargetAsmParser {
   std::unique_ptr<CSAOperand> defaultRModeOperands();
   std::unique_ptr<CSAOperand> defaultSignctlOperands();
   std::unique_ptr<CSAOperand> defaultIntervalOperands();
+  std::unique_ptr<CSAOperand> defaultPrioOrderOperands();
 
   bool parsePrePost(StringRef Type, int *OffsetValue);
 
@@ -176,6 +177,8 @@ public:
 
   bool isSignctl() const { return isImm(); }
 
+  bool isPrioOrder() const { return isImm(); }
+
   bool isMem() const { llvm_unreachable("No isMem"); }
 
   void print(raw_ostream &OS) const override {
@@ -276,6 +279,12 @@ public:
     assert(N == 1 && "Invalid number of operands!");
     addExpr(Inst, getImm());
   }
+
+  void addPrioOrderOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    addExpr(Inst, getImm());
+  }
+
 };
 
 bool CSAAsmParser::ParseDirective(AsmToken /*DirectiveId*/) { return true; }
@@ -469,6 +478,12 @@ std::unique_ptr<CSAOperand> CSAAsmParser::defaultIntervalOperands() {
   SMLoc loc = Parser.getTok().getLoc();
   return CSAOperand::createImm(
     MCConstantExpr::create(CSA::INTERVAL0, getContext()), loc, loc);
+}
+
+std::unique_ptr<CSAOperand> CSAAsmParser::defaultPrioOrderOperands() {
+  SMLoc loc = Parser.getTok().getLoc();
+  return CSAOperand::createImm(
+    MCConstantExpr::create(0, getContext()), loc, loc);
 }
 
 static int SizeForSuffix(StringRef T) {

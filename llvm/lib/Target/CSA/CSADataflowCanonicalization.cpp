@@ -55,7 +55,7 @@ public:
 
 private:
   MachineFunction *MF;
-  const MachineRegisterInfo *MRI;
+  MachineRegisterInfo *MRI;
   CSAMachineFunctionInfo *LMFI;
   const CSAInstrInfo *TII;
   std::vector<MachineInstr *> to_delete;
@@ -72,6 +72,9 @@ private:
   /// The following mini pass replaces SWITCH operations where one output
   /// is ignored with FILTER operations.
   bool createFilterOps(MachineInstr *MI);
+
+  /// The following mini pass replaces MOV operations.
+  bool eliminateMovInsts(MachineInstr *MI);
 
   MachineInstr *getDefinition(const MachineOperand &MO) const;
   void getUses(const MachineOperand &MO,
@@ -106,6 +109,7 @@ bool CSADataflowCanonicalizationPass::runOnMachineFunction(
   bool changed          = false;
   static auto functions = {
     &CSADataflowCanonicalizationPass::eliminateNotPicks,
+    &CSADataflowCanonicalizationPass::eliminateMovInsts,
     &CSADataflowCanonicalizationPass::createFilterOps,
     &CSADataflowCanonicalizationPass::invertIgnoredSwitches};
   for (auto func : functions) {
@@ -297,5 +301,25 @@ bool CSADataflowCanonicalizationPass::invertIgnoredSwitches(MachineInstr *MI) {
   // Delete the old switch.
   to_delete.push_back(MI);
 
+  return true;
+}
+
+bool CSADataflowCanonicalizationPass::eliminateMovInsts(MachineInstr *MI) {
+  if (!MI->getFlag(MachineInstr::NonSequential))
+    return false;
+
+  if (TII->getGenericOpcode(MI->getOpcode()) != CSA::Generic::MOV)
+    return false;
+
+  if (!MI->getOperand(0).isReg() || !MI->getOperand(1).isReg())
+    return false;
+
+  unsigned srcReg = MI->getOperand(1).getReg();
+  unsigned destReg = MI->getOperand(0).getReg();
+  if (!MRI->getUniqueVRegDef(destReg))
+    return false;
+
+  MRI->replaceRegWith(destReg, srcReg);
+  to_delete.push_back(MI);
   return true;
 }

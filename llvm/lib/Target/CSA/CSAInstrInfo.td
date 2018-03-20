@@ -93,6 +93,18 @@ def RMODE : OperandWithDefaultOps <i64, (ops (i64 0))>
   let ParserMatchClass = RmodeAsmOperand;
 }
 
+// A 0-defaulting literal i1 operand. This is used by the various "any"
+// operators to choose between fixed left-to-right and least-recently-used
+// priority ordering. The default tends to be 0, for the fixed ordering.
+def PrioOrderAsmOperand : AsmOperandClass {
+  let Name = "PrioOrder";
+  let IsOptional = 1;
+}
+def PrioOrderOperand : OperandWithDefaultOps<i1, (ops (i1 0))> {
+  let ParserMatchClass = PrioOrderAsmOperand;
+  let PrintMethod = "printPrioOrderOperand";
+}
+
 // Memory level operands. For simplicity these use numeric values that match
 // the intrinsic rather than the simulator (so the default value is T0, not NTA).
 def MemLvlAsmOperand : AsmOperandClass {
@@ -446,15 +458,15 @@ class SwitchAnyOp<GenericOp gen, CSAOpInfo oi,
                   InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs oi.RC:$dst0, oi.RC:$dst1, I1:$sel),
-    (ins oi.RCL:$v),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst0, $dst1, $sel, $v"),
+    (ins oi.RCL:$v, PrioOrderOperand:$mode),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst0, $dst1, $sel, $v, $mode"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
 class FilterOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs oi.RC:$dst),
-    (ins I1:$sel, oi.RCL:$v),
+    (ins CI1:$sel, oi.RCL:$v),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
@@ -470,16 +482,24 @@ class PickAnyOp<GenericOp gen, CSAOpInfo oi,
                 InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs oi.RC:$dst, I1:$sel),
-    (ins oi.RCL:$v0, oi.RCL:$v1),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v0, $v1"),
+    (ins oi.RCL:$v0, oi.RCL:$v1, PrioOrderOperand:$mode),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v0, $v1, $mode"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
 class GateOp<GenericOp gen, CSAOpInfo oi,
              InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs oi.RC:$dst),
-    (ins I0:$sel, oi.RCL:$v),
+    (ins CI0:$sel, oi.RCL:$v),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
+
+class CompletionOp<GenericOp gen, CSAOpInfo oi,
+             InstrItinClass itin, list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs CI8:$availidx, oi.LICRC:$ldres),
+    (ins CI8:$stidx, oi.LICRC:$stdata, i8imm:$size),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$availidx, $ldres, $stidx, $stdata, $size"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
 // We thought that hasSideEffects would capture the internal state and stream
@@ -491,7 +511,7 @@ class GateOp<GenericOp gen, CSAOpInfo oi,
 class SeqCOp<GenericOp gen, CSAOpInfo oi,
              InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,  // TODO: something to reflect state
-    (outs oi.RC:$val, I1:$pred, I1:$first, I1:$last),
+    (outs oi.LICRC:$val, CI1:$pred, CI1:$first, CI1:$last),
     (ins oi.RCL:$base, oi.RCL:$count, oi.RCL:$stride),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$val, $pred, $first, $last, $base, $count, $stride"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
@@ -501,7 +521,7 @@ class SeqCOp<GenericOp gen, CSAOpInfo oi,
 class SeqSOp<GenericOp gen, CSAOpInfo oi,
              InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
-    (outs oi.RC:$val, I1:$pred, I1:$first, I1:$last),
+    (outs oi.LICRC:$val, CI1:$pred, CI1:$first, CI1:$last),
     (ins oi.RCL:$base, oi.RCL:$bound, oi.RCL:$stride),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$val, $pred, $first, $last, $base, $bound, $stride"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
@@ -510,7 +530,7 @@ class SeqSOp<GenericOp gen, CSAOpInfo oi,
 class RepeatOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,  // TODO: something to reflect state
-    (outs oi.RC:$out),
+    (outs oi.LICRC:$out),
     (ins RCLi1:$pred, oi.RCL:$in),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$out, $pred, $in"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
@@ -519,7 +539,7 @@ class RepeatOp<GenericOp gen, CSAOpInfo oi,
 class StrideOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,  // TODO: something to reflect state
-    (outs oi.RC:$out),
+    (outs oi.LICRC:$out),
     (ins RCLi1:$pred, oi.RCL:$base, oi.RCL:$stride),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$out, $pred, $base, $stride"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
@@ -527,7 +547,7 @@ class StrideOp<GenericOp gen, CSAOpInfo oi,
 class SReduceOp<GenericOp gen, CSAOpInfo oi,
                 InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
-    (outs oi.RC:$result, oi.RC:$each),
+    (outs oi.LICRC:$result, oi.LICRC:$each),
     (ins oi.RCL:$init, oi.RCL:$inval, RCLi1:$ctl),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval, $ctl"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
@@ -535,7 +555,7 @@ class SReduceOp<GenericOp gen, CSAOpInfo oi,
 class SReduceOpR<GenericOp gen, CSAOpInfo oi,
                 InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
-    (outs oi.RC:$result, oi.RC:$each),
+    (outs oi.LICRC:$result, oi.LICRC:$each),
     (ins oi.RCL:$init, oi.RCL:$inval, RCLi1:$ctl, RMODE:$rm),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval, $ctl, $rm"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
@@ -543,7 +563,7 @@ class SReduceOpR<GenericOp gen, CSAOpInfo oi,
 class FMSReduceOp<GenericOp gen, CSAOpInfo oi,
                   InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
-    (outs oi.RC:$result, oi.RC:$each),
+    (outs oi.LICRC:$result, oi.LICRC:$each),
     (ins oi.RCL:$init, oi.RCL:$inval1, oi.RCL:$inval2, RCLi1:$ctl, RMODE:$rm),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval1, $inval2, $ctl, $rm"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
@@ -635,15 +655,16 @@ class StreamStOp<string opStr, CSAOpInfo t, InstrItinClass itin = IIST> :
   let Itinerary = itin;
 }
 
-class MullohiOp<GenericOp gen, CSAOpInfo oi,
+class XmulOp<GenericOp gen, CSAOpInfo oi, CSAOpInfo oi2, SDNode ext,
                InstrItinClass itin = IIALU, list<Predicate> preds = []> :
   FMTGEN <gen, oi,
-    (outs oi.RC:$lo, oi.RC:$hi),
+    (outs oi2.RC:$res),
     (ins  oi.RCL:$op1, oi.RCL:$op2),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$lo, $hi, $op1, $op2"),
-    [],
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$res, $op1, $op2"),
+    [(set oi2.RC:$res, (mul (ext oi.RCL:$op1), (ext oi.RCL:$op2)))],
     !listconcat(preds,oi.Preds), itin>
     { let mayLoad = 0; let mayStore = 0; let hasSideEffects = 0; }
+
 
 class FModOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin = IIALU, list<Predicate> preds = []> :
@@ -1240,9 +1261,9 @@ def LOR1 : FMTGEN<LOR, Ti1,
 
 def ANY : GenericOp<"any">;
 def ANY0 : FMTGEN<ANY, Ti0,
-  (outs I8:$dst),
-  (ins RCLi0:$op1, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4),
-  "any0\t$dst, $op1, $op2, $op3, $op4",
+  (outs I64:$dst),
+  (ins RCLi0:$op1, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4, PrioOrderOperand:$ord),
+  "any0\t$dst, $op1, $op2, $op3, $op4, $ord",
   [], [], IIVir>;
 
 def ALL : GenericOp<"all">;
@@ -1465,6 +1486,13 @@ def SREDXOR16 : SReduceOp<SREDXOR,  Ti16, IIALU>;
 def SREDXOR32 : SReduceOp<SREDXOR,  Ti32, IIALU>;
 def SREDXOR64 : SReduceOp<SREDXOR,  Ti64, IIALU>;
 
+// TODO: new itinerary class for this one?
+def COMPLETION   : GenericOp<"completion">;
+def COMPLETION1  : CompletionOp<COMPLETION, Ti1,  IIST>;
+def COMPLETION8  : CompletionOp<COMPLETION, Ti8,  IIST>;
+def COMPLETION16 : CompletionOp<COMPLETION, Ti16, IIST>;
+def COMPLETION32 : CompletionOp<COMPLETION, Ti32, IIST>;
+def COMPLETION64 : CompletionOp<COMPLETION, Ti64, IIST>;
 
 // TBD(jsukha): This info probably needs predicates
 // Also, the input can probably be an I0 channel.
@@ -1527,15 +1555,13 @@ def SST64    : StreamStOp<"sst64",  Ti64>;
 def SST64f   : StreamStOp<"sst64",  Tf64>;
 
 // Extended multiplication
-def MULLOHI   : GenericOp<"mullohi">;
-def MULLOHIS8  : MullohiOp<MULLOHI, Ts8,  IIMulI8>;
-def MULLOHIS16 : MullohiOp<MULLOHI, Ts16, IIMulI16>;
-def MULLOHIS32 : MullohiOp<MULLOHI, Ts32, IIMulI32>;
-def MULLOHIS64 : MullohiOp<MULLOHI, Ts64, IIMulI64>;
-def MULLOHIU8  : MullohiOp<MULLOHI, Tu8,  IIMulI8>;
-def MULLOHIU16 : MullohiOp<MULLOHI, Tu16, IIMulI16>;
-def MULLOHIU32 : MullohiOp<MULLOHI, Tu32, IIMulI32>;
-def MULLOHIU64 : MullohiOp<MULLOHI, Tu64, IIMulI64>;
+def XMUL    : GenericOp<"xmul">;
+def XMULS8  : XmulOp<XMUL, Ts8,  Ts16, sext, IIMulI8>;
+def XMULU8  : XmulOp<XMUL, Tu8,  Tu16, zext, IIMulI8>;
+def XMULS16 : XmulOp<XMUL, Ts16, Ts32, sext, IIMulI16>;
+def XMULU16 : XmulOp<XMUL, Tu16, Tu32, zext, IIMulI16>;
+def XMULS32 : XmulOp<XMUL, Ts32, Ts64, sext, IIMulI32>;
+def XMULU32 : XmulOp<XMUL, Tu32, Tu64, zext, IIMulI32>;
 
 // Atomic operations
 def ATMAND    : GenericOp<"atmand", [HasRMWAtomic]>;
@@ -1568,7 +1594,7 @@ def ATMXOR8   : AtomicOp<ATMXOR,  atomic_load_xor_8,  Ti8,  IIATM>;
 def ATMXOR16  : AtomicOp<ATMXOR,  atomic_load_xor_16, Ti16, IIATM>;
 def ATMXOR32  : AtomicOp<ATMXOR,  atomic_load_xor_32, Ti32, IIATM>;
 def ATMXOR64  : AtomicOp<ATMXOR,  atomic_load_xor_64, Ti64, IIATM>;
-def ATMXCHG   : GenericOp<"atmxchg">;
+def ATMXCHG   : GenericOp<"atmxchg", [HasRMWAtomic]>;
 def ATMXCHG8  : AtomicOp<ATMXCHG, atomic_swap_8,      Ti8,  IIATM>;
 def ATMXCHG16 : AtomicOp<ATMXCHG, atomic_swap_16,     Ti16, IIATM>;
 def ATMXCHG32 : AtomicOp<ATMXCHG, atomic_swap_32,     Ti32, IIATM>;

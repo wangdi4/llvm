@@ -21,7 +21,9 @@ loop:
 ; CHECK: mov0 %[[INORD:[a-z0-9_]+]], %ra
 ; CHECK: mov64 %[[LEN:[a-z0-9_]+]], %r3
 ; CHECK: mov64 %[[ADDR:[a-z0-9_]+]], %r2
-; CHECK: sld8 %[[VAL:[a-z0-9_]+]], %[[ADDR]], %[[LEN]], 1, %[[OUTORD:[a-z0-9_]+]], %[[INORD]], MEMLEVEL_T0
+; CHECK: cmpne64 %[[OT:[a-z0-9_]+]], %[[LEN]], 0
+; CHECK: merge64 %[[SAFELEN:[a-z0-9_]+]], %[[OT]], 1, %[[LEN]]
+; CHECK: sld8 %[[VAL:[a-z0-9_]+]], %[[ADDR]], %[[SAFELEN]], 1, %[[OUTORD:[a-z0-9_]+]], %[[INORD]], MEMLEVEL_T0
 ; CHECK: mov0 %r1, %[[OUTORD]]
 
 exit:

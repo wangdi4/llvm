@@ -44,6 +44,7 @@ MachineFunctionPass *createCSAMemopOrderingPass();
 MachineFunctionPass *createCSANormalizeDebugPass();
 MachineFunctionPass *createCSADataflowCanonicalizationPass();
 MachineFunctionPass *createCSAStreamingMemoryConversionPass();
+MachineFunctionPass *createCSANameLICsPass();
 // FunctionPass *createCSALowerStructArgsPass();
 Pass *createCSAInnerLoopPrepPass();
 Pass *createCSAStreamingMemoryPrepPass();

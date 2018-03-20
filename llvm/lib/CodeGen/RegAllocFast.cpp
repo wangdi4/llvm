@@ -161,6 +161,12 @@ namespace {
       spillImpossible = ~0u
     };
 
+#if INTEL_CUSTOMIZATION
+    bool isVirtualRegister(unsigned Reg) const {
+      return TargetRegisterInfo::isVirtualRegister(Reg) &&
+        !MRI->getRegClass(Reg)->isVirtual();
+    }
+#endif
   public:
     StringRef getPassName() const override { return "Fast Register Allocator"; }
 
@@ -181,7 +187,7 @@ namespace {
 
   private:
     bool runOnMachineFunction(MachineFunction &Fn) override;
-    void allocateBasicBlock(MachineBasicBlock &MBB);
+    bool allocateBasicBlock(MachineBasicBlock &MBB); // INTEL
     void handleThroughOperands(MachineInstr &MI,
                                SmallVectorImpl<unsigned> &VirtDead);
     int getStackSpaceFor(unsigned VirtReg, const TargetRegisterClass &RC);
@@ -730,7 +736,7 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
   for (const MachineOperand &MO : MI.operands()) {
     if (!MO.isReg()) continue;
     unsigned Reg = MO.getReg();
-    if (!TargetRegisterInfo::isVirtualRegister(Reg))
+    if (!isVirtualRegister(Reg)) // INTEL
       continue;
     if (MO.isEarlyClobber() || (MO.isUse() && MO.isTied()) ||
         (MO.getSubReg() && MI.readsVirtualRegister(Reg))) {
@@ -759,7 +765,7 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
     const MachineOperand &MO = MI.getOperand(I);
     if (!MO.isReg()) continue;
     unsigned Reg = MO.getReg();
-    if (!TargetRegisterInfo::isVirtualRegister(Reg)) continue;
+    if (!isVirtualRegister(Reg)) continue; // INTEL
     if (MO.isUse()) {
       if (!MO.isTied()) continue;
       DEBUG(dbgs() << "Operand " << I << "("<< MO << ") is tied to operand "
@@ -783,7 +789,7 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
     const MachineOperand &MO = MI.getOperand(I);
     if (!MO.isReg()) continue;
     unsigned Reg = MO.getReg();
-    if (!TargetRegisterInfo::isVirtualRegister(Reg)) continue;
+    if (!isVirtualRegister(Reg)) continue; // INTEL
     if (!MO.isEarlyClobber())
       continue;
     // Note: defineVirtReg may invalidate MO.
@@ -844,7 +850,10 @@ void RegAllocFast::dumpState() {
 }
 #endif
 
-void RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) {
+bool RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) { // INTEL
+#if INTEL_CUSTOMIZATION
+  bool hasVirtualRegs = false;
+#endif
   this->MBB = &MBB;
   DEBUG(dbgs() << "\nAllocating " << MBB);
 
@@ -942,6 +951,13 @@ void RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) {
       unsigned Reg = MO.getReg();
       if (!Reg) continue;
       if (TargetRegisterInfo::isVirtualRegister(Reg)) {
+#if INTEL_CUSTOMIZATION
+        if (MRI->getRegClass(Reg)->isVirtual()) {
+          hasVirtualRegs = true;
+          continue;
+        }
+#endif
+
         VirtOpEnd = i+1;
         if (MO.isUse()) {
           hasTiedOps = hasTiedOps ||
@@ -990,7 +1006,9 @@ void RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) {
       const MachineOperand &MO = MI.getOperand(I);
       if (!MO.isReg()) continue;
       unsigned Reg = MO.getReg();
-      if (!TargetRegisterInfo::isVirtualRegister(Reg)) continue;
+#if INTEL_CUSTOMIZATION
+      if (!isVirtualRegister(Reg)) continue;
+#endif
       if (MO.isUse()) {
         LiveRegMap::iterator LRI = reloadVirtReg(MI, I, Reg, CopyDstReg);
         MCPhysReg PhysReg = LRI->PhysReg;
@@ -1040,6 +1058,10 @@ void RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) {
         definePhysReg(MI, Reg, MO.isDead() ? regFree : regReserved);
         continue;
       }
+#if INTEL_CUSTOMIZATION
+      else if (MRI->getRegClass(Reg)->isVirtual())
+        continue;
+#endif
       LiveRegMap::iterator LRI = defineVirtReg(MI, I, Reg, CopySrcReg);
       MCPhysReg PhysReg = LRI->PhysReg;
       if (setPhysReg(MI, I, PhysReg)) {
@@ -1076,6 +1098,9 @@ void RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) {
   NumCopies += Coalesced.size();
 
   DEBUG(MBB.dump());
+#if INTEL_CUSTOMIZATION
+  return hasVirtualRegs;
+#endif
 }
 
 /// Allocates registers for a function.
@@ -1099,12 +1124,18 @@ bool RegAllocFast::runOnMachineFunction(MachineFunction &MF) {
   LiveVirtRegs.setUniverse(NumVirtRegs);
 
   // Loop over all of the basic blocks, eliminating virtual register references
-  for (MachineBasicBlock &MBB : MF)
-    allocateBasicBlock(MBB);
+  bool hasVirtualRegs = false; // INTEL
+  for (MachineBasicBlock &MBB : MF) {
+    hasVirtualRegs |= allocateBasicBlock(MBB); // INTEL
+  }
 
   // All machine operands and other references to virtual registers have been
   // replaced. Remove the virtual registers.
-  MRI->clearVirtRegs();
+#if INTEL_CUSTOMIZATION
+  if (!hasVirtualRegs) {
+    MRI->clearVirtRegs();
+  }
+#endif
 
   StackSlotForVirtReg.clear();
   LiveDbgValueMap.clear();

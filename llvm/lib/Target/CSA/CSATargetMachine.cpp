@@ -182,7 +182,6 @@ public:
 #define DEBUG_TYPE "csa-convert-control"
   void addPreRegAlloc() override {
     std::string Banner;
-#if 1
     Banner = std::string("Before Machine CDG Pass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
@@ -201,7 +200,11 @@ public:
       addPass(createCSAMemopOrderingPass());
       Banner = std::string("After CSAMemopOrderingPass");
       DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    }
 
+    addPass(createCSANameLICsPass(), false);
+
+    if (getOptLevel() != CodeGenOpt::None) {
       addPass(createCSACvtCFDFPass(), false);
       Banner = std::string("After CSACvtCFDFPass");
       DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
@@ -238,14 +241,10 @@ public:
     addPass(createCSANormalizeDebugPass(), false);
     Banner = std::string("After CSANormalizeDebug");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-#else
-    Banner = std::string("Before CSAOptDFPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-    addPass(createCSAOptDFPass(), false);
-    Banner = std::string("After CSAOptDFPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-#endif
+    // Register coalescing causes issues with our def-after-use nature of
+    // dataflow.
+    disablePass(&RegisterCoalescerID);
   }
 
   void addPostRegAlloc() override {

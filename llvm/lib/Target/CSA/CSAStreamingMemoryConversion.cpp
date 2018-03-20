@@ -23,6 +23,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
@@ -48,11 +49,13 @@ public:
   bool runOnMachineFunction(MachineFunction &MF) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesAll();
+    AU.addRequired<MachineOptimizationRemarkEmitterPass>();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 
 private:
   MachineFunction *MF;
+  MachineOptimizationRemarkEmitter *ORE;
   const MachineRegisterInfo *MRI;
   CSAMachineFunctionInfo *LMFI;
   const CSAInstrInfo *TII;
@@ -65,7 +68,7 @@ private:
   MachineInstr *getSingleUse(const MachineOperand &MO) const;
   bool isZero(const MachineOperand &MO) const;
   MachineOp getLength(const MachineOperand &start, const MachineOperand &end,
-                      bool isEqual, int64_t stride,
+                      bool isEqual, int64_t stride, bool isOneTrip,
                       MachineInstr *buildPoint) const;
 };
 } // namespace llvm
@@ -89,6 +92,7 @@ bool CSAStreamingMemoryConversionPass::runOnMachineFunction(
   LMFI     = MF.getInfo<CSAMachineFunctionInfo>();
   TII      = static_cast<const CSAInstrInfo *>(
     MF.getSubtarget<CSASubtarget>().getInstrInfo());
+  ORE = &getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();
 
   // Run several functions one at a time on the entire graph. There is probably
   // a better way of implementing this sort of strategy (like how InstCombiner
@@ -146,11 +150,70 @@ bool CSAStreamingMemoryConversionPass::isZero(const MachineOperand &MO) const {
 
 MachineOp CSAStreamingMemoryConversionPass::getLength(
   const MachineOperand &start, const MachineOperand &end, bool isEqual,
-  int64_t stride, MachineInstr *MI) const {
-  if (stride < 0)
-    return getLength(end, start, isEqual, -stride, MI);
+  int64_t stride, bool isOneTrip, MachineInstr *MI) const {
   CSAInstBuilder builder(*TII);
   builder.setInsertionPoint(MI);
+
+  // In the one trip count, we need to account for the possibility that the
+  // pattern is executed only once. Test the condition for the starting values
+  // of start and end, and the length is (loop cond ? length : 1).
+  if (isOneTrip) {
+    MachineOp executed = getLength(start, end, isEqual, stride, false, MI);
+    CSA::Generic cmpOpcode;
+    switch (TII->getGenericOpcode(MI->getOpcode())) {
+      case CSA::Generic::SEQOTNE: cmpOpcode = CSA::Generic::CMPNE; break;
+      case CSA::Generic::SEQOTLE: cmpOpcode = CSA::Generic::CMPLE; break;
+      case CSA::Generic::SEQOTLT: cmpOpcode = CSA::Generic::CMPLT; break;
+      case CSA::Generic::SEQOTGE: cmpOpcode = CSA::Generic::CMPGE; break;
+      case CSA::Generic::SEQOTGT: cmpOpcode = CSA::Generic::CMPGT; break;
+      default: llvm_unreachable("Bad opcode");
+    }
+    unsigned licSize = TII->getLicSize(MI->getOpcode());
+
+    // We need to execute the loop exactly once if the loop condition turns out
+    // to be false. So do the comparison of the first iteration to see if it is
+    // false. In this circumstance, we would return exactly 1 iteration instead
+    // of our calculated count. Try to reuse older instructions if they exist.
+    unsigned compare = TII->adjustOpcode(MI->getOpcode(), cmpOpcode);
+    MachineOp loopCondition(nullptr);
+    if (start.isReg()) {
+      for (auto &use : MRI->use_instructions(start.getReg())) {
+        if (use.getOpcode() == compare &&
+            start.isIdenticalTo(use.getOperand(1)) &&
+            end.isIdenticalTo(use.getOperand(2))) {
+          loopCondition = OpReg(use.getOperand(0).getReg());
+          break;
+        }
+      }
+    }
+    if (!loopCondition) {
+      loopCondition = builder.makeOrConstantFold(*LMFI,
+        TII->adjustOpcode(MI->getOpcode(), cmpOpcode), start, end);
+    }
+
+    // Check for the merge instruction already existing.
+    unsigned mergeOpcode = TII->makeOpcode(CSA::Generic::MERGE, licSize);
+    if (loopCondition.isReg()) {
+      for (auto &use : MRI->use_instructions(loopCondition.getReg())) {
+        if (use.getOpcode() == mergeOpcode &&
+            use.getOperand(1) == loopCondition &&
+            use.getOperand(2).isIdenticalTo(MachineOperand::CreateImm(1)) &&
+            use.getOperand(3) == executed)
+          return OpDef(use.getOperand(0));
+      }
+    }
+    // Doesn't exist, make a new one instead.
+    unsigned newLic = LMFI->allocateLIC(TII->getLicClassForSize(licSize));
+    builder.makeInstruction(mergeOpcode,
+        OpRegDef(newLic),
+        loopCondition,
+        OpImm(1),
+        executed);
+    return OpReg(newLic);
+  }
+
+  if (stride < 0)
+    return getLength(end, start, isEqual, -stride, isOneTrip, MI);
   if (stride != 1) {
     // Trip count = (end + isEqual - start + stride - 1) / stride
     return builder.makeOrConstantFold(
@@ -224,6 +287,12 @@ constexpr auto repeated_pat = mirmatch::graph(
     seqot(mirmatch::AnyOperand, mirmatch::AnyOperand, mirmatch::AnyOperand));
 
 bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
+  auto reportFailure = [=](const char *message) {
+    MachineOptimizationRemarkMissed R(DEBUG_TYPE, "StreamingMemory",
+        MI->getDebugLoc(), MI->getParent());
+    ORE->emit(R << "streaming memory conversion failed: " << message);
+  };
+
   const MachineOperand *base, *value;
   unsigned stride;
   const MachineOperand *inOrder, *outOrder, *memOrder;
@@ -244,9 +313,11 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
     const MachineOperand &strideOp = memAddr->getOperand(3);
     unsigned opcodeSize            = TII->getLicSize(MI->getOpcode()) / 8;
     if (!strideOp.isImm()) {
+      reportFailure("stride is not constant 1");
       DEBUG(dbgs() << "Stride is not an immediate, cannot compute stride\n");
       return false;
     } else if (strideOp.getImm() % opcodeSize) {
+      reportFailure("stride is not constant 1");
       DEBUG(dbgs() << "Stride " << strideOp.getImm()
                    << " is not a multiple of opcode size\n");
       return false;
@@ -309,6 +380,7 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
     baseUsesStream                 = true;
     const MachineOperand &strideOp = memIndex->getOperand(6);
     if (!strideOp.isImm()) {
+      reportFailure("stride is not constant 1");
       DEBUG(dbgs() << "Candidate instruction has non-constant stride.\n");
       return false;
     }
@@ -317,6 +389,7 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
         genericOpcode != CSA::Generic::STX) {
       unsigned opcodeSize = TII->getLicSize(MI->getOpcode()) / 8;
       if (stride % opcodeSize) {
+        reportFailure("stride is not constant 1");
         DEBUG(dbgs() << "Candidate instruction has improper stride.\n");
         return false;
       }
@@ -343,11 +416,13 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   // Verify that the memory orders are properly constrained by the stream.
   MachineInstr *inSource = getDefinition(*inOrder);
   if (!inSource) {
+    reportFailure("memory ordering tokens are not loop-invariant");
     DEBUG(dbgs() << "Conversion failed due to bad in memory order.\n");
     return false;
   }
   auto mem_result = mirmatch::match(repeated_pat, inSource);
   if (!mem_result || MRI->getVRegDef(mem_result.reg(SEQ_LAST)) != stream) {
+    reportFailure("memory ordering tokens are not loop-invariant");
     DEBUG(dbgs() << "Conversion failed due to bad in memory order.\n");
     return false;
   }
@@ -355,6 +430,7 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   MachineInstr *outSink = getSingleUse(*outOrder);
   if (!outSink ||
       TII->getGenericOpcode(outSink->getOpcode()) != CSA::Generic::FILTER) {
+    reportFailure("memory ordering tokens are not loop-invariant");
     DEBUG(dbgs()
           << "Conversion failed because out memory order is not a switch.\n");
     return false;
@@ -364,6 +440,7 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   // it's the last iteration of the stream.
   MachineInstr *sinkControl = getDefinition(outSink->getOperand(1));
   if (!sinkControl) {
+    reportFailure("memory ordering tokens are not loop-invariant");
     DEBUG(dbgs() << "Cannot found the definition of the output order switch");
     return false;
   }
@@ -393,7 +470,7 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
     return false;
   }
   const MachineOp length =
-    getLength(seqStart, seqEnd, isEqual, seqStep.getImm(), stream);
+    getLength(seqStart, seqEnd, isEqual, seqStep.getImm(), true, stream);
   if (!length) {
     DEBUG(dbgs() << "Stream operand is of unknown form.\n");
     return false;
@@ -412,6 +489,10 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
       base = &baseForStream->getOperand(0);
     }
   }
+
+  MachineOptimizationRemark R(DEBUG_TYPE, "StreamingMemory",
+      MI->getDebugLoc(), MI->getParent());
+  ORE->emit(R << "converted to streaming memory reference");
 
   DEBUG(dbgs()
         << "No reason to disqualify the memory operation found, converting\n");

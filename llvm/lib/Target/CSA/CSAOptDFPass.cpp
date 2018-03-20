@@ -577,10 +577,8 @@ bool CSAOptDFPass::seq_identify_header(MachineInstr *MI, CSASeqHeader *header) {
   unsigned pickerChannel;
   bool pickerSense = 0;
   if (seq_is_picker_init_inst(MRI, MI, &pickerChannel, &pickerSense)) {
-#if RAVI
     DEBUG(errs() << "Found picker definition. Register= " << pickerChannel
-                 << " = " << PrintReg(pickerChannel) << "\n");
-#endif
+                 << " = " << printReg(pickerChannel) << "\n");
 
     // Once we have a picker, then walk over and count the defs.  We
     // want to find exactly one (other) def != MI, which is a MOV1

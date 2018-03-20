@@ -71,6 +71,11 @@ static cl::opt<bool>
                cl::desc("CSA Specific: Print pretty names for LICs"),
                cl::init(false));
 
+static cl::opt<bool>
+  AllowUndefRegs("csa-allow-undef-regs", cl::Hidden,
+                 cl::desc("CSA Specific: Allow LICs without definition"),
+                 cl::init(false));
+
 namespace {
 class LineReader {
 private:
@@ -549,9 +554,25 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
   const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
 
   if (not ImplicitLicDefs) {
+    auto printRegisterAttribs = [&](unsigned reg) {
+      for (StringRef k : LMFI->getLICAttributes(reg)){
+        SmallString<128> Str;
+        raw_svector_ostream O(Str);
+
+        O << CSAInstPrinter::WrapCsaAsmLinePrefix();
+        O << "\t.attrib " << k << " ";
+        O << LMFI->getLICAttribute(reg, k);
+        O << CSAInstPrinter::WrapCsaAsmLineSuffix();
+        OutStreamer->EmitRawText(O.str());
+      }
+    };
+
     auto printRegister = [&](unsigned reg, StringRef name) {
+      printRegisterAttribs(reg);
+
       SmallString<128> Str;
       raw_svector_ostream O(Str);
+
       O << CSAInstPrinter::WrapCsaAsmLinePrefix();
       O << "\t.lic";
       if (unsigned depth = LMFI->getLICDepth(reg)) {
@@ -582,6 +603,8 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
     for (unsigned index = 0, e = MRI->getNumVirtRegs(); index != e; ++index) {
       unsigned vreg = TargetRegisterInfo::index2VirtReg(index);
       if (!MRI->reg_empty(vreg)) {
+        if (!AllowUndefRegs)
+          assert(!MRI->def_empty(vreg) && "No definition for register");
         StringRef name = LMFI->getLICName(vreg);
         if (!EmitRegNames || name.empty()) {
           LMFI->setLICName(vreg, Twine("cv") + Twine(LMFI->getLICSize(vreg)) +

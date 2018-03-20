@@ -22,6 +22,7 @@ void CSAMachineFunctionInfo::anchor() {}
 
 CSAMachineFunctionInfo::CSAMachineFunctionInfo(MachineFunction &MF)
     : MRI(MF.getRegInfo()), TII(MF.getSubtarget<CSASubtarget>().getInstrInfo()),
+      nameCounter(0),
       FPFrameIndex(-1), RAFrameIndex(-1), VarArgsFrameIndex(-1) {}
 
 CSAMachineFunctionInfo::~CSAMachineFunctionInfo() {}
@@ -75,8 +76,28 @@ void CSAMachineFunctionInfo::noteNewLIC(unsigned vreg, unsigned size,
 
 void CSAMachineFunctionInfo::setLICName(unsigned vreg,
                                         const Twine &name) const {
-  // TODO: guarantee uniqueness of names.
-  getLICInfo(vreg).name = name.str();
+  if (TargetRegisterInfo::isPhysicalRegister(vreg))
+    return;
+
+  if (!name.isTriviallyEmpty()) {
+    std::string composed = name.str();
+    for (auto &ch : composed) {
+      if ('a' <= ch && ch <= 'z') continue;
+      if ('A' <= ch && ch <= 'Z') continue;
+      if ('0' <= ch && ch <= '9') continue;
+      if (ch == '.' || ch == '_') continue;
+      if (ch == '$' || ch == '%') continue;
+      ch = '_';
+    }
+    auto baseIndex = composed.size();
+    while (!namedLICs.insert(composed).second) {
+      composed.resize(baseIndex);
+      composed += std::to_string(++nameCounter);
+    }
+    getLICInfo(vreg).name = composed;
+  } else {
+    getLICInfo(vreg).name.clear();
+  }
 }
 
 CSAMachineFunctionInfo::LICInfo &
@@ -90,4 +111,15 @@ CSAMachineFunctionInfo::getLICInfo(unsigned regno) {
 int CSAMachineFunctionInfo::getLICSize(unsigned regno) const {
   const TargetRegisterClass *RC = TII->getRegisterClass(regno, MRI);
   return TII->getSizeOfRegisterClass(RC);
+}
+
+void CSAMachineFunctionInfo::addLICAttribute(unsigned regno, const StringRef key, const StringRef value) const {
+  getLICInfo(regno).attribs[key] = value;
+}
+
+StringRef CSAMachineFunctionInfo::getLICAttribute(unsigned reg, StringRef key) const {
+  if (getLICInfo(reg).attribs.count(key))
+    return getLICInfo(reg).attribs[key];
+
+  return "";
 }

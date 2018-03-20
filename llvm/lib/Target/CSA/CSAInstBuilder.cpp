@@ -42,6 +42,48 @@ int64_t MachineOp::getImm() const {
   }
 }
 
+bool MachineOp::isReg() const {
+  switch (Kind) {
+  case Variant::RegUse:
+  case Variant::RegDef:
+    return true;
+  case Variant::MachineOp:
+    return Op->isReg();
+  default:
+    return false;
+  }
+}
+
+unsigned MachineOp::getReg() const {
+  switch (Kind) {
+  case Variant::RegUse:
+  case Variant::RegDef:
+    return RegNo;
+  case Variant::MachineOp:
+    return Op->getReg();
+  default:
+    llvm_unreachable("Cannot call MachineOp::getReg() on non-reg values");
+    return -1;
+  }
+}
+
+bool MachineOp::operator==(const MachineOp &rhs) const {
+  const MachineOp &lhs = *this;
+  if (lhs.isImm())
+    return rhs.isImm() && lhs.getImm() == rhs.getImm();
+  else if (rhs.isImm())
+    return false;
+  if (lhs.isReg())
+    return rhs.isReg() && lhs.getReg() == rhs.getReg();
+  else if (rhs.isReg())
+    return false;
+  if (lhs.Kind == Variant::Null || rhs.Kind == Variant::Null)
+    return lhs.Kind == rhs.Kind;
+  assert(lhs.Kind == Variant::MachineOp && rhs.Kind == Variant::MachineOp &&
+      "Unknown kind of MachineOp");
+  return lhs.Op->isIdenticalTo(*rhs.Op);
+}
+
 MachineOp CSAInstBuilder::makeOrConstantFold(CSAMachineFunctionInfo &LMFI,
                                              unsigned opcode,
                                              const MachineOp &lhs,

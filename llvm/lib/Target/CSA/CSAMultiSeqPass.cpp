@@ -59,13 +59,6 @@ public:
 
   bool runOnMachineFunction(MachineFunction &MF) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<MachineLoopInfo>();
-    AU.addRequired<ControlDependenceGraph>();
-    // AU.addRequired<LiveVariables>();
-    AU.addRequired<MachineDominatorTree>();
-    AU.addRequired<MachinePostDominatorTree>();
-    AU.addRequired<AAResultsWrapperPass>();
-    AU.setPreservesAll();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 

@@ -270,9 +270,15 @@ public:
       AU.addRequired<DivergenceAnalysis>();
     AU.addRequiredID(LowerSwitchID);
     AU.addRequired<DominatorTreeWrapperPass>();
+#if INTEL_CUSTOMIZATION
+    AU.addRequired<PostDominatorTreeWrapperPass>();
+#endif
     AU.addRequired<LoopInfoWrapperPass>();
 
     AU.addPreserved<DominatorTreeWrapperPass>();
+#if INTEL_CUSTOMIZATION
+    AU.addPreserved<PostDominatorTreeWrapperPass>();
+#endif
     RegionPass::getAnalysisUsage(AU);
   }
 };
@@ -945,6 +951,7 @@ bool StructurizeCFG::runOnRegion(Region *R, RGPassManager &RGM) {
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 #if INTEL_CUSTOMIZATION
   //CSA EDIT:
+  PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   {
     Module *M = Func->getParent();
     if (0 == M->getTargetTriple().compare("csa")) {
@@ -996,7 +1003,9 @@ bool StructurizeCFG::CSANeedRestruct() {
         std::vector<DomTreeNode*> cnv = pn->getChildren();
         for (unsigned i = 0; i < cnv.size(); i++) {
           DomTreeNode *cn = cnv[i];
-          if (bn != cn && !PDT->dominates(bn, cn)) {
+          DomTreeNode *pbn = PDT->getNode(bn->getBlock());
+          DomTreeNode *pcn = PDT->getNode(cn->getBlock());
+          if (bn != cn && !PDT->dominates(pbn, pcn)) {
             return true;
           }
         }

@@ -558,70 +558,45 @@ unsigned CSAInstrInfo::commuteNegateCompareOpcode(unsigned cmp_opcode,
   // We need to a switch a "<" to a ">=" if we swap the operands,
   // and if we negate the output.  If we do both, then they cancel
   // each other out.
-  bool swap_ltgt = commute_compare_operands ^ negate_eq;
-
   CSA::Generic new_generic;
   switch (getGenericOpcode(cmp_opcode)) {
   case CSA::Generic::CMPEQ: // "==" maps to "=="
     new_generic = negate_eq ? CSA::Generic::CMPNE : CSA::Generic::CMPEQ;
     break;
   case CSA::Generic::CMPGE: // ">=" maps to "<"
-    new_generic = swap_ltgt ? CSA::Generic::CMPLE : CSA::Generic::CMPGE;
+    new_generic = negate_eq ? CSA::Generic::CMPLT : CSA::Generic::CMPGE;
     break;
   case CSA::Generic::CMPGT: // ">" maps to "<="
-    new_generic = swap_ltgt ? CSA::Generic::CMPLT : CSA::Generic::CMPGT;
+    new_generic = negate_eq ? CSA::Generic::CMPLE : CSA::Generic::CMPGT;
     break;
   case CSA::Generic::CMPLE: // "<=" maps to ">"
-    new_generic = swap_ltgt ? CSA::Generic::CMPGE : CSA::Generic::CMPLE;
+    new_generic = negate_eq ? CSA::Generic::CMPGT : CSA::Generic::CMPLE;
     break;
   case CSA::Generic::CMPLT: // "<" maps to ">="
-    new_generic = swap_ltgt ? CSA::Generic::CMPGT : CSA::Generic::CMPLT;
+    new_generic = negate_eq ? CSA::Generic::CMPGE : CSA::Generic::CMPLT;
     break;
   case CSA::Generic::CMPNE: // "!=" maps to "!="
     new_generic = negate_eq ? CSA::Generic::CMPEQ : CSA::Generic::CMPNE;
     break;
+  default:
+    new_generic = getGenericOpcode(cmp_opcode);
+  }
 
-  // Floating point comparisons.
-  // TODO: These are probably wrong, when NaNs are introduced.
-  case CSA::Generic::CMPOEQ: // "==" maps to "=="
-    new_generic = negate_eq ? CSA::Generic::CMPONE : CSA::Generic::CMPOEQ;
+  switch (new_generic) {
+  case CSA::Generic::CMPGE: // ">=" maps to "<="
+    new_generic = commute_compare_operands ? CSA::Generic::CMPLE : CSA::Generic::CMPGE;
     break;
-  case CSA::Generic::CMPOGE: // ">=" maps to "<"
-    new_generic = swap_ltgt ? CSA::Generic::CMPOLT : CSA::Generic::CMPOGE;
+  case CSA::Generic::CMPGT: // ">" maps to "<"
+    new_generic = commute_compare_operands ? CSA::Generic::CMPLT : CSA::Generic::CMPGT;
     break;
-  case CSA::Generic::CMPOGT: // ">" maps to "<="
-    new_generic = swap_ltgt ? CSA::Generic::CMPOLE : CSA::Generic::CMPOGT;
+  case CSA::Generic::CMPLE: // "<=" maps to ">="
+    new_generic = commute_compare_operands ? CSA::Generic::CMPGE : CSA::Generic::CMPLE;
     break;
-  case CSA::Generic::CMPOLE: // "<=" maps to ">"
-    new_generic = swap_ltgt ? CSA::Generic::CMPOGT : CSA::Generic::CMPOLE;
-    break;
-  case CSA::Generic::CMPOLT: // "<" maps to ">="
-    new_generic = swap_ltgt ? CSA::Generic::CMPOGE : CSA::Generic::CMPOLT;
-    break;
-  case CSA::Generic::CMPONE: // "!=" maps to "!="
-    new_generic = negate_eq ? CSA::Generic::CMPOEQ : CSA::Generic::CMPONE;
-    break;
-  case CSA::Generic::CMPUEQ: // "==" maps to "=="
-    new_generic = negate_eq ? CSA::Generic::CMPUNE : CSA::Generic::CMPUEQ;
-    break;
-  case CSA::Generic::CMPUGE: // ">=" maps to "<"
-    new_generic = swap_ltgt ? CSA::Generic::CMPULT : CSA::Generic::CMPUGE;
-    break;
-  case CSA::Generic::CMPUGT: // ">" maps to "<="
-    new_generic = swap_ltgt ? CSA::Generic::CMPULE : CSA::Generic::CMPUGT;
-    break;
-  case CSA::Generic::CMPULE: // "<=" maps to ">"
-    new_generic = swap_ltgt ? CSA::Generic::CMPUGT : CSA::Generic::CMPULE;
-    break;
-  case CSA::Generic::CMPULT: // "<" maps to ">="
-    new_generic = swap_ltgt ? CSA::Generic::CMPUGE : CSA::Generic::CMPULT;
-    break;
-  case CSA::Generic::CMPUNE: // "!=" maps to "!="
-    new_generic = negate_eq ? CSA::Generic::CMPUEQ : CSA::Generic::CMPUNE;
+  case CSA::Generic::CMPLT: // "<" maps to ">"
+    new_generic = commute_compare_operands ? CSA::Generic::CMPGT : CSA::Generic::CMPLT;
     break;
   default:
-    llvm_unreachable("This method should only be called on compare opcodes");
-    return CSA::INVALID_OPCODE;
+    break;
   }
 
   return adjustOpcode(cmp_opcode, new_generic);
