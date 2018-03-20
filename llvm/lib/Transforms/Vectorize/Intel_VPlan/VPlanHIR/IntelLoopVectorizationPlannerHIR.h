@@ -54,9 +54,10 @@ public:
   LoopVectorizationPlannerHIR(WRNVecLoopNode *WRL, HLLoop *Lp,
                               const TargetLibraryInfo *TLI,
                               const TargetTransformInfo *TTI,
+                              const DataLayout *DL,
                               VPOVectorizationLegality *Legal,
                               const DDGraph &DDG)
-      : LoopVectorizationPlannerBase(WRL, TLI, TTI, Legal), TheLoop(Lp),
+      : LoopVectorizationPlannerBase(WRL, TLI, TTI, DL, Legal), TheLoop(Lp),
         DDG(DDG) {
     VPLA = std::make_shared<VPLoopAnalysisHIR>(VPlanDefaultEstTripHIR);
   }

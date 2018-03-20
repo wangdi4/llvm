@@ -151,7 +151,7 @@ unsigned LoopVectorizationPlannerBase::selectBestPlan() {
   // from the original loop. Has to be revisited after enabling of
   // peel/remainder vectorization.
   unsigned TripCount = ::getTripCountForFirstLoopInDfs(ScalarPlan);
-  CostModelTy ScalarCM(ScalarPlan, 1, TTI);
+  CostModelTy ScalarCM(ScalarPlan, 1, TTI, DL);
   unsigned ScalarIterationCost = ScalarCM.getCost();
   // FIXME: that multiplication should be the part of CostModel - see below.
   unsigned ScalarCost = ScalarIterationCost * TripCount;
@@ -176,7 +176,7 @@ unsigned LoopVectorizationPlannerBase::selectBestPlan() {
     // FIXME: The remainder loop should be an explicit part of VPlan and the
     // cost model should just do the right thing calulating the cost of the
     // plan. However this is not the case yet so do some simple heuristic.
-    CostModelTy VectorCM(Plan, VF, TTI);
+    CostModelTy VectorCM(Plan, VF, TTI, DL);
     unsigned VectorIterationCost = VectorCM.getCost();
     // TODO: Take into account overhead for some instructions until explicit
     // representation of peel/remainder not ready.
@@ -358,4 +358,3 @@ void LoopVectorizationPlanner::collectDeadInstructions() {
   VPOCodeGen::collectTriviallyDeadInstructions(TheLoop, Legal,
                                                DeadInstructions);
 }
-

@@ -103,28 +103,6 @@ Type *VPlanCostModel::getMemInstValueType(const VPInstruction *VPInst) {
   return nullptr;
 }
 
-unsigned VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) {
-  unsigned Opcode = VPInst->getOpcode();
-  (void)Opcode;
-  assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
-
-  // TODO: getType() working without underlying Inst - seems we can return
-  // alignment too.
-
-  if (const Value *Val = VPInst->UnderlyingVal)
-    return ::getMemInstAlignment(Val);
-
-#if INTEL_CUSTOMIZATION
-  if (!VPInst->HIR.isMaster())
-    return 0; // CHECKME: Is that correct?
-  const HLDDNode *Node = VPInst->HIR.getUnderlyingDDN();
-  if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
-    return ::getMemInstAlignment(Inst);
-#endif // INTEL_CUSTOMIZATION
-
-  return 0; // CHECKME: Is that correct?
-}
-
 unsigned VPlanCostModel::getMemInstAddressSpace(const VPInstruction *VPInst) {
   unsigned Opcode = VPInst->getOpcode();
   (void)Opcode;
@@ -171,6 +149,34 @@ Value* VPlanCostModel::getGEP(const VPInstruction *VPInst) {
 #endif // INTEL_CUSTOMIZATION
 
   return nullptr;
+}
+
+unsigned
+VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
+  unsigned Opcode = VPInst->getOpcode();
+  (void)Opcode;
+  assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
+
+  // TODO: getType() working without underlying Inst - seems we can return
+  // alignment too.
+
+  if (const Instruction *Inst = VPInst->getInstruction())
+    if (unsigned Align = ::getMemInstAlignment(Inst))
+      return Align;
+
+#if INTEL_CUSTOMIZATION
+  if (VPInst->HIR.isMaster()) {
+    const HLDDNode *Node = VPInst->HIR.getUnderlyingDDN();
+    if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
+      if (unsigned Align = ::getMemInstAlignment(Inst))
+        return Align;
+  }
+#endif // INTEL_CUSTOMIZATION
+
+  // If underlying instruction had default alignment (0) we need to query
+  // DataLayout what it is, because default alignment for the widened type will
+  // be different.
+  return DL->getABITypeAlignment(getMemInstValueType(VPInst));
 }
 
 unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {

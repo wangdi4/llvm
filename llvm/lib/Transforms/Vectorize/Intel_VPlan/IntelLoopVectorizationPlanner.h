@@ -97,8 +97,9 @@ protected:
   LoopVectorizationPlannerBase(WRNVecLoopNode *WRL,
                                const TargetLibraryInfo *TLI,
                                const TargetTransformInfo *TTI,
+                               const DataLayout *DL,
                                VPOVectorizationLegality *Legal)
-      : WRLp(WRL), TLI(TLI), TTI(TTI), Legal(Legal) {}
+      : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal) {}
   virtual ~LoopVectorizationPlannerBase() {}
 
   /// Build an initial VPlan according to the information gathered by Legal
@@ -123,6 +124,9 @@ protected:
 
   /// Target Transform Info.
   const TargetTransformInfo *TTI;
+
+  /// Data Layout
+  const DataLayout *DL;
 
   /// The legality analysis.
   // TODO: Turn into a reference when supported for HIR.
@@ -180,11 +184,11 @@ class LoopVectorizationPlanner : public LoopVectorizationPlannerBase {
 public:
   LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
                            ScalarEvolution *SE, const TargetLibraryInfo *TLI,
-                           const TargetTransformInfo *TTI,
+                           const TargetTransformInfo *TTI, const DataLayout *DL,
                            class DominatorTree *DT,
                            VPOVectorizationLegality *Legal)
-      : LoopVectorizationPlannerBase(WRL, TLI, TTI, Legal), TheLoop(Lp), LI(LI),
-        SE(SE), DT(DT) {
+      : LoopVectorizationPlannerBase(WRL, TLI, TTI, DL, Legal), TheLoop(Lp),
+        LI(LI), SE(SE), DT(DT) {
     VPLA = std::make_shared<VPLoopAnalysis>(SE, VPlanDefaultEstTrip);
   }
 

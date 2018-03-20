@@ -122,6 +122,7 @@ protected:
   /// Handle to Target Information
   TargetTransformInfo *TTI;
   TargetLibraryInfo *TLI;
+  const DataLayout *DL;
 
   VPlanDriverBase(char &ID) : FunctionPass(ID){};
 
@@ -232,14 +233,15 @@ public:
 // in the future and the argument won't be required.
 template <typename CostModelTy = VPlanCostModel>
 void printCostModelAnalysisIfRequested(LoopVectorizationPlannerBase &LVP,
-                                       const TargetTransformInfo *TTI) {
+                                       const TargetTransformInfo *TTI,
+                                       const DataLayout *DL) {
   for (unsigned VFRequested : VPlanCostModelPrintAnalysisForVF) {
     if (!LVP.hasVPlanForVF(VFRequested)) {
       errs() << "VPlan for VF = " << VFRequested << " was not constructed\n";
       continue;
     }
     VPlan *Plan = LVP.getVPlanForVF(VFRequested);
-    CostModelTy CM(Plan, VFRequested, TTI);
+    CostModelTy CM(Plan, VFRequested, TTI, DL);
 
     // If different stages in VPlanDriver were proper passes under pass manager
     // control it would have been opt's output stream (via "-o" switch). As it
@@ -311,6 +313,7 @@ bool VPlanDriverBase<LoopType>::processFunction(
     return false;
 
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  DL = &Fn.getParent()->getDataLayout();
 
   assert(!(VPlanVectCand && VPlanConstrStressTest) &&
          "Stress testing for VPlan "
@@ -507,10 +510,10 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
       return false;
   }
 
-  LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DT, &LVL);
+  LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DL, DT, &LVL);
 
   LVP.buildInitialVPlans();
-  printCostModelAnalysisIfRequested(LVP, TTI);
+  printCostModelAnalysisIfRequested(LVP, TTI, DL);
 
   // VPlan Predicator
   LVP.predicate();
@@ -715,11 +718,12 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
                            : DDA->getGraph(HLoop->getParentRegion());
 
   // TODO: No Legal for HIR.
-  LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, nullptr /*Legal*/, DDG);
+  LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, nullptr /*Legal*/,
+                                  DDG);
 
   LVP.buildInitialVPlans();
 
-  printCostModelAnalysisIfRequested<VPlanCostModelProprietary>(LVP, TTI);
+  printCostModelAnalysisIfRequested<VPlanCostModelProprietary>(LVP, TTI, DL);
 
   // VPlan construction stress test ends here.
   // TODO: Move after predication.

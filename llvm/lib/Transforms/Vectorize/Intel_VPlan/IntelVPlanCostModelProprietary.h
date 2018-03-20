@@ -21,8 +21,9 @@ namespace vpo {
 class VPlanCostModelProprietary : public VPlanCostModel {
 public:
   explicit VPlanCostModelProprietary(const VPlan *Plan, unsigned VF,
-                                     const TargetTransformInfo *TTI)
-      : VPlanCostModel(Plan, VF, TTI) {}
+                                     const TargetTransformInfo *TTI,
+                                     const DataLayout *DL)
+      : VPlanCostModel(Plan, VF, TTI, DL) {}
 
   virtual unsigned getCost(const VPInstruction *VPInst) const final;
   virtual unsigned getCost(const VPBasicBlock *VPBB) const final;
