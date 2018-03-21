@@ -37,7 +37,7 @@
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptUtils.h"
 #include <string>
 
-#define DEBUG_TYPE "VPOParoptUtils"
+#define DEBUG_TYPE "vpo-paropt-utils"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -1646,8 +1646,7 @@ GlobalVariable *VPOParoptUtils::genKmpcLocforImplicitBarrier(
   return KmpcLoc;
 }
 
-// Insert this call at InsertPt:
-//   call void @__kmpc_barrier(%ident_t* %loc, i32 %tid)
+// Insert kmpc_[cancel_]barrier(...) call before InsertPt.
 CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
                                          Instruction *InsertPt,
                                          StructType *IdentTy,
@@ -1657,8 +1656,20 @@ CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
   Module      *M = F->getParent();
   LLVMContext &C = F->getContext();
 
-  Type      *RetTy = Type::getVoidTy(C);
-  StringRef FnName = "__kmpc_barrier";
+  Type *RetTy;
+  StringRef FnName;
+
+  WRegionNode *WParent = W->getParent();
+  bool IsCancelBarrier = WParent && WParent->canHaveCancellationPoints() &&
+                         WRegionUtils::hasCancelConstruct(WParent);
+
+  if (IsCancelBarrier) {
+    RetTy = Type::getInt32Ty(C);
+    FnName = "__kmpc_cancel_barrier";
+  } else {
+    RetTy = Type::getVoidTy(C);
+    FnName = "__kmpc_barrier";
+  }
 
   // Create the arg for Loc
   GlobalVariable *Loc;
@@ -1676,6 +1687,10 @@ CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
 
   CallInst *BarrierCall = genCall(M, FnName, RetTy, FnArgs);
   BarrierCall->insertBefore(InsertPt);
+
+  if (IsCancelBarrier)
+    WParent->addCancellationPoint(BarrierCall);
+
   return BarrierCall;
 }
 
@@ -2165,6 +2180,42 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                     Lock);
 }
 
+// Generates and inserts a 'kmpc_cancel[lationpoint]' CallInst.
+CallInst *VPOParoptUtils::genKmpcCancelOrCancellationPointCall(
+    WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
+    Instruction *InsertPoint, WRNCancelKind CancelKind,
+    bool IsCancellationPoint) {
+
+  assert(W != nullptr && "WRegionNode is null.");
+  assert(IdentTy != nullptr && "IdentTy is null.");
+  assert(TidPtr != nullptr && "TidPtr is null.");
+  assert(InsertPoint != nullptr && "InsertionPoint is null.");
+
+  StringRef FnName;
+
+  if (IsCancellationPoint)
+    FnName = "__kmpc_cancellationpoint";
+  else
+    FnName = "__kmpc_cancel";
+
+  BasicBlock *B = W->getEntryBBlock();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+
+  CallInst *CancelCall = genKmpcCallWithTid(
+      W, IdentTy, TidPtr, InsertPoint, FnName, Type::getInt32Ty(C),
+      {ConstantInt::get(Type::getInt32Ty(C), CancelKind)});
+
+  CancelCall->insertBefore(InsertPoint);
+
+  WRegionNode *WParent = W->getParent();
+  assert(WParent && "genKmpcCancelOrCancellationPointCall: Orphaned "
+                    "cancel/cancellation point construct");
+  WParent->addCancellationPoint(CancelCall);
+
+  return CancelCall;
+}
+
 // Generates a memcpy call at the end of the given basic block BB.
 // The value D represents the destination while the value S represents
 // the source. The size of the memcpy is the size of destination.
@@ -2421,6 +2472,42 @@ static Value *findChainToLoad(Value *V,
     return LI;
   }
   llvm_unreachable("findChainToLoad: unhandled instruction");
+}
+
+// Creates a clone of CI, adds OpBundlesToAdd to it, and returns it.
+CallInst *VPOParoptUtils::addOperandBundlesInCall(
+    CallInst *CI,
+    ArrayRef<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd) {
+
+  assert(CI && "addOperandBundlesInCall: Null CallInst");
+
+  if (OpBundlesToAdd.empty())
+    return CI;
+
+  SmallVector<Value *, 8> Args;
+  for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++) {
+    Args.insert(Args.end(), *AI);
+  }
+
+  SmallVector<OperandBundleDef, 1> OpBundles;
+  CI->getOperandBundlesAsDefs(OpBundles);
+
+  for (auto &StrValVec : OpBundlesToAdd) {
+    OperandBundleDef B(StrValVec.first, StrValVec.second);
+    OpBundles.push_back(B);
+  }
+
+  auto NewI = CallInst::Create(CI->getCalledValue(), Args, OpBundles, "", CI);
+
+  NewI->takeName(CI);
+  NewI->setCallingConv(CI->getCallingConv());
+  NewI->setAttributes(CI->getAttributes());
+  NewI->setDebugLoc(CI->getDebugLoc());
+
+  CI->replaceAllUsesWith(NewI);
+  CI->eraseFromParent();
+
+  return NewI;
 }
 
 // Clones the load instruction and inserts before the InsertPt.

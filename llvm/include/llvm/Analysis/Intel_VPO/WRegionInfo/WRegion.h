@@ -118,6 +118,7 @@ private:
   EXPR NumThreads;
   WRNDefaultKind Default;
   WRNProcBindKind ProcBind;
+  SmallVector<Instruction *, 2> CancellationPoints;
 
 public:
   WRNParallelNode(BasicBlock *BB);
@@ -139,6 +140,10 @@ public:
   EXPR getNumThreads() const { return NumThreads; }
   WRNDefaultKind getDefault() const { return Default; }
   WRNProcBindKind getProcBind() const { return ProcBind; }
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+    return CancellationPoints;
+  }
+  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -170,6 +175,7 @@ private:
   int Collapse;
   int Ordered;
   WRNLoopInfo WRNLI;
+  SmallVector<Instruction *, 2> CancellationPoints;
 
 public:
   WRNParallelLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -199,6 +205,10 @@ public:
   WRNProcBindKind getProcBind() const { return ProcBind; }
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+    return CancellationPoints;
+  }
+  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -226,6 +236,7 @@ private:
   WRNDefaultKind Default;
   WRNProcBindKind ProcBind;
   WRNLoopInfo WRNLI;
+  SmallVector<Instruction *, 2> CancellationPoints;
 
 public:
   WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *L);
@@ -249,6 +260,10 @@ public:
   EXPR getNumThreads() const { return NumThreads; }
   WRNDefaultKind getDefault() const { return Default; }
   WRNProcBindKind getProcBind() const { return ProcBind; }
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+    return CancellationPoints;
+  }
+  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -637,6 +652,7 @@ private:
   bool Untied;
   bool Mergeable;
   unsigned TaskFlag; // flag bit vector used to invoke tasking RTL
+  SmallVector<Instruction *, 2> CancellationPoints;
 
 public:
   WRNTaskNode(BasicBlock *BB);
@@ -664,6 +680,10 @@ public:
   bool getUntied() const { return Untied; }
   bool getMergeable() const { return Mergeable; }
   unsigned getTaskFlag() const { return TaskFlag; }
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+    return CancellationPoints;
+  }
+  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -835,6 +855,7 @@ private:
   int Ordered;
   bool Nowait;
   WRNLoopInfo WRNLI;
+  SmallVector<Instruction *, 2> CancellationPoints;
 
 public:
   WRNWksLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -856,6 +877,10 @@ public:
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
   bool getNowait() const { return Nowait; }
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+    return CancellationPoints;
+  }
+  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -879,6 +904,7 @@ private:
   ScheduleClause Schedule;
   bool Nowait;
   WRNLoopInfo WRNLI;
+  SmallVector<Instruction *, 2> CancellationPoints;
 
 public:
   WRNSectionsNode(BasicBlock *BB, LoopInfo *L);
@@ -895,6 +921,10 @@ public:
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   bool getNowait() const { return Nowait; }
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+    return CancellationPoints;
+  }
+  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -1270,6 +1300,12 @@ extern void printExtraForTarget(WRegionNode const *W,
 extern void printExtraForTask(WRegionNode const *W, formatted_raw_ostream &OS,
                               int Depth, unsigned Verbosity=1);
 
+/// \brief Print the fields common to WRNs for which
+/// canHaveCancellationPoints()==true. Possible constructs are: WRNParallel,
+/// WRNWksLoop, WRNParallelLoop, WRNSections, WRNParallelSections, WRNTask
+extern void printExtraForCancellationPoints(WRegionNode const *W,
+                                            formatted_raw_ostream &OS,
+                                            int Depth, unsigned Verbosity = 1);
 } // End namespace vpo
 
 

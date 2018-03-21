@@ -64,6 +64,7 @@ WRNParallelNode::WRNParallelNode(BasicBlock *BB)
 void WRNParallelNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                  unsigned Verbosity) const {
   vpo::printExtraForParallel(this, OS, Depth, Verbosity);
+  vpo::printExtraForCancellationPoints(this, OS, Depth, Verbosity);
 }
 
 //
@@ -92,6 +93,7 @@ void WRNParallelLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   // minus the Nowait field
   vpo::printExtraForParallel(this, OS, Depth, Verbosity);
   vpo::printExtraForOmpLoop(this, OS, Depth, Verbosity);
+  vpo::printExtraForCancellationPoints(this, OS, Depth, Verbosity);
 }
 
 //
@@ -117,6 +119,7 @@ void WRNParallelSectionsNode::printExtra(formatted_raw_ostream &OS,
                               unsigned Depth, unsigned Verbosity) const {
   // identical extra fields as WRNParallel
   vpo::printExtraForParallel(this, OS, Depth, Verbosity);
+  vpo::printExtraForCancellationPoints(this, OS, Depth, Verbosity);
 }
 
 //
@@ -326,6 +329,7 @@ WRNTaskNode::WRNTaskNode(BasicBlock *BB)
 void WRNTaskNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                              unsigned Verbosity) const {
   vpo::printExtraForTask(this, OS, Depth, Verbosity);
+  vpo::printExtraForCancellationPoints(this, OS, Depth, Verbosity);
 }
 
 //
@@ -445,6 +449,7 @@ WRNWksLoopNode::WRNWksLoopNode(BasicBlock *BB, LoopInfo *Li)
 void WRNWksLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                 unsigned Verbosity) const {
   vpo::printExtraForOmpLoop(this, OS, Depth, Verbosity);
+  vpo::printExtraForCancellationPoints(this, OS, Depth, Verbosity);
 }
 
 //
@@ -465,6 +470,7 @@ WRNSectionsNode::WRNSectionsNode(BasicBlock *BB, LoopInfo *Li)
 void WRNSectionsNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                  unsigned Verbosity) const {
   vpo::printBool("NOWAIT", getNowait(), OS, 2*Depth, Verbosity);
+  vpo::printExtraForCancellationPoints(this, OS, Depth, Verbosity);
 }
 
 //
@@ -694,6 +700,20 @@ void vpo::printExtraForParallel(WRegionNode const *W,
                 Verbosity);
   vpo::printStr("PROCBIND", WRNProcBindName[W->getProcBind()], OS, Indent,
                 Verbosity);
+}
+
+void vpo::printExtraForCancellationPoints(WRegionNode const *W,
+                                          formatted_raw_ostream &OS, int Depth,
+                                          unsigned Verbosity) {
+  assert(W->canHaveCancellationPoints() &&
+         "printExtraForCancellationPoints is for WRNs with "
+         "canHaveCancellationPoints() == true");
+
+  unsigned Indent = 2 * Depth;
+  auto &CPs = W->getCancellationPoints();
+  vpo::printValList("CANCELLATION.POINTS",
+                    SmallVector<Value *, 8>(CPs.begin(), CPs.end()), OS, Indent,
+                    Verbosity);
 }
 
 // Print the fields common to some WRNs for which getIsOmpLoop()==true.

@@ -696,3 +696,20 @@ bool WRegionUtils::needsDestructors(WRegionNode *W) {
   // TODO: support UDR
   return false;
 }
+
+bool WRegionUtils::hasCancelConstruct(WRegionNode *W) {
+  assert(W && "hasCancelConstruct: null WRegionNode");
+
+  if (!W->canHaveCancellationPoints())
+    return false;
+
+  if (!W->getCancellationPoints().empty())
+    return true;
+
+  for (auto *Child : W->getChildren()) {
+    if (auto *CancelNode = dyn_cast<WRNCancelNode>(Child))
+      if (!CancelNode->getIsCancellationPoint())
+        return true;
+  }
+  return false;
+}

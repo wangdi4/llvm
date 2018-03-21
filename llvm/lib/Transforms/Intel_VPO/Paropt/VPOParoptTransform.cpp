@@ -253,6 +253,7 @@ bool VPOParoptTransform::paroptTransforms() {
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           genCodemotionFenceforAggrData(W);
+          Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
@@ -260,6 +261,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genReductionCode(W);
+          Changed |= genCancellationBranchingCode(W);
           Changed |= genDestructorCode(W);
           Changed |= genMultiThreadedCode(W);
           RemoveDirectives = true;
@@ -271,6 +273,7 @@ bool VPOParoptTransform::paroptTransforms() {
         if (Mode & ParPrepare) {
           regularizeOMPLoop(W);
           genCodemotionFenceforAggrData(W);
+          Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
@@ -282,12 +285,16 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genLastPrivatizationCode(W, IsLastVal);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genReductionCode(W);
+          Changed |= genCancellationBranchingCode(W);
           Changed |= genDestructorCode(W);
           Changed |= genMultiThreadedCode(W);
           RemoveDirectives = true;
         }
         break;
       case WRegionNode::WRNTask:
+        if (Mode & ParPrepare) {
+          Changed |= propagateCancellationPointsToIR(W);
+        }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           debugPrintHeader(W, false);
           StructType *KmpTaskTTWithPrivatesTy;
@@ -300,6 +307,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genLastPrivatizationCode(W, LastIterGep);
           Changed |= genSharedCodeForTaskGeneric(W);
           Changed |= genRedCodeForTaskGeneric(W);
+          Changed |= genCancellationBranchingCode(W);
           Changed |= genTaskCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy);
           RemoveDirectives = true;
         }
@@ -401,6 +409,7 @@ bool VPOParoptTransform::paroptTransforms() {
         if (Mode & ParPrepare) {
           regularizeOMPLoop(W);
           genCodemotionFenceforAggrData(W);
+          Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           AllocaInst *IsLastVal = nullptr;
@@ -410,8 +419,10 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genPrivatizationCode(W);
           Changed |= genLastPrivatizationCode(W, IsLastVal);
           Changed |= genFirstPrivatizationCode(W);
-          if (!W->getIsDistribute())
+          if (!W->getIsDistribute()) {
             Changed |= genReductionCode(W);
+            Changed |= genCancellationBranchingCode(W);
+          }
           Changed |= genDestructorCode(W);
           if (!W->getIsDistribute() && !W->getNowait())
             Changed |= genBarrier(W, false);
@@ -461,8 +472,11 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       case WRegionNode::WRNCancel:
-        // TODO
-        debugPrintToBeSupported(W);
+        if (Mode & ParPrepare) {
+          debugPrintHeader(W, true);
+          Changed = genCancelCode(dyn_cast<WRNCancelNode>(W));
+          RemoveDirectives = true;
+        }
         break;
       case WRegionNode::WRNFlush:
         if (Mode & ParPrepare) {
@@ -3449,6 +3463,282 @@ bool VPOParoptTransform::genFlush(WRegionNode *W) {
   return true;
 }
 
+// Insert a call to __kmpc_cancel/__kmpc_cancellation_point at the end of the
+// construct
+bool VPOParoptTransform::genCancelCode(WRNCancelNode *W) {
+
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genCancelCode\n");
+
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  Instruction *InsertPt = EntryBB->getTerminator();
+
+  auto *IfExpr = W->getIf();
+  if (IfExpr) {
+    // If the construct has an 'IF' clause, we need to generate code like:
+    // if (if_expr != 0) {
+    //   %1 = __kmpc_cancel[lationpoint](...);
+    // }
+    Function *F = EntryBB->getParent();
+    LLVMContext &C = F->getContext();
+    ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
+
+    auto *CondInst = new ICmpInst(InsertPt, ICmpInst::ICMP_NE, IfExpr,
+                                  ValueZero, "cancel.if");
+
+    Instruction *IfCancelThen =
+        SplitBlockAndInsertIfThen(CondInst, InsertPt, false, nullptr, DT, LI);
+    assert(IfCancelThen && "genCancelCode: Cannot split BB at Cancel If");
+
+    InsertPt = IfCancelThen;
+    DEBUG(dbgs() << "genCancelCode: Emitted If-Then-Else for IF EXPR: if (";
+          IfExpr->printAsOperand(dbgs());
+          dbgs() << ") then <%x = __kmpc_cancel[lationpoint]>.\n");
+  }
+
+  CallInst *CancelCall = VPOParoptUtils::genKmpcCancelOrCancellationPointCall(
+      W, IdentTy, TidPtrHolder, InsertPt, W->getCancelKind(),
+      W->getIsCancellationPoint());
+
+  (void)CancelCall;
+  assert(CancelCall && "genCancelCode: Failed to emit call");
+
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genCancelCode\n");
+  return true;
+}
+
+// Propagate all cancellation points from the body of W, to the 'region.exit'
+// directive for the region.
+bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
+
+  if (!W->canHaveCancellationPoints())
+    return false;
+
+  auto &CancellationPoints = W->getCancellationPoints();
+  if (CancellationPoints.empty())
+    return false;
+
+  // Find the end.region() directive intrinsic.
+  Instruction *Inst = W->getExitBBlock()->getFirstNonPHI();
+  CallInst *CI = dyn_cast<CallInst>(Inst);
+
+  assert(CI && "propagateCancellationPointsToIR: Exit BBlocks's first "
+               "non-PHI Instruction is not a Call");
+  assert(
+      VPOAnalysisUtils::isIntelDirectiveOrClause(CI) &&
+      "propagateCancellationPointsToIR: Cannot find region.exit() directive");
+
+  // OpndBundles take Values, so need to cast the SmallVector of Instructions to
+  // SmallVector of Values.
+  SmallVector<Value *, 2> CancellationPointsAsValues(CancellationPoints.begin(),
+                                                     CancellationPoints.end());
+
+  // Add the list of cancellation points as an operand bundle in the
+  // end.region() directive.
+  CI = VPOParoptUtils::addOperandBundlesInCall(
+      CI, {{"QUAL.OMP.CANCELLATION.POINTS", CancellationPointsAsValues}});
+
+  DEBUG(dbgs() << "propagateCancellationPointsToIR: Added "
+               << CancellationPoints.size() << " Cancellation Points to: "
+               << *CI << ".\n");
+  return true;
+
+  // TODO: Add PHIs to avoid the issue of "Instruction does not dominate all uses".
+  // That is seen if we use opt and dump IR after vpo-paropt-prepare and before
+  // vpo-paropt.
+}
+
+// Insert If-Then-Else branches from each Cancellation Point in W, to
+// jump to the end of W if the Cancellation Point is non-zero.
+bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
+
+  if (!W->canHaveCancellationPoints())
+    return false;
+
+  auto &CancellationPoints = W->getCancellationPoints();
+  if (CancellationPoints.empty())
+    return false;
+
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genCancellationBranchingCode\n");
+  assert(W->isBBSetEmpty() &&
+         "genCancellationBranchingCode: BBSET should start empty");
+  W->populateBBSet();
+
+  Function *F = W->getEntryBBlock()->getParent();
+  LLVMContext &C = F->getContext();
+  ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
+  bool Changed = false;
+
+  // For a loop construct with static [even] scheduling,
+  // __kmpc_static_fini(...) call should be made even if the construt is
+  // cancelled.
+  bool NeedStaticFiniCall =
+      ((W->getIsOmpLoop() && W->getIsSections()) ||
+       (W->getIsOmpLoop() && !W->getIsSections() &&
+        (VPOParoptUtils::getLoopScheduleKind(W) == WRNScheduleStaticEven ||
+         VPOParoptUtils::getLoopScheduleKind(W) == WRNScheduleStatic)));
+  BasicBlock *CancelExitBBWithStaticFini = nullptr;
+
+  //           +--CancelExitBB--+
+  //           +-------+--------+
+  //                   |
+  //           +-------+--------+
+  //           |  region.exit() |
+  //           +----------------+
+  BasicBlock *CancelExitBB = nullptr;
+  createEmptyPrivFiniBB(W, CancelExitBB);
+
+  assert(CancelExitBB &&
+         "genCancellationBranchingCode: Failed to create Cancel Exit BB");
+  DEBUG(dbgs() << "genCancellationBranchingCode: Created CancelExitBB: [";
+        CancelExitBB->printAsOperand(dbgs()); dbgs() << "]\n");
+
+  for (auto &CancellationPoint : CancellationPoints) {
+    assert(CancellationPoint &&
+           "genCancellationBranchingCode: Illegal cancellation point");
+
+    // At this point, IR looks like:
+    //
+    //    +--------OrgBB----------+
+    //    | %x = kmpc_cancel(...) |           ; CancellationPoint
+    //    | <NextI>               |
+    //    | ...                   |
+    //    +-----------+-----------+
+    //                |
+    //                |
+    //    +------CancelExitBB-----+
+    //    +-----------+-----------+
+    //                |
+    //    +-----------+-----------+
+    //    | region.exit(... %x)   |
+    //    +-----------------------+
+    BasicBlock *OrgBB = CancellationPoint->getParent();
+
+    assert(IntelGeneralUtils::hasNextUniqueInstruction(CancellationPoint) &&
+           "genCancellationBranchingCode: Cannot find successor of "
+           "Cancellation Point");
+    auto *NextI = IntelGeneralUtils::nextUniqueInstruction(CancellationPoint);
+
+    auto *CondInst = new ICmpInst(NextI, ICmpInst::ICMP_NE, CancellationPoint,
+                                  ValueZero, "cancel.check");
+
+    BasicBlock *NotCancelledBB = SplitBlock(OrgBB, NextI, DT, LI);
+    assert(
+        NotCancelledBB &&
+        "genCancellationBranchingCode: Cannot split BB at Cancellation Point");
+
+    OrgBB = CancellationPoint->getParent();
+    TerminatorInst *TermInst = OrgBB->getTerminator();
+    TerminatorInst *NewTermInst =
+        BranchInst::Create(CancelExitBB, NotCancelledBB, CondInst);
+    ReplaceInstWithInst(TermInst, NewTermInst);
+
+    DEBUG(auto &OS = dbgs();
+          OS << "genCancellationBranchingCode: Inserted If-Then-Else: if (";
+          CancellationPoint->printAsOperand(OS); OS << ") then [";
+          OrgBB->printAsOperand(OS); OS << "] --> [";
+          CancelExitBB->printAsOperand(OS); OS << "], else [";
+          OrgBB->printAsOperand(OS); OS << "] --> [";
+          NotCancelledBB->printAsOperand(OS); OS << "].\n");
+
+    // The IR now looks like:
+    //
+    //    +------------OrgBB--------------+
+    //    | %x = kmpc_cancel(...)         |           ; CancellationPoint
+    //    | %cancel.check = icmp ne %x, 0 |           ; CondInst
+    //    +--------------+---+------------+
+    //                 0 |   | 1
+    //                   |   +-----------------+
+    //                   |                     |
+    //    +---------NotCancelledBB--------+    |
+    //    | <NextI>                       |    |
+    //    | ...                           |    |
+    //    +--------------+----------------+    |
+    //                   |                     |
+    //                   |   +-----------------+
+    //    +---------CancelExitBB----------+
+    //    +--------------+----------------+
+    //                   |
+    //    +--------------+----------------+
+    //    | region.exit(..., %x)          |
+    //    +-------------------------------+
+    //
+
+    if (DT) {
+      // There can be multiple CancellationPoints. We need to update the
+      // immediate dominator of CancelExitBB when emitting code for each.
+      //
+      //               ...
+      //                | \
+      //                |  \
+      //                |   \
+      //               ... OrgBB1
+      //                |    / |
+      //                |   /  |
+      //                |  /0  |1
+      //                | /    |
+      //               ...     |
+      //                |      |
+      //              OrgBB2   |
+      //                |  \   |
+      //              0 |  1\  |
+      //                |    \ |
+      //               ...   CancelExitBB
+      //
+      auto *CancelExitBBDominator =
+          DT->findNearestCommonDominator(CancelExitBB, OrgBB);
+
+      DT->changeImmediateDominator(CancelExitBB, CancelExitBBDominator);
+    }
+
+    if (NeedStaticFiniCall && !CancelExitBBWithStaticFini) {
+      // If we need a `__kmpc_static_fini` call before CancelExitBB, we create a
+      // separate BBlock with the call. This happens only when handling the
+      // first CancellationPoint. We use the new CancelExitBBWithStaticFini in
+      // place of CancelExitBB as the target of `cancel.check` branches for
+      // subsequent CancellationPoints.
+      //
+      //               OrgBB
+      //               0 |   | 1
+      //                 |   +----------------------+
+      //                 |                          |
+      //                ...            +--CancelExitBBWithStaticFini--+
+      //           NotCancelledBB      |   __kmpc_static_fini(...)    |
+      //                ...            +------------------------------+
+      //                 |                          |
+      //                 |   +----------------------+
+      //           CancelExitBB
+      //
+      CancelExitBBWithStaticFini = SplitEdge(OrgBB, CancelExitBB, DT, LI);
+      auto *InsertPt = CancelExitBBWithStaticFini->getTerminator();
+
+      LoadInst *LoadTid = new LoadInst(TidPtrHolder, "my.tid", InsertPt);
+      LoadTid->setAlignment(4);
+      auto *KmpcFiniCI =
+          VPOParoptUtils::genKmpcStaticFini(W, IdentTy, LoadTid, InsertPt);
+      KmpcFiniCI->setCallingConv(CallingConv::C);
+
+      CancelExitBB = CancelExitBBWithStaticFini;
+
+      DEBUG(dbgs() << "genCancellationBranchingCode: Created predecessor of "
+                      "CancelExitBB: [";
+            CancelExitBBWithStaticFini->printAsOperand(dbgs());
+            dbgs() << "] containing '__kmpc_static_fini' call.\n");
+    }
+
+    // Finally, remove the cancellation point from the `end.region` directive.
+    //    +---------------+---------------+
+    //    | region.exit(..., null)        |
+    //    +-------------------------------+
+    resetValueInIntelClauseGeneric(W, CancellationPoint);
+    Changed = true;
+  }
+
+  W->resetBBSet(); // Invalidate BBSet after transformations
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genCancellationBranchingCode\n");
+
+  return Changed;
+}
+
 // Set the values in the private clause to be empty.
 void VPOParoptTransform::resetValueInPrivateClause(WRegionNode *W) {
 
@@ -3474,7 +3764,8 @@ void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
   SmallVector<Instruction *, 8> IfUses;
   for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
     if (Instruction *User = dyn_cast<Instruction>(*IB))
-      if (W->contains(User->getParent()))
+      if (W->contains(User->getParent()) ||
+          W->getExitBBlock() == User->getParent())
         IfUses.push_back(User);
   }
 

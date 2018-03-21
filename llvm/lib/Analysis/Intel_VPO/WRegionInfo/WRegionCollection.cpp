@@ -198,6 +198,11 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
           W = S->top();
           W->finalize(BB, DT); // set the ExitBB and wrap up the WRN
 
+          // Cancellation Points are on the end.region directive. Parse it
+          // here if applicable.
+          if (W->canHaveCancellationPoints())
+            W->getClausesFromOperandBundles(true);
+
           S->pop();
           DEBUG(dbgs() << "\n  === Closed WRegion. ");
           DEBUG(dbgs() << "Stacksize after pop = " << S->size() << "\n");

@@ -174,7 +174,9 @@ protected:
 
   /// \brief Update WRN for clauses from the OperandBundles under the
   /// directive.region.entry/exit representation
-  void getClausesFromOperandBundles();
+  /// If \p RegionExit is \b true, process the 'region.exit' intrinsic,
+  /// otherwise process 'region.entry'.
+  void getClausesFromOperandBundles(bool RegionExit = false);
 
 public:
   /// \brief Functions to check if the WRN allows a given clause type
@@ -196,6 +198,7 @@ public:
   bool canHaveDepSink() const;
   bool canHaveAligned() const;
   bool canHaveFlush() const;
+  bool canHaveCancellationPoints() const; ///< Constructs that can be cancelled
 
   // Below are virtual functions to get/set clause and other information of
   // the WRN. They should never be called; calling them indicates intention
@@ -313,6 +316,12 @@ public:
   virtual void setPriority(EXPR E)              {WRNERROR(QUAL_OMP_PRIORITY); }
   virtual EXPR getPriority()              const {WRNERROR(QUAL_OMP_PRIORITY); }
   virtual void setProcBind(WRNProcBindKind P)   {WRNERROR("PROC_BIND");       }
+  virtual const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+    WRNERROR("CANCELLATION_POINTS");
+  }
+  virtual void addCancellationPoint(Instruction *V) {
+    WRNERROR("CANCELLATION_POINTS");
+  }
   virtual WRNProcBindKind getProcBind()   const {WRNERROR("PROC_BIND");       }
   virtual void setSafelen(int N)                {WRNERROR(QUAL_OMP_SAFELEN);  }
   virtual int getSafelen()                const {WRNERROR(QUAL_OMP_SAFELEN);  }
@@ -612,6 +621,16 @@ extern void printBB(StringRef Title, BasicBlock *BB, formatted_raw_ostream &OS,
 ///   print *Val regardless of Verbosity
 extern void printVal(StringRef Title, Value *Val, formatted_raw_ostream &OS,
                      int Indent, unsigned Verbosity=1);
+
+/// \brief Auxiliary function to print an ArrayRef of Values in a WRN dump.
+/// If an element Val in Vals is undef/null:
+///   Verbosity == 0: don't printing anything
+///   Verbosity >= 1: print "UNSPECIFIED"
+/// If the element Val is not undef/null:
+///   print it irrespective of verbosity
+extern void printValList(StringRef Title, ArrayRef<Value *> const &Vals,
+                         formatted_raw_ostream &OS, int Indent,
+                         unsigned Verbosity = 1);
 
 /// \brief Auxiliary function to print an Int in a WRN dump
 /// If Num is 0:

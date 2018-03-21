@@ -599,6 +599,59 @@ private:
   /// \brief Insert a flush call
   bool genFlush(WRegionNode *W);
 
+  /// \name Cancellation Specific Functions
+  /// {@
+
+  /// \brief Generates code for the OpenMP cancel constructs:
+  /// \code
+  /// #pragma omp cancel [type]
+  /// #pragma omp cancellation point [type]
+  /// \endcode
+  bool genCancelCode(WRNCancelNode *W);
+
+  /// \brief Add any cancellation points within \p W's body, to its
+  /// `region.exit` directive. This is done in the VPOParoptPrepare pass, and is
+  /// later consumed by the VPOParoptTransform pass.
+  ///
+  /// A `cancellation point` can be one of these calls:
+  /// \code
+  ///   %1 = __kmpc_cancel_barrier(...)
+  ///   %2 = __kmpc_cancel(...)
+  ///   %3 = __kmpc_cancellationpoint(...)
+  /// \endcode
+  ///
+  /// The IR after the transformation looks like:
+  /// call void @llvm.directive.region.exit(...) [ ...,
+  /// "QUAL.OMP.CANCELLATION.POINTS"(i32 %1, %2, %3) ]
+  bool propagateCancellationPointsToIR(WRegionNode *W);
+
+  /// \brief Generate branches to jump to the end of a construct from
+  /// every cancellation point within the construct.
+  ///
+  /// For each cancellation point '%x' within the body of W:
+  ///
+  /// \code
+  ///       Before                      |     After
+  ///  ---------------------------------+------------------------------------
+  ///  %x = kmpc_cancel(...)            |     %x = kmpc_cancel(...)
+  ///                                   |     if (%x != 0) {
+  ///                                   |       goto CANCEL.EXIT.BB;
+  ///                                   |     }
+  ///                                   |     NOT.CANCELLED.BB:
+  ///  <code_after_cancellation_point>  |     <code_after_cancellation_point>
+  ///  ...                              |     ...
+  ///                                   |
+  ///                                   |     CANCEL.EXIT.BB:
+  ///                                   |
+  ///  EXIT.BB:                         |     EXIT.BB:
+  ///  directive.region.exit(%x)        |     directive.region.exit(null)
+  ///  return;                          |     return;
+  ///
+  /// \endcode
+  bool genCancellationBranchingCode(WRegionNode *W);
+
+  /// @}
+
   /// \brief Generate the intrinsic @llvm.invariant.group.barrier to inhibit
   /// the cse for the gep instruction related to array/struture which is marked
   /// as private, firstprivate, lastprivate, reduction or shared.

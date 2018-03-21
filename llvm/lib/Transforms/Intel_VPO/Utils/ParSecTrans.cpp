@@ -56,8 +56,8 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -684,23 +684,10 @@ void VPOUtils::doParSectTrans(
 
   Instruction *Inst = Node->EntryBB->getFirstNonPHI();
   CallInst *CI = dyn_cast<CallInst>(Inst);
-  SmallVector<Value *, 8> Args;
-  for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++) {
-    Args.insert(Args.end(), *AI);
-  }
-  SmallVector<OperandBundleDef, 1> OpBundles;
-  CI->getOperandBundlesAsDefs(OpBundles);
-  OperandBundleDef B1("QUAL.OMP.NORMALIZED.IV", IV);
-  OpBundles.push_back(B1);
-  OperandBundleDef B2("QUAL.OMP.NORMALIZED.UB", NormalizedUB);
-  OpBundles.push_back(B2);
-  auto NewI = CallInst::Create(CI->getCalledValue(), Args, OpBundles, "", CI);
-  NewI->takeName(CI);
-  NewI->setCallingConv(CI->getCallingConv());
-  NewI->setAttributes(CI->getAttributes());
-  NewI->setDebugLoc(CI->getDebugLoc());
-  CI->replaceAllUsesWith(NewI);
-  CI->eraseFromParent();
+
+  VPOParoptUtils::addOperandBundlesInCall(
+      CI, {{"QUAL.OMP.NORMALIZED.IV", {IV}},
+           {"QUAL.OMP.NORMALIZED.UB", {NormalizedUB}}});
 
   return;
 }

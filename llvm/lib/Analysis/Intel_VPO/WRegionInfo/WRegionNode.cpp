@@ -923,6 +923,23 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                                      ClauseInfo, getFpriv());
     break;
   }
+  case QUAL_OMP_CANCELLATION_POINTS: {
+    assert(canHaveCancellationPoints() &&
+           "CANCELLATION.POINTS is not supported on this construct");
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      auto *V = dyn_cast<Instruction>(Args[I]);
+
+      // Cancellation point may have been removed/replaced with undef by
+      // some dead-code elimination optimization e.g.
+      // if (expr)
+      //   %1 = _kmpc_cancel(...)
+      //
+      // 'expr' may be always false, and %1 can be optimized away.
+      if (V)
+        addCancellationPoint(V);
+    }
+    break;
+  }
   case QUAL_OMP_LASTPRIVATE: {
     WRegionUtils::extractQualOpndListNonPod<LastprivateItem>(Args, NumArgs,
                                                      ClauseInfo, getLpriv());
@@ -1053,18 +1070,28 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   }
 }
 
-void WRegionNode::getClausesFromOperandBundles() {
-  // Under the directive.region.entry/exit representation the intrinsic
-  // is alone in the EntryBB, so EntryBB->front() is the intrinsic call
-  Instruction *I = &(getEntryBBlock()->front());
-  IntrinsicInst *Call = dyn_cast<IntrinsicInst>(&*I);
-  assert (Call && "Call not found for directive.region.entry()");
+void WRegionNode::getClausesFromOperandBundles(bool RegionExit) {
 
+  IntrinsicInst *Call;
+
+  if (!RegionExit) {
+    // Under the directive.region.entry/exit representation the intrinsic
+    // is alone in the EntryBB, so EntryBB->front() is the intrinsic call
+    Instruction *I = &(getEntryBBlock()->front());
+    Call = dyn_cast<IntrinsicInst>(&*I);
+    assert(Call && "Call not found for directive.region.entry()");
+  } else {
+    // ExitBB can have PHIs, so we get the first non-PHI to access the
+    // directive.region.exit intrinsic.
+    Instruction *I = getExitBBlock()->getFirstNonPHI();
+    Call = dyn_cast<IntrinsicInst>(&*I);
+    assert(Call && "Call not found for directive.region.exit()");
+  }
   unsigned i, NumOB = Call->getNumOperandBundles();
 
   // Index i start from 1 (not 0) because we want to skip the first
   // OperandBundle, which is the directive name.
-  for(i=1; i<NumOB; ++i) {
+  for (i = 1; i < NumOB; ++i) {
     // BU is the ith OperandBundle, which represents a clause
     OperandBundleUse BU = Call->getOperandBundleAt(i);
 
@@ -1076,9 +1103,9 @@ void WRegionNode::getClausesFromOperandBundles() {
 
     // Get the argument list from the current OperandBundle
     ArrayRef<llvm::Use> Args = BU.Inputs;
-    unsigned NumArgs = Args.size();   // BU.Inputs.size()
+    unsigned NumArgs = Args.size(); // BU.Inputs.size()
 
-    const Use *ArgList = NumArgs==0 ? nullptr : &Args[0];
+    const Use *ArgList = NumArgs == 0 ? nullptr : &Args[0];
 
     // Parse the clause and update the WRN
     parseClause(ClauseInfo, ArgList, NumArgs);
@@ -1273,6 +1300,22 @@ bool WRegionNode::canHaveFlush() const {
   return SubClassID==WRNFlush;
 }
 
+// Returns `true` if the Construct can be cancelled, and thus have
+// Cancellation Points.
+bool WRegionNode::canHaveCancellationPoints() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallel:
+  case WRNWksLoop:
+  case WRNSections:
+  case WRNTask:
+  case WRNParallelLoop:
+  case WRNParallelSections:
+    return true;
+  }
+  return false;
+}
+
 StringRef WRegionNode::getName() const {
   // good return llvm::vpo::WRNName[getWRegionKindID()];
   return WRNName[getWRegionKindID()];
@@ -1339,6 +1382,27 @@ void vpo::printVal(StringRef Title, Value *Val, formatted_raw_ostream &OS,
     return;
   }
   OS << *Val << "\n";
+}
+
+// Auxiliary function to print an ArrayRef of Values in a WRN dump
+void vpo::printValList(StringRef Title, ArrayRef<Value *> const &Vals,
+                       formatted_raw_ostream &OS, int Indent,
+                       unsigned Verbosity) {
+
+  if (Vals.empty())
+    return; // print nothing if Vals is empty
+
+  OS.indent(Indent) << Title << ":";
+
+  for (auto *V : Vals) {
+    if (V) {
+      OS << " ";
+      V->printAsOperand(OS);
+    } else if (Verbosity >= 1) {
+      OS << " UNSPECIFIED";
+    }
+  }
+  OS << "\n";
 }
 
 // Auxiliary function to print an Int in a WRN dump
