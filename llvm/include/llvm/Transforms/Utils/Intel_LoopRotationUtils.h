@@ -1,5 +1,4 @@
-//===- LoopRotationUtils.h ----------------------------------------------*- C++
-//-*-===//
+//===- Intel_LoopRotationUtils.h --------------------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
