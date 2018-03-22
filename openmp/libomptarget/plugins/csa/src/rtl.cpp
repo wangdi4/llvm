@@ -27,25 +27,13 @@
 #include <link.h>
 #include <unistd.h>
 #include <map>
+#include <iomanip>
+#include <cmath>
+#include <pthread.h>
+#include <mutex>
 
 #include "omptargetplugin.h"
 #include "csa_invoke.h"
-
-// TODO:
-// - Current implementation is limited to one target binary only, but the host
-//   process may have more than one target part - for example both executable
-//   file and shared libraries it depends on may have their own target parts.
-//   Implementation should be enhanced to suppport multiple target programs.
-// - The number of OpenMP offload devices is currently hardcoded to 4. Should
-//   it be somehow deduced from the target HW configuration?
-// - Support for 'omp declare target' global data. It is natural for the target
-//   program to reference host instances of global variables (due to shared
-//   memroy model), so the target program has to be patched to use host variable
-//   addresses at some point. Ideally that should be done by the loader - all
-//   references to globals in the target program may have dynamic relocations
-//   and the loader would automatically resolve them to the symbols defined in
-//   the host process. But that does not seem feasible until we switch to the
-//   binary format of the target code.
 
 #ifndef TARGET_NAME
 #define TARGET_NAME csa
@@ -117,8 +105,25 @@ static int DebugLevel = 0;
 // is run
 #define ENV_DUMP_STATS "CSA_DUMP_STATS"
 
-// If defined, leave the temporary files on disk
+// If defined all stats for a thread are run in a single CSA instance and
+// dumped in a single .stat file (if CSA_DUMP_STATS is defined)
+#define ENV_MERGE_STATS "CSA_MERGE_STATS"
+
+// If defined, leave the temporary files on disk in the user's directory
 #define ENV_SAVE_TEMPS "CSA_SAVE_TEMPS"
+
+// If defined, specifies temporary file prefix. If not defined, defaults
+// to process name with "-csa" appended. No effect if CSA_SAVE_TEMPS is
+// not defined
+#define ENV_TEMP_PREFIX "CSA_TEMP_PREFIX"
+
+// If defined specifies the value to initialize the floating point flags
+// to before an offloaded function, and that the floating point flags be
+// reported after the offloaded funciton returns
+#define ENV_FP_FLAGS "CSA_FP_FLAGS"
+
+// Environment variable the FP flags will be saved in
+#define ENV_RUN_FP_FLAGS "CSA_RUN_FP_FLAGS"
 
 // Bitcode bounds struct built by the compiler. WARNING! This struct MUST
 // match the struct written to the .csa.bc.bounds section in CSAAsmPrinter.cpp!
@@ -153,16 +158,60 @@ struct AllocMemEntryTy {
 class AllocatedMemoryMap: public std::map<void *, bool> {
 };
 
+struct CsaEntryInfo {
+  csa_processor *processor;
+  csa_module *module;
+  csa_entry *entry;
+  const char *entry_name;
+};
+
+typedef class std::map<std::pair<pthread_t,const void*>, CsaEntryInfo> CsaEntryMap_t;
+
 /// Keep entries table per device.
 struct FuncOrGblEntryTy {
   __tgt_target_table Table;
   std::string csaAsmFile;
+  CsaEntryMap_t csaTidToEntryMap;
   AllocatedMemoryMap ExplicitlyAllocatedMemory;
 };
+
+static std::string tmp_prefix;
+
+
+#ifdef _MSC_BUILD
+static
+std::string get_process_name() {
+  char buf[MAX_PATH];
+  char name[_MAX_FNAME];
+  GetModuleFileName(NULL, buf, MAX_PATH);
+  _splitpath_s(buf, NULL, 0, NULL, 0, name, _MAX_FNAME, NULL, 0);
+  return name;
+#else
+static
+std::string get_process_name() {
+  char buf[2048];
+
+  int ret = readlink("/proc/self/exe", buf, sizeof(buf)-1);
+  if (-1 == ret) {
+    fprintf(stderr, "Failed to get image name");
+    return "unknown-process";
+  }
+
+  buf[ret] = '\0';
+  char* name = strrchr(buf, '/');
+  if (NULL == name) {
+    return buf;
+  } else {
+    return name+1;
+  }
+}
+#endif
+
 
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
   std::vector<FuncOrGblEntryTy> FuncGblEntries;
+  std::mutex FuncGblEntriesMutex;
 
 public:
   std::list<DynLibTy> DynLibs;
@@ -180,18 +229,62 @@ public:
   }
 
   // Return true if the entry is associated with device.
-  const char *findOffloadEntry(int32_t device_id, void *addr) {
+  const char *findOffloadEntry(int32_t device_id, const void *addr,
+                               csa_processor **proc, csa_module **mod, csa_entry **entry) {
+
+    // Clean out the pointers
+    *proc = NULL;
+    *mod = NULL;
+    *entry = NULL;
+
+    // Take out the lock. Automatically released when "lock" goes out of scope
+    std::lock_guard<std::mutex> lock(FuncGblEntriesMutex);
+
     assert(device_id < (int32_t)FuncGblEntries.size() &&
            "Unexpected device id!");
     FuncOrGblEntryTy &E = FuncGblEntries[device_id];
 
-    for (__tgt_offload_entry *i = E.Table.EntriesBegin, *e = E.Table.EntriesEnd;
-         i < e; ++i) {
-      if (i->addr == addr)
+    for (__tgt_offload_entry *i = E.Table.EntriesBegin, *e = E.Table.EntriesEnd; i < e; ++i) {
+      if (i->addr == addr) {
+        pthread_t tid = pthread_self();
+        CsaEntryMap_t::iterator i = E.csaTidToEntryMap.find(std::pair<pthread_t,const void*>(tid, addr));
+        if (E.csaTidToEntryMap.end() != i) {
+          *proc = i->second.processor;
+          *mod = i->second.module;
+          *entry = i->second.entry;
+        }
         return E.csaAsmFile.c_str();
+      }
     }
 
     return NULL;
+  }
+
+  bool setCsaOffloadEntryInfo(int32_t device_id, void *addr,csa_processor *proc, csa_module *mod, csa_entry *entry) {
+    assert(device_id < (int32_t)FuncGblEntries.size() &&
+           "Unexpected device id!");
+
+    // Take out the lock. Automatically released when "lock" goes out of scope
+    std::lock_guard<std::mutex> lock(FuncGblEntriesMutex);
+
+    FuncOrGblEntryTy &E = FuncGblEntries[device_id];
+
+    CsaEntryInfo mapEntry;
+    mapEntry.processor = proc;
+    mapEntry.module = mod;
+    mapEntry.entry = entry;
+    mapEntry.entry_name = (const char*)addr;
+
+    for (__tgt_offload_entry *i = E.Table.EntriesBegin, *e = E.Table.EntriesEnd;
+         i < e; ++i) {
+      if (i->addr == addr) {
+        pthread_t tid = pthread_self();
+        
+        E.csaTidToEntryMap[std::pair<pthread_t,const void*>(tid, addr)] = mapEntry;
+        return true;
+      }
+    }
+    return false;
   }
 
   // Return the pointer to the target entries table.
@@ -256,13 +349,73 @@ public:
         remove(asmFile.c_str());
       }
     }
+
+    // Are we dumping the stats files?
+    bool dumpStats = (NULL != getenv(ENV_DUMP_STATS));
+
+    // Build a map of thread IDs to simple numbers
+    typedef std::map<pthread_t, int> ThreadNumMap_t;
+    ThreadNumMap_t threadNumMap;
+    int threadNum;
+    int width = 0;
+
+    if (dumpStats) {
+      for (size_t i = 0; i < FuncGblEntries.size(); i++) {
+        FuncOrGblEntryTy &E = FuncGblEntries[i];
+        for (CsaEntryMap_t::iterator i = E.csaTidToEntryMap.begin(); i != E.csaTidToEntryMap.end(); ++i) {
+          std::pair<pthread_t, const void*>key = i->first;
+          
+          ThreadNumMap_t::iterator iter = threadNumMap.find(key.first);
+          if (threadNumMap.end() == iter) {
+            threadNumMap[key.first] = threadNum++;
+          }
+        }
+      }
+      width = ceil(log10(threadNum));
+    }
+
+    // Finish up - Dump the stats, release the CSA isntances
+    for (size_t i = 0; i < FuncGblEntries.size(); i++) {
+      FuncOrGblEntryTy &E = FuncGblEntries[i];
+      for (CsaEntryMap_t::iterator i = E.csaTidToEntryMap.begin(); i != E.csaTidToEntryMap.end(); ++i) {
+        if (dumpStats) {
+          std::pair<pthread_t, const void*>key = i->first;
+          std::string entry_name = i->second.entry_name;
+
+          // Get the thread number that maps to this thread ID
+          int num = threadNumMap[key.first];
+
+          std::stringstream ss;
+          ss << get_process_name();
+
+          // Do we need to strip "__omp_offloading" from the entryoint name?
+          std::string omp_prefix("__omp_offloading");
+          if (0 == entry_name.compare(0, omp_prefix.length(), omp_prefix)) {
+            // If the entrypoint starts with "__omp_offloading"
+            ss << entry_name.substr(omp_prefix.length());
+          } else {
+            // Just use the process name
+            ss << entry_name;
+          }
+
+          // Add the thread number
+          ss << "-thd" << std::setfill('0') << std::setw(width) << num;
+
+          csa_dump_statistics(i->second.processor, ss.str().c_str());
+        }
+
+        // Release csa_processor
+        csa_free(i->second.processor);
+      }
+    }
   }
 };
-
 static RTLDeviceInfoTy DeviceInfo(NUMBER_OF_DEVICES);
 
 // How noisy we should be
 static int32_t verbosity = 0;
+static int32_t initial_fp_flags = -1;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -360,7 +513,7 @@ int32_t __tgt_rtl_init_device(int32_t device_id) { return OFFLOAD_SUCCESS; }
 static
 void deleteTempFiles() {
   // If we've been asked to save the temporaries, don't delete them
-  if (SaveTemps) {
+  if (getenv(ENV_SAVE_TEMPS)) {
     return;
   }
 
@@ -505,27 +658,6 @@ bool is_ld_gold(const char *ldPath) {
 }
 
 static
-std::string find_llvm_link(const std::string &csa_clang) {
-  // Find the root of the path for csa-clang
-  std::string::size_type pos = csa_clang.find_last_of('/');
-  if (std::string::npos == pos) {
-    return "";
-  }
-
-  // Assume that we can find csa-llvm-link in the same directory that
-  // has csa-clang
-  std::string llvm_link = csa_clang.substr(0, pos);
-  llvm_link += "/csa-llvm-link";
-
-  // Trust, but verify
-  if (0 == access(llvm_link.c_str(), X_OK)) {
-    return llvm_link;
-  } else {
-    return "";
-  }
-}
-
-static
 std::string find_opt(const std::string &csa_clang) {
   // Find the root of the path for csa-clang
   std::string::size_type pos = csa_clang.find_last_of('/');
@@ -646,15 +778,8 @@ bool extract_bc_file(const char *tmp_name,
     return true;
   }
 
-  // There are multiple bitcode files in the image. We'll need to use
-  // llvm-link to concatenate them. It (or the version with a csa- prefix)
-  // should be in the same directory as csa-clang
-  std::string llvmLinkCommand = find_llvm_link(csa_clang);
-  if (llvmLinkCommand.empty()) {
-    fprintf(stderr, "Failed to find csa-llvm-link.\n");
-    return false;
-  }
 
+  std::string llvmLinkCommand = "llvm-link ";
   llvmLinkCommand += " -o ";
   llvmLinkCommand += bcFile;
 
@@ -812,6 +937,21 @@ bool build_csa_assembly(const char *tmp_name,
                         const Elf_Data *bitcode_data,
                         std::string &csaAsmFile) {
 
+  // If the user wants to save temporaries, name them after the process name
+  //
+  // Note that tmp_prefix is a global variable. We'll use it for naming
+  // the stats file when we run
+  if (getenv(ENV_SAVE_TEMPS)) {
+    const char* prefix = getenv(ENV_TEMP_PREFIX);
+    if (prefix) {
+      tmp_prefix = prefix;
+    } else {
+      tmp_prefix = get_process_name();
+    }
+  } else {
+    tmp_prefix = tmp_name;
+  }
+
   // If the user is using his own assembly file, don't bother. Do not fill
   // in csaAsmFile since we don't want to delete it when the shared object
   // unloads.
@@ -845,13 +985,12 @@ bool build_csa_assembly(const char *tmp_name,
     }
   }
 
-  std::string bcFile(tmp_name);
-  bcFile += ".bc";
+  std::string bcFile = tmp_prefix + ".bc";
 
   // Extract the bitcode from the image. If there are multiple bitcode
   // files in the image, use llvm-link to contcatenate them into a
   // single bitcode file
-  if (! extract_bc_file(tmp_name, bcFile, csa_clang,
+  if (! extract_bc_file(tmp_prefix.c_str(), bcFile, csa_clang,
                         bitcode_bounds, bitcode_data)) {
     return false;
   }
@@ -859,17 +998,17 @@ bool build_csa_assembly(const char *tmp_name,
   // If the user gave us ld options, use ld.gold to build the final
   // .bc file
   if (! ldGold.empty()) {
-    if (! link_bc_file(tmp_name, bcFile, ldGold, goldPlugin, goldOptions)) {
+    if (! link_bc_file(tmp_prefix.c_str(), bcFile, ldGold, goldPlugin, goldOptions)) {
       return false;
     }
 
-    if (! fixup_bc_file(tmp_name, bcFile, csa_clang)) {
+    if (! fixup_bc_file(tmp_prefix.c_str(), bcFile, csa_clang)) {
       return false;
     }
   }
 
   // Generate a name for the target file
-  csaAsmFile = tmp_name;
+  csaAsmFile = tmp_prefix;
   csaAsmFile += ".s";
 
   // Build the csa-clang command to convert the bitcode to an CSA assembly file
@@ -1109,8 +1248,34 @@ int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
 int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
     void **tgt_args, ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t team_num,
     int32_t thread_limit, uint64_t loop_tripcount /*not used*/) {
+
+  typedef std::pair<csa_processor*, csa_module*> InstanceInfo_t;
+  typedef std::map<pthread_t, InstanceInfo_t> MapThreadToProcessor_t;
+
+  static MapThreadToProcessor_t mapThreadToProcessor;
+  static std::mutex s_threadToProcessorMapMutex;
+
   // ignore team num and thread limit.
   int32_t status = OFFLOAD_SUCCESS;
+  static uint32_t run_count = 0;
+
+  // If not checked yet, see if the CSA_FL_FLAGS environment variable is defined
+  if (-1 == initial_fp_flags) {
+    const char* fpFlags = getenv(ENV_FP_FLAGS);
+    if (NULL == fpFlags) {
+      initial_fp_flags = -2;
+    } else {
+      initial_fp_flags = atoi(fpFlags);
+      if (initial_fp_flags < 0) {
+        fprintf(stderr, "invalid initial FP flags value %d ignored\n", initial_fp_flags);
+        initial_fp_flags = -2;
+      }
+    }
+  }
+
+  csa_processor* proc = NULL;
+  csa_module* mod = NULL;
+  csa_entry* entry = NULL;
 
   // Normally this would be the code, but since we're loading assembly into
   // the simulator, the compilation gave us the address of the function name.
@@ -1122,62 +1287,113 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
   if (NULL == assemblyFile) {
     // Find the function in the target table, which will give us the path for
     // the compiled code so we can load it into the assembler
-    assemblyFile = DeviceInfo.findOffloadEntry(device_id, tgt_entry_ptr);
+    assemblyFile = DeviceInfo.findOffloadEntry(device_id, tgt_entry_ptr, &proc, &mod, &entry);
   }
 
   if (NULL == assemblyFile) {
     return checkForExitOnError(OFFLOAD_FAIL, "Failed to find assembly file");
   }
 
-  // Allocate an CSA
-  csa_processor *processor = csa_alloc("autounit");
-  if (NULL == processor) {
-    status = checkForExitOnError(OFFLOAD_FAIL,
-                                 "Failed to allocate CSA processor");
-  } else {
+  // If we've already got a CSA instance, module & entry, use them. Otherwise
+  // create them now.
+  if (NULL == proc) {
+    bool mergeStats = (NULL != getenv(ENV_MERGE_STATS));
+    bool newInstance = false;
+    pthread_t tid = pthread_self();
 
-    // Load the assembly file into the simulator
-    csa_module *mod = csa_assemble(assemblyFile, processor);
-    if (NULL == mod) {
-      status = checkForExitOnError(OFFLOAD_FAIL, "Failed to load module");
-    } else {
+    if (mergeStats) {
+      {
+        std::lock_guard<std::mutex> lock(s_threadToProcessorMapMutex);
 
-      // Find the function
-      csa_entry *entry = csa_lookup(mod, functionName);
-      if (NULL == entry) {
-        std::string err("Failed to find entrypoint \"");
-        err += functionName;
-        err += "\"";
-        status = checkForExitOnError(OFFLOAD_FAIL, err.c_str());
-      } else {
-        if (verbosity) {
-          fprintf(stderr, "\nRunning %s on the CSA simulator..\n", functionName);
-        }
-
-        std::vector<void *> ptrs(arg_num);
-        for (int32_t i=0; i<arg_num; ++i) {
-          ptrs[i] = (void*)((intptr_t)tgt_args[i] + tgt_offsets[i]);
-        }
-
-        // Execute the CSA code.
-        assert(sizeof(csa_arg) == sizeof(ptrs[0]));
-        unsigned long long start = csa_cycle_counter(processor);
-        csa_call(entry, arg_num, (csa_arg *)&ptrs[0]);
-        unsigned long long cycles = csa_cycle_counter(processor) - start;
-
-        // Dump the statistics, if requested
-        if (getenv (ENV_DUMP_STATS)) {
-          csa_dump_statistics(processor);
-        }
-
-        if (verbosity) {
-          fprintf(stderr, "\n%s ran on the CSA simulator in %llu cycles\n\n",
-                  functionName, cycles);
+        // Do we already have an instance for this thread?
+        MapThreadToProcessor_t::iterator iter = mapThreadToProcessor.find(tid);
+        if (mapThreadToProcessor.end() != iter) {
+          InstanceInfo_t instance = iter->second;
+          proc = instance.first;
+          mod = instance.second;
+          entry = csa_lookup(mod, functionName);
         }
       }
     }
+
+    // If we still didn't find it, create a new instance
+    if (NULL == entry) {
+      // Allocate an CSA
+      proc = csa_alloc("autounit");
+      if (NULL == proc) {
+        return checkForExitOnError(OFFLOAD_FAIL,
+                                   "Failed to allocate CSA processor");
+      }
+      newInstance = true;
+
+      mod = csa_assemble(assemblyFile, proc);
+      if (NULL == mod) {
+        return checkForExitOnError(OFFLOAD_FAIL, "Failed to load module");
+      }
+
+      entry = csa_lookup(mod, functionName);
+
+      if (mergeStats) {
+        std::lock_guard<std::mutex> lock(s_threadToProcessorMapMutex);
+
+        mapThreadToProcessor[tid] = InstanceInfo_t(proc,mod);
+      }
+    }
+
+    if (newInstance) {
+      bool success = DeviceInfo.setCsaOffloadEntryInfo(device_id, tgt_entry_ptr,
+                                                       proc, mod, entry);
+      assert(success && "saving CSA offload entry information failed!");
+    }
   }
-  csa_free(processor);
+
+#ifdef RAVI  //need new csasim header which defines csa_set_fp_flags
+  if (initial_fp_flags >= 0) {
+    csa_set_fp_flags(proc, (unsigned int)initial_fp_flags);
+  }
+  if (verbosity) {
+    fprintf(stderr, "\nRun %u: Running %s on the CSA simulator..\n",
+            run_count, functionName);
+  }
+#endif
+
+  std::vector<void *> ptrs(arg_num);
+  for (int32_t i=0; i<arg_num; ++i) {
+    ptrs[i] = (void*)((intptr_t)tgt_args[i] + tgt_offsets[i]);
+  }
+
+  // Execute the CSA code. target() is adding an "omp handle" to the
+  // arguments array which we don't care about. So ignore it
+  assert(sizeof(csa_arg) == sizeof(ptrs[0]));
+  unsigned long long start = csa_cycle_counter(proc);
+  csa_call(entry, arg_num, (csa_arg *)&ptrs[0]);
+  unsigned long long cycles = csa_cycle_counter(proc) - start;
+
+#if 0
+  // Dump the statistics, if requested
+  if (getenv (ENV_DUMP_STATS)) {
+    std::stringstream ss;
+    ss << tmp_prefix << "-" << run_count;
+    csa_dump_statistics(proc, ss.str().c_str());
+  }
+#endif
+
+  if (verbosity) {
+    fprintf(stderr, "\nRun %u: %s ran on the CSA simulator in %llu cycles\n\n",
+            run_count, functionName, cycles);
+  }
+#ifdef RAVI  //need new csasim header which defines csa_get_fp_flags
+  if (initial_fp_flags >= 0) {
+    unsigned int flags = csa_get_fp_flags(proc);
+    fprintf(stderr, "FP Flags at completion of %s : 0x%02x\n",
+            functionName, flags);
+    char buf[32];
+    sprintf(buf, "%u", flags);
+    setenv(ENV_RUN_FP_FLAGS, buf, 1);
+  }
+#endif
+
+  run_count++;
 
   return status;
 }
