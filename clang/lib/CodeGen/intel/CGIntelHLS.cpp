@@ -115,10 +115,9 @@ void CodeGenFunction::EmitOpenCLHLSComponentMetadata(const FunctionDecl *FD,
                     llvm::MDNode::get(Context, ArgLocalMemSizeAttr));
 
   if (const auto *MCA = FD->getAttr<MaxConcurrencyAttr>()) {
-    llvm::Value *MaxValue = EmitScalarExpr(MCA->getMax());
-    llvm::ConstantInt *MaxCI = cast<llvm::ConstantInt>(MaxValue);
-    Fn->setMetadata(
-        "max_concurrency",
-        llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(MaxCI)));
+    llvm::APSInt MCAInt = MCA->getMax()->EvaluateKnownConstInt(getContext());
+    Fn->setMetadata("max_concurrency",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                                   Builder.getInt(MCAInt))));
   }
 }

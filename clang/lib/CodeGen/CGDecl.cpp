@@ -467,20 +467,20 @@ void CodeGenFunction::EmitStaticVarDecl(const VarDecl &D,
 
 #if INTEL_CUSTOMIZATION
   if (getLangOpts().HLS && D.getStorageClass() == SC_Static) {
-    unsigned ResetOption = 2; // Default value.
-    if (auto *SARA = D.getAttr<StaticArrayResetAttr>()) {
-      llvm::Value *V = EmitScalarExpr(SARA->getValue());
-      llvm::ConstantInt *CI = cast<llvm::ConstantInt>(V);
-      ResetOption = CI->getValue().getZExtValue();
-    }
     auto &Ctx = getLLVMContext();
     SmallVector<llvm::Metadata *, 10> MD;
     llvm::IntegerType *int32Ty = llvm::Type::getInt32Ty(Ctx);
 
     // Build attribute node.
     MD.push_back(llvm::MDString::get(Ctx, "staticreset"));
-    MD.push_back(llvm::ConstantAsMetadata::get(
-        llvm::ConstantInt::get(int32Ty, ResetOption)));
+    if (auto *SARA = D.getAttr<StaticArrayResetAttr>()) {
+      llvm::APSInt ResetOption =
+          SARA->getValue()->EvaluateKnownConstInt(CGM.getContext());
+      MD.push_back(llvm::ConstantAsMetadata::get(Builder.getInt(ResetOption)));
+    } else {
+      // Use the default.
+      MD.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(2)));
+    }
     MD.push_back(llvm::MDString::get(Ctx, "unset"));
     llvm::MDNode *ANode = llvm::MDNode::get(Ctx, MD);
 

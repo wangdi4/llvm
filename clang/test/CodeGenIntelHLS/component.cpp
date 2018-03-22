@@ -1,4 +1,5 @@
 //RUN: %clang_cc1 -fhls -emit-llvm -triple x86_64-unknown-linux-gnu -o - %s | FileCheck %s
+//RUN: %clang_cc1 -fhls -debug-info-kind=limited -emit-llvm -triple x86_64-unknown-linux-gnu -o - %s
 
 //CHECK: @_Z4foo1iiiiPiS_Ri{{.*}}!ihc_component [[CFOO1:![0-9]+]]
 //CHECK-SAME: !arg_type [[ATFOO1:![0-9]+]]
