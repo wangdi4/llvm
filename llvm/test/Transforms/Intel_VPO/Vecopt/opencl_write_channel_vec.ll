@@ -1,6 +1,5 @@
 ; RUN: opt %s -S -VPlanDriver 2>&1 | FileCheck %s
 ; XFAIL: *
-; TODO: replace 'XFAIL' with 'REQUIRE: intel_opencl' once pulldown from xmain is done.
 
 ; CHECK: __write_pipe_2_bl_intel_v4i8
 

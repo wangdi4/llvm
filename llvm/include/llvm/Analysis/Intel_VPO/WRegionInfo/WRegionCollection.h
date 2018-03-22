@@ -31,6 +31,10 @@ class LoopInfo;
 class DominatorTree;
 class ScalarEvolution;
 
+namespace loopopt {
+class HIRFramework;
+}
+
 namespace vpo {
 
 /// \brief template classe for WRStack
@@ -70,27 +74,24 @@ template <class T> bool WRStack<T>::empty() {
   return Stack_.size() == 0 ? true : false;
 }
 
-/// \brief This analysis is the first step in building W-Region Graph. We
-/// start by collecting regions as a set of basic blocks in the incoming
-/// LLVM IR. This information is then used by WRegionInfo pass to create
-/// and populate W-Region nodes.
-class WRegionCollection : public FunctionPass {
+/// \brief Implementation of WRegionCollection analysis pass. This is the first
+/// step in building W-Region Graph. We start by collecting regions as a set of
+/// basic blocks in the incoming LLVM IR. This information is then used by
+/// WRegionInfo pass to create and populate W-Region nodes.
+class WRegionCollection {
 
 private:
   /// WRGraph - vector of WRegionNodes.
   WRContainerImpl *WRGraph;
 
-  /// Func - The function we are analyzing.
   Function *Func;
-
-  /// DT - The dominator tree.
   DominatorTree *DT;
-
-  /// LI - The loop information for the function we are currently analyzing.
   LoopInfo *LI;
-
-  /// SE - Scalar Evolution analysis for the function.
   ScalarEvolution *SE;
+  const TargetTransformInfo *TTI;
+  AssumptionCache *AC;
+  const TargetLibraryInfo *TLI;
+  loopopt::HIRFramework *HIRF;
 
 public:
   enum InputIRKind{
@@ -99,14 +100,12 @@ public:
   };
   friend class WRegionNode;
 
-  static char ID; // Pass identification
-  WRegionCollection();
+  WRegionCollection(Function *F, DominatorTree *DT, LoopInfo *LI,
+                    ScalarEvolution *SE, const TargetTransformInfo *TTI,
+                    AssumptionCache *AC, const TargetLibraryInfo *TLI,
+                    loopopt::HIRFramework *HIRF);
 
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  void print(raw_ostream &OS, const Module * = nullptr) const override;
-  void verifyAnalysis() const override;
+  void print(raw_ostream &OS) const;
 
   /// \brief Entry point for on-demand call to build the WRGraph.
   /// If FromHIR==true, it walks the HIR; else, it walks the LLVM IR
@@ -128,6 +127,9 @@ public:
   DominatorTree *getDomTree() { return DT; }
   LoopInfo *getLoopInfo()     { return LI; }
   ScalarEvolution *getSE()    { return SE; }
+  const TargetTransformInfo *getTargetTransformInfo() { return TTI; }
+  AssumptionCache *getAssumptionCache() { return AC; }
+  const TargetLibraryInfo *getTargetLibraryInfo() { return TLI; }
 
   /// \brief Returns the size of the WRGraph container
   unsigned getWRGraphSize() { return WRGraph->size(); }
@@ -149,7 +151,40 @@ public:
   const_reverse_iterator rend() const { return WRGraph->rend(); }
 };
 
+/// \brief WRegionCollection Pass for the legacy Pass Manager.
+class WRegionCollectionWrapperPass: public FunctionPass {
+  std::unique_ptr<WRegionCollection> WRC;
+
+public:
+  static char ID;
+  WRegionCollectionWrapperPass();
+
+  WRegionCollection &getWRegionCollection() {return *WRC; }
+  const WRegionCollection &getWRegionCollection() const {return *WRC; }
+
+  bool runOnFunction(Function &F) override;
+  void releaseMemory() override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  void print(raw_ostream &OS, const Module * = nullptr) const override {
+    WRC->print(OS);
+  }
+};
+
 } // End namespace vpo
+
+/// \brief WRegionCollection Pass for the new Pass Manager.
+class WRegionCollectionAnalysis
+    : public AnalysisInfoMixin<WRegionCollectionAnalysis> {
+  friend struct AnalysisInfoMixin<WRegionCollectionAnalysis>;
+
+  static AnalysisKey Key;
+
+public:
+  using Result = vpo::WRegionCollection;
+
+  vpo::WRegionCollection run(Function &F, FunctionAnalysisManager &AM);
+};
+
 } // End namespace llvm
 
 #endif // LLVM_ANALYSIS_VPO_WREGIONCOLLECTION_H

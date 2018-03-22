@@ -299,8 +299,8 @@ namespace {
       (void) llvm::createMapIntrinToImlPass();
 
       // VPO WRegion Passes
-      (void) llvm::createWRegionCollectionPass();
-      (void) llvm::createWRegionInfoPass();
+      (void) llvm::createWRegionCollectionWrapperPassPass();
+      (void) llvm::createWRegionInfoWrapperPassPass();
 
       // VPO Vectorizer Passes
       (void) llvm::createAVRGeneratePass();

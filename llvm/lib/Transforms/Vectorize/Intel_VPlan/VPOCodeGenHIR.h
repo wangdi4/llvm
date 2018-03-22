@@ -116,6 +116,18 @@ public:
 
   void setCurMaskValue(RegDDRef *V) { CurMaskValue = V; }
 
+  // Return widened instruction if Symbase is in WidenMap, return nullptr
+  // otherwise.
+  HLInst *getWideInst(unsigned Symbase) const {
+    if (WidenMap.find(Symbase) != WidenMap.end())
+      return WidenMap.at(Symbase);
+    else
+      return nullptr;
+  }
+
+  // Widen Ref if needed and return the widened ref.
+  RegDDRef *widenRef(const RegDDRef *Ref);
+
 private:
   // Target Library Info is used to check for svml.
   TargetLibraryInfo *TLI;
@@ -196,18 +208,6 @@ private:
   // Replace math library calls in the remainder loop with the vectorized one
   // used in the main vector loop.
   void replaceLibCallsInRemainderLoop(HLInst *HInst);
-
-  // Return widened instruction if Symbase is in WidenMap, return nullptr
-  // otherwise.
-  HLInst *getWideInst(unsigned Symbase) const {
-    if (WidenMap.find(Symbase) != WidenMap.end())
-      return WidenMap.at(Symbase);
-    else
-      return nullptr;
-  }
-
-  // Widen Ref if needed and return the widened ref.
-  RegDDRef *widenRef(const RegDDRef *Ref);
 
   class HIRLoopVisitor : public HIRVisitor<HIRLoopVisitor> {
   private:
