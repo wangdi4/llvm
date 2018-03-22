@@ -57,6 +57,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_kernel_arg_access_qualifier  accessQualifier;    //!< Argument's access qualifier
         cl_kernel_arg_type_qualifier    typeQualifier;      //!< Argument's type qualifier
         cl_bool                         hostAccessible;     //!< Argument's host accessible flag
+        cl_int                          localMemSize;       //!< Argument's local_mem_size
     };
 
     /**********************************************************************************************

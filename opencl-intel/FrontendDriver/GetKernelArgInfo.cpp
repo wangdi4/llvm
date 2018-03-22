@@ -76,6 +76,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(
     llvm::MDNode *pArgNames = Func->getMetadata("kernel_arg_name");
     llvm::MDNode *pHostAccessible =
         Func->getMetadata("kernel_arg_host_accessible");
+    llvm::MDNode *pLocalMemSize = Func->getMetadata("local_mem_size");
     assert(pAddressQualifiers && pAccessQualifiers && pTypeNames &&
            pTypeQualifiers && "invalid kernel metadata");
 
@@ -158,6 +159,16 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(
                 ->isOne();
       } else {
         argInfo.hostAccessible = false;
+      }
+      if (pLocalMemSize) {
+        auto *pLocalMemSizeFlag = llvm::dyn_cast<llvm::ConstantAsMetadata>(
+            pLocalMemSize->getOperand(i));
+
+        argInfo.localMemSize =
+            llvm::cast<llvm::ConstantInt>(pLocalMemSizeFlag->getValue())
+                ->getZExtValue();
+      } else {
+        argInfo.localMemSize = 0;
       }
 
       pResult->addInfo(argInfo);

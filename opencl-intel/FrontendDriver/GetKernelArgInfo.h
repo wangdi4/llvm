@@ -24,6 +24,7 @@ struct CachedArgInfo {
   cl_kernel_arg_access_qualifier accessQualifier;
   cl_kernel_arg_type_qualifier typeQualifier;
   cl_bool hostAccessible;
+  cl_int localMemSize;
 };
 
 class OCLFEKernelArgInfo : public IOCLFEKernelArgInfo {
@@ -49,6 +50,9 @@ public:
   }
   cl_bool getArgHostAccessible(size_t index) const override {
     return m_argsInfo[index].hostAccessible;
+  }
+  cl_int getArgLocalMemSize(size_t index) const override {
+    return m_argsInfo[index].localMemSize;
   }
   void Release() override { m_argsInfo.clear(); }
   void addInfo(const CachedArgInfo &info) {

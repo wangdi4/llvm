@@ -784,6 +784,7 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel)
             argInfo.typeName        = pArgsInfo->getArgTypeName(i);
             argInfo.typeQualifier   = pArgsInfo->getArgTypeQualifier(i);
             argInfo.hostAccessible  = pArgsInfo->getArgHostAccessible(i);
+            argInfo.localMemSize    = pArgsInfo->getArgLocalMemSize(i);
         }
 
         pArgsInfo->Release();
@@ -1002,7 +1003,12 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
         {
             return CL_INVALID_ARG_SIZE;
         }
-        
+        size_t localMemSize = m_vArgumentsInfo[uiIndex].localMemSize;
+        if (szSize > localMemSize)
+        {
+            return CL_INVALID_ARG_SIZE;
+        }
+
         if (nullptr != pValue)
         {
             return CL_INVALID_ARG_VALUE;

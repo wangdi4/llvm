@@ -27,6 +27,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         getArgTypeQualifier(size_t index) const = 0;
         virtual cl_bool
         getArgHostAccessible(size_t index) const = 0;
+        virtual cl_int getArgLocalMemSize(size_t index) const = 0;
         // release result
         virtual void Release() = 0;
     protected:
