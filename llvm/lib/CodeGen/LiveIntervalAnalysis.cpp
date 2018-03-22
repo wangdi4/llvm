@@ -484,6 +484,20 @@ bool LiveIntervals::computeDeadValues(LiveInterval &LI,
     // Is the register live before? Otherwise we may have to add a read-undef
     // flag for subregister defs.
     unsigned VReg = LI.reg;
+
+#if INTEL_CUSTOMIZATION
+    //
+    // CMPLRS-49391:
+    //
+    // Avoid "dead" marking for CSA LICs, because the LiveInterval
+    // for a LIC may be incorrect due to incosistent IR after
+    // CF-to-DF conversion.  In addition, avoid setRegisterDefReadUndef()
+    // below, because a use may precede the definition in CSA DF IR.
+    //
+    if (MRI->getRegClass(VReg)->isVirtual())
+      continue;
+#endif  // INTEL_CUSTOMIZATION
+
     if (MRI->shouldTrackSubRegLiveness(VReg)) {
       if ((I == LI.begin() || std::prev(I)->end < Def) && !VNI->isPHIDef()) {
         MachineInstr *MI = getInstructionFromIndex(Def);
@@ -493,6 +507,7 @@ bool LiveIntervals::computeDeadValues(LiveInterval &LI,
 
     if (I->end != Def.getDeadSlot())
       continue;
+
     if (VNI->isPHIDef()) {
       // This is a dead PHI. Remove it.
       VNI->markUnused();
