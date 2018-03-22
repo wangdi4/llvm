@@ -4,40 +4,6 @@
 
 ; This is to test that the predicator preserves uniform control flow.
 
-
-; Predicator report output
-; REPORT: [[region_14:region[0-9]+]]:
-; REPORT-NEXT:   [[BB_11:BB[0-9]+]]:
-; REPORT-NOT:     [[BP_20:BP[0-9]+]] =
-; REPORT-NEXT:     [[IfF_24:IfF[0-9]+]] = {{!%vp[0-9]+}}
-; REPORT-NEXT:     [[IfT_25:IfT[0-9]+]] = {{%vp[0-9]+}}
-; REPORT-NEXT:   [[BB_4:BB[0-9]+]]:
-; REPORT-NOT:     [[BP_22:BP[0-9]+]] = 
-; REPORT-NEXT:   [[BB_3:BB[0-9]+]]:
-; REPORT-NOT:     [[BP_21:BP[0-9]+]] = 
-
-; REPORT: [[loop_13:loop[0-9]+]]:
-; REPORT-NEXT:   [[BB_8:BB[0-9]+]]:
-; REPORT-NOT:     [[BP_16:BP[0-9]+]] = 
-; REPORT-NEXT:   [[BB_2:BB[0-9]+]]:
-; REPORT-NOT:     [[BP_17:BP[0-9]+]] = 
-; REPORT-NEXT:   [[region_14]]:
-; REPORT-NOT:     [[BP_17]] = 
-; REPORT-NEXT:   [[BB_12:BB[0-9]+]]:
-; REPORT-NOT:     [[BP_18:BP[0-9]+]] =
-; REPORT-NEXT:   [[BB_7:BB[0-9]+]]:
-; REPORT-NOT:     [[BP_19:BP[0-9]+]] =
-
-; Codegen
-
-; CG: vector.body:
-; CG: br i1 {{%cmp[0-9]+}}, label %[[VPBB2:VPlannedBB[0-9]*]], label %[[VPBB1:VPlannedBB[0-9]*]]
-; CG: [[VPBB1]]: 
-; CG: br label %[[VPBB2]]
-; CG: [[VPBB2]]: 
-; CG: br i1 {{%[0-9]+}}, label %middle.block, label %vector.body
-
-
 ; ModuleID = 'inner_if_else.c'
 source_filename = "inner_if_else.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -49,6 +15,38 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define i32 @foo() local_unnamed_addr #0 {
+; Predicator report output
+
+; REPORT: [[region_14:region[0-9]+]]:
+; REPORT-NEXT:   [[BB_11:BB[0-9]+]]:
+; REPORT-NOT:     [[BP_20:BP[0-9]+]] =
+; REPORT-NEXT:     [[IfF_24:IfF[0-9]+]] = {{!%vp[0-9]+}}
+; REPORT-NEXT:     [[IfT_25:IfT[0-9]+]] = {{%vp[0-9]+}}
+; REPORT-NEXT:   [[BB_4:BB[0-9]+]]:
+; REPORT-NOT:     [[BP_22:BP[0-9]+]] =
+; REPORT-NEXT:   [[BB_3:BB[0-9]+]]:
+; REPORT-NOT:     [[BP_21:BP[0-9]+]] =
+
+; REPORT: [[loop_13:loop[0-9]+]]:
+; REPORT-NEXT:   [[BB_8:BB[0-9]+]]:
+; REPORT-NOT:     [[BP_16:BP[0-9]+]] =
+; REPORT-NEXT:   [[BB_2:BB[0-9]+]]:
+; REPORT-NOT:     [[BP_17:BP[0-9]+]] =
+; REPORT-NEXT:   [[region_14]]:
+; REPORT-NOT:     [[BP_17]] =
+; REPORT-NEXT:   [[BB_12:BB[0-9]+]]:
+; REPORT-NOT:     [[BP_18:BP[0-9]+]] =
+; REPORT-NEXT:   [[BB_7:BB[0-9]+]]:
+; REPORT-NOT:     [[BP_19:BP[0-9]+]] =
+
+; Codegen
+
+; CG: vector.body:
+; CG: br i1 {{%cmp[0-9]+}}, label %[[VPBB2:VPlannedBB[0-9]*]], label %[[VPBB1:VPlannedBB[0-9]*]]
+; CG: [[VPBB1]]:
+; CG: br label %[[VPBB2]]
+; CG: [[VPBB2]]:
+; CG: br i1 {{%[0-9]+}}, label %middle.block, label %vector.body
 entry:
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
   tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")

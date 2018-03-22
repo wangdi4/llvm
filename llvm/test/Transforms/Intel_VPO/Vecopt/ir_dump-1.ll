@@ -2,6 +2,14 @@
 
 ; Test check plain dump of a VPlan
 
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+
+@N = common local_unnamed_addr global i32 0, align 4
+@a = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
+@b = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
+
+; Function Attrs: noinline norecurse nounwind uwtable
+define i32 @foo() local_unnamed_addr {
 ; CHECK: Print after simplify plain CFG
 ; CHECK-NEXT:  REGION: [[region_1:region[0-9]+]] (BP: NULL)
 ; CHECK-NEXT:  [[BB_7:BB[0-9]+]] (BP: NULL) :
@@ -66,14 +74,6 @@
 ; CHECK-NEXT:  END Block - no SUCCESSORS
 ; CHECK-NEXT:  END Region([[region_1]])
 
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-
-@N = common local_unnamed_addr global i32 0, align 4
-@a = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
-@b = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
-
-; Function Attrs: noinline norecurse nounwind uwtable
-define i32 @foo() local_unnamed_addr {
 entry:
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
   tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")

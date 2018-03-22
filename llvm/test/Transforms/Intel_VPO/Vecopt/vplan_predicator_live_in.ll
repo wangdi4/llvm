@@ -54,6 +54,51 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define i32 @foo() local_unnamed_addr #0 {
+; NOOPT: [[loop_13:loop[0-9]+]]:
+; NOOPT:   [[BB_8:BB[0-9]+]]:
+; NOOPT:     [[BP_16:BP[0-9]+]] =
+; NOOPT:   [[BB_2:BB[0-9]+]]:
+; NOOPT:     [[BP_17:BP[0-9]+]] = [[BP_16]]
+; NOOPT:   [[region_14:region[0-9]+]]:
+; NOOPT:     [[BP_17]] = [[BP_16]]
+; NOOPT:   [[BB_12:BB[0-9]+]]:
+; NOOPT:     [[BP_18:BP[0-9]+]] = [[BP_17]]
+; NOOPT:   [[BB_7:BB[0-9]+]]:
+; NOOPT:     [[BP_19:BP[0-9]+]] = [[BP_16]]
+
+; NOOPT: [[region_14]]:
+; NOOPT:   [[BB_11:BB[0-9]+]]:
+; NOOPT:     [[BP_20:BP[0-9]+]] = [[BP_17]]
+; NOOPT:     [[IfF_24:IfF[0-9]+]] = [[BP_20]] && ![[UBR_23:%vp[0-9]+]]
+; NOOPT:     [[IfT_25:IfT[0-9]+]] = [[BP_20]] && [[UBR_23]]
+; NOOPT:   [[BB_4:BB[0-9]+]]:
+; NOOPT:     [[BP_22:BP[0-9]+]] = [[IfF_24]]
+; NOOPT:   [[BB_3:BB[0-9]+]]:
+; NOOPT:     [[BP_21:BP[0-9]+]] = [[BP_22]] || [[IfT_25]]
+
+
+
+; OPT: [[region_14:region[0-9]+]]:
+; OPT:   [[BB_11:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
+; OPT:     [[IfF_24:IfF[0-9]+]] = ![[UBR_23:%vp[0-9]+]]
+; OPT:     [[IfT_25:IfT[0-9]+]] = [[UBR_23]]
+; OPT:   [[BB_4:BB[0-9]+]]:
+; OPT:     [[BP_22:BP[0-9]+]] = [[IfF_24]]
+; OPT:   [[BB_3:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
+
+; OPT: [[loop_13:loop[0-9]+]]:
+; OPT:   [[BB_8:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
+; OPT:   [[BB_2:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
+; OPT:   [[region_14]]:
+; OPT-NOT: BP[0-9]+ =
+; OPT:   [[BB_12:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
+; OPT:   [[BB_7:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
 entry:
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
   tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
@@ -112,51 +157,3 @@ attributes #1 = { argmemonly nounwind }
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C/C++ TBAA"}
-
-; NOOPT: [[loop_13:loop[0-9]+]]:
-; NOOPT:   [[BB_8:BB[0-9]+]]:
-; NOOPT:     [[BP_16:BP[0-9]+]] = 
-; NOOPT:   [[BB_2:BB[0-9]+]]:
-; NOOPT:     [[BP_17:BP[0-9]+]] = [[BP_16]]
-; NOOPT:   [[region_14:region[0-9]+]]:
-; NOOPT:     [[BP_17]] = [[BP_16]]
-; NOOPT:   [[BB_12:BB[0-9]+]]:
-; NOOPT:     [[BP_18:BP[0-9]+]] = [[BP_17]]
-; NOOPT:   [[BB_7:BB[0-9]+]]:
-; NOOPT:     [[BP_19:BP[0-9]+]] = [[BP_16]]
-
-; NOOPT: [[region_14]]:
-; NOOPT:   [[BB_11:BB[0-9]+]]:
-; NOOPT:     [[BP_20:BP[0-9]+]] = [[BP_17]]
-; NOOPT:     [[IfF_24:IfF[0-9]+]] = [[BP_20]] && ![[UBR_23:%vp[0-9]+]]
-; NOOPT:     [[IfT_25:IfT[0-9]+]] = [[BP_20]] && [[UBR_23]]
-; NOOPT:   [[BB_4:BB[0-9]+]]:
-; NOOPT:     [[BP_22:BP[0-9]+]] = [[IfF_24]]
-; NOOPT:   [[BB_3:BB[0-9]+]]:
-; NOOPT:     [[BP_21:BP[0-9]+]] = [[BP_22]] || [[IfT_25]] 
-
-
-
-; OPT: [[region_14:region[0-9]+]]:
-; OPT:   [[BB_11:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ = 
-; OPT:     [[IfF_24:IfF[0-9]+]] = ![[UBR_23:%vp[0-9]+]]
-; OPT:     [[IfT_25:IfT[0-9]+]] = [[UBR_23]]
-; OPT:   [[BB_4:BB[0-9]+]]:
-; OPT:     [[BP_22:BP[0-9]+]] = [[IfF_24]]
-; OPT:   [[BB_3:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ = 
-
-; OPT: [[loop_13:loop[0-9]+]]:
-; OPT:   [[BB_8:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ = 
-; OPT:   [[BB_2:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ = 
-; OPT:   [[region_14]]:
-; OPT-NOT: BP[0-9]+ = 
-; OPT:   [[BB_12:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ = 
-; OPT:   [[BB_7:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ = 
-
-
