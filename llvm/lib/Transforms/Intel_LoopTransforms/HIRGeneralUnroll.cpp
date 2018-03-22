@@ -146,7 +146,7 @@ public:
     AU.setPreservesAll();
     AU.addRequiredTransitive<OptReportOptionsPass>();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopResource>();
+    AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   }
 
@@ -192,7 +192,7 @@ INITIALIZE_PASS_BEGIN(HIRGeneralUnroll, "hir-general-unroll",
                       "HIR General Unroll", false, false)
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopResource)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRGeneralUnroll, "hir-general-unroll",
                     "HIR General Unroll", false, false)
@@ -211,7 +211,7 @@ bool HIRGeneralUnroll::runOnFunction(Function &F) {
   DEBUG(dbgs() << "General unrolling for Function : " << F.getName() << "\n");
 
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HLR = &getAnalysis<HIRLoopResource>();
+  HLR = &getAnalysis<HIRLoopResourceWrapperPass>().getHLR();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   auto &OROP = getAnalysis<OptReportOptionsPass>();
   LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());

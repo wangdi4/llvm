@@ -42,7 +42,7 @@ FunctionPass *createHIRLocalityAnalysisPass();
 
 /// Compute the loop resource for HIR Loops which help in cost models of
 /// different transformations.
-FunctionPass *createHIRLoopResourcePass();
+FunctionPass *createHIRLoopResourceWrapperPass();
 
 /// Compute statistics for HIR Loops.
 FunctionPass *createHIRLoopStatisticsWrapperPass();

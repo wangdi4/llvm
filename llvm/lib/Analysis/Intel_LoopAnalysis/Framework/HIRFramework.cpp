@@ -97,7 +97,7 @@ HIRFramework HIRFrameworkAnalysis::run(Function &F,
       AM.getResult<HIRSCCFormationAnalysis>(F),
       HIRAnalysisProvider(
           [&]() { return nullptr; }, [&]() { return nullptr; },
-          [&]() { return nullptr; },
+          [&]() { return AM.getCachedResult<HIRLoopResourceAnalysis>(F); },
           [&]() { return AM.getCachedResult<HIRLoopStatisticsAnalysis>(F); },
           [&]() { return nullptr; }, [&]() { return nullptr; }));
 }
@@ -151,7 +151,11 @@ bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
       HIRAnalysisProvider(
           [&]() { return getAnalysisIfAvailable<HIRDDAnalysis>(); },
           [&]() { return getAnalysisIfAvailable<HIRLocalityAnalysis>(); },
-          [&]() { return getAnalysisIfAvailable<HIRLoopResource>(); },
+          [&]() {
+            auto *Wrapper =
+                getAnalysisIfAvailable<HIRLoopResourceWrapperPass>();
+            return Wrapper ? &Wrapper->getHLR() : nullptr;
+          },
           [&]() {
             auto *Wrapper =
                 getAnalysisIfAvailable<HIRLoopStatisticsWrapperPass>();

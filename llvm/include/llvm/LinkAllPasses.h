@@ -271,7 +271,7 @@ namespace {
       (void) llvm::createHIROptReportEmitterWrapperPass();
       (void) llvm::createHIRDDAnalysisPass();
       (void) llvm::createHIRLocalityAnalysisPass();
-      (void) llvm::createHIRLoopResourcePass();
+      (void) llvm::createHIRLoopResourceWrapperPass();
       (void) llvm::createHIRLoopStatisticsWrapperPass();
       (void) llvm::createHIRParVecAnalysisPass();
       (void) llvm::createHIRVectVLSAnalysisPass();
