@@ -102,6 +102,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 
 #define DEBUG_TYPE "hir-loop-reversal"
 
@@ -254,6 +255,7 @@ char HIRLoopReversal::ID = 0;
 
 INITIALIZE_PASS_BEGIN(HIRLoopReversal, "hir-loop-reversal", "HIR Loop Reversal",
                       false, false)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
@@ -382,6 +384,7 @@ void HIRLoopReversal::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+  AU.addRequiredTransitive<OptReportOptionsPass>();
   AU.setPreservesAll();
 }
 
@@ -406,6 +409,8 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
   HDDA = &getAnalysis<HIRDDAnalysis>();
   HSRA = &getAnalysis<HIRSafeReductionAnalysis>();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
+  auto &OROP = getAnalysis<OptReportOptionsPass>();
+  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   // Gather ALL Innermost Loops as Candidates, use 64 increment
   SmallVector<HLLoop *, 64> CandidateLoops;
@@ -438,6 +443,8 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
 
     // Reverse the loop
     bool LoopIsReversed = doHIRReversalTransform(Lp);
+    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                              "Loop was reversed");
 
     // Update Loops-Reversal-Triggered Counter
     if (LoopIsReversed) {
