@@ -288,6 +288,7 @@ void VPlanPredicator::genLitReport(VPRegionBlock *Region) {
     return;
   }
   raw_ostream &OS = outs();
+  OS << "Predicator report\n";
   OS << Region->getName() << ":\n";
   VPBlockBase *EntryBlock = Region->getEntry();
   ReversePostOrderTraversal<VPBlockBase *> RPOT(EntryBlock);
@@ -318,7 +319,7 @@ void VPlanPredicator::genLitReport(VPRegionBlock *Region) {
       llvm_unreachable("Unsupported block type");
     }
   }
-  outs() << "\n";
+  outs() << "End of the Predicator report.\n";
 }
 
 // Generate all predicates within Region and recursively predicate nested
