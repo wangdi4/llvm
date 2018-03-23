@@ -464,42 +464,6 @@ void CodeGenFunction::EmitStaticVarDecl(const VarDecl &D,
     DI->setLocation(D.getLocation());
     DI->EmitGlobalVariable(var, &D);
   }
-
-#if INTEL_CUSTOMIZATION
-  if (getLangOpts().HLS && D.getStorageClass() == SC_Static) {
-    auto &Ctx = getLLVMContext();
-    SmallVector<llvm::Metadata *, 10> MD;
-    llvm::IntegerType *int32Ty = llvm::Type::getInt32Ty(Ctx);
-
-    // Build attribute node.
-    MD.push_back(llvm::MDString::get(Ctx, "staticreset"));
-    if (auto *SARA = D.getAttr<StaticArrayResetAttr>()) {
-      llvm::APSInt ResetOption =
-          SARA->getValue()->EvaluateKnownConstInt(CGM.getContext());
-      MD.push_back(llvm::ConstantAsMetadata::get(Builder.getInt(ResetOption)));
-    } else {
-      // Use the default.
-      MD.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(2)));
-    }
-    MD.push_back(llvm::MDString::get(Ctx, "unset"));
-    llvm::MDNode *ANode = llvm::MDNode::get(Ctx, MD);
-
-    // Build variable node.
-    MD.clear();
-    unsigned ASpace =
-        (cast<llvm::PointerType>(addr->getType()))->getAddressSpace();
-    MD.push_back(
-        llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(int32Ty, ASpace)));
-    MD.push_back(llvm::ConstantAsMetadata::get(addr));
-    MD.push_back(ANode);
-    llvm::MDNode *VNode = llvm::MDNode::get(Ctx, MD);
-
-    // Attach variable node to the named metadata node.
-    llvm::Module &M = CGM.getModule();
-    llvm::NamedMDNode *NamedMD = M.getOrInsertNamedMetadata("hls.staticreset");
-    NamedMD->addOperand(VNode);
-  }
-#endif // INTEL_CUSTOMIZATION
 }
 
 namespace {
