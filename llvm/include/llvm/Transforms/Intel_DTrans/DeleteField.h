@@ -26,10 +26,18 @@ namespace dtrans {
 /// Pass to perform DTrans optimizations.
 class DeleteFieldPass : public PassInfoMixin<dtrans::DeleteFieldPass> {
 public:
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // This is used to share the core implementation with the legacy pass.
-  PreservedAnalyses runImpl(Module &M, DTransAnalysisInfo &);
+  bool runImpl(Module &M, DTransAnalysisInfo &Info);
+
+private:
+  SafetyData DeleteFieldSafetyConditions;
+
+  // The pointers in this vector are owned by the DTransAnalysisInfo.
+  SmallVector<dtrans::StructInfo*, 4> CandidateTypes;
+
+  bool gatherCandidateTypes(DTransAnalysisInfo &DTInfo);
 };
 
 } // namespace dtrans

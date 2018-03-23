@@ -41,8 +41,7 @@ public:
       return false;
     DTransAnalysisInfo &DTInfo =
         getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
-    auto PA = Impl.runImpl(M, DTInfo);
-    return !PA.areAllPreserved();
+    return Impl.runImpl(M, DTInfo);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -65,13 +64,81 @@ ModulePass *llvm::createDTransDeleteFieldWrapperPass() {
   return new DTransDeleteFieldWrapper();
 }
 
-PreservedAnalyses dtrans::DeleteFieldPass::runImpl(Module &M,
-                                                   DTransAnalysisInfo &DTInfo) {
-  bool Changed = false;
+bool dtrans::DeleteFieldPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo) {
+  // TODO: Create a safety mask for the conditions that are common to all
+  //       DTrans optimizations.
+  DeleteFieldSafetyConditions =
+      dtrans::BadCasting | dtrans::BadAllocSizeArg |
+      dtrans::BadPtrManipulation | dtrans::AmbiguousGEP | dtrans::VolatileData |
+      dtrans::MismatchedElementAccess | dtrans::WholeStructureReference |
+      dtrans::UnsafePointerStore | dtrans::FieldAddressTaken |
+      dtrans::HasInitializerList | dtrans::BadMemFuncSize |
+      dtrans::BadMemFuncManipulation |
+      dtrans::AmbiguousPointerTarget | dtrans::UnsafePtrMerge |
+      dtrans::AddressTaken | dtrans::NoFieldsInStruct |
+      dtrans::NestedStruct | dtrans::ContainsNestedStruct |
+      dtrans::SystemObject;
 
-  // TODO: Implement the optimization here.
+  DEBUG(dbgs() << "Delete field: looking for candidate structures.\n");
 
-  if (!Changed)
+  for (dtrans::TypeInfo *TI : DTInfo.type_info_entries()) {
+    auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
+    if (!StInfo)
+      continue;
+
+    // We're only interested in fields that are never read. Fields that are
+    // written but not read can be deleted.
+    bool HasUnreadFields = false;
+    size_t NumFields = StInfo->getNumFields();
+    for (size_t i = 0; i < NumFields; ++i) {
+      dtrans::FieldInfo &FI = StInfo->getField(i);
+      if (!FI.isRead()) {
+        DEBUG(dbgs() << "  Found unread field: "
+                     << cast<StructType>(StInfo->getLLVMType())->getName()
+                     << " @ " << i << "\n");
+        HasUnreadFields = true;
+#ifdef NDEBUG
+        break;
+#endif // NDEBUG
+      }
+    }
+
+    if (!HasUnreadFields)
+      continue;
+
+    if (StInfo->testSafetyData(DeleteFieldSafetyConditions)) {
+      DEBUG(dbgs() << "  Rejecting "
+                   << cast<StructType>(StInfo->getLLVMType())->getName()
+                   << " based on safety data.\n");
+      continue;
+    }
+
+    DEBUG(dbgs() << "  Selected for deletion: "
+                 << cast<StructType>(StInfo->getLLVMType())->getName()
+                 << "\n");
+
+    CandidateTypes.push_back(StInfo);
+  }
+
+  DEBUG(if (CandidateTypes.empty()) dbgs() << "  No candidates found.\n");
+
+  return !CandidateTypes.empty();
+}
+
+bool dtrans::DeleteFieldPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo) {
+  if (!gatherCandidateTypes(DTInfo))
+    return false;
+
+  // TODO: Implement the optimization.
+
+  return false;
+}
+
+PreservedAnalyses dtrans::DeleteFieldPass::run(Module &M,
+                                               ModuleAnalysisManager &AM) {
+  auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
+
+  if (!runImpl(M, DTransInfo))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.
@@ -79,11 +146,4 @@ PreservedAnalyses dtrans::DeleteFieldPass::runImpl(Module &M,
   PA.preserve<WholeProgramAnalysis>();
   PA.preserve<DTransAnalysis>();
   return PA;
-}
-
-PreservedAnalyses dtrans::DeleteFieldPass::run(Module &M,
-                                               ModuleAnalysisManager &AM) {
-  auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
-
-  return runImpl(M, DTransInfo);
 }
