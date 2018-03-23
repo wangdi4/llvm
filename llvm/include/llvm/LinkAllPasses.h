@@ -59,6 +59,7 @@
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
+#include "llvm/Transforms/Intel_DTrans/AOSToSOA.h"               // INTEL
 #include "llvm/Transforms/Intel_DTrans/DeleteField.h"            // INTEL
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"         // INTEL - HIR
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" // INTEL
@@ -85,8 +86,9 @@ namespace {
       (void) llvm::createAlignmentFromAssumptionsPass();
 #if INTEL_CUSTOMIZATION
       (void) llvm::createAndersensAAWrapperPass();
-      (void) llvm::createDTransDeleteFieldWrapperPass();
       (void) llvm::createDTransAnalysisWrapperPass();
+      (void) llvm::createDTransAOSToSOAWrapperPass();
+      (void) llvm::createDTransDeleteFieldWrapperPass();
       (void) llvm::createNonLTOGlobalOptimizerPass();
       (void) llvm::createTbaaMDPropagationLegacyPass();
       (void) llvm::createCleanupFakeLoadsPass();

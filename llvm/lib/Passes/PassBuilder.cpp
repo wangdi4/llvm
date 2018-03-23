@@ -93,6 +93,7 @@
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/InstrProfiling.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
+#include "llvm/Transforms/Intel_DTrans/AOSToSOA.h" // INTEL
 #include "llvm/Transforms/Intel_DTrans/DeleteField.h" // INTEL
 #include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h" // INTEL
 #include "llvm/Transforms/PGOInstrumentation.h"
@@ -1021,9 +1022,10 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(ReversePostOrderFunctionAttrsPass());
 
 #if INTEL_CUSTOMIZATION
-  if (EnableDTrans)
+  if (EnableDTrans) {
     MPM.addPass(dtrans::DeleteFieldPass());
-
+    MPM.addPass(dtrans::AOSToSOAPass());
+  }
   // Optimize some dynamic_cast calls.
   MPM.addPass(OptimizeDynamicCastsPass());
 #endif // INTEL_CUSTOMIZATION

@@ -58,9 +58,10 @@
 ; CHECK-O-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
 ; CHECK-O-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-DTRANS-NEXT: Running pass: dtrans::DeleteFieldPass ;INTEL
-; CHECK-DTRANS-NEXT: Running analysis: DTransAnalysis     ;INTEL
-; CHECK-O-NEXT: Running pass: OptimizeDynamicCastsPass    ;INTEL
-; CHECK-O-NEXT: Running analysis: WholeProgramAnalysis    ;INTEL
+; CHECK-DTRANS-NEXT: Running analysis: DTransAnalysis      ;INTEL
+; CHECK-DTRANS-NEXT: Running pass: dtrans::AOSToSOAPass    ;INTEL
+; CHECK-O-NEXT: Running pass: OptimizeDynamicCastsPass     ;INTEL
+; CHECK-O-NEXT: Running analysis: WholeProgramAnalysis     ;INTEL
 ; CHECK-O-NEXT: Running pass: GlobalSplitPass
 ; CHECK-O-NEXT: Running pass: WholeProgramDevirtPass
 ; CHECK-O2-NEXT: Running pass: GlobalOptPass

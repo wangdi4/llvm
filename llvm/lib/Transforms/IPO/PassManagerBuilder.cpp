@@ -47,6 +47,7 @@
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
+#include "llvm/Transforms/Intel_DTrans/AOSToSOA.h"
 #include "llvm/Transforms/Intel_DTrans/DeleteField.h"
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
@@ -1010,8 +1011,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createReversePostOrderFunctionAttrsPass());
 
 #if INTEL_CUSTOMIZATION
-  if (EnableDTrans)
+  if (EnableDTrans) {
     PM.add(createDTransDeleteFieldWrapperPass());
+    PM.add(createDTransAOSToSOAWrapperPass());
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Split globals using inrange annotations on GEP indices. This can help

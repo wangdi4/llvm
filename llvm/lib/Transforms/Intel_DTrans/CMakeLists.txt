@@ -1,4 +1,5 @@
 add_llvm_library(LLVMIntel_DTrans
+  AOSToSOA.cpp
   DeleteField.cpp
 
   ADDITIONAL_HEADER_DIRS
