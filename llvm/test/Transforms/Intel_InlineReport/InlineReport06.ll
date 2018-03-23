@@ -1,4 +1,5 @@
 ; RUN: opt -inline -inline-report=31 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=31 < %s -S 2>&1 | FileCheck %s
 
 ; Generated with clang -c -gline-tables-only -S -emit-llvm sm1.c
 

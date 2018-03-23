@@ -507,7 +507,7 @@ void initializeVPlanDriverHIRPass(PassRegistry&);
 void initializeFMASplitterLegacyPassPass(PassRegistry&);
 // DTrans passes
 void initializeDTransAnalysisWrapperPass(PassRegistry&);
-void initializeDTransOptWrapperPass(PassRegistry&);
+void initializeDTransDeleteFieldWrapperPass(PassRegistry&);
 // Pass for dynamic_cast calls optimization
 void initializeOptimizeDynamicCastsWrapperPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION

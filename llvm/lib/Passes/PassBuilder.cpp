@@ -93,7 +93,7 @@
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/InstrProfiling.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
-#include "llvm/Transforms/Intel_DTrans/DTransOpt.h" // INTEL
+#include "llvm/Transforms/Intel_DTrans/DeleteField.h" // INTEL
 #include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h" // INTEL
 #include "llvm/Transforms/PGOInstrumentation.h"
 #include "llvm/Transforms/SampleProfile.h"
@@ -1021,10 +1021,8 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(ReversePostOrderFunctionAttrsPass());
 
 #if INTEL_CUSTOMIZATION
-  // This optimization pass is just a placeholder, but adding it to the
-  // pipeline causes the DTransAnalysis to be run.
   if (EnableDTrans)
-    MPM.addPass(DTransOptPass());
+    MPM.addPass(dtrans::DeleteFieldPass());
 
   // Optimize some dynamic_cast calls.
   MPM.addPass(OptimizeDynamicCastsPass());

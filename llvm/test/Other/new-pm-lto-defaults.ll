@@ -57,7 +57,7 @@
 ; CHECK-O1-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-O-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
 ; CHECK-O-NEXT: Running analysis: CallGraphAnalysis
-; CHECK-DTRANS-NEXT: Running pass: DTransOptPass          ;INTEL
+; CHECK-DTRANS-NEXT: Running pass: dtrans::DeleteFieldPass ;INTEL
 ; CHECK-DTRANS-NEXT: Running analysis: DTransAnalysis     ;INTEL
 ; CHECK-O-NEXT: Running pass: OptimizeDynamicCastsPass    ;INTEL
 ; CHECK-O-NEXT: Running analysis: WholeProgramAnalysis    ;INTEL

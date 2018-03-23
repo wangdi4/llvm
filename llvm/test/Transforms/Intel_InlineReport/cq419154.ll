@@ -1,10 +1,12 @@
 ; RUN: opt -inline -inline-report=0xff -inline-for-xmain=false -inline-threshold=-1000 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xff -inline-for-xmain=false -inline-threshold=-1000 < %s -S 2>&1 | FileCheck %s
+
 ; CHECK: call i32 @_ZN8two_ints7int_oneEv
 ; CHECK-NOT: single callsite and local linkage
 ; Will check that the call to _ZN8two_ints7int_oneEv is not inlined when
-; -inline-for-xmain=false is thrown, indicating that he community inlining 
-; heuristics will be used and not those of xmain.  Also, checks that the 
-; inlining report does not put out the xmain specific inlining reason 
+; -inline-for-xmain=false is thrown, indicating that he community inlining
+; heuristics will be used and not those of xmain.  Also, checks that the
+; inlining report does not put out the xmain specific inlining reason
 ; message "single callsite and local linkage".
 
 ; ModuleID = 'main.cpp'

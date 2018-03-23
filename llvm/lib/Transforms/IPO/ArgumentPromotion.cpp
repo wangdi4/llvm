@@ -971,6 +971,11 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
         continue;
       LocalChange = true;
 
+      // INTEL Argument promotion is replacing F with NF.
+      // INTEL We need to update all of the call graph reports to reflect
+      // INTEL this.
+      CG.replaceFunctionWithFunctionInCGReports(&OldF, NewF); // INTEL
+
       // Directly substitute the functions in the call graph. Note that this
       // requires the old function to be completely dead and completely
       // replaced by the new function. It does no call graph updates, it merely
@@ -1072,7 +1077,7 @@ bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
                                             {ReplaceCallSite})) {
         LocalChange = true;
 
-        // INTEL Argument promotion is replacing F with NF. 
+        // INTEL Argument promotion is replacing F with NF.
         // INTEL We need to update all of the call graph reports to reflect
         // INTEL this.
         CG.replaceFunctionWithFunctionInCGReports(OldF, NewF); // INTEL

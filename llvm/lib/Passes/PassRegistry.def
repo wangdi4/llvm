@@ -46,8 +46,7 @@ MODULE_PASS("called-value-propagation", CalledValuePropagationPass())
 MODULE_PASS("constmerge", ConstantMergePass())
 MODULE_PASS("cross-dso-cfi", CrossDSOCFIPass())
 MODULE_PASS("deadargelim", DeadArgumentEliminationPass())
-// DTransOptPass is just a placehold for future optimization passes.
-MODULE_PASS("dtransopt", DTransOptPass()) // INTEL
+MODULE_PASS("dtrans-deletefield", dtrans::DeleteFieldPass()) // INTEL
 MODULE_PASS("elim-avail-extern", EliminateAvailableExternallyPass())
 MODULE_PASS("forceattrs", ForceFunctionAttrsPass())
 MODULE_PASS("function-import", FunctionImportPass())
