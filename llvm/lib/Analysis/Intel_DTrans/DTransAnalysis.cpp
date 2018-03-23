@@ -2649,15 +2649,12 @@ bool DTransAnalysisInfo::analyzeModule(Module &M, TargetLibraryInfo &TLI) {
     // The type infos are stored in a map with pointer keys, and so the
     // order is non-deterministic. This copies them into a vector and sorts
     // them so that the order in which they are printed is deterministic.
+    // By using the type_info_entries() method instead of accessing
+    // the TypeInfoMap directly, this also tests the type_info_iterator.
     std::vector<dtrans::TypeInfo *> TypeInfoEntries;
-    for (auto Entry : TypeInfoMap) {
-      // At this point I don't think it's useful to print scalar types or
-      // pointer types.
-      if (isa<dtrans::ArrayInfo>(Entry.second) ||
-          isa<dtrans::StructInfo>(Entry.second)) {
-        TypeInfoEntries.push_back(Entry.second);
-      }
-    }
+    for (auto *TI : type_info_entries())
+      if (isa<dtrans::ArrayInfo>(TI) || isa<dtrans::StructInfo>(TI))
+        TypeInfoEntries.push_back(TI);
 
     std::sort(TypeInfoEntries.begin(), TypeInfoEntries.end(),
               [](dtrans::TypeInfo *A, dtrans::TypeInfo *B) {
