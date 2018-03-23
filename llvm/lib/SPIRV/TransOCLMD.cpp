@@ -37,24 +37,20 @@
 //===----------------------------------------------------------------------===//
 #define DEBUG_TYPE "clmdtospv"
 
-#include "SPIRVInternal.h"
 #include "OCLUtil.h"
+#include "SPIRVInternal.h"
 #include "SPIRVMDBuilder.h"
 #include "SPIRVMDWalker.h"
 
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/IR/InstVisitor.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Pass.h"
 #include "llvm/PassSupport.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-
-#include <set>
 
 using namespace llvm;
 using namespace SPIRV;
@@ -63,11 +59,11 @@ using namespace OCLUtil;
 namespace SPIRV {
 
 cl::opt<bool> EraseOCLMD("spirv-erase-cl-md", cl::init(true),
-    cl::desc("Erase OpenCL metadata"));
+                         cl::desc("Erase OpenCL metadata"));
 
-class TransOCLMD: public ModulePass {
+class TransOCLMD : public ModulePass {
 public:
-  TransOCLMD():ModulePass(ID), M(nullptr), Ctx(nullptr), CLVer(0) {
+  TransOCLMD() : ModulePass(ID), M(nullptr), Ctx(nullptr), CLVer(0) {
     initializeTransOCLMDPass(*PassRegistry::getPassRegistry());
   }
 
@@ -75,16 +71,16 @@ public:
   void visit(Module *M);
 
   static char ID;
+
 private:
   Module *M;
   LLVMContext *Ctx;
-  unsigned CLVer;                   /// OpenCL version as major*10+minor
+  unsigned CLVer; /// OpenCL version as major*10+minor
 };
 
 char TransOCLMD::ID = 0;
 
-bool
-TransOCLMD::runOnModule(Module& Module) {
+bool TransOCLMD::runOnModule(Module &Module) {
   M = &Module;
   Ctx = &M->getContext();
   CLVer = getOCLVersion(M, true);
@@ -97,126 +93,124 @@ TransOCLMD::runOnModule(Module& Module) {
   DEBUG(dbgs() << "After TransOCLMD:\n" << *M);
   std::string Err;
   raw_string_ostream ErrorOS(Err);
-  if (verifyModule(*M, &ErrorOS)){
+  if (verifyModule(*M, &ErrorOS)) {
     DEBUG(errs() << "Fails to verify module: " << ErrorOS.str());
   }
   return true;
 }
 
-void
-TransOCLMD::visit(Module *M) {
+void TransOCLMD::visit(Module *M) {
   SPIRVMDBuilder B(*M);
   SPIRVMDWalker W(*M);
+  // !spirv.Source = !{!x}
+  // !{x} = !{i32 3, i32 102000}
   B.addNamedMD(kSPIRVMD::Source)
       .addOp()
-        .add(CLVer < kOCLVer::CL21 ? spv::SourceLanguageOpenCL_C
-            : spv::SourceLanguageOpenCL_CPP)
-        .add(CLVer)
-        .done();
+      .add(CLVer < kOCLVer::CL21 ? spv::SourceLanguageOpenCL_C
+                                 : spv::SourceLanguageOpenCL_CPP)
+      .add(CLVer)
+      .done();
   if (EraseOCLMD)
-    B.eraseNamedMD(kSPIR2MD::OCLVer)
-     .eraseNamedMD(kSPIR2MD::SPIRVer);
+    B.eraseNamedMD(kSPIR2MD::OCLVer).eraseNamedMD(kSPIR2MD::SPIRVer);
 
+  // !spirv.MemoryModel = !{!x}
+  // !{x} = !{i32 1, i32 2}
   Triple TT(M->getTargetTriple());
   auto Arch = TT.getArch();
   assert((Arch == Triple::spir || Arch == Triple::spir64) && "Invalid triple");
   B.addNamedMD(kSPIRVMD::MemoryModel)
       .addOp()
-        .add(Arch == Triple::spir ? spv::AddressingModelPhysical32 :
-            AddressingModelPhysical64)
-        .add(spv::MemoryModelOpenCL)
-        .done();
+      .add(Arch == Triple::spir ? spv::AddressingModelPhysical32
+                                : spv::AddressingModelPhysical64)
+      .add(spv::MemoryModelOpenCL)
+      .done();
 
-  // Add extensions
+  // Add source extensions
+  // !spirv.SourceExtension = !{!x, !y, ...}
+  // !x = {!"cl_khr_..."}
+  // !y = {!"cl_khr_..."}
   auto Exts = getNamedMDAsStringSet(M, kSPIR2MD::Extensions);
   if (!Exts.empty()) {
-    auto N = B.addNamedMD(kSPIRVMD::Extension);
-    for (auto &I:Exts)
-      N.addOp()
-         .add(I)
-         .done();
+    auto N = B.addNamedMD(kSPIRVMD::SourceExtension);
+    for (auto &I : Exts)
+      N.addOp().add(I).done();
   }
   if (EraseOCLMD)
-    B.eraseNamedMD(kSPIR2MD::Extensions)
-     .eraseNamedMD(kSPIR2MD::OptFeatures);
+    B.eraseNamedMD(kSPIR2MD::Extensions).eraseNamedMD(kSPIR2MD::OptFeatures);
 
   bool HasFPContract = W.getNamedMD(kSPIR2MD::FPContract);
   if (EraseOCLMD)
     B.eraseNamedMD(kSPIR2MD::FPContract);
 
-  // Add entry points
-  auto EP = B.addNamedMD(kSPIRVMD::EntryPoint);
-  auto EM = B.addNamedMD(kSPIRVMD::ExecutionMode);
+  // Create metadata representing (empty so far) list
+  // of OpEntryPoint and OpExecutionMode instructions
+  auto EP = B.addNamedMD(kSPIRVMD::EntryPoint);    // !spirv.EntryPoint = {}
+  auto EM = B.addNamedMD(kSPIRVMD::ExecutionMode); // !spirv.ExecutionMode = {}
 
-  // Add execution mode
-  NamedMDNode *KernelMDs = M->getNamedMetadata(SPIR_MD_KERNELS);
-  if (!KernelMDs)
-    return;
-
-  for (unsigned I = 0, E = KernelMDs->getNumOperands(); I < E; ++I) {
-    MDNode *KernelMD = KernelMDs->getOperand(I);
-    if (KernelMD->getNumOperands() == 0)
+  // Add execution modes for kernels. We take it from metadata attached to
+  // the kernel functions.
+  for (Function &Kernel : *M) {
+    if (Kernel.getCallingConv() != CallingConv::SPIR_KERNEL)
       continue;
-    Function *Kernel = mdconst::dyn_extract<Function>(KernelMD->getOperand(0));
 
-    // Workaround for OCL 2.0 producer not using SPIR_KERNEL calling convention
-#if  SPCV_RELAX_KERNEL_CALLING_CONV
-    Kernel->setCallingConv(CallingConv::SPIR_KERNEL);
-#endif
-
+    // Add EntryPoint(which actually is adding its operands) to the list of
+    // entry points:
+    // !{i32 6, void (i32 addrspace(1)*)* @kernel, !"kernel" }
     MDNode *EPNode;
     EP.addOp()
         .add(spv::ExecutionModelKernel)
-        .add(Kernel)
-        .add(Kernel->getName())
+        .add(&Kernel)
+        .add(Kernel.getName())
         .done(&EPNode);
 
-    if (!HasFPContract)
-      EM.addOp()
-        .add(Kernel)
-        .add(spv::ExecutionModeContractionOff)
-        .done();
+    // Specifing execution modes for the Kernel and adding it to the list
+    // of ExecutionMode instructions.
 
-    for (unsigned MI = 1, ME = KernelMD->getNumOperands(); MI < ME; ++MI) {
-      MDNode *MD = dyn_cast<MDNode>(KernelMD->getOperand(MI));
-      if (!MD)
-        continue;
-      MDString *NameMD = dyn_cast<MDString>(MD->getOperand(0));
-      if (!NameMD)
-        continue;
-      StringRef Name = NameMD->getString();
-      if (Name == kSPIR2MD::WGSizeHint) {
-        unsigned X, Y, Z;
-        decodeMDNode(MD, X, Y, Z);
-        EM.addOp()
-            .add(Kernel)
-            .add(spv::ExecutionModeLocalSizeHint)
-            .add(X).add(Y).add(Z)
-            .done();
-      } else if (Name == kSPIR2MD::WGSize) {
-        unsigned X, Y, Z;
-        decodeMDNode(MD, X, Y, Z);
-        EM.addOp()
-            .add(Kernel)
-            .add(spv::ExecutionModeLocalSize)
-            .add(X).add(Y).add(Z)
-            .done();
-      } else if (Name == kSPIR2MD::VecTyHint) {
-        EM.addOp()
-            .add(Kernel)
-            .add(spv::ExecutionModeVecTypeHint)
-            .add(transVecTypeHint(MD))
-            .done();
-      }
+    // !{void (i32 addrspace(1)*)* @kernel, i32 31}
+    if (!HasFPContract)
+      EM.addOp().add(&Kernel).add(spv::ExecutionModeContractionOff).done();
+
+    // !{void (i32 addrspace(1)*)* @kernel, i32 17, i32 X, i32 Y, i32 Z}
+    if (MDNode *WGSize = Kernel.getMetadata(kSPIR2MD::WGSize)) {
+      unsigned X, Y, Z;
+      decodeMDNode(WGSize, X, Y, Z);
+      EM.addOp()
+          .add(&Kernel)
+          .add(spv::ExecutionModeLocalSize)
+          .add(X)
+          .add(Y)
+          .add(Z)
+          .done();
+    }
+
+    // !{void (i32 addrspace(1)*)* @kernel, i32 18, i32 X, i32 Y, i32 Z}
+    if (MDNode *WGSizeHint = Kernel.getMetadata(kSPIR2MD::WGSizeHint)) {
+      unsigned X, Y, Z;
+      decodeMDNode(WGSizeHint, X, Y, Z);
+      EM.addOp()
+          .add(&Kernel)
+          .add(spv::ExecutionModeLocalSizeHint)
+          .add(X)
+          .add(Y)
+          .add(Z)
+          .done();
+    }
+
+    // !{void (i32 addrspace(1)*)* @kernel, i32 30, i32 X, i32 Y, i32 Z}
+    if (MDNode *VecTypeHint = Kernel.getMetadata(kSPIR2MD::VecTyHint)) {
+      EM.addOp()
+          .add(&Kernel)
+          .add(spv::ExecutionModeVecTypeHint)
+          .add(transVecTypeHint(VecTypeHint))
+          .done();
     }
   }
 }
 
-}
+} // namespace SPIRV
 
-INITIALIZE_PASS(TransOCLMD, "clmdtospv", "Transform OCL metadata to SPIR-V",
-    false, false)
+INITIALIZE_PASS(TransOCLMD, "clmdtospv",
+                "Transform OCL metadata format to SPIR-V metadata format",
+                false, false)
 
-ModulePass *llvm::createTransOCLMD() {
-  return new TransOCLMD();
-}
+ModulePass *llvm::createTransOCLMD() { return new TransOCLMD(); }

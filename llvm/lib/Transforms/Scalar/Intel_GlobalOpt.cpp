@@ -1,6 +1,6 @@
-//===- IntelGlobalOpt.cpp - Optimize Global Variables----------------------===//
+//===- Intel_GlobalOpt.cpp - Optimize Global Variables --------------------===//
 //
-// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -14,6 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Scalar/Intel_GlobalOpt.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Intel_Andersens.h"
@@ -54,31 +55,17 @@ static cl::opt<unsigned>
 STATISTIC(NumConverted, "Number of static variable converted");
 
 namespace {
-struct NonLTOGlobalOpt : public FunctionPass {
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesCFG();
-    AU.addPreservedID(LoopSimplifyID);
-    AU.addPreservedID(LCSSAID);
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<AAResultsWrapperPass>();
-    AU.addPreserved<AAResultsWrapperPass>();
-    AU.addPreserved<BasicAAWrapperPass>();
-    AU.addPreserved<GlobalsAAWrapperPass>();
-    AU.addPreserved<ScalarEvolutionWrapperPass>();
-    AU.addPreserved<SCEVAAWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
-  };
-  static char ID;
-  NonLTOGlobalOpt() : FunctionPass(ID) {
-    initializeNonLTOGlobalOptPass(*PassRegistry::getPassRegistry());
-  }
-  bool runOnFunction(Function &F);
+class NonLTOGlobalOptImpl {
+  AliasAnalysis &AA;
+  DominatorTree &DT;
+public:
+  NonLTOGlobalOptImpl(AliasAnalysis &AA, DominatorTree &DT)
+    : AA(AA), DT(DT) {}
+  bool run(Function &F);
 
 private:
-  AliasAnalysis *AA;
-  bool processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
-                             DominatorTree &DT);
-  bool isGVLegalToBePromoted(GlobalVariable *GV, DominatorTree &DT,
+  bool processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS);
+  bool isGVLegalToBePromoted(GlobalVariable *GV,
                              SmallPtrSetImpl<Instruction *> &Stores,
                              SmallPtrSetImpl<Instruction *> &GVUsers);
   bool analyzeUseOfGV(const Value *V, SmallPtrSetImpl<Instruction *> &Stores,
@@ -87,25 +74,8 @@ private:
 };
 }
 
-char NonLTOGlobalOpt::ID = 0;
-INITIALIZE_PASS_BEGIN(NonLTOGlobalOpt, "nonltoglobalopt",
-                      "Global Variable Optimizer under -O2 and above", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(BasicAAWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(AndersensAAWrapperPass)
-INITIALIZE_PASS_END(NonLTOGlobalOpt, "nonltoglobalopt",
-                    "Global Variable Optimizer under -O2 and above", false,
-                    false)
-
-FunctionPass *llvm::createNonLTOGlobalOptimizerPass() {
-  return new NonLTOGlobalOpt();
-}
-
 // Replaces the use of non-escaped global variable with register
-void NonLTOGlobalOpt::replaceUseOfGV(Value *V, Value *New) {
+void NonLTOGlobalOptImpl::replaceUseOfGV(Value *V, Value *New) {
   while (!V->user_empty()) {
     if (ConstantExpr *C = dyn_cast<ConstantExpr>(V->user_back())) {
       for (Use &U1 : C->uses()) {
@@ -127,7 +97,7 @@ void NonLTOGlobalOpt::replaceUseOfGV(Value *V, Value *New) {
 
 // Returns false if the use of global varialbe or
 // the address is unexpected.
-bool NonLTOGlobalOpt::analyzeUseOfGV(const Value *V,
+bool NonLTOGlobalOptImpl::analyzeUseOfGV(const Value *V,
                                      SmallPtrSetImpl<Instruction *> &Stores,
                                      SmallPtrSetImpl<Instruction *> &GVUsers,
                                      bool ExpectSt) {
@@ -161,8 +131,8 @@ bool NonLTOGlobalOpt::analyzeUseOfGV(const Value *V,
 }
 
 // Legality check for the register promotion
-bool NonLTOGlobalOpt::isGVLegalToBePromoted(
-    GlobalVariable *GV, DominatorTree &DT,
+bool NonLTOGlobalOptImpl::isGVLegalToBePromoted(
+    GlobalVariable *GV,
     SmallPtrSetImpl<Instruction *> &Stores,
     SmallPtrSetImpl<Instruction *> &GVUsers) {
   if (!analyzeUseOfGV(GV, Stores, GVUsers, false)) {
@@ -182,16 +152,15 @@ bool NonLTOGlobalOpt::isGVLegalToBePromoted(
 // For the scalar global varialbe, the compiler checkes whether
 // it is legal to be promoted into the register. If so,
 // replace the use of global variable with registers.
-bool NonLTOGlobalOpt::processInternalGlobal(GlobalVariable *GV,
-                                            const GlobalStatus &GS,
-                                            DominatorTree &DT) {
+bool NonLTOGlobalOptImpl::processInternalGlobal(GlobalVariable *GV,
+                                            const GlobalStatus &GS) {
   SmallPtrSet<Instruction *, 8> Stores;
   SmallPtrSet<Instruction *, 8> GVUsers;
 
   if (GV->getType()->getElementType()->isSingleValueType() &&
       GV->getType()->getAddressSpace() == 0) {
 
-    if (!isGVLegalToBePromoted(GV, DT, Stores, GVUsers))
+    if (!isGVLegalToBePromoted(GV, Stores, GVUsers))
       return false;
 
     Instruction &FirstI = const_cast<Instruction &>(
@@ -213,10 +182,7 @@ bool NonLTOGlobalOpt::processInternalGlobal(GlobalVariable *GV,
 }
 
 // Promotes the global variables into registers if it is legal.
-bool NonLTOGlobalOpt::runOnFunction(Function &F) {
-  if (skipFunction(F))
-    return false;
-
+bool NonLTOGlobalOptImpl::run(Function &F) {
   bool Changed = false;
   Module *M = F.getParent();
 
@@ -262,15 +228,12 @@ bool NonLTOGlobalOpt::runOnFunction(Function &F) {
                           CodeSizeRatioThreshold)
     PossibleBailOut = true;
 
-  AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
-  DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-
   unsigned NumToBeTransformed=0;
   if (PossibleBailOut) {
     for (Module::global_iterator GVI = M->global_begin(), E = M->global_end();
          GVI != E;) {
       GlobalVariable *GV = &*(GVI++);
-      if (AA->escapes(GV))
+      if (AA.escapes(GV))
         continue;
       NumToBeTransformed++;
     }
@@ -285,7 +248,7 @@ bool NonLTOGlobalOpt::runOnFunction(Function &F) {
   for (Module::global_iterator GVI = M->global_begin(), E = M->global_end();
        GVI != E;) {
     GlobalVariable *GV = &*(GVI++);
-    if (AA->escapes(GV))
+    if (AA.escapes(GV))
       continue;
 
     GlobalStatus GS;
@@ -303,9 +266,77 @@ bool NonLTOGlobalOpt::runOnFunction(Function &F) {
     if (PossibleBailOut && LocalNumConverted >= NumToBeTransformed)
       return Changed;
 
-    Changed |= processInternalGlobal(GV, GS, DT);
+    Changed |= processInternalGlobal(GV, GS);
     LocalNumConverted++;
     NumConverted++; // For statistics.
   }
   return Changed;
+}
+
+PreservedAnalyses
+NonLTOGlobalOptPass::run(Function &F, FunctionAnalysisManager &AM) {
+  auto &AA = AM.getResult<AAManager>(F);
+  auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
+
+  if (!NonLTOGlobalOptImpl(AA, DT).run(F))
+    return PreservedAnalyses::all();
+
+  PreservedAnalyses PA;
+  PA.preserveSet<CFGAnalyses>();
+  PA.preserve<AAManager>();
+  PA.preserve<BasicAA>();
+  PA.preserve<GlobalsAA>();
+  PA.preserve<ScalarEvolutionAnalysis>();
+  PA.preserve<SCEVAA>();
+  PA.preserve<AndersensAA>();
+  return PA;
+}
+
+namespace {
+class NonLTOGlobalOptLegacyPass : public FunctionPass {
+public:
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesCFG();
+    AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<AAResultsWrapperPass>();
+    AU.addPreserved<AAResultsWrapperPass>();
+    AU.addPreserved<BasicAAWrapperPass>();
+    AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<ScalarEvolutionWrapperPass>();
+    AU.addPreserved<SCEVAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();
+  };
+  static char ID;
+  NonLTOGlobalOptLegacyPass() : FunctionPass(ID) {
+    initializeNonLTOGlobalOptLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
+  bool runOnFunction(Function &F);
+};
+}
+
+char NonLTOGlobalOptLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(NonLTOGlobalOptLegacyPass, "nonltoglobalopt",
+                      "Global Variable Optimizer under -O2 and above", false,
+                      false)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(BasicAAWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(AndersensAAWrapperPass)
+INITIALIZE_PASS_END(NonLTOGlobalOptLegacyPass, "nonltoglobalopt",
+                    "Global Variable Optimizer under -O2 and above", false,
+                    false)
+
+FunctionPass *llvm::createNonLTOGlobalOptimizerPass() {
+  return new NonLTOGlobalOptLegacyPass();
+}
+
+bool NonLTOGlobalOptLegacyPass::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
+  auto &AA = getAnalysis<AAResultsWrapperPass>().getAAResults();
+  auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+
+  return NonLTOGlobalOptImpl(AA, DT).run(F);
 }

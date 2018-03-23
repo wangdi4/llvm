@@ -658,8 +658,7 @@ mutateCallInst(Module *M, CallInst *CI,
       InstName, TakeFuncName);
   DEBUG(dbgs() << " => " << *NewCI << '\n');
   CI->replaceAllUsesWith(NewCI);
-  CI->dropAllReferences();
-  CI->removeFromParent();
+  CI->eraseFromParent();
   return NewCI;
 }
 
@@ -685,8 +684,7 @@ mutateCallInst(Module *M, CallInst *CI,
   NewI->takeName(CI);
   DEBUG(dbgs() << " => " << *NewI << '\n');
   CI->replaceAllUsesWith(NewI);
-  CI->dropAllReferences();
-  CI->removeFromParent();
+  CI->eraseFromParent();
   return NewI;
 }
 
@@ -839,7 +837,12 @@ getVoidFuncPtrType(Module *M, unsigned AddrSpace) {
 
 ConstantInt *
 getInt64(Module *M, int64_t value) {
-  return ConstantInt::get(Type::getInt64Ty(M->getContext()), value, true);
+  return ConstantInt::getSigned(Type::getInt64Ty(M->getContext()), value);
+}
+
+ConstantInt *
+getUInt64(Module *M, uint64_t value) {
+  return ConstantInt::get(Type::getInt64Ty(M->getContext()), value, false);
 }
 
 Constant *getFloat32(Module *M, float value) {
@@ -854,6 +857,18 @@ getInt32(Module *M, int value) {
 ConstantInt *
 getUInt32(Module *M, unsigned value) {
   return ConstantInt::get(Type::getInt32Ty(M->getContext()), value, false);
+}
+
+ConstantInt *
+getInt(Module *M, int64_t value) {
+  return value >> 32 ? getInt64(M, value)
+                     : getInt32(M, static_cast<int32_t>(value));
+}
+
+ConstantInt *
+getUInt(Module *M, uint64_t value) {
+  return value >> 32 ? getUInt64(M, value)
+                     : getUInt32(M, static_cast<uint32_t>(value));
 }
 
 ConstantInt *

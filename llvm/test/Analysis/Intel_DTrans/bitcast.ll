@@ -104,9 +104,9 @@ define void @test8( %struct.test08.b* %pb ) {
 }
 
 ; CHECK: LLVMType: %struct.test08.a = type { i32, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Nested structure
 ; CHECK: LLVMType: %struct.test08.b = type { %struct.test08.a, i32, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Contains nested structure
 
 ; Unsafe element zero access through bitcast.
 %struct.test09.a = type { i32, i32 }
@@ -118,9 +118,9 @@ define void @test9( %struct.test09.b* %pb ) {
 }
 
 ; CHECK: LLVMType: %struct.test09.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: Bad casting | Nested structure
 ; CHECK: LLVMType: %struct.test09.b = type { %struct.test09.a, i32, i32 }
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: Bad casting | Contains nested structure
 ; CHECK: LLVMType: %struct.test09.c = type { i32, i32, i32, i32 }
 ; CHECK: Safety data: Bad casting
 
@@ -266,9 +266,8 @@ define void @test20() {
   ret void
 }
 
-; FIXME: The unhandled use here is the type returned by a function call.
 ; CHECK: LLVMType: %struct.test20 = type { i32, i32 }
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: No issues found
 
 ; Bad cast of returned pointer through an intermediate i8*
 %struct.test21.a = type { i32, i32 }
@@ -297,7 +296,9 @@ define void @test22(%struct.test22.b* %pb) {
 }
 
 ; CHECK: LLVMType: %struct.test22.a = type { i32, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Nested structure
+; CHECK: LLVMType: %struct.test22.b = type { i32, %struct.test22.a, i32 }
+; CHECK: Safety data: Contains nested structure
 
 ; Bad cast of GEP-derived pointer through an intermediate i8*
 %struct.test23.a = type { i32, i32 }
@@ -310,9 +311,9 @@ define void @test23(%struct.test23.b* %pb) {
 }
 
 ; CHECK: LLVMType: %struct.test23.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: Bad casting | Nested structure
 ; CHECK: LLVMType: %struct.test23.b = type { i32, %struct.test23.a, i32 }
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: Bad casting | Contains nested structure
 
 ; Cast of inttoptr value through an intermediate i8*
 ; Note: inttoptr will typically be used when a pointer is loaded
@@ -524,6 +525,38 @@ define void @test34() {
 
 ; CHECK: LLVMType: %struct.test34 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
+
+; Test that an element zero pointer cannot be cast back to the original type
+; after a merge with an unknown pointer value.
+;
+; Currently, we do not allow element zero to be cast back to the original
+; type under any circumstances because it is not an expected IR idiom. However,
+; if we decide to allow it in the future, something would need to be done
+; to handle this case.
+%struct.test35 = type { i32, i32 }
+define void @test35(%struct.test35* %p, i32* %p2) {
+  %p.a = getelementptr %struct.test35, %struct.test35* %p, i64 0, i32 0
+  %p3 = select i1 undef, i32* %p.a, i32* %p2
+  %p4 = bitcast i32* %p.a to %struct.test35*
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test35 = type { i32, i32 }
+; CHECK: Safety data: Bad casting
+
+; Test that an element zero pointer cannot be cast back to the original type
+; after a merge with a pointer to another element.
+%struct.test36 = type { i32, i32 }
+define void @test36(%struct.test36* %p) {
+  %p.a = getelementptr %struct.test36, %struct.test36* %p, i64 0, i32 0
+  %p.b = getelementptr %struct.test36, %struct.test36* %p, i64 0, i32 1
+  %p2 = select i1 undef, i32* %p.a, i32* %p.b
+  %p3 = bitcast i32* %p2 to %struct.test36*
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test36 = type { i32, i32 }
+; CHECK: Safety data: Bad casting
 
 ; Array types get printed last so theese checks aren't with their IR.
 

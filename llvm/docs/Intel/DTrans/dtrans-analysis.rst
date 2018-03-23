@@ -169,15 +169,6 @@ is known to point to an i64 element is bitcast to an i32* and that i32* is
 passed to a load instruction, the loaded type would not match the expected
 element type.
 
-AmbiguousPointerLoad
-~~~~~~~~~~~~~~~~~~~~
-This indicates that a load instruction was seen with a pointer operand (the
-address of the value being loaded) which was known to alias incompatible
-pointer types. For instance, if a %struct.A** value and a %struct.B** value
-are both bitcast to i64* and then joined by either a PHI node or a select
-and the joined value is passed to a load instruction, there would be no way
-to determine the actual type of the loaded pointer.
-
 WholeStructureReference
 ~~~~~~~~~~~~~~~~~~~~~~~
 This indicates that an instruction was seen which references a non-pointer
@@ -223,7 +214,8 @@ with the pointer operand %tmp2 (%p2). In this case, both %struct.A and
 FieldAddressTaken
 ~~~~~~~~~~~~~~~~~
 This indicates that the addresses of one or more fields within the type were
-either written to memory or passed to a function call.
+either written to memory, passed to a function call or returned by a
+function.
 
 GlobalPtr
 ~~~~~~~~~
@@ -254,6 +246,37 @@ AmbiguousPointerTarget
 ~~~~~~~~~~~~~~~~~~~~~~
 This indicates that a pointer is passed to an intrinsic or function call,
 but the pointer is known to alias incompatible pointer types.
+
+UnsafePtrMerge
+~~~~~~~~~~~~~~
+This indicates that a PHI node or select instruction was seen which had
+incompatible incoming values. This could mean either that the incoming values
+were known to alias to incompatible aggregate types or that at least one
+incoming value was known to be a pointer to a type of interest and at least one
+other incoming value was not known to point to that type.
+
+AddressTaken
+~~~~~~~~~~~~
+This indicates that the address of an object of the type was returned by
+a function using an anonymous type (i8* or i64).
+
+NoFieldsInStruct
+~~~~~~~~~~~~~~~~
+The type represents a structure which was defined with no fields.
+
+NestedStruct
+~~~~~~~~~~~~
+The type identifies a structure that was contained as a non-pointer member
+of another structure.
+
+ContainsNestedStruct
+~~~~~~~~~~~~~~~~~~~~
+The type identifies a structure that contains another structure as a
+non-pointer member.
+
+SystemObject
+~~~~~~~~~~~~
+The type was identified as a known system structure type.
 
 UnhandledUse
 ~~~~~~~~~~~~
@@ -364,11 +387,24 @@ class) in an attempt to verify that the size of the allocated memory is an
 exact multiple of the aggregate type size. **Currently, only constant arguments
 are handled.**
 
-**The current implementation sets the UnhandledUse safety data for any call
-that returns an aggregate type value (or a pointer to an aggregate type) or has
-an argument that is an aggregate type (or a pointer to an aggregate type).
-This is probably unnecessary, but it is done as part of the conservative
-approach to progressive implementation.**
+If the called function is the "free" function, the call is viewed as safe.
+
+If the called function is an unknown externally defined function and any of the
+arguments is a pointer to an aggregate type, that type is marked with the
+`AddressTaken`_ safety condition, and if any of the arguments is a pointer to
+an element within a structure then that structure is marked with the
+`FieldAddressTaken`_ safety condition.
+
+If the called function is a locally defined function, its arguments are handled
+as described above for external functions except that arguments which point
+to aggregate types are accepted without the `AddressTaken`_ condition being set
+if the argument type matches the type of the structure. For instance, a
+%struct.A* value can be safely passed as an argument to a call if the called
+function uses %struct.A* as the type for that argument because the uses of
+the argument can be tracked when the function is analyzed. However, if a
+%struct.A* value is cast to an i8* and then passed to a function call, we
+cannot know what the argument's original type was when we are analyzing the
+called function.
 
 Intrinsic
 ~~~~~~~~~
@@ -565,26 +601,55 @@ the `FieldAddressTaken`_ safety condition will be set for the parent type.
 
 PHI Nodes
 ~~~~~~~~~
-PHI nodes do not create new safety issues as they are only used to describe
-the flow of existing values. We will need to process PHI nodes as we
-follow the uses of values for other purposes, but the PHI node itself
-requires no special processing.
+PHI nodes may be unsafe if the incoming values do not all point to the same
+aggregate type. For instance, if one incoming value is known to be a pointer
+to some structure and another incoming value is not known to point to that
+structure, the resulting merged pointer is unsafe. Similarly, if one incoming
+value is known to point to some structure A and another incoming value is known
+to point to some structure B, the merged value is ambiguous.
+
+On the other hand, it will be common for PHI nodes to merge pointers which
+point to different elements within a structure. As long as the elements being
+pointed to all have the same type, this is safe. If pointers to elements of
+different sizes are merged, the safety issue will be detected when the merged
+value is used.
 
 
 Select
 ~~~~~~
-Select instructions do not create new safety issues as they are only used to
-describe the flow of existing values. We will need to process select
-instructions as we follow the uses of values for other purposes, but the select
-instruction itself requires no special processing.
+Select instructions may be unsafe if the incoming values do not both point to
+the same aggregate type. For instance, if one incoming value is known to be a
+pointer to some structure and the other incoming value is not known to point to
+that structure, the resulting merged pointer is unsafe. Similarly, if one
+incoming value is known to point to some structure A and the other incoming
+value is known to point to some structure B, the merged value is ambiguous.
+
+On the other hand, it will be common for selects to merge pointers which
+point to different elements within a structure. As long as the elements being
+pointed to all have the same type, this is safe. If pointers to elements of
+different sizes are merged, the safety issue will be detected when the merged
+value is used.
 
 
 Return
 ~~~~~~
-Return instructions do not require direct analysis. If the value returned is the
-address of a field within a structure, we will need to mark the containing
-field with safety data indicating that the address of the field was taken.
-However, that will be done as part of the GetElementPtr analysis.
+Return instructions must be checked to see if the address of an aggregate
+object or the address of an element within an aggregate may escape through
+the return.
+
+If the returned value is a pointer to an aggregate type but the type is
+preserved in the return value, the return is safe since our analysis will
+recognize the type at the call site. However, if the address is returned
+via an anonymous type such as i8* or i64 the type of the object whose
+address is returned will be marked with the `AddressTaken`_ safety condition.
+
+If the returned value is known to be the address of an element within an
+aggregate object, the type of the object containing the element will be
+marked with the `FieldAddressTaken`_ safety condition.
+
+In the uncommon case where an instance of an aggregate is returned the type
+of the aggregate will be marked with the `WholeStructureReference`_
+safety condition.
 
 
 ICmp

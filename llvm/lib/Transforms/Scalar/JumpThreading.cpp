@@ -2087,11 +2087,10 @@ static void AddPHINodeEntriesForMappedBlock(BasicBlock *PHIBB,
                                             BasicBlock *OldPred,
                                             BasicBlock *NewPred,
                                      DenseMap<Instruction*, Value*> &ValueMap) {
-  for (BasicBlock::iterator PNI = PHIBB->begin();
-       PHINode *PN = dyn_cast<PHINode>(PNI); ++PNI) {
+  for (PHINode &PN : PHIBB->phis()) {
     // Ok, we have a PHI node.  Figure out what the incoming value was for the
     // DestBlock.
-    Value *IV = PN->getIncomingValueForBlock(OldPred);
+    Value *IV = PN.getIncomingValueForBlock(OldPred);
 #if !INTEL_CUSTOMIZATION
     // This code isn't needed with the Intel customizations, because we always
     // run the SSAUpdater to resolve cross-BB references.
@@ -2103,7 +2102,7 @@ static void AddPHINodeEntriesForMappedBlock(BasicBlock *PHIBB,
     }
 #endif // !INTEL_CUSTOMIZATION
 
-    PN->addIncoming(IV, NewPred);
+    PN.addIncoming(IV, NewPred);
   }
 }
 

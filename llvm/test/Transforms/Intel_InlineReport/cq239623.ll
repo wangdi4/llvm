@@ -1,4 +1,5 @@
 ; RUN: opt -inline -inline-report=7  < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=7  < %s -S 2>&1 | FileCheck %s
 
 ; CHECK: Begin
 ; CHECK: End Inlining Report

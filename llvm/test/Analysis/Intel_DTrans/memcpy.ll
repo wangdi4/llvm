@@ -140,8 +140,10 @@ define void @test09(%struct.test09.b* %dest, %struct.test09.b* %src) {
   tail call void @llvm.memcpy.p0i8.i64(i8* nonnull %t0, i8* nonnull %t1, i64 80, i32 4, i1 false)
   ret void
 }
+; CHECK: LLVMType: %struct.test09.a = type { [20 x i32] }
+; CHECK: Safety data: Nested structure
 ; CHECK: LLVMType: %struct.test09.b = type { i32, i32, i32, %struct.test09.a }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Contains nested structure
 
 
 ; Test with memcpy where the source and target types match, but the source
@@ -157,9 +159,9 @@ define void @test10(%struct.test10.a* %dest, %struct.test10.b* %src) {
   ret void
 }
 ; CHECK: LLVMType: %struct.test10.a = type { i32, i32, i32, i32, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Nested structure
 ; CHECK: LLVMType: %struct.test10.b = type { i32, i32, i32, %struct.test10.a }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Contains nested structure
 
 
 ; Test with memcpy where the source and target types match, but the destination
@@ -175,9 +177,9 @@ define void @test11(%struct.test11.a* %src, %struct.test11.b* %dest) {
   ret void
 }
 ; CHECK: LLVMType: %struct.test11.a = type { i32, i32, i32, i32, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Nested structure
 ; CHECK: LLVMType: %struct.test11.b = type { i32, i32, i32, %struct.test11.a }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Contains nested structure
 
 
 ; Test with memcpy where the source and target types match, but the pointers

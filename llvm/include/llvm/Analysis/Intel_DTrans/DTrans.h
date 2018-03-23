@@ -26,6 +26,7 @@ class TargetLibraryInfo;
 class Function;
 class Instruction;
 class Type;
+class StructType;
 class CallInst;
 class Value;
 
@@ -84,32 +85,31 @@ const SafetyData VolatileData = 0x0000000000000010;
 /// element type.
 const SafetyData MismatchedElementAccess = 0x0000000000000020;
 
-/// A load was seen using a pointer operand that alias to incompatible pointer
-/// types.
-const SafetyData AmbiguousPointerLoad = 0x0000000000000040;
-
 /// A load or store instruction was found which loads or stores an entire
 /// instance of the type.
-const SafetyData WholeStructureReference = 0x0000000000000080;
+const SafetyData WholeStructureReference = 0x0000000000000040;
 
 /// A store was seen using a value operand that aliases to a type of interest
 /// with a pointer operand that was not known to alias to a pointer to a
 /// pointer to that type.
-const SafetyData UnsafePointerStore = 0x0000000000000100;
+const SafetyData UnsafePointerStore = 0x0000000000000080;
 
-/// The addresses of one or more fields within the type were written to memory
-/// or passed as an argument to a function call.
-const SafetyData FieldAddressTaken = 0x0000000000000200;
+/// The addresses of one or more fields within the type were written to memory,
+/// passed as an argument to a function call, or returned from a function.
+const SafetyData FieldAddressTaken = 0x0000000000000100;
 
 /// A global variable was found which is a pointer to the type.
-const SafetyData GlobalPtr = 0x0000000000000400;
+const SafetyData GlobalPtr = 0x0000000000000200;
 
 /// A global variable was found which is an instance of the type.
-const SafetyData GlobalInstance = 0x0000000000000800;
+const SafetyData GlobalInstance = 0x0000000000000400;
 
 /// A global variable was found which is an instance of the type and has a
 /// non-zero initializer.
-const SafetyData HasInitializerList = 0x0000000000001000;
+const SafetyData HasInitializerList = 0x0000000000000800;
+
+/// A PHI node or select was found with incompatible incoming values.
+const SafetyData UnsafePtrMerge = 0x0000000000001000;
 
 /// A structure is modified via a memory function intrinsic (memcpy, memmove,
 /// or memset), with a size that differs from the native structure size.
@@ -122,6 +122,22 @@ const SafetyData BadMemFuncManipulation = 0x0000000000004000;
 /// A pointer is passed to an intrinsic or library function that can alias
 /// incompatible types.
 const SafetyData AmbiguousPointerTarget = 0x0000000000008000;
+
+/// The address of an aggregate object escaped through a function call or
+/// a return statement.
+const SafetyData AddressTaken = 0x0000000000010000;
+
+/// The structure was declared with no fields.
+const SafetyData NoFieldsInStruct = 0x0000000000020000;
+
+/// The structure is contained as a non-pointer member of another structure.
+const SafetyData NestedStruct = 0x0000000000040000;
+
+/// The structure contains another structure as a non-pointer member.
+const SafetyData ContainsNestedStruct = 0x0000000000080000;
+
+/// The structure was identified as a system object type.
+const SafetyData SystemObject = 0x0000000000100000;
 
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
@@ -247,12 +263,23 @@ AllocKind getAllocFnKind(Function *F, const TargetLibraryInfo &TLI);
 void getAllocSizeArgs(AllocKind Kind, CallInst *CI, Value* &AllocSizeVal,
                       Value* &AllocCountVal);
 
+/// Determine whether or not the specified Function is the free library
+/// function.
+bool isFreeFn(Function *F, const TargetLibraryInfo &TLI);
+
 /// Examine the specified types to determine if a bitcast from \p SrcTy to
 /// \p DestTy could be used to access the first element of SrcTy. The
 /// \p AccessedTy argument if non-null returns the type (possibly a nested
 /// type) whose element zero is accessed, if any.
 bool isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
                          llvm::Type **AccessedTy = nullptr);
+
+/// Check whether the specified type is the type of a known system object.
+bool isSystemObjectType(llvm::StructType *Ty);
+
+/// Get the maximum number of fields in a structure that are allowed before
+/// we are unwilling to attempts dtrans optimizations.
+unsigned getMaxFieldsInStruct();
 
 } // namespace dtrans
 

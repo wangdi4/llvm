@@ -342,8 +342,6 @@ public:
     return TTI::TCC_Free;
   }
 
-  bool isOutOfOrder() const { return false; }
-
   unsigned getNumberOfRegisters(bool Vector) { return 8; }
 
   unsigned getRegisterBitWidth(bool Vector) const { return 32; }

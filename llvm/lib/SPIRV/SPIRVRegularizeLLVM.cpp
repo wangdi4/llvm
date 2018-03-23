@@ -126,8 +126,9 @@ SPIRVRegularizeLLVM::regularize() {
       for (auto II = BI->begin(), IE = BI->end(); II != IE; ++II) {
         if (auto Call = dyn_cast<CallInst>(II)) {
           Call->setTailCall(false);
-          if (Call->getCalledFunction()->isIntrinsic())
-            removeFnAttr(Context, Call, Attribute::NoUnwind);
+          Function *CF = Call->getCalledFunction();
+          if (CF && CF->isIntrinsic())
+              removeFnAttr(Context, Call, Attribute::NoUnwind);
         }
 
         // Remove optimization info not supported by SPIRV

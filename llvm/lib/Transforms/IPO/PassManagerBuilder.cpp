@@ -47,7 +47,7 @@
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
-#include "llvm/Transforms/Intel_DTrans/DTransOpt.h"
+#include "llvm/Transforms/Intel_DTrans/DeleteField.h"
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -480,7 +480,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // Propagate TBAA information before SROA so that we can remove mid-function
   // fakeload intrinsics which would block SROA.
   if (EnableTbaaProp)
-    MPM.add(createTbaaMDPropagationPass());
+    MPM.add(createTbaaMDPropagationLegacyPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Break up aggregate allocas, using SSAUpdater.
@@ -1010,10 +1010,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createReversePostOrderFunctionAttrsPass());
 
 #if INTEL_CUSTOMIZATION
-  // This optimization pass is just a placeholder, but adding it to the
-  // pipeline causes the DTransAnalysis to be run.
   if (EnableDTrans)
-    PM.add(createDTransOptWrapperPass());
+    PM.add(createDTransDeleteFieldWrapperPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Split globals using inrange annotations on GEP indices. This can help

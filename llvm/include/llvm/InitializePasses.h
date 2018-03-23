@@ -416,15 +416,15 @@ void initializeStdContainerAAWrapperPassPass(PassRegistry &);
 // Pass for alias metadata propagation
 void initializeStdContainerOptPass(PassRegistry &);
 // Pass for TBAA metadata propagation
-void initializeTbaaMDPropagationPass(PassRegistry &);
+void initializeTbaaMDPropagationLegacyPassPass(PassRegistry &);
 // Pass for removing fakeload intrinisics
-void initializeCleanupFakeLoadsPass(PassRegistry &);
+void initializeCleanupFakeLoadsLegacyPassPass(PassRegistry &);
 // Pass for indirect call conversion using points-to info
 void initializeIndirectCallConvPass(PassRegistry &);
 // Pass for SnodeInfo analysis
 void initializeSNodeAnalysisPass(PassRegistry &);
 // Pass for register promotion for non escaped block scope global variables.
-void initializeNonLTOGlobalOptPass(PassRegistry &);
+void initializeNonLTOGlobalOptLegacyPassPass(PassRegistry &);
 // Pass for math call optimization.
 void initializeMapIntrinToImlPass(PassRegistry&);
 // Pass for indicating loopopt based throttling.
@@ -504,10 +504,10 @@ void initializeMultiVersioningWrapperPass(PassRegistry&);
 void initializeVPlanDriverPass(PassRegistry&);
 void initializeVPlanDriverHIRPass(PassRegistry&);
 // OpenCL Passes
-void initializeFMASplitterPass(PassRegistry&);
+void initializeFMASplitterLegacyPassPass(PassRegistry&);
 // DTrans passes
 void initializeDTransAnalysisWrapperPass(PassRegistry&);
-void initializeDTransOptWrapperPass(PassRegistry&);
+void initializeDTransDeleteFieldWrapperPass(PassRegistry&);
 // Pass for dynamic_cast calls optimization
 void initializeOptimizeDynamicCastsWrapperPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION

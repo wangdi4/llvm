@@ -34,6 +34,7 @@
 #include "clang/Frontend/CodeGenOptions.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Debug.h"
@@ -1420,6 +1421,9 @@ private:
   llvm::BasicBlock *TerminateHandler;
   llvm::BasicBlock *TrapBB;
 
+  /// Terminate funclets keyed by parent funclet pad.
+  llvm::MapVector<llvm::Value *, llvm::BasicBlock *> TerminateFunclets;
+
   /// True if we need emit the life-time markers.
   const bool ShouldEmitLifetimeMarkers;
 
@@ -1807,6 +1811,10 @@ public:
 
   /// getTerminateLandingPad - Return a landing pad that just calls terminate.
   llvm::BasicBlock *getTerminateLandingPad();
+
+  /// getTerminateLandingPad - Return a cleanup funclet that just calls
+  /// terminate.
+  llvm::BasicBlock *getTerminateFunclet();
 
   /// getTerminateHandler - Return a handler (not a landing pad, just
   /// a catch handler) that just calls terminate.  This is used when
@@ -2371,7 +2379,10 @@ public:
     /// object within its lifetime.
     TCK_UpcastToVirtualBase,
     /// Checking the value assigned to a _Nonnull pointer. Must not be null.
-    TCK_NonnullAssign
+    TCK_NonnullAssign,
+    /// Checking the operand of a dynamic_cast or a typeid expression.  Must be
+    /// null or an object within its lifetime.
+    TCK_DynamicOperation
   };
 
   /// Determine whether the pointer type check \p TCK permits null pointers.
@@ -2652,6 +2663,9 @@ public:
   llvm::Value *EmitSEHExceptionInfo();
   llvm::Value *EmitSEHAbnormalTermination();
 
+  /// Emit simple code for OpenMP directives in Simd-only mode.
+  void EmitSimpleOMPExecutableDirective(const OMPExecutableDirective &D);
+
   /// Scan the outlined statement for captures from the parent function. For
   /// each capture, mark the capture as escaped and emit a call to
   /// llvm.localrecover. Insert the localrecover result into the LocalDeclMap.
@@ -2820,6 +2834,20 @@ public:
   void EmitOMPTaskBasedDirective(const OMPExecutableDirective &S,
                                  const RegionCodeGenTy &BodyGen,
                                  const TaskGenTy &TaskGen, OMPTaskDataTy &Data);
+  struct OMPTargetDataInfo {
+    Address BasePointersArray = Address::invalid();
+    Address PointersArray = Address::invalid();
+    Address SizesArray = Address::invalid();
+    unsigned NumberOfTargetItems = 0;
+    explicit OMPTargetDataInfo() = default;
+    OMPTargetDataInfo(Address BasePointersArray, Address PointersArray,
+                      Address SizesArray, unsigned NumberOfTargetItems)
+        : BasePointersArray(BasePointersArray), PointersArray(PointersArray),
+          SizesArray(SizesArray), NumberOfTargetItems(NumberOfTargetItems) {}
+  };
+  void EmitOMPTargetTaskBasedDirective(const OMPExecutableDirective &S,
+                                       const RegionCodeGenTy &BodyGen,
+                                       OMPTargetDataInfo &InputInfo);
 
   void EmitOMPParallelDirective(const OMPParallelDirective &S);
   void EmitOMPSimdDirective(const OMPSimdDirective &S);
