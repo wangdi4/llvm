@@ -52,7 +52,16 @@ static int DebugLevel = 0;
 
 #define DP(...)                                                            \
   do {                                                                     \
-    if (DebugLevel > 0) {                                                  \
+    if (DebugLevel & 0x01) {                                                  \
+      fprintf(stderr, "CSA  (HOST)  --> ");                                \
+      fprintf(stderr, __VA_ARGS__);                                        \
+      fflush(nullptr);                                                     \
+    }                                                                      \
+  } while (false)
+
+#define DP1(...)                                                           \
+  do {                                                                     \
+    if (DebugLevel & 0x02) {                                                  \
       fprintf(stderr, "CSA  (HOST)  --> ");                                \
       fprintf(stderr, __VA_ARGS__);                                        \
       fflush(nullptr);                                                     \
@@ -60,6 +69,8 @@ static int DebugLevel = 0;
   } while (false)
 #else
 #define DP(...)                                                            \
+  {}
+#define DP1(...)                                                            \
   {}
 #endif
 
@@ -162,7 +173,7 @@ struct CsaEntryInfo {
   csa_processor *processor;
   csa_module *module;
   csa_entry *entry;
-  const char *entry_name;
+  std::string entry_name;
 };
 
 typedef class std::map<std::pair<pthread_t,const void*>, CsaEntryInfo> CsaEntryMap_t;
@@ -273,7 +284,7 @@ public:
     mapEntry.processor = proc;
     mapEntry.module = mod;
     mapEntry.entry = entry;
-    mapEntry.entry_name = (const char*)addr;
+    mapEntry.entry_name = std::string((const char *)addr);
 
     for (__tgt_offload_entry *i = E.Table.EntriesBegin, *e = E.Table.EntriesEnd;
          i < e; ++i) {
@@ -1344,6 +1355,7 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
       bool success = DeviceInfo.setCsaOffloadEntryInfo(device_id, tgt_entry_ptr,
                                                        proc, mod, entry);
       assert(success && "saving CSA offload entry information failed!");
+      (void) success;
     }
   }
 
@@ -1357,9 +1369,11 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
   }
 #endif
 
+  DP1("Function %s\n", functionName);
   std::vector<void *> ptrs(arg_num);
   for (int32_t i=0; i<arg_num; ++i) {
     ptrs[i] = (void*)((intptr_t)tgt_args[i] + tgt_offsets[i]);
+    DP1("      param%d = %p\n", i, ptrs[i]);
   }
 
   // Execute the CSA code. target() is adding an "omp handle" to the
