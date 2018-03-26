@@ -568,6 +568,15 @@ class FMSReduceOp<GenericOp gen, CSAOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval1, $inval2, $ctl, $rm"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
+
+class FountainOp<GenericOp gen, CSAOpInfo oi,
+                 InstrItinClass itin, list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs oi.RC:$res),
+    (ins i64imm:$addr, i64imm:$len),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$res, $addr, $len"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
+
 def LDX : GenericOp<"ldx">;
 def LDD : GenericOp<"ldd">;
 def LD  : GenericOp<"ld">;
@@ -1493,6 +1502,20 @@ def COMPLETION8  : CompletionOp<COMPLETION, Ti8,  IIST>;
 def COMPLETION16 : CompletionOp<COMPLETION, Ti16, IIST>;
 def COMPLETION32 : CompletionOp<COMPLETION, Ti32, IIST>;
 def COMPLETION64 : CompletionOp<COMPLETION, Ti64, IIST>;
+
+def FOUNTAIN   : GenericOp<"fountain">;
+def FOUNTAIN1  : FountainOp<FOUNTAIN, Ti1,  IIALU>;
+def FOUNTAIN8  : FountainOp<FOUNTAIN, Ti8,  IIALU>;
+def FOUNTAIN16 : FountainOp<FOUNTAIN, Ti16, IIALU>;
+def FOUNTAIN32 : FountainOp<FOUNTAIN, Ti32, IIALU>;
+def FOUNTAIN64 : FountainOp<FOUNTAIN, Ti64, IIALU>;
+
+def REPLICATE  : GenericOp<"replicate">;
+def REPLICATE1 : FMTGEN<REPLICATE, Ti1,
+  (outs I1:$outchan),
+  (ins RCLi1:$inchan, i1imm:$match, i64imm:$count, i64imm:$initpos),
+  "replicate1\t$outchan, $inchan, $match, $count, $initpos",
+  [], [], IIALU>;
 
 // TBD(jsukha): This info probably needs predicates
 // Also, the input can probably be an I0 channel.

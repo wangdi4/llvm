@@ -34,11 +34,13 @@
 #include "llvm/IR/Module.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCInst.h"
+#include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetLoweringObjectFile.h"
 #include <fstream>
 #include <sstream>
 
@@ -109,6 +111,7 @@ public:
 class CSAAsmPrinter : public AsmPrinter {
   const Function *F;
   const MachineRegisterInfo *MRI;
+  const CSAMachineFunctionInfo *LMFI;
   DebugLoc prevDebugLoc;
   bool ignoreLoc(const MachineInstr &);
   LineReader *reader;
@@ -123,6 +126,7 @@ class CSAAsmPrinter : public AsmPrinter {
   void emitReturnVal(const Function *);
 
   void writeAsmLine(const char *);
+  void writeSmallFountain(const MachineInstr *MI);
 
 public:
   CSAAsmPrinter(TargetMachine &TM, std::unique_ptr<MCStreamer> Streamer)
@@ -142,6 +146,7 @@ public:
   void EmitFunctionBodyStart() override;
   void EmitFunctionBodyEnd() override;
   void EmitInstruction(const MachineInstr *MI) override;
+  void EmitConstantPool() override;
 
   void EmitCsaCodeSection();
 };
@@ -560,12 +565,12 @@ void CSAAsmPrinter::EmitFunctionEntryLabel() {
 
 void CSAAsmPrinter::EmitFunctionBodyStart() {
   //  const MachineRegisterInfo *MRI;
-  MRI                                = &MF->getRegInfo();
-  const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
+  MRI  = &MF->getRegInfo();
+  LMFI = MF->getInfo<CSAMachineFunctionInfo>();
 
   if (not ImplicitLicDefs) {
     auto printRegisterAttribs = [&](unsigned reg) {
-      for (StringRef k : LMFI->getLICAttributes(reg)){
+      for (StringRef k : LMFI->getLICAttributes(reg)) {
         SmallString<128> Str;
         raw_svector_ostream O(Str);
 
@@ -634,6 +639,49 @@ void CSAAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   MCInst TmpInst;
   MCInstLowering.Lower(MI, TmpInst);
   EmitToStreamer(*OutStreamer, TmpInst);
+}
+
+void CSAAsmPrinter::EmitConstantPool() {
+  const MachineConstantPool *MCP                  = MF->getConstantPool();
+  const std::vector<MachineConstantPoolEntry> &CP = MCP->getConstants();
+  if (CP.empty())
+    return;
+
+  // Just emit each constant pool entry in its own scratchpad.
+  for (unsigned i = 0, e = CP.size(); i != e; ++i) {
+    const MachineConstantPoolEntry &CPE = CP[i];
+    unsigned Align                      = CPE.getAlignment();
+
+    SectionKind Kind = CPE.getSectionKind(&getDataLayout());
+
+    const Constant *C = nullptr;
+    if (!CPE.isMachineConstantPoolEntry())
+      C = CPE.Val.ConstVal;
+
+    MCSectionELF *S_base =
+      dyn_cast<MCSectionELF>(getObjFileLowering().getSectionForConstant(
+        getDataLayout(), Kind, C, Align));
+    assert(S_base);
+
+    MCSymbol *Sym = GetCPISymbol(i);
+    if (!Sym->isUndefined())
+      continue;
+
+    assert(not Sym->getName().empty());
+    const char *sp_name_prefix =
+      (Sym->getName().front() == '.') ? ".csa.sp" : ".csa.sp.";
+    MCSection *S = OutContext.getELFSection(
+      sp_name_prefix + Sym->getName(), S_base->getType(), S_base->getFlags());
+
+    OutStreamer->SwitchSection(S);
+    EmitAlignment(Log2_32(Align));
+
+    OutStreamer->EmitLabel(Sym);
+    if (CPE.isMachineConstantPoolEntry())
+      EmitMachineConstantPoolValue(CPE.Val.MachineCPVal);
+    else
+      EmitGlobalConstant(getDataLayout(), CPE.Val.ConstVal);
+  }
 }
 
 // Force static initialization.
