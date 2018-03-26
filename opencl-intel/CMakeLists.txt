@@ -288,6 +288,9 @@ if(BUILD_LLVM_FROM_SOURCE)
     add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
 endif()
 
+# an umbrella target for all unit tests under LIT infra.
+add_custom_target(check-ocl-all)
+
 if (OPENCL_RT_INCLUDE_TESTS)
     add_subdirectory( tests )
 endif (OPENCL_RT_INCLUDE_TESTS)
