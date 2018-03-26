@@ -73,17 +73,10 @@ public:
 } // end anonymous namespace
 
 #if INTEL_CUSTOMIZATION
-enum IntelSpecific { ICUSTOMIZATION = 1, ISILKPLUS = 2, IIL0BACKEND = 4 };
+enum IntelSpecific { ICUSTOMIZATION = 1 };
 
 static bool DisallowedAttr(const Record *Attr) {
   int ISpecific = ICUSTOMIZATION; // We support INTEL_CUSTOMIZATION by default
-#if INTEL_SPECIFIC_CILKPLUS
-  ISpecific |= ISILKPLUS;
-#endif // INTEL_SPECIFIC_CILKPLUS
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  ISpecific |= IIL0BACKEND;
-#endif // INTEL_SPECIFIC_IL0_BACKEND
-
   int Requires = ICUSTOMIZATION; // We support INTEL_CUSTOMIZATION by default
   if (Attr->getValue("Requires")) {
     Requires = Attr->getValueAsInt("Requires");
@@ -1423,11 +1416,7 @@ writePrettyPrintFunction(Record &R,
     } else if (Variety == "Microsoft") {
       Prefix = "[";
       Suffix = "]";
-#if INTEL_SPECIFIC_CILKPLUS
-    } else if (Variety == "Keyword"
-               || Variety == "CilkKeyword"
-              ) {
-#endif  // INTEL_SPECIFIC_CILKPLUS
+    } else if (Variety == "Keyword") {
       Prefix = " ";
       Suffix = "";
     } else if (Variety == "Pragma") {
@@ -2080,9 +2069,27 @@ static void emitClangAttrTypeArgList(RecordKeeper &Records, raw_ostream &OS) {
     if (Args[0]->getSuperClasses().back().first->getName() != "TypeArgument")
       continue;
 
+#if INTEL_CUSTOMIZATION
+    // Since we are namespacing everything, we have to allow
+    // for multiple spellings in different namespaces. This will sometimes cause
+    // duplicate cases, but this is required for attributes that don't 
+    // explicitly specify CXX11 gnu:: mode AND GNU modes.
+    // For example, "__attribute__((availability))" is GNU::availability,
+    // but should also be available as [[gnu::availabillity]].
+    forEachSpelling(*Attr, [&](const FlattenedSpelling &S) {
+      OS << ".Case(\"" << S.variety();
+      if (S.nameSpace().length())
+        OS << "::" << S.nameSpace();
+      OS << "::" << S.name() << "\", true)\n";
+      // CXX11 mode allows all the gnu versions, as long as they are prefaced
+      // by "gnu::"
+      if (S.variety() == "GNU")
+        OS << ".Case(\"" << "CXX11::gnu::"<< S.name() <<"\", true)\n";
+#else
     // All these spellings take a single type argument.
     forEachUniqueSpelling(*Attr, [&](const FlattenedSpelling &S) {
       OS << ".Case(\"" << S.name() << "\", " << "true" << ")\n";
+#endif // INTEL_CUSTOMIZATION
     });
   }
   OS << "#endif // CLANG_ATTR_TYPE_ARG_LIST\n\n";
@@ -2099,9 +2106,27 @@ static void emitClangAttrArgContextList(RecordKeeper &Records, raw_ostream &OS) 
     if (!Attr.getValueAsBit("ParseArgumentsAsUnevaluated"))
       continue;
 
+#if INTEL_CUSTOMIZATION
+    // Since we are namespacing everything, we have to allow
+    // for multiple spellings in different namespaces. This will sometimes cause
+    // duplicate cases, but this is required for attributes that don't 
+    // explicitly specify CXX11 gnu:: mode AND GNU modes.
+    // For example, "__attribute__((availability))" is GNU::availability,
+    // but should also be available as [[gnu::availabillity]].
+    forEachSpelling(Attr, [&](const FlattenedSpelling &S) {
+      OS << ".Case(\"" << S.variety();
+      if (S.nameSpace().length())
+        OS << "::" << S.nameSpace();
+      OS << "::" << S.name() << "\", true)\n";
+      // CXX11 mode allows all the gnu versions, as long as they are prefaced
+      // by "gnu::"
+      if (S.variety() == "GNU")
+        OS << ".Case(\"" << "CXX11::gnu::"<< S.name() <<"\", true)\n";
+#else
     // All these spellings take are parsed unevaluated.
     forEachUniqueSpelling(Attr, [&](const FlattenedSpelling &S) {
       OS << ".Case(\"" << S.name() << "\", " << "true" << ")\n";
+#endif // INTEL_CUSTOMIZATION
     });
   }
   OS << "#endif // CLANG_ATTR_ARG_CONTEXT_LIST\n\n";
@@ -2984,9 +3009,6 @@ void EmitClangAttrSpellingListIndex(RecordKeeper &Records, raw_ostream &OS) {
                 .Case("Microsoft", 4)
                 .Case("Keyword", 5)
                 .Case("Pragma", 6)
-#if INTEL_SPECIFIC_CILKPLUS
-                .Case("CilkKeyword", 6)
-#endif // INTEL_SPECIFIC_CILKPLUS
                 .Default(0)
          << " && Scope == \"" << Spellings[I].nameSpace() << "\")\n"
          << "        return " << I << ";\n";
@@ -3643,12 +3665,7 @@ void EmitClangAttrParsedAttrKinds(RecordKeeper &Records, raw_ostream &OS) {
 
   std::vector<Record *> Attrs = Records.getAllDerivedDefinitions("Attr");
   std::vector<StringMatcher::StringPair> GNU, Declspec, Microsoft, CXX11,
-      Keywords, Pragma, C2x// INTEL
-#if INTEL_SPECIFIC_CILKPLUS
-      ,
-      CilkKeywords
-#endif // INTEL_SPECIFIC_CILKPLUS
-        ;
+      Keywords, Pragma, C2x;
   std::set<std::string> Seen;
   for (const auto *A : Attrs) {
     const Record &Attr = *A;
@@ -3702,10 +3719,6 @@ void EmitClangAttrParsedAttrKinds(RecordKeeper &Records, raw_ostream &OS) {
           Matches = &Microsoft;
         else if (Variety == "Keyword")
           Matches = &Keywords;
-#if INTEL_SPECIFIC_CILKPLUS
-        else if (Variety == "CilkKeyword")
-          Matches = &CilkKeywords;
-#endif // INTEL_SPECIFIC_CILKPLUS
         else if (Variety == "Pragma")
           Matches = &Pragma;
 
@@ -3741,10 +3754,6 @@ void EmitClangAttrParsedAttrKinds(RecordKeeper &Records, raw_ostream &OS) {
   OS << "  } else if (AttributeList::AS_Keyword == Syntax || ";
   OS << "AttributeList::AS_ContextSensitiveKeyword == Syntax) {\n";
   StringMatcher("Name", Keywords, OS).Emit();
-#if INTEL_SPECIFIC_CILKPLUS
-  OS << "  } else if (AttributeList::AS_CilkKeyword == Syntax) {\n";
-  StringMatcher("Name", CilkKeywords, OS).Emit();
-#endif // INTEL_SPECIFIC_CILKPLUS
   OS << "  } else if (AttributeList::AS_Pragma == Syntax) {\n";
   StringMatcher("Name", Pragma, OS).Emit();
   OS << "  }\n";
@@ -3841,10 +3850,6 @@ enum SpellingKind {
   Microsoft = 1 << 4,
   Keyword = 1 << 5,
   Pragma = 1 << 6
-#if INTEL_SPECIFIC_CILKPLUS
-  ,
-  CilkKeyword = 1 << 6
-#endif // INTEL_SPECIFIC_CILKPLUS
 };
 
 static std::pair<std::string, unsigned>
@@ -3896,11 +3901,7 @@ GetAttributeHeadingAndSpellingKinds(const Record &Documentation,
                             .Case("Declspec", Declspec)
                             .Case("Microsoft", Microsoft)
                             .Case("Keyword", Keyword)
-                            .Case("Pragma", Pragma)
-#if INTEL_SPECIFIC_CILKPLUS
-                            .Case("CilkKeyword", CilkKeyword)
-#endif // INTEL_SPECIFIC_CILKPLUS
-      ;
+                            .Case("Pragma", Pragma);
 
     // Mask in the supported spelling.
     SupportedSpellings |= Kind;
@@ -3940,9 +3941,6 @@ static void WriteDocumentation(RecordKeeper &Records,
   // List what spelling syntaxes the attribute supports.
   OS << ".. csv-table:: Supported Syntaxes\n";
   OS << "   :header: \"GNU\", \"C++11\", \"C2x\", \"__declspec\", \"Keyword\",";
-#if INTEL_SPECIFIC_CILKPLUS
-  OS <<	" \"CilkKeyword\", ";
-#endif // INTEL_SPECIFIC_CILKPLUS
   OS << " \"Pragma\", \"Pragma clang attribute\"\n\n";
   OS << "   \"";
   if (Doc.SupportedSpellings & GNU) OS << "X";
@@ -3960,10 +3958,6 @@ static void WriteDocumentation(RecordKeeper &Records,
   if (getPragmaAttributeSupport(Records).isAttributedSupported(*Doc.Attribute))
     OS << "X";
   OS << "\"\n\n";
-#if INTEL_SPECIFIC_CILKPLUS
-  if (Doc.SupportedSpellings & CilkKeyword) OS << "X";
-  OS << "\", \"";
-#endif // INTEL_SPECIFIC_CILKPLUS
   // If the attribute is deprecated, print a message about it, and possibly
   // provide a replacement attribute.
   if (!Doc.Documentation->isValueUnset("Deprecated")) {

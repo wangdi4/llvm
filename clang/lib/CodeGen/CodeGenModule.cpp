@@ -17,9 +17,6 @@
 #include "CGCXXABI.h"
 #include "CGCall.h"
 #include "CGDebugInfo.h"
-#if INTEL_SPECIFIC_CILKPLUS
-#include "intel/CGCilkPlusRuntime.h"
-#endif  // INTEL_SPECIFIC_CILKPLUS
 #include "CGObjCRuntime.h"
 #include "CGOpenCLRuntime.h"
 #include "CGOpenMPRuntime.h"
@@ -140,10 +137,7 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
     createOpenMPRuntime();
   if (LangOpts.CUDA)
     createCUDARuntime();
-#if INTEL_SPECIFIC_CILKPLUS
-  if (LangOpts.CilkPlus)
-    createCilkPlusRuntime();
-#endif // INTEL_SPECIFIC_CILKPLUS
+
   // Enable TBAA unless it's suppressed. ThreadSanitizer needs TBAA even at O0.
   if (LangOpts.Sanitize.has(SanitizerKind::Thread) ||
       (!CodeGenOpts.RelaxedAliasing && CodeGenOpts.OptimizationLevel > 0))
@@ -256,7 +250,10 @@ void CodeGenModule::createOpenMPRuntime() {
     OpenMPRuntime.reset(new CGOpenMPRuntimeNVPTX(*this));
     break;
   default:
-    OpenMPRuntime.reset(new CGOpenMPRuntime(*this));
+    if (LangOpts.OpenMPSimd)
+      OpenMPRuntime.reset(new CGOpenMPSIMDRuntime(*this));
+    else
+      OpenMPRuntime.reset(new CGOpenMPRuntime(*this));
     break;
   }
 }
@@ -264,12 +261,6 @@ void CodeGenModule::createOpenMPRuntime() {
 void CodeGenModule::createCUDARuntime() {
   CUDARuntime.reset(CreateNVCUDARuntime(*this));
 }
-
-#if INTEL_SPECIFIC_CILKPLUS
-void CodeGenModule::createCilkPlusRuntime() {
-  CilkPlusRuntime.reset(new CGCilkPlusRuntime);
-}
-#endif // INTEL_SPECIFIC_CILKPLUS
 
 void CodeGenModule::addReplacement(StringRef Name, llvm::Constant *C) {
   Replacements[Name] = C;
@@ -610,10 +601,6 @@ void CodeGenModule::Release() {
 
   if (getCodeGenOpts().EmitDeclMetadata)
     EmitDeclMetadata();
-#if INTEL_SPECIFIC_CILKPLUS
-  if (getLangOpts().CilkPlus)
-    EmitCilkElementalVariants();
-#endif  // INTEL_SPECIFIC_CILKPLUS
 #if INTEL_CUSTOMIZATION
   if (getCodeGenOpts().getDebugInfo() != codegenoptions::NoDebugInfo) {
     if (getLangOpts().IntelCompat)
@@ -621,12 +608,10 @@ void CodeGenModule::Release() {
     if (getLangOpts().IntelMSCompat)
       EmitMSDebugInfoMetadata();
   }
-#if INTEL_SPECIFIC_OPENMP
   // CQ#411303 Intel driver requires front-end to produce special file if
   // translation unit has any target code.
   if (HasTargetCode)
     EmitIntelDriverTempfile();
-#endif // INTEL_SPECIFIC_OPENMP
 #endif // INTEL_CUSTOMIZATION
   if (getCodeGenOpts().EmitGcovArcs || getCodeGenOpts().EmitGcovNotes)
     EmitCoverageFile();
@@ -902,11 +887,7 @@ StringRef CodeGenModule::getBlockMangledName(GlobalDecl GD,
   auto Result = Manglings.insert(std::make_pair(Out.str(), BD));
   return Result.first->first();
 }
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-void CodeGenModule::registerAsMangled(StringRef Name, GlobalDecl GD) {
-  MangledDeclNames[GD.getCanonicalDecl()] = Name;
-}
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+
 llvm::GlobalValue *CodeGenModule::GetGlobalValue(StringRef Name) {
   return getModule().getNamedValue(Name);
 }
@@ -1029,12 +1010,6 @@ void CodeGenModule::SetLLVMFunctionAttributes(const Decl *D,
   ConstructAttributeList(F->getName(), Info, D, PAL, CallingConv, false);
   F->setAttributes(PAL);
   F->setCallingConv(static_cast<llvm::CallingConv::ID>(CallingConv));
-#if INTEL_SPECIFIC_CILKPLUS
-  // Add metadata if this is a Cilk Plus elemental function.
-  if (getLangOpts().CilkPlus)
-    if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-      EmitCilkElementalMetadata(Info, FD, F);
-#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 /// Determines whether the language options require us to model
@@ -2892,47 +2867,102 @@ static void maybeEmitGlobalChannelMetadata(const VarDecl *D,
 
   llvm::Type *Int32Ty = llvm::IntegerType::getInt32Ty(CGM.getLLVMContext());
 
-  llvm::Metadata *ChannelDepthMD = nullptr;
-
-  if (D->hasAttr<OpenCLChannelDepthAttr>()) {
-    OpenCLChannelDepthAttr *DepthAttr = D->getAttr<OpenCLChannelDepthAttr>();
-    llvm::Metadata *ChannelDepthMDOps[] = {
-        llvm::MDString::get(CGM.getLLVMContext(), "depth"),
+  llvm::MDNode *ChannelDepthMD = nullptr;
+  if (auto *DepthAttr = D->getAttr<OpenCLDepthAttr>()) {
+    ChannelDepthMD = llvm::MDNode::get(CGM.getLLVMContext(),
         llvm::ConstantAsMetadata::get(
-            llvm::ConstantInt::get(Int32Ty, DepthAttr->getDepth(), false))};
+            llvm::ConstantInt::get(Int32Ty, DepthAttr->getDepth(), false)));
+  }
 
-    ChannelDepthMD = llvm::MDNode::get(CGM.getLLVMContext(), ChannelDepthMDOps);
+  llvm::MDNode *ChannelIOMD = nullptr;
+  if (auto *IOAttr = D->getAttr<OpenCLIOAttr>()) {
+    ChannelIOMD = llvm::MDNode::get(CGM.getLLVMContext(),
+        llvm::MDString::get(CGM.getLLVMContext(), IOAttr->getIOName()));
   }
 
   auto *PacketSize = llvm::ConstantInt::get(
       Int32Ty, CGM.getContext().getTypeSize(ChanTy->getElementType()) / 8,
       false);
-  llvm::Metadata *PacketSizeMDOps[] = {
-      llvm::MDString::get(CGM.getLLVMContext(), "packet_size"),
-      llvm::ConstantAsMetadata::get(PacketSize)};
-  llvm::Metadata *PacketSizeMD =
-      llvm::MDNode::get(CGM.getLLVMContext(), PacketSizeMDOps);
+  llvm::MDNode *PacketSizeMD = llvm::MDNode::get(CGM.getLLVMContext(),
+      llvm::ConstantAsMetadata::get(PacketSize));
 
   auto *PacketAlign = llvm::ConstantInt::get(
       Int32Ty, CGM.getContext().getTypeAlign(ChanTy->getElementType()) / 8,
       false);
-  llvm::Metadata *PacketAlignMDOps[] = {
-      llvm::MDString::get(CGM.getLLVMContext(), "packet_align"),
-      llvm::ConstantAsMetadata::get(PacketAlign)};
-  llvm::Metadata *PacketAlignMD =
-      llvm::MDNode::get(CGM.getLLVMContext(), PacketAlignMDOps);
+  llvm::MDNode *PacketAlignMD = llvm::MDNode::get(CGM.getLLVMContext(),
+      llvm::ConstantAsMetadata::get(PacketAlign));
 
-  llvm::SmallVector<llvm::Metadata *, 4> Ops;
-  Ops.push_back(llvm::ConstantAsMetadata::get(GV));
-  Ops.push_back(PacketSizeMD);
-  Ops.push_back(PacketAlignMD);
+  GV->setMetadata("packet_size", PacketSizeMD);
+  GV->setMetadata("packet_align", PacketAlignMD);
   if (ChannelDepthMD)
-    Ops.push_back(ChannelDepthMD);
+    GV->setMetadata("depth", ChannelDepthMD);
+  if (ChannelIOMD)
+    GV->setMetadata("io", ChannelIOMD);
+}
 
-  CGM.getModule()
-      .getOrInsertNamedMetadata("opencl.channels")
-      ->addOperand(llvm::MDNode::get(CGM.getLLVMContext(),
-                                     ArrayRef<llvm::Metadata *>(Ops)));
+void CodeGenModule::generateHLSAnnotation(const VarDecl *VD,
+                                          llvm::SmallString<256> &AnnotStr) {
+  llvm::raw_svector_ostream Out(AnnotStr);
+  if (VD->hasAttr<RegisterAttr>())
+    Out << "{register:1}";
+  if (VD->hasAttr<MemoryAttr>())
+    Out << "{register:0}";
+  if (VD->hasAttr<SinglePumpAttr>())
+    Out << "{pump:1}";
+  if (VD->hasAttr<DoublePumpAttr>())
+    Out << "{pump:2}";
+  if (const auto *BWA = VD->getAttr<BankWidthAttr>()) {
+    llvm::APSInt BWAInt = BWA->getValue()->EvaluateKnownConstInt(getContext());
+    Out << '{' << BWA->getSpelling() << ':' << BWAInt << '}';
+  }
+  if (const auto *NBA = VD->getAttr<NumBanksAttr>()) {
+    llvm::APSInt BWAInt = NBA->getValue()->EvaluateKnownConstInt(getContext());
+    Out << '{' << NBA->getSpelling() << ':' << BWAInt << '}';
+  }
+  if (const auto *NRPA = VD->getAttr<NumReadPortsAttr>()) {
+    llvm::APSInt NRPAInt =
+        NRPA->getValue()->EvaluateKnownConstInt(getContext());
+    Out << '{' << NRPA->getSpelling() << ':' << NRPAInt << '}';
+  }
+  if (const auto *NWPA = VD->getAttr<NumWritePortsAttr>()) {
+    llvm::APSInt NWPAInt =
+        NWPA->getValue()->EvaluateKnownConstInt(getContext());
+    Out << '{' << NWPA->getSpelling() << ':' << NWPAInt << '}';
+  }
+  if (const auto *BBA = VD->getAttr<BankBitsAttr>()) {
+    Out << '{' << BBA->getSpelling() << ':';
+    for (BankBitsAttr::args_iterator I = BBA->args_begin(), E = BBA->args_end();
+         I != E; ++I) {
+      if (I != BBA->args_begin())
+        Out << ',';
+      llvm::APSInt BBAInt = (*I)->EvaluateKnownConstInt(getContext());
+      Out << BBAInt;
+    }
+    Out << '}';
+  }
+  if (const auto *MA = VD->getAttr<MergeAttr>()) {
+    Out << '{' << MA->getSpelling() << ':' << MA->getName() << ':'
+        << MA->getDirection() << '}';
+  }
+}
+
+void CodeGenModule::addGlobalHLSAnnotation(const VarDecl *VD,
+                                           llvm::GlobalValue *GV) {
+  SmallString<256> AnnotStr;
+  generateHLSAnnotation(VD, AnnotStr);
+  if (!AnnotStr.empty()) {
+    // Get the globals for file name, annotation, and the line number.
+    llvm::Constant *AnnoGV = EmitAnnotationString(AnnotStr),
+                   *UnitGV = EmitAnnotationUnit(VD->getLocation()),
+                   *LineNoCst = EmitAnnotationLineNo(VD->getLocation());
+
+    // Create the ConstantStruct for the global annotation.
+    llvm::Constant *Fields[4] = {
+        llvm::ConstantExpr::getBitCast(GV, Int8PtrTy),
+        llvm::ConstantExpr::getBitCast(AnnoGV, Int8PtrTy),
+        llvm::ConstantExpr::getBitCast(UnitGV, Int8PtrTy), LineNoCst};
+    Annotations.push_back(llvm::ConstantStruct::getAnon(Fields));
+  }
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -3049,23 +3079,28 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
   if (D->hasAttr<AnnotateAttr>())
     AddGlobalAnnotations(D, GV);
 
-  if (D->getType().isRestrictQualified()) {                        //***INTEL 
-    llvm::LLVMContext &Context = getLLVMContext();                 //***INTEL 
-
-    // Common metadata nodes.                                      //***INTEL 
-    llvm::NamedMDNode *GlobalsRestrict =                           //***INTEL 
-      getModule().getOrInsertNamedMetadata("globals.restrict");    //***INTEL 
-    llvm::Metadata *Args[] = {llvm::ValueAsMetadata::get(GV)};     //***INTEL 
-    llvm::MDNode *Node = llvm::MDNode::get(Context, Args);         //***INTEL 
-    GlobalsRestrict->addOperand(Node);                             //***INTEL 
-  }                                                                //***INTEL 
 #if INTEL_CUSTOMIZATION
-#if INTEL_SPECIFIC_OPENMP
+  // Emit HLS attribute annotation for a file-scope static variable.
+  if (getLangOpts().HLS ||
+      (getLangOpts().OpenCL &&
+       getContext().getTargetInfo().getTriple().isINTELFPGAEnvironment()))
+    addGlobalHLSAnnotation(D, GV);
+
+  if (D->getType().isRestrictQualified()) {
+    llvm::LLVMContext &Context = getLLVMContext();
+
+    // Common metadata nodes.
+    llvm::NamedMDNode *GlobalsRestrict =
+        getModule().getOrInsertNamedMetadata("globals.restrict");
+    llvm::Metadata *Args[] = {llvm::ValueAsMetadata::get(GV)};
+    llvm::MDNode *Node = llvm::MDNode::get(Context, Args);
+    GlobalsRestrict->addOperand(Node);
+  }
+
   // CQ#411303 Intel driver requires front-end to produce special file if
   // translation unit has any target code.
   if (D->hasAttr<OMPDeclareTargetDeclAttr>())
     setHasTargetCode();
-#endif // INTEL_SPECIFIC_OPENMP
 #endif // INTEL_CUSTOMIZATION
 
   // Set the llvm linkage type as appropriate.
@@ -3532,13 +3567,11 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
   if (D->hasAttr<AnnotateAttr>())
     AddGlobalAnnotations(D, Fn);
 #if INTEL_CUSTOMIZATION
-#if INTEL_SPECIFIC_OPENMP
   // CQ#411303 Intel driver requires front-end to produce special file if
   // translation unit has any target code.
   if (D->hasAttr<OMPDeclareTargetDeclAttr>())
     setHasTargetCode();
 #endif // INTEL_CUSTOMIZATION
-#endif // INTEL_SPECIFIC_OPENMP
 }
 
 void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
@@ -4441,11 +4474,7 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
     getModule().appendModuleInlineAsm(AD->getAsmString()->getString());
     break;
   }
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  case Decl::Pragma:
-    CodeGenFunction(*this).EmitPragmaDecl(cast<PragmaDecl>(*D));
-    break;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+
   case Decl::Import: {
     auto *Import = cast<ImportDecl>(D);
 
@@ -4508,10 +4537,6 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
     assert(isa<TypeDecl>(D) && "Unsupported decl kind");
     break;
   }
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  if (D->hasAttr<AvoidFalseShareAttr>())
-    CodeGenFunction(*this).EmitIntelAttribute(*D);
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
 
 void CodeGenModule::AddDeferredUnusedCoverageMapping(Decl *D) {
@@ -4754,7 +4779,6 @@ void CodeGenModule::EmitMSDebugInfoMetadata() {
                      getCodeGenOpts().MSOutputPdbFile);
 }
 
-#if INTEL_SPECIFIC_OPENMP
 void CodeGenModule::EmitIntelDriverTempfile() {
   // Communication file should be generated only during host complication.
   if (!getLangOpts().IntelCompat ||
@@ -4784,7 +4808,6 @@ void CodeGenModule::EmitIntelDriverTempfile() {
 
   Out << "</compiler_to_driver_communication>";
 }
-#endif // INTEL_SPECIFIC_OPENMP
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenModule::EmitCoverageFile() {
@@ -4852,6 +4875,9 @@ llvm::Constant *CodeGenModule::GetAddrOfRTTIDescriptor(QualType Ty,
 }
 
 void CodeGenModule::EmitOMPThreadPrivateDecl(const OMPThreadPrivateDecl *D) {
+  // Do not emit threadprivates in simd-only mode.
+  if (LangOpts.OpenMP && LangOpts.OpenMPSimd)
+    return;
   for (auto RefExpr : D->varlists()) {
     auto *VD = cast<VarDecl>(cast<DeclRefExpr>(RefExpr)->getDecl());
     bool PerformInit =

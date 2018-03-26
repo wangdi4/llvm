@@ -1922,14 +1922,16 @@ SDValue DAGCombiner::foldBinOpIntoSelect(SDNode *BO) {
   EVT VT = Sel.getValueType();
   SDLoc DL(Sel);
   SDValue NewCT = DAG.getNode(BinOpcode, DL, VT, CT, C1);
-  assert((NewCT.isUndef() || isConstantOrConstantVector(NewCT) ||
-          isConstantFPBuildVectorOrConstantFP(NewCT)) &&
-         "Failed to constant fold a binop with constant operands");
+  if (!NewCT.isUndef() &&
+      !isConstantOrConstantVector(NewCT, true) &&
+      !isConstantFPBuildVectorOrConstantFP(NewCT))
+    return SDValue();
 
   SDValue NewCF = DAG.getNode(BinOpcode, DL, VT, CF, C1);
-  assert((NewCF.isUndef() || isConstantOrConstantVector(NewCF) ||
-          isConstantFPBuildVectorOrConstantFP(NewCF)) &&
-         "Failed to constant fold a binop with constant operands");
+  if (!NewCF.isUndef() &&
+      !isConstantOrConstantVector(NewCF, true) &&
+      !isConstantFPBuildVectorOrConstantFP(NewCF))
+    return SDValue();
 
   return DAG.getSelect(DL, VT, Sel.getOperand(0), NewCT, NewCF);
 }
@@ -3642,15 +3644,18 @@ SDValue DAGCombiner::visitANDLike(SDValue N0, SDValue N1, SDNode *N) {
   if (N0.getOpcode() == ISD::ADD && N1.getOpcode() == ISD::SRL &&
       VT.getSizeInBits() <= 64) {
     if (ConstantSDNode *ADDI = dyn_cast<ConstantSDNode>(N0.getOperand(1))) {
-      APInt ADDC = ADDI->getAPIntValue();
-      if (!TLI.isLegalAddImmediate(ADDC.getSExtValue())) {
+      if (ConstantSDNode *SRLI = dyn_cast<ConstantSDNode>(N1.getOperand(1))) {
         // Look for (and (add x, c1), (lshr y, c2)). If C1 wasn't a legal
         // immediate for an add, but it is legal if its top c2 bits are set,
         // transform the ADD so the immediate doesn't need to be materialized
         // in a register.
-        if (ConstantSDNode *SRLI = dyn_cast<ConstantSDNode>(N1.getOperand(1))) {
+        APInt ADDC = ADDI->getAPIntValue();
+        APInt SRLC = SRLI->getAPIntValue();
+        if (ADDC.getMinSignedBits() <= 64 &&
+            SRLC.ult(VT.getSizeInBits()) &&
+            !TLI.isLegalAddImmediate(ADDC.getSExtValue())) {
           APInt Mask = APInt::getHighBitsSet(VT.getSizeInBits(),
-                                             SRLI->getZExtValue());
+                                             SRLC.getZExtValue());
           if (DAG.MaskedValueIsZero(N0.getOperand(1), Mask)) {
             ADDC |= Mask;
             if (TLI.isLegalAddImmediate(ADDC.getSExtValue())) {
@@ -3845,7 +3850,6 @@ bool DAGCombiner::SearchForAndLoads(SDNode *N,
       return false;
     }
     case ISD::ZERO_EXTEND:
-    case ISD::ANY_EXTEND:
     case ISD::AssertZext: {
       unsigned ActiveBits = Mask->getAPIntValue().countTrailingOnes();
       EVT ExtVT = EVT::getIntegerVT(*DAG.getContext(), ActiveBits);
@@ -13778,30 +13782,30 @@ SDValue DAGCombiner::visitSTORE(SDNode *N) {
     }
   }
 
-  // Deal with elidable overlapping chained stores.
-  if (StoreSDNode *ST1 = dyn_cast<StoreSDNode>(Chain))
-    if (OptLevel != CodeGenOpt::None && ST->isUnindexed() &&
-        ST1->isUnindexed() && !ST1->isVolatile() && ST1->hasOneUse() &&
-        !ST1->getBasePtr().isUndef() && !ST->isVolatile()) {
-      BaseIndexOffset STBasePtr = BaseIndexOffset::match(ST->getBasePtr(), DAG);
-      BaseIndexOffset ST1BasePtr =
-          BaseIndexOffset::match(ST1->getBasePtr(), DAG);
-      unsigned STBytes = ST->getMemoryVT().getStoreSize();
-      unsigned ST1Bytes = ST1->getMemoryVT().getStoreSize();
-      int64_t PtrDiff;
-      // If this is a store who's preceeding store to a subset of the same
-      // memory and no one other node is chained to that store we can
-      // effectively drop the store. Do not remove stores to undef as they may
-      // be used as data sinks.
+  if (StoreSDNode *ST1 = dyn_cast<StoreSDNode>(Chain)) {
+    if (ST->isUnindexed() && !ST->isVolatile() && ST1->isUnindexed() &&
+        !ST1->isVolatile() && ST1->getBasePtr() == Ptr &&
+        ST->getMemoryVT() == ST1->getMemoryVT()) {
+      // If this is a store followed by a store with the same value to the same
+      // location, then the store is dead/noop.
+      if (ST1->getValue() == Value) {
+        // The store is dead, remove it.
+        return Chain;
+      }
 
-      if (((ST->getBasePtr() == ST1->getBasePtr()) &&
-           (ST->getValue() == ST1->getValue())) ||
-          (STBasePtr.equalBaseIndex(ST1BasePtr, DAG, PtrDiff) &&
-           (0 <= PtrDiff) && (PtrDiff + ST1Bytes <= STBytes))) {
+      // If this is a store who's preceeding store to the same location
+      // and no one other node is chained to that store we can effectively
+      // drop the store. Do not remove stores to undef as they may be used as
+      // data sinks.
+      if (OptLevel != CodeGenOpt::None && ST1->hasOneUse() &&
+          !ST1->getBasePtr().isUndef()) {
+        // ST1 is fully overwritten and can be elided. Combine with it's chain
+        // value.
         CombineTo(ST1, ST1->getChain());
-        return SDValue(N, 0);
+        return SDValue();
       }
     }
+  }
 
   // If this is an FP_ROUND or TRUNC followed by a store, fold this into a
   // truncating store.  We can do this even if this is already a truncstore.

@@ -20,11 +20,6 @@
 #include "clang/AST/Stmt.h"
 #include "clang/Basic/OpenMPKinds.h"
 #include "clang/Basic/SourceLocation.h"
-#if INTEL_CUSTOMIZATION
-// Fix for CQ378452: Error when #pragma simd vectorlength(8) follows #pragma omp
-// parallel for
-#include "clang/Basic/intel/StmtIntel.h"
-#endif // INTEL_CUSTOMIZATION
 
 namespace clang {
 
@@ -198,16 +193,20 @@ public:
   bool hasAssociatedStmt() const { return NumChildren > 0; }
 
   /// \brief Returns statement associated with the directive.
-  Stmt *getAssociatedStmt() const {
+  const Stmt *getAssociatedStmt() const {
     assert(hasAssociatedStmt() && "no associated statement.");
-    return const_cast<Stmt *>(*child_begin());
+    return *child_begin();
+  }
+  Stmt *getAssociatedStmt() {
+    assert(hasAssociatedStmt() && "no associated statement.");
+    return *child_begin();
   }
 
   /// \brief Returns the captured statement associated with the
   /// component region within the (combined) directive.
   //
   // \param RegionKind Component region kind.
-  CapturedStmt *getCapturedStmt(OpenMPDirectiveKind RegionKind) const {
+  const CapturedStmt *getCapturedStmt(OpenMPDirectiveKind RegionKind) const {
     SmallVector<OpenMPDirectiveKind, 4> CaptureRegions;
     getOpenMPCaptureRegions(CaptureRegions, getDirectiveKind());
     assert(std::any_of(
@@ -907,24 +906,9 @@ public:
     const Stmt *Body = getAssociatedStmt()->IgnoreContainers(true);
     while(const auto *CS = dyn_cast<CapturedStmt>(Body))
       Body = CS->getCapturedStmt();
-
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ378452: Error when #pragma simd vectorlength(8) follows #pragma
-    // omp parallel for
-    if (auto *SIMDFor = dyn_cast<SIMDForStmt>(Body))
-      Body = SIMDFor->getBody()->getCapturedStmt();
-    else
-#endif // INTEL_CUSTOMIZATION
     Body = cast<ForStmt>(Body)->getBody();
     for (unsigned Cnt = 1; Cnt < CollapsedNum; ++Cnt) {
       Body = Body->IgnoreContainers();
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ378452: Error when #pragma simd vectorlength(8) follows #pragma
-    // omp parallel for
-    if (auto *SIMDFor = dyn_cast<SIMDForStmt>(Body))
-      Body = SIMDFor->getBody()->getCapturedStmt();
-    else
-#endif // INTEL_CUSTOMIZATION
       Body = cast<ForStmt>(Body)->getBody();
     }
     return Body;

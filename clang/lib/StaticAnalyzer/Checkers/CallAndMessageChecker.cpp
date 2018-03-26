@@ -577,9 +577,6 @@ void CallAndMessageChecker::HandleNilReceiver(CheckerContext &C,
            (Ctx.FloatTy == CanRetTy ||
             Ctx.DoubleTy == CanRetTy ||
             Ctx.LongDoubleTy == CanRetTy ||
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-            Ctx.Float128Ty == CanRetTy ||
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
             Ctx.LongLongTy == CanRetTy ||
             Ctx.UnsignedLongLongTy == CanRetTy)))) {
       if (ExplodedNode *N = C.generateErrorNode(state, &Tag))

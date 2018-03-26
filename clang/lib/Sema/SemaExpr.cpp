@@ -1721,7 +1721,7 @@ Sema::DecomposeUnqualifiedId(const UnqualifiedId &Id,
                              TemplateArgumentListInfo &Buffer,
                              DeclarationNameInfo &NameInfo,
                              const TemplateArgumentListInfo *&TemplateArgs) {
-  if (Id.getKind() == UnqualifiedId::IK_TemplateId) {
+  if (Id.getKind() == UnqualifiedIdKind::IK_TemplateId) {
     Buffer.setLAngleLoc(Id.TemplateId->LAngleLoc);
     Buffer.setRAngleLoc(Id.TemplateId->RAngleLoc);
 
@@ -2080,9 +2080,10 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
                                       IsAddressOfOperand, TemplateArgs);
 
   // Perform the required lookup.
-  LookupResult R(*this, NameInfo, 
-                 (Id.getKind() == UnqualifiedId::IK_ImplicitSelfParam) 
-                  ? LookupObjCImplicitSelfParam : LookupOrdinaryName);
+  LookupResult R(*this, NameInfo,
+                 (Id.getKind() == UnqualifiedIdKind::IK_ImplicitSelfParam)
+                     ? LookupObjCImplicitSelfParam
+                     : LookupOrdinaryName);
   if (TemplateArgs) {
     // Lookup the template name again to correctly establish the context in
     // which it was found. This is really unfortunate as we already did the
@@ -2261,7 +2262,7 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
     // In C++1y, if this is a variable template id, then check it
     // in BuildTemplateIdExpr().
     // The single lookup result must be a variable template declaration.
-    if (Id.getKind() == UnqualifiedId::IK_TemplateId && Id.TemplateId &&
+    if (Id.getKind() == UnqualifiedIdKind::IK_TemplateId && Id.TemplateId &&
         Id.TemplateId->Kind == TNK_Var_template) {
       assert(R.getAsSingle<VarTemplateDecl>() &&
              "There should only be one declaration found.");
@@ -2419,7 +2420,7 @@ Sema::LookupInObjCMethod(LookupResult &Lookup, Scope *S,
       IdentifierInfo &II = Context.Idents.get("self");
       UnqualifiedId SelfName;
       SelfName.setIdentifier(&II, SourceLocation());
-      SelfName.setKind(UnqualifiedId::IK_ImplicitSelfParam);
+      SelfName.setKind(UnqualifiedIdKind::IK_ImplicitSelfParam);
       CXXScopeSpec SelfScopeSpec;
       SourceLocation TemplateKWLoc;
       ExprResult SelfExpr = ActOnIdExpression(S, SelfScopeSpec, TemplateKWLoc,
@@ -11797,6 +11798,9 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
     if (LHSTy->isImageType() || RHSTy->isImageType() ||
         LHSTy->isSamplerT() || RHSTy->isSamplerT() ||
         LHSTy->isPipeType() || RHSTy->isPipeType() ||
+#if INTEL_CUSTOMIZATION
+        LHSTy->isChannelType() || RHSTy->isChannelType() ||
+#endif // INTEL_CUSTOMIZATION
         LHSTy->isBlockPointerType() || RHSTy->isBlockPointerType()) {
       ResultTy = InvalidOperands(OpLoc, LHS, RHS);
       return ExprError();
@@ -11924,34 +11928,6 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
       VK = RHS.get()->getValueKind();
       OK = RHS.get()->getObjectKind();
     }
-#if INTEL_SPECIFIC_CILKPLUS
-    // Processing for CEAN
-    if (!LHS.isInvalid()) {
-      ActOnStartCEANExpr(Sema::FullCEANAllowed);
-      ActOnEndCEANExpr(LHS.get());
-      StmtResult CEANStmt = ActOnCEANExpr(LHS.get());
-      if (CEANStmt.isInvalid())
-        return ExprError();
-      if (CEANStmt.get() != LHS.get()) {
-        // CEAN Stmt was created
-        CompoundScopeRAII CompoundScope(*this);
-        Stmt *CompBody[] = {
-            CEANStmt.get(),
-            ActOnIntegerConstant(LHS.get()->getLocStart(), 0).get()
-            };
-        CEANStmt =
-            ActOnCompoundStmt(LHS.get()->getLocStart(),
-                              LHS.get()->getLocEnd(),
-                              CompBody, true);
-        if (CEANStmt.isInvalid())
-          return ExprError();
-        ActOnStartStmtExpr();
-        LHS = ActOnStmtExpr(LHS.get()->getLocStart(),
-                            CEANStmt.get(),
-                            LHS.get()->getLocEnd());
-      }
-    }
-#endif // INTEL_SPECIFIC_CILKPLUS
     break;
   }
   if (ResultTy.isNull() || LHS.isInvalid() || RHS.isInvalid())
@@ -12404,7 +12380,8 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
 #if INTEL_CUSTOMIZATION
     // OpenCL special types - image, sampler and blocks are to be used
     // only with a builtin functions and therefore should be disallowed here.
-        (Ty->isImageType() || Ty->isSamplerT() || Ty->isBlockPointerType())) {
+        (Ty->isImageType() || Ty->isSamplerT() || Ty->isBlockPointerType() ||
+         Ty->isChannelType())) {
 #endif // INTEL_CUSTOMIZATION
       return ExprError(Diag(OpLoc, diag::err_typecheck_unary_expr)
                        << InputExpr->getType()
@@ -13081,7 +13058,7 @@ void Sema::ActOnBlockArguments(SourceLocation CaretLoc, Declarator &ParamInfo,
                                Scope *CurScope) {
   assert(ParamInfo.getIdentifier() == nullptr &&
          "block-id should have no identifier!");
-  assert(ParamInfo.getContext() == Declarator::BlockLiteralContext);
+  assert(ParamInfo.getContext() == DeclaratorContext::BlockLiteralContext);
   BlockScopeInfo *CurBlock = getCurBlock();
 
   TypeSourceInfo *Sig = GetTypeForDeclarator(ParamInfo, CurScope);
@@ -13955,10 +13932,6 @@ Sema::PushExpressionEvaluationContext(ExpressionEvaluationContext NewContext,
   Cleanup.reset();
   if (!MaybeODRUseExprs.empty())
     std::swap(MaybeODRUseExprs, ExprEvalContexts.back().SavedMaybeODRUseExprs);
-#if INTEL_SPECIFIC_CILKPLUS
-  if (!CilkSpawnCalls.empty())
-    std::swap(CilkSpawnCalls, ExprEvalContexts.back().SavedCilkSpawnCalls);
-#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 void
@@ -14024,10 +13997,7 @@ void Sema::PopExpressionEvaluationContext() {
     MaybeODRUseExprs.insert(Rec.SavedMaybeODRUseExprs.begin(),
                             Rec.SavedMaybeODRUseExprs.end());
   }
-#if INTEL_SPECIFIC_CILKPLUS
-  // Restore Cilk spawn calls into the current evaluation context.
-  CilkSpawnCalls.swap(Rec.SavedCilkSpawnCalls);
-#endif // INTEL_SPECIFIC_CILKPLUS
+
   // Pop the current expression evaluation context off the stack.
   ExprEvalContexts.pop_back();
 
@@ -14044,9 +14014,6 @@ void Sema::DiscardCleanupsInEvaluationContext() {
          ExprCleanupObjects.end());
   Cleanup.reset();
   MaybeODRUseExprs.clear();
-#if INTEL_SPECIFIC_CILKPLUS
-  CilkSpawnCalls.clear();
-#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 ExprResult Sema::HandleExprEvaluationContextForTypeof(Expr *E) {
@@ -14325,247 +14292,7 @@ diagnoseUncapturableValueReference(Sema &S, SourceLocation loc,
   // FIXME: Add additional diagnostic info about class etc. which prevents
   // capture.
 }
-#if INTEL_SPECIFIC_CILKPLUS
-// Build a VarDecl to copy-construct the Cilk for loop control variable,
-// which will be captured by copy or by reference.
-//
-// For example,
-//
-// _Cilk_for (T i = 0; i < 10; i++) { }
-//
-// the loop control variable 'i' will be captured as follows:
-//
-// class capture {
-//   T &__ref;
-//   capture(const T &i) : __ref(i) {}
-// };
-//
-// We construct the following local declaration:
-//
-// T __i(capture.__ref);
-//
-// Any reference to 'i' inside the captured region will reference this local
-// copy, instead.
-//
-static MemberExpr *createMemberExpr(Sema &S, ASTContext &C, Expr *Base,
-                                   FieldDecl *Member) {
-  assert(Base->isRValue() && "-> base must be a pointer rvalue");
-  SourceLocation Loc;
-  NestedNameSpecifierLoc SpecifierLoc;
-  DeclAccessPair FoundDecl = DeclAccessPair::make(Member, Member->getAccess());
-  DeclarationNameInfo NameInfo(Member->getDeclName(), Loc);
-  QualType MemTy = Member->getType().getNonReferenceType();
-  MemberExpr *E = MemberExpr::Create(C, Base, /*isArrow*/true,
-                                     Loc,
-                                     SpecifierLoc,
-                                     Loc, Member, FoundDecl, NameInfo,
-                                     /*TemplateArgs*/0, MemTy, VK_LValue,
-                                     OK_Ordinary);
-  S.MarkMemberReferenced(E);
-  return E;
-}
 
-static void buildInnerLoopControlVar(Sema &S, CilkForScopeInfo *FSI,
-                                     const VarDecl *Var, FieldDecl *FD) {
-  // Only for loop control variables
-  if (!FSI->isLoopControlVar(Var))
-    return;
-
-  CapturedDecl *ForDecl = FSI->TheCapturedDecl;
-  DeclContext *DC = CapturedDecl::castToDeclContext(ForDecl);
-  RecordDecl *RD = FSI->TheRecordDecl;
-
-  EnterExpressionEvaluationContext Scope(S, 
-                  Sema::ExpressionEvaluationContext::PotentiallyEvaluated);
-
-  // Build member expression to the captured loop control variable.
-  MemberExpr *MemExpr = 0;
-  {
-    // Create the local variable for this loop control variable.
-    QualType ParamType = S.Context.getPointerType(S.Context.getTagDeclType(RD));
-    ExprResult Ref = S.BuildDeclRefExpr(FSI->ContextParam, ParamType, VK_LValue,
-                                        FSI->CilkForLoc);
-    Ref = S.DefaultLvalueConversion(Ref.get());
-    MemExpr = createMemberExpr(S, S.Context, Ref.get(), FD);
-  }
-
-  // Create the local variable for this loop control variable.
-  VarDecl *InnerVar = 0;
-  {
-    IdentifierInfo *VarName = 0;
-    {
-      SmallString<8> Str;
-      llvm::raw_svector_ostream OS(Str);
-      OS << "__cv_" << Var->getName();
-      VarName = &S.Context.Idents.get(OS.str());
-    }
-    SourceLocation Loc = FD->getLocation();
-    QualType VarType = Var->getType().getNonReferenceType();
-    InnerVar = VarDecl::Create(S.Context, DC, Loc, Loc, VarName, VarType,
-                               S.Context.getTrivialTypeSourceInfo(VarType, Loc),
-                               SC_None);
-    InnerVar->setImplicit();
-    DC->addDecl(InnerVar);
-  }
-
-  S.AddInitializerToDecl(InnerVar, MemExpr, /*Direct*/true);
-  FSI->InnerLoopControlVar = InnerVar;
-}
-
-static IdentifierInfo *getLocalVarName(Sema &S, StringRef Name) {
-  SmallString<8> Str;
-  llvm::raw_svector_ostream OS(Str);
-  OS << "__local_" << Name;
-  return &S.Context.Idents.get(OS.str());
-}
-
-static ExprResult buildLocalVariableUpdate(Sema &S, SIMDForScopeInfo *FSI,
-                                           VarDecl *LocalVar, Expr *LHS,
-                                           SourceLocation Loc,
-                                        SmallVectorImpl<VarDecl *> &IndexVars) {
-  QualType BaseType = LHS->getType();
-  QualType SizeType = S.Context.getSizeType();
-
-  // Introduce a new evaluation context for the assignment.
-  EnterExpressionEvaluationContext InitScope(S, 
-                 Sema::ExpressionEvaluationContext::PotentiallyEvaluated);
-
-  ExprResult RHSRef = S.BuildDeclRefExpr(LocalVar, BaseType, VK_LValue, Loc);
-  assert(!RHSRef.isInvalid() && "Reference to local variable cannot fail");
-  Expr *RHS = RHSRef.get();
-
-  while (const ConstantArrayType *Array
-                        = S.Context.getAsConstantArrayType(BaseType)) {
-    // Create the index variable for this array index.
-    VarDecl *IdxVar = 0;
-    {
-      SmallString<8> Str;
-      llvm::raw_svector_ostream OS(Str);
-      OS << "__i" << IndexVars.size();
-      IdentifierInfo *IdxName = &S.Context.Idents.get(OS.str());
-      TypeSourceInfo *TyInfo = S.Context.getTrivialTypeSourceInfo(SizeType, Loc);
-      IdxVar = VarDecl::Create(S.Context, S.CurContext, Loc, Loc, IdxName,
-                               SizeType, TyInfo, SC_None);
-      IndexVars.push_back(IdxVar);
-    }
-
-    // Create a reference to the index variable.
-    ExprResult IdxVarRef = S.BuildDeclRefExpr(IdxVar, SizeType, VK_LValue, Loc);
-    assert(!IdxVarRef.isInvalid() && "Reference to index cannot fail!");
-    IdxVarRef = S.DefaultLvalueConversion(IdxVarRef.get());
-    assert(!IdxVarRef.isInvalid() && "Conversion of index cannot fail!");
-
-    // Subscript the array with this index variable for both LHS and RHS.
-    ExprResult ElemLHS =
-      S.CreateBuiltinArraySubscriptExpr(LHS, Loc, IdxVarRef.get(), Loc);
-    if (ElemLHS.isInvalid())
-      return ExprError();
-
-    ExprResult ElemRHS =
-      S.CreateBuiltinArraySubscriptExpr(RHS, Loc, IdxVarRef.get(), Loc);
-    if (ElemRHS.isInvalid())
-      return ExprError();
-
-    // Recursively build LHS and RHS.
-    LHS = ElemLHS.get();
-    RHS = ElemRHS.get();
-    BaseType = Array->getElementType();
-  }
-
-  // Build the update expression.
-  ExprResult E = S.BuildBinOp(S.getCurScope(), /*OpLoc*/ SourceLocation(),
-                              BO_Assign, LHS, RHS);
-  return S.MaybeCreateExprWithCleanups(E);
-}
-
-static void buildSIMDLocalVariable(Sema &S, SIMDForScopeInfo *FSI,
-                                   VarDecl *Var) {
-  if (!FSI->IsSIMDVariable(Var))
-    return;
-
-  CapturedDecl *SIMDForDecl = FSI->TheCapturedDecl;
-  DeclContext *DC = CapturedDecl::castToDeclContext(SIMDForDecl);
-
-  // 2.14.3 A list item that specifies a given variable may not appear in more
-  // than one clauses on the same directive, except that a variable may be
-  // specified in both firstprivate and lastprivate.
-
-  IdentifierInfo *VarName = getLocalVarName(S, Var->getName());
-  QualType VarType = Var->getType().getNonReferenceType();
-  SourceLocation Loc = FSI->GetLocation(Var);
-  VarDecl *LocalVar = VarDecl::Create(
-      S.Context, DC, Loc, Loc, VarName, VarType,
-      S.Context.getTrivialTypeSourceInfo(VarType, Loc), SC_None);
-  Expr *UpdateExpr = 0;
-  // Index variables for indexing into arrays for the update expression.
-  SmallVector<VarDecl *, 2> IndexVars;
-
-  // Introduce a new evaluation context for the initializaiton & update
-  S.PushExpressionEvaluationContext(
-    Sema::ExpressionEvaluationContext::PotentiallyEvaluated);
-
-  // Handle private variables, for which local copies are uninitialized or
-  // initialized by its default constructor.
-  if (FSI->isPrivate(Var) || FSI->isReduction(Var))
-    // Perform default initialization.
-    S.ActOnUninitializedDecl(LocalVar);
-  else {
-    // Do not use BuildDeclRefExpr() on Var. It will create an infinite
-    // recursion calling buildSIMDLocalVariable(), since Var is captured.
-    DeclRefExpr *VarDRE = DeclRefExpr::Create(
-        S.Context, /*QualifierLoc*/ NestedNameSpecifierLoc(),
-        /*TemplateKWLoc*/ SourceLocation(), Var,
-        /*IsEnclosingLocalOrCapture*/ true,
-        Loc, VarType, VK_LValue);
-
-    // Initializer
-    if (FSI->isFirstPrivate(Var))
-      // First Private: Perform initialization by copy assignment.
-      S.AddInitializerToDecl(LocalVar, VarDRE, /*Direct*/ true);
-    else
-      // Last Private or Linear: Perform initialization by default constructor
-      S.ActOnUninitializedDecl(LocalVar);
-
-    // Update Expression
-    // In the case of Last Private and Linear variables, the value of the
-    // original list item should be assigned to the value corresponding to the
-    // sequentially last iteration.
-    //
-    // OMP[2.14.3.5] For an array of non-array type, each element is assigned
-    // to the corresponding element of the orignial array.
-    if (FSI->isLinear(Var)) {
-      ExprResult RHS = S.BuildDeclRefExpr(LocalVar, VarType, VK_LValue, Loc);
-      ExprResult E = S.BuildBinOp(S.getCurScope(), /*OpLoc*/ SourceLocation(),
-                                  BO_Assign, VarDRE, RHS.get());
-      if (!E.isInvalid())
-        UpdateExpr = S.MaybeCreateExprWithCleanups(E).get();
-      else
-        FSI->SetInvalid(Var);
-    } else if (FSI->isLastPrivate(Var)) {
-      ExprResult E
-        = buildLocalVariableUpdate(S, FSI, LocalVar, VarDRE, Loc, IndexVars);
-      if (!E.isInvalid())
-        UpdateExpr = E.get();
-      else
-        FSI->SetInvalid(Var);
-    }
-  }
-
-  // Exit the expression evaluation context used for initialization & update.
-  S.CleanupVarDeclMarking();
-  S.DiscardCleanupsInEvaluationContext();
-  S.PopExpressionEvaluationContext();
-
-  // Add the newly created local variable
-  if (!LocalVar->isInvalidDecl()) {
-    LocalVar->setImplicit();
-    LocalVar->setIsUsed();
-    DC->addDecl(LocalVar);
-    FSI->UpdateVar(Var, LocalVar, UpdateExpr, IndexVars);
-  } else
-    FSI->SetInvalid(Var);
-}
-#endif // INTEL_SPECIFIC_CILKPLUS
 static bool isVariableAlreadyCapturedInScopeInfo(CapturingScopeInfo *CSI, VarDecl *Var, 
                                       bool &SubCapturesAreNested,
                                       QualType &CaptureType, 
@@ -14879,24 +14606,12 @@ static bool captureInCapturedRegion(CapturedRegionScopeInfo *RSI,
                                             DeclRefType, VK_LValue, Loc);
     Var->setReferenced(true);
     Var->markUsed(S.Context);
-#if !INTEL_SPECIFIC_CILKPLUS
   }
 
   // Actually capture the variable.
   if (BuildAndDiagnose)
-#endif // !INTEL_SPECIFIC_CILKPLUS
     RSI->addCapture(Var, /*isBlock*/false, ByRef, RefersToCapturedVariable, Loc,
                     SourceLocation(), CaptureType, CopyExpr);
-#if INTEL_SPECIFIC_CILKPLUS
-    // Only build for a Cilk for.
-    if (CilkForScopeInfo *CFSI = dyn_cast<CilkForScopeInfo>(RSI))
-      buildInnerLoopControlVar(S, CFSI, Var, Field);
-
-    // Build local variables from SIMD for clauses.
-    if (SIMDForScopeInfo *FSI = dyn_cast<SIMDForScopeInfo>(RSI))
-      buildSIMDLocalVariable(S, FSI, Var);
-  }
-#endif // INTEL_SPECIFIC_CILKPLUS
   return true;
 }
 
@@ -15052,26 +14767,8 @@ bool Sema::tryCaptureVariable(
   // Capture global variables if it is required to use private copy of this
   // variable.
   bool IsGlobal = !Var->hasLocalStorage();
-#if INTEL_SPECIFIC_CILKPLUS
-  // If this is nested in a simd loop. This is used to make sure that globals
-  // can be captured and used in lambdas which are nested in a SIMD for loop.
-  // If SIMDIndex is larger than 0, this variable is nested in a SIMD for loop.
-  unsigned SIMDIndex = 0;
-  if (IsGlobal) {
-    for (unsigned I = 1, E = FunctionScopes.size(); I < E; ++I)
-      if (SIMDForScopeInfo *FSI =
-              dyn_cast<SIMDForScopeInfo>(FunctionScopes[I])) {
-        if (FSI->IsSIMDVariable(Var))
-          SIMDIndex = I;
-        break;
-      }
-    if (SIMDIndex == 0)
-#endif // INTEL_SPECIFIC_CILKPLUS
   if (IsGlobal && !(LangOpts.OpenMP && IsOpenMPCapturedDecl(Var)))
     return true;
-#if INTEL_SPECIFIC_CILKPLUS
-  }
-#endif // INTEL_SPECIFIC_CILKPLUS
   Var = Var->getCanonicalDecl();
 
   // Walk up the stack to determine whether we can capture the variable,
@@ -15196,17 +14893,7 @@ bool Sema::tryCaptureVariable(
       }
       return true;
     }
-#if INTEL_SPECIFIC_CILKPLUS
-    if (SIMDIndex && FunctionScopesIndex == SIMDIndex) {
-      // This is the SIMD for loop which has a data clause that needs to capture
-      // a static or global variable.
-      // Don't look any further. A copy of this variable needs to be made
-      // in the SIMD for loop scope. The FunctionScopesIndex will be the parent
-      // of this SIMD for loop.
-      FunctionScopesIndex--;
-      break;
-    }
-#endif // INTEL_SPECIFIC_CILKPLUS
+
     FunctionScopesIndex--;
     DC = ParentDC;
     Explicit = false;

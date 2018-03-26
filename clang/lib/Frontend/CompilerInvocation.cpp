@@ -1438,9 +1438,6 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
   Opts.ShowStats = Args.hasArg(OPT_print_stats);
   Opts.ShowTimers = Args.hasArg(OPT_ftime_report);
   Opts.ShowVersion = Args.hasArg(OPT_version);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  Opts.HelpPragma = Args.hasArg(OPT_help_pragma);
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
   Opts.ASTMergeFiles = Args.getAllArgValues(OPT_ast_merge);
   Opts.LLVMArgs = Args.getAllArgValues(OPT_mllvm);
   Opts.FixWhatYouCan = Args.hasArg(OPT_fix_what_you_can);
@@ -2201,11 +2198,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   llvm::Triple T(TargetOpts.Triple);
   CompilerInvocation::setLangDefaults(Opts, IK, T, PPOpts, LangStd);
-#if INTEL_SPECIFIC_CILKPLUS
-  Opts.CilkPlus = Args.hasArg(OPT_fcilkplus);
-  if (Opts.CilkPlus && (Opts.ObjC1 || Opts.ObjC2))
-    Diags.Report(diag::err_drv_cilk_objc);
-#endif // INTEL_SPECIFIC_CILKPLUS
 #if INTEL_CUSTOMIZATION
   Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
   Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
@@ -2259,14 +2251,12 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       }
     }
   }
-#if INTEL_SPECIFIC_OPENMP
   Opts.IntelOpenMP = Args.hasArg(OPT_fintel_openmp);
   Opts.IntelOpenMPRegion = Args.hasArg(OPT_fintel_openmp_region);
   Opts.OpenMPThreadPrivateLegacy =
       Args.hasArg(OPT_fopenmp_threadprivate_legacy);
   Opts.IntelDriverTempfileName =
       Args.getLastArgValue(OPT_fintel_driver_tempfile_name_EQ);
-#endif // INTEL_SPECIFIC_OPENMP
   Opts.Restrict =
       Args.hasFlag(OPT_restrict, OPT_no_restrict, /*Default=*/Opts.C99);
   // Fix for CQ#373517: compilation fails with 'redefinition of default
@@ -2285,11 +2275,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   // CQ380574: Ability to set various predefines based on gcc version needed.
   Opts.GNUVersion = getLastArgIntValue(Args, OPT_gnu_version_EQ,
-#if INTEL_SPECIFIC_IL0_BACKEND
-                                       40800,
-#else
                                        40500,
-#endif // INTEL_SPECIFIC_IL0_BACKEND
                                        Diags);
 
   // cmplrs-417: Get the appropriate FABI version to emulate
@@ -2309,44 +2295,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.FriendClassInject =
       Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection,
                    Opts.GNUVersion < 40001 && !Opts.CPlusPlus11);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  StringRef OptLevel = Args.getLastArgValue(OPT_pragma_optimization_level_EQ, "Intel");
-  Opts.PragmaOptimizationLevelIntel = (OptLevel == "Intel") ? 1 : 0;
-  Opts.AlignMac68k = Args.hasArg(OPT_malign_mac68k);
-  Opts.vd = getLastArgIntValue(Args, OPT_vd, 1);
-  std::vector<std::string> FPModel = Args.getAllArgValues(OPT_fp_model);
-  if (FPModel.empty())
-    FPModel.push_back("fast");
-  for (std::vector<std::string>::iterator I = FPModel.begin(), E = FPModel.end(); I != E; ++I) {
-    if (*I == "fast" || *I == "fast=1") {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Fast|LangOptions::IFP_FP_Contract));
-    }
-    else if (*I == "fast=2") {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Fast2|LangOptions::IFP_FP_Contract));
-    }
-    else if (*I == "precise") {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Precise|LangOptions::IFP_FP_Contract|LangOptions::IFP_ValueSafety));
-    }
-    else if (*I == "source") {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Source|LangOptions::IFP_FP_Contract|LangOptions::IFP_ValueSafety));
-    }
-    else if (*I == "double") {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Double|LangOptions::IFP_FP_Contract|LangOptions::IFP_ValueSafety));
-    }
-    else if (*I == "extended") {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Extended|LangOptions::IFP_FP_Contract|LangOptions::IFP_ValueSafety));
-    }
-    else if (*I == "strict") {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Precise|LangOptions::IFP_FEnv_Access|LangOptions::IFP_Except|LangOptions::IFP_ValueSafety));
-    }
-    else if (*I == "except" && !(Opts.getFPModel() & LangOptions::IFP_Fast) && !(Opts.getFPModel() & LangOptions::IFP_Fast2)) {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Source|LangOptions::IFP_Except|(Opts.getFPModel() & LangOptions::IFP_FP_Contract)|(Opts.getFPModel() & LangOptions::IFP_ValueSafety)|(Opts.getFPModel() & LangOptions::IFP_FEnv_Access)));
-    }
-    else if (*I == "no-except" && !(Opts.getFPModel() & LangOptions::IFP_Fast) && !(Opts.getFPModel() & LangOptions::IFP_Fast2)) {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Source|(Opts.getFPModel() & LangOptions::IFP_FP_Contract)|(Opts.getFPModel() & LangOptions::IFP_ValueSafety)|(Opts.getFPModel() & LangOptions::IFP_FEnv_Access)));
-    }
-  }
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
 #endif  // INTEL_CUSTOMIZATION
 
   // -cl-strict-aliasing needs to emit diagnostic in the case where CL > 1.0.
@@ -2581,9 +2529,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.WCharIsSigned = Args.hasFlag(OPT_fsigned_wchar, OPT_fno_signed_wchar, true);
   Opts.ShortEnums = Args.hasArg(OPT_fshort_enums);
   Opts.Freestanding = Args.hasArg(OPT_ffreestanding);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  Opts.FormatExtensions = Args.hasArg(OPT_fformat_extensions);
-#endif // INTEL_SPECIFIC_IL0_BACKEND
   Opts.NoBuiltin = Args.hasArg(OPT_fno_builtin) || Opts.Freestanding;
   if (!Opts.NoBuiltin)
     getAllNoBuiltinFuncValues(Args, Opts.NoBuiltinFuncs);
@@ -2767,18 +2712,24 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.OpenMPSimdDisabled = false;
   Opts.OpenMPTBBOnly = false;
   Opts.OpenMPTBBDisabled = false;
-  if (Opts.OpenMP) {
-    // OpenMP is enabled but we want to disable OpenMP subset
-    Opts.OpenMPSimdDisabled = Args.hasArg(OPT_fnointel_openmp_simd);
-    Opts.OpenMPTBBDisabled = Args.hasArg(OPT_fnointel_openmp_tbb);
-  } else {
-    Opts.OpenMPSimdOnly = Args.hasArg(OPT_fintel_openmp_simd);
-    Opts.OpenMPTBBOnly = Args.hasArg(OPT_fintel_openmp_tbb);
-    if (Opts.OpenMPSimdOnly || Opts.OpenMPTBBOnly)
-      Opts.OpenMP = true;
+  if (Opts.IntelOpenMP || Opts.IntelOpenMPRegion) {
+    if (Opts.OpenMP) {
+      // OpenMP is enabled but we want to disable OpenMP subset
+      Opts.OpenMPSimdDisabled = Args.hasArg(OPT_fno_openmp_simd);
+      Opts.OpenMPTBBDisabled = Args.hasArg(OPT_fnointel_openmp_tbb);
+    } else {
+      Opts.OpenMPSimdOnly = Args.hasArg(OPT_fopenmp_simd);
+      Opts.OpenMPTBBOnly = Args.hasArg(OPT_fintel_openmp_tbb);
+      if (Opts.OpenMPSimdOnly || Opts.OpenMPTBBOnly)
+        Opts.OpenMP = true;
+    }
   }
 #endif //INTEL_CUSTOMIZATION
 
+  // Check if -fopenmp-simd is specified.
+  Opts.OpenMPSimd = !Opts.OpenMP && Args.hasFlag(options::OPT_fopenmp_simd,
+                                                 options::OPT_fno_openmp_simd,
+                                                 /*Default=*/false);
   Opts.OpenMPUseTLS =
 #if INTEL_CUSTOMIZATION
       !Args.hasArg(options::OPT_fopenmp_threadprivate_legacy) &&
@@ -2787,11 +2738,13 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.OpenMPIsDevice =
       Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_is_device);
 
-  if (Opts.OpenMP) {
-    int Version =
-        getLastArgIntValue(Args, OPT_fopenmp_version_EQ, Opts.OpenMP, Diags);
-    if (Version != 0)
+  if (Opts.OpenMP || Opts.OpenMPSimd) {
+    if (int Version =
+            getLastArgIntValue(Args, OPT_fopenmp_version_EQ,
+                               Opts.OpenMPSimd ? 45 : Opts.OpenMP, Diags))
       Opts.OpenMP = Version;
+    else if (Opts.OpenMPSimd)
+      Opts.OpenMP = 45;
     // Provide diagnostic when a given target is not expected to be an OpenMP
     // device or host.
     if (!Opts.OpenMPIsDevice) {

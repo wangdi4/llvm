@@ -1707,68 +1707,6 @@ struct PragmaARCCFCodeAuditedHandler : public PragmaHandler {
   }
 };
 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-// PragmaPOISONHandler - "#pragma POISON x" marks x as not usable.
-struct PragmaPOISONHandler : public PragmaHandler {
-  PragmaPOISONHandler() : PragmaHandler("POISON") {}
-  virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
-                            Token &PoisonTok) {
-    PP.HandlePragmaPoison(PoisonTok);
-  }
-};
-// PragmaIncludeDirectoryHandler - "#pragma include_directory <dir>" 
-struct PragmaIncludeDirectoryHandler : public PragmaHandler {
-  PragmaIncludeDirectoryHandler() : PragmaHandler("include_directory") {}
-  virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
-                            Token &FirstTok) {
-    Token Tok;
-    std::string Dir;
-
-    PP.Lex(Tok);
-    //Lex the directory
-    if (Tok.isNot(tok::string_literal)) {
-      PP.Diag(Tok.getLocation(), diag::x_warn_intel_pragma_expected_common)<<"Path to directory"<<0;
-      if (Tok.isNot(tok::eod)) {
-        PP.DiscardUntilEndOfDirective();
-      }
-      return;
-    }
-    else {
-      Dir = StringRef(Tok.getLiteralData(), Tok.getLength());
-      if (Dir.empty() || Dir == "\"\"") {
-        PP.Diag(Tok.getLocation(), diag::x_warn_intel_pragma_expected_common)<<"Path to directory"<<0;
-        if (Tok.isNot(tok::eod)) {
-          PP.DiscardUntilEndOfDirective();
-        }
-        return;
-      }
-      if (Dir[0] == '\"') {
-        Dir.erase(0, 1);
-      }
-      if (Dir[Dir.length() - 1] == '\"') {
-        Dir.erase(Dir.length() - 1, 1);
-      }
-      PP.Lex(Tok);
-    }
-    // ignore everything till the end of line
-    if (Tok.isNot(tok::eod)) {
-      PP.CheckEndOfDirective("pragma include_directory");
-    }
-
-    if (const DirectoryEntry *DE = PP.getFileManager().getDirectory(Dir)) {
-      DirectoryLookup DL(DE, SrcMgr::C_User, false);
-      PP.getHeaderSearchInfo().AddSearchPath(DL, true);
-    }
-    else {
-      PP.Diag(Tok.getLocation(), diag::x_warn_intel_pragma_expected_common)<<"Path to directory"<<0;
-      if (Tok.isNot(tok::eod)) {
-        PP.DiscardUntilEndOfDirective();
-      }
-    }
-  }
-};
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-
 /// PragmaAssumeNonNullHandler -
 ///   \#pragma clang assume_nonnull begin/end
 struct PragmaAssumeNonNullHandler : public PragmaHandler {
@@ -1900,11 +1838,6 @@ void Preprocessor::RegisterBuiltinPragmas() {
     AddPragmaHandler(new PragmaWarningHandler());
     AddPragmaHandler(new PragmaIncludeAliasHandler());
     if (LangOpts.IntelCompat) {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-      AddPragmaHandler(new PragmaPoisonHandler());
-      AddPragmaHandler(new PragmaPOISONHandler());
-      AddPragmaHandler(new PragmaIncludeDirectoryHandler());
-#endif // INTEL_SPECIFIC_IL0_BACKEND
     } else {
       AddPragmaHandler(new PragmaRegionHandler("region"));
       AddPragmaHandler(new PragmaRegionHandler("endregion"));

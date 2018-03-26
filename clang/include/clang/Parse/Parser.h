@@ -186,187 +186,6 @@ class Parser : public CodeCompletionHandler {
   std::unique_ptr<PragmaHandler> NoUnrollHintHandler;
   std::unique_ptr<PragmaHandler> FPHandler;
   std::unique_ptr<PragmaHandler> AttributePragmaHandler;
-#if INTEL_SPECIFIC_CILKPLUS
-  std::unique_ptr<PragmaHandler> CilkGrainsizeHandler;
-  std::unique_ptr<PragmaHandler> SIMDHandler;
-#endif // INTEL_SPECIFIC_CILKPLUS
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  clang::StmtResult ParsePragmaInSIMD();
-
-  void DiscardBeforeEndOfDirective();
-  void DiscardUntilEndOfDirective();
-
-  // Pragma ivdep
-  std::unique_ptr<PragmaHandler> IvdepHandler;
-
-  clang::StmtResult HandlePragmaIvdep();
-  void HandlePragmaIvdepDecl();
-
-  // Pragma novector
-  std::unique_ptr<PragmaHandler> NoVectorHandler;
-
-  clang::StmtResult HandlePragmaNoVector();
-  void HandlePragmaNoVectorDecl();
-
-  // Pragma distribute_point
-  std::unique_ptr<PragmaHandler> DistributeHandler;
-  std::unique_ptr<PragmaHandler> DistributeHandler1;
-
-  clang::StmtResult HandlePragmaDistribute();
-  void HandlePragmaDistributeDecl();
-
-  // Pragma loop_count
-  std::unique_ptr<PragmaHandler> LoopCountHandler;
-  std::unique_ptr<PragmaHandler> LoopCountHandler1;
-
-  clang::StmtResult HandlePragmaLoopCount();
-  void HandlePragmaLoopCountDecl();
-
-  // Pragma optimize("", on|off)
-  std::unique_ptr<PragmaHandler> IntelOptimizeHandler;
-
-  clang::StmtResult HandlePragmaOptimize();
-  void HandlePragmaOptimizeDecl();
-
-  // Pragma [GCC|intel] optimization_level 0-3|reset
-  std::unique_ptr<PragmaHandler> OptimizationLevelHandler;
-  std::unique_ptr<PragmaHandler> GCCOptimizationLevelHandler;
-
-  void HandlePragmaOptimizationLevel();
-  void HandlePragmaOptimizationLevelDecl();
-
-  // Pragma noparallel
-  std::unique_ptr<PragmaHandler> NoParallelHandler;
-
-  clang::StmtResult HandlePragmaNoParallel();
-  void HandlePragmaNoParallelDecl();
-
-  // Pragma unroll, nounroll
-  std::unique_ptr<PragmaHandler> NoUnrollHandler;
-  std::unique_ptr<PragmaHandler> UnrollHandler;
-
-  clang::StmtResult HandlePragmaUnroll();
-  void HandlePragmaUnrollDecl();
-
-  // Pragma unroll_and_jam, nounroll_and_jam
-  std::unique_ptr<PragmaHandler> NoUnrollAndJamHandler;
-  std::unique_ptr<PragmaHandler> UnrollAndJamHandler;
-
-  clang::StmtResult HandlePragmaUnrollAndJam();
-  void HandlePragmaUnrollAndJamDecl();
-
-  // Pragma nofusion
-  std::unique_ptr<PragmaHandler> NoFusionHandler;
-
-  clang::StmtResult HandlePragmaNoFusion();
-  void HandlePragmaNoFusionDecl();
-
-  // Pragma ident
-  std::unique_ptr<PragmaHandler> IdentHandler;
-
-  // Pragma vector
-  std::unique_ptr<PragmaHandler> VectorHandler;
-
-  clang::StmtResult HandlePragmaVector();
-  void HandlePragmaVectorDecl();
-
-  // Pragma intel optimization_parameter target_arch=<CPU>
-  std::unique_ptr<PragmaHandler> OptimizationParameterHandler;
-
-  void HandlePragmaOptimizationParameter();
-  void HandlePragmaOptimizationParameterDecl();
-
-  // Pragma parallel
-  std::unique_ptr<PragmaHandler> ParallelHandler;
-
-  clang::StmtResult HandlePragmaParallel();
-  void HandlePragmaParallelDecl();
-
-  // Pragma alloc_section(var1, var2, ...., "section")
-  std::unique_ptr<PragmaHandler> AllocSectionHandler;
-
-  clang::StmtResult HandlePragmaAllocSection();
-  void HandlePragmaAllocSectionDecl();
-
-  // Pragma section("section", attribute1, attribute2, ...)
-  std::unique_ptr<PragmaHandler> SectionHandler;
-
-  clang::StmtResult HandlePragmaSection();
-  void HandlePragmaSectionDecl();
-
-  // Pragma alloc_text("section", function1, function2, ...)
-  std::unique_ptr<PragmaHandler> AllocTextHandler;
-
-  clang::StmtResult HandlePragmaAllocText();
-  void HandlePragmaAllocTextDecl();
-
-  // Pragma auto_inline(on|off)
-  std::unique_ptr<PragmaHandler> AutoInlineHandler;
-
-  clang::StmtResult HandlePragmaAutoInline();
-  void HandlePragmaAutoInlineDecl();
-
-  // Pragmas {bss_seg|code_seg|const_seg|data_seg} ([[{push|pop}, ] [identifier ,]]["segment-name"[, "segment-class"])
-  std::unique_ptr<PragmaHandler> BssSegHandler;
-  std::unique_ptr<PragmaHandler> CodeSegHandler;
-  std::unique_ptr<PragmaHandler> ConstSegHandler;
-  std::unique_ptr<PragmaHandler> DataSegHandler;
-
-  clang::StmtResult HandlePragmaSeg();
-  void HandlePragmaSegDecl();
-
-  // Pragma check_stack(on|off|+|-)
-  std::unique_ptr<PragmaHandler> CheckStackHandler;
-
-  clang::StmtResult HandlePragmaCheckStack();
-  void HandlePragmaCheckStackDecl();
-
-  // Pragma component
-  std::unique_ptr<PragmaHandler> ComponentHandler;
-
-  // Pragma conform
-  std::unique_ptr<PragmaHandler> ConformHandler;
-
-  // Pragma deprecated
-  std::unique_ptr<PragmaHandler> DeprecatedHandler;
-
-  // Pragma fp_contract
-  clang::StmtResult HandlePragmaCommonOnOff(Sema::IntelPragmaCommonOnOff Kind, bool isDefaultAllowed);
-  void HandlePragmaCommonOnOffDecl(Sema::IntelPragmaCommonOnOff Kind, bool isDefaultAllowed);
-
-  std::unique_ptr<PragmaHandler> IntelFPContractHandler;
-  std::unique_ptr<PragmaHandler> IntelFenvAccessHandler;
-
-  // Pragmas init_seg(compiler|lib|user|"sect-name")
-  std::unique_ptr<PragmaHandler> InitSegHandler;
-
-  clang::StmtResult HandlePragmaInitSeg();
-  void HandlePragmaInitSegDecl();
-
-  // Pragma float_control
-  SmallVector<unsigned, 4> FCVector;
-  unsigned FPState;
-
-  std::unique_ptr<PragmaHandler> FloatControlHandler;
-
-  clang::StmtResult HandlePragmaFloatControl();
-  void HandlePragmaFloatControlDecl();
-
-  // Pragma region
-  std::unique_ptr<PragmaHandler> RegionHandler;
-
-  // Pragma endregion
-  std::unique_ptr<PragmaHandler> EndRegionHandler;
-
-  // Pragma start_map_region
-  std::unique_ptr<PragmaHandler> StartMapRegionHandler;
-
-  // Pragma stop_map_endregion
-  std::unique_ptr<PragmaHandler> StopMapRegionHandler;
-
-  // Pragma vtordisp
-  std::unique_ptr<PragmaHandler> VtorDispHandler;
-#endif // INTEL_SPECIFIC_IL0_BACKEND
   std::unique_ptr<CommentHandler> CommentSemaHandler;
 
   /// Whether the '>' token acts as an operator or not. This will be
@@ -1677,7 +1496,7 @@ private:
 
   bool isTokIdentifier_in() const;
 
-  ParsedType ParseObjCTypeName(ObjCDeclSpec &DS, Declarator::TheContext Ctx,
+  ParsedType ParseObjCTypeName(ObjCDeclSpec &DS, DeclaratorContext Ctx,
                                ParsedAttributes *ParamAttrs);
   void ParseObjCMethodRequirement();
   Decl *ParseObjCMethodPrototype(
@@ -1761,17 +1580,6 @@ private:
       SmallVectorImpl<Expr *> &Exprs,
       SmallVectorImpl<SourceLocation> &CommaLocs,
       llvm::function_ref<void()> Completer = llvm::function_ref<void()>());
-
-#if INTEL_SPECIFIC_CILKPLUS
-  /// ParseSecReduceExpressionList - Used for reducer (argument-)expression-list
-  bool ParseSecReduceExpressionList(SmallVectorImpl<Expr*> &Exprs,
-                           SmallVectorImpl<SourceLocation> &CommaLocs,
-                           bool CheckReturnType,
-                           void (Sema::*Completer)(Scope *S,
-                                                   Expr *Data,
-                                                   ArrayRef<Expr *> Args) = 0,
-                           Expr *Data = 0);
-#endif // INTEL_SPECIFIC_CILKPLUS
 
   /// ParseSimpleExpressionList - A simple comma-separated list of expressions,
   /// used for misc language extensions.
@@ -2042,10 +1850,6 @@ private:  //***INTEL
                                  AllowedConstructsKind Allowed,
                                  SourceLocation *TrailingElseLoc,
                                  ParsedAttributesWithRange &Attrs);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  /// \brief Check Intel-pragma statements
-  void CheckIntelStmt(StmtVector& Stmts);
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 #if INTEL_CUSTOMIZATION
   // HLS loop pragmas
   std::unique_ptr<PragmaHandler> LoopCoalesceHandler;
@@ -2067,14 +1871,6 @@ private:  //***INTEL
                                SourceLocation *TrailingElseLoc,
                                ParsedAttributesWithRange &Attrs);
 #endif // INTEL_CUSTOMIZATION
-#if INTEL_SPECIFIC_CILKPLUS
-  StmtResult ParseCilkForStmt();
-  /// \brief Parse the Cilk grainsize pragma followed by a Cilk for statement.
-  ///
-  /// #pragma cilk grainsize = ...
-  /// _Cilk_for (...)
-  StmtResult ParsePragmaCilkGrainsize();
-#endif // INTEL_SPECIFIC_CILKPLUS
   /// \brief Describes the behavior that should be taken for an __if_exists
   /// block.
   enum IfExistsBehavior {
@@ -2149,7 +1945,7 @@ private:  //***INTEL
   /// A context for parsing declaration specifiers.  TODO: flesh this
   /// out, there are other significant restrictions on specifiers than
   /// would be best implemented in the parser.
-  enum DeclSpecContext {
+  enum class DeclSpecContext {
     DSC_normal, // normal context
     DSC_class,  // class context, enables 'friend'
     DSC_type_specifier, // C++ type-specifier-seq or C specifier-qualifier-list
@@ -2166,18 +1962,18 @@ private:  //***INTEL
   /// trailing-type-specifier)?
   static bool isTypeSpecifier(DeclSpecContext DSC) {
     switch (DSC) {
-    case DSC_normal:
-    case DSC_template_param:
-    case DSC_class:
-    case DSC_top_level:
-    case DSC_objc_method_result:
-    case DSC_condition:
+    case DeclSpecContext::DSC_normal:
+    case DeclSpecContext::DSC_template_param:
+    case DeclSpecContext::DSC_class:
+    case DeclSpecContext::DSC_top_level:
+    case DeclSpecContext::DSC_objc_method_result:
+    case DeclSpecContext::DSC_condition:
       return false;
 
-    case DSC_template_type_arg:
-    case DSC_type_specifier:
-    case DSC_trailing:
-    case DSC_alias_declaration:
+    case DeclSpecContext::DSC_template_type_arg:
+    case DeclSpecContext::DSC_type_specifier:
+    case DeclSpecContext::DSC_trailing:
+    case DeclSpecContext::DSC_alias_declaration:
       return true;
     }
     llvm_unreachable("Missing DeclSpecContext case");
@@ -2187,18 +1983,18 @@ private:  //***INTEL
   /// deduction?
   static bool isClassTemplateDeductionContext(DeclSpecContext DSC) {
     switch (DSC) {
-    case DSC_normal:
-    case DSC_template_param:
-    case DSC_class:
-    case DSC_top_level:
-    case DSC_condition:
-    case DSC_type_specifier:
+    case DeclSpecContext::DSC_normal:
+    case DeclSpecContext::DSC_template_param:
+    case DeclSpecContext::DSC_class:
+    case DeclSpecContext::DSC_top_level:
+    case DeclSpecContext::DSC_condition:
+    case DeclSpecContext::DSC_type_specifier:
       return true;
 
-    case DSC_objc_method_result:
-    case DSC_template_type_arg:
-    case DSC_trailing:
-    case DSC_alias_declaration:
+    case DeclSpecContext::DSC_objc_method_result:
+    case DeclSpecContext::DSC_template_type_arg:
+    case DeclSpecContext::DSC_trailing:
+    case DeclSpecContext::DSC_alias_declaration:
       return false;
     }
     llvm_unreachable("Missing DeclSpecContext case");
@@ -2213,15 +2009,16 @@ private:  //***INTEL
     bool ParsedForRangeDecl() { return !ColonLoc.isInvalid(); }
   };
 
-  DeclGroupPtrTy ParseDeclaration(unsigned Context, SourceLocation &DeclEnd,
+  DeclGroupPtrTy ParseDeclaration(DeclaratorContext Context,
+                                  SourceLocation &DeclEnd,
                                   ParsedAttributesWithRange &attrs);
-  DeclGroupPtrTy ParseSimpleDeclaration(unsigned Context,
+  DeclGroupPtrTy ParseSimpleDeclaration(DeclaratorContext Context,
                                         SourceLocation &DeclEnd,
                                         ParsedAttributesWithRange &attrs,
                                         bool RequireSemi,
                                         ForRangeInit *FRI = nullptr);
-  bool MightBeDeclarator(unsigned Context);
-  DeclGroupPtrTy ParseDeclGroup(ParsingDeclSpec &DS, unsigned Context,
+  bool MightBeDeclarator(DeclaratorContext Context);
+  DeclGroupPtrTy ParseDeclGroup(ParsingDeclSpec &DS, DeclaratorContext Context,
                                 SourceLocation *DeclEnd = nullptr,
                                 ForRangeInit *FRI = nullptr);
   Decl *ParseDeclarationAfterDeclarator(Declarator &D,
@@ -2244,21 +2041,24 @@ private:  //***INTEL
                         const ParsedTemplateInfo &TemplateInfo,
                         AccessSpecifier AS, DeclSpecContext DSC, 
                         ParsedAttributesWithRange &Attrs);
-  DeclSpecContext getDeclSpecContextFromDeclaratorContext(unsigned Context);
-  void ParseDeclarationSpecifiers(DeclSpec &DS,
-                const ParsedTemplateInfo &TemplateInfo = ParsedTemplateInfo(),
-                                  AccessSpecifier AS = AS_none,
-                                  DeclSpecContext DSC = DSC_normal,
-                                  LateParsedAttrList *LateAttrs = nullptr);
-  bool DiagnoseMissingSemiAfterTagDefinition(DeclSpec &DS, AccessSpecifier AS,
-                                       DeclSpecContext DSContext,
-                                       LateParsedAttrList *LateAttrs = nullptr);
+  DeclSpecContext
+  getDeclSpecContextFromDeclaratorContext(DeclaratorContext Context);
+  void ParseDeclarationSpecifiers(
+      DeclSpec &DS,
+      const ParsedTemplateInfo &TemplateInfo = ParsedTemplateInfo(),
+      AccessSpecifier AS = AS_none,
+      DeclSpecContext DSC = DeclSpecContext::DSC_normal,
+      LateParsedAttrList *LateAttrs = nullptr);
+  bool DiagnoseMissingSemiAfterTagDefinition(
+      DeclSpec &DS, AccessSpecifier AS, DeclSpecContext DSContext,
+      LateParsedAttrList *LateAttrs = nullptr);
 
-  void ParseSpecifierQualifierList(DeclSpec &DS, AccessSpecifier AS = AS_none,
-                                   DeclSpecContext DSC = DSC_normal);
+  void ParseSpecifierQualifierList(
+      DeclSpec &DS, AccessSpecifier AS = AS_none,
+      DeclSpecContext DSC = DeclSpecContext::DSC_normal);
 
   void ParseObjCTypeQualifierList(ObjCDeclSpec &DS,
-                                  Declarator::TheContext Context);
+                                  DeclaratorContext Context);
 
   void ParseEnumSpecifier(SourceLocation TagLoc, DeclSpec &DS,
                           const ParsedTemplateInfo &TemplateInfo,
@@ -2454,8 +2254,8 @@ private:  //***INTEL
 
 public:
   TypeResult ParseTypeName(SourceRange *Range = nullptr,
-                           Declarator::TheContext Context
-                             = Declarator::TypeNameContext,
+                           DeclaratorContext Context
+                             = DeclaratorContext::TypeNameContext,
                            AccessSpecifier AS = AS_none,
                            Decl **OwnedType = nullptr,
                            ParsedAttributes *Attrs = nullptr);
@@ -2668,20 +2468,7 @@ private:
                                        IdentifierInfo *ScopeName,
                                        SourceLocation ScopeLoc,
                                        AttributeList::Syntax Syntax);
-#if INTEL_SPECIFIC_CILKPLUS
-  void ParseCilkPlusElementalAttribute(IdentifierInfo &AttrName,
-                                       SourceLocation AttrNameLoc,
-                                       ParsedAttributes &Attrs,
-                                       SourceLocation *EndLoc,
-                                       AttributeList::Syntax Syntax);
 
-  void ParseFunctionParameterAttribute(IdentifierInfo &AttrName,
-                                       SourceLocation AttrNameLoc,
-                                       ParsedAttributes &Attrs,
-                                       SourceLocation *EndLoc,
-                                       IdentifierInfo &ScopeName,
-                                       SourceLocation ScopeLoc);
-#endif // INTEL_SPECIFIC_CILKPLUS
   void ParseTypeTagForDatatypeAttribute(IdentifierInfo &AttrName,
                                         SourceLocation AttrNameLoc,
                                         ParsedAttributes &Attrs,
@@ -2822,20 +2609,21 @@ private:
 
   void DiagnoseUnexpectedNamespace(NamedDecl *Context);
 
-  DeclGroupPtrTy ParseNamespace(unsigned Context, SourceLocation &DeclEnd,
+  DeclGroupPtrTy ParseNamespace(DeclaratorContext Context,
+                                SourceLocation &DeclEnd,
                                 SourceLocation InlineLoc = SourceLocation());
-  void ParseInnerNamespace(std::vector<SourceLocation>& IdentLoc,
-                           std::vector<IdentifierInfo*>& Ident,
-                           std::vector<SourceLocation>& NamespaceLoc,
-                           unsigned int index, SourceLocation& InlineLoc,
-                           ParsedAttributes& attrs,
+  void ParseInnerNamespace(std::vector<SourceLocation> &IdentLoc,
+                           std::vector<IdentifierInfo *> &Ident,
+                           std::vector<SourceLocation> &NamespaceLoc,
+                           unsigned int index, SourceLocation &InlineLoc,
+                           ParsedAttributes &attrs,
                            BalancedDelimiterTracker &Tracker);
-  Decl *ParseLinkage(ParsingDeclSpec &DS, unsigned Context);
+  Decl *ParseLinkage(ParsingDeclSpec &DS, DeclaratorContext Context);
   Decl *ParseExportDeclaration();
   DeclGroupPtrTy ParseUsingDirectiveOrDeclaration(
-      unsigned Context, const ParsedTemplateInfo &TemplateInfo,
+      DeclaratorContext Context, const ParsedTemplateInfo &TemplateInfo,
       SourceLocation &DeclEnd, ParsedAttributesWithRange &attrs);
-  Decl *ParseUsingDirective(unsigned Context,
+  Decl *ParseUsingDirective(DeclaratorContext Context,
                             SourceLocation UsingLoc,
                             SourceLocation &DeclEnd,
                             ParsedAttributes &attrs);
@@ -2854,8 +2642,8 @@ private:
     }
   };
 
-  bool ParseUsingDeclarator(unsigned Context, UsingDeclarator &D);
-  DeclGroupPtrTy ParseUsingDeclaration(unsigned Context,
+  bool ParseUsingDeclarator(DeclaratorContext Context, UsingDeclarator &D);
+  DeclGroupPtrTy ParseUsingDeclaration(DeclaratorContext Context,
                                        const ParsedTemplateInfo &TemplateInfo,
                                        SourceLocation UsingLoc,
                                        SourceLocation &DeclEnd,
@@ -3042,16 +2830,16 @@ private:
   // C++ 14: Templates [temp]
 
   // C++ 14.1: Template Parameters [temp.param]
-  Decl *ParseDeclarationStartingWithTemplate(unsigned Context,
+  Decl *ParseDeclarationStartingWithTemplate(DeclaratorContext Context,
                                           SourceLocation &DeclEnd,
                                           AccessSpecifier AS = AS_none,
                                           AttributeList *AccessAttrs = nullptr);
-  Decl *ParseTemplateDeclarationOrSpecialization(unsigned Context,
+  Decl *ParseTemplateDeclarationOrSpecialization(DeclaratorContext Context,
                                                  SourceLocation &DeclEnd,
                                                  AccessSpecifier AS,
                                                  AttributeList *AccessAttrs);
   Decl *ParseSingleDeclarationAfterTemplate(
-                                       unsigned Context,
+                                       DeclaratorContext Context,
                                        const ParsedTemplateInfo &TemplateInfo,
                                        ParsingDeclRAIIObject &DiagsFromParams,
                                        SourceLocation &DeclEnd,
@@ -3095,7 +2883,7 @@ private:
   bool ParseTemplateArgumentList(TemplateArgList &TemplateArgs);
   ParsedTemplateArgument ParseTemplateTemplateArgument();
   ParsedTemplateArgument ParseTemplateArgument();
-  Decl *ParseExplicitInstantiation(unsigned Context,
+  Decl *ParseExplicitInstantiation(DeclaratorContext Context,
                                    SourceLocation ExternLoc,
                                    SourceLocation TemplateLoc,
                                    SourceLocation &DeclEnd,

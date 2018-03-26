@@ -23,11 +23,13 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: directive(metadata !"DIR.OMP.SIMD")
 // CHECK-NEXT: qual.opnd.i32(metadata !"QUAL.OMP.SAFELEN", i32 4)
+// CHECK-NEXT: qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.IV"
 // CHECK-NEXT: directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK: directive(metadata !"DIR.OMP.END.SIMD")
 // CHECK: directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK-REGION: [[TOKENVAL:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),
 // CHECK-REGION-SAME: "QUAL.OMP.SAFELEN"(i32 4)
+// CHECK-REGION-SAME: "QUAL.OMP.NORMALIZED.IV"
 // CHECK-REGION: call void @llvm.directive.region.exit(token [[TOKENVAL]]) [ "DIR.OMP.END.SIMD"() ]
   #pragma omp simd safelen(4)
   for (iter = first1(); iter < last1(); ++iter) {
@@ -38,6 +40,7 @@ void foo(int *arr1, int **arr2) {
 // CHECK: directive(metadata !"DIR.OMP.PARALLEL.LOOP")
 // CHECK: directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
 // CHECK-REGION: [[TOKENVAL2:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(),
+// CHECK-REGION-SAME: "QUAL.OMP.NORMALIZED.IV"
 // CHECK-REGION-SAME: "QUAL.OMP.SHARED"(i32*** [[ARR2]])
 // CHECK-REGION: call void @llvm.directive.region.exit(token [[TOKENVAL2]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   #pragma omp parallel for collapse(2)
@@ -47,6 +50,7 @@ void foo(int *arr1, int **arr2) {
 // CHECK: directive(metadata !"DIR.OMP.PARALLEL.LOOP")
 // CHECK: directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
 // CHECK-REGION: [[TOKENVAL3:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
+// CHECK-REGION-SAME: "QUAL.OMP.NORMALIZED.IV"
 // CHECK-REGION-SAME: "QUAL.OMP.PRIVATE"(i32* %k
 // CHECK-REGION: call void @llvm.directive.region.exit(token [[TOKENVAL3]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   #pragma omp parallel for
@@ -56,6 +60,7 @@ void foo(int *arr1, int **arr2) {
 // CHECK: directive(metadata !"DIR.OMP.LOOP")
 // CHECK: directive(metadata !"DIR.OMP.END.LOOP")
 // CHECK-REGION: [[TOKENVAL4:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"()
+// CHECK-REGION-SAME: "QUAL.OMP.NORMALIZED.IV"
 // CHECK-REGION-SAME: "QUAL.OMP.PRIVATE"(i32* %k
 // CHECK-REGION: call void @llvm.directive.region.exit(token [[TOKENVAL4]]) [ "DIR.OMP.END.LOOP"() ]
   #pragma omp for
@@ -66,6 +71,7 @@ void foo(int *arr1, int **arr2) {
 // CHECK: directive(metadata !"DIR.OMP.PARALLEL.LOOP")
 // CHECK: directive(metadata !"DIR.OMP.SIMD")
 // CHECK-REGION: [[TOKENVAL0:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
+// CHECK-REGION-SAME: "QUAL.OMP.NORMALIZED.IV"
 // CHECK-REGION-SAME: "QUAL.OMP.SHARED"(i32** %arr1
 // CHECK-REGION: [[TOKENVAL1:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"()
 // CHECK-REGION-SAME: "QUAL.OMP.SAFELEN"(i32 4)

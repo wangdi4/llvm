@@ -1607,11 +1607,9 @@ void ASTWriter::WriteControlBlock(Preprocessor &PP, ASTContext &Context,
 
   AddString(LangOpts.OMPHostIRFile, Record);
 #if INTEL_CUSTOMIZATION
-#if INTEL_SPECIFIC_OPENMP
   // CQ#411303 Intel driver requires front-end to produce special file if
   // translation unit has any target code.
   AddString(LangOpts.IntelDriverTempfileName, Record);
-#endif // INTEL_SPECIFIC_OPENMP
 #endif // INTEL_CUSTOMIZATION
 
   Stream.EmitRecord(LANGUAGE_OPTIONS, Record);

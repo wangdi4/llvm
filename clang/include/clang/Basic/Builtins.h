@@ -70,9 +70,6 @@ class Context {
   llvm::ArrayRef<Info> TSRecords;
   llvm::ArrayRef<Info> AuxTSRecords;
 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  bool IsIntelTBAA;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
 public:
   Context() {}
 
@@ -136,22 +133,14 @@ public:
   /// \brief Return true if this is a builtin for a libc/libm function,
   /// with a "__builtin_" prefix (e.g. __builtin_abs).
   bool isLibFunction(unsigned ID) const {
-    return strchr(getRecord(ID).Attributes, 'F') != nullptr
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-      || (!IsIntelTBAA && (strchr(getRecord(ID).Attributes, 'I') != nullptr))
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-      ;
+    return strchr(getRecord(ID).Attributes, 'F') != nullptr;
   }
 
   /// \brief Determines whether this builtin is a predefined libc/libm
   /// function, such as "malloc", where we know the signature a
   /// priori.
   bool isPredefinedLibFunction(unsigned ID) const {
-    return strchr(getRecord(ID).Attributes, 'f') != nullptr
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-      || (IsIntelTBAA && (strchr(getRecord(ID).Attributes, 'I') != nullptr))
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-      ;
+    return strchr(getRecord(ID).Attributes, 'f') != nullptr;
   }
 
   /// \brief Returns true if this builtin requires appropriate header in other

@@ -1318,6 +1318,22 @@ static bool isPermissivePointerConversion(QualType FromType,
 
   return false;
 }
+
+// CQ#376357: GCC in -fpermissive mode allows weird conversions.
+static bool hasPermissiveConversion(const OverloadCandidate &Cand) {
+  for (unsigned ArgIdx = !Cand.IgnoreObjectArgument ? 0 : 1;
+       ArgIdx < Cand.Conversions.size(); ++ArgIdx)
+    if (Cand.Conversions[ArgIdx].isPermissive())
+      return true;
+  return false;
+}
+
+static QualType stripPointers(ASTContext &Context, QualType QT, bool StopAtFP) {
+  QT = QT.getDesugaredType(Context);
+  while (QT->isPointerType() && (!StopAtFP || !QT->isFunctionPointerType()))
+    QT = QT->getPointeeType().getDesugaredType(Context);
+  return QT;
+}
 #endif  // INTEL_CUSTOMIZATION
 /// TryImplicitConversion - Attempt to perform an implicit conversion
 /// from the given expression (Expr) to the given type (ToType). This
@@ -5249,7 +5265,8 @@ Sema::PerformObjectArgumentInitialization(Expr *From,
       *this, From->getLocStart(), From->getType(), FromClassification, Method,
       Method->getParent());
   if (ICS.isBad()) {
-    if (ICS.Bad.Kind == BadConversionSequence::bad_qualifiers) {
+    switch (ICS.Bad.Kind) {
+    case BadConversionSequence::bad_qualifiers: {
       Qualifiers FromQs = FromRecordType.getQualifiers();
       Qualifiers ToQs = DestType.getQualifiers();
       unsigned CVR = FromQs.getCVRQualifiers() & ~ToQs.getCVRQualifiers();
@@ -5262,10 +5279,28 @@ Sema::PerformObjectArgumentInitialization(Expr *From,
           << Method->getDeclName();
         return ExprError();
       }
+      break;
+    }
+
+    case BadConversionSequence::lvalue_ref_to_rvalue:
+    case BadConversionSequence::rvalue_ref_to_lvalue: {
+      bool IsRValueQualified =
+        Method->getRefQualifier() == RefQualifierKind::RQ_RValue;
+      Diag(From->getLocStart(), diag::err_member_function_call_bad_ref)
+        << Method->getDeclName() << FromClassification.isRValue()
+        << IsRValueQualified;
+      Diag(Method->getLocation(), diag::note_previous_decl)
+        << Method->getDeclName();
+      return ExprError();
+    }
+
+    case BadConversionSequence::no_conversion:
+    case BadConversionSequence::unrelated_class:
+      break;
     }
 
     return Diag(From->getLocStart(),
-                diag::err_implicit_object_parameter_init)
+                diag::err_member_function_call_bad_type)
        << ImplicitParamRecordType << FromRecordType << From->getSourceRange();
   }
 
@@ -9005,16 +9040,6 @@ static Comparison compareEnableIfAttrs(const Sema &S, const FunctionDecl *Cand1,
 
   return Cand1I == Cand1Attrs.end() ? Comparison::Equal : Comparison::Better;
 }
-#if INTEL_CUSTOMIZATION
-// CQ#376357: GCC in -fpermissive mode allows weird conversions.
-bool hasPermissiveConversion(const OverloadCandidate &Cand) {
-  for (unsigned ArgIdx = !Cand.IgnoreObjectArgument ? 0 : 1;
-       ArgIdx < Cand.Conversions.size(); ++ArgIdx)
-    if (Cand.Conversions[ArgIdx].isPermissive())
-      return true;
-  return false;
-}
-#endif
 
 /// isBetterOverloadCandidate - Determines whether the first overload
 /// candidate is a better candidate than the second (C++ 13.3.3p1).
@@ -9060,7 +9085,7 @@ bool clang::isBetterOverloadCandidate(
     return true;
   else if (CandHasPermissiveConversion1 && !CandHasPermissiveConversion2)
     return false;
-#endif
+#endif // INTEL_CUSTOMIZATION
   // C++ [over.match.best]p1:
   //
   //   -- if F is a static member function, ICS1(F) is defined such
@@ -9246,7 +9271,76 @@ bool clang::isBetterOverloadCandidate(
                 functionHasPassObjectSizeParams(Cand1.Function);
   bool HasPS2 = Cand2.Function != nullptr &&
                 functionHasPassObjectSizeParams(Cand2.Function);
-  return HasPS1 != HasPS2 && HasPS1;
+
+#if INTEL_CUSTOMIZATION
+  if (HasPS1 != HasPS2 && HasPS1)
+    return true;
+  // Reimplementation of CQ374244, allow ambiguous template function calls (that
+  // differ only by meaningless qualifiers on Function Pointers) in templates to
+  // select the least qualified version.
+  if (!S.getLangOpts().IntelCompat || S.getLangOpts().MSVCCompat)
+    return false;
+  const auto *Func1 =
+      dyn_cast_or_null<FunctionTemplateDecl>(Cand1.FoundDecl.getDecl());
+  const auto *Func2 =
+      dyn_cast_or_null<FunctionTemplateDecl>(Cand2.FoundDecl.getDecl());
+
+  // Only allow this behavior on Function Templates.
+  if (!Func1 || !Func2)
+    return false;
+
+  bool IsBetterCandidate = false;
+  for (unsigned ArgIdx = StartArg; ArgIdx < NumArgs; ++ArgIdx) {
+    if (!Cand1.Conversions[ArgIdx].isStandard() ||
+        !Cand1.Conversions[ArgIdx].Standard.isIdentityConversion() ||
+        !Cand2.Conversions[ArgIdx].isStandard() ||
+        !Cand2.Conversions[ArgIdx].Standard.isIdentityConversion())
+      continue;
+    const StandardConversionSequence &StdCand1 =
+        Cand1.Conversions[ArgIdx].Standard;
+    const StandardConversionSequence &StdCand2 =
+        Cand2.Conversions[ArgIdx].Standard;
+
+    const QualType From1 = stripPointers(
+        S.getASTContext(), StdCand1.getFromType(), /*StopAtFP=*/true);
+    const QualType From2 = stripPointers(
+        S.getASTContext(), StdCand2.getFromType(), /*StopAtFP=*/true);
+    const QualType To1 = stripPointers(S.getASTContext(), StdCand1.getToType(2),
+                                       /*StopAtFP=*/true);
+    const QualType To2 = stripPointers(S.getASTContext(), StdCand2.getToType(2),
+                                       /*StopAtFP=*/true);
+
+    // Only allow this for pointers to a function.
+    if (!From1->isFunctionPointerType() || !From2->isFunctionPointerType() ||
+        !To1->isFunctionPointerType() || !To2->isFunctionPointerType())
+      continue;
+
+    QualType Param1 =
+        Func1->getTemplatedDecl()->getParamDecl(ArgIdx)->getOriginalType();
+    QualType Param2 =
+        Func2->getTemplatedDecl()->getParamDecl(ArgIdx)->getOriginalType();
+
+    if (!Param1->isPointerType() || !Param2->isPointerType())
+      continue;
+
+    Param1 = stripPointers(S.getASTContext(), Param1, /*StopAtFP=*/false);
+    Param2 = stripPointers(S.getASTContext(), Param2, /*StopAtFP=*/false);
+
+    if (!Param1->isTemplateTypeParmType() || !Param2->isTemplateTypeParmType())
+      continue;
+
+    // If this side has a greater qualification, than it cannot be the better
+    // overload.
+    if (Param1.isMoreQualifiedThan(Param2))
+      return false;
+
+    // If the other side is more qualified, this is a candidate for this fix.
+    if (Param2.isMoreQualifiedThan(Param1))
+      IsBetterCandidate = true;
+  }
+  return IsBetterCandidate;
+
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Determine whether two declarations are "equivalent" for the purposes of
@@ -11493,9 +11587,6 @@ Sema::ResolveSingleFunctionTemplateSpecialization(OverloadExpr *ovl,
 
   return Matched;
 }
-
-
-
 
 // Resolve and fix an overloaded expression that can be resolved
 // because it identifies a single function template specialization.

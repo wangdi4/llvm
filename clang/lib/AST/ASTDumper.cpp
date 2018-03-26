@@ -457,11 +457,6 @@ namespace  {
     void VisitBindingDecl(const BindingDecl *D);
     void VisitFileScopeAsmDecl(const FileScopeAsmDecl *D);
     void VisitImportDecl(const ImportDecl *D);
-#if INTEL_SPECIFIC_CILKPLUS
-    void VisitCilkSpawnDecl(const CilkSpawnDecl *D);
-    void VisitSIMDForStmt(const SIMDForStmt *Node);
-    void VisitCilkSpawnExpr(const CilkSpawnExpr *Node);
-#endif // INTEL_SPECIFIC_CILKPLUS
     void VisitPragmaCommentDecl(const PragmaCommentDecl *D);
     void VisitPragmaDetectMismatchDecl(const PragmaDetectMismatchDecl *D);
     void VisitCapturedDecl(const CapturedDecl *D);
@@ -1754,11 +1749,7 @@ void ASTDumper::VisitFriendDecl(const FriendDecl *D) {
   else
     dumpDecl(D->getFriendDecl());
 }
-#if INTEL_SPECIFIC_CILKPLUS
-void ASTDumper::VisitCilkSpawnDecl(const CilkSpawnDecl *D) {
-  dumpStmt(D->getCapturedStmt());
-}
-#endif // INTEL_SPECIFIC_CILKPLUS
+
 //===----------------------------------------------------------------------===//
 // Obj-C Declarations
 //===----------------------------------------------------------------------===//
@@ -2016,24 +2007,6 @@ void ASTDumper::VisitGotoStmt(const GotoStmt *Node) {
   OS << " '" << Node->getLabel()->getName() << "'";
   dumpPointer(Node->getLabel());
 }
-
-#if INTEL_SPECIFIC_CILKPLUS
-//#include "clang/Basic/intel/StmtIntel.h"
-void ASTDumper::VisitSIMDForStmt(const SIMDForStmt *Node) {
-  VisitStmt(Node);
-  for (ArrayRef<Attr *>::iterator I = Node->getSIMDAttrs().begin(),
-                                  E = Node->getSIMDAttrs().end();
-       I != E; ++I) {
-    dumpAttr(*I);
-  }
-}
-
-void ASTDumper::VisitCilkSpawnExpr(const CilkSpawnExpr *Node) {
-  VisitExpr(Node);
-  dumpDecl(Node->getSpawnDecl());
-}
-
-#endif // INTEL_SPECIFIC_CILKPLUS
 
 void ASTDumper::VisitCXXCatchStmt(const CXXCatchStmt *Node) {
   VisitStmt(Node);

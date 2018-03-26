@@ -21,9 +21,6 @@
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtOpenMP.h"
-#if INTEL_SPECIFIC_CILKPLUS
-#include "clang/Basic/intel/StmtIntel.h"
-#endif // INTEL_SPECIFIC_CILKPLUS
 #include "clang/Basic/LLVM.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
