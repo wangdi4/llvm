@@ -48,6 +48,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     // TODO: Mark the actual required and preserved analyses.
     AU.addRequired<DTransAnalysisWrapper>();
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
@@ -59,6 +60,7 @@ INITIALIZE_PASS_BEGIN(DTransAOSToSOAWrapper, "dtrans-aostosoa",
                       "DTrans array of structs to struct of arrays", false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(DTransAOSToSOAWrapper, "dtrans-aostosoa",
                     "DTrans array of structs to struct of arrays", false, false)
 
