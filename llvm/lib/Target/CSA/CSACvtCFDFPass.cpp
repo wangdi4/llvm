@@ -150,6 +150,7 @@ public:
                                 MachineBasicBlock::iterator before,
                                 unsigned opcode,
                                 const SmallVector<MachineOperand *, 4> vals,
+                                SmallVector<MachineInstr *, 4> *created = nullptr,
                                 unsigned unusedReg = CSA::IGN);
   void generateCompletePickTreeForPhi(MachineBasicBlock *);
   void CombineDuplicatePickTreeInput();
@@ -1509,7 +1510,10 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
   }
   MachineOperand *haveTokens;
   if (newTokens.size()) {
-    haveTokens = createUseTree(mbb, lphdr->begin(), CSA::ALL0, newTokens);
+    SmallVector<MachineInstr *, 4> useTreeInstrs;
+    haveTokens = createUseTree(mbb, lphdr->begin(), CSA::ALL0, newTokens, &useTreeInstrs);
+    for (MachineInstr *newInst : useTreeInstrs)
+      LMFI->addLICAttribute(std::begin(newInst->defs())->getReg(), "csasim_ignore_on_exit");
   } else {
     // This can happen, right?
     assert(0 && "ILPL on loops with no outputs not yet supported");
@@ -1556,7 +1560,7 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
 MachineOperand *CSACvtCFDFPass::createUseTree(
     MachineBasicBlock *mbb, MachineBasicBlock::iterator before,
     unsigned opcode, const SmallVector<MachineOperand *, 4> vals,
-    unsigned unusedReg) {
+    SmallVector<MachineInstr *, 4> *created, unsigned unusedReg) {
 
   unsigned n = vals.size();
   assert(n && "Can't combine 0 values");
@@ -1599,8 +1603,12 @@ MachineOperand *CSACvtCFDFPass::createUseTree(
   // helps balance.
   fewerVals.push_back(&next->getOperand(0));
 
+  // Note new instruction for caller if requested.
+  if (created)
+    created->push_back(next);
+
   // Run again on the smaller vector.
-  return createUseTree(mbb, before, opcode, fewerVals, unusedReg);
+  return createUseTree(mbb, before, opcode, fewerVals, created, unusedReg);
 }
 
 /* Do a sweep over all instructions, looking for direct frame index uses. The
