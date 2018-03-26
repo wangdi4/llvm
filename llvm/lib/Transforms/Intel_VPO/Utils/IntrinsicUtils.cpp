@@ -33,8 +33,7 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 bool VPOUtils::stripDirectives(WRegionNode *WRN) {
-  bool success = true;
-  BasicBlock *EntryBB = WRN->getEntryBBlock();
+  bool success = false;
   BasicBlock *ExitBB = WRN->getExitBBlock();
 
   // Under the new region representation:
@@ -45,8 +44,7 @@ bool VPOUtils::stripDirectives(WRegionNode *WRN) {
   // the BEGIN it will first remove the END (which is a use of the token
   // defined by the BEGIN intrinsic) and then later stripDirectives(*ExitBB)
   // would return false because there's nothing left in the ExitBB to remove.
-  success = success && VPOUtils::stripDirectives(*ExitBB);
-  success = success && VPOUtils::stripDirectives(*EntryBB);
+  success = VPOUtils::stripDirectives(*ExitBB);
   return success;
 }
 
@@ -77,17 +75,39 @@ bool VPOUtils::stripDirectives(BasicBlock &BB) {
   // Remove the directive intrinsics.
   // SimplifyCFG will remove any blocks that become empty.
   unsigned Idx = 0;
+
+  unsigned Sz = IntrinsicsToRemove.size();
+
+  SmallVector<Instruction *, 4> IntrinsicsRegionBeginContainer;
+  for (Idx = 0; Idx < Sz; ++Idx) {
+    Instruction *I = IntrinsicsToRemove[Idx];
+    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
+    if (Call) {
+      Intrinsic::ID IntrinId = Call->getIntrinsicID();
+      if (IntrinId == Intrinsic::directive_region_exit) {
+        Value *Arg = Call->getArgOperand(0);
+        if (Instruction *I = dyn_cast<Instruction>(Arg))
+          IntrinsicsRegionBeginContainer.push_back(I);
+      }
+    }
+  }
+
   for (Idx = 0; Idx < IntrinsicsToRemove.size(); ++Idx) {
     Instruction *I = IntrinsicsToRemove[Idx];
     // Under the region representation, the BEGIN directive writes to a token
     // that is used by the matching END directive. Therefore, before removing
     // I, we must first remove all its uses, if any. Failing to do that
     // will result in this assertion: "Uses remain when a value is destroyed!"
-    for (User *U : I->users())
-      if (Instruction *UI = dyn_cast<Instruction>(U)) {
+    assert(I->getNumUses() <= 1 && "Expected not more than one use!");
+    if (I->hasOneUse())
+      if (auto *UI = dyn_cast<Instruction>(*I->user_begin()))
         UI->eraseFromParent();
-      }
 
+    I->eraseFromParent();
+  }
+
+  while (!IntrinsicsRegionBeginContainer.empty()) {
+    auto I = IntrinsicsRegionBeginContainer.pop_back_val();
     I->eraseFromParent();
   }
 

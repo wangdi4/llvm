@@ -103,14 +103,18 @@ protected:
 /// passes be composed to achieve the same end result.
 class InlinerPass : public PassInfoMixin<InlinerPass> {
 public:
-  InlinerPass(InlineParams Params = getInlineParams())
-      : Params(std::move(Params)) {}
+  InlinerPass(InlineParams Params = getInlineParams());     // INTEL
+  ~InlinerPass() { if (!Report.isEmpty()) Report.print(); } // INTEL
 
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
                         LazyCallGraph &CG, CGSCCUpdateResult &UR);
 
+  InlineReport& getReport() { return Report; } // INTEL
 private:
   InlineParams Params;
+
+  // INTEL The inline report
+  InlineReport Report; // INTEL
 };
 
 } // end namespace llvm

@@ -51,6 +51,7 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h" // INTEL
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
 #include "llvm/Transforms/ObjCARC.h"
@@ -59,7 +60,8 @@
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
-#include "llvm/Transforms/Intel_DTrans/DTransOpt.h"              // INTEL
+#include "llvm/Transforms/Intel_DTrans/AOSToSOA.h"               // INTEL
+#include "llvm/Transforms/Intel_DTrans/DeleteField.h"            // INTEL
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"         // INTEL - HIR
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" // INTEL
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"                 // INTEL
@@ -85,10 +87,11 @@ namespace {
       (void) llvm::createAlignmentFromAssumptionsPass();
 #if INTEL_CUSTOMIZATION
       (void) llvm::createAndersensAAWrapperPass();
-      (void) llvm::createDTransOptWrapperPass();
       (void) llvm::createDTransAnalysisWrapperPass();
+      (void) llvm::createDTransAOSToSOAWrapperPass();
+      (void) llvm::createDTransDeleteFieldWrapperPass();
       (void) llvm::createNonLTOGlobalOptimizerPass();
-      (void) llvm::createTbaaMDPropagationPass();
+      (void) llvm::createTbaaMDPropagationLegacyPass();
       (void) llvm::createCleanupFakeLoadsPass();
       (void) llvm::createStdContainerOptPass();
       (void) llvm::createStdContainerAAWrapperPass();
@@ -303,8 +306,8 @@ namespace {
       (void) llvm::createMapIntrinToImlPass();
 
       // VPO WRegion Passes
-      (void) llvm::createWRegionCollectionPass();
-      (void) llvm::createWRegionInfoPass();
+      (void) llvm::createWRegionCollectionWrapperPassPass();
+      (void) llvm::createWRegionInfoWrapperPassPass();
 
       // VPO Vectorizer Passes
       (void) llvm::createAVRGeneratePass();
@@ -333,6 +336,9 @@ namespace {
 
       // VPO Thread Private Transformation
       (void) llvm::createVPOParoptTpvPass();
+
+      // dynamic_cast calls optimization pass.
+      (void) llvm::createOptimizeDynamicCastsWrapperPass();
   #endif // INTEL_CUSTOMIZATION
     }
   } ForcePassLinking; // Force link by creating a global definition.

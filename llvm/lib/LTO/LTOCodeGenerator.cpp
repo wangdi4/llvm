@@ -132,9 +132,11 @@ void LTOCodeGenerator::initializeLTOPasses() {
 #if INTEL_CUSTOMIZATION
   initializeAndersensAAWrapperPassPass(R);
   initializeDTransAnalysisWrapperPass(R);
-  initializeDTransOptWrapperPass(R);
+  initializeDTransAOSToSOAWrapperPass(R);
+  initializeDTransDeleteFieldWrapperPass(R);
   initializeWholeProgramWrapperPassPass(R);
   initializeInlineAggressiveWrapperPassPass(R);
+  initializeOptimizeDynamicCastsWrapperPass(R);
 #endif // INTEL_CUSTOMIZATION
 }
 

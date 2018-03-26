@@ -228,7 +228,6 @@ WRNTargetDataNode::WRNTargetDataNode(BasicBlock *BB)
   setIsTarget();
   setIf(nullptr);
   setDevice(nullptr);
-  setNowait(false);
 
   DEBUG(dbgs() << "\nCreated WRNTargetDataNode<" << getNumber() << ">\n");
 }
@@ -239,6 +238,49 @@ void WRNTargetDataNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printExtraForTarget(this, OS, Depth, Verbosity);
 }
 
+//
+// Methods for WRNTargetEnterDataNode
+//
+
+// constructor
+WRNTargetEnterDataNode::WRNTargetEnterDataNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNTargetEnterData, BB) {
+  setIsTarget();
+  setIf(nullptr);
+  setDevice(nullptr);
+  setNowait(false);
+
+  DEBUG(dbgs() << "\nCreated WRNTargetEnterDataNode<" << getNumber() << ">\n");
+}
+
+// printer
+void WRNTargetEnterDataNode::printExtra(formatted_raw_ostream &OS,
+                                        unsigned Depth,
+                                        unsigned Verbosity) const {
+  vpo::printExtraForTarget(this, OS, Depth, Verbosity);
+}
+
+//
+// Methods for WRNTargetExitDataNode
+//
+
+// constructor
+WRNTargetExitDataNode::WRNTargetExitDataNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNTargetExitData, BB) {
+  setIsTarget();
+  setIf(nullptr);
+  setDevice(nullptr);
+  setNowait(false);
+
+  DEBUG(dbgs() << "\nCreated WRNTargetExitDataNode<" << getNumber() << ">\n");
+}
+
+// printer
+void WRNTargetExitDataNode::printExtra(formatted_raw_ostream &OS,
+                                       unsigned Depth,
+                                       unsigned Verbosity) const {
+  vpo::printExtraForTarget(this, OS, Depth, Verbosity);
+}
 
 //
 // Methods for WRNTargetUpdateNode
@@ -681,7 +723,10 @@ void vpo::printExtraForTarget(WRegionNode const *W, formatted_raw_ostream &OS,
   unsigned Indent = 2 * Depth;
   vpo::printVal("IF_EXPR", W->getIf(), OS, Indent, Verbosity);
   vpo::printVal("DEVICE", W->getDevice(), OS, Indent, Verbosity);
-  vpo::printBool("NOWAIT", W->getNowait(), OS, Indent, Verbosity);
+
+  // All target constructs but WRNTargetData can have the NOWAIT clause
+  if (!isa<WRNTargetDataNode>(W))
+    vpo::printBool("NOWAIT", W->getNowait(), OS, Indent, Verbosity);
 
   // Only WRNTarget can have the defaultmap(tofrom:scalar) clause
   if (isa<WRNTargetNode>(W)) {

@@ -33,6 +33,8 @@ class DbgValueInst;
 class DbgInfoIntrinsic;
 class ConstantExpr;
 class Value;
+class Function;
+class DominatorTree;
 
 /// \brief This class provides a set of general utility functions that can be
 /// used for a variety of purposes.
@@ -47,8 +49,8 @@ public:
   /// \brief Returns Loop in LoopInfo corresponding to the WRN.  The initial
   /// call to this recursive DFS function should pass in the WRN's EntryBB and
   /// ExitBB to prevent searching for the loop header outside of the region.
-  static Loop* getLoopFromLoopInfo(LoopInfo* LI, BasicBlock *EntryBB,
-                                                 BasicBlock *ExitBB);
+  static Loop *getLoopFromLoopInfo(LoopInfo *LI, DominatorTree *DT,
+                                   BasicBlock *EntryBB, BasicBlock *ExitBB);
 
   /// \brief Generates BB set in sub CFG for a given WRegionNode.
   /// The entry basic bblock 'EntryBB' and the exit basic
@@ -79,6 +81,9 @@ public:
 
   /// \brief Returns true if the value V escapes.
   static bool isEscaped(const Value *V);
+
+  /// \brief Return the size_t type for 32/64 bit architecture
+  static Type *getSizeTTy(Function *F);
 };
 
 } // end llvm namespace

@@ -32,6 +32,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Pass.h"
 
+#include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/PostOrderIterator.h"
 
@@ -76,17 +77,19 @@ class VPOParoptTransform {
 public:
   /// \brief ParoptTransform object constructor
   VPOParoptTransform(Function *F, WRegionInfo *WI, DominatorTree *DT,
-                     LoopInfo *LI, ScalarEvolution *SE, int Mode,
+                     LoopInfo *LI, ScalarEvolution *SE,
+                     const TargetTransformInfo *TTI, AssumptionCache *AC,
+                     const TargetLibraryInfo *TLI, int Mode,
                      const SmallVectorImpl<Triple> &OffloadTargets)
-      : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode),
+      : F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI),
+        Mode(Mode),
         OffloadTargets(OffloadTargets.begin(), OffloadTargets.end()),
-        IdentTy(nullptr), TidPtr(nullptr), BidPtr(nullptr),
+        IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
         KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
         KmpTaskTTy(nullptr), KmpTaskTRedTy(nullptr),
         KmpTaskDependInfoTy(nullptr), TgOffloadRegionId(nullptr),
         TgOffloadEntryTy(nullptr), TgDeviceImageTy(nullptr),
-        TgBinaryDescriptorTy(nullptr), DsoHandle(nullptr)
-  {}
+        TgBinaryDescriptorTy(nullptr), DsoHandle(nullptr) {}
 
   /// \brief Top level interface for parallel and prepare transformation
   bool paroptTransforms();
@@ -107,6 +110,15 @@ private:
   /// \brief Get the Scalar Evolution information for loop candidates
   ScalarEvolution *SE;
 
+  /// \brief Get the Target Tranform information for loop candidates.
+  const TargetTransformInfo *TTI;
+
+  /// \brief Get the assumption cache informtion for loop candidates.
+  AssumptionCache *AC;
+
+  /// \brief Get the target library information for the loop candidates.
+  const TargetLibraryInfo *TLI;
+
   /// \brief Paropt compilation mode
   int Mode;
 
@@ -120,10 +132,11 @@ private:
   StructType *IdentTy;
 
   /// \brief Hold the pointer to Tid (thread id) Value
-  AllocaInst *TidPtr;
+  // AllocaInst *TidPtr;
+  Constant *TidPtrHolder;
 
   /// \brief Hold the pointer to Bid (binding thread id) Value
-  AllocaInst *BidPtr;
+  Constant *BidPtrHolder;
 
   /// \brief Hold the function type for the function
   /// void (*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
@@ -440,35 +453,6 @@ private:
   /// \brief Generate __kmpc_fork_call Instruction after CodeExtractor
   CallInst* genForkCallInst(WRegionNode *W, CallInst *CI);
 
-  /// \brief If the IR in the WRegion has some kmpc_call_* and the tid
-  /// parameter's definition is outside the region, the compiler
-  /// generates the call __kmpc_global_thread_num() at the entry of
-  /// of the region and replaces all tid uses with the new call.
-  /// It also generates the bid alloca instruciton in the region
-  /// if the region has outlined function.
-  void codeExtractorPrepare(WRegionNode *W);
-
-  /// \brief Cleans up the generated __kmpc_global_thread_num() in the
-  /// outlined function. It also cleans the genererated bid alloca
-  /// instruction in the outline function.
-  void finiCodeExtractorPrepare(Function *F, bool ForTask = false);
-
-  /// \brief Collects the bid alloca instructions used by the outline functions.
-  void collectTidAndBidInstructionsForBB(BasicBlock *BB);
-
-  /// \brief Collects the instruction uses for the instructions
-  /// in the set TidAndBidInstructions.
-  void collectInstructionUsesInRegion(WRegionNode *W);
-
-  /// \brief Generates the new tid/bid alloca instructions at the entry of the
-  /// region and replaces the uses of tid/bid with the new value.
-  void codeExtractorPrepareTransform(WRegionNode *W, bool IsTid);
-
-  /// \brief Replaces the use of tid/bid with the outlined function arguments.
-  void finiCodeExtractorPrepareTransform(Function *F, bool IsTid,
-                                         BasicBlock *NextBB,
-                                         bool ForTask = false);
-
   /// \brief Reset the expression value in the bundle to be empty.
   void resetValueInBundle(WRegionNode *W, Value *V);
 
@@ -521,9 +505,6 @@ private:
   /// object.
   GlobalVariable *getDsoHandle();
 
-  /// \brief Return the size_t type for 32/bit architecture
-  Type *getSizeTTy();
-
   /// \brief Return/Create the struct type __tgt_offload_entry.
   StructType *getTgOffloadEntryTy();
 
@@ -555,7 +536,7 @@ private:
   /// modifier and the expression V.
   void GenTgtInformationForPtrs(WRegionNode *W, Value *V,
                                 SmallVectorImpl<Constant *> &ConstSizes,
-                                SmallVectorImpl<uint32_t> &MapTypes);
+                                SmallVectorImpl<uint64_t> &MapTypes);
 
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
@@ -648,19 +629,46 @@ private:
   void wrnUpdateSSAPreprocess(
       Loop *L,
       DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
-      SmallSetVector<Instruction *, 8> &LiveoutVals);
+      SmallSetVector<Instruction *, 8> &LiveoutVals,
+      EquivalenceClasses<Value *> &ECs);
   /// \brief Replace the live-in value of the phis at the loop header with
   /// the loop carried value.
   void wrnUpdateSSAPreprocessForOuterLoop(
       Loop *L,
       DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
-      SmallSetVector<Instruction *, 8> &LiveOutVals);
+      SmallSetVector<Instruction *, 8> &LiveOutVals,
+      EquivalenceClasses<Value *> &ECs);
 
   /// \brief Update the SSA form in the region using SSA Updater.
-  void wrnUpdateSSAForLoop(
+  void wrnUpdateSSAForLoopRecursively(
       Loop *L,
       DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
       SmallSetVector<Instruction *, 8> &LiveOutVals);
+
+  /// \brief Collect the live-in values for the given loop.
+  void wrnCollectLiveInVals(
+      Loop &L,
+      DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
+      EquivalenceClasses<Value *> &ECs);
+
+  /// \brief Build the equivalence class for the value a, b if there exists some
+  /// phi node e.g. a = phi(b).
+  void buildECs(Loop *L, PHINode *PN, EquivalenceClasses<Value *> &ECs);
+
+  /// \brief The utility to build the equivalence class for the value phi.
+  void AnalyzePhisECs(Loop *L, Value *PV, Value *V,
+                      EquivalenceClasses<Value *> &ECs,
+                      SmallPtrSet<PHINode *, 16> &PhiUsers);
+
+  /// \brief Collect the live-out values for a given loop.
+  void wrnCollectLiveOutVals(Loop &L,
+                             SmallSetVector<Instruction *, 8> &LiveOutVals,
+                             EquivalenceClasses<Value *> &ECs);
+
+  /// \brief The utility to update the liveout set from the given BB.
+  void wrnUpdateLiveOutVals(Loop *L, BasicBlock *BB,
+                            SmallSetVector<Instruction *, 8> &LiveOutVals,
+                            EquivalenceClasses<Value *> &ECs);
 
   /// \brief The utility to generate the stack variable to pass the value of
   /// global variable.
@@ -676,6 +684,46 @@ private:
 
   /// \brief Process the device information into the triples.
   void processDeviceTriples();
+
+  /// \brief Update the SSA form after the basic block LoopExitBB's successor
+  /// is added one more incoming edge.
+  void rewriteUsesOfOutInstructions(
+      DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
+      SmallSetVector<Instruction *, 8> &LiveOutVals,
+      EquivalenceClasses<Value *> &ECs);
+
+  /// \brief Transform the given OMP loop into the loop as follows.
+  ///         do {
+  ///             %omp.iv = phi(%omp.lb, %omp.inc)
+  ///             ...
+  ///             %omp.inc = %omp.iv + 1;
+  ///          }while (%omp.inc <= %omp.ub)
+  ///
+  ///  If the flag First is true, it indicates that it is called
+  ///  in the pass VPOParoptPrepare. This utility also promotes the
+  ///  loop index variable into the register and performs loop rotation.
+  bool regularizeOMPLoop(WRegionNode *W, bool First = true);
+
+  /// \brief Transform the given do-while loop into the canonical form
+  /// as follows.
+  ///         do {
+  ///             %omp.iv = phi(%omp.lb, %omp.inc)
+  ///             ...
+  ///             %omp.inc = %omp.iv + 1;
+  ///          }while (%omp.inc <= %omp.ub)
+
+  void fixOMPDoWhileLoop(WRegionNode *W);
+
+  /// \brief Utility to transform the given do-while loop loop into the
+  /// canonical do-while loop.
+  void fixOmpDoWhileLoopImpl(Loop *L);
+
+  /// \brief Replace the use of OldV within region W with the value NewV.
+  void replaceUseWithinRegion(WRegionNode *W, Value *OldV, Value *NewV);
+
+  /// \brief Return true if one of the region W's ancestor is OMP target
+  /// construct or the function where W lies in has target declare attribute.
+  bool hasParentTarget(WRegionNode *W);
 };
 } /// namespace vpo
 } /// namespace llvm

@@ -19,6 +19,6 @@
 type = Library
 name = Passes
 parent = Libraries
-required_libraries = Analysis CodeGen Core IPO InstCombine Scalar Support Target TransformUtils Vectorize Instrumentation Intel_LoopAnalysis Intel_LoopTransforms Intel_OptReport
+required_libraries = Analysis CodeGen Core IPO InstCombine Scalar Support Target TransformUtils Vectorize Instrumentation Intel_DTrans Intel_DTransAnalysis Intel_LoopAnalysis Intel_LoopTransforms Intel_OpenCLTransforms Intel_VPOAnalysis Intel_VPOTransforms Intel_OptReport
 
-; ***INTEL: Intel_LoopAnalysis, Intel_LoopTransforms, Intel_OptReport
+; ***INTEL: Intel_DTrans, Intel_DTransAnalysis, Intel_LoopAnalysis, Intel_LoopTransforms, Intel_OpenCLTransforms, Intel_VPOAnalysis, Intel_VPOTransforms, Intel_OptReport

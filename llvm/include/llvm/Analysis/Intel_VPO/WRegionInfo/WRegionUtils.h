@@ -138,6 +138,7 @@ private:
 
   /// \brief Destroys all nodes
   static void destroyAll();
+  enum { UnknownLoop, DoWhileLoop, WhileLoop };
 
 public:
   /// \brief Enumeration for types of WRegionNode Graph insert/update
@@ -275,11 +276,11 @@ public:
   ///  test exists.
   static ICmpInst *getOmpLoopZeroTripTest(Loop *L, BasicBlock *EntryBB);
 
-  /// \breif Get the positin of the given loop index at
-  /// the bottom/zero trip test expression.
-  static void getLoopIndexPosInPredicate(Value *LoopIndex,
-                                         Instruction *CondInst,
-                                         bool &IsLeft);
+  /// \brief Get the position of the given loop index at
+  /// the bottom/zero trip test expression. It returns false if
+  /// it cannot find the loop index.
+  static bool getLoopIndexPosInPredicate(Value *LoopIndex,
+                                         Instruction *CondInst, bool &IsLeft);
   static FirstprivateItem *wrnSeenAsFirstPrivate(WRegionNode *W, Value *V);
   static LastprivateItem *wrnSeenAsLastPrivate(WRegionNode *W, Value *V);
   static MapItem *wrnSeenAsMap(WRegionNode *W, Value *V);
@@ -298,6 +299,22 @@ public:
   static bool findUsersInRegion(WRegionNode *W, Value *V,
                                 SmallVectorImpl<Instruction *> *Users=nullptr,
                                 bool ExcludeDirective = true);
+
+  /// \brief The utility to create the loop and update the loopinfo.
+  static Loop *createLoop(Loop *L, Loop *PL, LoopInfo *LI);
+
+  /// \brief The utility to add the given BB into the loop.
+  static void updateBBForLoop(BasicBlock *BB, Loop *L, Loop *PL, LoopInfo *LI);
+
+  /// \brief Return true if the given loop is do-while loop.
+  static bool isDoWhileLoop(Loop *L);
+
+  /// \brief Return true if the given loop is while loop.
+  static bool isWhileLoop(Loop *L);
+
+  /// \brief Return the loop type (do-while, while loop or unknown loop) for the
+  /// given loop.
+  static unsigned getLoopType(Loop *L);
 };
 
 } // End VPO Namespace

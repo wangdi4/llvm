@@ -24,10 +24,6 @@
 
 #define DEBUG_TYPE "vpo-wrnnode"
 
-// Define this to 1 for OpenCL (eg, features/vpo branch)
-// Define it to 0 for vpo-xmain
-#define VPO_FOR_OPENCL 0
-
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -42,6 +38,8 @@ std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNDistributeParLoop, "distribute parallel loop"},
     {WRegionNode::WRNTarget, "target"},
     {WRegionNode::WRNTargetData, "target data"},
+    {WRegionNode::WRNTargetEnterData, "target enter data"},
+    {WRegionNode::WRNTargetExitData, "target exit data"},
     {WRegionNode::WRNTargetUpdate, "target update"},
     {WRegionNode::WRNTask, "task"},
     {WRegionNode::WRNTaskloop, "taskloop"},
@@ -50,14 +48,14 @@ std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNSections, "sections"},
     {WRegionNode::WRNWorkshare, "workshare"},
     {WRegionNode::WRNDistribute, "distribute"},
-    {WRegionNode::WRNSingle, "single"},
-    {WRegionNode::WRNMaster, "master"},
     {WRegionNode::WRNAtomic, "atomic"},
     {WRegionNode::WRNBarrier, "barrier"},
     {WRegionNode::WRNCancel, "cancel"},
     {WRegionNode::WRNCritical, "critical"},
     {WRegionNode::WRNFlush, "flush"},
     {WRegionNode::WRNOrdered, "ordered"},
+    {WRegionNode::WRNMaster, "master"},
+    {WRegionNode::WRNSingle, "single"},
     {WRegionNode::WRNTaskgroup, "taskgroup"},
     {WRegionNode::WRNTaskwait, "taskwait"},
     {WRegionNode::WRNTaskyield, "taskyield"}};
@@ -90,7 +88,7 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
 /// 3. If the WRN is for a loop construct:
 ///    3a. Find the associated Loop from the LoopInfo.
 ///    3b. If the WRN is a taskloop, set its SchedCode for grainsize/numtasks.
-void WRegionNode::finalize(BasicBlock *ExitBB) {
+void WRegionNode::finalize(BasicBlock *ExitBB, DominatorTree *DT) {
   setExitBBlock(ExitBB);
 
   // Firstprivate and lastprivate clauses may have the same item X
@@ -129,7 +127,7 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
     LoopInfo *LI = getWRNLoopInfo().getLoopInfo();
     assert(LI && "LoopInfo not present in a loop construct");
     BasicBlock *EntryBB = getEntryBBlock();
-    Loop *Lp = IntelGeneralUtils::getLoopFromLoopInfo(LI, EntryBB, ExitBB);
+    Loop *Lp = IntelGeneralUtils::getLoopFromLoopInfo(LI, DT, EntryBB, ExitBB);
 
     // Do not assert for loop-type constructs when Lp==NULL because transforms
     // before Paropt may have optimized away the loop.
@@ -155,7 +153,6 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
         setSchedCode(0);
     }
 
-#if VPO_FOR_OPENCL
     // For OpenCL, the vectorizer requires that the second operand of
     // __read_pipe_2_bl_intel() be privatized. The code below will look at
     // each occurrence of such a call in the WRN, and find the corresponding
@@ -189,8 +186,20 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
           }
       resetBBSet();
     }
-#endif //VPO_FOR_OPENCL
   } // if (getIsOmpLoop())
+
+  // All target constructs except for "target data" are task-generating
+  // constructs. Furthermore, when the construct has a nowait or depend clause,
+  // then the resulting task is not undeferred (ie, asynchronous offloading).
+  // We want to set the "IsTask" attribute of these target constructs to
+  // facilitate code generation.
+  if (getIsTarget() && getWRegionKindID() != WRNTargetData) {
+    assert(canHaveDepend() && "Corrupt WRN? Depend Clause should be allowed");
+    if (getNowait() || !getDepend().empty()) {
+      // TODO: turn on this code after verifying that task codegen supports it
+      // setIsTask();
+    }
+  }
 }
 
 /// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
@@ -622,6 +631,12 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_DEVICE:
     setDevice(V);
     break;
+  case QUAL_OMP_NORMALIZED_IV:
+    getWRNLoopInfo().setNormIV(V);
+    break;
+  case QUAL_OMP_NORMALIZED_UB:
+    getWRNLoopInfo().setNormUB(V);
+    break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpnd()");
   }
@@ -721,8 +736,30 @@ void WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
 
   if (ClauseInfo.getIsArraySection()) {
     //TODO: Parse array section arguments.
+  } else if (ClauseInfo.getIsMapAggrHead() || ClauseInfo.getIsMapAggr()) {
+    // "AGGRHEAD" or "AGGR" seen: expect 3 arguments: BasePtr, SectionPtr, Size
+    assert(NumArgs == 3 && "Malformed MAP:AGGR[HEAD] clause");
+
+    // Create a MapAggr for the triple: <BasePtr, SectionPtr, Size>.
+    Value *BasePtr = (Value *)Args[0];
+    Value *SectionPtr = (Value *)Args[1];
+    Value *Size = (Value *)Args[2];
+    MapAggrTy *Aggr = new MapAggrTy(BasePtr, SectionPtr, Size);
+
+    MapItem *MI;
+    if (ClauseInfo.getIsMapAggrHead()) { // Start a new chain: Add a MapItem
+      MI = new MapItem(Aggr);
+      C.add(MI);
+    } else {         // Continue the chain for the last MapItem
+      MI = C.back(); // Get the last MapItem in the MapClause
+      MapChainTy MapChain = MI->getMapChain();
+      assert(MapChain.size() > 0 && "MAP:AGGR cannot start a chain");
+      MapChain.push_back(Aggr);
+    }
+    MI->setMapKind(MapKind);
   }
   else
+    // Scalar map items; create a MapItem for each of them
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = (Value*) Args[I];
       C.add(V);
@@ -1190,8 +1227,16 @@ bool WRegionNode::canHaveUseDevicePtr() const {
 }
 
 bool WRegionNode::canHaveDepend() const {
-  // Only task-type constructs take depend clauses
-  return getIsTask();
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTask:
+  case WRNTarget:
+  case WRNTargetEnterData:
+  case WRNTargetExitData:
+  case WRNTargetUpdate:
+    return true;
+  }
+  return false;
 }
 
 bool WRegionNode::canHaveDepSink() const {

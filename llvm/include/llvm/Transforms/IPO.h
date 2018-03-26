@@ -269,6 +269,10 @@ ModulePass *createIPCloningLegacyPass(bool AfterInl = false);
 /// \brief This pass parses -[no]inline-list option and assigns corresponding
 /// attributes to callsites (for experimental purposes).
 ModulePass *createInlineListsPass();
+
+/// \brief This pass implements optimization of dynamic_cast calls depending on
+/// the classes hierarchy.
+ModulePass *createOptimizeDynamicCastsPass();
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

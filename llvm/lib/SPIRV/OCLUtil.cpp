@@ -217,9 +217,9 @@ void
 decodeMDNode(MDNode* N, unsigned& X, unsigned& Y, unsigned& Z) {
   if (N == NULL)
     return;
-  X = getMDOperandAsInt(N, 1);
-  Y = getMDOperandAsInt(N, 2);
-  Z = getMDOperandAsInt(N, 3);
+  X = getMDOperandAsInt(N, 0);
+  Y = getMDOperandAsInt(N, 1);
+  Z = getMDOperandAsInt(N, 2);
 }
 
 /// Encode LLVM type by SPIR-V execution mode VecTypeHint
@@ -284,7 +284,7 @@ decodeVecTypeHint(LLVMContext &C, unsigned code) {
 
 unsigned
 transVecTypeHint(MDNode* Node) {
-  return encodeVecTypeHint(getMDOperandAsType(Node, 1));
+  return encodeVecTypeHint(getMDOperandAsType(Node, 0));
 }
 
 SPIRAddressSpace

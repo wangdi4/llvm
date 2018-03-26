@@ -1,5 +1,7 @@
-// RUN: llvm-mc -filetype=obj -triple x86_64-pc-linux-gnu %s -o - | llvm-readobj -s -sd | FileCheck %s
-
+// INTEL_CUSTOMIZATION BEGIN
+// Added -dwarf-line-version=4 as workaround for ld.gold internal error until CMPLRS-48167 is fixed.
+// RUN: llvm-mc -dwarf-line-version=4 -filetype=obj -triple x86_64-pc-linux-gnu %s -o - | llvm-readobj -s -sd | FileCheck %s
+// INTEL_CUSTOMIZATION END
 // Test that .debug_line is populated.  TODO: This test should really be using
 // llvm-dwarfdump, but it cannot parse this particular object file.  The content
 // of .debug_line was checked using GNU binutils:

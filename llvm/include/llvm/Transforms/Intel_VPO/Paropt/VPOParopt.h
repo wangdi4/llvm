@@ -28,9 +28,12 @@
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
+
+#include <functional>
 
 namespace llvm {
 
@@ -66,7 +69,56 @@ enum VPOParoptMode {
   OmpTbb     = 0x00000100  // emit tbb_omp_task_* calls (instead of kmpc_task_*)
 };
 
-/// \brief VPOParopt class for performing parallelization and offloading
+} // end namespace vpo
+
+/// \brief VPOParopt Pass for the new Pass Manager. Performs parallelization and
+/// offloading transformations.
+class VPOParoptPass : public PassInfoMixin<VPOParoptPass> {
+
+public:
+  explicit VPOParoptPass(unsigned MyMode = vpo::ParTrans | vpo::OmpPar |
+                                           vpo::OmpVec,
+                         const std::vector<std::string> &OffloadTargets = {});
+  ~VPOParoptPass(){};
+
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+  bool
+  runImpl(Module &M,
+          std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter);
+
+private:
+  /// \brief Creates the global llvm.global_ctors initialized
+  /// with the function .omp_offloading.descriptor_reg
+  void genCtorList(Module &M);
+
+  /// \brief Remove routines and global variables which has no target declare
+  /// attribute.
+  void removeTargetUndeclaredGlobals(Module &M);
+
+  /// \brief Transform the use of the tid global into __kmpc_global_thread_num
+  /// or the the use of the first argument of the OMP outlined function. The use
+  /// of bid global is transformed accordingly.
+  void fixTidAndBidGlobals(Module &M);
+
+  /// \brief The utility to transform the tid/bid global variable.
+  void processUsesOfGlobals(Constant *PtrHolder,
+                            SmallVectorImpl<Instruction *> &RewriteIns,
+                            bool IsTid);
+
+  // \brief Collect the uses of the given global variable.
+  void collectUsesOfGlobals(Constant *PtrHolder,
+                            SmallVectorImpl<Instruction *> &RewriteIns);
+
+  // Paropt mode.
+  unsigned Mode;
+
+  // List of target triples for offloading.
+  SmallVector<Triple, 16> OffloadTargets;
+};
+
+namespace vpo {
+/// \brief VPOParopt Pass wrapper for the old Pass Manager. Performs
+/// parallelization and offloading transformation.
 class VPOParopt : public ModulePass {
 
 public:
@@ -74,7 +126,7 @@ public:
   static char ID;
 
   explicit VPOParopt(unsigned MyMode = ParTrans | OmpPar | OmpVec,
-    const std::vector<std::string> &OffloadTargets = {});
+                     const std::vector<std::string> &OffloadTargets = {});
   ~VPOParopt(){};
 
   StringRef getPassName() const override { return "VPO Paropt Pass"; }
@@ -85,20 +137,7 @@ public:
   // void print(raw_ostream &OS, const Module * = nullptr) const override;
 
 private:
-  WRegionInfo *WI;
-  /// \brief Creates the global llvm.global_ctors initialized
-  /// with the function .omp_offloading.descriptor_reg
-  void genCtorList(Module &M);
-
-  /// \brief Remove routines and global variables which has no target declare
-  /// attribute.
-  void removeTargetUndeclaredGlobals(Module &M);
-
-  // Paropt mode.
-  unsigned Mode;
-
-  // List of target triples for offloading.
-  SmallVector<Triple, 16> OffloadTargets;
+  VPOParoptPass Impl;
 };
 
 } // end namespace vpo

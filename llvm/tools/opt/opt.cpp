@@ -430,6 +430,9 @@ int main(int argc, char **argv) {
   initializeIntel_VPOAnalysis(Registry);
   initializeIntel_VPOTransforms(Registry);
   initializeDTransAnalysisWrapperPass(Registry);
+  initializeDTransAOSToSOAWrapperPass(Registry);
+  initializeDTransDeleteFieldWrapperPass(Registry);
+  initializeOptimizeDynamicCastsWrapperPass(Registry);
 #endif  // INTEL_CUSTOMIZATION
 
 #ifdef LINK_POLLY_INTO_TOOLS

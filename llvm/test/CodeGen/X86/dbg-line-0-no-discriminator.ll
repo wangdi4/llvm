@@ -1,4 +1,7 @@
-; RUN: llc -filetype=obj -use-unknown-locations=Enable -mtriple=x86_64-unknown-linux %s -o %t
+; INTEL_CUSTOMIZATION BEGIN
+; Added -dwarf-line-version=4 as workaround for ld.gold internal error until CMPLRS-48167 is fixed.
+; RUN: llc -filetype=obj -use-unknown-locations=Enable -mtriple=x86_64-unknown-linux -dwarf-line-version=4 %s -o %t
+; INTEL_CUSTOMIZATION END
 ; RUN: llvm-dwarfdump -debug-line %t | FileCheck %s
 
 define void @_Z3bazv() !dbg !6 {

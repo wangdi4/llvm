@@ -16,6 +16,7 @@
 #define LLVM_TRANSFORMS_IPO_ALWAYSINLINER_H
 
 #include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/IPO/InlineReport.h" // INTEL
 
 namespace llvm {
 
@@ -28,7 +29,13 @@ namespace llvm {
 /// uses by inlining them. The \c GlobalDCE pass can be used to remove these
 /// functions once all users are gone.
 struct AlwaysInlinerPass : PassInfoMixin<AlwaysInlinerPass> {
+  AlwaysInlinerPass(); // INTEL
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
+
+  InlineReport& getReport() { return Report; } // INTEL
+
+  // INTEL The inline report
+  InlineReport Report; // INTEL
 };
 
 /// Create a legacy pass manager instance of a pass to inline and remove

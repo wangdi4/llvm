@@ -322,6 +322,7 @@
 ; CHECK-AA-DEFAULT: Running analysis: BasicAA
 ; CHECK-AA-DEFAULT: Running analysis: ScopedNoAliasAA
 ; CHECK-AA-DEFAULT: Running analysis: TypeBasedAA
+; CHECK-AA-DEFAULT: Running analysis: StdContainerAA  ;INTEL
 ; CHECK-AA-DEFAULT: Finished llvm::Module pass manager run
 
 ; RUN: opt -disable-output -disable-verify -debug-pass-manager %s 2>&1 \
@@ -450,10 +451,14 @@
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}>
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Starting llvm::Function pass manager run
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running pass: FunctionToLoopPassAdaptor
+; CHECK-REPEAT-LOOP-PASS-NEXT: Starting llvm::Function pass manager run
+; CHECK-REPEAT-LOOP-PASS-NEXT: Running pass: LoopSimplify
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: LoopAnalysis
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: AssumptionAnalysis
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Invalidating all non-preserved analyses
+; CHECK-REPEAT-LOOP-PASS-NEXT: Running pass: LCSSAPass
+; CHECK-REPEAT-LOOP-PASS-NEXT: Finished llvm::Function pass manager run
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: AAManager
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: ScalarEvolutionAnalysis

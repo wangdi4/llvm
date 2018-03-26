@@ -2358,7 +2358,7 @@ const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
       FoundMatch = true;
     }
   if (FoundMatch)
-    return getAddExpr(Ops, Flags);
+    return getAddExpr(Ops, Flags, Depth + 1);
 
   // Check for truncates. If all the operands are truncated from the same
   // type, see if factoring out the truncate would permit the result to be
@@ -6739,9 +6739,8 @@ PushLoopPHIs(const Loop *L, SmallVectorImpl<Instruction *> &Worklist) {
   BasicBlock *Header = L->getHeader();
 
   // Push all Loop-header PHIs onto the Worklist stack.
-  for (BasicBlock::iterator I = Header->begin();
-       PHINode *PN = dyn_cast<PHINode>(I); ++I)
-    Worklist.push_back(PN);
+  for (PHINode &PN : Header->phis())
+    Worklist.push_back(&PN);
 }
 
 const ScalarEvolution::BackedgeTakenInfo &
@@ -8067,12 +8066,9 @@ ScalarEvolution::getConstantEvolutionLoopExitValue(PHINode *PN,
   if (!Latch)
     return nullptr;
 
-  for (auto &I : *Header) {
-    PHINode *PHI = dyn_cast<PHINode>(&I);
-    if (!PHI) break;
-    auto *StartCST = getOtherIncomingValue(PHI, Latch);
-    if (!StartCST) continue;
-    CurrentIterVals[PHI] = StartCST;
+  for (PHINode &PHI : Header->phis()) {
+    if (auto *StartCST = getOtherIncomingValue(&PHI, Latch))
+      CurrentIterVals[&PHI] = StartCST;
   }
   if (!CurrentIterVals.count(PN))
     return RetVal = nullptr;
@@ -8149,13 +8145,9 @@ const SCEV *ScalarEvolution::computeExitCountExhaustively(const Loop *L,
   BasicBlock *Latch = L->getLoopLatch();
   assert(Latch && "Should follow from NumIncomingValues == 2!");
 
-  for (auto &I : *Header) {
-    PHINode *PHI = dyn_cast<PHINode>(&I);
-    if (!PHI)
-      break;
-    auto *StartCST = getOtherIncomingValue(PHI, Latch);
-    if (!StartCST) continue;
-    CurrentIterVals[PHI] = StartCST;
+  for (PHINode &PHI : Header->phis()) {
+    if (auto *StartCST = getOtherIncomingValue(&PHI, Latch))
+      CurrentIterVals[&PHI] = StartCST;
   }
   if (!CurrentIterVals.count(PN))
     return getCouldNotCompute();

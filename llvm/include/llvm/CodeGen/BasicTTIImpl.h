@@ -406,10 +406,6 @@ public:
     return BaseT::getInstructionLatency(I);
   }
 
-  bool isOutOfOrder() const {
-    return getST()->getSchedModel().isOutOfOrder();
-  }
-
   /// @}
 
   /// \name Vector TTI Implementations
@@ -924,6 +920,12 @@ public:
                                                        RetTy, Args[0], VarMask,
                                                        Alignment);
     }
+#if INTEL_CUSTOMIZATION
+    case Intrinsic::directive_region_entry:
+    case Intrinsic::directive_region_exit: {
+        return 0;
+    }
+#endif // INTEL_CUSTOMIZATION
     }
   }
 

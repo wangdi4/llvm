@@ -48,7 +48,8 @@
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
-#include "llvm/Transforms/Intel_DTrans/DTransOpt.h"
+#include "llvm/Transforms/Intel_DTrans/AOSToSOA.h"
+#include "llvm/Transforms/Intel_DTrans/DeleteField.h"
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -57,6 +58,8 @@
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
+#include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
+#include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
 #endif //INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -123,8 +126,9 @@ static cl::opt<bool> EnableLoopInterchange(
     cl::desc("Enable the new, experimental LoopInterchange Pass"));
 
 #if INTEL_CUSTOMIZATION
-static cl::opt<bool> RunVPOOpt("vpoopt", cl::init(true), cl::Hidden,
-                               cl::desc("Runs all VPO passes"));
+enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
+static cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
+                                   cl::Hidden, cl::desc("Runs all VPO passes"));
 
 static cl::opt<bool> RunVPOVecopt("vecopt",
   cl::init(false), cl::Hidden,
@@ -234,6 +238,10 @@ static cl::opt<bool> EnableFunctionSplitting("enable-function-splitting",
   cl::init(false), cl::Hidden,
   cl::desc("Enable function splitting optimization based on PGO data"));
 
+// Function multi-versioning.
+static cl::opt<bool> EnableMultiVersioning("enable-multiversioning",
+  cl::init(false), cl::Hidden,
+  cl::desc("Enable Function Multi-versioning"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -400,21 +408,6 @@ void PassManagerBuilder::populateFunctionPassManager(
 #if INTEL_CUSTOMIZATION
   FPM.add(createXmainOptLevelWrapperPass(OptLevel));
   if (RunVPOOpt && RunVPOParopt && !DisableIntelProprietaryOpts) {
-    if (OptLevel == 0) {
-      // To handle OpenMP we also need SROA and EarlyCSE, but they are disabled
-      // at -O0, so we explicitly add them to the pass pipeline here.
-      //
-      // CMPLRS-46446: Adding them below is not enough. These passes, like many
-      // passes, call skipFunction() and bail out at -O0. The fix was to also
-      // call VPOAnalysisUtils::skipFunctionForOpenmp() from SROA and EarlyCSE
-      // and not bail out if skipFunctionForOpenmp() returns false.
-      // (See SROA.cpp and EarlyCSE.cpp under lib/Transforms/Scalar.)
-      FPM.add(createSROAPass());
-      FPM.add(createEarlyCSEPass());
-    }
-    // The value -1 indicates that the bottom test generation for
-    // loop is always enabled.
-    FPM.add(createLoopRotatePass(-1));
     FPM.add(createVPOCFGRestructuringPass());
     FPM.add(createVPOParoptPreparePass(RunVPOParopt, OffloadTargets));
     if (OptLevel == 0) {
@@ -506,7 +499,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // Propagate TBAA information before SROA so that we can remove mid-function
   // fakeload intrinsics which would block SROA.
   if (EnableTbaaProp)
-    MPM.add(createTbaaMDPropagationPass());
+    MPM.add(createTbaaMDPropagationLegacyPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Break up aggregate allocas, using SSAUpdater.
@@ -657,7 +650,7 @@ void PassManagerBuilder::populateModulePassManager(
 
 #if INTEL_CUSTOMIZATION
   // Process OpenMP directives at -O1 and above
-  if (RunVPOOpt & !DisableIntelProprietaryOpts)
+  if (RunVPOOpt == InvokeParoptBeforeInliner && !DisableIntelProprietaryOpts)
     addVPOPasses(MPM, false);
 #endif // INTEL_CUSTOMIZATION
 
@@ -736,6 +729,11 @@ void PassManagerBuilder::populateModulePassManager(
     RunInliner = true;
   }
 
+#if INTEL_CUSTOMIZATION
+  // Process OpenMP directives at -O1 and above
+  if (RunVPOOpt == InvokeParoptAfterInliner && !DisableIntelProprietaryOpts)
+    addVPOPasses(MPM, false);
+#endif // INTEL_CUSTOMIZATION
   MPM.add(createPostOrderFunctionAttrsLegacyPass());
   if (OptLevel > 2)
     MPM.add(createArgumentPromotionPass()); // Scalarize uninlined fn args
@@ -990,6 +988,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // IP Cloning
   if (EnableIPCloning)
     PM.add(createIPCloningLegacyPass());
+
+  // Apply dynamic_casts optimization pass.
+  PM.add(createOptimizeDynamicCastsWrapperPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Provide AliasAnalysis services for optimizations.
@@ -1028,10 +1029,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createReversePostOrderFunctionAttrsPass());
 
 #if INTEL_CUSTOMIZATION
-  // This optimization pass is just a placeholder, but adding it to the
-  // pipeline causes the DTransAnalysis to be run.
-  if (EnableDTrans)
-    PM.add(createDTransOptWrapperPass());
+  if (EnableDTrans) {
+    PM.add(createDTransDeleteFieldWrapperPass());
+    PM.add(createDTransAOSToSOAWrapperPass());
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Split globals using inrange annotations on GEP indices. This can help
@@ -1119,6 +1120,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableInlineAggAnalysis) {
     PM.add(createAggInlAALegacyPass());
   }
+  if (EnableMultiVersioning)
+    PM.add(createMultiVersioningWrapperPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Run a few AA driven optimizations here and now, to cleanup the code.

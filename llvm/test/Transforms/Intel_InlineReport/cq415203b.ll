@@ -1,6 +1,6 @@
-; It checks that the call to myprintf has been inlined and removed by 
-; dead static function elimination.  It then checks that the function 
-; main still exists, and that the call to @llvm.va_arg_pack has been 
+; It checks that the call to myprintf has been inlined and removed by
+; dead static function elimination.  It then checks that the function
+; main still exists, and that the call to @llvm.va_arg_pack has been
 ; removed and that the function main returns 0.
 
 ; ModuleID = 'cq415203b.cpp'
@@ -8,12 +8,16 @@ source_filename = "cq415203b.cpp"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -inline -inline-report=1 < %s -S 2>&1 | FileCheck %s
-; CHECK: DEAD STATIC FUNC: {{.*}}myprintf{{.*}}
-; CHECK: -> INLINE: {{.*}}myprintf{{.*}}
+; RUN: opt -inline -inline-report=1 < %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-OLD-PM,CHECK
+; RUN: opt -passes='cgscc(inline)' -inline-report=1 < %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-NEW-PM,CHECK
+
+; CHECK-OLD-PM:DEAD STATIC FUNC: {{.*}}myprintf{{.*}}
+; CHECK-OLD-PM: -> INLINE: {{.*}}myprintf{{.*}}
 ; CHECK: define i32 @main()
 ; CHECK-NOT: call i32 @llvm.va_arg_pack
 ; CHECK: ret i32 0
+; CHECK-NEW-PM:DEAD STATIC FUNC: {{.*}}myprintf{{.*}}
+; CHECK-NEW-PM: -> INLINE: {{.*}}myprintf{{.*}}
 
 %struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, i8*, i8*, i8*, i8*, i64, i32, [20 x i8] }
 %struct._IO_marker = type { %struct._IO_marker*, %struct._IO_FILE*, i32 }

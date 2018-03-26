@@ -644,7 +644,7 @@ void VPlanPredicator::linearizeRegionRec(VPRegionBlock *Region) {
       // dbgs() << "LV: VPBlock in RPO " << CurrBlock->getName() << '\n';
 
       // We have to preserve the right order of successors when a
-      // ConditionBitRecipe is kept after linearization. Currently, only loop
+      // ConditionBit is kept after linearization. Currently, only loop
       // latches' CBRs are preserved. For that reason, we keep intact loop
       // latches' successors or loop header's predecessors.
       // Current implementation doesn't work if a loop latch has a switch.

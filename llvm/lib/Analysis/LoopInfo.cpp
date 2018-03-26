@@ -733,7 +733,7 @@ PreservedAnalyses LoopPrinterPass::run(Function &F,
 }
 
 void llvm::printLoop(Loop &L, raw_ostream &OS, const std::string &Banner) {
-
+#if !INTEL_PRODUCT_RELEASE
   if (forcePrintModuleIR()) {
     // handling -print-module-scope
     OS << Banner << " (loop: ";
@@ -770,6 +770,7 @@ void llvm::printLoop(Loop &L, raw_ostream &OS, const std::string &Banner) {
       else
         OS << "Printing <null> block";
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 //===----------------------------------------------------------------------===//

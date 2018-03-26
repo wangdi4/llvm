@@ -364,13 +364,12 @@ CallInst *VPOParoptUtils::genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
   return TaskWaitCall;
 }
 
-
-/// \brief Build int32_t __tgt_target_data_begin(int32_t  device_id,
+/// \brief Build int32_t __tgt_target_data_begin(int64_t  device_id,
 ///                                              int32_t  num_args,
 ///                                              void**   args_base,
 ///                                              void**   args,
 ///                                              int64_t* args_size,
-///                                              int32_t* args_maptype)
+///                                              int64_t* args_maptype)
 ///
 CallInst *VPOParoptUtils::genTgtTargetDataBegin(WRegionNode *W, int NumArgs,
                                                 Value *ArgsBase, Value *Args,
@@ -384,12 +383,12 @@ CallInst *VPOParoptUtils::genTgtTargetDataBegin(WRegionNode *W, int NumArgs,
   return Call;
 }
 
-/// \brief Build int32_t __tgt_target_data_end(int32_t  device_id,
+/// \brief Build int32_t __tgt_target_data_end(int64_t  device_id,
 ///                                            int32_t  num_args,
 ///                                            void**   args_base,
 ///                                            void**   args,
 ///                                            int64_t* args_size,
-///                                            int32_t* args_maptype)
+///                                            int64_t* args_maptype)
 ///
 CallInst *VPOParoptUtils::genTgtTargetDataEnd(WRegionNode *W, int NumArgs,
                                               Value *ArgsBase, Value *Args,
@@ -403,12 +402,12 @@ CallInst *VPOParoptUtils::genTgtTargetDataEnd(WRegionNode *W, int NumArgs,
   return Call;
 }
 
-/// \brief Build int32_t __tgt_target_data_update(int32_t  device_id,
+/// \brief Build int32_t __tgt_target_data_update(int64_t  device_id,
 ///                                               int32_t  num_args,
 ///                                               void**   args_base,
 ///                                               void**   args,
 ///                                               int64_t* args_size,
-///                                               int32_t* args_maptype)
+///                                               int64_t* args_maptype)
 ///
 CallInst *VPOParoptUtils::genTgtTargetDataUpdate(WRegionNode *W, int NumArgs,
                                                  Value *ArgsBase, Value *Args,
@@ -422,13 +421,13 @@ CallInst *VPOParoptUtils::genTgtTargetDataUpdate(WRegionNode *W, int NumArgs,
   return Call;
 }
 
-/// \brief Build int32_t __tgt_target(int32_t  device_id,
+/// \brief Build int32_t __tgt_target(int64_t  device_id,
 ///                                   void*    host_addr,
 ///                                   int32_t  num_args,
 ///                                   void**   args_base,
 ///                                   void**   args,
 ///                                   int64_t* args_size,
-///                                   int32_t* args_maptype)
+///                                   int64_t* args_maptype)
 ///
 CallInst *VPOParoptUtils::genTgtTarget(WRegionNode *W, Value *HostAddr,
                                        int NumArgs, Value *ArgsBase,
@@ -442,14 +441,13 @@ CallInst *VPOParoptUtils::genTgtTarget(WRegionNode *W, Value *HostAddr,
   return Call;
 }
 
-
-/// \brief Build int32_t __tgt_target_teams(int32_t  device_id,
+/// \brief Build int32_t __tgt_target_teams(int64_t  device_id,
 ///                                         void*    host_addr,
 ///                                         int32_t  num_args,
 ///                                         void**   args_base,
 ///                                         void**   args,
 ///                                         int64_t* args_size,
-///                                         int32_t* args_maptype,
+///                                         int64_t* args_maptype,
 ///                                         int32_t  num_teams,
 ///                                         int32_t  thread_limit)
 ///
@@ -477,11 +475,11 @@ CallInst *VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
 
 /// \brief Base routine to create one of these libomptarget calls:
 /// \code
-///   void    __tgt_target_data_begin( int32_t device_id, <common>)
-///   void    __tgt_target_data_end(   int32_t device_id, <common>)
-///   void    __tgt_target_data_update(int32_t device_id, <common>)
-///   int32_t __tgt_target(int32_t device_id, void *host_addr, <common>)
-///   int32_t __tgt_target_teams(int32_t device_id, void *host_addr,
+///   void    __tgt_target_data_begin( int64_t device_id, <common>)
+///   void    __tgt_target_data_end(   int64_t device_id, <common>)
+///   void    __tgt_target_data_update(int64_t device_id, <common>)
+///   int32_t __tgt_target(int64_t device_id, void *host_addr, <common>)
+///   int32_t __tgt_target_teams(int64_t device_id, void *host_addr,
 ///                              <common>, int32_t num_teams,
 ///                              int32_t thread_limit)
 /// \endcode
@@ -491,7 +489,7 @@ CallInst *VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
 ///   void**   args_base,   // array of base pointers being mapped
 ///   void**   args,        // array of section pointers (base+offset)
 ///   int64_t* args_size,   // array of sizes (bytes) of each mapped datum
-///   int32_t* args_maptype // array of map attributes for each mapping
+///   int64_t* args_maptype // array of map attributes for each mapping
 /// \endcode
 CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
                                      int NumArgsCount, Value *ArgsBase,
@@ -505,23 +503,26 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
   LLVMContext &C = F->getContext();
 
   Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
   Type *ReturnTy; // void for _tgt_target_data_*(); i32 otherwise
 
   Value *NumTeams = nullptr;
   Value *ThreadLimit = nullptr;
 
-  // First parm: "int32_t device_id"
+  // First parm: "int64_t device_id"
   Value *DeviceID;
   if (DeviceIDPtr == nullptr) {
     // user did not specify device; default is -1
-    DeviceID = Builder.getInt32(-1);
+    DeviceID = ConstantInt::get(Int64Ty, -1);
   } else if (isa<Constant>(DeviceIDPtr))
-    DeviceID = DeviceIDPtr;
-  else
+    DeviceID = Builder.CreateSExtOrBitCast(DeviceIDPtr, Int64Ty);
+  else {
     DeviceID = new LoadInst(DeviceIDPtr, "deviceID", InsertPt);
+    DeviceID = Builder.CreateSExtOrBitCast(DeviceID, Int64Ty);
+  }
 
   SmallVector<Value *, 9> FnArgs    = { DeviceID };
-  SmallVector<Type *, 9> FnArgTypes = { Int32Ty  };
+  SmallVector<Type *, 9> FnArgTypes = {Int64Ty};
 
   if (HostAddr) {
     // HostAddr!=null means FnName is __tgt_target or __tgt_target_teams
@@ -1682,7 +1683,7 @@ CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
 // by emitting calls to `__kmpc_critical` before `BeginInst`, and
 // `__kmpc_end_critical` after `EndInst`.
 bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                            AllocaInst *TidPtr,
+                                            Constant *TidPtr,
                                             const StringRef &LockNameSuffix) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
@@ -1733,7 +1734,7 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
 // Wraps the above function for case when the caller does not provide a lock
 // name suffix, and uses a default lock name suffix.
 bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                            AllocaInst *TidPtr) {
+                                            Constant *TidPtr) {
   return genKmpcCriticalSection(W, IdentTy, TidPtr, "");
 }
 
@@ -2096,7 +2097,7 @@ VPOParoptUtils::genKmpcCriticalLockVar(WRegionNode *W,
 
 // Generates a critical section around Instructions `begin` and `end`.
 bool VPOParoptUtils::genKmpcCriticalSectionImpl(
-    WRegionNode *W, StructType *IdentTy, AllocaInst *TidPtr,
+    WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
     Instruction *BeginInst, Instruction *EndInst, GlobalVariable *LockVar) {
 
   assert(W != nullptr && "WRegionNode is null.");
@@ -2137,10 +2138,10 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(
 // by emitting calls to `__kmpc_critical` before `BeginInst`, and
 // `__kmpc_end_critical` after `EndInst`.
 bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                            AllocaInst *TidPtr,
+                                            Constant *TidPtr,
                                             Instruction *BeginInst,
                                             Instruction *EndInst,
-                                            const StringRef& LockNameSuffix) {
+                                            const StringRef &LockNameSuffix) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
@@ -2190,6 +2191,10 @@ CallInst *VPOParoptUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
   else
     Size = MemcpyBuilder.getInt32(
         DL.getTypeAllocSize(D->getType()->getPointerElementType()));
+
+  AllocaInst *AI = dyn_cast<AllocaInst>(D);
+  if (AI && AI->isArrayAllocation())
+    Size = MemcpyBuilder.CreateMul(Size, AI->getArraySize());
 
   return MemcpyBuilder.CreateMemCpy(Dest, Src, Size, Align);
 }

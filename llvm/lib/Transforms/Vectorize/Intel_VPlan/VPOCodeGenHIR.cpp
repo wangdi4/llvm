@@ -44,6 +44,14 @@ static cl::opt<bool>
     DisableStressTest("disable-vplan-stress-test", cl::init(false), cl::Hidden,
                       cl::desc("Disable VPO Vectorizer Stress Testing"));
 
+static cl::opt<bool>
+    EnableNestedBlobVec("enable-nested-blob-vec", cl::init(false), cl::Hidden,
+                        cl::desc("Enable vectorization of loops with nested blobs"));
+
+static cl::opt<bool>
+    EnableBlobCoeffVec("enable-blob-coeff-vec", cl::init(false), cl::Hidden,
+                       cl::desc("Enable vectorization of loops with blob IV coefficients"));
+
 /// Don't vectorize loops with a known constant trip count below this number if
 /// set to a non zero value.
 static cl::opt<unsigned> TinyTripCountThreshold(
@@ -63,6 +71,197 @@ static RegDDRef *getConstantSplatDDRef(DDRefUtils &DDRU, Constant *ConstVal,
   if (isa<ConstantVector>(ConstVec))
     return DDRU.createConstDDRef(cast<ConstantVector>(ConstVec));
   llvm_unreachable("Unhandled vector type");
+}
+
+// This class implements code generation for a nested blob.
+class NestedBlobCG : public SCEVVisitor<NestedBlobCG, RegDDRef *> {
+private:
+  const RegDDRef *RDDR;
+  HLNodeUtils &HNU;
+  DDRefUtils &DDRU;
+  VPOCodeGenHIR *ACG;
+  RegDDRef *MaskDDRef;
+
+  enum NewOpCodes {
+    NewOpsStart = Instruction::OtherOpsEnd + 1,
+    UMaxOp,
+    SMaxOp,
+    NewOpsEnd
+  };
+
+  // Add instruction at end of main loop after adding mask if mask is not null.
+  void addInst(HLInst *Inst) {
+    if (MaskDDRef)
+      Inst->setMaskDDRef(MaskDDRef->clone());
+    HLNodeUtils::insertAsLastChild(ACG->getMainLoop(), Inst);
+  }
+
+  RegDDRef *codegenStandAloneBlob(const SCEV *SC);
+  RegDDRef *codegenNAryOp(const SCEVNAryExpr *SC, unsigned OpCode);
+  RegDDRef *codegenUDivOp(const SCEVUDivExpr *SC);
+  RegDDRef *codegenCoeff(Constant *Const);
+  RegDDRef *codegenCoeff(int64_t Coeff, Type *Ty);
+  RegDDRef *codegenConversion(RegDDRef *Src, unsigned ConvOpCode,
+                              Type *DestType);
+
+public:
+  NestedBlobCG(const RegDDRef *R, HLNodeUtils &H, DDRefUtils &D, VPOCodeGenHIR *C,
+               RegDDRef *M)
+      : RDDR(R), HNU(H), DDRU(D), ACG(C), MaskDDRef(M) {}
+
+  RegDDRef *visitConstant(const SCEVConstant *Constant);
+  RegDDRef *visitTruncateExpr(const SCEVTruncateExpr *Expr);
+  RegDDRef *visitZeroExtendExpr(const SCEVZeroExtendExpr *Expr);
+  RegDDRef *visitSignExtendExpr(const SCEVSignExtendExpr *Expr);
+  RegDDRef *visitAddExpr(const SCEVAddExpr *Expr);
+  RegDDRef *visitMulExpr(const SCEVMulExpr *Expr);
+  RegDDRef *visitUDivExpr(const SCEVUDivExpr *Expr);
+  RegDDRef *visitAddRecExpr(const SCEVAddRecExpr *Expr);
+  RegDDRef *visitSMaxExpr(const SCEVSMaxExpr *Expr);
+  RegDDRef *visitUMaxExpr(const SCEVUMaxExpr *Expr);
+  RegDDRef *visitUnknown(const SCEVUnknown *Expr);
+  RegDDRef *visitCouldNotCompute(const SCEVCouldNotCompute *Expr);
+};
+
+RegDDRef *NestedBlobCG::codegenCoeff(Constant *Const) {
+  return getConstantSplatDDRef(DDRU, Const, ACG->getVF());
+}
+
+RegDDRef *NestedBlobCG::codegenCoeff(int64_t Coeff, Type *Ty) {
+  Constant *ConstCoeff;
+
+  // Null value for pointer types needs special treatment
+  if (Coeff == 0 && Ty->isPointerTy()) {
+    ConstCoeff = Constant::getNullValue(Ty);
+  } else {
+    ConstCoeff = ConstantInt::getSigned(Ty, Coeff);
+  }
+
+  return codegenCoeff(ConstCoeff);
+}
+
+RegDDRef *NestedBlobCG::codegenConversion(RegDDRef *Src, unsigned ConvOpCode,
+                                          Type *DestType) {
+  assert((ConvOpCode == Instruction::ZExt || ConvOpCode == Instruction::SExt ||
+          ConvOpCode == Instruction::Trunc) &&
+         "Unexpected conversion OpCode");
+
+  Type *VecTy = VectorType::get(DestType, ACG->getVF());
+  HLInst *WideInst =
+      HNU.createCastHLInst(VecTy, ConvOpCode, Src->clone(), "NBConv");
+  addInst(WideInst);
+  return WideInst->getLvalDDRef();
+}
+
+// Given the SCEV expression for a standalone blob, return the widened Ref
+// corresponding to the same.
+RegDDRef *NestedBlobCG::codegenStandAloneBlob(const SCEV *SC) {
+  unsigned BlobIndex = RDDR->getBlobUtils().findBlob(SC);
+  assert(BlobIndex != InvalidBlobIndex && "SCEV is not a Blob");
+
+  const BlobDDRef *BDDR = RDDR->getBlobDDRef(BlobIndex);
+  assert(BDDR != nullptr && "BlobDDRef not found!");
+
+  RegDDRef *WideRef;
+
+  if (auto WInst = ACG->getWideInst(BDDR->getSymbase())) {
+    WideRef = WInst->getLvalDDRef();
+  } else {
+    WideRef = DDRU.createScalarRegDDRef(
+                                        BDDR->getSymbase(), BDDR->getCanonExpr()->clone());
+    WideRef = ACG->widenRef(WideRef);
+  }
+
+  return WideRef;
+}
+
+RegDDRef *NestedBlobCG::codegenNAryOp(const SCEVNAryExpr *SC, unsigned OpCode) {
+  assert(SC->getNumOperands() && "Unexpected SCEV with no operands");
+  auto SCOperands = SC->operands();
+
+  // Initialize OpTree with the first operand
+  RegDDRef *CurDDRef = visit(*SCOperands.begin());
+  for (auto Op = std::next(SCOperands.begin()), OpEnd = SCOperands.end();
+       Op != OpEnd; ++Op) {
+    RegDDRef *InnerDDRef = visit(*Op);
+    HLInst *WideInst;
+
+    if (OpCode == UMaxOp) {
+      WideInst = HNU.createSelect(CmpInst::ICMP_UGT, CurDDRef->clone(),
+                                  InnerDDRef->clone(), CurDDRef->clone(),
+                                  InnerDDRef->clone(), "NAry");
+    } else if (OpCode == SMaxOp) {
+      WideInst = HNU.createSelect(CmpInst::ICMP_SGT, CurDDRef->clone(),
+                                  InnerDDRef->clone(), CurDDRef->clone(),
+                                  InnerDDRef->clone(), "NAry");
+    } else {
+      WideInst = HNU.createBinaryHLInst(OpCode, CurDDRef->clone(),
+                                        InnerDDRef->clone(), "NAry");
+    }
+
+    addInst(WideInst);
+    CurDDRef = WideInst->getLvalDDRef();
+  }
+
+  return CurDDRef;
+}
+
+RegDDRef *NestedBlobCG::visitConstant(const SCEVConstant *Constant) {
+  return codegenCoeff(Constant->getValue());
+}
+
+RegDDRef *NestedBlobCG::visitTruncateExpr(const SCEVTruncateExpr *Expr) {
+  RegDDRef *Src = visit(Expr->getOperand());
+  return codegenConversion(Src, Instruction::Trunc, Expr->getType());
+}
+
+RegDDRef *NestedBlobCG::visitZeroExtendExpr(const SCEVZeroExtendExpr *Expr) {
+  RegDDRef *Src = visit(Expr->getOperand());
+  return codegenConversion(Src, Instruction::ZExt, Expr->getType());
+}
+
+RegDDRef *NestedBlobCG::visitSignExtendExpr(const SCEVSignExtendExpr *Expr) {
+  RegDDRef *Src = visit(Expr->getOperand());
+  return codegenConversion(Src, Instruction::SExt, Expr->getType());
+}
+
+RegDDRef *NestedBlobCG::visitAddExpr(const SCEVAddExpr *Expr) {
+  return codegenNAryOp(Expr, Instruction::Add);
+}
+
+RegDDRef *NestedBlobCG::visitMulExpr(const SCEVMulExpr *Expr) {
+  return codegenNAryOp(Expr, Instruction::Mul);
+}
+
+RegDDRef *NestedBlobCG::visitUDivExpr(const SCEVUDivExpr *Expr) {
+  RegDDRef *DivLHS = visit(Expr->getLHS());
+  RegDDRef *DivRHS = visit(Expr->getRHS());
+  HLInst *WideInst;
+
+  WideInst = HNU.createBinaryHLInst(Instruction::UDiv, DivLHS->clone(),
+                                    DivRHS->clone(), "UDiv");
+  addInst(WideInst);
+  return WideInst->getLvalDDRef();
+}
+
+RegDDRef *NestedBlobCG::visitAddRecExpr(const SCEVAddRecExpr *Expr) {
+  llvm_unreachable("Expected add-recs to be broken by canon-expr");
+}
+
+RegDDRef *NestedBlobCG::visitSMaxExpr(const SCEVSMaxExpr *Expr) {
+  return codegenNAryOp(Expr, SMaxOp);
+}
+
+RegDDRef *NestedBlobCG::visitUMaxExpr(const SCEVUMaxExpr *Expr) {
+  return codegenNAryOp(Expr, UMaxOp);
+}
+
+RegDDRef *NestedBlobCG::visitUnknown(const SCEVUnknown *Expr) {
+  return codegenStandAloneBlob(Expr);
+}
+
+RegDDRef *NestedBlobCG::visitCouldNotCompute(const SCEVCouldNotCompute *Expr) {
+  llvm_unreachable("Attempt to use a SCEVCouldNotCompute object!");
 }
 
 bool VPOCodeGenHIR::isConstStrideRef(const RegDDRef *Ref, unsigned NestingLevel,
@@ -292,12 +491,17 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 // Checks Canon Expr to see if we support it. Currently, we do not
 // support blob IV coefficients
 void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
-  if (CExpr->hasIVBlobCoeff(LoopLevel)) {
+  if (!EnableBlobCoeffVec && CExpr->hasIVBlobCoeff(LoopLevel)) {
     DEBUG(dbgs()
           << "VPLAN_OPTREPORT: Loop not handled - IV with blob coefficient\n");
     IsHandled = false;
     return;
   }
+
+  // Skip the bailout for nested blobs if we are enabling vectorization for loops with
+  // nested blobs.
+  if (EnableNestedBlobVec)
+    return;
 
   SmallVector<unsigned, 8> BlobIndices;
   CExpr->collectBlobIndices(BlobIndices, false);
@@ -404,8 +608,13 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     DEBUG(OrigLoop->dump());
 
   if (!MainLoop->hasChildren()) {
+    // TODO: Can this happen if HIR would never let "dead" loops to be in the
+    //       input to the vectorizer? Currently it's not the case, e.g. the loop
+    //       containing a single call to @llvm.assume is not considered as empty
+    //       by HIR framework, but once this is fixed this condition might be
+    //       changed to an assert.
     DEBUG(dbgs() << "\n\n\nRemoving empty loop\n");
-    HLNodeUtils::remove(MainLoop);
+    HLNodeUtils::removeEmptyNodes(MainLoop, true);
   } else {
     // Prevent LLVM from possibly unrolling vectorized loops with non-constant
     // trip counts. See loop in function fxpAutoCorrelation() that is part of
@@ -786,6 +995,16 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
       }
     } else {
       WideRef->setBitCastDestType(PointerType::get(VecRefDestTy, AddressSpace));
+      // When the original scalar ref does not have alignment information
+      // LLVM defaults to the ABI alignment for the ref's type. During widening,
+      // we need to set the widened ref's alignment to the ABI alignment for
+      // the scalar ref's type for such cases.
+      unsigned Alignment = Ref->getAlignment();
+      if (!Alignment) {
+        auto DL = Ref->getDDRefUtils().getDataLayout();
+        Alignment = DL.getABITypeAlignment(RefDestTy);
+        WideRef->setAlignment(Alignment);
+      }
     }
   }
 
@@ -799,24 +1018,39 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
   // variable and replace blobs in Canon Expr with widened equivalents.
   for (auto I = WideRef->canon_begin(), E = WideRef->canon_end(); I != E; ++I) {
     auto CE = *I;
-    bool AnyChange = true;
 
     if (CE->hasIV(NestingLevel)) {
       SmallVector<Constant *, 4> CA;
       Type *Int64Ty = CE->getSrcType();
+      unsigned BlobCoeff;
+      int64_t ConstCoeff;
 
-      CE->getIVCoeff(NestingLevel, nullptr, &IVConstCoeff);
+      CE->getIVCoeff(NestingLevel, &BlobCoeff, &ConstCoeff);
 
       for (unsigned i = 0; i < VF; ++i) {
-        CA.push_back(ConstantInt::getSigned(Int64Ty, IVConstCoeff * i));
+        CA.push_back(ConstantInt::getSigned(Int64Ty, ConstCoeff * i));
       }
       ArrayRef<Constant *> AR(CA);
       auto CV = ConstantVector::get(AR);
 
-      unsigned Idx = 0;
-      CE->getBlobUtils().createBlob(CV, true, &Idx);
-      CE->addBlob(Idx, 1);
-      AnyChange = true;
+      if (BlobCoeff != InvalidBlobIndex) {
+        // Compute Addend = WidenedBlob * CV and add Addend to the canon expression
+        NestedBlobCG CGBlob(Ref, MainLoop->getHLNodeUtils(),
+                            WideRef->getDDRefUtils(), this, nullptr);
+
+        auto NewRef = CGBlob.visit(WideRef->getBlobUtils().getBlob(BlobCoeff));
+        auto CRef  = Ref->getDDRefUtils().createConstDDRef(CV);
+
+        auto TWideInst = MainLoop->getHLNodeUtils().createBinaryHLInst(Instruction::Mul, 
+                                                                       NewRef->clone(), CRef, ".BlobMul");
+        addInst(TWideInst, nullptr);
+        AuxRefs.push_back(TWideInst->getLvalDDRef());
+        CE->addBlob(TWideInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(), 1);
+      } else {
+        unsigned Idx = 0;
+        CE->getBlobUtils().createBlob(CV, true, &Idx);
+        CE->addBlob(Idx, 1);
+      }
     }
 
     SmallVector<unsigned, 8> BlobIndices;
@@ -831,7 +1065,13 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
         continue;
 
       if (CE->getBlobUtils().isNestedBlob(TopBlob)) {
-        assert(false && "Nested blob support TBD");
+        NestedBlobCG CGBlob(Ref, MainLoop->getHLNodeUtils(),
+                            WideRef->getDDRefUtils(), this, nullptr);
+
+        auto NewRef = CGBlob.visit(TopBlob);
+
+        AuxRefs.push_back(NewRef);
+        CE->replaceBlob(BI, NewRef->getSingleCanonExpr()->getSingleBlobIndex());
         continue;
       }
 
@@ -840,22 +1080,21 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
 
       auto OldSymbase = CE->getBlobUtils().getTempBlobSymbase(BI);
 
+      // A temp blob not widened before is a loop invariant - it will be broadcast
+      // in HIRCG when needed.
       if (WidenMap.find(OldSymbase) != WidenMap.end()) {
         auto WInst1 = WidenMap[OldSymbase];
         auto WRef = WInst1->getLvalDDRef();
         AuxRefs.push_back(WRef);
         CE->replaceBlob(BI, WRef->getSingleCanonExpr()->getSingleBlobIndex());
-        AnyChange = true;
       }
     }
 
-    if (AnyChange) {
-      auto VecCEDestTy = VectorType::get(CE->getDestType(), VF);
-      auto VecCESrcTy = VectorType::get(CE->getSrcType(), VF);
+    auto VecCEDestTy = VectorType::get(CE->getDestType(), VF);
+    auto VecCESrcTy = VectorType::get(CE->getSrcType(), VF);
 
-      CE->setDestType(VecCEDestTy);
-      CE->setSrcType(VecCESrcTy);
-    }
+    CE->setDestType(VecCEDestTy);
+    CE->setSrcType(VecCESrcTy);
   }
 
   // The blobs in the scalar ref have been replaced by widened refs, call
@@ -1064,6 +1303,8 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
     Intrinsic::ID ID = Intrinsic::not_intrinsic;
     if (!TLI->isFunctionVectorizable(FnName, VF)) {
       ID = getVectorIntrinsicIDForCall(Call, TLI);
+      // FIXME: We should scalarize calls to @llvm.assume intrinsic instead of
+      //        completely ignoring them.
       if (ID && (ID == Intrinsic::assume || ID == Intrinsic::lifetime_end ||
                  ID == Intrinsic::lifetime_start)) {
         return const_cast<HLInst *>(INode);

@@ -18,7 +18,6 @@
 
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VOLCANOOPENCL_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VOLCANOOPENCL_H
-#if INTEL_OPENCL
 
 namespace llvm {
 
@@ -34,5 +33,4 @@ const char *volcanoScalarSelect[] = {
 
 } // end llvm namespace
 
-#endif // INTEL_OPENCL
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VOLCANOOPENCL_H

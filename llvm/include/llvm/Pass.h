@@ -375,7 +375,9 @@ extern bool isFunctionInPrintList(StringRef FunctionName);
 //  be printing module IR (even for local-pass printers e.g. function-pass)
 //  to provide more context, as enabled by debugging option -print-module-scope
 //  @brief Tells if IR printer should be printing module IR
+#if !INTEL_PRODUCT_RELEASE
 extern bool forcePrintModuleIR();
+#endif // !INTEL_PRODUCT_RELEASE
 
 } // end namespace llvm
 

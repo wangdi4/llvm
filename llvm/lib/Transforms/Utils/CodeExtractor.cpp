@@ -358,6 +358,7 @@ void CodeExtractor::findAllocas(ValueSet &SinkCands, ValueSet &HoistCands,
       auto GetLifeTimeMarkers =
           [&](Instruction *Addr, bool &SinkLifeStart,
               bool &HoistLifeEnd) -> std::pair<Instruction *, Instruction *> {
+
         Instruction *LifeStart = nullptr, *LifeEnd = nullptr;
 
         for (User *U : Addr->users()) {

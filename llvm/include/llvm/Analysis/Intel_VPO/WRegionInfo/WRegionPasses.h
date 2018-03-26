@@ -21,11 +21,11 @@ namespace llvm {
 
 class FunctionPass;
 
-/// createWRegionCollectionPass - This creates a pass that collects W-Regions.
-FunctionPass *createWRegionCollectionPass();
+/// \brief This creates a pass that collects W-Regions.
+FunctionPass *createWRegionCollectionWrapperPassPass();
 
-/// createWRegionInfoPass - This creates a pass that forms W-Region nodes.
-FunctionPass *createWRegionInfoPass();
+/// \brief This creates a pass that forms W-Region nodes.
+FunctionPass *createWRegionInfoWrapperPassPass();
 
 }
 #endif
