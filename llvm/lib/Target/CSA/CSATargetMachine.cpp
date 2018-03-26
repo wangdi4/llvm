@@ -218,6 +218,10 @@ public:
     Banner = std::string("After CSADeadInstructionElim");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
+    addPass(createCSAReassocReducPass(), false);
+    Banner = std::string("After CSAReassocReducPass");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+
     addPass(createCSANormalizeDebugPass(), false);
     Banner = std::string("After CSANormalizeDebug");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
@@ -246,8 +250,8 @@ public:
     // equivalent to the Bitcode emitted by the -flto option.
     addPass(createCSASaveRawBCPass());
 
-		// Do any necessary atomic expansion according to Subtarget features.
-		addPass(createAtomicExpandPass());
+    // Do any necessary atomic expansion according to Subtarget features.
+    addPass(createAtomicExpandPass());
 
     // Pass call onto parent
     TargetPassConfig::addIRPasses();
