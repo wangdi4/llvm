@@ -41,6 +41,11 @@
 ; CHECK:  END REGION
 ;
 ;
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-collapse -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT:    Remark #XXXXX: 3 loops have been collapsed
+; OPTREPORT: LOOP END
+
 ; === ---------------------------------------------------------------- ===
 ; Following is the LLVM's input code!
 ; === ---------------------------------------------------------------- ===
