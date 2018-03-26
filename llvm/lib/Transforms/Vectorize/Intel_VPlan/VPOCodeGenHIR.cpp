@@ -167,8 +167,8 @@ RegDDRef *NestedBlobCG::codegenStandAloneBlob(const SCEV *SC) {
   if (auto WInst = ACG->getWideInst(BDDR->getSymbase())) {
     WideRef = WInst->getLvalDDRef();
   } else {
-    WideRef = DDRU.createScalarRegDDRef(
-                                        BDDR->getSymbase(), BDDR->getCanonExpr()->clone());
+    WideRef = DDRU.createScalarRegDDRef(BDDR->getSymbase(),
+                                        BDDR->getSingleCanonExpr()->clone());
     WideRef = ACG->widenRef(WideRef);
   }
 
