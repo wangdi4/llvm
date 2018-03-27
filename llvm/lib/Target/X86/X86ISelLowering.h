@@ -1078,11 +1078,6 @@ namespace llvm {
 
     bool isIntDivCheap(EVT VT, AttributeList Attr) const override;
 
-#ifndef INTEL_CUSTOMIZATION
-    void markInRegArguments(SelectionDAG &DAG, TargetLowering::ArgListTy& Args)
-      const override;
-#endif //INTEL_CUSTOMIZATION
-
     bool supportSwiftError() const override;
 
     StringRef getStackProbeSymbolName(MachineFunction &MF) const override;
