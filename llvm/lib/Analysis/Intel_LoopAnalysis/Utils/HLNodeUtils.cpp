@@ -3257,6 +3257,9 @@ bool HLNodeUtils::isKnownPredicate(const CanonExpr *LHS, PredicateTy Pred,
   return false;
 }
 
+// TODO: Consider removing AllowNearPerfect argument and
+//       just use bool* IsNearPerfectLoop only instead
+//       similar to the logic of its caller, IsPerfectLoopNest().
 bool HLNodeUtils::hasPerfectLoopProperties(const HLLoop *Lp,
                                            const HLLoop **InnerLp,
                                            bool AllowNearPerfect,
@@ -3304,13 +3307,17 @@ bool HLNodeUtils::hasPerfectLoopProperties(const HLLoop *Lp,
 }
 
 ///  Check if Loop has perfect loop nests
-///  Default to allow pre and post header is false
+///  An innermost loop can't be given as the first argument.
 ///  Default to allow Triangular loop is false with exceptions made for first
 ///  iteration.
-///  Default for AllowNearPerfect is false
-///  If AllowNearPerfect is true, this function will return true for
-///     near-perfect loop of this form:
-///     (stmts found before or after the innermost loop)
+///  IsNearPerfectNest is used as in-out arguement: if non-null,
+///  and whether the loop nest is near perfect (as shown below) will be set
+///  to the argument.
+///  Note that this function returns false if the given loop nest is near
+///  perfect. After all, near perfect is not perfect.
+///
+///     A near-perfect loop is this form:
+///     (stmts found before or after only around the *innermost* loop)
 ///
 ///     do i1
 ///       do i2
@@ -3323,54 +3330,70 @@ bool HLNodeUtils::hasPerfectLoopProperties(const HLLoop *Lp,
 ///       end do
 ///     end do
 ///
-///     s1, s2 are siblings of the innermost loop.
-///     This form may further be transformed to perfect loopnest.
+///     s1, s2 are siblings or preheader/postexit. of the innermost loop.
+///     This form may further be transformed to perfect loopnest by clients.
 ///     Will not make it too general because of compile time considerations
 ///     In addition, if this bool is on, it will indicate if Near Perfect Lp is
-///     found
-///  endif
-///
-bool HLNodeUtils::isPerfectLoopNest(
-    const HLLoop *Loop, const HLLoop **InnermostLoop, bool AllowPrePostHdr,
-    bool AllowTriangularLoop, bool AllowNearPerfect, bool *IsNearPerfectLoop) {
+///     found.
+bool HLNodeUtils::isPerfectLoopNest(const HLLoop *Loop,
+                                    const HLLoop **InnermostLoop,
+                                    bool AllowTriangularLoop,
+                                    bool *IsNearPerfectNest) {
 
   assert(Loop && "Loop is null!");
   assert(!Loop->isInnermost() && "Innermost loop not expected!");
-
   if (!Loop->isDo()) {
     return false;
   }
 
-  if (IsNearPerfectLoop) {
-    *IsNearPerfectLoop = false;
-  }
-
+  // Note the innermost loop never runs as Lp the following loop-body.
+  // It can only be InnerLp.
+  const bool &AllowNearPerfect = static_cast<bool>(IsNearPerfectNest);
+  const HLLoop *Lp = Loop;
+  bool IsNearPerfect = false;
   do {
-    if (!hasPerfectLoopProperties(Loop, &Loop, AllowNearPerfect,
-                                  IsNearPerfectLoop)) {
+    const HLLoop *InnerLp;
+    if (!hasPerfectLoopProperties(Lp, &InnerLp, AllowNearPerfect,
+                                  &IsNearPerfect)) {
+      // We don't allow near-perfection to non-innermost loops
+      // hasPerfectLoopProperties does not allow NearPerfect for
+      // non-innermost loop anyway.
       return false;
     }
 
-    if (!Loop->isDo()) {
+    if (!InnerLp->isDo()) {
       return false;
     }
 
-    if (!AllowPrePostHdr && (Loop->hasPreheader() || Loop->hasPostexit())) {
-      return false;
+    if (InnerLp->hasPreheader() || InnerLp->hasPostexit()) {
+      // We don't allow near-perfection to non-innermost loops
+      // If preheader and postexit exist for a non-innermost loop,
+      // we don't need to look further.
+      if (InnerLp->isInnermost() && AllowNearPerfect) {
+        IsNearPerfect = true;
+      } else {
+        return false;
+      }
     }
 
     // TODO: check if IV belongs to any loop within the perfect loopnest.
-    if (!AllowTriangularLoop && Loop->isTriangularLoop()) {
+    if (!AllowTriangularLoop && InnerLp->isTriangularLoop()) {
       return false;
     }
 
-  } while (!Loop->isInnermost());
+    Lp = InnerLp;
+
+  } while (!Lp->isInnermost());
 
   if (InnermostLoop) {
-    *InnermostLoop = Loop;
+    *InnermostLoop = Lp;
+  }
+  if (IsNearPerfectNest) {
+    *IsNearPerfectNest = IsNearPerfect;
   }
 
-  return true;
+  // NearPerfect is not perfect.
+  return IsNearPerfect ? false : true;
 }
 
 class NonUnitStrideMemRefs final : public HLNodeVisitorBase {

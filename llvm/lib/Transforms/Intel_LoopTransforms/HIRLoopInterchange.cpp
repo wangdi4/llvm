@@ -180,66 +180,81 @@ struct HIRLoopInterchange::CollectCandidateLoops final
       return;
     }
     DEBUG(dbgs() << "In collect Perfect loopnest\n");
-    // Last 3 arguments of next call:
-    // Allow PrePost Hdr, allow Triangular loop, allow Near Perfect loop
+    // Allow Triangular loop, allow Near Perfect loop (and return the result).
     bool IsNearPerfectLoop = false;
-    if (HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop, false, false, true,
-                                       &IsNearPerfectLoop)) {
+    bool IsPerfectNest = HLNodeUtils::isPerfectLoopNest(
+        Loop, &InnermostLoop, false, &IsNearPerfectLoop);
+    assert((!IsPerfectNest || !IsNearPerfectLoop) &&
+           "isPerfectLoopNest is malfunctioning");
 
-      if (LIP->HLS->getSelfLoopStatistics(InnermostLoop)
-              .hasCallsWithUnsafeSideEffects()) {
-        DEBUG(dbgs() << "Skipping loop with calls that have side effects\n");
+    if (!IsPerfectNest && !IsNearPerfectLoop) {
+      // Do not skip recursion.
+      // We might find a perfect loop nest starting from an inner loop.
+      return;
+    }
+
+    if (LIP->HLS->getSelfLoopStatistics(InnermostLoop)
+            .hasCallsWithUnsafeSideEffects()) {
+      DEBUG(dbgs() << "\nSkipping loop with calls that have side effects\n");
+      SkipNode = Loop;
+      return;
+    }
+
+    for (const HLLoop *TmpLoop = InnermostLoop,
+                      *EndLoop = Loop->getParentLoop();
+         TmpLoop != EndLoop; TmpLoop = TmpLoop->getParentLoop()) {
+      if (TmpLoop->hasUnrollEnablingPragma()) {
+        DEBUG(dbgs() << "\nSkipping loop with unroll pragma\n");
         SkipNode = Loop;
         return;
-      }
-
-      for (const HLLoop *TmpLoop = InnermostLoop,
-                        *EndLoop = Loop->getParentLoop();
-           TmpLoop != EndLoop; TmpLoop = TmpLoop->getParentLoop()) {
-        if (TmpLoop->hasUnrollEnablingPragma()) {
-          DEBUG(dbgs() << "Skipping loop with unroll pragma\n");
-          SkipNode = Loop;
-          return;
-        }
-      }
-
-      DEBUG(dbgs() << "Is  Perfect loopnest\n");
-
-      if (!IsNearPerfectLoop) {
-        DEBUG(dbgs() << "Is Perfect");
-        if (HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop)) {
-          DEBUG(dbgs() << "\nHas non unit stride");
-          CandidateLoops.push_back(
-              std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
-        } else {
-          DEBUG(dbgs() << "MemRefs are in unit stride or non-linear Defs");
-        }
-
-        SkipNode = Loop;
-        return;
-
-      } else if (HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop) ||
-                 isBlockingCandidate(Loop)) {
-        // Near perfect loops found
-        DEBUG(dbgs() << "is NearPerfect Loop:\n");
-        DEBUG(dbgs(); Loop->dump());
-        DDGraph DDG = DDA->getGraph(Loop);
-
-        if (DDUtils::enablePerfectLoopNest(const_cast<HLLoop *>(InnermostLoop),
-                                           DDG)) {
-          CandidateLoops.push_back(
-              std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
-          SkipNode = Loop;
-          DEBUG(dbgs() << "Perfect Loopnest enabled\n");
-          DEBUG(dbgs(); Loop->dump());
-          // Save & invalidate later to avoid DDRebuild and safe reduction map
-          // released
-          LIP->PerfectLoopsEnabled.push_back(InnermostLoop);
-          return;
-        }
       }
     }
+
+    bool HasNonUnitStrideRefs =
+        HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop);
+
+    if (IsPerfectNest) {
+
+      DEBUG(dbgs() << "\nIs Perfect Nest\n");
+
+      if (!HasNonUnitStrideRefs) {
+        DEBUG(dbgs() << "\nMemRefs are in unit stride or non-linear Defs\n");
+      } else {
+        DEBUG(dbgs() << "\nHas non unit stride\n");
+        CandidateLoops.push_back(
+            std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
+      }
+
+      SkipNode = Loop;
+      return;
+
+    } else if (HasNonUnitStrideRefs || isBlockingCandidate(Loop)) {
+
+      DEBUG(dbgs() << "\n Is NearPerfect Loop:\n");
+      DEBUG(dbgs(); Loop->dump());
+
+      DDGraph DDG = DDA->getGraph(Loop);
+
+      if (DDUtils::enablePerfectLoopNest(const_cast<HLLoop *>(InnermostLoop),
+                                         DDG)) {
+        CandidateLoops.push_back(
+            std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
+        DEBUG(dbgs() << "Perfect Loopnest enabled\n");
+        DEBUG(dbgs(); Loop->dump());
+        // Save & invalidate later to avoid DDRebuild and safe reduction map
+        // released
+        LIP->PerfectLoopsEnabled.push_back(InnermostLoop);
+      }
+
+      // Nearperfect loops: skip recursion into the nest regardless of
+      // being enabled as perfect loop or not.
+      // Either way, loop interchange is not possible due to unconforming
+      // innermost loop.
+      SkipNode = Loop;
+      return;
+    }
   }
+
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
   bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }

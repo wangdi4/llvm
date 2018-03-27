@@ -1252,14 +1252,11 @@ public:
   }
 
   /// Returns true if Loop is a perfect Loop nest. Also returns the
-  /// innermost loop.
+  /// innermost loop. NearPerfect is only allowed around innermost loop.
   /// Asserts if incoming loop is innermost.
-  /// TODO: AllowPrePostHdr is unused, remove it?
   static bool isPerfectLoopNest(const HLLoop *Loop,
                                 const HLLoop **InnermostLoop = nullptr,
-                                bool AllowPrePostHdr = false,
                                 bool AllowTriangularLoop = false,
-                                bool AllowNearPerfect = false,
                                 bool *IsNearPerfect = nullptr);
 
   /// Any memref with non-unit stride?

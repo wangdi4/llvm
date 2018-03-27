@@ -123,9 +123,11 @@ void HIRLocalityAnalysis::print(raw_ostream &OS, const Module *M) const {
 
     for (auto Lp : OutermostLoops) {
 
+      bool IsNearPerfect = false;
       if (Lp->isInnermost() ||
-          !HLNodeUtils::isPerfectLoopNest(Lp, nullptr, false, false, true,
-                                          nullptr)) {
+          (!HLNodeUtils::isPerfectLoopNest(Lp, nullptr, false,
+                                          &IsNearPerfect) && 
+          !IsNearPerfect)) {
         continue;
       }
 
@@ -521,9 +523,11 @@ void HIRLocalityAnalysis::sortedLocalityLoops(
     SmallVector<const HLLoop *, MaxLoopNestLevel> &SortedLoops) {
   assert(OutermostLoop && " Loop parameter is null.");
   assert(SortedLoops.empty() && "SortedLoops vector is non-empty.");
-  assert(HLNodeUtils::isPerfectLoopNest(OutermostLoop, nullptr, false, false,
-                                        true, nullptr) &&
+  bool IsNearPerfect = false;
+  assert((HLNodeUtils::isPerfectLoopNest(OutermostLoop, nullptr, false,
+                                        &IsNearPerfect) || IsNearPerfect) &&
          "Near perfect loopnest expected!");
+  (void) IsNearPerfect;
 
   // Clear locality by level.
   for (auto &Loc : LocalityByLevel) {
