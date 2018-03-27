@@ -776,12 +776,7 @@ QualType Sema::buildLambdaInitCaptureInitialization(SourceLocation Loc,
   // The init-capture initialization is a full-expression that must be
   // processed as one before we enter the declcontext of the lambda's
   // call-operator.
-#if INTEL_SPECIFIC_CILKPLUS
-  CilkReceiverKind CilkKind = CRK_MaybeReceiver;
-  Result = ActOnFinishFullExpr(Init, Loc, CilkKind,
-#else
   Result = ActOnFinishFullExpr(Init, Loc,
-#endif // INTEL_SPECIFIC_CILKPLUS
                                 /*DiscardedValue*/ false,
                                /*IsConstexpr*/ false,
                                /*IsLambdaInitCaptureInitializer*/ true);
@@ -1173,6 +1168,24 @@ void Sema::ActOnLambdaError(SourceLocation StartLoc, Scope *CurScope,
   PopFunctionScopeInfo();
 }
 
+QualType Sema::getLambdaConversionFunctionResultType(
+    const FunctionProtoType *CallOpProto) {
+  // The function type inside the pointer type is the same as the call
+  // operator with some tweaks. The calling convention is the default free
+  // function convention, and the type qualifications are lost.
+  const FunctionProtoType::ExtProtoInfo CallOpExtInfo = 
+      CallOpProto->getExtProtoInfo();   
+  FunctionProtoType::ExtProtoInfo InvokerExtInfo = CallOpExtInfo;
+  CallingConv CC = Context.getDefaultCallingConvention(
+      CallOpProto->isVariadic(), /*IsCXXMethod=*/false);
+  InvokerExtInfo.ExtInfo = InvokerExtInfo.ExtInfo.withCallingConv(CC);
+  InvokerExtInfo.TypeQuals = 0;
+  assert(InvokerExtInfo.RefQualifier == RQ_None && 
+      "Lambda's call operator should not have a reference qualifier");
+  return Context.getFunctionType(CallOpProto->getReturnType(),
+                                 CallOpProto->getParamTypes(), InvokerExtInfo);
+}
+
 /// \brief Add a lambda's conversion to function pointer, as described in
 /// C++11 [expr.prim.lambda]p6.
 static void addFunctionPointerConversion(Sema &S,
@@ -1188,25 +1201,9 @@ static void addFunctionPointerConversion(Sema &S,
     return;
 
   // Add the conversion to function pointer.
-  const FunctionProtoType *CallOpProto = 
-      CallOperator->getType()->getAs<FunctionProtoType>();
-  const FunctionProtoType::ExtProtoInfo CallOpExtInfo = 
-      CallOpProto->getExtProtoInfo();   
-  QualType PtrToFunctionTy;
-  QualType InvokerFunctionTy;
-  {
-    FunctionProtoType::ExtProtoInfo InvokerExtInfo = CallOpExtInfo;
-    CallingConv CC = S.Context.getDefaultCallingConvention(
-        CallOpProto->isVariadic(), /*IsCXXMethod=*/false);
-    InvokerExtInfo.ExtInfo = InvokerExtInfo.ExtInfo.withCallingConv(CC);
-    InvokerExtInfo.TypeQuals = 0;
-    assert(InvokerExtInfo.RefQualifier == RQ_None && 
-        "Lambda's call operator should not have a reference qualifier");
-    InvokerFunctionTy =
-        S.Context.getFunctionType(CallOpProto->getReturnType(),
-                                  CallOpProto->getParamTypes(), InvokerExtInfo);
-    PtrToFunctionTy = S.Context.getPointerType(InvokerFunctionTy);
-  }
+  QualType InvokerFunctionTy = S.getLambdaConversionFunctionResultType(
+      CallOperator->getType()->castAs<FunctionProtoType>());
+  QualType PtrToFunctionTy = S.Context.getPointerType(InvokerFunctionTy);
 
   // Create the type of the conversion function.
   FunctionProtoType::ExtProtoInfo ConvExtInfo(
@@ -1363,19 +1360,8 @@ static void addBlockPointerConversion(Sema &S,
                                       SourceRange IntroducerRange,
                                       CXXRecordDecl *Class,
                                       CXXMethodDecl *CallOperator) {
-  const FunctionProtoType *Proto =
-      CallOperator->getType()->getAs<FunctionProtoType>();
-
-  // The function type inside the block pointer type is the same as the call
-  // operator with some tweaks. The calling convention is the default free
-  // function convention, and the type qualifications are lost.
-  FunctionProtoType::ExtProtoInfo BlockEPI = Proto->getExtProtoInfo();
-  BlockEPI.ExtInfo =
-      BlockEPI.ExtInfo.withCallingConv(S.Context.getDefaultCallingConvention(
-          Proto->isVariadic(), /*IsCXXMethod=*/false));
-  BlockEPI.TypeQuals = 0;
-  QualType FunctionTy = S.Context.getFunctionType(
-      Proto->getReturnType(), Proto->getParamTypes(), BlockEPI);
+  QualType FunctionTy = S.getLambdaConversionFunctionResultType(
+      CallOperator->getType()->castAs<FunctionProtoType>());
   QualType BlockPtrTy = S.Context.getBlockPointerType(FunctionTy);
 
   FunctionProtoType::ExtProtoInfo ConversionEPI(

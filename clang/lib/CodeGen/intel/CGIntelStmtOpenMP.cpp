@@ -13,7 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if INTEL_SPECIFIC_OPENMP
 #include "CGIntelStmtOpenMP.h"
 using namespace clang;
 using namespace CodeGen;
@@ -751,37 +750,6 @@ namespace CGIntelOpenMP {
     emitOpndClause();
   }
 
-  void OpenMPCodeOutliner::emitOMPMapClause(const OMPMapClause *Cl) {
-    StringRef Op;
-    switch (Cl->getMapType()) {
-    case OMPC_MAP_alloc:
-      Op = "QUAL.OMP.MAP.ALLOC";
-      break;
-    case OMPC_MAP_to:
-      Op = "QUAL.OMP.MAP.TO";
-      break;
-    case OMPC_MAP_from:
-      Op = "QUAL.OMP.MAP.FROM";
-      break;
-    case OMPC_MAP_tofrom:
-    case OMPC_MAP_unknown:
-      Op = "QUAL.OMP.MAP.TOFROM";
-      break;
-    case OMPC_MAP_delete:
-      Op = "QUAL.OMP.MAP.DELETE";
-      break;
-    case OMPC_MAP_release:
-      Op = "QUAL.OMP.MAP.RELEASE";
-      break;
-    case OMPC_MAP_always:
-      llvm_unreachable("Unexpected mapping type");
-    }
-    addArg(Op);
-    for (auto *E : Cl->varlists())
-      addArg(E);
-    emitListClause();
-  }
-
   void OpenMPCodeOutliner::emitOMPScheduleClause(const OMPScheduleClause *C) {
     int DefaultChunkSize = 0;
     SmallString<64> SchedString;
@@ -1410,6 +1378,14 @@ namespace CGIntelOpenMP {
     startDirectiveIntrinsicSet("DIR.OMP.TARGET.UPDATE",
                                "DIR.OMP.END.TARGET.UPDATE");
   }
+  void OpenMPCodeOutliner::emitOMPTargetEnterDataDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.TARGET.ENTER.DATA",
+                               "DIR.OMP.END.TARGET.ENTER.DATA");
+  }
+  void OpenMPCodeOutliner::emitOMPTargetExitDataDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.TARGET.EXIT.DATA",
+                               "DIR.OMP.END.TARGET.EXIT.DATA");
+  }
   void OpenMPCodeOutliner::emitOMPTaskDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.TASK", "DIR.OMP.END.TASK");
   }
@@ -1443,8 +1419,42 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPParallelSectionsDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.PARALLEL.SECTIONS", "DIR.OMP.END.PARALLEL.SECTIONS");
   }
-  OpenMPCodeOutliner &OpenMPCodeOutliner::operator<<(
-                                         ArrayRef<OMPClause *> Clauses) {
+
+  static StringRef getCancelQualString(OpenMPDirectiveKind Kind) {
+    switch (Kind) {
+    case OMPD_parallel:
+      return "PARALLEL";
+    case OMPD_sections:
+      return "SECTIONS";
+    case OMPD_for:
+      return "LOOP";
+    case OMPD_taskgroup:
+      return "TASKGROUP";
+    default:
+      llvm_unreachable("Unexpected cancel region type");
+    }
+  }
+
+  void OpenMPCodeOutliner::emitOMPCancelDirective(OpenMPDirectiveKind Kind) {
+    startDirectiveIntrinsicSet("DIR.OMP.CANCEL", "DIR.OMP.END.CANCEL");
+    SmallString<32> Qual;
+    Qual = "QUAL.OMP.CANCEL.";
+    Qual += getCancelQualString(Kind);
+    addArg(Qual);
+    emitSimpleClause();
+  }
+  void OpenMPCodeOutliner::emitOMPCancellationPointDirective(
+      OpenMPDirectiveKind Kind) {
+    startDirectiveIntrinsicSet("DIR.OMP.CANCELLATION.POINT",
+                               "DIR.OMP.END.CANCELLATION.POINT");
+    SmallString<32> Qual;
+    Qual = "QUAL.OMP.CANCEL.";
+    Qual += getCancelQualString(Kind);
+    addArg(Qual);
+    emitSimpleClause();
+  }
+  OpenMPCodeOutliner &OpenMPCodeOutliner::
+  operator<<(ArrayRef<OMPClause *> Clauses) {
     for (auto *C : Clauses) {
       if (C->isImplicit())
         continue;
@@ -1602,6 +1612,14 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
     CGM.setHasTargetCode();
     Outliner.emitOMPTargetUpdateDirective();
     break;
+  case OMPD_target_enter_data:
+    CGM.setHasTargetCode();
+    Outliner.emitOMPTargetEnterDataDirective();
+    break;
+  case OMPD_target_exit_data:
+    CGM.setHasTargetCode();
+    Outliner.emitOMPTargetExitDataDirective();
+    break;
   case OMPD_task:
     Outliner.emitOMPTaskDirective();
     break;
@@ -1632,15 +1650,20 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_parallel_sections:
     Outliner.emitOMPParallelSectionsDirective();
     break;
+  case OMPD_cancel:
+    Outliner.emitOMPCancelDirective(
+        cast<OMPCancelDirective>(S).getCancelRegion());
+    break;
+  case OMPD_cancellation_point:
+    Outliner.emitOMPCancellationPointDirective(
+        cast<OMPCancellationPointDirective>(S).getCancelRegion());
+    break;
+
   case OMPD_teams_distribute:
   case OMPD_teams_distribute_simd:
   case OMPD_teams_distribute_parallel_for:
   case OMPD_teams_distribute_parallel_for_simd:
-  case OMPD_cancel:
   case OMPD_for_simd:
-  case OMPD_cancellation_point:
-  case OMPD_target_enter_data:
-  case OMPD_target_exit_data:
   case OMPD_target_parallel:
   case OMPD_target_parallel_for:
   case OMPD_target_parallel_for_simd:
@@ -1676,4 +1699,3 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
     CapturedStmtInfo->EmitBody(*this, S.getAssociatedStmt());
   }
 }
-#endif // INTEL_SPECIFIC_OPENMP

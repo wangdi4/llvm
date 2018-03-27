@@ -1,6 +1,6 @@
 // RUN: %clang_cc1 -emit-llvm -o - %s -DONE -fopenmp-simd -Werror -Wsource-uses-openmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=CHECK-ONE
 // RUN: %clang_cc1 -emit-llvm -o - %s -DTWO -fopenmp-simd -Wsource-uses-openmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu -verify
-// RUN: %clang_cc1 -emit-llvm -o - %s -DTHREE -fopenmp -fnoopenmp-simd -Wsource-uses-openmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu -verify | FileCheck %s -check-prefix=CHECK-THREE
+// RUN: %clang_cc1 -emit-llvm -o - %s -DTHREE -fopenmp -fno-openmp-simd -Wsource-uses-openmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu -verify | FileCheck %s -check-prefix=CHECK-THREE
 
 
 #ifdef ONE

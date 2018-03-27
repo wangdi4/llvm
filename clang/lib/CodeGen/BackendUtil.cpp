@@ -497,7 +497,7 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
       createTLII(TargetTriple, CodeGenOpts));
 
   PassManagerBuilderWrapper PMBuilder(TargetTriple, CodeGenOpts, LangOpts);
-#ifndef INTEL_SPECIFIC_IL0_BACKEND
+
   // At O0 and O1 we only run the always inliner which is more efficient. At
   // higher optimization levels we run the normal inliner.
   if (CodeGenOpts.OptimizationLevel <= 1) {
@@ -513,40 +513,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
         (!CodeGenOpts.SampleProfileFile.empty() &&
          CodeGenOpts.EmitSummaryIndex), CodeGenOpts.PrepareForLTO); // INTEL
   }
-#else
-  unsigned OptLevel = CodeGenOpts.OptimizationLevel;
-  CodeGenOptions::InliningMethod Inlining = CodeGenOpts.getInlining();
-
-  // Handle disabling of LLVM optimization, where we want to preserve the
-  // internal module before any optimization.
-  if (CodeGenOpts.DisableLLVMOpts) {
-    OptLevel = 0;
-    Inlining = CodeGenOpts.NoInlining;
-  }
-
-  switch (Inlining) {
-  case CodeGenOptions::NoInlining:
-    break;
-  case CodeGenOptions::NormalInlining:
-  case CodeGenOptions::OnlyHintInlining: {
-    PMBuilder.Inliner =
-        createFunctionInliningPass(OptLevel, CodeGenOpts.OptimizeSize);
-    break;
-  }
-  case CodeGenOptions::OnlyAlwaysInlining:
-    // Respect always_inline.
-    if (OptLevel == 0)
-      // Do not insert lifetime intrinsics at -O0.
-      // CQ#368488 - respect only INTEL_ALWAYS_INLINE (used for __cilk_sync).
-      PMBuilder.Inliner =
-          createAlwaysInlinerLegacyPass(false, CodeGenOpts.IntelAlwaysInline);
-    else
-      // CQ#368488 - respect only INTEL_ALWAYS_INLINE (used for __cilk_sync).
-      PMBuilder.Inliner =
-          createAlwaysInlinerLegacyPass(true, CodeGenOpts.IntelAlwaysInline);
-    break;
-  }
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 
 #if INTEL_CUSTOMIZATION
   PMBuilder.DisableIntelProprietaryOpts =

@@ -1,36 +1,75 @@
 // RUN: %clang_cc1 %s -O0 -fintel-compatibility -fhls -triple=x86_64-linux-gnu -emit-llvm -o - | FileCheck %s
 
-template <typename T, int ReadyLatency, int BitsPerSymbol, bool FirstSymbolInHighOrderBits, bool UsesPackets, bool UsesEmpty, bool UsesValid>
+template <typename T, int buffer, int ReadyLatency, int BitsPerSymbol,
+          bool FirstSymbolInHighOrderBits, bool UsesPackets, bool UsesEmpty,
+          bool UsesValid>
 class stream_in {
 public:
-  T read() {
-    return *__builtin_intel_hls_instream_read((T *)0, (__int64)this, ReadyLatency, BitsPerSymbol, FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty, UsesValid);
+  T read(bool &sop, bool &eop, __int32 &empty) {
+    return *__builtin_intel_hls_instream_read((T *)0, (__int64)this, buffer, ReadyLatency,
+                                              BitsPerSymbol,
+                                              FirstSymbolInHighOrderBits,
+                                              UsesPackets,
+                                              UsesEmpty,
+                                              UsesValid, &sop, &eop, &empty);
   }
-  T tryRead(bool *success) {
-    return *__builtin_intel_hls_instream_tryRead((T *)0, (__int64)this, ReadyLatency, BitsPerSymbol, FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty, UsesValid, success);
+  T tryRead(bool &success, bool &sop, bool &eop, __int32 &empty) {
+    return *__builtin_intel_hls_instream_tryRead((T *)0, (__int64)this, buffer, ReadyLatency,
+                                                 BitsPerSymbol,
+                                                 FirstSymbolInHighOrderBits,
+                                                 UsesPackets,
+                                                 UsesEmpty,
+                                                 UsesValid, &sop, &eop, &empty,
+                                                 &success);
   }
-  void write(const T *arg) {
-    __builtin_intel_hls_instream_write(arg, (__int64)this, ReadyLatency, BitsPerSymbol, FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty, UsesValid);
+  void write(const T arg, bool sop, bool eop, __int32 empty) {
+    __builtin_intel_hls_instream_write(&arg, (__int64)this, buffer, ReadyLatency,
+                                       BitsPerSymbol,
+                                       FirstSymbolInHighOrderBits,
+                                       UsesPackets,
+                                       UsesEmpty,
+                                       UsesValid, sop, eop, empty);
   }
-  bool tryWrite(const T *arg) {
-    return __builtin_intel_hls_instream_tryWrite(arg, (__int64)this, ReadyLatency, BitsPerSymbol, FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty, UsesValid);
+  bool tryWrite(const T arg, bool sop, bool eop, __int32 empty) {
+    return __builtin_intel_hls_instream_tryWrite(&arg, (__int64)this, buffer, ReadyLatency,
+                                                 BitsPerSymbol,
+                                                 FirstSymbolInHighOrderBits,
+                                                 UsesPackets,
+                                                 UsesEmpty,
+                                                 UsesValid, sop, eop, empty);
   }
 };
 
-template <typename T, int ReadyLatency, int BitsPerSymbol, bool FirstSymbolInHighOrderBits, bool UsesPackets, bool UsesEmpty, bool UsesReady>
+template <typename T, int buffer, int ReadyLatency, int BitsPerSymbol,
+          bool FirstSymbolInHighOrderBits, bool UsesPackets, bool UsesEmpty,
+          bool UsesReady>
 class stream_out {
 public:
-  T read() {
-    return *__builtin_intel_hls_outstream_read((T *)0, (__int64)this, ReadyLatency, BitsPerSymbol, FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty, UsesReady);
+  T read(bool &sop, bool &eop, __int32 &empty) {
+    return *__builtin_intel_hls_outstream_read((T *)0, (__int64)this, buffer, ReadyLatency,
+                                               BitsPerSymbol,
+                                               FirstSymbolInHighOrderBits,
+                                               UsesPackets, UsesEmpty, UsesReady,
+                                               &sop, &eop, &empty);
   }
-  T tryRead(bool *success) {
-    return *__builtin_intel_hls_outstream_tryRead((T *)0, (__int64)this, ReadyLatency, BitsPerSymbol, FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty, UsesReady, success);
+  T tryRead(bool &success, bool &sop, bool &eop, __int32 &empty) {
+    return *__builtin_intel_hls_outstream_tryRead((T *)0, (__int64)this, buffer, ReadyLatency,
+                                                  BitsPerSymbol,
+                                                  FirstSymbolInHighOrderBits,
+                                                  UsesPackets,
+                                                  UsesEmpty, UsesReady, &sop, &eop, &empty, &success);
   }
-  void write(const T *arg) {
-    __builtin_intel_hls_outstream_write(arg, (__int64)this, ReadyLatency, BitsPerSymbol, FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty, UsesReady);
+  void write(const T arg, bool sop, bool eop, __int32 empty) {
+    __builtin_intel_hls_outstream_write(&arg, (__int64)this, buffer, ReadyLatency,
+                                        BitsPerSymbol,
+                                        FirstSymbolInHighOrderBits,
+                                        UsesPackets, UsesEmpty, UsesReady, sop, eop, empty);
   }
-  bool tryWrite(const T *arg) {
-    return __builtin_intel_hls_outstream_tryWrite(arg, (__int64)this, ReadyLatency, BitsPerSymbol, FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty, UsesReady);
+  bool tryWrite(const T arg, bool sop, bool eop, __int32 empty) {
+    return __builtin_intel_hls_outstream_tryWrite(&arg, (__int64)this, buffer, ReadyLatency,
+                                                  BitsPerSymbol,
+                                                  FirstSymbolInHighOrderBits,
+                                                  UsesPackets, UsesEmpty, UsesReady, sop, eop, empty);
   }
 };
 
@@ -39,26 +78,31 @@ struct Foo {
 };
 
 void TestStreams() {
-  stream_in<Foo, 5, 4, true, true, false, false> StrIn;
-  stream_out<Foo, 5, 4, false, false, true, true> StrOut;
+  stream_in<Foo, 3, 5, 4, true, true, false, false> StrIn;
+  stream_out<Foo, 3, 5, 4, false, false, true, true> StrOut;
   Foo f;
+  bool b;
+  int i;
 
-  f = StrIn.read();
+  f = StrIn.read(b, b, i);
   bool s;
-  f = StrIn.tryRead(&s);
-  StrIn.write(&f);
-  StrIn.tryWrite(&f);
+  f = StrIn.tryRead(s, b, b, i);
+  StrIn.write(f, b, b, i);
+  StrIn.tryWrite(f, b, b, i);
 
-  f = StrOut.read();
-  f = StrOut.tryRead(&s);
-  StrOut.write(&f);
-  s = StrOut.tryWrite(&f);
+  f = StrOut.read(b, b, i);
+  f = StrOut.tryRead(s, b, b, i);
+  StrOut.write(f, b, b, i);
+  s = StrOut.tryWrite(f, b, b, i);
 }
-// CHECK: declare %struct.Foo* @llvm.intel.hls.instream.read.s_struct.Foos(i64, i32, i32, i1, i1, i1, i1)
-// CHECK: declare { %struct.Foo*, i8 } @llvm.intel.hls.instream.tryRead.s_struct.Foos(i64, i32, i32, i1, i1, i1, i1)
-// CHECK: declare void @llvm.intel.hls.instream.write.s_struct.Foos(%struct.Foo*, i64, i32, i32, i1, i1, i1, i1)
-// CHECK: declare i1 @llvm.intel.hls.instream.tryWrite.s_struct.Foos(%struct.Foo*, i64, i32, i32, i1, i1, i1, i1)
-// CHECK: declare %struct.Foo* @llvm.intel.hls.outstream.read.s_struct.Foos(i64, i32, i32, i1, i1, i1, i1)
-// CHECK: declare { %struct.Foo*, i8 } @llvm.intel.hls.outstream.tryRead.s_struct.Foos(i64, i32, i32, i1, i1, i1, i1)
-// CHECK: declare void @llvm.intel.hls.outstream.write.s_struct.Foos(%struct.Foo*, i64, i32, i32, i1, i1, i1, i1)
-// CHECK: declare i1 @llvm.intel.hls.outstream.tryWrite.s_struct.Foos(%struct.Foo*, i64, i32, i32, i1, i1, i1, i1)
+// CHECK: declare { %struct.Foo*, i8, i8, i32 } @llvm.intel.hls.instream.read.s_struct.Foos(i64, i32, i32, i32, i1, i1, i1, i1)
+// CHECK: declare { %struct.Foo*, i8, i8, i8, i32 } @llvm.intel.hls.instream.tryRead.s_struct.Foos(i64, i32, i32, i32, i1, i1, i1, i1)
+//
+// CHECK: declare void @llvm.intel.hls.instream.write.s_struct.Foos(%struct.Foo*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
+// CHECK: declare i1 @llvm.intel.hls.instream.tryWrite.s_struct.Foos(%struct.Foo*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
+//
+// CHECK: declare { %struct.Foo*, i8, i8, i32 } @llvm.intel.hls.outstream.read.s_struct.Foos(i64, i32, i32, i32, i1, i1, i1, i1)
+// CHECK: declare { %struct.Foo*, i8, i8, i8, i32 } @llvm.intel.hls.outstream.tryRead.s_struct.Foos(i64, i32, i32, i32, i1, i1, i1, i1)
+//
+// CHECK: declare void @llvm.intel.hls.outstream.write.s_struct.Foos(%struct.Foo*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
+// CHECK: declare i1 @llvm.intel.hls.outstream.tryWrite.s_struct.Foos(%struct.Foo*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)

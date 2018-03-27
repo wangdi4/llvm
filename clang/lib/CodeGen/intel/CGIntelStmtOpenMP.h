@@ -13,7 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if INTEL_SPECIFIC_OPENMP
 #include "../CGCXXABI.h"
 #include "../CodeGenFunction.h"
 #include "../CodeGenModule.h"
@@ -183,6 +182,8 @@ public:
   void emitOMPTargetDirective();
   void emitOMPTargetDataDirective();
   void emitOMPTargetUpdateDirective();
+  void emitOMPTargetEnterDataDirective();
+  void emitOMPTargetExitDataDirective();
   void emitOMPTaskLoopDirective();
   void emitOMPTaskLoopSimdDirective();
   void emitOMPTaskDirective();
@@ -196,6 +197,8 @@ public:
   void emitOMPSectionsDirective();
   void emitOMPSectionDirective();
   void emitOMPParallelSectionsDirective();
+  void emitOMPCancelDirective(OpenMPDirectiveKind Kind);
+  void emitOMPCancellationPointDirective(OpenMPDirectiveKind Kind);
   OpenMPCodeOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
   void emitImplicit(Expr *E, ImplicitClauseKind K);
   void emitImplicit(const VarDecl *VD, ImplicitClauseKind K);
@@ -273,5 +276,3 @@ public:
 };
 
 } // namespace
-
-#endif // INTEL_SPECIFIC_OPENMP

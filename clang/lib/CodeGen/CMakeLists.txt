@@ -25,6 +25,12 @@ set(LLVM_LINK_COMPONENTS
 # end INTEL_CUSTOMIZATION
   )
 
+# INTEL_CUSTOMIZATION
+if (MSVC)
+  set_source_files_properties(CodeGenModule.cpp PROPERTIES COMPILE_FLAGS /bigobj)
+endif()
+# end INTEL_CUSTOMIZATION
+
 # In a standard Clang+LLVM build, we need to generate intrinsics before
 # building codegen. In a standalone build, LLVM is already built and we don't
 # need this dependency. Furthermore, LLVM doesn't export it so we can't have
@@ -97,11 +103,7 @@ add_clang_library(clangCodeGen
   TargetInfo.cpp
   VarBypassDetector.cpp
 # INTEL_CUSTOMIZATION
-  intel/CGCilkPlusRuntime.cpp
-  intel/CGElementalFunction.cpp
   intel/CGBuiltin_getBuiltinIntelLibFunction.cpp
-  intel/CGIntelEmit.cpp
-  intel/CGIntelStmt.cpp
   intel/CGIntelStmtOpenMP.cpp
   intel/CGSPIRMetadataAdder.cpp
   intel/CGIntelHLS.cpp

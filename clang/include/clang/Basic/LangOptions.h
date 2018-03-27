@@ -61,22 +61,6 @@ public:
     SOB_Defined,    // -fwrapv
     SOB_Trapping    // -ftrapv
   };
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  enum IntelFPModel {
-    IFP_Fast = 1<<0,
-    IFP_Precise = 1<<1,
-    IFP_Source = 1<<2,
-    IFP_Double = 1<<3,
-    IFP_Extended = 1<<4,
-    IFP_Off = 1<<5,
-    IFP_Except = 1<<6,
-    IFP_ExceptOff = 1<<7,
-    IFP_FP_Contract = 1<<8,
-    IFP_FEnv_Access = 1<<9,
-    IFP_ValueSafety = 1<<10,
-    IFP_Fast2 = 1<<11
-  };
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
 #if INTEL_CUSTOMIZATION
   // CQ381541: support for IMF attributes
@@ -180,10 +164,8 @@ public:
   std::string OMPHostIRFile;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_SPECIFIC_OPENMP
   /// \brief Name of the file for communication between front-end and driver.
   std::string IntelDriverTempfileName;
-#endif // INTEL_SPECIFIC_OPENMP
 #endif // INTEL_CUSTOMIZATION
 
   /// \brief Indicates whether the front-end is explicitly told that the

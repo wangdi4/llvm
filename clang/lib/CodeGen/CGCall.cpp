@@ -14,9 +14,6 @@
 
 #include "CGCall.h"
 #include "ABIInfo.h"
-#if INTEL_SPECIFIC_CILKPLUS
-#include "intel/CGCilkPlusRuntime.h"
-#endif // INTEL_SPECIFIC_CILKPLUS
 #include "CGBlocks.h"
 #include "CGCXXABI.h"
 #include "CGCleanup.h"
@@ -2817,13 +2814,7 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
 
   // Functions with no result always return void.
   if (!ReturnValue.isValid()) {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-    llvm::Instruction *Ret = Builder.CreateRetVoid();
-    if (EmitRetDbgLoc && ReturnLoc)
-      Ret->setDebugLoc(ReturnLoc);
-#else
     Builder.CreateRetVoid();
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
     return;
   }
 
@@ -3007,10 +2998,6 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
 
   if (RetDbgLoc)
     Ret->setDebugLoc(std::move(RetDbgLoc));
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  else if (EmitRetDbgLoc && ReturnLoc)
-    Ret->setDebugLoc(ReturnLoc);
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
 
 void CodeGenFunction::EmitReturnValueCheck(llvm::Value *RV) {
@@ -3809,11 +3796,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
                                  ReturnValueSlot ReturnValue,
                                  const CallArgList &CallArgs,
                                  llvm::Instruction **callOrInvoke,
-#if INTEL_SPECIFIC_CILKPLUS
-                                 SourceLocation Loc,
-                                 bool IsCilkSpawnCall
-                                 ) {
-#endif // INTEL_SPECIFIC_CILKPLUS
+                                 SourceLocation Loc) {
   // FIXME: We no longer need the types from CallArgs; lift up and simplify.
 
   assert(Callee.isOrdinary());
@@ -4242,12 +4225,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   CGM.ConstructAttributeList(CalleePtr->getName(), CallInfo,
                              Callee.getAbstractInfo(), Attrs, CallingConv,
                              /*AttrOnCallSite=*/true);
-#if INTEL_SPECIFIC_CILKPLUS
-  // If this call is a Cilk spawn call, then we need to emit the prologue
-  // before emitting the real call.
-  if (IsCilkSpawnCall)
-    CGM.getCilkPlusRuntime().EmitCilkHelperPrologue(*this);
-#endif // INTEL_SPECIFIC_CILKPLUS
+
   // Apply some call-site-specific attributes.
   // TODO: work this into building the attribute set.
 

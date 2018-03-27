@@ -1256,9 +1256,6 @@ CanThrowResult Sema::canThrow(const Expr *E) {
   case Expr::AsTypeExprClass:
   case Expr::BinaryConditionalOperatorClass:
   case Expr::BlockExprClass:
-#if INTEL_SPECIFIC_CILKPLUS
-  case Expr::CilkSpawnExprClass:
-#endif // INTEL_SPECIFIC_CILKPLUS
   case Expr::CUDAKernelCallExprClass:
   case Expr::DeclRefExprClass:
   case Expr::ObjCBridgedCastExprClass:
@@ -1308,26 +1305,6 @@ CanThrowResult Sema::canThrow(const Expr *E) {
   case Expr::StringLiteralClass:
     // These expressions can never throw.
     return CT_Cannot;
-#if INTEL_SPECIFIC_CILKPLUS
-  case Expr::CEANIndexExprClass: {
-    CanThrowResult CT = E->isTypeDependent() ? CT_Dependent : CT_Cannot;
-    return mergeCanThrow(CT, canSubExprsThrow(*this, E));
-  }
-  case Expr::CEANBuiltinExprClass: {
-    if (E->isTypeDependent() || E->isValueDependent())
-      return CT_Dependent;
-    CanThrowResult CT = E->isTypeDependent() ? CT_Dependent : CT_Cannot;
-    ArrayRef<const Expr *> Args = cast<CEANBuiltinExpr>(E)->getArgs();
-    for (ArrayRef<const Expr *>::const_iterator I = Args.begin(), E = Args.end();
-         I != E; ++I)
-      CT = mergeCanThrow(CT, canSubExprsThrow(*this, *I));
-    Args = cast<CEANBuiltinExpr>(E)->getLengths();
-    for (ArrayRef<const Expr *>::const_iterator I = Args.begin(), E = Args.end();
-         I != E; ++I)
-      CT = mergeCanThrow(CT, canSubExprsThrow(*this, *I));
-    return mergeCanThrow(CT, canSubExprsThrow(*this, cast<CEANBuiltinExpr>(E)->getReturnExpr()));
-  }
-#endif // INTEL_SPECIFIC_CILKPLUS
   case Expr::MSPropertyRefExprClass:
   case Expr::MSPropertySubscriptExprClass:
     llvm_unreachable("Invalid class for expression");

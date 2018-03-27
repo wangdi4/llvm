@@ -1297,7 +1297,8 @@ bool Sema::IsOpenMPCapturedByRef(ValueDecl *D, unsigned Level) {
             Level, /*NotLastprivate=*/true) &&
         // If the variable is artificial and must be captured by value - try to
         // capture by value.
-        !(isa<OMPCapturedExprDecl>(D) && D->hasAttr<OMPCaptureKindAttr>());
+        !(isa<OMPCapturedExprDecl>(D) && !D->hasAttr<OMPCaptureNoInitAttr>() &&
+          !cast<OMPCapturedExprDecl>(D)->getInit()->isGLValue());
   }
 
   // When passing data by copy, we need to make sure it fits the uintptr size
@@ -2326,7 +2327,6 @@ static OMPCapturedExprDecl *buildCaptureDecl(Sema &S, IdentifierInfo *Id,
   ASTContext &C = S.getASTContext();
   Expr *Init = AsExpression ? CaptureExpr : CaptureExpr->IgnoreImpCasts();
   QualType Ty = Init->getType();
-  Attr *OMPCaptureKind = nullptr;
   if (CaptureExpr->getObjectKind() == OK_Ordinary && CaptureExpr->isGLValue()) {
     if (S.getLangOpts().CPlusPlus) {
       Ty = C.getLValueReferenceType(Ty);
@@ -2339,16 +2339,11 @@ static OMPCapturedExprDecl *buildCaptureDecl(Sema &S, IdentifierInfo *Id,
       Init = Res.get();
     }
     WithInit = true;
-  } else if (AsExpression) {
-    // This variable must be captured by value.
-    OMPCaptureKind = OMPCaptureKindAttr::CreateImplicit(C, OMPC_unknown);
   }
   auto *CED = OMPCapturedExprDecl::Create(C, S.CurContext, Id, Ty,
                                           CaptureExpr->getLocStart());
   if (!WithInit)
     CED->addAttr(OMPCaptureNoInitAttr::CreateImplicit(C, SourceRange()));
-  if (OMPCaptureKind)
-    CED->addAttr(OMPCaptureKind);
   S.CurContext->addHiddenDecl(CED);
   S.AddInitializerToDecl(CED, Init, /*DirectInit=*/false);
   return CED;
@@ -4134,45 +4129,6 @@ void Sema::ActOnOpenMPLoopInitialization(SourceLocation ForLoc, Stmt *Init) {
   }
 }
 
-#if INTEL_CUSTOMIZATION
-// Fix for CQ378452: Error when #pragma simd vectorlength(8) follows #pragma omp
-// parallel for
-namespace {
-class ForOrSIMDForStmt {
-private:
-  Stmt *S;
-
-public:
-  ForOrSIMDForStmt(Stmt *S) : S(S){};
-  bool operator!() const { return !S; }
-  ForOrSIMDForStmt *operator->() { return this; }
-  Stmt *getBody() const {
-    return isa<ForStmt>(S)
-               ? cast<ForStmt>(S)->getBody()
-               : cast<SIMDForStmt>(S)->getBody()
-                     ? cast<SIMDForStmt>(S)->getBody()->getCapturedStmt()
-                     : nullptr;
-  }
-  SourceLocation getForLoc() const {
-    return isa<ForStmt>(S) ? cast<ForStmt>(S)->getForLoc()
-                           : cast<SIMDForStmt>(S)->getForLoc();
-  }
-  Stmt *getInit() const {
-    return isa<ForStmt>(S) ? cast<ForStmt>(S)->getInit()
-                           : cast<SIMDForStmt>(S)->getInit();
-  }
-  Expr *getCond() const {
-    return isa<ForStmt>(S) ? cast<ForStmt>(S)->getCond()
-                           : cast<SIMDForStmt>(S)->getCond();
-  }
-  Expr *getInc() const {
-    return isa<ForStmt>(S) ? cast<ForStmt>(S)->getInc()
-                           : cast<SIMDForStmt>(S)->getInc();
-  }
-};
-} // namespace
-#endif // INTEL_CUSTOMIZATION
-
 /// \brief Called on a for stmt to check and extract its iteration space
 /// for further processing (such as collapsing).
 static bool CheckOpenMPIterationSpace(
@@ -4182,22 +4138,9 @@ static bool CheckOpenMPIterationSpace(
     llvm::DenseMap<ValueDecl *, Expr *> &VarsWithImplicitDSA,
     LoopIterationSpace &ResultIterSpace,
     llvm::MapVector<Expr *, DeclRefExpr *> &Captures) {
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ378452: Error when #pragma simd vectorlength(8) follows #pragma
-  // omp parallel for
-  ForOrSIMDForStmt For([S, &SemaRef]()->Stmt *{
-#endif // INTEL_CUSTOMIZATION
   // OpenMP [2.6, Canonical Loop Form]
   //   for (init-expr; test-expr; incr-expr) structured-block
   auto *For = dyn_cast_or_null<ForStmt>(S);
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ378452: Error when #pragma simd vectorlength(8) follows #pragma
-  // omp parallel for
-  SIMDForStmt *SIMDFor = SemaRef.getLangOpts().IntelCompat
-                             ? dyn_cast_or_null<SIMDForStmt>(S)
-                             : nullptr;
-  return (For || SIMDFor) ? S : nullptr;}());
-#endif // INTEL_CUSTOMIZATION
   if (!For) {
     SemaRef.Diag(S->getLocStart(), diag::err_omp_not_for)
         << (CollapseLoopCountExpr != nullptr || OrderedLoopCountExpr != nullptr)
@@ -4554,13 +4497,6 @@ CheckOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
     // All loops associated with the construct must be perfectly nested; that
     // is, there must be no intervening code nor any OpenMP directive between
     // any two loops.
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ378452: Error when #pragma simd vectorlength(8) follows #pragma
-    // omp parallel for
-    if (auto *SIMDFor = dyn_cast<SIMDForStmt>(CurStmt))
-      CurStmt = SIMDFor->getBody()->IgnoreContainers();
-    else
-#endif // INTEL_CUSTOMIZATION
     CurStmt = cast<ForStmt>(CurStmt)->getBody()->IgnoreContainers();
   }
 
@@ -7687,6 +7623,11 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_teams_distribute_parallel_for_simd:
       CaptureRegion = OMPD_teams;
       break;
+    case OMPD_target_update:
+    case OMPD_target_enter_data:
+    case OMPD_target_exit_data:
+      CaptureRegion = OMPD_task;
+      break;
     case OMPD_cancel:
     case OMPD_parallel:
     case OMPD_parallel_sections:
@@ -7703,9 +7644,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_taskloop:
     case OMPD_taskloop_simd:
     case OMPD_target_data:
-    case OMPD_target_enter_data:
-    case OMPD_target_exit_data:
-    case OMPD_target_update:
       // Do not capture if-clause expressions.
       break;
     case OMPD_threadprivate:
@@ -8066,15 +8004,17 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     break;
   case OMPC_device:
     switch (DKind) {
+    case OMPD_target_update:
+    case OMPD_target_enter_data:
+    case OMPD_target_exit_data:
+      CaptureRegion = OMPD_task;
+      break;
     case OMPD_target_teams:
     case OMPD_target_teams_distribute:
     case OMPD_target_teams_distribute_simd:
     case OMPD_target_teams_distribute_parallel_for:
     case OMPD_target_teams_distribute_parallel_for_simd:
     case OMPD_target_data:
-    case OMPD_target_enter_data:
-    case OMPD_target_exit_data:
-    case OMPD_target_update:
     case OMPD_target:
     case OMPD_target_simd:
     case OMPD_target_parallel:

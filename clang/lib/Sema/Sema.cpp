@@ -148,17 +148,10 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
       TyposCorrected(0), AnalysisWarnings(*this),
       ThreadSafetyDeclCache(nullptr), VarDataSharingAttributesStack(nullptr),
       CurScope(nullptr), Ident_super(nullptr), Ident___float128(nullptr) 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-      ,
-      CommonFunctionOptions(), OptionsList()
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
       {
   TUScope = nullptr;
 
   LoadedExternalKnownNamespaces = false;
-#if INTEL_SPECIFIC_CILKPLUS
-  StartCEAN(NoCEANAllowed);
-#endif // INTEL_SPECIFIC_CILKPLUS
   for (unsigned I = 0; I != NSAPI::NumNSNumberLiteralMethods; ++I)
     NSNumberLiteralMethods[I] = nullptr;
 
@@ -894,63 +887,6 @@ void Sema::ActOnStartOfTranslationUnit() {
 /// translation unit when EOF is reached and all but the top-level scope is
 /// popped.
 void Sema::ActOnEndOfTranslationUnit() {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-SmallVector<PragmaDecl *, 4> optLevelDecls;
-SmallVector<PragmaDecl *, 4> decls;
-SmallVector<StringRef, 4> declsNames;
-SmallVector<StringRef, 4> optLevelDeclsNames;
-
-for (DeclContext::decl_iterator iter = CurContext->noload_decls_begin(),
-  iterE = CurContext->noload_decls_end(); iter != iterE; ++iter) {
-  if (isa<PragmaDecl>(*iter)) {
-    switch (cast<PragmaDecl>(*iter)->getStmt()->getPragmaKind()) {
-      case (IntelPragmaOptimizationLevel):
-        optLevelDecls.push_back(cast<PragmaDecl>(*iter));
-        optLevelDeclsNames.push_back("INTEL_OPTIMIZATION_LEVEL");
-        break;
-      case (IntelPragmaOptimizationParameter):
-        decls.push_back(cast<PragmaDecl>(*iter));
-        declsNames.push_back("OPT_PARAM_TARGET_ARCH");
-        break;
-      default:
-        break;
-    }
-  }
-  else if (!isa<PragmaDecl>(*iter)) {
-    if (!optLevelDecls.empty() && !isa<FunctionDecl>(*iter)) {
-      Diag(iter->getLocStart(), diag::x_warn_intel_pragma_function_only) <<
-        iter->getLocEnd();
-      for (size_t i = 0; i < optLevelDecls.size(); ++i) {
-        DeletePragmaOnError(optLevelDecls[i]->getStmt());
-        if (CommonFunctionOptions.count(optLevelDeclsNames[i]) > 0) {
-          OptionsList[CommonFunctionOptions[optLevelDeclsNames[i]]] = NULL;
-        }
-        CommonFunctionOptions.erase(optLevelDeclsNames[i]);
-      }
-    }
-    optLevelDecls.clear();
-    decls.clear();
-  }
-}
-if (!decls.empty()) {
-  Diag(decls.back()->getStmt()->getSemiLoc(), diag::x_error_intel_pragma_declaration_precede) <<
-    decls.back()->getStmt()->getSemiLoc();
-  if (CommonFunctionOptions.count(declsNames.back()) > 0) {
-    OptionsList[CommonFunctionOptions[declsNames.back()]] = NULL;
-  }
-  CommonFunctionOptions.erase(declsNames.back());
-  decls.clear();
-}
-if (!optLevelDecls.empty()) {
-  Diag(optLevelDecls.back()->getStmt()->getSemiLoc(), diag::x_error_intel_pragma_declaration_precede) <<
-    optLevelDecls.back()->getStmt()->getSemiLoc();
-  if (CommonFunctionOptions.count(optLevelDeclsNames.back()) > 0) {
-    OptionsList[CommonFunctionOptions[optLevelDeclsNames.back()]] = NULL;
-  }
-  CommonFunctionOptions.erase(optLevelDeclsNames.back());
-  optLevelDecls.clear();
-}
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
   assert(DelayedDiagnostics.getCurrentPool() == nullptr
          && "reached end of translation unit with a pool attached?");
 
@@ -1469,28 +1405,6 @@ void Sema::PushBlockScope(Scope *BlockScope, BlockDecl *Block) {
   FunctionScopes.push_back(new BlockScopeInfo(getDiagnostics(),
                                               BlockScope, Block));
 }
-#if INTEL_SPECIFIC_CILKPLUS
-void Sema::PushCilkForScope(Scope *S, CapturedDecl *CD, RecordDecl *RD,
-                            const VarDecl *LoopControlVariable,
-                            SourceLocation CilkForLoc) {
-  CapturingScopeInfo *CSI =
-      new CilkForScopeInfo(getDiagnostics(), S, CD, RD, CD->getContextParam(),
-                           LoopControlVariable, CilkForLoc);
-
-  CSI->ReturnType = Context.VoidTy;
-  FunctionScopes.push_back(CSI);
-}
-
-void Sema::PushSIMDForScope(Scope *S, CapturedDecl *CD, RecordDecl *RD,
-                            SourceLocation PragmaLoc) {
-  CapturingScopeInfo *CSI =
-      new SIMDForScopeInfo(getDiagnostics(), S, CD, RD, CD->getContextParam(),
-                           PragmaLoc);
-
-  CSI->ReturnType = Context.VoidTy;
-  FunctionScopes.push_back(CSI);
-}
-#endif // INTEL_SPECIFIC_CILKPLUS
 
 LambdaScopeInfo *Sema::PushLambdaScope() {
   LambdaScopeInfo *const LSI = new LambdaScopeInfo(getDiagnostics());
@@ -1557,21 +1471,6 @@ BlockScopeInfo *Sema::getCurBlock() {
 
   return CurBSI;
 }
-#if INTEL_SPECIFIC_CILKPLUS
-CilkForScopeInfo *Sema::getCurCilkFor() {
-  if (FunctionScopes.empty())
-    return 0;
-
-  return dyn_cast<CilkForScopeInfo>(FunctionScopes.back());
-}
-
-SIMDForScopeInfo *Sema::getCurSIMDFor() {
-  if (FunctionScopes.empty())
-    return 0;
-
-  return dyn_cast<SIMDForScopeInfo>(FunctionScopes.back());
-}
-#endif // INTEL_SPECIFIC_CILKPLUS
 
 LambdaScopeInfo *Sema::getCurLambda(bool IgnoreNonLambdaCapturingScope) {
   if (FunctionScopes.empty())

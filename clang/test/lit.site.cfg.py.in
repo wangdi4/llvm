@@ -28,17 +28,6 @@ config.host_arch = "@HOST_ARCH@"
 config.enable_abi_breaking_checks = "@LLVM_ENABLE_ABI_BREAKING_CHECKS@"
 config.python_executable = "@PYTHON_EXECUTABLE@"
 
-if ("@INTEL_SPECIFIC_IL0_BACKEND@" == "1"):
-  config.available_features.add('il0-backend')
-elif ("@INTEL_SPECIFIC_IL0_BACKEND@" == "0" or "@INTEL_SPECIFIC_IL0_BACKEND@" == ""):
-  config.available_features.add('llvm-backend')
-else:
-  lit_config.fatal("invalid value of INTEL_SPECIFIC_IL0_BACKEND='@INTEL_SPECIFIC_IL0_BACKEND@'")
-
-if ("@INTEL_SPECIFIC_CILKPLUS@" == "1"):
-  config.available_features.add('cilkplus')
-elif ("@INTEL_SPECIFIC_CILKPLUS@" != "" and "@INTEL_SPECIFIC_CILKPLUS@" != "0"):
-  lit_config.fatal("invalid value of INTEL_SPECIFIC_CILKPLUS=@INTEL_SPECIFIC_CILKPLUS@")
 if ("@INTEL_SPECIFIC_OPENMP@" == "1"):
   config.available_features.add('openmp')
 elif ("@INTEL_SPECIFIC_OPENMP@" != "" and "@INTEL_SPECIFIC_OPENMP@" != "0"):

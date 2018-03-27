@@ -21,12 +21,7 @@ add_clang_library(clangParse
   ParseTentative.cpp
   Parser.cpp
 # INTEL_CUSTOMIZATION
-  intel/ParseSIMD.cpp
-  intel/ParseStmt.cpp
-  intel/ParseIntelExpr.cpp
   intel/ParseIntelPragma.cpp
-  intel/PPIntelDirectives.cpp
-  intel/CheckStmt.cpp
 # end INTEL_CUSTOMIZATION
 
   LINK_LIBS
