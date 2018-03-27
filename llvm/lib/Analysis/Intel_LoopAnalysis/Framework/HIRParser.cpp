@@ -2253,8 +2253,8 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
 
   if (isa<UndefValue>(Cond)) {
     Preds.push_back(UNDEFINED_PREDICATE);
-    Refs.push_back(createUndefDDRef(Cond->getType()));
-    Refs.push_back(createUndefDDRef(Cond->getType()));
+    Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
+    Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
   } else if (auto ConstVal = dyn_cast<Constant>(Cond)) {
     if (ConstVal->isOneValue()) {
       Preds.push_back(PredicateTy::FCMP_TRUE);
@@ -2263,8 +2263,8 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
     } else {
       llvm_unreachable("Unexpected conditional branch value");
     }
-    Refs.push_back(createUndefDDRef(Cond->getType()));
-    Refs.push_back(createUndefDDRef(Cond->getType()));
+    Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
+    Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
   } else {
     assert(Cond->getType()->isIntegerTy(1) && "Cond should be an i1 type");
     Preds.push_back(PredicateTy::ICMP_NE);
@@ -2965,12 +2965,6 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
       std::make_pair(Ref, const_cast<Value *>(OrigGEPVal)));
 
   return Ref;
-}
-
-RegDDRef *HIRParser::createUndefDDRef(Type *Ty) {
-  Value *UndefVal = UndefValue::get(Ty);
-
-  return getDDRefUtils().createConstDDRef(UndefVal);
 }
 
 RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,

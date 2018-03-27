@@ -749,10 +749,11 @@ void WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
     MapItem *MI;
     if (ClauseInfo.getIsMapAggrHead()) { // Start a new chain: Add a MapItem
       MI = new MapItem(Aggr);
+      MI->setOrig(BasePtr);
       C.add(MI);
     } else {         // Continue the chain for the last MapItem
       MI = C.back(); // Get the last MapItem in the MapClause
-      MapChainTy MapChain = MI->getMapChain();
+      MapChainTy &MapChain = MI->getMapChain();
       assert(MapChain.size() > 0 && "MAP:AGGR cannot start a chain");
       MapChain.push_back(Aggr);
     }

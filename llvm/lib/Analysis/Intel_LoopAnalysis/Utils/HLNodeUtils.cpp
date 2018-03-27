@@ -602,37 +602,28 @@ HLInst *HLNodeUtils::createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
 }
 
 HLInst *HLNodeUtils::createShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
-                                             ArrayRef<uint32_t> Mask,
-                                             const Twine &Name,
+                                             RegDDRef *Mask, const Twine &Name,
                                              RegDDRef *LvalRef) {
   assert(OpRef1->getDestType()->isVectorTy() &&
          OpRef1->getDestType() == OpRef2->getDestType() &&
          "Illegal operand types for shufflevector");
 
-  auto OneVal = UndefValue::get(OpRef1->getDestType());
+  auto UndefVal = UndefValue::get(OpRef1->getDestType());
+  auto MaskUndefVal = UndefValue::get(Mask->getDestType());
 
   Value *InstVal =
-      DummyIRBuilder->CreateShuffleVector(OneVal, OneVal, Mask, Name);
+      DummyIRBuilder->CreateShuffleVector(UndefVal, UndefVal, MaskUndefVal,
+                                          Name);
   Instruction *Inst = cast<Instruction>(InstVal);
 
   assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
          "Incompatible type of LvalRef");
 
   HLInst *HInst = createLvalHLInst(Inst, LvalRef);
-
   HInst->setOperandDDRef(OpRef1, 1);
   HInst->setOperandDDRef(OpRef2, 2);
-  Value *MaskVecValue = Inst->getOperand(2);
-  RegDDRef *MaskVecDDRef;
-  if (isa<ConstantAggregateZero>(MaskVecValue))
-    MaskVecDDRef = getDDRefUtils().createConstDDRef(
-        cast<ConstantAggregateZero>(MaskVecValue));
-  else if (isa<ConstantDataVector>(MaskVecValue))
-    MaskVecDDRef = getDDRefUtils().createConstDDRef(
-        cast<ConstantDataVector>(MaskVecValue));
-  else
-    llvm_unreachable("Unexpected Mask vector type");
-  HInst->setOperandDDRef(MaskVecDDRef, 3);
+  HInst->setOperandDDRef(Mask, 3);
+
   return HInst;
 }
 
@@ -643,8 +634,8 @@ HLInst *HLNodeUtils::createExtractElementInst(RegDDRef *OpRef, unsigned Idx,
   assert(OpRef->getDestType()->isVectorTy() &&
          "Illegal operand types for extractelement");
 
-  auto OneVal = UndefValue::get(OpRef->getDestType());
-  Value *InstVal = DummyIRBuilder->CreateExtractElement(OneVal, Idx, Name);
+  auto UndefVal = UndefValue::get(OpRef->getDestType());
+  Value *InstVal = DummyIRBuilder->CreateExtractElement(UndefVal, Idx, Name);
   Instruction *Inst = cast<Instruction>(InstVal);
   assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
          "Incompatible type of LvalRef");

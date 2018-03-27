@@ -1390,10 +1390,21 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
     LoMask.push_back(i);
   for (unsigned i = VL / 2; i < VL; ++i)
     HiMask.push_back(i);
+
+  LLVMContext &C = Loop->getHLNodeUtils().getContext();
+
+  Constant *LoMaskVec = ConstantDataVector::get(C, LoMask);
+  RegDDRef *LoMaskVecDDRef =
+      VecRef->getDDRefUtils().createConstDDRef(LoMaskVec);
   HLInst *Lo = Loop->getHLNodeUtils().createShuffleVectorInst(
-      VecRef->clone(), VecRef->clone(), LoMask, "Lo");
+      VecRef->clone(), VecRef->clone(), LoMaskVecDDRef, "Lo");
+
+  Constant *HiMaskVec = ConstantDataVector::get(C, HiMask);
+  RegDDRef *HiMaskVecDDRef =
+      VecRef->getDDRefUtils().createConstDDRef(HiMaskVec);
   HLInst *Hi = Loop->getHLNodeUtils().createShuffleVectorInst(
-      VecRef->clone(), VecRef->clone(), HiMask, "Hi");
+      VecRef->clone(), VecRef->clone(), HiMaskVecDDRef, "Hi");
+
   HLInst *Result = Loop->getHLNodeUtils().createBinaryHLInst(
       BOpcode, Lo->getLvalDDRef()->clone(), Hi->getLvalDDRef()->clone(),
       "reduce");

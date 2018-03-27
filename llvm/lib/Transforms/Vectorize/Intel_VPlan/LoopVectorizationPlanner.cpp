@@ -37,6 +37,7 @@ unsigned LoopVectorizationPlannerBase::buildInitialVPlans(unsigned MinVF,
 
   unsigned i = 0;
   for (; StartRangeVF < EndRangeVF; ++i) {
+    // TODO: revisit when we build multiple VPlans.
     std::shared_ptr<IntelVPlan> Plan =
         buildInitialVPlan(StartRangeVF, EndRangeVF);
 
@@ -65,8 +66,13 @@ unsigned LoopVectorizationPlannerBase::selectVF(unsigned VF, bool Forced) {
   IntelVPlan *ScalarPlan = getVPlanForVF(1);
   assert(ScalarPlan && "There is no scalar VPlan!");
 
-  unsigned VectorCost = VPlanCostModel::getVPlanCost(VectorPlan, VF, TTI);
-  unsigned ScalarCost = VPlanCostModel::getVPlanCost(ScalarPlan, 1, TTI);
+  // TODO: Ensure we don't compute ScalarCost multiple times when we will
+  //       introduce multiple VPlans/VFs.
+  VPlanCostModel ScalarCM(ScalarPlan, 1, TTI);
+  unsigned ScalarCost = ScalarCM.getCost();
+
+  VPlanCostModel VectorCM(VectorPlan, VF, TTI);
+  unsigned VectorCost = VectorCM.getCost();
 
   unsigned ChosenVF = VectorCost < VF * ScalarCost ? VF : 1;
   setBestPlan(ChosenVF, 1);
