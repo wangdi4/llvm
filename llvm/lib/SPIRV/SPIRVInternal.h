@@ -358,6 +358,7 @@ namespace kSPIR2MD {
   const static char VecTyHint[]         = "vec_type_hint";
   const static char WGSize[]            = "reqd_work_group_size";
   const static char WGSizeHint[]        = "work_group_size_hint";
+  const static char SubgroupSize[]      = "intel_reqd_sub_group_size";
 }
 
 enum Spir2SamplerKind {
