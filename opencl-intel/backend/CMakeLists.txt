@@ -137,5 +137,3 @@ if (LLVM_BUILD_OCL_CPU_BACKEND)
     add_subdirectory(tests)
 endif(LLVM_BUILD_OCL_CPU_BACKEND)
 
-# copy the Clang conformance tests to the validation directory
-copy_to (${BACKEND_ROOT_DIR}/tests/Conformance.7z DESTINATION tests)
