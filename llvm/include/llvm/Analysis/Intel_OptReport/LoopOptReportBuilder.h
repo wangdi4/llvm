@@ -60,6 +60,9 @@ class LoopOptReportBuilder {
   LoopOptReportBuilder &operator=(const LoopOptReportBuilder &) = delete;
 
 public:
+  LoopOptReportBuilder(LoopOptReportBuilder &&Arg)
+      : Context(Arg.Context), OutputVerbosity(Arg.OutputVerbosity) {}
+
   LoopOptReportBuilder()
       : Context(nullptr), OutputVerbosity(OptReportVerbosity::None) {}
 
@@ -84,6 +87,8 @@ public:
     assert(Context && "Uninitialized LoopOptReportBuilder");
     return LoopOptReportThunk<T>(Object, *this);
   }
+
+  bool isLoopOptReportOn() const { return getVerbosity() > 0; }
 };
 
 /// \brief Helper class specialized for particular object and verbosity level.

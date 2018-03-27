@@ -19,6 +19,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 
@@ -100,6 +101,7 @@ private:
   AAResults &AA;
   HIRRegionIdentification &RI;
   HIRSCCFormation &SCCF;
+  LoopOptReportBuilder LORBuilder;
 
   /// HLNodeUtils object for the framework.
   std::unique_ptr<HLNodeUtils, HLNodeUtils::HLNodeUtilsDeleter> HNU;
@@ -128,6 +130,7 @@ public:
   HIRFramework(Function &F, DominatorTree &DT, PostDominatorTree &PDT,
                LoopInfo &LI, ScalarEvolution &SE, AAResults &AA,
                HIRRegionIdentification &RI, HIRSCCFormation &SCCF,
+               OptReportVerbosity::Level VerbosityLevel,
                HIRAnalysisProvider AnalysisProvider);
   HIRFramework(const HIRFramework &) = delete;
   HIRFramework(HIRFramework &&);
@@ -190,6 +193,9 @@ public:
   const DataLayout &getDataLayout() const {
     return getModule().getDataLayout();
   }
+
+  /// Returns LORBuilder
+  LoopOptReportBuilder &getLORBuilder() { return LORBuilder; }
 
   HIRAnalysisProvider &getHIRAnalysisProvider() { return AnalysisProvider; }
 };

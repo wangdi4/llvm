@@ -28,6 +28,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 
 #include "HIRCleanup.h"
 #include "HIRCreation.h"
@@ -95,6 +96,7 @@ HIRFramework HIRFrameworkAnalysis::run(Function &F,
       AM.getResult<ScalarEvolutionAnalysis>(F), AM.getResult<AAManager>(F),
       AM.getResult<HIRRegionIdentificationAnalysis>(F),
       AM.getResult<HIRSCCFormationAnalysis>(F),
+      AM.getResult<OptReportOptionsAnalysis>(F).getLoopOptReportVerbosity(),
       HIRAnalysisProvider(
           [&]() { return nullptr; },
           [&]() { return AM.getCachedResult<HIRLoopLocalityAnalysis>(F); },
@@ -112,7 +114,9 @@ INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 
 INITIALIZE_PASS_DEPENDENCY(HIRSCCFormationWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentificationWrapperPass)
+
 INITIALIZE_PASS_END(HIRFrameworkWrapperPass, "hir-framework", "HIR Framework",
                     false, true)
 
@@ -137,6 +141,8 @@ void HIRFrameworkWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.addRequiredTransitive<HIRRegionIdentificationWrapperPass>();
   AU.addRequiredTransitive<HIRSCCFormationWrapperPass>();
+
+  AU.addRequiredTransitive<OptReportOptionsPass>();
 }
 
 bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
@@ -149,6 +155,7 @@ bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
       getAnalysis<AAResultsWrapperPass>().getAAResults(),
       getAnalysis<HIRRegionIdentificationWrapperPass>().getRI(),
       getAnalysis<HIRSCCFormationWrapperPass>().getSCCF(),
+      getAnalysis<OptReportOptionsPass>().getLoopOptReportVerbosity(),
       HIRAnalysisProvider(
           [&]() { return getAnalysisIfAvailable<HIRDDAnalysis>(); },
           [&]() {
@@ -233,11 +240,14 @@ HIRFramework::HIRFramework(Function &F, DominatorTree &DT,
                            PostDominatorTree &PDT, LoopInfo &LI,
                            ScalarEvolution &SE, AAResults &AA,
                            HIRRegionIdentification &RI, HIRSCCFormation &SCCF,
+                           OptReportVerbosity::Level VerbosityLevel,
                            HIRAnalysisProvider AnalysisProvider)
     : Func(F), DT(DT), PDT(PDT), LI(LI), SE(SE), AA(AA), RI(RI), SCCF(SCCF),
       AnalysisProvider(AnalysisProvider), MaxSymbase(0) {
   HNU.reset(new HLNodeUtils(*this));
   HNU->reset(F);
+
+  LORBuilder.setup(F.getContext(), VerbosityLevel);
 
   PhaseCreation.reset(new HIRCreation(DT, PDT, LI, RI, *HNU));
   PhaseCleanup.reset(new HIRCleanup(LI, *PhaseCreation, *HNU));
@@ -253,7 +263,8 @@ HIRFramework::HIRFramework(Function &F, DominatorTree &DT,
 
 HIRFramework::HIRFramework(HIRFramework &&Arg)
     : Func(Arg.Func), DT(Arg.DT), PDT(Arg.PDT), LI(Arg.LI), SE(Arg.SE),
-      AA(Arg.AA), RI(Arg.RI), SCCF(Arg.SCCF), HNU(std::move(Arg.HNU)),
+      AA(Arg.AA), RI(Arg.RI), SCCF(Arg.SCCF),
+      LORBuilder(std::move(Arg.LORBuilder)), HNU(std::move(Arg.HNU)),
       AnalysisProvider(std::move(Arg.AnalysisProvider)),
       Regions(std::move(Arg.Regions)),
       PhaseCreation(std::move(Arg.PhaseCreation)),

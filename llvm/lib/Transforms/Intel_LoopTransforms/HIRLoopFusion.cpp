@@ -87,7 +87,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 #include "HIRLoopFusionGraph.h"
@@ -113,6 +113,14 @@ class HIRLoopFusion : public HIRTransformPass {
 
   HIRDDAnalysis *DDA;
   HIRLoopStatistics *HLS;
+  HIRFramework *HIR;
+
+  template <bool PreLoop>
+  void generatePreOrPostLoops(HLNode *AnchorNode,
+                              const SmallVectorImpl<unsigned> &Indices,
+                              const SmallVectorImpl<int64_t> &Bounds,
+                              const SmallVectorImpl<HLLoop *> &Candidates,
+                              SmallDenseSet<unsigned> &IndexSet);
 
   HLLoop *fuseLoops(const SmallVectorImpl<HLLoop *> &Candidates);
 
@@ -134,6 +142,7 @@ public:
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+
     AU.setPreservesAll();
   }
 };
@@ -204,8 +213,7 @@ static void mergeZtt(HLLoop *Loop, SmallVectorImpl<PredicateTuple> &ZTTs) {
       Loop->createZtt(LHS, Pred, RHS);
     }
 
-    for (auto E = ZTTs.end(); ZttI != E;
-         ++ZttI) {
+    for (auto E = ZTTs.end(); ZttI != E; ++ZttI) {
       std::tie(LHS, Pred, RHS) = *ZttI;
 
       Loop->addZttPredicate(Pred, LHS, RHS);
@@ -251,15 +259,22 @@ static void scavengeLoopParts(const SmallVectorImpl<HLLoop *> &Candidates,
 }
 
 template <bool PreLoop>
-static void generatePreOrPostLoops(HLNode *AnchorNode,
-                                   const SmallVectorImpl<unsigned> &Indices,
-                                   const SmallVectorImpl<int64_t> &Bounds,
-                                   const SmallVectorImpl<HLLoop *> &Candidates,
-                                   SmallDenseSet<unsigned> &IndexSet) {
+void HIRLoopFusion::generatePreOrPostLoops(
+    HLNode *AnchorNode, const SmallVectorImpl<unsigned> &Indices,
+    const SmallVectorImpl<int64_t> &Bounds,
+    const SmallVectorImpl<HLLoop *> &Candidates,
+    SmallDenseSet<unsigned> &IndexSet) {
   HLLoop *FirstLoop = Candidates.front();
 
-  auto CreateLoop = [FirstLoop](RegDDRef *LowerDDRef, RegDDRef *UpperDDRef) {
+  LoopOptReportBuilder &LORBuilder = HIR->getLORBuilder();
+  HLLoop *LastPostLoop = nullptr;
+
+  auto CreateLoop = [&LORBuilder, FirstLoop](RegDDRef *LowerDDRef,
+                                             RegDDRef *UpperDDRef) {
     HLLoop *NewLoop = FirstLoop->cloneEmptyLoop();
+
+    LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
+                                   "Peeled loop after fusion");
     NewLoop->setLowerDDRef(LowerDDRef);
     NewLoop->setUpperDDRef(UpperDDRef);
 
@@ -295,6 +310,7 @@ static void generatePreOrPostLoops(HLNode *AnchorNode,
 
         HLNodeUtils::insertAfter(AnchorNode, NewLoop);
         AnchorNode = NewLoop;
+        LastPostLoop = NewLoop;
       }
 
       SmallVector<PredicateTuple, 8> ZTTs;
@@ -305,8 +321,8 @@ static void generatePreOrPostLoops(HLNode *AnchorNode,
       SmallVector<unsigned, 16> LiveOuts;
 
       // Collect loop parts: bodies, ztts and live-in/out info.
-      scavengeLoopParts(Candidates, IndexSet, ZTTs, Preheader, Nodes,
-                        Postexit, LiveIns, LiveOuts);
+      scavengeLoopParts(Candidates, IndexSet, ZTTs, Preheader, Nodes, Postexit,
+                        LiveIns, LiveOuts);
 
       // Apply collected info to the new loop.
       mergeZtt(NewLoop, ZTTs);
@@ -332,6 +348,10 @@ static void generatePreOrPostLoops(HLNode *AnchorNode,
       // central fused loop.
       IndexSet.erase(ThisIndex);
     }
+  }
+
+  if (LastPostLoop) {
+    LORBuilder(*FirstLoop).moveSiblingsTo(*LastPostLoop);
   }
 }
 
@@ -579,7 +599,42 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
 
     bool LoopsFused = false;
     HLLoop *NextLoop;
+
+    LoopOptReportBuilder &LORBuilder = HIR->getLORBuilder();
+
     if (FNode.loops().size() > 1) {
+      bool IsReportOn = LORBuilder.isLoopOptReportOn();
+      SmallString<32> FuseNums;
+      raw_svector_ostream VOS(FuseNums);
+
+      if (IsReportOn) {
+        // Traverse in forward order to combine the loop line numbers in the
+        // correct loop order
+        for (auto LoopI = std::next(FNode.loops().begin()),
+                  E = FNode.loops().end();
+             LoopI != E; ++LoopI) {
+          unsigned LineNum = 0;
+          if ((*LoopI)->getDebugLoc()) {
+            LineNum = (*LoopI)->getDebugLoc().getLine();
+            VOS << LineNum;
+            if (LoopI != std::prev(E)) {
+              VOS << ",";
+            }
+          }
+        }
+      }
+
+      // Traverse in reverse order in order to correctly preserve the lost loop
+      // reports
+      for (auto LoopI = FNode.loops().rbegin(),
+                E = std::prev(FNode.loops().rend());
+           LoopI != E; ++LoopI) {
+
+        LORBuilder(**LoopI).addRemark(OptReportVerbosity::Low,
+                                      "Loop lost in Fusion");
+        LORBuilder(**LoopI).preserveLostLoopOptReport();
+      }
+
       // Align Loops
       // Fuse Loops
       NextLoop = fuseLoops(FNode.loops());
@@ -588,6 +643,17 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
       DEBUG(NextLoop->getParentRegion()->dump());
 
       LoopsFused = true;
+      SmallString<32> FuseLoopNums;
+      raw_svector_ostream VOSLN(FuseLoopNums);
+
+      if (!FuseNums.empty()) {
+        VOSLN << "with (";
+        FuseLoopNums.append(FuseNums);
+        VOSLN << ")";
+      }
+
+      LORBuilder(*NextLoop).addRemark(OptReportVerbosity::Low,
+                                      "Loops have been fused %s", FuseLoopNums);
       LastLoopFused = NextLoop;
     } else {
       NextLoop = FNode.pilotLoop();
@@ -623,12 +689,12 @@ bool HIRLoopFusion::runOnFunction(Function &F) {
 
   DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
 
-  auto &HIR = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
+  HIR = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   DDA = &getAnalysis<HIRDDAnalysis>();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
 
   ForEach<HLRegion>::visitRange(
-      HIR.hir_begin(), HIR.hir_end(), [this](HLRegion *Reg) {
+      HIR->hir_begin(), HIR->hir_end(), [this](HLRegion *Reg) {
         runOnNodeRange(Reg, make_range(Reg->child_begin(), Reg->child_end()));
       });
 
