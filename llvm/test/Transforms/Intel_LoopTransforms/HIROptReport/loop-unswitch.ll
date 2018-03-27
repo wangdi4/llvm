@@ -24,7 +24,7 @@
 ; CHECK: [[M5]] = !{!"intel.optreport.remark", !"Loop has been unswitched via %s", {{.*}}}
 
 ; Check the proper optreport for loop unswitching.
-; RUN: opt -loop-unswitch -intel-loop-optreport=low -intel-ir-optreport-emitter -simplifycfg < %s -S |& FileCheck %s -check-prefix=CHECK-EMITTER --strict-whitespace
+; RUN: opt -loop-unswitch -intel-loop-optreport=low -intel-ir-optreport-emitter -simplifycfg < %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-EMITTER --strict-whitespace
 
 ; CHECK-EMITTER: LOOP BEGIN
 ; CHECK-EMITTER-NEXT:     Remark #XXXXX: Loop has been unswitched via cmp113{{[[:space:]]}}
