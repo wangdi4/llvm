@@ -132,7 +132,6 @@ private:
   StructType *IdentTy;
 
   /// \brief Hold the pointer to Tid (thread id) Value
-  // AllocaInst *TidPtr;
   Constant *TidPtrHolder;
 
   /// \brief Hold the pointer to Bid (binding thread id) Value
@@ -469,6 +468,9 @@ private:
   /// \brief Reset the expression value in IsDevicePtr clause to be empty.
   void resetValueInIsDevicePtrClause(WRegionNode *W);
 
+  /// \brief Reset the value in the Map clause to be empty.
+  void resetValueInMapClause(WRegionNode *W);
+
   /// \brief Reset the expression value of Intel clause to be empty.
   void resetValueInIntelClauseGeneric(WRegionNode *W, Value *V);
 
@@ -481,12 +483,26 @@ private:
 
   /// \brief Generate the pointers pointing to the array of base pointer, the
   /// array of section pointers, the array of sizes, the array of map types.
-  void genOffloadArraysArgument(TgDataInfo *Info, Instruction *InsertPt);
+  void genOffloadArraysArgument(TgDataInfo *Info, Instruction *InsertPt,
+                                bool hasRuntimeEvaluationCaptureSize);
 
   /// \brief Pass the data to the array of base pointer as well as  array of
-  /// section pointers.
+  /// section pointers. If the flag hasRuntimeEvaluationCaptureSize is true,
+  /// the compiler needs to generate the init code for the size array.
   void genOffloadArraysInit(WRegionNode *W, TgDataInfo *Info, CallInst *Call,
-                            Instruction *InsertPt);
+                            Instruction *InsertPt,
+                            SmallVectorImpl<Constant *> &ConstSizes,
+                            bool hasRuntimeEvaluationCaptureSize);
+
+  /// \brief Utilities to construct the assignment to the base pointers, section
+  /// pointers and size pointers if the flag hasRuntimeEvaluationCaptureSize is
+  /// true.
+  void genOffloadArraysInitUtil(IRBuilder<> &Builder, Value *BasePtr,
+                                Value *SectionPtr, Value *Size,
+                                TgDataInfo *Info,
+                                SmallVectorImpl<Constant *> &ConstSizes,
+                                unsigned &Cnt,
+                                bool hasRuntimeEvaluationCaptureSize);
 
   /// \brief Register the offloading descriptors as well the offloading binary
   /// descriptors.
@@ -540,7 +556,8 @@ private:
   /// modifier and the expression V.
   void GenTgtInformationForPtrs(WRegionNode *W, Value *V,
                                 SmallVectorImpl<Constant *> &ConstSizes,
-                                SmallVectorImpl<uint64_t> &MapTypes);
+                                SmallVectorImpl<uint64_t> &MapTypes,
+                                bool &hasRuntimeEvaluationCaptureSize);
 
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
@@ -728,6 +745,9 @@ private:
   /// \brief Return true if one of the region W's ancestor is OMP target
   /// construct or the function where W lies in has target declare attribute.
   bool hasParentTarget(WRegionNode *W);
+
+  /// \brief Generate the cast i8* for the incoming value BPVal.
+  Value *genCastforAddr(Value *BPVal, IRBuilder<> &Builder);
 };
 } /// namespace vpo
 } /// namespace llvm

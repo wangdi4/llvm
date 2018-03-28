@@ -220,9 +220,9 @@ void VPOParoptPass::fixTidAndBidGlobals(Module &M) {
 }
 
 // The utility to transform the tid/bid global variable.
-void VPOParoptPass::processUsesOfGlobals(Constant *PtrHolder,
-                                     SmallVectorImpl<Instruction *> &RewriteIns,
-                                     bool IsTid) {
+void VPOParoptPass::processUsesOfGlobals(
+    Constant *PtrHolder, SmallVectorImpl<Instruction *> &RewriteIns,
+    bool IsTid) {
 
   while (!RewriteIns.empty()) {
     Instruction *User = RewriteIns.pop_back_val();
