@@ -3277,8 +3277,16 @@ static void handlePumpAttr(Sema &S, Decl *D, const AttributeList &Attr) {
                                              Attr.getName()))
     return;
 
+  // doublepump is not allowed with memory("MLAB").
+  if (Attr.getKind() == AttributeList::AT_DoublePump) {
+    if (const auto *MA = D->getAttr<MemoryAttr>())
+      if (MA->getKind() == MemoryAttr::MLAB &&
+          checkAttrMutualExclusion<MemoryAttr>(S, D, Attr.getRange(),
+                                               Attr.getName()))
+        return;
+  }
   if (!D->hasAttr<MemoryAttr>())
-    D->addAttr(MemoryAttr::CreateImplicit(S.Context));
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context, MemoryAttr::Default));
 
   handleSimpleAttribute<AttrType>(S, D, Attr);
 }
@@ -3293,12 +3301,35 @@ static void handleMemoryAttr(Sema &S, Decl *D, const AttributeList &Attr) {
                                              Attr.getName()))
     return;
 
+  MemoryAttr::MemoryKind Kind;
+  if (Attr.getNumArgs() == 0)
+    Kind = MemoryAttr::Default;
+  else {
+    StringRef Str;
+    if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
+      return;
+    if (Str.empty() || !MemoryAttr::ConvertStrToMemoryKind(Str, Kind)) {
+      SmallString<256> ValidStrings;
+      MemoryAttr::generateValidStrings(ValidStrings);
+      S.Diag(Attr.getLoc(), diag::err_hls_memory_arg_invalid)
+          << Attr.getName() << ValidStrings;
+      return;
+    }
+  }
+
+  // doublepump is not allowed with memory("MLAB").
+  if (Kind == MemoryAttr::MLAB &&
+      checkAttrMutualExclusion<DoublePumpAttr>(S, D, Attr.getRange(),
+                                               Attr.getName()))
+    return;
+
   // We are adding a user memory attribute, drop any implicit default.
   if (auto *MA = D->getAttr<MemoryAttr>())
     if (MA->isImplicit())
       D->dropAttr<MemoryAttr>();
 
-  handleSimpleAttribute<MemoryAttr>(S, D, Attr);
+  D->addAttr(::new (S.Context) MemoryAttr(
+      Attr.getRange(), S.Context, Kind, Attr.getAttributeSpellingListIndex()));
 }
 
 /// \brief Check for and diagnose attributes incompatible with register.
@@ -3436,7 +3467,7 @@ static void handleMergeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   }
 
   if (!D->hasAttr<MemoryAttr>())
-    D->addAttr(MemoryAttr::CreateImplicit(S.Context));
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context, MemoryAttr::Default));
 
   D->addAttr(::new (S.Context)
                  MergeAttr(Attr.getRange(), S.Context, Results[0], Results[1],
@@ -3523,7 +3554,7 @@ void Sema::AddBankBitsAttr(SourceRange AttrRange, Decl *D, Expr **Exprs,
   }
 
   if (!D->hasAttr<MemoryAttr>())
-    D->addAttr(MemoryAttr::CreateImplicit(Context));
+    D->addAttr(MemoryAttr::CreateImplicit(Context, MemoryAttr::Default));
 
   D->addAttr(::new (Context) BankBitsAttr(AttrRange, Context, Args.data(),
                                           Args.size(), SpellingListIndex));

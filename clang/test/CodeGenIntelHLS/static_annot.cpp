@@ -1,16 +1,16 @@
 //RUN: %clang_cc1 -fhls -emit-llvm -o - %s | FileCheck %s
 //RUN: %clang_cc1 -fhls -debug-info-kind=limited -emit-llvm -o - %s
 
-//CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{merge:foo:depth}
-//CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{merge:bar:width}
-//CHECK: [[ANN3:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{numbanks:4}{bank_bits:4,5}
-//CHECK: [[ANN4:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{numbanks:4}{bank_bits:5,4}
-//CHECK: [[ANN5:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{numreadports:2}{numwriteports:3}
+//CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:foo:depth}
+//CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:bar:width}
+//CHECK: [[ANN3:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numbanks:4}{bank_bits:4,5}
+//CHECK: [[ANN4:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numbanks:4}{bank_bits:5,4}
+//CHECK: [[ANN5:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numreadports:2}{numwriteports:3}
 //CHECK: [[ANN6:@.str[\.]*[0-9]*]] = {{.*}}{register:1}
-//CHECK: [[ANN7:@.str[\.]*[0-9]*]] = {{.*}}{register:0}
-//CHECK: [[ANN8:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{bankwidth:4}
-//CHECK: [[ANN9:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{pump:1}
-//CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{pump:2}
+//CHECK: [[ANN7:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}
+//CHECK: [[ANN8:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{bankwidth:4}
+//CHECK: [[ANN9:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:1}
+//CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:2}
 
 
 //CHECK: @llvm.global.annotations

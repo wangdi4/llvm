@@ -1,14 +1,14 @@
 // RUN: %clang_cc1 -x cl -triple spir-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s
 
-//CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{numbanks:4}{bank_bits:4,5}
-//CHECK: [[ANN3:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{numreadports:2}{numwriteports:3}
+//CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numbanks:4}{bank_bits:4,5}
+//CHECK: [[ANN3:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numreadports:2}{numwriteports:3}
 //CHECK: [[ANN4:@.str[\.]*[0-9]*]] = {{.*}}{register:1}
-//CHECK: [[ANN5:@.str[\.]*[0-9]*]] = {{.*}}{register:0}
-//CHECK: [[ANN6:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{bankwidth:4}
-//CHECK: [[ANN7:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{pump:1}
-//CHECK: [[ANN8:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{pump:2}
-//CHECK: [[ANN9:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{merge:foo:depth}
-//CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{merge:bar:width}
+//CHECK: [[ANN5:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}
+//CHECK: [[ANN6:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{bankwidth:4}
+//CHECK: [[ANN7:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:1}
+//CHECK: [[ANN8:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:2}
+//CHECK: [[ANN9:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:foo:depth}
+//CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:bar:width}
 
 //__attribute__((ihc_component))
 void foo_two() {

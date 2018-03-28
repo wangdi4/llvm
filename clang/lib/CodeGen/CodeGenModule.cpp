@@ -2905,8 +2905,20 @@ void CodeGenModule::generateHLSAnnotation(const VarDecl *VD,
   llvm::raw_svector_ostream Out(AnnotStr);
   if (VD->hasAttr<RegisterAttr>())
     Out << "{register:1}";
-  if (VD->hasAttr<MemoryAttr>())
-    Out << "{register:0}";
+  if (auto const *MA = VD->getAttr<MemoryAttr>()) {
+    MemoryAttr::MemoryKind Kind = MA->getKind();
+    Out << "{memory:";
+    switch (Kind) {
+    case MemoryAttr::MLAB:
+    case MemoryAttr::BlockRAM:
+      Out << MemoryAttr::ConvertMemoryKindToStr(Kind);
+      break;
+    case MemoryAttr::Default:
+      Out << "DEFAULT";
+      break;
+    }
+    Out << '}';
+  }
   if (VD->hasAttr<SinglePumpAttr>())
     Out << "{pump:1}";
   if (VD->hasAttr<DoublePumpAttr>())
