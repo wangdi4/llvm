@@ -39,6 +39,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Transforms/IPO/Intel_IPCloning.h" // INTEL
+#include "llvm/Support/GenericDomTree.h" // INTEL
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -114,6 +115,18 @@ static cl::opt<bool> OptComputeFullInlineCost(
     "inline-cost-full", cl::Hidden, cl::init(false),
     cl::desc("Compute the full inline cost of a call site even when the cost "
              "exceeds the threshold."));
+
+#if INTEL_CUSTOMIZATION
+// InliningForDeeplyNestedIfs has tree possible values(BOU_UNSET is default).
+// Use TRUE to force enabling of heuristic. Use FALSE to disable.
+static cl::opt<cl::boolOrDefault> InliningForDeeplyNestedIfs(
+    "inlining-for-deep-ifs", cl::ReallyHidden,
+    cl::desc("Option that enables inlining for deeply nested IFs"));
+
+static cl::opt<unsigned> MinDepthOfNestedIfs(
+    "inlining-min-if-depth", cl::init(9), cl::ReallyHidden,
+    cl::desc("Minimal depth of IF nest to trigger inlining"));
+#endif // INTEL_CUSTOMIZATION
 
 namespace {
 
@@ -2331,6 +2344,120 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
 
   return true;
 }
+
+/// \brief Calculate depth of the current BasicBlock in the given Dominator
+/// tree. Map is used to store IF-depth for each block so we don't need to
+/// re-calculate it multiple times.
+static int calculateMaxIfDepth(BasicBlock *Node, DominatorTree *DT,
+                               DenseMap<BasicBlock *, int> &Map) {
+  if (!Node)
+    return 0;
+
+  DenseMap<BasicBlock *, int>::iterator It = Map.find(Node);
+  if (It != Map.end())
+    return It->second;
+
+  BasicBlock *BB = Node;
+  int CurrIfDepth = 0;
+
+  while (BB) {
+    if (TerminatorInst *TermInst = BB->getTerminator()) {
+      BranchInst *Inst = dyn_cast<BranchInst>(TermInst);
+      if (Inst && Inst->isConditional()) {
+        ++CurrIfDepth;
+      }
+    }
+    if (DT->getNode(BB)->getIDom()) {
+      BB = DT->getNode(BB)->getIDom()->getBlock();
+    } else {
+      break;
+    }
+  }
+
+  Map.insert(std::make_pair(Node, CurrIfDepth));
+
+  TerminatorInst *TermInst = Node->getTerminator();
+  int CurrMaxIfDepth = CurrIfDepth;
+  for (auto *NextNode : TermInst->successors()) {
+    if (NextNode != Node)
+      CurrMaxIfDepth =
+          std::max(CurrMaxIfDepth, calculateMaxIfDepth(NextNode, DT, Map));
+  }
+
+  return CurrMaxIfDepth;
+}
+
+/// \brief Calculates the depth of the deepest 'if' statment in routine.
+static int deepestIfInDomTree(DominatorTree *DT) {
+
+  // To avoid recalculating of BasicBlock depth, it will be stored in a map.
+  DenseMap<BasicBlock *, int> BBIfDepth;
+  const DomTreeNodeBase<BasicBlock> *DomRoot = DT->getRootNode();
+
+  return calculateMaxIfDepth(DomRoot->getBlock(), DT, BBIfDepth);
+}
+
+/// \brief Analyze a callsite for potential inlining for deeply nested ifs.
+///
+/// The criteria for this heuristic are:
+/// 1) Works on PrepareForLTO phase only.
+/// 2) Recursive Caller, non-recursive callee.
+/// 3) Caller has 'switch' instruction.
+/// 4) Callee has no loops.
+/// 5) Both caller and callee contain depeply nested ifs.
+static bool worthInliningForDeeplyNestedIfs(CallSite &CS,
+                                            InliningLoopInfoCache &ILIC,
+                                            bool IsCallerRecursive,
+                                            bool PrepareForLTO) {
+  // Heuristic is enabled if option is unset and it is first inliner run
+  // (on PrepareForLTO phase) OR if option is set to true.
+  if (((InliningForDeeplyNestedIfs != cl::BOU_UNSET) || !PrepareForLTO) &&
+      (InliningForDeeplyNestedIfs != cl::BOU_TRUE))
+    return false;
+
+  Function *Callee = CS.getCalledFunction();
+  Function *Caller = CS.getCaller();
+
+  // Recursive callee is not allowed
+  if (Caller == Callee)
+    return false;
+
+  // Caller should be recursive
+  if (!IsCallerRecursive)
+    return false;
+
+  // Caller should contain 'switch' instruction.
+  bool HasSwitchInst = false;
+  for (BasicBlock &BB : *Caller) {
+    for (auto &I : BB) {
+      if (isa<SwitchInst>(I)) {
+        HasSwitchInst = true;
+        break;
+      }
+    }
+  }
+
+  if (!HasSwitchInst)
+    return false;
+
+  // Callee should have no loops.
+  LoopInfo *CalleeLI = ILIC.getLI(Callee);
+  if (!CalleeLI->empty())
+    return false;
+
+  // Both caller and callee should have deeply nested ifs.
+  DominatorTree *CallerDT = ILIC.getDT(Caller);
+  unsigned CallerIfDepth = deepestIfInDomTree(CallerDT);
+  if (CallerIfDepth < MinDepthOfNestedIfs)
+    return false;
+
+  DominatorTree *CalleeDT = ILIC.getDT(Callee);
+  unsigned CalleeIfDepth = deepestIfInDomTree(CalleeDT);
+  if (CalleeIfDepth < MinDepthOfNestedIfs)
+    return false;
+
+  return true;
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// \brief Find dead blocks due to deleted CFG edges during inlining.
@@ -2432,6 +2559,19 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   Cost -= getCallsiteCost(CS, DL);
 
 #if INTEL_CUSTOMIZATION
+  Function *Caller = CS.getInstruction()->getFunction();
+  // Check if the caller function is recursive itself.
+  for (User *U : Caller->users()) {
+    CallSite Site(U);
+    if (!Site)
+      continue;
+    Instruction *I = Site.getInstruction();
+    if (I->getFunction() == Caller) {
+      IsCallerRecursive = true;
+      break;
+    }
+  }
+
   if (InlineForXmain) {
     if (&F == CS.getCalledFunction()) {
       if (isDoubleCallSite(&F)) {
@@ -2453,6 +2593,11 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
       if (worthInliningForFusion(CS, *ILIC, CallSitesForFusion)) {
         Cost -= InlineConstants::InliningForFusionBonus;
         YesReasonVector.push_back(InlrForFusion);
+      }
+      if (worthInliningForDeeplyNestedIfs(CS, *ILIC, IsCallerRecursive,
+                                          Params.PrepareForLTO)) {
+        Cost -= InlineConstants::InliningForDeepIfsBonus;
+        YesReasonVector.push_back(InlrDeeplyNestedIfs);
       }
     }
   }
@@ -2489,19 +2634,6 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     *ReasonAddr = InlrEmptyFunction; // INTEL
     return true;
   } // INTEL
-
-  Function *Caller = CS.getInstruction()->getFunction();
-  // Check if the caller function is recursive itself.
-  for (User *U : Caller->users()) {
-    CallSite Site(U);
-    if (!Site)
-      continue;
-    Instruction *I = Site.getInstruction();
-    if (I->getFunction() == Caller) {
-      IsCallerRecursive = true;
-      break;
-    }
-  }
 
   // Populate our simplified values by mapping from function arguments to call
   // arguments with known important simplifications.
