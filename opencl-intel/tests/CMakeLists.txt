@@ -37,14 +37,6 @@ set(RT_TEST_PARAMS
 # output instead of just the test result.
 set(RT_TEST_ARGS ${RT_TEST_ARGS} "-s" "-v")
 
-set(LLVM_BINARY_DIR ${LLVM_PATH}/bin)
-
-# Let's help CMake to find llvm-lit
-set(LLVM_EXTERNAL_LIT "${LLVM_BINARY_DIR}/llvm-lit")
-if (WIN32 AND NOT CYGWIN)
-  set(LLVM_EXTERNAL_LIT "${LLVM_EXTERNAL_LIT}.py")
-endif (WIN32 AND NOT CYGWIN)
-
 set(RT_TESTS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 # We need to pass some cmake variables into lit .cfg scripts

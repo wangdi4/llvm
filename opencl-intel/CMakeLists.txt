@@ -288,6 +288,12 @@ if(BUILD_LLVM_FROM_SOURCE)
     add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
 endif()
 
+# Let's help CMake to find llvm-lit
+set(LLVM_EXTERNAL_LIT "${LLVM_PATH_BE}/bin/llvm-lit")
+if (WIN32 AND NOT CYGWIN)
+      set(LLVM_EXTERNAL_LIT "${LLVM_EXTERNAL_LIT}.py")
+endif (WIN32 AND NOT CYGWIN)
+
 if (OPENCL_RT_INCLUDE_TESTS)
     add_subdirectory( tests )
 endif (OPENCL_RT_INCLUDE_TESTS)
@@ -312,4 +318,23 @@ add_subdirectory( externals )
 if ( INCLUDE_CMRT )
   add_subdirectory ( common_runtime )
 endif( INCLUDE_CMRT )
+
+# An umbrella target for all tests under LIT infra.
+# Add a global check rule now that all subdirectories have been traversed
+# and we know the total set of lit testsuites.
+get_property(LLVM_LIT_TESTSUITES GLOBAL PROPERTY LLVM_LIT_TESTSUITES)
+get_property(LLVM_LIT_PARAMS GLOBAL PROPERTY LLVM_LIT_PARAMS)
+get_property(LLVM_LIT_DEPENDS GLOBAL PROPERTY LLVM_LIT_DEPENDS)
+get_property(LLVM_LIT_EXTRA_ARGS GLOBAL PROPERTY LLVM_LIT_EXTRA_ARGS)
+get_property(LLVM_ADDITIONAL_TEST_TARGETS
+             GLOBAL PROPERTY LLVM_ADDITIONAL_TEST_TARGETS)
+get_property(LLVM_ADDITIONAL_TEST_DEPENDS
+             GLOBAL PROPERTY LLVM_ADDITIONAL_TEST_DEPENDS)
+add_lit_target(check-ocl-all
+  "Running all OpenCL regression tests"
+  ${LLVM_LIT_TESTSUITES}
+  PARAMS ${LLVM_LIT_PARAMS}
+  DEPENDS ${LLVM_LIT_DEPENDS} ${LLVM_ADDITIONAL_TEST_TARGETS}
+  ARGS ${LLVM_LIT_EXTRA_ARGS}
+  )
 
