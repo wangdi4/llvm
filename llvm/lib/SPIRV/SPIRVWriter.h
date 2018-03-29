@@ -167,7 +167,6 @@ private:
   void mutateFuncArgType(const std::map<unsigned, Type *> &ChangedType,
                          Function *F);
 
-  SPIRVValue *transSpcvCast(CallInst *CI, SPIRVBasicBlock *BB);
   SPIRVValue *oclTransSpvcCastSampler(CallInst *CI, SPIRVBasicBlock *BB);
   SPIRV::SPIRVInstruction *transUnaryInst(UnaryInstruction *U,
                                           SPIRVBasicBlock *BB);
