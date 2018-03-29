@@ -278,7 +278,6 @@ struct ModuleInternalMetadataAPI {
   typedef NamedMDList<int32_t, MDValueModuleStrategy> GASWarningsListTy;
 
   ModuleInternalMetadataAPI(llvm::Module *pModule)
-        // TODO: The following is not internal!
       : GlobalVariableTotalSize(pModule, "opencl.global_variable_total_size"),
         GASCounter(pModule, "opencl.gen_addr_space_pointer_counter"),
         GASWarningsList(pModule, "opencl.gas_warning_line_numbers")
