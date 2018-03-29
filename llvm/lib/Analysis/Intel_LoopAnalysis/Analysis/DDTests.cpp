@@ -57,6 +57,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
+
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -1119,7 +1120,7 @@ void DependenceAnalysis::unifySubscriptType(Subscript *Pair) {
 // the actual analysis.
 void DDTest::removeMatchingExtensions(Subscript *Pair) {
 
-// TODO:  will handle this later
+  // TODO:  will handle this later
 
 #if 0
   const CanonExpr *Src = Pair->Src;
@@ -3634,8 +3635,10 @@ bool DDTest::delinearizeTo2Dim(const RegDDRef *DDRef, const CanonExpr *CE,
     }
   }
 
-  assert(LoopLevelForUnitStride &&
-         "At least 1 IV with constant coeff expected");
+  if (!LoopLevelForUnitStride) {
+    // No constant coeffs. Cannot proceed further
+    return false;
+  }
 
   IVNum = 0;
 
