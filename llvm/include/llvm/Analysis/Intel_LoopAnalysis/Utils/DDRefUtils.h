@@ -242,6 +242,11 @@ public:
   static int compareOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
                             unsigned DimensionNum);
 
+  /// Compares struct offsets in \p Ref1 and \p Ref2 and returns true if they
+  /// are equal. For example, it will returns true for references like A[0].1
+  /// and A[i1].1. Both refs should have same base and number of dimensions.
+  static bool haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2);
+
   // Sorting comparator operator for two Mem-RegDDRef.
   static bool compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2);
 

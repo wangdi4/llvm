@@ -42,7 +42,7 @@ class BlobUtils;
 /// Objects are created/destroyed using DDRefUtils friend class.
 class DDRef {
 private:
-  /// \brief Make class uncopyable.
+  /// Make class uncopyable.
   void operator=(const DDRef &) = delete;
 
   /// Reference to parent utils object. This is needed to access util functions.
@@ -58,10 +58,10 @@ protected:
 
   friend class DDRefUtils;
 
-  /// \brief Virtual set HLDDNode
+  /// Virtual set HLDDNode
   virtual void setHLDDNode(HLDDNode *HNode) = 0;
 
-  /// \brief Implements get*Type() functionality.
+  /// Implements get*Type() functionality.
   Type *getTypeImpl(bool IsSrc) const;
 
 public:
@@ -74,35 +74,38 @@ public:
   /// Returns BlobUtils object.
   BlobUtils &getBlobUtils() const;
 
-  /// \brief Virtual Clone Method
+  /// Virtual Clone Method
   virtual DDRef *clone() const = 0;
 
-  /// \brief Dumps DDRef.
+  /// Dumps DDRef.
   void dump(bool Detailed) const;
-  /// \brief Dumps DDRef in a simple format.
+  /// Dumps DDRef in a simple format.
   void dump() const;
 
-  /// \brief Prints DDRef in a simple format.
+  /// Prints DDRef in a simple format.
   virtual void print(formatted_raw_ostream &OS, bool Detailed = false) const;
 
-  /// \brief Returns the parent HLDDNode.
-  virtual HLDDNode *getHLDDNode() const = 0;
+  /// Returns the parent HLDDNode.
+  virtual const HLDDNode *getHLDDNode() const = 0;
 
-  /// \brief Returns the Level of parent HLDDNode Level.
+  virtual HLDDNode *getHLDDNode() = 0;
+
+  /// Returns the Level of parent HLDDNode Level.
   unsigned getNodeLevel() const;
 
-  /// \brief Returns the src element type associated with this DDRef.
+  /// Returns the src element type associated with this DDRef.
   /// For example, for a 2 dimensional GEP DDRef whose src base type is [7 x
   /// [101 x float]]*, we will return float.
   /// TODO: extend to handle struct types.
   virtual Type *getSrcType() const = 0;
-  /// \brief Returns the dest element type associated with this DDRef.
+
+  /// Returns the dest element type associated with this DDRef.
   /// For example, for a 2 dimensional GEP DDRef whose dest base type is [7 x
   /// [101 x int32]]*, we will return int32.
   /// TODO: extend to handle struct types.
   virtual Type *getDestType() const = 0;
 
-  /// \brief Returns the symbol number used to disambiguate references.
+  /// Returns the symbol number used to disambiguate references.
   unsigned getSymbase() const { return Symbase; };
   void setSymbase(unsigned SB) { Symbase = SB; }
 
@@ -112,23 +115,35 @@ public:
   ///  be used for any other purpose.
   unsigned getDDRefID() const { return SubClassID; }
 
-  /// \brief An enumeration to keep track of the concrete subclasses of DDRef
+  /// An enumeration to keep track of the concrete subclasses of DDRef
   enum DDRefVal { RegDDRefVal, BlobDDRefVal };
 
-  /// \brief Returns true if the DDRef represents a self-blob like (1 * %t). In
+  /// Returns true if the DDRef represents a self-blob like (1 * %t). In
   /// addition DDRef's symbase should be the same as %t's symbase. This is so
   /// because for some livein copies %t1 = %t2, lval %t1 is parsed as 1 * %t2.
   /// But since %t1 has a different symbase than %t2 we still need to add a blob
   /// DDRef for %t2 to the DDRef.
   virtual bool isSelfBlob() const = 0;
 
+  /// Returns true if DDRef corresponds to terminal ref.
+  /// BlobDDRef is always terminal
+  virtual bool isTerminalRef() const = 0;
+
+  /// Returns true if DDRef is lvalue
+  virtual bool isLval() const = 0;
+
   /// Returns true if this ref looks like 1 * undef.
   virtual bool isStandAloneUndefBlob() const = 0;
 
-  /// \brief Returns true if this DDRef contains undefined canon expressions.
+  /// Returns single CanonExpr (important special case for terminal refs)
+  virtual const CanonExpr *getSingleCanonExpr() const = 0;
+
+  virtual CanonExpr *getSingleCanonExpr() = 0;
+
+  /// Returns true if this DDRef contains undefined canon expressions.
   virtual bool containsUndef() const = 0;
 
-  /// \brief Verifies DDRef integrity.
+  /// Verifies DDRef integrity.
   virtual void verify() const;
 
   /// Returns true if temp DDRef is live out of Region.
@@ -143,11 +158,15 @@ public:
   /// Asserts if this DDRef does not represent a temp.
   bool isLiveOutOfParentLoop() const;
 
-  /// \brief  Returns ParentLoop of DDRef.
-  HLLoop *getParentLoop() const;
+  /// Returns ParentLoop of DDRef.
+  const HLLoop *getParentLoop() const;
+
+  HLLoop *getParentLoop();
 
   /// Returns lexical ParentLoop of DDRef.
-  HLLoop *getLexicalParentLoop() const;
+  const HLLoop *getLexicalParentLoop() const;
+
+  HLLoop *getLexicalParentLoop();
 };
 
 } // namespace loopopt

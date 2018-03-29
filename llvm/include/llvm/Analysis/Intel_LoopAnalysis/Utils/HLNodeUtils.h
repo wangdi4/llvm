@@ -21,8 +21,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/NoFolder.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
 
 #include <set>
 
@@ -43,6 +43,11 @@ class HIRLoopStatistics;
 /// It contains a bunch of member functions which manipulate HLNodes.
 class HLNodeUtils {
 private:
+  /// Special deleter is required to call HLNodeUtils private destructor.
+  struct HLNodeUtilsDeleter {
+    void operator()(HLNodeUtils *Ptr) const { delete Ptr; }
+  };
+
   /// Keeps track of HLNode objects.
   std::set<HLNode *> Objs;
   unsigned NextUniqueHLNodeNumber;
@@ -879,9 +884,13 @@ public:
   /// Inserts an unlinked Node as first child of this If. The flag IsThenChild
   /// indicates whether this is to be inserted as then or else child.
   static void insertAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild);
-  /// Inserts an unlinked Node as last child of this If. The flaga IsThenChild
+  static void insertAsFirstChildren(HLIf *If, HLContainerTy *NodeContainer,
+                                    bool IsThenChild);
+  /// Inserts an unlinked Node as last child of this If. The flag IsThenChild
   /// indicates whether this is to be inserted as then or else child.
   static void insertAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild);
+  static void insertAsLastChildren(HLIf *If, HLContainerTy *NodeContainer,
+                                   bool IsThenChild);
 
   /// Inserts an unlinked Node as first default case child of switch.
   static void insertAsFirstDefaultChild(HLSwitch *Switch, HLNode *Node);
@@ -1114,6 +1123,13 @@ public:
                                            const HLNode *Node = nullptr);
   static HLNode *getLastLexicalChild(HLNode *Parent, HLNode *Node = nullptr);
 
+  // Returns immediate child of \p ParentNode that contain \p Node.
+  static const HLNode *getImmediateChildContainingNode(const HLNode *ParentNode,
+                                                       const HLNode *Node);
+  // Returns immediate child of \p ParentNode that contain \p Node.
+  static HLNode *getImmediateChildContainingNode(HLNode *ParentNode,
+                                                 HLNode *Node);
+
   /// Returns true if Node1 can be proven to dominate Node2, otherwise
   /// conservatively returns false.
   /// \p HLS is used to produce faster results. A valid value can (and should)
@@ -1256,6 +1272,14 @@ public:
   static const HLLoop *getLowestCommonAncestorLoop(const HLLoop *Lp1,
                                                    const HLLoop *Lp2);
   static HLLoop *getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2);
+
+  /// Returns the lexical lowest common ancestor parent of Node1 and Node2.
+  /// Returns null if there is no such parent.
+  static const HLNode *
+  getLexicalLowestCommonAncestorParent(const HLNode *Node1,
+                                       const HLNode *Node2);
+  static HLNode *getLexicalLowestCommonAncestorParent(HLNode *Node1,
+                                                      HLNode *Node2);
 
   /// Returns true if the minimum value of blob can be evaluated. Returns the
   /// minimum value in \p Val.

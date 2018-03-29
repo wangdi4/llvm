@@ -112,7 +112,7 @@ public:
 
   /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
-    return Node->getHLNodeID() == HLNode::HLInstVal;
+    return Node->getHLNodeClassID() == HLNode::HLInstVal;
   }
 
   /// clone() - Create a copy of 'this' HLInst that is identical in all ways
@@ -214,6 +214,14 @@ public:
 };
 
 } // End namespace loopopt
+
+template <>
+struct DenseMapInfo<loopopt::HLInst *>
+    : public loopopt::DenseHLNodeMapInfo<loopopt::HLInst> {};
+
+template <>
+struct DenseMapInfo<const loopopt::HLInst *>
+    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLInst> {};
 
 } // End namespace llvm
 

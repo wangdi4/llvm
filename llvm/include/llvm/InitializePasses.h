@@ -431,15 +431,17 @@ void initializeMapIntrinToImlPass(PassRegistry&);
 void initializeLoopOptMarkerLegacyPassPass(PassRegistry&);
 // Pass to store the opt level.
 void initializeXmainOptLevelWrapperPassPass(PassRegistry&);
+void initializeOptReportOptionsPassPass(PassRegistry &);
 // HIR Passes
 void initializeHIRRegionIdentificationWrapperPassPass(PassRegistry&);
 void initializeHIRSCCFormationWrapperPassPass(PassRegistry&);
 void initializeHIRFrameworkWrapperPassPass(PassRegistry&);
+void initializeHIROptReportEmitterWrapperPassPass(PassRegistry&);
 void initializeHIRDDAnalysisPass(PassRegistry&);
 void initializeHIRLocalityAnalysisPass(PassRegistry&);
-void initializeHIRLoopResourcePass(PassRegistry&);
+void initializeHIRLoopResourceWrapperPassPass(PassRegistry&);
 void initializeHIRSafeReductionAnalysisPass(PassRegistry&);
-void initializeHIRLoopStatisticsPass(PassRegistry&);
+void initializeHIRLoopStatisticsWrapperPassPass(PassRegistry&);
 void initializeHIRSSADeconstructionLegacyPassPass(PassRegistry&);
 void initializeHIRTempCleanupPass(PassRegistry&);
 void initializeHIRParVecAnalysisPass(PassRegistry&);
@@ -458,6 +460,7 @@ void initializeHIROptPredicatePass(PassRegistry&);
 void initializeHIRRuntimeDDPass(PassRegistry&);
 void initializeHIRLoopReversalPass(PassRegistry&);
 void initializeHIRLMMPass(PassRegistry&);
+void initializeHIRLoopCollapsePass(PassRegistry&);
 void initializeHIRSymbolicTripCountCompleteUnrollPass(PassRegistry&);
 void initializeHIRScalarReplArrayPass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);
@@ -468,6 +471,7 @@ void initializeHIRMVForConstUBPass(PassRegistry&);
 void initializeHIRLoopConcatenationPass(PassRegistry&);
 void initializeHIRArrayTransposePass(PassRegistry&);
 void initializeHIRLoopFusionPass(PassRegistry&);
+void initializeLoopOptReportEmitterPass(PassRegistry &);
 // VPO WRegion Passes
 void initializeWRegionCollectionWrapperPassPass(PassRegistry&);
 void initializeWRegionInfoWrapperPassPass(PassRegistry&);

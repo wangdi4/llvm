@@ -26,6 +26,7 @@
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
@@ -170,6 +171,23 @@ static cl::opt<bool> PrintModuleBeforeLoopopt(
     "print-module-before-loopopt", cl::init(false), cl::Hidden,
     cl::desc("Prints LLVM module to dbgs() before first HIR transform(HIR SSA "
              "deconstruction)"));
+
+// Option for controlling 'backend' for the optimization reports.
+static cl::opt<OptReportOptionsPass::LoopOptReportEmitterKind>
+    OptReportEmitter(
+        "intel-loop-optreport-emitter",
+        cl::desc("Option for choosing the way compiler outputs the "
+                 "optimization reports"),
+        cl::init(OptReportOptionsPass::None),
+        cl::values(
+            clEnumValN(OptReportOptionsPass::None, "none",
+                       "Optimization reports are not emitted"),
+            clEnumValN(
+                OptReportOptionsPass::IR, "ir",
+                "Optimization reports are emitted right after HIR phase"),
+            clEnumValN(
+                OptReportOptionsPass::HIR, "hir",
+                "Optimization reports are emitted before HIR Code Gen phase")));
 
 // register promotion for global vars at -O2 and above.
 static cl::opt<bool> EnableNonLTOGlobalVarOpt(
@@ -1276,13 +1294,14 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       PM.add(createHIRLoopDistributionForMemRecPass());
     }
 
+    PM.add(createHIRLoopCollapsePass());
     PM.add(createHIRIdiomRecognitionPass());
     PM.add(createHIRLoopFusionPass());
 
     if (SizeLevel == 0) {
       PM.add(createHIRUnrollAndJamPass());
       PM.add(createHIROptVarPredicatePass());
-      PM.add(createHIROptPredicatePass());
+      PM.add(createHIROptPredicatePass(OptLevel == 3));
       if (RunVPOOpt) {
         PM.add(createHIRVecDirInsertPass(OptLevel == 3));
         if (EnableVPlanDriverHIR) {
@@ -1300,7 +1319,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createHIRScalarReplArrayPass());
   }
 
-  PM.add(createHIRCodeGenWrapperPass());
+  if (OptReportEmitter == OptReportOptionsPass::HIR)
+    PM.add(createHIROptReportEmitterWrapperPass());
+
+ PM.add(createHIRCodeGenWrapperPass());
 
   addLoopOptCleanupPasses(PM);
 }
@@ -1361,6 +1383,9 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
   // assetion failure as the feature matures.
   if (RunVPOOpt)
     PM.add(createVPODirectiveCleanupPass());
+
+  if (OptReportEmitter == OptReportOptionsPass::IR)
+    PM.add(createLoopOptReportEmitterLegacyPass());
 }
 
 #endif // INTEL_CUSTOMIZATION

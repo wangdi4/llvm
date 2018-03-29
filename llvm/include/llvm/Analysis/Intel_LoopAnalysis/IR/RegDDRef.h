@@ -44,22 +44,24 @@ public:
   /// loads/stores can be mapped as multi-dimensional subscripts with each
   /// subscript having its own canonical form.
   typedef SmallVector<CanonExpr *, 3> CanonExprsTy;
+  typedef SmallVector<const CanonExpr *, 3> ConstCanonExprsTy;
   typedef SmallVector<BlobDDRef *, 2> BlobDDRefsTy;
+  typedef SmallVector<const BlobDDRef *, 2> ConstBlobDDRefsTy;
   typedef CanonExprsTy SubscriptTy;
   typedef std::pair<unsigned, MDNode *> MDPairTy;
   typedef SmallVector<MDPairTy, 6> MDNodesTy;
 
   /// Iterators to iterate over canon exprs
   typedef CanonExprsTy::iterator canon_iterator;
-  typedef CanonExprsTy::const_iterator const_canon_iterator;
+  typedef ConstCanonExprsTy::const_iterator const_canon_iterator;
   typedef CanonExprsTy::reverse_iterator reverse_canon_iterator;
-  typedef CanonExprsTy::const_reverse_iterator const_reverse_canon_iterator;
+  typedef ConstCanonExprsTy::const_reverse_iterator const_reverse_canon_iterator;
 
   /// Iterators to iterate over blob ddrefs
   typedef BlobDDRefsTy::iterator blob_iterator;
-  typedef BlobDDRefsTy::const_iterator const_blob_iterator;
+  typedef ConstBlobDDRefsTy::const_iterator const_blob_iterator;
   typedef BlobDDRefsTy::reverse_iterator reverse_blob_iterator;
-  typedef BlobDDRefsTy::const_reverse_iterator const_reverse_blob_iterator;
+  typedef ConstBlobDDRefsTy::const_reverse_iterator const_reverse_blob_iterator;
 
 private:
   typedef SmallVector<unsigned, 2> OffsetsTy;
@@ -78,7 +80,7 @@ private:
     // Note that in some cases this type can be the same as the BaseCE type
     // therefore we cannot store it in the BaseCE dest type as in this case we
     // cannot tell whether the bitcast is needed. It is also not a good
-    // representaion as the bitcast is on the resulting GEP, not the base ptr.
+    // representation as the bitcast is on the resulting GEP, not the base ptr.
     // This was the previous implementation. An example where it didn't work-
     //   %gep = getelementptr [20 x i32], [20 x i32]* @t, i64 0, i64 1
     //   %bc = bitcast i32* %gep to [20 x i32]*
@@ -88,6 +90,8 @@ private:
     // of a load or store.
     bool AddressOf;
     bool Volatile;
+    bool IsCollapsed; // Set if the DDRef has been collapsed through Loop
+                      // Collapse Pass. Needed for DD test to bail out often.
     unsigned Alignment;
 
     // Stores trailing structure element offsets for each dimension of the ref.
@@ -140,7 +144,6 @@ private:
   GEPInfo *GepInfo;
   HLDDNode *Node;
 
-protected:
   RegDDRef(DDRefUtils &DDRU, unsigned SB);
 
   /// Calling delete on a null pointer has no effect.
@@ -214,7 +217,9 @@ protected:
 
 public:
   /// Returns HLDDNode this DDRef is attached to.
-  HLDDNode *getHLDDNode() const override { return Node; };
+  const HLDDNode *getHLDDNode() const override { return Node; };
+
+  HLDDNode *getHLDDNode() override { return Node; };
 
   /// Prints RegDDRef.
   virtual void print(formatted_raw_ostream &OS,
@@ -392,6 +397,15 @@ public:
     getGEPInfo()->Alignment = Align;
   }
 
+  /// \brief Returns true if this is a collapsed ref.
+  bool isCollapsed(void) const { return getGEPInfo()->IsCollapsed; }
+
+  /// Sets collapse flag for this ref.
+  void setCollapsed(bool CollapseFlag) {
+    createGEP();
+    getGEPInfo()->IsCollapsed = CollapseFlag;
+  }
+
   // Get/Set DebugLoc for the Load/Store instruction
   const DebugLoc &getMemDebugLoc() const { return getGEPInfo()->MemDbgLoc; }
   void setMemDebugLoc(const DebugLoc &Loc) { getGEPInfo()->MemDbgLoc = Loc; }
@@ -468,12 +482,12 @@ public:
   unsigned getNumDimensions() const { return CanonExprs.size(); }
 
   /// Returns the only canon expr of this DDRef.
-  CanonExpr *getSingleCanonExpr() {
+  CanonExpr *getSingleCanonExpr() override {
     assert(getNumDimensions() == 1);
     return *(canon_begin());
   }
 
-  const CanonExpr *getSingleCanonExpr() const {
+  const CanonExpr *getSingleCanonExpr() const override {
     return const_cast<RegDDRef *>(this)->getSingleCanonExpr();
   }
 
@@ -527,7 +541,7 @@ public:
 
   /// Returns true if this DDRef is a lval DDRef. This function
   /// assumes that the DDRef is connected to a HLDDNode.
-  bool isLval() const;
+  bool isLval() const override;
 
   /// Returns true if this DDRef is a rval DDRef. This function
   /// assumes that the DDRef is connected to a HLDDNode.
@@ -551,7 +565,7 @@ public:
   ///      RegDDRef is Memory Reference - A[i]
   ///      RegDDRef is a Pointer Reference - *p
   /// Else returns true for cases like DDRef - 2*i and M+N.
-  bool isTerminalRef() const {
+  bool isTerminalRef() const override {
     if (!hasGEPInfo()) {
       assert(isSingleCanonExpr() &&
              "Terminal ref has more than one dimension!");
@@ -639,6 +653,11 @@ public:
   bool hasTrailingStructOffsets(unsigned DimensionNum) const {
     return (getTrailingStructOffsets(DimensionNum) != nullptr);
   }
+
+  /// Returns true if \p DimensionNum has non-zero trailing offsets. For
+  /// example, it will return true for A[i].1, A[i].0.1 and false for A[i].0 and
+  /// A[i].0.0.
+  bool hasNonZeroTrailingStructOffsets(unsigned DimensionNum) const;
 
   /// Returns true if the Ref has trailing offsets for any dimension.
   bool hasTrailingStructOffsets() const;

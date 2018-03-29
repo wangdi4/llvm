@@ -36,12 +36,110 @@ public:
   /// Most instructions are covered except some vector instructions which are
   /// a minority.
   typedef SmallVector<RegDDRef *, 5> RegDDRefTy;
+  typedef SmallVector<const RegDDRef *, 5> ConstRegDDRefTy;
 
   /// Iterators to iterate over RegDDRefs
   typedef RegDDRefTy::iterator ddref_iterator;
-  typedef RegDDRefTy::const_iterator const_ddref_iterator;
+  typedef ConstRegDDRefTy::const_iterator const_ddref_iterator;
   typedef RegDDRefTy::reverse_iterator reverse_ddref_iterator;
-  typedef RegDDRefTy::const_reverse_iterator const_reverse_ddref_iterator;
+  typedef ConstRegDDRefTy::const_reverse_iterator const_reverse_ddref_iterator;
+
+  /// Traverses all DDRefs in HLDDNode.
+  /// RegDDRef is traversed before all BlobDDRefs associated with RegDDRef.
+  ///
+  /// Traversal corresponds to the following loop nest:
+  /// for (RegIt: make_range(ddref_begin(), ddref_end())) {
+  ///   // Processing of *RegIt
+  ///   for (BlobIt:
+  ///     make_range((*RegIt)->blob_cbegin(), (*RegIt)->blob_cbegin())) {
+  ///      // Processing of *BlobIt
+  ///   }
+  /// }
+  ///
+  /// value and reference types are DDRef* in std::iterator
+  class const_all_ddref_iterator
+      : public std::iterator<std::bidirectional_iterator_tag, const DDRef *,
+                             std::ptrdiff_t, const DDRef *const *,
+                             const DDRef *> {
+
+    typedef RegDDRef::const_blob_iterator const_blob_iterator;
+
+    explicit const_all_ddref_iterator(const_ddref_iterator RegIt)
+        : RegIt(RegIt), BlobIt(nullptr), IsRegDDRef(true) {}
+
+    // Expose for all_dd_begin()/all_dd_end()
+    friend class HLDDNode;
+
+  public:
+    bool operator==(const const_all_ddref_iterator &It) const {
+      return RegIt == It.RegIt && IsRegDDRef == It.IsRegDDRef &&
+             BlobIt == It.BlobIt;
+    }
+
+    bool operator!=(const const_all_ddref_iterator &It) const {
+      return !(operator==(It));
+    }
+
+    iterator &operator++() {
+      // See descriptors in private section
+      if (IsRegDDRef) {
+        IsRegDDRef = false;
+        BlobIt = (*RegIt)->blob_cbegin();
+      } else {
+        ++BlobIt;
+      }
+      if (BlobIt == (*RegIt)->blob_cend()) {
+        IsRegDDRef = true;
+        BlobIt = nullptr;
+        ++RegIt;
+      }
+      return *this;
+    }
+
+    iterator &operator--() {
+      // See descriptors in private section
+      if (IsRegDDRef) {
+        IsRegDDRef = false;
+        BlobIt = (*(--RegIt))->blob_cend();
+      }
+      if (BlobIt == (*RegIt)->blob_cbegin()) {
+        IsRegDDRef = true;
+        BlobIt = nullptr;
+      } else {
+        --BlobIt;
+      }
+      return *this;
+    }
+
+    iterator operator++(int) {
+      iterator retval = *this;
+      ++(*this);
+      return retval;
+    }
+
+    iterator operator--(int) {
+      iterator retval = *this;
+      --(*this);
+      return retval;
+    }
+
+    reference operator*() const {
+      if (IsRegDDRef) {
+        return *RegIt;
+      }
+      return *BlobIt;
+    }
+
+  private:
+    // This iterator is one-past-end when RegIt is one-past-end and IsRegDDRef
+    // is true.
+    //
+    // This iterator can be dereferenced when RegIt can be dereferenced and
+    // either IsRegDDRef is true or BlobIt can be dereferenced.
+    const_ddref_iterator RegIt;
+    const_blob_iterator BlobIt;
+    bool IsRegDDRef;
+  };
 
 protected:
   HLDDNode(HLNodeUtils &HNU, unsigned SCID);
@@ -99,6 +197,15 @@ public:
   reverse_ddref_iterator ddref_rend() { return RegDDRefs.rend(); }
   const_reverse_ddref_iterator ddref_rend() const {
     return const_cast<HLDDNode *>(this)->ddref_rend();
+  }
+
+  /// This traversal includes all RegDDRefs and associated BlobDDRefs
+  const_all_ddref_iterator all_dd_begin() const {
+    return const_all_ddref_iterator(ddref_begin());
+  }
+
+  const_all_ddref_iterator all_dd_end() const {
+    return const_all_ddref_iterator(ddref_end());
   }
 
   /// Operand DDRef iterator methods
@@ -165,10 +272,10 @@ public:
 
   /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
-    return (Node->getHLNodeID() == HLNode::HLLoopVal) ||
-           (Node->getHLNodeID() == HLNode::HLIfVal) ||
-           (Node->getHLNodeID() == HLNode::HLInstVal) ||
-           (Node->getHLNodeID() == HLNode::HLSwitchVal);
+    return (Node->getHLNodeClassID() == HLNode::HLLoopVal) ||
+           (Node->getHLNodeClassID() == HLNode::HLIfVal) ||
+           (Node->getHLNodeClassID() == HLNode::HLInstVal) ||
+           (Node->getHLNodeClassID() == HLNode::HLSwitchVal);
   }
 
   /// Rval operand DDRef iterator methods
@@ -303,7 +410,7 @@ public:
   /// operand.
   /// This DDRef might be used for exposing DD edges.
   /// This applies to call instructions with pointer arguments. Since the
-  /// arguments can be derefenerenced and read/written to inside the call, we
+  /// arguments can be dereferenced and read/written to inside the call, we
   /// need to add corresponding fake refs for them.
   /// The mask DDRef is also added as a fake DDRef for exposing DD edges.
   void addFakeLvalDDRef(RegDDRef *RDDRef);
@@ -338,6 +445,14 @@ public:
 };
 
 } // End namespace loopopt
+
+template <>
+struct DenseMapInfo<loopopt::HLDDNode *>
+    : public loopopt::DenseHLNodeMapInfo<loopopt::HLDDNode> {};
+
+template <>
+struct DenseMapInfo<const loopopt::HLDDNode *>
+    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLDDNode> {};
 
 } // End namespace llvm
 

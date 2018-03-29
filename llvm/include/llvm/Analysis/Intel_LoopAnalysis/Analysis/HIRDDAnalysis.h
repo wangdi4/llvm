@@ -194,6 +194,12 @@ public:
                              unsigned StartNestingLevel,
                              unsigned DeepestNestingLevel, bool ForFusion);
 
+  /// Return true if \p SrcRef and \p DstRef alias based on the metadata/base
+  /// info.
+  /// Alias analyses are invoked on demand.
+  /// Both the refs are supposed to be memrefs.
+  bool doRefsAlias(const RegDDRef *SrcRef, const RegDDRef *DstRef) const;
+
   // TODO still needed? Call findDependences directly?
   // bool demandDrivenDD(DDRef* SrcRef, DDRef* SinkRef,
   //  DirectionVector* input_dv, DirectionVector* output_dv);

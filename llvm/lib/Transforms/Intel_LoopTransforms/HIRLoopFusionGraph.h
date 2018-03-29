@@ -173,10 +173,6 @@ private:
   NodeMapTy ReversedPredecessors;
 
 private:
-  // Returns immediate child of \p ParentNode that contain \p Node.
-  static HLNode *getImmediateChildContainingNode(HLNode *ParentNode,
-                                                 HLNode *Node);
-
   // Returns any edge, directed or undirected, that connects \p Node1 and \p
   // Node2. May return nullptr if nodes are not connected.
   FuseEdge *tryGetFuseEdge(unsigned Node1, unsigned Node2);

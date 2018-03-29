@@ -42,9 +42,7 @@
 ; CHECK: if (%n > 50)
 ; CHECK: UNKNOWN LOOP i1
 ; CHECK: END LOOP
-; CHECK: else
-; CHECK: UNKNOWN LOOP i1
-; CHECK: END LOOP
+; CHECK-NOT: UNKNOWN LOOP i1
 
 ;Module Before HIR; ModuleID = 'module.c'
 source_filename = "1.cpp"

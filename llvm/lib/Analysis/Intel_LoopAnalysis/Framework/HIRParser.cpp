@@ -1436,8 +1436,7 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
     IsRegionLivein = true;
     assert(!DefLoop && "Livein value cannot come from another region!");
 
-  } else if (DefLoop && UseLoop &&
-             (LCALoop =
+  } else if ((LCALoop =
                   HLNodeUtils::getLowestCommonAncestorLoop(DefLoop, UseLoop))) {
     // If the current node where the blob is used and the blob definition are
     // both in some HLLoop, the defined at level should be the lowest common
@@ -1464,9 +1463,7 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
     DefLp = LI.getLoopFor(BaseInst->getParent());
     DefLoop = DefLp ? LF.findHLLoop(DefLp) : nullptr;
 
-    if (DefLoop && UseLoop) {
-      LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop);
-    }
+    LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop);
   }
 
   // This if-else case handles liveins/liveouts caused by SSA deconstruction.
@@ -1494,50 +1491,22 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
 
   } else if (SE.getHIRMetadata(BaseInst,
                                ScalarEvolution::HIRLiveKind::LiveIn)) {
-    if (auto Phi = dyn_cast<PHINode>(BaseInst)) {
-      // Check if phi is in the loop exit bblock. The deconstructed definition
-      // lies inside the loop which makes it liveout of the loop. This is only
-      // possible for multi-exit loops. For single-exit loops, liveout values
-      // are used in single-operand phis which are optimized away. For
-      // example-
-      //
-      // loop:
-      //    %t1.in = 0                    <<< deconstructed definition
-      // br %cond %loopexit, %looplatch
-      //
-      // looplatch:
-      //    %t1.in1 = 1                   <<< deconstructed definition
-      // br %cond %loopexit, %loop
-      //
-      // loopexit:
-      //    %t1 = phi [ 1, %looplatch, 0, %loop ]
-      for (unsigned I = 0, Num = Phi->getNumIncomingValues(); I < Num; ++I) {
-        auto PredLp = LI.getLoopFor(Phi->getIncomingBlock(I));
-
-        if (PredLp && (PredLp != DefLp)) {
-          auto PredLoop = LF.findHLLoop(PredLp);
-          assert(PredLoop && "Could not find predecessors HLLoop!");
-          PredLoop->addLiveOutTemp(Symbase);
-        }
-      }
-    }
+    ScalarSA.handleMultiExitLoopLiveoutPhi(dyn_cast<PHINode>(BaseInst),
+                                           Symbase);
   }
 
-  // Add temp as livein into UseLoop and all its parent loops till we reach LCA
-  // loop.
-  if (UseLoop) {
+  // Loop livein/liveouts are processed per use (except for the special cases
+  // handled above) so we skip the definitions (scalar lvals).
+  if (!parsingScalarLval()) {
+    // Add temp as livein into UseLoop and all its parent loops till we reach
+    // LCA loop.
     while (UseLoop != LCALoop) {
       UseLoop->addLiveInTemp(Symbase);
       UseLoop = UseLoop->getParentLoop();
     }
-  }
 
-  // Add temp as livein into DefLoop and all its parent loops till we reach LCA
-  // loop.
-  // Instructions with livein metadata are deconstructed definitions (not
-  // uses). Therefore, they should not be used to mark loop liveouts.
-  if (DefLoop &&
-      !SE.getHIRMetadata(Inst, ScalarEvolution::HIRLiveKind::LiveIn)) {
+    // Add temp as livein into DefLoop and all its parent loops till we reach
+    // LCA loop.
     while (DefLoop != LCALoop) {
       DefLoop->addLiveOutTemp(Symbase);
       DefLoop = DefLoop->getParentLoop();
@@ -2903,8 +2872,6 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
 
   clearTempBlobLevelMap();
 
-  ParsingScalarLval = false;
-
   // Trace though consecutive bitcast operators until we hit something else.
   while (auto BCOp = dyn_cast<BitCastOperator>(GEPVal)) {
 
@@ -3014,6 +2981,8 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
     }
     populateBlobDDRefs(Ref, Level);
   }
+
+  ParsingScalarLval = false;
 
   return Ref;
 }

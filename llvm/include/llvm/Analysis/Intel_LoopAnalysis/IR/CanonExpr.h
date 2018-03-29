@@ -72,7 +72,7 @@ const unsigned NonLinearLevel = MaxLoopNestLevel + 1;
 ///
 /// This class disallows creating objects on stack.
 /// Objects are created/destroyed using CanonExprUtils friend class.
-class CanonExpr {
+class CanonExpr final {
 private:
   struct BlobIndexToCoeff {
     /// Valid index range is [1, UINT_MAX].
@@ -145,11 +145,9 @@ private:
 
   DebugLoc DbgLoc;
 
-protected:
   CanonExpr(CanonExprUtils &CEU, Type *SrcType, Type *DestType, bool IsSExt,
             unsigned DefLevel, int64_t ConstVal, int64_t Denom,
             bool IsSignedDiv);
-  virtual ~CanonExpr() {}
 
   friend class CanonExprUtils;
 
@@ -385,12 +383,14 @@ public:
   /// Returns true if canon expr represents a vector of null pointer values.
   bool isNullVector() const;
 
-  /// Returns true if this canon expr is a standalone IV (it looks something
-  /// like (1 * i3)).
+  /// Returns true if this canon expr is a standalone IV
+  /// (it looks something like (1 * i3)).
   /// If \p AllowConversion is true, conversions are allowed to be part of a
   /// standalone IV. Otherwise, an IV with a conversion is not considered a
-  /// standalone IV.
-  bool isStandAloneIV(bool AllowConversion = true) const;
+  /// standalone IV. If \p Level is given, the loop level of the induction
+  /// variable is returned.
+  bool isStandAloneIV(bool AllowConversion = true,
+                      unsigned *Level = nullptr) const;
 
   /// Returns the level of the first IV with coeff different from 0.
   /// It returns 0 if no IV is found with coeff different from 0.

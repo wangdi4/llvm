@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -hir-opt-predicate -print-after=hir-opt-predicate -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-opt-predicate -print-after=hir-opt-predicate -disable-output < %s 2>&1 | FileCheck %s
 
 ; HIR:
 ; <0>       BEGIN REGION { }

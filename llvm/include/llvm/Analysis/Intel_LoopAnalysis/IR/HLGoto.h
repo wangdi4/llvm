@@ -86,7 +86,7 @@ public:
 
   /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
-    return Node->getHLNodeID() == HLNode::HLGotoVal;
+    return Node->getHLNodeClassID() == HLNode::HLGotoVal;
   }
 
   /// clone() - Create a copy of 'this' HLGoto that is identical in all
@@ -105,6 +105,14 @@ public:
 };
 
 } // End namespace loopopt
+
+template <>
+struct DenseMapInfo<loopopt::HLGoto *>
+    : public loopopt::DenseHLNodeMapInfo<loopopt::HLGoto> {};
+
+template <>
+struct DenseMapInfo<const loopopt::HLGoto *>
+    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLGoto> {};
 
 } // End namespace llvm
 

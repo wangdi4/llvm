@@ -21,8 +21,8 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 
-#include "llvm/Pass.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Pass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
 
@@ -94,11 +94,6 @@ private:
                       const SmallPtrSetImpl<const BasicBlock *> &EndBBs,
                       const SmallPtrSetImpl<const BasicBlock *> &FromBBs,
                       SmallPtrSetImpl<const BasicBlock *> &VisitedBBs) const;
-
-  /// Returns true if dominator children of \p BB are involved in a cycle which
-  /// doesn't go through backedges. This indicates irreducible CFG. If \p Lp is
-  /// not null, only bblocks in Lp are considered.
-  bool containsCycle(const BasicBlock *BB, const Loop *Lp) const;
 
   /// Returns true if \p BB is generable (can be handled by HIR). \p Lp is
   /// passed as null for function level region mode.
@@ -237,6 +232,10 @@ public:
   isReachableFrom(const BasicBlock *BB,
                   const SmallPtrSetImpl<const BasicBlock *> &EndBBs,
                   const SmallPtrSetImpl<const BasicBlock *> &FromBBs) const;
+
+  /// Erases all the formed regions.
+  /// NOTE: Only used by HIRSSADeconstruction pass in opt-bisect mode.
+  void discardRegions() { IRRegions.clear(); }
 };
 
 class HIRRegionIdentificationAnalysis
@@ -277,9 +276,7 @@ public:
 
   bool runOnFunction(Function &F) override;
 
-  void releaseMemory() override {
-    RI.reset();
-  }
+  void releaseMemory() override { RI.reset(); }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 

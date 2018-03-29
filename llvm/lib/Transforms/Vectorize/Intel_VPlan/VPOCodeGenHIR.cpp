@@ -167,8 +167,8 @@ RegDDRef *NestedBlobCG::codegenStandAloneBlob(const SCEV *SC) {
   if (auto WInst = ACG->getWideInst(BDDR->getSymbase())) {
     WideRef = WInst->getLvalDDRef();
   } else {
-    WideRef = DDRU.createScalarRegDDRef(
-                                        BDDR->getSymbase(), BDDR->getCanonExpr()->clone());
+    WideRef = DDRU.createScalarRegDDRef(BDDR->getSymbase(),
+                                        BDDR->getSingleCanonExpr()->clone());
     WideRef = ACG->widenRef(WideRef);
   }
 
@@ -588,7 +588,7 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   // Setup main and remainder loops
   bool NeedRemainderLoop = false;
   auto MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(
-      OrigLoop, VF, NeedRemainderLoop, true /* VecMode */);
+      OrigLoop, VF, NeedRemainderLoop, LORBuilder, true /* VecMode */);
 
   MainLoop->extractZtt();
   setNeedRemainderLoop(NeedRemainderLoop);
@@ -1255,13 +1255,10 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
   bool InsertInMap = true;
 
   // Widen instruction operands
-  for (auto Iter = INode->op_ddref_begin(), End = INode->op_ddref_end();
+  for (auto Iter = (INode)->op_ddref_begin(), End = (INode)->op_ddref_end();
        Iter != End; ++Iter) {
-    RegDDRef *WideRef, *Ref;
-
-    Ref = *Iter;
-
-    WideRef = widenRef(Ref);
+    RegDDRef *WideRef;
+    WideRef = widenRef(*Iter);
     WideOps.push_back(WideRef);
   }
 

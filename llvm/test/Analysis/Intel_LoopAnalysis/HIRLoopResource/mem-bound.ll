@@ -1,4 +1,5 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-loop-resource | FileCheck %s
+; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-loop-resource>" -disable-output 2>&1 | FileCheck %s
 
 ; Src code-
 ; for(i=0; i<n; i++)
@@ -24,6 +25,7 @@
 
 ; Total resouce should be same as self resource for innermost loops.
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-loop-resource -hir-print-total-resource | FileCheck %s
+; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-loop-resource>" -hir-print-total-resource -disable-output 2>&1 | FileCheck %s
 
 
 ; ModuleID = 'mem-bound.c'

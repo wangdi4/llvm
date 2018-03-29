@@ -27,6 +27,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -181,6 +183,7 @@ private:
   HIRLoopStatistics *HIRLoopStats;
   HIRDDAnalysis *DDA;
   // HIRVectVLSAnalysis *VLS;
+  LoopOptReportBuilder LORBuilder;
 
   bool processLoop(HLLoop *Lp, Function &Fn, WRNVecLoopNode *WRLp = 0) override;
 
@@ -627,7 +630,7 @@ INITIALIZE_PASS_BEGIN(VPlanDriverHIR, "VPlanDriverHIR",
                       "VPlan Vectorization Driver HIR", false, false)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 // INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 // INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 // INITIALIZE_PASS_DEPENDENCY(HIRVectVLSAnalysis)
@@ -635,6 +638,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_END(VPlanDriverHIR, "VPlanDriverHIR",
                     "VPlan Vectorization Driver HIR", false, false)
 
@@ -653,11 +657,12 @@ void VPlanDriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   //  AU.addRequired<ScalarEvolutionWrapperPass>();
 
   AU.addRequired<HIRFrameworkWrapperPass>();
-  AU.addRequired<HIRLoopStatistics>();
+  AU.addRequired<HIRLoopStatisticsWrapperPass>();
   //  AU.addRequiredTransitive<HIRLocalityAnalysis>();
   AU.addRequired<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
   //  AU.addRequired<HIRVectVLSAnalysis>();
+  AU.addRequired<OptReportOptionsPass>();
 }
 
 bool VPlanDriverHIR::runOnFunction(Function &Fn) {
@@ -667,9 +672,11 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
   DEBUG(dbgs() << "VPlan HIR Driver for Function: " << Fn.getName() << "\n");
 
   HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HIRLoopStats = &getAnalysis<HIRLoopStatistics>();
+  HIRLoopStats = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   DDA = &getAnalysis<HIRDDAnalysis>();
   // VLS = &getAnalysis<HIRVectVLSAnalysis>();
+  auto &OROP = getAnalysis<OptReportOptionsPass>();
+  LORBuilder.setup(Fn.getContext(), OROP.getLoopOptReportVerbosity());
 
   return VPlanDriverBase::processFunction(Fn, WRegionCollection::HIR);
 }
@@ -752,7 +759,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   if (!DisableCodeGen) {
     HIRSafeReductionAnalysis *SRA;
     SRA = &getAnalysis<HIRSafeReductionAnalysis>();
-    VPOCodeGenHIR VCodeGen(TLI, SRA, Fn, Lp, WRLp);
+    VPOCodeGenHIR VCodeGen(TLI, SRA, Fn, Lp, LORBuilder, WRLp);
 
     if (VF != 1 && VCodeGen.loopIsHandled(Lp, VF)) {
       CandLoopsVectorized++;

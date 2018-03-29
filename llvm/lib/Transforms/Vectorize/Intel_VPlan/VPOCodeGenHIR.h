@@ -21,9 +21,9 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include <map>
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 
 using namespace llvm::loopopt;
 
@@ -42,10 +42,11 @@ class WRNVecLoopNode;
 class VPOCodeGenHIR {
 public:
   VPOCodeGenHIR(TargetLibraryInfo *TLI, HIRSafeReductionAnalysis *SRA,
-                Function &Fn, HLLoop *Loop, WRNVecLoopNode *WRLp)
+                Function &Fn, HLLoop *Loop, LoopOptReportBuilder &LORB,
+                WRNVecLoopNode *WRLp)
       : TLI(TLI), SRA(SRA), Fn(Fn), OrigLoop(Loop), MainLoop(nullptr),
         CurMaskValue(nullptr), NeedRemainderLoop(false), TripCount(0), VF(0),
-        WVecNode(WRLp) {}
+        LORBuilder(LORB), WVecNode(WRLp) {}
 
   ~VPOCodeGenHIR() {}
 
@@ -158,6 +159,8 @@ private:
   // to operate on this number of operands.
   unsigned VF;
 
+  LoopOptReportBuilder &LORBuilder;
+
   // Map of DDRef symbase and widened HLInst
   std::map<unsigned, HLInst *> WidenMap;
   std::map<VPValue *, RegDDRef *> VPValWideRefMap;
@@ -165,10 +168,6 @@ private:
   // Map of avr number and widened DDRef. TODO - look into combining the two
   // maps
   std::map<int, RegDDRef *> WideMap;
-
-  typedef DDRefGatherer<RegDDRef, TerminalRefs> BlobRefGatherer;
-
-  BlobRefGatherer::MapTy MemRefMap;
 
   // WRegion VecLoop Node corresponding to AVRLoop
   WRNVecLoopNode *WVecNode;

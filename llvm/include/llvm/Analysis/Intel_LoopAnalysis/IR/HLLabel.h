@@ -66,7 +66,7 @@ public:
 
   /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
-    return Node->getHLNodeID() == HLNode::HLLabelVal;
+    return Node->getHLNodeClassID() == HLNode::HLLabelVal;
   }
 
   /// Returns Unique Label name.
@@ -82,6 +82,14 @@ public:
 };
 
 } // End namespace loopopt
+
+template <>
+struct DenseMapInfo<loopopt::HLLabel *>
+    : public loopopt::DenseHLNodeMapInfo<loopopt::HLLabel> {};
+
+template <>
+struct DenseMapInfo<const loopopt::HLLabel *>
+    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLLabel> {};
 
 } // End namespace llvm
 

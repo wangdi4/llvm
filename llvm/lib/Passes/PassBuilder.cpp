@@ -166,13 +166,19 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Transforms/Scalar/Intel_LoopOptReportEmitter.h"
 
 // Intel Loop Optimization framework
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSSADeconstruction.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIROptReportEmitter.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGen.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopResource.h"
+
 // Intel VPO
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"

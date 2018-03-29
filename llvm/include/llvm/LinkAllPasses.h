@@ -39,6 +39,7 @@
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"   // INTEL
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionPasses.h" // INTEL
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -96,6 +97,8 @@ namespace {
       (void) llvm::createStdContainerAAWrapperPass();
       (void) llvm::createInlineListsPass();
       (void) llvm::createXmainOptLevelWrapperPass();
+      (void) llvm::createOptReportOptionsPass();
+      (void) llvm::createLoopOptReportEmitterLegacyPass();
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();
@@ -265,10 +268,11 @@ namespace {
       (void) llvm::createHIRRegionIdentificationWrapperPass();
       (void) llvm::createHIRSCCFormationWrapperPass();
       (void) llvm::createHIRFrameworkWrapperPass();
+      (void) llvm::createHIROptReportEmitterWrapperPass();
       (void) llvm::createHIRDDAnalysisPass();
       (void) llvm::createHIRLocalityAnalysisPass();
-      (void) llvm::createHIRLoopResourcePass();
-      (void) llvm::createHIRLoopStatisticsPass();
+      (void) llvm::createHIRLoopResourceWrapperPass();
+      (void) llvm::createHIRLoopStatisticsWrapperPass();
       (void) llvm::createHIRParVecAnalysisPass();
       (void) llvm::createHIRVectVLSAnalysisPass();
       (void) llvm::createHIRSafeReductionAnalysisPass();
@@ -287,6 +291,7 @@ namespace {
       (void) llvm::createHIRLoopDistributionForLoopNestPass();
       (void) llvm::createHIRLoopReversalPass();
       (void) llvm::createHIRLMMPass();
+      (void) llvm::createHIRLoopCollapsePass();
       (void) llvm::createHIRSymbolicTripCountCompleteUnrollPass();
       (void) llvm::createHIRScalarReplArrayPass();
       (void) llvm::createHIRIdiomRecognitionPass();

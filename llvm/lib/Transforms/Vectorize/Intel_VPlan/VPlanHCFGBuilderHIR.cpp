@@ -166,7 +166,7 @@ VPBasicBlock *PlainCFGBuilderHIR::createOrGetVPBB(HLNode *HNode) {
     if (BlockIt == HLN2VPBB.end()) {
       // New VPBB
       // TODO: Print something more useful.
-      DEBUG(dbgs() << "Creating VPBasicBlock for " << HNode->getHLNodeID()
+      DEBUG(dbgs() << "Creating VPBasicBlock for " << HNode->getNumber()
                    << "\n");
       VPBasicBlock *VPBB = createVPBB();
       HLN2VPBB[HNode] = VPBB;
@@ -480,7 +480,7 @@ VPInstruction *PlainCFGBuilderHIR::createOrFixVPInstr(HLDDNode *DDNode) {
 void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
 
   // TODO: Print something more useful.
-  DEBUG(dbgs() << "Visiting HLLoop: " << HLp->getHLNodeID() << "\n");
+  DEBUG(dbgs() << "Visiting HLLoop: " << HLp->getNumber() << "\n");
 
   // - ZTT for inner loops -
   // TODO: isInnerMost(), ztt_pred_begin/end

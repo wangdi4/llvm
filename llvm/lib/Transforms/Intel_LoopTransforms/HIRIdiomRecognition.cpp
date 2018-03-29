@@ -29,11 +29,13 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+
 #include "llvm/Analysis/TargetLibraryInfo.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
@@ -62,7 +64,7 @@ namespace {
 struct MemOpCandidate {
   HLInst *DefInst;
 
-  const RegDDRef *StoreRef;
+  RegDDRef *StoreRef;
   RegDDRef *RHS;
 
   bool IsStoreNegStride;
@@ -72,7 +74,7 @@ struct MemOpCandidate {
 
   MemOpCandidate() {}
 
-  MemOpCandidate(const RegDDRef *StoreRef) : StoreRef(StoreRef) {
+  MemOpCandidate(RegDDRef *StoreRef) : StoreRef(StoreRef) {
     DefInst = cast<HLInst>(StoreRef->getHLDDNode());
     RHS = DefInst->getRvalDDRef();
   }
@@ -85,6 +87,9 @@ class HIRIdiomRecognition : public HIRTransformPass {
   HIRFramework *HIR;
   HIRLoopStatistics *HLS;
   HIRDDAnalysis *DDA;
+
+  // Helper for generating optimization reports.
+  LoopOptReportBuilder LORBuilder;
 
   bool HasMemcopy;
   bool HasMemset;
@@ -102,7 +107,7 @@ class HIRIdiomRecognition : public HIRTransformPass {
   bool isLegalCandidate(const HLLoop *Loop, const MemOpCandidate &Candidate);
 
   // Analyze and create the transformation candidate for the reference.
-  bool analyzeStore(HLLoop *Loop, const RegDDRef *Ref,
+  bool analyzeStore(HLLoop *Loop, RegDDRef *Ref,
                     MemOpCandidate &Candidate);
 
   // Transform \p Candidates into memset calls
@@ -151,8 +156,9 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
+    AU.addRequiredTransitive<OptReportOptionsPass>();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatistics>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
     AU.setPreservesAll();
   }
@@ -162,8 +168,9 @@ public:
 char HIRIdiomRecognition::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRIdiomRecognition, OPT_SWITCH, OPT_DESC, false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_END(HIRIdiomRecognition, OPT_SWITCH, OPT_DESC, false, false)
 
@@ -328,7 +335,8 @@ bool HIRIdiomRecognition::isUnitStrideRef(const RegDDRef *Ref,
   unsigned Level = Loop->getNestingLevel();
   auto IVSizeInBits = IVType->getPrimitiveSizeInBits();
 
-  for (CanonExpr *CE : llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
+  for (const CanonExpr *CE :
+       llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
     if (!CE->hasIV(Level)) {
       continue;
     }
@@ -351,7 +359,7 @@ bool HIRIdiomRecognition::isUnitStrideRef(const RegDDRef *Ref,
   return Size == Stride || Size == -Stride;
 }
 
-bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, const RegDDRef *Ref,
+bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, RegDDRef *Ref,
                                        MemOpCandidate &Candidate) {
   Candidate = std::move(MemOpCandidate(Ref));
 
@@ -579,6 +587,8 @@ bool HIRIdiomRecognition::processMemset(HLLoop *Loop,
   unsigned StoreSize = getRefSizeInBytes(Candidate.RHS);
 
   if (genMemset(Loop, Candidate, StoreSize, Candidate.IsStoreNegStride)) {
+    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                                "The memset idiom has been recognized");
     return true;
   }
 
@@ -642,6 +652,8 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
 
   NumMemCpy++;
 
+  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                              "The memcpy idiom has been recognized");
   return true;
 }
 
@@ -711,6 +723,9 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   if (Changed) {
     // The transformation could hoist everything to the pre-header, making the
     // loop empty.
+    // TODO: If the Loop is deleted here, we need to save its opt report with
+    // preserveLostLoopOptReport call. Probably we need to pass OptReportBuilder
+    // there.
     HLNodeUtils::removeEmptyNodes(Loop, false);
   }
 
@@ -737,8 +752,11 @@ bool HIRIdiomRecognition::runOnFunction(Function &F) {
   DL = &M->getDataLayout();
 
   HIR = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HLS = &getAnalysis<HIRLoopStatistics>();
+  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   DDA = &getAnalysis<HIRDDAnalysis>();
+
+  auto &OROP = getAnalysis<OptReportOptionsPass>();
+  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   SmallPtrSet<HLNode *, 8> NodesToInvalidate;
 

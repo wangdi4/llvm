@@ -4,7 +4,18 @@
 
 ; CHECK: Dump Before HIR Temp Cleanup
 
+; CHECK: + DO i1 = 0, sext.i32.i64(%n) + -2, 1   <DO_LOOP>
 ; CHECK: |   %t.026.out = %t.026;
+; CHECK: |
+; CHECK: |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK: |   |   %0 = (%A)[i1 + 1];
+; CHECK: |   |   (%A)[i1 + 1] = %0 + %t.026.out;
+; CHECK: |   |   %1 = (%B)[i1 + 1];
+; CHECK: |   |   (%B)[i1 + 1] = 2 * %t.026.out + %1;
+; CHECK: |   + END LOOP
+; CHECK: |
+; CHECK: |   %t.026 = 2 * %t.026.out;
+; CHECK: + END LOOP
 
 ; CHECK: Dump After HIR Temp Cleanup
 
@@ -18,6 +29,14 @@
 ; CHECK: |
 ; CHECK: |   %t.026 = 2 * %t.026;
 ; CHECK: + END LOOP
+
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-after=hir-temp-cleanup -hir-details 2>&1 | FileCheck %s -check-prefix=CHECK-LIVEIN
+
+; Verify that %t.026 becomes livein to i2 loop after substitution.
+
+; CHECK-LIVEIN: DO i64 i1 = 0
+; CHECK-LIVEIN: LiveIn symbases: [[LIVEINSYM:.*]]
+; CHECK-LIVEIN: <BLOB> LINEAR i32 %t.026{def@1} {sb:[[LIVEINSYM]]}
 
 define void @foo(i32 %n, i32* nocapture %A, i32* nocapture %B) {
 entry:

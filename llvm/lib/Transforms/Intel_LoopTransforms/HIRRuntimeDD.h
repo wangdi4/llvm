@@ -28,6 +28,9 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+
+
 namespace llvm {
 namespace loopopt {
 namespace runtimedd {
@@ -35,7 +38,7 @@ namespace runtimedd {
 typedef DDRefGrouping::RefGroupTy<RegDDRef *> RefGroupTy;
 typedef DDRefGrouping::RefGroupVecTy<RegDDRef *> RefGroupVecTy;
 
-const unsigned ExpectedNumberOfTests = 8;
+const unsigned ExpectedNumberOfTests = 16;
 const unsigned SmallTripCountTest = 4;
 
 enum RuntimeDDResult {
@@ -160,14 +163,18 @@ public:
   void releaseMemory() override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequired<OptReportOptionsPass>();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
-    AU.addRequiredTransitive<HIRLoopStatistics>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
     AU.setPreservesAll();
   }
 
 private:
   HIRLoopStatistics *HLS;
+
+  // Helper for generating optimization reports.
+  LoopOptReportBuilder LORBuilder;
 
 #ifndef NDEBUG
   static const char *getResultString(RuntimeDDResult Result);
@@ -205,7 +212,7 @@ private:
                                              Segment &S2);
 
   // \brief Modifies HIR implementing specified tests.
-  static void generateDDTest(LoopContext &Context);
+  static void generateDDTest(LoopContext &Context, LoopOptReportBuilder &);
 
   // \brief Marks all DDRefs independent across groups.
   static void markDDRefsIndep(LoopContext &Context);

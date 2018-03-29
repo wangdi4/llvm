@@ -334,7 +334,7 @@ bool DDWalk::isSafeReductionFlowDep(const RegDDRef *SrcRef,
     return false;
   }
 
-  HLNode *WriteNode = SrcRef->getHLDDNode();
+  const HLDDNode *WriteNode = SrcRef->getHLDDNode();
   auto Inst = dyn_cast<HLInst>(WriteNode);
 
   if (!Inst) {

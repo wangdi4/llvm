@@ -66,6 +66,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #define DEBUG_TYPE "hir-complete-unroll"
@@ -220,10 +221,11 @@ HIRCompleteUnroll::HIRCompleteUnroll(char &ID, unsigned OptLevel, bool IsPreVec)
 
 void HIRCompleteUnroll::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-
+  AU.addRequiredTransitive<OptReportOptionsPass>();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRLoopStatistics>();
+  AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+  AU.addRequiredTransitive<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
 }
 
@@ -434,7 +436,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
 
   /// Inserts a simplified temp blob with \p Index. It overwrite the previous
   /// entry for the same blob.
-  void insertSimplifiedTempBlob(unsigned Index, HLInst *DefInst);
+  void insertSimplifiedTempBlob(unsigned Index, const HLInst *DefInst);
 
   /// Removes the ennry for the blob with \p Index;
   void removeSimplifiedTempBlob(unsigned Index);
@@ -443,7 +445,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   /// CurNodeBlobLevel indicates the blob level of the blob in \p CurNode.
   /// Populates factor of simplified blob in \p Factor.
   bool isSimplifiedTempBlob(unsigned Index, unsigned CurNodeBlobLevel,
-                            HLDDNode *CurNode,
+                            const HLDDNode *CurNode,
                             unsigned *Factor = nullptr) const;
 
   /// level of any non-rem blob.
@@ -451,11 +453,27 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
       const RegDDRef *Ref,
       SmallVectorImpl<std::pair<unsigned, unsigned>> &RemBlobs) const;
 
-  /// Returns max level of any non-simplified blob in Ref.
-  unsigned getMaxNonSimplifiedBlobLevel(const RegDDRef *Ref) const;
+  /// Returns max level of any non-simplified blob in Ref. Sets \p
+  /// HasNonSimplifiedBlob if Ref contains a non-simplified blob (excluding base
+  /// ptr). This flag is separate because the caller needs to know this even if
+  /// the blob is defined at level 0.
+  unsigned getMaxNonSimplifiedBlobLevel(const RegDDRef *Ref,
+                                        bool &HasNonSimplifiedBlob) const;
 
-  /// Returns true if \p Ref has no data dependency in \p Loop.
-  bool isDDIndependentInLoop(const RegDDRef *Ref, const HLLoop *Loop) const;
+  /// Returns true if unique occurences of \p Ref1 in \p Loop are refined based
+  /// on locality analysis w.r.t \p Ref2. Refined occurences are set in \p
+  /// RefinedRef1Occurences.
+  bool refinedOccurencesUsingLocalityAnalysis(
+      const RegDDRef *Ref1, const RegDDRef *Ref2, bool Ref1IsUnconditional,
+      const HLLoop *Loop, unsigned &RefinedRef1Occurences) const;
+
+  /// Returns true if Ref is in a sibling candidate loop of OuterLoop.
+  bool isInSiblingCandidateLoop(const RegDDRef *Ref) const;
+
+  /// Returns true if \p Ref has no data dependency in \p Loop. Returns refined
+  /// occurences of Ref in \p RefinedOccurences.
+  bool isDDIndependentInLoop(const RegDDRef *Ref, const HLLoop *Loop,
+                             unsigned &RefinedOccurences) const;
 
   /// Computes and returns info on \p Ref in the completely unrolled
   /// loopnest such as its unique occurences. Returns 0 UniqueOccurences for a
@@ -469,8 +487,15 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
                   bool CanSimplifySubs, unsigned NumAddressSimplifications);
 
   /// Returns true if \p Ref has been visited already. Sets \p AddToVisitedSet
-  /// to true to indicate that \p Ref should be added to visited set.
-  bool visited(const RegDDRef *Ref, bool &AddToVisitedSet);
+  /// to true to indicate that \p Ref should be added to visited set. Sets \p
+  /// SkipAddressSimplification to true to indicate that address simplification
+  /// for the Ref should be ignored.
+  bool visitedGEPRef(const RegDDRef *Ref, bool &AddToVisitedSet,
+                     bool &SkipAddressSimplification);
+
+  /// Processes a GEP DDRef for profitability. Returns true if Ref can be
+  /// simplified to a constant.
+  bool processGEPRef(const RegDDRef *Ref);
 
   /// Processes RegDDRef for profitability. Returns true if Ref can be
   /// simplified to a constant.
@@ -568,6 +593,10 @@ public:
                                   MemRefMap);
     }
   }
+
+  /// Returns true if Ref is executed unconditionally in \p ParentLoop.
+  bool isUnconditionallyExecuted(const RegDDRef *Ref,
+                                 const HLNode *ParentLoop) const;
 
   // Main interface of the analyzer.
   void analyze();
@@ -807,7 +836,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLLoop *Lp) {
 }
 
 void HIRCompleteUnroll::ProfitabilityAnalyzer::insertSimplifiedTempBlob(
-    unsigned Index, HLInst *DefInst) {
+    unsigned Index, const HLInst *DefInst) {
 
   for (auto &Blob : SimplifiedTempBlobs) {
     if (Blob.getIndex() == Index) {
@@ -831,7 +860,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::removeSimplifiedTempBlob(
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::isSimplifiedTempBlob(
-    unsigned Index, unsigned CurNodeBlobLevel, HLDDNode *CurNode,
+    unsigned Index, unsigned CurNodeBlobLevel, const HLDDNode *CurNode,
     unsigned *Factor) const {
   // Blob is considered to be simplified if the following two conditions hold
   // true-
@@ -1027,11 +1056,13 @@ unsigned HIRCompleteUnroll::ProfitabilityAnalyzer::populateRemBlobs(
 }
 
 unsigned HIRCompleteUnroll::ProfitabilityAnalyzer::getMaxNonSimplifiedBlobLevel(
-    const RegDDRef *Ref) const {
+    const RegDDRef *Ref, bool &HasNonSimplifiedBlob) const {
   assert(Ref->hasGEPInfo() && "GEP ref expected!");
 
   unsigned MaxNonSimplifiedBlobLevel = 0;
   auto CurNode = Ref->getHLDDNode();
+
+  unsigned BasePtrIndex = Ref->getBasePtrBlobIndex();
 
   for (auto BIt = Ref->blob_cbegin(), End = Ref->blob_cend(); BIt != End;
        ++BIt) {
@@ -1041,6 +1072,11 @@ unsigned HIRCompleteUnroll::ProfitabilityAnalyzer::getMaxNonSimplifiedBlobLevel(
         Blob->isNonLinear() ? CurLevel : Blob->getDefinedAtLevel();
 
     if (!isSimplifiedTempBlob(Index, BlobLevel, CurNode)) {
+
+      if (Index != BasePtrIndex) {
+        HasNonSimplifiedBlob = true;
+      }
+
       MaxNonSimplifiedBlobLevel =
           std::max(MaxNonSimplifiedBlobLevel, BlobLevel);
     }
@@ -1049,17 +1085,152 @@ unsigned HIRCompleteUnroll::ProfitabilityAnalyzer::getMaxNonSimplifiedBlobLevel(
   return MaxNonSimplifiedBlobLevel;
 }
 
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::isUnconditionallyExecuted(
+    const RegDDRef *Ref, const HLNode *ParentLoop) const {
+  auto *OuterParent = ParentLoop->getParent();
+  auto *ParentNode = Ref->getHLDDNode()->getParent();
+
+  while (ParentNode != OuterParent) {
+    auto ParLoop = dyn_cast<HLLoop>(ParentNode);
+
+    if (ParLoop) {
+      // Ref is not unconditional in unrolled multi-exit loop.
+      // TODO: This can be refined based on whether the early-exit jumps are
+      // within ParentLoop (when ParLoop is a child loop of ParentLoop).
+      if (ParLoop->getNumExits() > 1) {
+        return false;
+      }
+    } else if (!SimplifiedNonLoopParents.count(ParentNode)) {
+      // Marking refs unconditional based on simplified parents is
+      // an optimistic assumption because simplified parent may mean that
+      // parent's body (this ref) gets optimized away but it is hard to
+      // check this accurately as we need redundant node logic.
+      // Nevertheless, it seems better to make this assumption as we see
+      // some performance regressions without it.
+      return false;
+    }
+
+    ParentNode = ParentNode->getParent();
+  }
+
+  return true;
+}
+
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::
+    refinedOccurencesUsingLocalityAnalysis(
+        const RegDDRef *Ref1, const RegDDRef *Ref2, bool Ref1IsUnconditional,
+        const HLLoop *Loop, unsigned &RefinedRef1Occurences) const {
+  // There is no reuse from Ref2 to Ref1 if Ref2 is conditional.
+  if (!isUnconditionallyExecuted(Ref2, Loop)) {
+    return false;
+  }
+
+  bool Ref1IsLval = Ref1->isLval();
+  unsigned LoopLevel = Loop->getNestingLevel();
+
+  if (Ref1IsLval) {
+    // Redundant Ref1 store scenario:
+    // A[i1-1] =  << Ref2
+    // A[i1] =    << Ref1
+    if (!Ref1IsUnconditional || !Ref2->isLval()) {
+      return false;
+    }
+  } else {
+    // Redundant Ref1 load scenario 1:
+    //   = A[i1]    << Ref2
+    // if ()
+    //   = A[i1-1]  << Ref1
+    //
+    // Redundant Ref1 load scenario 2:
+    // A[i1] =         << Ref2
+    // if ()
+    //       = A[i1-1] << Ref1
+  }
+
+  int64_t Dist;
+  if (!DDRefUtils::getConstIterationDistance(Ref2, Ref1, LoopLevel, &Dist)) {
+    return false;
+  }
+
+  assert(Dist != 0 && "Non-zero distance expected!");
+  unsigned TripCount = HCU.AvgTripCount.find(Loop)->second;
+
+  // Distance should be negative for (store -> store) case but it doesn't matter
+  // as it will be accounted once per ref pair due to symmetry of checks.
+  if ((Dist < 0) || (Dist >= TripCount)) {
+    return true;
+  }
+
+  if (!RefinedRef1Occurences || (Dist < RefinedRef1Occurences)) {
+    RefinedRef1Occurences = Dist;
+  }
+
+  return true;
+}
+
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::isInSiblingCandidateLoop(
+    const RegDDRef *Ref) const {
+
+  auto *RefLoop = Ref->getParentLoop();
+  auto *ParentLoop = OuterLoop->getParentLoop();
+
+  // In PreVec pass give up if Ref is not directly contained in ParentLoop. This
+  // is because the candidate loop check is an approximate check. The
+  // profitability of sibling loops can be dependent on each other. Consider
+  // this case-
+  //
+  // DO i1
+  //   DO i2 = 0, 10
+  //     A[i2] =
+  //   END DO
+  //
+  //   DO i2 = 0, 10
+  //     = A[i2]
+  //   END DO
+  // END DO
+  //
+  // Since both the i2 loops have constant trip count, both are added to
+  // CandidateLoops after the trip count analysis phase. The profitability of
+  // CandidateLoops is checked in lexical order. When we are evaluating the
+  // profitability of first i2 loop, we do not know for sure whether the second
+  // i2 loop will be unrolled. This function assumes that it will be unrolled
+  // which is an optimistic assumption.
+  // TODO: Investigate whether other optimistic assumptions should also be
+  // guarded under IsPreVec check.
+  if (HCU.IsPreVec && (RefLoop != ParentLoop)) {
+    return false;
+  }
+
+  const HLLoop *OuterRefLoop = nullptr;
+  while (RefLoop != ParentLoop) {
+    OuterRefLoop = RefLoop;
+    RefLoop = RefLoop->getParentLoop();
+  }
+
+  if (OuterRefLoop &&
+      (std::find(HCU.CandidateLoops.begin(), HCU.CandidateLoops.end(),
+                 OuterRefLoop) == HCU.CandidateLoops.end())) {
+    return false;
+  }
+
+  return true;
+}
+
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::isDDIndependentInLoop(
-    const RegDDRef *Ref, const HLLoop *Loop) const {
+    const RegDDRef *Ref, const HLLoop *Loop,
+    unsigned &RefinedOccurences) const {
   assert(Ref->isMemRef() && "Only mem ref is expected!");
 
   unsigned LoopLevel = Loop->getNestingLevel();
   bool IsOutermostLoop = (Loop == OuterLoop->getParentLoop());
+  bool HasNonSimplifiedBlob = false;
+  RefinedOccurences = 0;
 
   // OutermostLoop is the resulting loop after complete unroll so we also need
   // to check for structural invariance to conclude DD independence.
   if (IsOutermostLoop && (Ref->hasIV(LoopLevel) ||
-                          (getMaxNonSimplifiedBlobLevel(Ref) >= LoopLevel))) {
+                          (getMaxNonSimplifiedBlobLevel(
+                               Ref, HasNonSimplifiedBlob) >= LoopLevel))) {
     return false;
   }
 
@@ -1067,45 +1238,91 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isDDIndependentInLoop(
     return true;
   }
 
-  // Assume refs with noalias metadata are invariant due to multiversioning.
-  if (Loop->isInnermost() || HLNodeUtils::isPerfectLoopNest(Loop)) {
-    AAMDNodes AANodes;
-    Ref->getAAMetadata(AANodes);
-
-    if (AANodes.NoAlias != nullptr) {
-      return true;
-    }
-  }
-
   bool IsRval = Ref->isRval();
-  auto BaseCE = Ref->getBaseCE();
+  bool IsRefUnconditional = isUnconditionallyExecuted(Ref, Loop);
+  bool IsUnconditional = IsRefUnconditional;
 
-  // Ref can be hoisted outside the loop if all other refs with the same base
-  // are also structurally invariant.
+  // Check whether the ref can be hoisted outside the resulting loop after
+  // unrolling.
   for (auto SymRef : OuterLoopMemRefMap[Ref->getSymbase()]) {
     if (SymRef == Ref) {
       continue;
     }
 
-    if (IsRval && SymRef->isRval()) {
+    bool AreEqual = DDRefUtils::areEqual(Ref, SymRef);
+    bool SymRefIsRval = SymRef->isRval();
+    bool AreRval = (IsRval && SymRefIsRval);
+
+    // Guard doRefsAlias() under cheaper conditions where we know how to handle
+    // refs. These conditions are used later in the loop.
+    if (!AreEqual && !AreRval && !HCU.DDA->doRefsAlias(Ref, SymRef)) {
+      continue;
+    }
+
+    if (IsOutermostLoop) {
+      // Give up if SymRef is not contained in a candidate loop.
+      if (!AreRval &&
+          !HLNodeUtils::contains(OuterLoop, SymRef->getHLDDNode()) &&
+          !isInSiblingCandidateLoop(SymRef)) {
+        return false;
+      }
+    } else if (!HLNodeUtils::contains(Loop, SymRef->getHLDDNode())) {
+      continue;
+    }
+
+    if (AreEqual) {
+      // If there is an identical ref which is unconditional in loop, assume
+      // this ref can be hoisted. This corresponds to loop memory motion's
+      // profitability model.
+      if (!IsUnconditional && isUnconditionallyExecuted(SymRef, Loop)) {
+        IsUnconditional = true;
+      }
+
       continue;
     }
 
     if (!IsOutermostLoop &&
-        !HLNodeUtils::contains(Loop, SymRef->getHLDDNode())) {
+        refinedOccurencesUsingLocalityAnalysis(Ref, SymRef, IsRefUnconditional,
+                                               Loop, RefinedOccurences)) {
+      // We refined Ref's occurrences using temporal locality with SymRef. No
+      // further checks required.
       continue;
     }
 
-    if (DDRefUtils::areEqual(Ref, SymRef)) {
+    if (AreRval) {
       continue;
     }
 
-    // If bases do not match, Ref is not independent.
-    if (!CanonExprUtils::areEqual(BaseCE, SymRef->getBaseCE())) {
+    // We know that Ref and SymRef can alias.
+    // Now we check whether SymRef can also be hoisted outside the loop.
+    // This is to handle cases like this-
+    // Ref: A[i2], SymRef: A[0]
+
+    // If Ref has a symbolic and aliases with something, assume it is not
+    // independent. For example-
+    // Ref: A[i2+%t], SymRef A[0]
+    if (HasNonSimplifiedBlob) {
+      // Invalidate refined occurences in the presence of aliasing issues.
+      RefinedOccurences = 0;
       return false;
     }
 
-    if (getMaxNonSimplifiedBlobLevel(SymRef) >= LoopLevel) {
+    // Give up if the refs do not look structurally similar: A[i1] and B[0].
+    if ((Ref->getNumDimensions() != SymRef->getNumDimensions()) ||
+        !CanonExprUtils::areEqual(Ref->getBaseCE(), SymRef->getBaseCE()) ||
+        !DDRefUtils::haveEqualOffsets(Ref, SymRef)) {
+      RefinedOccurences = 0;
+      return false;
+    }
+
+    bool SymRefHasBlob = false;
+
+    // Check if SymRef is structurally invariant w.r.t loop or has symbolic.
+    // Example where SymRef has symbolic-
+    // Ref: A[i2], SymRef: A[%t]
+    if ((getMaxNonSimplifiedBlobLevel(SymRef, SymRefHasBlob) >= LoopLevel) ||
+        SymRefHasBlob) {
+      RefinedOccurences = 0;
       return false;
     }
 
@@ -1114,7 +1331,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isDDIndependentInLoop(
     }
   }
 
-  return true;
+  return IsUnconditional;
 }
 
 HIRCompleteUnroll::ProfitabilityAnalyzer::GEPRefInfo
@@ -1142,23 +1359,26 @@ HIRCompleteUnroll::ProfitabilityAnalyzer::computeGEPInfo(const RegDDRef *Ref,
     auto TCIt = HCU.AvgTripCount.find(ParentLoop);
     assert((TCIt != HCU.AvgTripCount.end()) && "Trip count of loop not found!");
 
+    unsigned TripCount = TCIt->second;
     unsigned Level = ParentLoop->getNestingLevel();
+    unsigned RefinedOccurences = 0;
 
     // If ref contains IV of a loop or a blob defined at that level, all
     // references of the ref are considered unique w.r.t that level.
     // If ref is not DD independent in loop, there can be no savings
     // from unrolling.
     IsUnique = IsUnique || (MaxNonRemBlobLevel >= Level) ||
-               (IsMemRef && !isDDIndependentInLoop(Ref, ParentLoop));
+               (IsMemRef &&
+                !isDDIndependentInLoop(Ref, ParentLoop, RefinedOccurences));
 
     if (IsUnique || Ref->hasIV(Level)) {
 
-      TotalOccurences *= TCIt->second;
+      TotalOccurences *= TripCount;
 
       if (!UniqueOccurences) {
-        UniqueOccurences = TCIt->second;
+        UniqueOccurences = RefinedOccurences ? RefinedOccurences : TripCount;
       } else {
-        UniqueOccurences *= TCIt->second;
+        UniqueOccurences *= (RefinedOccurences ? RefinedOccurences : TripCount);
       }
       continue;
     }
@@ -1180,13 +1400,13 @@ HIRCompleteUnroll::ProfitabilityAnalyzer::computeGEPInfo(const RegDDRef *Ref,
       // update total occurences as the ref is not invariant without
       // unrolling.
       if (EncounteredRemBlob) {
-        TotalOccurences *= TCIt->second;
+        TotalOccurences *= TripCount;
       }
 
       continue;
 
     } else {
-      TotalOccurences *= TCIt->second;
+      TotalOccurences *= TripCount;
       EncounteredRemBlob = true;
     }
 
@@ -1205,8 +1425,9 @@ HIRCompleteUnroll::ProfitabilityAnalyzer::computeGEPInfo(const RegDDRef *Ref,
   }
 
   bool IsIndependent = false;
+  unsigned RefinedOccurences = 0;
   if (UniqueOccurences && IsMemRef && OutermostLoop &&
-      isDDIndependentInLoop(Ref, OutermostLoop)) {
+      isDDIndependentInLoop(Ref, OutermostLoop, RefinedOccurences)) {
     IsIndependent = true;
   }
 
@@ -1220,7 +1441,7 @@ class IntermediateAllocaStoreFinder final : public HLNodeVisitorBase {
   bool FoundEndNode;
 
 public:
-  IntermediateAllocaStoreFinder(unsigned AllocaBaseIndex, HLNode *EndNode)
+  IntermediateAllocaStoreFinder(unsigned AllocaBaseIndex, const HLNode *EndNode)
       : AllocaBaseIndex(AllocaBaseIndex), EndNode(EndNode), FoundStore(false),
         FoundEndNode(false) {}
 
@@ -1541,11 +1762,10 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
   return CanSimplifyToConst;
 }
 
-bool HIRCompleteUnroll::ProfitabilityAnalyzer::visited(const RegDDRef *Ref,
-                                                       bool &AddToVisitedSet) {
-  if (!Ref->hasGEPInfo()) {
-    return false;
-  }
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::visitedGEPRef(
+    const RegDDRef *Ref, bool &AddToVisitedSet,
+    bool &SkipAddressSimplification) {
+  assert(Ref->hasGEPInfo() && "GEP Ref expected!");
 
   unsigned DefLevel = Ref->getDefinedAtLevel();
 
@@ -1554,18 +1774,21 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::visited(const RegDDRef *Ref,
   }
 
   for (auto &RefInfo : VisitedGEPRefs) {
-    if (DDRefUtils::areEqual(Ref, RefInfo.Ref) &&
-        (Ref->isRval() == RefInfo.Ref->isRval())) {
+    if (DDRefUtils::areEqual(Ref, RefInfo.Ref)) {
+      if (Ref->isRval() == RefInfo.Ref->isRval()) {
 
-      if (RefInfo.SimplifiedToConstSavings != 0) {
-        // Simplfied to const savings should be accounted for each occurence
-        // of the ref.
-        GEPSavings += RefInfo.SimplifiedToConstSavings;
-      } else if (Ref->isMemRef()) {
-        NumMemRefs += RefInfo.UniqueOccurences;
+        if (RefInfo.SimplifiedToConstSavings != 0) {
+          // Simplfied to const savings should be accounted for each occurence
+          // of the ref.
+          GEPSavings += RefInfo.SimplifiedToConstSavings;
+        } else if (Ref->isMemRef()) {
+          NumMemRefs += RefInfo.UniqueOccurences;
+        }
+
+        return true;
       }
 
-      return true;
+      SkipAddressSimplification = true;
     }
   }
 
@@ -1573,70 +1796,91 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::visited(const RegDDRef *Ref,
   return false;
 }
 
-bool HIRCompleteUnroll::ProfitabilityAnalyzer::processRef(const RegDDRef *Ref) {
-
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::processGEPRef(
+    const RegDDRef *Ref) {
   bool AddToVisitedSet = false;
+  bool SkipAddressSimplification = false;
 
-  if (visited(Ref, AddToVisitedSet)) {
+  if (visitedGEPRef(Ref, AddToVisitedSet, SkipAddressSimplification)) {
     return false;
   }
 
   bool CanSimplify = true;
   unsigned NumAddressSimplifications = 0;
-  unsigned NumAddressSimplificationTerms = 0;
-  bool HasGEPInfo = Ref->hasGEPInfo();
-  bool IsFirstCE = true;
-  bool HasConstantTerm = false;
+  bool AnyDimSimplified = false;
+  bool HasNonZeroDimOrOffsets = false;
 
-  for (auto CEIt = Ref->canon_begin(), E = Ref->canon_end(); CEIt != E;
-       ++CEIt) {
-    auto CE = *CEIt;
+  // Processes embedded canon exprs and computes address simplification
+  // opportunities. Address computation is associative. This means that
+  // simplification of non-consecutive dimensions can be added. For example, we
+  // will add up simplificaiton of first and third dimension for A[i1][%t][i2].
+  for (unsigned I = 1, NumDims = Ref->getNumDimensions(); I <= NumDims; ++I) {
+    auto CE = Ref->getDimensionIndex(I);
+
+    HasNonZeroDimOrOffsets =
+        HasNonZeroDimOrOffsets || Ref->hasNonZeroTrailingStructOffsets(I);
 
     if (!processCanonExpr(CE, Ref)) {
       CanSimplify = false;
 
-    } else if (HasGEPInfo) {
+    } else {
       int64_t Val;
-      bool IsConst = CE->isIntConstant(&Val);
 
-      if (IsConst) {
-        // If the CE is already constant, we haven't simplified anything but if
-        // it is non-zero there is a possibility of this getting folded if we
-        // simplify some other index.
-        if (Val != 0) {
-          HasConstantTerm = true;
-        }
+      // Process based on whether the dimension was already a constant.
+      if (CE->isIntConstant(&Val)) {
+        HasNonZeroDimOrOffsets = HasNonZeroDimOrOffsets || (Val != 0);
       } else {
-        if (IsFirstCE) {
-          ++NumAddressSimplificationTerms;
-        } else {
-          // Add one for simplification of index * stride.
+
+        if (I != 1) {
+          // This applies to first dimension as well if stride is not 1 but
+          // incorporating it leads to a skewed profitablity model causing perf
+          // regressions.
+          // TODO: fix the cost model.
+
+          // Simplification of (index * stride).
           ++NumAddressSimplifications;
-          ++NumAddressSimplificationTerms;
+
+          if (AnyDimSimplified) {
+            ++NumAddressSimplifications;
+          }
         }
+
+        AnyDimSimplified = true;
       }
     }
-
-    IsFirstCE = false;
   }
 
-  if (HasGEPInfo) {
+  if (SkipAddressSimplification) {
+    NumAddressSimplifications = 0;
+
+  } else if (AnyDimSimplified) {
+
+    // Add simplified dimensions and non-zero offsets.
+    if (HasNonZeroDimOrOffsets) {
+      ++NumAddressSimplifications;
+    }
+
     if (Ref->accessesAlloca() || Ref->accessesInternalGlobalVar()) {
       // The base address is known at compile time for global vars and stack
       // frame offset can be simplified for allocas.
-      ++NumAddressSimplificationTerms;
+      ++NumAddressSimplifications;
     }
-
-    if (NumAddressSimplificationTerms) {
-      NumAddressSimplifications += (NumAddressSimplificationTerms +
-                                    static_cast<unsigned>(HasConstantTerm) - 1);
-    }
-
-    CanSimplify = addGEPCost(Ref, AddToVisitedSet, CanSimplify,
-                             NumAddressSimplifications);
   }
 
+  CanSimplify =
+      addGEPCost(Ref, AddToVisitedSet, CanSimplify, NumAddressSimplifications);
+
   return CanSimplify;
+}
+
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::processRef(const RegDDRef *Ref) {
+  if (Ref->hasGEPInfo()) {
+    return processGEPRef(Ref);
+  }
+
+  assert(Ref->isTerminalRef() && "Unexpected ref type!");
+
+  return processCanonExpr(Ref->getSingleCanonExpr(), Ref);
 }
 
 /// Evaluates profitability of CanonExpr.
@@ -2068,8 +2312,11 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
 
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HLS = &getAnalysis<HIRLoopStatistics>();
+  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
+  DDA = &getAnalysis<HIRDDAnalysis>();
   HSRA = &getAnalysis<HIRSafeReductionAnalysis>();
+  auto &OROP = getAnalysis<OptReportOptionsPass>();
+  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   // Storage for Outermost Loops
   SmallVector<HLLoop *, 64> OuterLoops;
@@ -2359,45 +2606,6 @@ HIRCompleteUnroll::performTripCountAnalysis(HLLoop *Loop) {
   return std::make_pair(TotalTripCnt, MinDepLevel);
 }
 
-void HIRCompleteUnroll::populateSimplifiedAllocaStores(
-    const HLLoop *Loop,
-    const DenseMap<unsigned, const RegDDRef *> &AllocaStores,
-    const SmallPtrSet<const HLNode *, 8> &SimplifiedNonLoopParents) {
-  const HLNode *OuterParent = Loop->getParent();
-
-  // Store unconditional simplifiable alloca stores to be used in
-  // profitability checks for subsequent loopnests.
-  for (auto &Pair : AllocaStores) {
-    const HLNode *ParentNode = Pair.second->getHLDDNode()->getParent();
-
-    while (ParentNode != OuterParent) {
-      auto ParLoop = dyn_cast<HLLoop>(ParentNode);
-
-      if (ParLoop) {
-        // Store is not unconditional in unrolled multi-exit loop.
-        if (ParLoop->getNumExits() > 1) {
-          break;
-        }
-      } else if (!SimplifiedNonLoopParents.count(ParentNode)) {
-        // Marking alloca stores unconditional based on simplified parents is
-        // an optimistic assumption because simplified parent may mean that
-        // parent's body (this ref) gets optimized away but it is hard to
-        // check this accurately as we only store the lexical last alloca
-        // store and furthermore we need to employ redundant node logic.
-        // Nevertheless, it seems better to make this assumption as we see
-        // some performance regressions without it.
-        break;
-      }
-
-      ParentNode = ParentNode->getParent();
-    }
-
-    if (ParentNode == OuterParent) {
-      PrevLoopnestAllocaStores[Pair.first] = Loop;
-    }
-  }
-}
-
 bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop) {
   SmallVector<SimplifiedTempBlob, 8> SimplifiedTempBlobs;
   MemRefGatherer::MapTy MemRefMap;
@@ -2410,8 +2618,14 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop) {
   PA.analyze();
 
   if (PA.isProfitable()) {
-    populateSimplifiedAllocaStores(Loop, AllocaStores,
-                                   SimplifiedNonLoopParents);
+    // Store unconditional simplifiable alloca stores to be used in
+    // profitability checks for subsequent loopnests.
+    for (auto &Pair : AllocaStores) {
+      if (PA.isUnconditionallyExecuted(Pair.second, Loop)) {
+        PrevLoopnestAllocaStores[Pair.first] = Loop;
+      }
+    }
+
     return true;
   }
 
@@ -2426,6 +2640,14 @@ void HIRCompleteUnroll::transformLoops() {
 
   // Transform the loop nest from outer to inner.
   for (auto &Loop : CandidateLoops) {
+    if (Loop->isInnermost())
+      LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                                  "Loop completely unrolled");
+    else
+      LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                                  "Loopnest completely unrolled");
+    LORBuilder(*Loop).preserveLostLoopOptReport();
+
     auto &LS = HLS->getTotalLoopStatistics(Loop);
     bool HasIfsOrSwitches = LS.hasIfs() || LS.hasSwitches();
 
@@ -2584,6 +2806,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
 void HIRCompleteUnroll::releaseMemory() {
   CandidateLoops.clear();
   AvgTripCount.clear();
+  TotalTripCount.clear();
   TopLevelCandidates.clear();
   PrevLoopnestAllocaStores.clear();
 }
