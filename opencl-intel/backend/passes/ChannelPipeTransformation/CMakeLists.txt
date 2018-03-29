@@ -18,7 +18,7 @@ add_library(${TARGET_NAME}
     ${TARGET_SOURCE_FILES}
 )
 
-target_link_libraries(${TARGET_NAME} clbltpipe)
+target_link_libraries(${TARGET_NAME} clbltpipeinfo)
 
 add_dependencies(${TARGET_NAME} metadataapi)
 

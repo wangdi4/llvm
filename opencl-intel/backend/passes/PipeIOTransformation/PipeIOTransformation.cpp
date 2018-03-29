@@ -20,8 +20,6 @@
 #include <OCLAddressSpace.h>
 #include <OCLPassSupport.h>
 
-#include <PipeCommon.h>
-
 using namespace llvm;
 using namespace Intel::MetadataAPI;
 using namespace Intel::OpenCL::DeviceBackend;

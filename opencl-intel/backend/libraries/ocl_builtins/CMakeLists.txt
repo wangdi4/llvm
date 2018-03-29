@@ -456,6 +456,7 @@ list (APPEND OCL_20_SOURCE_FILES
 if( BUILD_FPGA_EMULATOR )
     list (APPEND OCL_20_SOURCE_FILES
       pipes.cl
+      pipes-info.cl
       half.cl
     )
 else( BUILD_FPGA_EMULATOR )
@@ -512,9 +513,6 @@ if (ENABLE_KNL AND BUILD_X64 AND NOT WIN32)
   add_subdirectory (avx512phi)
 endif()
 
-add_custom_target(clbltpipe_target
-  DEPENDS clbltpipe.obj)
-
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
   set(MINIMAL_SUFFIX n8)
 else ()
@@ -526,6 +524,17 @@ set(RTL_MINIMAL
 set(TARGET_NAME_MINIMAL ${TARGET_NAME_PREFIX}${MINIMAL_SUFFIX})
 
 set(RTL_SHARED ${BUILTINS_SHARED_OUTPUT_DIR}/${TARGET_NAME_PREFIX}shared.rtl)
+
+# Pipe built-ins for FPGA are used (linked into) in Backend and Runtime:
+#
+#   - ChannelPipeTransformation uses 1 built-in to get a size of pipe
+#     object (because it allocates memory for pipe object)
+#
+#   - Pipe object in runtime uses several functions to initialize pipe
+#     object from runtime (for OpenCL 2.0 pipes)
+#
+add_custom_target(clbltpipe_target
+  DEPENDS clbltpipe.obj)
 
 add_custom_command(OUTPUT clbltpipe.obj
   DEPENDS ${TARGET_NAME_MINIMAL} ${TARGET_NAME_SHARED}
@@ -547,3 +556,34 @@ add_dependencies(clbltpipe clbltpipe_target)
 set_target_properties(clbltpipe
   PROPERTIES
   IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/clbltpipe.obj)
+
+# We have another object for several functions that return pipe size:
+# that is because this object file will be linked into oclopt
+# (ChannelPipeTransformation pass), but the main pipe object file
+# depends on oclopt, resulting in circular dependency:
+#
+# oclopt -> ChannelPipeTransformation -> clbltpipe.obj
+#        -> clbltshared.rtl -> oclopt
+#
+# Functions that required for ChannelPipeTransformation are not using
+# any built-ins, so they are split into separate object file. This
+# breaks the circular dependency.
+#
+add_custom_target(clbltpipeinfo_target
+  DEPENDS clbltpipeinfo.obj)
+
+add_custom_command(OUTPUT clbltpipeinfo.obj
+  DEPENDS pipes-info.cl pipes.h pipes-internal.h pipes-defines.h
+
+  # Use host triple to let llc produce object file in a native format.
+  COMMAND ${CLANG} ${CLANG_CL20_COMPILER_PARAMS} -triple ${HOST_TRIPLE}
+  ${CMAKE_CURRENT_SOURCE_DIR}/pipes-info.cl -o pipes-info.bc
+
+  COMMAND ${LLC} ${LLC_PARAMS} -mcpu=corei7 pipes-info.bc
+  -o clbltpipeinfo.obj)
+
+add_library(clbltpipeinfo STATIC IMPORTED GLOBAL)
+add_dependencies(clbltpipeinfo clbltpipeinfo_target)
+set_target_properties(clbltpipeinfo
+  PROPERTIES
+  IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/clbltpipeinfo.obj)
