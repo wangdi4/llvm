@@ -87,7 +87,7 @@ public:
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
-    AU.addRequiredTransitive<HIRLocalityAnalysis>();
+    AU.addRequiredTransitive<HIRLoopLocality>();
     AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
     AU.addRequired<OptReportOptionsPass>();
@@ -96,7 +96,7 @@ public:
 private:
   Function *F;
   HIRDDAnalysis *DDA;
-  HIRLocalityAnalysis *LA;
+  HIRLoopLocality *LA;
   HIRSafeReductionAnalysis *SRA;
   HIRLoopStatistics *HLS;
   bool AnyLoopInterchanged;
@@ -143,7 +143,7 @@ INITIALIZE_PASS_BEGIN(HIRLoopInterchange, "hir-loop-interchange",
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopLocality)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRLoopInterchange, "hir-loop-interchange",
@@ -273,7 +273,7 @@ bool HIRLoopInterchange::runOnFunction(Function &F) {
   this->F = &F;
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   DDA = &getAnalysis<HIRDDAnalysis>();
-  LA = &getAnalysis<HIRLocalityAnalysis>();
+  LA = &getAnalysis<HIRLoopLocality>();
   SRA = &getAnalysis<HIRSafeReductionAnalysis>();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   auto &OROP = getAnalysis<OptReportOptionsPass>();

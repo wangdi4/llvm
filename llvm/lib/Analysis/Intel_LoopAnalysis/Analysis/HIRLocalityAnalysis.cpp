@@ -88,31 +88,31 @@ const unsigned CacheLineSize = 64;
 const unsigned WriteWt = 4;
 
 FunctionPass *llvm::createHIRLocalityAnalysisPass() {
-  return new HIRLocalityAnalysis();
+  return new HIRLoopLocality();
 }
 
-char HIRLocalityAnalysis::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLocalityAnalysis, "hir-locality-analysis",
+char HIRLoopLocality::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRLoopLocality, "hir-locality-analysis",
                       "HIR Locality Analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRLocalityAnalysis, "hir-locality-analysis",
+INITIALIZE_PASS_END(HIRLoopLocality, "hir-locality-analysis",
                     "HIR Locality Analysis", false, true)
 
-void HIRLocalityAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
+void HIRLoopLocality::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<HIRFrameworkWrapperPass>();
 }
 
 // Performs a basic setup without actually running the locality
 // analysis.
-bool HIRLocalityAnalysis::runOnFunction(Function &F) {
+bool HIRLoopLocality::runOnFunction(Function &F) {
   HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   return false;
 }
 
-void HIRLocalityAnalysis::print(raw_ostream &OS, const Module *M) const {
+void HIRLoopLocality::print(raw_ostream &OS, const Module *M) const {
 
-  HIRLocalityAnalysis &HLA = *const_cast<HIRLocalityAnalysis *>(this);
+  HIRLoopLocality &HLA = *const_cast<HIRLoopLocality *>(this);
   auto &HNU = HIRF->getHLNodeUtils();
 
   if (SortedLocality) {
@@ -167,11 +167,11 @@ void HIRLocalityAnalysis::print(raw_ostream &OS, const Module *M) const {
   }
 }
 
-unsigned HIRLocalityAnalysis::getTripCount(const HLLoop *Loop) {
+unsigned HIRLoopLocality::getTripCount(const HLLoop *Loop) {
   return TripCountByLevel[Loop->getNestingLevel() - 1];
 }
 
-void HIRLocalityAnalysis::updateTotalStrideAndRefs(LocalityInfo &LI,
+void HIRLoopLocality::updateTotalStrideAndRefs(LocalityInfo &LI,
                                                    const RefGroupTy &RefGroup,
                                                    uint64_t Stride) {
   auto Size = RefGroup.size();
@@ -186,7 +186,7 @@ void HIRLocalityAnalysis::updateTotalStrideAndRefs(LocalityInfo &LI,
   }
 }
 
-bool HIRLocalityAnalysis::sharesLastCacheLine(uint64_t PrevTotalDist,
+bool HIRLoopLocality::sharesLastCacheLine(uint64_t PrevTotalDist,
                                               uint64_t CurTotalDist,
                                               uint64_t NumRefBytesAccessed) {
   // This is where the PrevRef ended starting from the first ref of the group.
@@ -209,7 +209,7 @@ bool HIRLocalityAnalysis::sharesLastCacheLine(uint64_t PrevTotalDist,
   return CurTotalDist < NextCacheLineByteOffset;
 }
 
-unsigned HIRLocalityAnalysis::computeExtraCacheLines(
+unsigned HIRLoopLocality::computeExtraCacheLines(
     LocalityInfo &LI, const RefGroupTy &RefGroup, unsigned Level,
     uint64_t NumRefBytesAccessed, unsigned NumCacheLinesPerRef) {
   unsigned ExtraCacheLines = 0;
@@ -277,7 +277,7 @@ unsigned HIRLocalityAnalysis::computeExtraCacheLines(
   return ExtraCacheLines;
 }
 
-void HIRLocalityAnalysis::computeNumNoLocalityCacheLines(
+void HIRLoopLocality::computeNumNoLocalityCacheLines(
     LocalityInfo &LI, const RefGroupTy &RefGroup, unsigned Level,
     unsigned TripCnt) {
   const RegDDRef *Ref = RefGroup.front();
@@ -356,7 +356,7 @@ void HIRLocalityAnalysis::computeNumNoLocalityCacheLines(
   LI.NumSpatialCacheLines += NumCacheLines + ExtraCacheLines;
 }
 
-void HIRLocalityAnalysis::computeNumTempInvCacheLines(
+void HIRLoopLocality::computeNumTempInvCacheLines(
     LocalityInfo &LI, const RefGroupTy &RefGroup, unsigned Level) {
 
   auto Ref = RefGroup.front();
@@ -374,7 +374,7 @@ void HIRLocalityAnalysis::computeNumTempInvCacheLines(
   LI.NumTempInvCacheLines += NumCacheLines + ExtraCacheLines;
 }
 
-void HIRLocalityAnalysis::computeNumSpatialCacheLines(
+void HIRLoopLocality::computeNumSpatialCacheLines(
     LocalityInfo &LI, const RefGroupTy &RefGroup, unsigned Level,
     unsigned TripCnt, uint64_t Stride) {
   auto NumRefBytesAccessed = (Stride * TripCnt);
@@ -391,7 +391,7 @@ void HIRLocalityAnalysis::computeNumSpatialCacheLines(
   LI.NumSpatialCacheLines += NumCacheLines + ExtraCacheLines;
 }
 
-void HIRLocalityAnalysis::computeNumCacheLines(const HLLoop *Loop,
+void HIRLoopLocality::computeNumCacheLines(const HLLoop *Loop,
                                                const RefGroupVecTy &RefGroups) {
   unsigned Level = Loop->getNestingLevel();
   unsigned TripCnt = getTripCount(Loop);
@@ -417,7 +417,7 @@ void HIRLocalityAnalysis::computeNumCacheLines(const HLLoop *Loop,
   }
 }
 
-void HIRLocalityAnalysis::printLocalityInfo(raw_ostream &OS,
+void HIRLoopLocality::printLocalityInfo(raw_ostream &OS,
                                             const HLLoop *Lp) const {
 
   unsigned Level = Lp->getNestingLevel();
@@ -445,7 +445,7 @@ void HIRLocalityAnalysis::printLocalityInfo(raw_ostream &OS,
   FOS << "AvgStride: " << LI.getAvgStride() << "\n";
 }
 
-void HIRLocalityAnalysis::initTripCountByLevel(
+void HIRLoopLocality::initTripCountByLevel(
     const SmallVectorImpl<const HLLoop *> &Loops) {
 
   for (auto Loop : Loops) {
@@ -463,12 +463,12 @@ void HIRLocalityAnalysis::initTripCountByLevel(
   }
 }
 
-bool HIRLocalityAnalysis::isSpatialMatch(const RegDDRef *Ref1,
+bool HIRLoopLocality::isSpatialMatch(const RegDDRef *Ref1,
                                          const RegDDRef *Ref2) {
   return DDRefUtils::getConstByteDistance(Ref1, Ref2, nullptr);
 }
 
-bool HIRLocalityAnalysis::isTemporalMatch(const RegDDRef *Ref1,
+bool HIRLoopLocality::isTemporalMatch(const RegDDRef *Ref1,
                                           const RegDDRef *Ref2, unsigned Level,
                                           uint64_t MaxDiff) {
   int64_t Diff;
@@ -485,7 +485,7 @@ bool HIRLocalityAnalysis::isTemporalMatch(const RegDDRef *Ref1,
 }
 
 // This is a high level routine to compute different locality.
-void HIRLocalityAnalysis::computeLoopNestLocality(
+void HIRLoopLocality::computeLoopNestLocality(
     const HLLoop *Loop, const SmallVectorImpl<const HLLoop *> &LoopVec) {
 
   RefGroupVecTy RefGroups;
@@ -518,7 +518,7 @@ void HIRLocalityAnalysis::computeLoopNestLocality(
   }
 }
 
-void HIRLocalityAnalysis::sortedLocalityLoops(
+void HIRLoopLocality::sortedLocalityLoops(
     const HLLoop *OutermostLoop,
     SmallVector<const HLLoop *, MaxLoopNestLevel> &SortedLoops) {
   assert(OutermostLoop && " Loop parameter is null.");
@@ -567,7 +567,7 @@ void HIRLocalityAnalysis::sortedLocalityLoops(
 }
 
 unsigned
-HIRLocalityAnalysis::getTemporalInvariantLocalityImpl(const HLLoop *Lp,
+HIRLoopLocality::getTemporalInvariantLocalityImpl(const HLLoop *Lp,
                                                       bool CheckPresence) {
   assert(Lp && " Loop parameter is null!");
 
@@ -595,7 +595,7 @@ HIRLocalityAnalysis::getTemporalInvariantLocalityImpl(const HLLoop *Lp,
   return NumInv;
 }
 
-unsigned HIRLocalityAnalysis::getTemporalLocalityImpl(const HLLoop *Lp,
+unsigned HIRLoopLocality::getTemporalLocalityImpl(const HLLoop *Lp,
                                                       unsigned ReuseThreshold,
                                                       bool CheckPresence,
                                                       bool ReuseOnly) {
@@ -648,7 +648,7 @@ unsigned HIRLocalityAnalysis::getTemporalLocalityImpl(const HLLoop *Lp,
   return NumTemporal;
 }
 
-void HIRLocalityAnalysis::populateTemporalLocalityGroups(
+void HIRLoopLocality::populateTemporalLocalityGroups(
     const HLLoop *Lp, unsigned ReuseThreshold, RefGroupVecTy &TemporalGroups) {
   assert(Lp && " Loop parameter is null!");
 

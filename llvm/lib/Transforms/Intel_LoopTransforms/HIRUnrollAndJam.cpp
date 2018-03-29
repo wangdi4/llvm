@@ -179,7 +179,7 @@ public:
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
     AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
-    AU.addRequiredTransitive<HIRLocalityAnalysis>();
+    AU.addRequiredTransitive<HIRLoopLocality>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
   }
 
@@ -191,7 +191,7 @@ private:
 
   HIRLoopStatistics *HLS;
   HIRLoopResource *HLR;
-  HIRLocalityAnalysis *HLA;
+  HIRLoopLocality *HLA;
   HIRDDAnalysis *DDA;
 
   // Helper for generating optimization reports.
@@ -327,7 +327,7 @@ INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopLocality)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_END(HIRUnrollAndJam, "hir-unroll-and-jam", "HIR Unroll & Jam",
                     false, false)
@@ -825,7 +825,7 @@ bool HIRUnrollAndJam::runOnFunction(Function &F) {
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   HLR = &getAnalysis<HIRLoopResourceWrapperPass>().getHLR();
-  HLA = &getAnalysis<HIRLocalityAnalysis>();
+  HLA = &getAnalysis<HIRLoopLocality>();
   DDA = &getAnalysis<HIRDDAnalysis>();
   auto &OROP = getAnalysis<OptReportOptionsPass>();
   LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());

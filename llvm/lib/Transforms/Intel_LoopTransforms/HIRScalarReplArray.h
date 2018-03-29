@@ -22,7 +22,7 @@ class Function;
 namespace loopopt {
 class DDGraph;
 class HIRDDAnalysis;
-class HIRLocalityAnalysis;
+class HIRLoopLocality;
 struct LoopStatistics;
 
 namespace scalarreplarray {
@@ -351,7 +351,7 @@ class HIRScalarReplArray : public HIRTransformPass {
   friend MemRefGroup;
 
   HIRDDAnalysis *HDDA = nullptr;
-  HIRLocalityAnalysis *HLA = nullptr;
+  HIRLoopLocality *HLA = nullptr;
   HIRLoopStatistics *HLS = nullptr;
   unsigned LoopLevel;
 
@@ -384,10 +384,10 @@ public:
   bool doPreliminaryChecks(const HLLoop *Lp);
 
   // Collect relevant MemRefs with the same Symbase and BaseCE
-  // by calling HIRLocalityAnalysis::populateTemporalLocalityGroups(.)
+  // by calling HIRLoopLocality::populateTemporalLocalityGroups(.)
   bool doCollection(HLLoop *Lp);
 
-  // Check if a group formed by HIRLocalityAnalysis is valid:
+  // Check if a group formed by HIRLoopLocality is valid:
   //
   // the group:
   // - is not a single-entry group;

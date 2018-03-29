@@ -150,7 +150,7 @@ bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
       getAnalysis<HIRSCCFormationWrapperPass>().getSCCF(),
       HIRAnalysisProvider(
           [&]() { return getAnalysisIfAvailable<HIRDDAnalysis>(); },
-          [&]() { return getAnalysisIfAvailable<HIRLocalityAnalysis>(); },
+          [&]() { return getAnalysisIfAvailable<HIRLoopLocality>(); },
           [&]() {
             auto *Wrapper =
                 getAnalysisIfAvailable<HIRLoopResourceWrapperPass>();

@@ -405,7 +405,7 @@ bool MemRefGroup::areDDEdgesInSameMRG(DDGraph &DDG) const {
 //
 // This makes the logic is bit difficult to understand.
 //
-// Once HIRLocalityAnalysis relaxes this behavior, the code can be simplified
+// Once HIRLoopLocality relaxes this behavior, the code can be simplified
 // with easy-to-understand logic.
 //
 void MemRefGroup::markMaxLoad(void) {
@@ -896,7 +896,7 @@ INITIALIZE_PASS_BEGIN(HIRScalarReplArray, "hir-scalarrepl-array",
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopLocality)
 INITIALIZE_PASS_END(HIRScalarReplArray, "hir-scalarrepl-array",
                     "HIR Scalar Replacement of Array ", false, false)
 
@@ -912,7 +912,7 @@ void HIRScalarReplArray::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  AU.addRequiredTransitive<HIRLocalityAnalysis>();
+  AU.addRequiredTransitive<HIRLoopLocality>();
   AU.setPreservesAll();
 }
 
@@ -970,7 +970,7 @@ bool HIRScalarReplArray::runOnFunction(Function &F) {
   }
 
   HDDA = &getAnalysis<HIRDDAnalysis>();
-  HLA = &getAnalysis<HIRLocalityAnalysis>();
+  HLA = &getAnalysis<HIRLoopLocality>();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
 
   for (auto &Lp : CandidateLoops) {

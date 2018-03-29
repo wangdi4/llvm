@@ -53,13 +53,13 @@ const unsigned ConstantSymbase = 1;
 const unsigned GenericRvalSymbase = 2;
 
 class HIRDDAnalysis;
-class HIRLocalityAnalysis;
+class HIRLoopLocality;
 class HIRLoopResource;
 class HIRLoopStatistics;
 class HIRSafeReductionAnalysis;
 class HIRVectVLSAnalysis;
 
-typedef HIRAnalysisProviderBase<HIRDDAnalysis, HIRLocalityAnalysis,
+typedef HIRAnalysisProviderBase<HIRDDAnalysis, HIRLoopLocality,
                                 HIRLoopResource, HIRLoopStatistics,
                                 HIRSafeReductionAnalysis, HIRVectVLSAnalysis>
     HIRAnalysisProvider;

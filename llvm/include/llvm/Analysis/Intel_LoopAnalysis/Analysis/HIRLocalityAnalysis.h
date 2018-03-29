@@ -44,7 +44,7 @@ class HLLoop;
 class DDRefUtils;
 class HIRFramework;
 
-class HIRLocalityAnalysis final : public HIRAnalysisPass {
+class HIRLoopLocality final : public HIRAnalysisPass {
 public:
   typedef DDRefGrouping::RefGroupTy<const RegDDRef *> RefGroupTy;
   typedef DDRefGrouping::RefGroupVecTy<const RegDDRef *> RefGroupVecTy;
@@ -188,7 +188,7 @@ private:
                                             bool CheckPresence);
 
 public:
-  HIRLocalityAnalysis()
+  HIRLoopLocality()
       : HIRAnalysisPass(ID, HIRAnalysisPass::HIRLocalityAnalysisVal),
         HIRF(nullptr) {}
   static char ID;
