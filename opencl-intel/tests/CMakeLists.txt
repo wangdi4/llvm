@@ -100,6 +100,5 @@ add_lit_testsuite(check-ocl-runtime "Running the OpenCL Runtime unittests"
   DEPENDS ${RT_TEST_DEPS}
   ARGS ${RT_TEST_ARGS}
 )
-add_dependencies( check-ocl-all check-ocl-runtime )
 
 set_target_properties(check-ocl-runtime PROPERTIES FOLDER "Tests")

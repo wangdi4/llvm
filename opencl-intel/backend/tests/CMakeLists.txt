@@ -49,7 +49,6 @@ add_lit_testsuite(check-ocl-backend "Running the OpenCL Backend LIT tests"
   DEPENDS ${BE_TEST_DEPS}
   ARGS ${BE_TEST_ARGS}
 )
-add_dependencies(check-ocl-all check-ocl-backend)
 set_target_properties(check-ocl-backend PROPERTIES FOLDER "Tests")
 
 if (ADD_NICE_BE_LIT_TARGETS)
