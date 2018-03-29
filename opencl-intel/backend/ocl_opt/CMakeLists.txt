@@ -1,15 +1,6 @@
-set(TARGET_NAME oclopt)
-
 include_directories(${LLVM_INCLUDE_DIRS}
                     ${BACKEND_ROOT_DIR}/passes
                     ${BACKEND_ROOT_DIR}/arch_headers)
-link_directories(${LLVM_LIBRARY_DIRS})
-
-add_opencl_executable(${TARGET_NAME}
-    ocl_opt.cpp
-    ${BACKEND_ROOT_DIR}/passes/InitializePasses.h
-    ${BACKEND_ROOT_DIR}/passes/OCLPassSupport.h
-)
 
 # Backend passes
 set(OCL_BE_PASSES
@@ -67,12 +58,21 @@ set(OCL_BE_PASSES_DEPS
     reflection_module
 )
 
-target_link_libraries(${TARGET_NAME}
-    ${OCL_BE_PASSES}
-    ${OCL_BE_PASSES_DEPS}
-    LLVMOptEngine
-    cl_sys_utils
-    ${LLVM_MODULE_LIBS}
+add_opencl_executable(oclopt
+  AnalysisWrappers.cpp
+  BreakpointPrinter.cpp
+  Debugify.cpp
+  GraphPrinters.cpp
+  NewPMDriver.cpp
+  PassPrinters.cpp
+  PrintSCC.cpp
+  ocl_opt.cpp
+
+  LINK_LIBS
+  ${LLVM_MODULE_LIBS}
+  ${OCL_BE_PASSES}
+  ${OCL_BE_PASSES_DEPS}
+  cl_sys_utils
 )
 
-set_target_properties (${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})
+set_target_properties (oclopt PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})
