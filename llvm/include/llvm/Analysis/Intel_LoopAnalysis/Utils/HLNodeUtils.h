@@ -752,8 +752,7 @@ public:
 
   /// Creates a new ShuffleVector instruction
   HLInst *createShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
-                                  ArrayRef<uint32_t> Mask,
-                                  const Twine &Name = "shuffle",
+                                  RegDDRef *Mask, const Twine &Name = "shuffle",
                                   RegDDRef *LvalRef = nullptr);
 
   /// Creates a new ExtractElement instruction

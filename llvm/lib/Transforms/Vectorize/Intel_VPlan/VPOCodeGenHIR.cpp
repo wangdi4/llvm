@@ -25,6 +25,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
@@ -1104,15 +1105,30 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
 }
 
 /// \brief Return result of combining horizontal vector binary operation with
-/// initial value. Horizontal binary operation splits VecRef recursively
-/// into 2 parts until the VF becomes 2. Then we extract elements from the
-/// vector and perform scalar operation, the result of which is then
-/// combined with the initial value and assigned to ResultRef. The created
-/// instructions are added to the InstContainer initially and are added
-/// after Loop at the end after generating the combined result.
+/// initial value. Instead of splitting VecRef recursively into 2 parts of half
+/// VF until the VF becomes 2, VecRef is shuffled in such a way that the
+/// resulting vector stays VF-wide and the upper elements are shuffled down
+/// into the lower positions to form a new vector. Then, the horizontal
+/// operation is performed on VF-wide vectors, but the upper elements of the
+/// operation are simply ignored. The final result of the horizontal operation
+/// is then extracted from position 0, the leftmost position of the vector.
+/// The rightmost position is 7. E.g., if VF=8, we will have 3 horizontal
+/// operation stages. So, if we start with elements <0,2,1,4,5,1,3,0> and the
+/// horizontal operation is add, we end up with the following sequence of
+/// operations, where u is undefined.
+///
+/// <0,2,1,4,5,1,3,0> + <5,1,3,0,u,u,u,u> = <5,3,4,4,u,u,u,u>
+/// Now, only the first 4 elements are considered for the next stage.
+/// <5,3,4,4,u,u,u,u> + <4,4,u,u,u,u,u,u> = <9,7,u,u,u,u,u,u>
+/// And, now just two.
+/// <9,7,u,u,u,u,u,u> + <7,u,u,u,u,u,u,u> = <16,u,u,u,u,u,u,u>
+/// extract<0> = 16 and add this value to the initial value.
+///
+/// This transformation is necessary so that X86/Target SAD idiom for
+/// reductions is enabled.
 static HLInst *buildReductionTail(HLContainerTy &InstContainer,
                                   unsigned BOpcode, const RegDDRef *VecRef,
-                                  const RegDDRef *InitValRef, HLLoop *Loop,
+                                  const RegDDRef *InitValRef, HLLoop *HLLp,
                                   const RegDDRef *ResultRef) {
 
   // Take Vector Length from the WideRedInst type
@@ -1126,45 +1142,49 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
     BOpcode = Instruction::FAdd;
 
   unsigned VF = cast<VectorType>(VecTy)->getNumElements();
-  if (VF == 2) {
-    HLInst *Lo = Loop->getHLNodeUtils().createExtractElementInst(
-        VecRef->clone(), 0, "Lo");
-    HLInst *Hi = Loop->getHLNodeUtils().createExtractElementInst(
-        VecRef->clone(), 1, "Hi");
-
-    HLInst *Combine = Loop->getHLNodeUtils().createBinaryHLInst(
-        BOpcode, Lo->getLvalDDRef()->clone(), Hi->getLvalDDRef()->clone(),
-        "reduced");
-    InstContainer.push_back(*Lo);
-    InstContainer.push_back(*Hi);
-    InstContainer.push_back(*Combine);
-
-    RegDDRef *ScalarValue = Combine->getLvalDDRef();
-
-    // Combine with initial value
-    auto FinalInst = Loop->getHLNodeUtils().createBinaryHLInst(
-        BOpcode, ScalarValue->clone(), InitValRef->clone(), "final" /* Name */,
-        ResultRef->clone());
-    InstContainer.push_back(*FinalInst);
-    return FinalInst;
+  unsigned Stages = Log2_32(VF);
+  unsigned MaskElems = VF / 2;
+  const RegDDRef *LastVal = VecRef;
+  const Loop *Lp = HLLp->getLLVMLoop();
+  LLVMContext &Context = Lp->getHeader()->getContext();
+  for (unsigned i = 0; i < Stages; i++) {
+    SmallVector<Constant*, 16> ShuffleMask;
+    unsigned MaskElemVal = MaskElems;
+    for (unsigned j = 0; j < VF; j++) {
+      if (j > MaskElems - 1) {
+        // Use undef for the mask when we don't care what the result of the
+        // horizontal operation is for that element.
+        Constant *UndefVal = UndefValue::get(Type::getInt32Ty(Context));
+        ShuffleMask.push_back(UndefVal);
+      } else {
+        Constant *Mask = ConstantInt::get(Type::getInt32Ty(Context),
+                                          MaskElemVal);
+        ShuffleMask.push_back(Mask);
+        MaskElemVal++;
+      }
+    }
+    MaskElems /= 2;
+    Constant *MaskVec = ConstantVector::get(ShuffleMask);
+    RegDDRef *MaskVecDDRef = VecRef->getDDRefUtils().createConstDDRef(MaskVec);
+    HLInst *Shuffle = HLLp->getHLNodeUtils().createShuffleVectorInst(
+        LastVal->clone(), LastVal->clone(), MaskVecDDRef, "rdx.shuf");
+    HLInst *BinOp = HLLp->getHLNodeUtils().createBinaryHLInst(
+        BOpcode, LastVal->clone(), Shuffle->getLvalDDRef()->clone(), "bin.rdx");
+    InstContainer.push_back(*Shuffle);
+    InstContainer.push_back(*BinOp);
+    LastVal = BinOp->getLvalDDRef();
   }
-  SmallVector<uint32_t, 16> LoMask, HiMask;
-  for (unsigned i = 0; i < VF / 2; ++i)
-    LoMask.push_back(i);
-  for (unsigned i = VF / 2; i < VF; ++i)
-    HiMask.push_back(i);
-  HLInst *Lo = Loop->getHLNodeUtils().createShuffleVectorInst(
-      VecRef->clone(), VecRef->clone(), LoMask, "Lo");
-  HLInst *Hi = Loop->getHLNodeUtils().createShuffleVectorInst(
-      VecRef->clone(), VecRef->clone(), HiMask, "Hi");
-  HLInst *Result = Loop->getHLNodeUtils().createBinaryHLInst(
-      BOpcode, Lo->getLvalDDRef()->clone(), Hi->getLvalDDRef()->clone(),
-      "reduce");
-  InstContainer.push_back(*Lo);
-  InstContainer.push_back(*Hi);
-  InstContainer.push_back(*Result);
-  return buildReductionTail(InstContainer, BOpcode, Result->getLvalDDRef(),
-                            InitValRef, Loop, ResultRef);
+
+  HLInst *Extract = HLLp->getHLNodeUtils().createExtractElementInst(
+      LastVal->clone(), 0, "bin.final");
+  InstContainer.push_back(*Extract);
+
+  // Combine with initial value
+  auto FinalInst = HLLp->getHLNodeUtils().createBinaryHLInst(
+      BOpcode, Extract->getLvalDDRef()->clone(), InitValRef->clone(), "final",
+      ResultRef->clone());
+  InstContainer.push_back(*FinalInst);
+  return FinalInst;
 }
 
 void VPOCodeGenHIR::analyzeCallArgMemoryReferences(
