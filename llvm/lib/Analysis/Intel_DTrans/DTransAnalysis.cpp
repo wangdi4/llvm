@@ -871,7 +871,7 @@ public:
 
     LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Ptr);
     if (LPI.pointsToSomeElement()) {
-      if (analyzeElementLoadOrStore(LPI, I.getType(), I.isVolatile(),
+      if (analyzeElementLoadOrStore(LPI, nullptr, I.getType(), I.isVolatile(),
                                     /*IsLoad=*/true)) {
         // Provide context for the debugging information that was printed.
         DEBUG(dbgs() << "  " << I << "\n");
@@ -924,6 +924,49 @@ public:
     }
   }
 
+  //
+  // Analyze and report dtrans::UnsafePointerStore for the StoreInst with
+  // the given ValOperand and PtrOperand. If I == nullptr, we are analyzing
+  // an static initialization of a pointer.
+  //
+  void analyzeUnsafePointerStores(StoreInst *I, Value *ValOperand,
+                                  Value *PtrOperand) {
+    LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValOperand);
+    LocalPointerInfo &PtrLPI = LPA.getLocalPointerInfo(PtrOperand);
+
+    // If the value of interest either aliases to a pointer to a type of
+    // interest or points to an element within a type of interest, check to
+    // make sure the pointer operand is compatible.
+    if (ValLPI.canAliasToAggregatePointer()) {
+      for (auto *AliasTy : ValLPI.getPointerTypeAliasSet()) {
+        if (AliasTy == Int8PtrTy)
+          continue;
+        if (!PtrLPI.canPointToType(AliasTy)) {
+          DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store:\n");
+          if (I != nullptr)
+            DEBUG(dbgs() << "  " << *I << "\n");
+          else
+            DEBUG(dbgs() << " " << *ValOperand << " -> " << *PtrOperand <<
+                  " \n");
+          setValueTypeInfoSafetyData(ValOperand, dtrans::UnsafePointerStore);
+          setValueTypeInfoSafetyData(PtrOperand, dtrans::UnsafePointerStore);
+        }
+      }
+    } else if (PtrLPI.canAliasToAggregatePointer()) {
+      // If we get here the value operand is not a pointer to an aggregate
+      // type, but the pointer operand is. Unless the value operand is a
+      // null pointer, this is a bad store.
+      if (!isa<ConstantPointerNull>(ValOperand)) {
+        DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store:\n");
+        if (I != nullptr)
+          DEBUG(dbgs() << "  " << *I << "\n");
+        else
+          DEBUG(dbgs() << " " << *ValOperand << " -> " << *PtrOperand << " \n");
+        setValueTypeInfoSafetyData(PtrOperand, dtrans::UnsafePointerStore);
+      }
+    }
+  }
+
   void visitStoreInst(StoreInst &I) {
     // Store instructions that write individual fields of a struct or array
     // are handled by following the address obtained via GetElementPtr.
@@ -961,36 +1004,11 @@ public:
       return;
     }
 
-    LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValOperand);
-    LocalPointerInfo &PtrLPI = LPA.getLocalPointerInfo(PtrOperand);
-
-    // If the value of interest either aliases to a pointer to a type of
-    // interest or points to an element within a type of interest, check to
-    // make sure the pointer operand is compatible.
-    if (ValLPI.canAliasToAggregatePointer()) {
-      for (auto *AliasTy : ValLPI.getPointerTypeAliasSet()) {
-        if (AliasTy == Int8PtrTy)
-          continue;
-        if (!PtrLPI.canPointToType(AliasTy)) {
-          DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store:\n"
-                       << "  " << I << "\n");
-          setValueTypeInfoSafetyData(ValOperand, dtrans::UnsafePointerStore);
-          setValueTypeInfoSafetyData(PtrOperand, dtrans::UnsafePointerStore);
-        }
-      }
-    } else if (PtrLPI.canAliasToAggregatePointer()) {
-      // If we get here the value operand is not a pointer to a an aggregate
-      // type, but the pointer operand is. Unless the value operand is a
-      // null pointer, this is a bad store.
-      if (!isa<ConstantPointerNull>(ValOperand)) {
-        DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store:\n"
-                     << "  " << I << "\n");
-        setValueTypeInfoSafetyData(PtrOperand, dtrans::UnsafePointerStore);
-      }
-    }
+    analyzeUnsafePointerStores(&I, ValOperand, PtrOperand);
 
     // If the value operand is a pointer to an element within an aggregate
     // we need to mark that element as having its address taken.
+    LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValOperand);
     if (ValLPI.pointsToSomeElement()) {
       auto ValPointees = ValLPI.getElementPointeeSet();
       for (auto PointeePair : ValPointees) {
@@ -1007,8 +1025,9 @@ public:
     // If the pointer operand is a pointer to an element within an aggregate
     // we need to mark that element as having been written and make sure the
     // value being written has the correct size.
+    LocalPointerInfo &PtrLPI = LPA.getLocalPointerInfo(PtrOperand);
     if (PtrLPI.pointsToSomeElement())
-      if (analyzeElementLoadOrStore(PtrLPI, ValOperand->getType(),
+      if (analyzeElementLoadOrStore(PtrLPI, ValOperand, ValOperand->getType(),
                                     I.isVolatile(), /*IsLoad=*/false)) {
         // Provide context for the debugging information that was printed.
         DEBUG(dbgs() << "  " << I << "\n");
@@ -1218,12 +1237,12 @@ public:
 
       // Get the type of this variable.
       llvm::Type *GVTy = GV.getType();
+      llvm::Type *GVElemTy = GVTy->getPointerElementType();
 
       // FIXME: Should we be considering all arrays of scalars as not
       //        interesting types?
-      if (GVTy->getPointerElementType()->isArrayTy() &&
-          !DTInfo.isTypeOfInterest(
-              GVTy->getPointerElementType()->getArrayElementType()))
+      if (GVElemTy->isArrayTy() &&
+          !DTInfo.isTypeOfInterest(GVElemTy->getArrayElementType()))
         continue;
 
       // If this is an interesting type, analyze its uses.
@@ -1232,11 +1251,6 @@ public:
         // global variables that are definitely handled. If this condition
         // is triggered in code we think we can optimize additional handling
         // for these cases may be necessary.
-        //
-        // hasGlobalUnnamedAddr() indicates that the actual address of the
-        //   variable is definitely not significant. We may encounter cases
-        //   where this is true but not explicitly set as such. If so, this
-        //   will need to be reconsidered.
         //
         // hasLocalLinkage() indicates that the linkage is either internal or
         //   private. This should be the case for all program defined variables
@@ -1249,18 +1263,19 @@ public:
         //   consideration of its implications can be deferred until it must
         //   be handled.
         //
-        if (!GV.hasGlobalUnnamedAddr() || !GV.hasLocalLinkage() ||
-            GV.isThreadLocal()) {
+        if (!GV.hasLocalLinkage() || GV.isThreadLocal()) {
           DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
                        << "Unexpected global variable usage:\n"
                        << "  " << GV << "\n");
           setBaseTypeInfoSafetyData(GVTy, dtrans::UnhandledUse);
           continue;
         }
-        if (GVTy->getPointerElementType()->isPointerTy()) {
+        if (GVElemTy->isPointerTy()) {
           DEBUG(dbgs() << "dtrans-safety: Global pointer\n"
                        << "  " << GV << "\n");
           setBaseTypeInfoSafetyData(GVTy, dtrans::GlobalPtr);
+          Constant *Initializer = GV.getInitializer();
+          analyzeUnsafePointerStores(nullptr, Initializer, &GV);
         } else {
           DEBUG(dbgs() << "dtrans-safety: Global instance\n"
                        << "  " << GV << "\n");
@@ -1276,6 +1291,7 @@ public:
                          << "  " << GV << "\n");
             setBaseTypeInfoSafetyData(GVTy, dtrans::HasInitializerList);
           }
+          analyzeGlobalStructSingleValue(GVElemTy, Initializer);
         }
       }
     }
@@ -1536,6 +1552,34 @@ private:
       setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
   }
 
+  //
+  // Indicate that all fields of TI may have a zero value because calloc
+  // was used to allocate a structure of this type.
+  //
+  void analyzeCallocSingleValue(dtrans::TypeInfo *TI) {
+    if (TI == nullptr)
+      return;
+    if (!TI->getLLVMType()->isAggregateType())
+      return;
+    if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+      int Count = 0;
+      for (auto &FI : StInfo->getFields()) {
+        Constant *NV = llvm::Constant::getNullValue(FI.getLLVMType());
+        DEBUG(dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " ["
+                     << Count << "] ");
+        DEBUG(NV->printAsOperand(dbgs()));
+        FI.processNewSingleValue(NV);
+        DEBUG(dbgs() << (FI.isMultipleValue() ? " <MULTIPLE>\n" : "\n"));
+        auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
+        analyzeCallocSingleValue(ComponentTI);
+        ++Count;
+      }
+    } else if (auto *AInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
+      auto *ComponentTI = AInfo->getElementDTransInfo();
+      analyzeCallocSingleValue(ComponentTI);
+    }
+  }
+
   void analyzeAllocationCall(CallInst &CI, dtrans::AllocKind Kind) {
 
     // The LocalPointerAnalyzer will visit bitcast users to determine the
@@ -1589,18 +1633,26 @@ private:
         outs() << "    Detected type: " << *(Ty->getPointerElementType())
                << "\n";
       }
+
+      if (Kind == dtrans::AK_Calloc) {
+        auto *TI = DTInfo.getOrCreateTypeInfo(Ty->getPointerElementType());
+        analyzeCallocSingleValue(TI);
+      }
     }
   }
 
   // The element access analysis for load and store instructions are nearly
   // identical, so we use this helper function to perform the task for both.
   // For both loads and stores the PtrInfo argument refers to the address that
-  // is being accessed. For load instructions, the ValTy argument is the type
-  // of the value being loaded (i.e. the type of the value returned by the
-  // load instruction). For store instructions, the ValTy argument is the
-  // type of the value operand to the store instruction.
-  bool analyzeElementLoadOrStore(LocalPointerInfo &PtrInfo, llvm::Type *ValTy,
-                                 bool IsVolatile, bool IsLoad) {
+  // is being accessed. For load instructions, the WriteVal argument is
+  // nullptr, while for store instructions, the Val argument is the value
+  // operand of the store instruction. For load instructions, the ValTy
+  // argument is the type of the value being loaded (i.e. the type of the value
+  // returned by the load instruction). For store instructions, the ValTy
+  // argument is the type of the value operand to the store instruction.
+  bool analyzeElementLoadOrStore(LocalPointerInfo &PtrInfo, Value *WriteVal,
+                                 llvm::Type *ValTy, bool IsVolatile,
+                                 bool IsLoad) {
     bool SafetyIssuesFound = false;
     // There will generally only be one ElementPointee in code that is safe for
     // dtrans to operate on, but I'm using a for-loop here to keep the
@@ -1646,8 +1698,19 @@ private:
           dtrans::FieldInfo &FI = ParentStInfo->getField(PointeePair.second);
           if (IsLoad)
             FI.setRead(true);
-          else
+          else {
+            DEBUG(dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
+                         << " [" << PointeePair.second << "] ");
+            if (auto *ConstVal = dyn_cast<llvm::Constant>(WriteVal)) {
+              DEBUG(ConstVal->printAsOperand(dbgs()));
+              FI.processNewSingleValue(ConstVal);
+              DEBUG(dbgs() << (FI.isMultipleValue() ? " <MULTIPLE>\n" : "\n"));
+            } else {
+              DEBUG(dbgs() << "<MULTIPLE>\n");
+              FI.setMultipleValue();
+            }
             FI.setWritten(true);
+          }
         }
         // TODO: Track array element access?
       } else {
@@ -1952,6 +2015,9 @@ private:
             ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
           }
           markStructFieldsWritten(ParentTI, FirstField, LastField);
+          // Conservatively mark all fields as having been written by the
+          // memset.  We can improve this analysis later.
+          markAllFieldsMultipleValue(ParentTI);
         } else {
           // The size could not be matched to the fields of the structure.
           DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
@@ -1994,11 +2060,15 @@ private:
     if (!DestPointeeTy->isAggregateType())
       return;
 
+    // Conservatively mark all fields as having been written by the memset.
+    // We can improve this analysis later.
+    auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
+    markAllFieldsMultipleValue(ParentTI);
+
     // Consider the case where the complete aggregate (or an array of
     // aggregates is being set).
     if (isValueMultipleOfSize(SetSize, ElementSize)) {
       // It is a safe use. Mark all the fields as being written.
-      auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
       markAllFieldsWritten(ParentTI);
       return;
     }
@@ -2011,7 +2081,6 @@ private:
       unsigned int LastField = 0;
       if (analyzePartialStructUse(StructTy, 0, SetSize, &FirstField,
                                   &LastField)) {
-        auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
 
         // It's possible the write covered all the fields, but excluded any
         // padding after the last element, so check whether it was a partial
@@ -2035,6 +2104,7 @@ private:
                  << "  " << I << "\n");
 
     setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncSize);
+
   }
 
   // Check the source and destination of a call to memcpy or memmove call
@@ -2261,7 +2331,6 @@ private:
       if (analyzePartialStructUse(StructTy, 0, SetSize, &FirstField,
                                   &LastField)) {
         auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
-
         // It's possible the write covered all the fields, but excluded any
         // padding after the last element, so check whether it was a partial
         // write or not.
@@ -2451,6 +2520,65 @@ private:
     }
 
     return;
+  }
+
+  //
+  // Update the "single value" info for GVElemTy, given that it has the
+  // indicated Init.
+  //
+  void analyzeGlobalStructSingleValue(llvm::Type *GVElemTy,
+                                      llvm::Constant *Init) {
+    if (auto *StTy = dyn_cast<StructType>(GVElemTy)) {
+      auto *StInfo = cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StTy));
+      for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I) {
+        llvm::Type *FieldTy = StTy->getTypeAtIndex(I);
+        llvm::Constant *ConstVal = Init->getAggregateElement(I);
+        dtrans::FieldInfo &FI = StInfo->getField(I);
+        analyzeGlobalStructSingleValue(FieldTy, ConstVal);
+        DEBUG(dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " [" << I
+                     << "] ");
+        if (ConstVal->getType() == FieldTy) {
+          DEBUG(ConstVal->printAsOperand(dbgs()));
+          FI.processNewSingleValue(ConstVal);
+          DEBUG(dbgs() << (FI.isMultipleValue() ? " <MULTIPLE>\n" : "\n"));
+        } else {
+          DEBUG(dbgs() << "<MULTIPLE>\n");
+          FI.setMultipleValue();
+        }
+      }
+    } else if (auto *ArTy = dyn_cast<ArrayType>(GVElemTy)) {
+      auto *ArInfo = cast<dtrans::ArrayInfo>(DTInfo.getOrCreateTypeInfo(ArTy));
+      auto *ComponentTI = ArInfo->getElementDTransInfo();
+      llvm::Type *ComponentTy = ComponentTI->getLLVMType();
+      for (unsigned I = 0, E = ArInfo->getNumElements(); I != E; ++I) {
+        llvm::Constant *ConstVal = Init->getAggregateElement(I);
+        analyzeGlobalStructSingleValue(ComponentTy, ConstVal);
+      }
+    }
+  }
+
+  //
+  // Mark all fields of TI to have multiple values.
+  //
+  void markAllFieldsMultipleValue(dtrans::TypeInfo *TI) {
+    if (TI == nullptr)
+      return;
+    if (!TI->getLLVMType()->isAggregateType())
+      return;
+    if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+      int Count = 0;
+      for (auto &FI : StInfo->getFields()) {
+        DEBUG(dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " ["
+                     << Count << "] <MULTIPLE>\n");
+        FI.setMultipleValue();
+        auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
+        markAllFieldsMultipleValue(ComponentTI);
+        ++Count;
+      }
+    } else if (auto *AInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
+      auto *ComponentTI = AInfo->getElementDTransInfo();
+      markAllFieldsMultipleValue(ComponentTI);
+    }
   }
 
   // In many cases we need to set safety data based on a value that
@@ -2644,6 +2772,23 @@ bool DTransAnalysisInfo::analyzeModule(Module &M, TargetLibraryInfo &TLI) {
   DTransInstVisitor Visitor(M.getContext(), *this, M.getDataLayout(), TLI);
   Visitor.visit(M);
 
+  // Invalidate the fields for which the corresponding types do not pass
+  // the SafetyData checks.
+  for (auto *TI : type_info_entries()) {
+    auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
+    if (StInfo && StInfo->testSafetyData(dtrans::SDFieldSingleValue))
+      for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I)
+        StInfo->getField(I).setMultipleValue();
+  }
+
+  // Set all aggregate fields conservatively as MultipleValue for now.
+  for (auto *TI : type_info_entries()) {
+    if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI))
+      for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I)
+        if (StInfo->getField(I).getLLVMType()->isAggregateType())
+          StInfo->getField(I).setMultipleValue();
+  }
+
   if (DTransPrintAnalyzedTypes) {
     // This is really ugly, but it is only used during testing.
     // The type infos are stored in a map with pointer keys, and so the
@@ -2709,6 +2854,14 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field) {
     outs() << " Read";
   if (Field.isWritten())
     outs() << " Written";
+  outs() << "\n";
+  if (Field.isNoValue())
+    outs() << "    No Value";
+  else if (Field.isSingleValue()) {
+    outs() << "    Single Value: ";
+    Field.getSingleValue()->printAsOperand(outs());
+  } else if (Field.isMultipleValue())
+    outs() << "    Multiple Value";
   outs() << "\n";
 }
 

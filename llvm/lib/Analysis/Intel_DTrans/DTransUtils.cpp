@@ -89,7 +89,6 @@ bool dtrans::isFreeFn(Function *F, const TargetLibraryInfo &TLI) {
   return (LF == LibFunc_free);
 }
 
-
 // This function is called to determine if a bitcast to the specified
 // destination type could be used to access element 0 of the source type.
 // If the destination type is a pointer type whose element type is the same
@@ -258,4 +257,11 @@ void dtrans::TypeInfo::printSafetyData() {
   }
 
   outs() << "\n";
+}
+
+void dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
+  if (isNoValue())
+    setSingleValue(C);
+  else if (isSingleValue() && getSingleValue() != C)
+    setMultipleValue();
 }
