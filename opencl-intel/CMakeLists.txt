@@ -316,8 +316,3 @@ if ( INCLUDE_CMRT )
   add_subdirectory ( common_runtime )
 endif( INCLUDE_CMRT )
 
-#Linux samples
-option(INCLUDE_SMPLS "Include Linux Samples into Build"  OFF)
-if (INCLUDE_SMPLS AND NOT WIN32)
-  add_subdirectory( samples )
-endif(INCLUDE_SMPLS AND NOT WIN32)
