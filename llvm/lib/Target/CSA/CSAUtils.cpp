@@ -71,7 +71,7 @@ static MachineInstr *getPriorFormedInst(MachineInstr *currMI, MachineBasicBlock 
       if (op.isDef()) continue;
       if (op.getReg() != curr_op.getReg()) { DEBUG(errs() << "op #" << i << " is different\n"); allOpsSame = false; break; }
     }
-    if (allOpsSame) { DEBUG(errs() << "Match found with MI = " << *MI << "\n"); currMI->eraseFromParent(); return MI; }
+    if (allOpsSame) { DEBUG(errs() << "Match found with MI = " << *MI << "\n"); return MI; }
   }
   return currMI;
 }
@@ -124,10 +124,19 @@ unsigned csa_utils::createUseTree(MachineBasicBlock *mbb, MachineBasicBlock::ite
   if (opcode == CSA::ANY0) next.addImm(0); //default mode for any0
   MachineInstr *nextMI = &*next;
   DEBUG(errs() << "Use Tree Instruction = " << *nextMI << "\n");
-  nextMI = getPriorFormedInst(nextMI, mbb);
+  MachineInstr *newNextMI = getPriorFormedInst(nextMI,mbb);
+  if (nextMI == newNextMI) {
+    // swap and try
+    DEBUG(errs() << "swap and try\n");
+    unsigned temp = nextMI->getOperand(1).getReg(); 
+    nextMI->getOperand(1).setReg(nextMI->getOperand(2).getReg());
+    nextMI->getOperand(2).setReg(temp);
+    newNextMI = getPriorFormedInst(nextMI,mbb);
+  }
+  if (nextMI != newNextMI) nextMI->eraseFromParent();
   // Add the new item to be combined. Putting this at the back of the list
   // helps balance.
-  fewerVals.push_back(nextMI->getOperand(0).getReg());
+  fewerVals.push_back(newNextMI->getOperand(0).getReg());
 
   // Run again on the smaller vector.
   return csa_utils::createUseTree(mbb, before, opcode, fewerVals, unusedReg);
@@ -160,12 +169,23 @@ unsigned csa_utils::createPickTree(MachineBasicBlock *mbb, MachineBasicBlock::it
         .addImm(0);
     anyInst->setFlag(MachineInstr::NonSequential);
     DEBUG(errs() << "anyInst = " << *anyInst << "\n");
-    anyInst = getPriorFormedInst(anyInst, mbb);
+    MachineInstr *newAnyInst = getPriorFormedInst(anyInst,mbb);
+    unsigned val0 = vals[0]; unsigned val1 = vals[1];
+    if (anyInst == newAnyInst) {
+      // swap and try
+      DEBUG(errs() << "swap and try\n");
+      unsigned temp = val0; val0 = val1; val1 = temp;
+      temp = anyInst->getOperand(1).getReg(); 
+      anyInst->getOperand(1).setReg(anyInst->getOperand(2).getReg());
+      anyInst->getOperand(2).setReg(temp);
+      newAnyInst = getPriorFormedInst(anyInst,mbb);
+    }
+    if (anyInst != newAnyInst) anyInst->eraseFromParent();
     MachineInstr *pickInst =
       BuildMI(*mbb, before, DebugLoc(),TII->get(pickOpcode), pickedVal)
-        .addReg(anyInst->getOperand(0).getReg())
-        .addReg(vals[0])
-        .addReg(vals[1]);
+        .addReg(newAnyInst->getOperand(0).getReg())
+        .addReg(val0)
+        .addReg(val1);
     pickInst->setFlag(MachineInstr::NonSequential);
     DEBUG(errs() << "pickInst = " << *pickInst << "\n");
     return pickedVal;
@@ -244,18 +264,34 @@ void csa_utils::createSwitchTree(MachineBasicBlock *mbb, MachineBasicBlock::iter
       .addImm(0);
   anyInst->setFlag(MachineInstr::NonSequential);
   DEBUG(errs() << "anyInst = " << *anyInst << "\n");
-  anyInst = getPriorFormedInst(anyInst,mbb);
+  MachineInstr *newAnyInst = getPriorFormedInst(anyInst,mbb);
+  bool swapped = false;
+  if (anyInst == newAnyInst) {
+    // swap and try
+    unsigned temp = outval0; outval0 = outval1; outval1 = temp;
+    temp = anyInst->getOperand(1).getReg(); 
+    anyInst->getOperand(1).setReg(anyInst->getOperand(2).getReg());
+    anyInst->getOperand(2).setReg(temp);
+    newAnyInst = getPriorFormedInst(anyInst,mbb);
+    swapped = true;
+  }
+  if (anyInst != newAnyInst) anyInst->eraseFromParent();
   MachineInstr *switchInst =
     BuildMI(*mbb, before, DebugLoc(),TII->get(switchOpcode))
       .addReg(outval0,RegState::Define)
       .addReg(outval1,RegState::Define)
-      .addReg(anyInst->getOperand(0).getReg())
+      .addReg(newAnyInst->getOperand(0).getReg())
       .addReg(inval);
   
   switchInst->setFlag(MachineInstr::NonSequential);
   DEBUG(errs() << "switchInst = " << *switchInst << "\n");
-  createSwitchTree(mbb,before,TRC,select_signals_first_half,outvals,outval0,outvals_first_index,unusedReg);
-  createSwitchTree(mbb,before,TRC,select_signals_second_half,outvals,outval1,outvals_second_index,unusedReg);
+  if (swapped) {
+    createSwitchTree(mbb,before,TRC,select_signals_second_half,outvals,outval0,outvals_second_index,unusedReg);
+    createSwitchTree(mbb,before,TRC,select_signals_first_half,outvals,outval1,outvals_first_index,unusedReg);
+  } else {
+    createSwitchTree(mbb,before,TRC,select_signals_first_half,outvals,outval0,outvals_first_index,unusedReg);
+    createSwitchTree(mbb,before,TRC,select_signals_second_half,outvals,outval1,outvals_second_index,unusedReg);
+  }
 }
                         
 
