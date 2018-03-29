@@ -678,19 +678,15 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       if (!MRI->reg_empty(vreg) && LMFI->getIsDeclared(vreg)) {
         if (csa_utils::isAlwaysDataFlowLinkageSet()) {
           if (LMFI->getNumCallSites() == 0) {
-            const MachineInstr *entryMI = LMFI->getEntryMI();
-            const MachineInstr *returnMI = LMFI->getReturnMI();
             bool isParam = false;
-            for (int i = 0; i < entryMI->getNumOperands(); ++i) {
-              unsigned reg = entryMI->getOperand(i).getReg();
-              if (reg == vreg) { isParam = true; break; }
+            for (auto LI = MRI->livein_begin(); LI != MRI->livein_end(); ++LI) {
+              unsigned t = LI->first;
+              if (t == vreg) {
+                isParam = true;
+                break;
+              }
             }
-            bool isResult = false;
-            for (int i = 0; i < returnMI->getNumOperands(); ++i) {
-              unsigned reg = returnMI->getOperand(i).getReg();
-              if (reg == vreg) { isResult = true; break; }
-            }
-            if (isParam || isResult) continue;
+            if (isParam || (resultReg == vreg)) continue;
           }
         }
         if (!csa_utils::isAlwaysDataFlowLinkageSet() && !AllowUndefRegs)

@@ -17,6 +17,7 @@
 #include "CSA.h"
 #include "CSAInstrInfo.h"
 #include "CSAMachineFunctionInfo.h"
+#include "CSAUtils.h"
 #include "CSATargetMachine.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -317,8 +318,11 @@ bool CSADataflowCanonicalizationPass::eliminateMovInsts(MachineInstr *MI) {
 
   unsigned srcReg = MI->getOperand(1).getReg();
   unsigned destReg = MI->getOperand(0).getReg();
-  if (!MRI->getUniqueVRegDef(destReg))
-    return false;
+    
+  // Moves involving physical registers should not be removed here
+  if (!TargetRegisterInfo::isVirtualRegister(srcReg))  return false;
+  if (!TargetRegisterInfo::isVirtualRegister(destReg)) return false;
+  if (!MRI->getUniqueVRegDef(destReg))                 return false;
 
   MRI->replaceRegWith(destReg, srcReg);
   to_delete.push_back(MI);

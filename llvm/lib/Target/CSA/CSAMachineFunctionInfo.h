@@ -36,16 +36,20 @@ class CSAMachineFunctionInfo : public MachineFunctionInfo {
   struct LICInfo {
     mutable std::string name;
     short licDepth;
+    bool isDeclared;
+    bool isGloballyVisible;
     mutable StringMap<std::string> attribs;
-
-    LICInfo() : name(), licDepth(0), attribs() {}
+    LICInfo() : name(), licDepth(0), isDeclared(true), isGloballyVisible(false), attribs() {}
   };
   DenseMap<unsigned, LICInfo> licInfo;
-  void noteNewLIC(unsigned vreg, unsigned licSize, const Twine &name = "");
+  void noteNewLIC(unsigned vreg, unsigned licSize, const Twine &name = "", const Twine &fname = "");
 
   MachineRegisterInfo &MRI;
   const CSAInstrInfo *TII;
-
+  MachineFunction &MF;
+  MachineInstr *entryMI;
+  MachineInstr *returnMI;
+  int num_call_sites;
   mutable StringSet<> namedLICs;
   mutable unsigned nameCounter;
 
@@ -99,7 +103,11 @@ public:
   ///
   /// TODO: ensure uniqueness of LIC names.
   unsigned allocateLIC(const TargetRegisterClass *RegClass,
-                       const Twine &name = "");
+                       const Twine &name = "",
+                       const Twine &fname = "",
+                       bool isDeclared = true,
+                       bool isGloballyVisible = false);
+                     
 
   /// Set the depth for a particular LIC explicitly, rather than the default.
   void setLICDepth(unsigned lic, int amount) {
@@ -118,11 +126,22 @@ public:
     return getLICInfo(vreg).name;
   }
 
+  bool getIsDeclared(unsigned vreg) const { return getLICInfo(vreg).isDeclared; }
+  bool getIsGloballyVisible(unsigned vreg) const { return getLICInfo(vreg).isGloballyVisible; }
   /// Set the name of the LIC to have the specified name.
-  void setLICName(unsigned vreg, const Twine &name) const;
+  void setLICName(unsigned vreg, const Twine &name, const Twine &fname = "") const;
 
   /// Get the lic size (e.g., 0, 1, 8, 16, 32, 64) for a register number.
   int getLICSize(unsigned reg) const;
+
+  MachineInstr *getEntryMI() const { return entryMI; }
+  MachineInstr *getReturnMI() const { return returnMI; }
+  
+  void setEntryMI(MachineInstr *MI) { entryMI = MI; }
+  void setReturnMI(MachineInstr *MI) { returnMI = MI; }
+  
+  void setNumCallSites(int n) { num_call_sites = n; }
+  int getNumCallSites() const { return num_call_sites; }
 
   /// Add key+value attribute to this LIC. The value is optional, the absence
   /// of which will generally be interpreted as a "1"/true.
@@ -137,6 +156,9 @@ public:
   /// TODO: this interface cannot be used to distinguish between the case where
   /// the attribute is unset and the case where it is set to "".
   StringRef getLICAttribute(unsigned reg, StringRef key) const;
+  
+  /// Helper function to determine if a LIC can be deleted
+  bool canDeleteLICReg(unsigned reg) const;
 };
 
 } // namespace llvm

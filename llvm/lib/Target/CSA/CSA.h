@@ -32,6 +32,7 @@ MachineFunctionPass *createCSAConvertControlPass();
 MachineFunctionPass *createControlDepenceGraph();
 MachineFunctionPass *createCSACvtCFDFPass();
 MachineFunctionPass *createCSAStatisticsPass();
+MachineFunctionPass *createCSAProcCallsPass();
 MachineFunctionPass *createCSAOptDFPass();
 MachineFunctionPass *createCSAMultiSeqPass();
 MachineFunctionPass *createCSADFParLoopPass();

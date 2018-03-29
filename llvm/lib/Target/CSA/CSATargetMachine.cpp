@@ -20,6 +20,7 @@
 #include "CSAIntrinsicCleaner.h"
 #include "CSALoopIntrinsicExpander.h"
 #include "CSALowerAggrCopies.h"
+#include "CSAUtils.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Bitcode/CSASaveRawBC.h"
 #include "llvm/CodeGen/AsmPrinter.h"
@@ -210,6 +211,7 @@ public:
     Banner = std::string("After CSAMultiSeqPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
+    
     addPass(createCSARedundantMovElimPass(), false);
     Banner = std::string("After CSARedundantMovElim");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
@@ -217,6 +219,12 @@ public:
     addPass(createCSADeadInstructionElimPass(), false);
     Banner = std::string("After CSADeadInstructionElim");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+
+    if (csa_utils::isAlwaysDataFlowLinkageSet()) {
+      addPass(createCSAProcCallsPass(), false);
+      Banner = std::string("After CSAProcCallsPass");
+      DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    }
 
     addPass(createCSAReassocReducPass(), false);
     Banner = std::string("After CSAReassocReducPass");

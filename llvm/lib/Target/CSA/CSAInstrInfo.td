@@ -270,6 +270,43 @@ def ADJCALLSTACKUP : PseudoInstCSA<(outs), (ins i64imm:$amt1, i64imm:$amt2),
                             [(callseq_end timm:$amt1, timm:$amt2)]>;
 }
 
+def TRAMPOLINE_START : PseudoInstCSA<
+    (outs),
+    (ins),
+    ".trampoline_start",
+    []>;
+    
+def TRAMPOLINE_END : PseudoInstCSA<
+    (outs),
+    (ins),
+    ".trampoline_end",
+    []>;
+
+// Call directives
+def CSA_ENTRY : PseudoInstCSA<
+    (outs calltarget:$caller_cont_point, I64:$context, MemOrdDef:$mem_ord, variable_ops),
+    (ins),
+    "csa_entry",
+    []>;
+    
+def CSA_CALL : PseudoInstCSA<
+    (outs),
+    (ins calltarget:$callee_func, I64:$call_site_index, I64:$context, MemOrdUse:$mem_ord, variable_ops),
+    "csa_call",
+    []>;
+    
+def CSA_CONTINUE : PseudoInstCSA<
+    (outs I64:$context, MemOrdDef:$mem_ord, variable_ops),
+    (ins I64:$call_site_index),
+    "csa_continue",
+    []>;
+
+def CSA_RETURN : PseudoInstCSA<
+    (outs),
+    (ins calltarget:$caller_cont_point, I64:$context, MemOrdUse:$mem_ord, variable_ops),
+    "csa_return",
+    []>;
+    
 class MovOp<GenericOp gen, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<gen, oi,

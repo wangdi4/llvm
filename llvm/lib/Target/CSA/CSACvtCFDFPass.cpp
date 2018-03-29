@@ -16,6 +16,7 @@
 #include "CSA.h"
 #include "CSAInstrInfo.h"
 #include "CSATargetMachine.h"
+#include "CSAUtils.h"
 #include "InstPrinter/CSAInstPrinter.h"
 #include "MachineCDG.h"
 #include "llvm/ADT/PostOrderIterator.h"
@@ -1712,7 +1713,8 @@ void CSACvtCFDFPass::assignLicForDF() {
           unsigned Reg = MO->getReg();
           pinedVReg.insert(Reg);
         }
-      } else if (MI->getOpcode() == CSA::JSR || MI->getOpcode() == CSA::JSRi) {
+      } else if (!csa_utils::isAlwaysDataFlowLinkageSet() &&
+        (MI->getOpcode() == CSA::JSR || MI->getOpcode() == CSA::JSRi)) {
         // function call inside control region need to run on SXU
         ControlDependenceNode *mnode = CDG->getNode(mbb);
         if (mnode->getNumParents() > 1 ||
@@ -1738,10 +1740,12 @@ void CSACvtCFDFPass::assignLicForDF() {
           mInst->getOpcode() == CSA::NOT1 || mInst->getOpcode() == CSA::LAND1 ||
           mInst->getOpcode() == CSA::LOR1 || mInst->getOpcode() == CSA::OR1 ||
           mInst->isCopy() || TII->isInit(mInst) || TII->isLoad(mInst) ||
-          TII->isStore(mInst)) {
+          TII->isStore(mInst) || mInst->getOpcode() == CSA::ALL0 ||
+          mInst->getOpcode() == CSA::MOV0) {
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           if (!MO->isReg() ||
-              !TargetRegisterInfo::isVirtualRegister(MO->getReg()))
+              !TargetRegisterInfo::isVirtualRegister(MO->getReg()) || 
+              (MRI->getRegClass(MO->getReg()) == &CSA::RI1RegClass))
             continue;
           if (TII->isLIC(*MO, *MRI))
             continue;
@@ -3644,6 +3648,7 @@ void CSACvtCFDFPass::nameLIC(unsigned vreg, const Twine &prefix,
     LMFI->setLICName(baseReg,
         "lic" + Twine(TargetRegisterInfo::virtReg2Index(vreg)));
 
+  if (vreg && LMFI->getLICName(vreg).empty())
   LMFI->setLICName(vreg,
       prefix +
       (baseReg ? LMFI->getLICName(baseReg) : "") +

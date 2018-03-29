@@ -17,6 +17,7 @@
 #include "CSA.h"
 #include "CSAInstrInfo.h"
 #include "CSATargetMachine.h"
+#include "CSAUtils.h"
 #include "InstPrinter/CSAInstPrinter.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -120,7 +121,7 @@ bool CSAAllocUnitPass::runOnMachineFunction(MachineFunction &MF) {
   const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
 
   // Code starts out on the sequential unit
-  bool isSequential = true;
+  bool isSequential = !(csa_utils::isAlwaysDataFlowLinkageSet());
 
   for (MachineFunction::iterator BB = MF.begin(), E = MF.end(); BB != E; ++BB) {
     //    DEBUG(errs() << "Basic block (name=" << BB->getName() << ") has "
@@ -199,7 +200,7 @@ bool CSAAllocUnitPass::runOnMachineFunction(MachineFunction &MF) {
     // the block) will be on the sxu, even if later instructions are not.
     // (Basically, block boundaries represent flow control, and flow control
     // MUST be on the sequential unit...)
-    if (!isSequential) {
+    if (!isSequential && !(csa_utils::isAlwaysDataFlowLinkageSet())) {
       BuildMI(*BB, BB->end(), DebugLoc(), TII.get(CSA::UNIT))
         .addImm(CSA::FUNCUNIT::SXU);
       isSequential = true;

@@ -46,6 +46,8 @@ add_llvm_target(CSACodeGen
   CSASubtarget.cpp
   CSATargetMachine.cpp
   MachineCDG.cpp
+  CSAUtils.cpp
+  CSAProcedureCalls.cpp
   )
 
 add_subdirectory(AsmParser)
