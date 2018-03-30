@@ -1020,6 +1020,10 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
   for (auto I = WideRef->canon_begin(), E = WideRef->canon_end(); I != E; ++I) {
     auto CE = *I;
 
+    // Collect blob indices in canon expr before we start changing the same.
+    SmallVector<unsigned, 8> BlobIndices;
+    CE->collectBlobIndices(BlobIndices, false);
+
     if (CE->hasIV(NestingLevel)) {
       SmallVector<Constant *, 4> CA;
       Type *Int64Ty = CE->getSrcType();
@@ -1053,9 +1057,6 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
         CE->addBlob(Idx, 1);
       }
     }
-
-    SmallVector<unsigned, 8> BlobIndices;
-    CE->collectBlobIndices(BlobIndices, false);
 
     for (auto &BI : BlobIndices) {
       auto TopBlob = CE->getBlobUtils().getBlob(BI);
