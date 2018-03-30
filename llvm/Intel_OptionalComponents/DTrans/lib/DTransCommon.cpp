@@ -32,8 +32,15 @@ static cl::opt<bool> DumpModuleBeforeDTrans(
     "dump-module-before-dtrans", cl::init(false), cl::Hidden,
     cl::desc(
         "Dumps LLVM module to dbgs() before first DTRANS transformation"));
+
+// Padded pointer propagation
+static cl::opt<bool>
+    EnablePaddedPtrProp("enable-padded-ptr-propagation", cl::init(true),
+                        cl::Hidden,
+                        cl::desc("Enable padded pointer property propagation"));
 #else
 constexpr bool DumpModuleBeforeDTrans = false;
+constexpr bool EnablePaddedPtrProp = false;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 void llvm::initializeDTransPasses(PassRegistry& PR) {
@@ -41,6 +48,7 @@ void llvm::initializeDTransPasses(PassRegistry& PR) {
   initializeDTransAOSToSOAWrapperPass(PR);
   initializeDTransDeleteFieldWrapperPass(PR);
   initializeDTransPaddedMallocWrapperPass(PR);
+  initializePaddedPtrPropWrapperPass(PR);
   initializeDTransReorderFieldsWrapperPass(PR);
   initializeDTransEliminateROFieldAccessWrapperPass(PR);
 
@@ -73,10 +81,18 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
 
 void llvm::addLateDTransPasses(ModulePassManager &MPM) {
   MPM.addPass(dtrans::PaddedMallocPass());
+
+  if (EnablePaddedPtrProp) {
+    MPM.addPass(llvm::PaddedPtrPropPass());
+  }
 }
 
 void llvm::addLateDTransLegacyPasses(legacy::PassManagerBase &PM) {
   PM.add(createDTransPaddedMallocWrapperPass());
+
+  if (EnablePaddedPtrProp) {
+    PM.add(createPaddedPtrPropWrapperPass());
+  }
 }
 
 // This is used by LinkAllPasses.h. The passes are never actually used when
@@ -87,6 +103,7 @@ void llvm::createDTransPasses() {
   (void) llvm::createDTransReorderFieldsWrapperPass();
   (void) llvm::createDTransPaddedMallocWrapperPass();
   (void) llvm::createDTransEliminateROFieldAccessWrapperPass();
+  (void) llvm::createPaddedPtrPropWrapperPass();
   (void) llvm::createDTransAnalysisWrapperPass();
 
 #if !INTEL_PRODUCT_RELEASE
