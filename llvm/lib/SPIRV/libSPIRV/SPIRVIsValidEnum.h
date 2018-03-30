@@ -892,6 +892,8 @@ isValid(spv::Op V) {
     case OpSubgroupBlockWriteINTEL:
     case OpSubgroupImageBlockReadINTEL:
     case OpSubgroupImageBlockWriteINTEL:
+    case OpSubgroupImageMediaBlockReadINTEL:
+    case OpSubgroupImageMediaBlockWriteINTEL:
       return true;
     default:
       return false;

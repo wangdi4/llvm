@@ -205,9 +205,13 @@ namespace kOCLBuiltinName {
   const static char SubGroupAll[]        = "sub_group_all";
   const static char SubGroupAny[]        = "sub_group_any";
   const static char WorkPrefix[]         = "work_";
-  const static char SubgroupBlockReadINTELPrefix[]  = "intel_sub_group_block_read";
-  const static char SubgroupBlockWriteINTELPrefix[] = "intel_sub_group_block_write";
-}
+  const static char SubgroupBlockReadINTELPrefix[] =
+      "intel_sub_group_block_read";
+  const static char SubgroupBlockWriteINTELPrefix[] =
+      "intel_sub_group_block_write";
+  const static char SubgroupImageMediaBlockINTELPrefix[] =
+      "intel_sub_group_media_block";
+  } // namespace kOCLBuiltinName
 
 /// Offset for OpenCL image channel order enumeration values.
 const unsigned int OCLImageChannelOrderOffset = 0x10B0;
