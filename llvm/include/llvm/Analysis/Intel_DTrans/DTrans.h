@@ -200,7 +200,7 @@ public:
       return true;
     return (SafetyInfo & Conditions);
   }
-  void setSafetyData(SafetyData Conditions) { SafetyInfo |= Conditions; }
+  void setSafetyData(SafetyData Conditions);
   void resetSafetyData(SafetyData Conditions) { SafetyInfo &= ~Conditions; }
   void clearSafetyData() { SafetyInfo = 0; }
 

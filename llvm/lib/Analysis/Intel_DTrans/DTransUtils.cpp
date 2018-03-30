@@ -24,6 +24,8 @@
 using namespace llvm;
 using namespace dtrans;
 
+#define DEBUG_TYPE "dtransanalysis"
+
 bool dtrans::isSystemObjectType(llvm::StructType *Ty) {
   if (!Ty->hasName())
     return false;
@@ -158,10 +160,10 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
   return false;
 }
 
-void dtrans::TypeInfo::printSafetyData() {
-  outs() << "  Safety data: ";
+static void printSafetyInfo(const SafetyData &SafetyInfo,
+                            llvm::raw_ostream &ostr) {
   if (SafetyInfo == 0) {
-    outs() << "No issues found\n";
+    ostr << "No issues found\n";
     return;
   }
   // TODO: As safety checks are implemented, add them here.
@@ -243,20 +245,31 @@ void dtrans::TypeInfo::printSafetyData() {
   // Print the safety issues found
   size_t NumIssues = SafetyIssues.size();
   for (size_t i = 0; i < NumIssues; ++i) {
-    outs() << SafetyIssues[i];
+    ostr << SafetyIssues[i];
     if (i != NumIssues - 1) {
-      outs() << " | ";
+      ostr << " | ";
     }
   }
 
   // TODO: Make this unnecessary.
   if (SafetyInfo & ~ImplementedMask) {
-    outs() << " + other issues that need format support ("
+    ostr << " + other issues that need format support ("
            << (SafetyInfo & ~ImplementedMask) << ")";
-    outs() << "\nImplementedMask = " << ImplementedMask;
+    ostr << "\nImplementedMask = " << ImplementedMask;
   }
 
-  outs() << "\n";
+  ostr << "\n";
+}
+
+void dtrans::TypeInfo::printSafetyData() {
+  outs() << "  Safety data: ";
+  printSafetyInfo(SafetyInfo, outs());
+}
+
+void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
+  SafetyInfo |= Conditions;
+  DEBUG(dbgs() << "dtrans-safety-detail: " << *getLLVMType() << " :: ");
+  DEBUG(printSafetyInfo(Conditions, dbgs()));
 }
 
 void dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
@@ -265,3 +278,4 @@ void dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
   else if (isSingleValue() && getSingleValue() != C)
     setMultipleValue();
 }
+
