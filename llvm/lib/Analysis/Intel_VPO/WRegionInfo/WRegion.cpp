@@ -606,7 +606,7 @@ void WRNOrderedNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 
 // constructor
 WRNSingleNode::WRNSingleNode(BasicBlock *BB)
-    : WRegionNode(WRegionNode::WRNSingle, BB) {
+    : WRegionNode(WRegionNode::WRNSingle, BB), Nowait(false) {
   DEBUG(dbgs() << "\nCreated WRNSingleNode <" << getNumber() << ">\n");
 }
 
