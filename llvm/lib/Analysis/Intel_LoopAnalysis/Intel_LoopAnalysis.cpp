@@ -19,7 +19,7 @@ void llvm::initializeIntel_LoopAnalysis(PassRegistry &Registry) {
   initializeHIRSCCFormationWrapperPassPass(Registry);
   initializeHIRFrameworkWrapperPassPass(Registry);
   initializeHIRDDAnalysisPass(Registry);
-  initializeHIRLoopLocalityPass(Registry);
+  initializeHIRLoopLocalityWrapperPassPass(Registry);
   initializeHIRLoopResourceWrapperPassPass(Registry);
   initializeHIRLoopStatisticsWrapperPassPass(Registry);
   initializeHIRSafeReductionAnalysisPass(Registry);

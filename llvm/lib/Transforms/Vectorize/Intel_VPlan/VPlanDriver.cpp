@@ -632,7 +632,7 @@ INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 // INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-// INITIALIZE_PASS_DEPENDENCY(HIRLoopLocality)
+// INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
 // INITIALIZE_PASS_DEPENDENCY(HIRVectVLSAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
@@ -658,7 +658,7 @@ void VPlanDriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.addRequired<HIRFrameworkWrapperPass>();
   AU.addRequired<HIRLoopStatisticsWrapperPass>();
-  //  AU.addRequiredTransitive<HIRLoopLocality>();
+  //  AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
   AU.addRequired<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
   //  AU.addRequired<HIRVectVLSAnalysis>();

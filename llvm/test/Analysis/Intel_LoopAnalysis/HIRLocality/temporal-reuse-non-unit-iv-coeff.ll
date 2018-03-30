@@ -1,4 +1,5 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-locality-analysis -hir-temporal-locality | FileCheck %s
+; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-locality-analysis>" -hir-temporal-locality -disable-output 2>&1 | FileCheck %s
 
 ; Verify that the computed temporal reuse locality for the loop is 2, one each for these two groups-
 ; (%A)[2 * i1 + 1], (%A)[2 * i1 + 3];

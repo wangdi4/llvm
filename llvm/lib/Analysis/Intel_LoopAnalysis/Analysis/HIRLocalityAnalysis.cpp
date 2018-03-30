@@ -88,32 +88,43 @@ const unsigned CacheLineSize = 64;
 const unsigned WriteWt = 4;
 
 FunctionPass *llvm::createHIRLocalityAnalysisPass() {
-  return new HIRLoopLocality();
+  return new HIRLoopLocalityWrapperPass();
 }
 
-char HIRLoopLocality::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLoopLocality, "hir-locality-analysis",
+AnalysisKey HIRLoopLocalityAnalysis::Key;
+HIRLoopLocality HIRLoopLocalityAnalysis::run(Function &F,
+                                             FunctionAnalysisManager &AM) {
+  return HIRLoopLocality(AM.getResult<HIRFrameworkAnalysis>(F));
+}
+
+char HIRLoopLocalityWrapperPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRLoopLocalityWrapperPass, "hir-locality-analysis",
                       "HIR Locality Analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRLoopLocality, "hir-locality-analysis",
+INITIALIZE_PASS_END(HIRLoopLocalityWrapperPass, "hir-locality-analysis",
                     "HIR Locality Analysis", false, true)
 
-void HIRLoopLocality::getAnalysisUsage(AnalysisUsage &AU) const {
+void HIRLoopLocalityWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<HIRFrameworkWrapperPass>();
 }
 
 // Performs a basic setup without actually running the locality
 // analysis.
-bool HIRLoopLocality::runOnFunction(Function &F) {
-  HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
+bool HIRLoopLocalityWrapperPass::runOnFunction(Function &F) {
+  HLL.reset(
+      new HIRLoopLocality(getAnalysis<HIRFrameworkWrapperPass>().getHIR()));
   return false;
 }
 
-void HIRLoopLocality::print(raw_ostream &OS, const Module *M) const {
+void HIRLoopLocalityWrapperPass::releaseMemory() {
+  HLL.reset();
+}
+
+void HIRLoopLocality::printAnalysis(raw_ostream &OS) const {
 
   HIRLoopLocality &HLA = *const_cast<HIRLoopLocality *>(this);
-  auto &HNU = HIRF->getHLNodeUtils();
+  auto &HNU = HIRF.getHLNodeUtils();
 
   if (SortedLocality) {
     OS << "Locality Information for all loops(sorted order):\n";
@@ -534,7 +545,7 @@ void HIRLoopLocality::sortedLocalityLoops(
     Loc.clear();
   }
 
-  HIRF->getHLNodeUtils().gatherAllLoops(OutermostLoop, SortedLoops);
+  HIRF.getHLNodeUtils().gatherAllLoops(OutermostLoop, SortedLoops);
   computeLoopNestLocality(OutermostLoop, SortedLoops);
 
   auto Comp = [this](const HLLoop *Lp1, const HLLoop *Lp2) {

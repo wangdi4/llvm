@@ -44,7 +44,7 @@ class HLLoop;
 class DDRefUtils;
 class HIRFramework;
 
-class HIRLoopLocality final : public HIRAnalysisPass {
+class HIRLoopLocality : public HIRAnalysis {
 public:
   typedef DDRefGrouping::RefGroupTy<const RegDDRef *> RefGroupTy;
   typedef DDRefGrouping::RefGroupVecTy<const RegDDRef *> RefGroupVecTy;
@@ -81,8 +81,6 @@ private:
           TotalStride = TotalLvalStride = 0;
     }
   };
-
-  HIRFramework *HIRF;
 
   // Maintains locality info per level. This is used by loop interchange.
   std::array<LocalityInfo, MaxLoopNestLevel> LocalityByLevel;
@@ -188,18 +186,13 @@ private:
                                             bool CheckPresence);
 
 public:
-  HIRLoopLocality()
-      : HIRAnalysisPass(ID, HIRAnalysisPass::HIRLocalityAnalysisVal),
-        HIRF(nullptr) {}
-  static char ID;
+  HIRLoopLocality(HIRFramework &HIRF) : HIRAnalysis(HIRF) {}
+  HIRLoopLocality(HIRLoopLocality &&Arg)
+      : HIRAnalysis(Arg.HIRF), LocalityByLevel(std::move(Arg.LocalityByLevel)),
+        TripCountByLevel(std::move(Arg.TripCountByLevel)) {}
+  HIRLoopLocality(const HIRLoopLocality &) = delete;
 
-  bool runOnFunction(Function &F) override;
-
-  void print(raw_ostream &OS, const Module * = nullptr) const override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  void releaseMemory() override{};
+  void printAnalysis(raw_ostream &OS) const override;
 
   /// Nothing to do.
   void markLoopBodyModified(const HLLoop *Lp) override {}
@@ -257,10 +250,49 @@ public:
   ///    Group 1 - A[i+4], A[i+6]
   void populateTemporalLocalityGroups(const HLLoop *Lp, unsigned ReuseThreshold,
                                       RefGroupVecTy &TemporalGroups);
+};
 
-  /// Method for supporting type inquiry through isa, cast, and dyn_cast.
-  static bool classof(const HIRAnalysisPass *AP) {
-    return AP->getHIRAnalysisID() == HIRAnalysisPass::HIRLocalityAnalysisVal;
+class HIRLoopLocalityWrapperPass : public FunctionPass {
+  std::unique_ptr<HIRLoopLocality> HLL;
+
+public:
+  static char ID;
+  HIRLoopLocalityWrapperPass() : FunctionPass(ID) {}
+
+  bool runOnFunction(Function &F) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  void releaseMemory() override;
+
+  void print(raw_ostream &OS, const Module * = nullptr) const override {
+    getHLL().printAnalysis(OS);
+  }
+
+  HIRLoopLocality &getHLL() { return *HLL; }
+  const HIRLoopLocality &getHLL() const { return *HLL; }
+};
+
+class HIRLoopLocalityAnalysis
+    : public AnalysisInfoMixin<HIRLoopLocalityAnalysis> {
+  friend struct AnalysisInfoMixin<HIRLoopLocalityAnalysis>;
+
+  static AnalysisKey Key;
+
+public:
+  using Result = HIRLoopLocality;
+
+  HIRLoopLocality run(Function &F, FunctionAnalysisManager &AM);
+};
+
+class HIRLoopLocalityPrinterPass
+    : public PassInfoMixin<HIRLoopLocalityPrinterPass> {
+  raw_ostream &OS;
+
+public:
+  explicit HIRLoopLocalityPrinterPass(raw_ostream &OS) : OS(OS) {}
+
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
+    AM.getResult<HIRLoopLocalityAnalysis>(F).printAnalysis(OS);
+    return PreservedAnalyses::all();
   }
 };
 

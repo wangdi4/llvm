@@ -1,4 +1,5 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-locality-analysis -hir-temporal-locality | FileCheck %s
+; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-locality-analysis>" -hir-temporal-locality -disable-output 2>&1 | FileCheck %s
 
 ; Verify that there is no temporal lcality in this loop. 
 ; We were incorrectly forming temporal reuse locality groups for refs such as (%pSrc1)[sext.i32.i64(%src1Step) * i1] and (%pSrc1)[sext.i32.i64(%src1Step) * i1 + 1].
