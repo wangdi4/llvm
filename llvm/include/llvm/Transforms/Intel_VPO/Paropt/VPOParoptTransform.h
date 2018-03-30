@@ -264,6 +264,9 @@ private:
   /// \brief Generate code for lastprivate variables
   bool genLastPrivatizationCode(WRegionNode *W, Value *IsLastVal);
 
+  /// \brief Generate destructor calls for [first|last]private variables
+  bool genDestructorCode(WRegionNode *W);
+
   /// \brief A utility to privatize a variable within the region.
   /// It creates and returns an AllocaInst for \p PrivValue.
   Value *genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
@@ -322,6 +325,7 @@ private:
 
   /// \brief Utility for last private update or copyprivate code generation.
   void genLprivFini(Value *NewV, Value *OldV, Instruction *InsertPt);
+  void genLprivFini(LastprivateItem *LprivI, Instruction *InsertPt);
 
   /// \brief Generate the lastprivate update code for taskloop
   void genLprivFiniForTaskLoop(Value *Dst, Value *Src, Instruction *InsertPt);

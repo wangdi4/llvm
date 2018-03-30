@@ -260,6 +260,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genReductionCode(W);
+          Changed |= genDestructorCode(W);
           Changed |= genMultiThreadedCode(W);
           RemoveDirectives = true;
         }
@@ -281,6 +282,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genLastPrivatizationCode(W, IsLastVal);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genReductionCode(W);
+          Changed |= genDestructorCode(W);
           Changed |= genMultiThreadedCode(W);
           RemoveDirectives = true;
         }
@@ -408,11 +410,11 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genPrivatizationCode(W);
           Changed |= genLastPrivatizationCode(W, IsLastVal);
           Changed |= genFirstPrivatizationCode(W);
-          if (!W->getIsDistribute()) {
+          if (!W->getIsDistribute())
             Changed |= genReductionCode(W);
-            if (!W->getNowait())
-              Changed |= genBarrier(W, false);
-          }
+          Changed |= genDestructorCode(W);
+          if (!W->getIsDistribute() && !W->getNowait())
+            Changed |= genBarrier(W, false);
           RemoveDirectives = true;
         }
         break;
@@ -424,6 +426,7 @@ bool VPOParoptTransform::paroptTransforms() {
           AllocaInst *IsSingleThread = nullptr;
           Changed = genSingleThreadCode(W, IsSingleThread);
           Changed |= genCopyPrivateCode(W, IsSingleThread);
+          // Changed |= genDestructorCode(W);
           if (!W->getNowait())
             Changed |= genBarrier(W, false);
           RemoveDirectives = true;
@@ -1003,7 +1006,10 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
 
   IRBuilder<> Builder(InsertPt);
-  if (!AllocaTy->isSingleValueType() ||
+  if (Function *Cctor = FprivI->getCopyConstructor())
+    VPOParoptUtils::genCopyConstructorCall(Cctor, FprivI->getNew(),
+                                           FprivI->getOrig(), InsertPt);
+  else if (!AllocaTy->isSingleValueType() ||
       !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
       DL.getTypeSizeInBits(ScalarTy) % 8 != 0 || AI->isArrayAllocation())
     VPOParoptUtils::genMemcpy(AI, FprivI->getOrig(), DL, AI->getAlignment(),
@@ -1049,6 +1055,18 @@ void VPOParoptTransform::genLprivFini(Value *NewV, Value *OldV,
     Builder.CreateStore(Load, OldV);
   }
 }
+
+// genLprivFini interface to support nonPOD with call to CopyAssign
+void VPOParoptTransform::genLprivFini(LastprivateItem *LprivI,
+                                      Instruction *InsertPt) {
+  Value *NewV = LprivI->getNew();
+  Value *OldV = LprivI->getOrig();
+  if (Function *CpAssn = LprivI->getCopyAssign())
+    VPOParoptUtils::genCopyAssignCall(CpAssn, OldV, NewV, InsertPt);
+  else
+    genLprivFini(NewV, OldV, InsertPt);
+}
+
 
 // Generate the reduction initialization code.
 // Here is one example for the reduction initialization for scalar.
@@ -1395,8 +1413,12 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
       genPrivatizationReplacement(W, Orig, NewPrivInst, LprivI);
       if (!ForTask) {
         LprivI->setNew(NewPrivInst);
-        genLprivFini(LprivI->getNew(), LprivI->getOrig(),
-                     BeginBB->getTerminator());
+        // Emit constructor call for lastprivate var if it is not also a
+        // firstprivate (in which case the firsprivate init emits a cctor).
+        if (LprivI->getInFirstprivate() == nullptr)
+          VPOParoptUtils::genConstructorCall(LprivI->getConstructor(),
+                                             NewPrivInst, NewPrivInst);
+        genLprivFini(LprivI, BeginBB->getTerminator());
       } else
         genLprivFiniForTaskLoop(LprivI->getParm(), LprivI->getNew(),
                                 BeginBB->getTerminator());
@@ -1407,6 +1429,49 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
 
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genLastPrivatizationCode\n");
   return Changed;
+}
+
+// Generate destructor calls for [first|last]private variables
+bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
+  if (!WRegionUtils::needsDestructors(W)) {
+    DEBUG(dbgs() << "\nVPOParoptTransform::genDestructorCode: No dtors\n");
+    return false;
+  }
+
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genDestructorCode\n");
+
+  // Create a BB before ExitBB in which to insert dtor calls
+  BasicBlock *NewBB = nullptr;
+  createEmptyPrivFiniBB(W, NewBB);
+  Instruction* InsertBeforePt = NewBB->getTerminator();
+
+  // Destructors for privates
+  if (W->canHavePrivate())
+    for (PrivateItem *PI : W->getPriv().items())
+      VPOParoptUtils::genDestructorCall(PI->getDestructor(), PI->getNew(),
+                                        InsertBeforePt);
+  // Destructors for firstprivates
+  if (W->canHaveFirstprivate())
+    for (FirstprivateItem *FI : W->getFpriv().items())
+      VPOParoptUtils::genDestructorCall(FI->getDestructor(), FI->getNew(),
+                                        InsertBeforePt);
+  // Destructors for lastprivates (that are not also firstprivate)
+  if (W->canHaveLastprivate())
+    for (LastprivateItem *LI : W->getLpriv().items())
+      if (LI->getInFirstprivate() == nullptr)
+        VPOParoptUtils::genDestructorCall(LI->getDestructor(), LI->getNew(),
+                                          InsertBeforePt);
+      // else do nothing; dtor already emitted for Firstprivates above
+
+  /* TODO: emit Dtors for UDR
+  if (W->canHaveReduction())
+    for (ReductionItem *RI : W->getRed().items())
+      VPOParoptUtils::genDestructorCall(RI->getDestructor(), LI->getNew(),
+                                        InsertBeforePt);
+  */
+
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genDestructorCode\n");
+  return true;
 }
 
 //  Clean up the intrinsic @llvm.invariant.group.barrier and replace the use
@@ -1812,9 +1877,11 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         NewPrivInst = genPrivatizationAlloca(W, Orig, AllocaInsertPt, ".priv");
         genPrivatizationReplacement(W, Orig, NewPrivInst, PrivI);
 
-        if (!ForTask)
+        if (!ForTask) {
           PrivI->setNew(NewPrivInst);
-        else {
+          VPOParoptUtils::genConstructorCall(PrivI->getConstructor(),
+                                             NewPrivInst, NewPrivInst);
+        } else {
           IRBuilder<> Builder(EntryBB->getTerminator());
           Builder.CreateStore(Builder.CreateLoad(PrivI->getNew()), NewPrivInst);
           Builder.SetInsertPoint(ExitBB->getTerminator());
@@ -3486,6 +3553,7 @@ bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
 }
 
 // Generate the helper function for copying the copyprivate data.
+// TODO: nonPOD support
 Function *VPOParoptTransform::genCopyPrivateFunc(WRegionNode *W,
                                                  StructType *KmpCopyPrivateTy) {
   LLVMContext &C = F->getContext();

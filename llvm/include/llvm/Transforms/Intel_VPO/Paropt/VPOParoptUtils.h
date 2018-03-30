@@ -399,6 +399,16 @@ public:
     static CallInst *genMemcpy(Value *D, Value *S, const DataLayout &DL,
                                unsigned Align, BasicBlock *BB);
 
+    /// \brief Utils to emit calls to ctor, dtor, cctor, and copyassign
+    static CallInst *genConstructorCall(Function *Ctor, Value *V,
+                                        Value *PrivAlloca);
+    static CallInst *genDestructorCall(Function *Dtor, Value *V,
+                                       Instruction *InsertBeforePt);
+    static CallInst *genCopyConstructorCall(Function *Cctor, Value *D,
+                                       Value *S, Instruction *InsertBeforePt);
+    static CallInst *genCopyAssignCall(Function *Cp, Value *D, Value *S,
+                                       Instruction *InsertBeforePt);
+
     /// \brief Computes the OpenMP loop upper bound so that the loop
     //  iteration space can be closed interval.
     static CmpInst::Predicate computeOmpPredicate(CmpInst::Predicate PD);
@@ -693,6 +703,12 @@ public:
                                  Instruction *InsertPt, StringRef IntrinsicName,
                                  Type *ReturnTy, ArrayRef<Value *> Args,
                                  bool Insert=false);
+
+    /// \brief Generates a CallInst for the given Function* Fn and its
+    /// argument list.  Fn must be already declared.
+    static CallInst *genCall(Function *Fn, ArrayRef<Value*> FnArgs,
+                             ArrayRef<Type*> FnArgTypes, Instruction *InsertPt,
+                             bool IsTail=false, bool IsVarArg=false);
 
     /// \brief Generates a call to the function \p FnName.
     /// If the function is not already declared in the module \p M, then it is

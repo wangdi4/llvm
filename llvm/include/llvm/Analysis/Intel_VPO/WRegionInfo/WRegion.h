@@ -78,19 +78,17 @@ namespace vpo {
    const CLAUSETYPE &GETTER() const { return CLAUSEOBJ; }  \
          CLAUSETYPE &GETTER()       { return CLAUSEOBJ; }
 
-/// Loop information assoaciated with loop-type constructs
+/// Loop information associated with loop-type constructs
 class WRNLoopInfo {
 private:
   LoopInfo   *LI;
   Loop       *Lp;
   Value      *NormIV; // normalized iv created by FE
-  Value *NormUB;      // normalized ub (currently for loops from SECTIONS only)
-  BasicBlock *ZTTBB; // bblock with the zero-trip test
+  Value      *NormUB; // normalized ub (currently for loops from SECTIONS only)
+  BasicBlock *ZTTBB;  // bblock with the zero-trip test
 public:
-  WRNLoopInfo(LoopInfo *L) { LI = L; Lp=nullptr; NormIV=nullptr;
-    NormUB = nullptr;
-    ZTTBB = nullptr;
-  }
+  WRNLoopInfo(LoopInfo *L) : LI(L), Lp(nullptr), NormIV(nullptr),
+                             NormUB(nullptr), ZTTBB(nullptr){}
   void setLoopInfo(LoopInfo *L) { LI = L; }
   void setLoop(Loop *L) { Lp = L; }
   void setNormIV(Value *IV) { NormIV = IV; }

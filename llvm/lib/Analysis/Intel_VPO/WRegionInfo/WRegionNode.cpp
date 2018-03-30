@@ -660,27 +660,44 @@ void WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
   }
 }
 
-template <typename ClauseTy>
-void WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
-                                       const ClauseSpecifier &ClauseInfo,
-                                       ClauseTy &C) {
+template <typename ClauseItemTy>
+void WRegionUtils::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
+                                             const ClauseSpecifier &ClauseInfo,
+                                             Clause<ClauseItemTy> &C) {
   int ClauseID = ClauseInfo.getId();
-  bool IsConditional = ClauseInfo.getIsConditional();
+  C.setClauseID(ClauseID);
 
+  bool IsConditional = ClauseInfo.getIsConditional();
   if (IsConditional)
     assert(ClauseID == QUAL_OMP_LASTPRIVATE &&
            "The CONDITIONAL keyword is for LASTPRIVATE clauses only");
 
-  C.setClauseID(ClauseID);
+  if (ClauseInfo.getIsNonPod()) {
+    // NONPOD representation requires multiple args per var:
+    //  - PRIVATE:      3 args : Var, Ctor, Dtor
+    //  - FIRSTPRIVATE: 3 args : Var, CCtor, Dtor
+    //  - LASTPRIVATE:  4 args : Var, Ctor, CopyAssign, Dtor
+    if (ClauseID == QUAL_OMP_PRIVATE || ClauseID == QUAL_OMP_FIRSTPRIVATE)
+      assert(NumArgs == 3 && "Expected 3 arguments for [FIRST]PRIVATE NONPOD");
+    else if (ClauseID == QUAL_OMP_LASTPRIVATE)
+      assert(NumArgs == 4 && "Expected 4 arguments for LASTPRIVATE NONPOD");
+    else
+      llvm_unreachable("NONPOD support for this clause type TBD");
 
-  for (unsigned I = 0; I < NumArgs; ++I) {
-    Value *V = (Value*) Args[I];
-    C.add(V);
-    if (IsConditional) {
-      auto *I = C.back();
-      I->setIsConditional(true);
+    ClauseItemTy *Item = new ClauseItemTy(Args);
+    Item->setIsNonPod(true);
+    if (IsConditional)
+      Item->setIsConditional(true);
+    C.add(Item);
+  } else
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      Value *V = (Value*) Args[I];
+      C.add(V);
+      if (IsConditional) {
+        auto *Item = C.back();
+        Item->setIsConditional(true);
+      }
     }
-  }
 }
 
 void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
@@ -897,17 +914,17 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_PRIVATE: {
-    WRegionUtils::extractQualOpndList<PrivateClause>(Args, NumArgs, ClauseID,
-                                                     getPriv());
+    WRegionUtils::extractQualOpndListNonPod<PrivateItem>(Args, NumArgs,
+                                                     ClauseInfo, getPriv());
     break;
   }
   case QUAL_OMP_FIRSTPRIVATE: {
-    WRegionUtils::extractQualOpndList<FirstprivateClause>(Args, NumArgs,
-                                                       ClauseID, getFpriv());
+    WRegionUtils::extractQualOpndListNonPod<FirstprivateItem>(Args, NumArgs,
+                                                     ClauseInfo, getFpriv());
     break;
   }
   case QUAL_OMP_LASTPRIVATE: {
-    WRegionUtils::extractQualOpndList<LastprivateClause>(Args, NumArgs,
+    WRegionUtils::extractQualOpndListNonPod<LastprivateItem>(Args, NumArgs,
                                                      ClauseInfo, getLpriv());
     break;
   }

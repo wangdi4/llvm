@@ -1942,6 +1942,24 @@ CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
   return genCall(M, IntrinsicName, ReturnTy, FnArgs, InsertPt);
 }
 
+// Genetates a CallInst for the given Function* Fn and its argument list.
+// Fn is assumed to be already declared.
+CallInst *VPOParoptUtils::genCall(Function *Fn, ArrayRef<Value *> FnArgs,
+                                  ArrayRef<Type*> FnArgTypes,
+                                  Instruction *InsertPt,
+                                  bool IsTail, bool IsVarArg) {
+  assert(Fn != nullptr && "Function Declaration is null.");
+  CallInst *Call = CallInst::Create(Fn, FnArgs, "", InsertPt);
+  // Note: if InsertPt!=nullptr, Call is emitted into the IR as well.
+  assert(Call != nullptr && "Failed to generate Function Call");
+
+  Call->setCallingConv(CallingConv::C);
+  Call->setTailCall(IsTail);
+  DEBUG(dbgs() << __FUNCTION__ << ": Function call: " << *Call << "\n");
+
+  return Call;
+}
+
 // Genetates a CallInst for a function with name `FnName`.
 CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
                                   ArrayRef<Value *> FnArgs,
@@ -1959,18 +1977,9 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
   // create and insert it into the symbol table first.
   Constant *FnC = M->getOrInsertFunction(FnName, FnTy);
   Function *Fn = cast<Function>(FnC);
-  assert(Fn != nullptr && "Function Declaration is null.");
 
-  // We now  have the function declaration. Now generate a call to it.
-  CallInst *FnCall = CallInst::Create(Fn, FnArgs, "", InsertPt);
-  // Note: if InsertPt!=nullptr, FnCall is emitted into the IR as well.
-  assert(FnCall != nullptr && "Failed to generate Function Call");
-
-  FnCall->setCallingConv(CallingConv::C);
-  FnCall->setTailCall(IsTail);
-  DEBUG(dbgs() << __FUNCTION__ << ": Function call: " << *FnCall << "\n");
-
-  return FnCall;
+  CallInst *Call = genCall(Fn, FnArgs, FnArgTypes, InsertPt, IsTail, IsVarArg);
+  return Call;
 }
 
 // A genCall() interface where FunArgTypes is omitted; it will be computed from
@@ -2197,6 +2206,63 @@ CallInst *VPOParoptUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
     Size = MemcpyBuilder.CreateMul(Size, AI->getArraySize());
 
   return MemcpyBuilder.CreateMemCpy(Dest, Src, Size, Align);
+}
+
+// Emit Constructor call and insert it after PrivAlloca
+CallInst *VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
+                                             Value* PrivAlloca) {
+  if (Ctor == nullptr)
+    return nullptr;
+
+  Type *ValType = V->getType();
+  CallInst *Call = genCall(Ctor, {V}, {ValType}, nullptr);
+  Instruction *InsertAfterPt = cast<Instruction>(PrivAlloca);
+  Call->insertAfter(InsertAfterPt);
+  DEBUG(dbgs() << "CONSTRUCTOR: " << *Call << "\n");
+  return Call;
+}
+
+// Emit Destructor call and insert it before InsertBeforePt
+CallInst *VPOParoptUtils::genDestructorCall(Function *Dtor, Value *V,
+                                            Instruction *InsertBeforePt) {
+  if (Dtor == nullptr)
+    return nullptr;
+
+  Type *ValType = V->getType();
+  CallInst *Call = genCall(Dtor, {V}, {ValType}, nullptr);
+  Call->insertBefore(InsertBeforePt);
+  DEBUG(dbgs() << "DESTRUCTOR: " << *Call << "\n");
+  return Call;
+}
+
+// Emit Copy Constructor call and insert it before InsertBeforePt
+CallInst *VPOParoptUtils::genCopyConstructorCall(Function *Cctor, Value *D,
+                                  Value *S, Instruction *InsertBeforePt) {
+  if (Cctor == nullptr)
+    return nullptr;
+
+  Type *DTy = D->getType();
+  Type *STy = S->getType();
+
+  CallInst *Call = genCall(Cctor, {D,S}, {DTy, STy}, nullptr);
+  Call->insertBefore(InsertBeforePt);
+  DEBUG(dbgs() << "COPY CONSTRUCTOR: " << *Call << "\n");
+  return Call;
+}
+
+// Emit Copy Assign call and insert it before InsertBeforePt
+CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
+                                            Instruction *InsertBeforePt) {
+  if (Cp == nullptr)
+    return nullptr;
+
+  Type *DTy = D->getType();
+  Type *STy = S->getType();
+
+  CallInst *Call = genCall(Cp, {D,S}, {DTy, STy}, nullptr);
+  Call->insertBefore(InsertBeforePt);
+  DEBUG(dbgs() << "COPY ASSIGN: " << *Call << "\n");
+  return Call;
 }
 
 // Computes the OpenMP loop upper bound so that the iteration space can be

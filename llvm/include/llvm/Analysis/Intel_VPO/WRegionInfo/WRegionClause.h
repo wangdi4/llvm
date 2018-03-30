@@ -29,10 +29,13 @@ namespace vpo {
 class WRegionNode;
 class WRegionUtils;
 
+extern void printFnPtr(Function *Fn, formatted_raw_ostream &OS,
+                       bool PrintType=true);
+
 // for readability; VAR and EXPR match OpenMP4.1 specs
 typedef Value* VAR;
 typedef Value* EXPR;
-typedef Value* RDECL;
+typedef Function* RDECL;
 
 // Tables used for debug printing
 extern std::unordered_map<int, StringRef> WRNDefaultName;
@@ -71,7 +74,7 @@ class Item
     VAR   OrigItem;  // original var
     VAR   NewItem;   // new version (eg private) of the var
     VAR   ParmItem;  // formal parm in outlined entry; usually holds &OrigItem
-    bool  IsNonpod;  // true for a C++ NONPOD var
+    bool  IsNonPod;  // true for a C++ NONPOD var
     bool  IsVla;     // true for variable-length arrays (C99)
     EXPR  VlaSize;   // size of vla array can be an int expression
     int   ThunkIdx;  // used for task/taskloop codegen
@@ -80,14 +83,14 @@ class Item
 
   public:
     Item(VAR Orig) :
-      OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr), IsNonpod(false),
+      OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr), IsNonPod(false),
       IsVla(false), VlaSize(nullptr), ThunkIdx(-1), AliasScope(nullptr),
       NoAlias(nullptr) {}
 
     void setOrig(VAR V)          { OrigItem = V;    }
     void setNew(VAR V)           { NewItem = V;     }
     void setParm(VAR V)          { ParmItem = V;    }
-    void setIsNonpod(bool Flag)  { IsNonpod = Flag; }
+    void setIsNonPod(bool Flag)  { IsNonPod = Flag; }
     void setIsVla(bool Flag)     { IsVla = Flag;    }
     void setVlaSize(EXPR Size)   { VlaSize = Size;  }
     void setThunkIdx(int I)      { ThunkIdx = I;    }
@@ -97,7 +100,7 @@ class Item
     VAR  getOrig()     const { return OrigItem; }
     VAR  getNew()      const { return NewItem;  }
     VAR  getParm()     const { return ParmItem; }
-    bool getIsNonpod() const { return IsNonpod; }
+    bool getIsNonPod() const { return IsNonPod; }
     bool getIsVla()    const { return IsVla;    }
     EXPR getVlaSize()  const { return VlaSize;  }
     int getThunkIdx()  const { return ThunkIdx; }
@@ -135,7 +138,6 @@ class SharedItem : public Item
     bool getIsPassedDirectly() const { return IsPassedDirectly; }
 };
 
-
 //
 //   PrivateItem: OMP PRIVATE clause item
 //   (cf PAROPT_OMP_PRIVATE_NODE)
@@ -149,10 +151,32 @@ class PrivateItem : public Item
   public:
     PrivateItem(VAR Orig) :
       Item(Orig), Constructor(nullptr), Destructor(nullptr) {}
+    PrivateItem(const Use *Args) :
+      Item(nullptr), Constructor(nullptr), Destructor(nullptr) {
+      // PRIVATE nonPOD Args are: var, ctor, dtor
+      setOrig(cast<Value>(Args[0]));
+      if (Value *V = cast<Value>(Args[1]))
+        Constructor = cast<Function>(V);
+      if (Value *V = cast<Value>(Args[2]))
+        Destructor = cast<Function>(V);
+    }
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
     void setDestructor(RDECL Dtor)  { Destructor  = Dtor; }
     RDECL getConstructor() const { return Constructor; }
     RDECL getDestructor()  const { return Destructor;  }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsNonPod()) {
+        OS << "NONPOD(";
+        getOrig()->printAsOperand(OS, PrintType);
+        OS << ", CTOR: ";
+        printFnPtr(getConstructor(), OS, PrintType);
+        OS << ", DTOR: ";
+        printFnPtr(getDestructor(), OS, PrintType);
+        OS << ") ";
+      } else  //invoke parent's print function for regular case
+        Item::print(OS, PrintType);
+    }
 };
 
 class LastprivateItem; // forward declaration
@@ -174,6 +198,16 @@ class FirstprivateItem : public Item
     FirstprivateItem(VAR Orig)
         : Item(Orig), InLastprivate(nullptr), InMap(nullptr),
           CopyConstructor(nullptr), Destructor(nullptr) {}
+    FirstprivateItem(const Use *Args)
+        : Item(nullptr), InLastprivate(nullptr), InMap(nullptr),
+          CopyConstructor(nullptr), Destructor(nullptr) {
+      // FIRSTPRIVATE nonPOD Args are: var, cctor, dtor
+      setOrig(cast<Value>(Args[0]));
+      if (Value *V = cast<Value>(Args[1]))
+        CopyConstructor = cast<Function>(V);
+      if (Value *V = cast<Value>(Args[2]))
+        Destructor = cast<Function>(V);
+    }
     void setInLastprivate(LastprivateItem *LI) { InLastprivate = LI; }
     void setInMap(MapItem *MI) { InMap = MI; }
     void setCopyConstructor(RDECL Cctor) { CopyConstructor = Cctor; }
@@ -182,6 +216,19 @@ class FirstprivateItem : public Item
     MapItem *getInMap() const { return InMap; }
     RDECL getCopyConstructor() const { return CopyConstructor; }
     RDECL getDestructor()      const { return Destructor;      }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsNonPod()) {
+        OS << "NONPOD(";
+        getOrig()->printAsOperand(OS, PrintType);
+        OS << ", CCTOR: ";
+        printFnPtr(getCopyConstructor(), OS, PrintType);
+        OS << ", DTOR: ";
+        printFnPtr(getDestructor(), OS, PrintType);
+        OS << ") ";
+      } else  //invoke parent's print function for regular case
+        Item::print(OS, PrintType);
+    }
 };
 
 
@@ -195,23 +242,58 @@ class LastprivateItem : public Item
     bool IsConditional;               // conditional lastprivate
     FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
     RDECL Constructor;
+    RDECL CopyAssign;
     RDECL Destructor;
-    RDECL Copy;
 
   public:
     LastprivateItem(VAR Orig)
         : Item(Orig), IsConditional(false), InFirstprivate(nullptr),
-          Constructor(nullptr), Destructor(nullptr), Copy(nullptr) {}
-    void setIsConditional(bool B)   { IsConditional = B; }
+          Constructor(nullptr), CopyAssign(nullptr), Destructor(nullptr) {}
+    LastprivateItem(const Use *Args)
+        : Item(nullptr), IsConditional(false), InFirstprivate(nullptr),
+          Constructor(nullptr), CopyAssign(nullptr), Destructor(nullptr) {
+      // LASTPRIVATE nonPOD Args are: var, ctor, copy-assign, dtor
+      setOrig(cast<Value>(Args[0]));
+      if (Constant *C = cast<Constant>(Args[1])) {
+        // If a nonpod var is both lastprivate and firstprivate, the ctor in
+        // the lastprivate OperanBundle is "i8* null" from clang. This is
+        // because the var will not be initialized with a default constructor,
+        // but rather with the copy-constructor from its firstprivate clause.
+        // In this case, we stay with Constructor=nullptr.
+        if (!(C->isNullValue())) {
+          Constructor = cast<Function>(C);
+        }
+      }
+      if (Value *V = cast<Value>(Args[2]))
+        CopyAssign = cast<Function>(V);
+      if (Value *V = cast<Value>(Args[3]))
+        Destructor = cast<Function>(V);
+    }
+    void setIsConditional(bool B) { IsConditional = B; }
     void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
-    void setDestructor(RDECL Dtor)  { Destructor  = Dtor; }
-    void setCopy(RDECL Cpy)         { Copy = Cpy;         }
+    void setCopyAssign(RDECL Cpy) { CopyAssign = Cpy;         }
+    void setDestructor(RDECL Dtor) { Destructor  = Dtor; }
     bool getIsConditional() const { return IsConditional; }
     FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
     RDECL getConstructor() const { return Constructor; }
-    RDECL getDestructor()  const { return Destructor; }
-    RDECL getCopy()        const { return Copy; }
+    RDECL getCopyAssign() const { return CopyAssign; }
+    RDECL getDestructor() const { return Destructor; }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsNonPod()) {
+        OS << "NONPOD(";
+        getOrig()->printAsOperand(OS, PrintType);
+        OS << ", CTOR: ";
+        printFnPtr(getConstructor(), OS, PrintType);
+        OS << ", COPYASSIGN: ";
+        printFnPtr(getCopyAssign(), OS, PrintType);
+        OS << ", DTOR: ";
+        printFnPtr(getDestructor(), OS, PrintType);
+        OS << ") ";
+      } else  //invoke parent's print function for regular case
+        Item::print(OS, PrintType);
+    }
 };
 
 
@@ -242,8 +324,14 @@ public:
   private:
     WRNReductionKind Ty; // reduction operation
     bool  IsUnsigned;    // for min/max reduction; default is signed min/max
-    RDECL Combiner;
-    RDECL Initializer;
+
+    // NOTE: Combiner and Initializer are Function*'s from UDR. However,
+    // currently lib/Transforms/Intel_VPO/Vecopt/VPOAvrLLVMCodeGen.cpp has code
+    // that uses these fields to store instructions that initialize/combine
+    // the reduction variable in non-UDR cases. After that code is cleaned up,
+    // we can change Value* to Function* below.
+    Value *Combiner;
+    Value *Initializer;
 
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op=WRNReductionError): Item(Orig),
@@ -309,12 +397,12 @@ public:
 
     void setType(WRNReductionKind Op) { Ty = Op;          }
     void setIsUnsigned(bool B)        { IsUnsigned = B;   }
-    void setCombiner(RDECL Comb)      { Combiner = Comb;    }
-    void setInitializer(RDECL Init)   { Initializer = Init; }
+    void setCombiner(Value *Comb)     { Combiner = Comb;    }
+    void setInitializer(Value *Init)  { Initializer = Init; }
     WRNReductionKind getType() const { return Ty;        }
     bool getIsUnsigned()       const { return IsUnsigned;  }
-    RDECL getCombiner()        const { return Combiner;    }
-    RDECL getInitializer()     const { return Initializer; }
+    Value *getCombiner()       const { return Combiner;    }
+    Value *getInitializer()    const { return Initializer; }
 
     // Return a string for the reduction operation, such as "ADD" and "MUL"
     StringRef getOpName() const {
@@ -535,7 +623,7 @@ public:
   bool getIsMapAlways()    const { return MapKind & WRNMapAlways; }
   FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
 
-  virtual void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+  void print(formatted_raw_ostream &OS, bool PrintType=true) const {
     if (getIsMapChain()) {
       OS << "CHAIN(" ;
       for (unsigned I=0; I < MapChain.size(); ++I) {

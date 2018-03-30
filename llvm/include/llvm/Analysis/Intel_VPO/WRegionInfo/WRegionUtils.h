@@ -220,10 +220,10 @@ public:
   template <typename ClauseTy>
   static void extractQualOpndList(const Use *Args, unsigned NumArgs,
                                   int ClauseID, ClauseTy &C);
-  template <typename ClauseTy>
-  static void extractQualOpndList(const Use *Args, unsigned NumArgs,
+  template <typename ClauseItemTy>
+  static void extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
                                   const ClauseSpecifier &ClauseInfo,
-                                  ClauseTy &C);
+                                  Clause<ClauseItemTy> &C);
 
   /// \brief Extract operands from a map clause
   static void extractMapOpndList(const Use *Args, unsigned NumArgs,
@@ -315,6 +315,9 @@ public:
   /// \brief Return the loop type (do-while, while loop or unknown loop) for the
   /// given loop.
   static unsigned getLoopType(Loop *L);
+
+  /// \brief Return true if destructors are needed for privatized variables
+  static bool needsDestructors(WRegionNode *W);
 };
 
 } // End VPO Namespace
