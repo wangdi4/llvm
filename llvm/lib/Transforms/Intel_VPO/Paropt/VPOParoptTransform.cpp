@@ -355,13 +355,17 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genDevicePtrPrivationCode(W);
           Changed |= genTargetOffloadingCode(W);
+          Changed |= finalizeGlobalPrivatizationCode(W);
           RemoveDirectives = true;
         }
         break;
       case WRegionNode::WRNTargetEnterData:
       case WRegionNode::WRNTargetExitData:
-        // TODO
-        debugPrintToBeSupported(W);
+        debugPrintHeader(W, IsPrepare);
+        if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          Changed |= genTargetOffloadingCode(W);
+          RemoveDirectives = true;
+        }
         break;
       case WRegionNode::WRNTargetData:
       case WRegionNode::WRNTargetUpdate:
@@ -373,6 +377,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genGlobalPrivatizationCode(W);
           Changed |= genDevicePtrPrivationCode(W);
           Changed |= genTargetOffloadingCode(W);
+          Changed |= finalizeGlobalPrivatizationCode(W);
           RemoveDirectives = true;
         }
         break;

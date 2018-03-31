@@ -801,6 +801,65 @@ private:
 
   /// \brief Generate the cast i8* for the incoming value BPVal.
   Value *genCastforAddr(Value *BPVal, IRBuilder<> &Builder);
+
+  /// \brief Replace the new generated local variables with global variables
+  /// in the target initialization code.
+  /// Given a global variable in the offloading region, the compiler will
+  /// generate different code for the following two cases.
+  /// case 1: global variable is not in the map clause.
+  /// The compiler generates %aaa stack variable which is initialized with
+  /// the value of @aaa. The base pointer and section pointer arrays are
+  /// initialized with %aaa.
+  ///
+  ///   #pragma omp target
+  ///   {  aaa++; }
+  ///
+  /// ** IR Dump After VPO Paropt Pass ***
+  /// entry:
+  ///   %.offload_baseptrs = alloca [1 x i8*]
+  ///   %.offload_ptrs = alloca [1 x i8*]
+  ///   %aaa = alloca i32
+  ///   %0 = load i32, i32* @aaa
+  ///   store i32 %0, i32* %aaa
+  ///   br label %codeRepl
+  ///
+  /// codeRepl:
+  ///   %1 = bitcast i32* %aaa to i8*
+  ///   %2 = getelementptr inbounds [1 x i8*],
+  //         [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
+  ///   store i8* %1, i8** %2
+  ///   %3 = getelementptr inbounds [1 x i8*],
+  //         [1 x i8*]* %.offload_ptrs, i32 0, i32 0
+  ///   %4 = bitcast i32* %aaa to i8*
+  ///   store i8* %4, i8** %3
+  ///
+  /// case 2: global variable is in the map clause
+  /// The compiler initializes the base pointer and section pointer arrays
+  /// with @aaa.
+  ///
+  ///   #pragma omp target map(aaa)
+  ///   {  aaa++; }
+  ///
+  /// ** IR Dump After VPO Paropt Pass ***
+  /// codeRepl:
+  ///   %1 = bitcast i32* @aaa to i8*
+  ///   %2 = getelementptr inbounds [1 x i8*],
+  //         [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
+  ///   store i8* %1, i8** %2
+  ///   %3 = getelementptr inbounds [1 x i8*],
+  ///        [1 x i8*]* %.offload_ptrs, i32 0, i32 0
+  ///   %4 = bitcast i32* @aaa to i8*
+  ///   store i8* %4, i8** %3
+  bool finalizeGlobalPrivatizationCode(WRegionNode *W);
+
+  /// \brief Generate the target intialization code for the pointers based
+  /// on the order of the map clause.
+  void genOffloadArraysInitForClause(WRegionNode *W, TgDataInfo *Info,
+                                     CallInst *Call, Instruction *InsertPt,
+                                     SmallVectorImpl<Constant *> &ConstSizes,
+                                     bool hasRuntimeEvaluationCaptureSize,
+                                     Value *BPVal, bool &Match,
+                                     IRBuilder<> &Builder, unsigned &Cnt);
 };
 } /// namespace vpo
 } /// namespace llvm

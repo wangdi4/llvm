@@ -376,7 +376,8 @@ CallInst *VPOParoptUtils::genTgtTargetDataBegin(WRegionNode *W, int NumArgs,
                                                 Value *ArgsSize,
                                                 Value *ArgsMaptype,
                                                 Instruction *InsertPt) {
-  assert(isa<WRNTargetDataNode>(W) && "Expected a WRNTargetDataNode");
+  assert((isa<WRNTargetDataNode>(W) || isa<WRNTargetEnterDataNode>(W)) &&
+         "Expected a WRNTargetDataNode or WRNTargetEnterDataNode");
   Value *DeviceIDPtr = W->getDevice();
   CallInst *Call= genTgtCall("__tgt_target_data_begin", DeviceIDPtr, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt);
@@ -395,7 +396,8 @@ CallInst *VPOParoptUtils::genTgtTargetDataEnd(WRegionNode *W, int NumArgs,
                                               Value *ArgsSize,
                                               Value *ArgsMaptype,
                                               Instruction *InsertPt) {
-  assert(isa<WRNTargetDataNode>(W) && "Expected a WRNTargetDataNode");
+  assert((isa<WRNTargetDataNode>(W) || isa<WRNTargetExitDataNode>(W)) &&
+         "Expected a WRNTargetDataNode or WRNTargetExitDataNode");
   Value *DeviceIDPtr = W->getDevice();
   CallInst *Call= genTgtCall("__tgt_target_data_end", DeviceIDPtr, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt);
