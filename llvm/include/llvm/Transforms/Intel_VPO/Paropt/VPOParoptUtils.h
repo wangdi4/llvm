@@ -242,16 +242,29 @@ public:
                                                         StructType *IdentTy,
                                                         BasicBlock *BB);
 
-    /// \brief Insert the following call before \p InsertPt:
+    /// \brief Insert the following call before \p InsertPt and return it:
     ///
     /// If the parent WRegion has a cancel construct:
     ///   %1 = call int32 @__kmpc_cancel_barrier(%ident_t* %loc, i32 %tid)
+    ///   Also, add %1 to the parent WRegionNode's CancellationPoints.
+    ///
     /// Otherwise:
     ///   call void @__kmpc_barrier(%ident_t* %loc, i32 %tid)
-    static CallInst* genKmpcBarrier(WRegionNode *W, Value *Tid,
-                                    Instruction *InsertPt,
-                                    StructType *IdentTy,
+    static CallInst *genKmpcBarrier(WRegionNode *W, Value *Tid,
+                                    Instruction *InsertPt, StructType *IdentTy,
                                     bool IsExplicit);
+
+    /// \brief Insert the following call before \p InsertPt and return it:
+    ///
+    /// If \p CancelBarrier is \b true:
+    ///   %1 = call int32 @__kmpc_cancel_barrier(%ident_t* %loc, i32 %tid)
+    ///
+    /// Otherwise:
+    ///   call void @__kmpc_barrier(%ident_t* %loc, i32 %tid)
+    static CallInst *genKmpcBarrierImpl(WRegionNode *W, Value *Tid,
+                                        Instruction *InsertPt,
+                                        StructType *IdentTy, bool IsExplicit,
+                                        bool IsCancelBarrier);
 
     /// \brief Insert the following call before \p InsertPt:
     /// If \p IsCancellationPoint is \b false:

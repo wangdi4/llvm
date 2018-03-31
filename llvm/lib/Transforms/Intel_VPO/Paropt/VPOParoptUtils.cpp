@@ -1648,11 +1648,32 @@ GlobalVariable *VPOParoptUtils::genKmpcLocforImplicitBarrier(
   return KmpcLoc;
 }
 
-// Insert kmpc_[cancel_]barrier(...) call before InsertPt.
+// Insert kmpc_[cancel_]barrier(...) call before InsertPt. If the call emitted
+// is a __kmpc_cancel_barrier(...), add it to the parent WRegionNode's
+// CancellationPoints.
 CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
                                          Instruction *InsertPt,
-                                         StructType *IdentTy,
-                                         bool IsExplicit) {
+                                         StructType *IdentTy, bool IsExplicit) {
+
+  WRegionNode *WParent = W->getParent();
+  bool IsCancelBarrier = WParent && WParent->canHaveCancellationPoints() &&
+                         WRegionUtils::hasCancelConstruct(WParent);
+
+  auto *BarrierCall = VPOParoptUtils::genKmpcBarrierImpl(
+      W, Tid, InsertPt, IdentTy, IsExplicit, IsCancelBarrier);
+
+  if (IsCancelBarrier)
+    WParent->addCancellationPoint(BarrierCall);
+
+  return BarrierCall;
+}
+
+// Insert kmpc_[cancel_]barrier(...) call before InsertPt.
+CallInst *VPOParoptUtils::genKmpcBarrierImpl(WRegionNode *W, Value *Tid,
+                                             Instruction *InsertPt,
+                                             StructType *IdentTy,
+                                             bool IsExplicit,
+                                             bool IsCancelBarrier) {
   BasicBlock  *B = InsertPt->getParent();
   Function    *F = B->getParent();
   Module      *M = F->getParent();
@@ -1661,9 +1682,6 @@ CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
   Type *RetTy;
   StringRef FnName;
 
-  WRegionNode *WParent = W->getParent();
-  bool IsCancelBarrier = WParent && WParent->canHaveCancellationPoints() &&
-                         WRegionUtils::hasCancelConstruct(WParent);
 
   if (IsCancelBarrier) {
     RetTy = Type::getInt32Ty(C);
@@ -1689,9 +1707,6 @@ CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
 
   CallInst *BarrierCall = genCall(M, FnName, RetTy, FnArgs);
   BarrierCall->insertBefore(InsertPt);
-
-  if (IsCancelBarrier)
-    WParent->addCancellationPoint(BarrierCall);
 
   return BarrierCall;
 }

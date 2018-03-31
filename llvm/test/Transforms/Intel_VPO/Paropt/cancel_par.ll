@@ -72,14 +72,19 @@ entry:
 ; #pragma omp cancel
 ; ALL: [[CANCEL1:%[0-9]+]] = call i32 @__kmpc_cancel({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 1)
 ; TFORM: [[CHECK2:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL1]], 0
-; TFORM: br i1 [[CHECK2]], label %[[PAREXITLABEL]], label %{{[a-zA-Z._0-9]+}}
+; TFORM: br i1 [[CHECK2]], label %[[PAREXITLABEL1:[a-zA-Z._0-9]+\.split_crit_edge]], label %{{[a-zA-Z._0-9]+}}
+
+; Exit label for cancel/cancellationpoint with cancel_barrier
+; TFORM: [[PAREXITLABEL1]]:{{.*}}
+; TFORM: [[CBARRIER4:%[0-9]+]] = call i32 @__kmpc_cancel_barrier({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}})
+; TFORM-NEXT: br label %[[PAREXITLABEL]]
 
   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.BARRIER"() ]
   call void @llvm.directive.region.exit(token %4) [ "DIR.OMP.END.BARRIER"() ]
 ; #pragma omp barrier
 ; ALL: [[CBARRIER2:%[0-9]+]] = call i32 @__kmpc_cancel_barrier({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}})
-; TFORM: [[CHECK3:%cancel.check[0-9]*]] = icmp ne i32 [[CBARRIER2]], 0
-; TFORM: br i1 [[CHECK3]], label %[[PAREXITLABEL]], label %{{[a-zA-Z._0-9]+}}
+; TFORM-NEXT: [[CHECK3:%cancel.check[0-9]*]] = icmp ne i32 [[CBARRIER2]], 0
+; TFORM-NEXT: br i1 [[CHECK3]], label %[[PAREXITLABEL]], label %{{[a-zA-Z._0-9]+}}
 
   %5 = bitcast i32* %.omp.iv to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %5) #1
@@ -135,8 +140,8 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
 ; TFORM: call void @__kmpc_for_static_fini({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}})
 ; Implicit barrier for omp for
 ; TFORM: [[CBARRIER3:%[0-9]+]] = call i32 @__kmpc_cancel_barrier({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}})
-; TFORM: [[CHECK4:%cancel.check[0-9]*]] = icmp ne i32 [[CBARRIER3]], 0
-; TFORM: br i1 [[CHECK4]], label %[[PAREXITLABEL]], label %{{[a-zA-Z._0-9]+}}
+; TFORM-NEXT: [[CHECK4:%cancel.check[0-9]*]] = icmp ne i32 [[CBARRIER3]], 0
+; TFORM-NEXT: br i1 [[CHECK4]], label %[[PAREXITLABEL]], label %{{[a-zA-Z._0-9]+}}
 
   %17 = bitcast i32* %.omp.is_last to i8*
   call void @llvm.lifetime.end.p0i8(i64 4, i8* %17) #1
@@ -152,8 +157,8 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
   call void @llvm.directive.region.exit(token %22) [ "DIR.OMP.END.CANCELLATION.POINT"() ]
 ; #pragma omp cancellation point
 ; ALL: [[CANCEL2:%[0-9]+]] = call i32 @__kmpc_cancellationpoint({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 1)
-; TFORM: [[CHECK5:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL2]], 0
-; TFORM: br i1 [[CHECK5]], label %[[PAREXITLABEL]], label %{{[a-zA-Z._0-9]+}}
+; TFORM-NEXT: [[CHECK5:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL2]], 0
+; TFORM-NEXT: br i1 [[CHECK5]], label %[[PAREXITLABEL1]], label %{{[a-zA-Z._0-9]+}}
 
   %23 = load i32, i32* @x, align 4, !tbaa !2
   %inc3 = add nsw i32 %23, 1

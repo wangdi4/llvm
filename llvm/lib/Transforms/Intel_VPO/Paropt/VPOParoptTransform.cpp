@@ -3577,10 +3577,41 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
   // __kmpc_static_fini(...) call should be made even if the construt is
   // cancelled.
   bool NeedStaticFiniCall =
-      ((W->getIsOmpLoop() && W->getIsSections()) ||
-       (W->getIsOmpLoop() && !W->getIsSections() &&
+      (W->getIsOmpLoop() &&
+       (W->getIsSections() ||
         (VPOParoptUtils::getLoopScheduleKind(W) == WRNScheduleStaticEven ||
          VPOParoptUtils::getLoopScheduleKind(W) == WRNScheduleStatic)));
+
+  // For a parallel construct, 'kmpc_cancel' and 'kmpc_cancellationpoint', when
+  // cancelled, should call '__kmpc_cancel_barrier'. This is needed to free up
+  // threads that are waiting at existing 'kmpc_cancel_barrier's.
+  //
+  //
+  //   T1              T2             T3             T4
+  //    |              |              |              |
+  //    |    <cancellationpoint>      |              |
+  //    |               \             |              |
+  //    |                \            |              |
+  // <cancel>             |           |              |
+  //    \                 |           |              |
+  //     \                |           |              |
+  //      |               |           |              |
+  // -----|---------------|-----------+--------------+-- <cancelbarrier>
+  //     /               /            \              \
+  //    /               /              \              \
+  //    |               |               |              |
+  // ---+---------------+---------------|--------------|- <cancelbarrier for
+  //    |               |              /              /    cancel[lationpoint]>
+  //    |               |             /              /
+  //    |               |             |              |
+  // ---+---------------+-------------+--------------+--- <fork/join barrier>
+  //
+  bool NeedCancelBarrierForNonBarriers = isa<WRNParallelNode>(W);
+
+  assert((!NeedStaticFiniCall || !NeedCancelBarrierForNonBarriers) &&
+         "genCancellationBranchingCode: Cannot need both kmpc_static_fini and "
+         "kmpc_cancel_barrier calls in cancelled BB.");
+
   BasicBlock *CancelExitBBWithStaticFini = nullptr;
 
   //           +--CancelExitBB--+
@@ -3597,9 +3628,16 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
   DEBUG(dbgs() << "genCancellationBranchingCode: Created CancelExitBB: [";
         CancelExitBB->printAsOperand(dbgs()); dbgs() << "]\n");
 
+  BasicBlock *CancelExitBBForNonBarriers = nullptr;
+
   for (auto &CancellationPoint : CancellationPoints) {
     assert(CancellationPoint &&
            "genCancellationBranchingCode: Illegal cancellation point");
+
+    bool CancellationPointIsBarrier =
+        (dyn_cast<CallInst>(CancellationPoint)
+             ->getCalledFunction()
+             ->getName() == "__kmpc_cancel_barrier");
 
     // At this point, IR looks like:
     //
@@ -3631,17 +3669,22 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
         NotCancelledBB &&
         "genCancellationBranchingCode: Cannot split BB at Cancellation Point");
 
+    BasicBlock *CurrentCancelExitBB =
+        (CancelExitBBForNonBarriers && !CancellationPointIsBarrier)
+            ? CancelExitBBForNonBarriers
+            : CancelExitBB;
+
     OrgBB = CancellationPoint->getParent();
     TerminatorInst *TermInst = OrgBB->getTerminator();
     TerminatorInst *NewTermInst =
-        BranchInst::Create(CancelExitBB, NotCancelledBB, CondInst);
+        BranchInst::Create(CurrentCancelExitBB, NotCancelledBB, CondInst);
     ReplaceInstWithInst(TermInst, NewTermInst);
 
     DEBUG(auto &OS = dbgs();
           OS << "genCancellationBranchingCode: Inserted If-Then-Else: if (";
           CancellationPoint->printAsOperand(OS); OS << ") then [";
           OrgBB->printAsOperand(OS); OS << "] --> [";
-          CancelExitBB->printAsOperand(OS); OS << "], else [";
+          CurrentCancelExitBB->printAsOperand(OS); OS << "], else [";
           OrgBB->printAsOperand(OS); OS << "] --> [";
           NotCancelledBB->printAsOperand(OS); OS << "].\n");
 
@@ -3690,9 +3733,9 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
       //               ...   CancelExitBB
       //
       auto *CancelExitBBDominator =
-          DT->findNearestCommonDominator(CancelExitBB, OrgBB);
+          DT->findNearestCommonDominator(CurrentCancelExitBB, OrgBB);
 
-      DT->changeImmediateDominator(CancelExitBB, CancelExitBBDominator);
+      DT->changeImmediateDominator(CurrentCancelExitBB, CancelExitBBDominator);
     }
 
     if (NeedStaticFiniCall && !CancelExitBBWithStaticFini) {
@@ -3718,9 +3761,7 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
 
       LoadInst *LoadTid = new LoadInst(TidPtrHolder, "my.tid", InsertPt);
       LoadTid->setAlignment(4);
-      auto *KmpcFiniCI =
-          VPOParoptUtils::genKmpcStaticFini(W, IdentTy, LoadTid, InsertPt);
-      KmpcFiniCI->setCallingConv(CallingConv::C);
+      VPOParoptUtils::genKmpcStaticFini(W, IdentTy, LoadTid, InsertPt);
 
       CancelExitBB = CancelExitBBWithStaticFini;
 
@@ -3728,6 +3769,43 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
                       "CancelExitBB: [";
             CancelExitBBWithStaticFini->printAsOperand(dbgs());
             dbgs() << "] containing '__kmpc_static_fini' call.\n");
+    }
+
+    if (NeedCancelBarrierForNonBarriers && !CancelExitBBForNonBarriers &&
+        !CancellationPointIsBarrier) {
+
+      // If we need a `__kmpc_cancel_barrier` call for branches to CancelExitBB
+      // from __kmpc_cancel and __kmpc_cancellationpoint calls, we create a
+      // separate BBlock with the call. This happens only when handling the
+      // first non-barrier CancellationPoint. We use the new
+      // CancelExitBBForNonBarriers in place of CancelExitBB as the target of
+      // `cancel.check` branches for subsequent non-barrier CancellationPoints.
+      //
+      //                                            %2 = kmpc_cancellationpoint
+      //                           %1 = kmpc_cancel            /1
+      //                                      |1              /
+      //    %3 = kmpc_cancel_barrier          |              /
+      //         |   \                        |             /
+      //        0|  1 \              +-CancelExitBBForNonBarriers-+
+      //        ...    \             |  %1 =  kmpc_cancel_barrier |
+      //                \            +/---------------------------+
+      //                 \           /
+      //                  \         /
+      //                   \       /
+      //                    \     /
+      //                 CancelExitBB
+      //
+      CancelExitBBForNonBarriers = SplitEdge(OrgBB, CancelExitBB, DT, LI);
+      auto *InsertPt = CancelExitBBForNonBarriers->getTerminator();
+
+      VPOParoptUtils::genKmpcBarrierImpl(W, TidPtrHolder, InsertPt, IdentTy,
+                                         false /*not explicit*/,
+                                         true /*cancel barrrier*/);
+
+      DEBUG(dbgs() << "genCancellationBranchingCode: Created BB for "
+                      "non-barrier cancellation points: [";
+            CancelExitBBForNonBarriers->printAsOperand(dbgs());
+            dbgs() << "] containing '__kmpc_cancel_barrier' call.\n");
     }
 
     // Finally, remove the cancellation point from the `end.region` directive.
