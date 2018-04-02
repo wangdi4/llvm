@@ -177,7 +177,7 @@ public:
   void emitOMPAtomicDirective(OMPAtomicClause ClauseKind);
   void emitOMPSingleDirective();
   void emitOMPMasterDirective();
-  void emitOMPCriticalDirective();
+  void emitOMPCriticalDirective(const StringRef Name);
   void emitOMPOrderedDirective();
   void emitOMPTargetDirective();
   void emitOMPTargetDataDirective();

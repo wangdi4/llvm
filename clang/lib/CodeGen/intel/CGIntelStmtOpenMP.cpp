@@ -23,7 +23,7 @@ OpenMPCodeOutliner::emitIntelOpenMPDefaultConstructor(const Expr *IPriv) {
 
   if (!IPriv)
     return llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
-  
+
   auto *Private = cast<VarDecl>(cast<DeclRefExpr>(IPriv)->getDecl());
   QualType Ty = Private->getType();
 
@@ -65,7 +65,7 @@ OpenMPCodeOutliner::emitIntelOpenMPDefaultConstructor(const Expr *IPriv) {
 
 llvm::Value *
 OpenMPCodeOutliner::emitIntelOpenMPDestructor(QualType Ty) {
-  CodeGenModule &CGM = CGF.CGM; 
+  CodeGenModule &CGM = CGF.CGM;
   SmallString<256> OutName;
   llvm::raw_svector_ostream Out(OutName);
   CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
@@ -109,7 +109,7 @@ OpenMPCodeOutliner::emitIntelOpenMPCopyConstructor(const Expr *IPriv) {
     return llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
 
   auto *Private = cast<VarDecl>(cast<DeclRefExpr>(IPriv)->getDecl());
-  
+
   CodeGenModule &CGM = CGF.CGM;
   auto &C = CGM.getContext();
   QualType Ty = Private->getType();
@@ -558,7 +558,7 @@ namespace CGIntelOpenMP {
     }
   }
 
-  void OpenMPCodeOutliner::addExplicit(const Expr *E) { 
+  void OpenMPCodeOutliner::addExplicit(const Expr *E) {
     if (E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
       auto AE = cast<OMPArraySectionExpr>(E->IgnoreParenImpCasts());
       const Expr *Base = AE->getBase()->IgnoreParenImpCasts();
@@ -1163,6 +1163,15 @@ namespace CGIntelOpenMP {
     }
   }
 
+  void OpenMPCodeOutliner::emitOMPHintClause(const OMPHintClause *Cl) {
+    addArg("QUAL.OMP.HINT");
+    auto SavedIP = CGF.Builder.saveIP();
+    setOutsideInsertPoint();
+    addArg(CGF.EmitScalarExpr(Cl->getHint()));
+    CGF.Builder.restoreIP(SavedIP);
+    emitOpndClause();
+  }
+
   void OpenMPCodeOutliner::emitOMPReadClause(const OMPReadClause *) {}
   void OpenMPCodeOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
   void OpenMPCodeOutliner::emitOMPUpdateClause(const OMPUpdateClause *) {}
@@ -1170,7 +1179,6 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPSeqCstClause(const OMPSeqCstClause *) {}
   void OpenMPCodeOutliner::emitOMPThreadsClause(const OMPThreadsClause *) {}
   void OpenMPCodeOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {}
-  void OpenMPCodeOutliner::emitOMPHintClause(const OMPHintClause *) {}
   void OpenMPCodeOutliner::emitOMPTaskReductionClause(
                                               const OMPTaskReductionClause *) {}
   void OpenMPCodeOutliner::emitOMPInReductionClause(
@@ -1187,7 +1195,7 @@ namespace CGIntelOpenMP {
                                llvm::Intrinsic::directive_region_entry);
     RegionExitDirective = CGF.CGM.getIntrinsic(
                                llvm::Intrinsic::directive_region_exit);
-    
+
     // Create a marker call at the start of the region.  The values generated
     // from clauses must be inserted before this point.
     SmallVector<llvm::Value*, 1> CallArgs;
@@ -1220,7 +1228,7 @@ namespace CGIntelOpenMP {
   }
 
   void OpenMPCodeOutliner::emitMultipleDirectives(DirectiveIntrinsicSet &D) {
-    int I = 0; 
+    int I = 0;
     for (auto O : D.OpBundles) {
       auto Int = D.Intrins[I];
       SmallVector<llvm::Value*, 1> CallArgs;
@@ -1244,7 +1252,7 @@ namespace CGIntelOpenMP {
         llvm_unreachable("Unexpected intrinsic");
       }
       CGF.EmitRuntimeCall(IFunc, CallArgs);
-      I++; 
+      I++;
     }
   }
 
@@ -1361,8 +1369,13 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPMasterDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.MASTER", "DIR.OMP.END.MASTER");
   }
-  void OpenMPCodeOutliner::emitOMPCriticalDirective() {
+  void OpenMPCodeOutliner::emitOMPCriticalDirective(const StringRef Name) {
     startDirectiveIntrinsicSet("DIR.OMP.CRITICAL", "DIR.OMP.END.CRITICAL");
+    if (!Name.empty()) {
+      addArg("QUAL.OMP.NAME");
+      addArg(llvm::ConstantDataArray::getString(C, Name, /*AddNull=*/false));
+      emitOpndClause();
+    }
   }
   void OpenMPCodeOutliner::emitOMPOrderedDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.ORDERED", "DIR.OMP.END.ORDERED");
@@ -1594,9 +1607,11 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_master:
     Outliner.emitOMPMasterDirective();
     break;
-  case OMPD_critical:
-    Outliner.emitOMPCriticalDirective();
+  case OMPD_critical: {
+    const auto &CD = cast<OMPCriticalDirective>(S);
+    Outliner.emitOMPCriticalDirective(CD.getDirectiveName().getAsString());
     break;
+  }
   case OMPD_ordered:
     Outliner.emitOMPOrderedDirective();
     break;
