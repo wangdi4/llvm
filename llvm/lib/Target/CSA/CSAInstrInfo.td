@@ -270,6 +270,43 @@ def ADJCALLSTACKUP : PseudoInstCSA<(outs), (ins i64imm:$amt1, i64imm:$amt2),
                             [(callseq_end timm:$amt1, timm:$amt2)]>;
 }
 
+def TRAMPOLINE_START : PseudoInstCSA<
+    (outs),
+    (ins),
+    ".trampoline_start",
+    []>;
+    
+def TRAMPOLINE_END : PseudoInstCSA<
+    (outs),
+    (ins),
+    ".trampoline_end",
+    []>;
+
+// Call directives
+def CSA_ENTRY : PseudoInstCSA<
+    (outs calltarget:$caller_cont_point, I64:$context, MemOrdDef:$mem_ord, variable_ops),
+    (ins),
+    "csa_entry",
+    []>;
+    
+def CSA_CALL : PseudoInstCSA<
+    (outs),
+    (ins calltarget:$callee_func, I64:$call_site_index, I64:$context, MemOrdUse:$mem_ord, variable_ops),
+    "csa_call",
+    []>;
+    
+def CSA_CONTINUE : PseudoInstCSA<
+    (outs I64:$context, MemOrdDef:$mem_ord, variable_ops),
+    (ins I64:$call_site_index),
+    "csa_continue",
+    []>;
+
+def CSA_RETURN : PseudoInstCSA<
+    (outs),
+    (ins calltarget:$caller_cont_point, I64:$context, MemOrdUse:$mem_ord, variable_ops),
+    "csa_return",
+    []>;
+    
 class MovOp<GenericOp gen, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
@@ -566,6 +603,15 @@ class FMSReduceOp<GenericOp gen, CSAOpInfo oi,
     (outs oi.LICRC:$result, oi.LICRC:$each),
     (ins oi.RCL:$init, oi.RCL:$inval1, oi.RCL:$inval2, RCLi1:$ctl, RMODE:$rm),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval1, $inval2, $ctl, $rm"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
+
+
+class FountainOp<GenericOp gen, CSAOpInfo oi,
+                 InstrItinClass itin, list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs oi.RC:$res),
+    (ins i64imm:$addr, i64imm:$len),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$res, $addr, $len"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
 def LDX : GenericOp<"ldx">;
@@ -1493,6 +1539,20 @@ def COMPLETION8  : CompletionOp<COMPLETION, Ti8,  IIST>;
 def COMPLETION16 : CompletionOp<COMPLETION, Ti16, IIST>;
 def COMPLETION32 : CompletionOp<COMPLETION, Ti32, IIST>;
 def COMPLETION64 : CompletionOp<COMPLETION, Ti64, IIST>;
+
+def FOUNTAIN   : GenericOp<"fountain">;
+def FOUNTAIN1  : FountainOp<FOUNTAIN, Ti1,  IIALU>;
+def FOUNTAIN8  : FountainOp<FOUNTAIN, Ti8,  IIALU>;
+def FOUNTAIN16 : FountainOp<FOUNTAIN, Ti16, IIALU>;
+def FOUNTAIN32 : FountainOp<FOUNTAIN, Ti32, IIALU>;
+def FOUNTAIN64 : FountainOp<FOUNTAIN, Ti64, IIALU>;
+
+def REPLICATE  : GenericOp<"replicate">;
+def REPLICATE1 : FMTGEN<REPLICATE, Ti1,
+  (outs I1:$outchan),
+  (ins RCLi1:$inchan, i1imm:$match, i64imm:$count, i64imm:$initpos),
+  "replicate1\t$outchan, $inchan, $match, $count, $initpos",
+  [], [], IIALU>;
 
 // TBD(jsukha): This info probably needs predicates
 // Also, the input can probably be an I0 channel.

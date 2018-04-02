@@ -31,13 +31,13 @@ class CSAReg<string n> : Register<n> {
 def IGN : CSAReg<"ign">; // Ignored (always writeable and readable)
 def NA  : CSAReg<"na">;  // Not available (never writeable or readable)
 foreach i = 0-10 in { def CV0_#i : CSAReg<"phy0_"#i>; }
-
+foreach i = 0-129 in { def P64_#i : CSAReg<"p64_"#i>; }
 // Define the virtual register classes for LICs. It's important that these
 // register classes all share the same register set: if they don't, then
 // synthetic register classes will be created from the common intersections,
 // and registers might be assigned to those classes.
 let isVirtual = 1, CopyCost = -1 in {
-  def ANYC : RegisterClass<"CSA", [i1], 64, (add (sequence "CV0_%u", 0, 10), NA, IGN)>;
+  def ANYC : RegisterClass<"CSA", [i1], 64, (add (sequence "CV0_%u", 0, 10), (sequence "P64_%u", 0, 129), NA, IGN)>;
   def CI0  : RegisterClass<"CSA", [i1],      64, (add ANYC)> { let Size=8;  }
   def CI1  : RegisterClass<"CSA", [i1],      8, (add ANYC)> { let Size=8;  }
   def CI8  : RegisterClass<"CSA", [i8],      8, (add ANYC)> { let Size=8;  }

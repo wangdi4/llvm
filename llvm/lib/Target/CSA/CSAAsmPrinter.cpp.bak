@@ -42,7 +42,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/CodeGen/TargetLoweringObjectFile.h"
+#include "llvm/Target/TargetLoweringObjectFile.h"
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -119,6 +119,8 @@ class CSAAsmPrinter : public AsmPrinter {
   bool ignoreLoc(const MachineInstr &);
   LineReader *reader;
   // To record filename to ID mapping
+  std::map<std::string, unsigned> filenameMap;
+  void recordAndEmitFilenames(Module &);
   bool doInitialization(Module &M) override;
   void emitLineNumberAsDotLoc(const MachineInstr &);
   void emitSrcInText(StringRef filename, unsigned line);
@@ -145,7 +147,7 @@ public:
   CSAAsmPrinter(TargetMachine &TM, std::unique_ptr<MCStreamer> Streamer)
       : AsmPrinter(TM, std::move(Streamer)), reader() { resultReg = 0; }
 
-  StringRef getPassName() const override { return "CSA: Assembly Printer"; }
+  StringRef getPassName() const override { return "CSA Assembly Printer"; }
 
   void printOperand(const MachineInstr *MI, int OpNum, raw_ostream &O);
   bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
@@ -237,6 +239,42 @@ bool CSAAsmPrinter::ignoreLoc(const MachineInstr &MI) {
   }
 }
 
+void CSAAsmPrinter::recordAndEmitFilenames(Module &M) {
+  DebugInfoFinder DbgFinder;
+  DbgFinder.processModule(M);
+
+  unsigned i = 1;
+  for (const DICompileUnit *DIUnit : DbgFinder.compile_units()) {
+    StringRef Filename(DIUnit->getFilename());
+    StringRef Dirname(DIUnit->getDirectory());
+    SmallString<128> FullPathName = Dirname;
+    if (!Dirname.empty() && !sys::path::is_absolute(Filename)) {
+      sys::path::append(FullPathName, Filename);
+      Filename = FullPathName.str();
+    }
+    if (filenameMap.find(Filename.str()) != filenameMap.end())
+      continue;
+    filenameMap[Filename.str()] = i;
+    OutStreamer->EmitDwarfFileDirective(i, "", Filename.str());
+    ++i;
+  }
+
+  for (const DISubprogram *SP : DbgFinder.subprograms()) {
+    StringRef Filename(SP->getFilename());
+    StringRef Dirname(SP->getDirectory());
+    SmallString<128> FullPathName = Dirname;
+    if (!Dirname.empty() && !sys::path::is_absolute(Filename)) {
+      sys::path::append(FullPathName, Filename);
+      Filename = FullPathName.str();
+    }
+    if (filenameMap.find(Filename.str()) != filenameMap.end())
+      continue;
+    filenameMap[Filename.str()] = i;
+    OutStreamer->EmitDwarfFileDirective(i, "", Filename.str());
+    ++i;
+  }
+}
+
 bool CSAAsmPrinter::doInitialization(Module &M) {
   bool result = AsmPrinter::doInitialization(M);
 
@@ -249,6 +287,8 @@ bool CSAAsmPrinter::doInitialization(Module &M) {
     OutStreamer->AddComment("End of file scope inline assembly");
     OutStreamer->AddBlankLine();
   }
+
+  recordAndEmitFilenames(M);
 
   return result;
 }
@@ -278,24 +318,21 @@ void CSAAsmPrinter::emitLineNumberAsDotLoc(const MachineInstr &MI) {
 
   StringRef fileName(Scope->getFilename());
   StringRef dirName(Scope->getDirectory());
+  SmallString<128> FullPathName = dirName;
+  if (!dirName.empty() && !sys::path::is_absolute(fileName)) {
+    sys::path::append(FullPathName, fileName);
+    fileName = FullPathName.str();
+  }
+
+  if (filenameMap.find(fileName.str()) == filenameMap.end())
+    return;
 
   // Emit the line from the source file.
   if (InterleaveSrc)
     this->emitSrcInText(fileName.str(), curLoc.getLine());
 
   std::stringstream temp;
-
-  //
-  // EmitDwarfFileDirective() returns the file ID for the given
-  // file path.  It will only emit the file directive once
-  // for each file.
-  //
-  unsigned FileNo = OutStreamer->EmitDwarfFileDirective(0, dirName, fileName);
-
-  if (FileNo == 0)
-    return;
-
-  temp << "\t.loc " << FileNo << " " << curLoc.getLine()
+  temp << "\t.loc " << filenameMap[fileName.str()] << " " << curLoc.getLine()
        << " " << curLoc.getCol();
   OutStreamer->EmitRawText(Twine(temp.str().c_str()));
 }
@@ -303,7 +340,7 @@ void CSAAsmPrinter::emitLineNumberAsDotLoc(const MachineInstr &MI) {
 void CSAAsmPrinter::emitSrcInText(StringRef filename, unsigned line) {
   std::stringstream temp;
   LineReader *reader = this->getReader(filename.str());
-  temp << "\n#";
+  temp << "\n//";
   temp << filename.str();
   temp << ":";
   temp << line;
@@ -512,33 +549,6 @@ void CSAAsmPrinter::EmitFunctionEntryLabel() {
   MRI = &MF->getRegInfo();
   F   = MF->getFunction();
 
-  //
-  // CMPLRS-49165: set compilation directory DWARF emission.
-  //
-  // With -fdwarf-directory-asm (default in ICX) and unset compilation
-  // directory EmitDwarfFileDirective will use new syntax for assembly
-  // .file directory:
-  //     .file 1 "directory" "file"
-  //
-  // Neither standard 'as' nor CSA simulator can handle this.
-  //
-  // If we set the compilation directory, and the file being compiled
-  // is located in the compilation folder, then the old syntax will be used.
-  // At the same time, even if we set the compilation directory,
-  // the new syntax will be used in cases, when the file is not
-  // in the compilation directory.  So the general fix is to use
-  // -fno-dwarf-directory-asm - see CMPLRS-49173.
-  //
-  // I think setting the compilation directory is the right thing to do
-  // anyway.
-  //
-  auto *SubProgram = MF->getFunction()->getSubprogram();
-  if (SubProgram &&
-      SubProgram->getUnit()->getEmissionKind() != DICompileUnit::NoDebug) {
-    MCDwarfLineTable &Table = OutStreamer->getContext().getMCDwarfLineTable(0);
-    Table.setCompilationDir(SubProgram->getUnit()->getDirectory());
-  }
-
   // If we're wrapping the CSA assembly we need to create our own
   // global symbol declaration
   if (CSAInstPrinter::WrapCsaAsm()) {
@@ -668,19 +678,15 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       if (!MRI->reg_empty(vreg) && LMFI->getIsDeclared(vreg)) {
         if (csa_utils::isAlwaysDataFlowLinkageSet()) {
           if (LMFI->getNumCallSites() == 0) {
-            const MachineInstr *entryMI = LMFI->getEntryMI();
-            const MachineInstr *returnMI = LMFI->getReturnMI();
             bool isParam = false;
-            for (unsigned i = 0; i < entryMI->getNumOperands(); ++i) {
-              unsigned reg = entryMI->getOperand(i).getReg();
-              if (reg == vreg) { isParam = true; break; }
+            for (auto LI = MRI->livein_begin(); LI != MRI->livein_end(); ++LI) {
+              unsigned t = LI->first;
+              if (t == vreg) {
+                isParam = true;
+                break;
+              }
             }
-            bool isResult = false;
-            for (unsigned i = 0; i < returnMI->getNumOperands(); ++i) {
-              unsigned reg = returnMI->getOperand(i).getReg();
-              if (reg == vreg) { isResult = true; break; }
-            }
-            if (isParam || isResult) continue;
+            if (isParam || (resultReg == vreg)) continue;
           }
         }
         if (!csa_utils::isAlwaysDataFlowLinkageSet() && !AllowUndefRegs)
@@ -741,7 +747,7 @@ void CSAAsmPrinter::EmitParamsResultsDecl(void) {
   
   // Emit CSA parameters
   if (returnMI)
-    for (unsigned i = 0; i < returnMI->getNumOperands(); ++i) {
+    for (int i = 0; i < returnMI->getNumOperands(); ++i) {
       unsigned reg = returnMI->getOperand(i).getReg();
       O << "\t.result .lic .i" << LMFI->getLICSize(reg) << " %" << LMFI->getLICName(reg) << "\n";
       if (i == 1) resultReg = reg;

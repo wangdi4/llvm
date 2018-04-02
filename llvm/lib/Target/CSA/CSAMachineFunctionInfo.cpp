@@ -15,13 +15,14 @@
 #include "CSASubtarget.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "CSAUtils.h"
 
 using namespace llvm;
 
 void CSAMachineFunctionInfo::anchor() {}
 
 CSAMachineFunctionInfo::CSAMachineFunctionInfo(MachineFunction &MF)
-    : MRI(MF.getRegInfo()), TII(MF.getSubtarget<CSASubtarget>().getInstrInfo()),
+    : MF(MF), MRI(MF.getRegInfo()), TII(MF.getSubtarget<CSASubtarget>().getInstrInfo()),
       nameCounter(0),
       FPFrameIndex(-1), RAFrameIndex(-1), VarArgsFrameIndex(-1) {}
 
@@ -56,31 +57,58 @@ CSAMachineFunctionInfo::licRCFromGenRC(const TargetRegisterClass *RC) {
   return NULL;
 }
 
+
+bool CSAMachineFunctionInfo::canDeleteLICReg(unsigned reg) const {
+  if (getIsGloballyVisible(reg)) return false;
+  for (MIOperands MO(*entryMI); MO.isValid(); ++MO) {
+    if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg()))
+      continue;
+    unsigned MOReg = MO->getReg();
+    if (MOReg == reg) return false;
+  }
+  for (MIOperands MO(*returnMI); MO.isValid(); ++MO) {
+    if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg()))
+      continue;
+    unsigned MOReg = MO->getReg();
+    if (MOReg == reg) return false;
+  }
+  return true;
+}
+
 unsigned CSAMachineFunctionInfo::allocateLIC(const TargetRegisterClass *RC,
-                                             const Twine &name) {
+                                             const Twine &name,
+                                             const Twine &fname,
+                                             bool isDeclared,
+                                             bool isGloballyVisible) {
   unsigned regno = MRI.createVirtualRegister(RC);
-  noteNewLIC(regno, TII->getSizeOfRegisterClass(RC), name);
+  noteNewLIC(regno, TII->getSizeOfRegisterClass(RC), name, fname);
+  getLICInfo(regno).isDeclared = isDeclared;
+  getLICInfo(regno).isGloballyVisible = isGloballyVisible;
   return regno;
 }
 
 void CSAMachineFunctionInfo::noteNewLIC(unsigned vreg, unsigned size,
-                                        const Twine &name) {
+                                        const Twine &name,
+                                        const Twine &fname) {
   if (name.isTriviallyEmpty()) {
     // Don't set empty names for now.
     // unsigned index = licInfo.size();
     // setLICName(vreg, (Twine("cv") + Twine(size) + "_" + Twine(index)));
   } else {
-    setLICName(vreg, name);
+    setLICName(vreg, name, fname);
   }
 }
 
 void CSAMachineFunctionInfo::setLICName(unsigned vreg,
-                                        const Twine &name) const {
+                                        const Twine &name,
+                                        const Twine &fname) const {
   if (TargetRegisterInfo::isPhysicalRegister(vreg))
     return;
-
+  std::string composed;  
+  Twine new_name;
   if (!name.isTriviallyEmpty()) {
-    std::string composed = name.str();
+    composed = name.str();
+    //std::string composed = new_name.str();
     for (auto &ch : composed) {
       if ('a' <= ch && ch <= 'z') continue;
       if ('A' <= ch && ch <= 'Z') continue;
@@ -90,6 +118,15 @@ void CSAMachineFunctionInfo::setLICName(unsigned vreg,
       ch = '_';
     }
     auto baseIndex = composed.size();
+    std::string fname_str;
+    if (fname.isTriviallyEmpty()) 
+      fname_str = MF.getFunction()->getName();
+    else
+      fname_str = fname.str();
+    if (csa_utils::isAlwaysDataFlowLinkageSet() && (composed.find(fname_str) != 0)) {
+      Twine new_name(Twine(fname_str) + Twine("_") + Twine(composed));
+      composed = new_name.str();
+    }   
     while (!namedLICs.insert(composed).second) {
       composed.resize(baseIndex);
       composed += std::to_string(++nameCounter);

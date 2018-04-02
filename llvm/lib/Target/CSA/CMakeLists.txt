@@ -34,8 +34,8 @@ add_llvm_target(CSACodeGen
   CSAMultiSeqPass.cpp
   CSANameLICs.cpp
   CSANormalizeDebugPass.cpp
-  CSAOMPAllocaTypeFixer.cpp
   CSAOptDFPass.cpp
+  CSAReassocReduc.cpp
   CSARedundantMovElim.cpp
   CSARegisterInfo.cpp
   CSASelectionDAGInfo.cpp
@@ -46,6 +46,8 @@ add_llvm_target(CSACodeGen
   CSASubtarget.cpp
   CSATargetMachine.cpp
   MachineCDG.cpp
+  CSAUtils.cpp
+  CSAProcedureCalls.cpp
   )
 
 add_subdirectory(AsmParser)

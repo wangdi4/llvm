@@ -18,6 +18,7 @@
 #include "CSAMachineFunctionInfo.h"
 #include "CSASubtarget.h"
 #include "CSATargetMachine.h"
+#include "CSAUtils.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
@@ -727,6 +728,11 @@ bool CSATargetLowering::isLegalAddressingMode(const DataLayout &DL,
 /// for tail call optimization.
 bool CSATargetLowering::IsEligibleForTailCallOptimization(
   unsigned NextStackOffset, const CSAMachineFunctionInfo &FI) const {
+  if (csa_utils::isAlwaysDataFlowLinkageSet()) {
+    DEBUG(errs() << "Tail call not supported for data flow linkage\n");
+    return false;
+  }
+        
   //  if (!EnableCSATailCalls)
   //    return false;
 
@@ -792,6 +798,9 @@ SDValue CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     }
   } else {
     // All arguments are treated the same.
+    if (csa_utils::isAlwaysDataFlowLinkageSet())
+      CCInfo.AnalyzeCallOperands(Outs, CC_LIC_CSA);
+    else
     CCInfo.AnalyzeCallOperands(Outs, CC_Reg_CSA);
   }
 
@@ -806,7 +815,7 @@ SDValue CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   if (isTailCall)
     ++NumTailCalls;
 
-  if (!isTailCall)
+  if (!csa_utils::isAlwaysDataFlowLinkageSet() && !isTailCall)
     Chain = DAG.getCALLSEQ_START(Chain, NumBytes, 0, dl);
 
   SDValue StackPtr =
@@ -925,6 +934,7 @@ SDValue CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   InFlag           = Chain.getValue(1);
 
   // Create the CALLSEQ_END node.
+  if (!csa_utils::isAlwaysDataFlowLinkageSet())
   Chain = DAG.getCALLSEQ_END(Chain, DAG.getIntPtrConstant(NumBytes, dl, true),
                              DAG.getIntPtrConstant(0, dl, true), InFlag, dl);
   if (!Ins.empty())
@@ -948,6 +958,9 @@ SDValue CSATargetLowering::LowerCallResult(
   CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(), RVLocs,
                  *DAG.getContext());
 
+  if (csa_utils::isAlwaysDataFlowLinkageSet())
+	  CCInfo.AnalyzeCallResult(Ins, RetCC_LIC_CSA);
+  else
   CCInfo.AnalyzeCallResult(Ins, RetCC_Reg_CSA);
 
   // Copy all of the result registers out of their specified physreg.
@@ -984,6 +997,9 @@ SDValue CSATargetLowering::LowerFormalArguments(
   CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(), ArgLocs,
                  *DAG.getContext());
 
+  if (csa_utils::isAlwaysDataFlowLinkageSet())
+	  CCInfo.AnalyzeFormalArguments(Ins, CC_LIC_CSA);
+  else
   CCInfo.AnalyzeFormalArguments(Ins, CC_Reg_CSA);
 
   SDValue StackPtr;
@@ -999,19 +1015,19 @@ SDValue CSATargetLowering::LowerFormalArguments(
       const TargetRegisterClass *tClass = &CSA::RI64RegClass;
       MVT tVT                           = VA.getValVT();
       if (tVT == MVT::i64) {
-        tClass = &CSA::RI64RegClass;
+        tClass = &CSA::I64RegClass;
       } else if (tVT == MVT::i32) {
-        tClass = &CSA::RI32RegClass;
+        tClass = &CSA::I32RegClass;
       } else if (tVT == MVT::i16) {
-        tClass = &CSA::RI16RegClass;
+        tClass = &CSA::I16RegClass;
       } else if (tVT == MVT::i8) {
-        tClass = &CSA::RI8RegClass;
+        tClass = &CSA::I8RegClass;
       } else if (tVT == MVT::i1) {
-        tClass = &CSA::RI1RegClass;
+        tClass = &CSA::I1RegClass;
       } else if (tVT == MVT::f64) {
-        tClass = &CSA::RI64RegClass;
+        tClass = &CSA::I64RegClass;
       } else if (tVT == MVT::f32) {
-        tClass = &CSA::RI32RegClass;
+        tClass = &CSA::I32RegClass;
       } else {
         llvm_unreachable("WTC!!");
       }
@@ -1087,8 +1103,10 @@ CSATargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                  *DAG.getContext());
 
   // Analize return values.
+  if (csa_utils::isAlwaysDataFlowLinkageSet())
+	  CCInfo.AnalyzeReturn(Outs, RetCC_LIC_CSA);
+  else
   CCInfo.AnalyzeReturn(Outs, RetCC_Reg_CSA);
-
   SDValue Flag;
   SmallVector<SDValue, 4> RetOps(1, Chain);
 

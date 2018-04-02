@@ -24,11 +24,8 @@
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
 #include "llvm/Analysis/OptimizationDiagnosticInfo.h"
-#include <vector>
-//#include "llvm/Support/Debug.h"
-//#include "llvm/Support/raw_ostream.h"
 
-//#include "llvm/Transforms/Scalar/LoopPassManager.h"
+#include <vector>
 
 
 using namespace llvm;
@@ -109,7 +106,7 @@ namespace {
               if(user_approach.compare_lower("cyclic")==0) {
                 spmd_approach = SPMD_CYCLIC;
               }
-              else if(user_approach.compare_lower("blocked")==0 || user_approach.compare_lower("blocking")==0) {
+              else if(user_approach.compare_lower("blocked")==0 || user_approach.compare_lower("blocking")==0 || user_approach.compare_lower("block")==0) {
                 spmd_approach = SPMD_BLOCKING;
               }
               else if(user_approach.compare_lower("hybrid")==0) {
@@ -666,6 +663,7 @@ PHINode *LoopSPMDization::getInductionVariable(Loop *L, ScalarEvolution *SE) {
 bool LoopSPMDization::TransformLoopInitandBound(Loop *L, ScalarEvolution *SE, int PE, int NPEs) {
   PHINode *InductionPHI = getInductionVariable(L, SE);
   BasicBlock *PreHeader = L->getLoopPreheader();
+  BasicBlock *Header = L->getHeader();
   BranchInst *PreHeaderBR = cast<BranchInst>(PreHeader->getTerminator());
   BasicBlock *Latch = L->getLoopLatch();
   BranchInst *LatchBR = cast<BranchInst>(Latch->getTerminator());
@@ -674,7 +672,10 @@ bool LoopSPMDization::TransformLoopInitandBound(Loop *L, ScalarEvolution *SE, in
     return false;
   }
   IRBuilder<> B(PreHeaderBR);
-  Cond = LatchBR->getCondition();
+  if(LatchBR->isConditional())
+    Cond = LatchBR->getCondition();
+  else
+    Cond = (cast<BranchInst>(Header->getTerminator()))->getCondition();
   Instruction *CondI = dyn_cast<Instruction>(Cond);
   if(PE == 0) {
     if (InductionPHI->getIncomingBlock(0) == PreHeader){
@@ -743,6 +744,7 @@ bool LoopSPMDization::TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int
   
   PHINode *InductionPHI = getInductionVariable(L, SE);
   BasicBlock *PreHeader = L->getLoopPreheader();
+  BasicBlock *Header = L->getHeader();
   BranchInst *PreHeaderBR = cast<BranchInst>(PreHeader->getTerminator());
   BasicBlock *Latch = L->getLoopLatch();
   if (!InductionPHI) {
@@ -800,7 +802,11 @@ Failed to find the loop induction variable.
   }
   
   BranchInst *LatchBR = cast<BranchInst>(Latch->getTerminator());
-  /*Value **/Cond = LatchBR->getCondition();
+  if(LatchBR->isConditional())
+    Cond = LatchBR->getCondition();
+  else
+    Cond = (cast<BranchInst>(Header->getTerminator()))->getCondition();
+  /*Value **///Cond = LatchBR->getCondition();
   Instruction *CondI = dyn_cast<Instruction>(Cond);
   bool cond_found_p = false;
   if(CondI->getOperand(0) == dyn_cast<Value>(OldInc) || CondI->getOperand(1) == dyn_cast<Value>(OldInc))

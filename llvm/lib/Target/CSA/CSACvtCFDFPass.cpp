@@ -16,6 +16,7 @@
 #include "CSA.h"
 #include "CSAInstrInfo.h"
 #include "CSATargetMachine.h"
+#include "CSAUtils.h"
 #include "InstPrinter/CSAInstPrinter.h"
 #include "MachineCDG.h"
 #include "llvm/ADT/PostOrderIterator.h"
@@ -150,6 +151,7 @@ public:
                                 MachineBasicBlock::iterator before,
                                 unsigned opcode,
                                 const SmallVector<MachineOperand *, 4> vals,
+                                SmallVector<MachineInstr *, 4> *created = nullptr,
                                 unsigned unusedReg = CSA::IGN);
   void generateCompletePickTreeForPhi(MachineBasicBlock *);
   void CombineDuplicatePickTreeInput();
@@ -1528,7 +1530,10 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
   }
   MachineOperand *haveTokens;
   if (newTokens.size()) {
-    haveTokens = createUseTree(mbb, lphdr->begin(), CSA::ALL0, newTokens);
+    SmallVector<MachineInstr *, 4> useTreeInstrs;
+    haveTokens = createUseTree(mbb, lphdr->begin(), CSA::ALL0, newTokens, &useTreeInstrs);
+    for (MachineInstr *newInst : useTreeInstrs)
+      LMFI->addLICAttribute(std::begin(newInst->defs())->getReg(), "csasim_ignore_on_exit");
   } else {
     // This can happen, right?
     assert(0 && "ILPL on loops with no outputs not yet supported");
@@ -1575,7 +1580,7 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
 MachineOperand *CSACvtCFDFPass::createUseTree(
     MachineBasicBlock *mbb, MachineBasicBlock::iterator before,
     unsigned opcode, const SmallVector<MachineOperand *, 4> vals,
-    unsigned unusedReg) {
+    SmallVector<MachineInstr *, 4> *created, unsigned unusedReg) {
 
   unsigned n = vals.size();
   assert(n && "Can't combine 0 values");
@@ -1618,8 +1623,12 @@ MachineOperand *CSACvtCFDFPass::createUseTree(
   // helps balance.
   fewerVals.push_back(&next->getOperand(0));
 
+  // Note new instruction for caller if requested.
+  if (created)
+    created->push_back(next);
+
   // Run again on the smaller vector.
-  return createUseTree(mbb, before, opcode, fewerVals, unusedReg);
+  return createUseTree(mbb, before, opcode, fewerVals, created, unusedReg);
 }
 
 /* Do a sweep over all instructions, looking for direct frame index uses. The
@@ -1723,7 +1732,8 @@ void CSACvtCFDFPass::assignLicForDF() {
           unsigned Reg = MO->getReg();
           pinedVReg.insert(Reg);
         }
-      } else if (MI->getOpcode() == CSA::JSR || MI->getOpcode() == CSA::JSRi) {
+      } else if (!csa_utils::isAlwaysDataFlowLinkageSet() &&
+        (MI->getOpcode() == CSA::JSR || MI->getOpcode() == CSA::JSRi)) {
         // function call inside control region need to run on SXU
         ControlDependenceNode *mnode = CDG->getNode(mbb);
         if (mnode->getNumParents() > 1 ||
@@ -1749,10 +1759,12 @@ void CSACvtCFDFPass::assignLicForDF() {
           mInst->getOpcode() == CSA::NOT1 || mInst->getOpcode() == CSA::LAND1 ||
           mInst->getOpcode() == CSA::LOR1 || mInst->getOpcode() == CSA::OR1 ||
           mInst->isCopy() || TII->isInit(mInst) || TII->isLoad(mInst) ||
-          TII->isStore(mInst)) {
+          TII->isStore(mInst) || mInst->getOpcode() == CSA::ALL0 ||
+          mInst->getOpcode() == CSA::MOV0) {
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           if (!MO->isReg() ||
-              !TargetRegisterInfo::isVirtualRegister(MO->getReg()))
+              !TargetRegisterInfo::isVirtualRegister(MO->getReg()) || 
+              (MRI->getRegClass(MO->getReg()) == &CSA::RI1RegClass))
             continue;
           if (TII->isLIC(*MO, *MRI))
             continue;
@@ -3656,6 +3668,7 @@ void CSACvtCFDFPass::nameLIC(unsigned vreg, const Twine &prefix,
     LMFI->setLICName(baseReg,
         "lic" + Twine(TargetRegisterInfo::virtReg2Index(vreg)));
 
+  if (vreg && LMFI->getLICName(vreg).empty())
   LMFI->setLICName(vreg,
       prefix +
       (baseReg ? LMFI->getLICName(baseReg) : "") +

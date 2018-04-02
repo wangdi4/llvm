@@ -253,6 +253,7 @@ public:
   bool isCmp(const MachineInstr *MI) const { return MI->isCompare(); }
   bool isAtomic(const MachineInstr *) const;
   bool isSeqOT(const MachineInstr *) const;
+  bool isReduction(const MachineInstr *) const;
 
   /// Returns true if the machine operation is pure. Pure operations will
   /// execute only when all LIC inputs have values and will output exactly one

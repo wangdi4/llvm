@@ -23,7 +23,7 @@
 
 #include "CSA.h"
 #include "CSATargetMachine.h"
-
+#include "CSAUtils.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -171,7 +171,7 @@ namespace {
 // The register class we are going to use for all the memory-op
 // dependencies.  Technically they could be I0, but I don't know how
 // happy LLVM will be with that.
-const TargetRegisterClass *MemopRC = &CSA::I1RegClass;
+const TargetRegisterClass *MemopRC = (csa_utils::isAlwaysDataFlowLinkageSet()) ? &CSA::CI1RegClass : &CSA::I1RegClass;
 
 // A type which represents a copy of the CFG with non-memory/non-intrinsic
 // operations stripped and with extra bookkeeping fields in each node to
@@ -2491,12 +2491,11 @@ unsigned MemopCFG::Node::get_none_init_mov_virtreg() {
 
   const CSAInstrInfo *TII = static_cast<const CSAInstrInfo *>(
     BB->getParent()->getSubtarget().getInstrInfo());
-  MachineRegisterInfo &MRI = BB->getParent()->getRegInfo();
+//RAVI   MachineRegisterInfo &MRI = BB->getParent()->getRegInfo();
   CSAMachineFunctionInfo *LMFI = BB->getParent()->getInfo<CSAMachineFunctionInfo>();
 
   // Otherwise, a new mov will need to be added.
-  none_init_mov = MRI.createVirtualRegister(MemopRC);
-  LMFI->setLICName(none_init_mov, "memop.none");
+  none_init_mov = LMFI->allocateLIC(MemopRC, "memop.none");
   BuildMI(*BB, BB->getFirstNonPHI(), DebugLoc{}, TII->get(CSA::MOV1),
           none_init_mov)
     .addImm(0);
@@ -2992,14 +2991,12 @@ void MemopCFG::emit_chains() {
   // All of the extra ordering instructions should be ready now. Assign virtual
   // registers to everything.
   MachineFunction *MF = nodes.front()->BB->getParent();
-  MachineRegisterInfo *MRI = &MF->getRegInfo();
+//RAVI  MachineRegisterInfo *MRI = &MF->getRegInfo();
   CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
   for (const std::unique_ptr<Node> &node : nodes) {
     uint32_t index = 0;
     for (PHI &phi : node->phis) {
-      phi.reg_no = MRI->createVirtualRegister(MemopRC);
-      LMFI->setLICName(phi.reg_no, Twine("memop.") + Twine(node->topo_num) +
-          "p" + Twine(index++));
+      phi.reg_no = LMFI->allocateLIC(MemopRC, Twine("memop.") + Twine(node->topo_num) + "p" + Twine(index++));
     }
     index = 0;
     for (Memop &memop : node->memops) {
@@ -3007,17 +3004,13 @@ void MemopCFG::emit_chains() {
       // Terminating mov0 memops need registers with a special class in order
       // to make sure they're on the SXU.
       if (not memop.MI and not memop.is_start) {
-        memop.reg_no = MRI->createVirtualRegister(&CSA::RI1RegClass);
+        memop.reg_no = LMFI->allocateLIC(&CSA::RI1RegClass, Twine("memop.") + Twine(node->topo_num) + "o" + Twine(index++));
       } else
-        memop.reg_no = MRI->createVirtualRegister(MemopRC);
-      LMFI->setLICName(memop.reg_no, Twine("memop.") + Twine(node->topo_num) +
-          "o" + Twine(index++));
+        memop.reg_no = LMFI->allocateLIC(MemopRC, Twine("memop.") + Twine(node->topo_num) + "o" + Twine(index++));
     }
     index = 0;
     for (Merge &merge : node->merges) {
-      merge.reg_no = MRI->createVirtualRegister(MemopRC);
-      LMFI->setLICName(merge.reg_no, Twine("memop.") + Twine(node->topo_num) +
-          "m" + Twine(index++));
+      merge.reg_no = LMFI->allocateLIC(MemopRC, Twine("memop.") + Twine(node->topo_num) + "m" + Twine(index++));
     }
   }
 

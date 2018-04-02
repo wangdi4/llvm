@@ -19,6 +19,7 @@
 #include "CSAInstrInfo.h"
 #include "CSAMachineFunctionInfo.h"
 #include "CSASubtarget.h"
+#include "CSAUtils.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -79,6 +80,8 @@ void CSAFrameLowering::emitPrologue(MachineFunction &MF,
     .addReg(CSA::SP)
     .addImm(StackSize);
 
+    // frame memory access is not yet supported
+    if (!csa_utils::isAlwaysDataFlowLinkageSet())
   if (MFI.hasCalls()) {
     assert(LMFI->getRAFrameIndex() != -1 &&
            "No spill location for Return Address created.");
@@ -173,6 +176,8 @@ void CSAFrameLowering::emitEpilogue(MachineFunction &MF,
       .addReg(CSA::IGN);
   }
 
+    // frame memory access is not yet supported
+    if (!csa_utils::isAlwaysDataFlowLinkageSet())
   if (MFI.hasCalls()) {
     assert(LMFI->getRAFrameIndex() != -1 &&
            "No spill location for Return Address created.");
@@ -211,6 +216,8 @@ void CSAFrameLowering::processFunctionBeforeFrameFinalized(
   if (hasFP(MF))
     LMFI->setFPFrameIndex(MFI.CreateSpillStackObject(8, 8));
 
+  // frame memory access is not yet supported
+  if (!csa_utils::isAlwaysDataFlowLinkageSet())
   if (MFI.hasCalls())
     LMFI->setRAFrameIndex(MFI.CreateSpillStackObject(8, 8));
 }

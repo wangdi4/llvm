@@ -19,8 +19,7 @@
 #include "CSAIntrinsicCleaner.h"
 #include "CSALoopIntrinsicExpander.h"
 #include "CSALowerAggrCopies.h"
-#include "CSAOMPAllocaTypeFixer.h"
-#include "CSA.h"
+#include "CSAUtils.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Bitcode/CSASaveRawBC.h"
 #include "llvm/CodeGen/AsmPrinter.h"
@@ -230,12 +229,23 @@ public:
     Banner = std::string("After CSAMultiSeqPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
+    
     addPass(createCSARedundantMovElimPass(), false);
     Banner = std::string("After CSARedundantMovElim");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
     addPass(createCSADeadInstructionElimPass(), false);
     Banner = std::string("After CSADeadInstructionElim");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+
+    if (csa_utils::isAlwaysDataFlowLinkageSet()) {
+      addPass(createCSAProcCallsPass(), false);
+      Banner = std::string("After CSAProcCallsPass");
+      DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    }
+
+    addPass(createCSAReassocReducPass(), false);
+    Banner = std::string("After CSAReassocReducPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
     addPass(createCSANormalizeDebugPass(), false);
@@ -266,8 +276,8 @@ public:
     // equivalent to the Bitcode emitted by the -flto option.
     addPass(createCSASaveRawBCPass());
 
-		// Do any necessary atomic expansion according to Subtarget features.
-		addPass(createAtomicExpandPass());
+    // Do any necessary atomic expansion according to Subtarget features.
+    addPass(createAtomicExpandPass());
 
     // Pass call onto parent
     TargetPassConfig::addIRPasses();
@@ -291,9 +301,9 @@ void CSATargetMachine::adjustPassManager(PassManagerBuilder &PMB) {
                      PM.add(createFortranIntrinsics());
 
                      // Add the pass to expand loop intrinsics
-                     PM.add(createCSAOMPAllocaTypeFixerPass());
-                     PM.add(createPromoteMemoryToRegisterPass());
+                     PM.add(createSROAPass());
                      PM.add(createLoopSimplifyPass());
+                     PM.add(createLICMPass());
                      PM.add(createCSALoopIntrinsicExpanderPass());
                    });
 }

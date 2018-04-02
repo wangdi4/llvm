@@ -495,6 +495,21 @@ bool CSAInstrInfo::isSeqOT(const MachineInstr *MI) const {
           (MI->getOpcode() <= CSA::SEQOTNE8));
 }
 
+bool CSAInstrInfo::isReduction(const MachineInstr *MI) const {
+  switch (getGenericOpcode(MI->getOpcode())) {
+  case CSA::Generic::SREDOR:
+  case CSA::Generic::SREDAND:
+  case CSA::Generic::SREDXOR:
+  case CSA::Generic::SREDADD:
+  case CSA::Generic::SREDSUB:
+  case CSA::Generic::SREDMUL:
+  case CSA::Generic::FMSREDA:
+    return true;
+  default:
+    return false;
+  }
+}
+
 bool CSAInstrInfo::isPure(const MachineInstr *MI) const {
   // TODO: This really should be generated from the tablegen. In theory, it
   // could be the negation of (mayLoad | mayStore | hasUnmodeledSideEffects),
@@ -584,16 +599,20 @@ unsigned CSAInstrInfo::commuteNegateCompareOpcode(unsigned cmp_opcode,
 
   switch (new_generic) {
   case CSA::Generic::CMPGE: // ">=" maps to "<="
-    new_generic = commute_compare_operands ? CSA::Generic::CMPLE : CSA::Generic::CMPGE;
+    new_generic =
+      commute_compare_operands ? CSA::Generic::CMPLE : CSA::Generic::CMPGE;
     break;
   case CSA::Generic::CMPGT: // ">" maps to "<"
-    new_generic = commute_compare_operands ? CSA::Generic::CMPLT : CSA::Generic::CMPGT;
+    new_generic =
+      commute_compare_operands ? CSA::Generic::CMPLT : CSA::Generic::CMPGT;
     break;
   case CSA::Generic::CMPLE: // "<=" maps to ">="
-    new_generic = commute_compare_operands ? CSA::Generic::CMPGE : CSA::Generic::CMPLE;
+    new_generic =
+      commute_compare_operands ? CSA::Generic::CMPGE : CSA::Generic::CMPLE;
     break;
   case CSA::Generic::CMPLT: // "<" maps to ">"
-    new_generic = commute_compare_operands ? CSA::Generic::CMPGT : CSA::Generic::CMPLT;
+    new_generic =
+      commute_compare_operands ? CSA::Generic::CMPGT : CSA::Generic::CMPLT;
     break;
   default:
     break;

@@ -79,24 +79,11 @@ MCSymbol *CSAMCInstLower::GetJumpTableSymbol(const MachineOperand &MO) const {
   // Create a symbol for the name.
   return Ctx.getOrCreateSymbol(Name.str());
 }
-/*
-MCSymbol *CSAMCInstLower::
-GetConstantPoolIndexSymbol(const MachineOperand &MO) const {
-  const DataLayout &DL = Printer.getDataLayout();
-  SmallString<256> Name;
-  raw_svector_ostream(Name) << DL.getPrivateGlobalPrefix() << "CPI"
-                            << Printer.getFunctionNumber() << '_'
-                            << MO.getIndex();
 
-  switch (MO.getTargetFlags()) {
-  default: llvm_unreachable("Unknown target flag on GV operand");
-  case 0: break;
-  }
-
-  // Create a symbol for the name.
-  return Ctx.getOrCreateSymbol(Name.str());
+MCSymbol *
+CSAMCInstLower::GetConstantPoolIndexSymbol(const MachineOperand &MO) const {
+  return Printer.GetCPISymbol(MO.getIndex());
 }
-*/
 
 MCSymbol *
 CSAMCInstLower::GetBlockAddressSymbol(const MachineOperand &MO) const {
@@ -197,10 +184,10 @@ void CSAMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
     case MachineOperand::MO_JumpTableIndex:
       MCOp = LowerSymbolOperand(MO, GetJumpTableSymbol(MO));
       break;
-      /*
     case MachineOperand::MO_ConstantPoolIndex:
       MCOp = LowerSymbolOperand(MO, GetConstantPoolIndexSymbol(MO));
       break;
+      /*
     case MachineOperand::MO_RegisterMask:
       continue;
       */
