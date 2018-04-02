@@ -257,18 +257,24 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_int GetPipeInfo(cl_mem pipe, cl_pipe_info paramName, size_t szParamValueSize, void *pParamValue, size_t* pszParamValueSizeRet);
 
-      ///////////////////////////////////////////////////////////////////////
-      // IntelFPGA functions
-      ///////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        // IntelFPGA functions
+        ///////////////////////////////////////////////////////////////////////
 
-      void* MapHostPipeIntelFPGA(cl_mem pipe, cl_map_flags flags,
-                                 size_t requestedSize, size_t* pMappedSize,
-                                 cl_int* pError);
-      cl_int UnmapHostPipeIntelFPGA( cl_mem pipe, void* pMappedPtr,
-                                     size_t sizeToUnmap,
-                                     size_t* pUnmappedSize);
-      cl_int ReadPipeIntelFPGA( cl_mem pipe, void* pDst );
-      cl_int WritePipeIntelFPGA( cl_mem pipe, const void* pSrc);
+        void* MapHostPipeIntelFPGA(cl_mem pipe, cl_map_flags flags,
+                                   size_t requestedSize, size_t* pMappedSize,
+                                   cl_int* pError);
+        cl_int UnmapHostPipeIntelFPGA( cl_mem pipe, void* pMappedPtr,
+                                       size_t sizeToUnmap,
+                                       size_t* pUnmappedSize);
+        cl_int ReadPipeIntelFPGA( cl_mem pipe, void* pDst );
+        cl_int WritePipeIntelFPGA( cl_mem pipe, const void* pSrc);
+        cl_int GetProfileDataDeviceIntelFPGA(
+            cl_device_id device_id, cl_program program,
+            cl_bool read_enqueue_kernels, cl_bool read_auto_enqueued,
+            cl_bool clear_counters_after_readback, size_t param_value_size,
+            void *param_value, size_t *param_value_size_ret,
+            cl_int *errcode_ret);
 
         ///////////////////////////////////////////////////////////////////////
         // Utility functions

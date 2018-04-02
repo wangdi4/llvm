@@ -613,6 +613,11 @@ TEST(FPGA, Test_ChannelDepthEmulationIgnoreDepthVPO)
         FPGAChannelDepthEmulationIgnoreDepthWithoutDepthVPO());
 }
 
+TEST(FrameworkTestType, Test_clGetProfileDataDeviceIntelFPGATest)
+{
+    clGetProfileDataDeviceIntelFPGATest();
+}
+
 #endif // BUILD_FPGA_EMULATOR
 
 TEST(FPGA, Test_checkFPGAExtensionNEGATIVE)

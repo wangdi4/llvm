@@ -3415,3 +3415,41 @@ cl_int CL_API_CALL clWritePipeIntelFPGA(cl_mem pipe, const void* ptr)
 }
 SET_ALIAS(clWritePipeIntelFPGA);
 REGISTER_EXTENSION_FUNCTION(clWritePipeIntelFPGA, clWritePipeIntelFPGA);
+
+cl_int CL_API_CALL clGetProfileDataDeviceIntelFPGA(
+    cl_device_id device_id, cl_program program, cl_bool read_enqueue_kernels,
+    cl_bool read_auto_enqueued, cl_bool clear_counters_after_readback,
+    size_t param_value_size, void* param_value, size_t* param_value_size_ret,
+    cl_int* errcode_ret)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clGetProfileDataDeviceIntelFPGA);
+        apiLogger << "cl_device_id device_id " << device_id
+                  << ", cl_program program " << program
+                  << ", cl_bool read_enqueue_kernels " << read_enqueue_kernels
+                  << ", cl_bool read_auto_enqueued " << read_auto_enqueued
+                  << ", cl_bool clear_counters_after_readback "
+                  << clear_counters_after_readback
+                  << ", size_t param_value_size " << param_value_size
+                  << ", void* param_value " << param_value
+                  << ", size_t* param_value_size_ret " << param_value_size_ret
+                  << ", cl_int* errcode_ret " << errcode_ret;
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int,
+                                     GetProfileDataDeviceIntelFPGA(
+              device_id, program, read_enqueue_kernels, read_auto_enqueued,
+              clear_counters_after_readback, param_value_size, param_value,
+              param_value_size_ret, errcode_ret));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int,
+                              GetProfileDataDeviceIntelFPGA(
+              device_id, program, read_enqueue_kernels, read_auto_enqueued,
+              clear_counters_after_readback, param_value_size, param_value,
+              param_value_size_ret, errcode_ret));
+    }
+}
+SET_ALIAS(clGetProfileDataDeviceIntelFPGA);
+REGISTER_EXTENSION_FUNCTION(clGetProfileDataDeviceIntelFPGA,
+                            clGetProfileDataDeviceIntelFPGA);

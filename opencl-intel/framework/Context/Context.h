@@ -397,6 +397,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
                               size_t sizeToUnmap, size_t* pUnmappedSize);
         cl_err_code ReadPipe(SharedPtr<Pipe>& pPipe, void* pDst);
         cl_err_code WritePipe(SharedPtr<Pipe>& pPipe, const void* pSrc);
+        cl_err_code GetProfileDataDevice(cl_device_id device_id,
+                                         cl_program program,
+                                         cl_bool read_enqueue_kernels,
+                                         cl_bool read_auto_enqueued,
+                                         cl_bool clear_counters_after_readback,
+                                         size_t param_value_size,
+                                         void* param_value,
+                                         size_t* param_value_size_ret,
+                                         cl_int* errcode_ret);
 
         // return access to context-specific OS event pool
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT

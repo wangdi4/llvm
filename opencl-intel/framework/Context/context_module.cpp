@@ -3485,6 +3485,34 @@ cl_int ContextModule::WritePipeIntelFPGA(cl_mem pipe, const void *pSrc)
     return pContext->WritePipe(pPipe, pSrc);
 }
 
+cl_int ContextModule::GetProfileDataDeviceIntelFPGA(cl_device_id device_id,
+                                     cl_program program,
+                                     cl_bool read_enqueue_kernels,
+                                     cl_bool read_auto_enqueued,
+                                     cl_bool clear_counters_after_readback,
+                                     size_t param_value_size,
+                                     void *param_value,
+                                     size_t *param_value_size_ret,
+                                     cl_int *errcode_ret)
+{
+    if (program == nullptr)
+    {
+        if (errcode_ret != nullptr)
+        {
+            *errcode_ret = CL_INVALID_PROGRAM;
+        }
+        return CL_INVALID_PROGRAM;
+    }
+
+    // Yet this implementation is a stub, so the function is just returning
+    // CL_INVALID_DEVICE for an FPGA emulator.
+    if (errcode_ret != nullptr)
+    {
+        *errcode_ret = CL_INVALID_DEVICE;
+    }
+    return CL_INVALID_DEVICE;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 //
 // Utility functions
