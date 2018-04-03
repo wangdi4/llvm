@@ -686,7 +686,7 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
         if (!csa_utils::isAlwaysDataFlowLinkageSet() && !AllowUndefRegs)
           assert(!MRI->def_empty(vreg) && "No definition for register");
         StringRef name = LMFI->getLICName(vreg);
-        if (name.empty()) {
+        if (!EmitRegNames || name.empty()) {
           LMFI->setLICName(vreg, Twine("cv") + Twine(LMFI->getLICSize(vreg)) +
                                    "_" + Twine(index));
         }
