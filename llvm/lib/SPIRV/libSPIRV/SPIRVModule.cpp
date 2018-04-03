@@ -80,7 +80,7 @@ public:
   bool exist(SPIRVId, SPIRVEntry **) const;
   SPIRVId getId(SPIRVId Id = SPIRVID_INVALID, unsigned Increment = 1);
   virtual SPIRVEntry *getEntry(SPIRVId Id) const;
-  bool hasDebugInfo() const { return !StringVec.empty();}
+  bool hasDebugInfo() const { return !DebugInstVec.empty(); }
 
   // Error handling functions
   SPIRVErrorLog &getErrorLog() { return ErrLog;}
@@ -133,6 +133,7 @@ public:
   const std::vector<SPIRVExtInst*>& getDebugInstVec() const {
     return DebugInstVec;
   }
+  const std::vector<SPIRVString *> &getStringVec() const { return StringVec; }
 
   // Module changing functions
   bool importBuiltinSet(const std::string &, SPIRVId *);

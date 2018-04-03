@@ -1438,10 +1438,19 @@ bool LLVMToSPIRV::transOCLKernelMetadata() {
   for (auto &F : *M) {
     if (F.getCallingConv() != CallingConv::SPIR_KERNEL)
       continue;
-
     SPIRVFunction *BF =
         static_cast<SPIRVFunction *>(getTranslatedValue(&F));
     assert(BF && "Kernel function should be translated first");
+
+    // Create 'OpString' to additionally store information about
+    // 'orignal' (typedef'ed, unsigned integers) type names of kernel arguments.
+    if (auto *KernelArgType = F.getMetadata(SPIR_MD_KERNEL_ARG_TYPE)) {
+      std::string KernelArgTypesStr =
+          std::string(SPIR_MD_KERNEL_ARG_TYPE) + "." + F.getName().str() + ".";
+      for (const auto &TyOp : KernelArgType->operands())
+        KernelArgTypesStr += cast<MDString>(TyOp)->getString().str() + ",";
+      BM->getString(KernelArgTypesStr);
+    }
 
     if (auto *KernelArgTypeQual = F.getMetadata(SPIR_MD_KERNEL_ARG_TYPE_QUAL)) {
       foreachKernelArgMD(
