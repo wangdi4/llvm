@@ -442,9 +442,6 @@ class HIRParser {
   /// definition or a use of GEP.
   RegDDRef *createGEPDDRef(const Value *Val, unsigned Level, bool IsUse);
 
-  /// Returns a RegDDRef representing this Null value.
-  RegDDRef *createUndefDDRef(Type *Type);
-
   /// Returns a RegDDRef representing this scalar value.
   RegDDRef *createScalarDDRef(const Value *Val, unsigned Level,
                               bool IsLval = false);
