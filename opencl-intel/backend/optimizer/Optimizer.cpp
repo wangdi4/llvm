@@ -160,10 +160,6 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
     PM->add(createVecClonePass());
 
   if (RunVPOParopt) {
-    if (OptLevel == 0) {
-      PM->add(llvm::createSROAPass());
-      PM->add(llvm::createEarlyCSEPass());
-    }
     PM->add(llvm::createLoopRotatePass(-1));
     PM->add(llvm::createVPOCFGRestructuringPass());
     PM->add(llvm::createVPOParoptPreparePass(RunVPOParopt));
