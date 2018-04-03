@@ -15,6 +15,7 @@
 
 using namespace llvm;
 using namespace llvm::loopopt;
+using namespace llvm::loopopt::distribute;
 
 cl::opt<bool>
     DisableDistLoopNest("disable-hir-loop-distribute-loopnest",
@@ -55,6 +56,8 @@ INITIALIZE_PASS_BEGIN(HIRLoopDistributionForLoopNest,
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRLoopDistributionForLoopNest,
                     "hir-loop-distribute-loopnest",
                     "HIR Loop Distribution LoopNest", false, false)

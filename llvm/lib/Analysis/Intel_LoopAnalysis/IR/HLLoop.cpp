@@ -49,7 +49,8 @@ void HLLoop::initialize() {
 HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
     : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
       NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false),
-      LoopMetadata(LLVMLoop->getLoopID()), MaxTripCountEstimate(0) {
+      DistributedForMemRec(false), LoopMetadata(LLVMLoop->getLoopID()),
+      MaxTripCountEstimate(0) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   SmallVector<BasicBlock *, 8> Exits;
@@ -68,7 +69,8 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
 HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
                RegDDRef *UpperDDRef, RegDDRef *StrideDDRef, unsigned NumEx)
     : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
-      NestingLevel(0), IsInnermost(true), IsNSW(false), LoopMetadata(nullptr),
+      NestingLevel(0), IsInnermost(true), IsNSW(false),
+      DistributedForMemRec(false), LoopMetadata(nullptr),
       MaxTripCountEstimate(0) {
   initialize();
   setNumExits(NumEx);
@@ -100,6 +102,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       NumExits(HLLoopObj.NumExits), NestingLevel(0), IsInnermost(true),
       IVType(HLLoopObj.IVType), IsNSW(HLLoopObj.IsNSW),
       LiveInSet(HLLoopObj.LiveInSet), LiveOutSet(HLLoopObj.LiveOutSet),
+      DistributedForMemRec(HLLoopObj.DistributedForMemRec),
       LoopMetadata(HLLoopObj.LoopMetadata),
       MaxTripCountEstimate(HLLoopObj.MaxTripCountEstimate),
       CmpDbgLoc(HLLoopObj.CmpDbgLoc), BranchDbgLoc(HLLoopObj.BranchDbgLoc) {
@@ -131,6 +134,7 @@ HLLoop &HLLoop::operator=(HLLoop &&Lp) {
   OrigLoop = Lp.OrigLoop;
   IVType = Lp.IVType;
   IsNSW = Lp.IsNSW;
+  DistributedForMemRec = Lp.DistributedForMemRec;
   LoopMetadata = Lp.LoopMetadata;
   MaxTripCountEstimate = Lp.MaxTripCountEstimate;
 
@@ -1113,12 +1117,18 @@ void HLLoop::markDoNotVectorize() {
   addLoopMetadata(MDs);
 }
 
-bool HLLoop::canNormalize() const {
+bool HLLoop::canNormalize(const CanonExpr *LowerCE) const {
+
   if (isUnknown()) {
     return false;
   }
 
-  const CanonExpr *LowerCE = getLowerCanonExpr();
+  // If LB not supplied, get it from Loop
+  // For stripmining code, the LB is constructed later in the loop
+  // we know it can be normalized
+  if (!LowerCE) {
+    LowerCE = getLowerCanonExpr();
+  }
 
   assert(CanonExprUtils::mergeable(LowerCE, getUpperCanonExpr(), false) &&
          "Lower and Upper are expected to be always mergeable");
@@ -1241,6 +1251,44 @@ bool HLLoop::normalize() {
   LoopsNormalized++;
 
   return true;
+}
+
+bool HLLoop::canStripmine(unsigned StripmineSize, bool &NotRequired) {
+
+  uint64_t TripCount;
+
+  assert(isNormalized() &&
+         "Loop needs stripmine are expected to be normalized");
+
+  if (isConstTripLoop(&TripCount) && (TripCount <= StripmineSize)) {
+    NotRequired = true;
+    return true;
+  }
+
+  NotRequired = false;
+
+  unsigned Level = getNestingLevel();
+  if (Level == MaxLoopNestLevel) {
+    return false;
+  }
+
+  bool Result = true;
+  // Check out if loop can be mormalized before proceeding
+  // Need to create a new LB
+
+  CanonExpr *LBCE = getLowerDDRef()->getSingleCanonExpr();
+
+  CanonExpr *CE = LBCE->clone();
+  CE->clear();
+
+  //  64*i1
+  CE->setIVConstCoeff(Level, StripmineSize);
+  if (!canNormalize(CE)) {
+    Result = false;
+  }
+
+  getCanonExprUtils().destroy(CE);
+  return Result;
 }
 
 HLIf *HLLoop::getBottomTest() {
@@ -1422,4 +1470,3 @@ void LoopOptReportTraits<HLLoop>::traverseChildLoopsBackward(
                                                 Loop.getLastChild());
   }
 }
-

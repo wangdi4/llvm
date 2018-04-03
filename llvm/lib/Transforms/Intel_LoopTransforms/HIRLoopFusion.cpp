@@ -603,6 +603,7 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
     LoopOptReportBuilder &LORBuilder = HIR->getLORBuilder();
 
     if (FNode.loops().size() > 1) {
+
       bool IsReportOn = LORBuilder.isLoopOptReportOn();
       SmallString<32> FuseNums;
       raw_svector_ostream VOS(FuseNums);
@@ -622,6 +623,14 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
             }
           }
         }
+      }
+
+      // Need to invalidate all loops except first one
+      for (auto LpIt = FNode.loops().begin() + 1, End = FNode.loops().end();
+           LpIt != End; ++LpIt) {
+
+        HLLoop *Lp = *LpIt;
+        HIRInvalidationUtils::invalidateBody(Lp);
       }
 
       // Traverse in reverse order in order to correctly preserve the lost loop

@@ -21,9 +21,9 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/ADT/Statistic.h"
-#include <llvm/IR/IntrinsicInst.h>
 #include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
 #include "llvm/Support/Debug.h"
+#include <llvm/IR/IntrinsicInst.h>
 
 #include <memory>
 
@@ -612,9 +612,8 @@ HLInst *HLNodeUtils::createShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
   auto UndefVal = UndefValue::get(OpRef1->getDestType());
   auto MaskUndefVal = UndefValue::get(Mask->getDestType());
 
-  Value *InstVal =
-      DummyIRBuilder->CreateShuffleVector(UndefVal, UndefVal, MaskUndefVal,
-                                          Name);
+  Value *InstVal = DummyIRBuilder->CreateShuffleVector(UndefVal, UndefVal,
+                                                       MaskUndefVal, Name);
   Instruction *Inst = cast<Instruction>(InstVal);
 
   assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
@@ -859,6 +858,43 @@ HLInst *HLNodeUtils::createSelect(const HLPredicate &Pred, RegDDRef *OpRef1,
   HInst->setOperandDDRef(OpRef4, 4);
 
   return HInst;
+}
+
+static PredicateTy getMinMaxPredKind(RegDDRef *Ref, bool IsSigned,
+                                     bool IsFPOrdered) {
+  PredicateTy PredKind;
+
+  if (Ref->getDestType()->isFloatingPointTy()) {
+    PredKind = IsFPOrdered ? PredicateTy::FCMP_OLE : PredicateTy::FCMP_ULE;
+  } else {
+    PredKind = IsSigned ? PredicateTy::ICMP_SLE : PredicateTy::ICMP_ULE;
+  }
+
+  return PredKind;
+}
+
+HLInst *HLNodeUtils::createMin(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                               RegDDRef *LvalRef, bool IsSigned,
+                               bool IsFPOrdered, FastMathFlags FMF,
+                               const Twine &Name) {
+  PredicateTy PredKind = getMinMaxPredKind(OpRef1, IsSigned, IsFPOrdered);
+
+  HLPredicate Pred(PredKind, FMF);
+
+  return createSelect(Pred, OpRef1, OpRef2, OpRef1->clone(), OpRef2->clone(),
+                      Name, LvalRef);
+}
+
+HLInst *HLNodeUtils::createMax(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                               RegDDRef *LvalRef, bool IsSigned,
+                               bool IsFPOrdered, FastMathFlags FMF,
+                               const Twine &Name) {
+  PredicateTy PredKind = getMinMaxPredKind(OpRef1, IsSigned, IsFPOrdered);
+
+  HLPredicate Pred(PredKind, FMF);
+
+  return createSelect(Pred, OpRef1, OpRef2, OpRef2->clone(), OpRef1->clone(),
+                      Name, LvalRef);
 }
 
 std::pair<HLInst *, CallInst *>

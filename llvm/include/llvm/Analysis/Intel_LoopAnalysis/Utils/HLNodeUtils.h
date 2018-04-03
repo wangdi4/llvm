@@ -755,6 +755,22 @@ public:
                        const Twine &Name = "select",
                        RegDDRef *LvalRef = nullptr);
 
+  /// Creates a select instruction representing a min operation:
+  /// OpRef1 <(=) OpRef2 ? OpRef1 : OpRef2
+  HLInst *createMin(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                    RegDDRef *LvalRef = nullptr, bool IsSigned = true,
+                    bool IsFPOrdered = true,
+                    FastMathFlags FMF = FastMathFlags(),
+                    const Twine &Name = "min");
+
+  /// Creates a select instruction representing a max operation:
+  /// OpRef1 <(=) OpRef2 ? OpRef2 : OpRef1
+  HLInst *createMax(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                    RegDDRef *LvalRef = nullptr, bool IsSigned = true,
+                    bool IsFPOrdered = true,
+                    FastMathFlags FMF = FastMathFlags(),
+                    const Twine &Name = "max");
+
   /// Creates a new Call instruction.
   HLInst *createCall(Function *F, const SmallVectorImpl<RegDDRef *> &CallArgs,
                      const Twine &Name = "call", RegDDRef *LvalRef = nullptr);

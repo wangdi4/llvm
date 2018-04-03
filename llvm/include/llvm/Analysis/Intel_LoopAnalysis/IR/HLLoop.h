@@ -109,6 +109,8 @@ private:
   // Set of temp symbases live out of the loop.
   LiveOutSetTy LiveOutSet;
 
+  // Loop distributed for Memory recurrence
+  bool DistributedForMemRec;
   // Associated !llvm.loop metadata.
   MDNode *LoopMetadata;
 
@@ -629,7 +631,11 @@ public:
 
   unsigned getMVTag() const { return MVTag; }
 
+  bool isDistributedForMemRec() const { return DistributedForMemRec; }
+
   void setMVTag(unsigned Tag) { MVTag = Tag; }
+
+  void setDistributedForMemRec() { DistributedForMemRec = true; }
 
   /// return true if Triangular Loop
   bool isTriangularLoop() const;
@@ -767,8 +773,15 @@ public:
   /// Marks loop to do not vectorize.
   void markDoNotVectorize();
 
-  bool canNormalize() const;
+  /// Supply Loop Lower Bound CanonExpr when normalization is using
+  /// that instead of the one in the Loop
+  bool canNormalize(const CanonExpr *LowerCE = nullptr) const;
+
   bool normalize();
+
+  /// return false if loop cannot be stripmined - some stripmined
+  /// loop cannot be normalized. NotRequired set for tripCnt <= StripmineSize
+  bool canStripmine(unsigned StripmineSize, bool &NotRequired);
 
   const DebugLoc &getCmpDebugLoc() const { return CmpDbgLoc; }
   void setCmpTestDebugLoc(const DebugLoc &Loc) { CmpDbgLoc = Loc; }
@@ -830,11 +843,11 @@ template <> struct LoopOptReportTraits<loopopt::HLLoop> {
 };
 
 template <>
-struct DenseMapInfo<loopopt::HLLoop*>
+struct DenseMapInfo<loopopt::HLLoop *>
     : public loopopt::DenseHLNodeMapInfo<loopopt::HLLoop> {};
 
 template <>
-struct DenseMapInfo<const loopopt::HLLoop*>
+struct DenseMapInfo<const loopopt::HLLoop *>
     : public loopopt::DenseHLNodeMapInfo<const loopopt::HLLoop> {};
 
 } // End namespace llvm

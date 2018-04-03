@@ -120,6 +120,10 @@ public:
       : Src(Start), Sink(End), DDEdges(EdgeList.begin(), EdgeList.end()) {
     assert(Start && End && "Null src/sink for pi edge");
   }
+
+  PiGraphEdge(PiBlock *Start, PiBlock *End) : Src(Start), Sink(End) {
+    assert(Start && End && "Null src/sink for pi edge");
+  }
 };
 
 // PiGraph is a DAG of piblocks. PiEdges represent a set of dd constraints
@@ -163,8 +167,9 @@ class PiGraph : public HIRGraph<PiBlock, PiGraphEdge> {
   DistPPGraph *PPGraph;
 
 public:
-  PiGraph(HLLoop *Loop, HIRDDAnalysis *DDA) {
-    PPGraph = new DistPPGraph(Loop, DDA);
+  PiGraph(HLLoop *Loop, HIRDDAnalysis *DDA, bool ForceCycleForLoopIndepDep) {
+
+    PPGraph = new DistPPGraph(Loop, DDA, ForceCycleForLoopIndepDep);
 
     if (!isGraphValid()) {
       return;
@@ -194,9 +199,9 @@ public:
   unsigned size() { return PiBlocks.size(); }
 
   void dump() {
-    dbgs() << "Proposed order\n";
+    dbgs() << "\nProposed order\n";
     for (auto NI = PiBlocks.begin(), NE = PiBlocks.end(); NI != NE; ++NI) {
-      dbgs() << "PiBlock: \n";
+      dbgs() << "\nPiBlock: \n";
       (*NI)->dump();
     }
   }
@@ -218,7 +223,7 @@ private:
   }
 };
 
-} // loopopt
+} // namespace loopopt
 //===--------------------------------------------------------------------===//
 // GraphTraits specializations for PiGraph. This will allow us to use
 // Graph algorithm iterators such as SCCIterator. Must be in same namespace
@@ -260,6 +265,6 @@ template <> struct GraphTraits<loopopt::PiGraph *> {
 
   static unsigned size(loopopt::PiGraph *G) { return G->size(); }
 };
-} /// llvm
+} // namespace llvm
 
 #endif

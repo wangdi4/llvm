@@ -19,12 +19,24 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopDistributionGraph.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopResource.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 namespace loopopt {
+
+namespace distribute {
+const unsigned MaxDistributedLoop = 25;
+const unsigned MaxArrayTempsAllowed = 50;
+const unsigned SmallTripCount = 16;
+const unsigned StripmineSize = 64;
+const unsigned MaxMemResourceToDistribute = 20;
+// For stress testing, use small max resource
+// const unsigned MaxMemResourceToDistribute = 2;
 
 enum class DistHeuristics : unsigned char {
   NotSpecified = 0, // Default enum for command line option. Will be overridden
@@ -32,11 +44,12 @@ enum class DistHeuristics : unsigned char {
   MaximalDist,      // Everytime you can, do it. Testing only
   NestFormation,    // Try to form perfect loop nests
   BreakMemRec,      // Break recurrence among mem refs ie A[i] -> A[i+i]
-  BreakScalarRec,   // Break recurrence among scalars. Requires scalar expansion
+  BreakScalarRec    // Break recurrence among scalars. Requires scalar expansion
 };
 
 class HIRLoopDistribution : public HIRTransformPass {
   typedef SmallVector<PiBlock *, 4> PiBlockList;
+  typedef DDRefGatherer<RegDDRef, TerminalRefs> TerminalRefGatherer;
 
 public:
   HIRLoopDistribution(char &ID, DistHeuristics DistCostModel)
@@ -49,14 +62,26 @@ public:
     // HLNodeUtils::dominates() utility. This is a workaround to keep the pass
     // manager from freeing it.
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
   }
   int OptReportLevel = 1;
 
 private:
   Function *F;
   HIRDDAnalysis *DDA;
+  HIRSafeReductionAnalysis *SRA;
+  HLNodeUtils *HNU;
+  HIRLoopResource *HLR;
   DistHeuristics DistCostModel;
+  unsigned AllocaBlobIdx;
+  unsigned NumArrayTemps;
+  unsigned LastLoopNum;
+  unsigned LoopLevel;
+  HLRegion *RegionNode;
+  HLLoop *NewLoops[MaxDistributedLoop];
+  SmallVector<unsigned, 12> TempArraySB;
 
   void findDistPoints(const HLLoop *L, std::unique_ptr<PiGraph> const &PGraph,
                       SmallVectorImpl<PiBlockList> &DistPoints) const;
@@ -86,9 +111,28 @@ private:
   // Uses ordered list of PiBlockLists to form distributed version of Loop.
   // Each PiBlockList will form a new loop(with same bounds as Loop) containing
   // each piblock's hlnodes.
-  void distributeLoop(HLLoop *L, SmallVectorImpl<PiBlockList> &DistPoints,
+
+  bool distributeLoop(HLLoop *L, SmallVectorImpl<PiBlockList> &DistPoints,
                       LoopOptReportBuilder &LORBuilder);
+
+  // Create an assignment TEMP[i] = temp
+  RegDDRef *createTempArrayStore(RegDDRef *TempRef);
+
+  // Create an assignment  temp = TEMP[i]
+  void createTempArrayLoad(RegDDRef *TempRef, RegDDRef *TempArrayRef);
+
+  // After scalar expansion, scalar temps is need to be replaced with Array Temp
+  void replaceWithArrayTemp(TerminalRefGatherer::VectorTy *Refs);
+
+  // Do not distribute if number of array temps exceeded
+  bool arrayTempExceeded(unsigned LastLoopNum, unsigned &NumArrayTemps,
+                         TerminalRefGatherer::VectorTy *Refs);
+
+  // After calling Stripmining util, temp iv coeffs need to fixed
+  // as single IV:  TEMP[i2], while other indexes have i1, i2
+  void fixTempArrayCoeff(HLLoop *Loop);
 };
+} // namespace distribute
 } // namespace loopopt
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLOOPDISTRIBUTION_H

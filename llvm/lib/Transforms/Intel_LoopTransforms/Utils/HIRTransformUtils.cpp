@@ -13,11 +13,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
@@ -626,4 +627,176 @@ void UpdateDDRefForLoopPermutation::updateCE(CanonExpr *CE,
     CE->removeIV(OL);
     CE->addIV(OL, BlobCoeff[NL - 1], ConstCoeff[NL - 1]);
   }
+}
+
+void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
+                                  unsigned StripmineSize) {
+
+  //  Utility that can be shared by distribution and blocking
+  //  Distribution has a sequence of loops
+  //  Blocking normally has one -  FirstLoop == LastLoop
+  //
+  //  Returns true when Stripmine is performed
+  //
+  //    DO i1=0,N-1
+  //      A[i1] =
+  //    ENDDO
+  //    DO i1=0,N-1
+  //      A[i1] += 1
+  //    ENDDO
+  //  ==>
+  //    First form a loop to enclose the input loops
+  //    DO i1=0,N-1
+  //      DO i2=0,N-1
+  //         A[i1] =
+  //      ENDDO
+  //      DO i2=0,N-1
+  //        ...
+  //  ==>
+  //    Before normalization, assuming  StripmineSize = 64
+  //    It is changed as
+  //    DO i1=0, (N-1) / 64
+  //       N2 = min(-64 *i1 + N-1, 64-1)
+  //       do i2=64*i1, 64*i1 + N2
+  //          A[i2] = 1
+
+  uint64_t TripCount;
+
+  // Caller should call canStripmine before
+  assert(!(FirstLoop->isConstTripLoop(&TripCount) &&
+           (TripCount <= StripmineSize)) &&
+         "Caller should call scanStripmine first");
+
+  HLNodeUtils *HNU = &(FirstLoop->getHLNodeUtils());
+  unsigned Level = FirstLoop->getNestingLevel();
+
+  HLLoop *NewLoop = FirstLoop->cloneEmptyLoop();
+
+  HLNodeUtils::insertBefore(FirstLoop, NewLoop);
+
+  HLNodeUtils::moveAsLastChildren(NewLoop, FirstLoop->getIterator(),
+                                  std::next(LastLoop->getIterator()));
+
+  // Move Preheader of Firstloop to NewLoop
+  // Move Postexit  of Lastloop to NewLoop
+  // This is sufficent for current processing, subject to new requirements
+  // when blocking is extended for multiple loop nests
+
+  HNU->moveAsFirstPreheaderNodes(NewLoop, FirstLoop->pre_begin(),
+                                 FirstLoop->pre_end());
+
+  HNU->moveAsFirstPostexitNodes(NewLoop, LastLoop->post_begin(),
+                                LastLoop->post_end());
+
+  for (auto It = NewLoop->child_begin(), E = NewLoop->child_end(); It != E;
+       ++It) {
+    HLNode *NodeI = &(*It);
+    HLLoop *Lp = dyn_cast<HLLoop>(NodeI);
+    if (Lp) {
+      HIRTransformUtils::updateStripminedLoopCE(Lp);
+    }
+  }
+
+  RegDDRef *UBRef = NewLoop->getUpperDDRef();
+  RegDDRef *MinOpRef1 = UBRef->clone();
+  RegDDRef *MinOpRef2;
+  CanonExpr *LBCE = NewLoop->getLowerDDRef()->getSingleCanonExpr();
+  CanonExpr *UBCE = NewLoop->getUpperDDRef()->getSingleCanonExpr();
+
+  int64_t UBDenom = UBCE->getDenominator();
+
+  //  UB / StripmineSize: (N-1) / 64
+  UBCE->divide(StripmineSize);
+  UBCE->simplify(true);
+
+  // -StripmineSize *i1 + UB
+  //  Need to convert from unsign to sign first
+  //  Result expression needs to acconut for non-1 denom
+
+  int64_t Coeff = StripmineSize * UBDenom;
+  MinOpRef1->getSingleCanonExpr()->setIVConstCoeff(Level, -Coeff);
+
+  MinOpRef1->setSymbase(GenericRvalSymbase);
+
+  // 64-1
+  MinOpRef2 = UBRef->getDDRefUtils().createConstDDRef(MinOpRef1->getDestType(),
+                                                      StripmineSize - 1);
+
+  HLInst *MinInst = HNU->createMin(MinOpRef1, MinOpRef2);
+  HLNodeUtils::insertAsFirstChild(NewLoop, MinInst);
+  RegDDRef *LBRef = UBRef->getDDRefUtils().createRegDDRef(GenericRvalSymbase);
+
+  CanonExpr *InnerLoopLBCE = UBRef->getCanonExprUtils().createExtCanonExpr(
+      LBCE->getSrcType(), LBCE->getDestType(), LBCE->isSExt());
+  //  64*i1
+  InnerLoopLBCE->setIVConstCoeff(Level, StripmineSize);
+  LBRef->setSingleCanonExpr(InnerLoopLBCE);
+
+  UBRef = LBRef->clone();
+  RegDDRef *BlobRef = MinInst->getLvalDDRef();
+  unsigned BlobIndex = BlobRef->getSingleCanonExpr()->getSingleBlobIndex();
+
+  // 64*i1 + N2
+
+  UBRef->getSingleCanonExpr()->setBlobCoeff(BlobIndex, 1);
+  UBRef->addBlobDDRef(BlobIndex, Level);
+
+  // Normalize code will set linear at level
+  for (auto It = NewLoop->child_begin(), E = NewLoop->child_end(); It != E;
+       ++It) {
+    HLNode *NodeI = &(*It);
+    HLLoop *Lp = dyn_cast<HLLoop>(NodeI);
+    if (!Lp) {
+      continue;
+    }
+    // Set Loop Bounds
+    RegDDRef *LBRef2;
+    RegDDRef *UBRef2;
+    LBRef2 = LBRef->clone();
+    UBRef2 = UBRef->clone();
+    Lp->setLowerDDRef(LBRef2);
+    Lp->setUpperDDRef(UBRef2);
+
+    // Normalize
+    bool Result = Lp->normalize();
+    assert(Result && "Not expecting cannot be normalized");
+    (void)Result;
+
+    // Copy LiveInOut to enclosing loop
+    for (auto LiveIn : make_range(Lp->live_in_begin(), Lp->live_in_end())) {
+      NewLoop->addLiveInTemp(LiveIn);
+    }
+    for (auto LiveOut : make_range(Lp->live_out_begin(), Lp->live_out_end())) {
+      NewLoop->addLiveOutTemp(LiveOut);
+    }
+  }
+}
+
+void HIRTransformUtils::updateStripminedLoopCE(HLLoop *Loop) {
+
+  // Update Inner loop CannonExpr  i1 -> i2
+  unsigned ParentLevel = Loop->getNestingLevel() - 1;
+  //   One more nest created. IV level needs to be increased
+  //   e.g. from  3*i3+ 2*i2 to  3*i4+ 2*i3
+
+  ForEach<HLDDNode>::visitRange(
+      Loop->child_begin(), Loop->child_end(), [ParentLevel](HLDDNode *Node) {
+        for (RegDDRef *Ref :
+             llvm::make_range(Node->ddref_begin(), Node->ddref_end())) {
+          for (CanonExpr *CE :
+               llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
+            unsigned BlobIndex;
+            int64_t Coeff;
+            for (unsigned Lvl = MaxLoopNestLevel - 1; Lvl >= ParentLevel;
+                 --Lvl) {
+              CE->getIVCoeff(Lvl, &BlobIndex, &Coeff);
+              if (Coeff == 0) {
+                continue;
+              }
+              CE->removeIV(Lvl);
+              CE->setIVCoeff(Lvl + 1, BlobIndex, Coeff);
+            }
+          }
+        }
+      });
 }

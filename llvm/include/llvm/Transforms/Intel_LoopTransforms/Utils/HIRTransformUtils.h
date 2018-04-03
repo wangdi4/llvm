@@ -79,6 +79,9 @@ private:
                                    uint64_t NewTripCount,
                                    const RegDDRef *NewTCRef);
 
+  /// \brief Update CE for stripmined Loops
+  static void updateStripminedLoopCE(HLLoop *Loop);
+
 public:
   ///
   /// Do Reversal Tests for a given HIR inner-most loop and return true if
@@ -248,6 +251,10 @@ public:
   /// Updates target HLLabel in every HLGoto node according to the mapping.
   static void remapLabelsRange(const HLNodeMapper &Mapper, HLNode *Begin,
                                HLNode *End);
+
+  ///  Perform Stripmine.
+  static void stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
+                        unsigned StripmineSize);
 };
 
 } // End namespace loopopt

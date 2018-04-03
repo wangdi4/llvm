@@ -83,12 +83,12 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/AllSCCIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
+#include "llvm/Support/Debug.h"
 
 #include <algorithm>
 namespace llvm {
@@ -144,14 +144,15 @@ template <typename PPNode> struct DenseDistPPNodeMapInfo {
 
   static bool isEqual(const T *LHS, const T *RHS) { return LHS == RHS; }
 };
-}
+} // namespace loopopt
 
-template <> struct DenseMapInfo<loopopt::DistPPNode *> :
-public loopopt::DenseDistPPNodeMapInfo<loopopt::DistPPNode> {};
+template <>
+struct DenseMapInfo<loopopt::DistPPNode *>
+    : public loopopt::DenseDistPPNodeMapInfo<loopopt::DistPPNode> {};
 
-template <> struct DenseMapInfo<const loopopt::DistPPNode *> :
-public loopopt::DenseDistPPNodeMapInfo<const loopopt::DistPPNode> {};
-
+template <>
+struct DenseMapInfo<const loopopt::DistPPNode *>
+    : public loopopt::DenseDistPPNodeMapInfo<const loopopt::DistPPNode> {};
 
 namespace loopopt {
 // Edges in DistPPGraph. Represents a list of dd edges between two DistPPNodes
@@ -199,7 +200,7 @@ public:
 
   DenseMap<HLNode *, DistPPNode *> &getNodeMap() { return HLToDistPPNodeMap; }
 
-  DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA);
+  DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA, bool ForceCycleForLoopIndepDep);
 
   // TODO destruction needs to be handled carefully if we want
   // to reuse graph from inner loop dist in outer loop distribution
@@ -223,223 +224,7 @@ private:
   std::string FailureString;
   bool GraphValidity = true;
 };
-
-// Walks all hlnodes and creates DistPPNodes in member DistPPGraph for them
-struct DistributionNodeCreator final : public HLNodeVisitorBase {
-
-  DistPPGraph *DGraph;
-  DistPPNode *CurDistPPNode;
-
-  bool isDone() const { return !DGraph->isGraphValid(); }
-
-  // establishes HLNode's corresponding DistPPNode
-  void addToNodeMap(DistPPNode *DNode, HLNode *HNode) {
-    assert(DNode && "Null Dist Node");
-    DGraph->getNodeMap()[HNode] = DNode;
-  }
-
-  DistributionNodeCreator(DistPPGraph *G) : DGraph(G), CurDistPPNode(nullptr) {}
-
-  void visitDistPPNode(HLNode *HNode, HLNode *ParentNode = nullptr) {
-
-    // if CurDistPPNode is set it means we are visiting
-    // children of an hlnode. Our distPPNode should be
-    // our parent hlnode's distPPNode, which is CurDistPPNode
-    if (!CurDistPPNode) {
-      CurDistPPNode = new DistPPNode(ParentNode ? ParentNode : HNode, DGraph);
-      DGraph->addNode(CurDistPPNode);
-    }
-
-    addToNodeMap(CurDistPPNode, HNode);
-  }
-
-  void postVisitDistPPNode(HLNode *HNode) {
-    // We are done visiting an hlnode's children
-    // Clear CurDistPPNode so that we create new DistPPNodes
-    if (CurDistPPNode->HNode == HNode) {
-      CurDistPPNode = nullptr;
-    }
-  }
-
-  void visit(HLLoop *L) { visitDistPPNode(L); }
-  void postVisit(HLLoop *L) {
-    if (!L->hasPostexit()) {
-      postVisitDistPPNode(L);
-    }
-  }
-
-  void visit(HLIf *If) { visitDistPPNode(If); }
-  void postVisit(HLIf *If) { postVisitDistPPNode(If); }
-
-  void visit(HLSwitch *Switch) { visitDistPPNode(Switch); }
-  void postVisit(HLSwitch *Switch) { postVisitDistPPNode(Switch); }
-  void visit(HLInst *I) {
-    if (isa<CallInst>(I->getLLVMInstruction())) {
-      DGraph->setInvalid("Cannot distribute loops with calls");
-      return;
-    }
-    HLLoop *ParentLoop = I->getParentLoop();
-
-    if (ParentLoop && ParentLoop->hasPreheader() &&
-        (ParentLoop->getFirstPreheaderNode() == I)) {
-      // Use loop for the DistPPNode starting from the first preheader node.
-      visitDistPPNode(I, ParentLoop);
-    } else {
-      visitDistPPNode(I);
-    }
-
-    if (ParentLoop && ParentLoop->hasPostexit() &&
-        (ParentLoop->getLastPostexitNode() == I)) {
-      // Reset DistPPNode at the last postexit node.
-      postVisitDistPPNode(ParentLoop);
-    } else {
-      postVisitDistPPNode(I);
-    }
-  }
-
-  void visit(const HLLabel *L) {
-    DGraph->setInvalid("Cannot distribute graph with control flow");
-  }
-  void visit(const HLGoto *G) {
-    DGraph->setInvalid("Cannot distribute graph with control flow");
-  }
-
-  void visit(const HLNode *Node) {}
-  void postVisit(const HLNode *Node) {}
-};
-
-// Creates DistPPEdges out of DDEdges and adds them to DistPPGraph
-struct DistributionEdgeCreator final : public HLNodeVisitorBase {
-
-  DDGraph *LoopDDGraph;
-  DistPPGraph *DistG;
-  HLLoop *Loop;
-  unsigned EdgeCount = 0;
-  typedef DenseMap<DistPPNode *, SmallVector<const DDEdge *, 16>> EdgeNodeMapTy;
-  DistributionEdgeCreator(DDGraph *DDG, DistPPGraph *DistPreProcGraph,
-                          HLLoop *Loop)
-      : LoopDDGraph(DDG), DistG(DistPreProcGraph), Loop(Loop) {}
-
-  void processOutgoingEdges(const DDRef *Ref, EdgeNodeMapTy &EdgeMap) {
-    DenseMap<HLNode *, DistPPNode *> &HLNodeToDistPPNode = DistG->getNodeMap();
-    for (auto Edge = LoopDDGraph->outgoing_edges_begin(Ref),
-              LastEdge = LoopDDGraph->outgoing_edges_end(Ref);
-         Edge != LastEdge; ++Edge) {
-      HLDDNode *DstDDNode = (*Edge)->getSink()->getHLDDNode();
-      auto DstDistPPNodeI = HLNodeToDistPPNode.find(DstDDNode);
-      if (DstDistPPNodeI == HLNodeToDistPPNode.end()) {
-        // Every hlnode in loop nest has a dist node, so this edge goes out of
-        // our loop nest. Don't need an edge in this case.
-        continue;
-      }
-      // Add ddedge to list of edges for this sink DistPPNode
-      DistPPNode *DstDistNode = DstDistPPNodeI->second;
-      EdgeMap[DstDistNode].push_back(*Edge);
-    }
-  }
-
-  bool needBackwardEdge(const DDEdge *Edge) {
-    // Need to force a backward edge in the Dist Graph?
-
-    // for t1 =
-    //        = t1
-    // DD only produce the flow (=) edge
-    if (Edge->isLoopIndependentDepTemp()) {
-      return true;
-    }
-    unsigned LoopLevel = Loop->getNestingLevel();
-    // Scalar temp Output Dep (*) has single edge
-
-    DDRef *DDRefSrc = Edge->getSrc();
-    RegDDRef *RegRef = dyn_cast<RegDDRef>(DDRefSrc);
-
-    if (Edge->isOUTPUTdep()) {
-      assert(RegRef && "RegDDRef expected");
-      if (RegRef->isTerminalRef() &&
-          Edge->getDVAtLevel(LoopLevel) == DVKind::ALL) {
-        return true;
-      }
-    }
-
-    // For Memory refs with (<=), only have 1 DD Edge is formed which
-    // should be sufficent for most transformations that have no reordering
-    // within the same iteration, for the purpose of fast compile time.
-    // For Dist, need to special case and add a backward edge if needed
-    // This applies for all dep (F/A/O).
-    // e.g.
-    //     DO  i=1,50
-    // s1:   A[100 -2 *i ] =
-    // s2:   A[50 - i] =
-    // We have   s2 : s1  output (<=)
-    // Without forcing the backward edge,  Dist will end up with
-    //  Loop1
-    //    s2
-    //  Loop2
-    //    s1
-
-    if (!RegRef) {
-      return false;
-    }
-
-    DDRef *DDRefSink = Edge->getSink();
-    if (Edge->getDVAtLevel(LoopLevel) == DVKind::LE) {
-      HLNode *SrcHIR = DDRefSrc->getHLDDNode();
-      HLNode *DstHIR = DDRefSink->getHLDDNode();
-      if (!HLNodeUtils::dominates(SrcHIR, DstHIR)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  void visit(HLDDNode *DDNode) {
-    // src of edge is a node inside loop, which must have a dist node
-    DenseMap<HLNode *, DistPPNode *> &HLNodeToDistPPNode = DistG->getNodeMap();
-    DistPPNode *SrcDistPPNode = HLNodeToDistPPNode[DDNode];
-    assert(SrcDistPPNode && "Missing dist node");
-
-    EdgeNodeMapTy EdgeMap;
-
-    for (auto SrcRef = DDNode->ddref_begin(), End = DDNode->ddref_end();
-         SrcRef != End; ++SrcRef) {
-      // Every outgoing edge is an incoming edge for a node in our loop nest
-      // No need to iterate over both outgoing and incoming
-      processOutgoingEdges(*SrcRef, EdgeMap);
-      for (auto BSrcRef = (*SrcRef)->blob_cbegin(),
-                BEnd = (*SrcRef)->blob_cend();
-           BSrcRef != BEnd; ++BSrcRef) {
-        processOutgoingEdges(*BSrcRef, EdgeMap);
-      }
-    }
-
-    // Create DistPPEdges, which cannot be modifed after addition to graph.
-    for (auto PairI = EdgeMap.begin(), EndI = EdgeMap.end(); PairI != EndI;
-         ++PairI) {
-
-      DistG->addEdge(DistPPEdge(SrcDistPPNode, PairI->first, PairI->second));
-      EdgeCount++;
-
-      SmallVectorImpl<const DDEdge *> &EdgeList = PairI->second;
-
-      for (auto *Edge : EdgeList) {
-
-        if (needBackwardEdge(Edge)) {
-          DistG->addEdge(
-              DistPPEdge(PairI->first, SrcDistPPNode, PairI->second));
-          EdgeCount++;
-          break;
-        }
-      }
-      // TODO early bailout should be here, even if reporting cant be done here
-    }
-  }
-
-  void visit(const HLNode *Node) {}
-  void postVisit(const HLNode *Node) {}
-};
-
-} // loopopt
+} // namespace loopopt
 
 //===--------------------------------------------------------------------===//
 // GraphTraits specializations for DistPPGraph. This will allow us to use
@@ -486,6 +271,6 @@ template <> struct GraphTraits<loopopt::DistPPGraph *> {
 
   static unsigned size(loopopt::DistPPGraph *G) { return G->getNodeCount(); }
 };
-} // llvm
+} // namespace llvm
 
 #endif

@@ -15,6 +15,7 @@
 
 using namespace llvm;
 using namespace llvm::loopopt;
+using namespace llvm::loopopt::distribute;
 
 cl::opt<bool>
     DisableDistMemRec("disable-hir-loop-distribute-memrec",
@@ -54,6 +55,8 @@ INITIALIZE_PASS_BEGIN(HIRLoopDistributionForMemRec,
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRLoopDistributionForMemRec, "hir-loop-distribute-memrec",
                     "HIR Loop Distribution MemRec", false, false)
 
