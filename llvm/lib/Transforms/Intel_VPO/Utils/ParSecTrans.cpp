@@ -750,12 +750,22 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
 
   Value *UpperBnd = UB;
 
+  Instruction *InsertPt;
+  BasicBlock *InsertBB = &(F->getEntryBlock());
+  // If the basic block contains the IntelDirective call, the compiler
+  // splits this basic block into two and chooses the second BB as the
+  // insertion basic block.
+  if (VPOAnalysisUtils::isIntelDirectiveOrClause(InsertBB->getFirstNonPHI()))
+    InsertBB = SplitBlock(InsertBB, InsertBB->getTerminator(), DT, nullptr);
+
+  InsertPt = InsertBB->getTerminator();
+
   if (ConstantInt* CI = cast<ConstantInt>(UB)) {
     if (CI->getBitWidth() <= 32) {
       // PreHeaderBB
       IntegerType *IntTy = Type::getInt32Ty(F->getContext());
       const DataLayout &DL = F->getParent()->getDataLayout();
-      Instruction *InsertPt = F->getEntryBlock().getTerminator();
+
       AllocaInst *TmpUB =
           new AllocaInst(IntTy, DL.getAllocaAddrSpace(), "num.sects", InsertPt);
       TmpUB->setAlignment(4);
@@ -770,7 +780,7 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
     }
   }
 
-  Builder.SetInsertPoint(F->getEntryBlock().getTerminator());
+  Builder.SetInsertPoint(InsertPt);
   AllocaInst *IV =
       Builder.CreateAlloca(LoopIVType, nullptr, ".sloop.iv." + Twine(Counter));
 
