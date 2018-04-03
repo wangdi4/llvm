@@ -2905,8 +2905,20 @@ void CodeGenModule::generateHLSAnnotation(const VarDecl *VD,
   llvm::raw_svector_ostream Out(AnnotStr);
   if (VD->hasAttr<RegisterAttr>())
     Out << "{register:1}";
-  if (VD->hasAttr<MemoryAttr>())
-    Out << "{register:0}";
+  if (auto const *MA = VD->getAttr<MemoryAttr>()) {
+    MemoryAttr::MemoryKind Kind = MA->getKind();
+    Out << "{memory:";
+    switch (Kind) {
+    case MemoryAttr::MLAB:
+    case MemoryAttr::BlockRAM:
+      Out << MemoryAttr::ConvertMemoryKindToStr(Kind);
+      break;
+    case MemoryAttr::Default:
+      Out << "DEFAULT";
+      break;
+    }
+    Out << '}';
+  }
   if (VD->hasAttr<SinglePumpAttr>())
     Out << "{pump:1}";
   if (VD->hasAttr<DoublePumpAttr>())
@@ -2944,6 +2956,12 @@ void CodeGenModule::generateHLSAnnotation(const VarDecl *VD,
     Out << '{' << MA->getSpelling() << ':' << MA->getName() << ':'
         << MA->getDirection() << '}';
   }
+  if (VD->getStorageClass() == SC_Static) {
+    llvm::APSInt SARAInt = llvm::APSInt::get(2); // The default.
+    if (const auto *SARA = VD->getAttr<StaticArrayResetAttr>())
+      SARAInt = SARA->getValue()->EvaluateKnownConstInt(getContext());
+    Out << "{staticreset:" << SARAInt << '}';
+  }
 }
 
 void CodeGenModule::addGlobalHLSAnnotation(const VarDecl *VD,
@@ -2956,10 +2974,15 @@ void CodeGenModule::addGlobalHLSAnnotation(const VarDecl *VD,
                    *UnitGV = EmitAnnotationUnit(VD->getLocation()),
                    *LineNoCst = EmitAnnotationLineNo(VD->getLocation());
 
+    llvm::Constant *C;
+    if (getContext().getTargetAddressSpace(VD->getType()) != 0)
+      C = llvm::ConstantExpr::getAddrSpaceCast(GV, Int8PtrTy);
+    else
+      C = llvm::ConstantExpr::getBitCast(GV, Int8PtrTy);
+
     // Create the ConstantStruct for the global annotation.
     llvm::Constant *Fields[4] = {
-        llvm::ConstantExpr::getBitCast(GV, Int8PtrTy),
-        llvm::ConstantExpr::getBitCast(AnnoGV, Int8PtrTy),
+        C, llvm::ConstantExpr::getBitCast(AnnoGV, Int8PtrTy),
         llvm::ConstantExpr::getBitCast(UnitGV, Int8PtrTy), LineNoCst};
     Annotations.push_back(llvm::ConstantStruct::getAnon(Fields));
   }

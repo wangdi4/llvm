@@ -195,6 +195,8 @@ def err_attribute_argument_not_power_of_two : Error<
   "%0 attribute argument must be a constant power of two greater than zero">;
 def err_hls_merge_dir_invalid : Error<
   "merge direction must be 'depth' or 'width'">;
+def err_hls_memory_arg_invalid : Error<
+  "%0 attribute requires either no argument or one of: %1">;
 def err_bankbits_numbanks_conflicting : Error<
   "the number of bank_bits must be equal to ceil(log2(numbanks))">;
 def err_bankbits_non_consecutive : Error<
