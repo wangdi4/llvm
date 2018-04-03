@@ -272,7 +272,7 @@ FunctionPass *createCleanupFakeLoadsPass();
 
 // IndirectCallConv - Converts indirect calls to direct calls using
 // points-to info if possible 
-FunctionPass *createIndirectCallConvPass();
+FunctionPass *createIndirectCallConvLegacyPass();
 
 // VPOParoptTpv - Supports the thread private legacy mode.
 ModulePass *createVPOParoptTpvPass();

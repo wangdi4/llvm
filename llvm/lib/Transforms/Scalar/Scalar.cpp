@@ -98,7 +98,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopDistributeLegacyPass(Registry);
 #if INTEL_CUSTOMIZATION
   initializeNonLTOGlobalOptLegacyPassPass(Registry);
-  initializeIndirectCallConvPass(Registry);
+  initializeIndirectCallConvLegacyPassPass(Registry);
   initializeStdContainerOptPass(Registry);
   initializeTbaaMDPropagationLegacyPassPass(Registry);
   initializeCleanupFakeLoadsLegacyPassPass(Registry);

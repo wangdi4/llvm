@@ -1084,7 +1084,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
   }
   if (EnableIndirectCallConv && EnableAndersen) {
-    PM.add(createIndirectCallConvPass()); // Indirect Call Conv
+    PM.add(createIndirectCallConvLegacyPass()); // Indirect Call Conv
   }
   if (EnableInlineAggAnalysis) {
     PM.add(createInlineAggressiveWrapperPassPass()); // Aggressive Inline

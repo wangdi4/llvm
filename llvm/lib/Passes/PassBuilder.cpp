@@ -113,8 +113,9 @@
 #include "llvm/Transforms/Scalar/GuardWidening.h"
 #include "llvm/Transforms/Scalar/IVUsersPrinter.h"
 #include "llvm/Transforms/Scalar/IndVarSimplify.h"
-#include "llvm/Transforms/Scalar/Intel_AggInlAA.h"     // INTEL
-#include "llvm/Transforms/Scalar/Intel_GlobalOpt.h" // INTEL
+#include "llvm/Transforms/Scalar/Intel_AggInlAA.h"          // INTEL
+#include "llvm/Transforms/Scalar/Intel_GlobalOpt.h"         // INTEL
+#include "llvm/Transforms/Scalar/Intel_IndirectCallConv.h"  // INTEL
 #include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h" // INTEL
 #include "llvm/Transforms/Scalar/InductiveRangeCheckElimination.h"
 #include "llvm/Transforms/Scalar/JumpThreading.h"
@@ -236,6 +237,11 @@ static cl::opt<bool> EnableInlineAggAnalysis(
 static cl::opt<bool> EnableIPCloning(
     "enable-npm-ip-cloning", cl::init(true), cl::Hidden,
     cl::desc("Enable IP Cloning for the new PM (default = on)"));
+
+// Indirect call Conv
+static cl::opt<bool> EnableIndirectCallConv("enable-npm-ind-call-conv",
+    cl::init(true), cl::Hidden,
+    cl::desc("Enable Indirect Call Conv for the new PM (default = on)"));
 #endif // INTEL_CUSTOMIZATION
 
 static Regex DefaultAliasRegex(
@@ -1129,6 +1135,9 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (EnableAndersen) {
     MPM.addPass(RequireAnalysisPass<AndersensAA, Module>());
   }
+  // Indirect to direct call convertion.
+  if (EnableIndirectCallConv)
+    MPM.addPass(createModuleToFunctionPassAdaptor(IndirectCallConvPass()));
   // Require the InlineAggAnalysis for the module so we can query it within
   // the inliner and AggInlAAPass.
   if (EnableInlineAggAnalysis) {

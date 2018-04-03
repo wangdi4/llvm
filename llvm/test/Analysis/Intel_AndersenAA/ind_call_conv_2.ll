@@ -3,6 +3,7 @@
 ; like "calloc" and "free" due to signature mismatches.
 
 ; RUN: opt < %s -anders-aa -indirectcallconv -print-indirect-call-conv -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes='require<anders-aa>,function(indirectcallconv)' -print-indirect-call-conv -disable-output  2>&1 | FileCheck %s
 
 ; CHECK:   Replaced with Direct call
 

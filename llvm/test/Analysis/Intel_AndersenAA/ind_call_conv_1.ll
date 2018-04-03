@@ -1,6 +1,7 @@
 ; It checks indirectcallconv converts indirect call fptr() to direct
 ; calls add_fun() and sub_fun().
 ; RUN: opt -S -anders-aa -indirectcallconv %s | FileCheck %s
+; RUN: opt -S -passes='require<anders-aa>,function(indirectcallconv)' %s | FileCheck %s
 
 @glob = external global i32, align 4
 @fptr = internal global void (i32*)* null, align 8

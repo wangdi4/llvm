@@ -427,7 +427,7 @@ void initializeTbaaMDPropagationLegacyPassPass(PassRegistry &);
 // Pass for removing fakeload intrinisics
 void initializeCleanupFakeLoadsLegacyPassPass(PassRegistry &);
 // Pass for indirect call conversion using points-to info
-void initializeIndirectCallConvPass(PassRegistry &);
+void initializeIndirectCallConvLegacyPassPass(PassRegistry &);
 // Pass for SnodeInfo analysis
 void initializeSNodeAnalysisPass(PassRegistry &);
 // Pass for register promotion for non escaped block scope global variables.
