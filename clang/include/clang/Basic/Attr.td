@@ -2688,19 +2688,22 @@ def LoopHint : Attr {
 //if INTEL_CUSTOMIZATION
                    Pragma<"", "nounroll">,
                    Pragma<"", "ii">, Pragma<"", "ivdep">,
-                   Pragma<"", "loop_coalesce">, Pragma<"", "max_concurrency">];
+                   Pragma<"", "loop_coalesce">, Pragma<"", "max_concurrency">,
+                   Pragma<"", "distribute_point">];
 //endif INTEL_CUSTOMIZATION
   /// State of the loop optimization specified by the spelling.
   let Args = [EnumArgument<"Option", "OptionType",
                           ["vectorize", "vectorize_width", "interleave", "interleave_count",
 //if INTEL_CUSTOMIZATION
                            "unroll", "unroll_count", "distribute",
-                           "ii", "ivdep", "loop_coalesce", "max_concurrency"],
+                           "ii", "ivdep", "loop_coalesce", "max_concurrency",
+                           "distribute_point"],
 //endif INTEL_CUSTOMIZATION
                           ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
 //if INTEL_CUSTOMIZATION
                            "Unroll", "UnrollCount", "Distribute",
-                           "II", "IVDep", "LoopCoalesce", "MaxConcurrency"]>,
+                           "II", "IVDep", "LoopCoalesce", "MaxConcurrency",
+                           "Distribute"]>,
 //endif INTEL_CUSTOMIZATION
               EnumArgument<"State", "LoopHintState",
 //if INTEL_CUSTOMIZATION
@@ -2733,7 +2736,10 @@ def LoopHint : Attr {
     else if (SpellingIndex == Pragma_unroll) {
       OS << ' ' << getValueString(Policy);
       return;
-    }
+//if INTEL_CUSTOMIZATION
+    } else if (SpellingIndex == Pragma_distribute_point)
+      return;
+//endif INTEL_CUSTOMIZATION
 
     assert(SpellingIndex == Pragma_clang_loop && "Unexpected spelling");
     OS << ' ' << getOptionName(option) << getValueString(Policy);
@@ -2775,6 +2781,8 @@ def LoopHint : Attr {
       return "#pragma loop_coalesce";
     else if (SpellingIndex == Pragma_max_concurrency)
       return "#pragma max_concurrency";
+    else if (SpellingIndex == Pragma_distribute_point)
+      return "#pragma distribute_point";
 //endif INTEL_CUSTOMIZATION
 
     assert(SpellingIndex == Pragma_clang_loop && "Unexpected spelling");

@@ -818,7 +818,12 @@ def err_pragma_loop_compatibility : Error<
   "%select{incompatible|duplicate}0 directives '%1' and '%2'">;
 def err_pragma_loop_precedes_nonloop : Error<
   "expected a for, while, or do-while loop to follow '%0'">;
-
+//#if INTEL_CUSTOMIZATION
+//JR 45956
+def err_pragma_distpt_on_nonloop_stmt : Warning<
+  "statement following '%0' must be a loop or within a loop">,
+  InGroup<Pragmas>;
+//#endif // INTEL_CUSTOMIZATION
 def err_pragma_attribute_matcher_subrule_contradicts_rule : Error<
   "redundant attribute subject matcher sub-rule '%0'; '%1' already matches "
   "those declarations">;

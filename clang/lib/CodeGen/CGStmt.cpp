@@ -668,12 +668,50 @@ CodeGenFunction::IntelIVDepArrayHandler::~IntelIVDepArrayHandler() {
         SmallVector<llvm::Value *, 1>{CallEntry}, OpBundles);
   }
 }
+
+CodeGenFunction::DistributePointHandler::DistributePointHandler(
+    CodeGenFunction &CGF, const Stmt *S, ArrayRef<const Attr *> Attrs)
+    : CGF(CGF), CallEntry(nullptr) {
+  // Pragma on loop statements get loop meta-data generated elsewhere
+  // We can't handle distribute_point on statements with OpenMP pragmas either
+  if (S->getStmtClass() == Stmt::WhileStmtClass ||
+      S->getStmtClass() == Stmt::DoStmtClass ||
+      S->getStmtClass() == Stmt::ForStmtClass ||
+      S->getStmtClass() == Stmt::CXXForRangeStmtClass ||
+      dyn_cast<OMPLoopDirective>(S))
+    return;
+
+  auto AttrItr =
+      std::find_if(std::begin(Attrs), std::end(Attrs), [](const Attr *A) {
+        return A->getKind() == attr::LoopHint &&
+               cast<LoopHintAttr>(A)->getOption() == LoopHintAttr::Distribute;
+      });
+  if (AttrItr == std::end(Attrs))
+    return;
+
+  SmallVector<llvm::OperandBundleDef, 1> OpBundles{llvm::OperandBundleDef{
+      "DIR.PRAGMA.DISTRIBUTE_POINT", ArrayRef<llvm::Value *>{}}};
+  CallEntry = CGF.Builder.CreateCall(
+      CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry),
+      ArrayRef<llvm::Value *>{}, OpBundles);
+}
+
+CodeGenFunction::DistributePointHandler::~DistributePointHandler() {
+  if (CallEntry) {
+    SmallVector<llvm::OperandBundleDef, 1> OpBundles{llvm::OperandBundleDef{
+        "DIR.PRAGMA.END.DISTRIBUTE_POINT", ArrayRef<llvm::Value *>{}}};
+    CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
+        ArrayRef<llvm::Value *>{CallEntry}, OpBundles);
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
 #if INTEL_CUSTOMIZATION
   IntelPragmaInlineState PS(*this, S.getAttrs());
   IntelIVDepArrayHandler IAH(*this, S.getAttrs());
+  DistributePointHandler DPH(*this, S.getSubStmt(), S.getAttrs());
 #endif // INTEL_CUSTOMIZATION
   EmitStmt(S.getSubStmt(), S.getAttrs());
 }

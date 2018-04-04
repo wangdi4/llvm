@@ -2008,7 +2008,8 @@ StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts,
     // CQ#371799 - let loop #pragmas precede non-loop statements. Also fixes
     // CQ#377523, allowing several #pragma unroll attributes, choosing the last.
     if (getLangOpts().isIntelCompat(LangOptions::UnrollExtensions) &&
-        Hint.PragmaNameLoc->Ident->getName() != "loop") {
+        Hint.PragmaNameLoc->Ident->getName() != "loop" &&
+        Hint.PragmaNameLoc->Ident->getName() != "distribute_point") {
       auto *PendingAttr = getPendingUnrollAttr();
       PendingAttr->clear();
       PendingAttr->takeAllFrom(TempAttrs);

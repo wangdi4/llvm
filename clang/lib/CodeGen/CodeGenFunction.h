@@ -347,6 +347,16 @@ public:
     CodeGenFunction &CGF;
     llvm::CallInst *CallEntry;
   };
+
+  class DistributePointHandler {
+  public:
+    DistributePointHandler(CodeGenFunction &CGF, const Stmt *S,
+                           ArrayRef<const Attr *> Attrs);
+    ~DistributePointHandler();
+  private:
+    CodeGenFunction &CGF;
+    llvm::CallInst *CallEntry;
+  };
 #endif // INTEL_CUSTOMIZATION
 
   /// \brief RAII for correct setting/restoring of CapturedStmtInfo.

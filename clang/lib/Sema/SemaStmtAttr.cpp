@@ -92,9 +92,31 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
   bool PragmaMaxConcurrency =
       PragmaNameLoc->Ident->getName() == "max_concurrency";
   bool PragmaIVDep = PragmaNameLoc->Ident->getName() == "ivdep";
+  bool PragmaDistributePoint =
+      PragmaNameLoc->Ident->getName() == "distribute_point";
+  bool NonLoopPragmaDistributePoint =
+      PragmaDistributePoint && St->getStmtClass() != Stmt::DoStmtClass &&
+      St->getStmtClass() != Stmt::ForStmtClass &&
+      St->getStmtClass() != Stmt::CXXForRangeStmtClass &&
+      St->getStmtClass() != Stmt::WhileStmtClass;
 #endif // INTEL_CUSTOMIZATION
   bool PragmaUnroll = PragmaNameLoc->Ident->getName() == "unroll";
   bool PragmaNoUnroll = PragmaNameLoc->Ident->getName() == "nounroll";
+#ifdef INTEL_CUSTOMIZATION
+  if (NonLoopPragmaDistributePoint) {
+    bool withinLoop = false;
+    for (Scope *CS = S.getCurScope(); CS; CS = CS->getParent())
+      if (CS->getFlags() & Scope::ContinueScope) {
+        withinLoop = true;
+        break;
+      }
+    if (!withinLoop) {
+      S.Diag(St->getLocStart(), diag::err_pragma_distpt_on_nonloop_stmt)
+          << "#pragma distribute_point";
+      return nullptr;
+    }
+  } else
+#endif // INTEL_CUSTOMIZATION
   if (St->getStmtClass() != Stmt::DoStmtClass &&
       St->getStmtClass() != Stmt::ForStmtClass &&
       St->getStmtClass() != Stmt::CXXForRangeStmtClass &&
@@ -176,6 +198,9 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
       State = LoopHintAttr::LoopExpr;
     else
       State = LoopHintAttr::Enable;
+  } else if (PragmaDistributePoint) {
+    Option = LoopHintAttr::Distribute;
+    State = LoopHintAttr::Enable;
 #endif // INTEL_CUSTOMIZATION
   } else {
     // #pragma clang loop ...
