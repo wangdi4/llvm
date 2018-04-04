@@ -26,8 +26,8 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
@@ -97,6 +97,9 @@ void HIRDDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+  // Loop Statistics is not used by this pass directly but it used by
+  // HLNodeUtils::dominates() utility. This is a workaround to keep the pass
+  // manager from freeing it.
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
 
   AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
@@ -129,7 +132,6 @@ bool HIRDDAnalysis::runOnFunction(Function &F) {
   }
 
   HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
 
   // If cl opts are present, build graph for requested loop levels
   for (unsigned I = 0; I != VerifyLevelList.size(); ++I) {
@@ -360,7 +362,7 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
 
         if (edgeNeeded(Ref1, Ref2, BuildInputEdges) &&
             !isEdgeValid(Ref1, Ref2)) {
-          DDTest DT(*AAR, Node->getHLNodeUtils(), *HLS);
+          DDTest DT(*AAR, Node->getHLNodeUtils());
           DirectionVector InputDV;
           DirectionVector OutputDVForward;
           DirectionVector OutputDVBackward;
@@ -466,7 +468,7 @@ RefinedDependence HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
   RegDDRef *RegDDref = dyn_cast<RegDDRef>(DstDDRef);
 
   if (RegDDref && !(RegDDref->isTerminalRef())) {
-    DDTest DT(*AAR, RegDDref->getHLDDNode()->getHLNodeUtils(), *HLS);
+    DDTest DT(*AAR, RegDDref->getHLDDNode()->getHLNodeUtils());
 
     DirectionVector &InputDV = Dep.getDV();
     //  For Start = 3, Deepest = 3, when testing for innermost loop dep,
@@ -525,7 +527,6 @@ void HIRDDAnalysis::GraphVerifier::visit(HLLoop *Loop) {
 
 bool HIRDDAnalysis::doRefsAlias(const RegDDRef *SrcRef,
                                 const RegDDRef *DstRef) const {
-  DDTest DT(*AAR, SrcRef->getHLDDNode()->getHLNodeUtils(), *HLS);
+  DDTest DT(*AAR, SrcRef->getHLDDNode()->getHLNodeUtils());
   return !DT.queryAAIndep(SrcRef, DstRef);
 }
-

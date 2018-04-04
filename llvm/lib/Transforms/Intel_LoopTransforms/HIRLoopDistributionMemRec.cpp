@@ -45,7 +45,7 @@ public:
     return HIRLoopDistribution::runOnFunction(F);
   }
 };
-}
+} // namespace
 
 char HIRLoopDistributionForMemRec::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopDistributionForMemRec,

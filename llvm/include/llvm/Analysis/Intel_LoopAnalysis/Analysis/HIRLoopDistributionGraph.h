@@ -163,8 +163,8 @@ class PiGraph : public HIRGraph<PiBlock, PiGraphEdge> {
   DistPPGraph *PPGraph;
 
 public:
-  PiGraph(HLLoop *Loop, HIRDDAnalysis *DDA, HIRLoopStatistics *HLS) {
-    PPGraph = new DistPPGraph(Loop, DDA, HLS);
+  PiGraph(HLLoop *Loop, HIRDDAnalysis *DDA) {
+    PPGraph = new DistPPGraph(Loop, DDA);
 
     if (!isGraphValid()) {
       return;

@@ -19,8 +19,8 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
@@ -59,6 +59,9 @@ void HIRSafeReductionAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+  // Loop Statistics is not used by this pass directly but it used by
+  // HLNodeUtils::dominates() utility. This is a workaround to keep the pass
+  // manager from freeing it.
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
 }
@@ -85,7 +88,6 @@ bool HIRSafeReductionAnalysis::runOnFunction(Function &F) {
 
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   DDA = &getAnalysis<HIRDDAnalysis>();
-  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
 
   if (!ForceSRA) {
     return false;
@@ -207,7 +209,7 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
     }
     *SinkDDRef = Edge->getSink();
     HLNode *SinkNode = (*SinkDDRef)->getHLDDNode();
-    if (!HLNodeUtils::postDominates(SinkNode, FirstChild, HLS)) {
+    if (!HLNodeUtils::postDominates(SinkNode, FirstChild)) {
       return false;
     }
     *SinkInst = dyn_cast<HLInst>(SinkNode);
@@ -322,7 +324,7 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
     }
 
     // By checking for PostDomination, it allows goto and label
-    if (!HLNodeUtils::postDominates(Inst, FirstChild, HLS)) {
+    if (!HLNodeUtils::postDominates(Inst, FirstChild)) {
       continue;
     }
 
@@ -373,7 +375,7 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
       // e.g.    s2:   x = y
       //         s3:   z = w
       //         s4:   w = x + z
-      if (HLNodeUtils::strictlyDominates(SinkInst, Inst, HLS)) {
+      if (HLNodeUtils::strictlyDominates(SinkInst, Inst)) {
         break;
       }
       RedInsts.push_back(SinkInst);
@@ -474,7 +476,7 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
         // child of the loop. So, SrcInst postDominating Inst implies that- a)
         // SrcInst also postdominates first child of the loop. b) This is a
         // cross-iteration dependency.
-        if (!HLNodeUtils::postDominates(SrcInst, Inst, HLS)) {
+        if (!HLNodeUtils::postDominates(SrcInst, Inst)) {
           return SKIPTONEXT;
         }
 

@@ -35,10 +35,9 @@ class MemRefGroup {
   bool IsAnalyzed;
   bool HasLoad, HasLoadOnDomPath, HasStore, HasStoreOnDomPath;
   HLLoop *Lp = nullptr;
-  HIRLoopStatistics *HLS;
 
 public:
-  MemRefGroup(RegDDRef *FirstRef, HIRLoopStatistics *HLS);
+  MemRefGroup(RegDDRef *FirstRef);
 
   bool getProfitable(void) const { return IsProfitable; }
   void setProfitable(bool NewFlag) { IsProfitable = NewFlag; }
@@ -110,7 +109,6 @@ public:
 //
 struct MemRefCollection {
   SmallVector<MemRefGroup, 8> MRVV;
-  HIRLoopStatistics *HLS = nullptr;
 
   unsigned getSize(void) const { return MRVV.size(); }
   bool isEmpty(void) { return MRVV.empty(); }

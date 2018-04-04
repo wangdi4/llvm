@@ -4158,8 +4158,8 @@ static void dumpSmallBitVector(SmallBitVector &BV) {
 }
 #endif
 
-DDTest::DDTest(AAResults &AAR, HLNodeUtils &HNU, HIRLoopStatistics &HLS)
-    : AAR(AAR), HNU(HNU), HLS(HLS) {
+DDTest::DDTest(AAResults &AAR, HLNodeUtils &HNU)
+    : AAR(AAR), HNU(HNU) {
   DEBUG(dbgs() << "DDTest initiated\n");
   WorkCE.clear();
 }
@@ -5252,7 +5252,7 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
       return false;
     }
 
-    if (HLNodeUtils::dominates(SrcHIR, DstHIR, &HLS)) {
+    if (HLNodeUtils::dominates(SrcHIR, DstHIR)) {
       if (IsFlow) {
         // If src can reach Dst lexically
         //   assuming 2 level loop

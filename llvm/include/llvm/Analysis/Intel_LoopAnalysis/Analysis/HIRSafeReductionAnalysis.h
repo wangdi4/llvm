@@ -34,7 +34,6 @@ namespace loopopt {
 class CanonExpr;
 class HLInst;
 class HLLoop;
-class HIRLoopStatistics;
 
 typedef SmallVector<const HLInst *, 4> SafeRedChain;
 
@@ -53,7 +52,6 @@ class HIRSafeReductionAnalysis final : public HIRAnalysisPass {
 
 private:
   HIRDDAnalysis *DDA;
-  HIRLoopStatistics *HLS;
   unsigned FirstRvalSB;
   const HLNode *FirstChild;
   // From Loop, look up all sets of Insts in a Safe Reduction chain

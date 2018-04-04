@@ -48,7 +48,6 @@ bool HIRLoopDistribution::runOnFunction(Function &F) {
 
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   DDA = &getAnalysis<HIRDDAnalysis>();
-  auto HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
 
   SmallVector<HLLoop *, 64> Loops;
 
@@ -73,7 +72,7 @@ bool HIRLoopDistribution::runOnFunction(Function &F) {
       continue;
     }
 
-    std::unique_ptr<PiGraph> PG(new PiGraph(Lp, DDA, HLS));
+    std::unique_ptr<PiGraph> PG(new PiGraph(Lp, DDA));
 
     if (!PG->isGraphValid()) {
       if (OptReportLevel >= 3) {

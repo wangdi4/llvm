@@ -205,12 +205,14 @@ public:
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
+    // Loop Statistics is not used by this pass directly but it used by
+    // HLNodeUtils::dominates() utility. This is a workaround to keep the pass
+    // manager from freeing it.
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   }
 
 private:
   HIRDDAnalysis *DDA;
-  HIRLoopStatistics *HLS;
 
   bool EnablePartialUnswitch;
 
@@ -429,7 +431,7 @@ bool HIROptPredicate::processPUEdge(
     return false;
   }
 
-  if (!HLNodeUtils::dominates(Inst, If, HLS)) {
+  if (!HLNodeUtils::dominates(Inst, If)) {
     // Handle only simple CFG.
     return false;
   }
@@ -587,8 +589,7 @@ void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
 
   if (IsCandidate && PUC.isPURequired()) {
     // HLIf should be unconditionally executed to unswitch.
-    IsCandidate =
-        HLNodeUtils::postDominates(If, ParentLoop->getFirstChild(), Pass.HLS);
+    IsCandidate = HLNodeUtils::postDominates(If, ParentLoop->getFirstChild());
   }
 
   // Check for unsafe calls in branches that can modify the condition.
@@ -670,7 +671,6 @@ bool HIROptPredicate::runOnFunction(Function &F) {
 
   HIRFramework &HIR = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   DDA = &getAnalysis<HIRDDAnalysis>();
-  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
 
   for (HLNode &Node : make_range(HIR.hir_begin(), HIR.hir_end())) {
     HLRegion *Region = cast<HLRegion>(&Node);

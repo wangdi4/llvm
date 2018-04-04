@@ -46,7 +46,7 @@ public:
     return HIRLoopDistribution::runOnFunction(F);
   }
 };
-}
+} // namespace
 
 char HIRLoopDistributionForLoopNest::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopDistributionForLoopNest,

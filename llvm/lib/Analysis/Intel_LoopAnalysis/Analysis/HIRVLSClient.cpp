@@ -61,7 +61,7 @@ bool HIRVLSClientMemref::canAccessWith(const RegDDRef *Ref,
   // now anytime Ref is accessed AtRef will be accessed and vice versa. So
   // if there is a scenario/path in which Ref is accessed and AtRef isn't,
   // or the other way around, we have to return false.
-  if (!HLNodeUtils::canAccessTogether(DDNode, AtDDNode, nullptr))
+  if (!HLNodeUtils::canAccessTogether(DDNode, AtDDNode))
     return false;
 
   //(2) Check Aliasing:

@@ -186,8 +186,7 @@ public:
 };
 
 static unsigned areLoopsFusibleWithCommonTC(const HLLoop *Loop1,
-                                            const HLLoop *Loop2,
-                                            HIRLoopStatistics &HLS) {
+                                            const HLLoop *Loop2) {
   const CanonExpr *UB1 = Loop1->getUpperCanonExpr();
   const CanonExpr *UB2 = Loop2->getUpperCanonExpr();
 
@@ -201,11 +200,11 @@ static unsigned areLoopsFusibleWithCommonTC(const HLLoop *Loop1,
     return 0;
   }
 
-  if (!HLNodeUtils::dominates(Loop1, Loop2, &HLS)) {
+  if (!HLNodeUtils::dominates(Loop1, Loop2)) {
     return 0;
   }
 
-  if (!HLNodeUtils::postDominates(Loop2, Loop1, &HLS)) {
+  if (!HLNodeUtils::postDominates(Loop2, Loop1)) {
     return 0;
   }
 
@@ -390,7 +389,7 @@ unsigned FuseGraph::areFusibleWithCommonTC(FusibleCacheTy &Cache,
 
     if (MayBeFused) {
       CommonTC = areLoopsFusibleWithCommonTC(Node1.pilotLoop(),
-                                             Node2.pilotLoop(), HLS);
+                                             Node2.pilotLoop());
     }
 
     return CommonTC;

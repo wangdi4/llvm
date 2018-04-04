@@ -467,15 +467,14 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
 // TODO: Add temporal locality analysis?
 class ReuseAnalyzer final : public HLNodeVisitorBase {
 private:
-  HIRLoopStatistics *HLS;
   const HLLoop *Loop;
   SmallSet<unsigned, 16> RvalTempBlobSymbases;
   int Reuse;
   bool CyclicalDefUse;
 
 public:
-  ReuseAnalyzer(HIRLoopStatistics *HLS, const HLLoop *Loop)
-      : HLS(HLS), Loop(Loop), Reuse(0), CyclicalDefUse(false) {}
+  ReuseAnalyzer(const HLLoop *Loop)
+      : Loop(Loop), Reuse(0), CyclicalDefUse(false) {}
 
   void analyze() {
     HLNodeUtils::visitRange(*this, Loop->child_begin(), Loop->child_end());
@@ -504,7 +503,7 @@ void ReuseAnalyzer::visit(const HLDDNode *Node) {
     if (cast<HLInst>(Node)->isCopyInst()) {
       // Only consider reuse for copies which dominate the backedge path.
       if (RvalTempBlobSymbases.count(LvalSymbase) &&
-          HLNodeUtils::dominates(Node, Loop->getLastChild(), HLS)) {
+          HLNodeUtils::dominates(Node, Loop->getLastChild())) {
         ++Reuse;
       }
       // No more processing needed for copy instructions.
@@ -547,7 +546,7 @@ unsigned HIRGeneralUnroll::refineUnrollFactorUsingReuseAnalysis(
     return CurUnrollFactor;
   }
 
-  ReuseAnalyzer RA(HLS, Loop);
+  ReuseAnalyzer RA(Loop);
 
   RA.analyze();
 

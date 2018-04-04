@@ -2512,8 +2512,7 @@ const HLNode *HLNodeUtils::getCommonDominatingParent(
 }
 
 bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
-                                bool PostDomination, bool StrictDomination,
-                                HIRLoopStatistics *HLS) {
+                                bool PostDomination, bool StrictDomination) {
   assert(Node1 && Node2 && "Node is null!");
 
   assert(!isa<HLRegion>(Node1) && !isa<HLRegion>(Node2) &&
@@ -2537,6 +2536,11 @@ bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
   } else if (Num1 > Num2) {
     return false;
   }
+
+  auto *HLS = Node1->getHLNodeUtils()
+                  .getHIRFramework()
+                  .getHIRAnalysisProvider()
+                  .get<HIRLoopStatistics>();
 
   // We need to find out the common parent of Node1 and Node2 and their last
   // parents which tell us the path taken to reach the common parent.
@@ -2620,29 +2624,24 @@ bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
   llvm_unreachable("Unexpected condition encountered!");
 }
 
-bool HLNodeUtils::dominates(const HLNode *Node1, const HLNode *Node2,
-                            HIRLoopStatistics *HLS) {
-  return dominatesImpl(Node1, Node2, false, false, HLS);
+bool HLNodeUtils::dominates(const HLNode *Node1, const HLNode *Node2) {
+  return dominatesImpl(Node1, Node2, false, false);
 }
 
-bool HLNodeUtils::strictlyDominates(const HLNode *Node1, const HLNode *Node2,
-                                    HIRLoopStatistics *HLS) {
-  return dominatesImpl(Node1, Node2, false, true, HLS);
+bool HLNodeUtils::strictlyDominates(const HLNode *Node1, const HLNode *Node2) {
+  return dominatesImpl(Node1, Node2, false, true);
 }
 
-bool HLNodeUtils::postDominates(const HLNode *Node1, const HLNode *Node2,
-                                HIRLoopStatistics *HLS) {
-  return dominatesImpl(Node1, Node2, true, false, HLS);
+bool HLNodeUtils::postDominates(const HLNode *Node1, const HLNode *Node2) {
+  return dominatesImpl(Node1, Node2, true, false);
 }
 
 bool HLNodeUtils::strictlyPostDominates(const HLNode *Node1,
-                                        const HLNode *Node2,
-                                        HIRLoopStatistics *HLS) {
-  return dominatesImpl(Node1, Node2, true, true, HLS);
+                                        const HLNode *Node2) {
+  return dominatesImpl(Node1, Node2, true, true);
 }
 
-bool HLNodeUtils::canAccessTogether(const HLNode *Node1, const HLNode *Node2,
-                                    HIRLoopStatistics *HLS) {
+bool HLNodeUtils::canAccessTogether(const HLNode *Node1, const HLNode *Node2) {
   // The dominance checks can return true for nodes under different parent
   // loops when the references are under constant bound loops. For the example
   // below these checks might incorrectly deduce that both references can be
@@ -2672,8 +2671,8 @@ bool HLNodeUtils::canAccessTogether(const HLNode *Node1, const HLNode *Node2,
     return false;
   }
 
-  if (!(dominates(Node2, Node1, HLS) && postDominates(Node1, Node2, HLS)) &&
-      !(dominates(Node1, Node2, HLS) && postDominates(Node2, Node1, HLS))) {
+  if (!(dominates(Node2, Node1) && postDominates(Node1, Node2)) &&
+      !(dominates(Node1, Node2) && postDominates(Node2, Node1))) {
     return false;
   }
 

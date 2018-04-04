@@ -894,7 +894,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isSimplifiedTempBlob(
   for (auto &Blob : SimplifiedTempBlobs) {
     if ((Blob.getIndex() == Index) &&
         (Blob.getDefLevel() >= CurNodeBlobLevel) &&
-        HLNodeUtils::dominates(Blob.getDefInst(), CurNode, HCU.HLS)) {
+        HLNodeUtils::dominates(Blob.getDefInst(), CurNode)) {
       if (Factor) {
         *Factor = Blob.getRemFactor();
       }
@@ -1505,7 +1505,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::
       const HLNode *LastRegionChild = PrevRegion->getLastChild();
 
       if ((PrevParentLoop->getParent() != PrevRegion) ||
-          !HLNodeUtils::dominates(PrevParentLoop, LastRegionChild, HCU.HLS)) {
+          !HLNodeUtils::dominates(PrevParentLoop, LastRegionChild)) {
         // Store is not executed unconditionally in previous region so we remove
         // its entry.
         HCU.PrevLoopnestAllocaStores.erase(It);
@@ -1529,7 +1529,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::
       LastNode = CurRegion;
 
     } else {
-      if (!HLNodeUtils::dominates(PrevParentLoop, LoadNode, HCU.HLS)) {
+      if (!HLNodeUtils::dominates(PrevParentLoop, LoadNode)) {
         // Since the simplified store does not dominate this ref, we are most
         // likely out of its lexical scope. Hence, we remove its entry.
         HCU.PrevLoopnestAllocaStores.erase(It);
@@ -1598,7 +1598,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::foundSimplifiedDominatingStore(
     }
 
     if (!HLNodeUtils::dominates(SimplifiedStore->getHLDDNode(),
-                                AllocaLoadRef->getHLDDNode(), HCU.HLS)) {
+                                AllocaLoadRef->getHLDDNode())) {
       // Since the simplified store does not dominate this ref, we are most
       // likely out of its lexical scope. Hence, we remove its entry.
       AllocaStores.erase(It);

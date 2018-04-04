@@ -371,8 +371,7 @@ private:
 
   /// Implements domination/post-domination functionality.
   static bool dominatesImpl(const HLNode *Node1, const HLNode *Node2,
-                            bool PostDomination, bool StrictDomination,
-                            HIRLoopStatistics *HLS);
+                            bool PostDomination, bool StrictDomination);
 
   /// Set TopSortNums for the first time
   void initTopSortNum();
@@ -1132,28 +1131,19 @@ public:
 
   /// Returns true if Node1 can be proven to dominate Node2, otherwise
   /// conservatively returns false.
-  /// \p HLS is used to produce faster results. A valid value can (and should)
-  /// be passed by clients whenever the loop is in a valid state. This is true
-  /// for all analysis passes and analysis part of the transformations. Null
-  /// should be passed if the loop was modified but has not yet been invalidated
-  /// by a transformation (invalid state).
-  static bool dominates(const HLNode *Node1, const HLNode *Node2,
-                        HIRLoopStatistics *HLS);
+  static bool dominates(const HLNode *Node1, const HLNode *Node2);
 
   /// This is identical to dominates() except the case where Node1 == Node2, in
   /// which case it return false.
-  static bool strictlyDominates(const HLNode *Node1, const HLNode *Node2,
-                                HIRLoopStatistics *HLS);
+  static bool strictlyDominates(const HLNode *Node1, const HLNode *Node2);
 
   /// Returns true if Node1 can be proven to post-dominate Node2, otherwise
   /// conservatively returns false.
-  static bool postDominates(const HLNode *Node1, const HLNode *Node2,
-                            HIRLoopStatistics *HLS);
+  static bool postDominates(const HLNode *Node1, const HLNode *Node2);
 
   /// This is identical to postDominates() except the case where Node1 == Node2,
   /// in which case it return false.
-  static bool strictlyPostDominates(const HLNode *Node1, const HLNode *Node2,
-                                    HIRLoopStatistics *HLS);
+  static bool strictlyPostDominates(const HLNode *Node1, const HLNode *Node2);
 
   /// Checks if \p Node1 and \p Node2 are "equivalent" in terms of CFG: namely
   /// if \p Node1 is reached/accessed anytime \p Node2 is reached/Accessed and
@@ -1163,8 +1153,7 @@ public:
   /// reached/accessed and Node2 isn't, or the other way around.
   /// Note: In the presence of complicated unstructured code (containing
   /// gotos/labels) this function will conservatively return false.
-  static bool canAccessTogether(const HLNode *Node1, const HLNode *Node2,
-                                HIRLoopStatistics *HLS);
+  static bool canAccessTogether(const HLNode *Node1, const HLNode *Node2);
 
   /// Returns true if Parent contains Node. IncludePrePostHdr indicates whether
   /// loop should be considered to contain preheader/postexit nodes.

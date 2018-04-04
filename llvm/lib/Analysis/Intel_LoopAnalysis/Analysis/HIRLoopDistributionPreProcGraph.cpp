@@ -82,8 +82,7 @@ using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-loop-distribution-pre-proc-graph"
 
-DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA,
-                         HIRLoopStatistics *HLS) {
+DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA) {
   const unsigned MaxDDEdges = 256;
 
   createNodes(Loop);
@@ -93,7 +92,7 @@ DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA,
 
   DDGraph DDG = DDA->getGraph(Loop);
 
-  DistributionEdgeCreator EdgeCreator(&DDG, this, Loop, HLS);
+  DistributionEdgeCreator EdgeCreator(&DDG, this, Loop);
   Loop->getHLNodeUtils().visitRange(EdgeCreator, Loop->getFirstChild(),
                                     Loop->getLastChild());
 

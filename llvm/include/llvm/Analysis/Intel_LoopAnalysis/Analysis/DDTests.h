@@ -57,7 +57,6 @@ class DDRef;
 class RegDDRef;
 class HLLoop;
 class HLNodeUtils;
-class HIRLoopStatistics;
 
 enum DVKind : unsigned char {
   NONE = 0,
@@ -263,9 +262,8 @@ class DDTest {
 
   AAResults &AAR;
   HLNodeUtils &HNU;
-  HIRLoopStatistics &HLS;
 
-  DDTest(AAResults &AAR, HLNodeUtils &HNU, HIRLoopStatistics &HLS);
+  DDTest(AAResults &AAR, HLNodeUtils &HNU);
   ~DDTest();
 
   /// \brief Tests for a dependence between the Src and Dst DDRefs

@@ -109,10 +109,9 @@ STATISTIC(
     HIRLIMMRefPromoted,
     "Number of HIR loop-invariant memory load(s)/store(s) References Promoted");
 
-MemRefGroup::MemRefGroup(RegDDRef *FirstRef, HIRLoopStatistics *HLS)
+MemRefGroup::MemRefGroup(RegDDRef *FirstRef)
     : IsProfitable(false), IsLegal(false), IsAnalyzed(false), HasLoad(false),
-      HasLoadOnDomPath(false), HasStore(false), HasStoreOnDomPath(false),
-      HLS(HLS) {
+      HasLoadOnDomPath(false), HasStore(false), HasStoreOnDomPath(false) {
   RefV.push_back(FirstRef);
 
   Lp = FirstRef->getHLDDNode()->getParentLoop();
@@ -141,7 +140,7 @@ void MemRefGroup::analyze(void) {
 
       // Load on DomPath
       if (!HasLoadOnDomPath &&
-          HLNodeUtils::dominates(Ref->getHLDDNode(), LoopTail, HLS)) {
+          HLNodeUtils::dominates(Ref->getHLDDNode(), LoopTail)) {
         HasLoadOnDomPath = true;
       }
     }
@@ -151,7 +150,7 @@ void MemRefGroup::analyze(void) {
 
       // Store on DomPath
       if (!HasStoreOnDomPath &&
-          HLNodeUtils::dominates(Ref->getHLDDNode(), LoopTail, HLS)) {
+          HLNodeUtils::dominates(Ref->getHLDDNode(), LoopTail)) {
         HasStoreOnDomPath = true;
       }
     }
@@ -237,7 +236,7 @@ void MemRefCollection::insert(RegDDRef *Ref) {
   if (find(Ref, Idx)) {
     MRVV[Idx].insert(Ref);
   } else {
-    MRVV.emplace_back(Ref, HLS);
+    MRVV.emplace_back(Ref);
   }
 }
 
@@ -383,7 +382,6 @@ bool HIRLMM::runOnFunction(Function &F) {
 
   HDDA = &getAnalysis<HIRDDAnalysis>();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  MRC.HLS = HLS;
   bool Result = false;
 
   for (auto &Lp : CandidateLoops) {
@@ -587,7 +585,7 @@ bool HIRLMM::isLoadNeededInPrehder(HLLoop *Lp, MemRefGroup &MRG) {
     }
 
     // If hit a Store (on dominate path) 1st, no need of tmp
-    if (HLNodeUtils::dominates(CurRef->getHLDDNode(), LoopTail, HLS)) {
+    if (HLNodeUtils::dominates(CurRef->getHLDDNode(), LoopTail)) {
       return false;
     }
   }
