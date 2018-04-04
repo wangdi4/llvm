@@ -1216,7 +1216,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
     createEmptyPrivFiniBB(W, EndBB);
     VPOParoptUtils::genKmpcCriticalSection(
         W, IdentTy, TidPtrHolder,
-        dyn_cast<Instruction>(&*RedUpdateEntryBB->begin()),
+        dyn_cast<Instruction>(RedUpdateEntryBB->begin()),
         EndBB->getTerminator(), "");
     W->resetBBSet(); // Invalidate BBSet after transformations
     Changed = true;

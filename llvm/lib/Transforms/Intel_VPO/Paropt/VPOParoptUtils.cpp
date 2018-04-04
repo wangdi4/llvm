@@ -1511,7 +1511,7 @@ VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
 
   for (int K = 0; K < 2; ++K) {
     BasicBlock::iterator I = (K == 0) ? BS->begin() : BE->begin();
-    if (Instruction *Inst = dyn_cast<Instruction>(&*I)) {
+    if (Instruction *Inst = dyn_cast<Instruction>(I)) {
       if (DILocation *Loc = Inst->getDebugLoc()) {
         if (K == 0) {
           Path = Loc->getDirectory();
@@ -2553,7 +2553,7 @@ Value *VPOParoptUtils::cloneInstructions(Value *V, Instruction *InsertBefore) {
   /*
     if (auto *LI = dyn_cast<LoadInst>(V)) {
       auto NewLI = LI->clone();
-      NewLI->insertBefore(&*InsertPt);
+      NewLI->insertBefore(InsertPt);
       return NewLI;
     }
     else

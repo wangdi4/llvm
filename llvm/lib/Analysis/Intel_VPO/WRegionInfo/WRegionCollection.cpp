@@ -145,7 +145,7 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
   //
   for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
 
-    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(&*I);
+    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
 
     if (Call) {
       Intrinsic::ID IntrinId = Call->getIntrinsicID();

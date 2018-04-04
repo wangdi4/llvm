@@ -271,8 +271,8 @@ void VPOUtils::gatherImplicitSectionRecursive(
 
   for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
 
-    if (dyn_cast<IntrinsicInst>(&*I)) {
-      int DirID = VPOAnalysisUtils::getDirectiveID(&*I);
+    if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
+      int DirID = VPOAnalysisUtils::getDirectiveID(II);
       if (DirID == DIR_OMP_SECTIONS ||
           DirID == DIR_OMP_PARALLEL_SECTIONS) {
 
@@ -280,13 +280,13 @@ void VPOUtils::gatherImplicitSectionRecursive(
         BasicBlock::iterator SI = SuccBB->begin();
         bool IsDirSection = false;
 
-        if (dyn_cast<TerminatorInst>(&*SI)) {
+        if (isa<TerminatorInst>(SI)) {
           SuccBB = SuccBB->getUniqueSuccessor();
           SI = SuccBB->begin();
         }
 
-        if (dyn_cast<IntrinsicInst>(&*SI)) {
-          int SuccDirID = VPOAnalysisUtils::getDirectiveID(&*SI);
+        if (IntrinsicInst *IntrinI = dyn_cast<IntrinsicInst>(SI)) {
+          int SuccDirID = VPOAnalysisUtils::getDirectiveID(IntrinI);
           if (SuccDirID == DIR_OMP_SECTION) {
             IsDirSection = true;
           }
@@ -322,13 +322,13 @@ void VPOUtils::gatherImplicitSectionRecursive(
             BasicBlock *PredBB = BB->getUniquePredecessor();
             BasicBlock::iterator EI = PredBB->begin();
 
-            if (dyn_cast<TerminatorInst>(&*EI)) {
+            if (isa<TerminatorInst>(EI)) {
               PredBB = PredBB->getUniquePredecessor();
               EI = PredBB->begin();
             }
 
-            if (dyn_cast<IntrinsicInst>(&*EI)) {
-              int PredDirID = VPOAnalysisUtils::getDirectiveID(&*EI);
+            if (IntrinsicInst *IntrinI = dyn_cast<IntrinsicInst>(EI)) {
+              int PredDirID = VPOAnalysisUtils::getDirectiveID(IntrinI);
               if (PredDirID != DIR_OMP_END_SECTION) {
                 IsMatchedImpEnd = true;
               }
@@ -368,8 +368,8 @@ void VPOUtils::buildParSectTreeRecursive(
 
   for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
 
-    if (dyn_cast<IntrinsicInst>(&*I)) {
-      int DirID = VPOAnalysisUtils::getDirectiveID(&*I);
+    if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
+      int DirID = VPOAnalysisUtils::getDirectiveID(II);
       if (DirID == DIR_OMP_SECTION ||
           DirID == DIR_OMP_SECTIONS ||
           DirID == DIR_OMP_PARALLEL_SECTIONS) {
