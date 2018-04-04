@@ -615,11 +615,12 @@ void VPOParoptTransform::genOffloadArraysArgument(
         ArrayType::get(IntelGeneralUtils::getSizeTTy(F), Info->NumberOfPtrs),
         Info->DataMapTypes, 0, 0);
   } else {
-    Info->ResBaseDataPtrs = ConstantPointerNull::get(Builder.getInt8PtrTy());
-    Info->ResDataPtrs = ConstantPointerNull::get(Builder.getInt8PtrTy());
+    Info->ResBaseDataPtrs = ConstantPointerNull::get(
+        PointerType::getUnqual(Builder.getInt8PtrTy()));
+    Info->ResDataPtrs = ConstantPointerNull::get(
+        PointerType::getUnqual(Builder.getInt8PtrTy()));
     Info->ResDataSizes = ConstantPointerNull::get(PointerType::getUnqual(
-        Builder.getInt8PtrTy() ? Builder.getInt8PtrTy()
-                               : IntelGeneralUtils::getSizeTTy(F)));
+                               IntelGeneralUtils::getSizeTTy(F)));
     Info->ResDataMapTypes = ConstantPointerNull::get(
         PointerType::getUnqual(IntelGeneralUtils::getSizeTTy(F)));
   }
