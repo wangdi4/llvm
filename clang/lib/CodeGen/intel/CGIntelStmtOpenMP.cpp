@@ -994,9 +994,23 @@ namespace CGIntelOpenMP {
 
   void OpenMPCodeOutliner::emitOMPDependClause(const OMPDependClause *Cl) {
     auto DepKind = Cl->getDependencyKind();
-    if (DepKind == OMPC_DEPEND_source || DepKind == OMPC_DEPEND_sink) {
-      assert(false && "source/sink not yet implemented");
+
+    if (DepKind == OMPC_DEPEND_source) {
+      addArg("QUAL.OMP.DEPEND.SOURCE");
+      emitSimpleClause();
+      return;
     }
+
+    if (DepKind == OMPC_DEPEND_sink) {
+      addArg("QUAL.OMP.DEPEND.SINK");
+      auto SavedIP = CGF.Builder.saveIP();
+      setOutsideInsertPoint();
+      addArg(CGF.EmitScalarExpr(Cl->getCounterValue()));
+      CGF.Builder.restoreIP(SavedIP);
+      emitListClause();
+      return;
+    }
+
     SmallString<64> Op;
     for (auto *E : Cl->varlists()) {
       switch (DepKind) {
@@ -1716,10 +1730,12 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   }
   Outliner << S.clauses();
   if (S.hasAssociatedStmt()) {
-    InlinedOpenMPRegionRAII Region(*this, Outliner, S);
-    auto CS = cast<CapturedStmt>(S.getAssociatedStmt());
-    if (HasExtraCaptureStmt)
-      CS = cast<CapturedStmt>(CS->getCapturedStmt());
-    CapturedStmtInfo->EmitBody(*this, CS);
+    if (const Stmt *AS = S.getAssociatedStmt()) {
+      InlinedOpenMPRegionRAII Region(*this, Outliner, S);
+      auto CS = cast<CapturedStmt>(AS);
+      if (HasExtraCaptureStmt)
+        CS = cast<CapturedStmt>(CS->getCapturedStmt());
+      CapturedStmtInfo->EmitBody(*this, CS);
+    }
   }
 }
