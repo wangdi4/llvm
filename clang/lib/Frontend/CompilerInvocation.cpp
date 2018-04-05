@@ -2279,6 +2279,22 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   CompilerInvocation::setLangDefaults(Opts, IK, T, PPOpts, LangStd);
 #if INTEL_CUSTOMIZATION
   Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
+  if (Opts.IntelCompat)
+    Opts.setAllIntelCompatItemsState(true);
+  for (const Arg *A : Args.filtered(OPT_fintel_compatibility_enable,
+                                    OPT_fintel_compatibility_disable)) {
+    A->claim();
+    bool Enable = (A->getOption().getID() == OPT_fintel_compatibility_enable);
+    // We can have a list of comma separated names.
+    StringRef ItemList = A->getValue();
+    SmallVector<StringRef, 32> Items;
+    ItemList.split(Items, ",");
+    for (StringRef Item : Items) {
+      if (!Opts.setIntelCompatItemsState(Item, Enable))
+        Diags.Report(diag::err_drv_invalid_value) << A->getSpelling() << Item;
+    }
+  }
+  Opts.ShowIntelCompatHelp = Args.hasArg(OPT_fintel_compatibility_help);
   Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
   Opts.HLS = Args.hasArg(OPT_fhls);
   Opts.IntelQuad = Args.hasArg(OPT_extended_float_types);

@@ -732,6 +732,15 @@ def fallow_half_arguments_and_returns : Flag<["-"], "fallow-half-arguments-and-r
 // if INTEL_CUSTOMIZATION
 def fintel_compatibility : Flag<["-"], "fintel-compatibility">,
   HelpText<"Enable full Intel C/C++ compatibility">;
+def fintel_compatibility_enable
+    : Joined<[ "-" ], "fintel-compatibility-enable=">,
+      HelpText<"Enable a list of Intel C/C++ compatibility items">;
+def fintel_compatibility_disable
+    : Joined<[ "-" ], "fintel-compatibility-disable=">,
+      HelpText<"Disable a list of Intel C/C++ compatibility items">;
+def fintel_compatibility_help
+    : Flag<[ "-" ], "fintel-compatibility-help">,
+      HelpText<"Display the list of Intel C/C++ compatibility items">;
 def fintel_ms_compatibility : Flag<["-"], "fintel-ms-compatibility">,
   HelpText<"Enable Microsoft compatibility features that are not planned for clang/llvm trunk">;
 def fintel_advanced_optim : Flag<["-"], "fintel-advanced-optim">,

@@ -756,7 +756,7 @@ void Sema::DiagnoseUnknownTypeName(IdentifierInfo *&II,
     unsigned DiagID = diag::err_typename_missing;
 #if INTEL_CUSTOMIZATION
     // Fix for CQ368310: missing 'typename' prior to dependent type name.
-    if (getLangOpts().IntelCompat) {
+    if (getLangOpts().isIntelCompat(LangOptions::AllowMissingTypename)) {
       DiagID = diag::ext_typename_missing;
     } else
 #endif // INTEL_COMPATIBILITY

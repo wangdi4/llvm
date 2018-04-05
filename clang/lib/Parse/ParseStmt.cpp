@@ -118,7 +118,8 @@ Parser::ParseStatementOrDeclaration(StmtVector &Stmts,
 #if INTEL_CUSTOMIZATION
   // CQ#371799 - let #pragma unroll precede non-loop statements.
   // Apply pending unroll attribute once a loop is parsed.
-  if (getLangOpts().IntelCompat && Res.isUsable()) {
+  if (getLangOpts().isIntelCompat(LangOptions::UnrollExtensions) &&
+      Res.isUsable()) {
     auto StClass = Res.get()->getStmtClass();
     if (StClass == Stmt::DoStmtClass || StClass == Stmt::WhileStmtClass ||
         StClass == Stmt::ForStmtClass || StClass == Stmt::CXXForRangeStmtClass)
@@ -1402,6 +1403,7 @@ StmtResult Parser::ParseWhileStatement(SourceLocation *TrailingElseLoc) {
   ConsumeToken();  // eat the 'while'.
 
 #if INTEL_CUSTOMIZATION
+  // UnrollExtensions
   PendingPragmaUnrollRAII PendingPragmaUnrollRAIIObject(*this);
 #endif // INTEL_CUSTOMIZATION
 
@@ -1474,6 +1476,7 @@ StmtResult Parser::ParseDoStatement() {
   SourceLocation DoLoc = ConsumeToken();  // eat the 'do'.
 
 #if INTEL_CUSTOMIZATION
+  // UnrollExtensions
   PendingPragmaUnrollRAII PendingPragmaUnrollRAIIObject(*this);
 #endif // INTEL_CUSTOMIZATION
 
@@ -1587,6 +1590,7 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
   SourceLocation ForLoc = ConsumeToken();  // eat the 'for'.
 
 #if INTEL_CUSTOMIZATION
+  // UnrollExtensions
   PendingPragmaUnrollRAII PendingPragmaUnrollRAIIObject(*this);
 #endif // INTEL_CUSTOMIZATION
 
@@ -2003,7 +2007,7 @@ StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts,
 
     // CQ#371799 - let loop #pragmas precede non-loop statements. Also fixes
     // CQ#377523, allowing several #pragma unroll attributes, choosing the last.
-    if (getLangOpts().IntelCompat &&
+    if (getLangOpts().isIntelCompat(LangOptions::UnrollExtensions) &&
         Hint.PragmaNameLoc->Ident->getName() != "loop") {
       auto *PendingAttr = getPendingUnrollAttr();
       PendingAttr->clear();

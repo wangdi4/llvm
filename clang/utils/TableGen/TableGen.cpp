@@ -56,6 +56,10 @@ enum ActionType {
   GenArmNeonSema,
   GenArmNeonTest,
   GenAttrDocs,
+#if INTEL_CUSTOMIZATION
+  GenIntelCustDocs,
+  GenIntelCustImpl,
+#endif // INTEL_CUSTOMIZATION
   GenDiagDocs,
   GenOptDocs,
   GenDataCollectors,
@@ -147,6 +151,12 @@ cl::opt<ActionType> Action(
                    "Generate ARM NEON tests for clang"),
         clEnumValN(GenAttrDocs, "gen-attr-docs",
                    "Generate attribute documentation"),
+#if INTEL_CUSTOMIZATION
+        clEnumValN(GenIntelCustDocs, "gen-intel-cust-docs",
+                   "Generate Intel customization documentation"),
+        clEnumValN(GenIntelCustImpl, "gen-intel-cust-impl",
+                   "Generate Intel customization implementation members"),
+#endif // INTEL_CUSTOMIZATION
         clEnumValN(GenDiagDocs, "gen-diag-docs",
                    "Generate diagnostic documentation"),
         clEnumValN(GenOptDocs, "gen-opt-docs", "Generate option documentation"),
@@ -264,6 +274,14 @@ bool ClangTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
   case GenAttrDocs:
     EmitClangAttrDocs(Records, OS);
     break;
+#if INTEL_CUSTOMIZATION
+  case GenIntelCustDocs:
+    EmitClangIntelCustDocs(Records, OS);
+    break;
+  case GenIntelCustImpl:
+    EmitClangIntelCustImpl(Records, OS);
+    break;
+#endif // INTEL_CUSTOMIZATION
   case GenDiagDocs:
     EmitClangDiagDocs(Records, OS);
     break;

@@ -4249,12 +4249,13 @@ void MicrosoftCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
   QualType ThrowType = SubExpr->getType();
 #if INTEL_CUSTOMIZATION
   // CQ#407554: make string literals catchable by "char *" handlers.
-  if (getContext().getLangOpts().IntelMSCompat &&
-      !getContext().getDiagnostics().getDiagnosticOptions().Pedantic &&
+  const ASTContext &C = getContext();
+  if (C.getLangOpts().isIntelCompat(LangOptions::StringCharStarCatchable) &&
+      !C.getDiagnostics().getDiagnosticOptions().Pedantic &&
       isa<StringLiteral>(SubExpr->IgnoreParenImpCasts())) {
     if (const auto *PtrType = ThrowType->getAs<PointerType>()) {
       QualType Unqual = PtrType->getPointeeType().getUnqualifiedType();
-      ThrowType = getContext().getPointerType(Unqual);
+      ThrowType = C.getPointerType(Unqual);
     }
   }
 #endif // INTEL_CUSTOMIZATION

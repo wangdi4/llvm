@@ -4127,6 +4127,129 @@ void EmitClangAttrDocs(RecordKeeper &Records, raw_ostream &OS) {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+// This routine generates an .rst file with documentation for each item in the
+// input .td file.  See IntelCustDocs.td.  Each item is defined with a name
+// ending in Docs.  The root of the name is used as a tag in the documentation
+// and sources.  The documentation is split by categories and a table of
+// data is added for each item.
+void EmitClangIntelCustDocs(RecordKeeper &Records, raw_ostream &OS) {
+  // Get the documentation introduction paragraph.
+  const Record *Documentation = Records.getDef("GlobalDocumentation");
+  if (!Documentation) {
+    PrintFatalError("The Documentation top-level definition is missing, "
+                    "no documentation will be generated.");
+    return;
+  }
+
+  OS << Documentation->getValueAsString("Intro") << "\n";
+
+  std::vector<Record *> Docs =
+      Records.getAllDerivedDefinitions("Documentation");
+  std::map<const Record *, std::vector<const Record *>> SplitDocs;
+  for (const auto *D : Docs) {
+    const Record &Doc = *D;
+    const Record *Category = Doc.getValueAsDef("Category");
+    SplitDocs[Category].push_back(D);
+  }
+  for (const auto &I : SplitDocs) {
+    WriteCategoryHeader(I.first, OS);
+    for (const auto *Doc : I.second) {
+      StringRef Name = Doc->getName();
+      if (Name.size() <= 4 || Name.substr(Name.size() - 4, 4) != "Docs")
+        PrintFatalError(Doc->getLoc(), "Name must be <TagName>Docs");
+      Name = Name.drop_back(4);
+      OS << Name << "\n" << std::string(Name.size(), '-') << "\n";
+      OS << ".. csv-table::\n";
+      OS << "   :header: ";
+      for (auto &Val : Doc->getValues()) {
+        if (Val.getType()->getRecTyKind() != RecTy::StringRecTyKind) continue;
+        StringRef FieldName = Val.getName();
+        if (FieldName == "NAME") continue;
+        OS << '"' << FieldName << "\",";
+      }
+      OS << "\n\n   ";
+      for (auto &Val : Doc->getValues()) {
+        if (Val.getType()->getRecTyKind() != RecTy::StringRecTyKind) continue;
+        StringRef FieldName = Val.getName();
+        if (FieldName == "NAME") continue;
+        OS << '"' << Doc->getValueAsString(FieldName) << "\",";
+      }
+      OS << "\n\n";
+
+      const StringRef ContentStr = Doc->getValueAsString("Content");
+      // Trim leading and trailing newlines and spaces.
+      OS << ContentStr.trim();
+      OS << "\n\n";
+    }
+  }
+}
+
+// This routine generates an .inc file from the IntelCust.td documentation
+// file.  The include is included into the definition of the LangOptions class.
+// It defines members used to access the individual tags for IntelCompat,
+// IntelMSCompat, and possibly future options.
+void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
+  std::vector<Record *> Docs =
+      Records.getAllDerivedDefinitions("Documentation");
+  std::map<const StringRef, std::vector<const Record *>> SplitDocs;
+  for (const auto *D : Docs) {
+    const Record &Doc = *D;
+    const StringRef Option = Doc.getValueAsString("Option");
+    if (!Option.empty())
+      SplitDocs[Option].push_back(D);
+  }
+  for (const auto &I : SplitDocs) {
+    StringRef OptionName = I.first;
+    SmallString<32> EnumName = OptionName;
+    EnumName += "Items";
+    SmallString<32> StateName = EnumName;
+    StateName += "State";
+    OS << "// Implementation for option " << OptionName;
+    OS << "\nenum " << EnumName << " {\n";
+    SmallString<2048> SwitchCases;
+    SmallString<2048> HelpItems;
+    int Count = 0;
+    for (const auto *Doc : I.second) {
+      StringRef ItemName = Doc->getName();
+      if (ItemName.size() <= 4 ||
+          ItemName.substr(ItemName.size() - 4, 4) != "Docs")
+        PrintFatalError(Doc->getLoc(), "Name must be <TagName>Docs");
+      ItemName = ItemName.drop_back(4);
+      OS << "  " << ItemName << ",\n";
+      SwitchCases += "    .Case(\"";
+      SwitchCases += ItemName;
+      SwitchCases += "\", ";
+      SwitchCases += std::to_string(Count);
+      SwitchCases += ")\n";
+      HelpItems += "\n    \"  ";
+      HelpItems += ItemName;
+      HelpItems += "\\n\"";
+      Count++;
+    }
+    OS << "};\nstd::array<bool," << Count << "> " << StateName << " = {};\n";
+    OS << "bool Show" << OptionName << "Help = false;\n";
+    OS << "StringRef help" << OptionName << "() const {\n";
+    OS << "  return \"Valid values for " << OptionName << ":\\n\"";
+    OS << HelpItems << ";\n}\n";
+    OS << "bool is" << OptionName << "(int C) const {\n  return " << StateName
+       << "[C];\n}\n";
+    OS << "int fromString" << EnumName << "(StringRef S) const {\n";
+    OS << "  return llvm::StringSwitch<int>(S)\n";
+    OS << SwitchCases << "    .Default(-1);\n";
+    OS << "}\n";
+    OS << "void setAll" << StateName << "(bool Enable) {\n";
+    OS << "  for (auto &Item : " << StateName << ")\n";
+    OS << "    Item = Enable;\n";
+    OS << "}\n";
+    OS << "bool set" << StateName << "(StringRef S, bool Enable) {\n";
+    OS << "  int N = fromString" << EnumName << "(S);\n";
+    OS << "  if (N == -1) return false;\n";
+    OS << "  " << StateName << "[N] = Enable;\n  return true;\n}\n\n";
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 void EmitTestPragmaAttributeSupportedAttributes(RecordKeeper &Records,
                                                 raw_ostream &OS) {
   PragmaClangAttributeSupport Support = getPragmaAttributeSupport(Records);
