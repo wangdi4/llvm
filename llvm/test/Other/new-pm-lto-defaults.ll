@@ -34,6 +34,7 @@
 ; CHECK-O-NEXT: Running pass: PassManager<{{.*}}Module
 ; CHECK-O-NEXT: Starting llvm::Module pass manager run.
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
+; CHECK-O-NEXT: Running pass: IPCloningPass ;INTEL
 ; CHECK-O-NEXT: Running pass: ForceFunctionAttrsPass
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
@@ -83,6 +84,7 @@
 ; CHECK-O2-NEXT: Running analysis: InlineAggAnalysis                         ;INTEL
 ; CHECK-O2-NEXT: Running pass: ModuleToPostOrderCGSCCPassAdaptor<{{.*}}InlinerPass>
 ; CHECK-O2-NEXT: Running pass: GlobalOptPass
+; CHECK-O2-NEXT: Running pass: IPCloningPass ;INTEL
 ; CHECK-O2-NEXT: Running pass: GlobalDCEPass
 ; CHECK-O2-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}PassManager{{.*}}>
 ; CHECK-O2-NEXT: Starting llvm::Function pass manager run.

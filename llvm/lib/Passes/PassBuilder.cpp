@@ -225,6 +225,11 @@ static cl::opt<bool> EnableSyntheticCounts(
 static cl::opt<bool> EnableInlineAggAnalysis(
     "enable-npm-inline-aggressive-analysis", cl::init(true), cl::Hidden,
     cl::desc("Enable Inline Aggressive Analysis for the new PM (default = on)"));
+
+// IP Cloning
+static cl::opt<bool> EnableIPCloning(
+    "enable-npm-ip-cloning", cl::init(true), cl::Hidden,
+    cl::desc("Enable IP Cloning for the new PM (default = on)"));
 #endif // INTEL_CUSTOMIZATION
 
 static Regex DefaultAliasRegex(
@@ -1016,6 +1021,11 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // whole-program devirtualization and bitset lowering.
   MPM.addPass(GlobalDCEPass());
 
+#if INTEL_CUSTOMIZATION
+  if (EnableIPCloning)
+    MPM.addPass(IPCloningPass(/*AfterInl*/ false));
+#endif // INTEL_CUSTOMIZATION
+
   // Force any function attributes we want the rest of the pipeline to observe.
   MPM.addPass(ForceFunctionAttrsPass());
 
@@ -1117,6 +1127,11 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   // Optimize globals again after we ran the inliner.
   MPM.addPass(GlobalOptPass());
+
+#if INTEL_CUSTOMIZATION
+  if (EnableIPCloning)
+    MPM.addPass(IPCloningPass(/*AfterInl*/ true));
+#endif // INTEL_CUSTOMIZATION
 
   // Garbage collect dead functions.
   // FIXME: Add ArgumentPromotion pass after once it's ported.
