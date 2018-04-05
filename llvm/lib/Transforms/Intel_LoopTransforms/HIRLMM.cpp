@@ -315,7 +315,6 @@ void HIRLMM::CollectMemRefs::collectMemRef(RegDDRef *Ref) {
 char HIRLMM::ID = 0;
 
 INITIALIZE_PASS_BEGIN(HIRLMM, "hir-lmm", "HIR Loop Memory Motion", false, false)
-INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
@@ -331,7 +330,6 @@ void HIRLMM::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  AU.addRequiredTransitive<OptReportOptionsPass>();
   AU.setPreservesAll();
 }
 
@@ -376,8 +374,6 @@ bool HIRLMM::runOnFunction(Function &F) {
 
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HIRF->getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
-  auto &OROP = getAnalysis<OptReportOptionsPass>();
-  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   if (CandidateLoops.empty()) {
     DEBUG(dbgs() << F.getName() << "() has no inner-most loop\n ");
@@ -636,6 +632,9 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG) {
   NeedLoadInPrehdr = isLoadNeededInPrehder(Lp, MRG);
 
   // ### Promote LIMM for the MRG ###
+
+  LoopOptReportBuilder &LORBuilder =
+      Lp->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
   // Create a Load in prehdr if needed
   if (NeedLoadInPrehdr) {
