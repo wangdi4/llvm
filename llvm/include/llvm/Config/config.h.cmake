@@ -346,6 +346,11 @@
 /* Define if we link Polly to the tools */
 #cmakedefine LINK_POLLY_INTO_TOOLS
 
+/* INTEL_CUSTOMIZATION */
+/* Define if we want to include DTrans in the builds */
+#cmakedefine01 INTEL_INCLUDE_DTRANS
+/* end INTEL_CUSTOMIZATION */
+
 /* Target triple LLVM will generate code for by default */
 /* Doesn't use `cmakedefine` because it is allowed to be empty. */
 #define LLVM_DEFAULT_TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}"

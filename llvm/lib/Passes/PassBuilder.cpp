@@ -33,7 +33,6 @@
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_DTrans/DTransAnalysis.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
 #endif // INTEL_CUSTOMIZATION
@@ -95,8 +94,6 @@
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/InstrProfiling.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
-#include "llvm/Transforms/Intel_DTrans/AOSToSOA.h" // INTEL
-#include "llvm/Transforms/Intel_DTrans/DeleteField.h" // INTEL
 #include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h" // INTEL
 #include "llvm/Transforms/PGOInstrumentation.h"
 #include "llvm/Transforms/SampleProfile.h"
@@ -188,6 +185,10 @@
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptPrepare.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTpv.h"
 #include "llvm/Transforms/Intel_VPO/Utils/CFGRestructuring.h"
+
+#if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/DTransCommon.h"
+#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -236,10 +237,12 @@ static Regex DefaultAliasRegex(
     "^(default|thinlto-pre-link|thinlto|lto-pre-link|lto)<(O[0123sz])>$");
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
 // DTrans optimizations -- this is a placeholder for future work.
 static cl::opt<bool> EnableDTrans("enable-npm-dtrans",
     cl::init(false), cl::Hidden,
     cl::desc("Enable DTrans optimizations"));
+#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 static bool isOptimizingForSize(PassBuilder::OptimizationLevel Level) {
@@ -1064,10 +1067,10 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(ReversePostOrderFunctionAttrsPass());
 
 #if INTEL_CUSTOMIZATION
-  if (EnableDTrans) {
-    MPM.addPass(dtrans::DeleteFieldPass());
-    MPM.addPass(dtrans::AOSToSOAPass());
-  }
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans)
+    addDTransPasses(MPM);
+#endif // INTEL_INCLUDE_DTRANS
   // Optimize some dynamic_cast calls.
   MPM.addPass(OptimizeDynamicCastsPass());
 #endif // INTEL_CUSTOMIZATION

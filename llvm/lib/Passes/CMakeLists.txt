@@ -12,3 +12,11 @@ add_llvm_library(LLVMPasses
   DEPENDS
   intrinsics_gen
   )
+
+# INTEL_CUSTOMIZATION
+if(INTEL_INCLUDE_DTRANS)
+  target_link_libraries(LLVMPasses PRIVATE LLVMIntel_DTrans
+                                           LLVMIntel_DTransOpt
+                                           LLVMIntel_DTransAnalysis)
+endif(INTEL_INCLUDE_DTRANS)
+# end INTEL_CUSTOMIZATION

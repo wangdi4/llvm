@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2017 Intel Corporation. All rights reserved.
+#    Copyright (C) 2018 Intel Corporation. All rights reserved.
 #
 #    The information and source code contained herein is the exclusive
 #    property of Intel Corporation. and may not be disclosed, examined
@@ -11,11 +11,6 @@
 #    Configures build for project.
 #
 
-add_llvm_library(LLVMIntel_DTransAnalysis
-  DTransUtils.cpp
-  DTransAnalysis.cpp
-)
-
-add_dependencies(LLVMIntel_DTransAnalysis intrinsics_gen)
-
-
+if (INTEL_INCLUDE_DTRANS)
+  add_subdirectory(DTrans)
+endif()

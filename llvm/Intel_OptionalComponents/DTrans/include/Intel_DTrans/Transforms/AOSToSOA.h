@@ -13,10 +13,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_INTEL_DTRANS_AOSTOSOA_H
-#define LLVM_TRANSFORMS_INTEL_DTRANS_AOSTOSOA_H
+#if !INTEL_INCLUDE_DTRANS
+#error DTrans.h include in an non-INTEL_INCLUDE_DTRANS build.
+#endif
 
-#include "llvm/Analysis/Intel_DTrans/DTransAnalysis.h"
+#ifndef INTEL_DTRANS_TRANSFORMS_AOSTOSOA_H
+#define INTEL_DTRANS_TRANSFORMS_AOSTOSOA_H
+
+#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 
@@ -40,4 +44,4 @@ ModulePass *createDTransAOSToSOAWrapperPass();
 
 } // namespace llvm
 
-#endif // LLVM_TRANSFORMS_INTEL_DTRANS_AOSTOSOA_H
+#endif // INTEL_DTRANS_TRANSFORMS_AOSTOSOA_H

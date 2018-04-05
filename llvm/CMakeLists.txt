@@ -646,6 +646,27 @@ if (LLVM_USE_OPROFILE)
   set(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS} OProfileJIT)
 endif (LLVM_USE_OPROFILE)
 
+if(INTEL_CUSTOMIZATION)
+  option(INTEL_INCLUDE_DTRANS "Include DTrans optimizations in builds." ON)
+  if(INTEL_INCLUDE_DTRANS)
+    # When there are multiple optional components, each of them should
+    # set this when included. This causes the Intel_OptionalComponents
+    # directory to be added as a subdirectory.
+    set(INTEL_ANY_OPTIONAL_COMPONENTS TRUE)
+    set(INTEL_DTRANS_INCLUDE_DIR
+        ${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/DTrans/include)
+    include_directories(AFTER ${INTEL_DTRANS_INCLUDE_DIR})
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_INCLUDE_DTRANS=1")
+    SET(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS}
+                               Intel_DTrans
+                               Intel_DTransOpt
+                               Intel_DTransAnalysis)
+
+  else()
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_INCLUDE_DTRANS=0")
+  endif()
+endif(INTEL_CUSTOMIZATION)
+
 message(STATUS "Constructing LLVMBuild project information")
 execute_process(
   COMMAND ${PYTHON_EXECUTABLE} -B ${LLVMBUILDTOOL}
@@ -899,6 +920,12 @@ endif()
 if( LLVM_INCLUDE_EXAMPLES )
   add_subdirectory(examples)
 endif()
+
+if (INTEL_CUSTOMIZATION)
+  if (INTEL_ANY_OPTIONAL_COMPONENTS)
+    add_subdirectory(Intel_OptionalComponents)
+  endif()
+endif (INTEL_CUSTOMIZATION)
 
 if( LLVM_INCLUDE_TESTS )
   if(EXISTS ${LLVM_MAIN_SRC_DIR}/projects/test-suite AND TARGET clang)

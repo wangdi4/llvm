@@ -9,12 +9,16 @@
 //===----------------------------------------------------------------------===//
 // Data Transformation Analysis
 //===----------------------------------------------------------------------===//
-//
-#ifndef LLVM_ANALYSIS_INTEL_DTRANS_DTRANSANALYSIS_H
-#define LLVM_ANALYSIS_INTEL_DTRANS_DTRANSANALYSIS_H
 
+#if !INTEL_INCLUDE_DTRANS
+#error DTrans.h include in an non-INTEL_INCLUDE_DTRANS build.
+#endif
+
+#ifndef INTEL_DTRANS_ANALYSIS_DTRANSANALYSIS_H
+#define INTEL_DTRANS_ANALYSIS_DTRANSANALYSIS_H
+
+#include "Intel_DTrans/Analysis/DTrans.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Analysis/Intel_DTrans/DTrans.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 
@@ -106,4 +110,4 @@ ModulePass *createDTransAnalysisWrapperPass();
 
 } // namespace llvm
 
-#endif // LLVM_ANALYSIS_INTEL_DTRANS_DTRANSANALYSIS_H
+#endif // INTEL_DTRANS_ANALYSIS_DTRANSANALYSIS_H

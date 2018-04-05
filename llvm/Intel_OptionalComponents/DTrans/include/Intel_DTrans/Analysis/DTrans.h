@@ -13,8 +13,12 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
-#ifndef LLVM_ANALYSIS_INTEL_DTRANS_DTRANS_H
-#define LLVM_ANALYSIS_INTEL_DTRANS_DTRANS_H
+#if !INTEL_INCLUDE_DTRANS
+#error DTrans.h include in an non-INTEL_INCLUDE_DTRANS build.
+#endif
+
+#ifndef INTEL_DTRANS_ANALYSIS_DTRANS_H
+#define INTEL_DTRANS_ANALYSIS_DTRANS_H
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -326,4 +330,4 @@ unsigned getMaxFieldsInStruct();
 
 } // namespace llvm
 
-#endif // LLVM_ANALYSIS_INTEL_DTRANS_DTRANS_H
+#endif // INTEL_DTRANS_ANALYSIS_DTRANS_H

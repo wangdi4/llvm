@@ -56,6 +56,13 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/DTransCommon.h"
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
 #include <algorithm>
 #include <memory>
 using namespace llvm;
@@ -436,9 +443,9 @@ int main(int argc, char **argv) {
   initializeIntel_OpenCLTransforms(Registry);
   initializeIntel_VPOAnalysis(Registry);
   initializeIntel_VPOTransforms(Registry);
-  initializeDTransAnalysisWrapperPass(Registry);
-  initializeDTransAOSToSOAWrapperPass(Registry);
-  initializeDTransDeleteFieldWrapperPass(Registry);
+#if INTEL_INCLUDE_DTRANS
+  initializeDTransPasses(Registry);
+#endif // INTEL_INCLUDE_DTRANS
   initializeOptimizeDynamicCastsWrapperPass(Registry);
 #endif  // INTEL_CUSTOMIZATION
 

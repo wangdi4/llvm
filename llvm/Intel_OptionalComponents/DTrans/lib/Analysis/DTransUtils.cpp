@@ -14,8 +14,8 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
+#include "Intel_DTrans/Analysis/DTrans.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/Analysis/Intel_DTrans/DTrans.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"

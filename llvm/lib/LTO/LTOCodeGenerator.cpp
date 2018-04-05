@@ -58,6 +58,13 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/DTransCommon.h"
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
 #include <system_error>
 using namespace llvm;
 
@@ -131,9 +138,9 @@ void LTOCodeGenerator::initializeLTOPasses() {
   initializeCFGSimplifyPassPass(R);
 #if INTEL_CUSTOMIZATION
   initializeAndersensAAWrapperPassPass(R);
-  initializeDTransAnalysisWrapperPass(R);
-  initializeDTransAOSToSOAWrapperPass(R);
-  initializeDTransDeleteFieldWrapperPass(R);
+#if INTEL_INCLUDE_DTRANS
+  initializeDTransPasses(R);
+#endif // INTEL_INCLUDE_DTRANS
   initializeWholeProgramWrapperPassPass(R);
   initializeInlineAggressiveWrapperPassPass(R);
   initializeOptimizeDynamicCastsWrapperPass(R);

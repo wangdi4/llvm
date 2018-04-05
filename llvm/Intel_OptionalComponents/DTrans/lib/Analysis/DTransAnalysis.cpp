@@ -10,9 +10,10 @@
 // This file does DTrans analysis.
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_DTrans/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/DTransCommon.h"
+#include "Intel_DTrans/Analysis/DTrans.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Analysis/Intel_DTrans/DTrans.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"

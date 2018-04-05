@@ -13,9 +13,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_DTrans/AOSToSOA.h"
-#include "llvm/Analysis/Intel_DTrans/DTrans.h"
-#include "llvm/Analysis/Intel_DTrans/DTransAnalysis.h"
+#include "Intel_DTrans/Transforms/AOSToSOA.h"
+#include "Intel_DTrans/DTransCommon.h"
+#include "Intel_DTrans/Analysis/DTrans.h"
+#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"

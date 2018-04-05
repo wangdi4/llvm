@@ -5,7 +5,7 @@
 ; Return a properly typed pointer to a structure.
 %struct.test01 = type { i32, i32 }
 define %struct.test01* @test1(%struct.test01* %p) {
-  ret %struct.test01* %p 
+  ret %struct.test01* %p
 }
 
 ; CHECK: LLVMType: %struct.test01 = type { i32, i32 }
@@ -14,7 +14,7 @@ define %struct.test01* @test1(%struct.test01* %p) {
 ; Return an instance of a structure.
 %struct.test02 = type { i32, i32 }
 define %struct.test02 @test2(%struct.test02 %s) {
-  ret %struct.test02 %s 
+  ret %struct.test02 %s
 }
 
 ; CHECK: LLVMType: %struct.test02 = type { i32, i32 }

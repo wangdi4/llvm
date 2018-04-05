@@ -1,6 +1,6 @@
-;===-------- ./lib/Transforms/Intel_DTrans/LLVMBuild.txt ---*- Conf -*------===;
+;===- ./Intel_OptionalComponents/DTrans/lib/LLVMBuild.txt ------*- Conf -*--===;
 ;
-; Copyright (C) 2017 Intel Corporation. All rights reserved.
+; Copyright (C) 2018 Intel Corporation. All rights reserved.
 ;
 ; The information and source code contained herein is the exclusive
 ; property of Intel Corporation and may not be disclosed, examined
@@ -17,9 +17,14 @@
 ;
 ;===------------------------------------------------------------------------===;
 
-[component_0]
-type = Library
-name = Intel_DTrans
-parent = Transforms
+[common]
+subdirectories =
+ Analysis
+ Transforms
 
-required_libraries = Analysis Core Support Intel_DTransAnalysis
+[component_0]
+type = OptionalLibrary
+name = Intel_DTrans
+parent = DTrans_Base
+
+required_libraries = Core Support Intel_DTransOpt Intel_DTransAnalysis
