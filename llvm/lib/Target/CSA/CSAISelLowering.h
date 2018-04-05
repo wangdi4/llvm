@@ -49,18 +49,10 @@ public:
   // all types save i1, that is what we return.
   // (Copied from FFWD)
   MVT getScalarShiftAmountTy(const DataLayout &, EVT LHSTy) const override {
-    switch (LHSTy.getSimpleVT().SimpleTy) {
-    case MVT::i1:
-      return MVT::i8;
-    case MVT::i8:
-    case MVT::i16:
-    case MVT::i32:
-    case MVT::i64:
-    case MVT::i128:
-      return LHSTy.getSimpleVT().SimpleTy;
-    default:
-      llvm_unreachable("Unknown shift type");
-    }
+    assert(LHSTy.isInteger() && "Can only shift integer types");
+    unsigned bits = LHSTy.getScalarSizeInBits();
+    if (bits < 8) bits = 8;
+    return MVT::getIntegerVT(1 << Log2_32_Ceil(bits));
   }
 
   /// LowerOperation - Provide custom lowering hooks for some operations.
