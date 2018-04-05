@@ -107,7 +107,7 @@ entry:
   ret void
 }
 ; Function Attrs: nounwind
-define spir_kernel void @host_kernel(i32 %size, float addrspace(1)* %ptr) #0 {
+define spir_kernel void @host_kernel(i32 %size, float addrspace(1)* %ptr) #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 {
 entry:
   %size.addr = alloca i32, align 4
   %ptr.addr = alloca float addrspace(1)*, align 8
@@ -212,7 +212,6 @@ declare spir_func i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tjPK12ocl_clkeventP
 attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
-!opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!6}
 !opencl.ocl.version = !{!7}
@@ -220,12 +219,11 @@ attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "
 !opencl.used.optional.core.features = !{!8}
 !opencl.compiler.options = !{!8}
 
-!0 = !{void (i32, float addrspace(1)*)* @host_kernel, !1, !2, !3, !4, !5}
-!1 = !{!"kernel_arg_addr_space", i32 0, i32 1}
-!2 = !{!"kernel_arg_access_qual", !"none", !"none"}
-!3 = !{!"kernel_arg_type", !"uint", !"float*"}
-!4 = !{!"kernel_arg_base_type", !"uint", !"float*"}
-!5 = !{!"kernel_arg_type_qual", !"", !""}
+!1 = !{i32 0, i32 1}
+!2 = !{!"none", !"none"}
+!3 = !{!"uint", !"float*"}
+!4 = !{!"uint", !"float*"}
+!5 = !{!"", !""}
 !6 = !{i32 1, i32 2}
 !7 = !{i32 2, i32 0}
 !8 = !{}
