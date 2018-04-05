@@ -115,9 +115,6 @@ private:
   // Save IV type for the collapse-able loop nest:
   Type *IVType = nullptr;
 
-  // Helper for generating optimization reports.
-  LoopOptReportBuilder LORBuilder;
-
 public:
   static char ID;
 
