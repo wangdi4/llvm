@@ -437,7 +437,7 @@ char HIRRuntimeDD::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
 
@@ -652,7 +652,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   MemRefGatherer::VectorTy Refs;
   SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> Tests;
 
-  auto &DDA = getAnalysis<HIRDDAnalysis>();
+  auto &DDA = getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   DDGraph DDG = DDA.getGraph(Loop);
   DEBUG(dbgs() << "Loop DDG:\n");
   DEBUG(DDG.dump());

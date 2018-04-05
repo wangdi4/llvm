@@ -98,10 +98,10 @@ HIRFramework HIRFrameworkAnalysis::run(Function &F,
       AM.getResult<HIRSCCFormationAnalysis>(F),
       AM.getResult<OptReportOptionsAnalysis>(F).getLoopOptReportVerbosity(),
       HIRAnalysisProvider(
-          [&]() { return nullptr; },
+          [&]() { return AM.getCachedResult<HIRDDAnalysisPass>(F); },
           [&]() { return AM.getCachedResult<HIRLoopLocalityAnalysis>(F); },
           [&]() { return AM.getCachedResult<HIRLoopResourceAnalysis>(F); },
-          [&]() { return AM.getCachedResult<HIRLoopStatisticsAnalysis>(F); },
+          [&]() { return &AM.getResult<HIRLoopStatisticsAnalysis>(F); },
           [&]() { return nullptr; }, [&]() { return nullptr; }));
 }
 
@@ -157,7 +157,11 @@ bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
       getAnalysis<HIRSCCFormationWrapperPass>().getSCCF(),
       getAnalysis<OptReportOptionsPass>().getLoopOptReportVerbosity(),
       HIRAnalysisProvider(
-          [&]() { return getAnalysisIfAvailable<HIRDDAnalysis>(); },
+          [&]() {
+            auto *Wrapper =
+                getAnalysisIfAvailable<HIRDDAnalysisWrapperPass>();
+            return Wrapper ? &Wrapper->getDDA() : nullptr;
+          },
           [&]() {
             auto *Wrapper =
                 getAnalysisIfAvailable<HIRLoopLocalityWrapperPass>();

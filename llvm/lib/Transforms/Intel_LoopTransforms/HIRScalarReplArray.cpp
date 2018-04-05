@@ -894,7 +894,7 @@ char HIRScalarReplArray::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRScalarReplArray, "hir-scalarrepl-array",
                       "HIR Scalar Replacement of Array ", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
 INITIALIZE_PASS_END(HIRScalarReplArray, "hir-scalarrepl-array",
@@ -910,7 +910,7 @@ HIRScalarReplArray::HIRScalarReplArray(void) : HIRTransformPass(ID) {
 
 void HIRScalarReplArray::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysis>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
   AU.setPreservesAll();
@@ -969,7 +969,7 @@ bool HIRScalarReplArray::runOnFunction(Function &F) {
     return false;
   }
 
-  HDDA = &getAnalysis<HIRDDAnalysis>();
+  HDDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   HLA = &getAnalysis<HIRLoopLocalityWrapperPass>().getHLL();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
 

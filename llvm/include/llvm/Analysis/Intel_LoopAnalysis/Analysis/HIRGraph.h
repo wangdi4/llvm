@@ -35,7 +35,12 @@ template <typename GraphNode, typename GraphEdge> class HIRGraph {
     OutEdges[EdgePtr.getSrc()].push_back(&EdgePtr);
   }
 
+  HIRGraph(const HIRGraph &) = delete;
+
 public:
+  HIRGraph(HIRGraph &&) = default;
+  HIRGraph() = default;
+
   // TODO: fix definition to return non-modifiable edge.
   typedef typename GraphEdgeContainerTy::const_iterator EdgeIterator;
 

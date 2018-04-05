@@ -180,7 +180,7 @@ public:
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
     AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
     AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysis>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
   }
 
 private:
@@ -328,7 +328,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRUnrollAndJam, "hir-unroll-and-jam", "HIR Unroll & Jam",
                     false, false)
 
@@ -826,7 +826,7 @@ bool HIRUnrollAndJam::runOnFunction(Function &F) {
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   HLR = &getAnalysis<HIRLoopResourceWrapperPass>().getHLR();
   HLA = &getAnalysis<HIRLoopLocalityWrapperPass>().getHLL();
-  DDA = &getAnalysis<HIRDDAnalysis>();
+  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   auto &OROP = getAnalysis<OptReportOptionsPass>();
   LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 

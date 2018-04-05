@@ -255,7 +255,7 @@ char HIRLoopReversal::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopReversal, "hir-loop-reversal", "HIR Loop Reversal",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRLoopReversal, "hir-loop-reversal", "HIR Loop Reversal",
@@ -379,7 +379,7 @@ HIRLoopReversal::HIRLoopReversal(void) : HIRTransformPass(ID) {
 
 void HIRLoopReversal::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysis>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   AU.setPreservesAll();
@@ -403,7 +403,7 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
   DEBUG(dbgs() << "HIR LoopReversal on Function : " << F.getName() << "\n");
 
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HDDA = &getAnalysis<HIRDDAnalysis>();
+  HDDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   HSRA = &getAnalysis<HIRSafeReductionAnalysis>();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
 

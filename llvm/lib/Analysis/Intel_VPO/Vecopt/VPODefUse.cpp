@@ -482,7 +482,7 @@ bool AvrDefUseHIR::runOnFunction(Function &F) {
   TopLevelLoop = nullptr;
 
   AVRGenerateHIR &AV = getAnalysis<AVRGenerateHIR>();
-  DDA = &getAnalysis<HIRDDAnalysis>();
+  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
 
   if (AV.isAbstractLayerEmpty()) {
     return false;

@@ -3,7 +3,9 @@
 ;        for (k = 1; k < 1000 ; k++) {
 ;					sum = sum + y[k];
 ;					x[i-1] += sum;
-; RUN:  opt < %s -hir-ssa-deconstruction | opt  -hir-dd-analysis  -hir-dd-analysis-verify=Region  -analyze  | FileCheck %s 
+; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s 
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
+
 ; CHECK-DAG:  %sum.022 FLOW (<= *)
 ;
 ; ModuleID = 'temp2.c'

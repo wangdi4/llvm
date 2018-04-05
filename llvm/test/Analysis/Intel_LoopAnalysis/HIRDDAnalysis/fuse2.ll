@@ -7,7 +7,9 @@
 ;   No dep expected when invoked from demand driven DD  
 ;
 ; RUN:  opt < %s -hir-ssa-deconstruction -hir-create-function-level-region | opt -hir-create-function-level-region -hir-dd-test-assume-loop-fusion -hir-dd-analysis  -hir-dd-analysis-verify=Region -analyze  | FileCheck %s 
-; CHECK: 'HIR Data Dependence Analysis' 
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-create-function-level-region -hir-dd-test-assume-loop-fusion -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
+
+; CHECK: DD graph for function  
 ; CHECK-NOT:  (%B)[0][i1] -->  (%B)[i1 + sext.i32.i64(%n)] 
 ; ModuleID = 'fuse2.c'
 source_filename = "fuse2.c"

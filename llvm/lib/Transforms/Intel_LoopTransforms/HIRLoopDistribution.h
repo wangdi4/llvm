@@ -49,7 +49,7 @@ public:
     // HLNodeUtils::dominates() utility. This is a workaround to keep the pass
     // manager from freeing it.
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysis>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
   }
   int OptReportLevel = 1;
 

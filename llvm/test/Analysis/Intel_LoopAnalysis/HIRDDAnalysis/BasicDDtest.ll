@@ -1,4 +1,6 @@
 ; RUN:  opt < %s  -loop-simplify  -hir-ssa-deconstruction | opt  -hir-dd-analysis  -hir-dd-analysis-verify=Region  -analyze  | FileCheck %s 
+; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction" | opt -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -28,7 +30,7 @@ for.end:                                          ; preds = %for.body
 ;;    for (i=0; i< 35; i++) {
 ;;			p[i] = q[i] +1; }
 
-; CHECK: 'HIR Data Dependence Analysis' for function 'sub1'
+; CHECK: DD graph for function sub1
 ; CHECK-DAG: (%q)[i1] --> (%p)[i1] ANTI (*)
 ; CHECK-DAG: (%p)[i1] --> (%q)[i1] FLOW (*)				
 
@@ -46,7 +48,7 @@ define void @sub2(float* nocapture %p, i64 %n) #0 {
 ;;        p[i] = p[i+1] +1;
 ;;     }
 
-; CHECK: 'HIR Data Dependence Analysis' for function 'sub2'
+; CHECK: DD graph for function sub2
 ; CHECK-DAG: (%p)[i1 + 1] --> (%p)[i1] ANTI (<)
 
 entry:
@@ -77,7 +79,7 @@ define void @sub3(float* nocapture %p, i32 %n) #0 {
 ;;       p[i-1] = p[i-1] + p[i];
 ;;    }
 
-; CHECK: 'HIR Data Dependence Analysis' for function 'sub3'
+; CHECK: DD graph for function sub3
 ; CHECK-DAG: (%p)[i1 + 1] --> (%p)[i1] ANTI (<)
 ; CHECK-DAG: (%p)[i1 + 1] --> (%p)[i1 + -1] ANTI (<)
 
@@ -117,8 +119,7 @@ define void @sub4(float* nocapture %p, float* nocapture %q, i32 %n) #0 {
 ;;       }
 ;;    }
   
-; CHECK: 'HIR Data Dependence Analysis' for function 'sub4'
-
+; CHECK: DD graph for function sub4
 
 ; CHECK-DAG:  --> (i32*)(%p)[100 * i1 + i2 + 100] FLOW (<= <)
 ; CHECK-DAG:  --> (%p)[100 * i1 + i2 + 101] ANTI (<= <)
@@ -165,7 +166,7 @@ define void @sub5(float* nocapture %p, float* nocapture %q, i32 %n) #0 {
 ;;            p[100*i + j] = i;
 ;;            q[i] =  p[100*i - j +11] ; } }
 
-; CHECK: 'HIR Data Dependence Analysis' for function 'sub5'
+; CHECK: DD graph for function sub5
 ; CHECK-DAG: --> (i32*)(%p)[100 * i1 + -1 * i2 + 110] FLOW (<= <)
 ; CHECK-DAG: --> (%p)[100 * i1 + i2 + 101] ANTI (<= <)
 
@@ -214,7 +215,7 @@ define void @sub6(float* nocapture %p, float* nocapture %q, i64 %n) #0 {
 ;;        }
 ;;     }
 
-; CHECK: 'HIR Data Dependence Analysis' for function 'sub6'
+; CHECK: DD graph for function sub6
 ; CHECK-DAG: (%p)[2 * i1 + -4 * i2] --> (i32*)(%p)[6 * i1 + 8 * i2] FLOW (<= *)
 ; CHECK-DAG: (i32*)(%p)[6 * i1 + 8 * i2] --> (%p)[2 * i1 + -4 * i2] ANTI (<= *)
 
@@ -264,7 +265,7 @@ define void @sub7(i64 %n) #0 {
 ;;        }
 ;;    }
   
-; CHECK: 'HIR Data Dependence Analysis' for function 'sub7'
+; CHECK: DD graph for function sub7
 ; INDEP expected for A, implying no EDGE
 ; CHECK-NOT:  @A 
 
@@ -313,7 +314,7 @@ define void @sub8(i64 %n) #0 {
 ;;                    for (i5=0; i5 < n; i5++) {
 ;;                        a[i1][i2][i3][i4][i5] = a[i1][i2-1][i3+1][i4-2][i5+3]; }}}}} 
 
-; CHECK: 'HIR Data Dependence Analysis' for function 'sub8'
+; CHECK: DD graph for function sub8
 ; CHECK-DAG: FLOW (= < > < >)
 
 entry:

@@ -107,7 +107,7 @@ public:
   }
   bool runOnFunction(Function &F) override {
     AV = &getAnalysis<AVRGenerateHIR>();
-    DDA = &getAnalysis<HIRDDAnalysis>();
+    DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
     VLS = &getAnalysis<HIRVectVLSAnalysis>();
     DefUse = &getAnalysis<AvrDefUseHIR>();
     return VPODriverBase::runOnFunction(F);
@@ -174,7 +174,7 @@ INITIALIZE_PASS_DEPENDENCY(AVRGenerateHIR)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRVectVLSAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
@@ -352,6 +352,6 @@ void VPODriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysis>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
 }

@@ -2,9 +2,10 @@
 ;        a[ - 2*n * i +4 ] = a[  -2 *n * i -5 ] +1; 
 ;   }
 
-; RUN:  opt < %s  -loop-simplify  -hir-ssa-deconstruction | opt  -hir-dd-analysis  -hir-dd-analysis-verify=Region  -analyze  | FileCheck %s 
- 
-; CHECK: 'HIR Data Dependence Analysis' for function 'sub8'
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s 
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
+
+; CHECK: DD graph for function sub8
 ; CHECK:  (%a)[-2 * %n * i1 + 4] OUTPUT (*)
 
 ; ModuleID = 'gcd4.c'

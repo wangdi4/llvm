@@ -4,9 +4,9 @@
 ;        a[2 *n * i] =   a[2 *n * i+ 1] ; 
 ;    }
 
-; RUN:  opt < %s -hir-ssa-deconstruction | opt -hir-loop-distribute-memrec -hir-dd-analysis -analyze  | FileCheck %s 
+; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-loop-distribute-memrec -hir-dd-analysis -analyze | FileCheck %s 
 
-; CHECK: 'HIR Data Dependence Analysis' for function 'sub8'
+; CHECK: DD graph for function sub8
 ; CHECK-DAG: FLOW
 ; CHECK-DAG: OUTPUT
 ; CHECK-NOT: -->

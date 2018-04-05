@@ -53,7 +53,7 @@ INITIALIZE_PASS_BEGIN(HIRLoopDistributionForMemRec,
                       "HIR Loop Distribution MemRec", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRLoopDistributionForMemRec, "hir-loop-distribute-memrec",
                     "HIR Loop Distribution MemRec", false, false)
 

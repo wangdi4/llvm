@@ -227,7 +227,7 @@ void HIRCompleteUnroll::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysis>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
 }
 
@@ -2323,7 +2323,7 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
   TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  DDA = &getAnalysis<HIRDDAnalysis>();
+  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   HSRA = &getAnalysis<HIRSafeReductionAnalysis>();
   auto &OROP = getAnalysis<OptReportOptionsPass>();
   LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());

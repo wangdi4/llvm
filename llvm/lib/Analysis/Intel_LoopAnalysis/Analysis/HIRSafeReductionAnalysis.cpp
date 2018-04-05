@@ -51,7 +51,7 @@ INITIALIZE_PASS_BEGIN(HIRSafeReductionAnalysis, "hir-safe-reduction-analysis",
                       "HIR Safe Reduction Analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRSafeReductionAnalysis, "hir-safe-reduction-analysis",
                     "HIR Safe Reduction Analysis", false, true)
 
@@ -63,7 +63,7 @@ void HIRSafeReductionAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   // HLNodeUtils::dominates() utility. This is a workaround to keep the pass
   // manager from freeing it.
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysis>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
 }
 
 //  Sample code for calling Safe Reduction.
@@ -87,7 +87,7 @@ void HIRSafeReductionAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 bool HIRSafeReductionAnalysis::runOnFunction(Function &F) {
 
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  DDA = &getAnalysis<HIRDDAnalysis>();
+  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
 
   if (!ForceSRA) {
     return false;

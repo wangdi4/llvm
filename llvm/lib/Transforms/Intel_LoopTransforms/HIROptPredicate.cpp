@@ -204,7 +204,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysis>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     // Loop Statistics is not used by this pass directly but it used by
     // HLNodeUtils::dominates() utility. This is a workaround to keep the pass
     // manager from freeing it.
@@ -647,7 +647,7 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
 char HIROptPredicate::ID = 0;
 INITIALIZE_PASS_BEGIN(HIROptPredicate, OPT_SWITCH, OPT_DESC, false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIROptPredicate, OPT_SWITCH, OPT_DESC, false, false)
 
@@ -670,7 +670,7 @@ bool HIROptPredicate::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Opt Predicate for Function: " << F.getName() << "\n");
 
   HIRFramework &HIR = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  DDA = &getAnalysis<HIRDDAnalysis>();
+  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
 
   for (HLNode &Node : make_range(HIR.hir_begin(), HIR.hir_end())) {
     HLRegion *Region = cast<HLRegion>(&Node);

@@ -26,8 +26,8 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
@@ -77,10 +77,31 @@ static cl::opt<bool>
     ForceDDA("force-hir-dd-analysis", cl::init(false), cl::Hidden,
              cl::desc("forces graph construction for every request"));
 
-FunctionPass *llvm::createHIRDDAnalysisPass() { return new HIRDDAnalysis(); }
+FunctionPass *llvm::createHIRDDAnalysisPass() {
+  return new HIRDDAnalysisWrapperPass();
+}
 
-char HIRDDAnalysis::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRDDAnalysis, "hir-dd-analysis",
+AnalysisKey HIRDDAnalysisPass::Key;
+HIRDDAnalysis HIRDDAnalysisPass::run(Function &F, FunctionAnalysisManager &AM) {
+  AAResults *AAR = new AAResults(AM.getResult<TargetLibraryAnalysis>(F));
+  if (auto *AAResult = AM.getCachedResult<ScopedNoAliasAA>(F)) {
+    AAR->addAAResult(*AAResult);
+  }
+  if (auto *AAResult = AM.getCachedResult<TypeBasedAA>(F)) {
+    AAR->addAAResult(*AAResult);
+  }
+  if (auto *AAResult = AM.getCachedResult<StdContainerAA>(F)) {
+    AAR->addAAResult(*AAResult);
+  }
+  if (auto *AAResult = AM.getCachedResult<BasicAA>(F)) {
+    AAR->addAAResult(*AAResult);
+  }
+
+  return HIRDDAnalysis(AM.getResult<HIRFrameworkAnalysis>(F), AAR);
+}
+
+char HIRDDAnalysisWrapperPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRDDAnalysisWrapperPass, "hir-dd-analysis",
                       "HIR Data Dependence Analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScopedNoAliasAAWrapperPass)
@@ -89,11 +110,10 @@ INITIALIZE_PASS_DEPENDENCY(BasicAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(StdContainerAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRDDAnalysis, "hir-dd-analysis",
+INITIALIZE_PASS_END(HIRDDAnalysisWrapperPass, "hir-dd-analysis",
                     "HIR Data Dependence Analysis", false, true)
 
-void HIRDDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
-
+void HIRDDAnalysisWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
@@ -111,9 +131,9 @@ void HIRDDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
 // \brief Because the graph is evaluated lazily, runOnFunction doesn't
 // do any analysis
-bool HIRDDAnalysis::runOnFunction(Function &F) {
-  AAR.reset(
-      new AAResults(getAnalysis<TargetLibraryInfoWrapperPass>().getTLI()));
+bool HIRDDAnalysisWrapperPass::runOnFunction(Function &F) {
+  AAResults *AAR =
+      new AAResults(getAnalysis<TargetLibraryInfoWrapperPass>().getTLI());
 
   if (auto *Pass = getAnalysisIfAvailable<ScopedNoAliasAAWrapperPass>()) {
     AAR->addAAResult(Pass->getResult());
@@ -131,19 +151,33 @@ bool HIRDDAnalysis::runOnFunction(Function &F) {
     AAR->addAAResult(Pass->getResult());
   }
 
-  HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
+  DDA.reset(
+      new HIRDDAnalysis(getAnalysis<HIRFrameworkWrapperPass>().getHIR(), AAR));
 
+  return false;
+}
+
+HIRDDAnalysis::HIRDDAnalysis(llvm::loopopt::HIRFramework &HIRF,
+                             llvm::AAResults *AAR)
+    : HIRAnalysis(HIRF), AAR(AAR) {
+
+  forceBuild();
+}
+
+void HIRDDAnalysisWrapperPass::releaseMemory() { DDA.reset(); }
+
+void HIRDDAnalysis::forceBuild() {
   // If cl opts are present, build graph for requested loop levels
   for (unsigned I = 0; I != VerifyLevelList.size(); ++I) {
     DDVerificationLevel CurLevel = VerifyLevelList[I];
     GraphVerifier V(this, CurLevel);
-    HIRF->getHLNodeUtils().visitAll(V);
+    HIRF.getHLNodeUtils().visitAll(V);
   }
 
   // Dump graph for each node specified by the cl opts.
   for (int NodeNumber : DumpGraphForNodeNumbers) {
     ForEach<HLNode>::visitRange(
-        HIRF->hir_begin(), HIRF->hir_end(),
+        HIRF.hir_begin(), HIRF.hir_end(),
         [NodeNumber, this](const HLNode *Node) {
           if (NodeNumber == -1 ||
               NodeNumber == static_cast<int>(Node->getNumber())) {
@@ -162,8 +196,6 @@ bool HIRDDAnalysis::runOnFunction(Function &F) {
           }
         });
   }
-
-  return false;
 }
 
 void HIRDDAnalysis::markLoopBodyModified(const HLLoop *Loop) {
@@ -199,13 +231,6 @@ DDGraph HIRDDAnalysis::getGraphImpl(const HLNode *Node, bool InputEdgesReq) {
   }
   return DDGraph(Node, &FunctionDDGraph);
 }
-
-void HIRDDAnalysis::releaseMemory() {
-  ValidationMap.clear();
-  FunctionDDGraph.clear();
-}
-
-void HIRDDAnalysis::verifyAnalysis() const {}
 
 // Returns true if we must do dd testing between ref1 and ref2. We generally
 // do not need to do testing between rvals, unless we need explicitly need input
@@ -252,23 +277,6 @@ void HIRDDAnalysis::setInputDV(DirectionVector &InputDV, HLNode *Node,
 
   InputDV.setAsInput(ShallowestLevel, DeepestLevel);
 }
-
-class HIRDDAnalysis::GraphStateUpdater final : public HLNodeVisitorBase {
-  decltype(HIRDDAnalysis::ValidationMap) &ValidityMapRef;
-  GraphState State;
-
-public:
-  GraphStateUpdater(decltype(HIRDDAnalysis::ValidationMap) &ValidityMapRef,
-                    GraphState State)
-      : ValidityMapRef(ValidityMapRef), State(State) {}
-
-  void visit(const HLLoop *Loop) { ValidityMapRef[Loop] = State; }
-
-  void visit(const HLRegion *Region) { ValidityMapRef[Region] = State; }
-
-  void visit(const HLNode *Node) {}
-  void postVisit(const HLNode *Node) {}
-};
 
 void HIRDDAnalysis::invalidateGraph(const HLLoop *Loop,
                                     bool InvalidateInnerLoops) {
@@ -503,8 +511,8 @@ bool HIRDDAnalysis::graphForNodeValid(const HLNode *Node) {
   return ValidationMap[Node] == GraphState::Valid;
 }
 
-void HIRDDAnalysis::print(raw_ostream &OS, const Module *M) const {
-  OS << "DD graph for function:\n";
+void HIRDDAnalysis::printAnalysis(raw_ostream &OS) const {
+  OS << "DD graph for function " << HIRF.getFunction().getName() << ":\n";
   FunctionDDGraph.print(OS);
 }
 

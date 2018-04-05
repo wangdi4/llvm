@@ -333,7 +333,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AVRGenerateHIR>();
-    AU.addRequired<HIRDDAnalysis>();
+    AU.addRequired<HIRDDAnalysisWrapperPass>();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.setPreservesAll();
   }

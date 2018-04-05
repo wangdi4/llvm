@@ -315,7 +315,7 @@ char HIRLMM::ID = 0;
 
 INITIALIZE_PASS_BEGIN(HIRLMM, "hir-lmm", "HIR Loop Memory Motion", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRLMM, "hir-lmm", "HIR Loop Memory Motion", false, false)
 
@@ -327,7 +327,7 @@ HIRLMM::HIRLMM(void) : HIRTransformPass(ID) {
 
 void HIRLMM::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysis>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   AU.setPreservesAll();
 }
@@ -380,7 +380,7 @@ bool HIRLMM::runOnFunction(Function &F) {
   }
   // DEBUG(dbgs() << " # Innermost Loops: " << CandidateLoops.size() << "\n");
 
-  HDDA = &getAnalysis<HIRDDAnalysis>();
+  HDDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   bool Result = false;
 

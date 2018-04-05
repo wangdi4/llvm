@@ -159,7 +159,7 @@ public:
     AU.addRequiredTransitive<OptReportOptionsPass>();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysis>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.setPreservesAll();
   }
 };
@@ -171,7 +171,7 @@ INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRIdiomRecognition, OPT_SWITCH, OPT_DESC, false, false)
 
 FunctionPass *llvm::createHIRIdiomRecognitionPass() {
@@ -753,7 +753,7 @@ bool HIRIdiomRecognition::runOnFunction(Function &F) {
 
   HIR = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  DDA = &getAnalysis<HIRDDAnalysis>();
+  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
 
   auto &OROP = getAnalysis<OptReportOptionsPass>();
   LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());

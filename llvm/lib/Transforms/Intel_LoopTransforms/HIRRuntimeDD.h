@@ -165,7 +165,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequired<OptReportOptionsPass>();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysis>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
     AU.setPreservesAll();
   }
