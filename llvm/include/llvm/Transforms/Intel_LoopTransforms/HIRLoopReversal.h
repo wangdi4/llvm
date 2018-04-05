@@ -118,9 +118,6 @@ private:
   unsigned LoopLevel = 0;                // Current Loop's Level
   bool HasNegIVExpr = false; // Has at least 1 Neg IV Expr in the collected MCEs
 
-  // Helper for generating optimization reports.
-  LoopOptReportBuilder LORBuilder;
-
 public:
   static char ID;
   HIRSafeReductionAnalysis *HSRA;
@@ -180,8 +177,8 @@ private:
   /// \brief Legality check for a given DVectorTy with a loop level
   bool isLegal(const DirectionVector &DV, unsigned Level);
 };
-}//namespace reversal
-}//namespace loopopt
-}//namespace llvm
+} // namespace reversal
+} // namespace loopopt
+} // namespace llvm
 
 #endif
