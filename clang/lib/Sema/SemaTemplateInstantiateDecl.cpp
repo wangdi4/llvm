@@ -197,6 +197,34 @@ static void instantiateDependentMaxConcurrencyAttr(
                             Max->getSpellingListIndex());
 }
 
+static void instantiateDependentInternalMaxBlockRamDepthAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const InternalMaxBlockRamDepthAttr *Max, Decl *New) {
+  // The __internal_max_block_ram_depth__ expression is a constant expression.
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  ExprResult Result =
+      S.SubstExpr(Max->getInternalMaxBlockRamDepth(), TemplateArgs);
+  if (!Result.isInvalid())
+    S.AddInternalMaxBlockRamDepthAttr(Max->getLocation(), New,
+                                      Result.getAs<Expr>(),
+                                      Max->getSpellingListIndex());
+}
+
+static void instantiateDependentSchedulerPipeliningEffortPctAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const SchedulerPipeliningEffortPctAttr *SPEPA, Decl *New) {
+  // The scheduler_pipelining_effort_pct expression is a constant expression.
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  ExprResult Result =
+      S.SubstExpr(SPEPA->getSchedulerPipeliningEffortPct(), TemplateArgs);
+  if (!Result.isInvalid())
+    S.AddSchedulerPipeliningEffortPctAttr(SPEPA->getLocation(), New,
+                                          Result.getAs<Expr>(),
+                                          SPEPA->getSpellingListIndex());
+}
+
 template <typename AttrType>
 static void instantiateDependentOneConstantValueAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
@@ -462,6 +490,20 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
     const MaxConcurrencyAttr *MCA = dyn_cast<MaxConcurrencyAttr>(TmplAttr);
     if (MCA) {
       instantiateDependentMaxConcurrencyAttr(*this, TemplateArgs, MCA, New);
+      continue;
+    }
+    const SchedulerPipeliningEffortPctAttr *SPEPA =
+        dyn_cast<SchedulerPipeliningEffortPctAttr>(TmplAttr);
+    if (SPEPA) {
+      instantiateDependentSchedulerPipeliningEffortPctAttr(*this, TemplateArgs,
+                                                           SPEPA, New);
+      continue;
+    }
+    const InternalMaxBlockRamDepthAttr *IMBRDA =
+        dyn_cast<InternalMaxBlockRamDepthAttr>(TmplAttr);
+    if (IMBRDA) {
+      instantiateDependentInternalMaxBlockRamDepthAttr(*this, TemplateArgs,
+                                                       IMBRDA, New);
       continue;
     }
     const NumReadPortsAttr *NRPA = dyn_cast<NumReadPortsAttr>(TmplAttr);
