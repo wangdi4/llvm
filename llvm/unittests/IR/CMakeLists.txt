@@ -15,6 +15,7 @@ set(IRSources
   ConstantsTest.cpp
   DebugInfoTest.cpp
   DebugTypeODRUniquingTest.cpp
+  DeferredDominanceTest.cpp
   DominatorTreeTest.cpp
   DominatorTreeBatchUpdatesTest.cpp
   FunctionTest.cpp
@@ -24,6 +25,7 @@ set(IRSources
   IntrinsicsTest.cpp
   LegacyPassManagerTest.cpp
   MDBuilderTest.cpp
+  ManglerTest.cpp
   MetadataTest.cpp
   ModuleTest.cpp
   PassManagerTest.cpp

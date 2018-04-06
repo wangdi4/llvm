@@ -67,7 +67,6 @@ public:
     ISAVersion7_0_2,
     ISAVersion7_0_3,
     ISAVersion7_0_4,
-    ISAVersion8_0_0,
     ISAVersion8_0_1,
     ISAVersion8_0_2,
     ISAVersion8_0_3,
@@ -139,6 +138,7 @@ protected:
   // Subtarget statically properties set by tablegen
   bool FP64;
   bool FMA;
+  bool MIMG_R128;
   bool IsGCN;
   bool GCN3Encoding;
   bool CIInsts;
@@ -165,6 +165,7 @@ protected:
   bool FlatGlobalInsts;
   bool FlatScratchInsts;
   bool AddNoCarryInsts;
+  bool HasUnpackedD16VMem;
   bool R600ALUInst;
   bool CaymanISA;
   bool CFALUBug;
@@ -264,6 +265,10 @@ public:
     return FP64;
   }
 
+  bool hasMIMG_R128() const {
+    return MIMG_R128;
+  }
+
   bool hasFastFMAF32() const {
     return FastFMAF32;
   }
@@ -325,14 +330,6 @@ public:
 
   bool hasMadMixInsts() const {
     return HasMadMixInsts;
-  }
-
-  bool hasSBufferLoadStoreAtomicDwordxN() const {
-    // Only use the "x1" variants on GFX9 or don't use the buffer variants.
-    // For x2 and higher variants, if the accessed region spans 2 VM pages and
-    // the second page is unmapped, the hw hangs.
-    // TODO: There is one future GFX9 chip that doesn't have this bug.
-    return getGeneration() != GFX9;
   }
 
   bool hasCARRY() const {
@@ -417,6 +414,12 @@ public:
     return FlatForGlobal;
   }
 
+  /// \returns If target supports ds_read/write_b128 and user enables generation
+  /// of ds_read/write_b128.
+  bool useDS128(bool UserEnable) const {
+    return CIInsts && UserEnable;
+  }
+
   /// \returns If MUBUF instructions always perform range checking, even for
   /// buffer resources used for private memory access.
   bool privateMemoryResourceIsRangeChecked() const {
@@ -479,6 +482,10 @@ public:
 
   bool hasAddNoCarry() const {
     return AddNoCarryInsts;
+  }
+
+  bool hasUnpackedD16VMem() const {
+    return HasUnpackedD16VMem;
   }
 
   bool isMesaKernel(const MachineFunction &MF) const {
@@ -704,7 +711,7 @@ private:
 
 public:
   SISubtarget(const Triple &TT, StringRef CPU, StringRef FS,
-              const TargetMachine &TM);
+              const GCNTargetMachine &TM);
 
   const SIInstrInfo *getInstrInfo() const override {
     return &InstrInfo;
@@ -841,6 +848,12 @@ public:
   /// \returns true if the flat_scratch register should be initialized with the
   /// pointer to the wave's scratch memory rather than a size and offset.
   bool flatScratchIsPointer() const {
+    return getGeneration() >= GFX9;
+  }
+
+  /// \returns true if the machine has merged shaders in which s0-s7 are
+  /// reserved by the hardware and user SGPRs start at s8
+  bool hasMergedShaders() const {
     return getGeneration() >= GFX9;
   }
 
