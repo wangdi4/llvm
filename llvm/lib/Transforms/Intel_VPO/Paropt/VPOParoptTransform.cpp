@@ -2622,7 +2622,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     // Set up the Calling Convention used by OpenMP Runtime Library
     CallingConv::ID CC = CallingConv::C;
 
-    DT->verifyDomTree();
+    DT->verify(DominatorTree::VerificationLevel::Full);
 
     // Adjust the calling convention for both the function and the
     // call site.

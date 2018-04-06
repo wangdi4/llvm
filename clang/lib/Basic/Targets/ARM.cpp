@@ -379,6 +379,7 @@ bool ARMTargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
   Unaligned = 1;
   SoftFloat = SoftFloatABI = false;
   HWDiv = 0;
+  HasFullFP16 = 0;
 
   // This does not diagnose illegal cases like having both
   // "+vfpv2" and "+vfpv3" or having "+neon" and "+fp-only-sp".
@@ -419,6 +420,8 @@ bool ARMTargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       Unaligned = 0;
     } else if (Feature == "+fp16") {
       HW_FP |= HW_FP_HP;
+    } else if (Feature == "+fullfp16") {
+      HasFullFP16 = 1;
     }
   }
   HW_FP &= ~HW_FP_remove;
@@ -476,6 +479,10 @@ bool ARMTargetInfo::hasFeature(StringRef Feature) const {
 bool ARMTargetInfo::isValidCPUName(StringRef Name) const {
   return Name == "generic" ||
          llvm::ARM::parseCPUArch(Name) != llvm::ARM::ArchKind::INVALID;
+}
+
+void ARMTargetInfo::fillValidCPUList(SmallVectorImpl<StringRef> &Values) const {
+  llvm::ARM::fillValidCPUArchList(Values);
 }
 
 bool ARMTargetInfo::setCPU(const std::string &Name) {
@@ -705,6 +712,15 @@ void ARMTargetInfo::getTargetDefines(const LangOptions &Opts,
 
   if (Opts.UnsafeFPMath)
     Builder.defineMacro("__ARM_FP_FAST", "1");
+
+  // Armv8.2-A FP16 vector intrinsic
+  if ((FPU & NeonFPU) && HasFullFP16)
+    Builder.defineMacro("__ARM_FEATURE_FP16_VECTOR_ARITHMETIC", "1");
+
+  // Armv8.2-A FP16 scalar intrinsics
+  if (HasFullFP16)
+    Builder.defineMacro("__ARM_FEATURE_FP16_SCALAR_ARITHMETIC", "1");
+
 
   switch (ArchKind) {
   default:

@@ -35,7 +35,7 @@ class PHINode;
 class Loop;
 class LoopInfo;
 class DominatorTree;
-struct PostDominatorTree;
+class PostDominatorTree;
 class ScalarEvolution;
 class GetElementPtrInst;
 class GEPOperator;

@@ -70,16 +70,6 @@ static GetElementPtrInst *getGEPInstruction(Value *Ptr) {
   return dyn_cast<GetElementPtrInst>(getPtrThruBitCast(Ptr));
 }
 
-/// A helper function that returns the pointer operand of a load or store
-/// instruction.
-static Value *getPointerOperand(Value *I) {
-  if (auto *LI = dyn_cast<LoadInst>(I))
-    return LI->getPointerOperand();
-  if (auto *SI = dyn_cast<StoreInst>(I))
-    return SI->getPointerOperand();
-  return nullptr;
-}
-
 /// \brief Check that the instruction has outside loop users and is not an
 /// identified reduction variable.
 static bool hasOutsideLoopUser(const Loop *TheLoop, Instruction *Inst,
@@ -1224,7 +1214,7 @@ void VPOCodeGen::vectorizeBitCast(Instruction *Inst) {
   // Do not vectorize bitcast of loop-private if
   // it is used in load/store only
   if (Legal->isLoopPrivate(Inst) && all_of(Inst->users(), [&](User *U) -> bool {
-        return getPointerOperand(U) == Inst;
+        return getLoadStorePointerOperand(U) == Inst;
       }))
     return;
   Value *A = getVectorValue(Inst->getOperand(0));
@@ -3000,11 +2990,11 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   case Instruction::GetElementPtr: {
     // Consecutive Load/Store will clone the GEP
     if (all_of(Inst->users(), [&](User *U) -> bool {
-          return getPointerOperand(U) == Inst;
+          return getLoadStorePointerOperand(U) == Inst;
         }) && Legal->isConsecutivePtr(Inst))
       break;
     if (all_of(Inst->users(), [&](User *U) -> bool {
-          return getPointerOperand(U) == Inst &&
+          return getLoadStorePointerOperand(U) == Inst &&
                  Legal->isUniformForTheLoop(U);
       })) {
       serializeInstruction(Inst);
@@ -3486,7 +3476,7 @@ void VPOVectorizationLegality::collectLoopUniformsForAnyVF() {
       }
 
       // Load with loop invariant pointer
-      Value *Ptr = getPointerOperand(&I);
+      Value *Ptr = getLoadStorePointerOperand(&I);
       if (Ptr && !isLoopPrivate(Ptr)) {
         // Collect pointer stride information
         if (!PtrStrides.count(Ptr)) {
@@ -3583,14 +3573,14 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
     for (auto &I : *BB) {
       
       // If there's no pointer operand, there's nothing to do.
-      auto *Ptr = dyn_cast_or_null<Instruction>(getPointerOperand(&I));
+      auto *Ptr = dyn_cast_or_null<Instruction>(getLoadStorePointerOperand(&I));
       if (!Ptr)
         continue;
 
       // True if all users of Ptr are memory accesses that have Ptr as their
       // pointer operand.
       auto UsersAreMemAccesses = all_of(Ptr->users(), [&](User *U) -> bool {
-        return getPointerOperand(U) == Ptr;
+        return getLoadStorePointerOperand(U) == Ptr;
       });
 
       // Ensure the memory instruction will not be scalarized or used by
@@ -3638,7 +3628,7 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
   // Returns true if Ptr is the pointer operand of a memory access instruction
   // I, and I is known to not require scalarization.
   auto isVectorizedMemAccessUse = [&](Instruction *I, Value *Ptr) -> bool {
-    return getPointerOperand(I) == Ptr && Legal->isConsecutivePtr(Ptr);
+    return getLoadStorePointerOperand(I) == Ptr && Legal->isConsecutivePtr(Ptr);
   };
 
   // For an instruction to be added into Worklist above, all its users inside

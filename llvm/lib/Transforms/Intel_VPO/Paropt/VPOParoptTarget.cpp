@@ -73,7 +73,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     CallingConv::ID CC = CallingConv::C;
     NewF->addFnAttr("target.declare", "true");
 
-    DT->verifyDomTree();
+    DT->verify(DominatorTree::VerificationLevel::Full);
 
     // Adjust the calling convention for both the function and the
     // call site.

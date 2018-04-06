@@ -2229,6 +2229,7 @@ bool GVN::processBlock(BasicBlock *BB) {
     for (auto *I : InstrsToErase) {
       assert(I->getParent() == BB && "Removing instruction from wrong block?");
       DEBUG(dbgs() << "GVN removed: " << *I << '\n');
+      salvageDebugInfo(*I);
       if (MD) MD->removeInstruction(I);
       DEBUG(verifyRemoved(I));
       if (MaybeFirstICF == I) {

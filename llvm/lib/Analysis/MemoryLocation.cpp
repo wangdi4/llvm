@@ -211,7 +211,10 @@ static void getMemLocsForPtrVec(const Value *PtrVec,
         continue;
       // At ith lane, set the memory location to be the memory location
       // of ith pointer constant.
-      Results[i] = MemoryLocation(CV->getOperand(i));
+      Constant *Elt = CV->getAggregateElement(i);
+      if(!Elt)
+        return;
+      Results[i] = MemoryLocation(Elt);
     }
     Resolved = true;
     return;

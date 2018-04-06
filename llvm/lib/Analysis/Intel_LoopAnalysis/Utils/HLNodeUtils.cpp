@@ -21,6 +21,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/ADT/Statistic.h"
+#include <llvm/IR/IntrinsicInst.h>
 #include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
 #include "llvm/Support/Debug.h"
 
@@ -860,9 +861,10 @@ HLInst *HLNodeUtils::createSelect(const HLPredicate &Pred, RegDDRef *OpRef1,
   return HInst;
 }
 
-HLInst *HLNodeUtils::createCall(Function *Func,
-                                const SmallVectorImpl<RegDDRef *> &CallArgs,
-                                const Twine &Name, RegDDRef *LvalRef) {
+std::pair<HLInst *, CallInst *>
+HLNodeUtils::createCallImpl(Function *Func,
+                            const SmallVectorImpl<RegDDRef *> &CallArgs,
+                            const Twine &Name, RegDDRef *LvalRef) {
   bool HasReturn = !Func->getReturnType()->isVoidTy();
   unsigned NumArgs = CallArgs.size();
   HLInst *HInst;
@@ -896,6 +898,59 @@ HLInst *HLNodeUtils::createCall(Function *Func,
   for (unsigned I = 0; I < NumArgs; I++) {
     HInst->setOperandDDRef(CallArgs[I], I + ArgOffset);
   }
+
+  return std::make_pair(HInst, InstVal);
+}
+
+HLInst *HLNodeUtils::createCall(Function *Func,
+                                const SmallVectorImpl<RegDDRef *> &CallArgs,
+                                const Twine &Name, RegDDRef *LvalRef) {
+  return createCallImpl(Func, CallArgs, Name, LvalRef).first;
+}
+
+HLInst *HLNodeUtils::createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef,
+                                  RegDDRef *Size) {
+  RegDDRef *IsVolatile = getDDRefUtils().createConstDDRef(
+      Type::getInt1Ty(getContext()),
+      LoadRef->isVolatile() || StoreRef->isVolatile());
+
+  Type *Tys[] = {StoreRef->getDestType(), LoadRef->getDestType(),
+                 Size->getDestType()};
+
+  Function *MemcpyFunc =
+      Intrinsic::getDeclaration(&getModule(), Intrinsic::memcpy, Tys);
+
+  SmallVector<RegDDRef *, 5> Ops = {StoreRef, LoadRef, Size, IsVolatile};
+
+  CallInst *Call;
+  HLInst *HInst;
+  std::tie(HInst, Call) = createCallImpl(MemcpyFunc, Ops);
+
+  MemCpyInst *MemCpyCall = cast<MemCpyInst>(Call);
+  MemCpyCall->setSourceAlignment(LoadRef->getAlignment());
+  MemCpyCall->setDestAlignment(StoreRef->getAlignment());
+
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createMemset(RegDDRef *StoreRef, RegDDRef *Value,
+                                  RegDDRef *Size) {
+  RegDDRef *IsVolatile = getDDRefUtils().createConstDDRef(
+      Type::getInt1Ty(getContext()), StoreRef->isVolatile());
+
+  Type *Tys[] = {StoreRef->getDestType(), Size->getDestType()};
+  Function *MemsetFunc =
+      Intrinsic::getDeclaration(&getModule(), Intrinsic::memset, Tys);
+
+  SmallVector<RegDDRef *, 5> Ops = {StoreRef, Value, Size, IsVolatile};
+
+  CallInst *Call;
+  HLInst *HInst;
+  std::tie(HInst, Call) = createCallImpl(MemsetFunc, Ops);
+
+  MemSetInst *MemSetCall = cast<MemSetInst>(Call);
+  MemSetCall->setAlignment(StoreRef->getAlignment());
+
   return HInst;
 }
 

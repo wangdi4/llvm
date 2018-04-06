@@ -43,6 +43,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Scalar/InductiveRangeCheckElimination.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/None.h"
@@ -52,6 +53,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
+#include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -179,10 +181,7 @@ public:
     OS << "  Step: ";
     Step->print(OS);
     OS << "  End: ";
-    if (End)
-      End->print(OS);
-    else
-      OS << "(null)";
+    End->print(OS);
     OS << "\n  CheckUse: ";
     getCheckUse()->getUser()->print(OS);
     OS << " Operand: " << getCheckUse()->getOperandNo() << "\n";
@@ -196,7 +195,7 @@ public:
   Use *getCheckUse() const { return CheckUse; }
 
   /// Represents an signed integer range [Range.getBegin(), Range.getEnd()).  If
-  /// R.getEnd() sle R.getBegin(), then R denotes the empty range.
+  /// R.getEnd() le R.getBegin(), then R denotes the empty range.
 
   class Range {
     const SCEV *Begin;
@@ -238,17 +237,31 @@ public:
   /// checks, and hence don't end up in \p Checks.
   static void
   extractRangeChecksFromBranch(BranchInst *BI, Loop *L, ScalarEvolution &SE,
-                               BranchProbabilityInfo &BPI,
+                               BranchProbabilityInfo *BPI,
                                SmallVectorImpl<InductiveRangeCheck> &Checks);
 };
 
-class InductiveRangeCheckElimination : public LoopPass {
+class InductiveRangeCheckElimination {
+  ScalarEvolution &SE;
+  BranchProbabilityInfo *BPI;
+  DominatorTree &DT;
+  LoopInfo &LI;
+
+public:
+  InductiveRangeCheckElimination(ScalarEvolution &SE,
+                                 BranchProbabilityInfo *BPI, DominatorTree &DT,
+                                 LoopInfo &LI)
+      : SE(SE), BPI(BPI), DT(DT), LI(LI) {}
+
+  bool run(Loop *L, function_ref<void(Loop *, bool)> LPMAddNewLoop);
+};
+
+class IRCELegacyPass : public LoopPass {
 public:
   static char ID;
 
-  InductiveRangeCheckElimination() : LoopPass(ID) {
-    initializeInductiveRangeCheckEliminationPass(
-        *PassRegistry::getPassRegistry());
+  IRCELegacyPass() : LoopPass(ID) {
+    initializeIRCELegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -261,14 +274,14 @@ public:
 
 } // end anonymous namespace
 
-char InductiveRangeCheckElimination::ID = 0;
+char IRCELegacyPass::ID = 0;
 
-INITIALIZE_PASS_BEGIN(InductiveRangeCheckElimination, "irce",
+INITIALIZE_PASS_BEGIN(IRCELegacyPass, "irce",
                       "Inductive range check elimination", false, false)
 INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopPass)
-INITIALIZE_PASS_END(InductiveRangeCheckElimination, "irce",
-                    "Inductive range check elimination", false, false)
+INITIALIZE_PASS_END(IRCELegacyPass, "irce", "Inductive range check elimination",
+                    false, false)
 
 StringRef InductiveRangeCheck::rangeCheckKindToStr(
     InductiveRangeCheck::RangeCheckKind RCK) {
@@ -394,8 +407,23 @@ void InductiveRangeCheck::extractRangeChecksFromCond(
   if (!IsAffineIndex)
     return;
 
+  const SCEV *End = nullptr;
+  // We strengthen "0 <= I" to "0 <= I < INT_SMAX" and "I < L" to "0 <= I < L".
+  // We can potentially do much better here.
+  if (Length)
+    End = SE.getSCEV(Length);
+  else {
+    assert(RCKind == InductiveRangeCheck::RANGE_CHECK_LOWER && "invariant!");
+    // So far we can only reach this point for Signed range check. This may
+    // change in future. In this case we will need to pick Unsigned max for the
+    // unsigned range check.
+    unsigned BitWidth = cast<IntegerType>(IndexAddRec->getType())->getBitWidth();
+    const SCEV *SIntMax = SE.getConstant(APInt::getSignedMaxValue(BitWidth));
+    End = SIntMax;
+  }
+
   InductiveRangeCheck IRC;
-  IRC.End = Length ? SE.getSCEV(Length) : nullptr;
+  IRC.End = End;
   IRC.Begin = IndexAddRec->getStart();
   IRC.Step = IndexAddRec->getStepRecurrence(SE);
   IRC.CheckUse = &ConditionUse;
@@ -405,15 +433,15 @@ void InductiveRangeCheck::extractRangeChecksFromCond(
 }
 
 void InductiveRangeCheck::extractRangeChecksFromBranch(
-    BranchInst *BI, Loop *L, ScalarEvolution &SE, BranchProbabilityInfo &BPI,
+    BranchInst *BI, Loop *L, ScalarEvolution &SE, BranchProbabilityInfo *BPI,
     SmallVectorImpl<InductiveRangeCheck> &Checks) {
   if (BI->isUnconditional() || BI->getParent() == L->getLoopLatch())
     return;
 
   BranchProbability LikelyTaken(15, 16);
 
-  if (!SkipProfitabilityChecks &&
-      BPI.getEdgeProbability(BI->getParent(), (unsigned)0) < LikelyTaken)
+  if (!SkipProfitabilityChecks && BPI &&
+      BPI->getEdgeProbability(BI->getParent(), (unsigned)0) < LikelyTaken)
     return;
 
   SmallPtrSet<Value *, 8> Visited;
@@ -504,9 +532,8 @@ struct LoopStructure {
   }
 
   static Optional<LoopStructure> parseLoopStructure(ScalarEvolution &,
-                                                    BranchProbabilityInfo &BPI,
-                                                    Loop &,
-                                                    const char *&);
+                                                    BranchProbabilityInfo *BPI,
+                                                    Loop &, const char *&);
 };
 
 /// This class is used to constrain loops to run within a given iteration space.
@@ -573,7 +600,7 @@ class LoopConstrainer {
   // Create the appropriate loop structure needed to describe a cloned copy of
   // `Original`.  The clone is described by `VM`.
   Loop *createClonedLoopStructure(Loop *Original, Loop *Parent,
-                                  ValueToValueMapTy &VM);
+                                  ValueToValueMapTy &VM, bool IsSubloop);
 
   // Rewrite the iteration space of the loop denoted by (LS, Preheader). The
   // iteration space of the rewritten loop ends at ExitLoopAt.  The start of the
@@ -625,8 +652,8 @@ class LoopConstrainer {
   LLVMContext &Ctx;
   ScalarEvolution &SE;
   DominatorTree &DT;
-  LPPassManager &LPM;
   LoopInfo &LI;
+  function_ref<void(Loop *, bool)> LPMAddNewLoop;
 
   // Information about the original loop we started out with.
   Loop &OriginalLoop;
@@ -646,12 +673,13 @@ class LoopConstrainer {
   LoopStructure MainLoopStructure;
 
 public:
-  LoopConstrainer(Loop &L, LoopInfo &LI, LPPassManager &LPM,
+  LoopConstrainer(Loop &L, LoopInfo &LI,
+                  function_ref<void(Loop *, bool)> LPMAddNewLoop,
                   const LoopStructure &LS, ScalarEvolution &SE,
                   DominatorTree &DT, InductiveRangeCheck::Range R)
       : F(*L.getHeader()->getParent()), Ctx(L.getHeader()->getContext()),
-        SE(SE), DT(DT), LPM(LPM), LI(LI), OriginalLoop(L), Range(R),
-        MainLoopStructure(LS) {}
+        SE(SE), DT(DT), LI(LI), LPMAddNewLoop(LPMAddNewLoop), OriginalLoop(L),
+        Range(R), MainLoopStructure(LS) {}
 
   // Entry point for the algorithm.  Returns true on success.
   bool run();
@@ -714,8 +742,8 @@ static bool SumCanReachMin(ScalarEvolution &SE, const SCEV *S1, const SCEV *S2,
 
 Optional<LoopStructure>
 LoopStructure::parseLoopStructure(ScalarEvolution &SE,
-                                  BranchProbabilityInfo &BPI,
-                                  Loop &L, const char *&FailureReason) {
+                                  BranchProbabilityInfo *BPI, Loop &L,
+                                  const char *&FailureReason) {
   if (!L.isLoopSimplifyForm()) {
     FailureReason = "loop not in LoopSimplify form";
     return None;
@@ -750,7 +778,8 @@ LoopStructure::parseLoopStructure(ScalarEvolution &SE,
   unsigned LatchBrExitIdx = LatchBr->getSuccessor(0) == Header ? 1 : 0;
 
   BranchProbability ExitProbability =
-    BPI.getEdgeProbability(LatchBr->getParent(), LatchBrExitIdx);
+      BPI ? BPI->getEdgeProbability(LatchBr->getParent(), LatchBrExitIdx)
+          : BranchProbability::getZero();
 
   if (!SkipProfitabilityChecks &&
       ExitProbability > BranchProbability(1, MaxExitProbReciprocal)) {
@@ -922,9 +951,9 @@ LoopStructure::parseLoopStructure(ScalarEvolution &SE,
         return None;
       }
 
-      if (!SE.isLoopEntryGuardedByCond(
-              &L, BoundPred, IndVarStart,
-              SE.getAddExpr(RightSCEV, Step))) {
+      if (!SE.isAvailableAtLoopEntry(RightSCEV, &L) ||
+          !SE.isLoopEntryGuardedByCond(&L, BoundPred, IndVarStart,
+                                       SE.getAddExpr(RightSCEV, Step))) {
         FailureReason = "Induction variable start not bounded by upper limit";
         return None;
       }
@@ -936,7 +965,8 @@ LoopStructure::parseLoopStructure(ScalarEvolution &SE,
         RightValue = B.CreateAdd(RightValue, One);
       }
     } else {
-      if (!SE.isLoopEntryGuardedByCond(&L, BoundPred, IndVarStart, RightSCEV)) {
+      if (!SE.isAvailableAtLoopEntry(RightSCEV, &L) ||
+          !SE.isLoopEntryGuardedByCond(&L, BoundPred, IndVarStart, RightSCEV)) {
         FailureReason = "Induction variable start not bounded by upper limit";
         return None;
       }
@@ -1002,9 +1032,10 @@ LoopStructure::parseLoopStructure(ScalarEvolution &SE,
         return None;
       }
 
-      if (!SE.isLoopEntryGuardedByCond(
-              &L, BoundPred, IndVarStart,
-              SE.getMinusSCEV(RightSCEV, SE.getOne(RightSCEV->getType())))) {
+      if (!SE.isAvailableAtLoopEntry(RightSCEV, &L) ||
+          !SE.isLoopEntryGuardedByCond(
+               &L, BoundPred, IndVarStart,
+               SE.getMinusSCEV(RightSCEV, SE.getOne(RightSCEV->getType())))) {
         FailureReason = "Induction variable start not bounded by lower limit";
         return None;
       }
@@ -1016,7 +1047,8 @@ LoopStructure::parseLoopStructure(ScalarEvolution &SE,
         RightValue = B.CreateSub(RightValue, One);
       }
     } else {
-      if (!SE.isLoopEntryGuardedByCond(&L, BoundPred, IndVarStart, RightSCEV)) {
+      if (!SE.isAvailableAtLoopEntry(RightSCEV, &L) ||
+          !SE.isLoopEntryGuardedByCond(&L, BoundPred, IndVarStart, RightSCEV)) {
         FailureReason = "Induction variable start not bounded by lower limit";
         return None;
       }
@@ -1381,13 +1413,14 @@ void LoopConstrainer::addToParentLoopIfNeeded(ArrayRef<BasicBlock *> BBs) {
 }
 
 Loop *LoopConstrainer::createClonedLoopStructure(Loop *Original, Loop *Parent,
-                                                 ValueToValueMapTy &VM) {
+                                                 ValueToValueMapTy &VM,
+                                                 bool IsSubloop) {
   Loop &New = *LI.AllocateLoop();
   if (Parent)
     Parent->addChildLoop(&New);
   else
     LI.addTopLevelLoop(&New);
-  LPM.addLoop(New);
+  LPMAddNewLoop(&New, IsSubloop);
 
   // Add all of the blocks in Original to the new loop.
   for (auto *BB : Original->blocks())
@@ -1396,7 +1429,7 @@ Loop *LoopConstrainer::createClonedLoopStructure(Loop *Original, Loop *Parent,
 
   // Add all of the subloops to the new loop.
   for (Loop *SubLoop : *Original)
-    createClonedLoopStructure(SubLoop, &New, VM);
+    createClonedLoopStructure(SubLoop, &New, VM, /* IsSubloop */ true);
 
   return &New;
 }
@@ -1546,13 +1579,15 @@ bool LoopConstrainer::run() {
   // LI when LoopSimplifyForm is generated.
   Loop *PreL = nullptr, *PostL = nullptr;
   if (!PreLoop.Blocks.empty()) {
-    PreL = createClonedLoopStructure(
-        &OriginalLoop, OriginalLoop.getParentLoop(), PreLoop.Map);
+    PreL = createClonedLoopStructure(&OriginalLoop,
+                                     OriginalLoop.getParentLoop(), PreLoop.Map,
+                                     /* IsSubLoop */ false);
   }
 
   if (!PostLoop.Blocks.empty()) {
-    PostL = createClonedLoopStructure(
-        &OriginalLoop, OriginalLoop.getParentLoop(), PostLoop.Map);
+    PostL =
+        createClonedLoopStructure(&OriginalLoop, OriginalLoop.getParentLoop(),
+                                  PostLoop.Map, /* IsSubLoop */ false);
   }
 
   // This function canonicalizes the loop into Loop-Simplify and LCSSA forms.
@@ -1618,32 +1653,30 @@ InductiveRangeCheck::computeSafeIterationSpace(
   unsigned BitWidth = cast<IntegerType>(IndVar->getType())->getBitWidth();
   const SCEV *SIntMax = SE.getConstant(APInt::getSignedMaxValue(BitWidth));
 
-  // Substract Y from X so that it does not go through border of the IV
+  // Subtract Y from X so that it does not go through border of the IV
   // iteration space. Mathematically, it is equivalent to:
   //
-  //    ClampedSubstract(X, Y) = min(max(X - Y, INT_MIN), INT_MAX).        [1]
+  //    ClampedSubtract(X, Y) = min(max(X - Y, INT_MIN), INT_MAX).        [1]
   //
-  // In [1], 'X - Y' is a mathematical substraction (result is not bounded to
+  // In [1], 'X - Y' is a mathematical subtraction (result is not bounded to
   // any width of bit grid). But after we take min/max, the result is
   // guaranteed to be within [INT_MIN, INT_MAX].
   //
   // In [1], INT_MAX and INT_MIN are respectively signed and unsigned max/min
   // values, depending on type of latch condition that defines IV iteration
   // space.
-  auto ClampedSubstract = [&](const SCEV *X, const SCEV *Y) {
-    assert(SE.isKnownNonNegative(X) &&
-           "We can only substract from values in [0; SINT_MAX]!");
+  auto ClampedSubtract = [&](const SCEV *X, const SCEV *Y) {
     if (IsLatchSigned) {
       // X is a number from signed range, Y is interpreted as signed.
       // Even if Y is SINT_MAX, (X - Y) does not reach SINT_MIN. So the only
       // thing we should care about is that we didn't cross SINT_MAX.
-      // So, if Y is positive, we substract Y safely.
+      // So, if Y is positive, we subtract Y safely.
       //   Rule 1: Y > 0 ---> Y.
-      // If 0 <= -Y <= (SINT_MAX - X), we substract Y safely.
+      // If 0 <= -Y <= (SINT_MAX - X), we subtract Y safely.
       //   Rule 2: Y >=s (X - SINT_MAX) ---> Y.
-      // If 0 <= (SINT_MAX - X) < -Y, we can only substract (X - SINT_MAX).
+      // If 0 <= (SINT_MAX - X) < -Y, we can only subtract (X - SINT_MAX).
       //   Rule 3: Y <s (X - SINT_MAX) ---> (X - SINT_MAX).
-      // It gives us smax(Y, X - SINT_MAX) to substract in all cases.
+      // It gives us smax(Y, X - SINT_MAX) to subtract in all cases.
       const SCEV *XMinusSIntMax = SE.getMinusSCEV(X, SIntMax);
       return SE.getMinusSCEV(X, SE.getSMaxExpr(Y, XMinusSIntMax),
                              SCEV::FlagNSW);
@@ -1651,29 +1684,19 @@ InductiveRangeCheck::computeSafeIterationSpace(
       // X is a number from unsigned range, Y is interpreted as signed.
       // Even if Y is SINT_MIN, (X - Y) does not reach UINT_MAX. So the only
       // thing we should care about is that we didn't cross zero.
-      // So, if Y is negative, we substract Y safely.
+      // So, if Y is negative, we subtract Y safely.
       //   Rule 1: Y <s 0 ---> Y.
-      // If 0 <= Y <= X, we substract Y safely.
+      // If 0 <= Y <= X, we subtract Y safely.
       //   Rule 2: Y <=s X ---> Y.
-      // If 0 <= X < Y, we should stop at 0 and can only substract X.
+      // If 0 <= X < Y, we should stop at 0 and can only subtract X.
       //   Rule 3: Y >s X ---> X.
-      // It gives us smin(X, Y) to substract in all cases.
+      // It gives us smin(X, Y) to subtract in all cases.
       return SE.getMinusSCEV(X, SE.getSMinExpr(X, Y), SCEV::FlagNUW);
   };
   const SCEV *M = SE.getMinusSCEV(C, A);
   const SCEV *Zero = SE.getZero(M->getType());
-  const SCEV *Begin = ClampedSubstract(Zero, M);
-  const SCEV *L = nullptr;
-
-  // We strengthen "0 <= I" to "0 <= I < INT_SMAX" and "I < L" to "0 <= I < L".
-  // We can potentially do much better here.
-  if (const SCEV *EndLimit = getEnd())
-    L = EndLimit;
-  else {
-    assert(Kind == InductiveRangeCheck::RANGE_CHECK_LOWER && "invariant!");
-    L = SIntMax;
-  }
-  const SCEV *End = ClampedSubstract(L, M);
+  const SCEV *Begin = ClampedSubtract(Zero, M);
+  const SCEV *End = ClampedSubtract(getEnd(), M);
   return InductiveRangeCheck::Range(Begin, End);
 }
 
@@ -1735,12 +1758,45 @@ IntersectUnsignedRange(ScalarEvolution &SE,
   return Ret;
 }
 
-bool InductiveRangeCheckElimination::runOnLoop(Loop *L, LPPassManager &LPM) {
+PreservedAnalyses IRCEPass::run(Loop &L, LoopAnalysisManager &AM,
+                                LoopStandardAnalysisResults &AR,
+                                LPMUpdater &U) {
+  Function *F = L.getHeader()->getParent();
+  const auto &FAM =
+      AM.getResult<FunctionAnalysisManagerLoopProxy>(L, AR).getManager();
+  auto *BPI = FAM.getCachedResult<BranchProbabilityAnalysis>(*F);
+  InductiveRangeCheckElimination IRCE(AR.SE, BPI, AR.DT, AR.LI);
+  auto LPMAddNewLoop = [&U](Loop *NL, bool IsSubloop) {
+    if (!IsSubloop)
+      U.addSiblingLoops(NL);
+  };
+  bool Changed = IRCE.run(&L, LPMAddNewLoop);
+  if (!Changed)
+    return PreservedAnalyses::all();
+
+  return getLoopPassPreservedAnalyses();
+}
+
+bool IRCELegacyPass::runOnLoop(Loop *L, LPPassManager &LPM) {
   if (skipLoop(L))
     return false;
 
+  ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  BranchProbabilityInfo &BPI =
+      getAnalysis<BranchProbabilityInfoWrapperPass>().getBPI();
+  auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  auto &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  InductiveRangeCheckElimination IRCE(SE, &BPI, DT, LI);
+  auto LPMAddNewLoop = [&LPM](Loop *NL, bool /* IsSubLoop */) {
+    LPM.addLoop(*NL);
+  };
+  return IRCE.run(L, LPMAddNewLoop);
+}
+
+bool InductiveRangeCheckElimination::run(
+    Loop *L, function_ref<void(Loop *, bool)> LPMAddNewLoop) {
   if (L->getBlocks().size() >= LoopSizeCutoff) {
-    DEBUG(dbgs() << "irce: giving up constraining loop, too large\n";);
+    DEBUG(dbgs() << "irce: giving up constraining loop, too large\n");
     return false;
   }
 
@@ -1752,9 +1808,6 @@ bool InductiveRangeCheckElimination::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   LLVMContext &Context = Preheader->getContext();
   SmallVector<InductiveRangeCheck, 16> RangeChecks;
-  ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  BranchProbabilityInfo &BPI =
-      getAnalysis<BranchProbabilityInfoWrapperPass>().getBPI();
 
   for (auto BBI : L->getBlocks())
     if (BranchInst *TBI = dyn_cast<BranchInst>(BBI->getTerminator()))
@@ -1820,9 +1873,8 @@ bool InductiveRangeCheckElimination::runOnLoop(Loop *L, LPPassManager &LPM) {
   if (!SafeIterRange.hasValue())
     return false;
 
-  auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  LoopConstrainer LC(*L, getAnalysis<LoopInfoWrapperPass>().getLoopInfo(), LPM,
-                     LS, SE, DT, SafeIterRange.getValue());
+  LoopConstrainer LC(*L, LI, LPMAddNewLoop, LS, SE, DT,
+                     SafeIterRange.getValue());
   bool Changed = LC.run();
 
   if (Changed) {
@@ -1852,5 +1904,5 @@ bool InductiveRangeCheckElimination::runOnLoop(Loop *L, LPPassManager &LPM) {
 }
 
 Pass *llvm::createInductiveRangeCheckEliminationPass() {
-  return new InductiveRangeCheckElimination;
+  return new IRCELegacyPass();
 }

@@ -80,19 +80,20 @@ RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
   Form     = byteFromRec(Rec, "FormBits");
   Encoding = byteFromRec(Rec, "OpEncBits");
 
-  OpSize           = byteFromRec(Rec, "OpSizeBits");
-  AdSize           = byteFromRec(Rec, "AdSizeBits");
-  HasREX_WPrefix   = Rec->getValueAsBit("hasREX_WPrefix");
-  HasVEX_4V        = Rec->getValueAsBit("hasVEX_4V");
-  VEX_WPrefix      = byteFromRec(Rec,"VEX_WPrefix");
-  IgnoresVEX_L     = Rec->getValueAsBit("ignoresVEX_L");
-  HasEVEX_L2Prefix = Rec->getValueAsBit("hasEVEX_L2");
-  HasEVEX_K        = Rec->getValueAsBit("hasEVEX_K");
-  HasEVEX_KZ       = Rec->getValueAsBit("hasEVEX_Z");
-  HasEVEX_B        = Rec->getValueAsBit("hasEVEX_B");
-  IsCodeGenOnly    = Rec->getValueAsBit("isCodeGenOnly");
-  ForceDisassemble = Rec->getValueAsBit("ForceDisassemble");
-  CD8_Scale        = byteFromRec(Rec, "CD8_Scale");
+  OpSize             = byteFromRec(Rec, "OpSizeBits");
+  AdSize             = byteFromRec(Rec, "AdSizeBits");
+  HasREX_WPrefix     = Rec->getValueAsBit("hasREX_WPrefix");
+  HasVEX_4V          = Rec->getValueAsBit("hasVEX_4V");
+  VEX_WPrefix        = byteFromRec(Rec,"VEX_WPrefix");
+  IgnoresVEX_L       = Rec->getValueAsBit("ignoresVEX_L");
+  HasEVEX_L2Prefix   = Rec->getValueAsBit("hasEVEX_L2");
+  HasEVEX_K          = Rec->getValueAsBit("hasEVEX_K");
+  HasEVEX_KZ         = Rec->getValueAsBit("hasEVEX_Z");
+  HasEVEX_B          = Rec->getValueAsBit("hasEVEX_B");
+  Has3DNow0F0FOpcode = Rec->getValueAsBit("has3DNow0F0FOpcode");
+  IsCodeGenOnly      = Rec->getValueAsBit("isCodeGenOnly");
+  ForceDisassemble   = Rec->getValueAsBit("ForceDisassemble");
+  CD8_Scale          = byteFromRec(Rec, "CD8_Scale");
 
   Name      = Rec->getName();
 
@@ -288,6 +289,8 @@ InstructionContext RecognizableInstr::insnContext() const {
       errs() << "Instruction does not use a prefix: " << Name << "\n";
       llvm_unreachable("Invalid prefix");
     }
+  } else if (Has3DNow0F0FOpcode) {
+    insnContext = IC_3DNOW;
   } else if (Is64Bit || HasREX_WPrefix || AdSize == X86Local::AdSize64) {
     if (HasREX_WPrefix && (OpSize == X86Local::OpSize16 || OpPrefix == X86Local::PD))
       insnContext = IC_64BIT_REXW_OPSIZE;
@@ -663,36 +666,29 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(immediate)
     HANDLE_OPERAND(immediate)
     break;
-  case X86Local::MRM_F8:
-    if (Opcode == 0xc6) {
-      assert(numPhysicalOperands == 1 &&
-             "Unexpected number of operands for X86Local::MRM_F8");
-      HANDLE_OPERAND(immediate)
-    } else if (Opcode == 0xc7) {
-      assert(numPhysicalOperands == 1 &&
-             "Unexpected number of operands for X86Local::MRM_F8");
-      HANDLE_OPERAND(relocation)
-    }
-    break;
   case X86Local::MRM_C0: case X86Local::MRM_C1: case X86Local::MRM_C2:
-  case X86Local::MRM_C3: case X86Local::MRM_C4: case X86Local::MRM_C8:
+  case X86Local::MRM_C3: case X86Local::MRM_C4: case X86Local::MRM_C5:
+  case X86Local::MRM_C6: case X86Local::MRM_C7: case X86Local::MRM_C8:
   case X86Local::MRM_C9: case X86Local::MRM_CA: case X86Local::MRM_CB:
+  case X86Local::MRM_CC: case X86Local::MRM_CD: case X86Local::MRM_CE:
   case X86Local::MRM_CF: case X86Local::MRM_D0: case X86Local::MRM_D1:
-  case X86Local::MRM_D4: case X86Local::MRM_D5: case X86Local::MRM_D6:
-  case X86Local::MRM_D7: case X86Local::MRM_D8: case X86Local::MRM_D9:
-  case X86Local::MRM_DA: case X86Local::MRM_DB: case X86Local::MRM_DC:
-  case X86Local::MRM_DD: case X86Local::MRM_DE: case X86Local::MRM_DF:
-  case X86Local::MRM_E0: case X86Local::MRM_E1: case X86Local::MRM_E2:
-  case X86Local::MRM_E3: case X86Local::MRM_E4: case X86Local::MRM_E5:
-  case X86Local::MRM_E8: case X86Local::MRM_E9: case X86Local::MRM_EA:
-  case X86Local::MRM_EB: case X86Local::MRM_EC: case X86Local::MRM_ED:
-  case X86Local::MRM_EE: case X86Local::MRM_EF: case X86Local::MRM_F0:
-  case X86Local::MRM_F1: case X86Local::MRM_F2: case X86Local::MRM_F3:
-  case X86Local::MRM_F4: case X86Local::MRM_F5: case X86Local::MRM_F6:
-  case X86Local::MRM_F7: case X86Local::MRM_F9: case X86Local::MRM_FA:
-  case X86Local::MRM_FB: case X86Local::MRM_FC: case X86Local::MRM_FD:
-  case X86Local::MRM_FE: case X86Local::MRM_FF:
-    // Ignored.
+  case X86Local::MRM_D2: case X86Local::MRM_D3: case X86Local::MRM_D4:
+  case X86Local::MRM_D5: case X86Local::MRM_D6: case X86Local::MRM_D7:
+  case X86Local::MRM_D8: case X86Local::MRM_D9: case X86Local::MRM_DA:
+  case X86Local::MRM_DB: case X86Local::MRM_DC: case X86Local::MRM_DD:
+  case X86Local::MRM_DE: case X86Local::MRM_DF: case X86Local::MRM_E0:
+  case X86Local::MRM_E1: case X86Local::MRM_E2: case X86Local::MRM_E3:
+  case X86Local::MRM_E4: case X86Local::MRM_E5: case X86Local::MRM_E6:
+  case X86Local::MRM_E7: case X86Local::MRM_E8: case X86Local::MRM_E9:
+  case X86Local::MRM_EA: case X86Local::MRM_EB: case X86Local::MRM_EC:
+  case X86Local::MRM_ED: case X86Local::MRM_EE: case X86Local::MRM_EF:
+  case X86Local::MRM_F0: case X86Local::MRM_F1: case X86Local::MRM_F2:
+  case X86Local::MRM_F3: case X86Local::MRM_F4: case X86Local::MRM_F5:
+  case X86Local::MRM_F6: case X86Local::MRM_F7: case X86Local::MRM_F8:
+  case X86Local::MRM_F9: case X86Local::MRM_FA: case X86Local::MRM_FB:
+  case X86Local::MRM_FC: case X86Local::MRM_FD: case X86Local::MRM_FE:
+  case X86Local::MRM_FF:
+    HANDLE_OPTIONAL(relocation)
     break;
   }
 
@@ -930,7 +926,6 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("VK32WM",              TYPE_VK)
   TYPE("VK64",                TYPE_VK)
   TYPE("VK64WM",              TYPE_VK)
-  TYPE("GR32_NOAX",           TYPE_Rv)
   TYPE("vx64mem",             TYPE_MVSIBX)
   TYPE("vx128mem",            TYPE_MVSIBX)
   TYPE("vx256mem",            TYPE_MVSIBX)
@@ -1201,7 +1196,6 @@ RecognizableInstr::opcodeModifierEncodingFromString(const std::string &s,
   ENCODING("GR64",            ENCODING_RO)
   ENCODING("GR16",            ENCODING_Rv)
   ENCODING("GR8",             ENCODING_RB)
-  ENCODING("GR32_NOAX",       ENCODING_Rv)
   errs() << "Unhandled opcode modifier encoding " << s << "\n";
   llvm_unreachable("Unhandled opcode modifier encoding");
 }

@@ -759,6 +759,10 @@ def warn_cxx_ms_struct :
   Warning<"ms_struct may not produce Microsoft-compatible layouts for classes "
           "with base classes or virtual functions">,
   DefaultError, InGroup<IncompatibleMSStruct>;
+def warn_npot_ms_struct :
+  Warning<"ms_struct may not produce Microsoft-compatible layouts with fundamental "
+          "data types with sizes that aren't a power of two">,
+  DefaultError, InGroup<IncompatibleMSStruct>;
 def err_section_conflict : Error<"%0 causes a section type conflict with %1">;
 def err_no_base_classes : Error<"invalid use of '__super', %0 has no base classes">;
 def err_invalid_super_scope : Error<"invalid use of '__super', "
@@ -1582,6 +1586,8 @@ def err_not_integral_type_bitfield : Error<
   "bit-field %0 has non-integral type %1">;
 def err_not_integral_type_anon_bitfield : Error<
   "anonymous bit-field has non-integral type %0">;
+def err_anon_bitfield_qualifiers : Error<
+  "anonymous bit-field cannot have qualifiers">;
 def err_member_function_initialization : Error<
   "initializer on function does not look like a pure-specifier">;
 def err_non_virtual_pure : Error<
@@ -2445,8 +2451,8 @@ def err_attribute_requires_positive_integer : Error<
 def err_attribute_requires_opencl_version : Error<
   "%0 attribute requires OpenCL version %1%select{| or above}2">;
 def warn_unsupported_target_attribute
-    : Warning<"ignoring %select{unsupported|duplicate}0"
-              "%select{| architecture}1 '%2' in the target attribute string">,
+    : Warning<"%select{unsupported|duplicate}0%select{| architecture}1 '%2' in"
+              " the 'target' attribute string; 'target' attribute ignored">,
       InGroup<IgnoredAttributes>;
 def err_attribute_unsupported
     : Error<"%0 attribute is not supported for this target">;
@@ -2687,6 +2693,9 @@ def warn_attribute_ignored : Warning<"%0 attribute ignored">,
 def warn_attribute_ignored_on_inline :
   Warning<"%0 attribute ignored on inline function">,
   InGroup<IgnoredAttributes>;
+def warn_nocf_check_attribute_ignored :
+  Warning<"'nocf_check' attribute ignored; use -fcf-protection to enable the attribute">,
+  InGroup<IgnoredAttributes>;
 def warn_attribute_after_definition_ignored : Warning<
   "attribute %0 after definition is ignored">,
    InGroup<IgnoredAttributes>;
@@ -2880,6 +2889,9 @@ def err_base_specifier_attribute : Error<
   "%0 attribute cannot be applied to a base specifier">;
 def err_invalid_attribute_on_virtual_function : Error<
   "%0 attribute cannot be applied to virtual functions">;
+
+def ext_cannot_use_trivial_abi : ExtWarn<
+  "'trivial_abi' cannot be applied to %0">, InGroup<IgnoredAttributes>;
 
 // Availability attribute
 def warn_availability_unknown_platform : Warning<
@@ -3085,6 +3097,9 @@ def err_impcast_complex_scalar : Error<
   "implicit conversion from %0 to %1 is not permitted in C++">;
 def warn_impcast_float_precision : Warning<
   "implicit conversion loses floating-point precision: %0 to %1">,
+  InGroup<Conversion>, DefaultIgnore;
+def warn_impcast_float_result_precision : Warning<
+  "implicit conversion when assigning computation result loses floating-point precision: %0 to %1">,
   InGroup<Conversion>, DefaultIgnore;
 def warn_impcast_double_promotion : Warning<
   "implicit conversion increases floating-point precision: %0 to %1">,
@@ -4134,42 +4149,20 @@ def note_explicit_specialization_declared_here : Note<
   "explicit specialization declared here">;
 def err_template_spec_decl_function_scope : Error<
   "explicit specialization of %0 in function scope">;
-def err_template_spec_decl_class_scope : Error<
-  "explicit specialization of %0 in class scope">;
 def err_template_spec_decl_friend : Error<
   "cannot declare an explicit specialization in a friend">;
-def err_template_spec_decl_out_of_scope_global : Error<
-  "%select{class template|class template partial|variable template|"
-  "variable template partial|function template|member function|"
-  "static data member|member class|member enumeration}0 "
-  "specialization of %1 must originally be declared in the global scope">;
-def err_template_spec_decl_out_of_scope : Error<
-  "%select{class template|class template partial|variable template|"
-  "variable template partial|function template|member "
-  "function|static data member|member class|member enumeration}0 "
-  "specialization of %1 must originally be declared in namespace %2">;
-def ext_template_spec_decl_out_of_scope : ExtWarn<
-  "first declaration of %select{class template|class template partial|"
-  "variable template|variable template partial|"
-  "function template|member function|static data member|member class|"
-  "member enumeration}0 specialization of %1 outside namespace %2 is a "
-  "C++11 extension">, InGroup<CXX11>;
-def warn_cxx98_compat_template_spec_decl_out_of_scope : Warning<
-  "%select{class template|class template partial|variable template|"
-  "variable template partial|function template|member "
-  "function|static data member|member class|member enumeration}0 "
-  "specialization of %1 outside namespace %2 is incompatible with C++98">,
-  InGroup<CXX98Compat>, DefaultIgnore;
 def err_template_spec_redecl_out_of_scope : Error<
   "%select{class template|class template partial|variable template|"
   "variable template partial|function template|member "
   "function|static data member|member class|member enumeration}0 "
-  "specialization of %1 not in a namespace enclosing %2">;
+  "specialization of %1 not in %select{a namespace enclosing %2|"
+  "class %2 or an enclosing namespace}3">;
 def ext_ms_template_spec_redecl_out_of_scope: ExtWarn<
   "%select{class template|class template partial|variable template|"
   "variable template partial|function template|member "
   "function|static data member|member class|member enumeration}0 "
-  "specialization of %1 outside namespace enclosing %2 "
+  "specialization of %1 not in %select{a namespace enclosing %2|"
+  "class %2 or an enclosing namespace}3 "
   "is a Microsoft extension">, InGroup<MicrosoftTemplate>;
 def err_template_spec_redecl_global_scope : Error<
   "%select{class template|class template partial|variable template|"
@@ -4191,11 +4184,6 @@ def err_template_spec_default_arg : Error<
 def err_not_class_template_specialization : Error<
   "cannot specialize a %select{dependent template|template template "
   "parameter}0">;
-def err_function_specialization_in_class : Error<
-  "cannot specialize a function %0 within class scope">;
-def ext_function_specialization_in_class : ExtWarn<
-  "explicit specialization of %0 within class scope is a Microsoft extension">,
-  InGroup<MicrosoftTemplate>;
 def ext_explicit_specialization_storage_class : ExtWarn<
   "explicit specialization cannot have a storage class">;
 def err_explicit_specialization_inconsistent_storage_class : Error<
@@ -5116,12 +5104,17 @@ def note_protected_by_objc_strong_init : Note<
   "jump bypasses initialization of __strong variable">;
 def note_protected_by_objc_weak_init : Note<
   "jump bypasses initialization of __weak variable">;
+def note_protected_by_non_trivial_c_struct_init : Note<
+  "jump bypasses initialization of variable of non-trivial C struct type">;
 def note_enters_block_captures_cxx_obj : Note<
   "jump enters lifetime of block which captures a destructible C++ object">;
 def note_enters_block_captures_strong : Note<
   "jump enters lifetime of block which strongly captures a variable">;
 def note_enters_block_captures_weak : Note<
   "jump enters lifetime of block which weakly captures a variable">;
+def note_enters_block_captures_non_trivial_c_struct : Note<
+  "jump enters lifetime of block which captures a C struct that is non-trivial "
+  "to destroy">;
 
 def note_exits_cleanup : Note<
   "jump exits scope of variable with __attribute__((cleanup))">;
@@ -5162,6 +5155,9 @@ def note_exits_block_captures_strong : Note<
   "jump exits lifetime of block which strongly captures a variable">;
 def note_exits_block_captures_weak : Note<
   "jump exits lifetime of block which weakly captures a variable">;
+def note_exits_block_captures_non_trivial_c_struct : Note<
+  "jump exits lifetime of block which captures a C struct that is non-trivial "
+  "to destroy">;
 
 def err_func_returning_qualified_void : ExtWarn<
   "function cannot return qualified void type %0">,
@@ -7180,6 +7176,10 @@ def err_cannot_pass_objc_interface_to_vararg_format : Error<
   "cannot pass object with interface type %1 by value to variadic "
   "%select{function|block|method|constructor}2; expected type from format "
   "string was %3">;
+def err_cannot_pass_non_trivial_c_struct_to_vararg : Error<
+  "cannot pass non-trivial C object of type %0 by value to variadic "
+  "%select{function|block|method|constructor}1">;
+
 
 def err_cannot_pass_objc_interface_to_vararg : Error<
   "cannot pass object with interface type %0 by value through variadic "
@@ -7906,7 +7906,7 @@ def note_ref_subobject_of_member_declared_here : Note<
 // should result in a warning, since these always evaluate to a constant.
 // Array comparisons have similar warnings
 def warn_comparison_always : Warning<
-  "%select{self-|array }0comparison always evaluates to %select{false|true|a constant}1">,
+  "%select{self-|array }0comparison always evaluates to %select{a constant|%2}1">,
   InGroup<TautologicalCompare>;
 def warn_comparison_bitwise_always : Warning<
   "bitwise comparison always evaluates to %select{false|true}0">,
@@ -8300,12 +8300,16 @@ def err_c99_array_usage_cxx : Error<
   "feature, not permitted in C++">;
 def err_type_unsupported : Error<
   "%0 is not supported on this target">;
-def warn_nsconsumed_attribute_mismatch : Warning<
+def err_nsconsumed_attribute_mismatch : Error<
   "overriding method has mismatched ns_consumed attribute on its"
-  " parameter">, InGroup<NSConsumedMismatch>;
-def warn_nsreturns_retained_attribute_mismatch : Warning<
+  " parameter">;
+def err_nsreturns_retained_attribute_mismatch : Error<
   "overriding method has mismatched ns_returns_%select{not_retained|retained}0"
-  " attributes">, InGroup<NSReturnsMismatch>;
+  " attributes">;
+def warn_nsconsumed_attribute_mismatch : Warning<
+  err_nsconsumed_attribute_mismatch.Text>, InGroup<NSConsumedMismatch>;
+def warn_nsreturns_retained_attribute_mismatch : Warning<
+  err_nsreturns_retained_attribute_mismatch.Text>, InGroup<NSReturnsMismatch>;
   
 def note_getter_unavailable : Note<
   "or because setter is declared here, but no getter method %0 is found">;
@@ -8639,8 +8643,8 @@ def err_omp_pointer_mapped_along_with_derived_section : Error<
   "pointer cannot be mapped along with a section derived from itself">;
 def err_omp_original_storage_is_shared_and_does_not_contain : Error<
   "original storage of expression in data environment is shared but data environment do not fully contain mapped expression storage">;
-def err_omp_same_pointer_derreferenced : Error<
-  "same pointer derreferenced in multiple different ways in map clause expressions">;
+def err_omp_same_pointer_dereferenced : Error<
+  "same pointer dereferenced in multiple different ways in map clause expressions">;
 def note_omp_task_predetermined_firstprivate_here : Note<
   "predetermined as a firstprivate in a task construct here">;
 def err_omp_threadprivate_incomplete_type : Error<
@@ -8976,6 +8980,9 @@ def err_omp_reduction_vla_unsupported : Error<
   "cannot generate code for reduction on %select{|array section, which requires a }0variable length array">;
 def err_omp_linear_distribute_var_non_loop_iteration : Error<
   "only loop iteration variables are allowed in 'linear' clause in distribute directives">;
+def warn_omp_non_trivial_type_mapped : Warning<
+  "Non-trivial type %0 is mapped, only trivial types are guaranteed to be mapped correctly">,
+  InGroup<OpenMPTarget>;
 } // end of OpenMP category
 
 let CategoryName = "Related Result Type Issue" in {
@@ -9327,5 +9334,36 @@ def warn_shadow_field :
   Warning<"non-static data member '%0' of '%1' shadows member inherited from type '%2'">,
   InGroup<ShadowField>, DefaultIgnore;
 def note_shadow_field : Note<"declared here">;
+
+def err_target_required_in_redecl : Error<
+  "function declaration is missing 'target' attribute in a multiversioned "
+  "function">;
+def note_multiversioning_caused_here : Note<
+  "function multiversioning caused by this declaration">;
+def err_multiversion_after_used : Error<
+  "function declaration cannot become a multiversioned function after first "
+  "usage">;
+def err_bad_multiversion_option : Error<
+  "function multiversioning doesn't support %select{feature|architecture}0 "
+  "'%1'">;
+def err_multiversion_duplicate : Error<
+  "multiversioned function redeclarations require identical target attributes">;
+def err_multiversion_noproto : Error<
+  "multiversioned function must have a prototype">;
+def err_multiversion_no_other_attrs : Error<
+  "attribute 'target' multiversioning cannot be combined with other "
+  "attributes">;
+def err_multiversion_diff : Error<
+  "multiversioned function declaration has a different %select{calling convention"
+  "|return type|constexpr specification|inline specification|storage class|"
+  "linkage}0">;
+def err_multiversion_doesnt_support : Error<
+  "multiversioned functions do not yet support %select{function templates|"
+  "virtual functions|deduced return types|constructors|destructors|"
+  "deleted functions|defaulted functions}0">;
+def err_multiversion_not_allowed_on_main : Error<
+  "'main' cannot be a multiversioned function">;
+def err_multiversion_not_supported : Error<
+ "function multiversioning is not supported on the current target">;
 
 } // end of sema component.

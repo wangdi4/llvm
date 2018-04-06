@@ -527,7 +527,6 @@ RegDDRef *HIRIdiomRecognition::createSizeDDRef(HLLoop *Loop,
 bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
                                     int64_t StoreSize, bool IsNegStride) {
   HLNodeUtils &HNU = HIR->getHLNodeUtils();
-  DDRefUtils &DDU = HIR->getDDRefUtils();
 
   std::unique_ptr<RegDDRef> Ref(Candidate.StoreRef->clone());
   if (!makeStartRef(Ref.get(), Loop, IsNegStride)) {
@@ -550,18 +549,7 @@ bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
   // The i8 blob could be non linear at the pre-header level.
   RHS->updateDefLevel(Loop->getNestingLevel() - 1);
 
-  RegDDRef *Align = DDU.createConstDDRef(Type::getInt32Ty(HIR->getContext()),
-                                         Ref->getAlignment());
-  RegDDRef *IsVolatile =
-      DDU.createConstDDRef(Type::getInt1Ty(HIR->getContext()), 0);
-
-  Type *Tys[] = {Ref->getDestType(), Size->getDestType()};
-  Function *Memset = Intrinsic::getDeclaration(M, Intrinsic::memset, Tys);
-
-  SmallVector<RegDDRef *, 5> Ops = {Ref.release(), RHS, Size, Align,
-                                    IsVolatile};
-
-  HLInst *MemsetInst = HNU.createCall(Memset, Ops);
+  HLInst *MemsetInst = HNU.createMemset(Ref.release(), RHS, Size);
   MemsetInst->addFakeLvalDDRef(
       createFakeDDRef(Candidate.StoreRef, Loop->getNestingLevel()));
 
@@ -603,7 +591,6 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
                                         MemOpCandidate &Candidate) {
 
   HLNodeUtils &HNU = HIR->getHLNodeUtils();
-  DDRefUtils &DDU = HIR->getDDRefUtils();
 
   std::unique_ptr<RegDDRef> StoreRef(Candidate.StoreRef->clone());
   std::unique_ptr<RegDDRef> LoadRef(Candidate.RHS->clone());
@@ -617,25 +604,10 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
   if (!makeStartRef(LoadRef.get(), Loop, Candidate.IsStoreNegStride)) {
     return false;
   }
-
   RegDDRef *Size = createSizeDDRef(Loop, StoreSize);
 
-  RegDDRef *Align = DDU.createConstDDRef(
-      Type::getInt32Ty(HIR->getContext()),
-      std::min(StoreRef->getAlignment(), LoadRef->getAlignment()));
-
-  RegDDRef *IsVolatile =
-      DDU.createConstDDRef(Type::getInt1Ty(HIR->getContext()), 0);
-
-  Type *Tys[] = {StoreRef->getDestType(), LoadRef->getDestType(),
-                 Size->getDestType()};
-
-  Function *Memcpy = Intrinsic::getDeclaration(M, Intrinsic::memcpy, Tys);
-
-  SmallVector<RegDDRef *, 5> Ops = {StoreRef.release(), LoadRef.release(), Size,
-                                    Align, IsVolatile};
-
-  HLInst *MemcpyInst = HNU.createCall(Memcpy, Ops);
+  HLInst *MemcpyInst =
+      HNU.createMemcpy(StoreRef.release(), LoadRef.release(), Size);
   MemcpyInst->addFakeLvalDDRef(
       createFakeDDRef(Candidate.StoreRef, Loop->getNestingLevel()));
   MemcpyInst->addFakeRvalDDRef(

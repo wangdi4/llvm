@@ -54,7 +54,6 @@ class DWARFDebugAranges;
 class DWARFDebugInfo;
 class DWARFDebugInfoEntry;
 class DWARFDebugLine;
-class DWARFDebugPubnames;
 class DWARFDebugRanges;
 class DWARFDeclContext;
 class DWARFDIECollection;
@@ -293,6 +292,14 @@ public:
 
   lldb::ModuleSP GetDWOModule(lldb_private::ConstString name);
 
+  typedef std::map<lldb_private::ConstString, lldb::ModuleSP>
+      ExternalTypeModuleMap;
+
+  /// Return the list of Clang modules imported by this SymbolFile.
+  const ExternalTypeModuleMap& getExternalTypeModules() const {
+      return m_external_type_modules;
+  }
+
   virtual DWARFDIE GetDIE(const DIERef &die_ref);
 
   virtual std::unique_ptr<SymbolFileDWARFDwo>
@@ -438,9 +445,6 @@ protected:
   bool FixupAddress(lldb_private::Address &addr);
 
   typedef std::set<lldb_private::Type *> TypeSet;
-
-  typedef std::map<lldb_private::ConstString, lldb::ModuleSP>
-      ExternalTypeModuleMap;
 
   void GetTypes(const DWARFDIE &die, dw_offset_t min_die_offset,
                 dw_offset_t max_die_offset, uint32_t type_mask,
