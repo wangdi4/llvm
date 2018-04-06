@@ -870,13 +870,10 @@ public:
       return;
 
     LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Ptr);
-    if (LPI.pointsToSomeElement()) {
-      if (analyzeElementLoadOrStore(LPI, nullptr, I.getType(), I.isVolatile(),
-                                    /*IsLoad=*/true)) {
-        // Provide context for the debugging information that was printed.
-        DEBUG(dbgs() << "  " << I << "\n");
-      }
-    } else {
+    if (LPI.pointsToSomeElement())
+      analyzeElementLoadOrStore(LPI, nullptr, I, I.getType(),
+                                I.isVolatile(), /*IsLoad=*/true);
+    else {
       // If the source pointer isn't a pointer to an element in an aggregate
       // type, we need to check to see if the source value is a pointer to
       // an aggregate type or a pointer to a pointer. If it is a pointer to a
@@ -1017,7 +1014,7 @@ public:
         // FIXME: Add field address taken information to the FieldInfo also.
         DEBUG(dbgs() << "dtrans-safety: Field address taken:\n"
                      << "  " << *(ParentTI->getLLVMType()) << " @ "
-                     << PointeePair.second << "\n");
+                     << PointeePair.second << "\n" << "  " << I << "\n");
         ParentTI->setSafetyData(dtrans::FieldAddressTaken);
       }
     }
@@ -1027,11 +1024,9 @@ public:
     // value being written has the correct size.
     LocalPointerInfo &PtrLPI = LPA.getLocalPointerInfo(PtrOperand);
     if (PtrLPI.pointsToSomeElement())
-      if (analyzeElementLoadOrStore(PtrLPI, ValOperand, ValOperand->getType(),
-                                    I.isVolatile(), /*IsLoad=*/false)) {
-        // Provide context for the debugging information that was printed.
-        DEBUG(dbgs() << "  " << I << "\n");
-      }
+      analyzeElementLoadOrStore(PtrLPI, ValOperand, I,
+                                ValOperand->getType(), I.isVolatile(),
+                                /*IsLoad=*/false);
   }
 
   void visitGetElementPtrInst(GetElementPtrInst &I) {
@@ -1650,10 +1645,9 @@ private:
   // argument is the type of the value being loaded (i.e. the type of the value
   // returned by the load instruction). For store instructions, the ValTy
   // argument is the type of the value operand to the store instruction.
-  bool analyzeElementLoadOrStore(LocalPointerInfo &PtrInfo, Value *WriteVal,
-                                 llvm::Type *ValTy, bool IsVolatile,
-                                 bool IsLoad) {
-    bool SafetyIssuesFound = false;
+  void analyzeElementLoadOrStore(LocalPointerInfo &PtrInfo, Value *WriteVal,
+                                 Instruction &I, llvm::Type *ValTy,
+                                 bool IsVolatile, bool IsLoad) {
     // There will generally only be one ElementPointee in code that is safe for
     // dtrans to operate on, but I'm using a for-loop here to keep the
     // analysis as general as possible.
@@ -1663,8 +1657,8 @@ private:
       llvm::Type *ParentTy = PointeePair.first;
       if (IsVolatile) {
         DEBUG(dbgs() << "dtrans-safety: Volatile data:\n");
+        DEBUG(dbgs() << "  " << I << "\n");
         setBaseTypeInfoSafetyData(ParentTy, dtrans::VolatileData);
-        SafetyIssuesFound = true;
       }
 
       if (auto *CompTy = cast<CompositeType>(ParentTy)) {
@@ -1674,8 +1668,8 @@ private:
         // element zero access, mark this as a whole structure reference.
         if (FieldTy->isAggregateType() && FieldTy == ValTy) {
           DEBUG(dbgs() << "dtrans-safety: Whole structure reference:\n");
+          DEBUG(dbgs() << "  " << I << "\n");
           setBaseTypeInfoSafetyData(FieldTy, dtrans::WholeStructureReference);
-          SafetyIssuesFound = true;
         }
 
         // The value type must be the same as the field type or the field must
@@ -1687,9 +1681,9 @@ private:
           // correct level of nesting.
           assert(!dtrans::isElementZeroAccess(FieldTy->getPointerTo(),
                                               ValTy->getPointerTo()));
-          DEBUG(dbgs() << "dtrans-safety -- Mismatched element access:\n");
+          DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
+          DEBUG(dbgs() << "  " << I << "\n");
           setBaseTypeInfoSafetyData(ParentTy, dtrans::MismatchedElementAccess);
-          SafetyIssuesFound = true;
         }
 
         if (ParentTy->isStructTy()) {
@@ -1719,11 +1713,10 @@ private:
         // TODO: Handle this case.
         DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
                         "unimplemented load/store:\n");
+        DEBUG(dbgs() << "  " << I << "\n");
         setBaseTypeInfoSafetyData(ParentTy, dtrans::UnhandledUse);
-        SafetyIssuesFound = true;
       }
     }
-    return SafetyIssuesFound;
   }
 
   /// \brief Check for overloaded alias sets being introduced by a PHI node
