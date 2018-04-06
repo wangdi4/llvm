@@ -466,11 +466,13 @@ protected:
     friend class SDNode;
     friend class MemIntrinsicSDNode;
     friend class MemSDNode;
+    friend class SelectionDAG;
 
     uint16_t HasDebugValue : 1;
     uint16_t IsMemIntrinsic : 1;
+    uint16_t IsDivergent : 1;
   };
-  enum { NumSDNodeBits = 2 };
+  enum { NumSDNodeBits = 3 };
 
   class ConstantSDNodeBitfields {
     friend class ConstantSDNode;
@@ -662,6 +664,8 @@ public:
   bool getHasDebugValue() const { return SDNodeBits.HasDebugValue; }
   void setHasDebugValue(bool b) { SDNodeBits.HasDebugValue = b; }
 
+  bool isDivergent() const { return SDNodeBits.IsDivergent; }
+
   /// Return true if there are no uses of this node.
   bool use_empty() const { return UseList == nullptr; }
 
@@ -816,7 +820,7 @@ public:
       if (Found)
         return true;
       if (MaxSteps != 0 && Visited.size() >= MaxSteps)
-        return false;
+        return true;
     }
     return false;
   }
@@ -1190,7 +1194,8 @@ public:
   /// encoding of the volatile flag, as well as bits used by subclasses. This
   /// function should only be used to compute a FoldingSetNodeID value.
   /// The HasDebugValue bit is masked out because CSE map needs to match
-  /// nodes with debug info with nodes without debug info.
+  /// nodes with debug info with nodes without debug info. Same is about
+  /// isDivergent bit.
   unsigned getRawSubclassData() const {
     uint16_t Data;
     union {
@@ -1199,6 +1204,7 @@ public:
     };
     memcpy(&RawSDNodeBits, &this->RawSDNodeBits, sizeof(this->RawSDNodeBits));
     SDNodeBits.HasDebugValue = 0;
+    SDNodeBits.IsDivergent = false;
     memcpy(&Data, &RawSDNodeBits, sizeof(RawSDNodeBits));
     return Data;
   }
@@ -1267,6 +1273,7 @@ public:
            N->getOpcode() == ISD::ATOMIC_LOAD_ADD     ||
            N->getOpcode() == ISD::ATOMIC_LOAD_SUB     ||
            N->getOpcode() == ISD::ATOMIC_LOAD_AND     ||
+           N->getOpcode() == ISD::ATOMIC_LOAD_CLR     ||
            N->getOpcode() == ISD::ATOMIC_LOAD_OR      ||
            N->getOpcode() == ISD::ATOMIC_LOAD_XOR     ||
            N->getOpcode() == ISD::ATOMIC_LOAD_NAND    ||
@@ -1318,6 +1325,7 @@ public:
            N->getOpcode() == ISD::ATOMIC_LOAD_ADD     ||
            N->getOpcode() == ISD::ATOMIC_LOAD_SUB     ||
            N->getOpcode() == ISD::ATOMIC_LOAD_AND     ||
+           N->getOpcode() == ISD::ATOMIC_LOAD_CLR     ||
            N->getOpcode() == ISD::ATOMIC_LOAD_OR      ||
            N->getOpcode() == ISD::ATOMIC_LOAD_XOR     ||
            N->getOpcode() == ISD::ATOMIC_LOAD_NAND    ||
@@ -2120,13 +2128,14 @@ public:
       : MemSDNode(NodeTy, Order, dl, VTs, MemVT, MMO) {}
 
   // In the both nodes address is Op1, mask is Op2:
-  // MaskedGatherSDNode  (Chain, src0, mask, base, index), src0 is a passthru value
-  // MaskedScatterSDNode (Chain, value, mask, base, index)
+  // MaskedGatherSDNode  (Chain, passthru, mask, base, index, scale)
+  // MaskedScatterSDNode (Chain, value, mask, base, index, scale)
   // Mask is a vector of i1 elements
   const SDValue &getBasePtr() const { return getOperand(3); }
   const SDValue &getIndex()   const { return getOperand(4); }
   const SDValue &getMask()    const { return getOperand(2); }
   const SDValue &getValue()   const { return getOperand(1); }
+  const SDValue &getScale()   const { return getOperand(5); }
 
   static bool classof(const SDNode *N) {
     return N->getOpcode() == ISD::MGATHER ||
@@ -2328,6 +2337,17 @@ namespace ISD {
     return isa<StoreSDNode>(N) &&
       cast<StoreSDNode>(N)->getAddressingMode() == ISD::UNINDEXED;
   }
+
+  /// Attempt to match a unary predicate against a scalar/splat constant or
+  /// every element of a constant BUILD_VECTOR.
+  bool matchUnaryPredicate(SDValue Op,
+                           std::function<bool(ConstantSDNode *)> Match);
+
+  /// Attempt to match a binary predicate against a pair of scalar/splat
+  /// constants or every element of a pair of constant BUILD_VECTORs.
+  bool matchBinaryPredicate(
+      SDValue LHS, SDValue RHS,
+      std::function<bool(ConstantSDNode *, ConstantSDNode *)> Match);
 
 } // end namespace ISD
 

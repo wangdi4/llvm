@@ -39,11 +39,7 @@ struct StackTrace;
 const uptr kWordSize = SANITIZER_WORDSIZE / 8;
 const uptr kWordSizeInBits = 8 * kWordSize;
 
-#if defined(__powerpc__) || defined(__powerpc64__)
-  const uptr kCacheLineSize = 128;
-#else
-  const uptr kCacheLineSize = 64;
-#endif
+const uptr kCacheLineSize = SANITIZER_CACHE_LINE_SIZE;
 
 const uptr kMaxPathLength = 4096;
 
@@ -112,7 +108,7 @@ bool MprotectReadOnly(uptr addr, uptr size);
 
 // Find an available address space.
 uptr FindAvailableMemoryRange(uptr size, uptr alignment, uptr left_padding,
-                              uptr *largest_gap_found);
+                              uptr *largest_gap_found, uptr *max_occupied_addr);
 
 // Used to check if we can map shadow memory to a fixed location.
 bool MemoryRangeIsAvailable(uptr range_start, uptr range_end);
