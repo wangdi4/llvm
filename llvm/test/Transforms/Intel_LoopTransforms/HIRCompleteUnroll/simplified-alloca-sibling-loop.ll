@@ -1,10 +1,10 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -print-before=hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 
-; Verify that both loops are unrolled before vectorizer.
+; Verify that both loops are unrolled post vectorizer.
 ; The first loop is unrolled on the optimisitic assumption that the simplifiable alloca store (%B)[0][i1] can be eliminated after unrolling by forwarding the RHS to its uses.
 ; The second loop is unrolled because alloca load (%B)[0][i1] can be simplified because of the dominating simplifiable store in previous loop.
 
-; CHECK: Before HIR PreVec Complete Unroll
+; CHECK: Before HIR PostVec Complete Unroll
 
 ; CHECK: BEGIN REGION { }
 ; CHECK: + DO i1 = 0, 9, 1   <DO_LOOP>
@@ -21,7 +21,7 @@
 ; CHECK: + END LOOP
 ; CHECK: END REGION
 
-; CHECK: After HIR PreVec Complete Unroll
+; CHECK: After HIR PostVec Complete Unroll
 
 ; CHECK-NOT: DO i1
 

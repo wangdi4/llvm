@@ -32,6 +32,7 @@ class Module;
 class LLVMContext;
 class DataLayout;
 class MetadataAsValue;
+class TargetTransformInfo;
 
 namespace loopopt {
 
@@ -270,8 +271,12 @@ public:
 
   /// Returns the number of operations in the blob.
   /// For example, blob = (a + 2 * b) has 2 operations.
-  static unsigned getNumOperations(BlobTy Blob);
-  unsigned getNumOperations(unsigned BlobIndex) const;
+  /// If TTI is passed, 'free' operations are ignored.
+  static unsigned getNumOperations(BlobTy Blob, const TargetTransformInfo *TTI);
+  unsigned getNumOperations(unsigned BlobIndex,
+                            const TargetTransformInfo *TTI) const {
+    return getNumOperations(getBlob(BlobIndex), TTI);
+  }
 
   /// Returns underlying LLVM value for the temp blob.
   static Value *getTempBlobValue(BlobTy Blob);

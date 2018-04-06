@@ -49,6 +49,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
@@ -223,6 +224,7 @@ void HIRCompleteUnroll::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<OptReportOptionsPass>();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
+  AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
@@ -364,6 +366,14 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
     BlobInfo()
         : Invariant(true), Visited(false), VisitedAsUnrollableIVBlob(false),
           Simplified(false), NumOperations(0), IsNewCoeff(0) {}
+  };
+
+  // Structure to store CanonExpr related info.
+  struct CanonExprInfo {
+    unsigned NumSimplifiedTerms = 0;
+    unsigned NumNonLinearTerms = 0;
+    unsigned NumUnrollableIVBlobs = 0;
+    bool HasUnrollableStandAloneIV = false;
   };
 
   HIRCompleteUnroll &HCU;
@@ -508,8 +518,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   /// Processes IVs in the CE. Returns true if they can be simplified to a
   /// constant.
   bool processIVs(const CanonExpr *CE, const RegDDRef *ParentRef,
-                  unsigned &NumSimplifiedTerms, unsigned &NumNonLinearTerms,
-                  unsigned &NumUnrollableIVBlobs);
+                  CanonExprInfo &CEInfo);
 
   /// Processes blobs in the CE. Returns true if they can be simplified to a
   /// constant.
@@ -1632,7 +1641,10 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::canEliminate(
       // Assume alloca stores can be eliminated after unrolling by
       // propagating the assigned value directly into corresponding loads.
       AllocaStores[BaseIndex] = MemRef;
-      return true;
+
+      // Restrict the optimistic assumption of considering alloca stores as
+      // optimizable to post-vec complete unroll.
+      return !HCU.IsPreVec;
     } else {
       // We encountered a non-simplifiable alloca store. Invalidate its entry
       // from the data structures.
@@ -1926,20 +1938,17 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processRef(const RegDDRef *Ref) {
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::processCanonExpr(
     const CanonExpr *CE, const RegDDRef *ParentRef) {
 
-  unsigned NumSimplifiedTerms = 0;
-  unsigned NumNonLinearTerms = 0;
-  unsigned NumUnrollableIVBlobs = 0;
+  CanonExprInfo CEInfo;
   bool IsLinear = CE->isLinearAtLevel();
 
   if (CE->isConstantData()) {
     return true;
   }
 
-  bool CanSimplifyIVs = processIVs(CE, ParentRef, NumSimplifiedTerms,
-                                   NumNonLinearTerms, NumUnrollableIVBlobs);
+  bool CanSimplifyIVs = processIVs(CE, ParentRef, CEInfo);
 
-  bool CanSimplifyBlobs =
-      processBlobs(CE, ParentRef, NumSimplifiedTerms, NumNonLinearTerms);
+  bool CanSimplifyBlobs = processBlobs(CE, ParentRef, CEInfo.NumSimplifiedTerms,
+                                       CEInfo.NumNonLinearTerms);
 
   bool NumeratorBecomesConstant = CanSimplifyIVs && CanSimplifyBlobs;
 
@@ -1947,29 +1956,35 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processCanonExpr(
   // first unrolled iteration when IV value is zero. For example, if i1 can be
   // unrolled and b2 can be simplified, CE: (b1*i1 + b2 + 2) has a total of 3
   // terms (2 additions) which can be folded when i1 is 0.
-  if (NumUnrollableIVBlobs) {
-    ScaledSavings += NumUnrollableIVBlobs + NumSimplifiedTerms +
+  if (CEInfo.NumUnrollableIVBlobs) {
+    ScaledSavings += CEInfo.NumUnrollableIVBlobs + CEInfo.NumSimplifiedTerms +
                      (CE->getConstant() ? 1 : 0) - 1;
   }
 
   // Add 1 to savings each, for number of simplified IV/Blob additions.
-  if (NumSimplifiedTerms) {
-    Savings += (NumSimplifiedTerms - 1);
+  if (CEInfo.NumSimplifiedTerms) {
+    Savings += (CEInfo.NumSimplifiedTerms - 1);
   }
 
   // Add 1 to cost each, for number of non-linear IV/Blob additions.
-  if (NumNonLinearTerms) {
-    Cost += (NumNonLinearTerms - 1);
+  if (CEInfo.NumNonLinearTerms) {
+    Cost += (CEInfo.NumNonLinearTerms - 1);
   }
 
   // Add 1 to cost/savings for the constant based on linearity and IV
   // simplifications.
   if (CE->getConstant()) {
-    if (NumSimplifiedTerms) {
+    if (CEInfo.NumSimplifiedTerms) {
       ++Savings;
     } else if (!IsLinear) {
       ++Cost;
     }
+  } else if ((CEInfo.NumSimplifiedTerms == 1) &&
+             CEInfo.HasUnrollableStandAloneIV) {
+    // Make sure we add at least 1 to savings for turning any IV into a
+    // constant. Otherwise converting simple expressions like A[i1] to A[0] will
+    // not be considered savings.
+    ++Savings;
   }
 
   // Add 1 to cost/savings for non-unit denominator based on linearity.
@@ -1983,6 +1998,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processCanonExpr(
 
   // Add 1 to cost/savings based on whether there is a hidden cast.
   if (CE->getSrcType() != CE->getDestType()) {
+    // TODO: ignore 'free' casts using TTI.
     if (NumeratorBecomesConstant) {
       ++Savings;
     } else if (!IsLinear) {
@@ -1994,9 +2010,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processCanonExpr(
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::processIVs(
-    const CanonExpr *CE, const RegDDRef *ParentRef,
-    unsigned &NumSimplifiedTerms, unsigned &NumNonLinearTerms,
-    unsigned &NumUnrollableIVBlobs) {
+    const CanonExpr *CE, const RegDDRef *ParentRef, CanonExprInfo &CEInfo) {
 
   bool CanSimplifyIVs = true;
   unsigned OuterLevel = OuterLoop->getNestingLevel();
@@ -2023,7 +2037,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processIVs(
 
       if (IsUnrollableLoopLevel) {
         if (BInfo.Simplified) {
-          ++NumSimplifiedTerms;
+          ++CEInfo.NumSimplifiedTerms;
         } else {
           CanSimplifyIVs = false;
         }
@@ -2044,7 +2058,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processIVs(
       }
 
       addBlobCost(BInfo, Coeff, IsUnrollableLoopLevel ? Level : 0,
-                  NumNonLinearTerms, nullptr);
+                  CEInfo.NumNonLinearTerms, nullptr);
 
       if (IsUnrollableLoopLevel) {
         // Add to loop level blob set to avoid duplicate cost.
@@ -2056,23 +2070,18 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processIVs(
       // Add one for simplfication of multiplication with coefficient.
       if (Coeff != 1) {
         ++Savings;
+      } else {
+        CEInfo.HasUnrollableStandAloneIV = true;
       }
 
-      ++NumSimplifiedTerms;
+      ++CEInfo.NumSimplifiedTerms;
 
     } else {
       CanSimplifyIVs = false;
     }
   }
 
-  // Make sure we add at least 1 to savings for turning any IV into a
-  // constant. Otherwise converting simple expressions like A[i1] to A[0] will
-  // not be considered savings.
-  if (NumSimplifiedTerms != 0) {
-    ++Savings;
-  }
-
-  NumUnrollableIVBlobs = CurrentUnrollableIVBlobs.size();
+  CEInfo.NumUnrollableIVBlobs = CurrentUnrollableIVBlobs.size();
 
   return CanSimplifyIVs;
 }
@@ -2178,11 +2187,11 @@ HIRCompleteUnroll::ProfitabilityAnalyzer::getBlobInfo(unsigned Index,
   // simplified.
   if (NumSimplifiedTempBlobs == Indices.size()) {
     BInfo.Simplified = true;
-    BInfo.NumOperations = BU.getNumOperations(Index);
+    BInfo.NumOperations = BU.getNumOperations(Index, HCU.TTI);
 
   } else if (!Invariant) {
     BInfo.Invariant = false;
-    BInfo.NumOperations = BU.getNumOperations(Index);
+    BInfo.NumOperations = BU.getNumOperations(Index, HCU.TTI);
 
     // Subtract operations based on contained simplified temps.
     if (NumSimplifiedTempBlobs) {
@@ -2311,6 +2320,7 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Complete unrolling for Function : " << F.getName() << "\n");
 
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   DDA = &getAnalysis<HIRDDAnalysis>();

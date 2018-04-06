@@ -25,6 +25,7 @@
 namespace llvm {
 
 class DominatorTree;
+class TargetTransformInfo;
 
 namespace loopopt {
 class HIRLoopStatistics;
@@ -59,6 +60,7 @@ private:
   class ProfitabilityAnalyzer;
 
   DominatorTree *DT;
+  const TargetTransformInfo *TTI;
   HIRLoopStatistics *HLS;
   HIRDDAnalysis *DDA;
   HIRSafeReductionAnalysis *HSRA;
