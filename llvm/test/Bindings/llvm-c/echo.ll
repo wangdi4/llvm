@@ -2,6 +2,7 @@
 ; RUN: llvm-as < %s | llvm-c-test --echo > %t.echo
 ; RUN: diff -w %t.orig %t.echo
 
+source_filename = "/test/Bindings/echo.ll"
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx10.11.0"
 
@@ -13,6 +14,7 @@ target triple = "x86_64-apple-macosx10.11.0"
 @tl = thread_local global { i64, %S* } { i64 1, %S* @cst }
 @arr = linkonce_odr global [5 x i8] [ i8 2, i8 3, i8 5, i8 7, i8 11 ]
 @str = private unnamed_addr constant [13 x i8] c"hello world\0A\00"
+@locStr = private local_unnamed_addr constant [13 x i8] c"hello world\0A\00"
 @hidden = hidden global i32 7
 @protected = protected global i32 23
 @section = global i32 27, section ".custom"

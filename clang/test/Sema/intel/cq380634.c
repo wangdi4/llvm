@@ -1,5 +1,8 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-unknown -fintel-compatibility -fsyntax-only -verify -Wall %s -DTEST1
-// RUN: %clang_cc1 -triple x86_64-unknown-unknown -fintel-compatibility -fsyntax-only -verify -Wextra %s -DTEST2
+// RUN: %clang_cc1 -triple x86_64-unknown-unknown -fintel-compatibility -fsyntax-only -verify -Wtautological-constant-in-range-compare %s -DTEST2
+// Note: This test was written to ensure that this warning doesn't happen with
+// -Wall.  Since the warning was moved out of extra, it was altered to have its
+// second run command just call the warning flag.
 
 #if TEST1
 

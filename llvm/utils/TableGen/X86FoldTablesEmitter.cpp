@@ -341,14 +341,17 @@ public:
             MemRec->getValueAsBit("hasEVEX_K") ||
         RegRec->getValueAsBit("hasEVEX_Z") !=
             MemRec->getValueAsBit("hasEVEX_Z") ||
-        RegRec->getValueAsBit("hasEVEX_B") !=
-            MemRec->getValueAsBit("hasEVEX_B") ||
+        // EVEX_B means different things for memory and register forms.
+        RegRec->getValueAsBit("hasEVEX_B") != 0 ||
+        MemRec->getValueAsBit("hasEVEX_B") != 0 ||
         RegRec->getValueAsBit("hasEVEX_RC") !=
             MemRec->getValueAsBit("hasEVEX_RC") ||
         RegRec->getValueAsBit("hasREX_WPrefix") !=
             MemRec->getValueAsBit("hasREX_WPrefix") ||
         RegRec->getValueAsBit("hasLockPrefix") !=
             MemRec->getValueAsBit("hasLockPrefix") ||
+        RegRec->getValueAsBit("hasNoTrackPrefix") !=
+            MemRec->getValueAsBit("hasNoTrackPrefix") ||
         !equalBitsInits(RegRec->getValueAsBitsInit("EVEX_LL"),
                         MemRec->getValueAsBitsInit("EVEX_LL")) ||
         !equalBitsInits(RegRec->getValueAsBitsInit("VEX_WPrefix"),

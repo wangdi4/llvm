@@ -39,7 +39,7 @@ def ext_empty_translation_unit : Extension<
   InGroup<DiagGroup<"empty-translation-unit">>;
 def warn_cxx98_compat_top_level_semi : Warning<
   "extra ';' outside of a function is incompatible with C++98">,
-  InGroup<CXX98CompatPedantic>, DefaultIgnore;
+  InGroup<CXX98CompatExtraSemi>, DefaultIgnore;
 def ext_extra_semi : Extension<
   "extra ';' %select{"
   "outside of a function|"
@@ -1004,6 +1004,12 @@ def warn_pragma_init_seg_unsupported_target : Warning<
 def err_pragma_fp_contract_scope : Error<
   "'#pragma fp_contract' can only appear at file scope or at the start of a "
   "compound statement">; 
+// - #pragma stdc unknown
+def ext_stdc_pragma_ignored : ExtWarn<"unknown pragma in STDC namespace">,
+   InGroup<UnknownPragmas>;
+def warn_stdc_fenv_access_not_supported :
+   Warning<"pragma STDC FENV_ACCESS ON is not supported, ignoring pragma">,
+   InGroup<UnknownPragmas>;
 // - #pragma comment
 def err_pragma_comment_malformed : Error<
   "pragma comment requires parenthesized identifier and optional string">;
@@ -1097,12 +1103,13 @@ def warn_pragma_expected_colon_r_paren : Warning<
 def err_omp_unknown_directive : Error<
   "expected an OpenMP directive">;
 def err_omp_unexpected_directive : Error<
-  "unexpected OpenMP directive '#pragma omp %0'">;
+  "unexpected OpenMP directive %select{|'#pragma omp %1'}0">;
 // if INTEL_CUSTOMIZATION
 // CQ#410305 ignore declare target directive inside function.
 def warn_omp_ignore_unexpected_directive : Warning<
-  "ignoring unexpected OpenMP directive '#pragma omp %0'">, InGroup<IntelCompat>;
-// endif
+  "ignoring unexpected OpenMP directive %select{|'#pragma omp %1'}0">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_omp_expected_punc : Error<
   "expected ',' or ')' in '%0' %select{clause|directive}1">;
 def err_omp_unexpected_clause : Error<
@@ -1196,6 +1203,9 @@ def err_objc_parameterized_implementation : Error<
 
 def err_objc_type_args_after_protocols : Error<
   "protocol qualifiers must precede type arguments">;
+
+def note_meant_to_use_typename : Note<
+  "did you mean to use 'typename'?">;
 }
 
 let CategoryName = "Coroutines Issue" in {

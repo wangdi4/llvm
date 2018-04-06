@@ -222,6 +222,9 @@ set(LIBCXX_TARGETS)
 # Build the shared library.
 if (LIBCXX_ENABLE_SHARED)
   add_library(cxx_shared SHARED $<TARGET_OBJECTS:cxx_objects>)
+  if(COMMAND llvm_setup_rpath)
+    llvm_setup_rpath(cxx_shared)
+  endif()
   target_link_libraries(cxx_shared ${LIBCXX_LIBRARIES})
   set_target_properties(cxx_shared
     PROPERTIES
@@ -280,7 +283,7 @@ if (LIBCXX_ENABLE_STATIC)
 endif()
 
 # Add a meta-target for both libraries.
-add_custom_target(cxx DEPENDS ${LIBCXX_TARGETS})
+add_custom_target(cxx DEPENDS ${LIBCXX_TARGETS} ${generated_config_deps})
 
 if (LIBCXX_ENABLE_EXPERIMENTAL_LIBRARY)
   file(GLOB LIBCXX_EXPERIMENTAL_SOURCES ../src/experimental/*.cpp)

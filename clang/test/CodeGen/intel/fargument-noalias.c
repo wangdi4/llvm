@@ -1,5 +1,5 @@
 // CQ#369692
-// RUN: %clang_cc1 -fintel-compatibility -fargument-noalias -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -fargument-noalias -triple x86_64-unknown-linux-gnu -emit-llvm %s -o - | FileCheck %s
 
 // CHECK: define void @{{.+}}(i32* noalias %{{.+}}, i32* noalias %{{.+}}) #0 {
 void test1(int *a, int *b) {

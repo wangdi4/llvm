@@ -1,12 +1,12 @@
 // CQ#366612
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -DTEST1 %s -o - | FileCheck -check-prefix CHECK1 %s
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -DTEST2 %s -o - | FileCheck -check-prefix CHECK2 %s
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -DTEST3 %s -o - | FileCheck -check-prefix CHECK3 %s
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -DTEST4 %s -o - | FileCheck -check-prefix CHECK4 %s
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -DTEST5 %s -o - | FileCheck -check-prefix CHECK5 %s
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -DTEST6 %s -o - | FileCheck -check-prefix CHECK6 %s
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -DTEST7 %s -o - | FileCheck -check-prefix CHECK7 %s
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -DTEST8 %s -o - | FileCheck -check-prefix CHECK8 %s
+// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-unknown-linux-gnu -emit-llvm -DTEST1 %s -o - | FileCheck -check-prefix CHECK1 %s
+// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-unknown-linux-gnu -emit-llvm -DTEST2 %s -o - | FileCheck -check-prefix CHECK2 %s
+// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-unknown-linux-gnu -emit-llvm -DTEST3 %s -o - | FileCheck -check-prefix CHECK3 %s
+// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-unknown-linux-gnu -emit-llvm -DTEST4 %s -o - | FileCheck -check-prefix CHECK4 %s
+// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-unknown-linux-gnu -emit-llvm -DTEST5 %s -o - | FileCheck -check-prefix CHECK5 %s
+// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-unknown-linux-gnu -emit-llvm -DTEST6 %s -o - | FileCheck -check-prefix CHECK6 %s
+// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-unknown-linux-gnu -emit-llvm -DTEST7 %s -o - | FileCheck -check-prefix CHECK7 %s
+// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-unknown-linux-gnu -emit-llvm -DTEST8 %s -o - | FileCheck -check-prefix CHECK8 %s
 
 #ifdef TEST1
 

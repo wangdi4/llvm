@@ -152,6 +152,8 @@ public:
 
   uint8_t DetermineREXPrefix(const MCInst &MI, uint64_t TSFlags,
                              int MemOperand, const MCInstrDesc &Desc) const;
+
+  bool isPCRel32Branch(const MCInst &MI) const;
 };
 
 } // end anonymous namespace
@@ -276,6 +278,22 @@ static bool HasSecRelSymbolRef(const MCExpr *Expr) {
   return false;
 }
 
+bool X86MCCodeEmitter::isPCRel32Branch(const MCInst &MI) const {
+  unsigned Opcode = MI.getOpcode();
+  const MCInstrDesc &Desc = MCII.get(Opcode);
+  if ((Opcode != X86::CALL64pcrel32 && Opcode != X86::JMP_4) ||
+      getImmFixupKind(Desc.TSFlags) != FK_PCRel_4)
+    return false;
+
+  unsigned CurOp = X86II::getOperandBias(Desc);
+  const MCOperand &Op = MI.getOperand(CurOp);
+  if (!Op.isExpr())
+    return false;
+
+  const MCSymbolRefExpr *Ref = dyn_cast<MCSymbolRefExpr>(Op.getExpr());
+  return Ref && Ref->getKind() == MCSymbolRefExpr::VK_None;
+}
+
 void X86MCCodeEmitter::
 EmitImmediate(const MCOperand &DispOp, SMLoc Loc, unsigned Size,
               MCFixupKind FixupKind, unsigned &CurByte, raw_ostream &OS,
@@ -331,7 +349,8 @@ EmitImmediate(const MCOperand &DispOp, SMLoc Loc, unsigned Size,
       FixupKind == MCFixupKind(X86::reloc_riprel_4byte) ||
       FixupKind == MCFixupKind(X86::reloc_riprel_4byte_movq_load) ||
       FixupKind == MCFixupKind(X86::reloc_riprel_4byte_relax) ||
-      FixupKind == MCFixupKind(X86::reloc_riprel_4byte_relax_rex))
+      FixupKind == MCFixupKind(X86::reloc_riprel_4byte_relax_rex) ||
+      FixupKind == MCFixupKind(X86::reloc_branch_4byte_pcrel))
     ImmOffset -= 4;
   if (FixupKind == FK_PCRel_2)
     ImmOffset -= 2;
@@ -396,10 +415,14 @@ void X86MCCodeEmitter::emitMemModRMByte(const MCInst &MI, unsigned Op,
 
     // rip-relative addressing is actually relative to the *next* instruction.
     // Since an immediate can follow the mod/rm byte for an instruction, this
-    // means that we need to bias the immediate field of the instruction with
-    // the size of the immediate field.  If we have this case, add it into the
+    // means that we need to bias the displacement field of the instruction with
+    // the size of the immediate field. If we have this case, add it into the
     // expression to emit.
-    int ImmSize = X86II::hasImm(TSFlags) ? X86II::getSizeOfImm(TSFlags) : 0;
+    // Note: rip-relative addressing using immediate displacement values should
+    // not be adjusted, assuming it was the user's intent.
+    int ImmSize = !Disp.isImm() && X86II::hasImm(TSFlags)
+                      ? X86II::getSizeOfImm(TSFlags)
+                      : 0;
 
     EmitImmediate(Disp, MI.getLoc(), 4, MCFixupKind(FixupKind),
                   CurByte, OS, Fixups, -ImmSize);
@@ -1111,6 +1134,10 @@ bool X86MCCodeEmitter::emitOpcodePrefix(uint64_t TSFlags, unsigned &CurByte,
   if (TSFlags & X86II::LOCK || MI.getFlags() & X86::IP_HAS_LOCK)
     EmitByte(0xF0, CurByte, OS);
 
+  // Emit the NOTRACK opcode prefix.
+  if (TSFlags & X86II::NOTRACK || MI.getFlags() & X86::IP_HAS_NOTRACK)
+    EmitByte(0x3E, CurByte, OS);
+
   switch (TSFlags & X86II::OpPrefixMask) {
   case X86II::PD:   // 66
     EmitByte(0x66, CurByte, OS);
@@ -1283,9 +1310,18 @@ encodeInstruction(const MCInst &MI, raw_ostream &OS,
     EmitByte(BaseOpcode, CurByte, OS);
     break;
   }
-  case X86II::RawFrm:
+  case X86II::RawFrm: {
     EmitByte(BaseOpcode, CurByte, OS);
+
+    if (!is64BitMode(STI) || !isPCRel32Branch(MI))
+      break;
+
+    const MCOperand &Op = MI.getOperand(CurOp++);
+    EmitImmediate(Op, MI.getLoc(), X86II::getSizeOfImm(TSFlags),
+                  MCFixupKind(X86::reloc_branch_4byte_pcrel), CurByte, OS,
+                  Fixups);
     break;
+  }
   case X86II::RawFrmMemOffs:
     // Emit segment override opcode prefix as needed.
     EmitSegmentOverridePrefix(CurByte, 1, MI, OS);

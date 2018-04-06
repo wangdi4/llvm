@@ -61,6 +61,7 @@ namespace frontend {
     RewriteObjC,            ///< ObjC->C Rewriter.
     RewriteTest,            ///< Rewriter playground
     RunAnalysis,            ///< Run one or more source code analyses.
+    TemplightDump,          ///< Dump template instantiations
     MigrateSource,          ///< Run migrator.
     RunPreprocessorOnly     ///< Just lex, no output.
   };

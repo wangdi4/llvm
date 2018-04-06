@@ -160,7 +160,7 @@ OpenMPCodeOutliner::emitIntelOpenMPCopyConstructor(const Expr *IPriv) {
   llvm::Function *Fn = llvm::Function::Create(
       LTy, llvm::GlobalValue::InternalLinkage, OutName, &CGM.getModule());
 
-  CGM.SetInternalFunctionAttributes(nullptr, Fn, FI);
+  CGM.SetInternalFunctionAttributes(GlobalDecl(), Fn, FI);
 
   NewCGF.StartFunction(FD, C.VoidTy, Fn, FI, Args);
   auto *Init = Private->getInit();
@@ -173,7 +173,7 @@ OpenMPCodeOutliner::emitIntelOpenMPCopyConstructor(const Expr *IPriv) {
                               C.getPointerType(ElemType), CK_BitCast, &SrcExpr,
                               VK_RValue);
     UnaryOperator SRC(&CastExpr, UO_Deref, ElemType, VK_LValue, OK_Ordinary,
-                      SourceLocation());
+                      SourceLocation(), /*CanOverflow=*/false);
 
     QualType CTy = ElemType;
     CTy.addConst();
@@ -243,7 +243,7 @@ llvm::Value *OpenMPCodeOutliner::emitIntelOpenMPCopyAssign(QualType Ty,
   llvm::Function *Fn = llvm::Function::Create(
       LTy, llvm::GlobalValue::InternalLinkage, OutName, &CGM.getModule());
 
-  CGM.SetInternalFunctionAttributes(nullptr, Fn, FI);
+  CGM.SetInternalFunctionAttributes(GlobalDecl(), Fn, FI);
 
   NewCGF.StartFunction(FD, C.VoidTy, Fn, FI, Args);
 
@@ -1585,6 +1585,11 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   emitPreInitStmt(*this, S);
   Builder.restoreIP(SavedIP);
 
+  // Some constructs have an extra captured OMPD_task pushed which causes
+  // an outlined region.  We need to avoid that for late-outlining.
+  // See getOpenMPCaptureRegions in lib/Basic/OpenMPKinds.cpp for details.
+  bool HasExtraCaptureStmt = false;
+
   switch (S.getDirectiveKind()) {
   case OMPD_parallel:
     Outliner.emitOMPParallelDirective();
@@ -1616,6 +1621,7 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
     Outliner.emitOMPOrderedDirective();
     break;
   case OMPD_target:
+    HasExtraCaptureStmt = true;
     CGM.setHasTargetCode();
     Outliner.emitOMPTargetDirective();
     break;
@@ -1711,6 +1717,9 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   Outliner << S.clauses();
   if (S.hasAssociatedStmt()) {
     InlinedOpenMPRegionRAII Region(*this, Outliner, S);
-    CapturedStmtInfo->EmitBody(*this, S.getAssociatedStmt());
+    auto CS = cast<CapturedStmt>(S.getAssociatedStmt());
+    if (HasExtraCaptureStmt)
+      CS = cast<CapturedStmt>(CS->getCapturedStmt());
+    CapturedStmtInfo->EmitBody(*this, CS);
   }
 }

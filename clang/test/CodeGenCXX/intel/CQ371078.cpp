@@ -2,7 +2,7 @@
 // RUN: %clang_cc1 -fintel-compatibility -triple x86_64-windows-msvc -emit-llvm -o - -std=c++11 -o - %s | FileCheck --check-prefix WIN_MSVC %s
 
 // LINUX: @_ZN14SettingsStruct6NumberE = linkonce_odr constant i32 23,
-// WIN_MSVC: @"\01?Number@SettingsStruct@@2HB" = linkonce_odr constant i32 23,
+// WIN_MSVC: @"?Number@SettingsStruct@@2HB" = linkonce_odr dso_local constant i32 23,
 struct SettingsStruct {
   static constexpr int Number = 23;
 };

@@ -216,6 +216,14 @@ public:
     return DT != Dtor_Base;
   }
 
+  void setCXXDestructorDLLStorage(llvm::GlobalValue *GV,
+                                  const CXXDestructorDecl *Dtor,
+                                  CXXDtorType DT) const override;
+
+  llvm::GlobalValue::LinkageTypes
+  getCXXDestructorLinkage(GVALinkage Linkage, const CXXDestructorDecl *Dtor,
+                          CXXDtorType DT) const override;
+
   void EmitCXXDestructors(const CXXDestructorDecl *D) override;
 
   const CXXRecordDecl *
@@ -357,9 +365,6 @@ public:
 
   void setThunkLinkage(llvm::Function *Thunk, bool ForVTable,
                        GlobalDecl GD, bool ReturnAdjustment) override {
-    // Never dllimport/dllexport thunks.
-    Thunk->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
-
     GVALinkage Linkage =
         getContext().GetGVALinkageForFunction(cast<FunctionDecl>(GD.getDecl()));
 
@@ -370,6 +375,8 @@ public:
     else
       Thunk->setLinkage(llvm::GlobalValue::LinkOnceODRLinkage);
   }
+
+  bool exportThunk() override { return false; }
 
   llvm::Value *performThisAdjustment(CodeGenFunction &CGF, Address This,
                                      const ThisAdjustment &TA) override;
@@ -820,19 +827,8 @@ MicrosoftCXXABI::getRecordArgABI(const CXXRecordDecl *RD) const {
     return RAA_Default;
 
   case llvm::Triple::x86_64:
-    // If a class has a destructor, we'd really like to pass it indirectly
-    // because it allows us to elide copies.  Unfortunately, MSVC makes that
-    // impossible for small types, which it will pass in a single register or
-    // stack slot. Most objects with dtors are large-ish, so handle that early.
-    // We can't call out all large objects as being indirect because there are
-    // multiple x64 calling conventions and the C++ ABI code shouldn't dictate
-    // how we pass large POD types.
-    //
-    // Note: This permits small classes with nontrivial destructors to be
-    // passed in registers, which is non-conforming.
-    if (RD->hasNonTrivialDestructor() &&
-        getContext().getTypeSize(RD->getTypeForDecl()) > 64)
-      return RAA_Indirect;
+    bool CopyCtorIsTrivial = false, CopyCtorIsTrivialForCall = false;
+    bool DtorIsTrivialForCall = false;
 
     // If a class has at least one non-deleted, trivial copy constructor, it
     // is passed according to the C ABI. Otherwise, it is passed indirectly.
@@ -841,23 +837,49 @@ MicrosoftCXXABI::getRecordArgABI(const CXXRecordDecl *RD) const {
     // passed in registers, so long as they *also* have a trivial copy ctor,
     // which is non-conforming.
     if (RD->needsImplicitCopyConstructor()) {
-      // If the copy ctor has not yet been declared, we can read its triviality
-      // off the AST.
-      if (!RD->defaultedCopyConstructorIsDeleted() &&
-          RD->hasTrivialCopyConstructor())
-        return RAA_Default;
+      if (!RD->defaultedCopyConstructorIsDeleted()) {
+        if (RD->hasTrivialCopyConstructor())
+          CopyCtorIsTrivial = true;
+        if (RD->hasTrivialCopyConstructorForCall())
+          CopyCtorIsTrivialForCall = true;
+      }
     } else {
-      // Otherwise, we need to find the copy constructor(s) and ask.
       for (const CXXConstructorDecl *CD : RD->ctors()) {
-        if (CD->isCopyConstructor()) {
-          // We had at least one nondeleted trivial copy ctor.  Return directly.
-          if (!CD->isDeleted() && CD->isTrivial())
-            return RAA_Default;
+        if (CD->isCopyConstructor() && !CD->isDeleted()) {
+          if (CD->isTrivial())
+            CopyCtorIsTrivial = true;
+          if (CD->isTrivialForCall())
+            CopyCtorIsTrivialForCall = true;
         }
       }
     }
 
-    // We have no trivial, non-deleted copy constructor.
+    if (RD->needsImplicitDestructor()) {
+      if (!RD->defaultedDestructorIsDeleted() &&
+          RD->hasTrivialDestructorForCall())
+        DtorIsTrivialForCall = true;
+    } else if (const auto *D = RD->getDestructor()) {
+      if (!D->isDeleted() && D->isTrivialForCall())
+        DtorIsTrivialForCall = true;
+    }
+
+    // If the copy ctor and dtor are both trivial-for-calls, pass direct.
+    if (CopyCtorIsTrivialForCall && DtorIsTrivialForCall)
+      return RAA_Default;
+
+    // If a class has a destructor, we'd really like to pass it indirectly
+    // because it allows us to elide copies.  Unfortunately, MSVC makes that
+    // impossible for small types, which it will pass in a single register or
+    // stack slot. Most objects with dtors are large-ish, so handle that early.
+    // We can't call out all large objects as being indirect because there are
+    // multiple x64 calling conventions and the C++ ABI code shouldn't dictate
+    // how we pass large POD types.
+
+    // Note: This permits small classes with nontrivial destructors to be
+    // passed in registers, which is non-conforming.
+    if (CopyCtorIsTrivial &&
+        getContext().getTypeSize(RD->getTypeForDecl()) <= 64)
+      return RAA_Default;
     return RAA_Indirect;
   }
 
@@ -1182,15 +1204,16 @@ void MicrosoftCXXABI::initializeHiddenVirtualInheritanceMembers(
   unsigned AS = getThisAddress(CGF).getAddressSpace();
   llvm::Value *Int8This = nullptr;  // Initialize lazily.
 
-  for (VBOffsets::const_iterator I = VBaseMap.begin(), E = VBaseMap.end();
-        I != E; ++I) {
+  for (const CXXBaseSpecifier &S : RD->vbases()) {
+    const CXXRecordDecl *VBase = S.getType()->getAsCXXRecordDecl();
+    auto I = VBaseMap.find(VBase);
+    assert(I != VBaseMap.end());
     if (!I->second.hasVtorDisp())
       continue;
 
     llvm::Value *VBaseOffset =
-        GetVirtualBaseClassOffset(CGF, getThisAddress(CGF), RD, I->first);
-    uint64_t ConstantVBaseOffset =
-        Layout.getVBaseClassOffset(I->first).getQuantity();
+        GetVirtualBaseClassOffset(CGF, getThisAddress(CGF), RD, VBase);
+    uint64_t ConstantVBaseOffset = I->second.VBaseOffset.getQuantity();
 
     // vtorDisp_for_vbase = vbptr[vbase_idx] - offsetof(RD, vbase).
     llvm::Value *VtorDispValue = Builder.CreateSub(
@@ -1233,7 +1256,7 @@ void MicrosoftCXXABI::EmitCXXConstructors(const CXXConstructorDecl *D) {
     if (!hasDefaultCXXMethodCC(getContext(), D) || D->getNumParams() != 0) {
       llvm::Function *Fn = getAddrOfCXXCtorClosure(D, Ctor_DefaultClosure);
       Fn->setLinkage(llvm::GlobalValue::WeakODRLinkage);
-      Fn->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
+      CGM.setGVProperties(Fn, D);
     }
 }
 
@@ -1293,6 +1316,52 @@ MicrosoftCXXABI::buildStructorSignature(const CXXMethodDecl *MD, StructorType T,
   }
 
   return Added;
+}
+
+void MicrosoftCXXABI::setCXXDestructorDLLStorage(llvm::GlobalValue *GV,
+                                                 const CXXDestructorDecl *Dtor,
+                                                 CXXDtorType DT) const {
+  // Deleting destructor variants are never imported or exported. Give them the
+  // default storage class.
+  if (DT == Dtor_Deleting) {
+    GV->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
+  } else {
+    const NamedDecl *ND = Dtor;
+    CGM.setDLLImportDLLExport(GV, ND);
+  }
+}
+
+llvm::GlobalValue::LinkageTypes MicrosoftCXXABI::getCXXDestructorLinkage(
+    GVALinkage Linkage, const CXXDestructorDecl *Dtor, CXXDtorType DT) const {
+  // Internal things are always internal, regardless of attributes. After this,
+  // we know the thunk is externally visible.
+  if (Linkage == GVA_Internal)
+    return llvm::GlobalValue::InternalLinkage;
+
+  switch (DT) {
+  case Dtor_Base:
+    // The base destructor most closely tracks the user-declared constructor, so
+    // we delegate back to the normal declarator case.
+    return CGM.getLLVMLinkageForDeclarator(Dtor, Linkage,
+                                           /*isConstantVariable=*/false);
+  case Dtor_Complete:
+    // The complete destructor is like an inline function, but it may be
+    // imported and therefore must be exported as well. This requires changing
+    // the linkage if a DLL attribute is present.
+    if (Dtor->hasAttr<DLLExportAttr>())
+      return llvm::GlobalValue::WeakODRLinkage;
+    if (Dtor->hasAttr<DLLImportAttr>())
+      return llvm::GlobalValue::AvailableExternallyLinkage;
+    return llvm::GlobalValue::LinkOnceODRLinkage;
+  case Dtor_Deleting:
+    // Deleting destructors are like inline functions. They have vague linkage
+    // and are emitted everywhere they are used. They are internal if the class
+    // is internal.
+    return llvm::GlobalValue::LinkOnceODRLinkage;
+  case Dtor_Comdat:
+    llvm_unreachable("MS C++ ABI does not support comdat dtors");
+  }
+  llvm_unreachable("invalid dtor type");
 }
 
 void MicrosoftCXXABI::EmitCXXDestructors(const CXXDestructorDecl *D) {
@@ -1523,8 +1592,7 @@ CGCXXABI::AddedStructorArgs MicrosoftCXXABI::addImplicitConstructorArgs(
   }
   RValue RV = RValue::get(MostDerivedArg);
   if (FPT->isVariadic()) {
-    Args.insert(Args.begin() + 1,
-                CallArg(RV, getContext().IntTy, /*needscopy=*/false));
+    Args.insert(Args.begin() + 1, CallArg(RV, getContext().IntTy));
     return AddedStructorArgs::prefix(1);
   }
   Args.add(RV, getContext().IntTy);
@@ -1535,6 +1603,12 @@ void MicrosoftCXXABI::EmitDestructorCall(CodeGenFunction &CGF,
                                          const CXXDestructorDecl *DD,
                                          CXXDtorType Type, bool ForVirtualBase,
                                          bool Delegating, Address This) {
+  // Use the base destructor variant in place of the complete destructor variant
+  // if the class has no virtual bases. This effectively implements some of the
+  // -mconstructor-aliases optimization, but as part of the MS C++ ABI.
+  if (Type == Dtor_Complete && DD->getParent()->getNumVBases() == 0)
+    Type = Dtor_Base;
+
   CGCallee Callee = CGCallee::forDirect(
                           CGM.getAddrOfCXXStructor(DD, getFromDtorType(Type)),
                                         DD);
@@ -1872,9 +1946,8 @@ llvm::Value *MicrosoftCXXABI::EmitVirtualDestructorCall(
   GlobalDecl GD(Dtor, Dtor_Deleting);
   const CGFunctionInfo *FInfo = &CGM.getTypes().arrangeCXXStructorDeclaration(
       Dtor, StructorType::Deleting);
-  llvm::Type *Ty = CGF.CGM.getTypes().GetFunctionType(*FInfo);
-  CGCallee Callee = getVirtualFunctionPointer(
-      CGF, GD, This, Ty, CE ? CE->getLocStart() : SourceLocation());
+  llvm::FunctionType *Ty = CGF.CGM.getTypes().GetFunctionType(*FInfo);
+  CGCallee Callee = CGCallee::forVirtual(CE, GD, This, Ty);
 
   ASTContext &Context = getContext();
   llvm::Value *ImplicitParam = llvm::ConstantInt::get(
@@ -3356,7 +3429,7 @@ CGCXXABI *clang::CodeGen::CreateMicrosoftCXXABI(CodeGenModule &CGM) {
 //   mangled into them so they can be aggressively deduplicated by the linker.
 
 static llvm::GlobalVariable *getTypeInfoVTable(CodeGenModule &CGM) {
-  StringRef MangledName("\01??_7type_info@@6B@");
+  StringRef MangledName("??_7type_info@@6B@");
   if (auto VTable = CGM.getModule().getNamedGlobal(MangledName))
     return VTable;
   return new llvm::GlobalVariable(CGM.getModule(), CGM.Int8PtrTy,
@@ -3808,19 +3881,12 @@ static void emitCXXConstructor(CodeGenModule &CGM,
 
 static void emitCXXDestructor(CodeGenModule &CGM, const CXXDestructorDecl *dtor,
                               StructorType dtorType) {
-  // The complete destructor is equivalent to the base destructor for
-  // classes with no virtual bases, so try to emit it as an alias.
-  if (!dtor->getParent()->getNumVBases() &&
-      (dtorType == StructorType::Complete || dtorType == StructorType::Base)) {
-    bool ProducedAlias = !CGM.TryEmitDefinitionAsAlias(
-        GlobalDecl(dtor, Dtor_Complete), GlobalDecl(dtor, Dtor_Base));
-    if (ProducedAlias) {
-      if (dtorType == StructorType::Complete)
-        return;
-      if (dtor->isVirtual())
-        CGM.getVTables().EmitThunks(GlobalDecl(dtor, Dtor_Complete));
-    }
-  }
+  // Emit the base destructor if the base and complete (vbase) destructors are
+  // equivalent. This effectively implements -mconstructor-aliases as part of
+  // the ABI.
+  if (dtorType == StructorType::Complete &&
+      dtor->getParent()->getNumVBases() == 0)
+    dtorType = StructorType::Base;
 
   // The base destructor is equivalent to the base destructor of its
   // base class if there is exactly one non-virtual base class with a

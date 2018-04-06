@@ -265,7 +265,11 @@ public:
 
   virtual void Profile(llvm::FoldingSetNodeID &ID) = 0;
 
-  void dumpStack(raw_ostream &OS, StringRef Indent = "") const;
+  void dumpStack(
+      raw_ostream &OS, StringRef Indent = "", const char *NL = "\n",
+      const char *Sep = "",
+      std::function<void(const LocationContext *)> printMoreInfoPerContext =
+          [](const LocationContext *) {}) const;
   void dumpStack() const;
 
 public:
@@ -431,10 +435,13 @@ public:
                              bool addImplicitDtors = false,
                              bool addInitializers = false,
                              bool addTemporaryDtors = false,
-                             bool addLifetime = false, bool addLoopExit = false,
+                             bool addLifetime = false,
+                             bool addLoopExit = false,
+                             bool addScopes = false,
                              bool synthesizeBodies = false,
                              bool addStaticInitBranches = false,
                              bool addCXXNewAllocator = true,
+                             bool addRichCXXConstructors = true,
                              CodeInjector *injector = nullptr);
 
   AnalysisDeclContext *getContext(const Decl *D);

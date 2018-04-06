@@ -279,6 +279,26 @@ llvm::MDNode *CodeGenTBAA::getTypeInfo(QualType QTy) {
   return MetadataCache[Ty] = TypeNode;
 }
 
+TBAAAccessInfo CodeGenTBAA::getAccessInfo(QualType AccessType) {
+  // Pointee values may have incomplete types, but they shall never be
+  // dereferenced.
+#if INTEL_CUSTOMIZATION
+  if (AccessType->isIncompleteType()) {
+    if (Features.IntelCompat && AccessType->isIncompleteArrayType()) {
+      if (!AccessType->getArrayElementTypeNoTypeQual()->isIncompleteType())
+        return TBAAAccessInfo(getTypeInfo(AccessType), 0);
+    }
+    return TBAAAccessInfo::getIncompleteInfo();
+  }
+#endif // INTEL_CUSTOMIZATION
+
+  if (TypeHasMayAlias(AccessType))
+    return TBAAAccessInfo::getMayAliasInfo();
+
+  uint64_t Size = Context.getTypeSizeInChars(AccessType).getQuantity();
+  return TBAAAccessInfo(getTypeInfo(AccessType), Size);
+}
+
 TBAAAccessInfo CodeGenTBAA::getVTablePtrAccessInfo(llvm::Type *VTablePtrType) {
   llvm::DataLayout DL(&Module);
   unsigned Size = DL.getPointerTypeSize(VTablePtrType);
@@ -453,6 +473,24 @@ CodeGenTBAA::mergeTBAAInfoForConditionalOperator(TBAAAccessInfo InfoA,
     return TBAAAccessInfo();
 
   if (InfoA.isMayAlias() || InfoB.isMayAlias())
+    return TBAAAccessInfo::getMayAliasInfo();
+
+  // TODO: Implement the rest of the logic here. For example, two accesses
+  // with same final access types result in an access to an object of that final
+  // access type regardless of their base types.
+  return TBAAAccessInfo::getMayAliasInfo();
+}
+
+TBAAAccessInfo
+CodeGenTBAA::mergeTBAAInfoForMemoryTransfer(TBAAAccessInfo DestInfo,
+                                            TBAAAccessInfo SrcInfo) {
+  if (DestInfo == SrcInfo)
+    return DestInfo;
+
+  if (!DestInfo || !SrcInfo)
+    return TBAAAccessInfo();
+
+  if (DestInfo.isMayAlias() || SrcInfo.isMayAlias())
     return TBAAAccessInfo::getMayAliasInfo();
 
   // TODO: Implement the rest of the logic here. For example, two accesses
