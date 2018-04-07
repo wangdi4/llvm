@@ -45,13 +45,14 @@ enum SingleValueKind { SVK_None, SVK_Single, SVK_Multiple };
 class FieldInfo {
 public:
   FieldInfo(llvm::Type *Ty)
-      : LLVMType(Ty), Read(false), Written(false), SVKind(SVK_None),
-        SingleValue(nullptr) {}
+      : LLVMType(Ty), Read(false), Written(false), AddressTaken(false),
+        SVKind(SVK_None), SingleValue(nullptr) {}
 
   llvm::Type *getLLVMType() const { return LLVMType; }
 
   bool isRead() const { return Read; }
   bool isWritten() const { return Written; }
+  bool isAddressTaken() const { return AddressTaken; }
   bool isNoValue() const { return SVKind == SVK_None; }
   bool isSingleValue() const { return SVKind == SVK_Single; }
   bool isMultipleValue() const { return SVKind == SVK_Multiple; }
@@ -60,6 +61,7 @@ public:
   }
   void setRead(bool b) { Read = b; }
   void setWritten(bool b) { Written = b; }
+  void setAddressTaken() { AddressTaken = true; }
   void setSingleValue(llvm::Constant *C) {
     SVKind = SVK_Single;
     SingleValue = C;
@@ -78,6 +80,7 @@ private:
   llvm::Type *LLVMType;
   bool Read;
   bool Written;
+  bool AddressTaken;
   SingleValueKind SVKind;
   llvm::Constant *SingleValue;
 };
