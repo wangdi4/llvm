@@ -77,6 +77,7 @@ namespace {
     bool runOnFunction(Function &F) override;
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {
+      AU.addRequired<DominatorTreeWrapperPass>();
       AU.addRequired<LazyValueInfoWrapperPass>();
       AU.addPreserved<GlobalsAAWrapperPass>();
     }
@@ -88,6 +89,7 @@ char CorrelatedValuePropagation::ID = 0;
 
 INITIALIZE_PASS_BEGIN(CorrelatedValuePropagation, "correlated-propagation",
                 "Value Propagation", false, false)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LazyValueInfoWrapperPass)
 INITIALIZE_PASS_END(CorrelatedValuePropagation, "correlated-propagation",
                 "Value Propagation", false, false)
@@ -101,14 +103,14 @@ static bool processSelect(SelectInst *S, LazyValueInfo *LVI) {
   if (S->getType()->isVectorTy()) return false;
   if (isa<Constant>(S->getOperand(0))) return false;
 
-  Constant *C = LVI->getConstant(S->getOperand(0), S->getParent(), S);
+  Constant *C = LVI->getConstant(S->getCondition(), S->getParent(), S);
   if (!C) return false;
 
   ConstantInt *CI = dyn_cast<ConstantInt>(C);
   if (!CI) return false;
 
-  Value *ReplaceWith = S->getOperand(1);
-  Value *Other = S->getOperand(2);
+  Value *ReplaceWith = S->getTrueValue();
+  Value *Other = S->getFalseValue();
   if (!CI->isOne()) std::swap(ReplaceWith, Other);
   if (ReplaceWith == S) ReplaceWith = UndefValue::get(S->getType());
 
@@ -431,8 +433,7 @@ static bool hasPositiveOperands(BinaryOperator *SDI, LazyValueInfo *LVI) {
 }
 
 static bool processSRem(BinaryOperator *SDI, LazyValueInfo *LVI) {
-  if (SDI->getType()->isVectorTy() ||
-      !hasPositiveOperands(SDI, LVI))
+  if (SDI->getType()->isVectorTy() || !hasPositiveOperands(SDI, LVI))
     return false;
 
   ++NumSRems;
@@ -449,8 +450,7 @@ static bool processSRem(BinaryOperator *SDI, LazyValueInfo *LVI) {
 /// conditions, this can sometimes prove conditions instcombine can't by
 /// exploiting range information.
 static bool processSDiv(BinaryOperator *SDI, LazyValueInfo *LVI) {
-  if (SDI->getType()->isVectorTy() ||
-      !hasPositiveOperands(SDI, LVI))
+  if (SDI->getType()->isVectorTy() || !hasPositiveOperands(SDI, LVI))
     return false;
 
   ++NumSDivs;

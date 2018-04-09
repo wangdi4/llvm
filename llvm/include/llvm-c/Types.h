@@ -7,7 +7,7 @@
 |*                                                                            *|
 |*===----------------------------------------------------------------------===*|
 |*                                                                            *|
-|* This file defines types used by the the C interface to LLVM.               *|
+|* This file defines types used by the C interface to LLVM.                   *|
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
 
@@ -133,6 +133,11 @@ typedef struct LLVMOpaqueAttributeRef *LLVMAttributeRef;
  * @see llvm::DiagnosticInfo
  */
 typedef struct LLVMOpaqueDiagnosticInfo *LLVMDiagnosticInfoRef;
+
+/**
+ * @see llvm::Comdat
+ */
+typedef struct LLVMComdat *LLVMComdatRef;
 
 /**
  * @}
