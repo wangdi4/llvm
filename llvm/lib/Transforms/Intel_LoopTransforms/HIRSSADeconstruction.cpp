@@ -159,10 +159,10 @@ PreservedAnalyses HIRSSADeconstructionPass::run(Function &F,
                                                 FunctionAnalysisManager &AM) {
   HIRSSADeconstruction HSSAD;
   bool Modified = HSSAD.run(F, AM.getResult<DominatorTreeAnalysis>(F),
-            AM.getResult<LoopAnalysis>(F),
-            AM.getResult<ScalarEvolutionAnalysis>(F),
-            AM.getResult<HIRRegionIdentificationAnalysis>(F),
-            AM.getResult<HIRSCCFormationAnalysis>(F));
+                            AM.getResult<LoopAnalysis>(F),
+                            AM.getResult<ScalarEvolutionAnalysis>(F),
+                            AM.getResult<HIRRegionIdentificationAnalysis>(F),
+                            AM.getResult<HIRSCCFormationAnalysis>(F));
 
   if (!Modified) {
     return PreservedAnalyses::all();
@@ -188,15 +188,23 @@ public:
   }
 
   bool runOnFunction(Function &F) override {
+    auto &RI = getAnalysis<HIRRegionIdentificationWrapperPass>().getRI();
+
     if (skipFunction(F)) {
+      // Since we are skipping deconstruction (in opt-bisect mode) the incoming
+      // IR may not in the right form (consummable by HIR framework) which can
+      // lead to assertion. We get around this issue by discarding all the
+      // created regions.
+      // TODO: Add something similar to new pass manager when it has opt-bisect
+      // support.
+      RI.discardRegions();
       return false;
     }
 
     HIRSSADeconstruction HSSAD;
     return HSSAD.run(F, getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
                      getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
-                     getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
-                     getAnalysis<HIRRegionIdentificationWrapperPass>().getRI(),
+                     getAnalysis<ScalarEvolutionWrapperPass>().getSE(), RI,
                      getAnalysis<HIRSCCFormationWrapperPass>().getSCCF());
   }
 

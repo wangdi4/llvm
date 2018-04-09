@@ -94,6 +94,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
@@ -349,7 +350,7 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
   // to check all canon expressions against UB of every loop in loopnest.
   // We skip loops if its IV is absent.
   for (auto I = Lower->canon_begin(), E = Lower->canon_end(); E != I; ++I) {
-    CanonExpr *CE = *I;
+    const CanonExpr *CE = *I;
 
     if (CE->isNonLinear()) {
       return NON_LINEAR_SUBS;
@@ -434,9 +435,10 @@ void IVSegment::replaceIVWithBounds(const HLLoop *Loop,
 
 char HIRRuntimeDD::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
 
 FunctionPass *llvm::createHIRRuntimeDDPass() { return new HIRRuntimeDD(); }
@@ -795,7 +797,8 @@ static void applyForLoopnest(HLLoop *OuterLoop, FuncTy Func) {
   }
 }
 
-void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
+void HIRRuntimeDD::generateDDTest(LoopContext &Context,
+                                  LoopOptReportBuilder &LORBuilder) {
   Context.Loop->extractZtt();
   Context.Loop->extractPreheaderAndPostexit();
 
@@ -826,6 +829,9 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
 
   HLLoop *ModifiedLoop = Context.Loop;
   HLLoop *OrigLoop = Context.Loop->clone(&LoopMapper);
+  LORBuilder(*ModifiedLoop).addOrigin("Multiversioned loop");
+  LORBuilder(*OrigLoop).addRemark(OptReportVerbosity::Low,
+                                  "The loop has been multiversioned");
 
   auto &HNU = OrigLoop->getHLNodeUtils();
 
@@ -921,9 +927,12 @@ bool HIRRuntimeDD::runOnFunction(Function &F) {
     return false;
   }
 
-  HLS = &getAnalysis<HIRLoopStatistics>();
+  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   auto &HNU = HIRF.getHLNodeUtils();
+
+  auto &OROP = getAnalysis<OptReportOptionsPass>();
+  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   DEBUG(dbgs() << "HIRRuntimeDD for function: " << F.getName() << "\n");
 
@@ -933,7 +942,7 @@ bool HIRRuntimeDD::runOnFunction(Function &F) {
 
   if (AliasAnalyzer.LoopContexts.size() != 0) {
     for (LoopContext &Candidate : AliasAnalyzer.LoopContexts) {
-      generateDDTest(Candidate);
+      generateDDTest(Candidate, LORBuilder);
     }
   }
 

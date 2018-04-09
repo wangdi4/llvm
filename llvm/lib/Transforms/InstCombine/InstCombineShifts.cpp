@@ -163,8 +163,7 @@ static bool canEvaluateShiftedShift(unsigned OuterShAmt, bool IsOuterShl,
   // Equal shift amounts in opposite directions become bitwise 'and':
   // lshr (shl X, C), C --> and X, C'
   // shl (lshr X, C), C --> and X, C'
-  unsigned InnerShAmt = InnerShiftConst->getZExtValue();
-  if (InnerShAmt == OuterShAmt)
+  if (*InnerShiftConst == OuterShAmt)
     return true;
 
   // If the 2nd shift is bigger than the 1st, we can fold:
@@ -174,7 +173,8 @@ static bool canEvaluateShiftedShift(unsigned OuterShAmt, bool IsOuterShl,
   // Also, check that the inner shift is valid (less than the type width) or
   // we'll crash trying to produce the bit mask for the 'and'.
   unsigned TypeWidth = InnerShift->getType()->getScalarSizeInBits();
-  if (InnerShAmt > OuterShAmt && InnerShAmt < TypeWidth) {
+  if (InnerShiftConst->ugt(OuterShAmt) && InnerShiftConst->ult(TypeWidth)) {
+    unsigned InnerShAmt = InnerShiftConst->getZExtValue();
     unsigned MaskShift =
         IsInnerShl ? TypeWidth - InnerShAmt : InnerShAmt - OuterShAmt;
     APInt Mask = APInt::getLowBitsSet(TypeWidth, OuterShAmt) << MaskShift;
@@ -211,7 +211,7 @@ static bool canEvaluateShifted(Value *V, unsigned NumBits, bool IsLeftShift,
   ConstantInt *CI = nullptr;
   if ((IsLeftShift && match(I, m_LShr(m_Value(), m_ConstantInt(CI)))) ||
       (!IsLeftShift && match(I, m_Shl(m_Value(), m_ConstantInt(CI))))) {
-    if (CI->getZExtValue() == NumBits) {
+    if (CI->getValue() == NumBits) {
       // TODO: Check that the input bits are already zero with MaskedValueIsZero
 #if 0
       // If this is a truncate of a logical shr, we can truncate it to a smaller
@@ -446,7 +446,7 @@ Instruction *InstCombiner::FoldShiftByConstant(Value *Op0, Constant *Op1,
   assert(!Op1C->uge(TypeBits) &&
          "Shift over the type width should have been removed already");
 
-  if (Instruction *FoldedShift = foldOpWithConstantIntoOperand(I))
+  if (Instruction *FoldedShift = foldBinOpIntoSelectOrPhi(I))
     return FoldedShift;
 
   // Fold shift2(trunc(shift1(x,c1)), c2) -> trunc(shift2(shift1(x,c1),c2))
@@ -951,7 +951,7 @@ Instruction *InstCombiner::visitAShr(BinaryOperator &I) {
   Type *Ty = I.getType();
   unsigned BitWidth = Ty->getScalarSizeInBits();
   const APInt *ShAmtAPInt;
-  if (match(Op1, m_APInt(ShAmtAPInt))) {
+  if (match(Op1, m_APInt(ShAmtAPInt)) && ShAmtAPInt->ult(BitWidth)) {
     unsigned ShAmt = ShAmtAPInt->getZExtValue();
 
     // If the shift amount equals the difference in width of the destination
@@ -965,7 +965,8 @@ Instruction *InstCombiner::visitAShr(BinaryOperator &I) {
     // We can't handle (X << C1) >>s C2. It shifts arbitrary bits in. However,
     // we can handle (X <<nsw C1) >>s C2 since it only shifts in sign bits.
     const APInt *ShOp1;
-    if (match(Op0, m_NSWShl(m_Value(X), m_APInt(ShOp1)))) {
+    if (match(Op0, m_NSWShl(m_Value(X), m_APInt(ShOp1))) &&
+        ShOp1->ult(BitWidth)) {
       unsigned ShlAmt = ShOp1->getZExtValue();
       if (ShlAmt < ShAmt) {
         // (X <<nsw C1) >>s C2 --> X >>s (C2 - C1)
@@ -983,7 +984,8 @@ Instruction *InstCombiner::visitAShr(BinaryOperator &I) {
       }
     }
 
-    if (match(Op0, m_AShr(m_Value(X), m_APInt(ShOp1)))) {
+    if (match(Op0, m_AShr(m_Value(X), m_APInt(ShOp1))) &&
+        ShOp1->ult(BitWidth)) {
       unsigned AmtSum = ShAmt + ShOp1->getZExtValue();
       // Oversized arithmetic shifts replicate the sign bit.
       AmtSum = std::min(AmtSum, BitWidth - 1);

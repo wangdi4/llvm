@@ -26,7 +26,7 @@ class XmainOptLevel {
   unsigned OptLevel;
 
 public:
-  XmainOptLevel(unsigned OptLevel = 2) : OptLevel(OptLevel) {};
+  XmainOptLevel(unsigned OptLevel);
 
   unsigned getOptLevel() const { return OptLevel; }
 };
@@ -46,10 +46,6 @@ public:
 
   Result run(Function &, FunctionAnalysisManager &) {
     return XmainOptLevel(OptLevel);
-  }
-
-  static void registerAnalysis(FunctionAnalysisManager &AM, unsigned OptLevel) {
-    AM.registerPass([&]() { return XmainOptLevelAnalysis(OptLevel); });
   }
 };
 

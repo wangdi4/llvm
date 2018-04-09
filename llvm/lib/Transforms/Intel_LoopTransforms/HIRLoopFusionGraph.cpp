@@ -42,24 +42,23 @@ public:
   struct FuseHeapEntity {
     unsigned Src;
     unsigned Dst;
-    FuseEdge &Edge;
 
-    FuseHeapEntity(unsigned Src, unsigned Dst, FuseEdge &Edge)
-        : Src(Src), Dst(Dst), Edge(Edge) {}
+    FuseHeapEntity(unsigned Src, unsigned Dst) : Src(Src), Dst(Dst) {}
   };
 
 private:
   struct FuseHeapEntityImpl : FuseHeapEntity {
     bool IsRemoved;
+    unsigned Weight;
 
-    FuseHeapEntityImpl(unsigned Src, unsigned Dst, FuseEdge &Edge)
-        : FuseHeapEntity(Src, Dst, Edge), IsRemoved(false) {}
+    FuseHeapEntityImpl(unsigned Src, unsigned Dst, unsigned Weight)
+        : FuseHeapEntity(Src, Dst), IsRemoved(false), Weight(Weight) {}
   };
 
   struct FuseHeapComparator {
     bool operator()(const FuseHeapEntityImpl *Entity1,
                     const FuseHeapEntityImpl *Entity2) {
-      return Entity1->Edge.Weight < Entity2->Edge.Weight;
+      return Entity1->Weight < Entity2->Weight;
     }
   };
 
@@ -110,12 +109,12 @@ public:
   }
 
   // O(log(n))
-  void push(unsigned Src, unsigned Dst, FuseEdge &Edge) {
+  void push(unsigned Src, unsigned Dst, unsigned Weight) {
     if (tryGetEntity(Src, Dst) || tryGetEntity(Dst, Src)) {
       return;
     }
 
-    Container.emplace_back(Src, Dst, Edge);
+    Container.emplace_back(Src, Dst, Weight);
 
     auto *Entity = &Container.back();
 
@@ -158,22 +157,31 @@ public:
   }
 
   // O(log(n))
-  void reheapEdge(unsigned Src, unsigned Dst) {
-    FuseEdge &Edge = getEntity(Src, Dst).Edge;
+  void reheapEdge(unsigned Src, unsigned Dst, unsigned NewWeight) {
+    auto *Entity = tryGetEntity(Src, Dst);
+    if (!Entity) {
+      // Edge may be already handled and removed from the heap.
+      return;
+    }
 
     remove(Src, Dst);
-    push(Src, Dst, Edge);
+    push(Src, Dst, NewWeight);
   }
 
   // O(1)
   void replaceEdge(unsigned Src, unsigned Dst, unsigned NewSrc,
                    unsigned NewDst) {
-    auto &Edge = getEntity(Src, Dst);
-    Edge.Src = NewSrc;
-    Edge.Dst = NewDst;
+    auto *Entity = tryGetEntity(Src, Dst);
+    if (!Entity) {
+      // Edge may be already handled and removed from the heap.
+      return;
+    }
+
+    Entity->Src = NewSrc;
+    Entity->Dst = NewDst;
 
     Map.erase(std::make_pair(Src, Dst));
-    Map.try_emplace(std::make_pair(NewSrc, NewDst), &Edge);
+    Map.try_emplace(std::make_pair(NewSrc, NewDst), Entity);
   }
 };
 
@@ -327,20 +335,6 @@ void FuseEdge::merge(const FuseEdge &Edge) {
   IsBadEdge = IsBadEdge || Edge.IsBadEdge;
 }
 
-HLNode *FuseGraph::getImmediateChildContainingNode(HLNode *ParentNode,
-                                                   HLNode *Node) {
-  assert(HLNodeUtils::contains(ParentNode, Node) &&
-         "Node doesn't belong to a ParentNode");
-
-  HLNode *Parent = Node->getParent();
-  while (Parent != ParentNode) {
-    Node = Parent;
-    Parent = Node->getParent();
-  }
-
-  return Node;
-}
-
 FuseEdge *FuseGraph::tryGetFuseEdge(unsigned Node1, unsigned Node2) {
   auto Iter = Edges.find(std::make_pair(Node1, Node2));
 
@@ -465,7 +459,7 @@ void FuseGraph::initPathInfo(FuseEdgeHeap &Heap) {
         BadPathFromV.insert(PathFromW.begin(), PathFromW.end());
       }
 
-      Heap.push(NodeV, NodeW, Edge);
+      Heap.push(NodeV, NodeW, Edge.Weight);
     }
 
     // Process neighbors.
@@ -477,7 +471,7 @@ void FuseGraph::initPathInfo(FuseEdgeHeap &Heap) {
         Successors[NodeV].insert(NodeW);
       }
 
-      Heap.push(NodeV, NodeW, getFuseEdge(NodeV, NodeW));
+      Heap.push(NodeV, NodeW, getFuseEdge(NodeV, NodeW).Weight);
     }
   }
 
@@ -622,15 +616,19 @@ void FuseGraph::updateSuccessors(FuseEdgeHeap &Heap, unsigned NodeV,
 
     if (Successors[NodeV].count(NodeY)) {
       // Already a successor of NodeV, need to merge edges.
-      getFuseEdge(NodeV, NodeY).merge(getFuseEdge(NodeX, NodeY));
-      Heap.reheapEdge(NodeV, NodeY);
+      auto &Edge = getFuseEdge(NodeV, NodeY);
+      Edge.merge(getFuseEdge(NodeX, NodeY));
+
+      Heap.reheapEdge(NodeV, NodeY, Edge.Weight);
       Heap.remove(NodeX, NodeY);
     } else if (Neighbors[NodeV].count(NodeY)) {
       // Already a neighbor of NodeV, need to replace by a directed edge.
       Successors[NodeV].insert(NodeY);
 
-      getFuseEdge(NodeV, NodeY).merge(getFuseEdge(NodeX, NodeY));
-      Heap.reheapEdge(NodeV, NodeY);
+      auto &Edge = getFuseEdge(NodeV, NodeY);
+      Edge.merge(getFuseEdge(NodeX, NodeY));
+
+      Heap.reheapEdge(NodeV, NodeY, Edge.Weight);
       Heap.remove(NodeX, NodeY);
 
       Neighbors[NodeV].erase(NodeY);
@@ -663,15 +661,19 @@ void FuseGraph::updatePredecessors(FuseEdgeHeap &Heap, unsigned NodeV,
 
     if (Predecessors[NodeV].count(NodeY)) {
       // Already a predecessor of NodeV, need to merge edges.
-      getFuseEdge(NodeY, NodeV).merge(getFuseEdge(NodeY, NodeX));
-      Heap.reheapEdge(NodeY, NodeV);
+      auto &Edge = getFuseEdge(NodeY, NodeV);
+      Edge.merge(getFuseEdge(NodeY, NodeX));
+
+      Heap.reheapEdge(NodeY, NodeV, Edge.Weight);
       Heap.remove(NodeY, NodeX);
     } else if (Neighbors[NodeV].count(NodeY)) {
       // Already a neighbor of NodeV, need to replace by a directed edge.
       Predecessors[NodeV].insert(NodeY);
 
-      getFuseEdge(NodeY, NodeV).merge(getFuseEdge(NodeY, NodeX));
-      Heap.reheapEdge(NodeY, NodeV);
+      auto &Edge = getFuseEdge(NodeY, NodeV);
+      Edge.merge(getFuseEdge(NodeY, NodeX));
+
+      Heap.reheapEdge(NodeY, NodeV, Edge.Weight);
       Heap.remove(NodeY, NodeX);
 
       Neighbors[NodeV].erase(NodeY);
@@ -706,8 +708,10 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
 
       if (Successors[NodeV].count(NodeY)) {
         // Already a successor of NodeV, merge edges.
-        getFuseEdge(NodeV, NodeY).merge(getFuseEdge(NodeX, NodeY));
-        Heap.reheapEdge(NodeV, NodeY);
+        auto &Edge = getFuseEdge(NodeV, NodeY);
+        Edge.merge(getFuseEdge(NodeX, NodeY));
+
+        Heap.reheapEdge(NodeV, NodeY, Edge.Weight);
         Heap.remove(NodeX, NodeY);
       } else {
         // No direct edge, create one.
@@ -721,8 +725,10 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
 
       if (Predecessors[NodeV].count(NodeY)) {
         // Already a predecessor of NodeV, merge edges.
-        getFuseEdge(NodeY, NodeV).merge(getFuseEdge(NodeY, NodeX));
-        Heap.reheapEdge(NodeY, NodeV);
+        auto &Edge = getFuseEdge(NodeY, NodeV);
+        Edge.merge(getFuseEdge(NodeY, NodeX));
+
+        Heap.reheapEdge(NodeY, NodeV, Edge.Weight);
         Heap.remove(NodeX, NodeY);
       } else {
         // No direct edge, create one.
@@ -737,7 +743,7 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
       FuseEdge &Edge = getFuseEdge(NodeV, NodeY);
       Edge.merge(getFuseEdge(NodeX, NodeY));
 
-      Heap.reheapEdge(NodeV, NodeY);
+      Heap.reheapEdge(NodeV, NodeY, Edge.Weight);
       Heap.remove(NodeX, NodeY);
     } else {
       // No existing relationship, make Y a neighbor of V.
@@ -847,8 +853,56 @@ bool FuseGraph::isLegalDependency(const DDEdge &Edge,
 
   assert(CanonExprUtils::isValidLoopLevel(CommonLevel));
   assert(CanonExprUtils::isValidLoopLevel(StartLevel));
+
+  // Special handle case when SrcRef or DstRef is in preheader or postexit.
+  if (CommonLevel > MinMaxLevel.first) {
+    // Condition means that at least one DDRef is outside of the loop.
+
+    DEBUG(dbgs() << "Preheader/postexit edge: ");
+
+    // Possible edges before fusion are:
+    //
+    // 1: Preheader1
+    // 2:  Loop1
+    // 3: PostExit1
+    //
+    // 4: Preheader2
+    // 5:  Loop2
+    // 6: PostExit2
+    //
+    // 1 -> 4
+    // 1 -> 5
+    // 1 -> 6
+    //
+    // 2 -> 4 (!)
+    // 2 -> 6
+    //
+    // 3 -> 4 (!)
+    // 3 -> 5 (!)
+    // 3 -> 6
+    //
+    // After the fusion:
+    //
+    // 1: Preheader1
+    // 4: Preheader2
+    // 2:  Loop1
+    // 5:  Loop2
+    // 3: PostExit1
+    // 6: PostExit2
+    //
+    // Marked (!) edges are fusion preventive.
+    //
+    // Edges outgoing from preheader or incoming to postexit are all legal,
+    // other edges are fusion preventive.
+
+    HLInst *SrcInst = dyn_cast<HLInst>(SrcRef->getHLDDNode());
+    HLInst *DstInst = dyn_cast<HLInst>(DstRef->getHLDDNode());
+
+    return ((SrcInst && SrcInst->isInPreheader()) ||
+            (DstInst && DstInst->isInPostexit()));
+  }
+
   assert(CanonExprUtils::isValidLoopLevel(MinMaxLevel.second));
-  assert(CommonLevel <= MinMaxLevel.second);
 
   auto RefinedDep =
       refineDependency(SrcRef, DstRef, StartLevel, MinMaxLevel.second);
@@ -946,8 +1000,8 @@ void FuseGraph::constructDirectedEdges(
           continue;
         }
 
-        HLNode *DstNode =
-            getImmediateChildContainingNode(ParentNode, DstNodeExact);
+        HLNode *DstNode = HLNodeUtils::getImmediateChildContainingNode(
+            ParentNode, DstNodeExact);
         if (DstNode == SrcNode) {
           continue;
         }

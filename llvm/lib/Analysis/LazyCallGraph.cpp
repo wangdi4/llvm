@@ -150,7 +150,7 @@ static bool isKnownLibFunction(Function &F, TargetLibraryInfo &TLI) {
   return TLI.getLibFunc(F, LF) || TLI.isFunctionVectorizable(F.getName());
 }
 
-LazyCallGraph::LazyCallGraph(Module &M, TargetLibraryInfo &TLI) {
+LazyCallGraph::LazyCallGraph(Module &M, TargetLibraryInfo &TLI) : M(M) {//INTEL
   DEBUG(dbgs() << "Building CG for module: " << M.getModuleIdentifier()
                << "\n");
   for (Function &F : M) {
@@ -189,7 +189,7 @@ LazyCallGraph::LazyCallGraph(Module &M, TargetLibraryInfo &TLI) {
 }
 
 LazyCallGraph::LazyCallGraph(LazyCallGraph &&G)
-    : BPA(std::move(G.BPA)), NodeMap(std::move(G.NodeMap)),
+    : M(G.M), BPA(std::move(G.BPA)), NodeMap(std::move(G.NodeMap)), // INTEL
       EntryEdges(std::move(G.EntryEdges)), SCCBPA(std::move(G.SCCBPA)),
       SCCMap(std::move(G.SCCMap)),
       LibFunctions(std::move(G.LibFunctions)) {
@@ -427,7 +427,7 @@ bool LazyCallGraph::RefSCC::isAncestorOf(const RefSCC &RC) const {
 ///   source to target.
 ///
 /// This helper routine, in addition to updating the postorder sequence itself
-/// will also update a map from SCCs to indices within that sequecne.
+/// will also update a map from SCCs to indices within that sequence.
 ///
 /// The sequence and the map must operate on pointers to the SCC type.
 ///
@@ -713,7 +713,7 @@ LazyCallGraph::RefSCC::switchInternalEdgeToRef(Node &SourceN, Node &TargetN) {
   //
   // However, we specially handle the target node. The target node is known to
   // reach all other nodes in the original SCC by definition. This means that
-  // we want the old SCC to be replaced with an SCC contaning that node as it
+  // we want the old SCC to be replaced with an SCC containing that node as it
   // will be the root of whatever SCC DAG results from the DFS. Assumptions
   // about an SCC such as the set of functions called will continue to hold,
   // etc.
@@ -822,7 +822,7 @@ LazyCallGraph::RefSCC::switchInternalEdgeToRef(Node &SourceN, Node &TargetN) {
         // Cleared the DFS early, start another round.
         break;
 
-      // We've finished processing N and its descendents, put it on our pending
+      // We've finished processing N and its descendants, put it on our pending
       // SCC stack to eventually get merged into an SCC of nodes.
       PendingSCCStack.push_back(N);
 
@@ -1234,7 +1234,7 @@ LazyCallGraph::RefSCC::removeInternalRefEdge(Node &SourceN,
         ++I;
       }
 
-      // We've finished processing N and its descendents, put it on our pending
+      // We've finished processing N and its descendants, put it on our pending
       // stack to eventually get merged into a RefSCC.
       PendingRefSCCStack.push_back(N);
 
@@ -1294,7 +1294,7 @@ LazyCallGraph::RefSCC::removeInternalRefEdge(Node &SourceN,
 
   // Otherwise we create a collection of new RefSCC nodes and build
   // a radix-sort style map from postorder number to these new RefSCCs. We then
-  // append SCCs to each of these RefSCCs in the order they occured in the
+  // append SCCs to each of these RefSCCs in the order they occurred in the
   // original SCCs container.
   for (int i = 0; i < PostOrderNumber; ++i)
     Result.push_back(G->createRefSCC(*G));
@@ -1617,7 +1617,7 @@ void LazyCallGraph::buildGenericSCCs(RootsT &&Roots, GetBeginT &&GetBegin,
         ++I;
       }
 
-      // We've finished processing N and its descendents, put it on our pending
+      // We've finished processing N and its descendants, put it on our pending
       // SCC stack to eventually get merged into an SCC of nodes.
       PendingSCCStack.push_back(N);
 

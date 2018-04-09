@@ -25,6 +25,7 @@ add_llvm_library(LLVMScalarOpts
   Intel_GlobalOpt.cpp
   Intel_IndirectCallConv.cpp
   Intel_LoopOptMarker.cpp
+  Intel_LoopOptReportEmitter.cpp
   Intel_StdContainerOpt.cpp
   Intel_TbaaMDPropagation.cpp
   Intel_MultiVersioning.cpp
@@ -37,7 +38,6 @@ add_llvm_library(LLVMScalarOpts
   LoopDataPrefetch.cpp
   LoopDistribute.cpp
   LoopIdiomRecognize.cpp
-  LoopInstSimplify.cpp
   LoopInterchange.cpp
   LoopLoadElimination.cpp
   LoopPassManager.cpp

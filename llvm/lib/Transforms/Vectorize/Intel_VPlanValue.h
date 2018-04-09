@@ -99,6 +99,10 @@ protected:
   VPValue &operator=(const VPValue &) = delete;
 #if INTEL_CUSTOMIZATION
   virtual ~VPValue() {}
+  // FIXME: To be replaced by a proper VPType.
+  virtual Type *getType() const {
+    return nullptr;
+  }
 #endif
 
   /// \return an ID for the concrete type of this object.
@@ -106,6 +110,8 @@ protected:
   /// for any other purpose, as the values may change as LLVM evolves.
   unsigned getVPValueID() const { return SubclassID; }
 #if INTEL_CUSTOMIZATION
+  virtual void dump(raw_ostream &OS) const { printAsOperand(OS); }
+  virtual void dump() const { dump(errs()); }
   virtual
 #endif
   void printAsOperand(raw_ostream &OS) const {
@@ -251,6 +257,8 @@ public:
   void printAsOperand(raw_ostream &OS) const override {
     Const->printAsOperand(OS);
   }
+  void dump(raw_ostream &OS) const override { printAsOperand(OS); }
+  void dump() const override { dump(errs()); }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPValue *V) {

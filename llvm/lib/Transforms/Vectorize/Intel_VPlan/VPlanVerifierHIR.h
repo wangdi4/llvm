@@ -23,19 +23,19 @@
 namespace llvm {
 namespace vpo {
 
-/// Specialization of VPlanVerifierBase for HIR. It uses HIR specific
-/// information such as HLLoop.
-class VPlanVerifierHIR : public VPlanVerifierBase {
+/// Specialization of VPlanVerifier for HIR. It uses HIR specific information
+/// such as HLLoop.
+class VPlanVerifierHIR : public VPlanVerifier {
 
 private:
   // Outermost HIR loop to be vectorized.
   const HLLoop *TheLoop;
 
-  unsigned countLoopsInUnderlyingIR() const;
-  void verifyIRSpecificLoopRegion(const VPRegionBlock *Region) const;
+  unsigned countLoopsInUnderlyingIR() const override;
+  void verifyIRSpecificLoopRegion(const VPRegionBlock *Region) const override;
 
 public:
-  VPlanVerifierHIR(const HLLoop *HLLp) : VPlanVerifierBase(), TheLoop(HLLp) {}
+  VPlanVerifierHIR(const HLLoop *HLLp) : VPlanVerifier(), TheLoop(HLLp) {}
 };
 
 } // namespace vpo

@@ -25,6 +25,31 @@
 ; CHECK: %mv.and7 = 
 ; CHECK: if (%mv.and == 0 && %mv.and7 == 0)
 
+; Check that proper optreport is emitted for multiversioned loop.
+
+; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd  -hir-post-vec-complete-unroll -hir-cg -S -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT-NEXT:     Remark #XXXXX: The loop has been multiversioned{{[[:space:]]}}
+; OPTREPORT-NEXT:     LOOP BEGIN{{[[:space:]]}}
+; OPTREPORT-NEXT:         LOOP BEGIN{{[[:space:]]}}
+; OPTREPORT-NEXT:             LOOP BEGIN
+; OPTREPORT-NEXT:                 Remark #XXXXX: Loop completely unrolled
+; OPTREPORT-NEXT:             LOOP END
+; OPTREPORT-NEXT:         LOOP END
+; OPTREPORT-NEXT:     LOOP END
+; OPTREPORT-NEXT: LOOP END{{[[:space:]]}}
+; OPTREPORT-NEXT: LOOP BEGIN
+; OPTREPORT-NEXT:     <Multiversioned loop>{{[[:space:]]}}
+; OPTREPORT-NEXT:     LOOP BEGIN{{[[:space:]]}}
+; OPTREPORT-NEXT:         LOOP BEGIN{{[[:space:]]}}
+; OPTREPORT-NEXT:             LOOP BEGIN
+; OPTREPORT-NEXT:                 Remark #XXXXX: Loop completely unrolled
+; OPTREPORT-NEXT:             LOOP END
+; OPTREPORT-NEXT:         LOOP END
+; OPTREPORT-NEXT:     LOOP END
+; OPTREPORT-NEXT: LOOP END
+
 ; ModuleID = 'mat-mul.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

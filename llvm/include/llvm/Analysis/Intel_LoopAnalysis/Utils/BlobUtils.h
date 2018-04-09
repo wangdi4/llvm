@@ -282,6 +282,7 @@ public:
   static bool getTempBlobMostProbableConstValue(BlobTy Blob, int64_t &Value);
   bool getTempBlobMostProbableConstValue(unsigned BlobIndex,
                                          int64_t &Val) const;
+  static bool isInstBlob(BlobTy Blob);
 };
 
 } // End namespace loopopt

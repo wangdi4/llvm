@@ -261,6 +261,43 @@ unsigned HIRScalarSymbaseAssignment::getScalarSymbase(const Value *Scalar,
   return getOrAssignScalarSymbaseImpl(Scalar, IRReg, false, nullptr);
 }
 
+void HIRScalarSymbaseAssignment::handleMultiExitLoopLiveoutPhi(
+    const PHINode *Phi, unsigned Symbase) const {
+
+  if (!Phi) {
+    return;
+  }
+
+  auto DefLp = LI.getLoopFor(Phi->getParent());
+
+  // Check if phi is in the loop exit bblock. The deconstructed definition
+  // lies inside the loop which makes it liveout of the loop. This is only
+  // possible for multi-exit loops. For single-exit loops, liveout values
+  // are used in single-operand phis which are optimized away. For
+  // example-
+  //
+  // loop:
+  //    %t1.in = 0                    <<< deconstructed definition
+  // br %cond %loopexit, %looplatch
+  //
+  // looplatch:
+  //    %t1.in1 = 1                   <<< deconstructed definition
+  // br %cond %loopexit, %loop
+  //
+  // loopexit:
+  //    %t1 = phi [ 1, %looplatch, 0, %loop ]
+  for (unsigned I = 0, Num = Phi->getNumIncomingValues(); I < Num; ++I) {
+    auto PredLp = LI.getLoopFor(Phi->getIncomingBlock(I));
+
+    if (PredLp && (PredLp != DefLp)) {
+      auto PredLoop = LF.findHLLoop(PredLp);
+      assert(PredLoop && "Could not find predecessor bblock's HLLoop!");
+      assert(DefLp->contains(PredLp) && "Incoming IR is not in LCSSA form!");
+      PredLoop->addLiveOutTemp(Symbase);
+    }
+  }
+}
+
 void HIRScalarSymbaseAssignment::populateLoopLiveouts(const Instruction *Inst,
                                                       unsigned Symbase) const {
 
@@ -295,6 +332,8 @@ void HIRScalarSymbaseAssignment::populateLoopLiveouts(const Instruction *Inst,
     DefLoop->addLiveOutTemp(Symbase);
     DefLoop = DefLoop->getParentLoop();
   }
+
+  handleMultiExitLoopLiveoutPhi(dyn_cast<PHINode>(Inst), Symbase);
 }
 
 void HIRScalarSymbaseAssignment::populateRegionLiveouts(

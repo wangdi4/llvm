@@ -442,9 +442,6 @@ class HIRParser {
   /// definition or a use of GEP.
   RegDDRef *createGEPDDRef(const Value *Val, unsigned Level, bool IsUse);
 
-  /// Returns a RegDDRef representing this Null value.
-  RegDDRef *createUndefDDRef(Type *Type);
-
   /// Returns a RegDDRef representing this scalar value.
   RegDDRef *createScalarDDRef(const Value *Val, unsigned Level,
                               bool IsLval = false);
@@ -652,7 +649,7 @@ public:
       : DDRU(*this), DT(DT), LI(LI), SE(SE), RI(RI), HIRF(HIRF), HIRC(HIRC),
         LF(LF), ScalarSA(ScalarSA), HNU(HNU), CurNode(nullptr),
         CurRegion(nullptr), CurOutermostLoop(nullptr), CurLevel(0),
-        IsReady(false) {
+        IsReady(false), ParsingScalarLval(false) {
     // Connect contained DDRefUtils to HLNodeUtils object.
     HNU.DDRU = &DDRU;
   };

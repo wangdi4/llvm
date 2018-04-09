@@ -1,4 +1,5 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-loop-statistics | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-loop-statistics>" -disable-output 2>&1 | FileCheck %s
 
 ; HIR-
 ; + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>

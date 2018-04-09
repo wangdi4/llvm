@@ -28,6 +28,7 @@ class DominatorTree;
 
 namespace loopopt {
 class HIRLoopStatistics;
+class HIRDDAnalysis;
 class HIRSafeReductionAnalysis;
 
 struct UnrollThresholds {
@@ -59,6 +60,7 @@ private:
 
   DominatorTree *DT;
   HIRLoopStatistics *HLS;
+  HIRDDAnalysis *DDA;
   HIRSafeReductionAnalysis *HSRA;
 
   /// Indicates whether we are in pre or post vec mode.
@@ -86,6 +88,9 @@ private:
   // profitability for alloca loads in later loopnests.
   DenseMap<unsigned, const HLLoop *> PrevLoopnestAllocaStores;
 
+  // Helper for generating optimization reports.
+  LoopOptReportBuilder LORBuilder;
+
 private:
   /// Returns true if loop is eligible for complete unrolling.
   bool isApplicable(const HLLoop *Loop) const;
@@ -108,14 +113,6 @@ private:
   /// Here, j loop is added as candidate, but because of profitability, we
   /// don't add 'i' loop, then we remove 'j' loop also.
   void refineCandidates();
-
-  // Populates simplified alloca stores \p AllocaStores accumulated for \p Loop
-  // in PrevLoopnestAllocaStores data structure. \p SimplifiedNonLoopParents is
-  // used to check whether the store is unconditional.
-  void populateSimplifiedAllocaStores(
-      const HLLoop *Loop,
-      const DenseMap<unsigned, const RegDDRef *> &AllocaStores,
-      const SmallPtrSet<const HLNode *, 8> &SimplifiedNonLoopParents);
 
   /// Returns true if loop is profitable for complete unrolling.
   bool isProfitable(const HLLoop *Loop);

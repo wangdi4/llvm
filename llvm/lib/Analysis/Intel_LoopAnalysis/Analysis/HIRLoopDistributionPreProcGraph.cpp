@@ -100,6 +100,25 @@ DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA,
   if (EdgeCreator.EdgeCount > MaxDDEdges) {
     setInvalid("Too many DD edges for proper analysis");
   }
+
+  auto PPSort = [](const DistPPNode *a, const DistPPNode *b) -> bool {
+    return a->HNode->getTopSortNum() < b->HNode->getTopSortNum();
+  };
+
+  std::sort(node_begin(), node_end(), PPSort);
+
+  std::for_each(node_begin(), node_end(), [this, PPSort](const DistPPNode *n) {
+    std::sort(this->mutable_incoming_edges_begin(n),
+              this->mutable_incoming_edges_end(n),
+              [PPSort](const DistPPEdge *a, const DistPPEdge *b) -> bool {
+                return PPSort(a->Src, b->Src);
+              });
+    std::sort(this->mutable_outgoing_edges_begin(n),
+              this->mutable_outgoing_edges_end(n),
+              [PPSort](const DistPPEdge *a, const DistPPEdge *b) -> bool {
+                return PPSort(a->Sink, b->Sink);
+              });
+  });
 }
 void DistPPGraph::createNodes(HLLoop *Loop) {
   const unsigned MaxDistPPSize = 128;

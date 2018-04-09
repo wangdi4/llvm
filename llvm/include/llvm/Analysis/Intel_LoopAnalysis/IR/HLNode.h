@@ -23,8 +23,6 @@
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Operator.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
-
 #include <set>
 
 namespace llvm {
@@ -33,6 +31,7 @@ class formatted_raw_ostream;
 
 namespace loopopt {
 
+class HIRFramework;
 class HLNode;
 class HLGoto;
 class HLLabel;
@@ -42,6 +41,7 @@ class HLNodeUtils;
 class DDRefUtils;
 class CanonExprUtils;
 class BlobUtils;
+class HLNodeMapper;
 
 // Typedef for a list of HLNodes.
 typedef simple_ilist<HLNode> HLContainerTy;
@@ -137,6 +137,7 @@ protected:
   HLNode(const HLNode &HLNodeObj);
   virtual ~HLNode() {}
 
+  friend class HIRFramework;
   friend class HLNodeUtils;
 
   /// IndentWidth used to print HLNodes.
@@ -238,7 +239,7 @@ public:
   ///
   /// This is used to implement the classof checks in LLVM and should't
   /// be used for any other purpose.
-  unsigned getHLNodeID() const { return SubClassID; }
+  unsigned getHLNodeClassID() const { return SubClassID; }
 
   /// \brief Returns the unique number associated with this HLNode.
   unsigned getNumber() const { return Number; }
@@ -284,7 +285,42 @@ public:
   virtual const DebugLoc getDebugLoc() const { return DebugLoc(); }
 };
 
+// See specialization in ADT/DenseMapInfo.h for pointers.
+template <typename Node> struct DenseHLNodeMapInfo {
+  static_assert(
+      std::is_base_of<HLNode, typename std::remove_cv<Node>::type>::value,
+      "Node must be a CV-qualified derivative of HLNode");
+  typedef Node T;
+  static inline T *getEmptyKey() {
+    uintptr_t Val = static_cast<uintptr_t>(-1);
+    Val <<= PointerLikeTypeTraits<T *>::NumLowBitsAvailable;
+    return reinterpret_cast<T *>(Val);
+  }
+
+  static inline T *getTombstoneKey() {
+    uintptr_t Val = static_cast<uintptr_t>(-2);
+    Val <<= PointerLikeTypeTraits<T *>::NumLowBitsAvailable;
+    return reinterpret_cast<T *>(Val);
+  }
+
+  /// Specialized method.
+  static unsigned getHashValue(const T *PtrVal) {
+    return (unsigned(PtrVal->getNumber() >> 0)) ^
+           (unsigned(PtrVal->getNumber() >> 5));
+  }
+
+  static bool isEqual(const T *LHS, const T *RHS) { return LHS == RHS; }
+};
+
 } // End loopopt namespace
+
+template <>
+struct DenseMapInfo<loopopt::HLNode *>
+    : public loopopt::DenseHLNodeMapInfo<loopopt::HLNode> {};
+
+template <>
+struct DenseMapInfo<const loopopt::HLNode *>
+    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLNode> {};
 
 } // End llvm namespace
 

@@ -17,6 +17,9 @@
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRUNROLL_H
 
 namespace llvm {
+
+class LoopOptReportBuilder;
+
 namespace loopopt {
 
 class HLLoop;
@@ -24,7 +27,7 @@ class HLLoop;
 namespace unroll {
 /// Performs general unrolling or unroll & jam on \p Loop based on whether it is an innermost loop.
 /// NodeMapper is used by unroll & jam to update inner loop candidates when unrolling outer loops.
-void unrollLoop(HLLoop *Loop, unsigned UnrollFactor);
+void unrollLoop(HLLoop *Loop, unsigned UnrollFactor, LoopOptReportBuilder &);
 }
 }
 }

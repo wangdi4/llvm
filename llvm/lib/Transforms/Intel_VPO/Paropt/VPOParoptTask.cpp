@@ -173,8 +173,8 @@ void VPOParoptTransform::genTaskTRedType() {
   Type *TaskTRedTyArgs[] = {Type::getInt8PtrTy(C), Int64Ty,
                             Type::getInt8PtrTy(C), Type::getInt8PtrTy(C),
                             Type::getInt8PtrTy(C), Int32Ty};
-  KmpTaskTRedTy = StructType::create(C, TaskTRedTyArgs,
-                                     "struct.kmp_task_t_red_item", false);
+  KmpTaskTRedTy = StructType::get(C, TaskTRedTyArgs,
+                                  /*"struct.kmp_task_t_red_item" */false);
 }
 
 // internal structure for dependInfo
@@ -200,8 +200,8 @@ void VPOParoptTransform::genKmpTaskDependInfo() {
 
   Type *KmpTaskDependTyArgs[] = {IntTy, IntTy, Type::getInt8Ty(C)};
 
-  KmpTaskDependInfoTy = StructType::create(C, KmpTaskDependTyArgs,
-                                           "struct.kmp_depend_info", false);
+  KmpTaskDependInfoTy = StructType::get(C, KmpTaskDependTyArgs,
+                                           /*"struct.kmp_depend_info"*/false);
 }
 
 // Build struct kmp_task_t {
@@ -227,7 +227,7 @@ void VPOParoptTransform::genKmpTaskTRecordDecl() {
 
   Type *KmpCmplrdataTyArgs[] = {KmpRoutineEntryPtrTy};
   StructType *KmpCmplrdataTy =
-      StructType::create(C, KmpCmplrdataTyArgs, "union.kmp_cmplrdata_t", false);
+      StructType::get(C, KmpCmplrdataTyArgs, /*"union.kmp_cmplrdata_t"*/false);
 
   Type *KmpTaskTyArgs[] = {Type::getInt8PtrTy(C),
                            KmpRoutineEntryPtrTy,
@@ -239,7 +239,7 @@ void VPOParoptTransform::genKmpTaskTRecordDecl() {
                            Int64Ty,
                            Int32Ty};
 
-  KmpTaskTTy = StructType::create(C, KmpTaskTyArgs, "struct.kmp_task_t", false);
+  KmpTaskTTy = StructType::get(C, KmpTaskTyArgs, /*"struct.kmp_task_t"*/false);
 }
 
 // Generate the struct type kmpc_task_t as well as its private data
@@ -328,20 +328,20 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
     }
   }
 
-  KmpPrivatesTy = StructType::create(
+  KmpPrivatesTy = StructType::get(
       C, makeArrayRef(KmpPrivatesIndices.begin(), KmpPrivatesIndices.end()),
-      "struct.kmp_privates.t", false);
+      /*"struct.kmp_privates.t"*/ false);
 
-  KmpSharedTy = StructType::create(
+  KmpSharedTy = StructType::get(
       C, makeArrayRef(SharedIndices.begin(), SharedIndices.end()),
-      "struct.shared.t", false);
+      /*"struct.shared.t"*/ false);
 
   KmpTaksTWithPrivatesTyArgs.push_back(KmpPrivatesTy);
 
   StructType *KmpTaskTTWithPrivatesTy =
-      StructType::create(C, makeArrayRef(KmpTaksTWithPrivatesTyArgs.begin(),
+      StructType::get(C, makeArrayRef(KmpTaksTWithPrivatesTyArgs.begin(),
                                          KmpTaksTWithPrivatesTyArgs.end()),
-                         "struct.kmp_task_t_with_privates", false);
+                         /*"struct.kmp_task_t_with_privates"*/ false);
 
   return KmpTaskTTWithPrivatesTy;
 }
@@ -520,7 +520,8 @@ bool VPOParoptTransform::genTaskLoopInitCode(
           Builder.CreateInBoundsGEP(KmpSharedTy, SharedCast, Indices);
       Value *ThunkSharedVal = Builder.CreateLoad(ThunkSharedGep);
       Value *RedRes = VPOParoptUtils::genKmpcRedGetNthData(
-          W, TidPtr, ThunkSharedVal, &*Builder.GetInsertPoint(), Mode & OmpTbb);
+          W, TidPtrHolder, ThunkSharedVal, &*Builder.GetInsertPoint(),
+          Mode & OmpTbb);
       RedI->setNew(Builder.CreateBitCast(RedRes, RedI->getOrig()->getType()));
     }
   }
@@ -896,10 +897,10 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
     KmpTaskTDependVecTyArgs.push_back(KmpTaskDependInfoTy);
 
   StructType *KmpTaskTDependVecTy =
-      StructType::create(C,
+      StructType::get(C,
                          makeArrayRef(KmpTaskTDependVecTyArgs.begin(),
                                       KmpTaskTDependVecTyArgs.end()),
-                         "struct.kmp_task_depend_vec", false);
+                         /*"struct.kmp_task_depend_vec"*/ false);
 
   IRBuilder<> Builder(InsertBefore);
   AllocaInst *DummyTaskTDependVec =
@@ -957,9 +958,9 @@ void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
   for (int I = 0; I < RedClause.size(); I++)
     KmpTaskTRedRecTyArgs.push_back(KmpTaskTRedTy);
 
-  StructType *KmpTaskTTRedRecTy = StructType::create(
+  StructType *KmpTaskTTRedRecTy = StructType::get(
       C, makeArrayRef(KmpTaskTRedRecTyArgs.begin(), KmpTaskTRedRecTyArgs.end()),
-      "struct.kmp_task_t_red_rec", false);
+      /*"struct.kmp_task_t_red_rec"*/ false);
 
   IRBuilder<> Builder(InsertBefore);
   AllocaInst *DummyTaskTRedRec =
@@ -1006,9 +1007,9 @@ void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
                                     {Builder.getInt32(0), Builder.getInt32(5)});
     Builder.CreateStore(Builder.getInt32(0), Gep);
   }
-  VPOParoptUtils::genKmpcTaskReductionInit(W, TidPtr, Count, DummyTaskTRedRec,
-                                           &*Builder.GetInsertPoint(),
-                                           Mode & OmpTbb);
+  VPOParoptUtils::genKmpcTaskReductionInit(
+      W, TidPtrHolder, Count, DummyTaskTRedRec, &*Builder.GetInsertPoint(),
+      Mode & OmpTbb);
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genRedInitForTaskLoop\n");
 }
 
@@ -1102,8 +1103,6 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 
   W->populateBBSet();
 
-  codeExtractorPrepare(W);
-
   resetValueInIntelClauseGeneric(W, W->getIf());
 
   resetValueInTaskDependClause(W);
@@ -1121,7 +1120,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
     // Set up the Calling Convention used by OpenMP Runtime Library
     CallingConv::ID CC = CallingConv::C;
 
-    DT->verifyDomTree();
+    DT->verify(DominatorTree::VerificationLevel::Full);
 
     // Adjust the calling convention for both the function and the
     // call site.
@@ -1152,7 +1151,6 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
     MTFnArgs.push_back(ValueZero);
     genThreadedEntryActualParmList(W, MTFnArgs);
 
-    finiCodeExtractorPrepare(MTFn, true);
     for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
       MTFnArgs.push_back((*I));
     }
@@ -1182,7 +1180,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
         DL.getTypeAllocSize(KmpTaskTTWithPrivatesTy);
     int KmpSharedTySz = DL.getTypeAllocSize(KmpSharedTy);
     CallInst *TaskAllocCI = VPOParoptUtils::genKmpcTaskAlloc(
-        W, IdentTy, TidPtr, KmpTaskTTWithPrivatesTySz, KmpSharedTySz,
+        W, IdentTy, TidPtrHolder, KmpTaskTTWithPrivatesTySz, KmpSharedTySz,
         KmpRoutineEntryPtrTy, MTFnCI->getCalledFunction(), NewCall,
         Mode & OmpTbb);
 
@@ -1197,16 +1195,17 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
       Cmp = Builder.CreateICmpNE(VIf, ConstantInt::get(VIf->getType(), 0));
     if (isLoop) {
       VPOParoptUtils::genKmpcTaskLoop(
-          W, IdentTy, TidPtr, TaskAllocCI, Cmp, LBPtr, UBPtr, STPtr,
+          W, IdentTy, TidPtrHolder, TaskAllocCI, Cmp, LBPtr, UBPtr, STPtr,
           KmpTaskTTWithPrivatesTy, NewCall, Mode & OmpTbb,
           genLastPrivateTaskDup(W, KmpTaskTTWithPrivatesTy));
     } else {
       if (!VIf) {
         if (!DummyTaskTDependRec)
-          VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtr, TaskAllocCI, NewCall);
+          VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtrHolder, TaskAllocCI,
+                                      NewCall);
         else
-          genTaskDeps(W, IdentTy, TidPtr, TaskAllocCI, DummyTaskTDependRec,
-                      NewCall, false);
+          genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
+                      DummyTaskTDependRec, NewCall, false);
       } else {
 
         TerminatorInst *ThenTerm, *ElseTerm;
@@ -1214,25 +1213,25 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
         buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, NewCall);
         IRBuilder<> ElseBuilder(ElseTerm);
         if (!DummyTaskTDependRec)
-          VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtr, TaskAllocCI,
+          VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtrHolder, TaskAllocCI,
                                       ThenTerm);
-        else
-          genTaskDeps(W, IdentTy, TidPtr, TaskAllocCI, DummyTaskTDependRec,
-                      ThenTerm, false);
-
-        genTaskDeps(W, IdentTy, TidPtr, TaskAllocCI, DummyTaskTDependRec,
-                    ElseTerm, true);
-        VPOParoptUtils::genKmpcTaskBeginIf0(W, IdentTy, TidPtr, TaskAllocCI,
-                                            ElseTerm);
+        else {
+          genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
+                      DummyTaskTDependRec, ThenTerm, false);
+          genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
+                      DummyTaskTDependRec, ElseTerm, true);
+        }
+        VPOParoptUtils::genKmpcTaskBeginIf0(W, IdentTy, TidPtrHolder,
+                                            TaskAllocCI, ElseTerm);
         MTFnArgs.clear();
-        MTFnArgs.push_back(ElseBuilder.CreateLoad(TidPtr));
+        MTFnArgs.push_back(ElseBuilder.CreateLoad(TidPtrHolder));
         MTFnArgs.push_back(ElseBuilder.CreateBitCast(
             TaskAllocCI, PointerType::getUnqual(KmpTaskTTWithPrivatesTy)));
         CallInst *SeqCI = CallInst::Create(MTFn, MTFnArgs, "", ElseTerm);
         SeqCI->setCallingConv(CS.getCallingConv());
         SeqCI->takeName(NewCall);
-        VPOParoptUtils::genKmpcTaskCompleteIf0(W, IdentTy, TidPtr, TaskAllocCI,
-                                               ElseTerm);
+        VPOParoptUtils::genKmpcTaskCompleteIf0(W, IdentTy, TidPtrHolder,
+                                               TaskAllocCI, ElseTerm);
       }
     }
 
@@ -1249,7 +1248,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 }
 
 bool VPOParoptTransform::genTaskWaitCode(WRegionNode *W) {
-  VPOParoptUtils::genKmpcTaskWait(W, IdentTy, TidPtr,
+  VPOParoptUtils::genKmpcTaskWait(W, IdentTy, TidPtrHolder,
                                   W->getEntryBBlock()->getTerminator());
   return true;
 }

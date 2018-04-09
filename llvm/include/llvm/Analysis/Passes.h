@@ -102,6 +102,13 @@ namespace llvm {
   //
   FunctionPass *createMemDerefPrinter();
 
+
+  //===--------------------------------------------------------------------===//
+  //
+  // LoopOptReportEmitterLegacyPass - emit Loop Optimization Reports in hierarchical
+  // order.
+  //
+  FunctionPass *createLoopOptReportEmitterLegacyPass();
 }
 
 #endif

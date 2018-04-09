@@ -107,19 +107,33 @@ public:
                        Predicate Pred = Predicate())
       : Container(Container), Pred(Pred) {}
 
-  void visit(const HLDDNode *RefNode) {
+  void visit(HLDDNode *RefNode) {
     for (auto I = RefNode->ddref_begin(), E = RefNode->ddref_end(); I != E;
          ++I) {
       addRef<RegDDRef>(*I);
 
       for (auto II = (*I)->blob_cbegin(), EE = (*I)->blob_cend(); II != EE;
            ++II) {
-        addRef<BlobDDRef>(*II);
+        addRef<BlobDDRef>(const_cast<BlobDDRef*>(*II));
       }
     }
   }
 
+  void visit(const HLDDNode *RefNode) {
+    for (auto I = RefNode->ddref_begin(), E = RefNode->ddref_end(); I != E;
+         ++I) {
+      addRef<RegDDRef>(const_cast<RegDDRef*>(*I));
+
+      for (auto II = (*I)->blob_cbegin(), EE = (*I)->blob_cend(); II != EE;
+           ++II) {
+        addRef<BlobDDRef>(const_cast<BlobDDRef*>(*II));
+      }
+    }
+  }
+
+  void visit(HLNode *Node) {}
   void visit(const HLNode *Node) {}
+  void postVisit(HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
 };
 

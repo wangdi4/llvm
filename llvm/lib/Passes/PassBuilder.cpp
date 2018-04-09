@@ -33,6 +33,7 @@
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_DTrans/DTransAnalysis.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
 #endif // INTEL_CUSTOMIZATION
@@ -63,6 +64,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Regex.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
 #include "llvm/Transforms/GCOVProfiler.h"
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h" // INTEL
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
@@ -88,10 +90,13 @@
 #include "llvm/Transforms/IPO/PartialInlining.h"
 #include "llvm/Transforms/IPO/SCCP.h"
 #include "llvm/Transforms/IPO/StripDeadPrototypes.h"
+#include "llvm/Transforms/IPO/SyntheticCountsPropagation.h"
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/InstrProfiling.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
+#include "llvm/Transforms/Intel_DTrans/AOSToSOA.h" // INTEL
+#include "llvm/Transforms/Intel_DTrans/DeleteField.h" // INTEL
 #include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h" // INTEL
 #include "llvm/Transforms/PGOInstrumentation.h"
 #include "llvm/Transforms/SampleProfile.h"
@@ -111,7 +116,9 @@
 #include "llvm/Transforms/Scalar/IVUsersPrinter.h"
 #include "llvm/Transforms/Scalar/IndVarSimplify.h"
 #include "llvm/Transforms/Scalar/Intel_AggInlAA.h"     // INTEL
+#include "llvm/Transforms/Scalar/Intel_GlobalOpt.h" // INTEL
 #include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h" // INTEL
+#include "llvm/Transforms/Scalar/InductiveRangeCheckElimination.h"
 #include "llvm/Transforms/Scalar/JumpThreading.h"
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/LoopAccessAnalysisPrinter.h"
@@ -119,7 +126,6 @@
 #include "llvm/Transforms/Scalar/LoopDeletion.h"
 #include "llvm/Transforms/Scalar/LoopDistribute.h"
 #include "llvm/Transforms/Scalar/LoopIdiomRecognize.h"
-#include "llvm/Transforms/Scalar/LoopInstSimplify.h"
 #include "llvm/Transforms/Scalar/LoopLoadElimination.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include "llvm/Transforms/Scalar/LoopPredication.h"
@@ -162,13 +168,26 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Transforms/Scalar/Intel_LoopOptReportEmitter.h"
 
 // Intel Loop Optimization framework
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSSADeconstruction.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIROptReportEmitter.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGen.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopResource.h"
+
+// Intel VPO
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptPrepare.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTpv.h"
+#include "llvm/Transforms/Intel_VPO/Utils/CFGRestructuring.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -197,8 +216,26 @@ static cl::opt<bool> EnableGVNSink(
     "enable-npm-gvn-sink", cl::init(false), cl::Hidden,
     cl::desc("Enable the GVN hoisting pass for the new PM (default = off)"));
 
+static cl::opt<bool> EnableSyntheticCounts(
+    "enable-npm-synthetic-counts", cl::init(false), cl::Hidden, cl::ZeroOrMore,
+    cl::desc("Run synthetic function entry count generation "
+             "pass"));
+#if INTEL_CUSTOMIZATION
+// Inline Aggressive Analysis
+static cl::opt<bool> EnableInlineAggAnalysis(
+    "enable-npm-inline-aggressive-analysis", cl::init(true), cl::Hidden,
+    cl::desc("Enable Inline Aggressive Analysis for the new PM (default = on)"));
+#endif // INTEL_CUSTOMIZATION
+
 static Regex DefaultAliasRegex(
     "^(default|thinlto-pre-link|thinlto|lto-pre-link|lto)<(O[0123sz])>$");
+
+#if INTEL_CUSTOMIZATION
+// DTrans optimizations -- this is a placeholder for future work.
+static cl::opt<bool> EnableDTrans("enable-npm-dtrans",
+    cl::init(false), cl::Hidden,
+    cl::desc("Enable DTrans optimizations"));
+#endif // INTEL_CUSTOMIZATION
 
 static bool isOptimizingForSize(PassBuilder::OptimizationLevel Level) {
   switch (Level) {
@@ -355,6 +392,12 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   assert(Level != O0 && "Must request optimizations!");
   FunctionPassManager FPM(DebugLogging);
 
+#if INTEL_CUSTOMIZATION
+  // Propagate TBAA information before SROA so that we can remove mid-function
+  // fakeload intrinsics which would block SROA.
+  FPM.addPass(TbaaMDPropagationPass());
+#endif // INTEL_CUSTOMIZATION
+
   // Form SSA out of local memory accesses after breaking apart aggregates into
   // scalars.
   FPM.addPass(SROA());
@@ -379,6 +422,8 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(JumpThreadingPass());
   FPM.addPass(CorrelatedValuePropagationPass());
   FPM.addPass(SimplifyCFGPass());
+  if (Level == O3)
+    FPM.addPass(AggressiveInstCombinePass());
   FPM.addPass(InstCombinePass());
 
   if (!isOptimizingForSize(Level))
@@ -404,9 +449,8 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // FIXME: Currently this is split into two loop pass pipelines because we run
   // some function passes in between them. These can and should be replaced by
   // loop pass equivalenst but those aren't ready yet. Specifically,
-  // `SimplifyCFGPass` and `InstCombinePass` are used. We have
-  // `LoopSimplifyCFGPass` which isn't yet powerful enough, and the closest to
-  // the other we have is `LoopInstSimplify`.
+  // `SimplifyCFGPass` and `InstCombinePass` are used. We just have
+  // `LoopSimplifyCFGPass` which isn't yet powerful enough.
   LoopPassManager LPM1(DebugLogging), LPM2(DebugLogging);
 
   // Rotate Loop - disable header duplication at -Oz
@@ -607,7 +651,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
                                            true));
   }
 
-  // Interprocedural constant propagation now that basic cleanup has occured
+  // Interprocedural constant propagation now that basic cleanup has occurred
   // and prior to optimizing globals.
   // FIXME: This position in the pipeline hasn't been carefully considered in
   // years, it should be re-analyzed.
@@ -647,6 +691,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
                       PGOOpt->ProfileGenFile, PGOOpt->ProfileUseFile);
     MPM.addPass(PGOIndirectCallPromotion(false, false));
   }
+
+  // Synthesize function entry counts for non-PGO compilation.
+  if (EnableSyntheticCounts && !PGOOpt)
+    MPM.addPass(SyntheticCountsPropagation());
 
   // Require the GlobalsAA analysis for the module so we can query it within
   // the CGSCC pipeline.
@@ -864,6 +912,10 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
   // Force any function attributes we want the rest of the pipeline to observe.
   MPM.addPass(ForceFunctionAttrsPass());
 
+  // Apply module pipeline start EP callback.
+  for (auto &C : PipelineStartEPCallbacks)
+    C(MPM);
+
   if (PGOOpt && PGOOpt->SamplePGOSupport)
     MPM.addPass(createModuleToFunctionPassAdaptor(AddDiscriminatorsPass()));
 
@@ -889,6 +941,10 @@ PassBuilder::buildThinLTOPreLinkDefaultPipeline(OptimizationLevel Level,
 
   if (PGOOpt && PGOOpt->SamplePGOSupport)
     MPM.addPass(createModuleToFunctionPassAdaptor(AddDiscriminatorsPass()));
+
+  // Apply module pipeline start EP callback.
+  for (auto &C : PipelineStartEPCallbacks)
+    C(MPM);
 
   // If we are planning to perform ThinLTO later, we don't bloat the code with
   // unrolling/vectorization/... now. Just simplify the module as much as we
@@ -998,6 +1054,10 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(ReversePostOrderFunctionAttrsPass());
 
 #if INTEL_CUSTOMIZATION
+  if (EnableDTrans) {
+    MPM.addPass(dtrans::DeleteFieldPass());
+    MPM.addPass(dtrans::AOSToSOAPass());
+  }
   // Optimize some dynamic_cast calls.
   MPM.addPass(OptimizeDynamicCastsPass());
 #endif // INTEL_CUSTOMIZATION
@@ -1031,6 +1091,8 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // function pointers.  When this happens, we often have to resolve varargs
   // calls, etc, so let instcombine do this.
   FunctionPassManager PeepholeFPM(DebugLogging);
+  if (Level == O3)
+    PeepholeFPM.addPass(AggressiveInstCombinePass());
   PeepholeFPM.addPass(InstCombinePass());
   invokePeepholeEPCallbacks(PeepholeFPM, Level);
 
@@ -1039,6 +1101,11 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 #if INTEL_CUSTOMIZATION
   // Parse -[no]inline-list option and set corresponding attributes.
   MPM.addPass(InlineListsPass());
+  // Require the InlineAggAnalysis for the module so we can query it within
+  // the inliner and AggInlAAPass.
+  if (EnableInlineAggAnalysis) {
+    MPM.addPass(RequireAnalysisPass<InlineAggAnalysis, Module>());
+  }
 #endif // INTEL_CUSTOMIZATION
   // Note: historically, the PruneEH pass was run first to deduce nounwind and
   // generally clean up exception handling overhead. It isn't clear this is
@@ -1064,6 +1131,12 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   // Break up allocas
   FPM.addPass(SROA());
+
+#if INTEL_CUSTOMIZATION
+  if (EnableInlineAggAnalysis) {
+    FPM.addPass(AggInlAAPass());
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Run a few AA driver optimizations here and now to cleanup the code.
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
@@ -1158,6 +1231,10 @@ AAManager PassBuilder::buildDefaultAAPipeline() {
   // information about aliasing.
   AA.registerFunctionAnalysis<ScopedNoAliasAA>();
   AA.registerFunctionAnalysis<TypeBasedAA>();
+
+#if INTEL_CUSTOMIZATION
+  AA.registerFunctionAnalysis<StdContainerAA>();
+#endif // INTEL_CUSTOMIZATION
 
   // Add support for querying global aliasing information when available.
   // Because the `AAManager` is a function analysis and `GlobalsAA` is a module

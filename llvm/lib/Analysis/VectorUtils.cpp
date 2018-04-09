@@ -171,7 +171,7 @@ Value *llvm::getStrideFromPointer(Value *Ptr, ScalarEvolution *SE, Loop *Lp) {
     return nullptr;
 
   // Try to remove a gep instruction to make the pointer (actually index at this
-  // point) easier analyzable. If OrigPtr is equal to Ptr we are analzying the
+  // point) easier analyzable. If OrigPtr is equal to Ptr we are analyzing the
   // pointer, otherwise, we are analyzing the index.
   Value *OrigPtr = Ptr;
 
@@ -611,7 +611,6 @@ void llvm::getFunctionsToVectorize(
   }
 }
 
-#if INTEL_OPENCL
 bool llvm::isOpenCLReadChannel(StringRef FnName) {
   return (FnName == "__read_pipe_2_bl_intel");
 }
@@ -664,7 +663,6 @@ std::string llvm::typeToString(Type *Ty) {
   }
   llvm_unreachable("Unsupported type for converting type to string");
 }
-#endif // INTEL_OPENCL
 
 Function* llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
                                           SmallVectorImpl<Type*> &ArgTys,
@@ -680,10 +678,7 @@ Function* llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
   assert(OrigF && "Function not found for call instruction");
   StringRef FnName = OrigF->getName();
   if (!TLI->isFunctionVectorizable(FnName, VL) && !ID && !VecVariant
-#if INTEL_OPENCL
-      && !isOpenCLReadChannel(FnName) && !isOpenCLWriteChannel(FnName)
-#endif
-     )
+      && !isOpenCLReadChannel(FnName) && !isOpenCLWriteChannel(FnName))
     return nullptr;
 
   Module *M = OrigF->getParent();
@@ -718,7 +713,6 @@ Function* llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
     SmallVector<Type*, 1> TysForDecl;
     TysForDecl.push_back(VecRetTy);
     VectorF = Intrinsic::getDeclaration(M, ID, TysForDecl);
-#if INTEL_OPENCL
   } else if (isOpenCLReadChannel(FnName) || isOpenCLWriteChannel(FnName)) {
       Value *Alloca = getOpenCLReadWriteChannelAlloc(Call);
       std::string VLStr = APInt(32, VL).toString(10, false);
@@ -755,7 +749,6 @@ Function* llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
       // assert in the verifier because there is no longer a 2nd parameter.
       // TODO: determine if attributes really need to be copied for those
       // parameters that still match the scalar version.
-#endif // INTEL_OPENCL
   } else {
     // Generate a vector library call.
     StringRef VFnName = TLI->getVectorizedFunction(FnName, VL, Masked);

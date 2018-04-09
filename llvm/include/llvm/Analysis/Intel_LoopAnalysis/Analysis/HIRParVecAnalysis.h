@@ -24,6 +24,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Pass.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 
 namespace llvm {
 class TargetLibraryInfo;
@@ -35,7 +36,6 @@ class HIRDDAnalysis;
 class HIRSafeReductionAnalysis;
 class DDEdge;
 class HLRegion;
-class HLLoop;
 class HLSwitch;
 
 /// \brief Main data structure describing parallelizability/vectorizability
@@ -67,7 +67,8 @@ public:
     UNROLL_PRAGMA_LOOP = 15538,
     FE_DIAG_VEC_NOT_INNERMOST = 15553,
     EH,
-    MULTI_PRED_IF_STMT
+    MULTI_PRED_IF_STMT,
+    NON_NORMALIZED_LOOP
   };
 
 private:

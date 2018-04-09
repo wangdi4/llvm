@@ -20,7 +20,6 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
-#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
@@ -43,7 +42,6 @@
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 using namespace llvm;
-using namespace llvm::vpo; // INTEL
 
 #define DEBUG_TYPE "loop-rotate"
 
@@ -172,38 +170,6 @@ static void RewriteUsesOfClonedInstructions(BasicBlock *OrigHeader,
   }
 }
 
-/// Propagate dbg.value intrinsics through the newly inserted Phis.
-static void insertDebugValues(BasicBlock *OrigHeader,
-                              SmallVectorImpl<PHINode*> &InsertedPHIs) {
-  ValueToValueMapTy DbgValueMap;
-
-  // Map existing PHI nodes to their dbg.values.
-  for (auto &I : *OrigHeader) {
-    if (auto DbgII = dyn_cast<DbgInfoIntrinsic>(&I)) {
-      if (auto *Loc = dyn_cast_or_null<PHINode>(DbgII->getVariableLocation()))
-        DbgValueMap.insert({Loc, DbgII});
-    }
-  }
-
-  // Then iterate through the new PHIs and look to see if they use one of the
-  // previously mapped PHIs. If so, insert a new dbg.value intrinsic that will
-  // propagate the info through the new PHI.
-  LLVMContext &C = OrigHeader->getContext();
-  for (auto PHI : InsertedPHIs) {
-    for (auto VI : PHI->operand_values()) {
-      auto V = DbgValueMap.find(VI);
-      if (V != DbgValueMap.end()) {
-        auto *DbgII = cast<DbgInfoIntrinsic>(V->second);
-        Instruction *NewDbgII = DbgII->clone();
-        auto PhiMAV = MetadataAsValue::get(C, ValueAsMetadata::get(PHI));
-        NewDbgII->setOperand(0, PhiMAV);
-        BasicBlock *Parent = PHI->getParent();
-        NewDbgII->insertBefore(Parent->getFirstNonPHIOrDbgOrLifetime());
-      }
-    }
-  }
-}
-
 /// Rotate loop LP. Return true if the loop is rotated.
 ///
 /// \param SimplifiedLatch is true if the latch was just folded into the final
@@ -271,7 +237,7 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
 
   // If the loop could not be converted to canonical form, it must have an
   // indirectbr in it, just give up.
-  if (!OrigPreheader)
+  if (!OrigPreheader || !L->hasDedicatedExits())
     return false;
 
   // Anything ScalarEvolution may know about this loop or the PHI nodes
@@ -408,7 +374,7 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
   // previously had debug metadata attached. This keeps the debug info
   // up-to-date in the loop body.
   if (!InsertedPHIs.empty())
-    insertDebugValues(OrigHeader, InsertedPHIs);
+    insertDebugValuesForPHIs(OrigHeader, InsertedPHIs);
 
   // NewHeader is now the header of the loop.
   L->moveToHeader(NewHeader);
@@ -681,14 +647,8 @@ public:
 
   bool runOnLoop(Loop *L, LPPassManager &LPM) override {
     Function &F = *L->getHeader()->getParent();
-#if INTEL_CUSTOMIZATION
-// For VPO OpenMP handling we need Loop Rotaion even at -O0; calling this util
-// ensures it for functions with OpenMP directives. For other passes needed
-// by OpenMP even at -O0, see PassManagerBuilder::populateFunctionPassManager()
-    if (VPOAnalysisUtils::skipFunctionForOpenmp(F))
-#endif // INTEL_CUSTOMIZATION
-      if (skipLoop(L))
-        return false;
+    if (skipLoop(L))
+      return false;
 
     auto *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     const auto *TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);

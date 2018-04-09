@@ -58,7 +58,7 @@ define void @test04(i8* %b1, %struct.test04* %s1) {
 
 ; Call memcpy with matched struct pointers, but only part of the
 ; structure is copied.
-; This is an unsafe use.
+; This should be marked with the memfunc partial write safety.
 %struct.test05 = type { i32, i32, i32, i32 }
 define void @test05(%struct.test05* %s1, %struct.test05* %s2) {
   %p1 = bitcast %struct.test05* %s1 to i8*
@@ -67,7 +67,7 @@ define void @test05(%struct.test05* %s1, %struct.test05* %s2) {
   ret void
 }
 ; CHECK: LLVMType: %struct.test05 = type { i32, i32, i32, i32 }
-; CHECK: Safety data: Bad memfunc size
+; CHECK: Safety data: Memfunc partial write
 
 
 ; Test with memcpy that is performing pointer-to-pointer copy.
@@ -107,11 +107,12 @@ define void @test07(%struct.test07* %dest, %struct.test07* %src) {
   ret void
 }
 ; CHECK: LLVMType: %struct.test07 = type { i32, i32, i32, [50 x i32] }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Memfunc partial write
+
 
 ; Test with memcpy that is passed a pointer to an array that is a
-; member field of a parent structure, and the size exceeds ths size
-; of the field being copied.
+; member field of a parent structure, and the size equals the
+; size of two adjacent fields
 ; The structure that contains it should be marked as unsafe.
 %struct.test08 = type { i32, i32, i32, [50 x i32], [50 x i32] }
 define void @test08(%struct.test08* %dest, %struct.test08* %src) {
@@ -123,7 +124,7 @@ define void @test08(%struct.test08* %dest, %struct.test08* %src) {
   ret void
 }
 ; CHECK: LLVMType: %struct.test08 = type { i32, i32, i32, [50 x i32], [50 x i32] }
-; CHECK: Safety data: Bad memfunc size
+; CHECK: Safety data: Memfunc partial write
 
 
 ; Test with memcpy that is passed a pointer to a structure that is a
@@ -143,12 +144,15 @@ define void @test09(%struct.test09.b* %dest, %struct.test09.b* %src) {
 ; CHECK: LLVMType: %struct.test09.a = type { [20 x i32] }
 ; CHECK: Safety data: Nested structure
 ; CHECK: LLVMType: %struct.test09.b = type { i32, i32, i32, %struct.test09.a }
-; CHECK: Safety data: Contains nested structure
+; CHECK: Safety data: Memfunc partial write | Contains nested structure
 
 
 ; Test with memcpy where the source and target types match, but the source
-; pointer is a field within another structure.
-; This is a safe use.
+; pointer is a field within another structure, while the destination is not.
+; This is could be considered a safe use, but for simplicity for the transforms
+; that would need to rewrite the memcpy this will be marked as invalid, for now.
+; If this is changed to be supported in the future, then transformation code may
+; also need to be updated.
 %struct.test10.a = type { i32, i32, i32, i32, i32 }
 %struct.test10.b = type { i32, i32, i32, %struct.test10.a }
 define void @test10(%struct.test10.a* %dest, %struct.test10.b* %src) {
@@ -159,14 +163,15 @@ define void @test10(%struct.test10.a* %dest, %struct.test10.b* %src) {
   ret void
 }
 ; CHECK: LLVMType: %struct.test10.a = type { i32, i32, i32, i32, i32 }
-; CHECK: Safety data: Nested structure
+; CHECK: Safety data: Bad memfunc manipulation | Nested structure
 ; CHECK: LLVMType: %struct.test10.b = type { i32, i32, i32, %struct.test10.a }
-; CHECK: Safety data: Contains nested structure
+; CHECK: Safety data: Bad memfunc manipulation | Contains nested structure
 
 
 ; Test with memcpy where the source and target types match, but the destination
 ; pointer is a field within another structure.
-; This is a safe use.
+; This is could be considered a safe use, but for simplicity for the transforms
+; that would need to rewrite the memcpy this will be marked as invalid, for now.
 %struct.test11.a = type { i32, i32, i32, i32, i32 }
 %struct.test11.b = type { i32, i32, i32, %struct.test11.a }
 define void @test11(%struct.test11.a* %src, %struct.test11.b* %dest) {
@@ -177,9 +182,9 @@ define void @test11(%struct.test11.a* %src, %struct.test11.b* %dest) {
   ret void
 }
 ; CHECK: LLVMType: %struct.test11.a = type { i32, i32, i32, i32, i32 }
-; CHECK: Safety data: Nested structure
+; CHECK: Safety data: Bad memfunc manipulation | Nested structure
 ; CHECK: LLVMType: %struct.test11.b = type { i32, i32, i32, %struct.test11.a }
-; CHECK: Safety data: Contains nested structure
+; CHECK: Safety data: Bad memfunc manipulation | Contains nested structure
 
 
 ; Test with memcpy where the source and target types match, but the pointers
@@ -188,7 +193,7 @@ define void @test11(%struct.test11.a* %src, %struct.test11.b* %dest) {
 %struct.test12.a = type { i32, i32, i32, i32, i32 }
 %struct.test12.b = type { i32, i32, i32, %struct.test12.a* }
 define void @test12(%struct.test12.b* %dest, %struct.test12.b* %src) {
-  %dest_addr = getelementptr inbounds %struct.test12.b, %struct.test12.b* %src, i64 0, i32 3
+  %dest_addr = getelementptr inbounds %struct.test12.b, %struct.test12.b* %dest, i64 0, i32 3
   %dest_ptr = bitcast %struct.test12.a** %dest_addr to i8*
   %src_addr = getelementptr inbounds %struct.test12.b, %struct.test12.b* %src, i64 0, i32 3
   %src_ptr = bitcast %struct.test12.a** %src_addr to i8*
@@ -198,17 +203,17 @@ define void @test12(%struct.test12.b* %dest, %struct.test12.b* %src) {
 ; CHECK: LLVMType: %struct.test12.a = type { i32, i32, i32, i32, i32 }
 ; CHECK: Safety data: No issues found
 ; CHECK: LLVMType: %struct.test12.b = type { i32, i32, i32, %struct.test12.a* }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Memfunc partial write
 
 
 ; Test with memcpy where the source and target types match, but the pointers
-; are addresses of a pointer to structure field, and the copy writes beyond
-; the field.
+; are addresses of a pointer to structure field, and the copy writes more than
+; a single field.
 ; This is an unsafe use.
 %struct.test13.a = type { i32, i32, i32, i32, i32 }
 %struct.test13.b = type { i32, i32, i32, %struct.test13.a*, i64 }
 define void @test13(%struct.test13.b* %dest, %struct.test13.b* %src) {
-  %dest_addr = getelementptr inbounds %struct.test13.b, %struct.test13.b* %src, i64 0, i32 3
+  %dest_addr = getelementptr inbounds %struct.test13.b, %struct.test13.b* %dest, i64 0, i32 3
   %dest_ptr = bitcast %struct.test13.a** %dest_addr to i8*
   %src_addr = getelementptr inbounds %struct.test13.b, %struct.test13.b* %src, i64 0, i32 3
   %src_ptr = bitcast %struct.test13.a** %src_addr to i8*
@@ -218,13 +223,12 @@ define void @test13(%struct.test13.b* %dest, %struct.test13.b* %src) {
 ; CHECK: LLVMType: %struct.test13.a = type { i32, i32, i32, i32, i32 }
 ; CHECK: Safety data: No issues found
 ; CHECK: LLVMType: %struct.test13.b = type { i32, i32, i32, %struct.test13.a*, i64 }
-; CHECK: Safety data: Bad memfunc size
+; CHECK: Safety data: Memfunc partial write
 
 
 ; This test checks using memcpy with the address of a scalar member of the
 ; structure
-; This is an unsafe use because we do not track type information for scalar
-; pointers, and therefore are unable to resolve the pointer target.
+; This is an safe use, but needs to track that the memfunc did a partial structure write.
 %struct.test14 = type { i32, i32, i32, i32, i32 }
 define void @test14(%struct.test14* %a, %struct.test14* %b) {
   %d = getelementptr inbounds %struct.test14, %struct.test14* %a, i64 0, i32 2
@@ -235,7 +239,7 @@ define void @test14(%struct.test14* %a, %struct.test14* %b) {
   ret void
 }
 ; CHECK: LLVMType: %struct.test14 = type { i32, i32, i32, i32, i32 }
-; CHECK: Safety data: Bad memfunc manipulation
+; CHECK: Safety data: Memfunc partial write
 
 
 ; This test checks using memcpy with the address of a scalar member of the
@@ -264,11 +268,52 @@ define void @test16(%struct.test16* %a, %struct.test16* %b) {
   %t0 = bitcast i32* %d to i8*
   %s = getelementptr inbounds %struct.test16, %struct.test16* %b, i64 0, i32 2
   %t1 = bitcast i32* %s to i8*
-  tail call void @llvm.memcpy.p0i8.i64(i8* %t0, i8* nonnull %t1, i64 12, i32 0, i1 false)
+  tail call void @llvm.memcpy.p0i8.i64(i8* %t0, i8* nonnull %t1, i64 0, i32 4, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test16 = type { i32, i32, i32, i32, i32 }
 ; CHECK: Safety data: No issues found
+
+
+; This test checks using memcpy to with the same types, but with a different
+; set of fields within a structure.
+; This could be considered a safe use, but it is not currently supported.
+; If this is changed to be supported in the future, then transformation code may
+; also need to be updated.
+%struct.test17 = type { i32, i32, i32, i32, i32 }
+define void @test17(%struct.test17* %a, %struct.test17* %b) {
+  %d = getelementptr inbounds %struct.test17, %struct.test17* %a, i64 0, i32 1
+  %t0 = bitcast i32* %d to i8*
+  %s = getelementptr inbounds %struct.test17, %struct.test17* %b, i64 0, i32 3
+  %t1 = bitcast i32* %s to i8*
+  tail call void @llvm.memcpy.p0i8.i64(i8* %t0, i8* nonnull %t1, i64 8, i32 0, i1 false)
+  ret void
+}
+; CHECK: LLVMType: %struct.test17 = type { i32, i32, i32, i32, i32 }
+; CHECK: Safety data: Bad memfunc manipulation
+
+; This test checks using memcpy to with the same types, but with a different
+; set of elements out of an array.
+; This could be considered a safe use, but it is not currently supported.
+; If this is changed to be supported in the future, then transformation code may
+; also need to be updated.
+%array.test18 = type [6 x i32]
+define void @test18(%array.test18* %a, %array.test18* %b) {
+  %d = getelementptr inbounds %array.test18, %array.test18* %a, i64 0, i32 1
+  %t0 = bitcast i32* %d to i8*
+  %s = getelementptr inbounds %array.test18, %array.test18* %b, i64 0, i32 3
+  %t1 = bitcast i32* %s to i8*
+  tail call void @llvm.memcpy.p0i8.i64(i8* %t0, i8* nonnull %t1, i64 12, i32 0, i1 false)
+  ret void
+}
+
+
+; Array types get printed last so these checks aren't with their IR.
+
+; CHECK: LLVMType: [6 x i32]
+; CHECK: Safety data: Unhandled use
+
+
 
 declare void @llvm.memcpy.p0i8.i64(i8* nocapture writeonly,
                                    i8* nocapture readonly, i64, i32, i1)

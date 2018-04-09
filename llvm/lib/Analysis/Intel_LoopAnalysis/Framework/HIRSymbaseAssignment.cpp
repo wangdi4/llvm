@@ -120,7 +120,8 @@ void HIRSymbaseAssignment::run() {
 }
 
 void HIRSymbaseAssignment::print(raw_ostream &OS) const {
-  typedef DDRefGatherer<DDRef, AllRefs ^ ConstantRefs> NonConstantRefGatherer;
+  typedef DDRefGatherer<const DDRef, AllRefs ^ ConstantRefs>
+      NonConstantRefGatherer;
 
   NonConstantRefGatherer::MapTy SymToRefs;
   NonConstantRefGatherer::gatherRange(HIRF.hir_begin(), HIRF.hir_end(),

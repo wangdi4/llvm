@@ -1,4 +1,5 @@
-; RUN: opt < %s -domtree -loops  -lcssa-verification  -loop-rotate -vpo-cfg-restructuring -vpo-wrncollection -vpo-wrninfo -vpo-paropt-prepare -simplifycfg  -sroa  -loops -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 
 ; This file tests the implementation of omp taskloop.
 ; void foo() {

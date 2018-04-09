@@ -24,6 +24,8 @@
 using namespace llvm;
 using namespace dtrans;
 
+#define DEBUG_TYPE "dtransanalysis"
+
 bool dtrans::isSystemObjectType(llvm::StructType *Ty) {
   if (!Ty->hasName())
     return false;
@@ -88,7 +90,6 @@ bool dtrans::isFreeFn(Function *F, const TargetLibraryInfo &TLI) {
     return false;
   return (LF == LibFunc_free);
 }
-
 
 // This function is called to determine if a bitcast to the specified
 // destination type could be used to access element 0 of the source type.
@@ -159,10 +160,10 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
   return false;
 }
 
-void dtrans::TypeInfo::printSafetyData() {
-  outs() << "  Safety data: ";
+static void printSafetyInfo(const SafetyData &SafetyInfo,
+                            llvm::raw_ostream &ostr) {
   if (SafetyInfo == 0) {
-    outs() << "No issues found\n";
+    ostr << "No issues found\n";
     return;
   }
   // TODO: As safety checks are implemented, add them here.
@@ -172,9 +173,9 @@ void dtrans::TypeInfo::printSafetyData() {
       dtrans::MismatchedElementAccess | dtrans::WholeStructureReference |
       dtrans::UnsafePointerStore | dtrans::FieldAddressTaken |
       dtrans::GlobalPtr | dtrans::GlobalInstance | dtrans::HasInitializerList |
-      dtrans::BadMemFuncSize | dtrans::BadMemFuncManipulation |
-      dtrans::AmbiguousPointerTarget | dtrans::UnsafePtrMerge |
-      dtrans::AddressTaken | dtrans::NoFieldsInStruct |
+      dtrans::BadMemFuncSize | dtrans::MemFuncPartialWrite |
+      dtrans::BadMemFuncManipulation | dtrans::AmbiguousPointerTarget |
+      dtrans::UnsafePtrMerge | dtrans::AddressTaken | dtrans::NoFieldsInStruct |
       dtrans::NestedStruct | dtrans::ContainsNestedStruct |
       dtrans::SystemObject | dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
@@ -187,6 +188,7 @@ void dtrans::TypeInfo::printSafetyData() {
                      dtrans::UnsafePointerStore ^ dtrans::FieldAddressTaken ^
                      dtrans::GlobalPtr ^ dtrans::GlobalInstance ^
                      dtrans::HasInitializerList ^ dtrans::BadMemFuncSize ^
+                     dtrans::MemFuncPartialWrite ^
                      dtrans::BadMemFuncManipulation ^
                      dtrans::AmbiguousPointerTarget ^ dtrans::UnsafePtrMerge ^
                      dtrans::AddressTaken ^ dtrans::NoFieldsInStruct ^
@@ -220,6 +222,8 @@ void dtrans::TypeInfo::printSafetyData() {
     SafetyIssues.push_back("Has initializer list");
   if (SafetyInfo & dtrans::BadMemFuncSize)
     SafetyIssues.push_back("Bad memfunc size");
+  if (SafetyInfo & dtrans::MemFuncPartialWrite)
+    SafetyIssues.push_back("Memfunc partial write");
   if (SafetyInfo & dtrans::BadMemFuncManipulation)
     SafetyIssues.push_back("Bad memfunc manipulation");
   if (SafetyInfo & dtrans::AmbiguousPointerTarget)
@@ -241,18 +245,37 @@ void dtrans::TypeInfo::printSafetyData() {
   // Print the safety issues found
   size_t NumIssues = SafetyIssues.size();
   for (size_t i = 0; i < NumIssues; ++i) {
-    outs() << SafetyIssues[i];
+    ostr << SafetyIssues[i];
     if (i != NumIssues - 1) {
-      outs() << " | ";
+      ostr << " | ";
     }
   }
 
   // TODO: Make this unnecessary.
   if (SafetyInfo & ~ImplementedMask) {
-    outs() << " + other issues that need format support ("
+    ostr << " + other issues that need format support ("
            << (SafetyInfo & ~ImplementedMask) << ")";
-    outs() << "\nImplementedMask = " << ImplementedMask;
+    ostr << "\nImplementedMask = " << ImplementedMask;
   }
 
-  outs() << "\n";
+  ostr << "\n";
 }
+
+void dtrans::TypeInfo::printSafetyData() {
+  outs() << "  Safety data: ";
+  printSafetyInfo(SafetyInfo, outs());
+}
+
+void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
+  SafetyInfo |= Conditions;
+  DEBUG(dbgs() << "dtrans-safety-detail: " << *getLLVMType() << " :: ");
+  DEBUG(printSafetyInfo(Conditions, dbgs()));
+}
+
+void dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
+  if (isNoValue())
+    setSingleValue(C);
+  else if (isSingleValue() && getSingleValue() != C)
+    setMultipleValue();
+}
+

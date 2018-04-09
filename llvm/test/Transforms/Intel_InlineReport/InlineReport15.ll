@@ -1,4 +1,6 @@
 ; RUN: opt -inline -inline-report=15 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=15 < %s -S 2>&1 | FileCheck %s
+
 ; CHECK-NOT: <<Callee is always inline>>
 ; Test should not produce always inline message, as no function has been
 ; marked with "always inline" attribute.

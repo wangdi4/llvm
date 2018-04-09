@@ -1186,7 +1186,7 @@ public:
 class DDRef2AVR {
 
 public:
-  DenseMap<DDRef *, AVRValueHIR *> Map;
+  DenseMap<const DDRef *, AVRValueHIR *> Map;
 
   DDRef2AVR() {}
 

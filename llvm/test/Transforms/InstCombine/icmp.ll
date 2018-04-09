@@ -3286,3 +3286,56 @@ define i32 @abs_preserve(i32 %x) {
   %abs = select i1 %c, i32 %a, i32 %nega
   ret i32 %abs
 }
+
+; Don't crash by assuming the compared values are integers.
+
+declare void @llvm.assume(i1)
+define i1 @PR35794(i32* %a) {
+; CHECK-LABEL: @PR35794(
+; CHECK-NEXT:    [[MASKCOND:%.*]] = icmp eq i32* %a, null
+; CHECK-NEXT:    tail call void @llvm.assume(i1 [[MASKCOND]])
+; CHECK-NEXT:    ret i1 true
+;
+  %cmp = icmp sgt i32* %a, inttoptr (i64 -1 to i32*)
+  %maskcond = icmp eq i32* %a, null
+  tail call void @llvm.assume(i1 %maskcond)
+  ret i1 %cmp
+}
+
+; Don't crash by assuming the compared values are integers.
+define <2 x i1> @PR36583(<2 x i8*>)  {
+; CHECK-LABEL: @PR36583(
+; CHECK-NEXT:    [[RES:%.*]] = icmp eq <2 x i8*> %0, zeroinitializer
+; CHECK-NEXT:    ret <2 x i1> [[RES]]
+;
+  %cast = ptrtoint <2 x i8*> %0 to <2 x i64>
+  %res = icmp eq <2 x i64> %cast, zeroinitializer
+  ret <2 x i1> %res
+}
+
+define i1 @doublecast_signbit_set(i64 %x) {
+; CHECK-LABEL: @doublecast_signbit_set(
+; CHECK-NEXT:    [[F:%.*]] = sitofp i64 [[X:%.*]] to float
+; CHECK-NEXT:    [[I:%.*]] = bitcast float [[F]] to i32
+; CHECK-NEXT:    [[R:%.*]] = icmp slt i32 [[I]], 0
+; CHECK-NEXT:    ret i1 [[R]]
+;
+  %f = sitofp i64 %x to float
+  %i = bitcast float %f to i32
+  %r = icmp slt i32 %i, 0
+  ret i1 %r
+}
+
+define <3 x i1> @doublecast_signbit_clear(<3 x i32> %x) {
+; CHECK-LABEL: @doublecast_signbit_clear(
+; CHECK-NEXT:    [[F:%.*]] = sitofp <3 x i32> [[X:%.*]] to <3 x double>
+; CHECK-NEXT:    [[I:%.*]] = bitcast <3 x double> [[F]] to <3 x i64>
+; CHECK-NEXT:    [[R:%.*]] = icmp sgt <3 x i64> [[I]], <i64 -1, i64 undef, i64 -1>
+; CHECK-NEXT:    ret <3 x i1> [[R]]
+;
+  %f = sitofp <3 x i32> %x to <3 x double>
+  %i = bitcast <3 x double> %f to <3 x i64>
+  %r = icmp sgt <3 x i64> %i, <i64 -1, i64 undef, i64 -1>
+  ret <3 x i1> %r
+}
+

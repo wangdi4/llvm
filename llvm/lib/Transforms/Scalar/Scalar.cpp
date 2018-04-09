@@ -53,7 +53,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeGVNHoistLegacyPassPass(Registry);
   initializeGVNSinkLegacyPassPass(Registry);
   initializeFlattenCFGPassPass(Registry);
-  initializeInductiveRangeCheckEliminationPass(Registry);
+  initializeIRCELegacyPassPass(Registry);
   initializeIndVarSimplifyLegacyPassPass(Registry);
   initializeInferAddressSpacesPass(Registry);
   initializeJumpThreadingPass(Registry);
@@ -62,7 +62,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopDataPrefetchLegacyPassPass(Registry);
   initializeLoopDeletionLegacyPassPass(Registry);
   initializeLoopAccessLegacyAnalysisPass(Registry);
-  initializeLoopInstSimplifyLegacyPassPass(Registry);
   initializeLoopInterchangePass(Registry);
   initializeLoopPredicationLegacyPassPass(Registry);
   initializeLoopRotateLegacyPassPass(Registry);
@@ -99,11 +98,11 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeFloat2IntLegacyPassPass(Registry);
   initializeLoopDistributeLegacyPass(Registry);
 #if INTEL_CUSTOMIZATION
-  initializeNonLTOGlobalOptPass(Registry);
+  initializeNonLTOGlobalOptLegacyPassPass(Registry);
   initializeIndirectCallConvPass(Registry);
   initializeStdContainerOptPass(Registry);
-  initializeTbaaMDPropagationPass(Registry); 
-  initializeCleanupFakeLoadsLegacyPassPass(Registry); 
+  initializeTbaaMDPropagationLegacyPassPass(Registry);
+  initializeCleanupFakeLoadsLegacyPassPass(Registry);
   initializeMultiVersioningWrapperPass(Registry);
   initializeLoopOptMarkerLegacyPassPass(Registry);
 #endif // INTEL_CUSTOMIZATION

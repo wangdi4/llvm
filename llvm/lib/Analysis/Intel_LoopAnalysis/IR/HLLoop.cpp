@@ -21,7 +21,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
@@ -58,6 +57,11 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
   initialize();
   OrigLoop->getExitingBlocks(Exits);
   setNumExits(Exits.size());
+  // If Lp has attached optreport metadata node - initialize HLoop
+  // optreport with it. Otherwise it will initialize it with zero.
+  // We also don't erase the opt report from LoopID. We only do that
+  // at the HIRCodeGen stage, if needed.
+  setOptReport(LoopOptReport::findOptReportInLoopID(LLVMLoop->getLoopID()));
 }
 
 // IsInnermost flag is initialized to true, please refer to the header file.
@@ -380,11 +384,6 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
 
   printPostexit(OS, Depth, Detailed);
 #endif // !INTEL_PRODUCT_RELEASE
-}
-
-void HLLoop::setNumExits(unsigned NumEx) {
-  assert(NumEx && "Number of exits cannot be zero!");
-  NumExits = NumEx;
 }
 
 unsigned
@@ -1021,7 +1020,7 @@ bool HLLoop::isTriangularLoop() const {
   }
 
   for (auto I = ztt_ddref_begin(), E1 = ztt_ddref_end(); I != E1; ++I) {
-    RegDDRef *RRef = *I;
+    const RegDDRef *RRef = *I;
     for (auto Iter = RRef->canon_begin(), E2 = RRef->canon_end(); Iter != E2;
          ++Iter) {
       const CanonExpr *CE = *Iter;
@@ -1131,9 +1130,9 @@ bool HLLoop::canNormalize() const {
   ForEach<const HLDDNode>::visitRange(
       child_begin(), child_end(),
       [LowerCE, Level, &Mergeable](const HLDDNode *Node) {
-        for (RegDDRef *Ref :
+        for (const RegDDRef *Ref :
              llvm::make_range(Node->ddref_begin(), Node->ddref_end())) {
-          for (CanonExpr *CE :
+          for (const CanonExpr *CE :
                llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
             if (!CE->hasIV(Level)) {
               continue;
@@ -1170,16 +1169,20 @@ bool HLLoop::normalize() {
   int64_t Stride;
   StrideCE->isIntConstant(&Stride);
 
+  RegDDRef *UpperRef = getUpperDDRef();
+  RegDDRef *LowerRef = getLowerDDRef();
+
+  // Clone is required as we will be updating upper ref and will be using
+  // original ref to make it consistent.
+  std::unique_ptr<RegDDRef> UpperRefClone(UpperRef->clone());
+  SmallVector<const RegDDRef *, 2> Aux = {LowerRef, UpperRefClone.get()};
+
   CanonExpr *UpperCE = getUpperCanonExpr();
 
   // New Upper = (U - L) / S
   if (!CanonExprUtils::subtract(UpperCE, LowerCE, false)) {
     llvm_unreachable("[HIR-NORMALIZE] Can not subtract L from U");
   }
-
-  RegDDRef *UpperRef = getUpperDDRef();
-  RegDDRef *LowerRef = getLowerDDRef();
-  SmallVector<const RegDDRef *, 2> Aux = {LowerRef, UpperRef};
 
   UpperCE->divide(Stride);
   UpperCE->simplify(true);

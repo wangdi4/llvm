@@ -107,13 +107,13 @@ void AVRCGVisit::visit(AVRValueHIR *AVal) {
   } else {
     assert(isa<BlobDDRef>(RefVal) && "Expected Blob DDRef");
 
-    auto BRefVal = cast<BlobDDRef>(RefVal);
+    const auto * BRefVal = cast<BlobDDRef>(RefVal);
     if (auto WInst = ACG->findWideInst(BRefVal->getSymbase())) {
       WideRef = WInst->getLvalDDRef();
     } else {
       WideRef = DDRU.createScalarRegDDRef(
           BRefVal->getSymbase(),
-          const_cast<CanonExpr *>(BRefVal->getCanonExpr()));
+          const_cast<CanonExpr *>(BRefVal->getSingleCanonExpr()));
       WideRef = ACG->widenRef(WideRef);
     }
   }
@@ -1090,7 +1090,7 @@ void AVRCodeGenHIR::processLoop() {
   // Setup main and remainder loops
   bool NeedRemainderLoop = false;
   auto MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(
-      OrigLoop, VL, NeedRemainderLoop, true /* VecMode */);
+      OrigLoop, VL, NeedRemainderLoop, LORBuilder, true /* VecMode */);
 
   setNeedRemainderLoop(NeedRemainderLoop);
   setMainLoop(MainLoop);
@@ -1390,10 +1390,21 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
     LoMask.push_back(i);
   for (unsigned i = VL / 2; i < VL; ++i)
     HiMask.push_back(i);
+
+  LLVMContext &C = Loop->getHLNodeUtils().getContext();
+
+  Constant *LoMaskVec = ConstantDataVector::get(C, LoMask);
+  RegDDRef *LoMaskVecDDRef =
+      VecRef->getDDRefUtils().createConstDDRef(LoMaskVec);
   HLInst *Lo = Loop->getHLNodeUtils().createShuffleVectorInst(
-      VecRef->clone(), VecRef->clone(), LoMask, "Lo");
+      VecRef->clone(), VecRef->clone(), LoMaskVecDDRef, "Lo");
+
+  Constant *HiMaskVec = ConstantDataVector::get(C, HiMask);
+  RegDDRef *HiMaskVecDDRef =
+      VecRef->getDDRefUtils().createConstDDRef(HiMaskVec);
   HLInst *Hi = Loop->getHLNodeUtils().createShuffleVectorInst(
-      VecRef->clone(), VecRef->clone(), HiMask, "Hi");
+      VecRef->clone(), VecRef->clone(), HiMaskVecDDRef, "Hi");
+
   HLInst *Result = Loop->getHLNodeUtils().createBinaryHLInst(
       BOpcode, Lo->getLvalDDRef()->clone(), Hi->getLvalDDRef()->clone(),
       "reduce");
@@ -1548,8 +1559,8 @@ void AVRCodeGenHIR::analyzeCallArgMemoryReferences(
 }
 
 HLInst *AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode, RegDDRef *Mask) {
-  const HLNode *Node = AvrNode->getHIRInstruction();
-  const HLInst *INode;
+  HLNode *Node = AvrNode->getHIRInstruction();
+  HLInst *INode;
   INode = dyn_cast<HLInst>(Node);
   auto CurInst = INode->getLLVMInstruction();
   SmallVector<RegDDRef *, 6> WideOps;
@@ -1692,6 +1703,7 @@ HLInst *AVRCodeGenHIR::insertReductionInitializer(Constant *Iden) {
 
   auto LvalSymbase = RedOpVecInst->getLvalDDRef()->getSymbase();
   MainLoop->addLiveInTemp(LvalSymbase);
+  MainLoop->addLiveOutTemp(LvalSymbase);
   return RedOpVecInst;
 }
 

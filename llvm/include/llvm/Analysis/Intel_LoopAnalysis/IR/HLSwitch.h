@@ -100,7 +100,7 @@ private:
 public:
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
-    return Node->getHLNodeID() == HLNode::HLSwitchVal;
+    return Node->getHLNodeClassID() == HLNode::HLSwitchVal;
   }
 
   /// \brief Prints HLSwitch.
@@ -286,6 +286,14 @@ public:
 };
 
 } // End namespace loopopt
+
+template <>
+struct DenseMapInfo<loopopt::HLSwitch *>
+    : public loopopt::DenseHLNodeMapInfo<loopopt::HLSwitch> {};
+
+template <>
+struct DenseMapInfo<const loopopt::HLSwitch *>
+    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLSwitch> {};
 
 } // End namespace llvm
 

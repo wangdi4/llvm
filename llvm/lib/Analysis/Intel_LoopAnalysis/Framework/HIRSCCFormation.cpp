@@ -595,24 +595,55 @@ bool HIRSCCFormation::isCmpAndSelectPattern(Instruction *Inst1,
   return (CInst->hasOneUse() && (*(CInst->user_begin()) == SelInst));
 }
 
-bool HIRSCCFormation::dominatesInSameBB(const Instruction *Inst1,
-                                        const Instruction *Inst2,
-                                        const Instruction *EndInst) {
-  auto ParentBB = Inst1->getParent();
+bool HIRSCCFormation::foundIntermediateSCCNode(const BasicBlock *CurBB,
+                                               const Instruction *EndNode,
+                                               const Instruction *TargetNode,
+                                               const SCC &CurSCC) const {
+  bool IsTargetBB = (CurBB == TargetNode->getParent());
+  bool FullBBScope = (!IsTargetBB && !EndNode);
 
-  assert((Inst1 != Inst2) &&
-         "Inst1 and Inst2 should be different instructions!");
-  assert((ParentBB == Inst2->getParent()) &&
-         "Inst1 and Inst2 are not in same bblock!");
+  SmallPtrSet<const NodeTy *, 4> CurBBSCCNodes;
 
-  for (auto It = std::next(Inst1->getIterator()), EndIt = ParentBB->end();
-       It != EndIt; ++It) {
-    if (&*It == EndInst) {
-      break;
+  // This check attempts to save compile time by traversing (likely fewer) SCC
+  // instructions rather than (probably many) bblock instructions. If none of
+  // the SCC nodes are defined in the current bblock, we can skip traversing it.
+  for (auto Node : CurSCC) {
+    if ((Node != TargetNode) && (Node != EndNode) &&
+        (Node->getParent() == CurBB)) {
+      if (FullBBScope) {
+        return true;
+      } else {
+        CurBBSCCNodes.insert(Node);
+      }
     }
+  }
 
-    if (&*It == Inst2) {
-      return true;
+  if (!CurBBSCCNodes.empty()) {
+    // Check whether any SCC nodes lie within the node range in CurBB.
+    BasicBlock::const_iterator It =
+        IsTargetBB ? std::next(TargetNode->getIterator()) : CurBB->begin();
+    BasicBlock::const_iterator EndIt =
+        EndNode ? EndNode->getIterator() : CurBB->end();
+
+    for (; It != EndIt; ++It) {
+      if (CurBBSCCNodes.count(&*It)) {
+        return true;
+      }
+    }
+  }
+
+  if (!IsTargetBB) {
+    // Recurse on predecessors until we reach target bblock.
+    for (auto PredIt = pred_begin(CurBB), E = pred_end(CurBB); PredIt != E;
+         ++PredIt) {
+      // Skip backedges
+      if (DT.dominates(CurBB, *PredIt)) {
+        continue;
+      }
+
+      if (foundIntermediateSCCNode(*PredIt, nullptr, TargetNode, CurSCC)) {
+        return true;
+      }
     }
   }
 
@@ -633,27 +664,29 @@ bool HIRSCCFormation::hasLiveRangeOverlap(const NodeTy *Node,
 
     // Found an SCC def-use edge. Now check if another SCC node lies between the
     // def and use sites. This indicates live range violation.
-    auto UserParentBB = UserInst->getParent();
-    for (auto SCCNode : CurSCC) {
 
-      // Ignore def and use nodes.
-      if ((SCCNode == Node) || (SCCNode == UserInst)) {
+    if (auto UserPhi = dyn_cast<PHINode>(UserInst)) {
+      // Skip backedges
+      if (DT.dominates(UserPhi->getParent(), ParentBB)) {
         continue;
       }
 
-      auto NodeBB = SCCNode->getParent();
-
-      if (NodeBB == ParentBB) {
-        // Does SCCNode lie between def and use in the def node bblock?
-        if (dominatesInSameBB(Node, SCCNode, UserInst)) {
-          return true;
+      // There can be multiple uses of Node in phi therefore we need to check
+      // each incoming value.
+      for (unsigned I = 0, E = UserPhi->getNumIncomingValues(); I < E; ++I) {
+        if (UserPhi->getIncomingValue(I) != Node) {
+          continue;
         }
-      } else if (NodeBB == UserParentBB) {
-        // Does SCCNode lie between def and use in the use node bblock?
-        if (dominatesInSameBB(SCCNode, UserInst, nullptr)) {
+
+        if (foundIntermediateSCCNode(UserPhi->getIncomingBlock(I), nullptr,
+                                     Node, CurSCC)) {
           return true;
         }
       }
+
+    } else if (foundIntermediateSCCNode(UserInst->getParent(), UserInst, Node,
+                                        CurSCC)) {
+      return true;
     }
   }
   return false;

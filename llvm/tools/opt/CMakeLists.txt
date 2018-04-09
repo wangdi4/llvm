@@ -1,5 +1,6 @@
 set(LLVM_LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
+  AggressiveInstCombine
   Analysis
   BitWriter
   CodeGen
@@ -26,6 +27,7 @@ set(LLVM_LINK_COMPONENTS
   Intel_OpenCLTransforms
   Intel_VPOAnalysis
   Intel_VPOTransforms
+  Intel_OptReport
 # end INTEL_CUSTOMIZATION
   )
 

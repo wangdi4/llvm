@@ -334,7 +334,7 @@ bool DDWalk::isSafeReductionFlowDep(const RegDDRef *SrcRef,
     return false;
   }
 
-  HLNode *WriteNode = SrcRef->getHLDDNode();
+  const HLDDNode *WriteNode = SrcRef->getHLDDNode();
   auto Inst = dyn_cast<HLInst>(WriteNode);
 
   if (!Inst) {
@@ -440,18 +440,27 @@ void DDWalk::visit(HLDDNode *Node) {
     if (auto Call = dyn_cast<CallInst>(Inst->getLLVMInstruction())) {
       auto Func = Call->getCalledFunction();
 
-      bool IsNotVectorizable = false;
+      bool IsVectorizable;
 
       if (Func) {
-        if (Func->isIntrinsic())
-          IsNotVectorizable = !isTriviallyVectorizable(Func->getIntrinsicID());
-        else
-          IsNotVectorizable = !TLI.isFunctionVectorizable(Func->getName());
+        if (Func->isIntrinsic()) {
+          auto IntrinsicId = Func->getIntrinsicID();
+          // @llvm.assume intrinsic is not "trivially" vectorizable because it
+          // does not have a vector variant, but it does not prevent
+          // vectorization in any way.
+          // TODO: lifetime_start/lifetime_end.
+          // TODO: Check if ephemeral values (ones whose use-chain ends only in
+          //       calls to @llvm.assumes) should be handled too here.
+          // TODO: Update cost model so that ephemeral values are ignored.
+          IsVectorizable = isTriviallyVectorizable(IntrinsicId) ||
+                           IntrinsicId == Intrinsic::assume;
+        } else
+          IsVectorizable = TLI.isFunctionVectorizable(Func->getName());
       } else {
-        IsNotVectorizable = true;
+        IsVectorizable = false;
       }
 
-      if (IsNotVectorizable) {
+      if (!IsVectorizable) {
         Info->setVecType(ParVecInfo::UNKNOWN_CALL);
         Info->setParType(ParVecInfo::UNKNOWN_CALL);
         return;
@@ -520,6 +529,12 @@ void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
 
   if (!Loop->isDo()) {
     setVecType(NON_DO_LOOP);
+    emitDiag();
+    return;
+  }
+
+  if (!Loop->isNormalized()) {
+    setVecType(NON_NORMALIZED_LOOP);
     emitDiag();
     return;
   }

@@ -26,6 +26,7 @@
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
@@ -47,7 +48,8 @@
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
-#include "llvm/Transforms/Intel_DTrans/DTransOpt.h"
+#include "llvm/Transforms/Intel_DTrans/AOSToSOA.h"
+#include "llvm/Transforms/Intel_DTrans/DeleteField.h"
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -124,8 +126,9 @@ static cl::opt<bool> EnableLoopInterchange(
     cl::desc("Enable the new, experimental LoopInterchange Pass"));
 
 #if INTEL_CUSTOMIZATION
-static cl::opt<bool> RunVPOOpt("vpoopt", cl::init(true), cl::Hidden,
-                               cl::desc("Runs all VPO passes"));
+enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
+static cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
+                                   cl::Hidden, cl::desc("Runs all VPO passes"));
 
 static cl::opt<bool> RunVPOVecopt("vecopt",
   cl::init(false), cl::Hidden,
@@ -168,6 +171,23 @@ static cl::opt<bool> PrintModuleBeforeLoopopt(
     "print-module-before-loopopt", cl::init(false), cl::Hidden,
     cl::desc("Prints LLVM module to dbgs() before first HIR transform(HIR SSA "
              "deconstruction)"));
+
+// Option for controlling 'backend' for the optimization reports.
+static cl::opt<OptReportOptionsPass::LoopOptReportEmitterKind>
+    OptReportEmitter(
+        "intel-loop-optreport-emitter",
+        cl::desc("Option for choosing the way compiler outputs the "
+                 "optimization reports"),
+        cl::init(OptReportOptionsPass::None),
+        cl::values(
+            clEnumValN(OptReportOptionsPass::None, "none",
+                       "Optimization reports are not emitted"),
+            clEnumValN(
+                OptReportOptionsPass::IR, "ir",
+                "Optimization reports are emitted right after HIR phase"),
+            clEnumValN(
+                OptReportOptionsPass::HIR, "hir",
+                "Optimization reports are emitted before HIR Code Gen phase")));
 
 // register promotion for global vars at -O2 and above.
 static cl::opt<bool> EnableNonLTOGlobalVarOpt(
@@ -388,21 +408,6 @@ void PassManagerBuilder::populateFunctionPassManager(
 #if INTEL_CUSTOMIZATION
   FPM.add(createXmainOptLevelWrapperPass(OptLevel));
   if (RunVPOOpt && RunVPOParopt && !DisableIntelProprietaryOpts) {
-    if (OptLevel == 0) {
-      // To handle OpenMP we also need SROA and EarlyCSE, but they are disabled
-      // at -O0, so we explicitly add them to the pass pipeline here.
-      //
-      // CMPLRS-46446: Adding them below is not enough. These passes, like many
-      // passes, call skipFunction() and bail out at -O0. The fix was to also
-      // call VPOAnalysisUtils::skipFunctionForOpenmp() from SROA and EarlyCSE
-      // and not bail out if skipFunctionForOpenmp() returns false.
-      // (See SROA.cpp and EarlyCSE.cpp under lib/Transforms/Scalar.)
-      FPM.add(createSROAPass());
-      FPM.add(createEarlyCSEPass());
-    }
-    // The value -1 indicates that the bottom test generation for
-    // loop is always enabled.
-    FPM.add(createLoopRotatePass(-1));
     FPM.add(createVPOCFGRestructuringPass());
     FPM.add(createVPOParoptPreparePass(RunVPOParopt, OffloadTargets));
     if (OptLevel == 0) {
@@ -494,7 +499,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // Propagate TBAA information before SROA so that we can remove mid-function
   // fakeload intrinsics which would block SROA.
   if (EnableTbaaProp)
-    MPM.add(createTbaaMDPropagationPass());
+    MPM.add(createTbaaMDPropagationLegacyPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Break up aggregate allocas, using SSAUpdater.
@@ -513,6 +518,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals
   MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
   // Combine silly seq's
+  if (OptLevel > 2)
+    MPM.add(createAggressiveInstCombinerPass());
   addInstructionCombiningPass(MPM);
   if (SizeLevel == 0 && !DisableLibCallsShrinkWrap)
     MPM.add(createLibCallsShrinkWrapPass());
@@ -645,7 +652,7 @@ void PassManagerBuilder::populateModulePassManager(
 
 #if INTEL_CUSTOMIZATION
   // Process OpenMP directives at -O1 and above
-  if (RunVPOOpt & !DisableIntelProprietaryOpts)
+  if (RunVPOOpt == InvokeParoptBeforeInliner && !DisableIntelProprietaryOpts)
     addVPOPasses(MPM, false);
 #endif // INTEL_CUSTOMIZATION
 
@@ -724,6 +731,11 @@ void PassManagerBuilder::populateModulePassManager(
     RunInliner = true;
   }
 
+#if INTEL_CUSTOMIZATION
+  // Process OpenMP directives at -O1 and above
+  if (RunVPOOpt == InvokeParoptAfterInliner && !DisableIntelProprietaryOpts)
+    addVPOPasses(MPM, false);
+#endif // INTEL_CUSTOMIZATION
   MPM.add(createPostOrderFunctionAttrsLegacyPass());
   if (OptLevel > 2)
     MPM.add(createArgumentPromotionPass()); // Scalarize uninlined fn args
@@ -1019,10 +1031,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createReversePostOrderFunctionAttrsPass());
 
 #if INTEL_CUSTOMIZATION
-  // This optimization pass is just a placeholder, but adding it to the
-  // pipeline causes the DTransAnalysis to be run.
-  if (EnableDTrans)
-    PM.add(createDTransOptWrapperPass());
+  if (EnableDTrans) {
+    PM.add(createDTransDeleteFieldWrapperPass());
+    PM.add(createDTransAOSToSOAWrapperPass());
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Split globals using inrange annotations on GEP indices. This can help
@@ -1053,6 +1065,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // simplification opportunities, and both can propagate functions through
   // function pointers.  When this happens, we often have to resolve varargs
   // calls, etc, so let instcombine do this.
+  if (OptLevel > 2)
+    PM.add(createAggressiveInstCombinerPass());
   addInstructionCombiningPass(PM);
   addExtensionsToPM(EP_Peephole, PM);
 
@@ -1284,13 +1298,14 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       PM.add(createHIRLoopDistributionForMemRecPass());
     }
 
+    PM.add(createHIRLoopCollapsePass());
     PM.add(createHIRIdiomRecognitionPass());
     PM.add(createHIRLoopFusionPass());
 
     if (SizeLevel == 0) {
       PM.add(createHIRUnrollAndJamPass());
       PM.add(createHIROptVarPredicatePass());
-      PM.add(createHIROptPredicatePass());
+      PM.add(createHIROptPredicatePass(OptLevel == 3));
       if (RunVPOOpt) {
         PM.add(createHIRVecDirInsertPass(OptLevel == 3));
         if (EnableVPlanDriverHIR) {
@@ -1308,7 +1323,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createHIRScalarReplArrayPass());
   }
 
-  PM.add(createHIRCodeGenWrapperPass());
+  if (OptReportEmitter == OptReportOptionsPass::HIR)
+    PM.add(createHIROptReportEmitterWrapperPass());
+
+ PM.add(createHIRCodeGenWrapperPass());
 
   addLoopOptCleanupPasses(PM);
 }
@@ -1369,6 +1387,9 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
   // assetion failure as the feature matures.
   if (RunVPOOpt)
     PM.add(createVPODirectiveCleanupPass());
+
+  if (OptReportEmitter == OptReportOptionsPass::IR)
+    PM.add(createLoopOptReportEmitterLegacyPass());
 }
 
 #endif // INTEL_CUSTOMIZATION

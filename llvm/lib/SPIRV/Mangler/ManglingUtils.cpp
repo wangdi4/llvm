@@ -197,23 +197,22 @@ namespace SPIR {
   }
 
   bool isPipeBuiltin(std::string unmangledName) {
-    return
-      unmangledName == "write_pipe" ||
-      unmangledName == "read_pipe" ||
-      unmangledName == "reserve_write_pipe" ||
-      unmangledName == "reserve_read_pipe" ||
-      unmangledName == "commit_write_pipe" ||
-      unmangledName == "commit_read_pipe" ||
-      unmangledName == "work_group_reserve_write_pipe" ||
-      unmangledName == "work_group_reserve_read_pipe" ||
-      unmangledName == "work_group_commit_write_pipe" ||
-      unmangledName == "work_group_commit_read_pipe" ||
-      unmangledName == "get_pipe_num_packets" ||
-      unmangledName == "get_pipe_max_packets" ||
-      unmangledName == "sub_group_reserve_write_pipe" ||
-      unmangledName == "sub_group_reserve_read_pipe" ||
-      unmangledName == "sub_group_commit_write_pipe" ||
-      unmangledName == "sub_group_commit_read_pipe";
+    return unmangledName == "write_pipe_2" || unmangledName == "read_pipe_2" ||
+           unmangledName == "write_pipe_4" || unmangledName == "read_pipe_4" ||
+           unmangledName == "reserve_write_pipe" ||
+           unmangledName == "reserve_read_pipe" ||
+           unmangledName == "commit_write_pipe" ||
+           unmangledName == "commit_read_pipe" ||
+           unmangledName == "work_group_reserve_write_pipe" ||
+           unmangledName == "work_group_reserve_read_pipe" ||
+           unmangledName == "work_group_commit_write_pipe" ||
+           unmangledName == "work_group_commit_read_pipe" ||
+           unmangledName == "get_pipe_num_packets" ||
+           unmangledName == "get_pipe_max_packets" ||
+           unmangledName == "sub_group_reserve_write_pipe" ||
+           unmangledName == "sub_group_reserve_read_pipe" ||
+           unmangledName == "sub_group_commit_write_pipe" ||
+           unmangledName == "sub_group_commit_read_pipe";
   }
 
 } // End SPIR namespace

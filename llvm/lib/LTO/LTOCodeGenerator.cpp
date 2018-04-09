@@ -132,7 +132,8 @@ void LTOCodeGenerator::initializeLTOPasses() {
 #if INTEL_CUSTOMIZATION
   initializeAndersensAAWrapperPassPass(R);
   initializeDTransAnalysisWrapperPass(R);
-  initializeDTransOptWrapperPass(R);
+  initializeDTransAOSToSOAWrapperPass(R);
+  initializeDTransDeleteFieldWrapperPass(R);
   initializeWholeProgramWrapperPassPass(R);
   initializeInlineAggressiveWrapperPassPass(R);
   initializeOptimizeDynamicCastsWrapperPass(R);
@@ -229,7 +230,7 @@ bool LTOCodeGenerator::writeMergedModules(StringRef Path) {
   }
 
   // write bitcode to it
-  WriteBitcodeToFile(MergedModule.get(), Out.os(), ShouldEmbedUselists);
+  WriteBitcodeToFile(*MergedModule, Out.os(), ShouldEmbedUselists);
   Out.os().close();
 
   if (Out.os().has_error()) {

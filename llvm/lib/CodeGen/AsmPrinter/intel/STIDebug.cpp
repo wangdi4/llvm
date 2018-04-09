@@ -3239,7 +3239,10 @@ STIType *STIDebugImpl::lowerTypeArray(const DICompositeType *llvmType) {
     DISubrange *subrange = cast<DISubrange>(element);
     lowerBound          = subrange->getLowerBound();
     defaultLowerBound   = 0; // FIXME : default bound
-    count               = subrange->getCount();
+    if (auto *CI = subrange->getCount().dyn_cast<ConstantInt *>())
+      count = CI->getSExtValue();
+    else
+      count = -1;
 
     (void)lowerBound; (void)defaultLowerBound;
     assert(lowerBound == defaultLowerBound); // FIXME

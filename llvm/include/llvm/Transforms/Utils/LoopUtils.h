@@ -21,6 +21,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/DemandedBits.h"
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Dominators.h"
@@ -172,15 +173,25 @@ public:
                                Value *Left, Value *Right);
 
   /// Returns true if Phi is a reduction of type Kind and adds it to the
-  /// RecurrenceDescriptor.
+  /// RecurrenceDescriptor. If either \p DB is non-null or \p AC and \p DT are
+  /// non-null, the minimal bit width needed to compute the reduction will be
+  /// computed.
   static bool AddReductionVar(PHINode *Phi, RecurrenceKind Kind, Loop *TheLoop,
                               bool HasFunNoNaNAttr,
-                              RecurrenceDescriptor &RedDes);
+                              RecurrenceDescriptor &RedDes,
+                              DemandedBits *DB = nullptr,
+                              AssumptionCache *AC = nullptr,
+                              DominatorTree *DT = nullptr);
 
-  /// Returns true if Phi is a reduction in TheLoop. The RecurrenceDescriptor is
-  /// returned in RedDes.
+  /// Returns true if Phi is a reduction in TheLoop. The RecurrenceDescriptor
+  /// is returned in RedDes. If either \p DB is non-null or \p AC and \p DT are
+  /// non-null, the minimal bit width needed to compute the reduction will be
+  /// computed.
   static bool isReductionPHI(PHINode *Phi, Loop *TheLoop,
-                             RecurrenceDescriptor &RedDes);
+                             RecurrenceDescriptor &RedDes,
+                             DemandedBits *DB = nullptr,
+                             AssumptionCache *AC = nullptr,
+                             DominatorTree *DT = nullptr);
 
   /// Returns true if Phi is a first-order recurrence. A first-order recurrence
   /// is a non-reduction recurrence relation in which the value of the
@@ -217,24 +228,6 @@ public:
 
   /// Returns true if the recurrence kind is an arithmetic kind.
   static bool isArithmeticRecurrenceKind(RecurrenceKind Kind);
-
-  /// Determines if Phi may have been type-promoted. If Phi has a single user
-  /// that ANDs the Phi with a type mask, return the user. RT is updated to
-  /// account for the narrower bit width represented by the mask, and the AND
-  /// instruction is added to CI.
-  static Instruction *lookThroughAnd(PHINode *Phi, Type *&RT,
-                                     SmallPtrSetImpl<Instruction *> &Visited,
-                                     SmallPtrSetImpl<Instruction *> &CI);
-
-  /// Returns true if all the source operands of a recurrence are either
-  /// SExtInsts or ZExtInsts. This function is intended to be used with
-  /// lookThroughAnd to determine if the recurrence has been type-promoted. The
-  /// source operands are added to CI, and IsSigned is updated to indicate if
-  /// all source operands are SExtInsts.
-  static bool getSourceExtensionKind(Instruction *Start, Instruction *Exit,
-                                     Type *RT, bool &IsSigned,
-                                     SmallPtrSetImpl<Instruction *> &Visited,
-                                     SmallPtrSetImpl<Instruction *> &CI);
 
   /// Returns the type of the recurrence. This type can be narrower than the
   /// actual type of the Phi if the recurrence has been type-promoted.
@@ -399,14 +392,8 @@ bool formDedicatedExitBlocks(Loop *L, DominatorTree *DT, LoopInfo *LI,
 /// changes to CFG, preserved.
 ///
 /// Returns true if any modifications are made.
-#if INTEL_CUSTOMIZATION
-/// The parameter ValueToLiveinMap is used to update the phis which need the
-/// live-in value.
-bool formLCSSAForInstructions(
-    SmallVectorImpl<Instruction *> &Worklist, DominatorTree &DT, LoopInfo &LI,
-    DenseMap<Value *, std::pair<Value *, BasicBlock *>> *ValueToLiveinMap =
-        nullptr);
-#endif // INTEL_CUSTOMIZATION
+bool formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
+                              DominatorTree &DT, LoopInfo &LI);
 
 /// \brief Put loop into LCSSA form.
 ///
@@ -419,12 +406,7 @@ bool formLCSSAForInstructions(
 /// If ScalarEvolution is passed in, it will be preserved.
 ///
 /// Returns true if any modifications are made to the loop.
-#if INTEL_CUSTOMIZATION
-bool formLCSSA(Loop &L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution *SE,
-               DenseMap<Value *, std::pair<Value *, BasicBlock *>>
-                   *ValueToLiveinMap = nullptr,
-               SmallSetVector<Instruction *, 8> *LiveoutVals = nullptr);
-#endif // INTEL_CUSTOMIZATION
+bool formLCSSA(Loop &L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution *SE);
 
 /// \brief Put a loop nest into LCSSA form.
 ///

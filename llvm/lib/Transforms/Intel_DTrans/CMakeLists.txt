@@ -1,5 +1,6 @@
 add_llvm_library(LLVMIntel_DTrans
-  DTransOpt.cpp
+  AOSToSOA.cpp
+  DeleteField.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_DTrans

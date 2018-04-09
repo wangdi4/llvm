@@ -1,6 +1,6 @@
 //===----------------- DTransAnalysis.h - DTrans Analysis -----------------===//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -24,6 +24,20 @@ class TargetLibraryInfo;
 
 class DTransAnalysisInfo {
 public:
+  /// Adaptor for directly iterating over the dtrans::TypeInfo pointers.
+  struct type_info_iterator
+      : public iterator_adaptor_base<
+            type_info_iterator, DenseMap<Type *, dtrans::TypeInfo *>::iterator,
+            std::forward_iterator_tag, dtrans::TypeInfo *> {
+    explicit type_info_iterator(
+        DenseMap<Type *, dtrans::TypeInfo *>::iterator X)
+        : iterator_adaptor_base(X) {}
+
+    dtrans::TypeInfo *&operator*() const { return I->second; }
+    dtrans::TypeInfo *&operator->() const { return operator*(); }
+  };
+
+public:
   DTransAnalysisInfo();
   ~DTransAnalysisInfo();
 
@@ -45,6 +59,11 @@ public:
   /// Retrieve the DTrans type information entry for the specified LLVM type.
   /// If there is no entry for the specified type, return nullptr.
   dtrans::TypeInfo *getTypeInfo(llvm::Type *Ty) const;
+
+  iterator_range<type_info_iterator> type_info_entries() {
+    return make_range(type_info_iterator(TypeInfoMap.begin()),
+                      type_info_iterator(TypeInfoMap.end()));
+  }
 
 private:
   void printStructInfo(dtrans::StructInfo *AI);

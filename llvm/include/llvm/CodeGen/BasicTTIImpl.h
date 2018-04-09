@@ -240,7 +240,7 @@ public:
     bool IsJTAllowed = TLI->areJTsAllowed(SI.getParent()->getParent());
 
     // Early exit if both a jump table and bit test are not allowed.
-    if (N < 1 || (!IsJTAllowed && DL.getPointerSizeInBits() < N))
+    if (N < 1 || (!IsJTAllowed && DL.getIndexSizeInBits(0u) < N))
       return N;
 
     APInt MaxCaseVal = SI.case_begin()->getCaseValue()->getValue();
@@ -254,7 +254,7 @@ public:
     }
 
     // Check if suitable for a bit test
-    if (N <= DL.getPointerSizeInBits()) {
+    if (N <= DL.getIndexSizeInBits(0u)) {
       SmallPtrSet<const BasicBlock *, 4> Dests;
       for (auto I : SI.cases())
         Dests.insert(I.getCaseSuccessor());
@@ -618,7 +618,7 @@ public:
       }
 
       // If we are legalizing by splitting, query the concrete TTI for the cost
-      // of casting the original vector twice. We also need to factor int the
+      // of casting the original vector twice. We also need to factor in the
       // cost of the split itself. Count that as 1, to be consistent with
       // TLI->getTypeLegalizationCost().
       if ((TLI->getTypeAction(Src->getContext(), TLI->getValueType(DL, Src)) ==
@@ -920,6 +920,26 @@ public:
                                                        RetTy, Args[0], VarMask,
                                                        Alignment);
     }
+#if INTEL_CUSTOMIZATION
+    case Intrinsic::directive_region_entry:
+    case Intrinsic::directive_region_exit: {
+        return 0;
+    }
+#endif // INTEL_CUSTOMIZATION
+    case Intrinsic::experimental_vector_reduce_add:
+    case Intrinsic::experimental_vector_reduce_mul:
+    case Intrinsic::experimental_vector_reduce_and:
+    case Intrinsic::experimental_vector_reduce_or:
+    case Intrinsic::experimental_vector_reduce_xor:
+    case Intrinsic::experimental_vector_reduce_fadd:
+    case Intrinsic::experimental_vector_reduce_fmul:
+    case Intrinsic::experimental_vector_reduce_smax:
+    case Intrinsic::experimental_vector_reduce_smin:
+    case Intrinsic::experimental_vector_reduce_fmax:
+    case Intrinsic::experimental_vector_reduce_fmin:
+    case Intrinsic::experimental_vector_reduce_umax:
+    case Intrinsic::experimental_vector_reduce_umin:
+      return getIntrinsicInstrCost(IID, RetTy, Args[0]->getType(), FMF);
     }
   }
 
@@ -1050,6 +1070,39 @@ public:
     case Intrinsic::masked_load:
       return static_cast<T *>(this)
           ->getMaskedMemoryOpCost(Instruction::Load, RetTy, 0, 0);
+    case Intrinsic::experimental_vector_reduce_add:
+      return static_cast<T *>(this)->getArithmeticReductionCost(
+          Instruction::Add, Tys[0], /*IsPairwiseForm=*/false);
+    case Intrinsic::experimental_vector_reduce_mul:
+      return static_cast<T *>(this)->getArithmeticReductionCost(
+          Instruction::Mul, Tys[0], /*IsPairwiseForm=*/false);
+    case Intrinsic::experimental_vector_reduce_and:
+      return static_cast<T *>(this)->getArithmeticReductionCost(
+          Instruction::And, Tys[0], /*IsPairwiseForm=*/false);
+    case Intrinsic::experimental_vector_reduce_or:
+      return static_cast<T *>(this)->getArithmeticReductionCost(
+          Instruction::Or, Tys[0], /*IsPairwiseForm=*/false);
+    case Intrinsic::experimental_vector_reduce_xor:
+      return static_cast<T *>(this)->getArithmeticReductionCost(
+          Instruction::Xor, Tys[0], /*IsPairwiseForm=*/false);
+    case Intrinsic::experimental_vector_reduce_fadd:
+      return static_cast<T *>(this)->getArithmeticReductionCost(
+          Instruction::FAdd, Tys[0], /*IsPairwiseForm=*/false);
+    case Intrinsic::experimental_vector_reduce_fmul:
+      return static_cast<T *>(this)->getArithmeticReductionCost(
+          Instruction::FMul, Tys[0], /*IsPairwiseForm=*/false);
+    case Intrinsic::experimental_vector_reduce_smax:
+    case Intrinsic::experimental_vector_reduce_smin:
+    case Intrinsic::experimental_vector_reduce_fmax:
+    case Intrinsic::experimental_vector_reduce_fmin:
+      return static_cast<T *>(this)->getMinMaxReductionCost(
+          Tys[0], CmpInst::makeCmpResultType(Tys[0]), /*IsPairwiseForm=*/false,
+          /*IsSigned=*/true);
+    case Intrinsic::experimental_vector_reduce_umax:
+    case Intrinsic::experimental_vector_reduce_umin:
+      return static_cast<T *>(this)->getMinMaxReductionCost(
+          Tys[0], CmpInst::makeCmpResultType(Tys[0]), /*IsPairwiseForm=*/false,
+          /*IsSigned=*/false);
     case Intrinsic::ctpop:
       ISDs.push_back(ISD::CTPOP);
       // In case of legalization use TCC_Expensive. This is cheaper than a

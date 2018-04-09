@@ -1,4 +1,4 @@
-//===- SPIRVBasicBlock.h – SPIR-V Basic Block --------------------*- C++ -*-===//
+//===- SPIRVBasicBlock.h - SPIR-V Basic Block -------------------*- C++ -*-===//
 //
 //                     The LLVM/SPIRV Translator
 //
@@ -78,7 +78,9 @@ public:
 
   void setScope(SPIRVEntry *Scope);
   void setParent(SPIRVFunction *F) { ParentF = F;}
-  SPIRVInstruction *addInstruction(SPIRVInstruction *I);
+  SPIRVInstruction *
+  addInstruction(SPIRVInstruction *I,
+                 const SPIRVInstruction *InsertBefore = nullptr);
   void eraseInstruction(const SPIRVInstruction *I) {
     auto Loc = find(I);
     assert(Loc != InstVec.end());

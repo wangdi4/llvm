@@ -37,8 +37,9 @@ required_libraries =
  Intel_MapIntrinToIml
  Intel_VPOAnalysis
  Intel_VPOTransforms
+ Intel_OptReport
  all-targets
 
 ; ***INTEL: Intel_DTransAnalysis, Intel_DTrans, Intel_LoopAnalysis,
 ;           Intel_LoopTransforms, Intel_MapIntrinToIml, Intel_VPOAnalysis,
-;           Intel_VPOTransforms
+;           Intel_VPOTransforms, Intel_OptReport

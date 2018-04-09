@@ -52,8 +52,6 @@ private:
     return Instr;
   }
 
-
-
 #if INTEL_CUSTOMIZATION
   /// \brief Create VPCmpInst with its two operands
   VPCmpInst *createCmpInst(VPValue *LeftOp, VPValue *RightOp,
@@ -128,7 +126,22 @@ public:
     BB = TheBB;
     InsertPt = IP;
   }
+
+  // Create an N-ary operation with \p Opcode, \p Operands and set \p Inst as
+  // its underlying Instruction.
+  VPValue *createNaryOp(unsigned Opcode, ArrayRef<VPValue *> Operands,
+                        Instruction *Inst = nullptr) {
+    VPInstruction *NewVPInst = createInstruction(Opcode, Operands);
+    NewVPInst->setInstruction(Inst);
+    return NewVPInst;
+  }
+  VPValue *createNaryOp(unsigned Opcode,
+                        std::initializer_list<VPValue *> Operands,
+                        Instruction *Inst = nullptr) {
+    return createNaryOp(Opcode, ArrayRef<VPValue *>(Operands), Inst);
+  }
 #endif
+
   VPValue *createNot(VPValue *Operand) {
     return createInstruction(VPInstruction::Not, {Operand});
   }
@@ -142,6 +155,16 @@ public:
   }
 
 #if INTEL_CUSTOMIZATION
+  // Create a VPCmpInst with \p LeftOp and \p RightOp as operands, and \p CI's
+  // predicate as predicate. \p CI is also set as underlying Instruction.
+  VPCmpInst *createCmpInst(VPValue *LeftOp, VPValue *RightOp, CmpInst *CI) {
+    // TODO: If a null CI is needed, please create a new interface.
+    assert(CI && "CI can't be null.");
+    VPCmpInst *VPCI = createCmpInst(LeftOp, RightOp, CI->getPredicate());
+    VPCI->setInstruction(CI);
+    return VPCI;
+  }
+
   //===--------------------------------------------------------------------===//
   // RAII helpers.
   //===--------------------------------------------------------------------===//
@@ -168,39 +191,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
 };
 
-#if INTEL_CUSTOMIZATION
-//===----------------------------------------------------------------------===//
-// VPO-specific changes
-//===----------------------------------------------------------------------===//
-class VPBuilderIR : public VPBuilder {
-public:
-  // Create an N-ary operation with \p Opcode and \p Operands and set \p Inst as
-  // its VPInstructionData.
-  VPValue *createNaryOp(unsigned Opcode, ArrayRef<VPValue *> Operands,
-                        Instruction *Inst) {
-    assert(!isa<CmpInst>(Inst) &&
-           "CmpInsts should be handled by createCmpInst()");
-    VPInstruction *NewVPInst = createInstruction(Opcode, Operands);
-    NewVPInst->setInstruction(Inst);
-    return NewVPInst;
-  }
-  VPValue *createNaryOp(unsigned Opcode,
-                        std::initializer_list<VPValue *> Operands,
-                        Instruction *Inst) {
-    return createNaryOp(Opcode, ArrayRef<VPValue *>(Operands), Inst);
-  }
-
-  // Create a VPCmpInst with its two operands
-  VPCmpInst *createCmpInst(VPValue *LeftOp, VPValue *RightOp, CmpInst *CI) {
-    VPCmpInst *VPCI =
-        VPBuilder::createCmpInst(LeftOp, RightOp, CI->getPredicate());
-    VPCI->setInstruction(CI);
-    return VPCI;
-  }
-};
-#endif // INTEL_CUSTOMIZATION
-
 } // namespace vpo
-} // namespace vpo
+} // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_BUILDER_H

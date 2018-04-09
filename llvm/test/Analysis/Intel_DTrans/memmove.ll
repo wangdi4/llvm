@@ -31,7 +31,7 @@ define void @test02(%struct.test02.a* %sa, %struct.test02.b* %sb) {
 
 ; Call memmove with matched struct pointers, but only part of the
 ; structure is copied.
-; This is an unsafe use.
+; This is should set the memfunc partial write safety bit.
 %struct.test03 = type { i32, i32, i32, i32 }
 define void @test03(%struct.test03* %s1, %struct.test03* %s2) {
   %p1 = bitcast %struct.test03* %s1 to i8*
@@ -40,7 +40,7 @@ define void @test03(%struct.test03* %s1, %struct.test03* %s2) {
   ret void
 }
 ; CHECK: LLVMType: %struct.test03 = type { i32, i32, i32, i32 }
-; CHECK: Safety data: Bad memfunc size
+; CHECK: Safety data: Memfunc partial write
 
 
 declare void @llvm.memmove.p0i8.i64(i8* nocapture writeonly,

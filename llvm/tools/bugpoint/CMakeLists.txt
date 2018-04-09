@@ -23,6 +23,7 @@ set(LLVM_LINK_COMPONENTS
   Intel_MapIntrinToIml
   Intel_VPOAnalysis
   Intel_VPOTransforms
+  Intel_OptReport
 # end INTEL_CUSTOMIZATION
   )
 

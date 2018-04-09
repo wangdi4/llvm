@@ -59,6 +59,7 @@ class VPODriverBase : public FunctionPass {
   LoopInfo *LI;
   ScalarEvolution *SC;
   WRegionInfo *WR;
+  LoopOptReportBuilder LORBuilder;
 
 protected:
   /// Handle to Target Information 

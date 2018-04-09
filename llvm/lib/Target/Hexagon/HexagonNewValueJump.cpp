@@ -24,6 +24,7 @@
 #include "Hexagon.h"
 #include "HexagonInstrInfo.h"
 #include "HexagonRegisterInfo.h"
+#include "HexagonSubtarget.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineBranchProbabilityInfo.h"
@@ -141,6 +142,22 @@ static bool canBeFeederToNewValueJump(const HexagonInstrInfo *QII,
 
   if (QII->isSolo(*II))
     return false;
+
+  if (QII->isFloat(*II))
+    return false;
+
+  // Make sure that the (unique) def operand is a register from IntRegs.
+  bool HadDef = false;
+  for (const MachineOperand &Op : II->operands()) {
+    if (!Op.isReg() || !Op.isDef())
+      continue;
+    if (HadDef)
+      return false;
+    HadDef = true;
+    if (!Hexagon::IntRegsRegClass.contains(Op.getReg()))
+      return false;
+  }
+  assert(HadDef);
 
   // Make sure there there is no 'def' or 'use' of any of the uses of
   // feeder insn between it's definition, this MI and jump, jmpInst
@@ -445,9 +462,9 @@ bool HexagonNewValueJump::runOnMachineFunction(MachineFunction &MF) {
       MF.getSubtarget().getRegisterInfo());
   MBPI = &getAnalysis<MachineBranchProbabilityInfo>();
 
-  if (DisableNewValueJumps) {
+  if (DisableNewValueJumps ||
+      !MF.getSubtarget<HexagonSubtarget>().useNewValueJumps())
     return false;
-  }
 
   int nvjCount = DbgNVJCount;
   int nvjGenerated = 0;

@@ -24,21 +24,22 @@ namespace llvm {
 
 class Function;
 class DominatorTree;
-struct PostDominatorTree;
+class PostDominatorTree;
 
 namespace vpo {
 
 class WRegion;
 class WRegionCollection;
 
-/// \brief This analysis creates W-Region Graph with fills up WRegion node
-/// with the information in the directive intrinsics. The overall sequence
-/// of building the W-Region Graph is as follows:
+/// \brief Implementation of WRegionInfo analysis pass. This analysis creates
+/// W-Region Graph, and fills up WRegion nodes with the information in the
+/// directive intrinsics. The overall sequence of building the W-Region Graph is
+/// as follows:
 ///
 /// 1) WRegionCollection - collect work regions and build W-Region Graph.
 /// 2) WRegionInfo - fill Up W-Region Info by parsing directive intrinsics
 ///
-class WRegionInfo : public FunctionPass {
+class WRegionInfo{
 public:
   /// Iterators to iterate over regions
   typedef WRContainerTy::iterator iterator;
@@ -47,33 +48,24 @@ public:
   typedef WRContainerTy::const_reverse_iterator const_reverse_iterator;
 
 private:
-  /// Func - The function we are analyzing.
   Function *Func;
-
-  /// DT - The dominator tree.
   DominatorTree *DT;
-
-  /// LI - The loop information for the function we are currently analyzing.
   LoopInfo *LI;
-
-  /// SE - Scalar Evolution analysis for the function.
   ScalarEvolution *SE;
-
-  /// WRC - WRegionCollection
+  const TargetTransformInfo *TTI;
+  AssumptionCache *AC;
+  const TargetLibraryInfo *TLI;
   WRegionCollection *WRC;
 
   /// \brief Populates W-Region with WRegionNodes.
   void populateWRegion(WRegion *W, BasicBlock *EntryBB, BasicBlock **ExitBB);
 
 public:
-  static char ID; // Pass identification
-  WRegionInfo();
+  WRegionInfo(Function *F, DominatorTree *DT, LoopInfo *LI, ScalarEvolution *SE,
+              const TargetTransformInfo *TTI, AssumptionCache *AC,
+              const TargetLibraryInfo *TLI, WRegionCollection *WRC);
 
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  void print(raw_ostream &OS, const Module * = nullptr) const override;
-  void verifyAnalysis() const override;
+  void print(raw_ostream &OS) const;
 
   /// \brief Entry point for on-demand call to gather WRegion info out of the
   /// IR. If FromHIR==true, it walks the HIR; else, it walks the LLVM IR
@@ -86,6 +78,9 @@ public:
   DominatorTree *getDomTree() { return DT; }
   LoopInfo *getLoopInfo()     { return LI; }
   ScalarEvolution *getSE()    { return SE; }
+  const TargetTransformInfo *getTargetTransformInfo() { return TTI; }
+  AssumptionCache *getAssumptionCache() { return AC; }
+  const TargetLibraryInfo *getTargetLibraryInfo() { return TLI; }
 
   /// WRN Graph iterator methods
   iterator begin() { return getWRGraph()->begin(); }
@@ -105,7 +100,38 @@ public:
   bool WRGraphIsEmpty() const { return getWRGraph()->empty(); }
 };
 
+/// \brief WRegionInfo Pass for the legacy Pass Manager.
+class WRegionInfoWrapperPass : public FunctionPass {
+  std::unique_ptr<WRegionInfo> WRI;
+
+public:
+  static char ID;
+  WRegionInfoWrapperPass();
+
+  WRegionInfo &getWRegionInfo() { return *WRI; }
+  const WRegionInfo &getWRegionInfo() const { return *WRI; }
+
+  bool runOnFunction(Function &F) override;
+  void releaseMemory() override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  void print(raw_ostream &OS, const Module * = nullptr) const override {
+    WRI->print(OS);
+  }
+};
+
 } // End namespace vpo
+
+/// \brief WRegionInfo Pass for the new Pass Manager.
+class WRegionInfoAnalysis : public AnalysisInfoMixin<WRegionInfoAnalysis> {
+  friend struct AnalysisInfoMixin<WRegionInfoAnalysis>;
+
+  static AnalysisKey Key;
+
+public:
+  using Result = vpo::WRegionInfo;
+
+  vpo::WRegionInfo run(Function &F, FunctionAnalysisManager &AM);
+};
 
 } // End namespace llvm
 

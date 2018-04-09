@@ -1317,31 +1317,44 @@ static bool HoistThenElseCodeToIf(BranchInst *BI,
       return Changed;
 #endif // INTEL_CUSTOMIZATION
 
-    // For a normal instruction, we just move one to right before the branch,
-    // then replace all uses of the other with the first.  Finally, we remove
-    // the now redundant second instruction.
-    BIParent->getInstList().splice(BI->getIterator(), BB1->getInstList(), I1);
-    if (!I2->use_empty())
-      I2->replaceAllUsesWith(I1);
-    I1->andIRFlags(I2);
-    unsigned KnownIDs[] = {LLVMContext::MD_tbaa,
-                           LLVMContext::MD_range,
-                           LLVMContext::MD_fpmath,
-                           LLVMContext::MD_invariant_load,
-                           LLVMContext::MD_nonnull,
-                           LLVMContext::MD_invariant_group,
-                           LLVMContext::MD_align,
-                           LLVMContext::MD_dereferenceable,
-                           LLVMContext::MD_dereferenceable_or_null,
-                           LLVMContext::MD_mem_parallel_loop_access};
-    combineMetadata(I1, I2, KnownIDs);
+    if (isa<DbgInfoIntrinsic>(I1) || isa<DbgInfoIntrinsic>(I2)) {
+      assert (isa<DbgInfoIntrinsic>(I1) && isa<DbgInfoIntrinsic>(I2));
+      // The debug location is an integral part of a debug info intrinsic
+      // and can't be separated from it or replaced.  Instead of attempting
+      // to merge locations, simply hoist both copies of the intrinsic.
+      BIParent->getInstList().splice(BI->getIterator(),
+                                     BB1->getInstList(), I1);
+      BIParent->getInstList().splice(BI->getIterator(),
+                                     BB2->getInstList(), I2);
+      Changed = true;
+    } else {
+      // For a normal instruction, we just move one to right before the branch,
+      // then replace all uses of the other with the first.  Finally, we remove
+      // the now redundant second instruction.
+      BIParent->getInstList().splice(BI->getIterator(),
+                                     BB1->getInstList(), I1);
+      if (!I2->use_empty())
+        I2->replaceAllUsesWith(I1);
+      I1->andIRFlags(I2);
+      unsigned KnownIDs[] = {LLVMContext::MD_tbaa,
+                             LLVMContext::MD_range,
+                             LLVMContext::MD_fpmath,
+                             LLVMContext::MD_invariant_load,
+                             LLVMContext::MD_nonnull,
+                             LLVMContext::MD_invariant_group,
+                             LLVMContext::MD_align,
+                             LLVMContext::MD_dereferenceable,
+                             LLVMContext::MD_dereferenceable_or_null,
+                             LLVMContext::MD_mem_parallel_loop_access};
+      combineMetadata(I1, I2, KnownIDs);
 
-    // I1 and I2 are being combined into a single instruction.  Its debug
-    // location is the merged locations of the original instructions.
-    I1->applyMergedLocation(I1->getDebugLoc(), I2->getDebugLoc());
+      // I1 and I2 are being combined into a single instruction.  Its debug
+      // location is the merged locations of the original instructions.
+      I1->applyMergedLocation(I1->getDebugLoc(), I2->getDebugLoc());
 
-    I2->eraseFromParent();
-    Changed = true;
+      I2->eraseFromParent();
+      Changed = true;
+    }
 
     I1 = &*BB1_Itr++;
     I2 = &*BB2_Itr++;
@@ -4839,30 +4852,31 @@ GetCaseResultPHIValues(SwitchInst *SI, BasicBlock *CaseDest,
 #endif // INTEL_CUSTOMIZATION
 
 // Helper function used to add CaseVal to the list of cases that generate
-// Result.
-static void MapCaseToResult(ConstantInt *CaseVal,
-                            SwitchCaseResultVectorTy &UniqueResults,
-                            Constant *Result) {
+// Result. Returns the updated number of cases that generate this result.
+static uintptr_t MapCaseToResult(ConstantInt *CaseVal,
+                                 SwitchCaseResultVectorTy &UniqueResults,
+                                 Constant *Result) {
   for (auto &I : UniqueResults) {
     if (I.first == Result) {
       I.second.push_back(CaseVal);
-      return;
+      return I.second.size();
     }
   }
   UniqueResults.push_back(
       std::make_pair(Result, SmallVector<ConstantInt *, 4>(1, CaseVal)));
+  return 1;
 }
 
 // Helper function that initializes a map containing
 // results for the PHI node of the common destination block for a switch
 // instruction. Returns false if multiple PHI nodes have been found or if
 // there is not a common destination block for the switch.
-static bool InitializeUniqueCases(SwitchInst *SI, PHINode *&PHI,
-                                  BasicBlock *&CommonDest,
-                                  SwitchCaseResultVectorTy &UniqueResults,
-                                  Constant *&DefaultResult,
-                                  const DataLayout &DL,
-                                  const TargetTransformInfo &TTI) {
+static bool
+InitializeUniqueCases(SwitchInst *SI, PHINode *&PHI, BasicBlock *&CommonDest,
+                      SwitchCaseResultVectorTy &UniqueResults,
+                      Constant *&DefaultResult, const DataLayout &DL,
+                      const TargetTransformInfo &TTI,
+                      uintptr_t MaxUniqueResults, uintptr_t MaxCasesPerResult) {
   for (auto &I : SI->cases()) {
     ConstantInt *CaseVal = I.getCaseValue();
 
@@ -4872,10 +4886,21 @@ static bool InitializeUniqueCases(SwitchInst *SI, PHINode *&PHI,
                         DL, TTI))
       return false;
 
-    // Only one value per case is permitted
+    // Only one value per case is permitted.
     if (Results.size() > 1)
       return false;
-    MapCaseToResult(CaseVal, UniqueResults, Results.begin()->second);
+
+    // Add the case->result mapping to UniqueResults.
+    const uintptr_t NumCasesForResult =
+        MapCaseToResult(CaseVal, UniqueResults, Results.begin()->second);
+
+    // Early out if there are too many cases for this result.
+    if (NumCasesForResult > MaxCasesPerResult)
+      return false;
+
+    // Early out if there are too many unique results.
+    if (UniqueResults.size() > MaxUniqueResults)
+      return false;
 
     // Check the PHI consistency.
     if (!PHI)
@@ -4975,7 +5000,7 @@ static bool switchToSelect(SwitchInst *SI, IRBuilder<> &Builder,
   SwitchCaseResultVectorTy UniqueResults;
   // Collect all the cases that will deliver the same value from the switch.
   if (!InitializeUniqueCases(SI, PHI, CommonDest, UniqueResults, DefaultResult,
-                             DL, TTI))
+                             DL, TTI, 2, 1))
     return false;
   // Selects choose between maximum two values.
   if (UniqueResults.size() != 2)
@@ -5969,9 +5994,12 @@ bool SimplifyCFGOpt::SimplifyUncondBranch(BranchInst *BI,
   // header. (This is for early invocations before loop simplify and
   // vectorization to keep canonical loop forms for nested loops. These blocks
   // can be eliminated when the pass is invoked later in the back-end.)
+  // Note that if BB has only one predecessor then we do not introduce new
+  // backedge, so we can eliminate BB.
   bool NeedCanonicalLoop =
       Options.NeedCanonicalLoop &&
-      (LoopHeaders && (LoopHeaders->count(BB) || LoopHeaders->count(Succ)));
+      (LoopHeaders && std::distance(pred_begin(BB), pred_end(BB)) > 1 &&
+       (LoopHeaders->count(BB) || LoopHeaders->count(Succ)));
   BasicBlock::iterator I = BB->getFirstNonPHIOrDbg()->getIterator();
   if (I->isTerminator() && BB != &BB->getParent()->getEntryBlock() &&
       !NeedCanonicalLoop && TryToSimplifyUncondBranchFromEmptyBlock(BB))

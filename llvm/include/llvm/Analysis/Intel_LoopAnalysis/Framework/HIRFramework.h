@@ -25,7 +25,7 @@
 namespace llvm {
 
 class DominatorTree;
-struct PostDominatorTree;
+class PostDominatorTree;
 class LoopInfo;
 class ScalarEvolution;
 class AAResults;
@@ -102,7 +102,7 @@ private:
   HIRSCCFormation &SCCF;
 
   /// HLNodeUtils object for the framework.
-  HLNodeUtils HNU;
+  std::unique_ptr<HLNodeUtils, HLNodeUtils::HLNodeUtilsDeleter> HNU;
 
   HIRAnalysisProvider AnalysisProvider;
 
@@ -138,6 +138,9 @@ public:
 
   void verify() const;
 
+  // The biggest symbase seen during compilation of this fuction
+  unsigned getMaxSymbase() const { return MaxSymbase; }
+
   // Returns a new unused symbase ID.
   unsigned getNewSymbase() { return ++MaxSymbase; }
 
@@ -145,8 +148,8 @@ public:
   unsigned getMaxScalarSymbase() const;
 
   /// Returns HLNodeUtils object.
-  HLNodeUtils &getHLNodeUtils() { return HNU; }
-  const HLNodeUtils &getHLNodeUtils() const { return HNU; }
+  HLNodeUtils &getHLNodeUtils() { return *HNU; }
+  const HLNodeUtils &getHLNodeUtils() const { return *HNU; }
 
   /// Returns DDRefUtils object.
   DDRefUtils &getDDRefUtils() const;

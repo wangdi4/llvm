@@ -69,7 +69,7 @@ void DDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
 }
 
 unsigned DDRef::getNodeLevel() const {
-  HLDDNode *DDNode = getHLDDNode();
+  const HLDDNode *DDNode = getHLDDNode();
   assert(DDNode && " DDRef not attached to any node.");
 
   return DDNode->getNodeLevel();
@@ -97,8 +97,16 @@ bool DDRef::isLiveOutOfParentLoop() const {
   return getHLDDNode()->isLiveOutOfParentLoop(Symbase);
 }
 
-HLLoop *DDRef::getParentLoop() const { return getHLDDNode()->getParentLoop(); }
+const HLLoop *DDRef::getParentLoop() const {
+  return getHLDDNode()->getParentLoop();
+}
 
-HLLoop *DDRef::getLexicalParentLoop() const {
+HLLoop *DDRef::getParentLoop() { return getHLDDNode()->getParentLoop(); }
+
+const HLLoop *DDRef::getLexicalParentLoop() const {
+  return getHLDDNode()->getLexicalParentLoop();
+}
+
+HLLoop *DDRef::getLexicalParentLoop() {
   return getHLDDNode()->getLexicalParentLoop();
 }

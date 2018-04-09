@@ -118,6 +118,42 @@ struct DistPPNode {
   void dump() { HNode->dump(); }
 };
 
+// See specialization in ADT/DenseMapInfo.h for pointers.
+template <typename PPNode> struct DenseDistPPNodeMapInfo {
+  static_assert(
+      std::is_same<DistPPNode, typename std::remove_cv<PPNode>::type>::value,
+      "Node must be a CV-qualified DistPPNode");
+  typedef PPNode T;
+  static inline T *getEmptyKey() {
+    uintptr_t Val = static_cast<uintptr_t>(-1);
+    Val <<= PointerLikeTypeTraits<T *>::NumLowBitsAvailable;
+    return reinterpret_cast<T *>(Val);
+  }
+
+  static inline T *getTombstoneKey() {
+    uintptr_t Val = static_cast<uintptr_t>(-2);
+    Val <<= PointerLikeTypeTraits<T *>::NumLowBitsAvailable;
+    return reinterpret_cast<T *>(Val);
+  }
+
+  /// Specialized method.
+  static unsigned getHashValue(const T *PtrVal) {
+    return (unsigned(PtrVal->HNode->getNumber() >> 0)) ^
+           (unsigned(PtrVal->HNode->getNumber() >> 5));
+  }
+
+  static bool isEqual(const T *LHS, const T *RHS) { return LHS == RHS; }
+};
+}
+
+template <> struct DenseMapInfo<loopopt::DistPPNode *> :
+public loopopt::DenseDistPPNodeMapInfo<loopopt::DistPPNode> {};
+
+template <> struct DenseMapInfo<const loopopt::DistPPNode *> :
+public loopopt::DenseDistPPNodeMapInfo<const loopopt::DistPPNode> {};
+
+
+namespace loopopt {
 // Edges in DistPPGraph. Represents a list of dd edges between two DistPPNodes
 // Note that some of the DDEdges may not be part of the DDGraph. DD's sometimes
 // skips creation of edges that are required for correct SCC formation(reverse
@@ -285,7 +321,7 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
                           HLLoop *Loop, HIRLoopStatistics *HLS)
       : LoopDDGraph(DDG), DistG(DistPreProcGraph), Loop(Loop), HLS(HLS) {}
 
-  void processOutgoingEdges(DDRef *Ref, EdgeNodeMapTy &EdgeMap) {
+  void processOutgoingEdges(const DDRef *Ref, EdgeNodeMapTy &EdgeMap) {
     DenseMap<HLNode *, DistPPNode *> &HLNodeToDistPPNode = DistG->getNodeMap();
     for (auto Edge = LoopDDGraph->outgoing_edges_begin(Ref),
               LastEdge = LoopDDGraph->outgoing_edges_end(Ref);

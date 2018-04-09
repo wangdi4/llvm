@@ -187,7 +187,7 @@ bool BlobUtils::isConstantDataBlob(BlobTy Blob, ConstantData **Val) {
 
   return false;
 }
-  
+
 bool BlobUtils::isConstantVectorBlob(BlobTy Blob, Constant **Val) {
   auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob);
 
@@ -496,4 +496,8 @@ bool BlobUtils::getTempBlobMostProbableConstValue(BlobTy Blob, int64_t &Val) {
 bool BlobUtils::getTempBlobMostProbableConstValue(unsigned BlobIndex,
                                                   int64_t &Val) const {
   return getTempBlobMostProbableConstValue(getBlob(BlobIndex), Val);
+}
+
+bool BlobUtils::isInstBlob(BlobTy Blob) {
+  return isa<Instruction>(cast<SCEVUnknown>(Blob)->getValue());
 }

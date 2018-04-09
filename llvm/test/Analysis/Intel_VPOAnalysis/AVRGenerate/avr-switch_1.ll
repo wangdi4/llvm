@@ -7,7 +7,7 @@
 ;CHECK: Printing analysis 'AVR Generate' for function '_ZGVbM4vvvv_switcher':
 ;CHECK-NEXT: WRN
 
-;CHECK: DIR.OMP.SIMD.{{[0-9]+}}:
+;CHECK: simd.begin.region:
 ;CHECK-NEXT: call void @llvm.intel.directive
 ;CHECK-NEXT: call void @llvm.intel.directive.qual.opnd.i32
 ;CHECK-NEXT: call void @llvm.intel.directive
@@ -15,7 +15,7 @@
 
 ;CHECK-NEXT: LOOP( IV )
 ;CHECK: simd.loop:
-;CHECK-NEXT: %index = phi [0, DIR.OMP.SIMD.{{[0-9]+}}], [%indvar, simd.loop.exit]
+;CHECK-NEXT: %index = phi [0, simd.begin.region], [%indvar, simd.loop.exit]
 ;TEMP-DO-NOT-CHECK: br i1 %mask.cond, label %simd.loop.then, label %simd.loop.else
 
 ;CHECK: simd.loop.then:

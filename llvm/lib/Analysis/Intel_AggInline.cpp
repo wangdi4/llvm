@@ -75,10 +75,9 @@ bool InlineAggressiveWrapperPass::doFinalization(Module &M) {
 }
 
 bool InlineAggressiveWrapperPass::runOnModule(Module &M) {
-  auto *WPA = &getAnalysis<WholeProgramWrapperPass>();
+  auto &WPA = getAnalysis<WholeProgramWrapperPass>();
   Result.reset(new InlineAggressiveInfo(
-                InlineAggressiveInfo::runImpl(M,
-                            WPA ? &WPA->getResult() : nullptr)));
+                InlineAggressiveInfo::runImpl(M, WPA.getResult())));
   return false;
 }
 
@@ -480,12 +479,10 @@ bool InlineAggressiveInfo::trackUsesofAllocatedGlobalVariables(
   return true;
 }
 
-InlineAggressiveInfo  InlineAggressiveInfo::runImpl(Module &M,
-                                              WholeProgramInfo *WPI) {
+InlineAggressiveInfo InlineAggressiveInfo::runImpl(Module &M,
+                                              WholeProgramInfo &WPI) {
   InlineAggressiveInfo Result;
-
-  //auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();
-  if (!WPI || !WPI->isWholeProgramSafe()) {
+  if (!WPI.isWholeProgramSafe()) {
     if (InlineAggressiveTrace) {
       errs() << " Skipped AggInl ... Whole Program NOT safe \n";
     }
@@ -646,7 +643,7 @@ InlineAggressiveInfo InlineAggAnalysis::run(Module &M,
                                 AnalysisManager<Module> &AM) {
   
   return InlineAggressiveInfo::runImpl(M,
-                              AM.getCachedResult<WholeProgramAnalysis>(M));
+                              AM.getResult<WholeProgramAnalysis>(M));
 }
 
 

@@ -29,7 +29,7 @@ class Function;
 class BasicBlock;
 class SwitchInst;
 class DominatorTree;
-struct PostDominatorTree;
+class PostDominatorTree;
 class LoopInfo;
 class Loop;
 class BranchInst;

@@ -29,26 +29,57 @@ class Type;
 class StructType;
 class CallInst;
 class Value;
+class Constant;
 
 namespace dtrans {
 
+//
+// Enum to indicate the "single value" status of a field:
+//   None: No write to field seen
+//   Single: Only a single value for the field.  The value is obtained with
+//     getSingleValue()
+//   Multiple: Potentially or actually multiple values for the field
+//
+enum SingleValueKind { SVK_None, SVK_Single, SVK_Multiple };
+
 class FieldInfo {
 public:
-  FieldInfo(llvm::Type *Ty) : LLVMType(Ty), Read(false), Written(false)
-                              {}
+  FieldInfo(llvm::Type *Ty)
+      : LLVMType(Ty), Read(false), Written(false), SVKind(SVK_None),
+        SingleValue(nullptr) {}
 
   llvm::Type *getLLVMType() const { return LLVMType; }
 
   bool isRead() const { return Read; }
   bool isWritten() const { return Written; }
-
+  bool isNoValue() const { return SVKind == SVK_None; }
+  bool isSingleValue() const { return SVKind == SVK_Single; }
+  bool isMultipleValue() const { return SVKind == SVK_Multiple; }
+  llvm::Constant *getSingleValue() {
+    return SVKind == SVK_Single ? SingleValue : nullptr;
+  }
   void setRead(bool b) { Read = b; }
   void setWritten(bool b) { Written = b; }
+  void setSingleValue(llvm::Constant *C) {
+    SVKind = SVK_Single;
+    SingleValue = C;
+  }
+  void setMultipleValue() {
+    SVKind = SVK_Multiple;
+    SingleValue = nullptr;
+  }
+  //
+  // Update the "single value" of the field, given that a constant value C
+  // for the field has just been seen.
+  //
+  void processNewSingleValue(llvm::Constant *C);
 
 private:
   llvm::Type *LLVMType;
   bool Read;
   bool Written;
+  SingleValueKind SVKind;
+  llvm::Constant *SingleValue;
 };
 
 /// DTrans optimization safety conditions for a structure type.
@@ -115,29 +146,33 @@ const SafetyData UnsafePtrMerge = 0x0000000000001000;
 /// or memset), with a size that differs from the native structure size.
 const SafetyData BadMemFuncSize = 0x0000000000002000;
 
+/// A proper subset of fields in a structure is modified via a memory function
+/// intrinsic (memcpy, memmove, or memset).
+const SafetyData MemFuncPartialWrite = 0x0000000000004000;
+
 /// A structure is modified via a memory function intrinsic (memcpy or memmove)
 /// with conflicting or unknown types for the source and destination parameters.
-const SafetyData BadMemFuncManipulation = 0x0000000000004000;
+const SafetyData BadMemFuncManipulation = 0x0000000000008000;
 
 /// A pointer is passed to an intrinsic or library function that can alias
 /// incompatible types.
-const SafetyData AmbiguousPointerTarget = 0x0000000000008000;
+const SafetyData AmbiguousPointerTarget = 0x0000000000010000;
 
 /// The address of an aggregate object escaped through a function call or
 /// a return statement.
-const SafetyData AddressTaken = 0x0000000000010000;
+const SafetyData AddressTaken = 0x0000000000020000;
 
 /// The structure was declared with no fields.
-const SafetyData NoFieldsInStruct = 0x0000000000020000;
+const SafetyData NoFieldsInStruct = 0x0000000000040000;
 
 /// The structure is contained as a non-pointer member of another structure.
-const SafetyData NestedStruct = 0x0000000000040000;
+const SafetyData NestedStruct = 0x0000000000080000;
 
 /// The structure contains another structure as a non-pointer member.
-const SafetyData ContainsNestedStruct = 0x0000000000080000;
+const SafetyData ContainsNestedStruct = 0x0000000000100000;
 
 /// The structure was identified as a system object type.
-const SafetyData SystemObject = 0x0000000000100000;
+const SafetyData SystemObject = 0x0000000000200000;
 
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
@@ -165,7 +200,7 @@ public:
       return true;
     return (SafetyInfo & Conditions);
   }
-  void setSafetyData(SafetyData Conditions) { SafetyInfo |= Conditions; }
+  void setSafetyData(SafetyData Conditions);
   void resetSafetyData(SafetyData Conditions) { SafetyInfo &= ~Conditions; }
   void clearSafetyData() { SafetyInfo = 0; }
 
@@ -178,6 +213,15 @@ private:
   // ID to support type inquiry through isa, cast, and dyn_cast
   TypeInfoKind TIK;
 };
+
+//
+// Safety conditions for field single value analysis
+//
+const SafetyData SDFieldSingleValue =
+    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
+    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
+    BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
+    UnsafePtrMerge | AddressTaken | UnhandledUse;
 
 class NonAggregateTypeInfo : public TypeInfo {
 public:
@@ -245,13 +289,7 @@ private:
 /// The malloc, calloc, and realloc allocation kinds each correspond to a call
 /// to the standard library function of the same name.  C++ new operators are
 /// not currently supported.
-enum AllocKind {
-  AK_NotAlloc,
-  AK_Malloc,
-  AK_Calloc,
-  AK_Realloc,
-  AK_UserAlloc
-};
+enum AllocKind { AK_NotAlloc, AK_Malloc, AK_Calloc, AK_Realloc, AK_UserAlloc };
 
 /// Determine whether the specified Function is an allocation function, and
 /// if so what kind of allocation function it is and the size of the allocation.
@@ -260,8 +298,8 @@ AllocKind getAllocFnKind(Function *F, const TargetLibraryInfo &TLI);
 /// Get the size and count arguments for the allocation call. AllocCountiVal is
 /// used for calloc allocations.  For all other allocation kinds it will be set
 /// to nullptr.
-void getAllocSizeArgs(AllocKind Kind, CallInst *CI, Value* &AllocSizeVal,
-                      Value* &AllocCountVal);
+void getAllocSizeArgs(AllocKind Kind, CallInst *CI, Value *&AllocSizeVal,
+                      Value *&AllocCountVal);
 
 /// Determine whether or not the specified Function is the free library
 /// function.
