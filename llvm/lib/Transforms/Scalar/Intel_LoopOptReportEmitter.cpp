@@ -13,11 +13,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Scalar/Intel_LoopOptReportEmitter.h"
+
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/FormattedStream.h"
 
-#include "llvm/Transforms/Scalar/Intel_LoopOptReportEmitter.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportPrintUtils.h"
@@ -47,20 +48,15 @@ void LoopOptReportEmitter::printLoopOptReportRecursive(
   LoopOptReport OptReport =
       LoopOptReport::findOptReportInLoopID(L->getLoopID());
 
-  printLoopHeader(FOS, Depth);
+  printLoopHeaderAndOrigin(FOS, Depth, OptReport, L->getStartLoc());
 
-  if (OptReport && OptReport.debugLoc())
-    printDebugLocation(FOS, Depth, OptReport.debugLoc());
-  else if (L->getStartLoc().get())
-    printDebugLocation(FOS, Depth, L->getStartLoc().get());
-  else
-    FOS << "\n";
-
-  if (OptReport)
+  if (OptReport) {
     printOptReport(FOS, Depth + 1, OptReport);
+  }
 
   for (const Loop *CL : L->getSubLoops())
     printLoopOptReportRecursive(CL, Depth + 1, FOS);
+
   printLoopFooter(FOS, Depth);
 
   if (OptReport && OptReport.nextSibling())
@@ -90,7 +86,6 @@ bool LoopOptReportEmitter::run(Function &F, LoopInfo &LI) {
 
   return false;
 }
-
 
 struct LoopOptReportEmitterLegacyPass : public FunctionPass {
   static char ID;

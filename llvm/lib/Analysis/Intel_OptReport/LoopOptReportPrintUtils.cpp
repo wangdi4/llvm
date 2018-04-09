@@ -16,6 +16,7 @@
 
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportPrintUtils.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DebugLoc.h"
 
 namespace llvm {
 
@@ -161,16 +162,31 @@ void printLoopFooter(formatted_raw_ostream &FOS, unsigned Depth) {
   FOS << "LOOP END\n";
 }
 
+void printLoopHeaderAndOrigin(formatted_raw_ostream &FOS, unsigned Depth,
+                              LoopOptReport OptReport, const DebugLoc &DL) {
+  printLoopHeader(FOS, Depth);
+
+  if (DL.get())
+    printDebugLocation(FOS, Depth, DL.get());
+  else if (OptReport && OptReport.debugLoc())
+    printDebugLocation(FOS, Depth, OptReport.debugLoc());
+  else
+    FOS << "\n";
+
+  if (OptReport) {
+    for (const LoopOptRemark R : OptReport.origin()) {
+      printOrigin(FOS, Depth, R);
+    }
+  }
+}
+
 void printEnclosedOptReport(formatted_raw_ostream &FOS, unsigned Depth,
                             LoopOptReport OptReport) {
   assert(OptReport &&
          "Client code is responsible for providing non-null OptReport");
 
-  printLoopHeader(FOS, Depth);
-  if (OptReport.debugLoc())
-    printDebugLocation(FOS, Depth, OptReport.debugLoc());
-  else
-    FOS << "\n";
+  printLoopHeaderAndOrigin(FOS, Depth, OptReport, DebugLoc());
+
   printOptReport(FOS, Depth + 1, OptReport);
   printLoopFooter(FOS, Depth);
 
@@ -184,9 +200,6 @@ void printOptReport(formatted_raw_ostream &FOS, unsigned Depth,
                     LoopOptReport OptReport) {
   assert(OptReport &&
          "Client code is responsible for providing non-null OptReport");
-
-  for (const LoopOptRemark R : OptReport.origin())
-    printOrigin(FOS, Depth, R);
 
   for (const LoopOptRemark R : OptReport.remarks())
     printRemark(FOS, Depth, R);

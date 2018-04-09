@@ -39,6 +39,26 @@
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: END LOOP
 ; CHECK: END REGION
+
+;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-distribute-loopnest -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+;
+;OPTREPORT: LOOP BEGIN
+;OPTREPORT: <Distributed chunk 1>
+;OPTREPORT:     Remark #XXXXX: Loop distributed (2 way)
+;OPTREPORT:     LOOP BEGIN
+;OPTREPORT:     <Distributed chunk 1>
+;OPTREPORT:         Remark #XXXXX: Loop distributed (2 way)
+;OPTREPORT:     LOOP END
+;OPTREPORT: LOOP END
+;OPTREPORT: LOOP BEGIN
+;OPTREPORT: <Distributed chunk 2>
+;OPTREPORT:     LOOP BEGIN
+;OPTREPORT:     <Distributed chunk 2>
+;OPTREPORT:         LOOP BEGIN
+;OPTREPORT:         LOOP END
+;OPTREPORT:     LOOP END
+;OPTREPORT: LOOP END
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

@@ -86,7 +86,8 @@ private:
   // Uses ordered list of PiBlockLists to form distributed version of Loop.
   // Each PiBlockList will form a new loop(with same bounds as Loop) containing
   // each piblock's hlnodes.
-  void distributeLoop(HLLoop *L, SmallVectorImpl<PiBlockList> &DistPoints);
+  void distributeLoop(HLLoop *L, SmallVectorImpl<PiBlockList> &DistPoints,
+                      LoopOptReportBuilder &LORBuilder);
 };
 } // namespace loopopt
 } // namespace llvm

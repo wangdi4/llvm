@@ -95,7 +95,7 @@ bool HIRLoopDistribution::runOnFunction(Function &F) {
     SmallVector<PiBlockList, 8> NewOrdering;
     findDistPoints(Lp, PG, NewOrdering);
     if (NewOrdering.size() > 1) {
-      distributeLoop(Lp, NewOrdering);
+      distributeLoop(Lp, NewOrdering, HIRF->getLORBuilder());
       Modified = true;
     } else {
       if (OptReportLevel >= 3) {
@@ -121,7 +121,8 @@ bool HIRLoopDistribution::piEdgeIsRecurrence(const HLLoop *Lp,
 }
 
 void HIRLoopDistribution::distributeLoop(
-    HLLoop *Loop, SmallVectorImpl<PiBlockList> &DistPoints) {
+    HLLoop *Loop, SmallVectorImpl<PiBlockList> &DistPoints,
+    LoopOptReportBuilder &LORBuilder) {
 
   assert(DistPoints.size() > 1 && "Invalid loop distribution");
 
@@ -144,6 +145,8 @@ void HIRLoopDistribution::distributeLoop(
       HLNodeUtils::moveAsFirstPreheaderNodes(NewLoop, Loop->pre_begin(),
                                              Loop->pre_end());
       CopyPreHeader = false;
+      LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
+                                     "Loop distributed (%d way)", LastLoopNum);
     }
     if (++Num == LastLoopNum) {
       HLNodeUtils::moveAsFirstPostexitNodes(NewLoop, Loop->post_begin(),
@@ -158,6 +161,7 @@ void HIRLoopDistribution::distributeLoop(
         HLNodeUtils::moveAsLastChild(NewLoop, *NodeI);
       }
     }
+    LORBuilder(*NewLoop).addOrigin("Distributed chunk %d", Num);
   }
 
   Loop->getParentRegion()->setGenCode();
