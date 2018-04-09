@@ -307,16 +307,7 @@ void ProcessInstanceInfo::Dump(Stream &s, Platform *platform) const {
     }
   }
 
-  const uint32_t envc = m_environment.GetArgumentCount();
-  if (envc > 0) {
-    for (uint32_t i = 0; i < envc; i++) {
-      const char *env = m_environment.GetArgumentAtIndex(i);
-      if (i < 10)
-        s.Printf(" env[%u] = %s\n", i, env);
-      else
-        s.Printf("env[%u] = %s\n", i, env);
-    }
-  }
+  s.Format("{0}", m_environment);
 
   if (m_arch.IsValid()) {
     s.Printf("   arch = ");
@@ -529,7 +520,7 @@ Status ProcessLaunchCommandOptions::SetOptionValue(
     break;
 
   case 'v':
-    launch_info.GetEnvironmentEntries().AppendArgument(option_arg);
+    launch_info.GetEnvironment().insert(option_arg);
     break;
 
   default:
@@ -2866,10 +2857,10 @@ Status Process::LoadCore() {
     // state.
     SetPrivateState(eStateStopped);
 
-    // Wait indefinitely for a stopped event since we just posted one above...
+    // Wait for a stopped event since we just posted one above...
     lldb::EventSP event_sp;
-    listener_sp->GetEvent(event_sp, llvm::None);
-    StateType state = ProcessEventData::GetStateFromEvent(event_sp.get());
+    StateType state =
+        WaitForProcessToStop(seconds(10), &event_sp, true, listener_sp);
 
     if (!StateIsStoppedState(state, false)) {
       Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_PROCESS));

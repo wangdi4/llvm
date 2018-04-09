@@ -15,6 +15,23 @@ void foo1()
   __attribute__((__memory__))
   unsigned int v_two[64];
 
+  //CHECK: VarDecl{{.*}}v_two_A
+  //CHECK: MemoryAttr{{.*}}MLAB{{$}}
+  __attribute__((__memory__("MLAB")))
+  unsigned int v_two_A[64];
+
+  //CHECK: VarDecl{{.*}}v_two_B
+  //CHECK: MemoryAttr{{.*}}BlockRAM{{$}}
+  __attribute__((__memory__("BLOCK_RAM")))
+  unsigned int v_two_B[64];
+
+  //CHECK: VarDecl{{.*}}v_two_C
+  //CHECK: DoublePumpAttr
+  //CHECK: MemoryAttr{{.*}}BlockRAM{{$}}
+  __attribute__((__memory__("BLOCK_RAM")))
+  __attribute__((doublepump))
+  unsigned int v_two_C[64];
+
   //CHECK: VarDecl{{.*}}v_three
   //CHECK: RegisterAttr
   __attribute__((__register__))
@@ -244,6 +261,38 @@ void foo1()
   //expected-warning@+1{{attribute 'memory' is already applied}}
   __attribute__((memory)) __attribute__((__memory__))
   unsigned int mem_two[64];
+
+  //expected-warning@+1{{attribute 'memory' is already applied}}
+  __attribute__((memory)) __attribute__((memory("MLAB")))
+      unsigned int mem_three[64];
+
+  //expected-warning@+1{{attribute 'memory' is already applied}}
+  __attribute__((memory("BLOCK_RAM"))) __attribute__((memory("MLAB")))
+      unsigned int mem_four[64];
+
+  //expected-warning@+1{{attribute 'memory' is already applied}}
+  __attribute__((memory("BLOCK_RAM"))) __attribute__((__memory__))
+      unsigned int mem_five[64];
+
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((__memory__("MLAB")))
+  __attribute__((__doublepump__))
+  //expected-note@-1 {{conflicting attribute is here}}
+  unsigned int mem_six[64];
+
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((doublepump))
+  __attribute__((memory("MLAB")))
+  //expected-note@-1 {{conflicting attribute is here}}
+  unsigned int mem_seven[64];
+
+  //expected-error@+1{{requires either no argument or one of: MLAB BLOCK_RAM}}
+  __attribute__((memory("")))
+  unsigned int mem_eight[64];
+
+  //expected-error@+1{{requires either no argument or one of: MLAB BLOCK_RAM}}
+  __attribute__((memory("NLAB")))
+  unsigned int mem_nine[64];
 
   // bankwidth
   //expected-error@+1{{attributes are not compatible}}
@@ -588,3 +637,6 @@ void other()
   int i = 1;
   type_temp(i);
 }
+
+//expected-error@+1{{attribute only applies to local or static variables}}
+__attribute__((__doublepump__)) unsigned int ext_one[64];

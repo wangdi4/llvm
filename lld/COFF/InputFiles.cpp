@@ -138,12 +138,13 @@ void ObjFile::initializeChunks() {
     if (Sec->Characteristics & IMAGE_SCN_LNK_COMDAT)
       SparseChunks[I] = PendingComdat;
     else
-      SparseChunks[I] = readSection(I, nullptr);
+      SparseChunks[I] = readSection(I, nullptr, "");
   }
 }
 
 SectionChunk *ObjFile::readSection(uint32_t SectionNumber,
-                                   const coff_aux_section_definition *Def) {
+                                   const coff_aux_section_definition *Def,
+                                   StringRef LeaderName) {
   const coff_section *Sec;
   StringRef Name;
   if (auto EC = COFFObj->getSection(SectionNumber, Sec))
@@ -151,15 +152,7 @@ SectionChunk *ObjFile::readSection(uint32_t SectionNumber,
   if (auto EC = COFFObj->getSectionName(Sec, Name))
     fatal("getSectionName failed: #" + Twine(SectionNumber) + ": " +
           EC.message());
-  if (Name == ".sxdata") {
-    ArrayRef<uint8_t> Data;
-    COFFObj->getSectionContents(Sec, Data);
-    if (Data.size() % 4 != 0)
-      fatal(".sxdata must be an array of symbol table indices");
-    SXData = {reinterpret_cast<const ulittle32_t *>(Data.data()),
-              Data.size() / 4};
-    return nullptr;
-  }
+
   if (Name == ".drectve") {
     ArrayRef<uint8_t> Data;
     COFFObj->getSectionContents(Sec, Data);
@@ -191,6 +184,18 @@ SectionChunk *ObjFile::readSection(uint32_t SectionNumber,
   // linked in the regular manner.
   if (C->isCodeView())
     DebugChunks.push_back(C);
+  else if (Config->GuardCF != GuardCFLevel::Off && Name == ".gfids$y")
+    GuardFidChunks.push_back(C);
+  else if (Config->GuardCF != GuardCFLevel::Off && Name == ".gljmp$y")
+    GuardLJmpChunks.push_back(C);
+  else if (Name == ".sxdata")
+    SXDataChunks.push_back(C);
+  else if (Config->DoICF && Sec->NumberOfRelocations == 0 && Name == ".rdata" &&
+           LeaderName.startswith("??_C@"))
+    // COFF sections that look like string literal sections (i.e. no
+    // relocations, in .rdata, leader symbol name matches the MSVC name mangling
+    // for string literals) are subject to string tail merging.
+    MergeChunk::addSection(C);
   else
     Chunks.push_back(C);
 
@@ -211,7 +216,7 @@ void ObjFile::readAssociativeDefinition(
   // the section; otherwise mark it as discarded.
   int32_t SectionNumber = Sym.getSectionNumber();
   if (Parent) {
-    SparseChunks[SectionNumber] = readSection(SectionNumber, Def);
+    SparseChunks[SectionNumber] = readSection(SectionNumber, Def, "");
     if (SparseChunks[SectionNumber])
       Parent->addAssociative(SparseChunks[SectionNumber]);
   } else {
@@ -308,10 +313,8 @@ Optional<Symbol *> ObjFile::createDefined(
     // Skip special symbols.
     if (Name == "@comp.id")
       return nullptr;
-    // COFF spec 5.10.1. The .sxdata section.
     if (Name == "@feat.00") {
-      if (Sym.getValue() & 1)
-        SEHCompat = true;
+      Feat00Flags = Sym.getValue();
       return nullptr;
     }
     if (Sym.isExternal())
@@ -347,7 +350,7 @@ Optional<Symbol *> ObjFile::createDefined(
       Prevailing = true;
     }
     if (Prevailing) {
-      SectionChunk *C = readSection(SectionNumber, Def);
+      SectionChunk *C = readSection(SectionNumber, Def, Name);
       SparseChunks[SectionNumber] = C;
       C->Sym = cast<DefinedRegular>(Leader);
       cast<DefinedRegular>(Leader)->Data = &C->Repl;

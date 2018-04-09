@@ -28,5 +28,5 @@ void S::foo()
 // CHECK:  [[T1:%.+]] = load [[S]]*, [[S]]** [[TA]]
 // CHECK:  [[T2:%.+]] = getelementptr inbounds [[S]], [[S]]* [[T1]], i32 0, i32 0
 // CHECK:  [[tem0:%.+]] = bitcast [[U]]* [[T2]] to i8*
-// CHECK:  call void {{@.+}}(i8* [[tem0]], i8* bitcast ([[U]]* [[C]] to i8*), i64 40, i32 4, i1 false)
+// CHECK:  call void {{@.+}}(i8* align 4 [[tem0]], i8* align 4 bitcast ([[U]]* [[C]] to i8*), i64 40, i1 false)
 }

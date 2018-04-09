@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -verify %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -triple x86_64-unknown-linux-gnu -verify %s -emit-llvm -o - | FileCheck %s
 //
 // We should emit a warning, not an error, if attribute 'tls_model' is
 // applied to the non-tls variable. CQ#376466.

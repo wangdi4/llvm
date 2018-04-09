@@ -390,17 +390,17 @@ def int_instrprof_value_profile : Intrinsic<[],
 
 def int_memcpy  : Intrinsic<[],
                              [llvm_anyptr_ty, llvm_anyptr_ty, llvm_anyint_ty,
-                              llvm_i32_ty, llvm_i1_ty],
+                              llvm_i1_ty],
                             [IntrArgMemOnly, NoCapture<0>, NoCapture<1>,
                              WriteOnly<0>, ReadOnly<1>]>;
 def int_memmove : Intrinsic<[],
                             [llvm_anyptr_ty, llvm_anyptr_ty, llvm_anyint_ty,
-                             llvm_i32_ty, llvm_i1_ty],
+                             llvm_i1_ty],
                             [IntrArgMemOnly, NoCapture<0>, NoCapture<1>,
                              ReadOnly<1>]>;
 def int_memset  : Intrinsic<[],
                             [llvm_anyptr_ty, llvm_i8_ty, llvm_anyint_ty,
-                             llvm_i32_ty, llvm_i1_ty],
+                             llvm_i1_ty],
                             [IntrArgMemOnly, NoCapture<0>, WriteOnly<0>]>;
 
 // FIXME: Add version of these floating point intrinsics which allow non-default
@@ -873,6 +873,10 @@ def int_type_test : Intrinsic<[llvm_i1_ty], [llvm_ptr_ty, llvm_metadata_ty],
 def int_type_checked_load : Intrinsic<[llvm_ptr_ty, llvm_i1_ty],
                                       [llvm_ptr_ty, llvm_i32_ty, llvm_metadata_ty],
                                       [IntrNoMem]>;
+
+// Create a branch funnel that implements an indirect call to a limited set of
+// callees. This needs to be a musttail call.
+def int_icall_branch_funnel : Intrinsic<[], [llvm_vararg_ty], []>;
 
 def int_load_relative: Intrinsic<[llvm_ptr_ty], [llvm_ptr_ty, llvm_anyint_ty],
                                  [IntrReadMem, IntrArgMemOnly]>;

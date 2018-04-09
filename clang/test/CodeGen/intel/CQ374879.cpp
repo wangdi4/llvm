@@ -8,10 +8,10 @@ int main ()
 // CHECK: store i32 1, i32* {{%.+}}
   int m[2]{2, 3};
 // CHECK: [[m:%.+]] = bitcast [2 x i32]* {{%.+}} to i8*
-// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* [[m]], i8* bitcast ([2 x i32]* [[m_init]] to i8*), i64 8, i32 4, i1 false)
+// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 [[m]], i8* align 4 bitcast ([2 x i32]* [[m_init]] to i8*), i64 8, i1 false)
   struct {int a, b;} s{4,5};
 // CHECK: [[s:%.+]] = bitcast %struct.anon* {{%.+}} to i8*
-// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* [[s]], i8* bitcast (%struct.anon* [[s_init]] to i8*), i64 8, i32 4, i1 false)
+// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 [[s]], i8* align 4 bitcast (%struct.anon* [[s_init]] to i8*), i64 8, i1 false)
   int *p = new int[2]{6,7};
 // CHECK: [[call:%.+]] = call i8* {{@.+}}(i64 8)
 // CHECK: [[t2:%.+]] = bitcast i8* [[call]] to i32*

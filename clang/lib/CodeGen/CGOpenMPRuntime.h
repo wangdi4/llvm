@@ -191,12 +191,26 @@ public:
   }
   /// Returns the base declaration of the reduction item.
   const VarDecl *getBaseDecl(unsigned N) const { return BaseDecls[N]; }
+  /// Returns the base declaration of the reduction item.
+  const Expr *getRefExpr(unsigned N) const { return ClausesData[N].Ref; }
   /// Returns true if the initialization of the reduction item uses initializer
   /// from declare reduction construct.
   bool usesReductionInitializer(unsigned N) const;
 };
 
 class CGOpenMPRuntime {
+public:
+  /// Allows to disable automatic handling of functions used in target regions
+  /// as those marked as `omp declare target`.
+  class DisableAutoDeclareTargetRAII {
+    CodeGenModule &CGM;
+    bool SavedShouldMarkAsGlobal;
+
+  public:
+    DisableAutoDeclareTargetRAII(CodeGenModule &CGM);
+    ~DisableAutoDeclareTargetRAII();
+  };
+
 protected:
   CodeGenModule &CGM;
 
@@ -251,9 +265,8 @@ protected:
   virtual StringRef getOutlinedHelperName() const { return ".omp_outlined."; }
 
   /// Emits \p Callee function call with arguments \p Args with location \p Loc.
-  void emitCall(CodeGenFunction &CGF, llvm::Value *Callee,
-                ArrayRef<llvm::Value *> Args = llvm::None,
-                SourceLocation Loc = SourceLocation()) const;
+  void emitCall(CodeGenFunction &CGF, SourceLocation Loc, llvm::Value *Callee,
+                ArrayRef<llvm::Value *> Args = llvm::None) const;
 
 private:
   /// \brief Default const ident_t object used for initialization of all other
@@ -487,6 +500,9 @@ private:
   };
   OffloadEntriesInfoManagerTy OffloadEntriesInfoManager;
 
+  bool ShouldMarkAsGlobal = true;
+  llvm::SmallDenseSet<const FunctionDecl *> AlreadyEmittedTargetFunctions;
+
   /// \brief Creates and registers offloading binary descriptor for the current
   /// compilation unit. The function that does the registration is returned.
   llvm::Function *createOffloadingBinaryDescriptorRegistration();
@@ -675,7 +691,7 @@ public:
 
   /// \brief Cleans up references to the objects in finished function.
   ///
-  void functionFinished(CodeGenFunction &CGF);
+  virtual void functionFinished(CodeGenFunction &CGF);
 
   /// \brief Emits code for parallel or serial call of the \a OutlinedFn with
   /// variables captured in a record which address is stored in \a
@@ -1048,7 +1064,8 @@ public:
   /// \param RHSExprs List of RHS in \a ReductionOps reduction operations.
   /// \param ReductionOps List of reduction operations in form 'LHS binop RHS'
   /// or 'operator binop(LHS, RHS)'.
-  llvm::Value *emitReductionFunction(CodeGenModule &CGM, llvm::Type *ArgsType,
+  llvm::Value *emitReductionFunction(CodeGenModule &CGM, SourceLocation Loc,
+                                     llvm::Type *ArgsType,
                                      ArrayRef<const Expr *> Privates,
                                      ArrayRef<const Expr *> LHSExprs,
                                      ArrayRef<const Expr *> RHSExprs,
@@ -1206,13 +1223,11 @@ public:
   /// directive, or null if no if clause is used.
   /// \param Device Expression evaluated in device clause associated with the
   /// target directive, or null if no device clause is used.
-  /// \param CapturedVars Values captured in the current region.
   virtual void emitTargetCall(CodeGenFunction &CGF,
                               const OMPExecutableDirective &D,
                               llvm::Value *OutlinedFn,
                               llvm::Value *OutlinedFnID, const Expr *IfCond,
-                              const Expr *Device,
-                              ArrayRef<llvm::Value *> CapturedVars);
+                              const Expr *Device);
 
   /// \brief Emit the target regions enclosed in \a GD function definition or
   /// the function itself in case it is a valid device function. Returns true if
@@ -1362,6 +1377,19 @@ public:
   emitOutlinedFunctionCall(CodeGenFunction &CGF, SourceLocation Loc,
                            llvm::Value *OutlinedFn,
                            ArrayRef<llvm::Value *> Args = llvm::None) const;
+
+  /// Emits OpenMP-specific function prolog.
+  /// Required for device constructs.
+  virtual void emitFunctionProlog(CodeGenFunction &CGF, const Decl *D) {}
+
+  /// Gets the OpenMP-specific address of the local variable.
+  virtual Address getAddressOfLocalVariable(CodeGenFunction &CGF,
+                                            const VarDecl *VD);
+
+  /// Marks the declaration as alread emitted for the device code and returns
+  /// true, if it was marked already, and false, otherwise.
+  bool markAsGlobalTarget(const FunctionDecl *D);
+
 };
 
 /// Class supports emissionof SIMD-only code.
@@ -1832,11 +1860,9 @@ public:
   /// directive, or null if no if clause is used.
   /// \param Device Expression evaluated in device clause associated with the
   /// target directive, or null if no device clause is used.
-  /// \param CapturedVars Values captured in the current region.
   void emitTargetCall(CodeGenFunction &CGF, const OMPExecutableDirective &D,
                       llvm::Value *OutlinedFn, llvm::Value *OutlinedFnID,
-                      const Expr *IfCond, const Expr *Device,
-                      ArrayRef<llvm::Value *> CapturedVars) override;
+                      const Expr *IfCond, const Expr *Device) override;
 
   /// \brief Emit the target regions enclosed in \a GD function definition or
   /// the function itself in case it is a valid device function. Returns true if

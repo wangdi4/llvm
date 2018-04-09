@@ -177,11 +177,13 @@ public:
   void emitOMPAtomicDirective(OMPAtomicClause ClauseKind);
   void emitOMPSingleDirective();
   void emitOMPMasterDirective();
-  void emitOMPCriticalDirective();
+  void emitOMPCriticalDirective(const StringRef Name);
   void emitOMPOrderedDirective();
   void emitOMPTargetDirective();
   void emitOMPTargetDataDirective();
   void emitOMPTargetUpdateDirective();
+  void emitOMPTargetEnterDataDirective();
+  void emitOMPTargetExitDataDirective();
   void emitOMPTaskLoopDirective();
   void emitOMPTaskLoopSimdDirective();
   void emitOMPTaskDirective();
@@ -195,6 +197,8 @@ public:
   void emitOMPSectionsDirective();
   void emitOMPSectionDirective();
   void emitOMPParallelSectionsDirective();
+  void emitOMPCancelDirective(OpenMPDirectiveKind Kind);
+  void emitOMPCancellationPointDirective(OpenMPDirectiveKind Kind);
   OpenMPCodeOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
   void emitImplicit(Expr *E, ImplicitClauseKind K);
   void emitImplicit(const VarDecl *VD, ImplicitClauseKind K);
