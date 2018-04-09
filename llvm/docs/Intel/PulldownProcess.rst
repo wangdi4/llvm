@@ -177,8 +177,8 @@ pulldown coordinator, who can work with the development teams to analyze and
 fix any problems.
 
 If you want to check on the status of in-progress ``xmain-web`` testing, you
-can use the ``amt`` tool on Windows and search for jobs with owner ``omirochn``
-that are testing ``xmain-web``.
+can use the ``amt`` tool on Windows and search for jobs with owner
+``sys_iclsrc`` that are testing ``xmain-web``.
 
 JIRA Board For Tracking ``xmain-web`` Testing Status
 ----------------------------------------------------
