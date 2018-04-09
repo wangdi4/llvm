@@ -123,7 +123,7 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
     DDRef *DDRefSink = Edge->getSink();
     RegDDRef *RegRef = dyn_cast<RegDDRef>(DDRefSink);
     if (!RegRef) {
-      // Handles blobs later
+      // TODO: Handles blobs later
       return false;
     }
     Node = DDRefSink->getHLDDNode();
@@ -207,6 +207,10 @@ bool gatherPreloopInsts(HLInst *Inst, HLLoop *InnermostLoop, DDGraph DDG,
                         SmallVectorImpl<HLInst *> &PreLoopInsts,
                         SmallVectorImpl<HLInst *> &ForwardSubInsts) {
 
+  if (!Inst) {
+    // pre(post)loop HLNode might have not be HLInst (e.g HLIf)
+    return false;
+  }
   const Instruction *LLVMInst = Inst->getLLVMInstruction();
   bool IsCopyInst = Inst->isCopyInst();
   if (!isa<LoadInst>(LLVMInst) && !IsCopyInst) {
@@ -236,6 +240,10 @@ bool gatherPreloopInsts(HLInst *Inst, HLLoop *InnermostLoop, DDGraph DDG,
 
 bool gatherPostloopInsts(HLInst *Inst,
                          SmallVectorImpl<HLInst *> &PostLoopInsts) {
+  if (!Inst) {
+    // pre(post)loop HLNode might have not be HLInst (e.g HLIf)
+    return false;
+  }
 
   const Instruction *LLVMInst = Inst->getLLVMInstruction();
   // Allow only Store in PostLoop Nodes
@@ -371,6 +379,7 @@ bool enablePerfectLPLegalityCheckPre(
     if (!canMoveLoadIntoLoop(LRef, RRef, InnermostLoop, PostLoopInsts,
                              &StoreInst, DDG)) {
       DEBUG(dbgs() << "\n Fails at canMoveLoadIntoLoop \n");
+      DEBUG(Inst->dump());
       return false;
     }
     if (StoreInst) {
@@ -389,7 +398,6 @@ bool enablePerfectLPLegalityCheckPost(
     SmallVectorImpl<HLInst *> &ValidatedStores) {
 
   for (auto &Inst : PostLoopInsts) {
-
     //  A[i] = t0
     // a. Node is in Validated Store, Ok
     // b. No in/out edge of A[i] to InnermostLoop
@@ -403,6 +411,7 @@ bool enablePerfectLPLegalityCheckPost(
       return false;
     }
   }
+
   return true;
 }
 
@@ -550,6 +559,21 @@ static void updateLiveinsLiveoutsForSinkedInst(HLLoop *InnermostLoop,
   }
 }
 
+static void gatherTempRegDDRefSymbases(
+    const SmallVectorImpl<HLInst *> &Insts,
+    InterchangeIgnorableSymbasesTy &SinkedTempDDRefSymbases) {
+
+  for (auto &I : Insts) {
+    const HLDDNode *DDNode = dyn_cast<HLDDNode>(I);
+    for (const DDRef *PrePostDDRef :
+         llvm::make_range(DDNode->op_ddref_begin(), DDNode->op_ddref_end())) {
+      if (PrePostDDRef->isTerminalRef()) {
+        SinkedTempDDRefSymbases.insert(PrePostDDRef->getSymbase());
+      }
+    }
+  }
+}
+
 ///  Enables Perfect Loop Nests
 ///  Only takes care loops of this form:
 ///  Invariants are just those right outside the innermost loop
@@ -578,8 +602,9 @@ static void updateLiveinsLiveoutsForSinkedInst(HLLoop *InnermostLoop,
 ///      p[i] = t0
 ///      if this stmt is not part of (1), then no Dep edge of p or p[i] allowed
 ///
-bool DDUtils::enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG) {
-
+bool DDUtils::enablePerfectLoopNest(
+    HLLoop *InnermostLoop, DDGraph DDG,
+    InterchangeIgnorableSymbasesTy &SinkedTempDDRefSymbases) {
   assert(InnermostLoop->getParentLoop() && "Parent Loop must not be nullptr");
 
   SmallVector<HLInst *, 8> PreLoopInsts;
@@ -631,6 +656,11 @@ bool DDUtils::enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG) {
   // Call Util to update the temp DDRefs from linear-at-level to non-linear
   updateDDRefsLinearity(PreLoopInsts, DDG);
   updateDDRefsLinearity(PostLoopInsts, DDG);
+
+  // Gather temp DDRef's symbase in sinked instruction
+  // Loop Interchange needs this information
+  gatherTempRegDDRefSymbases(PreLoopInsts, SinkedTempDDRefSymbases);
+  gatherTempRegDDRefSymbases(PostLoopInsts, SinkedTempDDRefSymbases);
 
   return true;
 }

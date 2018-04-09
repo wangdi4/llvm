@@ -15,11 +15,14 @@
 
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDUTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDUTILS_H
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 
 namespace llvm {
 namespace loopopt {
+
+typedef SmallSet<unsigned, 16> InterchangeIgnorableSymbasesTy;
 
 /// \brief Defines utilities for DDUtils Class
 ///
@@ -49,7 +52,9 @@ public:
 
   /// \brief  Enables Perfect Loop Nests
   /// Takes care of simple cases that are needed for Interchange
-  static bool enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG);
+  static bool
+  enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG,
+                        SmallSet<unsigned, 16> &SinkedTempDDRefSymbases);
   /// \brief  Checks if a LvalRef has 'Threshold' uses in a loop
   static bool maxUsesInLoop(const RegDDRef *LvalRef, const HLLoop *Loop,
                             DDGraph DDG, const unsigned Threshold);

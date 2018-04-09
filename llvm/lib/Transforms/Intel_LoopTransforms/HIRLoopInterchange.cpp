@@ -112,6 +112,8 @@ private:
   SmallVector<const HLLoop *, MaxLoopNestLevel> NearByPerm;
   SmallVector<const HLLoop *, 5> PerfectLoopsEnabled;
   SmallVector<DirectionVector, 16> DVs;
+  std::map<const HLLoop *, InterchangeIgnorableSymbasesTy>
+      CandLoopToIgnorableSymBases;
 
   // Helper for generating optimization reports.
   LoopOptReportBuilder LORBuilder;
@@ -149,11 +151,13 @@ INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRLoopInterchange, "hir-loop-interchange",
                     "HIR Loop Interchange", false, false)
 
-static bool isBlockingCandidate(const HLLoop *Loop) {
+namespace {
+bool isBlockingCandidate(const HLLoop *Loop) {
   // Will be in blocking code when it is ready
   // To be deleted
   return false;
 }
+} // namespace
 
 /// Gather all perfect Loop Nest and enable near perfect one if needed
 struct HIRLoopInterchange::CollectCandidateLoops final
@@ -234,9 +238,12 @@ struct HIRLoopInterchange::CollectCandidateLoops final
       DEBUG(dbgs(); Loop->dump());
 
       DDGraph DDG = DDA->getGraph(Loop);
+      DEBUG(dbgs() << "DDG's==\n");
+      DEBUG(DDG.dump());
 
-      if (DDUtils::enablePerfectLoopNest(const_cast<HLLoop *>(InnermostLoop),
-                                         DDG)) {
+      if (DDUtils::enablePerfectLoopNest(
+              const_cast<HLLoop *>(InnermostLoop), DDG,
+              LIP->CandLoopToIgnorableSymBases[Loop])) {
         CandidateLoops.push_back(
             std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
         DEBUG(dbgs() << "Perfect Loopnest enabled\n");
@@ -245,7 +252,6 @@ struct HIRLoopInterchange::CollectCandidateLoops final
         // released
         LIP->PerfectLoopsEnabled.push_back(InnermostLoop);
       }
-
       // Nearperfect loops: skip recursion into the nest regardless of
       // being enabled as perfect loop or not.
       // Either way, loop interchange is not possible due to unconforming
@@ -306,6 +312,7 @@ bool HIRLoopInterchange::runOnFunction(Function &F) {
 
   CandidateLoops.clear();
   PerfectLoopsEnabled.clear();
+  CandLoopToIgnorableSymBases.clear();
 
   return AnyLoopInterchanged;
 }
@@ -511,6 +518,7 @@ void HIRLoopInterchange::getNearbyPermutation(const HLLoop *Loop) {
   }
 }
 
+namespace {
 ///  1. Ignore all  (= = ..)
 ///  2. for temps, ignore  anti (< ..)
 ///     If there is a loop carried flow for scalars, the DV will not
@@ -518,8 +526,8 @@ void HIRLoopInterchange::getNearbyPermutation(const HLLoop *Loop) {
 ///     (check no longer needed because of change in DD for compile time
 ///     saving)
 ///  3. Safe reduction (already excluded out in collectDDInfo)
-static bool ignoreEdge(const DDEdge *Edge, const HLLoop *CandidateLoop,
-                       DirectionVector *RefinedDV = nullptr) {
+bool ignoreEdge(const DDEdge *Edge, const HLLoop *CandidateLoop,
+                DirectionVector *RefinedDV = nullptr) {
 
   const DirectionVector *DV = RefinedDV;
   if (DV == nullptr) {
@@ -545,9 +553,8 @@ static bool ignoreEdge(const DDEdge *Edge, const HLLoop *CandidateLoop,
 ///  Scan presence of  < ... >
 ///  If none, return true, which  means DV can be dropped for
 ///  Interchange legality checking
-static bool ignoreDVWithNoLTGT(const DirectionVector &DV,
-                               unsigned OutmostNestingLevel,
-                               unsigned InnermostNestingLevel) {
+bool ignoreDVWithNoLTGT(const DirectionVector &DV, unsigned OutmostNestingLevel,
+                        unsigned InnermostNestingLevel) {
 
   bool DVhasLT = false;
   unsigned LTLevel = 0;
@@ -566,6 +573,8 @@ static bool ignoreDVWithNoLTGT(const DirectionVector &DV,
   }
   return true;
 }
+
+} // namespace
 
 /// Collect all DV edges in loop nests
 /// Call Demand Driven DD as needed (Currently  not calling)
@@ -593,7 +602,20 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
       DEBUG(dbgs() << "\n\tIs Safe Red");
       return;
     }
+
+    const InterchangeIgnorableSymbasesTy &IgnorableSymBases =
+        (LIP.CandLoopToIgnorableSymBases)[CandidateLoop];
+
     for (auto I = DDNode->ddref_begin(), E = DDNode->ddref_end(); I != E; ++I) {
+
+      // Ignorable symbases are symbases of temps originally were
+      // in pre(post)loop or preheader/postexit.
+      // Those were legally sinked into the innermost loop.
+      // The fact allows us to ignore DDs related to those temps.
+      if ((*I)->isTerminalRef() &&
+          IgnorableSymBases.count((*I)->getSymbase())) {
+        continue;
+      }
 
       for (auto II = DDG.outgoing_edges_begin(*I),
                 EE = DDG.outgoing_edges_end(*I);
@@ -601,6 +623,7 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
         // Examining outoging edges is sufficent
         const DDEdge *Edge = *II;
         DDRef *DDref = Edge->getSink();
+
         if (ignoreEdge(Edge, CandidateLoop)) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -618,16 +641,23 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
           DDRef *SrcDDRef = Edge->getSrc();
           DDRef *DstDDRef = DDref;
 
+          // Refine works only for non-terminal refs
           RefinedDep =
               LIP.DDA->refineDV(SrcDDRef, DstDDRef, LIP.OutmostNestingLevel,
                                 LIP.InnermostNestingLevel, false);
 
           if (RefinedDep.isIndependent()) {
+            DEBUG(dbgs() << "\n\t<Edge dropped with DDTest Indep>");
+            DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
             continue;
           }
 
           if (RefinedDep.isRefined()) {
+            DEBUG(dbgs() << "\n\t<Edge with refined DV>");
+            DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
             if (ignoreEdge(Edge, CandidateLoop, &RefinedDep.getDV())) {
+              DEBUG(dbgs() << "\n\t<Edge dropped with refined DV Ignore>");
+              DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
               continue;
             }
 
@@ -636,6 +666,8 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
         }
         if (ignoreDVWithNoLTGT(*TempDV, LIP.OutmostNestingLevel,
                                LIP.InnermostNestingLevel)) {
+          DEBUG(dbgs() << "\n\t<Edge dropped with NoLTGT>");
+          DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
           continue;
         }
 

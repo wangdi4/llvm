@@ -1,30 +1,12 @@
 ; Checks if instructions in preheader and postexit are sinked into their parent loop to enable perfect loopnests. 
-; Unfortunately, this won't enable interchange due to DD at this moment.
+; Also, make sure loop interchange happens.
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -print-after=hir-loop-interchange -print-before=hir-loop-interchange 2>&1 | FileCheck %s 
+; REQUIRES: asserts  
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -debug-only=hir-loop-interchange 2>&1 | FileCheck %s 
 ; 
-; CHECK: Before HIR Loop Interchange 
 ;
-; CHECK: BEGIN REGION
-; CHECK:  DO i2
-; CHECK: %add1850 = (%matC)[i1 + sext.i32.i64(%M) * i2];
-; CHECK:DO i3
-; CHECK: END REGION
+; CHECK: Interchanged: ( 1 2 3 ) --> ( 2 3 1 ) 
 ;
-;
-; CHECK: After HIR Loop Interchange
-;
-; CHECK: BEGIN REGION
-; CHECK:DO i3
-;
-; A preheader inst is sinked into i3.
-; CHECK:  %add1850 = (%matC)[i1 + sext.i32.i64(%M) * i2];
-;
-; No more inst in postexit anymore
-; CHECK:      END LOOP
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: END LOOP
-; CHECK: END REGION
 ;
 ; *** IR Dump After HIR Loop Interchange ***
 ; 
@@ -45,23 +27,22 @@
 ; <56>            + END LOOP
 ; <0>       END REGION
 ; 
+
 ; *** IR Dump After HIR Loop Interchange ***
 ; Function: _Z16gemm_csa_blockedPdS_S_iii
 ; 
-; <0>       BEGIN REGION { }
-; <56>            + DO i1 = 0, sext.i32.i64(%M) + -1, 1   <DO_LOOP>
-; <57>            |   + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>
-; <58>            |   |   + DO i3 = 0, sext.i32.i64(%K) + -1, 1   <DO_LOOP>
-; <17>            |   |   |   %add1850 = (%matC)[i1 + sext.i32.i64(%M) * i2];
-; <29>            |   |   |   %mul17 = (%matA)[i1 + sext.i32.i64(%M) * i3]  *  (%matB)[sext.i32
-; .i64(%K) * i2 + i3];
+; <0>       BEGIN REGION { modified }
+; <56>            + DO i1 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>
+; <57>            |   + DO i2 = 0, sext.i32.i64(%K) + -1, 1   <DO_LOOP>
+; <58>            |   |   + DO i3 = 0, sext.i32.i64(%M) + -1, 1   <DO_LOOP>
+; <17>            |   |   |   %add1850 = (%matC)[sext.i32.i64(%M) * i1 + i3];
+; <29>            |   |   |   %mul17 = (%matA)[sext.i32.i64(%M) * i2 + i3]  *  (%matB)[sext.i32.i64(%K) * i1 + i2];
 ; <30>            |   |   |   %add1850 = %add1850  +  %mul17;
-; <38>            |   |   |   (%matC)[i1 + sext.i32.i64(%M) * i2] = %add1850;
+; <38>            |   |   |   (%matC)[sext.i32.i64(%M) * i1 + i3] = %add1850;
 ; <58>            |   |   + END LOOP
 ; <57>            |   + END LOOP
 ; <56>            + END LOOP
-; <0>       END REGION; Function: _Z16gemm_csa_blockedPdS_S_iii
-;
+; <0>       END REGION
 
 
 ;Module Before HIR; ModuleID = 'gemm-jira.cpp'

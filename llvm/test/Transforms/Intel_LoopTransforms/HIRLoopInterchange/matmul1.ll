@@ -1,13 +1,11 @@
-; for(i=0; i<N; i++) 
-;   for(j=0; j<N; j++) 
-;     for(k=0; k<N; k++) 
+; for(i=0; i<N; i++)
+;   for(j=0; j<N; j++)
+;     for(k=0; k<N; k++)
 ;       c[i][j] = c[i][j] + a[i][k] * b[k][j];
-; REQUIRES: asserts 
+; REQUIRES: asserts
 ; RUN: opt -O2  -debug-only=hir-loop-interchange -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
-; CHECK-SAME:  ( 1 3 2 )  
-; Disable test now because safe-reduction is not ready
-; XFAIL: *
+; CHECK-SAME:  ( 1 3 2 )
 ; ModuleID = 'matmul.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

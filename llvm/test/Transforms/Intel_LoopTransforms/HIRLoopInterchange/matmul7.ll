@@ -6,8 +6,6 @@
 ; RUN: opt -O2 -debug-only=hir-loop-interchange -hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 1 3 2 )  
-; XFAIL: * 
-; Framework error:    copy stmt found between  i & j loop
 ;
 
 ; ModuleID = 'matmul7.c'

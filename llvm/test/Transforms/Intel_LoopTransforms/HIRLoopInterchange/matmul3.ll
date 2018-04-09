@@ -2,15 +2,14 @@
  ;    for(i=0; i<N; i++) 
   ;       for(j=0; j<N; j++) 
    ;          c[i][j] = c[i][j] + a[i][k] * b[k][j];
-; REQUIRES: asserts 
-; RUN: opt -O2 -debug-only=hir-loop-interchange  -hir-loopinterchange  < %s 2>&1 | FileCheck %s
-; CHECK-NOT: Interchanged
-
-; XFAIL: * 
-; Locality error:  interchanged as   2 1 3
+; RUN: opt -O2 -debug-only=hir-loop-interchange  -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ;
-
-
+; REQUIRES: asserts  
+;
+; Loop is not interchanged because all references in the innermost loop are all unit strided. However, for blocking transformation, (2 1 3) might be better permutation.
+;
+;CHECK-NOT: Interchanged
+;
 ; ModuleID = 'matmul3.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
