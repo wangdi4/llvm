@@ -678,7 +678,7 @@ public:
                                 const SCEV *LHS, const SCEV *RHS);
 
   /// Test whether the backedge of the loop is protected by a conditional
-  /// between LHS and RHS.  This is used to to eliminate casts.
+  /// between LHS and RHS.  This is used to eliminate casts.
   bool isLoopBackedgeGuardedByCond(const Loop *L, ICmpInst::Predicate Pred,
                                    const SCEV *LHS, const SCEV *RHS);
 
@@ -833,6 +833,11 @@ public:
   /// by Pred, LHS, and RHS.
   bool isKnownPredicate(ICmpInst::Predicate Pred, const SCEV *LHS,
                         const SCEV *RHS);
+
+  /// Test if the condition described by Pred, LHS, RHS is known to be true on
+  /// every iteration of the loop of the recurrency LHS.
+  bool isKnownOnEveryIteration(ICmpInst::Predicate Pred,
+                               const SCEVAddRecExpr *LHS, const SCEV *RHS);
 
   /// Return true if, for all loop invariant X, the predicate "LHS `Pred` X"
   /// is monotonically increasing or decreasing.  In the former case set
@@ -1093,6 +1098,9 @@ private:
 
   /// Mark predicate values currently being processed by isImpliedCond.
   SmallPtrSet<Value *, 6> PendingLoopPredicates;
+
+  /// Mark SCEVUnknown Phis currently being processed by getRangeRef.
+  SmallPtrSet<const PHINode *, 6> PendingPhiRanges;
 
   /// Set to true by isLoopBackedgeGuardedByCond when we're walking the set of
   /// conditions dominating the backedge of a loop.
@@ -1424,8 +1432,7 @@ private:
                              bool AllowPredicates = false);
 
   /// Compute the number of times the backedge of the specified loop will
-  /// execute if its exit condition were a conditional branch of ExitCond,
-  /// TBB, and FBB.
+  /// execute if its exit condition were a conditional branch of ExitCond.
   ///
   /// \p ControlsExit is true if ExitCond directly controls the exit
   /// branch. In this case, we can assume that the loop exits only if the
@@ -1435,15 +1442,14 @@ private:
   /// If \p AllowPredicates is set, this call will try to use a minimal set of
   /// SCEV predicates in order to return an exact answer.
   ExitLimit computeExitLimitFromCond(const Loop *L, Value *ExitCond,
-                                     BasicBlock *TBB, BasicBlock *FBB,
-                                     bool ControlsExit,
+                                     bool ExitIfTrue, bool ControlsExit,
                                      bool AllowPredicates = false);
 
   // Helper functions for computeExitLimitFromCond to avoid exponential time
   // complexity.
 
   class ExitLimitCache {
-    // It may look like we need key on the whole (L, TBB, FBB, ControlsExit,
+    // It may look like we need key on the whole (L, ExitIfTrue, ControlsExit,
     // AllowPredicates) tuple, but recursive calls to
     // computeExitLimitFromCondCached from computeExitLimitFromCondImpl only
     // vary the in \c ExitCond and \c ControlsExit parameters.  We remember the
@@ -1451,43 +1457,39 @@ private:
     SmallDenseMap<PointerIntPair<Value *, 1>, ExitLimit> TripCountMap;
 
     const Loop *L;
-    BasicBlock *TBB;
-    BasicBlock *FBB;
+    bool ExitIfTrue;
     bool AllowPredicates;
 
   public:
-    ExitLimitCache(const Loop *L, BasicBlock *TBB, BasicBlock *FBB,
-                   bool AllowPredicates)
-        : L(L), TBB(TBB), FBB(FBB), AllowPredicates(AllowPredicates) {}
+    ExitLimitCache(const Loop *L, bool ExitIfTrue, bool AllowPredicates)
+        : L(L), ExitIfTrue(ExitIfTrue), AllowPredicates(AllowPredicates) {}
 
-    Optional<ExitLimit> find(const Loop *L, Value *ExitCond, BasicBlock *TBB,
-                             BasicBlock *FBB, bool ControlsExit,
-                             bool AllowPredicates);
+    Optional<ExitLimit> find(const Loop *L, Value *ExitCond, bool ExitIfTrue,
+                             bool ControlsExit, bool AllowPredicates);
 
-    void insert(const Loop *L, Value *ExitCond, BasicBlock *TBB,
-                BasicBlock *FBB, bool ControlsExit, bool AllowPredicates,
-                const ExitLimit &EL);
+    void insert(const Loop *L, Value *ExitCond, bool ExitIfTrue,
+                bool ControlsExit, bool AllowPredicates, const ExitLimit &EL);
   };
 
   using ExitLimitCacheTy = ExitLimitCache;
 
   ExitLimit computeExitLimitFromCondCached(ExitLimitCacheTy &Cache,
                                            const Loop *L, Value *ExitCond,
-                                           BasicBlock *TBB, BasicBlock *FBB,
+                                           bool ExitIfTrue,
                                            bool ControlsExit,
                                            bool AllowPredicates);
   ExitLimit computeExitLimitFromCondImpl(ExitLimitCacheTy &Cache, const Loop *L,
-                                         Value *ExitCond, BasicBlock *TBB,
-                                         BasicBlock *FBB, bool ControlsExit,
+                                         Value *ExitCond, bool ExitIfTrue,
+                                         bool ControlsExit,
                                          bool AllowPredicates);
 
   /// Compute the number of times the backedge of the specified loop will
   /// execute if its exit condition were a conditional branch of the ICmpInst
-  /// ExitCond, TBB, and FBB. If AllowPredicates is set, this call will try
+  /// ExitCond and ExitIfTrue. If AllowPredicates is set, this call will try
   /// to use a minimal set of SCEV predicates in order to return an exact
   /// answer.
   ExitLimit computeExitLimitFromICmp(const Loop *L, ICmpInst *ExitCond,
-                                     BasicBlock *TBB, BasicBlock *FBB,
+                                     bool ExitIfTrue,
                                      bool IsSubExpr,
                                      bool AllowPredicates = false);
 
@@ -1591,8 +1593,8 @@ private:
 
   /// Test whether the condition described by Pred, LHS, and RHS is true.
   /// Use only simple non-recursive types of checks, such as range analysis etc.
-  bool isKnownViaSimpleReasoning(ICmpInst::Predicate Pred,
-                                 const SCEV *LHS, const SCEV *RHS);
+  bool isKnownViaNonRecursiveReasoning(ICmpInst::Predicate Pred,
+                                       const SCEV *LHS, const SCEV *RHS);
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by Pred, FoundLHS, and FoundRHS is
@@ -1763,6 +1765,11 @@ private:
   /// Get mul expr already created or create a new one.
   const SCEV *getOrCreateMulExpr(SmallVectorImpl<const SCEV *> &Ops,
                                  SCEV::NoWrapFlags Flags);
+
+  /// Find all of the loops transitively used in \p S, and fill \p LoopsUsed.
+  /// A loop is considered "used" by an expression if it contains
+  /// an add rec on said loop.
+  void getUsedLoops(const SCEV *S, SmallPtrSetImpl<const Loop *> &LoopsUsed);
 
   /// Find all of the loops transitively used in \p S, and update \c LoopUsers
   /// accordingly.

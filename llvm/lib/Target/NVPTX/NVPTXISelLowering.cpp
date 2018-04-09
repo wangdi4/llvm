@@ -417,20 +417,13 @@ NVPTXTargetLowering::NVPTXTargetLowering(const NVPTXTargetMachine &TM,
   setOperationAction(ISD::BITREVERSE, MVT::i32, Legal);
   setOperationAction(ISD::BITREVERSE, MVT::i64, Legal);
 
-  if (STI.hasROT64()) {
-    setOperationAction(ISD::ROTL, MVT::i64, Legal);
-    setOperationAction(ISD::ROTR, MVT::i64, Legal);
-  } else {
-    setOperationAction(ISD::ROTL, MVT::i64, Expand);
-    setOperationAction(ISD::ROTR, MVT::i64, Expand);
-  }
-  if (STI.hasROT32()) {
-    setOperationAction(ISD::ROTL, MVT::i32, Legal);
-    setOperationAction(ISD::ROTR, MVT::i32, Legal);
-  } else {
-    setOperationAction(ISD::ROTL, MVT::i32, Expand);
-    setOperationAction(ISD::ROTR, MVT::i32, Expand);
-  }
+  // TODO: we may consider expanding ROTL/ROTR on older GPUs.  Currently on GPUs
+  // that don't have h/w rotation we lower them to multi-instruction assembly.
+  // See ROT*_sw in NVPTXIntrInfo.td
+  setOperationAction(ISD::ROTL, MVT::i64, Legal);
+  setOperationAction(ISD::ROTR, MVT::i64, Legal);
+  setOperationAction(ISD::ROTL, MVT::i32, Legal);
+  setOperationAction(ISD::ROTR, MVT::i32, Legal);
 
   setOperationAction(ISD::ROTL, MVT::i16, Expand);
   setOperationAction(ISD::ROTR, MVT::i16, Expand);
@@ -3417,7 +3410,7 @@ bool NVPTXTargetLowering::getTgtMemIntrinsic(
   case Intrinsic::nvvm_wmma_store_d_f16_row_global:
   case Intrinsic::nvvm_wmma_store_d_f16_col_global_stride:
   case Intrinsic::nvvm_wmma_store_d_f16_row_global_stride: {
-    Info.opc = ISD::INTRINSIC_W_CHAIN;
+    Info.opc = ISD::INTRINSIC_VOID;
     Info.memVT = MVT::v4f16;
     Info.ptrVal = I.getArgOperand(0);
     Info.offset = 0;
@@ -3438,7 +3431,7 @@ bool NVPTXTargetLowering::getTgtMemIntrinsic(
   case Intrinsic::nvvm_wmma_store_d_f32_row_global:
   case Intrinsic::nvvm_wmma_store_d_f32_col_global_stride:
   case Intrinsic::nvvm_wmma_store_d_f32_row_global_stride: {
-    Info.opc = ISD::INTRINSIC_W_CHAIN;
+    Info.opc = ISD::INTRINSIC_VOID;
     Info.memVT = MVT::v8f32;
     Info.ptrVal = I.getArgOperand(0);
     Info.offset = 0;

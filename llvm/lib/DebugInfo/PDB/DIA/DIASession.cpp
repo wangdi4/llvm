@@ -9,6 +9,7 @@
 #include "llvm/DebugInfo/PDB/DIA/DIASession.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/DebugInfo/PDB/DIA/DIAEnumDebugStreams.h"
+#include "llvm/DebugInfo/PDB/DIA/DIAEnumInjectedSources.h"
 #include "llvm/DebugInfo/PDB/DIA/DIAEnumLineNumbers.h"
 #include "llvm/DebugInfo/PDB/DIA/DIAEnumSourceFiles.h"
 #include "llvm/DebugInfo/PDB/DIA/DIAEnumTables.h"
@@ -148,8 +149,8 @@ uint64_t DIASession::getLoadAddress() const {
   return (success) ? LoadAddress : 0;
 }
 
-void DIASession::setLoadAddress(uint64_t Address) {
-  Session->put_loadAddress(Address);
+bool DIASession::setLoadAddress(uint64_t Address) {
+  return (S_OK == Session->put_loadAddress(Address));
 }
 
 std::unique_ptr<PDBSymbolExe> DIASession::getGlobalScope() {
@@ -209,7 +210,22 @@ DIASession::findLineNumbers(const PDBSymbolCompiland &Compiland,
 std::unique_ptr<IPDBEnumLineNumbers>
 DIASession::findLineNumbersByAddress(uint64_t Address, uint32_t Length) const {
   CComPtr<IDiaEnumLineNumbers> LineNumbers;
-  if (S_OK != Session->findLinesByVA(Address, Length, &LineNumbers))
+  if (S_OK != Session->findLinesByVA(Address, Length, &LineNumbers)) {
+    ULONGLONG LoadAddr = 0;
+    if (S_OK != Session->get_loadAddress(&LoadAddr))
+      return nullptr;
+    DWORD RVA = static_cast<DWORD>(Address - LoadAddr);
+    if (S_OK != Session->findLinesByRVA(RVA, Length, &LineNumbers))
+      return nullptr;
+  }
+  return llvm::make_unique<DIAEnumLineNumbers>(LineNumbers);
+}
+
+std::unique_ptr<IPDBEnumLineNumbers>
+DIASession::findLineNumbersBySectOffset(uint32_t Section, uint32_t Offset,
+                                        uint32_t Length) const {
+  CComPtr<IDiaEnumLineNumbers> LineNumbers;
+  if (S_OK != Session->findLinesByAddr(Section, Offset, Length, &LineNumbers))
     return nullptr;
 
   return llvm::make_unique<DIAEnumLineNumbers>(LineNumbers);
@@ -309,4 +325,32 @@ std::unique_ptr<IPDBEnumTables> DIASession::getEnumTables() const {
     return nullptr;
 
   return llvm::make_unique<DIAEnumTables>(DiaEnumerator);
+}
+
+static CComPtr<IDiaEnumInjectedSources>
+getEnumInjectedSources(IDiaSession &Session) {
+  CComPtr<IDiaEnumInjectedSources> EIS;
+  CComPtr<IDiaEnumTables> ET;
+  CComPtr<IDiaTable> Table;
+  ULONG Count = 0;
+
+  if (Session.getEnumTables(&ET) != S_OK)
+    return nullptr;
+
+  while (ET->Next(1, &Table, &Count) == S_OK && Count == 1) {
+    // There is only one table that matches the given iid
+    if (S_OK ==
+        Table->QueryInterface(__uuidof(IDiaEnumInjectedSources), (void **)&EIS))
+      break;
+    Table.Release();
+  }
+  return EIS;
+}
+std::unique_ptr<IPDBEnumInjectedSources>
+DIASession::getInjectedSources() const {
+  CComPtr<IDiaEnumInjectedSources> Files = getEnumInjectedSources(*Session);
+  if (!Files)
+    return nullptr;
+
+  return llvm::make_unique<DIAEnumInjectedSources>(*this, Files);
 }

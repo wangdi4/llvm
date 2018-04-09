@@ -38,6 +38,10 @@ bool TargetSubtargetInfo::enableAtomicExpand() const {
   return true;
 }
 
+bool TargetSubtargetInfo::enableIndirectBrExpand() const {
+  return false;
+}
+
 bool TargetSubtargetInfo::enableMachineScheduler() const {
   return false;
 }
@@ -64,17 +68,15 @@ bool TargetSubtargetInfo::useAA() const {
 }
 
 static std::string createSchedInfoStr(unsigned Latency,
-                                     Optional<double> RThroughput) {
+                                      Optional<double> RThroughput) {
   static const char *SchedPrefix = " sched: [";
   std::string Comment;
   raw_string_ostream CS(Comment);
-  if (Latency > 0 && RThroughput.hasValue())
+  if (RThroughput.hasValue())
     CS << SchedPrefix << Latency << format(":%2.2f", RThroughput.getValue())
        << "]";
-  else if (Latency > 0)
+  else
     CS << SchedPrefix << Latency << ":?]";
-  else if (RThroughput.hasValue())
-    CS << SchedPrefix << "?:" << RThroughput.getValue() << "]";
   CS.flush();
   return Comment;
 }
@@ -110,4 +112,7 @@ std::string TargetSubtargetInfo::getSchedInfoStr(MCInst const &MCI) const {
   Optional<double> RThroughput =
       TSchedModel.computeInstrRThroughput(MCI.getOpcode());
   return createSchedInfoStr(Latency, RThroughput);
+}
+
+void TargetSubtargetInfo::mirFileLoaded(MachineFunction &MF) const {
 }
