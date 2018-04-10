@@ -11,8 +11,8 @@
 def MaxGlobalWorkDimDocs : Documentation {
   let Category = DocCatFunction;
   let Content = [{
-This attribute documented in _Intel FPGA SDK for OpenCL Programming Guide_
-(link_). See section _Omit Hardware that Generates and Dispatches Kernel IDs_.
+This attribute is documented in `Intel FPGA SDK for OpenCL Programming Guide`_.
+See section *Omit Hardware that Generates and Dispatches Kernel IDs*.
 
 The ``max_global_work_dim(0)`` kernel attribute instructs the Intel FPGA SDK
 for OpenCL Offline compiler to omit logic that generates and dispatches global,
@@ -47,16 +47,16 @@ attribute if you modify the kernel code accordingly:
 
 2. Launch the modified kernel with only one work-item.
 
-.. _link: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
+.. _`Intel FPGA SDK for OpenCL Programming Guide`: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
   }];
 }
 
 def NumComputeUnitsDocs : Documentation {
   let Category = DocCatFunction;
   let Content = [{
-This attribute documented in _Intel FPGA SDK for OpenCL Programming Guide_
-(link_). See sections _Specifying Number of Compute Units_ and _Kernel
-replication using the num_compute_units(X, Y, Z) Attribute_.
+This attribute is documented in `Intel FPGA SDK for OpenCL Programming Guide`_.
+See sections *Specifying Number of Compute Units* and *Kernel
+replication using the num_compute_units(X, Y, Z) Attribute*.
 
 To increase the data-processing efficiency of an OpenCL kernel, you can instruct
 the Intel FPGA SDK for OpenCL Offline Compiler to generate multiple kernel
@@ -89,23 +89,22 @@ compute units.
 
 You can replicate your single-work-item OpenCL kernel by including the
 ``num_compute_units(X, Y, Z)`` kernel attribute.
-As mentioned in _Specifying Number of Compute Units_, including the
+As mentioned in *Specifying Number of Compute Units*, including the
 ``num_compute_units(N)`` kernel attribute in your kernel instructs the Intel
 FPGA SDK for OpenCL Offline Compiler to generate multiple compute units to
 process data. Since the offline compiler processes a single work-item kernel in
 one compute unit, the ``num_compute_units(N)`` attribute instructs the offline
-compiler to generate _N_ identical copies of the kernel in hardware.
+compiler to generate *N* identical copies of the kernel in hardware.
 
-.. _link: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
+.. _`Intel FPGA SDK for OpenCL Programming Guide`: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
   }];
 }
 
 def AutorunDocs : Documentation {
   let Category = DocCatFunction;
   let Content = [{
-This attribute documented in _Intel FPGA SDK for OpenCL Programming Guide_
-(link_). See section _Omit Communication Hardware between the Host and the
-Kernel_.
+This attribute is documented in `Intel FPGA SDK for OpenCL Programming Guide`_.
+See section *Omit Communication Hardware between the Host and the Kernel*.
 
 The ``autorun`` kernel attribute instructs the Intel FPGA SDK for OpenCL Offline
 Compiler to omit logic that is used for communication between the host and the
@@ -155,7 +154,7 @@ the results to one or more channels.
     }
   }
 
-.. _link: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
+.. _`Intel FPGA SDK for OpenCL Programming Guide`: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
   }];
 }
 
@@ -213,3 +212,49 @@ is defined first or has the attribute default=1 assigned to it.
   }];
 }
 
+def VecLenHintDocs : Documentation {
+  let Category = DocCatFunction;
+  let Content = [{
+The optional __attribute__((intel_vec_len_hint(<int>))) can be used to provide
+a hint to the compiler that the kernel performs the best if vectorized to
+the specified vector length.
+
+The lengths accepted by the attribute are:
+
+``0``
+  The compiler makes heuristic-based decision whether to vectorize the kernel,
+  and if so which vector length to use (default behavior).
+
+``1``
+  No vectorization by the compiler. Explicit vector data types in kernels are
+  left intact.
+
+``4,8,16``
+  Disables heuristic and vectorizes to the length of 4,8,16 respectively.
+
+Other values are invalid. An error will be reported during compilation.
+
+An error will be given if:
+  - Specified value is not in range of supported values.
+  }];
+}
+
+def OpenCLBlockingDocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+By default, pipes exhibit nonblocking behavior. If you want the pipes in your
+kernel to exhibit blocking behavior, specify the blocking attribute
+(__attribute__((blocking))) when you declare the read and write pipes.
+  }];
+}
+
+def OpenCLHostAccessibleDocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+By default OpenCL pipes cannot be accessed from host. Optional
+__attribute__((intel_host_accessible)) may be applied to pipe kernel arguments
+to specify that a pipe kernel argument will be connected by the host to a
+host-accessible pipe, and therefore will not be connected to another kernel pipe
+argument.
+  }];
+}
