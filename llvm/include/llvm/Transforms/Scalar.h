@@ -399,6 +399,13 @@ extern char &InferAddressSpacesID;
 // "block_weights" metadata.
 FunctionPass *createLowerExpectIntrinsicPass();
 
+#if INTEL_CUSTOMIZATION
+//===----------------------------------------------------------------------===//
+//
+// LowerSubscriptIntrinsics - Removes llvm.intel.subscript intrinsics.
+FunctionPass *createLowerSubscriptIntrinsicLegacyPass();
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 //
 // PartiallyInlineLibCalls - Tries to inline the fast path of library

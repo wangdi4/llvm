@@ -406,6 +406,10 @@ void PassManagerBuilder::addInstructionCombiningPass(
 void PassManagerBuilder::populateFunctionPassManager(
     legacy::FunctionPassManager &FPM) {
   addExtensionsToPM(EP_EarlyAsPossible, FPM);
+#if INTEL_CUSTOMIZATION
+  if (!isLoopOptEnabled())
+    FPM.add(createLowerSubscriptIntrinsicLegacyPass());
+#endif // INTEL_CUSTOMIZATION
   FPM.add(createEntryExitInstrumenterPass());
 
   // Add LibraryInfo if we have some.
@@ -1231,6 +1235,10 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
   // This pass removes the old (unreachable) code which has been replaced by a
   // new one by HIR.
   PM.add(createCFGSimplificationPass());
+
+  // Cleanup llvm.intel.subscript from code not touched by LoopOpts.
+  PM.add(createLowerSubscriptIntrinsicLegacyPass());
+
   // This is mainly for optimizing away unnecessary alloca load/stores generated
   // by HIR.
   PM.add(createSROAPass());

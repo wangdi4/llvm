@@ -74,6 +74,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLowerAtomicLegacyPassPass(Registry);
   initializeLowerExpectIntrinsicPass(Registry);
   initializeLowerGuardIntrinsicLegacyPassPass(Registry);
+  initializeLowerSubscriptIntrinsicLegacyPassPass(Registry); // INTEL
   initializeMemCpyOptLegacyPassPass(Registry);
   initializeMergeICmpsPass(Registry);
   initializeMergedLoadStoreMotionLegacyPassPass(Registry);
@@ -283,3 +284,9 @@ void LLVMAddBasicAliasAnalysisPass(LLVMPassManagerRef PM) {
 void LLVMAddLowerExpectIntrinsicPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createLowerExpectIntrinsicPass());
 }
+
+#if INTEL_CUSTOMIZATION
+void LLVMAddLowerSubscriptIntrinsicPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createLowerSubscriptIntrinsicLegacyPass());
+}
+#endif // INTEL_CUSTOMIZATION

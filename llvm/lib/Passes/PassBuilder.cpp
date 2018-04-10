@@ -116,6 +116,7 @@
 #include "llvm/Transforms/Scalar/Intel_AggInlAA.h"          // INTEL
 #include "llvm/Transforms/Scalar/Intel_GlobalOpt.h"         // INTEL
 #include "llvm/Transforms/Scalar/Intel_IndirectCallConv.h"  // INTEL
+#include "llvm/Transforms/Scalar/Intel_LowerSubscriptIntrinsic.h" // INTEL
 #include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h" // INTEL
 #include "llvm/Transforms/Scalar/InductiveRangeCheckElimination.h"
 #include "llvm/Transforms/Scalar/JumpThreading.h"
