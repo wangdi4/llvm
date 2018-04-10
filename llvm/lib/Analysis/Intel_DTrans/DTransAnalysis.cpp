@@ -39,6 +39,40 @@ static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
 static cl::opt<bool> DTransPrintAnalyzedTypes("dtrans-print-types",
                                               cl::ReallyHidden);
 
+//
+// An option that indicates that a pointer to a struct could access
+// somewhere beyond the boundaries of that struct:
+//
+// For example:
+//
+// %struct.A = type { i32, i32 }
+// %struct.B = type { i16, i16, i16, i16 }
+// %struct.C = type { %struct.A, %struct.B }
+//
+// define void @foo(%struct.A* nocapture) local_unnamed_addr #0 {
+//   %2 = getelementptr inbounds %struct.A, %struct.A* %0, i64 1, i32 1
+//   store i32 -1, i32* %2, align 4, !tbaa !2
+//   ret void
+// }
+//
+// define void @bar(%struct.C* nocapture) local_unnamed_addr #0 {
+//   %2 = getelementptr inbounds %struct.C, %struct.C* %0, i64 0, i32 0
+//   tail call void @foo(%struct.A* %2)
+//   ret void
+// }
+//
+// Here the getelementptr in @foo is accessing beyond the end of the inner
+// %struct.A within %struct.C.
+//
+// With respect to dtransanalysis, having -dtrans-outofboundsok=true will
+// cause safety checks to be propagated from outer structs to inner structs.
+// So, in the above example, if -dtrans-outofboundsok=false, 'Field address
+// taken' will be true only for %structC. But if -dtrans-outofboundsok=true,
+// it will also be true for %struct.A and %struct.B.
+//
+static cl::opt<bool> DTransOutOfBoundsOK("dtrans-outofboundsok",
+                                         cl::init(true), cl::ReallyHidden);
+
 namespace {
 
 /// Information describing type alias information for temporary values used
@@ -745,9 +779,14 @@ public:
         // Selects and PHIs may have created a pointer that refers to
         // elements in multiple aggregate types. This sets the field
         // address taken condition for them all.
-        for (auto &PointeePair : LPI.getElementPointeeSet())
+        for (auto &PointeePair : LPI.getElementPointeeSet()) {
           setBaseTypeInfoSafetyData(PointeePair.first,
                                     dtrans::FieldAddressTaken);
+          dtrans::TypeInfo *ParentTI =
+            DTInfo.getOrCreateTypeInfo(PointeePair.first);
+          if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
+            ParentStInfo->getField(PointeePair.second).setAddressTaken();
+        }
       }
 
       // If the argument aliases an aggregate pointer type that is not the type
@@ -1011,11 +1050,12 @@ public:
       for (auto PointeePair : ValPointees) {
         dtrans::TypeInfo *ParentTI =
             DTInfo.getOrCreateTypeInfo(PointeePair.first);
-        // FIXME: Add field address taken information to the FieldInfo also.
         DEBUG(dbgs() << "dtrans-safety: Field address taken:\n"
                      << "  " << *(ParentTI->getLLVMType()) << " @ "
                      << PointeePair.second << "\n" << "  " << I << "\n");
         ParentTI->setSafetyData(dtrans::FieldAddressTaken);
+        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
+          ParentStInfo->getField(PointeePair.second).setAddressTaken();
       }
     }
 
@@ -1160,6 +1200,10 @@ public:
                      << "Address of a field is returned by function: "
                      << I.getParent()->getParent()->getName() << "\n");
         setBaseTypeInfoSafetyData(PointeePair.first, dtrans::FieldAddressTaken);
+        dtrans::TypeInfo *ParentTI =
+          DTInfo.getOrCreateTypeInfo(PointeePair.first);
+        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
+          ParentStInfo->getField(PointeePair.second).setAddressTaken();
       }
     }
   }
@@ -2604,6 +2648,23 @@ private:
         setBaseTypeInfoSafetyData(Ty, Data);
   }
 
+  // Return true if 'Data' should be propagated down to all types nested
+  // within some type for which the safety condition was found to hold.
+  // The motivation for this propagation is that a user may access outside
+  // the bounds of a structure. This is strictly not allowed in C/C++, but
+  // is allowed under the defintion of LLVM IR.
+  bool isCascadingSafetyCondition(dtrans::SafetyData Data) {
+    if (DTransOutOfBoundsOK)
+      return true;
+    switch (Data) {
+    // We can add additional cases here to reduce the conservative behavior
+    // as needs dictate.
+    case dtrans::FieldAddressTaken:
+       return false;
+    }
+    return true;
+  }
+
   // This is a helper function that retrieves the aggregate type through
   // zero or more layers of indirection and sets the specified safety data
   // for that type.
@@ -2613,6 +2674,8 @@ private:
       BaseTy = cast<PointerType>(BaseTy)->getElementType();
     dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(BaseTy);
     TI->setSafetyData(Data);
+    if (!isCascadingSafetyCondition(Data))
+      return;
     // Propagate this condition to any nested types.
     if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
       for (dtrans::FieldInfo &FI : StInfo->getFields()) {
@@ -2847,6 +2910,8 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field) {
     outs() << " Read";
   if (Field.isWritten())
     outs() << " Written";
+  if (Field.isAddressTaken())
+    outs() << " AddressTaken";
   outs() << "\n";
   if (Field.isNoValue())
     outs() << "    No Value";
