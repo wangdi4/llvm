@@ -858,6 +858,18 @@ static void addLvalAsLivein(const RegDDRef *LvalRef, HLLoop *Loop) {
   }
 }
 
+static SmallVector<HLIf *, 8> getParentIfs(HLIf *FromIf, HLLoop *ToLoop) {
+  SmallVector<HLIf *, 8> ParentIfs;
+  for (HLNode *Node = FromIf->getParent(); Node != ToLoop;
+       Node = Node->getParent()) {
+    assert(Node && "FromIf should be a child of ToLoop");
+    if (HLIf *ParentIf = dyn_cast<HLIf>(Node)) {
+      ParentIfs.push_back(ParentIf);
+    }
+  }
+  return ParentIfs;
+}
+
 // transformLoop - Perform the OptPredicate transformation for the given loop.
 // There will be two loops after the transformation. One loop inside the
 // If-Then and other inside the Else.
@@ -870,15 +882,33 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
   // TargetLoop. We only need to hoist PilotIf as the others are equivalent to
   // being sibling ifs inside the same loop.
 
-  auto IsEquivCandidate = [TargetLoop, &Candidate](const HoistCandidate &C) {
-    return !((C == Candidate) ||
-             (C.Level == Candidate.Level &&
-              HLNodeUtils::areEqual(C.getIf(), Candidate.getIf()) &&
-              HLNodeUtils::contains(TargetLoop, C.getIf(), false)));
-  };
+  auto CandidateParentIfs = getParentIfs(Candidate.getIf(), TargetLoop);
+  std::function<bool(const HoistCandidate &)> IsEquivCandidate =
+      [TargetLoop, &Candidate, &CandidateParentIfs](const HoistCandidate &C) {
+        if (C == Candidate) {
+          return true;
+        }
+
+        bool IsEquiv = C.Level == Candidate.Level &&
+                       // Have same condition
+                       HLNodeUtils::areEqual(C.getIf(), Candidate.getIf()) &&
+                       // And are in the same target loop
+                       HLNodeUtils::contains(TargetLoop, C.getIf(), false);
+        if (!IsEquiv) {
+          return false;
+        }
+
+        auto CParentIfs = getParentIfs(C.getIf(), TargetLoop);
+        if (CParentIfs.size() != CandidateParentIfs.size()) {
+          return false;
+        }
+
+        return std::equal(CandidateParentIfs.begin(), CandidateParentIfs.end(),
+                          CParentIfs.begin(), HLNodeUtils::areEqual);
+      };
 
   auto EquivCandidatesI = std::stable_partition(
-      Candidates.begin(), Candidates.end(), IsEquivCandidate);
+      Candidates.begin(), Candidates.end(), std::not1(IsEquivCandidate));
 
   for (auto Iter = EquivCandidatesI, E = Candidates.end(); Iter != E; ++Iter) {
     DEBUG(dbgs() << "H: ");
@@ -1028,8 +1058,11 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
   Candidates.erase(EquivCandidatesI, Candidates.end());
 
   // Append new candidates.
-  Candidates.append(CloneMapper.getNewCandidates().begin(),
-                    CloneMapper.getNewCandidates().end());
+  if (!CloneMapper.getNewCandidates().empty()) {
+    Candidates.append(CloneMapper.getNewCandidates().begin(),
+                      CloneMapper.getNewCandidates().end());
+    sortCandidates();
+  }
 }
 
 void HIROptPredicate::removeThenElseChildren(HLIf *If,
