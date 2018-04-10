@@ -615,6 +615,57 @@ namespace llvm {
     }
   };
 
+#ifdef INTEL_CUSTOMIZATION
+  class SubscriptInst : public IntrinsicInst {
+  public:
+    static bool classof(const IntrinsicInst *I) {
+      return I->getIntrinsicID() == Intrinsic::intel_subscript;
+    }
+    static bool classof(const Value *V) {
+      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+    }
+
+    unsigned getRank() const {
+      return static_cast<unsigned>(
+          cast<ConstantInt>(const_cast<Value *>(getArgOperand(0)))
+              ->getValue()
+              .getZExtValue());
+    }
+
+    Value *getLowerBound() const {
+      return cast<Value>(const_cast<Value *>(getArgOperand(1)));
+    }
+
+    Value *getStride() const {
+      return cast<Value>(const_cast<Value *>(getArgOperand(2)));
+    }
+
+    Value *getPointerOperand() const {
+      return cast<Value>(const_cast<Value *>(getArgOperand(3)));
+    }
+
+    Value *getIndex() const {
+      return cast<Value>(const_cast<Value *>(getArgOperand(4)));
+    }
+
+    Type *getPointerOperandType() const {
+      return getPointerOperand()->getType();
+    }
+
+    unsigned getPointerAddressSpace() const {
+      return getPointerOperandType()->getPointerAddressSpace();
+    }
+
+    /// Computes number of elements in returned pointer.
+    /// For scalar pointer returns 0.
+    static unsigned getResultVectorNumElements(ArrayRef<Value*> Args);
+
+    /// Computes number of elements in returned pointer
+    /// For scalar pointer returns 0.
+    static unsigned getResultVectorNumElements(ArrayRef<Type*> ArgTys);
+  };
+#endif // INTEL_CUSTOMIZATION
+
   /// This represents the llvm.va_start intrinsic.
   class VAStartInst : public IntrinsicInst {
   public:

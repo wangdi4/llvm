@@ -1065,6 +1065,19 @@ def int_intel_std_container_ptr_iter  : Intrinsic<[llvm_anyptr_ty],
                                         [LLVMMatchType<0>],
                                         [IntrReadMem]>;
 
+// Intrinsic generated instead of getelementptr to help HIR parsing and HIR
+// data dependence testing for arrays references.
+//
+// Return value: computed address.
+// Value pointed to by return value has rank equal to first argument.
+// Second and third arguments: lower bound and stride.
+// Forth argument: base pointer.
+// Fifth argument: subscript index.
+def int_intel_subscript : Intrinsic<[llvm_anyptr_ty],
+    [llvm_i8_ty, llvm_anyint_ty, llvm_anyint_ty, llvm_anyptr_ty,
+     llvm_anyint_ty],
+    [IntrSpeculatable, IntrNoMem]>;
+
 // Intrinsic generated for the return pointer. 
 def int_intel_fakeload   : Intrinsic<[llvm_anyptr_ty],
                                  [LLVMMatchType<0>, llvm_metadata_ty],

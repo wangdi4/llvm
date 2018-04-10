@@ -462,6 +462,37 @@ Instruction *IRBuilderBase::CreateFakeLoad(Value *Ptr, MDNode *TbaaTag) {
 
   return Ret;
 }
+
+// Intrinsic generated for structured address computations.
+Instruction *IRBuilderBase::CreateSubscript(unsigned Rank, Value *LowerBound,
+                                            Value *Stride, Value *Ptr,
+                                            Value *Index) {
+
+  // First element is reserved for return type.
+  Type *Types[5] = {nullptr, LowerBound->getType(), Stride->getType(),
+                    Ptr->getType(), Index->getType()};
+
+  Value *Ops[] = {
+      ConstantInt::get(Context, APInt(8, static_cast<uint64_t>(Rank), false)),
+      LowerBound, Stride, Ptr, Index};
+
+  // Result's type.
+  {
+    unsigned ResVNE = SubscriptInst::getResultVectorNumElements(Ops);
+    Type *ResTy = Ptr->getType();
+    if (ResVNE != 0 && !isa<VectorType>(ResTy)) {
+      ResTy = VectorType::get(ResTy, ResVNE);
+    }
+    Types[0] = ResTy;
+  }
+
+  Module *M = BB->getParent()->getParent();
+  Value *FnSubscript =
+      Intrinsic::getDeclaration(M, Intrinsic::intel_subscript, Types);
+
+  Instruction *Ret = createCallHelper(FnSubscript, Ops, this);
+  return Ret;
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// \brief Create a call to a Masked Load intrinsic.

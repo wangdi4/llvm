@@ -316,6 +316,78 @@ Value *EmitGEPOffset(IRBuilderTy *Builder, const DataLayout &DL, User *GEP,
   return Result;
 }
 
+#if INTEL_CUSTOMIZATION
+/// Given a llvm.intel.subscript instruction, emit the code necessary to
+/// compute the offset from the base pointer (without adding in the base
+/// pointer). Return the result as a signed integer of intptr size.
+template <typename IRBuilderTy>
+Value *EmitSubsOffset(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
+  SubscriptInst *CI = cast<SubscriptInst>(Subs);
+
+  Value *Lower = CI->getLowerBound();
+  Value *Stride = CI->getStride();
+  Value *Ptr = CI->getPointerOperand();
+  Value *Index = CI->getIndex();
+
+  Value *Args[] = {Lower, Stride, Ptr, Index};
+
+  // Number of elements in vector result.
+  unsigned ResVNE = SubscriptInst::getResultVectorNumElements(Args);
+  Type *OffsetTy = DL.getIntPtrType(CI->getType());
+
+  // Perform scalar/vector division of stride by sizeof(element).
+  {
+    unsigned ElementSize = DL.getTypeStoreSize(
+        Ptr->getType()->getScalarType()->getPointerElementType());
+    // Stride is known to be divisible by ElementSize exactly.
+    Stride = Args[1] = Builder->CreateExactSDiv(
+        Stride, ConstantInt::get(Stride->getType(), ElementSize), "el");
+  }
+
+  // Splat all values.
+  if (ResVNE != 0)
+    for (auto &CArg : Args) {
+      if (CArg->getType()->isVectorTy())
+        continue;
+      CArg = Builder->CreateVectorSplat(ResVNE, CArg);
+    }
+
+  // 1. Index - Lower.
+  Value *Diff = nullptr;
+  {
+    Constant *LC = dyn_cast<Constant>(Lower);
+    Constant *IC = dyn_cast<Constant>(Index);
+    if (LC && LC->isNullValue())
+      Diff = Index;
+    else if (IC && IC->isNullValue())
+      Diff = Builder->CreateNSWNeg(Lower);
+    else {
+      unsigned DiffWidth = std::max(Index->getType()->getScalarSizeInBits(),
+                                    Lower->getType()->getScalarSizeInBits());
+      Type *DestTy = Builder->getIntNTy(DiffWidth);
+      DestTy = ResVNE == 0 ? DestTy : VectorType::get(DestTy, ResVNE);
+
+      // No wrap, Index >= Lower
+      Diff = Builder->CreateNSWSub(Builder->CreateSExt(Index, DestTy),
+                                   Builder->CreateSExt(Lower, DestTy));
+    }
+  }
+
+  // 2. (Stride / sizeof (*Ptr)) * (Index - Lower).
+  {
+    if (Constant *CD = dyn_cast<Constant>(Diff))
+      if (CD->isNullValue())
+        return Builder->CreateSExt(Diff, OffsetTy);
+    if (Constant *CS = dyn_cast<Constant>(Stride))
+      if (CS->isOneValue())
+        return Builder->CreateSExt(Diff, OffsetTy);
+  }
+
+  return Builder->CreateNSWMul(Builder->CreateSExt(Stride, OffsetTy),
+                               Builder->CreateSExt(Diff, OffsetTy));
+}
+#endif // INTEL_CUSTOMIZATION
+
 ///===---------------------------------------------------------------------===//
 ///  Dbg Intrinsic utilities
 ///
