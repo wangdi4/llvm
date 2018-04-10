@@ -295,12 +295,12 @@ void LPPassManager::dumpPassStructure(unsigned Offset) {
 //===----------------------------------------------------------------------===//
 // LoopPass
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 Pass *LoopPass::createPrinterPass(raw_ostream &O,
                                   const std::string &Banner) const {
   return new PrintLoopPassWrapper(O, Banner);
 }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 // Check if this pass is suitable for the current LPPassManager, if
 // available. This pass P is not suitable for a LPPassManager if P

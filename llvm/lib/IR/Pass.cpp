@@ -47,12 +47,12 @@ Pass::~Pass() {
 // Force out-of-line virtual method.
 ModulePass::~ModulePass() = default;
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 Pass *ModulePass::createPrinterPass(raw_ostream &OS,
                                     const std::string &Banner) const {
   return createPrintModulePass(OS, Banner);
 }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 PassManagerType ModulePass::getPotentialPassManagerType() const {
   return PMT_ModulePassManager;
@@ -129,12 +129,12 @@ void Pass::print(raw_ostream &OS, const Module *) const {
   OS << "Pass::print not implemented for pass: '" << getPassName() << "'!\n";
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 // dump - call print(cerr);
 LLVM_DUMP_METHOD void Pass::dump() const {
   print(dbgs(), nullptr);
 }
-#endif
+#endif  // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 //===----------------------------------------------------------------------===//
 // ImmutablePass Implementation
@@ -150,12 +150,12 @@ void ImmutablePass::initializePass() {
 // FunctionPass Implementation
 //
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 Pass *FunctionPass::createPrinterPass(raw_ostream &OS,
                                       const std::string &Banner) const {
   return createPrintFunctionPass(OS, Banner);
 }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 PassManagerType FunctionPass::getPotentialPassManagerType() const {
   return PMT_FunctionPassManager;
@@ -177,12 +177,12 @@ bool FunctionPass::skipFunction(const Function &F) const {
 // BasicBlockPass Implementation
 //
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 Pass *BasicBlockPass::createPrinterPass(raw_ostream &OS,
                                         const std::string &Banner) const {
   return createPrintBasicBlockPass(OS, Banner);
 }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 bool BasicBlockPass::doInitialization(Function &) {
   // By default, don't do anything.
