@@ -40,6 +40,7 @@
 #include <cl_synch_objects.h>
 #include <map>
 #include <vector>
+#include <atomic>
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -52,17 +53,19 @@ class MemoryAllocator;
 class CPUDevice : public IOCLDeviceAgent, public IOCLDeviceFECompilerDescription, public IAffinityChangeObserver
 {
 protected:
+    static CPUDeviceConfig      m_CPUDeviceConfig;
+    static CPUDevice*           CPUDeviceInstance;
+    std::atomic_int             m_refCount;
+
     ProgramService*			    m_pProgramService;
     MemoryAllocator*		    m_pMemoryAllocator;
     TaskDispatcher*			    m_pTaskDispatcher;
-    CPUDeviceConfig*		    m_pCPUDeviceConfig;
     IOCLFrameworkCallbacks*     m_pFrameworkCallBacks;
     cl_uint					    m_uiCpuId;
     IOCLDevLogDescriptor*	    m_pLogDescriptor;
     cl_int					    m_iLogHandle;
     cl_dev_cmd_list			    m_defaultCommandList;
     OpenCLBackendWrapper        m_backendWrapper;
-
 
     unsigned long               m_numCores;           // Architectural data on the underlying HW
     unsigned int*               m_pComputeUnitMap;    // A mapping between an OpenCL-defined core ID (1 is first CPU on second socket) and OS-defined core ID
@@ -99,9 +102,15 @@ protected:
     // Needed to allow the user to limit the cores the CPU device will run on
     bool            CoreToCoreIndex(unsigned int* core);
 
+    CPUDevice(cl_uint devId,
+        IOCLFrameworkCallbacks* devCallbacks, IOCLDevLogDescriptor* logDesc);
 public:
+    // NOTE: this function is not thread-safe by itself and caller is
+    // responsible for performing synchronization
+    static CPUDevice* clDevGetInstance(cl_uint uiDevId,
+        IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc,
+        cl_dev_err_code &rc);
 
-    CPUDevice(cl_uint devId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc);
     cl_dev_err_code	Init();
 
     static void    WaitUntilShutdown();
@@ -154,6 +163,9 @@ public:
                                        size_t*            OUT value_size_ret);
     cl_ulong        clDevGetPerformanceCounter();
     cl_dev_err_code clDevSetLogger(IOCLDevLogDescriptor *);
+
+    // NOTE: this function is not thread-safe by itself and caller is
+    // responsible for performing synchronization
     void            clDevCloseDevice(void);
     cl_dev_err_code clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease);
 
@@ -180,6 +192,13 @@ public:
     queue_t GetDefaultQueueForDevice() const;
 
     unsigned int GetNumComputeUnits() const;
+
+    void Acquire() { ++m_refCount; }
+
+private:
+    CPUDevice() = delete;
+    CPUDevice(const CPUDevice&) = delete;
+    CPUDevice(const CPUDevice&&) = delete;
 };
 
 }}}

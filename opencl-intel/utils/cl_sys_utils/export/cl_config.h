@@ -538,9 +538,11 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
 
         cl_err_code Initialize(std::string filename)
         {
-	        m_pConfigFile = new ConfigFile(filename);
-	        return CL_SUCCESS;
+            m_pConfigFile = new ConfigFile(filename);
+            return CL_SUCCESS;
         }
+
+        bool IsInitialized() const { return nullptr != m_pConfigFile; }
 
         void Release()
         {

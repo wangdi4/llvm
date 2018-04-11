@@ -42,6 +42,7 @@
 #define CL_CONFIG_USE_VTUNE                     "CL_CONFIG_USE_VTUNE"                       // bool
 #define CL_CONFIG_USE_TRAPPING                  "CL_CONFIG_USE_TRAPPING"                    // bool
 #define CL_CONFIG_GL_DIRECTX_INTEROP            "CL_CONFIG_GL_DIRECTX_INTEROP"              // bool
+#define CL_CONFIG_CPU_EMULATE_DEVICES           "CL_CONFIG_CPU_EMULATE_DEVICES"             // int
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -58,6 +59,11 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         cl_ulong        GetForcedGlobalMemSize() const;
         cl_ulong        GetForcedMaxMemAllocSize() const;
         cl_int          GetVectorizerMode() const;
+
+        int             GetNumDevices() const
+        {
+            return m_pConfigFile->Read<int>(CL_CONFIG_CPU_EMULATE_DEVICES, 1);
+        }
 
         bool            UseVectorizer() const  { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true ); }
         bool            UseVTune()      const  { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      false); }

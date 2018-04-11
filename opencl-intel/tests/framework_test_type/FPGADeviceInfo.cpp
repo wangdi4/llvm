@@ -14,6 +14,8 @@
 
 #include "FrameworkTest.h"
 
+#include <vector>
+
 extern cl_device_type gDeviceType;
 
 class FPGADeviceInfo : public ::testing::Test {
@@ -22,11 +24,11 @@ protected:
     virtual void TearDown();
 
     void checkPlatform(cl_platform_info info, const char* ref);
-    void checkDevice(cl_device_info info, const char* ref);
+    void checkDevice(cl_device_id device, cl_device_info info, const char* ref);
 
-    cl_platform_id   m_platform;
-    cl_device_id     m_device;
-    char             m_str[1024];
+    cl_platform_id            m_platform;
+    std::vector<cl_device_id> m_devices;
+    char                      m_str[1024];
 };
 
 void FPGADeviceInfo::SetUp()
@@ -36,8 +38,17 @@ void FPGADeviceInfo::SetUp()
                             /*num_platforms=*/nullptr);
     ASSERT_EQ(CL_SUCCESS, iRet) << "clGetPlatformIDs failed.";
 
-    iRet = clGetDeviceIDs(m_platform, gDeviceType, /*num_entries=*/1,
-                          &m_device, /*num_devices=*/nullptr);
+    cl_uint numDevices = 0;
+    iRet = clGetDeviceIDs(m_platform, gDeviceType, 0, nullptr, &numDevices);
+    ASSERT_EQ(CL_SUCCESS, iRet)
+        << "clGetDeviceIDs failed on trying to obtain number of devices of "
+        << gDeviceType << " device type.";
+    ASSERT_GE(numDevices, 1)
+        << "No devices of " << gDeviceType << " device type found.";
+
+    m_devices.resize(numDevices);
+    iRet = clGetDeviceIDs(m_platform, gDeviceType, /*num_entries=*/numDevices,
+                          &m_devices.front(), /*num_devices=*/nullptr);
     ASSERT_EQ(CL_SUCCESS, iRet)
         << "clGetDeviceIDs failed on trying to obtain "
         << gDeviceType << " device type.";
@@ -45,7 +56,8 @@ void FPGADeviceInfo::SetUp()
 
 void FPGADeviceInfo::TearDown()
 {
-    clReleaseDevice(m_device);
+    for (cl_device_id &device : m_devices)
+        clReleaseDevice(device);
 }
 
 void FPGADeviceInfo::checkPlatform(cl_platform_info info, const char* ref)
@@ -56,10 +68,10 @@ void FPGADeviceInfo::checkPlatform(cl_platform_info info, const char* ref)
     ASSERT_STREQ(ref, m_str);
 }
 
-void FPGADeviceInfo::checkDevice(cl_device_info info, const char* ref)
+void FPGADeviceInfo::checkDevice(cl_device_id device, cl_device_info info,
+                                 const char *ref)
 {
-    int err = clGetDeviceInfo(m_device, info,
-                              sizeof(m_str), m_str, nullptr);
+    int err = clGetDeviceInfo(device, info, sizeof(m_str), m_str, nullptr);
     ASSERT_EQ(CL_SUCCESS, err);
     ASSERT_STREQ(ref, m_str);
 }
@@ -76,24 +88,27 @@ TEST_F(FPGADeviceInfo, Platform)
 
 TEST_F(FPGADeviceInfo, Device)
 {
-    checkDevice(CL_DEVICE_PROFILE,           "EMBEDDED_PROFILE");
-    checkDevice(CL_DEVICE_VERSION,           "OpenCL 1.0 ");
-    checkDevice(CL_DEVICE_NAME,              "Intel(R) FPGA Emulation Device (preview)");
-    checkDevice(CL_DEVICE_VENDOR,            "Intel(R) Corporation");
-    checkDevice(CL_DEVICE_OPENCL_C_VERSION,  "OpenCL C 1.0 ");
-    checkDevice(CL_DRIVER_VERSION,           "18.0");
+    for (cl_device_id &device : m_devices)
+    {
+        checkDevice(device, CL_DEVICE_PROFILE,           "EMBEDDED_PROFILE");
+        checkDevice(device, CL_DEVICE_VERSION,           "OpenCL 1.0 ");
+        checkDevice(device, CL_DEVICE_NAME,              "Intel(R) FPGA Emulation Device (preview)");
+        checkDevice(device, CL_DEVICE_VENDOR,            "Intel(R) Corporation");
+        checkDevice(device, CL_DEVICE_OPENCL_C_VERSION,  "OpenCL C 1.0 ");
+        checkDevice(device, CL_DRIVER_VERSION,           "18.0");
 
-    cl_device_type type;
-    cl_int err = clGetDeviceInfo(m_device, CL_DEVICE_TYPE,
-                                 sizeof(type), &type, nullptr);
-    ASSERT_EQ(CL_SUCCESS, err);
-    ASSERT_EQ(CL_DEVICE_TYPE_ACCELERATOR, type);
+        cl_device_type type;
+        cl_int err = clGetDeviceInfo(device, CL_DEVICE_TYPE,
+                                     sizeof(type), &type, nullptr);
+        ASSERT_EQ(CL_SUCCESS, err);
+        ASSERT_EQ(CL_DEVICE_TYPE_ACCELERATOR, type);
 
-    cl_uint vendorId;
-    err = clGetDeviceInfo(m_device, CL_DEVICE_VENDOR_ID,
-                          sizeof(vendorId), &vendorId, nullptr);
-    ASSERT_EQ(CL_SUCCESS, err);
-    ASSERT_EQ(4466, vendorId);
+        cl_uint vendorId;
+        err = clGetDeviceInfo(device, CL_DEVICE_VENDOR_ID,
+                              sizeof(vendorId), &vendorId, nullptr);
+        ASSERT_EQ(CL_SUCCESS, err);
+        ASSERT_EQ(4466, vendorId);
+    }
 }
 
 #endif // BUILD_FPGA_EMULATOR

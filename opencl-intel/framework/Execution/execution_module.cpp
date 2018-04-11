@@ -1949,12 +1949,12 @@ cl_err_code ExecutionModule::RunAutorunKernels(
         return error;
     }
 
+    if (kernels.empty())
+    {
+        return CL_SUCCESS;
+    }
+
     cl_uint numDevices = program->GetNumDevices();
-    // TODO: ask PSG:
-    // is it allowed to have more than one device in a context? which one
-    // should execute autorun kernels?
-    assert(numDevices == 1 && "TODO: clarify details and update the "
-        "implementation");
     std::vector<cl_device_id> devices(numDevices);
     error = program->GetDevices(&devices.front());
     if (CL_FAILED(error))
@@ -1962,33 +1962,42 @@ cl_err_code ExecutionModule::RunAutorunKernels(
         return error;
     }
 
-    cl_command_queue_properties properties[] = { CL_QUEUE_PROPERTIES,
-        CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE,
-        (cl_command_queue_properties)0 };
-    cl_command_queue queue = CreateCommandQueue(
-        program->GetContext()->GetHandle(), devices[0], properties, &error);
-    if (CL_FAILED(error))
-    {
-        return error;
-    }
+    std::vector<cl_command_queue> queues(numDevices);
 
-    for (const auto& kernel: kernels)
+    for (cl_uint i = 0; i < numDevices; ++i)
     {
-        // TODO: obtain details about which combinations of kernel attributes
-        // related to autorun kernels are allowed and set correct global and
-        // local sizes according to kernel attributes
-        //
-        // Now assume that we support only single work-item kernels
-        error = EnqueueTask(queue, kernel->GetHandle(), 0, nullptr, nullptr,
-            apiLogger);
+        cl_command_queue_properties properties[] = { CL_QUEUE_PROPERTIES,
+            CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE,
+            (cl_command_queue_properties)0 };
+        queues[i] = CreateCommandQueue(
+            program->GetContext()->GetHandle(), devices[i], properties, &error);
         if (CL_FAILED(error))
         {
             return error;
         }
-        LOG_DEBUG(TEXT("Launched autorun kernel: %s"), kernel->GetName());
     }
 
-    Flush(queue);
+    for (cl_uint i = 0; i < numDevices; ++i)
+    {
+        for (const auto& kernel: kernels)
+        {
+            // TODO: obtain details about which combinations of kernel
+            // attributes related to autorun kernels are allowed and set correct
+            // global and local sizes according to kernel attributes
+            //
+            // Now assume that we support only single work-item kernels
+            error = EnqueueTask(queues[i], kernel->GetHandle(), 0, nullptr,
+                nullptr, apiLogger);
+            if (CL_FAILED(error))
+            {
+                return error;
+            }
+            LOG_DEBUG(TEXT("Launched autorun kernel: %s"), kernel->GetName());
+        }
+
+        Flush(queues[i]);
+        ReleaseCommandQueue(queues[i]);
+    }
 
     return CL_SUCCESS;
 }

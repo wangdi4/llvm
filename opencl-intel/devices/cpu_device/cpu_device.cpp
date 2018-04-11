@@ -75,15 +75,13 @@ const char* Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel(R) Corporation";
 volatile bool CPUDevice::m_bDeviceIsRunning = false;
 
 
-cl_ulong GetGlobalMemorySize(bool* isForced = nullptr)
+cl_ulong GetGlobalMemorySize(const CPUDeviceConfig &config, bool* isForced = nullptr)
 {
     static bool forced = true;
     static cl_ulong globalMemSize = 0;
     if (0 == globalMemSize)
     {
         // check config for forced global mem size
-        CPUDeviceConfig config;
-        config.Initialize(GetConfigFilePath());
         globalMemSize = config.GetForcedGlobalMemSize();
         if (0 == globalMemSize)
         {
@@ -99,14 +97,12 @@ cl_ulong GetGlobalMemorySize(bool* isForced = nullptr)
     }
     return globalMemSize;
 }
-cl_ulong GetLocalMemorySize()
+cl_ulong GetLocalMemorySize(const CPUDeviceConfig &config)
 {
     static cl_ulong localMemSize = 0;
     if (0 == localMemSize)
     {
         // check config for forced local mem size
-        CPUDeviceConfig config;
-        config.Initialize(GetConfigFilePath());
         localMemSize = (config.GetForcedLocalMemSize() != 0)
                        ? config.GetForcedLocalMemSize()
                        : CPU_DEV_LCL_MEM_SIZE; // fallback to default local memory size
@@ -114,20 +110,18 @@ cl_ulong GetLocalMemorySize()
 
     return localMemSize;
 }
-cl_ulong GetMaxMemAllocSize(bool* isForced = nullptr)
+cl_ulong GetMaxMemAllocSize(const CPUDeviceConfig &config, bool* isForced = nullptr)
 {
     static bool forced = true;
     static cl_ulong maxMemAllocSize = 0;
     if (0 == maxMemAllocSize)
     {
         // check config for forced max mem alloc size
-        CPUDeviceConfig config;
-        config.Initialize(GetConfigFilePath());
         maxMemAllocSize = config.GetForcedMaxMemAllocSize();
         if (0 == maxMemAllocSize)
         {
             // fallback to default max memory alloc size
-            maxMemAllocSize = MAX(128*1024*1024, GetGlobalMemorySize()/4);
+            maxMemAllocSize = MAX(128*1024*1024, GetGlobalMemorySize(config)/4);
             forced = false;
         }
     }
@@ -223,11 +217,47 @@ typedef struct _cl_dev_internal_cmd_list
     cl_dev_internal_subdevice_id* subdevice_id;
 } cl_dev_internal_cmd_list;
 
+CPUDevice* CPUDevice::CPUDeviceInstance = nullptr;
+CPUDeviceConfig CPUDevice::m_CPUDeviceConfig;
+
+// NOTE: this function is not thread-safe. See description in header file
+// Currently it is guarded by mutex
+// in Intel::OpenCL::Framework::Device::CreateInstance()
+CPUDevice* CPUDevice::clDevGetInstance(cl_uint uiDevId,
+    IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc,
+    cl_dev_err_code &rc)
+{
+    if (nullptr == CPUDeviceInstance)
+    {
+        try
+        {
+            CPUDeviceInstance = new CPUDevice(uiDevId, devCallbacks, logDesc);
+        }
+        catch (std::bad_alloc&)
+        {
+            rc = CL_DEV_OUT_OF_MEMORY;
+            CPUDeviceInstance = nullptr;
+            return nullptr;
+        }
+
+        rc = CPUDeviceInstance->Init();
+        if (CL_DEV_FAILED(rc))
+        {
+            CPUDeviceInstance->clDevCloseDevice();
+            CPUDeviceInstance = nullptr;
+            return nullptr;
+        }
+    }
+
+    CPUDeviceInstance->Acquire();
+    return CPUDeviceInstance;
+}
+
 CPUDevice::CPUDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc):
+    m_refCount(0),
     m_pProgramService(nullptr),
     m_pMemoryAllocator(nullptr),
     m_pTaskDispatcher(nullptr),
-    m_pCPUDeviceConfig(nullptr),
     m_pFrameworkCallBacks(devCallbacks),
     m_uiCpuId(uiDevId),
     m_pLogDescriptor(logDesc),
@@ -255,11 +285,13 @@ cl_dev_err_code CPUDevice::Init()
     }
 
     // Get configuration file name
-    m_pCPUDeviceConfig = new CPUDeviceConfig();
-    m_pCPUDeviceConfig->Initialize("cl.cfg");
+    if (!m_CPUDeviceConfig.IsInitialized())
+    {
+        m_CPUDeviceConfig.Initialize(GetConfigFilePath());
+    }
     // We need to pass some options from cl.cfg to GlobalCompilerConfig
     ProgramConfig programConfig;
-    programConfig.InitFromCpuConfig(*m_pCPUDeviceConfig);
+    programConfig.InitFromCpuConfig(m_CPUDeviceConfig);
     ret = m_backendWrapper.Init(&programConfig);
     if (CL_DEV_FAILED(ret))
     {
@@ -267,23 +299,23 @@ cl_dev_err_code CPUDevice::Init()
     }
 
     // Enable VTune source level profiling
-    GetCPUDevInfo(*m_pCPUDeviceConfig)->bEnableSourceLevelProfiling = m_pCPUDeviceConfig->UseVTune();
+    GetCPUDevInfo(m_CPUDeviceConfig)->bEnableSourceLevelProfiling = m_CPUDeviceConfig.UseVTune();
 
 #ifdef __HARD_TRAPPING__
-    m_bUseTrapping = m_pCPUDeviceConfig->UseTrapping();
+    m_bUseTrapping = m_CPUDeviceConfig.UseTrapping();
 #endif
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateDevice function enter"));
 
     // check for forced memory sizes
     bool isGlobalMemSizeForced;
-    cl_ulong forcedGlobalMemSize = GetGlobalMemorySize(&isGlobalMemSizeForced);
+    cl_ulong forcedGlobalMemSize = GetGlobalMemorySize(m_CPUDeviceConfig, &isGlobalMemSizeForced);
     if (isGlobalMemSizeForced)
     {
         CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("WARNING: using forced global memory size from cl configuration."));
         CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s %llu %s"), TEXT("WARNING: forced global memory size ="), forcedGlobalMemSize, TEXT("bytes."));
     }
     bool isMaxMemAllocSizeForced;
-    cl_ulong forcedMaxMemAllocSize = GetMaxMemAllocSize(&isMaxMemAllocSizeForced);
+    cl_ulong forcedMaxMemAllocSize = GetMaxMemAllocSize(m_CPUDeviceConfig, &isMaxMemAllocSizeForced);
     if (isMaxMemAllocSizeForced)
     {
         CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("WARNING: using forced max memory allocation size from cl configuration."));
@@ -293,7 +325,7 @@ cl_dev_err_code CPUDevice::Init()
     m_pProgramService = new ProgramService(m_uiCpuId,
                                            m_pFrameworkCallBacks,
                                            m_pLogDescriptor,
-                                           m_pCPUDeviceConfig,
+                                           &m_CPUDeviceConfig,
                                            m_backendWrapper.GetBackendFactory());
     ret = m_pProgramService->Init();
     if (CL_DEV_SUCCESS != ret)
@@ -307,8 +339,8 @@ cl_dev_err_code CPUDevice::Init()
         return CL_DEV_ERROR_FAIL;
     }
 
-    m_pMemoryAllocator = new MemoryAllocator(m_uiCpuId, m_pLogDescriptor, GetGlobalMemorySize(), m_pProgramService->GetImageService());
-    m_pTaskDispatcher = new TaskDispatcher(m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig, this);
+    m_pMemoryAllocator = new MemoryAllocator(m_uiCpuId, m_pLogDescriptor, GetGlobalMemorySize(m_CPUDeviceConfig), m_pProgramService->GetImageService());
+    m_pTaskDispatcher = new TaskDispatcher(m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, &m_CPUDeviceConfig, this);
     if ( (nullptr == m_pMemoryAllocator) || (nullptr == m_pTaskDispatcher) )
     {
         return CL_DEV_OUT_OF_MEMORY;
@@ -508,30 +540,25 @@ void CPUDevice::WaitUntilShutdown()
 extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint      dev_id,
                                    IOCLFrameworkCallbacks   *pDevCallBacks,
                                    IOCLDevLogDescriptor     *pLogDesc,
-                                   IOCLDeviceAgent*         *pDevice,
+                                   IOCLDeviceAgent*         *pOutDevice,
                                    FrameworkUserLogger* pUserLogger
                                    )
 {
-    if(nullptr == pDevCallBacks || nullptr == pDevice)
+    if(nullptr == pDevCallBacks || nullptr == pOutDevice)
     {
         return CL_DEV_INVALID_OPERATION;
     }
 
     g_pUserLogger = pUserLogger;
-    CPUDevice *pNewDevice = new CPUDevice(dev_id, pDevCallBacks, pLogDesc);
-    if ( nullptr == pNewDevice )
+    cl_dev_err_code rc = CL_DEV_SUCCESS;
+    CPUDevice *pDevice =
+        CPUDevice::clDevGetInstance(dev_id, pDevCallBacks, pLogDesc, rc);
+    if (nullptr != pDevice)
     {
-        return CL_DEV_OUT_OF_MEMORY;
+        *pOutDevice = pDevice;
     }
 
-    cl_dev_err_code rc = pNewDevice->Init();
-    if ( CL_DEV_FAILED(rc) )
-    {
-        pNewDevice->clDevCloseDevice();
-        return rc;
-    }
-    *pDevice = pNewDevice;
-    return CL_DEV_SUCCESS;
+    return rc;
 }
 
 // Device entry points
@@ -566,14 +593,15 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
     size_t  *pinternalRetunedValueSize;
     unsigned int viCPUInfo[4] = {(unsigned int)-1};
 
-    static CPUDeviceConfig config;
-
     // Do static initialize of the OpenCL Version
     static OPENCL_VERSION ver = OPENCL_VERSION_UNKNOWN;
     if ( OPENCL_VERSION_UNKNOWN == ver )
     {
-        config.Initialize(GetConfigFilePath());
-        ver = config.GetOpenCLVersion();
+        if (!m_CPUDeviceConfig.IsInitialized())
+        {
+            m_CPUDeviceConfig.Initialize(GetConfigFilePath());
+        }
+        ver = m_CPUDeviceConfig.GetOpenCLVersion();
     }
 
     //if OUT paramValSize_ret is NULL it should be ignopred
@@ -712,7 +740,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-                if (config.IsDoubleSupported())
+                if (m_CPUDeviceConfig.IsDoubleSupported())
                 {
                     *(cl_uint*)paramVal = 1;
                 }
@@ -754,7 +782,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-                if (config.IsDoubleSupported())
+                if (m_CPUDeviceConfig.IsDoubleSupported())
                 {
                     *(cl_uint*)paramVal = GetNativeVectorWidth(CPU_DEVICE_DATA_TYPE_DOUBLE);
                 }
@@ -813,7 +841,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case(CL_DEVICE_DOUBLE_FP_CONFIG):
         {
             cl_device_fp_config fpConfig = 0;
-            if (config.IsDoubleSupported())
+            if (m_CPUDeviceConfig.IsDoubleSupported())
             {
                 fpConfig = CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_DENORM | CL_FP_FMA |  CL_FP_ROUND_TO_ZERO |  CL_FP_ROUND_TO_INF;
             }
@@ -1066,7 +1094,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-                *(cl_ulong*)paramVal = GetLocalMemorySize();
+                *(cl_ulong*)paramVal = GetLocalMemorySize(m_CPUDeviceConfig);
             }
             return CL_DEV_SUCCESS;
         }
@@ -1151,7 +1179,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             if (nullptr != paramVal)
             {
-                *(size_t*)paramVal = GetMaxMemAllocSize();
+                *(size_t*)paramVal = GetMaxMemAllocSize(m_CPUDeviceConfig);
             }
             return CL_DEV_SUCCESS;
         }
@@ -1169,7 +1197,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-                *(cl_ulong*)paramVal = GetGlobalMemorySize();
+                *(cl_ulong*)paramVal = GetGlobalMemorySize(m_CPUDeviceConfig);
             }
             return CL_DEV_SUCCESS;
         }
@@ -1184,7 +1212,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-                *(cl_ulong*)paramVal = GetMaxMemAllocSize();
+                *(cl_ulong*)paramVal = GetMaxMemAllocSize(m_CPUDeviceConfig);
             }
             return CL_DEV_SUCCESS;
         }
@@ -1474,7 +1502,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DEVICE_EXTENSIONS):
         {
-            const char* oclSupportedExtensions = config.GetExtensions();
+            const char* oclSupportedExtensions = m_CPUDeviceConfig.GetExtensions();
             *pinternalRetunedValueSize = strlen(oclSupportedExtensions) + 1;
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -1564,7 +1592,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             if (nullptr != paramVal)
             {
                 // we want to support the maximum buffer when the pixel size is maximal
-                const unsigned long long iImgMaxBufSize = GetMaxMemAllocSize() / sizeof(cl_int4); // sizeof(CL_RGBA(INT32))
+                const unsigned long long iImgMaxBufSize = GetMaxMemAllocSize(m_CPUDeviceConfig) / sizeof(cl_int4); // sizeof(CL_RGBA(INT32))
                 if (iImgMaxBufSize < (size_t)-1)
                 {
                     *(size_t*)paramVal = (size_t)iImgMaxBufSize;
@@ -1752,18 +1780,39 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 */
 cl_dev_err_code CPUDevice::clDevGetAvailableDeviceList(size_t IN  deviceListSize, unsigned int*   OUT deviceIdsList, size_t*   OUT deviceIdsListSizeRet)
 {
-    if (((nullptr != deviceIdsList) && (0 == deviceListSize)) || ((nullptr == deviceIdsList) && (nullptr == deviceIdsListSizeRet)))
+    size_t numDevices = 1;
+    if (!m_CPUDeviceConfig.IsInitialized())
+    {
+        m_CPUDeviceConfig.Initialize(GetConfigFilePath());
+    }
+#ifdef BUILD_FPGA_EMULATOR
+    int envNumDevices = m_CPUDeviceConfig.GetNumDevices();
+    if (envNumDevices > 1)
+    {
+        numDevices = envNumDevices;
+    }
+#endif // BUILD_FPGA_EMULATOR
+
+    if (((nullptr != deviceIdsList) &&
+         (deviceListSize < numDevices)) ||
+        ((nullptr == deviceIdsList) && (nullptr == deviceIdsListSizeRet)))
     {
         return CL_DEV_ERROR_FAIL;
     }
-    assert(((deviceListSize > 0) || (nullptr == deviceIdsList)) && "If deviceIdsList != NULL, deviceListSize must be 1 in case of CPU device");
+    assert(((deviceListSize > 0) || (nullptr == deviceIdsList)) &&
+           "If deviceIdsList != NULL, deviceListSize must be more than 1 in "
+           "case of CPU device");
+
     if (deviceIdsList)
     {
-        deviceIdsList[0] = 0;
+        for (size_t i = 0; i < numDevices; ++i)
+        {
+            deviceIdsList[i] = i;
+        }
     }
     if (deviceIdsListSizeRet)
     {
-        *deviceIdsListSizeRet = 1;
+        *deviceIdsListSizeRet = numDevices;
     }
     return CL_DEV_SUCCESS;
 }
@@ -2533,22 +2582,29 @@ cl_dev_err_code CPUDevice::clDevSetLogger(IOCLDevLogDescriptor *pLogDescriptor)
     }
     return CL_DEV_SUCCESS;
 }
-/*******************************************************************************************************************
-clDevCloseDevice
-    Close device
-**********************************************************************************************************************/
+//******************************************************************************
+// clDevCloseDevice
+//     Close device
+//
+//     NOTE: this fucntion is not thread-safe. See description in header file
+//     Currently it is guarded by mutex
+//     in Intel::OpenCL::Framework::Device::CloseDeviceInstance()
+//******************************************************************************
 void CPUDevice::clDevCloseDevice(void)
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clCloseDevice Function enter"));
 
+    if (0 != --m_refCount)
+    {
+        // Nothing to do since CPUDevice is still used by someone
+        return;
+    }
+
+    CPUDevice::CPUDeviceInstance = nullptr;
+
     if ( nullptr != m_defaultCommandList )
     {
         clDevReleaseCommandList(m_defaultCommandList);
-    }
-    if( nullptr != m_pCPUDeviceConfig)
-    {
-        delete m_pCPUDeviceConfig;
-        m_pCPUDeviceConfig = nullptr;
     }
     if ( 0 != m_iLogHandle)
     {
@@ -2602,7 +2658,7 @@ const char* CPUDevice::clDevFEModuleName() const
 
 const void* CPUDevice::clDevFEDeviceInfo() const
 {
-	return GetCPUDevInfo(*m_pCPUDeviceConfig);
+	return GetCPUDevInfo(m_CPUDeviceConfig);
 }
 
 size_t CPUDevice::clDevFEDeviceInfoSize() const
