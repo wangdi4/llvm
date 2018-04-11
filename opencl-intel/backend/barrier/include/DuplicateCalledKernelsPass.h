@@ -11,13 +11,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
 
 using namespace llvm;
-
-namespace llvm {
-  class DebugInfoFinder;
-}
 
 namespace intel {
 

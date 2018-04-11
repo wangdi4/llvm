@@ -11,6 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "BuiltinLibInfo.h"
 #include "llvm/Pass.h"
 #include <map>
+#include <string>
 
 using namespace llvm;
 

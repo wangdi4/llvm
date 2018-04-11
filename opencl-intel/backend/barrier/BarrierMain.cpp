@@ -11,7 +11,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Verifier.h"
 
 using namespace llvm;
