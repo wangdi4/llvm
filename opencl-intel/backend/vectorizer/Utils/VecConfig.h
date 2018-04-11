@@ -30,7 +30,6 @@ public:
             bool profiling,
             bool disableOpt,
             bool relaxedMath,
-            bool libraryModule,
             bool fpgaEmulator,
             bool heuristicIR,
             int  APFLevel,
@@ -45,7 +44,6 @@ public:
       m_profiling(profiling),
       m_disableOpt(disableOpt),
       m_relaxedMath(relaxedMath),
-      m_libraryModule(libraryModule),
       m_fpgaEmulator(fpgaEmulator),
       m_dumpHeuristicIR(heuristicIR),
       m_APFLevel(APFLevel),
@@ -65,9 +63,6 @@ public:
     bool GetRelaxedMath()   const { return m_relaxedMath; }
     bool isFpgaEmulator()   const { return m_fpgaEmulator; }
     int GetRTLoopUnrollFactor() const { return m_rtLoopUnrollFactor; }
-    // Sets whether optimized code is library module or not (contains kernels)
-    // If this options is set to true then some optimization passes will be skipped
-    bool GetLibraryModule()   const { return m_libraryModule; }
     bool GetDumpHeuristicIRFlag() const {return m_dumpHeuristicIR; }
     int  GetAPFLevel() const { return m_APFLevel; }
 
@@ -83,9 +78,6 @@ private:
     bool m_profiling;
     bool m_disableOpt;
     bool m_relaxedMath;
-    // Sets whether optimized code is library module or not (contains kernels and barriers)
-    // If this options is set to true then some optimization passes will be skipped
-    bool m_libraryModule;
     // Sets whether we are working as fpga emulator
     bool m_fpgaEmulator;
     // Sets whether the vectorize should output heuristic LL IR inputs

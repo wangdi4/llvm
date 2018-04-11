@@ -353,16 +353,11 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_AFTER,
                              pConfig->GetDumpIRDir()));
   }
-  if (!pConfig->GetLibraryModule() &&
-      (getenv("DISMPF") != nullptr || intel::Statistic::isEnabled()))
+  if (getenv("DISMPF") != nullptr || intel::Statistic::isEnabled())
     PM.add(createRemovePrefetchPass());
 
   PM.add(createBuiltinCallToInstPass());
 
-  bool allowAllocaModificationOpt = true;
-  if (!pConfig->GetLibraryModule() && HasGatherScatterPrefetch) {
-    allowAllocaModificationOpt = false;
-  }
   // When running the standard optimization passes, do not change the
   // loop-unswitch
   // pass on modules which contain barriers. This pass is illegal for
@@ -436,6 +431,8 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 // INTEL VPO END
   }
 
+  bool allowAllocaModificationOpt = !HasGatherScatterPrefetch;
+
   createStandardLLVMPasses(
       &PM, OptLevel,
       UnitAtATime, UnrollLoops, rtLoopUnrollFactor, allowAllocaModificationOpt,
@@ -496,7 +493,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
 
   PM.add(createDuplicateCalledKernelsPass());
 
-  if (debugType == intel::None && !pConfig->GetLibraryModule()) {
+  if (debugType == intel::None) {
     PM.add(createKernelAnalysisPass());
     PM.add(createCLWGLoopBoundariesPass());
     PM.add(llvm::createDeadCodeEliminationPass());
@@ -579,25 +576,23 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   }
 
   // Adding WG loops
-  if (!pConfig->GetLibraryModule()) {
-    if (debugType == intel::None) {
-      PM.add(createDeduceMaxWGDimPass());
-      PM.add(createCLWGLoopCreatorPass());
-    }
+  if (debugType == intel::None) {
+    PM.add(createDeduceMaxWGDimPass());
+    PM.add(createCLWGLoopCreatorPass());
+  }
 
-    if (isFpgaEmulator) {
-      PM.add(createInfiniteLoopCreatorPass());
-    }
+  if (isFpgaEmulator) {
+    PM.add(createInfiniteLoopCreatorPass());
+  }
 
-    PM.add(createBarrierMainPass(debugType));
+  PM.add(createBarrierMainPass(debugType));
 
-    // After adding loops run loop optimizations.
-    if (debugType == intel::None) {
-      PM.add(createCLBuiltinLICMPass());
-      PM.add(llvm::createLICMPass());
-      PM.add(createLoopStridedCodeMotionPass());
-      PM.add(createCLStreamSamplerPass());
-    }
+  // After adding loops run loop optimizations.
+  if (debugType == intel::None) {
+    PM.add(createCLBuiltinLICMPass());
+    PM.add(llvm::createLICMPass());
+    PM.add(createLoopStridedCodeMotionPass());
+    PM.add(createCLStreamSamplerPass());
   }
 
   if (pConfig->GetRelaxedMath()) {
@@ -606,19 +601,17 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
 
   // The following three passes (AddImplicitArgs/ResolveWICall/LocalBuffer)
   // must run before createBuiltInImportPass!
-  if (!pConfig->GetLibraryModule()) {
-    PM.add(createAddImplicitArgsPass());
-    PM.add(createResolveWICallPass());
-    PM.add(createLocalBuffersPass(debugType == Native));
-    // clang converts OCL's local to global.
-    // createLocalBuffersPass changes the local allocation from global to a
-    // kernel argument.
-    // The next pass createGlobalOptimizerPass cleans the unused global
-    // allocation in order to make sure we will not allocate redundant space on
-    // the jit
-    if (debugType != Native)
-      PM.add(llvm::createGlobalOptimizerPass());
-  }
+  PM.add(createAddImplicitArgsPass());
+  PM.add(createResolveWICallPass());
+  PM.add(createLocalBuffersPass(debugType == Native));
+  // clang converts OCL's local to global.
+  // createLocalBuffersPass changes the local allocation from global to a
+  // kernel argument.
+  // The next pass createGlobalOptimizerPass cleans the unused global
+  // allocation in order to make sure we will not allocate redundant space on
+  // the jit
+  if (debugType != Native)
+    PM.add(llvm::createGlobalOptimizerPass());
 
 #ifdef _DEBUG
   PM.add(llvm::createVerifierPass());
@@ -678,8 +671,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   }
 
   // PrepareKernelArgsPass must run in debugging mode as well
-  if (!pConfig->GetLibraryModule())
-    PM.add(createPrepareKernelArgsPass());
+  PM.add(createPrepareKernelArgsPass());
 
   if ( debugType == intel::None ) {
     // These passes come after PrepareKernelArgs pass to eliminate the
@@ -705,8 +697,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
 
   // Add prefetches if useful for micro-architecture, if not in debug mode,
   // and don't change libraries
-  if (debugType == intel::None && !pConfig->GetLibraryModule() &&
-      HasGatherScatterPrefetch) {
+  if (debugType == intel::None && HasGatherScatterPrefetch) {
     int APFLevel = pConfig->GetAPFLevel();
     // do APF and following cleaning passes only if APF is not disabled
     if (APFLevel != APFLEVEL_0_DISAPF) {

@@ -164,7 +164,6 @@ CompilerBuildOptions::CompilerBuildOptions( llvm::Module* pModule):
     m_disableOpt(false),
     m_relaxedMath(false),
     m_denormalsZero(false),
-    m_libraryModule(false),
     m_fpgaEmulator(false),
     m_APFLevel(0)
 {
@@ -194,8 +193,6 @@ CompilerBuildOptions::CompilerBuildOptions( llvm::Module* pModule):
         m_disableOpt = true;
       if (parameter == "-cl-fast-relaxed-math")
         m_relaxedMath = true;
-      if (parameter == "-create-library")
-        m_libraryModule = true;
       if (parameter == "-cl-denorms-are-zero")
         m_denormalsZero = true;
       if (parameter == "-auto-prefetch-level=0")
@@ -415,7 +412,6 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
                                             buildOptions.GetProfilingFlag(),
                                             buildOptions.GetDisableOpt(),
                                             buildOptions.GetRelaxedMath(),
-                                            buildOptions.GetlibraryModule(),
                                             buildOptions.IsFpgaEmulator(),
                                             m_dumpHeuristicIR,
                                             buildOptions.GetAPFLevel(),
@@ -423,7 +419,7 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
     Optimizer optimizer(pModule, GetBuiltinModuleList(), &optimizerConfig);
     optimizer.Optimize();
 
-    if( optimizer.hasUndefinedExternals() && !buildOptions.GetlibraryModule())
+    if(optimizer.hasUndefinedExternals())
     {
         Utils::LogUndefinedExternals( pResult->LogS(), optimizer.GetUndefinedExternals());
         throw Exceptions::CompilerException( "Failed to parse IR", CL_DEV_INVALID_BINARY);
