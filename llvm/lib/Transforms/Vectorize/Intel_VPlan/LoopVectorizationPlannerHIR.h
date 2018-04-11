@@ -64,6 +64,13 @@ public:
   /// Generate the HIR code for the body of the vectorized loop according to the
   /// best selected VPlan.
   void executeBestPlan(VPOCodeGenHIR *CG);
+
+  /// Return a pair of the <min, max> types' width used in the underlying loop.
+  std::pair<unsigned, unsigned> getTypesWidthRangeInBits() const final {
+    // FIXME: Implement this!
+    return {8, 64};
+  }
+
 };
 
 } // namespace vpo

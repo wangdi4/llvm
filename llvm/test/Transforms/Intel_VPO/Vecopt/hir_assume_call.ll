@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -print-after=hir-vec-dir-insert \
-; RUN:     -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-DIRECTIVE
+; RUN:     -disable-output -vplan-force-vf=4 2>&1 | FileCheck %s --check-prefix=CHECK-DIRECTIVE
 
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -instcombine | FileCheck %s
+; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -instcombine -vplan-force-vf=4 | FileCheck %s
 
 
 @arr.i32.1 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16

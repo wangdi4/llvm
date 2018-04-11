@@ -46,11 +46,11 @@ static cl::opt<bool>
                       cl::desc("Disable VPO Vectorizer Stress Testing"));
 
 static cl::opt<bool>
-    EnableNestedBlobVec("enable-nested-blob-vec", cl::init(false), cl::Hidden,
+    EnableNestedBlobVec("enable-nested-blob-vec", cl::init(true), cl::Hidden,
                         cl::desc("Enable vectorization of loops with nested blobs"));
 
 static cl::opt<bool>
-    EnableBlobCoeffVec("enable-blob-coeff-vec", cl::init(false), cl::Hidden,
+    EnableBlobCoeffVec("enable-blob-coeff-vec", cl::init(true), cl::Hidden,
                        cl::desc("Enable vectorization of loops with blob IV coefficients"));
 
 /// Don't vectorize loops with a known constant trip count below this number if

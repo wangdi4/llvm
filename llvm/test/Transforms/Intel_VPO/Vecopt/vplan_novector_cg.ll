@@ -5,9 +5,9 @@
 ; explicit SIMD region which in turn requires hir-cg/VPODirectiveCleanup for the
 ; HIR-path to re-use the exact same checks.
 
-; RUN: opt -S < %s -VPlanDriver  -vplan-default-vf=1 | FileCheck %s
+; RUN: opt -S < %s -VPlanDriver  -vplan-force-vf=1 | FileCheck %s
 ; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR \
-; RUN:        -hir-cg  -vplan-default-vf=1 -VPODirectiveCleanup | FileCheck %s
+; RUN:        -hir-cg  -vplan-force-vf=1 -VPODirectiveCleanup | FileCheck %s
 
 @arr.i32.1 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
 @arr.i32.2 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16

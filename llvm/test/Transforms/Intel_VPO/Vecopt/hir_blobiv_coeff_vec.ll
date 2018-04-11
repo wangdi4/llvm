@@ -6,7 +6,7 @@
 ;   for (i = 0; i < 100; i++)
 ;     arr[n * i] = i;
 ; }
-; RUN: opt -vplan-default-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -S  -enable-blob-coeff-vec -enable-nested-blob-vec  < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -S  -enable-blob-coeff-vec -enable-nested-blob-vec  < %s 2>&1 | FileCheck %s
 ; CHECK:      DO i1 = 0, 99, 4   <DO_LOOP>
 ; CHECK:          (<4 x i32>*)(%arr)[{{.*}}] = {{.*}}
 ; CHECK:      END LOOP

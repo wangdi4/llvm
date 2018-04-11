@@ -49,7 +49,6 @@ class InnerLoopVectorizer;
 class LoopVectorizationLegality;
 class LoopInfo;
 
-class VPlanCostModel; // INTEL: to be later declared as a friend
 //}
 
 #if INTEL_CUSTOMIZATION
@@ -65,6 +64,10 @@ class VPOCodeGen;
 class VPOCodeGenHIR;
 class VPOVectorizationLegality;
 class VPBasicBlock;
+#if INTEL_CUSTOMIZATION
+class VPlanCostModel; // INTEL: to be later declared as a friend
+class VPlanCostModelProprietary; // INTEL: to be later declared as a friend
+#endif // INTEL_CUSTOMIZATION
 typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
 // Class names mapping to minimize the diff:
@@ -448,7 +451,8 @@ class VPInstruction : public VPUser, public VPRecipeBase {
 
 #if INTEL_CUSTOMIZATION
   // To get underlying HIRData until we have proper VPType.
-  friend class llvm::VPlanCostModel;
+  friend class VPlanCostModel;
+  friend class VPlanCostModelProprietary;
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -492,11 +496,11 @@ protected:
   /// is no Instruction attached, it returns null. This interface is similar to
   /// getValue() but allows to avoid the cast when we are working with
   /// VPInstruction pointers.
-  Instruction *getInstruction() { return Inst; }
+  Instruction *getInstruction() const { return Inst; }
 
   /// Return the underlying HIR data attached to this VPInstruction. If there
   /// is no HIR data attached, it returns null.
-  VPInstructionData *getHIRData() { return HIRData; }
+  VPInstructionData *getHIRData() const { return HIRData; }
 
   void setInstruction(Instruction *I) { Inst = I; }
   void setHIRData(VPInstructionData *HD) { HIRData = HD; }

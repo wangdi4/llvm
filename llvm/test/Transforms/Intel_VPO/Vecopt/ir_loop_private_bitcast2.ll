@@ -1,4 +1,4 @@
-; RUN: opt -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -S %s | FileCheck %s
+; RUN: opt -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -vplan-force-vf=4 -S %s | FileCheck %s
 
 ; This test checks for a widened alloca and a wide store to the widened alloca
 ; CHECK:  %[[PRIV1:.*]] = alloca <4 x float>

@@ -135,7 +135,7 @@ class VPLoopAnalysis : public VPLoopAnalysisBase {
 private:
   ScalarEvolution *SE;
   // TODO: templatizing of getSmallConstantMaxTripCount() is required to support
-  // VPLoop
+  // VPLoop.
   void computeTripCountImpl(const VPLoopRegion *Lp) final {
     setMaxTripCountFor(Lp, DefaultTripCount);
     setEstimatedTripCountFor(Lp, DefaultTripCount);

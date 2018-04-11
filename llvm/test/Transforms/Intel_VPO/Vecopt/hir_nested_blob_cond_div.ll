@@ -15,7 +15,7 @@
 ; 
 ; Test that we suppress vectorization for divides in a nested blob for a masked statement
 ; until we start using SVML for masked divides.
-; RUN: opt -vplan-default-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -S  -enable-blob-coeff-vec -enable-nested-blob-vec  < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -S  -enable-blob-coeff-vec -enable-nested-blob-vec  < %s 2>&1 | FileCheck %s
 ; CHECK: IR Dump After VPlan Vectorization Driver HIR
 ; CHECK:      DO i1 = 0, 7, 1   <DO_LOOP>
 ; CHECK:      END LOOP

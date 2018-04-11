@@ -1,4 +1,4 @@
-; RUN: opt -S %s -O2 -loopopt=0 -vplan-driver | FileCheck %s
+; RUN: opt -vplan-force-vf=4 -S %s -O2 -loopopt=0 -vplan-driver | FileCheck %s
 
 ;void foo(int *arr1, int *__restrict__ arr2, int *__restrict__ arr3) {
 ;#pragma omp simd
