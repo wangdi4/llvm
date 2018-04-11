@@ -433,14 +433,12 @@ DemangleParser::createUserDefinedType(unsigned int userDefinedNameLength) {
   std::map<std::string, TypePrimitiveEnum>::iterator itr =
       m_imageTypeNameTranslate.find(typeName);
   if (itr != m_imageTypeNameTranslate.end()) {
-#ifdef SUBSTITUTE_OPENCL_TYPES
     // We have a special Primitive Type
     if (!m_isSpir12Name) {
       RefParamType refImageType = createPrimitiveType(itr->second);
       m_signList.push_back(refImageType);
       return refImageType;
     } else
-#endif
       return createPrimitiveType(itr->second);
   }
 
