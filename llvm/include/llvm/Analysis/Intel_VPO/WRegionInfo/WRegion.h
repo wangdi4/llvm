@@ -792,8 +792,10 @@ private:
   loopopt::HLLoop *HLp;         // for HIR only
 
 public:
-  WRNVecLoopNode(BasicBlock *BB, LoopInfo *L); // LLVM IR representation
-  WRNVecLoopNode(loopopt::HLNode *EntryHLN);   // HIR representation
+  WRNVecLoopNode(BasicBlock *BB, LoopInfo *L,
+                 const bool isAutoVec); // LLVM IR representation
+  WRNVecLoopNode(loopopt::HLNode *EntryHLN,
+                 const bool isAutoVec); // HIR representation
 
   void setSimdlen(int N) { Simdlen = N; }
   void setSafelen(int N) { Safelen = N; }

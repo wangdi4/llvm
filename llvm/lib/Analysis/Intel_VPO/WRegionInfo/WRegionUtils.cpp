@@ -78,7 +78,10 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
       W = new WRNTaskloopNode(EntryBB, LI);
       break;
     case DIR_OMP_SIMD:
-      W = new WRNVecLoopNode(EntryBB, LI);
+      W = new WRNVecLoopNode(EntryBB, LI, false /* auto vec */);
+      break;
+    case DIR_VPO_AUTO_VEC:
+      W = new WRNVecLoopNode(EntryBB, LI, true /* auto vec */);
       break;
     case DIR_OMP_LOOP:
       W = new WRNWksLoopNode(EntryBB, LI);
@@ -156,7 +159,10 @@ WRegionNode *WRegionUtils::createWRegionHIR(
     // TODO: complete the list for all WRegionNodeKinds needed
     //       to support vectorizer
     case DIR_OMP_SIMD:
-      W = new WRNVecLoopNode(EntryHLNode);
+      W = new WRNVecLoopNode(EntryHLNode, false /* auto vec */);
+      break;
+    case DIR_VPO_AUTO_VEC:
+      W = new WRNVecLoopNode(EntryHLNode, true /* auto vec */);
       break;
   }
   if (W) {

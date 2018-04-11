@@ -136,6 +136,13 @@ def "DIR.OMP.END.CANCEL" : Directive;
 def "DIR.OMP.CANCELLATION.POINT" : Directive;
 def "DIR.OMP.END.CANCELLATION.POINT" : Directive;
 
+// *** Begin non-OpenMP Directives ***
+
+// Directives used to mark begin/end of a loop determined by VPO vectorizer
+// legality analysis to be legal to vectorize.
+def "DIR.VPO.AUTO.VEC" : Directive;
+def "DIR.VPO.END.AUTO.VEC" : Directive;
+
 // *** Begin OpenMP Clauses ***
 
 def "QUAL.OMP.DEFAULT.NONE" : Clause;

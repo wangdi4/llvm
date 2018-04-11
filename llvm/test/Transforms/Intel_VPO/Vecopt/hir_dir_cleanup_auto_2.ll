@@ -12,13 +12,21 @@
 ;   return 0;
 ; }
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -print-after=VPODriverHIR -S < %s 2>&1 | FileCheck %s
-; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -S < %s 2>&1 | FileCheck %s
+; Test to check that we remove auto vectorization directives even if we fail to
+; vectorize the loop.
+; RUN: opt -vplan-force-vf=1 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after-all -S < %s 2>&1 | FileCheck %s
 ;
 ; HIR Test.
+; CHECK: IR Dump After HIR Vec Directive Insertion Pass 
+; CHECK: BEGIN REGION   
+; CHECK: llvm.intel.directive
+; CHECK: DO i1 = 0, 1023, 1
+; CHECK: llvm.intel.directive
+; CHECK: END REGION
+; CHECK: IR Dump After VPlan Vectorization Driver HIR 
 ; CHECK: BEGIN REGION   
 ; CHECK-NOT: llvm.intel.directive
-; CHECK: DO i1 = 0, 1023, 4
+; CHECK: DO i1 = 0, 1023, 1
 ; CHECK-NOT: llvm.intel.directive
 ; CHECK: END REGION
 
