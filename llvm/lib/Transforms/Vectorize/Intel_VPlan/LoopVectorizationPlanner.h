@@ -17,8 +17,16 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_LOOPVECTORIZATIONPLANNER_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_LOOPVECTORIZATIONPLANNER_H
 
+#include "VPLoopAnalysis.h"
 #include "VPlan.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/Support/CommandLine.h"
+
+#if INTEL_CUSTOMIZATION
+extern cl::opt<uint64_t> VPlanDefaultEstTrip;
+#else
+extern cl::opt<unsigned> VPlanDefaultEstTrip;
+#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 class Loop;
@@ -166,7 +174,9 @@ public:
                            class DominatorTree *DT,
                            VPOVectorizationLegality *Legal)
       : LoopVectorizationPlannerBase(WRL, TLI, TTI, Legal), TheLoop(Lp), LI(LI),
-        SE(SE), DT(DT) {}
+        SE(SE), DT(DT) {
+    VPLA = std::make_shared<VPLoopAnalysis>(SE, VPlanDefaultEstTrip);
+  }
 
   /// On VPlan construction, each instruction marked for predication by Legal
   /// gets its own basic block guarded by an if-then. This initial planning
@@ -223,6 +233,9 @@ private:
 
   /// The dominators tree.
   class DominatorTree *DT;
+
+  /// VPLoop Analysis
+  std::shared_ptr<VPLoopAnalysisBase> VPLA;
 
   /// The profitablity analysis.
   // LoopVectorizationCostModel *CM;

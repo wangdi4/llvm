@@ -33,6 +33,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #if INTEL_CUSTOMIZATION
+#include "Intel_VPlan/VPLoopAnalysis.h"
 #include "Intel_VPlan/VPlanInstructionData.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/IR/Dominators.h"
@@ -1716,6 +1717,7 @@ struct GraphTraits<Inverse<vpo::VPRegionBlock *>>
 
 #if INTEL_CUSTOMIZATION
 namespace vpo {
+
 #endif
 /// VPlan models a candidate for vectorization, encoding various decisions take
 /// to produce efficient output IR, including which branches, basic-blocks and
@@ -1767,6 +1769,8 @@ protected:
   // for memory deallocation purposes.
   /// Holds all the external definitions created for this VPlan.
   SmallVector<VPInstruction *, 32> VPExternalDefs;
+
+  std::shared_ptr<VPLoopAnalysisBase> VPLA;
 #else
   /// Holds a mapping between Values and their corresponding VPValue inside
   /// VPlan.
@@ -1785,8 +1789,9 @@ public:
     IntelVPlanSC,
   } VPlanTy;
 
-  VPlan(const unsigned char SC, VPBlockBase *Entry = nullptr)
-      : VPID(SC), Entry(Entry) {}
+  VPlan(const unsigned char SC, std::shared_ptr<VPLoopAnalysisBase> VPLA,
+        VPBlockBase *Entry = nullptr)
+      : VPID(SC), Entry(Entry), VPLA(VPLA) {}
 #else
   VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
 #endif
@@ -1811,6 +1816,7 @@ public:
   /// Generate the IR code for this VPlan.
   virtual void execute(struct VPTransformState *State);
   virtual void executeHIR(VPOCodeGenHIR *CG) {}
+  VPLoopAnalysisBase* getVPLoopAnalysis(void) const { return VPLA.get(); }
 #else
   /// Generate the IR code for this VPlan.
   void execute(struct VPTransformState *State);

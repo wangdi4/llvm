@@ -23,6 +23,15 @@
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
+#if INTEL_CUSTOMIZATION
+cl::opt<uint64_t>
+    VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
+                        cl::desc("Default estimated trip count"));
+#else
+cl::opt<unsigned>
+    VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
+                        cl::desc("Default estimated trip count"));
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -96,7 +105,7 @@ std::shared_ptr<IntelVPlan>
 LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
                                             unsigned &EndRangeVF) {
   // Create new empty VPlan
-  std::shared_ptr<IntelVPlan> SharedPlan = std::make_shared<IntelVPlan>();
+  std::shared_ptr<IntelVPlan> SharedPlan = std::make_shared<IntelVPlan>(VPLA);
   IntelVPlan *Plan = SharedPlan.get();
 
   // Build hierarchical CFG
