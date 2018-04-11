@@ -265,7 +265,7 @@ bool HostSidePipesTest::runLoopbackKernel(cl_int numPackets)
     return true;
 }
 
-
+#ifdef BUILD_FPGA_EMULATOR
 TEST_F(HostSidePipesTest, ReadWrite)
 {
     size_t numPackets = m_maxBufferSize;
@@ -594,3 +594,4 @@ TEST_F(HostSidePipesTest, BadPtr)
   ASSERT_EQ(CL_INVALID_VALUE, iRet)
     << "clUnmapPipeIntelFPGA(0xdeadbeef, nullptr)";
 }
+#endif // BUILD_FPGA_EMULATOR
