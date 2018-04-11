@@ -12,7 +12,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "common_dev_limits.h"
 #include "OCLPassSupport.h"
 #include "ImplicitArgsUtils.h"
-#include "ImplicitArgsAnalysis/ImplicitArgsAnalysis.h"
 
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Attributes.h"

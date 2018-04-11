@@ -15,8 +15,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Function.h"
 
-#include <CL/cl.h>
-
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
