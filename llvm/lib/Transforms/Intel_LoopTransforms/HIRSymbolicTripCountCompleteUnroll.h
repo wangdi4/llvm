@@ -1,7 +1,7 @@
 //==-- HIRSymbolicTripCountCompleteUnroll.h ----------- --*- C++ -*---===//
 // HIR Loop Pattern Match Pass for Symbolic TripCount 2-level loop nest.
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
