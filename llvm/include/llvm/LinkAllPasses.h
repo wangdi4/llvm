@@ -108,6 +108,7 @@ namespace {
       (void) llvm::createOptReportOptionsPass();
       (void) llvm::createLoopOptReportEmitterLegacyPass();
       (void) llvm::createLowerSubscriptIntrinsicLegacyPass();
+      (void) llvm::createConvertGEPToSubscriptIntrinsicLegacyPass();
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();
