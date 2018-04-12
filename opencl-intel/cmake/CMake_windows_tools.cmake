@@ -28,10 +28,6 @@ set (ADD_C_FLAGS         "/Oi -D WINDOWS_ENABLE_CPLUSPLUS /GS")
 set (ADD_C_FLAGS_DEBUG   "-D _DEBUG /RTC1")
 set (ADD_C_FLAGS_RELEASE "/Zi /Gy")
 
-if (NOT DEFINED INTEL_COMPILER)
-    set (ADD_C_FLAGS_RELEASE "${ADD_C_FLAGS_RELEASE} /sdl")
-endif()
-
 # Compiler switches that CAN be modified during makefile generation and configuration-independent
 add_definitions( -DWIN32 )
 
