@@ -675,3 +675,41 @@ unsigned WRegionUtils::getLoopType(Loop *L) {
   }
   return DoWhileLoop;
 }
+
+// Return true if destructors are needed for privatized variables
+bool WRegionUtils::needsDestructors(WRegionNode *W) {
+  if (W->canHavePrivate())
+    for (PrivateItem *PI : W->getPriv().items())
+      if (PI->getDestructor() != nullptr)
+        return true;
+
+  if (W->canHaveFirstprivate())
+    for (FirstprivateItem *FI : W->getFpriv().items())
+      if (FI->getDestructor() != nullptr)
+        return true;
+
+  if (W->canHaveLastprivate())
+    for (LastprivateItem *LI : W->getLpriv().items())
+      if (LI->getDestructor() != nullptr)
+        return true;
+
+  // TODO: support UDR
+  return false;
+}
+
+bool WRegionUtils::hasCancelConstruct(WRegionNode *W) {
+  assert(W && "hasCancelConstruct: null WRegionNode");
+
+  if (!W->canHaveCancellationPoints())
+    return false;
+
+  if (!W->getCancellationPoints().empty())
+    return true;
+
+  for (auto *Child : W->getChildren()) {
+    if (auto *CancelNode = dyn_cast<WRNCancelNode>(Child))
+      if (!CancelNode->getIsCancellationPoint())
+        return true;
+  }
+  return false;
+}

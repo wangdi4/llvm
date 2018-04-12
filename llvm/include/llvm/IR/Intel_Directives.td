@@ -236,3 +236,4 @@ def "QUAL.OMP.NAME" : Clause;
 
 def "QUAL.OMP.NORMALIZED.IV" : Clause;
 def "QUAL.OMP.NORMALIZED.UB" : Clause;
+def "QUAL.OMP.CANCELLATION.POINTS" : Clause;

@@ -30,6 +30,7 @@
 ; CHECK:           %bin.rdx4 = %bin.rdx2  +  %rdx.shuf3;
 ; CHECK:           %bin.final = extractelement %bin.rdx4,  0;
 ; CHECK:           %sum.07 = %bin.final  +  %sum.07;
+; CHECK:           END REGION
 
 ; CHECK: loop
 ; CHECK: phi <8 x i32> [ zeroinitializer

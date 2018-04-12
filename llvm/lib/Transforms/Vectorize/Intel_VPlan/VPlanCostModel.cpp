@@ -15,7 +15,7 @@
 
 #include "VPlanCostModel.h"
 #include "VPlan.h"
-#include <llvm/Analysis/TargetTransformInfo.h>
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 #define DEBUG_TYPE "vplan-cost-model"
 
@@ -89,7 +89,8 @@ Type *VPlanCostModel::getMemInstValueType(const VPInstruction *VPInst) {
   if (!VPInst->HIRData)
     return nullptr;
 
-  HLDDNode *Node = cast<VPInstructionDataHIR>(VPInst->HIRData)->getInstruction();
+  HLDDNode *Node =
+      cast<VPInstructionDataHIR>(VPInst->HIRData)->getInstruction();
 
   if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
     return ::getMemInstValueType(Inst);
@@ -100,7 +101,8 @@ Type *VPlanCostModel::getMemInstValueType(const VPInstruction *VPInst) {
 }
 
 unsigned VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) {
-  unsigned Opcode = VPInst->getOpcode(); (void)Opcode;
+  unsigned Opcode = VPInst->getOpcode();
+  (void)Opcode;
   assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
 
   // TODO: getType() working without underlying Inst - seems we can return
@@ -112,7 +114,8 @@ unsigned VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) {
   if (!VPInst->HIRData)
     return 0; // CHECKME: Is that correct?
 
-  HLDDNode *Node = cast<VPInstructionDataHIR>(VPInst->HIRData)->getInstruction();
+  HLDDNode *Node =
+      cast<VPInstructionDataHIR>(VPInst->HIRData)->getInstruction();
   if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
     return ::getMemInstAlignment(Inst);
 
@@ -120,7 +123,8 @@ unsigned VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) {
 }
 
 unsigned VPlanCostModel::getMemInstAddressSpace(const VPInstruction *VPInst) {
-  unsigned Opcode = VPInst->getOpcode(); (void)Opcode;
+  unsigned Opcode = VPInst->getOpcode();
+  (void)Opcode;
   assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
 
   // TODO: getType() working without underlying Inst - seems we can return
@@ -132,14 +136,24 @@ unsigned VPlanCostModel::getMemInstAddressSpace(const VPInstruction *VPInst) {
   if (!VPInst->HIRData)
     return 0; // CHECKME: Is that correct?
 
-  HLDDNode *Node = cast<VPInstructionDataHIR>(VPInst->HIRData)->getInstruction();
+  HLDDNode *Node =
+      cast<VPInstructionDataHIR>(VPInst->HIRData)->getInstruction();
   if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
     return ::getMemInstAddressSpace(Inst);
 
   return 0; // CHECKME: Is that correct?
 }
 
-unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
+unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
+  // TODO: For instruction that are not contained inside the loop we're
+  // vectorizing, VF should not be considered. That includes the instructions
+  // that are outside of any of the loops in the loopnest. However, before
+  // support it in the cost model, we need to design how the current loop being
+  // vectorized is represented in the VPlan itself, which also might result in
+  // different VFs for different loop:
+  //   Outer1
+  //     Inner1, vectorize with VF_Inner1
+  //     Inner2, vecotrize with VF_Inner2
   unsigned Opcode = VPInst->getOpcode();
   switch (Opcode) {
   default:
@@ -188,7 +202,7 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     //   1) isLinear (and also the case for consecutive stride)
     //   2) Changes in TTI so that getGatherScatterOpCost could work without
     //      'Value *Ptr' (if that could be reasonable)
-    return VF*BaseCost;
+    return VF * BaseCost;
   }
   case Instruction::Add:
   case Instruction::FAdd:
@@ -305,10 +319,10 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
   }
 }
 
-unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) {
+unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) const {
   unsigned Cost = 0;
   for (const VPRecipeBase &Recipe : *VPBB) {
-    const VPInstruction *VPInst = dyn_cast<VPInstruction>(&Recipe);
+    const auto *VPInst = dyn_cast<VPInstruction>(&Recipe);
     // FIXME: cost of other recipes?
     if (!VPInst)
       continue;
@@ -322,7 +336,7 @@ unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) {
   return Cost;
 }
 
-unsigned VPlanCostModel::getCost(const VPBlockBase *VPBlock) {
+unsigned VPlanCostModel::getCost(const VPBlockBase *VPBlock) const {
   if (auto Region = dyn_cast<VPRegionBlock>(VPBlock)) {
     unsigned Cost = 0;
     for (const VPBlockBase *Block : depth_first(Region->getEntry())) {
@@ -334,17 +348,18 @@ unsigned VPlanCostModel::getCost(const VPBlockBase *VPBlock) {
   }
 
   // TODO: swap the casts with the above?
-  const VPBasicBlock *VPBB = cast<VPBasicBlock>(VPBlock);
+  const auto *VPBB = cast<VPBasicBlock>(VPBlock);
   return getCost(VPBB);
 }
 
-unsigned VPlanCostModel::getCost() {
+unsigned VPlanCostModel::getCost() const {
   assert(Plan->getEntry()->getNumSuccessors() == 0 &&
          "VPlan Entry block must have no successors!");
   return getCost(Plan->getEntry());
 }
 
-void VPlanCostModel::printForVPBlockBase(raw_ostream &OS, const VPBlockBase *VPBlock) {
+void VPlanCostModel::printForVPBlockBase(raw_ostream &OS,
+                                         const VPBlockBase *VPBlock) const {
   // TODO: match print order with "vector execution order".
   if (auto Region = dyn_cast<VPRegionBlock>(VPBlock)) {
     for (const VPBlockBase *Block : depth_first(Region->getEntry()))
@@ -352,7 +367,7 @@ void VPlanCostModel::printForVPBlockBase(raw_ostream &OS, const VPBlockBase *VPB
     return;
   }
 
-  const VPBasicBlock *VPBB = cast<VPBasicBlock>(VPBlock);
+  const auto *VPBB = cast<VPBasicBlock>(VPBlock);
   OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: ";
   unsigned VPBBCost = getCost(VPBB);
   if (VPBBCost == UnknownCost)
@@ -361,7 +376,7 @@ void VPlanCostModel::printForVPBlockBase(raw_ostream &OS, const VPBlockBase *VPB
     OS << VPBBCost << '\n';
 
   for (const VPRecipeBase &Recipe : *VPBB) {
-    const VPInstruction *VPInst = dyn_cast<VPInstruction>(&Recipe);
+    const auto *VPInst = dyn_cast<VPInstruction>(&Recipe);
     // FIXME: cost of other recipes?
     if (!VPInst)
       continue;
@@ -376,12 +391,15 @@ void VPlanCostModel::printForVPBlockBase(raw_ostream &OS, const VPBlockBase *VPB
   }
 }
 
-void VPlanCostModel::print(raw_ostream &OS) {
-  OS << "Cost Model for VPlan: " << Plan->getName() << '\n';
+void VPlanCostModel::print(raw_ostream &OS) const {
+  OS << "Cost Model for VPlan " << Plan->getName() << " with VF = " << VF
+     << ":\n";
   OS << "Total Cost: " << getCost() << '\n';
   DEBUG(dbgs() << *Plan;);
 
   // TODO: match print order with "vector execution order".
   for (const VPBlockBase *Block : depth_first(Plan->getEntry()))
     printForVPBlockBase(OS, Block);
+
+  OS << '\n';
 }
