@@ -7141,6 +7141,10 @@ static void HandleExtVectorTypeAttr(QualType &CurType,
 #if INTEL_CUSTOMIZATION
 static void HandleArbPrecIntAttr(QualType &CurType, const AttributeList &Attr,
                                  Sema &S) {
+  // Warning message handled later, but prevent changing of the type.
+  if (!S.getLangOpts().HLS && !S.getLangOpts().OpenCL)
+    return;
+
   // check the attribute arguments.
   if (Attr.getNumArgs() != 1) {
     S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
