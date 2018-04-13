@@ -2161,6 +2161,10 @@ bool QualType::isCXX98PODType(const ASTContext &Context) const {
 
     // C struct/union is POD.
     return true;
+#if INTEL_CUSTOMIZATION
+  case Type::ArbPrecInt:
+    return true;
+#endif // INTEL_CUSTOMIZATION
   }
 }
 

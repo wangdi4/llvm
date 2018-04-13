@@ -1614,6 +1614,13 @@ static getConstantArrayInfoInChars(const ASTContext &Context,
               (uint64_t)(-1)/Size) &&
          "Overflow in array type char size evaluation");
   uint64_t Width = EltInfo.first.getQuantity() * Size;
+#if INTEL_CUSTOMIZATION
+  if (CAT->getElementType()->isArbPrecIntType() &&
+      !llvm::isPowerOf2_64(Context.getTypeSize(CAT->getElementType())))
+    Width = llvm::alignTo(EltInfo.first.getQuantity(),
+                          EltInfo.second.getQuantity()) *
+            Size;
+#endif // INTEL_CUSTOMIZATION
   unsigned Align = EltInfo.second.getQuantity();
   if (!Context.getTargetInfo().getCXXABI().isMicrosoft() ||
       Context.getTargetInfo().getPointerWidth(0) == 64)
@@ -1730,6 +1737,13 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     assert((Size == 0 || EltInfo.Width <= (uint64_t)(-1) / Size) &&
            "Overflow in array type bit size evaluation");
     Width = EltInfo.Width * Size;
+#if INTEL_CUSTOMIZATION
+    if (CAT->getElementType()->isArbPrecIntType() &&
+        !llvm::isPowerOf2_64(EltInfo.Width))
+      Width = llvm::alignTo(EltInfo.Width,
+                            EltInfo.Align) *
+              Size;
+#endif // INTEL_CUSTOMIZATION
     Align = EltInfo.Align;
     if (!getTargetInfo().getCXXABI().isMicrosoft() ||
         getTargetInfo().getPointerWidth(0) == 64)
@@ -2015,7 +2029,8 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
   case Type::ArbPrecInt: {
     const ArbPrecIntType *AT = cast<ArbPrecIntType>(T);
     Width = AT->getNumBits();
-    Align = std::max(getCharWidth(), llvm::PowerOf2Ceil(Width));
+    Align = std::min(std::max(getCharWidth(), llvm::PowerOf2Ceil(Width)),
+                     static_cast<uint64_t>(64));
     break;
   }
 #endif // INTEL_CUSTOMIZATION
