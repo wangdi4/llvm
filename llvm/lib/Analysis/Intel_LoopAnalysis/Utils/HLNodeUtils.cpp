@@ -279,6 +279,8 @@ Instruction *HLNodeUtils::createCopyInstImpl(Type *Ty, const Twine &Name) {
   auto Inst = cast<Instruction>(InstVal);
   Inst->insertBefore(&*(DummyIRBuilder->GetInsertPoint()));
 
+  setFirstAndLastDummyInst(Inst);
+
   return Inst;
 }
 
@@ -287,6 +289,27 @@ RegDDRef *HLNodeUtils::createTemp(Type *Ty, const Twine &Name) {
 
   return getDDRefUtils().createSelfBlobRef(Inst);
 }
+
+unsigned HLNodeUtils::createAndReplaceTemp(RegDDRef *TempRef, const Twine &Name) {
+  assert(TempRef && "TempRef is null!");
+  assert(TempRef->isTerminalRef() && "TempRef is suppored to be a terminal!");
+
+  auto Inst = createCopyInstImpl(TempRef->getDestType(), Name);
+
+  unsigned Symbase = getHIRFramework().getNewSymbase();
+  unsigned Index = 0;
+
+  getBlobUtils().createBlob(Inst, Symbase, true, &Index);
+
+  if (TempRef->isSelfBlob()) {
+    TempRef->replaceSelfBlobIndex(Index);
+  } else {
+    TempRef->setSymbase(Symbase);
+  }
+
+  return Index;
+}
+
 
 HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, const Twine &Name,
                                     RegDDRef *LvalRef) {

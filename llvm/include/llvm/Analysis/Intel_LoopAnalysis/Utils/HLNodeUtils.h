@@ -567,6 +567,10 @@ public:
   /// underlying setup exists here. Can we move this to DDRefUtils()?
   RegDDRef *createTemp(Type *Ty, const Twine &Name = "temp");
 
+  /// Creates a new underlying instruction and replaces the current temp in
+  /// TempRef by the new instruction. Returns the blob index of the new temp.
+  unsigned createAndReplaceTemp(RegDDRef *TempRef, const Twine &Name = "temp");
+
   /// Used to create copy instructions of the form: Lval = Rval;
   HLInst *createCopyInst(RegDDRef *RvalRef, const Twine &Name = "copy",
                          RegDDRef *LvalRef = nullptr);

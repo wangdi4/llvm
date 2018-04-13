@@ -130,33 +130,6 @@ void unrollLoop(HLLoop *Loop, unsigned UnrollFactor) {
 
 namespace {
 
-// Updates CanonExprs for unroll/unroll & jam.
-class CanonExprUpdater final : public HLNodeVisitorBase {
-private:
-  unsigned Level;
-  unsigned UnrollFactor;
-  unsigned UnrollCnt;
-
-  void processRegDDRef(RegDDRef *RegDD);
-  void processCanonExpr(CanonExpr *CExpr);
-
-public:
-  CanonExprUpdater(unsigned Level, unsigned UF)
-      : Level(Level), UnrollFactor(UF), UnrollCnt(-1) {}
-
-  void setUnrollCount(unsigned Count) { UnrollCnt = Count; }
-
-  /// No processing needed for Goto
-  void visit(HLGoto *Goto){};
-  /// No processing needed for Label
-  void visit(HLLabel *Label){};
-  void visit(HLDDNode *Node);
-  void visit(HLNode *Node) {
-    llvm_unreachable(" Node not supported for unrolling.");
-  };
-  void postVisit(HLNode *Node) {}
-};
-
 // Main unroll and jam class.
 class HIRUnrollAndJam : public HIRTransformPass {
 public:
@@ -345,11 +318,11 @@ bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
   DVKind LoopLevelDV = DV[LoopLevel - 1];
   DVKind InnermostDV = DV[LastLevel - 1];
 
-  // Not sure how to handle edges in outer loops. Currently considering this as
-  // permuting LoopLevel with (=) after the last level DV.
+  // Consider edges in outer loops as permuting LoopLevel with (*) after the
+  // last level DV.
   if (!IsInnermostLoopDV) {
     LastLevel++;
-    InnermostDV = DVKind::EQ;
+    InnermostDV = DVKind::ALL;
   }
 
   // 1. We can always permute these combinations-
@@ -419,10 +392,18 @@ bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
 
 void LegalityChecker::visit(const HLDDNode *Node) {
 
-  bool IsInnermostLoop = Node->getParentLoop()->isInnermost();
+  bool IsInnermostLoop = Node->getLexicalParentLoop()->isInnermost();
 
   for (auto RefIt = Node->ddref_begin(), E = Node->ddref_end(); RefIt != E;
        ++RefIt) {
+
+    if ((*RefIt)->isTerminalRef()) {
+      // Ignore edges for temps which are not livein to candidate loop.
+      if (!CandidateLoop->isLiveIn((*RefIt)->getSymbase())) {
+        continue;
+      }
+    }
+
     for (auto EdgeIt = DDG.outgoing_edges_begin(*RefIt),
               EE = DDG.outgoing_edges_end(*RefIt);
          EdgeIt != EE; ++EdgeIt) {
@@ -546,12 +527,6 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
     } else if (Lp->hasUnrollAndJamDisablingPragma()) {
       DEBUG(dbgs() << "Skipping unroll & jam of pragma disabled loop!\n");
       HUAJ.throttle(Lp);
-      return;
-
-    } else if (!HLNodeUtils::isPerfectLoopNest(Lp)) {
-      DEBUG(dbgs() << "Skipping unroll & jam of non-perfect loopnest!\n");
-      // TODO: Extend to handle imperfect loopnests using instruction renaming.
-      HUAJ.throttleRecursively(Lp);
       return;
     }
   } else if (Lp->hasUnrollEnablingPragma()) {
@@ -836,13 +811,73 @@ bool HIRUnrollAndJam::runOnFunction(Function &F) {
   return false;
 }
 
+namespace {
+
+typedef SmallVector<unsigned, 8> TempBlobIndexVecTy;
+typedef std::pair<unsigned, TempBlobIndexVecTy> TempBlobIndexMap;
+
+// Stores the mapping of temps in outer loops to renamed temps in each unrolled
+// iteration.
+typedef SmallVector<TempBlobIndexMap, 6> TempRenamingMapTy;
+
+// Updates CanonExprs for unroll/unroll & jam.
+class CanonExprUpdater final : public HLNodeVisitorBase {
+private:
+  unsigned Level;
+  unsigned UnrollFactor;
+  unsigned UnrollCnt;
+  bool CreateNewLvalTemps;
+  bool RenameTemps;
+  TempRenamingMapTy &TempRenamingMap;
+
+  void processRegDDRef(RegDDRef *RegDD);
+  void processCanonExpr(CanonExpr *CExpr);
+
+public:
+  CanonExprUpdater(unsigned Level, unsigned UF,
+                   TempRenamingMapTy &TempRenamingMap)
+      : Level(Level), UnrollFactor(UF), UnrollCnt(-1),
+        CreateNewLvalTemps(false), RenameTemps(false),
+        TempRenamingMap(TempRenamingMap) {}
+
+  unsigned getUnrollFactor() const { return UnrollFactor; }
+  void setUnrollCount(unsigned Count) { UnrollCnt = Count; }
+
+  void setCreateNewLvalTemps(bool Flag) { CreateNewLvalTemps = Flag; }
+
+  void renameTemps(bool Flag) { RenameTemps = Flag; }
+
+  /// No processing needed for Goto
+  void visit(HLGoto *Goto){};
+  /// No processing needed for Label
+  void visit(HLLabel *Label){};
+  void visit(HLDDNode *Node);
+  void visit(HLNode *Node) {
+    llvm_unreachable(" Node not supported for unrolling.");
+  };
+  void postVisit(HLNode *Node) {}
+
+  void createLvalTempMapping(RegDDRef *LvalRef);
+};
+
+struct UnrollInfo {
+  CanonExprUpdater CEUpdater;
+  LoopMapTy *LoopMap;
+  HLLabel *ExitLabel;
+  bool NeedRemainderLoop;
+
+  TempRenamingMapTy TempRenamingMap;
+
+  UnrollInfo(unsigned LoopLevel, unsigned UnrollFactor, LoopMapTy *LoopMap,
+             HLLabel *ExitLabel, bool NeedRemainderLoop)
+      : CEUpdater(LoopLevel, UnrollFactor, TempRenamingMap), LoopMap(LoopMap),
+        ExitLabel(ExitLabel), NeedRemainderLoop(NeedRemainderLoop) {}
+};
+
+} // namespace
+
 void CanonExprUpdater::visit(HLDDNode *Node) {
   assert((UnrollCnt < UnrollFactor) && "Invalid unroll count!");
-
-  // Only expecting if and inst inside the innermost loops.
-  // Primarily to catch errors of other types.
-  assert((isa<HLIf>(Node) || isa<HLInst>(Node)) && " Node not supported for "
-                                                   "unrolling.");
 
   for (auto Iter = Node->ddref_begin(), End = Node->ddref_end(); Iter != End;
        ++Iter) {
@@ -850,8 +885,64 @@ void CanonExprUpdater::visit(HLDDNode *Node) {
   }
 }
 
-void CanonExprUpdater::processRegDDRef(RegDDRef *RegDD) {
-  for (auto Iter = RegDD->canon_begin(), End = RegDD->canon_end(); Iter != End;
+void CanonExprUpdater::createLvalTempMapping(RegDDRef *Ref) {
+  if (!CreateNewLvalTemps) {
+    return;
+  }
+
+  if (!Ref->isTerminalRef() || !Ref->isLval() || Ref->isFakeLval()) {
+    return;
+  }
+
+  unsigned OldTempIndex =
+      Ref->isSelfBlob()
+          ? Ref->getSelfBlobIndex()
+          : Ref->getBlobUtils().findTempBlobIndex(Ref->getSymbase());
+
+  auto TempIt = TempRenamingMap.end();
+
+  for (auto It = TempRenamingMap.begin(), E = TempRenamingMap.end(); It != E;
+       ++It) {
+    if (It->first == OldTempIndex) {
+      if (It->second.size() > UnrollCnt) {
+        // Temp has been renamed already for the current unrolled iteration. We
+        // have found another temp definition. We should keep using the existing
+        // mapping.
+        return;
+      }
+      TempIt = It;
+      break;
+    }
+  }
+
+  unsigned NewTempIndex =
+      Ref->getHLDDNode()->getHLNodeUtils().createAndReplaceTemp(Ref);
+
+  if (TempIt != TempRenamingMap.end()) {
+    TempIt->second.push_back(NewTempIndex);
+  } else {
+    TempRenamingMap.emplace_back(OldTempIndex,
+                                 TempBlobIndexVecTy(1, NewTempIndex));
+  }
+}
+
+void CanonExprUpdater::processRegDDRef(RegDDRef *Ref) {
+
+  createLvalTempMapping(Ref);
+
+  if (RenameTemps) {
+    for (auto &TempEntry : TempRenamingMap) {
+      unsigned OldTempIndex = TempEntry.first;
+
+      if (TempEntry.second.size() > UnrollCnt) {
+        unsigned NewTempIndex = TempEntry.second[UnrollCnt];
+
+        Ref->replaceTempBlob(OldTempIndex, NewTempIndex);
+      }
+    }
+  }
+
+  for (auto Iter = Ref->canon_begin(), End = Ref->canon_end(); Iter != End;
        ++Iter) {
     processCanonExpr(*Iter);
   }
@@ -868,8 +959,7 @@ void CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
   CExpr->simplify(true);
 }
 
-void patchIntermediateBottomTest(HLIf *BottomTest, unsigned LoopLevel,
-                                 HLLabel *ExitLabel) {
+static void patchIntermediateBottomTest(HLIf *BottomTest, HLLabel *ExitLabel) {
 
   auto PredIter = BottomTest->pred_begin();
   auto FirstChild = BottomTest->getFirstThenChild();
@@ -881,93 +971,195 @@ void patchIntermediateBottomTest(HLIf *BottomTest, unsigned LoopLevel,
   Goto->setTargetLabel(ExitLabel);
 }
 
-void unrollMainLoop(HLLoop *OrigLoop, HLLoop *MainLoop, unsigned UnrollFactor,
-                    bool NeedRemainderLoop, LoopMapTy *LoopMap) {
-  auto OrigInnermostLoop = OrigLoop;
-  auto NewInnermostLoop = MainLoop;
-  auto &HNU = OrigLoop->getHLNodeUtils();
+static void createUnrolledNodeRange(HLNode *FirstNode, HLNode *LastNode,
+                                    HLContainerTy &NodeRange, UnrollInfo &UInfo,
+                                    bool IsInnermostLoop) {
+  assert(NodeRange.empty() && "Empty node range expected!");
 
-  // Unroll & Jam mode
-  while (!OrigInnermostLoop->isInnermost()) {
-    auto FirstChild = OrigInnermostLoop->getFirstChild();
-    assert(isa<HLLoop>(FirstChild) && "Perfect loopnest expected!");
-    assert(LoopMap && "Non-null loop map expected!");
+  HLNode *CurFirstChild = nullptr;
+  HLNode *CurLastChild = nullptr;
 
-    auto OrigInnerLoop = cast<HLLoop>(FirstChild);
-    auto NewInnerLoop = OrigInnerLoop->cloneEmptyLoop();
+  unsigned UnrollFactor = UInfo.CEUpdater.getUnrollFactor();
+  unsigned UnrollTrip =
+      UInfo.NeedRemainderLoop ? UnrollFactor : UnrollFactor - 1;
 
-    LoopMap->emplace_back(OrigInnerLoop, NewInnerLoop);
+  // We need to create new mapping for lval temps in outer loops.
+  UInfo.CEUpdater.setCreateNewLvalTemps(!IsInnermostLoop);
+  UInfo.CEUpdater.renameTemps(true);
 
-    HNU.insertAsFirstChild(NewInnermostLoop, NewInnerLoop);
-    NewInnermostLoop = NewInnerLoop;
-    OrigInnermostLoop = OrigInnerLoop;
+  for (unsigned UnrollCnt = 0; UnrollCnt < UnrollTrip; ++UnrollCnt) {
+    HLNodeUtils::cloneSequence(&NodeRange, FirstNode, LastNode);
+
+    CurFirstChild = (UnrollCnt == 0)
+                        ? &(NodeRange.front())
+                        : &*(std::next(CurLastChild->getIterator()));
+    CurLastChild = &(NodeRange.back());
+
+    UInfo.CEUpdater.setUnrollCount(UnrollCnt);
+
+    if (UnrollCnt == (UnrollFactor - 1)) {
+      // No need to rename in the last unrolled iteration.
+      // This preserves liveouts of the top level loop.
+      UInfo.CEUpdater.setCreateNewLvalTemps(false);
+      UInfo.CEUpdater.renameTemps(false);
+    }
+
+    HLNodeUtils::visitRange(UInfo.CEUpdater, CurFirstChild, CurLastChild);
+
+    if (UInfo.ExitLabel) {
+      patchIntermediateBottomTest(cast<HLIf>(CurLastChild), UInfo.ExitLabel);
+    }
   }
 
-  bool IsUnknownLoop = (OrigLoop == NewInnermostLoop);
+  // Reuse original nodes for the last unrolled iteration.
+  if (!UInfo.NeedRemainderLoop) {
+    UInfo.CEUpdater.setUnrollCount(UnrollTrip);
+
+    // No need to rename in the last unrolled iteration.
+    // This preserves liveouts of the top level loop.
+    UInfo.CEUpdater.setCreateNewLvalTemps(false);
+    UInfo.CEUpdater.renameTemps(false);
+
+    HLNodeUtils::visitRange(UInfo.CEUpdater, FirstNode->getIterator(),
+                            std::next(LastNode->getIterator()));
+
+    HLNodeUtils::remove(&NodeRange, FirstNode->getIterator(),
+                        std::next(LastNode->getIterator()));
+  }
+}
+
+static HLNode *getLastNodeInRange(HLNode *FirstNode) {
+  HLNode *LastNode = FirstNode;
+
+  for (HLNode *NextNode = FirstNode; (NextNode && !isa<HLLoop>(NextNode));
+       NextNode = NextNode->getNextNode()) {
+    LastNode = NextNode;
+  }
+
+  return LastNode;
+}
+
+static void addRenamedTempsAsLiveinLiveout(HLLoop *Loop,
+                                           TempRenamingMapTy &TempRenamingMap) {
+  auto &BU = Loop->getBlobUtils();
+
+  for (auto &TempEntry : TempRenamingMap) {
+    unsigned OldSymbase = BU.getTempBlobSymbase(TempEntry.first);
+
+    if (Loop->isLiveIn(OldSymbase)) {
+      for (unsigned RenamedTempBlob : TempEntry.second) {
+        Loop->addLiveInTemp(BU.getTempBlobSymbase(RenamedTempBlob));
+      }
+    }
+
+    if (Loop->isLiveOut(OldSymbase)) {
+      for (unsigned RenamedTempBlob : TempEntry.second) {
+        Loop->addLiveOutTemp(BU.getTempBlobSymbase(RenamedTempBlob));
+      }
+    }
+  }
+}
+
+static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
+                                UnrollInfo &UInfo, bool IsTopLoop) {
+  HLContainerTy NodeRange;
+
+  if (!IsTopLoop) {
+    // Unroll preheader/postexit for non top level loops.
+    if (OrigLoop->hasPreheader()) {
+      createUnrolledNodeRange(OrigLoop->getFirstPreheaderNode(),
+                              OrigLoop->getLastPreheaderNode(), NodeRange,
+                              UInfo, false);
+      HLNodeUtils::insertAsFirstPreheaderNodes(NewLoop, &NodeRange);
+    }
+
+    if (OrigLoop->hasPostexit()) {
+      createUnrolledNodeRange(OrigLoop->getFirstPostexitNode(),
+                              OrigLoop->getLastPostexitNode(), NodeRange, UInfo,
+                              false);
+      HLNodeUtils::insertAsFirstPostexitNodes(NewLoop, &NodeRange);
+    }
+
+    addRenamedTempsAsLiveinLiveout(NewLoop, UInfo.TempRenamingMap);
+  }
+
+  HLNode *CurFirstNode = OrigLoop->getFirstChild();
+  bool IsInnermost = false;
+
+  if (OrigLoop == NewLoop) {
+    // Skip loop label cloning for unknown loops.
+    CurFirstNode = CurFirstNode->getNextNode();
+    IsInnermost = true;
+  } else {
+    IsInnermost = OrigLoop->isInnermost();
+  }
+
+  while (CurFirstNode) {
+    // Avoid unnecessary node traversal for innermost loops as their body will
+    // be handled as a single node range.
+    HLNode *CurLastNode = IsInnermost ? OrigLoop->getLastChild()
+                                      : getLastNodeInRange(CurFirstNode);
+
+    // Keep pointer to next node in case this one is moved (for last unrolled
+    // iteration).
+    HLNode *NextFirstNode = CurLastNode->getNextNode();
+
+    // Unroll & Jam mode
+    if (auto ChildLoop = dyn_cast<HLLoop>(CurFirstNode)) {
+      assert((CurFirstNode == CurLastNode) &&
+             "Single node range expected for loops!");
+      assert(UInfo.LoopMap && "Non-null loop map expected!");
+
+      HLLoop *NewInnerLoop = ChildLoop->cloneEmptyLoop();
+      UInfo.LoopMap->emplace_back(ChildLoop, NewInnerLoop);
+
+      HLNodeUtils::insertAsLastChild(NewLoop, NewInnerLoop);
+      unrollLoopRecursive(ChildLoop, NewInnerLoop, UInfo, false);
+
+    } else {
+      createUnrolledNodeRange(CurFirstNode, CurLastNode, NodeRange, UInfo,
+                              IsInnermost);
+      HLNodeUtils::insertAsLastChildren(NewLoop, &NodeRange);
+    }
+
+    CurFirstNode = NextFirstNode;
+  }
+}
+
+static void unrollMainLoop(HLLoop *OrigLoop, HLLoop *MainLoop,
+                           unsigned UnrollFactor, bool NeedRemainderLoop,
+                           LoopMapTy *LoopMap) {
+
+  auto &HNU = OrigLoop->getHLNodeUtils();
   HLLabel *ExitLabel = nullptr;
 
-  auto OrigFirstChild = OrigInnermostLoop->getFirstChild();
-  auto OrigLastChild = OrigInnermostLoop->getLastChild();
+  // Unknown loop unrollng.
+  if (OrigLoop == MainLoop) {
+    assert(OrigLoop->isUnknown() && "Unknown loop expected!");
+    assert(OrigLoop->isInnermost() && "Only innermost unknown loops expected!");
 
-  if (IsUnknownLoop) {
     // Extract postexit before adding an exit label.
-    NewInnermostLoop->extractPostexit();
+    MainLoop->extractPostexit();
 
     // Insert exit label.
     ExitLabel = HNU.createHLLabel("loopexit");
-    HNU.insertAfter(NewInnermostLoop, ExitLabel);
-
-    // Skip loop label cloning.
-    OrigFirstChild = OrigFirstChild->getNextNode();
+    HLNodeUtils::insertAfter(MainLoop, ExitLabel);
   }
 
-  // Container for cloning body.
-  HLContainerTy LoopBody;
-
-  unsigned UnrollTrip = NeedRemainderLoop ? UnrollFactor : UnrollFactor - 1;
-  unsigned UnrollCnt = 0;
-  unsigned LoopLevel = OrigLoop->getNestingLevel();
-
-  CanonExprUpdater CEUpdater(LoopLevel, UnrollFactor);
+  UnrollInfo UInfo(OrigLoop->getNestingLevel(), UnrollFactor, LoopMap,
+                   ExitLabel, NeedRemainderLoop);
 
   HLNode *MarkerNode = HNU.getOrCreateMarkerNode();
 
   // Replace loop by marker node, until we are done populating it so we can
   // insert all the nodes in one go.
   // This saves multiple topsort num recalculations.
-  HNU.replace(NewInnermostLoop, MarkerNode);
+  HLNodeUtils::replace(MainLoop, MarkerNode);
 
-  // Loop through original loop children and create new children with updated
-  // References based on unroll factor.
-  for (; UnrollCnt < UnrollTrip; ++UnrollCnt) {
-    // Clone original body.
-    HNU.cloneSequence(&LoopBody, OrigFirstChild, OrigLastChild);
-
-    // Store references as LoopBody will be empty after insertion.
-    HLNode *CurFirstChild = &(LoopBody.front());
-    HLNode *CurLastChild = &(LoopBody.back());
-
-    HNU.insertAsLastChildren(NewInnermostLoop, &LoopBody);
-    CEUpdater.setUnrollCount(UnrollCnt);
-    HNU.visitRange(CEUpdater, CurFirstChild, CurLastChild);
-
-    if (IsUnknownLoop) {
-      patchIntermediateBottomTest(cast<HLIf>(CurLastChild), LoopLevel,
-                                  ExitLabel);
-    }
-  }
-
-  // Move over original loop's children to the new loop for the last unrolled
-  // iteration.
-  if (!NeedRemainderLoop) {
-    HNU.moveAsLastChildren(NewInnermostLoop, OrigFirstChild->getIterator(),
-                           std::next(OrigLastChild->getIterator()));
-    CEUpdater.setUnrollCount(UnrollCnt);
-    HNU.visitRange(CEUpdater, OrigFirstChild, OrigLastChild);
-  }
+  unrollLoopRecursive(OrigLoop, MainLoop, UInfo, true);
 
   // Insert loop back in HIR.
-  HNU.replace(MarkerNode, NewInnermostLoop);
+  HLNodeUtils::replace(MarkerNode, MainLoop);
 }
 
 void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
