@@ -6515,20 +6515,14 @@ static FunctionDecl *createOCLBuiltinDecl(ASTContext &Context, DeclContext *DC,
   return FD;
 }
 
-void Sema::DeclareOCLChannelBuiltins(QualType ChannelTy, Scope *S,
-                                     bool UseLegacyAlteraNames) {
+void Sema::DeclareOCLChannelBuiltins(QualType ChannelTy, Scope *S) {
   assert(ChannelTy->isChannelType() && "Argument should be a channel.");
 
-  StringRef ReadChannelName =
-    UseLegacyAlteraNames ? "read_channel_altera" : "read_channel_intel";
-  StringRef WriteChannelName =
-    UseLegacyAlteraNames ? "write_channel_altera" : "write_channel_intel";
+  StringRef ReadChannelName = "read_channel_intel";
+  StringRef WriteChannelName = "write_channel_intel";
 
-  StringRef NBReadChannelName =
-    UseLegacyAlteraNames ? "read_channel_nb_altera" : "read_channel_nb_intel";
-  StringRef NBWriteChannelName =
-    UseLegacyAlteraNames ? "write_channel_nb_altera" : "write_channel_nb_intel";
-
+  StringRef NBReadChannelName = "read_channel_nb_intel";
+  StringRef NBWriteChannelName = "write_channel_nb_intel";
 
   SmallVector<FunctionDecl *, 4> &FDs = OCLChannelBIs[ChannelTy.getTypePtr()];
   if (!FDs.empty())
@@ -6655,10 +6649,7 @@ NamedDecl *Sema::ActOnVariableDeclarator(
             << 0 << R << "cl_intel_channels";
         D.setInvalidType();
       } else {
-        bool UseLegacyAlteraNames =
-          PP.isMacroDefined("__IHC_USE_DEPRECATED_NAMES");
-        DeclareOCLChannelBuiltins(Context.getBaseElementType(R), S,
-                                  UseLegacyAlteraNames);
+        DeclareOCLChannelBuiltins(Context.getBaseElementType(R), S);
       }
     }
 #endif // INTEL_CUSTOMIZATION
