@@ -908,7 +908,6 @@ void HLLoop::replaceByFirstIteration() {
   ForEach<RegDDRef>::visitRange(
       child_begin(), child_end(),
       [this, &HNU, Level, &Aux, LB, &ExplicitLB, IsInnermost](RegDDRef *Ref) {
-
         const CanonExpr *IVReplacement = nullptr;
 
         if (DDRefUtils::canReplaceIVByCanonExpr(Ref, Level,
@@ -1352,3 +1351,75 @@ unsigned HLLoop::getUnrollPragmaCount() const {
 
   return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
 }
+
+LoopOptReport LoopOptReportTraits<HLLoop>::getOrCreatePrevOptReport(
+    HLLoop &Loop, const LoopOptReportBuilder &Builder) {
+
+  struct PrevLoopFinder : public HLNodeVisitorBase {
+    const HLLoop *FoundLoop = nullptr;
+    const HLNode *FirstNode;
+
+    PrevLoopFinder(const HLNode *F) : FirstNode(F) {}
+    bool isDone() const { return FoundLoop; }
+    void visit(const HLLoop *Lp) {
+      if (Lp != FirstNode && Lp->getTopSortNum() < FirstNode->getTopSortNum())
+        FoundLoop = Lp;
+    }
+    void visit(const HLNode *Node) {}
+    void postVisit(const HLNode *Node) {}
+  };
+
+  PrevLoopFinder PLF(&Loop);
+  const HLNode *FirstNode;
+  const HLNode *LastNode;
+  const HLLoop *ParentLoop = Loop.getParentLoop();
+  if (ParentLoop) {
+    FirstNode = ParentLoop->getFirstChild();
+    LastNode = Loop.getHLNodeUtils().getImmediateChildContainingNode(ParentLoop,
+                                                                     &Loop);
+
+  } else {
+    const HLRegion *ParentRegion = Loop.getParentRegion();
+    FirstNode = ParentRegion->getFirstChild();
+    LastNode = Loop.getHLNodeUtils().getImmediateChildContainingNode(
+        ParentRegion, &Loop);
+  }
+
+  HLNodeUtils::visitRange<true, false, false>(PLF, FirstNode, LastNode);
+  if (!PLF.FoundLoop)
+    return nullptr;
+
+  HLLoop &Lp = const_cast<HLLoop &>(*PLF.FoundLoop);
+  return Builder(Lp).getOrCreateOptReport();
+}
+
+LoopOptReport LoopOptReportTraits<HLLoop>::getOrCreateParentOptReport(
+    HLLoop &Loop, const LoopOptReportBuilder &Builder) {
+  if (HLLoop *Dest = Loop.getParentLoop())
+    return Builder(*Dest).getOrCreateOptReport();
+
+  if (HLRegion *Dest = Loop.getParentRegion())
+    return Builder(*Dest).getOrCreateOptReport();
+
+  llvm_unreachable("Failed to find a parent");
+}
+
+void LoopOptReportTraits<HLLoop>::traverseChildLoopsBackward(
+    HLLoop &Loop, LoopVisitorTy Func) {
+  struct LoopVisitor : public HLNodeVisitorBase {
+    using LoopVisitorTy = LoopOptReportTraits<HLLoop>::LoopVisitorTy;
+    LoopVisitorTy Func;
+
+    LoopVisitor(LoopVisitorTy Func) : Func(Func) {}
+    void postVisit(HLLoop *Lp) { Func(*Lp); }
+    void visit(const HLNode *Node) {}
+    void postVisit(const HLNode *Node) {}
+  };
+
+  if (Loop.hasChildren()) {
+    LoopVisitor LV(Func);
+    HLNodeUtils::visitRange<true, false, false>(LV, Loop.getFirstChild(),
+                                                Loop.getLastChild());
+  }
+}
+

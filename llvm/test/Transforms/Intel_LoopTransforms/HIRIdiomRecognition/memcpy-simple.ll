@@ -16,10 +16,11 @@
 ; TODO: Remove "TODO"-OPTREPORT after preserveLostLoopOptReport is used in HIRIdiomRecognition.cpp.
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-idiom -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 
-; OPTREPORT: Global loop optimization report for : foo
-; TODO-OPTREPORT-NEXT: LOOP BEGIN
-; TODO-OPTREPORT-NEXT:     Remark #XXXXX: The loop has been replaced with memcpy call
-; TODO-OPTREPORT-NEXT: LOOP END
+;OPTREPORT: Global loop optimization report for : foo
+;
+;OPTREPORT: LOOP BEGIN
+;OPTREPORT-NEXT:     Remark #XXXXX: The memcpy idiom has been recognized
+;OPTREPORT-NEXT: LOOP END
 
 ;Module Before HIR; ModuleID = 'memcpy.c'
 source_filename = "memcpy.c"

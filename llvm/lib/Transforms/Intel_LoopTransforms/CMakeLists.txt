@@ -30,7 +30,6 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRMVForConstUB.cpp
         HIRLoopConcatenation.cpp
         HIRArrayTranspose.cpp
-        Utils/HIROptReport.cpp
         Utils/HIRTransformUtils.cpp
         HIRLoopFusion.cpp
         HIRLoopFusionGraph.cpp

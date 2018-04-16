@@ -12,6 +12,14 @@
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: memset 
 
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-idiom -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+;
+;OPTREPORT: Global loop optimization report for : foo
+;
+;OPTREPORT: LOOP BEGIN
+;OPTREPORT-NEXT:     Remark #XXXXX: The memset idiom has been recognized
+;OPTREPORT-NEXT: LOOP END
+;
 ; ModuleID = 'memset.ll'
 source_filename = "memset.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

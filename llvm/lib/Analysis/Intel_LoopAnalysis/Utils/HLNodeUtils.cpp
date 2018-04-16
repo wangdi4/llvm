@@ -3680,6 +3680,12 @@ public:
       notifyWillRemoveNode(Loop);
 
       Loop->extractPreheaderAndPostexit();
+
+      LoopOptReportBuilder &LORBuilder =
+          Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+      LORBuilder(*Loop).preserveLostLoopOptReport();
+
       HLNodeUtils::remove(Loop);
       Changed = true;
 
@@ -3841,6 +3847,12 @@ public:
       notifyWillRemoveNode(Loop);
 
       SkipNode = Loop;
+
+      LoopOptReportBuilder &LORBuilder =
+          Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+      LORBuilder(*Loop).preserveLostLoopOptReport();
+
       HLNodeUtils::remove(Loop);
       Changed = true;
       return;
@@ -4031,6 +4043,12 @@ public:
              "Non exit goto found at the end of the loop.");
 
       notifyWillRemoveNode(Loop);
+
+      LoopOptReportBuilder &LORBuilder =
+          Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+      LORBuilder(*Loop).preserveLostLoopOptReport();
+
       Loop->replaceByFirstIteration();
       RedundantEarlyExitLoops++;
 
