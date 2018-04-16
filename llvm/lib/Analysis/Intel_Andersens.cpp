@@ -655,10 +655,18 @@ AndersensAAResult AndersensAA::run(Module &M, ModuleAnalysisManager &AM) {
 
 char AndersensAAWrapperPass::ID = 0;
 
+static cl::opt<unsigned> MaxAliasQuery(
+    "max-alias-query", cl::ReallyHidden,
+    cl::desc("This option should be used only with debug compiler. It helps to "
+             "debug any stability issues in AndersensAA by limiting the number "
+             "of alias queries."),
+    cl::init(std::numeric_limits<unsigned>::max()));
 static cl::opt<unsigned>
-MaxAliasQuery("max-alias-query", cl::ReallyHidden, cl::init(40000000));
-static cl::opt<unsigned>
-MaxPtrQuery("max-ptr-query", cl::ReallyHidden, cl::init(4000));
+    MaxPtrQuery("max-ptr-query", cl::ReallyHidden,
+                cl::desc("This option should be used only with debug compiler. "
+                         "It helps to debug any stability issues in "
+                         "AndersensAA by limiting the number of ptr queries."),
+                cl::init(std::numeric_limits<unsigned>::max()));
 
 INITIALIZE_PASS_BEGIN(AndersensAAWrapperPass, "anders-aa",
                    "Andersen Interprocedural AA", false, true)
