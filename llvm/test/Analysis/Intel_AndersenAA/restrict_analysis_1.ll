@@ -3,6 +3,7 @@
 ; is a copy of another argument %twp, never overlap.
 ;
 ; RUN: opt < %s -anders-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -convert-to-subscript -S | opt -anders-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 
 ; CHECK:  NoAlias:      double* %data, double* %twp
 ; CHECK:  NoAlias:      double* %data, double* %twp.addr.029
