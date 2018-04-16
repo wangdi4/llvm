@@ -3808,13 +3808,16 @@ static void handleSectionAttr(Sema &S, Decl *D, const AttributeList &AL) {
   if (!S.checkStringLiteralArgumentAttr(AL, 0, Str, &LiteralLoc))
     return;
 
-#ifndef INTEL_CUSTOMIZATION
+  if (!S.checkSectionName(LiteralLoc, Str))
+    return;
+
   // If the target wants to validate the section specifier, make it happen.
   std::string Error = S.Context.getTargetInfo().isValidSectionSpecifier(Str);
   if (!Error.empty()) {
     S.Diag(LiteralLoc, diag::err_attribute_section_invalid_for_target)
     << Error;
-#endif // INTEL_CUSTOMIZATION
+    return;
+  }
 
   unsigned Index = AL.getAttributeSpellingListIndex();
   SectionAttr *NewAttr = S.mergeSectionAttr(D, AL.getRange(), Str, Index);

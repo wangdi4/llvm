@@ -1,4 +1,3 @@
-// REQUIRES: llvm-backend
 // The special IL0 backend version of the test is in the il0-backend subfolder.
 // RUN: %clang_cc1 -fintel-compatibility -std=gnu99 --gnu_version=40400 %s -emit-llvm -o - | FileCheck %s
 // RUN: %clang_cc1 -fintel-compatibility -std=gnu89 --extended_float_types %s -emit-llvm -o - | FileCheck %s

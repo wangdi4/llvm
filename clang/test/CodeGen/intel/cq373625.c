@@ -1,5 +1,4 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fintel-compatibility %s -emit-llvm -o - | FileCheck %s
-// REQUIRES: llvm-backend
 
 char buf[10];
 // CHECK: [[BUF:@.+]] = common global [10 x i8] zeroinitializer
