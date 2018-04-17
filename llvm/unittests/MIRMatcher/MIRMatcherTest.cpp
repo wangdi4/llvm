@@ -68,7 +68,7 @@ bool initTargetMachine() {
   if (! TheTarget) return false;
 
   TM = TheTarget->createTargetMachine(TT, CPU, FS, TargetOptions(), None,
-                                      CodeModel::Default, CodeGenOpt::Default);
+                                      CodeModel::Large, CodeGenOpt::Default);
   if (! TM) return false;
 
   IRModule.setDataLayout(TM->createDataLayout());
