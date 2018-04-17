@@ -67,7 +67,7 @@ class CSAProcCallsPass : public MachineFunctionPass {
 public:
   static char ID;
   CSAProcCallsPass() : MachineFunctionPass(ID) {}
-  StringRef getPassName() const override { return "CSA Procedure Calls Pass"; }
+  StringRef getPassName() const override { return "CSA: Procedure Calls Pass"; }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<MachineModuleInfo>();

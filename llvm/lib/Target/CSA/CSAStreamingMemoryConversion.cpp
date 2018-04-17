@@ -43,7 +43,7 @@ public:
   CSAStreamingMemoryConversionPass();
 
   StringRef getPassName() const override {
-    return "CSA: Dataflow simplification pass";
+    return "CSA: Streaming memory conversion pass.";
   }
 
   bool runOnMachineFunction(MachineFunction &MF) override;

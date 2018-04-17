@@ -41,7 +41,7 @@ struct CSAFixupOmpEntries : public ModulePass {
 
   StringRef getPassName() const override {
     fprintf(stderr, "CSAFixupOmpEntries::getPassName\n");
-    return "CSA fix linkage of OpenMP offloading entries";
+    return "CSA: Fix linkage of OpenMP offloading entries";
   }
 };
 

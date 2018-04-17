@@ -36,7 +36,7 @@ namespace llvm {
     CSANameLICsPass();
 
     StringRef getPassName() const override {
-      return "CSA name LICs pass";
+      return "CSA: Name LICs pass";
     }
 
     bool runOnMachineFunction(MachineFunction &MF) override;
