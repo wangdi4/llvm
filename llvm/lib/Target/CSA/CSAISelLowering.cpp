@@ -117,6 +117,10 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::ADDE, VT, Expand);
     setOperationAction(ISD::SUBC, VT, Expand);
     setOperationAction(ISD::SUBE, VT, Expand);
+    setOperationAction(ISD::ADDCARRY, VT, Custom);
+    setOperationAction(ISD::SUBCARRY, VT, Custom);
+    setOperationAction(ISD::UADDO, VT, Custom);
+    setOperationAction(ISD::USUBO, VT, Custom);
     // MUL_LOHI is represented as a custom expansion of XMUL.
     if (VT != MVT::i64) {
       setOperationAction(ISD::SMUL_LOHI, VT, Custom);
@@ -353,6 +357,14 @@ SDValue CSATargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
     return LowerMUL_LOHI(Op, DAG);
   case ISD::UMUL_LOHI:
     return LowerMUL_LOHI(Op, DAG);
+  case ISD::ADDCARRY:
+    return LowerADDSUB_Carry(Op, DAG, true);
+  case ISD::SUBCARRY:
+    return LowerADDSUB_Carry(Op, DAG, false);
+  case ISD::UADDO:
+    return LowerADDSUB_Carry(Op, DAG, true);
+  case ISD::USUBO:
+    return LowerADDSUB_Carry(Op, DAG, false);
   default:
     llvm_unreachable("unimplemented operand");
   }
@@ -479,6 +491,43 @@ SDValue CSATargetLowering::LowerMUL_LOHI(SDValue Op, SelectionDAG &DAG) const {
         DAG.getConstant(partVT.getSizeInBits(), dl, doubleVT)),
       dl, partVT);
   SDValue Ops[] = {Lo, Hi};
+  return DAG.getMergeValues(Ops, dl);
+}
+
+SDValue CSATargetLowering::LowerADDSUB_Carry(SDValue Op, SelectionDAG &DAG,
+    bool isAdd) const {
+  SDLoc dl(Op);
+  SDValue LHS     = Op.getOperand(0);
+  SDValue RHS     = Op.getOperand(1);
+  SDValue CarryIn = Op.getNumOperands() == 3 ? Op.getOperand(2) :
+    DAG.getConstant(0, dl, MVT::i1);
+  MVT VT          = LHS.getSimpleValueType();
+  SDValue InOps[] = {LHS, RHS, CarryIn};
+
+  // We don't have an instruction that spits it out into two nodes, we have one
+  // that breaks it into the one node.
+  unsigned opcode;
+  switch (VT.SimpleTy) {
+  case MVT::i8:
+    opcode = isAdd ? CSA::ADC8 : CSA::SBB8;
+    break;
+  case MVT::i16:
+    opcode = isAdd ? CSA::ADC16 : CSA::SBB16;
+    break;
+  case MVT::i32:
+    opcode = isAdd ? CSA::ADC32 : CSA::SBB32;
+    break;
+  case MVT::i64:
+    opcode = isAdd ? CSA::ADC64 : CSA::SBB64;
+    break;
+  default:
+    assert(false && "Illegal type for ADC/SBB");
+  }
+
+  SDNode *carriedOp = DAG.getMachineNode(opcode, dl, VT, MVT::i1, InOps);
+  SDValue res = SDValue{carriedOp, 0};
+  SDValue carryOut = SDValue{carriedOp, 1}; 
+  SDValue Ops[] = {res, carryOut};
   return DAG.getMergeValues(Ops, dl);
 }
 
