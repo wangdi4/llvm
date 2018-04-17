@@ -20,7 +20,10 @@
 #include "llvm/Analysis/CFLAndersAliasAnalysis.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
-#include "llvm/Analysis/Intel_StdContainerAA.h" // INTEL
+#ifdef INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Analysis/Intel_StdContainerAA.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -902,6 +905,10 @@ void TargetPassConfig::addMachinePasses() {
 
   addPass(&XRayInstrumentationID, false);
   addPass(&PatchableFunctionID, false);
+#if INTEL_CUSTOMIZATION
+  if (IntelOptReportEmitter == OptReportOptions::MIR)
+    addPass(&MachineLoopOptReportEmitterID, false);
+#endif  // INTEL_CUSTOMIZATION
 
   if (EnableMachineOutliner)
     addPass(createMachineOutlinerPass());

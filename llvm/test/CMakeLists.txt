@@ -81,9 +81,9 @@ set(LLVM_TEST_DEPENDS
           llvm-readelf
           llvm-rtdyld
           llvm-size
-          #ifdef INTEL_CUSTOMIZATION
+# INTEL_CUSTOMIZATION
           llvm-spirv
-          #endif // INTEL_CUSTOMIZATION
+# end INTEL_CUSTOMIZATION
           llvm-split
           llvm-strings
           llvm-symbolizer
@@ -97,9 +97,9 @@ set(LLVM_TEST_DEPENDS
           verify-uselistorder
           yaml-bench
           yaml2obj
-#if INTEL_CUSTOMIZATION
+# INTEL_CUSTOMIZATION
           intelovls-test
-#endif
+# end INTEL_CUSTOMIZATION
         )
 
 if(TARGET llvm-lto)

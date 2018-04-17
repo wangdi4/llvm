@@ -444,6 +444,7 @@ void initializeLoopOptMarkerLegacyPassPass(PassRegistry&);
 // Pass to store the opt level.
 void initializeXmainOptLevelWrapperPassPass(PassRegistry&);
 void initializeOptReportOptionsPassPass(PassRegistry &);
+void initializeLoopOptReportEmitterLegacyPassPass(PassRegistry&);
 // HIR Passes
 void initializeHIRRegionIdentificationWrapperPassPass(PassRegistry&);
 void initializeHIRSCCFormationWrapperPassPass(PassRegistry&);
@@ -483,7 +484,6 @@ void initializeHIRMVForConstUBPass(PassRegistry&);
 void initializeHIRLoopConcatenationPass(PassRegistry&);
 void initializeHIRArrayTransposePass(PassRegistry&);
 void initializeHIRLoopFusionPass(PassRegistry&);
-void initializeLoopOptReportEmitterPass(PassRegistry &);
 // VPO WRegion Passes
 void initializeWRegionCollectionWrapperPassPass(PassRegistry&);
 void initializeWRegionInfoWrapperPassPass(PassRegistry&);
@@ -523,6 +523,7 @@ void initializeVPlanDriverHIRPass(PassRegistry&);
 void initializeFMASplitterLegacyPassPass(PassRegistry&);
 // Pass for dynamic_cast calls optimization
 void initializeOptimizeDynamicCastsWrapperPass(PassRegistry&);
+void initializeMachineLoopOptReportEmitterPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 void initializeMIRCanonicalizerPass(PassRegistry &);
 

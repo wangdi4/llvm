@@ -160,6 +160,9 @@ add_llvm_library(LLVMCodeGen
   VirtRegMap.cpp
   WinEHPrepare.cpp
   XRayInstrumentation.cpp
+# INTEL_CUSTOMIZATION
+  Intel_MachineLoopOptReportEmitter.cpp
+# end INTEL_CUSTOMIZATION
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/CodeGen

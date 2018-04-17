@@ -177,23 +177,6 @@ static cl::opt<bool> PrintModuleBeforeLoopopt(
     cl::desc("Prints LLVM module to dbgs() before first HIR transform(HIR SSA "
              "deconstruction)"));
 
-// Option for controlling 'backend' for the optimization reports.
-static cl::opt<OptReportOptionsPass::LoopOptReportEmitterKind>
-    OptReportEmitter(
-        "intel-loop-optreport-emitter",
-        cl::desc("Option for choosing the way compiler outputs the "
-                 "optimization reports"),
-        cl::init(OptReportOptionsPass::None),
-        cl::values(
-            clEnumValN(OptReportOptionsPass::None, "none",
-                       "Optimization reports are not emitted"),
-            clEnumValN(
-                OptReportOptionsPass::IR, "ir",
-                "Optimization reports are emitted right after HIR phase"),
-            clEnumValN(
-                OptReportOptionsPass::HIR, "hir",
-                "Optimization reports are emitted before HIR Code Gen phase")));
-
 // register promotion for global vars at -O2 and above.
 static cl::opt<bool> EnableNonLTOGlobalVarOpt(
     "enable-non-lto-global-var-opt", cl::init(true), cl::Hidden,
@@ -1338,10 +1321,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createHIRScalarReplArrayPass());
   }
 
-  if (OptReportEmitter == OptReportOptionsPass::HIR)
+  if (IntelOptReportEmitter == OptReportOptions::HIR)
     PM.add(createHIROptReportEmitterWrapperPass());
 
- PM.add(createHIRCodeGenWrapperPass());
+  PM.add(createHIRCodeGenWrapperPass());
 
   addLoopOptCleanupPasses(PM);
 }
@@ -1403,7 +1386,7 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
   if (RunVPOOpt)
     PM.add(createVPODirectiveCleanupPass());
 
-  if (OptReportEmitter == OptReportOptionsPass::IR)
+  if (IntelOptReportEmitter == OptReportOptions::IR)
     PM.add(createLoopOptReportEmitterLegacyPass());
 }
 

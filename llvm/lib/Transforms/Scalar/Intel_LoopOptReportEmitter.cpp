@@ -1,6 +1,6 @@
 //===- LoopOptReportEmitter.cpp - Prints Loop Optimization reports -------===//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -95,7 +95,10 @@ bool LoopOptReportEmitter::run(Function &F, LoopInfo &LI) {
 struct LoopOptReportEmitterLegacyPass : public FunctionPass {
   static char ID;
 
-  LoopOptReportEmitterLegacyPass() : FunctionPass(ID) {}
+  LoopOptReportEmitterLegacyPass() : FunctionPass(ID) {
+    initializeLoopOptReportEmitterLegacyPassPass(
+        *PassRegistry::getPassRegistry());
+  }
 
   bool runOnFunction(Function &F) override;
 
@@ -123,13 +126,15 @@ PreservedAnalyses LoopOptReportEmitterPass::run(Function &F,
 }
 
 char LoopOptReportEmitterLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(LoopOptReportEmitterLegacyPass, DEBUG_TYPE,
+                      "The pass emits optimization reports", false, false)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_END(LoopOptReportEmitterLegacyPass, DEBUG_TYPE,
+                    "The pass emits optimization reports", false, false)
 
 namespace llvm {
 
 FunctionPass *createLoopOptReportEmitterLegacyPass() {
   return new LoopOptReportEmitterLegacyPass();
 }
-
-static RegisterPass<LoopOptReportEmitterLegacyPass>
-    Y("intel-ir-optreport-emitter", "The pass emits optimization reports");
 } // namespace llvm

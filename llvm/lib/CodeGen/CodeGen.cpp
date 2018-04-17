@@ -105,6 +105,9 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeWinEHPreparePass(Registry);
   initializeXRayInstrumentationPass(Registry);
   initializeMIRCanonicalizerPass(Registry);
+#if INTEL_CUSTOMIZATION
+  initializeMachineLoopOptReportEmitterPass(Registry);
+#endif  // INTEL_CUSTOMIZATION
 }
 
 void LLVMInitializeCodeGen(LLVMPassRegistryRef R) {

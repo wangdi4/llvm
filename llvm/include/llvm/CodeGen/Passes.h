@@ -186,6 +186,11 @@ namespace llvm {
   /// register allocation.
   extern char &ExpandPostRAPseudosID;
 
+#if INTEL_CUSTOMIZATION
+  /// MachineLoopOptReportEmitter - This pass prints loop optimization reports.
+  extern char &MachineLoopOptReportEmitterID;
+#endif  // INTEL_CUSTOMIZATION
+
   /// createPostRAHazardRecognizer - This pass runs the post-ra hazard
   /// recognizer.
   extern char &PostRAHazardRecognizerID;
