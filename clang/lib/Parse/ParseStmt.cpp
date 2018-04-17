@@ -2001,11 +2001,10 @@ StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts,
                      Hint.PragmaNameLoc->Loc, ArgHints, 5,
                      AttributeList::AS_Pragma);
 
-    // CQ#371799 - let #pragma unroll precede non-loop statements. Also fixes
+    // CQ#371799 - let loop #pragmas precede non-loop statements. Also fixes
     // CQ#377523, allowing several #pragma unroll attributes, choosing the last.
-    auto PragmaName = Hint.PragmaNameLoc->Ident->getName();
     if (getLangOpts().IntelCompat &&
-        (PragmaName == "unroll" || PragmaName == "nounroll")) {
+        Hint.PragmaNameLoc->Ident->getName() != "loop") {
       auto *PendingAttr = getPendingUnrollAttr();
       PendingAttr->clear();
       PendingAttr->takeAllFrom(TempAttrs);
