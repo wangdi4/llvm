@@ -6771,8 +6771,26 @@ void SelectionDAGBuilder::visitCall(const CallInst &I) {
       case LibFunc_expl:
         if (visitUnaryFloatCall(I, ISD::FEXP))
           return;
-#endif  // INTEL_CUSTOMIZATION
         break;
+      case LibFunc_tan:
+      case LibFunc_tanf:
+      case LibFunc_tanl:
+        if (visitUnaryFloatCall(I, ISD::FTAN))
+          return;
+        break;
+      case LibFunc_atan:
+      case LibFunc_atanf:
+      case LibFunc_atanl:
+        if (visitUnaryFloatCall(I, ISD::FATAN))
+          return;
+        break;
+      case LibFunc_atan2:
+      case LibFunc_atan2f:
+      case LibFunc_atan2l:
+        if (visitBinaryFloatCall(I, ISD::FATAN2))
+          return;
+        break;
+#endif  // INTEL_CUSTOMIZATION
       case LibFunc_memcmp:
         if (visitMemCmpCall(I))
           return;
