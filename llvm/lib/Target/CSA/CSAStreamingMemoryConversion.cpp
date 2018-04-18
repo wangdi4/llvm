@@ -159,6 +159,8 @@ MachineOp CSAStreamingMemoryConversionPass::getLength(
   // of start and end, and the length is (loop cond ? length : 1).
   if (isOneTrip) {
     MachineOp executed = getLength(start, end, isEqual, stride, false, MI);
+    if (!executed)
+      return nullptr;
     CSA::Generic cmpOpcode;
     switch (TII->getGenericOpcode(MI->getOpcode())) {
       case CSA::Generic::SEQOTNE: cmpOpcode = CSA::Generic::CMPNE; break;
@@ -215,6 +217,11 @@ MachineOp CSAStreamingMemoryConversionPass::getLength(
   if (stride < 0)
     return getLength(end, start, isEqual, -stride, isOneTrip, MI);
   if (stride != 1) {
+    if (!isPowerOf2_64(stride)) {
+      DEBUG(dbgs() << "Stride is not a power of 2, bailing.\n");
+      return nullptr;
+    }
+
     // Trip count = (end + isEqual - start + stride - 1) / stride
     return builder.makeOrConstantFold(
       *LMFI, CSA::SRL64,
@@ -456,6 +463,7 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
     DEBUG(dbgs() << "Sequence step is not an immediate\n");
     return false;
   }
+ 
   bool isEqual = false;
   switch (TII->getGenericOpcode(stream->getOpcode())) {
   case CSA::Generic::SEQOTNE:

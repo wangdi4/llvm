@@ -24,7 +24,6 @@ loop:
 ; CHECK: merge64 %[[SAFELEN:[a-z0-9_]+]], %[[OT]], 1, %[[LEN]]
 ; CHECK: sld64 %[[VAL:[a-z0-9_]+]], %[[SRC]], %[[SAFELEN]], 1, %[[OUTORDL:[a-z0-9_]+]], %[[INORD]], MEMLEVEL_T0
 ; CHECK: sst64 %[[DEST]], %[[SAFELEN]], 1, %[[VAL]], %[[OUTORDS:[a-z0-9_]+]], %[[INORD]], MEMLEVEL_T0
-; CHECK: .unit sxu
 ; CHECK: all0 %[[OUTORD:[a-z0-9_]+]], %[[OUTORDL]], %[[OUTORDS]], %ign, %ign
 
 exit:
