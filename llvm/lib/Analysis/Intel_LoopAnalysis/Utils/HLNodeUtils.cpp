@@ -3281,6 +3281,9 @@ bool HLNodeUtils::hasPerfectLoopProperties(const HLLoop *Lp,
         return false;
       }
       *InnerLp = cast<HLLoop>(NodeIt);
+
+    } else if (!isa<HLInst>(NodeIt)) {
+      return false;
     }
 
     if (++NumChildren > MaxChildren) {
