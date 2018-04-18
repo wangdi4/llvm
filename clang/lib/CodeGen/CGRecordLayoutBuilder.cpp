@@ -590,8 +590,11 @@ void CGRecordLowering::clipTailPadding() {
     if (!Member->Data && Member->Kind != MemberInfo::Scissor)
       continue;
     if (Member->Offset < Tail) {
-      assert(Prior->Kind == MemberInfo::Field && !Prior->FD &&
+#if INTEL_CUSTOMIZATION
+      assert(Prior->Kind == MemberInfo::Field &&
+             (!Prior->FD || Prior->FD->getType()->isArbPrecIntType()) &&
              "Only storage fields have tail padding!");
+#endif // INTEL_CUSTOMIZATION
       Prior->Data = getByteArrayType(bitsToCharUnits(llvm::alignTo(
           cast<llvm::IntegerType>(Prior->Data)->getIntegerBitWidth(), 8)));
     }

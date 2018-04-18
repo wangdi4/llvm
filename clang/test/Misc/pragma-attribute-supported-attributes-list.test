@@ -3,8 +3,8 @@
 // The number of supported attributes should never go down!
 
 // if INTEL_CUSTOMIZATION
-// NOTE: The below value is currently Community value +9.
-// CHECK: #pragma clang attribute supports 77 attributes:
+// NOTE: The below value is currently Community value +10.
+// CHECK: #pragma clang attribute supports 78 attributes:
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: AMDGPUFlatWorkGroupSize (SubjectMatchRule_function)
 // CHECK-NEXT: AMDGPUNumSGPR (SubjectMatchRule_function)
@@ -16,6 +16,9 @@
 // CHECK-NEXT: AllocSize (SubjectMatchRule_function)
 // CHECK-NEXT: Annotate ()
 // CHECK-NEXT: AnyX86NoCfCheck (SubjectMatchRule_hasType_functionType)
+// if INTEL_CUSTOMIZATION
+// CHECK-NEXT: ArbPrecInt (SubjectMatchRule_type_alias)
+// endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: AssumeAligned (SubjectMatchRule_objc_method, SubjectMatchRule_function)
 // if INTEL_CUSTOMIZATION
 // CHECK-NEXT: Autorun (SubjectMatchRule_function)

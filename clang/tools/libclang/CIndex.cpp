@@ -1755,16 +1755,18 @@ bool CursorVisitor::VisitPipeTypeLoc(PipeTypeLoc TL) {
   return Visit(TL.getValueLoc());
 }
 
-#if INTEL_CUSTOMIZATION
-bool CursorVisitor::VisitChannelTypeLoc(ChannelTypeLoc TL) {
-  return Visit(TL.getValueLoc());
-}
-#endif // INTEL_CUSTOMIZATION
-
 #define DEFAULT_TYPELOC_IMPL(CLASS, PARENT) \
 bool CursorVisitor::Visit##CLASS##TypeLoc(CLASS##TypeLoc TL) { \
   return Visit##PARENT##Loc(TL); \
 }
+
+#if INTEL_CUSTOMIZATION
+bool CursorVisitor::VisitChannelTypeLoc(ChannelTypeLoc TL) {
+  return Visit(TL.getValueLoc());
+}
+DEFAULT_TYPELOC_IMPL(ArbPrecInt, Type)
+DEFAULT_TYPELOC_IMPL(DependentSizedArbPrecInt, Type)
+#endif // INTEL_CUSTOMIZATION
 
 DEFAULT_TYPELOC_IMPL(Complex, Type)
 DEFAULT_TYPELOC_IMPL(ConstantArray, ArrayType)

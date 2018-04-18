@@ -571,6 +571,21 @@ ASTTypeWriter::VisitChannelType(const ChannelType *T) {
   Record.AddTypeRef(T->getElementType());
   Code = TYPE_CHANNEL;
 }
+
+void ASTTypeWriter::VisitArbPrecIntType(const ArbPrecIntType *T) {
+  Record.AddTypeRef(T->getUnderlyingType());
+  Record.push_back(T->getNumBits());
+  Record.AddSourceLocation(T->getAttributeLoc());
+  Code = TYPE_ARBPRECINT;
+}
+
+void ASTTypeWriter::VisitDependentSizedArbPrecIntType(
+    const DependentSizedArbPrecIntType *T) {
+  Record.AddTypeRef(T->getUnderlyingType());
+  Record.AddStmt(T->getNumBitsExpr());
+  Record.AddSourceLocation(T->getAttributeLoc());
+  Code = TYPE_DEPENDENT_SIZED_ARBPRECINT;
+}
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
@@ -872,6 +887,14 @@ void TypeLocWriter::VisitPipeTypeLoc(PipeTypeLoc TL) {
 #if INTEL_CUSTOMIZATION
 void TypeLocWriter::VisitChannelTypeLoc(ChannelTypeLoc TL) {
   Record.AddSourceLocation(TL.getKWLoc());
+}
+
+void TypeLocWriter::VisitArbPrecIntTypeLoc(ArbPrecIntTypeLoc TL) {
+  Record.AddSourceLocation(TL.getNameLoc());
+}
+void TypeLocWriter::VisitDependentSizedArbPrecIntTypeLoc(
+    DependentSizedArbPrecIntTypeLoc TL) {
+  Record.AddSourceLocation(TL.getNameLoc());
 }
 #endif // INTEL_CUSTOMIZATION
 

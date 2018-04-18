@@ -6364,6 +6364,33 @@ QualType ASTReader::readTypeRecord(unsigned Index) {
     QualType ElementType = readType(*Loc.F, Record, Idx);
     return Context.getChannelType(ElementType);
   }
+  case TYPE_ARBPRECINT: {
+    if (Record.size() != 3) {
+      Error("Incorrect encoding of ArbPrecInt type");
+      return QualType();
+    }
+
+    unsigned Idx = 0;
+    QualType UnderlyingType = readType(*Loc.F, Record, Idx);
+    unsigned NumBits = Record[Idx++];
+    SourceLocation AttrLoc = ReadSourceLocation(*Loc.F, Record, Idx);
+
+    return Context.getArbPrecIntType(UnderlyingType, NumBits, AttrLoc);
+  }
+  case TYPE_DEPENDENT_SIZED_ARBPRECINT: {
+    if (Record.size() != 3) {
+      Error("Incorrect encoding of Dependent APInt type");
+      return QualType();
+    }
+
+    unsigned Idx = 0;
+    QualType UnderlyingType = readType(*Loc.F, Record, Idx);
+    Expr *NumBitsExpr = ReadExpr(*Loc.F);
+    SourceLocation AttrLoc = ReadSourceLocation(*Loc.F, Record, Idx);
+
+    return Context.getDependentSizedArbPrecIntType(UnderlyingType, NumBitsExpr,
+                                                   AttrLoc);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   case TYPE_DEPENDENT_SIZED_EXT_VECTOR: {
@@ -6743,6 +6770,13 @@ void TypeLocReader::VisitPipeTypeLoc(PipeTypeLoc TL) {
 #if INTEL_CUSTOMIZATION
 void TypeLocReader::VisitChannelTypeLoc(ChannelTypeLoc TL) {
   TL.setKWLoc(ReadSourceLocation());
+}
+void TypeLocReader::VisitArbPrecIntTypeLoc(ArbPrecIntTypeLoc TL) {
+  TL.setNameLoc(ReadSourceLocation());
+}
+void TypeLocReader::VisitDependentSizedArbPrecIntTypeLoc(
+    DependentSizedArbPrecIntTypeLoc TL) {
+  TL.setNameLoc(ReadSourceLocation());
 }
 #endif // INTEL_CUSTOMIZATION
 

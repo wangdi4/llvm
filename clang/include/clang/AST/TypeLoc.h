@@ -2340,6 +2340,14 @@ public:
 
   QualType getInnerType() const { return this->getTypePtr()->getElementType(); }
 };
+
+class ArbPrecIntTypeLoc
+    : public InheritingConcreteTypeLoc<TypeSpecTypeLoc, ArbPrecIntTypeLoc,
+                                       ArbPrecIntType> {};
+class DependentSizedArbPrecIntTypeLoc
+    : public InheritingConcreteTypeLoc<TypeSpecTypeLoc,
+                                       DependentSizedArbPrecIntTypeLoc,
+                                       DependentSizedArbPrecIntType> {};
 #endif // INTEL_CUSTOMIZATION
 
 struct PipeTypeLocInfo {

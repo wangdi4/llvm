@@ -188,6 +188,35 @@ DependentSizedExtVectorType::Profile(llvm::FoldingSetNodeID &ID,
   SizeExpr->Profile(ID, Context, true);
 }
 
+#if INTEL_CUSTOMIZATION
+ArbPrecIntType::ArbPrecIntType(QualType UnderlyingType, unsigned NumBits,
+                               QualType CanonType, SourceLocation Loc)
+    : Type(ArbPrecInt, CanonType, UnderlyingType->isDependentType(),
+           UnderlyingType->isInstantiationDependentType(),
+           UnderlyingType->isVariablyModifiedType(),
+           UnderlyingType->containsUnexpandedParameterPack()),
+      UnderlyingType(UnderlyingType), NumBits(NumBits), Loc(Loc) {}
+
+DependentSizedArbPrecIntType::DependentSizedArbPrecIntType(
+    const ASTContext &Context, QualType UnderlyingType, QualType CanonType,
+    Expr *NumBitsExpr, SourceLocation Loc)
+    : Type(DependentSizedArbPrecInt, CanonType, /*Dependent=*/true,
+           /*InstantationDependent=*/true,
+           UnderlyingType->isVariablyModifiedType(),
+           (UnderlyingType->containsUnexpandedParameterPack() ||
+            (NumBitsExpr && NumBitsExpr->containsUnexpandedParameterPack()))),
+      Context(Context), UnderlyingType(UnderlyingType),
+      NumBitsExpr(NumBitsExpr), Loc(Loc) {}
+
+void DependentSizedArbPrecIntType::Profile(llvm::FoldingSetNodeID &ID,
+                                       const ASTContext &Context,
+                                       QualType UnderlyingType,
+                                       Expr *SizeExpr) {
+  ID.AddPointer(UnderlyingType.getAsOpaquePtr());
+  SizeExpr->Profile(ID, Context, true);
+}
+#endif // INTEL_CUSTOMIZATION
+
 DependentAddressSpaceType::DependentAddressSpaceType(
     const ASTContext &Context, QualType PointeeType, QualType can,
     Expr *AddrSpaceExpr, SourceLocation loc)
@@ -1822,6 +1851,11 @@ bool Type::isSignedIntegerOrEnumerationType() const {
     if (ET->getDecl()->isComplete())
       return ET->getDecl()->getIntegerType()->isSignedIntegerType();
   }
+
+#if INTEL_CUSTOMIZATION
+  if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
+    return AP->getUnderlyingType()->isSignedIntegerOrEnumerationType();
+#endif // INTEL_CUSTOMIZATION
   
   return false;
 }
@@ -1862,6 +1896,11 @@ bool Type::isUnsignedIntegerOrEnumerationType() const {
     if (ET->getDecl()->isComplete())
       return ET->getDecl()->getIntegerType()->isUnsignedIntegerType();
   }
+
+#if INTEL_CUSTOMIZATION
+  if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
+    return AP->getUnderlyingType()->isUnsignedIntegerOrEnumerationType();
+#endif // INTEL_CUSTOMIZATION
   
   return false;
 }
@@ -1938,6 +1977,10 @@ Type::ScalarTypeKind Type::getScalarTypeKind() const {
     if (BT->isInteger()) return STK_Integral;
     if (BT->isFloatingPoint()) return STK_Floating;
     llvm_unreachable("unknown scalar builtin type");
+#if INTEL_CUSTOMIZATION
+  } else if (isa<ArbPrecIntType>(T)) {
+    return STK_Integral;
+#endif //INTEL_CUSTOMIZATION
   } else if (isa<PointerType>(T)) {
     return STK_CPointer;
   } else if (isa<BlockPointerType>(T)) {
@@ -3552,6 +3595,8 @@ static CachedProperties computeCachedProperties(const Type *T) {
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
     return Cache::get(cast<ChannelType>(T)->getElementType());
+  case Type::ArbPrecInt:
+    return Cache::get(cast<ArbPrecIntType>(T)->getUnderlyingType());
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return Cache::get(cast<PipeType>(T)->getElementType());
@@ -3640,6 +3685,8 @@ LinkageInfo LinkageComputer::computeTypeLinkageInfo(const Type *T) {
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
     return computeTypeLinkageInfo(cast<ChannelType>(T)->getElementType());
+  case Type::ArbPrecInt:
+    return computeTypeLinkageInfo(cast<ArbPrecIntType>(T)->getUnderlyingType());
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return computeTypeLinkageInfo(cast<PipeType>(T)->getElementType());
@@ -3796,6 +3843,8 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
   case Type::Atomic:
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
+  case Type::ArbPrecInt:
+  case Type::DependentSizedArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return false;

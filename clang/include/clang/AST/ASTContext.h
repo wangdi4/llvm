@@ -199,6 +199,9 @@ class ASTContext : public RefCountedBase<ASTContext> {
   mutable llvm::FoldingSet<PipeType> PipeTypes;
 #if INTEL_CUSTOMIZATION
   mutable llvm::FoldingSet<ChannelType> ChannelTypes;
+  mutable llvm::FoldingSet<ArbPrecIntType> ArbPrecIntTypes;
+  mutable llvm::FoldingSet<DependentSizedArbPrecIntType>
+      DependentSizedArbPrecIntTypes;
 #endif // INTEL_CUSTOMIZATION
 
   mutable llvm::FoldingSet<QualifiedTemplateName> QualifiedTemplateNames;
@@ -1248,6 +1251,11 @@ public:
 
 #if INTEL_CUSTOMIZATION
   QualType getChannelType(QualType T) const;
+  QualType getArbPrecIntType(QualType Type, unsigned NumBits,
+                             SourceLocation AttrLoc) const;
+  QualType getDependentSizedArbPrecIntType(QualType Type,
+                                          Expr *BitsExpr,
+                                          SourceLocation AttrLoc) const;
 #endif // INTEL_CUSTOMIZATION
 
   /// Gets the struct used to keep track of the extended descriptor for

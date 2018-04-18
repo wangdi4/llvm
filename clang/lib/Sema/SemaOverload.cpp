@@ -403,7 +403,10 @@ StandardConversionSequence::getNarrowingKind(ASTContext &Ctx,
   case ICK_Integral_Conversion:
   IntegralConversion: {
     assert(FromType->isIntegralOrUnscopedEnumerationType());
-    assert(ToType->isIntegralOrUnscopedEnumerationType());
+#if INTEL_CUSTOMIZATION
+    assert(ToType->isIntegralOrUnscopedEnumerationType() ||
+           ToType->isArbPrecIntType());
+#endif // INTEL_CUSTOMIZATION
     const bool FromSigned = FromType->isSignedIntegerOrEnumerationType();
     const unsigned FromWidth = Ctx.getIntWidth(FromType);
     const bool ToSigned = ToType->isSignedIntegerOrEnumerationType();
@@ -1626,6 +1629,22 @@ static bool IsVectorConversion(Sema &S, QualType FromType,
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+static bool IsArbPrecIntConversion(Sema &S, QualType FromType, QualType ToType,
+                               ImplicitConversionKind &ICK) {
+  if (!ToType->isArbPrecIntType() && !FromType->isArbPrecIntType())
+    return false;
+  if (S.Context.hasSameUnqualifiedType(FromType, ToType))
+    return false;
+  if ((ToType->isArbPrecIntType() || ToType->isIntegerType()) &&
+      (FromType->isArbPrecIntType() || FromType->isIntegerType())) {
+    ICK = ICK_Integral_Conversion;
+    return true;
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 static bool tryAtomicConversion(Sema &S, Expr *From, QualType ToType,
                                 bool InOverloadResolution,
                                 StandardConversionSequence &SCS,
@@ -1881,6 +1900,11 @@ static bool IsStandardConversion(Sema &S, Expr* From, QualType ToType,
   } else if (IsVectorConversion(S, FromType, ToType, SecondICK)) {
     SCS.Second = SecondICK;
     FromType = ToType.getUnqualifiedType();
+#if INTEL_CUSTOMIZATION
+  } else if (IsArbPrecIntConversion(S, FromType, ToType, SecondICK)) {
+    SCS.Second = SecondICK;
+    FromType = ToType.getUnqualifiedType();
+#endif // INTEL_CUSTOMIZATION
   } else if (!S.getLangOpts().CPlusPlus &&
              S.Context.typesAreCompatible(ToType, FromType)) {
     // Compatible conversions (Clang extension for C function overloading)
