@@ -61,12 +61,6 @@ FunctionPass *createX86PadShortFunctions();
 #if INTEL_CUSTOMIZATION
 /// This pass performs Fused-Multiply-Add transformations.
 FunctionPass *createX86GlobalFMAPass();
-
-/// Return a pass that selectively replaces
-/// certain byte and word instructions by equivalent 32 bit instructions,
-/// in order to eliminate partial register usage, false dependences on
-/// the upper portions of registers, and to save code size.
-FunctionPass *createX86FixupBWInsts();
 #endif // INTEL_CUSTOMIZATION
 
 /// Return a pass that selectively replaces certain instructions (like add,
