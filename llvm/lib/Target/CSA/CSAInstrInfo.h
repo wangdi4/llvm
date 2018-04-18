@@ -94,6 +94,12 @@ enum OpcodeClass {
   /// so it generally only matters if this doesn't appear.
   VARIANT_DONTCARE = ~0U
 };
+
+/// Flag bits for target-specific flags on the MCInstrDesc objects. This needs
+/// to be kept up-to-date with the definitions in CSAInstrFormats.td
+enum {
+  MultiTriggered = 1 << 0
+};
 } // namespace CSA
 
 class CSASubtarget;
@@ -255,10 +261,10 @@ public:
   bool isSeqOT(const MachineInstr *) const;
   bool isReduction(const MachineInstr *) const;
 
-  /// Returns true if the machine operation is pure. Pure operations will
-  /// execute only when all LIC inputs have values and will output exactly one
-  /// value on each LIC output when that happens.
-  bool isPure(const MachineInstr *) const;
+  /// Returns true if the machine operation is multi-triggered.
+  bool isMultiTriggered(const MachineInstr *MI) const {
+    return MI->getDesc().TSFlags & CSA::MultiTriggered;
+  }
 
   // Gets the opcode for a memory token MOV.  This method is defined
   // here so that all the places which need to know which opcode is a

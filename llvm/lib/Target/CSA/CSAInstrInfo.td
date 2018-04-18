@@ -483,6 +483,7 @@ class MergeOp<string opStr, CSAOpInfo t,
     [(set t.VT:$dst, (select RCLi1:$sel, (t.VT t.RCL:$v1), (t.VT t.RCL:$v0)))],
     preds, itin>;
 
+let isMultiTriggered = 1 in {
 class SwitchOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
@@ -605,7 +606,6 @@ class FMSReduceOp<GenericOp gen, CSAOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval1, $inval2, $ctl, $rm"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
-
 class FountainOp<GenericOp gen, CSAOpInfo oi,
                  InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
@@ -613,6 +613,8 @@ class FountainOp<GenericOp gen, CSAOpInfo oi,
     (ins i64imm:$addr, i64imm:$len),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$res, $addr, $len"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
+
+} // let isMultiTriggered = 1
 
 def LDX : GenericOp<"ldx">;
 def LDD : GenericOp<"ldd">;
@@ -688,6 +690,7 @@ class StreamLdOp<string opStr, CSAOpInfo t, InstrItinClass itin = IILD> :
     []> {
   let mayLoad = 1;
   let Itinerary = itin;
+  let isMultiTriggered = 1;
 }
 
 def SST : GenericOp<"sst">;
@@ -699,6 +702,7 @@ class StreamStOp<string opStr, CSAOpInfo t, InstrItinClass itin = IIST> :
     []> {
   let mayStore = 1;
   let Itinerary = itin;
+  let isMultiTriggered = 1;
 }
 
 class XmulOp<GenericOp gen, CSAOpInfo oi, CSAOpInfo oi2, SDNode ext,
@@ -1296,21 +1300,21 @@ def LAND1 : FMTGEN<LAND, Ti1,
   (outs I1:$dst),
   (ins RCLi1:$op1, RCLi1:$op2, RCLi1:$op3, RCLi1:$op4),
   "land1\t$dst, $op1, $op2, $op3, $op4",
-  [], [], IIALU>;
+  [], [], IIALU> { let isMultiTriggered = 1; }
 
 def LOR : GenericOp<"lor">;
 def LOR1 : FMTGEN<LOR, Ti1,
   (outs I1:$dst),
   (ins RCLi1:$op1, RCLi1:$op2, RCLi1:$op3, RCLi1:$op4),
   "lor1\t$dst, $op1, $op2, $op3, $op4",
-  [], [], IIALU>;
+  [], [], IIALU> { let isMultiTriggered = 1; }
 
 def ANY : GenericOp<"any">;
 def ANY0 : FMTGEN<ANY, Ti0,
   (outs I64:$dst),
   (ins RCLi0:$op1, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4, PrioOrderOperand:$ord),
   "any0\t$dst, $op1, $op2, $op3, $op4, $ord",
-  [], [], IIVir>;
+  [], [], IIVir> { let isMultiTriggered = 1; }
 
 def ALL : GenericOp<"all">;
 def ALL0 : FMTGEN<ALL, Ti0,
@@ -1324,28 +1328,28 @@ def ONCOUNT0 : FMTGEN<ONCOUNT, Ti0,  // TODO: something to reflect state
   (outs I0:$dst),
   (ins RCLi64:$cnt, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4, RCLi0:$op5),
   "oncount0\t$dst, $cnt, $op2, $op3, $op4, $op5",
-  [], [], IIVir>;
+  [], [], IIVir> { let isMultiTriggered = 1; }
 
 def PREDPROP_G : GenericOp<"predprop">;
 def PREDPROP : FMTGEN<PREDPROP_G, Ti1,
   (outs I1:$efalse, I1:$etrue),
   (ins RCLi1:$pb, RCLi1:$sb),
   "predprop\t$efalse, $etrue, $pb, $sb",
-  [], [], IIALU>;
+  [], [], IIALU> { let isMultiTriggered = 1; }
 
 def PREDMERGE_G : GenericOp<"predmerge">;
 def PREDMERGE : FMTGEN<PREDMERGE_G, Ti1,
   (outs I1:$predres, I1:$index),
   (ins RCLi1:$e0, RCLi1:$e1),
   "predmerge\t$predres, $index, $e0, $e1",
-  [], [], IIALU>;
+  [], [], IIALU> { let isMultiTriggered = 1; }
 
 def PREDFILTER_G : GenericOp<"predfilter">;
 def PREDFILTER : FMTGEN<PREDFILTER_G, Ti1,
   (outs I1:$ctlout),
   (ins RCLi1:$ctl, RCLi1:$pred),
   "predfilter\t$ctlout, $ctl, $pred",
-  [], [], IIALU>;
+  [], [], IIALU> { let isMultiTriggered = 1; }
 
 def SEQC      : GenericOp<"seqc">;
 def SEQC8     : SeqCOp<  SEQC,  Ti8,  IIALU>;
@@ -1561,7 +1565,7 @@ def ONEND : FMTGEN<ONEND_G, Ti0,  // TODO: something to reflect state
   (outs I0:$dst),
   (ins RCLi1:$ctrl, RCLi0:$in),
   "onend\t$dst, $ctrl, $in",
-  []> { let Itinerary = IIVir; }
+  []> { let Itinerary = IIVir; let isMultiTriggered = 1; }
 
 // Not clear that "hasSideEffects" is a good description of static initialization...
 def INIT : GenericOp<"init">;
@@ -1574,6 +1578,7 @@ class Init<CSAOpInfo t, list<Predicate> preds, InstrItinClass itin> :
   let hasSideEffects = 1;
   let GenOp = INIT;
   let OpInfo = t;
+  let isMultiTriggered = 1;
 }
 
 let isCodeGenOnly=1 in {

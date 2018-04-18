@@ -43,6 +43,11 @@ class InstCSA<GenericOp genOp, CSAOpInfo opInfo, dag outs, dag ins,
   // The generic operator for this operation (e.g. ADD for ADD64)
   GenericOp GenOp = genOp;
   CSAOpInfo OpInfo = opInfo;
+
+  // Multi-triggered instructions are those instructions which do not always
+  // consume all inputs and produce on all outputs.
+  bit isMultiTriggered = 0;
+  let TSFlags{0} = isMultiTriggered;
 }
 
 // CSA pseudo instruction format

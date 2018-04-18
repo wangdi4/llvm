@@ -245,7 +245,7 @@ bool CSADataflowCanonicalizationPass::invertIgnoredSwitches(MachineInstr *MI) {
   // 3. The output must only reach the SWITCH.
   MachineInstr *switched = getDefinition(MI->getOperand(3));
   if (!switched || switched->mayLoadOrStore() ||
-      switched->hasUnmodeledSideEffects() || !TII->isPure(switched) ||
+      switched->hasUnmodeledSideEffects() || TII->isMultiTriggered(switched) ||
       !switched->getFlag(MachineInstr::NonSequential))
     return false;
   if (switched->uses().begin() - switched->defs().begin() > 1)
