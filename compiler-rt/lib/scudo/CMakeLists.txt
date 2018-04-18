@@ -45,6 +45,13 @@ if(COMPILER_RT_HAS_SCUDO)
   append_list_if(COMPILER_RT_HAS_LIBPTHREAD pthread SCUDO_DYNAMIC_LIBS)
   append_list_if(COMPILER_RT_HAS_LIBLOG log SCUDO_DYNAMIC_LIBS)
 
+  if (INTEL_CUSTOMIZATION)
+  # "-nodefaultlibs" is used when linking scudo. Make sure we supply libirc
+  # when it is available.
+    check_library_exists(irc _intel_fast_memset "" COMPILER_RT_HAS_LIBIRC)
+    append_list_if(COMPILER_RT_HAS_LIBIRC irc SCUDO_DYNAMIC_LIBS)
+  endif()
+
   add_compiler_rt_runtime(clang_rt.scudo
     STATIC
     ARCHS ${SCUDO_SUPPORTED_ARCH}
