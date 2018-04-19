@@ -470,6 +470,15 @@ void HandledCheck::visit(HLDDNode *Node) {
         IsHandled = false;
         return;
       }
+
+      // These intrinsics need the second argument to remain scalar(consequently loop
+      // invariant). Support to be added later.
+      if (ID == Intrinsic::ctlz || ID == Intrinsic::cttz || ID == Intrinsic::powi) {
+        DEBUG(dbgs()
+              << "VPLAN_OPTREPORT: Loop not handled - ctlz/cttz/powi intrinsic\n");
+        IsHandled = false;
+        return;
+      }
     }
   }
 
