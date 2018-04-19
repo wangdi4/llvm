@@ -28,7 +28,6 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Debug.h>
-#include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include <llvm/Transforms/Utils/ModuleUtils.h>
 
@@ -42,7 +41,6 @@
 #include <PipeCommon.h>
 
 #include <algorithm>
-#include <utility>
 #include <vector>
 #include <stack>
 
