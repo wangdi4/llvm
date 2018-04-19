@@ -21,17 +21,15 @@ File Name:  DebugInfoPass.cpp
 #include "InitializePasses.h"
 #include "CompilationUtils.h"
 
-#include <llvm/Pass.h>
+#include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/DebugInfo.h>
 #include <llvm/IR/IntrinsicInst.h>
-#include "llvm/IR/Metadata.h"
-
-#include <list>
-#include <vector>
+#include <llvm/IR/Metadata.h>
+#include <llvm/Pass.h>
 
 using namespace llvm;
 using namespace std;
@@ -137,7 +135,7 @@ private:
     //      computations were inserted)
     //
     struct FunctionContext {
-        vector<Value*> gids;
+        SmallVector<Value*, 8> gids;
         Instruction* original_first_instr;
     };
 
@@ -218,7 +216,7 @@ void DebugInfoPass::addGlobalIdDeclaration()
     //
     Type* i_size_t = IntegerType::get(*m_llvm_context, 8 * sizeof(size_t));
     Type* uint_type = IntegerType::get(*m_llvm_context, 32);
-    vector<Type*> params;
+    SmallVector<Type*, 4> params;
     params.push_back(uint_type);
 
     FunctionType* gid_type = FunctionType::get(i_size_t, params, false);
@@ -239,7 +237,7 @@ void DebugInfoPass::addDebugBuiltinDeclarations()
     // 3. Address of the metadata for complex expression
     // 4-6. global IDs for dimensions 0-2
     //
-    vector<Type*> declare_params;
+    SmallVector<Type*, 8> declare_params;
     declare_params.push_back(pointer_i8);
     for (int i = 0; i < 5; ++i)
       declare_params.push_back(i64);
@@ -260,7 +258,7 @@ void DebugInfoPass::addDebugBuiltinDeclarations()
     // 1. Address of the metadata for the subprogram entry
     // 2-4. global IDs for dimensions 0-2
     //
-    vector<Type*> enter_params;
+    SmallVector<Type*, 4> enter_params;
     for (int i = 0; i < 4; ++i)
         enter_params.push_back(i64);
     FunctionType* enter_functype = FunctionType::get(void_type, enter_params, false);
@@ -303,7 +301,7 @@ void DebugInfoPass::insertComputeGlobalIds(Function* pFunc, FunctionContext& fCo
     BasicBlock& entry_block = pFunc->getEntryBlock();
     Instruction& first_instr = entry_block.front();
 
-    vector<Value*> gids;
+    SmallVector<Value*, 8> gids;
     for (unsigned i = 0; i <= 2; ++i) {
         Value* const_dim = ConstantInt::get(uint_type, i, false);
         Value* gid_at_dim = CallInst::Create(
@@ -361,7 +359,7 @@ void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionConte
     //
     insertDbgDeclareGlobalCalls(pFunc, fContext);
 
-    list<Instruction*> instrs_to_remove;
+    SmallVector<Instruction*, 8> instrs_to_remove;
     unsigned prev_c_lineno = 0;
 
     // Go over all instructions in the function:
@@ -411,9 +409,8 @@ void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionConte
 
     // Clean up the instructions scheduled for removal
     //
-    for (list<Instruction*>::const_iterator i = instrs_to_remove.begin();
-         i != instrs_to_remove.end(); ++i) {
-        (*i)->eraseFromParent();
+    for (const auto &I : instrs_to_remove) {
+        I->eraseFromParent();
     }
 }
 
@@ -446,7 +443,7 @@ void DebugInfoPass::insertDbgEnterFunctionCall(Function* pFunc, const FunctionCo
     Value* subprogram_md_addr = extractSubprogramDescriptorMetadata(pFunc);
     assert(subprogram_md_addr && "Did not find subprogram descriptor");
 
-    vector<Value*> params;
+    SmallVector<Value*, 4> params;
     params.push_back(subprogram_md_addr);
     for (int i = 0; i <= 2; ++i)
         params.push_back(fContext.gids[i]);
@@ -492,7 +489,7 @@ void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionC
         // The metadata itself is passed as an address
         Value* metadata_addr = makeAddressValueFromPointer(GVMetadata);
 
-        vector<Value*> params;
+        SmallVector<Value*, 4> params;
         params.push_back(var_addr);
         params.push_back(metadata_addr);
         for (int i = 0; i <= 2; ++i)
@@ -520,7 +517,7 @@ void DebugInfoPass::insertDbgStoppointCall(Instruction* instr, const FunctionCon
 
     Function* stoppoint_func = m_pModule->getFunction(BUILTIN_DBG_STOPPOINT_NAME);
     assert(stoppoint_func);
-    vector<Value*> params;
+    SmallVector<Value*, 4> params;
     params.push_back(makeAddressValueFromPointer(mdn));
     for (int i = 0; i <= 2; ++i)
         params.push_back(fContext.gids[i]);
@@ -543,7 +540,7 @@ void DebugInfoPass::insertDbgDeclaraLocalCall(DbgDeclareInst* dbgDeclInstr, cons
 
     Function* declare_local_func = m_pModule->getFunction(BUILTIN_DBG_DECLARE_LOCAL_NAME);
     assert(declare_local_func);
-    vector<Value*> params;
+    SmallVector<Value*, 4> params;
     params.push_back(var_ref_cast);
     params.push_back(var_metadata_addr);
     params.push_back(expr_metadata_addr);
@@ -561,7 +558,7 @@ void DebugInfoPass::insertDbgExitFunctionCall(Instruction* instr, Function* pFun
     Value* subprogram_md_addr = extractSubprogramDescriptorMetadata(pFunc);
     assert(subprogram_md_addr && "Did not find subprogram descriptor");
 
-    vector<Value*> params;
+    SmallVector<Value*, 4> params;
     params.push_back(subprogram_md_addr);
     for (int i = 0; i <= 2; ++i)
         params.push_back(fContext.gids[i]);
