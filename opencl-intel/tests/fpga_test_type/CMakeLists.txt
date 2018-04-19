@@ -8,6 +8,8 @@ add_ocl_unittest(
     main.cpp
     pretty_printers.cpp
 
+    device_info.cpp
+
   LINK_LIBRARIES
     OpenCL
     test_utils
