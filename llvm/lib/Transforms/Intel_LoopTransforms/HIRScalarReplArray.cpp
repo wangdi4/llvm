@@ -1157,6 +1157,13 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp) {
     }
   }
 
+  LoopOptReportBuilder &LORBuilder =
+      Lp->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                            "Number of Array Refs Scalar Replaced In Loop: %d",
+                            NumGPRsPromoted);
+
   // Mark the loop has been changed, request CodeGen support
   // Note: ScalarReplArray won't change current HIRLoopStatistics
   if (Transformed) {

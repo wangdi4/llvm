@@ -53,6 +53,12 @@
 ; CHECK:           (@B)[0][101] = %scalarepl1;
 ; CHECK:  END REGION
 ;
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-scalarrepl-array -disable-output -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+;
+;OPTREPORT: LOOP BEGIN
+;OPTREPORT:     Remark #XXXXX: Number of Array Refs Scalar Replaced In Loop: 2
+;OPTREPORT: LOOP END
+
 ; === ---------------------------------------------------------------- ===
 ; Following is the LLVM's input code!
 ; === ---------------------------------------------------------------- ===
