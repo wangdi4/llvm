@@ -71,8 +71,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
@@ -117,16 +115,14 @@ static cl::opt<unsigned> MaxOuterLoopCost(
 typedef SmallVector<std::pair<HLLoop *, HLLoop *>, 16> LoopMapTy;
 
 // Implements unroll/unroll & jam for \p Loop.
-void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
-                    LoopOptReportBuilder &LORBuilder);
+void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap);
 
 // External interface
 namespace llvm {
 namespace loopopt {
 namespace unroll {
-void unrollLoop(HLLoop *Loop, unsigned UnrollFactor,
-                LoopOptReportBuilder &LORBuilder) {
-  unrollLoopImpl(Loop, UnrollFactor, nullptr, LORBuilder);
+void unrollLoop(HLLoop *Loop, unsigned UnrollFactor) {
+  unrollLoopImpl(Loop, UnrollFactor, nullptr);
 }
 } // namespace unroll
 } // namespace loopopt
@@ -175,7 +171,6 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<OptReportOptionsPass>();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
     AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
@@ -193,9 +188,6 @@ private:
   HIRLoopResource *HLR;
   HIRLoopLocality *HLA;
   HIRDDAnalysis *DDA;
-
-  // Helper for generating optimization reports.
-  LoopOptReportBuilder LORBuilder;
 
   LoopNestUFInfoTy LoopNestUFInfo;
   bool HaveUnrollCandidates;
@@ -323,7 +315,6 @@ public:
 char HIRUnrollAndJam::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRUnrollAndJam, "hir-unroll-and-jam", "HIR Unroll & Jam",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
@@ -565,7 +556,8 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
     }
   } else if (Lp->hasUnrollEnablingPragma()) {
     // TODO: Check this for all loops when we have unroll & jam metadata.
-    DEBUG(dbgs() << "Skipping unroll & jam as innermost loop has unroll pragma!\n");
+    DEBUG(dbgs()
+          << "Skipping unroll & jam as innermost loop has unroll pragma!\n");
     HUAJ.throttleRecursively(Lp);
     return;
   }
@@ -808,8 +800,7 @@ void HIRUnrollAndJam::unrollCandidates(HLLoop *Lp) {
       if (LoopUFPair.second > 1) {
         LoopMapTy LoopMap;
 
-        unrollLoopImpl(LoopUFPair.first, LoopUFPair.second, &LoopMap,
-                       LORBuilder);
+        unrollLoopImpl(LoopUFPair.first, LoopUFPair.second, &LoopMap);
         replaceLoops(LoopMap);
         LoopsUnrolledAndJammed++;
       }
@@ -827,8 +818,6 @@ bool HIRUnrollAndJam::runOnFunction(Function &F) {
   HLR = &getAnalysis<HIRLoopResourceWrapperPass>().getHLR();
   HLA = &getAnalysis<HIRLoopLocalityWrapperPass>().getHLL();
   DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-  auto &OROP = getAnalysis<OptReportOptionsPass>();
-  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   sanitizeOptions();
 
@@ -981,8 +970,7 @@ void unrollMainLoop(HLLoop *OrigLoop, HLLoop *MainLoop, unsigned UnrollFactor,
   HNU.replace(MarkerNode, NewInnermostLoop);
 }
 
-void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
-                    LoopOptReportBuilder &LORBuilder) {
+void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
   assert(Loop && "Loop is null!");
   assert((UnrollFactor > 1) && "Invalid unroll factor!");
 
@@ -990,10 +978,14 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
   bool IsUnknownLoop = Loop->isUnknown();
   HLLoop *MainLoop = nullptr;
 
+  LoopOptReportBuilder &LORBuilder =
+      Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
   if (IsUnknownLoop) {
     MainLoop = Loop;
     MainLoop->getParentRegion()->setGenCode();
     MainLoop->setNumExits(MainLoop->getNumExits() * UnrollFactor);
+
     LORBuilder(*MainLoop).addRemark(
         OptReportVerbosity::Low,
         "Unknown loop has been partially unrolled with %d factor",

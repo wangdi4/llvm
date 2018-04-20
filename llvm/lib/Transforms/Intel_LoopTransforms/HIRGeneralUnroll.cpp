@@ -82,7 +82,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
@@ -144,7 +143,6 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<OptReportOptionsPass>();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
@@ -153,9 +151,6 @@ public:
 private:
   HIRLoopResource *HLR;
   HIRLoopStatistics *HLS;
-
-  // Helper for generating optimization reports.
-  LoopOptReportBuilder LORBuilder;
 
   bool IsUnrollTriggered;
   bool Is32Bit;
@@ -190,7 +185,6 @@ private:
 char HIRGeneralUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRGeneralUnroll, "hir-general-unroll",
                       "HIR General Unroll", false, false)
-INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
@@ -213,8 +207,6 @@ bool HIRGeneralUnroll::runOnFunction(Function &F) {
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HLR = &getAnalysis<HIRLoopResourceWrapperPass>().getHLR();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  auto &OROP = getAnalysis<OptReportOptionsPass>();
-  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   IsUnrollTriggered = false;
 
@@ -290,7 +282,7 @@ void HIRGeneralUnroll::processGeneralUnroll(
         addUnrollDisablingPragma(Loop);
       }
 
-      unrollLoop(Loop, UnrollFactor, LORBuilder);
+      unrollLoop(Loop, UnrollFactor);
       IsUnrollTriggered = true;
       LoopsGenUnrolled++;
     }
