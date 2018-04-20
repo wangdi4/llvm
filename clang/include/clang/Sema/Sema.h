@@ -9808,7 +9808,8 @@ public:
                          Qualifiers Quals,
                          Sema::ReferenceCompareResult RefRelationships);
   QualType CheckArbPrecIntOperands(ExprResult &LHS, ExprResult &RHS,
-                               SourceLocation Loc, bool IsCompAssign);
+                                   SourceLocation Loc, bool IsCompAssign,
+                                   bool IsShift = false);
   QualType CheckArbPrecIntCompareOperands(ExprResult &LHS, ExprResult &RHS,
                                       SourceLocation Loc);
 #endif // INTEL_CUSTOMIZATION

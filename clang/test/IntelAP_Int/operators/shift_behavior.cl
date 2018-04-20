@@ -27,6 +27,18 @@
 // CHECK: %[[L9:[0-9]+]] = load i43, i43* %x43_u, align 8
 // CHECK: = shl i43 %[[L9]], 41
 
+// CHECK: store i16 10, i16* %[[G:[a-zA-Z0-9]+]]
+// CHECK: %[[G_TMP:[a-zA-Z0-9]+]] = load i16, i16* %[[G]]
+// CHECK: lshr i16 %[[G_TMP]], 0
+
+// CHECK: store i8 10, i8* %[[H:[a-zA-Z0-9]+]]
+// CHECK: %[[H_TMP:[a-zA-Z0-9]+]] = load i8, i8* %[[H]]
+// CHECK: lshr i8 %[[H_TMP]], 1
+
+// CHECK: store i8 10, i8* %[[J:[a-zA-Z0-9]+]]
+// CHECK: %[[J_TMP:[a-zA-Z0-9]+]] = load i8, i8* %[[J]]
+// CHECK: shl i8 %[[J_TMP]], 1
+
 #include "../ihc_apint.h"
 
 kernel void foo(int shift_amount) {
@@ -47,4 +59,13 @@ kernel void foo(int shift_amount) {
   res = x43_u << 47;  // ap43_u << (47 urem 43) or ap43_u << 4
   res = x43_u << -42; // ap43_u << (-42 urem 43) or ap43_u << 3
   res = x43_u << -47; // ap43_u << (-47 urem 43) or ap43_u << 41
+
+  uint16_tt g = 10;
+  g = g >> 16;
+
+  uint8_tt h = 10;
+  h = h >> 9;
+
+  uint8_tt j = 10;
+  j = j << 9;
 }

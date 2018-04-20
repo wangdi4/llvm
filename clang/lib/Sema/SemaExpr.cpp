@@ -8484,7 +8484,8 @@ bool DoExprResultConversionConversions(Sema &S, ExprResult &Expr) {
 }
 
 QualType Sema::CheckArbPrecIntOperands(ExprResult &LHS, ExprResult &RHS,
-                                       SourceLocation Loc, bool IsCompAssign) {
+                                       SourceLocation Loc, bool IsCompAssign,
+                                       bool IsShift) {
   // First Do L->R Value Conversions.
   if (!IsCompAssign)
     if (!DoExprResultConversionConversions(*this, LHS))
@@ -8523,6 +8524,12 @@ QualType Sema::CheckArbPrecIntOperands(ExprResult &LHS, ExprResult &RHS,
     LHSType = Context.getArbPrecIntType(LHSType, LHSBits, {});
   if (!RHSIsAPType)
     RHSType = Context.getArbPrecIntType(RHSType, RHSBits, {});
+
+  // Shifts ALWAYS result in the type of the left-side.
+  if (IsShift) {
+    RHS = doIntegralCast(*this, RHS.get(), LHSType);
+    return LHSType;
+  }
 
   if (LHSBits > RHSBits) {
     RHS = doIntegralCast(*this, RHS.get(), LHSType);
@@ -9548,7 +9555,8 @@ QualType Sema::CheckShiftOperands(ExprResult &LHS, ExprResult &RHS,
 #if INTEL_CUSTOMIZATION
   if (LHS.get()->getType()->isArbPrecIntType() ||
       RHS.get()->getType()->isArbPrecIntType())
-    return CheckArbPrecIntOperands(LHS, RHS, Loc, IsCompAssign);
+    return CheckArbPrecIntOperands(LHS, RHS, Loc, IsCompAssign,
+                                   /*IsShift*/ true);
 #endif // INTEL_CUSTOMIZATION
 
   // Shifts don't perform usual arithmetic conversions, they just do integer
