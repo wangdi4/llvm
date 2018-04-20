@@ -30,6 +30,9 @@ option(OPENCL_RT_BUILD_TESTS "Build OpenCL RT unittests. Defaults to OFF.
 # Set path to the CMAKE modules
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
+
+include(CheckCXXCompilerFlag)
+
 # Include functions for opencl targets
 include(CMakeFuncs)
 include(AddOpenCL)
@@ -105,6 +108,23 @@ if (WIN32)
     -wd4985 # Supress 'MSVS9 Math.h "ceil": attributes not present on previous declaration'
   )
 endif (WIN32)
+
+# See llvm commit adc4af6a5b70c31110559bdeb2f3f52646600b90
+# Author: Edwin Vane <edwin.vane@intel.com>
+# Date:   Thu Jan 31 18:05:54 2013 +0000
+#
+# Turn off missing field initializer warnings for gcc to avoid noise from
+# false positives with empty {}. Turn them on otherwise (they're off by
+# default for clang).
+check_cxx_compiler_flag(
+    "-Wmissing-field-initializers" CXX_SUPPORTS_MISSING_FIELD_INITIALIZERS_FLAG)
+if (CXX_SUPPORTS_MISSING_FIELD_INITIALIZERS_FLAG)
+  if (CMAKE_COMPILER_IS_GNUCXX)
+    add_definitions( -Wno-missing-field-initializers )
+  else()
+    add_definitions( -Wmissing-field-initializers )
+  endif()
+endif()
 
 # Supported configurations
 set(CMAKE_CONFIGURATION_TYPES

@@ -903,7 +903,7 @@ int main(int argc, char **argv) {
   // If requested, run all passes again with the same pass manager to catch
   // bugs caused by persistent state in the passes
   if (RunTwice) {
-      std::unique_ptr<Module> M2(CloneModule(M.get()));
+      std::unique_ptr<Module> M2(CloneModule(*M));
       Passes.run(*M2);
       CompileTwiceBuffer = Buffer;
       Buffer.clear();

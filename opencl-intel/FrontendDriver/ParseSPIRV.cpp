@@ -256,7 +256,7 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
 
   // serialize to LLVM bitcode
   llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
-  llvm::WriteBitcodeToFile(pModule, ir_ostream);
+  llvm::WriteBitcodeToFile(*pModule, ir_ostream);
 
   pResult->setLog(errorMsg);
   pResult->setIRType(IR_TYPE_COMPILED_OBJECT);

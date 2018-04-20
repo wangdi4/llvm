@@ -339,7 +339,7 @@ int ClangFECompilerMaterializeSPIRTask::MaterializeSPIR(
   int res = MaterializeSPIR(*pModule);
 
   llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
-  llvm::WriteBitcodeToFile(pModule, ir_ostream);
+  llvm::WriteBitcodeToFile(*pModule, ir_ostream);
 
   pResult->setIRType(IR_TYPE_COMPILED_OBJECT);
   pResult->setIRName(pModule->getName());

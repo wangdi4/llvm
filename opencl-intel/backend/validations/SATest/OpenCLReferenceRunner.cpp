@@ -957,7 +957,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
         // [LLVM 3.6 UPGRADE} TODO: calling ExecutionEngine::create moves ownership of
         // llvm::Module from EngineBuilder to ExecutionEngine and we lose control over Module lifetime.
         // Need to figure out a way of creating ExecutionEngine instances without llvm::Module cloning.
-        EngineBuilder builder(std::unique_ptr<Module>(CloneModule(m_pModule)));
+        EngineBuilder builder(std::unique_ptr<Module>(CloneModule(*m_pModule)));
         builder.setEngineKind(EngineKind::Interpreter);
 
         // Create interpreter instance.

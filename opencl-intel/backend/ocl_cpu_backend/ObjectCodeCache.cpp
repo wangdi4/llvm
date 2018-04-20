@@ -51,7 +51,7 @@ ObjectCodeCache::ObjectCodeCache(llvm::Module* pModule, const char* pObject, siz
 
   if(pObject && pModule) {
     llvm::raw_string_ostream stream(m_CachedModuleBuffer);
-    llvm::WriteBitcodeToFile(pModule, stream);
+    llvm::WriteBitcodeToFile(*pModule, stream);
     stream.flush();
 
     llvm::StringRef data = llvm::StringRef((const char*)pObject, ObjectSize);
@@ -76,7 +76,7 @@ void ObjectCodeCache::notifyObjectCompiled(const llvm::Module* pModule,
   // This callback is the safe spot when we know the optimized Module
   // has been JITted and is safe to tamper with before serialization.
   StripIntelIP(const_cast<llvm::Module*>(pModule));
-  llvm::WriteBitcodeToFile(pModule, stream);
+  llvm::WriteBitcodeToFile(*pModule, stream);
   stream.flush();
 
   m_pObjectBuffer.reset(llvm::MemoryBuffer::getMemBufferCopy(pBuffer.getBuffer()).release());

@@ -269,7 +269,6 @@ def ocl_types : TypeNameList<[
 class OclGenType<string name>
   : OclType<name, name, 1, 0, 0> {
   list<string> Torig = ocl_types.Names;
-  string n; // dummy for !foreach
 }
 // gentype: 'vNtM' -> 'vNtM'
 def gentype : OclGenType<"gentype"> {

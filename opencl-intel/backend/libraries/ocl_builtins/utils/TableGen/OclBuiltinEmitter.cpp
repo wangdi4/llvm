@@ -1068,6 +1068,9 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
 
     // Collect OCL builtin implementations.
     {
+      // Since llvm was updated some records may be not fully resolved yet and
+      // we need to resolve them manually
+      RecordResolver Resolver(*const_cast<Record*>(Rec));
       RecordRecTy* OBI = RecordRecTy::get(R.getClass("OclBuiltinImpl"));
 
       const std::vector<RecordVal>& Values = Rec->getValues();
@@ -1083,7 +1086,12 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
         if (!Def->convertInitializerTo(OBI))
           continue;
 
-        const Record* DefRec = dyn_cast<DefInit>(Def)->getDef();
+        if (auto* VDInit = dyn_cast<VarDefInit>(Def)) {
+          Def = VDInit->resolveReferences(Resolver);
+          assert(isa<DefInit>(Def) && "Failed to resolve some references");
+        }
+
+        const Record* DefRec = cast<DefInit>(Def)->getDef();
         const OclBuiltin* proto = getOclBuiltin(DefRec->getValueAsDef("Builtin")->getName());
 
         std::map<const OclBuiltin*, OclBuiltinImpl*>::const_iterator II = m_ImplMap.find(proto);
@@ -1112,6 +1120,11 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
           // Not convertible, skip it as well.
           if (!Def->convertInitializerTo(OBI))
             continue;
+
+          if (auto* VDInit = dyn_cast<VarDefInit>(Def)) {
+            Def = VDInit->resolveReferences(Resolver);
+            assert(isa<DefInit>(Def) && "Failed to resolve some references");
+          }
 
           const Record* DefRec = dyn_cast<DefInit>(Def)->getDef();
           const OclBuiltin* proto = getOclBuiltin(DefRec->getValueAsDef("Builtin")->getName());

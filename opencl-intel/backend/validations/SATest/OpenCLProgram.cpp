@@ -134,7 +134,7 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
                                                 err, context));
                 llvm::SmallVector<char, 8> buffer;
                 llvm::raw_svector_ostream outStream(buffer);
-                WriteBitcodeToFile(M.get(), outStream);
+                WriteBitcodeToFile(*M.get(), outStream);
                 m_buffer.assign(buffer.begin(), buffer.end());
             }
             break;

@@ -129,9 +129,14 @@ static string DescribeArrayType(const DICompositeType* di_type)
     for (auto elem : ranges_array) {
         assert(dyn_cast<DISubrange>(elem));
         DISubrange* subrange_elem = cast<DISubrange>(elem);
-        uint64_t high_range = subrange_elem->getCount();
+        DISubrange::CountType Count = subrange_elem->getCount();
+        assert(Count.is<ConstantInt *>() &&
+               "Count contains DIVariable instead of ConstantInt");
+        if (auto *CI = Count.dyn_cast<ConstantInt*>()) {
+          uint64_t high_range = CI->getSExtValue();
 
-        type_str += "[" + stringify(high_range) + "]";
+          type_str += "[" + stringify(high_range) + "]";
+        }
     }
 
     return type_str;
@@ -452,8 +457,14 @@ VarTypeDescriptor Generator::GenerateVarTypeArray(const DICompositeType& di_arra
     for (auto di_range_i : di_ranges) {
         assert(dyn_cast<DISubrange>(di_range_i));
         DISubrange* di_subrange = cast<DISubrange>(di_range_i);
-        uint64_t high_range = di_subrange->getCount();
-        array_descriptor.add_dimensions(high_range);
+        DISubrange::CountType Count = di_subrange->getCount();
+        assert(Count.is<ConstantInt *>() &&
+               "Count contains DIVariable instead of ConstantInt");
+        if (auto *CI = Count.dyn_cast<ConstantInt*>()) {
+          uint64_t high_range = CI->getSExtValue();
+
+          array_descriptor.add_dimensions(high_range);
+        }
     }
 
     VarTypeDescriptor descriptor;
