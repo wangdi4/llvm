@@ -1315,6 +1315,27 @@ public:
     }
     ~LocalVarsDeclGuard() { CGF.LocalDeclMap.swap(LocalDeclMap); }
   };
+  // Save and clear the TerminateLandingPad on entry to each OpenMP region.
+  // This will ensure we have one for each OpenMP region when it is outlined.
+  class OMPTerminateLandingPadHandler {
+    CodeGenFunction &CGF;
+    llvm::BasicBlock *TerminateLandingPad;
+
+  public:
+    OMPTerminateLandingPadHandler(CodeGenFunction &CGF)
+        : CGF(CGF), TerminateLandingPad(CGF.TerminateLandingPad) {
+      CGF.TerminateLandingPad = nullptr;
+    }
+    ~OMPTerminateLandingPadHandler() {
+      if (CGF.TerminateLandingPad) {
+        if (!CGF.TerminateLandingPad->use_empty())
+          CGF.CurFn->getBasicBlockList().push_back(CGF.TerminateLandingPad);
+        else
+          delete CGF.TerminateLandingPad;
+      }
+      CGF.TerminateLandingPad = TerminateLandingPad;
+    }
+  };
 #endif  // INTEL_CUSTOMIZATION
   /// A scope within which we are constructing the fields of an object which
   /// might use a CXXDefaultInitExpr. This stashes away a 'this' value to use

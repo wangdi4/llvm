@@ -64,6 +64,9 @@ class OpenMPCodeOutliner {
   CodeGenFunction &CGF;
   llvm::LLVMContext &C;
 
+  // Save and restore the TerminateLandingPad.
+  CodeGenFunction::OMPTerminateLandingPadHandler TLPH;
+
   // For region entry/exit implementation
   llvm::Function *RegionEntryDirective = nullptr;
   llvm::Function *RegionExitDirective = nullptr;
