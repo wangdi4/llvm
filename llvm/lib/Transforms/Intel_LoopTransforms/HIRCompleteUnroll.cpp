@@ -226,7 +226,7 @@ void HIRCompleteUnroll::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-  AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
+  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
 }
 
 /// Visitor to update the CanonExpr.
@@ -2322,7 +2322,7 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-  HSRA = &getAnalysis<HIRSafeReductionAnalysis>();
+  HSRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
 
   // Storage for Outermost Loops
   SmallVector<HLLoop *, 64> OuterLoops;

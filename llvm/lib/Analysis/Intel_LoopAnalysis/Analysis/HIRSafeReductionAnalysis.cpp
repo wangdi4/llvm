@@ -19,8 +19,8 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
@@ -42,20 +42,30 @@ static cl::opt<bool>
     ForceSRA("force-hir-safe-reduction-analysis", cl::init(false), cl::Hidden,
              cl::desc("forces safe reduction analysis by request"));
 
-FunctionPass *llvm::createHIRSafeReductionAnalysisPass() {
-  return new HIRSafeReductionAnalysis();
+AnalysisKey HIRSafeReductionAnalysisPass::Key;
+HIRSafeReductionAnalysis
+HIRSafeReductionAnalysisPass::run(Function &F, FunctionAnalysisManager &AM) {
+  return HIRSafeReductionAnalysis(AM.getResult<HIRFrameworkAnalysis>(F),
+                                  AM.getResult<HIRDDAnalysisPass>(F));
 }
 
-char HIRSafeReductionAnalysis::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRSafeReductionAnalysis, "hir-safe-reduction-analysis",
+FunctionPass *llvm::createHIRSafeReductionAnalysisPass() {
+  return new HIRSafeReductionAnalysisWrapperPass();
+}
+
+char HIRSafeReductionAnalysisWrapperPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRSafeReductionAnalysisWrapperPass,
+                      "hir-safe-reduction-analysis",
                       "HIR Safe Reduction Analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_END(HIRSafeReductionAnalysis, "hir-safe-reduction-analysis",
+INITIALIZE_PASS_END(HIRSafeReductionAnalysisWrapperPass,
+                    "hir-safe-reduction-analysis",
                     "HIR Safe Reduction Analysis", false, true)
 
-void HIRSafeReductionAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
+void HIRSafeReductionAnalysisWrapperPass::getAnalysisUsage(
+    AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
@@ -84,26 +94,29 @@ void HIRSafeReductionAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 //			 	Inst->print(OS, 2, false);
 //  TODO: Compute SafeReduction chains for non-innermost loops
 //
-bool HIRSafeReductionAnalysis::runOnFunction(Function &F) {
+bool HIRSafeReductionAnalysisWrapperPass::runOnFunction(Function &F) {
+  HSR.reset(new HIRSafeReductionAnalysis(
+      getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+      getAnalysis<HIRDDAnalysisWrapperPass>().getDDA()));
+  return false;
+}
 
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
+void HIRSafeReductionAnalysisWrapperPass::releaseMemory() { HSR.reset(); }
 
+HIRSafeReductionAnalysis::HIRSafeReductionAnalysis(HIRFramework &HIRF,
+                                                   HIRDDAnalysis &DDA)
+    : HIRAnalysis(HIRF), DDA(DDA) {
   if (!ForceSRA) {
-    return false;
+    return;
   }
-  // For stress testing only
-  formatted_raw_ostream OS(dbgs());
 
   // Gather the innermost loops as candidates.
   SmallVector<HLLoop *, 32> CandidateLoops;
-  HIRF->getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
+  HIRF.getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
 
   for (auto &Loop : CandidateLoops) {
     identifySafeReduction(Loop);
   }
-
-  return false;
 }
 
 namespace {
@@ -152,7 +165,7 @@ void HIRSafeReductionAnalysis::identifySafeReduction(const HLLoop *Loop) {
     return;
   }
 
-  DDGraph DDG = DDA->getGraph(Loop, false);
+  DDGraph DDG = DDA.getGraph(Loop, false);
 
   identifySafeReductionChain(Loop, DDG);
 }
@@ -565,11 +578,6 @@ void HIRSafeReductionAnalysis::print(formatted_raw_ostream &OS,
 
   auto &SRCL = SafeReductionMap[Loop];
   print(OS, Loop, &SRCL);
-}
-
-void HIRSafeReductionAnalysis::releaseMemory() {
-  SafeReductionMap.clear();
-  SafeReductionInstMap.clear();
 }
 
 void HIRSafeReductionAnalysis::markLoopBodyModified(const HLLoop *Loop) {

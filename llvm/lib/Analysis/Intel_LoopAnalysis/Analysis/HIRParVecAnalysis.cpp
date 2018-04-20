@@ -193,7 +193,7 @@ INITIALIZE_PASS_BEGIN(HIRParVecAnalysis, "hir-parvec-analysis",
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRParVecAnalysis, "hir-parvec-analysis",
                     "HIR Parallel/Vector Candidate Analysis", false, true)
 
@@ -234,7 +234,7 @@ void HIRParVecAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-  AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
+  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
 }
 
 bool HIRParVecAnalysis::runOnFunction(Function &F) {
@@ -246,7 +246,7 @@ bool HIRParVecAnalysis::runOnFunction(Function &F) {
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-  SRA = &getAnalysis<HIRSafeReductionAnalysis>();
+  SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
 
   // ParVecAnalysis runs in on-demand mode. runOnFunction is almost no-op.
   // In the debug mode, run actual analysis in ParallelVector mode, print

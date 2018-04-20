@@ -635,7 +635,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 // INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
 // INITIALIZE_PASS_DEPENDENCY(HIRVectVLSAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
@@ -660,7 +660,7 @@ void VPlanDriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<HIRLoopStatisticsWrapperPass>();
   //  AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
   AU.addRequired<HIRDDAnalysisWrapperPass>();
-  AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
+  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
   //  AU.addRequired<HIRVectVLSAnalysis>();
   AU.addRequired<OptReportOptionsPass>();
 }
@@ -758,7 +758,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
     HIRSafeReductionAnalysis *SRA;
-    SRA = &getAnalysis<HIRSafeReductionAnalysis>();
+    SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
     VPOCodeGenHIR VCodeGen(TLI, SRA, Fn, Lp, LORBuilder, WRLp);
 
     if (VF != 1 && VCodeGen.loopIsHandled(Lp, VF)) {

@@ -440,7 +440,7 @@ void initializeHIROptReportEmitterWrapperPassPass(PassRegistry&);
 void initializeHIRDDAnalysisWrapperPassPass(PassRegistry&);
 void initializeHIRLoopLocalityWrapperPassPass(PassRegistry&);
 void initializeHIRLoopResourceWrapperPassPass(PassRegistry&);
-void initializeHIRSafeReductionAnalysisPass(PassRegistry&);
+void initializeHIRSafeReductionAnalysisWrapperPassPass(PassRegistry&);
 void initializeHIRLoopStatisticsWrapperPassPass(PassRegistry&);
 void initializeHIRSSADeconstructionLegacyPassPass(PassRegistry&);
 void initializeHIRTempCleanupPass(PassRegistry&);
