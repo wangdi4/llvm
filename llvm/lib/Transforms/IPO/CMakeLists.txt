@@ -21,6 +21,7 @@ add_llvm_library(LLVMipo
   InlineReport.cpp   # INTEL
   InlineSimple.cpp
   Inliner.cpp
+  Intel_CallTreeCloning.cpp # INTEL
   Intel_IPCloning.cpp     # INTEL
   Intel_InlineLists.cpp   # INTEL
   Intel_OptimizeDynamicCasts.cpp    # INTEL

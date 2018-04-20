@@ -68,6 +68,7 @@ MODULE_PASS("internalize", InternalizePass())
 MODULE_PASS("invalidate<all>", InvalidateAllAnalysesPass())
 MODULE_PASS("ip-cloning", IPCloningPass(/*AfterInl*/ false))            // INTEL
 MODULE_PASS("post-inline-ip-cloning", IPCloningPass(/*AfterInl*/ true)) // INTEL
+MODULE_PASS("call-tree-clone", CallTreeCloningPass())                   // INTEL
 MODULE_PASS("ipsccp", IPSCCPPass())
 MODULE_PASS("lowertypetests", LowerTypeTestsPass())
 MODULE_PASS("name-anon-globals", NameAnonGlobalPass())

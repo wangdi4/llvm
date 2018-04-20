@@ -83,6 +83,7 @@
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"       // INTEL
+#include "llvm/Transforms/IPO/Intel_CallTreeCloning.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"   //INTEL
 #include "llvm/Transforms/IPO/Internalize.h"
