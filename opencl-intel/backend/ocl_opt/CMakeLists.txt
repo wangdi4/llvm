@@ -12,7 +12,6 @@ set(OCL_BE_PASSES
     BuiltinLibInfo
     ChannelPipeTransformation
     CleanupWrappedKernels
-    CloneBlockInvokeFuncToKernel
     DebugInfoPass
     DetectRecursion
     GenericAddressResolution

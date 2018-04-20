@@ -289,7 +289,6 @@ set( BACKEND_PASSES
     SubGroupAdaptation
     LinearIdResolver
     Materialize
-    CloneBlockInvokeFuncToKernel
     ResolveBlockToStaticCall
     PatchCallbackArgs
     SinCosFold

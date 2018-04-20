@@ -114,7 +114,6 @@ llvm::Pass *createSmartGVNPass(bool);
 llvm::ModulePass *createSinCosFoldPass();
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createDetectRecursionPass();
-llvm::ModulePass *createCloneBlockInvokeFuncToKernelPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
 llvm::ModulePass *createPreLegalizeBoolsPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
@@ -299,8 +298,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   if (isOcl20) {
     // OCL2.0 resolve block to static call
     PM.add(createResolveBlockToStaticCallPass());
-    // clone block_invoke functions to kernels
-    PM.add(createCloneBlockInvokeFuncToKernelPass());
   }
 
   if (OptLevel > 0) {
