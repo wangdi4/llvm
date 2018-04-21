@@ -154,11 +154,12 @@ class PrivateItem : public Item
     PrivateItem(const Use *Args) :
       Item(nullptr), Constructor(nullptr), Destructor(nullptr) {
       // PRIVATE nonPOD Args are: var, ctor, dtor
-      setOrig(cast<Value>(Args[0]));
-      if (Value *V = cast<Value>(Args[1]))
-        Constructor = cast<Function>(V);
-      if (Value *V = cast<Value>(Args[2]))
-        Destructor = cast<Function>(V);
+      Value *V = cast<Value>(Args[0]);
+      setOrig(V);
+      V = cast<Value>(Args[1]);
+      Constructor = cast<Function>(V);
+      V = cast<Value>(Args[2]);
+      Destructor = cast<Function>(V);
     }
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
     void setDestructor(RDECL Dtor)  { Destructor  = Dtor; }
@@ -202,11 +203,12 @@ class FirstprivateItem : public Item
         : Item(nullptr), InLastprivate(nullptr), InMap(nullptr),
           CopyConstructor(nullptr), Destructor(nullptr) {
       // FIRSTPRIVATE nonPOD Args are: var, cctor, dtor
-      setOrig(cast<Value>(Args[0]));
-      if (Value *V = cast<Value>(Args[1]))
-        CopyConstructor = cast<Function>(V);
-      if (Value *V = cast<Value>(Args[2]))
-        Destructor = cast<Function>(V);
+      Value *V = cast<Value>(Args[0]);
+      setOrig(V);
+      V = cast<Value>(Args[1]);
+      CopyConstructor = cast<Function>(V);
+      V = cast<Value>(Args[2]);
+      Destructor = cast<Function>(V);
     }
     void setInLastprivate(LastprivateItem *LI) { InLastprivate = LI; }
     void setInMap(MapItem *MI) { InMap = MI; }
@@ -253,8 +255,9 @@ class LastprivateItem : public Item
         : Item(nullptr), IsConditional(false), InFirstprivate(nullptr),
           Constructor(nullptr), CopyAssign(nullptr), Destructor(nullptr) {
       // LASTPRIVATE nonPOD Args are: var, ctor, copy-assign, dtor
-      setOrig(cast<Value>(Args[0]));
-      if (Constant *C = cast<Constant>(Args[1])) {
+      Value *V = cast<Value>(Args[0]);
+      setOrig(V);
+      if (Constant *C = dyn_cast<Constant>(Args[1])) {
         // If a nonpod var is both lastprivate and firstprivate, the ctor in
         // the lastprivate OperanBundle is "i8* null" from clang. This is
         // because the var will not be initialized with a default constructor,
@@ -264,10 +267,10 @@ class LastprivateItem : public Item
           Constructor = cast<Function>(C);
         }
       }
-      if (Value *V = cast<Value>(Args[2]))
-        CopyAssign = cast<Function>(V);
-      if (Value *V = cast<Value>(Args[3]))
-        Destructor = cast<Function>(V);
+      V = cast<Value>(Args[2]);
+      CopyAssign = cast<Function>(V);
+      V = cast<Value>(Args[3]);
+      Destructor = cast<Function>(V);
     }
     void setIsConditional(bool B) { IsConditional = B; }
     void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
@@ -324,6 +327,7 @@ public:
   private:
     WRNReductionKind Ty; // reduction operation
     bool  IsUnsigned;    // for min/max reduction; default is signed min/max
+    bool  IsInReduction; // is from an IN_REDUCTION clause (task/taskloop)
 
     // NOTE: Combiner and Initializer are Function*'s from UDR. However,
     // currently lib/Transforms/Intel_VPO/Vecopt/VPOAvrLLVMCodeGen.cpp has code
@@ -335,37 +339,53 @@ public:
 
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op=WRNReductionError): Item(Orig),
-      Ty(Op), IsUnsigned(false), Combiner(nullptr), Initializer(nullptr) {}
+      Ty(Op), IsUnsigned(false), IsInReduction(false), Combiner(nullptr),
+      Initializer(nullptr) {}
 
     static WRNReductionKind getKindFromClauseId(int Id) {
       switch(Id) {
         case QUAL_OMP_REDUCTION_ADD:
+        case QUAL_OMP_INREDUCTION_ADD:
           return WRNReductionAdd;
         case QUAL_OMP_REDUCTION_SUB:
+        case QUAL_OMP_INREDUCTION_SUB:
           return WRNReductionSub;
         case QUAL_OMP_REDUCTION_MUL:
+        case QUAL_OMP_INREDUCTION_MUL:
           return WRNReductionMult;
         case QUAL_OMP_REDUCTION_AND:
+        case QUAL_OMP_INREDUCTION_AND:
           return WRNReductionAnd;
         case QUAL_OMP_REDUCTION_OR:
+        case QUAL_OMP_INREDUCTION_OR:
           return WRNReductionOr;
         case QUAL_OMP_REDUCTION_BXOR:
+        case QUAL_OMP_INREDUCTION_BXOR:
           return WRNReductionBxor;
         case QUAL_OMP_REDUCTION_BAND:
+        case QUAL_OMP_INREDUCTION_BAND:
           return WRNReductionBand;
         case QUAL_OMP_REDUCTION_BOR:
+        case QUAL_OMP_INREDUCTION_BOR:
           return WRNReductionBor;
         case QUAL_OMP_REDUCTION_MAX:
+        case QUAL_OMP_INREDUCTION_MAX:
           return WRNReductionMax;
         case QUAL_OMP_REDUCTION_MIN:
+        case QUAL_OMP_INREDUCTION_MIN:
           return WRNReductionMin;
         case QUAL_OMP_REDUCTION_UDR:
+        case QUAL_OMP_INREDUCTION_UDR:
           return WRNReductionUdr;
         default:
           llvm_unreachable("Unsupported Reduction Clause ID");
       }
     };
 
+    // There is no need to deal with the INREDUCTION variants, as the main
+    // purpose of this routine is to support the getOpName() method to recover
+    // the name of the reduction operation, which is the same for both
+    // REDUCTION and INREDUCTION.
     static int getClauseIdFromKind(WRNReductionKind Kind) {
       switch(Kind) {
         case WRNReductionAdd:
@@ -395,14 +415,16 @@ public:
       }
     };
 
-    void setType(WRNReductionKind Op) { Ty = Op;          }
-    void setIsUnsigned(bool B)        { IsUnsigned = B;   }
-    void setCombiner(Value *Comb)     { Combiner = Comb;    }
-    void setInitializer(Value *Init)  { Initializer = Init; }
-    WRNReductionKind getType() const { return Ty;        }
-    bool getIsUnsigned()       const { return IsUnsigned;  }
-    Value *getCombiner()       const { return Combiner;    }
-    Value *getInitializer()    const { return Initializer; }
+    void setType(WRNReductionKind Op) { Ty = Op;             }
+    void setIsUnsigned(bool B)        { IsUnsigned = B;      }
+    void setIsInReduction(bool B)     { IsInReduction = B;   }
+    void setCombiner(Value *Comb)     { Combiner = Comb;     }
+    void setInitializer(Value *Init)  { Initializer = Init;  }
+    WRNReductionKind getType() const { return Ty;            }
+    bool getIsUnsigned()       const { return IsUnsigned;    }
+    bool getIsInReduction()    const { return IsInReduction; }
+    Value *getCombiner()       const { return Combiner;      }
+    Value *getInitializer()    const { return Initializer;   }
 
     // Return a string for the reduction operation, such as "ADD" and "MUL"
     StringRef getOpName() const {

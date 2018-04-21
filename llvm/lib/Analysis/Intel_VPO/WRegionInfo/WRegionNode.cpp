@@ -322,6 +322,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveLastprivate())
     PrintedSomething |= getLpriv().print(OS, Depth, Verbosity);
 
+  if (canHaveInReduction())
+    PrintedSomething |= getInRed().print(OS, Depth, Verbosity);
+
   if (canHaveReduction())
     PrintedSomething |= getRed().print(OS, Depth, Verbosity);
 
@@ -827,7 +830,8 @@ void WRegionUtils::extractLinearOpndList(const Use *Args, unsigned NumArgs,
 
 void WRegionUtils::extractReductionOpndList(const Use *Args, unsigned NumArgs,
                                       const ClauseSpecifier &ClauseInfo,
-                                      ReductionClause &C, int ReductionKind) {
+                                      ReductionClause &C, int ReductionKind,
+                                      bool IsInReduction) {
   C.setClauseID(QUAL_OMP_REDUCTION_ADD); // dummy reduction op
   bool IsUnsigned = ClauseInfo.getIsUnsigned();
   if (IsUnsigned)
@@ -845,6 +849,7 @@ void WRegionUtils::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       ReductionItem *RI = C.back();
       RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
       RI->setIsUnsigned(IsUnsigned);
+      RI->setIsInReduction(IsInReduction);
     }
 }
 #endif
@@ -906,6 +911,7 @@ static void setReductionItem(ReductionItem *RI, IntrinsicInst *Call) {
 void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                      const ClauseSpecifier &ClauseInfo) {
   int ClauseID = ClauseInfo.getId();
+  bool IsInReduction = false;  // IN_REDUCTION clause?
 
   switch (ClauseID) {
   case QUAL_OMP_SHARED: {
@@ -1047,6 +1053,20 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                           WRNScheduleStatic);
     break;
   }
+  case QUAL_OMP_INREDUCTION_ADD:
+  case QUAL_OMP_INREDUCTION_SUB:
+  case QUAL_OMP_INREDUCTION_MUL:
+  case QUAL_OMP_INREDUCTION_AND:
+  case QUAL_OMP_INREDUCTION_OR:
+  case QUAL_OMP_INREDUCTION_BXOR:
+  case QUAL_OMP_INREDUCTION_BAND:
+  case QUAL_OMP_INREDUCTION_BOR:
+  case QUAL_OMP_INREDUCTION_MAX:
+  case QUAL_OMP_INREDUCTION_MIN:
+  case QUAL_OMP_INREDUCTION_UDR:
+    IsInReduction = true;
+    // FALLTHROUGH
+//JJJ
   case QUAL_OMP_REDUCTION_ADD:
   case QUAL_OMP_REDUCTION_SUB:
   case QUAL_OMP_REDUCTION_MUL:
@@ -1060,8 +1080,12 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_REDUCTION_UDR: {
     int ReductionKind = ReductionItem::getKindFromClauseId(ClauseID);
     assert(ReductionKind > 0 && "Bad reduction operation");
-    WRegionUtils::extractReductionOpndList(Args, NumArgs, ClauseInfo, getRed(),
-                                           ReductionKind);
+    if (IsInReduction)
+      WRegionUtils::extractReductionOpndList(Args, NumArgs, ClauseInfo,
+                                             getInRed(), ReductionKind, true);
+    else
+      WRegionUtils::extractReductionOpndList(Args, NumArgs, ClauseInfo,
+                                             getRed(), ReductionKind, false);
     break;
   }
   default:
@@ -1183,12 +1207,23 @@ bool WRegionNode::canHaveLastprivate() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNParallelLoop:
+  case WRNParallelSections:
   case WRNDistributeParLoop:
   case WRNTaskloop:
   case WRNVecLoop:
   case WRNWksLoop:
   case WRNSections:
   case WRNDistribute:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveInReduction() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTask:       // OMP5.0 task's in_reduction clause
+  case WRNTaskloop:   // OMP5.0 taskloop's in_reduction clause
     return true;
   }
   return false;
@@ -1203,9 +1238,8 @@ bool WRegionNode::canHaveReduction() const {
   case WRNParallelWorkshare:
   case WRNTeams:
   case WRNDistributeParLoop:
-  // TODO: support OMP5.0 task/taskloop reduction
-  //  case WRNTask:
-  //  case WRNTaskloop:
+  case WRNTaskgroup:  // OMP5.0 taskgroup's task_reduction clause
+  case WRNTaskloop:   // OMP5.0 taskloop's reduction clause
   case WRNVecLoop:
   case WRNWksLoop:
   case WRNSections:

@@ -643,7 +643,7 @@ private:
   SharedClause Shared;
   PrivateClause Priv;
   FirstprivateClause Fpriv;
-  ReductionClause Reduction;
+  ReductionClause InReduction;
   DependClause Depend;
   EXPR Final;
   EXPR IfExpr;
@@ -670,7 +670,7 @@ public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
   DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
-  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
+  DEFINE_GETTER(ReductionClause,    getInRed,  InReduction)
   DEFINE_GETTER(DependClause,       getDepend, Depend)
 
   EXPR getFinal() const { return Final; }
@@ -698,9 +698,14 @@ public:
 /// \code
 ///   #pragma omp taskloop
 /// \endcode
+/// A taskloop can have both reduction and in_reduction clauses. Therefore,
+/// WRNTaskloopNode has two members of the class ReductionClause:
+/// 'InReduction' is inherited from the parent WRNTaskNode, and
+/// 'Reduction' is declared for taskloop but not task.
 class WRNTaskloopNode : public WRNTaskNode {
 private:
   LastprivateClause Lpriv;
+  ReductionClause Reduction;
   EXPR Grainsize;
   EXPR NumTasks;
   int SchedCode; // 1 for Grainsize, 2 for num_tasks, 0 for none.
@@ -742,6 +747,7 @@ protected:
 
 public:
   DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
+  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
   EXPR getGrainsize() const { return Grainsize; }
   EXPR getNumTasks() const { return NumTasks; }
@@ -1230,9 +1236,12 @@ public:
 ///   #pragma omp taskgroup
 /// \endcode
 class WRNTaskgroupNode : public WRegionNode {
+private:
+  ReductionClause Reduction;  // for the task_reduction clause
 
 public:
   WRNTaskgroupNode(BasicBlock *BB);
+  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {

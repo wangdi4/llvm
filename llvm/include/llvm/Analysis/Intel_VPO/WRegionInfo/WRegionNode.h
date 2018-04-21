@@ -186,6 +186,7 @@ public:
   bool canHavePrivate() const;
   bool canHaveFirstprivate() const;
   bool canHaveLastprivate() const;
+  bool canHaveInReduction() const;
   bool canHaveReduction() const;
   bool canHaveCopyin() const;
   bool canHaveCopyprivate() const;
@@ -228,6 +229,7 @@ public:
   virtual LinearClause &getLinear()          {WRNERROR(QUAL_OMP_LINEAR);      }
   virtual MapClause &getMap()                {WRNERROR("MAP");                }
   virtual PrivateClause &getPriv()           {WRNERROR(QUAL_OMP_PRIVATE);     }
+  virtual ReductionClause &getInRed()        {WRNERROR("IN_REDUCTION");       }
   virtual ReductionClause &getRed()          {WRNERROR("REDUCTION");          }
   virtual ScheduleClause &getSchedule()      {WRNERROR("SCHEDULE");           }
        // ScheduleClause is not list-type, but has similar API so put here too
@@ -260,6 +262,8 @@ public:
   virtual const MapClause &getMap() const  {WRNERROR("MAP");                }
   virtual const PrivateClause &getPriv() const
                                            {WRNERROR(QUAL_OMP_PRIVATE);     }
+  virtual const ReductionClause &getInRed() const
+                                           {WRNERROR("IN_REDUCTION");       }
   virtual const ReductionClause &getRed() const
                                            {WRNERROR("REDUCTION");          }
   virtual const ScheduleClause &getSchedule() const
