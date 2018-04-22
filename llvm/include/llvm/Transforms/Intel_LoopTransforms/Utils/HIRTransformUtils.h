@@ -21,7 +21,10 @@
 
 #include "llvm/ADT/SmallVector.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
 
 #include <stdint.h>
 
@@ -223,11 +226,24 @@ public:
                                             bool VecMode = false);
 
   /// Updates Loop properties (Bounds, etc) based on input Permutations
-  /// Used by Interchange now. Could be used later for blocking.
+  /// Used by Interchange now.
   /// Loops are added to \p LoopPermutation in the desired permuted order.
+  /// The given loopnest starting from OutermostLoop does not have to be
+  /// a perfect loop nest.
   static void
   permuteLoopNests(HLLoop *OutermostLoop,
                    const SmallVectorImpl<const HLLoop *> &LoopPermutation);
+  /// Update loop body's IVs accordingly to LoopPermuation.
+  /// E.g. If Loop is permutated from (1 2) --> (2 1), IV i1 is changed into i2,
+  /// and i2 is changed into i1.
+  /// Notice for full interchange effect, both permuteLoopNests() and
+  /// updatePermutedLoopBody need to be called.
+  /// TODO: Consider Providing one API for permuting loops and updating loop
+  /// body
+  static void
+  updatePermutedLoopBody(HLLoop *Loop,
+                         const SmallVectorImpl<const HLLoop *> &LoopPermutation,
+                         unsigned InnermostLevel);
 
   /// Updates target HLLabel in every HLGoto node according to the mapping.
   static void remapLabelsRange(const HLNodeMapper &Mapper, HLNode *Begin,

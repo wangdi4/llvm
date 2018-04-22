@@ -52,9 +52,16 @@ public:
 
   /// \brief  Enables Perfect Loop Nests
   /// Takes care of simple cases that are needed for Interchange
-  static bool
-  enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG,
-                        SmallSet<unsigned, 16> &SinkedTempDDRefSymbases);
+  /// InnermostLoop is the loop into which instructions enclosinging it
+  /// (i.e. instructions of the loopbody of the parent loop of InnermostLoop)
+  /// DDG is the data dependency graph before instructions are sinked.
+  /// SinkedTempDDRefSymbases is a set of symbases of the temps
+  /// in the sinked instruction. These are ignored from DD edge checks
+  /// for loop interchange later. The same DDG before sinking will be used
+  /// later.
+  static bool enablePerfectLoopNest(
+      HLLoop *InnermostLoop, DDGraph DDG,
+      InterchangeIgnorableSymbasesTy &SinkedTempDDRefSymbases);
   /// \brief  Checks if a LvalRef has 'Threshold' uses in a loop
   static bool maxUsesInLoop(const RegDDRef *LvalRef, const HLLoop *Loop,
                             DDGraph DDG, const unsigned Threshold);

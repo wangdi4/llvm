@@ -22,7 +22,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
-
 #define DEBUG_TYPE "hir-transform-utils"
 
 using namespace llvm;
@@ -442,14 +441,11 @@ HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
   return MainLoop;
 }
 
-/// Update Loop properties based on Input Permutations
-/// Used by Loop Interchange now. Will be useful for loop blocking later
 void HIRTransformUtils::permuteLoopNests(
     HLLoop *OutermostLoop,
     const SmallVectorImpl<const HLLoop *> &LoopPermutation) {
 
   SmallVector<HLLoop *, MaxLoopNestLevel> SavedLoops;
-  HLLoop *DstLoop = OutermostLoop;
 
   // isPerfectLoopNest() allows Prehdr/PostExit
   // in outermost loop. If not extracted, it will lead to errors
@@ -464,35 +460,35 @@ void HIRTransformUtils::permuteLoopNests(
     OutermostLoop->extractPreheaderAndPostexit();
   }
 
+  SmallVector<HLLoop *, MaxLoopNestLevel> OrigLoops;
   for (auto &Lp : LoopPermutation) {
     HLLoop *LoopCopy = Lp->cloneEmptyLoop();
     LoopCopy->setNestingLevel(Lp->getNestingLevel());
     SavedLoops.push_back(LoopCopy);
+
+    // Preparation for sorting
+    OrigLoops.push_back(const_cast<HLLoop *>(Lp));
   }
 
-  for (auto &Lp : LoopPermutation) {
-    assert(DstLoop && "Perfect loop nest expected");
-    HLLoop *SrcLoop = nullptr;
-    // Loop is already in desired position
-    if (Lp == DstLoop) {
-      DstLoop = dyn_cast<HLLoop>(DstLoop->getFirstChild());
+  // Sort by loop nesting level from the LoopPermutation
+  // to get the current loopnest.
+  // OrigLoopnests will be used to be the destination of the
+  // loop permutation. This way non-perfect loopnest can be covered.
+  std::sort(OrigLoops.begin(), OrigLoops.end(),
+            [](HLLoop *A, HLLoop *B) -> bool {
+              return A->getNestingLevel() < B->getNestingLevel();
+            });
+
+  // Range-based iteration is purposely avoided to visit
+  // all LoopPermutation, SavedLoops and OrigLoops in sync.
+  // OrigLoops are rewritten.
+  for (int I = 0, Size = LoopPermutation.size(); I < Size; I++) {
+    assert(OrigLoops[I] && "LoopPermutation logic is wrong");
+    if (LoopPermutation[I] == OrigLoops[I]) {
       continue;
     }
-    for (auto &Lp1 : SavedLoops) {
-      // getNestingLevel() asserts for disconnected loops. It is set
-      // explicitly
-      // for saved loops in the previous loop so we access it directly.
-      if (Lp->getNestingLevel() == Lp1->NestingLevel) {
-        SrcLoop = Lp1;
-        break;
-      }
-    }
-    assert(SrcLoop && "Input Loop is null");
-    assert(DstLoop != SrcLoop && "Dst, Src loop cannot be equal");
-    // Move properties from SrcLoop to DstLoop.
-    *DstLoop = std::move(*SrcLoop);
-
-    DstLoop = dyn_cast<HLLoop>(DstLoop->getFirstChild());
+    assert(OrigLoops[I] != SavedLoops[I] && "Dst, Src loop cannot be equal");
+    *(OrigLoops[I]) = std::move(*(SavedLoops[I]));
   }
 }
 
@@ -526,4 +522,108 @@ void HIRTransformUtils::remapLabelsRange(const HLNodeMapper &Mapper,
                                          HLNode *Begin, HLNode *End) {
   LabelRemapVisitor Visitor(Mapper);
   HLNodeUtils::visitRange(Visitor, Begin, End);
+}
+
+namespace {
+struct UpdateDDRefForLoopPermutation final : public HLNodeVisitorBase {
+
+  // Smallest value of OutmostNestingLevel & InnermostNestingLevel is 1.
+  unsigned OutmostNestingLevel;
+  unsigned InnermostNestingLevel;
+  unsigned *NewLoopLevels;
+  void updateDDRef(HLDDNode *Node, unsigned InnermostNestingLevel,
+                   unsigned OutmostNestingLevel, unsigned *NewLoopLevels);
+  void updateCE(CanonExpr *CE, unsigned InnermostNestingLevel,
+                unsigned OutmostNestingLevel, unsigned *NewLoopLevels);
+
+  UpdateDDRefForLoopPermutation(unsigned OutmostNestingLevel,
+                                unsigned InnermostNestingLevel,
+                                unsigned *NewLoopLevels)
+      : OutmostNestingLevel(OutmostNestingLevel),
+        InnermostNestingLevel(InnermostNestingLevel),
+        NewLoopLevels(NewLoopLevels) {}
+
+  void visit(const HLNode *Node) {}
+  void visit(HLDDNode *Node) {
+    updateDDRef(Node, InnermostNestingLevel, OutmostNestingLevel,
+                NewLoopLevels);
+  }
+  void postVisit(HLNode *) {}
+};
+} // namespace
+
+void HIRTransformUtils::updatePermutedLoopBody(
+    HLLoop *OutmostLoop, const SmallVectorImpl<const HLLoop *> &LoopPermutation,
+    unsigned InnermostNestingLevel) {
+
+  unsigned NewLoopLevels[MaxLoopNestLevel];
+  unsigned Idx = 0;
+
+  for (auto &I : LoopPermutation) {
+    NewLoopLevels[Idx++] = I->getNestingLevel();
+  }
+
+  unsigned OutmostNestingLevel = OutmostLoop->getNestingLevel();
+  UpdateDDRefForLoopPermutation UpdateDDRef(
+      OutmostNestingLevel, InnermostNestingLevel, &NewLoopLevels[0]);
+
+  HLNodeUtils::visit(UpdateDDRef, OutmostLoop);
+}
+
+void UpdateDDRefForLoopPermutation::updateDDRef(HLDDNode *Node,
+                                                unsigned InnermostNestingLevel,
+                                                unsigned OutmostNestingLevel,
+                                                unsigned *NewLoopLevels) {
+
+  for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
+    RegDDRef *RegRef = *I;
+
+    for (auto Iter = RegRef->canon_begin(), E2 = RegRef->canon_end();
+         Iter != E2; ++Iter) {
+      CanonExpr *CE = *Iter;
+      updateCE(CE, InnermostNestingLevel, OutmostNestingLevel, NewLoopLevels);
+    }
+    if (RegRef->hasGEPInfo()) {
+      updateCE(RegRef->getBaseCE(), InnermostNestingLevel, OutmostNestingLevel,
+               NewLoopLevels);
+    }
+  }
+}
+
+void UpdateDDRefForLoopPermutation::updateCE(CanonExpr *CE,
+                                             unsigned InnermostNestingLevel,
+                                             unsigned OutmostNestingLevel,
+                                             unsigned *NewLoopLevels) {
+
+  if (!(CE->hasIV())) {
+    return;
+  }
+
+  // Save Coffs
+  int64_t ConstCoeff[MaxLoopNestLevel];
+  unsigned BlobCoeff[MaxLoopNestLevel];
+
+  unsigned II = 0;
+  for (II = OutmostNestingLevel; II <= InnermostNestingLevel; ++II) {
+    ConstCoeff[II - 1] = 0;
+    BlobCoeff[II - 1] = 0;
+  }
+  for (auto CurIVPair = CE->iv_begin(), E2 = CE->iv_end(); CurIVPair != E2;
+       ++CurIVPair) {
+    II = CE->getLevel(CurIVPair);
+    ConstCoeff[II - 1] = CE->getIVConstCoeff(CurIVPair);
+    BlobCoeff[II - 1] = CE->getIVBlobCoeff(CurIVPair);
+  }
+
+  // For each level, replace coeffs with the new one
+  // Indexes to local arrays here start with 0
+  // Levels used start with at least 1
+  for (unsigned OL = OutmostNestingLevel; OL <= InnermostNestingLevel; ++OL) {
+    unsigned NL = NewLoopLevels[OL - OutmostNestingLevel];
+    if (OL == NL || (ConstCoeff[OL - 1] == 0 && ConstCoeff[NL - 1] == 0)) {
+      continue;
+    }
+    CE->removeIV(OL);
+    CE->addIV(OL, BlobCoeff[NL - 1], ConstCoeff[NL - 1]);
+  }
 }
