@@ -555,7 +555,7 @@ public:
   }
 
   const RetainSummary *find(IdentifierInfo* II, Selector S) {
-    // FIXME: Class method lookup.  Right now we dont' have a good way
+    // FIXME: Class method lookup.  Right now we don't have a good way
     // of going between IdentifierInfo* and the class hierarchy.
     MapTy::iterator I = M.find(ObjCSummaryKey(II, S));
 
@@ -1931,7 +1931,7 @@ static bool isNumericLiteralExpression(const Expr *E) {
 
 static Optional<std::string> describeRegion(const MemRegion *MR) {
   if (const auto *VR = dyn_cast_or_null<VarRegion>(MR))
-    return std::string(cast<VarRegion>(MR)->getDecl()->getName());
+    return std::string(VR->getDecl()->getName());
   // Once we support more storage locations for bindings,
   // this would need to be improved.
   return None;

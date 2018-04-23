@@ -11,6 +11,7 @@
 #include "llvm/DebugInfo/PDB/DIA/DIAEnumDebugStreams.h"
 #include "llvm/DebugInfo/PDB/DIA/DIAEnumInjectedSources.h"
 #include "llvm/DebugInfo/PDB/DIA/DIAEnumLineNumbers.h"
+#include "llvm/DebugInfo/PDB/DIA/DIAEnumSectionContribs.h"
 #include "llvm/DebugInfo/PDB/DIA/DIAEnumSourceFiles.h"
 #include "llvm/DebugInfo/PDB/DIA/DIAEnumTables.h"
 #include "llvm/DebugInfo/PDB/DIA/DIAError.h"
@@ -165,6 +166,28 @@ std::unique_ptr<PDBSymbolExe> DIASession::getGlobalScope() {
   return ExeSymbol;
 }
 
+bool DIASession::addressForVA(uint64_t VA, uint32_t &Section,
+                              uint32_t &Offset) const {
+  DWORD ArgSection, ArgOffset = 0;
+  if (S_OK == Session->addressForVA(VA, &ArgSection, &ArgOffset)) {
+    Section = static_cast<uint32_t>(ArgSection);
+    Offset = static_cast<uint32_t>(ArgOffset);
+    return true;
+  }
+  return false;
+}
+
+bool DIASession::addressForRVA(uint32_t RVA, uint32_t &Section,
+                               uint32_t &Offset) const {
+  DWORD ArgSection, ArgOffset = 0;
+  if (S_OK == Session->addressForRVA(RVA, &ArgSection, &ArgOffset)) {
+    Section = static_cast<uint32_t>(ArgSection);
+    Offset = static_cast<uint32_t>(ArgOffset);
+    return true;
+  }
+  return false;
+}
+
 std::unique_ptr<PDBSymbol> DIASession::getSymbolById(uint32_t SymbolId) const {
   CComPtr<IDiaSymbol> LocatedSymbol;
   if (S_OK != Session->symbolById(SymbolId, &LocatedSymbol))
@@ -218,6 +241,15 @@ DIASession::findLineNumbersByAddress(uint64_t Address, uint32_t Length) const {
     if (S_OK != Session->findLinesByRVA(RVA, Length, &LineNumbers))
       return nullptr;
   }
+  return llvm::make_unique<DIAEnumLineNumbers>(LineNumbers);
+}
+
+std::unique_ptr<IPDBEnumLineNumbers>
+DIASession::findLineNumbersByRVA(uint32_t RVA, uint32_t Length) const {
+  CComPtr<IDiaEnumLineNumbers> LineNumbers;
+  if (S_OK != Session->findLinesByRVA(RVA, Length, &LineNumbers))
+    return nullptr;
+
   return llvm::make_unique<DIAEnumLineNumbers>(LineNumbers);
 }
 
@@ -327,9 +359,10 @@ std::unique_ptr<IPDBEnumTables> DIASession::getEnumTables() const {
   return llvm::make_unique<DIAEnumTables>(DiaEnumerator);
 }
 
-static CComPtr<IDiaEnumInjectedSources>
-getEnumInjectedSources(IDiaSession &Session) {
-  CComPtr<IDiaEnumInjectedSources> EIS;
+template <class T>
+static CComPtr<T>
+getTableEnumerator(IDiaSession &Session) {
+  CComPtr<T> Enumerator;
   CComPtr<IDiaEnumTables> ET;
   CComPtr<IDiaTable> Table;
   ULONG Count = 0;
@@ -340,17 +373,28 @@ getEnumInjectedSources(IDiaSession &Session) {
   while (ET->Next(1, &Table, &Count) == S_OK && Count == 1) {
     // There is only one table that matches the given iid
     if (S_OK ==
-        Table->QueryInterface(__uuidof(IDiaEnumInjectedSources), (void **)&EIS))
+        Table->QueryInterface(__uuidof(T), (void **)&Enumerator))
       break;
     Table.Release();
   }
-  return EIS;
+  return Enumerator;
 }
 std::unique_ptr<IPDBEnumInjectedSources>
 DIASession::getInjectedSources() const {
-  CComPtr<IDiaEnumInjectedSources> Files = getEnumInjectedSources(*Session);
+  CComPtr<IDiaEnumInjectedSources> Files =
+      getTableEnumerator<IDiaEnumInjectedSources>(*Session);
   if (!Files)
     return nullptr;
 
   return llvm::make_unique<DIAEnumInjectedSources>(*this, Files);
+}
+
+std::unique_ptr<IPDBEnumSectionContribs>
+DIASession::getSectionContribs() const {
+  CComPtr<IDiaEnumSectionContribs> Sections =
+      getTableEnumerator<IDiaEnumSectionContribs>(*Session);
+  if (!Sections)
+    return nullptr;
+
+  return llvm::make_unique<DIAEnumSectionContribs>(*this, Sections);
 }

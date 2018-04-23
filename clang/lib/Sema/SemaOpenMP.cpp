@@ -803,7 +803,8 @@ void DSAStackTy::addDSA(ValueDecl *D, Expr *E, OpenMPClauseKind A,
 
 /// \brief Build a variable declaration for OpenMP loop iteration variable.
 static VarDecl *buildVarDecl(Sema &SemaRef, SourceLocation Loc, QualType Type,
-                             StringRef Name, const AttrVec *Attrs = nullptr) {
+                             StringRef Name, const AttrVec *Attrs = nullptr,
+                             DeclRefExpr *OrigRef = nullptr) {
   DeclContext *DC = SemaRef.CurContext;
   IdentifierInfo *II = &SemaRef.PP.getIdentifierTable().get(Name);
   TypeSourceInfo *TInfo = SemaRef.Context.getTrivialTypeSourceInfo(Type, Loc);
@@ -815,6 +816,10 @@ static VarDecl *buildVarDecl(Sema &SemaRef, SourceLocation Loc, QualType Type,
       Decl->addAttr(*I);
   }
   Decl->setImplicit();
+  if (OrigRef) {
+    Decl->addAttr(
+        OMPReferencedVarAttr::CreateImplicit(SemaRef.Context, OrigRef));
+  }
   return Decl;
 }
 
@@ -1210,6 +1215,17 @@ void Sema::popOpenMPFunctionRegion(const FunctionScopeInfo *OldFSI) {
   DSAStack->popFunction(OldFSI);
 }
 
+static llvm::Optional<OMPDeclareTargetDeclAttr::MapTypeTy>
+isDeclareTargetDeclaration(const ValueDecl *VD) {
+  for (const auto *D : VD->redecls()) {
+    if (!D->hasAttrs())
+      continue;
+    if (const auto *Attr = D->getAttr<OMPDeclareTargetDeclAttr>())
+      return Attr->getMapType();
+  }
+  return llvm::None;
+}
+
 bool Sema::IsOpenMPCapturedByRef(ValueDecl *D, unsigned Level) {
   assert(LangOpts.OpenMP && "OpenMP is not allowed");
 
@@ -1387,10 +1403,8 @@ VarDecl *Sema::IsOpenMPCapturedDecl(ValueDecl *D) {
     // If the declaration is enclosed in a 'declare target' directive,
     // then it should not be captured.
     //
-    for (const auto *Var = VD->getMostRecentDecl(); Var;
-         Var = Var->getPreviousDecl())
-      if (Var->hasAttr<OMPDeclareTargetDeclAttr>())
-        return nullptr;
+    if (isDeclareTargetDeclaration(VD))
+      return nullptr;
     return VD;
   }
 
@@ -1462,7 +1476,11 @@ void Sema::setOpenMPCaptureKind(FieldDecl *FD, ValueDecl *D, unsigned Level) {
     }
     if (DSAStack->hasExplicitDirective(isOpenMPTargetExecutionDirective,
                                        NewLevel)) {
-      OMPC = OMPC_firstprivate;
+      OMPC = OMPC_map;
+      if (D->getType()->isScalarType() &&
+          DSAStack->getDefaultDMAAtLevel(NewLevel) !=
+              DefaultMapAttributes::DMA_tofrom_scalar)
+        OMPC = OMPC_firstprivate;
       break;
     }
   }
@@ -1525,7 +1543,7 @@ void Sema::EndOpenMPDSABlock(Stmt *CurDirective) {
             // region uses original variable for proper diagnostics.
             auto *VDPrivate = buildVarDecl(
                 *this, DE->getExprLoc(), Type.getUnqualifiedType(),
-                VD->getName(), VD->hasAttrs() ? &VD->getAttrs() : nullptr);
+                VD->getName(), VD->hasAttrs() ? &VD->getAttrs() : nullptr, DRE);
             ActOnUninitializedDecl(VDPrivate);
             if (VDPrivate->isInvalidDecl())
               continue;
@@ -1920,7 +1938,10 @@ public:
         return;
 
       // Skip internally declared static variables.
-      if (VD->hasGlobalStorage() && !CS->capturesVariable(VD))
+      llvm::Optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
+          isDeclareTargetDeclaration(VD);
+      if (VD->hasGlobalStorage() && !CS->capturesVariable(VD) &&
+          (!Res || *Res != OMPDeclareTargetDeclAttr::MT_Link))
         return;
 
       auto ELoc = E->getExprLoc();
@@ -1967,7 +1988,7 @@ public:
           IsFirstprivate =
               IsFirstprivate ||
               (VD->getType().getNonReferenceType()->isScalarType() &&
-               Stack->getDefaultDMA() != DMA_tofrom_scalar);
+               Stack->getDefaultDMA() != DMA_tofrom_scalar && !Res);
           if (IsFirstprivate)
             ImplicitFirstprivate.emplace_back(E);
           else
@@ -4206,9 +4227,12 @@ DeclRefExpr *OpenMPIterationSpaceChecker::BuildCounterVar(
 Expr *OpenMPIterationSpaceChecker::BuildPrivateCounterVar() const {
   if (LCDecl && !LCDecl->isInvalidDecl()) {
     auto Type = LCDecl->getType().getNonReferenceType();
-    auto *PrivateVar =
-        buildVarDecl(SemaRef, DefaultLoc, Type, LCDecl->getName(),
-                     LCDecl->hasAttrs() ? &LCDecl->getAttrs() : nullptr);
+    auto *PrivateVar = buildVarDecl(
+        SemaRef, DefaultLoc, Type, LCDecl->getName(),
+        LCDecl->hasAttrs() ? &LCDecl->getAttrs() : nullptr,
+        isa<VarDecl>(LCDecl)
+            ? buildDeclRefExpr(SemaRef, cast<VarDecl>(LCDecl), Type, DefaultLoc)
+            : nullptr);
     if (PrivateVar->isInvalidDecl())
       return nullptr;
     return buildDeclRefExpr(SemaRef, PrivateVar, Type, DefaultLoc);
@@ -9322,8 +9346,10 @@ OMPClause *Sema::ActOnOpenMPPrivateClause(ArrayRef<Expr *> VarList,
     // IdResolver, so the code in the OpenMP region uses original variable for
     // proper diagnostics.
     Type = Type.getUnqualifiedType();
-    auto VDPrivate = buildVarDecl(*this, ELoc, Type, D->getName(),
-                                  D->hasAttrs() ? &D->getAttrs() : nullptr);
+    auto VDPrivate =
+        buildVarDecl(*this, ELoc, Type, D->getName(),
+                     D->hasAttrs() ? &D->getAttrs() : nullptr,
+                     VD ? cast<DeclRefExpr>(SimpleRefExpr) : nullptr);
     ActOnUninitializedDecl(VDPrivate);
     if (VDPrivate->isInvalidDecl())
       continue;
@@ -9561,8 +9587,10 @@ OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
     }
 
     Type = Type.getUnqualifiedType();
-    auto VDPrivate = buildVarDecl(*this, ELoc, Type, D->getName(),
-                                  D->hasAttrs() ? &D->getAttrs() : nullptr);
+    auto VDPrivate =
+        buildVarDecl(*this, ELoc, Type, D->getName(),
+                     D->hasAttrs() ? &D->getAttrs() : nullptr,
+                     VD ? cast<DeclRefExpr>(SimpleRefExpr) : nullptr);
     // Generate helper private variable and initialize it with the value of the
     // original variable. The address of the original variable is replaced by
     // the address of the new private variable in the CodeGen. This new variable
@@ -10454,8 +10482,10 @@ static bool ActOnOMPReductionKindClause(
                Context.getAsArrayType(D->getType().getNonReferenceType()))
       PrivateTy = D->getType().getNonReferenceType();
     // Private copy.
-    auto *PrivateVD = buildVarDecl(S, ELoc, PrivateTy, D->getName(),
-                                   D->hasAttrs() ? &D->getAttrs() : nullptr);
+    auto *PrivateVD =
+        buildVarDecl(S, ELoc, PrivateTy, D->getName(),
+                     D->hasAttrs() ? &D->getAttrs() : nullptr,
+                     VD ? cast<DeclRefExpr>(SimpleRefExpr) : nullptr);
     // Add initializer for private variable.
     Expr *Init = nullptr;
     auto *LHSDRE = buildDeclRefExpr(S, LHSVD, Type, ELoc);
@@ -10911,8 +10941,10 @@ OMPClause *Sema::ActOnOpenMPLinearClause(
     Type = Type.getNonReferenceType().getUnqualifiedType().getCanonicalType();
 
     // Build private copy of original var.
-    auto *Private = buildVarDecl(*this, ELoc, Type, D->getName(),
-                                 D->hasAttrs() ? &D->getAttrs() : nullptr);
+    auto *Private =
+        buildVarDecl(*this, ELoc, Type, D->getName(),
+                     D->hasAttrs() ? &D->getAttrs() : nullptr,
+                     VD ? cast<DeclRefExpr>(SimpleRefExpr) : nullptr);
     auto *PrivateRef = buildDeclRefExpr(*this, Private, Type, ELoc);
     // Build var to save initial value.
     VarDecl *Init = buildVarDecl(*this, ELoc, Type, ".linear.start");
@@ -13072,8 +13104,10 @@ OMPClause *Sema::ActOnOpenMPUseDevicePtrClause(ArrayRef<Expr *> VarList,
     }
 
     // Build the private variable and the expression that refers to it.
-    auto VDPrivate = buildVarDecl(*this, ELoc, Type, D->getName(),
-                                  D->hasAttrs() ? &D->getAttrs() : nullptr);
+    auto VDPrivate =
+        buildVarDecl(*this, ELoc, Type, D->getName(),
+                     D->hasAttrs() ? &D->getAttrs() : nullptr,
+                     VD ? cast<DeclRefExpr>(SimpleRefExpr) : nullptr);
     if (VDPrivate->isInvalidDecl())
       continue;
 

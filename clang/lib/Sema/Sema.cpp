@@ -19,6 +19,7 @@
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/AST/PrettyDeclStackTrace.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/Basic/DiagnosticOptions.h"
 #include "clang/Basic/PartialDiagnostic.h"
@@ -31,7 +32,6 @@
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/MultiplexExternalSemaSource.h"
 #include "clang/Sema/ObjCMethodList.h"
-#include "clang/Sema/PrettyDeclStackTrace.h"
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaConsumer.h"
@@ -40,6 +40,7 @@
 #include "clang/Sema/TemplateInstCallback.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/Support/Timer.h"
 using namespace clang;
 using namespace sema;
 
@@ -842,6 +843,9 @@ void Sema::ActOnStartOfTranslationUnit() {
 /// translation unit when EOF is reached and all but the top-level scope is
 /// popped.
 void Sema::ActOnEndOfTranslationUnit() {
+  llvm::NamedRegionTimer T(
+      "actoneou1", "Act On End Of Translation Unit: Common case",
+      GroupName, GroupDescription, llvm::TimePassesIsEnabled);
   assert(DelayedDiagnostics.getCurrentPool() == nullptr
          && "reached end of translation unit with a pool attached?");
 
@@ -850,9 +854,27 @@ void Sema::ActOnEndOfTranslationUnit() {
   if (PP.isCodeCompletionEnabled())
     return;
 
+  // Transfer late parsed template instantiations over to the pending template
+  // instantiation list. During normal compliation, the late template parser
+  // will be installed and instantiating these templates will succeed.
+  //
+  // If we are building a TU prefix for serialization, it is also safe to
+  // transfer these over, even though they are not parsed. The end of the TU
+  // should be outside of any eager template instantiation scope, so when this
+  // AST is deserialized, these templates will not be parsed until the end of
+  // the combined TU.
+  PendingInstantiations.insert(PendingInstantiations.end(),
+                               LateParsedInstantiations.begin(),
+                               LateParsedInstantiations.end());
+  LateParsedInstantiations.clear();
+
   // Complete translation units and modules define vtables and perform implicit
   // instantiations. PCH files do not.
   if (TUKind != TU_Prefix) {
+    llvm::NamedRegionTimer T(
+        "actoneou2",
+        "Act On End Of Translation Unit: TUKind != TU_Prefix", GroupName,
+        GroupDescription, llvm::TimePassesIsEnabled);
     DiagnoseUseOfUnimplementedSelectors();
 
     // If DefinedUsedVTables ends up marking any virtual member functions it
@@ -879,7 +901,12 @@ void Sema::ActOnEndOfTranslationUnit() {
       PendingInstantiations.insert(PendingInstantiations.begin(),
                                    Pending.begin(), Pending.end());
     }
+
     PerformPendingInstantiations();
+
+    assert(LateParsedInstantiations.empty() &&
+           "end of TU template instantiation should not create more "
+           "late-parsed templates");
 
     if (LateTemplateParserCleanup)
       LateTemplateParserCleanup(OpaqueParser);
@@ -910,6 +937,10 @@ void Sema::ActOnEndOfTranslationUnit() {
       UnusedFileScopedDecls.end());
 
   if (TUKind == TU_Prefix) {
+    llvm::NamedRegionTimer T(
+        "actoneou3",
+        "Act On End Of Translation Unit: TUKind == TU_Prefix", GroupName,
+        GroupDescription, llvm::TimePassesIsEnabled);
     // Translation unit prefixes don't need any of the checking below.
     if (!PP.isIncrementalProcessingEnabled())
       TUScope = nullptr;
@@ -944,6 +975,10 @@ void Sema::ActOnEndOfTranslationUnit() {
   }
 
   if (TUKind == TU_Module) {
+    llvm::NamedRegionTimer T(
+        "actoneou4",
+        "Act On End Of Translation Unit: TUKind == TU_Module", GroupName,
+        GroupDescription, llvm::TimePassesIsEnabled);
     // If we are building a module interface unit, we need to have seen the
     // module declaration by now.
     if (getLangOpts().getCompilingModule() ==
@@ -1525,24 +1560,6 @@ void ExternalSemaSource::ReadUndefinedButUsed(
 void ExternalSemaSource::ReadMismatchingDeleteExpressions(llvm::MapVector<
     FieldDecl *, llvm::SmallVector<std::pair<SourceLocation, bool>, 4>> &) {}
 
-void PrettyDeclStackTraceEntry::print(raw_ostream &OS) const {
-  SourceLocation Loc = this->Loc;
-  if (!Loc.isValid() && TheDecl) Loc = TheDecl->getLocation();
-  if (Loc.isValid()) {
-    Loc.print(OS, S.getSourceManager());
-    OS << ": ";
-  }
-  OS << Message;
-
-  if (auto *ND = dyn_cast_or_null<NamedDecl>(TheDecl)) {
-    OS << " '";
-    ND->getNameForDiagnostic(OS, ND->getASTContext().getPrintingPolicy(), true);
-    OS << "'";
-  }
-
-  OS << '\n';
-}
-
 /// \brief Figure out if an expression could be turned into a call.
 ///
 /// Use this when trying to recover from an error where the programmer may have
@@ -1556,6 +1573,9 @@ void PrettyDeclStackTraceEntry::print(raw_ostream &OS) const {
 ///  name, this parameter is populated with the decls of the various overloads.
 bool Sema::tryExprAsCall(Expr &E, QualType &ZeroArgCallReturnTy,
                          UnresolvedSetImpl &OverloadSet) {
+  llvm::NamedRegionTimer T("tryascall", "Try Expr As Call", GroupName,
+                           GroupDescription, llvm::TimePassesIsEnabled);
+
   ZeroArgCallReturnTy = QualType();
   OverloadSet.clear();
 
@@ -1718,6 +1738,9 @@ static bool IsCallableWithAppend(Expr *E) {
 bool Sema::tryToRecoverWithCall(ExprResult &E, const PartialDiagnostic &PD,
                                 bool ForceComplain,
                                 bool (*IsPlausibleResult)(QualType)) {
+  llvm::NamedRegionTimer T("trytorecover", "Try To Recover With Call",
+                           GroupName, GroupDescription,
+                           llvm::TimePassesIsEnabled);
   SourceLocation Loc = E.get()->getExprLoc();
   SourceRange Range = E.get()->getSourceRange();
 
