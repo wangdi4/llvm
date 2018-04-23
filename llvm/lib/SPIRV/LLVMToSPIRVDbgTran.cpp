@@ -492,13 +492,13 @@ SPIRVEntry *LLVMToSPIRVDbgTran::transDbgArrayType(const DICompositeType *AT) {
   Ops.resize(ComponentCountIdx + N);
   for (unsigned i = 0; i < N; ++i) {
     DISubrange *SR = cast<DISubrange>(AR[i]);
-    int64_t Count = SR->getCount();
+    ConstantInt* Count = SR->getCount().get<ConstantInt*>();
     if (AT->isVector()) {
       assert(N == 1 && "Multidimensional vector is not expected!");
-      Ops[ComponentCountIdx] = static_cast<SPIRVWord>(Count);
+      Ops[ComponentCountIdx] = static_cast<SPIRVWord>(Count->getZExtValue());
       return BM->addDebugInfo(SPIRVDebug::TypeVector, getVoidTy(), Ops);
     }
-    SPIRVValue *C = SPIRVWriter->transValue(getInt(M, Count), nullptr);
+    SPIRVValue *C = SPIRVWriter->transValue(Count, nullptr);
     Ops[ComponentCountIdx + i] = C->getId();
   }
   return BM->addDebugInfo(SPIRVDebug::TypeArray, getVoidTy(), Ops);

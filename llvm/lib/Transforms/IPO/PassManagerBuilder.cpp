@@ -45,11 +45,10 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/SimpleLoopUnswitch.h"
+#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
-#include "llvm/Transforms/Intel_DTrans/AOSToSOA.h"
-#include "llvm/Transforms/Intel_DTrans/DeleteField.h"
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -60,6 +59,10 @@
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
+
+#if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/DTransCommon.h"
+#endif // INTEL_INCLUDE_DTRANS
 #endif //INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -228,10 +231,12 @@ static cl::opt<bool>
     EnableInlineAggAnalysis("enable-inline-aggressive-analysis",
     cl::init(true), cl::Hidden, cl::desc("Enable Inline Aggressive Analysis"));
 
+#if INTEL_INCLUDE_DTRANS
 // DTrans optimizations -- this is a placeholder for future work.
 static cl::opt<bool> EnableDTrans("enable-dtrans",
     cl::init(false), cl::Hidden,
     cl::desc("Enable DTrans optimizations"));
+#endif // INTEL_INCLUDE_DTRANS
 
 // PGO based function splitting
 static cl::opt<bool> EnableFunctionSplitting("enable-function-splitting",
@@ -518,6 +523,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals
   MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
   // Combine silly seq's
+  if (OptLevel > 2)
+    MPM.add(createAggressiveInstCombinerPass());
   addInstructionCombiningPass(MPM);
   if (SizeLevel == 0 && !DisableLibCallsShrinkWrap)
     MPM.add(createLibCallsShrinkWrapPass());
@@ -1029,10 +1036,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createReversePostOrderFunctionAttrsPass());
 
 #if INTEL_CUSTOMIZATION
-  if (EnableDTrans) {
-    PM.add(createDTransDeleteFieldWrapperPass());
-    PM.add(createDTransAOSToSOAWrapperPass());
-  }
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans)
+    addDTransLegacyPasses(PM);
+#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // Split globals using inrange annotations on GEP indices. This can help
@@ -1063,6 +1070,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // simplification opportunities, and both can propagate functions through
   // function pointers.  When this happens, we often have to resolve varargs
   // calls, etc, so let instcombine do this.
+  if (OptLevel > 2)
+    PM.add(createAggressiveInstCombinerPass());
   addInstructionCombiningPass(PM);
   addExtensionsToPM(EP_Peephole, PM);
 

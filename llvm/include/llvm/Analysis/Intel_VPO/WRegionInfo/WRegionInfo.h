@@ -24,7 +24,7 @@ namespace llvm {
 
 class Function;
 class DominatorTree;
-struct PostDominatorTree;
+class PostDominatorTree;
 
 namespace vpo {
 

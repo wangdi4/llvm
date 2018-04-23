@@ -21,6 +21,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/ADT/Statistic.h"
+#include <llvm/IR/IntrinsicInst.h>
 #include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
 #include "llvm/Support/Debug.h"
 
@@ -602,37 +603,28 @@ HLInst *HLNodeUtils::createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
 }
 
 HLInst *HLNodeUtils::createShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
-                                             ArrayRef<uint32_t> Mask,
-                                             const Twine &Name,
+                                             RegDDRef *Mask, const Twine &Name,
                                              RegDDRef *LvalRef) {
   assert(OpRef1->getDestType()->isVectorTy() &&
          OpRef1->getDestType() == OpRef2->getDestType() &&
          "Illegal operand types for shufflevector");
 
-  auto OneVal = UndefValue::get(OpRef1->getDestType());
+  auto UndefVal = UndefValue::get(OpRef1->getDestType());
+  auto MaskUndefVal = UndefValue::get(Mask->getDestType());
 
   Value *InstVal =
-      DummyIRBuilder->CreateShuffleVector(OneVal, OneVal, Mask, Name);
+      DummyIRBuilder->CreateShuffleVector(UndefVal, UndefVal, MaskUndefVal,
+                                          Name);
   Instruction *Inst = cast<Instruction>(InstVal);
 
   assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
          "Incompatible type of LvalRef");
 
   HLInst *HInst = createLvalHLInst(Inst, LvalRef);
-
   HInst->setOperandDDRef(OpRef1, 1);
   HInst->setOperandDDRef(OpRef2, 2);
-  Value *MaskVecValue = Inst->getOperand(2);
-  RegDDRef *MaskVecDDRef;
-  if (isa<ConstantAggregateZero>(MaskVecValue))
-    MaskVecDDRef = getDDRefUtils().createConstDDRef(
-        cast<ConstantAggregateZero>(MaskVecValue));
-  else if (isa<ConstantDataVector>(MaskVecValue))
-    MaskVecDDRef = getDDRefUtils().createConstDDRef(
-        cast<ConstantDataVector>(MaskVecValue));
-  else
-    llvm_unreachable("Unexpected Mask vector type");
-  HInst->setOperandDDRef(MaskVecDDRef, 3);
+  HInst->setOperandDDRef(Mask, 3);
+
   return HInst;
 }
 
@@ -643,8 +635,8 @@ HLInst *HLNodeUtils::createExtractElementInst(RegDDRef *OpRef, unsigned Idx,
   assert(OpRef->getDestType()->isVectorTy() &&
          "Illegal operand types for extractelement");
 
-  auto OneVal = UndefValue::get(OpRef->getDestType());
-  Value *InstVal = DummyIRBuilder->CreateExtractElement(OneVal, Idx, Name);
+  auto UndefVal = UndefValue::get(OpRef->getDestType());
+  Value *InstVal = DummyIRBuilder->CreateExtractElement(UndefVal, Idx, Name);
   Instruction *Inst = cast<Instruction>(InstVal);
   assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
          "Incompatible type of LvalRef");
@@ -869,9 +861,10 @@ HLInst *HLNodeUtils::createSelect(const HLPredicate &Pred, RegDDRef *OpRef1,
   return HInst;
 }
 
-HLInst *HLNodeUtils::createCall(Function *Func,
-                                const SmallVectorImpl<RegDDRef *> &CallArgs,
-                                const Twine &Name, RegDDRef *LvalRef) {
+std::pair<HLInst *, CallInst *>
+HLNodeUtils::createCallImpl(Function *Func,
+                            const SmallVectorImpl<RegDDRef *> &CallArgs,
+                            const Twine &Name, RegDDRef *LvalRef) {
   bool HasReturn = !Func->getReturnType()->isVoidTy();
   unsigned NumArgs = CallArgs.size();
   HLInst *HInst;
@@ -905,6 +898,59 @@ HLInst *HLNodeUtils::createCall(Function *Func,
   for (unsigned I = 0; I < NumArgs; I++) {
     HInst->setOperandDDRef(CallArgs[I], I + ArgOffset);
   }
+
+  return std::make_pair(HInst, InstVal);
+}
+
+HLInst *HLNodeUtils::createCall(Function *Func,
+                                const SmallVectorImpl<RegDDRef *> &CallArgs,
+                                const Twine &Name, RegDDRef *LvalRef) {
+  return createCallImpl(Func, CallArgs, Name, LvalRef).first;
+}
+
+HLInst *HLNodeUtils::createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef,
+                                  RegDDRef *Size) {
+  RegDDRef *IsVolatile = getDDRefUtils().createConstDDRef(
+      Type::getInt1Ty(getContext()),
+      LoadRef->isVolatile() || StoreRef->isVolatile());
+
+  Type *Tys[] = {StoreRef->getDestType(), LoadRef->getDestType(),
+                 Size->getDestType()};
+
+  Function *MemcpyFunc =
+      Intrinsic::getDeclaration(&getModule(), Intrinsic::memcpy, Tys);
+
+  SmallVector<RegDDRef *, 5> Ops = {StoreRef, LoadRef, Size, IsVolatile};
+
+  CallInst *Call;
+  HLInst *HInst;
+  std::tie(HInst, Call) = createCallImpl(MemcpyFunc, Ops);
+
+  MemCpyInst *MemCpyCall = cast<MemCpyInst>(Call);
+  MemCpyCall->setSourceAlignment(LoadRef->getAlignment());
+  MemCpyCall->setDestAlignment(StoreRef->getAlignment());
+
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createMemset(RegDDRef *StoreRef, RegDDRef *Value,
+                                  RegDDRef *Size) {
+  RegDDRef *IsVolatile = getDDRefUtils().createConstDDRef(
+      Type::getInt1Ty(getContext()), StoreRef->isVolatile());
+
+  Type *Tys[] = {StoreRef->getDestType(), Size->getDestType()};
+  Function *MemsetFunc =
+      Intrinsic::getDeclaration(&getModule(), Intrinsic::memset, Tys);
+
+  SmallVector<RegDDRef *, 5> Ops = {StoreRef, Value, Size, IsVolatile};
+
+  CallInst *Call;
+  HLInst *HInst;
+  std::tie(HInst, Call) = createCallImpl(MemsetFunc, Ops);
+
+  MemSetInst *MemSetCall = cast<MemSetInst>(Call);
+  MemSetCall->setDestAlignment(StoreRef->getAlignment());
+
   return HInst;
 }
 

@@ -481,6 +481,7 @@ SPIRVMap<Capability, std::string>::init() {
   add(CapabilitySubgroupShuffleINTEL, "SubgroupShuffleINTEL");
   add(CapabilitySubgroupBufferBlockIOINTEL, "SubgroupBufferBlockIOINTEL");
   add(CapabilitySubgroupImageBlockIOINTEL, "SubgroupImageBlockIOINTEL");
+  add(CapabilitySubgroupImageMediaBlockIOINTEL, "SubgroupImageMediaBlockIOINTEL");
 }
 SPIRV_DEF_NAMEMAP(Capability, SPIRVCapabilityNameMap)
 

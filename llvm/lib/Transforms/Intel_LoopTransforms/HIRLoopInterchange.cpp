@@ -370,6 +370,7 @@ bool HIRLoopInterchange::getPermutation(const HLLoop *Loop) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       DEBUG(dbgs() << "\nNearby permutation obtained\n");
       for (auto &I : LoopPermutation) {
+	(void)I; // Variable is used in DEBUG only.
         DEBUG(dbgs(); I->dump());
       }
 #endif

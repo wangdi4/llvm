@@ -1793,7 +1793,7 @@ public:
   // Complete constructor
   SPIRVVectorInsertDynamic(SPIRVId TheId, SPIRVValue *TheVector,
       SPIRVValue* TheComponent, SPIRVValue* TheIndex, SPIRVBasicBlock *TheBB)
-    :SPIRVInstruction(6, OC, TheVector->getType()->getVectorComponentType(),
+    :SPIRVInstruction(6, OC, TheVector->getType(),
     TheId, TheBB), VectorId(TheVector->getId()),
     IndexId(TheIndex->getId()), ComponentId(TheComponent->getId()){
     validate();
@@ -2236,6 +2236,21 @@ _SPIRV_OP(SubgroupImageBlockReadINTEL,  true, 5)
 _SPIRV_OP(SubgroupImageBlockWriteINTEL, false, 4)
 #undef _SPIRV_OP
 
+class SPIRVSubgroupImageMediaBlockIOINTELInstBase:public SPIRVInstTemplateBase {
+protected:
+  SPIRVCapVec getRequiredCapability() const override {
+      return getVec(CapabilitySubgroupImageMediaBlockIOINTEL);
+  }
+};
+
+#define _SPIRV_OP(x, ...)                                                      \
+  typedef SPIRVInstTemplate<SPIRVSubgroupImageMediaBlockIOINTELInstBase,       \
+                            Op##x, __VA_ARGS__>                                \
+      SPIRV##x;
+// Intel Subgroup Image Media Block Read and Write Instructions
+_SPIRV_OP(SubgroupImageMediaBlockReadINTEL, true, 7)
+_SPIRV_OP(SubgroupImageMediaBlockWriteINTEL, false, 6)
+#undef _SPIRV_OP
 
 SPIRVSpecConstantOp *createSpecConstantOpInst(SPIRVInstruction *Inst);
 SPIRVInstruction *createInstFromSpecConstantOp(SPIRVSpecConstantOp *C);

@@ -644,8 +644,8 @@ void VPOParoptTransform::genSharedInitForTaskLoop(
     Size = Builder.getInt32(
         DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
 
-  Builder.CreateMemCpy(LI, SrcCast, Size,
-                       DL.getABITypeAlignment(Src->getAllocatedType()));
+  unsigned Align = DL.getABITypeAlignment(Src->getAllocatedType());
+  Builder.CreateMemCpy(LI, Align, SrcCast, Align, Size);
 
   Indices.clear();
   Indices.push_back(Builder.getInt32(0));
@@ -682,8 +682,8 @@ void VPOParoptTransform::genSharedInitForTaskLoop(
           SharedGep, PointerType::getUnqual(Type::getInt8PtrTy(C)));
       Value *D = Builder.CreateBitCast(
           PrivateGep, PointerType::getUnqual(Type::getInt8PtrTy(C)));
-      Builder.CreateMemCpy(
-          D, S, Size, DL.getABITypeAlignment(FprivI->getOrig()->getType()));
+      unsigned Align = DL.getABITypeAlignment(FprivI->getOrig()->getType());
+      Builder.CreateMemCpy(D, Align, S, Align, Size);
     }
   }
 }
@@ -1120,7 +1120,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
     // Set up the Calling Convention used by OpenMP Runtime Library
     CallingConv::ID CC = CallingConv::C;
 
-    DT->verifyDomTree();
+    DT->verify(DominatorTree::VerificationLevel::Full);
 
     // Adjust the calling convention for both the function and the
     // call site.

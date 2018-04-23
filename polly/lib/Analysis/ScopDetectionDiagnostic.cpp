@@ -46,7 +46,11 @@ using namespace llvm;
 #define DEBUG_TYPE "polly-detect"
 
 #define SCOP_STAT(NAME, DESC)                                                  \
-  { "polly-detect", "NAME", "Number of rejected regions: " DESC, {0}, false }
+  {                                                                            \
+    "polly-detect", "NAME", "Number of rejected regions: " DESC, {0}, {        \
+      false                                                                    \
+    }                                                                          \
+  }
 
 Statistic RejectStatistics[] = {
     SCOP_STAT(CFG, ""),
@@ -92,7 +96,6 @@ template <typename T> std::string operator+(Twine LHS, const T &RHS) {
 
   return LHS.concat(Buf).str();
 }
-
 } // namespace polly
 
 namespace llvm {
@@ -102,7 +105,6 @@ static bool operator<(const DebugLoc &LHS, const DebugLoc &RHS) {
   return LHS.getLine() < RHS.getLine() ||
          (LHS.getLine() == RHS.getLine() && LHS.getCol() < RHS.getCol());
 }
-
 } // namespace llvm
 
 namespace polly {
@@ -776,5 +778,4 @@ const DebugLoc &ReportUnprofitable::getDebugLoc() const {
 bool ReportUnprofitable::classof(const RejectReason *RR) {
   return RR->getKind() == RejectReasonKind::Unprofitable;
 }
-
 } // namespace polly

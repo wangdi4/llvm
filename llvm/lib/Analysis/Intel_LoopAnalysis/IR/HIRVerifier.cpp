@@ -14,14 +14,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/Debug.h"
 #include "llvm/ADT/BitVector.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVerifier.h"
-#include "llvm/ADT/DenseMap.h"
+
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
-#include "llvm/Support/Debug.h"
+
 #define DEBUG_TYPE "hir-verify"
 
 using namespace llvm;
@@ -33,11 +34,11 @@ static cl::opt<bool>
                         "attributes are not too conservative"),
                cl::init(false));
 
-static cl::opt<bool>
-    HIRCFDefLevel("hir-verify-cf-def-level",
-                  cl::desc("Verify consistency of control-flow-related def-level "
-                           "attribute (default=false)"),
-                  cl::init(false));
+static cl::opt<bool> HIRCFDefLevel(
+    "hir-verify-cf-def-level",
+    cl::desc("Verify consistency of control-flow-related def-level "
+             "attribute (default=false)"),
+    cl::init(false));
 
 namespace {
 
@@ -174,7 +175,7 @@ private:
 #endif
   }
 };
-}
+} // namespace
 
 namespace llvm {
 namespace loopopt {
@@ -297,8 +298,18 @@ public:
          ++I) {
       unsigned Symbase = I->first;
       auto Iter = TempSymbaseDefMap.find(Symbase);
-      assert(Iter != TempSymbaseDefMap.end() &&
-             "Could not find region live out symbase");
+
+      if (Iter == TempSymbaseDefMap.end()) {
+        // Definition of region liveout symbase will not be found if the value
+        // is defined outside the region. In this case it is simply flowing
+        // through the region.
+        if (Region->isLiveIn(Symbase)) {
+          continue;
+        }
+
+        llvm_unreachable("Could not find region live out symbase");
+      }
+
       HLLoop *DefLoop = Iter->second->getLexicalParentLoop();
       while (DefLoop != nullptr) {
         assert(DefLoop->isLiveOut(Symbase) &&

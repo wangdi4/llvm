@@ -660,27 +660,44 @@ void WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
   }
 }
 
-template <typename ClauseTy>
-void WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
-                                       const ClauseSpecifier &ClauseInfo,
-                                       ClauseTy &C) {
+template <typename ClauseItemTy>
+void WRegionUtils::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
+                                             const ClauseSpecifier &ClauseInfo,
+                                             Clause<ClauseItemTy> &C) {
   int ClauseID = ClauseInfo.getId();
-  bool IsConditional = ClauseInfo.getIsConditional();
+  C.setClauseID(ClauseID);
 
+  bool IsConditional = ClauseInfo.getIsConditional();
   if (IsConditional)
     assert(ClauseID == QUAL_OMP_LASTPRIVATE &&
            "The CONDITIONAL keyword is for LASTPRIVATE clauses only");
 
-  C.setClauseID(ClauseID);
+  if (ClauseInfo.getIsNonPod()) {
+    // NONPOD representation requires multiple args per var:
+    //  - PRIVATE:      3 args : Var, Ctor, Dtor
+    //  - FIRSTPRIVATE: 3 args : Var, CCtor, Dtor
+    //  - LASTPRIVATE:  4 args : Var, Ctor, CopyAssign, Dtor
+    if (ClauseID == QUAL_OMP_PRIVATE || ClauseID == QUAL_OMP_FIRSTPRIVATE)
+      assert(NumArgs == 3 && "Expected 3 arguments for [FIRST]PRIVATE NONPOD");
+    else if (ClauseID == QUAL_OMP_LASTPRIVATE)
+      assert(NumArgs == 4 && "Expected 4 arguments for LASTPRIVATE NONPOD");
+    else
+      llvm_unreachable("NONPOD support for this clause type TBD");
 
-  for (unsigned I = 0; I < NumArgs; ++I) {
-    Value *V = (Value*) Args[I];
-    C.add(V);
-    if (IsConditional) {
-      auto *I = C.back();
-      I->setIsConditional(true);
+    ClauseItemTy *Item = new ClauseItemTy(Args);
+    Item->setIsNonPod(true);
+    if (IsConditional)
+      Item->setIsConditional(true);
+    C.add(Item);
+  } else
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      Value *V = (Value*) Args[I];
+      C.add(V);
+      if (IsConditional) {
+        auto *Item = C.back();
+        Item->setIsConditional(true);
+      }
     }
-  }
 }
 
 void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
@@ -749,10 +766,11 @@ void WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
     MapItem *MI;
     if (ClauseInfo.getIsMapAggrHead()) { // Start a new chain: Add a MapItem
       MI = new MapItem(Aggr);
+      MI->setOrig(BasePtr);
       C.add(MI);
     } else {         // Continue the chain for the last MapItem
       MI = C.back(); // Get the last MapItem in the MapClause
-      MapChainTy MapChain = MI->getMapChain();
+      MapChainTy &MapChain = MI->getMapChain();
       assert(MapChain.size() > 0 && "MAP:AGGR cannot start a chain");
       MapChain.push_back(Aggr);
     }
@@ -896,17 +914,34 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_PRIVATE: {
-    WRegionUtils::extractQualOpndList<PrivateClause>(Args, NumArgs, ClauseID,
-                                                     getPriv());
+    WRegionUtils::extractQualOpndListNonPod<PrivateItem>(Args, NumArgs,
+                                                     ClauseInfo, getPriv());
     break;
   }
   case QUAL_OMP_FIRSTPRIVATE: {
-    WRegionUtils::extractQualOpndList<FirstprivateClause>(Args, NumArgs,
-                                                       ClauseID, getFpriv());
+    WRegionUtils::extractQualOpndListNonPod<FirstprivateItem>(Args, NumArgs,
+                                                     ClauseInfo, getFpriv());
+    break;
+  }
+  case QUAL_OMP_CANCELLATION_POINTS: {
+    assert(canHaveCancellationPoints() &&
+           "CANCELLATION.POINTS is not supported on this construct");
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      auto *V = dyn_cast<Instruction>(Args[I]);
+
+      // Cancellation point may have been removed/replaced with undef by
+      // some dead-code elimination optimization e.g.
+      // if (expr)
+      //   %1 = _kmpc_cancel(...)
+      //
+      // 'expr' may be always false, and %1 can be optimized away.
+      if (V)
+        addCancellationPoint(V);
+    }
     break;
   }
   case QUAL_OMP_LASTPRIVATE: {
-    WRegionUtils::extractQualOpndList<LastprivateClause>(Args, NumArgs,
+    WRegionUtils::extractQualOpndListNonPod<LastprivateItem>(Args, NumArgs,
                                                      ClauseInfo, getLpriv());
     break;
   }
@@ -1035,18 +1070,30 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   }
 }
 
-void WRegionNode::getClausesFromOperandBundles() {
-  // Under the directive.region.entry/exit representation the intrinsic
-  // is alone in the EntryBB, so EntryBB->front() is the intrinsic call
-  Instruction *I = &(getEntryBBlock()->front());
-  IntrinsicInst *Call = dyn_cast<IntrinsicInst>(&*I);
-  assert (Call && "Call not found for directive.region.entry()");
+void WRegionNode::getClausesFromOperandBundles(bool RegionExit) {
 
+  Instruction *I;
+
+  if (!RegionExit) {
+    // Under the directive.region.entry/exit representation the intrinsic
+    // is alone in the EntryBB, so EntryBB->front() is the intrinsic call
+    I = &(getEntryBBlock()->front());
+    assert(isa<IntrinsicInst>(I) &&
+           "Call not found for directive.region.entry()");
+  } else {
+    // ExitBB can have PHIs, so we get the first non-PHI to access the
+    // directive.region.exit intrinsic.
+    I = getExitBBlock()->getFirstNonPHI();
+    assert(isa<IntrinsicInst>(I) &&
+           "Call not found for directive.region.exit()");
+  }
+
+  IntrinsicInst *Call = cast<IntrinsicInst>(I);
   unsigned i, NumOB = Call->getNumOperandBundles();
 
   // Index i start from 1 (not 0) because we want to skip the first
   // OperandBundle, which is the directive name.
-  for(i=1; i<NumOB; ++i) {
+  for (i = 1; i < NumOB; ++i) {
     // BU is the ith OperandBundle, which represents a clause
     OperandBundleUse BU = Call->getOperandBundleAt(i);
 
@@ -1058,9 +1105,9 @@ void WRegionNode::getClausesFromOperandBundles() {
 
     // Get the argument list from the current OperandBundle
     ArrayRef<llvm::Use> Args = BU.Inputs;
-    unsigned NumArgs = Args.size();   // BU.Inputs.size()
+    unsigned NumArgs = Args.size(); // BU.Inputs.size()
 
-    const Use *ArgList = NumArgs==0 ? nullptr : &Args[0];
+    const Use *ArgList = NumArgs == 0 ? nullptr : &Args[0];
 
     // Parse the clause and update the WRN
     parseClause(ClauseInfo, ArgList, NumArgs);
@@ -1255,6 +1302,22 @@ bool WRegionNode::canHaveFlush() const {
   return SubClassID==WRNFlush;
 }
 
+// Returns `true` if the Construct can be cancelled, and thus have
+// Cancellation Points.
+bool WRegionNode::canHaveCancellationPoints() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallel:
+  case WRNWksLoop:
+  case WRNSections:
+  case WRNTask:
+  case WRNParallelLoop:
+  case WRNParallelSections:
+    return true;
+  }
+  return false;
+}
+
 StringRef WRegionNode::getName() const {
   // good return llvm::vpo::WRNName[getWRegionKindID()];
   return WRNName[getWRegionKindID()];
@@ -1321,6 +1384,27 @@ void vpo::printVal(StringRef Title, Value *Val, formatted_raw_ostream &OS,
     return;
   }
   OS << *Val << "\n";
+}
+
+// Auxiliary function to print an ArrayRef of Values in a WRN dump
+void vpo::printValList(StringRef Title, ArrayRef<Value *> const &Vals,
+                       formatted_raw_ostream &OS, int Indent,
+                       unsigned Verbosity) {
+
+  if (Vals.empty())
+    return; // print nothing if Vals is empty
+
+  OS.indent(Indent) << Title << ":";
+
+  for (auto *V : Vals) {
+    if (V) {
+      OS << " ";
+      V->printAsOperand(OS);
+    } else if (Verbosity >= 1) {
+      OS << " UNSPECIFIED";
+    }
+  }
+  OS << "\n";
 }
 
 // Auxiliary function to print an Int in a WRN dump

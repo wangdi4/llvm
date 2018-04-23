@@ -55,7 +55,8 @@ class ParVecDirectiveInsertion : public HIRTransformPass {
   public:
     Visitor(Function &Func, HIRFramework *HIRF, HIRParVecAnalysis *PVA,
             ParVecInfo::AnalysisMode Mode)
-        : Func(Func), HIRF(HIRF), PVA(PVA), Mode(Mode), Inserted(false) {}
+        : Func(Func), HIRF(HIRF), PVA(PVA), Mode(Mode), Inserted(false), 
+          SkipNode(nullptr) {}
     void visit(HLNode *N) {}
     void postVisit(HLNode *N) {}
     /// \brief Checks if directive insertion is needed for the loop

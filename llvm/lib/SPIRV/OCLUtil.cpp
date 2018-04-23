@@ -468,28 +468,24 @@ public:
     UnmangledName.erase(0, 2);
   } else if (UnmangledName == "fclamp") {
     UnmangledName.erase(0, 1);
-  } else if (UnmangledName == "read_pipe" || UnmangledName == "write_pipe") {
-    assert(F && "lack of necessary information");
-    // handle [read|write]pipe builtins (plus two i32 literal args
-    // required by SPIR 2.0 provisional specification):
-    if (F->arg_size() == 6) {
-      // with 4 arguments (plus two i32 literals):
-      // int read_pipe (read_only pipe gentype p, reserve_id_t reserve_id, uint index, gentype *ptr)
-      // int write_pipe (write_only pipe gentype p, reserve_id_t reserve_id, uint index, const gentype *ptr)
-      addUnsignedArg(2);
-      addVoidPtrArg(3);
-      addUnsignedArg(4);
-      addUnsignedArg(5);
-    } else if (F->arg_size() == 4) {
-      // with 2 arguments (plus two i32 literals):
-      // int read_pipe (read_only pipe gentype p, gentype *ptr)
-      // int write_pipe (write_only pipe gentype p, const gentype *ptr)
-      addVoidPtrArg(1);
-      addUnsignedArg(2);
-      addUnsignedArg(3);
-    } else {
-      llvm_unreachable("read/write pipe builtin with unexpected number of arguments");
-    }
+  }
+  // handle [read|write]pipe builtins (plus two i32 literal args
+  // required by SPIR 2.0 provisional specification):
+  else if (UnmangledName == "read_pipe_2" || UnmangledName == "write_pipe_2") {
+    // with 2 arguments (plus two i32 literals):
+    // int read_pipe (read_only pipe gentype p, gentype *ptr)
+    // int write_pipe (write_only pipe gentype p, const gentype *ptr)
+    addVoidPtrArg(1);
+    addUnsignedArg(2);
+    addUnsignedArg(3);
+  } else if (UnmangledName == "read_pipe_4" || UnmangledName == "write_pipe_4") {
+    // with 4 arguments (plus two i32 literals):
+    // int read_pipe (read_only pipe gentype p, reserve_id_t reserve_id, uint index, gentype *ptr)
+    // int write_pipe (write_only pipe gentype p, reserve_id_t reserve_id, uint index, const gentype *ptr)
+    addUnsignedArg(2);
+    addVoidPtrArg(3);
+    addUnsignedArg(4);
+    addUnsignedArg(5);
   } else if (UnmangledName.find("reserve_read_pipe") != std::string::npos ||
              UnmangledName.find("reserve_write_pipe") != std::string::npos) {
     // process [|work_group|sub_group]reserve[read|write]pipe builtins

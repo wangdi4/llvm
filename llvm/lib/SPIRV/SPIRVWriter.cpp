@@ -94,8 +94,8 @@ static void foreachKernelArgMD(
     MDNode *MD, SPIRVFunction *BF,
     std::function<void(const std::string &Str, SPIRVFunctionParameter *BA)>
         Func) {
-  for (unsigned I = 1, E = MD->getNumOperands(); I != E; ++I) {
-    SPIRVFunctionParameter *BA = BF->getArgument(I - 1);
+  for (unsigned I = 0, E = MD->getNumOperands(); I != E; ++I) {
+    SPIRVFunctionParameter *BA = BF->getArgument(I);
     Func(getMDOperandAsString(MD, I), BA);
   }
 }
@@ -294,11 +294,15 @@ SPIRVType *LLVMToSPIRV::transType(Type *T) {
         auto PipeT = BM->addPipeType();
         PipeT->setPipeAcessQualifier(SPIRSPIRVAccessQualifierMap::map(Acc));
         return mapType(T, PipeT);
-      } else if (STName.find(kSPR2TypeName::ImagePrefix) == 0) {
+      }
+      if (STName.startswith(kSPR2TypeName::ImagePrefix)) {
         assert(AddrSpc == SPIRAS_Global);
         auto SPIRVImageTy = getSPIRVImageTypeFromOCL(M, T);
         return mapType(T, transType(SPIRVImageTy));
-      } else if (STName.startswith(kSPIRVTypeName::PrefixAndDelim))
+      }
+      if (STName == kSPR2TypeName::Sampler)
+        return mapType(T, transType(getSamplerType(M)));
+      if (STName.startswith(kSPIRVTypeName::PrefixAndDelim))
         return transSPIRVOpaqueType(T);
       else if (OCLOpaqueTypeOpCodeMap::find(STName, &OpCode)) {
         switch (OpCode) {
@@ -1028,8 +1032,9 @@ bool LLVMToSPIRV::transBuiltinSet() {
   return true;
 }
 
-/// Transform sampler* spcv.cast(i32 arg)
-/// Only two cases are possible:
+/// Translate sampler* spcv.cast(i32 arg) or
+/// sampler* __translate_sampler_initializer(i32 arg)
+/// Three cases are possible:
 ///   arg = ConstantInt x -> SPIRVConstantSampler
 ///   arg = i32 argument -> transValue(arg)
 ///   arg = load from sampler -> look through load
@@ -1039,14 +1044,15 @@ SPIRVValue *LLVMToSPIRV::oclTransSpvcCastSampler(CallInst *CI,
   auto FT = F->getFunctionType();
   auto RT = FT->getReturnType();
   assert(FT->getNumParams() == 1);
-  assert(isSPIRVType(RT, kSPIRVTypeName::Sampler) &&
+  assert((isSPIRVType(RT, kSPIRVTypeName::Sampler) ||
+          isPointerToOpaqueStructType(RT, kSPR2TypeName::Sampler)) &&
          FT->getParamType(0)->isIntegerTy() && "Invalid sampler type");
   auto Arg = CI->getArgOperand(0);
 
   auto GetSamplerConstant = [&](uint64_t SamplerValue) {
     auto AddrMode = (SamplerValue & 0xE) >> 1;
     auto Param = SamplerValue & 0x1;
-    auto Filter = ((SamplerValue & 0x30) >> 4) - 1;
+    auto Filter = SamplerValue ? ((SamplerValue & 0x30) >> 4) - 1 : 0;
     auto BV = BM->addSamplerConstant(transType(RT), AddrMode, Param, Filter);
     return BV;
   };
@@ -1072,15 +1078,11 @@ SPIRVValue *LLVMToSPIRV::oclTransSpvcCastSampler(CallInst *CI,
   return BV;
 }
 
-SPIRVValue *LLVMToSPIRV::transSpcvCast(CallInst *CI, SPIRVBasicBlock *BB) {
-  return oclTransSpvcCastSampler(CI, BB);
-}
-
 SPIRVValue *LLVMToSPIRV::transIntrinsicInst(IntrinsicInst *II,
                                             SPIRVBasicBlock *BB) {
   auto getMemoryAccess = [](MemIntrinsic *MI) -> std::vector<SPIRVWord> {
     std::vector<SPIRVWord> MemoryAccess(1, MemoryAccessMaskNone);
-    if (SPIRVWord AlignVal = MI->getAlignment()) {
+    if (SPIRVWord AlignVal = MI->getDestAlignment()) {
       MemoryAccess[0] |= MemoryAccessAlignedMask;
       MemoryAccess.push_back(AlignVal);
     }
@@ -1137,6 +1139,8 @@ SPIRVValue *LLVMToSPIRV::transIntrinsicInst(IntrinsicInst *II,
                                       getMemoryAccess(MSI), BB);
   } break;
   case Intrinsic::memcpy:
+    assert(cast<MemCpyInst>(II)->getSourceAlignment() ==
+           cast<MemCpyInst>(II)->getDestAlignment() && "Alignment mismatch!");
     return BM->addCopyMemorySizedInst(
         transValue(II->getOperand(0), BB), transValue(II->getOperand(1), BB),
         transValue(II->getOperand(2), BB),
@@ -1168,8 +1172,8 @@ SPIRVValue *LLVMToSPIRV::transCallInst(CallInst *CI, SPIRVBasicBlock *BB) {
   auto MangledName = F->getName();
   std::string DemangledName;
 
-  if (MangledName.startswith(SPCV_CAST))
-    return transSpcvCast(CI, BB);
+  if (MangledName.startswith(SPCV_CAST) || MangledName == SAMPLER_INIT)
+    return oclTransSpvcCastSampler(CI, BB);
 
   if (oclIsBuiltin(MangledName, &DemangledName) ||
       isDecoratedSPIRVFunc(F, &DemangledName))
@@ -1331,7 +1335,8 @@ bool LLVMToSPIRV::translate() {
   for (auto &F : *M) {
     if (isBuiltinTransToInst(&F) || isBuiltinTransToExtInst(&F) ||
         F.getName().startswith(SPCV_CAST) ||
-        F.getName().startswith(LLVM_MEMCPY))
+        F.getName().startswith(LLVM_MEMCPY) ||
+        F.getName().startswith(SAMPLER_INIT))
       continue;
     if (F.isDeclaration())
       Decls.push_back(&F);
@@ -1432,50 +1437,45 @@ bool LLVMToSPIRV::transExecutionMode() {
 }
 
 bool LLVMToSPIRV::transOCLKernelMetadata() {
-  NamedMDNode *KernelMDs = M->getNamedMetadata(SPIR_MD_KERNELS);
-  std::vector<std::string> argAccessQual;
-  if (!KernelMDs)
-    return true;
-
-  for (unsigned I = 0, E = KernelMDs->getNumOperands(); I < E; ++I) {
-    MDNode *KernelMD = KernelMDs->getOperand(I);
-    if (KernelMD->getNumOperands() == 0)
+  for (auto &F : *M) {
+    if (F.getCallingConv() != CallingConv::SPIR_KERNEL)
       continue;
-    Function *Kernel = mdconst::dyn_extract<Function>(KernelMD->getOperand(0));
-
     SPIRVFunction *BF =
-        static_cast<SPIRVFunction *>(getTranslatedValue(Kernel));
+        static_cast<SPIRVFunction *>(getTranslatedValue(&F));
     assert(BF && "Kernel function should be translated first");
-    assert(Kernel && oclIsKernel(Kernel) &&
-           "Invalid kernel calling convention or metadata");
-    for (unsigned MI = 1, ME = KernelMD->getNumOperands(); MI < ME; ++MI) {
-      MDNode *MD = dyn_cast<MDNode>(KernelMD->getOperand(MI));
-      if (!MD)
-        continue;
-      MDString *NameMD = dyn_cast<MDString>(MD->getOperand(0));
-      if (!NameMD)
-        continue;
-      StringRef Name = NameMD->getString();
-      if (Name == SPIR_MD_KERNEL_ARG_TYPE_QUAL) {
-        foreachKernelArgMD(
-            MD, BF, [](const std::string &Str, SPIRVFunctionParameter *BA) {
-              if (Str.find("volatile") != std::string::npos)
-                BA->addDecorate(new SPIRVDecorate(DecorationVolatile, BA));
-              if (Str.find("restrict") != std::string::npos)
-                BA->addDecorate(
-                    new SPIRVDecorate(DecorationFuncParamAttr, BA,
-                                      FunctionParameterAttributeNoAlias));
-              if (Str.find("const") != std::string::npos)
-                BA->addDecorate(
-                    new SPIRVDecorate(DecorationFuncParamAttr, BA,
-                                      FunctionParameterAttributeNoWrite));
-            });
-      } else if (Name == SPIR_MD_KERNEL_ARG_NAME) {
-        foreachKernelArgMD(
-            MD, BF, [=](const std::string &Str, SPIRVFunctionParameter *BA) {
-              BM->setName(BA, Str);
-            });
-      }
+
+    // Create 'OpString' to additionally store information about
+    // 'orignal' (typedef'ed, unsigned integers) type names of kernel arguments.
+    if (auto *KernelArgType = F.getMetadata(SPIR_MD_KERNEL_ARG_TYPE)) {
+      std::string KernelArgTypesStr =
+          std::string(SPIR_MD_KERNEL_ARG_TYPE) + "." + F.getName().str() + ".";
+      for (const auto &TyOp : KernelArgType->operands())
+        KernelArgTypesStr += cast<MDString>(TyOp)->getString().str() + ",";
+      BM->getString(KernelArgTypesStr);
+    }
+
+    if (auto *KernelArgTypeQual = F.getMetadata(SPIR_MD_KERNEL_ARG_TYPE_QUAL)) {
+      foreachKernelArgMD(
+          KernelArgTypeQual, BF,
+          [](const std::string &Str, SPIRVFunctionParameter *BA) {
+            if (Str.find("volatile") != std::string::npos)
+              BA->addDecorate(new SPIRVDecorate(DecorationVolatile, BA));
+            if (Str.find("restrict") != std::string::npos)
+              BA->addDecorate(
+                  new SPIRVDecorate(DecorationFuncParamAttr, BA,
+                                    FunctionParameterAttributeNoAlias));
+            if (Str.find("const") != std::string::npos)
+              BA->addDecorate(
+                  new SPIRVDecorate(DecorationFuncParamAttr, BA,
+                                    FunctionParameterAttributeNoWrite));
+          });
+    }
+    if (auto *KernelArgName = F.getMetadata(SPIR_MD_KERNEL_ARG_NAME)) {
+      foreachKernelArgMD(
+          KernelArgName, BF,
+          [=](const std::string &Str, SPIRVFunctionParameter *BA) {
+            BM->setName(BA, Str);
+          });
     }
   }
   return true;

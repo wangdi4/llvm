@@ -1160,7 +1160,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     if (UseOptimizedLibcall && Res.getScalarVal()) {
       llvm::Value *ResVal = Res.getScalarVal();
       if (PostOp) {
-        llvm::Value *LoadVal1 = Args[1].RV.getScalarVal();
+        llvm::Value *LoadVal1 = Args[1].getRValue(*this).getScalarVal();
         ResVal = Builder.CreateBinOp(PostOp, ResVal, LoadVal1);
       }
       if (E->getOp() == AtomicExpr::AO__atomic_nand_fetch)
@@ -1508,11 +1508,13 @@ void AtomicInfo::emitCopyIntoMemory(RValue rvalue) const {
   // which means that the caller is responsible for having zeroed
   // any padding.  Just do an aggregate copy of that type.
   if (rvalue.isAggregate()) {
-    CGF.EmitAggregateCopy(getAtomicAddress(),
-                          rvalue.getAggregateAddress(),
-                          getAtomicType(),
-                          (rvalue.isVolatileQualified()
-                           || LVal.isVolatileQualified()));
+    LValue Dest = CGF.MakeAddrLValue(getAtomicAddress(), getAtomicType());
+    LValue Src = CGF.MakeAddrLValue(rvalue.getAggregateAddress(),
+                                    getAtomicType());
+    bool IsVolatile = rvalue.isVolatileQualified() ||
+                      LVal.isVolatileQualified();
+    CGF.EmitAggregateCopy(Dest, Src, getAtomicType(),
+                          AggValueSlot::DoesNotOverlap, IsVolatile);
     return;
   }
 
@@ -2007,6 +2009,7 @@ void CodeGenFunction::EmitAtomicInit(Expr *init, LValue dest) {
                                         AggValueSlot::IsNotDestructed,
                                         AggValueSlot::DoesNotNeedGCBarriers,
                                         AggValueSlot::IsNotAliased,
+                                        AggValueSlot::DoesNotOverlap,
                                         Zeroed ? AggValueSlot::IsZeroed :
                                                  AggValueSlot::IsNotZeroed);
 

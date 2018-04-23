@@ -31,6 +31,12 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/DTransCommon.h"
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
 // Enable this macro to debug bugpoint itself.
 //#define DEBUG_BUGPOINT 1
 
@@ -142,7 +148,9 @@ int main(int argc, char **argv) {
   initializeMapIntrinToImlPass(Registry);
   initializeIntel_VPOAnalysis(Registry);
   initializeIntel_VPOTransforms(Registry);
-  initializeDTransAnalysisWrapperPass(Registry);
+#if INTEL_INCLUDE_DTRANS
+  initializeDTransPasses(Registry);
+#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 #ifdef LINK_POLLY_INTO_TOOLS

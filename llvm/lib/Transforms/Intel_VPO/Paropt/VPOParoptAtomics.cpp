@@ -953,7 +953,7 @@ VPOParoptAtomics::gatherFirstSecondToLastAndLastStores(BasicBlock &BB) {
   SmallVector<StoreInst*, 3> StoreList;
 
   for (auto It = BB.begin(), End = BB.end(); It != End; ++It) {
-    if (StoreInst *SI = dyn_cast<StoreInst>(&*It)) {
+    if (StoreInst *SI = dyn_cast<StoreInst>(It)) {
       StoreList.push_back(SI); // First store -> StoreList[0]
       break;
     }

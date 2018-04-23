@@ -111,8 +111,14 @@ def NoRedZone : EnumAttr<"noredzone">;
 /// Mark the function as not returning.
 def NoReturn : EnumAttr<"noreturn">;
 
+/// Disable Indirect Branch Tracking.
+def NoCfCheck : EnumAttr<"nocf_check">;
+
 /// Function doesn't unwind stack.
 def NoUnwind : EnumAttr<"nounwind">;
+
+/// Select optimizations for best fuzzing signal.
+def OptForFuzzing : EnumAttr<"optforfuzzing">;
 
 /// opt_size.
 def OptimizeForSize : EnumAttr<"optsize">;
@@ -134,6 +140,9 @@ def ReturnsTwice : EnumAttr<"returns_twice">;
 
 /// Safe Stack protection.
 def SafeStack : EnumAttr<"safestack">;
+
+/// Shadow Call Stack protection.
+def ShadowCallStack : EnumAttr<"shadowcallstack">;
 
 /// Sign extended before/after call.
 def SExt : EnumAttr<"signext">;
@@ -229,6 +238,7 @@ def : CompatRule<"isEqual<SanitizeThreadAttr>">;
 def : CompatRule<"isEqual<SanitizeMemoryAttr>">;
 def : CompatRule<"isEqual<SanitizeHWAddressAttr>">;
 def : CompatRule<"isEqual<SafeStackAttr>">;
+def : CompatRule<"isEqual<ShadowCallStackAttr>">;
 
 class MergeRule<string F> {
   // The name of the function called to merge the attributes of the caller and

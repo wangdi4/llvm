@@ -15,20 +15,16 @@
 
 #include "VPlanCostModel.h"
 #include "VPlan.h"
-#include <llvm/Analysis/TargetTransformInfo.h>
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 #define DEBUG_TYPE "vplan-cost-model"
 
-using namespace llvm;
-using namespace vpo;
-
-namespace {
 // FIXME: The following helper functions have multiple implementations
 // in the project. They can be effectively organized in a common Load/Store
 // utilities unit. This copy is from the LoopVectorize.cpp.
 
 /// A helper function that returns the type of loaded or stored value.
-Type *getMemInstValueType(const Value *I) {
+static Type *getMemInstValueType(const Value *I) {
   assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
          "Expected Load or Store instruction");
   if (auto *LI = dyn_cast<LoadInst>(I))
@@ -37,7 +33,7 @@ Type *getMemInstValueType(const Value *I) {
 }
 
 /// A helper function that returns the alignment of load or store instruction.
-unsigned getMemInstAlignment(const Value *I) {
+static unsigned getMemInstAlignment(const Value *I) {
   assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
          "Expected Load or Store instruction");
   if (auto *LI = dyn_cast<LoadInst>(I))
@@ -47,21 +43,27 @@ unsigned getMemInstAlignment(const Value *I) {
 
 /// A helper function that returns the address space of the pointer operand of
 /// load or store instruction.
-unsigned getMemInstAddressSpace(const Value *I) {
+static unsigned getMemInstAddressSpace(const Value *I) {
   assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
          "Expected Load or Store instruction");
   if (auto *LI = dyn_cast<LoadInst>(I))
     return LI->getPointerAddressSpace();
   return cast<StoreInst>(I)->getPointerAddressSpace();
 }
-} // end anonymous namespace
 
+#if INTEL_CUSTOMIZATION
 static const Instruction *getLLVMInstFromDDNode(const HLDDNode *Node) {
   const HLInst *HLInstruction = cast<HLInst>(Node);
   return HLInstruction->getLLVMInstruction();
 }
+#endif // INTEL_CUSTOMIZATION
 
-static Type *getVectorizedType(Type *BaseTy, unsigned VF) {
+namespace llvm {
+
+namespace vpo {
+
+// TODO: ideally this function should be moved into utils.
+Type *VPlanCostModel::getVectorizedType(const Type *BaseTy, unsigned VF) {
   if (BaseTy->isVectorTy())
     VF *= BaseTy->getVectorNumElements();
 
@@ -86,10 +88,11 @@ Type *VPlanCostModel::getMemInstValueType(const VPInstruction *VPInst) {
   if (const Instruction *Inst = VPInst->Inst)
     return ::getMemInstValueType(Inst);
 
-  if (!VPInst->HIRData)
-    return nullptr;
-
-  HLDDNode *Node = cast<VPInstructionDataHIR>(VPInst->HIRData)->getInstruction();
+#if INTEL_CUSTOMIZATION
+  auto HIRData = dyn_cast_or_null<VPInstructionDataHIR>(VPInst->getHIRData());
+  if (!HIRData)
+    return nullptr; // CHECKME: Is that correct?
+  HLDDNode *Node = HIRData->getInstruction();
 
   if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
     return ::getMemInstValueType(Inst);
@@ -97,10 +100,14 @@ Type *VPlanCostModel::getMemInstValueType(const VPInstruction *VPInst) {
   RegDDRef *LvalDDRef = Node->getLvalDDRef();
   // FIXME: Is that correct?
   return LvalDDRef->getDestType();
+#endif // INTEL_CUSTOMIZATION
+
+  return nullptr;
 }
 
 unsigned VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) {
-  unsigned Opcode = VPInst->getOpcode(); (void)Opcode;
+  unsigned Opcode = VPInst->getOpcode();
+  (void)Opcode;
   assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
 
   // TODO: getType() working without underlying Inst - seems we can return
@@ -109,18 +116,22 @@ unsigned VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) {
   if (const Instruction *Inst = VPInst->Inst)
     return ::getMemInstAlignment(Inst);
 
-  if (!VPInst->HIRData)
+#if INTEL_CUSTOMIZATION
+  auto HIRData = dyn_cast_or_null<VPInstructionDataHIR>(VPInst->getHIRData());
+  if (!HIRData)
     return 0; // CHECKME: Is that correct?
+  HLDDNode *Node = HIRData->getInstruction();
 
-  HLDDNode *Node = cast<VPInstructionDataHIR>(VPInst->HIRData)->getInstruction();
   if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
     return ::getMemInstAlignment(Inst);
+#endif // INTEL_CUSTOMIZATION
 
   return 0; // CHECKME: Is that correct?
 }
 
 unsigned VPlanCostModel::getMemInstAddressSpace(const VPInstruction *VPInst) {
-  unsigned Opcode = VPInst->getOpcode(); (void)Opcode;
+  unsigned Opcode = VPInst->getOpcode();
+  (void)Opcode;
   assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
 
   // TODO: getType() working without underlying Inst - seems we can return
@@ -129,17 +140,55 @@ unsigned VPlanCostModel::getMemInstAddressSpace(const VPInstruction *VPInst) {
   if (const Instruction *Inst = VPInst->Inst)
     return ::getMemInstAddressSpace(Inst);
 
-  if (!VPInst->HIRData)
+#if INTEL_CUSTOMIZATION
+  auto HIRData = dyn_cast_or_null<VPInstructionDataHIR>(VPInst->getHIRData());
+  if (!HIRData)
     return 0; // CHECKME: Is that correct?
+  HLDDNode *Node = HIRData->getInstruction();
 
-  HLDDNode *Node = cast<VPInstructionDataHIR>(VPInst->HIRData)->getInstruction();
   if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
     return ::getMemInstAddressSpace(Inst);
+#endif // INTEL_CUSTOMIZATION
 
   return 0; // CHECKME: Is that correct?
 }
 
-unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
+Value* VPlanCostModel::getGEP(const VPInstruction *VPInst) {
+  unsigned Opcode = VPInst->getOpcode();
+  (void)Opcode;
+  assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
+
+  if (const Instruction *Inst = VPInst->Inst) {
+    auto GEPInst = Opcode == Instruction::Load ? Inst->getOperand(0)
+                                               : Inst->getOperand(1);
+    if (dyn_cast_or_null<GetElementPtrInst>(GEPInst))
+      return GEPInst;
+  }
+
+#if INTEL_CUSTOMIZATION
+  auto HIRData = dyn_cast_or_null<VPInstructionDataHIR>(VPInst->getHIRData());
+  if (!HIRData)
+    return nullptr;
+  auto *HInst = dyn_cast<HLInst>(HIRData->getInstruction());
+  auto RegDD = Opcode == Instruction::Load ? HInst->getOperandDDRef(1)
+                                           : HInst->getLvalDDRef();
+
+  return RegDD->getTempBaseValue();
+#endif // INTEL_CUSTOMIZATION
+
+  return nullptr;
+}
+
+unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
+  // TODO: For instruction that are not contained inside the loop we're
+  // vectorizing, VF should not be considered. That includes the instructions
+  // that are outside of any of the loops in the loopnest. However, before
+  // support it in the cost model, we need to design how the current loop being
+  // vectorized is represented in the VPlan itself, which also might result in
+  // different VFs for different loop:
+  //   Outer1
+  //     Inner1, vectorize with VF_Inner1
+  //     Inner2, vecotrize with VF_Inner2
   unsigned Opcode = VPInst->getOpcode();
   switch (Opcode) {
   default:
@@ -181,14 +230,23 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     assert(OpTy && "Can't get type of the load/store instruction!");
     unsigned Alignment = getMemInstAlignment(VPInst);
     unsigned AddrSpace = getMemInstAddressSpace(VPInst);
-
-    unsigned BaseCost =
-        TTI->getMemoryOpCost(Opcode, OpTy, Alignment, AddrSpace);
-    // FIXME: In order to do something smarter we would need:
-    //   1) isLinear (and also the case for consecutive stride)
-    //   2) Changes in TTI so that getGatherScatterOpCost could work without
-    //      'Value *Ptr' (if that could be reasonable)
-    return VF*BaseCost;
+    // FIXME: Take into account masked case.
+    // FIXME: Shouldn't use underlying IR, because at this point it can be
+    // invalid. For instance, vectorizer may decide to generate 32-bit gather
+    // instead of 64-bit, while GEP may have 64-bit index.
+    // There're 2 options to consider:
+    //  1. Rewrite getGatherScatterOpCost so that user will pass index size,
+    //  rather then GEP
+    //  2. Templatize TTI to use VPValue.
+    if (auto GEPInst = getGEP(VPInst)) {
+      Type *VecTy = getVectorizedType(OpTy, VF);
+      return TTI->getGatherScatterOpCost(Opcode, VecTy, GEPInst,
+                                         false /* Masked */, Alignment);
+    } else {
+      unsigned BaseCost =
+          TTI->getMemoryOpCost(Opcode, OpTy, Alignment, AddrSpace);
+      return VF*BaseCost;
+    }
   }
   case Instruction::Add:
   case Instruction::FAdd:
@@ -305,10 +363,10 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
   }
 }
 
-unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) {
+unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) const {
   unsigned Cost = 0;
   for (const VPRecipeBase &Recipe : *VPBB) {
-    const VPInstruction *VPInst = dyn_cast<VPInstruction>(&Recipe);
+    const auto *VPInst = dyn_cast<VPInstruction>(&Recipe);
     // FIXME: cost of other recipes?
     if (!VPInst)
       continue;
@@ -322,7 +380,7 @@ unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) {
   return Cost;
 }
 
-unsigned VPlanCostModel::getCost(const VPBlockBase *VPBlock) {
+unsigned VPlanCostModel::getCost(const VPBlockBase *VPBlock) const {
   if (auto Region = dyn_cast<VPRegionBlock>(VPBlock)) {
     unsigned Cost = 0;
     for (const VPBlockBase *Block : depth_first(Region->getEntry())) {
@@ -334,17 +392,18 @@ unsigned VPlanCostModel::getCost(const VPBlockBase *VPBlock) {
   }
 
   // TODO: swap the casts with the above?
-  const VPBasicBlock *VPBB = cast<VPBasicBlock>(VPBlock);
+  const auto *VPBB = cast<VPBasicBlock>(VPBlock);
   return getCost(VPBB);
 }
 
-unsigned VPlanCostModel::getCost() {
+unsigned VPlanCostModel::getCost() const {
   assert(Plan->getEntry()->getNumSuccessors() == 0 &&
          "VPlan Entry block must have no successors!");
   return getCost(Plan->getEntry());
 }
 
-void VPlanCostModel::printForVPBlockBase(raw_ostream &OS, const VPBlockBase *VPBlock) {
+void VPlanCostModel::printForVPBlockBase(raw_ostream &OS,
+                                         const VPBlockBase *VPBlock) const {
   // TODO: match print order with "vector execution order".
   if (auto Region = dyn_cast<VPRegionBlock>(VPBlock)) {
     for (const VPBlockBase *Block : depth_first(Region->getEntry()))
@@ -352,7 +411,7 @@ void VPlanCostModel::printForVPBlockBase(raw_ostream &OS, const VPBlockBase *VPB
     return;
   }
 
-  const VPBasicBlock *VPBB = cast<VPBasicBlock>(VPBlock);
+  const auto *VPBB = cast<VPBasicBlock>(VPBlock);
   OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: ";
   unsigned VPBBCost = getCost(VPBB);
   if (VPBBCost == UnknownCost)
@@ -361,7 +420,7 @@ void VPlanCostModel::printForVPBlockBase(raw_ostream &OS, const VPBlockBase *VPB
     OS << VPBBCost << '\n';
 
   for (const VPRecipeBase &Recipe : *VPBB) {
-    const VPInstruction *VPInst = dyn_cast<VPInstruction>(&Recipe);
+    const auto *VPInst = dyn_cast<VPInstruction>(&Recipe);
     // FIXME: cost of other recipes?
     if (!VPInst)
       continue;
@@ -376,12 +435,19 @@ void VPlanCostModel::printForVPBlockBase(raw_ostream &OS, const VPBlockBase *VPB
   }
 }
 
-void VPlanCostModel::print(raw_ostream &OS) {
-  OS << "Cost Model for VPlan: " << Plan->getName() << '\n';
+void VPlanCostModel::print(raw_ostream &OS) const {
+  OS << "Cost Model for VPlan " << Plan->getName() << " with VF = " << VF
+     << ":\n";
   OS << "Total Cost: " << getCost() << '\n';
   DEBUG(dbgs() << *Plan;);
 
   // TODO: match print order with "vector execution order".
   for (const VPBlockBase *Block : depth_first(Plan->getEntry()))
     printForVPBlockBase(OS, Block);
+
+  OS << '\n';
 }
+
+} // namespace vpo
+
+} // namespace llvm

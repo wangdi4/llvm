@@ -17,8 +17,13 @@ cmake_policy(SET CMP0056 NEW)
 
 cmake_policy(SET CMP0057 NEW)
 
+if(POLICY CMP0068)
+  cmake_policy(SET CMP0068 NEW)
+  set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
+endif()
+
 if(NOT DEFINED LLVM_VERSION_MAJOR)
-  set(LLVM_VERSION_MAJOR 6)
+  set(LLVM_VERSION_MAJOR 7)
 endif()
 if(NOT DEFINED LLVM_VERSION_MINOR)
   set(LLVM_VERSION_MINOR 0)
@@ -137,11 +142,14 @@ set(LLVM_CCACHE_BUILD OFF CACHE BOOL "Set to ON for a ccache enabled build")
 if(LLVM_CCACHE_BUILD)
   find_program(CCACHE_PROGRAM ccache)
   if(CCACHE_PROGRAM)
-      set(LLVM_CCACHE_SIZE "" CACHE STRING "Size of ccache")
+      set(LLVM_CCACHE_MAXSIZE "" CACHE STRING "Size of ccache")
       set(LLVM_CCACHE_DIR "" CACHE STRING "Directory to keep ccached data")
-      set(CCACHE_PROGRAM "CCACHE_CPP2=yes CCACHE_HASHDIR=yes ${CCACHE_PROGRAM}")
-      if (LLVM_CCACHE_SIZE)
-        set(CCACHE_PROGRAM "CCACHE_SIZE=${LLVM_CCACHE_SIZE} ${CCACHE_PROGRAM}")
+      set(LLVM_CCACHE_PARAMS "CCACHE_CPP2=yes CCACHE_HASHDIR=yes"
+          CACHE STRING "Parameters to pass through to ccache")
+
+      set(CCACHE_PROGRAM "${LLVM_CCACHE_PARAMS} ${CCACHE_PROGRAM}")
+      if (LLVM_CCACHE_MAXSIZE)
+        set(CCACHE_PROGRAM "CCACHE_MAXSIZE=${LLVM_CCACHE_MAXSIZE} ${CCACHE_PROGRAM}")
       endif()
       if (LLVM_CCACHE_DIR)
         set(CCACHE_PROGRAM "CCACHE_DIR=${LLVM_CCACHE_DIR} ${CCACHE_PROGRAM}")
@@ -186,6 +194,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 option(LLVM_INSTALL_BINUTILS_SYMLINKS
   "Install symlinks from the binutils tool names to the corresponding LLVM tools." OFF)
 
+option(LLVM_INSTALL_CCTOOLS_SYMLINKS
+  "Install symlinks from the cctools tool names to the corresponding LLVM tools." OFF)
+
 option(LLVM_INSTALL_UTILS "Include utility binaries in the 'install' target." OFF)
 
 option(LLVM_INSTALL_TOOLCHAIN_ONLY "Only include toolchain files in the 'install' target." OFF)
@@ -202,7 +213,7 @@ option(LLVM_APPEND_VC_REV
 
 set(PACKAGE_NAME LLVM)
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
-set(PACKAGE_BUGREPORT "http://llvm.org/bugs/")
+set(PACKAGE_BUGREPORT "https://bugs.llvm.org/")
 
 set(BUG_REPORT_URL "${PACKAGE_BUGREPORT}" CACHE STRING
   "Default URL where bug reports are to be submitted.")
@@ -276,9 +287,9 @@ set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name 
 set(LLVM_TOOLS_INSTALL_DIR "bin" CACHE STRING "Path for binary subdirectory (defaults to 'bin')")
 mark_as_advanced(LLVM_TOOLS_INSTALL_DIR)
 
-set(LLVM_UTILS_INSTALL_DIR "bin" CACHE STRING
+set(LLVM_UTILS_INSTALL_DIR "${LLVM_TOOLS_INSTALL_DIR}" CACHE STRING
     "Path to install LLVM utilities (enabled by LLVM_INSTALL_UTILS=ON) (defaults to LLVM_TOOLS_INSTALL_DIR)")
-mark_as_advanced(LLVM_TOOLS_INSTALL_DIR)
+mark_as_advanced(LLVM_UTILS_INSTALL_DIR)
 
 # They are used as destination of target generators.
 set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/bin)
@@ -312,7 +323,6 @@ set(LLVM_ALL_TARGETS
   Lanai
   Mips
   MSP430
-  Nios2
   NVPTX
   PowerPC
   Sparc
@@ -355,6 +365,8 @@ option(LLVM_ENABLE_TERMINFO "Use terminfo database if available." ON)
 set(LLVM_ENABLE_LIBXML2 "ON" CACHE STRING "Use libxml2 if available. Can be ON, OFF, or FORCE_ON")
 
 option(LLVM_ENABLE_LIBEDIT "Use libedit if available." ON)
+
+option(LLVM_ENABLE_LIBPFM "Use libpfm for performance counters if available." ON)
 
 option(LLVM_ENABLE_THREADS "Use threads if available." ON)
 
@@ -636,6 +648,27 @@ if (LLVM_USE_OPROFILE)
   set(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS} OProfileJIT)
 endif (LLVM_USE_OPROFILE)
 
+if(INTEL_CUSTOMIZATION)
+  option(INTEL_INCLUDE_DTRANS "Include DTrans optimizations in builds." ON)
+  if(INTEL_INCLUDE_DTRANS)
+    # When there are multiple optional components, each of them should
+    # set this when included. This causes the Intel_OptionalComponents
+    # directory to be added as a subdirectory.
+    set(INTEL_ANY_OPTIONAL_COMPONENTS TRUE)
+    set(INTEL_DTRANS_INCLUDE_DIR
+        ${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/DTrans/include)
+    include_directories(AFTER ${INTEL_DTRANS_INCLUDE_DIR})
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_INCLUDE_DTRANS=1")
+    SET(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS}
+                               Intel_DTrans
+                               Intel_DTransOpt
+                               Intel_DTransAnalysis)
+
+  else()
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_INCLUDE_DTRANS=0")
+  endif()
+endif(INTEL_CUSTOMIZATION)
+
 message(STATUS "Constructing LLVMBuild project information")
 execute_process(
   COMMAND ${PYTHON_EXECUTABLE} -B ${LLVMBUILDTOOL}
@@ -734,9 +767,6 @@ configure_file(
 configure_file(
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/abi-breaking.h.cmake
   ${LLVM_INCLUDE_DIR}/llvm/Config/abi-breaking.h)
-configure_file(
-  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Support/DataTypes.h.cmake
-  ${LLVM_INCLUDE_DIR}/llvm/Support/DataTypes.h)
 
 # Add target for generating source rpm package.
 set(LLVM_SRPM_USER_BINARY_SPECFILE ${CMAKE_CURRENT_SOURCE_DIR}/llvm.spec.in
@@ -812,27 +842,10 @@ if( ${CMAKE_SYSTEM_NAME} MATCHES SunOS )
    include_directories("${LLVM_MAIN_INCLUDE_DIR}/llvm/Support/Solaris")
 endif( ${CMAKE_SYSTEM_NAME} MATCHES SunOS )
 
-if(INTEL_CUSTOMIZATION)
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_CUSTOMIZATION=1")
-  if(INTEL_SPECIFIC_IL0_BACKEND)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_IL0_BACKEND=1")
-  endif()
-  option(LLVM_BUILD_OPENMP  "Build the LLVM openmp libraries." ON)
-else()
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_CUSTOMIZATION=0")
-endif()
-
-if(INTEL_SPECIFIC_OPENMP)
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_OPENMP=1")
-else()
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_OPENMP=0")
-endif()
-
-if(INTEL_SPECIFIC_CILKPLUS)
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_CILKPLUS=1")
-else()
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_CILKPLUS=0")
-endif()
+SET(INTEL_CUSTOMIZATION ON)
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_CUSTOMIZATION=1")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_OPENMP=1")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_CILKPLUS=1")
 
 # Make sure we don't get -rdynamic in every binary. For those that need it,
 # use export_executable_symbols(target).
@@ -852,7 +865,7 @@ endif()
 include(AddLLVM)
 include(TableGen)
 
-if( MINGW )
+if( MINGW AND NOT "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" )
   # People report that -O3 is unreliable on MinGW. The traditional
   # build also uses -O2 for that reason:
   llvm_replace_compiler_option(CMAKE_CXX_FLAGS_RELEASE "-O3" "-O2")
@@ -906,6 +919,12 @@ endif()
 if( LLVM_INCLUDE_EXAMPLES )
   add_subdirectory(examples)
 endif()
+
+if (INTEL_CUSTOMIZATION)
+  if (INTEL_ANY_OPTIONAL_COMPONENTS)
+    add_subdirectory(Intel_OptionalComponents)
+  endif()
+endif (INTEL_CUSTOMIZATION)
 
 if( LLVM_INCLUDE_TESTS )
   if(EXISTS ${LLVM_MAIN_SRC_DIR}/projects/test-suite AND TARGET clang)
@@ -978,7 +997,7 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
     PATTERN ".svn" EXCLUDE
     )
 
-  install(DIRECTORY ${LLVM_INCLUDE_DIR}/llvm
+  install(DIRECTORY ${LLVM_INCLUDE_DIR}/llvm ${LLVM_INCLUDE_DIR}/llvm-c
     DESTINATION include
     COMPONENT llvm-headers
     FILES_MATCHING
@@ -1040,4 +1059,3 @@ endif()
 if (MSVC AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
   include(InstallRequiredSystemLibraries)
 endif()
-

@@ -58,7 +58,7 @@ PassManagerType ModulePass::getPotentialPassManagerType() const {
 }
 
 bool ModulePass::skipModule(Module &M) const {
-  return !M.getContext().getOptBisect().shouldRunPass(this, M);
+  return !M.getContext().getOptPassGate().shouldRunPass(this, M);
 }
 
 bool Pass::mustPreserveAnalysisID(char &AID) const {
@@ -161,7 +161,7 @@ PassManagerType FunctionPass::getPotentialPassManagerType() const {
 }
 
 bool FunctionPass::skipFunction(const Function &F) const {
-  if (!F.getContext().getOptBisect().shouldRunPass(this, F))
+  if (!F.getContext().getOptPassGate().shouldRunPass(this, F))
     return true;
 
   if (F.hasFnAttribute(Attribute::OptimizeNone)) {
@@ -197,7 +197,7 @@ bool BasicBlockPass::skipBasicBlock(const BasicBlock &BB) const {
   const Function *F = BB.getParent();
   if (!F)
     return false;
-  if (!F->getContext().getOptBisect().shouldRunPass(this, BB))
+  if (!F->getContext().getOptPassGate().shouldRunPass(this, BB))
     return true;
   if (F->hasFnAttribute(Attribute::OptimizeNone)) {
     // Report this only once per function.

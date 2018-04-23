@@ -53,6 +53,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <set>
+#include <algorithm>
 
 using namespace llvm;
 using namespace SPIRV;
@@ -196,10 +197,6 @@ public:
 
   void visitCallNDRange(CallInst *CI, const std::string &DemangledName);
 
-  /// Transform OCL pipe builtin function to SPIR-V pipe builtin function.
-  void visitCallPipeBuiltin(CallInst *CI, StringRef MangledName,
-    const std::string &DemangledName);
-
   /// Transform read_image with sampler arguments.
   /// read_image(image, sampler, ...) =>
   ///   sampled_image = __spirv_SampledImage(image, sampler);
@@ -268,10 +265,10 @@ public:
   void visitSubgroupBlockWriteINTEL(CallInst *CI, StringRef MangledName,
                                     const std::string &DemangledName);
 
-  void visitDbgInfoIntrinsic(DbgInfoIntrinsic &I){
-    I.dropAllReferences();
-    I.eraseFromParent();
-  }
+  /// For cl_intel_media_block_io built-ins:
+  void visitSubgroupImageMediaBlockINTEL(CallInst *CI,
+                                         const std::string &DemangledName);
+
   static char ID;
 private:
   Module *M;
@@ -442,10 +439,6 @@ OCL20ToSPIRV::visitCallInst(CallInst& CI) {
     visitCallGroupBuiltin(&CI, MangledName, DemangledName);
     return;
   }
-  if (DemangledName.find(kOCLBuiltinName::Pipe) != std::string::npos) {
-    visitCallPipeBuiltin(&CI, MangledName, DemangledName);
-    return;
-  }
   if (DemangledName == kOCLBuiltinName::MemFence) {
     visitCallMemFence(&CI);
     return;
@@ -485,7 +478,8 @@ OCL20ToSPIRV::visitCallInst(CallInst& CI) {
     return;
   }
   if (DemangledName == kOCLBuiltinName::WorkGroupBarrier ||
-      DemangledName == kOCLBuiltinName::Barrier) {
+      DemangledName == kOCLBuiltinName::Barrier ||
+      DemangledName == kOCLBuiltinName::SubGroupBarrier) {
     visitCallBarrier(&CI);
     return;
   }
@@ -525,6 +519,11 @@ OCL20ToSPIRV::visitCallInst(CallInst& CI) {
   }
   if (DemangledName.find(kOCLBuiltinName::SubgroupBlockWriteINTELPrefix) == 0) {
     visitSubgroupBlockWriteINTEL(&CI, MangledName, DemangledName);
+    return;
+  }
+  if (DemangledName.find(
+        kOCLBuiltinName::SubgroupImageMediaBlockINTELPrefix) == 0) {
+    visitSubgroupImageMediaBlockINTEL(&CI, DemangledName);
     return;
   }
   visitCallBuiltinSimple(&CI, MangledName, DemangledName);
@@ -1004,21 +1003,6 @@ OCL20ToSPIRV::transBuiltin(CallInst* CI,
                 NewCI, CI->getType(), "", CI);
         },
         &Attrs);
-}
-
-void
-OCL20ToSPIRV::visitCallPipeBuiltin(CallInst* CI,
-    StringRef MangledName, const std::string& DemangledName) {
-  std::string NewName = DemangledName;
-  // Transform OpenCL read_pipe/write_pipe builtin function names
-  // with reserve_id argument to reserved_read_pipe/reserved_write_pipe.
-  if ((DemangledName.find(kOCLBuiltinName::ReadPipe) == 0 ||
-      DemangledName.find(kOCLBuiltinName::WritePipe) == 0)
-      && CI->getNumArgOperands() > 4)
-    NewName = std::string(kSPIRVName::ReservedPrefix) + DemangledName;
-  OCLBuiltinTransInfo Info;
-  Info.UniqName = NewName;
-  transBuiltin(CI, Info);
 }
 
 void OCL20ToSPIRV::visitCallReadImageMSAA(CallInst *CI, StringRef MangledName,
@@ -1530,7 +1514,22 @@ void OCL20ToSPIRV::visitSubgroupBlockWriteINTEL(CallInst *CI, StringRef MangledN
                       &Attrs);
 }
 
+void OCL20ToSPIRV::visitSubgroupImageMediaBlockINTEL(
+    CallInst *CI, const std::string &DemangledName) {
+  AttributeList Attrs = CI->getCalledFunction()->getAttributes();
+  spv::Op OpCode = DemangledName.rfind("read") != std::string::npos
+                       ? spv::OpSubgroupImageMediaBlockReadINTEL
+                       : spv::OpSubgroupImageMediaBlockWriteINTEL;
+  mutateCallInstSPIRV(M, CI,
+                      [=](CallInst *, std::vector<Value *> &Args) {
+                        // Moving the last argument to the begining.
+                        std::rotate(Args.begin(), Args.end() - 1, Args.end());
+                        return getSPIRVFuncName(OpCode);
+                      },
+                      &Attrs);
 }
+
+} // namespace SPIRV
 
 INITIALIZE_PASS_BEGIN(OCL20ToSPIRV, "cl20tospv", "Transform OCL 2.0 to SPIR-V",
     false, false)

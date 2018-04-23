@@ -1,0 +1,26 @@
+; RUN: opt < %s -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+
+; Currently a struct with local instances will yield Unhandled Use -- Type used by a stack variable. Both fields will be multiple value.
+
+%struct.MYSTRUCT = type { i32, float }
+
+@coxglobalstruct = internal dso_local global %struct.MYSTRUCT { i32 6, float 8.000000e+00 }, align 4
+
+define dso_local i32 @main() {
+  %coxlocalstruct = alloca %struct.MYSTRUCT, align 4
+  %myint = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %coxlocalstruct, i32 0, i32 0
+  store i32 6, i32* %myint, align 4
+  %myfloat = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %coxlocalstruct, i32 0, i32 1
+  store float 8.000000e+00, float* %myfloat, align 4
+  store i32 6, i32* getelementptr inbounds (%struct.MYSTRUCT, %struct.MYSTRUCT* @coxglobalstruct, i32 0, i32 0), align 4
+  store float 8.000000e+00, float* getelementptr inbounds (%struct.MYSTRUCT, %struct.MYSTRUCT* @coxglobalstruct, i32 0, i32 1), align 4
+  ret i32 0
+}
+
+; CHECK: DTRANS_StructInfo:
+; CHECK: LLVMType: %struct.MYSTRUCT = type { i32, float }
+; CHECK: Field LLVM Type: i32
+; CHECK: Multiple Value
+; CHECK: Field LLVM Type: float
+; CHECK: Multiple Value
+

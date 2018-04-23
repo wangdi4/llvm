@@ -42,7 +42,7 @@ namespace llvm { // LLVM Namespace
 
 class LoopInfo;
 class DominatorTree;
-struct PostDominatorTree;
+class PostDominatorTree;
 
 namespace vpo { // VPO Vectorizer namespace
 

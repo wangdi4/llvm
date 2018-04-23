@@ -326,6 +326,19 @@ static bool isObjectSize(const Value *V, uint64_t Size, const DataLayout &DL,
       case Instruction::Shl:
         V = GetLinearExpression(BOp->getOperand(0), Scale, Offset, ZExtBits,
                                 SExtBits, DL, Depth + 1, AC, DT, NSW, NUW);
+
+        // We're trying to linearize an expression of the kind:
+        //   shl i8 -128, 36
+        // where the shift count exceeds the bitwidth of the type.
+        // We can't decompose this further (the expression would return
+        // a poison value).
+        if (Offset.getBitWidth() < RHS.getLimitedValue() ||
+            Scale.getBitWidth() < RHS.getLimitedValue()) {
+          Scale = 1;
+          Offset = 0;
+          return V;
+        }
+
         Offset <<= RHS.getLimitedValue();
         Scale <<= RHS.getLimitedValue();
         // the semantics of nsw and nuw for left shifts don't match those of
@@ -530,6 +543,13 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
       bool NSW = true, NUW = true;
       Index = GetLinearExpression(Index, IndexScale, IndexOffset, ZExtBits,
                                   SExtBits, DL, 0, AC, DT, NSW, NUW);
+
+      // All GEP math happens in the width of the pointer type,
+      // so we can truncate the value to 64-bits as we don't handle
+      // currently pointers larger than 64 bits and we would crash
+      // later. TODO: Make `Scale` an APInt to avoid this problem.
+      if (IndexScale.getBitWidth() > 64)
+        IndexScale = IndexScale.sextOrTrunc(64);
 
       // The GEP index scale ("Scale") scales C1*V+C2, yielding (C1*V+C2)*Scale.
       // This gives us an aggregate computation of (C1*Scale)*V + C2*Scale.
@@ -873,8 +893,11 @@ ModRefInfo BasicAAResult::getModRefInfo(ImmutableCallSite CS,
       IsMustAlias = false;
 
     // Early return if we improved mod ref information
-    if (!isModAndRefSet(Result))
+    if (!isModAndRefSet(Result)) {
+      if (isNoModRef(Result))
+        return ModRefInfo::NoModRef;
       return IsMustAlias ? setMust(Result) : clearMust(Result);
+    }
   }
 
   // If the CallSite is to malloc or calloc, we can assume that it doesn't
@@ -1575,6 +1598,12 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, uint64_t PNSize,
     if (UniqueSrc.insert(PV1).second)
       V1Srcs.push_back(PV1);
   }
+
+#if INTEL_CUSTOMIZATION
+  // Don't process a degenerate phi. This can be created by jump threading.
+  if (V1Srcs.empty())
+    return MayAlias;
+#endif
 
   // If this PHI node is recursive, set the size of the accessed memory to
   // unknown to represent all the possible values the GEP could advance the

@@ -132,7 +132,6 @@ private:
   StructType *IdentTy;
 
   /// \brief Hold the pointer to Tid (thread id) Value
-  // AllocaInst *TidPtr;
   Constant *TidPtrHolder;
 
   /// \brief Hold the pointer to Bid (binding thread id) Value
@@ -264,6 +263,9 @@ private:
   /// \brief Generate code for lastprivate variables
   bool genLastPrivatizationCode(WRegionNode *W, Value *IsLastVal);
 
+  /// \brief Generate destructor calls for [first|last]private variables
+  bool genDestructorCode(WRegionNode *W);
+
   /// \brief A utility to privatize a variable within the region.
   /// It creates and returns an AllocaInst for \p PrivValue.
   Value *genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
@@ -322,6 +324,7 @@ private:
 
   /// \brief Utility for last private update or copyprivate code generation.
   void genLprivFini(Value *NewV, Value *OldV, Instruction *InsertPt);
+  void genLprivFini(LastprivateItem *LprivI, Instruction *InsertPt);
 
   /// \brief Generate the lastprivate update code for taskloop
   void genLprivFiniForTaskLoop(Value *Dst, Value *Src, Instruction *InsertPt);
@@ -465,6 +468,9 @@ private:
   /// \brief Reset the expression value in IsDevicePtr clause to be empty.
   void resetValueInIsDevicePtrClause(WRegionNode *W);
 
+  /// \brief Reset the value in the Map clause to be empty.
+  void resetValueInMapClause(WRegionNode *W);
+
   /// \brief Reset the expression value of Intel clause to be empty.
   void resetValueInIntelClauseGeneric(WRegionNode *W, Value *V);
 
@@ -477,12 +483,26 @@ private:
 
   /// \brief Generate the pointers pointing to the array of base pointer, the
   /// array of section pointers, the array of sizes, the array of map types.
-  void genOffloadArraysArgument(TgDataInfo *Info, Instruction *InsertPt);
+  void genOffloadArraysArgument(TgDataInfo *Info, Instruction *InsertPt,
+                                bool hasRuntimeEvaluationCaptureSize);
 
   /// \brief Pass the data to the array of base pointer as well as  array of
-  /// section pointers.
+  /// section pointers. If the flag hasRuntimeEvaluationCaptureSize is true,
+  /// the compiler needs to generate the init code for the size array.
   void genOffloadArraysInit(WRegionNode *W, TgDataInfo *Info, CallInst *Call,
-                            Instruction *InsertPt);
+                            Instruction *InsertPt,
+                            SmallVectorImpl<Constant *> &ConstSizes,
+                            bool hasRuntimeEvaluationCaptureSize);
+
+  /// \brief Utilities to construct the assignment to the base pointers, section
+  /// pointers and size pointers if the flag hasRuntimeEvaluationCaptureSize is
+  /// true.
+  void genOffloadArraysInitUtil(IRBuilder<> &Builder, Value *BasePtr,
+                                Value *SectionPtr, Value *Size,
+                                TgDataInfo *Info,
+                                SmallVectorImpl<Constant *> &ConstSizes,
+                                unsigned &Cnt,
+                                bool hasRuntimeEvaluationCaptureSize);
 
   /// \brief Register the offloading descriptors as well the offloading binary
   /// descriptors.
@@ -536,7 +556,8 @@ private:
   /// modifier and the expression V.
   void GenTgtInformationForPtrs(WRegionNode *W, Value *V,
                                 SmallVectorImpl<Constant *> &ConstSizes,
-                                SmallVectorImpl<uint64_t> &MapTypes);
+                                SmallVectorImpl<uint64_t> &MapTypes,
+                                bool &hasRuntimeEvaluationCaptureSize);
 
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
@@ -577,6 +598,59 @@ private:
 
   /// \brief Insert a flush call
   bool genFlush(WRegionNode *W);
+
+  /// \name Cancellation Specific Functions
+  /// {@
+
+  /// \brief Generates code for the OpenMP cancel constructs:
+  /// \code
+  /// #pragma omp cancel [type]
+  /// #pragma omp cancellation point [type]
+  /// \endcode
+  bool genCancelCode(WRNCancelNode *W);
+
+  /// \brief Add any cancellation points within \p W's body, to its
+  /// `region.exit` directive. This is done in the VPOParoptPrepare pass, and is
+  /// later consumed by the VPOParoptTransform pass.
+  ///
+  /// A `cancellation point` can be one of these calls:
+  /// \code
+  ///   %1 = __kmpc_cancel_barrier(...)
+  ///   %2 = __kmpc_cancel(...)
+  ///   %3 = __kmpc_cancellationpoint(...)
+  /// \endcode
+  ///
+  /// The IR after the transformation looks like:
+  /// call void @llvm.directive.region.exit(...) [ ...,
+  /// "QUAL.OMP.CANCELLATION.POINTS"(i32 %1, %2, %3) ]
+  bool propagateCancellationPointsToIR(WRegionNode *W);
+
+  /// \brief Generate branches to jump to the end of a construct from
+  /// every cancellation point within the construct.
+  ///
+  /// For each cancellation point '%x' within the body of W:
+  ///
+  /// \code
+  ///       Before                      |     After
+  ///  ---------------------------------+------------------------------------
+  ///  %x = kmpc_cancel(...)            |     %x = kmpc_cancel(...)
+  ///                                   |     if (%x != 0) {
+  ///                                   |       goto CANCEL.EXIT.BB;
+  ///                                   |     }
+  ///                                   |     NOT.CANCELLED.BB:
+  ///  <code_after_cancellation_point>  |     <code_after_cancellation_point>
+  ///  ...                              |     ...
+  ///                                   |
+  ///                                   |     CANCEL.EXIT.BB:
+  ///                                   |
+  ///  EXIT.BB:                         |     EXIT.BB:
+  ///  directive.region.exit(%x)        |     directive.region.exit(null)
+  ///  return;                          |     return;
+  ///
+  /// \endcode
+  bool genCancellationBranchingCode(WRegionNode *W);
+
+  /// @}
 
   /// \brief Generate the intrinsic @llvm.invariant.group.barrier to inhibit
   /// the cse for the gep instruction related to array/struture which is marked
@@ -724,6 +798,68 @@ private:
   /// \brief Return true if one of the region W's ancestor is OMP target
   /// construct or the function where W lies in has target declare attribute.
   bool hasParentTarget(WRegionNode *W);
+
+  /// \brief Generate the cast i8* for the incoming value BPVal.
+  Value *genCastforAddr(Value *BPVal, IRBuilder<> &Builder);
+
+  /// \brief Replace the new generated local variables with global variables
+  /// in the target initialization code.
+  /// Given a global variable in the offloading region, the compiler will
+  /// generate different code for the following two cases.
+  /// case 1: global variable is not in the map clause.
+  /// The compiler generates %aaa stack variable which is initialized with
+  /// the value of @aaa. The base pointer and section pointer arrays are
+  /// initialized with %aaa.
+  ///
+  ///   #pragma omp target
+  ///   {  aaa++; }
+  ///
+  /// ** IR Dump After VPO Paropt Pass ***
+  /// entry:
+  ///   %.offload_baseptrs = alloca [1 x i8*]
+  ///   %.offload_ptrs = alloca [1 x i8*]
+  ///   %aaa = alloca i32
+  ///   %0 = load i32, i32* @aaa
+  ///   store i32 %0, i32* %aaa
+  ///   br label %codeRepl
+  ///
+  /// codeRepl:
+  ///   %1 = bitcast i32* %aaa to i8*
+  ///   %2 = getelementptr inbounds [1 x i8*],
+  //         [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
+  ///   store i8* %1, i8** %2
+  ///   %3 = getelementptr inbounds [1 x i8*],
+  //         [1 x i8*]* %.offload_ptrs, i32 0, i32 0
+  ///   %4 = bitcast i32* %aaa to i8*
+  ///   store i8* %4, i8** %3
+  ///
+  /// case 2: global variable is in the map clause
+  /// The compiler initializes the base pointer and section pointer arrays
+  /// with @aaa.
+  ///
+  ///   #pragma omp target map(aaa)
+  ///   {  aaa++; }
+  ///
+  /// ** IR Dump After VPO Paropt Pass ***
+  /// codeRepl:
+  ///   %1 = bitcast i32* @aaa to i8*
+  ///   %2 = getelementptr inbounds [1 x i8*],
+  //         [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
+  ///   store i8* %1, i8** %2
+  ///   %3 = getelementptr inbounds [1 x i8*],
+  ///        [1 x i8*]* %.offload_ptrs, i32 0, i32 0
+  ///   %4 = bitcast i32* @aaa to i8*
+  ///   store i8* %4, i8** %3
+  bool finalizeGlobalPrivatizationCode(WRegionNode *W);
+
+  /// \brief Generate the target intialization code for the pointers based
+  /// on the order of the map clause.
+  void genOffloadArraysInitForClause(WRegionNode *W, TgDataInfo *Info,
+                                     CallInst *Call, Instruction *InsertPt,
+                                     SmallVectorImpl<Constant *> &ConstSizes,
+                                     bool hasRuntimeEvaluationCaptureSize,
+                                     Value *BPVal, bool &Match,
+                                     IRBuilder<> &Builder, unsigned &Cnt);
 };
 } /// namespace vpo
 } /// namespace llvm

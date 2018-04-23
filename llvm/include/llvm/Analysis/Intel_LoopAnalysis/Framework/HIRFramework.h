@@ -26,7 +26,7 @@
 namespace llvm {
 
 class DominatorTree;
-struct PostDominatorTree;
+class PostDominatorTree;
 class LoopInfo;
 class ScalarEvolution;
 class AAResults;

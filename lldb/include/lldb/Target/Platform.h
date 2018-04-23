@@ -30,10 +30,6 @@
 #include "lldb/lldb-private-forward.h"
 #include "lldb/lldb-public.h"
 
-// TODO pull NativeDelegate class out of NativeProcessProtocol so we
-// can just forward ref the NativeDelegate rather than include it here.
-#include "lldb/Host/common/NativeProcessProtocol.h"
-
 namespace lldb_private {
 
 class ModuleCache;
@@ -633,7 +629,7 @@ public:
   //----------------------------------------------------------------------
   virtual Status Install(const FileSpec &src, const FileSpec &dst);
 
-  virtual size_t GetEnvironment(StringList &environment);
+  virtual Environment GetEnvironment();
 
   virtual bool GetFileExists(const lldb_private::FileSpec &file_spec);
 

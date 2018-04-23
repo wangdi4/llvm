@@ -35,6 +35,7 @@
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptPrepare.h"

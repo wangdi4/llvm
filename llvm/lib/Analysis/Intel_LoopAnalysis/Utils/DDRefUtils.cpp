@@ -96,6 +96,12 @@ RegDDRef *DDRefUtils::createConstDDRef(Value *Val) {
   return NewRegDD;
 }
 
+RegDDRef *DDRefUtils::createUndefDDRef(Type *Ty) {
+  Value *UndefVal = UndefValue::get(Ty);
+
+  return createConstDDRef(UndefVal);
+}
+
 BlobDDRef *DDRefUtils::createBlobDDRef(unsigned Index, unsigned Level) {
   return new BlobDDRef(*this, Index, Level);
 }

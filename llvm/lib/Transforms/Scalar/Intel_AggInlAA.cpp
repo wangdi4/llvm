@@ -1,6 +1,6 @@
 //===- Intel_AggInlAA.cpp - Aggressive  Inlining AA                   -===//
 //
-// Copyright (C) 2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -517,7 +517,15 @@ static bool rumImpl(Function& F) {
 }
 
 PreservedAnalyses AggInlAAPass::run(Function &F, FunctionAnalysisManager &M) {
-  rumImpl(F);
+  // Aggressive analysis is enabled for "main" only.
+  if (F.getName() != "main")
+    return PreservedAnalyses::all();
+
+  auto &MAM = M.getResult<ModuleAnalysisManagerFunctionProxy>(F).getManager();
+  auto AggAnalysis = MAM.getCachedResult<InlineAggAnalysis>(*F.getParent());
+  if (AggAnalysis && AggAnalysis->isAggInlineOccured())
+    rumImpl(F);
+
   return PreservedAnalyses::all();
 }
 
@@ -557,4 +565,3 @@ INITIALIZE_PASS(AggInlAALegacyPass, "agginlaa", "Aggressive Inline AA",
 
 FunctionPass *llvm::createAggInlAALegacyPass() {
   return new AggInlAALegacyPass(); }
-

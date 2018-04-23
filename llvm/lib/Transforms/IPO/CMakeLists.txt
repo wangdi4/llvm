@@ -2,6 +2,7 @@ add_llvm_library(LLVMipo
   AlwaysInliner.cpp
   ArgumentPromotion.cpp
   BarrierNoopPass.cpp
+  BlockExtractor.cpp
   CalledValuePropagation.cpp
   ConstantMerge.cpp
   CrossDSOCFI.cpp
@@ -31,8 +32,10 @@ add_llvm_library(LLVMipo
   PassManagerBuilder.cpp
   PruneEH.cpp
   SampleProfile.cpp
+  SCCP.cpp
   StripDeadPrototypes.cpp
   StripSymbols.cpp
+  SyntheticCountsPropagation.cpp
   ThinLTOBitcodeWriter.cpp
   WholeProgramDevirt.cpp
 
@@ -43,3 +46,9 @@ add_llvm_library(LLVMipo
   DEPENDS
   intrinsics_gen
   )
+
+# INTEL_CUSTOMIZATION
+if(INTEL_INCLUDE_DTRANS)
+  target_link_libraries(LLVMipo PRIVATE LLVMIntel_DTrans)
+endif(INTEL_INCLUDE_DTRANS)
+# end INTEL_CUSTOMIZATION

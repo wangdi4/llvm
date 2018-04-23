@@ -205,9 +205,13 @@ namespace kOCLBuiltinName {
   const static char SubGroupAll[]        = "sub_group_all";
   const static char SubGroupAny[]        = "sub_group_any";
   const static char WorkPrefix[]         = "work_";
-  const static char SubgroupBlockReadINTELPrefix[]  = "intel_sub_group_block_read";
-  const static char SubgroupBlockWriteINTELPrefix[] = "intel_sub_group_block_write";
-}
+  const static char SubgroupBlockReadINTELPrefix[] =
+      "intel_sub_group_block_read";
+  const static char SubgroupBlockWriteINTELPrefix[] =
+      "intel_sub_group_block_write";
+  const static char SubgroupImageMediaBlockINTELPrefix[] =
+      "intel_sub_group_media_block";
+  } // namespace kOCLBuiltinName
 
 /// Offset for OpenCL image channel order enumeration values.
 const unsigned int OCLImageChannelOrderOffset = 0x10B0;
@@ -590,10 +594,10 @@ _SPIRV_OP(to_local, GenericCastToPtrExplicit)
 _SPIRV_OP(to_private, GenericCastToPtrExplicit)
 _SPIRV_OP(work_group_barrier, ControlBarrier)
 // CL 2.0 pipe builtins
-_SPIRV_OP(read_pipe, ReadPipe)
-_SPIRV_OP(write_pipe, WritePipe)
-_SPIRV_OP(reserved_read_pipe, ReservedReadPipe)
-_SPIRV_OP(reserved_write_pipe, ReservedWritePipe)
+_SPIRV_OP(read_pipe_2, ReadPipe)
+_SPIRV_OP(write_pipe_2, WritePipe)
+_SPIRV_OP(read_pipe_4, ReservedReadPipe)
+_SPIRV_OP(write_pipe_4, ReservedWritePipe)
 _SPIRV_OP(reserve_read_pipe, ReserveReadPipePackets)
 _SPIRV_OP(reserve_write_pipe, ReserveWritePipePackets)
 _SPIRV_OP(commit_read_pipe, CommitReadPipe)

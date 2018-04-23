@@ -1039,8 +1039,8 @@ bool CursorVisitor::VisitObjCContainerDecl(ObjCContainerDecl *D) {
   }
 
   // Now sort the Decls so that they appear in lexical order.
-  std::sort(DeclsInContainer.begin(), DeclsInContainer.end(),
-            [&SM](Decl *A, Decl *B) {
+  llvm::sort(DeclsInContainer.begin(), DeclsInContainer.end(),
+             [&SM](Decl *A, Decl *B) {
     SourceLocation L_A = A->getLocStart();
     SourceLocation L_B = B->getLocStart();
     return L_A != L_B ?
@@ -2593,7 +2593,7 @@ void EnqueueVisitor::VisitMemberExpr(const MemberExpr *M) {
     return;
 
   // Ignore base anonymous struct/union fields, otherwise they will shadow the
-  // real field that that we are interested in.
+  // real field that we are interested in.
   if (auto *SubME = dyn_cast<MemberExpr>(M->getBase())) {
     if (auto *FD = dyn_cast_or_null<FieldDecl>(SubME->getMemberDecl())) {
       if (FD->isAnonymousStructOrUnion()) {
@@ -4249,6 +4249,14 @@ int clang_File_isEqual(CXFile file1, CXFile file2) {
   return FEnt1->getUniqueID() == FEnt2->getUniqueID();
 }
 
+CXString clang_File_tryGetRealPathName(CXFile SFile) {
+  if (!SFile)
+    return cxstring::createNull();
+
+  FileEntry *FEnt = static_cast<FileEntry *>(SFile);
+  return cxstring::createRef(FEnt->tryGetRealPathName());
+}
+
 //===----------------------------------------------------------------------===//
 // CXCursor Operations.
 //===----------------------------------------------------------------------===//
@@ -4704,6 +4712,195 @@ CXStringSet *clang_Cursor_getObjCManglings(CXCursor C) {
   index::CodegenNameGenerator CGNameGen(Ctx);
   std::vector<std::string> Manglings = CGNameGen.getAllManglings(D);
   return cxstring::createSet(Manglings);
+}
+
+CXPrintingPolicy clang_getCursorPrintingPolicy(CXCursor C) {
+  if (clang_Cursor_isNull(C))
+    return 0;
+  return new PrintingPolicy(getCursorContext(C).getPrintingPolicy());
+}
+
+void clang_PrintingPolicy_dispose(CXPrintingPolicy Policy) {
+  if (Policy)
+    delete static_cast<PrintingPolicy *>(Policy);
+}
+
+unsigned
+clang_PrintingPolicy_getProperty(CXPrintingPolicy Policy,
+                                 enum CXPrintingPolicyProperty Property) {
+  if (!Policy)
+    return 0;
+
+  PrintingPolicy *P = static_cast<PrintingPolicy *>(Policy);
+  switch (Property) {
+  case CXPrintingPolicy_Indentation:
+    return P->Indentation;
+  case CXPrintingPolicy_SuppressSpecifiers:
+    return P->SuppressSpecifiers;
+  case CXPrintingPolicy_SuppressTagKeyword:
+    return P->SuppressTagKeyword;
+  case CXPrintingPolicy_IncludeTagDefinition:
+    return P->IncludeTagDefinition;
+  case CXPrintingPolicy_SuppressScope:
+    return P->SuppressScope;
+  case CXPrintingPolicy_SuppressUnwrittenScope:
+    return P->SuppressUnwrittenScope;
+  case CXPrintingPolicy_SuppressInitializers:
+    return P->SuppressInitializers;
+  case CXPrintingPolicy_ConstantArraySizeAsWritten:
+    return P->ConstantArraySizeAsWritten;
+  case CXPrintingPolicy_AnonymousTagLocations:
+    return P->AnonymousTagLocations;
+  case CXPrintingPolicy_SuppressStrongLifetime:
+    return P->SuppressStrongLifetime;
+  case CXPrintingPolicy_SuppressLifetimeQualifiers:
+    return P->SuppressLifetimeQualifiers;
+  case CXPrintingPolicy_SuppressTemplateArgsInCXXConstructors:
+    return P->SuppressTemplateArgsInCXXConstructors;
+  case CXPrintingPolicy_Bool:
+    return P->Bool;
+  case CXPrintingPolicy_Restrict:
+    return P->Restrict;
+  case CXPrintingPolicy_Alignof:
+    return P->Alignof;
+  case CXPrintingPolicy_UnderscoreAlignof:
+    return P->UnderscoreAlignof;
+  case CXPrintingPolicy_UseVoidForZeroParams:
+    return P->UseVoidForZeroParams;
+  case CXPrintingPolicy_TerseOutput:
+    return P->TerseOutput;
+  case CXPrintingPolicy_PolishForDeclaration:
+    return P->PolishForDeclaration;
+  case CXPrintingPolicy_Half:
+    return P->Half;
+  case CXPrintingPolicy_MSWChar:
+    return P->MSWChar;
+  case CXPrintingPolicy_IncludeNewlines:
+    return P->IncludeNewlines;
+  case CXPrintingPolicy_MSVCFormatting:
+    return P->MSVCFormatting;
+  case CXPrintingPolicy_ConstantsAsWritten:
+    return P->ConstantsAsWritten;
+  case CXPrintingPolicy_SuppressImplicitBase:
+    return P->SuppressImplicitBase;
+  case CXPrintingPolicy_FullyQualifiedName:
+    return P->FullyQualifiedName;
+  }
+
+  assert(false && "Invalid CXPrintingPolicyProperty");
+  return 0;
+}
+
+void clang_PrintingPolicy_setProperty(CXPrintingPolicy Policy,
+                                      enum CXPrintingPolicyProperty Property,
+                                      unsigned Value) {
+  if (!Policy)
+    return;
+
+  PrintingPolicy *P = static_cast<PrintingPolicy *>(Policy);
+  switch (Property) {
+  case CXPrintingPolicy_Indentation:
+    P->Indentation = Value;
+    return;
+  case CXPrintingPolicy_SuppressSpecifiers:
+    P->SuppressSpecifiers = Value;
+    return;
+  case CXPrintingPolicy_SuppressTagKeyword:
+    P->SuppressTagKeyword = Value;
+    return;
+  case CXPrintingPolicy_IncludeTagDefinition:
+    P->IncludeTagDefinition = Value;
+    return;
+  case CXPrintingPolicy_SuppressScope:
+    P->SuppressScope = Value;
+    return;
+  case CXPrintingPolicy_SuppressUnwrittenScope:
+    P->SuppressUnwrittenScope = Value;
+    return;
+  case CXPrintingPolicy_SuppressInitializers:
+    P->SuppressInitializers = Value;
+    return;
+  case CXPrintingPolicy_ConstantArraySizeAsWritten:
+    P->ConstantArraySizeAsWritten = Value;
+    return;
+  case CXPrintingPolicy_AnonymousTagLocations:
+    P->AnonymousTagLocations = Value;
+    return;
+  case CXPrintingPolicy_SuppressStrongLifetime:
+    P->SuppressStrongLifetime = Value;
+    return;
+  case CXPrintingPolicy_SuppressLifetimeQualifiers:
+    P->SuppressLifetimeQualifiers = Value;
+    return;
+  case CXPrintingPolicy_SuppressTemplateArgsInCXXConstructors:
+    P->SuppressTemplateArgsInCXXConstructors = Value;
+    return;
+  case CXPrintingPolicy_Bool:
+    P->Bool = Value;
+    return;
+  case CXPrintingPolicy_Restrict:
+    P->Restrict = Value;
+    return;
+  case CXPrintingPolicy_Alignof:
+    P->Alignof = Value;
+    return;
+  case CXPrintingPolicy_UnderscoreAlignof:
+    P->UnderscoreAlignof = Value;
+    return;
+  case CXPrintingPolicy_UseVoidForZeroParams:
+    P->UseVoidForZeroParams = Value;
+    return;
+  case CXPrintingPolicy_TerseOutput:
+    P->TerseOutput = Value;
+    return;
+  case CXPrintingPolicy_PolishForDeclaration:
+    P->PolishForDeclaration = Value;
+    return;
+  case CXPrintingPolicy_Half:
+    P->Half = Value;
+    return;
+  case CXPrintingPolicy_MSWChar:
+    P->MSWChar = Value;
+    return;
+  case CXPrintingPolicy_IncludeNewlines:
+    P->IncludeNewlines = Value;
+    return;
+  case CXPrintingPolicy_MSVCFormatting:
+    P->MSVCFormatting = Value;
+    return;
+  case CXPrintingPolicy_ConstantsAsWritten:
+    P->ConstantsAsWritten = Value;
+    return;
+  case CXPrintingPolicy_SuppressImplicitBase:
+    P->SuppressImplicitBase = Value;
+    return;
+  case CXPrintingPolicy_FullyQualifiedName:
+    P->FullyQualifiedName = Value;
+    return;
+  }
+
+  assert(false && "Invalid CXPrintingPolicyProperty");
+}
+
+CXString clang_getCursorPrettyPrinted(CXCursor C, CXPrintingPolicy cxPolicy) {
+  if (clang_Cursor_isNull(C))
+    return cxstring::createEmpty();
+
+  if (clang_isDeclaration(C.kind)) {
+    const Decl *D = getCursorDecl(C);
+    if (!D)
+      return cxstring::createEmpty();
+
+    SmallString<128> Str;
+    llvm::raw_svector_ostream OS(Str);
+    PrintingPolicy *UserPolicy = static_cast<PrintingPolicy *>(cxPolicy);
+    D->print(OS, UserPolicy ? *UserPolicy
+                            : getCursorContext(C).getPrintingPolicy());
+
+    return cxstring::createDup(OS.str());
+  }
+
+  return cxstring::createEmpty();
 }
 
 CXString clang_getCursorDisplayName(CXCursor C) {
@@ -5435,6 +5632,15 @@ unsigned clang_isInvalid(enum CXCursorKind K) {
 unsigned clang_isDeclaration(enum CXCursorKind K) {
   return (K >= CXCursor_FirstDecl && K <= CXCursor_LastDecl) ||
          (K >= CXCursor_FirstExtraDecl && K <= CXCursor_LastExtraDecl);
+}
+
+unsigned clang_isInvalidDeclaration(CXCursor C) {
+  if (clang_isDeclaration(C.kind)) {
+    if (const Decl *D = getCursorDecl(C))
+      return D->isInvalidDecl();
+  }
+
+  return 0;
 }
 
 unsigned clang_isReference(enum CXCursorKind K) {
@@ -6468,7 +6674,8 @@ void clang_tokenize(CXTranslationUnit TU, CXSourceRange Range,
   if (CXTokens.empty())
     return;
 
-  *Tokens = (CXToken *)malloc(sizeof(CXToken) * CXTokens.size());
+  *Tokens = static_cast<CXToken *>(
+      llvm::safe_malloc(sizeof(CXToken) * CXTokens.size()));
   memmove(*Tokens, CXTokens.data(), sizeof(CXToken) * CXTokens.size());
   *NumTokens = CXTokens.size();
 }
@@ -7374,10 +7581,10 @@ static void getCursorPlatformAvailabilityForDecl(
   if (AvailabilityAttrs.empty())
     return;
 
-  std::sort(AvailabilityAttrs.begin(), AvailabilityAttrs.end(),
-            [](AvailabilityAttr *LHS, AvailabilityAttr *RHS) {
-              return LHS->getPlatform()->getName() <
-                     RHS->getPlatform()->getName();
+  llvm::sort(AvailabilityAttrs.begin(), AvailabilityAttrs.end(),
+             [](AvailabilityAttr *LHS, AvailabilityAttr *RHS) {
+               return LHS->getPlatform()->getName() <
+                      RHS->getPlatform()->getName();
             });
   ASTContext &Ctx = D->getASTContext();
   auto It = std::unique(
@@ -7496,7 +7703,7 @@ CXTLSKind clang_getCursorTLSKind(CXCursor cursor) {
 }
 
  /// \brief If the given cursor is the "templated" declaration
- /// descibing a class or function template, return the class or
+ /// describing a class or function template, return the class or
  /// function template.
 static const Decl *maybeGetTemplateCursor(const Decl *D) {
   if (!D)
@@ -8151,12 +8358,15 @@ CXSourceRangeList *clang_getSkippedRanges(CXTranslationUnit TU, CXFile file) {
   SourceManager &sm = Ctx.getSourceManager();
   FileEntry *fileEntry = static_cast<FileEntry *>(file);
   FileID wantedFileID = sm.translateFile(fileEntry);
+  bool isMainFile = wantedFileID == sm.getMainFileID();
 
   const std::vector<SourceRange> &SkippedRanges = ppRec->getSkippedRanges();
   std::vector<SourceRange> wantedRanges;
   for (std::vector<SourceRange>::const_iterator i = SkippedRanges.begin(), ei = SkippedRanges.end();
        i != ei; ++i) {
     if (sm.getFileID(i->getBegin()) == wantedFileID || sm.getFileID(i->getEnd()) == wantedFileID)
+      wantedRanges.push_back(*i);
+    else if (isMainFile && (astUnit->isInPreambleFileID(i->getBegin()) || astUnit->isInPreambleFileID(i->getEnd())))
       wantedRanges.push_back(*i);
   }
 

@@ -1,4 +1,4 @@
-; RUN: opt -VPlanDriver -S %s | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
 
 ; CHECK: vector.body:
 ; CHECK:  shufflevector <8 x i32> %transposed.wide.masked.load, <8 x i32> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>

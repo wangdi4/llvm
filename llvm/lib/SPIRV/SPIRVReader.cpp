@@ -1338,21 +1338,13 @@ SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
 
   case OpCopyMemorySized: {
     SPIRVCopyMemorySized *BC = static_cast<SPIRVCopyMemorySized *>(BV);
-    std::string FuncName = "llvm.memcpy";
-    SPIRVType* BS = BC->getSource()->getType();
-    SPIRVType* BT = BC->getTarget()->getType();
-    Type *Int1Ty = Type::getInt1Ty(*Context);
-    Type* Int32Ty = Type::getInt32Ty(*Context);
-    Type* VoidTy = Type::getVoidTy(*Context);
-    Type* SrcTy = transType(BS);
-    Type* TrgTy = transType(BT);
-    Type* SizeTy = transType(BC->getSize()->getType());
+    CallInst *CI = nullptr;
+    llvm::Value *Dst = transValue(BC->getTarget(), F, BB);
+    unsigned Align = BC->getAlignment();
+    llvm::Value *Size = transValue(BC->getSize(), F, BB);
+    bool isVolatile = BC->SPIRVMemoryAccess::isVolatile();
+    IRBuilder<> Builder(BB);
 
-    ostringstream TempName;
-    TempName << ".p"
-             << SPIRSPIRVAddrSpaceMap::rmap(BT->getPointerStorageClass())
-             << "i8";
-    Value *Src = nullptr;
     // If we copy from zero-initialized array, we can optimize it to llvm.memset
     if (BC->getSource()->getOpCode() == OpBitcast) {
       SPIRVValue *Source =
@@ -1363,44 +1355,21 @@ SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
           SPIRVType *Ty = static_cast<SPIRVConstantNull*>(Init)->getType();
           if (isa<OpTypeArray>(Ty)) {
             SPIRVTypeArray *AT = static_cast<SPIRVTypeArray*>(Ty);
-            SrcTy = transType(AT->getArrayElementType());
+            Type *SrcTy = transType(AT->getArrayElementType());
             assert(SrcTy->isIntegerTy(8));
-            Src = ConstantInt::get(SrcTy, 0);
-            FuncName = "llvm.memset";
+            llvm::Value *Src = ConstantInt::get(SrcTy, 0);
+            CI = Builder.CreateMemSet(Dst, Src, Size, Align, isVolatile);
           }
         }
       }
     }
-    if (!Src) {
-      Src = transValue(BC->getSource(), F, BB);
-      TempName << ".p"
-               << SPIRSPIRVAddrSpaceMap::rmap(BS->getPointerStorageClass())
-               << "i8";
+    if (!CI) {
+      llvm::Value *Src = transValue(BC->getSource(), F, BB);
+      CI = Builder.CreateMemCpy(Dst, Align, Src, Align, Size, isVolatile);
     }
-    Type* ArgTy[] = { TrgTy, SrcTy, SizeTy, Int32Ty, Int1Ty };
-
-    FuncName += TempName.str();
-    if (BC->getSize()->getType()->getBitWidth() == 32)
-      FuncName += ".i32";
-    else
-      FuncName += ".i64";
-
-    FunctionType *FT = FunctionType::get(VoidTy, ArgTy, false);
-    Function *Func = dyn_cast<Function>(M->getOrInsertFunction(FuncName, FT));
-    assert(Func && Func->getFunctionType() == FT && "Function type mismatch");
-    Func->setLinkage(GlobalValue::ExternalLinkage);
-
     if (isFuncNoUnwind())
-      Func->addFnAttr(Attribute::NoUnwind);
-
-    Value *Arg[] = { transValue(BC->getTarget(), Func, BB), Src,
-                     dyn_cast<llvm::ConstantInt>(transValue(BC->getSize(),
-                         Func, BB)),
-                     ConstantInt::get(Int32Ty,
-                         BC->SPIRVMemoryAccess::getAlignment()),
-                     ConstantInt::get(Int1Ty,
-                         BC->SPIRVMemoryAccess::isVolatile())};
-    return mapValue( BV, CallInst::Create(Func, Arg, "", BB));
+      CI->getFunction()->addFnAttr(Attribute::NoUnwind);
+    return mapValue(BV, CI);
   }
 
   case OpSelect: {
@@ -1976,25 +1945,9 @@ SPIRVToLLVM::transEnqueuedBlock(SPIRVValue *SInvoke, SPIRVValue *SCaptured,
 
     // We can't make any guesses about type of captured data, so
     // let's copy it through memcpy
-    std::string MemCpyName = "llvm.memcpy.p0i8.p0i8";
-    MemCpyName += (LCaptSize->getType()->getBitWidth() == 32) ? ".i32" : ".i64";
-    SmallVector<Type*, 8> MemCpyArgTys = {
-      Int8PtrTy, Int8PtrTy,                    // src and dst pointers
-      LCaptSize->getType(),                    // size
-      Int32Ty,                                 // alignment
-      Type::getInt1Ty(*Context)                // isVolatile
-    };
-
-    FunctionType *MemCpyTy =
-      FunctionType::get(Type::getVoidTy(*Context), MemCpyArgTys, false);
-    Function *MemCpy =
-      dyn_cast<Function>(M->getOrInsertFunction(MemCpyName, MemCpyTy));
-    assert(MemCpy && "Can't create memcpy intrinsic");
-    MemCpy->setLinkage(GlobalValue::ExternalLinkage);
-    SmallVector<Value*, 8> MemCpyArgs =
-      { CapturedGEPCast, LCaptured, LCaptSize, LCaptAlignment,
-        ConstantInt::get(Type::getInt1Ty(*Context), SCaptured->isVolatile()) };
-    Builder.CreateCall(MemCpy, MemCpyArgs);
+    Builder.CreateMemCpy(CapturedGEPCast, LCaptAlignment->getZExtValue(),
+                         LCaptured, LCaptAlignment->getZExtValue(), LCaptSize,
+                         SCaptured->isVolatile());
 
     // Fix invoke function to correctly process its first argument
     adaptBlockInvoke(LInvoke, BlockTy);
@@ -2350,6 +2303,34 @@ SPIRVToLLVM::transNonTemporalMetadata(Instruction *I) {
   return true;
 }
 
+// Information of types of kernel arguments may be additionally stored in
+// 'OpString "kernel_arg_type.%kernel_name%.type1,type2,type3,..' instruction.
+// Try to find such instruction and generate metadata based on it.
+// Return 'true' if 'OpString' was found and 'kernel_arg_type' metadata
+// generated and 'false' otherwise.
+static bool transKernelArgTypeMedataFromString(
+  LLVMContext *Ctx, SPIRVModule *BM, Function *Kernel) {
+  std::string ArgTypePrefix =
+    std::string(SPIR_MD_KERNEL_ARG_TYPE) + "." + Kernel->getName().str() + ".";
+  auto ArgTypeStrIt = std::find_if(
+    BM->getStringVec().begin(), BM->getStringVec().end(),
+    [=] (SPIRVString *S) { return S->getStr().find(ArgTypePrefix) == 0; });
+
+  if (ArgTypeStrIt == BM->getStringVec().end())
+    return false;
+
+  std::string ArgTypeStr =
+    (*ArgTypeStrIt)->getStr().substr(ArgTypePrefix.size());
+  std::vector<Metadata *> TypeMDs;
+  std::string::size_type Start = 0, End = 0;
+  while((Start = ArgTypeStr.find(',', End)) != std::string::npos) {
+    TypeMDs.push_back(MDString::get(*Ctx, ArgTypeStr.substr(End, Start - End)));
+    End = ++Start;
+  }
+  Kernel->setMetadata(SPIR_MD_KERNEL_ARG_TYPE, MDNode::get(*Ctx, TypeMDs));
+  return true;
+}
+
 bool
 SPIRVToLLVM::transKernelMetadata() {
   for (unsigned I = 0, E = BM->getNumFunctions(); I != E; ++I) {
@@ -2387,10 +2368,11 @@ SPIRVToLLVM::transKernelMetadata() {
       return MDString::get(*Context, Qual);
     });
     // Generate metadata for kernel_arg_type
-    addOCLKernelArgumentMetadata(Context, SPIR_MD_KERNEL_ARG_TYPE, BF, F,
-        [=](SPIRVFunctionParameter *Arg){
-      return transOCLKernelArgTypeName(Arg);
-    });
+    if (!transKernelArgTypeMedataFromString(Context, BM, F))
+      addOCLKernelArgumentMetadata(Context, SPIR_MD_KERNEL_ARG_TYPE, BF, F,
+          [=](SPIRVFunctionParameter *Arg){
+        return transOCLKernelArgTypeName(Arg);
+      });
     // Generate metadata for kernel_arg_type_qual
     addOCLKernelArgumentMetadata(Context, SPIR_MD_KERNEL_ARG_TYPE_QUAL, BF, F,
         [=](SPIRVFunctionParameter *Arg){
@@ -2454,6 +2436,11 @@ SPIRVToLLVM::transKernelMetadata() {
           ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(*Context),
               1)));
       F->setMetadata(kSPIR2MD::VecTyHint, MDNode::get(*Context, MetadataVec));
+    }
+    // Generate metadata for intel_reqd_sub_group_size
+    if (auto *EM = BF->getExecutionMode(ExecutionModeSubgroupSize)) {
+      auto SizeMD = ConstantAsMetadata::get(getUInt32(M, EM->getLiterals()[0]));
+      F->setMetadata(kSPIR2MD::SubgroupSize, MDNode::get(*Context, SizeMD));
     }
   }
   return true;

@@ -238,6 +238,11 @@ private:
   /// Creates and inserts a dummy copy instruction.
   Instruction *createCopyInstImpl(Type *Ty, const Twine &Name);
 
+  /// Creates a new Call instruction.
+  std::pair<HLInst *, CallInst *>
+  createCallImpl(Function *F, const SmallVectorImpl<RegDDRef *> &CallArgs,
+                 const Twine &Name = "call", RegDDRef *LvalRef = nullptr);
+
   /// Implementation of cloneSequence() which clones from Node1
   /// to Node2 and inserts into the CloneContainer.
   static void cloneSequenceImpl(HLContainerTy *CloneContainer,
@@ -754,10 +759,15 @@ public:
   HLInst *createCall(Function *F, const SmallVectorImpl<RegDDRef *> &CallArgs,
                      const Twine &Name = "call", RegDDRef *LvalRef = nullptr);
 
+  /// Creates a new Memcpy intrinsic call.
+  HLInst *createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef, RegDDRef *Size);
+
+  /// Creates a new Memset intrinsic call.
+  HLInst *createMemset(RegDDRef *StoreRef, RegDDRef *Value, RegDDRef *Size);
+
   /// Creates a new ShuffleVector instruction
   HLInst *createShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
-                                  ArrayRef<uint32_t> Mask,
-                                  const Twine &Name = "shuffle",
+                                  RegDDRef *Mask, const Twine &Name = "shuffle",
                                   RegDDRef *LvalRef = nullptr);
 
   /// Creates a new ExtractElement instruction

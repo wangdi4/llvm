@@ -1,45 +1,19 @@
-; RUN: llc -march=nios2 -O3 < %s | FileCheck %s
-
-@.str = private unnamed_addr constant [7 x i8] c"%08x \0A\00", align 1
-declare i32 @printf(i8*, ...)
-
-;; Additions
+; RUN: llc < %s -march=nios2 2>&1 | FileCheck %s
+; RUN: llc < %s -march=nios2 -target-abi=nios2r2 2>&1 | FileCheck %s
 
 define i32 @add_reg(i32 %a, i32 %b) nounwind {
 entry:
 ; CHECK: add_reg:
-; CHECK:   add {{r[0-9]+}}, {{r[0-9]+}}, {{r[0-9]+}}
+; CHECK:   add r2, r4, r5
   %c = add i32 %a, %b
-  %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i32 0, i32 0), i32 %c)
-  ret i32 0
+  ret i32 %c
 }
-
-define i32 @add_imm(i32 %a) nounwind {
-entry:
-; CHECK: add_imm:
-; CHECK:   addi {{r[0-9]+}}, {{r[0-9]+}}, 512
-  %c = add i32 %a, 512
-  %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i32 0, i32 0), i32 %c)
-  ret i32 0
-}
-
-;; Subtraction
 
 define i32 @sub_reg(i32 %a, i32 %b) nounwind {
 entry:
 ; CHECK: sub_reg:
-; CHECK:   sub {{r[0-9]+}}, {{r[0-9]+}}, {{r[0-9]+}}
+; CHECK:   sub r2, r4, r5
   %c = sub i32 %a, %b
-  %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i32 0, i32 0), i32 %c)
-  ret i32 0
-}
-
-define i32 @sub_imm(i32 %a) nounwind {
-entry:
-; CHECK: sub_imm:
-; CHECK:   addi {{r[0-9]+}}, {{r[0-9]+}}, -512
-  %c = sub i32 %a, 512
-  %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i32 0, i32 0), i32 %c)
-  ret i32 0
+  ret i32 %c
 }
 

@@ -276,6 +276,7 @@
 // RUN:     -fno-inline-small-functions -finline-small-functions              \
 // RUN:     -fno-fat-lto-objects -ffat-lto-objects                            \
 // RUN:     -fno-merge-constants -fmerge-constants                            \
+// RUN:     -fno-merge-all-constants -fmerge-all-constants                    \
 // RUN:     -fno-caller-saves -fcaller-saves                                  \
 // RUN:     -fno-reorder-blocks -freorder-blocks                              \
 // RUN:     -fno-schedule-insns2 -fschedule-insns2                            \
@@ -503,3 +504,29 @@
 // CHECK-WINDOWS-ISO10646: "-fwchar-type=int"
 // CHECK-WINDOWS-ISO10646: "-fsigned-wchar"
 
+// RUN: %clang -### -S -fcf-protection %s 2>&1 | FileCheck -check-prefix=CHECK-CF-PROTECTION-FULL %s
+// RUN: %clang -### -S %s 2>&1 | FileCheck -check-prefix=CHECK-NO-CF-PROTECTION-FULL %s
+// RUN: %clang -### -S -fcf-protection=full %s 2>&1 | FileCheck -check-prefix=CHECK-CF-PROTECTION-FULL %s
+// RUN: %clang -### -S %s 2>&1 | FileCheck -check-prefix=CHECK-NO-CF-PROTECTION-FULL %s
+// CHECK-CF-PROTECTION-FULL: -fcf-protection=full
+// CHECK-NO-CF-PROTECTION-FULL-NOT: -fcf-protection=full
+// RUN: %clang -### -S -fcf-protection=return %s 2>&1 | FileCheck -check-prefix=CHECK-CF-PROTECTION-RETURN %s
+// RUN: %clang -### -S %s 2>&1 | FileCheck -check-prefix=CHECK-NO-CF-PROTECTION-RETURN %s
+// CHECK-CF-PROTECTION-RETURN: -fcf-protection=return
+// CHECK-NO-CF-PROTECTION-RETURN-NOT: -fcf-protection=return
+// RUN: %clang -### -S -fcf-protection=branch %s 2>&1 | FileCheck -check-prefix=CHECK-CF-PROTECTION-BRANCH %s
+// RUN: %clang -### -S %s 2>&1 | FileCheck -check-prefix=CHECK-NO-CF-PROTECTION-BRANCH %s
+// CHECK-CF-PROTECTION-BRANCH: -fcf-protection=branch
+// CHECK-NO-CF-PROTECTION-BRANCH-NOT: -fcf-protection=branch
+
+// RUN: %clang -### -S -fdiscard-value-names %s 2>&1 | FileCheck -check-prefix=CHECK-DISCARD-NAMES %s
+// RUN: %clang -### -S -fno-discard-value-names %s 2>&1 | FileCheck -check-prefix=CHECK-NO-DISCARD-NAMES %s
+// CHECK-DISCARD-NAMES: "-discard-value-names"
+// CHECK-NO-DISCARD-NAMES-NOT: "-discard-value-names"
+//
+// RUN: %clang -### -S -fmerge-all-constants %s 2>&1 | FileCheck -check-prefix=CHECK-MERGE-ALL-CONSTANTS %s
+// RUN: %clang -### -S -fno-merge-all-constants %s 2>&1 | FileCheck -check-prefix=CHECK-NO-MERGE-ALL-CONSTANTS %s
+// RUN: %clang -### -S -fmerge-all-constants -fno-merge-all-constants %s 2>&1 | FileCheck -check-prefix=CHECK-NO-MERGE-ALL-CONSTANTS %s
+// RUN: %clang -### -S -fno-merge-all-constants -fmerge-all-constants %s 2>&1 | FileCheck -check-prefix=CHECK-MERGE-ALL-CONSTANTS %s
+// CHECK-NO-MERGE-ALL-CONSTANTS-NOT: "-fmerge-all-constants"
+// CHECK-MERGE-ALL-CONSTANTS: "-fmerge-all-constants"

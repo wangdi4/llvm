@@ -562,7 +562,7 @@ void DynamicTypePropagation::checkPostStmt(const CastExpr *CE,
       DestObjectPtrType->isUnspecialized())
     return;
 
-  SymbolRef Sym = State->getSVal(CE, C.getLocationContext()).getAsSymbol();
+  SymbolRef Sym = C.getSVal(CE).getAsSymbol();
   if (!Sym)
     return;
 
@@ -631,7 +631,7 @@ static const Expr *stripCastsAndSugar(const Expr *E) {
 }
 
 static bool isObjCTypeParamDependent(QualType Type) {
-  // It is illegal to typedef parameterized types inside an interface. Therfore
+  // It is illegal to typedef parameterized types inside an interface. Therefore
   // an Objective-C type can only be dependent on a type parameter when the type
   // parameter structurally present in the type itself.
   class IsObjCTypeParamDependentTypeVisitor

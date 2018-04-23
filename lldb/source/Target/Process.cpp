@@ -39,6 +39,7 @@
 #include "lldb/Host/Terminal.h"
 #include "lldb/Host/ThreadLauncher.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
+#include "lldb/Interpreter/OptionArgParser.h"
 #include "lldb/Interpreter/OptionValueProperties.h"
 #include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/Symbol.h"
@@ -307,16 +308,7 @@ void ProcessInstanceInfo::Dump(Stream &s, Platform *platform) const {
     }
   }
 
-  const uint32_t envc = m_environment.GetArgumentCount();
-  if (envc > 0) {
-    for (uint32_t i = 0; i < envc; i++) {
-      const char *env = m_environment.GetArgumentAtIndex(i);
-      if (i < 10)
-        s.Printf(" env[%u] = %s\n", i, env);
-      else
-        s.Printf("env[%u] = %s\n", i, env);
-    }
-  }
+  s.Format("{0}", m_environment);
 
   if (m_arch.IsValid()) {
     s.Printf("   arch = ");
@@ -498,7 +490,7 @@ Status ProcessLaunchCommandOptions::SetOptionValue(
   {
     bool success;
     const bool disable_aslr_arg =
-        Args::StringToBoolean(option_arg, true, &success);
+        OptionArgParser::ToBoolean(option_arg, true, &success);
     if (success)
       disable_aslr = disable_aslr_arg ? eLazyBoolYes : eLazyBoolNo;
     else
@@ -511,7 +503,8 @@ Status ProcessLaunchCommandOptions::SetOptionValue(
   case 'X': // shell expand args.
   {
     bool success;
-    const bool expand_args = Args::StringToBoolean(option_arg, true, &success);
+    const bool expand_args =
+        OptionArgParser::ToBoolean(option_arg, true, &success);
     if (success)
       launch_info.SetShellExpandArguments(expand_args);
     else
@@ -529,7 +522,7 @@ Status ProcessLaunchCommandOptions::SetOptionValue(
     break;
 
   case 'v':
-    launch_info.GetEnvironmentEntries().AppendArgument(option_arg);
+    launch_info.GetEnvironment().insert(option_arg);
     break;
 
   default:
@@ -2542,6 +2535,17 @@ size_t Process::ReadScalarIntegerFromMemory(addr_t addr, uint32_t byte_size,
   return 0;
 }
 
+Status Process::WriteObjectFile(std::vector<ObjectFile::LoadableData> entries) {
+  Status error;
+  for (const auto &Entry : entries) {
+    WriteMemory(Entry.Dest, Entry.Contents.data(), Entry.Contents.size(),
+                error);
+    if (!error.Success())
+      break;
+  }
+  return error;
+}
+
 #define USE_ALLOCATE_MEMORY_CACHE 1
 addr_t Process::AllocateMemory(size_t size, uint32_t permissions,
                                Status &error) {
@@ -2866,10 +2870,10 @@ Status Process::LoadCore() {
     // state.
     SetPrivateState(eStateStopped);
 
-    // Wait indefinitely for a stopped event since we just posted one above...
+    // Wait for a stopped event since we just posted one above...
     lldb::EventSP event_sp;
-    listener_sp->GetEvent(event_sp, llvm::None);
-    StateType state = ProcessEventData::GetStateFromEvent(event_sp.get());
+    StateType state =
+        WaitForProcessToStop(seconds(10), &event_sp, true, listener_sp);
 
     if (!StateIsStoppedState(state, false)) {
       Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_PROCESS));

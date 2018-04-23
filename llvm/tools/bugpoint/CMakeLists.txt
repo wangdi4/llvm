@@ -16,8 +16,6 @@ set(LLVM_LINK_COMPONENTS
   TransformUtils
   Vectorize
 # INTEL_CUSTOMIZATION
-  Intel_DTransAnalysis
-  Intel_DTrans
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml
@@ -45,6 +43,12 @@ add_llvm_tool(bugpoint
   intrinsics_gen
   )
 export_executable_symbols(bugpoint)
+
+# INTEL_CUSTOMIZATION
+if(INTEL_INCLUDE_DTRANS)
+  target_link_libraries(bugpoint PRIVATE LLVMIntel_DTrans)
+endif(INTEL_INCLUDE_DTRANS)
+# end INTEL_CUSTOMIZATION
 
 if(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
   target_link_libraries(bugpoint PRIVATE Polly)
