@@ -23,10 +23,10 @@ namespace mca {
 
 using namespace llvm;
 
-static void
-initializeUsedResources(InstrDesc &ID, const MCSchedClassDesc &SCDesc,
-                        const MCSubtargetInfo &STI,
-                        const ArrayRef<uint64_t> ProcResourceMasks) {
+static void initializeUsedResources(InstrDesc &ID,
+                                    const MCSchedClassDesc &SCDesc,
+                                    const MCSubtargetInfo &STI,
+                                    ArrayRef<uint64_t> ProcResourceMasks) {
   const MCSchedModel &SM = STI.getSchedModel();
 
   // Populate resources consumed.
@@ -44,16 +44,16 @@ initializeUsedResources(InstrDesc &ID, const MCSchedClassDesc &SCDesc,
 
   // Sort elements by mask popcount, so that we prioritize resource units over
   // resource groups, and smaller groups over larger groups.
-  std::sort(Worklist.begin(), Worklist.end(),
-            [](const ResourcePlusCycles &A, const ResourcePlusCycles &B) {
-              unsigned popcntA = countPopulation(A.first);
-              unsigned popcntB = countPopulation(B.first);
-              if (popcntA < popcntB)
-                return true;
-              if (popcntA > popcntB)
-                return false;
-              return A.first < B.first;
-            });
+  llvm::sort(Worklist.begin(), Worklist.end(),
+             [](const ResourcePlusCycles &A, const ResourcePlusCycles &B) {
+               unsigned popcntA = countPopulation(A.first);
+               unsigned popcntB = countPopulation(B.first);
+               if (popcntA < popcntB)
+                 return true;
+               if (popcntA > popcntB)
+                 return false;
+               return A.first < B.first;
+             });
 
   uint64_t UsedResourceUnits = 0;
 
@@ -112,12 +112,12 @@ initializeUsedResources(InstrDesc &ID, const MCSchedClassDesc &SCDesc,
     }
   }
 
-  DEBUG(
+  DEBUG({
     for (const std::pair<uint64_t, ResourceUsage> &R : ID.Resources)
       dbgs() << "\t\tMask=" << R.first << ", cy=" << R.second.size() << '\n';
     for (const uint64_t R : ID.Buffers)
       dbgs() << "\t\tBuffer Mask=" << R << '\n';
-  );
+  });
 }
 
 static void computeMaxLatency(InstrDesc &ID, const MCInstrDesc &MCDesc,
@@ -260,11 +260,10 @@ static void populateWrites(InstrDesc &ID, const MCInst &MCI,
     }
     Write.FullyUpdatesSuperRegs = FullyUpdatesSuperRegisters;
     Write.IsOptionalDef = false;
-    DEBUG(
-      dbgs() << "\t\tOpIdx=" << Write.OpIndex
-             << ", Latency=" << Write.Latency << ", WriteResourceID="
-             << Write.SClassOrWriteResourceID << '\n';
-    );
+    DEBUG({
+      dbgs() << "\t\tOpIdx=" << Write.OpIndex << ", Latency=" << Write.Latency
+             << ", WriteResourceID=" << Write.SClassOrWriteResourceID << '\n';
+    });
     CurrentDef++;
   }
 
@@ -278,8 +277,18 @@ static void populateWrites(InstrDesc &ID, const MCInst &MCI,
     WriteDescriptor &Write = ID.Writes[Index];
     Write.OpIndex = -1;
     Write.RegisterID = MCDesc.getImplicitDefs()[CurrentDef];
-    Write.Latency = ID.MaxLatency;
-    Write.SClassOrWriteResourceID = 0;
+    if (Index < NumWriteLatencyEntries) {
+      const MCWriteLatencyEntry &WLE =
+          *STI.getWriteLatencyEntry(&SCDesc, Index);
+      // Conservatively default to MaxLatency.
+      Write.Latency = WLE.Cycles == -1 ? ID.MaxLatency : WLE.Cycles;
+      Write.SClassOrWriteResourceID = WLE.WriteResourceID;
+    } else {
+      // Assign a default latency for this write.
+      Write.Latency = ID.MaxLatency;
+      Write.SClassOrWriteResourceID = 0;
+    }
+
     Write.IsOptionalDef = false;
     assert(Write.RegisterID != 0 && "Expected a valid phys register!");
     DEBUG(dbgs() << "\t\tOpIdx=" << Write.OpIndex << ", PhysReg="
@@ -341,6 +350,7 @@ static void populateReads(InstrDesc &ID, const MCInst &MCI,
   for (unsigned CurrentUse = 0; CurrentUse < NumExplicitUses; ++CurrentUse) {
     ReadDescriptor &Read = ID.Reads[CurrentUse];
     Read.OpIndex = i + CurrentUse;
+    Read.UseIndex = CurrentUse;
     Read.HasReadAdvanceEntries = HasReadAdvanceEntries;
     Read.SchedClassID = SchedClassID;
     DEBUG(dbgs() << "\t\tOpIdx=" << Read.OpIndex);
@@ -349,16 +359,16 @@ static void populateReads(InstrDesc &ID, const MCInst &MCI,
   for (unsigned CurrentUse = 0; CurrentUse < NumImplicitUses; ++CurrentUse) {
     ReadDescriptor &Read = ID.Reads[NumExplicitUses + CurrentUse];
     Read.OpIndex = -1;
+    Read.UseIndex = NumExplicitUses + CurrentUse;
     Read.RegisterID = MCDesc.getImplicitUses()[CurrentUse];
-    Read.HasReadAdvanceEntries = false;
+    Read.HasReadAdvanceEntries = HasReadAdvanceEntries;
     Read.SchedClassID = SchedClassID;
     DEBUG(dbgs() << "\t\tOpIdx=" << Read.OpIndex
                  << ", RegisterID=" << Read.RegisterID << '\n');
   }
 }
 
-void InstrBuilder::createInstrDescImpl(const MCSubtargetInfo &STI,
-                                       const MCInst &MCI) {
+void InstrBuilder::createInstrDescImpl(const MCInst &MCI) {
   assert(STI.getSchedModel().hasInstrSchedModel() &&
          "Itineraries are not yet supported!");
 
@@ -372,7 +382,7 @@ void InstrBuilder::createInstrDescImpl(const MCSubtargetInfo &STI,
       *SM.getSchedClassDesc(MCDesc.getSchedClass());
 
   // Create a new empty descriptor.
-  InstrDesc *ID = new InstrDesc();
+  std::unique_ptr<InstrDesc> ID = llvm::make_unique<InstrDesc>();
 
   if (SCDesc.isVariant()) {
     errs() << "warning: don't know how to model variant opcodes.\n"
@@ -407,21 +417,19 @@ void InstrBuilder::createInstrDescImpl(const MCSubtargetInfo &STI,
   DEBUG(dbgs() << "\t\tNumMicroOps=" << ID->NumMicroOps << '\n');
 
   // Now add the new descriptor.
-  Descriptors[Opcode] = std::unique_ptr<const InstrDesc>(ID);
+  Descriptors[Opcode] = std::move(ID);
 }
 
-const InstrDesc &InstrBuilder::getOrCreateInstrDesc(const MCSubtargetInfo &STI,
-                                                    const MCInst &MCI) {
-  auto it = Descriptors.find(MCI.getOpcode());
-  if (it == Descriptors.end())
-    createInstrDescImpl(STI, MCI);
-  return *Descriptors[MCI.getOpcode()].get();
+const InstrDesc &InstrBuilder::getOrCreateInstrDesc(const MCInst &MCI) {
+  if (Descriptors.find_as(MCI.getOpcode()) == Descriptors.end())
+    createInstrDescImpl(MCI);
+  return *Descriptors[MCI.getOpcode()];
 }
 
-Instruction *InstrBuilder::createInstruction(const MCSubtargetInfo &STI,
-                                             unsigned Idx, const MCInst &MCI) {
-  const InstrDesc &D = getOrCreateInstrDesc(STI, MCI);
-  Instruction *NewIS = new Instruction(D);
+std::unique_ptr<Instruction>
+InstrBuilder::createInstruction(unsigned Idx, const MCInst &MCI) {
+  const InstrDesc &D = getOrCreateInstrDesc(MCI);
+  std::unique_ptr<Instruction> NewIS = llvm::make_unique<Instruction>(D);
 
   // Populate Reads first.
   for (const ReadDescriptor &RD : D.Reads) {
@@ -444,26 +452,21 @@ Instruction *InstrBuilder::createInstruction(const MCSubtargetInfo &STI,
 
     // Okay, this is a register operand. Create a ReadState for it.
     assert(RegID > 0 && "Invalid register ID found!");
-    ReadState *NewRDS = new ReadState(RD, RegID);
-    NewIS->getUses().emplace_back(std::unique_ptr<ReadState>(NewRDS));
- }
+    NewIS->getUses().emplace_back(llvm::make_unique<ReadState>(RD, RegID));
+  }
 
   // Now populate writes.
   for (const WriteDescriptor &WD : D.Writes) {
     unsigned RegID =
         WD.OpIndex == -1 ? WD.RegisterID : MCI.getOperand(WD.OpIndex).getReg();
-    assert((RegID || WD.IsOptionalDef) && "Expected a valid register ID!");
-    // Special case where this is a optional definition, and the actual register
-    // is 0.
+    // Check if this is a optional definition that references NoReg.
     if (WD.IsOptionalDef && !RegID)
       continue;
 
-    WriteState *NewWS = new WriteState(WD);
-    NewIS->getDefs().emplace_back(std::unique_ptr<WriteState>(NewWS));
-    NewWS->setRegisterID(RegID);
+    assert(RegID && "Expected a valid register ID!");
+    NewIS->getDefs().emplace_back(llvm::make_unique<WriteState>(WD, RegID));
   }
 
   return NewIS;
 }
-
 } // namespace mca

@@ -48,6 +48,7 @@ Using Clang as a Compiler
    ControlFlowIntegrity
    LTOVisibility
    SafeStack
+   ShadowCallStack
    SourceBasedCodeCoverage
    Modules
    MSVCCompatibility

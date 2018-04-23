@@ -1,9 +1,9 @@
 // RUN: %clang_cc1 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -O0 -emit-llvm %s -o - | FileCheck %s --check-prefixes CHECK,LIN
 // RUN: %clang_cc1 -triple=x86_64-windows -fintel-compatibility -O0 -emit-llvm %s -o - | FileCheck %s --check-prefixes CHECK,WIN
 
-// CHECK: [[IT:%.+]] = type
 // CHECK: [[ST:%.+]] = type
-// CHECK: [[C:@.+]] = private constant [[IT]]
+// CHECK: [[IT:%.+]] = type
+// NCHECK: [[C:@.+]] = private constant [[IT]]
 //         @.ref.tmp = private constant %struct.I zeroinitializer, align 4
 
 struct I {
@@ -24,6 +24,6 @@ void foo(S &s) {
 // CHECK: [[SA:%.+]] = alloca [[ST]]*
 // CHECK: store [[ST]]* [[S]], [[ST]]** [[SA]]
 // CHECK: [[T0:%.+]] = load [[ST]]*, [[ST]]** [[SA]]
-// CHECK: call void {{@.*init.*}}([[ST]]* [[T0]], [[IT]]* dereferenceable(20) [[C]]
+// CHECK: call void {{@.*init.*}}([[ST]]* [[T0]], [[IT]]* dereferenceable(20)
 // call void @_ZN1S4initERK1I(%struct.S* %0, %struct.I* dereferenceable(20) @.ref.tmp)
 }

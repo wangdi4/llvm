@@ -650,6 +650,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(noreturn);
   KEYWORD(nocf_check);
   KEYWORD(nounwind);
+  KEYWORD(optforfuzzing);
   KEYWORD(optnone);
   KEYWORD(optsize);
   KEYWORD(readnone);
@@ -664,6 +665,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(sspstrong);
   KEYWORD(strictfp);
   KEYWORD(safestack);
+  KEYWORD(shadowcallstack);
   KEYWORD(sanitize_address);
   KEYWORD(sanitize_hwaddress);
   KEYWORD(sanitize_thread);
