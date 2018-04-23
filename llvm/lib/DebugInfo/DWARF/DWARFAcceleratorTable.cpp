@@ -15,6 +15,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/DJB.h"
 #include "llvm/Support/Format.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cstddef>
@@ -24,35 +25,19 @@
 using namespace llvm;
 
 namespace {
-struct DwarfConstant {
-  StringRef (*StringFn)(unsigned);
-  StringRef Type;
+struct Atom {
   unsigned Value;
 };
 
-static raw_ostream &operator<<(raw_ostream &OS, const DwarfConstant &C) {
-  StringRef Str = C.StringFn(C.Value);
+static raw_ostream &operator<<(raw_ostream &OS, const Atom &A) {
+  StringRef Str = dwarf::AtomTypeString(A.Value);
   if (!Str.empty())
     return OS << Str;
-  return OS << "DW_" << C.Type << "_Unknown_0x" << format("%x", C.Value);
+  return OS << "DW_ATOM_unknown_" << format("%x", A.Value);
 }
 } // namespace
 
-static DwarfConstant formatTag(unsigned Tag) {
-  return {dwarf::TagString, "TAG", Tag};
-}
-
-static DwarfConstant formatForm(unsigned Form) {
-  return {dwarf::FormEncodingString, "FORM", Form};
-}
-
-static DwarfConstant formatIndex(unsigned Idx) {
-  return {dwarf::IndexString, "IDX", Idx};
-}
-
-static DwarfConstant formatAtom(unsigned Atom) {
-  return {dwarf::AtomTypeString, "ATOM", Atom};
-}
+static Atom formatAtom(unsigned Atom) { return {Atom}; }
 
 DWARFAcceleratorTable::~DWARFAcceleratorTable() = default;
 
@@ -226,7 +211,7 @@ LLVM_DUMP_METHOD void AppleAcceleratorTable::dump(raw_ostream &OS) const {
     for (const auto &Atom : HdrData.Atoms) {
       DictScope AtomScope(W, ("Atom " + Twine(i++)).str());
       W.startLine() << "Type: " << formatAtom(Atom.first) << '\n';
-      W.startLine() << "Form: " << formatForm(Atom.second) << '\n';
+      W.startLine() << "Form: " << formatv("{0}", Atom.second) << '\n';
       AtomForms.push_back(DWARFFormValue(Atom.second));
     }
   }
@@ -400,7 +385,7 @@ llvm::Error DWARFDebugNames::Header::extract(const DWARFDataExtractor &AS,
   BucketCount = AS.getU32(Offset);
   NameCount = AS.getU32(Offset);
   AbbrevTableSize = AS.getU32(Offset);
-  AugmentationStringSize = AS.getU32(Offset);
+  AugmentationStringSize = alignTo(AS.getU32(Offset), 4);
 
   if (!AS.isValidOffsetForDataOfSize(*Offset, AugmentationStringSize))
     return make_error<StringError>(
@@ -409,18 +394,15 @@ llvm::Error DWARFDebugNames::Header::extract(const DWARFDataExtractor &AS,
   AugmentationString.resize(AugmentationStringSize);
   AS.getU8(Offset, reinterpret_cast<uint8_t *>(AugmentationString.data()),
            AugmentationStringSize);
-  *Offset = alignTo(*Offset, 4);
   return Error::success();
 }
 
 void DWARFDebugNames::Abbrev::dump(ScopedPrinter &W) const {
   DictScope AbbrevScope(W, ("Abbreviation 0x" + Twine::utohexstr(Code)).str());
-  W.startLine() << "Tag: " << formatTag(Tag) << '\n';
+  W.startLine() << formatv("Tag: {0}\n", Tag);
 
-  for (const auto &Attr : Attributes) {
-    W.startLine() << formatIndex(Attr.Index) << ": " << formatForm(Attr.Form)
-                  << '\n';
-  }
+  for (const auto &Attr : Attributes)
+    W.startLine() << formatv("{0}: {1}\n", Attr.Index, Attr.Form);
 }
 
 static constexpr DWARFDebugNames::AttributeEncoding sentinelAttrEnc() {
@@ -552,7 +534,7 @@ DWARFDebugNames::Entry::lookup(dwarf::Index Index) const {
 
 Optional<uint64_t> DWARFDebugNames::Entry::getDIEUnitOffset() const {
   if (Optional<DWARFFormValue> Off = lookup(dwarf::DW_IDX_die_offset))
-    return Off->getAsSectionOffset();
+    return Off->getAsReferenceUVal();
   return None;
 }
 
@@ -583,11 +565,10 @@ Optional<uint64_t> DWARFDebugNames::Entry::getDIESectionOffset() const {
 
 void DWARFDebugNames::Entry::dump(ScopedPrinter &W) const {
   W.printHex("Abbrev", Abbr->Code);
-  W.startLine() << "Tag: " << formatTag(Abbr->Tag) << "\n";
-
+  W.startLine() << formatv("Tag: {0}\n", Abbr->Tag);
   assert(Abbr->Attributes.size() == Values.size());
   for (const auto &Tuple : zip_first(Abbr->Attributes, Values)) {
-    W.startLine() << formatIndex(std::get<0>(Tuple).Index) << ": ";
+    W.startLine() << formatv("{0}: ", std::get<0>(Tuple).Index);
     std::get<1>(Tuple).dump(W.getOStream());
     W.getOStream() << '\n';
   }
@@ -620,7 +601,7 @@ Expected<DWARFDebugNames::Entry>
 DWARFDebugNames::NameIndex::getEntry(uint32_t *Offset) const {
   const DWARFDataExtractor &AS = Section.AccelSection;
   if (!AS.isValidOffset(*Offset))
-    return make_error<StringError>("Incorrectly terminated entry list",
+    return make_error<StringError>("Incorrectly terminated entry list.",
                                    inconvertibleErrorCode());
 
   uint32_t AbbrevCode = AS.getULEB128(Offset);
@@ -629,7 +610,7 @@ DWARFDebugNames::NameIndex::getEntry(uint32_t *Offset) const {
 
   const auto AbbrevIt = Abbrevs.find_as(AbbrevCode);
   if (AbbrevIt == Abbrevs.end())
-    return make_error<StringError>("Invalid abbreviation",
+    return make_error<StringError>("Invalid abbreviation.",
                                    inconvertibleErrorCode());
 
   Entry E(*this, *AbbrevIt);
@@ -637,7 +618,7 @@ DWARFDebugNames::NameIndex::getEntry(uint32_t *Offset) const {
   dwarf::FormParams FormParams = {Hdr.Version, 0, dwarf::DwarfFormat::DWARF32};
   for (auto &Value : E.Values) {
     if (!Value.extractValue(AS, Offset, FormParams))
-      return make_error<StringError>("Error extracting index attribute values",
+      return make_error<StringError>("Error extracting index attribute values.",
                                      inconvertibleErrorCode());
   }
   return std::move(E);

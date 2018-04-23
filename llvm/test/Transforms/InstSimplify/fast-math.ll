@@ -195,6 +195,23 @@ define <2 x float> @fsub_0_0_x_vec_undef2(<2 x float> %a) {
 }
 
 ; fadd nsz X, 0 ==> X
+
+define <2 x float> @fadd_zero_nsz_vec(<2 x float> %x) {
+; CHECK-LABEL: @fadd_zero_nsz_vec(
+; CHECK-NEXT:    ret <2 x float> [[X:%.*]]
+;
+  %r = fadd nsz <2 x float> %x, zeroinitializer
+  ret <2 x float> %r
+}
+
+define <2 x float> @fadd_zero_nsz_vec_undef(<2 x float> %x) {
+; CHECK-LABEL: @fadd_zero_nsz_vec_undef(
+; CHECK-NEXT:    ret <2 x float> [[X:%.*]]
+;
+  %r = fadd nsz <2 x float> %x, <float 0.0, float undef>
+  ret <2 x float> %r
+}
+
 define float @nofold_fadd_x_0(float %a) {
 ; CHECK-LABEL: @nofold_fadd_x_0(
 ; CHECK-NEXT:    [[NO_ZERO1:%.*]] = fadd ninf float [[A:%.*]], 0.000000e+00
@@ -237,6 +254,14 @@ define double @frem_zero_by_x(double %x) {
 ;
   %r = frem nnan double 0.0, %x
   ret double %r
+}
+
+define <2 x double> @frem_poszero_by_x_vec_undef(<2 x double> %x) {
+; CHECK-LABEL: @frem_poszero_by_x_vec_undef(
+; CHECK-NEXT:    ret <2 x double> zeroinitializer
+;
+  %r = frem nnan <2 x double> <double 0.0, double undef>, %x
+  ret <2 x double> %r
 }
 
 ; -0 % X -> -0
@@ -323,7 +348,7 @@ define float @fdiv_neg_swapped2(float %f) {
 }
 
 ; PR21126: http://llvm.org/bugs/show_bug.cgi?id=21126
-; With unsafe/fast math, sqrt(X) * sqrt(X) is just X.
+; With loose math, sqrt(X) * sqrt(X) is just X.
 
 declare double @llvm.sqrt.f64(double)
 
@@ -332,7 +357,42 @@ define double @sqrt_squared(double %f) {
 ; CHECK-NEXT:    ret double [[F:%.*]]
 ;
   %sqrt = call double @llvm.sqrt.f64(double %f)
-  %mul = fmul fast double %sqrt, %sqrt
+  %mul = fmul reassoc nnan nsz double %sqrt, %sqrt
+  ret double %mul
+}
+
+; Negative tests for the above transform: we need all 3 of those flags.
+
+define double @sqrt_squared_not_fast_enough1(double %f) {
+; CHECK-LABEL: @sqrt_squared_not_fast_enough1(
+; CHECK-NEXT:    [[SQRT:%.*]] = call double @llvm.sqrt.f64(double [[F:%.*]])
+; CHECK-NEXT:    [[MUL:%.*]] = fmul nnan nsz double [[SQRT]], [[SQRT]]
+; CHECK-NEXT:    ret double [[MUL]]
+;
+  %sqrt = call double @llvm.sqrt.f64(double %f)
+  %mul = fmul nnan nsz double %sqrt, %sqrt
+  ret double %mul
+}
+
+define double @sqrt_squared_not_fast_enough2(double %f) {
+; CHECK-LABEL: @sqrt_squared_not_fast_enough2(
+; CHECK-NEXT:    [[SQRT:%.*]] = call double @llvm.sqrt.f64(double [[F:%.*]])
+; CHECK-NEXT:    [[MUL:%.*]] = fmul reassoc nnan double [[SQRT]], [[SQRT]]
+; CHECK-NEXT:    ret double [[MUL]]
+;
+  %sqrt = call double @llvm.sqrt.f64(double %f)
+  %mul = fmul reassoc nnan double %sqrt, %sqrt
+  ret double %mul
+}
+
+define double @sqrt_squared_not_fast_enough3(double %f) {
+; CHECK-LABEL: @sqrt_squared_not_fast_enough3(
+; CHECK-NEXT:    [[SQRT:%.*]] = call double @llvm.sqrt.f64(double [[F:%.*]])
+; CHECK-NEXT:    [[MUL:%.*]] = fmul reassoc nsz double [[SQRT]], [[SQRT]]
+; CHECK-NEXT:    ret double [[MUL]]
+;
+  %sqrt = call double @llvm.sqrt.f64(double %f)
+  %mul = fmul reassoc nsz double %sqrt, %sqrt
   ret double %mul
 }
 

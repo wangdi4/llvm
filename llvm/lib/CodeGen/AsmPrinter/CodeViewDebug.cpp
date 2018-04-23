@@ -36,7 +36,6 @@
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/TargetFrameLowering.h"
-#include "llvm/CodeGen/TargetLoweringObjectFile.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/Config/llvm-config.h"
@@ -75,6 +74,7 @@
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/SMLoc.h"
 #include "llvm/Support/ScopedPrinter.h"
+#include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include <algorithm>
 #include <cassert>
@@ -524,7 +524,7 @@ void CodeViewDebug::emitTypeInformation() {
   if (TypeTable.empty())
     return;
 
-  // Start the .debug$T section with 0x4.
+  // Start the .debug$T or .debug$P section with 0x4.
   OS.SwitchSection(Asm->getObjFileLowering().getCOFFDebugTypesSection());
   emitCodeViewMagicVersion();
 
@@ -2271,10 +2271,10 @@ void CodeViewDebug::emitLocalVariableList(ArrayRef<LocalVariable> Locals) {
   for (const LocalVariable &L : Locals)
     if (L.DIVar->isParameter())
       Params.push_back(&L);
-  std::sort(Params.begin(), Params.end(),
-            [](const LocalVariable *L, const LocalVariable *R) {
-              return L->DIVar->getArg() < R->DIVar->getArg();
-            });
+  llvm::sort(Params.begin(), Params.end(),
+             [](const LocalVariable *L, const LocalVariable *R) {
+               return L->DIVar->getArg() < R->DIVar->getArg();
+             });
   for (const LocalVariable *L : Params)
     emitLocalVariable(*L);
 

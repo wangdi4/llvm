@@ -25,7 +25,6 @@
 using namespace llvm;
 using namespace llvm::dwarf;
 using namespace llvm::object;
-using namespace llvm::support::endian;
 using namespace llvm::ELF;
 
 using namespace lld;
@@ -124,7 +123,6 @@ void OutputSection::addSection(InputSection *IS) {
   Flags = AndFlags | OrFlags;
 
   Alignment = std::max(Alignment, IS->Alignment);
-  IS->OutSecOff = Size++;
 
   // If this section contains a table of fixed-size entries, sh_entsize
   // holds the element size. If it contains elements of different size we
@@ -213,11 +211,11 @@ static void writeInt(uint8_t *Buf, uint64_t Data, uint64_t Size) {
   if (Size == 1)
     *Buf = Data;
   else if (Size == 2)
-    write16(Buf, Data, Config->Endianness);
+    write16(Buf, Data);
   else if (Size == 4)
-    write32(Buf, Data, Config->Endianness);
+    write32(Buf, Data);
   else if (Size == 8)
-    write64(Buf, Data, Config->Endianness);
+    write64(Buf, Data);
   else
     llvm_unreachable("unsupported Size argument");
 }
@@ -366,8 +364,6 @@ static bool compCtors(const InputSection *A, const InputSection *B) {
   assert(Y.startswith(".ctors") || Y.startswith(".dtors"));
   X = X.substr(6);
   Y = Y.substr(6);
-  if (X.empty() && Y.empty())
-    return false;
   return X < Y;
 }
 
