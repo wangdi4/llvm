@@ -153,7 +153,8 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "mmx", true);
     break;
 
-  case CK_Icelake:
+  case CK_IcelakeServer:
+  case CK_IcelakeClient:
     setFeatureEnabledImpl(Features, "vaes", true);
     setFeatureEnabledImpl(Features, "gfni", true);
     setFeatureEnabledImpl(Features, "vpclmulqdq", true);
@@ -182,7 +183,8 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "xsavec", true);
     setFeatureEnabledImpl(Features, "xsaves", true);
     setFeatureEnabledImpl(Features, "mpx", true);
-    setFeatureEnabledImpl(Features, "sgx", true);
+    if (Kind != CK_SkylakeServer) // SKX inherits all SKL features, except SGX
+      setFeatureEnabledImpl(Features, "sgx", true);
     setFeatureEnabledImpl(Features, "clflushopt", true);
     setFeatureEnabledImpl(Features, "rtm", true);
     LLVM_FALLTHROUGH;
@@ -931,7 +933,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_SkylakeClient:
   case CK_SkylakeServer:
   case CK_Cannonlake:
-  case CK_Icelake:
+  case CK_IcelakeClient:
+  case CK_IcelakeServer:
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
     // recent primary x86 CPUs, and we should keep it that way.
@@ -1533,7 +1536,7 @@ bool X86TargetInfo::validateAsmConstraint(
   case 'y': // Any MMX register.
   case 'v': // Any {X,Y,Z}MM register (Arch & context dependent)
   case 'x': // Any SSE register.
-  case 'k': // Any AVX512 mask register (same as Yk, additionaly allows k0
+  case 'k': // Any AVX512 mask register (same as Yk, additionally allows k0
             // for intermideate k reg operations).
   case 'Q': // Any register accessible as [r]h: a, b, c, and d.
   case 'R': // "Legacy" registers: ax, bx, cx, dx, di, si, sp, bp.

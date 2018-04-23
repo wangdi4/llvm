@@ -386,11 +386,12 @@ private:
     bool StartsObjCMethodExpr =
         !CppArrayTemplates && Style.isCpp() && !IsCpp11AttributeSpecifier &&
         Contexts.back().CanBeExpression && Left->isNot(TT_LambdaLSquare) &&
-        CurrentToken->isNot(tok::l_brace) &&
+        !CurrentToken->isOneOf(tok::l_brace, tok::r_square) &&
         (!Parent ||
          Parent->isOneOf(tok::colon, tok::l_square, tok::l_paren,
                          tok::kw_return, tok::kw_throw) ||
          Parent->isUnaryOperator() ||
+         // FIXME(bug 36976): ObjC return types shouldn't use TT_CastRParen.
          Parent->isOneOf(TT_ObjCForIn, TT_CastRParen) ||
          getBinOpPrecedence(Parent->Tok.getKind(), true, true) > prec::Unknown);
     bool ColonFound = false;
@@ -524,6 +525,7 @@ private:
           Left->ParameterCount = 0;
           Contexts.back().ColonIsObjCMethodExpr = true;
           if (Parent && Parent->is(tok::r_paren))
+            // FIXME(bug 36976): ObjC return types shouldn't use TT_CastRParen.
             Parent->Type = TT_CastRParen;
         }
         ColonFound = true;
@@ -676,6 +678,7 @@ private:
         Tok->Type = TT_ObjCMethodExpr;
         const FormatToken *BeforePrevious = Tok->Previous->Previous;
         if (!BeforePrevious ||
+            // FIXME(bug 36976): ObjC return types shouldn't use TT_CastRParen.
             !(BeforePrevious->is(TT_CastRParen) ||
               (BeforePrevious->is(TT_ObjCMethodExpr) &&
                BeforePrevious->is(tok::colon))) ||
@@ -701,7 +704,8 @@ private:
         else
           Tok->Type = TT_InheritanceColon;
       } else if (Tok->Previous->is(tok::identifier) && Tok->Next &&
-                 Tok->Next->isOneOf(tok::r_paren, tok::comma)) {
+                 (Tok->Next->isOneOf(tok::r_paren, tok::comma) ||
+                  Tok->Next->startsSequence(tok::identifier, tok::colon))) {
         // This handles a special macro in ObjC code where selectors including
         // the colon are passed as macro arguments.
         Tok->Type = TT_ObjCMethodExpr;
@@ -1342,6 +1346,17 @@ private:
                                          TT_LeadingJavaAnnotation)) {
         Current.Type = Current.Previous->Type;
       }
+    } else if (Current.isOneOf(tok::identifier, tok::kw_new) &&
+               // FIXME(bug 36976): ObjC return types shouldn't use TT_CastRParen.
+               Current.Previous && Current.Previous->is(TT_CastRParen) &&
+               Current.Previous->MatchingParen &&
+               Current.Previous->MatchingParen->Previous &&
+               Current.Previous->MatchingParen->Previous->is(
+                   TT_ObjCMethodSpecifier)) {
+      // This is the first part of an Objective-C selector name. (If there's no
+      // colon after this, this is the only place which annotates the identifier
+      // as a selector.)
+      Current.Type = TT_SelectorName;
     } else if (Current.isOneOf(tok::identifier, tok::kw_const) &&
                Current.Previous &&
                !Current.Previous->isOneOf(tok::equal, tok::at) &&
@@ -2479,6 +2494,13 @@ bool TokenAnnotator::spaceRequiredBetween(const AnnotatedLine &Line,
     return false;
   if (Left.is(TT_TemplateCloser) && Right.is(tok::l_square))
     return false;
+  if (Left.is(tok::l_brace) && Left.endsSequence(TT_DictLiteral, tok::at))
+    // Objective-C dictionary literal -> no space after opening brace.
+    return false;
+  if (Right.is(tok::r_brace) && Right.MatchingParen &&
+      Right.MatchingParen->endsSequence(TT_DictLiteral, tok::at))
+    // Objective-C dictionary literal -> no space before closing brace.
+    return false;
   return true;
 }
 
@@ -2510,6 +2532,10 @@ bool TokenAnnotator::spaceRequiredBefore(const AnnotatedLine &Line,
     // A percent is probably part of a formatting specification, such as %lld.
     if (Left.is(tok::percent))
       return false;
+    // Preserve the existence of a space before a percent for cases like 0x%04x
+    // and "%d %d"
+    if (Left.is(tok::numeric_constant) && Right.is(tok::percent))
+      return Right.WhitespaceRange.getEnd() != Right.WhitespaceRange.getBegin();
   } else if (Style.Language == FormatStyle::LK_JavaScript) {
     if (Left.is(TT_JsFatArrow))
       return true;
@@ -2614,8 +2640,10 @@ bool TokenAnnotator::spaceRequiredBefore(const AnnotatedLine &Line,
   if (Line.Type == LT_ObjCMethodDecl) {
     if (Left.is(TT_ObjCMethodSpecifier))
       return true;
-    if (Left.is(tok::r_paren) && Right.is(tok::identifier))
-      // Don't space between ')' and <id>
+    if (Left.is(tok::r_paren) && Right.isOneOf(tok::identifier, tok::kw_new))
+      // Don't space between ')' and <id> or ')' and 'new'. 'new' is not a
+      // keyword in Objective-C, and '+ (instancetype)new;' is a standard class
+      // method declaration.
       return false;
   }
   if (Line.Type == LT_ObjCProperty &&
@@ -2689,7 +2717,8 @@ bool TokenAnnotator::spaceRequiredBefore(const AnnotatedLine &Line,
             Style.Standard == FormatStyle::LS_Cpp03) ||
            !(Left.isOneOf(tok::l_paren, tok::r_paren, tok::l_square,
                           tok::kw___super, TT_TemplateCloser,
-                          TT_TemplateOpener));
+                          TT_TemplateOpener)) ||
+           (Left.is(tok ::l_paren) && Style.SpacesInParentheses);
   if ((Left.is(TT_TemplateOpener)) != (Right.is(TT_TemplateCloser)))
     return Style.SpacesInAngles;
   // Space before TT_StructuredBindingLSquare.
@@ -2826,10 +2855,10 @@ bool TokenAnnotator::mustBreakBefore(const AnnotatedLine &Line,
   if (Style.BreakBeforeInheritanceComma && Right.is(TT_InheritanceComma))
     return true;
   if (Right.is(tok::string_literal) && Right.TokenText.startswith("R\""))
-    // Raw string literals are special wrt. line breaks. The author has made a
-    // deliberate choice and might have aligned the contents of the string
-    // literal accordingly. Thus, we try keep existing line breaks.
-    return Right.NewlinesBefore > 0;
+    // Multiline raw string literals are special wrt. line breaks. The author
+    // has made a deliberate choice and might have aligned the contents of the
+    // string literal accordingly. Thus, we try keep existing line breaks.
+    return Right.IsMultiline && Right.NewlinesBefore > 0;
   if ((Right.Previous->is(tok::l_brace) ||
        (Right.Previous->is(tok::less) && Right.Previous->Previous &&
         Right.Previous->Previous->is(tok::equal))) &&

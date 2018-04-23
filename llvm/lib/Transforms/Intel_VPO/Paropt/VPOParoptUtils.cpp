@@ -2273,7 +2273,7 @@ CallInst *VPOParoptUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
   if (AI && AI->isArrayAllocation())
     Size = MemcpyBuilder.CreateMul(Size, AI->getArraySize());
 
-  return MemcpyBuilder.CreateMemCpy(Dest, Src, Size, Align);
+  return MemcpyBuilder.CreateMemCpy(Dest, Align, Src, Align, Size);
 }
 
 // Emit Constructor call and insert it after PrivAlloca

@@ -593,8 +593,11 @@ enum AttributeKindCodes {
   ATTR_KIND_STRICT_FP = 54,
   ATTR_KIND_SANITIZE_HWADDRESS = 55,
   ATTR_KIND_NOCF_CHECK = 56,
+  ATTR_KIND_OPT_FOR_FUZZING = 57,
+  ATTR_KIND_SHADOWCALLSTACK = 58,
+
 #if INTEL_CUSTOMIZATION
-  // Note: Anything over 63 causes an issue with shifting later on.  The
+  // Note: Anything 63/over causes an issue with shifting later on.  The
   // underlying type of this will have to be changed to a larger type if we get
   // above 61 in community.
   ATTR_KIND_ALWAYS_INLINE_RECURSIVE = 61,

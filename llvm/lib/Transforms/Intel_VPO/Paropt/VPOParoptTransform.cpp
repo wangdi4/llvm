@@ -69,7 +69,7 @@
 
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
-#include "llvm/Transforms/Utils/Intel_LoopRotationUtils.h"
+#include "llvm/Transforms/Utils/LoopRotationUtils.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 
 #include <algorithm>

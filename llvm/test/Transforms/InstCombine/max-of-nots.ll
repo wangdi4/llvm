@@ -238,17 +238,11 @@ define i32 @compute_min_pessimization(i32 %x, i32 %y) {
 ; CHECK-LABEL: @compute_min_pessimization(
 ; CHECK-NEXT:    [[NOT_VALUE:%.*]] = sub i32 3, [[X:%.*]]
 ; CHECK-NEXT:    call void @fake_use(i32 [[NOT_VALUE]])
-; INTEL_CUSTOMIZATION
-; This patch is already open sourced. Committed directly to xmain also
-; by the request from vectoizer team in scope of work on LCPT-956 perf
-; opportunity implementation for x264.
-; Please REMOVE this comment after pulldown.
 ; CHECK-NEXT:    [[TMP1:%.*]] = add i32 [[X]], -4
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp sgt i32 [[TMP1]], [[Y:%.*]]
 ; CHECK-NEXT:    [[MIN:%.*]] = select i1 [[TMP2]], i32 [[Y]], i32 [[TMP1]]
 ; CHECK-NEXT:    ret i32 [[MIN]]
 ;
-; END INTEL_CUSTOMIZATION
   %not_value = sub i32 3, %x
   call void @fake_use(i32 %not_value)
   %not_y = sub i32 -1, %y

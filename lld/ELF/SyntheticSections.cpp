@@ -65,7 +65,7 @@ uint64_t SyntheticSection::getVA() const {
 // Returns an LLD version string.
 static ArrayRef<uint8_t> getVersion() {
   // Check LLD_VERSION first for ease of testing.
-  // You can get consitent output by using the environment variable.
+  // You can get consistent output by using the environment variable.
   // This is only for testing.
   StringRef S = getenv("LLD_VERSION");
   if (S.empty())
@@ -264,8 +264,8 @@ InputSection *elf::createInterpSection() {
   return Sec;
 }
 
-Symbol *elf::addSyntheticLocal(StringRef Name, uint8_t Type, uint64_t Value,
-                               uint64_t Size, InputSectionBase &Section) {
+Defined *elf::addSyntheticLocal(StringRef Name, uint8_t Type, uint64_t Value,
+                                uint64_t Size, InputSectionBase &Section) {
   auto *S = make<Defined>(Section.File, Name, STB_LOCAL, STV_DEFAULT, Type,
                           Value, Size, &Section);
   if (InX::SymTab)
@@ -587,7 +587,15 @@ void EhFrameSection::writeTo(uint8_t *Buf) {
 
 GotSection::GotSection()
     : SyntheticSection(SHF_ALLOC | SHF_WRITE, SHT_PROGBITS,
-                       Target->GotEntrySize, ".got") {}
+                       Target->GotEntrySize, ".got") {
+  // PPC64 saves the ElfSym::GlobalOffsetTable .TOC. as the first entry in the
+  // .got. If there are no references to .TOC. in the symbol table,
+  // ElfSym::GlobalOffsetTable will not be defined and we won't need to save
+  // .TOC. in the .got. When it is defined, we increase NumEntries by the number
+  // of entries used to emit ElfSym::GlobalOffsetTable.
+  if (ElfSym::GlobalOffsetTable && !Target->GotBaseSymInGotPlt)
+    NumEntries += Target->GotHeaderEntriesNum;
+}
 
 void GotSection::addEntry(Symbol &Sym) {
   Sym.GotIndex = NumEntries;
@@ -621,19 +629,24 @@ uint64_t GotSection::getGlobalDynOffset(const Symbol &B) const {
   return B.GlobalDynIndex * Config->Wordsize;
 }
 
-void GotSection::finalizeContents() { Size = NumEntries * Config->Wordsize; }
+void GotSection::finalizeContents() {
+  Size = NumEntries * Config->Wordsize;
+}
 
 bool GotSection::empty() const {
   // We need to emit a GOT even if it's empty if there's a relocation that is
   // relative to GOT(such as GOTOFFREL) or there's a symbol that points to a GOT
-  // (i.e. _GLOBAL_OFFSET_TABLE_).
-  return NumEntries == 0 && !HasGotOffRel && !ElfSym::GlobalOffsetTable;
+  // (i.e. _GLOBAL_OFFSET_TABLE_) that the target defines relative to the .got.
+  return NumEntries == 0 && !HasGotOffRel &&
+         !(ElfSym::GlobalOffsetTable && !Target->GotBaseSymInGotPlt);
 }
 
 void GotSection::writeTo(uint8_t *Buf) {
   // Buf points to the start of this section's buffer,
   // whereas InputSectionBase::relocateAlloc() expects its argument
   // to point to the start of the output section.
+  Target->writeGotHeader(Buf);
+  Buf += Target->GotHeaderEntriesNum * Target->GotEntrySize;
   relocateAlloc(Buf - OutSecOff, Buf - OutSecOff + Size);
 }
 
@@ -898,6 +911,14 @@ void GotPltSection::writeTo(uint8_t *Buf) {
   }
 }
 
+bool GotPltSection::empty() const {
+  // We need to emit a GOT.PLT even if it's empty if there's a symbol that
+  // references the _GLOBAL_OFFSET_TABLE_ and the Target defines the symbol
+  // relative to the .got.plt section.
+  return Entries.empty() &&
+         !(ElfSym::GlobalOffsetTable && Target->GotBaseSymInGotPlt);
+}
+
 // On ARM the IgotPltSection is part of the GotSection, on other Targets it is
 // part of the .got.plt
 IgotPltSection::IgotPltSection()
@@ -1003,8 +1024,7 @@ void DynamicSection<ELFT>::addInt(int32_t Tag, uint64_t Val) {
 
 template <class ELFT>
 void DynamicSection<ELFT>::addInSec(int32_t Tag, InputSection *Sec) {
-  Entries.push_back(
-      {Tag, [=] { return Sec->getParent()->Addr + Sec->OutSecOff; }});
+  Entries.push_back({Tag, [=] { return Sec->getVA(0); }});
 }
 
 template <class ELFT>
@@ -1181,7 +1201,7 @@ template <class ELFT> void DynamicSection<ELFT>::writeTo(uint8_t *Buf) {
 }
 
 uint64_t DynamicReloc::getOffset() const {
-  return InputSec->getOutputSection()->Addr + InputSec->getOffset(OffsetInSec);
+  return InputSec->getVA(OffsetInSec);
 }
 
 int64_t DynamicReloc::computeAddend() const {
@@ -1500,39 +1520,60 @@ static bool sortMipsSymbols(const SymbolTableEntry &L,
 void SymbolTableBaseSection::finalizeContents() {
   getParent()->Link = StrTabSec.getParent()->SectionIndex;
 
+  if (this->Type != SHT_DYNSYM)
+    return;
+
   // If it is a .dynsym, there should be no local symbols, but we need
   // to do a few things for the dynamic linker.
-  if (this->Type == SHT_DYNSYM) {
-    // Section's Info field has the index of the first non-local symbol.
-    // Because the first symbol entry is a null entry, 1 is the first.
-    getParent()->Info = 1;
 
-    if (InX::GnuHashTab) {
-      // NB: It also sorts Symbols to meet the GNU hash table requirements.
-      InX::GnuHashTab->addSymbols(Symbols);
-    } else if (Config->EMachine == EM_MIPS) {
-      std::stable_sort(Symbols.begin(), Symbols.end(), sortMipsSymbols);
-    }
+  // Section's Info field has the index of the first non-local symbol.
+  // Because the first symbol entry is a null entry, 1 is the first.
+  getParent()->Info = 1;
 
-    size_t I = 0;
-    for (const SymbolTableEntry &S : Symbols) S.Sym->DynsymIndex = ++I;
-    return;
+  if (InX::GnuHashTab) {
+    // NB: It also sorts Symbols to meet the GNU hash table requirements.
+    InX::GnuHashTab->addSymbols(Symbols);
+  } else if (Config->EMachine == EM_MIPS) {
+    std::stable_sort(Symbols.begin(), Symbols.end(), sortMipsSymbols);
   }
+
+  size_t I = 0;
+  for (const SymbolTableEntry &S : Symbols)
+    S.Sym->DynsymIndex = ++I;
 }
 
 // The ELF spec requires that all local symbols precede global symbols, so we
 // sort symbol entries in this function. (For .dynsym, we don't do that because
 // symbols for dynamic linking are inherently all globals.)
+//
+// Aside from above, we put local symbols in groups starting with the STT_FILE
+// symbol. That is convenient for purpose of identifying where are local symbols
+// coming from.
 void SymbolTableBaseSection::postThunkContents() {
   if (this->Type == SHT_DYNSYM)
     return;
-  // move all local symbols before global symbols.
-  auto It = std::stable_partition(
+
+  // Move all local symbols before global symbols.
+  auto E = std::stable_partition(
       Symbols.begin(), Symbols.end(), [](const SymbolTableEntry &S) {
         return S.Sym->isLocal() || S.Sym->computeBinding() == STB_LOCAL;
       });
-  size_t NumLocals = It - Symbols.begin();
+  size_t NumLocals = E - Symbols.begin();
   getParent()->Info = NumLocals + 1;
+
+  // Assign the growing unique ID for each local symbol's file.
+  DenseMap<InputFile *, unsigned> FileIDs;
+  for (auto I = Symbols.begin(); I != E; ++I)
+    FileIDs.insert({I->Sym->File, FileIDs.size()});
+
+  // Sort the local symbols to group them by file. We do not need to care about
+  // the STT_FILE symbols, they are already naturally placed first in each group.
+  // That happens because STT_FILE is always the first symbol in the object and
+  // hence precede all other local symbols we add for a file.
+  std::stable_sort(Symbols.begin(), E,
+                   [&](const SymbolTableEntry &L, const SymbolTableEntry &R) {
+                     return FileIDs[L.Sym->File] < FileIDs[R.Sym->File];
+                   });
 }
 
 void SymbolTableBaseSection::addSymbol(Symbol *B) {
@@ -1720,7 +1761,7 @@ void GnuHashTableSection::writeTo(uint8_t *Buf) {
   write32(Buf, NBuckets);
   write32(Buf + 4, InX::DynSymTab->getNumSymbols() - Symbols.size());
   write32(Buf + 8, MaskWords);
-  write32(Buf + 12, getShift2());
+  write32(Buf + 12, Shift2);
   Buf += 16;
 
   // Write a bloom filter and a hash table.
@@ -1742,7 +1783,7 @@ void GnuHashTableSection::writeBloomFilter(uint8_t *Buf) {
     size_t I = (Sym.Hash / C) & (MaskWords - 1);
     uint64_t Val = readUint(Buf + I * Config->Wordsize);
     Val |= uint64_t(1) << (Sym.Hash % C);
-    Val |= uint64_t(1) << ((Sym.Hash >> getShift2()) % C);
+    Val |= uint64_t(1) << ((Sym.Hash >> Shift2) % C);
     writeUint(Buf + I * Config->Wordsize, Val);
   }
 }
@@ -2132,8 +2173,7 @@ void GdbIndexSection::writeTo(uint8_t *Buf) {
   // Write the address area.
   for (GdbIndexChunk &D : Chunks) {
     for (GdbIndexChunk::AddressEntry &E : D.AddressAreas) {
-      uint64_t BaseAddr =
-          E.Section->getParent()->Addr + E.Section->getOffset(0);
+      uint64_t BaseAddr = E.Section->getVA(0);
       write64le(Buf, BaseAddr + E.LowAddress);
       write64le(Buf + 8, BaseAddr + E.HighAddress);
       write32le(Buf + 16, E.CuIndex);
@@ -2316,8 +2356,7 @@ VersionNeedSection<ELFT>::VersionNeedSection()
 template <class ELFT>
 void VersionNeedSection<ELFT>::addSymbol(SharedSymbol *SS) {
   SharedFile<ELFT> &File = SS->getFile<ELFT>();
-  const typename ELFT::Verdef *Ver = File.Verdefs[SS->VerdefIndex];
-  if (!Ver) {
+  if (SS->VerdefIndex == VER_NDX_GLOBAL) {
     SS->VersionId = VER_NDX_GLOBAL;
     return;
   }
@@ -2327,7 +2366,9 @@ void VersionNeedSection<ELFT>::addSymbol(SharedSymbol *SS) {
   // for the soname.
   if (File.VerdefMap.empty())
     Needed.push_back({&File, InX::DynStrTab->addString(File.SoName)});
+  const typename ELFT::Verdef *Ver = File.Verdefs[SS->VerdefIndex];
   typename SharedFile<ELFT>::NeededVer &NV = File.VerdefMap[Ver];
+
   // If we don't already know that we need an Elf_Vernaux for this Elf_Verdef,
   // prepare to create one by allocating a version identifier and creating a
   // dynstr entry for the version name.
@@ -2510,9 +2551,8 @@ void elf::mergeSections() {
   // splitIntoPieces needs to be called on each MergeInputSection
   // before calling finalizeContents(). Do that first.
   parallelForEach(InputSections, [](InputSectionBase *Sec) {
-    if (Sec->Live)
-      if (auto *S = dyn_cast<MergeInputSection>(Sec))
-        S->splitIntoPieces();
+    if (auto *S = dyn_cast<MergeInputSection>(Sec))
+      S->splitIntoPieces();
   });
 
   std::vector<MergeSyntheticSection *> MergeSections;
@@ -2576,8 +2616,7 @@ ARMExidxSentinelSection::ARMExidxSentinelSection()
 // address described by any other table entry.
 void ARMExidxSentinelSection::writeTo(uint8_t *Buf) {
   assert(Highest);
-  uint64_t S =
-      Highest->getParent()->Addr + Highest->getOffset(Highest->getSize());
+  uint64_t S = Highest->getVA(Highest->getSize());
   uint64_t P = getVA();
   Target->relocateOne(Buf, R_ARM_PREL31, S - P);
   write32le(Buf + 4, 1);
@@ -2599,16 +2638,13 @@ ThunkSection::ThunkSection(OutputSection *OS, uint64_t Off)
 }
 
 void ThunkSection::addThunk(Thunk *T) {
-  uint64_t Off = alignTo(Size, T->Alignment);
-  T->Offset = Off;
   Thunks.push_back(T);
   T->addSymbols(*this);
-  Size = Off + T->size();
 }
 
 void ThunkSection::writeTo(uint8_t *Buf) {
-  for (const Thunk *T : Thunks)
-    T->writeTo(Buf + T->Offset, *this);
+  for (Thunk *T : Thunks)
+    T->writeTo(Buf + T->Offset);
 }
 
 InputSection *ThunkSection::getTargetInputSection() const {
@@ -2616,6 +2652,20 @@ InputSection *ThunkSection::getTargetInputSection() const {
     return nullptr;
   const Thunk *T = Thunks.front();
   return T->getTargetInputSection();
+}
+
+bool ThunkSection::assignOffsets() {
+  uint64_t Off = 0;
+  for (Thunk *T : Thunks) {
+    Off = alignTo(Off, T->Alignment);
+    T->setOffset(Off);
+    uint32_t Size = T->size();
+    T->getThunkTargetSym()->Size = Size;
+    Off += Size;
+  }
+  bool Changed = Off != Size;
+  Size = Off;
+  return Changed;
 }
 
 InputSection *InX::ARMAttributes;

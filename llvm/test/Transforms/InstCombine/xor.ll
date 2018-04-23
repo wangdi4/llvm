@@ -157,27 +157,6 @@ define <2 x i1> @test12vec(<2 x i8> %a) {
   ret <2 x i1> %c
 }
 
-define i1 @test13(i8 %A, i8 %B) {
-; CHECK-LABEL: @test13(
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp ne i8 %A, %B
-; CHECK-NEXT:    ret i1 [[TMP1]]
-;
-  %C = icmp ult i8 %A, %B
-  %D = icmp ugt i8 %A, %B
-  %E = xor i1 %C, %D
-  ret i1 %E
-}
-
-define i1 @test14(i8 %A, i8 %B) {
-; CHECK-LABEL: @test14(
-; CHECK-NEXT:    ret i1 true
-;
-  %C = icmp eq i8 %A, %B
-  %D = icmp ne i8 %B, %A
-  %E = xor i1 %C, %D
-  ret i1 %E
-}
-
 define i32 @test15(i32 %A) {
 ; CHECK-LABEL: @test15(
 ; CHECK-NEXT:    [[C:%.*]] = sub i32 0, %A
@@ -597,12 +576,6 @@ define i32 @test38(i32 %A, i32 %B) {
   ret i32 %xor
 }
 
-; INTEL_CUSTOMIZATION
-; This patch is already open sourced. Committed directly to xmain also
-; by the request from vectoizer team in scope of work on LCPT-956 perf
-; opportunity implementation for x264.
-; Please REMOVE this comment after pulldown.
-
 ; The tests 39-47 are related to the canonicalization:
 ; %notx = xor i32 %x, -1
 ; %cmp = icmp sgt i32 %notx, %y
@@ -746,4 +719,3 @@ define i32 @test47(i32 %x, i32 %y, i32 %z) {
   %res = mul i32 %umin, %add
   ret i32 %res
 }
-; END INTEL_CUSTOMIZATION

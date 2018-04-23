@@ -14,10 +14,10 @@
 #include "InstCombineInternal.h"
 #include "llvm/Analysis/CmpInstAnalysis.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/PatternMatch.h"
-#include "llvm/Transforms/Utils/Local.h"
 using namespace llvm;
 using namespace PatternMatch;
 
@@ -1121,8 +1121,8 @@ Value *InstCombiner::foldLogicOfFCmps(FCmpInst *LHS, FCmpInst *RHS, bool IsAnd) 
       return nullptr;
 
     // FCmp canonicalization ensures that (fcmp ord/uno X, X) and
-    // (fcmp ord/uno X, C) will be transformed to (fcmp X, 0.0).
-    if (match(LHS1, m_Zero()) && LHS1 == RHS1)
+    // (fcmp ord/uno X, C) will be transformed to (fcmp X, +0.0).
+    if (match(LHS1, m_PosZeroFP()) && match(RHS1, m_PosZeroFP()))
       // Ignore the constants because they are obviously not NANs:
       // (fcmp ord x, 0.0) & (fcmp ord y, 0.0)  -> (fcmp ord x, y)
       // (fcmp uno x, 0.0) | (fcmp uno y, 0.0)  -> (fcmp uno x, y)
@@ -2363,6 +2363,34 @@ Value *InstCombiner::foldXorOfICmps(ICmpInst *LHS, ICmpInst *RHS) {
     }
   }
 
+  // TODO: This can be generalized to compares of non-signbits using
+  // decomposeBitTestICmp(). It could be enhanced more by using (something like)
+  // foldLogOpOfMaskedICmps().
+  ICmpInst::Predicate PredL = LHS->getPredicate(), PredR = RHS->getPredicate();
+  Value *LHS0 = LHS->getOperand(0), *LHS1 = LHS->getOperand(1);
+  Value *RHS0 = RHS->getOperand(0), *RHS1 = RHS->getOperand(1);
+  if ((LHS->hasOneUse() || RHS->hasOneUse()) &&
+      LHS0->getType() == RHS0->getType()) {
+    // (X > -1) ^ (Y > -1) --> (X ^ Y) < 0
+    // (X <  0) ^ (Y <  0) --> (X ^ Y) < 0
+    if ((PredL == CmpInst::ICMP_SGT && match(LHS1, m_AllOnes()) &&
+         PredR == CmpInst::ICMP_SGT && match(RHS1, m_AllOnes())) ||
+        (PredL == CmpInst::ICMP_SLT && match(LHS1, m_Zero()) &&
+         PredR == CmpInst::ICMP_SLT && match(RHS1, m_Zero()))) {
+      Value *Zero = ConstantInt::getNullValue(LHS0->getType());
+      return Builder.CreateICmpSLT(Builder.CreateXor(LHS0, RHS0), Zero);
+    }
+    // (X > -1) ^ (Y <  0) --> (X ^ Y) > -1
+    // (X <  0) ^ (Y > -1) --> (X ^ Y) > -1
+    if ((PredL == CmpInst::ICMP_SGT && match(LHS1, m_AllOnes()) &&
+         PredR == CmpInst::ICMP_SLT && match(RHS1, m_Zero())) ||
+        (PredL == CmpInst::ICMP_SLT && match(LHS1, m_Zero()) &&
+         PredR == CmpInst::ICMP_SGT && match(RHS1, m_AllOnes()))) {
+      Value *MinusOne = ConstantInt::getAllOnesValue(LHS0->getType());
+      return Builder.CreateICmpSGT(Builder.CreateXor(LHS0, RHS0), MinusOne);
+    }
+  }
+
   // Instead of trying to imitate the folds for and/or, decompose this 'xor'
   // into those logic ops. That is, try to turn this into an and-of-icmps
   // because we have many folds for that pattern.
@@ -2668,12 +2696,6 @@ Instruction *InstCombiner::visitXor(BinaryOperator &I) {
     return SelectInst::Create(Cmp, Builder.CreateNeg(A), A);
   }
 
-#if INTEL_CUSTOMIZATION
-  // This patch is already open sourced. Committed directly to xmain also
-  // by the request from vectoizer team in scope of work on LCPT-956 perf
-  // opportunity implementation for x264.
-  // Please REMOVE this part of comment after pulldown.
-  //
   // Eliminate a bitwise 'not' op of 'not' min/max by inverting the min/max:
   //
   //   %notx = xor i32 %x, -1
@@ -2703,7 +2725,6 @@ Instruction *InstCombiner::visitXor(BinaryOperator &I) {
       }
     }
   }
-#endif // INTEL_CUSTOMIZATION
 
   return Changed ? &I : nullptr;
 }

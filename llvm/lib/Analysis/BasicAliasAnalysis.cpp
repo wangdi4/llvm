@@ -1599,6 +1599,12 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, uint64_t PNSize,
       V1Srcs.push_back(PV1);
   }
 
+#if INTEL_CUSTOMIZATION
+  // Don't process a degenerate phi. This can be created by jump threading.
+  if (V1Srcs.empty())
+    return MayAlias;
+#endif
+
   // If this PHI node is recursive, set the size of the accessed memory to
   // unknown to represent all the possible values the GEP could advance the
   // pointer to.

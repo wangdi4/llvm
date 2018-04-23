@@ -47,7 +47,6 @@
 #include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/CodeGen/RuntimeLibcalls.h"
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
@@ -83,6 +82,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/KnownBits.h"
+#include "llvm/Support/MachineValueType.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
@@ -110,6 +110,9 @@ cl::desc("disable unaligned load/store generation on PPC"), cl::Hidden);
 
 static cl::opt<bool> DisableSCO("disable-ppc-sco",
 cl::desc("disable sibling call optimization on ppc"), cl::Hidden);
+
+static cl::opt<bool> EnableQuadPrecision("enable-ppc-quad-precision",
+cl::desc("enable quad precision float support on ppc"), cl::Hidden);
 
 STATISTIC(NumTailCalls, "Number of tail calls");
 STATISTIC(NumSiblingCalls, "Number of sibling calls");
@@ -201,9 +204,10 @@ PPCTargetLowering::PPCTargetLowering(const PPCTargetMachine &TM,
     addRegisterClass(MVT::i1, &PPC::CRBITRCRegClass);
   }
 
-  // This is used in the ppcf128->int sequence.  Note it has different semantics
-  // from FP_ROUND:  that rounds to nearest, this rounds to zero.
-  setOperationAction(ISD::FP_ROUND_INREG, MVT::ppcf128, Custom);
+  // Expand ppcf128 to i32 by hand for the benefit of llvm-gcc bootstrap on
+  // PPC (the libcall is not available).
+  setOperationAction(ISD::FP_TO_SINT, MVT::ppcf128, Custom);
+  setOperationAction(ISD::FP_TO_UINT, MVT::ppcf128, Custom);
 
   // We do not currently implement these libm ops for PowerPC.
   setOperationAction(ISD::FFLOOR, MVT::ppcf128, Expand);
@@ -785,6 +789,18 @@ PPCTargetLowering::PPCTargetLowering(const PPCTargetMachine &TM,
       setOperationAction(ISD::SHL, MVT::v1i128, Legal);
       setOperationAction(ISD::SRL, MVT::v1i128, Legal);
       setOperationAction(ISD::SRA, MVT::v1i128, Expand);
+
+      if (EnableQuadPrecision) {
+        addRegisterClass(MVT::f128, &PPC::VRRCRegClass);
+        setOperationAction(ISD::FADD, MVT::f128, Legal);
+        setOperationAction(ISD::FSUB, MVT::f128, Legal);
+        setOperationAction(ISD::FDIV, MVT::f128, Legal);
+        setOperationAction(ISD::FMUL, MVT::f128, Legal);
+        setOperationAction(ISD::FP_EXTEND, MVT::f128, Legal);
+        setLoadExtAction(ISD::EXTLOAD, MVT::f128, MVT::f64, Expand);
+        setOperationAction(ISD::FMA, MVT::f128, Legal);
+      }
+
     }
 
     if (Subtarget.hasP9Altivec()) {
@@ -6908,6 +6924,46 @@ SDValue PPCTargetLowering::LowerFP_TO_INTDirectMove(SDValue Op,
 
 SDValue PPCTargetLowering::LowerFP_TO_INT(SDValue Op, SelectionDAG &DAG,
                                           const SDLoc &dl) const {
+  // Expand ppcf128 to i32 by hand for the benefit of llvm-gcc bootstrap on
+  // PPC (the libcall is not available).
+  if (Op.getOperand(0).getValueType() == MVT::ppcf128) {
+    if (Op.getValueType() == MVT::i32) {
+      if (Op.getOpcode() == ISD::FP_TO_SINT) {
+        SDValue Lo = DAG.getNode(ISD::EXTRACT_ELEMENT, dl,
+                                 MVT::f64, Op.getOperand(0),
+                                 DAG.getIntPtrConstant(0, dl));
+        SDValue Hi = DAG.getNode(ISD::EXTRACT_ELEMENT, dl,
+                                 MVT::f64, Op.getOperand(0),
+                                 DAG.getIntPtrConstant(1, dl));
+
+        // Add the two halves of the long double in round-to-zero mode.
+        SDValue Res = DAG.getNode(PPCISD::FADDRTZ, dl, MVT::f64, Lo, Hi);
+
+        // Now use a smaller FP_TO_SINT.
+        return DAG.getNode(ISD::FP_TO_SINT, dl, MVT::i32, Res);
+      }
+      if (Op.getOpcode() == ISD::FP_TO_UINT) {
+        const uint64_t TwoE31[] = {0x41e0000000000000LL, 0};
+        APFloat APF = APFloat(APFloat::PPCDoubleDouble(), APInt(128, TwoE31));
+        SDValue Tmp = DAG.getConstantFP(APF, dl, MVT::ppcf128);
+        //  X>=2^31 ? (int)(X-2^31)+0x80000000 : (int)X
+        // FIXME: generated code sucks.
+        // TODO: Are there fast-math-flags to propagate to this FSUB?
+        SDValue True = DAG.getNode(ISD::FSUB, dl, MVT::ppcf128,
+                                   Op.getOperand(0), Tmp);
+        True = DAG.getNode(ISD::FP_TO_SINT, dl, MVT::i32, True);
+        True = DAG.getNode(ISD::ADD, dl, MVT::i32, True,
+                           DAG.getConstant(0x80000000, dl, MVT::i32));
+        SDValue False = DAG.getNode(ISD::FP_TO_SINT, dl, MVT::i32,
+                                    Op.getOperand(0));
+        return DAG.getSelectCC(dl, Op.getOperand(0), Tmp, True, False,
+                               ISD::SETGE);
+      }
+    }
+
+    return SDValue();
+  }
+
   if (Subtarget.hasDirectMove() && Subtarget.isPPC64())
     return LowerFP_TO_INTDirectMove(Op, DAG, dl);
 
@@ -9435,25 +9491,6 @@ void PPCTargetLowering::ReplaceNodeResults(SDNode *N,
       Results.push_back(NewNode);
       Results.push_back(NewNode.getValue(1));
     }
-    return;
-  }
-  case ISD::FP_ROUND_INREG: {
-    assert(N->getValueType(0) == MVT::ppcf128);
-    assert(N->getOperand(0).getValueType() == MVT::ppcf128);
-    SDValue Lo = DAG.getNode(ISD::EXTRACT_ELEMENT, dl,
-                             MVT::f64, N->getOperand(0),
-                             DAG.getIntPtrConstant(0, dl));
-    SDValue Hi = DAG.getNode(ISD::EXTRACT_ELEMENT, dl,
-                             MVT::f64, N->getOperand(0),
-                             DAG.getIntPtrConstant(1, dl));
-
-    // Add the two halves of the long double in round-to-zero mode.
-    SDValue FPreg = DAG.getNode(PPCISD::FADDRTZ, dl, MVT::f64, Lo, Hi);
-
-    // We know the low half is about to be thrown away, so just use something
-    // convenient.
-    Results.push_back(DAG.getNode(ISD::BUILD_PAIR, dl, MVT::ppcf128,
-                                FPreg, FPreg));
     return;
   }
   case ISD::FP_TO_SINT:
@@ -13716,6 +13753,8 @@ bool PPCTargetLowering::isFMAFasterThanFMulAndFAdd(EVT VT) const {
   case MVT::f32:
   case MVT::f64:
     return true;
+  case MVT::f128:
+    return (EnableQuadPrecision && Subtarget.hasP9Vector());
   default:
     break;
   }

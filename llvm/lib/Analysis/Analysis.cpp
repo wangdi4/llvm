@@ -70,6 +70,7 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
 #endif // INTEL_CUSTOMIZATION
   initializeModuleDebugInfoPrinterPass(Registry);
   initializeModuleSummaryIndexWrapperPassPass(Registry);
+  initializeMustExecutePrinterPass(Registry);
   initializeObjCARCAAWrapperPassPass(Registry);
   initializeOptimizationRemarkEmitterWrapperPassPass(Registry);
   initializePostDominatorTreeWrapperPassPass(Registry);

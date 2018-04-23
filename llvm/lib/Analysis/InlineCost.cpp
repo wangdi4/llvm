@@ -181,7 +181,7 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   bool ContainsNoDuplicateCall;
   bool HasReturn;
   bool HasIndirectBr;
-  bool HasFrameEscape;
+  bool HasUninlineableIntrinsic;
   bool UsesVarArgs;
 
   /// Number of bytes allocated statically by the callee.
@@ -335,12 +335,13 @@ public:
         IsCallerRecursive(false), IsRecursiveCall(false),
         ExposesReturnsTwice(false), HasDynamicAlloca(false),
         ContainsNoDuplicateCall(false), HasReturn(false), HasIndirectBr(false),
-        HasFrameEscape(false), UsesVarArgs(false), AllocatedSize(0), NumInstructions(0),
-        NumVectorInstructions(0), VectorBonus(0), SingleBBBonus(0),
-        EnableLoadElimination(true), LoadEliminationCost(0), NumConstantArgs(0),
-        NumConstantOffsetPtrArgs(0), NumAllocaArgs(0), NumConstantPtrCmps(0),
-        NumConstantPtrDiffs(0), NumInstructionsSimplified(0),
-        SROACostSavings(0), SROACostSavingsLost(0) {}
+        HasUninlineableIntrinsic(false), UsesVarArgs(false), AllocatedSize(0),
+        NumInstructions(0), NumVectorInstructions(0), VectorBonus(0),
+        SingleBBBonus(0), EnableLoadElimination(true), LoadEliminationCost(0),
+        NumConstantArgs(0), NumConstantOffsetPtrArgs(0), NumAllocaArgs(0),
+        NumConstantPtrCmps(0), NumConstantPtrDiffs(0),
+        NumInstructionsSimplified(0), SROACostSavings(0),
+        SROACostSavingsLost(0) {}
 
   bool analyzeCall(CallSite CS, InlineReason* Reason); // INTEL
 
@@ -1296,8 +1297,9 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
         disableLoadElimination();
         // SROA can usually chew through these intrinsics, but they aren't free.
         return false;
+      case Intrinsic::icall_branch_funnel:
       case Intrinsic::localescape:
-        HasFrameEscape = true;
+        HasUninlineableIntrinsic = true;
         return false;
       case Intrinsic::vastart:
       case Intrinsic::vaend:
@@ -1645,7 +1647,7 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
     using namespace ore;
     // If the visit this instruction detected an uninlinable pattern, abort.
     if (IsRecursiveCall || ExposesReturnsTwice || HasDynamicAlloca ||
-        HasIndirectBr || HasFrameEscape || UsesVarArgs) {
+        HasIndirectBr || HasUninlineableIntrinsic || UsesVarArgs) {
       if (ORE)
         ORE->emit([&]() {
           return OptimizationRemarkMissed(DEBUG_TYPE, "NeverInline",
@@ -2591,7 +2593,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
       if (HasIndirectBr) {
         *ReasonAddr = NinlrIndirectBranch;
       }
-      if (HasFrameEscape) {
+      if (HasUninlineableIntrinsic) {
         *ReasonAddr = NinlrCallsLocalEscape;
       }
       if (IsCallerRecursive &&
@@ -2933,6 +2935,9 @@ bool llvm::isInlineViable(Function &F, // INTEL
         switch (CS.getCalledFunction()->getIntrinsicID()) {
         default:
           break;
+        // Disallow inlining of @llvm.icall.branch.funnel because current
+        // backend can't separate call targets from call arguments.
+        case llvm::Intrinsic::icall_branch_funnel:
         // Disallow inlining functions that call @llvm.localescape. Doing this
         // correctly would require major changes to the inliner.
         case llvm::Intrinsic::localescape:

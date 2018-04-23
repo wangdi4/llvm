@@ -949,7 +949,7 @@ HLInst *HLNodeUtils::createMemset(RegDDRef *StoreRef, RegDDRef *Value,
   std::tie(HInst, Call) = createCallImpl(MemsetFunc, Ops);
 
   MemSetInst *MemSetCall = cast<MemSetInst>(Call);
-  MemSetCall->setAlignment(StoreRef->getAlignment());
+  MemSetCall->setDestAlignment(StoreRef->getAlignment());
 
   return HInst;
 }
