@@ -8578,7 +8578,11 @@ public:
 // Fix for CQ368132: __declspec (align) in icc can take more than one argument.
   void AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E, Expr *Offset,
                       unsigned SpellingListIndex, bool IsPackExpansion);
-  
+
+  void AddSchedulerPipeliningEffortPctAttr(SourceRange AttrRange, Decl *D,
+                                           Expr *E, unsigned SpellingListIndex);
+  void AddInternalMaxBlockRamDepthAttr(SourceRange AttrRange, Decl *D, Expr *E,
+                                       unsigned SpellingListIndex);
   void AddMaxConcurrencyAttr(SourceRange AttrRange, Decl *D, Expr *E,
                              unsigned SpellingListIndex);
   template <typename AttrType>

@@ -3270,6 +3270,12 @@ void CodeGenModule::generateHLSAnnotation(const VarDecl *VD,
         NWPA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << NWPA->getSpelling() << ':' << NWPAInt << '}';
   }
+  if (const auto *IMDA = VD->getAttr<InternalMaxBlockRamDepthAttr>()) {
+    llvm::APSInt IMDAInt =
+        IMDA->getInternalMaxBlockRamDepth()->EvaluateKnownConstInt(
+            getContext());
+    Out << '{' << IMDA->getSpelling() << ':' << IMDAInt << '}';
+  }
   if (const auto *BBA = VD->getAttr<BankBitsAttr>()) {
     Out << '{' << BBA->getSpelling() << ':';
     for (BankBitsAttr::args_iterator I = BBA->args_begin(), E = BBA->args_end();
