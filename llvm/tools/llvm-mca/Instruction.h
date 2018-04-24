@@ -32,7 +32,8 @@ constexpr int UNKNOWN_CYCLES = -512;
 
 /// \brief A register write descriptor.
 struct WriteDescriptor {
-  int OpIndex; // Operand index. -1 if this is an implicit write.
+  // Operand index. -1 if this is an implicit write.
+  int OpIndex;
   // Write latency. Number of cycles before write-back stage.
   int Latency;
   // This field is set to a value different than zero only if this
@@ -44,7 +45,7 @@ struct WriteDescriptor {
   // YMM super-register if the write is associated to a legacy SSE instruction.
   bool FullyUpdatesSuperRegs;
   // Instruction itineraries would set this field to the SchedClass ID.
-  // Otherwise, it defaults to the WriteResourceID from teh MCWriteLatencyEntry
+  // Otherwise, it defaults to the WriteResourceID from the MCWriteLatencyEntry
   // element associated to this write.
   // When computing read latencies, this value is matched against the
   // "ReadAdvance" information. The hardware backend may implement
@@ -60,8 +61,12 @@ struct WriteDescriptor {
 
 /// \brief A register read descriptor.
 struct ReadDescriptor {
-  // This field defaults to -1 if this is an implicit read.
+  // A MCOperand index. This is used by the Dispatch logic to identify register
+  // reads. This field defaults to -1 if this is an implicit read.
   int OpIndex;
+  // The actual "UseIdx". This is used to query the ReadAdvance table. Explicit
+  // uses always come first in the sequence of uses.
+  unsigned UseIndex;
   // This field is only set if this is an implicit read.
   unsigned RegisterID;
   // Scheduling Class Index. It is used to query the scheduling model for the
@@ -102,19 +107,17 @@ class WriteState {
   std::set<std::pair<ReadState *, int>> Users;
 
 public:
-  WriteState(const WriteDescriptor &Desc)
-      : WD(Desc), CyclesLeft(UNKNOWN_CYCLES), RegisterID(Desc.RegisterID) {}
+  WriteState(const WriteDescriptor &Desc, unsigned RegID)
+      : WD(Desc), CyclesLeft(UNKNOWN_CYCLES), RegisterID(RegID) {}
   WriteState(const WriteState &Other) = delete;
   WriteState &operator=(const WriteState &Other) = delete;
 
   int getCyclesLeft() const { return CyclesLeft; }
   unsigned getWriteResourceID() const { return WD.SClassOrWriteResourceID; }
   unsigned getRegisterID() const { return RegisterID; }
-  void setRegisterID(unsigned ID) { RegisterID = ID; }
 
   void addUser(ReadState *Use, int ReadAdvance);
   bool fullyUpdatesSuperRegs() const { return WD.FullyUpdatesSuperRegs; }
-  bool isWrittenBack() const { return CyclesLeft == 0; }
 
   // On every cycle, update CyclesLeft and notify dependent users.
   void cycleEvent();
@@ -276,12 +279,6 @@ class Instruction {
   // One entry per each implicit and explicit register use.
   VecUses Uses;
 
-  // This instruction has already been dispatched, and all operands are ready.
-  void setReady() {
-    assert(Stage == IS_AVAILABLE);
-    Stage = IS_READY;
-  }
-
 public:
   Instruction(const InstrDesc &D)
       : Desc(D), Stage(IS_INVALID), CyclesLeft(-1) {}
@@ -293,46 +290,38 @@ public:
   VecUses &getUses() { return Uses; }
   const VecUses &getUses() const { return Uses; }
   const InstrDesc &getDesc() const { return Desc; }
-
   unsigned getRCUTokenID() const { return RCUTokenID; }
-  int getCyclesLeft() const { return CyclesLeft; }
-  void setCyclesLeft(int Cycles) { CyclesLeft = Cycles; }
-  void setRCUTokenID(unsigned TokenID) { RCUTokenID = TokenID; }
 
-  // Transition to the dispatch stage.
-  // No definition is updated because the instruction is not "executing".
-  void dispatch() {
-    assert(Stage == IS_INVALID);
-    Stage = IS_AVAILABLE;
-  }
+  // Transition to the dispatch stage, and assign a RCUToken to this
+  // instruction. The RCUToken is used to track the completion of every
+  // register write performed by this instruction.
+  void dispatch(unsigned RCUTokenID);
 
   // Instruction issued. Transition to the IS_EXECUTING state, and update
   // all the definitions.
   void execute();
 
-  void forceExecuted() {
-    assert((Stage == IS_INVALID && isZeroLatency()) ||
-           (Stage == IS_READY && Desc.MaxLatency == 0));
-    Stage = IS_EXECUTED;
-  }
-
-  // Checks if operands are available. If all operands area ready,
-  // then this forces a transition from IS_AVAILABLE to IS_READY.
-  bool isReady();
+  // Force a transition from the IS_AVAILABLE state to the IS_READY state if
+  // input operands are all ready. State transitions normally occur at the
+  // beginning of a new cycle (see method cycleEvent()). However, the scheduler
+  // may decide to promote instructions from the wait queue to the ready queue
+  // as the result of another issue event.  This method is called every time the
+  // instruction might have changed in state.
+  void update();
 
   bool isDispatched() const { return Stage == IS_AVAILABLE; }
+  bool isReady() const { return Stage == IS_READY; }
   bool isExecuting() const { return Stage == IS_EXECUTING; }
   bool isExecuted() const { return Stage == IS_EXECUTED; }
   bool isZeroLatency() const;
 
   void retire() {
-    assert(Stage == IS_EXECUTED);
+    assert(isExecuted() && "Instruction is in an invalid state!");
     Stage = IS_RETIRED;
   }
 
   void cycleEvent();
 };
-
 } // namespace mca
 
 #endif
