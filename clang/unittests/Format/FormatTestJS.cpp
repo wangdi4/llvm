@@ -49,6 +49,8 @@ protected:
   static void verifyFormat(
       llvm::StringRef Code,
       const FormatStyle &Style = getGoogleStyle(FormatStyle::LK_JavaScript)) {
+    EXPECT_EQ(Code.str(), format(Code, Style))
+        << "Expected code is not stable";
     std::string Result = format(test::messUp(Code), Style);
     EXPECT_EQ(Code.str(), Result) << "Formatted:\n" << Result;
   }
@@ -57,6 +59,8 @@ protected:
       llvm::StringRef Expected,
       llvm::StringRef Code,
       const FormatStyle &Style = getGoogleStyle(FormatStyle::LK_JavaScript)) {
+    EXPECT_EQ(Expected.str(), format(Expected, Style))
+        << "Expected code is not stable";
     std::string Result = format(Code, Style);
     EXPECT_EQ(Expected.str(), Result) << "Formatted:\n" << Result;
   }
@@ -294,6 +298,7 @@ TEST_F(FormatTestJS, ReservedWords) {
   verifyFormat("x.for = 1;");
   verifyFormat("x.of();");
   verifyFormat("of(null);");
+  verifyFormat("return of(null);");
   verifyFormat("import {of} from 'x';");
   verifyFormat("x.in();");
   verifyFormat("x.let();");
@@ -1157,6 +1162,9 @@ TEST_F(FormatTestJS, WrapRespectsAutomaticSemicolonInsertion) {
                "foo() {}",
                getGoogleJSStyleWithColumns(10));
   verifyFormat("await theReckoning;", getGoogleJSStyleWithColumns(10));
+  verifyFormat("some['a']['b']", getGoogleJSStyleWithColumns(10));
+  verifyFormat("x = (a['a']\n"
+               "      ['b']);", getGoogleJSStyleWithColumns(10));
 }
 
 TEST_F(FormatTestJS, AutomaticSemicolonInsertionHeuristic) {
@@ -2129,6 +2137,7 @@ TEST_F(FormatTestJS, NonNullAssertionOperator) {
   verifyFormat("let x = foo!.bar();\n");
   verifyFormat("let x = foo ? bar! : baz;\n");
   verifyFormat("let x = !foo;\n");
+  verifyFormat("if (!+a) {\n}");
   verifyFormat("let x = foo[0]!;\n");
   verifyFormat("let x = (foo)!;\n");
   verifyFormat("let x = x(foo!);\n");

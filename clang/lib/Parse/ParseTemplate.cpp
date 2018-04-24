@@ -19,6 +19,7 @@
 #include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/ParsedTemplate.h"
 #include "clang/Sema/Scope.h"
+#include "llvm/Support/Timer.h"
 using namespace clang;
 
 /// \brief Parse a template declaration, explicit instantiation, or
@@ -28,6 +29,8 @@ Parser::ParseDeclarationStartingWithTemplate(DeclaratorContext Context,
                                              SourceLocation &DeclEnd,
                                              AccessSpecifier AS,
                                              AttributeList *AccessAttrs) {
+  llvm::NamedRegionTimer NRT("parsetemplate", "Parse Template", GroupName,
+                             GroupDescription, llvm::TimePassesIsEnabled);
   ObjCDeclContextSwitch ObjCDC(*this);
   
   if (Tok.is(tok::kw_template) && NextToken().isNot(tok::less)) {
@@ -487,6 +490,20 @@ NamedDecl *Parser::ParseTemplateParameter(unsigned Depth, unsigned Position) {
 
   if (Tok.is(tok::kw_template))
     return ParseTemplateTemplateParameter(Depth, Position);
+
+  // Is there just a typo in the input code? ('typedef' instead of 'typename')
+  if (Tok.is(tok::kw_typedef)) {
+    Diag(Tok.getLocation(), diag::err_expected_template_parameter);
+
+    Diag(Tok.getLocation(), diag::note_meant_to_use_typename)
+        << FixItHint::CreateReplacement(CharSourceRange::getCharRange(
+                                            Tok.getLocation(), Tok.getEndLoc()),
+                                        "typename");
+
+    Tok.setKind(tok::kw_typename);
+
+    return ParseTypeParameter(Depth, Position);
+  }
 
   // If it's none of the above, then it must be a parameter declaration.
   // NOTE: This will pick up errors in the closure of the template parameter
@@ -1193,15 +1210,9 @@ ParsedTemplateArgument Parser::ParseTemplateArgument() {
   EnterExpressionEvaluationContext EnterConstantEvaluated(
       Actions, Sema::ExpressionEvaluationContext::ConstantEvaluated);
   if (isCXXTypeId(TypeIdAsTemplateArgument)) {
-    SourceLocation Loc = Tok.getLocation();
     TypeResult TypeArg = ParseTypeName(
-        /*Range=*/nullptr, DeclaratorContext::TemplateTypeArgContext);
-    if (TypeArg.isInvalid())
-      return ParsedTemplateArgument();
-    
-    return ParsedTemplateArgument(ParsedTemplateArgument::Type,
-                                  TypeArg.get().getAsOpaquePtr(), 
-                                  Loc);
+        /*Range=*/nullptr, DeclaratorContext::TemplateArgContext);
+    return Actions.ActOnTemplateTypeArgument(TypeArg);
   }
   
   // Try to parse a template template argument.

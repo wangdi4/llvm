@@ -27,6 +27,9 @@ class SymbolStringPtr;
 class SymbolStringPool {
   friend class SymbolStringPtr;
 public:
+  /// @brief Destroy a SymbolStringPool.
+  ~SymbolStringPool();
+
   /// @brief Create a symbol string pointer from the given string.
   SymbolStringPtr intern(StringRef S);
 
@@ -36,7 +39,7 @@ public:
   /// @brief Returns true if the pool is empty.
   bool empty() const;
 private:
-  using RefCountType = std::atomic<uint64_t>;
+  using RefCountType = std::atomic<size_t>;
   using PoolMap = StringMap<RefCountType>;
   using PoolMapEntry = StringMapEntry<RefCountType>;
   mutable std::mutex PoolMutex;
@@ -46,6 +49,10 @@ private:
 /// @brief Pointer to a pooled string representing a symbol name.
 class SymbolStringPtr {
   friend class SymbolStringPool;
+  friend bool operator==(const SymbolStringPtr &LHS,
+                         const SymbolStringPtr &RHS);
+  friend bool operator<(const SymbolStringPtr &LHS, const SymbolStringPtr &RHS);
+
 public:
   SymbolStringPtr() = default;
   SymbolStringPtr(const SymbolStringPtr &Other)
@@ -80,17 +87,7 @@ public:
       --S->getValue();
   }
 
-  bool operator==(const SymbolStringPtr &Other) const {
-    return S == Other.S;
-  }
-
-  bool operator!=(const SymbolStringPtr &Other) const {
-    return !(*this == Other);
-  }
-
-  bool operator<(const SymbolStringPtr &Other) const {
-    return S->getValue() < Other.S->getValue();
-  }
+  StringRef operator*() const { return S->first(); }
 
 private:
 
@@ -103,25 +100,39 @@ private:
   SymbolStringPool::PoolMapEntry *S = nullptr;
 };
 
+inline bool operator==(const SymbolStringPtr &LHS, const SymbolStringPtr &RHS) {
+  return LHS.S == RHS.S;
+}
+
+inline bool operator!=(const SymbolStringPtr &LHS, const SymbolStringPtr &RHS) {
+  return !(LHS == RHS);
+}
+
+inline bool operator<(const SymbolStringPtr &LHS, const SymbolStringPtr &RHS) {
+  return LHS.S < RHS.S;
+}
+
+inline SymbolStringPool::~SymbolStringPool() {
+#ifndef NDEBUG
+  clearDeadEntries();
+  assert(Pool.empty() && "Dangling references at pool destruction time");
+#endif // NDEBUG
+}
+
 inline SymbolStringPtr SymbolStringPool::intern(StringRef S) {
   std::lock_guard<std::mutex> Lock(PoolMutex);
-  auto I = Pool.find(S);
-  if (I != Pool.end())
-    return SymbolStringPtr(&*I);
-
+  PoolMap::iterator I;
   bool Added;
   std::tie(I, Added) = Pool.try_emplace(S, 0);
-  assert(Added && "Insert should always succeed here");
   return SymbolStringPtr(&*I);
 }
 
 inline void SymbolStringPool::clearDeadEntries() {
   std::lock_guard<std::mutex> Lock(PoolMutex);
   for (auto I = Pool.begin(), E = Pool.end(); I != E;) {
-    auto Tmp = std::next(I);
-    if (I->second == 0)
-      Pool.erase(I);
-    I = Tmp;
+    auto Tmp = I++;
+    if (Tmp->second == 0)
+      Pool.erase(Tmp);
   }
 }
 

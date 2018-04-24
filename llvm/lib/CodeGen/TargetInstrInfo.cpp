@@ -174,6 +174,14 @@ MachineInstr *TargetInstrInfo::commuteInstructionImpl(MachineInstr &MI,
   bool Reg2IsUndef = MI.getOperand(Idx2).isUndef();
   bool Reg1IsInternal = MI.getOperand(Idx1).isInternalRead();
   bool Reg2IsInternal = MI.getOperand(Idx2).isInternalRead();
+  // Avoid calling isRenamable for virtual registers since we assert that
+  // renamable property is only queried/set for physical registers.
+  bool Reg1IsRenamable = TargetRegisterInfo::isPhysicalRegister(Reg1)
+                             ? MI.getOperand(Idx1).isRenamable()
+                             : false;
+  bool Reg2IsRenamable = TargetRegisterInfo::isPhysicalRegister(Reg2)
+                             ? MI.getOperand(Idx2).isRenamable()
+                             : false;
   // If destination is tied to either of the commuted source register, then
   // it must be updated.
   if (HasDef && Reg0 == Reg1 &&
@@ -211,6 +219,12 @@ MachineInstr *TargetInstrInfo::commuteInstructionImpl(MachineInstr &MI,
   CommutedMI->getOperand(Idx1).setIsUndef(Reg2IsUndef);
   CommutedMI->getOperand(Idx2).setIsInternalRead(Reg1IsInternal);
   CommutedMI->getOperand(Idx1).setIsInternalRead(Reg2IsInternal);
+  // Avoid calling setIsRenamable for virtual registers since we assert that
+  // renamable property is only queried/set for physical registers.
+  if (TargetRegisterInfo::isPhysicalRegister(Reg1))
+    CommutedMI->getOperand(Idx2).setIsRenamable(Reg1IsRenamable);
+  if (TargetRegisterInfo::isPhysicalRegister(Reg2))
+    CommutedMI->getOperand(Idx1).setIsRenamable(Reg2IsRenamable);
   return CommutedMI;
 }
 
@@ -868,6 +882,33 @@ void TargetInstrInfo::genAlternativeCodeSequence(
   reassociateOps(Root, *Prev, Pattern, InsInstrs, DelInstrs, InstIdxForVirtReg);
 }
 
+void TargetInstrInfo::trackRegDefsUses(const MachineInstr &MI,
+                                       BitVector &ModifiedRegs,
+                                       BitVector &UsedRegs,
+                                       const TargetRegisterInfo *TRI) const {
+  for (const MachineOperand &MO : MI.operands()) {
+    if (MO.isRegMask())
+      ModifiedRegs.setBitsNotInMask(MO.getRegMask());
+    if (!MO.isReg())
+      continue;
+    unsigned Reg = MO.getReg();
+    if (!Reg)
+      continue;
+    if (MO.isDef()) {
+      // Some architectures (e.g. AArch64 XZR/WZR) have registers that are
+      // constant and may be used as destinations to indicate the generated
+      // value is discarded. No need to track such case as a def.
+      if (!TRI->isConstantPhysReg(Reg))
+        for (MCRegAliasIterator AI(Reg, TRI, true); AI.isValid(); ++AI)
+          ModifiedRegs.set(*AI);
+    } else {
+      assert(MO.isUse() && "Reg operand not a def and not a use");
+      for (MCRegAliasIterator AI(Reg, TRI, true); AI.isValid(); ++AI)
+        UsedRegs.set(*AI);
+    }
+  }
+}
+
 bool TargetInstrInfo::isReallyTriviallyReMaterializableGeneric(
     const MachineInstr &MI, AliasAnalysis *AA) const {
   const MachineFunction &MF = *MI.getMF();
@@ -1151,6 +1192,8 @@ bool TargetInstrInfo::getRegSequenceInputs(
   for (unsigned OpIdx = 1, EndOpIdx = MI.getNumOperands(); OpIdx != EndOpIdx;
        OpIdx += 2) {
     const MachineOperand &MOReg = MI.getOperand(OpIdx);
+    if (MOReg.isUndef())
+      continue;
     const MachineOperand &MOSubIdx = MI.getOperand(OpIdx + 1);
     assert(MOSubIdx.isImm() &&
            "One of the subindex of the reg_sequence is not an immediate");
@@ -1174,6 +1217,8 @@ bool TargetInstrInfo::getExtractSubregInputs(
   // Def = EXTRACT_SUBREG v0.sub1, sub0.
   assert(DefIdx == 0 && "EXTRACT_SUBREG only has one def");
   const MachineOperand &MOReg = MI.getOperand(1);
+  if (MOReg.isUndef())
+    return false;
   const MachineOperand &MOSubIdx = MI.getOperand(2);
   assert(MOSubIdx.isImm() &&
          "The subindex of the extract_subreg is not an immediate");
@@ -1198,6 +1243,8 @@ bool TargetInstrInfo::getInsertSubregInputs(
   assert(DefIdx == 0 && "INSERT_SUBREG only has one def");
   const MachineOperand &MOBaseReg = MI.getOperand(1);
   const MachineOperand &MOInsertedReg = MI.getOperand(2);
+  if (MOInsertedReg.isUndef())
+    return false;
   const MachineOperand &MOSubIdx = MI.getOperand(3);
   assert(MOSubIdx.isImm() &&
          "One of the subindex of the reg_sequence is not an immediate");

@@ -23,6 +23,7 @@
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/PreprocessorOptions.h"
 #include "clang/Parse/ParseAST.h"
+#include "clang/Rewrite/Frontend/FrontendActions.h"
 #include "clang/Serialization/ASTDeserializationListener.h"
 #include "clang/Serialization/ASTReader.h"
 #include "clang/Serialization/GlobalModuleIndex.h"
@@ -857,6 +858,13 @@ bool FrontendAction::BeginSourceFile(CompilerInstance &CI,
     else
       CI.getDiagnostics().Report(diag::err_module_map_not_found) << Filename;
   }
+
+  // Add a module declaration scope so that modules from -fmodule-map-file
+  // arguments may shadow modules found implicitly in search paths.
+  CI.getPreprocessor()
+      .getHeaderSearchInfo()
+      .getModuleMap()
+      .finishModuleDeclarationScope();
 
   // If we were asked to load any module files, do so now.
   for (const auto &ModuleFile : CI.getFrontendOpts().ModuleFiles)

@@ -16,6 +16,7 @@
 #include "MCTargetDesc/MipsFixupKinds.h"
 #include "MCTargetDesc/MipsMCExpr.h"
 #include "MCTargetDesc/MipsMCTargetDesc.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
@@ -303,7 +304,7 @@ Optional<MCFixupKind> MipsAsmBackend::getFixupKind(StringRef Name) const {
 
 const MCFixupKindInfo &MipsAsmBackend::
 getFixupKindInfo(MCFixupKind Kind) const {
-  const static MCFixupKindInfo LittleEndianInfos[Mips::NumTargetFixupKinds] = {
+  const static MCFixupKindInfo LittleEndianInfos[] = {
     // This table *must* be in same the order of fixup_* kinds in
     // MipsFixupKinds.h.
     //
@@ -374,8 +375,10 @@ getFixupKindInfo(MCFixupKind Kind) const {
     { "fixup_Mips_SUB",                  0,     64,   0 },
     { "fixup_MICROMIPS_SUB",             0,     64,   0 }
   };
+  static_assert(array_lengthof(LittleEndianInfos) == Mips::NumTargetFixupKinds,
+                "Not all MIPS little endian fixup kinds added!");
 
-  const static MCFixupKindInfo BigEndianInfos[Mips::NumTargetFixupKinds] = {
+  const static MCFixupKindInfo BigEndianInfos[] = {
     // This table *must* be in same the order of fixup_* kinds in
     // MipsFixupKinds.h.
     //
@@ -446,6 +449,8 @@ getFixupKindInfo(MCFixupKind Kind) const {
     { "fixup_Mips_SUB",                   0,     64,   0 },
     { "fixup_MICROMIPS_SUB",              0,     64,   0 }
   };
+  static_assert(array_lengthof(BigEndianInfos) == Mips::NumTargetFixupKinds,
+                "Not all MIPS big endian fixup kinds added!");
 
   if (Kind < FirstTargetFixupKind)
     return MCAsmBackend::getFixupKindInfo(Kind);
@@ -476,8 +481,9 @@ bool MipsAsmBackend::writeNopData(uint64_t Count, MCObjectWriter *OW) const {
 }
 
 MCAsmBackend *llvm::createMipsAsmBackend(const Target &T,
+                                         const MCSubtargetInfo &STI,
                                          const MCRegisterInfo &MRI,
-                                         const Triple &TT, StringRef CPU,
                                          const MCTargetOptions &Options) {
-  return new MipsAsmBackend(T, MRI, TT, CPU, Options.ABIName == "n32");
+  return new MipsAsmBackend(T, MRI, STI.getTargetTriple(), STI.getCPU(),
+                            Options.ABIName == "n32");
 }

@@ -23,6 +23,7 @@
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/CommandObjectMultiword.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
+#include "lldb/Interpreter/OptionArgParser.h"
 #include "lldb/Interpreter/OptionValueProperties.h"
 #include "lldb/Interpreter/OptionValueString.h"
 #include "lldb/Interpreter/Property.h"
@@ -544,7 +545,8 @@ public:
       break;
 
     case 'b':
-      m_broadcast_events = Args::StringToBoolean(option_arg, true, nullptr);
+      m_broadcast_events =
+          OptionArgParser::ToBoolean(option_arg, true, nullptr);
       break;
 
     case 'c':
@@ -560,7 +562,7 @@ public:
       break;
 
     case 'e':
-      m_echo_to_stderr = Args::StringToBoolean(option_arg, false, nullptr);
+      m_echo_to_stderr = OptionArgParser::ToBoolean(option_arg, false, nullptr);
       break;
 
     case 'f':
@@ -571,12 +573,12 @@ public:
       break;
 
     case 'l':
-      m_live_stream = Args::StringToBoolean(option_arg, false, nullptr);
+      m_live_stream = OptionArgParser::ToBoolean(option_arg, false, nullptr);
       break;
 
     case 'n':
       m_filter_fall_through_accepts =
-          Args::StringToBoolean(option_arg, true, nullptr);
+          OptionArgParser::ToBoolean(option_arg, true, nullptr);
       break;
 
     case 'r':
@@ -1013,6 +1015,7 @@ public:
 };
 
 EnableOptionsSP ParseAutoEnableOptions(Status &error, Debugger &debugger) {
+  Log *log = GetLogIfAllCategoriesSet(LIBLLDB_LOG_PROCESS);
   // We are abusing the options data model here so that we can parse
   // options without requiring the Debugger instance.
 
@@ -1051,15 +1054,16 @@ EnableOptionsSP ParseAutoEnableOptions(Status &error, Debugger &debugger) {
       args.Shift();
   }
 
-  // ParseOptions calls getopt_long_only, which always skips the zero'th item in
-  // the array and starts at position 1,
-  // so we need to push a dummy value into position zero.
-  args.Unshift(llvm::StringRef("dummy_string"));
   bool require_validation = false;
-  error = args.ParseOptions(*options_sp.get(), &exe_ctx, PlatformSP(),
-                            require_validation);
-  if (!error.Success())
+  llvm::Expected<Args> args_or =
+      options_sp->Parse(args, &exe_ctx, PlatformSP(), require_validation);
+  if (!args_or) {
+    LLDB_LOG_ERROR(
+        log, args_or.takeError(),
+        "Parsing plugin.structured-data.darwin-log.auto-enable-options value "
+        "failed: {0}");
     return EnableOptionsSP();
+  }
 
   if (!options_sp->VerifyOptions(result))
     return EnableOptionsSP();
@@ -1514,7 +1518,6 @@ Status StructuredDataDarwinLog::FilterLaunchInfo(ProcessLaunchInfo &launch_info,
     SetGlobalEnableOptions(debugger_sp, options_sp);
   }
 
-  auto &env_vars = launch_info.GetEnvironmentEntries();
   if (!options_sp->GetEchoToStdErr()) {
     // The user doesn't want to see os_log/NSLog messages echo to stderr.
     // That mechanism is entirely separate from the DarwinLog support.
@@ -1523,16 +1526,11 @@ Status StructuredDataDarwinLog::FilterLaunchInfo(ProcessLaunchInfo &launch_info,
 
     // Here we need to strip out any OS_ACTIVITY_DT_MODE setting to prevent
     // echoing of os_log()/NSLog() to stderr in the target program.
-    size_t argument_index;
-    if (env_vars.ContainsEnvironmentVariable(
-            llvm::StringRef("OS_ACTIVITY_DT_MODE"), &argument_index))
-      env_vars.DeleteArgumentAtIndex(argument_index);
+    launch_info.GetEnvironment().erase("OS_ACTIVITY_DT_MODE");
 
     // We will also set the env var that tells any downstream launcher
     // from adding OS_ACTIVITY_DT_MODE.
-    env_vars.AddOrReplaceEnvironmentVariable(
-        llvm::StringRef("IDE_DISABLED_OS_ACTIVITY_DT_MODE"),
-        llvm::StringRef("1"));
+    launch_info.GetEnvironment()["IDE_DISABLED_OS_ACTIVITY_DT_MODE"] = "1";
   }
 
   // Set the OS_ACTIVITY_MODE env var appropriately to enable/disable
@@ -1545,10 +1543,7 @@ Status StructuredDataDarwinLog::FilterLaunchInfo(ProcessLaunchInfo &launch_info,
   else
     env_var_value = "default";
 
-  if (env_var_value) {
-    launch_info.GetEnvironmentEntries().AddOrReplaceEnvironmentVariable(
-        llvm::StringRef("OS_ACTIVITY_MODE"), llvm::StringRef(env_var_value));
-  }
+  launch_info.GetEnvironment()["OS_ACTIVITY_MODE"] = env_var_value;
 
   return error;
 }

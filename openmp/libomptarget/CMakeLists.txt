@@ -67,6 +67,7 @@ endif()
 
 # Build offloading plugins and device RTLs if they are available.
 add_subdirectory(plugins)
+add_subdirectory(deviceRTLs)
 
 #INTEL_CUSTOMIZATION
 if(INTEL_CUSTOMIZATION)

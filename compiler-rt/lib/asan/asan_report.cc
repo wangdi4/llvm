@@ -254,6 +254,54 @@ void ReportSanitizerGetAllocatedSizeNotOwned(uptr addr,
   in_report.ReportError(error);
 }
 
+void ReportCallocOverflow(uptr count, uptr size, BufferedStackTrace *stack) {
+  ScopedInErrorReport in_report(/*fatal*/ true);
+  ErrorCallocOverflow error(GetCurrentTidOrInvalid(), stack, count, size);
+  in_report.ReportError(error);
+}
+
+void ReportPvallocOverflow(uptr size, BufferedStackTrace *stack) {
+  ScopedInErrorReport in_report(/*fatal*/ true);
+  ErrorPvallocOverflow error(GetCurrentTidOrInvalid(), stack, size);
+  in_report.ReportError(error);
+}
+
+void ReportInvalidAllocationAlignment(uptr alignment,
+                                      BufferedStackTrace *stack) {
+  ScopedInErrorReport in_report(/*fatal*/ true);
+  ErrorInvalidAllocationAlignment error(GetCurrentTidOrInvalid(), stack,
+                                        alignment);
+  in_report.ReportError(error);
+}
+
+void ReportInvalidPosixMemalignAlignment(uptr alignment,
+                                         BufferedStackTrace *stack) {
+  ScopedInErrorReport in_report(/*fatal*/ true);
+  ErrorInvalidPosixMemalignAlignment error(GetCurrentTidOrInvalid(), stack,
+                                           alignment);
+  in_report.ReportError(error);
+}
+
+void ReportAllocationSizeTooBig(uptr user_size, uptr total_size, uptr max_size,
+                                BufferedStackTrace *stack) {
+  ScopedInErrorReport in_report(/*fatal*/ true);
+  ErrorAllocationSizeTooBig error(GetCurrentTidOrInvalid(), stack, user_size,
+                                  total_size, max_size);
+  in_report.ReportError(error);
+}
+
+void ReportRssLimitExceeded(BufferedStackTrace *stack) {
+  ScopedInErrorReport in_report(/*fatal*/ true);
+  ErrorRssLimitExceeded error(GetCurrentTidOrInvalid(), stack);
+  in_report.ReportError(error);
+}
+
+void ReportOutOfMemory(uptr requested_size, BufferedStackTrace *stack) {
+  ScopedInErrorReport in_report(/*fatal*/ true);
+  ErrorOutOfMemory error(GetCurrentTidOrInvalid(), stack, requested_size);
+  in_report.ReportError(error);
+}
+
 void ReportStringFunctionMemoryRangesOverlap(const char *function,
                                              const char *offset1, uptr length1,
                                              const char *offset2, uptr length2,
@@ -343,7 +391,11 @@ static bool IsInvalidPointerPair(uptr a1, uptr a2) {
 }
 
 static INLINE void CheckForInvalidPointerPair(void *p1, void *p2) {
-  if (!flags()->detect_invalid_pointer_pairs) return;
+  switch (flags()->detect_invalid_pointer_pairs) {
+    case 0 : return;
+    case 1 : if (p1 == nullptr || p2 == nullptr) return; break;
+  }
+
   uptr a1 = reinterpret_cast<uptr>(p1);
   uptr a2 = reinterpret_cast<uptr>(p2);
 

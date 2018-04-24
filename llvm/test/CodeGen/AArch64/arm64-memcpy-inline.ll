@@ -16,24 +16,27 @@
 define i32 @t0() {
 entry:
 ; CHECK-LABEL: t0:
-; CHECK: ldrb [[REG0:w[0-9]+]], [x[[BASEREG:[0-9]+]], #10]
-; CHECK: strb [[REG0]], [x[[BASEREG2:[0-9]+]], #10]
-; CHECK: ldrh [[REG1:w[0-9]+]], [x[[BASEREG]], #8]
-; CHECK: strh [[REG1]], [x[[BASEREG2]], #8]
+; CHECK: ldrb [[REG0:w[0-9]+]], [{{x[0-9]+}}, :lo12:src+10]
+; CHECK: add x[[BASEREG:[0-9]+]], {{x[0-9]+}}, :lo12:src+8
+; CHECK: strb [[REG0]], [{{x[0-9]+}}, :lo12:dst+10]
+; CHECK: ldrh [[REG1:w[0-9]+]], [x[[BASEREG]]]
+; CHECK: add x[[BASEREG2:[0-9]+]], {{x[0-9]+}}, :lo12:dst+8
+; CHECK: strh [[REG1]], [x[[BASEREG2]]]
 ; CHECK: ldr [[REG2:x[0-9]+]],
 ; CHECK: str [[REG2]],
-  call void @llvm.memcpy.p0i8.p0i8.i32(i8* getelementptr inbounds (%struct.x, %struct.x* @dst, i32 0, i32 0), i8* getelementptr inbounds (%struct.x, %struct.x* @src, i32 0, i32 0), i32 11, i32 8, i1 false)
+  call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 8 getelementptr inbounds (%struct.x, %struct.x* @dst, i32 0, i32 0), i8* align 8 getelementptr inbounds (%struct.x, %struct.x* @src, i32 0, i32 0), i32 11, i1 false)
   ret i32 0
 }
 
 define void @t1(i8* nocapture %C) nounwind {
 entry:
 ; CHECK-LABEL: t1:
-; CHECK: ldur [[DEST:q[0-9]+]], [x[[BASEREG:[0-9]+]], #15]
+; CHECK: add x[[BASEREG:[0-9]+]], {{x[0-9]+}}, :lo12:.L.str1+15
+; CHECK: ldr [[DEST:q[0-9]+]], [x[[BASEREG:[0-9]+]]]
 ; CHECK: stur [[DEST]], [x0, #15]
 ; CHECK: ldr [[DEST:q[0-9]+]], [x[[BASEREG]]]
 ; CHECK: str [[DEST]], [x0]
-  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %C, i8* getelementptr inbounds ([31 x i8], [31 x i8]* @.str1, i64 0, i64 0), i64 31, i32 1, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %C, i8* getelementptr inbounds ([31 x i8], [31 x i8]* @.str1, i64 0, i64 0), i64 31, i1 false)
   ret void
 }
 
@@ -43,20 +46,25 @@ entry:
 ; CHECK: mov [[REG3:w[0-9]+]]
 ; CHECK: movk [[REG3]],
 ; CHECK: str [[REG3]], [x0, #32]
-; CHECK: ldp [[DEST1:q[0-9]+]], [[DEST2:q[0-9]+]], [x{{[0-9]+}}]
+; CHECK: add x[[BASEREG:[0-9]+]], {{x[0-9]+}}, :lo12:.L.str2+16
+; CHECK: ldr [[DEST2:q[0-9]+]], [x[[BASEREG]]]
+; CHECK: add x[[BASEREG:[0-9]+]], {{x[0-9]+}}, :lo12:.L.str2
+; CHECK: ldr [[DEST1:q[0-9]+]], [x[[BASEREG]]]
 ; CHECK: stp [[DEST1]], [[DEST2]], [x0]
-  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %C, i8* getelementptr inbounds ([36 x i8], [36 x i8]* @.str2, i64 0, i64 0), i64 36, i32 1, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %C, i8* getelementptr inbounds ([36 x i8], [36 x i8]* @.str2, i64 0, i64 0), i64 36, i1 false)
   ret void
 }
 
 define void @t3(i8* nocapture %C) nounwind {
 entry:
 ; CHECK-LABEL: t3:
-; CHECK: ldr [[REG4:x[0-9]+]], [x[[BASEREG:[0-9]+]], #16]
+; CHECK: add x[[BASEREG:[0-9]+]], {{x[0-9]+}}, :lo12:.L.str3+16
+; CHECK: ldr [[REG4:x[0-9]+]], [x[[BASEREG]]]
 ; CHECK: str [[REG4]], [x0, #16]
+; CHECK: add x[[BASEREG:[0-9]+]], {{x[0-9]+}}, :lo12:.L.str3
 ; CHECK: ldr [[DEST:q[0-9]+]], [x[[BASEREG]]]
 ; CHECK: str [[DEST]], [x0]
-  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %C, i8* getelementptr inbounds ([24 x i8], [24 x i8]* @.str3, i64 0, i64 0), i64 24, i32 1, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %C, i8* getelementptr inbounds ([24 x i8], [24 x i8]* @.str3, i64 0, i64 0), i64 24, i1 false)
   ret void
 }
 
@@ -67,7 +75,7 @@ entry:
 ; CHECK: strh [[REG5]], [x0, #16]
 ; CHECK: ldr [[REG6:q[0-9]+]], [x{{[0-9]+}}]
 ; CHECK: str [[REG6]], [x0]
-  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %C, i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str4, i64 0, i64 0), i64 18, i32 1, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %C, i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str4, i64 0, i64 0), i64 18, i1 false)
   ret void
 }
 
@@ -80,18 +88,20 @@ entry:
 ; CHECK: mov [[REG8:w[0-9]+]],
 ; CHECK: movk [[REG8]],
 ; CHECK: str [[REG8]], [x0]
-  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %C, i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str5, i64 0, i64 0), i64 7, i32 1, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %C, i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str5, i64 0, i64 0), i64 7, i1 false)
   ret void
 }
 
 define void @t6() nounwind {
 entry:
 ; CHECK-LABEL: t6:
-; CHECK: ldur [[REG9:x[0-9]+]], [x{{[0-9]+}}, #6]
-; CHECK: stur [[REG9]], [x{{[0-9]+}}, #6]
+; CHECK: add x[[BASEREG:[0-9]+]], {{x[0-9]+}}, :lo12:.L.str6+6
+; CHECK: ldr [[REG9:x[0-9]+]], [x[[BASEREG]]]
+; CHECK: add x[[BASEREG:[0-9]+]], {{x[0-9]+}}, :lo12:spool.splbuf+6
+; CHECK: str [[REG9]], [x[[BASEREG]]]
 ; CHECK: ldr
 ; CHECK: str
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* getelementptr inbounds ([512 x i8], [512 x i8]* @spool.splbuf, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str6, i64 0, i64 0), i64 14, i32 1, i1 false)
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* getelementptr inbounds ([512 x i8], [512 x i8]* @spool.splbuf, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str6, i64 0, i64 0), i64 14, i1 false)
   ret void
 }
 
@@ -104,9 +114,9 @@ entry:
 ; CHECK: str [[REG10]], [x0]
   %0 = bitcast %struct.Foo* %a to i8*
   %1 = bitcast %struct.Foo* %b to i8*
-  tail call void @llvm.memcpy.p0i8.p0i8.i32(i8* %0, i8* %1, i32 16, i32 4, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %0, i8* align 4 %1, i32 16, i1 false)
   ret void
 }
 
-declare void @llvm.memcpy.p0i8.p0i8.i32(i8* nocapture, i8* nocapture, i32, i32, i1) nounwind
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture, i8* nocapture, i64, i32, i1) nounwind
+declare void @llvm.memcpy.p0i8.p0i8.i32(i8* nocapture, i8* nocapture, i32, i1) nounwind
+declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture, i8* nocapture, i64, i1) nounwind

@@ -22,6 +22,7 @@
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Process.h"
 #include "llvm/Support/Signals.h"
 
 using namespace llvm;
@@ -339,11 +340,19 @@ static void PrintVersion(raw_ostream &OS) {
 int main(int argc, const char **argv) {
   llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
 
+  SmallVector<const char *, 256> Args;
+  llvm::SpecificBumpPtrAllocator<char> ArgAllocator;
+  std::error_code EC = llvm::sys::Process::GetArgumentVector(
+      Args, llvm::makeArrayRef(argv, argc), ArgAllocator);
+  if (EC) {
+    llvm::errs() << "error: couldn't get arguments: " << EC.message() << '\n';
+  }
+
   cl::HideUnrelatedOptions(ClangFormatCategory);
 
   cl::SetVersionPrinter(PrintVersion);
   cl::ParseCommandLineOptions(
-      argc, argv,
+      Args.size(), &Args[0],
       "A tool to format C/C++/Java/JavaScript/Objective-C/Protobuf code.\n\n"
       "If no arguments are specified, it formats the code from standard input\n"
       "and writes the result to the standard output.\n"
@@ -357,10 +366,27 @@ int main(int argc, const char **argv) {
   }
 
   if (DumpConfig) {
+    StringRef FileName;
+    std::unique_ptr<llvm::MemoryBuffer> Code;
+    if (FileNames.empty()) {
+      // We can't read the code to detect the language if there's no
+      // file name, so leave Code empty here.
+      FileName = AssumeFileName;
+    } else {
+      // Read in the code in case the filename alone isn't enough to
+      // detect the language.
+      ErrorOr<std::unique_ptr<MemoryBuffer>> CodeOrErr =
+          MemoryBuffer::getFileOrSTDIN(FileNames[0]);
+      if (std::error_code EC = CodeOrErr.getError()) {
+        llvm::errs() << EC.message() << "\n";
+        return 1;
+      }
+      FileName = (FileNames[0] == "-") ? AssumeFileName : FileNames[0];
+      Code = std::move(CodeOrErr.get());
+    }
     llvm::Expected<clang::format::FormatStyle> FormatStyle =
-        clang::format::getStyle(
-            Style, FileNames.empty() ? AssumeFileName : FileNames[0],
-            FallbackStyle);
+        clang::format::getStyle(Style, FileName, FallbackStyle,
+                                Code ? Code->getBuffer() : "");
     if (!FormatStyle) {
       llvm::errs() << llvm::toString(FormatStyle.takeError()) << "\n";
       return 1;

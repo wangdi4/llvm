@@ -26,9 +26,9 @@
 #include "clang/Lex/LexDiagnostic.h"
 #include "clang/Lex/MacroArgs.h"
 #include "clang/Lex/MacroInfo.h"
+#include "clang/Lex/PTHLexer.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/PreprocessorLexer.h"
-#include "clang/Lex/PTHLexer.h"
 #include "clang/Lex/Token.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
@@ -36,15 +36,16 @@
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Format.h"
+#include "llvm/Support/Timer.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
@@ -56,6 +57,9 @@
 #include <utility>
 
 using namespace clang;
+
+static const char *const GroupName = "clangparser";
+static const char *const GroupDescription = "===== Clang Parser =====";
 
 MacroDirective *
 Preprocessor::getLocalMacroDirectiveHistory(const IdentifierInfo *II) const {
@@ -69,6 +73,8 @@ Preprocessor::getLocalMacroDirectiveHistory(const IdentifierInfo *II) const {
 void Preprocessor::appendMacroDirective(IdentifierInfo *II, MacroDirective *MD){
   assert(MD && "MacroDirective should be non-zero!");
   assert(!MD->getPrevious() && "Already attached to a MacroDirective history.");
+  llvm::NamedRegionTimer NRT("appendmacro", "PP Append Macro", GroupName,
+                             GroupDescription, llvm::TimePassesIsEnabled);
 
   MacroState &StoredMD = CurSubmoduleState->Macros[II];
   auto *OldMD = StoredMD.getLatest();
@@ -131,6 +137,8 @@ ModuleMacro *Preprocessor::addModuleMacro(Module *Mod, IdentifierInfo *II,
                                           MacroInfo *Macro,
                                           ArrayRef<ModuleMacro *> Overrides,
                                           bool &New) {
+  llvm::NamedRegionTimer NRT("addmodulemacro", "PP Add Module Macro", GroupName,
+                             GroupDescription, llvm::TimePassesIsEnabled);
   llvm::FoldingSetNodeID ID;
   ModuleMacro::Profile(ID, Mod, II);
 
@@ -182,6 +190,9 @@ void Preprocessor::updateModuleMacroInfo(const IdentifierInfo *II,
   assert(Info.ActiveModuleMacrosGeneration !=
              CurSubmoduleState->VisibleModules.getGeneration() &&
          "don't need to update this macro name info");
+  llvm::NamedRegionTimer NRT("updatemodulemacro", "PP Update Module Macro",
+                             GroupName, GroupDescription,
+                             llvm::TimePassesIsEnabled);
   Info.ActiveModuleMacrosGeneration =
       CurSubmoduleState->VisibleModules.getGeneration();
 
@@ -754,6 +765,8 @@ static bool GenerateNewArgTokens(Preprocessor &PP,
 MacroArgs *Preprocessor::ReadMacroCallArgumentList(Token &MacroName,
                                                    MacroInfo *MI,
                                                    SourceLocation &MacroEnd) {
+  llvm::NamedRegionTimer NRT("ppmacrocall", "PP Macro Call Args", GroupName,
+                             GroupDescription, llvm::TimePassesIsEnabled);
   // The number of fixed arguments to parse.
   unsigned NumFixedArgsLeft = MI->getNumParams();
   bool isVariadic = MI->isVariadic();
@@ -1151,6 +1164,7 @@ static bool HasFeature(const Preprocessor &PP, StringRef Feature) {
       // Objective-C features
       .Case("objc_arr", LangOpts.ObjCAutoRefCount) // FIXME: REMOVE?
       .Case("objc_arc", LangOpts.ObjCAutoRefCount)
+      .Case("objc_arc_fields", true)
       .Case("objc_arc_weak", LangOpts.ObjCWeak)
       .Case("objc_default_synthesize_properties", LangOpts.ObjC2)
       .Case("objc_fixed_enum", LangOpts.ObjC2)
@@ -1274,6 +1288,8 @@ static bool HasFeature(const Preprocessor &PP, StringRef Feature) {
       .Case("is_union", LangOpts.CPlusPlus)
       .Case("modules", LangOpts.Modules)
       .Case("safe_stack", LangOpts.Sanitize.has(SanitizerKind::SafeStack))
+      .Case("shadow_call_stack",
+            LangOpts.Sanitize.has(SanitizerKind::ShadowCallStack))
       .Case("tls", PP.getTargetInfo().isTLSSupported())
       .Case("underlying_type", LangOpts.CPlusPlus)
       .Default(false);
@@ -1343,7 +1359,7 @@ static bool EvaluateHasIncludeCommon(Token &Tok,
 
   // These expressions are only allowed within a preprocessor directive.
   if (!PP.isParsingIfOrElifDirective()) {
-    PP.Diag(LParenLoc, diag::err_pp_directive_required) << II->getName();
+    PP.Diag(LParenLoc, diag::err_pp_directive_required) << II;
     // Return a valid identifier token.
     assert(Tok.is(tok::identifier));
     Tok.setIdentifierInfo(II);
@@ -1800,12 +1816,21 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
       [this](Token &Tok, bool &HasLexedNextToken) -> int {
         IdentifierInfo *II = ExpectFeatureIdentifierInfo(Tok, *this,
                                            diag::err_feature_check_malformed);
+        const LangOptions &LangOpts = getLangOpts();
         if (!II)
           return false;
-        else if (II->getBuiltinID() != 0)
+        else if (II->getBuiltinID() != 0) {
+          switch (II->getBuiltinID()) {
+          case Builtin::BI__builtin_operator_new:
+          case Builtin::BI__builtin_operator_delete:
+            // denotes date of behavior change to support calling arbitrary
+            // usual allocation and deallocation functions. Required by libc++
+            return 201802;
+          default:
+            return true;
+          }
           return true;
-        else {
-          const LangOptions &LangOpts = getLangOpts();
+        } else {
           return llvm::StringSwitch<bool>(II->getName())
                       .Case("__make_integer_seq", LangOpts.CPlusPlus)
                       .Case("__type_pack_element", LangOpts.CPlusPlus)

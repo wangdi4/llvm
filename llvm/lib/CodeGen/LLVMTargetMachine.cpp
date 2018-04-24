@@ -16,7 +16,6 @@
 #include "llvm/CodeGen/BasicTTIImpl.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/Passes.h"
-#include "llvm/CodeGen/TargetLoweringObjectFile.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/MC/MCAsmBackend.h"
@@ -30,9 +29,14 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 using namespace llvm;
+
+static cl::opt<bool> EnableTrapUnreachable("trap-unreachable",
+  cl::Hidden, cl::ZeroOrMore, cl::init(false),
+  cl::desc("Enable generating trap for unreachable"));
 
 void LLVMTargetMachine::initAsmInfo() {
   MRI = TheTarget.createMCRegInfo(getTargetTriple().str());
@@ -79,6 +83,9 @@ LLVMTargetMachine::LLVMTargetMachine(const Target &T,
   this->RM = RM;
   this->CMModel = CM;
   this->OptLevel = OL;
+
+  if (EnableTrapUnreachable)
+    this->Options.TrapUnreachable = true;
 }
 
 TargetTransformInfo
@@ -136,8 +143,7 @@ bool LLVMTargetMachine::addAsmPrinter(PassManagerBase &PM,
       MCE = getTarget().createMCCodeEmitter(MII, MRI, Context);
 
     MCAsmBackend *MAB =
-        getTarget().createMCAsmBackend(MRI, getTargetTriple().str(), TargetCPU,
-                                       Options.MCOptions);
+        getTarget().createMCAsmBackend(STI, MRI, Options.MCOptions);
     auto FOut = llvm::make_unique<formatted_raw_ostream>(Out);
     MCStreamer *S = getTarget().createAsmStreamer(
         Context, std::move(FOut), Options.MCOptions.AsmVerbose,
@@ -151,8 +157,7 @@ bool LLVMTargetMachine::addAsmPrinter(PassManagerBase &PM,
     // emission fails.
     MCCodeEmitter *MCE = getTarget().createMCCodeEmitter(MII, MRI, Context);
     MCAsmBackend *MAB =
-        getTarget().createMCAsmBackend(MRI, getTargetTriple().str(), TargetCPU,
-                                       Options.MCOptions);
+        getTarget().createMCAsmBackend(STI, MRI, Options.MCOptions);
     if (!MCE || !MAB)
       return true;
 
@@ -225,17 +230,16 @@ bool LLVMTargetMachine::addPassesToEmitMC(PassManagerBase &PM, MCContext *&Ctx,
 
   // Create the code emitter for the target if it exists.  If not, .o file
   // emission fails.
+  const MCSubtargetInfo &STI = *getMCSubtargetInfo();
   const MCRegisterInfo &MRI = *getMCRegisterInfo();
   MCCodeEmitter *MCE =
       getTarget().createMCCodeEmitter(*getMCInstrInfo(), MRI, *Ctx);
   MCAsmBackend *MAB =
-      getTarget().createMCAsmBackend(MRI, getTargetTriple().str(), TargetCPU,
-                                     Options.MCOptions);
+      getTarget().createMCAsmBackend(STI, MRI, Options.MCOptions);
   if (!MCE || !MAB)
     return true;
 
   const Triple &T = getTargetTriple();
-  const MCSubtargetInfo &STI = *getMCSubtargetInfo();
   std::unique_ptr<MCStreamer> AsmStreamer(getTarget().createMCObjectStreamer(
       T, *Ctx, std::unique_ptr<MCAsmBackend>(MAB), Out,
       std::unique_ptr<MCCodeEmitter>(MCE), STI, Options.MCOptions.MCRelaxAll,

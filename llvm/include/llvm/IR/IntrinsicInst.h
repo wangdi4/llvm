@@ -243,11 +243,20 @@ namespace llvm {
       return cast<PointerType>(getRawDest()->getType())->getAddressSpace();
     }
 
+    unsigned getDestAlignment() const { return getParamAlignment(ARG_DEST); }
+
     /// Set the specified arguments of the instruction.
     void setDest(Value *Ptr) {
       assert(getRawDest()->getType() == Ptr->getType() &&
              "setDest called with pointer of wrong type!");
       setArgOperand(ARG_DEST, Ptr);
+    }
+
+    void setDestAlignment(unsigned Align) {
+      removeParamAttr(ARG_DEST, Attribute::Alignment);
+      if (Align > 0)
+        addParamAttr(ARG_DEST,
+                     Attribute::getWithAlignment(getContext(), Align));
     }
 
     void setLength(Value *L) {
@@ -347,10 +356,21 @@ namespace llvm {
       return cast<PointerType>(getRawSource()->getType())->getAddressSpace();
     }
 
+    unsigned getSourceAlignment() const {
+      return getParamAlignment(ARG_SOURCE);
+    }
+
     void setSource(Value *Ptr) {
       assert(getRawSource()->getType() == Ptr->getType() &&
              "setSource called with pointer of wrong type!");
       setArgOperand(ARG_SOURCE, Ptr);
+    }
+
+    void setSourceAlignment(unsigned Align) {
+      removeParamAttr(ARG_SOURCE, Attribute::Alignment);
+      if (Align > 0)
+        addParamAttr(ARG_SOURCE,
+                     Attribute::getWithAlignment(getContext(), Align));
     }
 
     static bool classof(const IntrinsicInst *I) {
@@ -394,17 +414,9 @@ namespace llvm {
   /// This is the common base class for memset/memcpy/memmove.
   class MemIntrinsic : public MemIntrinsicBase<MemIntrinsic> {
   private:
-    enum { ARG_ALIGN = 3, ARG_VOLATILE = 4 };
+    enum { ARG_VOLATILE = 3 };
 
   public:
-    ConstantInt *getAlignmentCst() const {
-      return cast<ConstantInt>(const_cast<Value *>(getArgOperand(ARG_ALIGN)));
-    }
-
-    unsigned getAlignment() const {
-      return getAlignmentCst()->getZExtValue();
-    }
-
     ConstantInt *getVolatileCst() const {
       return cast<ConstantInt>(
           const_cast<Value *>(getArgOperand(ARG_VOLATILE)));
@@ -414,13 +426,7 @@ namespace llvm {
       return !getVolatileCst()->isZero();
     }
 
-    void setAlignment(Constant *A) { setArgOperand(ARG_ALIGN, A); }
-
     void setVolatile(Constant *V) { setArgOperand(ARG_VOLATILE, V); }
-
-    Type *getAlignmentType() const {
-      return getArgOperand(ARG_ALIGN)->getType();
-    }
 
     // Methods for support type inquiry through isa, cast, and dyn_cast:
     static bool classof(const IntrinsicInst *I) {
@@ -462,11 +468,14 @@ namespace llvm {
 
   /// This class wraps the llvm.memcpy/memmove intrinsics.
   class MemTransferInst : public MemIntrinsic {
+  private:
+    enum { ARG_SOURCE = 1 };
+
   public:
     /// Return the arguments to the instruction.
-    Value *getRawSource() const { return const_cast<Value*>(getArgOperand(1)); }
-    const Use &getRawSourceUse() const { return getArgOperandUse(1); }
-    Use &getRawSourceUse() { return getArgOperandUse(1); }
+    Value *getRawSource() const { return const_cast<Value*>(getArgOperand(ARG_SOURCE)); }
+    const Use &getRawSourceUse() const { return getArgOperandUse(ARG_SOURCE); }
+    Use &getRawSourceUse() { return getArgOperandUse(ARG_SOURCE); }
 
     /// This is just like getRawSource, but it strips off any cast
     /// instructions that feed it, giving the original input.  The returned
@@ -477,10 +486,21 @@ namespace llvm {
       return cast<PointerType>(getRawSource()->getType())->getAddressSpace();
     }
 
+    unsigned getSourceAlignment() const {
+      return getParamAlignment(ARG_SOURCE);
+    }
+
     void setSource(Value *Ptr) {
       assert(getRawSource()->getType() == Ptr->getType() &&
              "setSource called with pointer of wrong type!");
-      setArgOperand(1, Ptr);
+      setArgOperand(ARG_SOURCE, Ptr);
+    }
+
+    void setSourceAlignment(unsigned Align) {
+      removeParamAttr(ARG_SOURCE, Attribute::Alignment);
+      if (Align > 0)
+        addParamAttr(ARG_SOURCE,
+                     Attribute::getWithAlignment(getContext(), Align));
     }
 
     // Methods for support type inquiry through isa, cast, and dyn_cast:
@@ -606,10 +626,21 @@ namespace llvm {
       return cast<PointerType>(getRawSource()->getType())->getAddressSpace();
     }
 
+    unsigned getSourceAlignment() const {
+      return getParamAlignment(ARG_SOURCE);
+    }
+
     void setSource(Value *Ptr) {
       assert(getRawSource()->getType() == Ptr->getType() &&
              "setSource called with pointer of wrong type!");
       setArgOperand(ARG_SOURCE, Ptr);
+    }
+
+    void setSourceAlignment(unsigned Align) {
+      removeParamAttr(ARG_SOURCE, Attribute::Alignment);
+      if (Align > 0)
+        addParamAttr(ARG_SOURCE,
+                     Attribute::getWithAlignment(getContext(), Align));
     }
 
     static bool classof(const IntrinsicInst *I) {

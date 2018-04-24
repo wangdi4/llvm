@@ -20,7 +20,6 @@
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineMemOperand.h"
-#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
 #include "llvm/CodeGen/TargetLowering.h"
@@ -31,6 +30,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Type.h"
+#include "llvm/Support/MachineValueType.h"
 #include <utility>
 
 namespace llvm {
@@ -429,6 +429,11 @@ namespace llvm {
       /// QBRC, CHAIN = QVLFSb CHAIN, Ptr
       /// The 4xf32 load used for v4i1 constants.
       QVLFSb,
+
+      /// ATOMIC_CMP_SWAP - the exact same as the target-independent nodes
+      /// except they ensure that the compare input is zero-extended for
+      /// sub-word versions because the atomic loads zero-extend.
+      ATOMIC_CMP_SWAP_8, ATOMIC_CMP_SWAP_16,
 
       /// GPRC = TOC_ENTRY GA, TOC
       /// Loads the entry for GA from the TOC, where the TOC base is given by
@@ -879,6 +884,11 @@ namespace llvm {
       }
     };
 
+    bool isNoopAddrSpaceCast(unsigned SrcAS, unsigned DestAS) const override {
+      // Addrspacecasts are always noops.
+      return true;
+    }
+
     bool canReuseLoadAddress(SDValue Op, EVT MemVT, ReuseLoadInfo &RLI,
                              SelectionDAG &DAG,
                              ISD::LoadExtType ET = ISD::NON_EXTLOAD) const;
@@ -955,6 +965,7 @@ namespace llvm {
     SDValue LowerINTRINSIC_VOID(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerREM(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerBSWAP(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerATOMIC_CMP_SWAP(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerSCALAR_TO_VECTOR(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerSIGN_EXTEND_INREG(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerMUL(SDValue Op, SelectionDAG &DAG) const;

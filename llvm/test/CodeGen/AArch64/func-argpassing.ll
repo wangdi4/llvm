@@ -96,8 +96,8 @@ define [2 x i64] @return_struct() {
     %addr = bitcast %myStruct* @varstruct to [2 x i64]*
     %val = load [2 x i64], [2 x i64]* %addr
     ret [2 x i64] %val
-; CHECK: add x[[VARSTRUCT:[0-9]+]], {{x[0-9]+}}, :lo12:varstruct
-; CHECK: ldp x0, x1, [x[[VARSTRUCT]]]
+; CHECK: ldr x0, [{{x[0-9]+}}, :lo12:varstruct]
+; CHECK: ldr x1, [{{x[0-9]+}}, :lo12:varstruct+8]
     ; Make sure epilogue immediately follows
 ; CHECK-NEXT: ret
 }
@@ -164,11 +164,11 @@ define void @stacked_fpu(float %var0, double %var1, float %var2, float %var3,
 define i64 @check_i128_regalign(i32 %val0, i128 %val1, i64 %val2) {
 ; CHECK-LABEL: check_i128_regalign
     store i128 %val1, i128* @var128
-; CHECK: add x[[VAR128:[0-9]+]], {{x[0-9]+}}, :lo12:var128
-; CHECK-DAG: stp x2, x3, [x[[VAR128]]]
+; CHECK-DAG: str x3, [{{x[0-9]+}}, :lo12:var128+8]
+; CHECK-DAG: str x2, [{{x[0-9]+}}, :lo12:var128]
 
     ret i64 %val2
-; CHECK: mov x0, x4
+; CHECK-DAG: mov x0, x4
 }
 
 define void @check_i128_stackalign(i32 %val0, i32 %val1, i32 %val2, i32 %val3,
@@ -186,11 +186,11 @@ define void @check_i128_stackalign(i32 %val0, i32 %val1, i32 %val2, i32 %val3,
     ret void
 }
 
-declare void @llvm.memcpy.p0i8.p0i8.i32(i8*, i8*, i32, i32, i1)
+declare void @llvm.memcpy.p0i8.p0i8.i32(i8*, i8*, i32, i1)
 
 define i32 @test_extern() {
 ; CHECK-LABEL: test_extern:
-  call void @llvm.memcpy.p0i8.p0i8.i32(i8* undef, i8* undef, i32 undef, i32 4, i1 0)
+  call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 undef, i8* align 4 undef, i32 undef, i1 0)
 ; CHECK: bl memcpy
   ret i32 0
 }

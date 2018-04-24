@@ -132,6 +132,8 @@ namespace std
 
     template <class T> struct has_virtual_destructor;
 
+    template<class T> struct has_unique_object_representations;         // C++17
+
     // Relationships between types:
     template <class T, class U> struct is_same;
     template <class Base, class Derived> struct is_base_of;
@@ -355,6 +357,8 @@ namespace std
         = is_nothrow_destructible<T>::value;                             // C++17
       template <class T> inline constexpr bool has_virtual_destructor_v
         = has_virtual_destructor<T>::value;                              // C++17
+      template<class T> inline constexpr bool has_unique_object_representations_v // C++17
+        = has_unique_object_representations<T>::value;
 
       // See C++14 20.10.5, type property queries
       template <class T> inline constexpr size_t alignment_of_v
@@ -1176,9 +1180,7 @@ struct __is_same_uncvref : is_same<typename __uncvref<_Tp>::type,
 #if _LIBCPP_STD_VER > 17
 // aligned_union - same as __uncvref
 template <class _Tp>
-struct remove_cvref {
-    using type = remove_cv_t<remove_reference_t<_Tp>>;
-};
+struct remove_cvref : public __uncvref<_Tp> {};
 
 template <class _Tp> using remove_cvref_t = typename remove_cvref<_Tp>::type;
 #endif
@@ -1615,6 +1617,22 @@ template <class _Tp> struct _LIBCPP_TEMPLATE_VIS has_virtual_destructor
 template <class _Tp>
 _LIBCPP_INLINE_VAR _LIBCPP_CONSTEXPR bool has_virtual_destructor_v
     = has_virtual_destructor<_Tp>::value;
+#endif
+
+// has_unique_object_representations
+
+#if _LIBCPP_STD_VER > 14 && defined(_LIBCPP_HAS_UNIQUE_OBJECT_REPRESENTATIONS)
+
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS has_unique_object_representations
+    : public integral_constant<bool, 
+       __has_unique_object_representations(remove_cv_t<remove_all_extents_t<_Tp>>)> {};
+
+#if !defined(_LIBCPP_HAS_NO_VARIABLE_TEMPLATES)
+template <class _Tp>
+_LIBCPP_INLINE_VAR _LIBCPP_CONSTEXPR bool has_unique_object_representations_v
+    = has_unique_object_representations<_Tp>::value;
+#endif
+
 #endif
 
 // alignment_of
@@ -3152,6 +3170,14 @@ template <class _A0, class _A1>
 false_type
 __is_constructible2_test(__any, _A0&, _A1&);
 
+template <class _Tp, class _A0, class _A1, class _A2>
+decltype((_Tp(_VSTD::declval<_A0>(), _VSTD::declval<_A1>(), _VSTD::declval<_A2>()), true_type()))
+__is_constructible3_test(_Tp&, _A0&, _A1&, _A2&);
+
+template <class _A0, class _A1, class _A2>
+false_type
+__is_constructible3_test(__any, _A0&, _A1&, _A2&);
+
 template <bool, class _Tp>
 struct __is_constructible0_imp // false, _Tp is not a scalar
     : public common_type
@@ -3176,6 +3202,14 @@ struct __is_constructible2_imp // false, _Tp is not a scalar
              >::type
     {};
 
+template <bool, class _Tp, class _A0, class _A1, class _A2>
+struct __is_constructible3_imp // false, _Tp is not a scalar
+    : public common_type
+             <
+                 decltype(__is_constructible3_test(declval<_Tp&>(), declval<_A0>(), declval<_A1>(), declval<_A2>()))
+             >::type
+    {};
+
 //      handle scalars and reference types
 
 //      Scalars are default constructible, references are not
@@ -3192,6 +3226,11 @@ struct __is_constructible1_imp<true, _Tp, _A0>
 
 template <class _Tp, class _A0, class _A1>
 struct __is_constructible2_imp<true, _Tp, _A0, _A1>
+    : public false_type
+    {};
+
+template <class _Tp, class _A0, class _A1, class _A2>
+struct __is_constructible3_imp<true, _Tp, _A0, _A1, _A2>
     : public false_type
     {};
 
@@ -3215,6 +3254,12 @@ struct __is_constructible2_void_check
                                 _Tp, _A0, _A1>
     {};
 
+template <bool, class _Tp, class _A0, class _A1, class _A2>
+struct __is_constructible3_void_check
+    : public __is_constructible3_imp<is_scalar<_Tp>::value || is_reference<_Tp>::value,
+                                _Tp, _A0, _A1, _A2>
+    {};
+
 //      If any of T or Args is void, is_constructible should be false
 
 template <class _Tp>
@@ -3232,17 +3277,24 @@ struct __is_constructible2_void_check<true, _Tp, _A0, _A1>
     : public false_type
     {};
 
+template <class _Tp, class _A0, class _A1, class _A2>
+struct __is_constructible3_void_check<true, _Tp, _A0, _A1, _A2>
+    : public false_type
+    {};
+
 //      is_constructible entry point
 
 template <class _Tp, class _A0 = __is_construct::__nat,
-                     class _A1 = __is_construct::__nat>
+                     class _A1 = __is_construct::__nat,
+                     class _A2 = __is_construct::__nat>
 struct _LIBCPP_TEMPLATE_VIS is_constructible
-    : public __is_constructible2_void_check<is_void<_Tp>::value
+    : public __is_constructible3_void_check<is_void<_Tp>::value
                                         || is_abstract<_Tp>::value
                                         || is_function<_Tp>::value
                                         || is_void<_A0>::value
-                                        || is_void<_A1>::value,
-                                           _Tp, _A0, _A1>
+                                        || is_void<_A1>::value
+                                        || is_void<_A2>::value,
+                                           _Tp, _A0, _A1, _A2>
     {};
 
 template <class _Tp>
@@ -3260,6 +3312,16 @@ struct _LIBCPP_TEMPLATE_VIS is_constructible<_Tp, _A0, __is_construct::__nat>
                                         || is_function<_Tp>::value
                                         || is_void<_A0>::value,
                                            _Tp, _A0>
+    {};
+
+template <class _Tp, class _A0, class _A1>
+struct _LIBCPP_TEMPLATE_VIS is_constructible<_Tp, _A0, _A1, __is_construct::__nat>
+    : public __is_constructible2_void_check<is_void<_Tp>::value
+                                        || is_abstract<_Tp>::value
+                                        || is_function<_Tp>::value
+                                        || is_void<_A0>::value
+                                        || is_void<_A1>::value,
+                                           _Tp, _A0, _A1>
     {};
 
 //      Array types are default constructible if their element type
@@ -3280,6 +3342,11 @@ struct __is_constructible2_imp<false, _Ap[_Np], _A0, _A1>
     : public false_type
     {};
 
+template <class _Ap, size_t _Np, class _A0, class _A1, class _A2>
+struct __is_constructible3_imp<false, _Ap[_Np], _A0, _A1, _A2>
+    : public false_type
+    {};
+
 //      Incomplete array types are not constructible
 
 template <class _Ap>
@@ -3294,6 +3361,11 @@ struct __is_constructible1_imp<false, _Ap[], _A0>
 
 template <class _Ap, class _A0, class _A1>
 struct __is_constructible2_imp<false, _Ap[], _A0, _A1>
+    : public false_type
+    {};
+
+template <class _Ap, class _A0, class _A1, class _A2>
+struct __is_constructible3_imp<false, _Ap[], _A0, _A1, _A2>
     : public false_type
     {};
 
@@ -4738,39 +4810,39 @@ struct __sfinae_underlying_type
 template <class _Tp>
 struct __sfinae_underlying_type<_Tp, false> {};
 
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR
 int __convert_to_integral(int __val) { return __val; }
 
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR
 unsigned __convert_to_integral(unsigned __val) { return __val; }
 
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR
 long __convert_to_integral(long __val) { return __val; }
 
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR
 unsigned long __convert_to_integral(unsigned long __val) { return __val; }
 
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR
 long long __convert_to_integral(long long __val) { return __val; }
 
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR
 unsigned long long __convert_to_integral(unsigned long long __val) {return __val; }
 
 template<typename _Fp>
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR
 typename enable_if<is_floating_point<_Fp>::value, long long>::type
  __convert_to_integral(_Fp __val) { return __val; }
 
 #ifndef _LIBCPP_HAS_NO_INT128
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR
 __int128_t __convert_to_integral(__int128_t __val) { return __val; }
 
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR
 __uint128_t __convert_to_integral(__uint128_t __val) { return __val; }
 #endif
 
 template <class _Tp>
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR
 typename __sfinae_underlying_type<_Tp>::__promoted_type
 __convert_to_integral(_Tp __val) { return __val; }
 
@@ -4865,6 +4937,21 @@ template <class _ValTy, class _Key, class _RawValTy>
 struct __can_extract_map_key<_ValTy, _Key, _Key, _RawValTy>
     : false_type {};
 
+#endif
+
+#if _LIBCPP_STD_VER > 17
+enum class endian
+{
+    little = 0xDEAD,
+    big    = 0xFACE,
+#if defined(_LIBCPP_LITTLE_ENDIAN)
+    native = little
+#elif defined(_LIBCPP_BIG_ENDIAN)
+    native = big
+#else
+    native = 0xCAFE
+#endif
+};
 #endif
 
 _LIBCPP_END_NAMESPACE_STD
