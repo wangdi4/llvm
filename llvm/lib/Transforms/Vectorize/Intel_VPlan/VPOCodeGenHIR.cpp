@@ -46,11 +46,11 @@ static cl::opt<bool>
                       cl::desc("Disable VPO Vectorizer Stress Testing"));
 
 static cl::opt<bool>
-    EnableNestedBlobVec("enable-nested-blob-vec", cl::init(false), cl::Hidden,
+    EnableNestedBlobVec("enable-nested-blob-vec", cl::init(true), cl::Hidden,
                         cl::desc("Enable vectorization of loops with nested blobs"));
 
 static cl::opt<bool>
-    EnableBlobCoeffVec("enable-blob-coeff-vec", cl::init(false), cl::Hidden,
+    EnableBlobCoeffVec("enable-blob-coeff-vec", cl::init(true), cl::Hidden,
                        cl::desc("Enable vectorization of loops with blob IV coefficients"));
 
 /// Don't vectorize loops with a known constant trip count below this number if
@@ -326,6 +326,31 @@ bool VPOCodeGenHIR::isConstStrideRef(const RegDDRef *Ref, unsigned NestingLevel,
 }
 
 namespace {
+// Check if a scev expression can possibly result in a divide by zero.
+class DivByZeroCheck {
+private:
+  bool DivByZero;
+
+public:
+  DivByZeroCheck() : DivByZero(false) {}
+  bool follow(const SCEV *SC) {
+    if (auto *DivExpr = dyn_cast<SCEVUDivExpr>(SC)) {
+      const SCEV *RHS = DivExpr->getRHS();
+      if (isa<SCEVConstant>(RHS)) {
+        if (RHS->isZero())
+          DivByZero = true;
+      } else {
+        DivByZero = true;
+      }
+    }
+
+    return !isDone();
+  }
+
+  bool isDivByZeroPossible() const { return DivByZero; }
+  bool isDone() const { return DivByZero; }
+};
+
 class HandledCheck final : public HLNodeVisitorBase {
 private:
   bool IsHandled;
@@ -334,15 +359,18 @@ private:
   unsigned VF;
   bool UnitStrideRefSeen;
   bool MemRefSeen;
+  bool NegativeIVCoeffSeen;
+  bool FieldAccessSeen;
   unsigned LoopLevel;
 
   void visitRegDDRef(RegDDRef *RegDD);
-  void visitCanonExpr(CanonExpr *CExpr);
+  void visitCanonExpr(CanonExpr *CExpr, bool InMemRef, bool InMaskedStmt);
 
 public:
   HandledCheck(const HLLoop *OrigLoop, TargetLibraryInfo *TLI, int VF)
       : IsHandled(true), OrigLoop(OrigLoop), TLI(TLI), VF(VF),
-        UnitStrideRefSeen(false), MemRefSeen(false) {
+        UnitStrideRefSeen(false), MemRefSeen(false), NegativeIVCoeffSeen(false),
+        FieldAccessSeen(false) {
     LoopLevel = OrigLoop->getNestingLevel();
   }
 
@@ -359,6 +387,8 @@ public:
   bool isHandled() { return IsHandled; }
   bool getUnitStrideRefSeen() { return UnitStrideRefSeen; }
   bool getMemRefSeen() { return MemRefSeen; }
+  bool getNegativeIVCoeffSeen() { return NegativeIVCoeffSeen; }
+  bool getFieldAccessSeen() { return FieldAccessSeen; }
 };
 } // End anonymous namespace
 
@@ -388,7 +418,7 @@ void HandledCheck::visit(HLDDNode *Node) {
         (Inst->getParent() != OrigLoop)) {
       DEBUG(Inst->dump());
       DEBUG(dbgs()
-            << "VPLAN_OPTREPORT: Loop not handled - DIV/REM instruction\n");
+            << "VPLAN_OPTREPORT: Loop not handled - masked DIV/REM instruction\n");
       IsHandled = false;
       return;
     }
@@ -440,6 +470,15 @@ void HandledCheck::visit(HLDDNode *Node) {
         IsHandled = false;
         return;
       }
+
+      // These intrinsics need the second argument to remain scalar(consequently loop
+      // invariant). Support to be added later.
+      if (ID == Intrinsic::ctlz || ID == Intrinsic::cttz || ID == Intrinsic::powi) {
+        DEBUG(dbgs()
+              << "VPLAN_OPTREPORT: Loop not handled - ctlz/cttz/powi intrinsic\n");
+        IsHandled = false;
+        return;
+      }
     }
   }
 
@@ -469,13 +508,18 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
     UnitStrideRefSeen = true;
 
   // Visit CanonExprs inside the RegDDRefs
+  bool InMaskedStmt = RegDD->getHLDDNode()->getParent() != OrigLoop;
   for (auto Iter = RegDD->canon_begin(), End = RegDD->canon_end(); Iter != End;
        ++Iter) {
-    visitCanonExpr(*Iter);
+    visitCanonExpr(*Iter, RegDD->isMemRef(), InMaskedStmt);
   }
 
   // Visit GEP Base
   if (RegDD->hasGEPInfo()) {
+    // Track if we see field accesses in the lowest dimension
+    if (RegDD->hasTrailingStructOffsets(1))
+      FieldAccessSeen = true;
+
     MemRefSeen = true;
 
     auto BaseCE = RegDD->getBaseCE();
@@ -491,7 +535,15 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 
 // Checks Canon Expr to see if we support it. Currently, we do not
 // support blob IV coefficients
-void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
+void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
+                                  bool InMaskedStmt) {
+  // Track if we see a memory reference with a negative IV coefficient
+  if (InMemRef) {
+    int64_t ConstCoeff = 0;
+    CExpr->getIVCoeff(LoopLevel, nullptr, &ConstCoeff);
+    if (ConstCoeff < 0)
+      NegativeIVCoeffSeen = true;
+  }
   if (!EnableBlobCoeffVec && CExpr->hasIVBlobCoeff(LoopLevel)) {
     DEBUG(dbgs()
           << "VPLAN_OPTREPORT: Loop not handled - IV with blob coefficient\n");
@@ -499,18 +551,36 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
     return;
   }
 
-  // Skip the bailout for nested blobs if we are enabling vectorization for loops with
-  // nested blobs.
-  if (EnableNestedBlobVec)
-    return;
-
+  // Skip the bailout for nested blobs if we are enabling vectorization for
+  // loops with nested blobs. We still need to bail out for a possible divide by
+  // zero until we add support for masked divides.
   SmallVector<unsigned, 8> BlobIndices;
   CExpr->collectBlobIndices(BlobIndices, false);
+  if (EnableNestedBlobVec) {
+    if (InMaskedStmt) {
+      for (auto &BI : BlobIndices) {
+        auto TopBlob = CExpr->getBlobUtils().getBlob(BI);
+        DivByZeroCheck ZChk;
+        SCEVTraversal<DivByZeroCheck> ZeroCheck(ZChk);
+        ZeroCheck.visitAll(TopBlob);
+
+        if (ZChk.isDivByZeroPossible()) {
+          DEBUG(dbgs() << "VPLAN_OPTREPORT: Masked divide support TBI\n");
+          IsHandled = false;
+          return;
+        }
+      }
+    }
+
+    return;
+  }
 
   for (auto &BI : BlobIndices) {
     auto TopBlob = CExpr->getBlobUtils().getBlob(BI);
 
     if (CExpr->getBlobUtils().isNestedBlob(TopBlob)) {
+      DEBUG(dbgs()
+            << "VPLAN_OPTREPORT: Loop not handled - nested blob\n");
       IsHandled = false;
       return;
     }
@@ -567,6 +637,13 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
       !NodeCheck.getUnitStrideRefSeen()) {
     DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - all mem refs non "
                     "unit-stride\n");
+    return false;
+  }
+
+  // Workaround for performance regressions until cost model can be refined
+  if (NodeCheck.getFieldAccessSeen() && NodeCheck.getNegativeIVCoeffSeen()) {
+    DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - combination of field "
+                    "accesses and negative IV coefficients seen\n");
     return false;
   }
 
@@ -1020,6 +1097,10 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
   for (auto I = WideRef->canon_begin(), E = WideRef->canon_end(); I != E; ++I) {
     auto CE = *I;
 
+    // Collect blob indices in canon expr before we start changing the same.
+    SmallVector<unsigned, 8> BlobIndices;
+    CE->collectBlobIndices(BlobIndices, false);
+
     if (CE->hasIV(NestingLevel)) {
       SmallVector<Constant *, 4> CA;
       Type *Int64Ty = CE->getSrcType();
@@ -1053,9 +1134,6 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
         CE->addBlob(Idx, 1);
       }
     }
-
-    SmallVector<unsigned, 8> BlobIndices;
-    CE->collectBlobIndices(BlobIndices, false);
 
     for (auto &BI : BlobIndices) {
       auto TopBlob = CE->getBlobUtils().getBlob(BI);

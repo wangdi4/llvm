@@ -242,12 +242,41 @@ public:
                                                         StructType *IdentTy,
                                                         BasicBlock *BB);
 
-    /// \brief Insert this call at InsertPt:
-    ///    call void @__kmpc_barrier(%ident_t* %loc, i32 %tid)
-    static CallInst* genKmpcBarrier(WRegionNode *W, Value *Tid,
-                                    Instruction *InsertPt,
-                                    StructType *IdentTy,
+    /// \brief Insert the following call before \p InsertPt and return it:
+    ///
+    /// If the parent WRegion has a cancel construct:
+    ///   %1 = call int32 @__kmpc_cancel_barrier(%ident_t* %loc, i32 %tid)
+    ///   Also, add %1 to the parent WRegionNode's CancellationPoints.
+    ///
+    /// Otherwise:
+    ///   call void @__kmpc_barrier(%ident_t* %loc, i32 %tid)
+    static CallInst *genKmpcBarrier(WRegionNode *W, Value *Tid,
+                                    Instruction *InsertPt, StructType *IdentTy,
                                     bool IsExplicit);
+
+    /// \brief Insert the following call before \p InsertPt and return it:
+    ///
+    /// If \p CancelBarrier is \b true:
+    ///   %1 = call int32 @__kmpc_cancel_barrier(%ident_t* %loc, i32 %tid)
+    ///
+    /// Otherwise:
+    ///   call void @__kmpc_barrier(%ident_t* %loc, i32 %tid)
+    static CallInst *genKmpcBarrierImpl(WRegionNode *W, Value *Tid,
+                                        Instruction *InsertPt,
+                                        StructType *IdentTy, bool IsExplicit,
+                                        bool IsCancelBarrier);
+
+    /// \brief Insert the following call before \p InsertPt:
+    /// If \p IsCancellationPoint is \b false:
+    ///    %1 = call void @__kmpc_cancel(%ident_t* %loc, i32 %tid, i32
+    ///    cancel_kind)
+    /// If \p IsCancellationPoint is \b true:
+    ///    %1 = call void @__kmpc_cancellation_point(%ident_t* %loc, i32 %tid,
+    ///    i32 cancel_kind)
+    static CallInst *genKmpcCancelOrCancellationPointCall(
+        WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
+        Instruction *InsertPoint, WRNCancelKind CancelKind,
+        bool IsCancellationPoint);
 
     /// \brief Generates a critical section surrounding all the inner
     /// BasicBlocks of the WRegionNode \p W. The function works only on
@@ -399,6 +428,16 @@ public:
     static CallInst *genMemcpy(Value *D, Value *S, const DataLayout &DL,
                                unsigned Align, BasicBlock *BB);
 
+    /// \brief Utils to emit calls to ctor, dtor, cctor, and copyassign
+    static CallInst *genConstructorCall(Function *Ctor, Value *V,
+                                        Value *PrivAlloca);
+    static CallInst *genDestructorCall(Function *Dtor, Value *V,
+                                       Instruction *InsertBeforePt);
+    static CallInst *genCopyConstructorCall(Function *Cctor, Value *D,
+                                       Value *S, Instruction *InsertBeforePt);
+    static CallInst *genCopyAssignCall(Function *Cp, Value *D, Value *S,
+                                       Instruction *InsertBeforePt);
+
     /// \brief Computes the OpenMP loop upper bound so that the loop
     //  iteration space can be closed interval.
     static CmpInst::Predicate computeOmpPredicate(CmpInst::Predicate PD);
@@ -413,6 +452,13 @@ public:
     static void updateOmpPredicateAndUpperBound(WRegionNode *W,
                                                 Value *Load,
                                                 Instruction *InsertPt);
+
+    /// \brief Creates a clone of \p CI, and adds \p OpBundlesToAdd the new
+    /// CallInst. \returns the created CallInst, if it created one, \p CI
+    /// otherwise (when \p OpBundlesToAdd is empty).
+    static CallInst *addOperandBundlesInCall(
+        CallInst *CI,
+        ArrayRef<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd);
 
     /// \brief Clones the instructions and inserts before the InsertPt.
     static Value *cloneInstructions(Value *V, Instruction *InsertPt);
@@ -693,6 +739,12 @@ public:
                                  Instruction *InsertPt, StringRef IntrinsicName,
                                  Type *ReturnTy, ArrayRef<Value *> Args,
                                  bool Insert=false);
+
+    /// \brief Generates a CallInst for the given Function* Fn and its
+    /// argument list.  Fn must be already declared.
+    static CallInst *genCall(Function *Fn, ArrayRef<Value*> FnArgs,
+                             ArrayRef<Type*> FnArgTypes, Instruction *InsertPt,
+                             bool IsTail=false, bool IsVarArg=false);
 
     /// \brief Generates a call to the function \p FnName.
     /// If the function is not already declared in the module \p M, then it is

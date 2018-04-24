@@ -30,13 +30,13 @@ void ResourcePressureView::initialize() {
     if (ProcResource.SubUnitsIdxBegin || !NumUnits)
       continue;
 
-    Resource2VecIndex.insert(std::pair<uint64_t, unsigned>(I, R2VIndex));
+    Resource2VecIndex.insert(std::pair<unsigned, unsigned>(I, R2VIndex));
     R2VIndex += ProcResource.NumUnits;
   }
 
   NumResourceUnits = R2VIndex;
   ResourceUsage.resize(NumResourceUnits * (Source.size() + 1));
-  std::fill(ResourceUsage.begin(), ResourceUsage.end(), 0);
+  std::fill(ResourceUsage.begin(), ResourceUsage.end(), 0.0);
 }
 
 void ResourcePressureView::onInstructionEvent(const HWInstructionEvent &Event) {
@@ -45,7 +45,7 @@ void ResourcePressureView::onInstructionEvent(const HWInstructionEvent &Event) {
     return;
   const auto &IssueEvent = static_cast<const HWInstructionIssuedEvent &>(Event);
   unsigned SourceIdx = Event.Index % Source.size();
-  for (const std::pair<ResourceRef, unsigned> &Use : IssueEvent.UsedResources) {
+  for (const std::pair<ResourceRef, double> &Use : IssueEvent.UsedResources) {
     const ResourceRef &RR = Use.first;
     assert(Resource2VecIndex.find(RR.first) != Resource2VecIndex.end());
     unsigned R2VIndex = Resource2VecIndex[RR.first];
@@ -70,19 +70,33 @@ static void printColumnNames(raw_string_ostream &OS, const MCSchedModel &SM) {
         OS << "    ";
       else
         OS << "   ";
-      ResourceIndex++;
-      continue;
-    }
-
-    for (unsigned J = 0; J < NumUnits; ++J) {
-      OS << "[" << ResourceIndex << '.' << J << ']';
-      if (ResourceIndex < 10)
-        OS << "  ";
-      else
-        OS << ' ';
+    } else {
+      for (unsigned J = 0; J < NumUnits; ++J) {
+        OS << "[" << ResourceIndex << '.' << J << ']';
+        if (ResourceIndex < 10)
+          OS << "  ";
+        else
+          OS << ' ';
+      }
     }
     ResourceIndex++;
   }
+}
+
+static void printResourcePressure(raw_string_ostream &OS, double Pressure) {
+  if (!Pressure) {
+    OS << " -     ";
+    return;
+  }
+
+  // Round to the value to the nearest hundredth and then print it.
+  OS << format("%.2f", floor((Pressure * 100) + 0.5)/100);
+  if (Pressure < 10.0)
+    OS << "   ";
+  else if (Pressure < 100.0)
+    OS << "  ";
+  else
+    OS << ' ';
 }
 
 void ResourcePressureView::printResourcePressurePerIteration(
@@ -114,21 +128,9 @@ void ResourcePressureView::printResourcePressurePerIteration(
   printColumnNames(TempStream, SM);
   TempStream << '\n';
 
-  for (unsigned I = 0; I < NumResourceUnits; ++I) {
-    unsigned Usage = ResourceUsage[I + Source.size() * NumResourceUnits];
-    if (!Usage) {
-      TempStream << " -     ";
-      continue;
-    }
-
-    double Pressure = (double)Usage / Executions;
-    TempStream << format("%.2f", Pressure);
-    if (Pressure < 10.0)
-      TempStream << "   ";
-    else if (Pressure < 100.0)
-      TempStream << "  ";
-    else
-      TempStream << ' ';
+  for (unsigned I = 0, E = NumResourceUnits; I < E; ++I) {
+    double Usage = ResourceUsage[I + Source.size() * E];
+    printResourcePressure(TempStream, Usage / Executions);
   }
 
   TempStream.flush();
@@ -146,23 +148,8 @@ void ResourcePressureView::printResourcePressurePerInstruction(
 
   for (unsigned I = 0, E = Source.size(); I < E; ++I) {
     for (unsigned J = 0; J < NumResourceUnits; ++J) {
-      unsigned Usage = ResourceUsage[J + I * NumResourceUnits];
-      if (Usage == 0) {
-        TempStream << " -     ";
-      } else {
-        double Pressure = (double)Usage / Executions;
-        if (Pressure < 0.005) {
-          TempStream << " -     ";
-        } else {
-          TempStream << format("%.2f", Pressure);
-          if (Pressure < 10.0)
-            TempStream << "   ";
-          else if (Pressure < 100.0)
-            TempStream << "  ";
-          else
-            TempStream << ' ';
-        }
-      }
+      double Usage = ResourceUsage[J + I * NumResourceUnits];
+      printResourcePressure(TempStream, Usage / Executions);
     }
 
     MCIP.printInst(&Source.getMCInstFromIndex(I), TempStream, "", STI);
@@ -172,5 +159,4 @@ void ResourcePressureView::printResourcePressurePerInstruction(
     Buffer = "";
   }
 }
-
 } // namespace mca

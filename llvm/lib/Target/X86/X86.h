@@ -50,6 +50,11 @@ FunctionPass *createX86FloatingPointStackifierPass();
 /// transition penalty between functions encoded with AVX and SSE.
 FunctionPass *createX86IssueVZeroUpperPass();
 
+/// This pass instruments the function prolog to save the return address to a
+/// 'shadow call stack' and the function epilog to check that the return address
+/// did not change during function execution.
+FunctionPass *createShadowCallStackPass();
+
 /// This pass inserts ENDBR instructions before indirect jump/call
 /// destinations as part of CET IBT mechanism.
 FunctionPass *createX86IndirectBranchTrackingPass();
@@ -61,12 +66,6 @@ FunctionPass *createX86PadShortFunctions();
 #if INTEL_CUSTOMIZATION
 /// This pass performs Fused-Multiply-Add transformations.
 FunctionPass *createX86GlobalFMAPass();
-
-/// Return a pass that selectively replaces
-/// certain byte and word instructions by equivalent 32 bit instructions,
-/// in order to eliminate partial register usage, false dependences on
-/// the upper portions of registers, and to save code size.
-FunctionPass *createX86FixupBWInsts();
 #endif // INTEL_CUSTOMIZATION
 
 /// Return a pass that selectively replaces certain instructions (like add,
@@ -80,6 +79,12 @@ FunctionPass *createX86OptimizeLEAs();
 
 /// Return a pass that transforms setcc + movzx pairs into xor + setcc.
 FunctionPass *createX86FixupSetCC();
+
+/// Return a pass that avoids creating store forward block issues in the hardware.
+FunctionPass *createX86AvoidStoreForwardingBlocks();
+
+/// Return a pass that lowers EFLAGS copy pseudo instructions.
+FunctionPass *createX86FlagsCopyLoweringPass();
 
 /// Return a pass that expands WinAlloca pseudo-instructions.
 FunctionPass *createX86WinAllocaExpander();

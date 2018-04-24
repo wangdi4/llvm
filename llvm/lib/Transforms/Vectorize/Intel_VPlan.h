@@ -33,6 +33,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #if INTEL_CUSTOMIZATION
+#include "Intel_VPlan/VPLoopAnalysis.h"
 #include "Intel_VPlan/VPlanInstructionData.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/IR/Dominators.h"
@@ -48,7 +49,6 @@ class InnerLoopVectorizer;
 class LoopVectorizationLegality;
 class LoopInfo;
 
-class VPlanCostModel; // INTEL: to be later declared as a friend
 //}
 
 #if INTEL_CUSTOMIZATION
@@ -64,6 +64,10 @@ class VPOCodeGen;
 class VPOCodeGenHIR;
 class VPOVectorizationLegality;
 class VPBasicBlock;
+#if INTEL_CUSTOMIZATION
+class VPlanCostModel; // INTEL: to be later declared as a friend
+class VPlanCostModelProprietary; // INTEL: to be later declared as a friend
+#endif // INTEL_CUSTOMIZATION
 typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
 // Class names mapping to minimize the diff:
@@ -447,7 +451,8 @@ class VPInstruction : public VPUser, public VPRecipeBase {
 
 #if INTEL_CUSTOMIZATION
   // To get underlying HIRData until we have proper VPType.
-  friend class llvm::VPlanCostModel;
+  friend class VPlanCostModel;
+  friend class VPlanCostModelProprietary;
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -491,11 +496,11 @@ protected:
   /// is no Instruction attached, it returns null. This interface is similar to
   /// getValue() but allows to avoid the cast when we are working with
   /// VPInstruction pointers.
-  Instruction *getInstruction() { return Inst; }
+  Instruction *getInstruction() const { return Inst; }
 
   /// Return the underlying HIR data attached to this VPInstruction. If there
   /// is no HIR data attached, it returns null.
-  VPInstructionData *getHIRData() { return HIRData; }
+  VPInstructionData *getHIRData() const { return HIRData; }
 
   void setInstruction(Instruction *I) { Inst = I; }
   void setHIRData(VPInstructionData *HD) { HIRData = HD; }
@@ -1716,6 +1721,7 @@ struct GraphTraits<Inverse<vpo::VPRegionBlock *>>
 
 #if INTEL_CUSTOMIZATION
 namespace vpo {
+
 #endif
 /// VPlan models a candidate for vectorization, encoding various decisions take
 /// to produce efficient output IR, including which branches, basic-blocks and
@@ -1767,6 +1773,8 @@ protected:
   // for memory deallocation purposes.
   /// Holds all the external definitions created for this VPlan.
   SmallVector<VPInstruction *, 32> VPExternalDefs;
+
+  std::shared_ptr<VPLoopAnalysisBase> VPLA;
 #else
   /// Holds a mapping between Values and their corresponding VPValue inside
   /// VPlan.
@@ -1785,8 +1793,9 @@ public:
     IntelVPlanSC,
   } VPlanTy;
 
-  VPlan(const unsigned char SC, VPBlockBase *Entry = nullptr)
-      : VPID(SC), Entry(Entry) {}
+  VPlan(const unsigned char SC, std::shared_ptr<VPLoopAnalysisBase> VPLA,
+        VPBlockBase *Entry = nullptr)
+      : VPID(SC), Entry(Entry), VPLA(VPLA) {}
 #else
   VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
 #endif
@@ -1811,6 +1820,7 @@ public:
   /// Generate the IR code for this VPlan.
   virtual void execute(struct VPTransformState *State);
   virtual void executeHIR(VPOCodeGenHIR *CG) {}
+  VPLoopAnalysisBase* getVPLoopAnalysis(void) const { return VPLA.get(); }
 #else
   /// Generate the IR code for this VPlan.
   void execute(struct VPTransformState *State);

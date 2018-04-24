@@ -27,11 +27,11 @@ add_llvm_library(LLVMTransformUtils
   Intel_IntrinsicUtils.cpp
   Intel_VecClone.cpp
   ../Intel_VPO/Utils/IntrinsicUtils.cpp # TODO: Move to lib/Transforms/Utils
-  Intel_LoopRotationUtils.cpp
 #endif // INTEL_CUSTOMIZATION
   LCSSA.cpp
   LibCallsShrinkWrap.cpp
   Local.cpp
+  LoopRotationUtils.cpp
   LoopSimplify.cpp
   LoopUnroll.cpp
   LoopUnrollPeel.cpp
@@ -50,6 +50,7 @@ add_llvm_library(LLVMTransformUtils
   PromoteMemoryToRegister.cpp
   StripGCRelocates.cpp
   SSAUpdater.cpp
+  SSAUpdaterBulk.cpp
   SanitizerStats.cpp
   SimplifyCFG.cpp
   SimplifyIndVar.cpp

@@ -47,6 +47,7 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -64,7 +65,6 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include <algorithm>
@@ -894,17 +894,12 @@ static void splitPredecessorsOfLoopExit(PHINode *PN, DominatorTree *DT,
       // canSplitPredecessors(), we can simply assign predecessor's color to
       // the new block.
       if (!BlockColors.empty()) {
-#if INTEL_CUSTOMIZATION
-        // This fix will be upstreamed, but it was put into xmain first.
-        // If the merge conflict is unclear, ask Andy Kaylor.
-
         // Grab a reference to the ColorVector to be inserted before getting the
         // reference to the vector we are copying because inserting the new
         // element in BlockColors might cause the map to be reallocated.
         ColorVector &ColorsForNewBlock = BlockColors[NewPred];
         ColorVector &ColorsForOldBlock = BlockColors[PredBB];
         ColorsForNewBlock = ColorsForOldBlock;
-#endif // INTEL_CUSTOMIZATION
       }
     }
     PredBBs.remove(PredBB);
@@ -1344,7 +1339,7 @@ bool llvm::promoteLoopAccessesToScalars(
 
         // If a store dominates all exit blocks, it is safe to sink.
         // As explained above, if an exit block was executed, a dominating
-        // store must have been been executed at least once, so we are not
+        // store must have been executed at least once, so we are not
         // introducing stores on paths that did not have them.
         // Note that this only looks at explicit exit blocks. If we ever
         // start sinking stores into unwind edges (see above), this will break.

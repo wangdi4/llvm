@@ -73,6 +73,7 @@ add_llvm_library(LLVMAnalysis
   MemorySSAUpdater.cpp
   ModuleDebugInfoPrinter.cpp
   ModuleSummaryAnalysis.cpp
+  MustExecute.cpp
   ObjCARCAliasAnalysis.cpp
   ObjCARCAnalysisUtils.cpp
   ObjCARCInstKind.cpp
@@ -111,7 +112,6 @@ add_llvm_library(LLVMAnalysis
   intel_libmvec_gen       #INTEL
   )
 
-add_subdirectory(Intel_DTrans)        #INTEL
 add_subdirectory(Intel_LoopAnalysis)  #INTEL
 add_subdirectory(Intel_VPO)           #INTEL
 add_subdirectory(Intel_OptReport)     #INTEL

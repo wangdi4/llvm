@@ -1,4 +1,4 @@
-; RUN: opt -hir-opt-var-predicate -hir-vec-dir-insert -VPlanDriverHIR -hir-cg <%s -disable-output \
+; RUN: opt -hir-opt-var-predicate -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -vplan-force-vf=4 <%s -disable-output \
 ; RUN:     -print-after=VPlanDriverHIR 2>&1 | FileCheck %s
 
 ; Verify that vectorizer does not generate an empty HLIf node.

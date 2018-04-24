@@ -269,10 +269,6 @@ public:
   void visitSubgroupImageMediaBlockINTEL(CallInst *CI,
                                          const std::string &DemangledName);
 
-  void visitDbgInfoIntrinsic(DbgInfoIntrinsic &I){
-    I.dropAllReferences();
-    I.eraseFromParent();
-  }
   static char ID;
 private:
   Module *M;

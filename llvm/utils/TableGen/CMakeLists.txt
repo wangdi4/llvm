@@ -34,6 +34,7 @@ add_tablegen(llvm-tblgen LLVM
   Intel_SVMLEmitter.cpp       # INTEL
   OptParserEmitter.cpp
   PseudoLoweringEmitter.cpp
+  RISCVCompressInstEmitter.cpp
   RegisterBankEmitter.cpp
   RegisterInfoEmitter.cpp
   SDNodeProperties.cpp

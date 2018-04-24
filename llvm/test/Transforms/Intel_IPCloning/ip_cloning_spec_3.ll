@@ -3,6 +3,7 @@
 ; specialization.
 
 ; RUN: opt < %s -ip-cloning -ip-specialization-cloning -print-ip-cloning  -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -ip-specialization-cloning -print-ip-cloning  -disable-output  2>&1 | FileCheck %s
 
 ; CHECK: ClonedCall[
 ; CHECK: ClonedCall[

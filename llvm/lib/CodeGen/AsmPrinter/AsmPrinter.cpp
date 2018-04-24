@@ -32,7 +32,6 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/EHPersonalities.h"
-#include "llvm/Analysis/ObjectUtils.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/BinaryFormat/ELF.h"
@@ -41,6 +40,7 @@
 #include "llvm/CodeGen/GCStrategy.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
+#include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -56,7 +56,6 @@
 #include "llvm/CodeGen/TargetFrameLowering.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/CodeGen/TargetLowering.h"
-#include "llvm/CodeGen/TargetLoweringObjectFile.h"
 #include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
@@ -109,6 +108,7 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/Timer.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 #include <algorithm>
@@ -245,7 +245,6 @@ void AsmPrinter::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<MachineModuleInfo>();
   AU.addRequired<MachineOptimizationRemarkEmitterPass>();
   AU.addRequired<GCModuleInfo>();
-  AU.addRequired<MachineLoopInfo>();
 }
 
 bool AsmPrinter::doInitialization(Module &M) {
@@ -391,7 +390,7 @@ static bool canBeHidden(const GlobalValue *GV, const MCAsmInfo &MAI) {
   if (!MAI.hasWeakDefCanBeHiddenDirective())
     return false;
 
-  return canBeOmittedFromSymbolTable(GV);
+  return GV->canBeOmittedFromSymbolTable();
 }
 
 void AsmPrinter::EmitLinkage(const GlobalValue *GV, MCSymbol *GVSym) const {
@@ -994,7 +993,7 @@ void AsmPrinter::emitStackSizeSection(const MachineFunction &MF) {
   OutStreamer->PushSection();
   OutStreamer->SwitchSection(StackSizeSection);
 
-  const MCSymbol *FunctionSymbol = getSymbol(&MF.getFunction());
+  const MCSymbol *FunctionSymbol = getFunctionBegin();
   uint64_t StackSize = FrameInfo.getStackSize();
   OutStreamer->EmitSymbolValue(FunctionSymbol, TM.getProgramPointerSize());
   OutStreamer->EmitULEB128IntValue(StackSize);
@@ -1024,6 +1023,24 @@ void AsmPrinter::EmitFunctionBody() {
   EmitFunctionBodyStart();
 
   bool ShouldPrintDebugScopes = MMI->hasDebugInfo();
+
+  if (isVerbose()) {
+    // Get MachineDominatorTree or compute it on the fly if it's unavailable
+    MDT = getAnalysisIfAvailable<MachineDominatorTree>();
+    if (!MDT) {
+      OwnedMDT = make_unique<MachineDominatorTree>();
+      OwnedMDT->getBase().recalculate(*MF);
+      MDT = OwnedMDT.get();
+    }
+
+    // Get MachineLoopInfo or compute it on the fly if it's unavailable
+    MLI = getAnalysisIfAvailable<MachineLoopInfo>();
+    if (!MLI) {
+      OwnedMLI = make_unique<MachineLoopInfo>();
+      OwnedMLI->getBase().analyze(MDT->getBase());
+      MLI = OwnedMLI.get();
+    }
+  }
 
   // Print out code for the function.
   bool HasAnyRealCode = false;
@@ -1352,6 +1369,7 @@ bool AsmPrinter::doFinalization(Module &M) {
       OutStreamer->SwitchSection(TLOF.getDataSection());
       const DataLayout &DL = M.getDataLayout();
 
+      EmitAlignment(Log2_32(DL.getPointerSize()));
       for (const auto &Stub : Stubs) {
         OutStreamer->EmitLabel(Stub.first);
         OutStreamer->EmitSymbolValue(Stub.second.getPointer(),
@@ -1504,6 +1522,8 @@ bool AsmPrinter::doFinalization(Module &M) {
 
   OutStreamer->Finish();
   OutStreamer->reset();
+  OwnedMLI.reset();
+  OwnedMDT.reset();
 
   return false;
 }
@@ -1522,14 +1542,14 @@ void AsmPrinter::SetupMachineFunction(MachineFunction &MF) {
   CurrentFnBegin = nullptr;
   CurExceptionSym = nullptr;
   bool NeedsLocalForSize = MAI->needsLocalForSize();
-  if (needFuncLabelsForEHOrDebugInfo(MF, MMI) || NeedsLocalForSize) {
+  if (needFuncLabelsForEHOrDebugInfo(MF, MMI) || NeedsLocalForSize ||
+      MF.getTarget().Options.EmitStackSizeSection) {
     CurrentFnBegin = createTempSymbol("func_begin");
     if (NeedsLocalForSize)
       CurrentFnSymForSize = CurrentFnBegin;
   }
 
   ORE = &getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();
-  LI = &getAnalysis<MachineLoopInfo>();
 
   const TargetSubtargetInfo &STI = MF.getSubtarget();
   EnablePrintSchedInfo = PrintSchedule.getNumOccurrences()
@@ -1917,19 +1937,19 @@ void AsmPrinter::EmitModuleIdents(Module &M) {
 // Emission and print routines
 //
 
-/// EmitInt8 - Emit a byte directive and value.
+/// Emit a byte directive and value.
 ///
-void AsmPrinter::EmitInt8(int Value) const {
+void AsmPrinter::emitInt8(int Value) const {
   OutStreamer->EmitIntValue(Value, 1);
 }
 
-/// EmitInt16 - Emit a short directive and value.
-void AsmPrinter::EmitInt16(int Value) const {
+/// Emit a short directive and value.
+void AsmPrinter::emitInt16(int Value) const {
   OutStreamer->EmitIntValue(Value, 2);
 }
 
-/// EmitInt32 - Emit a long directive and value.
-void AsmPrinter::EmitInt32(int Value) const {
+/// Emit a long directive and value.
+void AsmPrinter::emitInt32(int Value) const {
   OutStreamer->EmitIntValue(Value, 4);
 }
 
@@ -2717,13 +2737,9 @@ static void emitBasicBlockLoopComments(const MachineBasicBlock &MBB,
 void AsmPrinter::setupCodePaddingContext(const MachineBasicBlock &MBB,
                                          MCCodePaddingContext &Context) const {
   assert(MF != nullptr && "Machine function must be valid");
-  assert(LI != nullptr && "Loop info must be valid");
   Context.IsPaddingActive = !MF->hasInlineAsm() &&
                             !MF->getFunction().optForSize() &&
                             TM.getOptLevel() != CodeGenOpt::None;
-  const MachineLoop *CurrentLoop = LI->getLoopFor(&MBB);
-  Context.IsBasicBlockInsideInnermostLoop =
-      CurrentLoop != nullptr && CurrentLoop->getSubLoops().empty();
   Context.IsBasicBlockReachableViaFallthrough =
       std::find(MBB.pred_begin(), MBB.pred_end(), MBB.getPrevNode()) !=
       MBB.pred_end();
@@ -2775,7 +2791,9 @@ void AsmPrinter::EmitBasicBlockStart(const MachineBasicBlock &MBB) const {
         OutStreamer->GetCommentOS() << '\n';
       }
     }
-    emitBasicBlockLoopComments(MBB, LI, *this);
+
+    assert(MLI != nullptr && "MachineLoopInfo should has been computed");
+    emitBasicBlockLoopComments(MBB, MLI, *this);
   }
 
   // Print the main label for the block.

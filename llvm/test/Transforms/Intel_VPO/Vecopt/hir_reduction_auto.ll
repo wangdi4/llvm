@@ -12,7 +12,7 @@
 ; }
 ; 
 ; ModuleID = 't1.c'
-;RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-default-vf=8 -VPlanDriverHIR -hir-cg -mem2reg -print-after=VPlanDriverHIR -S %s 2>&1 | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=8 -VPlanDriverHIR -hir-cg -mem2reg -print-after=VPlanDriverHIR -S %s 2>&1 | FileCheck %s
 ;
 ; CHECK:           BEGIN REGION { modified }
 ; CHECK:           %RedOp = zeroinitializer;
@@ -30,6 +30,7 @@
 ; CHECK:           %bin.rdx4 = %bin.rdx2  +  %rdx.shuf3;
 ; CHECK:           %bin.final = extractelement %bin.rdx4,  0;
 ; CHECK:           %sum.07 = %bin.final  +  %sum.07;
+; CHECK:           END REGION
 
 ; CHECK: loop
 ; CHECK: phi <8 x i32> [ zeroinitializer

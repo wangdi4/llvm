@@ -33,7 +33,6 @@
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_DTrans/DTransAnalysis.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
 #endif // INTEL_CUSTOMIZATION
@@ -65,8 +64,8 @@
 #include "llvm/Support/Regex.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
-#include "llvm/Transforms/GCOVProfiler.h"
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h" // INTEL
+#include "llvm/Transforms/Instrumentation/GCOVProfiler.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/ArgumentPromotion.h"
 #include "llvm/Transforms/IPO/CalledValuePropagation.h"
@@ -89,17 +88,15 @@
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
 #include "llvm/Transforms/IPO/PartialInlining.h"
 #include "llvm/Transforms/IPO/SCCP.h"
+#include "llvm/Transforms/IPO/SampleProfile.h"
 #include "llvm/Transforms/IPO/StripDeadPrototypes.h"
 #include "llvm/Transforms/IPO/SyntheticCountsPropagation.h"
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
-#include "llvm/Transforms/InstrProfiling.h"
+#include "llvm/Transforms/Instrumentation/InstrProfiling.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
-#include "llvm/Transforms/Intel_DTrans/AOSToSOA.h" // INTEL
-#include "llvm/Transforms/Intel_DTrans/DeleteField.h" // INTEL
 #include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h" // INTEL
-#include "llvm/Transforms/PGOInstrumentation.h"
-#include "llvm/Transforms/SampleProfile.h"
+#include "llvm/Transforms/Instrumentation/PGOInstrumentation.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
 #include "llvm/Transforms/Scalar/AlignmentFromAssumptions.h"
 #include "llvm/Transforms/Scalar/BDCE.h"
@@ -188,6 +185,10 @@
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptPrepare.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTpv.h"
 #include "llvm/Transforms/Intel_VPO/Utils/CFGRestructuring.h"
+
+#if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/DTransCommon.h"
+#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -225,16 +226,23 @@ static cl::opt<bool> EnableSyntheticCounts(
 static cl::opt<bool> EnableInlineAggAnalysis(
     "enable-npm-inline-aggressive-analysis", cl::init(true), cl::Hidden,
     cl::desc("Enable Inline Aggressive Analysis for the new PM (default = on)"));
+
+// IP Cloning
+static cl::opt<bool> EnableIPCloning(
+    "enable-npm-ip-cloning", cl::init(true), cl::Hidden,
+    cl::desc("Enable IP Cloning for the new PM (default = on)"));
 #endif // INTEL_CUSTOMIZATION
 
 static Regex DefaultAliasRegex(
     "^(default|thinlto-pre-link|thinlto|lto-pre-link|lto)<(O[0123sz])>$");
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
 // DTrans optimizations -- this is a placeholder for future work.
 static cl::opt<bool> EnableDTrans("enable-npm-dtrans",
     cl::init(false), cl::Hidden,
     cl::desc("Enable DTrans optimizations"));
+#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 static bool isOptimizingForSize(PassBuilder::OptimizationLevel Level) {
@@ -1016,6 +1024,11 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // whole-program devirtualization and bitset lowering.
   MPM.addPass(GlobalDCEPass());
 
+#if INTEL_CUSTOMIZATION
+  if (EnableIPCloning)
+    MPM.addPass(IPCloningPass(/*AfterInl*/ false));
+#endif // INTEL_CUSTOMIZATION
+
   // Force any function attributes we want the rest of the pipeline to observe.
   MPM.addPass(ForceFunctionAttrsPass());
 
@@ -1054,10 +1067,10 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(ReversePostOrderFunctionAttrsPass());
 
 #if INTEL_CUSTOMIZATION
-  if (EnableDTrans) {
-    MPM.addPass(dtrans::DeleteFieldPass());
-    MPM.addPass(dtrans::AOSToSOAPass());
-  }
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans)
+    addDTransPasses(MPM);
+#endif // INTEL_INCLUDE_DTRANS
   // Optimize some dynamic_cast calls.
   MPM.addPass(OptimizeDynamicCastsPass());
 #endif // INTEL_CUSTOMIZATION
@@ -1117,6 +1130,11 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   // Optimize globals again after we ran the inliner.
   MPM.addPass(GlobalOptPass());
+
+#if INTEL_CUSTOMIZATION
+  if (EnableIPCloning)
+    MPM.addPass(IPCloningPass(/*AfterInl*/ true));
+#endif // INTEL_CUSTOMIZATION
 
   // Garbage collect dead functions.
   // FIXME: Add ArgumentPromotion pass after once it's ported.

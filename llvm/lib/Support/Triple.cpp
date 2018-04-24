@@ -233,7 +233,6 @@ StringRef Triple::getEnvironmentTypeName(EnvironmentType Kind) {
   case Itanium: return "itanium";
   case Cygnus: return "cygnus";
   case CoreCLR: return "coreclr";
-  case OpenCL: return "opencl";
 #if INTEL_CUSTOMIZATION
   case IntelFPGA: return "intelfpga";
 #endif // INTEL_CUSTOMIZATION
@@ -526,7 +525,6 @@ static Triple::EnvironmentType parseEnvironment(StringRef EnvironmentName) {
     .StartsWith("itanium", Triple::Itanium)
     .StartsWith("cygnus", Triple::Cygnus)
     .StartsWith("coreclr", Triple::CoreCLR)
-    .StartsWith("opencl", Triple::OpenCL)
 #if INTEL_CUSTOMIZATION
     .StartsWith("intelfpga", Triple::IntelFPGA)
 #endif // INTEL_CUSTOMIZATION

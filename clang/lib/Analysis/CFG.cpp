@@ -736,12 +736,12 @@ private:
     if (BuildOpts.AddRichCXXConstructors) {
       if (const ConstructionContextLayer *Layer =
               ConstructionContextMap.lookup(CE)) {
-        const ConstructionContext *CC =
-            ConstructionContext::createFromLayers(cfg->getBumpVectorContext(),
-                                                  Layer);
-        B->appendConstructor(CE, CC, cfg->getBumpVectorContext());
         cleanupConstructionContext(CE);
-        return;
+        if (const auto *CC = ConstructionContext::createFromLayers(
+                cfg->getBumpVectorContext(), Layer)) {
+          B->appendConstructor(CE, CC, cfg->getBumpVectorContext());
+          return;
+        }
       }
     }
 
@@ -757,14 +757,12 @@ private:
       if (CFGCXXRecordTypedCall::isCXXRecordTypedCall(CE, *Context)) {
         if (const ConstructionContextLayer *Layer =
                 ConstructionContextMap.lookup(CE)) {
-          const ConstructionContext *CC =
-              ConstructionContext::createFromLayers(cfg->getBumpVectorContext(),
-                                                    Layer);
-          B->appendCXXRecordTypedCall(
-              CE, cast<TemporaryObjectConstructionContext>(CC),
-              cfg->getBumpVectorContext());
           cleanupConstructionContext(CE);
-          return;
+          if (const auto *CC = ConstructionContext::createFromLayers(
+                  cfg->getBumpVectorContext(), Layer)) {
+            B->appendCXXRecordTypedCall(CE, CC, cfg->getBumpVectorContext());
+            return;
+          }
         }
       }
     }
@@ -1284,7 +1282,7 @@ void CFGBuilder::findConstructionContexts(
   }
   case Stmt::ImplicitCastExprClass: {
     auto *Cast = cast<ImplicitCastExpr>(Child);
-    // TODO: We need to support CK_ConstructorConversion, maybe other kinds?
+    // Should we support other implicit cast kinds?
     switch (Cast->getCastKind()) {
     case CK_NoOp:
     case CK_ConstructorConversion:
@@ -1304,6 +1302,15 @@ void CFGBuilder::findConstructionContexts(
   }
   case Stmt::ConditionalOperatorClass: {
     auto *CO = cast<ConditionalOperator>(Child);
+    if (!dyn_cast_or_null<MaterializeTemporaryExpr>(Layer->getTriggerStmt())) {
+      // If the object returned by the conditional operator is not going to be a
+      // temporary object that needs to be immediately materialized, then
+      // it must be C++17 with its mandatory copy elision. Do not yet promise
+      // to support this case.
+      assert(!CO->getType()->getAsCXXRecordDecl() || CO->isGLValue() ||
+             Context->getLangOpts().CPlusPlus17);
+      break;
+    }
     findConstructionContexts(Layer, CO->getLHS());
     findConstructionContexts(Layer, CO->getRHS());
     break;
@@ -4913,15 +4920,29 @@ static void print_construction_context(raw_ostream &OS,
                                        const ConstructionContext *CC) {
   const Stmt *S1 = nullptr, *S2 = nullptr;
   switch (CC->getKind()) {
-  case ConstructionContext::ConstructorInitializerKind: {
+  case ConstructionContext::SimpleConstructorInitializerKind: {
     OS << ", ";
-    const auto *ICC = cast<ConstructorInitializerConstructionContext>(CC);
-    print_initializer(OS, Helper, ICC->getCXXCtorInitializer());
+    const auto *SICC = cast<SimpleConstructorInitializerConstructionContext>(CC);
+    print_initializer(OS, Helper, SICC->getCXXCtorInitializer());
+    break;
+  }
+  case ConstructionContext::CXX17ElidedCopyConstructorInitializerKind: {
+    OS << ", ";
+    const auto *CICC =
+        cast<CXX17ElidedCopyConstructorInitializerConstructionContext>(CC);
+    print_initializer(OS, Helper, CICC->getCXXCtorInitializer());
+    S2 = CICC->getCXXBindTemporaryExpr();
     break;
   }
   case ConstructionContext::SimpleVariableKind: {
-    const auto *DSCC = cast<SimpleVariableConstructionContext>(CC);
-    S1 = DSCC->getDeclStmt();
+    const auto *SDSCC = cast<SimpleVariableConstructionContext>(CC);
+    S1 = SDSCC->getDeclStmt();
+    break;
+  }
+  case ConstructionContext::CXX17ElidedCopyVariableKind: {
+    const auto *CDSCC = cast<CXX17ElidedCopyVariableConstructionContext>(CC);
+    S1 = CDSCC->getDeclStmt();
+    S2 = CDSCC->getCXXBindTemporaryExpr();
     break;
   }
   case ConstructionContext::NewAllocatedObjectKind: {
@@ -4929,9 +4950,16 @@ static void print_construction_context(raw_ostream &OS,
     S1 = NECC->getCXXNewExpr();
     break;
   }
-  case ConstructionContext::ReturnedValueKind: {
-    const auto *RSCC = cast<ReturnedValueConstructionContext>(CC);
+  case ConstructionContext::SimpleReturnedValueKind: {
+    const auto *RSCC = cast<SimpleReturnedValueConstructionContext>(CC);
     S1 = RSCC->getReturnStmt();
+    break;
+  }
+  case ConstructionContext::CXX17ElidedCopyReturnedValueKind: {
+    const auto *RSCC =
+        cast<CXX17ElidedCopyReturnedValueConstructionContext>(CC);
+    S1 = RSCC->getReturnStmt();
+    S2 = RSCC->getCXXBindTemporaryExpr();
     break;
   }
   case ConstructionContext::TemporaryObjectKind: {

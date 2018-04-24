@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator < %s | FileCheck %s
+; RUN: opt -vplan-force-vf=4 -S -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator < %s | FileCheck %s
 
 ; CHECK-LABEL: foo
 ; CHECK: vector.body

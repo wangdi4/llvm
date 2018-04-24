@@ -145,7 +145,7 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
   //
   for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
 
-    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(&*I);
+    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
 
     if (Call) {
       Intrinsic::ID IntrinId = Call->getIntrinsicID();
@@ -197,6 +197,11 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
 
           W = S->top();
           W->finalize(BB, DT); // set the ExitBB and wrap up the WRN
+
+          // Cancellation Points are on the end.region directive. Parse it
+          // here if applicable.
+          if (W->canHaveCancellationPoints())
+            W->getClausesFromOperandBundles(true);
 
           S->pop();
           DEBUG(dbgs() << "\n  === Closed WRegion. ");

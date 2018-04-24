@@ -1,4 +1,4 @@
-; RUN: opt -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -S < %s  | FileCheck %s
+; RUN: opt -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -S -vplan-force-vf=4 < %s  | FileCheck %s
 
 
 ;  for (int i=0; i<n; ++i) {}

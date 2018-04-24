@@ -644,8 +644,8 @@ void VPOParoptTransform::genSharedInitForTaskLoop(
     Size = Builder.getInt32(
         DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
 
-  Builder.CreateMemCpy(LI, SrcCast, Size,
-                       DL.getABITypeAlignment(Src->getAllocatedType()));
+  unsigned Align = DL.getABITypeAlignment(Src->getAllocatedType());
+  Builder.CreateMemCpy(LI, Align, SrcCast, Align, Size);
 
   Indices.clear();
   Indices.push_back(Builder.getInt32(0));
@@ -682,8 +682,8 @@ void VPOParoptTransform::genSharedInitForTaskLoop(
           SharedGep, PointerType::getUnqual(Type::getInt8PtrTy(C)));
       Value *D = Builder.CreateBitCast(
           PrivateGep, PointerType::getUnqual(Type::getInt8PtrTy(C)));
-      Builder.CreateMemCpy(
-          D, S, Size, DL.getABITypeAlignment(FprivI->getOrig()->getType()));
+      unsigned Align = DL.getABITypeAlignment(FprivI->getOrig()->getType());
+      Builder.CreateMemCpy(D, Align, S, Align, Size);
     }
   }
 }

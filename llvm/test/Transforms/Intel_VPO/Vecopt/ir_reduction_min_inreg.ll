@@ -1,4 +1,4 @@
-;RUN: opt -VPlanDriver -S %s | FileCheck %s
+;RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
 
 ; CHECK:   %min.vec = alloca <4 x i32>
 ; CHECK: vector.ph: 

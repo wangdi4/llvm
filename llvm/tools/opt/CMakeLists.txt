@@ -19,8 +19,6 @@ set(LLVM_LINK_COMPONENTS
   Vectorize
   Passes
 # INTEL_CUSTOMIZATION
-  Intel_DTransAnalysis
-  Intel_DTrans
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml
@@ -48,6 +46,12 @@ add_llvm_tool(opt
   intrinsics_gen
   )
 export_executable_symbols(opt)
+
+# INTEL_CUSTOMIZATION
+if(INTEL_INCLUDE_DTRANS)
+  target_link_libraries(opt PRIVATE LLVMIntel_DTrans)
+endif(INTEL_INCLUDE_DTRANS)
+# end INTEL_CUSTOMIZATION
 
 if(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
   target_link_libraries(opt PRIVATE Polly)

@@ -107,9 +107,9 @@ class DDWalk final : public HLNodeVisitorBase {
   /// \brief Analyze one DDEdge for the source node.
   void analyze(const RegDDRef *SrcRef, const DDEdge *Edge);
 
-  /// \brief Analyze whether the src/sink flow dependence can be ignored
+  /// \brief Analyze whether the flow dependence edge can be ignored
   /// due to safe reduction.
-  bool isSafeReductionFlowDep(const RegDDRef *SrcRef, const RegDDRef *SinkRef);
+  bool isSafeReductionFlowDep(const DDEdge *Edge);
 
 public:
   DDWalk(TargetLibraryInfo &TLI, HIRDDAnalysis &DDA,
@@ -326,13 +326,10 @@ bool HIRParVecAnalysis::isSIMDEnabledFunction(Function &Func) {
   return Func.getName().startswith("_ZGV");
 }
 
-bool DDWalk::isSafeReductionFlowDep(const RegDDRef *SrcRef,
-                                    const RegDDRef *SinkRef) {
-  assert(SrcRef && "SrcRef cannot be null!");
+bool DDWalk::isSafeReductionFlowDep(const DDEdge *Edge) {
+  assert(Edge->isFLOWdep() && "Flow edge expected!");
 
-  if (!SinkRef) {
-    return false;
-  }
+  DDRef *SrcRef = Edge->getSrc();
 
   const HLDDNode *WriteNode = SrcRef->getHLDDNode();
   auto Inst = dyn_cast<HLInst>(WriteNode);
@@ -399,7 +396,7 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
   DDRef *SinkRef = Edge->getSink();
 
   if (Edge->isFLOWdep() &&
-      isSafeReductionFlowDep(SrcRef, dyn_cast<RegDDRef>(SinkRef))) {
+      isSafeReductionFlowDep(Edge)) {
     DEBUG(dbgs() << "\tis safe to vectorize/parallelize (safe reduction)\n");
     return;
   }

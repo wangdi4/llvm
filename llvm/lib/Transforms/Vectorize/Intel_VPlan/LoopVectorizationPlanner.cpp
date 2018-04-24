@@ -19,78 +19,239 @@
 #include "LoopVectorizationCodeGen.h"
 #include "VPlanCostModel.h"
 #include "VPlanHCFGBuilder.h"
+#include "VPlanPredicator.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
+#if INTEL_CUSTOMIZATION
+#include "VPlanCostModelProprietary.h"
+#endif // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
+#if INTEL_CUSTOMIZATION
+cl::opt<uint64_t>
+    VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
+                        cl::desc("Default estimated trip count"));
+#else
+cl::opt<unsigned>
+    VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
+                        cl::desc("Default estimated trip count"));
+#endif // INTEL_CUSTOMIZATION
+static cl::opt<unsigned> VPlanForceVF(
+    "vplan-force-vf", cl::init(0),
+    cl::desc("Force VPlan to use given VF"));
+
+static cl::opt<bool>
+    DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
+                           cl::Hidden, cl::desc("Disable VPlan predicator."));
 
 using namespace llvm;
 using namespace llvm::vpo;
 
-unsigned LoopVectorizationPlannerBase::buildInitialVPlans(unsigned MinVF,
-                                                          unsigned MaxVF) {
+static unsigned getForcedVF(const WRNVecLoopNode *WRLp) {
+  if (VPlanForceVF)
+    return VPlanForceVF;
+  return WRLp && WRLp->getSimdlen() ? WRLp->getSimdlen() : 0;
+}
+
+// Return trip count for a given VPlan for a first loop during DFS.
+// Assume, that VPlan has only 1 loop without peel and/or remainder(s).
+// FIXME: This function is incorrect if peel, main and remainder loop will be
+// explicitly represented in VPlan. Also it's incorrect for multi level loop
+// vectorization.
+static uint64_t getTripCountForFirstLoopInDfs(const IntelVPlan *VPlan) {
+
+  std::function<const VPLoopRegion *(const VPBlockBase *)> FindLoop =
+      [&](const VPBlockBase *VPBlock) -> const VPLoopRegion * {
+    if (const auto Loop = dyn_cast<const VPLoopRegion>(VPBlock))
+      return Loop;
+
+    if (const auto Region = dyn_cast<const VPRegionBlock>(VPBlock))
+      for (const VPBlockBase *Block : depth_first(Region->getEntry()))
+        if (const VPLoopRegion *Loop = FindLoop(Block))
+          return Loop;
+
+    return nullptr;
+  };
+
+  const auto Loop = FindLoop(VPlan->getEntry());
+
+  return VPlan->getVPLoopAnalysis()->getTripCountFor(Loop);
+}
+
+unsigned LoopVectorizationPlannerBase::buildInitialVPlans() {
   collectDeadInstructions();
 
-  // TODO: Don't build Scalar VPlan if it's not needed.
-  unsigned StartRangeVF = 1;
+  unsigned MinVF, MaxVF;
+  unsigned ForcedVF = getForcedVF(WRLp);
+  if (ForcedVF) {
+    MinVF = ForcedVF;
+    MaxVF = ForcedVF;
+  } else {
+    unsigned MinWidthInBits, MaxWidthInBits;
+    std::tie(MinWidthInBits, MaxWidthInBits) = getTypesWidthRangeInBits();
+    const unsigned MinVectorWidth = TTI->getMinVectorRegisterBitWidth();
+    // FIXME: Cannot simply call TTI->getRegisterBitWidth(true), because by
+    // default it returns 32 regardless to Vector argument.
+    // Hardcode register size to 512.
+    const unsigned MaxVectorWidth =
+        std::max(512u, TTI->getRegisterBitWidth(true) /* Vector */);
+    // FIXME: Currently limits MaxVF by 32.
+    MaxVF = std::min(MaxVectorWidth / MinWidthInBits, 32u);
+    MinVF = std::max(MinVectorWidth / MaxWidthInBits, 1u);
+    // FIXME: Potentially MinVF can be greater than MaxVF if TTI will start to
+    // return 512, 1024 or higher values.
+    assert(MinVF < MaxVF && "Invalid range of VFs");
+  }
+
+  unsigned StartRangeVF = MinVF;
   unsigned EndRangeVF = MaxVF + 1;
 
   unsigned i = 0;
   for (; StartRangeVF < EndRangeVF; ++i) {
+    // TODO: revisit when we build multiple VPlans.
     std::shared_ptr<IntelVPlan> Plan =
         buildInitialVPlan(StartRangeVF, EndRangeVF);
 
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
       VPlans[TmpVF] = Plan;
 
-    // If previously built VPlan was scalar (VF==1) and its end range is smaller
-    // than MinVF we don't have to build the plans in range [EndRangeVF, MinVF).
-    StartRangeVF = StartRangeVF == 1 ? std::max(EndRangeVF, MinVF) : EndRangeVF;
+    StartRangeVF = EndRangeVF;
     EndRangeVF = MaxVF + 1;
   }
+
+  // Scalar VPlan is not necessary when VF was forced.
+  // TODO: Need it later for optreport to print potential speedup.
+  if (!ForcedVF)
+    VPlans[1] = VPlans[MinVF];
 
   return i;
 }
 
-unsigned LoopVectorizationPlannerBase::selectVF(unsigned VF, bool Forced) {
-  if (Forced) {
-    setBestPlan(VF, 1);
-    return VF;
+/// Evaluate cost model for available VPlans and find the best one.
+/// \Returns VF which corresponds to the best VPlan (could be VF = 1).
+template <typename CostModelTy>
+unsigned LoopVectorizationPlannerBase::selectBestPlan() {
+  if (VPlans.size() == 1) {
+    unsigned ForcedVF = getForcedVF(WRLp);
+    assert(ForcedVF &&
+           "Only one VPlan was constructed with non-forced vectorization.");
+    BestVF = ForcedVF;
+    // FIXME: this code should be revisited later to select best UF
+    // even with forced VF.
+    BestUF = 1;
+    DEBUG(dbgs() << "There is only VPlan with VF=" << BestVF
+                 << ", selecting it.\n");
+    return ForcedVF;
   }
 
-  // For now, only choose between VF == 1 and VF == VPlanDefaultVF, but do so
-  // only if the VF is not explicitly specified by the simd pragma.
-  IntelVPlan *VectorPlan = getVPlanForVF(VF);
-  assert(VectorPlan && "There is no VPlan for the requested VF!");
   IntelVPlan *ScalarPlan = getVPlanForVF(1);
   assert(ScalarPlan && "There is no scalar VPlan!");
+  // FIXME: Without peel and remainder vectorization, it's ok to get trip count
+  // from the original loop. Has to be revisited after enabling of
+  // peel/remainder vectorization.
+  unsigned TripCount = ::getTripCountForFirstLoopInDfs(ScalarPlan);
+  CostModelTy ScalarCM(ScalarPlan, 1, TTI);
+  unsigned ScalarIterationCost = ScalarCM.getCost();
+  // FIXME: that multiplication should be the part of CostModel - see below.
+  unsigned ScalarCost = ScalarIterationCost * TripCount;
 
-  unsigned VectorCost = VPlanCostModel::getVPlanCost(VectorPlan, VF, TTI);
-  unsigned ScalarCost = VPlanCostModel::getVPlanCost(ScalarPlan, 1, TTI);
+  BestVF = 1;
+  // FIXME: Currently, unroll is not in VPlan, so set it to 1.
+  BestUF = 1;
+  unsigned BestCost = ScalarCost;
+  DEBUG(dbgs() << "Cost of Scalar VPlan: " << ScalarCost << '\n');
 
-  unsigned ChosenVF = VectorCost < VF * ScalarCost ? VF : 1;
-  setBestPlan(ChosenVF, 1);
-  return ChosenVF;
+  // FIXME: Currently limit this to VF=8. Has to be fixed when zmm-low mode
+  // will be available.
+  for (unsigned VF = 2; VF <= 32; VF *= 2) {
+    if (!hasVPlanForVF(VF))
+      continue;
+
+    if (TripCount < VF)
+      continue; // FIXME: Consider masked low trip later.
+
+    IntelVPlan *Plan = getVPlanForVF(VF);
+
+    // FIXME: The remainder loop should be an explicit part of VPlan and the
+    // cost model should just do the right thing calulating the cost of the
+    // plan. However this is not the case yet so do some simple heuristic.
+    CostModelTy VectorCM(Plan, VF, TTI);
+    unsigned VectorIterationCost = VectorCM.getCost();
+    // TODO: Take into account overhead for some instructions until explicit
+    // representation of peel/remainder not ready.
+    unsigned VectorCost = VectorIterationCost * (TripCount / VF) +
+                          ScalarIterationCost * (TripCount % VF);
+    DEBUG(dbgs() << "Cost of VPlan for VF=" << VF << ": " << VectorCost << '\n');
+    if (VectorCost < BestCost) {
+      BestCost = VectorCost;
+      BestVF = VF;
+    }
+  }
+  // Delete all other VPlans.
+  for (auto &It : VPlans) {
+    if (It.first != BestVF)
+      VPlans.erase(It.first);
+  }
+  DEBUG(dbgs() << "Selecting VPlan with VF=" << BestVF << '\n');
+  return BestVF;
 }
 
-void LoopVectorizationPlannerBase::setBestPlan(unsigned VF, unsigned UF) {
-  DEBUG(dbgs() << "Setting best plan to VF=" << VF << ", UF=" << UF << '\n');
-  BestVF = VF;
-  BestUF = UF;
+template unsigned
+LoopVectorizationPlannerBase::selectBestPlan<VPlanCostModel>(void);
+#if INTEL_CUSTOMIZATION
+template unsigned
+LoopVectorizationPlannerBase::selectBestPlan<VPlanCostModelProprietary>(void);
+#endif // INTEL_CUSTOMIZATION
 
-  assert(VPlans.count(VF) && "Best VF does not have a VPlan.");
-  // Delete all other VPlans.
-  for (auto &Entry : VPlans) {
-    if (Entry.first != VF)
-      VPlans.erase(Entry.first);
+void LoopVectorizationPlannerBase::predicate() {
+  if (DisableVPlanPredicator)
+    return;
+
+  DenseSet<IntelVPlan*> PredicatedVPlans;
+  for (auto It : VPlans) {
+    if (It.first == 1)
+      continue; // Ignore Scalar VPlan;
+    IntelVPlan *VPlan = It.second.get();
+    if (PredicatedVPlans.count(VPlan))
+      continue; // Already predicated.
+
+    VPlanPredicator VPP(VPlan);
+    VPP.predicate();
+    PredicatedVPlans.insert(VPlan);
   }
+}
+
+// TODO: Current implementation is too aggressive and may lead to increase of
+// compile time. Also similar changeset in community led to performance drops.
+// See https://reviews.llvm.org/D44523 for a similar discussion about LV.
+std::pair<unsigned, unsigned>
+LoopVectorizationPlanner::getTypesWidthRangeInBits() const {
+  unsigned MinWidth = static_cast<unsigned>(-1);
+  unsigned MaxWidth = 0;
+
+  for (const BasicBlock *BB : TheLoop->blocks()) {
+    for (const Instruction &Inst : *BB) {
+      if (auto Ty = Inst.getType()) {
+        unsigned Width = Ty->getPrimitiveSizeInBits();
+
+        // Ignore the conditions (i1) - they're unlikely to be widened.
+        if (Width < 8)
+          continue;
+
+        MinWidth = std::min(MinWidth, Width);
+        MaxWidth = std::max(MaxWidth, Width);
+      }
+    }
+  }
+  return {MinWidth, MaxWidth};
 }
 
 std::shared_ptr<IntelVPlan>
 LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
                                             unsigned &EndRangeVF) {
   // Create new empty VPlan
-  std::shared_ptr<IntelVPlan> SharedPlan = std::make_shared<IntelVPlan>();
+  std::shared_ptr<IntelVPlan> SharedPlan = std::make_shared<IntelVPlan>(VPLA);
   IntelVPlan *Plan = SharedPlan.get();
 
   // Build hierarchical CFG

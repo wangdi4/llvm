@@ -8,6 +8,14 @@
 //   from the company.
 //
 //===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file defines the VPlanCostModel class that is used for all cost
+/// estimations performed in the VPlan-based vectorizer. The class provides both
+/// the interfaces to calculate different costs (e.g., a single VPInstruction or
+/// the whole VPlan) and the dedicated printing methods used exclusively for
+/// testing purposes.
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_COST_MODEL_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_COST_MODEL_H
@@ -15,6 +23,7 @@
 namespace llvm {
 class TargetTransformInfo;
 class Type;
+class Value;
 class raw_ostream;
 
 namespace vpo {
@@ -22,34 +31,29 @@ class IntelVPlan;
 class VPBasicBlock;
 class VPBlockBase;
 class VPInstruction;
-} // namespace vpo
 
 class VPlanCostModel {
-  const vpo::IntelVPlan *Plan;
+public:
+  VPlanCostModel(const IntelVPlan *Plan, unsigned VF,
+                 const TargetTransformInfo *TTI)
+      : Plan(Plan), VF(VF), TTI(TTI) {}
+
+  virtual unsigned getCost(const VPInstruction *VPInst) const;
+  virtual unsigned getCost(const VPBasicBlock *VPBB) const;
+  virtual unsigned getCost() const;
+  void print(raw_ostream &OS) const;
+
+  virtual ~VPlanCostModel() {}
+
+protected:
+  const IntelVPlan *Plan;
   unsigned VF;
   const TargetTransformInfo *TTI;
 
   static constexpr unsigned UnknownCost = static_cast<unsigned>(-1);
 
-public:
-  VPlanCostModel(const vpo::IntelVPlan *Plan, unsigned VF,
-                 const TargetTransformInfo *TTI)
-      : Plan(Plan), VF(VF), TTI(TTI) {}
-
-  unsigned getCost(const vpo::VPInstruction *VPInst);
-  unsigned getCost(const vpo::VPBasicBlock *VPBB);
-  unsigned getCost();
-  /// Helper function to allow cost query in one line of code.
-  static unsigned getVPlanCost(const vpo::IntelVPlan *Plan, unsigned VF,
-                               const TargetTransformInfo *TTI) {
-    VPlanCostModel CM(Plan, VF, TTI);
-    return CM.getCost();
-  }
-  void print(raw_ostream &OS);
-
-private:
-  void printForVPBlockBase(raw_ostream &OS, const vpo::VPBlockBase *VPBlock);
-  unsigned getCost(const vpo::VPBlockBase *VPBlock);
+  void printForVPBlockBase(raw_ostream &OS, const VPBlockBase *VPBlock) const;
+  virtual unsigned getCost(const VPBlockBase *VPBlock) const;
 
   // These utilities are private for the class instead of being defined as
   // static functions because they need access to underlying Inst/HIRData in
@@ -57,9 +61,14 @@ private:
   // VPInstruction.
   //
   // Also, they won't be necessary if we had VPType for each VPValue.
-  static Type *getMemInstValueType(const vpo::VPInstruction *VPInst);
-  static unsigned getMemInstAlignment(const vpo::VPInstruction *VPInst);
-  static unsigned getMemInstAddressSpace(const vpo::VPInstruction *VPInst);
+  static Type *getMemInstValueType(const VPInstruction *VPInst);
+  static unsigned getMemInstAlignment(const VPInstruction *VPInst);
+  static unsigned getMemInstAddressSpace(const VPInstruction *VPInst);
+  static Type *getVectorizedType(const Type *BaseTy, unsigned VF);
+  static Value *getGEP(const VPInstruction *VPInst);
 };
+
+} // namespace vpo
+
 } // namespace llvm
-#endif
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_COST_MODEL_H

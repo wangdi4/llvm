@@ -12,6 +12,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_PLAN_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_PLAN_H
 
+#include "VPLoopAnalysis.h"
 #include "../Intel_VPlan.h"
 #include "VPLoopInfo.h"
 #include "llvm/IR/Dominators.h"
@@ -109,6 +110,7 @@ class VPLoopRegionHIR : public VPLoopRegion {
   friend class IntelVPlanUtils;
   friend class VPlanVerifierHIR;
   friend class VPDecomposerHIR;
+  friend class VPLoopAnalysisHIR;
 
 private:
   // Pointer to the underlying HLLoop.
@@ -134,7 +136,8 @@ private:
   VPLoopInfo *VPLInfo;
 
 public:
-  IntelVPlan() : VPlan(IntelVPlanSC), VPLInfo(nullptr) {}
+  explicit IntelVPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA)
+      : VPlan(IntelVPlanSC, VPLA), VPLInfo(nullptr) {}
 
   ~IntelVPlan() {
     if (VPLInfo)
@@ -349,6 +352,7 @@ public:
     VPLoopRegion *Loop =
         new VPLoopRegionHIR(createUniqueName("loop"), VPL, HLLp);
     setReplicator(Loop, false /*IsReplicator*/);
+    getVPlan()->getVPLoopAnalysis()->computeTripCount(Loop);
     return Loop;
   }
 

@@ -56,8 +56,8 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -271,8 +271,8 @@ void VPOUtils::gatherImplicitSectionRecursive(
 
   for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
 
-    if (dyn_cast<IntrinsicInst>(&*I)) {
-      int DirID = VPOAnalysisUtils::getDirectiveID(&*I);
+    if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
+      int DirID = VPOAnalysisUtils::getDirectiveID(II);
       if (DirID == DIR_OMP_SECTIONS ||
           DirID == DIR_OMP_PARALLEL_SECTIONS) {
 
@@ -280,13 +280,13 @@ void VPOUtils::gatherImplicitSectionRecursive(
         BasicBlock::iterator SI = SuccBB->begin();
         bool IsDirSection = false;
 
-        if (dyn_cast<TerminatorInst>(&*SI)) {
+        if (isa<TerminatorInst>(SI)) {
           SuccBB = SuccBB->getUniqueSuccessor();
           SI = SuccBB->begin();
         }
 
-        if (dyn_cast<IntrinsicInst>(&*SI)) {
-          int SuccDirID = VPOAnalysisUtils::getDirectiveID(&*SI);
+        if (IntrinsicInst *IntrinI = dyn_cast<IntrinsicInst>(SI)) {
+          int SuccDirID = VPOAnalysisUtils::getDirectiveID(IntrinI);
           if (SuccDirID == DIR_OMP_SECTION) {
             IsDirSection = true;
           }
@@ -322,13 +322,13 @@ void VPOUtils::gatherImplicitSectionRecursive(
             BasicBlock *PredBB = BB->getUniquePredecessor();
             BasicBlock::iterator EI = PredBB->begin();
 
-            if (dyn_cast<TerminatorInst>(&*EI)) {
+            if (isa<TerminatorInst>(EI)) {
               PredBB = PredBB->getUniquePredecessor();
               EI = PredBB->begin();
             }
 
-            if (dyn_cast<IntrinsicInst>(&*EI)) {
-              int PredDirID = VPOAnalysisUtils::getDirectiveID(&*EI);
+            if (IntrinsicInst *IntrinI = dyn_cast<IntrinsicInst>(EI)) {
+              int PredDirID = VPOAnalysisUtils::getDirectiveID(IntrinI);
               if (PredDirID != DIR_OMP_END_SECTION) {
                 IsMatchedImpEnd = true;
               }
@@ -368,8 +368,8 @@ void VPOUtils::buildParSectTreeRecursive(
 
   for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
 
-    if (dyn_cast<IntrinsicInst>(&*I)) {
-      int DirID = VPOAnalysisUtils::getDirectiveID(&*I);
+    if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
+      int DirID = VPOAnalysisUtils::getDirectiveID(II);
       if (DirID == DIR_OMP_SECTION ||
           DirID == DIR_OMP_SECTIONS ||
           DirID == DIR_OMP_PARALLEL_SECTIONS) {
@@ -684,23 +684,10 @@ void VPOUtils::doParSectTrans(
 
   Instruction *Inst = Node->EntryBB->getFirstNonPHI();
   CallInst *CI = dyn_cast<CallInst>(Inst);
-  SmallVector<Value *, 8> Args;
-  for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++) {
-    Args.insert(Args.end(), *AI);
-  }
-  SmallVector<OperandBundleDef, 1> OpBundles;
-  CI->getOperandBundlesAsDefs(OpBundles);
-  OperandBundleDef B1("QUAL.OMP.NORMALIZED.IV", IV);
-  OpBundles.push_back(B1);
-  OperandBundleDef B2("QUAL.OMP.NORMALIZED.UB", NormalizedUB);
-  OpBundles.push_back(B2);
-  auto NewI = CallInst::Create(CI->getCalledValue(), Args, OpBundles, "", CI);
-  NewI->takeName(CI);
-  NewI->setCallingConv(CI->getCallingConv());
-  NewI->setAttributes(CI->getAttributes());
-  NewI->setDebugLoc(CI->getDebugLoc());
-  CI->replaceAllUsesWith(NewI);
-  CI->eraseFromParent();
+
+  VPOParoptUtils::addOperandBundlesInCall(
+      CI, {{"QUAL.OMP.NORMALIZED.IV", {IV}},
+           {"QUAL.OMP.NORMALIZED.UB", {NormalizedUB}}});
 
   return;
 }
@@ -763,12 +750,22 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
 
   Value *UpperBnd = UB;
 
+  Instruction *InsertPt;
+  BasicBlock *InsertBB = &(F->getEntryBlock());
+  // If the basic block contains the IntelDirective call, the compiler
+  // splits this basic block into two and chooses the second BB as the
+  // insertion basic block.
+  if (VPOAnalysisUtils::isIntelDirectiveOrClause(InsertBB->getFirstNonPHI()))
+    InsertBB = SplitBlock(InsertBB, InsertBB->getTerminator(), DT, nullptr);
+
+  InsertPt = InsertBB->getTerminator();
+
   if (ConstantInt* CI = cast<ConstantInt>(UB)) {
     if (CI->getBitWidth() <= 32) {
       // PreHeaderBB
       IntegerType *IntTy = Type::getInt32Ty(F->getContext());
       const DataLayout &DL = F->getParent()->getDataLayout();
-      Instruction *InsertPt = F->getEntryBlock().getTerminator();
+
       AllocaInst *TmpUB =
           new AllocaInst(IntTy, DL.getAllocaAddrSpace(), "num.sects", InsertPt);
       TmpUB->setAlignment(4);
@@ -783,7 +780,7 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
     }
   }
 
-  Builder.SetInsertPoint(F->getEntryBlock().getTerminator());
+  Builder.SetInsertPoint(InsertPt);
   AllocaInst *IV =
       Builder.CreateAlloca(LoopIVType, nullptr, ".sloop.iv." + Twine(Counter));
 

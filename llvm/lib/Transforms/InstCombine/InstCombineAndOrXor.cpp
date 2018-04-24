@@ -14,10 +14,10 @@
 #include "InstCombineInternal.h"
 #include "llvm/Analysis/CmpInstAnalysis.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/PatternMatch.h"
-#include "llvm/Transforms/Utils/Local.h"
 using namespace llvm;
 using namespace PatternMatch;
 
@@ -1121,8 +1121,8 @@ Value *InstCombiner::foldLogicOfFCmps(FCmpInst *LHS, FCmpInst *RHS, bool IsAnd) 
       return nullptr;
 
     // FCmp canonicalization ensures that (fcmp ord/uno X, X) and
-    // (fcmp ord/uno X, C) will be transformed to (fcmp X, 0.0).
-    if (match(LHS1, m_Zero()) && LHS1 == RHS1)
+    // (fcmp ord/uno X, C) will be transformed to (fcmp X, +0.0).
+    if (match(LHS1, m_PosZeroFP()) && match(RHS1, m_PosZeroFP()))
       // Ignore the constants because they are obviously not NANs:
       // (fcmp ord x, 0.0) & (fcmp ord y, 0.0)  -> (fcmp ord x, y)
       // (fcmp uno x, 0.0) | (fcmp uno y, 0.0)  -> (fcmp uno x, y)
@@ -2363,6 +2363,34 @@ Value *InstCombiner::foldXorOfICmps(ICmpInst *LHS, ICmpInst *RHS) {
     }
   }
 
+  // TODO: This can be generalized to compares of non-signbits using
+  // decomposeBitTestICmp(). It could be enhanced more by using (something like)
+  // foldLogOpOfMaskedICmps().
+  ICmpInst::Predicate PredL = LHS->getPredicate(), PredR = RHS->getPredicate();
+  Value *LHS0 = LHS->getOperand(0), *LHS1 = LHS->getOperand(1);
+  Value *RHS0 = RHS->getOperand(0), *RHS1 = RHS->getOperand(1);
+  if ((LHS->hasOneUse() || RHS->hasOneUse()) &&
+      LHS0->getType() == RHS0->getType()) {
+    // (X > -1) ^ (Y > -1) --> (X ^ Y) < 0
+    // (X <  0) ^ (Y <  0) --> (X ^ Y) < 0
+    if ((PredL == CmpInst::ICMP_SGT && match(LHS1, m_AllOnes()) &&
+         PredR == CmpInst::ICMP_SGT && match(RHS1, m_AllOnes())) ||
+        (PredL == CmpInst::ICMP_SLT && match(LHS1, m_Zero()) &&
+         PredR == CmpInst::ICMP_SLT && match(RHS1, m_Zero()))) {
+      Value *Zero = ConstantInt::getNullValue(LHS0->getType());
+      return Builder.CreateICmpSLT(Builder.CreateXor(LHS0, RHS0), Zero);
+    }
+    // (X > -1) ^ (Y <  0) --> (X ^ Y) > -1
+    // (X <  0) ^ (Y > -1) --> (X ^ Y) > -1
+    if ((PredL == CmpInst::ICMP_SGT && match(LHS1, m_AllOnes()) &&
+         PredR == CmpInst::ICMP_SLT && match(RHS1, m_Zero())) ||
+        (PredL == CmpInst::ICMP_SLT && match(LHS1, m_Zero()) &&
+         PredR == CmpInst::ICMP_SGT && match(RHS1, m_AllOnes()))) {
+      Value *MinusOne = ConstantInt::getAllOnesValue(LHS0->getType());
+      return Builder.CreateICmpSGT(Builder.CreateXor(LHS0, RHS0), MinusOne);
+    }
+  }
+
   // Instead of trying to imitate the folds for and/or, decompose this 'xor'
   // into those logic ops. That is, try to turn this into an and-of-icmps
   // because we have many folds for that pattern.
@@ -2666,6 +2694,36 @@ Instruction *InstCombiner::visitXor(BinaryOperator &I) {
     // --> (A < 0) ? -A : A
     Value *Cmp = Builder.CreateICmpSLT(A, ConstantInt::getNullValue(Ty));
     return SelectInst::Create(Cmp, Builder.CreateNeg(A), A);
+  }
+
+  // Eliminate a bitwise 'not' op of 'not' min/max by inverting the min/max:
+  //
+  //   %notx = xor i32 %x, -1
+  //   %cmp1 = icmp sgt i32 %notx, %y
+  //   %smax = select i1 %cmp1, i32 %notx, i32 %y
+  //   %res = xor i32 %smax, -1
+  // =>
+  //   %noty = xor i32 %y, -1
+  //   %cmp2 = icmp slt %x, %noty
+  //   %res = select i1 %cmp2, i32 %x, i32 %noty
+  //
+  // Same is applicable for smin/umax/umin.
+  {
+    Value *LHS, *RHS;
+    SelectPatternFlavor SPF = matchSelectPattern(Op0, LHS, RHS).Flavor;
+    if (Op0->hasOneUse() && SelectPatternResult::isMinOrMax(SPF) &&
+        match(Op1, m_AllOnes())) {
+
+      Value *X;
+      if (match(RHS, m_Not(m_Value(X))))
+        std::swap(RHS, LHS);
+
+      if (match(LHS, m_Not(m_Value(X)))) {
+        Value *NotY = Builder.CreateNot(RHS);
+        return SelectInst::Create(
+            Builder.CreateICmp(getInverseMinMaxPred(SPF), X, NotY), X, NotY);
+      }
+    }
   }
 
   return Changed ? &I : nullptr;
