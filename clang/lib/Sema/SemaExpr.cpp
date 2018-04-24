@@ -201,10 +201,11 @@ void Sema::MaybeSuggestAddingStaticToDecl(const FunctionDecl *Cur) {
 /// \returns true if there was an error (this declaration cannot be
 /// referenced), false otherwise.
 ///
-bool Sema::DiagnoseUseOfDecl(NamedDecl *D, SourceLocation Loc,
+bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
                              const ObjCInterfaceDecl *UnknownObjCClass,
                              bool ObjCPropertyAccess,
                              bool AvoidPartialAvailabilityChecks) {
+  SourceLocation Loc = Locs.front();
   if (getLangOpts().CPlusPlus && isa<FunctionDecl>(D)) {
     // If there were any diagnostics suppressed by template argument deduction,
     // emit them now.
@@ -288,7 +289,7 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, SourceLocation Loc,
     return true;
   }
 
-  DiagnoseAvailabilityOfDecl(D, Loc, UnknownObjCClass, ObjCPropertyAccess,
+  DiagnoseAvailabilityOfDecl(D, Locs, UnknownObjCClass, ObjCPropertyAccess,
                              AvoidPartialAvailabilityChecks);
 
   DiagnoseUnusedOfDecl(*this, D, Loc);
@@ -3866,6 +3867,7 @@ static void captureVariablyModifiedType(ASTContext &Context, QualType T,
     case Type::ObjCTypeParam:
 #if INTEL_CUSTOMIZATION
     case Type::Channel:
+    case Type::ArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
       llvm_unreachable("type class is never variably-modified!");
@@ -5593,7 +5595,7 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
       // CUDA: Kernel calls must be to global functions
       if (FDecl && !FDecl->hasAttr<CUDAGlobalAttr>())
         return ExprError(Diag(LParenLoc,diag::err_kern_call_not_global_function)
-            << FDecl->getName() << Fn->getSourceRange());
+            << FDecl << Fn->getSourceRange());
 
       // CUDA: Kernel function must have 'void' return type
       if (!FuncT->getReturnType()->isVoidType())
@@ -5603,7 +5605,7 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
       // CUDA: Calls to global functions must be configured
       if (FDecl && FDecl->hasAttr<CUDAGlobalAttr>())
         return ExprError(Diag(LParenLoc, diag::err_global_call_not_config)
-            << FDecl->getName() << Fn->getSourceRange());
+            << FDecl << Fn->getSourceRange());
     }
   }
 
@@ -5803,7 +5805,7 @@ Sema::ActOnInitList(SourceLocation LBraceLoc, MultiExprArg InitArgList,
   }
 
   // Semantic analysis for initializers is done by ActOnDeclarator() and
-  // CheckInitializer() - it requires knowledge of the object being intialized.
+  // CheckInitializer() - it requires knowledge of the object being initialized.
 
   InitListExpr *E = new (Context) InitListExpr(Context, LBraceLoc, InitArgList,
                                                RBraceLoc);
@@ -7722,6 +7724,22 @@ Sema::CheckAssignmentConstraints(QualType LHSType, ExprResult &RHS,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // Allow integer->ArbPrecInt type conversion always.
+  if ((LHSType->isArbPrecIntType() && RHSType->isIntegerType()) ||
+      (LHSType->isIntegerType() && RHSType->isArbPrecIntType()) ||
+      (LHSType->isArbPrecIntType() && RHSType->isArbPrecIntType())) {
+    if (Context.getTypeSize(RHSType) ==
+        Context.getTypeSize(LHSType)) {
+      Kind = CK_BitCast;
+      return Compatible;
+    }
+
+    Kind = CK_IntegralCast;
+    return Compatible;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Conversions to or from vector type.
   if (LHSType->isVectorType() || RHSType->isVectorType()) {
     if (LHSType->isVectorType() && RHSType->isVectorType()) {
@@ -8136,7 +8154,7 @@ Sema::CheckSingleAssignmentConstraints(QualType LHSType, ExprResult &CallerRHS,
   if (Diagnose && isa<ObjCProtocolExpr>(PRE)) {
     ObjCProtocolDecl *PDecl = cast<ObjCProtocolExpr>(PRE)->getProtocol();
     if (PDecl && !PDecl->hasDefinition()) {
-      Diag(PRE->getExprLoc(), diag::warn_atprotocol_protocol) << PDecl->getName();
+      Diag(PRE->getExprLoc(), diag::warn_atprotocol_protocol) << PDecl;
       Diag(PDecl->getLocation(), diag::note_entity_declared_at) << PDecl;
     }
   }
@@ -8337,7 +8355,7 @@ static bool canConvertIntTyToFloatTy(Sema &S, ExprResult *Int,
   QualType IntTy = Int->get()->getType().getUnqualifiedType();
 
   // Determine if the integer constant can be expressed as a floating point
-  // number of the appropiate type.
+  // number of the appropriate type.
   llvm::APSInt Result;
   bool CstInt = Int->get()->EvaluateAsInt(Result, S.Context);
   uint64_t Bits = 0;
@@ -8448,6 +8466,103 @@ static bool tryGCCVectorConvertAndSplat(Sema &S, ExprResult *Scalar,
   }
   return false;
 }
+
+#if INTEL_CUSTOMIZATION
+bool DoExprResultConversionConversions(Sema &S, ExprResult &Expr) {
+  Expr = S.DefaultFunctionArrayLvalueConversion(Expr.get());
+  if (Expr.isInvalid())
+    return false;
+
+  // Handle Bitfield to type conversion.  Note, bitfields are always
+  // Int.
+  QualType BFTy = S.getASTContext().isPromotableBitField(Expr.get());
+  if (!BFTy.isNull())
+    Expr = S.ImpCastExprToType(Expr.get(), BFTy, CK_IntegralCast);
+  if (Expr.isInvalid())
+    return false;
+  return true;
+}
+
+QualType Sema::CheckArbPrecIntOperands(ExprResult &LHS, ExprResult &RHS,
+                                       SourceLocation Loc, bool IsCompAssign,
+                                       bool IsShift) {
+  // First Do L->R Value Conversions.
+  if (!IsCompAssign)
+    if (!DoExprResultConversionConversions(*this, LHS))
+      return QualType();
+
+  // Handles L->R Value Conversions.
+  if (!DoExprResultConversionConversions(*this, RHS))
+    return QualType();
+
+  QualType LHSType = LHS.get()->getType().getUnqualifiedType();
+  QualType RHSType = RHS.get()->getType().getUnqualifiedType();
+  const bool LHSIsAPType = LHSType->isArbPrecIntType();
+  const bool RHSIsAPType = RHSType->isArbPrecIntType();
+  unsigned LHSBits = Context.getTypeSize(LHSType);
+  unsigned RHSBits = Context.getTypeSize(RHSType);
+  bool LHSSigned = LHSType->hasSignedIntegerRepresentation();
+
+  assert((LHSIsAPType || RHSIsAPType) &&
+         "Can't check ArbPrecInt Operands if they aren't ArbPrecInt");
+
+  // Same types require no conversions.
+  if (LHSType == RHSType)
+    return LHSType;
+
+  // Make sure that both sides are either an ArbPrecInt or Integer.
+  if ((LHSIsAPType && !RHSIsAPType && !RHSType->isIntegerType()) ||
+      (RHSIsAPType && !LHSIsAPType && !LHSType->isIntegerType())) {
+    return InvalidOperands(Loc, LHS, RHS);
+  }
+
+  // At this point, both sides are either ArbPrecInt or an integer type.  Since
+  // the result of an operation between ArbPrecInt and an integer should be an
+  // ArbPrecInt, convert BOTH LHSType and RHSType to an ArbPrecInt of the
+  // correct size.
+  if (!LHSIsAPType)
+    LHSType = Context.getArbPrecIntType(LHSType, LHSBits, {});
+  if (!RHSIsAPType)
+    RHSType = Context.getArbPrecIntType(RHSType, RHSBits, {});
+
+  // Shifts ALWAYS result in the type of the left-side.
+  if (IsShift) {
+    RHS = doIntegralCast(*this, RHS.get(), LHSType);
+    return LHSType;
+  }
+
+  if (LHSBits > RHSBits) {
+    RHS = doIntegralCast(*this, RHS.get(), LHSType);
+    return LHSType;
+  }
+
+  if (RHSBits > LHSBits) {
+    if (!IsCompAssign)
+      LHS = doIntegralCast(*this, LHS.get(), RHSType);
+    return RHSType;
+  }
+
+  // Last tie-breaker is unsigned-before-signed.
+  if (!LHSSigned) {
+    RHS = doIntegralCast(*this, RHS.get(), LHSType);
+    return LHSType;
+  }
+
+  if (!IsCompAssign)
+    LHS = doIntegralCast(*this, LHS.get(), RHSType);
+  return RHSType;
+}
+
+QualType Sema::CheckArbPrecIntCompareOperands(ExprResult &LHS, ExprResult &RHS,
+                                              SourceLocation Loc) {
+  QualType CmpType = CheckArbPrecIntOperands(LHS, RHS, Loc, false);
+
+  if (CmpType.isNull())
+    return CmpType;
+
+  return Context.getLogicalOperationType();
+}
+#endif // INTEL_CUSTOMIZATION
 
 QualType Sema::CheckVectorOperands(ExprResult &LHS, ExprResult &RHS,
                                    SourceLocation Loc, bool IsCompAssign,
@@ -8679,6 +8794,12 @@ QualType Sema::CheckMultiplyDivideOperands(ExprResult &LHS, ExprResult &RHS,
                                /*AllowBothBool*/getLangOpts().AltiVec,
                                /*AllowBoolConversions*/false);
 
+#if INTEL_CUSTOMIZATION
+  if (LHS.get()->getType()->isArbPrecIntType() ||
+      RHS.get()->getType()->isArbPrecIntType())
+    return CheckArbPrecIntOperands(LHS, RHS, Loc, IsCompAssign);
+#endif // INTEL_CUSTOMIZATION
+
   QualType compType = UsualArithmeticConversions(LHS, RHS, IsCompAssign);
   if (LHS.isInvalid() || RHS.isInvalid())
     return QualType();
@@ -8704,6 +8825,12 @@ QualType Sema::CheckRemainderOperands(
                                  /*AllowBoolConversions*/false);
     return InvalidOperands(Loc, LHS, RHS);
   }
+
+#if INTEL_CUSTOMIZATION
+  if (LHS.get()->getType()->isArbPrecIntType() ||
+      RHS.get()->getType()->isArbPrecIntType())
+    return CheckArbPrecIntOperands(LHS, RHS, Loc, IsCompAssign);
+#endif // INTEL_CUSTOMIZATION
 
   QualType compType = UsualArithmeticConversions(LHS, RHS, IsCompAssign);
   if (LHS.isInvalid() || RHS.isInvalid())
@@ -9021,6 +9148,17 @@ QualType Sema::CheckAdditionOperands(ExprResult &LHS, ExprResult &RHS,
     return compType;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (LHS.get()->getType()->isArbPrecIntType() ||
+      RHS.get()->getType()->isArbPrecIntType()) {
+    QualType compType = CheckArbPrecIntOperands(
+        LHS, RHS, Loc, /*IsCompAssign=*/static_cast<bool>(CompLHSTy));
+    if (CompLHSTy)
+      *CompLHSTy = compType;
+    return compType;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   QualType compType = UsualArithmeticConversions(LHS, RHS, CompLHSTy);
   if (LHS.isInvalid() || RHS.isInvalid())
     return QualType();
@@ -9113,6 +9251,17 @@ QualType Sema::CheckSubtractionOperands(ExprResult &LHS, ExprResult &RHS,
     if (CompLHSTy) *CompLHSTy = compType;
     return compType;
   }
+
+#if INTEL_CUSTOMIZATION
+  if (LHS.get()->getType()->isArbPrecIntType() ||
+      RHS.get()->getType()->isArbPrecIntType()) {
+    QualType compType = CheckArbPrecIntOperands(
+        LHS, RHS, Loc, /*IsCompAssign=*/static_cast<bool>(CompLHSTy));
+    if (CompLHSTy)
+      *CompLHSTy = compType;
+    return compType;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   QualType compType = UsualArithmeticConversions(LHS, RHS, CompLHSTy);
   if (LHS.isInvalid() || RHS.isInvalid())
@@ -9402,6 +9551,13 @@ QualType Sema::CheckShiftOperands(ExprResult &LHS, ExprResult &RHS,
     }
     return checkVectorShift(*this, LHS, RHS, Loc, IsCompAssign);
   }
+
+#if INTEL_CUSTOMIZATION
+  if (LHS.get()->getType()->isArbPrecIntType() ||
+      RHS.get()->getType()->isArbPrecIntType())
+    return CheckArbPrecIntOperands(LHS, RHS, Loc, IsCompAssign,
+                                   /*IsShift*/ true);
+#endif // INTEL_CUSTOMIZATION
 
   // Shifts don't perform usual arithmetic conversions, they just do integer
   // promotions on each operand. C99 6.5.7p3
@@ -9880,6 +10036,12 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
       RHS.get()->getType()->isVectorType())
     return CheckVectorCompareOperands(LHS, RHS, Loc, Opc);
 
+#if INTEL_CUSTOMIZATION
+  if (LHS.get()->getType()->isArbPrecIntType() ||
+      RHS.get()->getType()->isArbPrecIntType())
+    return CheckArbPrecIntCompareOperands(LHS, RHS, Loc);
+#endif // INTEL_CUSTOMIZATION
+
   diagnoseLogicalNotOnLHSofCheck(*this, LHS, RHS, Loc, Opc);
   diagnoseTautologicalComparison(*this, Loc, LHS.get(), RHS.get(), Opc);
 
@@ -10152,6 +10314,19 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
         RHS = ImpCastExprToType(RHS.get(), LHSType, CK_BitCast);
       return ResultTy;
     }
+
+    if (!IsRelational && LHSType->isBlockPointerType() &&
+        RHSType->isBlockCompatibleObjCPointerType(Context)) {
+      LHS = ImpCastExprToType(LHS.get(), RHSType,
+                              CK_BlockPointerToObjCPointerCast);
+      return ResultTy;
+    } else if (!IsRelational &&
+               LHSType->isBlockCompatibleObjCPointerType(Context) &&
+               RHSType->isBlockPointerType()) {
+      RHS = ImpCastExprToType(RHS.get(), LHSType,
+                              CK_BlockPointerToObjCPointerCast);
+      return ResultTy;
+    }
   }
   if ((LHSType->isAnyPointerType() && RHSType->isIntegerType()) ||
       (LHSType->isIntegerType() && RHSType->isAnyPointerType())) {
@@ -10340,6 +10515,12 @@ inline QualType Sema::CheckBitwiseOperands(ExprResult &LHS, ExprResult &RHS,
                         /*AllowBoolConversions*/getLangOpts().ZVector);
     return InvalidOperands(Loc, LHS, RHS);
   }
+
+#if INTEL_CUSTOMIZATION
+  if (LHS.get()->getType()->isArbPrecIntType() ||
+      RHS.get()->getType()->isArbPrecIntType())
+    return CheckArbPrecIntOperands(LHS, RHS, Loc, IsCompAssign);
+#endif // INTEL_CUSTOMIZATION
 
   if (Opc == BO_And)
     diagnoseLogicalNotOnLHSofCheck(*this, LHS, RHS, Loc, Opc);
@@ -10848,12 +11029,34 @@ static bool CheckForModifiableLvalue(Expr *E, SourceLocation Loc, Sema &S) {
 static void CheckIdentityFieldAssignment(Expr *LHSExpr, Expr *RHSExpr,
                                          SourceLocation Loc,
                                          Sema &Sema) {
+  if (Sema.inTemplateInstantiation())
+    return;
+  if (Sema.isUnevaluatedContext())
+    return;
+  if (Loc.isInvalid() || Loc.isMacroID())
+    return;
+  if (LHSExpr->getExprLoc().isMacroID() || RHSExpr->getExprLoc().isMacroID())
+    return;
+
   // C / C++ fields
   MemberExpr *ML = dyn_cast<MemberExpr>(LHSExpr);
   MemberExpr *MR = dyn_cast<MemberExpr>(RHSExpr);
-  if (ML && MR && ML->getMemberDecl() == MR->getMemberDecl()) {
-    if (isa<CXXThisExpr>(ML->getBase()) && isa<CXXThisExpr>(MR->getBase()))
-      Sema.Diag(Loc, diag::warn_identity_field_assign) << 0;
+  if (ML && MR) {
+    if (!(isa<CXXThisExpr>(ML->getBase()) && isa<CXXThisExpr>(MR->getBase())))
+      return;
+    const ValueDecl *LHSDecl =
+        cast<ValueDecl>(ML->getMemberDecl()->getCanonicalDecl());
+    const ValueDecl *RHSDecl =
+        cast<ValueDecl>(MR->getMemberDecl()->getCanonicalDecl());
+    if (LHSDecl != RHSDecl)
+      return;
+    if (LHSDecl->getType().isVolatileQualified())
+      return;
+    if (const ReferenceType *RefTy = LHSDecl->getType()->getAs<ReferenceType>())
+      if (RefTy->getPointeeType().isVolatileQualified())
+        return;
+
+    Sema.Diag(Loc, diag::warn_identity_field_assign) << 0;
   }
 
   // Objective-C instance variables
@@ -11117,6 +11320,10 @@ static QualType CheckIncrementDecrementOperand(Sema &S, Expr *Op,
     return QualType();
   } else if (ResType->isRealType()) {
     // OK!
+#if INTEL_CUSTOMIZATION
+  } else if (ResType->isArbPrecIntType()) {
+    // No problem, just an integer.
+#endif // INTEL_CUSTOMIZATION
   } else if (ResType->isPointerType()) {
     // C99 6.5.2.4p2, 6.5.6p2
     if (!checkArithmeticOpPointerOperand(S, OpLoc, Op))
@@ -11630,11 +11837,12 @@ static inline UnaryOperatorKind ConvertTokenKindToUnaryOpcode(
 }
 
 /// DiagnoseSelfAssignment - Emits a warning if a value is assigned to itself.
-/// This warning is only emitted for builtin assignment operations. It is also
-/// suppressed in the event of macro expansions.
+/// This warning suppressed in the event of macro expansions.
 static void DiagnoseSelfAssignment(Sema &S, Expr *LHSExpr, Expr *RHSExpr,
                                    SourceLocation OpLoc) {
   if (S.inTemplateInstantiation())
+    return;
+  if (S.isUnevaluatedContext())
     return;
   if (OpLoc.isInvalid() || OpLoc.isMacroID())
     return;
@@ -12253,6 +12461,21 @@ ExprResult Sema::ActOnBinOp(Scope *S, SourceLocation TokLoc,
 static ExprResult BuildOverloadedBinOp(Sema &S, Scope *Sc, SourceLocation OpLoc,
                                        BinaryOperatorKind Opc,
                                        Expr *LHS, Expr *RHS) {
+  switch (Opc) {
+  case BO_Assign:
+  case BO_DivAssign:
+  case BO_RemAssign:
+  case BO_SubAssign:
+  case BO_AndAssign:
+  case BO_OrAssign:
+  case BO_XorAssign:
+    DiagnoseSelfAssignment(S, LHS, RHS, OpLoc);
+    CheckIdentityFieldAssignment(LHS, RHS, OpLoc, S);
+    break;
+  default:
+    break;
+  }
+
   // Find all of the overloaded operators visible from this
   // point. We perform both an operator-name lookup from the local
   // scope and an argument-dependent lookup based on the types of
@@ -12484,6 +12707,10 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
       break;
     if (resultType->isArithmeticType()) // C99 6.5.3.3p1
       break;
+#if INTEL_CUSTOMIZATION
+    else if (resultType->isArbPrecIntType())
+      break;
+#endif // INTEL_CUSTOMIZATION
     else if (resultType->isVectorType() &&
              // The z vector extensions don't allow + or - with bool vectors.
              (!Context.getLangOpts().ZVector ||
@@ -12513,6 +12740,10 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
           << resultType << Input.get()->getSourceRange();
     else if (resultType->hasIntegerRepresentation())
       break;
+#if INTEL_CUSTOMIZATION
+    else if (resultType->isArbPrecIntType())
+      break;
+#endif // INTEL_CUSTOMIZATION
     else if (resultType->isExtVectorType() && Context.getLangOpts().OpenCL) {
       // OpenCL v1.1 s6.3.f: The bitwise operator not (~) does not operate
       // on vector float types.
@@ -12541,6 +12772,9 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
     }
 
     if (resultType->isDependentType())
+      break;
+    if (resultType->isArbPrecIntType())
+      // No problem negating an AP-Int, should leave the type the same.
       break;
     if (resultType->isScalarType() && !isScopedEnumerationType(resultType)) {
       // C99 6.5.3.3p1: ok, fallthrough;
@@ -12617,7 +12851,7 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
     OK = Input.get()->getObjectKind();
     break;
   case UO_Coawait:
-    // It's unnessesary to represent the pass-through operator co_await in the
+    // It's unnecessary to represent the pass-through operator co_await in the
     // AST; just return the input expression instead.
     assert(!Input.get()->getType()->isDependentType() &&
                    "the co_await expression must be non-dependant before "
@@ -13739,7 +13973,7 @@ bool Sema::DiagnoseAssignmentResult(AssignConvertType ConvTy,
   if (DiagKind == diag::warn_incompatible_qualified_id &&
       PDecl && IFace && !IFace->hasDefinition())
       Diag(IFace->getLocation(), diag::note_incomplete_class_and_qualified_id)
-        << IFace->getName() << PDecl->getName();
+        << IFace << PDecl;
     
   if (SecondType == Context.OverloadTy)
     NoteAllOverloadCandidates(OverloadExpr::find(SrcExpr).Expression,

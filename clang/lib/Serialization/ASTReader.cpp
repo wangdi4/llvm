@@ -396,8 +396,8 @@ static bool checkTargetOptions(const TargetOptions &TargetOpts,
                                              ExistingTargetOpts.FeaturesAsWritten.end());
   SmallVector<StringRef, 4> ReadFeatures(TargetOpts.FeaturesAsWritten.begin(),
                                          TargetOpts.FeaturesAsWritten.end());
-  std::sort(ExistingFeatures.begin(), ExistingFeatures.end());
-  std::sort(ReadFeatures.begin(), ReadFeatures.end());
+  llvm::sort(ExistingFeatures.begin(), ExistingFeatures.end());
+  llvm::sort(ReadFeatures.begin(), ReadFeatures.end());
 
   // We compute the set difference in both directions explicitly so that we can
   // diagnose the differences differently.
@@ -2137,7 +2137,7 @@ InputFile ASTReader::getInputFile(ModuleFile &F, unsigned ID, bool Complain) {
   }
 
   // Check if there was a request to override the contents of the file
-  // that was part of the precompiled header. Overridding such a file
+  // that was part of the precompiled header. Overriding such a file
   // can lead to problems when lexing using the source locations from the
   // PCH.
   SourceManager &SM = getSourceManager();
@@ -6364,6 +6364,33 @@ QualType ASTReader::readTypeRecord(unsigned Index) {
     QualType ElementType = readType(*Loc.F, Record, Idx);
     return Context.getChannelType(ElementType);
   }
+  case TYPE_ARBPRECINT: {
+    if (Record.size() != 3) {
+      Error("Incorrect encoding of ArbPrecInt type");
+      return QualType();
+    }
+
+    unsigned Idx = 0;
+    QualType UnderlyingType = readType(*Loc.F, Record, Idx);
+    unsigned NumBits = Record[Idx++];
+    SourceLocation AttrLoc = ReadSourceLocation(*Loc.F, Record, Idx);
+
+    return Context.getArbPrecIntType(UnderlyingType, NumBits, AttrLoc);
+  }
+  case TYPE_DEPENDENT_SIZED_ARBPRECINT: {
+    if (Record.size() != 3) {
+      Error("Incorrect encoding of Dependent APInt type");
+      return QualType();
+    }
+
+    unsigned Idx = 0;
+    QualType UnderlyingType = readType(*Loc.F, Record, Idx);
+    Expr *NumBitsExpr = ReadExpr(*Loc.F);
+    SourceLocation AttrLoc = ReadSourceLocation(*Loc.F, Record, Idx);
+
+    return Context.getDependentSizedArbPrecIntType(UnderlyingType, NumBitsExpr,
+                                                   AttrLoc);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   case TYPE_DEPENDENT_SIZED_EXT_VECTOR: {
@@ -6743,6 +6770,13 @@ void TypeLocReader::VisitPipeTypeLoc(PipeTypeLoc TL) {
 #if INTEL_CUSTOMIZATION
 void TypeLocReader::VisitChannelTypeLoc(ChannelTypeLoc TL) {
   TL.setKWLoc(ReadSourceLocation());
+}
+void TypeLocReader::VisitArbPrecIntTypeLoc(ArbPrecIntTypeLoc TL) {
+  TL.setNameLoc(ReadSourceLocation());
+}
+void TypeLocReader::VisitDependentSizedArbPrecIntTypeLoc(
+    DependentSizedArbPrecIntTypeLoc TL) {
+  TL.setNameLoc(ReadSourceLocation());
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -9115,8 +9149,8 @@ void ASTReader::ReadComments() {
   NextCursor:
     // De-serialized SourceLocations get negative FileIDs for other modules,
     // potentially invalidating the original order. Sort it again.
-    std::sort(Comments.begin(), Comments.end(),
-              BeforeThanCompare<RawComment>(SourceMgr));
+    llvm::sort(Comments.begin(), Comments.end(),
+               BeforeThanCompare<RawComment>(SourceMgr));
     Context.Comments.addDeserializedComments(Comments);
   }
 }

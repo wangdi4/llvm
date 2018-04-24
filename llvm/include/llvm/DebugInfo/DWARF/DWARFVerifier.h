@@ -236,16 +236,25 @@ private:
   unsigned verifyDebugNamesCULists(const DWARFDebugNames &AccelTable);
   unsigned verifyNameIndexBuckets(const DWARFDebugNames::NameIndex &NI,
                                   const DataExtractor &StrData);
+  unsigned verifyNameIndexAbbrevs(const DWARFDebugNames::NameIndex &NI);
+  unsigned verifyNameIndexAttribute(const DWARFDebugNames::NameIndex &NI,
+                                    const DWARFDebugNames::Abbrev &Abbr,
+                                    DWARFDebugNames::AttributeEncoding AttrEnc);
+  unsigned verifyNameIndexEntries(const DWARFDebugNames::NameIndex &NI,
+                                  uint32_t Name, const DataExtractor &StrData);
 
   /// Verify that the DWARF v5 accelerator table is valid.
   ///
   /// This function currently checks that:
-  /// - Headers and abbreviation tables of individual Name Indices fit into the
-  ///   section and can be parsed.
+  /// - Headers individual Name Indices fit into the section and can be parsed.
+  /// - Abbreviation tables can be parsed and contain valid index attributes
+  ///   with correct form encodings.
   /// - The CU lists reference existing compile units.
   /// - The buckets have a valid index, or they are empty.
   /// - All names are reachable via the hash table (they have the correct hash,
   ///   and the hash is in the correct bucket).
+  /// - Information in the index entries is consistent with the debug_info
+  ///   section DIEs.
   ///
   /// \param AccelSection section containing the acceleration table
   /// \param StrData string section

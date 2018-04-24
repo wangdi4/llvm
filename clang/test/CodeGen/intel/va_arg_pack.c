@@ -3,10 +3,10 @@
 extern int printf(const char* format, ...);
 
 // match the "%d %d\n" constant string.
-// WIN: [[FMTStr:@[^ ]+]] = linkonce_odr unnamed_addr constant [7 x i8] c"%d %d\0
+// WIN: [[FMTStr:@[^ ]+]] = linkonce_odr dso_local unnamed_addr constant [7 x i8] c"%d %d\0
 // LIN: [[FMTStr:@[^ ]+]] = private unnamed_addr constant [7 x i8] c"%d %d\0
 // match the "myprintf" constant string.
-// WIN: [[MyPrintFStr:@[^ ]+]] = linkonce_odr unnamed_addr constant [10 x i8] c"myprintf:\00"
+// WIN: [[MyPrintFStr:@[^ ]+]] = linkonce_odr dso_local unnamed_addr constant [10 x i8] c"myprintf:\00"
 // LIN: [[MyPrintFStr:@[^ ]+]] = private unnamed_addr constant [10 x i8] c"myprintf:\00"
 static __forceinline int myprintf(const char* format, ...) {
   // Shouldn't define the function myprintf.

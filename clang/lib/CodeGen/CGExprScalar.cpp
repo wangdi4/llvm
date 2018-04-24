@@ -422,10 +422,11 @@ public:
 
   Value *VisitOpaqueValueExpr(OpaqueValueExpr *E) {
     if (E->isGLValue())
-      return EmitLoadOfLValue(CGF.getOpaqueLValueMapping(E), E->getExprLoc());
+      return EmitLoadOfLValue(CGF.getOrCreateOpaqueLValueMapping(E),
+                              E->getExprLoc());
 
     // Otherwise, assume the mapping is the scalar directly.
-    return CGF.getOpaqueRValueMapping(E).getScalarVal();
+    return CGF.getOrCreateOpaqueRValueMapping(E).getScalarVal();
   }
 
   Value *emitConstant(const CodeGenFunction::ConstantEmission &Constant,
@@ -670,6 +671,13 @@ public:
                                                   llvm::Value *Zero,bool isDiv);
   // Common helper for getting how wide LHS of shift is.
   static Value *GetWidthMinusOneValue(Value* LHS,Value* RHS);
+#if INTEL_CUSTOMIZATION
+  // Used for OpenCL/IntelCOmpat modes, will constrain the RHS of a shift to
+  // avoid poisonable shift-results (shifting greater-than the bitcount of the
+  // LHS).
+  Value *ConstrainShiftValue(QualType OpTy, Value *LHS, Value *RHS,
+                             const Twine &Name);
+#endif // INTEL_CUSTOMIZATION
   Value *EmitDiv(const BinOpInfo &Ops);
   Value *EmitRem(const BinOpInfo &Ops);
   Value *EmitAdd(const BinOpInfo &Ops);
@@ -776,10 +784,13 @@ Value *ScalarExprEmitter::EmitConversionToBool(Value *Src, QualType SrcType) {
   if (const MemberPointerType *MPT = dyn_cast<MemberPointerType>(SrcType))
     return CGF.CGM.getCXXABI().EmitMemberPointerIsNotNull(CGF, Src, MPT);
 
-  assert((SrcType->isIntegerType() || isa<llvm::PointerType>(Src->getType())) &&
+#if INTEL_CUSTOMIZATION
+  assert((SrcType->isIntegerType() || isa<llvm::PointerType>(Src->getType()) ||
+          SrcType->isArbPrecIntType()) &&
          "Unknown scalar type to convert");
 
-  if (isa<llvm::IntegerType>(Src->getType()))
+  if (isa<llvm::IntegerType>(Src->getType()) || SrcType->isArbPrecIntType())
+#endif // INTEL_CUSTOMIZATION
     return EmitIntToBoolConversion(Src);
 
   assert(isa<llvm::PointerType>(Src->getType()));
@@ -1965,7 +1976,7 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
     value = Builder.getTrue();
 
   // Most common case by far: integer increment.
-  } else if (type->isIntegerType()) {
+  } else if (type->isIntegerType() || type->isArbPrecIntType()) { // INTEL
     // Note that signed integer inc/dec with width less than int can't
     // overflow because of promotion rules; we're just eliding a few steps here.
     if (E->canOverflow() && type->isSignedIntegerOrEnumerationType()) {
@@ -3015,6 +3026,23 @@ Value *ScalarExprEmitter::GetWidthMinusOneValue(Value* LHS,Value* RHS) {
   return llvm::ConstantInt::get(RHS->getType(), Ty->getBitWidth() - 1);
 }
 
+#if INTEL_CUSTOMIZATION
+Value *ScalarExprEmitter::ConstrainShiftValue(QualType OpTy, Value *LHS,
+                                              Value *RHS, const Twine &Name) {
+  llvm::IntegerType *Ty;
+  if (const auto *VT = dyn_cast<llvm::VectorType>(LHS->getType()))
+    Ty = cast<llvm::IntegerType>(VT->getElementType());
+  else
+    Ty = cast<llvm::IntegerType>(LHS->getType());
+
+  if (llvm::isPowerOf2_64(Ty->getBitWidth()))
+    return Builder.CreateAnd(RHS, GetWidthMinusOneValue(LHS, RHS), Name);
+
+  return Builder.CreateURem(
+      RHS, llvm::ConstantInt::get(RHS->getType(), Ty->getBitWidth()), Name);
+}
+#endif // INTEL_CUSTOMIZATION
+
 Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
   // LLVM requires the LHS and RHS to be the same type: promote or truncate the
   // RHS to the same size as the LHS.
@@ -3025,7 +3053,7 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
   // Fix for CQ375045: xmain's bitwise shift show results that differ from
   // results of icc/gcc
   if (CGF.getLangOpts().IntelCompat)
-    RHS = Builder.CreateAnd(RHS, RHS->getType()->getScalarSizeInBits() - 1);
+    RHS = ConstrainShiftValue(Ops.Ty, Ops.LHS, RHS, "shl.mask");
 #endif // INTEL_CUSTOMIZATION
 
   bool SanitizeBase = CGF.SanOpts.has(SanitizerKind::ShiftBase) &&
@@ -3034,8 +3062,10 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
   bool SanitizeExponent = CGF.SanOpts.has(SanitizerKind::ShiftExponent);
   // OpenCL 6.3j: shift values are effectively % word size of LHS.
   if (CGF.getLangOpts().OpenCL)
-    RHS =
-        Builder.CreateAnd(RHS, GetWidthMinusOneValue(Ops.LHS, RHS), "shl.mask");
+#if INTEL_CUSTOMIZATION
+    // FIXME: Fix the sanitizer code in the else-if below to use similar logic.
+    RHS = ConstrainShiftValue(Ops.Ty, Ops.LHS, RHS, "shl.mask");
+#endif // INTEL_CUSTOMIZATION
   else if ((SanitizeBase || SanitizeExponent) &&
            isa<llvm::IntegerType>(Ops.LHS->getType())) {
     CodeGenFunction::SanitizerScope SanScope(&CGF);
@@ -3098,13 +3128,15 @@ Value *ScalarExprEmitter::EmitShr(const BinOpInfo &Ops) {
   // Fix for CQ375045: xmain's bitwise shift show results that differ from
   // results of icc/gcc
   if (CGF.getLangOpts().IntelCompat)
-    RHS = Builder.CreateAnd(RHS, RHS->getType()->getScalarSizeInBits() - 1);
+    RHS = ConstrainShiftValue(Ops.Ty, Ops.LHS, RHS, "shl.mask");
 #endif // INTEL_CUSTOMIZATION
 
   // OpenCL 6.3j: shift values are effectively % word size of LHS.
   if (CGF.getLangOpts().OpenCL)
-    RHS =
-        Builder.CreateAnd(RHS, GetWidthMinusOneValue(Ops.LHS, RHS), "shr.mask");
+#if INTEL_CUSTOMIZATION
+    // FIXME: Fix the sanitizer code in the else-if below to use similar logic.
+    RHS = ConstrainShiftValue(Ops.Ty, Ops.LHS, RHS, "shr.mask");
+#endif // INTEL_CUSTOMIZATION
   else if (CGF.SanOpts.has(SanitizerKind::ShiftExponent) &&
            isa<llvm::IntegerType>(Ops.LHS->getType())) {
     CodeGenFunction::SanitizerScope SanScope(&CGF);

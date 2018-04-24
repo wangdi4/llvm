@@ -12,13 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/AST/PrettyDeclStackTrace.h"
 #include "clang/Basic/Attributes.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/LoopHint.h"
-#include "clang/Sema/PrettyDeclStackTrace.h"
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/TypoCorrection.h"
 #include "clang/AST/StmtCXX.h" // INTEL
@@ -2001,11 +2001,10 @@ StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts,
                      Hint.PragmaNameLoc->Loc, ArgHints, 5,
                      AttributeList::AS_Pragma);
 
-    // CQ#371799 - let #pragma unroll precede non-loop statements. Also fixes
+    // CQ#371799 - let loop #pragmas precede non-loop statements. Also fixes
     // CQ#377523, allowing several #pragma unroll attributes, choosing the last.
-    auto PragmaName = Hint.PragmaNameLoc->Ident->getName();
     if (getLangOpts().IntelCompat &&
-        (PragmaName == "unroll" || PragmaName == "nounroll")) {
+        Hint.PragmaNameLoc->Ident->getName() != "loop") {
       auto *PendingAttr = getPendingUnrollAttr();
       PendingAttr->clear();
       PendingAttr->takeAllFrom(TempAttrs);
@@ -2027,7 +2026,7 @@ Decl *Parser::ParseFunctionStatementBody(Decl *Decl, ParseScope &BodyScope) {
   assert(Tok.is(tok::l_brace));
   SourceLocation LBraceLoc = Tok.getLocation();
 
-  PrettyDeclStackTraceEntry CrashInfo(Actions, Decl, LBraceLoc,
+  PrettyDeclStackTraceEntry CrashInfo(Actions.Context, Decl, LBraceLoc,
                                       "parsing function body");
 
   // Save and reset current vtordisp stack if we have entered a C++ method body.
@@ -2060,7 +2059,7 @@ Decl *Parser::ParseFunctionTryBlock(Decl *Decl, ParseScope &BodyScope) {
   assert(Tok.is(tok::kw_try) && "Expected 'try'");
   SourceLocation TryLoc = ConsumeToken();
 
-  PrettyDeclStackTraceEntry CrashInfo(Actions, Decl, TryLoc,
+  PrettyDeclStackTraceEntry CrashInfo(Actions.Context, Decl, TryLoc,
                                       "parsing function try block");
 
   // Constructor initializer list?

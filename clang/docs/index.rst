@@ -10,6 +10,18 @@
 
    ReleaseNotes
 
+.. INTEL_CUSTOMIZATION
+
+Intel-only Features and Customizations
+======================================
+
+.. toctree::
+   :maxdepth: 1
+
+   Intel/ArbitraryPrecisionIntegers
+
+.. end INTEL_CUSTOMIZATION
+
 Using Clang as a Compiler
 =========================
 
@@ -36,6 +48,7 @@ Using Clang as a Compiler
    ControlFlowIntegrity
    LTOVisibility
    SafeStack
+   ShadowCallStack
    SourceBasedCodeCoverage
    Modules
    MSVCCompatibility

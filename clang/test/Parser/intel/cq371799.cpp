@@ -1,5 +1,4 @@
 // RUN: %clang_cc1 -fintel-compatibility -fsyntax-only -verify %s
-// REQUIRES: llvm-backend
 
 int main() {
   int i = 0, x = 0;

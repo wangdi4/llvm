@@ -42,7 +42,7 @@ using ::testing::UnorderedElementsAre;
 
 namespace {
 
-static bool diagsContainErrors(const std::vector<Diag> &Diagnostics) {
+bool diagsContainErrors(const std::vector<Diag> &Diagnostics) {
   for (auto D : Diagnostics) {
     if (D.Severity == DiagnosticsEngine::Error ||
         D.Severity == DiagnosticsEngine::Fatal)
@@ -151,6 +151,28 @@ protected:
     return Result;
   }
 };
+
+constexpr const char* ClangdTestScheme = "ClangdTests";
+class TestURIScheme : public URIScheme {
+public:
+  llvm::Expected<std::string>
+  getAbsolutePath(llvm::StringRef /*Authority*/, llvm::StringRef Body,
+                  llvm::StringRef /*HintPath*/) const override {
+    llvm_unreachable("ClangdTests never makes absolute path.");
+  }
+
+  llvm::Expected<URI>
+  uriFromAbsolutePath(llvm::StringRef AbsolutePath) const override {
+    llvm_unreachable("ClangdTest never creates a test URI.");
+  }
+
+  llvm::Expected<std::string> getIncludeSpelling(const URI &U) const override {
+    return ("\"" + U.body().trim("/") + "\"").str();
+  }
+};
+
+static URISchemeRegistry::Add<TestURIScheme>
+    X(ClangdTestScheme, "Test scheme for ClangdTests.");
 
 TEST_F(ClangdVFSTest, Parse) {
   // FIXME: figure out a stable format for AST dumps, so that we can check the
@@ -961,6 +983,10 @@ void f() {}
                        /*Preferred=*/"<Y.h>", "<Y.h>"));
   EXPECT_TRUE(Inserted(OriginalHeader, PreferredHeader, "\"Y.h\""));
   EXPECT_TRUE(Inserted("<y.h>", PreferredHeader, "\"Y.h\""));
+  auto TestURIHeader =
+      URI::parse(llvm::formatv("{0}:///x/y/z.h", ClangdTestScheme).str());
+  EXPECT_TRUE(static_cast<bool>(TestURIHeader));
+  EXPECT_TRUE(Inserted(TestURIHeader->toString(), "", "\"x/y/z.h\""));
 
   // Check that includes are sorted.
   const auto Expected = R"cpp(

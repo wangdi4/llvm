@@ -338,7 +338,7 @@ class CXXNameMangler {
                        AdditionalAbiTags->end());
       }
 
-      std::sort(TagList.begin(), TagList.end());
+      llvm::sort(TagList.begin(), TagList.end());
       TagList.erase(std::unique(TagList.begin(), TagList.end()), TagList.end());
 
       writeSortedUniqueAbiTags(Out, TagList);
@@ -354,7 +354,7 @@ class CXXNameMangler {
     }
 
     const AbiTagList &getSortedUniqueUsedAbiTags() {
-      std::sort(UsedAbiTags.begin(), UsedAbiTags.end());
+      llvm::sort(UsedAbiTags.begin(), UsedAbiTags.end());
       UsedAbiTags.erase(std::unique(UsedAbiTags.begin(), UsedAbiTags.end()),
                         UsedAbiTags.end());
       return UsedAbiTags;
@@ -1980,6 +1980,8 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
   case Type::Atomic:
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
+  case Type::ArbPrecInt:
+  case Type::DependentSizedArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     llvm_unreachable("type is illegal as a nested name specifier");
@@ -3429,6 +3431,18 @@ void CXXNameMangler::mangleType(const ChannelType *T) {
   // <type> ::= 11ocl_channel
   Out << "11ocl_channel";
   mangleType(T->getElementType());
+}
+void CXXNameMangler::mangleType(const ArbPrecIntType *T) {
+  Out << "11intel_apint_";
+  mangleNumber(T->getNumBits());
+  Out << '_';
+  mangleType(T->getUnderlyingType());
+}
+void CXXNameMangler::mangleType(const DependentSizedArbPrecIntType *T) {
+  Out << "11intel_apint_";
+  mangleExpression(T->getNumBitsExpr());
+  Out << '_';
+  mangleType(T->getUnderlyingType());
 }
 #endif // INTEL_CUSTOMIZATION
 

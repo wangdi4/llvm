@@ -273,7 +273,7 @@ def AllocSizeDocs : Documentation {
   let Content = [{
 The ``alloc_size`` attribute can be placed on functions that return pointers in
 order to hint to the compiler how many bytes of memory will be available at the
-returned poiner. ``alloc_size`` takes one or two arguments.
+returned pointer. ``alloc_size`` takes one or two arguments.
 
 - ``alloc_size(N)`` implies that argument number N equals the number of
   available bytes at the returned pointer.
@@ -311,7 +311,7 @@ def AllocAlignDocs : Documentation {
   let Content = [{
 Use ``__attribute__((alloc_align(<alignment>))`` on a function
 declaration to specify that the return value of the function (which must be a
-pointer type) is at least as aligned as the value of the indicated parameter. The 
+pointer type) is at least as aligned as the value of the indicated parameter. The
 parameter is given by its index in the list of formal parameters; the first
 parameter has index 1 unless the function is a C++ non-static member function,
 in which case the first parameter has index 2 to account for the implicit ``this``
@@ -330,7 +330,7 @@ parameter.
   void *Foo::b(void *v, size_t align) __attribute__((alloc_align(3)));
 
 Note that this attribute merely informs the compiler that a function always
-returns a sufficiently aligned pointer. It does not cause the compiler to 
+returns a sufficiently aligned pointer. It does not cause the compiler to
 emit code to enforce that alignment.  The behavior is undefined if the returned
 poitner is not sufficiently aligned.
   }];
@@ -913,10 +913,10 @@ in the metadata name for that object. The `objc_runtime_name`
 attribute allows annotated interfaces or protocols to use the
 specified string argument in the object's metadata name instead of the
 default name.
-        
+
 **Usage**: ``__attribute__((objc_runtime_name("MyLocalName")))``.  This attribute
 can only be placed before an @protocol or @interface declaration:
-        
+
 .. code-block:: objc
 
   __attribute__((objc_runtime_name("MyLocalName")))
@@ -2626,7 +2626,7 @@ The ``_Nullable`` nullability qualifier indicates that a value of the ``_Nullabl
 
     int fetch_or_zero(int * _Nullable ptr);
 
-a caller of ``fetch_or_zero`` can provide null. 
+a caller of ``fetch_or_zero`` can provide null.
   }];
 }
 
@@ -2687,104 +2687,6 @@ function are loads and stores from objects pointed to by its pointer-typed
 arguments, with arbitrary offsets.
   }];
 }
-
-// if INTEL_CUSTOMIZATION
-def IAInterruptDocs : Documentation {
-  let Category = DocCatFunction;
-  let Content = [{
-Clang supports the GNU style ``__attribute__((interrupt))`` attribute on
-x86 targets. This attribute may be attached to a function definition and
-instructs the backend to generate appropriate function entry/exit code so that
-it can be used directly as an interrupt handler.
-The ``IRET`` instruction, instead of the ``RET`` instruction, is used to return
-from interrupt or exception handlers.  All registers, except for the ``EFLAGS``
-register which is restored by the ``IRET`` instruction, are preserved by the
-compiler.
-Any interruptible-without-stack-switch code must be compiled with -mno-red-zone
-since interrupt handlers can and will, because of the hardware design, touch
-the red zone.
-
-1. interrupt handler must be declared with a mandatory pointer argument:
-
-  .. code-block:: c
-
-    struct interrupt_frame;
-
-    __attribute__ ((interrupt))
-    void f (struct interrupt_frame *frame) {
-      ...
-    }
-
-  and user must properly define the structure the pointer pointing to.
-
-2. exception handler:
-
-  The exception handler is very similar to the interrupt handler with
-  a different mandatory function signature:
-
-  .. code-block:: c
-
-    #ifdef __x86_64__
-    typedef unsigned long long int uword_t;
-    #else
-    typedef unsigned int uword_t;
-    #endif
-
-    struct interrupt_frame;
-
-    __attribute__ ((interrupt))
-    void f (struct interrupt_frame *frame, uword_t error_code) {
-      ...
-    }
-
-  and compiler pops the error code off stack before the 'IRET' instruction.
-
-  The exception handler should only be used for exceptions which push an
-  error code and all other exceptions must use the interrupt handler.
-  The system will crash if the wrong handler is used.
-  }];
-}
-
-def VecLenHintDocs : Documentation {
-  let Content = [{
-The optional __attribute__((intel_vec_len_hint(<int>))) can be used to provide
-a hint to the compiler that the kernel performs the best if vectorized to
-the specified vector length.
-
-The lengths accepted by the attribute are:
-0 - the compiler makes heuristic-based decision whether to vectorize the kernel,
-        and if so which vector length to use (default behavior).
-1 - No vectorization by the compiler. Explicit vector data types in kernels
-        are left intact.
-4,8,16 - Disables heuristic and vectorizes to the length of 4,8,16 respectively.
-
-Other values are invalid. An error will be reported during compilation.
-
-An error will be given if:
-  - Specified value is not in range of supported values.
-  }];
-}
-
-def OpenCLBlockingDocs : Documentation {
-  let Category = DocCatVariable;
-  let Content = [{
-By default, pipes exhibit nonblocking behavior. If you want the pipes in your
-kernel to exhibit blocking behavior, specify the blocking attribute
-(__attribute__((blocking))) when you declare the read and write pipes.
-  }];
-}
-
-def OpenCLHostAccessibleDocs : Documentation {
-  let Category = DocCatVariable;
-  let Content = [{
-By default OpenCL pipes cannot be accessed from host. Optional
-__attribute__((intel_host_accessible)) may be applied to pipe kernel arguments
-to specify that a pipe kernel argument will be connected by the host to a
-host-accessible pipe, and therefore will not be connected to another kernel pipe
-argument.
-  }];
-}
-// endif INTEL_CUSTOMIZATION
 
 def OMPDeclareSimdDocs : Documentation {
   let Category = DocCatFunction;
@@ -2896,7 +2798,7 @@ def NoThrowDocs : Documentation {
   let Category = DocCatFunction;
   let Content = [{
 Clang supports the GNU style ``__attribute__((nothrow))`` and Microsoft style
-``__declspec(nothrow)`` attribute as an equivilent of `noexcept` on function
+``__declspec(nothrow)`` attribute as an equivalent of `noexcept` on function
 declarations. This attribute informs the compiler that the annotated function
 does not throw an exception. This prevents exception-unwinding. This attribute
 is particularly useful on functions in the C Standard Library that are
@@ -2959,7 +2861,7 @@ Use this attribute to indicate that the specified function has no
 caller-saved registers. That is, all registers are callee-saved except for
 registers used for passing parameters to the function or returning parameters
 from the function.
-The compiler saves and restores any modified registers that were not used for 
+The compiler saves and restores any modified registers that were not used for
 passing or returning arguments to the function.
 
 The user can call functions specified with the 'no_caller_saved_registers'
@@ -3208,7 +3110,7 @@ the ability to distinguish between different versions of the same entity but
 with different ABI versions supported. For example, a newer version of a class
 could have a different set of data members and thus have a different size. Using
 the ``abi_tag`` attribute, it is possible to have different mangled names for
-a global variable of the class type. Therefor, the old code could keep using
+a global variable of the class type. Therefore, the old code could keep using
 the old manged name and the new code will use the new mangled name with tags.
   }];
 }
@@ -3396,7 +3298,7 @@ def ArtificialDocs : Documentation {
   let Content = [{
 The ``artificial`` attribute can be applied to an inline function. If such a
 function is inlined, the attribute indicates that debuggers should associate
-the resulting instructions with the call site, rather than with the 
+the resulting instructions with the call site, rather than with the
 corresponding line within the inlined callee.
   }];
 }

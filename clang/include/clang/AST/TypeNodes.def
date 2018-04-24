@@ -110,6 +110,8 @@ TYPE(ObjCInterface, ObjCObjectType)
 TYPE(ObjCObjectPointer, Type)
 #if INTEL_CUSTOMIZATION
 TYPE(Channel, Type)
+TYPE(ArbPrecInt, Type)
+DEPENDENT_TYPE(DependentSizedArbPrecInt, Type)
 #endif // INTEL_CUSTOMIZATION
 TYPE(Pipe, Type)
 TYPE(Atomic, Type)

@@ -23,6 +23,11 @@
 
 #include "BackendPrinter.h"
 #include "BackendStatistics.h"
+#include "CodeRegion.h"
+#include "DispatchStatistics.h"
+#include "InstructionInfoView.h"
+#include "InstructionTables.h"
+#include "RegisterFileStatistics.h"
 #include "ResourcePressureView.h"
 #include "SummaryView.h"
 #include "TimelineView.h"
@@ -78,16 +83,26 @@ static cl::opt<unsigned> DispatchWidth(
     cl::desc("Dispatch Width. By default it is set equal to IssueWidth"),
     cl::init(0));
 
-static cl::opt<unsigned> MaxRetirePerCycle(
-    "max-retire-per-cycle",
-    cl::desc("Maximum number of instructions that can be retired in one cycle"),
-    cl::init(0));
-
 static cl::opt<unsigned>
     RegisterFileSize("register-file-size",
                      cl::desc("Maximum number of temporary registers which can "
                               "be used for register mappings"),
                      cl::init(0));
+
+static cl::opt<bool>
+    PrintRegisterFileStats("register-file-stats",
+                           cl::desc("Print register file statistics"),
+                           cl::init(false));
+
+static cl::opt<bool>
+    PrintDispatchStats("dispatch-stats",
+                       cl::desc("Print dispatch statistics"),
+                       cl::init(false));
+
+static cl::opt<bool>
+    PrintResourcePressureView("resource-pressure",
+                              cl::desc("Print the resource pressure view"),
+                              cl::init(true));
 
 static cl::opt<bool> PrintTimelineView("timeline",
                                        cl::desc("Print the timeline view"),
@@ -115,10 +130,23 @@ static cl::opt<bool> AssumeNoAlias(
 
 static cl::opt<unsigned>
     LoadQueueSize("lqueue", cl::desc("Size of the load queue"), cl::init(0));
+
 static cl::opt<unsigned>
     StoreQueueSize("squeue", cl::desc("Size of the store queue"), cl::init(0));
 
-static const Target *getTarget(const char *ProgName) {
+static cl::opt<bool>
+    PrintInstructionTables("instruction-tables",
+                           cl::desc("Print instruction tables"),
+                           cl::init(false));
+
+static cl::opt<bool>
+    PrintInstructionInfoView("instruction-info",
+                             cl::desc("Print the instruction info view"),
+                             cl::init(true));
+
+namespace {
+
+const Target *getTarget(const char *ProgName) {
   TripleName = Triple::normalize(TripleName);
   if (TripleName.empty())
     TripleName = Triple::normalize(sys::getDefaultTargetTriple());
@@ -137,13 +165,49 @@ static const Target *getTarget(const char *ProgName) {
   return TheTarget;
 }
 
-static int AssembleInput(const char *ProgName, const Target *TheTarget,
-                         SourceMgr &SrcMgr, MCContext &Ctx, MCStreamer &Str,
-                         MCAsmInfo &MAI, MCSubtargetInfo &STI,
-                         MCInstrInfo &MCII, MCTargetOptions &MCOptions) {
-  std::unique_ptr<MCAsmParser> Parser(createMCAsmParser(SrcMgr, Ctx, Str, MAI));
+// A comment consumer that parses strings.
+// The only valid tokens are strings.
+class MCACommentConsumer : public AsmCommentConsumer {
+public:
+  mca::CodeRegions &Regions;
+
+  MCACommentConsumer(mca::CodeRegions &R) : Regions(R) {}
+  void HandleComment(SMLoc Loc, StringRef CommentText) override {
+    // Skip empty comments.
+    StringRef Comment(CommentText);
+    if (Comment.empty())
+      return;
+
+    // Skip spaces and tabs
+    unsigned Position = Comment.find_first_not_of(" \t");
+    if (Position >= Comment.size())
+      // we reached the end of the comment. Bail out.
+      return;
+
+    Comment = Comment.drop_front(Position);
+    if (Comment.consume_front("LLVM-MCA-END")) {
+      Regions.endRegion(Loc);
+      return;
+    }
+
+    // Now try to parse string LLVM-MCA-BEGIN
+    if (!Comment.consume_front("LLVM-MCA-BEGIN"))
+      return;
+
+    // Skip spaces and tabs
+    Position = Comment.find_first_not_of(" \t");
+    if (Position < Comment.size())
+      Comment = Comment.drop_front(Position);
+    // Use the rest of the string as a descriptor for this code snippet.
+    Regions.beginRegion(Comment, Loc);
+  }
+};
+
+int AssembleInput(const char *ProgName, MCAsmParser &Parser,
+                  const Target *TheTarget, MCSubtargetInfo &STI,
+                  MCInstrInfo &MCII, MCTargetOptions &MCOptions) {
   std::unique_ptr<MCTargetAsmParser> TAP(
-      TheTarget->createMCAsmParser(STI, *Parser, MCII, MCOptions));
+      TheTarget->createMCAsmParser(STI, Parser, MCII, MCOptions));
 
   if (!TAP) {
     errs() << ProgName
@@ -151,11 +215,11 @@ static int AssembleInput(const char *ProgName, const Target *TheTarget,
     return 1;
   }
 
-  Parser->setTargetParser(*TAP);
-  return Parser->Run(false);
+  Parser.setTargetParser(*TAP);
+  return Parser.Run(false);
 }
 
-static ErrorOr<std::unique_ptr<ToolOutputFile>> getOutputStream() {
+ErrorOr<std::unique_ptr<ToolOutputFile>> getOutputStream() {
   if (OutputFilename == "")
     OutputFilename = "-";
   std::error_code EC;
@@ -166,20 +230,17 @@ static ErrorOr<std::unique_ptr<ToolOutputFile>> getOutputStream() {
   return EC;
 }
 
-namespace {
-
 class MCStreamerWrapper final : public MCStreamer {
-  using InstVec = std::vector<std::unique_ptr<const MCInst>>;
-  InstVec &Insts;
+  mca::CodeRegions &Regions;
 
 public:
-  MCStreamerWrapper(MCContext &Context, InstVec &Vec)
-      : MCStreamer(Context), Insts(Vec) {}
+  MCStreamerWrapper(MCContext &Context, mca::CodeRegions &R)
+      : MCStreamer(Context), Regions(R) {}
 
   // We only want to intercept the emission of new instructions.
   virtual void EmitInstruction(const MCInst &Inst, const MCSubtargetInfo &STI,
                                bool /* unused */) override {
-    Insts.emplace_back(new MCInst(Inst));
+    Regions.addInstruction(llvm::make_unique<const MCInst>(Inst));
   }
 
   bool EmitSymbolAttribute(MCSymbol *Symbol, MCSymbolAttr Attribute) override {
@@ -196,9 +257,11 @@ public:
   void EmitCOFFSymbolType(int Type) override {}
   void EndCOFFSymbolDef() override {}
 
-  const InstVec &GetInstructionSequence() const { return Insts; }
+  const std::vector<std::unique_ptr<const MCInst>> &
+  GetInstructionSequence(unsigned Index) const {
+    return Regions.getInstructionSequence(Index);
+  }
 };
-
 } // end of anonymous namespace
 
 int main(int argc, char **argv) {
@@ -255,9 +318,9 @@ int main(int argc, char **argv) {
   MOFI.InitMCObjectFileInfo(TheTriple, /* PIC= */ false, Ctx);
 
   std::unique_ptr<buffer_ostream> BOS;
-  std::unique_ptr<mca::SourceMgr> S =
-      llvm::make_unique<mca::SourceMgr>(Iterations);
-  MCStreamerWrapper Str(Ctx, S->getSequence());
+
+  mca::CodeRegions Regions(SrcMgr);
+  MCStreamerWrapper Str(Ctx, Regions);
 
   std::unique_ptr<MCInstrInfo> MCII(TheTarget->createMCInstrInfo());
   std::unique_ptr<MCSubtargetInfo> STI(
@@ -292,12 +355,15 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  int Res = AssembleInput(ProgName, TheTarget, SrcMgr, Ctx, Str, *MAI, *STI,
-                          *MCII, MCOptions);
-  if (Res)
-    return Res;
+  std::unique_ptr<MCAsmParser> P(createMCAsmParser(SrcMgr, Ctx, Str, *MAI));
+  MCAsmLexer &Lexer = P->getLexer();
+  MCACommentConsumer CC(Regions);
+  Lexer.setCommentConsumer(&CC);
 
-  if (S->isEmpty()) {
+  if (AssembleInput(ProgName, *P, TheTarget, *STI, *MCII, MCOptions))
+    return 1;
+
+  if (Regions.empty()) {
     errs() << "error: no assembly instructions found.\n";
     return 1;
   }
@@ -317,37 +383,74 @@ int main(int argc, char **argv) {
   if (DispatchWidth)
     Width = DispatchWidth;
 
-  std::unique_ptr<mca::Backend> B = llvm::make_unique<mca::Backend>(
-      *STI, *MCII, *MRI, *S, Width, RegisterFileSize, MaxRetirePerCycle,
-      LoadQueueSize, StoreQueueSize, AssumeNoAlias);
+  // Create an instruction builder.
+  mca::InstrBuilder IB(*STI, *MCII);
 
-  std::unique_ptr<mca::BackendPrinter> Printer =
-      llvm::make_unique<mca::BackendPrinter>(*B);
+  // Number each region in the sequence.
+  unsigned RegionIdx = 0;
+  for (const std::unique_ptr<mca::CodeRegion> &Region : Regions) {
+    // Skip empty code regions.
+    if (Region->empty())
+      continue;
 
-  std::unique_ptr<mca::SummaryView> SV =
-      llvm::make_unique<mca::SummaryView>(*STI, *MCII, *S, *IP, Width);
-  Printer->addView(std::move(SV));
+    // Don't print the header of this region if it is the default region, and
+    // it doesn't have an end location.
+    if (Region->startLoc().isValid() || Region->endLoc().isValid()) {
+      TOF->os() << "\n[" << RegionIdx++ << "] Code Region";
+      StringRef Desc = Region->getDescription();
+      if (!Desc.empty())
+        TOF->os() << " - " << Desc;
+      TOF->os() << "\n\n";
+    }
 
-  if (PrintModeVerbose) {
-    std::unique_ptr<mca::BackendStatistics> BS =
-        llvm::make_unique<mca::BackendStatistics>(*B, *STI);
-    Printer->addView(std::move(BS));
+    mca::SourceMgr S(Region->getInstructions(),
+                     PrintInstructionTables ? 1 : Iterations);
+
+    if (PrintInstructionTables) {
+      mca::InstructionTables IT(STI->getSchedModel(), IB, S);
+
+      if (PrintInstructionInfoView) {
+        IT.addView(
+            llvm::make_unique<mca::InstructionInfoView>(*STI, *MCII, S, *IP));
+      }
+
+      IT.addView(llvm::make_unique<mca::ResourcePressureView>(*STI, *IP, S));
+      IT.run();
+      IT.printReport(TOF->os());
+      continue;
+    }
+
+    mca::Backend B(*STI, *MRI, IB, S, Width, RegisterFileSize, LoadQueueSize,
+                   StoreQueueSize, AssumeNoAlias);
+    mca::BackendPrinter Printer(B);
+
+    Printer.addView(llvm::make_unique<mca::SummaryView>(S, Width));
+    if (PrintInstructionInfoView)
+      Printer.addView(
+          llvm::make_unique<mca::InstructionInfoView>(*STI, *MCII, S, *IP));
+
+    if (PrintDispatchStats)
+      Printer.addView(llvm::make_unique<mca::DispatchStatistics>(*STI));
+
+    if (PrintModeVerbose)
+      Printer.addView(llvm::make_unique<mca::BackendStatistics>(*STI));
+
+    if (PrintRegisterFileStats)
+      Printer.addView(llvm::make_unique<mca::RegisterFileStatistics>(*STI));
+
+    if (PrintResourcePressureView)
+      Printer.addView(
+          llvm::make_unique<mca::ResourcePressureView>(*STI, *IP, S));
+
+    if (PrintTimelineView) {
+      Printer.addView(llvm::make_unique<mca::TimelineView>(
+          *STI, *IP, S, TimelineMaxIterations, TimelineMaxCycles));
+    }
+
+    B.run();
+    Printer.printReport(TOF->os());
   }
 
-  std::unique_ptr<mca::ResourcePressureView> RPV =
-      llvm::make_unique<mca::ResourcePressureView>(*STI, *IP, *S);
-  Printer->addView(std::move(RPV));
-
-  if (PrintTimelineView) {
-    std::unique_ptr<mca::TimelineView> TV =
-        llvm::make_unique<mca::TimelineView>(
-            *STI, *IP, *S, TimelineMaxIterations, TimelineMaxCycles);
-    Printer->addView(std::move(TV));
-  }
-
-  B->run();
-  Printer->printReport(TOF->os());
   TOF->keep();
-
   return 0;
 }

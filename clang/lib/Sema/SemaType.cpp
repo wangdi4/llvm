@@ -2059,6 +2059,53 @@ QualType Sema::BuildChannelType(QualType T, SourceLocation Loc) {
   // Build the channel type.
   return Context.getChannelType(T);
 }
+
+/// \brief Build an Arbitrary Precision Integer type.
+///
+/// \param T The underlying type for the ArbPrecInt
+///
+/// \param NumBitsExpr An expression representing the number of bits for this
+/// ArbPrecInt.
+///
+/// \param AttrLoc The Location of the attribute causing the ArbPrecInt.
+QualType Sema::BuildArbPrecIntType(QualType T, Expr *NumBitsExpr,
+                                   SourceLocation AttrLoc) {
+  if (!T->isDependentType() && T.getCanonicalType() != Context.IntTy &&
+      T.getCanonicalType() != Context.UnsignedIntTy) {
+    Diag(AttrLoc, diag::err_ap_int_type) << T;
+    return QualType();
+  }
+
+  if (!NumBitsExpr->isTypeDependent() && !NumBitsExpr->isValueDependent()) {
+    llvm::APSInt Bits(32);
+    if (!NumBitsExpr->isIntegerConstantExpr(Bits, Context)) {
+      Diag(AttrLoc, diag::err_attribute_argument_type)
+          << "__ap_int" << AANT_ArgumentIntegerConstant
+          << NumBitsExpr->getSourceRange();
+      return QualType();
+    }
+
+    int64_t NumBits = Bits.getSExtValue();
+    if (!T->isDependentType() && T->isSignedIntegerOrEnumerationType() &&
+        NumBits < 2) {
+      Diag(AttrLoc, diag::err_ap_int_bad_size) << 0;
+      return QualType();
+    }
+
+    if (!T->isDependentType() && !T->isSignedIntegerOrEnumerationType() &&
+        NumBits < 1) {
+      Diag(AttrLoc, diag::err_ap_int_bad_size) << 1;
+      return QualType();
+    }
+
+    if (T->isDependentType() && NumBits < 1) {
+      Diag(AttrLoc, diag::err_ap_int_bad_size) << 2;
+      return QualType();
+    }
+    return Context.getArbPrecIntType(T, NumBits, AttrLoc);
+  }
+  return Context.getDependentSizedArbPrecIntType(T, NumBitsExpr, AttrLoc);
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// Check whether the specified array size makes the array type a VLA.  If so,
@@ -4981,8 +5028,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         if (Chunk.Fun.TypeQuals & Qualifiers::Restrict)
           RemovalLocs.push_back(Chunk.Fun.getRestrictQualifierLoc());
         if (!RemovalLocs.empty()) {
-          std::sort(RemovalLocs.begin(), RemovalLocs.end(),
-                    BeforeThanCompare<SourceLocation>(S.getSourceManager()));
+          llvm::sort(RemovalLocs.begin(), RemovalLocs.end(),
+                     BeforeThanCompare<SourceLocation>(S.getSourceManager()));
           RemovalRange = SourceRange(RemovalLocs.front(), RemovalLocs.back());
           Loc = RemovalLocs.front();
         }
@@ -7091,6 +7138,44 @@ static void HandleExtVectorTypeAttr(QualType &CurType,
     CurType = T;
 }
 
+#if INTEL_CUSTOMIZATION
+static void HandleArbPrecIntAttr(QualType &CurType, const AttributeList &Attr,
+                                 Sema &S) {
+  // Warning message handled later, but prevent changing of the type.
+  if (!S.getLangOpts().HLS && !S.getLangOpts().OpenCL)
+    return;
+
+  // check the attribute arguments.
+  if (Attr.getNumArgs() != 1) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
+        << Attr.getName() << 1;
+    return;
+  }
+
+  Expr *NumBitsExpr;
+  // Special case where the argument is a template id.
+  if (Attr.isArgIdent(0)) {
+    CXXScopeSpec SS;
+    SourceLocation TemplateKWLoc;
+    UnqualifiedId Id;
+    Id.setIdentifier(Attr.getArgAsIdent(0)->Ident, Attr.getLoc());
+
+    ExprResult NumBits = S.ActOnIdExpression(S.getCurScope(), SS, TemplateKWLoc,
+                                             Id, false, false);
+    if (NumBits.isInvalid())
+      return;
+
+    NumBitsExpr = NumBits.get();
+  } else {
+    NumBitsExpr = Attr.getArgAsExpr(0);
+  }
+
+  QualType T = S.BuildArbPrecIntType(CurType, NumBitsExpr, Attr.getLoc());
+  if (!T.isNull())
+    CurType = T;
+}
+#endif // INTEL_CUSTOMIZATION
+
 static bool isPermittedNeonBaseType(QualType &Ty,
                                     VectorType::VectorKind VecKind, Sema &S) {
   const BuiltinType *BTy = Ty->getAs<BuiltinType>();
@@ -7259,12 +7344,12 @@ static void deduceOpenCLImplicitAddrSpace(TypeProcessingState &State,
 
   // Handle the cases where address space should not be deduced.
   //
-  // The pointee type of a pointer type is alwasy deduced since a pointer always
+  // The pointee type of a pointer type is always deduced since a pointer always
   // points to some memory location which should has an address space.
   //
   // There are situations that at the point of certain declarations, the address
   // space may be unknown and better to be left as default. For example, when
-  // definining a typedef or struct type, they are not associated with any
+  // defining a typedef or struct type, they are not associated with any
   // specific address space. Later on, they may be used with any address space
   // to declare a variable.
   //
@@ -7442,6 +7527,10 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
         state.getSema().HandleModeAttr(attr, &type);
         attr.setUsedAsTypeAttr();
       }
+      break;
+    case AttributeList::AT_ArbPrecInt:
+      HandleArbPrecIntAttr(type, attr, state.getSema());
+      attr.setUsedAsTypeAttr();
       break;
 #endif // INTEL_CUSTOMIZATION
     case AttributeList::AT_ExtVectorType:

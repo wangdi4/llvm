@@ -600,7 +600,7 @@ public:
   bool EvaluateAsRValue(EvalResult &Result, const ASTContext &Ctx) const;
 
   /// EvaluateAsBooleanCondition - Return true if this is a constant
-  /// which we we can fold and convert to a boolean condition using
+  /// which we can fold and convert to a boolean condition using
   /// any crazy technique that we want to, even if the expression has
   /// side-effects.
   bool EvaluateAsBooleanCondition(bool &Result, const ASTContext &Ctx) const;
@@ -897,6 +897,7 @@ public:
            (SourceExpr && SourceExpr->isInstantiationDependent()),
            false),
       SourceExpr(SourceExpr), Loc(Loc) {
+    setIsUnique(false);
   }
 
   /// Given an expression which invokes a copy constructor --- i.e.  a
@@ -938,6 +939,14 @@ public:
   /// expression which binds the opaque value expression in the first
   /// place.
   Expr *getSourceExpr() const { return SourceExpr; }
+
+  void setIsUnique(bool V) {
+    assert((!V || SourceExpr) &&
+           "unique OVEs are expected to have source expressions");
+    OpaqueValueExprBits.IsUnique = V;
+  }
+
+  bool isUnique() const { return OpaqueValueExprBits.IsUnique; }
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OpaqueValueExprClass;
@@ -3104,7 +3113,7 @@ public:
   static Opcode negateComparisonOp(Opcode Opc) {
     switch (Opc) {
     default:
-      llvm_unreachable("Not a comparsion operator.");
+      llvm_unreachable("Not a comparison operator.");
     case BO_LT: return BO_GE;
     case BO_GT: return BO_LE;
     case BO_LE: return BO_GT;
@@ -3117,7 +3126,7 @@ public:
   static Opcode reverseComparisonOp(Opcode Opc) {
     switch (Opc) {
     default:
-      llvm_unreachable("Not a comparsion operator.");
+      llvm_unreachable("Not a comparison operator.");
     case BO_LT: return BO_GT;
     case BO_GT: return BO_LT;
     case BO_LE: return BO_GE;

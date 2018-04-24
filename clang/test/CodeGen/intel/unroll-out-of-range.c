@@ -1,6 +1,5 @@
 // CQ#366562
 // RUN: %clang_cc1 -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
-// REQUIRES: llvm-backend
 
 int main(void) {
   int i = 0, s = 0;
@@ -21,7 +20,7 @@ int main(void) {
   for (i = 0; i < 10; ++i)
     s = s + i;
   // CHECK: !llvm.loop [[LOOP_3:!.+]]
-  
+
   #pragma unroll(1844674407370955161)
   for (i = 0; i < 10; ++i)
     s = s + i;

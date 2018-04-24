@@ -2406,7 +2406,7 @@ Sema::BuildCXXForRangeStmt(SourceLocation ForLoc, SourceLocation CoawaitLoc,
         // FIXME: This results in codegen generating IR that recalculates the
         // run-time number of elements (as opposed to just using the IR Value
         // that corresponds to the run-time value of each bound that was
-        // generated when the array was created.) If this proves too embarassing
+        // generated when the array was created.) If this proves too embarrassing
         // even for unoptimized IR, consider passing a magic-value/cookie to
         // codegen that then knows to simply use that initial llvm::Value (that
         // corresponds to the bound at time of array creation) within
@@ -2676,7 +2676,7 @@ static void DiagnoseForRangeReferenceVariableCopies(Sema &SemaRef,
 
   if (ReturnsReference) {
     // Loop variable creates a temporary.  Suggest either to go with
-    // non-reference loop variable to indiciate a copy is made, or
+    // non-reference loop variable to indicate a copy is made, or
     // the correct time to bind a const reference.
     SemaRef.Diag(VD->getLocation(), diag::warn_for_range_const_reference_copy)
         << VD << VariableType << E->getType();
@@ -2737,7 +2737,7 @@ static void DiagnoseForRangeConstVariableCopies(Sema &SemaRef,
 /// DiagnoseForRangeVariableCopies - Diagnose three cases and fixes for them.
 /// 1) for (const foo &x : foos) where foos only returns a copy.  Suggest
 ///    using "const foo x" to show that a copy is made
-/// 2) for (const bar &x : foos) where bar is a temporary intialized by bar.
+/// 2) for (const bar &x : foos) where bar is a temporary initialized by bar.
 ///    Suggest either "const bar x" to keep the copying or "const foo& x" to
 ///    prevent the copy.
 /// 3) for (const foo x : foos) where x is constructed from a reference foo.
@@ -2887,9 +2887,6 @@ Sema::ActOnBreakStmt(SourceLocation BreakLoc, Scope *CurScope) {
 /// NRVO, or NULL if there is no such candidate.
 VarDecl *Sema::getCopyElisionCandidate(QualType ReturnType, Expr *E,
                                        CopyElisionSemanticsKind CESK) {
-  if (!getLangOpts().CPlusPlus)
-    return nullptr;
-
   // - in a return statement in a function [where] ...
   // ... the expression is the name of a non-volatile automatic object ...
   DeclRefExpr *DR = dyn_cast<DeclRefExpr>(E->IgnoreParens());
@@ -4171,7 +4168,9 @@ void Sema::ActOnCapturedRegionStart(SourceLocation Loc, Scope *CurScope,
       assert(!ContextIsFound &&
              "null type has been found already for '__context' parameter");
       IdentifierInfo *ParamName = &Context.Idents.get("__context");
-      QualType ParamType = Context.getPointerType(Context.getTagDeclType(RD));
+      QualType ParamType = Context.getPointerType(Context.getTagDeclType(RD))
+                               .withConst()
+                               .withRestrict();
       auto *Param =
           ImplicitParamDecl::Create(Context, DC, Loc, ParamName, ParamType,
                                     ImplicitParamDecl::CapturedContext);

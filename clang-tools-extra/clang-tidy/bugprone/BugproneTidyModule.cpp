@@ -28,6 +28,7 @@
 #include "MisplacedWideningCastCheck.h"
 #include "MoveForwardingReferenceCheck.h"
 #include "MultipleStatementMacroCheck.h"
+#include "ParentVirtualCallCheck.h"
 #include "SizeofContainerCheck.h"
 #include "SizeofExpressionCheck.h"
 #include "StringConstructorCheck.h"
@@ -43,6 +44,7 @@
 #include "UndefinedMemoryManipulationCheck.h"
 #include "UndelegatedConstructorCheck.h"
 #include "UnusedRaiiCheck.h"
+#include "UnusedReturnValueCheck.h"
 #include "UseAfterMoveCheck.h"
 #include "VirtualNearMissCheck.h"
 
@@ -89,6 +91,8 @@ public:
         "bugprone-move-forwarding-reference");
     CheckFactories.registerCheck<MultipleStatementMacroCheck>(
         "bugprone-multiple-statement-macro");
+    CheckFactories.registerCheck<ParentVirtualCallCheck>(
+        "bugprone-parent-virtual-call");
     CheckFactories.registerCheck<SizeofContainerCheck>(
         "bugprone-sizeof-container");
     CheckFactories.registerCheck<SizeofExpressionCheck>(
@@ -119,6 +123,8 @@ public:
         "bugprone-undelegated-constructor");
     CheckFactories.registerCheck<UnusedRaiiCheck>(
         "bugprone-unused-raii");
+    CheckFactories.registerCheck<UnusedReturnValueCheck>(
+        "bugprone-unused-return-value");
     CheckFactories.registerCheck<UseAfterMoveCheck>(
         "bugprone-use-after-move");
     CheckFactories.registerCheck<VirtualNearMissCheck>(

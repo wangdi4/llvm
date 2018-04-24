@@ -15,8 +15,6 @@ set( LLVM_LINK_COMPONENTS
   TransformUtils
   Vectorize
 # INTEL_CUSTOMIZATION
-  Intel_DTransAnalysis
-  Intel_DTrans
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml
@@ -42,6 +40,7 @@ add_clang_tool(clang
   driver.cpp
   cc1_main.cpp
   cc1as_main.cpp
+  cc1gen_reproducer_main.cpp
 
   DEPENDS
   ${tablegen_deps}
@@ -137,6 +136,12 @@ if(CLANG_ORDER_FILE AND (LD64_EXECUTABLE OR GOLD_EXECUTABLE))
     set_target_properties(clang PROPERTIES LINK_DEPENDS ${CLANG_ORDER_FILE})
   endif()
 endif()
+
+# INTEL_CUSTOMIZATION
+if(INTEL_INCLUDE_DTRANS)
+  target_link_libraries(clang PRIVATE LLVMIntel_DTrans)
+endif(INTEL_INCLUDE_DTRANS)
+# end INTEL_CUSTOMIZATION
 
 if(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
   target_link_libraries(clang PRIVATE Polly)

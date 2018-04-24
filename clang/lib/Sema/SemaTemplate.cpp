@@ -5391,6 +5391,15 @@ bool UnnamedLocalNoLinkageFinder::VisitPipeType(const PipeType* T) {
 bool UnnamedLocalNoLinkageFinder::VisitChannelType(const ChannelType* T) {
   return false;
 }
+
+bool UnnamedLocalNoLinkageFinder::VisitArbPrecIntType(const ArbPrecIntType *T) {
+  return Visit(T->getUnderlyingType());
+}
+
+bool UnnamedLocalNoLinkageFinder::VisitDependentSizedArbPrecIntType(
+    const DependentSizedArbPrecIntType *T) {
+  return Visit(T->getUnderlyingType());
+}
 #endif // INTEL_CUSTOMIZATION
 
 bool UnnamedLocalNoLinkageFinder::VisitTagDecl(const TagDecl *Tag) {
@@ -7893,7 +7902,7 @@ Sema::CheckSpecializationInstantiationRedecl(SourceLocation NewLoc,
       return false;
 
     case TSK_ExplicitInstantiationDeclaration:
-      // We're explicity instantiating a definition for something for which we
+      // We're explicitly instantiating a definition for something for which we
       // were previously asked to suppress instantiations. That's fine.
 
       // C++0x [temp.explicit]p4:

@@ -199,6 +199,9 @@ class ASTContext : public RefCountedBase<ASTContext> {
   mutable llvm::FoldingSet<PipeType> PipeTypes;
 #if INTEL_CUSTOMIZATION
   mutable llvm::FoldingSet<ChannelType> ChannelTypes;
+  mutable llvm::FoldingSet<ArbPrecIntType> ArbPrecIntTypes;
+  mutable llvm::FoldingSet<DependentSizedArbPrecIntType>
+      DependentSizedArbPrecIntTypes;
 #endif // INTEL_CUSTOMIZATION
 
   mutable llvm::FoldingSet<QualifiedTemplateName> QualifiedTemplateNames;
@@ -1128,7 +1131,7 @@ public:
   /// \brief Apply Objective-C protocol qualifiers to the given type.
   /// \param allowOnPointerType specifies if we can apply protocol
   /// qualifiers on ObjCObjectPointerType. It can be set to true when
-  /// contructing the canonical type of a Objective-C type parameter.
+  /// constructing the canonical type of a Objective-C type parameter.
   QualType applyObjCProtocolQualifiers(QualType type,
       ArrayRef<ObjCProtocolDecl *> protocols, bool &hasError,
       bool allowOnPointerType = false) const;
@@ -1248,6 +1251,11 @@ public:
 
 #if INTEL_CUSTOMIZATION
   QualType getChannelType(QualType T) const;
+  QualType getArbPrecIntType(QualType Type, unsigned NumBits,
+                             SourceLocation AttrLoc) const;
+  QualType getDependentSizedArbPrecIntType(QualType Type,
+                                          Expr *BitsExpr,
+                                          SourceLocation AttrLoc) const;
 #endif // INTEL_CUSTOMIZATION
 
   /// Gets the struct used to keep track of the extended descriptor for

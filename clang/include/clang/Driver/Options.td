@@ -557,6 +557,10 @@ def cuda_host_only : Flag<["--"], "cuda-host-only">,
 def cuda_compile_host_device : Flag<["--"], "cuda-compile-host-device">,
   HelpText<"Compile CUDA code for both host and device (default).  Has no "
            "effect on non-CUDA compilations.">;
+def cuda_include_ptx_EQ : Joined<["--"], "cuda-include-ptx=">, Flags<[DriverOption]>,
+  HelpText<"Include PTX for the follwing GPU architecture (e.g. sm_35) or 'all'. May be specified more than once.">;
+def no_cuda_include_ptx_EQ : Joined<["--"], "no-cuda-include-ptx=">, Flags<[DriverOption]>,
+  HelpText<"Do not include PTX for the follwing GPU architecture (e.g. sm_35) or 'all'. May be specified more than once.">;
 def cuda_gpu_arch_EQ : Joined<["--"], "cuda-gpu-arch=">, Flags<[DriverOption]>,
   HelpText<"CUDA GPU architecture (e.g. sm_35).  May be specified more than once.">;
 def no_cuda_gpu_arch_EQ : Joined<["--"], "no-cuda-gpu-arch=">, Flags<[DriverOption]>,
@@ -1106,16 +1110,30 @@ def fxray_instruction_threshold_ :
 def fxray_always_instrument :
   JoinedOrSeparate<["-"], "fxray-always-instrument=">,
   Group<f_Group>, Flags<[CC1Option]>,
-  HelpText<"Filename defining the whitelist for imbuing the 'always instrument' XRay attribute.">;
+  HelpText<"DEPRECATED: Filename defining the whitelist for imbuing the 'always instrument' XRay attribute.">;
 def fxray_never_instrument :
   JoinedOrSeparate<["-"], "fxray-never-instrument=">,
   Group<f_Group>, Flags<[CC1Option]>,
-  HelpText<"Filename defining the whitelist for imbuing the 'never instrument' XRay attribute.">;
+  HelpText<"DEPRECATED: Filename defining the whitelist for imbuing the 'never instrument' XRay attribute.">;
+def fxray_attr_list :
+  JoinedOrSeparate<["-"], "fxray-attr-list=">,
+  Group<f_Group>, Flags<[CC1Option]>,
+  HelpText<"Filename defining the list of functions/types for imbuing XRay attributes.">;
+def fxray_modes :
+  JoinedOrSeparate<["-"], "fxray-modes=">,
+  Group<f_Group>, Flags<[CC1Option]>,
+  HelpText<"List of modes to link in by default into XRay instrumented binaries.">;
 
 def fxray_always_emit_customevents : Flag<["-"], "fxray-always-emit-customevents">, Group<f_Group>,
   Flags<[CC1Option]>,
   HelpText<"Determine whether to always emit __xray_customevent(...) calls even if the function it appears in is not always instrumented.">;
 def fnoxray_always_emit_customevents : Flag<["-"], "fno-xray-always-emit-customevents">, Group<f_Group>,
+  Flags<[CC1Option]>;
+
+def fxray_link_deps : Flag<["-"], "fxray-link-deps">, Group<f_Group>,
+  Flags<[CC1Option]>,
+  HelpText<"Tells clang to add the link dependencies for XRay.">;
+def fnoxray_link_deps : Flag<["-"], "fnoxray-link-deps">, Group<f_Group>,
   Flags<[CC1Option]>;
 
 def ffine_grained_bitfield_accesses : Flag<["-"],
@@ -1144,7 +1162,8 @@ def fthinlto_index_EQ : Joined<["-"], "fthinlto-index=">,
   HelpText<"Perform ThinLTO importing using provided function summary index">;
 def fmacro_backtrace_limit_EQ : Joined<["-"], "fmacro-backtrace-limit=">,
                                 Group<f_Group>, Flags<[DriverOption, CoreOption]>;
-def fmerge_all_constants : Flag<["-"], "fmerge-all-constants">, Group<f_Group>;
+def fmerge_all_constants : Flag<["-"], "fmerge-all-constants">, Group<f_Group>,
+  Flags<[CC1Option]>, HelpText<"Allow merging of constants">;
 def fmessage_length_EQ : Joined<["-"], "fmessage-length=">, Group<f_Group>;
 def fms_extensions : Flag<["-"], "fms-extensions">, Group<f_Group>, Flags<[CC1Option, CoreOption]>,
   HelpText<"Accept some non-standard constructs supported by the Microsoft compiler">;
@@ -1303,7 +1322,7 @@ def fveclib : Joined<["-"], "fveclib=">, Group<f_Group>, Flags<[CC1Option]>,
 def fno_lax_vector_conversions : Flag<["-"], "fno-lax-vector-conversions">, Group<f_Group>,
   HelpText<"Disallow implicit conversions between vectors with a different number of elements or different element types">, Flags<[CC1Option]>;
 def fno_merge_all_constants : Flag<["-"], "fno-merge-all-constants">, Group<f_Group>,
-    Flags<[CC1Option]>, HelpText<"Disallow merging of constants">;
+  HelpText<"Disallow merging of constants">;
 def fno_modules : Flag <["-"], "fno-modules">, Group<f_Group>,
   Flags<[DriverOption]>;
 def fno_implicit_module_maps : Flag <["-"], "fno-implicit-module-maps">, Group<f_Group>,
@@ -2530,13 +2549,6 @@ def mpackets : Flag<["-"], "mpackets">, Group<m_hexagon_Features_Group>,
   Flags<[CC1Option]>, HelpText<"Enable generation of instruction packets">;
 def mno_packets : Flag<["-"], "mno-packets">, Group<m_hexagon_Features_Group>,
   Flags<[CC1Option]>, HelpText<"Disable generation of instruction packets">;
-// hvx-double deprecrated flag.
-def mhexagon_hvx_double : Flag<[ "-" ], "mhvx-double">,
-  Group<m_hexagon_Features_HVX_Group>,
-  HelpText<"Enable Hexagon Double Vector eXtensions">;
-def mno_hexagon_hvx_double : Flag<[ "-" ], "mno-hvx-double">,
-  Group<m_hexagon_Features_HVX_Group>,
-  HelpText<"Disable Hexagon Double Vector eXtensions">;
 
 
 // X86 feature flags

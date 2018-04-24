@@ -60,7 +60,7 @@ using namespace sema;
 /// subclasses to customize any of its operations. Thus, a subclass can
 /// override any of the transformation or rebuild operators by providing an
 /// operation with the same signature as the default implementation. The
-/// overridding function should not be virtual.
+/// overriding function should not be virtual.
 ///
 /// Semantic tree transformations are split into two stages, either of which
 /// can be replaced by a subclass. The "transform" step transforms an AST node
@@ -1160,6 +1160,11 @@ public:
 #if INTEL_CUSTOMIZATION
   /// \brief Build a new channel type given its value type.
   QualType RebuildChannelType(QualType ValueType, SourceLocation KWLoc);
+  QualType RebuildArbPrecIntType(QualType ValueType, unsigned NumBits,
+                                 SourceLocation Loc);
+  QualType RebuildDependentSizedArbPrecIntType(QualType ValueType,
+                                               Expr *NumBitsExpr,
+                                               SourceLocation Loc);
 #endif // INTEL_CUSTOMIZATION
 
   /// \brief Build a new template name given a nested name specifier, a flag
@@ -2278,7 +2283,6 @@ public:
       // We have a reference to an unnamed field.  This is always the
       // base of an anonymous struct/union member access, i.e. the
       // field is always of record type.
-      assert(!QualifierLoc && "Can't have an unnamed field with a qualifier!");
       assert(Member->getType()->isRecordType() &&
              "unnamed member not of record type?");
 
@@ -2289,11 +2293,11 @@ public:
       if (BaseResult.isInvalid())
         return ExprError();
       Base = BaseResult.get();
-      ExprValueKind VK = isArrow ? VK_LValue : Base->getValueKind();
-      MemberExpr *ME = new (getSema().Context)
-          MemberExpr(Base, isArrow, OpLoc, Member, MemberNameInfo,
-                     cast<FieldDecl>(Member)->getType(), VK, OK_Ordinary);
-      return ME;
+
+      CXXScopeSpec EmptySS;
+      return getSema().BuildFieldReferenceExpr(
+          Base, isArrow, OpLoc, EmptySS, cast<FieldDecl>(Member),
+          DeclAccessPair::make(FoundDecl, FoundDecl->getAccess()), MemberNameInfo);
     }
 
     CXXScopeSpec SS;
@@ -5909,6 +5913,67 @@ QualType TreeTransform<Derived>::TransformChannelType(TypeLocBuilder &TLB,
 
   ChannelTypeLoc NewTL = TLB.push<ChannelTypeLoc>(Result);
   NewTL.setKWLoc(TL.getKWLoc());
+
+  return Result;
+}
+
+template <typename Derived>
+QualType TreeTransform<Derived>::TransformArbPrecIntType(TypeLocBuilder &TLB,
+                                                         ArbPrecIntTypeLoc TL) {
+  const ArbPrecIntType *T = TL.getTypePtr();
+  QualType UnderlyingType = getDerived().TransformType(T->getUnderlyingType());
+  if (UnderlyingType.isNull())
+    return QualType();
+
+  QualType Result = TL.getType();
+  if (getDerived().AlwaysRebuild() ||
+      UnderlyingType != T->getUnderlyingType()) {
+    Result = getDerived().RebuildArbPrecIntType(UnderlyingType, T->getNumBits(),
+                                                T->getAttributeLoc());
+    if (Result.isNull())
+      return QualType();
+  }
+
+  ArbPrecIntTypeLoc NewTL = TLB.push<ArbPrecIntTypeLoc>(Result);
+  NewTL.setNameLoc(TL.getNameLoc());
+
+  return Result;
+}
+
+template <typename Derived>
+QualType TreeTransform<Derived>::TransformDependentSizedArbPrecIntType(
+    TypeLocBuilder &TLB, DependentSizedArbPrecIntTypeLoc TL) {
+  const DependentSizedArbPrecIntType *T = TL.getTypePtr();
+  QualType UnderlyingType = getDerived().TransformType(T->getUnderlyingType());
+  if (UnderlyingType.isNull())
+    return QualType();
+
+  EnterExpressionEvaluationContext Unevaluated(
+      SemaRef, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+
+  ExprResult NumBits = getDerived().TransformExpr(T->getNumBitsExpr());
+  NumBits = SemaRef.ActOnConstantExpression(NumBits);
+  if (NumBits.isInvalid())
+    return QualType();
+
+  QualType Result = TL.getType();
+  if (getDerived().AlwaysRebuild() ||
+      UnderlyingType != T->getUnderlyingType() ||
+      NumBits.get() != T->getNumBitsExpr()) {
+    Result = getDerived().RebuildDependentSizedArbPrecIntType(
+        UnderlyingType, NumBits.get(), T->getAttributeLoc());
+    if (Result.isNull())
+      return QualType();
+  }
+
+  if (isa<DependentSizedArbPrecIntType>(Result)) {
+    DependentSizedArbPrecIntTypeLoc NewTL =
+        TLB.push<DependentSizedArbPrecIntTypeLoc>(Result);
+    NewTL.setNameLoc(TL.getNameLoc());
+  } else {
+    ArbPrecIntTypeLoc NewTL = TLB.push<ArbPrecIntTypeLoc>(Result);
+    NewTL.setNameLoc(TL.getNameLoc());
+  }
 
   return Result;
 }
@@ -10539,7 +10604,7 @@ bool TreeTransform<Derived>::TransformOverloadExprDecls(OverloadExpr *Old,
   //   the corresponding pack is empty
   if (AllEmptyPacks && !RequiresADL) {
     getSema().Diag(Old->getNameLoc(), diag::err_using_pack_expansion_empty)
-        << isa<UnresolvedMemberExpr>(Old) << Old->getNameInfo().getName();
+        << isa<UnresolvedMemberExpr>(Old) << Old->getName();
     return true;
   }
 
@@ -12658,10 +12723,26 @@ QualType TreeTransform<Derived>::RebuildPipeType(QualType ValueType,
 }
 
 #if INTEL_CUSTOMIZATION
-template<typename Derived>
+template <typename Derived>
 QualType TreeTransform<Derived>::RebuildChannelType(QualType ValueType,
-                                                   SourceLocation KWLoc) {
+                                                    SourceLocation KWLoc) {
   return SemaRef.BuildChannelType(ValueType, KWLoc);
+}
+
+template <typename Derived>
+QualType TreeTransform<Derived>::RebuildArbPrecIntType(
+    QualType UnderlyingType, unsigned NumBits, SourceLocation AttributeLoc) {
+  llvm::APInt NumBitsAP(SemaRef.Context.getIntWidth(SemaRef.Context.IntTy),
+                        NumBits, true);
+  IntegerLiteral *Bits = IntegerLiteral::Create(
+      SemaRef.Context, NumBitsAP, SemaRef.Context.IntTy, AttributeLoc);
+  return SemaRef.BuildArbPrecIntType(UnderlyingType, Bits, AttributeLoc);
+}
+
+template <typename Derived>
+QualType TreeTransform<Derived>::RebuildDependentSizedArbPrecIntType(
+    QualType ElementType, Expr *NumExpr, SourceLocation AttributeLoc) {
+  return SemaRef.BuildArbPrecIntType(ElementType, NumExpr, AttributeLoc);
 }
 #endif // INTEL_CUSTOMIZATION
 

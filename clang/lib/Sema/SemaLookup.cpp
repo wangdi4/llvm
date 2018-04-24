@@ -187,7 +187,7 @@ namespace {
     }
 
     void done() {
-      std::sort(list.begin(), list.end(), UnqualUsingEntry::Comparator());
+      llvm::sort(list.begin(), list.end(), UnqualUsingEntry::Comparator());
     }
 
     typedef ListTy::const_iterator const_iterator;
@@ -2819,6 +2819,12 @@ addAssociatedClassesAndNamespaces(AssociatedLookup &Result, QualType Ty) {
 #if INTEL_CUSTOMIZATION
     case Type::Channel:
       T = cast<ChannelType>(T)->getElementType().getTypePtr();
+      continue;
+    case Type::ArbPrecInt:
+      // This likely doesn't do anything since we only permit
+      // integer types, so ADL isn't very handy here, but do this to
+      // silence this anyway.
+      T = cast<ArbPrecIntType>(T)->getUnderlyingType().getTypePtr();
       continue;
 #endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
