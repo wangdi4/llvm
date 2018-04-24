@@ -10,4 +10,4 @@ int *g(int a) __attribute__((__alloc_size__(1)));
 
 // CHECK: FunctionDecl {{.*}} 'int *(int)'
 // CHECK: |-ParmVarDecl {{.*}} 'int'
-// CHECK: `-AllocSizeAttr {{.*}} 1 0
+// CHECK: `-AllocSizeAttr {{.*}} 1

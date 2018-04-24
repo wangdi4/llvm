@@ -53,6 +53,9 @@ OPENCLEXT_INTERNAL(cl_khr_icd, 100, ~0U)
 OPENCLEXT_INTERNAL(cl_khr_gl_event, 110, ~0U)
 OPENCLEXT_INTERNAL(cl_khr_d3d10_sharing, 110, ~0U)
 
+// EMBEDDED_PROFILE
+OPENCLEXT_INTERNAL(cles_khr_int64, 110, ~0U)
+
 // OpenCL 1.2.
 OPENCLEXT_INTERNAL(cl_khr_context_abort, 120, ~0U)
 OPENCLEXT_INTERNAL(cl_khr_d3d11_sharing, 120, ~0U)
@@ -82,7 +85,6 @@ OPENCLEXT_INTERNAL(cl_amd_media_ops2, 100, ~0U)
 #if INTEL_CUSTOMIZATION
 OPENCLEXT_INTERNAL(cl_intel_vec_len_hint, 120, ~0U)
 OPENCLEXT_INTERNAL(cl_intel_channels,  100, ~0U)
-OPENCLEXT_INTERNAL(cl_altera_channels, 100, ~0U)
 OPENCLEXT_INTERNAL(cl_intel_fpga_host_pipe, 100, ~0U)
 #endif // INTEL_CUSTOMIZATION
 

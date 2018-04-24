@@ -60,9 +60,13 @@
 // RUN:   | FileCheck %s -check-prefix=cannonlake
 // cannonlake: "-target-cpu" "cannonlake"
 //
-// RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=icelake 2>&1 \
-// RUN:   | FileCheck %s -check-prefix=icelake
-// icelake: "-target-cpu" "icelake"
+// RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=icelake-client 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=icelake-client
+// icelake-client: "-target-cpu" "icelake-client"
+//
+// RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=icelake-server 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=icelake-server
+// icelake-server: "-target-cpu" "icelake-server"
 //
 // RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=lakemont 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=lakemont
@@ -75,6 +79,10 @@
 // RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=silvermont 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=silvermont
 // silvermont: "-target-cpu" "silvermont"
+//
+// RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=goldmont 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=goldmont
+// goldmont: "-target-cpu" "goldmont"
 //
 // RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=k8 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=k8

@@ -121,6 +121,51 @@ void foo(int *arr1, int **arr2) {
  // CHECK-REGION: br label {{.*}}, !llvm.loop ![[LOOP_2:.*]]
 }
 
+// CHECK-REGION: doacross_test
+const int M = 5;
+const int N = 4;
+void doacross_test(int (*v_ptr)[5][4])
+{
+  // CHECK-REGION: [[VARI:%i.*]] = alloca i32,
+  // CHECK-REGION: [[VARJ:%j.*]] = alloca i32,
+  // CHECK-REGION: [[OMPIV:%.omp.iv.*]] = alloca i32,
+  // CHECK-REGION: [[OMPLB:%.omp.lb.*]] = alloca i32,
+  // CHECK-REGION: [[OMPUB:%.omp.ub.*]] = alloca i32,
+  int i, j;
+  // CHECK-REGION: region.entry{{.*}}OMP.PARALLEL.LOOP{{.*}}ORDERED"(i32 2)
+  #pragma omp parallel for ordered (2) private (j)
+  for (i = 1; i < M; i++) {
+    for (j = 2; j < N; j++) {
+  // CHECK-REGION: [[DAL1:%[0-9]+]] = load{{.*}}[[OMPLB]]
+  // CHECK_REGION: store i32 [[DAL1]], i32* [[OMPIV]]
+  // CHECK-REGION: [[DAL2:%[0-9]+]] = load{{.*}}[[OMPIV]]
+  // CHECK-REGION: [[DAL3:%[0-9]+]] = load{{.*}}[[OMPUB]]
+  // CHECK_REGION: icmp sle i32 [[DAL2]], [[DAL3]]
+  // CHECK-REGION: [[DAL4:%[0-9]+]] = load{{.*}}[[OMPIV]]
+  // CHECK_REGION: store i32{{.*}}[[VARI]]
+  // CHECK-REGION: [[DAL5:%[0-9]+]] = load{{.*}}[[OMPIV]]
+  // CHECK_REGION: store i32{{.*}}[[VARJ]]
+  // CHECK-REGION: [[DAL6:%[0-9]+]] = load{{.*}}[[OMPIV]]
+  // CHECK-REGION: [[DAS:%sub[0-9]*]] = sub nsw i32 [[DAL6]], 1
+  // CHECK-REGION: [[DAS4:%sub[0-9]+]] = sub nsw i32 [[DAS]], 2
+  // CHECK-REGION: [[DAL7:%[0-9]+]] = load{{.*}}[[OMPIV]]
+  // CHECK-REGION: [[DAS5:%sub[0-9]+]] = sub nsw i32 [[DAL7]], 2
+  // CHECK-REGION: region.entry{{.*}}DIR.OMP.ORDERED
+  // CHECK-REGION-SAME: "QUAL.OMP.DEPEND.SINK"(i32 [[DAS4]])
+  // CHECK-REGION-SAME: "QUAL.OMP.DEPEND.SINK"(i32 [[DAS5]])
+  // CHECK-REGION: region.exit{{.*}}DIR.OMP.END.ORDERED
+      #pragma omp ordered depend(sink: i-1, j-1) depend(sink: i, j-2)
+      (*v_ptr) [i][j] = (*v_ptr) [i-1][j - 1] + (*v_ptr) [i][j-2];
+
+  // CHECK-REGION: region.entry{{.*}}DIR.OMP.ORDERED
+  // CHECK-REGION-SAME: "QUAL.OMP.DEPEND.SOURCE"
+  // CHECK-REGION: region.exit{{.*}}DIR.OMP.END.ORDERED
+      #pragma omp ordered depend(source)
+    }
+  }
+  // CHECK-REGION: region.exit{{.*}}OMP.END.PARALLEL.LOOP
+}
+
 // CHECK-REGION: !llvm.ident
 // CHECK-REGION: ![[LOOP_1]] = distinct !{![[LOOP_1]], ![[UNROLL_4:.*]]}
 // CHECK-REGION: ![[UNROLL_4]] = !{!"llvm.loop.unroll.count", i32 4}

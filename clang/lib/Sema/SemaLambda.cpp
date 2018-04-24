@@ -905,6 +905,10 @@ void Sema::ActOnStartOfLambdaDefinition(LambdaIntroducer &Intro,
                             ParamInfo.getDeclSpec().isConstexprSpecified());
   if (ExplicitParams)
     CheckCXXDefaultArguments(Method);
+
+  // This represents the function body for the lambda function, check if we
+  // have to apply optnone due to a pragma.
+  AddRangeBasedOptnone(Method);
   
   // Attributes on the lambda apply to the method.  
   ProcessDeclAttributes(CurScope, Method, ParamInfo);
@@ -1389,9 +1393,10 @@ static void addBlockPointerConversion(Sema &S,
   Class->addDecl(Conversion);
 }
 
-static ExprResult performLambdaVarCaptureInitialization(
+static ExprResult performLambdaVarCaptureInitialization(Sema &S,
+                                                        const Capture &Capture,
 #if INTEL_CUSTOMIZATION
-  Sema &S, const LambdaScopeInfo::Capture &Capture, FieldDecl *Field,
+                                                        FieldDecl *Field,
   // Fix for CQ374573: Source correlation for lambda captured values.
   bool ImplicitCapture, SourceLocation CaptureDefaultLoc) {
 #endif // INTEL_CUSTOMIZATION
@@ -1459,7 +1464,7 @@ mapImplicitCaptureStyle(CapturingScopeInfo::ImplicitCaptureStyle ICS) {
   llvm_unreachable("Unknown implicit capture style");
 }
 
-bool Sema::CaptureHasSideEffects(const LambdaScopeInfo::Capture &From) {
+bool Sema::CaptureHasSideEffects(const Capture &From) {
   if (!From.isVLATypeCapture()) {
     Expr *Init = From.getInitExpr();
     if (Init && Init->HasSideEffects(Context))
@@ -1484,7 +1489,7 @@ bool Sema::CaptureHasSideEffects(const LambdaScopeInfo::Capture &From) {
   return false;
 }
 
-void Sema::DiagnoseUnusedLambdaCapture(const LambdaScopeInfo::Capture &From) {
+void Sema::DiagnoseUnusedLambdaCapture(const Capture &From) {
   if (CaptureHasSideEffects(From))
     return;
 
@@ -1539,7 +1544,7 @@ ExprResult Sema::BuildLambdaExpr(SourceLocation StartLoc, SourceLocation EndLoc,
     // Translate captures.
     auto CurField = Class->field_begin();
     for (unsigned I = 0, N = LSI->Captures.size(); I != N; ++I, ++CurField) {
-      const LambdaScopeInfo::Capture &From = LSI->Captures[I];
+      const Capture &From = LSI->Captures[I];
       assert(!From.isBlockCapture() && "Cannot capture __block variables");
       bool IsImplicit = I >= LSI->NumExplicitCaptures;
 

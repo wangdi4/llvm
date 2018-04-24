@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-unknown-linux-gnu -emit-llvm %s -o - | FileCheck %s
 
 void foo1(int i);
 void foo2(int i) {

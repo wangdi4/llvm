@@ -304,6 +304,18 @@ def DoublePump : Attr {
 
 def Memory : Attr {
   let Spellings = [GNU<"memory">];
+  let Args = [EnumArgument<"Kind", "MemoryKind",
+                           ["MLAB", "BLOCK_RAM", ""],
+                           ["MLAB", "BlockRAM", "Default"], 1>];
+  let AdditionalMembers = [{
+    static void generateValidStrings(SmallString<256> &Str) {
+      auto Last = BlockRAM;
+      for (int I = 0; I <= Last; ++I) {
+        Str += ConvertMemoryKindToStr(static_cast<MemoryKind>(I));
+        if (I != Last) Str += " ";
+      }
+    }
+  }];
   let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
@@ -446,4 +458,13 @@ def StaticArrayReset : Attr {
       return 1;
     }
   }];
+}
+
+def ArbPrecInt : TypeAttr {
+  let Spellings = [Clang<"__ap_int">];
+  let Subjects = SubjectList<[TypedefName], ErrorDiag>;
+  let Args = [ExprArgument<"NumBits">];
+  let LangOpts = [OpenCL, HLS];
+  let Documentation = [ArbPrecIntDocs];
+  let ASTNode = 0;
 }

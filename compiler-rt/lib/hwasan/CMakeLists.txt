@@ -17,7 +17,7 @@ set(HWASAN_RTL_CXX_SOURCES
 
 set(HWASAN_RTL_CFLAGS ${SANITIZER_COMMON_CFLAGS})
 append_rtti_flag(OFF HWASAN_RTL_CFLAGS)
-append_list_if(COMPILER_RT_HAS_FPIE_FLAG -fPIE HWASAN_RTL_CFLAGS)
+append_list_if(COMPILER_RT_HAS_FPIC_FLAG -fPIC HWASAN_RTL_CFLAGS)
 # Prevent clang from generating libc calls.
 append_list_if(COMPILER_RT_HAS_FFREESTANDING_FLAG -ffreestanding HWASAN_RTL_CFLAGS)
 
@@ -78,7 +78,8 @@ foreach(arch ${HWASAN_SUPPORTED_ARCH})
                 RTInterception
                 RTSanitizerCommon
                 RTSanitizerCommonLibc
-		RTUbsan
+                RTSanitizerCommonCoverage
+                RTUbsan
     CFLAGS ${HWASAN_RTL_CFLAGS}
     PARENT_TARGET hwasan)
   add_compiler_rt_runtime(clang_rt.hwasan_cxx
@@ -112,7 +113,8 @@ foreach(arch ${HWASAN_SUPPORTED_ARCH})
             RTInterception
             RTSanitizerCommon
             RTSanitizerCommonLibc
-	    RTUbsan
+            RTSanitizerCommonCoverage
+            RTUbsan
             # The only purpose of RTHWAsan_dynamic_version_script_dummy is to
             # carry a dependency of the shared runtime on the version script.
             # Replacing it with a straightforward

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -fexceptions -O0 -fintel-compatibility -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 %s -fexceptions -O0 -fintel-compatibility -triple x86_64-unknown-linux-gnu -emit-llvm -o - | FileCheck %s
 
 struct X {
   static void foo();

@@ -1169,7 +1169,7 @@ static TryCastResult TryStaticCast(Sema &Self, ExprResult &SrcExpr,
     }
 #endif // INTEL_CUSTOMIZATION
   }
-  // Allow arbitray objective-c pointer conversion with static casts.
+  // Allow arbitrary objective-c pointer conversion with static casts.
   if (SrcType->isObjCObjectPointerType() &&
       DestType->isObjCObjectPointerType()) {
     Kind = CK_BitCast;
@@ -2488,7 +2488,10 @@ void CastOperation::CheckCStyleCast() {
     return;
   }
 
-  if (!DestType->isScalarType() && !DestType->isVectorType()) {
+#if INTEL_CUSTOMIZATION
+  if (!DestType->isScalarType() && !DestType->isVectorType() &&
+      !DestType->isArbPrecIntType()) {
+#endif // INTEL_CUSTOMIZATION
     const RecordType *DestRecordTy = DestType->getAs<RecordType>();
 
     if (DestRecordTy && Self.Context.hasSameUnqualifiedType(DestType, SrcType)){
@@ -2540,8 +2543,10 @@ void CastOperation::CheckCStyleCast() {
 
   // The type we're casting to is known to be a scalar or vector.
 
-  // Require the operand to be a scalar or vector.
-  if (!SrcType->isScalarType() && !SrcType->isVectorType()) {
+#if INTEL_CUSTOMIZATION
+  if (!SrcType->isScalarType() && !SrcType->isVectorType() &&
+      !SrcType->isArbPrecIntType()) {
+#endif // INTEL_CUSTOMIZATION
     Self.Diag(SrcExpr.get()->getExprLoc(),
               diag::err_typecheck_expect_scalar_operand)
       << SrcType << SrcExpr.get()->getSourceRange();

@@ -522,6 +522,18 @@ int main(int argc, char **argv) {
       }
     }
   }
+  #pragma omp parallel
+  {
+    // CHECK-REG: DIR.OMP.CRITICAL
+    // CHECK-REG-SAME: "QUAL.OMP.NAME"([7 x i8] c"critfoo")
+    #pragma omp critical(critfoo)
+    n2 = n1;
+    // CHECK-REG: DIR.OMP.CRITICAL
+    // CHECK-REG-SAME: "QUAL.OMP.NAME"([10 x i8] c"critbarbaz")
+    // CHECK-REG-SAME: "QUAL.OMP.HINT"(i32 42)
+    #pragma omp critical(critbarbaz) hint(42)
+    n2 = n1;
+  }
   return 0;
 }
 

@@ -32,7 +32,7 @@ namespace Test1 {
     virtual void f();
   };
   
-// CHECK-DAG: DISubprogram{{.*}}linkageName: "\01?f@C@Test1@@W7EAAXXZ"{{.*}} flags: {{.*}}DIFlagThunk
+// CHECK-DAG: DISubprogram{{.*}}linkageName: "?f@C@Test1@@W7EAAXXZ"{{.*}} flags: {{.*}}DIFlagThunk
   void C::f() { }
 }
 
@@ -50,7 +50,7 @@ namespace Test2 {
     virtual V2 *f();
   };
   
-// CHECK-DAG: DISubprogram{{.*}}linkageName: "\01?f@B@Test2@@QEAAPEAUV1@2@XZ"{{.*}} flags: {{.*}}DIFlagThunk
+// CHECK-DAG: DISubprogram{{.*}}linkageName: "?f@B@Test2@@QEAAPEAUV1@2@XZ"{{.*}} flags: {{.*}}DIFlagThunk
   V2 *B::f() { return 0; }
 }
 
@@ -69,7 +69,7 @@ namespace Test3 {
     virtual void f();
   };
   
-// CHECK-DAG: DISubprogram{{.*}}linkageName: "\01?f@C@Test3@@W7EAAXXZ"{{.*}} flags: {{.*}}DIFlagThunk
+// CHECK-DAG: DISubprogram{{.*}}linkageName: "?f@C@Test3@@W7EAAXXZ"{{.*}} flags: {{.*}}DIFlagThunk
   void C::f() { }
 }
 
@@ -89,7 +89,7 @@ namespace Test4 {
     };
   }
   void C::c() {}
-// CHECK-DAG: DISubprogram{{.*}}linkageName: "\01?f@C@?A@Test4@@W7EAAXXZ"{{.*}} flags: {{.*}}DIFlagThunk
+// CHECK-DAG: DISubprogram{{.*}}linkageName: "?f@C@?A@Test4@@W7EAAXXZ"{{.*}} flags: {{.*}}DIFlagThunk
   void C::f() {}
 
   // Force C::f to be used.
@@ -135,7 +135,7 @@ namespace Test5 {
     virtual X f();
   };
 
-// CHECK-DAG: DISubprogram{{.*}}linkageName: "\01?f@Thunks@Test5@@WBA@EAA?AUX@2@XZ"{{.*}} flags: {{.*}}DIFlagThunk
+// CHECK-DAG: DISubprogram{{.*}}linkageName: "?f@Thunks@Test5@@WBA@EAA?AUX@2@XZ"{{.*}} flags: {{.*}}DIFlagThunk
   X Thunks::f() { return X(); }
 }
 
@@ -169,7 +169,7 @@ namespace Test6 {
 
   class D : public B,
             public C {
-// CHECK-DAG: DISubprogram{{.*}}linkageName: "\01?foo@D@Test6@@G7EAAXXZ"{{.*}} flags: {{.*}}DIFlagThunk
+// CHECK-DAG: DISubprogram{{.*}}linkageName: "?foo@D@Test6@@G7EAAXXZ"{{.*}} flags: {{.*}}DIFlagThunk
     void foo() {}
     void bar() {}
     void baz(X, X&, _Complex float, Small, Small&, Large);
@@ -183,7 +183,7 @@ namespace Test6 {
 namespace Test7 {
   struct A { virtual void foo(); };
   struct B { virtual void foo(); };
-// CHECK-DAG: DISubprogram{{.*}}linkageName: "\01?foo@C@Test7@@W7EAAXXZ"{{.*}} flags: {{.*}}DIFlagThunk
+// CHECK-DAG: DISubprogram{{.*}}linkageName: "?foo@C@Test7@@W7EAAXXZ"{{.*}} flags: {{.*}}DIFlagThunk
   struct C : A, B { void foo() {} };
 
   // Test later.
@@ -196,7 +196,7 @@ namespace Test8 {
   struct A {             virtual A* f(); };
   struct B : virtual A { virtual A* f(); };
   struct C : B         { virtual C* f(); };
-// CHECK-DAG: DISubprogram{{.*}}linkageName: "\01?f@C@Test8@@QEAAPEAUA@2@XZ"{{.*}} flags: {{.*}}DIFlagThunk
+// CHECK-DAG: DISubprogram{{.*}}linkageName: "?f@C@Test8@@QEAAPEAUA@2@XZ"{{.*}} flags: {{.*}}DIFlagThunk
   C* C::f() { return 0; }
 }
 
@@ -214,8 +214,8 @@ namespace Test9 {
     virtual ~D();
     virtual D &foo1();
   };
-// CHECK-DAG: DISubprogram{{.*}}linkageName: "\01?foo1@D@Test9@@$4PPPPPPPE@A@EAAAEAUB1@2@XZ"{{.*}} flags: {{.*}}DIFlagThunk
-// CHECK-DAG: DISubprogram{{.*}}linkageName: "\01?foo1@D@Test9@@$4PPPPPPPE@A@EAAAEAU12@XZ"{{.*}} flags: {{.*}}DIFlagThunk
+// CHECK-DAG: DISubprogram{{.*}}linkageName: "?foo1@D@Test9@@$4PPPPPPPE@A@EAAAEAUB1@2@XZ"{{.*}} flags: {{.*}}DIFlagThunk
+// CHECK-DAG: DISubprogram{{.*}}linkageName: "?foo1@D@Test9@@$4PPPPPPPE@A@EAAAEAU12@XZ"{{.*}} flags: {{.*}}DIFlagThunk
   D& D::foo1() {
     return *this;
   }
@@ -231,7 +231,7 @@ namespace Test10 {
   class C : public A, public B  {
     virtual void f();
   };
-// CHECK-DAG: DISubprogram{{.*}}linkageName: "\01?f@C@Test10@@G7EAAXXZ"{{.*}} flags: {{.*}}DIFlagThunk
+// CHECK-DAG: DISubprogram{{.*}}linkageName: "?f@C@Test10@@G7EAAXXZ"{{.*}} flags: {{.*}}DIFlagThunk
   void C::f() {
   }
 }

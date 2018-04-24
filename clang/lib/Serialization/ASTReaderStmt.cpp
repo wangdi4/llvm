@@ -553,6 +553,7 @@ void ASTStmtReader::VisitUnaryOperator(UnaryOperator *E) {
   E->setSubExpr(Record.readSubExpr());
   E->setOpcode((UnaryOperator::Opcode)Record.readInt());
   E->setOperatorLoc(ReadSourceLocation());
+  E->setCanOverflow(Record.readInt());
 }
 
 void ASTStmtReader::VisitOffsetOfExpr(OffsetOfExpr *E) {
@@ -1666,6 +1667,7 @@ void ASTStmtReader::VisitOpaqueValueExpr(OpaqueValueExpr *E) {
   VisitExpr(E);
   E->SourceExpr = Record.readSubExpr();
   E->Loc = ReadSourceLocation();
+  E->setIsUnique(Record.readInt());
 }
 
 void ASTStmtReader::VisitTypoExpr(TypoExpr *E) {

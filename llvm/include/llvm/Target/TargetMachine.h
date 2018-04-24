@@ -138,7 +138,21 @@ public:
   /// Get the pointer size for this target.
   ///
   /// This is the only time the DataLayout in the TargetMachine is used.
-  unsigned getPointerSize() const { return DL.getPointerSize(); }
+  unsigned getPointerSize(unsigned AS) const {
+    return DL.getPointerSize(AS);
+  }
+
+  unsigned getPointerSizeInBits(unsigned AS) const {
+    return DL.getPointerSizeInBits(AS);
+  }
+
+  unsigned getProgramPointerSize() const {
+    return DL.getPointerSize(DL.getProgramAddressSpace());
+  }
+
+  unsigned getAllocaPointerSize() const {
+    return DL.getPointerSize(DL.getAllocaAddrSpace());
+  }
 
   /// \brief Reset the target options based on the function's attributes.
   // FIXME: Remove TargetOptions that affect per-function code generation
@@ -172,6 +186,9 @@ public:
 
   bool shouldAssumeDSOLocal(const Module &M, const GlobalValue *GV) const;
 
+  /// Returns true if this target uses emulated TLS.
+  bool useEmulatedTLS() const;
+
   /// Returns the TLS model which should be used for the given global variable.
   TLSModel::Model getTLSModel(const GlobalValue *GV) const;
 
@@ -184,6 +201,7 @@ public:
   void setFastISel(bool Enable) { Options.EnableFastISel = Enable; }
   bool getO0WantsFastISel() { return O0WantsFastISel; }
   void setO0WantsFastISel(bool Enable) { O0WantsFastISel = Enable; }
+  void setGlobalISel(bool Enable) { Options.EnableGlobalISel = Enable; }
 
   bool shouldPrintMachineCode() const { return Options.PrintMachineCode; }
 

@@ -331,6 +331,7 @@ public:
     PQ_TypeSpecifier         = 2,
     PQ_TypeQualifier         = 4,
     PQ_FunctionSpecifier     = 8
+    // FIXME: Attributes should be included here.
   };
 
 private:
@@ -1790,7 +1791,9 @@ enum class DeclaratorContext {
     LambdaExprParameterContext, // Lambda-expression parameter declarator.
     ConversionIdContext, // C++ conversion-type-id.
     TrailingReturnContext, // C++11 trailing-type-specifier.
-    TemplateTypeArgContext, // Template type argument.
+    TrailingReturnVarContext, // C++11 trailing-type-specifier for variable.
+    TemplateArgContext,  // Any template argument (in template argument list).
+    TemplateTypeArgContext, // Template type argument (in default argument).
     AliasDeclContext,    // C++11 alias-declaration.
     AliasTemplateContext // C++11 alias-declaration template.
 };
@@ -2007,8 +2010,10 @@ public:
     case DeclaratorContext::BlockLiteralContext:
     case DeclaratorContext::LambdaExprContext:
     case DeclaratorContext::ConversionIdContext:
+    case DeclaratorContext::TemplateArgContext:
     case DeclaratorContext::TemplateTypeArgContext:
     case DeclaratorContext::TrailingReturnContext:
+    case DeclaratorContext::TrailingReturnVarContext:
       return true;
     }
     llvm_unreachable("unknown context kind!");
@@ -2043,8 +2048,10 @@ public:
     case DeclaratorContext::BlockLiteralContext:
     case DeclaratorContext::LambdaExprContext:
     case DeclaratorContext::ConversionIdContext:
+    case DeclaratorContext::TemplateArgContext:
     case DeclaratorContext::TemplateTypeArgContext:
     case DeclaratorContext::TrailingReturnContext:
+    case DeclaratorContext::TrailingReturnVarContext:
       return false;
     }
     llvm_unreachable("unknown context kind!");
@@ -2083,8 +2090,10 @@ public:
     case DeclaratorContext::BlockLiteralContext:
     case DeclaratorContext::LambdaExprContext:
     case DeclaratorContext::ConversionIdContext:
+    case DeclaratorContext::TemplateArgContext:
     case DeclaratorContext::TemplateTypeArgContext:
     case DeclaratorContext::TrailingReturnContext:
+    case DeclaratorContext::TrailingReturnVarContext:
       return false;
     }
     llvm_unreachable("unknown context kind!");
@@ -2111,6 +2120,7 @@ public:
     case DeclaratorContext::BlockContext:
     case DeclaratorContext::ForContext:
     case DeclaratorContext::InitStmtContext:
+    case DeclaratorContext::TrailingReturnVarContext:
       return true;
 
     case DeclaratorContext::ConditionContext:
@@ -2136,6 +2146,7 @@ public:
     case DeclaratorContext::BlockLiteralContext:
     case DeclaratorContext::LambdaExprContext:
     case DeclaratorContext::ConversionIdContext:
+    case DeclaratorContext::TemplateArgContext:
     case DeclaratorContext::TemplateTypeArgContext:
     case DeclaratorContext::TrailingReturnContext:
       return false;
@@ -2348,8 +2359,10 @@ public:
     case DeclaratorContext::BlockLiteralContext:
     case DeclaratorContext::LambdaExprContext:
     case DeclaratorContext::ConversionIdContext:
+    case DeclaratorContext::TemplateArgContext:
     case DeclaratorContext::TemplateTypeArgContext:
     case DeclaratorContext::TrailingReturnContext:
+    case DeclaratorContext::TrailingReturnVarContext:
       return false;
     }
     llvm_unreachable("unknown context kind!");
@@ -2381,13 +2394,15 @@ public:
     case DeclaratorContext::LambdaExprContext:
     case DeclaratorContext::ConversionIdContext:
     case DeclaratorContext::TrailingReturnContext:
+    case DeclaratorContext::TrailingReturnVarContext:
+    case DeclaratorContext::TemplateTypeArgContext:
       return false;
 
     case DeclaratorContext::BlockContext:
     case DeclaratorContext::ForContext:
     case DeclaratorContext::InitStmtContext:
     case DeclaratorContext::ConditionContext:
-    case DeclaratorContext::TemplateTypeArgContext:
+    case DeclaratorContext::TemplateArgContext:
       return true;
     }
 

@@ -232,7 +232,7 @@ namespace clang {
 
       if (auto &Old = LazySpecializations) {
         IDs.insert(IDs.end(), Old + 1, Old + 1 + Old[0]);
-        std::sort(IDs.begin(), IDs.end());
+        llvm::sort(IDs.begin(), IDs.end());
         IDs.erase(std::unique(IDs.begin(), IDs.end()), IDs.end());
       }
 
@@ -739,6 +739,11 @@ ASTDeclReader::VisitRecordDeclImpl(RecordDecl *RD) {
   RD->setAnonymousStructOrUnion(Record.readInt());
   RD->setHasObjectMember(Record.readInt());
   RD->setHasVolatileMember(Record.readInt());
+  RD->setNonTrivialToPrimitiveDefaultInitialize(Record.readInt());
+  RD->setNonTrivialToPrimitiveCopy(Record.readInt());
+  RD->setNonTrivialToPrimitiveDestroy(Record.readInt());
+  RD->setParamDestroyedInCallee(Record.readInt());
+  RD->setArgPassingRestrictions((RecordDecl::ArgPassingKind)Record.readInt());
   return Redecl;
 }
 
@@ -786,12 +791,14 @@ void ASTDeclReader::VisitFunctionDecl(FunctionDecl *FD) {
   FD->HasWrittenPrototype = Record.readInt();
   FD->IsDeleted = Record.readInt();
   FD->IsTrivial = Record.readInt();
+  FD->IsTrivialForCall = Record.readInt();
   FD->IsDefaulted = Record.readInt();
   FD->IsExplicitlyDefaulted = Record.readInt();
   FD->HasImplicitReturnZero = Record.readInt();
   FD->IsConstexpr = Record.readInt();
   FD->UsesSEHTry = Record.readInt();
   FD->HasSkippedBody = Record.readInt();
+  FD->IsMultiVersion = Record.readInt();
   FD->IsLateTemplateParsed = Record.readInt();
   FD->setCachedLinkage(Linkage(Record.readInt()));
   FD->EndRangeLoc = ReadSourceLocation();
@@ -1272,6 +1279,7 @@ ASTDeclReader::RedeclarableResult ASTDeclReader::VisitVarDeclImpl(VarDecl *VD) {
     VD->NonParmVarDeclBits.ExceptionVar = Record.readInt();
     VD->NonParmVarDeclBits.NRVOVariable = Record.readInt();
     VD->NonParmVarDeclBits.CXXForRangeDecl = Record.readInt();
+    VD->NonParmVarDeclBits.ObjCForDecl = Record.readInt();
     VD->NonParmVarDeclBits.ARCPseudoStrong = Record.readInt();
     VD->NonParmVarDeclBits.IsInline = Record.readInt();
     VD->NonParmVarDeclBits.IsInlineSpecified = Record.readInt();
@@ -1500,7 +1508,8 @@ void ASTDeclReader::VisitUsingPackDecl(UsingPackDecl *D) {
 void ASTDeclReader::VisitUsingShadowDecl(UsingShadowDecl *D) {
   RedeclarableResult Redecl = VisitRedeclarable(D);
   VisitNamedDecl(D);
-  D->setTargetDecl(ReadDeclAs<NamedDecl>());
+  D->Underlying = ReadDeclAs<NamedDecl>();
+  D->IdentifierNamespace = Record.readInt();
   D->UsingOrNextShadow = ReadDeclAs<NamedDecl>();
   UsingShadowDecl *Pattern = ReadDeclAs<UsingShadowDecl>();
   if (Pattern)
@@ -1554,7 +1563,9 @@ void ASTDeclReader::ReadCXXDefinitionData(
   Data.Polymorphic = Record.readInt();
   Data.Abstract = Record.readInt();
   Data.IsStandardLayout = Record.readInt();
-  Data.HasNoNonEmptyBases = Record.readInt();
+  Data.IsCXX11StandardLayout = Record.readInt();
+  Data.HasBasesWithFields = Record.readInt();
+  Data.HasBasesWithNonStaticDataMembers = Record.readInt();
   Data.HasPrivateFields = Record.readInt();
   Data.HasProtectedFields = Record.readInt();
   Data.HasPublicFields = Record.readInt();
@@ -1575,11 +1586,12 @@ void ASTDeclReader::ReadCXXDefinitionData(
   Data.DefaultedMoveAssignmentIsDeleted = Record.readInt();
   Data.DefaultedDestructorIsDeleted = Record.readInt();
   Data.HasTrivialSpecialMembers = Record.readInt();
+  Data.HasTrivialSpecialMembersForCall = Record.readInt();
   Data.DeclaredNonTrivialSpecialMembers = Record.readInt();
+  Data.DeclaredNonTrivialSpecialMembersForCall = Record.readInt();
   Data.HasIrrelevantDestructor = Record.readInt();
   Data.HasConstexprNonCopyMoveConstructor = Record.readInt();
   Data.HasDefaultedDefaultConstructor = Record.readInt();
-  Data.CanPassInRegisters = Record.readInt();
   Data.DefaultedDefaultConstructorIsConstexpr = Record.readInt();
   Data.HasConstexprDefaultConstructor = Record.readInt();
   Data.HasNonLiteralTypeFieldsOrBases = Record.readInt();
@@ -1692,7 +1704,9 @@ void ASTDeclReader::MergeDefinitionData(
   MATCH_FIELD(Polymorphic)
   MATCH_FIELD(Abstract)
   MATCH_FIELD(IsStandardLayout)
-  MATCH_FIELD(HasNoNonEmptyBases)
+  MATCH_FIELD(IsCXX11StandardLayout)
+  MATCH_FIELD(HasBasesWithFields)
+  MATCH_FIELD(HasBasesWithNonStaticDataMembers)
   MATCH_FIELD(HasPrivateFields)
   MATCH_FIELD(HasProtectedFields)
   MATCH_FIELD(HasPublicFields)
@@ -1713,11 +1727,12 @@ void ASTDeclReader::MergeDefinitionData(
   MATCH_FIELD(DefaultedMoveAssignmentIsDeleted)
   MATCH_FIELD(DefaultedDestructorIsDeleted)
   OR_FIELD(HasTrivialSpecialMembers)
+  OR_FIELD(HasTrivialSpecialMembersForCall)
   OR_FIELD(DeclaredNonTrivialSpecialMembers)
+  OR_FIELD(DeclaredNonTrivialSpecialMembersForCall)
   MATCH_FIELD(HasIrrelevantDestructor)
   OR_FIELD(HasConstexprNonCopyMoveConstructor)
   OR_FIELD(HasDefaultedDefaultConstructor)
-  MATCH_FIELD(CanPassInRegisters)
   MATCH_FIELD(DefaultedDefaultConstructorIsConstexpr)
   OR_FIELD(HasConstexprDefaultConstructor)
   MATCH_FIELD(HasNonLiteralTypeFieldsOrBases)
@@ -1775,29 +1790,31 @@ void ASTDeclReader::ReadCXXRecordDefinition(CXXRecordDecl *D, bool Update) {
   else
     DD = new (C) struct CXXRecordDecl::DefinitionData(D);
 
+  CXXRecordDecl *Canon = D->getCanonicalDecl();
+  // Set decl definition data before reading it, so that during deserialization
+  // when we read CXXRecordDecl, it already has definition data and we don't
+  // set fake one.
+  if (!Canon->DefinitionData)
+    Canon->DefinitionData = DD;
+  D->DefinitionData = Canon->DefinitionData;
   ReadCXXDefinitionData(*DD, D);
 
-  // We might already have a definition for this record. This can happen either
-  // because we're reading an update record, or because we've already done some
-  // merging. Either way, just merge into it.
-  CXXRecordDecl *Canon = D->getCanonicalDecl();
-  if (Canon->DefinitionData) {
+  // We might already have a different definition for this record. This can
+  // happen either because we're reading an update record, or because we've
+  // already done some merging. Either way, just merge into it.
+  if (Canon->DefinitionData != DD) {
     MergeDefinitionData(Canon, std::move(*DD));
-    D->DefinitionData = Canon->DefinitionData;
     return;
   }
 
   // Mark this declaration as being a definition.
   D->IsCompleteDefinition = true;
-  D->DefinitionData = DD;
 
   // If this is not the first declaration or is an update record, we can have
   // other redeclarations already. Make a note that we need to propagate the
   // DefinitionData pointer onto them.
-  if (Update || Canon != D) {
-    Canon->DefinitionData = D->DefinitionData;
+  if (Update || Canon != D)
     Reader.PendingDefinitions.insert(D);
-  }
 }
 
 ASTDeclReader::RedeclarableResult
@@ -1904,7 +1921,7 @@ void ASTDeclReader::VisitCXXDestructorDecl(CXXDestructorDecl *D) {
   VisitCXXMethodDecl(D);
 
   if (auto *OperatorDelete = ReadDeclAs<FunctionDecl>()) {
-    auto *Canon = cast<CXXDestructorDecl>(D->getCanonicalDecl());
+    CXXDestructorDecl *Canon = D->getCanonicalDecl();
     auto *ThisArg = Record.readExpr();
     // FIXME: Check consistency if we have an old and new operator delete.
     if (!Canon->OperatorDelete) {
@@ -2817,6 +2834,21 @@ static bool isSameEntity(NamedDecl *X, NamedDecl *Y) {
                         CtorY->getInheritedConstructor().getConstructor()))
         return false;
     }
+
+    if (FuncX->isMultiVersion() != FuncY->isMultiVersion())
+      return false;
+
+    // Multiversioned functions with different feature strings are represented
+    // as separate declarations.
+    if (FuncX->isMultiVersion()) {
+      const auto *TAX = FuncX->getAttr<TargetAttr>();
+      const auto *TAY = FuncY->getAttr<TargetAttr>();
+      assert(TAX && TAY && "Multiversion Function without target attribute");
+
+      if (TAX->getFeaturesStr() != TAY->getFeaturesStr())
+        return false;
+    }
+
     ASTContext &C = FuncX->getASTContext();
     if (!C.hasSameType(FuncX->getType(), FuncY->getType())) {
       // We can get functions with different types on the redecl chain in C++17
@@ -4082,6 +4114,9 @@ void ASTDeclReader::UpdateDecl(Decl *D,
       bool HadRealDefinition =
           OldDD && (OldDD->Definition != RD ||
                     !Reader.PendingFakeDefinitionData.count(OldDD));
+      RD->setParamDestroyedInCallee(Record.readInt());
+      RD->setArgPassingRestrictions(
+          (RecordDecl::ArgPassingKind)Record.readInt());
       ReadCXXRecordDefinition(RD, /*Update*/true);
 
       // Visible update is handled separately.

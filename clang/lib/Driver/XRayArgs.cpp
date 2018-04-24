@@ -27,6 +27,7 @@ namespace {
 constexpr char XRayInstrumentOption[] = "-fxray-instrument";
 constexpr char XRayInstructionThresholdOption[] =
     "-fxray-instruction-threshold=";
+constexpr const char *const XRaySupportedModes[] = {"xray-fdr", "xray-basic"};
 } // namespace
 
 XRayArgs::XRayArgs(const ToolChain &TC, const ArgList &Args) {
@@ -34,7 +35,7 @@ XRayArgs::XRayArgs(const ToolChain &TC, const ArgList &Args) {
   const llvm::Triple &Triple = TC.getTriple();
   if (Args.hasFlag(options::OPT_fxray_instrument,
                    options::OPT_fnoxray_instrument, false)) {
-    if (Triple.getOS() == llvm::Triple::Linux)
+    if (Triple.getOS() == llvm::Triple::Linux) {
       switch (Triple.getArch()) {
       case llvm::Triple::x86_64:
       case llvm::Triple::arm:
@@ -49,9 +50,17 @@ XRayArgs::XRayArgs(const ToolChain &TC, const ArgList &Args) {
         D.Diag(diag::err_drv_clang_unsupported)
             << (std::string(XRayInstrumentOption) + " on " + Triple.str());
       }
-    else
+    } else if (Triple.getOS() == llvm::Triple::FreeBSD ||
+               Triple.getOS() == llvm::Triple::OpenBSD) {
+      if (Triple.getArch() != llvm::Triple::x86_64) {
+        D.Diag(diag::err_drv_clang_unsupported)
+            << (std::string(XRayInstrumentOption) + " on " + Triple.str());
+      }
+    } else {
       D.Diag(diag::err_drv_clang_unsupported)
-          << (std::string(XRayInstrumentOption) + " on non-Linux target OS");
+          << (std::string(XRayInstrumentOption) +
+              " on non-supported target OS");
+    }
     XRayInstrument = true;
     if (const Arg *A =
             Args.getLastArg(options::OPT_fxray_instruction_threshold_,
@@ -68,6 +77,10 @@ XRayArgs::XRayArgs(const ToolChain &TC, const ArgList &Args) {
     if (Args.hasFlag(options::OPT_fxray_always_emit_customevents,
                      options::OPT_fnoxray_always_emit_customevents, false))
       XRayAlwaysEmitCustomEvents = true;
+
+    if (!Args.hasFlag(options::OPT_fxray_link_deps,
+                      options::OPT_fnoxray_link_deps, true))
+      XRayRT = false;
 
     // Validate the always/never attribute files. We also make sure that they
     // are treated as actual dependencies.
@@ -88,6 +101,42 @@ XRayArgs::XRayArgs(const ToolChain &TC, const ArgList &Args) {
       } else
         D.Diag(clang::diag::err_drv_no_such_file) << Filename;
     }
+
+    for (const auto &Filename :
+         Args.getAllArgValues(options::OPT_fxray_attr_list)) {
+      if (llvm::sys::fs::exists(Filename)) {
+        AttrListFiles.push_back(Filename);
+        ExtraDeps.push_back(Filename);
+      } else
+        D.Diag(clang::diag::err_drv_no_such_file) << Filename;
+    }
+
+    // Get the list of modes we want to support.
+    auto SpecifiedModes = Args.getAllArgValues(options::OPT_fxray_modes);
+    if (SpecifiedModes.empty())
+      llvm::copy(XRaySupportedModes, std::back_inserter(Modes));
+    else
+      for (const auto &Arg : SpecifiedModes) {
+        if (Arg == "none") {
+          Modes.clear();
+          break;
+        }
+        if (Arg == "all") {
+          Modes.clear();
+          llvm::copy(XRaySupportedModes, std::back_inserter(Modes));
+          break;
+        }
+
+        // Parse CSV values for -fxray-modes=...
+        llvm::SmallVector<StringRef, 2> ModeParts;
+        llvm::SplitString(Arg, ModeParts, ",");
+        for (const auto &M : ModeParts)
+          Modes.push_back(M);
+      }
+
+    // Then we want to sort and unique the modes we've collected.
+    std::sort(Modes.begin(), Modes.end());
+    Modes.erase(std::unique(Modes.begin(), Modes.end()), Modes.end());
   }
 }
 
@@ -114,6 +163,12 @@ void XRayArgs::addArgs(const ToolChain &TC, const ArgList &Args,
     SmallString<64> NeverInstrumentOpt("-fxray-never-instrument=");
     NeverInstrumentOpt += Never;
     CmdArgs.push_back(Args.MakeArgString(NeverInstrumentOpt));
+  }
+
+  for (const auto& AttrFile : AttrListFiles) {
+    SmallString<64> AttrListFileOpt("-fxray-attr-list=");
+    AttrListFileOpt += AttrFile;
+    CmdArgs.push_back(Args.MakeArgString(AttrListFileOpt));
   }
 
   for (const auto &Dep : ExtraDeps) {

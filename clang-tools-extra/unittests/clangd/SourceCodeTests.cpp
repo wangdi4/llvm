@@ -7,13 +7,18 @@
 //
 //===----------------------------------------------------------------------===//
 #include "SourceCode.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/raw_os_ostream.h"
+#include "llvm/Testing/Support/Error.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 namespace clang{
 namespace clangd {
 namespace {
+
+using llvm::Failed;
+using llvm::HasValue;
 
 MATCHER_P2(Pos, Line, Col, "") {
   return arg.line == Line && arg.character == Col;
@@ -23,32 +28,67 @@ const char File[] = R"(0:0 = 0
 1:0 = 8
 2:0 = 16)";
 
+/// A helper to make tests easier to read.
+Position position(int line, int character) {
+  Position Pos;
+  Pos.line = line;
+  Pos.character = character;
+  return Pos;
+}
+
 TEST(SourceCodeTests, PositionToOffset) {
   // line out of bounds
-  EXPECT_EQ(0u, positionToOffset(File, Position{-1, 2}));
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(-1, 2)), Failed());
   // first line
-  EXPECT_EQ(0u, positionToOffset(File, Position{0, -1})); // out of range
-  EXPECT_EQ(0u, positionToOffset(File, Position{0, 0})); // first character
-  EXPECT_EQ(3u, positionToOffset(File, Position{0, 3})); // middle character
-  EXPECT_EQ(6u, positionToOffset(File, Position{0, 6})); // last character
-  EXPECT_EQ(7u, positionToOffset(File, Position{0, 7})); // the newline itself
-  EXPECT_EQ(8u, positionToOffset(File, Position{0, 8})); // out of range
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(0, -1)),
+                       Failed()); // out of range
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(0, 0)),
+                       HasValue(0)); // first character
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(0, 3)),
+                       HasValue(3)); // middle character
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(0, 6)),
+                       HasValue(6)); // last character
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(0, 7)),
+                       HasValue(7)); // the newline itself
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(0, 7), false),
+                       HasValue(7));
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(0, 8)),
+                       HasValue(7)); // out of range
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(0, 8), false),
+                       Failed()); // out of range
   // middle line
-  EXPECT_EQ(8u, positionToOffset(File, Position{1, -1})); // out of range
-  EXPECT_EQ(8u, positionToOffset(File, Position{1, 0})); // first character
-  EXPECT_EQ(11u, positionToOffset(File, Position{1, 3})); // middle character
-  EXPECT_EQ(14u, positionToOffset(File, Position{1, 6})); // last character
-  EXPECT_EQ(15u, positionToOffset(File, Position{1, 7})); // the newline itself
-  EXPECT_EQ(16u, positionToOffset(File, Position{1, 8})); // out of range
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(1, -1)),
+                       Failed()); // out of range
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(1, 0)),
+                       HasValue(8)); // first character
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(1, 3)),
+                       HasValue(11)); // middle character
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(1, 3), false),
+                       HasValue(11));
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(1, 6)),
+                       HasValue(14)); // last character
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(1, 7)),
+                       HasValue(15)); // the newline itself
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(1, 8)),
+                       HasValue(15)); // out of range
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(1, 8), false),
+                       Failed()); // out of range
   // last line
-  EXPECT_EQ(16u, positionToOffset(File, Position{2, -1})); // out of range
-  EXPECT_EQ(16u, positionToOffset(File, Position{2, 0})); // first character
-  EXPECT_EQ(19u, positionToOffset(File, Position{2, 3})); // middle character
-  EXPECT_EQ(23u, positionToOffset(File, Position{2, 7})); // last character
-  EXPECT_EQ(24u, positionToOffset(File, Position{2, 8})); // EOF
-  EXPECT_EQ(24u, positionToOffset(File, Position{2, 9})); // out of range
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(2, -1)),
+                       Failed()); // out of range
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(2, 0)),
+                       HasValue(16)); // first character
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(2, 3)),
+                       HasValue(19)); // middle character
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(2, 7)),
+                       HasValue(23)); // last character
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(2, 8)),
+                       HasValue(24)); // EOF
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(2, 9), false),
+                       Failed()); // out of range
   // line out of bounds
-  EXPECT_EQ(24u, positionToOffset(File, Position{3, 1}));
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(3, 0)), Failed());
+  EXPECT_THAT_EXPECTED(positionToOffset(File, position(3, 1)), Failed());
 }
 
 TEST(SourceCodeTests, OffsetToPosition) {

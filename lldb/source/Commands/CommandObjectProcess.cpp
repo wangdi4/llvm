@@ -24,6 +24,7 @@
 #include "lldb/Interpreter/Args.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
+#include "lldb/Interpreter/OptionArgParser.h"
 #include "lldb/Interpreter/Options.h"
 #include "lldb/Target/Platform.h"
 #include "lldb/Target/Process.h"
@@ -205,11 +206,7 @@ protected:
     if (target->GetDisableSTDIO())
       m_options.launch_info.GetFlags().Set(eLaunchFlagDisableSTDIO);
 
-    Args environment;
-    target->GetEnvironmentAsArgs(environment);
-    if (environment.GetArgumentCount() > 0)
-      m_options.launch_info.GetEnvironmentEntries().AppendArguments(
-          environment);
+    m_options.launch_info.GetEnvironment() = target->GetEnvironment();
 
     if (!target_settings_argv0.empty()) {
       m_options.launch_info.GetArguments().AppendArgument(
@@ -760,7 +757,7 @@ public:
       case 's':
         bool tmp_result;
         bool success;
-        tmp_result = Args::StringToBoolean(option_arg, false, &success);
+        tmp_result = OptionArgParser::ToBoolean(option_arg, false, &success);
         if (!success)
           error.SetErrorStringWithFormat("invalid boolean option: \"%s\"",
                                          option_arg.str().c_str());
@@ -1444,7 +1441,7 @@ public:
   bool VerifyCommandOptionValue(const std::string &option, int &real_value) {
     bool okay = true;
     bool success = false;
-    bool tmp_value = Args::StringToBoolean(option, false, &success);
+    bool tmp_value = OptionArgParser::ToBoolean(option, false, &success);
 
     if (success && tmp_value)
       real_value = 1;

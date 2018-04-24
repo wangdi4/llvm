@@ -21,4 +21,4 @@ int __regcall foo (int i){
 }
 
 // CHECK-LIN: define x86_regcallcc {{.+}}@_Z15__regcall3__foo
-// CHECK-WIN: define x86_regcallcc {{.+}}@{{.+}}__regcall3__foo
+// CHECK-WIN: define dso_local x86_regcallcc {{.+}}@{{.+}}__regcall3__foo

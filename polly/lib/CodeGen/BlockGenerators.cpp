@@ -26,10 +26,10 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/RegionInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "isl/aff.h"
 #include "isl/ast.h"
 #include "isl/ast_build.h"
@@ -558,12 +558,11 @@ void BlockGenerator::generateScalarLoads(
       continue;
 
 #ifndef NDEBUG
-    auto *StmtDom = Stmt.getDomain().release();
-    auto *AccDom = isl_map_domain(MA->getAccessRelation().release());
-    assert(isl_set_is_subset(StmtDom, AccDom) &&
+    auto StmtDom =
+        Stmt.getDomain().intersect_params(Stmt.getParent()->getContext());
+    auto AccDom = MA->getAccessRelation().domain();
+    assert(!StmtDom.is_subset(AccDom).is_false() &&
            "Scalar must be loaded in all statement instances");
-    isl_set_free(StmtDom);
-    isl_set_free(AccDom);
 #endif
 
     auto *Address =
@@ -1040,11 +1039,11 @@ void VectorBlockGenerator::generateLoad(
   extractScalarValues(Load, VectorMap, ScalarMaps);
 
   Value *NewLoad;
-  if (Access.isStrideZero(isl::manage(isl_map_copy(Schedule))))
+  if (Access.isStrideZero(isl::manage_copy(Schedule)))
     NewLoad = generateStrideZeroLoad(Stmt, Load, ScalarMaps[0], NewAccesses);
-  else if (Access.isStrideOne(isl::manage(isl_map_copy(Schedule))))
+  else if (Access.isStrideOne(isl::manage_copy(Schedule)))
     NewLoad = generateStrideOneLoad(Stmt, Load, ScalarMaps, NewAccesses);
-  else if (Access.isStrideX(isl::manage(isl_map_copy(Schedule)), -1))
+  else if (Access.isStrideX(isl::manage_copy(Schedule), -1))
     NewLoad = generateStrideOneLoad(Stmt, Load, ScalarMaps, NewAccesses, true);
   else
     NewLoad = generateUnknownStrideLoad(Stmt, Load, ScalarMaps, NewAccesses);
@@ -1095,7 +1094,7 @@ void VectorBlockGenerator::copyStore(
   // the data location.
   extractScalarValues(Store, VectorMap, ScalarMaps);
 
-  if (Access.isStrideOne(isl::manage(isl_map_copy(Schedule)))) {
+  if (Access.isStrideOne(isl::manage_copy(Schedule))) {
     Type *VectorPtrType = getVectorPtrTy(Pointer, getVectorWidth());
     Value *NewPointer = generateLocationAccessed(Stmt, Store, ScalarMaps[0],
                                                  VLTS[0], NewAccesses);

@@ -16,6 +16,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/MC/StringTableBuilder.h"
 #include "llvm/Object/COFF.h"
 #include <utility>
 #include <vector>
@@ -59,6 +60,10 @@ public:
   // of other chunks for relocations, you need to set them properly
   // before calling this function.
   virtual void writeTo(uint8_t *Buf) const {}
+
+  // Called by the writer after an RVA is assigned, but before calling
+  // getSize().
+  virtual void finalizeContents() {}
 
   // The writer sets and uses the addresses.
   uint64_t getRVA() const { return RVA; }
@@ -222,6 +227,33 @@ private:
   uint32_t Class[2] = {0, 0};
 };
 
+// This class is used to implement an lld-specific feature (not implemented in
+// MSVC) that minimizes the output size by finding string literals sharing tail
+// parts and merging them.
+//
+// If string tail merging is enabled and a section is identified as containing a
+// string literal, it is added to a MergeChunk with an appropriate alignment.
+// The MergeChunk then tail merges the strings using the StringTableBuilder
+// class and assigns RVAs and section offsets to each of the member chunks based
+// on the offsets assigned by the StringTableBuilder.
+class MergeChunk : public Chunk {
+public:
+  MergeChunk(uint32_t Alignment);
+  static void addSection(SectionChunk *C);
+  void finalizeContents() override;
+
+  uint32_t getPermissions() const override;
+  StringRef getSectionName() const override { return ".rdata"; }
+  size_t getSize() const override;
+  void writeTo(uint8_t *Buf) const override;
+
+  static std::map<uint32_t, MergeChunk *> Instances;
+  std::vector<SectionChunk *> Sections;
+
+private:
+  llvm::StringTableBuilder Builder;
+};
+
 // A chunk for common symbols. Common chunks don't have actual data.
 class CommonChunk : public Chunk {
 public:
@@ -320,17 +352,41 @@ private:
   Defined *Sym;
 };
 
-// Windows-specific.
-// A chunk for SEH table which contains RVAs of safe exception handler
-// functions. x86-only.
-class SEHTableChunk : public Chunk {
+// Duplicate RVAs are not allowed in RVA tables, so unique symbols by chunk and
+// offset into the chunk. Order does not matter as the RVA table will be sorted
+// later.
+struct ChunkAndOffset {
+  Chunk *InputChunk;
+  uint32_t Offset;
+
+  struct DenseMapInfo {
+    static ChunkAndOffset getEmptyKey() {
+      return {llvm::DenseMapInfo<Chunk *>::getEmptyKey(), 0};
+    }
+    static ChunkAndOffset getTombstoneKey() {
+      return {llvm::DenseMapInfo<Chunk *>::getTombstoneKey(), 0};
+    }
+    static unsigned getHashValue(const ChunkAndOffset &CO) {
+      return llvm::DenseMapInfo<std::pair<Chunk *, uint32_t>>::getHashValue(
+          {CO.InputChunk, CO.Offset});
+    }
+    static bool isEqual(const ChunkAndOffset &LHS, const ChunkAndOffset &RHS) {
+      return LHS.InputChunk == RHS.InputChunk && LHS.Offset == RHS.Offset;
+    }
+  };
+};
+
+using SymbolRVASet = llvm::DenseSet<ChunkAndOffset>;
+
+// Table which contains symbol RVAs. Used for /safeseh and /guard:cf.
+class RVATableChunk : public Chunk {
 public:
-  explicit SEHTableChunk(std::set<Defined *> S) : Syms(std::move(S)) {}
+  explicit RVATableChunk(SymbolRVASet S) : Syms(std::move(S)) {}
   size_t getSize() const override { return Syms.size() * 4; }
   void writeTo(uint8_t *Buf) const override;
 
 private:
-  std::set<Defined *> Syms;
+  SymbolRVASet Syms;
 };
 
 // Windows-specific.
@@ -361,5 +417,11 @@ void applyBranch24T(uint8_t *Off, int32_t V);
 
 } // namespace coff
 } // namespace lld
+
+namespace llvm {
+template <>
+struct DenseMapInfo<lld::coff::ChunkAndOffset>
+    : lld::coff::ChunkAndOffset::DenseMapInfo {};
+}
 
 #endif

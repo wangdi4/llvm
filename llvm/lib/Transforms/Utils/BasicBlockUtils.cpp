@@ -20,6 +20,7 @@
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
+#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -36,7 +37,6 @@
 #include "llvm/IR/Value.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include <cassert>
 #include <cstdint>
 #include <string>
@@ -45,16 +45,22 @@
 
 using namespace llvm;
 
-void llvm::DeleteDeadBlock(BasicBlock *BB) {
+void llvm::DeleteDeadBlock(BasicBlock *BB, DeferredDominance *DDT) {
   assert((pred_begin(BB) == pred_end(BB) ||
          // Can delete self loop.
          BB->getSinglePredecessor() == BB) && "Block is not dead!");
   TerminatorInst *BBTerm = BB->getTerminator();
+  std::vector<DominatorTree::UpdateType> Updates;
 
   // Loop through all of our successors and make sure they know that one
   // of their predecessors is going away.
-  for (BasicBlock *Succ : BBTerm->successors())
+  if (DDT)
+    Updates.reserve(BBTerm->getNumSuccessors());
+  for (BasicBlock *Succ : BBTerm->successors()) {
     Succ->removePredecessor(BB);
+    if (DDT)
+      Updates.push_back({DominatorTree::Delete, BB, Succ});
+  }
 
   // Zap all the instructions in the block.
   while (!BB->empty()) {
@@ -69,8 +75,12 @@ void llvm::DeleteDeadBlock(BasicBlock *BB) {
     BB->getInstList().pop_back();
   }
 
-  // Zap the block!
-  BB->eraseFromParent();
+  if (DDT) {
+    DDT->applyUpdates(Updates);
+    DDT->deleteBB(BB); // Deferred deletion of BB.
+  } else {
+    BB->eraseFromParent(); // Zap the block!
+  }
 }
 
 void llvm::FoldSingleEntryPHINodes(BasicBlock *BB,
@@ -309,13 +319,21 @@ static void UpdateAnalysisInformation(BasicBlock *OldBB, BasicBlock *NewBB,
                                       DominatorTree *DT, LoopInfo *LI,
                                       bool PreserveLCSSA, bool &HasLoopExit) {
   // Update dominator tree if available.
-  if (DT)
-    DT->splitBlock(NewBB);
+  if (DT) {
+    if (OldBB == DT->getRootNode()->getBlock()) {
+      assert(NewBB == &NewBB->getParent()->getEntryBlock());
+      DT->setNewRoot(NewBB);
+    } else {
+      // Split block expects NewBB to have a non-empty set of predecessors.
+      DT->splitBlock(NewBB);
+    }
+  }
 
   // The rest of the logic is only relevant for updating the loop structures.
   if (!LI)
     return;
 
+  assert(DT && "DT should be available to update LoopInfo!");
   Loop *L = LI->getLoopFor(OldBB);
 
   // If we need to preserve loop analyses, collect some information about how
@@ -493,7 +511,6 @@ BasicBlock *llvm::SplitBlockPredecessors(BasicBlock *BB,
     // Insert dummy values as the incoming value.
     for (BasicBlock::iterator I = BB->begin(); isa<PHINode>(I); ++I)
       cast<PHINode>(I)->addIncoming(UndefValue::get(I->getType()), NewBB);
-    return NewBB;
   }
 
   // Update DominatorTree, LoopInfo, and LCCSA analysis information.
@@ -501,8 +518,11 @@ BasicBlock *llvm::SplitBlockPredecessors(BasicBlock *BB,
   UpdateAnalysisInformation(BB, NewBB, Preds, DT, LI, PreserveLCSSA,
                             HasLoopExit);
 
-  // Update the PHI nodes in BB with the values coming from NewBB.
-  UpdatePHINodes(BB, NewBB, Preds, BI, HasLoopExit);
+  if (!Preds.empty()) {
+    // Update the PHI nodes in BB with the values coming from NewBB.
+    UpdatePHINodes(BB, NewBB, Preds, BI, HasLoopExit);
+  }
+
   return NewBB;
 }
 

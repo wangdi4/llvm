@@ -195,6 +195,8 @@ def err_attribute_argument_not_power_of_two : Error<
   "%0 attribute argument must be a constant power of two greater than zero">;
 def err_hls_merge_dir_invalid : Error<
   "merge direction must be 'depth' or 'width'">;
+def err_hls_memory_arg_invalid : Error<
+  "%0 attribute requires either no argument or one of: %1">;
 def err_bankbits_numbanks_conflicting : Error<
   "the number of bank_bits must be equal to ceil(log2(numbanks))">;
 def err_bankbits_non_consecutive : Error<
@@ -296,4 +298,8 @@ def err_hls_builtin_arg_mismatch : Error<
 def err_hls_builtin_without_fhls : Error <
   "HLS builtin can only be used when the HLS flag is present on the command "
   "line invocation">;
+def err_ap_int_type : Error <
+  "invalid __ap_int element type %0; must be 'int' or 'unsigned int'">;
+def err_ap_int_bad_size : Error <
+  "%select{signed|unsigned|}0 __ap_int must have a size of at least %select{2|1|1}0">;
 } // end of sema component.

@@ -40,7 +40,7 @@ const uptr kShadowAlignment = 1UL << kShadowScale;
 #define MEM_TO_SHADOW(mem) ((uptr)(mem) >> kShadowScale)
 #define SHADOW_TO_MEM(shadow) ((uptr)(shadow) << kShadowScale)
 
-#define MEM_IS_APP(mem) true
+#define MEM_IS_APP(mem) MemIsApp((uptr)(mem))
 
 // TBI (Top Byte Ignore) feature of AArch64: bits [63:56] are ignored in address
 // translation and can be used to store a tag.
@@ -68,6 +68,8 @@ namespace __hwasan {
 extern int hwasan_inited;
 extern bool hwasan_init_is_running;
 extern int hwasan_report_count;
+
+bool MemIsApp(uptr p);
 
 bool ProtectRange(uptr beg, uptr end);
 bool InitShadow();
@@ -134,6 +136,15 @@ const int STACK_TRACE_TAG_POISON = StackTrace::TAG_CUSTOM + 1;
   if (hwasan_inited)                                       \
   GetStackTrace(&stack, kStackTraceMax, pc, bp, nullptr, \
                 common_flags()->fast_unwind_on_fatal)
+
+#define GET_FATAL_STACK_TRACE_HERE \
+  GET_FATAL_STACK_TRACE_PC_BP(StackTrace::GetCurrentPc(), GET_CURRENT_FRAME())
+
+#define PRINT_CURRENT_STACK_CHECK() \
+  {                                 \
+    GET_FATAL_STACK_TRACE_HERE;     \
+    stack.Print();                  \
+  }
 
 class ScopedThreadLocalStateBackup {
  public:
