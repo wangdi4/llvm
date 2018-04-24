@@ -281,6 +281,8 @@ ModuleMap::ModuleMap(SourceManager &SourceMgr, DiagnosticsEngine &Diags,
 ModuleMap::~ModuleMap() {
   for (auto &M : Modules)
     delete M.getValue();
+  for (auto *M : ShadowModules)
+    delete M;
 }
 
 void ModuleMap::setTarget(const TargetInfo &Target) {
@@ -473,7 +475,7 @@ void ModuleMap::diagnoseHeaderInclusion(Module *RequestingModule,
   // We have found a module, but we don't use it.
   if (NotUsed) {
     Diags.Report(FilenameLoc, diag::err_undeclared_use_of_module)
-        << RequestingModule->getFullModuleName() << Filename;
+        << RequestingModule->getTopLevelModule()->Name << Filename;
     return;
   }
 
@@ -484,7 +486,7 @@ void ModuleMap::diagnoseHeaderInclusion(Module *RequestingModule,
 
   if (LangOpts.ModulesStrictDeclUse) {
     Diags.Report(FilenameLoc, diag::err_undeclared_use_of_module)
-        << RequestingModule->getFullModuleName() << Filename;
+        << RequestingModule->getTopLevelModule()->Name << Filename;
   } else if (RequestingModule && RequestingModuleIsModuleInterface &&
              LangOpts.isCompilingModule()) {
     // Do not diagnose when we are not compiling a module. 
@@ -751,7 +753,7 @@ std::pair<Module *, bool> ModuleMap::findOrCreateModule(StringRef Name,
   // Try to find an existing module with this name.
   if (Module *Sub = lookupModuleQualified(Name, Parent))
     return std::make_pair(Sub, false);
-  
+
   // Create a new module with this name.
   Module *Result = new Module(Name, SourceLocation(), Parent, IsFramework,
                               IsExplicit, NumCreatedModules++);
@@ -759,6 +761,7 @@ std::pair<Module *, bool> ModuleMap::findOrCreateModule(StringRef Name,
     if (LangOpts.CurrentModule == Name)
       SourceModule = Result;
     Modules[Name] = Result;
+    ModuleScopeIDs[Result] = CurrentModuleScopeID;
   }
   return std::make_pair(Result, true);
 }
@@ -927,6 +930,7 @@ Module *ModuleMap::inferFrameworkModule(const DirectoryEntry *FrameworkDir,
     if (LangOpts.CurrentModule == ModuleName)
       SourceModule = Result;
     Modules[ModuleName] = Result;
+    ModuleScopeIDs[Result] = CurrentModuleScopeID;
   }
 
   Result->IsSystem |= Attrs.IsSystem;
@@ -995,6 +999,21 @@ Module *ModuleMap::inferFrameworkModule(const DirectoryEntry *FrameworkDir,
   if (!Result->isSubFramework()) {
     inferFrameworkLink(Result, FrameworkDir, FileMgr);
   }
+
+  return Result;
+}
+
+Module *ModuleMap::createShadowedModule(StringRef Name, bool IsFramework,
+                                        Module *ShadowingModule) {
+
+  // Create a new module with this name.
+  Module *Result =
+      new Module(Name, SourceLocation(), /*Parent=*/nullptr, IsFramework,
+                 /*IsExplicit=*/false, NumCreatedModules++);
+  Result->ShadowingModule = ShadowingModule;
+  Result->IsAvailable = false;
+  ModuleScopeIDs[Result] = CurrentModuleScopeID;
+  ShadowModules.push_back(Result);
 
   return Result;
 }
@@ -1319,7 +1338,7 @@ namespace clang {
 
     /// \brief Consume the current token and return its location.
     SourceLocation consumeToken();
-    
+
     /// \brief Skip tokens until we reach the a token with the given kind
     /// (or the end of the file).
     void skipUntil(MMToken::TokenKind K);
@@ -1345,20 +1364,17 @@ namespace clang {
     bool parseOptionalAttributes(Attributes &Attrs);
     
   public:
-    explicit ModuleMapParser(Lexer &L, SourceManager &SourceMgr, 
-                             const TargetInfo *Target,
-                             DiagnosticsEngine &Diags,
-                             ModuleMap &Map,
-                             const FileEntry *ModuleMapFile,
-                             const DirectoryEntry *Directory,
-                             bool IsSystem)
+    explicit ModuleMapParser(Lexer &L, SourceManager &SourceMgr,
+                             const TargetInfo *Target, DiagnosticsEngine &Diags,
+                             ModuleMap &Map, const FileEntry *ModuleMapFile,
+                             const DirectoryEntry *Directory, bool IsSystem)
         : L(L), SourceMgr(SourceMgr), Target(Target), Diags(Diags), Map(Map),
           ModuleMapFile(ModuleMapFile), Directory(Directory),
           IsSystem(IsSystem) {
       Tok.clear();
       consumeToken();
     }
-    
+
     bool parseModuleMapFile();
 
     bool terminatedByDirective() { return false; }
@@ -1614,14 +1630,15 @@ namespace {
 /// in other ways (FooPrivate and Foo.Private), providing notes and fixits.
 static void diagnosePrivateModules(const ModuleMap &Map,
                                    DiagnosticsEngine &Diags,
-                                   const Module *ActiveModule) {
+                                   const Module *ActiveModule,
+                                   SourceLocation InlineParent) {
 
   auto GenNoteAndFixIt = [&](StringRef BadName, StringRef Canonical,
-                             const Module *M) {
+                             const Module *M, SourceRange ReplLoc) {
     auto D = Diags.Report(ActiveModule->DefinitionLoc,
                           diag::note_mmap_rename_top_level_private_module);
     D << BadName << M->Name;
-    D << FixItHint::CreateReplacement(ActiveModule->DefinitionLoc, Canonical);
+    D << FixItHint::CreateReplacement(ReplLoc, Canonical);
   };
 
   for (auto E = Map.module_begin(); E != Map.module_end(); ++E) {
@@ -1641,7 +1658,8 @@ static void diagnosePrivateModules(const ModuleMap &Map,
       Diags.Report(ActiveModule->DefinitionLoc,
                    diag::warn_mmap_mismatched_private_submodule)
           << FullName;
-      GenNoteAndFixIt(FullName, Canonical, M);
+      GenNoteAndFixIt(FullName, Canonical, M,
+                      SourceRange(InlineParent, ActiveModule->DefinitionLoc));
       continue;
     }
 
@@ -1651,7 +1669,8 @@ static void diagnosePrivateModules(const ModuleMap &Map,
       Diags.Report(ActiveModule->DefinitionLoc,
                    diag::warn_mmap_mismatched_private_module_name)
           << ActiveModule->Name;
-      GenNoteAndFixIt(ActiveModule->Name, Canonical, M);
+      GenNoteAndFixIt(ActiveModule->Name, Canonical, M,
+                      SourceRange(ActiveModule->DefinitionLoc));
     }
   }
 }
@@ -1737,6 +1756,7 @@ void ModuleMapParser::parseModuleDecl() {
   }
   
   Module *PreviousActiveModule = ActiveModule;  
+  SourceLocation LastInlineParentLoc = SourceLocation();
   if (Id.size() > 1) {
     // This module map defines a submodule. Go find the module of which it
     // is a submodule.
@@ -1747,6 +1767,7 @@ void ModuleMapParser::parseModuleDecl() {
         if (I == 0)
           TopLevelModule = Next;
         ActiveModule = Next;
+        LastInlineParentLoc = Id[I].second;
         continue;
       }
       
@@ -1787,6 +1808,7 @@ void ModuleMapParser::parseModuleDecl() {
   SourceLocation LBraceLoc = consumeToken();
   
   // Determine whether this (sub)module has already been defined.
+  Module *ShadowingModule = nullptr;
   if (Module *Existing = Map.lookupModuleQualified(ModuleName, ActiveModule)) {
     // We might see a (re)definition of a module that we already have a
     // definition for in two cases:
@@ -1812,23 +1834,35 @@ void ModuleMapParser::parseModuleDecl() {
       }
       return;
     }
-    
-    Diags.Report(ModuleNameLoc, diag::err_mmap_module_redefinition)
-      << ModuleName;
-    Diags.Report(Existing->DefinitionLoc, diag::note_mmap_prev_definition);
-    
-    // Skip the module definition.
-    skipUntil(MMToken::RBrace);
-    if (Tok.is(MMToken::RBrace))
-      consumeToken();
-    
-    HadError = true;
-    return;
+
+    if (!Existing->Parent && Map.mayShadowNewModule(Existing)) {
+      ShadowingModule = Existing;
+    } else {
+      // This is not a shawdowed module decl, it is an illegal redefinition.
+      Diags.Report(ModuleNameLoc, diag::err_mmap_module_redefinition)
+          << ModuleName;
+      Diags.Report(Existing->DefinitionLoc, diag::note_mmap_prev_definition);
+
+      // Skip the module definition.
+      skipUntil(MMToken::RBrace);
+      if (Tok.is(MMToken::RBrace))
+        consumeToken();
+
+      HadError = true;
+      return;
+    }
   }
 
   // Start defining this module.
-  ActiveModule = Map.findOrCreateModule(ModuleName, ActiveModule, Framework,
-                                        Explicit).first;
+  if (ShadowingModule) {
+    ActiveModule =
+        Map.createShadowedModule(ModuleName, Framework, ShadowingModule);
+  } else {
+    ActiveModule =
+        Map.findOrCreateModule(ModuleName, ActiveModule, Framework, Explicit)
+            .first;
+  }
+
   ActiveModule->DefinitionLoc = ModuleNameLoc;
   if (Attrs.IsSystem || IsSystem)
     ActiveModule->IsSystem = true;
@@ -1853,7 +1887,7 @@ void ModuleMapParser::parseModuleDecl() {
                        StartLoc) &&
       (MapFileName.endswith("module.private.modulemap") ||
        MapFileName.endswith("module_private.map")))
-    diagnosePrivateModules(Map, Diags, ActiveModule);
+    diagnosePrivateModules(Map, Diags, ActiveModule, LastInlineParentLoc);
 
   bool Done = false;
   do {
@@ -2854,5 +2888,6 @@ bool ModuleMap::parseModuleMapFile(const FileEntry *File, bool IsSystem,
   // Notify callbacks that we parsed it.
   for (const auto &Cb : Callbacks)
     Cb->moduleMapFileRead(Start, *File, IsSystem);
+
   return Result;
 }

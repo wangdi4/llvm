@@ -14,6 +14,7 @@
 #include "Symbols.h"
 #include "lld/Common/ErrorHandler.h"
 #include "lld/Common/Memory.h"
+#include "lld/Common/Timer.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -23,6 +24,8 @@ using namespace llvm;
 
 namespace lld {
 namespace coff {
+
+static Timer LTOTimer("LTO", Timer::root());
 
 SymbolTable *Symtab;
 
@@ -120,7 +123,7 @@ void SymbolTable::reportRemainingUndefines() {
     if (Config->WarnLocallyDefinedImported)
       if (Symbol *Imp = LocalImports.lookup(B))
         warn("<root>: locally defined symbol imported: " + Imp->getName() +
-             " (defined in " + toString(Imp->getFile()) + ")");
+             " (defined in " + toString(Imp->getFile()) + ") [LNK4217]");
   }
 
   for (ObjFile *File : ObjFile::Instances) {
@@ -133,7 +136,7 @@ void SymbolTable::reportRemainingUndefines() {
         if (Symbol *Imp = LocalImports.lookup(Sym))
           warn(toString(File) + ": locally defined symbol imported: " +
                Imp->getName() + " (defined in " + toString(Imp->getFile()) +
-               ")");
+               ") [LNK4217]");
     }
   }
 }
@@ -142,7 +145,7 @@ std::pair<Symbol *, bool> SymbolTable::insert(StringRef Name) {
   Symbol *&Sym = SymMap[CachedHashStringRef(Name)];
   if (Sym)
     return {Sym, false};
-  Sym = (Symbol *)make<SymbolUnion>();
+  Sym = reinterpret_cast<Symbol *>(make<SymbolUnion>());
   Sym->IsUsedInRegularObj = false;
   Sym->PendingArchiveLoad = false;
   return {Sym, true};
@@ -314,10 +317,7 @@ std::vector<Chunk *> SymbolTable::getChunks() {
 }
 
 Symbol *SymbolTable::find(StringRef Name) {
-  auto It = SymMap.find(CachedHashStringRef(Name));
-  if (It == SymMap.end())
-    return nullptr;
-  return It->second;
+  return SymMap.lookup(CachedHashStringRef(Name));
 }
 
 Symbol *SymbolTable::findUnderscore(StringRef Name) {
@@ -384,6 +384,8 @@ std::vector<StringRef> SymbolTable::compileBitcodeFiles() {
 void SymbolTable::addCombinedLTOObjects() {
   if (BitcodeFile::Instances.empty())
     return;
+
+  ScopedTimer T(LTOTimer);
   for (StringRef Object : compileBitcodeFiles()) {
     auto *Obj = make<ObjFile>(MemoryBufferRef(Object, "lto.tmp"));
     Obj->parse();

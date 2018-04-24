@@ -27,7 +27,7 @@
 #include "lldb/Interpreter/Args.h"
 #include "lldb/lldb-public.h"
 
-#include "Utility/StringExtractorGDBRemote.h"
+#include "lldb/Utility/StringExtractorGDBRemote.h"
 
 namespace lldb_private {
 namespace process_gdb_remote {
@@ -231,6 +231,11 @@ protected:
 
   PacketResult ReadPacket(StringExtractorGDBRemote &response,
                           Timeout<std::micro> timeout, bool sync_on_timeout);
+
+  PacketResult ReadPacketWithOutputSupport(
+      StringExtractorGDBRemote &response, Timeout<std::micro> timeout,
+      bool sync_on_timeout,
+      llvm::function_ref<void(llvm::StringRef)> output_callback);
 
   // Pop a packet from the queue in a thread safe manner
   PacketResult PopPacketFromQueue(StringExtractorGDBRemote &response,

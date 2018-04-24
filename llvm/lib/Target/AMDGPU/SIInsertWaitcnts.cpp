@@ -115,11 +115,11 @@ enum RegisterMapping {
        (w) = (enum WaitEventType)((w) + 1))
 
 // This is a per-basic-block object that maintains current score brackets
-// of each wait-counter, and a per-register scoreboard for each wait-couner.
+// of each wait counter, and a per-register scoreboard for each wait counter.
 // We also maintain the latest score for every event type that can change the
 // waitcnt in order to know if there are multiple types of events within
 // the brackets. When multiple types of event happen in the bracket,
-// wait-count may get decreased out of order, therefore we need to put in
+// wait count may get decreased out of order, therefore we need to put in
 // "s_waitcnt 0" before use.
 class BlockWaitcntBrackets {
 public:
@@ -361,7 +361,7 @@ private:
   AMDGPUAS AMDGPUASI;
 
   DenseSet<MachineBasicBlock *> BlockVisitedSet;
-  DenseSet<MachineInstr *> CompilerGeneratedWaitcntSet;
+  DenseSet<MachineInstr *> TrackedWaitcntSet;
   DenseSet<MachineInstr *> VCCZBugHandledSet;
 
   DenseMap<MachineBasicBlock *, std::unique_ptr<BlockWaitcntBrackets>>
@@ -398,14 +398,16 @@ public:
   }
 
   bool mayAccessLDSThroughFlat(const MachineInstr &MI) const;
-  MachineInstr *generateSWaitCntInstBefore(MachineInstr &MI,
-                                           BlockWaitcntBrackets *ScoreBrackets);
+  void generateSWaitCntInstBefore(MachineInstr &MI,
+                                  BlockWaitcntBrackets *ScoreBrackets);
   void updateEventWaitCntAfter(MachineInstr &Inst,
                                BlockWaitcntBrackets *ScoreBrackets);
   void mergeInputScoreBrackets(MachineBasicBlock &Block);
   MachineBasicBlock *loopBottom(const MachineLoop *Loop);
   void insertWaitcntInBlock(MachineFunction &MF, MachineBasicBlock &Block);
   void insertWaitcntBeforeCF(MachineBasicBlock &Block, MachineInstr *Inst);
+  bool isWaitcntStronger(unsigned LHS, unsigned RHS);
+  unsigned combineWaitcnt(unsigned LHS, unsigned RHS);
 };
 
 } // end anonymous namespace
@@ -688,7 +690,7 @@ unsigned int BlockWaitcntBrackets::updateByWait(InstCounterType T,
       setScoreLB(T, getScoreUB(T));
     } else if (counterOutOfOrder(T)) {
       // Counter can get decremented out-of-order when there
-      // are multiple types event in the brack. Also emit an s_wait counter
+      // are multiple types event in the bracket. Also emit an s_wait counter
       // with a conservative value of 0 for the counter.
       NeedWait = CNT_MASK(T);
       setScoreLB(T, getScoreUB(T));
@@ -789,6 +791,29 @@ static bool readsVCCZ(const MachineInstr &MI) {
          !MI.getOperand(1).isUndef();
 }
 
+/// \brief Given wait count encodings checks if LHS is stronger than RHS.
+bool SIInsertWaitcnts::isWaitcntStronger(unsigned LHS, unsigned RHS) {
+  if (AMDGPU::decodeVmcnt(IV, LHS) > AMDGPU::decodeVmcnt(IV, RHS))
+    return false;
+  if (AMDGPU::decodeLgkmcnt(IV, LHS) > AMDGPU::decodeLgkmcnt(IV, RHS))
+    return false;
+  if (AMDGPU::decodeExpcnt(IV, LHS) > AMDGPU::decodeExpcnt(IV, RHS))
+    return false;
+  return true;
+}
+
+/// \brief Given wait count encodings create a new encoding which is stronger
+/// or equal to both.
+unsigned SIInsertWaitcnts::combineWaitcnt(unsigned LHS, unsigned RHS) {
+  unsigned VmCnt = std::min(AMDGPU::decodeVmcnt(IV, LHS),
+                            AMDGPU::decodeVmcnt(IV, RHS));
+  unsigned LgkmCnt = std::min(AMDGPU::decodeLgkmcnt(IV, LHS),
+                              AMDGPU::decodeLgkmcnt(IV, RHS));
+  unsigned ExpCnt = std::min(AMDGPU::decodeExpcnt(IV, LHS),
+                             AMDGPU::decodeExpcnt(IV, RHS));
+  return AMDGPU::encodeWaitcnt(IV, VmCnt, ExpCnt, LgkmCnt);
+}
+
 ///  \brief Generate s_waitcnt instruction to be placed before cur_Inst.
 ///  Instructions of a given type are returned in order,
 ///  but instructions of different types can complete out of order.
@@ -799,13 +824,11 @@ static bool readsVCCZ(const MachineInstr &MI) {
 ///  and if so what the value of each counter is.
 ///  The "score bracket" is bound by the lower bound and upper bound
 ///  scores (*_score_LB and *_score_ub respectively).
-MachineInstr *SIInsertWaitcnts::generateSWaitCntInstBefore(
+void SIInsertWaitcnts::generateSWaitCntInstBefore(
     MachineInstr &MI, BlockWaitcntBrackets *ScoreBrackets) {
   // To emit, or not to emit - that's the question!
   // Start with an assumption that there is no need to emit.
   unsigned int EmitSwaitcnt = 0;
-  // s_waitcnt instruction to return; default is NULL.
-  MachineInstr *SWaitInst = nullptr;
   // No need to wait before phi. If a phi-move exists, then the wait should
   // has been inserted before the move. If a phi-move does not exist, then
   // wait should be inserted before the real use. The same is true for
@@ -815,7 +838,7 @@ MachineInstr *SIInsertWaitcnts::generateSWaitCntInstBefore(
   if (MI.isDebugValue() &&
       // TODO: any other opcode?
       !NeedLineMapping) {
-    return SWaitInst;
+    return;
   }
 
   // See if an s_waitcnt is forced at block entry, or is needed at
@@ -1102,7 +1125,8 @@ MachineInstr *SIInsertWaitcnts::generateSWaitCntInstBefore(
     if (EmitSwaitcnt != 0) {
       MachineInstr *OldWaitcnt = ScoreBrackets->getWaitcnt();
       int Imm = (!OldWaitcnt) ? 0 : OldWaitcnt->getOperand(0).getImm();
-      if (!OldWaitcnt || (AMDGPU::decodeVmcnt(IV, Imm) !=
+      if (!OldWaitcnt ||
+          (AMDGPU::decodeVmcnt(IV, Imm) !=
                           (CntVal[VM_CNT] & AMDGPU::getVmcntBitMask(IV))) ||
           (AMDGPU::decodeExpcnt(IV, Imm) !=
            (CntVal[EXP_CNT] & AMDGPU::getExpcntBitMask(IV))) ||
@@ -1114,39 +1138,69 @@ MachineInstr *SIInsertWaitcnts::generateSWaitCntInstBefore(
           BlockWaitcntBrackets *ScoreBracket =
               BlockWaitcntBracketsMap[TBB].get();
           if (!ScoreBracket) {
-            assert(BlockVisitedSet.find(TBB) == BlockVisitedSet.end());
+            assert(!BlockVisitedSet.count(TBB));
             BlockWaitcntBracketsMap[TBB] =
                 llvm::make_unique<BlockWaitcntBrackets>();
             ScoreBracket = BlockWaitcntBracketsMap[TBB].get();
           }
           ScoreBracket->setRevisitLoop(true);
-          DEBUG(dbgs() << "set-revisit: block"
+          DEBUG(dbgs() << "set-revisit: Block"
                        << ContainingLoop->getHeader()->getNumber() << '\n';);
         }
       }
 
       // Update an existing waitcount, or make a new one.
-      MachineFunction &MF = *MI.getParent()->getParent();
-      if (OldWaitcnt && OldWaitcnt->getOpcode() != AMDGPU::S_WAITCNT) {
-        SWaitInst = OldWaitcnt;
-      } else {
-        SWaitInst = MF.CreateMachineInstr(TII->get(AMDGPU::S_WAITCNT),
-                                          MI.getDebugLoc());
-        CompilerGeneratedWaitcntSet.insert(SWaitInst);
-      }
+      unsigned Enc = AMDGPU::encodeWaitcnt(IV, CntVal[VM_CNT],
+                                           CntVal[EXP_CNT], CntVal[LGKM_CNT]);
+      // We don't remove waitcnts that existed prior to the waitcnt
+      // pass. Check if the waitcnt to-be-inserted can be avoided
+      // or if the prev waitcnt can be updated.
+      bool insertSWaitInst = true;
+      for (MachineBasicBlock::iterator I = MI.getIterator(),
+                                       B = MI.getParent()->begin();
+           insertSWaitInst && I != B; --I) {
+        if (I == MI.getIterator())
+          continue;
 
-      const MachineOperand &Op =
-          MachineOperand::CreateImm(AMDGPU::encodeWaitcnt(
-              IV, CntVal[VM_CNT], CntVal[EXP_CNT], CntVal[LGKM_CNT]));
-      SWaitInst->addOperand(MF, Op);
+        switch (I->getOpcode()) {
+        case AMDGPU::S_WAITCNT:
+          if (isWaitcntStronger(I->getOperand(0).getImm(), Enc))
+            insertSWaitInst = false;
+          else if (!OldWaitcnt) {
+            OldWaitcnt = &*I;
+            Enc = combineWaitcnt(I->getOperand(0).getImm(), Enc);
+          }
+          break;
+        // TODO: skip over instructions which never require wait.
+        }
+        break;
+      }
+      if (insertSWaitInst) {
+        if (OldWaitcnt && OldWaitcnt->getOpcode() == AMDGPU::S_WAITCNT) {
+          OldWaitcnt->getOperand(0).setImm(Enc);
+          if (!OldWaitcnt->getParent())
+            MI.getParent()->insert(MI, OldWaitcnt);
+
+          DEBUG(dbgs() << "updateWaitcntInBlock\n"
+                       << "Old Instr: " << MI << '\n'
+                       << "New Instr: " << *OldWaitcnt << '\n');
+        } else {
+            auto SWaitInst = BuildMI(*MI.getParent(), MI.getIterator(),
+                               MI.getDebugLoc(), TII->get(AMDGPU::S_WAITCNT))
+                             .addImm(Enc);
+            TrackedWaitcntSet.insert(SWaitInst);
+
+            DEBUG(dbgs() << "insertWaitcntInBlock\n"
+                         << "Old Instr: " << MI << '\n'
+                         << "New Instr: " << *SWaitInst << '\n');
+        }
+      }
 
       if (CntVal[EXP_CNT] == 0) {
         ScoreBrackets->setMixedExpTypes(false);
       }
     }
   }
-
-  return SWaitInst;
 }
 
 void SIInsertWaitcnts::insertWaitcntBeforeCF(MachineBasicBlock &MBB,
@@ -1247,27 +1301,37 @@ void SIInsertWaitcnts::updateEventWaitCntAfter(
   }
 }
 
+// Merge the score brackets of the Block's predecessors;
+// this merged score bracket is used when adding waitcnts to the Block
 void SIInsertWaitcnts::mergeInputScoreBrackets(MachineBasicBlock &Block) {
   BlockWaitcntBrackets *ScoreBrackets = BlockWaitcntBracketsMap[&Block].get();
   int32_t MaxPending[NUM_INST_CNTS] = {0};
   int32_t MaxFlat[NUM_INST_CNTS] = {0};
   bool MixedExpTypes = false;
 
-  // Clear the score bracket state.
+  // For single basic block loops, we need to retain the Block's
+  // score bracket to have accurate Pred info. So, make a copy of Block's
+  // score bracket, clear() it (which retains several important bits of info),
+  // populate, and then replace en masse. For non-single basic block loops,
+  // just clear Block's current score bracket and repopulate in-place.
+  bool IsSelfPred;
+  std::unique_ptr<BlockWaitcntBrackets> S;
+
+  IsSelfPred = (std::find(Block.pred_begin(), Block.pred_end(), &Block))
+    != Block.pred_end();
+  if (IsSelfPred) {
+    S = llvm::make_unique<BlockWaitcntBrackets>(*ScoreBrackets);
+    ScoreBrackets = S.get();
+  }
+
   ScoreBrackets->clear();
-
-  // Compute the number of pending elements on block entry.
-
-  // IMPORTANT NOTE: If iterative handling of loops is added, the code will
-  // need to handle single BBs with backedges to themselves. This means that
-  // they will need to retain and not clear their initial state.
 
   // See if there are any uninitialized predecessors. If so, emit an
   // s_waitcnt 0 at the beginning of the block.
-  for (MachineBasicBlock *pred : Block.predecessors()) {
+  for (MachineBasicBlock *Pred : Block.predecessors()) {
     BlockWaitcntBrackets *PredScoreBrackets =
-        BlockWaitcntBracketsMap[pred].get();
-    bool Visited = BlockVisitedSet.find(pred) != BlockVisitedSet.end();
+        BlockWaitcntBracketsMap[Pred].get();
+    bool Visited = BlockVisitedSet.count(Pred);
     if (!Visited || PredScoreBrackets->getWaitAtBeginning()) {
       continue;
     }
@@ -1306,7 +1370,7 @@ void SIInsertWaitcnts::mergeInputScoreBrackets(MachineBasicBlock &Block) {
   for (MachineBasicBlock *Pred : Block.predecessors()) {
     BlockWaitcntBrackets *PredScoreBrackets =
         BlockWaitcntBracketsMap[Pred].get();
-    bool Visited = BlockVisitedSet.find(Pred) != BlockVisitedSet.end();
+    bool Visited = BlockVisitedSet.count(Pred);
     if (!Visited || PredScoreBrackets->getWaitAtBeginning()) {
       continue;
     }
@@ -1354,7 +1418,7 @@ void SIInsertWaitcnts::mergeInputScoreBrackets(MachineBasicBlock &Block) {
 
   // Set the register scoreboard.
   for (MachineBasicBlock *Pred : Block.predecessors()) {
-    if (BlockVisitedSet.find(Pred) == BlockVisitedSet.end()) {
+    if (!BlockVisitedSet.count(Pred)) {
       continue;
     }
 
@@ -1468,7 +1532,7 @@ void SIInsertWaitcnts::mergeInputScoreBrackets(MachineBasicBlock &Block) {
   // sequencing predecessors, because changes to EXEC require waitcnts due to
   // the delayed nature of these operations.
   for (MachineBasicBlock *Pred : Block.predecessors()) {
-    if (BlockVisitedSet.find(Pred) == BlockVisitedSet.end()) {
+    if (!BlockVisitedSet.count(Pred)) {
       continue;
     }
 
@@ -1495,6 +1559,12 @@ void SIInsertWaitcnts::mergeInputScoreBrackets(MachineBasicBlock &Block) {
             std::max(ScoreBrackets->getEventUB(EXP_GPR_LOCK), new_exp_ub));
       }
     }
+  }
+
+  // if a single block loop, update the score brackets. Not needed for other
+  // blocks, as we did this in-place
+  if (IsSelfPred) {
+    BlockWaitcntBracketsMap[&Block] = llvm::make_unique<BlockWaitcntBrackets>(*ScoreBrackets);
   }
 }
 
@@ -1528,16 +1598,16 @@ void SIInsertWaitcnts::insertWaitcntInBlock(MachineFunction &MF,
     MachineInstr &Inst = *Iter;
     // Remove any previously existing waitcnts.
     if (Inst.getOpcode() == AMDGPU::S_WAITCNT) {
-      // TODO: Register the old waitcnt and optimize the following waitcnts.
-      // Leaving the previously existing waitcnts is conservatively correct.
-      if (CompilerGeneratedWaitcntSet.find(&Inst) ==
-          CompilerGeneratedWaitcntSet.end())
+      // Leave pre-existing waitcnts, but note their existence via setWaitcnt.
+      // Remove the waitcnt-pass-generated waitcnts; the pass will add them back
+      // as needed.
+      if (!TrackedWaitcntSet.count(&Inst))
         ++Iter;
       else {
-        ScoreBrackets->setWaitcnt(&Inst);
         ++Iter;
         Inst.removeFromParent();
       }
+      ScoreBrackets->setWaitcnt(&Inst);
       continue;
     }
 
@@ -1550,7 +1620,7 @@ void SIInsertWaitcnts::insertWaitcntInBlock(MachineFunction &MF,
 
     bool VCCZBugWorkAround = false;
     if (readsVCCZ(Inst) &&
-        (VCCZBugHandledSet.find(&Inst) == VCCZBugHandledSet.end())) {
+        (!VCCZBugHandledSet.count(&Inst))) {
       if (ScoreBrackets->getScoreLB(LGKM_CNT) <
               ScoreBrackets->getScoreUB(LGKM_CNT) &&
           ScoreBrackets->hasPendingSMEM()) {
@@ -1561,16 +1631,7 @@ void SIInsertWaitcnts::insertWaitcntInBlock(MachineFunction &MF,
 
     // Generate an s_waitcnt instruction to be placed before
     // cur_Inst, if needed.
-    MachineInstr *SWaitInst = generateSWaitCntInstBefore(Inst, ScoreBrackets);
-
-    if (SWaitInst) {
-      Block.insert(Inst, SWaitInst);
-      if (ScoreBrackets->getWaitcnt() != SWaitInst) {
-        DEBUG(dbgs() << "insertWaitcntInBlock\n"
-                     << "Old Instr: " << Inst << '\n'
-                     << "New Instr: " << *SWaitInst << '\n';);
-      }
-    }
+    generateSWaitCntInstBefore(Inst, ScoreBrackets);
 
     updateEventWaitCntAfter(Inst, ScoreBrackets);
 
@@ -1587,9 +1648,6 @@ void SIInsertWaitcnts::insertWaitcntInBlock(MachineFunction &MF,
 
     ScoreBrackets->clearWaitcnt();
 
-    if (SWaitInst) {
-      DEBUG({ SWaitInst->print(dbgs() << '\n'); });
-    }
     DEBUG({
       Inst.print(dbgs());
       ScoreBrackets->dump();
@@ -1640,8 +1698,8 @@ void SIInsertWaitcnts::insertWaitcntInBlock(MachineFunction &MF,
     if (WaitcntData->getIterCnt() > 2) {
       // To ensure convergence, need to make wait events at loop footer be no
       // more than those from the previous iteration.
-      // As a simplification, Instead of tracking individual scores and
-      // generate the precise wait count, just wait on 0.
+      // As a simplification, instead of tracking individual scores and
+      // generating the precise wait count, just wait on 0.
       bool HasPending = false;
       MachineInstr *SWaitInst = WaitcntData->getWaitcnt();
       for (enum InstCounterType T = VM_CNT; T < NUM_INST_CNTS;
@@ -1656,7 +1714,7 @@ void SIInsertWaitcnts::insertWaitcntInBlock(MachineFunction &MF,
         if (!SWaitInst) {
           SWaitInst = Block.getParent()->CreateMachineInstr(
               TII->get(AMDGPU::S_WAITCNT), DebugLoc());
-          CompilerGeneratedWaitcntSet.insert(SWaitInst);
+          TrackedWaitcntSet.insert(SWaitInst);
           const MachineOperand &Op = MachineOperand::CreateImm(0);
           SWaitInst->addOperand(MF, Op);
 #if 0 // TODO: Format the debug output
@@ -1678,7 +1736,7 @@ void SIInsertWaitcnts::insertWaitcntInBlock(MachineFunction &MF,
 
         // Add this waitcnt to the block. It is either newly created or
         // created in previous iterations and added back since block traversal
-        // always remove waitcnt.
+        // always removes waitcnts.
         insertWaitcntBeforeCF(Block, SWaitInst);
         WaitcntData->setWaitcnt(SWaitInst);
       }
@@ -1712,6 +1770,10 @@ bool SIInsertWaitcnts::runOnMachineFunction(MachineFunction &MF) {
   RegisterEncoding.SGPRL =
       RegisterEncoding.SGPR0 + HardwareLimits.NumSGPRsMax - 1;
 
+  TrackedWaitcntSet.clear();
+  BlockVisitedSet.clear();
+  VCCZBugHandledSet.clear();
+
   // Walk over the blocks in reverse post-dominator order, inserting
   // s_waitcnt where needed.
   ReversePostOrderTraversal<MachineFunction *> RPOT(&MF);
@@ -1738,10 +1800,9 @@ bool SIInsertWaitcnts::runOnMachineFunction(MachineFunction &MF) {
     // at least 1 re-walk over the loop to propagate the information, even if
     // no S_WAITCNT instructions were generated.
     if (ContainingLoop && ContainingLoop->getHeader() == &MBB && J < I &&
-        (BlockWaitcntProcessedSet.find(&MBB) ==
-         BlockWaitcntProcessedSet.end())) {
+        (!BlockWaitcntProcessedSet.count(&MBB))) {
       BlockWaitcntBracketsMap[&MBB]->setRevisitLoop(true);
-      DEBUG(dbgs() << "set-revisit: block"
+      DEBUG(dbgs() << "set-revisit: Block"
                    << ContainingLoop->getHeader()->getNumber() << '\n';);
     }
 
@@ -1772,7 +1833,7 @@ bool SIInsertWaitcnts::runOnMachineFunction(MachineFunction &MF) {
         }
         LoopWaitcntData *WaitcntData = LoopWaitcntDataMap[ContainingLoop].get();
         WaitcntData->incIterCnt();
-        DEBUG(dbgs() << "revisit: block" << EntryBB->getNumber() << '\n';);
+        DEBUG(dbgs() << "revisit: Block" << EntryBB->getNumber() << '\n';);
         continue;
       } else {
         LoopWaitcntData *WaitcntData = LoopWaitcntDataMap[ContainingLoop].get();
@@ -1837,7 +1898,7 @@ bool SIInsertWaitcnts::runOnMachineFunction(MachineFunction &MF) {
 
   if (!MFI->isEntryFunction()) {
     // Wait for any outstanding memory operations that the input registers may
-    // depend on. We can't track them and it's better to to the wait after the
+    // depend on. We can't track them and it's better to the wait after the
     // costly call sequence.
 
     // TODO: Could insert earlier and schedule more liberally with operations

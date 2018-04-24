@@ -971,7 +971,7 @@ StringRef Lexer::getSourceText(CharSourceRange Range,
 StringRef Lexer::getImmediateMacroName(SourceLocation Loc,
                                        const SourceManager &SM,
                                        const LangOptions &LangOpts) {
-  assert(Loc.isMacroID() && "Only reasonble to call this on macros");
+  assert(Loc.isMacroID() && "Only reasonable to call this on macros");
 
   // Find the location of the immediate macro expansion.
   while (true) {
@@ -1017,7 +1017,7 @@ StringRef Lexer::getImmediateMacroName(SourceLocation Loc,
 
 StringRef Lexer::getImmediateMacroNameForDiagnostics(
     SourceLocation Loc, const SourceManager &SM, const LangOptions &LangOpts) {
-  assert(Loc.isMacroID() && "Only reasonble to call this on macros");
+  assert(Loc.isMacroID() && "Only reasonable to call this on macros");
   // Walk past macro argument expanions.
   while (SM.isMacroArgExpansion(Loc))
     Loc = SM.getImmediateExpansionRange(Loc).first;
@@ -2009,18 +2009,21 @@ bool Lexer::LexAngledStringLiteral(Token &Result, const char *CurPtr) {
   const char *AfterLessPos = CurPtr;
   char C = getAndAdvanceChar(CurPtr, Result);
   while (C != '>') {
-    // Skip escaped characters.
-    if (C == '\\' && CurPtr < BufferEnd) {
-      // Skip the escaped character.
-      getAndAdvanceChar(CurPtr, Result);
-    } else if (C == '\n' || C == '\r' ||             // Newline.
-               (C == 0 && (CurPtr-1 == BufferEnd ||  // End of file.
-                           isCodeCompletionPoint(CurPtr-1)))) {
+    // Skip escaped characters.  Escaped newlines will already be processed by
+    // getAndAdvanceChar.
+    if (C == '\\')
+      C = getAndAdvanceChar(CurPtr, Result);
+
+    if (C == '\n' || C == '\r' ||             // Newline.
+        (C == 0 && (CurPtr-1 == BufferEnd ||  // End of file.
+                    isCodeCompletionPoint(CurPtr-1)))) {
       // If the filename is unterminated, then it must just be a lone <
       // character.  Return this as such.
       FormTokenWithChars(Result, AfterLessPos, tok::less);
       return true;
-    } else if (C == 0) {
+    }
+
+    if (C == 0) {
       NulCharacter = CurPtr-1;
     }
     C = getAndAdvanceChar(CurPtr, Result);
@@ -2160,7 +2163,7 @@ bool Lexer::SkipWhitespace(Token &Result, const char *CurPtr,
 }
 
 /// We have just read the // characters from input.  Skip until we find the
-/// newline character thats terminate the comment.  Then update BufferPtr and
+/// newline character that terminates the comment.  Then update BufferPtr and
 /// return.
 ///
 /// If we're in KeepCommentMode or any CommentHandler has inserted
@@ -3509,7 +3512,7 @@ LexNextToken:
       // want to lex this as a comment.  There is one problem with this though,
       // that in one particular corner case, this can change the behavior of the
       // resultant program.  For example, In  "foo //**/ bar", C89 would lex
-      // this as "foo / bar" and langauges with Line comments would lex it as
+      // this as "foo / bar" and languages with Line comments would lex it as
       // "foo".  Check to see if the character after the second slash is a '*'.
       // If so, we will lex that as a "/" instead of the start of a comment.
       // However, we never do this if we are just preprocessing.
