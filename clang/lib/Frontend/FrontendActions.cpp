@@ -74,7 +74,8 @@ ASTPrintAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
 
 std::unique_ptr<ASTConsumer>
 ASTDumpAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
-  return CreateASTDumper(CI.getFrontendOpts().ASTDumpFilter,
+  return CreateASTDumper(nullptr /*Dump to stdout.*/,
+                         CI.getFrontendOpts().ASTDumpFilter,
                          CI.getFrontendOpts().ASTDumpDecls,
                          CI.getFrontendOpts().ASTDumpAll,
                          CI.getFrontendOpts().ASTDumpLookups);
@@ -261,6 +262,8 @@ VerifyPCHAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
 }
 
 void VerifyPCHAction::ExecuteAction() {
+  llvm::NamedRegionTimer T("verifypch", "Verify PCH actions", GroupName,
+                           GroupDescription, llvm::TimePassesIsEnabled);
   CompilerInstance &CI = getCompilerInstance();
   bool Preamble = CI.getPreprocessorOpts().PrecompiledPreambleBytes.first != 0;
   const std::string &Sysroot = CI.getHeaderSearchOpts().Sysroot;
@@ -658,6 +661,8 @@ void PreprocessOnlyAction::ExecuteAction() {
 }
 
 void PrintPreprocessedAction::ExecuteAction() {
+  llvm::NamedRegionTimer T("printpp", "Print PP actions", GroupName,
+                           GroupDescription, llvm::TimePassesIsEnabled);
   CompilerInstance &CI = getCompilerInstance();
   // Output file may need to be set to 'Binary', to avoid converting Unix style
   // line feeds (<LF>) to Microsoft style line feeds (<CR><LF>).

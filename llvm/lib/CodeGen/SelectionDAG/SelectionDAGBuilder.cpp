@@ -50,7 +50,6 @@
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/CodeGen/RuntimeLibcalls.h"
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
@@ -103,6 +102,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/MachineValueType.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetIntrinsicInfo.h"
@@ -1080,62 +1080,59 @@ void SelectionDAGBuilder::visit(unsigned Opcode, const User &I) {
 
 void SelectionDAGBuilder::dropDanglingDebugInfo(const DILocalVariable *Variable,
                                                 const DIExpression *Expr) {
-  SmallVector<const Value *, 4> ToRemove;
-  for (auto &DMI : DanglingDebugInfoMap) {
-    DanglingDebugInfo &DDI = DMI.second;
-    if (DDI.getDI()) {
-      const DbgValueInst *DI = DDI.getDI();
-      DIVariable *DanglingVariable = DI->getVariable();
-      DIExpression *DanglingExpr = DI->getExpression();
-      if (DanglingVariable == Variable &&
-          Expr->fragmentsOverlap(DanglingExpr)) {
-        DEBUG(dbgs() << "Dropping dangling debug info for " << *DI << "\n");
-        ToRemove.push_back(DMI.first);
+  for (auto &DDIMI : DanglingDebugInfoMap)
+    for (auto &DDI : DDIMI.second)
+      if (DDI.getDI()) {
+        const DbgValueInst *DI = DDI.getDI();
+        DIVariable *DanglingVariable = DI->getVariable();
+        DIExpression *DanglingExpr = DI->getExpression();
+        if (DanglingVariable == Variable &&
+            Expr->fragmentsOverlap(DanglingExpr)) {
+          DEBUG(dbgs() << "Dropping dangling debug info for " << *DI << "\n");
+          DDI = DanglingDebugInfo();
+        }
       }
-    }
-  }
-
-  for (auto V : ToRemove)
-    DanglingDebugInfoMap[V] = DanglingDebugInfo();
 }
 
 // resolveDanglingDebugInfo - if we saw an earlier dbg_value referring to V,
 // generate the debug data structures now that we've seen its definition.
 void SelectionDAGBuilder::resolveDanglingDebugInfo(const Value *V,
                                                    SDValue Val) {
-  DanglingDebugInfo &DDI = DanglingDebugInfoMap[V];
-  if (!DDI.getDI())
-    return;
-  const DbgValueInst *DI = DDI.getDI();
-  DebugLoc dl = DDI.getdl();
-  unsigned ValSDNodeOrder = Val.getNode()->getIROrder();
-  unsigned DbgSDNodeOrder = DDI.getSDNodeOrder();
-  DILocalVariable *Variable = DI->getVariable();
-  DIExpression *Expr = DI->getExpression();
-  assert(Variable->isValidLocationForIntrinsic(dl) &&
-         "Expected inlined-at fields to agree");
-  SDDbgValue *SDV;
-  if (Val.getNode()) {
-    if (!EmitFuncArgumentDbgValue(V, Variable, Expr, dl, false, Val)) {
-      DEBUG(dbgs() << "Resolve dangling debug info [order=" << DbgSDNodeOrder
-            << "] for:\n  " << *DI << "\n");
-      DEBUG(dbgs() << "  By mapping to:\n    "; Val.dump());
-      // Increase the SDNodeOrder for the DbgValue here to make sure it is
-      // inserted after the definition of Val when emitting the instructions
-      // after ISel. An alternative could be to teach
-      // ScheduleDAGSDNodes::EmitSchedule to delay the insertion properly.
-      DEBUG(if (ValSDNodeOrder > DbgSDNodeOrder)
-              dbgs() << "changing SDNodeOrder from " << DbgSDNodeOrder
-                     << " to " << ValSDNodeOrder << "\n");
-      SDV = getDbgValue(Val, Variable, Expr, dl,
-                        std::max(DbgSDNodeOrder, ValSDNodeOrder));
-      DAG.AddDbgValue(SDV, Val.getNode(), false);
+  DanglingDebugInfoVector &DDIV = DanglingDebugInfoMap[V];
+  for (auto &DDI : DDIV) {
+    if (!DDI.getDI())
+      continue;
+    const DbgValueInst *DI = DDI.getDI();
+    DebugLoc dl = DDI.getdl();
+    unsigned ValSDNodeOrder = Val.getNode()->getIROrder();
+    unsigned DbgSDNodeOrder = DDI.getSDNodeOrder();
+    DILocalVariable *Variable = DI->getVariable();
+    DIExpression *Expr = DI->getExpression();
+    assert(Variable->isValidLocationForIntrinsic(dl) &&
+           "Expected inlined-at fields to agree");
+    SDDbgValue *SDV;
+    if (Val.getNode()) {
+      if (!EmitFuncArgumentDbgValue(V, Variable, Expr, dl, false, Val)) {
+        DEBUG(dbgs() << "Resolve dangling debug info [order=" << DbgSDNodeOrder
+              << "] for:\n  " << *DI << "\n");
+        DEBUG(dbgs() << "  By mapping to:\n    "; Val.dump());
+        // Increase the SDNodeOrder for the DbgValue here to make sure it is
+        // inserted after the definition of Val when emitting the instructions
+        // after ISel. An alternative could be to teach
+        // ScheduleDAGSDNodes::EmitSchedule to delay the insertion properly.
+        DEBUG(if (ValSDNodeOrder > DbgSDNodeOrder)
+                dbgs() << "changing SDNodeOrder from " << DbgSDNodeOrder
+                       << " to " << ValSDNodeOrder << "\n");
+        SDV = getDbgValue(Val, Variable, Expr, dl,
+                          std::max(DbgSDNodeOrder, ValSDNodeOrder));
+        DAG.AddDbgValue(SDV, Val.getNode(), false);
+      } else
+        DEBUG(dbgs() << "Resolved dangling debug info for " << *DI
+              << "in EmitFuncArgumentDbgValue\n");
     } else
-      DEBUG(dbgs() << "Resolved dangling debug info for " << *DI
-            << "in EmitFuncArgumentDbgValue\n");
-  } else
-    DEBUG(dbgs() << "Dropping debug info for " << *DI << "\n");
-  DanglingDebugInfoMap[V] = DanglingDebugInfo();
+      DEBUG(dbgs() << "Dropping debug info for " << *DI << "\n");
+  }
+  DanglingDebugInfoMap[V].clear();
 }
 
 /// getCopyFromRegs - If there was virtual register allocated for the value V
@@ -2525,8 +2522,8 @@ void SelectionDAGBuilder::sortAndRangeify(CaseClusterVector &Clusters) {
     assert(CC.Low == CC.High && "Input clusters must be single-case");
 #endif
 
-  std::sort(Clusters.begin(), Clusters.end(),
-            [](const CaseCluster &a, const CaseCluster &b) {
+  llvm::sort(Clusters.begin(), Clusters.end(),
+             [](const CaseCluster &a, const CaseCluster &b) {
     return a.Low->getValue().slt(b.Low->getValue());
   });
 
@@ -5330,7 +5327,7 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
       // Do not call getValue(V) yet, as we don't want to generate code.
       // Remember it for later.
       DanglingDebugInfo DDI(&DI, dl, SDNodeOrder);
-      DanglingDebugInfoMap[V] = DDI;
+      DanglingDebugInfoMap[V].push_back(DDI);
       return nullptr;
     }
 
@@ -6125,10 +6122,10 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
                                      GA->getGlobal(), getCurSDLoc(),
                                      Val.getValueType(), GA->getOffset())});
     }
-    std::sort(Targets.begin(), Targets.end(),
-              [](const BranchFunnelTarget &T1, const BranchFunnelTarget &T2) {
-                return T1.Offset < T2.Offset;
-              });
+    llvm::sort(Targets.begin(), Targets.end(),
+               [](const BranchFunnelTarget &T1, const BranchFunnelTarget &T2) {
+                 return T1.Offset < T2.Offset;
+               });
 
     for (auto &T : Targets) {
       Ops.push_back(DAG.getTargetConstant(T.Offset, getCurSDLoc(), MVT::i32));
@@ -9473,7 +9470,7 @@ bool SelectionDAGBuilder::buildBitTests(CaseClusterVector &Clusters,
   }
 
   BitTestInfo BTI;
-  std::sort(CBV.begin(), CBV.end(), [](const CaseBits &a, const CaseBits &b) {
+  llvm::sort(CBV.begin(), CBV.end(), [](const CaseBits &a, const CaseBits &b) {
     // Sort by probability first, number of bits second, bit mask third.
     if (a.ExtraProb != b.ExtraProb)
       return a.ExtraProb > b.ExtraProb;
@@ -9672,15 +9669,15 @@ void SelectionDAGBuilder::lowerWorkItem(SwitchWorkListItem W, Value *Cond,
     // checked first. However, two clusters can have the same probability in
     // which case their relative ordering is non-deterministic. So we use Low
     // as a tie-breaker as clusters are guaranteed to never overlap.
-    std::sort(W.FirstCluster, W.LastCluster + 1,
-              [](const CaseCluster &a, const CaseCluster &b) {
+    llvm::sort(W.FirstCluster, W.LastCluster + 1,
+               [](const CaseCluster &a, const CaseCluster &b) {
       return a.Prob != b.Prob ?
              a.Prob > b.Prob :
              a.Low->getValue().slt(b.Low->getValue());
     });
 
     // Rearrange the case blocks so that the last one falls through if possible
-    // without without changing the order of probabilities.
+    // without changing the order of probabilities.
     for (CaseClusterIt I = W.LastCluster; I > W.FirstCluster; ) {
       --I;
       if (I->Prob > W.LastCluster->Prob)

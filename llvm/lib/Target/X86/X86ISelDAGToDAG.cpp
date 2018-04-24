@@ -525,9 +525,20 @@ X86DAGToDAGISel::IsProfitableToFold(SDValue N, SDNode *U, SDNode *Root) const {
       // addl 4(%esp), %eax
       // The former is 2 bytes shorter. In case where the increment is 1, then
       // the saving can be 4 bytes (by using incl %eax).
-      if (ConstantSDNode *Imm = dyn_cast<ConstantSDNode>(Op1))
+      if (ConstantSDNode *Imm = dyn_cast<ConstantSDNode>(Op1)) {
         if (Imm->getAPIntValue().isSignedIntN(8))
           return false;
+
+        // If this is a 64-bit AND with an immediate that fits in 32-bits,
+        // prefer using the smaller and over folding the load. This is needed to
+        // make sure immediates created by shrinkAndImmediate are always folded.
+        // Ideally we would narrow the load during DAG combine and get the
+        // best of both worlds.
+        if (U->getOpcode() == ISD::AND &&
+            Imm->getAPIntValue().getBitWidth() == 64 &&
+            Imm->getAPIntValue().isIntN(32))
+          return false;
+      }
 
       // If the other operand is a TLS address, we should fold it instead.
       // This produces
@@ -1070,10 +1081,16 @@ bool X86DAGToDAGISel::matchAdd(SDValue N, X86ISelAddressMode &AM,
 // IDs! The selection DAG must no longer depend on their uniqueness when this
 // is used.
 static void insertDAGNode(SelectionDAG &DAG, SDValue Pos, SDValue N) {
-  if (N.getNode()->getNodeId() == -1 ||
-      N.getNode()->getNodeId() > Pos.getNode()->getNodeId()) {
-    DAG.RepositionNode(Pos.getNode()->getIterator(), N.getNode());
-    N.getNode()->setNodeId(Pos.getNode()->getNodeId());
+  if (N->getNodeId() == -1 ||
+      (SelectionDAGISel::getUninvalidatedNodeId(N.getNode()) >
+       SelectionDAGISel::getUninvalidatedNodeId(Pos.getNode()))) {
+    DAG.RepositionNode(Pos->getIterator(), N.getNode());
+    // Mark Node as invalid for pruning as after this it may be a successor to a
+    // selected node but otherwise be in the same position of Pos.
+    // Conservatively mark it with the same -abs(Id) to assure node id
+    // invariant is preserved.
+    N->setNodeId(Pos->getNodeId());
+    SelectionDAGISel::InvalidateNodeId(N.getNode());
   }
 }
 
@@ -2174,50 +2191,84 @@ static bool isFusableLoadOpStorePattern(StoreSDNode *StoreNode,
       LoadNode->getOffset() != StoreNode->getOffset())
     return false;
 
-  // Check if the chain is produced by the load or is a TokenFactor with
-  // the load output chain as an operand. Return InputChain by reference.
+  bool FoundLoad = false;
+  SmallVector<SDValue, 4> ChainOps;
+  SmallVector<const SDNode *, 4> LoopWorklist;
+  SmallPtrSet<const SDNode *, 16> Visited;
+  const unsigned int Max = 1024;
+
+  //  Visualization of Load-Op-Store fusion:
+  // -------------------------
+  // Legend:
+  //    *-lines = Chain operand dependencies.
+  //    |-lines = Normal operand dependencies.
+  //    Dependencies flow down and right. n-suffix references multiple nodes.
+  //
+  //        C                        Xn  C
+  //        *                         *  *
+  //        *                          * *
+  //  Xn  A-LD    Yn                    TF         Yn
+  //   *    * \   |                       *        |
+  //    *   *  \  |                        *       |
+  //     *  *   \ |             =>       A--LD_OP_ST
+  //      * *    \|                                 \
+  //       TF    OP                                  \
+  //         *   | \                                  Zn
+  //          *  |  \
+  //         A-ST    Zn
+  //
+
+  // This merge induced dependences from: #1: Xn -> LD, OP, Zn
+  //                                      #2: Yn -> LD
+  //                                      #3: ST -> Zn
+
+  // Ensure the transform is safe by checking for the dual
+  // dependencies to make sure we do not induce a loop.
+
+  // As LD is a predecessor to both OP and ST we can do this by checking:
+  //  a). if LD is a predecessor to a member of Xn or Yn.
+  //  b). if a Zn is a predecessor to ST.
+
+  // However, (b) can only occur through being a chain predecessor to
+  // ST, which is the same as Zn being a member or predecessor of Xn,
+  // which is a subset of LD being a predecessor of Xn. So it's
+  // subsumed by check (a).
+
   SDValue Chain = StoreNode->getChain();
 
-  bool ChainCheck = false;
+  // Gather X elements in ChainOps.
   if (Chain == Load.getValue(1)) {
-    ChainCheck = true;
-    InputChain = LoadNode->getChain();
+    FoundLoad = true;
+    ChainOps.push_back(Load.getOperand(0));
   } else if (Chain.getOpcode() == ISD::TokenFactor) {
-    SmallVector<SDValue, 4> ChainOps;
     for (unsigned i = 0, e = Chain.getNumOperands(); i != e; ++i) {
       SDValue Op = Chain.getOperand(i);
       if (Op == Load.getValue(1)) {
-        ChainCheck = true;
+        FoundLoad = true;
         // Drop Load, but keep its chain. No cycle check necessary.
         ChainOps.push_back(Load.getOperand(0));
         continue;
       }
-
-      // Make sure using Op as part of the chain would not cause a cycle here.
-      // In theory, we could check whether the chain node is a predecessor of
-      // the load. But that can be very expensive. Instead visit the uses and
-      // make sure they all have smaller node id than the load.
-      int LoadId = LoadNode->getNodeId();
-      for (SDNode::use_iterator UI = Op.getNode()->use_begin(),
-             UE = UI->use_end(); UI != UE; ++UI) {
-        if (UI.getUse().getResNo() != 0)
-          continue;
-        if (UI->getNodeId() > LoadId)
-          return false;
-      }
-
+      LoopWorklist.push_back(Op.getNode());
       ChainOps.push_back(Op);
     }
-
-    if (ChainCheck)
-      // Make a new TokenFactor with all the other input chains except
-      // for the load.
-      InputChain = CurDAG->getNode(ISD::TokenFactor, SDLoc(Chain),
-                                   MVT::Other, ChainOps);
   }
-  if (!ChainCheck)
+
+  if (!FoundLoad)
     return false;
 
+  // Worklist is currently Xn. Add Yn to worklist.
+  for (SDValue Op : StoredVal->ops())
+    if (Op.getNode() != LoadNode)
+      LoopWorklist.push_back(Op.getNode());
+
+  // Check (a) if Load is a predecessor to Xn + Yn
+  if (SDNode::hasPredecessorHelper(Load.getNode(), Visited, LoopWorklist, Max,
+                                   true))
+    return false;
+
+  InputChain =
+      CurDAG->getNode(ISD::TokenFactor, SDLoc(Chain), MVT::Other, ChainOps);
   return true;
 }
 
@@ -2448,6 +2499,8 @@ bool X86DAGToDAGISel::foldLoadStoreIntoMemOperand(SDNode *Node) {
   MemOp[1] = LoadNode->getMemOperand();
   Result->setMemRefs(MemOp, MemOp + 2);
 
+  // Update Load Chain uses as well.
+  ReplaceUses(SDValue(LoadNode, 1), SDValue(Result, 1));
   ReplaceUses(SDValue(StoreNode, 0), SDValue(Result, 1));
   ReplaceUses(SDValue(StoredVal.getNode(), 1), SDValue(Result, 0));
   CurDAG->RemoveDeadNode(Node);
@@ -2774,8 +2827,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
     if (!isSigned) {
       switch (NVT.SimpleTy) {
       default: llvm_unreachable("Unsupported VT!");
-      case MVT::i8:  Opc = X86::MUL8r;  MOpc = X86::MUL8m;  break;
-      case MVT::i16: Opc = X86::MUL16r; MOpc = X86::MUL16m; break;
       case MVT::i32: Opc = hasBMI2 ? X86::MULX32rr : X86::MUL32r;
                      MOpc = hasBMI2 ? X86::MULX32rm : X86::MUL32m; break;
       case MVT::i64: Opc = hasBMI2 ? X86::MULX64rr : X86::MUL64r;
@@ -2784,8 +2835,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
     } else {
       switch (NVT.SimpleTy) {
       default: llvm_unreachable("Unsupported VT!");
-      case MVT::i8:  Opc = X86::IMUL8r;  MOpc = X86::IMUL8m;  break;
-      case MVT::i16: Opc = X86::IMUL16r; MOpc = X86::IMUL16m; break;
       case MVT::i32: Opc = X86::IMUL32r; MOpc = X86::IMUL32m; break;
       case MVT::i64: Opc = X86::IMUL64r; MOpc = X86::IMUL64m; break;
       }
@@ -2794,14 +2843,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
     unsigned SrcReg, LoReg, HiReg;
     switch (Opc) {
     default: llvm_unreachable("Unknown MUL opcode!");
-    case X86::IMUL8r:
-    case X86::MUL8r:
-      SrcReg = LoReg = X86::AL; HiReg = X86::AH;
-      break;
-    case X86::IMUL16r:
-    case X86::MUL16r:
-      SrcReg = LoReg = X86::AX; HiReg = X86::DX;
-      break;
     case X86::IMUL32r:
     case X86::MUL32r:
       SrcReg = LoReg = X86::EAX; HiReg = X86::EDX;
@@ -2871,27 +2912,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       }
     }
 
-    // Prevent use of AH in a REX instruction by referencing AX instead.
-    if (HiReg == X86::AH && Subtarget->is64Bit() &&
-        !SDValue(Node, 1).use_empty()) {
-      SDValue Result = CurDAG->getCopyFromReg(CurDAG->getEntryNode(), dl,
-                                              X86::AX, MVT::i16, InFlag);
-      InFlag = Result.getValue(2);
-      // Get the low part if needed. Don't use getCopyFromReg for aliasing
-      // registers.
-      if (!SDValue(Node, 0).use_empty())
-        ReplaceUses(SDValue(Node, 0),
-          CurDAG->getTargetExtractSubreg(X86::sub_8bit, dl, MVT::i8, Result));
-
-      // Shift AX down 8 bits.
-      Result = SDValue(CurDAG->getMachineNode(X86::SHR16ri, dl, MVT::i16,
-                                              Result,
-                                     CurDAG->getTargetConstant(8, dl, MVT::i8)),
-                       0);
-      // Then truncate it down to i8.
-      ReplaceUses(SDValue(Node, 1),
-        CurDAG->getTargetExtractSubreg(X86::sub_8bit, dl, MVT::i8, Result));
-    }
     // Copy the low half of the result, if it is needed.
     if (!SDValue(Node, 0).use_empty()) {
       if (!ResLo.getNode()) {
@@ -3059,7 +3079,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
     if (HiReg == X86::AH && !SDValue(Node, 1).use_empty()) {
       SDValue AHCopy = CurDAG->getRegister(X86::AH, MVT::i8);
       unsigned AHExtOpcode =
-          isSigned ? X86::MOVSX32_NOREXrr8 : X86::MOVZX32_NOREXrr8;
+          isSigned ? X86::MOVSX32rr8_NOREX : X86::MOVZX32rr8_NOREX;
 
       SDNode *RNode = CurDAG->getMachineNode(AHExtOpcode, dl, MVT::i32,
                                              MVT::Glue, AHCopy, InFlag);
@@ -3159,8 +3179,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       // Emit a testl or testw.
       SDNode *NewNode = CurDAG->getMachineNode(Op, dl, MVT::i32, Reg, Imm);
       // Replace CMP with TEST.
-      CurDAG->ReplaceAllUsesWith(Node, NewNode);
-      CurDAG->RemoveDeadNode(Node);
+      ReplaceNode(Node, NewNode);
       return;
     }
     break;
