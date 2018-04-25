@@ -614,7 +614,7 @@ void VPlanHCFGBuilder::collectUniforms(VPRegionBlock *Region) {
         VPValue *CBV = VPBB->getCondBitVPVal();
         assert(CBV && "Expected condition bit value.");
 
-        bool isUniform = Legal->isUniformForTheLoop(CBV->getValue());
+        bool isUniform = Legal->isUniformForTheLoop(CBV->getUnderlyingValue());
         if (isUniform)
           PlanUtils.getVPlan()->UniformCBVs.insert(CBV);
       }
@@ -825,25 +825,32 @@ private:
   unsigned TopRegionSize = 0;
 
   VPlanUtils &PlanUtils;
+
+  // Builder of the VPlan instruction-level representation.
   VPBuilder VPIRBuilder;
 
+  // NOTE: The following maps are intentionally destroyed after the plain CFG
+  // construction because subsequent VPlan-to-VPlan transformation may
+  // invalidate them.
+  // Map incoming BasicBlocks to their newly-created VPBasicBlocks.
+  DenseMap<BasicBlock *, VPBasicBlock *> BB2VPBB;
+  // Map incoming Value definitions to their newly-created VPValues.
+  DenseMap<Value *, VPValue *> IRDef2VPValue;
   /// Map the branches to the condition VPInstruction they are controlled by
   /// (Possibly at a different VPBB).
   DenseMap<Value *, VPValue *> BranchCondMap;
-  DenseMap<BasicBlock *, VPBasicBlock *> BB2VPBB;
-  DenseMap<Value *, VPValue *> IRDef2VPValue;
+
+  // Hold phi node's that need to be fixed once the plain CFG has been built.
+  SmallVector<PHINode *, 8> PhisToFix;
 
   // Auxiliary functions
   bool isConditionForBranch(Instruction *I);
   void setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB);
+  void fixPhiNodes();
   VPBasicBlock *createOrGetVPBB(BasicBlock *BB);
-  void createRecipesForVPBB(VPBasicBlock *VPBB, BasicBlock *BB);
-  bool isExternalDef(Instruction *Inst);
+  bool isExternalDef(Value *Val);
   VPValue *createOrGetVPOperand(Value *IROp);
-  void createVPInstructionsForRange(BasicBlock::iterator I,
-                                    BasicBlock::iterator J,
-                                    VPBasicBlock *InsertionPoint);
-
+  void createVPInstructionsForVPBB(VPBasicBlock *VPBB, BasicBlock *BB);
 
 public:
   PlainCFGBuilder(Loop *Lp, LoopInfo *LI, LoopVectorizationLegality *Legal,
@@ -853,14 +860,10 @@ public:
   VPRegionBlock *buildPlainCFG();
 };
 
-static bool isInstructionToIgnore(Instruction *I) {
-  // DeadInstructions are not taken into account at this point. IV update and
-  // loop latch condition need to be part of HCFG to constitute a
-  // uniform conditionbit instruction. If we treat them as dead instructions, we
-  // would create a LiveInConditionBitRecipe for the loop latch condition,
-  // which is not correct.
-  return /*DeadInstructions.count(I) ||*/ isa<BranchInst>(I) ||
-         isa<DbgInfoIntrinsic>(I);
+// Return true if \p Inst is an incoming Instruction to be ignored in the VPlan
+// representation.
+static bool isInstructionToIgnore(Instruction *Inst) {
+  return isa<BranchInst>(Inst);
 }
 
 bool PlainCFGBuilder::isConditionForBranch(Instruction *I) {
@@ -877,6 +880,21 @@ void PlainCFGBuilder::setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB) {
   for (BasicBlock *Pred : predecessors(BB)) {
     VPBasicBlock *PredVPBB = createOrGetVPBB(Pred);
     PlanUtils.appendBlockPredecessor(VPBB, PredVPBB);
+  }
+}
+
+// Add operands to VPInstructions representing phi nodes from the input IR.
+void PlainCFGBuilder::fixPhiNodes() {
+  for (auto *Phi : PhisToFix) {
+    assert(IRDef2VPValue.count(Phi) && "Missing VPInstruction for PHINode.");
+    VPValue *VPVal = IRDef2VPValue[Phi];
+    assert(isa<VPInstruction>(VPVal) && "Expected VPInstruction for phi node.");
+    auto *VPPhi = cast<VPInstruction>(VPVal);
+    assert(VPPhi->getNumOperands() == 0 &&
+           "Expected VPInstruction with no operands.");
+
+    for (Value *Op : Phi->operands())
+      VPPhi->addOperand(createOrGetVPOperand(Op));
   }
 }
 
@@ -903,207 +921,206 @@ VPBasicBlock *PlainCFGBuilder::createOrGetVPBB(BasicBlock *BB) {
   return VPBB;
 }
 
-// Return true if instruction is not defined either inside the loop nest or
-// outermost loop PH or outermost loop exits. External definition applies only
-// to Instruction since Constant and other Values will have a different
-// representation.
-bool PlainCFGBuilder::isExternalDef(Instruction *Inst) {
+// Return true if \p Val is considered an external definition. An external
+// definition is either:
+#if INTEL_CUSTOMIZATION
+// 1. A Value that is neither a Constant nor an Instruction.
+#else
+// 1. A Value that is not an Instruction. This will be refined in the future.
+#endif
+// 2. An Instruction that is outside of the CFG snippet represented in VPlan,
+// i.e., is not part of: a) the loop nest, b) outermost loop PH and, c)
+// outermost loop exits.
+bool PlainCFGBuilder::isExternalDef(Value *Val) {
+
+#if INTEL_CUSTOMIZATION
+  assert(!isa<Constant>(Val) &&
+         "Constants should have been processed separately.");
+#endif
+  // All the Values that are not Instructions are considered external
+  // definitions for now.
+  Instruction *Inst = dyn_cast<Instruction>(Val);
+  if (!Inst)
+    return true;
 
   BasicBlock *InstParent = Inst->getParent();
   assert(InstParent && "Expected instruction parent.");
 
-  // - Check whether Instruction definition is in loop PH -
+  // Check whether Instruction definition is in loop PH.
   BasicBlock *PH = TheLoop->getLoopPreheader();
   assert(PH && "Expected loop pre-header.");
 
-  if (InstParent == PH) {
+  if (InstParent == PH)
     // Instruction definition is in outermost loop PH.
     return false;
-  }
 
-  // - Check whether Instruction definition is in loop exits -
-  SmallVector<BasicBlock *, 2> LoopExits;
-  TheLoop->getUniqueExitBlocks(LoopExits);
-  for (BasicBlock *Exit : LoopExits) {
-    if (InstParent == Exit) {
-      // Instruction definition is in outermost loop exit.
-      return false;
-    }
-  }
+  // Check whether Instruction definition is in the loop exit.
+  BasicBlock *Exit = TheLoop->getUniqueExitBlock();
+  assert(Exit && "Expected loop with single exit.");
+  if (InstParent == Exit)
+    // Instruction definition is in outermost loop exit.
+    return false;
 
-  // - Check whether Instruction definition is in loop body -
-  return TheLoop->isLoopInvariant(Inst);
+  // Check whether Instruction definition is in loop body.
+  return !TheLoop->contains(Inst);
 }
 
-// Helper function that is used by 'createVPInstructionsForRange' to create a
-// new VPValue or retrieve an existing one for an Instruction's operand (IROp).
-// This function must only be used to create/retrieve VPValues for
-// *Instruction's operands* and not to create regular VPInstruction's. For the
-// latter, you should look at 'createVPInstructionForRange'.
+// Create a new VPValue or retrieve an existing one for the Instruction's
+// operand \p IROp. This function must only be used to create/retrieve VPValues
+// for *Instruction's operands* and not to create regular VPInstruction's. For
+// the latter, please, look at 'createVPInstructionsForVPBB'.
 VPValue *PlainCFGBuilder::createOrGetVPOperand(Value *IROp) {
+#if INTEL_CUSTOMIZATION
   // Constant operand
   if (Constant *IRConst = dyn_cast<Constant>(IROp))
     return PlanUtils.getVPlan()->getVPConstant(IRConst);
+#endif
 
   auto VPValIt = IRDef2VPValue.find(IROp);
-  // Operand has an associated VPInstruction or VPValue (for Values without
-  // specific representation) that was previously created.
   if (VPValIt != IRDef2VPValue.end())
+    // Operand has an associated VPInstruction or VPValue that was previously
+    // created.
     return VPValIt->second;
 
+#if INTEL_CUSTOMIZATION
   // Operand is not a Constant and doesn't have a previously created
-  // VPInstruction/VPValue. This means that operand is:
+  // VPInstruction/VPVailue. This means that operand is:
+#else
+  // Operand doesn't have a previously created VPInstruction/VPValue. This
+  // means that operand is:
+#endif
   //   A) a definition external to VPlan,
-  //   B) a use whose definition hasnt't been visited yet (phi's operands),
-  //   C) any other Value without specific representation in VPlan.
-  VPValue *NewVPVal;
-  if (auto *InstOperand = dyn_cast<Instruction>(IROp)) {
-    // A and B: Create instruction without operands and do not insert it in
-    // the VPBasicBlock. For A, we insert it in the VPlan's pool of external
-    // definitions. For B, it will be fixed and inserted when the definition
-    // is processed.
-    VPBuilder::InsertPointGuard Guard(VPIRBuilder);
-    VPIRBuilder.clearInsertionPoint();
-    if (CmpInst *CI = dyn_cast<CmpInst>(InstOperand))
-      NewVPVal = VPIRBuilder.createCmpInst(nullptr, nullptr, CI);
-    else
-      NewVPVal = VPIRBuilder.createNaryOp(InstOperand->getOpcode(),
-                                          {} /*No operands*/, InstOperand);
-    if (isExternalDef(InstOperand))
-      PlanUtils.getVPlan()->addExternalDef(cast<VPInstruction>(NewVPVal));
-  } else // C
-    // TODO: Add VPRaw? Specific representation for metadata?.
-    // TODO: Memory deallocation of these VPValues.
-    NewVPVal = new VPValue();
+  //   B) any other Value without specific representation in VPlan.
+  // For now, we use VPValue to represent A and B and classify both as external
+  // definitions. We may introduce specific VPValue subclasses for them in the
+  // future.
+  assert(isExternalDef(IROp) && "Expected external definition as operand.");
 
+  // A and B: Create VPValue and add it to the pool of external definitions and
+  // to the Value->VPValue map.
+  VPValue *NewVPVal = new VPValue(IROp);
+  PlanUtils.getVPlan()->addExternalDef(NewVPVal);
   IRDef2VPValue[IROp] = NewVPVal;
   return NewVPVal;
 }
 
-// Create VPInstruction's for a range of Instructions in a BasicBlock.
-// VPInstruction's are created using a VPBuilder so new
-// VPInstructionRangeRecipe's are created automatically when necessary.
-void PlainCFGBuilder::createVPInstructionsForRange(
-    BasicBlock::iterator I, BasicBlock::iterator J,
-    VPBasicBlock *BBInsertionPoint) {
-
-  VPIRBuilder.setInsertPoint(BBInsertionPoint);
-  for (Instruction &InstRef : make_range(I, J)) {
+// Create new VPInstructions in a VPBasicBlock, given its BasicBlock
+// counterpart. This function must be invoked in RPO so that the operands of a
+// VPInstruction in \p BB have been visited before (except for Phi nodes).
+void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
+                                                  BasicBlock *BB) {
+  VPIRBuilder.setInsertPoint(VPBB);
+  for (Instruction &InstRef : *BB) {
     Instruction *Inst = &InstRef;
-    auto VPValIt = IRDef2VPValue.find(Inst);
+    if (isInstructionToIgnore(Inst))
+      continue;
+
+    // There should't be any VPValue for Inst at this point. Otherwise, we
+    // visited Inst when we shouldn't, breaking the RPO traversal order.
+    assert(!IRDef2VPValue.count(Inst) &&
+           "Instruction shouldn't have been visited.");
 
     VPInstruction *NewVPInst;
-    if (VPValIt != IRDef2VPValue.end()) {
-      // Inst is a definition with a user that has been previously visited. We
-      // have to set its operands properly and insert it into the
-      // VPBasicBlock/Recipe.
-      assert(isa<VPInstruction>(VPValIt->second) &&
-             "Unexpected VPValue. Expected a VPInstruction");
-      NewVPInst = cast<VPInstruction>(VPValIt->second);
-      VPIRBuilder.insert(NewVPInst);
+    if (PHINode *Phi = dyn_cast<PHINode>(Inst)) {
+      // Phi node's operands may have not been visited at this point. We create
+      // an empty VPInstruction that we will fix once the whole plain CFG has
+      // been built.
+      NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
+          Inst->getOpcode(), {} /*No operands*/, Inst));
+      PhisToFix.push_back(Phi);
     } else {
-      // Create new VPInstruction.
-      // NOTE: We set operands later to factorize code in 'if' and 'else'
-      // branches.
-      if (CmpInst *CI = dyn_cast<CmpInst>(Inst))
-        NewVPInst = VPIRBuilder.createCmpInst(nullptr, nullptr, CI);
-      else
-        NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
-            Inst->getOpcode(), {} /*No operands*/, Inst));
+      // Translate LLVM-IR operands into VPValue operands and set them in the
+      // new VPInstruction.
+      SmallVector<VPValue *, 4> VPOperands;
+      for (Value *Op : Inst->operands())
+        VPOperands.push_back(createOrGetVPOperand(Op));
 
-      // If 'Inst' is a branch condition, map the branches with the conditions.
-      // Note that we don't have to add the recipe as successor selector at this
-      // point. The branch using this condition might not be necessarily in this
-      // VPBB.
-      if (isConditionForBranch(Inst)) {
-        // NOTE: This used to be a UniformConditionBitRecipe
-        for (User *U : Inst->users()) {
-          if (isa<BranchInst>(U) && TheLoop->contains(cast<Instruction>(U)))
-            BranchCondMap[cast<BranchInst>(U)] = NewVPInst;
-        }
+#if INTEL_CUSTOMIZATION
+      if (CmpInst *CI = dyn_cast<CmpInst>(Inst)) {
+        assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
+        NewVPInst = VPIRBuilder.createCmpInst(VPOperands[0], VPOperands[1], CI);
+      } else
+#endif
+      // Build VPInstruction for any arbitraty Instruction without specific
+      // representation in VPlan.
+      NewVPInst = cast<VPInstruction>(
+          VPIRBuilder.createNaryOp(Inst->getOpcode(), VPOperands, Inst));
+    }
+
+    IRDef2VPValue[Inst] = NewVPInst;
+
+#if INTEL_CUSTOMIZATION
+    // If 'Inst' is a branch condition, map the branches with the conditions.
+    // Note that we don't have to add the recipe as successor selector at this
+    // point. The branch using this condition might not be necessarily in this
+    // VPBB.
+    if (isConditionForBranch(Inst)) {
+      // NOTE: This used to be a UniformConditionBitRecipe
+      for (User *U : Inst->users()) {
+        if (isa<BranchInst>(U) && TheLoop->contains(cast<Instruction>(U)))
+          BranchCondMap[cast<BranchInst>(U)] = NewVPInst;
       }
-      IRDef2VPValue[Inst] = NewVPInst;
     }
+#endif
 
-    // Translate LLVM-IR operands into VPValue operands and set them in the new
-    // VPInstruction.
-    for (Value *Op : Inst->operands())
-      NewVPInst->addOperand(createOrGetVPOperand(Op));
   }
-}
+#if INTEL_CUSTOMIZATION
 
-// Create new VPInstructions in a VPBasicBlock, given its BasicBlock
-// counterpart. This function must be invoked in RPO because creation of
-// ConditionBit assumes that all predecessors have been visited.
-void PlainCFGBuilder::createRecipesForVPBB(VPBasicBlock *VPBB, BasicBlock *BB) {
-
-  BasicBlock::iterator I = BB->begin();
-  BasicBlock::iterator E = BB->end();
-
-  while (I != E) {
-    // Search for first live Instruction to open VPBB.
-    while (I != E && isInstructionToIgnore(&*I))
-      ++I;
-
-    if (I == E)
-      break;
-
-    // - Create new VPInstructions add add them to VPBB. -
-
-    // Search for last live Instruction to close VPBB.
-    BasicBlock::iterator J = I;
-    for (++J; J != E; ++J) {
-      Instruction *Instr = &*J;
-      if (isInstructionToIgnore(Instr) || isConditionForBranch(Instr))
-        break; // Sequence of instructions not to ignore ended.
-    }
-
-    createVPInstructionsForRange(I, J, VPBB);
-
-    I = J;
-  }
-
-  // The previous loop does not visit the Branch (not in VPBB).
-  // Although there should be no VPInstruction for the Branch, we do need
-  // VPInstructions for its operands.
-  // These may be used later on as live-ins (through the ExternalDefs map).
-  for (Value *Op : BB->getTerminator()->operands()) {
+  // The previous loop doesn't visit BB's terminator since we are not explicitly
+  // representing branches in VPlan. However, we do need VPValues for its
+  // operands. If an operand is an external definition only used by this
+  // terminator, this is the only way to create a VPValue for it.
+  for (Value *Op : BB->getTerminator()->operands())
     createOrGetVPOperand(Op);
-  }
+#endif
 }
 
 VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
-
-  // Create Top Region. It will be parent of all VPBBs
+  // 1. Create the Top Region. It will be the parent of all VPBBs.
   TopRegion = PlanUtils.createRegion(false /*isReplicator*/);
   TopRegionSize = 0;
 
-  // Scan the body of the loop in a topological order to visit each basic block
-  // after having visited its predecessor basic blocks.
-  LoopBlocksDFS DFS(TheLoop);
-  DFS.perform(LI);
+  // 2. Scan the body of the loop in a topological order to visit each basic
+  // block after having visited its predecessor basic blocks.Create a VPBB for
+  // each BB and link it to its successor and predecessor VPBBs. Note that
+  // predecessors must be set in the same order as they are in the incomming IR.
+  // Otherwise, there might be problems with existing phi nodes and algorithm
+  // based on predecessors traversal.
 
-  for (BasicBlock *BB : make_range(DFS.beginRPO(), DFS.endRPO())) {
+  // Loop PH needs to be explicitly visited since it's not taken into account by
+  // LoopBlocksDFS.
+  BasicBlock *PreheaderBB = TheLoop->getLoopPreheader();
+  assert((PreheaderBB->getTerminator()->getNumSuccessors() == 1) &&
+         "Unexpected loop preheader");
+  VPBasicBlock *PreheaderVPBB = createOrGetVPBB(PreheaderBB);
+  createVPInstructionsForVPBB(PreheaderVPBB, PreheaderBB);
+  // Create empty VPBB for Loop H so that we can link PH->H.
+  VPBlockBase *HeaderVPBB = createOrGetVPBB(TheLoop->getHeader());
+  // Preheader's predecessors will be set during the loop RPO traversal below.
+  PlanUtils.setBlockSuccessor(PreheaderVPBB, HeaderVPBB);
 
-    // Create new VPBasicBlock and its recipes
+  LoopBlocksRPO RPO(TheLoop);
+  RPO.perform(LI);
+
+  for (BasicBlock *BB : RPO) {
+    // Create or retrieve the VPBasicBlock for this BB and create its
+    // VPInstructions.
     VPBasicBlock *VPBB = createOrGetVPBB(BB);
-    createRecipesForVPBB(VPBB, BB);
+    createVPInstructionsForVPBB(VPBB, BB);
 
-    // Add successors and predecessors
+    // Set VPBB successors. We create empty VPBBs for successors if they don't
+    // exist already. Recipes will be created when the successor is visited
+    // during the RPO traversal.
     TerminatorInst *TI = BB->getTerminator();
     assert(TI && "Terminator expected");
     unsigned NumSuccs = TI->getNumSuccessors();
 
-    // Note: we are not invoking createRecipesForVPBB for successor blocks at
-    // this point because we would be breaking the RPO traversal
     if (NumSuccs == 1) {
       VPBasicBlock *SuccVPBB = createOrGetVPBB(TI->getSuccessor(0));
       assert(SuccVPBB && "VPBB Successor not found");
-
       PlanUtils.setBlockSuccessor(VPBB, SuccVPBB);
       VPBB->setCBlock(BB);
       VPBB->setTBlock(TI->getSuccessor(0));
-
     } else if (NumSuccs == 2) {
       VPBasicBlock *SuccVPBB0 = createOrGetVPBB(TI->getSuccessor(0));
       assert(SuccVPBB0 && "Successor 0 not found");
@@ -1138,35 +1155,30 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
       llvm_unreachable("Number of successors not supported");
     }
 
-    // Set predecessors in the same order as they are in LLVM basic block.
+    // Set VPBB predecessors in the same order as they are in the incoming BB.
     setVPBBPredsFromBB(VPBB, BB);
   }
 
-  // Add outermost loop preheader to plain CFG. It needs explicit treatment
-  // because it's not a successor of any block inside the loop.
-  BasicBlock *PreheaderBB = TheLoop->getLoopPreheader();
-  assert((PreheaderBB->getTerminator()->getNumSuccessors() == 1) &&
-         "Unexpected loop preheader");
-
-  VPBasicBlock *PreheaderVPBB = createOrGetVPBB(PreheaderBB);
-  createRecipesForVPBB(PreheaderVPBB, PreheaderBB);
-  VPBlockBase *HeaderVPBB = BB2VPBB[TheLoop->getHeader()];
-  // Preheader's predecessors have already been set in RPO traversal.
-  PlanUtils.setBlockSuccessor(PreheaderVPBB, HeaderVPBB);
-
-  // Empty VPBasicBlock were created for loop exit BasicBlocks but they weren't
-  // visited because they are not inside the loop. Create now recipes for them
-  // and set its predecessors.
+  // 3. Process outermost loop exits. They weren't visited during the RPO
+  // traversal of the loop body. We created an empty VPBB for the loop single
+  // exit BB during the RPO traversal of the loop body but Instructions weren't
+  // visited because it's not part of the the loop.
   SmallVector<BasicBlock *, 2> LoopExits;
   TheLoop->getUniqueExitBlocks(LoopExits);
   for (BasicBlock *BB : LoopExits) {
     VPBasicBlock *VPBB = BB2VPBB[BB];
-    createRecipesForVPBB(VPBB, BB);
+    createVPInstructionsForVPBB(VPBB, BB);
+    // Loop exit was already set as successor of the loop exiting BB.
+    // We only set its predecessor VPBB now.
     setVPBBPredsFromBB(VPBB, BB);
   }
 
-  // Top Region setup
+  // 4. The whole CFG has been built at this point so all the input Values must
+  // have a VPlan couterpart. Fix VPlan phi nodes by adding their corresponding
+  // VPlan operands.
+  fixPhiNodes();
 
+  // 5. Final Top Region setup.
   // Create a dummy block as Top Region's entry
   VPBlockBase *RegionEntry = PlanUtils.createBasicBlock();
   ++TopRegionSize;

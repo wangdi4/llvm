@@ -246,7 +246,7 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
         if (State->CBVToConditionBitMap.count(CBV)) {
           Bit = State->CBVToConditionBitMap[CBV];
         } else {
-          Bit = CBV->getValue();
+          Bit = CBV->getUnderlyingValue();
         }
         assert(Bit && "Cannot create conditional branch with empty bit.");
         assert(!Bit->getType()->isVectorTy() && "Should be 1-bit scalar");
@@ -606,8 +606,8 @@ void VPRegionBlock::executeHIR(VPOCodeGenHIR *CG) {
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
 #if INTEL_CUSTOMIZATION
-  assert(Inst && "There is no underlying Instruction.");
-  State.ILV->vectorizeInstruction(Inst);
+  assert(getInstruction() && "There is no underlying Instruction.");
+  State.ILV->vectorizeInstruction(getInstruction());
   return;
 #endif
   IRBuilder<> &Builder = State.Builder;
@@ -688,7 +688,7 @@ void VPInstruction::execute(VPTransformState &State) {
   // TODO: Remove this block of code. Its purpose is to emulate the execute()
   //       of the conditionbit recipies that have now been removed.
   if (State.UniformCBVs->count(this)) {
-    Value *ScConditionBit = getValue();
+    Value *ScConditionBit = getUnderlyingValue();
     State.ILV->serializeInstruction(cast<Instruction>(ScConditionBit));
     Value *ConditionBit = State.ILV->getScalarValue(ScConditionBit, 0);
     assert(!ConditionBit->getType()->isVectorTy() && "Bit should be scalar");
@@ -1228,7 +1228,8 @@ void VPIfTruePredicateRecipe::execute(VPTransformState &State) {
                         : nullptr;
 
   // Get the vector mask value of the branch condition
-  auto VecCondMask = State.ILV->getVectorValue(ConditionValue->getValue());
+  auto VecCondMask =
+      State.ILV->getVectorValue(ConditionValue->getUnderlyingValue());
 
   // Combine with the predecessor block mask if needed - a null predecessor
   // mask
@@ -1327,7 +1328,8 @@ void VPIfFalsePredicateRecipe::execute(VPTransformState &State) {
   // Get the vector mask value of the branch condition - since this
   // edge is taken if the mask value is false we compute the negation
   // of this mask value.
-  auto VecCondMask = State.ILV->getVectorValue(ConditionValue->getValue());
+  auto VecCondMask =
+      State.ILV->getVectorValue(ConditionValue->getUnderlyingValue());
   VecCondMask = State.Builder.CreateNot(VecCondMask);
 
   // Combine with the predecessor block mask if needed - a null predecessor

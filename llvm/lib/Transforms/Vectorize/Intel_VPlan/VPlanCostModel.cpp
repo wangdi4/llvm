@@ -85,8 +85,8 @@ Type *VPlanCostModel::getMemInstValueType(const VPInstruction *VPInst) {
   // goes beyond just accessing the type of the underlying IR.
 
   // This path seems to be covered by the one above.
-  if (const Instruction *Inst = VPInst->Inst)
-    return ::getMemInstValueType(Inst);
+  if (const Value *Val = VPInst->UnderlyingVal)
+    return ::getMemInstValueType(Val);
 
 #if INTEL_CUSTOMIZATION
   if (!VPInst->HIR.isMaster())
@@ -111,8 +111,8 @@ unsigned VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) {
   // TODO: getType() working without underlying Inst - seems we can return
   // alignment too.
 
-  if (const Instruction *Inst = VPInst->Inst)
-    return ::getMemInstAlignment(Inst);
+  if (const Value *Val = VPInst->UnderlyingVal)
+    return ::getMemInstAlignment(Val);
 
 #if INTEL_CUSTOMIZATION
   if (!VPInst->HIR.isMaster())
@@ -133,8 +133,8 @@ unsigned VPlanCostModel::getMemInstAddressSpace(const VPInstruction *VPInst) {
   // TODO: getType() working without underlying Inst - seems we can return
   // address space too.
 
-  if (const Instruction *Inst = VPInst->Inst)
-    return ::getMemInstAddressSpace(Inst);
+  if (const Value *Val = VPInst->UnderlyingVal)
+    return ::getMemInstAddressSpace(Val);
 
 #if INTEL_CUSTOMIZATION
   if (!VPInst->HIR.isMaster())
@@ -152,7 +152,8 @@ Value* VPlanCostModel::getGEP(const VPInstruction *VPInst) {
   (void)Opcode;
   assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
 
-  if (const Instruction *Inst = VPInst->Inst) {
+  if (const Instruction *Inst =
+          dyn_cast_or_null<Instruction>(VPInst->UnderlyingVal)) {
     auto GEPInst = Opcode == Instruction::Load ? Inst->getOperand(0)
                                                : Inst->getOperand(1);
     if (dyn_cast_or_null<GetElementPtrInst>(GEPInst))

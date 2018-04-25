@@ -44,6 +44,8 @@ public:
   VPCmpInst *createCmpInst(VPValue *LHS, VPValue *RHS, CmpInst::Predicate Pred,
                            HLDDNode *DDNode) {
     assert(DDNode && "DDNode can't be null.");
+    // TODO: Enable assert after fixing VPlanHCFGBuilderHIR.
+    //assert(LHS && RHS && "VPCmpInst's operands can't be null!");
     VPCmpInst *NewVPCmp = VPBuilder::createCmpInst(LHS, RHS, Pred);
     NewVPCmp->HIR.setUnderlyingDDN(DDNode);
     return NewVPCmp;

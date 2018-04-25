@@ -724,8 +724,8 @@ private:
   OpcodeTy Opcode;
 
 #if INTEL_CUSTOMIZATION
-  // Hold the underlying Instruction, if any, attached to this VPInstruction.
-  Instruction *Inst = nullptr;
+  // Hold the underlying HIR information, if any, attached to this
+  // VPInstruction.
   HIRSpecifics HIR;
 #endif
 
@@ -734,32 +734,30 @@ private:
   void generateInstruction(VPTransformState &State, unsigned Part);
 
 #if INTEL_CUSTOMIZATION
-  Value *getValue() override { return Inst; }
-  /// Return the underlying Instruction attached to this VPInstruction. If there
-  /// is no Instruction attached, it returns null. This interface is similar to
-  /// getValue() but allows to avoid the cast when we are working with
-  /// VPInstruction pointers.
-  Instruction *getInstruction() const { return Inst; }
-
-  void setInstruction(Instruction *I) { Inst = I; }
+protected:
+  /// Return the underlying Instruction attached to this VPInstruction. Return
+  /// null if there is no Instruction attached. This interface is similar to
+  /// getValue() but it hides the cast when we are working with VPInstruction
+  /// pointers.
+  Instruction *getInstruction() const {
+    assert((!UnderlyingVal || isa<Instruction>(UnderlyingVal)) &&
+           "Expected Instruction as underlying Value.");
+    return cast_or_null<Instruction>(UnderlyingVal);
+  }
 
   /// Return true if this is a new VPInstruction (i.e., an VPInstruction that is
   /// not coming from the underlying IR.
-  bool isNew() const { return Inst == nullptr && !HIR.isSet(); }
+  bool isNew() const { return UnderlyingVal == nullptr && !HIR.isSet(); }
 #endif
 
 public:
 #if INTEL_CUSTOMIZATION
-  // TODO: Ideally, we should make the next createInstruction invoke this one.
-  // Replicating the code to minimize conflicts with open-source.
   VPInstruction(unsigned Opcode, ArrayRef<VPValue *> Operands)
       : VPUser(VPValue::VPInstructionSC, Operands),
         VPRecipeBase(VPRecipeBase::VPInstructionSC), Opcode(Opcode) {}
 #endif
-
   VPInstruction(unsigned Opcode, std::initializer_list<VPValue *> Operands)
-      : VPUser(VPValue::VPInstructionSC, Operands),
-        VPRecipeBase(VPRecipeBase::VPInstructionSC), Opcode(Opcode) {}
+      : VPInstruction(Opcode, ArrayRef<VPValue *>(Operands)) {}
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPValue *V) {
@@ -775,8 +773,8 @@ public:
 #if INTEL_CUSTOMIZATION
   // FIXME: To be replaced by a proper VPType.
   virtual Type *getType() const override {
-    if (Inst)
-      return Inst->getType();
+    if (UnderlyingVal)
+      return UnderlyingVal->getType();
 
     if (!HIR.isMaster())
       return nullptr;
@@ -825,7 +823,10 @@ public:
       : VPInstruction(inferOpcodeFromPredicate(Pred),
                       ((LHS || RHS) ? ArrayRef<VPValue *>({LHS, RHS})
                                     : ArrayRef<VPValue *>({}))),
-        Pred(Pred) {}
+        Pred(Pred) {
+    // TODO: Enable assert after fixing VPlanHCFGBuilderHIR.
+    // assert(LHS && RHS && "VPCmpInst's operands can't be null!");
+  }
 
   /// \brief Return the predicate for this instruction
   Predicate getPredicate() const { return Pred; }
@@ -2086,7 +2087,7 @@ protected:
   // after the construction. For now, the following data structure is used only
   // for memory deallocation purposes.
   /// Holds all the external definitions created for this VPlan.
-  SmallVector<VPInstruction *, 32> VPExternalDefs;
+  SmallSet<VPValue *, 32> VPExternalDefs;
 
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
 #else
@@ -2188,9 +2189,10 @@ public:
     return *VPConstants.insert(new VPConstant(Const)).first;
   }
 
-  /// Add a new element to the pool of external definitions.
-  void addExternalDef(VPInstruction *VPInst) {
-    VPExternalDefs.push_back(VPInst);
+  /// Add \p VPVal to the pool of external definitions if it's not already
+  /// in the pool.
+  void addExternalDef(VPValue *VPVal) {
+    VPExternalDefs.insert(VPVal);
   }
 #else
   void addVPValue(Value &V) {

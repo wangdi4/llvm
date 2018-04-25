@@ -71,29 +71,40 @@ private:
   SmallVector<VPUser *, 1> Users;
 
 protected:
-  VPValue(const unsigned char SC) : SubclassID(SC) {}
+  // Hold the underlying Val, if any, attached to this VPValue.
+  Value *UnderlyingVal;
 
-  /// Return the underlying Value attached to this VPInstruction. If there
-  /// is no Value attached, it returns null.
-  virtual Value *getValue() {
-    // FIXME: We are currently creating VPValue objects to wrap some unknown
-    // LLVM Values. Make this method pure when VPValue is turned into an
-    // abstract class.
-    return nullptr;
-   }
+  VPValue(const unsigned char SC, Value *UV = nullptr)
+      : SubclassID(SC), UnderlyingVal(UV) {}
 
-  public:
-    /// An enumeration for keeping track of the concrete subclass of VPValue
-    /// that are actually instantiated. Values of this enumeration are kept in
-    /// the SubclassID field of the VPValue objects. They are used for concrete
-    /// type identification.
+  // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to
+  // the front-end and back-end of VPlan so that the middle-end is as
+  // independent as possible of the underlying IR. We grant access to the
+  // underlying IR using friendship. In that way, we should be able to use VPlan
+  // for multiple underlying IRs (Polly?) by providing a new VPlan front-end,
+  // back-end and analysis information for the new IR.
+
+  /// Return the underlying Value attached to this VPValue.
+  Value *getUnderlyingValue() { return UnderlyingVal; }
+
+  // Set \p Val as the underlying Value of this VPValue.
+  void setUnderlyingValue(Value *Val) {
+    assert(!UnderlyingVal && "Underlying Value is already set.");
+    UnderlyingVal = Val;
+  }
+
+public:
+  /// An enumeration for keeping track of the concrete subclass of VPValue
+  /// that are actually instantiated. Values of this enumeration are kept in
+  /// the SubclassID field of the VPValue objects. They are used for concrete
+  /// type identification.
 #if INTEL_CUSTOMIZATION
   enum { VPValueSC, VPUserSC, VPInstructionSC, VPConstantSC };
 #else
   enum { VPValueSC, VPUserSC, VPInstructionSC };
 #endif
 
-  VPValue() : SubclassID(VPValueSC) {}
+  VPValue(Value *UV = nullptr) : VPValue(VPValueSC, UV) {}
   VPValue(const VPValue &) = delete;
   VPValue &operator=(const VPValue &) = delete;
 #if INTEL_CUSTOMIZATION
@@ -146,24 +157,6 @@ class VPUser : public VPValue {
 private:
   SmallVector<VPValue *, 2> Operands;
 
-#if INTEL_CUSTOMIZATION
-  // Regarding 'addOperand', the equivalent function in LLVM user ('setOperand')
-  // is public and we need the same in VPO.
-public:
-#endif
-  void addOperand(VPValue *Operand) {
-    Operands.push_back(Operand);
-    Operand->addUser(*this);
-#if INTEL_CUSTOMIZATION
-    invalidateHIR();
-#endif
-  }
-#if INTEL_CUSTOMIZATION
-  // Adding 'private' back in case more members are added after 'addOperand' in
-  // the future.
-private:
-#endif
-
 protected:
   VPUser(const unsigned char SC) : VPValue(SC) {}
 #if INTEL_CUSTOMIZATION
@@ -203,6 +196,12 @@ public:
   static inline bool classof(const VPValue *V) {
     return V->getVPValueID() >= VPUserSC &&
            V->getVPValueID() <= VPInstructionSC;
+  }
+
+  void addOperand(VPValue *Operand) {
+    assert(Operand && "Operand can't be null!");
+    Operands.push_back(Operand);
+    Operand->addUser(*this);
   }
 
   unsigned getNumOperands() const { return Operands.size(); }
@@ -246,28 +245,33 @@ class VPConstant : public VPValue {
   // VPlan is currently the context where we hold the pool of VPConstants.
   friend class VPlan;
 
-private:
-  Constant *Const;
-
 protected:
-  VPConstant(Constant *Const) : VPValue(VPValue::VPConstantSC), Const(Const) {}
+  VPConstant(Constant *Const)
+      : VPValue(VPValue::VPConstantSC, Const) {}
 
-  Value *getValue() override { return Const; }
   /// Return the underlying Constant attached to this VPConstant. This interface
-  /// is similar to getValue() but allows to avoid the cast when we are working
-  /// with VPConstant pointers.
-  Constant *getConstant() { return Const; }
+  /// is similar to getValue() but hides the cast when we are working with
+  /// VPConstant pointers.
+  Constant *getConstant() {
+    assert(isa<Constant>(UnderlyingVal) &&
+           "Expected Constant as underlying Value.");
+    return cast<Constant>(UnderlyingVal);
+  }
 
 public:
   VPConstant(const VPConstant &) = delete;
   VPConstant &operator=(const VPConstant &) const = delete;
 
   // Structural comparators.
-  bool operator==(const VPConstant &C) const { return Const == C.Const; };
-  bool operator<(const VPConstant &C) const { return Const < C.Const; };
+  bool operator==(const VPConstant &C) const {
+    return UnderlyingVal == C.UnderlyingVal;
+  };
+  bool operator<(const VPConstant &C) const {
+    return UnderlyingVal < C.UnderlyingVal;
+  };
 
   void printAsOperand(raw_ostream &OS) const override {
-    Const->printAsOperand(OS);
+    UnderlyingVal->printAsOperand(OS);
   }
   void dump(raw_ostream &OS) const override { printAsOperand(OS); }
   void dump() const override { dump(errs()); }

@@ -31,8 +31,6 @@ private:
   VPBasicBlock::iterator InsertPt = VPBasicBlock::iterator();
 
 #if INTEL_CUSTOMIZATION
-  // TODO: Ideally, we should make the next createInstruction invoke this one.
-  // Replicating the code to minimize conflicts with open-source.
   VPInstruction *createInstruction(unsigned Opcode,
                                    ArrayRef<VPValue *> Operands) {
     VPInstruction *Instr = new VPInstruction(Opcode, Operands);
@@ -44,18 +42,15 @@ private:
 
   VPInstruction *createInstruction(unsigned Opcode,
                                    std::initializer_list<VPValue *> Operands) {
-    VPInstruction *Instr = new VPInstruction(Opcode, Operands);
-#if INTEL_CUSTOMIZATION
-    if (BB)
-#endif
-    BB->insert(Instr, InsertPt);
-    return Instr;
+    return createInstruction(Opcode, ArrayRef<VPValue *>(Operands));
   }
 
 #if INTEL_CUSTOMIZATION
-  /// \brief Create VPCmpInst with its two operands
+  /// \brief Create VPCmpInst with its two operands.
   VPCmpInst *createCmpInst(VPValue *LeftOp, VPValue *RightOp,
-                             CmpInst::Predicate Pred) {
+                           CmpInst::Predicate Pred) {
+    // TODO: Enable assert after fixing VPlanHCFGBuilderHIR.
+    //assert(LeftOp && RightOp && "VPCmpInst's operands can't be null!");
     VPCmpInst *Instr = new VPCmpInst(LeftOp, RightOp, Pred);
     if (BB)
       BB->insert(Instr, InsertPt);
@@ -132,7 +127,7 @@ public:
   VPValue *createNaryOp(unsigned Opcode, ArrayRef<VPValue *> Operands,
                         Instruction *Inst = nullptr) {
     VPInstruction *NewVPInst = createInstruction(Opcode, Operands);
-    NewVPInst->setInstruction(Inst);
+    NewVPInst->setUnderlyingValue(Inst);
     return NewVPInst;
   }
   VPValue *createNaryOp(unsigned Opcode,
@@ -160,8 +155,9 @@ public:
   VPCmpInst *createCmpInst(VPValue *LeftOp, VPValue *RightOp, CmpInst *CI) {
     // TODO: If a null CI is needed, please create a new interface.
     assert(CI && "CI can't be null.");
+    assert(LeftOp && RightOp && "VPCmpInst's operands can't be null!");
     VPCmpInst *VPCI = createCmpInst(LeftOp, RightOp, CI->getPredicate());
-    VPCI->setInstruction(CI);
+    VPCI->setUnderlyingValue(CI);
     return VPCI;
   }
 
