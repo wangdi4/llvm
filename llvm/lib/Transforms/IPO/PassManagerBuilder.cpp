@@ -949,6 +949,10 @@ void PassManagerBuilder::populateModulePassManager(
 #endif // INTEL_CUSTOMIZATION
     MPM.add(createLoopUnrollPass(OptLevel));    // Unroll small loops
 
+#if INTEL_CUSTOMIZATION
+    MPM.add(createCSALowerParallelIntrinsicsWrapperPass());
+#endif  // INTEL_CUSTOMIZATION
+
     // LoopUnroll may generate some redundency to cleanup.
     addInstructionCombiningPass(MPM);
 
@@ -1185,6 +1189,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // The vectorizer may have significantly shortened a loop body; unroll again.
   if (!DisableUnrollLoops)
     PM.add(createLoopUnrollPass(OptLevel));
+
+#if INTEL_CUSTOMIZATION
+  PM.add(createCSALowerParallelIntrinsicsWrapperPass());
+#endif  // INTEL_CUSTOMIZATION
 
   // Now that we've optimized loops (in particular loop induction variables),
   // we may have exposed more scalar opportunities. Run parts of the scalar

@@ -37,6 +37,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/CSALowerParallelIntrinsics.h"
 using namespace llvm;
 using namespace llvm::PatternMatch;
 
@@ -246,6 +247,20 @@ bool CSAInnerLoopPrep::runOnLoop(Loop *L) {
 }
 
 bool CSAInnerLoopPrep::isLoopMarkedParallel(Loop *L) {
+  if (auto *LoopID = L->getLoopID()) {
+    DEBUG(dbgs() << "Loop with metadata: "
+          << L->getHeader()->getName() << "\n");
+    for (unsigned Indx = 1; Indx < LoopID->getNumOperands(); ++Indx) {
+      if (auto *T = dyn_cast<MDTuple>(LoopID->getOperand(Indx)))
+        if (T->getNumOperands() != 0)
+          if (auto *S = dyn_cast<MDString>(T->getOperand(0)))
+            if (S->getString() == CSALoopTag::Parallel) {
+              DEBUG(dbgs() << "The loop is marked with Parallel.\n");
+              return true;
+            }
+    }
+  }
+
   for (BasicBlock *bb : L->blocks()) {
     for (Instruction &i : *bb) {
       Instruction *section_exit  = &i;

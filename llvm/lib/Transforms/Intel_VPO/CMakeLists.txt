@@ -20,6 +20,7 @@ add_llvm_library(LLVMIntel_VPOTransforms
   Paropt/VPOParoptTransform.cpp
   Paropt/VPOParoptTransformCSA.cpp
   Paropt/VPOParoptUtils.cpp
+  Paropt/CSALowerParallelIntrinsics.cpp
 )
 
 add_dependencies(LLVMIntel_VPOTransforms intrinsics_gen intel_directives_gen)

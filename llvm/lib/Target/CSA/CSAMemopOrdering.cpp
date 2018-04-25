@@ -32,6 +32,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/CSALowerParallelIntrinsics.h"
 
 #include <algorithm>
 #include <iterator>
@@ -630,6 +631,9 @@ struct MemopCFG {
 
     // The loop depth of this loop.
     int depth;
+
+    // The loop is marked Parallel by CSALowerParallelIntrinsics.
+    bool IsParallel {false};
 
     // Whether this loop contains a given node.
     bool contains(const Node *) const;
@@ -2129,11 +2133,18 @@ bool MemopCFG::Node::step_backwards(const Memop &cur_memop, const Loop *loop,
       cur_dis.node->deepest_loop and not back_loop and
       (not loop or loop->depth < cur_dis.node->deepest_loop->depth) and
       cur_dis.node->deepest_loop->contains(cur_memop.parent);
+
+    bool IgnoreParallelDep = back_loop && back_loop->IsParallel;
+
     if (
 
       // The two memops were already ordered in a previous pass through this
       // loop.
       not previously_ordered
+
+      // We reached the second memop from the first memop via a back edge
+      // of a loop marked Parallel by CSALowerParallelIntrinsics.
+      and not IgnoreParallelDep
 
       // The section states indicate that no ordering is needed.
       and not sec_states.should_ignore_memops()
@@ -2812,6 +2823,24 @@ void MemopCFG::collect_loops(const MachineLoop *L) {
   // Create a new Loop and transfer the set of basic blocks.
   Loop new_loop;
   new_loop.depth = L->getLoopDepth();
+
+  //
+  // Check if this loop was transformed by CSALowerParallelIntrinsics pass.
+  //
+  if (auto *LoopID = L->getLoopID()) {
+    DEBUG(dbgs() << "Loop with metadata: "
+          << L->getHeader()->getName() << "\n");
+    for (unsigned Indx = 1; Indx < LoopID->getNumOperands(); ++Indx) {
+      if (auto *T = dyn_cast<MDTuple>(LoopID->getOperand(Indx)))
+        if (T->getNumOperands() != 0)
+          if (auto *S = dyn_cast<MDString>(T->getOperand(0)))
+            if (S->getString() == CSALoopTag::Parallel) {
+              DEBUG(dbgs() << "The loop is marked with Parallel.\n");
+              new_loop.IsParallel = true;
+            }
+    }
+  }
+
   for (const MachineBasicBlock *const BB : L->getBlocks()) {
     new_loop.nodes.push_back(nodes_for_bbs[BB]);
   }

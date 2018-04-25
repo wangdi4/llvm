@@ -297,7 +297,10 @@ try a different SPMDization strategy instead.
         if (!success_p)
           return false;
         L = NewLoop;
-        setLoopAlreadySPMDized(L);
+        // NOTE: we do not need to call setLoopAlreadySPMDized()
+        // for the new loop, because the metadata was set previously
+        // for the original loop and it will be copied to each new loop
+        // automatically, by cloneLoopWithPreheader().
       }
       // Fix missed Phi operands in AfterLoop
       BasicBlock::iterator bi, bie;
@@ -364,6 +367,14 @@ void LoopSPMDization::setLoopAlreadySPMDized(Loop *L) {
   DisableOperands.push_back(MDString::get(Context, "llvm.loop.spmd.disable"));
   MDNode *DisableNode = MDNode::get(Context, DisableOperands);
   MDs.push_back(DisableNode);
+
+  if (MDNode *LoopID = L->getLoopID()) {
+    // Preserve metadata of the original loop.
+    for (unsigned i = 1; i < LoopID->getNumOperands(); ++i) {
+      MDNode *Node = cast<MDNode>(LoopID->getOperand(i));
+      MDs.push_back(Node);
+    }
+  }
 
   MDNode *NewLoopID = MDNode::get(Context, MDs);
   // Set operand 0 to refer to the loop id itself.

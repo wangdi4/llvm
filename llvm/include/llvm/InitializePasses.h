@@ -529,6 +529,7 @@ void initializeFMASplitterLegacyPassPass(PassRegistry&);
 // Pass for dynamic_cast calls optimization
 void initializeOptimizeDynamicCastsWrapperPass(PassRegistry&);
 void initializeMachineLoopOptReportEmitterPass(PassRegistry&);
+void initializeCSALowerParallelIntrinsicsWrapperPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 void initializeMIRCanonicalizerPass(PassRegistry &);
 
