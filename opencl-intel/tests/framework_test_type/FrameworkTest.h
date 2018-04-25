@@ -125,6 +125,7 @@ bool ClkEventAsKernelArg();
 bool CreateReleaseOOOQueueTest();
 bool clGetKernelArgInfoTest();
 void clSetKernelArgTest();
+void clSetKernelArgLocalArgTest();
 bool ShutdownFromChildThread();
 bool predictable_partition_test();
 bool clMultipleExecutionTest();

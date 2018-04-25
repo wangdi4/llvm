@@ -1004,7 +1004,7 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
             return CL_INVALID_ARG_SIZE;
         }
         size_t localMemSize = m_vArgumentsInfo[uiIndex].localMemSize;
-        if (szSize > localMemSize)
+        if ((localMemSize > 0) && (szSize > localMemSize))
         {
             return CL_INVALID_ARG_SIZE;
         }

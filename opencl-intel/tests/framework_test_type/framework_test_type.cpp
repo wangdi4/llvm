@@ -207,6 +207,11 @@ TEST(FrameworkTestType, Test_clSetKernelArgTest)
     clSetKernelArgTest();
 }
 
+TEST(FrameworkTestType, Test_clSetKernelArgLocalArgTest)
+{
+    clSetKernelArgLocalArgTest();
+}
+
 TEST(FrameworkTestType, Test_clCreateBufferTest)
 {
     EXPECT_TRUE(clCreateBufferTest());
