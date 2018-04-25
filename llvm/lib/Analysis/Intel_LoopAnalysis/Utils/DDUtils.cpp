@@ -203,6 +203,7 @@ bool findLoadInst(const DDRef *RRef, SmallVectorImpl<HLInst *> &PreLoopInsts,
 
 // TODO: Remove CopyStmt related logic if possible. Now HIRTempCleanup
 //       takes care of those.
+template <bool IsPreHeader = false>
 bool gatherPreloopInsts(HLInst *Inst, HLLoop *InnermostLoop, DDGraph DDG,
                         SmallVectorImpl<HLInst *> &PreLoopInsts,
                         SmallVectorImpl<HLInst *> &ForwardSubInsts) {
@@ -225,6 +226,13 @@ bool gatherPreloopInsts(HLInst *Inst, HLLoop *InnermostLoop, DDGraph DDG,
     CopyStmt = true;
   }
 
+  if (!IsPreHeader && InnermostLoop->hasZtt()) {
+    unsigned LvalSymbase = Inst->getLvalDDRef()->getSymbase();
+    if (Inst->getParentLoop()->isLiveOut(LvalSymbase)) {
+      return false;
+    }
+  }
+
   if (!CopyStmt &&
       DDUtils::anyEdgeToLoop(DDG, Inst->getRvalDDRef(), InnermostLoop)) {
     return false;
@@ -238,7 +246,8 @@ bool gatherPreloopInsts(HLInst *Inst, HLLoop *InnermostLoop, DDGraph DDG,
   return true;
 }
 
-bool gatherPostloopInsts(HLInst *Inst,
+template <bool IsPostexit = false>
+bool gatherPostloopInsts(HLInst *Inst, const HLLoop *InnermostLoop,
                          SmallVectorImpl<HLInst *> &PostLoopInsts) {
   if (!Inst) {
     // pre(post)loop HLNode might have not be HLInst (e.g HLIf)
@@ -248,6 +257,10 @@ bool gatherPostloopInsts(HLInst *Inst,
   const Instruction *LLVMInst = Inst->getLLVMInstruction();
   // Allow only Store in PostLoop Nodes
   if (!isa<StoreInst>(LLVMInst)) {
+    return false;
+  }
+
+  if (!IsPostexit && InnermostLoop->hasZtt()) {
     return false;
   }
 
@@ -284,7 +297,8 @@ bool enablePerfectLPGatherPrePostInsts(
         return false;
       }
     } else {
-      if (!gatherPostloopInsts(dyn_cast<HLInst>(I1), PostLoopInsts)) {
+      if (!gatherPostloopInsts(dyn_cast<HLInst>(I1), InnermostLoop,
+                               PostLoopInsts)) {
         return false;
       }
     }
@@ -293,8 +307,8 @@ bool enablePerfectLPGatherPrePostInsts(
   // Scan preheader insts
   for (auto I = InnermostLoop->pre_begin(), E = InnermostLoop->pre_end();
        I != E; ++I) {
-    if (!gatherPreloopInsts(cast<HLInst>(I), InnermostLoop, DDG, PreLoopInsts,
-                            ForwardSubInsts)) {
+    if (!gatherPreloopInsts<true>(cast<HLInst>(I), InnermostLoop, DDG,
+                                  PreLoopInsts, ForwardSubInsts)) {
       return false;
     }
   }
@@ -302,7 +316,8 @@ bool enablePerfectLPGatherPrePostInsts(
   // Scan postexit insts
   for (auto I = InnermostLoop->post_begin(), E = InnermostLoop->post_end();
        I != E; ++I) {
-    if (!gatherPostloopInsts(cast<HLInst>(I), PostLoopInsts)) {
+    if (!gatherPostloopInsts<true>(cast<HLInst>(I), InnermostLoop,
+                                   PostLoopInsts)) {
       return false;
     }
   }
