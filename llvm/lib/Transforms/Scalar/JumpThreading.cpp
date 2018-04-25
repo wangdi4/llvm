@@ -417,6 +417,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
                      << "' with terminator: " << *BB.getTerminator() << '\n');
         LoopHeaders.erase(&BB);
         CountableLoopLatches.erase(&BB);   // INTEL
+        CountableLoopHeaders.erase(&BB);   // INTEL
         LVI->eraseBlock(&BB);
         DeleteDeadBlock(&BB, DDT);
         Changed = true;
@@ -438,6 +439,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
         // BB's parent until a DDT->flush() event.
         LVI->eraseBlock(&BB);
         CountableLoopLatches.erase(&BB); // INTEL
+        CountableLoopHeaders.erase(&BB); // INTEL
         Changed = true;
       }
     }
@@ -446,6 +448,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
 
   LoopHeaders.clear();
   CountableLoopLatches.clear(); // INTEL
+  CountableLoopHeaders.clear(); // INTEL
   DDT->flush();
   LVI->enableDT();
   return EverChanged;
@@ -639,8 +642,10 @@ void JumpThreadingPass::FindLoopHeaders(Function &F) {
 #if INTEL_CUSTOMIZATION
   if (F.isPreLoopOpt())
     for (const auto &Edge : Edges)
-      if (isCountableLoop(Edge.second, Edge.first))
+      if (isCountableLoop(Edge.second, Edge.first)) {
         CountableLoopLatches.insert(Edge.first);
+        CountableLoopHeaders.insert(Edge.second);
+      }
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -1221,6 +1226,7 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
         LoopHeaders.insert(BB);
 
       CountableLoopLatches.erase(SinglePred);   // INTEL
+      CountableLoopHeaders.erase(SinglePred);   // INTEL
       LVI->eraseBlock(SinglePred);
       MergeBasicBlockIntoOnlyPred(BB, nullptr, DDT);
 
@@ -1886,8 +1892,10 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
     if (isa<IndirectBrInst>(Pred->getTerminator()))
       continue;
 
-    if (CountableLoopLatches.count(BB) && LoopHeaders.count(DestBB)) // INTEL
-      ThreadingBackedge = true;                             // INTEL
+#if INTEL_CUSTOMIZATION
+    if (CountableLoopLatches.count(BB) && CountableLoopHeaders.count(DestBB))
+      ThreadingBackedge = true;
+#endif // INTEL_CUSTOMIZATION
     PredToDestList.push_back(std::make_pair(Pred, DestBB));
   }
 
@@ -1900,10 +1908,8 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
   // otherwise we may turn countable loop into non-countable loop by adding
   // additional backedges to it.
   if (ThreadingBackedge) {
-    if (PredToDestList.size() == (unsigned)std::distance(pred_begin(BB),
+    if (PredToDestList.size() != (unsigned)std::distance(pred_begin(BB),
                                                          pred_end(BB)))
-      CountableLoopLatches.erase(BB);
-    else
       return false;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -2355,6 +2361,19 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
               << BB->getName() << "' - max thread count reached!\n");
         return false;
       }
+    }
+
+    // We are using CountableLoopHeaders here instead because-
+    // 1) They are only populated when function has pre_loopopt attribute.
+    // 2) This function seems to be conservatively adding some bblocks which
+    //    are not true loop headers in LoopHeaders.
+    if (CountableLoopHeaders.count(BB)
+        && isa<SwitchInst>(BB->getTerminator())) {
+      DEBUG(dbgs() << "  Not threading across loop header BB '"
+          << BB->getName()
+          << "' - header has switch terminator and threading may convert it "
+          << "into a latch. Such loops aren't supported by loopopt!\n");
+      return false;
     }
   }
 
