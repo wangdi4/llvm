@@ -61,7 +61,8 @@ ocl20_get_default_queue(IDeviceCommandManager *DCM) {
 /// @param queue - queue used
 /// @param flags - enqueue flags
 /// @param ndrange - pointer to cl_work_description_type which stores ndrange data
-/// @param block - pointer to block literal structure
+/// @param block_literal - pointer to block literal structure
+/// @param block_invoke - pointer to block invoke function
 /// @param num_events_in_wait_list - 
 ///           number of events in wait list for the enqueued block
 /// @param in_wait_list - pointer to array of events in waitlist
@@ -74,63 +75,43 @@ ocl20_get_default_queue(IDeviceCommandManager *DCM) {
 /// @param DCM - pointer to IDeviceCommandManager object
 static int enqueue_kernel_common(
     queue_t queue, kernel_enqueue_flags_t flags, _ndrange_t *ndrange,
-    void *block, unsigned num_events_in_wait_list, clk_event_t*in_wait_list,
-    clk_event_t*event_ret, unsigned *localbuf_size, unsigned localbuf_size_len,
-    IDeviceCommandManager *DCM, const IBlockToKernelMapper *pMapper,
-    void *RuntimeHandle) {
+    void *block_literal, void *block_invoke, unsigned num_events_in_wait_list,
+    clk_event_t*in_wait_list, clk_event_t*event_ret, size_t *localbuf_size,
+    unsigned localbuf_size_len, IDeviceCommandManager *DCM,
+    const IBlockToKernelMapper *pMapper, void *RuntimeHandle) {
   assert(DCM && "IDeviceCommandManager is NULL");
-  assert(block && "block is NULL");
+  assert(block_literal && "Block literal is NULL");
+  assert(block_invoke && "Block invoke function is NULL");
   assert(pMapper && "const IBlockToKernelMapper is NULL");
 
-  const BlockLiteral *pBlockLiteral = static_cast<BlockLiteral *>(block);
+  const BlockLiteral *pBlockLiteral =
+    static_cast<BlockLiteral *>(block_literal);
 
-  // obtain entry point as key
-  void * key = pBlockLiteral->GetInvoke();
   // obtain Kernel object from mapper
-  const ICLDevBackendKernel_ * pKernel = pMapper->Map(key);
-  // convert localbuf of type uint defined by 2.0 spec to type size_t accepted by BE
-  SmallVector<size_t, 32> localbuf64_size(localbuf_size_len);
-  for (unsigned I=0; I<localbuf_size_len; ++I)
-    localbuf64_size[I] = localbuf_size[I];
-  size_t *localbuf_size_arg = localbuf_size_len ? &(localbuf64_size[0]) : 0;
+  const ICLDevBackendKernel_ * pKernel = pMapper->Map(block_invoke);
 
-  // copy block_literal and set desc ptr field to NULL
-  // reason: we dont copy structure pointed by desc pointer
-  // we assume desc field is not used in enqueued kernels
-  // setting the ptr to zero will simplify to rootcause issue 
-  // in case desc field will happen to be used
-  SmallVector<char, 256> bl(pBlockLiteral->GetSize());
-  ::memcpy(&(bl[0]), block, pBlockLiteral->GetSize());
-
-  BlockLiteral * pBl = reinterpret_cast<BlockLiteral *>(&bl[0]);
-  pBl->SetDescPtr(0);
-
-  ///////////////////////////////////////////////////////////////////////
   // call enqueue
   int res = DCM->EnqueueKernel(
-      queue,                   // queue_t
-      flags,                   // kernel_enqueue_flags_t
-      num_events_in_wait_list, // uiNumEventsInWaitList
-      in_wait_list,            // pEventWaitList
-      event_ret,               // clk_event_tpEventRet
-      pKernel, // const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_*
-               // pKernel
-      &bl[0],           // block literal structure as provided by clang
-      bl.size(),               // size of block literal
-      localbuf_size_arg,       // spec says its an array of uint but we convert it to size_t
-      localbuf_size_len,       // !!!! size_t
-      ndrange,                 // const cl_work_description_type* pNdrange
-      RuntimeHandle            // pointer provided to RunWG
+      queue,                    // queue_t
+      flags,                    // kernel_enqueue_flags_t
+      num_events_in_wait_list,  // uiNumEventsInWaitList
+      in_wait_list,             // pEventWaitList
+      event_ret,                // clk_event_tpEventRet
+      pKernel,                  // const ICLDevBackendKernel_*
+      block_literal,            // block literal structure as provided by clang
+      pBlockLiteral->GetSize(), // size of block literal
+      localbuf_size,            // size_t array of sizes of local buffers
+      localbuf_size_len,        // size_t number of local buffers
+      ndrange,                  // const cl_work_description_type* pNdrange
+      RuntimeHandle             // pointer provided to RunWG
       );
 
   return res;
 }
-extern "C" LLVM_BACKEND_API int
-ocl20_enqueue_kernel_basic(queue_t queue, kernel_enqueue_flags_t flags,
-                           _ndrange_t *ndrange, void *block,
-                           IDeviceCommandManager *DCM,
-                           const IBlockToKernelMapper* Mapper,
-                           void *RuntimeHandle) {
+extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_basic(
+    queue_t queue, kernel_enqueue_flags_t flags, _ndrange_t *ndrange,
+    void *block_invoke, void *block_literal, IDeviceCommandManager *DCM,
+    const IBlockToKernelMapper *Mapper, void *RuntimeHandle) {
   DEBUG(dbgs() << "ocl20_enqueue_kernel_basic. Entry point \n");
   DEBUG(dbgs() << "Enqueued ndrange_1d \n"
                << " workDimension " << ndrange->workDimension
@@ -139,7 +120,9 @@ ocl20_enqueue_kernel_basic(queue_t queue, kernel_enqueue_flags_t flags,
                << " globalWorkOffset0 " << ndrange->globalWorkOffset[0]
                << "\n");
 
-  int res = enqueue_kernel_common(queue, flags, ndrange, block, 0, nullptr,
+  int res = enqueue_kernel_common(queue, flags, ndrange,
+                                  block_literal, block_invoke,
+                                  0, nullptr,
                                   nullptr,    // events
                                   nullptr, 0, // local buffers
                                   DCM, Mapper, RuntimeHandle);
@@ -149,12 +132,13 @@ ocl20_enqueue_kernel_basic(queue_t queue, kernel_enqueue_flags_t flags,
 
 extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_localmem(
     queue_t queue, kernel_enqueue_flags_t flags, _ndrange_t *ndrange,
-    void *block, unsigned localbuf_size_len, unsigned *localbuf_size,
-    IDeviceCommandManager *DCM, const IBlockToKernelMapper *Mapper,
-    void *RuntimeHandle) {
+    void *block_invoke, void *block_literal, unsigned localbuf_size_len,
+    size_t *localbuf_size, IDeviceCommandManager *DCM,
+    const IBlockToKernelMapper *Mapper, void *RuntimeHandle) {
   DEBUG(dbgs() << "ocl20_enqueue_kernel_localmem. Entry point \n");
   int res =
-    enqueue_kernel_common(queue, flags, ndrange, block,
+    enqueue_kernel_common(queue, flags, ndrange,
+                          block_literal, block_invoke,
                           0, nullptr, nullptr, // events
                           localbuf_size, localbuf_size_len, // local buffers
                           DCM, Mapper, RuntimeHandle);
@@ -164,11 +148,13 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_localmem(
 extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_events(
     queue_t queue, kernel_enqueue_flags_t flags, _ndrange_t *ndrange,
     unsigned num_events_in_wait_list, clk_event_t *in_wait_list,
-    clk_event_t *event_ret, void *block, IDeviceCommandManager *DCM,
-    const IBlockToKernelMapper *Mapper, void *RuntimeHandle) {
+    clk_event_t *event_ret, void *block_invoke, void *block_literal,
+    IDeviceCommandManager *DCM, const IBlockToKernelMapper *Mapper,
+    void *RuntimeHandle) {
   DEBUG(dbgs() << "ocl20_enqueue_kernel_events. Entry point \n");
   int res =
-      enqueue_kernel_common(queue, flags, ndrange, block,
+      enqueue_kernel_common(queue, flags, ndrange,
+                            block_literal, block_invoke,
                             num_events_in_wait_list, in_wait_list, // events
                             event_ret,                             // event ret
                             nullptr, 0, // local buffers
@@ -179,12 +165,14 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_events(
 extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_events_localmem(
     queue_t queue, kernel_enqueue_flags_t flags, _ndrange_t *ndrange,
     unsigned num_events_in_wait_list, clk_event_t *in_wait_list,
-    clk_event_t *event_ret, void *block, unsigned localbuf_size_len,
-    unsigned *localbuf_size, IDeviceCommandManager *DCM,
-    const IBlockToKernelMapper *Mapper, void *RuntimeHandle) {
+    clk_event_t *event_ret, void *block_invoke, void *block_literal,
+    unsigned localbuf_size_len, size_t *localbuf_size,
+    IDeviceCommandManager *DCM, const IBlockToKernelMapper *Mapper,
+    void *RuntimeHandle) {
   DEBUG(dbgs() << "ocl20_enqueue_kernel_events_localmem. Entry point \n");
   int res =
-    enqueue_kernel_common(queue, flags, ndrange, block,
+    enqueue_kernel_common(queue, flags, ndrange,
+                          block_literal, block_invoke,
                           num_events_in_wait_list, in_wait_list,  // events
                           event_ret, // event ret
                           localbuf_size, localbuf_size_len, // local buffers
@@ -300,43 +288,47 @@ ocl20_capture_event_profiling_info(clk_event_t event, clk_profiling_info name,
 }
 
 extern "C" LLVM_BACKEND_API uint32_t
-ocl20_get_kernel_wg_size(void *block, IDeviceCommandManager *DCM, const IBlockToKernelMapper* Mapper) {
+ocl20_get_kernel_wg_size(void *block_invoke, void *block_literal,
+                         IDeviceCommandManager *DCM,
+                         const IBlockToKernelMapper *Mapper) {
   assert(DCM && "IDeviceCommandManager is NULL");
   assert(Mapper && "const IBlockToKernelMapper is NULL");
   DEBUG(dbgs() << "ocl20_get_kernel_wg_size. Entry point \n");
 
-  const BlockLiteral * pBlockLiteral = static_cast<BlockLiteral*>(block);
-
-  // obtain entry point as key
-  void * key = pBlockLiteral->GetInvoke();
-  const ICLDevBackendKernel_ * pKernel = Mapper->Map(key);
-  const ICLDevBackendKernelProporties* pKernelProps = pKernel->GetKernelProporties();
+  // obtain entry point as block_invoke
+  const ICLDevBackendKernel_ *pKernel = Mapper->Map(block_invoke);
+  const ICLDevBackendKernelProporties* pKernelProps =
+    pKernel->GetKernelProporties();
 
   DEBUG(dbgs() << "ocl20_get_kernel_wg_size. Called GetKernelWorkGroupSize\n");
-  DEBUG(dbgs() << "ocl20_get_kernel_wg_size. return value=" << pKernelProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, MAX_WG_PRIVATE_SIZE)<<"\n");
-  return pKernelProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, MAX_WG_PRIVATE_SIZE);
+  DEBUG(dbgs() << "ocl20_get_kernel_wg_size. return value="
+               << pKernelProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE,
+                                                    MAX_WG_PRIVATE_SIZE)
+               << "\n");
+  return
+    pKernelProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, MAX_WG_PRIVATE_SIZE);
 }
 
 extern "C" LLVM_BACKEND_API uint32_t
-ocl20_get_kernel_preferred_wg_size_multiple(void *block,
-                                            IDeviceCommandManager *DCM,
-                                            const IBlockToKernelMapper *Mapper) {
-  DEBUG(dbgs() << "ocl20_get_kernel_preferred_wg_size_multiple. Entry point \n");
+ocl20_get_kernel_preferred_wg_size_multiple(
+    void *block_invoke, void *block_literal, IDeviceCommandManager *DCM,
+    const IBlockToKernelMapper *Mapper) {
+  DEBUG(
+      dbgs() << "ocl20_get_kernel_preferred_wg_size_multiple. Entry point \n");
   uint32_t ret;
   assert(DCM && "IDeviceCommandManager is NULL");
   assert(Mapper && "const IBlockToKernelMapper is NULL");
 
-  const BlockLiteral * pBlockLiteral = static_cast<BlockLiteral*>(block);
+  // obtain entry point as block_invoke
+  const ICLDevBackendKernel_ *pKernel = Mapper->Map(block_invoke);
+  const ICLDevBackendKernelProporties* pKernelProps =
+    pKernel->GetKernelProporties();
 
-  // obtain entry point as key
-  void * key = pBlockLiteral->GetInvoke();
-  const ICLDevBackendKernel_ * pKernel = Mapper->Map(key);
-  const ICLDevBackendKernelProporties* pKernelProps = pKernel->GetKernelProporties();
-
-  //logic taken from \cpu_device\program_service.cpp file ProgramService::GetKernelInfo function
-  // SVN rev. 74469
+  // logic taken from \cpu_device\program_service.cpp file
+  // ProgramService::GetKernelInfo function. SVN rev. 74469
   ret = pKernelProps->GetKernelPackCount();
 
-  DEBUG(dbgs() << "ocl20_get_kernel_preferred_wg_size_multiple. Called GetKernelPreferredWorkGroupSizeMultiple\n");
+  DEBUG(dbgs() << "ocl20_get_kernel_preferred_wg_size_multiple."
+               << "Called GetKernelPreferredWorkGroupSizeMultiple\n");
   return ret;
 }

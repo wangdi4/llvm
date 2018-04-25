@@ -17,7 +17,7 @@ extern void* __attribute__((const)) __get_runtime_handle(void);
 extern int ocl20_enqueue_kernel_events(
     queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t *ndrange,
     uint num_events_in_wait_list, const clk_event_t *in_wait_list,
-    clk_event_t *event_ret, void *block, void* DCM,
+    clk_event_t *event_ret, void *block_invoke, void *block_literal, void* DCM,
     void* B2K, void *RuntimeHandle);
 
 int __attribute__((always_inline))
@@ -26,29 +26,31 @@ int __attribute__((always_inline))
                                   uint num_events_in_wait_list,
                                   const clk_event_t *event_wait_list,
                                   clk_event_t *event_ret,
-                                  void *block) {
+                                  void *block_invoke,
+                                  void *block_literal) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
   void *RuntimeHandle = __get_runtime_handle();
   return ocl20_enqueue_kernel_events(queue, flags, &ndrange,
                                      num_events_in_wait_list, event_wait_list,
-                                     event_ret, block, DCM, B2K, RuntimeHandle);
+                                     event_ret, block_invoke, block_literal,
+                                     DCM, B2K, RuntimeHandle);
 }
 
-extern int ocl20_enqueue_kernel_basic(queue_t queue,
-                                      kernel_enqueue_flags_t flags,
-                                      const ndrange_t *ndrange, void *block,
-                                      void* DCM,
-                                      void* B2K,
-                                      void *RuntimeHandle);
+extern int ocl20_enqueue_kernel_basic(
+  queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t *ndrange,
+  void *block_invoke, void *block_literal, void* DCM, void* B2K,
+  void *RuntimeHandle);
+
 int __attribute__((always_inline))
     __enqueue_kernel_basic(queue_t queue, kernel_enqueue_flags_t flags,
-                           const ndrange_t ndrange, void* block) {
+                           const ndrange_t ndrange, void* block_invoke,
+                           void* block_literal) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
   void *RuntimeHandle = __get_runtime_handle();
-  return ocl20_enqueue_kernel_basic(queue, flags, &ndrange, block, DCM, B2K,
-                                    RuntimeHandle);
+  return ocl20_enqueue_kernel_basic(queue, flags, &ndrange, block_invoke,
+                                    block_literal, DCM, B2K, RuntimeHandle);
 }
 
 ////////// - enqueue_marker
@@ -207,22 +209,28 @@ bool __attribute__((overloadable)) __attribute__((always_inline)) is_valid_event
 
 ////////// - get_kernel_work_group_size
 extern uint __attribute__((const))
-ocl20_get_kernel_wg_size(void *block, void *DCM, void *B2K);
+ocl20_get_kernel_wg_size(void *block_invoke, void *block_literal,
+                         void *DCM, void *B2K);
+
 uint __attribute__((always_inline))
-    __attribute__((const)) __get_kernel_work_group_size_impl(void *block) {
+    __attribute__((const)) __get_kernel_work_group_size_impl(
+      void *block_invoke, void *block_literal) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
-  return ocl20_get_kernel_wg_size(block, DCM, B2K);
+  return ocl20_get_kernel_wg_size(block_invoke, block_literal, DCM, B2K);
 }
 
 ////////// - get_kernel_preferred_work_group_size_multiple
-extern uint ocl20_get_kernel_preferred_wg_size_multiple(void *block, void *DCM,
-                                                        void *B2K);
+extern uint ocl20_get_kernel_preferred_wg_size_multiple(
+  void *block_invoke, void *block_literal, void *DCM, void *B2K);
+
 uint __attribute__((always_inline))
-    __get_kernel_preferred_work_group_multiple_impl(void *block) {
+    __get_kernel_preferred_work_group_multiple_impl(
+      void *block_invoke, void *block_literal) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
-  return ocl20_get_kernel_preferred_wg_size_multiple(block, DCM, B2K);
+  return ocl20_get_kernel_preferred_wg_size_multiple(
+    block_invoke, block_literal, DCM, B2K);
 }
 
 /// address space overloading for enqueue_kernel and enqueue_marker
@@ -261,8 +269,11 @@ ADDR_SPACE_OVERLOADING(__local, __global)
 // requested work-group size and 'zero' otherwise.
 uint __attribute__((always_inline)) __attribute__((const))
 __get_kernel_sub_group_count_for_ndrange_impl(const ndrange_t ndrange,
-                                              void *block, void *blockArgs) {
-  uint maxWGSize = __get_kernel_work_group_size_impl(block);
+                                              void *block_invoke,
+                                              void *block_literal,
+                                              void *blockArgs) {
+  uint maxWGSize =
+    __get_kernel_work_group_size_impl(block_invoke, block_literal);
   size_t prod = 1;
   for (unsigned int i = 0; i < ndrange.workDimension; ++i)
     prod *= ndrange.localWorkSize[i];
@@ -274,11 +285,15 @@ __get_kernel_sub_group_count_for_ndrange_impl(const ndrange_t ndrange,
 
 // This method returns product of local sizes
 // (aka work-group size) in all dimensions specified by ndrange argument.
-// If the work-group size is greater than maximum possible for a given kernel then result is zero.
+// If the work-group size is greater than maximum possible
+// for a given kernel then result is zero.
 uint __attribute__((always_inline)) __attribute__((const))
 __get_kernel_max_sub_group_size_for_ndrange_impl(const ndrange_t ndrange,
-                                              void *block, void *blockArgs) {
-  uint maxWGSize = __get_kernel_work_group_size_impl(block);
+                                                 void *block_invoke,
+                                                 void *block_literal,
+                                                 void *blockArgs) {
+  uint maxWGSize =
+    __get_kernel_work_group_size_impl(block_invoke, block_literal);
   size_t prod = 1;
   for (unsigned int i = 0; i < ndrange.workDimension; ++i)
        prod *= ndrange.localWorkSize[i];
