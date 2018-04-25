@@ -226,6 +226,7 @@ PreservedAnalyses SimplifyCFGPass::run(Function &F,
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<GlobalsAA>();
+  PA.preserve<AndersensAA>();        // INTEL
   return PA;
 }
 

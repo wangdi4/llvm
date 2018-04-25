@@ -358,6 +358,7 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   PA.preserve<DominatorTreeAnalysis>();
   PA.preserve<LazyValueAnalysis>();
   PA.preserve<InlineAggAnalysis>();   // INTEL
+  PA.preserve<AndersensAA>();         // INTEL
   return PA;
 }
 

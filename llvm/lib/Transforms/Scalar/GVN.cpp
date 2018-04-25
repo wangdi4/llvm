@@ -644,6 +644,7 @@ PreservedAnalyses GVN::run(Function &F, FunctionAnalysisManager &AM) {
   PA.preserve<DominatorTreeAnalysis>();
   PA.preserve<GlobalsAA>();
   PA.preserve<TargetLibraryAnalysis>();
+  PA.preserve<AndersensAA>();            // INTEL
   return PA;
 }
 

@@ -33,6 +33,7 @@
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
 #endif // INTEL_CUSTOMIZATION
@@ -222,6 +223,10 @@ static cl::opt<bool> EnableSyntheticCounts(
     cl::desc("Run synthetic function entry count generation "
              "pass"));
 #if INTEL_CUSTOMIZATION
+// Andersen AliasAnalysis
+static cl::opt<bool> EnableAndersen("enable-npm-andersen", cl::init(true),
+    cl::Hidden, cl::desc("Enable AndersensAA for the new PM (default = on)"));
+
 // Inline Aggressive Analysis
 static cl::opt<bool> EnableInlineAggAnalysis(
     "enable-npm-inline-aggressive-analysis", cl::init(true), cl::Hidden,
@@ -798,6 +803,13 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // FIXME: Is this really an optimization rather than a canonicalization?
   MPM.addPass(ReversePostOrderFunctionAttrsPass());
 
+#if INTEL_CUSTOMIZATION
+  if (EnableAndersen) {
+    // Andersen's IP alias analysis
+    MPM.addPass(RequireAnalysisPass<AndersensAA, Module>());
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Re-require GloblasAA here prior to function passes. This is particularly
   // useful as the above will have inlined, DCE'ed, and function-attr
   // propagated everything. We should at this point have a reasonably minimal
@@ -1114,6 +1126,9 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 #if INTEL_CUSTOMIZATION
   // Parse -[no]inline-list option and set corresponding attributes.
   MPM.addPass(InlineListsPass());
+  if (EnableAndersen) {
+    MPM.addPass(RequireAnalysisPass<AndersensAA, Module>());
+  }
   // Require the InlineAggAnalysis for the module so we can query it within
   // the inliner and AggInlAAPass.
   if (EnableInlineAggAnalysis) {
