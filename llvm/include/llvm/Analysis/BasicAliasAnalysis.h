@@ -204,9 +204,7 @@ private:
                        uint64_t V1Size,             // INTEL
                        const AAMDNodes &V1AAInfo, const Value *V2,
                        uint64_t V2Size, const AAMDNodes &V2AAInfo,
-                       const Value *UnderlyingV1, const Value *UnderlyingV2,
-                       bool SameOperand = false // INTEL
-                       );
+                       const Value *UnderlyingV1, const Value *UnderlyingV2);
 
   AliasResult aliasPHI(const PHINode *PN, uint64_t PNSize,
                        const AAMDNodes &PNAAInfo, const Value *V2,
