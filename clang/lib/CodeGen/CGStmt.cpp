@@ -635,47 +635,37 @@ CodeGenFunction::IntelPragmaInlineState::getPragmaInlineAttribute() {
 CodeGenFunction::IntelIVDepArrayHandler::IntelIVDepArrayHandler(
     CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
     : CGF(CGF), CallEntry(nullptr) {
-  auto AttrItr =
-      std::find_if(std::begin(Attrs), std::end(Attrs), [](const Attr *A) {
-        return A->getKind() == attr::LoopHint &&
-               cast<LoopHintAttr>(A)->getLoopExprValue();
-      });
 
-  if (AttrItr == std::end(Attrs))
-    return;
+  SmallVector<llvm::Value *, 4> BundleValues;
+  for (auto A : Attrs) {
+    if (const auto *LHAttr = dyn_cast<LoopHintAttr>(A)) {
+      if (const Expr *E = LHAttr->getLoopExprValue()) {
+        assert(E->isGLValue());
+        BundleValues.push_back(CGF.EmitLValue(E).getPointer());
+      }
+    }
+  }
 
-  // Since only one array expression is allowed, it's the first found.
-  auto *LHAttr = cast<LoopHintAttr>(*AttrItr);
-  Expr *E = LHAttr->getLoopExprValue();
-  assert(E->isGLValue());
-  llvm::Value *Val = CGF.EmitLValue(E).getPointer();
+  if (!BundleValues.empty()) {
+    SmallVector<llvm::OperandBundleDef, 8> OpBundles{
+     llvm::OperandBundleDef("DIR.PRAGMA.IVDEP", ArrayRef<llvm::Value *>{}),
+     llvm::OperandBundleDef("QUAL.PRAGMA.ARRAY", BundleValues)};
 
-  SmallVector<llvm::Value *, 1> BundleValues;
-  SmallVector<llvm::OperandBundleDef, 8> OpBundles;
-  llvm::OperandBundleDef B1("DIR.PRAGMA.IVDEP", BundleValues);
-  OpBundles.push_back(B1);
-  BundleValues.push_back(Val);
-  llvm::OperandBundleDef B2("QUAL.PRAGMA.ARRAY", BundleValues);
-  OpBundles.push_back(B2);
-  SmallVector<llvm::Value *, 1> CallArgs;
-  CallEntry = CGF.Builder.CreateCall(
-      CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), CallArgs,
-      OpBundles);
-  CallEntry->setCallingConv(CGF.getRuntimeCC());
+    CallEntry = CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), {},
+        OpBundles);
+  }
 }
 
 CodeGenFunction::IntelIVDepArrayHandler::~IntelIVDepArrayHandler() {
   if (CallEntry) {
-    SmallVector<llvm::Value *, 1> BundleValues;
-    SmallVector<llvm::OperandBundleDef, 1> OpBundles;
-    llvm::OperandBundleDef B1("DIR.PRAGMA.END.IVDEP", BundleValues);
-    OpBundles.push_back(B1);
-    SmallVector<llvm::Value *, 1> CallArgs;
-    CallArgs.push_back(CallEntry);
-    auto *CallExit = CGF.Builder.CreateCall(
-        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit), CallArgs,
-        OpBundles);
-    CallExit->setCallingConv(CGF.getRuntimeCC());
+    SmallVector<llvm::OperandBundleDef, 1> OpBundles{
+      llvm::OperandBundleDef("DIR.PRAGMA.END.IVDEP",
+                             ArrayRef<llvm::Value *>{})};
+
+    CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
+        SmallVector<llvm::Value *, 1>{CallEntry}, OpBundles);
   }
 }
 #endif // INTEL_CUSTOMIZATION

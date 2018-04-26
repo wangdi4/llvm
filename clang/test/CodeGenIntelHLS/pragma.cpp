@@ -114,6 +114,14 @@ void foo_ivdep(int select)
   //CHECK: region.exit(token [[IVD_TOK8]]) [ "DIR.PRAGMA.END.IVDEP"() ]
   #pragma ivdep array(ptr)
   for (int i=0;i<32;++i) { ptr[i] = ibar(i); }
+  //
+  //CHECK: [[IVD_TOK9:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]* %myArray2, [32 x i32]* %myArray) ]
+  //CHECK: br{{.*}}!llvm.loop [[IVDEP6:![0-9]+]]
+  //CHECK: region.exit(token [[IVD_TOK9]]) [ "DIR.PRAGMA.END.IVDEP"() ]
+  #pragma ivdep safelen(8)
+  #pragma ivdep array(myArray)
+  #pragma ivdep array(myArray2)
+  for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 }
 
 //CHECK: [[UNROLL1]] = distinct !{[[UNROLL1]], [[UNROLL1A:![0-9]+]]}
@@ -136,3 +144,4 @@ void foo_ivdep(int select)
 //CHECK: [[IVDEP3A]] = !{!"llvm.loop.ivdep.safelen", i32 8}
 //CHECK: [[IVDEP4]] = distinct !{[[IVDEP4]], [[IVDEP3A]], [[UNROLL2A]]}
 //CHECK: [[IVDEP5]] = distinct !{[[IVDEP5]], [[IVDEP3A]], [[UNROLL2A]]}
+//CHECK: [[IVDEP6]] = distinct !{[[IVDEP6]], [[IVDEP3A]]}

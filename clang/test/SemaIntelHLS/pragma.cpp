@@ -150,24 +150,45 @@ void foo_ivdep()
   #pragma ivdep safelen(4) array(myArray)
   for (int i=0;i<32;++i) {}
 
+  //CHECK: AttributedStmt
+  //CHECK-NEXT: LoopHintAttr{{.*}}IVDep LoopExpr
+  //CHECK-NEXT: NULL
+  //CHECK-NEXT: DeclRefExpr{{.*}}dArray
+  //CHECK-NEXT: LoopHintAttr{{.*}}IVDep Full
+  //CHECK-NEXT: IntegerLiteral{{.*}}4
+  //CHECK-NEXT: DeclRefExpr{{.*}}myArray
+  double dArray[42];
+  #pragma ivdep safelen(4) array(myArray)
+  #pragma ivdep array(dArray)
+  for (int i=0;i<32;++i) {}
+
   IV_S* p;
   tivdep(p);
   t2ivdep<4>(0);
+
+  //expected-error@+1{{duplicate directives}}
+  #pragma ivdep safelen(4)
+  #pragma ivdep safelen(8) array(myArray)
+  for (int i=0;i<32;++i) {}
 
   #pragma ivdep // expected-error {{duplicate directives}}
   #pragma ivdep
   for (int i=0;i<32;++i) {}
 
-  #pragma ivdep safelen(4) safelen(8) // expected-warning {{'safelen' cannot appear multiple times}}
+  //expected-warning@+1{{'safelen' cannot appear multiple times}}
+  #pragma ivdep safelen(4) safelen(8)
   for (int i=0;i<32;++i) {}
 
-  #pragma ivdep array(myArray) array(myArray) // expected-warning {{'array' cannot appear multiple times}}
+  //expected-warning@+1{{'array' cannot appear multiple times}}
+  #pragma ivdep array(myArray) array(myArray)
   for (int i=0;i<32;++i) {}
 
-  #pragma ivdep array(typo_array) // expected-error {{use of undeclared identifier 'typo_array'}}
+  //expected-error@+1{{use of undeclared identifier 'typo_array'}}
+  #pragma ivdep array(typo_array)
   for (int i=0;i<32;++i) {}
 
   IV_S *mysp = &ivs[5];
-  #pragma ivdep array(mysp->lala) // expected-error {{no member named 'lala'}}
+  //expected-error@+1{{no member named 'lala'}}
+  #pragma ivdep array(mysp->lala)
   for (int i=0;i<32;++i) {}
 }
