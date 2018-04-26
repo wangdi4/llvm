@@ -162,9 +162,9 @@ unsigned LoopVectorizationPlannerBase::selectBestPlan() {
   unsigned BestCost = ScalarCost;
   DEBUG(dbgs() << "Cost of Scalar VPlan: " << ScalarCost << '\n');
 
-  // FIXME: Currently limit this to VF=8. Has to be fixed when zmm-low mode
-  // will be available.
-  for (unsigned VF = 2; VF <= 32; VF *= 2) {
+  // FIXME: Currently limit this to VF = 16. Has to be fixed with more accurate
+  // cost model.
+  for (unsigned VF = 2; VF <= 16; VF *= 2) {
     if (!hasVPlanForVF(VF))
       continue;
 
