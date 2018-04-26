@@ -283,8 +283,9 @@ MachineOp CSAStreamingMemoryConversionPass::getLength(
 // The source of the address computations is more complicated. The following
 // patterns should be okay:
 // * LD (STRIDE %stream, %base, %stride) => base = %base, stride = %stride
-// * LD{X,D,R} (REPEATO %stream, %base), (SEQOT**64_index 0, %N, %stride)
-// * LD{X,D,R] (REPEATO %stream, %base), (SEQOT**64_index %start, %end, %stride)
+// * LDD (STRIDE %stream, %base, %stride), imm => base = %base + imm
+// * LD{X,D} (REPEATO %stream, %base), (SEQOT**64_index 0, %N, %stride)
+// * LD{X,D} (REPEATO %stream, %base), (SEQOT**64_index %start, %end, %stride)
 
 MIRMATCHER_REGS(RESULT, REPEATED, SEQ_VAL, SEQ_PRED, SEQ_FIRST, SEQ_LAST, CTL);
 using namespace CSAMatch;
@@ -305,17 +306,12 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   const MachineOperand *inOrder, *outOrder, *memOrder;
   MachineInstr *stream;
   bool baseUsesStream = false;
-  auto genericOpcode  = TII->getGenericOpcode(MI->getOpcode());
-  switch (genericOpcode) {
-  case CSA::Generic::LD:
-  case CSA::Generic::ST: {
-    // The address here must be a STRIDE.
-    bool isLoad           = MI->mayLoad();
-    MachineInstr *memAddr = getDefinition(MI->getOperand(isLoad ? 2 : 1));
+
+  auto matchesStridePattern = [&](const MachineOperand &baseOp) -> bool {
+    MachineInstr *memAddr = getDefinition(baseOp);
     if (!memAddr || memAddr->getOpcode() != CSA::STRIDE64) {
       return false;
     }
-
     base                           = &memAddr->getOperand(2);
     const MachineOperand &strideOp = memAddr->getOperand(3);
     unsigned opcodeSize            = TII->getLicSize(MI->getOpcode()) / 8;
@@ -333,17 +329,62 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
 
     // The STRIDE's stream parameter defines the stream.
     // TODO: assert that we use the seq predecessor output.
-    stream   = getDefinition(memAddr->getOperand(1));
+    stream = getDefinition(memAddr->getOperand(1));
+    return true;
+  };
+
+  auto genericOpcode  = TII->getGenericOpcode(MI->getOpcode());
+  switch (genericOpcode) {
+  case CSA::Generic::LD:
+  case CSA::Generic::ST: {
+    // The address here must be a STRIDE.
+    bool isLoad           = MI->mayLoad();
+    if (!matchesStridePattern(MI->getOperand(isLoad ? 2 : 1)))
+      return false;
     memOrder = &MI->getOperand(3);
     inOrder  = &MI->getOperand(4);
     outOrder = &MI->getOperand(isLoad ? 1 : 0);
     value    = &MI->getOperand(isLoad ? 0 : 2);
     break;
   }
-  case CSA::Generic::LDX:
-  case CSA::Generic::STX:
   case CSA::Generic::LDD:
   case CSA::Generic::STD: {
+    // LDD instructions are a bit of a mixed bag: they can act like a LD
+    // instruction with a fixed displacement, or they can act like an LDX with
+    // a pre-multiplied stride.
+    bool isLoad   = MI->mayLoad();
+    auto &baseOp  = MI->getOperand(isLoad ? 2 : 1);
+    auto &indexOp = MI->getOperand(isLoad ? 3 : 2);
+    if (indexOp.isImm() && baseOp.isReg() && matchesStridePattern(baseOp)) {
+      // This is a LDD (STRIDE), imm_displacement. We need to adjust the base
+      // computed by matchesStridePattern to include the displacement. Check to
+      // see if there is an add we can undo.
+      const MachineInstr *baseDef = getDefinition(*base);
+      if (baseDef && baseDef->getOpcode() == CSA::ADD64 &&
+          baseDef->getOperand(2).isImm() &&
+          baseDef->getOperand(2).getImm() == -indexOp.getImm()) {
+        base = &baseDef->getOperand(1);
+      } else {
+        MachineInstrBuilder builder = BuildMI(*MI->getParent(), MI,
+          MI->getDebugLoc(), TII->get(CSA::ADD64),
+          LMFI->allocateLIC(&CSA::CI64RegClass));
+        builder.setMIFlag(MachineInstr::NonSequential);
+        builder.add(*base);
+        builder.add(indexOp);
+        base = &builder->getOperand(0);
+      }
+      memOrder = &MI->getOperand(4);
+      inOrder  = &MI->getOperand(5);
+      outOrder = &MI->getOperand(isLoad ? 1 : 0);
+      value    = &MI->getOperand(isLoad ? 0 : 3);
+      break;
+    }
+
+    // Fall through to handling this like a LDX.
+    LLVM_FALLTHROUGH
+  }
+  case CSA::Generic::LDX:
+  case CSA::Generic::STX: {
     bool isLoad   = MI->mayLoad();
     auto &baseOp  = MI->getOperand(isLoad ? 2 : 1);
     auto &indexOp = MI->getOperand(isLoad ? 3 : 2);
