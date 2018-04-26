@@ -84,25 +84,44 @@ bool VPOParoptTransform::genCSAParallelLoop(WRegionNode *W) {
 
   // Annotating loop with spmdization entry/exit intrinsic calls if parallel
   // region has num_threads clause.
-  if (auto *NumThreads = W->getNumThreads()) {
-    assert(dyn_cast<ConstantInt>(NumThreads));
-
+  auto *NumThreads = W->getNumThreads();
+  if (NumThreads && dyn_cast<ConstantInt>(NumThreads)) {
     auto *Entry = Intrinsic::getDeclaration(Module,
       Intrinsic::csa_spmdization_entry);
 
     auto *Exit = Intrinsic::getDeclaration(Module,
       Intrinsic::csa_spmdization_exit);
 
-    auto *Arr = ConstantDataArray::getString(F->getContext(), "cyclic");
-    auto *Var = new GlobalVariable(*Module, Arr->getType(), true,
-                                   GlobalValue::InternalLinkage, Arr);
-    Var->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+    auto makeString = [&](const StringRef &Str) -> Constant* {
+      auto &C = F->getContext();
+      auto *Arr = ConstantDataArray::getString(C, Str);
+      auto *Var = new GlobalVariable(*Module, Arr->getType(), true,
+                                     GlobalValue::InternalLinkage, Arr,
+                                     "spmd.mode");
+      Var->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+
+      Value *Zero = ConstantInt::get(Type::getInt32Ty(C), 0u);
+      return ConstantExpr::getGetElementPtr(Arr->getType(), Var,
+                                            { Zero, Zero });
+    };
+
+    // Determine SPMDization mode, it depends on a schedule clause. We support
+    // only static schedule with no chunk size so far.
+    Value *Mode = nullptr;
+    const auto &Sched = W->getSchedule();
+    if (Sched.getChunkExpr() && Sched.getKind() == WRNScheduleStatic)
+      // Three options for the chunk size
+      //   Sched.getChunk() == 0 => chunk was not specified
+      //   Sched.getChunk() > 0  => chunk is a compile time constant
+      //   Sched.getChunk() < 0  => chunk is an expression
+      // So far we handle only the "no chunk" case.
+      if (Sched.getChunk() == 0)
+        Mode = makeString("blocked");
+    if (!Mode)
+      Mode = makeString("cyclic");
 
     IRBuilder<> Builder(W->getEntryBBlock()->getTerminator());
-    Value *Zero = Builder.getInt32(0u);
-    auto *Ptr = ConstantExpr::getGetElementPtr(Arr->getType(), Var,
-                                               { Zero, Zero });
-    auto *SpmdID = Builder.CreateCall(Entry, { NumThreads, Ptr }, "spmd");
+    auto *SpmdID = Builder.CreateCall(Entry, { NumThreads, Mode }, "spmd");
 
     Builder.SetInsertPoint(&*W->getExitBBlock()->getFirstInsertionPt());
     Builder.CreateCall(Exit, { SpmdID }, {});
