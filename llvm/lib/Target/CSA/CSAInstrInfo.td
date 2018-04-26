@@ -681,28 +681,49 @@ multiclass StOp<string opStr, CSAOpInfo t,
   }
 }
 
-def SLD  : GenericOp<"sld">;
-class StreamLdOp<string opStr, CSAOpInfo t, InstrItinClass itin = IILD> :
-  FMTGEN<SLD, t,
-    (outs t.RC:$dst, MemOrdDef:$issued),
-    (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
-    !strconcat(opStr, "\t$dst, $addr, $len, $stride, $issued, $ready, $lvl"),
-    []> {
-  let mayLoad = 1;
-  let Itinerary = itin;
-  let isMultiTriggered = 1;
+def SLD   : GenericOp<"sld">;
+def SLDX2 : GenericOp<"sldx2">;
+def SLDX8 : GenericOp<"sldx8">;
+multiclass StreamLdOp<string opStr, CSAOpInfo t, InstrItinClass itin = IILD> {
+  let mayLoad = 1, Itinerary = itin, isMultiTriggered = 1 in {
+    def "" : FMTGEN<SLD, t,
+      (outs t.RC:$dst, MemOrdDef:$issued),
+      (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
+      !strconcat(opStr, "\t$dst, $addr, $len, $stride, $issued, $ready, $lvl"),
+      []>;
+    def X2 : FMTGEN<SLDX2, t,
+      (outs t.RC:$dst0, t.RC:$dst1, MemOrdDef:$issued),
+      (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
+      !strconcat(opStr, "x2 \t$dst0, $dst1, $addr, $len, $stride, $issued, $ready, $lvl"),
+      []>;
+    def X8 : FMTGEN<SLDX8, t,
+      (outs t.RC:$dst0, t.RC:$dst1, t.RC:$dst2, t.RC:$dst3,
+            t.RC:$dst4, t.RC:$dst5, t.RC:$dst6, t.RC:$dst7,
+            MemOrdDef:$issued),
+      (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
+      !strconcat(opStr, "x8 \t$dst0, $dst1, $dst2, $dst3, $dst4, $dst5, $dst6, $dst7, $addr, $len, $stride, $issued, $ready, $lvl"),
+      []>;
+  }
 }
 
-def SST : GenericOp<"sst">;
-class StreamStOp<string opStr, CSAOpInfo t, InstrItinClass itin = IIST> :
-  FMTGEN<SST, t,
-    (outs MemOrdDef:$issued),
-    (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
-    !strconcat(opStr, "\t$addr, $len, $stride, $data, $issued, $ready, $lvl"),
-    []> {
-  let mayStore = 1;
-  let Itinerary = itin;
-  let isMultiTriggered = 1;
+def SST   : GenericOp<"sst">;
+def SSTX8 : GenericOp<"sstx8">;
+multiclass StreamStOp<string opStr, CSAOpInfo t, InstrItinClass itin = IIST> {
+  let mayStore = 1, Itinerary = itin, isMultiTriggered = 1 in {
+    def "" : FMTGEN<SST, t,
+      (outs MemOrdDef:$issued),
+      (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
+      !strconcat(opStr, "\t$addr, $len, $stride, $data, $issued, $ready, $lvl"),
+      []>;
+    def X8 : FMTGEN<SSTX8, t,
+      (outs MemOrdDef:$issued),
+      (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride,
+           t.RCL:$data0, t.RCL:$data1, t.RCL:$data2, t.RCL:$data3,
+           t.RCL:$data4, t.RCL:$data5, t.RCL:$data6, t.RCL:$data7,
+           MEMLVL:$lvl, MemOrdUse:$ready),
+      !strconcat(opStr, "x8 \t$addr, $len, $stride, $data0, $data1, $data2, $data3, $data4, $data5, $data6, $data7, $issued, $ready, $lvl"),
+      []>;
+  }
 }
 
 class XmulOp<GenericOp gen, CSAOpInfo oi, CSAOpInfo oi2, SDNode ext,
@@ -1603,21 +1624,17 @@ defm ST16     : StOp<    "st16",  Ti16>;
 defm ST32     : StOp<    "st32",  Ti32>;
 defm ST64     : StOp<    "st64",  Ti64>;
 
-def SLD1      : StreamLdOp<"sld8",   Ti1>;
-def SLD8      : StreamLdOp<"sld8",   Ti8>;
-def SLD16     : StreamLdOp<"sld16",  Ti16>;
-def SLD32     : StreamLdOp<"sld32",  Ti32>;
-def SLD32f    : StreamLdOp<"sld32",  Tf32>;
-def SLD64     : StreamLdOp<"sld64",  Ti64>;
-def SLD64f    : StreamLdOp<"sld64",  Tf64>;
+defm SLD1     : StreamLdOp<"sld8",   Ti1>;
+defm SLD8     : StreamLdOp<"sld8",   Ti8>;
+defm SLD16    : StreamLdOp<"sld16",  Ti16>;
+defm SLD32    : StreamLdOp<"sld32",  Ti32>;
+defm SLD64    : StreamLdOp<"sld64",  Ti64>;
 
-def SST1     : StreamStOp<"sst8",   Ti1>;
-def SST8     : StreamStOp<"sst8",   Ti8>;
-def SST16    : StreamStOp<"sst16",  Ti16>;
-def SST32    : StreamStOp<"sst32",  Ti32>;
-def SST32f   : StreamStOp<"sst32",  Tf32>;
-def SST64    : StreamStOp<"sst64",  Ti64>;
-def SST64f   : StreamStOp<"sst64",  Tf64>;
+defm SST1     : StreamStOp<"sst8",   Ti1>;
+defm SST8     : StreamStOp<"sst8",   Ti8>;
+defm SST16    : StreamStOp<"sst16",  Ti16>;
+defm SST32    : StreamStOp<"sst32",  Ti32>;
+defm SST64    : StreamStOp<"sst64",  Ti64>;
 
 // Extended multiplication
 def XMUL    : GenericOp<"xmul">;
