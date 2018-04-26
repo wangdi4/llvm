@@ -171,10 +171,10 @@ This section describes that process. At a high level, what we do is as follows.
 Regular ``xmain-web`` Testing
 -----------------------------
 Once a day, the merge tool will run more extensive testing on the ``xmain-web``
-branch. It will specifically run the xmain checkin requirements via alloy,
-using xmain trunk as a reference. The results are sent via email to the
-pulldown coordinator, who can work with the development teams to analyze and
-fix any problems.
+branch. It will specifically run the xmain checkin (xmain_checkin_pulldown)
+requirements via alloy, using xmain at the most recent nightly tag as a reference.
+The results are sent via email to the pulldown coordinator, who can work with
+the development teams to analyze and fix any problems.
 
 If you want to check on the status of in-progress ``xmain-web`` testing, you
 can use the ``amt`` tool on Windows and search for jobs with owner
@@ -213,7 +213,7 @@ the normal branch promotion process, e.g.
 
      $ ics mk xmain-promo-ws xmain head -git
      $ ics merge xmain-cand head
-     <Run xmain checkin testing>
+     <Run xmain_checkin_pulldown testing>
      <Request gatekeeper approval>
      $ ics merge -push
 
