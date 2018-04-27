@@ -1,5 +1,6 @@
 // RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fintel-openmp -fopenmp-threadprivate-legacy -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=CHECKOLD
 // RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fintel-openmp-region -fopenmp-threadprivate-legacy -triple x86_64-unknown-linux-gnu | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - %s -fexceptions -fopenmp -fintel-compatibility -fintel-openmp-region -fopenmp-threadprivate-legacy -triple x86_64-unknown-linux-gnu | FileCheck %s
 
 struct AFoo {
   AFoo();

@@ -10541,6 +10541,7 @@ private:
 
 #if INTEL_CUSTOMIZATION
   bool CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
+  bool CheckOpenCLBuiltinFunctionCall(unsigned BuiltinID, CallExpr *Call);
   bool SemaBuiltinVAArgPackChecks(CallExpr *TheCall, unsigned BuiltinID);
 #endif // INTEL_CUSTOMIZATION
 

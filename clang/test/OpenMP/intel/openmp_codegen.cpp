@@ -1,5 +1,6 @@
 // RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu | FileCheck %s
 // RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=CHECK-REG
+// RUN: %clang_cc1 -emit-llvm -o - %s -fexceptions -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=CHECK-REG
 struct S1 {
   ~S1() {}
 };
@@ -460,13 +461,13 @@ int main(int argc, char **argv) {
 // CHECK-REG: [[SECT1ATV:%[0-9]+]] = call token{{.*}}DIR.OMP.PARALLEL
 // CHECK-REG: [[SECT1BTV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTIONS{{.*}}NOWAIT{{.*}}PRIVATE{{.*}}sect1{{.*}}FIRSTPRIVATE{{.*}}sect2{{.*}}LASTPRIVATE{{.*}}sect3{{.*}}REDUCTION.ADD{{.*}}sect4
 // CHECK-REG: [[SECT1CTV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
-// CHECK-REG: call{{.*}}bari(i32 1)
+// CHECK-REG: {{call|invoke}}{{.*}}bari(i32 1)
 // CHECK-REG: region.exit(token [[SECT1CTV]]) [ "DIR.OMP.END.SECTION"
 // CHECK-REG: [[SECT1DTV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
-// CHECK-REG: call{{.*}}bari(i32 2)
+// CHECK-REG: {{call|invoke}}{{.*}}bari(i32 2)
 // CHECK-REG: region.exit(token [[SECT1DTV]]) [ "DIR.OMP.END.SECTION"
 // CHECK-REG: [[SECT1ETV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
-// CHECK-REG: call{{.*}}bari(i32 3)
+// CHECK-REG: {{call|invoke}}{{.*}}bari(i32 3)
 // CHECK-REG: region.exit(token [[SECT1ETV]]) [ "DIR.OMP.END.SECTION"
 // CHECK-REG: region.exit(token [[SECT1BTV]]) [ "DIR.OMP.END.SECTIONS"
 // CHECK-REG: region.exit(token [[SECT1ATV]]) [ "DIR.OMP.END.PARALLEL"
@@ -494,13 +495,13 @@ int main(int argc, char **argv) {
   }
 // CHECK-REG: [[SECT2BTV:%[0-9]+]] = call token{{.*}}DIR.OMP.PARALLEL.SECTIONS{{.*}}PRIVATE{{.*}}sect1{{.*}}FIRSTPRIVATE{{.*}}sect2{{.*}}LASTPRIVATE{{.*}}sect3{{.*}}REDUCTION.ADD{{.*}}sect4
 // CHECK-REG: [[SECT2CTV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
-// CHECK-REG: call{{.*}}bari(i32 1)
+// CHECK-REG: {{call|invoke}}{{.*}}bari(i32 1)
 // CHECK-REG: region.exit(token [[SECT2CTV]]) [ "DIR.OMP.END.SECTION"
 // CHECK-REG: [[SECT2DTV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
-// CHECK-REG: call{{.*}}bari(i32 2)
+// CHECK-REG: {{call|invoke}}{{.*}}bari(i32 2)
 // CHECK-REG: region.exit(token [[SECT2DTV]]) [ "DIR.OMP.END.SECTION"
 // CHECK-REG: [[SECT2ETV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
-// CHECK-REG: call{{.*}}bari(i32 3)
+// CHECK-REG: {{call|invoke}}{{.*}}bari(i32 3)
 // CHECK-REG: region.exit(token [[SECT2ETV]]) [ "DIR.OMP.END.SECTION"
 // CHECK-REG: region.exit(token [[SECT2BTV]]) [ "DIR.OMP.END.PARALLEL.SECTIONS"
   {
