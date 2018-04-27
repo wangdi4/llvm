@@ -336,7 +336,7 @@ void PassManagerBuilder::addInitialAliasAnalysisPasses(
     legacy::PassManagerBase &PM) const {
 
 #if INTEL_CUSTOMIZATION
-  // Add the CSASaveRawBC pass which will preserve the initial IR
+  // CSA: add the CSASaveRawBC pass which will preserve the initial IR
   // for a module. This must be added early so it gets IR that's
   // equivalent to the Bitcode emmitted by the -flto option
   PM.add(createCSASaveRawBCPass());
@@ -386,6 +386,13 @@ void PassManagerBuilder::populateFunctionPassManager(
 #if INTEL_CUSTOMIZATION
   FPM.add(createXmainOptLevelPass(OptLevel));
   if (RunVPOOpt && RunVPOParopt && !DisableIntelProprietaryOpts) {
+#if INTEL_CUSTOMIZATION
+    // CSA: add the CSASaveRawBC pass which will preserve the initial IR
+    // for a module. This must be added early so it gets IR that's
+    // equivalent to the Bitcode emmitted by the -flto option
+    FPM.add(createCSASaveRawBCPass());
+#endif
+
     if (OptLevel == 0) {
       // To handle OpenMP we also need SROA and EarlyCSE, but they are disabled
       // at -O0, so we explicitly add them to the pass pipeline here.
@@ -1293,6 +1300,13 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
   // but it's a release-mode feature so we can't just assert.
   if (DisableIntelProprietaryOpts)
     return;
+
+#if INTEL_CUSTOMIZATION
+  // CSA: add the CSASaveRawBC pass which will preserve the initial IR
+  // for a module. This must be added early so it gets IR that's
+  // equivalent to the Bitcode emmitted by the -flto option
+  PM.add(createCSASaveRawBCPass());
+#endif
 
   if (RunVPOParopt) {
     PM.add(createVPOCFGRestructuringPass());
