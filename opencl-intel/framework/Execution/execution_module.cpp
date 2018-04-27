@@ -1966,9 +1966,11 @@ cl_err_code ExecutionModule::RunAutorunKernels(
 
     for (cl_uint i = 0; i < numDevices; ++i)
     {
-        cl_command_queue_properties properties[] = { CL_QUEUE_PROPERTIES,
+        cl_command_queue_properties properties[] = {
+            CL_QUEUE_PROPERTIES,
             CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE,
-            (cl_command_queue_properties)0 };
+            (cl_command_queue_properties)0
+        };
         queues[i] = CreateCommandQueue(
             program->GetContext()->GetHandle(), devices[i], properties, &error);
         if (CL_FAILED(error))
@@ -1981,18 +1983,28 @@ cl_err_code ExecutionModule::RunAutorunKernels(
     {
         for (const auto& kernel: kernels)
         {
-            // TODO: obtain details about which combinations of kernel
-            // attributes related to autorun kernels are allowed and set correct
-            // global and local sizes according to kernel attributes
-            //
-            // Now assume that we support only single work-item kernels
-            error = EnqueueTask(queues[i], kernel->GetHandle(), 0, nullptr,
-                nullptr, apiLogger);
+            size_t compileWGSize[3] = {0};
+            error = kernel->GetWorkGroupInfo(
+                program->GetContext()->GetDevice(devices[i]),
+                CL_KERNEL_COMPILE_WORK_GROUP_SIZE,
+                sizeof(compileWGSize), compileWGSize, nullptr);
             if (CL_FAILED(error))
             {
                 return error;
             }
-            LOG_DEBUG(TEXT("Launched autorun kernel: %s"), kernel->GetName());
+
+            if (0 == compileWGSize[0] && 0 == compileWGSize[1] &&
+                0 == compileWGSize[2])
+            {
+              compileWGSize[0] = compileWGSize[1] = compileWGSize[2] = 1;
+            }
+            error = EnqueueNDRangeKernel(queues[i], kernel->GetHandle(), 3,
+                                         nullptr, compileWGSize, compileWGSize,
+                                         0, nullptr, nullptr, apiLogger);
+            if (CL_FAILED(error))
+            {
+                return error;
+            }
         }
 
         Flush(queues[i]);

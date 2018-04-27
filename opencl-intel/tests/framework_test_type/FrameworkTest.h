@@ -161,7 +161,6 @@ void checkFPGAExtensionNEGATIVE();
 void FPGAInfiniteLoopsBasic();
 void FPGAPipes();
 void FPGAPipeOrdering();
-void FPGAAutorun();
 void FPGAChannelsByValue();
 void FPGAChannelDepthEmulationDiagnosticMessage();
 void FPGAChannelDepthEmulationStrictWithDepth();
