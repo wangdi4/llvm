@@ -1187,6 +1187,7 @@ PreservedAnalyses EarlyCSEPass::run(Function &F,
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
   PA.preserve<GlobalsAA>();
+  PA.preserve<AndersensAA>();           // INTEL
   if (UseMemorySSA)
     PA.preserve<MemorySSAAnalysis>();
   return PA;

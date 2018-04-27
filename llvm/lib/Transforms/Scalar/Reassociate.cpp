@@ -2356,6 +2356,7 @@ PreservedAnalyses ReassociatePass::run(Function &F, FunctionAnalysisManager &) {
     PreservedAnalyses PA;
     PA.preserveSet<CFGAnalyses>();
     PA.preserve<GlobalsAA>();
+    PA.preserve<AndersensAA>();        // INTEL
     return PA;
   }
 

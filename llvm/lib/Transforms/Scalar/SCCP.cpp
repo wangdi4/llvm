@@ -1780,6 +1780,7 @@ PreservedAnalyses SCCPPass::run(Function &F, FunctionAnalysisManager &AM) {
 
   auto PA = PreservedAnalyses();
   PA.preserve<GlobalsAA>();
+  PA.preserve<AndersensAA>();     // INTEL
   return PA;
 }
 

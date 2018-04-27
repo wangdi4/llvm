@@ -3347,6 +3347,7 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   PA.preserve<AAManager>();
   PA.preserve<BasicAA>();
   PA.preserve<GlobalsAA>();
+  PA.preserve<AndersensAA>();               // INTEL
   PA.preserve<InlineAggAnalysis>();         // INTEL
   PA.preserve<WholeProgramAnalysis>();      // INTEL
   return PA;

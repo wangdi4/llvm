@@ -4607,6 +4607,7 @@ PreservedAnalyses SROA::runImpl(Function &F, DominatorTree &RunDT,
   PA.preserveSet<CFGAnalyses>();
   PA.preserve<GlobalsAA>();
   PA.preserve<InlineAggAnalysis>();    // INTEL
+  PA.preserve<AndersensAA>();          // INTEL
   return PA;
 }
 

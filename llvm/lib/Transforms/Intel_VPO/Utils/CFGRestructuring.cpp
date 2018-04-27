@@ -172,12 +172,6 @@ bool VPOCFGRestructuring::runOnFunction(Function &F) {
 bool VPOCFGRestructuringPass::runImpl(Function &F, DominatorTree *DT,
                                       LoopInfo *LI) {
 
-#if INTEL_PRODUCT_RELEASE
-  // Set a flag to induce an error if anyone attempts to write the IR
-  // to a file after this pass has been run.
-  F.getParent()->setIntelProprietary();
-#endif // INTEL_PRODUCT_RELEASE
-
   VPOUtils::CFGRestructuring(F, DT, LI);
 
   return true;

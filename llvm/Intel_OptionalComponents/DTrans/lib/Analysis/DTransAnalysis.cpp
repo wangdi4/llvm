@@ -268,6 +268,14 @@ private:
   std::map<Value *, LocalPointerInfo> LocalMap;
   SmallPtrSet<Value *, 8> InProgressValues;
 
+  // These two maps are needed to manage cyclic dependencies in the
+  // analysis chain. DependentValues maps a Value to the set of other
+  // values that require the final alias set from the analysis of the key
+  // value. PendingValues maps a value to the set of other Values on
+  // which it is waiting.
+  DenseMap<Value *, SmallPtrSet<Value *, 8>> DependentValues;
+  DenseMap<Value *, SmallPtrSet<Value *, 8>> PendingValues;
+
   void analyzeValue(Value *V) {
     // If we've already analyzed this value, there is no need to
     // repeat the work.
@@ -288,8 +296,12 @@ private:
 
     // If we're already working on this value (for instance, tracing the
     // incoming values of a PHI node), don't go any further.
-    if (!InProgressValues.insert(V).second)
+    if (!InProgressValues.insert(V).second) {
+      DEBUG(dbgs() << "  InProgress skip analyzing " << *V << "\n");
       return;
+    }
+
+    DEBUG(dbgs() << "Analyzing " << *V << "\n");
 
     // If this value is derived from another local value, follow the
     // collect info from the source operand.
@@ -326,9 +338,79 @@ private:
     // Mark the info as analyzed.
     Info.setAnalyzed();
 
+    // If any other values were dependent on the result of the current
+    // analysis, merge these results now.
+    if (DependentValues.count(V)) {
+      for (Value *Dependent : DependentValues[V]) {
+        DEBUG(dbgs() << "  Merge analysis for " << V->getName() << " into "
+                     << Dependent->getName() << "\n");
+        LocalPointerInfo &DepLPI = LocalMap[Dependent];
+        DepLPI.merge(Info);
+        PendingValues[Dependent].erase(V);
+      }
+      DependentValues[V].clear();
+    }
+
     // Erase this value from the in-progress set.
     // The 'analyzed' flag will be sufficient to prevent future re-analysis.
     InProgressValues.erase(V);
+  }
+
+  // This routine is called to attempt to get local pointer info for one
+  // value while analyzing another. If the value has been previously
+  // analyzed, a reference to its LocalPointerInfo will be returned.
+  // If the value has not been analyzed and is not in the 'InProgressValues'
+  // set, we will attempt to analyze it. If the analysis for this value is
+  // already in progress (as can happen with a cycle containing PHI nodes)
+  // the currently available (though incomplete) LocalPointerInfo will be
+  // returned and an entry will be created in the dependent value map
+  // indicating that the Dependent value has an unresolved dependency on
+  // value V. When analysis of V is complete, these results will be merged
+  // with the LocalPointerInfo for the Dependent value.
+  LocalPointerInfo &tryGetLocalPointerInfo(Value *V, Value *Dependent) {
+    // Helper lambda
+    auto recordSecondaryDependencies = [this](Value *V, Value *Dependent) {
+      if (PendingValues.count(V)) {
+        for (Value *Pending : PendingValues[V]) {
+          // Don't make values dependent on themselves.
+          if (Pending == Dependent)
+            continue;
+          DEBUG(dbgs() << "  Recording secondary dependency of "
+                       << Dependent->getName() << " on " << Pending->getName()
+                       << "\n");
+          DependentValues[Pending].insert(Dependent);
+          PendingValues[Dependent].insert(Pending);
+        }
+      }
+    };
+
+    LocalPointerInfo &Info = LocalMap[V];
+    if (Info.getAnalyzed()) {
+      recordSecondaryDependencies(V, Dependent);
+      return Info;
+    }
+
+    // If analysis of this value is currently in progress, add an entry
+    // to the pending values map so that its analysis can be appended to
+    // the Dependent value when it is complete.
+    if (InProgressValues.count(V)) {
+      DEBUG(dbgs() << "  Recording dependency of " << Dependent->getName()
+                   << " on " << V->getName() << "\n");
+      DependentValues[V].insert(Dependent);
+      PendingValues[Dependent].insert(V);
+      return Info;
+    }
+
+    // Otherwise, we can attempt analysis.
+    analyzeValue(V);
+
+    // It is still possible that the analysis of V could not be completed
+    // because it depends on a value that was pending. If so, mark our
+    // Dependent value as also being dependent on the results for which
+    // the analysis of V is waiting.
+    recordSecondaryDependencies(V, Dependent);
+
+    return Info;
   }
 
   void collectSourceOperandInfo(Value *V, LocalPointerInfo &Info) {
@@ -337,33 +419,39 @@ private:
     // already visited.
     if (auto *PN = dyn_cast<PHINode>(V)) {
       for (Value *InVal : PN->incoming_values()) {
-        analyzeValue(InVal);
-        Info.merge(LocalMap[InVal]);
+        LocalPointerInfo &InLPI = tryGetLocalPointerInfo(InVal, V);
+        Info.merge(InLPI);
       }
       return;
     }
     if (auto *Sel = dyn_cast<SelectInst>(V)) {
       Value *TV = Sel->getTrueValue();
-      analyzeValue(TV);
-      Info.merge(LocalMap[TV]);
+      LocalPointerInfo &TrueLPI = tryGetLocalPointerInfo(TV, V);
+      Info.merge(TrueLPI);
       Value *FV = Sel->getFalseValue();
-      analyzeValue(FV);
-      Info.merge(LocalMap[FV]);
+      LocalPointerInfo &FalseLPI = tryGetLocalPointerInfo(FV, V);
+      Info.merge(FalseLPI);
       return;
     }
     if (isa<CastInst>(V) || isa<BitCastOperator>(V) ||
         isa<PtrToIntOperator>(V)) {
       Value *SrcVal = cast<User>(V)->getOperand(0);
-      analyzeValue(SrcVal);
+      LocalPointerInfo &SrcLPI = tryGetLocalPointerInfo(SrcVal, V);
       // If this is a bitcast that would be a valid way to access element
       // zero of any type known to be aliased by SrcVal, then record this
       // as an element access rather than merging the incoming value's aliases.
       if (auto *BC = dyn_cast<BitCastInst>(V)) {
+        // FIXME: This has the potential to miss the case where the bitcast
+        //        is accessing element zero of a type that is aliased through
+        //        some value that we were not able to analyze (because of a
+        //        cycle of PHI nodes). The result would be that we'd report
+        //        a mismatched element access. However, I don't believe this
+        //        unhandled case will actually happen without an overloaded
+        //        alias set.
         // It's possible that the source value aliases multiple pointers that
         // meet the element zero idiom. If it does, we want to know about all
         // of them.
         bool IsElementZeroAccess = false;
-        LocalPointerInfo &SrcLPI = LocalMap[SrcVal];
         for (auto *AliasTy : SrcLPI.getPointerTypeAliasSet()) {
           llvm::Type *AccessedTy = nullptr;
           if (dtrans::isElementZeroAccess(AliasTy, BC->getDestTy(),
@@ -376,7 +464,7 @@ private:
         if (IsElementZeroAccess)
           return;
       }
-      Info.merge(LocalMap[SrcVal]);
+      Info.merge(SrcLPI);
       return;
     }
     // The caller should have checked isDerivedValue() before calling this
