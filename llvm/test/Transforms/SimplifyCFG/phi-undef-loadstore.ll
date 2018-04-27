@@ -1,4 +1,6 @@
 ; RUN: opt -simplifycfg -S < %s | FileCheck %s
+; INTEL
+; RUN: opt < %s -S -convert-to-subscript | opt -simplifycfg -S | FileCheck %s
 
 declare void @bar() nounwind
 

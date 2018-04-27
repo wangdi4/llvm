@@ -1,4 +1,6 @@
 ; RUN: opt < %s -gvn -simplifycfg -disable-output
+; INTEL
+; RUN: opt < %s -S -convert-to-subscript | opt -gvn -simplifycfg -disable-output
 ; PR867
 
 target datalayout = "E-p:32:32"

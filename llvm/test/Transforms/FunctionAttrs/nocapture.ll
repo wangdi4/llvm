@@ -1,5 +1,8 @@
 ; RUN: opt < %s -functionattrs -S | FileCheck %s
 ; RUN: opt < %s -passes=function-attrs -S | FileCheck %s
+; INTEL
+; RUN: opt -S -convert-to-subscript < %s | opt -functionattrs -S | FileCheck %s
+; RUN: opt -S -passes=convert-to-subscript < %s | opt -passes=function-attrs -S | FileCheck %s
 
 @g = global i32* null		; <i32**> [#uses=1]
 

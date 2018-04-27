@@ -2,6 +2,8 @@
 ; Fails if the 3-entry phi node still exists, passes otherwise.
 ;
 ; RUN: opt < %s -simplifycfg -S | FileCheck %s
+; INTEL
+; RUN: opt < %s -S -convert-to-subscript | opt -simplifycfg -S | FileCheck %s
 ;
 
 @x = common global [1024 x double] zeroinitializer, align 16
