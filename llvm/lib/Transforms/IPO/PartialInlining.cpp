@@ -871,6 +871,13 @@ int PartialInlinerImpl::computeBBInlineCost(BasicBlock *BB) {
       if (IntrInst->getIntrinsicID() == Intrinsic::lifetime_start ||
           IntrInst->getIntrinsicID() == Intrinsic::lifetime_end)
         continue;
+#if INTEL_CUSTOMIZATION
+      if (isa<SubscriptInst>(IntrInst)) {
+        // Treat as GEP with non-zero indexes.
+        InlineCost += InlineConstants::InstrCost;
+        continue;
+      }
+#endif // INTEL_CUSTOMIZATION
     }
 
     if (CallInst *CI = dyn_cast<CallInst>(I)) {
