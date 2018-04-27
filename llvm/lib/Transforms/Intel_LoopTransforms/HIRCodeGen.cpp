@@ -1798,7 +1798,15 @@ Value *CGVisitor::IVPairCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt,
 
   // pairs are of form <Index, Coeff>.
   if (CE->getIVBlobCoeff(IVIt)) {
-    return Builder.CreateMul(IVCoefCG(CE, IVIt), IV);
+    Value *CoefV = IVCoefCG(CE, IVIt);
+    Type *CoefTy = CoefV->getType();
+
+    // If the coefficient is a vector, broadcast IV.
+    if (CoefTy->isVectorTy()) {
+      assert(!IV->getType()->isVectorTy() && "Non-scalar IV");
+      IV = Builder.CreateVectorSplat(CoefTy->getVectorNumElements(), IV);
+    }
+    return Builder.CreateMul(CoefV, IV);
   } else {
     return CoefCG(CE->getIVConstCoeff(IVIt), IV);
   }
