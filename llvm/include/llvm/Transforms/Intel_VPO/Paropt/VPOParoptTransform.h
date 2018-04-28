@@ -611,6 +611,12 @@ private:
   /// \brief Transform "omp parallel for" work region for CSA target.
   bool genCSAParallelLoop(WRegionNode *W);
 
+  /// \brief Check whether a given construct is supported in CSA.
+  bool isSupportedOnCSA(WRegionNode *W);
+
+  /// \brief Print diagnostic message for the work region.
+  void reportCSAWarning(WRegionNode *W, const Twine &Msg);
+
   /// \brief Insert a flush call
   bool genFlush(WRegionNode *W);
 

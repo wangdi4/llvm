@@ -15,11 +15,52 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
+#include "llvm/IR/DiagnosticPrinter.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-paropt-transform-csa"
+
+namespace {
+
+class CSADiagInfo : public DiagnosticInfoWithLocationBase {
+  const Twine &Msg;
+
+public:
+  CSADiagInfo(const Function &F, const DiagnosticLocation &Loc,
+              const Twine &Msg, DiagnosticSeverity DS = DS_Warning)
+    : DiagnosticInfoWithLocationBase(
+        static_cast<DiagnosticKind>(DK_FirstPluginKind), DS, F, Loc),
+      Msg(Msg)
+  {}
+
+  void print(DiagnosticPrinter &DP) const override {
+    if (isLocationAvailable())
+      DP << getLocationStr() << ": ";
+    DP << "CSA - " << Msg;
+    if (!isLocationAvailable())
+      DP << " (use -g for location info)";
+  }
+};
+
+} // anonymous namespace
+
+bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
+  switch (W->getWRegionKindID()) {
+    case WRegionNode::WRNParallelLoop:
+    case WRegionNode::WRNAtomic:	// not fully supported, but may work
+      return true;
+  }
+  return false;
+}
+
+void VPOParoptTransform::reportCSAWarning(WRegionNode *W, const Twine &Msg) {
+  DebugLoc Loc;
+  if (auto *I = W->getEntryBBlock()->getFirstNonPHI())
+    Loc = I->getDebugLoc();
+  F->getContext().diagnose(CSADiagInfo(*F, Loc,  Msg));
+}
 
 // Insert a pair of CSA parallel region enter and exit intrinsic calls around
 // the parallel work region body as follows
@@ -82,17 +123,45 @@ bool VPOParoptTransform::genCSAParallelLoop(WRegionNode *W) {
   auto *Loop = W->getWRNLoopInfo().getLoop();
   assert(Loop->isLoopSimplifyForm());
 
+  // Check schedule clause of there is one.
+  const auto *Sched = &W->getSchedule();
+  if (!Sched->getChunkExpr())
+    Sched = nullptr;
+
+  // So far we support only static and auto schedule types.
+  if (Sched && Sched->getKind() != WRNScheduleStatic &&
+      Sched->getKind() != WRNScheduleAuto) {
+    reportCSAWarning(W, "ignoring unsupported schedule type");
+    Sched = nullptr;
+  }
+
+  // Three options for the chunk size
+  //   Sched->getChunk() == 0 => chunk was not specified
+  //   Sched->getChunk() > 0  => chunk is a compile time constant
+  //   Sched->getChunk() < 0  => chunk is an expression
+  // So far we handle only the "no chunk" case.
+  if (Sched && Sched->getChunk() != 0) {
+    reportCSAWarning(W, "schedule chunk is not supported");
+    Sched = nullptr;
+  }
+
+  // Validate num_threads if it was specified.
+  auto *NumThreads = W->getNumThreads();
+  if (NumThreads && !dyn_cast<ConstantInt>(NumThreads)) {
+    reportCSAWarning(W, "num_threads must be a compile time constant");
+    NumThreads = nullptr;
+  }
+
   // Annotating loop with spmdization entry/exit intrinsic calls if parallel
   // region has num_threads clause.
-  auto *NumThreads = W->getNumThreads();
-  if (NumThreads && dyn_cast<ConstantInt>(NumThreads)) {
+  if (NumThreads) {
     auto *Entry = Intrinsic::getDeclaration(Module,
       Intrinsic::csa_spmdization_entry);
 
     auto *Exit = Intrinsic::getDeclaration(Module,
       Intrinsic::csa_spmdization_exit);
 
-    auto makeString = [&](const StringRef &Str) -> Constant* {
+    auto makeString = [&](const StringRef &Str) -> Value* {
       auto &C = F->getContext();
       auto *Arr = ConstantDataArray::getString(C, Str);
       auto *Var = new GlobalVariable(*Module, Arr->getType(), true,
@@ -105,20 +174,13 @@ bool VPOParoptTransform::genCSAParallelLoop(WRegionNode *W) {
                                             { Zero, Zero });
     };
 
-    // Determine SPMDization mode, it depends on a schedule clause. We support
-    // only static schedule with no chunk size so far.
-    Value *Mode = nullptr;
-    const auto &Sched = W->getSchedule();
-    if (Sched.getChunkExpr() && Sched.getKind() == WRNScheduleStatic)
-      // Three options for the chunk size
-      //   Sched.getChunk() == 0 => chunk was not specified
-      //   Sched.getChunk() > 0  => chunk is a compile time constant
-      //   Sched.getChunk() < 0  => chunk is an expression
-      // So far we handle only the "no chunk" case.
-      if (Sched.getChunk() == 0)
-        Mode = makeString("blocked");
-    if (!Mode)
-      Mode = makeString("cyclic");
+    // Determine SPMDization mode, it depends on a schedule clause.
+    //   No schedule    => cyclic SPMD
+    //   schedule(auto) => cyclic SPMD
+    //   schedule(static) => blocked SPMD
+    //     chunksize => hybrid SPMD (not yet supported)
+    auto *Mode = makeString(Sched && Sched->getKind() == WRNScheduleStatic ?
+                            "blocked" : "cyclic");
 
     IRBuilder<> Builder(W->getEntryBBlock()->getTerminator());
     auto *SpmdID = Builder.CreateCall(Entry, { NumThreads, Mode }, "spmd");
