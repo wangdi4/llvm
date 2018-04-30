@@ -1,4 +1,4 @@
-//===-RTLs/generic-64bit/src/rtl.cpp - Target RTLs Implementation - C++ -*-===//
+//===------ plugins/csa/src/rtl.cpp - CSA RTLs Implementation - C++ -*-----===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -12,65 +12,41 @@
 //===----------------------------------------------------------------------===//
 
 #include <algorithm>
-#include <assert.h>
+#include <atomic>
+#include <cassert>
 #include <cstdio>
 #include <dlfcn.h>
-#include <elf.h>
-//#include <ffi.h>
-#include <gelf.h>
+#include <forward_list>
+#include <fstream>
+#include <iomanip>
 #include <list>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <vector>
+#include <memory>
+#include <mutex>
 #include <sstream>
 #include <link.h>
+#include <thread>
+#include <tuple>
 #include <unistd.h>
-#include <map>
-#include <iomanip>
-#include <cmath>
-#include <pthread.h>
-#include <mutex>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "omptargetplugin.h"
 #include "csa_invoke.h"
-
-#ifndef TARGET_NAME
-#define TARGET_NAME csa
-#endif
-
-// Using x86 ID for now
-#ifndef TARGET_ELF_ID
-#define TARGET_ELF_ID 62
-#endif
-
-#define GETNAME2(name) #name
-#define GETNAME(name) GETNAME2(name)
+#include "elf.h"
 
 #ifdef OMPTARGET_DEBUG
 static int DebugLevel = 0;
 
-#define DP(...)                                                            \
+#define DP(Level, ...)                                                     \
   do {                                                                     \
-    if (DebugLevel & 0x01) {                                                  \
-      fprintf(stderr, "CSA  (HOST)  --> ");                                \
-      fprintf(stderr, __VA_ARGS__);                                        \
-      fflush(nullptr);                                                     \
-    }                                                                      \
-  } while (false)
-
-#define DP1(...)                                                           \
-  do {                                                                     \
-    if (DebugLevel & 0x02) {                                                  \
+    if (DebugLevel >= Level) {                                             \
       fprintf(stderr, "CSA  (HOST)  --> ");                                \
       fprintf(stderr, __VA_ARGS__);                                        \
       fflush(nullptr);                                                     \
     }                                                                      \
   } while (false)
 #else
-#define DP(...)                                                            \
-  {}
-#define DP1(...)                                                            \
+#define DP(Level, ...)                                                     \
   {}
 #endif
 
@@ -78,12 +54,29 @@ static int DebugLevel = 0;
 #define OFFLOADSECTIONNAME ".omp_offloading.entries"
 #define CSA_BITCODE_BOUNDS_SECTION ".csa.bc.bounds"
 #define CSA_BITCODE_DATA_SECTION ".csa.bc.data"
+#define CSA_CODE_SECTION ".csa.code"
 
 // ENVIRONMENT VARIABLES
 
-// If defined, suppresses the generation of assembly from the Bitcode, and
-// specifies the file to use instead
+// If defined, suppresses use of assembly embedded in the binary and specifies
+// the file to use instead
 #define ENV_ASSEMBLY_FILE "CSA_ASSEMBLY_FILE"
+
+// Variable value has the following format
+//   CSA_ASSEMBLY_FILE=<file>[:<entry list>][;<file>[:<entry list>]]
+//
+// where
+//   <file>       A path to CSA aseembly file.
+//   <entry list> Comma-separated list of entries defined in the assembly file.
+//                For these entries plugin will use assembly from the file
+//                instead of compiler generated assembly.
+//
+// If there is no entry list, assembly file is supposed to define all entries
+// which program will execute on CSA.
+
+static std::string AsmFile;
+using String2StringMap = std::unordered_map<std::string, std::string>;
+static std::unique_ptr<String2StringMap> Entry2AsmFile;
 
 // If defined, points to the copy of csa-clang to used. If not defined,
 // the tool will attempt to find csa-clang on the user's PATH
@@ -111,30 +104,39 @@ static int DebugLevel = 0;
 // Specifies that the tool should display the compilation command
 // being generated
 #define ENV_VERBOSE "CSA_VERBOSE"
+static bool Verbosity;
 
 // If defined, dumps the simulator statistics after each offloaded procedure
 // is run
 #define ENV_DUMP_STATS "CSA_DUMP_STATS"
+static bool DumpStats;
 
 // If defined all stats for a thread are run in a single CSA instance and
 // dumped in a single .stat file (if CSA_DUMP_STATS is defined)
 #define ENV_MERGE_STATS "CSA_MERGE_STATS"
+static bool MergeStats;
 
 // If defined, leave the temporary files on disk in the user's directory
 #define ENV_SAVE_TEMPS "CSA_SAVE_TEMPS"
+static bool SaveTemps;
+static std::list<std::string> filesToDelete;
 
 // If defined, specifies temporary file prefix. If not defined, defaults
 // to process name with "-csa" appended. No effect if CSA_SAVE_TEMPS is
 // not defined
 #define ENV_TEMP_PREFIX "CSA_TEMP_PREFIX"
+static std::string TempPrefix;
 
 // If defined specifies the value to initialize the floating point flags
 // to before an offloaded function, and that the floating point flags be
 // reported after the offloaded funciton returns
 #define ENV_FP_FLAGS "CSA_FP_FLAGS"
+static int FPFlags = -1;
 
 // Environment variable the FP flags will be saved in
 #define ENV_RUN_FP_FLAGS "CSA_RUN_FP_FLAGS"
+
+namespace {
 
 // Bitcode bounds struct built by the compiler. WARNING! This struct MUST
 // match the struct written to the .csa.bc.bounds section in CSAAsmPrinter.cpp!
@@ -142,52 +144,96 @@ struct BitcodeBounds {
   uint64_t start;
   uint64_t end;
 
-  uint64_t length() {
+  uint64_t length() const {
     return end - start;
   }
 };
 
-/// Array of Dynamic libraries loaded for this target.
-struct DynLibTy {
+// Represents a dynamic library which is loaded for this target.
+class DynLibTy {
   std::string FileName;
   void *Handle;
+
+public:
+  explicit DynLibTy(const char *Data, size_t Size) : Handle(nullptr) {
+    // Create temporary file for the dynamic library
+    char Template[] = "/tmp/tmpfile_XXXXXX";
+    int FD = mkstemp(Template);
+    if (FD < 0)
+      return;
+
+    // File name is valid now, save it.
+    FileName = Template;
+
+    // Write library contents to the file.
+    auto *FP = fdopen(FD, "wb");
+    if (!FP) {
+      DP(1, "Error while openning temporary file %s\n", FileName.c_str());
+      return;
+    }
+    if (fwrite(Data, 1u, Size, FP) != Size) {
+      DP(1, "Error while writing to a temporary file %s\n", FileName.c_str());
+      fclose(FP);
+      return;
+    }
+    fclose(FP);
+
+    // And finally load the library.
+    Handle = dlopen(FileName.c_str(), RTLD_LAZY);
+  }
+
+  DynLibTy(DynLibTy &&That) {
+    std::swap(FileName, That.FileName);
+    std::swap(Handle, That.Handle);
+  }
+
+  ~DynLibTy() {
+    if (Handle) {
+      dlclose(Handle);
+      Handle = nullptr;
+    }
+    if (!SaveTemps && !FileName.empty()) {
+      remove(FileName.c_str());
+      FileName.clear();
+    }
+  }
+
+  DynLibTy& operator=(DynLibTy &&That) {
+    if (FileName == That.FileName)
+      FileName.clear();
+    if (Handle == That.Handle)
+      Handle = nullptr;
+    std::swap(FileName, That.FileName);
+    std::swap(Handle, That.Handle);
+    return *this;
+  }
+
+  operator bool() const {
+    return Handle != nullptr;
+  }
+
+  const char* getError() const {
+    return dlerror();
+  }
+
+  const std::string& getName() const {
+    return FileName;
+  }
+
+  Elf64_Addr getBase() const {
+    assert(Handle && "invalid handle");
+    return reinterpret_cast<struct link_map*>(Handle)->l_addr;
+  }
+
+  DynLibTy(const DynLibTy &) = delete;
+  DynLibTy& operator=(const DynLibTy &) = delete;
 };
 
-static std::list<std::string> filesToDelete;
-static bool SaveTemps = false;
+// Elf template specialization for CSA (so far it fully matches x86_64).
+using CSAElf =
+  Elf<EM_X86_64, Elf64_Ehdr, Elf64_Phdr, Elf64_Shdr, Elf64_Rela, Elf64_Sym>;
 
-/// Account the memory allocated per device.
-struct AllocMemEntryTy {
-  int64_t TotalSize;
-  std::vector<std::pair<void *, int64_t>> Ptrs;
-
-  AllocMemEntryTy() : TotalSize(0) {}
-};
-
-// Map for tracking explicitly allocated memory which
-// we'll need to copy or release
-class AllocatedMemoryMap: public std::map<void *, bool> {
-};
-
-struct CsaEntryInfo {
-  csa_processor *processor;
-  csa_module *module;
-  csa_entry *entry;
-  std::string entry_name;
-};
-
-typedef class std::map<std::pair<pthread_t,const void*>, CsaEntryInfo> CsaEntryMap_t;
-
-/// Keep entries table per device.
-struct FuncOrGblEntryTy {
-  __tgt_target_table Table;
-  std::string csaAsmFile;
-  CsaEntryMap_t csaTidToEntryMap;
-  AllocatedMemoryMap ExplicitlyAllocatedMemory;
-};
-
-static std::string tmp_prefix;
-
+} // anonymous namespace
 
 #ifdef _MSC_BUILD
 static
@@ -218,344 +264,489 @@ std::string get_process_name() {
 }
 #endif
 
+static
+bool build_csa_assembly(const std::string &tmp_name,
+                        const CSAElf::Section *bitcode_bounds,
+                        const CSAElf::Section *bitcode_data,
+                        std::string &csaAsmFile);
+
+namespace {
 
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
-  std::vector<FuncOrGblEntryTy> FuncGblEntries;
-  std::mutex FuncGblEntriesMutex;
+  // For function entries target address in the offload entry table for CSA
+  // will point to this object. It is a pair of two null-termminated strings
+  // where the first string is the offload entry name, and the second is the
+  // entry's assembly.
+  using EntryAddr = std::pair<const char*, const char*>;
+
+  // Structure which represents an offload entry table for CSA binary.
+  struct EntryTable : public __tgt_target_table {
+    explicit EntryTable(const __tgt_offload_entry *Table, size_t Size) {
+      std::unordered_set<void*> AsmSet;
+      static std::atomic<unsigned int> AsmCount;
+
+      Entries.resize(Size);
+      for (size_t I = 0u; I < Size; ++I) {
+        Entries[I] = Table[I];
+        if (!Entries[I].size) {
+          // Function entry. Create an EntryAddr instance for it and assign
+          // its address the the entry address.
+          DP(2, "Entry[%lu]: name %s\n", I, Entries[I].name);
+
+          // Save assembly to a file if SAVE_TEMPS is on and there is no user
+          // provided assembly file(s).
+          if (SaveTemps && AsmFile.empty() && !Entry2AsmFile &&
+              !AsmSet.count(Entries[I].addr)) {
+            AsmSet.insert(Entries[I].addr);
+
+            // Compose file name.
+            std::stringstream SS;
+            SS << TempPrefix << AsmCount++ << ".s";
+
+            if (Verbosity)
+              fprintf(stderr, "Saving CSA assembly to \"%s\"\n",
+                      SS.str().c_str());
+
+            // And save assembly to it.
+            std::ofstream OFS(SS.str().c_str());
+            if (OFS)
+              OFS << static_cast<const char*>(Entries[I].addr);
+            OFS.close();
+          }
+
+          Addresses.emplace_front(Entries[I].name,
+            static_cast<const char*>(Entries[I].addr));
+          Entries[I].addr = &Addresses.front();
+        }
+        else
+          // It is a data entry. Keep entry address as is. It is supposed to be
+          // the same as host's address, but if not, we can always propagate it
+          // from the host table.
+          DP(2, "Entry[%lu]: name %s, address %p, size %lu\n", I,
+             Entries[I].name, Entries[I].addr, Entries[I].size);
+      }
+      EntriesBegin = Entries.data();
+      EntriesEnd = Entries.data() + Size;
+    }
+
+  private:
+    std::vector<__tgt_offload_entry> Entries;
+    std::forward_list<EntryAddr> Addresses;
+  };
+
+  // An object which contains all data for a single CSA binary - dynamic library
+  // object and the entry table for this binary.
+  using CSAImage = std::pair<DynLibTy, EntryTable>;
+
+  // Keep a list of loaded CSA binaries. This list is always accessed from a
+  // single thread so, there is no need to do any synchronization while
+  // accessing/modifying it.
+  std::forward_list<CSAImage> CSAImages;
 
 public:
-  std::list<DynLibTy> DynLibs;
+  // Loads given CSA image and returns the image's entry table.
+  __tgt_target_table* loadImage(const __tgt_device_image *Image) {
+    if (!Image)
+      return nullptr;
 
-  // Record entry point associated with device.
-  void createOffloadTable(int32_t device_id, __tgt_offload_entry *begin,
-                          __tgt_offload_entry *end, std::string csaAsmFile) {
-    assert(device_id < (int32_t)FuncGblEntries.size() &&
-           "Unexpected device id!");
-    FuncOrGblEntryTy &E = FuncGblEntries[device_id];
+    // Image start and size.
+    const char *Start = static_cast<const char*>(Image->ImageStart);
+    size_t Size = static_cast<const char*>(Image->ImageEnd) - Start;
 
-    E.Table.EntriesBegin = begin;
-    E.Table.EntriesEnd = end;
-    E.csaAsmFile = csaAsmFile;
+    DP(1, "Reading target ELF %p...\n", Start);
+    CSAElf Elf;
+    if (!Elf.readFromMemory(Start, Size)) {
+      DP(1, "Error while parsing target ELF\n");
+      return nullptr;
+    }
+
+    // Find section with offload entry table.
+    const auto *EntriesSec = Elf.findSection(OFFLOADSECTIONNAME);
+    if (!EntriesSec) {
+      DP(1, "Entries Section Not Found\n");
+      return nullptr;
+    }
+    auto EntriesAddr = EntriesSec->getAddr();
+    auto EntriesSize = EntriesSec->getSize();
+    DP(1, "Entries Section: address %lx, size %lu\n", EntriesAddr, EntriesSize);
+
+    // Entry table size is expected to match on the host and target sides.
+    auto TabSize = EntriesSize / sizeof(__tgt_offload_entry);
+    assert(TabSize == size_t(Image->EntriesEnd - Image->EntriesBegin) &&
+           "table size mismatch");
+
+    // Create temp file with library contents and load the library.
+    DynLibTy DL{Start, Size};
+    if (!DL) {
+      DP(1, "Error while loading %s - %s\n", DL.getName().c_str(),
+         DL.getError());
+      return nullptr;
+    }
+    DP(1, "Saved device binary to %s\n", DL.getName().c_str());
+
+    // Check if target binary contains bitcode sections. If yes, then we need
+    // to create assembly first unless user has provided his own assembly file.
+    // TODO: remove this code once we stop embedding IR to the target binary.
+    const auto *BCBoundsSec = Elf.findSection(CSA_BITCODE_BOUNDS_SECTION);
+    const auto *BCDataSec = Elf.findSection(CSA_BITCODE_DATA_SECTION);
+    if (BCBoundsSec && BCDataSec && AsmFile.empty()) {
+      DP(1, "Offset of bitcode bounds section is (%016lx).\n",
+        BCBoundsSec->getAddr());
+      DP(1, "Offset of bitcode data section is (%016lx).\n",
+        BCDataSec->getAddr());
+
+      if (!build_csa_assembly(DL.getName(), BCBoundsSec, BCDataSec, AsmFile)) {
+        DP(1, "Error while compiling bitcide to assembly\n");
+        return nullptr;
+      }
+
+      // Need to remove assembly file at cleanup. This is a generated file.
+      filesToDelete.push_back(AsmFile);
+    }
+
+    // Entry table address in the loaded library.
+    auto *Tab = reinterpret_cast<__tgt_offload_entry*>(DL.getBase() +
+                                                       EntriesAddr);
+
+    // Construct new CSA image and insert it into the list.
+    CSAImages.emplace_front(std::move(DL), EntryTable(Tab, TabSize));
+    return &CSAImages.front().second;
   }
 
-  // Return true if the entry is associated with device.
-  const char *findOffloadEntry(int32_t device_id, const void *addr,
-                               csa_processor **proc, csa_module **mod, csa_entry **entry) {
+public:
+  // An object which represents a single OpenMP offload device.
+  class Device {
+    // Set which keeps addresses for allocated memory.
+    class : private std::unordered_set<void*> {
+      std::mutex Mutex;
 
-    // Clean out the pointers
-    *proc = NULL;
-    *mod = NULL;
-    *entry = NULL;
+    public:
+      void* alloc(size_t Size) {
+        void *Ptr = malloc(Size);
+        if (!Ptr)
+          return nullptr;
+        std::lock_guard<std::mutex> Lock(Mutex);
+        auto Res = insert(Ptr);
+        assert(Res.second && "allocated memory is in the set");
+        (void) Res;
+        return Ptr;
+      }
 
-    // Take out the lock. Automatically released when "lock" goes out of scope
-    std::lock_guard<std::mutex> lock(FuncGblEntriesMutex);
-
-    assert(device_id < (int32_t)FuncGblEntries.size() &&
-           "Unexpected device id!");
-    FuncOrGblEntryTy &E = FuncGblEntries[device_id];
-
-    for (__tgt_offload_entry *i = E.Table.EntriesBegin, *e = E.Table.EntriesEnd; i < e; ++i) {
-      if (i->addr == addr) {
-        pthread_t tid = pthread_self();
-        CsaEntryMap_t::iterator i = E.csaTidToEntryMap.find(std::pair<pthread_t,const void*>(tid, addr));
-        if (E.csaTidToEntryMap.end() != i) {
-          *proc = i->second.processor;
-          *mod = i->second.module;
-          *entry = i->second.entry;
+      void free(void *Ptr) {
+        if (!Ptr)
+          return;
+        {
+          std::lock_guard<std::mutex> Lock(Mutex);
+          auto It = find(Ptr);
+          if (It == end())
+            return;
+          erase(It);
         }
-        return E.csaAsmFile.c_str();
+        free(Ptr);
       }
+    } MemoryMap;
+
+  public:
+    void* alloc(size_t Size) {
+      return MemoryMap.alloc(Size);
     }
 
-    return NULL;
-  }
+    void free(void *Ptr) {
+      MemoryMap.free(Ptr);
+    }
 
-  bool setCsaOffloadEntryInfo(int32_t device_id, void *addr,csa_processor *proc, csa_module *mod, csa_entry *entry) {
-    assert(device_id < (int32_t)FuncGblEntries.size() &&
-           "Unexpected device id!");
+  public:
+    // Simulator data which is associated with offload entry - CSA processor,
+    // module and entry.
+    using CSAEntry = std::tuple<csa_processor*, csa_module*, csa_entry*>;
 
-    // Take out the lock. Automatically released when "lock" goes out of scope
-    std::lock_guard<std::mutex> lock(FuncGblEntriesMutex);
+    // Maps offload entry to a CSA entry for a thread. No synchronization is
+    // necessary for this object because it is accessed and/or modified by one
+    // thread only.
+    class CSAEntryMap : public std::unordered_map<const EntryAddr*, CSAEntry> {
+      csa_processor *SingleProc = nullptr;
 
-    FuncOrGblEntryTy &E = FuncGblEntries[device_id];
-
-    CsaEntryInfo mapEntry;
-    mapEntry.processor = proc;
-    mapEntry.module = mod;
-    mapEntry.entry = entry;
-    mapEntry.entry_name = std::string((const char *)addr);
-
-    for (__tgt_offload_entry *i = E.Table.EntriesBegin, *e = E.Table.EntriesEnd;
-         i < e; ++i) {
-      if (i->addr == addr) {
-        pthread_t tid = pthread_self();
-        
-        E.csaTidToEntryMap[std::pair<pthread_t,const void*>(tid, addr)] = mapEntry;
-        return true;
+    public:
+      csa_processor* getSingleProc() const {
+        return SingleProc;
       }
+
+    private:
+      // Allocates CSA processor. The way how we do it depends on the
+      // MergeStats setting. If MergeStats is on then we are using single CSA
+      // processor for all entries. Otherwise each entry gets its own processor
+      // instance.
+      csa_processor* allocProc() {
+        if (!MergeStats)
+          return csa_alloc("autounit");
+
+        // When MergeStats is on thread is supposed to run all entries in
+        // a single CSA processor instance.
+        if (!SingleProc)
+          SingleProc = csa_alloc("autounit");
+        return SingleProc;
+      }
+
+    public:
+      CSAEntry* getEntry(const EntryAddr *Addr) {
+        auto It = find(Addr);
+        if (It != end())
+          return &It->second;
+
+        auto *Proc = allocProc();
+        if (!Proc) {
+          DP(1, "Failed to allocate CSA processor\n");
+          return nullptr;
+        }
+
+        // We have three possible options for getting assembly now
+        // (1) If we have a single user-defined assembly file, then we use it.
+        // (2) Otherwise if there is an entry -> assembly map, use it.
+        // (3) Otherwise use the embedded assembly.
+        std::string *File = nullptr;
+        if (!AsmFile.empty())
+          File = &AsmFile;
+        else if (Entry2AsmFile) {
+          auto It = Entry2AsmFile->find(Addr->first);
+          if (It != Entry2AsmFile->end())
+            File = &It->second;
+        }
+
+        // Run assemble.
+        csa_module *Mod = nullptr;
+        if (File) {
+          DP(5, "Using assembly from \"%s\" for entry \"%s\"\n",
+             File->c_str(), Addr->first);
+          Mod = csa_assemble(File->c_str(), Proc);
+        }
+        else {
+          DP(5, "Using embedded assembly for entry \"%s\"\n",
+             Addr->first);
+          Mod = csa_assemble_string(Addr->second, Addr->first, Proc);
+        }
+        if (!Mod) {
+          DP(1, "Failed to assemble entry\n");
+          return nullptr;
+        }
+
+        auto *Entry = csa_lookup(Mod, Addr->first);
+        if (!Entry) {
+          DP(1, "Failed to find \"%s\"\n", Addr->first);
+          return nullptr;
+        }
+
+        auto Res = this->emplace(Addr, std::make_tuple(Proc, Mod, Entry));
+        assert(Res.second && "entry is already in the map");
+        return &Res.first->second;
+      }
+    };
+
+    // CSA simulator is not thread safe so we need to keep own CSAEntry map for
+    // each thread.
+    class ThreadEntryMap :
+        public std::unordered_map<std::thread::id, CSAEntryMap> {
+      std::mutex Mutex;
+
+    public:
+      CSAEntryMap& getEntries() {
+        std::lock_guard<std::mutex> Lock(Mutex);
+        return (*this)[std::this_thread::get_id()];
+      }
+    };
+
+  private:
+    ThreadEntryMap ThreadEntries;
+
+  public:
+    ThreadEntryMap& getThreadEntries() {
+      return ThreadEntries;
     }
-    return false;
-  }
 
-  // Return the pointer to the target entries table.
-  __tgt_target_table *getOffloadEntriesTable(int32_t device_id) {
-    assert(device_id < (int32_t)FuncGblEntries.size() &&
-           "Unexpected device id!");
-    FuncOrGblEntryTy &E = FuncGblEntries[device_id];
+    bool runFunction(void *Ptr, std::vector<void*> &Args) {
+      auto *Addr = static_cast<EntryAddr*>(Ptr);
+      auto *Info = ThreadEntries.getEntries().getEntry(Addr);
+      if (!Info) {
+        DP(1, "Error while creating CSA entry\n");
+        return false;
+      }
 
-    return &E.Table;
-  }
+      // Run function counter.
+      static std::atomic<unsigned int> RunCount;
+      unsigned int RunNumber = RunCount++;
 
-  void RecordMemoryAlloc(int32_t device_id, void *addr) {
-    assert(device_id < (int32_t)FuncGblEntries.size() &&
-           "Unexpected device id!");
-    FuncOrGblEntryTy &E = FuncGblEntries[device_id];
-    E.ExplicitlyAllocatedMemory[addr] = true;
-  }
+      auto *Name = Addr->first;
+      auto *Proc = std::get<0>(*Info);
+      auto *Entry = std::get<2>(*Info);
 
-  bool IsExplicitlyAllocatedMemory(int32_t device_id, void *addr) {
-    assert(device_id < (int32_t)FuncGblEntries.size() &&
-           "Unexpected device id!");
-    FuncOrGblEntryTy &E = FuncGblEntries[device_id];
-    return (E.ExplicitlyAllocatedMemory.end() !=
-            E.ExplicitlyAllocatedMemory.find(addr));
-  }
+      DP(2, "Running function %s with %lu argument(s)\n", Name, Args.size());
+      for (size_t I = 0u; I < Args.size(); ++I)
+        DP(2, "\tArg[%lu] = %p\n", I, Args[I]);
 
-  void RecordMemoryFree(int32_t device_id, void *addr) {
-    assert(device_id < (int32_t)FuncGblEntries.size() &&
-           "Unexpected device id!");
-    FuncOrGblEntryTy &E = FuncGblEntries[device_id];
-    AllocatedMemoryMap::iterator iter = E.ExplicitlyAllocatedMemory.find(addr);
-    assert(E.ExplicitlyAllocatedMemory.end() != iter);
-    E.ExplicitlyAllocatedMemory.erase(iter);
-  }
+      if (FPFlags >= 0)
+        csa_set_fp_flags(Proc, FPFlags);
 
-  RTLDeviceInfoTy(int32_t num_devices) {
-#ifdef OMPTARGET_DEBUG
-    if (char *envStr = getenv("LIBOMPTARGET_DEBUG")) {
-      DebugLevel = std::stoi(envStr);
+      if (Verbosity)
+        fprintf(stderr, "\nRun %u: Running %s on the CSA simulator..\n",
+                RunNumber, Name);
+
+      auto Start = csa_cycle_counter(Proc);
+      csa_call(Entry, Args.size(), reinterpret_cast<csa_arg*>(Args.data()));
+      auto Cycles = csa_cycle_counter(Proc) - Start;
+
+      if (Verbosity)
+        fprintf(stderr,
+                "\nRun %u: %s ran on the CSA simulator in %llu cycles\n\n",
+                RunNumber, Name, Cycles);
+
+      if (FPFlags >= 0) {
+        auto Flags = csa_get_fp_flags(Proc);
+        fprintf(stderr, "FP Flags at completion of %s : 0x%02x\n", Name, Flags);
+        std::stringstream SS;
+        SS << Flags;
+        setenv(ENV_RUN_FP_FLAGS, SS.str().c_str(), true);
+      }
+
+      return true;
     }
-#endif // OMPTARGET_DEBUG
-    if (auto *Str = getenv(ENV_SAVE_TEMPS)) {
-      SaveTemps = std::atoi(Str);
-    }
-    FuncGblEntries.resize(num_devices);
+  };
+
+private:
+  std::unique_ptr<Device[]> Devices;
+  int NumDevices = 0;
+
+public:
+  int getNumDevices() const {
+    return NumDevices;
+  }
+
+  Device& getDevice(int ID) {
+    assert(ID >= 0 && ID < getNumDevices() && "bad device ID");
+    return Devices[ID];
+  }
+
+  const Device& getDevice(int ID) const {
+    assert(ID >= 0 && ID < getNumDevices() && "bad device ID");
+    return Devices[ID];
+  }
+
+public:
+  RTLDeviceInfoTy() {
+    NumDevices = NUMBER_OF_DEVICES;
+    Devices.reset(new Device[NumDevices]);
   }
 
   ~RTLDeviceInfoTy() {
-    // Close dynamic libraries
-    for (const auto &Lib : DynLibs) {
-      if (Lib.Handle)
-        dlclose(Lib.Handle);
+    std::unordered_map<std::thread::id, int> TID2Num;
+    std::string ProcessName;
+    int Width = 0;
 
-      // Cleanup CSA files
-      if (!SaveTemps) {
-        remove(Lib.FileName.c_str());
-
-        //std::string bcFile(Lib.FileName);  bcFile += ".bc";
-        //remove(bcFile.c_str());
-
-        std::string asmFile(Lib.FileName); asmFile += ".s";
-        remove(asmFile.c_str());
-      }
+    if (DumpStats) {
+      // Build a map of thread IDs to simple numbers
+      int ThreadNum = 0;
+      for (int I = 0; I < getNumDevices(); ++I)
+        for (const auto &Thr : getDevice(I).getThreadEntries())
+          if (TID2Num.find(Thr.first) == TID2Num.end())
+            TID2Num[Thr.first] = ThreadNum++;
+      Width = ceil(log10(ThreadNum));
+      ProcessName = get_process_name();
     }
 
-    // Are we dumping the stats files?
-    bool dumpStats = (NULL != getenv(ENV_DUMP_STATS));
-
-    // Build a map of thread IDs to simple numbers
-    typedef std::map<pthread_t, int> ThreadNumMap_t;
-    ThreadNumMap_t threadNumMap;
-    int threadNum;
-    int width = 0;
-
-    if (dumpStats) {
-      for (size_t i = 0; i < FuncGblEntries.size(); i++) {
-        FuncOrGblEntryTy &E = FuncGblEntries[i];
-        for (CsaEntryMap_t::iterator i = E.csaTidToEntryMap.begin(); i != E.csaTidToEntryMap.end(); ++i) {
-          std::pair<pthread_t, const void*>key = i->first;
-          
-          ThreadNumMap_t::iterator iter = threadNumMap.find(key.first);
-          if (threadNumMap.end() == iter) {
-            threadNumMap[key.first] = threadNum++;
+    // Finish up - Dump the stats, release the CSA instances
+    for (int I = 0; I < getNumDevices(); ++I)
+      for (auto &Thr : getDevice(I).getThreadEntries()) {
+        auto cleanup = [&](csa_processor *Proc, const std::string &Entry) {
+          if (DumpStats) {
+            // Compose a file name using the following template
+            // <exe name>-<entry name>-dev<device num>-thr<thread num>
+            std::stringstream SS;
+            SS << ProcessName << "-" << Entry << "-dev" << I << "-thd"
+               << std::setfill('0') << std::setw(Width) << TID2Num[Thr.first];
+            csa_dump_statistics(Proc, SS.str().c_str());
           }
-        }
+          csa_free(Proc);
+        };
+
+        if (auto *SingleProc = Thr.second.getSingleProc())
+          cleanup(SingleProc, "*");
+        else
+          for (auto &Entry : Thr.second)
+            cleanup(std::get<0>(Entry.second), Entry.first->first);
       }
-      width = ceil(log10(threadNum));
-    }
 
-    // Finish up - Dump the stats, release the CSA isntances
-    for (size_t i = 0; i < FuncGblEntries.size(); i++) {
-      FuncOrGblEntryTy &E = FuncGblEntries[i];
-      for (CsaEntryMap_t::iterator i = E.csaTidToEntryMap.begin(); i != E.csaTidToEntryMap.end(); ++i) {
-        if (dumpStats) {
-          std::pair<pthread_t, const void*>key = i->first;
-          std::string entry_name = i->second.entry_name;
-
-          // Get the thread number that maps to this thread ID
-          int num = threadNumMap[key.first];
-
-          std::stringstream ss;
-          ss << get_process_name();
-
-          // Do we need to strip "__omp_offloading" from the entryoint name?
-          std::string omp_prefix("__omp_offloading");
-          if (0 == entry_name.compare(0, omp_prefix.length(), omp_prefix)) {
-            // If the entrypoint starts with "__omp_offloading"
-            ss << entry_name.substr(omp_prefix.length());
-          } else {
-            // Just use the process name
-            ss << entry_name;
-          }
-
-          // Add the thread number
-          ss << "-thd" << std::setfill('0') << std::setw(width) << num;
-
-          csa_dump_statistics(i->second.processor, ss.str().c_str());
-        }
-
-        // Release csa_processor
-        csa_free(i->second.processor);
+    // Delete any temporary files we've created
+    if (!SaveTemps)
+      while (!filesToDelete.empty()) {
+        remove(filesToDelete.front().c_str());
+        filesToDelete.pop_front();
       }
-    }
   }
 };
-static RTLDeviceInfoTy DeviceInfo(NUMBER_OF_DEVICES);
 
-// How noisy we should be
-static int32_t verbosity = 0;
-static int32_t initial_fp_flags = -1;
+} // anonymous namespace
 
+static RTLDeviceInfoTy& getDeviceInfo() {
+  static RTLDeviceInfoTy DeviceInfo;
+  static std::once_flag InitFlag;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
-// If we don't have a valid ELF ID we can just fail.
-#if TARGET_ELF_ID < 1
-  return 0;
-#else
-  // Is the library version incompatible with the header file?
-  if (elf_version(EV_CURRENT) == EV_NONE) {
-    DP("Incompatible ELF library!\n");
-    return 0;
-  }
-
-  char *img_begin = (char *)image->ImageStart;
-  char *img_end = (char *)image->ImageEnd;
-  size_t img_size = img_end - img_begin;
-
-  // Obtain elf handler
-  Elf *e = elf_memory(img_begin, img_size);
-  if (!e) {
-    DP("Unable to get ELF handle: %s!\n", elf_errmsg(-1));
-    return 0;
-  }
-
-  // Utility object for closing Elf on return.
-  struct ElfEnd {
-    ElfEnd(Elf *E) : E(E) {}
-    ~ElfEnd() {
-     elf_end(E);
-  }
-  private:
-    Elf *E;
-  } ElfEndCaller(e);
-
-  // Check if ELF is the right kind
-  if (elf_kind(e) != ELF_K_ELF) {
-    DP("Unexpected ELF type!\n");
-    return 0;
-  }
-  Elf64_Ehdr *eh64 = elf64_getehdr(e);
-  Elf32_Ehdr *eh32 = elf32_getehdr(e);
-
-  if (!eh64 && !eh32) {
-    DP("Unable to get machine ID from ELF file!\n");
-    return 0;
-  }
-
-  uint16_t MachineID;
-  if (eh64 && !eh32)
-    MachineID = eh64->e_machine;
-  else if (eh32 && !eh64)
-    MachineID = eh32->e_machine;
-  else {
-    DP("Ambiguous ELF header!\n");
-    return 0;
-  }
-
-  if (MachineID != TARGET_ELF_ID) {
-    DP("Unexpected ELF machine\n");
-    return 0;
-  }
-
-  // So far CSA binary is indistinguishable from x86_64 by looking at ELF
-  // machine only. We can slightly enhance this test by checking if given
-  // binary contains CSA bitcode section.
-  {
-    size_t ShStrIdx = 0;
-    if (elf_getshdrstrndx(e, &ShStrIdx)) {
-      DP("Unable to get ELF strings index!\n");
-      return 0;
+  std::call_once(InitFlag, [&]() {
+    // One time initialization
+#ifdef OMPTARGET_DEBUG
+    if (const char *Str = getenv("LIBOMPTARGET_DEBUG"))
+      DebugLevel = std::stoi(Str);
+#endif // OMPTARGET_DEBUG
+    Verbosity = getenv(ENV_VERBOSE);
+    DumpStats = getenv(ENV_DUMP_STATS);
+    MergeStats = getenv(ENV_MERGE_STATS);
+    SaveTemps = getenv(ENV_SAVE_TEMPS);
+    if (SaveTemps) {
+      // Temp prefix is in effect only if save temps is set.
+      if (const char *Str = getenv(ENV_TEMP_PREFIX))
+        TempPrefix = Str;
+      else
+        TempPrefix = get_process_name();
     }
-    Elf_Scn *Sec = nullptr;
-    while ((Sec = elf_nextscn(e, Sec))) {
-      GElf_Shdr Shdr;
-      gelf_getshdr(Sec, &Shdr);
+    if (const auto *Str = getenv(ENV_ASSEMBLY_FILE)) {
+      // Parse string which is expected to have the following format
+      //   CSA_ASSEMBLY_FILE=<file>[:<entry list>][;<file>[:<entry list>]]
+      std::istringstream SSV(Str);
+      std::string Value;
+      while (std::getline(SSV, Value, ';')) {
+        auto EntriesPos = Value.find(':');
+        if (EntriesPos == std::string::npos)
+          // If no entry list is given, then asm file overrides all entries.
+          AsmFile = Value;
+        else {
+          // Otherwise we have asm file name with a list of entries.
+          auto File = Value.substr(0u, EntriesPos);
 
-      if (const auto *Name = elf_strptr(e, ShStrIdx, Shdr.sh_name))
-        if (strcmp(Name, CSA_BITCODE_DATA_SECTION) == 0)
-          return 1;
+          // Split entries and put them into the entry map.
+          std::istringstream SSE(Value.substr(EntriesPos + 1u));
+          std::string Entry;
+          while (std::getline(SSE, Entry, ',')) {
+            if (!Entry2AsmFile)
+              Entry2AsmFile.reset(new String2StringMap());
+            Entry2AsmFile->insert({ Entry, File });
+          }
+        }
+      }
+
+      // Check that we do not have AsmFile and Entry2AsmFile both defined.
+      if (!AsmFile.empty() && Entry2AsmFile) {
+        fprintf(stderr, "ignoring malformed %s setting\n", ENV_ASSEMBLY_FILE);
+        AsmFile = "";
+        Entry2AsmFile = nullptr;
+      }
     }
-  }
-
-  DP("No CSA bitcode data section\n");
-  return 0;
-#endif
-}
-
-int32_t __tgt_rtl_number_of_devices() { return NUMBER_OF_DEVICES; }
-
-int32_t __tgt_rtl_init_device(int32_t device_id) { return OFFLOAD_SUCCESS; }
-
-static
-void deleteTempFiles() {
-  // If we've been asked to save the temporaries, don't delete them
-  if (getenv(ENV_SAVE_TEMPS)) {
-    return;
-  }
-
-  // Delete any temporary files we've created
-  while (! filesToDelete.empty()) {
-    std::string& tmpFile = filesToDelete.front();
-    remove (tmpFile.c_str());
-    filesToDelete.pop_front();
-  }
-}
-
-// The compiler is whining about functions declared but not used
-#if 0
-static
-void dumpTempFiles() {
-  fprintf(stderr, "%zd files in list:\n", filesToDelete.size());
-  for (std::string file: filesToDelete) {
-    fprintf (stderr, "   %s\n", file.c_str());
-  }
-}
-#endif
-
-static
-int32_t checkForExitOnError(int32_t error, const char* errorText) {
-  if (NULL == getenv(ENV_EXIT_ON_ERROR)) {
-    return error;
-  }
-  if (errorText) {
-    fprintf(stderr, "%s\n", errorText);
-  }
-  exit(error);
+    if (const auto *Str = getenv(ENV_FP_FLAGS)) {
+      int Flags = std::stoi(Str);
+      if (Flags < 0)
+        fprintf(stderr, "invalid initial FP flags value %d ignored\n", Flags);
+      else
+        FPFlags = Flags;
+    }
+  });
+  return DeviceInfo;
 }
 
 static
@@ -598,7 +789,6 @@ std::string find_gold_plugin() {
     return "";
   }
 }
-
 
 static
 std::string find_fixup_pass() {
@@ -740,14 +930,14 @@ std::string find_ld_gold() {
 static
 int execute_command(const char *command) {
 
-  if (verbosity) {
+  if (Verbosity) {
     fprintf(stderr, "Executing command: %s\n", command);
   }
 
   // Create the process to execute the command
   FILE *fCommandOut = popen(command, "r");
   if (NULL == fCommandOut) {
-    DP("Failed to create process to execute command\n");
+    DP(1, "Failed to create process to execute command\n");
     return 1;
   }
 
@@ -759,7 +949,7 @@ int execute_command(const char *command) {
   }
 
   int exitCode = pclose(fCommandOut);
-  if ((0 != exitCode) && verbosity) {
+  if ((0 != exitCode) && Verbosity) {
     fprintf(stderr, "Command failed:\n");
       fprintf(stderr, "%s\n", commandOutStream.str().c_str());
   }
@@ -771,19 +961,19 @@ static
 bool extract_bc_file(const char *tmp_name,
                      const std::string &bcFile,
                      const std::string &csa_clang,
-                     const Elf_Data *bitcode_bounds,
-                     const Elf_Data *bitcode_data) {
+                     const CSAElf::Section *bitcode_bounds,
+                     const CSAElf::Section *bitcode_data) {
 
   // If there's only one file just extract it
-  unsigned bitcodeCount = bitcode_bounds->d_size/sizeof(BitcodeBounds);
-  const char *data = (const char *)bitcode_data->d_buf;
+  unsigned bitcodeCount = bitcode_bounds->getSize()/sizeof(BitcodeBounds);
+  const char *data = bitcode_data->getBits();
 
   if (1 == bitcodeCount) {
     FILE *fBC = fopen(bcFile.c_str(), "wb");
     if (! fBC) {
       return false;
     }
-    fwrite(data, bitcode_data->d_size, 1, fBC);
+    fwrite(data, bitcode_data->getSize(), 1, fBC);
     fclose(fBC);
     filesToDelete.push_back(bcFile);
     return true;
@@ -797,7 +987,7 @@ bool extract_bc_file(const char *tmp_name,
   filesToDelete.push_back(bcFile);
 
   // Save each of the the bitcode files to disk so we can concatenate them
-  BitcodeBounds *bounds = (BitcodeBounds *)bitcode_bounds->d_buf;
+  auto *bounds = (const BitcodeBounds *)bitcode_bounds->getBits();
 
   for (unsigned i = 0; i < bitcodeCount; i++) {
     std::string tmpBcFile(tmp_name);
@@ -825,7 +1015,7 @@ bool extract_bc_file(const char *tmp_name,
   }
 
   // Verify that we dealt with all of the bitcode data
-  assert (data == (const char *)bitcode_data->d_buf + bitcode_data->d_size);
+  assert (data == (const char *)bitcode_data->getBits() + bitcode_data->getSize());
 
   // Now execute the llvm-link command to concatenate the bitcode files
   int result = execute_command(llvmLinkCommand.c_str());
@@ -943,38 +1133,23 @@ bool fixup_bc_file(const char* tmp_name,
 }
 
 static
-bool build_csa_assembly(const char *tmp_name,
-                        const Elf_Data *bitcode_bounds,
-                        const Elf_Data *bitcode_data,
+bool build_csa_assembly(const std::string &tmp_name,
+                        const CSAElf::Section *bitcode_bounds,
+                        const CSAElf::Section *bitcode_data,
                         std::string &csaAsmFile) {
 
   // If the user wants to save temporaries, name them after the process name
-  //
-  // Note that tmp_prefix is a global variable. We'll use it for naming
-  // the stats file when we run
-  if (getenv(ENV_SAVE_TEMPS)) {
-    const char* prefix = getenv(ENV_TEMP_PREFIX);
-    if (prefix) {
-      tmp_prefix = prefix;
-    } else {
-      tmp_prefix = get_process_name();
-    }
-  } else {
+  std::string tmp_prefix;
+  if (SaveTemps)
+    tmp_prefix = TempPrefix;
+  else
     tmp_prefix = tmp_name;
-  }
-
-  // If the user is using his own assembly file, don't bother. Do not fill
-  // in csaAsmFile since we don't want to delete it when the shared object
-  // unloads.
-  if (getenv(ENV_ASSEMBLY_FILE)) {
-    return true;
-  }
 
   // Find csa-clang. Do this before we create anything that might need
   // to be cleaned up
   std::string csa_clang = "icx -target csa ";
   if (csa_clang.empty()) {
-    fprintf(stderr, "Failed to find csa-clang.\n");
+    fprintf(stderr, "Failed to find icx.\n");
     return false;
   }
 
@@ -1047,369 +1222,77 @@ bool build_csa_assembly(const char *tmp_name,
   }
 }
 
-__tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
-                                          __tgt_device_image *image) {
+// Plugin API implementation.
 
-  const char *verbose_env = getenv(ENV_VERBOSE);
-  if (NULL != verbose_env) {
-    verbosity = 1;
+int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
+  const char *Start = static_cast<char*>(Image->ImageStart);
+  size_t Size = static_cast<char*>(Image->ImageEnd) - Start;
+
+  CSAElf Elf;
+  if (!Elf.readFromMemory(Start, Size)) {
+    DP(1, "Unable to read ELF!\n");
+    return false;
   }
 
-  DP("Dev %d: load binary from 0x%llx image\n", device_id,
-     (long long)image->ImageStart);
-
-  assert(device_id >= 0 && device_id < NUMBER_OF_DEVICES && "bad dev id");
-
-  size_t ImageSize = (size_t)image->ImageEnd - (size_t)image->ImageStart;
-  size_t NumEntries = (size_t)(image->EntriesEnd - image->EntriesBegin);
-  DP("Expecting to have %ld entries defined.\n", (long)NumEntries);
-
-  // Is the library version incompatible with the header file?
-  if (elf_version(EV_CURRENT) == EV_NONE) {
-    checkForExitOnError(1, "Incompatible ELF library!");
-    return NULL;
+  // So far CSA binary is indistinguishable from x86_64 by looking at ELF
+  // machine only. We can slightly enhance this test by checking if given
+  // binary contains CSA code section.
+  const auto *CSACodeSec = Elf.findSection(CSA_CODE_SECTION);
+  const auto *BCBoundsSec = Elf.findSection(CSA_BITCODE_BOUNDS_SECTION);
+  const auto *BCDataSec = Elf.findSection(CSA_BITCODE_DATA_SECTION);
+  if (!CSACodeSec && !(BCBoundsSec && BCDataSec)) {
+    DP(1, "No CSA code or bitcode sections in the binary\n");
+    return false;
   }
 
-  // Obtain elf handler
-  Elf *e = elf_memory((char *)image->ImageStart, ImageSize);
-  if (!e) {
-    DP("Unable to get ELF handle: %s!\n", elf_errmsg(-1));
-    checkForExitOnError(1, NULL);
-    return NULL;
-  }
-
-  if (elf_kind(e) != ELF_K_ELF) {
-    elf_end(e);
-    checkForExitOnError(1, "Invalid Elf kind!");
-    return NULL;
-  }
-
-  // Find the entries section offset
-  Elf_Scn *section = 0;
-  Elf_Data *bitcode_bounds = 0;
-  Elf_Data *bitcode_data = 0;
-  Elf64_Off entries_offset = 0;
-
-
-  size_t shstrndx;
-
-  if (elf_getshdrstrndx(e, &shstrndx)) {
-    elf_end(e);
-    checkForExitOnError(1, "Unable to get ELF strings index!");
-    return NULL;
-  }
-
-  while ((section = elf_nextscn(e, section))) {
-    GElf_Shdr hdr;
-    gelf_getshdr(section, &hdr);
-
-    const char *sectionName = elf_strptr(e, shstrndx, hdr.sh_name);
-
-    if (!strcmp(sectionName, OFFLOADSECTIONNAME)) {
-      entries_offset = hdr.sh_addr;
-      DP("Offset of entries section is (%016lx).\n", entries_offset);
-    }
-
-    if (!strcmp(sectionName, CSA_BITCODE_BOUNDS_SECTION)) {
-      DP("Offset of bitcode bounds section is (%016lx).\n", hdr.sh_addr);
-      bitcode_bounds = elf_getdata(section, NULL);
-    }
-
-    if (!strcmp(sectionName, CSA_BITCODE_DATA_SECTION)) {
-      DP("Offset of bitcode data section is (%016lx).\n", hdr.sh_addr);
-      bitcode_data = elf_getdata(section, NULL);
-    }
-  }
-
-  if (!entries_offset) {
-    DP("Entries Section Offset Not Found\n");
-    elf_end(e);
-    checkForExitOnError(1, NULL);
-    return NULL;
-  }
-
-  if (!bitcode_bounds) {
-    elf_end(e);
-    checkForExitOnError(1, "CSA bitcode bounds section Not Found");
-    return NULL;
-  }
-
-  if (!bitcode_data) {
-    elf_end(e);
-    checkForExitOnError(1, "CSA bitcode data section Not Found");
-    return NULL;
-  }
-
-  // load dynamic library and get the entry points. We use the dl library
-  // to do the loading of the library, but we could do it directly to avoid the
-  // dump to the temporary file.
-  //
-  // 1) Create tmp file with the library contents.
-  // 2) Use dlopen to load the file and dlsym to retrieve the symbols.
-  char tmp_name[] = "/tmp/tmpfile_XXXXXX";
-  int tmp_fd = mkstemp(tmp_name);
-
-  if (tmp_fd == -1) {
-    elf_end(e);
-    checkForExitOnError(1, NULL);
-    return NULL;
-  }
-
-  FILE *ftmp = fdopen(tmp_fd, "wb");
-
-  if (!ftmp) {
-    elf_end(e);
-    checkForExitOnError(1, NULL);
-    return NULL;
-  }
-
-  fwrite(image->ImageStart, ImageSize, 1, ftmp);
-  fclose(ftmp);
-
-  DynLibTy Lib = {tmp_name, dlopen(tmp_name, RTLD_LAZY)};
-
-  if (!Lib.Handle) {
-    std::string err("target library loading error: ");
-    err += dlerror();
-    elf_end(e);
-    checkForExitOnError(1, err.c_str());
-    return NULL;
-  }
-
-  DeviceInfo.DynLibs.push_back(Lib);
-
-  // Build the CSA assembly file
-  std::string csaAsmFile;
-  if (! build_csa_assembly(tmp_name, bitcode_bounds, bitcode_data, csaAsmFile)) {
-    elf_end(e);
-    deleteTempFiles();
-    remove(tmp_name);
-    checkForExitOnError(1, NULL);
-    return NULL;
-  }
-
-  // Delete the temp files create to build the .s file
-  deleteTempFiles();
-
-  struct link_map *libInfo = (struct link_map *)Lib.Handle;
-
-  // The place where the entries info is loaded is the library base address
-  // plus the offset determined from the ELF file.
-  Elf64_Addr entries_addr = libInfo->l_addr + entries_offset;
-
-  DP("Pointer to first entry to be loaded is (%016lx).\n", entries_addr);
-
-  // Table of pointers to all the entries in the target.
-  __tgt_offload_entry *entries_table = (__tgt_offload_entry *)entries_addr;
-
-  __tgt_offload_entry *entries_begin = &entries_table[0];
-  __tgt_offload_entry *entries_end = entries_begin + NumEntries;
-
-  if (!entries_begin) {
-    elf_end(e);
-    checkForExitOnError(1, "Can't obtain entries begin");
-    return NULL;
-  }
-
-  DP("Entries table range is (%016lx)->(%016lx)\n", (Elf64_Addr)entries_begin,
-     (Elf64_Addr)entries_end);
-  DeviceInfo.createOffloadTable(device_id, entries_begin, entries_end, csaAsmFile);
-
-  elf_end(e);
-
-  return DeviceInfo.getOffloadEntriesTable(device_id);
+  return true;
 }
 
-void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
-  if (hst_ptr)
-    return hst_ptr;
-
-  if (verbosity)
-    fprintf(stderr, "Note: allocating %ld bytes for this region.\n", size);
-
-  void *ptr = malloc(size);
-  DeviceInfo.RecordMemoryAlloc(device_id, ptr);
-  return ptr;
+int32_t __tgt_rtl_number_of_devices() {
+  return getDeviceInfo().getNumDevices();
 }
 
-int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
-                              int64_t size) {
-  if (tgt_ptr != hst_ptr) {
-    memcpy(tgt_ptr, hst_ptr, size);
-  }
+int32_t __tgt_rtl_init_device(int32_t ID) {
   return OFFLOAD_SUCCESS;
 }
 
-int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
-                                int64_t size) {
-  if (hst_ptr != tgt_ptr) {
-    memcpy(hst_ptr, tgt_ptr, size);
-  }
+__tgt_target_table *__tgt_rtl_load_binary(int32_t ID, __tgt_device_image *Ptr) {
+  return getDeviceInfo().loadImage(Ptr);
+}
+
+void *__tgt_rtl_data_alloc(int32_t ID, int64_t Size, void *HPtr) {
+  if (HPtr)
+    return HPtr;
+  return getDeviceInfo().getDevice(ID).alloc(Size);
+}
+
+int32_t __tgt_rtl_data_submit(int32_t ID, void *TPtr, void *HPtr, int64_t Size) {
+  if (TPtr != HPtr)
+    memcpy(TPtr, HPtr, Size);
   return OFFLOAD_SUCCESS;
 }
 
-int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
-  if (DeviceInfo.IsExplicitlyAllocatedMemory(device_id, tgt_ptr)) {
-    free(tgt_ptr);
-    DeviceInfo.RecordMemoryFree(device_id, tgt_ptr);
-  }
+int32_t __tgt_rtl_data_retrieve(int32_t ID, void *HPtr, void *TPtr, int64_t Size) {
+  if (HPtr != TPtr)
+    memcpy(HPtr, TPtr, Size);
   return OFFLOAD_SUCCESS;
 }
 
-int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
-    void **tgt_args, ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t team_num,
-    int32_t thread_limit, uint64_t loop_tripcount /*not used*/) {
+int32_t __tgt_rtl_data_delete(int32_t ID, void *TPtr) {
+  getDeviceInfo().getDevice(ID).free(TPtr);
+  return OFFLOAD_SUCCESS;
+}
 
-  typedef std::pair<csa_processor*, csa_module*> InstanceInfo_t;
-  typedef std::map<pthread_t, InstanceInfo_t> MapThreadToProcessor_t;
+int32_t __tgt_rtl_run_target_team_region(int32_t ID, void *Entry,
+    void **Bases, ptrdiff_t *Offsets, int32_t NumArgs, int32_t TeamNum,
+    int32_t ThreadLimit, uint64_t LoopTripCount) {
+  std::vector<void*> Args(NumArgs);
+  for (int32_t I = 0; I < NumArgs; ++I)
+    Args[I] = static_cast<char*>(Bases[I]) + Offsets[I];
 
-  static MapThreadToProcessor_t mapThreadToProcessor;
-  static std::mutex s_threadToProcessorMapMutex;
-
-  // ignore team num and thread limit.
-  int32_t status = OFFLOAD_SUCCESS;
-  static uint32_t run_count = 0;
-
-  // If not checked yet, see if the CSA_FL_FLAGS environment variable is defined
-  if (-1 == initial_fp_flags) {
-    const char* fpFlags = getenv(ENV_FP_FLAGS);
-    if (NULL == fpFlags) {
-      initial_fp_flags = -2;
-    } else {
-      initial_fp_flags = atoi(fpFlags);
-      if (initial_fp_flags < 0) {
-        fprintf(stderr, "invalid initial FP flags value %d ignored\n", initial_fp_flags);
-        initial_fp_flags = -2;
-      }
-    }
-  }
-
-  csa_processor* proc = NULL;
-  csa_module* mod = NULL;
-  csa_entry* entry = NULL;
-
-  // Normally this would be the code, but since we're loading assembly into
-  // the simulator, the compilation gave us the address of the function name.
-  const char *functionName = (const char *)tgt_entry_ptr;
-
-  // If we've got an environment variable specifying the assembly file, 
-  // use it's value
-  const char *assemblyFile = getenv(ENV_ASSEMBLY_FILE);
-  if (NULL == assemblyFile) {
-    // Find the function in the target table, which will give us the path for
-    // the compiled code so we can load it into the assembler
-    assemblyFile = DeviceInfo.findOffloadEntry(device_id, tgt_entry_ptr, &proc, &mod, &entry);
-  }
-
-  if (NULL == assemblyFile) {
-    return checkForExitOnError(OFFLOAD_FAIL, "Failed to find assembly file");
-  }
-
-  // If we've already got a CSA instance, module & entry, use them. Otherwise
-  // create them now.
-  if (NULL == proc) {
-    bool mergeStats = (NULL != getenv(ENV_MERGE_STATS));
-    bool newInstance = false;
-    pthread_t tid = pthread_self();
-
-    if (mergeStats) {
-      {
-        std::lock_guard<std::mutex> lock(s_threadToProcessorMapMutex);
-
-        // Do we already have an instance for this thread?
-        MapThreadToProcessor_t::iterator iter = mapThreadToProcessor.find(tid);
-        if (mapThreadToProcessor.end() != iter) {
-          InstanceInfo_t instance = iter->second;
-          proc = instance.first;
-          mod = instance.second;
-          entry = csa_lookup(mod, functionName);
-        }
-      }
-    }
-
-    // If we still didn't find it, create a new instance
-    if (NULL == entry) {
-      // Allocate an CSA
-      proc = csa_alloc("autounit");
-      if (NULL == proc) {
-        return checkForExitOnError(OFFLOAD_FAIL,
-                                   "Failed to allocate CSA processor");
-      }
-      newInstance = true;
-
-      mod = csa_assemble(assemblyFile, proc);
-      if (NULL == mod) {
-        return checkForExitOnError(OFFLOAD_FAIL, "Failed to load module");
-      }
-
-      entry = csa_lookup(mod, functionName);
-
-      if (mergeStats) {
-        std::lock_guard<std::mutex> lock(s_threadToProcessorMapMutex);
-
-        mapThreadToProcessor[tid] = InstanceInfo_t(proc,mod);
-      }
-    }
-
-    if (newInstance) {
-      bool success = DeviceInfo.setCsaOffloadEntryInfo(device_id, tgt_entry_ptr,
-                                                       proc, mod, entry);
-      assert(success && "saving CSA offload entry information failed!");
-      (void) success;
-    }
-  }
-
-#ifdef RAVI  //need new csasim header which defines csa_set_fp_flags
-  if (initial_fp_flags >= 0) {
-    csa_set_fp_flags(proc, (unsigned int)initial_fp_flags);
-  }
-  if (verbosity) {
-    fprintf(stderr, "\nRun %u: Running %s on the CSA simulator..\n",
-            run_count, functionName);
-  }
-#endif
-
-  DP1("Function %s\n", functionName);
-  std::vector<void *> ptrs(arg_num);
-  for (int32_t i=0; i<arg_num; ++i) {
-    ptrs[i] = (void*)((intptr_t)tgt_args[i] + tgt_offsets[i]);
-    DP1("      param%d = %p\n", i, ptrs[i]);
-  }
-
-  // Execute the CSA code. target() is adding an "omp handle" to the
-  // arguments array which we don't care about. So ignore it
-  assert(sizeof(csa_arg) == sizeof(ptrs[0]));
-  unsigned long long start = csa_cycle_counter(proc);
-  csa_call(entry, arg_num, (csa_arg *)&ptrs[0]);
-  unsigned long long cycles = csa_cycle_counter(proc) - start;
-
-#if 0
-  // Dump the statistics, if requested
-  if (getenv (ENV_DUMP_STATS)) {
-    std::stringstream ss;
-    ss << tmp_prefix << "-" << run_count;
-    csa_dump_statistics(proc, ss.str().c_str());
-  }
-#endif
-
-  if (verbosity) {
-    fprintf(stderr, "\nRun %u: %s ran on the CSA simulator in %llu cycles\n\n",
-            run_count, functionName, cycles);
-  }
-#ifdef RAVI  //need new csasim header which defines csa_get_fp_flags
-  if (initial_fp_flags >= 0) {
-    unsigned int flags = csa_get_fp_flags(proc);
-    fprintf(stderr, "FP Flags at completion of %s : 0x%02x\n",
-            functionName, flags);
-    char buf[32];
-    sprintf(buf, "%u", flags);
-    setenv(ENV_RUN_FP_FLAGS, buf, 1);
-  }
-#endif
-
-  run_count++;
-
-  return status;
+  if (!getDeviceInfo().getDevice(ID).runFunction(Entry, Args))
+    return OFFLOAD_FAIL;
+  return OFFLOAD_SUCCESS;
 }
 
 int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
@@ -1418,7 +1301,3 @@ int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
   return __tgt_rtl_run_target_team_region(device_id, tgt_entry_ptr, tgt_args,
                                           tgt_offsets, arg_num, 1, 1, 0);
 }
-
-#ifdef __cplusplus
-}
-#endif
