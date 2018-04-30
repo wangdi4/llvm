@@ -1213,13 +1213,14 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock *mbb) {
 
   assert(mloop->getExitingBlock() &&
          "can't handle multi exiting blks in this funciton");
+  MachineBasicBlock *headerBB = mloop->getHeader();
   MachineBasicBlock *latchBB         = mloop->getLoopLatch();
   ControlDependenceNode *latchNode   = CDG->getNode(latchBB);
   MachineBasicBlock *exitingBB       = mloop->getExitingBlock();
   ControlDependenceNode *exitingNode = CDG->getNode(exitingBB);
   MachineBasicBlock *exitBB          = mloop->getExitBlock();
   assert(exitBB);
-  assert(latchBB && exitingBB && (latchBB == exitingBB));
+  assert(latchBB && exitingBB && (latchBB == exitingBB || headerBB == exitingBB));
   MachineInstr *bi                = &*exitingBB->getFirstInstrTerminator();
   MachineBasicBlock::iterator loc = exitingBB->getFirstTerminator();
   unsigned predReg                = bi->getOperand(0).getReg();
@@ -1232,9 +1233,12 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock *mbb) {
   assert(new_LIC_RC && "Can't determine register class for register");
   unsigned cpyReg =
     LMFI->allocateLIC(new_LIC_RC, Twine("loop_") + mbb->getName() + "_phi");
-  assert(mloop->isLoopExiting(latchBB) || latchNode->isParent(exitingNode));
+  assert(mloop->isLoopExiting(latchBB) ||
+         headerBB == exitingBB         ||
+         latchNode->isParent(exitingNode));
   _unused(latchNode);
   _unused(exitingNode);
+  _unused(headerBB);
   const unsigned moveOpcode = TII->getMoveOpcode(TRC);
   MachineInstr *cpyInst =
     BuildMI(*exitingBB, loc, DebugLoc(), TII->get(moveOpcode), cpyReg)
@@ -2902,8 +2906,9 @@ bool CSACvtCFDFPass::needDynamicPreds(MachineLoop *L) {
   MachineBasicBlock *latch = mloop->getLoopLatch();
   if (!latch)
     return true;
-  // loop lattch is not an exiting point
-  if (!mloop->isLoopExiting(mloop->getLoopLatch()))
+  // both loop lattch and header are not exiting point
+  if (!mloop->isLoopExiting(mloop->getLoopLatch()) &&
+      !mloop->isLoopExiting(mloop->getHeader()))
     return true;
   return false;
 }
@@ -3016,7 +3021,8 @@ void CSACvtCFDFPass::repeatOperandInLoop(
   SmallVector<MachineOperand *, 4> *repeatBack) {
 
   MachineBasicBlock *lphdr   = mloop->getHeader();
-  MachineBasicBlock *latchBB = mloop->getLoopLatch();
+  //MachineBasicBlock *latchBB = mloop->getLoopLatch();
+  MachineBasicBlock *exitingBB = mloop->getExitingBlock();
   // pick
   // switch
   std::set<MachineInstr *> repeats;
@@ -3095,14 +3101,14 @@ void CSACvtCFDFPass::repeatOperandInLoop(
               TII->makeOpcode(CSA::Generic::SWITCH, TRC);
             MachineInstr *switchInst;
             if (flipBackedgePred) {
-              switchInst = BuildMI(*latchBB, latchBB->getFirstTerminator(),
+              switchInst = BuildMI(*exitingBB, exitingBB->getFirstTerminator(),
                                    DebugLoc(), TII->get(switchOpcode), rptIReg)
                              .addReg(CSA::IGN, RegState::Define)
                              .addReg(backedgePred)
                              .addReg(rptOReg);
               switchInst->getOperand(0).setIsDef();
             } else {
-              switchInst = BuildMI(*latchBB, latchBB->getFirstTerminator(),
+              switchInst = BuildMI(*exitingBB, exitingBB->getFirstTerminator(),
                                    DebugLoc(), TII->get(switchOpcode), CSA::IGN)
                              .addReg(rptIReg, RegState::Define)
                              .addReg(backedgePred)

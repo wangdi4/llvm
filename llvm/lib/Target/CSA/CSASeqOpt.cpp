@@ -681,8 +681,7 @@ MachineInstr *CSASeqOpt::lpInitForPickSwitchPair(MachineInstr *pickInstr,
         backedgeReg = initInstr->getOperand(1).getImm() == 0
                         ? pickInstr->getOperand(3).getReg()
                         : pickInstr->getOperand(2).getReg();
-        if (MRI->getVRegDef(backedgeReg) == switchInstr &&
-            MRI->getVRegDef(switchInstr->getOperand(2).getReg()) == cmpInstr) {
+        if (MRI->getVRegDef(switchInstr->getOperand(2).getReg()) == cmpInstr) {
           result = initInstr;
         }
       }
