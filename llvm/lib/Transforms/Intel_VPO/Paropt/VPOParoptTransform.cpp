@@ -287,13 +287,14 @@ bool VPOParoptTransform::paroptTransforms() {
           DEBUG(dbgs() << "\n WRNParallelLoop - Transformation \n\n");
 
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          Changed = clearCodemotionFenceIntrinsic(W);
+
           if (isTargetCSA()) {
             Changed |= genCSAParallelLoop(W);
             RemoveDirectives = true;
             break;
           }
 
-          Changed = clearCodemotionFenceIntrinsic(W);
           AllocaInst *IsLastVal = nullptr;
           Changed |= genLoopSchedulingCode(W, IsLastVal);
           // Privatization is enabled for both Prepare and Transform passes
