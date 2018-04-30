@@ -49,6 +49,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTempCleanup.h"
+
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
@@ -684,19 +686,32 @@ void TempSubstituter::substituteTemps(HLRegion *Reg) {
   HasEmptyNodes = false;
 }
 
+static void runTempCleanup(HIRFramework &HIRF) {
+  if (DisableHIRTempCleanup) {
+    DEBUG(dbgs() << "HIR Temp Cleanup Disabled \n");
+    return;
+  }
+
+  TempSubstituter TS(&HIRF);
+
+  for (auto RegIt = HIRF.hir_begin(), End = HIRF.hir_end(); RegIt != End;
+       ++RegIt) {
+    TS.substituteTemps(cast<HLRegion>(&*RegIt));
+  }
+}
+
 bool HIRTempCleanup::runOnFunction(Function &F) {
-  if (DisableHIRTempCleanup || skipFunction(F)) {
+  if (skipFunction(F)) {
     DEBUG(dbgs() << "HIR Temp Cleanup Disabled \n");
     return false;
   }
 
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  TempSubstituter TS(HIRF);
-
-  for (auto RegIt = HIRF->hir_begin(), End = HIRF->hir_end(); RegIt != End;
-       ++RegIt) {
-    TS.substituteTemps(cast<HLRegion>(&*RegIt));
-  }
-
+  runTempCleanup(getAnalysis<HIRFrameworkWrapperPass>().getHIR());
   return false;
+}
+
+PreservedAnalyses HIRTempCleanupPass::run(llvm::Function &F,
+                                          llvm::FunctionAnalysisManager &AM) {
+  runTempCleanup(AM.getResult<HIRFrameworkAnalysis>(F));
+  return PreservedAnalyses::all();
 }

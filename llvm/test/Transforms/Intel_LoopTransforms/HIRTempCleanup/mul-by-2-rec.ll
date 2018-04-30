@@ -1,8 +1,9 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-temp-cleanup -print-after=hir-temp-cleanup 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" -disable-output 2>&1 | FileCheck %s
 
 ; Verify that we are able to get rid of copy of %t.026 and are using only a single mul recurrence blob in the innermost loop.
 
-; CHECK: Dump Before HIR Temp Cleanup
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, sext.i32.i64(%n) + -2, 1   <DO_LOOP>
 ; CHECK: |   %t.026.out = %t.026;
@@ -17,7 +18,7 @@
 ; CHECK: |   %t.026 = 2 * %t.026.out;
 ; CHECK: + END LOOP
 
-; CHECK: Dump After HIR Temp Cleanup
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, sext.i32.i64(%n) + -2, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
@@ -31,6 +32,7 @@
 ; CHECK: + END LOOP
 
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-after=hir-temp-cleanup -hir-details 2>&1 | FileCheck %s -check-prefix=CHECK-LIVEIN
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>" -hir-details -disable-output 2>&1 | FileCheck %s -check-prefix=CHECK-LIVEIN
 
 ; Verify that %t.026 becomes livein to i2 loop after substitution.
 
