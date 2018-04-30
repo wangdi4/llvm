@@ -126,6 +126,9 @@ FunctionPass *createHIRLoopFusionPass();
 
 /// This creates a pass that emits HIR opt report.
 FunctionPass *createHIROptReportEmitterWrapperPass();
+
+/// Create pass that eliminates dead store.
+FunctionPass *createHIRDeadStoreEliminationPass();
 }
 
 #endif

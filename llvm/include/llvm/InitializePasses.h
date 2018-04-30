@@ -484,6 +484,7 @@ void initializeHIRMVForConstUBPass(PassRegistry&);
 void initializeHIRLoopConcatenationLegacyPassPass(PassRegistry&);
 void initializeHIRArrayTransposePass(PassRegistry&);
 void initializeHIRLoopFusionPass(PassRegistry&);
+void initializeHIRDeadStoreEliminationPass(PassRegistry&);
 // VPO WRegion Passes
 void initializeWRegionCollectionWrapperPassPass(PassRegistry&);
 void initializeWRegionInfoWrapperPassPass(PassRegistry&);

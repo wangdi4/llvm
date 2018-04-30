@@ -28,6 +28,7 @@
 #include <array>
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/Pass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRAnalysisPass.h"
@@ -248,8 +249,14 @@ public:
   /// 2) A[i], A[i+2], A[i+4], A[i+6]; ReuseThreshold = 3
   ///    Group 0 - A[i], A[i+2]
   ///    Group 1 - A[i+4], A[i+6]
-  void populateTemporalLocalityGroups(const HLLoop *Lp, unsigned ReuseThreshold,
-                                      RefGroupVecTy &TemporalGroups);
+  ///
+  /// If \p UniqueGroupSymbases is non-null, we populate it with the symbases
+  /// which are unique to a single temporal locality group. This can prove
+  /// legality of transformation for the client without looking at DD edges
+  /// essentially saving compile time.
+  static void populateTemporalLocalityGroups(
+      const HLLoop *Lp, unsigned ReuseThreshold, RefGroupVecTy &TemporalGroups,
+      SmallSet<unsigned, 8> *UniqueGroupSymbases = nullptr);
 };
 
 class HIRLoopLocalityWrapperPass : public FunctionPass {

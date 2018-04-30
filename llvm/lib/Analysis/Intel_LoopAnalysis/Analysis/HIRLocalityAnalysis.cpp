@@ -117,9 +117,7 @@ bool HIRLoopLocalityWrapperPass::runOnFunction(Function &F) {
   return false;
 }
 
-void HIRLoopLocalityWrapperPass::releaseMemory() {
-  HLL.reset();
-}
+void HIRLoopLocalityWrapperPass::releaseMemory() { HLL.reset(); }
 
 void HIRLoopLocality::printAnalysis(raw_ostream &OS) const {
 
@@ -135,10 +133,9 @@ void HIRLoopLocality::printAnalysis(raw_ostream &OS) const {
     for (auto Lp : OutermostLoops) {
 
       bool IsNearPerfect = false;
-      if (Lp->isInnermost() ||
-          (!HLNodeUtils::isPerfectLoopNest(Lp, nullptr, false,
-                                          &IsNearPerfect) && 
-          !IsNearPerfect)) {
+      if (Lp->isInnermost() || (!HLNodeUtils::isPerfectLoopNest(
+                                    Lp, nullptr, false, &IsNearPerfect) &&
+                                !IsNearPerfect)) {
         continue;
       }
 
@@ -183,8 +180,8 @@ unsigned HIRLoopLocality::getTripCount(const HLLoop *Loop) {
 }
 
 void HIRLoopLocality::updateTotalStrideAndRefs(LocalityInfo &LI,
-                                                   const RefGroupTy &RefGroup,
-                                                   uint64_t Stride) {
+                                               const RefGroupTy &RefGroup,
+                                               uint64_t Stride) {
   auto Size = RefGroup.size();
   LI.TotalStride += Stride * Size;
   LI.TotalRefs += Size;
@@ -198,8 +195,8 @@ void HIRLoopLocality::updateTotalStrideAndRefs(LocalityInfo &LI,
 }
 
 bool HIRLoopLocality::sharesLastCacheLine(uint64_t PrevTotalDist,
-                                              uint64_t CurTotalDist,
-                                              uint64_t NumRefBytesAccessed) {
+                                          uint64_t CurTotalDist,
+                                          uint64_t NumRefBytesAccessed) {
   // This is where the PrevRef ended starting from the first ref of the group.
   auto PrevByteOffset = PrevTotalDist + NumRefBytesAccessed;
 
@@ -220,9 +217,11 @@ bool HIRLoopLocality::sharesLastCacheLine(uint64_t PrevTotalDist,
   return CurTotalDist < NextCacheLineByteOffset;
 }
 
-unsigned HIRLoopLocality::computeExtraCacheLines(
-    LocalityInfo &LI, const RefGroupTy &RefGroup, unsigned Level,
-    uint64_t NumRefBytesAccessed, unsigned NumCacheLinesPerRef) {
+unsigned HIRLoopLocality::computeExtraCacheLines(LocalityInfo &LI,
+                                                 const RefGroupTy &RefGroup,
+                                                 unsigned Level,
+                                                 uint64_t NumRefBytesAccessed,
+                                                 unsigned NumCacheLinesPerRef) {
   unsigned ExtraCacheLines = 0;
   uint64_t PrevTotalDist = 0, TotalDist = 0;
 
@@ -288,9 +287,10 @@ unsigned HIRLoopLocality::computeExtraCacheLines(
   return ExtraCacheLines;
 }
 
-void HIRLoopLocality::computeNumNoLocalityCacheLines(
-    LocalityInfo &LI, const RefGroupTy &RefGroup, unsigned Level,
-    unsigned TripCnt) {
+void HIRLoopLocality::computeNumNoLocalityCacheLines(LocalityInfo &LI,
+                                                     const RefGroupTy &RefGroup,
+                                                     unsigned Level,
+                                                     unsigned TripCnt) {
   const RegDDRef *Ref = RefGroup.front();
 
   auto BaseCE = Ref->getBaseCE();
@@ -367,8 +367,9 @@ void HIRLoopLocality::computeNumNoLocalityCacheLines(
   LI.NumSpatialCacheLines += NumCacheLines + ExtraCacheLines;
 }
 
-void HIRLoopLocality::computeNumTempInvCacheLines(
-    LocalityInfo &LI, const RefGroupTy &RefGroup, unsigned Level) {
+void HIRLoopLocality::computeNumTempInvCacheLines(LocalityInfo &LI,
+                                                  const RefGroupTy &RefGroup,
+                                                  unsigned Level) {
 
   auto Ref = RefGroup.front();
   auto RefSize =
@@ -385,9 +386,11 @@ void HIRLoopLocality::computeNumTempInvCacheLines(
   LI.NumTempInvCacheLines += NumCacheLines + ExtraCacheLines;
 }
 
-void HIRLoopLocality::computeNumSpatialCacheLines(
-    LocalityInfo &LI, const RefGroupTy &RefGroup, unsigned Level,
-    unsigned TripCnt, uint64_t Stride) {
+void HIRLoopLocality::computeNumSpatialCacheLines(LocalityInfo &LI,
+                                                  const RefGroupTy &RefGroup,
+                                                  unsigned Level,
+                                                  unsigned TripCnt,
+                                                  uint64_t Stride) {
   auto NumRefBytesAccessed = (Stride * TripCnt);
 
   updateTotalStrideAndRefs(LI, RefGroup, Stride);
@@ -403,7 +406,7 @@ void HIRLoopLocality::computeNumSpatialCacheLines(
 }
 
 void HIRLoopLocality::computeNumCacheLines(const HLLoop *Loop,
-                                               const RefGroupVecTy &RefGroups) {
+                                           const RefGroupVecTy &RefGroups) {
   unsigned Level = Loop->getNestingLevel();
   unsigned TripCnt = getTripCount(Loop);
 
@@ -429,7 +432,7 @@ void HIRLoopLocality::computeNumCacheLines(const HLLoop *Loop,
 }
 
 void HIRLoopLocality::printLocalityInfo(raw_ostream &OS,
-                                            const HLLoop *Lp) const {
+                                        const HLLoop *Lp) const {
 
   unsigned Level = Lp->getNestingLevel();
 
@@ -475,13 +478,13 @@ void HIRLoopLocality::initTripCountByLevel(
 }
 
 bool HIRLoopLocality::isSpatialMatch(const RegDDRef *Ref1,
-                                         const RegDDRef *Ref2) {
+                                     const RegDDRef *Ref2) {
   return DDRefUtils::getConstByteDistance(Ref1, Ref2, nullptr);
 }
 
 bool HIRLoopLocality::isTemporalMatch(const RegDDRef *Ref1,
-                                          const RegDDRef *Ref2, unsigned Level,
-                                          uint64_t MaxDiff) {
+                                      const RegDDRef *Ref2, unsigned Level,
+                                      uint64_t MaxDiff) {
   int64_t Diff;
 
   if (!DDRefUtils::getConstIterationDistance(Ref1, Ref2, Level, &Diff)) {
@@ -536,9 +539,10 @@ void HIRLoopLocality::sortedLocalityLoops(
   assert(SortedLoops.empty() && "SortedLoops vector is non-empty.");
   bool IsNearPerfect = false;
   assert((HLNodeUtils::isPerfectLoopNest(OutermostLoop, nullptr, false,
-                                        &IsNearPerfect) || IsNearPerfect) &&
+                                         &IsNearPerfect) ||
+          IsNearPerfect) &&
          "Near perfect loopnest expected!");
-  (void) IsNearPerfect;
+  (void)IsNearPerfect;
 
   // Clear locality by level.
   for (auto &Loc : LocalityByLevel) {
@@ -577,9 +581,8 @@ void HIRLoopLocality::sortedLocalityLoops(
   std::sort(SortedLoops.begin(), SortedLoops.end(), Comp);
 }
 
-unsigned
-HIRLoopLocality::getTemporalInvariantLocalityImpl(const HLLoop *Lp,
-                                                      bool CheckPresence) {
+unsigned HIRLoopLocality::getTemporalInvariantLocalityImpl(const HLLoop *Lp,
+                                                           bool CheckPresence) {
   assert(Lp && " Loop parameter is null!");
 
   unsigned Level = Lp->getNestingLevel();
@@ -607,9 +610,9 @@ HIRLoopLocality::getTemporalInvariantLocalityImpl(const HLLoop *Lp,
 }
 
 unsigned HIRLoopLocality::getTemporalLocalityImpl(const HLLoop *Lp,
-                                                      unsigned ReuseThreshold,
-                                                      bool CheckPresence,
-                                                      bool ReuseOnly) {
+                                                  unsigned ReuseThreshold,
+                                                  bool CheckPresence,
+                                                  bool ReuseOnly) {
   assert(Lp && " Loop parameter is null!");
 
   unsigned Level = Lp->getNestingLevel();
@@ -660,7 +663,8 @@ unsigned HIRLoopLocality::getTemporalLocalityImpl(const HLLoop *Lp,
 }
 
 void HIRLoopLocality::populateTemporalLocalityGroups(
-    const HLLoop *Lp, unsigned ReuseThreshold, RefGroupVecTy &TemporalGroups) {
+    const HLLoop *Lp, unsigned ReuseThreshold, RefGroupVecTy &TemporalGroups,
+    SmallSet<unsigned, 8> *UniqueGroupSymbases) {
   assert(Lp && " Loop parameter is null!");
 
   LocalityRefGatherer::MapTy MemRefMap;
@@ -674,4 +678,19 @@ void HIRLoopLocality::populateTemporalLocalityGroups(
                           std::bind(isTemporalMatch, std::placeholders::_1,
                                     std::placeholders::_2,
                                     Lp->getNestingLevel(), ReuseThreshold));
+
+  if (UniqueGroupSymbases) {
+    DenseMap<unsigned, unsigned> SymbaseCount;
+
+    for (auto &RefVec : TemporalGroups) {
+      auto Ref = *(RefVec.begin());
+      SymbaseCount[Ref->getSymbase()]++;
+    }
+
+    for (auto &SymEntry : SymbaseCount) {
+      if (SymEntry.second == 1) {
+        UniqueGroupSymbases->insert(SymEntry.first);
+      }
+    }
+  }
 }
