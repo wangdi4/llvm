@@ -86,6 +86,11 @@ static cl::opt<bool>
                  cl::desc("CSA Specific: Allow LICs without definition"),
                  cl::init(false));
 
+static cl::opt<bool>
+  SaveBC("csa-save-bc", cl::Hidden,
+         cl::desc("CSA Specific: Save bitcode in the emitted object"),
+         cl::init(false));
+
 namespace {
 class LineReader {
 private:
@@ -165,6 +170,7 @@ public:
   void EmitFunctionBodyEnd() override;
   void EmitInstruction(const MachineInstr *MI) override;
   void EmitConstantPool() override;
+  void EmitBasicBlockStart(const MachineBasicBlock &MBB) const override;
 
   void EmitCsaCodeSection();
 };
@@ -455,6 +461,11 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
   O << "\t# .processor "; // note - commented out...
   O << CSATM->getSubtargetImpl()->csaName();
   O << CSAInstPrinter::WrapCsaAsmLineSuffix();
+  if (CSAInstPrinter::WrapCsaAsm()) {
+    EmitCsaCodeSection();
+    OutStreamer->EmitRawText(".csa.code.start:\n");
+    writeAsmLine("\t.text");
+  }
   OutStreamer->EmitRawText(O.str());
 
   writeAsmLine("\t.version 0,6,0");
@@ -478,7 +489,9 @@ void CSAAsmPrinter::EmitEndOfAsmFile(Module &M) {
     // fight with the AmsPrinter::EmitFunctionHeader
     EmitCsaCodeSection();
     OutStreamer->EmitRawText("\t.asciz \"\"");
+  }
 
+  if (SaveBC) {
     // Dump the raw IR to the file as data. We want this information
     // loaded into the address space, so we're giving it the "a" flag
     auto *SRB = getAnalysisIfAvailable<CSASaveRawBC>();
@@ -549,13 +562,8 @@ void CSAAsmPrinter::EmitFunctionEntryLabel() {
   // If we're wrapping the CSA assembly we need to create our own
   // global symbol declaration
   if (CSAInstPrinter::WrapCsaAsm()) {
-    // The global symbol needs a value. As long as we're using the simulator,
-    // we find entries by name, so point to the name. But be sure it doesn't
-    // interrupt the string we're building in the .csa.code section
-    O << "\n\t.section\t.rodata.str1.16,\"aMS\",@progbits,1\n";
-    O << *CurrentFnSym << ":\n";
-    O << "\t.asciz\t"
-      << "\"" << *CurrentFnSym << "\"\n\n";
+    // Define a symbol which points to the beginning of assembly string.
+    O << "\t.set " << *CurrentFnSym << ", .csa.code.start\n";
     O << "\t.section\t\".csa.code\",\"aS\",@progbits\n";
 
     O << CSAInstPrinter::WrapCsaAsmLinePrefix();
@@ -903,6 +911,19 @@ void CSAAsmPrinter::EmitConstantPool() {
     else
       EmitGlobalConstant(getDataLayout(), CPE.Val.ConstVal);
   }
+}
+
+void CSAAsmPrinter::EmitBasicBlockStart(const MachineBasicBlock &MBB) const {
+  if (!MBB.pred_empty() && !isBlockOnlyReachableByFallthrough(&MBB)) {
+    SmallString<128> Str;
+    raw_svector_ostream O(Str);
+    O << CSAInstPrinter::WrapCsaAsmLinePrefix();
+    O << *MBB.getSymbol() << ":";
+    O << CSAInstPrinter::WrapCsaAsmLineSuffix();
+    OutStreamer->EmitRawText(O.str());
+    return;
+  }
+  AsmPrinter::EmitBasicBlockStart(MBB);
 }
 
 // Force static initialization.
