@@ -125,11 +125,6 @@ static void debugPrintHeader(WRegionNode *W, bool IsPrepare) {
   DEBUG(dbgs() << W->getName().upper() << " construct\n\n");
 }
 
-static void debugPrintToBeSupported(WRegionNode *W) {
-  DEBUG(dbgs() << "\n === TODO: construct not yet supported: "
-               << W->getName().upper() << "\n\n");
-}
-
 //
 // ParPrepare mode:
 //   Paropt prepare transformations for lowering and privatizing
@@ -386,9 +381,13 @@ bool VPOParoptTransform::paroptTransforms() {
       //    E.g., simd, taskgroup, atomic, for, sections, etc.
 
       case WRegionNode::WRNTaskgroup:
-        // TODO
-        debugPrintToBeSupported(W);
+        debugPrintHeader(W, IsPrepare);
+        if (Mode & ParPrepare) {
+          Changed = genTaskgroupRegion(W);
+          RemoveDirectives = true;
+        }
         break;
+
       case WRegionNode::WRNVecLoop:
         // Privatization is enabled for SIMD Transform passes
         if ((Mode & OmpVec) && (Mode & ParTrans)) {

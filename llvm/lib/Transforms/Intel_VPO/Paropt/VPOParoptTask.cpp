@@ -1274,3 +1274,24 @@ void VPOParoptTransform::buildCFGForIfClause(Value *Cmp,
   BasicBlock *NextBB = InsertPt->getParent()->getSingleSuccessor();
   DT->changeImmediateDominator(NextBB, InsertPt->getParent());
 }
+
+// Generate code for OMP taskgroup construct.
+//   #pragma omp taskgroup
+bool VPOParoptTransform::genTaskgroupRegion(WRegionNode *W) {
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskgroupRegion\n");
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  BasicBlock *ExitBB = W->getExitBBlock();
+
+  Instruction *InsertPt = EntryBB->getTerminator();
+
+  CallInst *TaskgroupCI =
+      VPOParoptUtils::genKmpcTaskgroupCall(W, IdentTy, TidPtrHolder, InsertPt);
+  TaskgroupCI->insertBefore(InsertPt);
+
+  Instruction *InsertEndPt = ExitBB->getTerminator();
+
+  CallInst *EndTaskgroupCI = VPOParoptUtils::genKmpcEndTaskgroupCall(
+      W, IdentTy, TidPtrHolder, InsertEndPt);
+  EndTaskgroupCI->insertBefore(InsertEndPt);
+  return true;
+}

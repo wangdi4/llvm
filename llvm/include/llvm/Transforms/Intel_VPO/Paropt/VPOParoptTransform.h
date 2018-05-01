@@ -860,6 +860,10 @@ private:
                                      bool hasRuntimeEvaluationCaptureSize,
                                      Value *BPVal, bool &Match,
                                      IRBuilder<> &Builder, unsigned &Cnt);
+
+  /// \brief Generate code for OMP taskgroup construct.
+  /// #pragma omp taskgroup
+  bool genTaskgroupRegion(WRegionNode *W);
 };
 } /// namespace vpo
 } /// namespace llvm
