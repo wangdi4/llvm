@@ -22,9 +22,13 @@
 #include "llvm/ADT/StringSet.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
+#include "llvm/Support/ScaledNumber.h"
 
 namespace llvm {
 class CSAInstrInfo;
+struct CSALicGroup {
+  ScaledNumber<uint64_t> executionFrequency;
+};
 
 /// CSAMachineFunctionInfo - This class is derived from MachineFunction and
 /// contains private CSA target-specific information for each MachineFunction.
@@ -39,6 +43,8 @@ class CSAMachineFunctionInfo : public MachineFunctionInfo {
     bool isDeclared;
     bool isGloballyVisible;
     mutable StringMap<std::string> attribs;
+    std::shared_ptr<CSALicGroup> licGroup;
+
     LICInfo() : name(), licDepth(0), isDeclared(true), isGloballyVisible(false), attribs() {}
   };
   DenseMap<unsigned, LICInfo> licInfo;
@@ -156,9 +162,17 @@ public:
   /// TODO: this interface cannot be used to distinguish between the case where
   /// the attribute is unset and the case where it is set to "".
   StringRef getLICAttribute(unsigned reg, StringRef key) const;
-  
+
   /// Helper function to determine if a LIC can be deleted
   bool canDeleteLICReg(unsigned reg) const;
+
+  std::shared_ptr<CSALicGroup> getLICGroup(unsigned vreg) const {
+    return getLICInfo(vreg).licGroup;
+  }
+
+  void setLICGroup(unsigned vreg, std::shared_ptr<CSALicGroup> group) {
+    getLICInfo(vreg).licGroup = group;
+  }
 };
 
 } // namespace llvm

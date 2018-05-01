@@ -77,6 +77,11 @@ static cl::opt<bool>
                cl::init(false));
 
 static cl::opt<bool>
+  EmitLicFreq("csa-print-lic-frequency", cl::Hidden,
+              cl::desc("CSA Specific: Print LIC frequency attributes"),
+              cl::init(false));
+
+static cl::opt<bool>
   AllowUndefRegs("csa-allow-undef-regs", cl::Hidden,
                  cl::desc("CSA Specific: Allow LICs without definition"),
                  cl::init(false));
@@ -597,7 +602,7 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
   LMFI = MF->getInfo<CSAMachineFunctionInfo>();
   if (csa_utils::isAlwaysDataFlowLinkageSet()) {
 	EmitSimpleEntryInstruction();
-  	if (LMFI->getNumCallSites() == 0) EmitParamsResultsDecl(); 
+  	if (LMFI->getNumCallSites() == 0) EmitParamsResultsDecl();
   }
   if (not ImplicitLicDefs) {
     auto printRegisterAttribs = [&](unsigned reg) {
@@ -618,6 +623,18 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
 
       SmallString<128> Str;
       raw_svector_ostream O(Str);
+
+      if (EmitLicFreq) {
+        if (auto group = LMFI->getLICGroup(reg)) {
+          auto freq = group->executionFrequency;
+          if (!freq.isZero()) {
+            O << CSAInstPrinter::WrapCsaAsmLinePrefix();
+            O << "\t.attrib lic_freq=";
+            freq.print(O);
+            O << CSAInstPrinter::WrapCsaAsmLineSuffix() << "\n";
+          }
+        }
+      }
 
       O << CSAInstPrinter::WrapCsaAsmLinePrefix();
       O << "\t.lic";
