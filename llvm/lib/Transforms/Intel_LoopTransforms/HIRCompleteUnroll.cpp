@@ -1840,7 +1840,24 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::canEliminate(
   // If all else fails, check whether we can unconditionally reach alloca's
   // parent bblock from the region predecessor bblock. If so, assume there are
   // dominating alloca stores.
+
+  // First we check whether the current region has any alloca stores before
+  // this node. If so, we have invalidating stores so we have to give up.
+  //
+  if (AllocaStores.count(BaseIndex)) {
+    return false;
+  }
+
   auto CurRegion = OuterLoop->getParentRegion();
+  IntermediateAllocaStoreFinder IASF(BaseIndex, OuterLoop);
+
+  HLNodeUtils::visitRange(IASF, CurRegion->child_begin(),
+                          CurRegion->child_end());
+
+  if (IASF.foundIntermediateStore()) {
+    return false;
+  }
+
   unsigned BaseSymbase = MemRef->getBasePtrSymbase();
 
   if (!CurRegion->isLiveIn(BaseSymbase)) {
