@@ -1,8 +1,9 @@
 ; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-concatenation -hir-cg -print-before=hir-loop-concatenation -print-after=hir-loop-concatenation 2>&1 < %s | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>,hir-loop-concatenation,print<hir-framework>,hir-cg" 2>&1 < %s | FileCheck %s
 
 ; Look for 16 loops with trip count of 4 before the transformation.
 
-; CHECK: Dump Before HIR Loop Concatenation
+; CHECK: Function
 
 ; CHECK: BEGIN REGION 
 ; 1st loop is alloca write loop
@@ -33,7 +34,7 @@
 
 ; Look for 4 loops with trip count of 16, 8, 8 and 4 after the transformation.
 
-; CHECK: Dump After HIR Loop Concatenation
+; CHECK: Function
 
 ; CHECK: BEGIN REGION { modified }
 
@@ -57,6 +58,7 @@
 
 ; Verify that the reduction loop is not unrolled by pre-vec complete unroller.
 ; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-concatenation -hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s -check-prefix=PREVEC_UNROLL
+; R;U;N: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-concatenation,hir-pre-vec-complete-unroll,print<hir-framework>" 2>&1 < %s | FileCheck %s -check-prefix=PREVEC_UNROLL
 
 ; PREVEC_UNROLL: DO i1 = 0, 3, 1
 

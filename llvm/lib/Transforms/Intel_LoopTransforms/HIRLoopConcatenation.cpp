@@ -257,6 +257,8 @@
 // TODO: extend to concatenate loops in 8x8 version if this proves profitable.
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopConcatenation.h"
+
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Instructions.h"
@@ -280,24 +282,17 @@ static cl::opt<bool>
                          cl::desc("Disable HIR Loop Concatenation"));
 
 namespace {
-class HIRLoopConcatenation : public HIRTransformPass {
+
+class HIRLoopConcatenation {
 public:
-  static char ID;
-
-  HIRLoopConcatenation() : HIRTransformPass(ID), AllocaSymbase(0) {
-    initializeHIRLoopConcatenationPass(*PassRegistry::getPassRegistry());
+  HIRLoopConcatenation(HIRFramework &HIRF) : HIRF(HIRF), AllocaSymbase(0) {
+    llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
+    Is64Bit = TargetTriple.isArch64Bit();
   }
 
-  bool doInitialization(Module &M) override;
+  bool run();
 
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  }
-
+private:
   /// Validates top level nodes in the region. Returns all the found loops in \p
   /// Loops. Also collects intermediate instructions.
   bool validTopLevelNodes(HLRegion *Reg, SmallVectorImpl<HLLoop *> &Loops);
@@ -386,6 +381,8 @@ public:
   void createReductionLoop(SmallVector<HLLoop *, 4> &UnConcatenatedLoops) const;
 
 private:
+  HIRFramework &HIRF;
+
   SmallVector<HLLoop *, 8> AllocaReadLoops;
   SmallVector<HLLoop *, 8> AllocaWriteLoops;
   SmallVector<unsigned, 4> AllocaLoadNodeOffset;
@@ -398,38 +395,18 @@ private:
 };
 } // namespace
 
-char HIRLoopConcatenation::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLoopConcatenation, "hir-loop-concatenation",
-                      "HIR Loop Concatenation", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRLoopConcatenation, "hir-loop-concatenation",
-                    "HIR Loop Concatenation", false, false)
-
-FunctionPass *llvm::createHIRLoopConcatenationPass() {
-  return new HIRLoopConcatenation();
-}
-
-bool HIRLoopConcatenation::doInitialization(Module &M) {
-  llvm::Triple TargetTriple(M.getTargetTriple());
-  Is64Bit = TargetTriple.isArch64Bit();
-
-  return false;
-}
-
-bool HIRLoopConcatenation::runOnFunction(Function &F) {
-  if (DisableConcatenation || skipFunction(F)) {
+bool HIRLoopConcatenation::run() {
+  if (DisableConcatenation) {
     DEBUG(dbgs() << "HIR Loop Concatenation disabled \n");
     return false;
   }
 
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-
   // Expect a function level region.
-  if (HIRF->hir_begin() == HIRF->hir_end()) {
+  if (HIRF.hir_begin() == HIRF.hir_end()) {
     return false;
   }
 
-  auto Reg = cast<HLRegion>(HIRF->hir_begin());
+  auto Reg = cast<HLRegion>(HIRF.hir_begin());
   if (!Reg->isFunctionLevel()) {
     return false;
   }
@@ -455,15 +432,6 @@ bool HIRLoopConcatenation::runOnFunction(Function &F) {
   Reg->setGenCode();
 
   return true;
-}
-
-void HIRLoopConcatenation::releaseMemory() {
-  AllocaReadLoops.clear();
-  AllocaWriteLoops.clear();
-  AllocaLoadNodeOffset.clear();
-  AllocaStoreNodeOffset.clear();
-  IntermediateInsts.clear();
-  AllocaSymbase = 0;
 }
 
 bool HIRLoopConcatenation::validTopLevelNodes(
@@ -1392,4 +1360,47 @@ void HIRLoopConcatenation::createReductionLoop(
 
   unsigned AllocaSymbase = (*AllocaRef->blob_cbegin())->getSymbase();
   RednLp->addLiveInTemp(AllocaSymbase);
+}
+
+class HIRLoopConcatenationLegacyPass : public HIRTransformPass {
+public:
+  static char ID;
+
+  HIRLoopConcatenationLegacyPass() : HIRTransformPass(ID) {
+    initializeHIRLoopConcatenationLegacyPassPass(
+        *PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.setPreservesAll();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+  }
+
+  bool runOnFunction(Function &F) {
+    if (skipFunction(F)) {
+      DEBUG(dbgs() << "HIR Loop Concatenation disabled \n");
+      return false;
+    }
+
+    return HIRLoopConcatenation(getAnalysis<HIRFrameworkWrapperPass>().getHIR())
+        .run();
+  }
+};
+
+PreservedAnalyses
+HIRLoopConcatenationPass::run(llvm::Function &F,
+                              llvm::FunctionAnalysisManager &AM) {
+  HIRLoopConcatenation(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+  return PreservedAnalyses::all();
+}
+
+char HIRLoopConcatenationLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRLoopConcatenationLegacyPass, "hir-loop-concatenation",
+                      "HIR Loop Concatenation", false, false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_END(HIRLoopConcatenationLegacyPass, "hir-loop-concatenation",
+                    "HIR Loop Concatenation", false, false)
+
+FunctionPass *llvm::createHIRLoopConcatenationPass() {
+  return new HIRLoopConcatenationLegacyPass();
 }
