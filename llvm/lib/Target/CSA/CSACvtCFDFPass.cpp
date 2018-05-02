@@ -3870,6 +3870,7 @@ void CSACvtCFDFPass::findLICGroups(bool preDFConversion) {
       MachineBasicBlock *TBB = nullptr, *FBB = nullptr;
       SmallVector<MachineOperand, 4> Cond;
       bool analyzed = !TII->analyzeBranch(BB, TBB, FBB, Cond, false);
+      (void)analyzed;
       assert((analyzed && TBB && FBB && Cond.size() == 2) &&
           "Could not analyze branch of machine code");
       unsigned branchCondReg = getVregIndex(Cond[1]);
