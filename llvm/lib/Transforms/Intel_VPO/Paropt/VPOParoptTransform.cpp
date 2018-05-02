@@ -1224,6 +1224,21 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
   return Changed;
 }
 
+// Collect the instructions of global variable uses recursively to
+// handle the case of nested constant expressions.
+void VPOParoptTransform::collectGlobalUseInsnsRecursively(
+    WRegionNode *W, SmallVectorImpl<Instruction *> &RewriteCons,
+    ConstantExpr *CE) {
+  for (Use &U : CE->uses()) {
+    User *UR = U.getUser();
+    if (Instruction *I = dyn_cast<Instruction>(UR)) {
+      if (W->contains(I->getParent()))
+       RewriteCons.push_back(I);
+    } else if (ConstantExpr *C = dyn_cast<ConstantExpr>(UR))
+    collectGlobalUseInsnsRecursively(W, RewriteCons, C);
+  }
+}
+
 // A utility to privatize the variables within the region.
 Value *
 VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
@@ -1253,12 +1268,7 @@ VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
     SmallVector<Instruction *, 8> RewriteCons;
     for (auto IB = GV->user_begin(), IE = GV->user_end(); IB != IE; ++IB) {
       if (ConstantExpr *CE = dyn_cast<ConstantExpr>(*IB))
-        for (Use &U : CE->uses()) {
-          User *UR = U.getUser();
-          Instruction *I = dyn_cast<Instruction>(UR);
-          if (W->contains(I->getParent()))
-            RewriteCons.push_back(I);
-        }
+        collectGlobalUseInsnsRecursively(W, RewriteCons, CE);
     }
     while (!RewriteCons.empty()) {
       Instruction *I = RewriteCons.pop_back_val();
