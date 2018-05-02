@@ -204,6 +204,68 @@ the same with Microsoft and GCC remove it.
   }];
 }
 
+def AllowExtraArgumentDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let BugTracker = "CQ#364630,CMPLRS-15158";
+  let RegressionTest = "c9xcC/c9x_7_24_4_5_8_10_a,...";
+  let Owner = "";
+  let CompatVersions = "";
+  let Content = [{
+Microsoft allows the call with extra arguments with warning in C. Clang and gcc emit error.
+
+The Intel compiler allows this with warning in C.
+
+.. code-block:: c
+
+  void foo(int *arg1, const int *arg2);
+
+  void bar()
+  {
+    int a1[20];
+    int a2[20];
+    int offset1, offset2;
+    int arg3;
+
+    foo(a1+offset1, a2+offset2, &arg3);
+  }
+
+.. code-block:: console
+
+  $ clang x.c
+  x.c:10:31: error: too many arguments to function call, expected 2, have 3
+    foo(a1+offset1, a2+offset2, &arg3);
+    ~~~                         ^~~~~
+  x.c:1:1: note: 'foo' declared here
+
+  void foo(int *arg1, const int *arg2);
+  ^
+  1 error generated.
+
+.. code-block:: console
+
+  $ icx x.c -c
+  x.c:10:31: warning: too many arguments to function call, expected 2, have 3
+        [-Wintel-compat]
+    foo(a1+offset1, a2+offset2, &arg3);
+    ~~~                         ^~~~~
+  x.c:1:1: note: 'foo' declared here
+  void foo(int *arg1, const int *arg2);
+  ^
+  1 warning generated.
+
+.. code-block:: console
+
+  $ cl l:/x.c -c
+  Microsoft (R) C/C++ Optimizing Compiler Version 19.10.25019 for x64
+  Copyright (C) Microsoft Corporation.  All rights reserved.
+
+  x.c
+  l:/x.c(10): warning C4020: 'foo': too many actual parameters
+
+  }];
+}
+
 def GlobalDocumentation {
   code Intro =[{..
   -------------------------------------------------------------------
