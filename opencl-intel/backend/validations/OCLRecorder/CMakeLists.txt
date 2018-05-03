@@ -34,7 +34,6 @@ set (OCL_RECORDER_INCLUDE_FILES
   ocl_recorder.h
   ocl_source_recorder.h
   stdafx.h
-  targetver.h
   ${VALIDATIONS_ROOT}/Common/md5.h
   )
 
