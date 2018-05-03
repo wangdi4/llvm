@@ -26,6 +26,27 @@ namespace llvm {
 
 class TargetLibraryInfo;
 
+namespace dtrans {
+// This structure is used to describe the affected portion of an aggregate type
+// passed as an argument of the memfunc call. This will be used to communicate
+// information collected during the analysis to the transforms about how
+// a memfunc call is impacting a structure.
+struct MemfuncRegion {
+  MemfuncRegion() : IsCompleteAggregate(true), FirstField(0), LastField(0) {}
+
+  // If this is 'false', the FirstField and LastField members must be set
+  // to indicate an inclusive set of fields within the structure that are
+  // affected. If this is 'true', the FieldField and LastField member values
+  // are undefined.
+  bool IsCompleteAggregate;
+
+  // If the region is a description of a partial structure modification, these
+  // members specify the first and last fields touched.
+  unsigned int FirstField;
+  unsigned int LastField;
+};
+} // end namespace dtrans
+
 class DTransAnalysisInfo {
 public:
   /// Adaptor for directly iterating over the dtrans::TypeInfo pointers.
