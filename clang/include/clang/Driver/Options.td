@@ -401,7 +401,10 @@ def O_flag : Flag<["-"], "O">, Flags<[CC1Option]>, Alias<O>, AliasArgs<["2"]>;
 def Ofast : Joined<["-"], "Ofast">, Group<O_Group>, Flags<[CC1Option]>;
 def P : Flag<["-"], "P">, Flags<[CC1Option]>, Group<Preprocessor_Group>,
   HelpText<"Disable linemarker output in -E mode">;
-def Qn : Flag<["-"], "Qn">, IgnoredGCCCompat;
+def Qy : Flag<["-"], "Qy">, Flags<[CC1Option]>,
+  HelpText<"Emit metadata containing compiler name and version">;
+def Qn : Flag<["-"], "Qn">, Flags<[CC1Option]>,
+  HelpText<"Do not emit metadata containing compiler name and version">;
 def Qunused_arguments : Flag<["-"], "Qunused-arguments">, Flags<[DriverOption, CoreOption]>,
   HelpText<"Don't emit warning for unused driver arguments">;
 def Q : Flag<["-"], "Q">, IgnoredGCCCompat;
@@ -519,7 +522,7 @@ def cl_mad_enable : Flag<["-"], "cl-mad-enable">, Group<opencl_Group>, Flags<[CC
 def cl_no_signed_zeros : Flag<["-"], "cl-no-signed-zeros">, Group<opencl_Group>, Flags<[CC1Option]>,
   HelpText<"OpenCL only. Allow use of less precise no signed zeros computations in the generated binary.">;
 def cl_std_EQ : Joined<["-"], "cl-std=">, Group<opencl_Group>, Flags<[CC1Option]>,
-  HelpText<"OpenCL language standard to compile for.">, Values<"cl,CL,cl1.1,CL1.1,cl1.2,CL1.2,cl2.0,CL2.0">;
+  HelpText<"OpenCL language standard to compile for.">, Values<"cl,CL,cl1.1,CL1.1,cl1.2,CL1.2,cl2.0,CL2.0,c++">;
 def cl_denorms_are_zero : Flag<["-"], "cl-denorms-are-zero">, Group<opencl_Group>, Flags<[CC1Option]>,
   HelpText<"OpenCL only. Allow denormals to be flushed to zero.">;
 def cl_fp32_correctly_rounded_divide_sqrt : Flag<["-"], "cl-fp32-correctly-rounded-divide-sqrt">, Group<opencl_Group>, Flags<[CC1Option]>,
@@ -584,7 +587,7 @@ def fno_cuda_flush_denormals_to_zero : Flag<["-"], "fno-cuda-flush-denormals-to-
 def fcuda_approx_transcendentals : Flag<["-"], "fcuda-approx-transcendentals">,
   Flags<[CC1Option]>, HelpText<"Use approximate transcendental functions">;
 def fno_cuda_approx_transcendentals : Flag<["-"], "fno-cuda-approx-transcendentals">;
-def fcuda_rdc : Flag<["-"], "fcuda-rdc">, Flags<[CC1Option, HelpHidden]>,
+def fcuda_rdc : Flag<["-"], "fcuda-rdc">, Flags<[CC1Option]>,
   HelpText<"Generate relocatable device code, also known as separate compilation mode.">;
 def fno_cuda_rdc : Flag<["-"], "fno-cuda-rdc">;
 def dA : Flag<["-"], "dA">, Group<d_Group>;
@@ -622,6 +625,9 @@ def fno_PIC : Flag<["-"], "fno-PIC">, Group<f_Group>;
 def fPIE : Flag<["-"], "fPIE">, Group<f_Group>;
 def fno_PIE : Flag<["-"], "fno-PIE">, Group<f_Group>;
 def faccess_control : Flag<["-"], "faccess-control">, Group<f_Group>;
+def falign_functions : Flag<["-"], "falign-functions">, Group<f_Group>;
+def falign_functions_EQ : Joined<["-"], "falign-functions=">, Group<f_Group>;
+def fno_align_functions: Flag<["-"], "fno-align-functions">, Group<f_Group>;
 def fallow_unsupported : Flag<["-"], "fallow-unsupported">, Group<f_Group>;
 def fapple_kext : Flag<["-"], "fapple-kext">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Use Apple's kernel extensions ABI">;
@@ -1130,11 +1136,22 @@ def fxray_always_emit_customevents : Flag<["-"], "fxray-always-emit-customevents
 def fnoxray_always_emit_customevents : Flag<["-"], "fno-xray-always-emit-customevents">, Group<f_Group>,
   Flags<[CC1Option]>;
 
+def fxray_always_emit_typedevents : Flag<["-"], "fxray-always-emit-typedevents">, Group<f_Group>,
+  Flags<[CC1Option]>,
+  HelpText<"Determine whether to always emit __xray_typedevent(...) calls even if the function it appears in is not always instrumented.">;
+def fnoxray_always_emit_typedevents : Flag<["-"], "fno-xray-always-emit-typedevents">, Group<f_Group>,
+  Flags<[CC1Option]>;
+
 def fxray_link_deps : Flag<["-"], "fxray-link-deps">, Group<f_Group>,
   Flags<[CC1Option]>,
   HelpText<"Tells clang to add the link dependencies for XRay.">;
 def fnoxray_link_deps : Flag<["-"], "fnoxray-link-deps">, Group<f_Group>,
   Flags<[CC1Option]>;
+
+def fxray_instrumentation_bundle :
+  JoinedOrSeparate<["-"], "fxray-instrumentation-bundle=">,
+  Group<f_Group>, Flags<[CC1Option]>,
+  HelpText<"Select which XRay instrumentation points to emit. Options: all, none, function, custom. Default is 'all'.">;
 
 def ffine_grained_bitfield_accesses : Flag<["-"],
   "ffine-grained-bitfield-accesses">, Group<f_clang_Group>, Flags<[CC1Option]>,
@@ -1227,6 +1244,8 @@ def fmodules_disable_diagnostic_validation : Flag<["-"], "fmodules-disable-diagn
 def fmodules_validate_system_headers : Flag<["-"], "fmodules-validate-system-headers">,
   Group<i_Group>, Flags<[CC1Option]>,
   HelpText<"Validate the system headers that a module depends on when loading the module">;
+def fno_modules_validate_system_headers : Flag<["-"], "fno-modules-validate-system-headers">,
+  Group<i_Group>, Flags<[DriverOption]>;
 def fmodules : Flag <["-"], "fmodules">, Group<f_Group>,
   Flags<[DriverOption, CC1Option]>,
   HelpText<"Enable the 'modules' language feature">;
@@ -1380,6 +1399,8 @@ def fno_threadsafe_statics : Flag<["-"], "fno-threadsafe-statics">, Group<f_Grou
   Flags<[CC1Option]>, HelpText<"Do not emit code to make initialization of local statics thread safe">;
 def fno_use_cxa_atexit : Flag<["-"], "fno-use-cxa-atexit">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Don't use __cxa_atexit for calling destructors">;
+def fno_register_global_dtors_with_atexit : Flag<["-"], "fno-register-global-dtors-with-atexit">, Group<f_Group>,
+  HelpText<"Don't use atexit or __cxa_atexit to register global destructors">;
 def fno_use_init_array : Flag<["-"], "fno-use-init-array">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Don't use .init_array instead of .ctors">;
 def fno_unit_at_a_time : Flag<["-"], "fno-unit-at-a-time">, Group<f_Group>;
@@ -1466,8 +1487,10 @@ def fnoopenmp_relocatable_target : Flag<["-"], "fnoopenmp-relocatable-target">,
 def fopenmp_simd : Flag<["-"], "fopenmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
   HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
 def fno_openmp_simd : Flag<["-"], "fno-openmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>;
-def fopenmp_cuda_mode : Flag<["-"], "fopenmp-cuda-mode">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>;
-def fno_openmp_cuda_mode : Flag<["-"], "fno-openmp-cuda-mode">, Group<f_Group>, Flags<[NoArgumentUnused]>;
+def fopenmp_cuda_mode : Flag<["-"], "fopenmp-cuda-mode">, Group<f_Group>,
+  Flags<[CC1Option, NoArgumentUnused, HelpHidden]>;
+def fno_openmp_cuda_mode : Flag<["-"], "fno-openmp-cuda-mode">, Group<f_Group>,
+  Flags<[NoArgumentUnused, HelpHidden]>;
 def fno_optimize_sibling_calls : Flag<["-"], "fno-optimize-sibling-calls">, Group<f_Group>;
 def foptimize_sibling_calls : Flag<["-"], "foptimize-sibling-calls">, Group<f_Group>;
 def fno_escaping_block_tail_calls : Flag<["-"], "fno-escaping-block-tail-calls">, Group<f_Group>, Flags<[CC1Option]>;
@@ -1628,6 +1651,8 @@ def funsigned_char : Flag<["-"], "funsigned-char">, Group<f_Group>;
 def fno_unsigned_char : Flag<["-"], "fno-unsigned-char">;
 def funwind_tables : Flag<["-"], "funwind-tables">, Group<f_Group>;
 def fuse_cxa_atexit : Flag<["-"], "fuse-cxa-atexit">, Group<f_Group>;
+def fregister_global_dtors_with_atexit : Flag<["-"], "fregister-global-dtors-with-atexit">, Group<f_Group>, Flags<[CC1Option]>,
+  HelpText<"Use atexit or __cxa_atexit to register global destructors">;
 def fuse_init_array : Flag<["-"], "fuse-init-array">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Use .init_array instead of .ctors">;
 def fno_var_tracking : Flag<["-"], "fno-var-tracking">, Group<clang_ignored_f_Group>;
@@ -1983,6 +2008,7 @@ def maltivec : Flag<["-"], "maltivec">, Group<m_ppc_Features_Group>;
 def mno_altivec : Flag<["-"], "mno-altivec">, Group<m_ppc_Features_Group>;
 def mvsx : Flag<["-"], "mvsx">, Group<m_ppc_Features_Group>;
 def mno_vsx : Flag<["-"], "mno-vsx">, Group<m_ppc_Features_Group>;
+def msecure_plt : Flag<["-"], "msecure-plt">, Group<m_ppc_Features_Group>;
 def mpower8_vector : Flag<["-"], "mpower8-vector">,
     Group<m_ppc_Features_Group>;
 def mno_power8_vector : Flag<["-"], "mno-power8-vector">,
@@ -2295,7 +2321,7 @@ def fno_rtlib_add_rpath: Flag<["-"], "fno-rtlib-add-rpath">, Flags<[NoArgumentUn
   HelpText<"Do not add -rpath with architecture-specific resource directory to the linker flags">;
 def r : Flag<["-"], "r">, Flags<[LinkerInput,NoArgumentUnused]>,
         Group<Link_Group>;
-def save_temps_EQ : Joined<["-", "--"], "save-temps=">, Flags<[DriverOption]>,
+def save_temps_EQ : Joined<["-", "--"], "save-temps=">, Flags<[CC1Option, DriverOption]>,
   HelpText<"Save intermediate compilation results.">;
 def save_temps : Flag<["-", "--"], "save-temps">, Flags<[DriverOption]>,
   Alias<save_temps_EQ>, AliasArgs<["cwd"]>,
@@ -2619,10 +2645,14 @@ def mbmi : Flag<["-"], "mbmi">, Group<m_x86_Features_Group>;
 def mno_bmi : Flag<["-"], "mno-bmi">, Group<m_x86_Features_Group>;
 def mbmi2 : Flag<["-"], "mbmi2">, Group<m_x86_Features_Group>;
 def mno_bmi2 : Flag<["-"], "mno-bmi2">, Group<m_x86_Features_Group>;
+def mcldemote : Flag<["-"], "mcldemote">, Group<m_x86_Features_Group>;
+def mno_cldemote : Flag<["-"], "mno-cldemote">, Group<m_x86_Features_Group>;
 def mclflushopt : Flag<["-"], "mclflushopt">, Group<m_x86_Features_Group>;
 def mno_clflushopt : Flag<["-"], "mno-clflushopt">, Group<m_x86_Features_Group>;
 def mclwb : Flag<["-"], "mclwb">, Group<m_x86_Features_Group>;
 def mno_clwb : Flag<["-"], "mno-clwb">, Group<m_x86_Features_Group>;
+def mwbnoinvd : Flag<["-"], "mwbnoinvd">, Group<m_x86_Features_Group>;
+def mno_wbnoinvd : Flag<["-"], "mno-wbnoinvd">, Group<m_x86_Features_Group>;
 def mclzero : Flag<["-"], "mclzero">, Group<m_x86_Features_Group>;
 def mno_clzero : Flag<["-"], "mno-clzero">, Group<m_x86_Features_Group>;
 def mcx16 : Flag<["-"], "mcx16">, Group<m_x86_Features_Group>;
@@ -2679,6 +2709,8 @@ def mvaes : Flag<["-"], "mvaes">, Group<m_x86_Features_Group>;
 def mno_vaes : Flag<["-"], "mno-vaes">, Group<m_x86_Features_Group>;
 def mvpclmulqdq : Flag<["-"], "mvpclmulqdq">, Group<m_x86_Features_Group>;
 def mno_vpclmulqdq : Flag<["-"], "mno-vpclmulqdq">, Group<m_x86_Features_Group>;
+def mwaitpkg : Flag<["-"], "mwaitpkg">, Group<m_x86_Features_Group>;
+def mno_waitpkg : Flag<["-"], "mno-waitpkg">, Group<m_x86_Features_Group>;
 def mxop : Flag<["-"], "mxop">, Group<m_x86_Features_Group>;
 def mno_xop : Flag<["-"], "mno-xop">, Group<m_x86_Features_Group>;
 def mxsave : Flag<["-"], "mxsave">, Group<m_x86_Features_Group>;
@@ -2732,8 +2764,6 @@ def fprofile_dir : Joined<["-"], "fprofile-dir=">, Group<f_Group>;
 
 def fuse_ld_EQ : Joined<["-"], "fuse-ld=">, Group<f_Group>, Flags<[CoreOption]>;
 
-defm align_functions : BooleanFFlag<"align-functions">, Group<clang_ignored_gcc_optimization_f_Group>;
-def falign_functions_EQ : Joined<["-"], "falign-functions=">, Group<clang_ignored_gcc_optimization_f_Group>;
 defm align_labels : BooleanFFlag<"align-labels">, Group<clang_ignored_gcc_optimization_f_Group>;
 def falign_labels_EQ : Joined<["-"], "falign-labels=">, Group<clang_ignored_gcc_optimization_f_Group>;
 defm align_loops : BooleanFFlag<"align-loops">, Group<clang_ignored_gcc_optimization_f_Group>;

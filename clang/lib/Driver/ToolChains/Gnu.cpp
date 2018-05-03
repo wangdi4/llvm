@@ -85,6 +85,13 @@ void tools::gcc::Common::ConstructJob(Compilation &C, const JobAction &JA,
           A->getOption().matches(options::OPT_W_Group))
         continue;
 
+      // Don't forward -mno-unaligned-access since GCC doesn't understand
+      // it and because it doesn't affect the assembly or link steps.
+      if ((isa<AssembleJobAction>(JA) || isa<LinkJobAction>(JA)) &&
+          (A->getOption().matches(options::OPT_munaligned_access) ||
+           A->getOption().matches(options::OPT_mno_unaligned_access)))
+        continue;
+
       A->render(Args, CmdArgs);
     }
   }
@@ -428,8 +435,11 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   ToolChain.AddFilePathLibArgs(Args, CmdArgs);
 
-  if (D.isUsingLTO())
-    AddGoldPlugin(ToolChain, Args, CmdArgs, D.getLTOMode() == LTOK_Thin, D);
+  if (D.isUsingLTO()) {
+    assert(!Inputs.empty() && "Must have at least one input.");
+    AddGoldPlugin(ToolChain, Args, CmdArgs, Output, Inputs[0],
+                  D.getLTOMode() == LTOK_Thin);
+  }
 
   if (Args.hasArg(options::OPT_Z_Xlinker__no_demangle))
     CmdArgs.push_back("--no-demangle");
@@ -1584,21 +1594,29 @@ Generic_GCC::GCCVersion Generic_GCC::GCCVersion::Parse(StringRef VersionText) {
   GoodVersion.MajorStr = First.first.str();
   if (First.second.empty())
     return GoodVersion;
-  if (Second.first.getAsInteger(10, GoodVersion.Minor) || GoodVersion.Minor < 0)
+  StringRef MinorStr = Second.first;
+  if (Second.second.empty()) {
+    if (size_t EndNumber = MinorStr.find_first_not_of("0123456789")) {
+      GoodVersion.PatchSuffix = MinorStr.substr(EndNumber);
+      MinorStr = MinorStr.slice(0, EndNumber);
+    }
+  }
+  if (MinorStr.getAsInteger(10, GoodVersion.Minor) || GoodVersion.Minor < 0)
     return BadVersion;
-  GoodVersion.MinorStr = Second.first.str();
+  GoodVersion.MinorStr = MinorStr.str();
 
   // First look for a number prefix and parse that if present. Otherwise just
   // stash the entire patch string in the suffix, and leave the number
   // unspecified. This covers versions strings such as:
   //   5        (handled above)
   //   4.4
+  //   4.4-patched
   //   4.4.0
   //   4.4.x
   //   4.4.2-rc4
   //   4.4.x-patched
   // And retains any patch number it finds.
-  StringRef PatchText = GoodVersion.PatchSuffix = Second.second.str();
+  StringRef PatchText = Second.second;
   if (!PatchText.empty()) {
     if (size_t EndNumber = PatchText.find_first_not_of("0123456789")) {
       // Try to parse the number and any suffix.
@@ -1778,6 +1796,7 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
   // Non-Solaris is much simpler - most systems just go with "/usr".
   if (SysRoot.empty() && TargetTriple.getOS() == llvm::Triple::Linux) {
     // Yet, still look for RHEL devtoolsets.
+    Prefixes.push_back("/opt/rh/devtoolset-7/root/usr");
     Prefixes.push_back("/opt/rh/devtoolset-6/root/usr");
     Prefixes.push_back("/opt/rh/devtoolset-4/root/usr");
     Prefixes.push_back("/opt/rh/devtoolset-3/root/usr");

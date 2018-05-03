@@ -1803,7 +1803,7 @@ bool CursorVisitor::VisitCXXRecordDecl(CXXRecordDecl *D) {
 
 bool CursorVisitor::VisitAttributes(Decl *D) {
   for (const auto *I : D->attrs())
-    if (Visit(MakeCXCursor(I, D, TU)))
+    if (!I->isImplicit() && Visit(MakeCXCursor(I, D, TU)))
         return true;
 
   return false;

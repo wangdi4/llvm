@@ -1732,6 +1732,7 @@ LANGBUILTIN(omp_is_initial_device, "i", "nc", OMP_LANG)
 
 // Builtins for XRay
 BUILTIN(__xray_customevent, "vcC*z", "")
+BUILTIN(__xray_typedevent, "vzcC*z", "")
 
 #if INTEL_CUSTOMIZATION
 BUILTIN(__builtin_va_arg_pack_len, "Si", "n")
