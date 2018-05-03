@@ -37,6 +37,9 @@ void initializeVectorization(PassRegistry&);
 /// Initialize all passes linked into the InstCombine library.
 void initializeInstCombine(PassRegistry&);
 
+/// Initialize all passes linked into the AggressiveInstCombine library.
+void initializeAggressiveInstCombine(PassRegistry&);
+
 /// Initialize all passes linked into the IPO library.
 void initializeIPO(PassRegistry&);
 
@@ -114,6 +117,7 @@ void initializeCFGOnlyViewerLegacyPassPass(PassRegistry&);
 void initializeCFGPrinterLegacyPassPass(PassRegistry&);
 void initializeCFGSimplifyPassPass(PassRegistry&);
 void initializeCFGViewerLegacyPassPass(PassRegistry&);
+void initializeCFIInstrInserterPass(PassRegistry&);
 void initializeCFLAndersAAWrapperPassPass(PassRegistry&);
 void initializeCFLSteensAAWrapperPassPass(PassRegistry&);
 void initializeCallGraphDOTPrinterPass(PassRegistry&);

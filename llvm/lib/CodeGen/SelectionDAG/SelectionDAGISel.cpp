@@ -2129,7 +2129,7 @@ bool SelectionDAGISel::CheckAndMask(SDValue LHS, ConstantSDNode *RHS,
     return true;
 
   // If the actual AND mask is allowing unallowed bits, this doesn't match.
-  if (ActualMask.intersects(~DesiredMask))
+  if (!ActualMask.isSubsetOf(DesiredMask))
     return false;
 
   // Otherwise, the DAG Combiner may have proven that the value coming in is
@@ -2158,7 +2158,7 @@ bool SelectionDAGISel::CheckOrMask(SDValue LHS, ConstantSDNode *RHS,
     return true;
 
   // If the actual AND mask is allowing unallowed bits, this doesn't match.
-  if (ActualMask.intersects(~DesiredMask))
+  if (!ActualMask.isSubsetOf(DesiredMask))
     return false;
 
   // Otherwise, the DAG Combiner may have proven that the value coming in is

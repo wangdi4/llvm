@@ -1775,7 +1775,7 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
     Loop *L = W->getWRNLoopInfo().getLoop();
     const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
     const SimplifyQuery SQ = {DL, TLI, DT, AC};
-    LoopRotation(L, -1, LI, TTI, AC, DT, SE, SQ);
+    LoopRotation(L, LI, TTI, AC, DT, SE, SQ, true, unsigned(-1), true);
     std::vector<AllocaInst *> Allocas;
     SmallVector<Value *, 2> LoopEssentialValues;
     if (W->getWRNLoopInfo().getNormIV())

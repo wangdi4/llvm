@@ -193,7 +193,7 @@ typedef std::vector<SNode *>::const_iterator const_snode_vector_iterator;
 // new rules to facilitate their uses. 
 //
 
-template <> struct ilist_traits<SNode> : public ilist_default_traits<SNode> {
+template <> struct ilist_traits<SNode> : public ilist_node_traits<SNode> {
   static void deleteNode(SNode *) {}
 };
 

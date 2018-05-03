@@ -1699,7 +1699,6 @@ static bool areInverseVectorBitmasks(Constant *C1, Constant *C2) {
       return false;
 
     // One element must be all ones, and the other must be all zeros.
-    // FIXME: Allow undef elements.
     if (!((match(EltC1, m_Zero()) && match(EltC2, m_AllOnes())) ||
           (match(EltC2, m_Zero()) && match(EltC1, m_AllOnes()))))
       return false;
@@ -2445,6 +2444,10 @@ Instruction *InstCombiner::visitXor(BinaryOperator &I) {
 
   if (Value *V = SimplifyBSwap(I, Builder))
     return replaceInstUsesWith(I, V);
+
+  // A^B --> A|B iff A and B have no bits set in common.
+  if (haveNoCommonBitsSet(Op0, Op1, DL, &AC, &I, &DT))
+    return BinaryOperator::CreateOr(Op0, Op1);
 
   // Apply DeMorgan's Law for 'nand' / 'nor' logic with an inverted operand.
   Value *X, *Y;

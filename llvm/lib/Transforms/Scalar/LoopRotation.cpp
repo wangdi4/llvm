@@ -41,8 +41,8 @@ PreservedAnalyses LoopRotatePass::run(Loop &L, LoopAnalysisManager &AM,
   const DataLayout &DL = L.getHeader()->getModule()->getDataLayout();
   const SimplifyQuery SQ = getBestSimplifyQuery(AR, DL);
 
-  bool Changed =
-      LoopRotation(&L, Threshold, &AR.LI, &AR.TTI, &AR.AC, &AR.DT, &AR.SE, SQ);
+  bool Changed = LoopRotation(&L, &AR.LI, &AR.TTI, &AR.AC, &AR.DT, &AR.SE, SQ,
+                              false, Threshold, false);
 
   if (!Changed)
     return PreservedAnalyses::all();
@@ -89,7 +89,8 @@ public:
           DefaultRotationThreshold :
           TTI->getLoopRotationDefaultThreshold(true);
 #endif //INTEL_CUSTOMIZATION
-    return LoopRotation(L, MaxHeaderSize, LI, TTI, AC, DT, SE, SQ);
+    return LoopRotation(L, LI, TTI, AC, DT, SE, SQ, false, MaxHeaderSize,
+                        false);
   }
 };
 }
