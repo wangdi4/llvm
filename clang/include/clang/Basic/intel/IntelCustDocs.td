@@ -266,6 +266,45 @@ The Intel compiler allows this with warning in C.
   }];
 }
 
+def VaArgPackDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let BugTracker= "CMPLRS-8519";
+  let RegressionTest = "regC/cq523159,regC/cq234106";
+  let Owner = "ekeane1";
+  let CompatVersions = "";
+  let Content = [{
+GCC 4.3 and newer supports __builtin_va_arg_pack and __builtin_va_arg_pack_len,
+two builtins that enable forwarding of variadic arguments to a function.  These
+builtins are rarely used, however glibc's buffer overflow protection scheme
+(enabled by defining _FORTIFY_SOURCE) implementation depends on these two
+builtins when the detected GCC version is 4.3 or newer.
+
+These builtin functions are severely limited as to when they can be used. They
+can only be used inside of an inline, variadic function that also forces
+inlining (such as with attribute always_inline or gnu_inline). Additionally,
+__builtin_va_arg_pack can only be used as a parameter to a variadic argument.
+
+__builtin_va_arg_pack() forwards the variadic argument pack and
+__builtin_va_arg_pack_len() returns the variadic argument count.
+
+A correct usage of these builtin functions are as follows:
+
+.. code-block:: c
+
+  static inline __attribute__((always_inline))
+  int safer_printf(const char * format, ...) {
+    // If number of variadic arguments doesn't match the number requested in the
+    // format string, teriminate.
+    if(get_format_arg_count(format) != __builtin_va_arg_pack_len())
+      abort();
+    // Check passed, call normal printf.
+    return printf(format, __builtin_va_arg_pack());
+  }
+
+  }];
+}
+
 def GlobalDocumentation {
   code Intro =[{..
   -------------------------------------------------------------------

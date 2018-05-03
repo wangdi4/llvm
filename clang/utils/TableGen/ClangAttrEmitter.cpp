@@ -4185,7 +4185,7 @@ void EmitClangIntelCustDocs(RecordKeeper &Records, raw_ostream &OS) {
   }
 }
 
-// This routine generates an .inc file from the IntelCust.td documentation
+// This routine generates an .inc file from the IntelCustDocs.td documentation
 // file.  The include is included into the definition of the LangOptions class.
 // It defines members used to access the individual tags for IntelCompat,
 // IntelMSCompat, and possibly future options.

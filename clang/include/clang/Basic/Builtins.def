@@ -1735,8 +1735,8 @@ BUILTIN(__xray_customevent, "vcC*z", "")
 BUILTIN(__xray_typedevent, "vzcC*z", "")
 
 #if INTEL_CUSTOMIZATION
-BUILTIN(__builtin_va_arg_pack_len, "Si", "n")
-BUILTIN(__builtin_va_arg_pack, ".", "n")
+LANGBUILTIN(__builtin_va_arg_pack_len, "Si", "n", ICC_LANG)
+LANGBUILTIN(__builtin_va_arg_pack, ".", "n", ICC_LANG)
 #endif
 
 // Win64-compatible va_list functions
