@@ -16,6 +16,7 @@
 #ifndef LLVM_ANALYSIS_INTEL_LOOPANALYSIS_LOOPFORMATION_H
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_LOOPFORMATION_H
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 
@@ -48,6 +49,7 @@ class HLNodeUtils;
 class HIRLoopFormation {
 public:
   typedef std::pair<const Loop *, HLLoop *> LoopPairTy;
+  typedef std::pair<HLLabel *, HLIf *> LoopLabelAndBottomTestPairTy;
 
 private:
   /// The function we are analyzing.
@@ -68,6 +70,11 @@ private:
 
   /// Contains loops which require inversion of ztt predicate.
   SmallPtrSet<HLLoop *, 16> InvertedZttLoops;
+
+  /// Maps HLLoops to their label and bottom test.
+  /// This is used as a backup to convert countable loops to unknown if parsing
+  /// fails.
+  DenseMap<HLLoop *, LoopLabelAndBottomTestPairTy> LoopLabelAndBottomTestMap;
 
   /// Inserts (Lp, HLoop) pair in the map.
   void insertHLLoop(const Loop *Lp, HLLoop *HLoop);
@@ -121,6 +128,12 @@ public:
   bool requiresZttInversion(HLLoop *Loop) const {
     return InvertedZttLoops.count(Loop);
   }
+
+  /// Reattaches loop label and bottom test back to this loop.
+  void reattachLoopLabelAndBottomTest(HLLoop *Loop);
+
+  /// Erase all the stored loop labels and bottom tests.
+  void eraseStoredLoopLabelsAndBottomTests();
 };
 
 } // End namespace loopopt

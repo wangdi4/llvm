@@ -2111,7 +2111,6 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
     Symbase = GenericRvalSymbase;
   }
 
-  auto Ref = getDDRefUtils().createRegDDRef(Symbase);
   auto CE = getCanonExprUtils().createCanonExpr(IVType);
   auto BETCType = BETC->getType();
 
@@ -2133,8 +2132,12 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
 
   // We pass underCast as 'true' as we don't want to hide the topmost cast for
   // upper.
-  parseRecursive(BETC, CE, Level, true, true);
+  if (!parseRecursive(BETC, CE, Level, true, true, true)) {
+    getCanonExprUtils().destroy(CE);
+    return nullptr;
+  }
 
+  auto Ref = getDDRefUtils().createRegDDRef(Symbase);
   Ref->setSingleCanonExpr(CE);
 
   int64_t UpperVal;
@@ -2184,29 +2187,40 @@ void HIRParser::parse(HLLoop *HLoop) {
   }
 
   auto BETC = SE.getBackedgeTakenCountForHIR(Lp, CurOutermostLoop);
-  if (!isa<SCEVCouldNotCompute>(BETC)) {
+  bool IsUnknown = isa<SCEVCouldNotCompute>(BETC);
 
-    // Initialize Lower to 0.
-    auto LowerRef = createLowerDDRef(IVType);
-    HLoop->setLowerDDRef(LowerRef);
-
-    // Initialize Stride to 1.
-    auto StrideRef = createStrideDDRef(IVType);
-    HLoop->setStrideDDRef(StrideRef);
-
-    // Set the upper bound
+  if (!IsUnknown) {
     auto UpperRef = createUpperDDRef(BETC, CurLevel, IVType, HLoop->isNSW());
-    HLoop->setUpperDDRef(UpperRef);
 
-    unsigned MaxTC;
+    if (!UpperRef) {
+      // Parsing for upper failed. Treat loop as unknown as a backup option.
+      IsUnknown = true;
 
-    // Set small max trip count if available from scalar evolution.
-    if (!UpperRef->isIntConstant() &&
-        (MaxTC = SE.getSmallConstantMaxTripCount(const_cast<Loop *>(Lp)))) {
-      HLoop->setMaxTripCountEstimate(MaxTC);
+      // Add the explicit loop label and bottom test back to the loop.
+      LF.reattachLoopLabelAndBottomTest(HLoop);
+
+    } else {
+      // Initialize Lower to 0.
+      auto LowerRef = createLowerDDRef(IVType);
+      HLoop->setLowerDDRef(LowerRef);
+
+      // Initialize Stride to 1.
+      auto StrideRef = createStrideDDRef(IVType);
+      HLoop->setStrideDDRef(StrideRef);
+
+      HLoop->setUpperDDRef(UpperRef);
+
+      unsigned MaxTC;
+
+      // Set small max trip count if available from scalar evolution.
+      if (!UpperRef->isIntConstant() &&
+          (MaxTC = SE.getSmallConstantMaxTripCount(const_cast<Loop *>(Lp)))) {
+        HLoop->setMaxTripCountEstimate(MaxTC);
+      }
     }
+  }
 
-  } else {
+  if (IsUnknown) {
     // Initialize Stride to 0 for unknown loops.
     auto ZeroRef = getDDRefUtils().createConstDDRef(IVType, 0);
 
@@ -3332,6 +3346,8 @@ void HIRParser::run() {
     // Start phase 2 of parsing.
     phase2Parse();
   }
+
+  LF.eraseStoredLoopLabelsAndBottomTests();
 
   IsReady = true;
 }
