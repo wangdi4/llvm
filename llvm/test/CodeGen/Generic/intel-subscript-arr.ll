@@ -1,3 +1,7 @@
+; REQUIRES: system-linux
+; RUN: %lli -force-interpreter %s | FileCheck -check-prefix=CHECK-EXEC %s
+; RUN: %lli %s | FileCheck -check-prefix=CHECK-EXEC %s
+; CHECK-EXEC: 3.000000
 ; RUN: opt -S -lower-subscript %s -o - | FileCheck -check-prefix=CHECK-LOWER %s
 ; Lowering of 3 intrinsics
 
@@ -68,6 +72,35 @@ entry:
   ret void
 }
 
+; Function Attrs: argmemonly nounwind
+declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+
+; Function Attrs: argmemonly nounwind
+declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+
+; Function Attrs: norecurse uwtable
+define i32 @main() local_unnamed_addr #2 {
+entry:
+  %A = alloca [10 x [10 x [10 x double]]], align 16
+  %0 = bitcast [10 x [10 x [10 x double]]]* %A to i8*
+  call void @llvm.lifetime.start.p0i8(i64 8000, i8* nonnull %0) #5
+  %arrayidx2 = getelementptr inbounds [10 x [10 x [10 x double]]], [10 x [10 x [10 x double]]]* %A, i64 0, i64 0, i64 0, i64 0
+  %arrayidx21 = getelementptr inbounds [10 x [10 x [10 x double]]], [10 x [10 x [10 x double]]]* %A, i64 0, i64 3, i64 0, i64 1
+  store double 2.000000e+00, double* %arrayidx21, align 8
+  %call.i.i.i.i = call double* @llvm.intel.subscript.p0f64.i32.i32.p0f64.i32(i8 zeroext 2, i32 0, i32 800, double* nonnull %arrayidx2, i32 3) #5
+  %call.i.i.i.i.i = call double* @llvm.intel.subscript.p0f64.i32.i32.p0f64.i32(i8 zeroext 1, i32 0, i32 80, double* %call.i.i.i.i, i32 0) #5
+  %call.i.i.i.i.i.i = call double* @llvm.intel.subscript.p0f64.i32.i32.p0f64.i32(i8 zeroext 0, i32 0, i32 8, double* %call.i.i.i.i.i, i32 1) #5
+  %1 = load double, double* %call.i.i.i.i.i.i, align 8
+  %add4.i = fadd double %1, 1.000000e+00
+  store double %add4.i, double* %call.i.i.i.i.i.i, align 8
+  %2 = load double, double* %arrayidx21, align 8
+  %call = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), double %2)
+  call void @llvm.lifetime.end.p0i8(i64 8000, i8* nonnull %0) #5
+  ret i32 0
+}
+
+; Function Attrs: nounwind
+declare i32 @printf(i8* nocapture readonly, ...) local_unnamed_addr #3
 
 ; Function Attrs: nounwind readnone speculatable
 declare double* @llvm.intel.subscript.p0f64.i32.i32.p0f64.i32(i8, i32, i32, double*, i32) #4

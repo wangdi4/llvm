@@ -13,6 +13,7 @@
 
 #include "llvm/CodeGen/IntrinsicLowering.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/Utils/Local.h" // INTEL
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -473,6 +474,16 @@ void IntrinsicLowering::LowerIntrinsicCall(CallInst *CI) {
     // Just drop the annotation, but forward the value
     CI->replaceAllUsesWith(CI->getOperand(0));
     break;
+
+#if INTEL_CUSTOMIZATION
+  case Intrinsic::intel_subscript: {
+    // Do not unlink intrinsic
+    Value * Offset[] = {EmitSubsOffset(&Builder, DL, CI)};
+    CI->replaceAllUsesWith(Builder.CreateInBoundsGEP(
+        cast<SubscriptInst>(CI)->getPointerOperand(), Offset));
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   case Intrinsic::assume:
   case Intrinsic::var_annotation:
