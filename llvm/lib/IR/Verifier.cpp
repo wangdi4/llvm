@@ -464,6 +464,9 @@ private:
   void visitSelectInst(SelectInst &SI);
   void visitUserOp1(Instruction &I);
   void visitUserOp2(Instruction &I) { visitUserOp1(I); }
+#ifdef INTEL_CUSTOMIZATION
+  void visitSubscriptInst(SubscriptInst& II);
+#endif // INTEL_CUSTOMIZATION
   void visitIntrinsicCallSite(Intrinsic::ID ID, CallSite CS);
   void visitConstrainedFPIntrinsic(ConstrainedFPIntrinsic &FPI);
   void visitDbgIntrinsic(StringRef Kind, DbgInfoIntrinsic &DII);
@@ -3108,6 +3111,97 @@ void Verifier::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   }
   visitInstruction(GEP);
 }
+
+#ifdef INTEL_CUSTOMIZATION
+// Completely parallel to visitGetElementPtrInst
+void Verifier::visitSubscriptInst(SubscriptInst &I) {
+  Value *Lower = I.getLowerBound();
+  Value *Stride = I.getStride();
+  Value *Ptr = I.getPointerOperand();
+  Value *Index = I.getIndex();
+
+  Type *PtrTy = Ptr->getType();
+  Assert(PtrTy->isPtrOrPtrVectorTy(),
+         "llvm.intel.subscript base pointer is not "
+         "a vector or a vector of pointers",
+         &I);
+
+  Assert(I.getRank() <= 32,
+         "Rank cannot be greater or equal to 32, max possible number of "
+         "dimensions",
+         &I);
+
+  Assert(cast<PointerType>(PtrTy->getScalarType())->getElementType()->isSized(),
+         "llvm.intel.subscript into unsized type!", &I);
+
+  Value* IntArgs[] = {Lower, Stride, Index};
+  Assert(all_of(IntArgs,
+                [](Value *V) { return V->getType()->isIntOrIntVectorTy(); }),
+         "llvm.intel.subscript lower/stride/index must be integers", &I);
+
+  Type *ResTy = I.getType();
+  Assert(
+      ResTy->isPtrOrPtrVectorTy() &&
+          ResTy->getScalarType() == PtrTy->getScalarType(),
+      "llvm.intel.subscript result type is not consistent with base pointer !",
+      &I, ResTy, PtrTy);
+
+  bool IsVector = PtrTy->isVectorTy() || any_of(IntArgs, [](Value *V) {
+                    return V->getType()->isVectorTy();
+                  });
+
+  unsigned Width = 0;
+  if (IsVector) {
+    Width = PtrTy->isVectorTy() ? PtrTy->getVectorNumElements() : 0;
+
+    for (Value *Arg : IntArgs) {
+      Type *ArgTy = Arg->getType();
+      if (!ArgTy->isVectorTy())
+        continue;
+
+      unsigned ArgWidth = ArgTy->getVectorNumElements();
+      Assert(Width == 0 || ArgWidth == Width,
+             "Invalid llvm.intel.subscript lower/stride/index vector width",
+             &I);
+      Width = std::max(Width, ArgWidth);
+    }
+  }
+  Assert(IsVector ? ResTy->getVectorNumElements() == Width
+                  : !ResTy->isVectorTy(),
+         "Inconsistent vector width in llvm.intel.subscript", &I);
+
+  Assert(I.hasFnAttr(Attribute::Speculatable),
+         "llvm.intel.subscript should have speculatable attribute", &I);
+  Assert(I.hasFnAttr(Attribute::ReadNone),
+         "llvm.intel.subscript should have readnone attribute", &I);
+
+  Assert(I.getNumOperandBundles() == 0,
+         "llvm.intel.subscript should not have operand bundles", &I);
+
+  if (isa<SubscriptInst>(Ptr))
+    Assert(cast<SubscriptInst>(Ptr)->getRank() >= I.getRank(),
+           "Base pointer's rank should be no less than the rank of "
+           "SubscriptInst",
+           &I, Ptr);
+
+  unsigned PointerSize = DL.getPointerSizeInBits(I.getPointerAddressSpace());
+  if (const ConstantInt *CStride = dyn_cast<ConstantInt>(Stride)) {
+    Assert(CStride->getBitWidth() <= PointerSize,
+           "Constant stride is too big for pointer size", &I, PointerSize);
+
+    int64_t Scale = CStride->getSExtValue();
+    if (const ConstantInt *CIdx = dyn_cast<ConstantInt>(Index))
+      if (const ConstantInt *CLb = dyn_cast<ConstantInt>(Lower)) {
+        int64_t Offset = Scale * (CIdx->getSExtValue() - CLb->getSExtValue());
+        APInt ConstOffset(PointerSize, Offset, true);
+        Assert(ConstOffset.getSExtValue() == Offset,
+               "Wrap around in offset computations", &I, PointerSize);
+      }
+  }
+
+  visitIntrinsicInst(I);
+}
+#endif // INTEL_CUSTOMIZATION
 
 static bool isContiguous(const ConstantRange &A, const ConstantRange &B) {
   return A.getUpper() == B.getLower() || A.getLower() == B.getUpper();
