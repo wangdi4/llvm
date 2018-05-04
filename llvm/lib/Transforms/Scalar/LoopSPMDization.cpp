@@ -269,8 +269,9 @@ try a different SPMDization strategy instead.
        
           ZeroTripCountCheck(NewLoop, SE, PE, NPEs, AfterLoop, &Reductions, &ReduceVarExitOrig, &ReduceVarOrig, DT, LI);
           //This assumes -ffp-contract=fast is set
-          FixReductionsIfAny(NewLoop, OrigL, E, AfterLoop, PE, NPEs, &Reductions, &ReduceVarExitOrig, &ReduceVarOrig, &OldInsts); 
-
+          bool success_p = FixReductionsIfAny(NewLoop, OrigL, E, AfterLoop, PE, NPEs, &Reductions, &ReduceVarExitOrig, &ReduceVarOrig, &OldInsts); 
+          if(!success_p)
+            return false;
           L = NewLoop;
           setLoopAlreadySPMDized(L);       
         }
@@ -404,6 +405,8 @@ Value *find_reduction_identity(PHINode *Phi, Instruction *Op) {
   switch (Op->getOpcode()) {
   case Instruction::Add:
   case Instruction::FAdd:
+  case Instruction::Sub:
+  case Instruction:: FSub:
     {
       Ident =  Constant::getNullValue(Ty);
       break;
@@ -415,6 +418,10 @@ Value *find_reduction_identity(PHINode *Phi, Instruction *Op) {
   }
   case Instruction::Mul:{
     Ident = ConstantInt::get(Ty, 1);
+    break;
+  }
+  case Instruction::FMul:{
+    Ident = ConstantFP::get(Ty, 1);
     break;
   }
   case Instruction::And:{
@@ -454,13 +461,19 @@ bool LoopSPMDization::FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, Ba
         ReduceVar = dyn_cast<Instruction>(Phi->getIncomingValue(1));
         // initialize the reduction on PE!=0 to identity
         Value *Ident = find_reduction_identity(Phi, (*ReduceVarOrig)[r]);
-        Phi->setIncomingValue(0, Ident);  
+        if(Ident)
+          Phi->setIncomingValue(0, Ident);
+        else
+          return false;
       }
       else { 
         ReduceVar = dyn_cast<Instruction>(Phi->getIncomingValue(0));
         // initialize the reduction on PE!=0 to identity
         Value *Ident = find_reduction_identity(Phi, (*ReduceVarOrig)[r]);
-        Phi->setIncomingValue(1, Ident); 
+        if(Ident)
+          Phi->setIncomingValue(1, Ident);
+        else
+          return false;
       }
       BasicBlock::iterator i, ie;
       for (i = AfterLoop->begin(), ie = AfterLoop->end();  (i != ie); ++i) {
@@ -528,7 +541,10 @@ bool LoopSPMDization::FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, Ba
             {// this is the predecessor coming from the zero trip count gard block
               if(NewPhi->getBasicBlockIndex(predecessor) == -1 && predecessor != pred_AfterLoop) {
                 Value *Ident = find_reduction_identity(NewPhi, (*ReduceVarOrig)[r]);
-                NewPhi->addIncoming(Ident, predecessor);
+                if(Ident)
+                  NewPhi->addIncoming(Ident, predecessor);
+                else
+                  return false;
               }
             }
           } 
