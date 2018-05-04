@@ -4827,11 +4827,11 @@ Sema::ConvertArgumentsForCall(CallExpr *Call, Expr *Fn,
 #if INTEL_CUSTOMIZATION
                  // CQ#364630 - in case of too many arguments emit an extension
                  // warning in IntelCompat mode instead of an error.
-                 ? (getLangOpts().IntelCompat && !getLangOpts().CPlusPlus
+                 ? (getLangOpts().isIntelCompat(
+                        LangOptions::AllowExtraArgument) &&
+                            !getLangOpts().CPlusPlus
                         ? diag::ext_intel_typecheck_call_too_many_args
                         : diag::err_typecheck_call_too_many_args)
-#else
-                 ? diag::err_typecheck_call_too_many_args
 #endif // INTEL_CUSTOMIZATION
                  : diag::err_typecheck_call_too_many_args_at_most)
             << FnKind << NumParams << static_cast<unsigned>(Args.size())
@@ -4848,7 +4848,8 @@ Sema::ConvertArgumentsForCall(CallExpr *Call, Expr *Fn,
       Call->setNumArgs(Context, NumParams);
 #if INTEL_CUSTOMIZATION
       // CQ#364630 - don't consider this an error in IntelCompat mode.
-      if (!(getLangOpts().IntelCompat && !getLangOpts().CPlusPlus))
+      if (!(getLangOpts().isIntelCompat(LangOptions::AllowExtraArgument) &&
+          !getLangOpts().CPlusPlus))
 #endif // INTEL_CUSTOMIZATION
       return true;
     }
