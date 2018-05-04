@@ -44,7 +44,6 @@
 #include "clang/Sema/SemaInternal.h"
 #include "clang/Sema/Template.h"
 #include "llvm/Support/ConvertUTF.h"
-#include "llvm/Support/Timer.h"
 using namespace clang;
 using namespace sema;
 
@@ -1309,10 +1308,6 @@ Sema::ActOnGenericSelectionExpr(SourceLocation KeyLoc,
                                 Expr *ControllingExpr,
                                 ArrayRef<ParsedType> ArgTypes,
                                 ArrayRef<Expr *> ArgExprs) {
-  llvm::NamedRegionTimer T("actongenericselection",
-                           "Act On Generic Selection Expr", GroupName,
-                           GroupDescription, llvm::TimePassesIsEnabled);
-
   unsigned NumAssocs = ArgTypes.size();
   assert(NumAssocs == ArgExprs.size());
 
@@ -1525,9 +1520,6 @@ static ExprResult BuildCookedLiteralOperatorCall(Sema &S, Scope *Scope,
 ExprResult
 Sema::ActOnStringLiteral(ArrayRef<Token> StringToks, Scope *UDLScope) {
   assert(!StringToks.empty() && "Must have at least one string!");
-  llvm::NamedRegionTimer T("actonstringliteral", "Act On String Literal",
-                           GroupName, GroupDescription,
-                           llvm::TimePassesIsEnabled);
 
   StringLiteralParser Literal(StringToks, PP);
   if (Literal.hadError)
@@ -2035,9 +2027,6 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
                         bool IsInlineAsmIdentifier, Token *KeywordReplacement) {
   assert(!(IsAddressOfOperand && HasTrailingLParen) &&
          "cannot be direct & operand and have a trailing lparen");
-  llvm::NamedRegionTimer T("actonid", "Act On Id Expression",
-                           GroupName, GroupDescription,
-                           llvm::TimePassesIsEnabled);
   if (SS.isInvalid())
     return ExprError();
 
@@ -3074,10 +3063,6 @@ ExprResult Sema::BuildPredefinedExpr(SourceLocation Loc,
 }
 
 ExprResult Sema::ActOnPredefinedExpr(SourceLocation Loc, tok::TokenKind Kind) {
-  llvm::NamedRegionTimer T("actonpredefined", "Act On Predefined Expr",
-                           GroupName, GroupDescription,
-                           llvm::TimePassesIsEnabled);
-
   PredefinedExpr::IdentType IT;
 
   switch (Kind) {
@@ -14396,7 +14381,7 @@ static bool captureInBlock(BlockScopeInfo *BSI, VarDecl *Var,
 
   const bool HasBlocksAttr = Var->hasAttr<BlocksAttr>();
   if (HasBlocksAttr || CaptureType->isReferenceType() ||
-      (S.getLangOpts().OpenMP && S.IsOpenMPCapturedDecl(Var))) {
+      (S.getLangOpts().OpenMP && S.isOpenMPCapturedDecl(Var))) {
     // Block capture by reference does not change the capture or
     // declaration reference types.
     ByRef = true;
@@ -14469,14 +14454,14 @@ static bool captureInCapturedRegion(CapturedRegionScopeInfo *RSI,
   bool ByRef = true;
   // Using an LValue reference type is consistent with Lambdas (see below).
   if (S.getLangOpts().OpenMP && RSI->CapRegionKind == CR_OpenMP) {
-    if (S.IsOpenMPCapturedDecl(Var)) {
+    if (S.isOpenMPCapturedDecl(Var)) {
       bool HasConst = DeclRefType.isConstQualified();
       DeclRefType = DeclRefType.getUnqualifiedType();
       // Don't lose diagnostics about assignments to const.
       if (HasConst)
         DeclRefType.addConst();
     }
-    ByRef = S.IsOpenMPCapturedByRef(Var, RSI->OpenMPLevel);
+    ByRef = S.isOpenMPCapturedByRef(Var, RSI->OpenMPLevel);
   }
 
   if (ByRef)
@@ -14668,7 +14653,7 @@ bool Sema::tryCaptureVariable(
   // Capture global variables if it is required to use private copy of this
   // variable.
   bool IsGlobal = !Var->hasLocalStorage();
-  if (IsGlobal && !(LangOpts.OpenMP && IsOpenMPCapturedDecl(Var)))
+  if (IsGlobal && !(LangOpts.OpenMP && isOpenMPCapturedDecl(Var)))
     return true;
   Var = Var->getCanonicalDecl();
 
@@ -15033,7 +15018,7 @@ static void DoMarkVarDeclReferenced(Sema &SemaRef, SourceLocation Loc,
     // A reference initialized by a constant expression can never be
     // odr-used, so simply ignore it.
     if (!Var->getType()->isReferenceType() ||
-        (SemaRef.LangOpts.OpenMP && SemaRef.IsOpenMPCapturedDecl(Var)))
+        (SemaRef.LangOpts.OpenMP && SemaRef.isOpenMPCapturedDecl(Var)))
       SemaRef.MaybeODRUseExprs.insert(E);
   } else if (OdrUseContext) {
     MarkVarDeclODRUsed(Var, Loc, SemaRef,

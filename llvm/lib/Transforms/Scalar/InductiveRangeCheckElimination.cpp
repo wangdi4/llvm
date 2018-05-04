@@ -804,6 +804,13 @@ static bool CannotBeMinInLoop(const SCEV *BoundSCEV, Loop *L,
                                      SE.getConstant(Min));
 }
 
+static bool isKnownNonNegativeInLoop(const SCEV *BoundSCEV, Loop *L,
+                                     ScalarEvolution &SE) {
+  const SCEV *Zero = SE.getZero(BoundSCEV->getType());
+  return SE.isAvailableAtLoopEntry(BoundSCEV, L) &&
+         SE.isLoopEntryGuardedByCond(L, ICmpInst::ICMP_SGE, BoundSCEV, Zero);
+}
+
 Optional<LoopStructure>
 LoopStructure::parseLoopStructure(ScalarEvolution &SE,
                                   BranchProbabilityInfo *BPI, Loop &L,
@@ -909,43 +916,28 @@ LoopStructure::parseLoopStructure(ScalarEvolution &SE,
     return AR->getNoWrapFlags(SCEV::FlagNSW) != SCEV::FlagAnyWrap;
   };
 
-  // Here we check whether the suggested AddRec is an induction variable that
-  // can be handled (i.e. with known constant step), and if yes, calculate its
-  // step and identify whether it is increasing or decreasing.
-  auto IsInductionVar = [&](const SCEVAddRecExpr *AR, bool &IsIncreasing,
-                            ConstantInt *&StepCI) {
-    if (!AR->isAffine())
-      return false;
-
-    // Currently we only work with induction variables that have been proved to
-    // not wrap.  This restriction can potentially be lifted in the future.
-
-    if (!HasNoSignedWrap(AR))
-      return false;
-
-    if (const SCEVConstant *StepExpr =
-            dyn_cast<SCEVConstant>(AR->getStepRecurrence(SE))) {
-      StepCI = StepExpr->getValue();
-      assert(!StepCI->isZero() && "Zero step?");
-      IsIncreasing = !StepCI->isNegative();
-      return true;
-    }
-
-    return false;
-  };
-
   // `ICI` is interpreted as taking the backedge if the *next* value of the
   // induction variable satisfies some constraint.
 
   const SCEVAddRecExpr *IndVarBase = cast<SCEVAddRecExpr>(LeftSCEV);
-  bool IsIncreasing = false;
-  bool IsSignedPredicate = true;
-  ConstantInt *StepCI;
-  if (!IsInductionVar(IndVarBase, IsIncreasing, StepCI)) {
+  if (!IndVarBase->isAffine()) {
     FailureReason = "LHS in icmp not induction variable";
     return None;
   }
+  const SCEV* StepRec = IndVarBase->getStepRecurrence(SE);
+  ConstantInt *StepCI = dyn_cast<SCEVConstant>(StepRec)->getValue();
+  if (!StepCI) {
+    FailureReason = "LHS in icmp not induction variable";
+    return None;
+  }
+  if (ICI->isEquality() && !HasNoSignedWrap(IndVarBase)) {
+    FailureReason = "LHS in icmp needs nsw for equality predicates";
+    return None;
+  }
 
+  assert(!StepCI->isZero() && "Zero step?");
+  bool IsIncreasing = !StepCI->isNegative();
+  bool IsSignedPredicate = ICmpInst::isSigned(Pred);
   const SCEV *StartNext = IndVarBase->getStart();
   const SCEV *Addend = SE.getNegativeSCEV(IndVarBase->getStepRecurrence(SE));
   const SCEV *IndVarStart = SE.getAddExpr(StartNext, Addend);
@@ -963,8 +955,8 @@ LoopStructure::parseLoopStructure(ScalarEvolution &SE,
         // If both parts are known non-negative, it is profitable to use
         // unsigned comparison in increasing loop. This allows us to make the
         // comparison check against "RightSCEV + 1" more optimistic.
-        if (SE.isKnownNonNegative(IndVarStart) &&
-            SE.isKnownNonNegative(RightSCEV))
+        if (isKnownNonNegativeInLoop(IndVarStart, &L, SE) &&
+            isKnownNonNegativeInLoop(RightSCEV, &L, SE))
           Pred = ICmpInst::ICMP_ULT;
         else
           Pred = ICmpInst::ICMP_SLT;
