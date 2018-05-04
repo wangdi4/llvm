@@ -89,7 +89,7 @@ for.body5:                                        ; preds = %for.body5, %if.then
   store i32 %1, i32* %arrayidx13, align 4, !tbaa !5
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
-  br i1 %exitcond, label %for.cond.cleanup4, label %for.body5, !llvm.loop !8
+  br i1 %exitcond, label %for.cond.cleanup4, label %for.body5
 
 for.inc14:                                        ; preds = %for.body, %for.cond.cleanup4
   %indvars.iv.next25 = add nuw nsw i64 %indvars.iv24, 1
@@ -131,7 +131,5 @@ attributes #2 = { nounwind }
 !5 = !{!6, !2, i64 0}
 !6 = !{!"array@_ZTSA1024_A1024_i", !7, i64 0}
 !7 = !{!"array@_ZTSA1024_i", !2, i64 0}
-!8 = distinct !{!8, !9}
-!9 = !{!"vplan.vect.candidate"}
 
 
