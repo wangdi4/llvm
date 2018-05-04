@@ -656,6 +656,11 @@ namespace llvm {
       return getPointerOperandType()->getPointerAddressSpace();
     }
 
+    bool hasAllConstantIndices() const {
+      return isa<ConstantInt>(getLowerBound()) &&
+             isa<ConstantInt>(getStride()) && isa<ConstantInt>(getIndex());
+    }
+
     /// Computes number of elements in returned pointer.
     /// For scalar pointer returns 0.
     static unsigned getResultVectorNumElements(ArrayRef<Value*> Args);

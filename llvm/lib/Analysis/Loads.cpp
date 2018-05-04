@@ -178,6 +178,9 @@ static bool AreEquivalentAddressValues(const Value *A, const Value *B) {
   // other, which means that they'll always either have the same
   // value or one of them will have an undefined value.
   if (isa<BinaryOperator>(A) || isa<CastInst>(A) || isa<PHINode>(A) ||
+#if INTEL_CUSTOMIZATION
+      isa<SubscriptInst>(A) ||
+#endif // INTEL_CUSTOMIZATION
       isa<GetElementPtrInst>(A))
     if (const Instruction *BI = dyn_cast<Instruction>(B))
       if (cast<Instruction>(A)->isIdenticalToWhenDefined(BI))

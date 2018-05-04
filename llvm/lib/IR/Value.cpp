@@ -554,6 +554,25 @@ static const Value *stripPointerCastsAndOffsets(const Value *V) {
           V = CS.getArgOperand(0);
           continue;
         }
+#if INTEL_CUSTOMIZATION
+        // Matches GetUnderlyingObject
+        if (auto *Subs = dyn_cast<SubscriptInst>(V)) {
+          switch (StripKind) {
+          case PSK_ZeroIndicesAndAliases:
+          case PSK_ZeroIndicesAndAliasesAndBarriers:
+          case PSK_ZeroIndices:
+            return V;
+          case PSK_InBoundsConstantIndices:
+            if (!Subs->hasAllConstantIndices())
+              return V;
+            LLVM_FALLTHROUGH;
+          case PSK_InBounds:
+            break;
+          }
+          V = Subs->getPointerOperand();
+          continue;
+        }
+#endif // INTEL_CUSTOMIZATION
       }
       return V;
     }
