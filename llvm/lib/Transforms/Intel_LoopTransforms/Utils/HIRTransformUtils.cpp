@@ -666,6 +666,7 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
   assert(!(FirstLoop->isConstTripLoop(&TripCount) &&
            (TripCount <= StripmineSize)) &&
          "Caller should call scanStripmine first");
+  (void)TripCount;
 
   HLNodeUtils *HNU = &(FirstLoop->getHLNodeUtils());
   unsigned Level = FirstLoop->getNestingLevel();
