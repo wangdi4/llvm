@@ -1,4 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -disable-output -hir-opt-predicate -print-after=hir-opt-predicate< %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -disable-output -hir-opt-predicate -print-after=hir-opt-predicate < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -disable-output -hir-opt-predicate -print-after=hir-opt-predicate -disable-hir-opt-predicate-cost-model < %s 2>&1 | FileCheck %s
 
 ; HIR:
 ; BEGIN REGION { }

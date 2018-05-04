@@ -339,18 +339,16 @@ public:
 struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
   HLNode *SkipNode;
   HIROptPredicate &Pass;
-  bool HasLabel;
   unsigned MinLevel;
   bool TransformLoop;
 
   CandidateLookup(HIROptPredicate &Pass, bool TransformLoop = true,
                   unsigned MinLevel = 0)
-      : SkipNode(nullptr), Pass(Pass), HasLabel(false), MinLevel(MinLevel),
+      : SkipNode(nullptr), Pass(Pass), MinLevel(MinLevel),
         TransformLoop(TransformLoop) {}
 
   void visit(HLIf *If);
   void visit(HLLoop *Loop);
-  void visit(const HLLabel *) { HasLabel = true; }
 
   bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
 
@@ -619,6 +617,11 @@ void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
     IsCandidate = PUC.isPUCandidate();
   }
 
+  DEBUG(dbgs() << "Opportunity: ");
+  DEBUG(If->dumpHeader());
+  DEBUG(dbgs() << " --> Level " << Level << ", Candidate: " << IsCandidate
+               << (PUC.isPURequired() ? "(PU)" : "") << "\n");
+
   // Tell inner candidates that parent candidate will not be unswitched.
   // Do not unswitch inner candidates in case of partial unswitching.
   bool WillUnswitchParent = IsCandidate && !PUC.isPURequired();
@@ -628,14 +631,9 @@ void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
   HLNodeUtils::visitRange(Lookup, If->then_begin(), If->then_end());
   HLNodeUtils::visitRange(Lookup, If->else_begin(), If->else_end());
 
-  // TODO: remove HasLabel check?
-  if (!IsCandidate || Lookup.HasLabel) {
+  if (!IsCandidate) {
     return;
   }
-
-  DEBUG(dbgs() << "Opportunity: ");
-  DEBUG(If->dumpHeader());
-  DEBUG(dbgs() << " --> Level " << Level << "\n");
 
   Pass.Candidates.emplace_back(If, Level, PUC);
 }
@@ -757,15 +755,15 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLIf *If,
   }
 
   if (NonLinearRef || !Ref->isTerminalRef()) {
+    // Return current level of attachment.
+    Level = If->getNodeLevel();
+
     if (isPUCandidate(If, Ref, PUC)) {
       PUC.setPURequired();
 
-      // May hoist one level only.
-      Level = If->getNodeLevel() - 1;
-      return Level;
+      // May hoist one level up only.
+      Level -= 1;
     }
-
-    return NonLinearLevel;
   }
 
   return Level;
@@ -773,6 +771,7 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLIf *If,
 
 unsigned HIROptPredicate::getPossibleDefLevel(const HLIf *If, PUContext &PUC) {
   unsigned Level = 0;
+
   for (auto PI = If->pred_begin(), PE = If->pred_end(); PI != PE; ++PI) {
     const RegDDRef *Ref1 = If->getPredicateOperandDDRef(PI, true);
     const RegDDRef *Ref2 = If->getPredicateOperandDDRef(PI, false);
@@ -787,6 +786,7 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLIf *If, PUContext &PUC) {
       return Level;
     }
   }
+
   return Level;
 }
 

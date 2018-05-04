@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -disable-output -hir-opt-predicate -print-after=hir-opt-predicate< %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -disable-output -hir-opt-predicate -print-after=hir-opt-predicate -disable-hir-opt-predicate-cost-model < %s 2>&1 | FileCheck %s
 
 ; Verify that the redundant goto and label are removed.
 
@@ -23,42 +23,28 @@
 ;        + END LOOP
 ;   END REGION
 
-; CHECK:   BEGIN REGION { modified }
-; CHECK:        + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
-; CHECK:        |   if (%m > 1024)
-; CHECK:        |   {
-; CHECK:        |      if (%n < 256)
-; CHECK:        |      {
-; CHECK:        |         %0 = (%a)[0];
-; CHECK:        |         (%a)[0] = %0 + 1;
-; CHECK-NOT:              goto L.loopexit;
-; CHECK:        |      }
-; CHECK:        |      else
-; CHECK:        |      {
-; CHECK:        |         + DO i2 = 0, 9, 1   <DO_LOOP>
-; CHECK:        |         |   %0 = (%a)[i2];
-; CHECK:        |         |   (%a)[i2] = %0 + 1;
-; CHECK:        |         |   (%a)[i2] = %0 + 2;
-; CHECK:        |         + END LOOP
-; CHECK:        |      }
-; CHECK-NOT:           L.loopexit:
-; CHECK:        |   }
-; CHECK:        |   %1 = (%a)[i1];
-; CHECK:        |   (%a)[i1] = %1 + 1;
+; CHECK: BEGIN REGION { modified }
+; CHECK:   if (%m > 1024)
+; CHECK:   {
+; CHECK:     if (%n < 256)
+; CHECK:     {
+; CHECK:        + DO i1
 ; CHECK:        + END LOOP
-; CHECK:   END REGION
-
-;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-predicate -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
-;
-;OPTREPORT: LOOP BEGIN
-;OPTREPORT:     LOOP BEGIN
-;OPTREPORT:     <Predicate Optimized v1>
-;OPTREPORT:         Remark #XXXXX: Invariant Condition hoisted out of this loop
-;OPTREPORT:     LOOP END
-;OPTREPORT:     LOOP BEGIN
-;OPTREPORT:     <Predicate Optimized v2>
-;OPTREPORT:     LOOP END
-;OPTREPORT: LOOP END
+; CHECK:     }
+; CHECK:     else
+; CHECK:     {
+; CHECK:        + DO i1
+; CHECK:        |   + DO i2
+; CHECK:        |   + END LOOP
+; CHECK:        + END LOOP
+; CHECK:     }
+; CHECK:   }
+; CHECK:   else
+; CHECK:   {
+; CHECK:     + DO i1
+; CHECK:     + END LOOP
+; CHECK:   }
+; CHECK: END REGION
 
 ;Module Before HIR; ModuleID = 'multiexit-goto-remap.c'
 source_filename = "multiexit-goto-remap.c"
