@@ -157,13 +157,15 @@ class Function;
 namespace loopopt {
 
 class DDGraph;
+class HIRFramework;
 class HIRDDAnalysis;
 
-namespace PatternMatchSymbolicTripCountCompleteUnroll {
+namespace unrollsymtc {
 
-class HIRSymbolicTripCountCompleteUnroll : public HIRTransformPass {
-  HIRDDAnalysis *HDDA = nullptr;
-  HLNodeUtils *HNU = nullptr;
+class HIRSymbolicTripCountCompleteUnroll {
+  HIRFramework &HIRF;
+  HIRDDAnalysis &HDDA;
+  HLNodeUtils &HNU;
 
   HLLoop *OuterLp = nullptr;
   HLLoop *InnerLp = nullptr;
@@ -184,15 +186,14 @@ class HIRSymbolicTripCountCompleteUnroll : public HIRTransformPass {
   struct StructuralCollector;
 
 public:
-  static char ID;
+  HIRSymbolicTripCountCompleteUnroll(HIRFramework &HIRF, HIRDDAnalysis &HDDA)
+      : HIRF(HIRF), HDDA(HDDA), HNU(HIRF.getHLNodeUtils()) {}
 
-  HIRSymbolicTripCountCompleteUnroll(void);
-
-  // main entry function to this pass on a given InnerLoop
-  bool doLoopPatternMatch(HLLoop *InnerLoop);
+  bool run();
 
 private:
-  bool runOnFunction(Function &F) override;
+  // main entry function to this pass on a given InnerLoop
+  bool doLoopPatternMatch(HLLoop *InnerLoop);
 
   // Analyze the LoopNest, look for the expected pattern, and bail out ASAP if
   // the pattern is not found.
@@ -323,12 +324,6 @@ private:
                      DenseMap<RegDDRef *, RegDDRef *> &DefMap);
 
   void clearWorkingSetMemory(void);
-
-  void releaseMemory(void) override { clearWorkingSetMemory(); }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const;
-
-  bool handleCmdlineArgs(Function &F);
 
   // *** Utility functions ***
 
@@ -503,8 +498,8 @@ private:
 
 #endif
 };
-}
-}
-}
+} // namespace unrollsymtc
+} // namespace loopopt
+} // namespace llvm
 
 #endif

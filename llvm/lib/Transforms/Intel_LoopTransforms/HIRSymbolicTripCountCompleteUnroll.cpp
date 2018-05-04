@@ -1,4 +1,4 @@
-//==--- HIRSymbolicTripCountCompleteUnroll.cpp -       -*- C++-*---===//
+//==--- HIRSymbolicTripCountCompleteUnroll.cpp -----------------*- C++-*---===//
 // Implements HIR Loop Early Pattern Match Pass.
 //
 // Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
@@ -8,7 +8,7 @@
 // or reproduced in whole or in part without explicit written authorization
 // from the company.
 //
-//===-----------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // This file implements a special HIR Loop Pattern Matching Pass for Symbolic
 // TripCount 2-level loop nest.
@@ -20,6 +20,10 @@
 // -disable-hir-pm-symbolic-tripcount-completeunroll: Disable
 // HIR Symbolic TripCount CompleteUnroll Pattern-Matching pass
 //
+//===----------------------------------------------------------------------===//
+
+#include "llvm/Transforms/Intel_LoopTransforms/HIRSymbolicTripCountCompleteUnrollPass.h"
+
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
@@ -35,13 +39,13 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
-#include "HIRSymbolicTripCountCompleteUnroll.h"
+#include "HIRSymbolicTripCountCompleteUnrollImpl.h"
 
 #define DEBUG_TYPE "hir-pm-symbolic-tripcount-completeunroll"
 
 using namespace llvm;
 using namespace llvm::loopopt;
-using namespace llvm::loopopt::PatternMatchSymbolicTripCountCompleteUnroll;
+using namespace llvm::loopopt::unrollsymtc;
 
 const std::string TempName = "mv";
 
@@ -59,23 +63,6 @@ static cl::opt<bool> DisableHIRSymbolicTripCountCompleteUnroll(
 
 STATISTIC(NumHIRSymbolicTripCountCompleteUnroll,
           "Number of HIR Symbolic TripCount CompleteUnroll Pattern(s) Matched");
-
-char HIRSymbolicTripCountCompleteUnroll::ID = 0;
-
-INITIALIZE_PASS_BEGIN(
-    HIRSymbolicTripCountCompleteUnroll,
-    "hir-pm-symbolic-tripcount-completeunroll",
-    "HIR Symbolic TripCount CompleteUnroll Pattern Match Pass", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_END(HIRSymbolicTripCountCompleteUnroll,
-                    "hir-pm-symbolic-tripcount-completeunroll",
-                    "HIR Symbolic TripCount CompleteUnroll Pattern Match Pass",
-                    false, false)
-
-FunctionPass *llvm::createHIRSymbolicTripCountCompleteUnrollPass() {
-  return new HIRSymbolicTripCountCompleteUnroll();
-}
 
 // *** BEGIN: StructuralCollector ***
 //
@@ -312,45 +299,22 @@ void HIRSymbolicTripCountCompleteUnroll::StructuralCollector::print(
 #endif
 // ### END: StructuralCollector ###
 
-HIRSymbolicTripCountCompleteUnroll::HIRSymbolicTripCountCompleteUnroll()
-    : HIRTransformPass(ID) {
-  initializeHIRSymbolicTripCountCompleteUnrollPass(
-      *PassRegistry::getPassRegistry());
-}
-
-void HIRSymbolicTripCountCompleteUnroll::getAnalysisUsage(
-    AnalysisUsage &AU) const {
-  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-  AU.setPreservesAll();
-}
-
-bool HIRSymbolicTripCountCompleteUnroll::handleCmdlineArgs(Function &F) {
-  if (DisableHIRSymbolicTripCountCompleteUnroll || skipFunction(F)) {
-    DEBUG(dbgs() << "HIR Loop Pattern Match Early Disabled or Skipped\n");
-    return false;
-  }
-
-  return true;
-}
-
-bool HIRSymbolicTripCountCompleteUnroll::runOnFunction(Function &F) {
-  if (!handleCmdlineArgs(F)) {
+bool HIRSymbolicTripCountCompleteUnroll::run() {
+  if (DisableHIRSymbolicTripCountCompleteUnroll) {
+    DEBUG(dbgs() << "HIR Loop Pattern Match Early Disabled\n");
     return false;
   }
 
   DEBUG(dbgs() << "HIRSymbolicTripCountCompleteUnroll on Function : "
-               << F.getName() << "()\n");
+               << HIRF.getFunction().getName() << "()\n");
 
   // Gather all innermost Loop Candidates:
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HDDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   SmallVector<HLLoop *, 64> InnermostLoops;
-  HNU = &(HIRF->getHLNodeUtils());
-  HNU->gatherInnermostLoops(InnermostLoops);
+  HNU.gatherInnermostLoops(InnermostLoops);
 
   if (InnermostLoops.empty()) {
-    DEBUG(dbgs() << F.getName() << "() has no Innermost loop\n ");
+    DEBUG(dbgs() << HIRF.getFunction().getName()
+                 << "() has no Innermost loop\n ");
     return false;
   }
   DEBUG(dbgs() << " # Innermost Loops: " << InnermostLoops.size() << "\n");
@@ -549,7 +513,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doCollection(void) {
   SmallVector<HLIf *, 2> HLIfVec;
   StructuralCollector Collector(this, HLIfVec);
 
-  HNU->visitRange(Collector, OuterLp->getFirstChild(), OuterLp->getLastChild());
+  HLNodeUtils::visitRange(Collector, OuterLp->getFirstChild(),
+                          OuterLp->getLastChild());
   DEBUG(Collector.print(););
 
   // *** Check the HLIfs ***
@@ -1300,7 +1265,7 @@ bool HIRSymbolicTripCountCompleteUnroll::checkMParentAndMLibs(void) {
   // 4: (%this)[0].8.0[%5]
   // 5: (%this)[0].8.0[%5]
 
-  DDGraph DDG = HDDA->getGraph(OuterLp, false);
+  DDGraph DDG = HDDA.getGraph(OuterLp, false);
   // DEBUG(DDG.dump(););
 
   // Check: each Ref in MParentRefVec vs. MLibsRefV
@@ -1468,7 +1433,7 @@ void HIRSymbolicTripCountCompleteUnroll::cleanOuterLpBody(void) {
   DEBUG(FOS << "AFTER removal of Load/Store on local data in OuterLp:\n";
         OuterLp->dump(); FOS << "\n";);
 
-  DDGraph DDG = HDDA->getGraph(OuterLp, false);
+  DDGraph DDG = HDDA.getGraph(OuterLp, false);
   DEBUG(DDG.dump(););
 
   // Detect any Dead Load (a load without any use) on NON-Local Array:
@@ -1610,7 +1575,7 @@ void HIRSymbolicTripCountCompleteUnroll::buildTempDefMap(
   // (Note: use explicit clone on OrigDef)
   for (auto Def : DefVec) {
     RegDDRef *OldDefClone = Def->clone();
-    RegDDRef *NewDef = HNU->createTemp(Def->getDestType(), TempName);
+    RegDDRef *NewDef = HNU.createTemp(Def->getDestType(), TempName);
     DefMap[OldDefClone] = NewDef;
   }
 
@@ -1777,7 +1742,7 @@ void HIRSymbolicTripCountCompleteUnroll::doUnrollActions(void) {
   HLNode *Marker = HNU.getOrCreateMarkerNode();
 
   // Replace OuterLp with marker node:
-  HNU.replace(OuterLp, Marker);
+  HLNodeUtils::replace(OuterLp, Marker);
 
   // Vector of only the Last Instruction per unrolled body:
   SmallVector<HLDDNode *, 4> LastInstVec;
@@ -1790,7 +1755,7 @@ void HIRSymbolicTripCountCompleteUnroll::doUnrollActions(void) {
     // Do complete unroll for current iteration, fix iv to I
 
     // Clone iteration:
-    HNU.cloneSequence(&LoopBody, OrigFirstChild, OrigLastChild);
+    HLNodeUtils::cloneSequence(&LoopBody, OrigFirstChild, OrigLastChild);
     DEBUG(FOS << "LoopBody without IV fixed:\n"; print(LoopBody););
 
     fixLoopIvToConst(LoopBody, OuterLpLevel, I);
@@ -1837,7 +1802,7 @@ void HIRSymbolicTripCountCompleteUnroll::doUnrollActions(void) {
 
     // Insert the per-iteration unrolled code at the end of the OuterLp
     // Note: LoopBody is cleaned after each insert
-    HNU.insertAfter(OuterLp->getLastChild(), &LoopBody);
+    HLNodeUtils::insertAfter(OuterLp->getLastChild(), &LoopBody);
     DEBUG(OuterLp->dump(););
   }
 
@@ -1845,7 +1810,7 @@ void HIRSymbolicTripCountCompleteUnroll::doUnrollActions(void) {
   // Sink each collected last store to BEFORE LastStoreMarker
   DEBUG(print(LastInstVec));
   for (auto Inst : LastInstVec) {
-    HNU.moveBefore(LastInstMarker, Inst);
+    HLNodeUtils::moveBefore(LastInstMarker, Inst);
   }
   DEBUG(OuterLp->dump(););
 
@@ -1856,8 +1821,8 @@ void HIRSymbolicTripCountCompleteUnroll::doUnrollActions(void) {
 
   // Replace marker node with the unrolled loop body, remove the OuterLp
   // (Straight-line code is now produced!)
-  HNU.moveBefore(Marker, OuterLp->child_begin(), OuterLp->child_end());
-  HNU.remove(Marker);
+  HLNodeUtils::moveBefore(Marker, OuterLp->child_begin(), OuterLp->child_end());
+  HLNodeUtils::remove(Marker);
 
   DEBUG(FOS << "AFTER doUnrollActions(.):\n"; Region->dump(); FOS << "\n";);
   (void)Region;
@@ -1960,4 +1925,58 @@ void HIRSymbolicTripCountCompleteUnroll::clearWorkingSetMemory(void) {
   NonLocalRefVec.clear();
   MParentRefVec.clear();
   MLibsRefVec.clear();
+}
+
+class HIRSymbolicTripCountCompleteUnrollLegacyPass : public HIRTransformPass {
+public:
+  static char ID;
+
+  HIRSymbolicTripCountCompleteUnrollLegacyPass() : HIRTransformPass(ID) {
+    initializeHIRSymbolicTripCountCompleteUnrollLegacyPassPass(
+        *PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+    AU.setPreservesAll();
+  }
+
+  bool runOnFunction(Function &F) {
+    if (skipFunction(F)) {
+      DEBUG(dbgs() << "HIR Loop Pattern Match Early Skipped\n");
+      return false;
+    }
+
+    return HIRSymbolicTripCountCompleteUnroll(
+               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA())
+        .run();
+  }
+};
+
+char HIRSymbolicTripCountCompleteUnrollLegacyPass::ID = 0;
+
+INITIALIZE_PASS_BEGIN(
+    HIRSymbolicTripCountCompleteUnrollLegacyPass,
+    "hir-pm-symbolic-tripcount-completeunroll",
+    "HIR Symbolic TripCount CompleteUnroll Pattern Match Pass", false, false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_END(HIRSymbolicTripCountCompleteUnrollLegacyPass,
+                    "hir-pm-symbolic-tripcount-completeunroll",
+                    "HIR Symbolic TripCount CompleteUnroll Pattern Match Pass",
+                    false, false)
+
+FunctionPass *llvm::createHIRSymbolicTripCountCompleteUnrollPass() {
+  return new HIRSymbolicTripCountCompleteUnrollLegacyPass();
+}
+
+PreservedAnalyses
+HIRSymbolicTripCountCompleteUnrollPass::run(llvm::Function &F,
+                                            llvm::FunctionAnalysisManager &AM) {
+  HIRSymbolicTripCountCompleteUnroll(AM.getResult<HIRFrameworkAnalysis>(F),
+                                     AM.getResult<HIRDDAnalysisPass>(F))
+      .run();
+  return PreservedAnalyses::all();
 }
