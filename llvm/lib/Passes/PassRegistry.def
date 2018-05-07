@@ -37,6 +37,7 @@ MODULE_ANALYSIS("verify", VerifierAnalysis())
   MODULE_ANALYSIS(NAME, CREATE_PASS)
 #endif
 MODULE_ALIAS_ANALYSIS("globals-aa", GlobalsAA())
+MODULE_ALIAS_ANALYSIS("anders-aa", AndersensAA())    // INTEL
 #undef MODULE_ALIAS_ANALYSIS
 #undef MODULE_ANALYSIS
 
@@ -51,6 +52,7 @@ MODULE_PASS("deadargelim", DeadArgumentEliminationPass())
 #if INTEL_INCLUDE_DTRANS
 MODULE_PASS("dtrans-aostosoa", dtrans::AOSToSOAPass()) // INTEL
 MODULE_PASS("dtrans-deletefield", dtrans::DeleteFieldPass()) // INTEL
+MODULE_PASS("dtrans-reorderfields", dtrans::ReorderFieldsPass()) // INTEL
 #endif // INTEL_INCLUDE_DTRANS
 MODULE_PASS("elim-avail-extern", EliminateAvailableExternallyPass())
 MODULE_PASS("forceattrs", ForceFunctionAttrsPass())
@@ -189,6 +191,7 @@ FUNCTION_PASS("ee-instrument", EntryExitInstrumenterPass(/*PostInlining=*/false)
 FUNCTION_PASS("fma-splitter", FMASplitterPass()) // INTEL
 FUNCTION_PASS("post-inline-ee-instrument", EntryExitInstrumenterPass(/*PostInlining=*/true))
 FUNCTION_PASS("gvn-hoist", GVNHoistPass())
+FUNCTION_PASS("indirectcallconv", IndirectCallConvPass()) // INTEL
 FUNCTION_PASS("instcombine", InstCombinePass())
 FUNCTION_PASS("instsimplify", InstSimplifierPass())
 FUNCTION_PASS("invalidate<all>", InvalidateAllAnalysesPass())
@@ -198,6 +201,7 @@ FUNCTION_PASS("libcalls-shrinkwrap", LibCallsShrinkWrapPass())
 FUNCTION_PASS("loweratomic", LowerAtomicPass())
 FUNCTION_PASS("lower-expect", LowerExpectIntrinsicPass())
 FUNCTION_PASS("lower-guard-intrinsic", LowerGuardIntrinsicPass())
+FUNCTION_PASS("lower-subscript", LowerSubscriptIntrinsicPass()) // INTEL
 FUNCTION_PASS("guard-widening", GuardWideningPass())
 FUNCTION_PASS("gvn", GVN())
 FUNCTION_PASS("loop-simplify", LoopSimplifyPass())

@@ -989,7 +989,7 @@ void HLLoop::verify() const {
          "Found an empty Loop, assumption that there should be no empty loops");
 }
 
-bool HLLoop::isSIMD() const {
+bool HLLoop::hasDirective(int DirectiveID) const {
   HLContainerTy::const_iterator Iter(*this);
   auto First = getHLNodeUtils().getFirstLexicalChild(getParent(), this);
   HLContainerTy::const_iterator FIter(*First);
@@ -1003,7 +1003,7 @@ bool HLLoop::isSIMD() const {
       return false;
     }
 
-    if (I->isSIMDDirective()) {
+    if (I->isIntelDirective(DirectiveID)) {
       return true;
     }
   }

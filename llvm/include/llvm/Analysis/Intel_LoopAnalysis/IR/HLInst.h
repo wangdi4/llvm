@@ -186,6 +186,10 @@ public:
   /// Checks whether the instruction is a call to a omp simd directive.
   bool isSIMDDirective() const;
 
+  /// Checks whether the instruction is a call to an auto vectorization
+  /// directive.
+  bool isAutoVecDirective() const;
+
   /// Checks if the Opcode is a reduction and returns OpCode
   bool isReductionOp(unsigned *OpCode) const;
 

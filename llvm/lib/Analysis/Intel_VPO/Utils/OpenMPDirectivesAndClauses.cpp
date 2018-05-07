@@ -224,6 +224,7 @@ bool VPOAnalysisUtils::isBeginDirective(int DirID) {
   case DIR_OMP_TEAMS:
   case DIR_OMP_DISTRIBUTE:
   case DIR_OMP_DISTRIBUTE_PARLOOP:
+  case DIR_VPO_AUTO_VEC:
     return true;
   }
   return false;
@@ -266,6 +267,7 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_OMP_END_TEAMS:
   case DIR_OMP_END_DISTRIBUTE:
   case DIR_OMP_END_DISTRIBUTE_PARLOOP:
+  case DIR_VPO_END_AUTO_VEC:
     return true;
   }
   return false;
@@ -447,6 +449,10 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
     return DIR_OMP_END_DISTRIBUTE;
   case DIR_OMP_DISTRIBUTE_PARLOOP:
     return DIR_OMP_END_DISTRIBUTE_PARLOOP;
+
+  // Non-OpenMP Directives
+  case DIR_VPO_AUTO_VEC:
+    return DIR_VPO_END_AUTO_VEC;
 
   // StandAlone Directives
   case DIR_OMP_BARRIER:

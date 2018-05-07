@@ -97,6 +97,8 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
     InlPrtCost, "Aggressive inline to expose uses of global ptrs",
     // InlrForFusion,
     InlPrtCost, "Callee has multiple callsites with loops that could be fused",
+    // InlrDeeplyNestedIfs,
+    InlPrtCost, "Callee was inlined due to deeply nested ifs",
     // InlrProfitable,
     InlPrtCost, "Inlining is profitable",
     // InlrLast,

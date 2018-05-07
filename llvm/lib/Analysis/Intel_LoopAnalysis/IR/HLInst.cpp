@@ -471,6 +471,10 @@ bool HLInst::isIntelDirective(int DirectiveID) const {
 
 bool HLInst::isSIMDDirective() const { return isIntelDirective(DIR_OMP_SIMD); }
 
+bool HLInst::isAutoVecDirective() const {
+  return isIntelDirective(DIR_VPO_AUTO_VEC);
+}
+
 bool HLInst::isValidReductionOpCode(unsigned OpCode) {
   // Start with these initially - when adding a new opcode ensure
   // that we also add changes to get reduction identity in

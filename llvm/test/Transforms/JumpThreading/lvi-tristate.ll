@@ -1,4 +1,4 @@
-; INTEL_CUSOMIZATION - The community implementation of ThreadEdge leaves a dead
+; INTEL_CUSTOMIZATION - The community implementation of ThreadEdge leaves a dead
 ;       PHI instruction in the LLVM IR that blocks some additional optimization
 ;       in simplifycfg. In the xmain implementation, the SSA rewrite removes
 ;       this PHI. As a result, the routine gets collapsed down even further by

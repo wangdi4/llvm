@@ -56,33 +56,35 @@ bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
 
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genRedCodeForTaskGeneric\n");
 
-  ReductionClause &RedClause = W->getRed();
-  if (!RedClause.empty()) {
+  if (W->canHaveReduction()) {
+    ReductionClause &RedClause = W->getRed();
+    if (!RedClause.empty()) {
 
-    assert(W->isBBSetEmpty() &&
-           "genRedCodeForTaskGeneric: BBSET should start empty");
-    W->populateBBSet();
-    BasicBlock *EntryBB = W->getEntryBBlock();
-    BasicBlock *ExitBB = W->getExitBBlock();
+      assert(W->isBBSetEmpty() &&
+             "genRedCodeForTaskGeneric: BBSET should start empty");
+      W->populateBBSet();
+      BasicBlock *EntryBB = W->getEntryBBlock();
+      BasicBlock *ExitBB = W->getExitBBlock();
 
-    for (ReductionItem *RedI : RedClause.items()) {
+      for (ReductionItem *RedI : RedClause.items()) {
 
-      Value *Orig = RedI->getOrig();
+        Value *Orig = RedI->getOrig();
 
-      if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
-        Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
-        Value *NewPrivInst =
-            genPrivatizationAlloca(W, Orig, AllocaInsertPt, ".red");
-        genPrivatizationReplacement(W, Orig, NewPrivInst, RedI);
-        IRBuilder<> Builder(EntryBB->getTerminator());
-        Builder.CreateStore(Builder.CreateLoad(RedI->getNew()), NewPrivInst);
-        Builder.SetInsertPoint(ExitBB->getTerminator());
-        Builder.CreateStore(Builder.CreateLoad(NewPrivInst), RedI->getNew());
+        if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
+          Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
+          Value *NewPrivInst =
+              genPrivatizationAlloca(W, Orig, AllocaInsertPt, ".red");
+          genPrivatizationReplacement(W, Orig, NewPrivInst, RedI);
+          IRBuilder<> Builder(EntryBB->getTerminator());
+          Builder.CreateStore(Builder.CreateLoad(RedI->getNew()), NewPrivInst);
+          Builder.SetInsertPoint(ExitBB->getTerminator());
+          Builder.CreateStore(Builder.CreateLoad(NewPrivInst), RedI->getNew());
+        }
       }
-    }
 
-    Changed = true;
-    W->resetBBSet(); // Invalidate BBSet after transformations
+      Changed = true;
+      W->resetBBSet(); // Invalidate BBSet after transformations
+    }
   }
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genRedCodeForTaskGeneric\n");
   return Changed;
@@ -304,15 +306,17 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
 
   Count = SaveCount;
 
-  ReductionClause &RedClause = W->getRed();
-  if (!RedClause.empty()) {
-    for (ReductionItem *RedI : RedClause.items()) {
-      Value *Orig = RedI->getOrig();
-      auto PT = dyn_cast<PointerType>(Orig->getType());
-      assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect reduction "
-                   "pointer argument");
-      SharedIndices.push_back(PT);
-      RedI->setThunkIdx(Count++);
+  if (W->canHaveReduction()) {
+    ReductionClause &RedClause = W->getRed();
+    if (!RedClause.empty()) {
+      for (ReductionItem *RedI : RedClause.items()) {
+        Value *Orig = RedI->getOrig();
+        auto PT = dyn_cast<PointerType>(Orig->getType());
+        assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect reduction "
+                     "pointer argument");
+        SharedIndices.push_back(PT);
+        RedI->setThunkIdx(Count++);
+      }
     }
   }
 
@@ -510,19 +514,21 @@ bool VPOParoptTransform::genTaskLoopInitCode(
     }
   }
 
-  ReductionClause &RedClause = W->getRed();
-  if (!RedClause.empty()) {
-    for (ReductionItem *RedI : RedClause.items()) {
-      Indices.clear();
-      Indices.push_back(Builder.getInt32(0));
-      Indices.push_back(Builder.getInt32(RedI->getThunkIdx()));
-      Value *ThunkSharedGep =
-          Builder.CreateInBoundsGEP(KmpSharedTy, SharedCast, Indices);
-      Value *ThunkSharedVal = Builder.CreateLoad(ThunkSharedGep);
-      Value *RedRes = VPOParoptUtils::genKmpcRedGetNthData(
-          W, TidPtrHolder, ThunkSharedVal, &*Builder.GetInsertPoint(),
-          Mode & OmpTbb);
-      RedI->setNew(Builder.CreateBitCast(RedRes, RedI->getOrig()->getType()));
+  if (W->canHaveReduction()) {
+    ReductionClause &RedClause = W->getRed();
+    if (!RedClause.empty()) {
+      for (ReductionItem *RedI : RedClause.items()) {
+        Indices.clear();
+        Indices.push_back(Builder.getInt32(0));
+        Indices.push_back(Builder.getInt32(RedI->getThunkIdx()));
+        Value *ThunkSharedGep =
+            Builder.CreateInBoundsGEP(KmpSharedTy, SharedCast, Indices);
+        Value *ThunkSharedVal = Builder.CreateLoad(ThunkSharedGep);
+        Value *RedRes = VPOParoptUtils::genKmpcRedGetNthData(
+            W, TidPtrHolder, ThunkSharedVal, &*Builder.GetInsertPoint(),
+            Mode & OmpTbb);
+        RedI->setNew(Builder.CreateBitCast(RedRes, RedI->getOrig()->getType()));
+      }
     }
   }
 
@@ -581,15 +587,17 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
     }
   }
 
-  ReductionClause &RedClause = W->getRed();
-  if (!RedClause.empty()) {
-    for (ReductionItem *RedI : RedClause.items()) {
-      Indices.clear();
-      Indices.push_back(Builder.getInt32(0));
-      Indices.push_back(Builder.getInt32(RedI->getThunkIdx()));
-      Value *Gep =
-          Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
-      Builder.CreateStore(RedI->getOrig(), Gep);
+  if (W->canHaveReduction()) {
+    ReductionClause &RedClause = W->getRed();
+    if (!RedClause.empty()) {
+      for (ReductionItem *RedI : RedClause.items()) {
+        Indices.clear();
+        Indices.push_back(Builder.getInt32(0));
+        Indices.push_back(Builder.getInt32(RedI->getThunkIdx()));
+        Value *Gep =
+            Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
+        Builder.CreateStore(RedI->getOrig(), Gep);
+      }
     }
   }
 
@@ -950,6 +958,9 @@ void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
 
   SmallVector<Type *, 4> KmpTaskTRedRecTyArgs;
 
+  if (!W->canHaveReduction())
+    return; // in case this is a task instead of taskloop
+
   ReductionClause &RedClause = W->getRed();
   if (RedClause.empty())
     return;
@@ -1110,7 +1121,8 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   bool Changed = false;
 
   // brief extract a W-Region to generate a function
-  CodeExtractor CE(makeArrayRef(W->bbset_begin(), W->bbset_end()), DT, false);
+  CodeExtractor CE(makeArrayRef(W->bbset_begin(), W->bbset_end()), DT, false,
+                   nullptr, nullptr, false, true);
 
   assert(CE.isEligible());
 
@@ -1273,4 +1285,25 @@ void VPOParoptTransform::buildCFGForIfClause(Value *Cmp,
   DT->changeImmediateDominator(InsertPt->getParent(), SplitBeforeBB);
   BasicBlock *NextBB = InsertPt->getParent()->getSingleSuccessor();
   DT->changeImmediateDominator(NextBB, InsertPt->getParent());
+}
+
+// Generate code for OMP taskgroup construct.
+//   #pragma omp taskgroup
+bool VPOParoptTransform::genTaskgroupRegion(WRegionNode *W) {
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskgroupRegion\n");
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  BasicBlock *ExitBB = W->getExitBBlock();
+
+  Instruction *InsertPt = EntryBB->getTerminator();
+
+  CallInst *TaskgroupCI =
+      VPOParoptUtils::genKmpcTaskgroupCall(W, IdentTy, TidPtrHolder, InsertPt);
+  TaskgroupCI->insertBefore(InsertPt);
+
+  Instruction *InsertEndPt = ExitBB->getTerminator();
+
+  CallInst *EndTaskgroupCI = VPOParoptUtils::genKmpcEndTaskgroupCall(
+      W, IdentTy, TidPtrHolder, InsertEndPt);
+  EndTaskgroupCI->insertBefore(InsertEndPt);
+  return true;
 }

@@ -58,7 +58,7 @@ public:
   /// loop test. This will return the latch block if it's one of the exiting
   /// blocks. Otherwise, return the exiting block. Return 'null' when
   /// multiple exiting blocks are present.
-  MachineBasicBlock *findLoopControlBlock();
+  MachineBasicBlock *findLoopControlBlock() const; // INTEL
 
   /// Return the debug location of the start of this loop.
   /// This looks for a BB terminating instruction with a known debug
@@ -66,6 +66,16 @@ public:
   /// cannot find a terminating instruction with location information,
   /// it returns an unknown location.
   DebugLoc getStartLoc() const;
+
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief Find the llvm.loop metadata for this loop.
+  /// If each branch to the header of this loop contains the same llvm.loop
+  /// metadata, then this metadata node is returned.  Otherwise, if any
+  /// latch instruction does not contain the llvm.loop metadata or
+  /// multiple latch instructions contain different llvm.loop metadata nodes,
+  /// then null is returned.
+  MDNode *getLoopID() const;
+#endif  // INTEL_CUSTOMIZATION
 
   void dump() const;
 
@@ -109,6 +119,12 @@ public:
   using iterator = LoopInfoBase<MachineBasicBlock, MachineLoop>::iterator;
   inline iterator begin() const { return LI.begin(); }
   inline iterator end() const { return LI.end(); }
+#ifdef INTEL_CUSTOMIZATION
+  using reverse_iterator =
+    LoopInfoBase<MachineBasicBlock, MachineLoop>::reverse_iterator;
+  inline reverse_iterator rbegin() const { return LI.rbegin(); }
+  inline reverse_iterator rend() const { return LI.rend(); }
+#endif  // INTEL_CUSTOMIZATION
   bool empty() const { return LI.empty(); }
 
   /// Return the innermost loop that BB lives in. If a basic block is in no loop

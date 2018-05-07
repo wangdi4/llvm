@@ -555,7 +555,7 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
   // loops with nested blobs. We still need to bail out for a possible divide by
   // zero until we add support for masked divides.
   SmallVector<unsigned, 8> BlobIndices;
-  CExpr->collectBlobIndices(BlobIndices, false);
+  CExpr->collectBlobIndices(BlobIndices, true /* MakeUnique */);
   if (EnableNestedBlobVec) {
     if (InMaskedStmt) {
       for (auto &BI : BlobIndices) {
@@ -661,7 +661,6 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
 
   LoopsVectorized++;
   SRA->computeSafeReductionChains(OrigLoop);
-  eraseLoopIntrins();
 
   // Setup main and remainder loops
   bool NeedRemainderLoop = false;
@@ -745,7 +744,14 @@ void VPOCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
     EndIter = std::next(LastNode->getIterator());
   }
 
-  int BeginOrEndDirID = BeginDir ? DIR_OMP_SIMD : DIR_OMP_END_SIMD;
+  SmallSet<int, 2> BeginOrEndDirIDs;
+  if (BeginDir) {
+    BeginOrEndDirIDs.insert(DIR_OMP_SIMD);
+    BeginOrEndDirIDs.insert(DIR_VPO_AUTO_VEC);
+  } else {
+    BeginOrEndDirIDs.insert(DIR_OMP_END_SIMD);
+    BeginOrEndDirIDs.insert(DIR_VPO_END_AUTO_VEC);
+  }
   for (auto Iter = StartIter; Iter != EndIter;) {
     auto HInst = dyn_cast<HLInst>(&*Iter);
 
@@ -770,7 +776,7 @@ void VPOCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
 
         int DirID = vpo::VPOAnalysisUtils::getDirectiveID(DirStr);
 
-        if (DirID == BeginOrEndDirID) {
+        if (BeginOrEndDirIDs.count(DirID)) {
           HLNodeUtils::remove(HInst);
         } else if (VPOAnalysisUtils::isListEndDirective(DirID)) {
           HLNodeUtils::remove(HInst);
@@ -1099,7 +1105,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
 
     // Collect blob indices in canon expr before we start changing the same.
     SmallVector<unsigned, 8> BlobIndices;
-    CE->collectBlobIndices(BlobIndices, false);
+    CE->collectBlobIndices(BlobIndices, true /* MakeUnique */);
 
     if (CE->hasIV(NestingLevel)) {
       SmallVector<Constant *, 4> CA;

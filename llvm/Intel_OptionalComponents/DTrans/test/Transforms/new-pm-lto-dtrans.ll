@@ -18,6 +18,7 @@
 ; CHECK-NEXT: Running pass: dtrans::DeleteFieldPass
 ; CHECK-NEXT: Running analysis: DTransAnalysis
 ; CHECK-NEXT: Running pass: dtrans::AOSToSOAPass
+; CHECK-NEXT: Running pass: dtrans::ReorderFieldsPass
 ; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass
 ; CHECK-NEXT: Running analysis: WholeProgramAnalysis
 

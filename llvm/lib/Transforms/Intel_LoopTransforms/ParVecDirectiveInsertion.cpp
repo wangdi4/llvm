@@ -106,14 +106,14 @@ void ParVecDirectiveInsertion::Visitor::insertVecDirectives(
   Inserted = true;
 
   // Insert SIMD directives and clauses
-  insertDirective(Lp, DIR_OMP_SIMD, false /* prepend */);
+  insertDirective(Lp, DIR_VPO_AUTO_VEC, false /* prepend */);
   insertDirective(Lp, DIR_QUAL_LIST_END, false /* prepend */);
 
   // TODO: Clauses
 
   // End of SIMD directives and clauses insertion
   insertDirective(Lp, DIR_QUAL_LIST_END, true /* append  */);
-  insertDirective(Lp, DIR_OMP_END_SIMD, true /* append  */);
+  insertDirective(Lp, DIR_VPO_END_AUTO_VEC, true /* append  */);
 }
 
 void ParVecDirectiveInsertion::Visitor::insertParDirectives(

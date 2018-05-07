@@ -860,6 +860,18 @@ private:
                                      bool hasRuntimeEvaluationCaptureSize,
                                      Value *BPVal, bool &Match,
                                      IRBuilder<> &Builder, unsigned &Cnt);
+
+  /// \brief Generate code for OMP taskgroup construct.
+  /// #pragma omp taskgroup
+  bool genTaskgroupRegion(WRegionNode *W);
+
+  /// \brief Collect the instructions of global variable uses recursively to
+  /// handle the case of nested constant expressions.
+  void
+  collectGlobalUseInsnsRecursively(WRegionNode *W,
+                                   SmallVectorImpl<Instruction *> &RewriteCons,
+                                   ConstantExpr *CE);
+
 };
 } /// namespace vpo
 } /// namespace llvm

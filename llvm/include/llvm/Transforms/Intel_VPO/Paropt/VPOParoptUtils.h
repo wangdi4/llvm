@@ -713,6 +713,17 @@ public:
                                         Value *IsSingleThread,
                                         Instruction *InsertPt);
 
+    /// \brief This function generates a call as follows.
+    /// void @__kmpc_taskgroup(%ident_t* %loc.addr.11.12, i32 %my.tid)
+    static CallInst *genKmpcTaskgroupCall(WRegionNode *W, StructType *IdentTy,
+                                          Value *Tid, Instruction *InsertPt);
+
+    /// \brief This function generates a call as follows.
+    /// void @__kmpc_end_taskgroup(%ident_t* %loc.addr.11.12, i32 %my.tid)
+    static CallInst *genKmpcEndTaskgroupCall(WRegionNode *W,
+                                             StructType *IdentTy, Value *Tid,
+                                             Instruction *InsertPt);
+
   private:
     /// \name Private constructor and destructor to disable instantiation.
     /// @{
@@ -815,6 +826,17 @@ public:
                                            Instruction *BeginInst,
                                            Instruction *EndInst,
                                            GlobalVariable *LockVar);
+
+    /// \Brief This function generates calls for the taskgroup region.
+    ///
+    ///   call void @__kmpc_taskgroup(%ident_t* %loc, i32 %tid)
+    ///      or
+    ///   call void @__kmpc_end_taskgroup(%ident_t* %loc, i32 %tid)
+    static CallInst *genKmpcTaskgroupOrEndTaskgroupCall(WRegionNode *W,
+                                                        StructType *IdentTy,
+                                                        Value *Tid,
+                                                        Instruction *InsertPt,
+                                                        bool IsTaskGroupStart);
 
     /// @}
 

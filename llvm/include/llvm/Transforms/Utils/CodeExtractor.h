@@ -72,11 +72,17 @@ class Value;
     /// sequence out into its new function. When a DominatorTree is also given,
     /// extra checking and transformations are enabled. If AllowVarArgs is true,
     /// vararg functions can be extracted. This is safe, if all vararg handling
-    /// code is extracted, including vastart.
+#if INTEL_CUSTOMIZATION // under community review D45904
+    /// code is extracted, including vastart. If AllowAlloca is true, then
+    /// extraction of blocks containing alloca instructions would be possible,
+    /// however code extractor won't validate whether extraction is legal.
+#endif // INTEL_CUSTOMIZATION
     CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT = nullptr,
                   bool AggregateArgs = false, BlockFrequencyInfo *BFI = nullptr,
                   BranchProbabilityInfo *BPI = nullptr,
-                  bool AllowVarArgs = false);
+#if INTEL_CUSTOMIZATION // under community review D45904
+                  bool AllowVarArgs = false, bool AllowAlloca = false);
+#endif // INTEL_CUSTOMIZATION
 
     /// \brief Create a code extractor for a loop body.
     ///
@@ -86,6 +92,7 @@ class Value;
                   BlockFrequencyInfo *BFI = nullptr,
                   BranchProbabilityInfo *BPI = nullptr);
 
+#if !INTEL_CUSTOMIZATION // under community review D45904
     /// \brief Check to see if a block is valid for extraction.
     ///
     /// Blocks containing EHPads, allocas and invokes are not valid. If
@@ -93,6 +100,7 @@ class Value;
     /// safe, if all vararg handling code is extracted, including vastart.
     static bool isBlockValidForExtraction(const BasicBlock &BB,
                                           bool AllowVarArgs);
+#endif // INTEL_CUSTOMIZATION
 
     /// \brief Perform the extraction, returning the new function.
     ///

@@ -72,6 +72,7 @@ PreservedAnalyses PromotePass::run(Function &F, FunctionAnalysisManager &AM) {
   auto PA = PreservedAnalyses();        // INTEL
   PA.preserve<WholeProgramAnalysis>();  // INTEL
   PA.preserve<GlobalsAA>();             // INTEL
+  PA.preserve<AndersensAA>();           // INTEL
 
   PA.preserveSet<CFGAnalyses>();
   return PA;

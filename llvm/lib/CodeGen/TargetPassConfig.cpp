@@ -20,7 +20,10 @@
 #include "llvm/Analysis/CFLAndersAliasAnalysis.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
-#include "llvm/Analysis/Intel_StdContainerAA.h" // INTEL
+#ifdef INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Analysis/Intel_StdContainerAA.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -115,11 +118,6 @@ static cl::opt<bool> VerifyMachineCode("verify-machineinstrs", cl::Hidden,
 static cl::opt<bool> EnableMachineOutliner("enable-machine-outliner",
     cl::Hidden,
     cl::desc("Enable machine outliner"));
-static cl::opt<bool> EnableLinkOnceODROutlining(
-    "enable-linkonceodr-outlining",
-    cl::Hidden,
-    cl::desc("Enable the machine outliner on linkonceodr functions"),
-    cl::init(false));
 // Enable or disable FastISel. Both options are needed, because
 // FastISel is enabled by default with -fast, and we wish to be
 // able to enable or disable fast-isel independently from -O0.
@@ -907,9 +905,13 @@ void TargetPassConfig::addMachinePasses() {
 
   addPass(&XRayInstrumentationID, false);
   addPass(&PatchableFunctionID, false);
+#if INTEL_CUSTOMIZATION
+  if (IntelOptReportEmitter == OptReportOptions::MIR)
+    addPass(&MachineLoopOptReportEmitterID, false);
+#endif  // INTEL_CUSTOMIZATION
 
   if (EnableMachineOutliner)
-    PM->add(createMachineOutlinerPass(EnableLinkOnceODROutlining));
+    addPass(createMachineOutlinerPass());
 
   // Add passes that directly emit MI after all other MI passes.
   addPreEmitPass2();

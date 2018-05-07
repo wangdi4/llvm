@@ -414,5 +414,6 @@ AlignmentFromAssumptionsPass::run(Function &F, FunctionAnalysisManager &AM) {
   PA.preserve<AAManager>();
   PA.preserve<ScalarEvolutionAnalysis>();
   PA.preserve<GlobalsAA>();
+  PA.preserve<AndersensAA>();            // INTEL
   return PA;
 }

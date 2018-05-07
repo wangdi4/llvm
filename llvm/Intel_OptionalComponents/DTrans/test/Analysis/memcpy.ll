@@ -1,13 +1,12 @@
 ; RUN: opt < %s -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
-
 ; Call memcpy with matched struct pointers.
 ; This is an safe use.
 %struct.test01 = type { i32, i32 }
 define void @test01(%struct.test01* %s1, %struct.test01* %s2) {
   %p1 = bitcast %struct.test01* %s1 to i8*
   %p2 = bitcast %struct.test01* %s2 to i8*
-  call void @llvm.memcpy.p0i8.i64(i8* %p1, i8* %p2, i64 8, i32 8, i1 false)
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %p1, i8* %p2, i64 8, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test01 = type { i32, i32 }
@@ -21,7 +20,7 @@ define void @test01(%struct.test01* %s1, %struct.test01* %s2) {
 define void @test02(%struct.test02.a* %sa, %struct.test02.b* %sb) {
   %pa = bitcast %struct.test02.a* %sa to i8*
   %pb = bitcast %struct.test02.b* %sb to i8*
-  call void @llvm.memcpy.p0i8.i64(i8* %pa, i8* %pb, i64 8, i32 8, i1 false)
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pa, i8* %pb, i64 8, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test02.a = type { i32, i32 }
@@ -36,7 +35,7 @@ define void @test02(%struct.test02.a* %sa, %struct.test02.b* %sb) {
 %struct.test03 = type { i32, i32 }
 define void @test03(%struct.test03* %s1, i8* %b1) {
   %p1 = bitcast %struct.test03* %s1 to i8*
-  call void @llvm.memcpy.p0i8.i64(i8* %p1, i8* %b1, i64 8, i32 8, i1 false)
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %p1, i8* %b1, i64 8, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test03 = type { i32, i32 }
@@ -49,7 +48,7 @@ define void @test03(%struct.test03* %s1, i8* %b1) {
 %struct.test04 = type { i32, i32 }
 define void @test04(i8* %b1, %struct.test04* %s1) {
   %p1 = bitcast %struct.test04* %s1 to i8*
-  call void @llvm.memcpy.p0i8.i64(i8* %b1, i8* %p1, i64 8, i32 8, i1 false)
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %b1, i8* %p1, i64 8, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test04 = type { i32, i32 }
@@ -63,7 +62,7 @@ define void @test04(i8* %b1, %struct.test04* %s1) {
 define void @test05(%struct.test05* %s1, %struct.test05* %s2) {
   %p1 = bitcast %struct.test05* %s1 to i8*
   %p2 = bitcast %struct.test05* %s2 to i8*
-  call void @llvm.memcpy.p0i8.i64(i8* %p1, i8* %p2, i64 8, i32 8, i1 false)
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %p1, i8* %p2, i64 8, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test05 = type { i32, i32, i32, i32 }
@@ -84,7 +83,7 @@ entry:
   %3 = load i8*, i8** %2, align 8
   %conv = sext i32 %n to i64
   %mul = shl nsw i64 %conv, 3
-  tail call void @llvm.memcpy.p0i8.i64(i8* %1, i8* %3, i64 %mul, i32 8, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %1, i8* %3, i64 %mul, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test06.a = type { i32, i32, i32, i32 }
@@ -103,7 +102,7 @@ define void @test07(%struct.test07* %dest, %struct.test07* %src) {
   %t0 = bitcast [50 x i32]* %data to i8*
   %data1 = getelementptr inbounds %struct.test07, %struct.test07* %src, i64 0, i32 3
   %t1 = bitcast [50 x i32]* %data1 to i8*
-  tail call void @llvm.memcpy.p0i8.i64(i8* nonnull %t0, i8* nonnull %t1, i64 200, i32 4, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %t0, i8* %t1, i64 200, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test07 = type { i32, i32, i32, [50 x i32] }
@@ -120,7 +119,7 @@ define void @test08(%struct.test08* %dest, %struct.test08* %src) {
   %t0 = bitcast [50 x i32]* %data to i8*
   %data1 = getelementptr inbounds %struct.test08, %struct.test08* %src, i64 0, i32 3
   %t1 = bitcast [50 x i32]* %data1 to i8*
-  tail call void @llvm.memcpy.p0i8.i64(i8* nonnull %t0, i8* nonnull %t1, i64 400, i32 4, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %t0, i8* %t1, i64 400, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test08 = type { i32, i32, i32, [50 x i32], [50 x i32] }
@@ -138,7 +137,7 @@ define void @test09(%struct.test09.b* %dest, %struct.test09.b* %src) {
   %t0 = bitcast %struct.test09.a* %d to i8*
   %d1 = getelementptr inbounds %struct.test09.b, %struct.test09.b* %src, i64 0, i32 3
   %t1 = bitcast %struct.test09.a* %d1 to i8*
-  tail call void @llvm.memcpy.p0i8.i64(i8* nonnull %t0, i8* nonnull %t1, i64 80, i32 4, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %t0, i8* %t1, i64 80, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test09.a = type { [20 x i32] }
@@ -159,7 +158,7 @@ define void @test10(%struct.test10.a* %dest, %struct.test10.b* %src) {
   %dest_ptr = bitcast %struct.test10.a* %dest to i8*
   %src_addr = getelementptr inbounds %struct.test10.b, %struct.test10.b* %src, i64 0, i32 3
   %src_ptr = bitcast %struct.test10.a* %src_addr to i8*
-  tail call void @llvm.memcpy.p0i8.i64(i8* %dest_ptr, i8* nonnull %src_ptr, i64 20, i32 4, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %dest_ptr, i8* %src_ptr, i64 20, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test10.a = type { i32, i32, i32, i32, i32 }
@@ -178,7 +177,7 @@ define void @test11(%struct.test11.a* %src, %struct.test11.b* %dest) {
   %src_ptr = bitcast %struct.test11.a* %src to i8*
   %dest_addr = getelementptr inbounds %struct.test11.b, %struct.test11.b* %dest, i64 0, i32 3
   %dest_ptr = bitcast %struct.test11.a* %dest_addr to i8*
-  tail call void @llvm.memcpy.p0i8.i64(i8* %dest_ptr, i8* nonnull %src_ptr, i64 20, i32 4, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %dest_ptr, i8* %src_ptr, i64 20, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test11.a = type { i32, i32, i32, i32, i32 }
@@ -197,7 +196,7 @@ define void @test12(%struct.test12.b* %dest, %struct.test12.b* %src) {
   %dest_ptr = bitcast %struct.test12.a** %dest_addr to i8*
   %src_addr = getelementptr inbounds %struct.test12.b, %struct.test12.b* %src, i64 0, i32 3
   %src_ptr = bitcast %struct.test12.a** %src_addr to i8*
-  tail call void @llvm.memcpy.p0i8.i64(i8* %dest_ptr, i8* nonnull %src_ptr, i64 8, i32 4, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %dest_ptr, i8* %src_ptr, i64 8, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test12.a = type { i32, i32, i32, i32, i32 }
@@ -217,7 +216,7 @@ define void @test13(%struct.test13.b* %dest, %struct.test13.b* %src) {
   %dest_ptr = bitcast %struct.test13.a** %dest_addr to i8*
   %src_addr = getelementptr inbounds %struct.test13.b, %struct.test13.b* %src, i64 0, i32 3
   %src_ptr = bitcast %struct.test13.a** %src_addr to i8*
-  tail call void @llvm.memcpy.p0i8.i64(i8* %dest_ptr, i8* nonnull %src_ptr, i64 16, i32 4, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %dest_ptr, i8* %src_ptr, i64 16, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test13.a = type { i32, i32, i32, i32, i32 }
@@ -235,7 +234,7 @@ define void @test14(%struct.test14* %a, %struct.test14* %b) {
   %t0 = bitcast i32* %d to i8*
   %s = getelementptr inbounds %struct.test14, %struct.test14* %b, i64 0, i32 2
   %t1 = bitcast i32* %s to i8*
-  tail call void @llvm.memcpy.p0i8.i64(i8* %t0, i8* nonnull %t1, i64 12, i32 4, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %t0, i8* %t1, i64 12, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test14 = type { i32, i32, i32, i32, i32 }
@@ -251,7 +250,7 @@ define void @test15(%struct.test15.a* %a, %struct.test15.b* %b) {
   %t0 = bitcast %struct.test15.a* %a to i8*
   %s = getelementptr inbounds %struct.test15.b, %struct.test15.b* %b, i64 0, i32 2
   %t1 = bitcast i32* %s to i8*
-  tail call void @llvm.memcpy.p0i8.i64(i8* %t0, i8* nonnull %t1, i64 12, i32 4, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %t0, i8* %t1, i64 12, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test15.a = type { i32, i32, i32 }
@@ -268,7 +267,7 @@ define void @test16(%struct.test16* %a, %struct.test16* %b) {
   %t0 = bitcast i32* %d to i8*
   %s = getelementptr inbounds %struct.test16, %struct.test16* %b, i64 0, i32 2
   %t1 = bitcast i32* %s to i8*
-  tail call void @llvm.memcpy.p0i8.i64(i8* %t0, i8* nonnull %t1, i64 0, i32 4, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %t0, i8* %t1, i64 0, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test16 = type { i32, i32, i32, i32, i32 }
@@ -286,7 +285,7 @@ define void @test17(%struct.test17* %a, %struct.test17* %b) {
   %t0 = bitcast i32* %d to i8*
   %s = getelementptr inbounds %struct.test17, %struct.test17* %b, i64 0, i32 3
   %t1 = bitcast i32* %s to i8*
-  tail call void @llvm.memcpy.p0i8.i64(i8* %t0, i8* nonnull %t1, i64 8, i32 0, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %t0, i8* %t1, i64 8, i1 false)
   ret void
 }
 ; CHECK: LLVMType: %struct.test17 = type { i32, i32, i32, i32, i32 }
@@ -303,7 +302,7 @@ define void @test18(%array.test18* %a, %array.test18* %b) {
   %t0 = bitcast i32* %d to i8*
   %s = getelementptr inbounds %array.test18, %array.test18* %b, i64 0, i32 3
   %t1 = bitcast i32* %s to i8*
-  tail call void @llvm.memcpy.p0i8.i64(i8* %t0, i8* nonnull %t1, i64 12, i32 0, i1 false)
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %t0, i8* %t1, i64 12, i1 false)
   ret void
 }
 
@@ -313,7 +312,4 @@ define void @test18(%array.test18* %a, %array.test18* %b) {
 ; CHECK: LLVMType: [6 x i32]
 ; CHECK: Safety data: Unhandled use
 
-
-
-declare void @llvm.memcpy.p0i8.i64(i8* nocapture writeonly,
-                                   i8* nocapture readonly, i64, i32, i1)
+declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)

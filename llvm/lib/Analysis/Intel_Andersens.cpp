@@ -304,36 +304,6 @@ static const unsigned CallReturnPos = 1;
 // Position of the function call node relative to the function node.
 static const unsigned CallFirstArgPos = 2;
 
-struct AndersensAAResult::BitmapKeyInfo {
-  static inline SparseBitVector<> *getEmptyKey() {
-    return reinterpret_cast<SparseBitVector<> *>(-1);
-  }
-  static inline SparseBitVector<> *getTombstoneKey() {
-    return reinterpret_cast<SparseBitVector<> *>(-2);
-  }
-  static unsigned getHashValue(const SparseBitVector<> *bitmap) {
-    uint64_t HashVal = 0;
-
-    for (auto bi = bitmap->begin(), E = bitmap->end();
-         bi != E; ++bi) {
-      HashVal ^= *bi;
-    }
-    return HashVal;
-  }
-  static bool isEqual(const SparseBitVector<> *LHS,
-                      const SparseBitVector<> *RHS) {
-    if (LHS == RHS)
-      return true;
-    else if (LHS == getEmptyKey() || RHS == getEmptyKey()
-             || LHS == getTombstoneKey() || RHS == getTombstoneKey())
-      return false;
-
-    return *LHS == *RHS;
-  }
-
-  static bool isPod() { return true; }
-};
-
 // Information DenseSet requires implemented in order to be able to do
 // it's thing
 struct AndersensAAResult::PairKeyInfo {
@@ -366,125 +336,6 @@ struct AndersensAAResult::ConstraintKeyInfo {
                       const Constraint &RHS) {
     return LHS.Type == RHS.Type && LHS.Dest == RHS.Dest
       && LHS.Src == RHS.Src && LHS.Offset == RHS.Offset;
-  }
-};
-
-// Node class - This class is used to represent a node in the constraint
-// graph.  Due to various optimizations, it is not always the case that
-// there is a mapping from a Node to a Value.  In particular, we add
-// artificial Node's that represent the set of pointed-to variables shared
-// for each location equivalent Node.
-struct AndersensAAResult::Node {
-public:
-  Value *Val;
-  SparseBitVector<> *Edges;
-  SparseBitVector<> *PointsTo;
-  SparseBitVector<> *OldPointsTo;
-  std::list<Constraint> Constraints;
-
-  // The incoming edges and outgoing edges are used by the escape analysis.
-  SparseBitVector<> *InEdges;
-  SparseBitVector<> *OutEdges;
-  // The reversed points to set
-  SparseBitVector<> *RevPointsTo;
-  unsigned int EscFlag;
-
-  // Pointer and location equivalence labels
-  unsigned PointerEquivLabel;
-  unsigned LocationEquivLabel;
-  // Predecessor edges, both real and implicit
-  SparseBitVector<> *PredEdges;
-  SparseBitVector<> *ImplicitPredEdges;
-  // Set of nodes that point to us, only use for location equivalence.
-  SparseBitVector<> *PointedToBy;
-  // Number of incoming edges, used during variable substitution to early
-  // free the points-to sets
-  unsigned NumInEdges;
-  // True if our points-to set is in the Set2PEClass map
-  bool StoredInHash;
-  // True if our node has no indirect constraints (complex or otherwise)
-  bool Direct;
-  // True if the node is address taken, *or* it is part of a group of nodes
-  // that must be kept together.  This is set to true for functions and
-  // their arg nodes, which must be kept at the same position relative to
-  // their base function node.
-  bool AddressTaken;
-
-  // True is the Value object that originally tracked this node has been
-  // removed from the IR, causing this node to no longer be valid.
-  bool Invalidated;
-
-  // Nodes in cycles (or in equivalence classes) are united together using a
-  // standard union-find representation with path compression.  NodeRep
-  // gives the index into GraphNodes for the representative Node.
-  unsigned NodeRep;
-
-  // Modification timestamp.  Assigned from Counter.
-  // Used for work list prioritization.
-  unsigned Timestamp;
-
-  explicit Node(bool direct = true)
-      : Val(0), Edges(0), PointsTo(0), OldPointsTo(0), InEdges(nullptr),
-        OutEdges(nullptr), RevPointsTo(nullptr), EscFlag(0),
-        PointerEquivLabel(0), LocationEquivLabel(0), PredEdges(0),
-        ImplicitPredEdges(0), PointedToBy(0), NumInEdges(0),
-        StoredInHash(false), Direct(direct), AddressTaken(false),
-        Invalidated(false), NodeRep(SelfRep), Timestamp(0) {}
-
-  Node *setValue(Value *V) {
-    assert(V == nullptr ||
-        (Val == nullptr && "Value already set for this node!"));
-    Val = V;
-    return this;
-  }
-
-  /// getValue - Return the LLVM value corresponding to this node.
-  ///
-  Value *getValue() const { return Val; }
-
-  /// setInvalidated - Mark the node as no longer tracking a valid object.
-  void setInvalidated() {
-    Invalidated = true;
-  }
-
-  /// getInvalidated - Check whether the node trackes a valid object.
-  bool getInvalidated() const {
-    return Invalidated;
-  }
-
-  /// addPointerTo - Add a pointer to the list of pointees of this node,
-  /// returning true if this caused a new pointer to be added, or false if
-  /// we already knew about the points-to relation.
-  bool addPointerTo(unsigned Node) {
-    return PointsTo->test_and_set(Node);
-  }
-
-  bool addRevPointerto(unsigned Node) {
-    if (!RevPointsTo)
-      RevPointsTo = new SparseBitVector<>;
-    return RevPointsTo->test_and_set(Node);
-  }
-
-  /// intersects - Return true if the points-to set of this node intersects
-  /// with the points-to set of the specified node.
-  bool intersects(Node *N) const;
-
-  /// intersectsIgnoring - Return true if the points-to set of this node
-  /// intersects with the points-to set of the specified node on any nodes
-  /// except for the specified node to ignore.
-  bool intersectsIgnoring(Node *N, unsigned) const;
-
-  // Timestamp a node (used for work list prioritization)
-  void Stamp() {
-    // Initialize Timestamp Counter (static).
-    static std::atomic<unsigned> Counter (0);
-
-    Timestamp = ++Counter;
-    --Timestamp;
-  }
-
-  bool isRep() const {
-    return( (int) NodeRep < 0 );
   }
 };
 
@@ -796,10 +647,10 @@ AndersensAAResult::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
 
 AnalysisKey AndersensAA::Key;
 
-AndersensAAResult AndersensAA::run(Module &M, AnalysisManager<Module> *AM) {
+AndersensAAResult AndersensAA::run(Module &M, ModuleAnalysisManager &AM) {
   return AndersensAAResult::analyzeModule(M,
-                                      AM->getResult<TargetLibraryAnalysis>(M),
-                                      AM->getResult<CallGraphAnalysis>(M));
+                                      AM.getResult<TargetLibraryAnalysis>(M),
+                                      AM.getResult<CallGraphAnalysis>(M));
 }
 
 char AndersensAAWrapperPass::ID = 0;

@@ -18,10 +18,14 @@
 
 ; CHECK-All: Starting llvm::Module pass manager run.
 ; CHECK-Agg: Running pass: InlineListsPass
+; CHECK-Agg-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA
+; CHECK-Agg-NEXT: Running analysis: AndersensAA
+; CHECK-Agg-NEXT: Running analysis: CallGraphAnalysis
+; CHECK-Agg-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}IndirectCallConvPass
+; CHECK-Agg-NEXT: Running analysis: OuterAnalysisManagerProxy
 ; CHECK-Agg-NEXT: Running pass: RequireAnalysisPass<{{.*}}InlineAggAnalysis
 ; CHECK-Agg-NEXT: Running analysis: InlineAggAnalysis
 ; CHECK-Agg: Running pass: AggInlAAPass
-; CHECK-Agg-NEXT: Running analysis: OuterAnalysisManagerProxy
 
 ; CHECK-NoAgg-NOT: Running pass: RequireAnalysisPass<{{.*}}InlineAggAnalysis
 ; CHECK-NoAgg-NOT: Running analysis: InlineAggAnalysis

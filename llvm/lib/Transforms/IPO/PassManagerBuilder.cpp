@@ -37,10 +37,12 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/ForceFunctionAttrs.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
@@ -174,23 +176,6 @@ static cl::opt<bool> PrintModuleBeforeLoopopt(
     "print-module-before-loopopt", cl::init(false), cl::Hidden,
     cl::desc("Prints LLVM module to dbgs() before first HIR transform(HIR SSA "
              "deconstruction)"));
-
-// Option for controlling 'backend' for the optimization reports.
-static cl::opt<OptReportOptionsPass::LoopOptReportEmitterKind>
-    OptReportEmitter(
-        "intel-loop-optreport-emitter",
-        cl::desc("Option for choosing the way compiler outputs the "
-                 "optimization reports"),
-        cl::init(OptReportOptionsPass::None),
-        cl::values(
-            clEnumValN(OptReportOptionsPass::None, "none",
-                       "Optimization reports are not emitted"),
-            clEnumValN(
-                OptReportOptionsPass::IR, "ir",
-                "Optimization reports are emitted right after HIR phase"),
-            clEnumValN(
-                OptReportOptionsPass::HIR, "hir",
-                "Optimization reports are emitted before HIR Code Gen phase")));
 
 // register promotion for global vars at -O2 and above.
 static cl::opt<bool> EnableNonLTOGlobalVarOpt(
@@ -404,6 +389,10 @@ void PassManagerBuilder::addInstructionCombiningPass(
 void PassManagerBuilder::populateFunctionPassManager(
     legacy::FunctionPassManager &FPM) {
   addExtensionsToPM(EP_EarlyAsPossible, FPM);
+#if INTEL_CUSTOMIZATION
+  if (!isLoopOptEnabled())
+    FPM.add(createLowerSubscriptIntrinsicLegacyPass());
+#endif // INTEL_CUSTOMIZATION
   FPM.add(createEntryExitInstrumenterPass());
 
   // Add LibraryInfo if we have some.
@@ -1084,7 +1073,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
   }
   if (EnableIndirectCallConv && EnableAndersen) {
-    PM.add(createIndirectCallConvPass()); // Indirect Call Conv
+    PM.add(createIndirectCallConvLegacyPass()); // Indirect Call Conv
   }
   if (EnableInlineAggAnalysis) {
     PM.add(createInlineAggressiveWrapperPassPass()); // Aggressive Inline
@@ -1229,6 +1218,10 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
   // This pass removes the old (unreachable) code which has been replaced by a
   // new one by HIR.
   PM.add(createCFGSimplificationPass());
+
+  // Cleanup llvm.intel.subscript from code not touched by LoopOpts.
+  PM.add(createLowerSubscriptIntrinsicLegacyPass());
+
   // This is mainly for optimizing away unnecessary alloca load/stores generated
   // by HIR.
   PM.add(createSROAPass());
@@ -1328,10 +1321,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createHIRScalarReplArrayPass());
   }
 
-  if (OptReportEmitter == OptReportOptionsPass::HIR)
+  if (IntelOptReportEmitter == OptReportOptions::HIR)
     PM.add(createHIROptReportEmitterWrapperPass());
 
- PM.add(createHIRCodeGenWrapperPass());
+  PM.add(createHIRCodeGenWrapperPass());
 
   addLoopOptCleanupPasses(PM);
 }
@@ -1393,7 +1386,7 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
   if (RunVPOOpt)
     PM.add(createVPODirectiveCleanupPass());
 
-  if (OptReportEmitter == OptReportOptionsPass::IR)
+  if (IntelOptReportEmitter == OptReportOptions::IR)
     PM.add(createLoopOptReportEmitterLegacyPass());
 }
 

@@ -6593,12 +6593,23 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     return getSignExtendExpr(getSCEV(U->getOperand(0)), U->getType());
 
   case Instruction::BitCast:
-    // INTEL - Suppress traceback for liveout copy instructions inserted by HIR.
-    if (!isa<Instruction>(V) || 
-        !getHIRMetadata(cast<Instruction>(V), HIRLiveKind::LiveOut))  
-      // BitCasts are no-op casts so we just eliminate the cast.
-      if (isSCEVable(U->getType()) && isSCEVable(U->getOperand(0)->getType()))
-        return getSCEV(U->getOperand(0));
+#if INTEL_CUSTOMIZATION // HIR parsing
+    // Suppress traceback for liveout copy instructions inserted by HIR.
+    if (auto BCInst = dyn_cast<BitCastInst>(V)) {
+      if (getHIRMetadata(BCInst, HIRLiveKind::LiveOut)) {
+        const SCEV *S = getUnknown(BCInst);
+        const SCEV *OpS = getSCEV(BCInst->getOperand(0));
+        // Propagate range information to liveout copies to avoid conservative
+        // behavior.
+        setRange(S, ScalarEvolution::HINT_RANGE_UNSIGNED, getUnsignedRange(OpS));
+        setRange(S, ScalarEvolution::HINT_RANGE_SIGNED, getSignedRange(OpS));
+        return S;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
+    // BitCasts are no-op casts so we just eliminate the cast.
+    if (isSCEVable(U->getType()) && isSCEVable(U->getOperand(0)->getType()))
+      return getSCEV(U->getOperand(0));
     break;
 
   // It's tempting to handle inttoptr and ptrtoint as no-ops, however this can
@@ -7019,6 +7030,12 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
     // ValuesAtScopes map.
     LoopWorklist.append(CurrL->begin(), CurrL->end());
   }
+}
+
+void ScalarEvolution::forgetTopmostLoop(const Loop *L) {
+  while (Loop *Parent = L->getParentLoop())
+    L = Parent;
+  forgetLoop(L);
 }
 
 void ScalarEvolution::forgetValue(Value *V) {

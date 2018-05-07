@@ -558,6 +558,88 @@ define void @test36(%struct.test36* %p) {
 ; CHECK: LLVMType: %struct.test36 = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 
+; Test the case of a cyclic dependency among PHI nodes.
+; There was a bug where the alias set for one of the PHI nodes wasn't
+; being fully resolved because it depended on another PHI node that
+; was only partially analyzed when it was needed.
+%struct.test37.a = type { i32, i32 }
+%struct.test37.b = type { i16, i16, i16, i16 }
+
+define void @test37(%struct.test37.a* %a_in, %struct.test37.b* %b_in) {
+entry:
+  %tmpA = bitcast %struct.test37.a* %a_in to i8*
+  %tmpB = bitcast %struct.test37.b* %b_in to i8*
+  br i1 undef, label %block_A, label %block_B
+
+block_C:
+  %c = phi i8* [%a, %block_A], [%b, %block_B]
+  br label %merge
+
+block_A:
+  %a = phi i8* [%c, %merge], [%tmpA, %entry]
+  br i1 undef, label %block_C, label %exit_A
+
+block_B:
+  %b = phi i8* [%c, %merge], [%tmpB, %entry]
+  br i1 undef, label %block_C, label %exit_B
+
+merge:
+  br i1 undef, label %block_A, label %block_B
+
+exit_A:
+  %badA = bitcast i8* %a to %struct.test37.a*
+  br label %exit
+
+exit_B:
+  br label %exit
+
+exit:
+  ret void
+}
+  
+; CHECK: LLVMType: %struct.test37.a = type { i32, i32 }
+; CHECK: Safety data: Bad casting | Unsafe pointer merge
+; CHECK: LLVMType: %struct.test37.b = type { i16, i16, i16, i16 }
+; CHECK: Safety data: Bad casting | Unsafe pointer merge
+
+; Test a cyclic analysis with a dependent bitcast.
+; This was an attempt to cause a false positive with an element-zero bitcast
+; inside a cycle, but it is handled correctly.
+%struct.test38 = type { i32, i32 }
+
+define void @test38(%struct.test38* %p) {
+entry:
+  %tmpA = bitcast %struct.test38* %p to i8*
+  %tmpB = call i8* @malloc(i64 16)
+  br i1 undef, label %block_A, label %block_B
+
+block_C:
+  %c_a0 = phi i32* [%a0, %block_A], [%b_a0, %block_B]
+  %c = phi i8* [%a, %block_A], [%b, %block_B]
+  %elem0 = load i32, i32* %c_a0
+  br label %merge
+
+block_A:
+  %a = phi i8* [%c, %merge], [%tmpA, %entry]
+  %a0 = bitcast i8* %a to i32*
+  br i1 undef, label %block_C, label %exit
+
+block_B:
+  %b = phi i8* [%c, %merge], [%tmpB, %entry]
+  %b_a = bitcast i8* %b to %struct.test38*
+  %b_a0 = bitcast i8* %b to i32*
+  br i1 undef, label %block_C, label %exit
+
+merge:
+  br i1 undef, label %block_A, label %block_B
+
+exit:
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test38 = type { i32, i32 }
+; CHECK: Safety data: No issues found
+
 ; Array types get printed last so theese checks aren't with their IR.
 
 ; CHECK: LLVMType: [16 x %struct.test10]

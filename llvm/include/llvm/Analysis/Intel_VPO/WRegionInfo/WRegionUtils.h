@@ -242,8 +242,8 @@ public:
   /// \brief Extract operands from a reduction clause
   static void extractReductionOpndList(const Use *Args, unsigned NumArgs,
                                       const ClauseSpecifier &ClauseInfo,
-                                      ReductionClause &C, int ReductionKind);
-
+                                      ReductionClause &C, int ReductionKind,
+                                      bool IsInreduction);
   /// \brief Extract operands from a schedule clause
   static void extractScheduleOpndList(ScheduleClause & Sched,
                                       const Use *Args,

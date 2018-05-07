@@ -211,6 +211,8 @@
 ; CHECK-O-NEXT: Running pass: ModuleToFunctionPassAdaptor<llvm::CleanupFakeLoadsPass>    ;INTEL
 ; CHECK-O-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-O-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
+; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA                      ;INTEL
+; CHECK-O-NEXT: Running analysis: AndersensAA                                            ;INTEL
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}GlobalsAA
 ; CHECK-O-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}PassManager{{.*}}>
 ; CHECK-O-NEXT: Starting llvm::Function pass manager run.

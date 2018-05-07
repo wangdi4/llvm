@@ -24,6 +24,7 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Transforms/AOSToSOA.h"
 #include "Intel_DTrans/Transforms/DeleteField.h"
+#include "Intel_DTrans/Transforms/ReorderFields.h"
 
 namespace llvm {
 
@@ -36,6 +37,7 @@ void initializeDTransPasses(PassRegistry&);
 void initializeDTransAnalysisWrapperPass(PassRegistry&);
 void initializeDTransAOSToSOAWrapperPass(PassRegistry&);
 void initializeDTransDeleteFieldWrapperPass(PassRegistry&);
+void initializeDTransReorderFieldsWrapperPass(PassRegistry&);
 
 // This is used by ForcePassLinking.
 void createDTransPasses();
