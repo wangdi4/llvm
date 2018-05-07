@@ -347,6 +347,16 @@ public:
     CodeGenFunction &CGF;
     llvm::CallInst *CallEntry;
   };
+
+  class DistributePointHandler {
+  public:
+    DistributePointHandler(CodeGenFunction &CGF, const Stmt *S,
+                           ArrayRef<const Attr *> Attrs);
+    ~DistributePointHandler();
+  private:
+    CodeGenFunction &CGF;
+    llvm::CallInst *CallEntry;
+  };
 #endif // INTEL_CUSTOMIZATION
 
   /// \brief RAII for correct setting/restoring of CapturedStmtInfo.
@@ -814,7 +824,7 @@ public:
     /// \return true if the variable is registered as private, false if it has
     /// been privatized already.
     bool addPrivate(const VarDecl *LocalVD,
-                    llvm::function_ref<Address()> PrivateGen) {
+                    const llvm::function_ref<Address()> PrivateGen) {
       assert(PerformCleanup && "adding private to dead scope");
       return MappedVars.setVarAddr(CGF, LocalVD, PrivateGen());
     }
@@ -1172,7 +1182,7 @@ private:
     /// Emits exit block with special codegen procedure specific for the related
     /// OpenMP construct + emits code for normal construct cleanup.
     void emitExit(CodeGenFunction &CGF, OpenMPDirectiveKind Kind,
-                  const llvm::function_ref<void(CodeGenFunction &)> &CodeGen) {
+                  const llvm::function_ref<void(CodeGenFunction &)> CodeGen) {
       if (Stack.back().Kind == Kind && getExitBlock().isValid()) {
         assert(CGF.getOMPCancelDestination(Kind).isValid());
         assert(CGF.HaveInsertPoint());
@@ -1314,6 +1324,27 @@ public:
       }
     }
     ~LocalVarsDeclGuard() { CGF.LocalDeclMap.swap(LocalDeclMap); }
+  };
+  // Save and clear the TerminateLandingPad on entry to each OpenMP region.
+  // This will ensure we have one for each OpenMP region when it is outlined.
+  class OMPTerminateLandingPadHandler {
+    CodeGenFunction &CGF;
+    llvm::BasicBlock *TerminateLandingPad;
+
+  public:
+    OMPTerminateLandingPadHandler(CodeGenFunction &CGF)
+        : CGF(CGF), TerminateLandingPad(CGF.TerminateLandingPad) {
+      CGF.TerminateLandingPad = nullptr;
+    }
+    ~OMPTerminateLandingPadHandler() {
+      if (CGF.TerminateLandingPad) {
+        if (!CGF.TerminateLandingPad->use_empty())
+          CGF.CurFn->getBasicBlockList().push_back(CGF.TerminateLandingPad);
+        else
+          delete CGF.TerminateLandingPad;
+      }
+      CGF.TerminateLandingPad = TerminateLandingPad;
+    }
   };
 #endif  // INTEL_CUSTOMIZATION
   /// A scope within which we are constructing the fields of an object which
@@ -1868,6 +1899,10 @@ public:
   /// AlwaysEmitXRayCustomEvents - Return true if we must unconditionally emit
   /// XRay custom event handling calls.
   bool AlwaysEmitXRayCustomEvents() const;
+
+  /// AlwaysEmitXRayTypedEvents - Return true if clang must unconditionally emit
+  /// XRay typed event handling calls.
+  bool AlwaysEmitXRayTypedEvents() const;
 
   /// Encode an address into a form suitable for use in a function prologue.
   llvm::Constant *EncodeAddrForUseInPrologue(llvm::Function *F,
@@ -2839,7 +2874,7 @@ public:
   /// to another single array element.
   void EmitOMPAggregateAssign(
       Address DestAddr, Address SrcAddr, QualType OriginalType,
-      const llvm::function_ref<void(Address, Address)> &CopyGen);
+      const llvm::function_ref<void(Address, Address)> CopyGen);
   /// \brief Emit proper copying of data from one variable to another.
   ///
   /// \param OriginalType Original type of the copied variables.
@@ -2871,7 +2906,7 @@ public:
   std::pair<bool, RValue> EmitOMPAtomicSimpleUpdateExpr(
       LValue X, RValue E, BinaryOperatorKind BO, bool IsXLHSInRHSPart,
       llvm::AtomicOrdering AO, SourceLocation Loc,
-      const llvm::function_ref<RValue(RValue)> &CommonGen);
+      const llvm::function_ref<RValue(RValue)> CommonGen);
   bool EmitOMPFirstprivateClause(const OMPExecutableDirective &D,
                                  OMPPrivateScope &PrivateScope);
   void EmitOMPPrivateClause(const OMPExecutableDirective &D,
@@ -2922,7 +2957,7 @@ public:
   /// linear clause.
   void EmitOMPLinearClauseFinal(
       const OMPLoopDirective &D,
-      const llvm::function_ref<llvm::Value *(CodeGenFunction &)> &CondGen);
+      const llvm::function_ref<llvm::Value *(CodeGenFunction &)> CondGen);
   /// \brief Emit initial code for reduction variables. Creates reduction copies
   /// and initializes them with the values according to OpenMP standard.
   ///
@@ -3084,9 +3119,9 @@ public:
   void EmitOMPInnerLoop(
       const Stmt &S, bool RequiresCleanup, const Expr *LoopCond,
       const Expr *IncExpr,
-      const llvm::function_ref<void(CodeGenFunction &)> &BodyGen,
+      const llvm::function_ref<void(CodeGenFunction &)> BodyGen,
 #if INTEL_CUSTOMIZATION
-      const llvm::function_ref<void(CodeGenFunction &)> &PostIncGen,
+      const llvm::function_ref<void(CodeGenFunction &)> PostIncGen,
       llvm::BasicBlock *IncomingBlock = nullptr,
       const Expr *IterationVariable = nullptr);
 #endif // INTEL_CUSTOMIZATION
@@ -3114,7 +3149,7 @@ public:
   void EmitOMPSimdInit(const OMPLoopDirective &D, bool IsMonotonic = false);
   void EmitOMPSimdFinal(
       const OMPLoopDirective &D,
-      const llvm::function_ref<llvm::Value *(CodeGenFunction &)> &CondGen);
+      const llvm::function_ref<llvm::Value *(CodeGenFunction &)> CondGen);
 
   /// Emits the lvalue for the expression with possibly captured variable.
   LValue EmitOMPSharedLValue(const Expr *E);
@@ -3588,6 +3623,7 @@ public:
 
 #if INTEL_CUSTOMIZATION
   llvm::Value *EmitIntelFPGABuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+  RValue EmitFPGARegBuiltin(unsigned BuiltinID, const CallExpr *E);
   RValue EmitHLSStreamBuiltin(unsigned BuiltinID, const CallExpr *E);
   RValue EmitHLSMemMasterBuiltin(unsigned BuiltinID, const CallExpr *E,
                                  ReturnValueSlot ReturnValue);
@@ -3790,6 +3826,9 @@ public:
   /// the given function.
   void registerGlobalDtorWithAtExit(const VarDecl &D, llvm::Constant *fn,
                                     llvm::Constant *addr);
+
+  /// Call atexit() with function dtorStub.
+  void registerGlobalDtorWithAtExit(llvm::Constant *dtorStub);
 
   /// Emit code in this function to perform a guarded variable
   /// initialization.  Guarded initializations are used when it's not

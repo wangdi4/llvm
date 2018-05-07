@@ -8,6 +8,13 @@ clang_tablegen(AttrImpl.inc -gen-clang-attr-impl
   SOURCE ../Basic/Attr.td
   TARGET ClangAttrImpl)
 
+# INTEL_CUSTOMIZATION
+clang_tablegen(IntelCust.inc -gen-intel-cust-impl
+  -I ${CMAKE_CURRENT_SOURCE_DIR}/../../
+  SOURCE ../Basic/intel/IntelCustDocs.td
+  TARGET ClangIntelCustImpl)
+# end INTEL_CUSTOMIZATION
+
 clang_tablegen(AttrDump.inc -gen-clang-attr-dump
   -I ${CMAKE_CURRENT_SOURCE_DIR}/../../
   SOURCE ../Basic/Attr.td

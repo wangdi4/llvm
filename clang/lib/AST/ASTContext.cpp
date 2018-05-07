@@ -7439,6 +7439,10 @@ TypedefDecl *ASTContext::getBuiltinMSVaListDecl() const {
   return BuiltinMSVaListDecl;
 }
 
+bool ASTContext::canBuiltinBeRedeclared(const FunctionDecl *FD) const {
+  return BuiltinInfo.canBeRedeclared(FD->getBuiltinID());
+}
+
 void ASTContext::setObjCConstantStringInterface(ObjCInterfaceDecl *Decl) {
   assert(ObjCConstantStringType.isNull() &&
          "'NSConstantString' type already set!");
@@ -9545,8 +9549,15 @@ static GVALinkage adjustGVALinkageForAttributes(const ASTContext &Context,
   } else if (D->hasAttr<DLLExportAttr>()) {
     if (L == GVA_DiscardableODR)
       return GVA_StrongODR;
+  } else if (Context.getLangOpts().CUDA && Context.getLangOpts().CUDAIsDevice &&
+             D->hasAttr<CUDAGlobalAttr>()) {
+    // Device-side functions with __global__ attribute must always be
+    // visible externally so they can be launched from host.
+    if (L == GVA_DiscardableODR || L == GVA_Internal)
+      return GVA_StrongODR;
+  }
 #if INTEL_CUSTOMIZATION
-  } else if (const auto *FD = dyn_cast<FunctionDecl>(D)) {
+  else if (const auto *FD = dyn_cast<FunctionDecl>(D)) {
     // CQ#369830 - static declarations are treated differently.
     //   In C language for a function that has ever been declared static,
     //   set internal linkage.
@@ -9558,14 +9569,8 @@ static GVALinkage adjustGVALinkageForAttributes(const ASTContext &Context,
         if (Prev->getStorageClass() == SC_Static)
           return GVA_Internal;
     }
-#endif // INTEL_CUSTOMIZATION
-  } else if (Context.getLangOpts().CUDA && Context.getLangOpts().CUDAIsDevice &&
-             D->hasAttr<CUDAGlobalAttr>()) {
-    // Device-side functions with __global__ attribute must always be
-    // visible externally so they can be launched from host.
-    if (L == GVA_DiscardableODR || L == GVA_Internal)
-      return GVA_StrongODR;
   }
+#endif // INTEL_CUSTOMIZATION
   return L;
 }
 

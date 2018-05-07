@@ -281,8 +281,6 @@ def split_stacks : Flag<["-"], "split-stacks">,
   HelpText<"Try to use a split stack if possible.">;
 def mno_zero_initialized_in_bss : Flag<["-"], "mno-zero-initialized-in-bss">,
   HelpText<"Do not put zero initialized data in the BSS">;
-def backend_option : Separate<["-"], "backend-option">,
-  HelpText<"Additional arguments to forward to LLVM backend (during code gen)">;
 def mregparm : Separate<["-"], "mregparm">,
   HelpText<"Limit the number of registers available for integer arguments">;
 def munwind_tables : Flag<["-"], "munwind-tables">,
@@ -663,6 +661,8 @@ def disable_objc_default_synthesize_properties : Flag<["-"], "disable-objc-defau
   HelpText<"disable the default synthesis of Objective-C properties">;
 def fencode_extended_block_signature : Flag<["-"], "fencode-extended-block-signature">,
   HelpText<"enable extended encoding of block type signature">;
+def function_alignment : Separate<["-"], "function-alignment">,
+    HelpText<"default alignment for functions">;
 def pic_level : Separate<["-"], "pic-level">,
   HelpText<"Value for __PIC__">;
 def pic_is_pie : Flag<["-"], "pic-is-pie">,
@@ -732,6 +732,15 @@ def fallow_half_arguments_and_returns : Flag<["-"], "fallow-half-arguments-and-r
 // if INTEL_CUSTOMIZATION
 def fintel_compatibility : Flag<["-"], "fintel-compatibility">,
   HelpText<"Enable full Intel C/C++ compatibility">;
+def fintel_compatibility_enable
+    : Joined<[ "-" ], "fintel-compatibility-enable=">,
+      HelpText<"Enable a list of Intel C/C++ compatibility items">;
+def fintel_compatibility_disable
+    : Joined<[ "-" ], "fintel-compatibility-disable=">,
+      HelpText<"Disable a list of Intel C/C++ compatibility items">;
+def fintel_compatibility_help
+    : Flag<[ "-" ], "fintel-compatibility-help">,
+      HelpText<"Display the list of Intel C/C++ compatibility items">;
 def fintel_ms_compatibility : Flag<["-"], "fintel-ms-compatibility">,
   HelpText<"Enable Microsoft compatibility features that are not planned for clang/llvm trunk">;
 def fintel_advanced_optim : Flag<["-"], "fintel-advanced-optim">,

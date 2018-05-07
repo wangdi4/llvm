@@ -73,6 +73,10 @@ void EmitNeonSema2(RecordKeeper &Records, raw_ostream &OS);
 void EmitNeonTest2(RecordKeeper &Records, raw_ostream &OS);
 
 void EmitClangAttrDocs(RecordKeeper &Records, raw_ostream &OS);
+#if INTEL_CUSTOMIZATION
+void EmitClangIntelCustDocs(RecordKeeper &Records, raw_ostream &OS);
+void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS);
+#endif // INTEL_CUSTOMIZATION
 void EmitClangDiagDocs(RecordKeeper &Records, raw_ostream &OS);
 void EmitClangOptDocs(RecordKeeper &Records, raw_ostream &OS);
 

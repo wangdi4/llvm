@@ -1200,7 +1200,7 @@ namespace CGIntelOpenMP {
 
   OpenMPCodeOutliner::OpenMPCodeOutliner(CodeGenFunction &CGF,
                                          const OMPExecutableDirective &D)
-      : CGF(CGF), C(CGF.CGM.getLLVMContext()), Directive(D) {
+      : CGF(CGF), C(CGF.CGM.getLLVMContext()), TLPH(CGF), Directive(D) {
     // Set an attribute indicating that the routine may have OpenMP directives
     // (represented with llvm intrinsics) in the LLVM IR
     CGF.CurFn->addFnAttr("may-have-openmp-directive", "true");

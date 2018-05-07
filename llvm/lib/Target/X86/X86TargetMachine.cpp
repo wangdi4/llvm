@@ -224,7 +224,8 @@ X86TargetMachine::X86TargetMachine(const Target &T, const Triple &TT,
   // The check here for 64-bit windows is a bit icky, but as we're unlikely
   // to ever want to mix 32 and 64-bit windows code in a single module
   // this should be fine.
-  if ((TT.isOSWindows() && TT.getArch() == Triple::x86_64) || TT.isPS4())
+  if ((TT.isOSWindows() && TT.getArch() == Triple::x86_64) || TT.isPS4() ||
+      TT.isOSBinFormatMachO())
     this->Options.TrapUnreachable = true;
 
   initAsmInfo();
@@ -494,4 +495,10 @@ void X86PassConfig::addPreEmitPass() {
 
 void X86PassConfig::addPreEmitPass2() {
   addPass(createX86RetpolineThunksPass());
+  // Verify basic block incoming and outgoing cfa offset and register values and
+  // correct CFA calculation rule where needed by inserting appropriate CFI
+  // instructions.
+  const Triple &TT = TM->getTargetTriple();
+  if (!TT.isOSDarwin() && !TT.isOSWindows())
+    addPass(createCFIInstrInserter());
 }

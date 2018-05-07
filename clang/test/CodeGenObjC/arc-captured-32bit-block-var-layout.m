@@ -3,6 +3,11 @@
 // rdar://12184410
 // rdar://12752901
 
+// if INTEL_CUSTOMIATION
+// XFAIL: *
+// CHECK: ALWAYS_FAIL See CMPLRS-49972
+// endif //INTEL_CUSTOMIATION
+
 void x(id y) {}
 void y(int a) {}
 

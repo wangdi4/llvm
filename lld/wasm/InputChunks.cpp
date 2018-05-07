@@ -124,7 +124,7 @@ void InputChunk::writeRelocations(raw_ostream &OS) const {
     case R_WEBASSEMBLY_MEMORY_ADDR_LEB:
     case R_WEBASSEMBLY_MEMORY_ADDR_SLEB:
     case R_WEBASSEMBLY_MEMORY_ADDR_I32:
-      writeUleb128(OS, Rel.Addend, "reloc addend");
+      writeSleb128(OS, Rel.Addend, "reloc addend");
       break;
     }
   }
@@ -142,14 +142,4 @@ void InputFunction::setTableIndex(uint32_t Index) {
                << Index << "\n");
   assert(!hasTableIndex());
   TableIndex = Index;
-}
-
-InputSection::InputSection(const WasmSection &S, ObjFile *F)
-    : InputChunk(F, InputChunk::Section), Section(S) {
-  assert(Section.Type == llvm::wasm::WASM_SEC_CUSTOM);
-  // TODO check LEB errors
-  unsigned Count;
-  uint64_t NameSize = llvm::decodeULEB128(Section.Content.data(), &Count);
-  uint32_t PayloadOffset = Count + NameSize;
-  Payload = Section.Content.slice(PayloadOffset);
 }

@@ -635,47 +635,74 @@ CodeGenFunction::IntelPragmaInlineState::getPragmaInlineAttribute() {
 CodeGenFunction::IntelIVDepArrayHandler::IntelIVDepArrayHandler(
     CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
     : CGF(CGF), CallEntry(nullptr) {
-  auto AttrItr =
-      std::find_if(std::begin(Attrs), std::end(Attrs), [](const Attr *A) {
-        return A->getKind() == attr::LoopHint &&
-               cast<LoopHintAttr>(A)->getLoopExprValue();
-      });
 
-  if (AttrItr == std::end(Attrs))
-    return;
+  SmallVector<llvm::Value *, 4> BundleValues;
+  for (auto A : Attrs) {
+    if (const auto *LHAttr = dyn_cast<LoopHintAttr>(A)) {
+      if (const Expr *E = LHAttr->getLoopExprValue()) {
+        assert(E->isGLValue());
+        BundleValues.push_back(CGF.EmitLValue(E).getPointer());
+      }
+    }
+  }
 
-  // Since only one array expression is allowed, it's the first found.
-  auto *LHAttr = cast<LoopHintAttr>(*AttrItr);
-  Expr *E = LHAttr->getLoopExprValue();
-  assert(E->isGLValue());
-  llvm::Value *Val = CGF.EmitLValue(E).getPointer();
+  if (!BundleValues.empty()) {
+    SmallVector<llvm::OperandBundleDef, 8> OpBundles{
+     llvm::OperandBundleDef("DIR.PRAGMA.IVDEP", ArrayRef<llvm::Value *>{}),
+     llvm::OperandBundleDef("QUAL.PRAGMA.ARRAY", BundleValues)};
 
-  SmallVector<llvm::Value *, 1> BundleValues;
-  SmallVector<llvm::OperandBundleDef, 8> OpBundles;
-  llvm::OperandBundleDef B1("DIR.PRAGMA.IVDEP", BundleValues);
-  OpBundles.push_back(B1);
-  BundleValues.push_back(Val);
-  llvm::OperandBundleDef B2("QUAL.PRAGMA.ARRAY", BundleValues);
-  OpBundles.push_back(B2);
-  SmallVector<llvm::Value *, 1> CallArgs;
-  CallEntry = CGF.Builder.CreateCall(
-      CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), CallArgs,
-      OpBundles);
-  CallEntry->setCallingConv(CGF.getRuntimeCC());
+    CallEntry = CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), {},
+        OpBundles);
+  }
 }
 
 CodeGenFunction::IntelIVDepArrayHandler::~IntelIVDepArrayHandler() {
   if (CallEntry) {
-    SmallVector<llvm::Value *, 1> BundleValues;
-    SmallVector<llvm::OperandBundleDef, 1> OpBundles;
-    llvm::OperandBundleDef B1("DIR.PRAGMA.END.IVDEP", BundleValues);
-    OpBundles.push_back(B1);
-    SmallVector<llvm::Value *, 1> CallArgs;
-    CallArgs.push_back(CallEntry);
-    auto *CallExit = CGF.Builder.CreateCall(
-        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit), CallArgs,
-        OpBundles);
-    CallExit->setCallingConv(CGF.getRuntimeCC());
+    SmallVector<llvm::OperandBundleDef, 1> OpBundles{
+      llvm::OperandBundleDef("DIR.PRAGMA.END.IVDEP",
+                             ArrayRef<llvm::Value *>{})};
+
+    CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
+        SmallVector<llvm::Value *, 1>{CallEntry}, OpBundles);
+  }
+}
+
+CodeGenFunction::DistributePointHandler::DistributePointHandler(
+    CodeGenFunction &CGF, const Stmt *S, ArrayRef<const Attr *> Attrs)
+    : CGF(CGF), CallEntry(nullptr) {
+  // Pragma on loop statements get loop meta-data generated elsewhere
+  // We can't handle distribute_point on statements with OpenMP pragmas either
+  if (S->getStmtClass() == Stmt::WhileStmtClass ||
+      S->getStmtClass() == Stmt::DoStmtClass ||
+      S->getStmtClass() == Stmt::ForStmtClass ||
+      S->getStmtClass() == Stmt::CXXForRangeStmtClass ||
+      dyn_cast<OMPLoopDirective>(S))
+    return;
+
+  auto AttrItr =
+      std::find_if(std::begin(Attrs), std::end(Attrs), [](const Attr *A) {
+        return A->getKind() == attr::LoopHint &&
+               cast<LoopHintAttr>(A)->getOption() == LoopHintAttr::Distribute;
+      });
+  if (AttrItr == std::end(Attrs))
+    return;
+
+  SmallVector<llvm::OperandBundleDef, 1> OpBundles{llvm::OperandBundleDef{
+      "DIR.PRAGMA.DISTRIBUTE_POINT", ArrayRef<llvm::Value *>{}}};
+  CallEntry = CGF.Builder.CreateCall(
+      CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry),
+      ArrayRef<llvm::Value *>{}, OpBundles);
+}
+
+CodeGenFunction::DistributePointHandler::~DistributePointHandler() {
+  if (CallEntry) {
+    SmallVector<llvm::OperandBundleDef, 1> OpBundles{llvm::OperandBundleDef{
+        "DIR.PRAGMA.END.DISTRIBUTE_POINT", ArrayRef<llvm::Value *>{}}};
+    CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
+        ArrayRef<llvm::Value *>{CallEntry}, OpBundles);
   }
 }
 #endif // INTEL_CUSTOMIZATION
@@ -684,6 +711,7 @@ void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
 #if INTEL_CUSTOMIZATION
   IntelPragmaInlineState PS(*this, S.getAttrs());
   IntelIVDepArrayHandler IAH(*this, S.getAttrs());
+  DistributePointHandler DPH(*this, S.getSubStmt(), S.getAttrs());
 #endif // INTEL_CUSTOMIZATION
   EmitStmt(S.getSubStmt(), S.getAttrs());
 }

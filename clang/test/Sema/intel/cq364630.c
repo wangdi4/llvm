@@ -1,5 +1,7 @@
 // RUN: %clang_cc1 -fsyntax-only -verify %s -DERROR
+// RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -fintel-compatibility-disable=AllowExtraArgument -verify %s -DERROR
 // RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -verify %s -DOK
+// RUN: %clang_cc1 -fsyntax-only -fintel-compatibility-enable=AllowExtraArgument -verify %s -DOK
 
 void foo(int *arg1, const int *arg2); // expected-note {{'foo' declared here}}
 

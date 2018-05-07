@@ -7598,10 +7598,6 @@ Sema::ActOnClassTemplateSpecialization(Scope *S, unsigned TagSpec,
       ClassTemplate->AddSpecialization(Specialization, InsertPos);
 
     if (CurContext->isDependentContext()) {
-      // -fms-extensions permits specialization of nested classes without
-      // fully specializing the outer class(es).
-      assert(getLangOpts().MicrosoftExt &&
-             "Only possible with -fms-extensions!");
       TemplateName CanonTemplate = Context.getCanonicalTemplateName(Name);
       CanonType = Context.getTemplateSpecializationType(
           CanonTemplate, Converted);
