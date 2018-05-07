@@ -26,9 +26,12 @@ class HLLoop;
 
 namespace unroll {
 /// Performs general unrolling or unroll & jam on \p Loop based on whether it is
-/// an innermost loop. NodeMapper is used by unroll & jam to update inner loop
-/// candidates when unrolling outer loops.
+/// an innermost loop.
 void unrollLoop(HLLoop *Loop, unsigned UnrollFactor);
+
+/// Performs complete unroll for \p Loop.
+void completeUnrollLoop(HLLoop *Loop);
+
 } // namespace unroll
 } // namespace loopopt
 } // namespace llvm
