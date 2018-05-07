@@ -286,7 +286,8 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
     add_instr(CSA::FOUNTAIN1)
       .addDef(res)
       .addConstantPoolIndex(scratch)
-      .addImm(len);
+      .addImm(len)
+      .addImm(1);
     return res;
   };
 
@@ -355,7 +356,8 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
     add_instr(TII->makeOpcode(CSA::Generic::FOUNTAIN, lic_size))
       .addDef(parts_init)
       .addConstantPoolIndex(scratch)
-      .addImm(partred_count);
+      .addImm(partred_count)
+      .addImm(1);
     add_instr(opcode_pick)
       .addDef(parts)
       .addUse(parts_pred_ctl)

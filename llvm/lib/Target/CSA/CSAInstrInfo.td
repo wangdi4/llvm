@@ -610,8 +610,8 @@ class FountainOp<GenericOp gen, CSAOpInfo oi,
                  InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs oi.RC:$res),
-    (ins i64imm:$addr, i64imm:$len),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$res, $addr, $len"),
+    (ins i64imm:$addr, i64imm:$len, RCLi1:$seq),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$res, $addr, $len, $seq"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
 } // let isMultiTriggered = 1
