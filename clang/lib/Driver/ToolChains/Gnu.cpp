@@ -85,6 +85,13 @@ void tools::gcc::Common::ConstructJob(Compilation &C, const JobAction &JA,
           A->getOption().matches(options::OPT_W_Group))
         continue;
 
+      // Don't forward -mno-unaligned-access since GCC doesn't understand
+      // it and because it doesn't affect the assembly or link steps.
+      if ((isa<AssembleJobAction>(JA) || isa<LinkJobAction>(JA)) &&
+          (A->getOption().matches(options::OPT_munaligned_access) ||
+           A->getOption().matches(options::OPT_mno_unaligned_access)))
+        continue;
+
       A->render(Args, CmdArgs);
     }
   }
@@ -428,8 +435,11 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   ToolChain.AddFilePathLibArgs(Args, CmdArgs);
 
-  if (D.isUsingLTO())
-    AddGoldPlugin(ToolChain, Args, CmdArgs, D.getLTOMode() == LTOK_Thin, D);
+  if (D.isUsingLTO()) {
+    assert(!Inputs.empty() && "Must have at least one input.");
+    AddGoldPlugin(ToolChain, Args, CmdArgs, Output, Inputs[0],
+                  D.getLTOMode() == LTOK_Thin);
+  }
 
   if (Args.hasArg(options::OPT_Z_Xlinker__no_demangle))
     CmdArgs.push_back("--no-demangle");
@@ -1778,6 +1788,7 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
   // Non-Solaris is much simpler - most systems just go with "/usr".
   if (SysRoot.empty() && TargetTriple.getOS() == llvm::Triple::Linux) {
     // Yet, still look for RHEL devtoolsets.
+    Prefixes.push_back("/opt/rh/devtoolset-7/root/usr");
     Prefixes.push_back("/opt/rh/devtoolset-6/root/usr");
     Prefixes.push_back("/opt/rh/devtoolset-4/root/usr");
     Prefixes.push_back("/opt/rh/devtoolset-3/root/usr");
@@ -2391,12 +2402,9 @@ void Generic_GCC::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
     return;
 
   switch (GetCXXStdlibType(DriverArgs)) {
-  case ToolChain::CST_Libcxx: {
-    std::string Path = findLibCxxIncludePath();
-    if (!Path.empty())
-      addSystemInclude(DriverArgs, CC1Args, Path);
+  case ToolChain::CST_Libcxx:
+    addLibCxxIncludePaths(DriverArgs, CC1Args);
     break;
-  }
 
   case ToolChain::CST_Libstdcxx:
     addLibStdCxxIncludePaths(DriverArgs, CC1Args);
@@ -2404,9 +2412,12 @@ void Generic_GCC::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
   }
 }
 
-std::string Generic_GCC::findLibCxxIncludePath() const {
+void
+Generic_GCC::addLibCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
+                                   llvm::opt::ArgStringList &CC1Args) const {
   // FIXME: The Linux behavior would probaby be a better approach here.
-  return getDriver().SysRoot + "/usr/include/c++/v1";
+  addSystemInclude(DriverArgs, CC1Args,
+                   getDriver().SysRoot + "/usr/include/c++/v1");
 }
 
 void
