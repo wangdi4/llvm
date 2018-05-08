@@ -27,6 +27,8 @@
 #if INTEL_CUSTOMIZATION
 // CQ381541: support for IMF attributes
 #include "llvm/ADT/StringSet.h"
+#include "llvm/ADT/StringSwitch.h"
+#include <array>
 #endif // INTEL_CUSTOMIZATION
 
 namespace clang {
@@ -76,6 +78,7 @@ public:
   IMFAttrMap ImfAttrMap;
   IMFAttrFuncMap ImfAttrFuncMap;
   llvm::StringSet<> ImfFuncSet;
+#include "clang/AST/IntelCust.inc"
 #endif // INTEL_CUSTOMIZATION
 
   // FIXME: Unify with TUKind.

@@ -1875,6 +1875,8 @@ private:  //***INTEL
                                AllowedConstructsKind Allowed,
                                SourceLocation *TrailingElseLoc,
                                ParsedAttributesWithRange &Attrs);
+  // Pragma distribute_point
+  std::unique_ptr<PragmaHandler> DistributePointHandler;
 #endif // INTEL_CUSTOMIZATION
   /// \brief Describes the behavior that should be taken for an __if_exists
   /// block.

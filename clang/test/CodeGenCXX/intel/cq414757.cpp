@@ -1,9 +1,9 @@
-// RUN: %clang_cc1 -std=c++11 -fintel-ms-compatibility -triple x86_64-pc-win32 -O0 -fexceptions -pedantic -fcxx-exceptions %s -emit-llvm -o - | FileCheck --check-prefix=CHECK_INTEL %s
-// RUN: %clang_cc1 -std=c++11 -fintel-ms-compatibility -triple x86_64-pc-win32 -O0 -fexceptions -fcxx-exceptions %s -emit-llvm -o - | FileCheck --check-prefix=CHECK_INTEL_NOPEDANTIC %s
+// RUN: %clang_cc1 -std=c++11 -fintel-compatibility -triple x86_64-pc-win32 -O0 -fexceptions -pedantic -fcxx-exceptions %s -emit-llvm -o - | FileCheck --check-prefix=CHECK_INTEL %s
+// RUN: %clang_cc1 -std=c++11 -fintel-compatibility -triple x86_64-pc-win32 -O0 -fexceptions -fcxx-exceptions %s -emit-llvm -o - | FileCheck --check-prefix=CHECK_INTEL_NOPEDANTIC %s
 // RUN: %clang_cc1 -std=c++11 -triple x86_64-pc-win32 -O0 -fexceptions -fcxx-exceptions %s -emit-llvm -o - | FileCheck %s
 
 // Check that string literals are catchable by pointer-to-non-const handlers on
-// Windows targets with -fintel-ms-compatibility option.
+// Windows targets with -fintel-compatibility option.
 // Test cases below check the type of thrown objects.
 // Catchpads code that compiler emits for Microsoft target didn't change and
 // depends only on handler itself, so we test just throws.

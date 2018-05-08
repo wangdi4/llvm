@@ -108,6 +108,10 @@ if (LLVM_ENABLE_SPHINX)
           -I "${CMAKE_CURRENT_SOURCE_DIR}/../include"
           "${CMAKE_CURRENT_SOURCE_DIR}/../include/clang/Basic/Attr.td"
           -o "${CMAKE_CURRENT_BINARY_DIR}/copy-docs/AttributeReference.rst"
+        COMMAND clang-tblgen -gen-intel-cust-docs
+          -I "${CMAKE_CURRENT_SOURCE_DIR}/../include"
+          "${CMAKE_CURRENT_SOURCE_DIR}/../include/clang/Basic/intel/IntelCustDocs.td"
+          -o "${CMAKE_CURRENT_BINARY_DIR}/copy-docs/Intel/IntelCustomizations.rst"
         COMMENT "Copying and generating clang html build docs")
       # end INTEL_CUSTOMIZATION
       add_sphinx_target(html clang)

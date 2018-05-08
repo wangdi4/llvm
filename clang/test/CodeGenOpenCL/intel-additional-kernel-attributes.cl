@@ -1,5 +1,7 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s
 
+//CHECK: [[IMD:@.str[\.]*[0-9]*]] = {{.*}}{__internal_max_block_ram_depth__:64}
+
 __attribute__((max_work_group_size(1024, 1, 1)))
 __kernel void k1() {}
 // CHECK: define spir_kernel void @k1{{[^{]+}} !max_work_group_size ![[MD1:[0-9]+]]
@@ -35,6 +37,20 @@ __kernel void k9() __attribute__((max_global_work_dim(1))) {}
 __kernel void k10() __attribute__((max_global_work_dim(0))) __attribute__((autorun)) {}
 // CHECK: define spir_kernel void @k10{{[^{]+}} !max_global_work_dim ![[MD2]] !autorun ![[MD10:[0-9]+]]
 
+__kernel void k11() __attribute__((stall_free)) {}
+// CHECK: define spir_kernel void @k11{{[^{]+}} !stall_free ![[MD11:[0-9]+]]
+
+__kernel void k12() __attribute__((scheduler_pipelining_effort_pct(12))) {}
+// CHECK: define spir_kernel void @k12{{[^{]+}} !scheduler_pipelining_effort_pct ![[MD12:[0-9]+]]
+
+__kernel void k13() {
+// CHECK: define spir_kernel void @k13{{[^{]+}}
+// CHECK: stuff = alloca [100 x i32], align 4
+// CHECK: %[[STUFFBC:[0-9]+]] = bitcast [100 x i32]* %stuff to i8*
+    int stuff[100] __attribute__((__internal_max_block_ram_depth__(64)));
+// CHECK: llvm.var.annotation{{.*}}[[STUFFBC]]{{.*}}[[IMD]]
+}
+
 // CHECK-DAG: [[MD1]] = !{i32 1024, i32 1, i32 1}
 // CHECK-DAG: [[MD2]] = !{i32 0}
 // CHECK-DAG: [[MD3]] = !{i32 16, i32 16, i32 16}
@@ -45,3 +61,5 @@ __kernel void k10() __attribute__((max_global_work_dim(0))) __attribute__((autor
 // CHECK-DAG: [[MD8]] = !{i32 3, i32 2, i32 4}
 // CHECK-DAG: [[MD9]] = !{i32 1}
 // CHECK-DAG: [[MD10]] = !{i1 true}
+// CHECK-DAG: [[MD11]] = !{i1 true}
+// CHECK-DAG: [[MD12]] = !{i32 12}

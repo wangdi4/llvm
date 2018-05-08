@@ -287,6 +287,45 @@ def HLSLocalOrStaticVar : SubsetSubject<Var,
                                 (S->getStorageClass() == SC_Static ||
                                  S->hasLocalStorage())}],
                               "local or static variables">;
+def StallFree : InheritableAttr {
+  let Spellings = [GNU<"stall_free">];
+  let LangOpts = [OpenCL, HLS];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [Undocumented];
+}
+
+def SchedulerPipeliningEffortPct : InheritableAttr {
+  let Spellings = [GNU<"scheduler_pipelining_effort_pct">];
+  let Args = [ExprArgument<"SchedulerPipeliningEffortPct">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [Undocumented];
+  let LangOpts = [OpenCL, HLS];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 0;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+def InternalMaxBlockRamDepth : InheritableAttr {
+  let Spellings = [GNU<"__internal_max_block_ram_depth__">];
+  let Args = [ExprArgument<"InternalMaxBlockRamDepth">];
+  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
+  let Documentation = [Undocumented];
+  let LangOpts = [OpenCL, HLS];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 0;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
 // No arguments.
 def SinglePump : Attr {
   let Spellings = [GNU<"singlepump">];

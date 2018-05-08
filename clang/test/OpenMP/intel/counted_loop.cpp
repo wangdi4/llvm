@@ -2,7 +2,7 @@
 // RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=CHECK-2
 // RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=REG-1
 // RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=REG-2
-
+// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fexceptions -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=REG-1
 
 namespace std {
   struct random_access_iterator_tag { };
@@ -90,9 +90,9 @@ void baz(int);
 // REG-2: [[ONEA_I:%i.*]] = alloca i32,
 void oneA() {
   GoodIter begin1, end1;
-  
+
   GoodIter it1;
-  
+
   // CHECK-1: directive(metadata !"DIR.OMP.PARALLEL.LOOP")
   // CHECK-2: directive(metadata !"DIR.OMP.PARALLEL.LOOP")
   // CHECK-1: (metadata !"QUAL.OMP.PRIVATE", i32* [[ONEA_I]])
@@ -112,8 +112,8 @@ void oneA() {
   // Update i
   // CHECK-1: store {{.*}}[[ONEA_I]]
   // CHECK-2: store {{.*}}[[ONEA_I]]
-  // CHECK-1: {{.*}} call{{.*}}baz 
-  // CHECK-2: {{.*}} call{{.*}}baz 
+  // CHECK-1: {{.*}} call{{.*}}baz
+  // CHECK-2: {{.*}} call{{.*}}baz
   // Increment IV
   // CHECK-1: store {{.*}}[[ONEA_IV]]
   // CHECK-2: store {{.*}}[[ONEA_IV]]
@@ -159,8 +159,8 @@ void oneB() {
   // Update it1
   // CHECK-1: {{.*}} call{{.*}} %class.GoodIter* @_ZN8GoodIterpLEi(%class.GoodIter* [[ONEB_IT1]]
   // CHECK-2: {{.*}} call{{.*}} %class.GoodIter* @_ZN8GoodIterpLEi(%class.GoodIter* [[ONEB_IT1]]
-  // CHECK-1: {{.*}} call{{.*}}baz 
-  // CHECK-2: {{.*}} call{{.*}}baz 
+  // CHECK-1: {{.*}} call{{.*}}baz
+  // CHECK-2: {{.*}} call{{.*}}baz
   // Increment IV
   // CHECK-1: store {{.*}}[[ONEB_IV]]
   // CHECK-2: store {{.*}}[[ONEB_IV]]

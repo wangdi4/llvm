@@ -2047,16 +2047,6 @@ static void handleDependencyAttr(Sema &S, Scope *Scope, Decl *D,
 static void handleUnusedAttr(Sema &S, Decl *D, const AttributeList &AL) {
   bool IsCXX17Attr = AL.isCXX11Attribute() && !AL.getScopeName();
 
-  if (IsCXX17Attr && isa<VarDecl>(D)) {
-    // The C++17 spelling of this attribute cannot be applied to a static data
-    // member per [dcl.attr.unused]p2.
-    if (cast<VarDecl>(D)->isStaticDataMember()) {
-      S.Diag(AL.getLoc(), diag::warn_attribute_wrong_decl_type)
-          << AL.getName() << ExpectedForMaybeUnused;
-      return;
-    }
-  }
-
   // If this is spelled as the standard C++17 attribute, but not in C++17, warn
   // about using it as an extension.
   if (!S.getLangOpts().CPlusPlus17 && IsCXX17Attr)
@@ -2993,6 +2983,97 @@ static void handleAutorunAttr(Sema &S, Decl *D, const AttributeList &Attr) {
       Attr.getAttributeSpellingListIndex()));
 }
 
+static void handleStallFreeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  if (!S.getLangOpts().HLS &&
+      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr.getName();
+    return;
+  }
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/0))
+    return;
+
+  handleSimpleAttribute<StallFreeAttr>(S, D, Attr);
+}
+
+static void handleSchedulerPipeliningEffortPctAttr(Sema &S, Decl *D,
+                                                   const AttributeList &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  if (!S.getLangOpts().HLS &&
+      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr.getName();
+    return;
+  }
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/1))
+    return;
+
+  S.AddSchedulerPipeliningEffortPctAttr(Attr.getRange(), D,
+                                        Attr.getArgAsExpr(0),
+                                        Attr.getAttributeSpellingListIndex());
+}
+
+void Sema::AddSchedulerPipeliningEffortPctAttr(SourceRange AttrRange, Decl *D,
+                                               Expr *E,
+                                               unsigned SpellingListIndex) {
+  SchedulerPipeliningEffortPctAttr TmpAttr(AttrRange, Context, E,
+                                           SpellingListIndex);
+
+  if (!E->isValueDependent()) {
+    ExprResult ICE;
+    if (checkRangedIntegralArgument<SchedulerPipeliningEffortPctAttr>(
+            E, &TmpAttr, ICE))
+      return;
+    E = ICE.get();
+  }
+  D->addAttr(::new (Context) SchedulerPipeliningEffortPctAttr(
+      AttrRange, Context, E, SpellingListIndex));
+}
+
+static void handleInternalMaxBlockRamDepthAttr(Sema &S, Decl *D,
+                                               const AttributeList &Attr) {
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  if (D->isInvalidDecl())
+    return;
+
+  if (!S.getLangOpts().HLS &&
+      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr.getName();
+    return;
+  }
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/1))
+    return;
+
+  S.AddInternalMaxBlockRamDepthAttr(Attr.getRange(), D, Attr.getArgAsExpr(0),
+                                    Attr.getAttributeSpellingListIndex());
+}
+
+void Sema::AddInternalMaxBlockRamDepthAttr(SourceRange AttrRange, Decl *D,
+                                           Expr *E,
+                                           unsigned SpellingListIndex) {
+  InternalMaxBlockRamDepthAttr TmpAttr(AttrRange, Context, E,
+                                       SpellingListIndex);
+
+  if (!E->isValueDependent()) {
+    ExprResult ICE;
+    if (checkRangedIntegralArgument<InternalMaxBlockRamDepthAttr>(E, &TmpAttr,
+                                                                  ICE))
+      return;
+    E = ICE.get();
+  }
+  D->addAttr(::new (Context) InternalMaxBlockRamDepthAttr(AttrRange, Context, E,
+                                                          SpellingListIndex));
+}
+
 static void handleOpenCLBlockingAttr(Sema &S, Decl *D,
                                      const AttributeList &Attr) {
   if (D->isInvalidDecl())
@@ -3257,6 +3338,9 @@ static bool checkRegisterAttrCompatibility(Sema &S, Decl *D,
     InCompat = true;
   if (checkAttrMutualExclusion<NumWritePortsAttr>(S, D, Attr.getRange(),
                                                   Attr.getName()))
+    InCompat = true;
+  if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(
+          S, D, Attr.getRange(), Attr.getName()))
     InCompat = true;
 
   return InCompat;
@@ -7545,6 +7629,15 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_OpenCLHostAccessible:
     handleOpenCLHostAccessible(S, D, AL);
     break;
+  case AttributeList::AT_StallFree:
+    handleStallFreeAttr(S, D, AL);
+    break;
+  case AttributeList::AT_SchedulerPipeliningEffortPct:
+    handleSchedulerPipeliningEffortPctAttr(S, D, AL);
+    break;
+  case AttributeList::AT_InternalMaxBlockRamDepth:
+    handleInternalMaxBlockRamDepthAttr(S, D, AL);
+    break;
   // Intel HLS specific attributes
   case AttributeList::AT_SinglePump:
     handlePumpAttr<SinglePumpAttr, DoublePumpAttr>(S, D, AL);
@@ -7675,6 +7768,16 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
     } else if (const auto *A = D->getAttr<AutorunAttr>()) {
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
+    } else if (Attr *A = D->getAttr<StallFreeAttr>()) {
+      if (!getLangOpts().HLS) {
+        Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+        D->setInvalidDecl();
+      }
+    } else if (Attr *A = D->getAttr<SchedulerPipeliningEffortPctAttr>()) {
+      if (!getLangOpts().HLS) {
+        Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+        D->setInvalidDecl();
+      }
 #endif // INTEL_CUSTOMIZATION
     } else if (const auto *A = D->getAttr<AMDGPUFlatWorkGroupSizeAttr>()) {
       Diag(D->getLocation(), diag::err_attribute_wrong_decl_type)
@@ -8088,6 +8191,12 @@ static bool ShouldDiagnoseAvailabilityInContext(Sema &S, AvailabilityResult K,
       return false;
 
     // An implementation implicitly has the availability of the interface.
+    // Unless it is "+load" method.
+    if (const auto *MethodD = dyn_cast<ObjCMethodDecl>(Ctx))
+      if (MethodD->isClassMethod() &&
+          MethodD->getSelector().getAsString() == "load")
+        return true;
+
     if (const auto *CatOrImpl = dyn_cast<ObjCImplDecl>(Ctx)) {
       if (const ObjCInterfaceDecl *Interface = CatOrImpl->getClassInterface())
         if (CheckContext(Interface))

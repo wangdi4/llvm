@@ -57,6 +57,26 @@ bool Builtin::Context::isBuiltinFunc(const char *Name) {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+static bool CheckIntelBuiltinSupported(bool IsOtherwiseSupported,
+                                       const Builtin::Info &BuiltinInfo,
+                                       const LangOptions &LangOpts) {
+  if (!(BuiltinInfo.Langs & ICC_LANG))
+    return IsOtherwiseSupported;
+  bool IsIntelCompat = LangOpts.IntelCompat;
+
+  // Intel Customization per-feature testing zone.  Future code should check to
+  // see if it is their builtin.  If so, update IsIntelCompat, which defaults to
+  // the global IntelCompat setting.
+  StringRef Name = BuiltinInfo.Name;
+  if (Name == "__builtin_va_arg_pack" || Name == "__builtin_va_arg_pack_len")
+    IsIntelCompat = LangOpts.isIntelCompat(LangOptions::VaArgPack);
+
+  if (BuiltinInfo.Langs == ICC_LANG) return IsIntelCompat;
+  return IsIntelCompat || IsOtherwiseSupported;
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
                                           const LangOptions &LangOpts) {
   bool BuiltinsUnsupported =
@@ -69,11 +89,6 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
   bool MSModeUnsupported =
       !LangOpts.MicrosoftExt && (BuiltinInfo.Langs & MS_LANG);
   bool ObjCUnsupported = !LangOpts.ObjC1 && BuiltinInfo.Langs == OBJC_LANG;
-#if INTEL_CUSTOMIZATION
-  // CQ#370960 Allow ICC specific intrinsic.
-  if (LangOpts.IntelCompat && (BuiltinInfo.Langs & ICC_LANG))
-    return true;
-#endif // INTEL_CUSTOMIZATION
   bool OclC1Unsupported = (LangOpts.OpenCLVersion / 100) != 1 &&
                           (BuiltinInfo.Langs & ALL_OCLC_LANGUAGES ) ==  OCLC1X_LANG;
   bool OclC2Unsupported = LangOpts.OpenCLVersion != 200 &&
@@ -81,9 +96,14 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
   bool OclCUnsupported = !LangOpts.OpenCL &&
                          (BuiltinInfo.Langs & ALL_OCLC_LANGUAGES);
   bool OpenMPUnsupported = !LangOpts.OpenMP && BuiltinInfo.Langs == OMP_LANG;
-  return !BuiltinsUnsupported && !MathBuiltinsUnsupported && !OclCUnsupported &&
-         !OclC1Unsupported && !OclC2Unsupported && !OpenMPUnsupported &&
-         !GnuModeUnsupported && !MSModeUnsupported && !ObjCUnsupported;
+#if INTEL_CUSTOMIZATION
+  // First parameter should be exactly the return statement from community.
+  return CheckIntelBuiltinSupported(
+      (!BuiltinsUnsupported && !MathBuiltinsUnsupported && !OclCUnsupported &&
+       !OclC1Unsupported && !OclC2Unsupported && !OpenMPUnsupported &&
+       !GnuModeUnsupported && !MSModeUnsupported && !ObjCUnsupported),
+      BuiltinInfo, LangOpts);
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// initializeBuiltins - Mark the identifiers for all the builtins with their
@@ -143,4 +163,11 @@ bool Builtin::Context::isPrintfLike(unsigned ID, unsigned &FormatIdx,
 bool Builtin::Context::isScanfLike(unsigned ID, unsigned &FormatIdx,
                                    bool &HasVAListArg) {
   return isLike(ID, FormatIdx, HasVAListArg, "sS");
+}
+
+bool Builtin::Context::canBeRedeclared(unsigned ID) const {
+  return ID == Builtin::NotBuiltin ||
+         ID == Builtin::BI__va_start ||
+         (!hasReferenceArgsOrResult(ID) &&
+          !hasCustomTypechecking(ID));
 }

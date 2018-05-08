@@ -231,6 +231,11 @@ struct PragmaIVDepHandler : public PragmaHandler {
   void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
                     Token &Tok);
 };
+struct PragmaDistributePointHandler : public PragmaHandler {
+  PragmaDistributePointHandler(const char *name) : PragmaHandler(name) {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                    Token &Tok);
+};
 #endif // INTEL_CUSTOMIZATION
 
 struct PragmaMSRuntimeChecksHandler : public EmptyPragmaHandler {
@@ -383,6 +388,11 @@ void Parser::initializePragmaHandlers() {
     IVDepHandler.reset(new PragmaIVDepHandler("ivdep"));
     PP.AddPragmaHandler(IVDepHandler.get());
   }
+  if (getLangOpts().IntelCompat) {
+    DistributePointHandler.reset(
+        new PragmaDistributePointHandler("distribute_point"));
+    PP.AddPragmaHandler(DistributePointHandler.get());
+  }
 #endif // INTEL_CUSTOMIZATION
   UnrollHintHandler.reset(new PragmaUnrollHintHandler("unroll"));
   PP.AddPragmaHandler(UnrollHintHandler.get());
@@ -496,6 +506,10 @@ void Parser::resetPragmaHandlers() {
     MaxConcurrencyHandler.reset();
     PP.RemovePragmaHandler(IVDepHandler.get());
     IVDepHandler.reset();
+  }
+  if (getLangOpts().IntelCompat) {
+    PP.RemovePragmaHandler(DistributePointHandler.get());
+    DistributePointHandler.reset();
   }
 #endif // INTEL_CUSTOMIZATION
   PP.RemovePragmaHandler(UnrollHintHandler.get());
@@ -1043,8 +1057,10 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
 #if INTEL_CUSTOMIZATION
   bool PragmaLoopCoalesce = PragmaNameInfo->getName() == "loop_coalesce";
   bool PragmaIVDep = PragmaNameInfo->getName() == "ivdep";
+  bool PragmaDistributePoint = PragmaNameInfo->getName() == "distribute_point";
   if (Toks.empty() && Info->ArrayToks.empty() &&
-      (PragmaUnroll || PragmaNoUnroll || PragmaLoopCoalesce || PragmaIVDep)) {
+      (PragmaUnroll || PragmaNoUnroll || PragmaLoopCoalesce || PragmaIVDep ||
+       PragmaDistributePoint)) {
 #endif // INTEL_CUSTOMIZATION
     ConsumeAnnotationToken();
     Hint.Range = Info->PragmaName.getLocation();
@@ -3274,6 +3290,32 @@ void PragmaIVDepHandler::HandlePragma(Preprocessor &PP,
                       /*DisableMacroExpansion=*/false);
 }
 
+void PragmaDistributePointHandler::HandlePragma(Preprocessor &PP,
+                                                PragmaIntroducerKind Introducer,
+                                                Token &Tok) {
+  // Incoming token is "distribute_point" for "#pragma distribute_point"
+  Token PragmaName = Tok;
+  PP.Lex(Tok);
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+        << "distribute_point";
+    return;
+  }
+
+  // Generate the hint token.
+  PragmaLoopHintInfo *Info = new (PP.getPreprocessorAllocator())
+                                 PragmaLoopHintInfo;
+  Info->PragmaName = PragmaName;
+  Info->Option.startToken();
+  auto TokenArray = llvm::make_unique<Token[]>(1);
+  TokenArray[0].startToken();
+  TokenArray[0].setKind(tok::annot_pragma_loop_hint);
+  TokenArray[0].setLocation(PragmaName.getLocation());
+  TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
+  TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
+  PP.EnterTokenStream(std::move(TokenArray), 1,
+                      /*DisableMacroExpansion=*/false);
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// \brief Handle the Microsoft \#pragma intrinsic extension.

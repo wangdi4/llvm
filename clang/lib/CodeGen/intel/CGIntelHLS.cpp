@@ -120,4 +120,19 @@ void CodeGenFunction::EmitOpenCLHLSComponentMetadata(const FunctionDecl *FD,
                     llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
                                                    Builder.getInt(MCAInt))));
   }
+
+  if (FD->hasAttr<StallFreeAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getTrue())};
+    Fn->setMetadata("stall_free", llvm::MDNode::get(Context, attrMDArgs));
+  }
+
+  if (const auto *A = FD->getAttr<SchedulerPipeliningEffortPctAttr>()) {
+    llvm::APSInt SPEPInt =
+        A->getSchedulerPipeliningEffortPct()->EvaluateKnownConstInt(
+            getContext());
+    Fn->setMetadata("scheduler_pipelining_effort_pct",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                                   Builder.getInt(SPEPInt))));
+  }
 }

@@ -92,9 +92,31 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
   bool PragmaMaxConcurrency =
       PragmaNameLoc->Ident->getName() == "max_concurrency";
   bool PragmaIVDep = PragmaNameLoc->Ident->getName() == "ivdep";
+  bool PragmaDistributePoint =
+      PragmaNameLoc->Ident->getName() == "distribute_point";
+  bool NonLoopPragmaDistributePoint =
+      PragmaDistributePoint && St->getStmtClass() != Stmt::DoStmtClass &&
+      St->getStmtClass() != Stmt::ForStmtClass &&
+      St->getStmtClass() != Stmt::CXXForRangeStmtClass &&
+      St->getStmtClass() != Stmt::WhileStmtClass;
 #endif // INTEL_CUSTOMIZATION
   bool PragmaUnroll = PragmaNameLoc->Ident->getName() == "unroll";
   bool PragmaNoUnroll = PragmaNameLoc->Ident->getName() == "nounroll";
+#ifdef INTEL_CUSTOMIZATION
+  if (NonLoopPragmaDistributePoint) {
+    bool withinLoop = false;
+    for (Scope *CS = S.getCurScope(); CS; CS = CS->getParent())
+      if (CS->getFlags() & Scope::ContinueScope) {
+        withinLoop = true;
+        break;
+      }
+    if (!withinLoop) {
+      S.Diag(St->getLocStart(), diag::err_pragma_distpt_on_nonloop_stmt)
+          << "#pragma distribute_point";
+      return nullptr;
+    }
+  } else
+#endif // INTEL_CUSTOMIZATION
   if (St->getStmtClass() != Stmt::DoStmtClass &&
       St->getStmtClass() != Stmt::ForStmtClass &&
       St->getStmtClass() != Stmt::CXXForRangeStmtClass &&
@@ -176,6 +198,9 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
       State = LoopHintAttr::LoopExpr;
     else
       State = LoopHintAttr::Enable;
+  } else if (PragmaDistributePoint) {
+    Option = LoopHintAttr::Distribute;
+    State = LoopHintAttr::Enable;
 #endif // INTEL_CUSTOMIZATION
   } else {
     // #pragma clang loop ...
@@ -325,13 +350,44 @@ CheckForIncompatibleAttributes(Sema &S,
 
     auto &CategoryState = HintAttrs[Category];
     const LoopHintAttr *PrevAttr;
+#if INTEL_CUSTOMIZATION
+    // To make the code more readable and to limit conflicts handle all
+    // Intel-added pragmas in this block. For each pragma:
+    //  If it contains a numeric value set PrevAttr and
+    //    CategoryState.NumericAttr.
+    //  If it contains state (enable/disable) set PrevAttr and
+    //    CategoryState.StateAttr.
+    //  If the attribute cannot conflict set PrevAttr to nullptr.
+    //  If you want a diagnostic if both state and numeric are used set
+    //    the Category to Unroll and the community code will take care of it.
+    if (Option == LoopHintAttr::II || Option == LoopHintAttr::LoopCoalesce ||
+        Option == LoopHintAttr::MaxConcurrency ||
+        Option == LoopHintAttr::IVDep) {
+      switch (LH->getState()) {
+      case LoopHintAttr::Numeric:
+      case LoopHintAttr::Full:
+        // Numeric and Full both contain numeric values.
+        PrevAttr = CategoryState.NumericAttr;
+        CategoryState.NumericAttr = LH;
+        break;
+      case LoopHintAttr::Enable:
+        PrevAttr = CategoryState.StateAttr;
+        CategoryState.StateAttr = LH;
+        break;
+      case LoopHintAttr::LoopExpr:
+        // Multiple ivdeps with array clauses is okay.
+        PrevAttr = nullptr;
+        break;
+      case LoopHintAttr::Disable:
+      case LoopHintAttr::AssumeSafety:
+        llvm_unreachable("unexpected ivdep state");
+      }
+      if (Option == LoopHintAttr::LoopCoalesce || Option == LoopHintAttr::IVDep)
+        Category = Unroll;
+    } else
+#endif // INTEL_CUSTOMIZATION
     if (Option == LoopHintAttr::Vectorize ||
         Option == LoopHintAttr::Interleave || Option == LoopHintAttr::Unroll ||
-#if INTEL_CUSTOMIZATION
-        ((Option == LoopHintAttr::LoopCoalesce ||
-          Option == LoopHintAttr::IVDep) &&
-         LH->getState() == LoopHintAttr::Enable) ||
-#endif // INTEL_CUSTOMIZATION
         Option == LoopHintAttr::Distribute) {
       // Enable|Disable|AssumeSafety hint.  For example, vectorize(enable).
       PrevAttr = CategoryState.StateAttr;
@@ -352,9 +408,6 @@ CheckForIncompatibleAttributes(Sema &S,
 
     if (CategoryState.StateAttr && CategoryState.NumericAttr &&
         (Category == Unroll ||
-#if INTEL_CUSTOMIZATION
-         Category == LoopCoalesce || Category == IVDep ||
-#endif // INTEL_CUSTOMIZATION
          CategoryState.StateAttr->getState() == LoopHintAttr::Disable)) {
       // Disable hints are not compatible with numeric hints of the same
       // category.  As a special case, numeric unroll hints are also not
