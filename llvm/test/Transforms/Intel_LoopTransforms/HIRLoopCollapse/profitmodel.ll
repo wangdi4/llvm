@@ -53,9 +53,7 @@
 ; CHECK:        |   |   + END LOOP
 ; CHECK:        |   + END LOOP
 ; CHECK:        + END LOOP
-; CHECK:  END REGION
 ;
-; CHECK:  BEGIN REGION { }
 ; CHECK:        + DO i1 = 0, 9, 1   <DO_LOOP>
 ; CHECK:        |   + DO i2 = 0, 9, 1   <DO_LOOP>
 ; CHECK:        |   |   + DO i3 = 0, 9, 1   <DO_LOOP>
@@ -63,9 +61,7 @@
 ; CHECK:        |   |   + END LOOP
 ; CHECK:        |   + END LOOP
 ; CHECK:        + END LOOP
-; CHECK:  END REGION
 ;
-; CHECK:  BEGIN REGION { }
 ; CHECK:        + DO i1 = 0, 9, 1   <DO_LOOP>
 ; CHECK:        |   + DO i2 = 0, 9, 1   <DO_LOOP>
 ; CHECK:        |   |   + DO i3 = 0, 9, 1   <DO_LOOP>
@@ -84,9 +80,7 @@
 ; CHECK:        |   |   (@A)[0][i1][0][i2] = i1;
 ; CHECK:        |   + END LOOP
 ; CHECK:        + END LOOP
-; CHECK:  END REGION
 ;
-; CHECK:  BEGIN REGION { }
 ; CHECK:        + DO i1 = 0, 9, 1   <DO_LOOP>
 ; CHECK:        |   + DO i2 = 0, 9, 1   <DO_LOOP>
 ; CHECK:        |   |   + DO i3 = 0, 9, 1   <DO_LOOP>
@@ -94,9 +88,7 @@
 ; CHECK:        |   |   + END LOOP
 ; CHECK:        |   + END LOOP
 ; CHECK:        + END LOOP
-; CHECK:  END REGION
 ;
-; CHECK:  BEGIN REGION { }
 ; CHECK:        + DO i1 = 0, 9, 1   <DO_LOOP>
 ; CHECK:        |   + DO i2 = 0, 9, 1   <DO_LOOP>
 ; CHECK:        |   |   + DO i3 = 0, 9, 1   <DO_LOOP>

@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -disable-hir-create-fusion-regions 2>&1 < %s | FileCheck %s
 
 ; Verify that both loops are unrolled post vectorizer.
 ; The first loop is unrolled on the optimisitic assumption that the simplifiable alloca store (%B)[0][i1] can be eliminated after unrolling by forwarding the RHS to its uses.

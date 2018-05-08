@@ -178,25 +178,19 @@
 ; BEFORE:     |   %3 = %hir.de.ssa.copy0.out + 1  +  %4;
 ; BEFORE:     |   (%A)[i1] = %3;
 ; BEFORE:     + END LOOP
-; BEFORE:  END REGION
 ;
-; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 10, 1   <DO_LOOP>
 ; BEFORE:     |   %6 = (%A)[i1 + 1];
 ; BEFORE:     |   (%A)[i1] = %6 + %5 + 1;
 ; BEFORE:     |   %5 = %6;
 ; BEFORE:     + END LOOP
-; BEFORE:  END REGION
 ;
-; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 10, 1   <DO_LOOP>
 ; BEFORE:     |   %8 = (%A)[i1 + 1];
 ; BEFORE:     |   %7 = %8 + 1  +  %7;
 ; BEFORE:     |   (%A)[i1] = %7;
 ; BEFORE:     + END LOOP
-; BEFORE:  END REGION
 ;
-; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 10, 1   <DO_LOOP>
 ; BEFORE:     |   %hir.de.ssa.copy4.out = %10;
 ; BEFORE:     |   %hir.de.ssa.copy3.out = %9;
@@ -272,25 +266,19 @@
 ; AFTER:     |   %3 = %hir.de.ssa.copy0.out + 1  +  %4;
 ; AFTER:     |   (%A)[i1] = %3;
 ; AFTER:     + END LOOP
-; AFTER:  END REGION
 ;
-; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 10, 1   <DO_LOOP>
 ; AFTER:     |   %6 = (%A)[i1 + 1];
 ; AFTER:     |   (%A)[i1] = %6 + %5 + 1;
 ; AFTER:     |   %5 = %6;
 ; AFTER:     + END LOOP
-; AFTER:  END REGION
 ;
-; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 10, 1   <DO_LOOP>
 ; AFTER:     |   %8 = (%A)[i1 + 1];
 ; AFTER:     |   %7 = %8 + 1  +  %7;
 ; AFTER:     |   (%A)[i1] = %7;
 ; AFTER:     + END LOOP
-; AFTER:  END REGION
 ;
-; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 10, 1   <DO_LOOP>
 ; AFTER:     |   %hir.de.ssa.copy4.out = %10;
 ; AFTER:     |   %hir.de.ssa.copy3.out = %9;
