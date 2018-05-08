@@ -69,6 +69,7 @@ protected:
   virtual void print(formatted_raw_ostream &OS, const HLLoop *Lp) {}
 
 public:
+  virtual ~HIRAnalysisBase() {}
   virtual void printAnalysis(raw_ostream &OS) const = 0;
 
   /// Interface for derived classes to invalidate analysis for
@@ -99,6 +100,7 @@ public:
   HIRAnalysis(HIRFramework &HIRF) : HIRF(HIRF) {}
   HIRAnalysis(HIRAnalysis &&Arg) : HIRF(Arg.HIRF) {}
   HIRAnalysis(const HIRAnalysis &) = delete;
+  virtual ~HIRAnalysis() {}
 
   void printAnalysis(raw_ostream &OS) const override;
 };

@@ -57,9 +57,7 @@ bool HIRLoopStatisticsWrapperPass::runOnFunction(Function &F) {
   return false;
 }
 
-void HIRLoopStatisticsWrapperPass::releaseMemory() {
-  HLS.reset();
-}
+void HIRLoopStatisticsWrapperPass::releaseMemory() { HLS.reset(); }
 
 struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
   HIRLoopStatistics &HLS;
@@ -115,6 +113,9 @@ struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
       SelfLS.HasCallsWithUnsafeSideEffects |= HLInst::hasUnsafeSideEffect(Call);
 
       SelfLS.HasCallsWithNoDuplicate |= Call->cannotDuplicate();
+
+      SelfLS.HasCallsWithUnknownMemoryAccess |=
+          HLInst::hasUnknownMemoryAccess(Call);
     }
   }
 

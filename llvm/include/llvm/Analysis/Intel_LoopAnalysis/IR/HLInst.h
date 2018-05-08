@@ -166,6 +166,18 @@ public:
     return Call && hasUnsafeSideEffect(Call);
   }
 
+  /// Returns true if \p Call instruction has unknown memory access.
+  static bool hasUnknownMemoryAccess(const CallInst *Call) {
+    assert(Call && "Inst is nullptr");
+    return !Call->doesNotAccessMemory() && !Call->onlyAccessesArgMemory();
+  }
+
+  /// Returns true if this is a call instruction with unknown memory access.
+  bool isUnknownMemoryAccessCallInst() const {
+    auto Call = dyn_cast<CallInst>(Inst);
+    return Call && hasUnknownMemoryAccess(Call);
+  }
+
   /// Returns true if this is an indirect call instruction.
   bool isIndirectCallInst() const {
     auto Call = dyn_cast<CallInst>(Inst);

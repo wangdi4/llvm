@@ -603,34 +603,26 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
     LoopOptReportBuilder &LORBuilder = HIR->getLORBuilder();
 
     if (FNode.loops().size() > 1) {
-
       bool IsReportOn = LORBuilder.isLoopOptReportOn();
       SmallString<32> FuseNums;
       raw_svector_ostream VOS(FuseNums);
 
-      if (IsReportOn) {
-        // Traverse in forward order to combine the loop line numbers in the
-        // correct loop order
-        for (auto LoopI = std::next(FNode.loops().begin()),
-                  E = FNode.loops().end();
-             LoopI != E; ++LoopI) {
-          unsigned LineNum = 0;
-          if ((*LoopI)->getDebugLoc()) {
-            LineNum = (*LoopI)->getDebugLoc().getLine();
-            VOS << LineNum;
-            if (LoopI != std::prev(E)) {
-              VOS << ",";
-            }
+      // Traverse in forward order to combine the loop line numbers in the
+      // correct loop order
+      for (auto LoopI = std::next(FNode.loops().begin()),
+          E = FNode.loops().end();
+          LoopI != E; ++LoopI) {
+
+        // Need to invalidate all loops except first one
+        HIRInvalidationUtils::invalidateBody(*LoopI);
+
+        if (IsReportOn && (*LoopI)->getDebugLoc()) {
+          unsigned LineNum = (*LoopI)->getDebugLoc().getLine();
+          VOS << LineNum;
+          if (LoopI != std::prev(E)) {
+            VOS << ",";
           }
         }
-      }
-
-      // Need to invalidate all loops except first one
-      for (auto LpIt = FNode.loops().begin() + 1, End = FNode.loops().end();
-           LpIt != End; ++LpIt) {
-
-        HLLoop *Lp = *LpIt;
-        HIRInvalidationUtils::invalidateBody(Lp);
       }
 
       // Traverse in reverse order in order to correctly preserve the lost loop

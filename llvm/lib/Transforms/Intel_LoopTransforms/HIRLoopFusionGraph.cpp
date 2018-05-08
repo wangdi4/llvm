@@ -43,17 +43,18 @@ public:
   struct FuseHeapEntity {
     unsigned Src;
     unsigned Dst;
+    unsigned Weight;
 
-    FuseHeapEntity(unsigned Src, unsigned Dst) : Src(Src), Dst(Dst) {}
+    FuseHeapEntity(unsigned Src, unsigned Dst, unsigned Weight)
+        : Src(Src), Dst(Dst), Weight(Weight) {}
   };
 
 private:
   struct FuseHeapEntityImpl : FuseHeapEntity {
     bool IsRemoved;
-    unsigned Weight;
 
     FuseHeapEntityImpl(unsigned Src, unsigned Dst, unsigned Weight)
-        : FuseHeapEntity(Src, Dst), IsRemoved(false), Weight(Weight) {}
+        : FuseHeapEntity(Src, Dst, Weight), IsRemoved(false) {}
   };
 
   struct FuseHeapComparator {
@@ -232,51 +233,54 @@ static unsigned areLoopsFusibleWithCommonTC(const HLLoop *Loop1,
   return CommonTC;
 }
 
-static bool hasUnsafeSideEffect(HIRLoopStatistics &HLS, HLLoop *Loop) {
-  return HLS.getTotalLoopStatistics(Loop).hasCallsWithUnsafeSideEffects();
+static bool hasUnknownMemoryAccess(HIRLoopStatistics &HLS, const HLLoop *Loop) {
+  return HLS.getTotalLoopStatistics(Loop).hasCallsWithUnknownMemoryAccess();
 }
 
-struct UnsafeSideEffectDetector : HLNodeVisitorBase {
+struct UnknownMemoryAccessDetector : HLNodeVisitorBase {
   HIRLoopStatistics &HLS;
-  bool HasUnsafeSideEffect;
+  bool HasUnknownMemoryAccess;
+  const HLNode *SkipNode;
 
-  UnsafeSideEffectDetector(HIRLoopStatistics &HLS)
-      : HLS(HLS), HasUnsafeSideEffect(false) {}
+  UnknownMemoryAccessDetector(HIRLoopStatistics &HLS)
+      : HLS(HLS), HasUnknownMemoryAccess(false), SkipNode(nullptr) {}
 
   void visit(const HLNode *) {}
   void postVisit(const HLNode *) {}
 
   void visit(const HLInst *Inst) {
-    assert(!HasUnsafeSideEffect && "Side effect is already found");
-    HasUnsafeSideEffect = Inst->isUnsafeSideEffectCallInst();
+    assert(!HasUnknownMemoryAccess && "Unknown memory access is already found");
+    HasUnknownMemoryAccess = Inst->isUnknownMemoryAccessCallInst();
   }
 
   void visit(const HLLoop *Loop) {
-    assert(!HasUnsafeSideEffect && "Side effect is already found");
-    HasUnsafeSideEffect =
-        HLS.getTotalLoopStatistics(Loop).hasCallsWithUnsafeSideEffects();
+    assert(!HasUnknownMemoryAccess && "Unknown memory access is already found");
+    HasUnknownMemoryAccess = hasUnknownMemoryAccess(HLS, Loop);
+    SkipNode = Loop;
   }
 
-  bool isDone() const { return HasUnsafeSideEffect; }
+  bool skipRecursion(const HLNode *Node) const { return SkipNode == Node; }
+
+  bool isDone() const { return HasUnknownMemoryAccess; }
 };
 
-static bool hasUnsafeSideEffect(HIRLoopStatistics &HLS, HLNode *Node) {
+static bool hasUnknownMemoryAccess(HIRLoopStatistics &HLS, HLNode *Node) {
   assert(!isa<HLLoop>(Node) && "Use call with an explicit HLLoop node type");
 
-  UnsafeSideEffectDetector V(HLS);
+  UnknownMemoryAccessDetector V(HLS);
   HLNodeUtils::visit(V, Node);
 
-  return V.HasUnsafeSideEffect;
+  return V.HasUnknownMemoryAccess;
 }
 
-FuseNode::FuseNode(HLLoop *Loop, bool HasUnsafeSideEffect)
-    : HasSideEffect(HasUnsafeSideEffect) {
+FuseNode::FuseNode(HLLoop *Loop, bool HasUnknownMemoryAccess)
+    : HasUnknownMemoryAccess(HasUnknownMemoryAccess) {
   assert(isGoodLoop(Loop) && "Can not create a good node from a bad loop.");
   LoopsVector.push_back(Loop);
 }
 
-FuseNode::FuseNode(HLNode *BadNode, bool HasUnsafeSideEffect)
-    : BadNode(BadNode), HasSideEffect(HasUnsafeSideEffect) {}
+FuseNode::FuseNode(HLNode *BadNode, bool HasUnknownMemoryAccess)
+    : BadNode(BadNode), HasUnknownMemoryAccess(HasUnknownMemoryAccess) {}
 
 void FuseNode::print(raw_ostream &OS) const {
   OS << "{ ";
@@ -307,7 +311,8 @@ unsigned FuseNode::getTopSortNumber() const {
 
 void FuseNode::merge(const FuseNode &Node) {
   loops().append(Node.loops().begin(), Node.loops().end());
-  HasSideEffect = HasSideEffect || Node.HasSideEffect;
+  HasUnknownMemoryAccess =
+      HasUnknownMemoryAccess || Node.HasUnknownMemoryAccess;
 }
 
 HLNode *FuseNode::getHLNode() const {
@@ -354,17 +359,13 @@ unsigned FuseGraph::createFuseNode(GraphNodeMapTy &Map, HLNode *Node) {
 
   HLLoop *Loop = dyn_cast<HLLoop>(Node);
 
-  bool HasUnsafeSideEffect;
-  if (Loop) {
-    HasUnsafeSideEffect = hasUnsafeSideEffect(HLS, Loop);
-  } else {
-    HasUnsafeSideEffect = hasUnsafeSideEffect(HLS, Node);
-  }
+  bool HasUnknownMemoryAccess = Loop ? hasUnknownMemoryAccess(HLS, Loop)
+                                     : hasUnknownMemoryAccess(HLS, Node);
 
   if (Loop && isGoodLoop(Loop)) {
-    Vertex.emplace_back(Loop, HasUnsafeSideEffect);
+    Vertex.emplace_back(Loop, HasUnknownMemoryAccess);
   } else {
-    Vertex.emplace_back(Node, HasUnsafeSideEffect);
+    Vertex.emplace_back(Node, HasUnknownMemoryAccess);
   }
 
   FuseNumber = Vertex.size();
@@ -385,12 +386,13 @@ unsigned FuseGraph::areFusibleWithCommonTC(FusibleCacheTy &Cache,
   if (Iter == Cache.end()) {
     unsigned &CommonTC = Cache[Key]; // Default value is zero.
 
-    bool MayBeFused = Node1.isGoodNode() && Node2.isGoodNode() &&
-                      (!Node1.hasSideEffect() || !Node2.hasSideEffect());
+    bool MayBeFused =
+        Node1.isGoodNode() && Node2.isGoodNode() &&
+        (!Node1.hasUnknownMemoryAccess() || !Node2.hasUnknownMemoryAccess());
 
     if (MayBeFused) {
-      CommonTC = areLoopsFusibleWithCommonTC(Node1.pilotLoop(),
-                                             Node2.pilotLoop());
+      CommonTC =
+          areLoopsFusibleWithCommonTC(Node1.pilotLoop(), Node2.pilotLoop());
     }
 
     return CommonTC;
@@ -931,25 +933,47 @@ bool FuseGraph::isLegalDependency(const DDEdge &Edge,
   return true;
 }
 
-void FuseGraph::constructUnsafeChain() {
-  unsigned PrefUnsafeNode = -1U;
-  for (unsigned NodeI = 0, E = Vertex.size(); NodeI < E; ++NodeI) {
-    if (Vertex[NodeI].hasSideEffect()) {
-
-      if (PrefUnsafeNode != -1U) {
-        FuseEdge &Edge = getOrCreateFuseEdge(PrefUnsafeNode, NodeI);
-        Edge.IsBadEdge = true;
-      }
-
-      PrefUnsafeNode = NodeI;
-    }
-  }
-}
-
 void FuseGraph::constructFuseNodes(GraphNodeMapTy &GraphNodeMap,
                                    HLNodeRangeTy Children) {
   for (HLNode &Node : Children) {
     createFuseNode(GraphNodeMap, &Node);
+  }
+}
+
+void FuseGraph::constructUnknownMemoryAccessChains() {
+  constructUnknownMemoryAccessChainsOneWay(Vertex.begin(), Vertex.end());
+  constructUnknownMemoryAccessChainsOneWay(Vertex.rbegin(), Vertex.rend());
+}
+
+template <typename Iter>
+void FuseGraph::constructUnknownMemoryAccessChainsOneWay(Iter Begin,
+                                                         Iter End) {
+  // Set to one past end element.
+  auto FirstUMANode = std::find_if(Begin, End, [](const FuseNode &Node) {
+    return Node.hasUnknownMemoryAccess();
+  });
+
+  // Connect UMANode to every node after it but before next UMA node.
+  for (auto NodeI = FirstUMANode; NodeI < End;) {
+    auto NodeJ = std::next(NodeI);
+
+    for (; NodeJ < End; ++NodeJ) {
+      auto Src = std::distance(Vertex.begin(), &*NodeI);
+      auto Dst = std::distance(Vertex.begin(), &*NodeJ);
+      if (Src > Dst) {
+        // Always create forward edges.
+        std::swap(Src, Dst);
+      }
+
+      // This will create fake dependency to prevent reordering.
+      getOrCreateFuseEdge(Src, Dst).IsBadEdge = true;
+
+      if (NodeJ->hasUnknownMemoryAccess()) {
+        break;
+      }
+    }
+
+    NodeI = NodeJ;
   }
 }
 
@@ -1113,12 +1137,17 @@ void FuseGraph::weightedFusion() {
 
     Heap.pop();
 
+    if (MaxEntity.Weight == 0) {
+      // Skip fusion of non-beneficial edges.
+      continue;
+    }
+
     if (PathFrom[NodeW].count(NodeV)) {
       std::swap(NodeV, NodeW);
     }
 
     if (BadPathFrom[NodeV].count(NodeW)) {
-      // Nodes are not connected anymore or there is a bad path beween them.
+      // Nodes are not connected anymore or there is a bad path between them.
       continue;
     }
 
@@ -1180,7 +1209,7 @@ FuseGraph::FuseGraph(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS, DDGraph DDG,
 
   constructFuseNodes(GraphNodeMap, Children);
 
-  constructUnsafeChain();
+  constructUnknownMemoryAccessChains();
 
   constructDirectedEdges(DDG, GraphNodeMap, FusibleCache, ParentNode, Children,
                          RValNodePairs);
