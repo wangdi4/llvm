@@ -8,8 +8,8 @@ producer (write_only pipe int __attribute__((blocking)) c0) {
     }
 }
 // CHECK: define {{.*}} void @producer
-// CL20: %{{[0-9]+}} = call i32 @__write_pipe_2_bl(%opencl.pipe_t addrspace(1)* %{{.*}}, i8 addrspace(4)* {{.*}}, i32 4, i32 4)
-// CL12: %{{[0-9]+}} = call i32 @__write_pipe_2_bl_AS0(%opencl.pipe_t addrspace(1)* %{{.*}}, i8* {{.*}}, i32 4, i32 4)
+// CL20: %{{[0-9]+}} = call i32 @__write_pipe_2_bl(%opencl.pipe_wo_t addrspace(1)* %{{.*}}, i8 addrspace(4)* {{.*}}, i32 4, i32 4)
+// CL12: %{{[0-9]+}} = call i32 @__write_pipe_2_bl_AS0(%opencl.pipe_wo_t addrspace(1)* %{{.*}}, i8* {{.*}}, i32 4, i32 4)
 
 __kernel void
 consumer (__global int * restrict dst,
@@ -19,5 +19,5 @@ consumer (__global int * restrict dst,
     }
 }
 // CHECK: define {{.*}} void @consumer
-// CL20: %{{[0-9]+}} = {{.*}}call i32 @__read_pipe_2_bl(%opencl.pipe_t addrspace(1)* %{{.*}}, i8 addrspace(4)* %{{[0-9]+}}, i32 4, i32 4)
-// CL12: %{{[0-9]+}} = {{.*}}call i32 @__read_pipe_2_bl_AS1(%opencl.pipe_t addrspace(1)* %{{.*}}, i8 addrspace(1)* %{{[0-9]+}}, i32 4, i32 4)
+// CL20: %{{[0-9]+}} = {{.*}}call i32 @__read_pipe_2_bl(%opencl.pipe_ro_t addrspace(1)* %{{.*}}, i8 addrspace(4)* %{{[0-9]+}}, i32 4, i32 4)
+// CL12: %{{[0-9]+}} = {{.*}}call i32 @__read_pipe_2_bl_AS1(%opencl.pipe_ro_t addrspace(1)* %{{.*}}, i8 addrspace(1)* %{{[0-9]+}}, i32 4, i32 4)
