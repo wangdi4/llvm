@@ -61,6 +61,9 @@ struct LoopAttributes {
 
   /// \brief Value for llvm.loop.ivdep.safelen metadata.
   unsigned IVDepCount;
+
+  /// \brief Value for llvm.loop.nofusion.enable metadata.
+  LVEnableState NoFusionEnable;
 #endif // INTEL_CUSTOMIZATION
 
   /// \brief Value for llvm.loop.vectorize.enable metadata.
@@ -179,6 +182,11 @@ public:
 
   /// \brief Set the safelen count for the next loop pushed.
   void setIVDepCount(unsigned C) { StagedAttrs.IVDepCount = C; }
+
+  /// \brief Set the next pushed loop 'nofusion.enable'
+  void setNoFusionEnable() {
+    StagedAttrs.NoFusionEnable = LoopAttributes::Enable;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   /// \brief Set the next pushed loop 'vectorize.enable'
