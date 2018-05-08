@@ -11,6 +11,7 @@
 #include "../AST.h"
 #include "../CodeCompletionStrings.h"
 #include "../Logger.h"
+#include "../SourceCode.h"
 #include "../URI.h"
 #include "CanonicalIncludes.h"
 #include "clang/AST/DeclCXX.h"
@@ -87,16 +88,6 @@ llvm::Optional<std::string> toURI(const SourceManager &SM, StringRef Path,
   log(llvm::Twine("Failed to create an URI for file ") + AbsolutePath + ": " +
       ErrMsg);
   return llvm::None;
-}
-
-// "a::b::c", return {"a::b::", "c"}. Scope is empty if there's no qualifier.
-std::pair<llvm::StringRef, llvm::StringRef>
-splitQualifiedName(llvm::StringRef QName) {
-  assert(!QName.startswith("::") && "Qualified names should not start with ::");
-  size_t Pos = QName.rfind("::");
-  if (Pos == llvm::StringRef::npos)
-    return {StringRef(), QName};
-  return {QName.substr(0, Pos + 2), QName.substr(Pos + 2)};
 }
 
 bool shouldFilterDecl(const NamedDecl *ND, ASTContext *ASTCtx,
@@ -204,14 +195,10 @@ llvm::Optional<SymbolLocation> getSymbolLocation(
   auto TokenLength = clang::Lexer::MeasureTokenLength(NameLoc, SM, LangOpts);
 
   auto CreatePosition = [&SM](SourceLocation Loc) {
-    auto FileIdAndOffset = SM.getDecomposedLoc(Loc);
-    auto FileId = FileIdAndOffset.first;
-    auto Offset = FileIdAndOffset.second;
+    auto LSPLoc = sourceLocToPosition(SM, Loc);
     SymbolLocation::Position Pos;
-    // Position is 0-based while SourceManager is 1-based.
-    Pos.Line = SM.getLineNumber(FileId, Offset) - 1;
-    // FIXME: Use UTF-16 code units, not UTF-8 bytes.
-    Pos.Column = SM.getColumnNumber(FileId, Offset) - 1;
+    Pos.Line = LSPLoc.line;
+    Pos.Column = LSPLoc.character;
     return Pos;
   };
 
@@ -321,6 +308,7 @@ const Symbol *SymbolCollector::addDeclaration(const NamedDecl &ND,
   Policy.SuppressUnwrittenScope = true;
   ND.printQualifiedName(OS, Policy);
   OS.flush();
+  assert(!StringRef(QName).startswith("::"));
 
   Symbol S;
   S.ID = std::move(ID);

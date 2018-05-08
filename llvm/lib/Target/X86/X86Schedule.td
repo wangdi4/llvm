@@ -38,6 +38,18 @@ multiclass X86SchedWritePair {
   }
 }
 
+// Multiclass that wraps X86FoldableSchedWrite for each vector width.
+class X86SchedWriteWidths<X86FoldableSchedWrite sScl,
+                          X86FoldableSchedWrite s128,
+                          X86FoldableSchedWrite s256,
+                          X86FoldableSchedWrite s512> {
+  X86FoldableSchedWrite Scl = sScl; // Scalar float/double operations.
+  X86FoldableSchedWrite MMX = sScl; // MMX operations.
+  X86FoldableSchedWrite XMM = s128; // XMM operations.
+  X86FoldableSchedWrite YMM = s256; // YMM operations.
+  X86FoldableSchedWrite ZMM = s512; // ZMM operations.
+}
+
 // Loads, stores, and moves, not folded with other operations.
 def WriteLoad  : SchedWrite;
 def WriteStore : SchedWrite;
@@ -87,23 +99,33 @@ defm WriteFSqrt  : X86SchedWritePair; // Floating point square root.
 defm WriteFRcp   : X86SchedWritePair; // Floating point reciprocal estimate.
 defm WriteFRsqrt : X86SchedWritePair; // Floating point reciprocal square root estimate.
 defm WriteFMA    : X86SchedWritePair; // Fused Multiply Add.
+defm WriteFMAS   : X86SchedWritePair; // Fused Multiply Add (Scalar).
+defm WriteFMAY   : X86SchedWritePair; // Fused Multiply Add (YMM/ZMM).
+defm WriteFSign  : X86SchedWritePair; // Floating point fabs/fchs.
+defm WriteFLogic  : X86SchedWritePair; // Floating point and/or/xor logicals.
+defm WriteFLogicY : X86SchedWritePair; // Floating point and/or/xor logicals (YMM/ZMM).
 defm WriteFShuffle  : X86SchedWritePair; // Floating point vector shuffles.
 defm WriteFVarShuffle  : X86SchedWritePair; // Floating point vector variable shuffles.
+defm WriteFVarShuffleY : X86SchedWritePair; // Floating point vector variable shuffles (YMM/ZMM).
 defm WriteFBlend  : X86SchedWritePair; // Floating point vector blends.
+defm WriteFBlendY : X86SchedWritePair; // Floating point vector blends (YMM/ZMM).
 defm WriteFVarBlend  : X86SchedWritePair; // Fp vector variable blends.
+defm WriteFVarBlendY : X86SchedWritePair; // Fp vector variable blends (YMM/ZMM).
 
 // FMA Scheduling helper class.
 class FMASC { X86FoldableSchedWrite Sched = WriteFAdd; }
 
 // Horizontal Add/Sub (float and integer)
 defm WriteFHAdd  : X86SchedWritePair;
-defm WritePHAdd : X86SchedWritePair;
+defm WriteFHAddY : X86SchedWritePair; // YMM/ZMM.
+defm WritePHAdd  : X86SchedWritePair;
 
 // Vector integer operations.
 def  WriteVecLoad  : SchedWrite;
 def  WriteVecStore : SchedWrite;
 def  WriteVecMove  : SchedWrite;
 defm WriteVecALU   : X86SchedWritePair; // Vector integer ALU op, no logicals.
+defm WriteVecLogic : X86SchedWritePair; // Vector integer and/or/xor logicals.
 defm WriteVecShift : X86SchedWritePair; // Vector integer shifts.
 defm WriteVecIMul  : X86SchedWritePair; // Vector integer multiply.
 defm WritePMULLD : X86SchedWritePair; // PMULLD
@@ -113,10 +135,12 @@ defm WriteBlend  : X86SchedWritePair; // Vector blends.
 defm WriteVarBlend  : X86SchedWritePair; // Vector variable blends.
 defm WritePSADBW : X86SchedWritePair; // Vector PSADBW.
 defm WriteMPSAD : X86SchedWritePair; // Vector MPSAD.
+defm WritePHMINPOS : X86SchedWritePair; // Vector PHMINPOS.
 
-// Vector bitwise operations.
-// These are often used on both floating point and integer vectors.
-defm WriteVecLogic : X86SchedWritePair; // Vector and/or/xor.
+// Vector insert/extract operations.
+defm WriteVecInsert : X86SchedWritePair; // Insert gpr to vector element.
+def  WriteVecExtract : SchedWrite; // Extract vector element to gpr.
+def  WriteVecExtractSt : SchedWrite; // Extract vector element and store.
 
 // MOVMSK operations.
 def WriteFMOVMSK : SchedWrite;
@@ -127,6 +151,7 @@ def WriteMMXMOVMSK : SchedWrite;
 defm WriteCvtF2I : X86SchedWritePair; // Float -> Integer.
 defm WriteCvtI2F : X86SchedWritePair; // Integer -> Float.
 defm WriteCvtF2F : X86SchedWritePair; // Float -> Float size conversion.
+def  WriteCvtF2FSt : SchedWrite; // // Float -> Float + store size conversion.
 
 // CRC32 instruction.
 defm WriteCRC32 : X86SchedWritePair;
@@ -149,6 +174,10 @@ defm WriteAESKeyGen : X86SchedWritePair; // Key Generation.
 // Carry-less multiplication instructions.
 defm WriteCLMul : X86SchedWritePair;
 
+// Load/store MXCSR
+def WriteLDMXCSR : SchedWrite;
+def WriteSTMXCSR : SchedWrite;
+
 // Catch-all for expensive system instructions.
 def WriteSystem : SchedWrite;
 
@@ -167,6 +196,57 @@ def WriteFence : SchedWrite;
 
 // Nop, not very useful expect it provides a model for nops!
 def WriteNop : SchedWrite;
+
+// Vector width wrappers.
+def SchedWriteFAdd
+ : X86SchedWriteWidths<WriteFAdd, WriteFAdd, WriteFAdd, WriteFAdd>;
+def SchedWriteFCmp
+ : X86SchedWriteWidths<WriteFCmp, WriteFCmp, WriteFCmp, WriteFCmp>;
+def SchedWriteFMul
+ : X86SchedWriteWidths<WriteFMul, WriteFMul, WriteFMul, WriteFMul>;
+def SchedWriteFDiv
+ : X86SchedWriteWidths<WriteFDiv, WriteFDiv, WriteFDiv, WriteFDiv>;
+def SchedWriteFLogic
+ : X86SchedWriteWidths<WriteFLogic, WriteFLogic, WriteFLogicY, WriteFLogicY>;
+
+def SchedWriteFShuffle
+ : X86SchedWriteWidths<WriteFShuffle, WriteFShuffle,
+                       WriteFShuffle, WriteFShuffle>;
+def SchedWriteFVarShuffle
+ : X86SchedWriteWidths<WriteFVarShuffle, WriteFVarShuffle,
+                       WriteFVarShuffleY, WriteFVarShuffleY>;
+def SchedWriteFBlend
+ : X86SchedWriteWidths<WriteFBlend, WriteFBlend, WriteFBlendY, WriteFBlendY>;
+def SchedWriteFVarBlend
+ : X86SchedWriteWidths<WriteFVarBlend, WriteFVarBlend,
+                       WriteFVarBlendY, WriteFVarBlendY>;
+
+def SchedWriteVecALU
+ : X86SchedWriteWidths<WriteVecALU, WriteVecALU, WriteVecALU, WriteVecALU>;
+def SchedWriteVecLogic
+ : X86SchedWriteWidths<WriteVecLogic, WriteVecLogic,
+                       WriteVecLogic, WriteVecLogic>;
+def SchedWriteVecShift
+ : X86SchedWriteWidths<WriteVecShift, WriteVecShift,
+                       WriteVecShift, WriteVecShift>;
+def SchedWriteVecIMul
+ : X86SchedWriteWidths<WriteVecIMul, WriteVecIMul,
+                       WriteVecIMul, WriteVecIMul>;
+def SchedWritePMULLD
+ : X86SchedWriteWidths<WritePMULLD, WritePMULLD,
+                       WritePMULLD, WritePMULLD>;
+
+def SchedWriteShuffle
+ : X86SchedWriteWidths<WriteShuffle, WriteShuffle,
+                       WriteShuffle, WriteShuffle>;
+def SchedWriteVarShuffle
+ : X86SchedWriteWidths<WriteVarShuffle, WriteVarShuffle,
+                       WriteVarShuffle, WriteVarShuffle>;
+def SchedWriteBlend
+ : X86SchedWriteWidths<WriteBlend, WriteBlend, WriteBlend, WriteBlend>;
+def SchedWriteVarBlend
+ : X86SchedWriteWidths<WriteVarBlend, WriteVarBlend,
+                       WriteVarBlend, WriteVarBlend>;
 
 //===----------------------------------------------------------------------===//
 // Generic Processor Scheduler Models.

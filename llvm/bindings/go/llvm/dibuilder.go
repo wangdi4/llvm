@@ -239,12 +239,12 @@ func (d *DIBuilder) CreateAutoVariable(scope Metadata, v DIAutoVariable) Metadat
 	result := C.LLVMDIBuilderCreateAutoVariable(
 		d.ref,
 		scope.C,
-		name,
+		name, C.size_t(len(v.Name)),
 		v.File.C,
 		C.unsigned(v.Line),
 		v.Type.C,
-		boolToCInt(v.AlwaysPreserve),
-		C.unsigned(v.Flags),
+		C.LLVMBool(boolToCInt(v.AlwaysPreserve)),
+		C.LLVMDIFlags(v.Flags),
 		C.uint32_t(v.AlignInBits),
 	)
 	return Metadata{C: result}
@@ -271,13 +271,13 @@ func (d *DIBuilder) CreateParameterVariable(scope Metadata, v DIParameterVariabl
 	result := C.LLVMDIBuilderCreateParameterVariable(
 		d.ref,
 		scope.C,
-		name,
+		name, C.size_t(len(v.Name)),
 		C.unsigned(v.ArgNo),
 		v.File.C,
 		C.unsigned(v.Line),
 		v.Type.C,
-		boolToCInt(v.AlwaysPreserve),
-		C.unsigned(v.Flags),
+		C.LLVMBool(boolToCInt(v.AlwaysPreserve)),
+		C.LLVMDIFlags(v.Flags),
 	)
 	return Metadata{C: result}
 }
@@ -297,7 +297,7 @@ func (d *DIBuilder) CreateBasicType(t DIBasicType) Metadata {
 		d.ref,
 		name,
 		C.size_t(len(t.Name)),
-		C.unsigned(t.SizeInBits),
+		C.ulong(t.SizeInBits),
 		C.unsigned(t.Encoding),
 	)
 	return Metadata{C: result}
@@ -319,7 +319,7 @@ func (d *DIBuilder) CreatePointerType(t DIPointerType) Metadata {
 	result := C.LLVMDIBuilderCreatePointerType(
 		d.ref,
 		t.Pointee.C,
-		C.unsigned(t.SizeInBits),
+		C.ulong(t.SizeInBits),
 		C.unsigned(t.AlignInBits),
 		C.unsigned(t.AddressSpace),
 		name,
@@ -381,7 +381,7 @@ func (d *DIBuilder) CreateStructType(scope Metadata, t DIStructType) Metadata {
 		C.size_t(len(t.Name)),
 		t.File.C,
 		C.unsigned(t.Line),
-		C.unsigned(t.SizeInBits),
+		C.ulong(t.SizeInBits),
 		C.unsigned(t.AlignInBits),
 		C.LLVMDIFlags(t.Flags),
 		t.DerivedFrom.C,
@@ -424,7 +424,7 @@ func (d *DIBuilder) CreateReplaceableCompositeType(scope Metadata, t DIReplaceab
 		t.File.C,
 		C.unsigned(t.Line),
 		C.unsigned(t.RuntimeLang),
-		C.unsigned(t.SizeInBits),
+		C.ulong(t.SizeInBits),
 		C.unsigned(t.AlignInBits),
 		C.LLVMDIFlags(t.Flags),
 		uniqueID,
@@ -456,9 +456,9 @@ func (d *DIBuilder) CreateMemberType(scope Metadata, t DIMemberType) Metadata {
 		C.size_t(len(t.Name)),
 		t.File.C,
 		C.unsigned(t.Line),
-		C.unsigned(t.SizeInBits),
+		C.ulong(t.SizeInBits),
 		C.unsigned(t.AlignInBits),
-		C.unsigned(t.OffsetInBits),
+		C.ulong(t.OffsetInBits),
 		C.LLVMDIFlags(t.Flags),
 		t.Type.C,
 	)
@@ -488,7 +488,7 @@ func (d *DIBuilder) CreateArrayType(t DIArrayType) Metadata {
 	subscripts, length := llvmMetadataRefs(subscriptsSlice)
 	result := C.LLVMDIBuilderCreateArrayType(
 		d.ref,
-		C.unsigned(t.SizeInBits),
+		C.ulong(t.SizeInBits),
 		C.unsigned(t.AlignInBits),
 		t.ElementType.C,
 		subscripts,
@@ -564,14 +564,14 @@ func (d *DIBuilder) CreateExpression(addr []int64) Metadata {
 // InsertDeclareAtEnd inserts a call to llvm.dbg.declare at the end of the
 // specified basic block for the given value and associated debug metadata.
 func (d *DIBuilder) InsertDeclareAtEnd(v Value, diVarInfo, expr Metadata, bb BasicBlock) Value {
-	result := C.LLVMDIBuilderInsertDeclareAtEnd(d.ref, v.C, diVarInfo.C, expr.C, bb.C)
+	result := C.LLVMDIBuilderInsertDeclareAtEnd(d.ref, v.C, diVarInfo.C, expr.C, nil, bb.C)
 	return Value{C: result}
 }
 
 // InsertValueAtEnd inserts a call to llvm.dbg.value at the end of the
 // specified basic block for the given value and associated debug metadata.
 func (d *DIBuilder) InsertValueAtEnd(v Value, diVarInfo, expr Metadata, bb BasicBlock) Value {
-	result := C.LLVMDIBuilderInsertValueAtEnd(d.ref, v.C, diVarInfo.C, expr.C, bb.C)
+	result := C.LLVMDIBuilderInsertDbgValueAtEnd(d.ref, v.C, diVarInfo.C, expr.C, nil, bb.C)
 	return Value{C: result}
 }
 

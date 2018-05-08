@@ -25,6 +25,7 @@
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/CodeGen/CommandFlags.inc"
 #include "llvm/CodeGen/TargetPassConfig.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IRPrintingPasses.h"
@@ -388,7 +389,7 @@ int main(int argc, char **argv) {
   initializeAnalysis(Registry);
   initializeTransformUtils(Registry);
   initializeInstCombine(Registry);
-  initializeAggressiveInstCombinerLegacyPassPass(Registry);
+  initializeAggressiveInstCombine(Registry);
   initializeInstrumentation(Registry);
   initializeTarget(Registry);
   // For codegen passes, only passes that do IR to IR transformation are

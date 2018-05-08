@@ -7,7 +7,9 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This library implements the functionality defined in llvm/IR/Writer.h
+// This library implements `print` family of functions in classes like
+// Module, Function, Value, etc. In-memory representation of those classes is
+// converted to IR strings.
 //
 // Note that these routines must be extremely tolerant of various errors in the
 // LLVM code, because it can be used for debugging transformations.
@@ -28,6 +30,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/BinaryFormat/Dwarf.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/Attributes.h"

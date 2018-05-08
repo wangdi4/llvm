@@ -396,7 +396,10 @@ def O_flag : Flag<["-"], "O">, Flags<[CC1Option]>, Alias<O>, AliasArgs<["2"]>;
 def Ofast : Joined<["-"], "Ofast">, Group<O_Group>, Flags<[CC1Option]>;
 def P : Flag<["-"], "P">, Flags<[CC1Option]>, Group<Preprocessor_Group>,
   HelpText<"Disable linemarker output in -E mode">;
-def Qn : Flag<["-"], "Qn">, IgnoredGCCCompat;
+def Qy : Flag<["-"], "Qy">, Flags<[CC1Option]>,
+  HelpText<"Emit metadata containing compiler name and version">;
+def Qn : Flag<["-"], "Qn">, Flags<[CC1Option]>,
+  HelpText<"Do not emit metadata containing compiler name and version">;
 def Qunused_arguments : Flag<["-"], "Qunused-arguments">, Flags<[DriverOption, CoreOption]>,
   HelpText<"Don't emit warning for unused driver arguments">;
 def Q : Flag<["-"], "Q">, IgnoredGCCCompat;
@@ -1025,6 +1028,13 @@ def fno_trapping_math : Flag<["-"], "fno-trapping-math">, Group<f_Group>, Flags<
 def ffp_contract : Joined<["-"], "ffp-contract=">, Group<f_Group>,
   Flags<[CC1Option]>, HelpText<"Form fused FP ops (e.g. FMAs): fast (everywhere)"
   " | on (according to FP_CONTRACT pragma, default) | off (never fuse)">, Values<"fast,on,off">;
+
+def fstrict_float_cast_overflow : Flag<["-"],
+  "fstrict-float-cast-overflow">, Group<f_Group>, Flags<[CC1Option]>,
+  HelpText<"Assume that overflowing float-to-int casts are undefined (default)">;
+def fno_strict_float_cast_overflow : Flag<["-"],
+  "fno-strict-float-cast-overflow">, Group<f_Group>, Flags<[CC1Option]>,
+  HelpText<"Relax language rules and try to match the behavior of the target's native float-to-int conversion instructions">;
 
 def ffor_scope : Flag<["-"], "ffor-scope">, Group<f_Group>;
 def fno_for_scope : Flag<["-"], "fno-for-scope">, Group<f_Group>;
