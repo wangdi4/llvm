@@ -1884,11 +1884,57 @@ public:
     if (!DTInfo.isTypeOfInterest(Ty))
       return;
 
-    DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                 << "Type used by a stack variable:\n"
+    if (isa<PointerType>(Ty)) {
+      DEBUG(dbgs() << "dtrans-safety: Local pointer -- "
+                   << "Pointer to type used by an alloca instruction:\n"
+                   << "  " << I << "\n");
+      setBaseTypeInfoSafetyData(Ty, dtrans::LocalPtr);
+      return;
+    }
+
+    if (isa<ArrayType>(Ty)) {
+      // For arrays of arrays, we want the deepest level of element to find
+      // our type of interest.
+      llvm::Type *ElemTy = Ty->getArrayElementType();
+      while (isa<ArrayType>(ElemTy))
+        ElemTy = ElemTy->getArrayElementType();
+      // Arrays of pointers, including pointers to non-pointer arrays, are
+      // effectively pointers to the type for the purposes of our analysis.
+      if (isa<PointerType>(ElemTy)) {
+        DEBUG(dbgs() << "dtrans-safety: Local pointer -- "
+                     << "Array of pointers to type used by "
+                     << "an alloca instruction:\n"
+                     << "  " << I << "\n");
+        setBaseTypeInfoSafetyData(ElemTy, dtrans::LocalPtr);
+        return;
+      }
+      if (isa<VectorType>(ElemTy)) {
+        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                     << "Array of vectors allocated by an alloca instruction:\n"
+                     << "  " << I << "\n");
+        setBaseTypeInfoSafetyData(Ty, dtrans::UnhandledUse);
+        return;
+      }
+      DEBUG(dbgs() << "dtrans-safety: Local instance -- "
+                   << "Array of instance of type used by "
+                   << "an alloca instruction:\n"
+                   << "  " << I << "\n");
+      setBaseTypeInfoSafetyData(Ty, dtrans::LocalInstance);
+      return;
+    }
+
+    if (isa<VectorType>(Ty)) {
+      DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                   << "Vector of type instantiated by an alloca instruction:\n"
+                   << "  " << I << "\n");
+      setBaseTypeInfoSafetyData(Ty, dtrans::UnhandledUse);
+      return;
+    }
+
+    DEBUG(dbgs() << "dtrans-safety: Local instance -- "
+                 << "Type instantiated by an alloca instruction:\n"
                  << "  " << I << "\n");
-    // TODO: Set specific safety info.
-    setBaseTypeInfoSafetyData(Ty, dtrans::UnhandledUse);
+    setBaseTypeInfoSafetyData(Ty, dtrans::LocalInstance);
   }
 
   void visitBinaryOperator(BinaryOperator &I) {
@@ -3302,7 +3348,7 @@ private:
 
     LocalPointerInfo &LHSLPI = LPA.getLocalPointerInfo(I.getOperand(0));
     LocalPointerInfo &RHSLPI = LPA.getLocalPointerInfo(I.getOperand(1));
- 
+
     if (!pointerAliasSetsAreEqual(LHSLPI.getPointerTypeAliasSet(),
                                   RHSLPI.getPointerTypeAliasSet())) {
       DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
@@ -3350,7 +3396,7 @@ private:
     for (auto *AliasTy : Set1)
       if (!Set2.count(AliasTy))
         return false;
-   
+
     // If we got here, the alias sets match.
     return true;
   }

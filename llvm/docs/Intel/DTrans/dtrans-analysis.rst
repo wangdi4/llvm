@@ -299,6 +299,14 @@ SystemObject
 ~~~~~~~~~~~~
 The type was identified as a known system structure type.
 
+LocalPtr
+~~~~~~~~~
+This indicates that a local variable was found that is a pointer to the type.
+
+LocalInstance
+~~~~~~~~~~~~~~
+This indicates that a local variable was found that is an instance of the type.
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we
@@ -710,7 +718,12 @@ yet implemented.**
 Alloca
 ~~~~~~
 LLVM uses an explicit alloca instruction to allocate stack space for local
-variables. **This instruction type is currently not handled.**
+variables. If an alloca instruction is seen that allocates space for a type
+of interest, the type will be marked with the `LocalInstance`_ safety condition
+if the alloca is creating an instance of the type (including fixed sized arrays)
+or the `LocalPtr`_ safety condition if the alloca is creating a pointer to the
+type. (Note that the LLVM type of the alloca instruction is always a pointer
+type, so local pointer variables will appear as pointers to pointers.)
 
 
 Global variables
