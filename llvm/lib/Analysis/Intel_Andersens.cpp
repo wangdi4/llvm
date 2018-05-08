@@ -981,12 +981,26 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
 }
 
 // Get a printable name for the ModRef result.
-static const char* getModRefResultStr(ModRefInfo R)
-{
-  const char *Names[] = { "NoModRef", "Ref", "Mod", "ModRef" };
-
-  assert(R >= ModRefInfo::NoModRef && R <= ModRefInfo::ModRef);
-  return Names[static_cast<int>(R)];
+static const char *getModRefResultStr(ModRefInfo R) {
+  switch (R) {
+  case ModRefInfo::Must:
+    return "Must";
+  case ModRefInfo::MustRef:
+    return "MustRef";
+  case ModRefInfo::MustMod:
+    return "MustMod";
+  case ModRefInfo::MustModRef:
+    return "MustModRef";
+  case ModRefInfo::NoModRef:
+    return "NoModRef";
+  case ModRefInfo::Ref:
+    return "Ref";
+  case ModRefInfo::Mod:
+    return "Mod";
+  case ModRefInfo::ModRef:
+    return "ModRef";
+  }
+  llvm_unreachable("Unknown ModRef result!");
 }
 
 ModRefInfo
