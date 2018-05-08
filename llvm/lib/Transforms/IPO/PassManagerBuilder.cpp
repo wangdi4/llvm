@@ -1342,10 +1342,6 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
   }
   // TODO: Temporal hook-up for VPlan VPO Vectorizer
   if (EnableVPlanDriver && RunVec) {
-    // We are using the loop vectorize pass to generate tests for VPlan LLVM IR
-    // path. Do not use EnableLV to check if loop vectorize pass needs to be
-    // created.
-    PM.add(createLoopVectorizePass(true, LoopVectorize, true));
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPlanDriverPass());
   }

@@ -479,6 +479,7 @@ SITargetLowering::SITargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::FMA, MVT::v2f16, Legal);
     setOperationAction(ISD::FMINNUM, MVT::v2f16, Legal);
     setOperationAction(ISD::FMAXNUM, MVT::v2f16, Legal);
+    setOperationAction(ISD::FCANONICALIZE, MVT::v2f16, Legal);
 
     // This isn't really legal, but this avoids the legalizer unrolling it (and
     // allows matching fneg (fabs x) patterns)
@@ -3271,12 +3272,17 @@ bool SITargetLowering::isFMAFasterThanFMulAndFAdd(EVT VT) const {
   VT = VT.getScalarType();
 
   switch (VT.getSimpleVT().SimpleTy) {
-  case MVT::f32:
+  case MVT::f32: {
     // This is as fast on some subtargets. However, we always have full rate f32
     // mad available which returns the same result as the separate operations
     // which we should prefer over fma. We can't use this if we want to support
     // denormals, so only report this in these cases.
-    return Subtarget->hasFP32Denormals() && Subtarget->hasFastFMAF32();
+    if (Subtarget->hasFP32Denormals())
+      return Subtarget->hasFastFMAF32() || Subtarget->hasDLInsts();
+
+    // If the subtarget has v_fmac_f32, that's just as good as v_mac_f32.
+    return Subtarget->hasFastFMAF32() && Subtarget->hasDLInsts();
+  }
   case MVT::f64:
     return true;
   case MVT::f16:
@@ -6600,13 +6606,14 @@ SDValue SITargetLowering::performExtractVectorEltCombine(
   SDValue Vec = N->getOperand(0);
 
   SelectionDAG &DAG = DCI.DAG;
-  if (Vec.getOpcode() == ISD::FNEG && allUsesHaveSourceMods(N)) {
+  if ((Vec.getOpcode() == ISD::FNEG ||
+       Vec.getOpcode() == ISD::FABS) && allUsesHaveSourceMods(N)) {
     SDLoc SL(N);
     EVT EltVT = N->getValueType(0);
     SDValue Idx = N->getOperand(1);
     SDValue Elt = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, SL, EltVT,
                               Vec.getOperand(0), Idx);
-    return DAG.getNode(ISD::FNEG, SL, EltVT, Elt);
+    return DAG.getNode(Vec.getOpcode(), SL, EltVT, Elt);
   }
 
   return SDValue();
