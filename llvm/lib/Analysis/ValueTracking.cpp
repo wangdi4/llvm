@@ -2029,6 +2029,20 @@ bool isKnownNonZero(const Value *V, unsigned Depth, const Query &Q) {
     if (const GEPOperator *GEP = dyn_cast<GEPOperator>(V))
       if (isGEPKnownNonNull(GEP, Depth, Q))
         return true;
+
+#if INTEL_CUSTOMIZATION
+    if (const SubscriptInst *SI = dyn_cast<SubscriptInst>(V))
+      if (SI->getPointerAddressSpace() == 0) {
+        if (isKnownNonZero(SI->getPointerOperand(), Depth, Q))
+          return true;
+        if (auto *LC = dyn_cast<ConstantInt>(SI->getLowerBound()))
+          if (LC->isZero() && isKnownNonZero(SI->getIndex(), Depth, Q))
+            return true;
+        if (auto *IC = dyn_cast<ConstantInt>(SI->getIndex()))
+          if (IC->isZero() && isKnownNonZero(SI->getLowerBound(), Depth, Q))
+            return true;
+      }
+#endif // INTEL_CUSTOMIZATION
   }
 
   unsigned BitWidth = getBitWidth(V->getType()->getScalarType(), Q.DL);
@@ -3522,7 +3536,7 @@ Value *llvm::GetUnderlyingObject(Value *V, const DataLayout &DL,
   if (!V->getType()->isPointerTy())
     return V;
   for (unsigned Count = 0; MaxLookup == 0 || Count < MaxLookup; ++Count) {
-    if (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
+    if (auto *GEP = dyn_cast<GEPOrSubsOperator>(V)) { // INTEL
       V = GEP->getPointerOperand();
     } else if (Operator::getOpcode(V) == Instruction::BitCast ||
                Operator::getOpcode(V) == Instruction::AddrSpaceCast) {

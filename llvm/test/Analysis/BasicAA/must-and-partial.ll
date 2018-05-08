@@ -1,4 +1,6 @@
 ; RUN: opt < %s -basicaa -aa-eval -print-all-alias-modref-info 2>&1 | FileCheck %s
+; INTEL
+; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -aa-eval -print-all-alias-modref-info 2>&1 | FileCheck %s
 
 ; When merging MustAlias and PartialAlias, merge to PartialAlias
 ; instead of MayAlias.

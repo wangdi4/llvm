@@ -1,4 +1,6 @@
 ; RUN: opt < %s -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; INTEL
+; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 target datalayout = "e-p:32:32:32-i1:8:32-i8:8:32-i16:16:32-i32:32:32-i64:32:32-f32:32:32-f64:32:32-v64:32:64-v128:32:128-a0:0:32-n32"
 target triple = "arm-apple-ios"
 
@@ -347,26 +349,28 @@ entry:
   call void @an_argmemonly_func(i8* %q) #9 [ "unknown"() ]
   ret void
 
-; CHECK: Just Ref:  Ptr: i8* %p        <->  call void @a_readonly_func(i8* %p) #6 [ "unknown"() ]
-; CHECK: Just Ref:  Ptr: i8* %q        <->  call void @a_readonly_func(i8* %p) #6 [ "unknown"() ]
-; CHECK: NoModRef:  Ptr: i8* %p        <->  call void @an_inaccessiblememonly_func() #7 [ "unknown"() ]
-; CHECK: NoModRef:  Ptr: i8* %q        <->  call void @an_inaccessiblememonly_func() #7 [ "unknown"() ]
-; CHECK: NoModRef:  Ptr: i8* %p        <->  call void @an_inaccessibleorargmemonly_func(i8* %q) #8 [ "unknown"() ]
-; CHECK: Both ModRef (MustAlias):  Ptr: i8* %q     <->  call void @an_inaccessibleorargmemonly_func(i8* %q) #8 [ "unknown"() ]
-; CHECK: NoModRef:  Ptr: i8* %p        <->  call void @an_argmemonly_func(i8* %q) #9 [ "unknown"() ]
-; CHECK: Both ModRef (MustAlias):  Ptr: i8* %q     <->  call void @an_argmemonly_func(i8* %q) #9 [ "unknown"() ]
-; CHECK: Just Ref:   call void @a_readonly_func(i8* %p) #6 [ "unknown"() ] <->   call void @an_inaccessiblememonly_func() #7 [ "unknown"() ]
-; CHECK: Just Ref:   call void @a_readonly_func(i8* %p) #6 [ "unknown"() ] <->   call void @an_inaccessibleorargmemonly_func(i8* %q) #8 [ "unknown"() ]
-; CHECK: Just Ref:   call void @a_readonly_func(i8* %p) #6 [ "unknown"() ] <->   call void @an_argmemonly_func(i8* %q) #9 [ "unknown"() ]
-; CHECK: Both ModRef:   call void @an_inaccessiblememonly_func() #7 [ "unknown"() ] <->   call void @a_readonly_func(i8* %p) #6 [ "unknown"() ]
-; CHECK: Both ModRef:   call void @an_inaccessiblememonly_func() #7 [ "unknown"() ] <->   call void @an_inaccessibleorargmemonly_func(i8* %q) #8 [ "unknown"() ]
-; CHECK: NoModRef:   call void @an_inaccessiblememonly_func() #7 [ "unknown"() ] <->   call void @an_argmemonly_func(i8* %q) #9 [ "unknown"() ]
-; CHECK: Both ModRef:   call void @an_inaccessibleorargmemonly_func(i8* %q) #8 [ "unknown"() ] <->   call void @a_readonly_func(i8* %p) #6 [ "unknown"() ]
-; CHECK: Both ModRef:   call void @an_inaccessibleorargmemonly_func(i8* %q) #8 [ "unknown"() ] <->   call void @an_inaccessiblememonly_func() #7 [ "unknown"() ]
-; CHECK: Both ModRef (MustAlias):   call void @an_inaccessibleorargmemonly_func(i8* %q) #8 [ "unknown"() ] <->   call void @an_argmemonly_func(i8* %q) #9 [ "unknown"() ]
-; CHECK: Both ModRef:   call void @an_argmemonly_func(i8* %q) #9 [ "unknown"() ] <->   call void @a_readonly_func(i8* %p) #6 [ "unknown"() ]
-; CHECK: NoModRef:   call void @an_argmemonly_func(i8* %q) #9 [ "unknown"() ] <->   call void @an_inaccessiblememonly_func() #7 [ "unknown"() ]
-; CHECK: Both ModRef (MustAlias):   call void @an_argmemonly_func(i8* %q) #9 [ "unknown"() ] <->   call void @an_inaccessibleorargmemonly_func(i8* %q) #8 [ "unknown"() ]
+; INTEL
+; More generic reg-exps
+; CHECK: Just Ref:  Ptr: i8* %p        <->  call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ]
+; CHECK: Just Ref:  Ptr: i8* %q        <->  call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ]
+; CHECK: NoModRef:  Ptr: i8* %p        <->  call void @an_inaccessiblememonly_func() #{{.*}} [ "unknown"() ]
+; CHECK: NoModRef:  Ptr: i8* %q        <->  call void @an_inaccessiblememonly_func() #{{.*}} [ "unknown"() ]
+; CHECK: NoModRef:  Ptr: i8* %p        <->  call void @an_inaccessibleorargmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
+; CHECK: Both ModRef (MustAlias):  Ptr: i8* %q     <->  call void @an_inaccessibleorargmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
+; CHECK: NoModRef:  Ptr: i8* %p        <->  call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
+; CHECK: Both ModRef (MustAlias):  Ptr: i8* %q     <->  call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
+; CHECK: Just Ref:   call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ] <->   call void @an_inaccessiblememonly_func() #{{.*}} [ "unknown"() ]
+; CHECK: Just Ref:   call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ] <->   call void @an_inaccessibleorargmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
+; CHECK: Just Ref:   call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ] <->   call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
+; CHECK: Both ModRef:   call void @an_inaccessiblememonly_func() #{{.*}} [ "unknown"() ] <->   call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ]
+; CHECK: Both ModRef:   call void @an_inaccessiblememonly_func() #{{.*}} [ "unknown"() ] <->   call void @an_inaccessibleorargmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
+; CHECK: NoModRef:   call void @an_inaccessiblememonly_func() #{{.*}} [ "unknown"() ] <->   call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
+; CHECK: Both ModRef:   call void @an_inaccessibleorargmemonly_func(i8* %q) #{{.*}} [ "unknown"() ] <->   call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ]
+; CHECK: Both ModRef:   call void @an_inaccessibleorargmemonly_func(i8* %q) #{{.*}} [ "unknown"() ] <->   call void @an_inaccessiblememonly_func() #{{.*}} [ "unknown"() ]
+; CHECK: Both ModRef (MustAlias):   call void @an_inaccessibleorargmemonly_func(i8* %q) #{{.*}} [ "unknown"() ] <->   call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
+; CHECK: Both ModRef:   call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ] <->   call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ]
+; CHECK: NoModRef:   call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ] <->   call void @an_inaccessiblememonly_func() #{{.*}} [ "unknown"() ]
+; CHECK: Both ModRef (MustAlias):   call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ] <->   call void @an_inaccessibleorargmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
 }
 
 attributes #0 = { argmemonly nounwind }

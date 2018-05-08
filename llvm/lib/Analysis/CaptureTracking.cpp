@@ -263,6 +263,24 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker) {
       if (CS.onlyReadsMemory() && CS.doesNotThrow() && I->getType()->isVoidTy())
         break;
 
+#if INTEL_CUSTOMIZATION
+      if (auto *Subs = dyn_cast<SubscriptInst>(I)) {
+        // The original value is not captured via this if the new value isn't.
+        Count = 0;
+        for (Use &UU : Subs->uses()) {
+          // If there are lots of uses, conservatively say that the value
+          // is captured to avoid taking too much compile time.
+          if (Count++ >= Threshold)
+            return Tracker->tooManyUses();
+
+          if (Visited.insert(&UU).second)
+            if (Tracker->shouldExplore(&UU))
+              Worklist.push_back(&UU);
+        }
+        break;
+      }
+#endif // INTEL_CUSTOMIZATION
+
       // Volatile operations effectively capture the memory location that they
       // load and store to.
       if (auto *MI = dyn_cast<MemIntrinsic>(I))
