@@ -154,7 +154,7 @@ public:
   /// Create and return a MachineInstr that will run on the dataflow fabric
   /// having the MachineOp values as operands.
   template <typename... Args>
-  const MachineInstr *makeInstruction(unsigned opcode, Args... operands) {
+  MachineInstr *makeInstruction(unsigned opcode, Args... operands) {
     MachineInstrBuilder builder = makeDFInstruction(opcode);
     detail::addOpsToBuilder(builder, operands...);
     return builder;

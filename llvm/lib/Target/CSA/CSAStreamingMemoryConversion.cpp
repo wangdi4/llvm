@@ -56,12 +56,13 @@ public:
 private:
   MachineFunction *MF;
   MachineOptimizationRemarkEmitter *ORE;
-  const MachineRegisterInfo *MRI;
+  MachineRegisterInfo *MRI;
   CSAMachineFunctionInfo *LMFI;
   const CSAInstrInfo *TII;
   std::vector<MachineInstr *> to_delete;
 
-  bool makeStreamMemOp(MachineInstr *MI);
+  MachineInstr *makeStreamMemOp(MachineInstr *MI);
+  void formWideOps(SmallVectorImpl<MachineInstr *> &insts);
   MachineInstr *getDefinition(const MachineOperand &MO) const;
   void getUses(const MachineOperand &MO,
                SmallVectorImpl<MachineInstr *> &uses) const;
@@ -94,21 +95,26 @@ bool CSAStreamingMemoryConversionPass::runOnMachineFunction(
     MF.getSubtarget<CSASubtarget>().getInstrInfo());
   ORE = &getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();
 
-  // Run several functions one at a time on the entire graph. There is probably
-  // a better way of implementing this sort of strategy (like how InstCombiner
-  // does its logic), but until we have a need to go a fuller InstCombiner-like
-  // route, this logic will do. Note that we can't delete instructions on the
-  // fly due to how iteration works, but we do clean them up after every mini
-  // pass.
+  SmallVector<MachineInstr *, 8> opsForCoalescing;
+
+  // Go through the code, generating streaming memory operands for acceptable
+  // loads and stores. The deleted instructions have to wait until the end of
+  // the program to be cleared (to avoid iteration issues).
   bool changed = false;
   for (auto &MBB : MF) {
     for (auto &MI : MBB) {
-      changed |= makeStreamMemOp(&MI);
+      MachineInstr *newInst = makeStreamMemOp(&MI);
+      changed |= newInst != nullptr;
+      if (newInst)
+        opsForCoalescing.push_back(newInst);
     }
   }
   for (auto MI : to_delete)
     MI->eraseFromParent();
   to_delete.clear();
+
+  // Try to coalesce streaming loads into wide streaming loads.
+  formWideOps(opsForCoalescing);
 
   this->MF = nullptr;
   return changed;
@@ -201,7 +207,7 @@ MachineOp CSAStreamingMemoryConversionPass::getLength(
             use.getOperand(1) == loopCondition &&
             use.getOperand(2).isIdenticalTo(MachineOperand::CreateImm(1)) &&
             use.getOperand(3) == executed)
-          return OpDef(use.getOperand(0));
+          return OpUse(use.getOperand(0));
       }
     }
     // Doesn't exist, make a new one instead.
@@ -294,7 +300,14 @@ constexpr auto repeated_pat = mirmatch::graph(
   (SEQ_VAL, SEQ_PRED, SEQ_FIRST, SEQ_LAST) =
     seqot(mirmatch::AnyOperand, mirmatch::AnyOperand, mirmatch::AnyOperand));
 
-bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
+MIRMATCHER_REGS(INMEM, OUTMEM1, OUTMEM2, VAL1, VAL2, BASE1, BASE2, LEN);
+constexpr auto match2 = mirmatch::LiteralMatcher<uint64_t, 2>{};
+constexpr auto wide_pat = mirmatch::graph(
+  (VAL1, OUTMEM1) = sld_N(BASE1, LEN, match2, mirmatch::AnyOperand, INMEM),
+  (VAL2, OUTMEM2) = sld_N(BASE2, LEN, match2, mirmatch::AnyOperand, INMEM),
+  BASE2 = add64(BASE1, mirmatch::AnyLiteral));
+
+MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   auto reportFailure = [=](const char *message) {
     MachineOptimizationRemarkMissed R(DEBUG_TYPE, "StreamingMemory",
         MI->getDebugLoc(), MI->getParent());
@@ -340,7 +353,7 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
     // The address here must be a STRIDE.
     bool isLoad           = MI->mayLoad();
     if (!matchesStridePattern(MI->getOperand(isLoad ? 2 : 1)))
-      return false;
+      return nullptr;
     memOrder = &MI->getOperand(3);
     inOrder  = &MI->getOperand(4);
     outOrder = &MI->getOperand(isLoad ? 1 : 0);
@@ -389,23 +402,23 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
     auto &baseOp  = MI->getOperand(isLoad ? 2 : 1);
     auto &indexOp = MI->getOperand(isLoad ? 3 : 2);
     if (baseOp.isImm() || indexOp.isImm())
-      return false;
+      return nullptr;
 
     // The base address needs to be repeated.
     MachineInstr *memBase  = getDefinition(baseOp);
     MachineInstr *memIndex = getDefinition(indexOp);
     if (!memBase)
-      return false;
+      return nullptr;
     auto repeat_result = mirmatch::match(repeated_pat, memBase);
     if (!repeat_result) {
-      return false;
+      return nullptr;
     }
 
     // The stream controls the base REPEAT--they should be the same
     // instruction.
     stream = MRI->getVRegDef(repeat_result.reg(SEQ_LAST));
     if (stream != memIndex) {
-      return false;
+      return nullptr;
     }
 
     switch (memIndex->getOpcode()) {
@@ -421,7 +434,7 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
       DEBUG(MI->print(dbgs()));
       DEBUG(dbgs() << "Failed operator: ");
       DEBUG(memIndex->print(dbgs()));
-      return false;
+      return nullptr;
     }
 
     base                           = &memBase->getOperand(2);
@@ -430,7 +443,7 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
     if (!strideOp.isImm()) {
       reportFailure("stride is not constant 1");
       DEBUG(dbgs() << "Candidate instruction has non-constant stride.\n");
-      return false;
+      return nullptr;
     }
     stride = strideOp.getImm();
     if (genericOpcode != CSA::Generic::LDX &&
@@ -439,7 +452,7 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
       if (stride % opcodeSize) {
         reportFailure("stride is not constant 1");
         DEBUG(dbgs() << "Candidate instruction has improper stride.\n");
-        return false;
+        return nullptr;
       }
       stride /= opcodeSize;
     }
@@ -450,7 +463,7 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
     break;
   }
   default:
-    return false;
+    return nullptr;
   }
 
   DEBUG(dbgs() << "Identified candidate for streaming memory conversion: ");
@@ -466,13 +479,13 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   if (!inSource) {
     reportFailure("memory ordering tokens are not loop-invariant");
     DEBUG(dbgs() << "Conversion failed due to bad in memory order.\n");
-    return false;
+    return nullptr;
   }
   auto mem_result = mirmatch::match(repeated_pat, inSource);
   if (!mem_result || MRI->getVRegDef(mem_result.reg(SEQ_LAST)) != stream) {
     reportFailure("memory ordering tokens are not loop-invariant");
     DEBUG(dbgs() << "Conversion failed due to bad in memory order.\n");
-    return false;
+    return nullptr;
   }
 
   MachineInstr *outSink = getSingleUse(*outOrder);
@@ -481,7 +494,7 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
     reportFailure("memory ordering tokens are not loop-invariant");
     DEBUG(dbgs()
           << "Conversion failed because out memory order is not a switch.\n");
-    return false;
+    return nullptr;
   }
 
   // The output memory order should be a switch that ignores the signal unless
@@ -490,7 +503,7 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   if (!sinkControl) {
     reportFailure("memory ordering tokens are not loop-invariant");
     DEBUG(dbgs() << "Cannot found the definition of the output order switch");
-    return false;
+    return nullptr;
   }
 
   // TODO: check that we are using the last output of the stream.
@@ -502,7 +515,7 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   const MachineOperand &seqStep  = stream->getOperand(6);
   if (!seqStep.isImm()) {
     DEBUG(dbgs() << "Sequence step is not an immediate\n");
-    return false;
+    return nullptr;
   }
  
   bool isEqual = false;
@@ -516,19 +529,19 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
     break;
   default:
     DEBUG(dbgs() << "Stream operand is of unknown form.\n");
-    return false;
+    return nullptr;
   }
   const MachineOp length =
     getLength(seqStart, seqEnd, isEqual, seqStep.getImm(), true, stream);
   if (!length) {
     DEBUG(dbgs() << "Stream operand is of unknown form.\n");
-    return false;
+    return nullptr;
   }
 
   if (baseUsesStream) {
     if (seqStep.getImm() < 0) {
       DEBUG(dbgs() << "Base using stream needs to have an incrementing step\n");
-      return false;
+      return nullptr;
     }
     if (!isZero(seqStart)) {
       unsigned loadBase  = LMFI->allocateLIC(&CSA::CI64RegClass);
@@ -549,7 +562,7 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   // Actually build the new instruction now.
   unsigned opcode = TII->adjustOpcode(
     MI->getOpcode(), MI->mayLoad() ? CSA::Generic::SLD : CSA::Generic::SST);
-  builder.makeInstruction(
+  MachineInstr *newInst = builder.makeInstruction(
     opcode, OpIf(MI->mayLoad(), OpDef(*value)), // Value (for load)
     *realOutSink,                               // Output memory order
     OpUse(*base),                               // Address
@@ -565,5 +578,108 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   to_delete.push_back(MI);
   to_delete.push_back(outSink);
 
-  return true;
+  return newInst;
+}
+
+void CSAStreamingMemoryConversionPass::formWideOps(
+    SmallVectorImpl<MachineInstr *> &insts) {
+  unsigned count = insts.size();
+  for (unsigned i = 0; i < count; i++) {
+    auto op1 = insts[i];
+    if (!op1) continue;
+    // At the moment, we can only coalesce SLD operations into SLDX2.
+    if (TII->getGenericOpcode(op1->getOpcode()) != CSA::Generic::SLD)
+      continue;
+
+    for (unsigned j = i + 1; j < count; j++) {
+      auto op2 = insts[j];
+      if (!op2 || op1->getOpcode() != op2->getOpcode())
+        continue;
+
+      // The length, stride, input, and memlevel operands must be the same.
+      bool legal = true;
+      for (unsigned op = 3; op <= 6; op++) {
+        if (!op1->getOperand(op).isIdenticalTo(op2->getOperand(op)))
+          legal = false;
+      }
+      if (!legal)
+        continue;
+
+      // The stride must additionally be 2 for both.
+      const MachineOperand &strideOp = op1->getOperand(4);
+      if (!strideOp.isImm() || strideOp.getImm() != 2)
+        continue;
+
+      // The bases must be offset by sizeof(T).
+      auto isBaseOffsetBySize = [=](const MachineInstr *first,
+          const MachineInstr *second) {
+        const MachineInstr *base = getDefinition(second->getOperand(2));
+        return base && base->getOpcode() == CSA::ADD64 &&
+          base->getOperand(1).isIdenticalTo(first->getOperand(2)) &&
+          base->getOperand(2).isImm() &&
+          base->getOperand(2).getImm() == TII->getLicSize(first->getOpcode()) / 8;
+      };
+      MachineInstr *first, *second;
+      if (isBaseOffsetBySize(op1, op2)) {
+        first = op1; second = op2;
+      } else if (isBaseOffsetBySize(op2, op1)) {
+        first = op2; second = op1;
+      } else {
+        continue;
+      }
+
+      // Now check to see that the output memory operands go to the same ALL
+      // chain.
+      auto getTargetUse = [&](const MachineOperand *MO) {
+        const MachineInstr *use;
+        while ((use = getSingleUse(*MO)) && use->getOpcode() == CSA::ALL0)
+          MO = &use->getOperand(0);
+        return MO->getParent();
+      };
+      if (getTargetUse(&first->getOperand(1)) !=
+          getTargetUse(&second->getOperand(1)))
+        continue;
+
+      // Now we know that we can combine these two streaming loads into a single
+      // wide streaming load.
+      MachineOptimizationRemark R(DEBUG_TYPE, "StreamingMemory",
+        first->getDebugLoc(), first->getParent());
+      ORE->emit(R << "converted to wide streaming memory reference");
+
+      unsigned newOpcode = TII->adjustOpcode(first->getOpcode(),
+          CSA::Generic::SLDX2);
+      unsigned newLenReg = LMFI->allocateLIC(&CSA::CI64RegClass);
+      MachineInstrBuilder newLen = BuildMI(*first->getParent(), first,
+        first->getDebugLoc(), TII->get(CSA::ADD64), newLenReg);
+      newLen.setMIFlag(MachineInstr::NonSequential);
+      newLen.add(first->getOperand(3));
+      newLen.add(second->getOperand(3));
+
+      MachineInstrBuilder builder = BuildMI(*first->getParent(), first,
+        first->getDebugLoc(), TII->get(newOpcode));
+      builder.setMIFlag(MachineInstr::NonSequential);
+      builder.add(first->getOperand(0)); // Value 1
+      builder.add(second->getOperand(0)); // Value 2
+      builder.add(first->getOperand(1)); // Out memory order
+      builder.add(first->getOperand(2)); // Base (comes specifically from first)
+      builder.addReg(newLenReg); // Length
+      builder.addImm(1); // Stride
+      builder.add(first->getOperand(5)); // Memory level
+      builder.add(first->getOperand(6)); // In memory order.
+
+      // Replace the uses of all of the old second memory operands with the
+      // first one.
+      MRI->replaceRegWith(second->getOperand(1).getReg(),
+          first->getOperand(1).getReg());
+
+      // Delete the old streaming loads.
+      first->eraseFromParent();
+      second->eraseFromParent();
+      op1 = insts[i] = nullptr;
+      op2 = insts[j] = nullptr;
+
+      // Stop trying to merge with different instructions
+      break;
+    }
+  }
 }
