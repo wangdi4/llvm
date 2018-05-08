@@ -42,6 +42,31 @@ static cl::opt<OptReportVerbosity::Level> LoopOptReportVerbosityOption(
         clEnumValN(OptReportVerbosity::High, "high",
                    "Medium + all extra details about the transformations")));
 
+// External storage for opt-report emitter control.
+OptReportOptions::LoopOptReportEmitterKind llvm::IntelOptReportEmitter;
+
+// Option for controlling 'backend' for the optimization reports.
+static cl::opt<OptReportOptions::LoopOptReportEmitterKind, true>
+    OptReportEmitter(
+        "intel-loop-optreport-emitter",
+        cl::desc("Option for choosing the way compiler outputs the "
+                 "optimization reports"),
+        cl::location(IntelOptReportEmitter),
+        cl::init(OptReportOptions::None),
+        cl::values(
+            clEnumValN(OptReportOptions::None, "none",
+                       "Optimization reports are not emitted"),
+            clEnumValN(
+                OptReportOptions::IR, "ir",
+                "Optimization reports are emitted right after HIR phase"),
+            clEnumValN(
+                OptReportOptions::HIR, "hir",
+                "Optimization reports are emitted before HIR Code Gen phase"),
+            clEnumValN(
+                OptReportOptions::MIR, "mir",
+                "Optimization reports are emitted at the end of "
+                "MIR processing")));
+
 char OptReportOptionsPass::ID = 0;
 INITIALIZE_PASS(OptReportOptionsPass, "optimization-report-options-pass",
                 "Optimization report options pass", false, true)

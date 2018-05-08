@@ -8,10 +8,12 @@
 //===----------------------------------------------------------------------===//
 //
 // This pass implements IR lowering for the llvm.load.relative intrinsic.
+// Also llvm.intel.subscript is lowered here. // INTEL
 //
 //===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/PreISelIntrinsicLowering.h"
+#include "llvm/Analysis/Utils/Local.h" // INTEL
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -55,11 +57,42 @@ static bool lowerLoadRelative(Function &F) {
   return Changed;
 }
 
+#if INTEL_CUSTOMIZATION
+// Reference code is in Intel_LowerSubscriptIntrinsic.cpp:lowerIntrinsics().
+// Duplicated to avoid build dependencies on Scalar library.
+static bool lowerSubscript(Function &F) {
+  if (F.use_empty())
+    return false;
+
+  bool Changed = false;
+  const DataLayout &DL = F.getParent()->getDataLayout();
+  for (auto I = F.use_begin(), E = F.use_end(); I != E;) {
+    SubscriptInst *CI = dyn_cast<SubscriptInst>(I->getUser());
+    ++I;
+    if (!CI || CI->getCalledValue() != &F)
+      continue;
+
+    IRBuilder<> Builder(CI);
+    Value *Offset[] = {EmitSubsOffset(&Builder, DL, CI)};
+    CI->replaceAllUsesWith(
+        Builder.CreateInBoundsGEP(CI->getPointerOperand(), Offset));
+    salvageDebugInfo(*CI);
+    CI->eraseFromParent();
+
+    Changed = true;
+  }
+  return Changed;
+}
+#endif // INTEL_CUSTOMIZATION
+
 static bool lowerIntrinsics(Module &M) {
   bool Changed = false;
   for (Function &F : M) {
     if (F.getName().startswith("llvm.load.relative."))
       Changed |= lowerLoadRelative(F);
+
+    if (F.getIntrinsicID() == Intrinsic::intel_subscript) // INTEL
+      Changed |= lowerSubscript(F);                       // INTEL
   }
   return Changed;
 }

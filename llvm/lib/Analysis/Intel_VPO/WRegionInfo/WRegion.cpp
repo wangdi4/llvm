@@ -364,26 +364,27 @@ WRNTaskloopNode::WRNTaskloopNode(BasicBlock *BB, LoopInfo *Li)
 //
 
 // constructor for LLVM IR representation
-WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
+WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li,
+                               const bool isAutoVec)
     : WRegionNode(WRegionNode::WRNVecLoop, BB), WRNLI(Li) {
   setIsOmpLoop();
   setSimdlen(0);
   setSafelen(0);
   setCollapse(0);
-  setIsAutoVec(false);
+  setIsAutoVec(isAutoVec);
 
   DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() << ">\n");
 }
 
 // constructor for HIR representation
-WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN)
+WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN, const bool isAutoVec)
                                       : WRegionNode(WRegionNode::WRNVecLoop),
                                         WRNLI(nullptr), EntryHLNode(EntryHLN) {
   setIsOmpLoop();
   setSimdlen(0);
   setSafelen(0);
   setCollapse(0);
-  setIsAutoVec(false);
+  setIsAutoVec(isAutoVec);
 
   setExitHLNode(nullptr);
   setHLLoop(nullptr);

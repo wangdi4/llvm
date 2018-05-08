@@ -125,11 +125,6 @@ static void debugPrintHeader(WRegionNode *W, bool IsPrepare) {
   DEBUG(dbgs() << W->getName().upper() << " construct\n\n");
 }
 
-static void debugPrintToBeSupported(WRegionNode *W) {
-  DEBUG(dbgs() << "\n === TODO: construct not yet supported: "
-               << W->getName().upper() << "\n\n");
-}
-
 //
 // ParPrepare mode:
 //   Paropt prepare transformations for lowering and privatizing
@@ -386,9 +381,13 @@ bool VPOParoptTransform::paroptTransforms() {
       //    E.g., simd, taskgroup, atomic, for, sections, etc.
 
       case WRegionNode::WRNTaskgroup:
-        // TODO
-        debugPrintToBeSupported(W);
+        debugPrintHeader(W, IsPrepare);
+        if (Mode & ParPrepare) {
+          Changed = genTaskgroupRegion(W);
+          RemoveDirectives = true;
+        }
         break;
+
       case WRegionNode::WRNVecLoop:
         // Privatization is enabled for SIMD Transform passes
         if ((Mode & OmpVec) && (Mode & ParTrans)) {
@@ -1225,6 +1224,21 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
   return Changed;
 }
 
+// Collect the instructions of global variable uses recursively to
+// handle the case of nested constant expressions.
+void VPOParoptTransform::collectGlobalUseInsnsRecursively(
+    WRegionNode *W, SmallVectorImpl<Instruction *> &RewriteCons,
+    ConstantExpr *CE) {
+  for (Use &U : CE->uses()) {
+    User *UR = U.getUser();
+    if (Instruction *I = dyn_cast<Instruction>(UR)) {
+      if (W->contains(I->getParent()))
+       RewriteCons.push_back(I);
+    } else if (ConstantExpr *C = dyn_cast<ConstantExpr>(UR))
+    collectGlobalUseInsnsRecursively(W, RewriteCons, C);
+  }
+}
+
 // A utility to privatize the variables within the region.
 Value *
 VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
@@ -1254,12 +1268,7 @@ VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
     SmallVector<Instruction *, 8> RewriteCons;
     for (auto IB = GV->user_begin(), IE = GV->user_end(); IB != IE; ++IB) {
       if (ConstantExpr *CE = dyn_cast<ConstantExpr>(*IB))
-        for (Use &U : CE->uses()) {
-          User *UR = U.getUser();
-          Instruction *I = dyn_cast<Instruction>(UR);
-          if (W->contains(I->getParent()))
-            RewriteCons.push_back(I);
-        }
+        collectGlobalUseInsnsRecursively(W, RewriteCons, CE);
     }
     while (!RewriteCons.empty()) {
       Instruction *I = RewriteCons.pop_back_val();
@@ -1766,7 +1775,7 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
     Loop *L = W->getWRNLoopInfo().getLoop();
     const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
     const SimplifyQuery SQ = {DL, TLI, DT, AC};
-    LoopRotation(L, -1, LI, TTI, AC, DT, SE, SQ);
+    LoopRotation(L, LI, TTI, AC, DT, SE, SQ, true, unsigned(-1), true);
     std::vector<AllocaInst *> Allocas;
     SmallVector<Value *, 2> LoopEssentialValues;
     if (W->getWRNLoopInfo().getNormIV())
@@ -2698,7 +2707,8 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   bool Changed = false;
 
   // brief extract a W-Region to generate a function
-  CodeExtractor CE(makeArrayRef(W->bbset_begin(), W->bbset_end()), DT, false);
+  CodeExtractor CE(makeArrayRef(W->bbset_begin(), W->bbset_end()), DT, false,
+                   nullptr, nullptr, false, true);
 
   assert(CE.isEligible());
 

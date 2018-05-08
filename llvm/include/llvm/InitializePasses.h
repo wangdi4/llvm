@@ -37,6 +37,9 @@ void initializeVectorization(PassRegistry&);
 /// Initialize all passes linked into the InstCombine library.
 void initializeInstCombine(PassRegistry&);
 
+/// Initialize all passes linked into the AggressiveInstCombine library.
+void initializeAggressiveInstCombine(PassRegistry&);
+
 /// Initialize all passes linked into the IPO library.
 void initializeIPO(PassRegistry&);
 
@@ -114,6 +117,7 @@ void initializeCFGOnlyViewerLegacyPassPass(PassRegistry&);
 void initializeCFGPrinterLegacyPassPass(PassRegistry&);
 void initializeCFGSimplifyPassPass(PassRegistry&);
 void initializeCFGViewerLegacyPassPass(PassRegistry&);
+void initializeCFIInstrInserterPass(PassRegistry&);
 void initializeCFLAndersAAWrapperPassPass(PassRegistry&);
 void initializeCFLSteensAAWrapperPassPass(PassRegistry&);
 void initializeCallGraphDOTPrinterPass(PassRegistry&);
@@ -257,6 +261,7 @@ void initializeLowerAtomicLegacyPassPass(PassRegistry&);
 void initializeLowerEmuTLSPass(PassRegistry&);
 void initializeLowerExpectIntrinsicPass(PassRegistry&);
 void initializeLowerGuardIntrinsicLegacyPassPass(PassRegistry&);
+void initializeLowerSubscriptIntrinsicLegacyPassPass(PassRegistry&); // INTEL
 void initializeLowerIntrinsicsPass(PassRegistry&);
 void initializeLowerInvokeLegacyPassPass(PassRegistry&);
 void initializeLowerSwitchPass(PassRegistry&);
@@ -427,7 +432,7 @@ void initializeTbaaMDPropagationLegacyPassPass(PassRegistry &);
 // Pass for removing fakeload intrinisics
 void initializeCleanupFakeLoadsLegacyPassPass(PassRegistry &);
 // Pass for indirect call conversion using points-to info
-void initializeIndirectCallConvPass(PassRegistry &);
+void initializeIndirectCallConvLegacyPassPass(PassRegistry &);
 // Pass for SnodeInfo analysis
 void initializeSNodeAnalysisPass(PassRegistry &);
 // Pass for register promotion for non escaped block scope global variables.
@@ -439,6 +444,7 @@ void initializeLoopOptMarkerLegacyPassPass(PassRegistry&);
 // Pass to store the opt level.
 void initializeXmainOptLevelWrapperPassPass(PassRegistry&);
 void initializeOptReportOptionsPassPass(PassRegistry &);
+void initializeLoopOptReportEmitterLegacyPassPass(PassRegistry&);
 // HIR Passes
 void initializeHIRRegionIdentificationWrapperPassPass(PassRegistry&);
 void initializeHIRSCCFormationWrapperPassPass(PassRegistry&);
@@ -478,7 +484,6 @@ void initializeHIRMVForConstUBPass(PassRegistry&);
 void initializeHIRLoopConcatenationLegacyPassPass(PassRegistry&);
 void initializeHIRArrayTransposePass(PassRegistry&);
 void initializeHIRLoopFusionPass(PassRegistry&);
-void initializeLoopOptReportEmitterPass(PassRegistry &);
 // VPO WRegion Passes
 void initializeWRegionCollectionWrapperPassPass(PassRegistry&);
 void initializeWRegionInfoWrapperPassPass(PassRegistry&);
@@ -518,6 +523,7 @@ void initializeVPlanDriverHIRPass(PassRegistry&);
 void initializeFMASplitterLegacyPassPass(PassRegistry&);
 // Pass for dynamic_cast calls optimization
 void initializeOptimizeDynamicCastsWrapperPass(PassRegistry&);
+void initializeMachineLoopOptReportEmitterPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 void initializeMIRCanonicalizerPass(PassRegistry &);
 

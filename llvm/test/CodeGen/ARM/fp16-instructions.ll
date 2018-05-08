@@ -28,6 +28,10 @@
 ; RUN: llc < %s -mtriple=arm-none-eabihf -mattr=+fullfp16 -fp-contract=fast | FileCheck %s --check-prefixes=CHECK,CHECK-HARDFP-FULLFP16-FAST
 ; RUN: llc < %s -mtriple=thumbv7-none-eabihf -mattr=+fullfp16 -fp-contract=fast | FileCheck %s --check-prefixes=CHECK,CHECK-HARDFP-FULLFP16-FAST
 
+; TODO: we can't pass half-precision arguments as "half" types yet. We do
+; that for the time being by passing "float %f.coerce" and the necessary
+; bitconverts/truncates. But when we can pass half types, we do want to use
+; and test that here.
 
 define float @RetValBug(float %A.coerce) {
 entry:
@@ -477,9 +481,9 @@ entry:
 ; CHECK-HARDFP-FULLFP16-FAST-NEXT:  vmov.f32  s0, s2
 }
 
-; TODO:
 ; 17. VMAXNM
 ; 18. VMINNM
+; Tested in fp16-vminmaxnm.ll and fp16-vminmaxnm-safe.ll
 
 ; 19. VMLA
 define float @VMLA(float %a.coerce, float %b.coerce, float %c.coerce) {
@@ -730,7 +734,7 @@ define half @select_cc_ge1()  {
 
 ; CHECK-LABEL:                 select_cc_ge1:
 
-; CHECK-HARDFP-FULLFP16:	     vcmpe.f16 s0, s0
+; CHECK-HARDFP-FULLFP16:       vcmpe.f16 s0, s0
 ; CHECK-HARDFP-FULLFP16-NEXT:	 vmrs APSR_nzcv, fpscr
 ; CHECK-HARDFP-FULLFP16-NEXT:  vselge.f16 s0, s{{.}}, s{{.}}
 
@@ -744,9 +748,26 @@ define half @select_cc_ge1()  {
 ; CHECK-SOFTFP-FP16-T32-NEXT:  vmovge.f32 s{{.}}, s{{.}}
 }
 
-;
-; FIXME: add fcmp ole, ult here.
-;
+define half @select_cc_ge2()  {
+  %1 = fcmp nsz ole half undef, 0xH0001
+  %2 = select i1 %1, half 0xHC000, half 0xH0002
+  ret half %2
+
+; CHECK-LABEL:                 select_cc_ge2:
+
+; CHECK-HARDFP-FULLFP16:       vcmpe.f16 s0, s0
+; CHECK-HARDFP-FULLFP16-NEXT:  vmrs APSR_nzcv, fpscr
+; CHECK-HARDFP-FULLFP16-NEXT:  vselge.f16 s0, s{{.}}, s{{.}}
+
+; CHECK-SOFTFP-FP16-A32:       vcmpe.f32 s0, s0
+; CHECK-SOFTFP-FP16-A32-NEXT:  vmrs APSR_nzcv, fpscr
+; CHECK-SOFTFP-FP16-A32-NEXT:  vmovls.f32 s{{.}}, s{{.}}
+
+; CHECK-SOFTFP-FP16-T32:       vcmpe.f32 s0, s0
+; CHECK-SOFTFP-FP16-T32-NEXT:  vmrs APSR_nzcv, fpscr
+; CHECK-SOFTFP-FP16-T32-NEXT:  it ls
+; CHECK-SOFTFP-FP16-T32-NEXT:  vmovls.f32 s{{.}}, s{{.}}
+}
 
 define half @select_cc_ge3()  {
   %1 = fcmp nsz ugt half undef, 0xH0001
@@ -767,6 +788,27 @@ define half @select_cc_ge3()  {
 ; CHECK-SOFTFP-FP16-T32-NEXT:  vmrs APSR_nzcv, fpscr
 ; CHECK-SOFTFP-FP16-T32-NEXT:  it hi
 ; CHECK-SOFTFP-FP16-T32-NEXT:  vmovhi.f32 s{{.}}, s{{.}}
+}
+
+define half @select_cc_ge4()  {
+  %1 = fcmp nsz ult half undef, 0xH0001
+  %2 = select i1 %1, half 0xHC000, half 0xH0002
+  ret half %2
+
+; CHECK-LABEL:                 select_cc_ge4:
+
+; CHECK-HARDFP-FULLFP16:       vcmpe.f16 s0, s0
+; CHECK-HARDFP-FULLFP16-NEXT:  vmrs APSR_nzcv, fpscr
+; CHECK-HARDFP-FULLFP16-NEXT:  vselge.f16 s0, s{{.}}, s{{.}}
+
+; CHECK-SOFTFP-FP16-A32:       vcmpe.f32 s0, s0
+; CHECK-SOFTFP-FP16-A32-NEXT:  vmrs APSR_nzcv, fpscr
+; CHECK-SOFTFP-FP16-A32-NEXT:  vmovlt.f32 s{{.}}, s{{.}}
+
+; CHECK-SOFTFP-FP16-T32:       vcmpe.f32 s0, s0
+; CHECK-SOFTFP-FP16-T32-NEXT:  vmrs APSR_nzcv, fpscr
+; CHECK-SOFTFP-FP16-T32-NEXT:  it lt
+; CHECK-SOFTFP-FP16-T32-NEXT:  vmovlt.f32 s{{.}}, s{{.}}
 }
 
 ; 37. VSELGT
@@ -812,9 +854,47 @@ define half @select_cc_gt2()  {
 ; CHECK-SOFTFP-FP16-T32-NEXT:  vmovpl.f32 s{{.}}, s{{.}}
 }
 
-;
-; FIXME: add fcmp ule, olt here.
-;
+define half @select_cc_gt3()  {
+  %1 = fcmp nsz ule half undef, 0xH0001
+  %2 = select i1 %1, half 0xHC000, half 0xH0002
+  ret half %2
+
+; CHECK-LABEL:                 select_cc_gt3:
+
+; CHECK-HARDFP-FULLFP16:       vcmpe.f16 s0, s0
+; CHECK-HARDFP-FULLFP16-NEXT:  vmrs  APSR_nzcv, fpscr
+; CHECK-HARDFP-FULLFP16-NEXT:  vselgt.f16  s0, s{{.}}, s{{.}}
+
+; CHECK-SOFTFP-FP16-A32:       vcmpe.f32 s0, s0
+; CHECK-SOFTFP-FP16-A32-NEXT:  vmrs APSR_nzcv, fpscr
+; CHECK-SOFTFP-FP16-A32-NEXT:  vmovle.f32 s{{.}}, s{{.}}
+
+; CHECK-SOFTFP-FP16-T32:       vcmpe.f32 s0, s0
+; CHECK-SOFTFP-FP16-T32-NEXT:  vmrs APSR_nzcv, fpscr
+; CHECK-SOFTFP-FP16-T32-NEXT:  it le
+; CHECK-SOFTFP-FP16-T32-NEXT:  vmovle.f32 s{{.}}, s{{.}}
+}
+
+define half @select_cc_gt4()  {
+  %1 = fcmp nsz olt half undef, 0xH0001
+  %2 = select i1 %1, half 0xHC000, half 0xH0002
+  ret half %2
+
+; CHECK-LABEL:                 select_cc_gt4:
+
+; CHECK-HARDFP-FULLFP16:       vcmpe.f16 s0, s0
+; CHECK-HARDFP-FULLFP16-NEXT:  vmrs  APSR_nzcv, fpscr
+; CHECK-HARDFP-FULLFP16-NEXT:  vselgt.f16  s0, s{{.}}, s{{.}}
+
+; CHECK-SOFTFP-FP16-A32:       vcmpe.f32 s0, s0
+; CHECK-SOFTFP-FP16-A32-NEXT:  vmrs APSR_nzcv, fpscr
+; CHECK-SOFTFP-FP16-A32-NEXT:  vmovmi.f32 s{{.}}, s{{.}}
+
+; CHECK-SOFTFP-FP16-T32:       vcmpe.f32 s0, s0
+; CHECK-SOFTFP-FP16-T32-NEXT:  vmrs APSR_nzcv, fpscr
+; CHECK-SOFTFP-FP16-T32-NEXT:  it mi
+; CHECK-SOFTFP-FP16-T32-NEXT:  vmovmi.f32 s{{.}}, s{{.}}
+}
 
 ; 38. VSELVS
 define float @select_cc4(float %a.coerce) {

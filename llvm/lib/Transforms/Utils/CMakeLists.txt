@@ -22,12 +22,12 @@ add_llvm_library(LLVMTransformUtils
   ImportedFunctionsInliningStatistics.cpp
   InstructionNamer.cpp
   IntegerDivision.cpp
-#if INTEL_CUSTOMIZATION
+# INTEL_CUSTOMIZATION
   Intel_GeneralUtils.cpp
   Intel_IntrinsicUtils.cpp
   Intel_VecClone.cpp
   ../Intel_VPO/Utils/IntrinsicUtils.cpp # TODO: Move to lib/Transforms/Utils
-#endif // INTEL_CUSTOMIZATION
+# end INTEL_CUSTOMIZATION
   LCSSA.cpp
   LibCallsShrinkWrap.cpp
   Local.cpp

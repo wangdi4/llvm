@@ -1799,6 +1799,57 @@ CallInst *VPOParoptUtils::genKmpcCallWithTid(
                                      ReturnTy, FnArgs);
 }
 
+// This function generates a call as follows.
+// void @__kmpc_taskgroup(%ident_t* %loc.addr.11.12, i32 %my.tid)
+CallInst *VPOParoptUtils::genKmpcTaskgroupCall(WRegionNode *W,
+                                               StructType *IdentTy, Value *Tid,
+                                               Instruction *InsertPt) {
+  return genKmpcTaskgroupOrEndTaskgroupCall(W, IdentTy, Tid, InsertPt, true);
+}
+
+// This function generates a call as follows.
+// void @__kmpc_end_taskgroup(%ident_t* %loc.addr.11.12, i32 %my.tid)
+CallInst *VPOParoptUtils::genKmpcEndTaskgroupCall(WRegionNode *W,
+                                                  StructType *IdentTy,
+                                                  Value *Tid,
+                                                  Instruction *InsertPt) {
+  return genKmpcTaskgroupOrEndTaskgroupCall(W, IdentTy, Tid, InsertPt, false);
+}
+
+// This function generates calls for the taskgroup region.
+//
+//   call void @__kmpc_taskgroup(%ident_t* %loc, i32 %tid)
+//      or
+//   call void @__kmpc_end_taskgroup(%ident_t* %loc, i32 %tid)
+CallInst *VPOParoptUtils::genKmpcTaskgroupOrEndTaskgroupCall(
+    WRegionNode *W, StructType *IdentTy, Value *Tid, Instruction *InsertPt,
+    bool IsTaskgroupStart) {
+
+  BasicBlock *B = W->getEntryBBlock();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+
+  Type *RetTy = nullptr;
+  StringRef FnName;
+
+  if (IsTaskgroupStart)
+    FnName = "__kmpc_taskgroup";
+  else
+    FnName = "__kmpc_end_taskgroup";
+
+  RetTy = Type::getVoidTy(C);
+
+  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadTid->setAlignment(4);
+
+  // Now bundle all the function arguments together.
+  SmallVector<Value *, 3> FnArgs = {LoadTid};
+
+  CallInst *TaskgroupOrEndCall =
+      VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt, FnName, RetTy, FnArgs);
+  return TaskgroupOrEndCall;
+}
+
 // This function generates a call to query the current thread if it is a master
 // thread. Or, generates a call to end_master callfor the team of threads.
 //   %master = call @__kmpc_master(%ident_t* %loc, i32 %tid)

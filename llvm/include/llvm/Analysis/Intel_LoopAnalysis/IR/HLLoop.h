@@ -18,6 +18,7 @@
 
 #include "llvm/ADT/SmallVector.h"
 
+#include "llvm/Analysis/Intel_Directives.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLIf.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
@@ -190,6 +191,9 @@ protected:
                     bool Detailed) const;
 
   void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs, StringRef *RemoveID);
+
+  /// Return true if the specified directive is attached to the loop.
+  bool hasDirective(int DirectiveID) const;
 
 public:
   /// Prints preheader of loop.
@@ -627,7 +631,13 @@ public:
   virtual void verify() const override;
 
   /// Checks whether SIMD directive is attached to the loop.
-  bool isSIMD() const;
+  bool isSIMD() const { return hasDirective(DIR_OMP_SIMD); }
+
+  /// Checks whether we have a vectorizable loop by checking if SIMD
+  /// or AUTO_VEC directive is attached to the loop.
+  bool isVecLoop() const {
+    return hasDirective(DIR_OMP_SIMD) || hasDirective(DIR_VPO_AUTO_VEC);
+  }
 
   unsigned getMVTag() const { return MVTag; }
 

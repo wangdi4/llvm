@@ -703,6 +703,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   // VPlan Predicator
   LVP.predicate();
 
+  // TODO: don't force vectorization if getIsAutoVec() is set to true.
   unsigned VF = LVP.selectBestPlan<VPlanCostModelProprietary>();
 
   // Set the final name for this initial VPlan.
@@ -727,8 +728,15 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
     HIRSafeReductionAnalysis *SRA;
     SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
     VPOCodeGenHIR VCodeGen(TLI, SRA, Fn, Lp, LORBuilder, WRLp);
+    bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF));
 
-    if (VF != 1 && VCodeGen.loopIsHandled(Lp, VF)) {
+    // Erase intrinsics before and after the loop if we either vectorized the
+    // loop or if this loop is an auto vectorization candidate. SIMD Intrinsics
+    // are left around for loops that are not vectorized.
+    if (LoopIsHandled || WRLp->getIsAutoVec())
+      VCodeGen.eraseLoopIntrins();
+
+    if (LoopIsHandled) {
       CandLoopsVectorized++;
       LVP.executeBestPlan(&VCodeGen);
       ModifiedLoop = true;

@@ -1278,6 +1278,12 @@ LLVMTypeRef LLVMX86MMXType(void);
  * @{
  */
 
+#ifdef INTEL_CUSTOMIZATION
+#define intel_macro_call(macro, inst) macro(inst)
+#else
+#define intel_macro_call(macro, inst) /**/
+#endif // INTEL_CUSTOMIZATION
+
 #define LLVM_FOR_EACH_VALUE_SUBCLASS(macro) \
   macro(Argument)                           \
   macro(BasicBlock)                         \
@@ -1313,6 +1319,7 @@ LLVMTypeRef LLVMX86MMXType(void);
             macro(MemCpyInst)               \
             macro(MemMoveInst)              \
             macro(MemSetInst)               \
+          intel_macro_call(macro, SubscriptInst) \
       macro(CmpInst)                        \
         macro(FCmpInst)                     \
         macro(ICmpInst)                     \

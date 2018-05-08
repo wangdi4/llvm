@@ -956,6 +956,10 @@ def int_load_relative: Intrinsic<[llvm_ptr_ty], [llvm_ptr_ty, llvm_anyint_ty],
 // Takes a pointer to a string and the length of the string.
 def int_xray_customevent : Intrinsic<[], [llvm_ptr_ty, llvm_i32_ty],
                                      [NoCapture<0>, ReadOnly<0>, IntrWriteMem]>;
+// Typed event logging for x-ray.
+// Takes a numeric type tag, a pointer to a string and the length of the string.
+def int_xray_typedevent : Intrinsic<[], [llvm_i16_ty, llvm_ptr_ty, llvm_i32_ty],
+                                        [NoCapture<1>, ReadOnly<1>, IntrWriteMem]>;
 //===----------------------------------------------------------------------===//
 
 //===------ Memory intrinsics with element-wise atomicity guarantees ------===//
@@ -1064,6 +1068,19 @@ def int_intel_std_container_ptr  : Intrinsic<[llvm_anyptr_ty],
 def int_intel_std_container_ptr_iter  : Intrinsic<[llvm_anyptr_ty],
                                         [LLVMMatchType<0>],
                                         [IntrReadMem]>;
+
+// Intrinsic generated instead of getelementptr to help HIR parsing and HIR
+// data dependence testing for arrays references.
+//
+// Return value: computed address.
+// Value pointed to by return value has rank equal to first argument.
+// Second and third arguments: lower bound and stride.
+// Forth argument: base pointer.
+// Fifth argument: subscript index.
+def int_intel_subscript : Intrinsic<[llvm_anyptr_ty],
+    [llvm_i8_ty, llvm_anyint_ty, llvm_anyint_ty, llvm_anyptr_ty,
+     llvm_anyint_ty],
+    [IntrSpeculatable, IntrNoMem]>;
 
 // Intrinsic generated for the return pointer. 
 def int_intel_fakeload   : Intrinsic<[llvm_anyptr_ty],

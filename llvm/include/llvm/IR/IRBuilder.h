@@ -635,6 +635,10 @@ public:
   /// \brief Create a call to the llvm.intel.fakeload intrinsic
   /// to hold the tbaa informaiton for the return pointers.
   Instruction *CreateFakeLoad(Value *Ptr, MDNode *TbaaTag);
+
+  /// Create a call to llvm.intel.subscript.
+  Instruction *CreateSubscript(unsigned Rank, Value *LowerBound, Value *Stride,
+                               Value *Ptr, Value *Index);
 #endif // INTEL_CUSTOMIZATION
 
   /// Create a call to intrinsic \p ID with 2 operands which is mangled on the

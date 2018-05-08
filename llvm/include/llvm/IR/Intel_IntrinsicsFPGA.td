@@ -120,3 +120,15 @@ def int_intel_hls_mm_master_load
                   llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i1_ty, llvm_i32_ty
                 ],
                 []>;
+/// Signature: T (T)
+def int_fpga_reg
+    : Intrinsic<
+          [ llvm_any_ty ],
+          [ LLVMMatchType<0> ],
+          []>;
+/// Signature: void (T*, T*)
+def int_fpga_reg_struct
+    : Intrinsic<
+          [],
+          [ llvm_any_ty, LLVMMatchType<0> ],
+          []>;

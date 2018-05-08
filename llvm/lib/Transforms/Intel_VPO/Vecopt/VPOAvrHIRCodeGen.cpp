@@ -838,7 +838,14 @@ void AVRCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
     EndIter = std::next(LastNode->getIterator());
   }
 
-  int BeginOrEndDirID = BeginDir ? DIR_OMP_SIMD : DIR_OMP_END_SIMD;
+  SmallSet<int, 2> BeginOrEndDirIDs;
+  if (BeginDir) {
+    BeginOrEndDirIDs.insert(DIR_OMP_SIMD);
+    BeginOrEndDirIDs.insert(DIR_VPO_AUTO_VEC);
+  } else {
+    BeginOrEndDirIDs.insert(DIR_OMP_END_SIMD);
+    BeginOrEndDirIDs.insert(DIR_VPO_END_AUTO_VEC);
+  }
   for (auto Iter = StartIter; Iter != EndIter;) {
     auto HInst = dyn_cast<HLInst>(&*Iter);
 
@@ -863,7 +870,7 @@ void AVRCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
 
         int DirID = vpo::VPOAnalysisUtils::getDirectiveID(DirStr);
 
-        if (DirID == BeginOrEndDirID) {
+        if (BeginOrEndDirIDs.count(DirID)) {
           HLNodeUtils::remove(HInst);
         } else if (VPOAnalysisUtils::isListEndDirective(DirID)) {
           HLNodeUtils::remove(HInst);

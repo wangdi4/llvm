@@ -129,6 +129,9 @@ public:
   // Widen Ref if needed and return the widened ref.
   RegDDRef *widenRef(const RegDDRef *Ref);
 
+  // Delete intel intrinsic directives before and after the loop.
+  void eraseLoopIntrins();
+
 private:
   // Target Library Info is used to check for svml.
   TargetLibraryInfo *TLI;
@@ -182,8 +185,6 @@ private:
   // before/after the loop based on the BeginDir which determines where we start
   // the lookup.
   void eraseLoopIntrinsImpl(bool BeginDir);
-
-  void eraseLoopIntrins();
 
   /// \brief Analyzes the memory references of \p OrigCall to determine
   /// stride. The resulting stride information is attached to the arguments

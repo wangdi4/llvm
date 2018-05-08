@@ -511,10 +511,6 @@ ReprocessLoop:
           BI->setCondition(ConstantInt::get(Cond->getType(),
                                             !L->contains(BI->getSuccessor(0))));
 
-          // This may make the loop analyzable, force SCEV recomputation.
-          if (SE)
-            SE->forgetLoop(L);
-
           Changed = true;
         }
       }
@@ -652,13 +648,6 @@ ReprocessLoop:
       DEBUG(dbgs() << "LoopSimplify: Eliminating exiting block "
                    << ExitingBlock->getName() << "\n");
 
-      // Notify ScalarEvolution before deleting this block. Currently assume the
-      // parent loop doesn't change (spliting edges doesn't count). If blocks,
-      // CFG edges, or other values in the parent loop change, then we need call
-      // to forgetLoop() for the parent instead.
-      if (SE)
-        SE->forgetLoop(L);
-
       assert(pred_begin(ExitingBlock) == pred_end(ExitingBlock));
       Changed = true;
       LI->removeBlock(ExitingBlock);
@@ -679,6 +668,12 @@ ReprocessLoop:
       ExitingBlock->eraseFromParent();
     }
   }
+
+  // Changing exit conditions for blocks may affect exit counts of this loop and
+  // any of its paretns, so we must invalidate the entire subtree if we've made
+  // any changes.
+  if (Changed && SE)
+    SE->forgetTopmostLoop(L);
 
   return Changed;
 }

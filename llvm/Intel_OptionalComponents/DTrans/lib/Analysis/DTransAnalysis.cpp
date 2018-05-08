@@ -11,10 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
+#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
@@ -71,8 +72,8 @@ static cl::opt<bool> DTransPrintAnalyzedTypes("dtrans-print-types",
 // taken' will be true only for %structC. But if -dtrans-outofboundsok=true,
 // it will also be true for %struct.A and %struct.B.
 //
-static cl::opt<bool> DTransOutOfBoundsOK("dtrans-outofboundsok",
-                                         cl::init(true), cl::ReallyHidden);
+static cl::opt<bool> DTransOutOfBoundsOK("dtrans-outofboundsok", cl::init(true),
+                                         cl::ReallyHidden);
 
 namespace {
 
@@ -242,10 +243,572 @@ private:
   ElementPointeeSet ElementPointees;
 };
 
+//
+// Class to analyze and identify functions that are post-dominated by
+// a call to malloc() or free(). Those post-dominated by malloc() will
+// yield true for isMallocPostDom().  Those post-dominated by free()
+// will yield true for isFreePostDom().
+//
+// Functions whose prototype match malloc() and free() need not have their
+// return value strictly post-dominated by malloc() or free(). Exceptions
+// are made for "skip cases", like the following:
+//
+// (1) Function calling malloc() does nothing if size argument is 0:
+//
+//   extern void *mymalloc(int size) {
+//     if (size != 0)
+//       return malloc(size);
+//     return nullptr;
+//   }
+//
+// (2) Function returns immediately after call to malloc() if malloc()
+//     returns a nullptr:
+//
+//   extern void *mymalloc(int size) {
+//     char *ptr = malloc(size);
+//     if (ptr == nullptr) {
+//       printf("Warning!\n");
+//       return nullptr;
+//     }
+//     return ptr;
+//   }
+//
+// (3) Function calling free() does nothing if argument is nullptr:
+//
+//   extern void myfree(void *ptr) {
+//     if (ptr != 0)
+//       free(ptr);
+//   }
+//
+// In cases (1) and (2), we will still return true for isMallocPostDom(),
+// even through the call to malloc() does not post-dominate all returns.
+// Similarly, in case (3), we wll still return true for isFreePostDom()
+// even though not all paths to the return are post-dominated by a call
+// to free().
+//
+class DTransAllocAnalyzer {
+public:
+  DTransAllocAnalyzer(const TargetLibraryInfo &TLI) : TLI(TLI) {}
+  bool isMallocPostDom(Function *F);
+  bool isFreePostDom(Function *F);
+
+private:
+  // An enum recording the current status of a function. The status is
+  // updated each time we need to know if the function is isMallocPostDom()
+  // or isFreePostDom(), until the function is determined to be one or
+  // the other or neither.
+  enum AllocStatus {
+    AKS_Unknown,
+    AKS_Malloc,
+    AKS_Free,
+    AKS_NotMalloc,
+    AKS_NotFree,
+    AKS_NotMallocFree
+  };
+  // Mapping for the AllocStatus of each Function we have queried.
+  std::map<Function *, AllocStatus> LocalMap;
+  // A set to hold visited BasicBlocks.  This is a temporary set used
+  // while we are determining the AllocStatus of a Function.
+  std::set<BasicBlock *> VisitedBlocks;
+  // A set to hold the BasicBlocks which do not need to be post-dominated
+  // by malloc() to be considered isMallocPostDom() or free to be considered
+  // isFreePostDom().
+  std::set<BasicBlock *> SkipTestBlocks;
+  // Needed to detrmine if a function is malloc()
+  const TargetLibraryInfo &TLI;
+
+  bool isSkipTestBlock(BasicBlock *BB) const;
+  bool isVisitedBlock(BasicBlock *BB) const;
+  int skipTestSuccessor(BranchInst *BI) const;
+  void visitAndSetSkipTestSuccessors(BasicBlock *BB);
+  void visitAndResetSkipTestSuccessors(BasicBlock *BB);
+  void visitNullPtrBlocks(Function *F);
+
+  bool mallocBasedGEPChain(GetElementPtrInst *GV, GetElementPtrInst **GBV,
+                           CallInst **GCI) const;
+  bool mallocOffset(Value *V, int64_t *offset) const;
+  bool mallocLimit(GetElementPtrInst *GBV, Value *V, int64_t *Result) const;
+  bool returnValueIsMallocAddress(Value *RV, BasicBlock *BB);
+  bool analyzeForMallocStatus(Function *F);
+
+  bool hasFreeCall(BasicBlock *BB) const;
+  bool isPostDominatedByFreeCall(BasicBlock *BB);
+  bool analyzeForFreeStatus(Function *F);
+};
+
+//
+// Return true if 'BB' is a skip test block, e.g. a BasicBlock which does
+// not need to be post-dominated by malloc() to be isMallocPostDom(), or
+// post-dominated by free() to be isFreePostDom().
+//
+bool DTransAllocAnalyzer::isSkipTestBlock(BasicBlock *BB) const {
+  return SkipTestBlocks.find(BB) != SkipTestBlocks.end();
+}
+
+//
+// Return true if 'BB' has been visited.
+//
+bool DTransAllocAnalyzer::isVisitedBlock(BasicBlock *BB) const {
+  return VisitedBlocks.find(BB) != VisitedBlocks.end();
+}
+
+//
+// Return true if 'F' is post-dominated by a call to malloc() on all paths
+// that do not include skip blocks.
+//
+bool DTransAllocAnalyzer::isMallocPostDom(Function *F) {
+  AllocStatus AS = LocalMap[F];
+  switch (AS) {
+  case AKS_Malloc:
+    return true;
+  case AKS_Free:
+  case AKS_NotMalloc:
+  case AKS_NotMallocFree:
+    return false;
+  case AKS_NotFree:
+    if (analyzeForMallocStatus(F)) {
+      LocalMap[F] = AKS_Malloc;
+      return true;
+    }
+    LocalMap[F] = AKS_NotMallocFree;
+    return false;
+  case AKS_Unknown:
+    if (analyzeForMallocStatus(F)) {
+      LocalMap[F] = AKS_Malloc;
+      return true;
+    }
+    LocalMap[F] = AKS_NotMalloc;
+    return false;
+  }
+  return false;
+}
+
+//
+// Return true if 'F' is post-dominated by a call to free() on all paths
+// that do not include skip blocks.
+//
+bool DTransAllocAnalyzer::isFreePostDom(Function *F) {
+  AllocStatus AS = LocalMap[F];
+  switch (AS) {
+  case AKS_Free:
+    return true;
+  case AKS_Malloc:
+  case AKS_NotFree:
+  case AKS_NotMallocFree:
+    return false;
+  case AKS_NotMalloc:
+    if (analyzeForFreeStatus(F)) {
+      LocalMap[F] = AKS_Free;
+      return true;
+    }
+    LocalMap[F] = AKS_NotMallocFree;
+    return false;
+  case AKS_Unknown:
+    if (analyzeForFreeStatus(F)) {
+      LocalMap[F] = AKS_Free;
+      return true;
+    }
+    LocalMap[F] = AKS_NotFree;
+    return false;
+  }
+  return false;
+}
+
+//
+// Return:
+//  0 if the 0th operand of the 'BranchInst' is the successor which will
+//    be taken if the skip test condition is satisfied.
+//  1 if the 1st operand of the 'BranchInst' is the successor which will
+//    be taken if the skip test condition is satisfied.
+// -1 otherwise
+//
+// For example:
+//   If the skip test is "ptr == nullptr", we will return 0.
+//   If the skip test is "ptr != nullptr", we will return 1.
+//
+int DTransAllocAnalyzer::skipTestSuccessor(BranchInst *BI) const {
+  if (!BI || BI->isUnconditional())
+    return -1;
+  if (BI->getNumSuccessors() != 2)
+    return -1;
+  auto *CI = dyn_cast<Constant>(BI->getCondition());
+  if (CI)
+    return CI->isNullValue() ? 0 : 1;
+  auto *ICI = dyn_cast<ICmpInst>(BI->getCondition());
+  if (ICI == nullptr || !ICI->isEquality())
+    return -1;
+  Value *V = nullptr;
+  if (isa<ConstantPointerNull>(ICI->getOperand(0)))
+    V = ICI->getOperand(1);
+  else if (isa<ConstantPointerNull>(ICI->getOperand(1)))
+    V = ICI->getOperand(0);
+  if (V == nullptr)
+    return -1;
+  if (isa<Argument>(V))
+    return ICI->getPredicate() == ICmpInst::ICMP_EQ ? 0 : 1;
+  if (auto CCI = dyn_cast<CallInst>(V))
+    if (dtrans::getAllocFnKind(CCI->getCalledFunction(), TLI) ==
+        dtrans::AK_Malloc)
+      return ICI->getPredicate() == ICmpInst::ICMP_EQ ? 0 : 1;
+  return -1;
+}
+
+//
+// If 'BB' is not already a skip test block, mark it and all of its
+// successors (and their successors, etc.) as skip test blocks.
+//
+void DTransAllocAnalyzer::visitAndSetSkipTestSuccessors(BasicBlock *BB) {
+  if (BB == nullptr)
+    return;
+  auto it = SkipTestBlocks.find(BB);
+  if (it != SkipTestBlocks.end())
+    return;
+  SkipTestBlocks.insert(BB);
+  for (auto BBS : successors(BB))
+    visitAndSetSkipTestSuccessors(BBS);
+}
+
+//
+// If 'BB' is not already a visited block, mark it and all of its
+// successors (and their successors, etc.) as not being skip test blocks.
+//
+void DTransAllocAnalyzer::visitAndResetSkipTestSuccessors(BasicBlock *BB) {
+  if (BB == nullptr)
+    return;
+  auto it = VisitedBlocks.find(BB);
+  if (it != VisitedBlocks.end())
+    return;
+  VisitedBlocks.insert(BB);
+  it = SkipTestBlocks.find(BB);
+  if (it != SkipTestBlocks.end())
+    SkipTestBlocks.erase(it);
+  for (auto BBS : successors(BB))
+    visitAndResetSkipTestSuccessors(BBS);
+}
+
+//
+// Mark as skip test blocks for 'F', all those blocks which include a skip
+// test, and are on a path starting with the skip test successor of that
+// block, but are not on some other path which is not a successor of a
+// skip test block.
+//
+void DTransAllocAnalyzer::visitNullPtrBlocks(Function *F) {
+  std::set<BasicBlock *> SkipBlockSet;
+  std::set<BasicBlock *> NoSkipBlockSet;
+  SkipTestBlocks.clear();
+  VisitedBlocks.clear();
+  for (BasicBlock &BB : *F)
+    if (auto BI = dyn_cast<BranchInst>(BB.getTerminator())) {
+      int rv = skipTestSuccessor(BI);
+      if (rv >= 0) {
+        SkipBlockSet.insert(BI->getParent());
+        SkipBlockSet.insert(BI->getSuccessor(rv));
+        NoSkipBlockSet.insert(BI->getSuccessor(1 - rv));
+      }
+    }
+  std::set<BasicBlock *>::const_iterator it, ie;
+  for (it = SkipBlockSet.begin(), ie = SkipBlockSet.end(); it != ie; ++it)
+    visitAndSetSkipTestSuccessors(*it);
+  for (it = NoSkipBlockSet.begin(), ie = NoSkipBlockSet.end(); it != ie; ++it)
+    visitAndResetSkipTestSuccessors(*it);
+}
+
+//
+// Return true if 'GV' is the root of a malloc based GEP chain. This
+// means that if we keep following the pointer operand for a series of
+// GEP instructions, we will eventually get to a malloc() call.
+//
+// For example:
+//   %5 = tail call noalias i8* @malloc(i64 %4)
+//   %8 = getelementptr inbounds i8, i8* %5, i64 27
+//   %12 = getelementptr inbounds i8, i8* %8, i64 %11
+// Here %12 is the root of a malloc based GEP chain.
+//
+// In the case that we return true, we set '*GBV' to the GEP immediately
+// preceding the call to malloc (in this example %8) and we set '*GCI'
+// to the call to malloc (in this example %5).
+//
+bool DTransAllocAnalyzer::mallocBasedGEPChain(GetElementPtrInst *GV,
+                                              GetElementPtrInst **GBV,
+                                              CallInst **GCI) const {
+  GetElementPtrInst *V;
+  for (V = GV; isa<GetElementPtrInst>(V->getPointerOperand());
+       V = dyn_cast<GetElementPtrInst>(V->getPointerOperand())) {
+    if (!V->getSourceElementType()->isIntegerTy(8))
+      return false;
+  }
+  if (!V->getSourceElementType()->isIntegerTy(8))
+    return false;
+  auto CI = dyn_cast<CallInst>(V->getPointerOperand());
+  if (!CI)
+    return false;
+  if (dtrans::getAllocFnKind(CI->getCalledFunction(), TLI) !=
+      dtrans::AK_Malloc)
+    return false;
+  *GBV = V;
+  *GCI = CI;
+  return true;
+}
+
+//
+// Return 'true' if the function calls malloc() with a value equal to
+// its own argument plus some offset.
+//
+// For example:
+//   %2 = add nsw i32 %0, 15
+//   %3 = sext i32 %2 to i64
+//   %4 = add nsw i64 %3, 12
+//   %5 = tail call noalias i8* @malloc(i64 %4)
+//
+// Here, assuming %0 is the function argument, malloc is called with a
+// value of %0 + 27.
+//
+// When we return true, we set '*offset' to the offset (which in this
+// example is 27).
+//
+bool DTransAllocAnalyzer::mallocOffset(Value *V, int64_t *offset) const {
+  int64_t Result = 0;
+  while (!isa<Argument>(V)) {
+    if (auto BI = dyn_cast<BinaryOperator>(V)) {
+      if (BI->getOpcode() == Instruction::Add) {
+        if (auto CI = dyn_cast<ConstantInt>(BI->getOperand(0))) {
+          V = BI->getOperand(1);
+          Result += CI->getSExtValue();
+        } else if (auto CI = dyn_cast<ConstantInt>(BI->getOperand(1))) {
+          V = BI->getOperand(0);
+          Result += CI->getSExtValue();
+        } else
+          return false;
+      }
+    } else if (auto SI = dyn_cast<SExtInst>(V))
+      V = SI->getOperand(0);
+    else
+      return false;
+  }
+  *offset = Result;
+  return true;
+}
+
+//
+// Return true if 'Value' is 2^n-1 for some n.
+//
+static bool isLowerBitMask(int64_t Value) {
+  while (Value & 1)
+    Value >>= 1;
+  return Value == 0;
+}
+
+//
+// Return true if we can find an upper bound for the amount 'V' is less than
+// the address computed by the 'GBV'.
+//
+// For example:
+//
+//  %8 = getelementptr inbounds i8, i8* %5, i64 27
+//  %9 = ptrtoint i8* %8 to i64
+//  %10 = and i64 %9, 15
+//  %11 = sub nsw i64 0, %10
+//  %12 = getelementptr inbounds i8, i8* %8, i64 %11
+//
+// If 'V' here is %11 and 'GBV' is %8, then the most that %12 can be less
+// than %8 is 15.
+//
+// If we return true, we set '*Result' to the value of the upper bound.
+//
+// NOTE: mallocLimit() is a bit of a pattern match, albeit for a very
+// important case.
+//
+bool DTransAllocAnalyzer::mallocLimit(GetElementPtrInst *GBV, Value *V,
+                                      int64_t *Result) const {
+  auto BIS = dyn_cast<BinaryOperator>(V);
+  if (!BIS || BIS->getOpcode() != Instruction::Sub)
+    return false;
+  auto CI = dyn_cast<ConstantInt>(BIS->getOperand(0));
+  if (!CI || !CI->isZero())
+    return false;
+  auto BIA = dyn_cast<BinaryOperator>(BIS->getOperand(1));
+  if (!BIA || BIA->getOpcode() != Instruction::And)
+    return false;
+  Value *W = nullptr;
+  int64_t Limit = 0;
+  if ((CI = dyn_cast<ConstantInt>(BIA->getOperand(0)))) {
+    W = BIA->getOperand(1);
+    Limit = CI->getSExtValue();
+  } else if ((CI = dyn_cast<ConstantInt>(BIA->getOperand(1)))) {
+    W = BIA->getOperand(0);
+    Limit = CI->getSExtValue();
+  } else
+    return false;
+  if (!isLowerBitMask(Limit))
+    return false;
+  auto PI = dyn_cast<PtrToIntInst>(W);
+  if (!PI)
+    return false;
+  auto GEP = dyn_cast<GetElementPtrInst>(PI->getOperand(0));
+  if (GEP != GBV)
+    return false;
+  *Result = Limit;
+  return true;
+}
+
+//
+// Return true if 'RV' is a return value post-dominated by a call to
+// malloc(). 'BB' is the BasicBlock containing 'RV'.
+//
+// NOTE: We ensure that all return values derived from calls to malloc()
+// point to some address in the memeory that was allocated.
+//
+bool DTransAllocAnalyzer::returnValueIsMallocAddress(Value *RV,
+                                                     BasicBlock *BB) {
+  if (isVisitedBlock(BB))
+    return false;
+  VisitedBlocks.insert(BB);
+  if (auto *CI = dyn_cast<CallInst>(RV))
+    return dtrans::getAllocFnKind(CI->getCalledFunction(), TLI) ==
+           dtrans::AK_Malloc;
+  if (auto *PI = dyn_cast<PHINode>(RV)) {
+    bool rv = false;
+    for (unsigned I = 0; I < PI->getNumIncomingValues(); ++I) {
+      Value *V = PI->getIncomingValue(I);
+      BasicBlock *PB = PI->getIncomingBlock(I);
+      bool NullValue = isa<ConstantPointerNull>(V);
+      bool IsSkipTestBlock = isSkipTestBlock(PB);
+      if ((NullValue && !IsSkipTestBlock) || (!NullValue && IsSkipTestBlock))
+        return false;
+      if (!NullValue && !IsSkipTestBlock && !returnValueIsMallocAddress(V, PB))
+        return false;
+      rv = true;
+    }
+    return rv;
+  }
+  if (auto *GV = dyn_cast<GetElementPtrInst>(RV)) {
+    int64_t Limit, Offset;
+    GetElementPtrInst *GBV;
+    CallInst *CI;
+    if (!mallocBasedGEPChain(GV, &GBV, &CI))
+      return false;
+    if (!mallocOffset(CI->getOperand(0), &Offset))
+      return false;
+    if (!mallocLimit(GBV, GV->getOperand(1), &Limit))
+      return false;
+    return Offset >= Limit;
+  }
+  return false;
+}
+
+//
+// Return true if 'F' is isMallocPostDom().
+//
+bool DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
+  if (F == nullptr)
+    return false;
+  DEBUG(dbgs() << "Analyzing for MallocPostDom " << F->getName() << "\n");
+  VisitedBlocks.clear();
+  if (std::distance(F->arg_begin(), F->arg_end()) == 1 &&
+      F->arg_begin()->getType()->isIntegerTy()) {
+    visitNullPtrBlocks(F);
+    VisitedBlocks.clear();
+  }
+  bool rv = false;
+  for (BasicBlock &BB : *F)
+    if (auto RI = dyn_cast<ReturnInst>(BB.getTerminator())) {
+      Value *RV = RI->getReturnValue();
+      if (RV == nullptr) {
+        DEBUG(dbgs() << "Not MallocPostDom " << F->getName()
+                     << " Return is nullptr\n");
+        return false;
+      }
+      if (!returnValueIsMallocAddress(RV, &BB)) {
+        DEBUG(dbgs() << "Not MallocPostDom " << F->getName()
+                     << " Return is not malloc address\n");
+        return false;
+      }
+      rv = true;
+    }
+  if (rv)
+    DEBUG(dbgs() << "Is MallocPostDom " << F->getName() << "\n");
+  else
+    DEBUG(dbgs() << "Not MallocPostDom " << F->getName()
+                 << " No malloc address returned\n");
+  return rv;
+}
+
+//
+// Return true if 'BB' has a call to free().
+//
+bool DTransAllocAnalyzer::hasFreeCall(BasicBlock *BB) const {
+  for (auto BI = BB->rbegin(), BE = BB->rend(); BI != BE;) {
+    Instruction *I = &*BI++;
+    if (auto *CI = dyn_cast<CallInst>(I))
+      if (dtrans::isFreeFn(CI->getCalledFunction(), TLI))
+        return true;
+  }
+  return false;
+}
+
+//
+// Return true if 'BB' contains or is dominated by a call to free()
+// on all predecessors.
+//
+bool DTransAllocAnalyzer::isPostDominatedByFreeCall(BasicBlock *BB) {
+  bool rv = false;
+  if (isVisitedBlock(BB))
+    return false;
+  VisitedBlocks.insert(BB);
+  bool IsSkipTestBlock = isSkipTestBlock(BB);
+  if (IsSkipTestBlock || hasFreeCall(BB))
+    return true;
+  for (BasicBlock *PB : predecessors(BB)) {
+    if (!isPostDominatedByFreeCall(PB))
+      return false;
+    rv = true;
+  }
+  return rv;
+}
+
+//
+// Return true if 'F' is isFreePostDom().
+//
+bool DTransAllocAnalyzer::analyzeForFreeStatus(Function *F) {
+  if (F == nullptr)
+    return false;
+  VisitedBlocks.clear();
+  if (std::distance(F->arg_begin(), F->arg_end()) == 1 &&
+      F->arg_begin()->getType()->isPointerTy()) {
+    visitNullPtrBlocks(F);
+    VisitedBlocks.clear();
+  }
+  DEBUG(dbgs() << "Analyzing for FreePostDom " << F->getName() << "\n");
+  bool rv = false;
+  for (BasicBlock &BB : *F)
+    if (auto Ret = dyn_cast<ReturnInst>(BB.getTerminator())) {
+      if (Ret->getReturnValue() != nullptr) {
+        DEBUG(dbgs() << "Not FreePostDom " << F->getName()
+                     << " Return is not nullptr\n");
+        return false;
+      }
+      if (!isPostDominatedByFreeCall(&BB)) {
+        DEBUG(dbgs() << "Not FreePostDom " << F->getName()
+                     << " Return is not post-dominated by call to free\n");
+        return false;
+      }
+      rv = true;
+    }
+  if (rv)
+    DEBUG(dbgs() << "Is FreePostDom " << F->getName() << "\n");
+  else
+    DEBUG(dbgs() << "Not FreePostDom " << F->getName()
+                 << " No return post-dominated by free\n");
+  return rv;
+}
+
+// End of member functions for class DTransAllocAnalyzer
+
 class LocalPointerAnalyzer {
 public:
-  LocalPointerAnalyzer(const DataLayout &DL, const TargetLibraryInfo &TLI)
-      : DL(DL), TLI(TLI) {}
+  LocalPointerAnalyzer(const DataLayout &DL, const TargetLibraryInfo &TLI,
+                       DTransAllocAnalyzer &DTAA)
+      : DL(DL), TLI(TLI), DTAA(DTAA) {}
 
   LocalPointerInfo &getLocalPointerInfo(Value *V) {
     // If we don't already have an entry for this pointer, do some analysis.
@@ -261,12 +824,21 @@ public:
 private:
   const DataLayout &DL;
   const TargetLibraryInfo &TLI;
+  DTransAllocAnalyzer &DTAA;
   // We cannot use DenseMap or ValueMap here because we are inserting values
   // during recursive calls to analyzeValue() and with a DenseMap or ValueMap
   // that would cause the LocalPointerInfo to be copied and our local
   // reference to it to be invalidated.
   std::map<Value *, LocalPointerInfo> LocalMap;
   SmallPtrSet<Value *, 8> InProgressValues;
+
+  // These two maps are needed to manage cyclic dependencies in the
+  // analysis chain. DependentValues maps a Value to the set of other
+  // values that require the final alias set from the analysis of the key
+  // value. PendingValues maps a value to the set of other Values on
+  // which it is waiting.
+  DenseMap<Value *, SmallPtrSet<Value *, 8>> DependentValues;
+  DenseMap<Value *, SmallPtrSet<Value *, 8>> PendingValues;
 
   void analyzeValue(Value *V) {
     // If we've already analyzed this value, there is no need to
@@ -288,8 +860,12 @@ private:
 
     // If we're already working on this value (for instance, tracing the
     // incoming values of a PHI node), don't go any further.
-    if (!InProgressValues.insert(V).second)
+    if (!InProgressValues.insert(V).second) {
+      DEBUG(dbgs() << "  InProgress skip analyzing " << *V << "\n");
       return;
+    }
+
+    DEBUG(dbgs() << "Analyzing " << *V << "\n");
 
     // If this value is derived from another local value, follow the
     // collect info from the source operand.
@@ -307,8 +883,10 @@ private:
     // we need to look for bitcast users so that we can proactively assign
     // the type to which the value will be cast as an alias.
     if (auto *CI = dyn_cast<CallInst>(V)) {
-      dtrans::AllocKind Kind =
-          dtrans::getAllocFnKind(CI->getCalledFunction(), TLI);
+      Function *Callee = CI->getCalledFunction();
+      dtrans::AllocKind Kind = dtrans::getAllocFnKind(Callee, TLI);
+      if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(Callee))
+        Kind = dtrans::AK_Malloc;
       if (Kind != dtrans::AK_NotAlloc)
         analyzeAllocationCallAliases(CI, Info);
     }
@@ -326,9 +904,79 @@ private:
     // Mark the info as analyzed.
     Info.setAnalyzed();
 
+    // If any other values were dependent on the result of the current
+    // analysis, merge these results now.
+    if (DependentValues.count(V)) {
+      for (Value *Dependent : DependentValues[V]) {
+        DEBUG(dbgs() << "  Merge analysis for " << V->getName() << " into "
+                     << Dependent->getName() << "\n");
+        LocalPointerInfo &DepLPI = LocalMap[Dependent];
+        DepLPI.merge(Info);
+        PendingValues[Dependent].erase(V);
+      }
+      DependentValues[V].clear();
+    }
+
     // Erase this value from the in-progress set.
     // The 'analyzed' flag will be sufficient to prevent future re-analysis.
     InProgressValues.erase(V);
+  }
+
+  // This routine is called to attempt to get local pointer info for one
+  // value while analyzing another. If the value has been previously
+  // analyzed, a reference to its LocalPointerInfo will be returned.
+  // If the value has not been analyzed and is not in the 'InProgressValues'
+  // set, we will attempt to analyze it. If the analysis for this value is
+  // already in progress (as can happen with a cycle containing PHI nodes)
+  // the currently available (though incomplete) LocalPointerInfo will be
+  // returned and an entry will be created in the dependent value map
+  // indicating that the Dependent value has an unresolved dependency on
+  // value V. When analysis of V is complete, these results will be merged
+  // with the LocalPointerInfo for the Dependent value.
+  LocalPointerInfo &tryGetLocalPointerInfo(Value *V, Value *Dependent) {
+    // Helper lambda
+    auto recordSecondaryDependencies = [this](Value *V, Value *Dependent) {
+      if (PendingValues.count(V)) {
+        for (Value *Pending : PendingValues[V]) {
+          // Don't make values dependent on themselves.
+          if (Pending == Dependent)
+            continue;
+          DEBUG(dbgs() << "  Recording secondary dependency of "
+                       << Dependent->getName() << " on " << Pending->getName()
+                       << "\n");
+          DependentValues[Pending].insert(Dependent);
+          PendingValues[Dependent].insert(Pending);
+        }
+      }
+    };
+
+    LocalPointerInfo &Info = LocalMap[V];
+    if (Info.getAnalyzed()) {
+      recordSecondaryDependencies(V, Dependent);
+      return Info;
+    }
+
+    // If analysis of this value is currently in progress, add an entry
+    // to the pending values map so that its analysis can be appended to
+    // the Dependent value when it is complete.
+    if (InProgressValues.count(V)) {
+      DEBUG(dbgs() << "  Recording dependency of " << Dependent->getName()
+                   << " on " << V->getName() << "\n");
+      DependentValues[V].insert(Dependent);
+      PendingValues[Dependent].insert(V);
+      return Info;
+    }
+
+    // Otherwise, we can attempt analysis.
+    analyzeValue(V);
+
+    // It is still possible that the analysis of V could not be completed
+    // because it depends on a value that was pending. If so, mark our
+    // Dependent value as also being dependent on the results for which
+    // the analysis of V is waiting.
+    recordSecondaryDependencies(V, Dependent);
+
+    return Info;
   }
 
   void collectSourceOperandInfo(Value *V, LocalPointerInfo &Info) {
@@ -337,33 +985,39 @@ private:
     // already visited.
     if (auto *PN = dyn_cast<PHINode>(V)) {
       for (Value *InVal : PN->incoming_values()) {
-        analyzeValue(InVal);
-        Info.merge(LocalMap[InVal]);
+        LocalPointerInfo &InLPI = tryGetLocalPointerInfo(InVal, V);
+        Info.merge(InLPI);
       }
       return;
     }
     if (auto *Sel = dyn_cast<SelectInst>(V)) {
       Value *TV = Sel->getTrueValue();
-      analyzeValue(TV);
-      Info.merge(LocalMap[TV]);
+      LocalPointerInfo &TrueLPI = tryGetLocalPointerInfo(TV, V);
+      Info.merge(TrueLPI);
       Value *FV = Sel->getFalseValue();
-      analyzeValue(FV);
-      Info.merge(LocalMap[FV]);
+      LocalPointerInfo &FalseLPI = tryGetLocalPointerInfo(FV, V);
+      Info.merge(FalseLPI);
       return;
     }
     if (isa<CastInst>(V) || isa<BitCastOperator>(V) ||
         isa<PtrToIntOperator>(V)) {
       Value *SrcVal = cast<User>(V)->getOperand(0);
-      analyzeValue(SrcVal);
+      LocalPointerInfo &SrcLPI = tryGetLocalPointerInfo(SrcVal, V);
       // If this is a bitcast that would be a valid way to access element
       // zero of any type known to be aliased by SrcVal, then record this
       // as an element access rather than merging the incoming value's aliases.
       if (auto *BC = dyn_cast<BitCastInst>(V)) {
+        // FIXME: This has the potential to miss the case where the bitcast
+        //        is accessing element zero of a type that is aliased through
+        //        some value that we were not able to analyze (because of a
+        //        cycle of PHI nodes). The result would be that we'd report
+        //        a mismatched element access. However, I don't believe this
+        //        unhandled case will actually happen without an overloaded
+        //        alias set.
         // It's possible that the source value aliases multiple pointers that
         // meet the element zero idiom. If it does, we want to know about all
         // of them.
         bool IsElementZeroAccess = false;
-        LocalPointerInfo &SrcLPI = LocalMap[SrcVal];
         for (auto *AliasTy : SrcLPI.getPointerTypeAliasSet()) {
           llvm::Type *AccessedTy = nullptr;
           if (dtrans::isElementZeroAccess(AliasTy, BC->getDestTy(),
@@ -376,7 +1030,7 @@ private:
         if (IsElementZeroAccess)
           return;
       }
-      Info.merge(LocalMap[SrcVal]);
+      Info.merge(SrcLPI);
       return;
     }
     // The caller should have checked isDerivedValue() before calling this
@@ -701,8 +1355,9 @@ private:
 class DTransInstVisitor : public InstVisitor<DTransInstVisitor> {
 public:
   DTransInstVisitor(LLVMContext &Context, DTransAnalysisInfo &Info,
-                    const DataLayout &DL, const TargetLibraryInfo &TLI)
-      : DTInfo(Info), DL(DL), TLI(TLI), LPA(DL, TLI) {
+                    const DataLayout &DL, const TargetLibraryInfo &TLI,
+                    DTransAllocAnalyzer &DTAA)
+      : DTInfo(Info), DL(DL), TLI(TLI), LPA(DL, TLI, DTAA), DTAA(DTAA) {
     // Save pointers to some commonly referenced types.
     Int8PtrTy = llvm::Type::getInt8PtrTy(Context);
     PtrSizeIntTy = llvm::Type::getIntNTy(Context, DL.getPointerSizeInBits());
@@ -751,6 +1406,8 @@ public:
     // If the called function is a known allocation function, we need to
     // analyze the allocation.
     dtrans::AllocKind Kind = dtrans::getAllocFnKind(F, TLI);
+    if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(F))
+      Kind = dtrans::AK_Malloc;
     if (Kind != dtrans::AK_NotAlloc) {
       analyzeAllocationCall(CI, Kind);
       return;
@@ -758,7 +1415,7 @@ public:
 
     // If this is a call to the "free" lib function, we don't need
     // to analyze the argument.
-    if (dtrans::isFreeFn(F, TLI))
+    if (dtrans::isFreeFn(F, TLI) || DTAA.isFreePostDom(F))
       return;
 
     // For all other calls, if a pointer to an aggregate type is passed as an
@@ -784,7 +1441,7 @@ public:
           setBaseTypeInfoSafetyData(PointeePair.first,
                                     dtrans::FieldAddressTaken);
           dtrans::TypeInfo *ParentTI =
-            DTInfo.getOrCreateTypeInfo(PointeePair.first);
+              DTInfo.getOrCreateTypeInfo(PointeePair.first);
           if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
             ParentStInfo->getField(PointeePair.second).setAddressTaken();
         }
@@ -911,8 +1568,8 @@ public:
 
     LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Ptr);
     if (LPI.pointsToSomeElement())
-      analyzeElementLoadOrStore(LPI, nullptr, I, I.getType(),
-                                I.isVolatile(), /*IsLoad=*/true);
+      analyzeElementLoadOrStore(LPI, nullptr, I, I.getType(), I.isVolatile(),
+                                /*IsLoad=*/true);
     else {
       // If the source pointer isn't a pointer to an element in an aggregate
       // type, we need to check to see if the source value is a pointer to
@@ -983,8 +1640,8 @@ public:
           if (I != nullptr)
             DEBUG(dbgs() << "  " << *I << "\n");
           else
-            DEBUG(dbgs() << " " << *ValOperand << " -> " << *PtrOperand <<
-                  " \n");
+            DEBUG(dbgs() << " " << *ValOperand << " -> " << *PtrOperand
+                         << " \n");
           setValueTypeInfoSafetyData(ValOperand, dtrans::UnsafePointerStore);
           setValueTypeInfoSafetyData(PtrOperand, dtrans::UnsafePointerStore);
         }
@@ -1053,7 +1710,8 @@ public:
             DTInfo.getOrCreateTypeInfo(PointeePair.first);
         DEBUG(dbgs() << "dtrans-safety: Field address taken:\n"
                      << "  " << *(ParentTI->getLLVMType()) << " @ "
-                     << PointeePair.second << "\n" << "  " << I << "\n");
+                     << PointeePair.second << "\n"
+                     << "  " << I << "\n");
         ParentTI->setSafetyData(dtrans::FieldAddressTaken);
         if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
           ParentStInfo->getField(PointeePair.second).setAddressTaken();
@@ -1065,8 +1723,8 @@ public:
     // value being written has the correct size.
     LocalPointerInfo &PtrLPI = LPA.getLocalPointerInfo(PtrOperand);
     if (PtrLPI.pointsToSomeElement())
-      analyzeElementLoadOrStore(PtrLPI, ValOperand, I,
-                                ValOperand->getType(), I.isVolatile(),
+      analyzeElementLoadOrStore(PtrLPI, ValOperand, I, ValOperand->getType(),
+                                I.isVolatile(),
                                 /*IsLoad=*/false);
   }
 
@@ -1202,7 +1860,7 @@ public:
                      << I.getParent()->getParent()->getName() << "\n");
         setBaseTypeInfoSafetyData(PointeePair.first, dtrans::FieldAddressTaken);
         dtrans::TypeInfo *ParentTI =
-          DTInfo.getOrCreateTypeInfo(PointeePair.first);
+            DTInfo.getOrCreateTypeInfo(PointeePair.first);
         if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
           ParentStInfo->getField(PointeePair.second).setAddressTaken();
       }
@@ -1366,6 +2024,7 @@ private:
   // which a local pointer value may refer. This information is created and
   // updated as needed.
   LocalPointerAnalyzer LPA;
+  DTransAllocAnalyzer &DTAA;
 
   // We need these types often enough that it's worth keeping them around.
   llvm::Type *Int8PtrTy;
@@ -2142,7 +2801,6 @@ private:
                  << "  " << I << "\n");
 
     setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncSize);
-
   }
 
   // Check the source and destination of a call to memcpy or memmove call
@@ -2226,7 +2884,7 @@ private:
         // an aliased type, we expect that we are dealing with a pointer
         // to a member element. assert this to be sure.
         if ((!DestParentTy && !DstLPI.pointsToSomeElement()) ||
-          (!SrcParentTy && !SrcLPI.pointsToSomeElement())) {
+            (!SrcParentTy && !SrcLPI.pointsToSomeElement())) {
           setAllAliasedTypeSafetyData(DstLPI, dtrans::UnhandledUse);
           setAllAliasedTypeSafetyData(SrcLPI, dtrans::UnhandledUse);
           return;
@@ -2661,7 +3319,7 @@ private:
     // We can add additional cases here to reduce the conservative behavior
     // as needs dictate.
     case dtrans::FieldAddressTaken:
-       return false;
+      return false;
     }
     return true;
   }
@@ -2826,7 +3484,9 @@ DTransAnalysisInfo::~DTransAnalysisInfo() {
 }
 
 bool DTransAnalysisInfo::analyzeModule(Module &M, TargetLibraryInfo &TLI) {
-  DTransInstVisitor Visitor(M.getContext(), *this, M.getDataLayout(), TLI);
+  DTransAllocAnalyzer DTAA(TLI);
+  DTransInstVisitor Visitor(M.getContext(), *this, M.getDataLayout(), TLI,
+                            DTAA);
   Visitor.visit(M);
 
   // Invalidate the fields for which the corresponding types do not pass

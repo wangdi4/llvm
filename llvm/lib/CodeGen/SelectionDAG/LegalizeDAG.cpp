@@ -3940,8 +3940,10 @@ void SelectionDAGLegalize::ConvertNodeToLibcall(SDNode *Node) {
   DEBUG(dbgs() << "Trying to convert node to libcall\n");
   SmallVector<SDValue, 8> Results;
   SDLoc dl(Node);
-  // FIXME: Check flags on the node to see if we can use a finite call.
-  bool CanUseFiniteLibCall = TM.Options.NoInfsFPMath && TM.Options.NoNaNsFPMath;
+#if INTEL_CUSTOMIZATION
+  // CMPLRS-48679: Disable lowering math llvm intrinsics into finite libcalls.
+  bool CanUseFiniteLibCall = false;
+#endif // INTEL_CUSTOMIZATION
   unsigned Opc = Node->getOpcode();
   switch (Opc) {
   case ISD::ATOMIC_FENCE: {

@@ -48,11 +48,11 @@ set(LLVM_TEST_DEPENDS
           llvm-c-test
           llvm-cat
           llvm-cfi-verify
-          llvm-cxxfilt
           llvm-config
           llvm-cov
-          llvm-cxxdump
           llvm-cvtres
+          llvm-cxxdump
+          llvm-cxxfilt
           llvm-diff
           llvm-dis
           llvm-dlltool
@@ -61,7 +61,6 @@ set(LLVM_TEST_DEPENDS
           llvm-dwp
           llvm-extract
           llvm-isel-fuzzer
-          llvm-opt-fuzzer
           llvm-lib
           llvm-link
           llvm-lto2
@@ -72,6 +71,7 @@ set(LLVM_TEST_DEPENDS
           llvm-nm
           llvm-objcopy
           llvm-objdump
+          llvm-opt-fuzzer
           llvm-opt-report
           llvm-pdbutil
           llvm-profdata
@@ -81,9 +81,9 @@ set(LLVM_TEST_DEPENDS
           llvm-readelf
           llvm-rtdyld
           llvm-size
-          #ifdef INTEL_CUSTOMIZATION
+# INTEL_CUSTOMIZATION
           llvm-spirv
-          #endif // INTEL_CUSTOMIZATION
+# end INTEL_CUSTOMIZATION
           llvm-split
           llvm-strings
           llvm-symbolizer
@@ -97,9 +97,9 @@ set(LLVM_TEST_DEPENDS
           verify-uselistorder
           yaml-bench
           yaml2obj
-#if INTEL_CUSTOMIZATION
+# INTEL_CUSTOMIZATION
           intelovls-test
-#endif
+# end INTEL_CUSTOMIZATION
         )
 
 if(TARGET llvm-lto)

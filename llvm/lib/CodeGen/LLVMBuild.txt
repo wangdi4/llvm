@@ -22,4 +22,6 @@ subdirectories = AsmPrinter SelectionDAG MIRParser GlobalISel
 type = Library
 name = CodeGen
 parent = Libraries
-required_libraries = Analysis BitReader BitWriter Core MC ProfileData Scalar Support Target TransformUtils
+required_libraries = Analysis BitReader BitWriter Core MC ProfileData Scalar Support Target TransformUtils Intel_OptReport
+
+; ***INTEL: Intel_OptReport

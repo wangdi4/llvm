@@ -53,6 +53,7 @@ const int SecondToLastCallToStaticBonus = 410; // INTEL
 const int AggressiveInlineCallBonus = 5000;    // INTEL
 const int BigBasicBlockPredCount = 90;         // INTEL
 const int InliningForFusionBonus = 400;        // INTEL
+const int InliningForDeepIfsBonus = 1000;      // INTEL
 const int ColdccPenalty = 2000;
 const int NoreturnPenalty = 10000;
 /// Do not inline functions which allocate this many bytes on the stack
@@ -122,6 +123,7 @@ typedef enum {
    InlrVectorBonus,
    InlrAggInline,
    InlrForFusion,
+   InlrDeeplyNestedIfs,
    InlrProfitable,
    InlrLast, // Just a marker placed after the last inlining reason
    NinlrFirst, // Just a marker placed before the first non-inlining reason

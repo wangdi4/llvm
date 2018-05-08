@@ -552,7 +552,6 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(rmRegister)
     HANDLE_OPTIONAL(immediate)
     HANDLE_OPTIONAL(immediate) // above might be a register in 7:4
-    HANDLE_OPTIONAL(immediate)
     break;
   case X86Local::MRMSrcReg4VOp3:
     assert(numPhysicalOperands == 3 &&
@@ -851,9 +850,6 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("VR64",                TYPE_MM64)
   TYPE("i64imm",              TYPE_IMM)
   TYPE("anymem",              TYPE_M)
-  TYPE("anyi16mem",           TYPE_M) // INTEL
-  TYPE("anyi32mem",           TYPE_M) // INTEL
-  TYPE("anyi64mem",           TYPE_M) // INTEL
   TYPE("opaque32mem",         TYPE_M)
   TYPE("opaque48mem",         TYPE_M)
   TYPE("opaque80mem",         TYPE_M)
@@ -1089,9 +1085,6 @@ RecognizableInstr::memoryEncodingFromString(const std::string &s,
   ENCODING("lea64_32mem",     ENCODING_RM)
   ENCODING("lea64mem",        ENCODING_RM)
   ENCODING("anymem",          ENCODING_RM)
-  ENCODING("anyi16mem",       ENCODING_RM) // INTEL
-  ENCODING("anyi32mem",       ENCODING_RM) // INTEL
-  ENCODING("anyi64mem",       ENCODING_RM) // INTEL
   ENCODING("opaque32mem",     ENCODING_RM)
   ENCODING("opaque48mem",     ENCODING_RM)
   ENCODING("opaque80mem",     ENCODING_RM)

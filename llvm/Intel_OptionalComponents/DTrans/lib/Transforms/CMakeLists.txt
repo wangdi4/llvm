@@ -14,6 +14,7 @@
 add_llvm_library(LLVMIntel_DTransOpt
   AOSToSOA.cpp
   DeleteField.cpp
+  ReorderFields.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${DTRANS_MAIN_INCLUDE_DIR}/Transforms

@@ -62,7 +62,7 @@ opt reports:
 
 .. code-block:: console
 
-   $ icx <...> -mllvm -intel-loop-optreport-emitter=[none, ir, hir]
+   $ icx <...> -mllvm -intel-loop-optreport-emitter=[none, ir, hir, mir]
 
 * **none** is useful when e.g. we would like to just have opt reports
   into LLVM IR text form after "-emit-llvm -S" and we don't want to
@@ -73,7 +73,14 @@ opt reports:
   HIR CodeGen. If later passes would like to contribute information to
   opt reports it would be their responsibility to push the pass further
   down the pass manager pipeline. In most cases the user expected to use
-  this pass.
+  this pass (though, see description of MIR emitter below).
+
+* **mir** is another emitter - ``"intel-mir-optreport-emitter"``.
+  It prints information to stderr. This pass is scheduled at the end
+  of MIR processing. We plan that this pass will eventually replace
+  the IR emitter, but, first, we need to make sure that passes
+  running between HIR CodeGen and binary/assembly emission preserve
+  the optimization reports.
 
 * **hir** output implemented in a pass called ``"hir-optreport-emitter"``,
   it will print (in stderr) only loops that are in the HIR form and is

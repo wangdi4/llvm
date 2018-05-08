@@ -29,6 +29,8 @@ class OptReportOptions {
   OptReportVerbosity::Level LoopOptReportVerbosityLevel;
 
 public:
+  enum LoopOptReportEmitterKind { None, IR, HIR, MIR /*, vtune */ };
+
   OptReportOptions(OptReportVerbosity::Level Level)
       : LoopOptReportVerbosityLevel(Level){};
 
@@ -37,6 +39,8 @@ public:
     return LoopOptReportVerbosityLevel;
   }
 };
+
+extern OptReportOptions::LoopOptReportEmitterKind IntelOptReportEmitter;
 
 class OptReportOptionsAnalysis
     : public AnalysisInfoMixin<OptReportOptionsAnalysis> {
@@ -67,8 +71,6 @@ public:
   static char ID;
 
   OptReportOptions Impl;
-
-  enum LoopOptReportEmitterKind { None, IR, HIR /*, vtune */ };
 
   OptReportOptionsPass();
   OptReportOptionsPass(const OptReportOptionsPass &) = delete;

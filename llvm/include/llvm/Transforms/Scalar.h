@@ -80,7 +80,6 @@ FunctionPass *createDeadStoreEliminationPass();
 // values.
 FunctionPass *createCallSiteSplittingPass();
 
-
 //===----------------------------------------------------------------------===//
 //
 // AggressiveDCE - This pass uses the SSA based Aggressive DCE algorithm.  This
@@ -88,7 +87,6 @@ FunctionPass *createCallSiteSplittingPass();
 // it more successful are removing non-obviously dead instructions.
 //
 FunctionPass *createAggressiveDCEPass();
-
 
 //===----------------------------------------------------------------------===//
 //
@@ -125,27 +123,6 @@ Pass *createInductiveRangeCheckEliminationPass();
 // use a single canonical induction variable per loop.
 //
 Pass *createIndVarSimplifyPass();
-
-//===----------------------------------------------------------------------===//
-//
-// InstructionCombining - Combine instructions to form fewer, simple
-// instructions. This pass does not modify the CFG, and has a tendency to make
-// instructions dead, so a subsequent DCE pass is useful.
-//
-// This pass combines things like:
-//    %Y = add int 1, %X
-//    %Z = add int 1, %Y
-// into:
-//    %Z = add int 2, %X
-//
-FunctionPass *createInstructionCombiningPass(bool ExpensiveCombines = true);
-
-//===----------------------------------------------------------------------===//
-//
-// AggressiveInstCombiner - Combine expression patterns to form expressions with
-// fewer, simple instructions. This pass does not modify the CFG.
-//
-FunctionPass *createAggressiveInstCombinerPass();
 
 //===----------------------------------------------------------------------===//
 //
@@ -272,7 +249,7 @@ FunctionPass *createCleanupFakeLoadsPass();
 
 // IndirectCallConv - Converts indirect calls to direct calls using
 // points-to info if possible 
-FunctionPass *createIndirectCallConvPass();
+FunctionPass *createIndirectCallConvLegacyPass();
 
 // VPOParoptTpv - Supports the thread private legacy mode.
 ModulePass *createVPOParoptTpvPass();
@@ -421,6 +398,13 @@ extern char &InferAddressSpacesID;
 // LowerExpectIntrinsics - Removes llvm.expect intrinsics and creates
 // "block_weights" metadata.
 FunctionPass *createLowerExpectIntrinsicPass();
+
+#if INTEL_CUSTOMIZATION
+//===----------------------------------------------------------------------===//
+//
+// LowerSubscriptIntrinsics - Removes llvm.intel.subscript intrinsics.
+FunctionPass *createLowerSubscriptIntrinsicLegacyPass();
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 //

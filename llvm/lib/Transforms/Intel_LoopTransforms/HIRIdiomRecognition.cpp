@@ -630,9 +630,9 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
 bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   DEBUG(dbgs() << "\nProcessing Loop: <" << Loop->getNumber() << ">\n");
 
-  if (!Loop->isDo() || !Loop->isNormalized() || Loop->isSIMD() ||
+  if (!Loop->isDo() || !Loop->isNormalized() || Loop->isVecLoop() ||
       Loop->hasUnrollEnablingPragma()) {
-    DEBUG(dbgs() << "Skipping - non-DO-Loop / non-Normalized / SIMD / unroll "
+    DEBUG(dbgs() << "Skipping - non-DO-Loop / non-Normalized / Vec / unroll "
                     "pragma loop\n");
     return false;
   }

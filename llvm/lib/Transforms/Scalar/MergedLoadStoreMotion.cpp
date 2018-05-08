@@ -394,5 +394,6 @@ MergedLoadStoreMotionPass::run(Function &F, FunctionAnalysisManager &AM) {
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
   PA.preserve<GlobalsAA>();
+  PA.preserve<AndersensAA>();       // INTEL
   return PA;
 }
