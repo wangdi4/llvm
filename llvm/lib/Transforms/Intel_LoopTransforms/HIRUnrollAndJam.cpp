@@ -69,6 +69,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopResource.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -1192,6 +1193,10 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
 
   // If a remainder loop is not needed get rid of the OrigLoop at this point.
   if (!NeedRemainderLoop && !IsUnknownLoop) {
+    // Invalidate analysis for original loopnest if remainder loop is not needed
+    // since we reuse the instructions inside them.
+    HIRInvalidationUtils::invalidateLoopNestBody(Loop);
+
     HLNodeUtils::remove(Loop);
   }
 }
