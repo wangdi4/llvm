@@ -50,7 +50,8 @@ RegDDRef *DDRefUtils::createScalarRegDDRef(unsigned SB, CanonExpr *CE) {
 }
 
 RegDDRef *DDRefUtils::createGEPRef(unsigned BasePtrBlobIndex, unsigned Level,
-                                   unsigned SB, bool IsMemRef) {
+                                   unsigned SB, bool IsMemRef,
+                                   bool IsInBounds) {
   if (SB == InvalidSymbase) {
     SB = getNewSymbase();
   }
@@ -60,6 +61,7 @@ RegDDRef *DDRefUtils::createGEPRef(unsigned BasePtrBlobIndex, unsigned Level,
       getCanonExprUtils().createSelfBlobCanonExpr(BasePtrBlobIndex, Level);
 
   Ref->setBaseCE(BaseCE);
+  Ref->setInBounds(IsInBounds);
   Ref->addBlobDDRef(BasePtrBlobIndex, Level);
 
   if (!IsMemRef) {
@@ -70,13 +72,14 @@ RegDDRef *DDRefUtils::createGEPRef(unsigned BasePtrBlobIndex, unsigned Level,
 }
 
 RegDDRef *DDRefUtils::createMemRef(unsigned BasePtrBlobIndex, unsigned Level,
-                                   unsigned SB) {
-  return createGEPRef(BasePtrBlobIndex, Level, SB, true);
+                                   unsigned SB, bool IsInBounds) {
+  return createGEPRef(BasePtrBlobIndex, Level, SB, true, IsInBounds);
 }
 
 RegDDRef *DDRefUtils::createAddressOfRef(unsigned BasePtrBlobIndex,
-                                         unsigned Level, unsigned SB) {
-  return createGEPRef(BasePtrBlobIndex, Level, SB, false);
+                                         unsigned Level, unsigned SB,
+                                         bool IsInBounds) {
+  return createGEPRef(BasePtrBlobIndex, Level, SB, false, IsInBounds);
 }
 
 RegDDRef *DDRefUtils::createConstDDRef(Type *Ty, int64_t Val) {

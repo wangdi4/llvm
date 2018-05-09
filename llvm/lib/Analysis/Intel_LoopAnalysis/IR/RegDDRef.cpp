@@ -310,6 +310,9 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
       }
 
       if (Detailed) {
+        if (isInBounds()) {
+          OS << " inbounds ";
+        }
         getDDRefUtils().printMDNodes(OS, GepInfo->MDNodes);
       }
     }

@@ -3,9 +3,9 @@
 
 ; Verify that the two struct references obj[0].0[i1] and obj[0].1[i1] are assigned different symbases.
 
-; CHECK: (LINEAR %struct.S* @obj)[i64 0].0[LINEAR i64 i1] !tbaa !1 {sb:[[BASE1:[0-9]+]]}
-; CHECK-NOT: (LINEAR %struct.S* @obj)[i64 0].1[LINEAR i64 i1] !tbaa !7 {sb:[[BASE1]]}
-; CHECK: (LINEAR %struct.S* @obj)[i64 0].1[LINEAR i64 i1] !tbaa !7 {sb:[[BASE2:[0-9]+]]}
+; CHECK: (LINEAR %struct.S* @obj)[i64 0].0[LINEAR i64 i1] inbounds !tbaa !1 {sb:[[BASE1:[0-9]+]]}
+; CHECK-NOT: (LINEAR %struct.S* @obj)[i64 0].1[LINEAR i64 i1] inbounds !tbaa !7 {sb:[[BASE1]]}
+; CHECK: (LINEAR %struct.S* @obj)[i64 0].1[LINEAR i64 i1] inbounds !tbaa !7 {sb:[[BASE2:[0-9]+]]}
 
 ; ModuleID = 'struct.ll'
 source_filename = "struct.c"

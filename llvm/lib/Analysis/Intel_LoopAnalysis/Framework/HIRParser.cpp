@@ -2412,26 +2412,18 @@ unsigned HIRParser::getElementSize(Type *Ty) const {
 const Value *HIRParser::getHeaderPhiOperand(const PHINode *Phi,
                                             bool IsInit) const {
   assert(RI.isHeaderPhi(Phi) && "Phi is not a header phi!");
+  assert((Phi->getNumIncomingValues() == 2) && "Unexpected number of header phi predecessors!");
 
-  auto Lp = LI.getLoopFor(Phi->getParent());
+  auto *Lp = LI.getLoopFor(Phi->getParent());
+  auto *LatchBlock = Lp->getLoopLatch();
 
-  for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
-    auto PhiOp = Phi->getIncomingValue(I);
+  auto *IncomingBlock = Phi->getIncomingBlock(0);
 
-    auto Inst = dyn_cast<Instruction>(PhiOp);
-
-    if (IsInit) {
-      if (!Inst || (LI.getLoopFor(Inst->getParent()) != Lp)) {
-        return PhiOp;
-      }
-    } else {
-      if (Inst && (LI.getLoopFor(Inst->getParent()) == Lp)) {
-        return Inst;
-      }
-    }
+  if (IncomingBlock == LatchBlock) {
+    return IsInit ? Phi->getIncomingValue(1) : Phi->getIncomingValue(0);
+  } else {
+    return IsInit ? Phi->getIncomingValue(0) : Phi->getIncomingValue(1);
   }
-
-  llvm_unreachable("Could not find appropriate header phi operand!");
 }
 
 const Value *HIRParser::getHeaderPhiInitVal(const PHINode *Phi) const {
@@ -2781,7 +2773,21 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
                                            unsigned Level) {
   const PHINode *CurBasePhi = BasePhi;
   const Value *BaseVal = nullptr;
-  bool IsInBounds = GEPOp ? GEPOp->isInBounds() : false;
+  bool IsInBounds = false;
+
+  if (GEPOp) {
+    IsInBounds = GEPOp->isInBounds();
+  } else {
+    // Use tha phi update value to apply inbounds.
+    // Technically, it is possible for the initial val of phi (first iteration
+    // of loop) to not be 'inbounds' and the rest to be inbounds but not sure if
+    // it is even possible to generate such IR from the frontend.
+    auto *UpdateVal = getHeaderPhiUpdateVal(BasePhi);
+
+    if (auto *GEPInst = dyn_cast<GetElementPtrInst>(UpdateVal)) {
+      IsInBounds = GEPInst->isInBounds();
+    }
+  }
 
   RegDDRef *Ref = getDDRefUtils().createRegDDRef(0);
 
@@ -2815,10 +2821,6 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
           (BaseVal = getValidPhiBaseVal(PhiInitVal, &InitGEPOp))) {
         IndexCE = createHeaderPhiIndexCE(CurBasePhi, Level);
       }
-
-      // Use no wrap flags to set inbounds property.
-      IsInBounds = IsInBounds || (RecSCEV->getNoWrapFlags(SCEV::FlagNUW) ||
-                                  RecSCEV->getNoWrapFlags(SCEV::FlagNSW));
     }
 
     // Non-linear base is parsed as base + zero offset: (%p)[0].
