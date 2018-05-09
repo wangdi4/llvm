@@ -774,10 +774,10 @@ Function *VPOParoptTransform::genTaskLoopRedInitFunc(WRegionNode *W,
   IRBuilder<> Builder(EntryBB);
   Builder.CreateRetVoid();
   Value *NewRedInst =
-      genPrivatizationAlloca(W, Orig, &EntryBB->front(), ".red");
+      genPrivatizationAlloca(W, Orig, EntryBB->getFirstNonPHI(), ".red");
 
   RedI->setNew(NewRedInst);
-  genReductionInit(RedI, EntryBB->getTerminator());
+  genReductionInit(RedI, EntryBB->getTerminator(), &DT);
 
   NewRedInst->replaceAllUsesWith(Arg);
 
@@ -815,7 +815,7 @@ Function *VPOParoptTransform::genTaskLoopRedCombFunc(WRegionNode *W,
 
   Value *NewRedInst = RedI->getNew();
 
-  genReductionFini(RedI, DstArg, EntryBB->getTerminator());
+  genReductionFini(RedI, DstArg, EntryBB->getTerminator(), &DT);
 
   NewRedInst->replaceAllUsesWith(SrcArg);
 
