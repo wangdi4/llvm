@@ -834,7 +834,8 @@ Value *VPOParoptTransform::genReductionScalarFini(ReductionItem *RedI,
 //   br label %DIR.QUAL.LIST.END.2.exitStub
 //
 void VPOParoptTransform::genReductionFini(ReductionItem *RedI, Value *OldV,
-                                          Instruction *InsertPt) {
+                                          Instruction *InsertPt,
+                                          DominatorTree *DT) {
   AllocaInst *NewAI = dyn_cast<AllocaInst>(RedI->getNew());
   Type *AllocaTy = NewAI->getAllocatedType();
   Type *ScalarTy = AllocaTy->getScalarType();
@@ -844,7 +845,7 @@ void VPOParoptTransform::genReductionFini(ReductionItem *RedI, Value *OldV,
   if (!AllocaTy->isSingleValueType() ||
       !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
       DL.getTypeSizeInBits(ScalarTy) % 8 != 0) {
-    genRedAggregateInitOrFini(RedI, NewAI, OldV, InsertPt, false);
+    genRedAggregateInitOrFini(RedI, NewAI, OldV, InsertPt, false, DT);
   } else {
     LoadInst *OldLoad = Builder.CreateLoad(OldV);
     LoadInst *NewLoad = Builder.CreateLoad(NewAI);
@@ -932,7 +933,8 @@ void VPOParoptTransform::genReductionFini(ReductionItem *RedI, Value *OldV,
 void VPOParoptTransform::genRedAggregateInitOrFini(ReductionItem *RedI,
                                                    AllocaInst *AI, Value *OldV,
                                                    Instruction *InsertPt,
-                                                   bool IsInit) {
+                                                   bool IsInit,
+                                                   DominatorTree *DT) {
 
   IRBuilder<> Builder(InsertPt);
   auto EntryBB = Builder.GetInsertBlock();
@@ -1117,7 +1119,8 @@ void VPOParoptTransform::genLprivFini(LastprivateItem *LprivI,
 //    br label %DIR.QUAL.LIST.END.1
 //
 void VPOParoptTransform::genReductionInit(ReductionItem *RedI,
-                                          Instruction *InsertPt) {
+                                          Instruction *InsertPt,
+                                          DominatorTree *DT) {
 
   AllocaInst *AI = dyn_cast<AllocaInst>(RedI->getNew());
   Type *AllocaTy = AI->getAllocatedType();
@@ -1128,7 +1131,7 @@ void VPOParoptTransform::genReductionInit(ReductionItem *RedI,
   if (!AllocaTy->isSingleValueType() ||
       !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
       DL.getTypeSizeInBits(ScalarTy) % 8 != 0) {
-    genRedAggregateInitOrFini(RedI, AI, nullptr, InsertPt, true);
+    genRedAggregateInitOrFini(RedI, AI, nullptr, InsertPt, true, DT);
   } else {
     Value *V = genReductionScalarInit(RedI, ScalarTy);
     Builder.CreateStore(V, AI);
@@ -1209,10 +1212,10 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       genPrivatizationReplacement(W, Orig, NewRedInst, RedI);
       RedI->setNew(NewRedInst);
       createEmptyPrvInitBB(W, RedInitEntryBB);
-      genReductionInit(RedI, RedInitEntryBB->getTerminator());
+      genReductionInit(RedI, RedInitEntryBB->getTerminator(), DT);
       BasicBlock *BeginBB;
       createEmptyPrivFiniBB(W, BeginBB);
-      genReductionFini(RedI, RedI->getOrig(), BeginBB->getTerminator());
+      genReductionFini(RedI, RedI->getOrig(), BeginBB->getTerminator(), DT);
       DEBUG(dbgs() << "genReductionCode: reduced " << *Orig << "\n");
     }
 
@@ -1762,10 +1765,31 @@ void VPOParoptTransform::fixOmpDoWhileLoopImpl(Loop *L) {
             return;
           else
             llvm_unreachable("cannot fix omp do-while loop");
-        } else if (Pred == CmpInst::ICMP_SGT) {
+        } else if (Pred == CmpInst::ICMP_SGT || Pred == CmpInst::ICMP_UGT) {
           Value *Operand = CondInst->getOperand(0);
+          if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand))
+            Operand = cast<CastInst>(Operand)->getOperand(0);
+
           if (Operand == Inc) {
-            CondInst->setPredicate(CmpInst::ICMP_SLE);
+            if (Pred == CmpInst::ICMP_SGT)
+              CondInst->setPredicate(CmpInst::ICMP_SLE);
+            else
+              CondInst->setPredicate(CmpInst::ICMP_ULE);
+            ExitBrInst->swapSuccessors();
+            return;
+          } else
+            llvm_unreachable("cannot fix omp do-while loop");
+        } else if (Pred == CmpInst::ICMP_SLT || Pred == CmpInst::ICMP_ULT) {
+          Value *Operand = CondInst->getOperand(1);
+          if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand))
+            Operand = cast<CastInst>(Operand)->getOperand(0);
+
+          if (Operand == Inc) {
+            if (Pred == CmpInst::ICMP_SLT)
+              CondInst->setPredicate(CmpInst::ICMP_SLE);
+            else
+              CondInst->setPredicate(CmpInst::ICMP_ULE);
+            CondInst->swapOperands();
             ExitBrInst->swapSuccessors();
             return;
           } else

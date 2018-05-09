@@ -286,11 +286,12 @@ private:
                                    Value *NewPrivInst, Item *IT);
 
   /// \brief Generate the reduction initialization code.
-  void genReductionInit(ReductionItem *RedI, Instruction *InsertPt);
+  void genReductionInit(ReductionItem *RedI, Instruction *InsertPt,
+                        DominatorTree *DT);
 
   /// \brief Generate the reduction update code.
-  void genReductionFini(ReductionItem *RedI, Value *OldV,
-                        Instruction *InsertPt);
+  void genReductionFini(ReductionItem *RedI, Value *OldV, Instruction *InsertPt,
+                        DominatorTree *DT);
 
   /// \brief Generate the reduction initialization code for Min/Max.
   Value *genReductionMinMaxInit(ReductionItem *RedI, Type *Ty, bool IsMax);
@@ -321,7 +322,7 @@ private:
   /// \brief Generate the reduction initialization/update for array.
   void genRedAggregateInitOrFini(ReductionItem *RedI, AllocaInst *AI,
                                  Value *OldV, Instruction *InsertPt,
-                                 bool IsInit);
+                                 bool IsInit, DominatorTree *DT);
 
   /// \brief Generate the reduction fini code for bool and/or.
   Value *genReductionFiniForBoolOps(ReductionItem *RedI, Value *Rhs1,
