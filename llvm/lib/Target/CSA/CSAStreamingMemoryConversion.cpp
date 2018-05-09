@@ -315,7 +315,7 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
   };
 
   const MachineOperand *base, *value;
-  unsigned stride;
+  int64_t stride;
   const MachineOperand *inOrder, *outOrder, *memOrder;
   MachineInstr *stream;
   bool baseUsesStream = false;
