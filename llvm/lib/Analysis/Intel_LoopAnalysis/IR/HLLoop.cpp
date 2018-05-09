@@ -1350,8 +1350,25 @@ bool HLLoop::hasCompleteUnrollEnablingPragma() const {
 }
 
 bool HLLoop::hasCompleteUnrollDisablingPragma() const {
-  return LoopMetadata &&
-         GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.disable");
+  if (!LoopMetadata) {
+    return false;
+  }
+
+  if (GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.disable")) {
+    return true;
+  }
+
+  auto PragmaTC = getUnrollPragmaCount();
+
+  if (PragmaTC) {
+    uint64_t TC;
+
+    if (!isConstTripLoop(&TC) || (PragmaTC < TC)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 bool HLLoop::hasGeneralUnrollEnablingPragma() const {
