@@ -28,6 +28,7 @@
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
+#include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/GraphWriter.h"
@@ -160,6 +161,7 @@ constexpr unsigned PHIBITS_PER_NODE = 8;
 constexpr unsigned LIVE_DEP_COUNT = 8;
 
 #define DEBUG_TYPE "csa-memop-ordering"
+#define PASS_NAME "CSA: Memory Operation Ordering"
 
 // Memory ordering statistics.
 STATISTIC(MemopCount, "Number of memory operations ordered");
@@ -181,6 +183,11 @@ struct MemopCFG {
 
   struct Node;
   struct Loop;
+
+  const MachineLoopInfo *MLI;
+
+  /// \brief Optimization remark emitter for memory ordering pass.
+  MachineOptimizationRemarkEmitter *ORE;
 
   // A type to represent dependencies, in the form of direct memops, phibits, or
   // eventually other marker elements.
@@ -674,7 +681,8 @@ struct MemopCFG {
   // function. If use_parallel_sections is set, parallel section intrinsics will
   // be copied over into the MemopCFG; otherwise, they will be ignored.
   void load(MachineFunction &, AAResults *, const MachineDominatorTree *,
-            const MachineLoopInfo *, bool use_parallel_sections);
+            const MachineLoopInfo *, MachineOptimizationRemarkEmitter *ORE,
+            bool use_parallel_sections);
 
   // Unloads/erases the currently-loaded graph.
   void clear();
@@ -690,6 +698,9 @@ struct MemopCFG {
 
   // Dumps the memory ordering chains for each memop.
   void dump_ordering_chains(raw_ostream &);
+
+  /// \brief Emit optimization remarks regarding pipelined/non-pipelined loops.
+  void emit_opt_report();
 
 private:
   // Performs a topological sort of the nodes. This is called inside of load.
@@ -712,13 +723,14 @@ public:
   static char ID;
   CSAMemopOrdering() : MachineFunctionPass(ID) {}
   StringRef getPassName() const override {
-    return "CSA: Memory Operation Ordering";
+    return PASS_NAME;
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AAResultsWrapperPass>();
     AU.addRequired<MachineDominatorTree>();
     AU.addRequired<MachineLoopInfo>();
+    AU.addRequired<MachineOptimizationRemarkEmitterPass>();
     AU.setPreservesCFG();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
@@ -728,6 +740,9 @@ private:
   MachineRegisterInfo *MRI;
   const MachineDominatorTree *DT;
   const MachineLoopInfo *MLI;
+
+  /// \brief Optimization remark emitter for memory ordering pass.
+  MachineOptimizationRemarkEmitter *ORE;
   MemopCFG mopcfg;
 
   // Adds ordering constraints to relevant memops in the given function.
@@ -1120,8 +1135,12 @@ template <> struct DOTGraphTraits<MemopCFG> : DOTGraphTraits<const MemopCFG> {
 
 char CSAMemopOrdering::ID = 0;
 
-static RegisterPass<CSAMemopOrdering> CSAMemopOrderingRegistration{
-  "csa-memop-ordering", "CSA Memory Operation Ordering", false, false};
+INITIALIZE_PASS_BEGIN(CSAMemopOrdering, DEBUG_TYPE, PASS_NAME, false, false)
+INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(MachineDominatorTree)
+INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
+INITIALIZE_PASS_DEPENDENCY(MachineOptimizationRemarkEmitterPass)
+INITIALIZE_PASS_END(CSAMemopOrdering, DEBUG_TYPE, PASS_NAME, false, false)
 
 MachineFunctionPass *llvm::createCSAMemopOrderingPass() {
   return new CSAMemopOrdering{};
@@ -1132,6 +1151,7 @@ bool CSAMemopOrdering::runOnMachineFunction(MachineFunction &MF) {
   AA  = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   DT  = &getAnalysis<MachineDominatorTree>();
   MLI = &getAnalysis<MachineLoopInfo>();
+  ORE = &getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();
 
   if (OrderMemops)
     addMemoryOrderingConstraints(MF);
@@ -1146,7 +1166,7 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction &MF) {
   // Try to generate chains with parallel sections if the user has not disabled
   // them. If something goes wrong, print an obnoxious warning message and try
   // again without them.
-  mopcfg.load(MF, AA, DT, MLI, not IgnoreAnnotations);
+  mopcfg.load(MF, AA, DT, MLI, ORE, not IgnoreAnnotations);
   DEBUG(dbgs() << "pre ordering:\n\n" << mopcfg);
   if (ViewPreOrderingMemopCFG)
     ViewGraph(mopcfg, MF.getName());
@@ -1168,7 +1188,7 @@ make sure that they dominate/post-dominate the memory operations in their
 sections correctly.
 
 )warn";
-    mopcfg.load(MF, AA, DT, MLI, false);
+    mopcfg.load(MF, AA, DT, MLI, ORE, false);
     bool made_chains = mopcfg.construct_chains();
     assert(made_chains);
     (void) made_chains;
@@ -1181,6 +1201,7 @@ sections correctly.
   if (ViewMemopCFG)
     ViewGraph(mopcfg, MF.getName());
 
+  mopcfg.emit_opt_report();
   mopcfg.emit_chains();
 
   mopcfg.clear();
@@ -2696,9 +2717,13 @@ MemopCFG::DepVec MemopCFG::Loop::reachable_self_deps(
 
 void MemopCFG::load(MachineFunction &MF, AAResults *AA,
                     const MachineDominatorTree *DT, const MachineLoopInfo *MLI,
+                    MachineOptimizationRemarkEmitter *ORE,
                     bool use_parallel_sections) {
   using namespace std;
   using namespace std::placeholders;
+
+  this->MLI = MLI;
+  this->ORE = ORE;
 
   // Update require_ordering.
   require_ordering = RequireOrdering{AA, &MF.getFrameInfo()};
@@ -3006,6 +3031,42 @@ bool MemopCFG::construct_chains() {
   DEBUG(dbgs() << "after chain construction:\n\n" << *this);
 
   return true;
+}
+
+void MemopCFG::emit_opt_report() {
+
+  for (const auto &Loop : loops) {
+    // Find MachineLoop corresponding to this loop.
+    auto *FrontNode = Loop.nodes.front();
+    assert(FrontNode && "Empty Loop in CSA memory operation ordering.");
+    auto *MBB = FrontNode->BB;
+    assert(MBB && "Node does not correspond to any MachineBasicBlock.");
+
+    // Use unknown debug location, if we cannot get it from the loop.
+    auto *CurrentLoop = MLI->getLoopFor(MBB);
+    auto LoopLoc = CurrentLoop ? CurrentLoop->getStartLoc() : DebugLoc();
+
+    if (FrontNode->phis.empty()) {
+      // The PHI nodes are always inserted into the header.
+      // As long as the loop nodes are sorted topologically,
+      // the header corresponds to the first node in Loop.nodes.
+      MachineOptimizationRemark Remark(DEBUG_TYPE, "CSAPipelining: ",
+                                       LoopLoc, MBB);
+      ORE->emit(Remark << " loop does not have loop-carried "
+                "memory dependencies");
+    } else {
+      // TODO (vzakhari 5/17/2018): the presence of the PHI node
+      //       does not necessarily mean there is a loop carried
+      //       memory dependence.  To make this right, we need
+      //       to traverse the loop and check if there are uses
+      //       of the PHI nodes.
+      MachineOptimizationRemarkMissed Remark(DEBUG_TYPE,
+                                             "CSAPipeliningMissed: ",
+                                             LoopLoc, MBB);
+      ORE->emit(Remark << " loop with loop-carried memory dependencies "
+                "cannot be pipelined");
+    }
+  }
 }
 
 void MemopCFG::emit_chains() {
