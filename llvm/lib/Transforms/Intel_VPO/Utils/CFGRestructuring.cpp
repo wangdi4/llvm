@@ -23,6 +23,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Intel_VPO/Utils/CFGRestructuring.h"
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -89,12 +90,12 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
 
   // Find all the intrinsic calls representing directive begin/end, and store
   // them in the set InstructionsToSplit.
-  std::set<Instruction *> InstructionsToSplit;
+  SmallVector<Instruction *, 8> InstructionsToSplit;
   InstructionsToSplit.clear();
   for (Function::iterator B = F.begin(), BE = F.end(); B != BE; ++B)
     for (BasicBlock::iterator I = B->begin(), IE = B->end(); I != IE; ++I)
       if (VPOAnalysisUtils::isIntelDirective(&*I))
-        InstructionsToSplit.insert(&*I);
+        InstructionsToSplit.push_back(&*I);
 
   unsigned Counter = 0; // Used to create unique names for newly created BBs
 
@@ -114,8 +115,8 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
     // Split before I (rules 1a, 2a, 2b).
     // Optimization: skip this if I is BB's first instruction && BB has only
     // one predecessor.
-    if (!isListEnd &&
-        ((I != &(BB->front())) || (pred_begin(BB) != pred_end(BB))))
+    if (!isListEnd && ((I != &(BB->front())) ||
+                       (std::distance(pred_begin(BB), pred_end(BB))>1)))
       splitBB(I, DT, LI, DirString, Counter);
 
     // Split after I (rules 1b, 2a, 2b).
@@ -139,6 +140,7 @@ namespace {
 class VPOCFGRestructuring : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
+  VPOCFGRestructuringPass Impl;
 
   VPOCFGRestructuring() : FunctionPass(ID) {
     initializeVPOCFGRestructuringPass(*PassRegistry::getPassRegistry());
@@ -161,14 +163,14 @@ bool VPOCFGRestructuring::runOnFunction(Function &F) {
   if (VPOAnalysisUtils::skipFunctionForOpenmp(F) && skipFunction(F))
     return false;
 
-#if INTEL_PRODUCT_RELEASE
-  // Set a flag to induce an error if anyone attempts to write the IR
-  // to a file after this pass has been run.
-  F.getParent()->setIntelProprietary();
-#endif // INTEL_PRODUCT_RELEASE
-
   auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+
+  return Impl.runImpl(F, DT, LI);
+}
+
+bool VPOCFGRestructuringPass::runImpl(Function &F, DominatorTree *DT,
+                                      LoopInfo *LI) {
 
   VPOUtils::CFGRestructuring(F, DT, LI);
 
@@ -179,6 +181,19 @@ void VPOCFGRestructuring::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
+}
+
+PreservedAnalyses VPOCFGRestructuringPass::run(Function &F,
+                                               FunctionAnalysisManager &AM) {
+  auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
+  auto &LI = AM.getResult<LoopAnalysis>(F);
+
+  bool Changed = runImpl(F, &DT, &LI);
+
+  if (!Changed)
+    return PreservedAnalyses::all();
+
+  return PreservedAnalyses::none();
 }
 
 FunctionPass *llvm::createVPOCFGRestructuringPass() {

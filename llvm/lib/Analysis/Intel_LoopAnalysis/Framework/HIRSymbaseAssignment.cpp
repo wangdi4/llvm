@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <map>
+#include "HIRSymbaseAssignment.h"
 
-#include "llvm/Pass.h"
+#include <map>
 
 #include "llvm/Support/Debug.h"
 
@@ -23,40 +23,35 @@
 #include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSymbaseAssignment.h"
-
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-symbase-assignment"
 
-FunctionPass *llvm::createHIRSymbaseAssignmentPass() {
-  return new HIRSymbaseAssignment();
-}
-
 namespace {
 typedef SmallVector<DDRef *, 16> RefsTy;
+} // namespace
 
-class HIRSymbaseAssignmentVisitor final : public HLNodeVisitorBase {
+class HIRSymbaseAssignment::HIRSymbaseAssignmentVisitor
+    : public HLNodeVisitorBase {
   // TODO: probably change to DenseMap by lowering size of RefsTy once we
   // disable llvm's complete unroll.
   typedef std::map<Value *, RefsTy> PtrToRefsTy;
 
-  HIRSymbaseAssignment *SA;
+  HIRSymbaseAssignment &SA;
   AliasSetTracker AST;
   PtrToRefsTy PtrToRefs;
 
   void addToAST(RegDDRef *Ref);
 
 public:
-  HIRSymbaseAssignmentVisitor(HIRSymbaseAssignment *CurSA, AliasAnalysis *AA)
-      : SA(CurSA), AST(*AA) {}
+  HIRSymbaseAssignmentVisitor(HIRSymbaseAssignment &CurSA, AliasAnalysis &AA)
+      : SA(CurSA), AST(AA) {}
 
   const AliasSetTracker &getAST() const { return AST; }
 
@@ -71,13 +66,13 @@ public:
   void postVisit(HLNode *) {}
   void postVisit(HLDDNode *) {}
 };
-}
 
 // TODO: add special handling for memrefs with undefined base pointers.
-void HIRSymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
+void HIRSymbaseAssignment::HIRSymbaseAssignmentVisitor::addToAST(
+    RegDDRef *Ref) {
   assert(!Ref->isTerminalRef() && "Non terminal ref is expected.");
 
-  Value *Ptr = SA->getGEPRefPtr(Ref);
+  Value *Ptr = SA.HIRP.getGEPRefPtr(Ref);
   assert(Ptr && "Could not find Value* ptr for mem load store ref");
   DEBUG(dbgs() << "Got ptr " << *Ptr << "\n");
 
@@ -91,7 +86,7 @@ void HIRSymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
   AST.add(Ptr, MemoryLocation::UnknownSize, AANodes);
 }
 
-void HIRSymbaseAssignmentVisitor::visit(HLDDNode *Node) {
+void HIRSymbaseAssignment::HIRSymbaseAssignmentVisitor::visit(HLDDNode *Node) {
   for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
     if ((*I)->hasGEPInfo()) {
       addToAST(*I);
@@ -99,50 +94,15 @@ void HIRSymbaseAssignmentVisitor::visit(HLDDNode *Node) {
   }
 }
 
-char HIRSymbaseAssignment::ID = 0;
-
-INITIALIZE_PASS_BEGIN(HIRSymbaseAssignment, "hir-symbase-assignment",
-                      "HIR Symbase Assignment", false, true)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRParser)
-INITIALIZE_PASS_END(HIRSymbaseAssignment, "hir-symbase-assignment",
-                    "HIR Symbase Assignment", false, true)
-
-void HIRSymbaseAssignment::initializeMaxSymbase() {
-  MaxSymbase = HIRP->getMaxScalarSymbase();
-  DEBUG(dbgs() << "Initialized max symbase to " << MaxSymbase << " \n");
-}
-
-Value *HIRSymbaseAssignment::getGEPRefPtr(RegDDRef *Ref) const {
-  return HIRP->getGEPRefPtr(Ref);
-}
-
-void HIRSymbaseAssignment::getAnalysisUsage(AnalysisUsage &AU) const {
-
-  AU.setPreservesAll();
-  AU.addRequired<HIRParser>();
-  AU.addRequired<AAResultsWrapperPass>();
-}
-
-bool HIRSymbaseAssignment::runOnFunction(Function &F) {
-
-  this->F = &F;
-  auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
-  HIRP = &getAnalysis<HIRParser>();
-
-  // Set symbase assignment.
-  HIRP->getBlobUtils().HIRSA = this;
-
-  initializeMaxSymbase();
-
+void HIRSymbaseAssignment::run() {
   // Create alias sets per region.
-  for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E; ++I) {
-    HIRSymbaseAssignmentVisitor SV(this, AA);
+  for (auto I = HIRF.hir_begin(), E = HIRF.hir_end(); I != E; ++I) {
+    HIRSymbaseAssignmentVisitor SV(*this, AA);
     HLNodeUtils::visit(SV, &*I);
 
     // Each ref in a set gets the same symbase
     for (auto &AliasSet : SV.getAST()) {
-      unsigned CurSymbase = getNewSymbase();
+      unsigned CurSymbase = HIRF.getNewSymbase();
       DEBUG(dbgs() << "Assigned following refs to Symbase " << CurSymbase
                    << "\n");
 
@@ -157,15 +117,14 @@ bool HIRSymbaseAssignment::runOnFunction(Function &F) {
       }
     }
   }
-
-  return false;
 }
 
-void HIRSymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
-  typedef DDRefGatherer<DDRef, AllRefs ^ ConstantRefs> NonConstantRefGatherer;
+void HIRSymbaseAssignment::print(raw_ostream &OS) const {
+  typedef DDRefGatherer<const DDRef, AllRefs ^ ConstantRefs>
+      NonConstantRefGatherer;
 
   NonConstantRefGatherer::MapTy SymToRefs;
-  NonConstantRefGatherer::gatherRange(HIRP->hir_cbegin(), HIRP->hir_cend(),
+  NonConstantRefGatherer::gatherRange(HIRF.hir_begin(), HIRF.hir_end(),
                                       SymToRefs);
 
   formatted_raw_ostream FOS(OS);

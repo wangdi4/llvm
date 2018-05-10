@@ -31,6 +31,7 @@ Target &getTheCSATarget();
 #include "CSAGenRegisterInfo.inc"
 
 // Defines symbolic names for the CSA instructions.
+#define GET_INSTRINFO_SCHED_ENUM
 #define GET_INSTRINFO_ENUM
 #include "CSAGenInstrInfo.inc"
 

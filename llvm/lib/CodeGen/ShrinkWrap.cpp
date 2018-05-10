@@ -53,6 +53,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/CFG.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineDominators.h"
@@ -67,6 +68,7 @@
 #include "llvm/CodeGen/RegisterScavenging.h"
 #include "llvm/CodeGen/TargetFrameLowering.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
+#include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/Attributes.h"
@@ -137,6 +139,9 @@ class ShrinkWrap : public MachineFunctionPass {
   /// Current opcode for frame destroy.
   unsigned FrameDestroyOpcode;
 
+  /// Stack pointer register, used by llvm.{savestack,restorestack}
+  unsigned SP;
+
   /// Entry block.
   const MachineBasicBlock *Entry;
 
@@ -185,9 +190,11 @@ class ShrinkWrap : public MachineFunctionPass {
     MBFI = &getAnalysis<MachineBlockFrequencyInfo>();
     MLI = &getAnalysis<MachineLoopInfo>();
     EntryFreq = MBFI->getEntryFreq();
-    const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
+    const TargetSubtargetInfo &Subtarget = MF.getSubtarget();
+    const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
     FrameSetupOpcode = TII.getCallFrameSetupOpcode();
     FrameDestroyOpcode = TII.getCallFrameDestroyOpcode();
+    SP = Subtarget.getTargetLowering()->getStackPointerRegisterToSaveRestore();
     Entry = &MF.front();
     CurrentCSRs.clear();
     MachineFunc = &MF;
@@ -216,6 +223,11 @@ public:
     AU.addRequired<MachinePostDominatorTree>();
     AU.addRequired<MachineLoopInfo>();
     MachineFunctionPass::getAnalysisUsage(AU);
+  }
+
+  MachineFunctionProperties getRequiredProperties() const override {
+    return MachineFunctionProperties().set(
+      MachineFunctionProperties::Property::NoVRegs);
   }
 
   StringRef getPassName() const override { return "Shrink Wrapping analysis"; }
@@ -248,12 +260,21 @@ bool ShrinkWrap::useOrDefCSROrFI(const MachineInstr &MI,
   for (const MachineOperand &MO : MI.operands()) {
     bool UseOrDefCSR = false;
     if (MO.isReg()) {
+      // Ignore instructions like DBG_VALUE which don't read/def the register.
+      if (!MO.isDef() && !MO.readsReg())
+        continue;
       unsigned PhysReg = MO.getReg();
       if (!PhysReg)
         continue;
       assert(TargetRegisterInfo::isPhysicalRegister(PhysReg) &&
              "Unallocated register?!");
-      UseOrDefCSR = RCI.getLastCalleeSavedAlias(PhysReg);
+      // The stack pointer is not normally described as a callee-saved register
+      // in calling convention definitions, so we need to watch for it
+      // separately. An SP mentioned by a call instruction, we can ignore,
+      // though, as it's harmless and we do not want to effectively disable tail
+      // calls by forcing the restore point to post-dominate them.
+      UseOrDefCSR = (!MI.isCall() && PhysReg == SP) ||
+                    RCI.getLastCalleeSavedAlias(PhysReg);
     } else if (MO.isRegMask()) {
       // Check if this regmask clobbers any of the CSRs.
       for (unsigned Reg : getCurrentCSRs(RS)) {
@@ -263,7 +284,8 @@ bool ShrinkWrap::useOrDefCSROrFI(const MachineInstr &MI,
         }
       }
     }
-    if (UseOrDefCSR || MO.isFI()) {
+    // Skip FrameIndex operands in DBG_VALUE instructions.
+    if (UseOrDefCSR || (MO.isFI() && !MI.isDebugValue())) {
       DEBUG(dbgs() << "Use or define CSR(" << UseOrDefCSR << ") or FI("
                    << MO.isFI() << "): " << MI << '\n');
       return true;
@@ -409,50 +431,16 @@ void ShrinkWrap::updateSaveRestorePoints(MachineBasicBlock &MBB,
   }
 }
 
-/// Check whether the edge (\p SrcBB, \p DestBB) is a backedge according to MLI.
-/// I.e., check if it exists a loop that contains SrcBB and where DestBB is the
-/// loop header.
-static bool isProperBackedge(const MachineLoopInfo &MLI,
-                             const MachineBasicBlock *SrcBB,
-                             const MachineBasicBlock *DestBB) {
-  for (const MachineLoop *Loop = MLI.getLoopFor(SrcBB); Loop;
-       Loop = Loop->getParentLoop()) {
-    if (Loop->getHeader() == DestBB)
-      return true;
-  }
-  return false;
-}
-
-/// Check if the CFG of \p MF is irreducible.
-static bool isIrreducibleCFG(const MachineFunction &MF,
-                             const MachineLoopInfo &MLI) {
-  const MachineBasicBlock *Entry = &*MF.begin();
-  ReversePostOrderTraversal<const MachineBasicBlock *> RPOT(Entry);
-  BitVector VisitedBB(MF.getNumBlockIDs());
-  for (const MachineBasicBlock *MBB : RPOT) {
-    VisitedBB.set(MBB->getNumber());
-    for (const MachineBasicBlock *SuccBB : MBB->successors()) {
-      if (!VisitedBB.test(SuccBB->getNumber()))
-        continue;
-      // We already visited SuccBB, thus MBB->SuccBB must be a backedge.
-      // Check that the head matches what we have in the loop information.
-      // Otherwise, we have an irreducible graph.
-      if (!isProperBackedge(MLI, MBB, SuccBB))
-        return true;
-    }
-  }
-  return false;
-}
-
 bool ShrinkWrap::runOnMachineFunction(MachineFunction &MF) {
-  if (skipFunction(*MF.getFunction()) || MF.empty() || !isShrinkWrapEnabled(MF))
+  if (skipFunction(MF.getFunction()) || MF.empty() || !isShrinkWrapEnabled(MF))
     return false;
 
   DEBUG(dbgs() << "**** Analysing " << MF.getName() << '\n');
 
   init(MF);
 
-  if (isIrreducibleCFG(MF, *MLI)) {
+  ReversePostOrderTraversal<MachineBasicBlock *> RPOT(&*MF.begin());
+  if (containsIrreducibleCFG<MachineBasicBlock *>(RPOT, *MLI)) {
     // If MF is irreducible, a block may be in a loop without
     // MachineLoopInfo reporting it. I.e., we may use the
     // post-dominance property in loops, which lead to incorrect
@@ -474,6 +462,22 @@ bool ShrinkWrap::runOnMachineFunction(MachineFunction &MF) {
     if (MBB.isEHFuncletEntry()) {
       DEBUG(dbgs() << "EH Funclets are not supported yet.\n");
       return false;
+    }
+
+    if (MBB.isEHPad()) {
+      // Push the prologue and epilogue outside of
+      // the region that may throw by making sure
+      // that all the landing pads are at least at the
+      // boundary of the save and restore points.
+      // The problem with exceptions is that the throw
+      // is not properly modeled and in particular, a
+      // basic block can jump out from the middle.
+      updateSaveRestorePoints(MBB, RS.get());
+      if (!ArePointsInteresting()) {
+        DEBUG(dbgs() << "EHPad prevents shrink-wrapping\n");
+        return false;
+      }
+      continue;
     }
 
     for (const MachineInstr &MI : MBB) {
@@ -558,16 +562,17 @@ bool ShrinkWrap::isShrinkWrapEnabled(const MachineFunction &MF) {
   switch (EnableShrinkWrapOpt) {
   case cl::BOU_UNSET:
     return TFI->enableShrinkWrapping(MF) &&
-      // Windows with CFI has some limitations that make it impossible
-      // to use shrink-wrapping.
-      !MF.getTarget().getMCAsmInfo()->usesWindowsCFI() &&
-      // Sanitizers look at the value of the stack at the location
-      // of the crash. Since a crash can happen anywhere, the
-      // frame must be lowered before anything else happen for the
-      // sanitizers to be able to get a correct stack frame.
-      !(MF.getFunction()->hasFnAttribute(Attribute::SanitizeAddress) ||
-        MF.getFunction()->hasFnAttribute(Attribute::SanitizeThread) ||
-        MF.getFunction()->hasFnAttribute(Attribute::SanitizeMemory));
+           // Windows with CFI has some limitations that make it impossible
+           // to use shrink-wrapping.
+           !MF.getTarget().getMCAsmInfo()->usesWindowsCFI() &&
+           // Sanitizers look at the value of the stack at the location
+           // of the crash. Since a crash can happen anywhere, the
+           // frame must be lowered before anything else happen for the
+           // sanitizers to be able to get a correct stack frame.
+           !(MF.getFunction().hasFnAttribute(Attribute::SanitizeAddress) ||
+             MF.getFunction().hasFnAttribute(Attribute::SanitizeThread) ||
+             MF.getFunction().hasFnAttribute(Attribute::SanitizeMemory) ||
+             MF.getFunction().hasFnAttribute(Attribute::SanitizeHWAddress));
   // If EnableShrinkWrap is set, it takes precedence on whatever the
   // target sets. The rational is that we assume we want to test
   // something related to shrink-wrapping.

@@ -1,4 +1,5 @@
-; RUN: opt < %s -domtree -loops -loop-simplify -lcssa-verification  -loop-rotate -vpo-cfg-restructuring -vpo-wrncollection -vpo-wrninfo -vpo-paropt-prepare   -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare  -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 

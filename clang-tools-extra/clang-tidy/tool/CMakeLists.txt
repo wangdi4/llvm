@@ -12,11 +12,13 @@ add_dependencies(clang-tidy
   clang-headers
   )
 target_link_libraries(clang-tidy
+  PRIVATE
   clangAST
   clangASTMatchers
   clangBasic
   clangTidy
   clangTidyAndroidModule
+  clangTidyAbseilModule
   clangTidyBoostModule
   clangTidyBugproneModule
   clangTidyCERTModule
@@ -30,7 +32,9 @@ target_link_libraries(clang-tidy
   clangTidyMPIModule
   clangTidyObjCModule
   clangTidyPerformanceModule
+  clangTidyPortabilityModule
   clangTidyReadabilityModule
+  clangTidyZirconModule
   clangTooling
   clangToolingCore
   )

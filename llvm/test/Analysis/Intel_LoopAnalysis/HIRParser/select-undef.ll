@@ -3,7 +3,7 @@
 ; |   <LVAL-REG> NON-LINEAR i32 %sel {sb:6}
 ; |   <RVAL-REG> LINEAR i32 i1 {sb:3}
 
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s
 
 ; CHECK: NSW: Yes
 

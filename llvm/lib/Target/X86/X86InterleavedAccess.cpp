@@ -21,7 +21,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/Intel_OptVLSClientUtils.h" // INTEL
 #include "llvm/Analysis/VectorUtils.h"
-#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -32,6 +31,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/MachineValueType.h"
 #include <algorithm>
 #include <cassert>
 #include <cmath>

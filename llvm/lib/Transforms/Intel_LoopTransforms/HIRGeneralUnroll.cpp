@@ -68,6 +68,7 @@
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/Triple.h"
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
@@ -81,6 +82,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
@@ -131,7 +133,9 @@ class HIRGeneralUnroll : public HIRTransformPass {
 public:
   static char ID;
 
-  HIRGeneralUnroll() : HIRTransformPass(ID) {
+  HIRGeneralUnroll()
+      : HIRTransformPass(ID), HLR(nullptr), HLS(nullptr),
+        IsUnrollTriggered(false), Is32Bit(false) {
     initializeHIRGeneralUnrollPass(*PassRegistry::getPassRegistry());
   }
 
@@ -140,16 +144,21 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFramework>();
-    AU.addRequiredTransitive<HIRLoopResource>();
-    AU.addRequiredTransitive<HIRLoopStatistics>();
+    AU.addRequiredTransitive<OptReportOptionsPass>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   }
 
 private:
   HIRLoopResource *HLR;
   HIRLoopStatistics *HLS;
 
+  // Helper for generating optimization reports.
+  LoopOptReportBuilder LORBuilder;
+
   bool IsUnrollTriggered;
+  bool Is32Bit;
 
   /// Processes and santitizes command line options.
   void sanitizeOptions();
@@ -181,9 +190,10 @@ private:
 char HIRGeneralUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRGeneralUnroll, "hir-general-unroll",
                       "HIR General Unroll", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopResource)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRGeneralUnroll, "hir-general-unroll",
                     "HIR General Unroll", false, false)
 
@@ -200,11 +210,16 @@ bool HIRGeneralUnroll::runOnFunction(Function &F) {
 
   DEBUG(dbgs() << "General unrolling for Function : " << F.getName() << "\n");
 
-  auto HIRF = &getAnalysis<HIRFramework>();
-  HLR = &getAnalysis<HIRLoopResource>();
-  HLS = &getAnalysis<HIRLoopStatistics>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
+  HLR = &getAnalysis<HIRLoopResourceWrapperPass>().getHLR();
+  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
+  auto &OROP = getAnalysis<OptReportOptionsPass>();
+  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   IsUnrollTriggered = false;
+
+  llvm::Triple TargetTriple(F.getParent()->getTargetTriple());
+  Is32Bit = (TargetTriple.getArch() == llvm::Triple::x86);
 
   sanitizeOptions();
 
@@ -275,7 +290,7 @@ void HIRGeneralUnroll::processGeneralUnroll(
         addUnrollDisablingPragma(Loop);
       }
 
-      unrollLoop(Loop, UnrollFactor);
+      unrollLoop(Loop, UnrollFactor, LORBuilder);
       IsUnrollTriggered = true;
       LoopsGenUnrolled++;
     }
@@ -312,6 +327,9 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
 
     if (!UnrollFactor) {
       UnrollFactor = MaxUnrollFactor;
+    } else if (UnrollFactor == 1) {
+      DEBUG(dbgs() << "Skipping unroll as pragma count is set to 1!\n");
+      return 0;
     }
 
     if (IsConstTripLoop) {
@@ -340,7 +358,10 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
       return 0;
     }
 
-    UnrollFactor = MaxUnrollFactor;
+    // Multi-exit loops have a higher chance of having a low trip count as they
+    // can take early exits. We may cause degradations in those cases by
+    // increasing code size. Unroll factor of 2 is the safest bet.
+    UnrollFactor = (HLoop->getNumExits() > 1) ? 2 : MaxUnrollFactor;
   }
 
   while ((UnrollFactor * SelfCost) > MaxUnrolledLoopCost) {
@@ -353,8 +374,8 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
 }
 
 bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
-  if (Loop->isSIMD()) {
-    DEBUG(dbgs() << "Skipping unroll of SIMD loop!\n");
+  if (Loop->isVecLoop()) {
+    DEBUG(dbgs() << "Skipping unroll of vectorizable loop!\n");
     return false;
   }
 
@@ -385,9 +406,22 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
                                     unsigned *UnrollFactor) const {
 
   if (!HasEnablingPragma) {
-    // TODO: Enable unroll for multi-exit loops with perf tuning.
-    if (Loop->getNumExits() > 1) {
-      DEBUG(dbgs() << "Skipping unroll of multi-exit loop!\n");
+    // 32bit platform seems to be more sensitive to register pressure/code size.
+    // Unrolling too many loops leads to regression in the same benchmark which
+    // is improved on 64-bit platform.
+    if (Is32Bit && (Loop->getNumExits() > 1)) {
+      DEBUG(dbgs()
+            << "Skipping unroll of multi-exit loops on 32 bit platform!\n");
+      return false;
+    }
+
+    // Enable this when we find a convincing test case where unrolling helps.
+    // All the current instances where it helps is when we have locality
+    // between memrefs. These should be handled by scalar replacement (captured
+    // in CMPLRS-41981). It is causing degradations in some benchmarks and the
+    // reasons are not quite clear to me.
+    if (Loop->isDoMultiExit()) {
+      DEBUG(dbgs() << "Skipping unroll of DO multi-exit loop!\n");
       return false;
     }
 

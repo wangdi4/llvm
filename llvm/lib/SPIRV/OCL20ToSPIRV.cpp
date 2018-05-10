@@ -53,6 +53,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <set>
+#include <algorithm>
 
 using namespace llvm;
 using namespace SPIRV;
@@ -196,10 +197,6 @@ public:
 
   void visitCallNDRange(CallInst *CI, const std::string &DemangledName);
 
-  /// Transform OCL pipe builtin function to SPIR-V pipe builtin function.
-  void visitCallPipeBuiltin(CallInst *CI, StringRef MangledName,
-    const std::string &DemangledName);
-
   /// Transform read_image with sampler arguments.
   /// read_image(image, sampler, ...) =>
   ///   sampled_image = __spirv_SampledImage(image, sampler);
@@ -260,10 +257,18 @@ public:
                                 const std::string &DemangledName,
                                 unsigned int Offset);
 
-  void visitDbgInfoIntrinsic(DbgInfoIntrinsic &I){
-    I.dropAllReferences();
-    I.eraseFromParent();
-  }
+  /// For cl_intel_subgroups block read built-ins:
+  void visitSubgroupBlockReadINTEL(CallInst *CI, StringRef MangledName,
+                                   const std::string &DemangledName);
+
+  /// For cl_intel_subgroups block write built-ins:
+  void visitSubgroupBlockWriteINTEL(CallInst *CI, StringRef MangledName,
+                                    const std::string &DemangledName);
+
+  /// For cl_intel_media_block_io built-ins:
+  void visitSubgroupImageMediaBlockINTEL(CallInst *CI,
+                                         const std::string &DemangledName);
+
   static char ID;
 private:
   Module *M;
@@ -434,10 +439,6 @@ OCL20ToSPIRV::visitCallInst(CallInst& CI) {
     visitCallGroupBuiltin(&CI, MangledName, DemangledName);
     return;
   }
-  if (DemangledName.find(kOCLBuiltinName::Pipe) != std::string::npos) {
-    visitCallPipeBuiltin(&CI, MangledName, DemangledName);
-    return;
-  }
   if (DemangledName == kOCLBuiltinName::MemFence) {
     visitCallMemFence(&CI);
     return;
@@ -477,7 +478,8 @@ OCL20ToSPIRV::visitCallInst(CallInst& CI) {
     return;
   }
   if (DemangledName == kOCLBuiltinName::WorkGroupBarrier ||
-      DemangledName == kOCLBuiltinName::Barrier) {
+      DemangledName == kOCLBuiltinName::Barrier ||
+      DemangledName == kOCLBuiltinName::SubGroupBarrier) {
     visitCallBarrier(&CI);
     return;
   }
@@ -509,6 +511,19 @@ OCL20ToSPIRV::visitCallInst(CallInst& CI) {
   if (DemangledName == kOCLBuiltinName::GetImageChannelOrder) {
     visitCallGetImageChannel(&CI, MangledName, DemangledName,
                              OCLImageChannelOrderOffset);
+    return;
+  }
+  if (DemangledName.find(kOCLBuiltinName::SubgroupBlockReadINTELPrefix) == 0) {
+    visitSubgroupBlockReadINTEL(&CI, MangledName, DemangledName);
+    return;
+  }
+  if (DemangledName.find(kOCLBuiltinName::SubgroupBlockWriteINTELPrefix) == 0) {
+    visitSubgroupBlockWriteINTEL(&CI, MangledName, DemangledName);
+    return;
+  }
+  if (DemangledName.find(
+        kOCLBuiltinName::SubgroupImageMediaBlockINTELPrefix) == 0) {
+    visitSubgroupImageMediaBlockINTEL(&CI, DemangledName);
     return;
   }
   visitCallBuiltinSimple(&CI, MangledName, DemangledName);
@@ -990,21 +1005,6 @@ OCL20ToSPIRV::transBuiltin(CallInst* CI,
         &Attrs);
 }
 
-void
-OCL20ToSPIRV::visitCallPipeBuiltin(CallInst* CI,
-    StringRef MangledName, const std::string& DemangledName) {
-  std::string NewName = DemangledName;
-  // Transform OpenCL read_pipe/write_pipe builtin function names
-  // with reserve_id argument to reserved_read_pipe/reserved_write_pipe.
-  if ((DemangledName.find(kOCLBuiltinName::ReadPipe) == 0 ||
-      DemangledName.find(kOCLBuiltinName::WritePipe) == 0)
-      && CI->getNumArgOperands() > 4)
-    NewName = std::string(kSPIRVName::ReservedPrefix) + DemangledName;
-  OCLBuiltinTransInfo Info;
-  Info.UniqName = NewName;
-  transBuiltin(CI, Info);
-}
-
 void OCL20ToSPIRV::visitCallReadImageMSAA(CallInst *CI, StringRef MangledName,
                                           const std::string &DemangledName) {
   assert(MangledName.find("msaa") != StringRef::npos);
@@ -1215,14 +1215,12 @@ void OCL20ToSPIRV::transWorkItemBuiltinsToVariables() {
       InstList.push_back(CI);
     }
     for (auto &Inst:InstList) {
-      Inst->dropAllReferences();
-      Inst->removeFromParent();
+      Inst->eraseFromParent();
     }
     WorkList.push_back(&I);
   }
   for (auto &I:WorkList) {
-    I->dropAllReferences();
-    I->removeFromParent();
+    I->eraseFromParent();
   }
 }
 
@@ -1371,8 +1369,7 @@ void OCL20ToSPIRV::visitCallDot(CallInst *CI) {
   IRBuilder<> Builder(CI);
   Value *FMulVal = Builder.CreateFMul(CI->getOperand(0), CI->getOperand(1));
   CI->replaceAllUsesWith(FMulVal);
-  CI->dropAllReferences();
-  CI->removeFromParent();
+  CI->eraseFromParent();
 }
 
 void OCL20ToSPIRV::visitCallScalToVec(CallInst *CI, StringRef MangledName,
@@ -1454,7 +1451,85 @@ void OCL20ToSPIRV::visitCallGetImageChannel(CallInst *CI, StringRef MangledName,
                       },
                       &Attrs);
 }
+
+// The intel_sub_group_block_read built-ins are overloaded to support both
+// buffers and images, but need to be mapped to distinct SPIR-V instructions.
+// Additionally, for block reads, need to distinguish between scalar block
+// reads and vector block reads.
+void OCL20ToSPIRV::visitSubgroupBlockReadINTEL(CallInst *CI, StringRef MangledName,
+                                               const std::string &DemangledName) {
+  OCLBuiltinTransInfo Info;
+  if (isOCLImageType(CI->getArgOperand(0)->getType()))
+    Info.UniqName = getSPIRVFuncName(spv::OpSubgroupImageBlockReadINTEL);
+  else
+    Info.UniqName = getSPIRVFuncName(spv::OpSubgroupBlockReadINTEL);
+  if (CI->getType()->isVectorTy()) {
+    switch(CI->getType()->getVectorNumElements()) {
+    case 2: Info.Postfix = "_v2"; break;
+    case 4: Info.Postfix = "_v4"; break;
+    case 8: Info.Postfix = "_v8"; break;
+    default: break;
+    }
+  }
+  if (CI->getType()->getScalarSizeInBits() == 16)
+    Info.Postfix += "_us";
+  else
+    Info.Postfix += "_ui";
+  AttributeList Attrs = CI->getCalledFunction()->getAttributes();
+  mutateCallInstSPIRV(M, CI,
+                      [=](CallInst *, std::vector<Value *> &Args) {
+                          Info.PostProc(Args);
+                          return Info.UniqName + Info.Postfix;
+                      },
+                      &Attrs);
 }
+
+// The intel_sub_group_block_write built-ins are similarly overloaded to support
+// both buffers and images but need to be mapped to distinct SPIR-V instructions.
+// Since the type of data to be written is encoded in the mangled name there is
+// no need to do additional work to distinguish between scalar block writes and
+// vector block writes.
+void OCL20ToSPIRV::visitSubgroupBlockWriteINTEL(CallInst *CI, StringRef MangledName,
+                                                const std::string &DemangledName) {
+  OCLBuiltinTransInfo Info;
+  if (isOCLImageType(CI->getArgOperand(0)->getType()))
+    Info.UniqName = getSPIRVFuncName(spv::OpSubgroupImageBlockWriteINTEL);
+  else
+    Info.UniqName = getSPIRVFuncName(spv::OpSubgroupBlockWriteINTEL);
+  unsigned numArgs = CI->getNumArgOperands();
+  if (numArgs && CI->getArgOperand(numArgs - 1)->getType()->isVectorTy()) {
+    switch(CI->getArgOperand(numArgs - 1)->getType()->getVectorNumElements()) {
+    case 2: Info.Postfix = "_v2"; break;
+    case 4: Info.Postfix = "_v4"; break;
+    case 8: Info.Postfix = "_v8"; break;
+    default: break;
+    }
+  }
+  AttributeList Attrs = CI->getCalledFunction()->getAttributes();
+  mutateCallInstSPIRV(M, CI,
+                      [=](CallInst *, std::vector<Value *> &Args) {
+                          Info.PostProc(Args);
+                          return Info.UniqName + Info.Postfix;
+                      },
+                      &Attrs);
+}
+
+void OCL20ToSPIRV::visitSubgroupImageMediaBlockINTEL(
+    CallInst *CI, const std::string &DemangledName) {
+  AttributeList Attrs = CI->getCalledFunction()->getAttributes();
+  spv::Op OpCode = DemangledName.rfind("read") != std::string::npos
+                       ? spv::OpSubgroupImageMediaBlockReadINTEL
+                       : spv::OpSubgroupImageMediaBlockWriteINTEL;
+  mutateCallInstSPIRV(M, CI,
+                      [=](CallInst *, std::vector<Value *> &Args) {
+                        // Moving the last argument to the begining.
+                        std::rotate(Args.begin(), Args.end() - 1, Args.end());
+                        return getSPIRVFuncName(OpCode);
+                      },
+                      &Attrs);
+}
+
+} // namespace SPIRV
 
 INITIALIZE_PASS_BEGIN(OCL20ToSPIRV, "cl20tospv", "Transform OCL 2.0 to SPIR-V",
     false, false)

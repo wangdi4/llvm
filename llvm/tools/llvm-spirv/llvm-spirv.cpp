@@ -183,7 +183,7 @@ convertSPIRVToLLVM() {
     return -1;
   }
 
-  WriteBitcodeToFile(M, Out.os());
+  WriteBitcodeToFile(*M, Out.os());
   Out.keep();
   delete M;
   return 0;
@@ -255,7 +255,7 @@ regularizeLLVM() {
     return -1;
   }
 
-  WriteBitcodeToFile(M.get(), Out.os());
+  WriteBitcodeToFile(*M, Out.os());
   Out.keep();
   return 0;
 }

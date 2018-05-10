@@ -111,8 +111,14 @@ def NoRedZone : EnumAttr<"noredzone">;
 /// Mark the function as not returning.
 def NoReturn : EnumAttr<"noreturn">;
 
+/// Disable Indirect Branch Tracking.
+def NoCfCheck : EnumAttr<"nocf_check">;
+
 /// Function doesn't unwind stack.
 def NoUnwind : EnumAttr<"nounwind">;
+
+/// Select optimizations for best fuzzing signal.
+def OptForFuzzing : EnumAttr<"optforfuzzing">;
 
 /// opt_size.
 def OptimizeForSize : EnumAttr<"optsize">;
@@ -134,6 +140,9 @@ def ReturnsTwice : EnumAttr<"returns_twice">;
 
 /// Safe Stack protection.
 def SafeStack : EnumAttr<"safestack">;
+
+/// Shadow Call Stack protection.
+def ShadowCallStack : EnumAttr<"shadowcallstack">;
 
 /// Sign extended before/after call.
 def SExt : EnumAttr<"signext">;
@@ -169,6 +178,9 @@ def SanitizeThread : EnumAttr<"sanitize_thread">;
 /// MemorySanitizer is on.
 def SanitizeMemory : EnumAttr<"sanitize_memory">;
 
+/// HWAddressSanitizer is on.
+def SanitizeHWAddress : EnumAttr<"sanitize_hwaddress">;
+
 /// Argument is swift error.
 def SwiftError : EnumAttr<"swifterror">;
 
@@ -199,6 +211,18 @@ def MayHaveOpenmpDirective : StrBoolAttr<"may-have-openmp-directive">;
     // in the front-end significantly reduces compile time.
 // endif INTEL_CUSTOMIZATION
 
+// if INTEL_CUSTOMIZATION
+
+/// This attribute indicates that at some point during compilation,
+/// the compiler recognized that the function allocates large chunks
+/// of memory with malloc and all references to that allocated memory
+/// are in the function. This is intended to be used as a hint
+/// to optimizations that can take advantage of that property but
+/// which will do their own analysis to prove it.
+def MayHaveHugeLocalMalloc : StrBoolAttr<"may_have_huge_local_malloc">;
+
+// endif INTEL_CUSTOMIZATION
+
 class CompatRule<string F> {
   // The name of the function called to check the attribute of the caller and
   // callee and decide whether inlining should be allowed. The function's
@@ -212,7 +236,9 @@ class CompatRule<string F> {
 def : CompatRule<"isEqual<SanitizeAddressAttr>">;
 def : CompatRule<"isEqual<SanitizeThreadAttr>">;
 def : CompatRule<"isEqual<SanitizeMemoryAttr>">;
+def : CompatRule<"isEqual<SanitizeHWAddressAttr>">;
 def : CompatRule<"isEqual<SafeStackAttr>">;
+def : CompatRule<"isEqual<ShadowCallStackAttr>">;
 
 class MergeRule<string F> {
   // The name of the function called to merge the attributes of the caller and

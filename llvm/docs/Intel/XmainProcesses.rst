@@ -36,9 +36,46 @@ component-specific processes.
 Xmain Gatekeeping
 =================
 
-All commits to the xmain trunk must be approved by the xmain gatekeeper, whose
-job it is to watch for potential conflicts and ensure that all processes were
+All commits to the xmain trunk must be approved by an xmain gatekeeper, whose
+job it is to watch for potential conflicts and ensure that all processes are
 followed.
+
+Before requesting gatekeeper review, please go through the following checklist
+to ensure that your changes are ready for submission. Gatekeepers will also use
+this checklist when evaluating change sets.
+
+#. Make sure your changes are consistent with our
+   :doc:`Open Source Decision Making Process <OpenSourceGuidelines>`. We prefer
+   to upstream changes where possible to avoid having to maintain unnecessary
+   customizations in xmain.
+#. Make sure all changes to community files are
+   :ref:`properly marked <xmain-markups>` as Intel customizations.
+#. Make sure behavioral changes in the compiler are adequately covered by
+   :ref:`unit tests <unit-testing>`.
+#. Conduct a :ref:`code review <code-reviews>` using Gerrit and get +1 approval
+   from someone who has taken the time to thoroughly understand your changes.
+#. Run an appropriate amount of
+   :ref:`pre-commit testing <testing-requirements>`, and attach the test
+   results to the Gerrit review. We recommend that you use the integrated alloy
+   testing feature of Gerrit to do this. Any expected failures must be captured
+   in JIRA, and the Gerrit review must contain a clear explanation for why the
+   change should be approved for xmain in spite of the failures.
+
+The next step depends on whether you are submitting an individual change set or
+a branch promotion.
+
+For individual change sets, the gatekeeping process is integrated into
+`Gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_. Simply add
+``xmain gatekeeper`` as you would a normal code reviewer. The current
+gatekeepers will be notified and will review your change set for xmain
+readiness. Gatekeepers may ask questions, request additional changes, request
+additional testing, etc. Once satisfied, a gatekeeper will give +2 and
+submit your changes to xmain. Changes might need to be rebased before
+submission. In most cases, the gatekeeper will do this and will submit the
+changes after a successful rebase. If there are conflicts during the rebase or
+if the gatekeeper has concerns about bad interactions with other xmain changes,
+the gatekeeper will ask the developer to do the rebase and possibly to run
+some additional testing.
 
 ..
     The following paragraph provides a link that automatically opens up an email
@@ -47,13 +84,12 @@ followed.
     %20. We should change this if there is a more human-readable form that
     achieves the same functionality.
 
-When a developer is ready to commit a change, the `xmain checkin request form
+For branch promotions, gatekeeping is done via email. When a developer is ready
+to commit a change, the `xmain checkin request form
 <mailto:icl.xmain.gatekeeper@intel.com?
-subject=xmain%20checkin%20request%20(Description%2001/01/2017)&
-body=If%20you%20are%20planning%20to%20submit%20your%20changes%20via%20gerrit,
-%20you%20may%20link%20to%20the%20gerrit%20review%20here%20and%20only%20answer
-%20questions%202%20and%206.%0D%0A%0D%0A%0D%0A%0D%0A
-1.%20Describe%20the%20new%20features%20or%20changes.%20Include%20Jira%23
+subject=xmain%20checkin%20request%20(Edit%20this%20description%20and%20date%20
+(01/01/2018)&
+body=1.%20Describe%20the%20new%20features%20or%20changes.%20Include%20Jira%23
 %20where%20applicable.%0D%0A%0D%0A%0D%0A%0D%0A
 2.%20Please%20explain%20why%20this%20change%20set%20should%20not%20be%20
 upstreamed%20to%20LLVM%20open%20source.%0D%0A%0D%0A%0D%0A%0D%0A
@@ -76,7 +112,7 @@ failure%20in%20fail.log,%20a%20JR%20must%20be%20filed%20if%20one%20does%20not
 testing%20done%20in%20addition%20to%20alloy%3F%0D%0A%0D%0A%0D%0A%0D%0A
 Please%20attach%20the%20following%20files%20from%20your%20alloy%20run,%20if%20
 applicable%3A%20status.log,%20fail.log,%20problem.log,%20and%20
-zperf%5Frt%5Frpt.log.%0D%0Axmain%20checkin%20questionnaire%20version%203>`_
+zperf%5Frt%5Frpt.log.%0D%0Axmain%20checkin%20questionnaire%20version%204>`_
 should be filled out and mailed to the ICL Xmain Gatekeeper.
 
 .. _xmain-markups:
@@ -227,6 +263,8 @@ from xmain when we choose to do so.
 We enforce this policy primarily through code reviews. If you notice any
 violations, you are encouraged to fix them.
 
+.. _unit-testing:
+
 Unit Test Development
 =====================
 
@@ -328,6 +366,8 @@ Expectations of code authors
      it difficult for reviewers to do incremental reviews. If you **must**
      update your sources, it is helpful to upload a version of your changes
      that **only** reflects the update with no other changes.
+
+.. _testing-requirements:
 
 Testing Requirements
 ====================

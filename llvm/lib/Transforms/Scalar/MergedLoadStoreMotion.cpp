@@ -81,11 +81,8 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"        // INTEL
 #include "llvm/Analysis/Loads.h"
-#include "llvm/Analysis/MemoryBuiltins.h"
-#include "llvm/Analysis/MemoryDependenceAnalysis.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Metadata.h"
-#include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
@@ -100,7 +97,6 @@ namespace {
 //                         MergedLoadStoreMotion Pass
 //===----------------------------------------------------------------------===//
 class MergedLoadStoreMotion {
-  MemoryDependenceResults *MD = nullptr;
   AliasAnalysis *AA = nullptr;
 
   // The mergeLoad/Store algorithms could have Size0 * Size1 complexity,
@@ -110,14 +106,9 @@ class MergedLoadStoreMotion {
   const int MagicCompileTimeControl = 250;
 
 public:
-  bool run(Function &F, MemoryDependenceResults *MD, AliasAnalysis &AA);
+  bool run(Function &F, AliasAnalysis &AA);
 
 private:
-  ///
-  /// \brief Remove instruction from parent and update memory dependence
-  /// analysis.
-  ///
-  void removeInstruction(Instruction *Inst);
   BasicBlock *getDiamondTail(BasicBlock *BB);
   bool isDiamondHead(BasicBlock *BB);
   // Routines for sinking stores
@@ -129,22 +120,6 @@ private:
   bool mergeStores(BasicBlock *BB);
 };
 } // end anonymous namespace
-
-///
-/// \brief Remove instruction from parent and update memory dependence analysis.
-///
-void MergedLoadStoreMotion::removeInstruction(Instruction *Inst) {
-  // Notify the memory dependence analysis.
-  if (MD) {
-    MD->removeInstruction(Inst);
-    if (auto *LI = dyn_cast<LoadInst>(Inst))
-      MD->invalidateCachedPointerInfo(LI->getPointerOperand());
-    if (Inst->getType()->isPtrOrPtrVectorTy()) {
-      MD->invalidateCachedPointerInfo(Inst);
-    }
-  }
-  Inst->eraseFromParent();
-}
 
 ///
 /// \brief Return tail block of a diamond.
@@ -196,7 +171,7 @@ bool MergedLoadStoreMotion::isStoreSinkBarrierInRange(const Instruction &Start,
        make_range(Start.getIterator(), End.getIterator()))
     if (Inst.mayThrow())
       return true;
-  return AA->canInstructionRangeModRef(Start, End, Loc, MRI_ModRef);
+  return AA->canInstructionRangeModRef(Start, End, Loc, ModRefInfo::ModRef);
 }
 
 ///
@@ -239,8 +214,6 @@ PHINode *MergedLoadStoreMotion::getPHIOperand(BasicBlock *BB, StoreInst *S0,
                                 &BB->front());
   NewPN->addIncoming(Opd1, S0->getParent());
   NewPN->addIncoming(Opd2, S1->getParent());
-  if (MD && NewPN->getType()->isPtrOrPtrVectorTy())
-    MD->invalidateCachedPointerInfo(NewPN);
   return NewPN;
 }
 
@@ -278,12 +251,12 @@ bool MergedLoadStoreMotion::sinkStore(BasicBlock *BB, StoreInst *S0,
     // New PHI operand? Use it.
     if (PHINode *NewPN = getPHIOperand(BB, S0, S1))
       SNew->setOperand(0, NewPN);
-    removeInstruction(S0);
-    removeInstruction(S1);
+    S0->eraseFromParent();
+    S1->eraseFromParent();
     A0->replaceAllUsesWith(ANew);
-    removeInstruction(A0);
+    A0->eraseFromParent();
     A1->replaceAllUsesWith(ANew);
-    removeInstruction(A1);
+    A1->eraseFromParent();
     return true;
   }
   return false;
@@ -347,9 +320,7 @@ bool MergedLoadStoreMotion::mergeStores(BasicBlock *T) {
   return MergedStores;
 }
 
-bool MergedLoadStoreMotion::run(Function &F, MemoryDependenceResults *MD,
-                                AliasAnalysis &AA) {
-  this->MD = MD;
+bool MergedLoadStoreMotion::run(Function &F, AliasAnalysis &AA) {
   this->AA = &AA;
 
   bool Changed = false;
@@ -385,9 +356,7 @@ public:
     if (skipFunction(F))
       return false;
     MergedLoadStoreMotion Impl;
-    auto *MDWP = getAnalysisIfAvailable<MemoryDependenceWrapperPass>();
-    return Impl.run(F, MDWP ? &MDWP->getMemDep() : nullptr,
-                    getAnalysis<AAResultsWrapperPass>().getAAResults());
+    return Impl.run(F, getAnalysis<AAResultsWrapperPass>().getAAResults());
   }
 
 private:
@@ -396,7 +365,6 @@ private:
     AU.addRequired<AAResultsWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();        // INTEL
-    AU.addPreserved<MemoryDependenceWrapperPass>();
   }
 };
 
@@ -412,7 +380,6 @@ FunctionPass *llvm::createMergedLoadStoreMotionPass() {
 
 INITIALIZE_PASS_BEGIN(MergedLoadStoreMotionLegacyPass, "mldst-motion",
                       "MergedLoadStoreMotion", false, false)
-INITIALIZE_PASS_DEPENDENCY(MemoryDependenceWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(MergedLoadStoreMotionLegacyPass, "mldst-motion",
                     "MergedLoadStoreMotion", false, false)
@@ -420,14 +387,13 @@ INITIALIZE_PASS_END(MergedLoadStoreMotionLegacyPass, "mldst-motion",
 PreservedAnalyses
 MergedLoadStoreMotionPass::run(Function &F, FunctionAnalysisManager &AM) {
   MergedLoadStoreMotion Impl;
-  auto *MD = AM.getCachedResult<MemoryDependenceAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);
-  if (!Impl.run(F, MD, AA))
+  if (!Impl.run(F, AA))
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
   PA.preserve<GlobalsAA>();
-  PA.preserve<MemoryDependenceAnalysis>();
+  PA.preserve<AndersensAA>();       // INTEL
   return PA;
 }

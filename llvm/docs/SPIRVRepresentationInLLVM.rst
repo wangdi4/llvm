@@ -27,6 +27,7 @@ SPIR-V Types Mapped to LLVM Types
 Limited to this section, we define the following common postfix.
 
 * {Access} - Postifix indicating the access qualifier.
+
 {Access} take integer literal values which are defined by the SPIR-V spec.
 
 OpTypeImage
@@ -63,12 +64,14 @@ spirv.Pipe._{Access} and mangled as __spirv_Pipe__{Access}.
 
 Other SPIR-V Types
 ------------------
+
 * OpTypeEvent
 * OpTypeDeviceEvent
 * OpTypeReserveId
 * OpTypeQueue
 * OpTypeSampler
 * OpTypePipeStorage (SPIR-V 1.1)
+
 The above SPIR-V types are mapped to LLVM opaque type spirv.{TypeName} and
 mangled as __spirv_{TypeName}, where {TypeName} is the name of the SPIR-V
 type with "OpType" removed, e.g., OpTypeEvent is mapped to spirv.Event and
@@ -134,7 +137,7 @@ The unmangled names of SPIR-V builtin reinterpret / bitcast functions follow the
   __spirv_{BitcastOpCodeName}_R{ReturnType}
 
 SPIR-V Builtin ImageSample Function Names
-----------------------------------------
+-----------------------------------------
 
 The unmangled names of SPIR-V builtin ImageSample functions follow the convention:
 
@@ -143,16 +146,16 @@ The unmangled names of SPIR-V builtin ImageSample functions follow the conventio
   __spirv_{ImageSampleOpCodeName}_R{ReturnType}
 
 SPIR-V Builtin GenericCastToPtr Function Name
-----------------------------------------
+---------------------------------------------
 
 The unmangled names of SPIR-V builtin GenericCastToPtrExplicit function follow the convention:
 
 .. code-block:: c
 
   __spirv_GenericCastToPtrExplicit_To{Global|Local|Private}
-  
-SPIR-V 1.1 Builtin CreatePipeFromPipeStorage Function Name 
-----------------------------------------
+
+SPIR-V 1.1 Builtin CreatePipeFromPipeStorage Function Name
+----------------------------------------------------------
 
 The unmangled names of SPIR-V builtin CreatePipeFromPipeStorage function follow the convention:
 
@@ -181,7 +184,7 @@ starts with two underscores to facilitate identification since extended instruct
 may contain underscore. The remaining postfixes start with one underscore.
 
 OpenCL Extended Builtin Vector Load Function Names
-----------------------------------------
+--------------------------------------------------
 
 The unmangled names of OpenCL extended vector load functions follow the convention:
 

@@ -13,6 +13,7 @@
 
 #include "llvm/CodeGen/IntrinsicLowering.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/Utils/Local.h" // INTEL
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -57,10 +58,10 @@ static void EnsureFPIntrinsicsExist(Module &M, Function &Fn,
   }
 }
 
-/// ReplaceCallWith - This function is used when we want to lower an intrinsic
-/// call to a call of an external function.  This handles hard cases such as
-/// when there was already a prototype for the external function, and if that
-/// prototype doesn't match the arguments we expect to pass in.
+/// This function is used when we want to lower an intrinsic call to a call of
+/// an external function. This handles hard cases such as when there was already
+/// a prototype for the external function, but that prototype doesn't match the
+/// arguments we expect to pass in.
 template <class ArgIt>
 static CallInst *ReplaceCallWith(const char *NewFn, CallInst *CI,
                                  ArgIt ArgBegin, ArgIt ArgEnd,
@@ -161,8 +162,7 @@ void IntrinsicLowering::AddPrototypes(Module &M) {
       }
 }
 
-/// LowerBSWAP - Emit the code to lower bswap of V before the specified
-/// instruction IP.
+/// Emit the code to lower bswap of V before the specified instruction IP.
 static Value *LowerBSWAP(LLVMContext &Context, Value *V, Instruction *IP) {
   assert(V->getType()->isIntOrIntVectorTy() && "Can't bswap a non-integer type!");
 
@@ -257,8 +257,7 @@ static Value *LowerBSWAP(LLVMContext &Context, Value *V, Instruction *IP) {
   return V;
 }
 
-/// LowerCTPOP - Emit the code to lower ctpop of V before the specified
-/// instruction IP.
+/// Emit the code to lower ctpop of V before the specified instruction IP.
 static Value *LowerCTPOP(LLVMContext &Context, Value *V, Instruction *IP) {
   assert(V->getType()->isIntegerTy() && "Can't ctpop a non-integer type!");
 
@@ -297,8 +296,7 @@ static Value *LowerCTPOP(LLVMContext &Context, Value *V, Instruction *IP) {
   return Count;
 }
 
-/// LowerCTLZ - Emit the code to lower ctlz of V before the specified
-/// instruction IP.
+/// Emit the code to lower ctlz of V before the specified instruction IP.
 static Value *LowerCTLZ(LLVMContext &Context, Value *V, Instruction *IP) {
 
   IRBuilder<> Builder(IP);
@@ -476,6 +474,16 @@ void IntrinsicLowering::LowerIntrinsicCall(CallInst *CI) {
     // Just drop the annotation, but forward the value
     CI->replaceAllUsesWith(CI->getOperand(0));
     break;
+
+#if INTEL_CUSTOMIZATION
+  case Intrinsic::intel_subscript: {
+    // Do not unlink intrinsic
+    Value * Offset[] = {EmitSubsOffset(&Builder, DL, CI)};
+    CI->replaceAllUsesWith(Builder.CreateInBoundsGEP(
+        cast<SubscriptInst>(CI)->getPointerOperand(), Offset));
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   case Intrinsic::assume:
   case Intrinsic::var_annotation:

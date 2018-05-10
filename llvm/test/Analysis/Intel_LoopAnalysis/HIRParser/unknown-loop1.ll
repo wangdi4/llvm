@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check that we correctly deconstruct and parse the unknown loop. The liveout copy "%hir.de.ssa.copy0.out = %0" is essential when deconstructing the header phi %0 otheriwse its use in the bottom test will cause live range violation.
 

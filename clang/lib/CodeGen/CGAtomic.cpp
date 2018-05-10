@@ -18,6 +18,7 @@
 #include "TargetInfo.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
+#include "clang/Sema/SemaDiagnostic.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Intrinsics.h"
@@ -573,7 +574,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
 
   case AtomicExpr::AO__atomic_add_fetch:
     PostOp = llvm::Instruction::Add;
-    // Fall through.
+    LLVM_FALLTHROUGH;
   case AtomicExpr::AO__c11_atomic_fetch_add:
   case AtomicExpr::AO__opencl_atomic_fetch_add:
   case AtomicExpr::AO__atomic_fetch_add:
@@ -582,7 +583,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
 
   case AtomicExpr::AO__atomic_sub_fetch:
     PostOp = llvm::Instruction::Sub;
-    // Fall through.
+    LLVM_FALLTHROUGH;
   case AtomicExpr::AO__c11_atomic_fetch_sub:
   case AtomicExpr::AO__opencl_atomic_fetch_sub:
   case AtomicExpr::AO__atomic_fetch_sub:
@@ -601,7 +602,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
 
   case AtomicExpr::AO__atomic_and_fetch:
     PostOp = llvm::Instruction::And;
-    // Fall through.
+    LLVM_FALLTHROUGH;
   case AtomicExpr::AO__c11_atomic_fetch_and:
   case AtomicExpr::AO__opencl_atomic_fetch_and:
   case AtomicExpr::AO__atomic_fetch_and:
@@ -610,7 +611,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
 
   case AtomicExpr::AO__atomic_or_fetch:
     PostOp = llvm::Instruction::Or;
-    // Fall through.
+    LLVM_FALLTHROUGH;
   case AtomicExpr::AO__c11_atomic_fetch_or:
   case AtomicExpr::AO__opencl_atomic_fetch_or:
   case AtomicExpr::AO__atomic_fetch_or:
@@ -619,7 +620,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
 
   case AtomicExpr::AO__atomic_xor_fetch:
     PostOp = llvm::Instruction::Xor;
-    // Fall through.
+    LLVM_FALLTHROUGH;
   case AtomicExpr::AO__c11_atomic_fetch_xor:
   case AtomicExpr::AO__opencl_atomic_fetch_xor:
   case AtomicExpr::AO__atomic_fetch_xor:
@@ -628,7 +629,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
 
   case AtomicExpr::AO__atomic_nand_fetch:
     PostOp = llvm::Instruction::And; // the NOT is special cased below
-  // Fall through.
+    LLVM_FALLTHROUGH;
   case AtomicExpr::AO__atomic_fetch_nand:
     Op = llvm::AtomicRMWInst::Nand;
     break;
@@ -751,6 +752,13 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
   Address Dest = Address::invalid();
   Address Ptr = EmitPointerWithAlignment(E->getPtr());
 
+  if (E->getOp() == AtomicExpr::AO__c11_atomic_init ||
+      E->getOp() == AtomicExpr::AO__opencl_atomic_init) {
+    LValue lvalue = MakeAddrLValue(Ptr, AtomicTy);
+    EmitAtomicInit(E->getVal1(), lvalue);
+    return RValue::get(nullptr);
+  }
+
   CharUnits sizeChars, alignChars;
   std::tie(sizeChars, alignChars) = getContext().getTypeInfoInChars(AtomicTy);
   uint64_t Size = sizeChars.getQuantity();
@@ -758,12 +766,8 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
   bool UseLibcall = ((Ptr.getAlignment() % sizeChars) != 0 ||
                      getContext().toBits(sizeChars) > MaxInlineWidthInBits);
 
-  if (E->getOp() == AtomicExpr::AO__c11_atomic_init ||
-      E->getOp() == AtomicExpr::AO__opencl_atomic_init) {
-    LValue lvalue = MakeAddrLValue(Ptr, AtomicTy);
-    EmitAtomicInit(E->getVal1(), lvalue);
-    return RValue::get(nullptr);
-  }
+  if (UseLibcall)
+    CGM.getDiags().Report(E->getLocStart(), diag::warn_atomic_op_misaligned);
 
   llvm::Value *Order = EmitScalarExpr(E->getOrder());
   llvm::Value *Scope =
@@ -828,7 +832,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       EmitStoreOfScalar(Val1Scalar, MakeAddrLValue(Temp, Val1Ty));
       break;
     }
-    // Fall through.
+      LLVM_FALLTHROUGH;
   case AtomicExpr::AO__atomic_fetch_add:
   case AtomicExpr::AO__atomic_fetch_sub:
   case AtomicExpr::AO__atomic_add_fetch:
@@ -1035,7 +1039,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     // T __atomic_fetch_add_N(T *mem, T val, int order)
     case AtomicExpr::AO__atomic_add_fetch:
       PostOp = llvm::Instruction::Add;
-    // Fall through.
+      LLVM_FALLTHROUGH;
     case AtomicExpr::AO__c11_atomic_fetch_add:
     case AtomicExpr::AO__opencl_atomic_fetch_add:
     case AtomicExpr::AO__atomic_fetch_add:
@@ -1047,7 +1051,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     // T __atomic_fetch_and_N(T *mem, T val, int order)
     case AtomicExpr::AO__atomic_and_fetch:
       PostOp = llvm::Instruction::And;
-    // Fall through.
+      LLVM_FALLTHROUGH;
     case AtomicExpr::AO__c11_atomic_fetch_and:
     case AtomicExpr::AO__opencl_atomic_fetch_and:
     case AtomicExpr::AO__atomic_fetch_and:
@@ -1059,7 +1063,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     // T __atomic_fetch_or_N(T *mem, T val, int order)
     case AtomicExpr::AO__atomic_or_fetch:
       PostOp = llvm::Instruction::Or;
-    // Fall through.
+      LLVM_FALLTHROUGH;
     case AtomicExpr::AO__c11_atomic_fetch_or:
     case AtomicExpr::AO__opencl_atomic_fetch_or:
     case AtomicExpr::AO__atomic_fetch_or:
@@ -1071,7 +1075,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     // T __atomic_fetch_sub_N(T *mem, T val, int order)
     case AtomicExpr::AO__atomic_sub_fetch:
       PostOp = llvm::Instruction::Sub;
-    // Fall through.
+      LLVM_FALLTHROUGH;
     case AtomicExpr::AO__c11_atomic_fetch_sub:
     case AtomicExpr::AO__opencl_atomic_fetch_sub:
     case AtomicExpr::AO__atomic_fetch_sub:
@@ -1083,7 +1087,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     // T __atomic_fetch_xor_N(T *mem, T val, int order)
     case AtomicExpr::AO__atomic_xor_fetch:
       PostOp = llvm::Instruction::Xor;
-    // Fall through.
+      LLVM_FALLTHROUGH;
     case AtomicExpr::AO__c11_atomic_fetch_xor:
     case AtomicExpr::AO__opencl_atomic_fetch_xor:
     case AtomicExpr::AO__atomic_fetch_xor:
@@ -1109,7 +1113,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     // T __atomic_fetch_nand_N(T *mem, T val, int order)
     case AtomicExpr::AO__atomic_nand_fetch:
       PostOp = llvm::Instruction::And; // the NOT is special cased below
-    // Fall through.
+      LLVM_FALLTHROUGH;
     case AtomicExpr::AO__atomic_fetch_nand:
       LibCallName = "__atomic_fetch_nand";
       AddDirectArgument(*this, Args, UseOptimizedLibcall, Val1.getPointer(),
@@ -1160,7 +1164,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     if (UseOptimizedLibcall && Res.getScalarVal()) {
       llvm::Value *ResVal = Res.getScalarVal();
       if (PostOp) {
-        llvm::Value *LoadVal1 = Args[1].RV.getScalarVal();
+        llvm::Value *LoadVal1 = Args[1].getRValue(*this).getScalarVal();
         ResVal = Builder.CreateBinOp(PostOp, ResVal, LoadVal1);
       }
       if (E->getOp() == AtomicExpr::AO__atomic_nand_fetch)
@@ -1508,11 +1512,13 @@ void AtomicInfo::emitCopyIntoMemory(RValue rvalue) const {
   // which means that the caller is responsible for having zeroed
   // any padding.  Just do an aggregate copy of that type.
   if (rvalue.isAggregate()) {
-    CGF.EmitAggregateCopy(getAtomicAddress(),
-                          rvalue.getAggregateAddress(),
-                          getAtomicType(),
-                          (rvalue.isVolatileQualified()
-                           || LVal.isVolatileQualified()));
+    LValue Dest = CGF.MakeAddrLValue(getAtomicAddress(), getAtomicType());
+    LValue Src = CGF.MakeAddrLValue(rvalue.getAggregateAddress(),
+                                    getAtomicType());
+    bool IsVolatile = rvalue.isVolatileQualified() ||
+                      LVal.isVolatileQualified();
+    CGF.EmitAggregateCopy(Dest, Src, getAtomicType(),
+                          AggValueSlot::DoesNotOverlap, IsVolatile);
     return;
   }
 
@@ -2007,6 +2013,7 @@ void CodeGenFunction::EmitAtomicInit(Expr *init, LValue dest) {
                                         AggValueSlot::IsNotDestructed,
                                         AggValueSlot::DoesNotNeedGCBarriers,
                                         AggValueSlot::IsNotAliased,
+                                        AggValueSlot::DoesNotOverlap,
                                         Zeroed ? AggValueSlot::IsZeroed :
                                                  AggValueSlot::IsNotZeroed);
 

@@ -15,11 +15,13 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/ADT/Statistic.h"
+#include <llvm/IR/IntrinsicInst.h>
 #include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
 #include "llvm/Support/Debug.h"
 
@@ -61,7 +63,7 @@ const DataLayout &HLNodeUtils::getDataLayout() const {
 void HLNodeUtils::reset(Function &F) {
   DDRU = nullptr;
 
-  DummyIRBuilder = new DummyIRBuilderTy(F.getContext());
+  DummyIRBuilder.reset(new DummyIRBuilderTy(F.getContext()));
   DummyIRBuilder->SetInsertPoint(F.getEntryBlock().getTerminator());
 
   FirstDummyInst = nullptr;
@@ -128,14 +130,10 @@ void HLNodeUtils::setFirstAndLastDummyInst(Instruction *Inst) {
   LastDummyInst = Inst;
 }
 
-void HLNodeUtils::destroyAll() {
+HLNodeUtils::~HLNodeUtils() {
   for (auto &I : Objs) {
     delete I;
   }
-
-  Objs.clear();
-
-  delete DummyIRBuilder;
 }
 
 void HLNodeUtils::checkUnaryInstOperands(RegDDRef *LvalRef, RegDDRef *RvalRef,
@@ -203,7 +201,7 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
 
     auto DummyPtrType =
         PointerType::get(RvalRef->getDestType(),
-                         RvalRef->getBaseDestType()->getPointerAddressSpace());
+                         RvalRef->getBaseType()->getPointerAddressSpace());
     auto DummyPtrVal = UndefValue::get(DummyPtrType);
 
     InstVal = DummyIRBuilder->CreateLoad(DummyPtrVal, false, Name);
@@ -216,7 +214,7 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
 
     auto DummyPtrType =
         PointerType::get(LvalRef->getDestType(),
-                         LvalRef->getBaseDestType()->getPointerAddressSpace());
+                         LvalRef->getBaseType()->getPointerAddressSpace());
     auto DummyPtrVal = UndefValue::get(DummyPtrType);
 
     InstVal = DummyIRBuilder->CreateStore(DummyVal, DummyPtrVal);
@@ -605,37 +603,28 @@ HLInst *HLNodeUtils::createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
 }
 
 HLInst *HLNodeUtils::createShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
-                                             ArrayRef<uint32_t> Mask,
-                                             const Twine &Name,
+                                             RegDDRef *Mask, const Twine &Name,
                                              RegDDRef *LvalRef) {
   assert(OpRef1->getDestType()->isVectorTy() &&
          OpRef1->getDestType() == OpRef2->getDestType() &&
          "Illegal operand types for shufflevector");
 
-  auto OneVal = UndefValue::get(OpRef1->getDestType());
+  auto UndefVal = UndefValue::get(OpRef1->getDestType());
+  auto MaskUndefVal = UndefValue::get(Mask->getDestType());
 
   Value *InstVal =
-      DummyIRBuilder->CreateShuffleVector(OneVal, OneVal, Mask, Name);
+      DummyIRBuilder->CreateShuffleVector(UndefVal, UndefVal, MaskUndefVal,
+                                          Name);
   Instruction *Inst = cast<Instruction>(InstVal);
 
   assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
          "Incompatible type of LvalRef");
 
   HLInst *HInst = createLvalHLInst(Inst, LvalRef);
-
   HInst->setOperandDDRef(OpRef1, 1);
   HInst->setOperandDDRef(OpRef2, 2);
-  Value *MaskVecValue = Inst->getOperand(2);
-  RegDDRef *MaskVecDDRef;
-  if (isa<ConstantAggregateZero>(MaskVecValue))
-    MaskVecDDRef = getDDRefUtils().createConstDDRef(
-        cast<ConstantAggregateZero>(MaskVecValue));
-  else if (isa<ConstantDataVector>(MaskVecValue))
-    MaskVecDDRef = getDDRefUtils().createConstDDRef(
-        cast<ConstantDataVector>(MaskVecValue));
-  else
-    llvm_unreachable("Unexpected Mask vector type");
-  HInst->setOperandDDRef(MaskVecDDRef, 3);
+  HInst->setOperandDDRef(Mask, 3);
+
   return HInst;
 }
 
@@ -646,8 +635,8 @@ HLInst *HLNodeUtils::createExtractElementInst(RegDDRef *OpRef, unsigned Idx,
   assert(OpRef->getDestType()->isVectorTy() &&
          "Illegal operand types for extractelement");
 
-  auto OneVal = UndefValue::get(OpRef->getDestType());
-  Value *InstVal = DummyIRBuilder->CreateExtractElement(OneVal, Idx, Name);
+  auto UndefVal = UndefValue::get(OpRef->getDestType());
+  Value *InstVal = DummyIRBuilder->CreateExtractElement(UndefVal, Idx, Name);
   Instruction *Inst = cast<Instruction>(InstVal);
   assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
          "Incompatible type of LvalRef");
@@ -872,9 +861,10 @@ HLInst *HLNodeUtils::createSelect(const HLPredicate &Pred, RegDDRef *OpRef1,
   return HInst;
 }
 
-HLInst *HLNodeUtils::createCall(Function *Func,
-                                const SmallVectorImpl<RegDDRef *> &CallArgs,
-                                const Twine &Name, RegDDRef *LvalRef) {
+std::pair<HLInst *, CallInst *>
+HLNodeUtils::createCallImpl(Function *Func,
+                            const SmallVectorImpl<RegDDRef *> &CallArgs,
+                            const Twine &Name, RegDDRef *LvalRef) {
   bool HasReturn = !Func->getReturnType()->isVoidTy();
   unsigned NumArgs = CallArgs.size();
   HLInst *HInst;
@@ -908,6 +898,59 @@ HLInst *HLNodeUtils::createCall(Function *Func,
   for (unsigned I = 0; I < NumArgs; I++) {
     HInst->setOperandDDRef(CallArgs[I], I + ArgOffset);
   }
+
+  return std::make_pair(HInst, InstVal);
+}
+
+HLInst *HLNodeUtils::createCall(Function *Func,
+                                const SmallVectorImpl<RegDDRef *> &CallArgs,
+                                const Twine &Name, RegDDRef *LvalRef) {
+  return createCallImpl(Func, CallArgs, Name, LvalRef).first;
+}
+
+HLInst *HLNodeUtils::createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef,
+                                  RegDDRef *Size) {
+  RegDDRef *IsVolatile = getDDRefUtils().createConstDDRef(
+      Type::getInt1Ty(getContext()),
+      LoadRef->isVolatile() || StoreRef->isVolatile());
+
+  Type *Tys[] = {StoreRef->getDestType(), LoadRef->getDestType(),
+                 Size->getDestType()};
+
+  Function *MemcpyFunc =
+      Intrinsic::getDeclaration(&getModule(), Intrinsic::memcpy, Tys);
+
+  SmallVector<RegDDRef *, 5> Ops = {StoreRef, LoadRef, Size, IsVolatile};
+
+  CallInst *Call;
+  HLInst *HInst;
+  std::tie(HInst, Call) = createCallImpl(MemcpyFunc, Ops);
+
+  MemCpyInst *MemCpyCall = cast<MemCpyInst>(Call);
+  MemCpyCall->setSourceAlignment(LoadRef->getAlignment());
+  MemCpyCall->setDestAlignment(StoreRef->getAlignment());
+
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createMemset(RegDDRef *StoreRef, RegDDRef *Value,
+                                  RegDDRef *Size) {
+  RegDDRef *IsVolatile = getDDRefUtils().createConstDDRef(
+      Type::getInt1Ty(getContext()), StoreRef->isVolatile());
+
+  Type *Tys[] = {StoreRef->getDestType(), Size->getDestType()};
+  Function *MemsetFunc =
+      Intrinsic::getDeclaration(&getModule(), Intrinsic::memset, Tys);
+
+  SmallVector<RegDDRef *, 5> Ops = {StoreRef, Value, Size, IsVolatile};
+
+  CallInst *Call;
+  HLInst *HInst;
+  std::tie(HInst, Call) = createCallImpl(MemsetFunc, Ops);
+
+  MemSetInst *MemSetCall = cast<MemSetInst>(Call);
+  MemSetCall->setDestAlignment(StoreRef->getAlignment());
+
   return HInst;
 }
 
@@ -1272,12 +1315,31 @@ void HLNodeUtils::insertAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild) {
              Node->getIterator(), Node->getIterator(), !IsThenChild);
 }
 
+void HLNodeUtils::insertAsFirstChildren(HLIf *If, HLContainerTy *NodeContainer,
+                                        bool IsThenChild) {
+  assert(If && "If is null!");
+  assert(NodeContainer && "NodeContainer is null!");
+
+  insertImpl(If, IsThenChild ? If->then_begin() : If->else_begin(),
+             NodeContainer, NodeContainer->begin(), NodeContainer->end(),
+             !IsThenChild);
+}
+
 void HLNodeUtils::insertAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild) {
   assert(If && "If is null!");
   assert(Node && "Node is null!");
 
   insertImpl(If, IsThenChild ? If->then_end() : If->else_end(), nullptr,
              Node->getIterator(), Node->getIterator(), !IsThenChild);
+}
+
+void HLNodeUtils::insertAsLastChildren(HLIf *If, HLContainerTy *NodeContainer,
+                                       bool IsThenChild) {
+  assert(If && "If is null!");
+  assert(NodeContainer && "NodeContainer is null!");
+
+  insertImpl(If, IsThenChild ? If->then_end() : If->else_end(), NodeContainer,
+             NodeContainer->begin(), NodeContainer->end(), !IsThenChild);
 }
 
 void HLNodeUtils::insertAsChildImpl(HLSwitch *Switch,
@@ -1354,10 +1416,24 @@ void HLNodeUtils::insertAsFirstPreheaderNode(HLLoop *Loop, HLNode *Node) {
                                 Node->getIterator(), true, true);
 }
 
+void HLNodeUtils::insertAsFirstPreheaderNodes(HLLoop *Loop,
+                                              HLContainerTy *NodeContainer) {
+  assert(NodeContainer && "NodeContainer is null!");
+  insertAsPreheaderPostexitImpl(Loop, NodeContainer, NodeContainer->begin(),
+                                NodeContainer->end(), true, true);
+}
+
 void HLNodeUtils::insertAsLastPreheaderNode(HLLoop *Loop, HLNode *Node) {
   assert(Node && "Node is null!");
   insertAsPreheaderPostexitImpl(Loop, nullptr, Node->getIterator(),
                                 Node->getIterator(), true, false);
+}
+
+void HLNodeUtils::insertAsLastPreheaderNodes(HLLoop *Loop,
+                                             HLContainerTy *NodeContainer) {
+  assert(NodeContainer && "NodeContainer is null!");
+  insertAsPreheaderPostexitImpl(Loop, NodeContainer, NodeContainer->begin(),
+                                NodeContainer->end(), true, false);
 }
 
 void HLNodeUtils::insertAsFirstPostexitNode(HLLoop *Loop, HLNode *Node) {
@@ -1366,10 +1442,24 @@ void HLNodeUtils::insertAsFirstPostexitNode(HLLoop *Loop, HLNode *Node) {
                                 Node->getIterator(), false, true);
 }
 
+void HLNodeUtils::insertAsFirstPostexitNodes(HLLoop *Loop,
+                                             HLContainerTy *NodeContainer) {
+  assert(NodeContainer && "NodeContainer is null!");
+  insertAsPreheaderPostexitImpl(Loop, NodeContainer, NodeContainer->begin(),
+                                NodeContainer->end(), false, true);
+}
+
 void HLNodeUtils::insertAsLastPostexitNode(HLLoop *Loop, HLNode *Node) {
   assert(Node && "Node is null!");
   insertAsPreheaderPostexitImpl(Loop, nullptr, Node->getIterator(),
                                 Node->getIterator(), false, false);
+}
+
+void HLNodeUtils::insertAsLastPostexitNodes(HLLoop *Loop,
+                                            HLContainerTy *NodeContainer) {
+  assert(NodeContainer && "NodeContainer is null!");
+  insertAsPreheaderPostexitImpl(Loop, NodeContainer, NodeContainer->begin(),
+                                NodeContainer->end(), false, false);
 }
 
 bool HLNodeUtils::foundLoopInRange(HLContainerTy::iterator First,
@@ -2208,6 +2298,27 @@ HLNode *HLNodeUtils::getLastLexicalChild(HLNode *Parent, HLNode *Node) {
       static_cast<const HLNode *>(Parent), static_cast<const HLNode *>(Node)));
 }
 
+const HLNode *
+HLNodeUtils::getImmediateChildContainingNode(const HLNode *ParentNode,
+                                             const HLNode *Node) {
+  assert(contains(ParentNode, Node) && "Node doesn't belong to a ParentNode");
+
+  HLNode *Parent = Node->getParent();
+  while (Parent != ParentNode) {
+    Node = Parent;
+    Parent = Node->getParent();
+  }
+
+  return Node;
+}
+
+HLNode *HLNodeUtils::getImmediateChildContainingNode(HLNode *ParentNode,
+                                                     HLNode *Node) {
+  return const_cast<HLNode *>(
+      getImmediateChildContainingNode(static_cast<const HLNode *>(ParentNode),
+                                      static_cast<const HLNode *>(Node)));
+}
+
 // For domination we care about single entry i.e. absence of labels in the scope
 // of interest.
 // For post domination we care about single exit i.e. absence of jumps from
@@ -2336,15 +2447,26 @@ bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
 
   assert((FirstNode && LastNode) && "Could not find first/last lexical child!");
 
+  if (FirstNode == LastNode) {
+    // Both are set to 'Node' which we don't need to check.
+    return true;
+  }
+
   StructuredFlowChecker SFC(PostDomination, TargetNode,
                             FirstNode->getParentLoop(), HLS);
 
   // Don't need to recurse into loops.
-  // Do a forward traversal when going down and vice versa.
-  if (!UpwardTraversal) {
-    visitRange<true, false, true>(SFC, FirstNode, LastNode);
+  // TODO: We probably need to enhance it to recurse into multi-exit loops.
+  if (UpwardTraversal) {
+    // We want to traverse the range [FirstNode, LastNode) in the backward
+    // direction. LastNode is the incoming 'Node' and should be skipped.
+    visitRange<true, false, false>(SFC, FirstNode->getIterator(),
+                                   LastNode->getIterator());
   } else {
-    visitRange<true, false, false>(SFC, FirstNode, LastNode);
+    // We want to traverse the range (FirstNode, LastNode] in the forward
+    // direction. FirstNode is the incoming 'Node' and should be skipped.
+    visitRange<true, false, true>(SFC, ++(FirstNode->getIterator()),
+                                  ++(LastNode->getIterator()));
   }
 
   return SFC.isStructured();
@@ -2389,7 +2511,7 @@ const HLNode *HLNodeUtils::getOutermostSafeParent(const HLNode *Node1,
     }
 
     // Node2 is in range, no need to move up the parent chain.
-    if (isInTopSortNumRange(Node2, FirstNode, LastNode)) {
+    if (isInTopSortNumMaxRange(Node2, FirstNode, LastNode)) {
       break;
     }
 
@@ -2438,7 +2560,6 @@ const HLNode *HLNodeUtils::getCommonDominatingParent(
 bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
                                 bool PostDomination, bool StrictDomination,
                                 HIRLoopStatistics *HLS) {
-
   assert(Node1 && Node2 && "Node is null!");
 
   assert(!isa<HLRegion>(Node1) && !isa<HLRegion>(Node2) &&
@@ -2502,11 +2623,11 @@ bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
   } else if (IfParent) {
     // Check whether both nodes are in the then or else case.
     bool Node1Found =
-        isInTopSortNumRange(LastParent1, IfParent->getFirstThenChild(),
-                            IfParent->getLastThenChild());
+        isInTopSortNumMaxRange(LastParent1, IfParent->getFirstThenChild(),
+                               IfParent->getLastThenChild());
     bool Node2Found =
-        isInTopSortNumRange(LastParent2, IfParent->getFirstThenChild(),
-                            IfParent->getLastThenChild());
+        isInTopSortNumMaxRange(LastParent2, IfParent->getFirstThenChild(),
+                               IfParent->getLastThenChild());
 
     // Return false if only Node1 or Node2 was found.
     if (Node1Found ^ Node2Found) {
@@ -2522,12 +2643,12 @@ bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
     // TODO: improve it later.
     for (unsigned I = 1, E = SwitchParent->getNumCases(); I <= E; I++) {
 
-      bool Node1Found =
-          isInTopSortNumRange(LastParent1, SwitchParent->getFirstCaseChild(I),
-                              SwitchParent->getLastCaseChild(I));
-      bool Node2Found =
-          isInTopSortNumRange(LastParent2, SwitchParent->getFirstCaseChild(I),
-                              SwitchParent->getLastCaseChild(I));
+      bool Node1Found = isInTopSortNumMaxRange(
+          LastParent1, SwitchParent->getFirstCaseChild(I),
+          SwitchParent->getLastCaseChild(I));
+      bool Node2Found = isInTopSortNumMaxRange(
+          LastParent2, SwitchParent->getFirstCaseChild(I),
+          SwitchParent->getLastCaseChild(I));
 
       // Return false if only Node1 or Node2 was found.
       if (Node1Found ^ Node2Found) {
@@ -2677,8 +2798,8 @@ HLNodeUtils::VALType HLNodeUtils::getMinMaxBlobValue(unsigned BlobIdx,
 
   DEBUG(dbgs() << "\tin getMaxMinBlobValue: input args " << BlobIdx
                << BoundCE->getSingleBlobCoeff() << " "
-               << BoundCE->getSingleBlobIndex() << " "
-               << BoundCE->getConstant() << "\n");
+               << BoundCE->getSingleBlobIndex() << " " << BoundCE->getConstant()
+               << "\n");
 
   auto BoundCoeff = BoundCE->getSingleBlobCoeff();
   auto BoundBlobIdx = BoundCE->getSingleBlobIndex();
@@ -3140,6 +3261,10 @@ bool HLNodeUtils::getPredicateResult(APInt &LHS, PredicateTy Pred, APInt &RHS) {
   }
 }
 
+HLNodeRangeTy HLNodeUtils::getHIRRange() {
+  return make_range(getHIRFramework().hir_begin(), getHIRFramework().hir_end());
+}
+
 bool HLNodeUtils::isKnownPredicate(const CanonExpr *LHS, PredicateTy Pred,
                                    const CanonExpr *RHS, bool *Result) {
   if (Pred == PredicateTy::FCMP_FALSE) {
@@ -3321,7 +3446,7 @@ void NonUnitStrideMemRefs::visit(const HLDDNode *Node) {
       continue;
     }
 
-    RegDDRef *RegDDRef = *I;
+    const RegDDRef *RegDDRef = *I;
     const CanonExpr *FirstCE = nullptr;
     bool NonLinearLval = RegDDRef->isLval() && !RegDDRef->isTerminalRef();
 
@@ -3371,8 +3496,10 @@ bool HLNodeUtils::hasNonUnitStrideRefs(const HLLoop *Loop) {
 
 const HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(const HLLoop *Lp1,
                                                        const HLLoop *Lp2) {
-  assert(Lp1 && "Lp1 is null!");
-  assert(Lp2 && "Lp2 is null!");
+  if (!Lp1 || !Lp2) {
+    return nullptr;
+  }
+
   assert((Lp1->getParentRegion() == Lp2->getParentRegion()) &&
          "Lp1 and Lp2 are not in the same region!");
 
@@ -3413,6 +3540,57 @@ HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2) {
       static_cast<const HLLoop *>(Lp1), static_cast<const HLLoop *>(Lp2)));
 }
 
+const HLNode *
+HLNodeUtils::getLexicalLowestCommonAncestorParent(const HLNode *Node1,
+                                                  const HLNode *Node2) {
+  assert(Node1 && Node2 && "Node1 or Node2 is null!");
+  assert((Node1->getParentRegion() == Node2->getParentRegion()) &&
+         "Node1 and Node2 are not in the same region!");
+
+  // Represent node by its parent loop if it is in the loop preheader/postexit
+  // to avoid checking for edges cases later on in the function.
+  if (auto Inst = dyn_cast<HLInst>(Node1)) {
+    if (Inst->isInPreheaderOrPostexit()) {
+      Node1 = Node1->getParent();
+    }
+  }
+
+  if (auto Inst = dyn_cast<HLInst>(Node2)) {
+    if (Inst->isInPreheaderOrPostexit()) {
+      Node2 = Node2->getParent();
+    }
+  }
+
+  const HLNode *Parent = nullptr;
+  unsigned TopSortNum1 = Node1->getTopSortNum();
+  unsigned TopSortNum2 = Node2->getTopSortNum();
+
+  unsigned LaterNodeTopSortNum;
+
+  // Set starting parent using the node which appears earlier in HIR.
+  if (TopSortNum1 < TopSortNum2) {
+    Parent = Node1->getParent();
+    LaterNodeTopSortNum = TopSortNum2;
+  } else {
+    Parent = Node2->getParent();
+    LaterNodeTopSortNum = TopSortNum1;
+  }
+
+  // Move up the parent chain until we find a parent wich also contains the node
+  // which appears later in HIR.
+  while (Parent->getMaxTopSortNum() < LaterNodeTopSortNum) {
+    Parent = Parent->getParent();
+  }
+
+  return Parent;
+}
+
+HLNode *HLNodeUtils::getLexicalLowestCommonAncestorParent(HLNode *Node1,
+                                                          HLNode *Node2) {
+  return const_cast<HLNode *>(getLexicalLowestCommonAncestorParent(
+      static_cast<const HLNode *>(Node1), static_cast<const HLNode *>(Node2)));
+}
+
 bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
   if (NodeA->getNumPredicates() != NodeB->getNumPredicates()) {
     return false;
@@ -3437,7 +3615,7 @@ bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
   return true;
 }
 
-NodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
+HLNodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
 
   auto NodeRange = ThenBody ? std::make_pair(If->then_begin(), If->then_end())
                             : std::make_pair(If->else_begin(), If->else_end());
@@ -3449,8 +3627,8 @@ NodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
   return make_range(NodeRange.first, std::next(LastNode));
 }
 
-NodeRangeTy HLNodeUtils::replaceNodeWithBody(HLSwitch *Switch,
-                                             unsigned CaseNum) {
+HLNodeRangeTy HLNodeUtils::replaceNodeWithBody(HLSwitch *Switch,
+                                               unsigned CaseNum) {
 
   auto NodeRange = (CaseNum == 0)
                        ? std::make_pair(Switch->default_case_child_begin(),
@@ -3479,6 +3657,10 @@ STATISTIC(RedundantInstructions,
           "Number of redundant instructions removed by utility");
 STATISTIC(RedundantEarlyExitLoops,
           "Number of loops with unconditional exit removed by the utility");
+
+static cl::opt<bool> DisableAggressiveRedundantLoopRemoval(
+    "disable-hir-aggressive-redundant-loop-removal", cl::init(false),
+    cl::Hidden, cl::desc("Disable aggressive redundant loop removal."));
 
 class EmptyNodeRemoverVisitorImpl : public HLNodeVisitorBase {
 protected:
@@ -3605,6 +3787,9 @@ public:
 struct EmptyNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {};
 
 class RedundantNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {
+  // Stack of found loop side effects for loops currently in process.
+  SmallVector<std::pair<HLLoop *, bool>, MaxLoopNestLevel> LoopSideEffects;
+
   const HLNode *SkipNode;
 
   // The class also implements DCE logic. When encounter visit(HLGoto) the
@@ -3634,6 +3819,16 @@ class RedundantNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {
   // blocks.
   bool IsJoinNode;
 
+private:
+  /// Returns true if the goto exits the loop.
+  bool isLoopExitGoto(const HLLoop *Loop, const HLGoto *Goto) const {
+    assert(Goto->getTopSortNum() > Loop->getMinTopSortNum() &&
+           Goto->getTopSortNum() <= Loop->getMaxTopSortNum() &&
+           "HLGoto doesn't belong to the loop");
+    return Goto->isExternal() ||
+           (Goto->getTargetLabel()->getTopSortNum() > Loop->getMaxTopSortNum());
+  }
+
 public:
   RedundantNodeRemoverVisitor()
       : SkipNode(nullptr), LastNodeToRemove(nullptr),
@@ -3651,12 +3846,19 @@ public:
     assert(LabelSafeContainer && "LabelSafeContainer should be defined");
     LabelSafeContainer = nullptr;
 
+    assert(LoopSideEffects.empty() && "LoopSideEffects is out of sync");
+
     EmptyNodeRemoverVisitorImpl::postVisit(Region);
   }
 
   void visit(HLLoop *Loop) {
-    uint64_t TripCount;
+    // Loop may be removed as a dead code.
+    visit(static_cast<HLDDNode *>(Loop));
+    if (SkipNode == Loop) {
+      return;
+    }
 
+    uint64_t TripCount;
     bool ConstTripLoop = Loop->isConstTripLoop(&TripCount, true);
     if (ConstTripLoop && TripCount == 0) {
       RedundantLoops++;
@@ -3665,15 +3867,17 @@ public:
       SkipNode = Loop;
       HLNodeUtils::remove(Loop);
       Changed = true;
-
       return;
     }
+
+    // Loop will stay attached.
 
     if (LabelSafeContainer == nullptr) {
       LabelSafeContainer = Loop;
     }
 
-    visit(static_cast<HLDDNode *>(Loop));
+    // Record new loop.
+    LoopSideEffects.emplace_back(Loop, Loop->hasLiveOutTemps());
   }
 
   void visit(HLIf *If) {
@@ -3790,6 +3994,15 @@ public:
     if (ContainerLastNode != Goto) {
       LastNodeToRemove = ContainerLastNode;
     }
+
+    // Record side effect of multiple loop exits.
+    // Note: Do not use Loop->isMultiexit() because the loop may be in
+    // inconsistent state while removing redundant nodes.
+    if (!LoopSideEffects.empty() && !LoopSideEffects.back().second) {
+      if (isLoopExitGoto(LoopSideEffects.back().first, Goto)) {
+        LoopSideEffects.back().second = true;
+      }
+    }
   }
 
   void visit(HLLabel *Label) {
@@ -3822,6 +4035,10 @@ public:
   }
 
   void postVisit(HLLoop *Loop) {
+    assert(LoopSideEffects.back().first == Loop &&
+           "LoopSideEffects is out of sync");
+    bool CurrentLoopSideEffect = LoopSideEffects.pop_back_val().second;
+
     if (LabelSafeContainer == Loop) {
       LabelSafeContainer = nullptr;
     }
@@ -3834,23 +4051,40 @@ public:
       // Stop removing nodes.
       LastNodeToRemove = nullptr;
 
-      assert((LastGoto->isExternal() ||
-              (LastGoto->getTargetLabel()->getTopSortNum() >
-               Loop->getMaxTopSortNum())) &&
+      assert(isLoopExitGoto(Loop, LastGoto) &&
              "Non exit goto found at the end of the loop.");
 
+      notifyWillRemoveNode(Loop);
       Loop->replaceByFirstIteration();
       RedundantEarlyExitLoops++;
 
       // Have to handle the label again in the context of parent loop.
       // But do not take into account previous jump;
-      LabelJumps[LastGoto->getTargetLabel()]--;
+      if (!LastGoto->isExternal()) {
+        LabelJumps[LastGoto->getTargetLabel()]--;
+      }
 
       visit(LastGoto);
-    } else {
-      // The loop will stay attached - handle as regular node.
-      postVisitImpl(Loop);
+      return;
     }
+
+    // Remove loop if it doesn't produce any side effect.
+    bool MayRemoveRedundantLoop =
+        !DisableAggressiveRedundantLoopRemoval && !CurrentLoopSideEffect;
+
+    if (!LoopSideEffects.empty()) {
+      LoopSideEffects.back().second =
+          LoopSideEffects.back().second || CurrentLoopSideEffect;
+    }
+
+    if (MayRemoveRedundantLoop) {
+      HLNodeUtils::remove(Loop->child_begin(), Loop->child_end());
+      EmptyNodeRemoverVisitorImpl::postVisit(Loop);
+      return;
+    }
+
+    // The loop will stay attached - handle as regular node.
+    postVisitImpl(Loop);
   }
 
   template <typename NodeTy> void postVisit(NodeTy *Node) {
@@ -3858,11 +4092,38 @@ public:
   }
 
   template <typename NodeTy> void postVisitImpl(NodeTy *Node) {
+    assert(Node != SkipNode &&
+           "Node is removed, should be no further actions.");
+
     IsJoinNode = true;
 
     LastNodeToRemove = nullptr;
 
     EmptyNodeRemoverVisitorImpl::postVisit(Node);
+  }
+
+  void visit(HLDDNode *Node) {
+    // Record side effect of LVal or volatile memref.
+    if (!LoopSideEffects.empty() && !LoopSideEffects.back().second) {
+      for (RegDDRef *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
+        if (Ref->isMemRef() && (Ref->isVolatile() || Ref->isLval())) {
+          LoopSideEffects.back().second = true;
+        }
+      }
+    }
+
+    visit(static_cast<HLNode *>(Node));
+  }
+
+  void visit(HLInst *Inst) {
+    // Record side effect of unsafe calls.
+    if (!LoopSideEffects.empty() && !LoopSideEffects.back().second) {
+      if (Inst->isUnsafeSideEffectCallInst()) {
+        LoopSideEffects.back().second = true;
+      }
+    }
+
+    visit(static_cast<HLDDNode *>(Inst));
   }
 
   void visit(HLNode *Node) {
@@ -3887,9 +4148,9 @@ public:
 
       // Unable to remove node means this is not a join point now.
       IsJoinNode = false;
-    }
 
-    EmptyNodeRemoverVisitorImpl::visit(Node);
+      EmptyNodeRemoverVisitorImpl::visit(Node);
+    }
   }
 
   virtual bool skipRecursion(const HLNode *Node) const {
@@ -3897,26 +4158,6 @@ public:
   }
 };
 } // namespace
-
-template <typename VisitorTy>
-static bool removeNodesImpl(HLNode *Node, bool RemoveEmptyParentNodes) {
-  HLNode *Parent = Node->getParent();
-
-#ifndef NDEBUG
-  DEBUG(dbgs() << "While removing HIR nodes from <" << Node->getNumber()
-               << ">:\n");
-  DEBUG(Node->dump());
-#endif
-
-  VisitorTy V;
-  HLNodeUtils::visit(V, Node);
-
-  if (RemoveEmptyParentNodes) {
-    V.removeEmptyNodesUntilParent(Parent);
-  }
-
-  return V.isChanged();
-}
 
 template <typename VisitorTy>
 static bool removeNodesRangeImpl(HLContainerTy::iterator Begin,
@@ -3944,6 +4185,12 @@ static bool removeNodesRangeImpl(HLContainerTy::iterator Begin,
   }
 
   return V.isChanged();
+}
+
+template <typename VisitorTy>
+static bool removeNodesImpl(HLNode *Node, bool RemoveEmptyParentNodes) {
+  return removeNodesRangeImpl<VisitorTy>(
+      Node->getIterator(), ++(Node->getIterator()), RemoveEmptyParentNodes);
 }
 
 bool HLNodeUtils::removeEmptyNodes(HLNode *Node, bool RemoveEmptyParentNodes) {

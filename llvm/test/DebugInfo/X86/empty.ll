@@ -1,10 +1,13 @@
-; RUN: llc -mtriple i686-pc-cygwin < %s -filetype=obj | llvm-dwarfdump -v - | FileCheck %s
-; RUN: llc -mtriple i686-pc-cygwin -split-dwarf-file=foo.dwo < %s -filetype=obj | llvm-dwarfdump -v - | FileCheck --check-prefix=FISSION %s
+; INTEL_CUSTOMIZATION BEGIN
+; Added -dwarf-line-version=4 as workaround for ld.gold internal error until CMPLRS-48167 is fixed.
+; RUN: llc -mtriple i686-pc-cygwin -dwarf-line-version=4 < %s -filetype=obj | llvm-dwarfdump -v - | FileCheck %s
+; RUN: llc -mtriple i686-pc-cygwin -dwarf-line-version=4 -split-dwarf-file=foo.dwo < %s -filetype=obj | llvm-dwarfdump -v - | FileCheck --check-prefix=FISSION %s
+; INTEL_CUSTOMIZATION END
 
 ; Expect no line table entry since there are no functions and file references in this compile unit
 ; CHECK: .debug_line contents:
 ; CHECK: Line table prologue:
-; CHECK: total_length: 0x00000019
+; CHECK: total_length: 0x0000001a
 ; CHECK-NOT: file_names[
 
 ; CHECK: .debug_pubnames contents:

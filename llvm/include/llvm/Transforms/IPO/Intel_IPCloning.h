@@ -1,6 +1,6 @@
 //===------- Intel_IPCloning.h - IP Cloning  -*------===//
 //
-// Copyright (C) 2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -25,6 +25,7 @@ namespace llvm {
 /// Pass to perform IP Cloning.
 class IPCloningPass : public PassInfoMixin<IPCloningPass> {
 public:
+  IPCloningPass(bool AfterInl);
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
 
 private:

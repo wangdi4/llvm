@@ -24,6 +24,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Intel_LoopTransforms/HIRSSADeconstruction.h"
+
 #include "llvm/Pass.h"
 
 #include "llvm/ADT/SmallPtrSet.h"
@@ -57,38 +59,12 @@ using namespace llvm::loopopt;
 
 namespace {
 
-class HIRSSADeconstruction : public FunctionPass {
+class HIRSSADeconstruction {
 public:
-  static char ID;
+  HIRSSADeconstruction() : ModifiedIR(false), NamingCounter(0) {}
 
-  HIRSSADeconstruction()
-      : FunctionPass(ID), ModifiedIR(false), NamingCounter(0) {
-    initializeHIRSSADeconstructionPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<ScalarEvolutionWrapperPass>();
-    AU.addRequired<HIRRegionIdentification>();
-    AU.addRequired<HIRSCCFormation>();
-
-    // We need to preserve all the analysis computed for HIR.
-    AU.addPreserved<DominatorTreeWrapperPass>();
-    AU.addPreserved<LoopInfoWrapperPass>();
-    AU.addPreserved<ScalarEvolutionWrapperPass>();
-    AU.addPreserved<HIRRegionIdentification>();
-    AU.addPreserved<HIRSCCFormation>();
-    AU.addPreserved<AndersensAAWrapperPass>();
-  }
-
-  void releaseMemory() override {
-    ModifiedIR = false;
-    NamingCounter = 0;
-    ProcessedSCCs.clear();
-  }
+  bool run(Function &F, DominatorTree &DT, LoopInfo &LI, ScalarEvolution &SE,
+           HIRRegionIdentification &RI, HIRSCCFormation &SCCF);
 
 private:
   /// \brief Attaches a string metadata node to instruction. This will be used
@@ -179,19 +155,89 @@ private:
 };
 } // namespace
 
-char HIRSSADeconstruction::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRSSADeconstruction, "hir-ssa-deconstruction",
+PreservedAnalyses HIRSSADeconstructionPass::run(Function &F,
+                                                FunctionAnalysisManager &AM) {
+  HIRSSADeconstruction HSSAD;
+  bool Modified = HSSAD.run(F, AM.getResult<DominatorTreeAnalysis>(F),
+                            AM.getResult<LoopAnalysis>(F),
+                            AM.getResult<ScalarEvolutionAnalysis>(F),
+                            AM.getResult<HIRRegionIdentificationAnalysis>(F),
+                            AM.getResult<HIRSCCFormationAnalysis>(F));
+
+  if (!Modified) {
+    return PreservedAnalyses::all();
+  }
+
+  PreservedAnalyses PA;
+  PA.preserve<DominatorTreeAnalysis>();
+  PA.preserve<LoopAnalysis>();
+  PA.preserve<ScalarEvolutionAnalysis>();
+  PA.preserve<HIRRegionIdentificationAnalysis>();
+  PA.preserve<HIRSCCFormationAnalysis>();
+  PA.preserve<AndersensAA>();
+  return PA;
+}
+
+class HIRSSADeconstructionLegacyPass : public FunctionPass {
+public:
+  static char ID;
+
+  HIRSSADeconstructionLegacyPass() : FunctionPass(ID) {
+    initializeHIRSSADeconstructionLegacyPassPass(
+        *PassRegistry::getPassRegistry());
+  }
+
+  bool runOnFunction(Function &F) override {
+    auto &RI = getAnalysis<HIRRegionIdentificationWrapperPass>().getRI();
+
+    if (skipFunction(F)) {
+      // Since we are skipping deconstruction (in opt-bisect mode) the incoming
+      // IR may not in the right form (consummable by HIR framework) which can
+      // lead to assertion. We get around this issue by discarding all the
+      // created regions.
+      // TODO: Add something similar to new pass manager when it has opt-bisect
+      // support.
+      RI.discardRegions();
+      return false;
+    }
+
+    HIRSSADeconstruction HSSAD;
+    return HSSAD.run(F, getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
+                     getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
+                     getAnalysis<ScalarEvolutionWrapperPass>().getSE(), RI,
+                     getAnalysis<HIRSCCFormationWrapperPass>().getSCCF());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<LoopInfoWrapperPass>();
+    AU.addRequired<ScalarEvolutionWrapperPass>();
+    AU.addRequired<HIRRegionIdentificationWrapperPass>();
+    AU.addRequired<HIRSCCFormationWrapperPass>();
+
+    // We need to preserve all the analysis computed for HIR.
+    AU.addPreserved<DominatorTreeWrapperPass>();
+    AU.addPreserved<LoopInfoWrapperPass>();
+    AU.addPreserved<ScalarEvolutionWrapperPass>();
+    AU.addPreserved<HIRRegionIdentificationWrapperPass>();
+    AU.addPreserved<HIRSCCFormationWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();
+  }
+};
+
+char HIRSSADeconstructionLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRSSADeconstructionLegacyPass, "hir-ssa-deconstruction",
                       "HIR SSA Deconstruction", false, false)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentification)
-INITIALIZE_PASS_DEPENDENCY(HIRSCCFormation)
-INITIALIZE_PASS_END(HIRSSADeconstruction, "hir-ssa-deconstruction",
+INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentificationWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSCCFormationWrapperPass)
+INITIALIZE_PASS_END(HIRSSADeconstructionLegacyPass, "hir-ssa-deconstruction",
                     "HIR SSA Deconstruction", false, false)
 
-FunctionPass *llvm::createHIRSSADeconstructionPass() {
-  return new HIRSSADeconstruction();
+FunctionPass *llvm::createHIRSSADeconstructionLegacyPass() {
+  return new HIRSSADeconstructionLegacyPass();
 }
 
 void HIRSSADeconstruction::attachMetadata(
@@ -887,21 +933,20 @@ void HIRSSADeconstruction::deconstructSSAForRegions() {
   }
 }
 
-bool HIRSSADeconstruction::runOnFunction(Function &F) {
-  if (skipFunction(F))
-    return false;
+bool HIRSSADeconstruction::run(Function &F, DominatorTree &DT, LoopInfo &LI,
+                               ScalarEvolution &SE, HIRRegionIdentification &RI,
+                               HIRSCCFormation &SCCF) {
+  this->DT = &DT;
+  this->LI = &LI;
+  this->SE = &SE;
+  this->RI = &RI;
+  this->SCCF = &SCCF;
 
 #if INTEL_PRODUCT_RELEASE
   // Set a flag to induce an error if anyone attempts to write the IR
   // to a file after this pass has been run.
   F.getParent()->setIntelProprietary();
 #endif // INTEL_PRODUCT_RELEASE
-
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  RI = &getAnalysis<HIRRegionIdentification>();
-  SCCF = &getAnalysis<HIRSCCFormation>();
 
   deconstructSSAForRegions();
 

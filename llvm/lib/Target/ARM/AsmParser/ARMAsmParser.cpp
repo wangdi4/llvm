@@ -1149,10 +1149,30 @@ public:
   bool isToken() const override { return Kind == k_Token; }
   bool isMemBarrierOpt() const { return Kind == k_MemBarrierOpt; }
   bool isInstSyncBarrierOpt() const { return Kind == k_InstSyncBarrierOpt; }
-  bool isMem() const override { return Kind == k_Memory; }
+  bool isMem() const override {
+    if (Kind != k_Memory)
+      return false;
+    if (Memory.BaseRegNum &&
+        !ARMMCRegisterClasses[ARM::GPRRegClassID].contains(Memory.BaseRegNum))
+      return false;
+    if (Memory.OffsetRegNum &&
+        !ARMMCRegisterClasses[ARM::GPRRegClassID].contains(Memory.OffsetRegNum))
+      return false;
+    return true;
+  }
   bool isShifterImm() const { return Kind == k_ShifterImmediate; }
-  bool isRegShiftedReg() const { return Kind == k_ShiftedRegister; }
-  bool isRegShiftedImm() const { return Kind == k_ShiftedImmediate; }
+  bool isRegShiftedReg() const {
+    return Kind == k_ShiftedRegister &&
+           ARMMCRegisterClasses[ARM::GPRRegClassID].contains(
+               RegShiftedReg.SrcReg) &&
+           ARMMCRegisterClasses[ARM::GPRRegClassID].contains(
+               RegShiftedReg.ShiftReg);
+  }
+  bool isRegShiftedImm() const {
+    return Kind == k_ShiftedImmediate &&
+           ARMMCRegisterClasses[ARM::GPRRegClassID].contains(
+               RegShiftedImm.SrcReg);
+  }
   bool isRotImm() const { return Kind == k_RotateImmediate; }
   bool isModImm() const { return Kind == k_ModifiedImmediate; }
 
@@ -1191,9 +1211,12 @@ public:
 
   bool isConstantPoolImm() const { return Kind == k_ConstantPoolImmediate; }
   bool isBitfield() const { return Kind == k_BitfieldDescriptor; }
-  bool isPostIdxRegShifted() const { return Kind == k_PostIndexRegister; }
+  bool isPostIdxRegShifted() const {
+    return Kind == k_PostIndexRegister &&
+           ARMMCRegisterClasses[ARM::GPRRegClassID].contains(PostIdxReg.RegNum);
+  }
   bool isPostIdxReg() const {
-    return Kind == k_PostIndexRegister && PostIdxReg.ShiftTy ==ARM_AM::no_shift;
+    return isPostIdxRegShifted() && PostIdxReg.ShiftTy == ARM_AM::no_shift;
   }
   bool isMemNoOffset(bool alignOK = false, unsigned Alignment = 0) const {
     if (!isMem())
@@ -1330,10 +1353,10 @@ public:
   }
 
   bool isAM3Offset() const {
-    if (Kind != k_Immediate && Kind != k_PostIndexRegister)
+    if (isPostIdxReg())
+      return true;
+    if (!isImm())
       return false;
-    if (Kind == k_PostIndexRegister)
-      return PostIdxReg.ShiftTy == ARM_AM::no_shift;
     // Immediate offset in range [-255, 255].
     const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm());
     if (!CE) return false;
@@ -1833,7 +1856,22 @@ public:
     return ARM_AM::isNEONi32splat(~Value);
   }
 
-  bool isNEONByteReplicate(unsigned NumBytes) const {
+  static bool isValidNEONi32vmovImm(int64_t Value) {
+    // i32 value with set bits only in one byte X000, 0X00, 00X0, or 000X,
+    // for VMOV/VMVN only, 00Xf or 0Xff are also accepted.
+    return ((Value & 0xffffffffffffff00) == 0) ||
+           ((Value & 0xffffffffffff00ff) == 0) ||
+           ((Value & 0xffffffffff00ffff) == 0) ||
+           ((Value & 0xffffffff00ffffff) == 0) ||
+           ((Value & 0xffffffffffff00ff) == 0xff) ||
+           ((Value & 0xffffffffff00ffff) == 0xffff);
+  }
+
+  bool isNEONReplicate(unsigned Width, unsigned NumElems, bool Inv) const {
+    assert((Width == 8 || Width == 16 || Width == 32) &&
+           "Invalid element width");
+    assert(NumElems * Width <= 64 && "Invalid result width");
+
     if (!isImm())
       return false;
     const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm());
@@ -1843,18 +1881,49 @@ public:
     int64_t Value = CE->getValue();
     if (!Value)
       return false; // Don't bother with zero.
+    if (Inv)
+      Value = ~Value;
 
-    unsigned char B = Value & 0xff;
-    for (unsigned i = 1; i < NumBytes; ++i) {
-      Value >>= 8;
-      if ((Value & 0xff) != B)
+    uint64_t Mask = (1ull << Width) - 1;
+    uint64_t Elem = Value & Mask;
+    if (Width == 16 && (Elem & 0x00ff) != 0 && (Elem & 0xff00) != 0)
+      return false;
+    if (Width == 32 && !isValidNEONi32vmovImm(Elem))
+      return false;
+
+    for (unsigned i = 1; i < NumElems; ++i) {
+      Value >>= Width;
+      if ((Value & Mask) != Elem)
         return false;
     }
     return true;
   }
 
-  bool isNEONi16ByteReplicate() const { return isNEONByteReplicate(2); }
-  bool isNEONi32ByteReplicate() const { return isNEONByteReplicate(4); }
+  bool isNEONByteReplicate(unsigned NumBytes) const {
+    return isNEONReplicate(8, NumBytes, false);
+  }
+
+  static void checkNeonReplicateArgs(unsigned FromW, unsigned ToW) {
+    assert((FromW == 8 || FromW == 16 || FromW == 32) &&
+           "Invalid source width");
+    assert((ToW == 16 || ToW == 32 || ToW == 64) &&
+           "Invalid destination width");
+    assert(FromW < ToW && "ToW is not less than FromW");
+  }
+
+  template<unsigned FromW, unsigned ToW>
+  bool isNEONmovReplicate() const {
+    checkNeonReplicateArgs(FromW, ToW);
+    if (ToW == 64 && isNEONi64splat())
+      return false;
+    return isNEONReplicate(FromW, ToW / FromW, false);
+  }
+
+  template<unsigned FromW, unsigned ToW>
+  bool isNEONinvReplicate() const {
+    checkNeonReplicateArgs(FromW, ToW);
+    return isNEONReplicate(FromW, ToW / FromW, true);
+  }
 
   bool isNEONi32vmov() const {
     if (isNEONByteReplicate(4))
@@ -1865,16 +1934,7 @@ public:
     // Must be a constant.
     if (!CE)
       return false;
-    int64_t Value = CE->getValue();
-    // i32 value with set bits only in one byte X000, 0X00, 00X0, or 000X,
-    // for VMOV/VMVN only, 00Xf or 0Xff are also accepted.
-    // FIXME: This is probably wrong and a copy and paste from previous example
-    return (Value >= 0 && Value < 256) ||
-      (Value >= 0x0100 && Value <= 0xff00) ||
-      (Value >= 0x010000 && Value <= 0xff0000) ||
-      (Value >= 0x01000000 && Value <= 0xff000000) ||
-      (Value >= 0x01ff && Value <= 0xffff && (Value & 0xff) == 0xff) ||
-      (Value >= 0x01ffff && Value <= 0xffffff && (Value & 0xffff) == 0xffff);
+    return isValidNEONi32vmovImm(CE->getValue());
   }
 
   bool isNEONi32vmovNeg() const {
@@ -1882,16 +1942,7 @@ public:
     const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm());
     // Must be a constant.
     if (!CE) return false;
-    int64_t Value = ~CE->getValue();
-    // i32 value with set bits only in one byte X000, 0X00, 00X0, or 000X,
-    // for VMOV/VMVN only, 00Xf or 0Xff are also accepted.
-    // FIXME: This is probably wrong and a copy and paste from previous example
-    return (Value >= 0 && Value < 256) ||
-      (Value >= 0x0100 && Value <= 0xff00) ||
-      (Value >= 0x010000 && Value <= 0xff0000) ||
-      (Value >= 0x01000000 && Value <= 0xff000000) ||
-      (Value >= 0x01ff && Value <= 0xffff && (Value & 0xff) == 0xff) ||
-      (Value >= 0x01ffff && Value <= 0xffffff && (Value & 0xffff) == 0xffff);
+    return isValidNEONi32vmovImm(~CE->getValue());
   }
 
   bool isNEONi64splat() const {
@@ -2709,60 +2760,85 @@ public:
     Inst.addOperand(MCOperand::createImm(Value));
   }
 
-  void addNEONinvByteReplicateOperands(MCInst &Inst, unsigned N) const {
-    assert(N == 1 && "Invalid number of operands!");
+  void addNEONi8ReplicateOperands(MCInst &Inst, bool Inv) const {
     // The immediate encodes the type of constant as well as the value.
     const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm());
-    unsigned Value = CE->getValue();
     assert((Inst.getOpcode() == ARM::VMOVv8i8 ||
             Inst.getOpcode() == ARM::VMOVv16i8) &&
-           "All vmvn instructions that wants to replicate non-zero byte "
-           "always must be replaced with VMOVv8i8 or VMOVv16i8.");
-    unsigned B = ((~Value) & 0xff);
+          "All instructions that wants to replicate non-zero byte "
+          "always must be replaced with VMOVv8i8 or VMOVv16i8.");
+    unsigned Value = CE->getValue();
+    if (Inv)
+      Value = ~Value;
+    unsigned B = Value & 0xff;
     B |= 0xe00; // cmode = 0b1110
     Inst.addOperand(MCOperand::createImm(B));
+  }
+
+  void addNEONinvi8ReplicateOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    addNEONi8ReplicateOperands(Inst, true);
+  }
+
+  static unsigned encodeNeonVMOVImmediate(unsigned Value) {
+    if (Value >= 256 && Value <= 0xffff)
+      Value = (Value >> 8) | ((Value & 0xff) ? 0xc00 : 0x200);
+    else if (Value > 0xffff && Value <= 0xffffff)
+      Value = (Value >> 16) | ((Value & 0xff) ? 0xd00 : 0x400);
+    else if (Value > 0xffffff)
+      Value = (Value >> 24) | 0x600;
+    return Value;
   }
 
   void addNEONi32vmovOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
     // The immediate encodes the type of constant as well as the value.
     const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm());
-    unsigned Value = CE->getValue();
-    if (Value >= 256 && Value <= 0xffff)
-      Value = (Value >> 8) | ((Value & 0xff) ? 0xc00 : 0x200);
-    else if (Value > 0xffff && Value <= 0xffffff)
-      Value = (Value >> 16) | ((Value & 0xff) ? 0xd00 : 0x400);
-    else if (Value > 0xffffff)
-      Value = (Value >> 24) | 0x600;
+    unsigned Value = encodeNeonVMOVImmediate(CE->getValue());
     Inst.addOperand(MCOperand::createImm(Value));
   }
 
-  void addNEONvmovByteReplicateOperands(MCInst &Inst, unsigned N) const {
+  void addNEONvmovi8ReplicateOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
-    // The immediate encodes the type of constant as well as the value.
+    addNEONi8ReplicateOperands(Inst, false);
+  }
+
+  void addNEONvmovi16ReplicateOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
     const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm());
-    unsigned Value = CE->getValue();
-    assert((Inst.getOpcode() == ARM::VMOVv8i8 ||
-            Inst.getOpcode() == ARM::VMOVv16i8) &&
-           "All instructions that wants to replicate non-zero byte "
-           "always must be replaced with VMOVv8i8 or VMOVv16i8.");
-    unsigned B = Value & 0xff;
-    B |= 0xe00; // cmode = 0b1110
-    Inst.addOperand(MCOperand::createImm(B));
+    assert((Inst.getOpcode() == ARM::VMOVv4i16 ||
+            Inst.getOpcode() == ARM::VMOVv8i16 ||
+            Inst.getOpcode() == ARM::VMVNv4i16 ||
+            Inst.getOpcode() == ARM::VMVNv8i16) &&
+          "All instructions that want to replicate non-zero half-word "
+          "always must be replaced with V{MOV,MVN}v{4,8}i16.");
+    uint64_t Value = CE->getValue();
+    unsigned Elem = Value & 0xffff;
+    if (Elem >= 256)
+      Elem = (Elem >> 8) | 0x200;
+    Inst.addOperand(MCOperand::createImm(Elem));
   }
 
   void addNEONi32vmovNegOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
     // The immediate encodes the type of constant as well as the value.
     const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm());
-    unsigned Value = ~CE->getValue();
-    if (Value >= 256 && Value <= 0xffff)
-      Value = (Value >> 8) | ((Value & 0xff) ? 0xc00 : 0x200);
-    else if (Value > 0xffff && Value <= 0xffffff)
-      Value = (Value >> 16) | ((Value & 0xff) ? 0xd00 : 0x400);
-    else if (Value > 0xffffff)
-      Value = (Value >> 24) | 0x600;
+    unsigned Value = encodeNeonVMOVImmediate(~CE->getValue());
     Inst.addOperand(MCOperand::createImm(Value));
+  }
+
+  void addNEONvmovi32ReplicateOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm());
+    assert((Inst.getOpcode() == ARM::VMOVv2i32 ||
+            Inst.getOpcode() == ARM::VMOVv4i32 ||
+            Inst.getOpcode() == ARM::VMVNv2i32 ||
+            Inst.getOpcode() == ARM::VMVNv4i32) &&
+          "All instructions that want to replicate non-zero word "
+          "always must be replaced with V{MOV,MVN}v{2,4}i32.");
+    uint64_t Value = CE->getValue();
+    unsigned Elem = encodeNeonVMOVImmediate(Value & 0xffffffff);
+    Inst.addOperand(MCOperand::createImm(Elem));
   }
 
   void addNEONi64splatOperands(MCInst &Inst, unsigned N) const {
@@ -4214,6 +4290,18 @@ ARMAsmParser::parseMSRMaskOperand(OperandVector &Operands) {
   MCAsmParser &Parser = getParser();
   SMLoc S = Parser.getTok().getLoc();
   const AsmToken &Tok = Parser.getTok();
+
+  if (Tok.is(AsmToken::Integer)) {
+    int64_t Val = Tok.getIntVal();
+    if (Val > 255 || Val < 0) {
+      return MatchOperand_NoMatch;
+    }
+    unsigned SYSmvalue = Val & 0xFF;
+    Parser.Lex(); 
+    Operands.push_back(ARMOperand::CreateMSRMask(SYSmvalue, S));
+    return MatchOperand_Success;
+  }
+
   if (!Tok.is(AsmToken::Identifier))
     return MatchOperand_NoMatch;
   StringRef Mask = Tok.getString();
@@ -5647,11 +5735,11 @@ void ARMAsmParser::getMnemonicAcceptInfo(StringRef Mnemonic, StringRef FullInst,
     CanAcceptPredicationCode =
         Mnemonic != "cdp2" && Mnemonic != "clrex" && Mnemonic != "mcr2" &&
         Mnemonic != "mcrr2" && Mnemonic != "mrc2" && Mnemonic != "mrrc2" &&
-        Mnemonic != "dmb" && Mnemonic != "dsb" && Mnemonic != "isb" &&
-        Mnemonic != "pld" && Mnemonic != "pli" && Mnemonic != "pldw" &&
-        Mnemonic != "ldc2" && Mnemonic != "ldc2l" && Mnemonic != "stc2" &&
-        Mnemonic != "stc2l" && !Mnemonic.startswith("rfe") &&
-        !Mnemonic.startswith("srs");
+        Mnemonic != "dmb" && Mnemonic != "dfb" && Mnemonic != "dsb" &&
+        Mnemonic != "isb" && Mnemonic != "pld" && Mnemonic != "pli" &&
+        Mnemonic != "pldw" && Mnemonic != "ldc2" && Mnemonic != "ldc2l" &&
+        Mnemonic != "stc2" && Mnemonic != "stc2l" &&
+        !Mnemonic.startswith("rfe") && !Mnemonic.startswith("srs");
   } else if (isThumbOne()) {
     if (hasV6MOps())
       CanAcceptPredicationCode = Mnemonic != "movs";
@@ -6293,7 +6381,8 @@ bool ARMAsmParser::validateInstruction(MCInst &Inst,
     // The instruction must be predicable.
     if (!MCID.isPredicable())
       return Error(Loc, "instructions in IT block must be predicable");
-    unsigned Cond = Inst.getOperand(MCID.findFirstPredOperandIdx()).getImm();
+    ARMCC::CondCodes Cond = ARMCC::CondCodes(
+        Inst.getOperand(MCID.findFirstPredOperandIdx()).getImm());
     if (Cond != currentITCond()) {
       // Find the condition code Operand to get its SMLoc information.
       SMLoc CondLoc;
@@ -6301,9 +6390,9 @@ bool ARMAsmParser::validateInstruction(MCInst &Inst,
         if (static_cast<ARMOperand &>(*Operands[I]).isCondCode())
           CondLoc = Operands[I]->getStartLoc();
       return Error(CondLoc, "incorrect condition in IT block; got '" +
-                   StringRef(ARMCondCodeToString(ARMCC::CondCodes(Cond))) +
-                   "', but expected '" +
-                   ARMCondCodeToString(ARMCC::CondCodes(currentITCond())) + "'");
+                                StringRef(ARMCondCodeToString(Cond)) +
+                                "', but expected '" +
+                                ARMCondCodeToString(currentITCond()) + "'");
     }
   // Check for non-'al' condition codes outside of the IT block.
   } else if (isThumbTwo() && MCID.isPredicable() &&
@@ -6658,18 +6747,39 @@ bool ARMAsmParser::validateInstruction(MCInst &Inst,
     break;
   }
   case ARM::HINT:
-  case ARM::t2HINT:
-    if (hasRAS()) {
-      // ESB is not predicable (pred must be AL)
-      unsigned Imm8 = Inst.getOperand(0).getImm();
-      unsigned Pred = Inst.getOperand(1).getImm();
-      if (Imm8 == 0x10 && Pred != ARMCC::AL)
-        return Error(Operands[1]->getStartLoc(), "instruction 'esb' is not "
-                                                 "predicable, but condition "
-                                                 "code specified");
-    }
-    // Without the RAS extension, this behaves as any other unallocated hint.
+  case ARM::t2HINT: {
+    unsigned Imm8 = Inst.getOperand(0).getImm();
+    unsigned Pred = Inst.getOperand(1).getImm();
+    // ESB is not predicable (pred must be AL). Without the RAS extension, this
+    // behaves as any other unallocated hint.
+    if (Imm8 == 0x10 && Pred != ARMCC::AL && hasRAS())
+      return Error(Operands[1]->getStartLoc(), "instruction 'esb' is not "
+                                               "predicable, but condition "
+                                               "code specified");
+    if (Imm8 == 0x14 && Pred != ARMCC::AL)
+      return Error(Operands[1]->getStartLoc(), "instruction 'csdb' is not "
+                                               "predicable, but condition "
+                                               "code specified");
     break;
+  }
+  case ARM::VMOVRRS: {
+    // Source registers must be sequential.
+    const unsigned Sm = MRI->getEncodingValue(Inst.getOperand(2).getReg());
+    const unsigned Sm1 = MRI->getEncodingValue(Inst.getOperand(3).getReg());
+    if (Sm1 != Sm + 1)
+      return Error(Operands[5]->getStartLoc(),
+                   "source operands must be sequential");
+    break;
+  }
+  case ARM::VMOVSRR: {
+    // Destination registers must be sequential.
+    const unsigned Sm = MRI->getEncodingValue(Inst.getOperand(0).getReg());
+    const unsigned Sm1 = MRI->getEncodingValue(Inst.getOperand(1).getReg());
+    if (Sm1 != Sm + 1)
+      return Error(Operands[3]->getStartLoc(),
+                   "destination operands must be sequential");
+    break;
+  }
   }
 
   return false;
@@ -10268,6 +10378,8 @@ ARMAsmParser::FilterNearMisses(SmallVectorImpl<NearMissInfo> &NearMissesIn,
         break;
       if (!isThumb() && (MissingFeatures & Feature_IsThumb2) &&
           (MissingFeatures & ~(Feature_IsThumb2 | Feature_IsThumb)))
+        break;
+      if (isMClass() && (MissingFeatures & Feature_HasNEON))
         break;
 
       NearMissMessage Message;

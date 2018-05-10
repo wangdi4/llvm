@@ -2,7 +2,7 @@
 
 ; CHECK: vector.body:
 ; CHECK: VPlannedBB:{{.*}} preds = %VPlannedBB{{.*}}, %vector.body
-; CHECK:  call void @llvm.masked.scatter
+; CHECK:  store <4 x i32>
 ; CHECK:  icmp eq {{.*}}, 100
 ; CHECK: VPlannedBB{{.*}} preds = %VPlannedBB{{.*}}
 ; CHECK:  icmp eq {{.*}}, 200

@@ -83,12 +83,13 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
 #define DEBUG_TYPE "hir-lmm"
 
@@ -314,9 +315,10 @@ void HIRLMM::CollectMemRefs::collectMemRef(RegDDRef *Ref) {
 char HIRLMM::ID = 0;
 
 INITIALIZE_PASS_BEGIN(HIRLMM, "hir-lmm", "HIR Loop Memory Motion", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRLMM, "hir-lmm", "HIR Loop Memory Motion", false, false)
 
 FunctionPass *llvm::createHIRLMMPass() { return new HIRLMM(); }
@@ -326,9 +328,10 @@ HIRLMM::HIRLMM(void) : HIRTransformPass(ID) {
 }
 
 void HIRLMM::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequiredTransitive<HIRFramework>();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
-  AU.addRequiredTransitive<HIRLoopStatistics>();
+  AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+  AU.addRequiredTransitive<OptReportOptionsPass>();
   AU.setPreservesAll();
 }
 
@@ -371,8 +374,10 @@ bool HIRLMM::runOnFunction(Function &F) {
   // Gather all inner-most Loop Candidates
   SmallVector<HLLoop *, 64> CandidateLoops;
 
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HIRF->getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
+  auto &OROP = getAnalysis<OptReportOptionsPass>();
+  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   if (CandidateLoops.empty()) {
     DEBUG(dbgs() << F.getName() << "() has no inner-most loop\n ");
@@ -381,7 +386,7 @@ bool HIRLMM::runOnFunction(Function &F) {
   // DEBUG(dbgs() << " # Innermost Loops: " << CandidateLoops.size() << "\n");
 
   HDDA = &getAnalysis<HIRDDAnalysis>();
-  HLS = &getAnalysis<HIRLoopStatistics>();
+  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   MRC.HLS = HLS;
   bool Result = false;
 
@@ -634,6 +639,8 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG) {
 
   // Create a Load in prehdr if needed
   if (NeedLoadInPrehdr) {
+    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                              "Load hoisted out of the loop");
     LoadInPrehdr = findOrCreateLoadInPreheader(Lp, FirstRef);
     TmpDDRef = LoadInPrehdr->getLvalDDRef();
   }
@@ -645,6 +652,8 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG) {
 
   // Create a Store in postexit if needed
   if (NeedStoreInPostexit) {
+    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                              "Store sinked out of the loop");
     findOrCreateStoreInPostexit(Lp, FirstRef, TmpDDRef);
   }
 

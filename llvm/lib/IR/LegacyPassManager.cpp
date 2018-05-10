@@ -76,21 +76,25 @@ PrintAfter("print-after",
            llvm::cl::desc("Print IR after specified passes"),
            cl::Hidden);
 
+static cl::opt<bool> PrintBeforeAll("print-before-all",
+                                    llvm::cl::desc("Print IR before each pass"),
+                                    cl::init(false), cl::Hidden);
+static cl::opt<bool> PrintAfterAll("print-after-all",
+                                   llvm::cl::desc("Print IR after each pass"),
+                                   cl::init(false), cl::Hidden);
+
 static cl::opt<bool>
-PrintBeforeAll("print-before-all",
-               llvm::cl::desc("Print IR before each pass"),
-               cl::init(false));
-static cl::opt<bool>
-PrintAfterAll("print-after-all",
-              llvm::cl::desc("Print IR after each pass"),
-              cl::init(false));
+    PrintModuleScope("print-module-scope",
+                     cl::desc("When printing IR for print-[before|after]{-all} "
+                              "always print a module IR"),
+                     cl::init(false), cl::Hidden);
 
 static cl::list<std::string>
     PrintFuncsList("filter-print-funcs", cl::value_desc("function names"),
                    cl::desc("Only print IR for functions whose name "
                             "match this for all print-[before|after][-all] "
                             "options"),
-                   cl::CommaSeparated);
+                   cl::CommaSeparated, cl::Hidden);
 
 /// This is a helper to determine whether to print IR before or
 /// after a pass.
@@ -117,6 +121,9 @@ static bool ShouldPrintBeforePass(const PassInfo *PI) {
 static bool ShouldPrintAfterPass(const PassInfo *PI) {
   return PrintAfterAll || ShouldPrintBeforeOrAfterPass(PI, PrintAfter);
 }
+
+bool llvm::forcePrintModuleIR() { return PrintModuleScope; }
+
 #endif // !INTEL_PRODUCT_RELEASE
 
 bool llvm::isFunctionInPrintList(StringRef FunctionName) {
@@ -1809,9 +1816,9 @@ bool PassManager::run(Module &M) {
 // TimingInfo implementation
 
 bool llvm::TimePassesIsEnabled = false;
-static cl::opt<bool,true>
-EnableTiming("time-passes", cl::location(TimePassesIsEnabled),
-            cl::desc("Time each pass, printing elapsed time for each on exit"));
+static cl::opt<bool, true> EnableTiming(
+    "time-passes", cl::location(TimePassesIsEnabled), cl::Hidden,
+    cl::desc("Time each pass, printing elapsed time for each on exit"));
 
 // createTheTimeInfo - This method either initializes the TheTimeInfo pointer to
 // a non-null value (if the -time-passes option is enabled) or it leaves it

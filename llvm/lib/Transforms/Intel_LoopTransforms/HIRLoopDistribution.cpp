@@ -46,9 +46,9 @@ bool HIRLoopDistribution::runOnFunction(Function &F) {
     return false;
   }
 
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   DDA = &getAnalysis<HIRDDAnalysis>();
-  auto HLS = &getAnalysis<HIRLoopStatistics>();
+  auto HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
 
   SmallVector<HLLoop *, 64> Loops;
 

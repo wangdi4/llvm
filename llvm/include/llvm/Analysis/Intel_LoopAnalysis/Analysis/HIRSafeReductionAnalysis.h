@@ -19,9 +19,9 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 
 #include <map>
 
@@ -78,7 +78,7 @@ private:
   void identifySafeReduction(const HLLoop *Loop);
   // Checks if a temp is legal to be used for Reduction
   //  e.g s =  10 * s + ..  is not legal
-  bool isRedTemp(CanonExpr *CE, BlobTy Blob);
+  bool isRedTemp(CanonExpr *CE, unsigned BlobIndex);
 
 public:
   HIRSafeReductionAnalysis()
@@ -109,8 +109,6 @@ public:
   void print(formatted_raw_ostream &OS, const HLLoop *Loop) override;
   void print(formatted_raw_ostream &OS, const HLLoop *Loop,
              const SafeRedChainList *SR);
-  // void print(formatted_raw_ostream &OS, unsigned Indented,
-  //           const SafeRedChain *SRC);
   void markLoopBodyModified(const HLLoop *L) override;
   void releaseMemory() override;
 

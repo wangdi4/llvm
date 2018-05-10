@@ -7,11 +7,15 @@ add_llvm_library(LLVMInstrumentation
   IndirectCallPromotion.cpp
   Instrumentation.cpp
   InstrProfiling.cpp
+# INTEL_CUSTOMIZATION
+  Intel_FunctionSplitting.cpp
+# end INTEL_CUSTOMIZATION
   PGOInstrumentation.cpp
   PGOMemOPSizeOpt.cpp
   SanitizerCoverage.cpp
   ThreadSanitizer.cpp
   EfficiencySanitizer.cpp
+  HWAddressSanitizer.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

@@ -21,6 +21,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 
+#include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
@@ -34,7 +35,7 @@ class PHINode;
 class Loop;
 class LoopInfo;
 class DominatorTree;
-struct PostDominatorTree;
+class PostDominatorTree;
 class ScalarEvolution;
 class GetElementPtrInst;
 class GEPOperator;
@@ -49,7 +50,7 @@ namespace loopopt {
 /// identiyfing regions as a set of basic blocks in the incoming IR. This
 /// information is then used by HIRCreation pass to create and populate
 /// HIR regions.
-class HIRRegionIdentification : public FunctionPass {
+class HIRRegionIdentification {
 public:
   typedef SmallVector<IRRegion, 16> IRRegionsTy;
 
@@ -64,19 +65,19 @@ private:
   IRRegionsTy IRRegions;
 
   /// The loop information for the function we are currently analyzing.
-  LoopInfo *LI;
+  LoopInfo &LI;
 
   /// The dominator tree.
-  DominatorTree *DT;
+  DominatorTree &DT;
 
   /// The post-dominator tree.
-  PostDominatorTree *PDT;
+  PostDominatorTree &PDT;
 
   /// Scalar Evolution analysis for the function.
-  ScalarEvolution *SE;
+  ScalarEvolution &SE;
 
   /// Target library information for the target.
-  TargetLibraryInfo *TLI;
+  TargetLibraryInfo &TLI;
 
   unsigned OptLevel;
 
@@ -93,11 +94,6 @@ private:
                       const SmallPtrSetImpl<const BasicBlock *> &EndBBs,
                       const SmallPtrSetImpl<const BasicBlock *> &FromBBs,
                       SmallPtrSetImpl<const BasicBlock *> &VisitedBBs) const;
-
-  /// Returns true if dominator children of \p BB are involved in a cycle which
-  /// doesn't go through backedges. This indicates irreducible CFG. If \p Lp is
-  /// not null, only bblocks in Lp are considered.
-  bool containsCycle(const BasicBlock *BB, const Loop *Lp) const;
 
   /// Returns true if \p BB is generable (can be handled by HIR). \p Lp is
   /// passed as null for function level region mode.
@@ -182,15 +178,16 @@ private:
   /// HIR.
   static bool isSupportedMetadata(MDNode *Node);
 
-public:
-  static char ID; // Pass identification
-  HIRRegionIdentification();
+  void runImpl(Function &F);
 
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  void print(raw_ostream &OS, const Module * = nullptr) const override;
-  void verifyAnalysis() const override;
+public:
+  HIRRegionIdentification(Function &F, LoopInfo &LI, DominatorTree &DT,
+                          PostDominatorTree &PDT, ScalarEvolution &SE,
+                          TargetLibraryInfo &TLI, unsigned OptLevel);
+  HIRRegionIdentification(const HIRRegionIdentification &) = delete;
+  HIRRegionIdentification(HIRRegionIdentification &&RI);
+
+  void print(raw_ostream &OS) const;
 
   /// IRRegion iterator methods
   iterator begin() { return IRRegions.begin(); }
@@ -235,6 +232,57 @@ public:
   isReachableFrom(const BasicBlock *BB,
                   const SmallPtrSetImpl<const BasicBlock *> &EndBBs,
                   const SmallPtrSetImpl<const BasicBlock *> &FromBBs) const;
+
+  /// Erases all the formed regions.
+  /// NOTE: Only used by HIRSSADeconstruction pass in opt-bisect mode.
+  void discardRegions() { IRRegions.clear(); }
+};
+
+class HIRRegionIdentificationAnalysis
+    : public AnalysisInfoMixin<HIRRegionIdentificationAnalysis> {
+  friend struct AnalysisInfoMixin<HIRRegionIdentificationAnalysis>;
+
+  static AnalysisKey Key;
+
+public:
+  using Result = HIRRegionIdentification;
+
+  HIRRegionIdentification run(Function &F, FunctionAnalysisManager &AM);
+};
+
+class HIRRegionIdentificationPrinterPass
+    : public PassInfoMixin<HIRRegionIdentificationPrinterPass> {
+  raw_ostream &OS;
+
+public:
+  explicit HIRRegionIdentificationPrinterPass(raw_ostream &OS) : OS(OS) {}
+
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
+    AM.getResult<HIRRegionIdentificationAnalysis>(F).print(OS);
+    return PreservedAnalyses::all();
+  }
+};
+
+class HIRRegionIdentificationWrapperPass : public FunctionPass {
+  std::unique_ptr<HIRRegionIdentification> RI;
+
+public:
+  static char ID;
+
+  HIRRegionIdentificationWrapperPass();
+
+  HIRRegionIdentification &getRI() { return *RI; }
+  const HIRRegionIdentification &getRI() const { return *RI; }
+
+  bool runOnFunction(Function &F) override;
+
+  void releaseMemory() override { RI.reset(); }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+  void print(raw_ostream &OS, const Module * = nullptr) const override {
+    RI->print(OS);
+  }
 };
 
 } // End namespace loopopt

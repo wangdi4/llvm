@@ -35,14 +35,14 @@ INITIALIZE_PASS_BEGIN(AVRGenerate, "avr-generate", "AVR Generate", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WRegionInfo);
+INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass);
 INITIALIZE_PASS_END(AVRGenerate, "avr-generate", "AVR Generate", false, true)
 
 char AVRGenerate::ID = 0;
 
 INITIALIZE_PASS_BEGIN(AVRGenerateHIR, "hir-avr-generate", "AVR Generate HIR",
                       false, true)
-INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(AVRGenerateHIR, "hir-avr-generate", "AVR Generate HIR",
                     false, true)
 
@@ -738,7 +738,7 @@ AVRGenerate::AVRGenerate() : AVRGenerateBase(ID) {
 
 void AVRGenerate::getAnalysisUsage(AnalysisUsage &AU) const {
   AVRGenerateBase::getAnalysisUsage(AU);
-  AU.addRequired<WRegionInfo>();
+  AU.addRequired<WRegionInfoWrapperPass>();
 }
 
 bool AVRGenerate::runOnFunction(Function &F) {
@@ -746,7 +746,7 @@ bool AVRGenerate::runOnFunction(Function &F) {
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  WR = &getAnalysis<WRegionInfo>();
+  WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
 
   return AVRGenerateBase::runOnFunction(F);
 }
@@ -1328,13 +1328,13 @@ AVRGenerateHIR::AVRGenerateHIR() : AVRGenerateBase(ID) {
 
 void AVRGenerateHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AVRGenerateBase::getAnalysisUsage(AU);
-  AU.addRequiredTransitive<HIRFramework>();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRLocalityAnalysis>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
 }
 
 bool AVRGenerateHIR::runOnFunction(Function &F) {
-  HIRF = &getAnalysis<HIRFramework>();
+  HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   return AVRGenerateBase::runOnFunction(F);
 }
 

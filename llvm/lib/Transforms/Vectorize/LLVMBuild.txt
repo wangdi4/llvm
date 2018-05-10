@@ -20,4 +20,7 @@ type = Library
 name = Vectorize
 parent = Transforms
 library_name = Vectorize
-required_libraries = Analysis Core Support TransformUtils Intel_VPOAnalysis Intel_VPOTransforms Intel_LoopAnalysis Intel_LoopTransforms
+required_libraries = Analysis Core Support TransformUtils Intel_VPOAnalysis Intel_VPOTransforms Intel_LoopAnalysis Intel_LoopTransforms Intel_OptReport
+
+; ***INTEL: Intel_VPOAnalysis, Intel_VPOTransforms, Intel_LoopAnalysis,
+;           Intel_LoopTransforms, Intel_OptReport

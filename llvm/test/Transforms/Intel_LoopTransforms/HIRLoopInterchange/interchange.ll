@@ -3,11 +3,20 @@
 ;        for (j=1; j <= 96; j++) 
 ;           A[j][i] = A[j][i+1] + 1; 
 ;
+
 ; REQUIRES: asserts 
 ; RUN: opt -O2  -debug-only=hir-loop-interchange -hir-loop-interchange   < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
-; CHECK-SAME:  ( 2 1 )  
-;
+; CHECK-SAME:  ( 2 1 )
+
+; Check the proper optreport is emitted for Loop Interchange.
+; RUN: opt -hir-ssa-deconstruction -hir-loop-interchange -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT-NEXT:     Remark #XXXXX: Loopnest Interchanged: ( 1 2 ) --> ( 2 1 ){{[[:space:]]}}
+; OPTREPORT-NEXT:     LOOP BEGIN
+; OPTREPORT-NEXT:     LOOP END
+; OPTREPORT-NEXT: LOOP END
 
 ; ModuleID = 'interchange.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -148,7 +148,6 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_PATTERNMATCH_EARLY_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_PATTERNMATCH_EARLY_H
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 

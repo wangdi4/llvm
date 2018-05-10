@@ -40,7 +40,7 @@ namespace loopopt {
 /// values to the same symbase.
 /// It looks for phis(nodes) in the loop headers and traverses the def-use
 /// chain(edges) to identify cycles(SCCs) using Tarjan's algorithm.
-class HIRSCCFormation : public FunctionPass {
+class HIRSCCFormation {
 public:
   typedef Instruction NodeTy;
   typedef SmallVector<NodeTy *, 8> SCCNodesTy;
@@ -81,17 +81,10 @@ public:
   typedef SmallVector<std::pair<int, int>, 16> RegionSCCBeginTy;
 
 private:
-  /// LI - The loop information for the function we are currently analyzing.
-  LoopInfo *LI;
-
-  /// DT - The dominator tree.
-  DominatorTree *DT;
-
-  /// SE - Scalar Evolution analysis for the function.
-  ScalarEvolution *SE;
-
-  /// RI - The region identification pass.
-  const HIRRegionIdentification *RI;
+  LoopInfo &LI;
+  DominatorTree &DT;
+  ScalarEvolution &SE;
+  const HIRRegionIdentification &RI;
 
   /// RegionSCCs - Vector of SCCs identified by this pass.
   RegionSCC RegionSCCs;
@@ -119,8 +112,8 @@ private:
   /// GlobalNodeIndex - Used to assign index to nodes.
   unsigned GlobalNodeIndex;
 
-  /// isNewRegion - Indicates that we have started processing a new region.
-  bool isNewRegion;
+  /// Indicates that we have started processing a new region.
+  bool IsNewRegion;
 
   /// NO_SCC - Used in RegionSCCBegin to indicate that there are no sccs
   /// associated with the region.
@@ -182,11 +175,14 @@ private:
   /// identiy min/max patterns.
   static bool isCmpAndSelectPattern(Instruction *Inst1, Instruction *Inst2);
 
-  /// Returns true if \p Inst1 can reach \p Inst2 in the same bblock before
-  /// encountering \p EndInst.
-  static bool dominatesInSameBB(const Instruction *Inst1,
-                                const Instruction *Inst2,
-                                const Instruction *EndInst);
+  /// Returns true if we find any SCC instruction while trying to reach \p
+  /// TargetNode from \p CurBB via predecessor bblock traversal.
+  /// \p EndNode specifies the scope of traveral in CurBB. It is set to null
+  /// to indicate full bblock traversal.
+  bool foundIntermediateSCCNode(const BasicBlock *CurBB,
+                                const Instruction *EndNode,
+                                const Instruction *TargetNode,
+                                const SCC &CurSCC) const;
 
   /// Returns true if there is live range overlap on SCC edges originating from
   /// \p Node.
@@ -214,21 +210,19 @@ private:
   unsigned findSCC(NodeTy *Node);
 
   /// Forms SCCs for non-linear loop header phis in the regions.
-  void formRegionSCCs();
+  void runImpl();
 
 public:
-  static char ID; // Pass identification
-  HIRSCCFormation();
+  HIRSCCFormation(LoopInfo &LI, DominatorTree &DT, ScalarEvolution &SE,
+                  HIRRegionIdentification &RI);
+  HIRSCCFormation(const HIRSCCFormation &) = delete;
+  HIRSCCFormation(HIRSCCFormation &&SCCF);
 
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
   /// Prints SCCs for all regions.
-  void print(raw_ostream &OS, const Module * = nullptr) const override;
+  void print(raw_ostream &OS) const;
   /// Prints SCCs for a region.
   void print(raw_ostream &OS,
              HIRRegionIdentification::const_iterator RegIt) const;
-  void verifyAnalysis() const override;
 
   /// Returns true if this node is considered linear by parsing.
   bool isConsideredLinear(const NodeTy *Node) const;
@@ -240,6 +234,53 @@ public:
   /// SCC iterator methods
   const_iterator begin(HIRRegionIdentification::const_iterator RegIt) const;
   const_iterator end(HIRRegionIdentification::const_iterator RegIt) const;
+};
+
+class HIRSCCFormationAnalysis
+    : public AnalysisInfoMixin<HIRSCCFormationAnalysis> {
+  friend struct AnalysisInfoMixin<HIRSCCFormationAnalysis>;
+
+  static AnalysisKey Key;
+
+public:
+  using Result = HIRSCCFormation;
+
+  HIRSCCFormation run(Function &F, FunctionAnalysisManager &AM);
+};
+
+class HIRSCCFormationPrinterPass
+    : public PassInfoMixin<HIRSCCFormationPrinterPass> {
+  raw_ostream &OS;
+
+public:
+  explicit HIRSCCFormationPrinterPass(raw_ostream &OS) : OS(OS) {}
+
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
+    AM.getResult<HIRSCCFormationAnalysis>(F).print(OS);
+    return PreservedAnalyses::all();
+  }
+};
+
+class HIRSCCFormationWrapperPass : public FunctionPass {
+  std::unique_ptr<HIRSCCFormation> SCCF;
+
+public:
+  static char ID;
+
+  HIRSCCFormationWrapperPass();
+
+  HIRSCCFormation &getSCCF() { return *SCCF; }
+  const HIRSCCFormation &getSCCF() const { return *SCCF; }
+
+  bool runOnFunction(Function &F) override;
+
+  void releaseMemory() override { SCCF.reset(); }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+  void print(raw_ostream &OS, const Module * = nullptr) const override {
+    SCCF->print(OS);
+  }
 };
 
 } // End namespace loopopt

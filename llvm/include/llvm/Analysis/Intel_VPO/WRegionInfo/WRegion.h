@@ -48,6 +48,8 @@ namespace vpo {
 ///    WRNDistributeParLoopNode  #pragma omp distribute parallel for
 ///    WRNTargetNode             #pragma omp target
 ///    WRNTargetDataNode         #pragma omp target data
+///    WRNTargetEnterDataNode    #pragma omp target enter data
+///    WRNTargetExitDataNode     #pragma omp target exit data
 ///    WRNTargetUpdateNode       #pragma omp target update
 ///    WRNTaskNode               #pragma omp task
 ///    WRNTaskloopNode           #pragma omp taskloop
@@ -76,19 +78,26 @@ namespace vpo {
    const CLAUSETYPE &GETTER() const { return CLAUSEOBJ; }  \
          CLAUSETYPE &GETTER()       { return CLAUSEOBJ; }
 
-/// Loop information assoaciated with loop-type constructs
+/// Loop information associated with loop-type constructs
 class WRNLoopInfo {
 private:
   LoopInfo   *LI;
   Loop       *Lp;
-  BasicBlock *ZTTBB; // bblock with the zero-trip test
+  Value      *NormIV; // normalized iv created by FE
+  Value      *NormUB; // normalized ub (currently for loops from SECTIONS only)
+  BasicBlock *ZTTBB;  // bblock with the zero-trip test
 public:
-  WRNLoopInfo(LoopInfo *L) { LI = L; Lp=nullptr; ZTTBB=nullptr; }
+  WRNLoopInfo(LoopInfo *L) : LI(L), Lp(nullptr), NormIV(nullptr),
+                             NormUB(nullptr), ZTTBB(nullptr){}
   void setLoopInfo(LoopInfo *L) { LI = L; }
   void setLoop(Loop *L) { Lp = L; }
+  void setNormIV(Value *IV) { NormIV = IV; }
+  void setNormUB(Value *UB) { NormUB = UB; }
   void setZTTBB(BasicBlock *BB) { ZTTBB = BB; }
   LoopInfo *getLoopInfo() const { return LI; }
   Loop *getLoop() const { return Lp; }
+  Value *getNormIV() const { return NormIV; }
+  Value *getNormUB() const { return NormUB; }
   BasicBlock *getZTTBB() const { return ZTTBB; }
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned Verbosity=1) const;
@@ -109,6 +118,7 @@ private:
   EXPR NumThreads;
   WRNDefaultKind Default;
   WRNProcBindKind ProcBind;
+  SmallVector<Instruction *, 2> CancellationPoints;
 
 public:
   WRNParallelNode(BasicBlock *BB);
@@ -130,6 +140,10 @@ public:
   EXPR getNumThreads() const { return NumThreads; }
   WRNDefaultKind getDefault() const { return Default; }
   WRNProcBindKind getProcBind() const { return ProcBind; }
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+    return CancellationPoints;
+  }
+  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -161,6 +175,7 @@ private:
   int Collapse;
   int Ordered;
   WRNLoopInfo WRNLI;
+  SmallVector<Instruction *, 2> CancellationPoints;
 
 public:
   WRNParallelLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -190,6 +205,10 @@ public:
   WRNProcBindKind getProcBind() const { return ProcBind; }
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+    return CancellationPoints;
+  }
+  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -217,6 +236,7 @@ private:
   WRNDefaultKind Default;
   WRNProcBindKind ProcBind;
   WRNLoopInfo WRNLI;
+  SmallVector<Instruction *, 2> CancellationPoints;
 
 public:
   WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *L);
@@ -240,6 +260,10 @@ public:
   EXPR getNumThreads() const { return NumThreads; }
   WRNDefaultKind getDefault() const { return Default; }
   WRNProcBindKind getProcBind() const { return ProcBind; }
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+    return CancellationPoints;
+  }
+  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -451,23 +475,54 @@ public:
 
 /// This WRN is similar to WRNTargetNode but it does not offload a code block
 /// to the device. It holds map clauses that describe data movement between
-/// host and device as specified by any of the following OMP directives:
+/// host and device as specified by the OMP directive:
 /// \code
 ///   #pragma omp target data
-///   #pragma omp target enter data
-///   #pragma omp target exit data
 /// \endcode
 class WRNTargetDataNode : public WRegionNode {
 private:
-  MapClause Map;  // used for the map clause and the to/from clauses
-  DependClause Depend;
+  MapClause Map;
   UseDevicePtrClause UseDevicePtr;
+  EXPR IfExpr;
+  EXPR Device;
+
+public:
+  WRNTargetDataNode(BasicBlock *BB);
+
+protected:
+  void setIf(EXPR E) { IfExpr = E; }
+  void setDevice(EXPR E) { Device = E; }
+
+public:
+  DEFINE_GETTER(MapClause,          getMap,          Map)
+  DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
+
+  EXPR getIf() const { return IfExpr; }
+  EXPR getDevice() const { return Device; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNTargetData;
+  }
+};
+
+/// WRN for
+/// \code
+///   #pragma omp target enter data
+/// \endcode
+class WRNTargetEnterDataNode : public WRegionNode {
+private:
+  MapClause Map;
+  DependClause Depend;
   EXPR IfExpr;
   EXPR Device;
   bool Nowait;
 
 public:
-  WRNTargetDataNode(BasicBlock *BB);
+  WRNTargetEnterDataNode(BasicBlock *BB);
 
 protected:
   void setIf(EXPR E) { IfExpr = E; }
@@ -477,7 +532,6 @@ protected:
 public:
   DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(DependClause,       getDepend,       Depend)
-  DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
 
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
@@ -488,7 +542,44 @@ public:
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
-    return W->getWRegionKindID() == WRegionNode::WRNTargetData;
+    return W->getWRegionKindID() == WRegionNode::WRNTargetEnterData;
+  }
+};
+
+/// WRN for
+/// \code
+///   #pragma omp target exit data
+/// \endcode
+class WRNTargetExitDataNode : public WRegionNode {
+private:
+  MapClause Map;
+  DependClause Depend;
+  EXPR IfExpr;
+  EXPR Device;
+  bool Nowait;
+
+public:
+  WRNTargetExitDataNode(BasicBlock *BB);
+
+protected:
+  void setIf(EXPR E) { IfExpr = E; }
+  void setDevice(EXPR E) { Device = E; }
+  void setNowait(bool Flag) { Nowait = Flag; }
+
+public:
+  DEFINE_GETTER(MapClause,          getMap,          Map)
+  DEFINE_GETTER(DependClause,       getDepend,       Depend)
+
+  EXPR getIf() const { return IfExpr; }
+  EXPR getDevice() const { return Device; }
+  bool getNowait() const { return Nowait; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNTargetExitData;
   }
 };
 
@@ -552,7 +643,7 @@ private:
   SharedClause Shared;
   PrivateClause Priv;
   FirstprivateClause Fpriv;
-  ReductionClause Reduction;
+  ReductionClause InReduction;
   DependClause Depend;
   EXPR Final;
   EXPR IfExpr;
@@ -561,6 +652,7 @@ private:
   bool Untied;
   bool Mergeable;
   unsigned TaskFlag; // flag bit vector used to invoke tasking RTL
+  SmallVector<Instruction *, 2> CancellationPoints;
 
 public:
   WRNTaskNode(BasicBlock *BB);
@@ -578,7 +670,7 @@ public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
   DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
-  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
+  DEFINE_GETTER(ReductionClause,    getInRed,  InReduction)
   DEFINE_GETTER(DependClause,       getDepend, Depend)
 
   EXPR getFinal() const { return Final; }
@@ -588,6 +680,10 @@ public:
   bool getUntied() const { return Untied; }
   bool getMergeable() const { return Mergeable; }
   unsigned getTaskFlag() const { return TaskFlag; }
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+    return CancellationPoints;
+  }
+  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -602,9 +698,14 @@ public:
 /// \code
 ///   #pragma omp taskloop
 /// \endcode
+/// A taskloop can have both reduction and in_reduction clauses. Therefore,
+/// WRNTaskloopNode has two members of the class ReductionClause:
+/// 'InReduction' is inherited from the parent WRNTaskNode, and
+/// 'Reduction' is declared for taskloop but not task.
 class WRNTaskloopNode : public WRNTaskNode {
 private:
   LastprivateClause Lpriv;
+  ReductionClause Reduction;
   EXPR Grainsize;
   EXPR NumTasks;
   int SchedCode; // 1 for Grainsize, 2 for num_tasks, 0 for none.
@@ -646,6 +747,7 @@ protected:
 
 public:
   DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
+  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
   EXPR getGrainsize() const { return Grainsize; }
   EXPR getNumTasks() const { return NumTasks; }
@@ -696,8 +798,10 @@ private:
   loopopt::HLLoop *HLp;         // for HIR only
 
 public:
-  WRNVecLoopNode(BasicBlock *BB, LoopInfo *L); // LLVM IR representation
-  WRNVecLoopNode(loopopt::HLNode *EntryHLN);   // HIR representation
+  WRNVecLoopNode(BasicBlock *BB, LoopInfo *L,
+                 const bool isAutoVec); // LLVM IR representation
+  WRNVecLoopNode(loopopt::HLNode *EntryHLN,
+                 const bool isAutoVec); // HIR representation
 
   void setSimdlen(int N) { Simdlen = N; }
   void setSafelen(int N) { Safelen = N; }
@@ -759,6 +863,7 @@ private:
   int Ordered;
   bool Nowait;
   WRNLoopInfo WRNLI;
+  SmallVector<Instruction *, 2> CancellationPoints;
 
 public:
   WRNWksLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -780,6 +885,10 @@ public:
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
   bool getNowait() const { return Nowait; }
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+    return CancellationPoints;
+  }
+  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -803,6 +912,7 @@ private:
   ScheduleClause Schedule;
   bool Nowait;
   WRNLoopInfo WRNLI;
+  SmallVector<Instruction *, 2> CancellationPoints;
 
 public:
   WRNSectionsNode(BasicBlock *BB, LoopInfo *L);
@@ -819,6 +929,10 @@ public:
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   bool getNowait() const { return Nowait; }
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+    return CancellationPoints;
+  }
+  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -1122,9 +1236,12 @@ public:
 ///   #pragma omp taskgroup
 /// \endcode
 class WRNTaskgroupNode : public WRegionNode {
+private:
+  ReductionClause Reduction;  // for the task_reduction clause
 
 public:
   WRNTaskgroupNode(BasicBlock *BB);
+  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -1194,6 +1311,12 @@ extern void printExtraForTarget(WRegionNode const *W,
 extern void printExtraForTask(WRegionNode const *W, formatted_raw_ostream &OS,
                               int Depth, unsigned Verbosity=1);
 
+/// \brief Print the fields common to WRNs for which
+/// canHaveCancellationPoints()==true. Possible constructs are: WRNParallel,
+/// WRNWksLoop, WRNParallelLoop, WRNSections, WRNParallelSections, WRNTask
+extern void printExtraForCancellationPoints(WRegionNode const *W,
+                                            formatted_raw_ostream &OS,
+                                            int Depth, unsigned Verbosity = 1);
 } // End namespace vpo
 
 

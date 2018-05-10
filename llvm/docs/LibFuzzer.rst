@@ -246,6 +246,10 @@ The most important command line options are:
   the process is treated as a failure case.
   The limit is checked in a separate thread every second.
   If running w/o ASAN/MSAN, you may use 'ulimit -v' instead.
+``-malloc_limit_mb``
+  If non-zero, the fuzzer will exit if the target tries to allocate this
+  number of Mb with one malloc call.
+  If zero (default) same limit as rss_limit_mb is applied.
 ``-timeout_exitcode``
   Exit code (default 77) used if libFuzzer reports a timeout.
 ``-error_exitcode``
@@ -362,14 +366,16 @@ possible event codes are:
 Each output line also reports the following statistics (when non-zero):
 
 ``cov:``
-  Total number of code blocks or edges covered by the executing the current
-  corpus.
+  Total number of code blocks or edges covered by executing the current corpus.
 ``ft:``
   libFuzzer uses different signals to evaluate the code coverage:
   edge coverage, edge counters, value profiles, indirect caller/callee pairs, etc.
   These signals combined are called *features* (`ft:`).
 ``corp:``
   Number of entries in the current in-memory test corpus and its size in bytes.
+``lim:``
+  Current limit on the length of new entries in the corpus.  Increases over time
+  until the max length (``-max_len``) is reached.
 ``exec/s:``
   Number of fuzzer iterations per second.
 ``rss:``

@@ -14,8 +14,16 @@
 #ifndef LLVM_CONFIG_H
 #define LLVM_CONFIG_H
 
+/* Define if LLVM_ENABLE_DUMP is enabled */
+#cmakedefine LLVM_ENABLE_DUMP
+
 /* Define if we link Polly to the tools */
 #cmakedefine LINK_POLLY_INTO_TOOLS
+
+/* INTEL_CUSTOMIZATION */
+/* Define if we want to include DTrans in the builds */
+#cmakedefine01 INTEL_INCLUDE_DTRANS
+/* end INTEL_CUSTOMIZATION */
 
 /* Target triple LLVM will generate code for by default */
 #cmakedefine LLVM_DEFAULT_TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}"
@@ -73,5 +81,10 @@
 
 /* LLVM version string */
 #define LLVM_VERSION_STRING "${PACKAGE_VERSION}"
+
+/* Whether LLVM records statistics for use with GetStatistics(),
+ * PrintStatistics() or PrintStatisticsJSON()
+ */
+#cmakedefine01 LLVM_FORCE_ENABLE_STATS
 
 #endif

@@ -19,9 +19,9 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
@@ -49,8 +49,8 @@ FunctionPass *llvm::createHIRSafeReductionAnalysisPass() {
 char HIRSafeReductionAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRSafeReductionAnalysis, "hir-safe-reduction-analysis",
                       "HIR Safe Reduction Analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_END(HIRSafeReductionAnalysis, "hir-safe-reduction-analysis",
                     "HIR Safe Reduction Analysis", false, true)
@@ -58,8 +58,8 @@ INITIALIZE_PASS_END(HIRSafeReductionAnalysis, "hir-safe-reduction-analysis",
 void HIRSafeReductionAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
-  AU.addRequiredTransitive<HIRFramework>();
-  AU.addRequiredTransitive<HIRLoopStatistics>();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+  AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
 }
 
@@ -83,9 +83,9 @@ void HIRSafeReductionAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 //
 bool HIRSafeReductionAnalysis::runOnFunction(Function &F) {
 
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   DDA = &getAnalysis<HIRDDAnalysis>();
-  HLS = &getAnalysis<HIRLoopStatistics>();
+  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
 
   if (!ForceSRA) {
     return false;
@@ -103,6 +103,15 @@ bool HIRSafeReductionAnalysis::runOnFunction(Function &F) {
 
   return false;
 }
+
+namespace {
+void printAChain(formatted_raw_ostream &OS, unsigned Indented,
+                 const loopopt::SafeRedChain &SRC) {
+  for (auto Inst : SRC) {
+    Inst->print(OS, Indented, false);
+  }
+}
+} // namespace
 
 //  Identify Safe Reduction chain for a loop
 //  "Safe" implies Reduction recurrence can be ignored for both
@@ -205,13 +214,38 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
     if (!(*SinkInst)) {
       return false;
     }
+    BlobDDRef *Bref = dyn_cast<BlobDDRef>(*SinkDDRef);
+    if (Bref) {
+      // Avoids
+      // %t = %t1 + 1
+      // %t1 = A[%t]
+      RegDDRef *ParentRef = Bref->getParentDDRef();
+      if (!ParentRef->isTerminalRef()) {
+        return false;
+      }
+      // Integer sum can occur as blobs
+      // sum =  10 * sum + ..
+      CanonExpr *CE = ParentRef->getSingleCanonExpr();
+      if (!isRedTemp(CE, Bref->getBlobIndex())) {
+        return false;
+      }
+    }
     // Is Sink a copy stmt?
     if ((*SinkInst)->isCopyInst()) {
       continue;
     }
     unsigned ReductionOpCodeSave = ReductionOpCode;
-    if ((!(*SinkInst)->isReductionOp(&ReductionOpCode) ||
-         ReductionOpCodeSave != ReductionOpCode)) {
+    if (!(*SinkInst)->isReductionOp(&ReductionOpCode) ||
+        ReductionOpCode != ReductionOpCodeSave) {
+      return false;
+    }
+    if (Bref && ReductionOpCode != Instruction::Add) {
+      // If BlobDDRef
+      // Bail out t1 = (t1 + t2) * A[i];
+      // OK if it were t1 = (t1 + t2) + A[i];
+      // We intentionally skip Sub for now because
+      // being t1 = (t1 + -1* t2) - A[i] or (t1 + t2) - A[i]
+      // a safe reduction depends on the client's interpretation.
       return false;
     }
     bool IsMinMax = (ReductionOpCode == Instruction::Select);
@@ -236,10 +270,14 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
 //  s = 2 * s  +  ..
 //  s = n * s  +  ..
 //  s = 2 * s * i  +  ..
-bool HIRSafeReductionAnalysis::isRedTemp(CanonExpr *CE, BlobTy TempBlob) {
+bool HIRSafeReductionAnalysis::isRedTemp(CanonExpr *CE, unsigned BlobIndex) {
 
-  bool Found = false;
+  if (CE->getDenominator() != 1) {
+    return false;
+  }
+
   auto &BU = CE->getBlobUtils();
+  auto TempBlob = BU.getBlob(BlobIndex);
 
   for (auto I = CE->iv_begin(), E = CE->iv_end(); I != E; ++I) {
     unsigned BlobIdx = CE->getIVBlobCoeff(I);
@@ -252,6 +290,7 @@ bool HIRSafeReductionAnalysis::isRedTemp(CanonExpr *CE, BlobTy TempBlob) {
     }
   }
 
+  bool Found = false;
   for (auto I = CE->blob_begin(), E = CE->blob_end(); I != E; ++I) {
     auto Blob = BU.getBlob(CE->getBlobIndex(I));
     if (BU.contains(Blob, TempBlob)) {
@@ -269,8 +308,6 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
                                                           DDGraph DDG) {
 
   DEBUG(dbgs() << "\nIn Sum Reduction Chain\n");
-
-  auto &HNU = Loop->getHLNodeUtils();
 
   for (auto It = Loop->child_begin(), E = Loop->child_end(); It != E; ++It) {
     FirstRvalSB = 0;
@@ -300,14 +337,8 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
 
     RedInsts.push_back(Inst);
 
-    if (SingleStmtReduction) {
-      setSafeRedChainList(RedInsts, Loop, FirstRvalSB, ReductionOpCode);
-      continue;
-    }
-
     HLInst *SinkInst = nullptr;
     DDRef *SinkDDRef = nullptr;
-    BlobDDRef *PrevSinkDDRef = nullptr;
 
     // Loop thru all flow edges to sink stmt
     //      t1 = t2 +
@@ -323,32 +354,14 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
       if (!isValidSR(LRef, Loop, &SinkInst, &SinkDDRef, ReductionOpCode, DDG)) {
         break;
       }
-      //  Integer sum can occur as blobs
-      //   sum =  10 * sum + ..
-      //  Only needs to check for PrevSinkDDRef because the logic in
-      //  findFirstRedStmt (refer to comments) requires the first stmt
-      //  to be in this form:   s1 = (1 + 2*n) + s0
-
-      if (PrevSinkDDRef) {
-        RegDDRef *RedDDRef = PrevSinkDDRef->getParentDDRef();
-        if (RedDDRef) {
-          // Various test cases have shown memref will not be hit here
-          // Bail out anyway
-          if (!RedDDRef->isTerminalRef()) {
-            break;
-          }
-          auto Blob = HNU.getBlobUtils().getBlob(PrevSinkDDRef->getBlobIndex());
-
-          CanonExpr *CE = RedDDRef->getSingleCanonExpr();
-
-          if (!isRedTemp(CE, Blob)) {
-            break;
-          }
-        }
-      }
       if (FirstRvalSB == SinkDDRef->getSymbase()) {
-        DEBUG(dbgs() << "\nSafe Reduction chain found\n");
+        if (SingleStmtReduction) {
+          DEBUG(dbgs() << "\nSelf-reduction found\n");
+        } else {
+          DEBUG(dbgs() << "\nSafe Reduction chain found\n");
+        }
         setSafeRedChainList(RedInsts, Loop, FirstRvalSB, ReductionOpCode);
+        DEBUG(formatted_raw_ostream FOS(dbgs()); printAChain(FOS, 1, RedInsts));
         break;
       }
 
@@ -363,9 +376,8 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
       if (HLNodeUtils::strictlyDominates(SinkInst, Inst, HLS)) {
         break;
       }
+      RedInsts.push_back(SinkInst);
       Inst = SinkInst;
-      PrevSinkDDRef = dyn_cast<BlobDDRef>(SinkDDRef);
-      RedInsts.push_back(Inst);
     }
   }
 }
@@ -396,7 +408,6 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
   //  The ddref encountered is only tx.
   //  Later,  isValidSR will check if the reduction temp on LHS has
   //  only single use through DD edge
-  //  TODO:  This will be handled later.
 
   unsigned ReductionOpCodeSave = 0;
   *SingleStmtReduction = false;
@@ -423,52 +434,73 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
       return false;
     }
 
-    for (auto I = DDG.incoming_edges_begin(RRef),
-              E = DDG.incoming_edges_end(RRef);
-         I != E; ++I) {
-      const DDEdge *Edge = *I;
-
-      if (!Edge->isFLOWdep()) {
-        continue;
-      }
-
-      DDRef *DDRefSrc = (*I)->getSrc();
-      HLInst *SrcInst = dyn_cast<HLInst>(DDRefSrc->getHLDDNode());
-      assert(SrcInst && "Source of flow edge is not an instruction!");
-
-      if (!SrcInst->isReductionOp(ReductionOpCode)) {
-        break;
-      }
-
-      // First stmt could be   a.  t1 = t2
-      //          or           b.  t1 = t2 + ..
-
-      if (!Inst->isCopyInst() && ReductionOpCodeSave != *ReductionOpCode) {
-        break;
-      }
-
-      if (Inst == SrcInst) {
-        const RegDDRef *LRef = Inst->getLvalDDRef();
-        if (DDUtils::maxUsesInLoop(LRef, Loop, DDG,
-                                   Inst->isMinOrMax() ? 2 : 1)) {
-          *SingleStmtReduction = true;
-          *FirstRvalSB = DDRefSrc->getSymbase();
-          return true;
-        } else {
-          return false;
+    enum Answer { NO_REDUCTION, SKIPTONEXT, POTENTIAL_REDUCTION };
+    auto Finder = [&](const DDRef *Ref) {
+      for (auto I = DDG.incoming_edges_begin(Ref),
+                E = DDG.incoming_edges_end(Ref);
+           I != E; ++I) {
+        if (!(*I)->isFLOWdep()) {
+          continue;
         }
-      }
 
-      // The caller has already checked that Inst post-dominates the first child
-      // of the loop. So, SrcInst postDominating Inst implies that-
-      // a) SrcInst also postdominates first child of the loop.
-      // b) This is a cross-iteration dependency.
-      if (!HLNodeUtils::postDominates(SrcInst, Inst, HLS)) {
-        break;
-      }
+        DDRef *DDRefSrc = (*I)->getSrc();
+        HLInst *SrcInst = dyn_cast<HLInst>(DDRefSrc->getHLDDNode());
+        assert(SrcInst && "Source of flow edge is not an instruction!");
 
-      *FirstRvalSB = DDRefSrc->getSymbase();
+        if (!SrcInst->isReductionOp(ReductionOpCode)) {
+          return SKIPTONEXT;
+        }
+
+        // First stmt could be   a.  t1 = t2
+        //          or           b.  t1 = t2 + ..
+
+        if (!Inst->isCopyInst() && ReductionOpCodeSave != *ReductionOpCode) {
+          return SKIPTONEXT;
+        }
+
+        if (Inst == SrcInst) {
+          const RegDDRef *LRef = Inst->getLvalDDRef();
+          if (DDUtils::maxUsesInLoop(LRef, Loop, DDG,
+                                     Inst->isMinOrMax() ? 2 : 1)) {
+            *SingleStmtReduction = true;
+            *FirstRvalSB = DDRefSrc->getSymbase();
+            return POTENTIAL_REDUCTION;
+          } else {
+            return NO_REDUCTION;
+          }
+        }
+
+        // The caller has already checked that Inst post-dominates the first
+        // child of the loop. So, SrcInst postDominating Inst implies that- a)
+        // SrcInst also postdominates first child of the loop. b) This is a
+        // cross-iteration dependency.
+        if (!HLNodeUtils::postDominates(SrcInst, Inst, HLS)) {
+          return SKIPTONEXT;
+        }
+
+        *FirstRvalSB = DDRefSrc->getSymbase();
+        return POTENTIAL_REDUCTION;
+      }
+      return SKIPTONEXT;
+    };
+
+    auto Found = Finder(RRef);
+    if (Found == POTENTIAL_REDUCTION) {
       return true;
+    } else if (Found == NO_REDUCTION) {
+      return false;
+    }
+
+    // Blob dd refs of rval dd refs scanned as well because
+    // rval sinks of incoming edges can be a blob ddref.
+    for (auto BI = RRef->blob_cbegin(), BE = RRef->blob_cend(); BI != BE;
+         ++BI) {
+      auto Found = Finder(*BI);
+      if (Found == POTENTIAL_REDUCTION) {
+        return true;
+      } else if (Found == NO_REDUCTION) {
+        return false;
+      }
     }
   }
 
@@ -507,15 +539,6 @@ bool HIRSafeReductionAnalysis::isSafeReduction(const HLInst *Inst,
   return true;
 }
 
-// void HIRSafeReductionAnalysis::print(formatted_raw_ostream &OS,
-//                                     unsigned Indented,
-//																		 const
-// SafeRedChain *SRC) {
-//  for (auto Inst : *SRC) {
-//    Inst->print(OS, Indented, false);
-//  }
-// }
-
 void HIRSafeReductionAnalysis::print(formatted_raw_ostream &OS,
                                      const HLLoop *Loop,
                                      const SafeRedChainList *SRCL) {
@@ -531,12 +554,7 @@ void HIRSafeReductionAnalysis::print(formatted_raw_ostream &OS,
   for (auto &SRI : *SRCL) {
     Loop->indent(OS, Depth);
     OS << "Safe Reduction:\n";
-    for (auto Inst : SRI.Chain) {
-      Inst->print(OS, Depth, false);
-      // Next 2 lines for testing valid Map
-      // auto &SafeRedChain = SafeReductionInstMap[Inst];
-      // print(OS, Depth, SafeRedChain);
-    }
+    printAChain(OS, Depth, SRI.Chain);
   }
 }
 
@@ -581,17 +599,8 @@ HIRSafeReductionAnalysis::getSafeRedInfo(const HLInst *Inst) const {
   // Get SafeRedChainList via Loop
   auto Iter2 = SafeReductionMap.find(Loop);
 
-  // SafeReductionInstMap can go out of sync with SafeReductionMap if the
-  // instruction moves from its orignal parent loop to another loop. For
-  // example, if we complete unroll the parent loop, the instruction will move
-  // to the outer parent. In such cases we should return null so that we get a
-  // new entry for the instruction if it is still a safe reduction in the new
-  // loop.
-  // Please note that safe reduction information is not invalidated for deleted
-  // loops.
-  if (Iter2 == SafeReductionMap.end()) {
-    return nullptr;
-  }
+  assert(Iter2 != SafeReductionMap.end() &&
+         "safe reduction analysis is in an inconsistent state!");
 
   auto &SRCL = Iter2->second;
 

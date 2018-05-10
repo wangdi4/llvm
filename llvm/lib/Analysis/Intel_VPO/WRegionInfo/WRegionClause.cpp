@@ -138,6 +138,13 @@ bool ScheduleClause::print(formatted_raw_ostream &OS, unsigned Depth,
   return true;
 }
 
+void printFnPtr(Function *Fn, formatted_raw_ostream &OS, bool PrintType) {
+  if (Fn==nullptr)
+    OS << "UNSPECIFIED";
+  else
+    Fn->printAsOperand(OS, PrintType);
+}
+
 } // End namespace vpo
 
 } // End namespace llvm

@@ -10,7 +10,7 @@
 #   rs > rt
 # appropriately for each branch instruction
 #
-# RUN: llvm-mc %s -triple=mips-unknown-linux -show-encoding -mcpu=mips32r6 2> %t0 | FileCheck %s
+# RUN: llvm-mc %s -triple=mips-unknown-linux -show-encoding -show-inst -mcpu=mips32r6 2> %t0 | FileCheck %s
 # RUN: FileCheck %s -check-prefix=WARNING < %t0
 a:
         .set noat
@@ -25,6 +25,7 @@ a:
         bal     21100            # CHECK: bal 21100           # encoding: [0x04,0x11,0x14,0x9b]
         balc 14572256            # CHECK: balc 14572256       # encoding: [0xe8,0x37,0x96,0xb8]
         bc 14572256              # CHECK: bc 14572256         # encoding: [0xc8,0x37,0x96,0xb8]
+                                 # CHECK-NEXT:                # <MCInst #{{[0-9]+}} BC
         bc1eqz  $f0,4            # CHECK: bc1eqz $f0, 4       # encoding: [0x45,0x20,0x00,0x01]
         bc1eqz  $f31,4           # CHECK: bc1eqz $f31, 4      # encoding: [0x45,0x3f,0x00,0x01]
         bc1nez  $f0,4            # CHECK: bc1nez $f0, 4       # encoding: [0x45,0xa0,0x00,0x01]
@@ -139,6 +140,9 @@ a:
         negu      $2,$3          # CHECK: negu $2, $3            # encoding: [0x00,0x03,0x10,0x23]
         not       $3, $4         # CHECK: not $3, $4             # encoding: [0x00,0x80,0x18,0x27]
         not       $3             # CHECK: not $3, $3             # encoding: [0x00,0x60,0x18,0x27]
+        pause                    # CHECK: pause                  # encoding:  [0x00,0x00,0x01,0x40]
+                                 # CHECK-NEXT:                   # <MCInst #{{[0-9]+}} PAUSE
+                                 # CHECK-NOT                     # <MCInst #{{[0-9}+}} PAUSE_MM
         pref    1, 8($5)         # CHECK: pref 1, 8($5)          # encoding: [0x7c,0xa1,0x04,0x35]
         # FIXME: Use the code generator in order to print the .set directives
         #        instead of the instruction printer.
@@ -210,11 +214,27 @@ a:
         ssnop                    # WARNING: [[@LINE]]:9: warning: ssnop is deprecated for MIPS32r6 and is equivalent to a nop instruction
         ssnop                    # CHECK: ssnop                  # encoding: [0x00,0x00,0x00,0x40]
         sdbbp                    # CHECK: sdbbp                  # encoding: [0x00,0x00,0x00,0x0e]
+                                 # CHECK-NEXT:                   # <MCInst #{{[0-9]+}} SDBBP
+                                 # CHECK-NOT:                    # <MCInst #{{[0-9]+}} SDBBP_MM
         sdbbp     34             # CHECK: sdbbp 34               # encoding: [0x00,0x00,0x08,0x8e]
+                                 # CHECK-NEXT:                   # <MCInst #{{[0-9]+}} SDBBP
+                                 # CHECK-NOT:                    # <MCInst #{{[0-9]+}} SDBBP_MM
         sync                     # CHECK: sync                   # encoding: [0x00,0x00,0x00,0x0f]
         sync    1                # CHECK: sync 1                 # encoding: [0x00,0x00,0x00,0x4f]
         syscall                  # CHECK: syscall                # encoding: [0x00,0x00,0x00,0x0c]
         syscall   256            # CHECK: syscall 256            # encoding: [0x00,0x00,0x40,0x0c]
+        tlbp                     # CHECK: tlbp                   # encoding: [0x42,0x00,0x00,0x08]
+                                 # CHECK-NEXT:                   # <MCInst #{{[0-9]+}} TLBP
+                                 # CHECK-NOT:                    # <MCInst #{{[0-9]+}} TLBP_MM
+        tlbr                     # CHECK: tlbr                   # encoding: [0x42,0x00,0x00,0x01]
+                                 # CHECK-NEXT:                   # <MCInst #{{[0-9]+}} TLBR
+                                 # CHECK-NOT:                    # <MCInst #{{[0-9]+}} TLBR_MM
+        tlbwi                    # CHECK: tlbwi                  # encoding: [0x42,0x00,0x00,0x02]
+                                 # CHECK-NEXT:                   # <MCInst #{{[0-9]+}} TLBWI
+                                 # CHECK-NOT:                    # <MCInst #{{[0-9]+}} TLBWI_MM
+        tlbwr                    # CHECK: tlbwr                  # encoding: [0x42,0x00,0x00,0x06]
+                                 # CHECK-NEXT:                   # <MCInst #{{[0-9]+}} TLBWR
+                                 # CHECK-NOT:                    # <MCInst #{{[0-9]+}} TLBWR_MM
         teq     $0,$3            # CHECK: teq $zero, $3          # encoding: [0x00,0x03,0x00,0x34]
         teq     $5,$7,620        # CHECK: teq $5, $7, 620        # encoding: [0x00,0xa7,0x9b,0x34]
         tge     $7,$10           # CHECK: tge $7, $10            # encoding: [0x00,0xea,0x00,0x30]

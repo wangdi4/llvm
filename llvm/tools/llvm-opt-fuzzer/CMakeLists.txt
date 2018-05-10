@@ -8,6 +8,7 @@ set(LLVM_LINK_COMPONENTS
   Coroutines
   IPO
   IRReader
+  AggressiveInstCombine
   InstCombine
   Instrumentation
   FuzzMutate
@@ -19,6 +20,9 @@ set(LLVM_LINK_COMPONENTS
   TransformUtils
   Vectorize
   Passes
+# INTEL_CUSTOMIZATION
+  Intel_OptReport
+# end INTEL_CUSTOMIZATION
 )
 
 add_llvm_fuzzer(llvm-opt-fuzzer llvm-opt-fuzzer.cpp

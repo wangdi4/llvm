@@ -33,8 +33,7 @@ using namespace llvm;
 /// A utility function for allocating memory, checking for allocation failures,
 /// and ensuring the contents are zeroed.
 inline static uint64_t* getClearedMemory(unsigned numWords) {
-  uint64_t * result = new uint64_t[numWords];
-  assert(result && "APInt memory allocation fails!");
+  uint64_t *result = new uint64_t[numWords];
   memset(result, 0, numWords * sizeof(uint64_t));
   return result;
 }
@@ -42,9 +41,7 @@ inline static uint64_t* getClearedMemory(unsigned numWords) {
 /// A utility function for allocating memory and checking for allocation
 /// failure.  The content is not zeroed.
 inline static uint64_t* getMemory(unsigned numWords) {
-  uint64_t * result = new uint64_t[numWords];
-  assert(result && "APInt memory allocation fails!");
-  return result;
+  return new uint64_t[numWords];
 }
 
 /// A utility function that converts a character to a digit.
@@ -428,11 +425,12 @@ APInt APInt::extractBits(unsigned numBits, unsigned bitPosition) const {
   unsigned NumSrcWords = getNumWords();
   unsigned NumDstWords = Result.getNumWords();
 
+  uint64_t *DestPtr = Result.isSingleWord() ? &Result.U.VAL : Result.U.pVal;
   for (unsigned word = 0; word < NumDstWords; ++word) {
     uint64_t w0 = U.pVal[loWord + word];
     uint64_t w1 =
         (loWord + word + 1) < NumSrcWords ? U.pVal[loWord + word + 1] : 0;
-    Result.U.pVal[word] = (w0 >> loBit) | (w1 << (APINT_BITS_PER_WORD - loBit));
+    DestPtr[word] = (w0 >> loBit) | (w1 << (APINT_BITS_PER_WORD - loBit));
   }
 
   return Result.clearUnusedBits();
@@ -924,7 +922,7 @@ void APInt::ashrSlowCase(unsigned ShiftAmt) {
   // Save the original sign bit for later.
   bool Negative = isNegative();
 
-  // WordShift is the inter-part shift; BitShift is is intra-part shift.
+  // WordShift is the inter-part shift; BitShift is intra-part shift.
   unsigned WordShift = ShiftAmt / APINT_BITS_PER_WORD;
   unsigned BitShift = ShiftAmt % APINT_BITS_PER_WORD;
 
@@ -1049,9 +1047,14 @@ APInt APInt::sqrt() const {
   // libc sqrt function which will probably use a hardware sqrt computation.
   // This should be faster than the algorithm below.
   if (magnitude < 52) {
-    return APInt(BitWidth,
-                 uint64_t(::round(::sqrt(double(isSingleWord() ? U.VAL
-                                                               : U.pVal[0])))));
+#if INTEL_CUSTOMIZATION
+    // This customization is temporary fix for windows self-build
+    // The only change is ::round(x) replaced with ::floor(x + 0.5)
+    return APInt(
+        BitWidth,
+        uint64_t(
+            ::floor(::sqrt(double(isSingleWord() ? U.VAL : U.pVal[0])) + 0.5)));
+#endif /* INTEL_CUSTOMIZATION */
   }
 
   // Okay, all the short cuts are exhausted. We must compute it. The following

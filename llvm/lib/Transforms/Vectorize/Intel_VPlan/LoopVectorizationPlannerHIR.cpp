@@ -22,7 +22,12 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+cl::opt<uint64_t>
+    VPlanDefaultEstTripHIR("vplan-default-est-trip-hir", cl::init(300),
+                           cl::desc("Default estimated trip count"));
+
 void LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG) {
+  assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
   VPlan *Plan = getVPlanForVF(BestVF);
 
   CG->initializeVectorLoop(BestVF);

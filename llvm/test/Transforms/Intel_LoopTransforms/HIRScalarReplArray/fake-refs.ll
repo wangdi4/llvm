@@ -17,7 +17,7 @@
 ; CHECK: Dump After HIR Loop Idiom Recognition
 
 ; CHECK: + DO i1 = 0, sext.i32.i64(%n) + -2, 1   <DO_LOOP>
-; CHECK: |   @llvm.memcpy.p0i8.p0i8.i64(&((i8*)(%A)[i1 + 1][0]),  &((i8*)(%A)[i1][0]),  20,  4,  0);
+; CHECK: |   @llvm.memcpy.p0i8.p0i8.i64(&((i8*)(%A)[i1 + 1][0]),  &((i8*)(%A)[i1][0]),  20,  0);
 ; CHECK: + END LOOP
 
 

@@ -2,6 +2,24 @@
 ; All the loops should be unrolled as they have small trip count.
 ; The pass should generate just the region with statements.
 
+;*** IR Dump Before HIR PostVec Complete Unroll ***
+;Function: foo
+
+;<0>       BEGIN REGION { }
+;<38>            + DO i1 = 0, 1, 1   <DO_LOOP>
+;<39>            |   + DO i2 = 0, 2, 1   <DO_LOOP>
+;<9>             |   |   %0 = (@A)[0][i1 + 2 * i2 + -1];
+;<11>            |   |   (@A)[0][i1 + 2 * i2] = %0;
+;<39>            |   + END LOOP
+;<39>            |
+;<19>            |   %.pre = (@A)[0][0];
+;<40>            |
+;<40>            |   + DO i2 = 0, 2, 1   <DO_LOOP>
+;<25>            |   |   (@A)[0][i2 + 1] = %.pre;
+;<40>            |   + END LOOP
+;<38>            + END LOOP
+;<0>       END REGION
+
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-cg -S < %s | FileCheck %s
 ; CHECK: entry
 
@@ -32,6 +50,18 @@
 ; CHECK: getelementptr inbounds ([550 x i32], [550 x i32]* @A, i64 0, i64 2)
 ; CHECK: getelementptr inbounds ([550 x i32], [550 x i32]* @A, i64 0, i64 3)
 ; CHECK-NEXT: br label %for.end{{.*}}
+
+; Check that proper optreport order is emitted for deleted loops (Completely Unrolled).
+; Emitted structure has one remark for completely unrolled loops assigned to the parent loop (because all inner loops are unrolled).
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT-NEXT:     Remark #XXXXX: Loopnest completely unrolled{{[[:space:]]}}
+; OPTREPORT-NEXT:     LOOP BEGIN
+; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
+; OPTREPORT-NEXT:     LOOP BEGIN
+; OPTREPORT-NEXT:     LOOP END
+; OPTREPORT-NEXT: LOOP END
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

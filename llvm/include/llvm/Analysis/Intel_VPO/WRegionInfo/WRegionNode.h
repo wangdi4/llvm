@@ -148,7 +148,7 @@ protected:
   /// calls WRN->setExitBBlock(ExitBB). In addition, if the WRN is a loop
   /// construct, this routine also calls IntelGeneralUtils::getLoopFromLoopInfo
   /// to find the Loop from LoopInfo
-  void finalize(BasicBlock *ExitBB);
+  void finalize(BasicBlock *ExitBB, DominatorTree *DT);
 
   //
   // Routines for parsing clauses
@@ -174,7 +174,9 @@ protected:
 
   /// \brief Update WRN for clauses from the OperandBundles under the
   /// directive.region.entry/exit representation
-  void getClausesFromOperandBundles();
+  /// If \p RegionExit is \b true, process the 'region.exit' intrinsic,
+  /// otherwise process 'region.entry'.
+  void getClausesFromOperandBundles(bool RegionExit = false);
 
 public:
   /// \brief Functions to check if the WRN allows a given clause type
@@ -184,6 +186,7 @@ public:
   bool canHavePrivate() const;
   bool canHaveFirstprivate() const;
   bool canHaveLastprivate() const;
+  bool canHaveInReduction() const;
   bool canHaveReduction() const;
   bool canHaveCopyin() const;
   bool canHaveCopyprivate() const;
@@ -196,6 +199,7 @@ public:
   bool canHaveDepSink() const;
   bool canHaveAligned() const;
   bool canHaveFlush() const;
+  bool canHaveCancellationPoints() const; ///< Constructs that can be cancelled
 
   // Below are virtual functions to get/set clause and other information of
   // the WRN. They should never be called; calling them indicates intention
@@ -225,6 +229,7 @@ public:
   virtual LinearClause &getLinear()          {WRNERROR(QUAL_OMP_LINEAR);      }
   virtual MapClause &getMap()                {WRNERROR("MAP");                }
   virtual PrivateClause &getPriv()           {WRNERROR(QUAL_OMP_PRIVATE);     }
+  virtual ReductionClause &getInRed()        {WRNERROR("IN_REDUCTION");       }
   virtual ReductionClause &getRed()          {WRNERROR("REDUCTION");          }
   virtual ScheduleClause &getSchedule()      {WRNERROR("SCHEDULE");           }
        // ScheduleClause is not list-type, but has similar API so put here too
@@ -257,6 +262,8 @@ public:
   virtual const MapClause &getMap() const  {WRNERROR("MAP");                }
   virtual const PrivateClause &getPriv() const
                                            {WRNERROR(QUAL_OMP_PRIVATE);     }
+  virtual const ReductionClause &getInRed() const
+                                           {WRNERROR("IN_REDUCTION");       }
   virtual const ReductionClause &getRed() const
                                            {WRNERROR("REDUCTION");          }
   virtual const ScheduleClause &getSchedule() const
@@ -313,6 +320,12 @@ public:
   virtual void setPriority(EXPR E)              {WRNERROR(QUAL_OMP_PRIORITY); }
   virtual EXPR getPriority()              const {WRNERROR(QUAL_OMP_PRIORITY); }
   virtual void setProcBind(WRNProcBindKind P)   {WRNERROR("PROC_BIND");       }
+  virtual const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+    WRNERROR("CANCELLATION_POINTS");
+  }
+  virtual void addCancellationPoint(Instruction *V) {
+    WRNERROR("CANCELLATION_POINTS");
+  }
   virtual WRNProcBindKind getProcBind()   const {WRNERROR("PROC_BIND");       }
   virtual void setSafelen(int N)                {WRNERROR(QUAL_OMP_SAFELEN);  }
   virtual int getSafelen()                const {WRNERROR(QUAL_OMP_SAFELEN);  }
@@ -553,7 +566,9 @@ public:
     WRNTeams,                         // IsTeams
     WRNDistributeParLoop,             // IsPar, IsOmpLoop, IsDistribute
     WRNTarget,                        // IsTarget, IsTask (if depend/nowait)
-    WRNTargetData,                    // IsTarget, IsTask (if depend/nowait)
+    WRNTargetData,                    // IsTarget
+    WRNTargetEnterData,               // IsTarget, IsTask (if depend/nowait)
+    WRNTargetExitData,                // IsTarget, IsTask (if depend/nowait)
     WRNTargetUpdate,                  // IsTarget, IsTask (if depend/nowait)
     WRNTask,                          // IsTask
     WRNTaskloop,                      // IsTask, IsOmpLoop
@@ -610,6 +625,16 @@ extern void printBB(StringRef Title, BasicBlock *BB, formatted_raw_ostream &OS,
 ///   print *Val regardless of Verbosity
 extern void printVal(StringRef Title, Value *Val, formatted_raw_ostream &OS,
                      int Indent, unsigned Verbosity=1);
+
+/// \brief Auxiliary function to print an ArrayRef of Values in a WRN dump.
+/// If an element Val in Vals is undef/null:
+///   Verbosity == 0: don't printing anything
+///   Verbosity >= 1: print "UNSPECIFIED"
+/// If the element Val is not undef/null:
+///   print it irrespective of verbosity
+extern void printValList(StringRef Title, ArrayRef<Value *> const &Vals,
+                         formatted_raw_ostream &OS, int Indent,
+                         unsigned Verbosity = 1);
 
 /// \brief Auxiliary function to print an Int in a WRN dump
 /// If Num is 0:

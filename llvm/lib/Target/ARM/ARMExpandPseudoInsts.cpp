@@ -163,8 +163,10 @@ static const NEONLdStTableEntry NEONLdStTable[] = {
 
 { ARM::VLD1d64QPseudo,      ARM::VLD1d64Q,     true,  false, false, SingleSpc,  4, 1 ,false},
 { ARM::VLD1d64QPseudoWB_fixed,  ARM::VLD1d64Qwb_fixed,   true,  true, false, SingleSpc,  4, 1 ,false},
+{ ARM::VLD1d64QPseudoWB_register,  ARM::VLD1d64Qwb_register,   true,  true, true, SingleSpc,  4, 1 ,false},
 { ARM::VLD1d64TPseudo,      ARM::VLD1d64T,     true,  false, false, SingleSpc,  3, 1 ,false},
 { ARM::VLD1d64TPseudoWB_fixed,  ARM::VLD1d64Twb_fixed,   true,  true, false, SingleSpc,  3, 1 ,false},
+{ ARM::VLD1d64TPseudoWB_register,  ARM::VLD1d64Twb_register, true, true, true,  SingleSpc,  3, 1 ,false},
 
 { ARM::VLD2LNd16Pseudo,     ARM::VLD2LNd16,     true, false, false, SingleSpc,  2, 4 ,true},
 { ARM::VLD2LNd16Pseudo_UPD, ARM::VLD2LNd16_UPD, true, true, true,  SingleSpc,  2, 4 ,true},
@@ -613,8 +615,10 @@ void ARMExpandPseudo::ExpandVTBL(MachineBasicBlock::iterator &MBBI,
 
   // Transfer the destination register operand.
   MIB.add(MI.getOperand(OpIdx++));
-  if (IsExt)
-    MIB.add(MI.getOperand(OpIdx++));
+  if (IsExt) {
+    MachineOperand VdSrc(MI.getOperand(OpIdx++));
+    MIB.add(VdSrc);
+  }
 
   bool SrcIsKill = MI.getOperand(OpIdx).isKill();
   unsigned SrcReg = MI.getOperand(OpIdx++).getReg();
@@ -623,7 +627,8 @@ void ARMExpandPseudo::ExpandVTBL(MachineBasicBlock::iterator &MBBI,
   MIB.addReg(D0);
 
   // Copy the other source register operand.
-  MIB.add(MI.getOperand(OpIdx++));
+  MachineOperand VmSrc(MI.getOperand(OpIdx++));
+  MIB.add(VmSrc);
 
   // Copy the predicate operands.
   MIB.add(MI.getOperand(OpIdx++));
@@ -929,7 +934,7 @@ bool ARMExpandPseudo::ExpandCMP_SWAP_64(MachineBasicBlock &MBB,
   // .Lloadcmp:
   //     ldrexd rDestLo, rDestHi, [rAddr]
   //     cmp rDestLo, rDesiredLo
-  //     sbcs rTempReg<dead>, rDestHi, rDesiredHi
+  //     sbcs dead rTempReg, rDestHi, rDesiredHi
   //     bne .Ldone
   unsigned LDREXD = IsThumb ? ARM::t2LDREXD : ARM::LDREXD;
   MachineInstrBuilder MIB;
@@ -1261,7 +1266,7 @@ bool ARMExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
         MachineConstantPool *MCP = MF->getConstantPool();
         unsigned PCLabelID = AFI->createPICLabelUId();
         MachineConstantPoolValue *CPV =
-            ARMConstantPoolSymbol::Create(MF->getFunction()->getContext(),
+            ARMConstantPoolSymbol::Create(MF->getFunction().getContext(),
                                           "__aeabi_read_tp", PCLabelID, 0);
         unsigned Reg = MI.getOperand(0).getReg();
         MIB = BuildMI(MBB, MBBI, MI.getDebugLoc(),
@@ -1471,7 +1476,8 @@ bool ARMExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
       unsigned SrcReg = MI.getOperand(OpIdx++).getReg();
 
       // Copy the destination register.
-      MIB.add(MI.getOperand(OpIdx++));
+      MachineOperand Dst(MI.getOperand(OpIdx++));
+      MIB.add(Dst);
 
       // Copy the predicate operands.
       MIB.add(MI.getOperand(OpIdx++));
@@ -1506,6 +1512,7 @@ bool ARMExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     case ARM::VLD3d32Pseudo:
     case ARM::VLD1d64TPseudo:
     case ARM::VLD1d64TPseudoWB_fixed:
+    case ARM::VLD1d64TPseudoWB_register:
     case ARM::VLD3d8Pseudo_UPD:
     case ARM::VLD3d16Pseudo_UPD:
     case ARM::VLD3d32Pseudo_UPD:
@@ -1523,6 +1530,7 @@ bool ARMExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     case ARM::VLD4d32Pseudo:
     case ARM::VLD1d64QPseudo:
     case ARM::VLD1d64QPseudoWB_fixed:
+    case ARM::VLD1d64QPseudoWB_register:
     case ARM::VLD4d8Pseudo_UPD:
     case ARM::VLD4d16Pseudo_UPD:
     case ARM::VLD4d32Pseudo_UPD:

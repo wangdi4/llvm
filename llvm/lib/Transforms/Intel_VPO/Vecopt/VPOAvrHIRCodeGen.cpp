@@ -107,13 +107,13 @@ void AVRCGVisit::visit(AVRValueHIR *AVal) {
   } else {
     assert(isa<BlobDDRef>(RefVal) && "Expected Blob DDRef");
 
-    auto BRefVal = cast<BlobDDRef>(RefVal);
+    const auto * BRefVal = cast<BlobDDRef>(RefVal);
     if (auto WInst = ACG->findWideInst(BRefVal->getSymbase())) {
       WideRef = WInst->getLvalDDRef();
     } else {
       WideRef = DDRU.createScalarRegDDRef(
           BRefVal->getSymbase(),
-          const_cast<CanonExpr *>(BRefVal->getCanonExpr()));
+          const_cast<CanonExpr *>(BRefVal->getSingleCanonExpr()));
       WideRef = ACG->widenRef(WideRef);
     }
   }
@@ -838,7 +838,14 @@ void AVRCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
     EndIter = std::next(LastNode->getIterator());
   }
 
-  int BeginOrEndDirID = BeginDir ? DIR_OMP_SIMD : DIR_OMP_END_SIMD;
+  SmallSet<int, 2> BeginOrEndDirIDs;
+  if (BeginDir) {
+    BeginOrEndDirIDs.insert(DIR_OMP_SIMD);
+    BeginOrEndDirIDs.insert(DIR_VPO_AUTO_VEC);
+  } else {
+    BeginOrEndDirIDs.insert(DIR_OMP_END_SIMD);
+    BeginOrEndDirIDs.insert(DIR_VPO_END_AUTO_VEC);
+  }
   for (auto Iter = StartIter; Iter != EndIter;) {
     auto HInst = dyn_cast<HLInst>(&*Iter);
 
@@ -863,7 +870,7 @@ void AVRCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
 
         int DirID = vpo::VPOAnalysisUtils::getDirectiveID(DirStr);
 
-        if (DirID == BeginOrEndDirID) {
+        if (BeginOrEndDirIDs.count(DirID)) {
           HLNodeUtils::remove(HInst);
         } else if (VPOAnalysisUtils::isListEndDirective(DirID)) {
           HLNodeUtils::remove(HInst);
@@ -1090,7 +1097,7 @@ void AVRCodeGenHIR::processLoop() {
   // Setup main and remainder loops
   bool NeedRemainderLoop = false;
   auto MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(
-      OrigLoop, VL, NeedRemainderLoop, true /* VecMode */);
+      OrigLoop, VL, NeedRemainderLoop, LORBuilder, true /* VecMode */);
 
   setNeedRemainderLoop(NeedRemainderLoop);
   setMainLoop(MainLoop);
@@ -1213,7 +1220,9 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
   // type of VL-wide vector of Ref's DestType. For addressof DDRef, desttype
   // is set to vector of pointers(scalar desttype).
   if (WideRef->hasGEPInfo()) {
-    PointerType *PtrType = cast<PointerType>(Ref->getBaseDestType());
+    Type *DstTy = Ref->getBaseType();
+    PointerType *PtrType = cast<PointerType>(DstTy);
+
     auto AddressSpace = PtrType->getAddressSpace();
 
     // Omit the range metadata as is done in loop vectorize which does
@@ -1222,7 +1231,7 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
     WideRef->setMetadata(LLVMContext::MD_range, nullptr);
 
     if (WideRef->isAddressOf()) {
-      WideRef->setBaseDestType(VecRefDestTy);
+      WideRef->setBitCastDestType(VecRefDestTy);
 
       auto StructElemTy =
           dyn_cast<StructType>(PtrType->getPointerElementType());
@@ -1233,7 +1242,7 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
         return WideRef;
       }
     } else {
-      WideRef->setBaseDestType(PointerType::get(VecRefDestTy, AddressSpace));
+      WideRef->setBitCastDestType(PointerType::get(VecRefDestTy, AddressSpace));
     }
   }
 
@@ -1388,10 +1397,21 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
     LoMask.push_back(i);
   for (unsigned i = VL / 2; i < VL; ++i)
     HiMask.push_back(i);
+
+  LLVMContext &C = Loop->getHLNodeUtils().getContext();
+
+  Constant *LoMaskVec = ConstantDataVector::get(C, LoMask);
+  RegDDRef *LoMaskVecDDRef =
+      VecRef->getDDRefUtils().createConstDDRef(LoMaskVec);
   HLInst *Lo = Loop->getHLNodeUtils().createShuffleVectorInst(
-      VecRef->clone(), VecRef->clone(), LoMask, "Lo");
+      VecRef->clone(), VecRef->clone(), LoMaskVecDDRef, "Lo");
+
+  Constant *HiMaskVec = ConstantDataVector::get(C, HiMask);
+  RegDDRef *HiMaskVecDDRef =
+      VecRef->getDDRefUtils().createConstDDRef(HiMaskVec);
   HLInst *Hi = Loop->getHLNodeUtils().createShuffleVectorInst(
-      VecRef->clone(), VecRef->clone(), HiMask, "Hi");
+      VecRef->clone(), VecRef->clone(), HiMaskVecDDRef, "Hi");
+
   HLInst *Result = Loop->getHLNodeUtils().createBinaryHLInst(
       BOpcode, Lo->getLvalDDRef()->clone(), Hi->getLvalDDRef()->clone(),
       "reduce");
@@ -1546,8 +1566,8 @@ void AVRCodeGenHIR::analyzeCallArgMemoryReferences(
 }
 
 HLInst *AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode, RegDDRef *Mask) {
-  const HLNode *Node = AvrNode->getHIRInstruction();
-  const HLInst *INode;
+  HLNode *Node = AvrNode->getHIRInstruction();
+  HLInst *INode;
   INode = dyn_cast<HLInst>(Node);
   auto CurInst = INode->getLLVMInstruction();
   SmallVector<RegDDRef *, 6> WideOps;
@@ -1690,6 +1710,7 @@ HLInst *AVRCodeGenHIR::insertReductionInitializer(Constant *Iden) {
 
   auto LvalSymbase = RedOpVecInst->getLvalDDRef()->getSymbase();
   MainLoop->addLiveInTemp(LvalSymbase);
+  MainLoop->addLiveOutTemp(LvalSymbase);
   return RedOpVecInst;
 }
 

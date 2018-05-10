@@ -16,11 +16,15 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLREGION_H
 #define LLVM_IR_INTEL_LOOPIR_HLREGION_H
 
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
+#include "llvm/IR/BasicBlock.h"
 #include <iterator>
 #include <set>
+
+#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include <functional>
 
 namespace llvm {
 
@@ -82,11 +86,12 @@ private:
   // Symbase to llvm.dbg.* intrinsics.
   DebugIntrinMap DbgIntrinMap;
 
+  // Optimization report for some nested but lost loops.
+  LoopOptReport OptReport;
+
 public:
   /// Returns the map between symbase and llvm.dbg.* intrinsics.
-  const DebugIntrinMap &getDebugIntrinMap() const {
-    return DbgIntrinMap;
-  }
+  const DebugIntrinMap &getDebugIntrinMap() const { return DbgIntrinMap; }
 
   /// Prints header for the region.
   void printHeader(formatted_raw_ostream &OS, unsigned Depth,
@@ -143,6 +148,8 @@ public:
   /// \brief Returns true if this symbase is live out of this region.
   bool isLiveOut(unsigned Symbase) const { return IRReg.isLiveOut(Symbase); }
 
+  bool hasLiveOuts() const { return IRReg.hasLiveOuts(); }
+
   /// BBlock iterator methods
   const_bb_iterator bb_begin() const { return IRReg.bb_begin(); }
   const_bb_iterator bb_end() const { return IRReg.bb_end(); }
@@ -151,17 +158,10 @@ public:
   const_live_in_iterator live_in_begin() const { return IRReg.live_in_begin(); }
   const_live_in_iterator live_in_end() const { return IRReg.live_in_end(); }
 
-  /// Live-out iterator methods
   const_live_out_iterator live_out_begin() const {
     return IRReg.live_out_begin();
   }
   const_live_out_iterator live_out_end() const { return IRReg.live_out_end(); }
-
-  iterator_range<const_live_out_iterator> live_out() const {
-    return iterator_range<const_live_out_iterator>(live_out_begin(),
-                                                   live_out_end());
-  }
-
   // Returns symbase of a liveout value. Asserts, if the value is not liveout.
   unsigned getLiveOutSymbase(const Instruction *Temp) const {
     return IRReg.getLiveOutSymbase(Temp);
@@ -173,7 +173,7 @@ public:
 
   /// Returns true if this one region was created for the entire function.
   bool isFunctionLevel() const { return IRReg.isFunctionLevel(); }
-  
+
   /// Children iterator methods
   child_iterator child_begin() { return Children.begin(); }
   const_child_iterator child_begin() const { return Children.begin(); }
@@ -207,7 +207,7 @@ public:
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
-    return Node->getHLNodeID() == HLNode::HLRegionVal;
+    return Node->getHLNodeClassID() == HLNode::HLRegionVal;
   }
 
   /// clone() - Do not support Cloning of Region.
@@ -219,9 +219,38 @@ public:
 
   /// Returns true if the last child of the region is a return instruction.
   bool exitsFunction() const;
+
+  LoopOptReport getOptReport() const { return OptReport; }
+  void setOptReport(LoopOptReport R) { OptReport = R; }
+  void eraseOptReport() { OptReport = nullptr; }
 };
 
 } // End namespace loopopt
+
+// Traits of HLRegion for LoopOptReportBuilder.
+template <> struct LoopOptReportTraits<loopopt::HLRegion> {
+  static LoopOptReport getOptReport(const loopopt::HLRegion &R) {
+    return R.getOptReport();
+  }
+
+  static void setOptReport(loopopt::HLRegion &R, LoopOptReport OR) {
+    R.setOptReport(OR);
+  }
+
+  static void eraseOptReport(loopopt::HLRegion &R) { R.eraseOptReport(); }
+
+  static DebugLoc getDebugLoc(const loopopt::HLRegion &R) {
+    return R.getDebugLoc();
+  }
+};
+
+template <>
+struct DenseMapInfo<loopopt::HLRegion *>
+    : public loopopt::DenseHLNodeMapInfo<loopopt::HLRegion> {};
+
+template <>
+struct DenseMapInfo<const loopopt::HLRegion *>
+    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLRegion> {};
 
 } // End namespace llvm
 

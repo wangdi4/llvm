@@ -9,7 +9,6 @@
  */
 
 #include <stdlib.h>
-#define ISL_DIM_H
 #include <isl_ctx_private.h>
 #include <isl_map_private.h>
 #include <isl_factorization.h>
@@ -28,7 +27,6 @@
 #include <isl_aff_private.h>
 #include <isl_val_private.h>
 #include <isl_config.h>
-#include <isl/deprecated/polynomial_int.h>
 
 static unsigned pos(__isl_keep isl_space *dim, enum isl_dim_type type)
 {
@@ -2958,6 +2956,7 @@ __isl_give isl_pw_qpolynomial *isl_pw_qpolynomial_from_qpolynomial(
 #define NO_PULLBACK
 
 #include <isl_pw_templ.c>
+#include <isl_pw_eval.c>
 
 #undef UNION
 #define UNION isl_union_pw_qpolynomial
@@ -3072,7 +3071,7 @@ __isl_give isl_val *isl_upoly_eval(__isl_take struct isl_upoly *up,
 	}
 
 	rec = isl_upoly_as_rec(up);
-	if (!rec)
+	if (!rec || !vec)
 		goto error;
 
 	isl_assert(up->ctx, rec->n >= 1, goto error);
@@ -3130,23 +3129,7 @@ __isl_give isl_val *isl_qpolynomial_eval(__isl_take isl_qpolynomial *qp,
 	if (is_void)
 		return eval_void(qp, pnt);
 
-	if (qp->div->n_row == 0)
-		ext = isl_vec_copy(pnt->vec);
-	else {
-		int i;
-		unsigned dim = isl_space_dim(qp->dim, isl_dim_all);
-		ext = isl_vec_alloc(qp->dim->ctx, 1 + dim + qp->div->n_row);
-		if (!ext)
-			goto error;
-
-		isl_seq_cpy(ext->el, pnt->vec->el, pnt->vec->size);
-		for (i = 0; i < qp->div->n_row; ++i) {
-			isl_seq_inner_product(qp->div->row[i] + 1, ext->el,
-						1 + dim + i, &ext->el[1+dim+i]);
-			isl_int_fdiv_q(ext->el[1+dim+i], ext->el[1+dim+i],
-					qp->div->row[i][0]);
-		}
-	}
+	ext = isl_local_extend_point_vec(qp->div, isl_vec_copy(pnt->vec));
 
 	v = isl_upoly_eval(isl_upoly_copy(qp->upoly), ext);
 
@@ -3854,13 +3837,6 @@ void isl_term_get_num(__isl_keep isl_term *term, isl_int *n)
 	if (!term)
 		return;
 	isl_int_set(*n, term->n);
-}
-
-void isl_term_get_den(__isl_keep isl_term *term, isl_int *d)
-{
-	if (!term)
-		return;
-	isl_int_set(*d, term->d);
 }
 
 /* Return the coefficient of the term "term".

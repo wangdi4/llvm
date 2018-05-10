@@ -72,6 +72,10 @@ public:
 
   DistanceVector &getDist() { return DistV; }
 
+  const DirectionVector &getDV() const { return DV; }
+
+  const DistanceVector &getDist() const { return DistV; }
+
   bool isRefined() const { return Refined; }
 
   bool isIndependent() const { return Independent; }
@@ -189,6 +193,12 @@ public:
   RefinedDependence refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
                              unsigned StartNestingLevel,
                              unsigned DeepestNestingLevel, bool ForFusion);
+
+  /// Return true if \p SrcRef and \p DstRef alias based on the metadata/base
+  /// info.
+  /// Alias analyses are invoked on demand.
+  /// Both the refs are supposed to be memrefs.
+  bool doRefsAlias(const RegDDRef *SrcRef, const RegDDRef *DstRef) const;
 
   // TODO still needed? Call findDependences directly?
   // bool demandDrivenDD(DDRef* SrcRef, DDRef* SinkRef,

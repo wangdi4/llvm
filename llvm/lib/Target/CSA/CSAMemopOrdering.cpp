@@ -1950,7 +1950,7 @@ bool MemopCFG::Node::calculate_deps(const Loop *loop) {
 
   // Make sure that the chaintips are unique. They don't really need to be
   // sorted here, but that's the simplest way to do it.
-  sort(begin(tips), end(tips));
+  std::sort(begin(tips), end(tips));
   tips.erase(unique(begin(tips), end(tips)), end(tips));
 
   if (loop) {
@@ -1966,7 +1966,7 @@ bool MemopCFG::Node::calculate_deps(const Loop *loop) {
     // directly and move on to the next memop.
     if (LinearOrdering) {
       memop.exp_deps.append(begin(tips), end(tips));
-      sort(begin(memop.exp_deps), end(memop.exp_deps));
+      std::sort(begin(memop.exp_deps), end(memop.exp_deps));
       memop.exp_deps.erase(unique(begin(memop.exp_deps), end(memop.exp_deps)),
                            end(memop.exp_deps));
       tips.assign(1, {this, Dep::memop, memop_idx});
@@ -2022,7 +2022,7 @@ bool MemopCFG::Node::calculate_deps(const Loop *loop) {
     // Pull all of the new dependencies for this memop out of to_connect.
     const DepVec &to_connect = depset.to_connect;
     memop.exp_deps.append(begin(to_connect), end(to_connect));
-    sort(begin(memop.exp_deps), end(memop.exp_deps));
+    std::sort(begin(memop.exp_deps), end(memop.exp_deps));
     assert(unique(begin(memop.exp_deps), end(memop.exp_deps)) ==
            end(memop.exp_deps));
 
@@ -2198,7 +2198,7 @@ bool MemopCFG::Node::step_backwards(const Memop &cur_memop, const Loop *loop,
   populate_preds(disconnected, pred_disconnected);
 
   // Make sure to_connect gets sorted.
-  sort(begin(to_connect), end(to_connect));
+  std::sort(begin(to_connect), end(to_connect));
 
   // Update the predecessors.
   DepVec tmp;
@@ -2209,7 +2209,7 @@ bool MemopCFG::Node::step_backwards(const Memop &cur_memop, const Loop *loop,
       continue;
     DepSetEntry &pred_depset = pred->get_depset(pred_loop);
     DepVec &pc               = pred_connected[pred_idx];
-    sort(begin(pc), end(pc));
+    std::sort(begin(pc), end(pc));
     if (pred_depset.first_succ) {
       pred_depset.connected      = pc;
       pred_depset.section_states = sec_states;
@@ -2283,7 +2283,7 @@ void MemopCFG::Node::step_forwards(const Node *memop_node, const Loop *ord_loop,
   }
 
   // Make sure that to_connect is sorted and unique.
-  sort(begin(to_connect), end(to_connect));
+  std::sort(begin(to_connect), end(to_connect));
   to_connect.erase(unique(begin(to_connect), end(to_connect)), end(to_connect));
 }
 
@@ -2320,7 +2320,7 @@ MemopCFG::OrdToken MemopCFG::Node::insert_merges_and_phis(DepVec &must,
       return dep.type != Dep::phibit or dep.node == this;
     });
   if (ext_phi_split != end(must)) {
-    sort(ext_phi_split, end(must));
+    std::sort(ext_phi_split, end(must));
 
     // Iterate each node that has phibits from the must set and extract those
     // phibits. Since deps order topologically by node, all of the must phibits
@@ -2378,7 +2378,7 @@ MemopCFG::OrdToken MemopCFG::Node::insert_merges_and_phis(DepVec &must,
           pred_may.push_back(phibits[it->idx].dep);
         }
       }
-      sort(begin(pred_may), end(pred_may));
+      std::sort(begin(pred_may), end(pred_may));
 
       phi.inputs.push_back(
         pred->insert_merges_and_phis(pred_must, pred_may, pred->memops.size()));
@@ -2394,8 +2394,8 @@ MemopCFG::OrdToken MemopCFG::Node::insert_merges_and_phis(DepVec &must,
             });
 
   // Make a merge.
-  sort(begin(merge.inputs), end(merge.inputs));
-  sort(begin(must), end(must));
+  std::sort(begin(merge.inputs), end(merge.inputs));
+  std::sort(begin(must), end(must));
   swap(merge.must_merge, must);
   merge.may_merge = may;
   return get_merge(move(merge));
@@ -2815,7 +2815,7 @@ void MemopCFG::collect_loops(const MachineLoop *L) {
   for (const MachineBasicBlock *const BB : L->getBlocks()) {
     new_loop.nodes.push_back(nodes_for_bbs[BB]);
   }
-  sort(begin(new_loop.nodes), end(new_loop.nodes),
+  std::sort(begin(new_loop.nodes), end(new_loop.nodes),
        [](Node *a, Node *b) { return a->topo_num < b->topo_num; });
   loops.push_back(move(new_loop));
 }
@@ -2936,7 +2936,7 @@ void MemopCFG::calculate_imp_deps() {
   for (const unique_ptr<Node> &node : nodes) {
     for (Memop &memop : node->memops)
       if (not memop.imp_deps.empty()) {
-        sort(begin(memop.imp_deps), end(memop.imp_deps));
+        std::sort(begin(memop.imp_deps), end(memop.imp_deps));
         memop.imp_deps.erase(unique(begin(memop.imp_deps), end(memop.imp_deps)),
                              end(memop.imp_deps));
       }

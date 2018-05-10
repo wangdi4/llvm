@@ -28,7 +28,9 @@ def errorlimit : P<"errorlimit",
 def export  : P<"export", "Export a function">;
 // No help text because /failifmismatch is not intended to be used by the user.
 def failifmismatch : P<"failifmismatch", "">;
+def guard   : P<"guard", "Control flow guard">;
 def heap    : P<"heap", "Size of the heap">;
+def ignore : P<"ignore", "Specify warning codes to ignore">;
 def implib  : P<"implib", "Import library name">;
 def libpath : P<"libpath", "Additional library search path">;
 def linkrepro : P<"linkrepro", "Dump linker invocation and input files for debugging">;
@@ -41,8 +43,11 @@ def merge   : P<"merge", "Combine sections">;
 def mllvm   : P<"mllvm", "Options to pass to LLVM">;
 def nodefaultlib : P<"nodefaultlib", "Remove a default library">;
 def opt     : P<"opt", "Control optimizations">;
+def order   : P<"order", "Put functions in order">;
 def out     : P<"out", "Path to file to write output">;
+def natvis : P<"natvis", "Path to natvis file to embed in the PDB">;
 def pdb : P<"pdb", "PDB file path">;
+def pdbaltpath : P<"pdbaltpath", "PDB file path to embed in the image">;
 def section : P<"section", "Specify section attributes">;
 def stack   : P<"stack", "Size of the stack">;
 def stub    : P<"stub", "Specify DOS stub file">;
@@ -71,6 +76,7 @@ def deffile : Joined<["/", "-"], "def:">,
     HelpText<"Use module-definition file">;
 
 def debug : F<"debug">, HelpText<"Embed a symbol table in the image">;
+def debug_full : F<"debug:full">, Alias<debug>;
 def debugtype : P<"debugtype", "Debug Info Options">;
 def dll : F<"dll">, HelpText<"Create a DLL">;
 def driver : P<"driver", "Generate a Windows NT Kernel Mode Driver">;
@@ -101,6 +107,9 @@ defm fixed : B<"fixed", "Disable base relocations",
 defm highentropyva : B<"highentropyva",
                        "Enable 64-bit ASLR (default on 64-bit)",
                        "Disable 64-bit ASLR">;
+defm incremental : B<"incremental",
+                     "Keep original import library if contents are unchanged",
+                     "Replace import library file even if contents are unchanged">;
 defm largeaddressaware : B<"largeaddressaware",
                            "Enable large addresses (default on 64-bit)",
                            "Disable large addresses (default on 32-bit)">;
@@ -117,9 +126,10 @@ def help : F<"help">;
 def help_q : Flag<["/?", "-?"], "">, Alias<help>;
 
 // LLD extensions
+def debug_ghash : F<"debug:ghash">;
 def debug_dwarf : F<"debug:dwarf">;
 def export_all_symbols : F<"export-all-symbols">;
-def nopdb : F<"nopdb">, HelpText<"Disable PDB generation for DWARF users">;
+def kill_at : F<"kill-at">;
 def lldmingw : F<"lldmingw">;
 def msvclto : F<"msvclto">;
 def output_def : Joined<["/", "-"], "output-def:">;
@@ -131,6 +141,7 @@ def dash_dash_version : Flag<["--"], "version">,
 // Flags for debugging
 def lldmap : F<"lldmap">;
 def lldmap_file : Joined<["/", "-"], "lldmap:">;
+def show_timing : F<"time">;
 
 //==============================================================================
 // The flags below do nothing. They are defined only for link.exe compatibility.
@@ -145,8 +156,6 @@ multiclass QB<string name> {
 
 def functionpadmin : F<"functionpadmin">;
 def ignoreidl : F<"ignoreidl">;
-def incremental : F<"incremental">;
-def no_incremental : F<"incremental:no">;
 def nologo : F<"nologo">;
 def throwingnew : F<"throwingnew">;
 def editandcontinue : F<"editandcontinue">;
@@ -155,10 +164,7 @@ def fastfail : F<"fastfail">;
 def delay : QF<"delay">;
 def errorreport : QF<"errorreport">;
 def idlout : QF<"idlout">;
-def ignore : QF<"ignore">;
 def maxilksize : QF<"maxilksize">;
-def natvis : QF<"natvis">;
-def pdbaltpath : QF<"pdbaltpath">;
 def tlbid : QF<"tlbid">;
 def tlbout : QF<"tlbout">;
 def verbose_all : QF<"verbose">;

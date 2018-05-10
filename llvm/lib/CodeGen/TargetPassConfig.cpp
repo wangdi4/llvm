@@ -20,7 +20,10 @@
 #include "llvm/Analysis/CFLAndersAliasAnalysis.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
-#include "llvm/Analysis/Intel_StdContainerAA.h" // INTEL
+#ifdef INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Analysis/Intel_StdContainerAA.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -42,6 +45,7 @@
 #include "llvm/Support/Threading.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include <cassert>
 #include <string>
@@ -81,6 +85,9 @@ static cl::opt<bool> DisablePostRAMachineLICM("disable-postra-machine-licm",
     cl::desc("Disable Machine LICM"));
 static cl::opt<bool> DisableMachineSink("disable-machine-sink", cl::Hidden,
     cl::desc("Disable Machine Sinking"));
+static cl::opt<bool> DisablePostRAMachineSink("disable-postra-machine-sink",
+    cl::Hidden,
+    cl::desc("Disable PostRA Machine Sinking"));
 static cl::opt<bool> DisableLSR("disable-lsr", cl::Hidden,
     cl::desc("Disable Loop Strength Reduction Pass"));
 static cl::opt<bool> DisableConstantHoisting("disable-constant-hoisting",
@@ -94,11 +101,10 @@ static cl::opt<bool> DisablePartialLibcallInlining("disable-partial-libcall-inli
 static cl::opt<bool> EnableImplicitNullChecks(
     "enable-implicit-null-checks",
     cl::desc("Fold null checks into faulting memory operations"),
-    cl::init(false));
-static cl::opt<bool> EnableMergeICmps(
-    "enable-mergeicmps",
-    cl::desc("Merge ICmp chains into a single memcmp"),
-    cl::init(false));
+    cl::init(false), cl::Hidden);
+static cl::opt<bool> DisableMergeICmps("disable-mergeicmps",
+    cl::desc("Disable MergeICmps Pass"),
+    cl::init(false), cl::Hidden);
 static cl::opt<bool> PrintLSR("print-lsr-output", cl::Hidden,
     cl::desc("Print LLVM IR produced by the loop-reduce pass"));
 static cl::opt<bool> PrintISelInput("print-isel-input", cl::Hidden,
@@ -112,11 +118,6 @@ static cl::opt<bool> VerifyMachineCode("verify-machineinstrs", cl::Hidden,
 static cl::opt<bool> EnableMachineOutliner("enable-machine-outliner",
     cl::Hidden,
     cl::desc("Enable machine outliner"));
-static cl::opt<bool> EnableLinkOnceODROutlining(
-    "enable-linkonceodr-outlining",
-    cl::Hidden,
-    cl::desc("Enable the machine outliner on linkonceodr functions"),
-    cl::init(false));
 // Enable or disable FastISel. Both options are needed, because
 // FastISel is enabled by default with -fast, and we wish to be
 // able to enable or disable fast-isel independently from -O0.
@@ -124,14 +125,13 @@ static cl::opt<cl::boolOrDefault>
 EnableFastISelOption("fast-isel", cl::Hidden,
   cl::desc("Enable the \"fast\" instruction selector"));
 
-static cl::opt<cl::boolOrDefault>
-    EnableGlobalISel("global-isel", cl::Hidden,
-                     cl::desc("Enable the \"global\" instruction selector"));
+static cl::opt<cl::boolOrDefault> EnableGlobalISelOption(
+    "global-isel", cl::Hidden,
+    cl::desc("Enable the \"global\" instruction selector"));
 
-static cl::opt<std::string>
-PrintMachineInstrs("print-machineinstrs", cl::ValueOptional,
-                   cl::desc("Print machine instrs"),
-                   cl::value_desc("pass-name"), cl::init("option-unspecified"));
+static cl::opt<std::string> PrintMachineInstrs(
+    "print-machineinstrs", cl::ValueOptional, cl::desc("Print machine instrs"),
+    cl::value_desc("pass-name"), cl::init("option-unspecified"), cl::Hidden);
 
 static cl::opt<int> EnableGlobalISelAbort(
     "global-isel-abort", cl::Hidden,
@@ -177,22 +177,22 @@ const char *StopBeforeOptName = "stop-before";
 static cl::opt<std::string>
     StartAfterOpt(StringRef(StartAfterOptName),
                   cl::desc("Resume compilation after a specific pass"),
-                  cl::value_desc("pass-name"), cl::init(""));
+                  cl::value_desc("pass-name"), cl::init(""), cl::Hidden);
 
 static cl::opt<std::string>
     StartBeforeOpt(StringRef(StartBeforeOptName),
                    cl::desc("Resume compilation before a specific pass"),
-                   cl::value_desc("pass-name"), cl::init(""));
+                   cl::value_desc("pass-name"), cl::init(""), cl::Hidden);
 
 static cl::opt<std::string>
     StopAfterOpt(StringRef(StopAfterOptName),
                  cl::desc("Stop compilation after a specific pass"),
-                 cl::value_desc("pass-name"), cl::init(""));
+                 cl::value_desc("pass-name"), cl::init(""), cl::Hidden);
 
 static cl::opt<std::string>
     StopBeforeOpt(StringRef(StopBeforeOptName),
                   cl::desc("Stop compilation before a specific pass"),
-                  cl::value_desc("pass-name"), cl::init(""));
+                  cl::value_desc("pass-name"), cl::init(""), cl::Hidden);
 
 /// Allow standard passes to be disabled by command line options. This supports
 /// simple binary flags that either suppress the pass or do nothing.
@@ -228,7 +228,7 @@ static IdentifyingPassPtr overridePass(AnalysisID StandardID,
   if (StandardID == &TailDuplicateID)
     return applyDisable(TargetID, DisableTailDuplicate);
 
-  if (StandardID == &TargetPassConfig::EarlyTailDuplicateID)
+  if (StandardID == &EarlyTailDuplicateID)
     return applyDisable(TargetID, DisableEarlyTailDup);
 
   if (StandardID == &MachineBlockPlacementID)
@@ -243,17 +243,20 @@ static IdentifyingPassPtr overridePass(AnalysisID StandardID,
   if (StandardID == &EarlyIfConverterID)
     return applyDisable(TargetID, DisableEarlyIfConversion);
 
-  if (StandardID == &MachineLICMID)
+  if (StandardID == &EarlyMachineLICMID)
     return applyDisable(TargetID, DisableMachineLICM);
 
   if (StandardID == &MachineCSEID)
     return applyDisable(TargetID, DisableMachineCSE);
 
-  if (StandardID == &TargetPassConfig::PostRAMachineLICMID)
+  if (StandardID == &MachineLICMID)
     return applyDisable(TargetID, DisablePostRAMachineLICM);
 
   if (StandardID == &MachineSinkingID)
     return applyDisable(TargetID, DisableMachineSink);
+
+  if (StandardID == &PostRAMachineSinkingID)
+    return applyDisable(TargetID, DisablePostRAMachineSink);
 
   if (StandardID == &MachineCopyPropagationID)
     return applyDisable(TargetID, DisableCopyProp);
@@ -268,10 +271,6 @@ static IdentifyingPassPtr overridePass(AnalysisID StandardID,
 INITIALIZE_PASS(TargetPassConfig, "targetpassconfig",
                 "Target Pass Configuration", false, false)
 char TargetPassConfig::ID = 0;
-
-// Pseudo Pass IDs.
-char TargetPassConfig::EarlyTailDuplicateID = 0;
-char TargetPassConfig::PostRAMachineLICMID = 0;
 
 namespace {
 
@@ -367,10 +366,6 @@ TargetPassConfig::TargetPassConfig(LLVMTargetMachine &TM, PassManagerBase &pm)
   // Also register alias analysis passes required by codegen passes.
   initializeBasicAAWrapperPassPass(*PassRegistry::getPassRegistry());
   initializeAAResultsWrapperPassPass(*PassRegistry::getPassRegistry());
-
-  // Substitute Pseudo Pass IDs for real ones.
-  substitutePass(&EarlyTailDuplicateID, &TailDuplicateID);
-  substitutePass(&PostRAMachineLICMID, &MachineLICMID);
 
   if (StringRef(PrintMachineInstrs.getValue()).equals(""))
     TM.Options.PrintMachineCode = true;
@@ -607,7 +602,7 @@ void TargetPassConfig::addIRPasses() {
     // loads and compares. ExpandMemCmpPass then tries to expand those calls
     // into optimally-sized loads and compares. The transforms are enabled by a
     // target lowering hook.
-    if (EnableMergeICmps)
+    if (!DisableMergeICmps)
       addPass(createMergeICmpsPass());
     addPass(createExpandMemCmpPass());
   }
@@ -665,6 +660,9 @@ void TargetPassConfig::addPassesToHandleExceptions() {
     addPass(createWinEHPass());
     addPass(createDwarfEHPass());
     break;
+  case ExceptionHandling::Wasm:
+    // TODO to prevent warning
+    break;
   case ExceptionHandling::None:
     addPass(createLowerInvokePass());
 
@@ -707,16 +705,20 @@ void TargetPassConfig::addISelPrepare() {
 }
 
 bool TargetPassConfig::addCoreISelPasses() {
-  // Enable FastISel with -fast, but allow that to be overridden.
+  // Enable FastISel with -fast-isel, but allow that to be overridden.
   TM->setO0WantsFastISel(EnableFastISelOption != cl::BOU_FALSE);
   if (EnableFastISelOption == cl::BOU_TRUE ||
       (TM->getOptLevel() == CodeGenOpt::None && TM->getO0WantsFastISel()))
     TM->setFastISel(true);
 
-  // Ask the target for an isel.
-  // Enable GlobalISel if the target wants to, but allow that to be overriden.
-  if (EnableGlobalISel == cl::BOU_TRUE ||
-      (EnableGlobalISel == cl::BOU_UNSET && isGlobalISelEnabled())) {
+  // Ask the target for an instruction selector.
+  // Explicitly enabling fast-isel should override implicitly enabled
+  // global-isel.
+  if (EnableGlobalISelOption == cl::BOU_TRUE ||
+      (EnableGlobalISelOption == cl::BOU_UNSET &&
+       TM->Options.EnableGlobalISel && EnableFastISelOption != cl::BOU_TRUE)) {
+    TM->setFastISel(false);
+
     if (addIRTranslator())
       return true;
 
@@ -753,7 +755,7 @@ bool TargetPassConfig::addCoreISelPasses() {
 }
 
 bool TargetPassConfig::addISelPasses() {
-  if (TM->Options.EmulatedTLS)
+  if (TM->useEmulatedTLS())
     addPass(createLowerEmuTLSPass());
 
   addPass(createPreISelIntrinsicLoweringPass());
@@ -769,10 +771,9 @@ bool TargetPassConfig::addISelPasses() {
 /// -regalloc=... command line option.
 static FunctionPass *useDefaultRegisterAllocator() { return nullptr; }
 static cl::opt<RegisterRegAlloc::FunctionPassCtor, false,
-               RegisterPassParser<RegisterRegAlloc> >
-RegAlloc("regalloc",
-         cl::init(&useDefaultRegisterAllocator),
-         cl::desc("Register allocator to use"));
+               RegisterPassParser<RegisterRegAlloc>>
+    RegAlloc("regalloc", cl::Hidden, cl::init(&useDefaultRegisterAllocator),
+             cl::desc("Register allocator to use"));
 
 /// Add the complete set of target-independent postISel code generator passes.
 ///
@@ -843,8 +844,10 @@ void TargetPassConfig::addMachinePasses() {
   addPostRegAlloc();
 
   // Insert prolog/epilog code.  Eliminate abstract frame index references...
-  if (getOptLevel() != CodeGenOpt::None)
+  if (getOptLevel() != CodeGenOpt::None) {
+    addPass(&PostRAMachineSinkingID);
     addPass(&ShrinkWrapID);
+  }
 
   // Prolog/Epilog inserter needs a TargetMachine to instantiate. But only
   // do so if it hasn't been disabled, substituted, or overridden.
@@ -902,9 +905,16 @@ void TargetPassConfig::addMachinePasses() {
 
   addPass(&XRayInstrumentationID, false);
   addPass(&PatchableFunctionID, false);
+#if INTEL_CUSTOMIZATION
+  if (IntelOptReportEmitter == OptReportOptions::MIR)
+    addPass(&MachineLoopOptReportEmitterID, false);
+#endif  // INTEL_CUSTOMIZATION
 
   if (EnableMachineOutliner)
-    PM->add(createMachineOutlinerPass(EnableLinkOnceODROutlining));
+    addPass(createMachineOutlinerPass());
+
+  // Add passes that directly emit MI after all other MI passes.
+  addPreEmitPass2();
 
   AddingMachinePasses = false;
 }
@@ -941,7 +951,7 @@ void TargetPassConfig::addMachineSSAOptimization() {
   // loop info, just like LICM and CSE below.
   addILPOpts();
 
-  addPass(&MachineLICMID, false);
+  addPass(&EarlyMachineLICMID, false);
   addPass(&MachineCSEID, false);
 
   addPass(&MachineSinkingID);
@@ -1096,10 +1106,14 @@ void TargetPassConfig::addOptimizedRegAlloc(FunctionPass *RegAllocPass) {
     // kill markers.
     addPass(&StackSlotColoringID);
 
+    // Copy propagate to forward register uses and try to eliminate COPYs that
+    // were not coalesced.
+    addPass(&MachineCopyPropagationID);
+
     // Run post-ra machine LICM to hoist reloads / remats.
     //
     // FIXME: can this move into MachineLateOptimization?
-    addPass(&PostRAMachineLICMID);
+    addPass(&MachineLICMID);
   }
 }
 
@@ -1141,13 +1155,13 @@ void TargetPassConfig::addBlockPlacement() {
 //===---------------------------------------------------------------------===//
 /// GlobalISel Configuration
 //===---------------------------------------------------------------------===//
-
-bool TargetPassConfig::isGlobalISelEnabled() const {
-  return false;
-}
-
 bool TargetPassConfig::isGlobalISelAbortEnabled() const {
-  return EnableGlobalISelAbort == 1;
+  if (EnableGlobalISelAbort.getNumOccurrences() > 0)
+    return EnableGlobalISelAbort == 1;
+
+  // When no abort behaviour is specified, we don't abort if the target says
+  // that GISel is enabled.
+  return !TM->Options.EnableGlobalISel;
 }
 
 bool TargetPassConfig::reportDiagnosticWhenGlobalISelFallback() const {

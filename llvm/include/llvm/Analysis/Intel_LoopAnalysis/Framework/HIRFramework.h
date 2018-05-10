@@ -17,16 +17,52 @@
 #ifndef LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRFRAMEWORK_H
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRFRAMEWORK_H
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRAnalysisPass.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
-
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSymbaseAssignment.h"
-// Required for making INVALID_SYMBASE and CONSTANT_SYMBASE available.
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRScalarSymbaseAssignment.h"
 
 namespace llvm {
 
+class DominatorTree;
+class PostDominatorTree;
+class LoopInfo;
+class ScalarEvolution;
+class AAResults;
+
 namespace loopopt {
+
+class HIRCreation;
+class HIRCleanup;
+class HIRLoopFormation;
+class HIRScalarSymbaseAssignment;
+class HIRParser;
+class HIRRegionIdentification;
+class HIRSCCFormation;
+
+const unsigned InvalidBlobIndex = 0;
+
+/// Invalid symbase.
+const unsigned InvalidSymbase = 0;
+
+/// Symbase for constants.
+const unsigned ConstantSymbase = 1;
+
+/// Symbase assigned to non-constant rvals which do not create data
+/// dependencies.
+const unsigned GenericRvalSymbase = 2;
+
+class HIRDDAnalysis;
+class HIRLocalityAnalysis;
+class HIRLoopResource;
+class HIRLoopStatistics;
+class HIRSafeReductionAnalysis;
+class HIRVectVLSAnalysis;
+
+typedef HIRAnalysisProviderBase<HIRDDAnalysis, HIRLocalityAnalysis,
+                                HIRLoopResource, HIRLoopStatistics,
+                                HIRSafeReductionAnalysis, HIRVectVLSAnalysis>
+    HIRAnalysisProvider;
 
 /// This analysis is the public interface for the HIR framework.
 ///
@@ -45,7 +81,7 @@ namespace loopopt {
 ///    interface.
 /// 9) HIRSymbaseAssignment - Assigns symbases to memory DDRefs.
 ///
-class HIRFramework : public FunctionPass {
+class HIRFramework {
 public:
   /// Iterators to iterate over regions
   typedef HLContainerTy::iterator iterator;
@@ -54,67 +90,168 @@ public:
   typedef HLContainerTy::const_reverse_iterator const_reverse_iterator;
 
 private:
-  /// Parser for the function.
-  HIRParser *HIRP;
+  /// The function we are operating on.
+  Function &Func;
+
+  DominatorTree &DT;
+  PostDominatorTree &PDT;
+  LoopInfo &LI;
+  ScalarEvolution &SE;
+  AAResults &AA;
+  HIRRegionIdentification &RI;
+  HIRSCCFormation &SCCF;
+
+  /// HLNodeUtils object for the framework.
+  std::unique_ptr<HLNodeUtils, HLNodeUtils::HLNodeUtilsDeleter> HNU;
+
+  HIRAnalysisProvider AnalysisProvider;
+
+  /// Regions - HLRegions formed out of incoming LLVM IR.
+  HLContainerTy Regions;
+
+  /// Scalar symbase assignment facility.
+  std::unique_ptr<HIRCreation> PhaseCreation;
+  std::unique_ptr<HIRCleanup> PhaseCleanup;
+  std::unique_ptr<HIRLoopFormation> PhaseLoopFormation;
+  std::unique_ptr<HIRScalarSymbaseAssignment> PhaseScalarSA;
+  std::unique_ptr<HIRParser> PhaseParser;
+
+  // Latest requested symbase.
+  unsigned MaxSymbase;
 
   struct MaxTripCountEstimator;
+  void estimateMaxTripCounts();
 
-  void estimateMaxTripCounts() const;
+  void runImpl();
+
+public:
+  HIRFramework(Function &F, DominatorTree &DT, PostDominatorTree &PDT,
+               LoopInfo &LI, ScalarEvolution &SE, AAResults &AA,
+               HIRRegionIdentification &RI, HIRSCCFormation &SCCF,
+               HIRAnalysisProvider AnalysisProvider);
+  HIRFramework(const HIRFramework &) = delete;
+  HIRFramework(HIRFramework &&);
+  ~HIRFramework();
+
+  void print(raw_ostream &OS) const;
+  void print(bool FrameworkDetails, raw_ostream &OS) const;
+
+  void verify() const;
+
+  // The biggest symbase seen during compilation of this fuction
+  unsigned getMaxSymbase() const { return MaxSymbase; }
+
+  // Returns a new unused symbase ID.
+  unsigned getNewSymbase() { return ++MaxSymbase; }
+
+  // Returns the max symbase assigned to any scalar.
+  unsigned getMaxScalarSymbase() const;
+
+  /// Returns HLNodeUtils object.
+  HLNodeUtils &getHLNodeUtils() { return *HNU; }
+  const HLNodeUtils &getHLNodeUtils() const { return *HNU; }
+
+  /// Returns DDRefUtils object.
+  DDRefUtils &getDDRefUtils() const;
+
+  /// Returns CanonExprUtils object.
+  CanonExprUtils &getCanonExprUtils() const;
+
+  /// Returns BlobUtils object.
+  BlobUtils &getBlobUtils() const;
+
+  /// Region iterator methods
+  iterator hir_begin() { return Regions.begin(); }
+  const_iterator hir_begin() const { return Regions.begin(); }
+  iterator hir_end() { return Regions.end(); }
+  const_iterator hir_end() const { return Regions.end(); }
+
+  reverse_iterator hir_rbegin() { return Regions.rbegin(); }
+  const_reverse_iterator hir_rbegin() const { return Regions.rbegin(); }
+  reverse_iterator hir_rend() { return Regions.rend(); }
+  const_reverse_iterator hir_rend() const { return Regions.rend(); }
+
+  /// Returns true if \p HInst is a livein copy.
+  bool isLiveinCopy(const HLInst *HInst);
+
+  /// Returns true if \p HInst is a liveout copy.
+  bool isLiveoutCopy(const HLInst *HInst);
+
+  /// Returns Function object.
+  Function &getFunction() const { return Func; }
+
+  /// Returns Module object.
+  Module &getModule() const { return *getFunction().getParent(); }
+
+  /// Returns LLVMContext object.
+  LLVMContext &getContext() const { return getFunction().getContext(); }
+
+  /// Returns DataLayout object.
+  const DataLayout &getDataLayout() const {
+    return getModule().getDataLayout();
+  }
+
+  HIRAnalysisProvider &getHIRAnalysisProvider() { return AnalysisProvider; }
+};
+
+class HIRFrameworkAnalysis : public AnalysisInfoMixin<HIRFrameworkAnalysis> {
+  friend struct AnalysisInfoMixin<HIRFrameworkAnalysis>;
+
+  static AnalysisKey Key;
+
+public:
+  using Result = HIRFramework;
+
+  HIRFramework run(Function &F, FunctionAnalysisManager &AM);
+};
+
+class HIRFrameworkPrinterPass : public PassInfoMixin<HIRFrameworkPrinterPass> {
+  raw_ostream &OS;
+
+public:
+  explicit HIRFrameworkPrinterPass(raw_ostream &OS) : OS(OS) {}
+
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
+    if (llvm::isFunctionInPrintList(F.getName())) {
+      OS << "Function: " << F.getName() << "\n";
+
+      AM.getResult<HIRFrameworkAnalysis>(F).print(false, OS);
+    }
+
+    return PreservedAnalyses::all();
+  }
+};
+
+class HIRFrameworkVerifierPass
+    : public PassInfoMixin<HIRFrameworkVerifierPass> {
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
+    AM.getResult<HIRFrameworkAnalysis>(F).verify();
+    return PreservedAnalyses::all();
+  }
+};
+
+class HIRFrameworkWrapperPass : public FunctionPass {
+  std::unique_ptr<HIRFramework> HIRF;
 
 public:
   static char ID; // Pass identification
-  HIRFramework();
+
+  HIRFrameworkWrapperPass();
+
+  HIRFramework &getHIR() { return *HIRF; }
+  const HIRFramework &getHIR() const { return *HIRF; }
 
   bool runOnFunction(Function &F) override;
-  void releaseMemory() override {}
   void getAnalysisUsage(AnalysisUsage &AU) const override;
-  void print(raw_ostream &OS, const Module * = nullptr) const override;
-  void print(bool FrameworkDetails, raw_ostream &OS,
-             const Module *M = nullptr) const;
-  void verifyAnalysis() const override;
 
-  /// Returns HLNodeUtils object.
-  HLNodeUtils &getHLNodeUtils() const { return HIRP->getHLNodeUtils(); }
-
-  /// Returns DDRefUtils object.
-  DDRefUtils &getDDRefUtils() const { return HIRP->getDDRefUtils(); }
-
-  /// Returns CanonExprUtils object.
-  CanonExprUtils &getCanonExprUtils() const {
-    return HIRP->getCanonExprUtils();
+  void print(raw_ostream &OS, const Module * = nullptr) const override {
+    HIRF->print(OS);
   }
 
-  /// Returns BlobUtils object.
-  BlobUtils &getBlobUtils() const { return HIRP->getBlobUtils(); }
+  void verifyAnalysis() const override { HIRF->verify(); }
 
-  /// Region iterator methods
-  iterator hir_begin() { return HIRP->hir_begin(); }
-  const_iterator hir_cbegin() const { return HIRP->hir_cbegin(); }
-  iterator hir_end() { return HIRP->hir_end(); }
-  const_iterator hir_cend() const { return HIRP->hir_cend(); }
-
-  reverse_iterator hir_rbegin() { return HIRP->hir_rbegin(); }
-  const_reverse_iterator hir_crbegin() const { return HIRP->hir_crbegin(); }
-  reverse_iterator hir_rend() { return HIRP->hir_rend(); }
-  const_reverse_iterator hir_crend() const { return HIRP->hir_crend(); }
-
-  /// Returns true if \p HInst is a livein copy.
-  bool isLiveinCopy(const HLInst *HInst) { return HIRP->isLiveinCopy(HInst); }
-
-  /// Returns true if \p HInst is a liveout copy.
-  bool isLiveoutCopy(const HLInst *HInst) { return HIRP->isLiveoutCopy(HInst); }
-
-  /// Returns Function object.
-  Function &getFunction() const { return HIRP->getFunction(); }
-
-  /// Returns Module object.
-  Module &getModule() const { return HIRP->getModule(); }
-
-  /// Returns LLVMContext object.
-  LLVMContext &getContext() const { return HIRP->getContext(); }
-
-  /// Returns DataLayout object.
-  const DataLayout &getDataLayout() const { return HIRP->getDataLayout(); }
+  void releaseMemory() override { HIRF.reset(); }
 };
 
 } // End namespace loopopt

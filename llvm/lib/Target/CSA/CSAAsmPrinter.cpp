@@ -42,7 +42,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/CodeGen/TargetLoweringObjectFile.h"
+#include "llvm/Target/TargetLoweringObjectFile.h"
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -515,7 +515,7 @@ void CSAAsmPrinter::EmitFunctionEntryLabel() {
 
   // Set up
   MRI = &MF->getRegInfo();
-  F   = MF->getFunction();
+  F   = &MF->getFunction();
 
   //
   // CMPLRS-49165: set compilation directory DWARF emission.
@@ -537,11 +537,13 @@ void CSAAsmPrinter::EmitFunctionEntryLabel() {
   // I think setting the compilation directory is the right thing to do
   // anyway.
   //
-  auto *SubProgram = MF->getFunction()->getSubprogram();
+  auto *SubProgram = MF->getFunction().getSubprogram();
   if (SubProgram &&
       SubProgram->getUnit()->getEmissionKind() != DICompileUnit::NoDebug) {
+#if RAVI
     MCDwarfLineTable &Table = OutStreamer->getContext().getMCDwarfLineTable(0);
     Table.setCompilationDir(SubProgram->getUnit()->getDirectory());
+#endif
   }
 
   // If we're wrapping the CSA assembly we need to create our own
@@ -743,7 +745,7 @@ void CSAAsmPrinter::EmitSimpleEntryInstruction(void) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
   O << "\t.entry\t";
-  O << MF->getFunction()->getName();
+  O << MF->getFunction().getName();
   O << ", hybriddataflow\n";
   OutStreamer->EmitRawText(O.str());
 }
@@ -752,7 +754,7 @@ void CSAAsmPrinter::EmitParamsResultsDecl(void) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
   const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
-  const Function *F = MF->getFunction();
+  const Function *F = &MF->getFunction();
   const MachineInstr *entryMI = LMFI->getEntryMI();
   const MachineInstr *returnMI = LMFI->getReturnMI();
   
@@ -791,7 +793,7 @@ void CSAAsmPrinter::EmitEntryInstruction(void) {
   const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
   const MachineInstr *entryMI = LMFI->getEntryMI();
   O << "\t#.entry\t";
-  O << MF->getFunction()->getName();
+  O << MF->getFunction().getName();
   O << ", hybriddataflow, ";
   EmitCSAOperands(entryMI,O,0,entryMI->getNumOperands());
   O << "\n";
@@ -818,7 +820,7 @@ void CSAAsmPrinter::EmitCallInstruction(const MachineInstr *MI) {
   O << F->getName();
   O << ", ";
   unsigned call_site_index = MI->getOperand(1).getImm();
-  O << MF->getFunction()->getName() << "_cont_point_" << call_site_index << ", ";
+  O << MF->getFunction().getName() << "_cont_point_" << call_site_index << ", ";
   EmitCSAOperands(MI,O,2,MI->getNumOperands());
   O << "\n";
   OutStreamer->EmitRawText(O.str());
@@ -829,7 +831,7 @@ void CSAAsmPrinter::EmitContinueInstruction(const MachineInstr *MI) {
   raw_svector_ostream O(Str);
   O << "\t#.continue\t";
   unsigned call_site_index = MI->getOperand(MI->getNumOperands()-1).getImm();
-  O << MF->getFunction()->getName() << "_cont_point_" << call_site_index << ", ";
+  O << MF->getFunction().getName() << "_cont_point_" << call_site_index << ", ";
   
   EmitCSAOperands(MI,O,0,MI->getNumOperands()-1);
   O << "\n";

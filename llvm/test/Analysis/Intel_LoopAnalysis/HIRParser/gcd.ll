@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check that the HIR for this loop is constructed in a reasonable amount of time which depends on the gcd computation of the subsrcipt expression with the big coefficient finishing in a reasonable amount of time.
 

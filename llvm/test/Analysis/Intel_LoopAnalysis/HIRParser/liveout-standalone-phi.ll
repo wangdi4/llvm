@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that we create a liveout copy for standalone phi %k.0 which is live outside the loop.
 ; CHECK: + DO i1 = 0, 44, 1   <DO_LOOP>

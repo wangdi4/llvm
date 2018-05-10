@@ -304,36 +304,6 @@ static const unsigned CallReturnPos = 1;
 // Position of the function call node relative to the function node.
 static const unsigned CallFirstArgPos = 2;
 
-struct AndersensAAResult::BitmapKeyInfo {
-  static inline SparseBitVector<> *getEmptyKey() {
-    return reinterpret_cast<SparseBitVector<> *>(-1);
-  }
-  static inline SparseBitVector<> *getTombstoneKey() {
-    return reinterpret_cast<SparseBitVector<> *>(-2);
-  }
-  static unsigned getHashValue(const SparseBitVector<> *bitmap) {
-    uint64_t HashVal = 0;
-
-    for (auto bi = bitmap->begin(), E = bitmap->end();
-         bi != E; ++bi) {
-      HashVal ^= *bi;
-    }
-    return HashVal;
-  }
-  static bool isEqual(const SparseBitVector<> *LHS,
-                      const SparseBitVector<> *RHS) {
-    if (LHS == RHS)
-      return true;
-    else if (LHS == getEmptyKey() || RHS == getEmptyKey()
-             || LHS == getTombstoneKey() || RHS == getTombstoneKey())
-      return false;
-
-    return *LHS == *RHS;
-  }
-
-  static bool isPod() { return true; }
-};
-
 // Information DenseSet requires implemented in order to be able to do
 // it's thing
 struct AndersensAAResult::PairKeyInfo {
@@ -366,125 +336,6 @@ struct AndersensAAResult::ConstraintKeyInfo {
                       const Constraint &RHS) {
     return LHS.Type == RHS.Type && LHS.Dest == RHS.Dest
       && LHS.Src == RHS.Src && LHS.Offset == RHS.Offset;
-  }
-};
-
-// Node class - This class is used to represent a node in the constraint
-// graph.  Due to various optimizations, it is not always the case that
-// there is a mapping from a Node to a Value.  In particular, we add
-// artificial Node's that represent the set of pointed-to variables shared
-// for each location equivalent Node.
-struct AndersensAAResult::Node {
-public:
-  Value *Val;
-  SparseBitVector<> *Edges;
-  SparseBitVector<> *PointsTo;
-  SparseBitVector<> *OldPointsTo;
-  std::list<Constraint> Constraints;
-
-  // The incoming edges and outgoing edges are used by the escape analysis.
-  SparseBitVector<> *InEdges;
-  SparseBitVector<> *OutEdges;
-  // The reversed points to set
-  SparseBitVector<> *RevPointsTo;
-  unsigned int EscFlag;
-
-  // Pointer and location equivalence labels
-  unsigned PointerEquivLabel;
-  unsigned LocationEquivLabel;
-  // Predecessor edges, both real and implicit
-  SparseBitVector<> *PredEdges;
-  SparseBitVector<> *ImplicitPredEdges;
-  // Set of nodes that point to us, only use for location equivalence.
-  SparseBitVector<> *PointedToBy;
-  // Number of incoming edges, used during variable substitution to early
-  // free the points-to sets
-  unsigned NumInEdges;
-  // True if our points-to set is in the Set2PEClass map
-  bool StoredInHash;
-  // True if our node has no indirect constraints (complex or otherwise)
-  bool Direct;
-  // True if the node is address taken, *or* it is part of a group of nodes
-  // that must be kept together.  This is set to true for functions and
-  // their arg nodes, which must be kept at the same position relative to
-  // their base function node.
-  bool AddressTaken;
-
-  // True is the Value object that originally tracked this node has been
-  // removed from the IR, causing this node to no longer be valid.
-  bool Invalidated;
-
-  // Nodes in cycles (or in equivalence classes) are united together using a
-  // standard union-find representation with path compression.  NodeRep
-  // gives the index into GraphNodes for the representative Node.
-  unsigned NodeRep;
-
-  // Modification timestamp.  Assigned from Counter.
-  // Used for work list prioritization.
-  unsigned Timestamp;
-
-  explicit Node(bool direct = true)
-      : Val(0), Edges(0), PointsTo(0), OldPointsTo(0), InEdges(nullptr),
-        OutEdges(nullptr), RevPointsTo(nullptr), EscFlag(0),
-        PointerEquivLabel(0), LocationEquivLabel(0), PredEdges(0),
-        ImplicitPredEdges(0), PointedToBy(0), NumInEdges(0),
-        StoredInHash(false), Direct(direct), AddressTaken(false),
-        Invalidated(false), NodeRep(SelfRep), Timestamp(0) {}
-
-  Node *setValue(Value *V) {
-    assert(V == nullptr ||
-        (Val == nullptr && "Value already set for this node!"));
-    Val = V;
-    return this;
-  }
-
-  /// getValue - Return the LLVM value corresponding to this node.
-  ///
-  Value *getValue() const { return Val; }
-
-  /// setInvalidated - Mark the node as no longer tracking a valid object.
-  void setInvalidated() {
-    Invalidated = true;
-  }
-
-  /// getInvalidated - Check whether the node trackes a valid object.
-  bool getInvalidated() const {
-    return Invalidated;
-  }
-
-  /// addPointerTo - Add a pointer to the list of pointees of this node,
-  /// returning true if this caused a new pointer to be added, or false if
-  /// we already knew about the points-to relation.
-  bool addPointerTo(unsigned Node) {
-    return PointsTo->test_and_set(Node);
-  }
-
-  bool addRevPointerto(unsigned Node) {
-    if (!RevPointsTo)
-      RevPointsTo = new SparseBitVector<>;
-    return RevPointsTo->test_and_set(Node);
-  }
-
-  /// intersects - Return true if the points-to set of this node intersects
-  /// with the points-to set of the specified node.
-  bool intersects(Node *N) const;
-
-  /// intersectsIgnoring - Return true if the points-to set of this node
-  /// intersects with the points-to set of the specified node on any nodes
-  /// except for the specified node to ignore.
-  bool intersectsIgnoring(Node *N, unsigned) const;
-
-  // Timestamp a node (used for work list prioritization)
-  void Stamp() {
-    // Initialize Timestamp Counter (static).
-    static std::atomic<unsigned> Counter (0);
-
-    Timestamp = ++Counter;
-    --Timestamp;
-  }
-
-  bool isRep() const {
-    return( (int) NodeRep < 0 );
   }
 };
 
@@ -796,10 +647,10 @@ AndersensAAResult::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
 
 AnalysisKey AndersensAA::Key;
 
-AndersensAAResult AndersensAA::run(Module &M, AnalysisManager<Module> *AM) {
+AndersensAAResult AndersensAA::run(Module &M, ModuleAnalysisManager &AM) {
   return AndersensAAResult::analyzeModule(M,
-                                      AM->getResult<TargetLibraryAnalysis>(M),
-                                      AM->getResult<CallGraphAnalysis>(M));
+                                      AM.getResult<TargetLibraryAnalysis>(M),
+                                      AM.getResult<CallGraphAnalysis>(M));
 }
 
 char AndersensAAWrapperPass::ID = 0;
@@ -1127,8 +978,8 @@ static const char* getModRefResultStr(ModRefInfo R)
 {
   const char *Names[] = { "NoModRef", "Ref", "Mod", "ModRef" };
 
-  assert(R >= MRI_NoModRef && R <= MRI_ModRef);
-  return Names[R];
+  assert(R >= ModRefInfo::NoModRef && R <= ModRefInfo::ModRef);
+  return Names[static_cast<int>(R)];
 }
 
 ModRefInfo
@@ -1141,14 +992,14 @@ AndersensAAResult::getModRefInfo(ImmutableCallSite CS,
   }
 
   // Try to use the collected Mod/Ref sets, if available.
-  ModRefInfo R = MRI_ModRef;
+  ModRefInfo R = ModRefInfo::ModRef;
    if (UseIntelModRef && IMR) {
         R = IMR->getModRefInfo(CS, LocA);
    }
 
-   if (R != MRI_NoModRef) {
+   if (R != ModRefInfo::NoModRef) {
        ModRefInfo Others = AAResultBase::getModRefInfo(CS, LocA);
-       R = ModRefInfo(R & Others);
+       R = intersectModRef(R, Others);
    }
 
    if (PrintAndersModRefQueries) {
@@ -4113,36 +3964,36 @@ namespace llvm {
     // enumeration id, to record one of 'Mod', 'Ref', or 'ModRef'.
     struct ModRefMap {
 
-      // The Value-enum mapping. Uses a 'unsigned' for the
-      // actaul value to support bit-logical operations.
-      MapVector<Value*, unsigned> Map;
+      // Mapping from the Value object to the ModRefInfo of it.
+      using ValueToMRI = MapVector<Value*, ModRefInfo>;
+      ValueToMRI Map;
 
       // Update the map to include V as a Modified value.
       // Return true, if this causes a change to the map.
       bool addMod(const Value *V) {
-        return addModRef(V, MRI_Mod);
+        return addModRef(V, ModRefInfo::Mod);
       }
 
       // Update the map to include V as a Referenced value.
       // Return true, if this causes a change to the map.
       bool addRef(const Value *V) {
-        return addModRef(V, MRI_Ref);
+        return addModRef(V, ModRefInfo::Ref);
       }
 
       // Update the map to include V as a based on the mask value.
       // Return true, if this causes a change to the map.
-      bool addModRef(const Value *V, unsigned mask = MRI_ModRef) {
+      bool addModRef(const Value *V, ModRefInfo mask = ModRefInfo::ModRef) {
         auto &Info = Map[const_cast<Value*>(V)];
         auto Prev = Info;
-        Info |= mask;
+        Info = unionModRef(Info, mask);
         return Prev != Info;
       }
 
       // Prune the list of elements that have NoModRef as their value.
       void removeNoMod() {
-        MapVector<Value*, unsigned> Tmp;
+        ValueToMRI Tmp;
         for (auto I = Map.begin(), E = Map.end(); I != E; ++I) {
-          if (I->second != MRI_NoModRef) {
+          if (isModOrRefSet(I->second)) {
             Tmp.insert(*I);
           }
         }
@@ -4150,11 +4001,11 @@ namespace llvm {
       }
 
       // Print the elements of the map that have the 'mask' bits set.
-      void printMR(raw_ostream &O, unsigned mask) const {
+      void printMR(raw_ostream &O, ModRefInfo mask) const {
         O << "  {\n";
         for (auto I = Map.begin(), E = Map.end();
           I != E; ++I) {
-          if (I->second & mask) {
+          if (isModOrRefSet(intersectModRef(I->second, mask))) {
             O << *I->first << "\n";
           }
         }
@@ -4274,25 +4125,23 @@ namespace llvm {
         return changed;
       }
 
-      bool addModRef(const Value *V, unsigned mask) {
+      bool addModRef(const Value *V, ModRefInfo mask) {
         if (isModBottom()) {
-          mask &= ~MRI_Mod;
+          mask = clearMod(mask);
         }
         if (isRefBottom()) {
-          mask &= ~MRI_Ref;
+          mask = clearRef(mask);
         }
 
-        if (mask == 0) {
+        if (isNoModRef(mask)) {
           return false;
         }
 
         bool changed = AndersenModRefInfo.addModRef(V, mask);
 
         FunctionEffectMask Effect = FunctionEffectMask(
-          (mask & MRI_Ref ?
-        ReadsMemory : DoesNotAccessMemory) |
-                      (mask & MRI_Mod ?
-                    WritesMemory : DoesNotAccessMemory));
+          (isRefSet(mask) ? ReadsMemory : DoesNotAccessMemory) |
+          (isModSet(mask) ? WritesMemory : DoesNotAccessMemory));
         addFunctionEffect(Effect);
         return changed;
       }
@@ -4342,7 +4191,7 @@ namespace llvm {
         else {
           for (auto I = AndersenModRefInfo.Map.begin(),
             E = AndersenModRefInfo.Map.end(); I != E; ++I) {
-            I->second &= ~MRI_Mod;
+              I->second = clearMod(I->second);
           }
         }
       }
@@ -4356,7 +4205,7 @@ namespace llvm {
         else {
           for (auto I = AndersenModRefInfo.Map.begin(),
             E = AndersenModRefInfo.Map.end(); I != E; ++I) {
-            I->second &= ~MRI_Ref;
+            I->second = clearRef(I->second);
           }
         }
       }
@@ -4377,8 +4226,8 @@ namespace llvm {
         if (I == AndersenModRefInfo.Map.end()) {
           return false;
         }
-        unsigned MR_Mask = I->second;
-        return MR_Mask & MRI_Mod;
+
+        return isModSet(I->second);
       }
 
       // Check if the Value is already known to be Referenced
@@ -4387,8 +4236,8 @@ namespace llvm {
         if (I == AndersenModRefInfo.Map.end()) {
           return false;
         }
-        unsigned MR_Mask = I->second;
-        return MR_Mask & MRI_Ref;
+
+        return isRefSet(I->second);
       }
 
       // Check if the function either Modifies or References the Value.
@@ -4402,7 +4251,7 @@ namespace llvm {
       ModRefInfo getInfo(const Value *V) const {
         auto I = AndersenModRefInfo.Map.find(const_cast<Value*>(V));
         if (I == AndersenModRefInfo.Map.end()) {
-          return MRI_ModRef;
+          return ModRefInfo::ModRef;
         }
 
         return ModRefInfo(I->second);
@@ -4422,7 +4271,7 @@ namespace llvm {
         O << "\n";
 
         if (!Summary) {
-          AndersenModRefInfo.printMR(O, MRI_Mod);
+          AndersenModRefInfo.printMR(O, ModRefInfo::Mod);
         }
 
 
@@ -4437,7 +4286,7 @@ namespace llvm {
 
         O << "\n";
         if (!Summary) {
-          AndersenModRefInfo.printMR(O, MRI_Ref);
+          AndersenModRefInfo.printMR(O, ModRefInfo::Ref);
         }
       }
 
@@ -4524,7 +4373,7 @@ namespace llvm {
     // Update the DirectModRef set based on the Value, using the specified
     // mask value for whether to treat the variable as modified or referenced.
     void collectValue(Value *V, ModRefMap *DirectModRef,
-        unsigned mask = MRI_ModRef);
+        ModRefInfo mask = ModRefInfo::ModRef);
 
     // Check if the function contains something that will cause the ModRef
     // sets to be BOTTOM
@@ -4655,9 +4504,9 @@ void IntelModRefImpl::collectFunction(Function *F)
     }
 
     DEBUG_WITH_TYPE("imr-collect", errs() << "DirectMod:\n");
-    DEBUG_WITH_TYPE("imr-collect", DirectModRef.printMR(errs(), MRI_Mod));
+    DEBUG_WITH_TYPE("imr-collect", DirectModRef.printMR(errs(), ModRefInfo::Mod));
     DEBUG_WITH_TYPE("imr-collect", errs() << "DirectRef:\n");
-    DEBUG_WITH_TYPE("imr-collect", DirectModRef.printMR(errs(), MRI_Ref));
+    DEBUG_WITH_TYPE("imr-collect", DirectModRef.printMR(errs(), ModRefInfo::Ref));
 
     // Collect all the aliases of the directly modified Values.
     expandModRefSets(&FR, &DirectModRef);
@@ -4690,7 +4539,7 @@ void IntelModRefImpl::collectInstruction(Instruction *I, ModRefMap *DirectModRef
 
         // Consider the rest of the operands as Loads.
         Value *ValOperand = SI->getValueOperand();
-        collectValue(ValOperand, DirectModRef, MRI_Ref);
+        collectValue(ValOperand, DirectModRef, ModRefInfo::Ref);
         return;
     }
     else if (BitCastInst *BC = dyn_cast<BitCastInst>(I)) {
@@ -4753,7 +4602,7 @@ void IntelModRefImpl::collectInstruction(Instruction *I, ModRefMap *DirectModRef
 // Collect pointers (and points-to aliases) for each pointer directly
 // modified or referenced as a Value sub-expression of an instruction.
 void IntelModRefImpl::collectValue(Value *V, ModRefMap *DirectModRef,
-    unsigned mask)
+    ModRefInfo mask)
 {
     ConstantExpr *CE;
 
@@ -4771,16 +4620,16 @@ void IntelModRefImpl::collectValue(Value *V, ModRefMap *DirectModRef,
         //       void (i8*)* @DeleteScriptLimitCallback),
         //     void (i8*)** %18
         Value *ValOperand = CE->getOperand(1);
-        collectValue(ValOperand, DirectModRef, MRI_Ref);
+        collectValue(ValOperand, DirectModRef, ModRefInfo::Ref);
         ValOperand = CE->getOperand(2);
-        collectValue(ValOperand, DirectModRef, MRI_Ref);
+        collectValue(ValOperand, DirectModRef, ModRefInfo::Ref);
     }
     else if (isInterestingPointer(V)) {
         bool Changed = DirectModRef->addModRef(V, mask);
         if (Changed) {
             DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*V) << "\n");
             DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                "MODREF(" << mask << "): " << *V << "\n\n");
+                "MODREF(" << getModRefResultStr(mask) << "): " << *V << "\n\n");
         }
     }
 }
@@ -4890,16 +4739,16 @@ void IntelModRefImpl::expandModRefSets(
         if (PtsToResult & AndersensAAResult::PointsToNonLocalLoc) {
             DEBUG_WITH_TYPE("imr-collect-exp", errs() << FR->F->getName() <<
                 ": Getting Non-local-loc due to " << *(I->first) << "\n");
-            if (I->second & MRI_Mod) {
+            if (isModSet(I->second)) {
                 FR->addModNonLocalLoc();
             }
-            if (I->second & MRI_Ref) {
+            if (isRefSet(I->second)) {
                 FR->addRefNonLocalLoc();
             }
         }
 
         for (auto I2 = PtVec.begin(), E2 = PtVec.end(); I2 != E2; ++I2) {
-            if (I->second & MRI_Mod) {
+            if (isModSet(I->second)) {
                 if (!FR->mustModify(*I2)) {
                     DEBUG_WITH_TYPE("imr-collect-exp",
                         errs() << "  : add mod ");
@@ -4909,7 +4758,7 @@ void IntelModRefImpl::expandModRefSets(
                 }
                 FR->addMod(*I2);
             }
-            if (I->second & MRI_Ref) {
+            if (isRefSet(I->second)) {
                 if (!FR->mustReference(*I2)) {
                     DEBUG_WITH_TYPE("imr-collect-exp",
                         errs() << "  : add ref ");
@@ -4934,7 +4783,7 @@ void IntelModRefImpl::pruneModRefSets(FunctionRecord *FR)
     if (!isa<GlobalValue>(I->first)) {
       // Set the other items are NoModRef so that the removeNoMod call can
       // eliminate them all at once.
-      I->second = MRI_NoModRef;
+      I->second = ModRefInfo::NoModRef;
     }
   }
 
@@ -5106,7 +4955,7 @@ bool IntelModRefImpl::mergeModRefSets(FunctionRecord *Dest,
     const FunctionRecord *Src)
 {
     bool changed = false;
-    unsigned MergeMask = MRI_Mod | MRI_Ref;
+    ModRefInfo MergeMask = ModRefInfo::ModRef;
 
     DEBUG_WITH_TYPE("imr-propagate-all", errs() << "Merge-2: " <<
         Src->F->getName() << " into " << Dest->F->getName() << "\n");
@@ -5123,7 +4972,7 @@ bool IntelModRefImpl::mergeModRefSets(FunctionRecord *Dest,
             changed = true;
         }
 
-        MergeMask &= ~MRI_Mod;
+        MergeMask = clearMod(MergeMask);
     }
 
     if (Src->isRefBottom()) {
@@ -5132,10 +4981,10 @@ bool IntelModRefImpl::mergeModRefSets(FunctionRecord *Dest,
             changed = true;
         }
 
-        MergeMask &= ~MRI_Ref;
+        MergeMask = clearRef(ModRefInfo::Ref);
     }
 
-    if (MergeMask == 0) {
+    if (isNoModRef(MergeMask)) {
         // Both Mod and Ref have gone bottom, no need to merge individual
         // elements. 
 
@@ -5164,8 +5013,9 @@ bool IntelModRefImpl::mergeModRefSets(FunctionRecord *Dest,
 
     for (auto I = Src->AndersenModRefInfo.Map.begin(), E = Src->AndersenModRefInfo.Map.end();
         I != E; ++I) {
-        if (I->second & MergeMask) {
-            changed |= Dest->addModRef(I->first, I->second & MergeMask);
+        ModRefInfo Intersection = intersectModRef(I->second, MergeMask);
+        if (!isNoModRef(Intersection)) {
+            changed |= Dest->addModRef(I->first, Intersection);
         }
     }
 
@@ -5201,7 +5051,7 @@ void IntelModRefImpl::applyNonLocalLocClosure(FunctionRecord *FR)
         }
 
         if (isGlobalEscape(I->first)) {
-            if (!ModContainsNLL && (I->second & MRI_Mod)) {
+            if (!ModContainsNLL && isModSet(I->second)) {
                 FR->addModNonLocalLoc();
                 ModContainsNLL = true;
 
@@ -5209,7 +5059,7 @@ void IntelModRefImpl::applyNonLocalLocClosure(FunctionRecord *FR)
                   "Closure: Adding NonLocalLoc to MOD set of: " <<
                   FR->F->getName() << "\n");
             }
-            if (!RefContainsNLL && (I->second & MRI_Ref)) {
+            if (!RefContainsNLL && isRefSet(I->second)) {
                 FR->addRefNonLocalLoc();
                 RefContainsNLL = true;
 
@@ -5254,7 +5104,7 @@ void IntelModRefImpl::print(raw_ostream &O, bool Summary) const
 ModRefInfo IntelModRefImpl::getModRefInfo(ImmutableCallSite CS,
     const MemoryLocation &Loc)
 {
-    ModRefInfo Result = MRI_ModRef;
+    ModRefInfo Result = ModRefInfo::ModRef;
     const Value *Object = GetUnderlyingObject(Loc.Ptr, *DL);
 
     DEBUG_WITH_TYPE("imr-query", errs() << "IntelModRefImpl::getModRefInfo(" <<
@@ -5265,7 +5115,7 @@ ModRefInfo IntelModRefImpl::getModRefInfo(ImmutableCallSite CS,
     if (Object == nullptr) {
         DEBUG_WITH_TYPE("imr-query",
             errs() << "  Could not get underlying object\n");
-        return MRI_ModRef;
+        return ModRefInfo::ModRef;
     }
 
     DEBUG_WITH_TYPE("imr-query", errs() << *Object);
@@ -5276,32 +5126,32 @@ ModRefInfo IntelModRefImpl::getModRefInfo(ImmutableCallSite CS,
     const Function *F = CS.getCalledFunction();
     if (!F) {
         DEBUG_WITH_TYPE("imr-query", errs() << "  Indirect destination\n");
-        return MRI_ModRef;
+        return ModRefInfo::ModRef;
     }
 
     const FunctionRecord *FR = getFunctionInfo(F);
     if (!FR) {
         DEBUG_WITH_TYPE("imr-query", errs() << "  Unknown function\n");
-        return MRI_ModRef;
+        return ModRefInfo::ModRef;
     }
 
     if (FR->isModBottom() || FR->isRefBottom()) {
         DEBUG_WITH_TYPE("imr-query", errs() << "  Function is BOTTOM\n");
-        return MRI_ModRef;
+        return ModRefInfo::ModRef;
     }
 
     // Clear the bits to form a minimum status, if possible.
     if (!FR->FunctionReadsMemory()) {
-        Result = ModRefInfo(Result & ~MRI_Ref);
+        Result = clearRef(Result);
     }
     if (!FR->FunctionWritesMemory()) {
-        Result = ModRefInfo(Result & ~MRI_Mod);
+        Result = clearMod(Result);
     }
     
     if (!isa<GlobalValue>(Object)) {
       DEBUG_WITH_TYPE("imr-query", errs() <<
         "  Only handling GlobalValue objects in this version\n");
-      return MRI_ModRef;
+      return ModRefInfo::ModRef;
     }
 
     bool Known = FR->haveInfo(Object);
@@ -5319,8 +5169,8 @@ ModRefInfo IntelModRefImpl::getModRefInfo(ImmutableCallSite CS,
     // accessed by the routine.
     if (!(FR->isModNonLocalLoc() || FR->isRefNonLocalLoc())) {
             DEBUG_WITH_TYPE("imr-query", errs() << "  Result=" << 
-                getModRefResultStr(MRI_NoModRef) << "\n");
-        return MRI_NoModRef;
+                getModRefResultStr(ModRefInfo::NoModRef) << "\n");
+        return ModRefInfo::NoModRef;
     }
 
     if (const GlobalValue *GV = dyn_cast<GlobalValue>(Object)) {
@@ -5334,8 +5184,8 @@ ModRefInfo IntelModRefImpl::getModRefInfo(ImmutableCallSite CS,
         // as a non_local_loc, so we can so NoModRef.
         if (GV->isDiscardableIfUnused()) {
             DEBUG_WITH_TYPE("imr-query", errs() << "  Result=" <<
-                getModRefResultStr(MRI_NoModRef) << "\n");
-            return MRI_NoModRef;
+                getModRefResultStr(ModRefInfo::NoModRef) << "\n");
+            return ModRefInfo::NoModRef;
         }
     }        
 
@@ -5370,7 +5220,7 @@ ModRefInfo AndersensAAResult::IntelModRef::getModRefInfo(
   ImmutableCallSite CS, const MemoryLocation &Loc)
 {
   if (!Impl) {
-    return MRI_ModRef;
+    return ModRefInfo::ModRef;
   }
 
   return Impl->getModRefInfo(CS, Loc);

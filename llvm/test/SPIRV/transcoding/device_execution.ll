@@ -38,7 +38,7 @@ target triple = "spir64-unknonw-unknown"
 %opencl.clk_event_t = type opaque
 
 ; Function Attrs: nounwind
-define spir_kernel void @device_kernel(float addrspace(1)* nocapture %inout) #0 {
+define spir_kernel void @device_kernel(float addrspace(1)* nocapture %inout) #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 {
 entry:
   %0 = load float, float addrspace(1)* %inout, align 4, !tbaa !11
   %call = tail call spir_func float @_Z3cosf(float %0) #2
@@ -49,7 +49,7 @@ entry:
 declare spir_func float @_Z3cosf(float) #1
 
 ; Function Attrs: nounwind
-define spir_kernel void @host_kernel(float addrspace(1)* %inout) #0 {
+define spir_kernel void @host_kernel(float addrspace(1)* %inout) #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 {
 entry:
   %captured = alloca <{ float addrspace(1)* }>, align 8
   %agg.tmp = alloca %struct.ndrange_t, align 8
@@ -84,7 +84,6 @@ attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"=
 attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #2 = { nounwind }
 
-!opencl.kernels = !{!0, !6}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!7}
 !opencl.ocl.version = !{!8}
@@ -93,13 +92,11 @@ attributes #2 = { nounwind }
 !opencl.compiler.options = !{!9}
 !llvm.ident = !{!10}
 
-!0 = !{void (float addrspace(1)*)* @device_kernel, !1, !2, !3, !4, !5}
-!1 = !{!"kernel_arg_addr_space", i32 1}
-!2 = !{!"kernel_arg_access_qual", !"none"}
-!3 = !{!"kernel_arg_type", !"float*"}
-!4 = !{!"kernel_arg_base_type", !"float*"}
-!5 = !{!"kernel_arg_type_qual", !""}
-!6 = !{void (float addrspace(1)*)* @host_kernel, !1, !2, !3, !4, !5}
+!1 = !{i32 1}
+!2 = !{!"none"}
+!3 = !{!"float*"}
+!4 = !{!"float*"}
+!5 = !{!""}
 !7 = !{i32 1, i32 2}
 !8 = !{i32 2, i32 0}
 !9 = !{}

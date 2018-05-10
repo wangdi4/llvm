@@ -107,9 +107,9 @@ class DDWalk final : public HLNodeVisitorBase {
   /// \brief Analyze one DDEdge for the source node.
   void analyze(const RegDDRef *SrcRef, const DDEdge *Edge);
 
-  /// \brief Analyze whether the src/sink flow dependence can be ignored
+  /// \brief Analyze whether the flow dependence edge can be ignored
   /// due to safe reduction.
-  bool isSafeReductionFlowDep(const RegDDRef *SrcRef, const RegDDRef *SinkRef);
+  bool isSafeReductionFlowDep(const DDEdge *Edge);
 
 public:
   DDWalk(TargetLibraryInfo &TLI, HIRDDAnalysis &DDA,
@@ -191,7 +191,7 @@ char HIRParVecAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRParVecAnalysis, "hir-parvec-analysis",
                       "HIR Parallel/Vector Candidate Analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
 INITIALIZE_PASS_END(HIRParVecAnalysis, "hir-parvec-analysis",
@@ -232,7 +232,7 @@ void ParVecVisitor::visit(HLInst *Node) {
 void HIRParVecAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
-  AU.addRequiredTransitive<HIRFramework>();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
 }
@@ -244,7 +244,7 @@ bool HIRParVecAnalysis::runOnFunction(Function &F) {
 
   Enabled = true;
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-  HIRF = &getAnalysis<HIRFramework>();
+  HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   DDA = &getAnalysis<HIRDDAnalysis>();
   SRA = &getAnalysis<HIRSafeReductionAnalysis>();
 
@@ -326,15 +326,12 @@ bool HIRParVecAnalysis::isSIMDEnabledFunction(Function &Func) {
   return Func.getName().startswith("_ZGV");
 }
 
-bool DDWalk::isSafeReductionFlowDep(const RegDDRef *SrcRef,
-                                    const RegDDRef *SinkRef) {
-  assert(SrcRef && "SrcRef cannot be null!");
+bool DDWalk::isSafeReductionFlowDep(const DDEdge *Edge) {
+  assert(Edge->isFLOWdep() && "Flow edge expected!");
 
-  if (!SinkRef) {
-    return false;
-  }
+  DDRef *SrcRef = Edge->getSrc();
 
-  HLNode *WriteNode = SrcRef->getHLDDNode();
+  const HLDDNode *WriteNode = SrcRef->getHLDDNode();
   auto Inst = dyn_cast<HLInst>(WriteNode);
 
   if (!Inst) {
@@ -399,7 +396,7 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
   DDRef *SinkRef = Edge->getSink();
 
   if (Edge->isFLOWdep() &&
-      isSafeReductionFlowDep(SrcRef, dyn_cast<RegDDRef>(SinkRef))) {
+      isSafeReductionFlowDep(Edge)) {
     DEBUG(dbgs() << "\tis safe to vectorize/parallelize (safe reduction)\n");
     return;
   }
@@ -440,18 +437,27 @@ void DDWalk::visit(HLDDNode *Node) {
     if (auto Call = dyn_cast<CallInst>(Inst->getLLVMInstruction())) {
       auto Func = Call->getCalledFunction();
 
-      bool IsNotVectorizable = false;
+      bool IsVectorizable;
 
       if (Func) {
-        if (Func->isIntrinsic())
-          IsNotVectorizable = !isTriviallyVectorizable(Func->getIntrinsicID());
-        else
-          IsNotVectorizable = !TLI.isFunctionVectorizable(Func->getName());
+        if (Func->isIntrinsic()) {
+          auto IntrinsicId = Func->getIntrinsicID();
+          // @llvm.assume intrinsic is not "trivially" vectorizable because it
+          // does not have a vector variant, but it does not prevent
+          // vectorization in any way.
+          // TODO: lifetime_start/lifetime_end.
+          // TODO: Check if ephemeral values (ones whose use-chain ends only in
+          //       calls to @llvm.assumes) should be handled too here.
+          // TODO: Update cost model so that ephemeral values are ignored.
+          IsVectorizable = isTriviallyVectorizable(IntrinsicId) ||
+                           IntrinsicId == Intrinsic::assume;
+        } else
+          IsVectorizable = TLI.isFunctionVectorizable(Func->getName());
       } else {
-        IsNotVectorizable = true;
+        IsVectorizable = false;
       }
 
-      if (IsNotVectorizable) {
+      if (!IsVectorizable) {
         Info->setVecType(ParVecInfo::UNKNOWN_CALL);
         Info->setParType(ParVecInfo::UNKNOWN_CALL);
         return;
@@ -520,6 +526,12 @@ void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
 
   if (!Loop->isDo()) {
     setVecType(NON_DO_LOOP);
+    emitDiag();
+    return;
+  }
+
+  if (!Loop->isNormalized()) {
+    setVecType(NON_NORMALIZED_LOOP);
     emitDiag();
     return;
   }

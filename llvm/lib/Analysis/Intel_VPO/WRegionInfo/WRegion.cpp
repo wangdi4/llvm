@@ -64,6 +64,7 @@ WRNParallelNode::WRNParallelNode(BasicBlock *BB)
 void WRNParallelNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                  unsigned Verbosity) const {
   vpo::printExtraForParallel(this, OS, Depth, Verbosity);
+  vpo::printExtraForCancellationPoints(this, OS, Depth, Verbosity);
 }
 
 //
@@ -92,6 +93,7 @@ void WRNParallelLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   // minus the Nowait field
   vpo::printExtraForParallel(this, OS, Depth, Verbosity);
   vpo::printExtraForOmpLoop(this, OS, Depth, Verbosity);
+  vpo::printExtraForCancellationPoints(this, OS, Depth, Verbosity);
 }
 
 //
@@ -117,6 +119,7 @@ void WRNParallelSectionsNode::printExtra(formatted_raw_ostream &OS,
                               unsigned Depth, unsigned Verbosity) const {
   // identical extra fields as WRNParallel
   vpo::printExtraForParallel(this, OS, Depth, Verbosity);
+  vpo::printExtraForCancellationPoints(this, OS, Depth, Verbosity);
 }
 
 //
@@ -228,7 +231,6 @@ WRNTargetDataNode::WRNTargetDataNode(BasicBlock *BB)
   setIsTarget();
   setIf(nullptr);
   setDevice(nullptr);
-  setNowait(false);
 
   DEBUG(dbgs() << "\nCreated WRNTargetDataNode<" << getNumber() << ">\n");
 }
@@ -239,6 +241,49 @@ void WRNTargetDataNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printExtraForTarget(this, OS, Depth, Verbosity);
 }
 
+//
+// Methods for WRNTargetEnterDataNode
+//
+
+// constructor
+WRNTargetEnterDataNode::WRNTargetEnterDataNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNTargetEnterData, BB) {
+  setIsTarget();
+  setIf(nullptr);
+  setDevice(nullptr);
+  setNowait(false);
+
+  DEBUG(dbgs() << "\nCreated WRNTargetEnterDataNode<" << getNumber() << ">\n");
+}
+
+// printer
+void WRNTargetEnterDataNode::printExtra(formatted_raw_ostream &OS,
+                                        unsigned Depth,
+                                        unsigned Verbosity) const {
+  vpo::printExtraForTarget(this, OS, Depth, Verbosity);
+}
+
+//
+// Methods for WRNTargetExitDataNode
+//
+
+// constructor
+WRNTargetExitDataNode::WRNTargetExitDataNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNTargetExitData, BB) {
+  setIsTarget();
+  setIf(nullptr);
+  setDevice(nullptr);
+  setNowait(false);
+
+  DEBUG(dbgs() << "\nCreated WRNTargetExitDataNode<" << getNumber() << ">\n");
+}
+
+// printer
+void WRNTargetExitDataNode::printExtra(formatted_raw_ostream &OS,
+                                       unsigned Depth,
+                                       unsigned Verbosity) const {
+  vpo::printExtraForTarget(this, OS, Depth, Verbosity);
+}
 
 //
 // Methods for WRNTargetUpdateNode
@@ -284,6 +329,7 @@ WRNTaskNode::WRNTaskNode(BasicBlock *BB)
 void WRNTaskNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                              unsigned Verbosity) const {
   vpo::printExtraForTask(this, OS, Depth, Verbosity);
+  vpo::printExtraForCancellationPoints(this, OS, Depth, Verbosity);
 }
 
 //
@@ -318,26 +364,27 @@ WRNTaskloopNode::WRNTaskloopNode(BasicBlock *BB, LoopInfo *Li)
 //
 
 // constructor for LLVM IR representation
-WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
+WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li,
+                               const bool isAutoVec)
     : WRegionNode(WRegionNode::WRNVecLoop, BB), WRNLI(Li) {
   setIsOmpLoop();
   setSimdlen(0);
   setSafelen(0);
   setCollapse(0);
-  setIsAutoVec(false);
+  setIsAutoVec(isAutoVec);
 
   DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() << ">\n");
 }
 
 // constructor for HIR representation
-WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN)
+WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN, const bool isAutoVec)
                                       : WRegionNode(WRegionNode::WRNVecLoop),
                                         WRNLI(nullptr), EntryHLNode(EntryHLN) {
   setIsOmpLoop();
   setSimdlen(0);
   setSafelen(0);
   setCollapse(0);
-  setIsAutoVec(false);
+  setIsAutoVec(isAutoVec);
 
   setExitHLNode(nullptr);
   setHLLoop(nullptr);
@@ -403,6 +450,7 @@ WRNWksLoopNode::WRNWksLoopNode(BasicBlock *BB, LoopInfo *Li)
 void WRNWksLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                 unsigned Verbosity) const {
   vpo::printExtraForOmpLoop(this, OS, Depth, Verbosity);
+  vpo::printExtraForCancellationPoints(this, OS, Depth, Verbosity);
 }
 
 //
@@ -423,6 +471,7 @@ WRNSectionsNode::WRNSectionsNode(BasicBlock *BB, LoopInfo *Li)
 void WRNSectionsNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                  unsigned Verbosity) const {
   vpo::printBool("NOWAIT", getNowait(), OS, 2*Depth, Verbosity);
+  vpo::printExtraForCancellationPoints(this, OS, Depth, Verbosity);
 }
 
 //
@@ -564,7 +613,7 @@ void WRNOrderedNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 
 // constructor
 WRNSingleNode::WRNSingleNode(BasicBlock *BB)
-    : WRegionNode(WRegionNode::WRNSingle, BB) {
+    : WRegionNode(WRegionNode::WRNSingle, BB), Nowait(false) {
   DEBUG(dbgs() << "\nCreated WRNSingleNode <" << getNumber() << ">\n");
 }
 
@@ -654,6 +703,20 @@ void vpo::printExtraForParallel(WRegionNode const *W,
                 Verbosity);
 }
 
+void vpo::printExtraForCancellationPoints(WRegionNode const *W,
+                                          formatted_raw_ostream &OS, int Depth,
+                                          unsigned Verbosity) {
+  assert(W->canHaveCancellationPoints() &&
+         "printExtraForCancellationPoints is for WRNs with "
+         "canHaveCancellationPoints() == true");
+
+  unsigned Indent = 2 * Depth;
+  auto &CPs = W->getCancellationPoints();
+  vpo::printValList("CANCELLATION.POINTS",
+                    SmallVector<Value *, 8>(CPs.begin(), CPs.end()), OS, Indent,
+                    Verbosity);
+}
+
 // Print the fields common to some WRNs for which getIsOmpLoop()==true.
 // Possible constructs are: WRNParallelLoop, WRNDistributeParLoop, WRNWksLoop
 // The fields to print are: Collapse, Ordered, Nowait
@@ -681,7 +744,10 @@ void vpo::printExtraForTarget(WRegionNode const *W, formatted_raw_ostream &OS,
   unsigned Indent = 2 * Depth;
   vpo::printVal("IF_EXPR", W->getIf(), OS, Indent, Verbosity);
   vpo::printVal("DEVICE", W->getDevice(), OS, Indent, Verbosity);
-  vpo::printBool("NOWAIT", W->getNowait(), OS, Indent, Verbosity);
+
+  // All target constructs but WRNTargetData can have the NOWAIT clause
+  if (!isa<WRNTargetDataNode>(W))
+    vpo::printBool("NOWAIT", W->getNowait(), OS, Indent, Verbosity);
 
   // Only WRNTarget can have the defaultmap(tofrom:scalar) clause
   if (isa<WRNTargetNode>(W)) {

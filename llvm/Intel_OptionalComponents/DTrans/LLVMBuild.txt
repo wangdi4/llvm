@@ -1,0 +1,27 @@
+;===- ./Intel_OptionalComponents/DTrans/LLVMBuild.txt ----------*- Conf -*--===;
+;
+; Copyright (C) 2018 Intel Corporation. All rights reserved.
+;
+; The information and source code contained herein is the exclusive
+; property of Intel Corporation and may not be disclosed, examined
+; or reproduced in whole or in part without explicit written authorization
+; from the company.
+;
+;===------------------------------------------------------------------------===;
+;
+; This is an LLVMBuild description file for the components in this subdirectory.
+;
+; For more information on the LLVMBuild system, please see:
+;
+;   http://llvm.org/docs/LLVMBuild.html
+;
+;===------------------------------------------------------------------------===;
+
+[common]
+subdirectories =
+ lib
+
+[component_0]
+type = Group
+name = DTrans_Base
+parent = Intel_OptionalComponents

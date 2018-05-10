@@ -26,11 +26,6 @@ using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-printer"
 
-static cl::opt<bool> HIRDetailedFrameworkInfo(
-    "hir-details-framework", cl::init(false), cl::Hidden,
-    cl::desc(
-        "Prints framework details along with HLRegion like IRRegion and SCCs"));
-
 namespace {
 
 class HIRPrinter : public FunctionPass {
@@ -44,13 +39,13 @@ public:
       : FunctionPass(ID), OS(OS), Banner(Banner) {}
 
   bool runOnFunction(Function &F) override {
-    auto &HIRF = getAnalysis<HIRFramework>();
+    auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
 
     if (llvm::isFunctionInPrintList(F.getName())) {
       OS << Banner << "\n";
       OS << "Function: " << F.getName() << "\n";
 
-      HIRF.print(HIRDetailedFrameworkInfo, OS);
+      HIRF.print(false, OS);
     }
 
     return false;
@@ -58,7 +53,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequired<HIRFramework>();
+    AU.addRequired<HIRFrameworkWrapperPass>();
   }
 };
 }

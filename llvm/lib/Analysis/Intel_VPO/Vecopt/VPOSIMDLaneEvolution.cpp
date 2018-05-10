@@ -149,14 +149,14 @@ public:
 
 void DDRef2AVR::visit(AVRValueHIR *AValueHIR) {
 
-  if (DDRef *DDR = AValueHIR->getValue()) {
+  if (const DDRef *DDR = AValueHIR->getValue()) {
     if (AvrDefUseHIR::isDef(AValueHIR)) {
 
       // This value is a Def - map its underlying RefDDRef to it.
       Map[DDR] = AValueHIR;
     } else {
 
-      if (RegDDRef *RDDR = dyn_cast<RegDDRef>(DDR)) {
+      if (const RegDDRef *RDDR = dyn_cast<RegDDRef>(DDR)) {
         // This value is a Use - map all its underlying RegDDRef's blobs to it.
         for (auto I = RDDR->blob_cbegin(), E = RDDR->blob_cend(); I != E; ++I)
           Map[*I] = AValueHIR;
@@ -1251,7 +1251,7 @@ void SIMDLaneEvolutionHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AVRDecomposeHIR>();
   AU.addRequired<AvrDefUseHIR>();
   AU.addRequired<AvrCFGHIR>();
-  AU.addRequiredTransitive<HIRParser>();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.setPreservesAll();
 }
 

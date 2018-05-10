@@ -49,39 +49,44 @@ static cl::opt<bool> PrintTotalResource(
     "hir-print-total-resource", cl::init(false), cl::Hidden,
     cl::desc("Prints total loop resource instead of self loop resource"));
 
-FunctionPass *llvm::createHIRLoopResourcePass() {
-  return new HIRLoopResource();
+FunctionPass *llvm::createHIRLoopResourceWrapperPass() {
+  return new HIRLoopResourceWrapperPass();
 }
 
-char HIRLoopResource::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLoopResource, "hir-loop-resource",
+AnalysisKey HIRLoopResourceAnalysis::Key;
+HIRLoopResource HIRLoopResourceAnalysis::run(Function &F,
+                                             FunctionAnalysisManager &AM) {
+  return HIRLoopResource(AM.getResult<HIRFrameworkAnalysis>(F),
+                         AM.getResult<LoopAnalysis>(F),
+                         AM.getResult<TargetIRAnalysis>(F));
+}
+
+char HIRLoopResourceWrapperPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRLoopResourceWrapperPass, "hir-loop-resource",
                       "Loop Resource Analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(HIRLoopResource, "hir-loop-resource",
+INITIALIZE_PASS_END(HIRLoopResourceWrapperPass, "hir-loop-resource",
                     "Loop Resource Analysis", false, true)
 
-void HIRLoopResource::getAnalysisUsage(AnalysisUsage &AU) const {
+void HIRLoopResourceWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequired<HIRFramework>();
+  AU.addRequired<HIRFrameworkWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
 }
 
-bool HIRLoopResource::runOnFunction(Function &F) {
-
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-
+bool HIRLoopResourceWrapperPass::runOnFunction(Function &F) {
+  HLR.reset(new HIRLoopResource(
+      getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+      getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
+      getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F)));
   // This is an on-demand analysis, so we don't perform any analysis here.
   return false;
 }
 
-void HIRLoopResource::releaseMemory() {
-  SelfResourceMap.clear();
-  TotalResourceMap.clear();
-}
+void HIRLoopResourceWrapperPass::releaseMemory() { HLR.reset(); }
 
 struct LoopResourceInfo::LoopResourceVisitor final : public HLNodeVisitorBase {
   HIRLoopResource &HLR;
@@ -95,7 +100,7 @@ struct LoopResourceInfo::LoopResourceVisitor final : public HLNodeVisitorBase {
 
   LoopResourceVisitor(HIRLoopResource &HLR, const HLLoop *Lp,
                       LoopResourceInfo &SelfLRI, LoopResourceInfo *TotalLRI)
-      : HLR(HLR), TTI(*HLR.getTTI()), Lp(Lp), SelfLRI(SelfLRI),
+      : HLR(HLR), TTI(HLR.getTTI()), Lp(Lp), SelfLRI(SelfLRI),
         TotalLRI(TotalLRI) {}
 
   /// Sets the threshold cost for non-memory expensive instructions.
@@ -753,14 +758,14 @@ unsigned HIRLoopResource::getOperationCost(const Instruction &Inst) const {
   }
 
   return LoopResourceInfo::LoopResourceVisitor::getNormalizedCost(
-      TTI->getUserCost(&Inst));
+      TTI.getUserCost(&Inst));
 }
 
 unsigned HIRLoopResource::getLLVMLoopCost(const Loop &Lp) {
   unsigned Cost = 0;
 
   for (auto BB : Lp.blocks()) {
-    if (LI->getLoopFor(BB) != &Lp) {
+    if (LI.getLoopFor(BB) != &Lp) {
       continue;
     }
 

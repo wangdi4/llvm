@@ -28,7 +28,7 @@ attributes #1 = { nounwind "target-cpu"="skx" "target-features"="+avx512f,+fma" 
 
 define void @func32() #0 {
 ; CHECK-LABEL: func32:
-; CHECK:       # BB#0: # %entry
+; CHECK:       %bb.0: # %entry
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
@@ -91,7 +91,7 @@ entry:
 
 define void @func64() #0 {
 ; CHECK-LABEL: func64:
-; CHECK:       # BB#0: # %entry
+; CHECK:       %bb.0: # %entry
 ; CHECK-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
 ; CHECK-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
 ; CHECK-NEXT:    vmovsd {{.*#+}} xmm2 = mem[0],zero
@@ -154,7 +154,7 @@ entry:
 
 define void @func32x4() #0 {
 ; CHECK-LABEL: func32x4:
-; CHECK:       # BB#0: # %entry
+; CHECK:       %bb.0: # %entry
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %xmm0
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %xmm1
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %xmm2
@@ -217,7 +217,7 @@ entry:
 
 define void @func64x2() #0 {
 ; CHECK-LABEL: func64x2:
-; CHECK:       # BB#0: # %entry
+; CHECK:       %bb.0: # %entry
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %xmm0
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %xmm1
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %xmm2
@@ -280,7 +280,7 @@ entry:
 
 define void @func32x8() #0 {
 ; CHECK-LABEL: func32x8:
-; CHECK:       # BB#0: # %entry
+; CHECK:       %bb.0: # %entry
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %ymm0
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %ymm1
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %ymm2
@@ -344,7 +344,7 @@ entry:
 
 define void @func64x4() #0 {
 ; CHECK-LABEL: func64x4:
-; CHECK:       # BB#0: # %entry
+; CHECK:       %bb.0: # %entry
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %ymm0
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %ymm1
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %ymm2
@@ -408,7 +408,7 @@ entry:
 
 define void @func32x16() #1 {
 ; CHECK-LABEL: func32x16:
-; CHECK:       # BB#0: # %entry
+; CHECK:       %bb.0: # %entry
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %zmm0
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %zmm1
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %zmm2
@@ -472,7 +472,7 @@ entry:
 
 define void @func64x8() #1 {
 ; CHECK-LABEL: func64x8:
-; CHECK:       # BB#0: # %entry
+; CHECK:       %bb.0: # %entry
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %zmm0
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %zmm1
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %zmm2

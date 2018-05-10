@@ -1,5 +1,5 @@
-; RUN: opt %s -VPlanDriver -vplan-predicator-report -S -o /dev/null 2>&1 | FileCheck %s -check-prefix=REPORT
-; RUN: opt %s -VPlanDriver -S 2>&1 | FileCheck %s -check-prefix=CG
+; RUN: opt %s -VPlanDriver -vplan-predicator-report -vplan-force-vf=4 -S -o /dev/null 2>&1 | FileCheck %s -check-prefix=REPORT
+; RUN: opt %s -VPlanDriver -S -vplan-force-vf=4 2>&1 | FileCheck %s -check-prefix=CG
 ; REQUIRES: asserts
 
 ; This is to test that the predicator preserves uniform control flow.

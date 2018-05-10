@@ -1,4 +1,6 @@
 ; RUN: opt -inline -inline-report=71 -inline-threshold=10 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=71 -inline-threshold=10 < %s -S 2>&1 | FileCheck %s
+
 ; CHECK: foo{{.*}}EE{{.*}}Inlining is not profitable
 
 ; This LIT test checks the early exit cost print out in the inlining report

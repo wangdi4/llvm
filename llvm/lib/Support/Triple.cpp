@@ -239,9 +239,7 @@ StringRef Triple::getEnvironmentTypeName(EnvironmentType Kind) {
   case MSVC: return "msvc";
   case Itanium: return "itanium";
   case Cygnus: return "cygnus";
-  case AMDOpenCL: return "amdopencl";
   case CoreCLR: return "coreclr";
-  case OpenCL: return "opencl";
 #if INTEL_CUSTOMIZATION
   case IntelFPGA: return "intelfpga";
 #endif // INTEL_CUSTOMIZATION
@@ -400,7 +398,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
 #if INTEL_CUSTOMIZATION
     .Case("csa", Triple::csa)
 #endif // INTEL_CUSTOMIZATION
-    .Cases("powerpc", "ppc32", Triple::ppc)
+    .Cases("powerpc", "ppc", "ppc32", Triple::ppc)
     .Cases("powerpc64", "ppu", "ppc64", Triple::ppc64)
     .Cases("powerpc64le", "ppc64le", Triple::ppc64le)
     .Case("xscale", Triple::arm)
@@ -539,9 +537,7 @@ static Triple::EnvironmentType parseEnvironment(StringRef EnvironmentName) {
     .StartsWith("msvc", Triple::MSVC)
     .StartsWith("itanium", Triple::Itanium)
     .StartsWith("cygnus", Triple::Cygnus)
-    .StartsWith("amdopencl", Triple::AMDOpenCL)
     .StartsWith("coreclr", Triple::CoreCLR)
-    .StartsWith("opencl", Triple::OpenCL)
 #if INTEL_CUSTOMIZATION
     .StartsWith("intelfpga", Triple::IntelFPGA)
 #endif // INTEL_CUSTOMIZATION
@@ -689,8 +685,6 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::tce:
   case Triple::tcele:
   case Triple::thumbeb:
-  case Triple::wasm32:
-  case Triple::wasm64:
   case Triple::xcore:
 #if INTEL_CUSTOMIZATION
   case Triple::csa:
@@ -702,6 +696,10 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
     if (T.isOSDarwin())
       return Triple::MachO;
     return Triple::ELF;
+
+  case Triple::wasm32:
+  case Triple::wasm64:
+    return Triple::Wasm;
   }
   llvm_unreachable("unknown architecture");
 }

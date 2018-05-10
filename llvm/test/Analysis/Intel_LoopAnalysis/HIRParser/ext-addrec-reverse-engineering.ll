@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-parser -hir-cost-model-throttling=0 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-framework -hir-framework-debug=parser -hir-cost-model-throttling=0 | FileCheck %s
 
 
 ; Verify that parser is able to reverse engineer UB of i3 loop successfully by sign extending an existing value.
@@ -24,7 +24,7 @@
 ; CHECK: |   |      %g_t.promoted = (@g_t)[0];
 ; CHECK: |   |      %mul27156 = %g_t.promoted;
 ; CHECK: |   |
-; CHECK: |   |      + DO i3 = 0, trunc.i64.i32((((-1 * sext.i32.i64(%v_pl.0157)) + %indvars.iv167) /u 6)), 1   <DO_LOOP>
+; CHECK: |   |      + DO i3 = 0, trunc.i64.i32((((-1 * zext.i32.i64(%v_pl.0157)) + %indvars.iv167) /u 6)), 1   <DO_LOOP>
 ; CHECK: |   |      |   %mul27156 = %mul27156  *  i1 + 1;
 ; CHECK: |   |      + END LOOP
 ; CHECK: |   |

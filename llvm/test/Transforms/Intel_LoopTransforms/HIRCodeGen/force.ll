@@ -1,5 +1,7 @@
 ; With forced hir-cg, we should see HIR->LLVM IR occur
 ; RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -S < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-optreport-emitter,hir-cg" -force-hir-cg -S < %s 2>&1 | FileCheck %s --check-prefix=OPTREPORT
 
 ; terminator of entry bblock should have changed
 ; CHECK: for.body:
@@ -39,6 +41,9 @@
 
 ; CHECK: after[[L1Label]]:
 ; CHECK-NEXT: br label %for.end
+
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT-NEXT: LOOP END
 
 ; ModuleID = 'test.cpp'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

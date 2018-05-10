@@ -17,9 +17,9 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/IR/CFG.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLRegion.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
+#include "llvm/IR/CFG.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 
@@ -37,9 +37,21 @@ IRRegion::IRRegion(BasicBlock *EntryBB, const RegionBBlocksTy &BBs,
 IRRegion::IRRegion(IRRegion &&Reg)
     : EntryBBlock(Reg.EntryBBlock), ExitBBlock(Reg.ExitBBlock),
       BBlocks(std::move(Reg.BBlocks)), BBlocksSet(std::move(Reg.BBlocksSet)),
-      LiveInSet(std::move(Reg.LiveInSet)),
-      LiveOutSet(std::move(Reg.LiveOutSet)), ParentRegion(Reg.ParentRegion),
+      LiveInMap(std::move(Reg.LiveInMap)),
+      LiveOutMap(std::move(Reg.LiveOutMap)), ParentRegion(Reg.ParentRegion),
       IsFunctionLevel(Reg.IsFunctionLevel) {}
+
+IRRegion &IRRegion::operator =(IRRegion &&Reg) {
+  EntryBBlock = Reg.EntryBBlock;
+  ExitBBlock = Reg.ExitBBlock;
+  BBlocks = std::move(Reg.BBlocks);
+  BBlocksSet = std::move(Reg.BBlocksSet);
+  LiveInMap = std::move(Reg.LiveInMap);
+  LiveOutMap = std::move(Reg.LiveOutMap);
+  ParentRegion = Reg.ParentRegion;
+  IsFunctionLevel = Reg.IsFunctionLevel;
+  return *this;
+}
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void IRRegion::dump() const { print(dbgs(), 0); }
@@ -68,8 +80,8 @@ void IRRegion::print(raw_ostream &OS, unsigned IndentWidth) const {
   OS << "\n";
   OS.indent(IndentWidth) << "LiveIns: ";
 
-  for (auto I = LiveInSet.begin(), E = LiveInSet.end(); I != E; ++I) {
-    if (I != LiveInSet.begin()) {
+  for (auto I = LiveInMap.begin(), E = LiveInMap.end(); I != E; ++I) {
+    if (I != LiveInMap.begin()) {
       OS << ", ";
     }
 
@@ -87,11 +99,28 @@ void IRRegion::print(raw_ostream &OS, unsigned IndentWidth) const {
   OS << "\n";
   OS.indent(IndentWidth) << "LiveOuts: ";
 
-  for (auto I = LiveOutSet.begin(), E = LiveOutSet.end(); I != E; ++I) {
-    if (I != LiveOutSet.begin()) {
+  for (auto I = LiveOutMap.begin(), E = LiveOutMap.end(); I != E; ++I) {
+    if (I != LiveOutMap.begin()) {
       OS << ", ";
     }
-    I->second->printAsOperand(OS, false);
+
+    if (I->second.size() > 1) {
+      OS << "{";
+    }
+
+    int Count = 0;
+    for (auto *Inst : I->second) {
+      if (Count != 0) {
+        OS << ", ";
+      }
+      Inst->printAsOperand(OS, false);
+      ++Count;
+    }
+
+    if (I->second.size() > 1) {
+      OS << "}";
+    }
+
     OS << "(sym:" << I->first << ")";
   }
 
@@ -148,4 +177,29 @@ BasicBlock *IRRegion::getSuccBBlock() const {
   }
 
   return *SuccI;
+}
+
+void IRRegion::addLiveOutTemp(unsigned Symbase, const Instruction *Temp) {
+  auto Ret = ReverseLiveOutMap.insert(std::make_pair(Temp, Symbase));
+  assert((Ret.second || (Ret.first->second == Symbase)) &&
+         "Inconsistent liveout value detected!");
+
+  if (Ret.second) {
+    LiveOutMap[Symbase].push_back(Temp);
+  }
+}
+
+void IRRegion::replaceLiveOutTemp(unsigned OldSymbase, unsigned NewSymbase) {
+  auto It = LiveOutMap.find(OldSymbase);
+  assert((It != LiveOutMap.end()) && "Old liveout temp not found!");
+
+  // Copy vector of temps as we are going to erase the iterator.
+  auto TempVec = It->second;
+
+  LiveOutMap.erase(It);
+
+  for (auto *Temp : TempVec) {
+    ReverseLiveOutMap.erase(Temp);
+    addLiveOutTemp(NewSymbase, Temp);
+  }
 }

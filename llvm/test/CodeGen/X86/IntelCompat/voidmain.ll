@@ -12,7 +12,7 @@ define void @main() {
 define void @notmain() {
 ; CHECK-LABEL: notmain:
 ; CHECK-NOT: xor
-; CHECK: # BB#0:
+; CHECK: %bb.0:
 ; CHECK-NEXT: ret
   ret void
 }

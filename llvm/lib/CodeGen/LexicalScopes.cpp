@@ -48,7 +48,7 @@ void LexicalScopes::reset() {
 /// initialize - Scan machine function and constuct lexical scope nest.
 void LexicalScopes::initialize(const MachineFunction &Fn) {
   // Don't attempt any lexical scope creation for a NoDebug compile unit.
-  if (Fn.getFunction()->getSubprogram()->getUnit()->getEmissionKind() ==
+  if (Fn.getFunction().getSubprogram()->getUnit()->getEmissionKind() ==
       DICompileUnit::NoDebug)
     return;
   reset();
@@ -173,7 +173,7 @@ LexicalScopes::getOrCreateRegularScope(const DILocalScope *Scope) {
                                                     false)).first;
 
   if (!Parent) {
-    assert(cast<DISubprogram>(Scope)->describes(MF->getFunction()));
+    assert(cast<DISubprogram>(Scope)->describes(&MF->getFunction()));
     assert(!CurrentFnLexicalScope);
     CurrentFnLexicalScope = &I->second;
   }

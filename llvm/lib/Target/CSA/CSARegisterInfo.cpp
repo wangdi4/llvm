@@ -89,7 +89,7 @@ void CSARegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
            "Instr doesn't have FrameIndex operand!");
   }
 
-  DEBUG(llvm::errs() << "\nFunction : " << MF.getFunction()->getName() << "\n";
+  DEBUG(llvm::errs() << "\nFunction : " << MF.getFunction().getName() << "\n";
         llvm::errs() << "<--------->\n"
                      << MI);
 

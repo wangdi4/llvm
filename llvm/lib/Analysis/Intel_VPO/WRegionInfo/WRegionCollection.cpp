@@ -14,18 +14,19 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Pass.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Dominators.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/Pass.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
@@ -37,29 +38,80 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-wrncollection"
 
-INITIALIZE_PASS_BEGIN(WRegionCollection, "vpo-wrncollection",
+AnalysisKey WRegionCollectionAnalysis::Key;
+
+WRegionCollection WRegionCollectionAnalysis::run(Function &F,
+                                                 FunctionAnalysisManager &AM) {
+
+  DEBUG(dbgs() << "\nENTER WRegionCollectionAnalysis::run: " << F.getName()
+               << "{\n");
+
+  auto &DI = AM.getResult<DominatorTreeAnalysis>(F);
+  auto &LI = AM.getResult<LoopAnalysis>(F);
+  auto &SE = AM.getResult<ScalarEvolutionAnalysis>(F);
+  auto &TTI = AM.getResult<TargetIRAnalysis>(F);
+  auto &AC = AM.getResult<AssumptionAnalysis>(F);
+  auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
+  auto *HIRF = AM.getCachedResult<loopopt::HIRFrameworkAnalysis>(F);
+
+  WRegionCollection WRC(&F, &DI, &LI, &SE, &TTI, &AC, &TLI, HIRF);
+
+  DEBUG(dbgs() << "\n}EXIT WRegionCollectionAnalysis::run: " << F.getName()
+               << "\n");
+  return WRC;
+}
+
+INITIALIZE_PASS_BEGIN(WRegionCollectionWrapperPass, "vpo-wrncollection",
                       "VPO Work-Region Collection", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_END(WRegionCollection, "vpo-wrncollection",
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_END(WRegionCollectionWrapperPass, "vpo-wrncollection",
                     "VPO Work-Region Collection", false, true)
 
-char WRegionCollection::ID = 0;
+char WRegionCollectionWrapperPass::ID = 0;
 
-FunctionPass *llvm::createWRegionCollectionPass() {
-  return new WRegionCollection();
+FunctionPass *llvm::createWRegionCollectionWrapperPassPass() {
+  return new WRegionCollectionWrapperPass();
 }
 
-WRegionCollection::WRegionCollection() : FunctionPass(ID) {
-  initializeWRegionCollectionPass(*PassRegistry::getPassRegistry());
+WRegionCollectionWrapperPass::WRegionCollectionWrapperPass()
+    : FunctionPass(ID) {
+  initializeWRegionCollectionWrapperPassPass(*PassRegistry::getPassRegistry());
 }
 
-void WRegionCollection::getAnalysisUsage(AnalysisUsage &AU) const {
+void WRegionCollectionWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<ScalarEvolutionWrapperPass>();
+  AU.addRequired<AssumptionCacheTracker>();
+  AU.addRequired<TargetTransformInfoWrapperPass>();
+  AU.addRequired<TargetLibraryInfoWrapperPass>();
+}
+
+bool WRegionCollectionWrapperPass::runOnFunction(Function &F) {
+  DEBUG(dbgs() << "\nENTER WRegionCollectionWrapperPass::runOnFunction: "
+               << F.getName() << "{\n");
+
+  auto &DI = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  auto &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+  auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
+  auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  auto *HIRFA = getAnalysisIfAvailable<loopopt::HIRFrameworkWrapperPass>();
+
+  WRC.reset(
+      new WRegionCollection(&F, &DI, &LI, &SE, &TTI, &AC, &TLI,
+                            HIRFA != nullptr ? &HIRFA->getHIR() : nullptr));
+
+  DEBUG(dbgs() << "\n}EXIT WRegionCollectionWrapperPass::runOnFunction: "
+               << F.getName() << "\n");
+  return false;
 }
 
 /// \brief TBD: get associated Loop Info for a given W-Region
@@ -93,7 +145,7 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
   //
   for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
 
-    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(&*I);
+    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
 
     if (Call) {
       Intrinsic::ID IntrinId = Call->getIntrinsicID();
@@ -144,7 +196,12 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
                  "Unexpected empty WRN stack when seeing an END directive");
 
           W = S->top();
-          W->finalize(BB); // set the ExitBB and wrap up the WRN
+          W->finalize(BB, DT); // set the ExitBB and wrap up the WRN
+
+          // Cancellation Points are on the end.region directive. Parse it
+          // here if applicable.
+          if (W->canHaveCancellationPoints())
+            W->getClausesFromOperandBundles(true);
 
           S->pop();
           DEBUG(dbgs() << "\n  === Closed WRegion. ");
@@ -194,6 +251,7 @@ void topSortBasicBlocks(
   BasicBlock *BB,
   WRStack<BasicBlock *> &BBStack,
   SmallPtrSetImpl<BasicBlock *> &Visited,
+  bool SeenRegionDir,
   bool DoVerifyBB
 )
 {
@@ -213,10 +271,29 @@ void topSortBasicBlocks(
   // Mark BB as "visited".
   Visited.insert(BB);
 
-  // Visit all the successors first
-  for (succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
-    topSortBasicBlocks(*I, BBStack, Visited, DoVerifyBB);
+  //
+  Instruction *FirstInstr = BB->getFirstNonPHI();
+  BasicBlock *EndBB = nullptr;
+  bool IsOmpDir = VPOAnalysisUtils::isIntelDirective(FirstInstr);
+  if (IsOmpDir) {
+    // The 'SeenRegionDir' mechanism is trying to detect whether the new
+    // region.entry/exit representation is being used, and fall back to the
+    // old behavior if it is not. When we stop supporting the old metadata
+    // representation, we will remove this mechanism.
+    if (!SeenRegionDir)
+      SeenRegionDir = VPOAnalysisUtils::isRegionDirective(FirstInstr);
+    if (SeenRegionDir) {
+      // FirstInstr must be a BEGIN directive
+      EndBB= VPOAnalysisUtils::getEndRegionDirBB(FirstInstr);
+      assert(EndBB && "topSortBasicBlocks: End Directive not found");
+      BBStack.push(EndBB);
+      Visited.insert(EndBB);
+    }
   }
+
+  // Visit all the successors first
+  for (succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I)
+    topSortBasicBlocks(*I, BBStack, Visited, SeenRegionDir, DoVerifyBB);
 
   // We are only interested in BBs that start with OMP directives. Paying the
   // cost now to look at BB's first instruction allows us to save memory by
@@ -225,9 +302,14 @@ void topSortBasicBlocks(
   // the BBs in the CFG. For typical OpenMP programs where the percentage of
   // BBs with OMP directives is small, this should result in net savings of
   // compile time.
-  if (VPOAnalysisUtils::isIntelDirective(&(BB->front()))) {
+  if (IsOmpDir) {
     // DEBUG(dbgs() << "\n=== topSortBasicBlocks pushed this BB: " << *BB);
     BBStack.push(BB);
+
+    if (SeenRegionDir)
+      // Visit all successors of EndBB
+      for (succ_iterator I = succ_begin(EndBB), E = succ_end(EndBB); I!=E; ++I)
+        topSortBasicBlocks(*I, BBStack, Visited, SeenRegionDir, DoVerifyBB);
   }
 }
 
@@ -243,7 +325,7 @@ void WRegionCollection::buildWRGraphFromLLVMIR(Function &F) {
 
   // Having the last argument==true turns on the verifier by default.
   // TODO: guard it under a flag (or debug mode) when VPO is more stable.
-  topSortBasicBlocks(RootBB, BBStack, Visited, true);
+  topSortBasicBlocks(RootBB, BBStack, Visited, false, true);
 
   // Then, visit the BBs in sorted order (by popping BBStack) to build WRNs
   while (!BBStack.empty()) {
@@ -254,18 +336,13 @@ void WRegionCollection::buildWRGraphFromLLVMIR(Function &F) {
   return;
 }
 
-bool WRegionCollection::runOnFunction(Function &F) {
-  DEBUG(dbgs() << "\nENTER WRegionCollection::runOnFunction: "
-               << F.getName() << "{\n");
-  this->Func = &F;
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-
-  DEBUG(dbgs() << "\n}EXIT WRegionCollection::runOnFunction: "
-               << F.getName() << "\n");
-  return false;
-}
+WRegionCollection::WRegionCollection(Function *F, DominatorTree *DT,
+                                     LoopInfo *LI, ScalarEvolution *SE,
+                                     const TargetTransformInfo *TTI,
+                                     AssumptionCache *AC,
+                                     const TargetLibraryInfo *TLI,
+                                     loopopt::HIRFramework *HIRF)
+    : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI), HIRF(HIRF) {}
 
 void WRegionCollection::buildWRGraph(InputIRKind IR) {
   DEBUG(dbgs() << "\nENTER WRegionCollection::buildWRGraph(InputIR="
@@ -273,7 +350,6 @@ void WRegionCollection::buildWRGraph(InputIRKind IR) {
   if (IR == HIR) {
     // TODO: move buildWRGraphFromHIR() from WRegionUtils to WRegionCollection
     //       after Vectorizer's HIR mode starts using this new interface
-    auto HIRF = getAnalysisIfAvailable<loopopt::HIRFramework>();
     assert(HIRF && "HIR framework not available!");
 
     WRGraph = WRegionUtils::buildWRGraphFromHIR(*HIRF);
@@ -286,8 +362,8 @@ void WRegionCollection::buildWRGraph(InputIRKind IR) {
   DEBUG(dbgs() << "\n} EXIT WRegionCollection::buildWRGraph\n");
 }
 
-
-void WRegionCollection::releaseMemory() {
+void WRegionCollectionWrapperPass::releaseMemory() {
+  WRC.reset();
 #if 0
   for (auto &I : WRegions) {
     delete I;
@@ -296,13 +372,9 @@ void WRegionCollection::releaseMemory() {
 #endif
 }
 
-void WRegionCollection::print(raw_ostream &OS, const Module *M) const {
+void WRegionCollection::print(raw_ostream &OS) const {
 #if !INTEL_PRODUCT_RELEASE
   /// TODO: implement later
   /// WR.print(OS);
 #endif // !INTEL_PRODUCT_RELEASE
-}
-
-void WRegionCollection::verifyAnalysis() const {
-  /// TODO: implement later
 }

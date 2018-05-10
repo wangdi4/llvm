@@ -333,7 +333,7 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
     KnownBits InputKnown(SrcBitWidth);
     if (SimplifyDemandedBits(I, 0, InputDemandedMask, InputKnown, Depth + 1))
       return I;
-    Known = Known.zextOrTrunc(BitWidth);
+    Known = InputKnown.zextOrTrunc(BitWidth);
     // Any top bits are known to be zero.
     if (BitWidth > SrcBitWidth)
       Known.Zero.setBitsFrom(SrcBitWidth);
@@ -451,12 +451,11 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
     const APInt *SA;
     if (match(I->getOperand(1), m_APInt(SA))) {
       const APInt *ShrAmt;
-      if (match(I->getOperand(0), m_Shr(m_Value(), m_APInt(ShrAmt)))) {
-        Instruction *Shr = cast<Instruction>(I->getOperand(0));
-        if (Value *R = simplifyShrShlDemandedBits(
-                Shr, *ShrAmt, I, *SA, DemandedMask, Known))
-          return R;
-      }
+      if (match(I->getOperand(0), m_Shr(m_Value(), m_APInt(ShrAmt))))
+        if (Instruction *Shr = dyn_cast<Instruction>(I->getOperand(0)))
+          if (Value *R = simplifyShrShlDemandedBits(Shr, *ShrAmt, I, *SA,
+                                                    DemandedMask, Known))
+            return R;
 
       uint64_t ShiftAmt = SA->getLimitedValue(BitWidth-1);
       APInt DemandedMaskIn(DemandedMask.lshr(ShiftAmt));
@@ -1204,7 +1203,6 @@ Value *InstCombiner::SimplifyDemandedVectorElts(Value *V, APInt DemandedElts,
       break;
     }
 
-    // div/rem demand all inputs, because they don't want divide by zero.
     TmpV = SimplifyDemandedVectorElts(I->getOperand(0), InputDemandedElts,
                                       UndefElts2, Depth + 1);
     if (TmpV) {
@@ -1453,35 +1451,6 @@ Value *InstCombiner::SimplifyDemandedVectorElts(Value *V, APInt DemandedElts,
         UndefElts.clearBit(0);
 
       break;
-
-    case Intrinsic::x86_sse2_pmulu_dq:
-    case Intrinsic::x86_sse41_pmuldq:
-    case Intrinsic::x86_avx2_pmul_dq:
-    case Intrinsic::x86_avx2_pmulu_dq:
-    case Intrinsic::x86_avx512_pmul_dq_512:
-    case Intrinsic::x86_avx512_pmulu_dq_512: {
-      Value *Op0 = II->getArgOperand(0);
-      Value *Op1 = II->getArgOperand(1);
-      unsigned InnerVWidth = Op0->getType()->getVectorNumElements();
-      assert((VWidth * 2) == InnerVWidth && "Unexpected input size");
-
-      APInt InnerDemandedElts(InnerVWidth, 0);
-      for (unsigned i = 0; i != VWidth; ++i)
-        if (DemandedElts[i])
-          InnerDemandedElts.setBit(i * 2);
-
-      UndefElts2 = APInt(InnerVWidth, 0);
-      TmpV = SimplifyDemandedVectorElts(Op0, InnerDemandedElts, UndefElts2,
-                                        Depth + 1);
-      if (TmpV) { II->setArgOperand(0, TmpV); MadeChange = true; }
-
-      UndefElts3 = APInt(InnerVWidth, 0);
-      TmpV = SimplifyDemandedVectorElts(Op1, InnerDemandedElts, UndefElts3,
-                                        Depth + 1);
-      if (TmpV) { II->setArgOperand(1, TmpV); MadeChange = true; }
-
-      break;
-    }
 
     case Intrinsic::x86_sse2_packssdw_128:
     case Intrinsic::x86_sse2_packsswb_128:

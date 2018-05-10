@@ -61,8 +61,8 @@ using namespace llvm;
 using namespace vpo;
 
 // Build plain CFG from incomming IR using only VPBasicBlock's that contain
-// OneByOneRecipe's and ConditionBitRecipe's. Return VPRegionBlock that
-// encloses all the VPBasicBlock's of the plain CFG.
+// VPInstructions. Return VPRegionBlock that encloses all the VPBasicBlock's of
+// the plain CFG.
 class PlainCFGBuilderHIR : public HLNodeVisitorBase {
   friend HLNodeVisitor<PlainCFGBuilderHIR, false /*Recursive*/>;
 
@@ -109,12 +109,13 @@ private:
   void updateActiveVPBB(HLNode *HNode = nullptr, bool IsPredecessor = true);
 
   // VPInstruction methods
-  VPValue *createNoOperandVPInst(HLDDNode *DDNode = nullptr);
+  CmpInst::Predicate getPredicateFromHIR(HLDDNode *DDNode);
+  VPInstruction *createNoOperandVPInst(HLDDNode *DDNode, bool InsertVPInst);
   VPValue *createOrGetVPDefFrom(const DDEdge *Edge);
   VPValue *createOrGetVPOperand(RegDDRef *HIROp);
   void buildVPOpsForDDNode(HLDDNode *HInst,
                            SmallVectorImpl<VPValue *> &VPValueOps);
-  void createOrFixVPInstr(HLDDNode *DDNode);
+  VPInstruction *createOrFixVPInstr(HLDDNode *DDNode);
 
   // Visitor methods
   void visit(const HLNode *Node) {}
@@ -165,7 +166,7 @@ VPBasicBlock *PlainCFGBuilderHIR::createOrGetVPBB(HLNode *HNode) {
     if (BlockIt == HLN2VPBB.end()) {
       // New VPBB
       // TODO: Print something more useful.
-      DEBUG(dbgs() << "Creating VPBasicBlock for " << HNode->getHLNodeID()
+      DEBUG(dbgs() << "Creating VPBasicBlock for " << HNode->getNumber()
                    << "\n");
       VPBasicBlock *VPBB = createVPBB();
       HLN2VPBB[HNode] = VPBB;
@@ -232,40 +233,108 @@ static Constant *getConstantFromHIR(RegDDRef *RDDRef) {
   llvm_unreachable("Unsupported HIR Constant.");
 }
 
-// Return the VPInstruction opcode for a given HLDDNode.
-static unsigned getOpcodeFromHIR(HLDDNode *DDNode) {
+// Utility function that returns an CmpInst::Predicate for a given DDNode. The
+// return value is in the context of the *plain* CFG construction (see
+// 'createNoOperandVPInst' for further information):
+//   1) HLInst representing a CmpInst -> CmpInst's opcode.
+//   2) Single-predicate HLIf -> HLIf single predicate.
+//   3) Multi-predicate HLIf -> BAD_ICMP_PREDICATE (to be fixed during
+//      decomposition).
+//   4) HLLoop -> ICMP_SLE or ICMP_ULE (bottom test).
+// Please, note that the previous semantics are only valid during *plain* CFG
+// constructions and may become invalid after HIR decomposition. Do not reuse
+// this code for other purposes.
+CmpInst::Predicate PlainCFGBuilderHIR::getPredicateFromHIR(HLDDNode *DDNode) {
+  assert((isa<HLInst>(DDNode) || isa<HLIf>(DDNode) || isa<HLLoop>(DDNode)) &&
+         "Expected HLInst, HLIf or HLLoop.");
+
   if (auto *HInst = dyn_cast<HLInst>(DDNode)) {
-    assert(HInst->getLLVMInstruction() &&
-           "Missing LLVM Instruction for HLInst.");
-    return HInst->getLLVMInstruction()->getOpcode();
+    assert(isa<CmpInst>(HInst->getLLVMInstruction()) && "Expected CmpInst.");
+    return cast<CmpInst>(HInst->getLLVMInstruction())->getPredicate();
   }
 
   if (auto *HIf = dyn_cast<HLIf>(DDNode)) {
     assert(HIf->getNumPredicates() && "HLIf with no predicate?");
-    Type *PredType = (*HIf->ddref_begin())->getDestType();
+    CmpInst::Predicate FirstPred = HIf->pred_begin()->Kind;
 
-    // HIR only generates multiple predicates for integers.
-    if (HIf->getNumPredicates() > 1 || PredType->isIntOrIntVectorTy() ||
-        PredType->isPtrOrPtrVectorTy()) {
-      return Instruction::ICmp;
+    // Multiple predicates need decomposition. We mark this with a bad
+    // predicate.
+    if (HIf->getNumPredicates() > 1) {
+      // TODO: HIR recently added support for a mix of INT/FP predicates so this
+      // assert will become invalid soon. This might not impact this function
+      // but decomposition should generate the right predicate for each
+      // comparison.
+      assert(CmpInst::isIntPredicate(FirstPred) &&
+             "Multiple predicates only expected on integer types.");
+
+      return CmpInst::BAD_ICMP_PREDICATE;
     }
 
-    assert(PredType->isFPOrFPVectorTy() && "Expected a floating point type");
-    return Instruction::FCmp;
+    // Single predicate.
+    return FirstPred;
   }
 
-  llvm_unreachable("Missing opcode for HLInst.");
+  // Get the predicate for the HLLoop bottom condition.
+  auto *HLp = cast<HLLoop>(DDNode);
+  assert(HLp->isDo() && HLp->isNormalized() &&
+         "Expected single-exit normalized DO HLLoop.");
+  assert(HLp->getLowerCanonExpr()->getDestType()->isIntegerTy() &&
+         HLp->getUpperCanonExpr()->getDestType()->isIntegerTy() &&
+         "HLLoops only support integer IVs.");
+
+  // HLLoop upper-bound is inclusive so we return the proper less-equal
+  // predicate based on the sign bit of the comparison type.
+  // TODO: Does HIR perform any normalization regarding sign/unsigned types?
+  if (cast<IntegerType>(HLp->getLowerCanonExpr()->getDestType())->getSignBit())
+    return CmpInst::ICMP_SLE;
+
+  return CmpInst::ICMP_ULE;
 }
 
-// Create a VPInstruction with no operands and do not insert it in any
-// VPBasicBlock.
-VPValue *PlainCFGBuilderHIR::createNoOperandVPInst(HLDDNode *DDNode) {
+// Create a VPInstruction with no operands for the incoming DDNode. If
+// InsertVPInst is true, the new VPInstruction is inserted in the current
+// VPBuilder's insertion point. Otherwise, it's not inserted.
+// During *plain* CFG construction, we create VPCmpInst for the following
+// complex HIR constructs that will be later fixed during decomposition:
+//     1) Multi-predicate HLIf: The VPCmpInst represents the multi-predicate
+//     comparisons and contains all the operands involved in the comparisons.
+//     2) HLLoop: The VPCmpInst represents the bottom test comparison. It
+//     contains the HLLoop lower-bound, the upper-bound and the step.
+// Please, note that the previous semantics are only valid during *plain* CFG
+// constructions and may become invalid after HIR decomposition. Do not reuse
+// this code for other purposes.
+VPInstruction *PlainCFGBuilderHIR::createNoOperandVPInst(HLDDNode *DDNode,
+                                                         bool InsertVPInst) {
+  // Clear the insertion point if we don't have to insert the new VPInstruction.
   VPBuilder::InsertPointGuard Guard(VPHIRBuilder);
-  VPHIRBuilder.clearInsertionPoint();
-  unsigned Opcode = DDNode ? getOpcodeFromHIR(DDNode) : 0 /*No operand*/;
-  VPValue *NewVPVal =
-      VPHIRBuilder.createNaryOp(Opcode, {} /*No operands*/, DDNode);
-  return NewVPVal;
+  if (!InsertVPInst)
+    VPHIRBuilder.clearInsertionPoint();
+
+  // TODO: all VPInstructions should have a DDNode. However, we are currently
+  // representing external defs with a VPInstruction and we are not attaching
+  // DDNode to it. We will fix this when we have a specific representation for
+  // external defs.
+  if (DDNode) {
+    // Create a new VPInstruction from DDNode with no operands.
+    HLInst *HInst = dyn_cast<HLInst>(DDNode);
+    assert((!HInst || HInst->getLLVMInstruction()) &&
+           "Missing LLVM Instruction for HLInst.");
+
+    // VPCmpInst for HLInst representing a CmpInst, HLIfs (single and
+    // multi-predicate) and HLLoops (bottom test).
+    if ((HInst && isa<CmpInst>(HInst->getLLVMInstruction())) ||
+        isa<HLIf>(DDNode) || isa<HLLoop>(DDNode))
+      return VPHIRBuilder.createCmpInst(nullptr, nullptr,
+                                        getPredicateFromHIR(DDNode), DDNode);
+
+    // Generic VPInstruction
+    assert(HInst && "Expected HLInst.");
+    return cast<VPInstruction>(VPHIRBuilder.createNaryOp(
+        HInst->getLLVMInstruction()->getOpcode(), {}, DDNode));
+  }
+
+  // Temporal representation for external uses.
+  return cast<VPInstruction>(VPHIRBuilder.createNaryOp(0 /*Opcode*/, {}));
 }
 
 // Returns the VPValue that defines Edge's sink.
@@ -283,7 +352,7 @@ VPValue *PlainCFGBuilderHIR::createOrGetVPDefFrom(const DDEdge *Edge) {
   // operands and do not insert it in the VPBasicBlock. This VPInstruciton will
   // be fixed and inserted when the HLDDNode definition is processed in
   // createVPInstructionsForRange.
-  VPValue *NewVPInst = createNoOperandVPInst(DefNode);
+  VPValue *NewVPInst = createNoOperandVPInst(DefNode, false /*Insert VPIntr*/);
   HLDef2VPValue[DefNode] = NewVPInst;
   return NewVPInst;
 }
@@ -326,7 +395,8 @@ VPValue *PlainCFGBuilderHIR::createOrGetVPOperand(RegDDRef *HIROp) {
 
     // Operand has no incoming DD edges. This means that HIROp is a use whose
     // definition is outside VPlan.
-    VPValue *NewVPVal = createNoOperandVPInst(0 /*No opcode*/);
+    VPValue *NewVPVal =
+        createNoOperandVPInst(nullptr /*No opcode*/, false /*Insert VPInst*/);
     PlanUtils.getVPlan()->addExternalDef(cast<VPInstruction>(NewVPVal));
     return NewVPVal;
   }
@@ -373,7 +443,7 @@ void PlainCFGBuilderHIR::buildVPOpsForDDNode(
 // in the active VPBasicBlock and the HLDef2VPValue map. If a VPInstruction was
 // created before for this DDNode, the VPInstruction is retrieved, its operands
 // are created and it's inserted in the active VPBasicBlock.
-void PlainCFGBuilderHIR::createOrFixVPInstr(HLDDNode *DDNode) {
+VPInstruction *PlainCFGBuilderHIR::createOrFixVPInstr(HLDDNode *DDNode) {
 
   DEBUG(dbgs() << "Creating or fixing:"; DDNode->dump(); dbgs() << "\n");
 
@@ -393,12 +463,9 @@ void PlainCFGBuilderHIR::createOrFixVPInstr(HLDDNode *DDNode) {
     NewVPInst = cast<VPInstruction>(VPValIt->second);
     VPHIRBuilder.insert(NewVPInst);
   } else {
-    // Create new VPInstruction.
-    // NOTE: We set operands later to factorize code in 'if' and 'else'
-    // branches.
-    NewVPInst = cast<VPInstruction>(VPHIRBuilder.createNaryOp(
-        getOpcodeFromHIR(DDNode), {} /*No operands*/, DDNode));
-
+    // Create new VPInstruction. We set operands later to factorize code in 'if'
+    // and 'else' branches and reuse 'createNoOperandVPInst'.
+    NewVPInst = createNoOperandVPInst(DDNode, true /*Insert VPInst*/);
     HLDef2VPValue[DDNode] = NewVPInst;
   }
 
@@ -406,12 +473,14 @@ void PlainCFGBuilderHIR::createOrFixVPInstr(HLDDNode *DDNode) {
   for (VPValue *Operand : VPValueOps) {
     NewVPInst->addOperand(Operand);
   }
+
+  return NewVPInst;
 }
 
 void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
 
   // TODO: Print something more useful.
-  DEBUG(dbgs() << "Visiting HLLoop: " << HLp->getHLNodeID() << "\n");
+  DEBUG(dbgs() << "Visiting HLLoop: " << HLp->getNumber() << "\n");
 
   // - ZTT for inner loops -
   // TODO: isInnerMost(), ztt_pred_begin/end
@@ -445,15 +514,16 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   assert(Header && "Expected VPBasicBlock for loop header.");
   Header2HLLoop[Header] = HLp;
 
-  // An HLoop will always have a single latch that will be also an exiting
+  // An HLoop will always have a single latch that will also be an exiting
   // block. Keep track of it. If there is no active VPBB, we have to create a
   // new one.
   // TODO: Materialize exit condition.
   updateActiveVPBB();
-  // Connect Latch to Header and add ConditionBitRecipe.
-  // TODO: Workaround. Setting a fake ConditionBitRecipe.
+  // Connect Latch to Header and add ConditionBit.
+  // TODO: Workaround. Setting a fake ConditionBit.
   PlanUtils.connectBlocks(ActiveVPBB /*Latch*/, Header);
-  PlanUtils.setBlockCondBitVPVal(ActiveVPBB /*Latch*/, new VPValue());
+  VPInstruction *LatchCondBit = createOrFixVPInstr(HLp);
+  PlanUtils.setBlockCondBitVPVal(ActiveVPBB /*Latch*/, LatchCondBit);
 
   // - Loop Exits -
   // Force creation of a new VPBB for Exit.
@@ -477,18 +547,13 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
   // - Condition -
   // We do not create a new active  VPBasicBlock for HLIf predicates
   // (condition). We reuse the previous one (if possible).
-  // TODO: Predicates in HLIf are not HLInst's but CmpInst! We have to process
-  // them separately and manually, creating VPInstructions for them and
-  // combining them with AND operations.
   updateActiveVPBB(HIf);
-
-  // Create (single, not decomposed) VPInstruction for HLIf's predicate.
-  createOrFixVPInstr(HIf);
-
-  auto IfVPVal = HLDef2VPValue.find(HIf)->second;
   VPBasicBlock *ConditionVPBB = ActiveVPBB;
-  // assert("HLIf condition generates more than one VPBB?");
-  PlanUtils.setBlockCondBitVPVal(ActiveVPBB, IfVPVal);
+
+  // Create (single, not decomposed) VPInstruction for HLIf's predicate and set
+  // it as condition bit of the active VPBasicBlock.
+  VPInstruction *CondBit = createOrFixVPInstr(HIf);
+  PlanUtils.setBlockCondBitVPVal(ConditionVPBB, CondBit);
 
   // - Then branch -
   // Force creation of a new VPBB for Then branch.

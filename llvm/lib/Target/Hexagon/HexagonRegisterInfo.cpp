@@ -123,6 +123,7 @@ HexagonRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   case Hexagon::ArchEnum::V55:
   case Hexagon::ArchEnum::V60:
   case Hexagon::ArchEnum::V62:
+  case Hexagon::ArchEnum::V65:
     return HasEHReturn ? CalleeSavedRegsV3EHReturn : CalleeSavedRegsV3;
   }
 
@@ -143,6 +144,14 @@ BitVector HexagonRegisterInfo::getReservedRegs(const MachineFunction &MF)
   Reserved.set(Hexagon::R29);
   Reserved.set(Hexagon::R30);
   Reserved.set(Hexagon::R31);
+  Reserved.set(Hexagon::VTMP);
+
+  // Guest registers.
+  Reserved.set(Hexagon::GELR);        // G0
+  Reserved.set(Hexagon::GSR);         // G1
+  Reserved.set(Hexagon::GOSP);        // G2
+  Reserved.set(Hexagon::G3);          // G3
+
   // Control registers.
   Reserved.set(Hexagon::SA0);         // C0
   Reserved.set(Hexagon::LC0);         // C1
@@ -168,6 +177,9 @@ BitVector HexagonRegisterInfo::getReservedRegs(const MachineFunction &MF)
   // them here as well.
   Reserved.set(Hexagon::C8);
   Reserved.set(Hexagon::USR_OVF);
+
+  if (MF.getSubtarget<HexagonSubtarget>().hasReservedR19())
+    Reserved.set(Hexagon::R19);
 
   for (int x = Reserved.find_first(); x >= 0; x = Reserved.find_next(x))
     markSuperRegs(Reserved, x);
@@ -281,6 +293,11 @@ bool HexagonRegisterInfo::useFPForScavengingIndex(const MachineFunction &MF)
   return MF.getSubtarget<HexagonSubtarget>().getFrameLowering()->hasFP(MF);
 }
 
+const TargetRegisterClass *
+HexagonRegisterInfo::getPointerRegClass(const MachineFunction &MF,
+                                        unsigned Kind) const {
+  return &Hexagon::IntRegsRegClass;
+}
 
 unsigned HexagonRegisterInfo::getFirstCallerSavedNonParamReg() const {
   return Hexagon::R6;

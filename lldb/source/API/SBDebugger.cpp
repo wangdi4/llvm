@@ -43,12 +43,14 @@
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Core/StructuredDataImpl.h"
 #include "lldb/DataFormatters/DataVisualization.h"
+#include "lldb/Host/XML.h"
 #include "lldb/Initialization/SystemLifetimeManager.h"
-#include "lldb/Interpreter/Args.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
+#include "lldb/Interpreter/OptionArgParser.h"
 #include "lldb/Interpreter/OptionGroupPlatform.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/TargetList.h"
+#include "lldb/Utility/Args.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
@@ -479,8 +481,8 @@ bool SBDebugger::SetDefaultArchitecture(const char *arch_name) {
 ScriptLanguage
 SBDebugger::GetScriptingLanguage(const char *script_language_name) {
   if (!script_language_name) return eScriptLanguageDefault;
-  return Args::StringToScriptLanguage(llvm::StringRef(script_language_name),
-                                      eScriptLanguageDefault, nullptr);
+  return OptionArgParser::ToScriptLanguage(
+      llvm::StringRef(script_language_name), eScriptLanguageDefault, nullptr);
 }
 
 const char *SBDebugger::GetVersionString() {
@@ -489,6 +491,26 @@ const char *SBDebugger::GetVersionString() {
 
 const char *SBDebugger::StateAsCString(StateType state) {
   return lldb_private::StateAsCString(state);
+}
+
+static void AddBoolConfigEntry(StructuredData::Dictionary &dict,
+                               llvm::StringRef name, bool value,
+                               llvm::StringRef description) {
+  auto entry_up = llvm::make_unique<StructuredData::Dictionary>();
+  entry_up->AddBooleanItem("value", value);
+  entry_up->AddStringItem("description", description);
+  dict.AddItem(name, std::move(entry_up));
+}
+
+SBStructuredData SBDebugger::GetBuildConfiguration() {
+  auto config_up = llvm::make_unique<StructuredData::Dictionary>();
+  AddBoolConfigEntry(
+      *config_up, "xml", XMLDocument::XMLEnabled(),
+      "A boolean value that indicates if XML support is enabled in LLDB");
+
+  SBStructuredData data;
+  data.m_impl_up->SetObjectSP(std::move(config_up));
+  return data;
 }
 
 bool SBDebugger::StateIsRunningState(StateType state) {

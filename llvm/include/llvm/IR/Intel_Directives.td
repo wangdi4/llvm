@@ -136,6 +136,13 @@ def "DIR.OMP.END.CANCEL" : Directive;
 def "DIR.OMP.CANCELLATION.POINT" : Directive;
 def "DIR.OMP.END.CANCELLATION.POINT" : Directive;
 
+// *** Begin non-OpenMP Directives ***
+
+// Directives used to mark begin/end of a loop determined by VPO vectorizer
+// legality analysis to be legal to vectorize.
+def "DIR.VPO.AUTO.VEC" : Directive;
+def "DIR.VPO.END.AUTO.VEC" : Directive;
+
 // *** Begin OpenMP Clauses ***
 
 def "QUAL.OMP.DEFAULT.NONE" : Clause;
@@ -181,7 +188,6 @@ def "QUAL.OMP.FIRSTPRIVATE" : Clause;
 def "QUAL.OMP.LASTPRIVATE" : Clause;
 def "QUAL.OMP.COPYIN" : Clause;
 def "QUAL.OMP.COPYPRIVATE" : Clause;
-def "QUAL.OMP.REDUCTION" : Clause;
 def "QUAL.OMP.REDUCTION.ADD" : Clause;
 def "QUAL.OMP.REDUCTION.SUB" : Clause;
 def "QUAL.OMP.REDUCTION.MUL" : Clause;
@@ -193,6 +199,17 @@ def "QUAL.OMP.REDUCTION.BOR" : Clause;
 def "QUAL.OMP.REDUCTION.MAX" : Clause;
 def "QUAL.OMP.REDUCTION.MIN" : Clause;
 def "QUAL.OMP.REDUCTION.UDR" : Clause;
+def "QUAL.OMP.INREDUCTION.ADD" : Clause;
+def "QUAL.OMP.INREDUCTION.SUB" : Clause;
+def "QUAL.OMP.INREDUCTION.MUL" : Clause;
+def "QUAL.OMP.INREDUCTION.AND" : Clause;
+def "QUAL.OMP.INREDUCTION.OR" : Clause;
+def "QUAL.OMP.INREDUCTION.BXOR" : Clause;
+def "QUAL.OMP.INREDUCTION.BAND" : Clause;
+def "QUAL.OMP.INREDUCTION.BOR" : Clause;
+def "QUAL.OMP.INREDUCTION.MAX" : Clause;
+def "QUAL.OMP.INREDUCTION.MIN" : Clause;
+def "QUAL.OMP.INREDUCTION.UDR" : Clause;
 def "QUAL.OMP.TO" : Clause;
 def "QUAL.OMP.FROM" : Clause;
 def "QUAL.OMP.LINEAR" : Clause;
@@ -229,3 +246,11 @@ def "QUAL.OMP.CANCEL.SECTIONS" : Clause;
 def "QUAL.OMP.CANCEL.TASKGROUP" : Clause;
 def "QUAL.OMP.HINT" : Clause;
 def "QUAL.OMP.NAME" : Clause;
+
+// *** Begin Auxiliary Clauses ***
+// These "clauses" don't correspond to actual OpenMP clauses, but are used
+// to carry additional information
+
+def "QUAL.OMP.NORMALIZED.IV" : Clause;
+def "QUAL.OMP.NORMALIZED.UB" : Clause;
+def "QUAL.OMP.CANCELLATION.POINTS" : Clause;

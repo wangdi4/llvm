@@ -124,7 +124,7 @@ void FreeHook(const volatile void *ptr) {
 
 // Crash on a single malloc that exceeds the rss limit.
 void Fuzzer::HandleMalloc(size_t Size) {
-  if (!Options.RssLimitMb || (Size >> 20) < (size_t)Options.RssLimitMb)
+  if (!Options.MallocLimitMb || (Size >> 20) < (size_t)Options.MallocLimitMb)
     return;
   Printf("==%d== ERROR: libFuzzer: out-of-memory (malloc(%zd))\n", GetPid(),
          Size);
@@ -329,6 +329,8 @@ void Fuzzer::PrintStats(const char *Where, const char *End, size_t Units) {
         Printf("/%zdMb", N >> 20);
     }
   }
+  if (TmpMaxMutationLen)
+    Printf(" lim: %zd", TmpMaxMutationLen);
   if (Units)
     Printf(" units: %zd", Units);
 
@@ -433,7 +435,7 @@ void Fuzzer::PrintPulseAndReportSlowInput(const uint8_t *Data, size_t Size) {
 }
 
 bool Fuzzer::RunOne(const uint8_t *Data, size_t Size, bool MayDeleteFile,
-                    InputInfo *II) {
+                    InputInfo *II, bool *FoundUniqFeatures) {
   if (!Size)
     return false;
 
@@ -443,7 +445,8 @@ bool Fuzzer::RunOne(const uint8_t *Data, size_t Size, bool MayDeleteFile,
   size_t FoundUniqFeaturesOfII = 0;
   size_t NumUpdatesBefore = Corpus.NumFeatureUpdates();
   TPC.CollectFeatures([&](size_t Feature) {
-    Corpus.UpdateFeatureFrequency(Feature);
+    if (Options.UseFeatureFrequency)
+      Corpus.UpdateFeatureFrequency(Feature);
     if (Corpus.AddFeature(Feature, Size, Options.Shrink))
       UniqFeatureSetTmp.push_back(Feature);
     if (Options.ReduceInputs && II)
@@ -451,6 +454,8 @@ bool Fuzzer::RunOne(const uint8_t *Data, size_t Size, bool MayDeleteFile,
                              II->UniqFeatureSet.end(), Feature))
         FoundUniqFeaturesOfII++;
   });
+  if (FoundUniqFeatures)
+    *FoundUniqFeatures = FoundUniqFeaturesOfII;
   PrintPulseAndReportSlowInput(Data, Size);
   size_t NumNewFeatures = Corpus.NumFeatureUpdates() - NumUpdatesBefore;
   if (NumNewFeatures) {
@@ -564,7 +569,6 @@ void Fuzzer::ReportNewCoverage(InputInfo *II, const Unit &U) {
   NumberOfNewUnitsAdded++;
   CheckExitOnSrcPosOrItem(); // Check only after the unit is saved to corpus.
   LastCorpusUpdateRun = TotalNumberOfRuns;
-  LastCorpusUpdateTime = system_clock::now();
 }
 
 // Tries detecting a memory leak on the particular input that we have just
@@ -642,11 +646,17 @@ void Fuzzer::MutateAndTestOne() {
     Size = NewSize;
     II.NumExecutedMutations++;
 
-    bool NewCov = RunOne(CurrentUnitData, Size, /*MayDeleteFile=*/true, &II);
+    bool FoundUniqFeatures = false;
+    bool NewCov = RunOne(CurrentUnitData, Size, /*MayDeleteFile=*/true, &II,
+                         &FoundUniqFeatures);
     TryDetectingAMemoryLeak(CurrentUnitData, Size,
                             /*DuringInitialCorpusExecution*/ false);
-    if (NewCov)
+    if (NewCov) {
       ReportNewCoverage(&II, {CurrentUnitData, CurrentUnitData + Size});
+      break;  // We will mutate this input more in the next rounds.
+    }
+    if (Options.ReduceDepth && !FoundUniqFeatures)
+        break;
   }
 }
 
@@ -747,18 +757,13 @@ void Fuzzer::Loop(const Vector<std::string> &CorpusDirs) {
       break;
 
     // Update TmpMaxMutationLen
-    if (Options.ExperimentalLenControl) {
+    if (Options.LenControl) {
       if (TmpMaxMutationLen < MaxMutationLen &&
-          (TotalNumberOfRuns - LastCorpusUpdateRun > 1000 &&
-           duration_cast<seconds>(Now - LastCorpusUpdateTime).count() >= 1)) {
-        LastCorpusUpdateRun = TotalNumberOfRuns;
-        LastCorpusUpdateTime = Now;
+          TotalNumberOfRuns - LastCorpusUpdateRun >
+              Options.LenControl * Log(TmpMaxMutationLen)) {
         TmpMaxMutationLen =
-            Min(MaxMutationLen,
-                TmpMaxMutationLen + Max(size_t(4), TmpMaxMutationLen / 8));
-        if (TmpMaxMutationLen <= MaxMutationLen)
-          Printf("#%zd\tTEMP_MAX_LEN: %zd\n", TotalNumberOfRuns,
-                 TmpMaxMutationLen);
+            Min(MaxMutationLen, TmpMaxMutationLen + Log(TmpMaxMutationLen));
+        LastCorpusUpdateRun = TotalNumberOfRuns;
       }
     } else {
       TmpMaxMutationLen = MaxMutationLen;
@@ -819,13 +824,15 @@ void Fuzzer::AnnounceOutput(const uint8_t *Data, size_t Size) {
 
 extern "C" {
 
-size_t LLVMFuzzerMutate(uint8_t *Data, size_t Size, size_t MaxSize) {
+__attribute__((visibility("default"))) size_t
+LLVMFuzzerMutate(uint8_t *Data, size_t Size, size_t MaxSize) {
   assert(fuzzer::F);
   return fuzzer::F->GetMD().DefaultMutate(Data, Size, MaxSize);
 }
 
 // Experimental
-void LLVMFuzzerAnnounceOutput(const uint8_t *Data, size_t Size) {
+__attribute__((visibility("default"))) void
+LLVMFuzzerAnnounceOutput(const uint8_t *Data, size_t Size) {
   assert(fuzzer::F);
   fuzzer::F->AnnounceOutput(Data, Size);
 }

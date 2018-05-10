@@ -73,7 +73,7 @@ bool CSASaveRawBC::doInitialization(Module &M) {
   // Fetch the raw IR
   {
     raw_string_ostream OS(BcData);
-    WriteBitcodeToFile(&M, OS);
+    WriteBitcodeToFile(M, OS);
   }
 
   // If asked, dump the serialized IR to a file

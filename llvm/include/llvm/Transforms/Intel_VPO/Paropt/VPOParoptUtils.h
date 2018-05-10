@@ -242,12 +242,41 @@ public:
                                                         StructType *IdentTy,
                                                         BasicBlock *BB);
 
-    /// \brief Insert this call at InsertPt:
-    ///    call void @__kmpc_barrier(%ident_t* %loc, i32 %tid)
-    static CallInst* genKmpcBarrier(WRegionNode *W, Value *Tid,
-                                    Instruction *InsertPt,
-                                    StructType *IdentTy,
+    /// \brief Insert the following call before \p InsertPt and return it:
+    ///
+    /// If the parent WRegion has a cancel construct:
+    ///   %1 = call int32 @__kmpc_cancel_barrier(%ident_t* %loc, i32 %tid)
+    ///   Also, add %1 to the parent WRegionNode's CancellationPoints.
+    ///
+    /// Otherwise:
+    ///   call void @__kmpc_barrier(%ident_t* %loc, i32 %tid)
+    static CallInst *genKmpcBarrier(WRegionNode *W, Value *Tid,
+                                    Instruction *InsertPt, StructType *IdentTy,
                                     bool IsExplicit);
+
+    /// \brief Insert the following call before \p InsertPt and return it:
+    ///
+    /// If \p CancelBarrier is \b true:
+    ///   %1 = call int32 @__kmpc_cancel_barrier(%ident_t* %loc, i32 %tid)
+    ///
+    /// Otherwise:
+    ///   call void @__kmpc_barrier(%ident_t* %loc, i32 %tid)
+    static CallInst *genKmpcBarrierImpl(WRegionNode *W, Value *Tid,
+                                        Instruction *InsertPt,
+                                        StructType *IdentTy, bool IsExplicit,
+                                        bool IsCancelBarrier);
+
+    /// \brief Insert the following call before \p InsertPt:
+    /// If \p IsCancellationPoint is \b false:
+    ///    %1 = call void @__kmpc_cancel(%ident_t* %loc, i32 %tid, i32
+    ///    cancel_kind)
+    /// If \p IsCancellationPoint is \b true:
+    ///    %1 = call void @__kmpc_cancellation_point(%ident_t* %loc, i32 %tid,
+    ///    i32 cancel_kind)
+    static CallInst *genKmpcCancelOrCancellationPointCall(
+        WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
+        Instruction *InsertPoint, WRNCancelKind CancelKind,
+        bool IsCancellationPoint);
 
     /// \brief Generates a critical section surrounding all the inner
     /// BasicBlocks of the WRegionNode \p W. The function works only on
@@ -290,7 +319,7 @@ public:
     /// \returns `true` if the calls to `__kmpc_critical` and
     /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
     static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                       AllocaInst *TidPtr,
+                                       Constant *TidPtr,
                                        const StringRef &LockNameSuffix);
 
     /// \brief Identical to the function above, but uses a default suffix for
@@ -301,7 +330,7 @@ public:
     /// \returns `true` if the calls to `__kmpc_critical` and
     /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
     static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                       AllocaInst *TidPtr);
+                                       Constant *TidPtr);
 
     /// \brief Generates a critical section around Instructions \p BeginInst
     /// and \p EndInst. The function emits calls to `__kmpc_critical`
@@ -329,8 +358,7 @@ public:
     /// \returns `true` if the calls to `__kmpc_critical` and
     /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
     static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                       AllocaInst *TidPtr,
-                                       Instruction *BeginInst,
+                                       Constant *TidPtr, Instruction *BeginInst,
                                        Instruction *EndInst,
                                        const StringRef &LockNameSuffix);
 
@@ -400,6 +428,16 @@ public:
     static CallInst *genMemcpy(Value *D, Value *S, const DataLayout &DL,
                                unsigned Align, BasicBlock *BB);
 
+    /// \brief Utils to emit calls to ctor, dtor, cctor, and copyassign
+    static CallInst *genConstructorCall(Function *Ctor, Value *V,
+                                        Value *PrivAlloca);
+    static CallInst *genDestructorCall(Function *Dtor, Value *V,
+                                       Instruction *InsertBeforePt);
+    static CallInst *genCopyConstructorCall(Function *Cctor, Value *D,
+                                       Value *S, Instruction *InsertBeforePt);
+    static CallInst *genCopyAssignCall(Function *Cp, Value *D, Value *S,
+                                       Instruction *InsertBeforePt);
+
     /// \brief Computes the OpenMP loop upper bound so that the loop
     //  iteration space can be closed interval.
     static CmpInst::Predicate computeOmpPredicate(CmpInst::Predicate PD);
@@ -414,6 +452,13 @@ public:
     static void updateOmpPredicateAndUpperBound(WRegionNode *W,
                                                 Value *Load,
                                                 Instruction *InsertPt);
+
+    /// \brief Creates a clone of \p CI, and adds \p OpBundlesToAdd the new
+    /// CallInst. \returns the created CallInst, if it created one, \p CI
+    /// otherwise (when \p OpBundlesToAdd is empty).
+    static CallInst *addOperandBundlesInCall(
+        CallInst *CI,
+        ArrayRef<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd);
 
     /// \brief Clones the instructions and inserts before the InsertPt.
     static Value *cloneInstructions(Value *V, Instruction *InsertPt);
@@ -527,60 +572,60 @@ public:
     static CallInst *genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
                                      Value *TidPtr, Instruction *InsertPt);
 
-    /// \brief Build int32_t __tgt_target_data_begin(int32_t  device_id,
+    /// \brief Build int32_t __tgt_target_data_begin(int64_t  device_id,
     ///                                              int32_t  num_args,
     ///                                              void**   args_base,
     ///                                              void**   args,
     ///                                              int64_t* args_size,
-    ///                                              int32_t* args_maptype)
+    ///                                              int64_t* args_maptype)
     ///
     static CallInst *genTgtTargetDataBegin(WRegionNode *W, int NumArgs,
                                            Value *ArgsBase, Value *Args,
                                            Value *ArgsSize, Value *ArgsMaptype,
                                            Instruction *InsertPt);
 
-    /// \brief Build int32_t __tgt_target_data_end(int32_t  device_id,
+    /// \brief Build int32_t __tgt_target_data_end(int64_t  device_id,
     ///                                            int32_t  num_args,
     ///                                            void**   args_base,
     ///                                            void**   args,
     ///                                            int64_t* args_size,
-    ///                                            int32_t* args_maptype)
+    ///                                            int64_t* args_maptype)
     static CallInst *genTgtTargetDataEnd(WRegionNode *W, int NumArgs,
                                          Value *ArgsBase, Value *Args,
                                          Value *ArgsSize, Value *ArgsMaptype,
                                          Instruction *InsertPt);
 
-    /// \brief Build int32_t __tgt_target_data_update(int32_t  device_id,
+    /// \brief Build int32_t __tgt_target_data_update(int64_t  device_id,
     ///                                               int32_t  num_args,
     ///                                               void**   args_base,
     ///                                               void**   args,
     ///                                               int64_t* args_size,
-    ///                                               int32_t* args_maptype)
+    ///                                               int64_t* args_maptype)
     static CallInst *genTgtTargetDataUpdate(WRegionNode *W, int NumArgs,
                                             Value *ArgsBase, Value *Args,
                                             Value *ArgsSize,
                                             Value *ArgsMaptype,
                                             Instruction *InsertPt);
 
-    /// \brief Build int32_t __tgt_target(int32_t  device_id,
+    /// \brief Build int32_t __tgt_target(int64_t  device_id,
     ///                                   void*    host_addr,
     ///                                   int32_t  num_args,
     ///                                   void**   args_base,
     ///                                   void**   args,
     ///                                   int64_t* args_size,
-    ///                                   int32_t* args_maptype)
+    ///                                   int64_t* args_maptype)
     static CallInst *genTgtTarget(WRegionNode *W, Value *HostAddr, int NumArgs,
                                   Value *ArgsBase, Value *Args,
                                   Value *ArgsSize, Value *ArgsMaptype,
                                   Instruction *InsertPt);
 
-    /// \brief Build int32_t __tgt_target_teams(int32_t  device_id,
+    /// \brief Build int32_t __tgt_target_teams(int64_t  device_id,
     ///                                         void*    host_addr,
     ///                                         int32_t  num_args,
     ///                                         void**   args_base,
     ///                                         void**   args,
     ///                                         int64_t* args_size,
-    ///                                         int32_t* args_maptype,
+    ///                                         int64_t* args_maptype,
     ///                                         int32_t  num_teams,
     ///                                         int32_t  thread_limit)
     static CallInst *genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
@@ -589,14 +634,13 @@ public:
                                        Value *ArgsMaptype,
                                        Instruction *InsertPt);
 
-
     /// \brief Base routine to create one of these libomptarget calls:
     /// \code
-    ///   void    __tgt_target_data_begin( int32_t device_id, <common>)
-    ///   void    __tgt_target_data_end(   int32_t device_id, <common>)
-    ///   void    __tgt_target_data_update(int32_t device_id, <common>)
-    ///   int32_t __tgt_target(int32_t device_id, void *host_addr, <common>)
-    ///   int32_t __tgt_target_teams(int32_t device_id, void *host_addr,
+    ///   void    __tgt_target_data_begin( int64_t device_id, <common>)
+    ///   void    __tgt_target_data_end(   int64_t device_id, <common>)
+    ///   void    __tgt_target_data_update(int64_t device_id, <common>)
+    ///   int32_t __tgt_target(int64_t device_id, void *host_addr, <common>)
+    ///   int32_t __tgt_target_teams(int64_t device_id, void *host_addr,
     ///                              <common>, int32_t num_teams,
     ///                              int32_t thread_limit)
     /// \endcode
@@ -669,6 +713,17 @@ public:
                                         Value *IsSingleThread,
                                         Instruction *InsertPt);
 
+    /// \brief This function generates a call as follows.
+    /// void @__kmpc_taskgroup(%ident_t* %loc.addr.11.12, i32 %my.tid)
+    static CallInst *genKmpcTaskgroupCall(WRegionNode *W, StructType *IdentTy,
+                                          Value *Tid, Instruction *InsertPt);
+
+    /// \brief This function generates a call as follows.
+    /// void @__kmpc_end_taskgroup(%ident_t* %loc.addr.11.12, i32 %my.tid)
+    static CallInst *genKmpcEndTaskgroupCall(WRegionNode *W,
+                                             StructType *IdentTy, Value *Tid,
+                                             Instruction *InsertPt);
+
   private:
     /// \name Private constructor and destructor to disable instantiation.
     /// @{
@@ -695,6 +750,12 @@ public:
                                  Instruction *InsertPt, StringRef IntrinsicName,
                                  Type *ReturnTy, ArrayRef<Value *> Args,
                                  bool Insert=false);
+
+    /// \brief Generates a CallInst for the given Function* Fn and its
+    /// argument list.  Fn must be already declared.
+    static CallInst *genCall(Function *Fn, ArrayRef<Value*> FnArgs,
+                             ArrayRef<Type*> FnArgTypes, Instruction *InsertPt,
+                             bool IsTail=false, bool IsVarArg=false);
 
     /// \brief Generates a call to the function \p FnName.
     /// If the function is not already declared in the module \p M, then it is
@@ -761,11 +822,21 @@ public:
     /// \returns `true` if the calls to `__kmpc_critical` and
     /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
     static bool genKmpcCriticalSectionImpl(WRegionNode *W, StructType *IdentTy,
-                                           AllocaInst *TidPtr,
+                                           Constant *TidPtr,
                                            Instruction *BeginInst,
                                            Instruction *EndInst,
                                            GlobalVariable *LockVar);
 
+    /// \Brief This function generates calls for the taskgroup region.
+    ///
+    ///   call void @__kmpc_taskgroup(%ident_t* %loc, i32 %tid)
+    ///      or
+    ///   call void @__kmpc_end_taskgroup(%ident_t* %loc, i32 %tid)
+    static CallInst *genKmpcTaskgroupOrEndTaskgroupCall(WRegionNode *W,
+                                                        StructType *IdentTy,
+                                                        Value *Tid,
+                                                        Instruction *InsertPt,
+                                                        bool IsTaskGroupStart);
 
     /// @}
 

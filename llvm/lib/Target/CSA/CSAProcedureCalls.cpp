@@ -208,7 +208,7 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
   MachineModuleInfo &MMI = thisMF->getMMI();
   const Module *M = MMI.getModule();
   int num_call_sites = 0;
-  StringRef name = thisMF->getFunction()->getName();
+  StringRef name = thisMF->getFunction().getName();
   std::vector<CALL_SITE_INFO> csilist;
 //RAVI  const TargetMachine &TM = thisMF->getTarget();
   for (const Function &F : *M) {
@@ -400,7 +400,7 @@ MachineInstr* CSAProcCallsPass::addEntryInstruction(void) {
   LMFI->setEntryMI(MI);
   // Add dummy vreg for unused param
   int dummyid = 0;
-  const Function *F = thisMF->getFunction();
+  const Function *F = &thisMF->getFunction();
   Function::const_arg_iterator I, E;
   for (I = F->arg_begin(), E = F->arg_end(); I != E; ++I) {
     const Argument &Arg = *I;
@@ -500,7 +500,7 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
   MachineModuleInfo &MMI = thisMF->getMMI();
   const Module *M = MMI.getModule();
   int CallSiteIndex = 1;
-  StringRef name = thisMF->getFunction()->getName();
+  StringRef name = thisMF->getFunction().getName();
   MachineInstr *copyMI;
   for (MachineFunction::iterator MBB = thisMF->begin(), E = thisMF->end(); MBB != E; ++MBB) {
     MachineBasicBlock::iterator nextMI = MBB->begin();
@@ -648,7 +648,7 @@ void CSAProcCallsPass::changeMovConstToGate(unsigned entry_mem_ord_lic) {
 
 bool CSAProcCallsPass::runOnMachineFunction(MachineFunction &MF) {
   thisMF = &MF;
-  DEBUG(errs() << "Entering into CSA Procedure Calls Pass for " << MF.getFunction()->getName() << "\n");
+  DEBUG(errs() << "Entering into CSA Procedure Calls Pass for " << MF.getFunction().getName() << "\n");
   if (ProcCallsPass == 0) return false;
   LMFI   = MF.getInfo<CSAMachineFunctionInfo>();
 	MRI = &(MF.getRegInfo());

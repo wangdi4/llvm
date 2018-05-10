@@ -180,8 +180,8 @@ public:
     // Generate an empty loop with lower bound \p LB, upper bound \p UB, stride
     // \p stride, right after the InsertBlock pointed by \p Builder.
     static Value *genNewLoop(Value *LB, Value *UB, Value *Stride,
-                        IRBuilder<> &Builder, int Counter,
-                        DominatorTree *DT = nullptr);
+                             IRBuilder<> &Builder, int Counter,
+                             Value *&NormalizedUB, DominatorTree *DT = nullptr);
 
     // Generate a switch statement for the parallel section or work-sharing
     // section represented by \p Node. Each section in the parallel section or

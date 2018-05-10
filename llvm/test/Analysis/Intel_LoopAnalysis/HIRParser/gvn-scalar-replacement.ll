@@ -1,4 +1,4 @@
-; RUN: opt < %s -gvn -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -gvn -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Verify that gvn doesn't perform scalar replacement on @foo marked with "pre_loopopt" attribute but it does on identical @foo1 without the attribute.
 

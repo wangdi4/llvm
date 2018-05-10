@@ -43,6 +43,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include <algorithm>
 #include <cassert>
@@ -57,6 +58,12 @@ using namespace llvm::PatternMatch;
 static const char *const FlowBlockName = "Flow";
 
 namespace {
+
+static cl::opt<bool> ForceSkipUniformRegions(
+  "structurizecfg-skip-uniform-regions",
+  cl::Hidden,
+  cl::desc("Force whether the StructurizeCFG pass skips uniform regions"),
+  cl::init(false));
 
 // Definition of the complex types used in this pass.
 
@@ -179,6 +186,7 @@ class StructurizeCFG : public RegionPass {
   Function *Func;
   Region *ParentRegion;
 
+  DivergenceAnalysis *DA;
   DominatorTree *DT;
 #if INTEL_CUSTOMIZATION
   PostDominatorTree *PDT;
@@ -254,8 +262,11 @@ class StructurizeCFG : public RegionPass {
 public:
   static char ID;
 
-  explicit StructurizeCFG(bool SkipUniformRegions = false)
-      : RegionPass(ID), SkipUniformRegions(SkipUniformRegions) {
+  explicit StructurizeCFG(bool SkipUniformRegions_ = false)
+      : RegionPass(ID),
+        SkipUniformRegions(SkipUniformRegions_) {
+    if (ForceSkipUniformRegions.getNumOccurrences())
+      SkipUniformRegions = ForceSkipUniformRegions.getValue();
     initializeStructurizeCFGPass(*PassRegistry::getPassRegistry());
   }
 
@@ -562,10 +573,7 @@ void StructurizeCFG::insertConditions(bool Loops) {
 /// them in DeletedPhis
 void StructurizeCFG::delPhiValues(BasicBlock *From, BasicBlock *To) {
   PhiMap &Map = DeletedPhis[To];
-  for (Instruction &I : *To) {
-    if (!isa<PHINode>(I))
-      break;
-    PHINode &Phi = cast<PHINode>(I);
+  for (PHINode &Phi : To->phis()) {
     while (Phi.getBasicBlockIndex(From) != -1) {
       Value *Deleted = Phi.removeIncomingValue(From, false);
       Map[&Phi].push_back(std::make_pair(From, Deleted));
@@ -575,10 +583,7 @@ void StructurizeCFG::delPhiValues(BasicBlock *From, BasicBlock *To) {
 
 /// \brief Add a dummy PHI value as soon as we knew the new predecessor
 void StructurizeCFG::addPhiValues(BasicBlock *From, BasicBlock *To) {
-  for (Instruction &I : *To) {
-    if (!isa<PHINode>(I))
-      break;
-    PHINode &Phi = cast<PHINode>(I);
+  for (PHINode &Phi : To->phis()) {
     Value *Undef = UndefValue::get(Phi.getType());
     Phi.addIncoming(Undef, From);
   }
@@ -635,6 +640,8 @@ void StructurizeCFG::killTerminator(BasicBlock *BB) {
        SI != SE; ++SI)
     delPhiValues(BB, *SI);
 
+  if (DA)
+    DA->removeValue(Term);
   Term->eraseFromParent();
 }
 
@@ -902,16 +909,37 @@ void StructurizeCFG::rebuildSSA() {
     }
 }
 
-static bool hasOnlyUniformBranches(const Region *R,
+static bool hasOnlyUniformBranches(Region *R, unsigned UniformMDKindID,
                                    const DivergenceAnalysis &DA) {
-  for (const BasicBlock *BB : R->blocks()) {
-    const BranchInst *Br = dyn_cast<BranchInst>(BB->getTerminator());
-    if (!Br || !Br->isConditional())
-      continue;
+  for (auto E : R->elements()) {
+    if (!E->isSubRegion()) {
+      auto Br = dyn_cast<BranchInst>(E->getEntry()->getTerminator());
+      if (!Br || !Br->isConditional())
+        continue;
 
-    if (!DA.isUniform(Br->getCondition()))
-      return false;
-    DEBUG(dbgs() << "BB: " << BB->getName() << " has uniform terminator\n");
+      if (!DA.isUniform(Br))
+        return false;
+      DEBUG(dbgs() << "BB: " << Br->getParent()->getName()
+                   << " has uniform terminator\n");
+    } else {
+      // Explicitly refuse to treat regions as uniform if they have non-uniform
+      // subregions. We cannot rely on DivergenceAnalysis for branches in
+      // subregions because those branches may have been removed and re-created,
+      // so we look for our metadata instead.
+      //
+      // Warning: It would be nice to treat regions as uniform based only on
+      // their direct child basic blocks' terminators, regardless of whether
+      // subregions are uniform or not. However, this requires a very careful
+      // look at SIAnnotateControlFlow to make sure nothing breaks there.
+      for (auto BB : E->getNodeAs<Region>()->blocks()) {
+        auto Br = dyn_cast<BranchInst>(BB->getTerminator());
+        if (!Br || !Br->isConditional())
+          continue;
+
+        if (!Br->getMetadata(UniformMDKindID))
+          return false;
+      }
+    }
   }
   return true;
 }
@@ -921,10 +949,18 @@ bool StructurizeCFG::runOnRegion(Region *R, RGPassManager &RGM) {
   if (R->isTopLevelRegion())
     return false;
 
+  DA = nullptr;
+
   if (SkipUniformRegions) {
     // TODO: We could probably be smarter here with how we handle sub-regions.
-    auto &DA = getAnalysis<DivergenceAnalysis>();
-    if (hasOnlyUniformBranches(R, DA)) {
+    // We currently rely on the fact that metadata is set by earlier invocations
+    // of the pass on sub-regions, and that this metadata doesn't get lost --
+    // but we shouldn't rely on metadata for correctness!
+    unsigned UniformMDKindID =
+        R->getEntry()->getContext().getMDKindID("structurizecfg.uniform");
+    DA = &getAnalysis<DivergenceAnalysis>();
+
+    if (hasOnlyUniformBranches(R, UniformMDKindID, *DA)) {
       DEBUG(dbgs() << "Skipping region with uniform control flow: " << *R << '\n');
 
       // Mark all direct child block terminators as having been treated as
@@ -937,7 +973,7 @@ bool StructurizeCFG::runOnRegion(Region *R, RGPassManager &RGM) {
           continue;
 
         if (Instruction *Term = E->getEntry()->getTerminator())
-          Term->setMetadata("structurizecfg.uniform", MD);
+          Term->setMetadata(UniformMDKindID, MD);
       }
 
       return false;

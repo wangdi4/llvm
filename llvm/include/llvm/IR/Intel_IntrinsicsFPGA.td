@@ -8,84 +8,96 @@
 //
 // ===--------------------------------------------------------------------=== //
 /// HLS Stream intrinsics.
-/// Signature: T* (BufferID, ReadyLatency, BitsPerSymbol,
-///                FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty,
-///                UsesValid)
+/// Signature: (T*, SOP, EOP, Empty) (BufferID, Buffer, ReadyLatency,
+///               BitsPerSymbol, FirstSymbolInHighOrderBits, UsesPackets,
+///               UsesEmpty, UsesValid)
 def int_intel_hls_instream_read
-    : Intrinsic<[ LLVMPointerType<llvm_any_ty> ],
-                [
-                  llvm_i64_ty, llvm_i32_ty, llvm_i32_ty, llvm_i1_ty, llvm_i1_ty,
-                  llvm_i1_ty, llvm_i1_ty
-                ],
-                []>;
-/// Signature: (T*, Success) (BufferID, ReadyLatency, BitsPerSymbol,
-///                FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty,
-///                UsesValid)
+    : Intrinsic<
+          [ LLVMPointerType<llvm_any_ty>, llvm_i8_ty, llvm_i8_ty, llvm_i32_ty ],
+          [
+            llvm_i64_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i1_ty,
+            llvm_i1_ty, llvm_i1_ty, llvm_i1_ty
+          ],
+          []>;
+/// Signature: (T*, Success, SOP, EOP, Empty) (BufferID, Buffer, ReadyLatency,
+///               BitsPerSymbol, FirstSymbolInHighOrderBits, UsesPackets,
+///               UsesEmpty, UsesValid)
 def int_intel_hls_instream_tryRead
-    : Intrinsic<[ LLVMPointerType<llvm_any_ty>, llvm_i8_ty ],
+    : Intrinsic<[
+      LLVMPointerType<llvm_any_ty>, llvm_i8_ty, llvm_i8_ty, llvm_i8_ty,
+      llvm_i32_ty
+    ],
                 [
-                  llvm_i64_ty, llvm_i32_ty, llvm_i32_ty, llvm_i1_ty, llvm_i1_ty,
-                  llvm_i1_ty, llvm_i1_ty
+                  llvm_i64_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty,
+                  llvm_i1_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty
                 ],
                 []>;
-/// Signature: T* (BufferID, ReadyLatency, BitsPerSymbol,
-///                FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty,
-///                UsesEmpty)
+/// Signature: (T*, SOP, EOP, Empty) (BufferID, Buffer, ReadyLatency,
+///               BitsPerSymbol, FirstSymbolInHighOrderBits, UsesPackets,
+///               UsesEmpty, UsesValid)
 def int_intel_hls_outstream_read
-    : Intrinsic<[ LLVMPointerType<llvm_any_ty> ],
-                [
-                  llvm_i64_ty, llvm_i32_ty, llvm_i32_ty, llvm_i1_ty, llvm_i1_ty,
-                  llvm_i1_ty, llvm_i1_ty
-                ],
-                []>;
-/// Signature: (T*, Success) (BufferID, ReadyLatency, BitsPerSymbol,
-///                FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty,
-///                UsesEmpty)
+    : Intrinsic<
+          [ LLVMPointerType<llvm_any_ty>, llvm_i8_ty, llvm_i8_ty, llvm_i32_ty ],
+          [
+            llvm_i64_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i1_ty,
+            llvm_i1_ty, llvm_i1_ty, llvm_i1_ty
+          ],
+          []>;
+/// Signature: (T*, Success, SOP, EOP, Empty) (BufferID, Buffer, ReadyLatency,
+///               BitsPerSymbol, FirstSymbolInHighOrderBits, UsesPackets,
+///               UsesEmpty, UsesValid)
 def int_intel_hls_outstream_tryRead
-    : Intrinsic<[ LLVMPointerType<llvm_any_ty>, llvm_i8_ty ],
+    : Intrinsic<[
+      LLVMPointerType<llvm_any_ty>, llvm_i8_ty, llvm_i8_ty, llvm_i8_ty,
+      llvm_i32_ty
+    ],
                 [
-                  llvm_i64_ty, llvm_i32_ty, llvm_i32_ty, llvm_i1_ty, llvm_i1_ty,
-                  llvm_i1_ty, llvm_i1_ty
+                  llvm_i64_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty,
+                  llvm_i1_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty
                 ],
                 []>;
-/// Signature: void (T*, BufferID, ReadyLatency, BitsPerSymbol,
+/// Signature: void (T*, BufferID, Buffer, ReadyLatency, BitsPerSymbol,
 ///                FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty,
-///                UsesValid)
+///                UsesValid, SOP, EOP, Empty)
 def int_intel_hls_instream_write
     : Intrinsic<[],
                 [
                   LLVMPointerType<llvm_any_ty>, llvm_i64_ty, llvm_i32_ty,
-                  llvm_i32_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty
+                  llvm_i32_ty, llvm_i32_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty,
+                  llvm_i1_ty, llvm_i1_ty, llvm_i1_ty, llvm_i32_ty
                 ],
                 []>;
-/// Signature: bool (T*, BufferID, ReadyLatency, BitsPerSymbol,
+/// Signature: bool (T*, BufferID, Buffer, ReadyLatency, BitsPerSymbol,
 ///                  FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty,
-///                  UsesValid)
+///                  UsesValid, SOP, EOP, Empty)
 def int_intel_hls_instream_tryWrite
-    : Intrinsic<[llvm_i1_ty],
+    : Intrinsic<[ llvm_i1_ty ],
                 [
                   LLVMPointerType<llvm_any_ty>, llvm_i64_ty, llvm_i32_ty,
-                  llvm_i32_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty
+                  llvm_i32_ty, llvm_i32_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty,
+                  llvm_i1_ty, llvm_i1_ty, llvm_i1_ty, llvm_i32_ty
                 ],
                 []>;
-/// Signature: void (T*, BufferID, ReadyLatency, BitsPerSymbol,
+/// Signature: void (T*, BufferID, Buffer, ReadyLatency, BitsPerSymbol,
 ///                FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty,
-///                UsesEmpty)
+///                UsesValid, SOP, EOP, Empty)
 def int_intel_hls_outstream_write
     : Intrinsic<[],
                 [
                   LLVMPointerType<llvm_any_ty>, llvm_i64_ty, llvm_i32_ty,
-                  llvm_i32_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty
+                  llvm_i32_ty, llvm_i32_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty,
+                  llvm_i1_ty, llvm_i1_ty, llvm_i1_ty, llvm_i32_ty
                 ],
                 []>;
-/// Signature: bool (T*, BufferID, ReadyLatency, BitsPerSymbol,
+/// Signature: bool (T*, BufferID, Buffer, ReadyLatency, BitsPerSymbol,
 ///                  FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty,
-///                  UsesEmpty)
+///                  UsesValid, SOP, EOP, Empty)
 def int_intel_hls_outstream_tryWrite
-    : Intrinsic<[llvm_i1_ty],
+    : Intrinsic<[ llvm_i1_ty ],
                 [
                   LLVMPointerType<llvm_any_ty>, llvm_i64_ty, llvm_i32_ty,
-                  llvm_i32_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty
+                  llvm_i32_ty, llvm_i32_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty,
+                  llvm_i1_ty, llvm_i1_ty, llvm_i1_ty, llvm_i32_ty
                 ],
                 []>;
 /// Signature: void (T*, Size, UseSocket, DWidth, AWidth, ASpace, Latency,
@@ -108,3 +120,15 @@ def int_intel_hls_mm_master_load
                   llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i1_ty, llvm_i32_ty
                 ],
                 []>;
+/// Signature: T (T)
+def int_fpga_reg
+    : Intrinsic<
+          [ llvm_any_ty ],
+          [ LLVMMatchType<0> ],
+          []>;
+/// Signature: void (T*, T*)
+def int_fpga_reg_struct
+    : Intrinsic<
+          [],
+          [ llvm_any_ty, LLVMMatchType<0> ],
+          []>;

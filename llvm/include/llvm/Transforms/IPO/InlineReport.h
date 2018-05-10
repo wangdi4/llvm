@@ -1,9 +1,10 @@
 //===- InlineReport.h Implement inlining report ---------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// The information and source code contained herein is the exclusive property
+// of Intel Corporation and may not be disclosed, examined or reproduced in
+// whole or in part without explicit written authorization from the company.
 //
 //===----------------------------------------------------------------------===//
 //
@@ -19,6 +20,7 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/CallGraphReport.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
+#include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -245,12 +247,12 @@ public:
     ActiveCallSite(nullptr), ActiveCallee(nullptr), ActiveIRCS(nullptr),
     M(nullptr) {};
   virtual ~InlineReport(void);
-  InlineReport(const InlineReport&) = delete;
-  void operator=(const InlineReport&) = delete;
 
   // \brief Indicate that we have begun inlining functions in the current
   // SCC of the CG.
   void beginSCC(CallGraph &CG, CallGraphSCC &SCC);
+  void beginSCC(LazyCallGraph &CG, LazyCallGraph::SCC &SCC);
+  void beginFunction(Function *F);
 
   // \brief Indicate that we are done inlining functions in the current SCC.
   void endSCC();
@@ -279,6 +281,9 @@ public:
 
   /// \brief Print the inlining report at the given level.
   void print() const;
+
+  /// \brief Check if report has data
+  bool isEmpty() { return IRFunctionMap.empty(); }
 
   /// \brief Record the reason a call site is or is not inlined.
   void setReasonNotInlined(const CallSite& CS,

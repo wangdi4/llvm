@@ -12,6 +12,15 @@
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: memcpy
 
+; Check the proper otpreport is emittted for Idiom Recognition (memcpy transformation).
+; TODO: Remove "TODO"-OPTREPORT after preserveLostLoopOptReport is used in HIRIdiomRecognition.cpp.
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-idiom -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+
+; OPTREPORT: Global loop optimization report for : foo
+; TODO-OPTREPORT-NEXT: LOOP BEGIN
+; TODO-OPTREPORT-NEXT:     Remark #XXXXX: The loop has been replaced with memcpy call
+; TODO-OPTREPORT-NEXT: LOOP END
+
 ;Module Before HIR; ModuleID = 'memcpy.c'
 source_filename = "memcpy.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -46,5 +55,3 @@ while.end:                                        ; preds = %while.end.loopexit,
 }
 
 attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-
-

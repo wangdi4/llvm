@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check that parsing is update to handle base temp update from add1165.lcssa1750.lcssa -> add1165.lcssa1750 successfully.
 ; CHECK: %add1165.lcssa1750 = 0.000000e+00;

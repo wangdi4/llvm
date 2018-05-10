@@ -18,10 +18,15 @@
 
 #include "llvm/ADT/SmallVector.h"
 
+#include "llvm/Analysis/Intel_Directives.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLIf.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/IR/InstrTypes.h"
+
+#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include <functional>
 
 namespace llvm {
 
@@ -116,6 +121,9 @@ private:
   // Back-edge branch debug location.
   DebugLoc BranchDbgLoc;
 
+  // Optimization report for the loop.
+  LoopOptReport OptReport;
+
 protected:
   HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop);
   HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
@@ -181,6 +189,9 @@ protected:
                     bool Detailed) const;
 
   void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs, StringRef *RemoveID);
+
+  /// Return true if the specified directive is attached to the loop.
+  bool hasDirective(int DirectiveID) const;
 
 public:
   /// Prints preheader of loop.
@@ -417,7 +428,10 @@ public:
   /// Returns the number of exits of the loop.
   unsigned getNumExits() const { return NumExits; }
   /// Sets the number of exits of the loop.
-  void setNumExits(unsigned NumEx);
+  void setNumExits(unsigned NumEx) {
+    assert(NumEx && "Number of exits cannot be zero!");
+    NumExits = NumEx;
+  }
 
   /// Returns the nesting level of the loop.
   unsigned getNestingLevel() const {
@@ -589,7 +603,7 @@ public:
 
   /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
-    return Node->getHLNodeID() == HLNode::HLLoopVal;
+    return Node->getHLNodeClassID() == HLNode::HLLoopVal;
   }
 
   /// clone() - Create a copy of 'this' HLLoop that is identical in all
@@ -615,7 +629,13 @@ public:
   virtual void verify() const override;
 
   /// Checks whether SIMD directive is attached to the loop.
-  bool isSIMD() const;
+  bool isSIMD() const { return hasDirective(DIR_OMP_SIMD); }
+
+  /// Checks whether we have a vectorizable loop by checking if SIMD
+  /// or AUTO_VEC directive is attached to the loop.
+  bool isVecLoop() const {
+    return hasDirective(DIR_OMP_SIMD) || hasDirective(DIR_VPO_AUTO_VEC);
+  }
 
   unsigned getMVTag() const { return MVTag; }
 
@@ -686,6 +706,12 @@ public:
     if ((It != LiveOutSet.end()) && (*It == Symbase)) {
       LiveOutSet.erase(It);
     }
+  }
+
+  void replaceLiveInTemp(unsigned OldSymbase, unsigned NewSymbase) {
+    assert(isLiveIn(OldSymbase) && "OldSymbase is not liveout!");
+    removeLiveInTemp(OldSymbase);
+    addLiveInTemp(NewSymbase);
   }
 
   void replaceLiveOutTemp(unsigned OldSymbase, unsigned NewSymbase) {
@@ -762,6 +788,10 @@ public:
 
   const DebugLoc getDebugLoc() const override { return getBranchDebugLoc(); }
 
+  LoopOptReport getOptReport() const { return OptReport; }
+  void setOptReport(LoopOptReport R) { OptReport = R; }
+  void eraseOptReport() { OptReport = nullptr; }
+
   /// Returns the bottom test node for the loop. It is null for non-unknown
   /// loops.
   HLIf *getBottomTest();
@@ -778,6 +808,44 @@ public:
 };
 
 } // End namespace loopopt
+
+// Traits of HLLoop for LoopOptReportBuilder.
+template <> struct LoopOptReportTraits<loopopt::HLLoop> {
+  static LoopOptReport getOptReport(const loopopt::HLLoop &Loop) {
+    return Loop.getOptReport();
+  }
+
+  static void setOptReport(loopopt::HLLoop &Loop, LoopOptReport OR) {
+    Loop.setOptReport(OR);
+  }
+
+  static void eraseOptReport(loopopt::HLLoop &Loop) { Loop.eraseOptReport(); }
+
+  static DebugLoc getDebugLoc(const loopopt::HLLoop &Loop) {
+    return Loop.getDebugLoc();
+  }
+
+  static LoopOptReport
+  getOrCreatePrevOptReport(loopopt::HLLoop &Loop,
+                           const LoopOptReportBuilder &Builder);
+
+  static LoopOptReport
+  getOrCreateParentOptReport(loopopt::HLLoop &Loop,
+                             const LoopOptReportBuilder &Builder);
+
+  using ChildLoopTy = loopopt::HLLoop;
+  using LoopVisitorTy = std::function<void(ChildLoopTy &)>;
+  static void traverseChildLoopsBackward(loopopt::HLLoop &Loop,
+                                         LoopVisitorTy Func);
+};
+
+template <>
+struct DenseMapInfo<loopopt::HLLoop*>
+    : public loopopt::DenseHLNodeMapInfo<loopopt::HLLoop> {};
+
+template <>
+struct DenseMapInfo<const loopopt::HLLoop*>
+    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLLoop> {};
 
 } // End namespace llvm
 

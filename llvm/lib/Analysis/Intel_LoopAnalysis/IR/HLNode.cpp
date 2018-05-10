@@ -19,6 +19,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLRegion.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
@@ -38,16 +39,16 @@ HLNode::HLNode(HLNodeUtils &HNU, unsigned SCID)
     : HNU(HNU), SubClassID(SCID), Parent(nullptr), TopSortNum(0),
       MaxTopSortNum(0) {
 
-  HNU.Objs.insert(this);
-  Number = HNU.getUniqueHLNodeNumber();
+  getHLNodeUtils().Objs.insert(this);
+  Number = getHLNodeUtils().getUniqueHLNodeNumber();
 }
 
 HLNode::HLNode(const HLNode &HLNodeObj)
     : HNU(HLNodeObj.HNU), SubClassID(HLNodeObj.SubClassID), Parent(nullptr),
       TopSortNum(0), MaxTopSortNum(0) {
 
-  HNU.Objs.insert(this);
-  Number = HNU.getUniqueHLNodeNumber();
+  getHLNodeUtils().Objs.insert(this);
+  Number = getHLNodeUtils().getUniqueHLNodeNumber();
 }
 
 DDRefUtils &HLNode::getDDRefUtils() const {
@@ -214,6 +215,20 @@ void HLNode::printPredicate(formatted_raw_ostream &OS, PredicateTy Pred) {
     llvm_unreachable("Unexpected predicate!");
   }
 #endif // !INTEL_PRODUCT_RELEASE
+}
+
+HLNode *HLNode::getLexicalParent() const {
+  HLNode *Parent = getParent();
+
+  if (auto HInst = dyn_cast<HLInst>(this)) {
+    if (HInst->isInPreheaderOrPostexit()) {
+      assert(isa<HLLoop>(Parent) &&
+             "Parent of preheader/postexit is expected to be a loop");
+      Parent = Parent->getParent();
+    }
+  }
+
+  return Parent;
 }
 
 HLLoop *HLNode::getParentLoop() const {

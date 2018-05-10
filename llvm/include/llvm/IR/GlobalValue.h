@@ -77,12 +77,13 @@ protected:
   GlobalValue(Type *Ty, ValueTy VTy, Use *Ops, unsigned NumOps,
               LinkageTypes Linkage, const Twine &Name, unsigned AddressSpace)
       : Constant(PointerType::get(Ty, AddressSpace), VTy, Ops, NumOps),
-        ValueType(Ty), Linkage(Linkage), Visibility(DefaultVisibility),
+        ValueType(Ty), Visibility(DefaultVisibility),
         UnnamedAddrVal(unsigned(UnnamedAddr::None)),
         DllStorageClass(DefaultStorageClass), ThreadLocal(NotThreadLocal),
         ThreadPrivate(0), TargetDeclare(0), // INTEL
-        HasLLVMReservedName(false), IsDSOLocal(false),
-        IntID((Intrinsic::ID)0U), Parent(nullptr) {
+        HasLLVMReservedName(false), IsDSOLocal(false), IntID((Intrinsic::ID)0U),
+        Parent(nullptr) {
+    setLinkage(Linkage);
     setName(Name);
   }
 
@@ -123,6 +124,12 @@ protected:
 
 private:
   friend class Constant;
+
+  void maybeSetDsoLocal() {
+    if (hasLocalLinkage() ||
+        (!hasDefaultVisibility() && !hasExternalWeakLinkage()))
+      setDSOLocal(true);
+  }
 
   // Give subclasses access to what otherwise would be wasted padding.
   // INTEL - (15 + 4 + 2 + 2 + 2 + 3 + 1 + 1 + 1 + 1) == 32.  Extra two bits for
@@ -246,6 +253,7 @@ public:
     assert((!hasLocalLinkage() || V == DefaultVisibility) &&
            "local linkage requires default visibility");
     Visibility = V;
+    maybeSetDsoLocal();
   }
 
 #if INTEL_CUSTOMIZATION
@@ -459,6 +467,7 @@ public:
     if (isLocalLinkage(LT))
       Visibility = DefaultVisibility;
     Linkage = LT;
+    maybeSetDsoLocal();
   }
   LinkageTypes getLinkage() const { return LinkageTypes(Linkage); }
 
@@ -585,6 +594,13 @@ public:
            V->getValueID() == Value::GlobalAliasVal ||
            V->getValueID() == Value::GlobalIFuncVal;
   }
+
+  /// True if GV can be left out of the object symbol table. This is the case
+  /// for linkonce_odr values whose address is not significant. While legal, it
+  /// is not normally profitable to omit them from the .o symbol table. Using
+  /// this analysis makes sense when the information can be passed down to the
+  /// linker or we are in LTO.
+  bool canBeOmittedFromSymbolTable() const;
 };
 
 } // end namespace llvm

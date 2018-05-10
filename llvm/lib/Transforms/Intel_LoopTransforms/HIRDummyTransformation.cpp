@@ -63,7 +63,7 @@ public:
   void releaseMemory() override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.setPreservesAll();
   }
 };
@@ -101,7 +101,7 @@ struct NodeVisitor final : public HLNodeVisitorBase {
 char HIRDummyTransformation::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRDummyTransformation, "hir-dummy",
                       "HIR Dummy Transformation Pass", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIRDummyTransformation, "hir-dummy",
                     "HIR Dummy Transformation Pass", false, false)
 
@@ -112,7 +112,7 @@ FunctionPass *llvm::createHIRDummyTransformationPass() {
 bool HIRDummyTransformation::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Dummy Transformation for Function : " << F.getName()
                << "\n");
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   NodeVisitor V;
   HIRF->getHLNodeUtils().visitAll(V);
 

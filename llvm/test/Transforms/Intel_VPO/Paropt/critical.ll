@@ -4,6 +4,12 @@
 ; RUN: -S < %s | FileCheck %s -check-prefix=WIN32 -check-prefix=ALL
 ; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -mtriple=x86_64-unknown-windows\
 ; RUN: -S < %s | FileCheck %s -check-prefix=WIN64 -check-prefix=ALL
+; RUN: opt -passes="vpo-cfg-restructuring,vpo-paropt-prepare" -mtriple=unknown-unknown-unknown\
+; RUN: -S < %s | FileCheck %s -check-prefix=DEFAULT -check-prefix=ALL
+; RUN: opt -passes="vpo-cfg-restructuring,vpo-paropt-prepare" -mtriple=i686-unknown-windows\
+; RUN: -S < %s | FileCheck %s -check-prefix=WIN32 -check-prefix=ALL
+; RUN: opt -passes="vpo-cfg-restructuring,vpo-paropt-prepare" -mtriple=x86_64-unknown-windows\
+; RUN: -S < %s | FileCheck %s -check-prefix=WIN64 -check-prefix=ALL
 
 source_filename = "critical_noname.c"
 target triple = "unknown-unknown-unknown"
@@ -17,11 +23,9 @@ target triple = "unknown-unknown-unknown"
 ; -----------------------------------------------------------------------------
 define void @add_1(i32* nocapture %num) {
 entry:
-; ALL-NOT: call void @llvm.intel.directive(metadata !"DIR.OMP.CRITICAL")
-; ALL-NOT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+; ALL-NOT: %ret = call token @llvm.directive.region.entry() [ "DIR.OMP.CRITICAL"() ]
 ; ALL: call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* @{{[^\s]*}}, i32 %{{[^\s]*}}, [8 x i32]* @[[LOCK]])
-  call void @llvm.intel.directive(metadata !"DIR.OMP.CRITICAL")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %ret = call token @llvm.directive.region.entry() [ "DIR.OMP.CRITICAL"() ]
 
 ; ALL: %0 = load i32, i32* %num, align 4
 ; ALL: %add = add nsw i32 %0, 1
@@ -31,13 +35,10 @@ entry:
   store i32 %add, i32* %num, align 4
 
 ; ALL: call void @__kmpc_end_critical({ i32, i32, i32, i32, i8* }* @{{[^\s]+}}, i32 %{{[^\s]+}}, [8 x i32]* @[[LOCK]])
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.CRITICAL")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-; ALL-NOT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.CRITICAL")
-; ALL-NOT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %ret) [ "DIR.OMP.END.CRITICAL"() ]
+; ALL-NOT: void @llvm.directive.region.exit(token %ret) [ "DIR.OMP.END.CRITICAL"() ]
   ret void
 }
 
-declare void @llvm.intel.directive(metadata) #2
-attributes #2 = { argmemonly nounwind }
-
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)

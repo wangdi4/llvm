@@ -112,7 +112,7 @@ public:
 
   /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
-    return Node->getHLNodeID() == HLNode::HLInstVal;
+    return Node->getHLNodeClassID() == HLNode::HLInstVal;
   }
 
   /// clone() - Create a copy of 'this' HLInst that is identical in all ways
@@ -154,6 +154,18 @@ public:
   /// Returns true if this is a call instruction.
   bool isCallInst() const { return isa<CallInst>(Inst); }
 
+  /// Returns true if \p Call instruction has unsafe side effects.
+  static bool hasUnsafeSideEffect(const CallInst *Call) {
+    assert(Call && "Inst is nullptr");
+    return !Call->onlyReadsMemory() && !Call->onlyAccessesArgMemory();
+  }
+
+  /// Returns true if this is a call instruction with unsafe side effects.
+  bool isUnsafeSideEffectCallInst() const {
+    auto Call = dyn_cast<CallInst>(Inst);
+    return Call && hasUnsafeSideEffect(Call);
+  }
+
   /// Returns true if this is an indirect call instruction.
   bool isIndirectCallInst() const {
     auto Call = dyn_cast<CallInst>(Inst);
@@ -173,6 +185,10 @@ public:
 
   /// Checks whether the instruction is a call to a omp simd directive.
   bool isSIMDDirective() const;
+
+  /// Checks whether the instruction is a call to an auto vectorization
+  /// directive.
+  bool isAutoVecDirective() const;
 
   /// Checks if the Opcode is a reduction and returns OpCode
   bool isReductionOp(unsigned *OpCode) const;
@@ -202,6 +218,14 @@ public:
 };
 
 } // End namespace loopopt
+
+template <>
+struct DenseMapInfo<loopopt::HLInst *>
+    : public loopopt::DenseHLNodeMapInfo<loopopt::HLInst> {};
+
+template <>
+struct DenseMapInfo<const loopopt::HLInst *>
+    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLInst> {};
 
 } // End namespace llvm
 

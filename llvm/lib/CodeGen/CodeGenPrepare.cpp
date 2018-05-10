@@ -18,7 +18,6 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -31,10 +30,10 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/ISDOpcodes.h"
-#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
 #include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
@@ -80,16 +79,14 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/MachineValueType.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/BypassSlowDivision.h"
-#include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SimplifyLibCalls.h"
-#include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -199,7 +196,7 @@ AddrSinkNewPhis("addr-sink-new-phis", cl::Hidden, cl::init(false),
                 cl::desc("Allow creation of Phis in Address sinking."));
 
 static cl::opt<bool>
-AddrSinkNewSelects("addr-sink-new-select", cl::Hidden, cl::init(false),
+AddrSinkNewSelects("addr-sink-new-select", cl::Hidden, cl::init(true),
                    cl::desc("Allow creation of selects in Address sinking."));
 
 static cl::opt<bool> AddrSinkCombineBaseReg(
@@ -331,7 +328,6 @@ class TypePromotionTransaction;
         SmallVectorImpl<Instruction *> &SpeculativelyMovedExts);
     bool splitBranchCondition(Function &F);
     bool simplifyOffsetableRelocate(Instruction &I);
-    bool splitIndirectCriticalEdges(Function &F);
   };
 
 } // end anonymous namespace
@@ -356,8 +352,6 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
   // Clear per function information.
   InsertedInsts.clear();
   PromotedInsts.clear();
-  BFI.reset();
-  BPI.reset();
 
   ModifiedDT = false;
   if (auto *TPC = getAnalysisIfAvailable<TargetPassConfig>()) {
@@ -369,14 +363,16 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
   TLInfo = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  BPI.reset(new BranchProbabilityInfo(F, *LI));
+  BFI.reset(new BlockFrequencyInfo(F, *BPI, *LI));
   OptSize = F.optForSize();
 
   ProfileSummaryInfo *PSI =
       getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
   if (ProfileGuidedSectionPrefix) {
-    if (PSI->isFunctionHotInCallGraph(&F))
+    if (PSI->isFunctionHotInCallGraph(&F, *BFI))
       F.setSectionPrefix(".hot");
-    else if (PSI->isFunctionColdInCallGraph(&F))
+    else if (PSI->isFunctionColdInCallGraph(&F, *BFI))
       F.setSectionPrefix(".unlikely");
   }
 
@@ -410,7 +406,7 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
 
   // Split some critical edges where one of the sources is an indirect branch,
   // to help generate sane code for PHIs involving such edges.
-  EverMadeChange |= splitIndirectCriticalEdges(F);
+  EverMadeChange |= SplitIndirectBrCriticalEdges(F);
 
   bool MadeChange = true;
   while (MadeChange) {
@@ -555,160 +551,6 @@ BasicBlock *CodeGenPrepare::findDestBlockOfMergeableEmptyBlock(BasicBlock *BB) {
   return DestBB;
 }
 
-// Return the unique indirectbr predecessor of a block. This may return null
-// even if such a predecessor exists, if it's not useful for splitting.
-// If a predecessor is found, OtherPreds will contain all other (non-indirectbr)
-// predecessors of BB.
-static BasicBlock *
-findIBRPredecessor(BasicBlock *BB, SmallVectorImpl<BasicBlock *> &OtherPreds) {
-  // If the block doesn't have any PHIs, we don't care about it, since there's
-  // no point in splitting it.
-  PHINode *PN = dyn_cast<PHINode>(BB->begin());
-  if (!PN)
-    return nullptr;
-
-  // Verify we have exactly one IBR predecessor.
-  // Conservatively bail out if one of the other predecessors is not a "regular"
-  // terminator (that is, not a switch or a br).
-  BasicBlock *IBB = nullptr;
-  for (unsigned Pred = 0, E = PN->getNumIncomingValues(); Pred != E; ++Pred) {
-    BasicBlock *PredBB = PN->getIncomingBlock(Pred);
-    TerminatorInst *PredTerm = PredBB->getTerminator();
-    switch (PredTerm->getOpcode()) {
-    case Instruction::IndirectBr:
-      if (IBB)
-        return nullptr;
-      IBB = PredBB;
-      break;
-    case Instruction::Br:
-    case Instruction::Switch:
-      OtherPreds.push_back(PredBB);
-      continue;
-    default:
-      return nullptr;
-    }
-  }
-
-  return IBB;
-}
-
-// Split critical edges where the source of the edge is an indirectbr
-// instruction. This isn't always possible, but we can handle some easy cases.
-// This is useful because MI is unable to split such critical edges,
-// which means it will not be able to sink instructions along those edges.
-// This is especially painful for indirect branches with many successors, where
-// we end up having to prepare all outgoing values in the origin block.
-//
-// Our normal algorithm for splitting critical edges requires us to update
-// the outgoing edges of the edge origin block, but for an indirectbr this
-// is hard, since it would require finding and updating the block addresses
-// the indirect branch uses. But if a block only has a single indirectbr
-// predecessor, with the others being regular branches, we can do it in a
-// different way.
-// Say we have A -> D, B -> D, I -> D where only I -> D is an indirectbr.
-// We can split D into D0 and D1, where D0 contains only the PHIs from D,
-// and D1 is the D block body. We can then duplicate D0 as D0A and D0B, and
-// create the following structure:
-// A -> D0A, B -> D0A, I -> D0B, D0A -> D1, D0B -> D1
-bool CodeGenPrepare::splitIndirectCriticalEdges(Function &F) {
-  // Check whether the function has any indirectbrs, and collect which blocks
-  // they may jump to. Since most functions don't have indirect branches,
-  // this lowers the common case's overhead to O(Blocks) instead of O(Edges).
-  SmallSetVector<BasicBlock *, 16> Targets;
-  for (auto &BB : F) {
-    auto *IBI = dyn_cast<IndirectBrInst>(BB.getTerminator());
-    if (!IBI)
-      continue;
-
-    for (unsigned Succ = 0, E = IBI->getNumSuccessors(); Succ != E; ++Succ)
-      Targets.insert(IBI->getSuccessor(Succ));
-  }
-
-  if (Targets.empty())
-    return false;
-
-  bool Changed = false;
-  for (BasicBlock *Target : Targets) {
-    SmallVector<BasicBlock *, 16> OtherPreds;
-    BasicBlock *IBRPred = findIBRPredecessor(Target, OtherPreds);
-    // If we did not found an indirectbr, or the indirectbr is the only
-    // incoming edge, this isn't the kind of edge we're looking for.
-    if (!IBRPred || OtherPreds.empty())
-      continue;
-
-    // Don't even think about ehpads/landingpads.
-    Instruction *FirstNonPHI = Target->getFirstNonPHI();
-    if (FirstNonPHI->isEHPad() || Target->isLandingPad())
-      continue;
-
-    BasicBlock *BodyBlock = Target->splitBasicBlock(FirstNonPHI, ".split");
-    // It's possible Target was its own successor through an indirectbr.
-    // In this case, the indirectbr now comes from BodyBlock.
-    if (IBRPred == Target)
-      IBRPred = BodyBlock;
-
-    // At this point Target only has PHIs, and BodyBlock has the rest of the
-    // block's body. Create a copy of Target that will be used by the "direct"
-    // preds.
-    ValueToValueMapTy VMap;
-    BasicBlock *DirectSucc = CloneBasicBlock(Target, VMap, ".clone", &F);
-
-    for (BasicBlock *Pred : OtherPreds) {
-      // If the target is a loop to itself, then the terminator of the split
-      // block needs to be updated.
-      if (Pred == Target)
-        BodyBlock->getTerminator()->replaceUsesOfWith(Target, DirectSucc);
-      else
-        Pred->getTerminator()->replaceUsesOfWith(Target, DirectSucc);
-    }
-
-    // Ok, now fix up the PHIs. We know the two blocks only have PHIs, and that
-    // they are clones, so the number of PHIs are the same.
-    // (a) Remove the edge coming from IBRPred from the "Direct" PHI
-    // (b) Leave that as the only edge in the "Indirect" PHI.
-    // (c) Merge the two in the body block.
-    BasicBlock::iterator Indirect = Target->begin(),
-                         End = Target->getFirstNonPHI()->getIterator();
-    BasicBlock::iterator Direct = DirectSucc->begin();
-    BasicBlock::iterator MergeInsert = BodyBlock->getFirstInsertionPt();
-
-    assert(&*End == Target->getTerminator() &&
-           "Block was expected to only contain PHIs");
-
-    while (Indirect != End) {
-      PHINode *DirPHI = cast<PHINode>(Direct);
-      PHINode *IndPHI = cast<PHINode>(Indirect);
-
-      // Now, clean up - the direct block shouldn't get the indirect value,
-      // and vice versa.
-      DirPHI->removeIncomingValue(IBRPred);
-      Direct++;
-
-      // Advance the pointer here, to avoid invalidation issues when the old
-      // PHI is erased.
-      Indirect++;
-
-      PHINode *NewIndPHI = PHINode::Create(IndPHI->getType(), 1, "ind", IndPHI);
-      NewIndPHI->addIncoming(IndPHI->getIncomingValueForBlock(IBRPred),
-                             IBRPred);
-
-      // Create a PHI in the body block, to merge the direct and indirect
-      // predecessors.
-      PHINode *MergePHI =
-          PHINode::Create(IndPHI->getType(), 2, "merge", &*MergeInsert);
-      MergePHI->addIncoming(NewIndPHI, Target);
-      MergePHI->addIncoming(DirPHI, DirectSucc);
-
-      IndPHI->replaceAllUsesWith(MergePHI);
-      IndPHI->eraseFromParent();
-    }
-
-    Changed = true;
-  }
-
-  return Changed;
-}
-
 /// Eliminate blocks that contain only PHI nodes, debug info directives, and an
 /// unconditional branch. Passes before isel (e.g. LSR/loopsimplify) often split
 /// edges in ways that are non-optimal for isel. Start by eliminating these
@@ -791,16 +633,10 @@ bool CodeGenPrepare::isMergingEmptyBlockProfitable(BasicBlock *BB,
     if (DestBBPred == BB)
       continue;
 
-    bool HasAllSameValue = true;
-    BasicBlock::const_iterator DestBBI = DestBB->begin();
-    while (const PHINode *DestPN = dyn_cast<PHINode>(DestBBI++)) {
-      if (DestPN->getIncomingValueForBlock(BB) !=
-          DestPN->getIncomingValueForBlock(DestBBPred)) {
-        HasAllSameValue = false;
-        break;
-      }
-    }
-    if (HasAllSameValue)
+    if (llvm::all_of(DestBB->phis(), [&](const PHINode &DestPN) {
+          return DestPN.getIncomingValueForBlock(BB) ==
+                 DestPN.getIncomingValueForBlock(DestBBPred);
+        }))
       SameIncomingValueBBs.insert(DestBBPred);
   }
 
@@ -809,13 +645,6 @@ bool CodeGenPrepare::isMergingEmptyBlockProfitable(BasicBlock *BB,
   // Pred already.
   if (SameIncomingValueBBs.count(Pred))
     return true;
-
-  if (!BFI) {
-    Function &F = *BB->getParent();
-    LoopInfo LI{DominatorTree(F)};
-    BPI.reset(new BranchProbabilityInfo(F, LI));
-    BFI.reset(new BlockFrequencyInfo(F, *BPI, LI));
-  }
 
   BlockFrequency PredFreq = BFI->getBlockFreq(Pred);
   BlockFrequency BBFreq = BFI->getBlockFreq(BB);
@@ -837,9 +666,8 @@ bool CodeGenPrepare::canMergeBlocks(const BasicBlock *BB,
   // We only want to eliminate blocks whose phi nodes are used by phi nodes in
   // the successor.  If there are more complex condition (e.g. preheaders),
   // don't mess around with them.
-  BasicBlock::const_iterator BBI = BB->begin();
-  while (const PHINode *PN = dyn_cast<PHINode>(BBI++)) {
-    for (const User *U : PN->users()) {
+  for (const PHINode &PN : BB->phis()) {
+    for (const User *U : PN.users()) {
       const Instruction *UI = cast<Instruction>(U);
       if (UI->getParent() != DestBB || !isa<PHINode>(UI))
         return false;
@@ -878,10 +706,9 @@ bool CodeGenPrepare::canMergeBlocks(const BasicBlock *BB,
   for (unsigned i = 0, e = DestBBPN->getNumIncomingValues(); i != e; ++i) {
     BasicBlock *Pred = DestBBPN->getIncomingBlock(i);
     if (BBPreds.count(Pred)) {   // Common predecessor?
-      BBI = DestBB->begin();
-      while (const PHINode *PN = dyn_cast<PHINode>(BBI++)) {
-        const Value *V1 = PN->getIncomingValueForBlock(Pred);
-        const Value *V2 = PN->getIncomingValueForBlock(BB);
+      for (const PHINode &PN : DestBB->phis()) {
+        const Value *V1 = PN.getIncomingValueForBlock(Pred);
+        const Value *V2 = PN.getIncomingValueForBlock(BB);
 
         // If V2 is a phi node in BB, look up what the mapped value will be.
         if (const PHINode *V2PN = dyn_cast<PHINode>(V2))
@@ -924,11 +751,9 @@ void CodeGenPrepare::eliminateMostlyEmptyBlock(BasicBlock *BB) {
 
   // Otherwise, we have multiple predecessors of BB.  Update the PHIs in DestBB
   // to handle the new incoming edges it is about to have.
-  PHINode *PN;
-  for (BasicBlock::iterator BBI = DestBB->begin();
-       (PN = dyn_cast<PHINode>(BBI)); ++BBI) {
+  for (PHINode &PN : DestBB->phis()) {
     // Remove the incoming value for BB, and remember it.
-    Value *InVal = PN->removeIncomingValue(BB, false);
+    Value *InVal = PN.removeIncomingValue(BB, false);
 
     // Two options: either the InVal is a phi node defined in BB or it is some
     // value that dominates BB.
@@ -936,17 +761,17 @@ void CodeGenPrepare::eliminateMostlyEmptyBlock(BasicBlock *BB) {
     if (InValPhi && InValPhi->getParent() == BB) {
       // Add all of the input values of the input PHI as inputs of this phi.
       for (unsigned i = 0, e = InValPhi->getNumIncomingValues(); i != e; ++i)
-        PN->addIncoming(InValPhi->getIncomingValue(i),
-                        InValPhi->getIncomingBlock(i));
+        PN.addIncoming(InValPhi->getIncomingValue(i),
+                       InValPhi->getIncomingBlock(i));
     } else {
       // Otherwise, add one instance of the dominating value for each edge that
       // we will be adding.
       if (PHINode *BBPN = dyn_cast<PHINode>(BB->begin())) {
         for (unsigned i = 0, e = BBPN->getNumIncomingValues(); i != e; ++i)
-          PN->addIncoming(InVal, BBPN->getIncomingBlock(i));
+          PN.addIncoming(InVal, BBPN->getIncomingBlock(i));
       } else {
         for (pred_iterator PI = pred_begin(BB), E = pred_end(BB); PI != E; ++PI)
-          PN->addIncoming(InVal, *PI);
+          PN.addIncoming(InVal, *PI);
       }
     }
   }
@@ -1761,7 +1586,7 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, bool &ModifiedDT) {
       // if size - offset meets the size threshold.
       if (!Arg->getType()->isPointerTy())
         continue;
-      APInt Offset(DL->getPointerSizeInBits(
+      APInt Offset(DL->getIndexSizeInBits(
                        cast<PointerType>(Arg->getType())->getAddressSpace()),
                    0);
       Value *Val = Arg->stripAndAccumulateInBoundsConstantOffsets(*DL, Offset);
@@ -1786,11 +1611,14 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, bool &ModifiedDT) {
     // If this is a memcpy (or similar) then we may be able to improve the
     // alignment
     if (MemIntrinsic *MI = dyn_cast<MemIntrinsic>(CI)) {
-      unsigned Align = getKnownAlignment(MI->getDest(), *DL);
-      if (MemTransferInst *MTI = dyn_cast<MemTransferInst>(MI))
-        Align = std::min(Align, getKnownAlignment(MTI->getSource(), *DL));
-      if (Align > MI->getAlignment())
-        MI->setAlignment(ConstantInt::get(MI->getAlignmentType(), Align));
+      unsigned DestAlign = getKnownAlignment(MI->getDest(), *DL);
+      if (DestAlign > MI->getDestAlignment())
+        MI->setDestAlignment(DestAlign);
+      if (MemTransferInst *MTI = dyn_cast<MemTransferInst>(MI)) {
+        unsigned SrcAlign = getKnownAlignment(MTI->getSource(), *DL);
+        if (SrcAlign > MTI->getSourceAlignment())
+          MTI->setSourceAlignment(SrcAlign);
+      }
     }
   }
 
@@ -2768,14 +2596,15 @@ private:
 class SimplificationTracker {
   DenseMap<Value *, Value *> Storage;
   const SimplifyQuery &SQ;
-  SmallPtrSetImpl<PHINode *> &AllPhiNodes;
-  SmallPtrSetImpl<SelectInst *> &AllSelectNodes;
+  // Tracks newly created Phi nodes. We use a SetVector to get deterministic
+  // order when iterating over the set in MatchPhiSet.
+  SmallSetVector<PHINode *, 32> AllPhiNodes;
+  // Tracks newly created Select nodes.
+  SmallPtrSet<SelectInst *, 32> AllSelectNodes;
 
 public:
-  SimplificationTracker(const SimplifyQuery &sq,
-                        SmallPtrSetImpl<PHINode *> &APN,
-                        SmallPtrSetImpl<SelectInst *> &ASN)
-      : SQ(sq), AllPhiNodes(APN), AllSelectNodes(ASN) {}
+  SimplificationTracker(const SimplifyQuery &sq)
+      : SQ(sq) {}
 
   Value *Get(Value *V) {
     do {
@@ -2801,7 +2630,7 @@ public:
           Put(PI, V);
           PI->replaceAllUsesWith(V);
           if (auto *PHI = dyn_cast<PHINode>(PI))
-            AllPhiNodes.erase(PHI);
+            AllPhiNodes.remove(PHI);
           if (auto *Select = dyn_cast<SelectInst>(PI))
             AllSelectNodes.erase(Select);
           PI->eraseFromParent();
@@ -2812,6 +2641,45 @@ public:
 
   void Put(Value *From, Value *To) {
     Storage.insert({ From, To });
+  }
+
+  void ReplacePhi(PHINode *From, PHINode *To) {
+    Value* OldReplacement = Get(From);
+    while (OldReplacement != From) {
+      From = To;
+      To = dyn_cast<PHINode>(OldReplacement);
+      OldReplacement = Get(From);
+    }
+    assert(Get(To) == To && "Replacement PHI node is already replaced.");
+    Put(From, To);
+    From->replaceAllUsesWith(To);
+    AllPhiNodes.remove(From);
+    From->eraseFromParent();
+  }
+
+  SmallSetVector<PHINode *, 32>& newPhiNodes() { return AllPhiNodes; }
+
+  void insertNewPhi(PHINode *PN) { AllPhiNodes.insert(PN); }
+
+  void insertNewSelect(SelectInst *SI) { AllSelectNodes.insert(SI); }
+
+  unsigned countNewPhiNodes() const { return AllPhiNodes.size(); }
+
+  unsigned countNewSelectNodes() const { return AllSelectNodes.size(); }
+
+  void destroyNewNodes(Type *CommonType) {
+    // For safe erasing, replace the uses with dummy value first.
+    auto Dummy = UndefValue::get(CommonType);
+    for (auto I : AllPhiNodes) {
+      I->replaceAllUsesWith(Dummy);
+      I->eraseFromParent();
+    }
+    AllPhiNodes.clear();
+    for (auto I : AllSelectNodes) {
+      I->replaceAllUsesWith(Dummy);
+      I->eraseFromParent();
+    }
+    AllSelectNodes.clear();
   }
 };
 
@@ -2874,21 +2742,32 @@ public:
     else if (DifferentField != ThisDifferentField)
       DifferentField = ExtAddrMode::MultipleFields;
 
-    // If NewAddrMode differs in only one dimension, and that dimension isn't
-    // the amount that ScaledReg is scaled by, then we can handle it by
-    // inserting a phi/select later on. Even if NewAddMode is the same
-    // we still need to collect it due to original value is different.
-    // And later we will need all original values as anchors during
-    // finding the common Phi node.
-    if (DifferentField != ExtAddrMode::MultipleFields &&
-        DifferentField != ExtAddrMode::ScaleField) {
-      AddrModes.emplace_back(NewAddrMode);
-      return true;
-    }
+    // If NewAddrMode differs in more than one dimension we cannot handle it.
+    bool CanHandle = DifferentField != ExtAddrMode::MultipleFields;
 
-    // We couldn't combine NewAddrMode with the rest, so return failure.
-    AddrModes.clear();
-    return false;
+    // If Scale Field is different then we reject.
+    CanHandle = CanHandle && DifferentField != ExtAddrMode::ScaleField;
+
+    // We also must reject the case when base offset is different and
+    // scale reg is not null, we cannot handle this case due to merge of
+    // different offsets will be used as ScaleReg.
+    CanHandle = CanHandle && (DifferentField != ExtAddrMode::BaseOffsField ||
+                              !NewAddrMode.ScaledReg);
+
+    // We also must reject the case when GV is different and BaseReg installed
+    // due to we want to use base reg as a merge of GV values.
+    CanHandle = CanHandle && (DifferentField != ExtAddrMode::BaseGVField ||
+                              !NewAddrMode.HasBaseReg);
+
+    // Even if NewAddMode is the same we still need to collect it due to
+    // original value is different. And later we will need all original values
+    // as anchors during finding the common Phi node.
+    if (CanHandle)
+      AddrModes.emplace_back(NewAddrMode);
+    else
+      AddrModes.clear();
+
+    return CanHandle;
   }
 
   /// \brief Combine the addressing modes we've collected into a single
@@ -2984,62 +2863,46 @@ private:
   //   <p, BB3> -> ?
   // The function tries to find or build phi [b1, BB1], [b2, BB2] in BB3
   Value *findCommon(FoldAddrToValueMapping &Map) {
-    // Tracks of new created Phi nodes.
-    SmallPtrSet<PHINode *, 32> NewPhiNodes;
-    // Tracks of new created Select nodes.
-    SmallPtrSet<SelectInst *, 32> NewSelectNodes;
-    // Tracks the simplification of new created phi nodes. The reason we use
+    // Tracks the simplification of newly created phi nodes. The reason we use
     // this mapping is because we will add new created Phi nodes in AddrToBase.
     // Simplification of Phi nodes is recursive, so some Phi node may
     // be simplified after we added it to AddrToBase.
     // Using this mapping we can find the current value in AddrToBase.
-    SimplificationTracker ST(SQ, NewPhiNodes, NewSelectNodes);
+    SimplificationTracker ST(SQ);
 
     // First step, DFS to create PHI nodes for all intermediate blocks.
     // Also fill traverse order for the second step.
     SmallVector<ValueInBB, 32> TraverseOrder;
-    InsertPlaceholders(Map, TraverseOrder, NewPhiNodes, NewSelectNodes);
+    InsertPlaceholders(Map, TraverseOrder, ST);
 
     // Second Step, fill new nodes by merged values and simplify if possible.
     FillPlaceholders(Map, TraverseOrder, ST);
 
-    if (!AddrSinkNewSelects && NewSelectNodes.size() > 0) {
-      DestroyNodes(NewPhiNodes);
-      DestroyNodes(NewSelectNodes);
+    if (!AddrSinkNewSelects && ST.countNewSelectNodes() > 0) {
+      ST.destroyNewNodes(CommonType);
       return nullptr;
     }
 
     // Now we'd like to match New Phi nodes to existed ones.
     unsigned PhiNotMatchedCount = 0;
-    if (!MatchPhiSet(NewPhiNodes, ST, AddrSinkNewPhis, PhiNotMatchedCount)) {
-      DestroyNodes(NewPhiNodes);
-      DestroyNodes(NewSelectNodes);
+    if (!MatchPhiSet(ST, AddrSinkNewPhis, PhiNotMatchedCount)) {
+      ST.destroyNewNodes(CommonType);
       return nullptr;
     }
 
     auto *Result = ST.Get(Map.find(Original)->second);
     if (Result) {
-      NumMemoryInstsPhiCreated += NewPhiNodes.size() + PhiNotMatchedCount;
-      NumMemoryInstsSelectCreated += NewSelectNodes.size();
+      NumMemoryInstsPhiCreated += ST.countNewPhiNodes() + PhiNotMatchedCount;
+      NumMemoryInstsSelectCreated += ST.countNewSelectNodes();
     }
     return Result;
-  }
-
-  /// \brief Destroy nodes from a set.
-  template <typename T> void DestroyNodes(SmallPtrSetImpl<T *> &Instructions) {
-    // For safe erasing, replace the Phi with dummy value first.
-    auto Dummy = UndefValue::get(CommonType);
-    for (auto I : Instructions) {
-      I->replaceAllUsesWith(Dummy);
-      I->eraseFromParent();
-    }
   }
 
   /// \brief Try to match PHI node to Candidate.
   /// Matcher tracks the matched Phi nodes.
   bool MatchPhiNode(PHINode *PHI, PHINode *Candidate,
-                    DenseSet<PHIPair> &Matcher,
-                    SmallPtrSetImpl<PHINode *> &PhiNodesToMatch) {
+                    SmallSetVector<PHIPair, 8> &Matcher,
+                    SmallSetVector<PHINode *, 32> &PhiNodesToMatch) {
     SmallVector<PHIPair, 8> WorkList;
     Matcher.insert({ PHI, Candidate });
     WorkList.push_back({ PHI, Candidate });
@@ -3083,13 +2946,16 @@ private:
     return true;
   }
 
-  /// \brief For the given set of PHI nodes try to find their equivalents.
+  /// \brief For the given set of PHI nodes (in the SimplificationTracker) try
+  /// to find their equivalents.
   /// Returns false if this matching fails and creation of new Phi is disabled.
-  bool MatchPhiSet(SmallPtrSetImpl<PHINode *> &PhiNodesToMatch,
-                   SimplificationTracker &ST, bool AllowNewPhiNodes,
+  bool MatchPhiSet(SimplificationTracker &ST, bool AllowNewPhiNodes,
                    unsigned &PhiNotMatchedCount) {
-    DenseSet<PHIPair> Matched;
+    // Use a SetVector for Matched to make sure we do replacements (ReplacePhi)
+    // in a deterministic order below.
+    SmallSetVector<PHIPair, 8> Matched;
     SmallPtrSet<PHINode *, 8> WillNotMatch;
+    SmallSetVector<PHINode *, 32> &PhiNodesToMatch = ST.newPhiNodes();
     while (PhiNodesToMatch.size()) {
       PHINode *PHI = *PhiNodesToMatch.begin();
 
@@ -3113,12 +2979,8 @@ private:
       }
       if (IsMatched) {
         // Replace all matched values and erase them.
-        for (auto MV : Matched) {
-          MV.first->replaceAllUsesWith(MV.second);
-          PhiNodesToMatch.erase(MV.first);
-          ST.Put(MV.first, MV.second);
-          MV.first->eraseFromParent();
-        }
+        for (auto MV : Matched)
+          ST.ReplacePhi(MV.first, MV.second);
         Matched.clear();
         continue;
       }
@@ -3128,7 +2990,7 @@ private:
       // Just remove all seen values in matcher. They will not match anything.
       PhiNotMatchedCount += WillNotMatch.size();
       for (auto *P : WillNotMatch)
-        PhiNodesToMatch.erase(P);
+        PhiNodesToMatch.remove(P);
     }
     return true;
   }
@@ -3151,13 +3013,13 @@ private:
                                               ? CurrentBlock
                                               : nullptr };
         assert(Map.find(TrueItem) != Map.end() && "No True Value!");
-        Select->setTrueValue(Map[TrueItem]);
+        Select->setTrueValue(ST.Get(Map[TrueItem]));
         auto *FalseValue = CurrentSelect->getFalseValue();
         ValueInBB FalseItem = { FalseValue, isa<Instruction>(FalseValue)
                                                 ? CurrentBlock
                                                 : nullptr };
         assert(Map.find(FalseItem) != Map.end() && "No False Value!");
-        Select->setFalseValue(Map[FalseItem]);
+        Select->setFalseValue(ST.Get(Map[FalseItem]));
       } else {
         // Must be a Phi node then.
         PHINode *PHI = cast<PHINode>(V);
@@ -3186,8 +3048,7 @@ private:
   /// Also reports and order in what basic blocks have been traversed.
   void InsertPlaceholders(FoldAddrToValueMapping &Map,
                           SmallVectorImpl<ValueInBB> &TraverseOrder,
-                          SmallPtrSetImpl<PHINode *> &NewPhiNodes,
-                          SmallPtrSetImpl<SelectInst *> &NewSelectNodes) {
+                          SimplificationTracker &ST) {
     SmallVector<ValueInBB, 32> Worklist;
     assert((isa<PHINode>(Original.first) || isa<SelectInst>(Original.first)) &&
            "Address must be a Phi or Select node");
@@ -3222,7 +3083,7 @@ private:
         PHINode *PHI = PHINode::Create(CommonType, PredCount, "sunk_phi",
                                        &CurrentBlock->front());
         Map[Current] = PHI;
-        NewPhiNodes.insert(PHI);
+        ST.insertNewPhi(PHI);
         // Add all predecessors in work list.
         for (auto B : predecessors(CurrentBlock))
           Worklist.push_back({ CurrentValue, B });
@@ -3236,7 +3097,7 @@ private:
             SelectInst::Create(OrigSelect->getCondition(), Dummy, Dummy,
                                OrigSelect->getName(), OrigSelect, OrigSelect);
         Map[Current] = Select;
-        NewSelectNodes.insert(Select);
+        ST.insertNewSelect(Select);
         // We are interested in True and False value in this basic block.
         Worklist.push_back({ OrigSelect->getTrueValue(), CurrentBlock });
         Worklist.push_back({ OrigSelect->getFalseValue(), CurrentBlock });
@@ -3248,7 +3109,7 @@ private:
         PHINode *PHI = PHINode::Create(CommonType, PredCount, "sunk_phi",
                                        &CurrentBlock->front());
         Map[Current] = PHI;
-        NewPhiNodes.insert(PHI);
+        ST.insertNewPhi(PHI);
 
         // Add all predecessors in work list.
         for (auto B : predecessors(CurrentBlock))
@@ -3867,7 +3728,7 @@ bool AddressingModeMatcher::matchOperationAddr(User *AddrInst, unsigned Opcode,
       } else {
         uint64_t TypeSize = DL.getTypeAllocSize(GTI.getIndexedType());
         if (ConstantInt *CI = dyn_cast<ConstantInt>(AddrInst->getOperand(i))) {
-          ConstantOffset += CI->getSExtValue()*TypeSize;
+          ConstantOffset += CI->getSExtValue() * TypeSize;
         } else if (TypeSize) {  // Scales of zero don't do anything.
           // We only allow one variable index at the moment.
           if (VariableOperand != -1)
@@ -4458,8 +4319,7 @@ bool CodeGenPrepare::optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
     if (SunkAddr->getType() != Addr->getType())
       SunkAddr = Builder.CreatePointerCast(SunkAddr, Addr->getType());
   } else if (AddrSinkUsingGEPs ||
-             (!AddrSinkUsingGEPs.getNumOccurrences() && TM &&
-              SubtargetInfo->useAA())) {
+             (!AddrSinkUsingGEPs.getNumOccurrences() && TM && TTI->useAA())) {
     // By default, we use the GEP-based method when AA is used later. This
     // prevents new inttoptr/ptrtoint pairs from degrading AA capabilities.
     DEBUG(dbgs() << "CGP: SINKING nonlocal addrmode: " << AddrMode << " for "
@@ -6153,12 +6013,13 @@ static bool splitMergedValStore(StoreInst &SI, const DataLayout &DL,
   if (HBC && HBC->getParent() != SI.getParent())
     HValue = Builder.CreateBitCast(HBC->getOperand(0), HBC->getType());
 
+  bool IsLE = SI.getModule()->getDataLayout().isLittleEndian();
   auto CreateSplitStore = [&](Value *V, bool Upper) {
     V = Builder.CreateZExtOrBitCast(V, SplitStoreType);
     Value *Addr = Builder.CreateBitCast(
         SI.getOperand(1),
         SplitStoreType->getPointerTo(SI.getPointerAddressSpace()));
-    if (Upper)
+    if ((IsLE && Upper) || (!IsLE && !Upper))
       Addr = Builder.CreateGEP(
           SplitStoreType, Addr,
           ConstantInt::get(Type::getInt32Ty(SI.getContext()), 1));
@@ -6667,22 +6528,16 @@ bool CodeGenPrepare::splitBranchCondition(Function &F) {
       std::swap(TBB, FBB);
 
     // Replace the old BB with the new BB.
-    for (auto &I : *TBB) {
-      PHINode *PN = dyn_cast<PHINode>(&I);
-      if (!PN)
-        break;
+    for (PHINode &PN : TBB->phis()) {
       int i;
-      while ((i = PN->getBasicBlockIndex(&BB)) >= 0)
-        PN->setIncomingBlock(i, TmpBB);
+      while ((i = PN.getBasicBlockIndex(&BB)) >= 0)
+        PN.setIncomingBlock(i, TmpBB);
     }
 
     // Add another incoming edge form the new BB.
-    for (auto &I : *FBB) {
-      PHINode *PN = dyn_cast<PHINode>(&I);
-      if (!PN)
-        break;
-      auto *Val = PN->getIncomingValueForBlock(&BB);
-      PN->addIncoming(Val, TmpBB);
+    for (PHINode &PN : FBB->phis()) {
+      auto *Val = PN.getIncomingValueForBlock(&BB);
+      PN.addIncoming(Val, TmpBB);
     }
 
     // Update the branch weights (from SelectionDAGBuilder::

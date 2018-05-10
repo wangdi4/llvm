@@ -13,7 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/IPO/InlineReport.h"          // INTEL
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/None.h"
@@ -37,6 +36,7 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CallSite.h"
@@ -61,7 +61,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ImportedFunctionsInliningStatistics.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <algorithm>
 #include <cassert>
@@ -903,6 +902,11 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+InlinerPass::InlinerPass(InlineParams Params)
+      : Params(std::move(Params)), Report(IntelInlineReportLevel) {}
+#endif  // INTEL_CUSTOMIZATION
+
 PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
                                    CGSCCAnalysisManager &AM, LazyCallGraph &CG,
                                    CGSCCUpdateResult &UR) {
@@ -916,7 +920,14 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   Module &M = *InitialC.begin()->getFunction().getParent();
   InlineAggressiveInfo* AggI = MAM.getCachedResult<InlineAggAnalysis>(M);
   ProfileSummaryInfo *PSI = MAM.getCachedResult<ProfileSummaryAnalysis>(M);
+  CG.registerCGReport(&Report); // INTEL
 
+#if INTEL_CUSTOMIZATION
+  Report.beginSCC(CG, InitialC);
+  if (!CallSitesForFusion.empty()) {
+    CallSitesForFusion.clear();
+  }
+#endif // INTEL_CUSTOMIZATION
   // We use a single common worklist for calls across the entire SCC. We
   // process these in-order and append new calls introduced during inlining to
   // the end.
@@ -950,14 +961,30 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     // after inlining to be visible to subsequent inlining decisions.
     // FIXME: Using instructions sequence is a really bad way to do this.
     // Instead we should do an actual RPO walk of the function body.
-    for (Instruction &I : instructions(N.getFunction()))
-      if (auto CS = CallSite(&I))
+#if INTEL_CUSTOMIZATION
+    Function &F = N.getFunction();
+    if (F.isDeclaration())
+      continue;
+
+    for (Instruction &I : instructions(F)) {
+      auto CS = CallSite(&I);
+      // If this isn't a call, or it is a call to an intrinsic, it can
+      // never be inlined.
+      if (!CS || isa<IntrinsicInst>(I))
+        continue;
+
+#endif // INTEL_CUSTOMIZATION
         if (Function *Callee = CS.getCalledFunction())
           if (!Callee->isDeclaration())
             Calls.push_back({CS, -1});
+    }
   }
-  if (Calls.empty())
+#if INTEL_CUSTOMIZATION
+  if (Calls.empty()) {
+    Report.endSCC();
     return PreservedAnalyses::all();
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Capture updatable variables for the current SCC and RefSCC.
   auto *C = &InitialC;
@@ -1052,7 +1079,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       }
 
       Optional<InlineCost> OIC = shouldInline(CS, GetInlineCost,  // INTEL
-                                              ORE, nullptr);      // INTEL
+                                              ORE, &Report);      // INTEL
       // Check whether we want to inline this callsite.
       if (!OIC)
         continue;
@@ -1070,15 +1097,20 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 
       using namespace ore;
 
-      if (!InlineFunction(CS, IFI)) {
+      Report.beginUpdate(CS);  // INTEL
+      InlineReason Reason = NinlrNoReason; // INTEL
+      if (!InlineFunction(CS, IFI, &Reason)) { // INTEL
         ORE.emit([&]() {
           return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc, Block)
                  << NV("Callee", &Callee) << " will not be inlined into "
                  << NV("Caller", &F);
         });
+        Report.endUpdate(); // INTEL
+        Report.setReasonNotInlined(CS, Reason); // INTEL
         continue;
       }
       DidInline = true;
+      ++NumInlined; // INTEL
       ILIC->invalidateFunction(&Caller);
       InlinedCallees.insert(&Callee);
 
@@ -1098,6 +1130,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         return R;
       });
 
+      Report.inlineCallSite(IFI); // INTEL
+      Report.endUpdate();                // INTEL
       // Add any new callsites to defined functions to the worklist.
       if (!IFI.InlinedCallSites.empty()) {
         int NewHistoryID = InlineHistory.size();
@@ -1135,6 +1169,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
                  "Cannot put cause a function to become dead twice!");
           DeadFunctions.push_back(&Callee);
           ILIC->invalidateFunction(&Callee);  // INTEL
+          Report.setDead(&Callee); // INTEL
         }
       }
     }
@@ -1222,6 +1257,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     M.getFunctionList().erase(DeadF);
   }
   delete ILIC; // INTEL
+  Report.endSCC(); // INTEL
 
   if (!Changed)
     return PreservedAnalyses::all();

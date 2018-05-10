@@ -1,17 +1,21 @@
-; It checks that the function bar was inlined and then removed by 
-; dead static function elimination.  It also checks that the main 
+; It checks that the function bar was inlined and then removed by
+; dead static function elimination.  It also checks that the main
 ; function is still there, and that the call to @llvm.va_arg_pack_len
 ; has been removed, so that the main function returns 4.
 
 ; ModuleID = 'cq415203a.cpp'
 source_filename = "cq415203a.cpp"
 
-; RUN: opt -inline -inline-report=1 < %s -S 2>&1 | FileCheck %s
-; CHECK: DEAD STATIC FUNC: {{.*}}bar{{.*}}
-; CHECK: -> INLINE: {{.*}}bar{{.*}}
+; RUN: opt -inline -inline-report=1 < %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-OLD-PM,CHECK
+; RUN: opt -passes='cgscc(inline)' -inline-report=1 < %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-NEW-PM,CHECK
+
+; CHECK-OLD-PM: DEAD STATIC FUNC: {{.*}}bar{{.*}}
+; CHECK-OLD-PM: -> INLINE: {{.*}}bar{{.*}}
 ; CHECK: define i32 @main()
 ; CHECK-NOT: @llvm.va_arg_pack_len
 ; CHECK: ret i32 4
+; CHECK-NEW-PM: DEAD STATIC FUNC: {{.*}}bar{{.*}}
+; CHECK-NEW-PM: -> INLINE: {{.*}}bar{{.*}}
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

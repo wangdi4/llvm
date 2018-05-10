@@ -16,7 +16,7 @@
 
 #include "lld/Common/TargetOptionsCommandFlags.h"
 
-#include "llvm/CodeGen/CommandFlags.def"
+#include "llvm/CodeGen/CommandFlags.inc"
 #include "llvm/Target/TargetOptions.h"
 
 // Define an externally visible version of
@@ -30,3 +30,5 @@ llvm::TargetOptions lld::InitTargetOptionsFromCodeGenFlags() {
 llvm::Optional<llvm::CodeModel::Model> lld::GetCodeModelFromCMModel() {
   return getCodeModel();
 }
+
+std::string lld::GetCPUStr() { return ::getCPUStr(); }

@@ -147,9 +147,9 @@ void IntelVPlan::execute(VPTransformState *State) {
 
     BasicBlock *FirstSuccBB = FromBB->getSingleSuccessor();
     FromBB->getTerminator()->eraseFromParent();
-    Value *Bit = FromVPBB->getCondBitVPVal()->getValue();
-    assert(Bit && "Cannot create conditional branch with empty bit.");
-    Value *NCondBit = State->ILV->getScalarValue(Bit, 0);
+    VPValue *CBV = FromVPBB->getCondBitVPVal();
+    assert(State->CBVToConditionBitMap.count(CBV) && "Must be in map.");
+    Value *NCondBit = State->CBVToConditionBitMap[CBV];
     assert(NCondBit && "Null scalar value for condition bit.");
     BranchInst::Create(FirstSuccBB, ToBB, NCondBit, FromBB);
   }

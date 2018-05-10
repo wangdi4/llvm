@@ -22,7 +22,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/SampleProfile.h"
+#include "llvm/Transforms/IPO/SampleProfile.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
@@ -69,6 +69,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Instrumentation.h"
+#include "llvm/Transforms/Utils/CallPromotionUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <algorithm>
 #include <cassert>
@@ -84,7 +85,7 @@
 
 using namespace llvm;
 using namespace sampleprof;
-
+using ProfileCount = Function::ProfileCount;
 #define DEBUG_TYPE "sample-profile"
 
 // Command line option to specify the file to read samples from. This is
@@ -180,8 +181,9 @@ public:
       StringRef Name, bool IsThinLTOPreLink,
       std::function<AssumptionCache &(Function &)> GetAssumptionCache,
       std::function<TargetTransformInfo &(Function &)> GetTargetTransformInfo)
-      : GetAC(GetAssumptionCache), GetTTI(GetTargetTransformInfo),
-        Filename(Name), IsThinLTOPreLink(IsThinLTOPreLink) {}
+      : GetAC(std::move(GetAssumptionCache)),
+        GetTTI(std::move(GetTargetTransformInfo)), Filename(Name),
+        IsThinLTOPreLink(IsThinLTOPreLink) {}
 
   bool doInitialization(Module &M);
   bool runOnModule(Module &M, ModuleAnalysisManager *AM);
@@ -215,7 +217,6 @@ protected:
   void buildEdges(Function &F);
   bool propagateThroughEdges(Function &F, bool UpdateBlockCount);
   void computeDominanceAndLoopInfo(Function &F);
-  unsigned getOffset(const DILocation *DIL) const;
   void clearFunctionData();
 
   /// \brief Map basic blocks to their computed weights.
@@ -471,13 +472,6 @@ void SampleProfileLoader::clearFunctionData() {
   CoverageTracker.clear();
 }
 
-/// Returns the line offset to the start line of the subprogram.
-/// We assume that a single function will not exceed 65535 LOC.
-unsigned SampleProfileLoader::getOffset(const DILocation *DIL) const {
-  return (DIL->getLine() - DIL->getScope()->getSubprogram()->getLine()) &
-         0xffff;
-}
-
 #ifndef NDEBUG
 /// \brief Print the weight of edge \p E on stream \p OS.
 ///
@@ -547,7 +541,7 @@ ErrorOr<uint64_t> SampleProfileLoader::getInstWeight(const Instruction &Inst) {
     return 0;
 
   const DILocation *DIL = DLoc;
-  uint32_t LineOffset = getOffset(DIL);
+  uint32_t LineOffset = FunctionSamples::getOffset(DIL);
   uint32_t Discriminator = DIL->getBaseDiscriminator();
   ErrorOr<uint64_t> R = FS->findSamplesAt(LineOffset, Discriminator);
   if (R) {
@@ -647,8 +641,9 @@ SampleProfileLoader::findCalleeFunctionSamples(const Instruction &Inst) const {
   if (FS == nullptr)
     return nullptr;
 
-  return FS->findFunctionSamplesAt(
-      LineLocation(getOffset(DIL), DIL->getBaseDiscriminator()), CalleeName);
+  return FS->findFunctionSamplesAt(LineLocation(FunctionSamples::getOffset(DIL),
+                                                DIL->getBaseDiscriminator()),
+                                   CalleeName);
 }
 
 /// Returns a vector of FunctionSamples that are the indirect call targets
@@ -668,7 +663,7 @@ SampleProfileLoader::findIndirectCallFunctionSamples(
   if (FS == nullptr)
     return R;
 
-  uint32_t LineOffset = getOffset(DIL);
+  uint32_t LineOffset = FunctionSamples::getOffset(DIL);
   uint32_t Discriminator = DIL->getBaseDiscriminator();
 
   auto T = FS->findCallTargetMapAt(LineOffset, Discriminator);
@@ -676,18 +671,18 @@ SampleProfileLoader::findIndirectCallFunctionSamples(
   if (T)
     for (const auto &T_C : T.get())
       Sum += T_C.second;
-  if (const FunctionSamplesMap *M = FS->findFunctionSamplesMapAt(
-          LineLocation(getOffset(DIL), DIL->getBaseDiscriminator()))) {
+  if (const FunctionSamplesMap *M = FS->findFunctionSamplesMapAt(LineLocation(
+          FunctionSamples::getOffset(DIL), DIL->getBaseDiscriminator()))) {
     if (M->empty())
       return R;
     for (const auto &NameFS : *M) {
       Sum += NameFS.second.getEntrySamples();
       R.push_back(&NameFS.second);
     }
-    std::sort(R.begin(), R.end(),
-              [](const FunctionSamples *L, const FunctionSamples *R) {
-                return L->getEntrySamples() > R->getEntrySamples();
-              });
+    llvm::sort(R.begin(), R.end(),
+               [](const FunctionSamples *L, const FunctionSamples *R) {
+                 return L->getEntrySamples() > R->getEntrySamples();
+               });
   }
   return R;
 }
@@ -708,20 +703,7 @@ SampleProfileLoader::findFunctionSamples(const Instruction &Inst) const {
   if (!DIL)
     return Samples;
 
-  const DILocation *PrevDIL = DIL;
-  for (DIL = DIL->getInlinedAt(); DIL; DIL = DIL->getInlinedAt()) {
-    S.push_back(std::make_pair(
-        LineLocation(getOffset(DIL), DIL->getBaseDiscriminator()),
-        PrevDIL->getScope()->getSubprogram()->getLinkageName()));
-    PrevDIL = DIL;
-  }
-  if (S.size() == 0)
-    return Samples;
-  const FunctionSamples *FS = Samples;
-  for (int i = S.size() - 1; i >= 0 && FS != nullptr; i--) {
-    FS = FS->findFunctionSamplesAt(S[i].first, S[i].second);
-  }
-  return FS;
+  return Samples->findFunctionSamples(DIL);
 }
 
 bool SampleProfileLoader::inlineCallInstruction(Instruction *I) {
@@ -828,10 +810,10 @@ bool SampleProfileLoader::inlineHotFunctions(
           if (R != SymbolMap.end() && R->getValue() &&
               !R->getValue()->isDeclaration() &&
               R->getValue()->getSubprogram() &&
-              isLegalToPromote(I, R->getValue(), &Reason)) {
+              isLegalToPromote(CallSite(I), R->getValue(), &Reason)) {
             uint64_t C = FS->getEntrySamples();
-            Instruction *DI = promoteIndirectCall(
-                I, R->getValue(), C, Sum, false, ORE);
+            Instruction *DI =
+                pgo::promoteIndirectCall(I, R->getValue(), C, Sum, false, ORE);
             Sum -= C;
             PromotedInsns.insert(I);
             // If profile mismatches, we should not attempt to inline DI.
@@ -1193,13 +1175,13 @@ static SmallVector<InstrProfValueData, 2> SortCallTargets(
   SmallVector<InstrProfValueData, 2> R;
   for (auto I = M.begin(); I != M.end(); ++I)
     R.push_back({Function::getGUID(I->getKey()), I->getValue()});
-  std::sort(R.begin(), R.end(),
-            [](const InstrProfValueData &L, const InstrProfValueData &R) {
-              if (L.Count == R.Count)
-                return L.Value > R.Value;
-              else
-                return L.Count > R.Count;
-            });
+  llvm::sort(R.begin(), R.end(),
+             [](const InstrProfValueData &L, const InstrProfValueData &R) {
+               if (L.Count == R.Count)
+                 return L.Value > R.Value;
+               else
+                 return L.Count > R.Count;
+             });
   return R;
 }
 
@@ -1284,7 +1266,7 @@ void SampleProfileLoader::propagateWeights(Function &F) {
           if (!DLoc)
             continue;
           const DILocation *DIL = DLoc;
-          uint32_t LineOffset = getOffset(DIL);
+          uint32_t LineOffset = FunctionSamples::getOffset(DIL);
           uint32_t Discriminator = DIL->getBaseDiscriminator();
 
           const FunctionSamples *FS = findFunctionSamples(I);
@@ -1470,7 +1452,9 @@ bool SampleProfileLoader::emitAnnotations(Function &F) {
     // Sets the GUIDs that are inlined in the profiled binary. This is used
     // for ThinLink to make correct liveness analysis, and also make the IR
     // match the profiled binary before annotation.
-    F.setEntryCount(Samples->getHeadSamples() + 1, &InlinedGUIDs);
+    F.setEntryCount(
+        ProfileCount(Samples->getHeadSamples() + 1, Function::PCT_Real),
+        &InlinedGUIDs);
 
     // Compute dominance and loop info needed for propagation.
     computeDominanceAndLoopInfo(F);
@@ -1551,14 +1535,14 @@ bool SampleProfileLoader::runOnModule(Module &M, ModuleAnalysisManager *AM) {
 
   // Populate the symbol map.
   for (const auto &N_F : M.getValueSymbolTable()) {
-    std::string OrigName = N_F.getKey();
+    StringRef OrigName = N_F.getKey();
     Function *F = dyn_cast<Function>(N_F.getValue());
     if (F == nullptr)
       continue;
     SymbolMap[OrigName] = F;
     auto pos = OrigName.find('.');
-    if (pos != std::string::npos) {
-      std::string NewName = OrigName.substr(0, pos);
+    if (pos != StringRef::npos) {
+      StringRef NewName = OrigName.substr(0, pos);
       auto r = SymbolMap.insert(std::make_pair(NewName, F));
       // Failiing to insert means there is already an entry in SymbolMap,
       // thus there are multiple functions that are mapped to the same
@@ -1587,7 +1571,10 @@ bool SampleProfileLoaderLegacyPass::runOnModule(Module &M) {
 }
 
 bool SampleProfileLoader::runOnFunction(Function &F, ModuleAnalysisManager *AM) {
-  F.setEntryCount(0);
+  // Initialize the entry count to -1, which will be treated conservatively
+  // by getEntryCount as the same as unknown (None). If we have samples this
+  // will be overwritten in emitAnnotations.
+  F.setEntryCount(ProfileCount(-1, Function::PCT_Real));
   std::unique_ptr<OptimizationRemarkEmitter> OwnedORE;
   if (AM) {
     auto &FAM =

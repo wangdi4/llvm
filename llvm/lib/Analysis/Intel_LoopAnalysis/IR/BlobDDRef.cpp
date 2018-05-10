@@ -61,7 +61,11 @@ void BlobDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
 #endif // !INTEL_PRODUCT_RELEASE
 }
 
-HLDDNode *BlobDDRef::getHLDDNode() const {
+const HLDDNode *BlobDDRef::getHLDDNode() const {
+  return const_cast<BlobDDRef*>(this)->getHLDDNode();
+}
+
+HLDDNode *BlobDDRef::getHLDDNode() {
 
   if (ParentDDRef) {
     return ParentDDRef->getHLDDNode();

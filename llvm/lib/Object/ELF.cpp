@@ -147,6 +147,7 @@ StringRef llvm::object::getELFRelocationTypeName(uint32_t Machine,
     default:
       break;
     }
+    break;
   case ELF::EM_BPF:
     switch (Type) {
 #include "llvm/BinaryFormat/ELFRelocs/BPF.def"
@@ -213,6 +214,7 @@ StringRef llvm::object::getELFSectionTypeName(uint32_t Machine, unsigned Type) {
     STRINGIFY_ENUM_CASE(ELF, SHT_ANDROID_REL);
     STRINGIFY_ENUM_CASE(ELF, SHT_ANDROID_RELA);
     STRINGIFY_ENUM_CASE(ELF, SHT_LLVM_ODRTAB);
+    STRINGIFY_ENUM_CASE(ELF, SHT_LLVM_LINKER_OPTIONS);
     STRINGIFY_ENUM_CASE(ELF, SHT_GNU_ATTRIBUTES);
     STRINGIFY_ENUM_CASE(ELF, SHT_GNU_HASH);
     STRINGIFY_ENUM_CASE(ELF, SHT_GNU_verdef);

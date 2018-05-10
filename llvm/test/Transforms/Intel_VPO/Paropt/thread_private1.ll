@@ -1,4 +1,5 @@
-; RUN: opt < %s -vpo-paropt-tpv  -mem2reg -simplifycfg -S | FileCheck %s
+; RUN: opt < %s -vpo-paropt-tpv -S | FileCheck %s
+; RUN: opt < %s -passes=vpo-paropt-tpv -S | FileCheck %s
 
 ; The compiler is expected to emit the call __kmpc_threadprivate_cached.
 ; The compiler isn't expected to emit the call __kmpc_global_thread_num.

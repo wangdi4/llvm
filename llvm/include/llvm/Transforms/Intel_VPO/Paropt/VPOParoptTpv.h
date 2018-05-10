@@ -22,15 +22,12 @@
 
 namespace llvm {
 
-namespace vpo {
-
 /// Legacy thread private transformation pass.
 class VPOParoptTpvLegacyPass : public PassInfoMixin<VPOParoptTpvLegacyPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 };
 
-} // end namespace vpo
 } // end namespace llvm
 
 

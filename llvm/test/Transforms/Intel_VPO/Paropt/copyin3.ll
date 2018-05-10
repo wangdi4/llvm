@@ -1,4 +1,5 @@
 ; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt  -S | FileCheck %s
+; RUN: opt < %s -passes="function(vpo-cfg-restructuring,vpo-paropt-prepare),vpo-paropt"  -S | FileCheck %s
 ;
 ; The compiler is expected to emit the call llvm.memcpy.p0i8.p0i8.i64 for the two dimensional array a.
 ;

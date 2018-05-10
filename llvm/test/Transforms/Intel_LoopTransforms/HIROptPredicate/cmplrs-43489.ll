@@ -1,5 +1,6 @@
 ; Verify that IV predicate optimization attaches UB blob ddref if a self-blob UB becomes regular ddref.
-; RUN: opt -hir-ssa-deconstruction -disable-output -hir-opt-var-predicate -print-after=hir-opt-var-predicate < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -disable-output -hir-opt-var-predicate -print-after=hir-opt-var-predicate -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s
+; Note: -hir-verify-cf-def-level enables verification of def@levels.
 
 ; HIR:
 ; BEGIN REGION { }

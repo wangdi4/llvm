@@ -1,6 +1,6 @@
 //===------- Intel_IPCloning.cpp - IP Cloning -*------===//
 //
-// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1616,11 +1616,15 @@ ModulePass *llvm::createIPCloningLegacyPass(bool AfterInl) {
   return new IPCloningLegacyPass(AfterInl);
 }
 
-PreservedAnalyses IPCloningPass::run(Module &M,
-                                          ModuleAnalysisManager &AM) {
-  if (IPCloningAfterInl) AfterInl = true;
+IPCloningPass::IPCloningPass(bool AfterInl) : AfterInl(AfterInl) {}
 
-  if (runIPCloning(M, AfterInl))
-    return PreservedAnalyses::none();
-  return PreservedAnalyses::all();
+PreservedAnalyses IPCloningPass::run(Module &M, ModuleAnalysisManager &AM) {
+  if (!runIPCloning(M, AfterInl))
+    return PreservedAnalyses::all();
+
+  auto PA = PreservedAnalyses();
+  PA.preserve<WholeProgramAnalysis>();
+  PA.preserve<AndersensAA>();
+  PA.preserve<InlineAggAnalysis>();
+  return PA;
 }

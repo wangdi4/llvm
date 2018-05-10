@@ -105,7 +105,6 @@ template <typename HV, bool Recursive = true, bool RecurseInsideLoops = true,
           bool Forward = true>
 class HLNodeVisitor {
 
-  // TODO: if C++14 would be available, std::is_final can be used
   static_assert(std::is_base_of<HLNodeVisitorBase, HV>::value,
                 "HV must be a final derivative of HLNodeVisitorBase");
 
@@ -171,14 +170,16 @@ private:
 
       if (Recursive && !Visitor.isDone()) {
 
-        // Visit body
-        if (RecurseInsideLoops && !Visitor.skipRecursion(Node) &&
-            visitRange(Loop->child_begin(), Loop->child_end())) {
-          return true;
-        }
+        if (!Visitor.skipRecursion(Node)) {
+          // Visit body
+          if (RecurseInsideLoops &&
+              visitRange(Loop->child_begin(), Loop->child_end())) {
+            return true;
+          }
 
-        // PostVisit loop
-        Visitor.postVisit(Loop);
+          // PostVisit loop
+          Visitor.postVisit(Loop);
+        }
 
         // Visit postexit
         Ret = Forward ? visitRange(Loop->post_begin(), Loop->post_end())

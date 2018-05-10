@@ -16,10 +16,11 @@
 #define LLVM_ANALYSIS_VPO_WREGIONCLAUSE_H
 
 #include <vector>
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Debug.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Debug.h"
 
 namespace llvm {
 
@@ -28,10 +29,13 @@ namespace vpo {
 class WRegionNode;
 class WRegionUtils;
 
+extern void printFnPtr(Function *Fn, formatted_raw_ostream &OS,
+                       bool PrintType=true);
+
 // for readability; VAR and EXPR match OpenMP4.1 specs
 typedef Value* VAR;
 typedef Value* EXPR;
-typedef Value* RDECL;
+typedef Function* RDECL;
 
 // Tables used for debug printing
 extern std::unordered_map<int, StringRef> WRNDefaultName;
@@ -70,7 +74,7 @@ class Item
     VAR   OrigItem;  // original var
     VAR   NewItem;   // new version (eg private) of the var
     VAR   ParmItem;  // formal parm in outlined entry; usually holds &OrigItem
-    bool  IsNonpod;  // true for a C++ NONPOD var
+    bool  IsNonPod;  // true for a C++ NONPOD var
     bool  IsVla;     // true for variable-length arrays (C99)
     EXPR  VlaSize;   // size of vla array can be an int expression
     int   ThunkIdx;  // used for task/taskloop codegen
@@ -79,14 +83,14 @@ class Item
 
   public:
     Item(VAR Orig) :
-      OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr), IsNonpod(false),
+      OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr), IsNonPod(false),
       IsVla(false), VlaSize(nullptr), ThunkIdx(-1), AliasScope(nullptr),
       NoAlias(nullptr) {}
 
     void setOrig(VAR V)          { OrigItem = V;    }
     void setNew(VAR V)           { NewItem = V;     }
     void setParm(VAR V)          { ParmItem = V;    }
-    void setIsNonpod(bool Flag)  { IsNonpod = Flag; }
+    void setIsNonPod(bool Flag)  { IsNonPod = Flag; }
     void setIsVla(bool Flag)     { IsVla = Flag;    }
     void setVlaSize(EXPR Size)   { VlaSize = Size;  }
     void setThunkIdx(int I)      { ThunkIdx = I;    }
@@ -96,7 +100,7 @@ class Item
     VAR  getOrig()     const { return OrigItem; }
     VAR  getNew()      const { return NewItem;  }
     VAR  getParm()     const { return ParmItem; }
-    bool getIsNonpod() const { return IsNonpod; }
+    bool getIsNonPod() const { return IsNonPod; }
     bool getIsVla()    const { return IsVla;    }
     EXPR getVlaSize()  const { return VlaSize;  }
     int getThunkIdx()  const { return ThunkIdx; }
@@ -134,7 +138,6 @@ class SharedItem : public Item
     bool getIsPassedDirectly() const { return IsPassedDirectly; }
 };
 
-
 //
 //   PrivateItem: OMP PRIVATE clause item
 //   (cf PAROPT_OMP_PRIVATE_NODE)
@@ -148,10 +151,33 @@ class PrivateItem : public Item
   public:
     PrivateItem(VAR Orig) :
       Item(Orig), Constructor(nullptr), Destructor(nullptr) {}
+    PrivateItem(const Use *Args) :
+      Item(nullptr), Constructor(nullptr), Destructor(nullptr) {
+      // PRIVATE nonPOD Args are: var, ctor, dtor
+      Value *V = cast<Value>(Args[0]);
+      setOrig(V);
+      V = cast<Value>(Args[1]);
+      Constructor = cast<Function>(V);
+      V = cast<Value>(Args[2]);
+      Destructor = cast<Function>(V);
+    }
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
     void setDestructor(RDECL Dtor)  { Destructor  = Dtor; }
     RDECL getConstructor() const { return Constructor; }
     RDECL getDestructor()  const { return Destructor;  }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsNonPod()) {
+        OS << "NONPOD(";
+        getOrig()->printAsOperand(OS, PrintType);
+        OS << ", CTOR: ";
+        printFnPtr(getConstructor(), OS, PrintType);
+        OS << ", DTOR: ";
+        printFnPtr(getDestructor(), OS, PrintType);
+        OS << ") ";
+      } else  //invoke parent's print function for regular case
+        Item::print(OS, PrintType);
+    }
 };
 
 class LastprivateItem; // forward declaration
@@ -173,6 +199,17 @@ class FirstprivateItem : public Item
     FirstprivateItem(VAR Orig)
         : Item(Orig), InLastprivate(nullptr), InMap(nullptr),
           CopyConstructor(nullptr), Destructor(nullptr) {}
+    FirstprivateItem(const Use *Args)
+        : Item(nullptr), InLastprivate(nullptr), InMap(nullptr),
+          CopyConstructor(nullptr), Destructor(nullptr) {
+      // FIRSTPRIVATE nonPOD Args are: var, cctor, dtor
+      Value *V = cast<Value>(Args[0]);
+      setOrig(V);
+      V = cast<Value>(Args[1]);
+      CopyConstructor = cast<Function>(V);
+      V = cast<Value>(Args[2]);
+      Destructor = cast<Function>(V);
+    }
     void setInLastprivate(LastprivateItem *LI) { InLastprivate = LI; }
     void setInMap(MapItem *MI) { InMap = MI; }
     void setCopyConstructor(RDECL Cctor) { CopyConstructor = Cctor; }
@@ -181,6 +218,19 @@ class FirstprivateItem : public Item
     MapItem *getInMap() const { return InMap; }
     RDECL getCopyConstructor() const { return CopyConstructor; }
     RDECL getDestructor()      const { return Destructor;      }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsNonPod()) {
+        OS << "NONPOD(";
+        getOrig()->printAsOperand(OS, PrintType);
+        OS << ", CCTOR: ";
+        printFnPtr(getCopyConstructor(), OS, PrintType);
+        OS << ", DTOR: ";
+        printFnPtr(getDestructor(), OS, PrintType);
+        OS << ") ";
+      } else  //invoke parent's print function for regular case
+        Item::print(OS, PrintType);
+    }
 };
 
 
@@ -194,23 +244,59 @@ class LastprivateItem : public Item
     bool IsConditional;               // conditional lastprivate
     FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
     RDECL Constructor;
+    RDECL CopyAssign;
     RDECL Destructor;
-    RDECL Copy;
 
   public:
     LastprivateItem(VAR Orig)
         : Item(Orig), IsConditional(false), InFirstprivate(nullptr),
-          Constructor(nullptr), Destructor(nullptr), Copy(nullptr) {}
-    void setIsConditional(bool B)   { IsConditional = B; }
+          Constructor(nullptr), CopyAssign(nullptr), Destructor(nullptr) {}
+    LastprivateItem(const Use *Args)
+        : Item(nullptr), IsConditional(false), InFirstprivate(nullptr),
+          Constructor(nullptr), CopyAssign(nullptr), Destructor(nullptr) {
+      // LASTPRIVATE nonPOD Args are: var, ctor, copy-assign, dtor
+      Value *V = cast<Value>(Args[0]);
+      setOrig(V);
+      if (Constant *C = dyn_cast<Constant>(Args[1])) {
+        // If a nonpod var is both lastprivate and firstprivate, the ctor in
+        // the lastprivate OperanBundle is "i8* null" from clang. This is
+        // because the var will not be initialized with a default constructor,
+        // but rather with the copy-constructor from its firstprivate clause.
+        // In this case, we stay with Constructor=nullptr.
+        if (!(C->isNullValue())) {
+          Constructor = cast<Function>(C);
+        }
+      }
+      V = cast<Value>(Args[2]);
+      CopyAssign = cast<Function>(V);
+      V = cast<Value>(Args[3]);
+      Destructor = cast<Function>(V);
+    }
+    void setIsConditional(bool B) { IsConditional = B; }
     void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
-    void setDestructor(RDECL Dtor)  { Destructor  = Dtor; }
-    void setCopy(RDECL Cpy)         { Copy = Cpy;         }
+    void setCopyAssign(RDECL Cpy) { CopyAssign = Cpy;         }
+    void setDestructor(RDECL Dtor) { Destructor  = Dtor; }
     bool getIsConditional() const { return IsConditional; }
     FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
     RDECL getConstructor() const { return Constructor; }
-    RDECL getDestructor()  const { return Destructor; }
-    RDECL getCopy()        const { return Copy; }
+    RDECL getCopyAssign() const { return CopyAssign; }
+    RDECL getDestructor() const { return Destructor; }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsNonPod()) {
+        OS << "NONPOD(";
+        getOrig()->printAsOperand(OS, PrintType);
+        OS << ", CTOR: ";
+        printFnPtr(getConstructor(), OS, PrintType);
+        OS << ", COPYASSIGN: ";
+        printFnPtr(getCopyAssign(), OS, PrintType);
+        OS << ", DTOR: ";
+        printFnPtr(getDestructor(), OS, PrintType);
+        OS << ") ";
+      } else  //invoke parent's print function for regular case
+        Item::print(OS, PrintType);
+    }
 };
 
 
@@ -241,42 +327,65 @@ public:
   private:
     WRNReductionKind Ty; // reduction operation
     bool  IsUnsigned;    // for min/max reduction; default is signed min/max
-    RDECL Combiner;
-    RDECL Initializer;
+    bool  IsInReduction; // is from an IN_REDUCTION clause (task/taskloop)
+
+    // NOTE: Combiner and Initializer are Function*'s from UDR. However,
+    // currently lib/Transforms/Intel_VPO/Vecopt/VPOAvrLLVMCodeGen.cpp has code
+    // that uses these fields to store instructions that initialize/combine
+    // the reduction variable in non-UDR cases. After that code is cleaned up,
+    // we can change Value* to Function* below.
+    Value *Combiner;
+    Value *Initializer;
 
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op=WRNReductionError): Item(Orig),
-      Ty(Op), IsUnsigned(false), Combiner(nullptr), Initializer(nullptr) {}
+      Ty(Op), IsUnsigned(false), IsInReduction(false), Combiner(nullptr),
+      Initializer(nullptr) {}
 
     static WRNReductionKind getKindFromClauseId(int Id) {
       switch(Id) {
         case QUAL_OMP_REDUCTION_ADD:
+        case QUAL_OMP_INREDUCTION_ADD:
           return WRNReductionAdd;
         case QUAL_OMP_REDUCTION_SUB:
+        case QUAL_OMP_INREDUCTION_SUB:
           return WRNReductionSub;
         case QUAL_OMP_REDUCTION_MUL:
+        case QUAL_OMP_INREDUCTION_MUL:
           return WRNReductionMult;
         case QUAL_OMP_REDUCTION_AND:
+        case QUAL_OMP_INREDUCTION_AND:
           return WRNReductionAnd;
         case QUAL_OMP_REDUCTION_OR:
+        case QUAL_OMP_INREDUCTION_OR:
           return WRNReductionOr;
         case QUAL_OMP_REDUCTION_BXOR:
+        case QUAL_OMP_INREDUCTION_BXOR:
           return WRNReductionBxor;
         case QUAL_OMP_REDUCTION_BAND:
+        case QUAL_OMP_INREDUCTION_BAND:
           return WRNReductionBand;
         case QUAL_OMP_REDUCTION_BOR:
+        case QUAL_OMP_INREDUCTION_BOR:
           return WRNReductionBor;
         case QUAL_OMP_REDUCTION_MAX:
+        case QUAL_OMP_INREDUCTION_MAX:
           return WRNReductionMax;
         case QUAL_OMP_REDUCTION_MIN:
+        case QUAL_OMP_INREDUCTION_MIN:
           return WRNReductionMin;
         case QUAL_OMP_REDUCTION_UDR:
+        case QUAL_OMP_INREDUCTION_UDR:
           return WRNReductionUdr;
         default:
           llvm_unreachable("Unsupported Reduction Clause ID");
       }
     };
 
+    // There is no need to deal with the INREDUCTION variants, as the main
+    // purpose of this routine is to support the getOpName() method to recover
+    // the name of the reduction operation, which is the same for both
+    // REDUCTION and INREDUCTION.
     static int getClauseIdFromKind(WRNReductionKind Kind) {
       switch(Kind) {
         case WRNReductionAdd:
@@ -306,14 +415,16 @@ public:
       }
     };
 
-    void setType(WRNReductionKind Op) { Ty = Op;          }
-    void setIsUnsigned(bool B)        { IsUnsigned = B;   }
-    void setCombiner(RDECL Comb)      { Combiner = Comb;    }
-    void setInitializer(RDECL Init)   { Initializer = Init; }
-    WRNReductionKind getType() const { return Ty;        }
-    bool getIsUnsigned()       const { return IsUnsigned;  }
-    RDECL getCombiner()        const { return Combiner;    }
-    RDECL getInitializer()     const { return Initializer; }
+    void setType(WRNReductionKind Op) { Ty = Op;             }
+    void setIsUnsigned(bool B)        { IsUnsigned = B;      }
+    void setIsInReduction(bool B)     { IsInReduction = B;   }
+    void setCombiner(Value *Comb)     { Combiner = Comb;     }
+    void setInitializer(Value *Init)  { Initializer = Init;  }
+    WRNReductionKind getType() const { return Ty;            }
+    bool getIsUnsigned()       const { return IsUnsigned;    }
+    bool getIsInReduction()    const { return IsInReduction; }
+    Value *getCombiner()       const { return Combiner;      }
+    Value *getInitializer()    const { return Initializer;   }
 
     // Return a string for the reduction operation, such as "ADD" and "MUL"
     StringRef getOpName() const {
@@ -394,6 +505,62 @@ class UniformItem : public Item
     UniformItem(VAR Orig) : Item(Orig) {}
 };
 
+//  To support an aggregate object in a MAP clause, a chain of triples is used.
+//  Each triple has a Base pointer, a Section pointer, and Size. Two classes
+//  are defined:
+//     'MapAggrTy'  represents a triple (BasePtr, SectionPtr, Size)
+//     'MapChainTy' represents a chain of triples (ie, a vector of MapAggrTy*)
+//
+//  For example, given the struct S1 and the pointer ps below:
+//
+//  struct S1 {
+//    int y;
+//    double d[50];
+//    struct S1 *next;
+//  };
+//  S1 *ps;
+//
+//  To carry out the semantics of MAP(ps->y), the libomptarget runtime needs a
+//  triple that holds these three pieces of information:
+//    * Base Pointer:           ps
+//    * Section Pointer:        &(ps->y)
+//    * Size of y:              4
+//
+//  For a longer pointer chain such MAP(ps->next->next->y), the runtime needs a
+//  triple for each component pointer dereference, as shown below:
+//
+//              Base Pointer      Section Pointer         Size in bytes
+//              ============      ===============         =============
+//   Triple#1:   ps                &(ps->next)             sizeof(S1*) = 8
+//   Triple#2:   &(ps->next)       &(ps->next->next)       sizeof(S1*) = 8
+//   Triple#3:   &(ps->next->next) &(ps->next->next->y)    sizeof(int) = 4
+//
+//  Here's an example when an array is involved. For MAP(ps->next->d) we need:
+//   Triple#1:   ps                &(ps->next)             sizeof(S1*) = 8
+//   Triple#2:   &(ps->next)       &(ps->next->d[0])       50*sizeof(double)
+//
+//  It's similar for an array section. For MAP(ps->next->d[17:25]) we need:
+//   Triple#1:   ps                &(ps->next)             sizeof(S1*) = 8
+//   Triple#2:   &(ps->next)       &(ps->next->d[17])      25*sizeof(double)
+//
+class MapAggrTy
+{
+private:
+  Value *BasePtr;
+  Value *SectionPtr;
+  Value *Size;
+public:
+  MapAggrTy(Value *BP, Value *SP, Value *Sz) : BasePtr(BP), SectionPtr(SP),
+                                               Size(Sz) {}
+  void setBasePtr(Value *BP) { BasePtr = BP; }
+  void setSectionPtr(Value *SP) { SectionPtr = SP; }
+  void setSize(Value *Sz) { Size = Sz; }
+  Value *getBasePtr() const { return BasePtr; }
+  Value *getSectionPtr() const { return SectionPtr; }
+  Value *getSize() const { return Size; }
+};
+
+typedef SmallVector<MapAggrTy*, 2> MapChainTy;
 
 //
 //   MapItem: OMP MAP clause item
@@ -403,6 +570,7 @@ class MapItem : public Item
 private:
   unsigned MapKind;                 // bit vector for map kind and modifiers
   FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
+  MapChainTy MapChain;
 
 public:
   enum WRNMapKind {
@@ -416,6 +584,13 @@ public:
   } WRNMapKind;
 
   MapItem(VAR Orig) : Item(Orig), MapKind(0), InFirstprivate(nullptr) {}
+  MapItem(MapAggrTy* Aggr): Item(nullptr), MapKind(0), InFirstprivate(nullptr){
+    MapChain.push_back(Aggr);
+  }
+
+  const MapChainTy &getMapChain() const { return MapChain; }
+        MapChainTy &getMapChain()       { return MapChain; }
+  bool getIsMapChain() const { return MapChain.size() > 0; }
 
   static unsigned getMapKindFromClauseId(int Id) {
     switch(Id) {
@@ -469,6 +644,30 @@ public:
   bool getIsMapDelete()    const { return MapKind & WRNMapDelete; }
   bool getIsMapAlways()    const { return MapKind & WRNMapAlways; }
   FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
+
+  void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    if (getIsMapChain()) {
+      OS << "CHAIN(" ;
+      for (unsigned I=0; I < MapChain.size(); ++I) {
+        MapAggrTy *Aggr = MapChain[I];
+        Value *BasePtr = Aggr->getBasePtr();
+        Value *SectionPtr = Aggr->getSectionPtr();
+        Value *Size = Aggr->getSize();
+        OS << "<" ;
+        BasePtr->printAsOperand(OS, PrintType);
+        OS << ", ";
+        SectionPtr->printAsOperand(OS, PrintType);
+        OS << ", ";
+        Size->printAsOperand(OS, PrintType);
+        OS << "> ";
+      }
+      OS << ") ";
+    } else {
+      OS << "(" ;
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
+    }
+  }
 };
 
 
@@ -622,6 +821,7 @@ template <typename ClauseItem> class Clause
   protected:
     // Create a new item for VAR V and append it to the clause
     void add(VAR V) { ClauseItem *P = new ClauseItem(V); C.push_back(P); }
+    void add(ClauseItem *P) { C.push_back(P); }
 
   public:
     int getClauseID()               const { return ClauseID;     }

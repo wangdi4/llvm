@@ -18,7 +18,7 @@
 
 #include <map>
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRScalarSymbaseAssignment.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/BlobDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
@@ -42,7 +42,6 @@ class HIRSymbaseAssignment;
 /// Defines utilities for DDRef class and manages their creation/destruction.
 /// It contains a bunch of member functions which manipulate DDRefs.
 class DDRefUtils {
-private:
   /// Keeps track of DDRef objects.
   std::set<DDRef *> Objs;
 
@@ -66,8 +65,8 @@ private:
     return getCanonExprUtils().getHIRParser();
   }
 
-  /// Destroys all DDRefs. Called during HIR cleanup.
-  void destroyAll();
+  /// Destroys all DDRefs.
+  ~DDRefUtils();
 
   /// Creates a non-linear self blob RegDDRef from the passed in Value.
   /// Temp blobs from values are only created by framework.
@@ -144,6 +143,9 @@ public:
   /// constant. This routine will automatically create a single canon expr from
   /// metadata and attach it to the new RegDDRef.
   RegDDRef *createConstDDRef(Value *Val);
+
+  /// Returns a RegDDRef representing an undef value with type \p Type.
+  RegDDRef *createUndefDDRef(Type *Type);
 
   /// Returns a new BlobDDRef representing blob with Index. Level is the defined
   /// at level for the blob.
@@ -242,6 +244,11 @@ public:
   /// This is useful for ordering DDRefs.
   static int compareOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
                             unsigned DimensionNum);
+
+  /// Compares struct offsets in \p Ref1 and \p Ref2 and returns true if they
+  /// are equal. For example, it will returns true for references like A[0].1
+  /// and A[i1].1. Both refs should have same base and number of dimensions.
+  static bool haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2);
 
   // Sorting comparator operator for two Mem-RegDDRef.
   static bool compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2);

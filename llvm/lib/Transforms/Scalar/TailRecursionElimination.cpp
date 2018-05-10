@@ -80,7 +80,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/Local.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "tailcallelim"
@@ -333,7 +332,7 @@ static bool canMoveAboveCall(Instruction *I, CallInst *CI, AliasAnalysis *AA) {
       // Writes to memory only matter if they may alias the pointer
       // being loaded from.
       const DataLayout &DL = L->getModule()->getDataLayout();
-      if ((AA->getModRefInfo(CI, MemoryLocation::get(L)) & MRI_Mod) ||
+      if (isModSet(AA->getModRefInfo(CI, MemoryLocation::get(L))) ||
           !isSafeToLoadUnconditionally(L->getPointerOperand(),
                                        L->getAlignment(), DL, L))
         return false;
@@ -852,5 +851,6 @@ PreservedAnalyses TailCallElimPass::run(Function &F,
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<GlobalsAA>();
+  PA.preserve<AndersensAA>();         // INTEL
   return PA;
 }

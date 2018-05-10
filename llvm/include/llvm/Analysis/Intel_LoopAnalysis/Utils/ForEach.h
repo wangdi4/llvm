@@ -37,16 +37,24 @@ class HLNode;
 
 namespace detail {
 
-template <typename T, typename Func>
-struct ForEachVisitorTraits {
+template <typename T, typename Func> struct ForEachVisitorBaseTraits {
   typedef T NodeType;
-  static void visit(NodeType *Node, Func F) {
-    F(Node);
-  }
+  static void visit(NodeType *Node, Func F) { F(Node); }
+  static bool skipRecursion(const HLNode *Node) { return false; }
+};
+
+template <typename T, typename Func>
+struct ForEachVisitorTraits : ForEachVisitorBaseTraits<T, Func> {};
+
+template <typename Func>
+struct ForEachVisitorTraits<HLRegion, Func>
+    : ForEachVisitorBaseTraits<HLRegion, Func> {
+  static bool skipRecursion(const HLNode *Node) { return true; }
 };
 
 template <typename Func>
-struct ForEachVisitorTraits<RegDDRef, Func> {
+struct ForEachVisitorTraits<RegDDRef, Func>
+    : ForEachVisitorBaseTraits<RegDDRef, Func> {
   typedef HLDDNode NodeType;
   static void visit(NodeType *Node, Func F) {
     for (RegDDRef *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
@@ -77,36 +85,37 @@ struct ForEachVisitor final : public HLNodeVisitorBase {
 
   void postVisit(const HLNode *) {}
   void visit(const HLNode *) {}
+
+  bool skipRecursion(const HLNode *Node) const {
+    return ForEachVisitorTraits<T, Func>::skipRecursion(Node);
+  }
 };
 
 }
 
-template <typename T, bool IsPostVisitor> struct ForEachImpl {
-  template <typename Iter, typename Func>
+template <typename T, bool IsPostVisitor>
+struct ForEachImpl {
+  template <bool Recursive = true, typename Iter, typename Func>
   static void visitRange(Iter Begin, Iter End, Func F) {
     detail::ForEachVisitor<T, Func, IsPostVisitor> Visitor(F);
-    HLNodeUtils::visitRange(Visitor, Begin, End);
+    HLNodeUtils::visitRange<Recursive>(Visitor, Begin, End);
   }
 
-  template <typename NodeTy, typename Func>
+  template <bool Recursive = true, typename NodeTy, typename Func>
   static void visit(NodeTy Node, Func F) {
     detail::ForEachVisitor<T, Func, IsPostVisitor> Visitor(F);
-    HLNodeUtils::visit(Visitor, Node);
+    HLNodeUtils::visit<Recursive>(Visitor, Node);
   }
 };
 
 /// The ForEach<T> class could be used to iterate over the HIR nodes of fixed
 /// type \p T in-order using functional approach.
-template <typename T>
-using ForEach = ForEachImpl<T, false>;
+template <typename T> using ForEach = ForEachImpl<T, false>;
 
 /// The ForPostEach<T> class could be used to iterate over the HIR nodes of
 /// fixed type \p T post-order using functional approach.
-template <typename T>
-using ForPostEach = ForEachImpl<T, true>;
-
+template <typename T> using ForPostEach = ForEachImpl<T, true>;
 }
-
 }
 
 #endif

@@ -1,4 +1,5 @@
 ; RUN: opt -inline -Os -inline-report=7 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='function(sroa),cgscc(inline)' -Os -inline-report=7 < %s -S 2>&1 | FileCheck %s
 
 ; CHECK: Begin
 ; CHECK: double callsite

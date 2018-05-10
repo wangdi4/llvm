@@ -44,6 +44,7 @@ class MachineRegisterInfo;
 class ModuleSlotTracker;
 class raw_ostream;
 template <typename T> class SmallVectorImpl;
+class SmallBitVector;
 class StringRef;
 class TargetInstrInfo;
 class TargetRegisterClass;
@@ -67,7 +68,9 @@ public:
   /// otherwise easily derivable from the IR text.
   ///
   enum CommentFlag {
-    ReloadReuse = 0x1 // higher bits are reserved for target dep comments.
+    ReloadReuse = 0x1,    // higher bits are reserved for target dep comments.
+    NoSchedComment = 0x2,
+    TAsmComments = 0x4    // Target Asm comments should start from this value.
   };
 
   enum MIFlag {
@@ -392,7 +395,7 @@ public:
   /// Access to memory operands of the instruction
   mmo_iterator memoperands_begin() const { return MemRefs; }
   mmo_iterator memoperands_end() const { return MemRefs + NumMemRefs; }
-  /// Return true if we don't have any memory operands which described the the
+  /// Return true if we don't have any memory operands which described the
   /// memory access done by this instruction.  If this is true, calling code
   /// must be conservative.
   bool memoperands_empty() const { return NumMemRefs == 0; }
@@ -894,6 +897,8 @@ public:
     case TargetOpcode::EH_LABEL:
     case TargetOpcode::GC_LABEL:
     case TargetOpcode::DBG_VALUE:
+    case TargetOpcode::LIFETIME_START:
+    case TargetOpcode::LIFETIME_END:
       return true;
     }
   }
@@ -1224,16 +1229,30 @@ public:
 
   /// Debugging support
   /// @{
+  /// Determine the generic type to be printed (if needed) on uses and defs.
+  LLT getTypeToPrint(unsigned OpIdx, SmallBitVector &PrintedTypes,
+                     const MachineRegisterInfo &MRI) const;
+
+  /// Return true when an instruction has tied register that can't be determined
+  /// by the instruction's descriptor. This is useful for MIR printing, to
+  /// determine whether we need to print the ties or not.
+  bool hasComplexRegisterTies() const;
+
   /// Print this MI to \p OS.
+  /// Don't print information that can be inferred from other instructions if
+  /// \p IsStandalone is false. It is usually true when only a fragment of the
+  /// function is printed.
   /// Only print the defs and the opcode if \p SkipOpers is true.
   /// Otherwise, also print operands if \p SkipDebugLoc is true.
   /// Otherwise, also print the debug loc, with a terminating newline.
   /// \p TII is used to print the opcode name.  If it's not present, but the
   /// MI is in a function, the opcode will be printed using the function's TII.
-  void print(raw_ostream &OS, bool SkipOpers = false, bool SkipDebugLoc = false,
+  void print(raw_ostream &OS, bool IsStandalone = true, bool SkipOpers = false,
+             bool SkipDebugLoc = false, bool AddNewLine = true,
              const TargetInstrInfo *TII = nullptr) const;
-  void print(raw_ostream &OS, ModuleSlotTracker &MST, bool SkipOpers = false,
-             bool SkipDebugLoc = false,
+  void print(raw_ostream &OS, ModuleSlotTracker &MST, bool IsStandalone = true,
+             bool SkipOpers = false, bool SkipDebugLoc = false,
+             bool AddNewLine = true,
              const TargetInstrInfo *TII = nullptr) const;
   void dump() const;
   /// @}
@@ -1302,6 +1321,11 @@ public:
   /// for use when merging two MachineInstrs into one. This routine does not
   /// modify the memrefs of the this MachineInstr.
   std::pair<mmo_iterator, unsigned> mergeMemRefsWith(const MachineInstr& Other);
+
+  /// Return the MIFlags which represent both MachineInstrs. This
+  /// should be used when merging two MachineInstrs into one. This routine does
+  /// not modify the MIFlags of this MachineInstr.
+  uint8_t mergeFlagsWith(const MachineInstr& Other) const;
 
   /// Clear this MachineInstr's memory reference descriptor list.  This resets
   /// the memrefs to their most conservative state.  This should be used only

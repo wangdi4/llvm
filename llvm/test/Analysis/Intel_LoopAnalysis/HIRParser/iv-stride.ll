@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that the outer loop IV which is the stride for inner loop IV is reverse engineering correctly.
 ; CHECK: + DO i1 = 0, 8190, 1   <DO_LOOP>

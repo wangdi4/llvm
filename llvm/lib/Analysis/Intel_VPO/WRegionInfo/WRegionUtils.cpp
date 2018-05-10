@@ -60,9 +60,13 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
       W = new WRNTargetNode(EntryBB);
       break;
     case DIR_OMP_TARGET_DATA:
-    case DIR_OMP_TARGET_ENTER_DATA:
-    case DIR_OMP_TARGET_EXIT_DATA:
       W = new WRNTargetDataNode(EntryBB);
+      break;
+    case DIR_OMP_TARGET_ENTER_DATA:
+      W = new WRNTargetEnterDataNode(EntryBB);
+      break;
+    case DIR_OMP_TARGET_EXIT_DATA:
+      W = new WRNTargetExitDataNode(EntryBB);
       break;
     case DIR_OMP_TARGET_UPDATE:
       W = new WRNTargetUpdateNode(EntryBB);
@@ -74,7 +78,10 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
       W = new WRNTaskloopNode(EntryBB, LI);
       break;
     case DIR_OMP_SIMD:
-      W = new WRNVecLoopNode(EntryBB, LI);
+      W = new WRNVecLoopNode(EntryBB, LI, false /* auto vec */);
+      break;
+    case DIR_VPO_AUTO_VEC:
+      W = new WRNVecLoopNode(EntryBB, LI, true /* auto vec */);
       break;
     case DIR_OMP_LOOP:
       W = new WRNWksLoopNode(EntryBB, LI);
@@ -152,7 +159,10 @@ WRegionNode *WRegionUtils::createWRegionHIR(
     // TODO: complete the list for all WRegionNodeKinds needed
     //       to support vectorizer
     case DIR_OMP_SIMD:
-      W = new WRNVecLoopNode(EntryHLNode);
+      W = new WRNVecLoopNode(EntryHLNode, false /* auto vec */);
+      break;
+    case DIR_VPO_AUTO_VEC:
+      W = new WRNVecLoopNode(EntryHLNode, true /* auto vec */);
       break;
   }
   if (W) {
@@ -316,11 +326,26 @@ PHINode *WRegionUtils::getOmpCanonicalInductionVariable(Loop* L) {
   for (BasicBlock::iterator I = H->begin(); isa<PHINode>(I); ++I) {
     PHINode *PN = cast<PHINode>(I);
     if (Instruction *Inc =
-        dyn_cast<Instruction>(PN->getIncomingValueForBlock(Backedge)))
+            dyn_cast<Instruction>(PN->getIncomingValueForBlock(Backedge))) {
       if ((Inc->getOpcode() == Instruction::Add ||
            Inc->getOpcode() == Instruction::Sub) &&
-          (Inc->getOperand(0) == PN || Inc->getOperand(1) == PN))
+          (Inc->getOperand(0) == PN || Inc->getOperand(1) == PN)) {
+        // The compiler locates the bottom test expression of the loop
+        // and tests whether the loop index is in the bottom
+        // test expression.
+        TerminatorInst *TermInst = L->getLoopLatch()->getTerminator();
+        BranchInst *ExitBrInst = dyn_cast<BranchInst>(TermInst);
+        if (!ExitBrInst)
+          continue;
+        ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
+        if (!CondInst)
+          continue;
+        bool IsLeft;
+        if (!getLoopIndexPosInPredicate(Inc, CondInst, IsLeft))
+          continue;
         return PN;
+      }
+    }
   }
   llvm_unreachable("Omp loop must have induction variable!");
 
@@ -357,16 +382,19 @@ Value *WRegionUtils::getOmpLoopStride(Loop *L, bool &IsNeg) {
   llvm_unreachable("Omp loop must have stride!");
 }
 
-void WRegionUtils::getLoopIndexPosInPredicate(Value *LoopIndex,
+// Get the position of the given loop index at
+// the bottom/zero trip test expression. It returns false if
+// it cannot find the loop index.
+bool WRegionUtils::getLoopIndexPosInPredicate(Value *LoopIndex,
                                               Instruction *CondInst,
-                                              bool& IsLeft) {
+                                              bool &IsLeft) {
   Value *Operand = CondInst->getOperand(0);
   if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand))
     Operand = cast<Instruction>(Operand)->getOperand(0);
 
   if (Operand == LoopIndex) {
       IsLeft = true;
-      return;
+      return true;
   }
 
   Operand = CondInst->getOperand(1);
@@ -375,9 +403,9 @@ void WRegionUtils::getLoopIndexPosInPredicate(Value *LoopIndex,
 
   if (Operand == LoopIndex) {
       IsLeft = false;
-      return;
+      return true;
   }
-  llvm_unreachable("Omp loop bottom test must have loop index!");
+  return false;
 }
 
 // gets the loop upper bound of the OMP loop.
@@ -489,7 +517,27 @@ LastprivateItem *WRegionUtils::wrnSeenAsLastPrivate(WRegionNode *W, Value *V) {
 
 MapItem *WRegionUtils::wrnSeenAsMap(WRegionNode *W, Value *V) {
   MapClause &Map = W->getMap();
-  return Map.findOrig(V);
+  for (MapItem *I : Map.items()) {
+    Value *Orig = I->getOrig();
+    if (Orig != nullptr) { // scalar
+      if (Orig == V)
+        return I;
+    } else { // aggregate
+      MapChainTy &MapChain = I->getMapChain();
+      for (MapAggrTy *Aggr : MapChain) {
+        Value *BasePtr = Aggr->getBasePtr();
+        if (BasePtr == V)
+          return I;
+        // break;
+        // Note: OMP4.5 doesn't allow firstprivate/lastprivate of struct
+        // fields or array sections, so to see if the fp/lp item is also in a
+        // map clause for an aggregate, we only need to look at the head of the
+        // chain (ie, the first BasePtr). For now, I'm letting it traverse the
+        // entire chain, which is typically very short anyway.
+      }
+    }
+  }
+  return nullptr;
 }
 
 // The utility checks whether the given value is used at the region
@@ -548,4 +596,126 @@ bool WRegionUtils::findUsersInRegion(WRegionNode *W, Value *V,
     //  DEBUG(dbgs() << "Not an Instruction or ConstantExpr:" << *U << "\n");
   }
   return Found;
+}
+
+// The utility to create the loop and update the loopinfo.
+Loop *WRegionUtils::createLoop(Loop *L, Loop *PL, LoopInfo *LI) {
+  Loop *New = LI->AllocateLoop();
+  if (PL)
+    PL->replaceChildLoopWith(L, New);
+  else
+    LI->changeTopLevelLoop(L, New);
+
+  New->addChildLoop(L);
+  for (Loop::block_iterator I = L->block_begin(), E = L->block_end(); I != E;
+       ++I)
+    New->addBlockEntry(*I);
+
+  return New;
+}
+
+// The utility to add the given BB into the loop.
+void WRegionUtils::updateBBForLoop(BasicBlock *BB, Loop *L, Loop *PL,
+                                   LoopInfo *LI) {
+  if (PL)
+    LI->removeBlock(BB);
+  L->addBasicBlockToLoop(BB, *LI);
+}
+
+// Return true if the given loop is do-while loop.
+bool WRegionUtils::isDoWhileLoop(Loop *L) {
+  return getLoopType(L) == DoWhileLoop;
+}
+
+// Return true if the given loop is while loop.
+bool WRegionUtils::isWhileLoop(Loop *L) {
+  return getLoopType(L) == WhileLoop;
+}
+
+// Return the loop type (do-while, while loop or unknown loop) for the given
+// loop.
+unsigned WRegionUtils::getLoopType(Loop *L) {
+
+  if (!L)
+    return UnknownLoop;
+
+  BasicBlock *H = L->getHeader();
+
+  if (!H)
+    return UnknownLoop;
+
+  BasicBlock *Incoming = nullptr, *Backedge = nullptr;
+  pred_iterator PI = pred_begin(H);
+
+  if (PI == pred_end(H))
+    return UnknownLoop;
+
+  Backedge = *PI++;
+  if (PI == pred_end(H))
+    return UnknownLoop;
+
+  Incoming = *PI++;
+  if (PI != pred_end(H))
+    return UnknownLoop;
+
+  if (L->contains(Incoming)) {
+    if (L->contains(Backedge))
+      return UnknownLoop;
+    std::swap(Incoming, Backedge);
+  } else if (!L->contains(Backedge))
+    return UnknownLoop;
+
+  BasicBlock *LatchBB = L->getLoopLatch();
+
+  if (LatchBB != Backedge)
+    return UnknownLoop;
+
+  if (LatchBB->getUniqueSuccessor()) {
+    if (std::distance(succ_begin(H), succ_end(H)) != 2)
+      return UnknownLoop;
+    for (auto SI = succ_begin(H), SE = succ_end(H); SI != SE; ++SI) {
+      if (!L->contains(*SI))
+        return WhileLoop;
+    }
+    return UnknownLoop;
+  }
+  return DoWhileLoop;
+}
+
+// Return true if destructors are needed for privatized variables
+bool WRegionUtils::needsDestructors(WRegionNode *W) {
+  if (W->canHavePrivate())
+    for (PrivateItem *PI : W->getPriv().items())
+      if (PI->getDestructor() != nullptr)
+        return true;
+
+  if (W->canHaveFirstprivate())
+    for (FirstprivateItem *FI : W->getFpriv().items())
+      if (FI->getDestructor() != nullptr)
+        return true;
+
+  if (W->canHaveLastprivate())
+    for (LastprivateItem *LI : W->getLpriv().items())
+      if (LI->getDestructor() != nullptr)
+        return true;
+
+  // TODO: support UDR
+  return false;
+}
+
+bool WRegionUtils::hasCancelConstruct(WRegionNode *W) {
+  assert(W && "hasCancelConstruct: null WRegionNode");
+
+  if (!W->canHaveCancellationPoints())
+    return false;
+
+  if (!W->getCancellationPoints().empty())
+    return true;
+
+  for (auto *Child : W->getChildren()) {
+    if (auto *CancelNode = dyn_cast<WRNCancelNode>(Child))
+      if (!CancelNode->getIsCancellationPoint())
+        return true;
+  }
+  return false;
 }

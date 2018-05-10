@@ -33,7 +33,6 @@
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineMemOperand.h"
-#include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
@@ -94,6 +93,18 @@ VRegInfo &PerFunctionMIParsingState::getVRegInfo(unsigned Num) {
     MachineRegisterInfo &MRI = MF.getRegInfo();
     VRegInfo *Info = new (Allocator) VRegInfo;
     Info->VReg = MRI.createIncompleteVirtualRegister();
+    I.first->second = Info;
+  }
+  return *I.first->second;
+}
+
+VRegInfo &PerFunctionMIParsingState::getVRegInfoNamed(StringRef RegName) {
+  assert(RegName != "" && "Expected named reg.");
+
+  auto I = VRegInfosNamed.insert(std::make_pair(RegName.str(), nullptr));
+  if (I.second) {
+    VRegInfo *Info = new (Allocator) VRegInfo;
+    Info->VReg = MF.getRegInfo().createIncompleteVirtualRegister(RegName);
     I.first->second = Info;
   }
   return *I.first->second;
@@ -183,6 +194,7 @@ public:
 
   bool parseNamedRegister(unsigned &Reg);
   bool parseVirtualRegister(VRegInfo *&Info);
+  bool parseNamedVirtualRegister(VRegInfo *&Info);
   bool parseRegister(unsigned &Reg, VRegInfo *&VRegInfo);
   bool parseRegisterFlag(unsigned &Flags);
   bool parseRegisterClassOrBank(VRegInfo &RegInfo);
@@ -214,6 +226,7 @@ public:
   bool parseMetadataOperand(MachineOperand &Dest);
   bool parseCFIOffset(int &Offset);
   bool parseCFIRegister(unsigned &Reg);
+  bool parseCFIEscapeValues(std::string& Values);
   bool parseCFIOperand(MachineOperand &Dest);
   bool parseIRBlock(BasicBlock *&BB, const Function &F);
   bool parseBlockAddressOperand(MachineOperand &Dest);
@@ -228,6 +241,7 @@ public:
                                          Optional<unsigned> &TiedDefIdx);
   bool parseOffset(int64_t &Offset);
   bool parseAlignment(unsigned &Alignment);
+  bool parseAddrspace(unsigned &Addrspace);
   bool parseOperandsOffset(MachineOperand &Op);
   bool parseIRValue(const Value *&V);
   bool parseMemoryOperandFlag(MachineMemOperand::Flags &Flags);
@@ -431,7 +445,7 @@ bool MIParser::parseBasicBlockDefinition(
         break;
       case MIToken::IRBlock:
         // TODO: Report an error when both name and ir block are specified.
-        if (parseIRBlock(BB, *MF.getFunction()))
+        if (parseIRBlock(BB, MF.getFunction()))
           return true;
         lex();
         break;
@@ -447,7 +461,7 @@ bool MIParser::parseBasicBlockDefinition(
 
   if (!Name.empty()) {
     BB = dyn_cast_or_null<BasicBlock>(
-        MF.getFunction()->getValueSymbolTable()->lookup(Name));
+        MF.getFunction().getValueSymbolTable()->lookup(Name));
     if (!BB)
       return error(Loc, Twine("basic block '") + Name +
                             "' is not defined in the function '" +
@@ -922,8 +936,13 @@ bool MIParser::verifyImplicitOperands(ArrayRef<ParsedMachineOperand> Operands,
 }
 
 bool MIParser::parseInstruction(unsigned &OpCode, unsigned &Flags) {
-  if (Token.is(MIToken::kw_frame_setup)) {
-    Flags |= MachineInstr::FrameSetup;
+  // Allow both:
+  // * frame-setup frame-destroy OPCODE
+  // * frame-destroy frame-setup OPCODE
+  while (Token.is(MIToken::kw_frame_setup) ||
+         Token.is(MIToken::kw_frame_destroy)) {
+    Flags |= Token.is(MIToken::kw_frame_setup) ? MachineInstr::FrameSetup
+                                               : MachineInstr::FrameDestroy;
     lex();
   }
   if (Token.isNot(MIToken::Identifier))
@@ -943,7 +962,18 @@ bool MIParser::parseNamedRegister(unsigned &Reg) {
   return false;
 }
 
+bool MIParser::parseNamedVirtualRegister(VRegInfo *&Info) {
+  assert(Token.is(MIToken::NamedVirtualRegister) && "Expected NamedVReg token");
+  StringRef Name = Token.stringValue();
+  // TODO: Check that the VReg name is not the same as a physical register name.
+  //       If it is, then print a warning (when warnings are implemented).
+  Info = &PFS.getVRegInfoNamed(Name);
+  return false;
+}
+
 bool MIParser::parseVirtualRegister(VRegInfo *&Info) {
+  if (Token.is(MIToken::NamedVirtualRegister))
+    return parseNamedVirtualRegister(Info);
   assert(Token.is(MIToken::VirtualRegister) && "Needs VirtualRegister token");
   unsigned ID;
   if (getUnsigned(ID))
@@ -959,6 +989,7 @@ bool MIParser::parseRegister(unsigned &Reg, VRegInfo *&Info) {
     return false;
   case MIToken::NamedRegister:
     return parseNamedRegister(Reg);
+  case MIToken::NamedVirtualRegister:
   case MIToken::VirtualRegister:
     if (parseVirtualRegister(Info))
       return true;
@@ -1059,6 +1090,9 @@ bool MIParser::parseRegisterFlag(unsigned &Flags) {
     break;
   case MIToken::kw_debug_use:
     Flags |= RegState::Debug;
+    break;
+  case MIToken::kw_renamable:
+    Flags |= RegState::Renamable;
     break;
   default:
     llvm_unreachable("The current token should be a register flag");
@@ -1212,7 +1246,8 @@ bool MIParser::parseRegisterOperand(MachineOperand &Dest,
       Reg, Flags & RegState::Define, Flags & RegState::Implicit,
       Flags & RegState::Kill, Flags & RegState::Dead, Flags & RegState::Undef,
       Flags & RegState::EarlyClobber, SubReg, Flags & RegState::Debug,
-      Flags & RegState::InternalRead);
+      Flags & RegState::InternalRead, Flags & RegState::Renamable);
+
   return false;
 }
 
@@ -1230,7 +1265,7 @@ bool MIParser::parseIRConstant(StringRef::iterator Loc, StringRef StringValue,
                                const Constant *&C) {
   auto Source = StringValue.str(); // The source has to be null terminated.
   SMDiagnostic Err;
-  C = parseConstantValue(Source, Err, *MF.getFunction()->getParent(),
+  C = parseConstantValue(Source, Err, *MF.getFunction().getParent(),
                          &PFS.IRSlots);
   if (!C)
     return error(Loc + Err.getColumnNo(), Err.getMessage());
@@ -1250,7 +1285,7 @@ bool MIParser::parseLowLevelType(StringRef::iterator Loc, LLT &Ty) {
     lex();
     return false;
   } else if (Token.is(MIToken::PointerType)) {
-    const DataLayout &DL = MF.getFunction()->getParent()->getDataLayout();
+    const DataLayout &DL = MF.getDataLayout();
     unsigned AS = APSInt(Token.range().drop_front()).getZExtValue();
     Ty = LLT::pointer(AS, DL.getPointerSizeInBits(AS));
     lex();
@@ -1344,6 +1379,8 @@ bool MIParser::parseMBBReference(MachineBasicBlock *&MBB) {
     return error(Twine("use of undefined machine basic block #") +
                  Twine(Number));
   MBB = MBBInfo->second;
+  // TODO: Only parse the name if it's a MachineBasicBlockLabel. Deprecate once
+  // we drop the <irname> from the bb.<id>.<irname> format.
   if (!Token.stringValue().empty() && Token.stringValue() != MBB->getName())
     return error(Twine("the name of machine basic block #") + Twine(Number) +
                  " isn't '" + Token.stringValue() + "'");
@@ -1413,7 +1450,7 @@ bool MIParser::parseFixedStackObjectOperand(MachineOperand &Dest) {
 bool MIParser::parseGlobalValue(GlobalValue *&GV) {
   switch (Token.kind()) {
   case MIToken::NamedGlobalValue: {
-    const Module *M = MF.getFunction()->getParent();
+    const Module *M = MF.getFunction().getParent();
     GV = M->getNamedValue(Token.stringValue());
     if (!GV)
       return error(Twine("use of undefined global value '") + Token.range() +
@@ -1551,7 +1588,7 @@ bool MIParser::parseDIExpression(MDNode *&Expr) {
   if (expectAndConsume(MIToken::rparen))
     return true;
 
-  Expr = DIExpression::get(MF.getFunction()->getContext(), Elements);
+  Expr = DIExpression::get(MF.getFunction().getContext(), Elements);
   return false;
 }
 
@@ -1594,6 +1631,21 @@ bool MIParser::parseCFIRegister(unsigned &Reg) {
   return false;
 }
 
+bool MIParser::parseCFIEscapeValues(std::string &Values) {
+  do {
+    if (Token.isNot(MIToken::HexLiteral))
+      return error("expected a hexadecimal literal");
+    unsigned Value;
+    if (getUnsigned(Value))
+      return true;
+    if (Value > UINT8_MAX)
+      return error("expected a 8-bit integer (too large)");
+    Values.push_back(static_cast<uint8_t>(Value));
+    lex();
+  } while (consumeIfPresent(MIToken::comma));
+  return false;
+}
+
 bool MIParser::parseCFIOperand(MachineOperand &Dest) {
   auto Kind = Token.kind();
   lex();
@@ -1613,6 +1665,13 @@ bool MIParser::parseCFIOperand(MachineOperand &Dest) {
     CFIIndex =
         MF.addFrameInst(MCCFIInstruction::createOffset(nullptr, Reg, Offset));
     break;
+  case MIToken::kw_cfi_rel_offset:
+    if (parseCFIRegister(Reg) || expectAndConsume(MIToken::comma) ||
+        parseCFIOffset(Offset))
+      return true;
+    CFIIndex = MF.addFrameInst(
+        MCCFIInstruction::createRelOffset(nullptr, Reg, Offset));
+    break;
   case MIToken::kw_cfi_def_cfa_register:
     if (parseCFIRegister(Reg))
       return true;
@@ -1626,6 +1685,12 @@ bool MIParser::parseCFIOperand(MachineOperand &Dest) {
     CFIIndex = MF.addFrameInst(
         MCCFIInstruction::createDefCfaOffset(nullptr, -Offset));
     break;
+  case MIToken::kw_cfi_adjust_cfa_offset:
+    if (parseCFIOffset(Offset))
+      return true;
+    CFIIndex = MF.addFrameInst(
+        MCCFIInstruction::createAdjustCfaOffset(nullptr, Offset));
+    break;
   case MIToken::kw_cfi_def_cfa:
     if (parseCFIRegister(Reg) || expectAndConsume(MIToken::comma) ||
         parseCFIOffset(Offset))
@@ -1634,12 +1699,42 @@ bool MIParser::parseCFIOperand(MachineOperand &Dest) {
     CFIIndex =
         MF.addFrameInst(MCCFIInstruction::createDefCfa(nullptr, Reg, -Offset));
     break;
+  case MIToken::kw_cfi_remember_state:
+    CFIIndex = MF.addFrameInst(MCCFIInstruction::createRememberState(nullptr));
+    break;
   case MIToken::kw_cfi_restore:
     if (parseCFIRegister(Reg))
       return true;
     CFIIndex = MF.addFrameInst(MCCFIInstruction::createRestore(nullptr, Reg));
     break;
+  case MIToken::kw_cfi_restore_state:
+    CFIIndex = MF.addFrameInst(MCCFIInstruction::createRestoreState(nullptr));
+    break;
+  case MIToken::kw_cfi_undefined:
+    if (parseCFIRegister(Reg))
+      return true;
+    CFIIndex = MF.addFrameInst(MCCFIInstruction::createUndefined(nullptr, Reg));
+    break;
+  case MIToken::kw_cfi_register: {
+    unsigned Reg2;
+    if (parseCFIRegister(Reg) || expectAndConsume(MIToken::comma) ||
+        parseCFIRegister(Reg2))
+      return true;
 
+    CFIIndex =
+        MF.addFrameInst(MCCFIInstruction::createRegister(nullptr, Reg, Reg2));
+    break;
+  }
+  case MIToken::kw_cfi_window_save:
+    CFIIndex = MF.addFrameInst(MCCFIInstruction::createWindowSave(nullptr));
+    break;
+  case MIToken::kw_cfi_escape: {
+    std::string Values;
+    if (parseCFIEscapeValues(Values))
+      return true;
+    CFIIndex = MF.addFrameInst(MCCFIInstruction::createEscape(nullptr, Values));
+    break;
+  }
   default:
     // TODO: Parse the other CFI operands.
     llvm_unreachable("The current token should be a cfi operand");
@@ -1878,9 +1973,11 @@ bool MIParser::parseMachineOperand(MachineOperand &Dest,
   case MIToken::kw_internal:
   case MIToken::kw_early_clobber:
   case MIToken::kw_debug_use:
+  case MIToken::kw_renamable:
   case MIToken::underscore:
   case MIToken::NamedRegister:
   case MIToken::VirtualRegister:
+  case MIToken::NamedVirtualRegister:
     return parseRegisterOperand(Dest, TiedDefIdx);
   case MIToken::IntegerLiteral:
     return parseImmediateOperand(Dest);
@@ -1915,10 +2012,18 @@ bool MIParser::parseMachineOperand(MachineOperand &Dest,
     return parseMetadataOperand(Dest);
   case MIToken::kw_cfi_same_value:
   case MIToken::kw_cfi_offset:
+  case MIToken::kw_cfi_rel_offset:
   case MIToken::kw_cfi_def_cfa_register:
   case MIToken::kw_cfi_def_cfa_offset:
+  case MIToken::kw_cfi_adjust_cfa_offset:
+  case MIToken::kw_cfi_escape:
   case MIToken::kw_cfi_def_cfa:
+  case MIToken::kw_cfi_register:
+  case MIToken::kw_cfi_remember_state:
   case MIToken::kw_cfi_restore:
+  case MIToken::kw_cfi_restore_state:
+  case MIToken::kw_cfi_undefined:
+  case MIToken::kw_cfi_window_save:
     return parseCFIOperand(Dest);
   case MIToken::kw_blockaddress:
     return parseBlockAddressOperand(Dest);
@@ -2018,6 +2123,17 @@ bool MIParser::parseAlignment(unsigned &Alignment) {
   return false;
 }
 
+bool MIParser::parseAddrspace(unsigned &Addrspace) {
+  assert(Token.is(MIToken::kw_addrspace));
+  lex();
+  if (Token.isNot(MIToken::IntegerLiteral) || Token.integerValue().isSigned())
+    return error("expected an integer literal after 'addrspace'");
+  if (getUnsigned(Addrspace))
+    return true;
+  lex();
+  return false;
+}
+
 bool MIParser::parseOperandsOffset(MachineOperand &Op) {
   int64_t Offset = 0;
   if (parseOffset(Offset))
@@ -2029,7 +2145,7 @@ bool MIParser::parseOperandsOffset(MachineOperand &Op) {
 bool MIParser::parseIRValue(const Value *&V) {
   switch (Token.kind()) {
   case MIToken::NamedIRValue: {
-    V = MF.getFunction()->getValueSymbolTable()->lookup(Token.stringValue());
+    V = MF.getFunction().getValueSymbolTable()->lookup(Token.stringValue());
     break;
   }
   case MIToken::IRValue: {
@@ -2288,7 +2404,7 @@ bool MIParser::parseMachineMemoryOperand(MachineMemOperand *&Dest) {
 
   // Optional synchronization scope.
   SyncScope::ID SSID;
-  if (parseOptionalScope(MF.getFunction()->getContext(), SSID))
+  if (parseOptionalScope(MF.getFunction().getContext(), SSID))
     return true;
 
   // Up to two atomic orderings (cmpxchg provides guarantees on failure).
@@ -2327,6 +2443,10 @@ bool MIParser::parseMachineMemoryOperand(MachineMemOperand *&Dest) {
     switch (Token.kind()) {
     case MIToken::kw_align:
       if (parseAlignment(BaseAlignment))
+        return true;
+      break;
+    case MIToken::kw_addrspace:
+      if (parseAddrspace(Ptr.AddrSpace))
         return true;
       break;
     case MIToken::md_tbaa:
@@ -2469,12 +2589,12 @@ static const BasicBlock *getIRBlockFromSlot(
 
 const BasicBlock *MIParser::getIRBlock(unsigned Slot) {
   if (Slots2BasicBlocks.empty())
-    initSlots2BasicBlocks(*MF.getFunction(), Slots2BasicBlocks);
+    initSlots2BasicBlocks(MF.getFunction(), Slots2BasicBlocks);
   return getIRBlockFromSlot(Slot, Slots2BasicBlocks);
 }
 
 const BasicBlock *MIParser::getIRBlock(unsigned Slot, const Function &F) {
-  if (&F == MF.getFunction())
+  if (&F == &MF.getFunction())
     return getIRBlock(Slot);
   DenseMap<unsigned, const BasicBlock *> CustomSlots2BasicBlocks;
   initSlots2BasicBlocks(F, CustomSlots2BasicBlocks);
@@ -2505,7 +2625,7 @@ static void initSlots2Values(const Function &F,
 
 const Value *MIParser::getIRValue(unsigned Slot) {
   if (Slots2Values.empty())
-    initSlots2Values(*MF.getFunction(), Slots2Values);
+    initSlots2Values(MF.getFunction(), Slots2Values);
   auto ValueInfo = Slots2Values.find(Slot);
   if (ValueInfo == Slots2Values.end())
     return nullptr;

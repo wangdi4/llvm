@@ -282,7 +282,7 @@ SPIRVEntry::validateBuiltin(SPIRVWord TheSet, SPIRVWord Index)const {
 }
 
 void
-SPIRVEntry::addDecorate(const SPIRVDecorate *Dec) {
+SPIRVEntry::addDecorate(SPIRVDecorate *Dec) {
   auto Kind = Dec->getDecorateKind();
   Decorates.insert(std::make_pair(Dec->getDecorateKind(), Dec));
   Module->addDecorate(Dec);
@@ -321,7 +321,7 @@ SPIRVEntry::setLine(const std::shared_ptr<const SPIRVLine>& L){
 }
 
 void
-SPIRVEntry::addMemberDecorate(const SPIRVMemberDecorate *Dec){
+SPIRVEntry::addMemberDecorate(SPIRVMemberDecorate *Dec){
   assert(canHaveMemberDecorates() && MemberDecorates.find(Dec->getPair()) ==
       MemberDecorates.end());
   MemberDecorates[Dec->getPair()] = Dec;
@@ -387,6 +387,27 @@ SPIRVEntry::getDecorate(Decoration Kind, size_t Index) const {
 bool
 SPIRVEntry::hasLinkageType() const {
   return OpCode == OpFunction || OpCode == OpVariable;
+}
+
+bool SPIRVEntry::isExtInst(const SPIRVExtInstSetKind InstSet) const
+{
+  if (isExtInst()) {
+    const SPIRVExtInst *EI = static_cast<const SPIRVExtInst *>(this);
+    return EI->GetExtSetKind() == InstSet;
+  }
+  return false;
+}
+
+bool SPIRVEntry::isExtInst(const SPIRVExtInstSetKind InstSet,
+                           const SPIRVWord ExtOp) const
+{
+  if (isExtInst()) {
+    const SPIRVExtInst *EI = static_cast<const SPIRVExtInst *>(this);
+    if (EI->GetExtSetKind() == InstSet) {
+      return EI->getExtOp() == ExtOp;
+    }
+  }
+  return false;
 }
 
 void
@@ -468,6 +489,7 @@ SPIRVExecutionMode::decode(std::istream &I) {
   case ExecutionModeInvocations:
   case ExecutionModeOutputVertices:
   case ExecutionModeVecTypeHint:
+  case ExecutionModeSubgroupSize:
     WordLiterals.resize(1);
     break;
   default:

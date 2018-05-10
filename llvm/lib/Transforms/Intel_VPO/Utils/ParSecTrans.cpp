@@ -56,8 +56,8 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -271,8 +271,8 @@ void VPOUtils::gatherImplicitSectionRecursive(
 
   for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
 
-    if (dyn_cast<IntrinsicInst>(&*I)) {
-      int DirID = VPOAnalysisUtils::getDirectiveID(&*I);
+    if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
+      int DirID = VPOAnalysisUtils::getDirectiveID(II);
       if (DirID == DIR_OMP_SECTIONS ||
           DirID == DIR_OMP_PARALLEL_SECTIONS) {
 
@@ -280,13 +280,13 @@ void VPOUtils::gatherImplicitSectionRecursive(
         BasicBlock::iterator SI = SuccBB->begin();
         bool IsDirSection = false;
 
-        if (dyn_cast<TerminatorInst>(&*SI)) {
+        if (isa<TerminatorInst>(SI)) {
           SuccBB = SuccBB->getUniqueSuccessor();
           SI = SuccBB->begin();
         }
 
-        if (dyn_cast<IntrinsicInst>(&*SI)) {
-          int SuccDirID = VPOAnalysisUtils::getDirectiveID(&*SI);
+        if (IntrinsicInst *IntrinI = dyn_cast<IntrinsicInst>(SI)) {
+          int SuccDirID = VPOAnalysisUtils::getDirectiveID(IntrinI);
           if (SuccDirID == DIR_OMP_SECTION) {
             IsDirSection = true;
           }
@@ -322,13 +322,13 @@ void VPOUtils::gatherImplicitSectionRecursive(
             BasicBlock *PredBB = BB->getUniquePredecessor();
             BasicBlock::iterator EI = PredBB->begin();
 
-            if (dyn_cast<TerminatorInst>(&*EI)) {
+            if (isa<TerminatorInst>(EI)) {
               PredBB = PredBB->getUniquePredecessor();
               EI = PredBB->begin();
             }
 
-            if (dyn_cast<IntrinsicInst>(&*EI)) {
-              int PredDirID = VPOAnalysisUtils::getDirectiveID(&*EI);
+            if (IntrinsicInst *IntrinI = dyn_cast<IntrinsicInst>(EI)) {
+              int PredDirID = VPOAnalysisUtils::getDirectiveID(IntrinI);
               if (PredDirID != DIR_OMP_END_SECTION) {
                 IsMatchedImpEnd = true;
               }
@@ -368,8 +368,8 @@ void VPOUtils::buildParSectTreeRecursive(
 
   for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
 
-    if (dyn_cast<IntrinsicInst>(&*I)) {
-      int DirID = VPOAnalysisUtils::getDirectiveID(&*I);
+    if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
+      int DirID = VPOAnalysisUtils::getDirectiveID(II);
       if (DirID == DIR_OMP_SECTION ||
           DirID == DIR_OMP_SECTIONS ||
           DirID == DIR_OMP_PARALLEL_SECTIONS) {
@@ -645,8 +645,9 @@ void VPOUtils::doParSectTrans(
   Constant *LB = ConstantInt::get(IntTy, 0);
   Constant *UB = ConstantInt::get(IntTy, (NumSections - 1));
   Constant *Stride = ConstantInt::get(IntTy, 1);
+  Value *NormalizedUB = nullptr;
 
-  Value *IV = genNewLoop(LB, UB, Stride, Builder, Counter, DT);
+  Value *IV = genNewLoop(LB, UB, Stride, Builder, Counter, NormalizedUB, DT);
 
   // 3) Insert a switch statement right before the first non-PHI instruction
   // in the loop. The code (e.g., sec1, sec2) for each OMP_SECTION will be
@@ -680,6 +681,14 @@ void VPOUtils::doParSectTrans(
   // generateSwitch() will return the switch instruction created.
   //
   genParSectSwitch(IV, Node, Builder, Counter, DT);
+
+  Instruction *Inst = Node->EntryBB->getFirstNonPHI();
+  CallInst *CI = dyn_cast<CallInst>(Inst);
+
+  VPOParoptUtils::addOperandBundlesInCall(
+      CI, {{"QUAL.OMP.NORMALIZED.IV", {IV}},
+           {"QUAL.OMP.NORMALIZED.UB", {NormalizedUB}}});
+
   return;
 }
 
@@ -700,15 +709,9 @@ void VPOUtils::doParSectTrans(
 //                |   +-------------+
 //              ExitBB
 //
-Value *VPOUtils::genNewLoop(
-  Value *LB,
-  Value *UB,
-  Value *Stride,
-  IRBuilder<> &Builder,
-  int Counter,
-  DominatorTree *DT
-)
-{
+Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
+                            IRBuilder<> &Builder, int Counter,
+                            Value *&NormalizedUB, DominatorTree *DT) {
   assert(LB->getType() == UB->getType() && "Loop bound types do not match");
 
   IntegerType *LoopIVType = dyn_cast<IntegerType>(UB->getType());
@@ -747,32 +750,45 @@ Value *VPOUtils::genNewLoop(
 
   Value *UpperBnd = UB;
 
+  Instruction *InsertPt;
+  BasicBlock *InsertBB = &(F->getEntryBlock());
+  // If the basic block contains the IntelDirective call, the compiler
+  // splits this basic block into two and chooses the second BB as the
+  // insertion basic block.
+  if (VPOAnalysisUtils::isIntelDirectiveOrClause(InsertBB->getFirstNonPHI()))
+    InsertBB = SplitBlock(InsertBB, InsertBB->getTerminator(), DT, nullptr);
+
+  InsertPt = InsertBB->getTerminator();
+
   if (ConstantInt* CI = cast<ConstantInt>(UB)) {
     if (CI->getBitWidth() <= 32) {
-      int NumSections = CI->getSExtValue();
-      if (NumSections == 0) {
-        // PreHeaderBB
-        IntegerType *IntTy = Type::getInt32Ty(F->getContext());
-        const DataLayout &DL = F->getParent()->getDataLayout();
-        Instruction *InsertPt = PreHeaderBB->getTerminator();
-        AllocaInst *TmpUB = new AllocaInst(IntTy,
-                            DL.getAllocaAddrSpace(), "num.sects", InsertPt);
-        TmpUB->setAlignment(4);
+      // PreHeaderBB
+      IntegerType *IntTy = Type::getInt32Ty(F->getContext());
+      const DataLayout &DL = F->getParent()->getDataLayout();
 
-        StoreInst *SI = new StoreInst(UB, TmpUB, false, InsertPt);
-        SI->setAlignment(4);
+      AllocaInst *TmpUB =
+          new AllocaInst(IntTy, DL.getAllocaAddrSpace(), "num.sects", InsertPt);
+      TmpUB->setAlignment(4);
+      NormalizedUB = TmpUB;
 
-        UpperBnd = new LoadInst(TmpUB, "sloop.ub", true, InsertPt);
-      }
+      StoreInst *SI = new StoreInst(UB, TmpUB, false, InsertPt);
+      SI->setAlignment(4);
+
+      InsertPt = PreHeaderBB->getTerminator();
+
+      UpperBnd = new LoadInst(TmpUB, "sloop.ub", false, InsertPt);
     }
   }
 
+  Builder.SetInsertPoint(InsertPt);
+  AllocaInst *IV =
+      Builder.CreateAlloca(LoopIVType, nullptr, ".sloop.iv." + Twine(Counter));
+
   // HeaderBB and Loop ZTT
+  Builder.SetInsertPoint(PreHeaderBB->getTerminator());
+  Builder.CreateStore(LB, IV);
+
   Builder.SetInsertPoint(HeaderBB);
-  PHINode *IV = Builder.CreatePHI(
-                LoopIVType, 2, ".sloop.iv." + Twine(Counter));
-  //IV->addIncoming(LB, BeforeBB);
-  IV->addIncoming(LB, PreHeaderBB);
 
   // Value *LoopZTT = Builder.CreateICmp(ICmpInst::ICMP_SLE, IV, UB);
   // LoopZTT->setName(FName + ".sloop.ztt." + Twine(Counter));
@@ -781,15 +797,16 @@ Value *VPOUtils::genNewLoop(
 
   // Loop BodyBB
   Builder.SetInsertPoint(BodyBB);
-  Value *IncIV = Builder.CreateAdd(
-                    IV, Stride, ".sloop.inc." + Twine(Counter),
-                    true/*HasNUW*/, true/*HasNSW*/);
-  Value *LoopCond = Builder.CreateICmp(ICmpInst::ICMP_SLE, IncIV, UpperBnd);
+  Value *IncIV = Builder.CreateAdd(Builder.CreateLoad(IV, true), Stride,
+                                   ".sloop.inc." + Twine(Counter),
+                                   true /*HasNUW*/, true /*HasNSW*/);
+  Builder.CreateStore(IncIV, IV, true);
+  Value *LoopCond = Builder.CreateICmp(ICmpInst::ICMP_SLE,
+                                       Builder.CreateLoad(IV, true), UpperBnd);
   LoopCond->setName(FName + ".sloop.cond." + Twine(Counter));
 
   // Loop latch
   Builder.CreateCondBr(LoopCond, HeaderBB, ExitBB);
-  IV->addIncoming(IncIV, BodyBB);
 
   // Now move the newly created loop blocks from the end of basic block list
   // to the proper place, which is right before loop ExitBB. This will not
@@ -869,10 +886,9 @@ void VPOUtils::genParSectSwitch(
   // Insert the Switch right before the original terminator
   Builder.SetInsertPoint(SwitchBB->getTerminator());
 
-  BasicBlock *Default = BasicBlock::Create(
-          Context, FName + ".sw.default." + Twine(Counter), F);
-  SwitchInst *SwitchInstruction =
-      Builder.CreateSwitch(SwitchCond, Default, NumCases);
+  BasicBlock *Default = Node->Children[0]->EntryBB;
+  SwitchInst *SwitchInstruction = Builder.CreateSwitch(
+      Builder.CreateLoad(SwitchCond, true), Default, NumCases - 1);
 
   BasicBlock *Epilog = BasicBlock::Create(
           Context, FName + ".sw.epilog." + Twine(Counter), F);
@@ -888,7 +904,8 @@ void VPOUtils::genParSectSwitch(
 
     SectionEntryBB->setName(
             FName + ".sw.case" + Twine(i) + "." + Twine(Counter));
-    SwitchInstruction->addCase(CaseValue, SectionEntryBB);
+    if (i != 0)
+      SwitchInstruction->addCase(CaseValue, SectionEntryBB);
 
     SectionExitBB->getTerminator()->eraseFromParent();
     Builder.SetInsertPoint(SectionExitBB);
@@ -923,18 +940,9 @@ void VPOUtils::genParSectSwitch(
     }
   }
 
-  Builder.SetInsertPoint(Default);
-  Builder.CreateBr(Epilog);
-
   SwitchBB->getTerminator()->eraseFromParent();
 
-  // Do the block moving
-  F->getBasicBlockList().splice(SwitchSuccBB->getIterator(),
-                                F->getBasicBlockList(),
-                                Default->getIterator(),
-                                F->end());
   if (DT) {
-    DT->addNewBlock(Default, SwitchBB);
     DT->addNewBlock(Epilog, SwitchBB);
     DT->changeImmediateDominator(SwitchSuccBB, Epilog);
   }

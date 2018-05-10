@@ -27,6 +27,8 @@
 
 namespace llvm {
 
+class LoopOptReportBuilder;
+
 namespace loopopt {
 
 class RegDDRef;
@@ -61,10 +63,10 @@ private:
   /// contains the new loop trip count if the original loop is a constant trip
   /// count. For a original non-constant trip count loop, the new loop trip
   /// count is specified in \p NewTCRef.
-  static HLLoop *createUnrollOrVecLoop(HLLoop *OrigLoop,
-                                       unsigned UnrollOrVecFactor,
-                                       uint64_t NewTripCount,
-                                       const RegDDRef *NewTCRef, bool VecMode);
+  static HLLoop *
+  createUnrollOrVecLoop(HLLoop *OrigLoop, unsigned UnrollOrVecFactor,
+                        uint64_t NewTripCount, const RegDDRef *NewTCRef,
+                        LoopOptReportBuilder &LORBuilder, bool VecMode);
 
   /// \brief Processes the remainder loop for general unrolling and
   /// vectorization. The loop passed in \p OrigLoop is set up to be
@@ -119,7 +121,7 @@ public:
       HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
       HIRLoopStatistics &HLS,         // INPUT: Existing HIRLoopStatitics
       bool DoProfitTest = false       // INPUT: Control Profit Tests
-      );
+  );
 
   /// Do Certain Reversal Tests for a given HIR inner-most loop.
   /// Reverse the loop if the loop is legal to reverse.
@@ -147,7 +149,7 @@ public:
       HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
       HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
       HIRLoopStatistics &HLS          // INPUT: Existing HIRLoopStatitics
-      );
+  );
 
   // Do HIR Loop-Invariant Memory Motion (LIMM) on a given loop
   //
@@ -159,7 +161,7 @@ public:
       HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
       HIRDDAnalysis &HDDA,   // INPUT: HIR DDAnalysis
       HIRLoopStatistics &HLS // INPUT: Existing HIRLoopStatitics Analysis
-      );
+  );
 
   // Do HIR Loop-Redundant Memory Motion (LRMM) on a given loop
   //
@@ -171,7 +173,7 @@ public:
       HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
       HIRDDAnalysis &HDDA,   // INPUT: HIR DDAnalysis
       HIRLoopStatistics &HLS // INPUT: Existing HIRLoopStatitics Analysis
-      );
+  );
 
   // Do HIR Loop Memory Motion on a given innermost loop
   //
@@ -186,7 +188,22 @@ public:
       HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
       HIRDDAnalysis &HDDA,   // INPUT: HIR DDAnalysis
       HIRLoopStatistics &HLS // INPUT: Existing HIRLoopStatitics Analysis
-      );
+  );
+
+  /// Utility to add additional liveouts to the loops induced by cloning. For
+  /// example, some temps can becomes liveout from the main loop to remainder
+  /// loop after unrolling/vectorization.
+  /// \p LiveoutLoop is the one to which additional liveout need to be added.
+  /// \p OrigLoop is used to find definitions of temps which can become liveout.
+  /// Default value of null indicates that it is the same as LiveoutLoop. This
+  /// is a separate parameter because sometimes the cloned Liveout loop is empty
+  /// so it cannot be used for traversal.
+  //
+  /// Please note that this is conservative behavior as we do not check whether
+  /// the temp is really livein into the second loop. This can be refined later
+  /// if it causes performance regressions.
+  static void addCloningInducedLiveouts(HLLoop *LiveoutLoop,
+                                        const HLLoop *OrigLoop = nullptr);
 
   /// This function creates and returns a new loop that will be used as the
   /// main loop for unrolling or vectorization(current clients). The bounds
@@ -202,6 +219,7 @@ public:
   static HLLoop *setupMainAndRemainderLoops(HLLoop *OrigLoop,
                                             unsigned UnrollOrVecFactor,
                                             bool &NeedRemainderLoop,
+                                            LoopOptReportBuilder &LORBuilder,
                                             bool VecMode = false);
 
   /// Updates Loop properties (Bounds, etc) based on input Permutations

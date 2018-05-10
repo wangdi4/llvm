@@ -70,7 +70,7 @@ char CSANormalizeDebug::ID = 0;
 
 bool CSANormalizeDebug::runOnMachineFunction(MachineFunction &MF) {
 
-  if (skipFunction(*MF.getFunction()))
+  if (skipFunction(MF.getFunction()))
     return false;
 
   bool AnyChanges = false;

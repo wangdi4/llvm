@@ -35,11 +35,14 @@
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/DivergenceAnalysis.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
+#include "llvm/Analysis/Intel_Andersens.h"                      // INTEL
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h" // INTEL
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CallSite.h"
@@ -67,7 +70,6 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
@@ -196,6 +198,11 @@ namespace {
 
     bool hasBranchDivergence;
 
+#ifdef INTEL_CUSTOMIZATION
+    // Helper for generating optimization reports.
+    LoopOptReportBuilder LORBuilder;
+#endif // INTEL CUSTOMIZATION
+
   public:
     static char ID; // Pass ID, replacement for typeid
 
@@ -215,6 +222,7 @@ namespace {
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<AssumptionCacheTracker>();
       AU.addRequired<TargetTransformInfoWrapperPass>();
+      AU.addRequired<OptReportOptionsPass>(); // INTEL
       if (hasBranchDivergence)
         AU.addRequired<DivergenceAnalysis>();
       getLoopAnalysisUsage(AU);
@@ -384,6 +392,7 @@ INITIALIZE_PASS_BEGIN(LoopUnswitch, "loop-unswitch", "Unswitch loops",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(LoopPass)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass) // INTEL
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DivergenceAnalysis)
 INITIALIZE_PASS_END(LoopUnswitch, "loop-unswitch", "Unswitch loops",
@@ -520,6 +529,11 @@ bool LoopUnswitch::runOnLoop(Loop *L, LPPassManager &LPM_Ref) {
   currentLoop = L;
   Function *F = currentLoop->getHeader()->getParent();
 
+#ifdef INTEL_CUSTOMIZATION
+  auto &OROP = getAnalysis<OptReportOptionsPass>();
+  LORBuilder.setup(F->getContext(), OROP.getLoopOptReportVerbosity());
+#endif
+
   SanitizeMemory = F->hasFnAttribute(Attribute::SanitizeMemory);
   if (SanitizeMemory)
     computeLoopSafetyInfo(&SafetyInfo, L);
@@ -637,6 +651,12 @@ bool LoopUnswitch::processCurrentLoop() {
     return true;
   }
 
+  // Do not do non-trivial unswitch while optimizing for size.
+  // FIXME: Use Function::optForSize().
+  if (OptimizeForSize ||
+      loopHeader->getParent()->hasFnAttribute(Attribute::OptimizeForSize))
+    return false;
+
   // Run through the instructions in the loop, keeping track of three things:
   //
   //  - That we do not unswitch loops containing convergent operations, as we
@@ -667,12 +687,6 @@ bool LoopUnswitch::processCurrentLoop() {
           Guards.push_back(II);
     }
   }
-
-  // Do not do non-trivial unswitch while optimizing for size.
-  // FIXME: Use Function::optForSize().
-  if (OptimizeForSize ||
-      loopHeader->getParent()->hasFnAttribute(Attribute::OptimizeForSize))
-    return false;
 
   for (IntrinsicInst *Guard : Guards) {
     Value *LoopCond =
@@ -977,6 +991,9 @@ void LoopUnswitch::UnswitchTrivialCondition(Loop *L, Value *Cond, Constant *Val,
                << " blocks] in Function "
                << L->getHeader()->getParent()->getName() << " on cond: " << *Val
                << " == " << *Cond << "\n");
+  LORBuilder(*L).addRemark(OptReportVerbosity::Low,           // INTEL
+                           "Loop has been unswitched via %s", // INTEL
+                           Cond->getName());                  // INTEL
 
   // First step, split the preheader, so that we know that there is a safe place
   // to insert the conditional branch.  We will change loopPreheader to have a
@@ -1202,6 +1219,9 @@ void LoopUnswitch::UnswitchNontrivialCondition(Value *LIC, Constant *Val,
         << loopHeader->getName() << " [" << L->getBlocks().size()
         << " blocks] in Function " << F->getName()
         << " when '" << *Val << "' == " << *LIC << "\n");
+  LORBuilder(*L).addRemark(OptReportVerbosity::Low,           // INTEL
+                           "Loop has been unswitched via %s", // INTEL
+                           LIC->getName());                   // INTEL
 
   if (auto *SEWP = getAnalysisIfAvailable<ScalarEvolutionWrapperPass>())
     SEWP->getSE().forgetLoop(L);
@@ -1276,12 +1296,11 @@ void LoopUnswitch::UnswitchNontrivialCondition(Value *LIC, Constant *Val,
 
     // If the successor of the exit block had PHI nodes, add an entry for
     // NewExit.
-    for (BasicBlock::iterator I = ExitSucc->begin();
-         PHINode *PN = dyn_cast<PHINode>(I); ++I) {
-      Value *V = PN->getIncomingValueForBlock(ExitBlocks[i]);
+    for (PHINode &PN : ExitSucc->phis()) {
+      Value *V = PN.getIncomingValueForBlock(ExitBlocks[i]);
       ValueToValueMapTy::iterator It = VMap.find(V);
       if (It != VMap.end()) V = It->second;
-      PN->addIncoming(V, NewExit);
+      PN.addIncoming(V, NewExit);
     }
 
     if (LandingPadInst *LPad = NewExit->getLandingPadInst()) {
@@ -1498,10 +1517,9 @@ void LoopUnswitch::RewriteLoopBodyWithConditionConstant(Loop *L, Value *LIC,
     BranchInst::Create(Abort, OldSISucc,
                        ConstantInt::getTrue(Context), NewSISucc);
     // Release the PHI operands for this edge.
-    for (BasicBlock::iterator II = NewSISucc->begin();
-         PHINode *PN = dyn_cast<PHINode>(II); ++II)
-      PN->setIncomingValue(PN->getBasicBlockIndex(Switch),
-                           UndefValue::get(PN->getType()));
+    for (PHINode &PN : NewSISucc->phis())
+      PN.setIncomingValue(PN.getBasicBlockIndex(Switch),
+                          UndefValue::get(PN.getType()));
     // Tell the domtree about the new block. We don't fully update the
     // domtree here -- instead we force it to do a full recomputation
     // after the pass is complete -- but we do need to inform it of

@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -instcombine < %s | FileCheck %s
+; RUN: opt -vplan-force-vf=4 -S -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -instcombine < %s | FileCheck %s
 
 ;int inc_x;
 ;int foo(int * __restrict__ A, int N, int init) {

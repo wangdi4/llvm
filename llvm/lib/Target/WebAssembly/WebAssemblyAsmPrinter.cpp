@@ -31,10 +31,11 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/MC/MCContext.h"
+#include "llvm/MC/MCSectionWasm.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
-#include "llvm/MC/MCSymbolWasm.h"
 #include "llvm/MC/MCSymbolELF.h"
+#include "llvm/MC/MCSymbolWasm.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
@@ -84,16 +85,47 @@ void WebAssemblyAsmPrinter::EmitEndOfAsmFile(Module &M) {
       SmallVector<MVT, 4> Results;
       SmallVector<MVT, 4> Params;
       ComputeSignatureVTs(F, TM, Params, Results);
-      getTargetStreamer()->emitIndirectFunctionType(getSymbol(&F), Params,
-                                                    Results);
+      MCSymbol *Sym = getSymbol(&F);
+      getTargetStreamer()->emitIndirectFunctionType(Sym, Params, Results);
+
+      if (TM.getTargetTriple().isOSBinFormatWasm() &&
+          F.hasFnAttribute("wasm-import-module")) {
+        MCSymbolWasm *WasmSym = cast<MCSymbolWasm>(Sym);
+        StringRef Name = F.getFnAttribute("wasm-import-module")
+                             .getValueAsString();
+        getTargetStreamer()->emitImportModule(WasmSym, Name);
+      }
     }
   }
   for (const auto &G : M.globals()) {
     if (!G.hasInitializer() && G.hasExternalLinkage()) {
-      uint16_t Size = M.getDataLayout().getTypeAllocSize(G.getValueType());
-      getTargetStreamer()->emitGlobalImport(G.getGlobalIdentifier());
-      OutStreamer->emitELFSize(getSymbol(&G),
-                               MCConstantExpr::create(Size, OutContext));
+      if (G.getValueType()->isSized()) {
+        uint16_t Size = M.getDataLayout().getTypeAllocSize(G.getValueType());
+        if (TM.getTargetTriple().isOSBinFormatELF())
+          getTargetStreamer()->emitGlobalImport(G.getGlobalIdentifier());
+        OutStreamer->emitELFSize(getSymbol(&G),
+                                 MCConstantExpr::create(Size, OutContext));
+      }
+    }
+  }
+
+  if (const NamedMDNode *Named = M.getNamedMetadata("wasm.custom_sections")) {
+    for (const Metadata *MD : Named->operands()) {
+      const MDTuple *Tuple = dyn_cast<MDTuple>(MD);
+      if (!Tuple || Tuple->getNumOperands() != 2)
+        continue;
+      const MDString *Name = dyn_cast<MDString>(Tuple->getOperand(0));
+      const MDString *Contents = dyn_cast<MDString>(Tuple->getOperand(1));
+      if (!Name || !Contents)
+        continue;
+
+      OutStreamer->PushSection();
+      std::string SectionName = (".custom_section." + Name->getString()).str();
+      MCSectionWasm *mySection =
+          OutContext.getWasmSection(SectionName, SectionKind::getMetadata());
+      OutStreamer->SwitchSection(mySection);
+      OutStreamer->EmitBytes(Contents->getString());
+      OutStreamer->PopSection();
     }
   }
 }
@@ -111,7 +143,7 @@ void WebAssemblyAsmPrinter::EmitFunctionBodyStart() {
   getTargetStreamer()->emitParam(CurrentFnSym, MFI->getParams());
 
   SmallVector<MVT, 4> ResultVTs;
-  const Function &F(*MF->getFunction());
+  const Function &F = MF->getFunction();
 
   // Emit the function index.
   if (MDNode *Idx = F.getMetadata("wasm.index")) {
@@ -187,7 +219,7 @@ void WebAssemblyAsmPrinter::EmitInstruction(const MachineInstr *MI) {
 
     if (isVerbose()) {
       OutStreamer->AddComment("fallthrough-return: $pop" +
-                              utostr(MFI->getWARegStackId(
+                              Twine(MFI->getWARegStackId(
                                   MFI->getWAReg(MI->getOperand(0).getReg()))));
       OutStreamer->AddBlankLine();
     }

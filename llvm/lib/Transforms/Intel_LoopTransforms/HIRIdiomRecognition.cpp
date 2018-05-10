@@ -29,11 +29,13 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+
 #include "llvm/Analysis/TargetLibraryInfo.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
@@ -62,7 +64,7 @@ namespace {
 struct MemOpCandidate {
   HLInst *DefInst;
 
-  const RegDDRef *StoreRef;
+  RegDDRef *StoreRef;
   RegDDRef *RHS;
 
   bool IsStoreNegStride;
@@ -72,7 +74,7 @@ struct MemOpCandidate {
 
   MemOpCandidate() {}
 
-  MemOpCandidate(const RegDDRef *StoreRef) : StoreRef(StoreRef) {
+  MemOpCandidate(RegDDRef *StoreRef) : StoreRef(StoreRef) {
     DefInst = cast<HLInst>(StoreRef->getHLDDNode());
     RHS = DefInst->getRvalDDRef();
   }
@@ -85,6 +87,9 @@ class HIRIdiomRecognition : public HIRTransformPass {
   HIRFramework *HIR;
   HIRLoopStatistics *HLS;
   HIRDDAnalysis *DDA;
+
+  // Helper for generating optimization reports.
+  LoopOptReportBuilder LORBuilder;
 
   bool HasMemcopy;
   bool HasMemset;
@@ -102,7 +107,7 @@ class HIRIdiomRecognition : public HIRTransformPass {
   bool isLegalCandidate(const HLLoop *Loop, const MemOpCandidate &Candidate);
 
   // Analyze and create the transformation candidate for the reference.
-  bool analyzeStore(HLLoop *Loop, const RegDDRef *Ref,
+  bool analyzeStore(HLLoop *Loop, RegDDRef *Ref,
                     MemOpCandidate &Candidate);
 
   // Transform \p Candidates into memset calls
@@ -151,8 +156,9 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
-    AU.addRequiredTransitive<HIRFramework>();
-    AU.addRequiredTransitive<HIRLoopStatistics>();
+    AU.addRequiredTransitive<OptReportOptionsPass>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
     AU.setPreservesAll();
   }
@@ -162,8 +168,9 @@ public:
 char HIRIdiomRecognition::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRIdiomRecognition, OPT_SWITCH, OPT_DESC, false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_END(HIRIdiomRecognition, OPT_SWITCH, OPT_DESC, false, false)
 
@@ -328,7 +335,8 @@ bool HIRIdiomRecognition::isUnitStrideRef(const RegDDRef *Ref,
   unsigned Level = Loop->getNestingLevel();
   auto IVSizeInBits = IVType->getPrimitiveSizeInBits();
 
-  for (CanonExpr *CE : llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
+  for (const CanonExpr *CE :
+       llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
     if (!CE->hasIV(Level)) {
       continue;
     }
@@ -351,7 +359,7 @@ bool HIRIdiomRecognition::isUnitStrideRef(const RegDDRef *Ref,
   return Size == Stride || Size == -Stride;
 }
 
-bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, const RegDDRef *Ref,
+bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, RegDDRef *Ref,
                                        MemOpCandidate &Candidate) {
   Candidate = std::move(MemOpCandidate(Ref));
 
@@ -464,8 +472,8 @@ bool HIRIdiomRecognition::makeStartRef(RegDDRef *Ref, HLLoop *Loop,
   Ref->setAddressOf(true);
 
   // Set destination address (i8*)
-  Ref->setBaseDestType(Type::getInt8PtrTy(
-      HIR->getContext(), Ref->getBaseDestType()->getPointerAddressSpace()));
+  Ref->setBitCastDestType(Type::getInt8PtrTy(
+      HIR->getContext(), Ref->getBaseType()->getPointerAddressSpace()));
 
   return true;
 }
@@ -519,7 +527,6 @@ RegDDRef *HIRIdiomRecognition::createSizeDDRef(HLLoop *Loop,
 bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
                                     int64_t StoreSize, bool IsNegStride) {
   HLNodeUtils &HNU = HIR->getHLNodeUtils();
-  DDRefUtils &DDU = HIR->getDDRefUtils();
 
   std::unique_ptr<RegDDRef> Ref(Candidate.StoreRef->clone());
   if (!makeStartRef(Ref.get(), Loop, IsNegStride)) {
@@ -542,18 +549,7 @@ bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
   // The i8 blob could be non linear at the pre-header level.
   RHS->updateDefLevel(Loop->getNestingLevel() - 1);
 
-  RegDDRef *Align = DDU.createConstDDRef(Type::getInt32Ty(HIR->getContext()),
-                                         Ref->getAlignment());
-  RegDDRef *IsVolatile =
-      DDU.createConstDDRef(Type::getInt1Ty(HIR->getContext()), 0);
-
-  Type *Tys[] = {Ref->getDestType(), Size->getDestType()};
-  Function *Memset = Intrinsic::getDeclaration(M, Intrinsic::memset, Tys);
-
-  SmallVector<RegDDRef *, 5> Ops = {Ref.release(), RHS, Size, Align,
-                                    IsVolatile};
-
-  HLInst *MemsetInst = HNU.createCall(Memset, Ops);
+  HLInst *MemsetInst = HNU.createMemset(Ref.release(), RHS, Size);
   MemsetInst->addFakeLvalDDRef(
       createFakeDDRef(Candidate.StoreRef, Loop->getNestingLevel()));
 
@@ -579,6 +575,8 @@ bool HIRIdiomRecognition::processMemset(HLLoop *Loop,
   unsigned StoreSize = getRefSizeInBytes(Candidate.RHS);
 
   if (genMemset(Loop, Candidate, StoreSize, Candidate.IsStoreNegStride)) {
+    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                                "The memset idiom has been recognized");
     return true;
   }
 
@@ -593,7 +591,6 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
                                         MemOpCandidate &Candidate) {
 
   HLNodeUtils &HNU = HIR->getHLNodeUtils();
-  DDRefUtils &DDU = HIR->getDDRefUtils();
 
   std::unique_ptr<RegDDRef> StoreRef(Candidate.StoreRef->clone());
   std::unique_ptr<RegDDRef> LoadRef(Candidate.RHS->clone());
@@ -607,25 +604,10 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
   if (!makeStartRef(LoadRef.get(), Loop, Candidate.IsStoreNegStride)) {
     return false;
   }
-
   RegDDRef *Size = createSizeDDRef(Loop, StoreSize);
 
-  RegDDRef *Align = DDU.createConstDDRef(
-      Type::getInt32Ty(HIR->getContext()),
-      std::min(StoreRef->getAlignment(), LoadRef->getAlignment()));
-
-  RegDDRef *IsVolatile =
-      DDU.createConstDDRef(Type::getInt1Ty(HIR->getContext()), 0);
-
-  Type *Tys[] = {StoreRef->getDestType(), LoadRef->getDestType(),
-                 Size->getDestType()};
-
-  Function *Memcpy = Intrinsic::getDeclaration(M, Intrinsic::memcpy, Tys);
-
-  SmallVector<RegDDRef *, 5> Ops = {StoreRef.release(), LoadRef.release(), Size,
-                                    Align, IsVolatile};
-
-  HLInst *MemcpyInst = HNU.createCall(Memcpy, Ops);
+  HLInst *MemcpyInst =
+      HNU.createMemcpy(StoreRef.release(), LoadRef.release(), Size);
   MemcpyInst->addFakeLvalDDRef(
       createFakeDDRef(Candidate.StoreRef, Loop->getNestingLevel()));
   MemcpyInst->addFakeRvalDDRef(
@@ -642,15 +624,17 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
 
   NumMemCpy++;
 
+  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                              "The memcpy idiom has been recognized");
   return true;
 }
 
 bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   DEBUG(dbgs() << "\nProcessing Loop: <" << Loop->getNumber() << ">\n");
 
-  if (!Loop->isDo() || !Loop->isNormalized() || Loop->isSIMD() ||
+  if (!Loop->isDo() || !Loop->isNormalized() || Loop->isVecLoop() ||
       Loop->hasUnrollEnablingPragma()) {
-    DEBUG(dbgs() << "Skipping - non-DO-Loop / non-Normalized / SIMD / unroll "
+    DEBUG(dbgs() << "Skipping - non-DO-Loop / non-Normalized / Vec / unroll "
                     "pragma loop\n");
     return false;
   }
@@ -711,6 +695,9 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   if (Changed) {
     // The transformation could hoist everything to the pre-header, making the
     // loop empty.
+    // TODO: If the Loop is deleted here, we need to save its opt report with
+    // preserveLostLoopOptReport call. Probably we need to pass OptReportBuilder
+    // there.
     HLNodeUtils::removeEmptyNodes(Loop, false);
   }
 
@@ -736,9 +723,12 @@ bool HIRIdiomRecognition::runOnFunction(Function &F) {
   M = F.getParent();
   DL = &M->getDataLayout();
 
-  HIR = &getAnalysis<HIRFramework>();
-  HLS = &getAnalysis<HIRLoopStatistics>();
+  HIR = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
+  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   DDA = &getAnalysis<HIRDDAnalysis>();
+
+  auto &OROP = getAnalysis<OptReportOptionsPass>();
+  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   SmallPtrSet<HLNode *, 8> NodesToInvalidate;
 

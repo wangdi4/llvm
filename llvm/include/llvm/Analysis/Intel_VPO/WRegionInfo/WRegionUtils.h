@@ -20,15 +20,11 @@
 
 #include "llvm/Support/Compiler.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 
 namespace llvm {
-
-namespace loopopt {
-class HIRFramework;
-}
 
 namespace vpo {
 
@@ -142,6 +138,7 @@ private:
 
   /// \brief Destroys all nodes
   static void destroyAll();
+  enum { UnknownLoop, DoWhileLoop, WhileLoop };
 
 public:
   /// \brief Enumeration for types of WRegionNode Graph insert/update
@@ -223,10 +220,10 @@ public:
   template <typename ClauseTy>
   static void extractQualOpndList(const Use *Args, unsigned NumArgs,
                                   int ClauseID, ClauseTy &C);
-  template <typename ClauseTy>
-  static void extractQualOpndList(const Use *Args, unsigned NumArgs,
+  template <typename ClauseItemTy>
+  static void extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
                                   const ClauseSpecifier &ClauseInfo,
-                                  ClauseTy &C);
+                                  Clause<ClauseItemTy> &C);
 
   /// \brief Extract operands from a map clause
   static void extractMapOpndList(const Use *Args, unsigned NumArgs,
@@ -245,8 +242,8 @@ public:
   /// \brief Extract operands from a reduction clause
   static void extractReductionOpndList(const Use *Args, unsigned NumArgs,
                                       const ClauseSpecifier &ClauseInfo,
-                                      ReductionClause &C, int ReductionKind);
-
+                                      ReductionClause &C, int ReductionKind,
+                                      bool IsInreduction);
   /// \brief Extract operands from a schedule clause
   static void extractScheduleOpndList(ScheduleClause & Sched,
                                       const Use *Args,
@@ -279,11 +276,11 @@ public:
   ///  test exists.
   static ICmpInst *getOmpLoopZeroTripTest(Loop *L, BasicBlock *EntryBB);
 
-  /// \breif Get the positin of the given loop index at
-  /// the bottom/zero trip test expression.
-  static void getLoopIndexPosInPredicate(Value *LoopIndex,
-                                         Instruction *CondInst,
-                                         bool &IsLeft);
+  /// \brief Get the position of the given loop index at
+  /// the bottom/zero trip test expression. It returns false if
+  /// it cannot find the loop index.
+  static bool getLoopIndexPosInPredicate(Value *LoopIndex,
+                                         Instruction *CondInst, bool &IsLeft);
   static FirstprivateItem *wrnSeenAsFirstPrivate(WRegionNode *W, Value *V);
   static LastprivateItem *wrnSeenAsLastPrivate(WRegionNode *W, Value *V);
   static MapItem *wrnSeenAsMap(WRegionNode *W, Value *V);
@@ -302,6 +299,29 @@ public:
   static bool findUsersInRegion(WRegionNode *W, Value *V,
                                 SmallVectorImpl<Instruction *> *Users=nullptr,
                                 bool ExcludeDirective = true);
+
+  /// \brief The utility to create the loop and update the loopinfo.
+  static Loop *createLoop(Loop *L, Loop *PL, LoopInfo *LI);
+
+  /// \brief The utility to add the given BB into the loop.
+  static void updateBBForLoop(BasicBlock *BB, Loop *L, Loop *PL, LoopInfo *LI);
+
+  /// \brief Return true if the given loop is do-while loop.
+  static bool isDoWhileLoop(Loop *L);
+
+  /// \brief Return true if the given loop is while loop.
+  static bool isWhileLoop(Loop *L);
+
+  /// \brief Return the loop type (do-while, while loop or unknown loop) for the
+  /// given loop.
+  static unsigned getLoopType(Loop *L);
+
+  /// \brief Return true if destructors are needed for privatized variables
+  static bool needsDestructors(WRegionNode *W);
+
+  /// \brief Returns \b true if \p W contains a '#pragma omp cancel' construct
+  /// directly inside its region; \b false otherwise.
+  static bool hasCancelConstruct(WRegionNode *W);
 };
 
 } // End VPO Namespace

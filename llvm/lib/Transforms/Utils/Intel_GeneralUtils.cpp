@@ -19,6 +19,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include <queue>
@@ -56,7 +57,7 @@ Constant *IntelGeneralUtils::getConstantValue(Type *Ty, LLVMContext &Context,
   return ConstVal;
 }
 
-Loop *IntelGeneralUtils::getLoopFromLoopInfo(LoopInfo *LI,
+Loop *IntelGeneralUtils::getLoopFromLoopInfo(LoopInfo *LI, DominatorTree *DT,
                                              BasicBlock *BB,
                                              BasicBlock *ExitBB) {
   Loop *Lp = nullptr;
@@ -68,17 +69,28 @@ Loop *IntelGeneralUtils::getLoopFromLoopInfo(LoopInfo *LI,
   // The first BB with 2 predecessors found in the DFS is the loop header.
   // Return the loop associated with this BB.
   if (std::distance(pred_begin(BB), pred_end(BB))==2) {
-    Lp = LI->getLoopFor(BB);
-    // assert(Lp &&
-    //   "The first BB with 2 predecessors should be the loop header");
-    //
-    // dbgs() << "\n=== getLoopFromLoopInfo found loop : " << *Lp << "\n";
-    return Lp;
+
+    auto IT = pred_begin(BB);
+    BasicBlock *FirstPred = *IT;
+    IT++;
+    BasicBlock *SecondPred = *IT;
+
+    if (DT->dominates(BB, FirstPred) ||
+        DT->dominates(BB, SecondPred)) {
+      Lp = LI->getLoopFor(BB);
+      // assert(Lp &&
+      //   "The first BB with 2 predecessors should be the loop header");
+      //
+      // dbgs() << "\n=== getLoopFromLoopInfo found loop : " << *Lp << "\n";
+      return Lp;
+    }
+    else
+      return nullptr;
   }
 
   // BB is not a loop header; continue DFS with BB's successors recursively
   for (succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
-    Lp = getLoopFromLoopInfo(LI, *I, ExitBB);
+    Lp = getLoopFromLoopInfo(LI, DT, *I, ExitBB);
     if (Lp)
       return Lp;
   }
@@ -279,4 +291,18 @@ static bool analyzeEscapeAux(const Value *V,
 bool IntelGeneralUtils::isEscaped(const Value *V) {
   SmallPtrSet<const PHINode *, 16> PhiUsers;
   return analyzeEscapeAux(V, PhiUsers);
+}
+
+// Return the size_t type for 32/64 bit architecture
+Type *IntelGeneralUtils::getSizeTTy(Function *F) {
+  LLVMContext &C = F->getContext();
+
+  IntegerType *IntTy;
+  const DataLayout &DL = F->getParent()->getDataLayout();
+
+  if (DL.getIntPtrType(Type::getInt8PtrTy(C))->getIntegerBitWidth() == 64)
+    IntTy = Type::getInt64Ty(C);
+  else
+    IntTy = Type::getInt32Ty(C);
+  return IntTy;
 }

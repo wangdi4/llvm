@@ -6,12 +6,12 @@
 
 define <2 x i64> @test_mm_add_epi8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_add_epi8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    paddb %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_add_epi8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    paddb %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
@@ -23,12 +23,12 @@ define <2 x i64> @test_mm_add_epi8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_add_epi16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_add_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    paddw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_add_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    paddw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -40,12 +40,12 @@ define <2 x i64> @test_mm_add_epi16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_add_epi32(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_add_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    paddd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_add_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    paddd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
@@ -57,12 +57,12 @@ define <2 x i64> @test_mm_add_epi32(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_add_epi64(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_add_epi64:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    paddq %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_add_epi64:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    paddq %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = add <2 x i64> %a0, %a1
@@ -71,12 +71,12 @@ define <2 x i64> @test_mm_add_epi64(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x double> @test_mm_add_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_add_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    addpd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_add_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    addpd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = fadd <2 x double> %a0, %a1
@@ -85,12 +85,12 @@ define <2 x double> @test_mm_add_pd(<2 x double> %a0, <2 x double> %a1) nounwind
 
 define <2 x double> @test_mm_add_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_add_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    addsd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_add_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    addsd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %ext0 = extractelement <2 x double> %a0, i32 0
@@ -102,84 +102,104 @@ define <2 x double> @test_mm_add_sd(<2 x double> %a0, <2 x double> %a1) nounwind
 
 define <2 x i64> @test_mm_adds_epi8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_adds_epi8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    paddsb %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_adds_epi8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    paddsb %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
   %arg1 = bitcast <2 x i64> %a1 to <16 x i8>
-  %res = call <16 x i8> @llvm.x86.sse2.padds.b(<16 x i8> %arg0, <16 x i8> %arg1)
-  %bc = bitcast <16 x i8> %res to <2 x i64>
+  %1 = sext <16 x i8> %arg0 to <16 x i16>
+  %2 = sext <16 x i8> %arg1 to <16 x i16>
+  %3 = add nsw <16 x i16> %1, %2
+  %4 = icmp slt <16 x i16> %3, <i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127>
+  %5 = select <16 x i1> %4, <16 x i16> %3, <16 x i16> <i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127>
+  %6 = icmp sgt <16 x i16> %5, <i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128>
+  %7 = select <16 x i1> %6, <16 x i16> %5, <16 x i16> <i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128>
+  %8 = trunc <16 x i16> %7 to <16 x i8>
+  %bc = bitcast <16 x i8> %8 to <2 x i64>
   ret <2 x i64> %bc
 }
-declare <16 x i8> @llvm.x86.sse2.padds.b(<16 x i8>, <16 x i8>) nounwind readnone
 
 define <2 x i64> @test_mm_adds_epi16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_adds_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    paddsw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_adds_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    paddsw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
   %arg1 = bitcast <2 x i64> %a1 to <8 x i16>
-  %res = call <8 x i16> @llvm.x86.sse2.padds.w(<8 x i16> %arg0, <8 x i16> %arg1)
-  %bc = bitcast <8 x i16> %res to <2 x i64>
+  %1 = sext <8 x i16> %arg0 to <8 x i32>
+  %2 = sext <8 x i16> %arg1 to <8 x i32>
+  %3 = add nsw <8 x i32> %1, %2
+  %4 = icmp slt <8 x i32> %3, <i32 32767, i32 32767, i32 32767, i32 32767, i32 32767, i32 32767, i32 32767, i32 32767>
+  %5 = select <8 x i1> %4, <8 x i32> %3, <8 x i32> <i32 32767, i32 32767, i32 32767, i32 32767, i32 32767, i32 32767, i32 32767, i32 32767>
+  %6 = icmp sgt <8 x i32> %5, <i32 -32768, i32 -32768, i32 -32768, i32 -32768, i32 -32768, i32 -32768, i32 -32768, i32 -32768>
+  %7 = select <8 x i1> %6, <8 x i32> %5, <8 x i32> <i32 -32768, i32 -32768, i32 -32768, i32 -32768, i32 -32768, i32 -32768, i32 -32768, i32 -32768>
+  %8 = trunc <8 x i32> %7 to <8 x i16>
+  %bc = bitcast <8 x i16> %8 to <2 x i64>
   ret <2 x i64> %bc
 }
-declare <8 x i16> @llvm.x86.sse2.padds.w(<8 x i16>, <8 x i16>) nounwind readnone
 
 define <2 x i64> @test_mm_adds_epu8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_adds_epu8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    paddusb %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_adds_epu8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    paddusb %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
   %arg1 = bitcast <2 x i64> %a1 to <16 x i8>
-  %res = call <16 x i8> @llvm.x86.sse2.paddus.b(<16 x i8> %arg0, <16 x i8> %arg1)
-  %bc = bitcast <16 x i8> %res to <2 x i64>
+  %1 = zext <16 x i8> %arg0 to <16 x i16>
+  %2 = zext <16 x i8> %arg1 to <16 x i16>
+  %3 = add nsw <16 x i16> %1, %2
+  %4 = icmp ult <16 x i16> %3, <i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255>
+  %5 = select <16 x i1> %4, <16 x i16> %3, <16 x i16> <i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255, i16 255>
+  %6 = trunc <16 x i16> %5 to <16 x i8>
+  %bc = bitcast <16 x i8> %6 to <2 x i64>
   ret <2 x i64> %bc
 }
-declare <16 x i8> @llvm.x86.sse2.paddus.b(<16 x i8>, <16 x i8>) nounwind readnone
 
 define <2 x i64> @test_mm_adds_epu16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_adds_epu16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    paddusw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_adds_epu16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    paddusw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
   %arg1 = bitcast <2 x i64> %a1 to <8 x i16>
-  %res = call <8 x i16> @llvm.x86.sse2.paddus.w(<8 x i16> %arg0, <8 x i16> %arg1)
-  %bc = bitcast <8 x i16> %res to <2 x i64>
+  %1 = zext <8 x i16> %arg0 to <8 x i32>
+  %2 = zext <8 x i16> %arg1 to <8 x i32>
+  %3 = add nsw <8 x i32> %1, %2
+  %4 = icmp ult <8 x i32> %3, <i32 65535, i32 65535, i32 65535, i32 65535, i32 65535, i32 65535, i32 65535, i32 65535>
+  %5 = select <8 x i1> %4, <8 x i32> %3, <8 x i32> <i32 65535, i32 65535, i32 65535, i32 65535, i32 65535, i32 65535, i32 65535, i32 65535>
+  %6 = trunc <8 x i32> %5 to <8 x i16>
+  %bc = bitcast <8 x i16> %6 to <2 x i64>
   ret <2 x i64> %bc
 }
-declare <8 x i16> @llvm.x86.sse2.paddus.w(<8 x i16>, <8 x i16>) nounwind readnone
 
 define <2 x double> @test_mm_and_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_and_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    andps %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_and_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    andps %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x double> %a0 to <4 x i32>
@@ -191,12 +211,12 @@ define <2 x double> @test_mm_and_pd(<2 x double> %a0, <2 x double> %a1) nounwind
 
 define <2 x i64> @test_mm_and_si128(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_and_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    andps %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_and_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    andps %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = and <2 x i64> %a0, %a1
@@ -205,12 +225,12 @@ define <2 x i64> @test_mm_and_si128(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x double> @test_mm_andnot_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_andnot_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    andnps %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_andnot_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    andnps %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x double> %a0 to <4 x i32>
@@ -223,14 +243,14 @@ define <2 x double> @test_mm_andnot_pd(<2 x double> %a0, <2 x double> %a1) nounw
 
 define <2 x i64> @test_mm_andnot_si128(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_andnot_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pcmpeqd %xmm2, %xmm2
 ; X32-NEXT:    pxor %xmm2, %xmm0
 ; X32-NEXT:    pand %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_andnot_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pcmpeqd %xmm2, %xmm2
 ; X64-NEXT:    pxor %xmm2, %xmm0
 ; X64-NEXT:    pand %xmm1, %xmm0
@@ -242,12 +262,12 @@ define <2 x i64> @test_mm_andnot_si128(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_avg_epu8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_avg_epu8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pavgb %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_avg_epu8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pavgb %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
@@ -264,12 +284,12 @@ define <2 x i64> @test_mm_avg_epu8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_avg_epu16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_avg_epu16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pavgw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_avg_epu16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pavgw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -286,12 +306,12 @@ define <2 x i64> @test_mm_avg_epu16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_bslli_si128(<2 x i64> %a0) nounwind {
 ; X32-LABEL: test_mm_bslli_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pslldq {{.*#+}} xmm0 = zero,zero,zero,zero,zero,xmm0[0,1,2,3,4,5,6,7,8,9,10]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_bslli_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pslldq {{.*#+}} xmm0 = zero,zero,zero,zero,zero,xmm0[0,1,2,3,4,5,6,7,8,9,10]
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
@@ -302,12 +322,12 @@ define <2 x i64> @test_mm_bslli_si128(<2 x i64> %a0) nounwind {
 
 define <2 x i64> @test_mm_bsrli_si128(<2 x i64> %a0) nounwind {
 ; X32-LABEL: test_mm_bsrli_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psrldq {{.*#+}} xmm0 = xmm0[5,6,7,8,9,10,11,12,13,14,15],zero,zero,zero,zero,zero
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_bsrli_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psrldq {{.*#+}} xmm0 = xmm0[5,6,7,8,9,10,11,12,13,14,15],zero,zero,zero,zero,zero
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
@@ -318,11 +338,11 @@ define <2 x i64> @test_mm_bsrli_si128(<2 x i64> %a0) nounwind {
 
 define <4 x float> @test_mm_castpd_ps(<2 x double> %a0) nounwind {
 ; X32-LABEL: test_mm_castpd_ps:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_castpd_ps:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    retq
   %res = bitcast <2 x double> %a0 to <4 x float>
   ret <4 x float> %res
@@ -330,11 +350,11 @@ define <4 x float> @test_mm_castpd_ps(<2 x double> %a0) nounwind {
 
 define <2 x i64> @test_mm_castpd_si128(<2 x double> %a0) nounwind {
 ; X32-LABEL: test_mm_castpd_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_castpd_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    retq
   %res = bitcast <2 x double> %a0 to <2 x i64>
   ret <2 x i64> %res
@@ -342,11 +362,11 @@ define <2 x i64> @test_mm_castpd_si128(<2 x double> %a0) nounwind {
 
 define <2 x double> @test_mm_castps_pd(<4 x float> %a0) nounwind {
 ; X32-LABEL: test_mm_castps_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_castps_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    retq
   %res = bitcast <4 x float> %a0 to <2 x double>
   ret <2 x double> %res
@@ -354,11 +374,11 @@ define <2 x double> @test_mm_castps_pd(<4 x float> %a0) nounwind {
 
 define <2 x i64> @test_mm_castps_si128(<4 x float> %a0) nounwind {
 ; X32-LABEL: test_mm_castps_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_castps_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    retq
   %res = bitcast <4 x float> %a0 to <2 x i64>
   ret <2 x i64> %res
@@ -366,11 +386,11 @@ define <2 x i64> @test_mm_castps_si128(<4 x float> %a0) nounwind {
 
 define <2 x double> @test_mm_castsi128_pd(<2 x i64> %a0) nounwind {
 ; X32-LABEL: test_mm_castsi128_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_castsi128_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    retq
   %res = bitcast <2 x i64> %a0 to <2 x double>
   ret <2 x double> %res
@@ -378,11 +398,11 @@ define <2 x double> @test_mm_castsi128_pd(<2 x i64> %a0) nounwind {
 
 define <4 x float> @test_mm_castsi128_ps(<2 x i64> %a0) nounwind {
 ; X32-LABEL: test_mm_castsi128_ps:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_castsi128_ps:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    retq
   %res = bitcast <2 x i64> %a0 to <4 x float>
   ret <4 x float> %res
@@ -390,13 +410,13 @@ define <4 x float> @test_mm_castsi128_ps(<2 x i64> %a0) nounwind {
 
 define void @test_mm_clflush(i8* %a0) nounwind {
 ; X32-LABEL: test_mm_clflush:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    clflush (%eax)
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_clflush:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    clflush (%rdi)
 ; X64-NEXT:    retq
   call void @llvm.x86.sse2.clflush(i8* %a0)
@@ -406,12 +426,12 @@ declare void @llvm.x86.sse2.clflush(i8*) nounwind readnone
 
 define <2 x i64> @test_mm_cmpeq_epi8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpeq_epi8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pcmpeqb %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpeq_epi8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pcmpeqb %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
@@ -424,12 +444,12 @@ define <2 x i64> @test_mm_cmpeq_epi8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_cmpeq_epi16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpeq_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pcmpeqw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpeq_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pcmpeqw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -442,12 +462,12 @@ define <2 x i64> @test_mm_cmpeq_epi16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_cmpeq_epi32(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpeq_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pcmpeqd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpeq_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pcmpeqd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
@@ -460,12 +480,12 @@ define <2 x i64> @test_mm_cmpeq_epi32(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x double> @test_mm_cmpeq_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpeq_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpeqpd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpeq_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpeqpd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %fcmp = fcmp oeq <2 x double> %a0, %a1
@@ -476,12 +496,12 @@ define <2 x double> @test_mm_cmpeq_pd(<2 x double> %a0, <2 x double> %a1) nounwi
 
 define <2 x double> @test_mm_cmpeq_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpeq_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpeqsd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpeq_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpeqsd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = call <2 x double> @llvm.x86.sse2.cmp.sd(<2 x double> %a0, <2 x double> %a1, i8 0)
@@ -491,13 +511,13 @@ declare <2 x double> @llvm.x86.sse2.cmp.sd(<2 x double>, <2 x double>, i8) nounw
 
 define <2 x double> @test_mm_cmpge_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpge_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmplepd %xmm0, %xmm1
 ; X32-NEXT:    movapd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpge_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmplepd %xmm0, %xmm1
 ; X64-NEXT:    movapd %xmm1, %xmm0
 ; X64-NEXT:    retq
@@ -509,13 +529,13 @@ define <2 x double> @test_mm_cmpge_pd(<2 x double> %a0, <2 x double> %a1) nounwi
 
 define <2 x double> @test_mm_cmpge_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpge_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmplesd %xmm0, %xmm1
 ; X32-NEXT:    movsd {{.*#+}} xmm0 = xmm1[0],xmm0[1]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpge_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmplesd %xmm0, %xmm1
 ; X64-NEXT:    movsd {{.*#+}} xmm0 = xmm1[0],xmm0[1]
 ; X64-NEXT:    retq
@@ -529,12 +549,12 @@ define <2 x double> @test_mm_cmpge_sd(<2 x double> %a0, <2 x double> %a1) nounwi
 
 define <2 x i64> @test_mm_cmpgt_epi8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpgt_epi8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pcmpgtb %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpgt_epi8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pcmpgtb %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
@@ -547,12 +567,12 @@ define <2 x i64> @test_mm_cmpgt_epi8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_cmpgt_epi16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpgt_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pcmpgtw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpgt_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pcmpgtw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -565,12 +585,12 @@ define <2 x i64> @test_mm_cmpgt_epi16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_cmpgt_epi32(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpgt_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pcmpgtd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpgt_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pcmpgtd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
@@ -583,13 +603,13 @@ define <2 x i64> @test_mm_cmpgt_epi32(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x double> @test_mm_cmpgt_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpgt_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpltpd %xmm0, %xmm1
 ; X32-NEXT:    movapd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpgt_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpltpd %xmm0, %xmm1
 ; X64-NEXT:    movapd %xmm1, %xmm0
 ; X64-NEXT:    retq
@@ -601,13 +621,13 @@ define <2 x double> @test_mm_cmpgt_pd(<2 x double> %a0, <2 x double> %a1) nounwi
 
 define <2 x double> @test_mm_cmpgt_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpgt_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpltsd %xmm0, %xmm1
 ; X32-NEXT:    movsd {{.*#+}} xmm0 = xmm1[0],xmm0[1]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpgt_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpltsd %xmm0, %xmm1
 ; X64-NEXT:    movsd {{.*#+}} xmm0 = xmm1[0],xmm0[1]
 ; X64-NEXT:    retq
@@ -621,12 +641,12 @@ define <2 x double> @test_mm_cmpgt_sd(<2 x double> %a0, <2 x double> %a1) nounwi
 
 define <2 x double> @test_mm_cmple_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmple_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmplepd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmple_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmplepd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %fcmp = fcmp ole <2 x double> %a0, %a1
@@ -637,12 +657,12 @@ define <2 x double> @test_mm_cmple_pd(<2 x double> %a0, <2 x double> %a1) nounwi
 
 define <2 x double> @test_mm_cmple_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmple_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmplesd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmple_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmplesd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = call <2 x double> @llvm.x86.sse2.cmp.sd(<2 x double> %a0, <2 x double> %a1, i8 2)
@@ -651,13 +671,13 @@ define <2 x double> @test_mm_cmple_sd(<2 x double> %a0, <2 x double> %a1) nounwi
 
 define <2 x i64> @test_mm_cmplt_epi8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_cmplt_epi8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pcmpgtb %xmm0, %xmm1
 ; X32-NEXT:    movdqa %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmplt_epi8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pcmpgtb %xmm0, %xmm1
 ; X64-NEXT:    movdqa %xmm1, %xmm0
 ; X64-NEXT:    retq
@@ -671,13 +691,13 @@ define <2 x i64> @test_mm_cmplt_epi8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_cmplt_epi16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_cmplt_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pcmpgtw %xmm0, %xmm1
 ; X32-NEXT:    movdqa %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmplt_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pcmpgtw %xmm0, %xmm1
 ; X64-NEXT:    movdqa %xmm1, %xmm0
 ; X64-NEXT:    retq
@@ -691,13 +711,13 @@ define <2 x i64> @test_mm_cmplt_epi16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_cmplt_epi32(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_cmplt_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pcmpgtd %xmm0, %xmm1
 ; X32-NEXT:    movdqa %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmplt_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pcmpgtd %xmm0, %xmm1
 ; X64-NEXT:    movdqa %xmm1, %xmm0
 ; X64-NEXT:    retq
@@ -711,12 +731,12 @@ define <2 x i64> @test_mm_cmplt_epi32(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x double> @test_mm_cmplt_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmplt_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpltpd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmplt_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpltpd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %fcmp = fcmp olt <2 x double> %a0, %a1
@@ -727,12 +747,12 @@ define <2 x double> @test_mm_cmplt_pd(<2 x double> %a0, <2 x double> %a1) nounwi
 
 define <2 x double> @test_mm_cmplt_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmplt_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpltsd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmplt_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpltsd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = call <2 x double> @llvm.x86.sse2.cmp.sd(<2 x double> %a0, <2 x double> %a1, i8 1)
@@ -741,12 +761,12 @@ define <2 x double> @test_mm_cmplt_sd(<2 x double> %a0, <2 x double> %a1) nounwi
 
 define <2 x double> @test_mm_cmpneq_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpneq_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpneqpd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpneq_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpneqpd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %fcmp = fcmp une <2 x double> %a0, %a1
@@ -757,12 +777,12 @@ define <2 x double> @test_mm_cmpneq_pd(<2 x double> %a0, <2 x double> %a1) nounw
 
 define <2 x double> @test_mm_cmpneq_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpneq_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpneqsd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpneq_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpneqsd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = call <2 x double> @llvm.x86.sse2.cmp.sd(<2 x double> %a0, <2 x double> %a1, i8 4)
@@ -771,13 +791,13 @@ define <2 x double> @test_mm_cmpneq_sd(<2 x double> %a0, <2 x double> %a1) nounw
 
 define <2 x double> @test_mm_cmpnge_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpnge_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpnlepd %xmm0, %xmm1
 ; X32-NEXT:    movapd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpnge_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpnlepd %xmm0, %xmm1
 ; X64-NEXT:    movapd %xmm1, %xmm0
 ; X64-NEXT:    retq
@@ -789,13 +809,13 @@ define <2 x double> @test_mm_cmpnge_pd(<2 x double> %a0, <2 x double> %a1) nounw
 
 define <2 x double> @test_mm_cmpnge_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpnge_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpnlesd %xmm0, %xmm1
 ; X32-NEXT:    movsd {{.*#+}} xmm0 = xmm1[0],xmm0[1]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpnge_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpnlesd %xmm0, %xmm1
 ; X64-NEXT:    movsd {{.*#+}} xmm0 = xmm1[0],xmm0[1]
 ; X64-NEXT:    retq
@@ -809,13 +829,13 @@ define <2 x double> @test_mm_cmpnge_sd(<2 x double> %a0, <2 x double> %a1) nounw
 
 define <2 x double> @test_mm_cmpngt_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpngt_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpnltpd %xmm0, %xmm1
 ; X32-NEXT:    movapd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpngt_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpnltpd %xmm0, %xmm1
 ; X64-NEXT:    movapd %xmm1, %xmm0
 ; X64-NEXT:    retq
@@ -827,13 +847,13 @@ define <2 x double> @test_mm_cmpngt_pd(<2 x double> %a0, <2 x double> %a1) nounw
 
 define <2 x double> @test_mm_cmpngt_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpngt_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpnltsd %xmm0, %xmm1
 ; X32-NEXT:    movsd {{.*#+}} xmm0 = xmm1[0],xmm0[1]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpngt_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpnltsd %xmm0, %xmm1
 ; X64-NEXT:    movsd {{.*#+}} xmm0 = xmm1[0],xmm0[1]
 ; X64-NEXT:    retq
@@ -847,12 +867,12 @@ define <2 x double> @test_mm_cmpngt_sd(<2 x double> %a0, <2 x double> %a1) nounw
 
 define <2 x double> @test_mm_cmpnle_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpnle_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpnlepd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpnle_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpnlepd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %fcmp = fcmp ugt <2 x double> %a0, %a1
@@ -863,12 +883,12 @@ define <2 x double> @test_mm_cmpnle_pd(<2 x double> %a0, <2 x double> %a1) nounw
 
 define <2 x double> @test_mm_cmpnle_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpnle_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpnlesd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpnle_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpnlesd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = call <2 x double> @llvm.x86.sse2.cmp.sd(<2 x double> %a0, <2 x double> %a1, i8 6)
@@ -877,12 +897,12 @@ define <2 x double> @test_mm_cmpnle_sd(<2 x double> %a0, <2 x double> %a1) nounw
 
 define <2 x double> @test_mm_cmpnlt_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpnlt_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpnltpd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpnlt_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpnltpd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %fcmp = fcmp uge <2 x double> %a0, %a1
@@ -893,12 +913,12 @@ define <2 x double> @test_mm_cmpnlt_pd(<2 x double> %a0, <2 x double> %a1) nounw
 
 define <2 x double> @test_mm_cmpnlt_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpnlt_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpnltsd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpnlt_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpnltsd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = call <2 x double> @llvm.x86.sse2.cmp.sd(<2 x double> %a0, <2 x double> %a1, i8 5)
@@ -907,12 +927,12 @@ define <2 x double> @test_mm_cmpnlt_sd(<2 x double> %a0, <2 x double> %a1) nounw
 
 define <2 x double> @test_mm_cmpord_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpord_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpordpd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpord_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpordpd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %fcmp = fcmp ord <2 x double> %a0, %a1
@@ -923,12 +943,12 @@ define <2 x double> @test_mm_cmpord_pd(<2 x double> %a0, <2 x double> %a1) nounw
 
 define <2 x double> @test_mm_cmpord_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpord_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpordsd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpord_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpordsd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = call <2 x double> @llvm.x86.sse2.cmp.sd(<2 x double> %a0, <2 x double> %a1, i8 7)
@@ -937,12 +957,12 @@ define <2 x double> @test_mm_cmpord_sd(<2 x double> %a0, <2 x double> %a1) nounw
 
 define <2 x double> @test_mm_cmpunord_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpunord_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpunordpd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpunord_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpunordpd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %fcmp = fcmp uno <2 x double> %a0, %a1
@@ -953,12 +973,12 @@ define <2 x double> @test_mm_cmpunord_pd(<2 x double> %a0, <2 x double> %a1) nou
 
 define <2 x double> @test_mm_cmpunord_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_cmpunord_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cmpunordsd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cmpunord_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cmpunordsd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = call <2 x double> @llvm.x86.sse2.cmp.sd(<2 x double> %a0, <2 x double> %a1, i8 3)
@@ -967,7 +987,7 @@ define <2 x double> @test_mm_cmpunord_sd(<2 x double> %a0, <2 x double> %a1) nou
 
 define i32 @test_mm_comieq_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_comieq_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    comisd %xmm1, %xmm0
 ; X32-NEXT:    setnp %al
 ; X32-NEXT:    sete %cl
@@ -976,7 +996,7 @@ define i32 @test_mm_comieq_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_comieq_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    comisd %xmm1, %xmm0
 ; X64-NEXT:    setnp %al
 ; X64-NEXT:    sete %cl
@@ -990,14 +1010,14 @@ declare i32 @llvm.x86.sse2.comieq.sd(<2 x double>, <2 x double>) nounwind readno
 
 define i32 @test_mm_comige_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_comige_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    xorl %eax, %eax
 ; X32-NEXT:    comisd %xmm1, %xmm0
 ; X32-NEXT:    setae %al
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_comige_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    xorl %eax, %eax
 ; X64-NEXT:    comisd %xmm1, %xmm0
 ; X64-NEXT:    setae %al
@@ -1009,14 +1029,14 @@ declare i32 @llvm.x86.sse2.comige.sd(<2 x double>, <2 x double>) nounwind readno
 
 define i32 @test_mm_comigt_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_comigt_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    xorl %eax, %eax
 ; X32-NEXT:    comisd %xmm1, %xmm0
 ; X32-NEXT:    seta %al
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_comigt_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    xorl %eax, %eax
 ; X64-NEXT:    comisd %xmm1, %xmm0
 ; X64-NEXT:    seta %al
@@ -1028,14 +1048,14 @@ declare i32 @llvm.x86.sse2.comigt.sd(<2 x double>, <2 x double>) nounwind readno
 
 define i32 @test_mm_comile_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_comile_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    xorl %eax, %eax
 ; X32-NEXT:    comisd %xmm0, %xmm1
 ; X32-NEXT:    setae %al
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_comile_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    xorl %eax, %eax
 ; X64-NEXT:    comisd %xmm0, %xmm1
 ; X64-NEXT:    setae %al
@@ -1047,14 +1067,14 @@ declare i32 @llvm.x86.sse2.comile.sd(<2 x double>, <2 x double>) nounwind readno
 
 define i32 @test_mm_comilt_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_comilt_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    xorl %eax, %eax
 ; X32-NEXT:    comisd %xmm0, %xmm1
 ; X32-NEXT:    seta %al
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_comilt_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    xorl %eax, %eax
 ; X64-NEXT:    comisd %xmm0, %xmm1
 ; X64-NEXT:    seta %al
@@ -1066,7 +1086,7 @@ declare i32 @llvm.x86.sse2.comilt.sd(<2 x double>, <2 x double>) nounwind readno
 
 define i32 @test_mm_comineq_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_comineq_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    comisd %xmm1, %xmm0
 ; X32-NEXT:    setp %al
 ; X32-NEXT:    setne %cl
@@ -1075,7 +1095,7 @@ define i32 @test_mm_comineq_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_comineq_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    comisd %xmm1, %xmm0
 ; X64-NEXT:    setp %al
 ; X64-NEXT:    setne %cl
@@ -1089,12 +1109,12 @@ declare i32 @llvm.x86.sse2.comineq.sd(<2 x double>, <2 x double>) nounwind readn
 
 define <2 x double> @test_mm_cvtepi32_pd(<2 x i64> %a0) nounwind {
 ; X32-LABEL: test_mm_cvtepi32_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cvtdq2pd %xmm0, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvtepi32_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cvtdq2pd %xmm0, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
@@ -1105,12 +1125,12 @@ define <2 x double> @test_mm_cvtepi32_pd(<2 x i64> %a0) nounwind {
 
 define <4 x float> @test_mm_cvtepi32_ps(<2 x i64> %a0) nounwind {
 ; X32-LABEL: test_mm_cvtepi32_ps:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cvtdq2ps %xmm0, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvtepi32_ps:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cvtdq2ps %xmm0, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
@@ -1121,12 +1141,12 @@ declare <4 x float> @llvm.x86.sse2.cvtdq2ps(<4 x i32>) nounwind readnone
 
 define <2 x i64> @test_mm_cvtpd_epi32(<2 x double> %a0) nounwind {
 ; X32-LABEL: test_mm_cvtpd_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cvtpd2dq %xmm0, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvtpd_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cvtpd2dq %xmm0, %xmm0
 ; X64-NEXT:    retq
   %res = call <4 x i32> @llvm.x86.sse2.cvtpd2dq(<2 x double> %a0)
@@ -1137,12 +1157,12 @@ declare <4 x i32> @llvm.x86.sse2.cvtpd2dq(<2 x double>) nounwind readnone
 
 define <4 x float> @test_mm_cvtpd_ps(<2 x double> %a0) nounwind {
 ; X32-LABEL: test_mm_cvtpd_ps:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cvtpd2ps %xmm0, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvtpd_ps:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cvtpd2ps %xmm0, %xmm0
 ; X64-NEXT:    retq
   %res = call <4 x float> @llvm.x86.sse2.cvtpd2ps(<2 x double> %a0)
@@ -1152,12 +1172,12 @@ declare <4 x float> @llvm.x86.sse2.cvtpd2ps(<2 x double>) nounwind readnone
 
 define <2 x i64> @test_mm_cvtps_epi32(<4 x float> %a0) nounwind {
 ; X32-LABEL: test_mm_cvtps_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cvtps2dq %xmm0, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvtps_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cvtps2dq %xmm0, %xmm0
 ; X64-NEXT:    retq
   %res = call <4 x i32> @llvm.x86.sse2.cvtps2dq(<4 x float> %a0)
@@ -1168,12 +1188,12 @@ declare <4 x i32> @llvm.x86.sse2.cvtps2dq(<4 x float>) nounwind readnone
 
 define <2 x double> @test_mm_cvtps_pd(<4 x float> %a0) nounwind {
 ; X32-LABEL: test_mm_cvtps_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cvtps2pd %xmm0, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvtps_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cvtps2pd %xmm0, %xmm0
 ; X64-NEXT:    retq
   %ext = shufflevector <4 x float> %a0, <4 x float> %a0, <2 x i32> <i32 0, i32 1>
@@ -1183,7 +1203,7 @@ define <2 x double> @test_mm_cvtps_pd(<4 x float> %a0) nounwind {
 
 define double @test_mm_cvtsd_f64(<2 x double> %a0) nounwind {
 ; X32-LABEL: test_mm_cvtsd_f64:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pushl %ebp
 ; X32-NEXT:    movl %esp, %ebp
 ; X32-NEXT:    andl $-8, %esp
@@ -1195,7 +1215,7 @@ define double @test_mm_cvtsd_f64(<2 x double> %a0) nounwind {
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvtsd_f64:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    retq
   %res = extractelement <2 x double> %a0, i32 0
   ret double %res
@@ -1203,12 +1223,12 @@ define double @test_mm_cvtsd_f64(<2 x double> %a0) nounwind {
 
 define i32 @test_mm_cvtsd_si32(<2 x double> %a0) nounwind {
 ; X32-LABEL: test_mm_cvtsd_si32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cvtsd2si %xmm0, %eax
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvtsd_si32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cvtsd2si %xmm0, %eax
 ; X64-NEXT:    retq
   %res = call i32 @llvm.x86.sse2.cvtsd2si(<2 x double> %a0)
@@ -1218,12 +1238,12 @@ declare i32 @llvm.x86.sse2.cvtsd2si(<2 x double>) nounwind readnone
 
 define <4 x float> @test_mm_cvtsd_ss(<4 x float> %a0, <2 x double> %a1) {
 ; X32-LABEL: test_mm_cvtsd_ss:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cvtsd2ss %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvtsd_ss:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cvtsd2ss %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = call <4 x float> @llvm.x86.sse2.cvtsd2ss(<4 x float> %a0, <2 x double> %a1)
@@ -1233,13 +1253,13 @@ declare <4 x float> @llvm.x86.sse2.cvtsd2ss(<4 x float>, <2 x double>) nounwind 
 
 define <4 x float> @test_mm_cvtsd_ss_load(<4 x float> %a0, <2 x double>* %p1) {
 ; X32-LABEL: test_mm_cvtsd_ss_load:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    cvtsd2ss (%eax), %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvtsd_ss_load:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cvtsd2ss (%rdi), %xmm0
 ; X64-NEXT:    retq
   %a1 = load <2 x double>, <2 x double>* %p1
@@ -1249,12 +1269,12 @@ define <4 x float> @test_mm_cvtsd_ss_load(<4 x float> %a0, <2 x double>* %p1) {
 
 define i32 @test_mm_cvtsi128_si32(<2 x i64> %a0) nounwind {
 ; X32-LABEL: test_mm_cvtsi128_si32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movd %xmm0, %eax
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvtsi128_si32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movd %xmm0, %eax
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
@@ -1264,12 +1284,12 @@ define i32 @test_mm_cvtsi128_si32(<2 x i64> %a0) nounwind {
 
 define <2 x double> @test_mm_cvtsi32_sd(<2 x double> %a0, i32 %a1) nounwind {
 ; X32-LABEL: test_mm_cvtsi32_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cvtsi2sdl {{[0-9]+}}(%esp), %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvtsi32_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cvtsi2sdl %edi, %xmm0
 ; X64-NEXT:    retq
   %cvt = sitofp i32 %a1 to double
@@ -1279,12 +1299,12 @@ define <2 x double> @test_mm_cvtsi32_sd(<2 x double> %a0, i32 %a1) nounwind {
 
 define <2 x i64> @test_mm_cvtsi32_si128(i32 %a0) nounwind {
 ; X32-LABEL: test_mm_cvtsi32_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvtsi32_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movd %edi, %xmm0
 ; X64-NEXT:    retq
   %res0 = insertelement <4 x i32> undef, i32 %a0, i32 0
@@ -1297,12 +1317,12 @@ define <2 x i64> @test_mm_cvtsi32_si128(i32 %a0) nounwind {
 
 define <2 x double> @test_mm_cvtss_sd(<2 x double> %a0, <4 x float> %a1) nounwind {
 ; X32-LABEL: test_mm_cvtss_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cvtss2sd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvtss_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cvtss2sd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %ext = extractelement <4 x float> %a1, i32 0
@@ -1313,12 +1333,12 @@ define <2 x double> @test_mm_cvtss_sd(<2 x double> %a0, <4 x float> %a1) nounwin
 
 define <2 x i64> @test_mm_cvttpd_epi32(<2 x double> %a0) nounwind {
 ; X32-LABEL: test_mm_cvttpd_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cvttpd2dq %xmm0, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvttpd_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cvttpd2dq %xmm0, %xmm0
 ; X64-NEXT:    retq
   %res = call <4 x i32> @llvm.x86.sse2.cvttpd2dq(<2 x double> %a0)
@@ -1329,12 +1349,12 @@ declare <4 x i32> @llvm.x86.sse2.cvttpd2dq(<2 x double>) nounwind readnone
 
 define <2 x i64> @test_mm_cvttps_epi32(<4 x float> %a0) nounwind {
 ; X32-LABEL: test_mm_cvttps_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cvttps2dq %xmm0, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvttps_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cvttps2dq %xmm0, %xmm0
 ; X64-NEXT:    retq
   %res = call <4 x i32> @llvm.x86.sse2.cvttps2dq(<4 x float> %a0)
@@ -1345,12 +1365,12 @@ declare <4 x i32> @llvm.x86.sse2.cvttps2dq(<4 x float>) nounwind readnone
 
 define i32 @test_mm_cvttsd_si32(<2 x double> %a0) nounwind {
 ; X32-LABEL: test_mm_cvttsd_si32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    cvttsd2si %xmm0, %eax
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvttsd_si32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    cvttsd2si %xmm0, %eax
 ; X64-NEXT:    retq
   %res = call i32 @llvm.x86.sse2.cvttsd2si(<2 x double> %a0)
@@ -1360,12 +1380,12 @@ declare i32 @llvm.x86.sse2.cvttsd2si(<2 x double>) nounwind readnone
 
 define <2 x double> @test_mm_div_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_div_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    divpd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_div_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    divpd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = fdiv <2 x double> %a0, %a1
@@ -1374,12 +1394,12 @@ define <2 x double> @test_mm_div_pd(<2 x double> %a0, <2 x double> %a1) nounwind
 
 define <2 x double> @test_mm_div_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_div_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    divsd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_div_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    divsd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %ext0 = extractelement <2 x double> %a0, i32 0
@@ -1391,13 +1411,13 @@ define <2 x double> @test_mm_div_sd(<2 x double> %a0, <2 x double> %a1) nounwind
 
 define i32 @test_mm_extract_epi16(<2 x i64> %a0) nounwind {
 ; X32-LABEL: test_mm_extract_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pextrw $1, %xmm0, %eax
 ; X32-NEXT:    movzwl %ax, %eax
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_extract_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pextrw $1, %xmm0, %eax
 ; X64-NEXT:    movzwl %ax, %eax
 ; X64-NEXT:    retq
@@ -1409,13 +1429,13 @@ define i32 @test_mm_extract_epi16(<2 x i64> %a0) nounwind {
 
 define <2 x i64> @test_mm_insert_epi16(<2 x i64> %a0, i16 %a1) nounwind {
 ; X32-LABEL: test_mm_insert_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    pinsrw $1, %eax, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_insert_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pinsrw $1, %edi, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -1426,12 +1446,12 @@ define <2 x i64> @test_mm_insert_epi16(<2 x i64> %a0, i16 %a1) nounwind {
 
 define void @test_mm_lfence() nounwind {
 ; X32-LABEL: test_mm_lfence:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    lfence
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_lfence:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    lfence
 ; X64-NEXT:    retq
   call void @llvm.x86.sse2.lfence()
@@ -1441,13 +1461,13 @@ declare void @llvm.x86.sse2.lfence() nounwind readnone
 
 define <2 x double> @test_mm_load_pd(double* %a0) nounwind {
 ; X32-LABEL: test_mm_load_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movaps (%eax), %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_load_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movaps (%rdi), %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast double* %a0 to <2 x double>*
@@ -1457,13 +1477,13 @@ define <2 x double> @test_mm_load_pd(double* %a0) nounwind {
 
 define <2 x double> @test_mm_load_sd(double* %a0) nounwind {
 ; X32-LABEL: test_mm_load_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_load_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
 ; X64-NEXT:    retq
   %ld = load double, double* %a0, align 1
@@ -1474,13 +1494,13 @@ define <2 x double> @test_mm_load_sd(double* %a0) nounwind {
 
 define <2 x i64> @test_mm_load_si128(<2 x i64>* %a0) nounwind {
 ; X32-LABEL: test_mm_load_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movaps (%eax), %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_load_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movaps (%rdi), %xmm0
 ; X64-NEXT:    retq
   %res = load <2 x i64>, <2 x i64>* %a0, align 16
@@ -1489,14 +1509,14 @@ define <2 x i64> @test_mm_load_si128(<2 x i64>* %a0) nounwind {
 
 define <2 x double> @test_mm_load1_pd(double* %a0) nounwind {
 ; X32-LABEL: test_mm_load1_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
 ; X32-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0,0]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_load1_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
 ; X64-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0,0]
 ; X64-NEXT:    retq
@@ -1508,13 +1528,13 @@ define <2 x double> @test_mm_load1_pd(double* %a0) nounwind {
 
 define <2 x double> @test_mm_loadh_pd(<2 x double> %a0, double* %a1) nounwind {
 ; X32-LABEL: test_mm_loadh_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movhpd {{.*#+}} xmm0 = xmm0[0],mem[0]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_loadh_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movhpd {{.*#+}} xmm0 = xmm0[0],mem[0]
 ; X64-NEXT:    retq
   %ld = load double, double* %a1, align 8
@@ -1524,13 +1544,13 @@ define <2 x double> @test_mm_loadh_pd(<2 x double> %a0, double* %a1) nounwind {
 
 define <2 x i64> @test_mm_loadl_epi64(<2 x i64> %a0, <2 x i64>* %a1) nounwind {
 ; X32-LABEL: test_mm_loadl_epi64:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_loadl_epi64:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
 ; X64-NEXT:    retq
   %bc = bitcast <2 x i64>* %a1 to i64*
@@ -1542,13 +1562,13 @@ define <2 x i64> @test_mm_loadl_epi64(<2 x i64> %a0, <2 x i64>* %a1) nounwind {
 
 define <2 x double> @test_mm_loadl_pd(<2 x double> %a0, double* %a1) nounwind {
 ; X32-LABEL: test_mm_loadl_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movlpd {{.*#+}} xmm0 = mem[0],xmm0[1]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_loadl_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movlpd {{.*#+}} xmm0 = mem[0],xmm0[1]
 ; X64-NEXT:    retq
   %ld = load double, double* %a1, align 8
@@ -1558,14 +1578,14 @@ define <2 x double> @test_mm_loadl_pd(<2 x double> %a0, double* %a1) nounwind {
 
 define <2 x double> @test_mm_loadr_pd(double* %a0) nounwind {
 ; X32-LABEL: test_mm_loadr_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movapd (%eax), %xmm0
 ; X32-NEXT:    shufpd {{.*#+}} xmm0 = xmm0[1,0]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_loadr_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movapd (%rdi), %xmm0
 ; X64-NEXT:    shufpd {{.*#+}} xmm0 = xmm0[1,0]
 ; X64-NEXT:    retq
@@ -1577,13 +1597,13 @@ define <2 x double> @test_mm_loadr_pd(double* %a0) nounwind {
 
 define <2 x double> @test_mm_loadu_pd(double* %a0) nounwind {
 ; X32-LABEL: test_mm_loadu_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movups (%eax), %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_loadu_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movups (%rdi), %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast double* %a0 to <2 x double>*
@@ -1593,13 +1613,13 @@ define <2 x double> @test_mm_loadu_pd(double* %a0) nounwind {
 
 define <2 x i64> @test_mm_loadu_si128(<2 x i64>* %a0) nounwind {
 ; X32-LABEL: test_mm_loadu_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movups (%eax), %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_loadu_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movups (%rdi), %xmm0
 ; X64-NEXT:    retq
   %res = load <2 x i64>, <2 x i64>* %a0, align 1
@@ -1608,12 +1628,12 @@ define <2 x i64> @test_mm_loadu_si128(<2 x i64>* %a0) nounwind {
 
 define <2 x i64> @test_mm_madd_epi16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_madd_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pmaddwd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_madd_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pmaddwd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -1626,7 +1646,7 @@ declare <4 x i32> @llvm.x86.sse2.pmadd.wd(<8 x i16>, <8 x i16>) nounwind readnon
 
 define void @test_mm_maskmoveu_si128(<2 x i64> %a0, <2 x i64> %a1, i8* %a2) nounwind {
 ; X32-LABEL: test_mm_maskmoveu_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pushl %edi
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %edi
 ; X32-NEXT:    maskmovdqu %xmm1, %xmm0
@@ -1634,7 +1654,7 @@ define void @test_mm_maskmoveu_si128(<2 x i64> %a0, <2 x i64> %a1, i8* %a2) noun
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_maskmoveu_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    maskmovdqu %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
@@ -1646,12 +1666,12 @@ declare void @llvm.x86.sse2.maskmov.dqu(<16 x i8>, <16 x i8>, i8*) nounwind
 
 define <2 x i64> @test_mm_max_epi16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_max_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pmaxsw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_max_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pmaxsw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -1664,12 +1684,12 @@ define <2 x i64> @test_mm_max_epi16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_max_epu8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_max_epu8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pmaxub %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_max_epu8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pmaxub %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
@@ -1682,12 +1702,12 @@ define <2 x i64> @test_mm_max_epu8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x double> @test_mm_max_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_max_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    maxpd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_max_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    maxpd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = call <2 x double> @llvm.x86.sse2.max.pd(<2 x double> %a0, <2 x double> %a1)
@@ -1697,12 +1717,12 @@ declare <2 x double> @llvm.x86.sse2.max.pd(<2 x double>, <2 x double>) nounwind 
 
 define <2 x double> @test_mm_max_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_max_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    maxsd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_max_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    maxsd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = call <2 x double> @llvm.x86.sse2.max.sd(<2 x double> %a0, <2 x double> %a1)
@@ -1712,12 +1732,12 @@ declare <2 x double> @llvm.x86.sse2.max.sd(<2 x double>, <2 x double>) nounwind 
 
 define void @test_mm_mfence() nounwind {
 ; X32-LABEL: test_mm_mfence:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    mfence
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mfence:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    mfence
 ; X64-NEXT:    retq
   call void @llvm.x86.sse2.mfence()
@@ -1727,12 +1747,12 @@ declare void @llvm.x86.sse2.mfence() nounwind readnone
 
 define <2 x i64> @test_mm_min_epi16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_min_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pminsw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_min_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pminsw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -1745,12 +1765,12 @@ define <2 x i64> @test_mm_min_epi16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_min_epu8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_min_epu8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pminub %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_min_epu8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pminub %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
@@ -1763,12 +1783,12 @@ define <2 x i64> @test_mm_min_epu8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x double> @test_mm_min_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_min_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    minpd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_min_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    minpd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = call <2 x double> @llvm.x86.sse2.min.pd(<2 x double> %a0, <2 x double> %a1)
@@ -1778,12 +1798,12 @@ declare <2 x double> @llvm.x86.sse2.min.pd(<2 x double>, <2 x double>) nounwind 
 
 define <2 x double> @test_mm_min_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_min_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    minsd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_min_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    minsd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = call <2 x double> @llvm.x86.sse2.min.sd(<2 x double> %a0, <2 x double> %a1)
@@ -1793,12 +1813,12 @@ declare <2 x double> @llvm.x86.sse2.min.sd(<2 x double>, <2 x double>) nounwind 
 
 define <2 x i64> @test_mm_move_epi64(<2 x i64> %a0) nounwind {
 ; X32-LABEL: test_mm_move_epi64:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movq {{.*#+}} xmm0 = xmm0[0],zero
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_move_epi64:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movq {{.*#+}} xmm0 = xmm0[0],zero
 ; X64-NEXT:    retq
   %res = shufflevector <2 x i64> %a0, <2 x i64> zeroinitializer, <2 x i32> <i32 0, i32 2>
@@ -1807,12 +1827,12 @@ define <2 x i64> @test_mm_move_epi64(<2 x i64> %a0) nounwind {
 
 define <2 x double> @test_mm_move_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_move_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movsd {{.*#+}} xmm0 = xmm1[0],xmm0[1]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_move_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movsd {{.*#+}} xmm0 = xmm1[0],xmm0[1]
 ; X64-NEXT:    retq
   %ext0 = extractelement <2 x double> %a1, i32 0
@@ -1824,12 +1844,12 @@ define <2 x double> @test_mm_move_sd(<2 x double> %a0, <2 x double> %a1) nounwin
 
 define i32 @test_mm_movemask_epi8(<2 x i64> %a0) nounwind {
 ; X32-LABEL: test_mm_movemask_epi8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pmovmskb %xmm0, %eax
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_movemask_epi8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pmovmskb %xmm0, %eax
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
@@ -1840,12 +1860,12 @@ declare i32 @llvm.x86.sse2.pmovmskb.128(<16 x i8>) nounwind readnone
 
 define i32 @test_mm_movemask_pd(<2 x double> %a0) nounwind {
 ; X32-LABEL: test_mm_movemask_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movmskpd %xmm0, %eax
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_movemask_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movmskpd %xmm0, %eax
 ; X64-NEXT:    retq
   %res = call i32 @llvm.x86.sse2.movmsk.pd(<2 x double> %a0)
@@ -1853,31 +1873,36 @@ define i32 @test_mm_movemask_pd(<2 x double> %a0) nounwind {
 }
 declare i32 @llvm.x86.sse2.movmsk.pd(<2 x double>) nounwind readnone
 
-define <2 x i64> @test_mm_mul_epu32(<2 x i64> %a0, <2 x i64> %a1) {
+define <2 x i64> @test_mm_mul_epu32(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_mul_epu32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
+; X32-NEXT:    movdqa {{.*#+}} xmm2 = [4294967295,0,4294967295,0]
+; X32-NEXT:    pand %xmm2, %xmm0
+; X32-NEXT:    pand %xmm2, %xmm1
 ; X32-NEXT:    pmuludq %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mul_epu32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
+; X64-NEXT:    movdqa {{.*#+}} xmm2 = [4294967295,0,4294967295,0]
+; X64-NEXT:    pand %xmm2, %xmm0
+; X64-NEXT:    pand %xmm2, %xmm1
 ; X64-NEXT:    pmuludq %xmm1, %xmm0
 ; X64-NEXT:    retq
-  %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
-  %arg1 = bitcast <2 x i64> %a1 to <4 x i32>
-  %res = call <2 x i64> @llvm.x86.sse2.pmulu.dq(<4 x i32> %arg0, <4 x i32> %arg1)
+  %A = and <2 x i64> %a0, <i64 4294967295, i64 4294967295>
+  %B = and <2 x i64> %a1, <i64 4294967295, i64 4294967295>
+  %res = mul nuw <2 x i64> %A, %B
   ret <2 x i64> %res
 }
-declare <2 x i64> @llvm.x86.sse2.pmulu.dq(<4 x i32>, <4 x i32>) nounwind readnone
 
 define <2 x double> @test_mm_mul_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_mul_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    mulpd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mul_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    mulpd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = fmul <2 x double> %a0, %a1
@@ -1886,12 +1911,12 @@ define <2 x double> @test_mm_mul_pd(<2 x double> %a0, <2 x double> %a1) nounwind
 
 define <2 x double> @test_mm_mul_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_mul_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    mulsd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mul_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    mulsd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %ext0 = extractelement <2 x double> %a0, i32 0
@@ -1903,12 +1928,12 @@ define <2 x double> @test_mm_mul_sd(<2 x double> %a0, <2 x double> %a1) nounwind
 
 define <2 x i64> @test_mm_mulhi_epi16(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_mulhi_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pmulhw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mulhi_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pmulhw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -1921,12 +1946,12 @@ declare <8 x i16> @llvm.x86.sse2.pmulh.w(<8 x i16>, <8 x i16>) nounwind readnone
 
 define <2 x i64> @test_mm_mulhi_epu16(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_mulhi_epu16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pmulhuw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mulhi_epu16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pmulhuw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -1939,12 +1964,12 @@ declare <8 x i16> @llvm.x86.sse2.pmulhu.w(<8 x i16>, <8 x i16>) nounwind readnon
 
 define <2 x i64> @test_mm_mullo_epi16(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_mullo_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pmullw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mullo_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pmullw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -1956,12 +1981,12 @@ define <2 x i64> @test_mm_mullo_epi16(<2 x i64> %a0, <2 x i64> %a1) {
 
 define <2 x double> @test_mm_or_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_or_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    orps %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_or_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    orps %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x double> %a0 to <4 x i32>
@@ -1973,12 +1998,12 @@ define <2 x double> @test_mm_or_pd(<2 x double> %a0, <2 x double> %a1) nounwind 
 
 define <2 x i64> @test_mm_or_si128(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_or_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    orps %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_or_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    orps %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = or <2 x i64> %a0, %a1
@@ -1987,12 +2012,12 @@ define <2 x i64> @test_mm_or_si128(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_packs_epi16(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_packs_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    packsswb %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_packs_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    packsswb %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -2005,12 +2030,12 @@ declare <16 x i8> @llvm.x86.sse2.packsswb.128(<8 x i16>, <8 x i16>) nounwind rea
 
 define <2 x i64> @test_mm_packs_epi32(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_packs_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    packssdw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_packs_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    packssdw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
@@ -2023,12 +2048,12 @@ declare <8 x i16> @llvm.x86.sse2.packssdw.128(<4 x i32>, <4 x i32>) nounwind rea
 
 define <2 x i64> @test_mm_packus_epi16(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_packus_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    packuswb %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_packus_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    packuswb %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -2041,12 +2066,12 @@ declare <16 x i8> @llvm.x86.sse2.packuswb.128(<8 x i16>, <8 x i16>) nounwind rea
 
 define void @test_mm_pause() nounwind {
 ; X32-LABEL: test_mm_pause:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pause
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_pause:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pause
 ; X64-NEXT:    retq
   call void @llvm.x86.sse2.pause()
@@ -2056,12 +2081,12 @@ declare void @llvm.x86.sse2.pause() nounwind readnone
 
 define <2 x i64> @test_mm_sad_epu8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_sad_epu8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psadbw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_sad_epu8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psadbw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
@@ -2073,7 +2098,7 @@ declare <2 x i64> @llvm.x86.sse2.psad.bw(<16 x i8>, <16 x i8>) nounwind readnone
 
 define <2 x i64> @test_mm_set_epi8(i8 %a0, i8 %a1, i8 %a2, i8 %a3, i8 %a4, i8 %a5, i8 %a6, i8 %a7, i8 %a8, i8 %a9, i8 %a10, i8 %a11, i8 %a12, i8 %a13, i8 %a14, i8 %a15) nounwind {
 ; X32-LABEL: test_mm_set_epi8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movd %eax, %xmm0
 ; X32-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
@@ -2124,7 +2149,7 @@ define <2 x i64> @test_mm_set_epi8(i8 %a0, i8 %a1, i8 %a2, i8 %a3, i8 %a4, i8 %a
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_set_epi8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movzbl %dil, %eax
 ; X64-NEXT:    movd %eax, %xmm0
 ; X64-NEXT:    movzbl %sil, %eax
@@ -2195,7 +2220,7 @@ define <2 x i64> @test_mm_set_epi8(i8 %a0, i8 %a1, i8 %a2, i8 %a3, i8 %a4, i8 %a
 
 define <2 x i64> @test_mm_set_epi16(i16 %a0, i16 %a1, i16 %a2, i16 %a3, i16 %a4, i16 %a5, i16 %a6, i16 %a7) nounwind {
 ; X32-LABEL: test_mm_set_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movd %eax, %xmm1
 ; X32-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
@@ -2222,7 +2247,7 @@ define <2 x i64> @test_mm_set_epi16(i16 %a0, i16 %a1, i16 %a2, i16 %a3, i16 %a4,
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_set_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movzwl {{[0-9]+}}(%rsp), %r10d
 ; X64-NEXT:    movzwl {{[0-9]+}}(%rsp), %eax
 ; X64-NEXT:    movd %edi, %xmm0
@@ -2255,7 +2280,7 @@ define <2 x i64> @test_mm_set_epi16(i16 %a0, i16 %a1, i16 %a2, i16 %a3, i16 %a4,
 
 define <2 x i64> @test_mm_set_epi32(i32 %a0, i32 %a1, i32 %a2, i32 %a3) nounwind {
 ; X32-LABEL: test_mm_set_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; X32-NEXT:    movss {{.*#+}} xmm1 = mem[0],zero,zero,zero
 ; X32-NEXT:    unpcklps {{.*#+}} xmm1 = xmm1[0],xmm0[0],xmm1[1],xmm0[1]
@@ -2266,7 +2291,7 @@ define <2 x i64> @test_mm_set_epi32(i32 %a0, i32 %a1, i32 %a2, i32 %a3) nounwind
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_set_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movd %edi, %xmm0
 ; X64-NEXT:    movd %esi, %xmm1
 ; X64-NEXT:    punpckldq {{.*#+}} xmm1 = xmm1[0],xmm0[0],xmm1[1],xmm0[1]
@@ -2287,7 +2312,7 @@ define <2 x i64> @test_mm_set_epi32(i32 %a0, i32 %a1, i32 %a2, i32 %a3) nounwind
 
 define <2 x i64> @test_mm_set_epi64x(i64 %a0, i64 %a1) nounwind {
 ; X32-LABEL: test_mm_set_epi64x:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movss {{.*#+}} xmm1 = mem[0],zero,zero,zero
 ; X32-NEXT:    movss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; X32-NEXT:    unpcklps {{.*#+}} xmm1 = xmm1[0],xmm0[0],xmm1[1],xmm0[1]
@@ -2298,7 +2323,7 @@ define <2 x i64> @test_mm_set_epi64x(i64 %a0, i64 %a1) nounwind {
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_set_epi64x:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movq %rdi, %xmm1
 ; X64-NEXT:    movq %rsi, %xmm0
 ; X64-NEXT:    punpcklqdq {{.*#+}} xmm0 = xmm0[0],xmm1[0]
@@ -2310,14 +2335,14 @@ define <2 x i64> @test_mm_set_epi64x(i64 %a0, i64 %a1) nounwind {
 
 define <2 x double> @test_mm_set_pd(double %a0, double %a1) nounwind {
 ; X32-LABEL: test_mm_set_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
 ; X32-NEXT:    movsd {{.*#+}} xmm1 = mem[0],zero
 ; X32-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0],xmm1[0]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_set_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movlhps {{.*#+}} xmm1 = xmm1[0],xmm0[0]
 ; X64-NEXT:    movaps %xmm1, %xmm0
 ; X64-NEXT:    retq
@@ -2328,13 +2353,13 @@ define <2 x double> @test_mm_set_pd(double %a0, double %a1) nounwind {
 
 define <2 x double> @test_mm_set_pd1(double %a0) nounwind {
 ; X32-LABEL: test_mm_set_pd1:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
 ; X32-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0,0]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_set_pd1:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0,0]
 ; X64-NEXT:    retq
   %res0  = insertelement <2 x double> undef, double %a0, i32 0
@@ -2344,13 +2369,13 @@ define <2 x double> @test_mm_set_pd1(double %a0) nounwind {
 
 define <2 x double> @test_mm_set_sd(double %a0) nounwind {
 ; X32-LABEL: test_mm_set_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movq {{.*#+}} xmm0 = mem[0],zero
 ; X32-NEXT:    movq {{.*#+}} xmm0 = xmm0[0],zero
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_set_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movq {{.*#+}} xmm0 = xmm0[0],zero
 ; X64-NEXT:    retq
   %res0  = insertelement <2 x double> undef, double %a0, i32 0
@@ -2360,21 +2385,21 @@ define <2 x double> @test_mm_set_sd(double %a0) nounwind {
 
 define <2 x i64> @test_mm_set1_epi8(i8 %a0) nounwind {
 ; X32-LABEL: test_mm_set1_epi8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movd %eax, %xmm0
 ; X32-NEXT:    punpcklbw {{.*#+}} xmm0 = xmm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7]
-; X32-NEXT:    pshuflw {{.*#+}} xmm0 = xmm0[0,0,0,0,4,5,6,7]
-; X32-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,0,1,1]
+; X32-NEXT:    pshuflw {{.*#+}} xmm0 = xmm0[0,0,2,3,4,5,6,7]
+; X32-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,0,0,0]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_set1_epi8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movzbl %dil, %eax
 ; X64-NEXT:    movd %eax, %xmm0
 ; X64-NEXT:    punpcklbw {{.*#+}} xmm0 = xmm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7]
-; X64-NEXT:    pshuflw {{.*#+}} xmm0 = xmm0[0,0,0,0,4,5,6,7]
-; X64-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,0,1,1]
+; X64-NEXT:    pshuflw {{.*#+}} xmm0 = xmm0[0,0,2,3,4,5,6,7]
+; X64-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,0,0,0]
 ; X64-NEXT:    retq
   %res0  = insertelement <16 x i8> undef,  i8 %a0, i32 0
   %res1  = insertelement <16 x i8> %res0,  i8 %a0, i32 1
@@ -2398,18 +2423,18 @@ define <2 x i64> @test_mm_set1_epi8(i8 %a0) nounwind {
 
 define <2 x i64> @test_mm_set1_epi16(i16 %a0) nounwind {
 ; X32-LABEL: test_mm_set1_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movd %eax, %xmm0
-; X32-NEXT:    pshuflw {{.*#+}} xmm0 = xmm0[0,0,0,0,4,5,6,7]
-; X32-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,0,1,1]
+; X32-NEXT:    pshuflw {{.*#+}} xmm0 = xmm0[0,0,2,3,4,5,6,7]
+; X32-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,0,0,0]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_set1_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movd %edi, %xmm0
-; X64-NEXT:    pshuflw {{.*#+}} xmm0 = xmm0[0,0,0,0,4,5,6,7]
-; X64-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,0,1,1]
+; X64-NEXT:    pshuflw {{.*#+}} xmm0 = xmm0[0,0,2,3,4,5,6,7]
+; X64-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,0,0,0]
 ; X64-NEXT:    retq
   %res0  = insertelement <8 x i16> undef, i16 %a0, i32 0
   %res1  = insertelement <8 x i16> %res0, i16 %a0, i32 1
@@ -2425,13 +2450,13 @@ define <2 x i64> @test_mm_set1_epi16(i16 %a0) nounwind {
 
 define <2 x i64> @test_mm_set1_epi32(i32 %a0) nounwind {
 ; X32-LABEL: test_mm_set1_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movd {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; X32-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,0,0,0]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_set1_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movd %edi, %xmm0
 ; X64-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,0,0,0]
 ; X64-NEXT:    retq
@@ -2447,7 +2472,7 @@ define <2 x i64> @test_mm_set1_epi32(i32 %a0) nounwind {
 
 define <2 x i64> @test_mm_set1_epi64x(i64 %a0) nounwind {
 ; X32-LABEL: test_mm_set1_epi64x:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movd {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; X32-NEXT:    movd {{.*#+}} xmm1 = mem[0],zero,zero,zero
 ; X32-NEXT:    punpckldq {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1]
@@ -2455,7 +2480,7 @@ define <2 x i64> @test_mm_set1_epi64x(i64 %a0) nounwind {
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_set1_epi64x:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movq %rdi, %xmm0
 ; X64-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,1,0,1]
 ; X64-NEXT:    retq
@@ -2466,13 +2491,13 @@ define <2 x i64> @test_mm_set1_epi64x(i64 %a0) nounwind {
 
 define <2 x double> @test_mm_set1_pd(double %a0) nounwind {
 ; X32-LABEL: test_mm_set1_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
 ; X32-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0,0]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_set1_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0,0]
 ; X64-NEXT:    retq
   %res0  = insertelement <2 x double> undef, double %a0, i32 0
@@ -2482,7 +2507,7 @@ define <2 x double> @test_mm_set1_pd(double %a0) nounwind {
 
 define <2 x i64> @test_mm_setr_epi8(i8 %a0, i8 %a1, i8 %a2, i8 %a3, i8 %a4, i8 %a5, i8 %a6, i8 %a7, i8 %a8, i8 %a9, i8 %a10, i8 %a11, i8 %a12, i8 %a13, i8 %a14, i8 %a15) nounwind {
 ; X32-LABEL: test_mm_setr_epi8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movd %eax, %xmm0
 ; X32-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
@@ -2533,7 +2558,7 @@ define <2 x i64> @test_mm_setr_epi8(i8 %a0, i8 %a1, i8 %a2, i8 %a3, i8 %a4, i8 %
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_setr_epi8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movzbl {{[0-9]+}}(%rsp), %eax
 ; X64-NEXT:    movd %eax, %xmm0
 ; X64-NEXT:    movzbl {{[0-9]+}}(%rsp), %eax
@@ -2604,7 +2629,7 @@ define <2 x i64> @test_mm_setr_epi8(i8 %a0, i8 %a1, i8 %a2, i8 %a3, i8 %a4, i8 %
 
 define <2 x i64> @test_mm_setr_epi16(i16 %a0, i16 %a1, i16 %a2, i16 %a3, i16 %a4, i16 %a5, i16 %a6, i16 %a7) nounwind {
 ; X32-LABEL: test_mm_setr_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movd %eax, %xmm1
 ; X32-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
@@ -2631,7 +2656,7 @@ define <2 x i64> @test_mm_setr_epi16(i16 %a0, i16 %a1, i16 %a2, i16 %a3, i16 %a4
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_setr_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movzwl {{[0-9]+}}(%rsp), %eax
 ; X64-NEXT:    movzwl {{[0-9]+}}(%rsp), %r10d
 ; X64-NEXT:    movd %eax, %xmm0
@@ -2664,7 +2689,7 @@ define <2 x i64> @test_mm_setr_epi16(i16 %a0, i16 %a1, i16 %a2, i16 %a3, i16 %a4
 
 define <2 x i64> @test_mm_setr_epi32(i32 %a0, i32 %a1, i32 %a2, i32 %a3) nounwind {
 ; X32-LABEL: test_mm_setr_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; X32-NEXT:    movss {{.*#+}} xmm1 = mem[0],zero,zero,zero
 ; X32-NEXT:    unpcklps {{.*#+}} xmm1 = xmm1[0],xmm0[0],xmm1[1],xmm0[1]
@@ -2675,7 +2700,7 @@ define <2 x i64> @test_mm_setr_epi32(i32 %a0, i32 %a1, i32 %a2, i32 %a3) nounwin
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_setr_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movd %ecx, %xmm0
 ; X64-NEXT:    movd %edx, %xmm1
 ; X64-NEXT:    punpckldq {{.*#+}} xmm1 = xmm1[0],xmm0[0],xmm1[1],xmm0[1]
@@ -2696,7 +2721,7 @@ define <2 x i64> @test_mm_setr_epi32(i32 %a0, i32 %a1, i32 %a2, i32 %a3) nounwin
 
 define <2 x i64> @test_mm_setr_epi64x(i64 %a0, i64 %a1) nounwind {
 ; X32-LABEL: test_mm_setr_epi64x:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movss {{.*#+}} xmm1 = mem[0],zero,zero,zero
 ; X32-NEXT:    movss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; X32-NEXT:    unpcklps {{.*#+}} xmm1 = xmm1[0],xmm0[0],xmm1[1],xmm0[1]
@@ -2707,7 +2732,7 @@ define <2 x i64> @test_mm_setr_epi64x(i64 %a0, i64 %a1) nounwind {
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_setr_epi64x:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movq %rsi, %xmm1
 ; X64-NEXT:    movq %rdi, %xmm0
 ; X64-NEXT:    punpcklqdq {{.*#+}} xmm0 = xmm0[0],xmm1[0]
@@ -2719,14 +2744,14 @@ define <2 x i64> @test_mm_setr_epi64x(i64 %a0, i64 %a1) nounwind {
 
 define <2 x double> @test_mm_setr_pd(double %a0, double %a1) nounwind {
 ; X32-LABEL: test_mm_setr_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movsd {{.*#+}} xmm1 = mem[0],zero
 ; X32-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
 ; X32-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0],xmm1[0]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_setr_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0],xmm1[0]
 ; X64-NEXT:    retq
   %res0  = insertelement <2 x double> undef, double %a0, i32 0
@@ -2736,12 +2761,12 @@ define <2 x double> @test_mm_setr_pd(double %a0, double %a1) nounwind {
 
 define <2 x double> @test_mm_setzero_pd() {
 ; X32-LABEL: test_mm_setzero_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    xorps %xmm0, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_setzero_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    xorps %xmm0, %xmm0
 ; X64-NEXT:    retq
   ret <2 x double> zeroinitializer
@@ -2749,12 +2774,12 @@ define <2 x double> @test_mm_setzero_pd() {
 
 define <2 x i64> @test_mm_setzero_si128() {
 ; X32-LABEL: test_mm_setzero_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    xorps %xmm0, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_setzero_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    xorps %xmm0, %xmm0
 ; X64-NEXT:    retq
   ret <2 x i64> zeroinitializer
@@ -2762,12 +2787,12 @@ define <2 x i64> @test_mm_setzero_si128() {
 
 define <2 x i64> @test_mm_shuffle_epi32(<2 x i64> %a0) {
 ; X32-LABEL: test_mm_shuffle_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,0,0,0]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_shuffle_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,0,0,0]
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
@@ -2778,12 +2803,12 @@ define <2 x i64> @test_mm_shuffle_epi32(<2 x i64> %a0) {
 
 define <2 x double> @test_mm_shuffle_pd(<2 x double> %a0, <2 x double> %a1) {
 ; X32-LABEL: test_mm_shuffle_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    shufpd {{.*#+}} xmm0 = xmm0[1],xmm1[0]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_shuffle_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    shufpd {{.*#+}} xmm0 = xmm0[1],xmm1[0]
 ; X64-NEXT:    retq
   %res = shufflevector <2 x double> %a0, <2 x double> %a1, <2 x i32> <i32 1, i32 2>
@@ -2792,12 +2817,12 @@ define <2 x double> @test_mm_shuffle_pd(<2 x double> %a0, <2 x double> %a1) {
 
 define <2 x i64> @test_mm_shufflehi_epi16(<2 x i64> %a0) {
 ; X32-LABEL: test_mm_shufflehi_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pshufhw {{.*#+}} xmm0 = xmm0[0,1,2,3,4,4,4,4]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_shufflehi_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pshufhw {{.*#+}} xmm0 = xmm0[0,1,2,3,4,4,4,4]
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -2808,12 +2833,12 @@ define <2 x i64> @test_mm_shufflehi_epi16(<2 x i64> %a0) {
 
 define <2 x i64> @test_mm_shufflelo_epi16(<2 x i64> %a0) {
 ; X32-LABEL: test_mm_shufflelo_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pshuflw {{.*#+}} xmm0 = xmm0[0,0,0,0,4,5,6,7]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_shufflelo_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pshuflw {{.*#+}} xmm0 = xmm0[0,0,0,0,4,5,6,7]
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -2824,12 +2849,12 @@ define <2 x i64> @test_mm_shufflelo_epi16(<2 x i64> %a0) {
 
 define <2 x i64> @test_mm_sll_epi16(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_sll_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psllw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_sll_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psllw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -2842,12 +2867,12 @@ declare <8 x i16> @llvm.x86.sse2.psll.w(<8 x i16>, <8 x i16>) nounwind readnone
 
 define <2 x i64> @test_mm_sll_epi32(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_sll_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pslld %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_sll_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pslld %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
@@ -2860,12 +2885,12 @@ declare <4 x i32> @llvm.x86.sse2.psll.d(<4 x i32>, <4 x i32>) nounwind readnone
 
 define <2 x i64> @test_mm_sll_epi64(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_sll_epi64:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psllq %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_sll_epi64:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psllq %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = call <2 x i64> @llvm.x86.sse2.psll.q(<2 x i64> %a0, <2 x i64> %a1)
@@ -2875,12 +2900,12 @@ declare <2 x i64> @llvm.x86.sse2.psll.q(<2 x i64>, <2 x i64>) nounwind readnone
 
 define <2 x i64> @test_mm_slli_epi16(<2 x i64> %a0) {
 ; X32-LABEL: test_mm_slli_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psllw $1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_slli_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psllw $1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -2892,12 +2917,12 @@ declare <8 x i16> @llvm.x86.sse2.pslli.w(<8 x i16>, i32) nounwind readnone
 
 define <2 x i64> @test_mm_slli_epi32(<2 x i64> %a0) {
 ; X32-LABEL: test_mm_slli_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pslld $1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_slli_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pslld $1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
@@ -2909,12 +2934,12 @@ declare <4 x i32> @llvm.x86.sse2.pslli.d(<4 x i32>, i32) nounwind readnone
 
 define <2 x i64> @test_mm_slli_epi64(<2 x i64> %a0) {
 ; X32-LABEL: test_mm_slli_epi64:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psllq $1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_slli_epi64:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psllq $1, %xmm0
 ; X64-NEXT:    retq
   %res = call <2 x i64> @llvm.x86.sse2.pslli.q(<2 x i64> %a0, i32 1)
@@ -2924,12 +2949,12 @@ declare <2 x i64> @llvm.x86.sse2.pslli.q(<2 x i64>, i32) nounwind readnone
 
 define <2 x i64> @test_mm_slli_si128(<2 x i64> %a0) nounwind {
 ; X32-LABEL: test_mm_slli_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    pslldq {{.*#+}} xmm0 = zero,zero,zero,zero,zero,xmm0[0,1,2,3,4,5,6,7,8,9,10]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_slli_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    pslldq {{.*#+}} xmm0 = zero,zero,zero,zero,zero,xmm0[0,1,2,3,4,5,6,7,8,9,10]
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
@@ -2940,12 +2965,12 @@ define <2 x i64> @test_mm_slli_si128(<2 x i64> %a0) nounwind {
 
 define <2 x double> @test_mm_sqrt_pd(<2 x double> %a0) nounwind {
 ; X32-LABEL: test_mm_sqrt_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    sqrtpd %xmm0, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_sqrt_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    sqrtpd %xmm0, %xmm0
 ; X64-NEXT:    retq
   %res = call <2 x double> @llvm.x86.sse2.sqrt.pd(<2 x double> %a0)
@@ -2955,13 +2980,13 @@ declare <2 x double> @llvm.x86.sse2.sqrt.pd(<2 x double>) nounwind readnone
 
 define <2 x double> @test_mm_sqrt_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_sqrt_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    sqrtsd %xmm0, %xmm1
 ; X32-NEXT:    movapd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_sqrt_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    sqrtsd %xmm0, %xmm1
 ; X64-NEXT:    movapd %xmm1, %xmm0
 ; X64-NEXT:    retq
@@ -2976,12 +3001,12 @@ declare <2 x double> @llvm.x86.sse2.sqrt.sd(<2 x double>) nounwind readnone
 
 define <2 x i64> @test_mm_sra_epi16(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_sra_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psraw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_sra_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psraw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -2994,12 +3019,12 @@ declare <8 x i16> @llvm.x86.sse2.psra.w(<8 x i16>, <8 x i16>) nounwind readnone
 
 define <2 x i64> @test_mm_sra_epi32(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_sra_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psrad %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_sra_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psrad %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
@@ -3012,12 +3037,12 @@ declare <4 x i32> @llvm.x86.sse2.psra.d(<4 x i32>, <4 x i32>) nounwind readnone
 
 define <2 x i64> @test_mm_srai_epi16(<2 x i64> %a0) {
 ; X32-LABEL: test_mm_srai_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psraw $1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_srai_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psraw $1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -3029,12 +3054,12 @@ declare <8 x i16> @llvm.x86.sse2.psrai.w(<8 x i16>, i32) nounwind readnone
 
 define <2 x i64> @test_mm_srai_epi32(<2 x i64> %a0) {
 ; X32-LABEL: test_mm_srai_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psrad $1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_srai_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psrad $1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
@@ -3046,12 +3071,12 @@ declare <4 x i32> @llvm.x86.sse2.psrai.d(<4 x i32>, i32) nounwind readnone
 
 define <2 x i64> @test_mm_srl_epi16(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_srl_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psrlw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_srl_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psrlw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -3064,12 +3089,12 @@ declare <8 x i16> @llvm.x86.sse2.psrl.w(<8 x i16>, <8 x i16>) nounwind readnone
 
 define <2 x i64> @test_mm_srl_epi32(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_srl_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psrld %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_srl_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psrld %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
@@ -3082,12 +3107,12 @@ declare <4 x i32> @llvm.x86.sse2.psrl.d(<4 x i32>, <4 x i32>) nounwind readnone
 
 define <2 x i64> @test_mm_srl_epi64(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_srl_epi64:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psrlq %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_srl_epi64:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psrlq %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = call <2 x i64> @llvm.x86.sse2.psrl.q(<2 x i64> %a0, <2 x i64> %a1)
@@ -3097,12 +3122,12 @@ declare <2 x i64> @llvm.x86.sse2.psrl.q(<2 x i64>, <2 x i64>) nounwind readnone
 
 define <2 x i64> @test_mm_srli_epi16(<2 x i64> %a0) {
 ; X32-LABEL: test_mm_srli_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psrlw $1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_srli_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psrlw $1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -3114,12 +3139,12 @@ declare <8 x i16> @llvm.x86.sse2.psrli.w(<8 x i16>, i32) nounwind readnone
 
 define <2 x i64> @test_mm_srli_epi32(<2 x i64> %a0) {
 ; X32-LABEL: test_mm_srli_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psrld $1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_srli_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psrld $1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
@@ -3131,12 +3156,12 @@ declare <4 x i32> @llvm.x86.sse2.psrli.d(<4 x i32>, i32) nounwind readnone
 
 define <2 x i64> @test_mm_srli_epi64(<2 x i64> %a0) {
 ; X32-LABEL: test_mm_srli_epi64:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psrlq $1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_srli_epi64:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psrlq $1, %xmm0
 ; X64-NEXT:    retq
   %res = call <2 x i64> @llvm.x86.sse2.psrli.q(<2 x i64> %a0, i32 1)
@@ -3146,12 +3171,12 @@ declare <2 x i64> @llvm.x86.sse2.psrli.q(<2 x i64>, i32) nounwind readnone
 
 define <2 x i64> @test_mm_srli_si128(<2 x i64> %a0) nounwind {
 ; X32-LABEL: test_mm_srli_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psrldq {{.*#+}} xmm0 = xmm0[5,6,7,8,9,10,11,12,13,14,15],zero,zero,zero,zero,zero
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_srli_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psrldq {{.*#+}} xmm0 = xmm0[5,6,7,8,9,10,11,12,13,14,15],zero,zero,zero,zero,zero
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
@@ -3162,13 +3187,13 @@ define <2 x i64> @test_mm_srli_si128(<2 x i64> %a0) nounwind {
 
 define void @test_mm_store_pd(double *%a0, <2 x double> %a1) {
 ; X32-LABEL: test_mm_store_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movaps %xmm0, (%eax)
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_store_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movaps %xmm0, (%rdi)
 ; X64-NEXT:    retq
   %arg0 = bitcast double* %a0 to <2 x double>*
@@ -3178,14 +3203,14 @@ define void @test_mm_store_pd(double *%a0, <2 x double> %a1) {
 
 define void @test_mm_store_pd1(double *%a0, <2 x double> %a1) {
 ; X32-LABEL: test_mm_store_pd1:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0,0]
 ; X32-NEXT:    movaps %xmm0, (%eax)
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_store_pd1:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0,0]
 ; X64-NEXT:    movaps %xmm0, (%rdi)
 ; X64-NEXT:    retq
@@ -3197,13 +3222,13 @@ define void @test_mm_store_pd1(double *%a0, <2 x double> %a1) {
 
 define void @test_mm_store_sd(double *%a0, <2 x double> %a1) {
 ; X32-LABEL: test_mm_store_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movsd %xmm0, (%eax)
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_store_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movsd %xmm0, (%rdi)
 ; X64-NEXT:    retq
   %ext = extractelement <2 x double> %a1, i32 0
@@ -3213,13 +3238,13 @@ define void @test_mm_store_sd(double *%a0, <2 x double> %a1) {
 
 define void @test_mm_store_si128(<2 x i64> *%a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_store_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movaps %xmm0, (%eax)
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_store_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movaps %xmm0, (%rdi)
 ; X64-NEXT:    retq
   store <2 x i64> %a1, <2 x i64>* %a0, align 16
@@ -3228,14 +3253,14 @@ define void @test_mm_store_si128(<2 x i64> *%a0, <2 x i64> %a1) {
 
 define void @test_mm_store1_pd(double *%a0, <2 x double> %a1) {
 ; X32-LABEL: test_mm_store1_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0,0]
 ; X32-NEXT:    movaps %xmm0, (%eax)
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_store1_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0,0]
 ; X64-NEXT:    movaps %xmm0, (%rdi)
 ; X64-NEXT:    retq
@@ -3247,14 +3272,14 @@ define void @test_mm_store1_pd(double *%a0, <2 x double> %a1) {
 
 define void @test_mm_storeh_sd(double *%a0, <2 x double> %a1) {
 ; X32-LABEL: test_mm_storeh_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movhlps {{.*#+}} xmm0 = xmm0[1,1]
 ; X32-NEXT:    movsd %xmm0, (%eax)
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_storeh_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movhlps {{.*#+}} xmm0 = xmm0[1,1]
 ; X64-NEXT:    movsd %xmm0, (%rdi)
 ; X64-NEXT:    retq
@@ -3265,13 +3290,13 @@ define void @test_mm_storeh_sd(double *%a0, <2 x double> %a1) {
 
 define void @test_mm_storel_epi64(<2 x i64> *%a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_storel_epi64:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movlps %xmm0, (%eax)
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_storel_epi64:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movq %xmm0, %rax
 ; X64-NEXT:    movq %rax, (%rdi)
 ; X64-NEXT:    retq
@@ -3283,13 +3308,13 @@ define void @test_mm_storel_epi64(<2 x i64> *%a0, <2 x i64> %a1) {
 
 define void @test_mm_storel_sd(double *%a0, <2 x double> %a1) {
 ; X32-LABEL: test_mm_storel_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movsd %xmm0, (%eax)
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_storel_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movsd %xmm0, (%rdi)
 ; X64-NEXT:    retq
   %ext = extractelement <2 x double> %a1, i32 0
@@ -3299,14 +3324,14 @@ define void @test_mm_storel_sd(double *%a0, <2 x double> %a1) {
 
 define void @test_mm_storer_pd(double *%a0, <2 x double> %a1) {
 ; X32-LABEL: test_mm_storer_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    shufpd {{.*#+}} xmm0 = xmm0[1,0]
 ; X32-NEXT:    movapd %xmm0, (%eax)
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_storer_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    shufpd {{.*#+}} xmm0 = xmm0[1,0]
 ; X64-NEXT:    movapd %xmm0, (%rdi)
 ; X64-NEXT:    retq
@@ -3318,13 +3343,13 @@ define void @test_mm_storer_pd(double *%a0, <2 x double> %a1) {
 
 define void @test_mm_storeu_pd(double *%a0, <2 x double> %a1) {
 ; X32-LABEL: test_mm_storeu_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movups %xmm0, (%eax)
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_storeu_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movups %xmm0, (%rdi)
 ; X64-NEXT:    retq
   %arg0 = bitcast double* %a0 to <2 x double>*
@@ -3334,13 +3359,13 @@ define void @test_mm_storeu_pd(double *%a0, <2 x double> %a1) {
 
 define void @test_mm_storeu_si128(<2 x i64> *%a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_storeu_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movups %xmm0, (%eax)
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_storeu_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movups %xmm0, (%rdi)
 ; X64-NEXT:    retq
   store <2 x i64> %a1, <2 x i64>* %a0, align 1
@@ -3349,13 +3374,13 @@ define void @test_mm_storeu_si128(<2 x i64> *%a0, <2 x i64> %a1) {
 
 define void @test_mm_stream_pd(double *%a0, <2 x double> %a1) {
 ; X32-LABEL: test_mm_stream_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movntps %xmm0, (%eax)
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_stream_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movntps %xmm0, (%rdi)
 ; X64-NEXT:    retq
   %arg0 = bitcast double* %a0 to <2 x double>*
@@ -3365,14 +3390,14 @@ define void @test_mm_stream_pd(double *%a0, <2 x double> %a1) {
 
 define void @test_mm_stream_si32(i32 *%a0, i32 %a1) {
 ; X32-LABEL: test_mm_stream_si32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X32-NEXT:    movntil %eax, (%ecx)
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_stream_si32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movntil %esi, (%rdi)
 ; X64-NEXT:    retq
   store i32 %a1, i32* %a0, align 1, !nontemporal !0
@@ -3381,13 +3406,13 @@ define void @test_mm_stream_si32(i32 *%a0, i32 %a1) {
 
 define void @test_mm_stream_si128(<2 x i64> *%a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_stream_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movntps %xmm0, (%eax)
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_stream_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movntps %xmm0, (%rdi)
 ; X64-NEXT:    retq
   store <2 x i64> %a1, <2 x i64>* %a0, align 16, !nontemporal !0
@@ -3396,12 +3421,12 @@ define void @test_mm_stream_si128(<2 x i64> *%a0, <2 x i64> %a1) {
 
 define <2 x i64> @test_mm_sub_epi8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_sub_epi8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psubb %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_sub_epi8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psubb %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
@@ -3413,12 +3438,12 @@ define <2 x i64> @test_mm_sub_epi8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_sub_epi16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_sub_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psubw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_sub_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psubw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -3430,12 +3455,12 @@ define <2 x i64> @test_mm_sub_epi16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_sub_epi32(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_sub_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psubd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_sub_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psubd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
@@ -3447,12 +3472,12 @@ define <2 x i64> @test_mm_sub_epi32(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x i64> @test_mm_sub_epi64(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_sub_epi64:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psubq %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_sub_epi64:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psubq %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = sub <2 x i64> %a0, %a1
@@ -3461,12 +3486,12 @@ define <2 x i64> @test_mm_sub_epi64(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 
 define <2 x double> @test_mm_sub_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_sub_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    subpd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_sub_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    subpd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = fsub <2 x double> %a0, %a1
@@ -3475,12 +3500,12 @@ define <2 x double> @test_mm_sub_pd(<2 x double> %a0, <2 x double> %a1) nounwind
 
 define <2 x double> @test_mm_sub_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_sub_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    subsd %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_sub_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    subsd %xmm1, %xmm0
 ; X64-NEXT:    retq
   %ext0 = extractelement <2 x double> %a0, i32 0
@@ -3492,79 +3517,107 @@ define <2 x double> @test_mm_sub_sd(<2 x double> %a0, <2 x double> %a1) nounwind
 
 define <2 x i64> @test_mm_subs_epi8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_subs_epi8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psubsb %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_subs_epi8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psubsb %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
   %arg1 = bitcast <2 x i64> %a1 to <16 x i8>
-  %res = call <16 x i8> @llvm.x86.sse2.psubs.b(<16 x i8> %arg0, <16 x i8> %arg1)
-  %bc = bitcast <16 x i8> %res to <2 x i64>
+  %1 = sext <16 x i8> %arg0 to <16 x i16>
+  %2 = sext <16 x i8> %arg1 to <16 x i16>
+  %3 = sub nsw <16 x i16> %1, %2
+  %4 = icmp slt <16 x i16> %3, <i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127>
+  %5 = select <16 x i1> %4, <16 x i16> %3, <16 x i16> <i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127, i16 127>
+  %6 = icmp sgt <16 x i16> %5, <i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128>
+  %7 = select <16 x i1> %6, <16 x i16> %5, <16 x i16> <i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128, i16 -128>
+  %8 = trunc <16 x i16> %7 to <16 x i8>
+  %bc = bitcast <16 x i8> %8 to <2 x i64>
   ret <2 x i64> %bc
 }
-declare <16 x i8> @llvm.x86.sse2.psubs.b(<16 x i8>, <16 x i8>) nounwind readnone
 
 define <2 x i64> @test_mm_subs_epi16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_subs_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    psubsw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_subs_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    psubsw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
   %arg1 = bitcast <2 x i64> %a1 to <8 x i16>
-  %res = call <8 x i16> @llvm.x86.sse2.psubs.w(<8 x i16> %arg0, <8 x i16> %arg1)
-  %bc = bitcast <8 x i16> %res to <2 x i64>
+  %1 = sext <8 x i16> %arg0 to <8 x i32>
+  %2 = sext <8 x i16> %arg1 to <8 x i32>
+  %3 = sub nsw <8 x i32> %1, %2
+  %4 = icmp slt <8 x i32> %3, <i32 32767, i32 32767, i32 32767, i32 32767, i32 32767, i32 32767, i32 32767, i32 32767>
+  %5 = select <8 x i1> %4, <8 x i32> %3, <8 x i32> <i32 32767, i32 32767, i32 32767, i32 32767, i32 32767, i32 32767, i32 32767, i32 32767>
+  %6 = icmp sgt <8 x i32> %5, <i32 -32768, i32 -32768, i32 -32768, i32 -32768, i32 -32768, i32 -32768, i32 -32768, i32 -32768>
+  %7 = select <8 x i1> %6, <8 x i32> %5, <8 x i32> <i32 -32768, i32 -32768, i32 -32768, i32 -32768, i32 -32768, i32 -32768, i32 -32768, i32 -32768>
+  %8 = trunc <8 x i32> %7 to <8 x i16>
+  %bc = bitcast <8 x i16> %8 to <2 x i64>
   ret <2 x i64> %bc
 }
-declare <8 x i16> @llvm.x86.sse2.psubs.w(<8 x i16>, <8 x i16>) nounwind readnone
 
 define <2 x i64> @test_mm_subs_epu8(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_subs_epu8:
-; X32:       # BB#0:
-; X32-NEXT:    psubusb %xmm1, %xmm0
+; X32:       # %bb.0:
+; X32-NEXT:    pmaxub %xmm1, %xmm0
+; X32-NEXT:    psubb %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_subs_epu8:
-; X64:       # BB#0:
-; X64-NEXT:    psubusb %xmm1, %xmm0
+; X64:       # %bb.0:
+; X64-NEXT:    pmaxub %xmm1, %xmm0
+; X64-NEXT:    psubb %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
   %arg1 = bitcast <2 x i64> %a1 to <16 x i8>
-  %res = call <16 x i8> @llvm.x86.sse2.psubus.b(<16 x i8> %arg0, <16 x i8> %arg1)
-  %bc = bitcast <16 x i8> %res to <2 x i64>
+  %cmp = icmp ugt <16 x i8> %arg0, %arg1
+  %sel = select <16 x i1> %cmp, <16 x i8> %arg0, <16 x i8> %arg1
+  %sub = sub <16 x i8> %sel, %arg1
+  %bc = bitcast <16 x i8> %sub to <2 x i64>
   ret <2 x i64> %bc
 }
-declare <16 x i8> @llvm.x86.sse2.psubus.b(<16 x i8>, <16 x i8>) nounwind readnone
 
 define <2 x i64> @test_mm_subs_epu16(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_subs_epu16:
-; X32:       # BB#0:
-; X32-NEXT:    psubusw %xmm1, %xmm0
+; X32:       # %bb.0:
+; X32-NEXT:    movdqa .LCPI190_0, %xmm2 # xmm2 = [32768,32768,32768,32768,32768,32768,32768,32768]
+; X32-NEXT:    movdqa %xmm1, %xmm3
+; X32-NEXT:    pxor %xmm2, %xmm3
+; X32-NEXT:    pxor %xmm2, %xmm0
+; X32-NEXT:    pmaxsw %xmm3, %xmm0
+; X32-NEXT:    pxor %xmm2, %xmm0
+; X32-NEXT:    psubw %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_subs_epu16:
-; X64:       # BB#0:
-; X64-NEXT:    psubusw %xmm1, %xmm0
+; X64:       # %bb.0:
+; X64-NEXT:    movdqa .LCPI190_0(%rip), %xmm2 # xmm2 = [32768,32768,32768,32768,32768,32768,32768,32768]
+; X64-NEXT:    movdqa %xmm1, %xmm3
+; X64-NEXT:    pxor %xmm2, %xmm3
+; X64-NEXT:    pxor %xmm2, %xmm0
+; X64-NEXT:    pmaxsw %xmm3, %xmm0
+; X64-NEXT:    pxor %xmm2, %xmm0
+; X64-NEXT:    psubw %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
   %arg1 = bitcast <2 x i64> %a1 to <8 x i16>
-  %res = call <8 x i16> @llvm.x86.sse2.psubus.w(<8 x i16> %arg0, <8 x i16> %arg1)
-  %bc = bitcast <8 x i16> %res to <2 x i64>
+  %cmp = icmp ugt <8 x i16> %arg0, %arg1
+  %sel = select <8 x i1> %cmp, <8 x i16> %arg0, <8 x i16> %arg1
+  %sub = sub <8 x i16> %sel, %arg1
+  %bc = bitcast <8 x i16> %sub to <2 x i64>
   ret <2 x i64> %bc
 }
-declare <8 x i16> @llvm.x86.sse2.psubus.w(<8 x i16>, <8 x i16>) nounwind readnone
 
 define i32 @test_mm_ucomieq_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_ucomieq_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    ucomisd %xmm1, %xmm0
 ; X32-NEXT:    setnp %al
 ; X32-NEXT:    sete %cl
@@ -3573,7 +3626,7 @@ define i32 @test_mm_ucomieq_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_ucomieq_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    ucomisd %xmm1, %xmm0
 ; X64-NEXT:    setnp %al
 ; X64-NEXT:    sete %cl
@@ -3587,14 +3640,14 @@ declare i32 @llvm.x86.sse2.ucomieq.sd(<2 x double>, <2 x double>) nounwind readn
 
 define i32 @test_mm_ucomige_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_ucomige_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    xorl %eax, %eax
 ; X32-NEXT:    ucomisd %xmm1, %xmm0
 ; X32-NEXT:    setae %al
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_ucomige_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    xorl %eax, %eax
 ; X64-NEXT:    ucomisd %xmm1, %xmm0
 ; X64-NEXT:    setae %al
@@ -3606,14 +3659,14 @@ declare i32 @llvm.x86.sse2.ucomige.sd(<2 x double>, <2 x double>) nounwind readn
 
 define i32 @test_mm_ucomigt_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_ucomigt_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    xorl %eax, %eax
 ; X32-NEXT:    ucomisd %xmm1, %xmm0
 ; X32-NEXT:    seta %al
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_ucomigt_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    xorl %eax, %eax
 ; X64-NEXT:    ucomisd %xmm1, %xmm0
 ; X64-NEXT:    seta %al
@@ -3625,14 +3678,14 @@ declare i32 @llvm.x86.sse2.ucomigt.sd(<2 x double>, <2 x double>) nounwind readn
 
 define i32 @test_mm_ucomile_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_ucomile_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    xorl %eax, %eax
 ; X32-NEXT:    ucomisd %xmm0, %xmm1
 ; X32-NEXT:    setae %al
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_ucomile_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    xorl %eax, %eax
 ; X64-NEXT:    ucomisd %xmm0, %xmm1
 ; X64-NEXT:    setae %al
@@ -3644,14 +3697,14 @@ declare i32 @llvm.x86.sse2.ucomile.sd(<2 x double>, <2 x double>) nounwind readn
 
 define i32 @test_mm_ucomilt_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_ucomilt_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    xorl %eax, %eax
 ; X32-NEXT:    ucomisd %xmm0, %xmm1
 ; X32-NEXT:    seta %al
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_ucomilt_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    xorl %eax, %eax
 ; X64-NEXT:    ucomisd %xmm0, %xmm1
 ; X64-NEXT:    seta %al
@@ -3663,7 +3716,7 @@ declare i32 @llvm.x86.sse2.ucomilt.sd(<2 x double>, <2 x double>) nounwind readn
 
 define i32 @test_mm_ucomineq_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_ucomineq_sd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    ucomisd %xmm1, %xmm0
 ; X32-NEXT:    setp %al
 ; X32-NEXT:    setne %cl
@@ -3672,7 +3725,7 @@ define i32 @test_mm_ucomineq_sd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_ucomineq_sd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    ucomisd %xmm1, %xmm0
 ; X64-NEXT:    setp %al
 ; X64-NEXT:    setne %cl
@@ -3686,34 +3739,34 @@ declare i32 @llvm.x86.sse2.ucomineq.sd(<2 x double>, <2 x double>) nounwind read
 
 define <2 x double> @test_mm_undefined_pd() {
 ; X32-LABEL: test_mm_undefined_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_undefined_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    retq
   ret <2 x double> undef
 }
 
 define <2 x i64> @test_mm_undefined_si128() {
 ; X32-LABEL: test_mm_undefined_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_undefined_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    retq
   ret <2 x i64> undef
 }
 
 define <2 x i64> @test_mm_unpackhi_epi8(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_unpackhi_epi8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    punpckhbw {{.*#+}} xmm0 = xmm0[8],xmm1[8],xmm0[9],xmm1[9],xmm0[10],xmm1[10],xmm0[11],xmm1[11],xmm0[12],xmm1[12],xmm0[13],xmm1[13],xmm0[14],xmm1[14],xmm0[15],xmm1[15]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_unpackhi_epi8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    punpckhbw {{.*#+}} xmm0 = xmm0[8],xmm1[8],xmm0[9],xmm1[9],xmm0[10],xmm1[10],xmm0[11],xmm1[11],xmm0[12],xmm1[12],xmm0[13],xmm1[13],xmm0[14],xmm1[14],xmm0[15],xmm1[15]
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
@@ -3725,12 +3778,12 @@ define <2 x i64> @test_mm_unpackhi_epi8(<2 x i64> %a0, <2 x i64> %a1) {
 
 define <2 x i64> @test_mm_unpackhi_epi16(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_unpackhi_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    punpckhwd {{.*#+}} xmm0 = xmm0[4],xmm1[4],xmm0[5],xmm1[5],xmm0[6],xmm1[6],xmm0[7],xmm1[7]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_unpackhi_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    punpckhwd {{.*#+}} xmm0 = xmm0[4],xmm1[4],xmm0[5],xmm1[5],xmm0[6],xmm1[6],xmm0[7],xmm1[7]
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -3742,12 +3795,12 @@ define <2 x i64> @test_mm_unpackhi_epi16(<2 x i64> %a0, <2 x i64> %a1) {
 
 define <2 x i64> @test_mm_unpackhi_epi32(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_unpackhi_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    unpckhps {{.*#+}} xmm0 = xmm0[2],xmm1[2],xmm0[3],xmm1[3]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_unpackhi_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    unpckhps {{.*#+}} xmm0 = xmm0[2],xmm1[2],xmm0[3],xmm1[3]
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
@@ -3759,12 +3812,12 @@ define <2 x i64> @test_mm_unpackhi_epi32(<2 x i64> %a0, <2 x i64> %a1) {
 
 define <2 x i64> @test_mm_unpackhi_epi64(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_unpackhi_epi64:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    unpckhpd {{.*#+}} xmm0 = xmm0[1],xmm1[1]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_unpackhi_epi64:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    unpckhpd {{.*#+}} xmm0 = xmm0[1],xmm1[1]
 ; X64-NEXT:    retq
   %res = shufflevector <2 x i64> %a0, <2 x i64> %a1, <2 x i32> <i32 1, i32 3>
@@ -3773,12 +3826,12 @@ define <2 x i64> @test_mm_unpackhi_epi64(<2 x i64> %a0, <2 x i64> %a1) {
 
 define <2 x double> @test_mm_unpackhi_pd(<2 x double> %a0, <2 x double> %a1) {
 ; X32-LABEL: test_mm_unpackhi_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    unpckhpd {{.*#+}} xmm0 = xmm0[1],xmm1[1]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_unpackhi_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    unpckhpd {{.*#+}} xmm0 = xmm0[1],xmm1[1]
 ; X64-NEXT:    retq
   %res = shufflevector <2 x double> %a0, <2 x double> %a1, <2 x i32> <i32 1, i32 3>
@@ -3787,12 +3840,12 @@ define <2 x double> @test_mm_unpackhi_pd(<2 x double> %a0, <2 x double> %a1) {
 
 define <2 x i64> @test_mm_unpacklo_epi8(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_unpacklo_epi8:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    punpcklbw {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],xmm0[2],xmm1[2],xmm0[3],xmm1[3],xmm0[4],xmm1[4],xmm0[5],xmm1[5],xmm0[6],xmm1[6],xmm0[7],xmm1[7]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_unpacklo_epi8:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    punpcklbw {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],xmm0[2],xmm1[2],xmm0[3],xmm1[3],xmm0[4],xmm1[4],xmm0[5],xmm1[5],xmm0[6],xmm1[6],xmm0[7],xmm1[7]
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <16 x i8>
@@ -3804,12 +3857,12 @@ define <2 x i64> @test_mm_unpacklo_epi8(<2 x i64> %a0, <2 x i64> %a1) {
 
 define <2 x i64> @test_mm_unpacklo_epi16(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_unpacklo_epi16:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    punpcklwd {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],xmm0[2],xmm1[2],xmm0[3],xmm1[3]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_unpacklo_epi16:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    punpcklwd {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],xmm0[2],xmm1[2],xmm0[3],xmm1[3]
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <8 x i16>
@@ -3821,12 +3874,12 @@ define <2 x i64> @test_mm_unpacklo_epi16(<2 x i64> %a0, <2 x i64> %a1) {
 
 define <2 x i64> @test_mm_unpacklo_epi32(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_unpacklo_epi32:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    unpcklps {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_unpacklo_epi32:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    unpcklps {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1]
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x i64> %a0 to <4 x i32>
@@ -3838,12 +3891,12 @@ define <2 x i64> @test_mm_unpacklo_epi32(<2 x i64> %a0, <2 x i64> %a1) {
 
 define <2 x i64> @test_mm_unpacklo_epi64(<2 x i64> %a0, <2 x i64> %a1) {
 ; X32-LABEL: test_mm_unpacklo_epi64:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0],xmm1[0]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_unpacklo_epi64:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0],xmm1[0]
 ; X64-NEXT:    retq
   %res = shufflevector <2 x i64> %a0, <2 x i64> %a1, <2 x i32> <i32 0, i32 2>
@@ -3852,12 +3905,12 @@ define <2 x i64> @test_mm_unpacklo_epi64(<2 x i64> %a0, <2 x i64> %a1) {
 
 define <2 x double> @test_mm_unpacklo_pd(<2 x double> %a0, <2 x double> %a1) {
 ; X32-LABEL: test_mm_unpacklo_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0],xmm1[0]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_unpacklo_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0],xmm1[0]
 ; X64-NEXT:    retq
   %res = shufflevector <2 x double> %a0, <2 x double> %a1, <2 x i32> <i32 0, i32 2>
@@ -3866,12 +3919,12 @@ define <2 x double> @test_mm_unpacklo_pd(<2 x double> %a0, <2 x double> %a1) {
 
 define <2 x double> @test_mm_xor_pd(<2 x double> %a0, <2 x double> %a1) nounwind {
 ; X32-LABEL: test_mm_xor_pd:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    xorps %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_xor_pd:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    xorps %xmm1, %xmm0
 ; X64-NEXT:    retq
   %arg0 = bitcast <2 x double> %a0 to <4 x i32>
@@ -3883,12 +3936,12 @@ define <2 x double> @test_mm_xor_pd(<2 x double> %a0, <2 x double> %a1) nounwind
 
 define <2 x i64> @test_mm_xor_si128(<2 x i64> %a0, <2 x i64> %a1) nounwind {
 ; X32-LABEL: test_mm_xor_si128:
-; X32:       # BB#0:
+; X32:       # %bb.0:
 ; X32-NEXT:    xorps %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_xor_si128:
-; X64:       # BB#0:
+; X64:       # %bb.0:
 ; X64-NEXT:    xorps %xmm1, %xmm0
 ; X64-NEXT:    retq
   %res = xor <2 x i64> %a0, %a1

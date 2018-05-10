@@ -21,7 +21,6 @@
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/ISDOpcodes.h"
 #include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
 #include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/CodeGen/ValueTypes.h"
@@ -31,6 +30,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/Support/CodeGen.h"
+#include "llvm/Support/MachineValueType.h"
 #include <utility>
 
 namespace llvm {
@@ -87,6 +87,7 @@ class VectorType;
       CMOV,         // ARM conditional move instructions.
 
       SSAT,         // Signed saturation
+      USAT,         // Unsigned saturation
 
       BCC_i64,
 
@@ -101,6 +102,7 @@ class VectorType;
 
       VMOVRRD,      // double to two gprs.
       VMOVDRR,      // Two gprs to double.
+      VMOVSR,       // move gpr to single, used for f32 literal constructed in a gpr
 
       EH_SJLJ_SETJMP,         // SjLj exception handling setjmp.
       EH_SJLJ_LONGJMP,        // SjLj exception handling longjmp.
@@ -170,6 +172,10 @@ class VectorType;
       // Vector move f32 immediate:
       VMOVFPIMM,
 
+      // Move H <-> R, clearing top 16 bits
+      VMOVrh,
+      VMOVhr,
+
       // Vector duplicate:
       VDUP,
       VDUPLANE,
@@ -202,6 +208,8 @@ class VectorType;
       SMLALDX,      // Signed multiply accumulate long dual exchange
       SMLSLD,       // Signed multiply subtract long dual
       SMLSLDX,      // Signed multiply subtract long dual exchange
+      SMMLAR,       // Signed multiply long, round and add
+      SMMLSR,       // Signed multiply long, subtract and round
 
       // Operands of the standard BUILD_VECTOR node are not legalized, which
       // is fine if BUILD_VECTORs are always lowered to shuffles or other
@@ -324,6 +332,7 @@ class VectorType;
     bool isTruncateFree(Type *SrcTy, Type *DstTy) const override;
     bool isTruncateFree(EVT SrcVT, EVT DstVT) const override;
     bool isZExtFree(SDValue Val, EVT VT2) const override;
+    bool isFNegFree(EVT VT) const override;
 
     bool isVectorLoadExtDesirable(SDValue ExtVal) const override;
 
@@ -470,6 +479,7 @@ class VectorType;
 
     bool getTgtMemIntrinsic(IntrinsicInfo &Info,
                             const CallInst &I,
+                            MachineFunction &MF,
                             unsigned Intrinsic) const override;
 
     /// \brief Returns true if it is beneficial to convert a load of a constant
@@ -531,9 +541,6 @@ class VectorType;
 
     bool canCombineStoreAndExtract(Type *VectorTy, Value *Idx,
                                    unsigned &Cost) const override;
-
-    // Disable currently because of invalid merge.
-    bool mergeStoresAfterLegalization() const override { return false; }
 
     bool canMergeStoresTo(unsigned AddressSpace, EVT MemVT,
                           const SelectionDAG &DAG) const override {
@@ -641,9 +648,11 @@ class VectorType;
     SDValue LowerGlobalTLSAddressWindows(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerGLOBAL_OFFSET_TABLE(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerBR_JT(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerXALUO(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerSignedALUO(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerUnsignedALUO(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerSELECT(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerBRCOND(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerFCOPYSIGN(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const;
@@ -693,8 +702,8 @@ class VectorType;
                             SDValue ThisVal) const;
 
     bool supportSplitCSR(MachineFunction *MF) const override {
-      return MF->getFunction()->getCallingConv() == CallingConv::CXX_FAST_TLS &&
-          MF->getFunction()->hasFnAttribute(Attribute::NoUnwind);
+      return MF->getFunction().getCallingConv() == CallingConv::CXX_FAST_TLS &&
+          MF->getFunction().hasFnAttribute(Attribute::NoUnwind);
     }
 
     void initializeSplitCSR(MachineBasicBlock *Entry) const override;

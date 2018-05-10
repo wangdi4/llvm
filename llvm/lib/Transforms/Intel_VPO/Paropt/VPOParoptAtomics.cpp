@@ -41,7 +41,7 @@ using namespace llvm::vpo;
 
 // Main driver for handling a WRNAtomicNode.
 bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
-                                    StructType *IdentTy, AllocaInst *TidPtr) {
+                                    StructType *IdentTy, Constant *TidPtr) {
   bool handled;
   assert(AtomicNode != nullptr && "AtomicNode is null.");
 
@@ -96,8 +96,7 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
 // Handles generation of KMPC intrinsics for Atomic Read and Write.
 template <WRNAtomicKind AtomicKind>
 bool VPOParoptAtomics::handleAtomicRW(WRNAtomicNode *AtomicNode,
-                                             StructType *IdentTy,
-                                             AllocaInst *TidPtr) {
+                                      StructType *IdentTy, Constant *TidPtr) {
   assert((AtomicKind == WRNAtomicRead || AtomicKind == WRNAtomicWrite) &&
          "Unsupported AtomicKind for handleAtomicReadAndWrite.");
   assert(AtomicNode != nullptr && "AtomicNode is null.");
@@ -184,7 +183,7 @@ bool VPOParoptAtomics::handleAtomicRW(WRNAtomicNode *AtomicNode,
 // Handles generation of KMPC intrinsics for Atomic Update.
 bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
                                           StructType *IdentTy,
-                                          AllocaInst *TidPtr) {
+                                          Constant *TidPtr) {
   assert(AtomicNode != nullptr && "AtomicNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
@@ -293,7 +292,7 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
 // Handles generation of KMPC intrinsics for Atomic Capture.
 bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
                                            StructType *IdentTy,
-                                           AllocaInst *TidPtr) {
+                                           Constant *TidPtr) {
   assert(AtomicNode != nullptr && "AtomicNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
@@ -954,7 +953,7 @@ VPOParoptAtomics::gatherFirstSecondToLastAndLastStores(BasicBlock &BB) {
   SmallVector<StoreInst*, 3> StoreList;
 
   for (auto It = BB.begin(), End = BB.end(); It != End; ++It) {
-    if (StoreInst *SI = dyn_cast<StoreInst>(&*It)) {
+    if (StoreInst *SI = dyn_cast<StoreInst>(It)) {
       StoreList.push_back(SI); // First store -> StoreList[0]
       break;
     }

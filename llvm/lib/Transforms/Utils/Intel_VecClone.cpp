@@ -423,14 +423,16 @@ BasicBlock* VecClone::splitLoopIntoReturn(Function *Clone,
     }
   }
 
-  Function::iterator ReturnBlockIt = Clone->end();
   BasicBlock *ReturnBlock;
   if (dyn_cast<LoadInst>(SplitPt) || dyn_cast<ReturnInst>(SplitPt)) {
     ReturnBlock = LoopBlock->splitBasicBlock(SplitPt, "return");
   } else {
-    ReturnBlockIt = Clone->end();
-    ReturnBlockIt--;
-    ReturnBlock = &*ReturnBlockIt;
+    for (auto &BB : *Clone) {
+      if (isa<ReturnInst>(BB.getTerminator())) {
+        ReturnBlock = &BB;
+        break;
+      }
+    }
   }
 
   return ReturnBlock;
@@ -1168,7 +1170,7 @@ void VecClone::updateLinearReferences(Function *Clone, Function &F,
     User::user_iterator ArgUserIt = ArgListIt->user_begin();
     User::user_iterator ArgUserEnd = ArgListIt->user_end();
     unsigned ParmIdx = ArgListIt->getArgNo();
-    SmallVector<Instruction*, 4> LinearParmUsers;
+    SmallDenseMap<Instruction*, int> LinearParmUsers;
 
     if (ParmKinds[ParmIdx].isLinear()) {
 
@@ -1197,120 +1199,136 @@ void VecClone::updateLinearReferences(Function *Clone, Function &F,
                 // temp. We must replace the users of this load with an
                 // instruction that adds the result of this load with the
                 // stride.
-                LinearParmUsers.push_back(ParmLoad);
+                LinearParmUsers[ParmLoad] = Stride;
               }
             }
           } else {
             // Mem2Reg has run, so the parameter is directly referenced in the
             // store instruction.
-            LinearParmUsers.push_back(ParmStore);
+            LinearParmUsers[ParmStore] = Stride;
           }
         } else {
           // Mem2Reg has registerized the parameters, so users of it will use
           // it directly, and not through a load of the parameter.
-          LinearParmUsers.push_back(ParmUser);
+          LinearParmUsers[ParmUser] = Stride;
         }
+      }
+    }
 
-        for (unsigned I = 0; I < LinearParmUsers.size(); I++) {
-          // For each user of parameter:
+    SmallDenseMap<Instruction*, int>::iterator UserIt = LinearParmUsers.begin();
+    SmallDenseMap<Instruction*, int>::iterator UserEnd = LinearParmUsers.end();
+    for (; UserIt != UserEnd; ++UserIt) {
+      // For each user of parameter:
 
-          // We must deal with two cases here, based on whether Mem2Reg has been
-          // run.
-          //
-          // Example:
-          //
-          // __declspec(vector(linear(i:1),uniform(x),vectorlength(4)))
-          // extern int foo(int i, int x) {
-          //   return (x + i);
-          // }
-          //
-          // 1) We are loading the parameter from an alloca and the SSA temp as
-          //    as a result of the load is what we need to add the stride to.
-          //    Then, any users of that temp must be replaced. The only load
-          //    instructions put in the collection above are guaranteed to be
-          //    associated with the parameter's alloca. Thus, we only need to
-          //    check to see if a load is in the map to know what to do.
-          //
-          // Before Linear Update:
-          //
-          // simd.loop:                     ; preds = %simd.loop.exit, %entry
-          //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.exit ]
-          //   store i32 %x, i32* %x.addr, align 4
-          //   %0 = load i32, i32* %x.addr, align 4
-          //   %1 = load i32, i32* %i.addr, align 4 <--- %i
-          //   %add = add nsw i32 %0, %1            <--- replace %1 with stride
-          //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
-          //   store i32 %add, i32* %ret.cast.gep
-          //   br label %simd.loop.exit
-          //
-          // After Linear Update:
-          //
-          // simd.loop:                     ; preds = %simd.loop.exit, %entry
-          //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.exit ]
-          //   store i32 %x, i32* %x.addr, align 4
-          //   %0 = load i32, i32* %x.addr, align 4
-          //   %1 = load i32, i32* %i.addr, align 4
-          //   %stride.mul = mul i32 1, %index
-          //   %stride.add = add i32 %1, %stride.mul <--- stride
-          //   %add = add nsw i32 %0, %stride.add    <--- new %i with stride
-          //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
-          //   store i32 %add, i32* %ret.cast.gep
-          //   br label %simd.loop.exit
-          //
-          // 2) The user uses the parameter directly, and so we must apply the
-          //    stride directly to the parameter. Any users of the parameter
-          //    must then be updated.
-          //
-          // Before Linear Update:
-          //
-          // simd.loop:                     ; preds = %simd.loop.exit, %entry
-          //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.exit ]
-          //   %add = add nsw i32 %x, %i <-- direct usage of %i
-          //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
-          //   store i32 %add, i32* %ret.cast.gep
-          //   br label %simd.loop.exit
-          //
-          // After Linear Update:
-          //
-          // simd.loop:                     ; preds = %simd.loop.exit, %entry
-          //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.exit ]
-          //   %stride.mul = mul i32 1, %index
-          //   %stride.add = add i32 %i, %stride.mul <--- stride
-          //   %add = add nsw i32 %x, %stride.add    <--- new %i with stride
-          //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
-          //   store i32 %add, i32* %ret.cast.gep
-          //   br label %simd.loop.exit
+      // We must deal with two cases here, based on whether Mem2Reg has been
+      // run.
+      //
+      // Example:
+      //
+      // __declspec(vector(linear(i:1),uniform(x),vectorlength(4)))
+      // extern int foo(int i, int x) {
+      //   return (x + i);
+      // }
+      //
+      // 1) We are loading the parameter from an alloca and the SSA temp as a
+      //    result of the load is what we need to add the stride to. Then, any
+      //    users of that temp must be replaced. The only load instructions put
+      //    in the collection above are guaranteed to be associated with the
+      //    parameter's alloca. Thus, we only need to check to see if a load is
+      //    in the map to know what to do.
+      //
+      // Before Linear Update:
+      //
+      // simd.loop:                     ; preds = %simd.loop.exit, %entry
+      //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.exit ]
+      //   store i32 %x, i32* %x.addr, align 4
+      //   %0 = load i32, i32* %x.addr, align 4
+      //   %1 = load i32, i32* %i.addr, align 4 <--- %i
+      //   %add = add nsw i32 %0, %1            <--- replace %1 with stride
+      //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
+      //   store i32 %add, i32* %ret.cast.gep
+      //   br label %simd.loop.exit
+      //
+      // After Linear Update:
+      //
+      // simd.loop:                     ; preds = %simd.loop.exit, %entry
+      //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.exit ]
+      //   store i32 %x, i32* %x.addr, align 4
+      //   %0 = load i32, i32* %x.addr, align 4
+      //   %1 = load i32, i32* %i.addr, align 4
+      //   %stride.mul = mul i32 1, %index
+      //   %stride.add = add i32 %1, %stride.mul <--- stride
+      //   %add = add nsw i32 %0, %stride.add    <--- new %i with stride
+      //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
+      //   store i32 %add, i32* %ret.cast.gep
+      //   br label %simd.loop.exit
+      //
+      // 2) The user uses the parameter directly, and so we must apply the
+      //    stride directly to the parameter. Any users of the parameter must
+      //    then be updated.
+      //
+      // Before Linear Update:
+      //
+      // simd.loop:                     ; preds = %simd.loop.exit, %entry
+      //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.exit ]
+      //   %add = add nsw i32 %x, %i <-- direct usage of %i
+      //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
+      //   store i32 %add, i32* %ret.cast.gep
+      //   br label %simd.loop.exit
+      //
+      // After Linear Update:
+      //
+      // simd.loop:                     ; preds = %simd.loop.exit, %entry
+      //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.exit ]
+      //   %stride.mul = mul i32 1, %index
+      //   %stride.add = add i32 %i, %stride.mul <--- stride
+      //   %add = add nsw i32 %x, %stride.add    <--- new %i with stride
+      //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
+      //   store i32 %add, i32* %ret.cast.gep
+      //   br label %simd.loop.exit
 
-          Instruction *StrideInst =
-              generateStrideForParameter(Clone, &*ArgListIt, LinearParmUsers[I],
-                                         Stride, Phi);
+      // The stride calculation is inserted before the use. In some cases this
+      // can lead to redundant instructions, but they will be optimized away
+      // later. Inserting them this way makes the algorithm simpler.
+      Instruction *StrideInst =
+          generateStrideForParameter(Clone, &*ArgListIt, UserIt->first,
+                                     UserIt->second, Phi);
 
-          SmallVector<Instruction*, 4> InstsToUpdate;
-          Value *ParmUser;
+      SmallVector<Instruction*, 4> InstsToUpdate;
+      Value *ParmUser;
 
-          if (isa<UnaryInstruction>(LinearParmUsers[I])) {
-            // Case 1
-            ParmUser = LinearParmUsers[I];
-            User::user_iterator StrideUserIt = LinearParmUsers[I]->user_begin();
-            User::user_iterator StrideUserEnd = LinearParmUsers[I]->user_end();
+      if (isa<UnaryInstruction>(UserIt->first)) {
+        // Case 1
+        ParmUser = UserIt->first;
+        User::user_iterator StrideUserIt = ParmUser->user_begin();
+        User::user_iterator StrideUserEnd = ParmUser->user_end();
 
-            // Find the users of the redefinition of the parameter so that we
-            // can apply the stride to those instructions.
-            for (; StrideUserIt != StrideUserEnd; ++StrideUserIt) {
+        // Find the users of the redefinition of the parameter so that we
+        // can apply the stride to those instructions.
+        for (; StrideUserIt != StrideUserEnd; ++StrideUserIt) {
 
-              Instruction *StrideUser = dyn_cast<Instruction>(*StrideUserIt);
-              if (StrideUser != StrideInst) {
-                // We've already inserted the stride which is now also a user of
-                // the parameter, so don't update that instruction. Otherwise,
-                // we'll create a self reference. Hence, why we don't use
-                // replaceAllUsesWith().
-                InstsToUpdate.push_back(StrideUser);
-              }
-            }
-          } else {
-            // Case 2
-            ParmUser = &*ArgListIt;
-            InstsToUpdate.push_back(LinearParmUsers[I]);
+          Instruction *StrideUser = dyn_cast<Instruction>(*StrideUserIt);
+          if (StrideUser != StrideInst) {
+            // We've already inserted the stride which is now also a user of
+            // the parameter, so don't update that instruction. Otherwise,
+            // we'll create a self reference. Hence, why we don't use
+            // replaceAllUsesWith().
+            InstsToUpdate.push_back(StrideUser);
+           }
+        }
+      } else {
+        // Case 2
+        ParmUser = &*ArgListIt;
+        InstsToUpdate.push_back(UserIt->first);
+      }
+ 
+      // Replace the old references to the parameter with the instruction
+      // that applies the stride.
+      for (unsigned J = 0; J < InstsToUpdate.size(); ++J) {
+        unsigned NumOps = InstsToUpdate[J]->getNumOperands();
+        for (unsigned K = 0; K < NumOps; ++K) {
+          if (InstsToUpdate[J]->getOperand(K) == ParmUser) {
+            InstsToUpdate[J]->setOperand(K, StrideInst);
           }
 
           // Replace the old references to the parameter with the instruction

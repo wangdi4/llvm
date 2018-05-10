@@ -562,7 +562,7 @@ bool CSARedundantMovElim::runOnMachineFunction(MachineFunction &MF) {
   if (!ElimMovOpt)
     return false;
 
-  if (skipFunction(*MF.getFunction()))
+  if (skipFunction(MF.getFunction()))
     return false;
 
   bool AnyChanges = false;

@@ -212,6 +212,15 @@ set(ENABLE_LINKER_BUILD_ID OFF CACHE BOOL "pass --build-id to ld")
 set(ENABLE_X86_RELAX_RELOCATIONS OFF CACHE BOOL
     "enable x86 relax relocations by default")
 
+set(ENABLE_EXPERIMENTAL_NEW_PASS_MANAGER FALSE CACHE BOOL
+  "Enable the experimental new pass manager by default.")
+
+# TODO: verify the values against LangStandards.def?
+set(CLANG_DEFAULT_STD_C "" CACHE STRING
+  "Default standard to use for C/ObjC code (IDENT from LangStandards.def, empty for platform default)")
+set(CLANG_DEFAULT_STD_CXX "" CACHE STRING
+  "Default standard to use for C++/ObjC++ code (IDENT from LangStandards.def, empty for platform default)")
+
 set(CLANG_DEFAULT_LINKER "" CACHE STRING
   "Default linker to use (linker name or absolute path, empty for platform default)")
 
@@ -241,14 +250,15 @@ set(CLANG_DEFAULT_OBJCOPY "objcopy" CACHE STRING
 set(CLANG_DEFAULT_OPENMP_RUNTIME "libomp" CACHE STRING
   "Default OpenMP runtime used by -fopenmp.")
 
-# OpenMP offloading requires at least sm_30 because we use shuffle instructions
-# to generate efficient code for reductions.
-set(CLANG_OPENMP_NVPTX_DEFAULT_ARCH "sm_30" CACHE STRING
+# OpenMP offloading requires at least sm_35 because we use shuffle instructions
+# to generate efficient code for reductions and the atomicMax instruction on
+# 64-bit integers in the implementation of conditional lastprivate.
+set(CLANG_OPENMP_NVPTX_DEFAULT_ARCH "sm_35" CACHE STRING
   "Default architecture for OpenMP offloading to Nvidia GPUs.")
 string(REGEX MATCH "^sm_([0-9]+)$" MATCHED_ARCH "${CLANG_OPENMP_NVPTX_DEFAULT_ARCH}")
-if (NOT DEFINED MATCHED_ARCH OR "${CMAKE_MATCH_1}" LESS 30)
-  message(WARNING "Resetting default architecture for OpenMP offloading to Nvidia GPUs to sm_30")
-  set(CLANG_OPENMP_NVPTX_DEFAULT_ARCH "sm_30" CACHE STRING
+if (NOT DEFINED MATCHED_ARCH OR "${CMAKE_MATCH_1}" LESS 35)
+  message(WARNING "Resetting default architecture for OpenMP offloading to Nvidia GPUs to sm_35")
+  set(CLANG_OPENMP_NVPTX_DEFAULT_ARCH "sm_35" CACHE STRING
     "Default architecture for OpenMP offloading to Nvidia GPUs." FORCE)
 endif()
 
@@ -417,11 +427,11 @@ endif()
 
 # Clang version information
 set(CLANG_EXECUTABLE_VERSION
-     "${CLANG_VERSION_MAJOR}.${CLANG_VERSION_MINOR}" CACHE STRING
-    "Version number that will be placed into the clang executable, in the form XX.YY")
+    "${CLANG_VERSION_MAJOR}" CACHE STRING
+    "Major version number that will be appended to the clang executable name")
 set(LIBCLANG_LIBRARY_VERSION
-     "${CLANG_VERSION_MAJOR}.${CLANG_VERSION_MINOR}" CACHE STRING
-    "Version number that will be placed into the libclang library , in the form XX.YY")
+    "${CLANG_VERSION_MAJOR}" CACHE STRING
+    "Major version number that will be appended to the libclang library")
 mark_as_advanced(CLANG_EXECUTABLE_VERSION LIBCLANG_LIBRARY_VERSION)
 
 option(CLANG_INCLUDE_TESTS
@@ -623,7 +633,8 @@ if (CLANG_ENABLE_BOOTSTRAP)
   set(COMPILER_OPTIONS
     -DCMAKE_CXX_COMPILER=${LLVM_RUNTIME_OUTPUT_INTDIR}/${CXX_COMPILER}
     -DCMAKE_C_COMPILER=${LLVM_RUNTIME_OUTPUT_INTDIR}/${C_COMPILER}
-    -DCMAKE_ASM_COMPILER=${LLVM_RUNTIME_OUTPUT_INTDIR}/${C_COMPILER})
+    -DCMAKE_ASM_COMPILER=${LLVM_RUNTIME_OUTPUT_INTDIR}/${C_COMPILER}
+    -DCMAKE_ASM_COMPILER_ID=Clang)
 
   if(BOOTSTRAP_LLVM_BUILD_INSTRUMENTED)
     add_dependencies(clang-bootstrap-deps llvm-profdata)
@@ -655,7 +666,7 @@ if (CLANG_ENABLE_BOOTSTRAP)
   foreach(variableName ${variableNames})
     if(variableName MATCHES "^BOOTSTRAP_")
       string(SUBSTRING ${variableName} 10 -1 varName)
-      string(REPLACE ";" "," value "${${variableName}}")
+      string(REPLACE ";" "|" value "${${variableName}}")
       list(APPEND PASSTHROUGH_VARIABLES
         -D${varName}=${value})
     endif()
@@ -671,7 +682,7 @@ if (CLANG_ENABLE_BOOTSTRAP)
       if("${${variableName}}" STREQUAL "")
         set(value "")
       else()
-        string(REPLACE ";" "," value "${${variableName}}")
+        string(REPLACE ";" "|" value "${${variableName}}")
       endif()
       list(APPEND PASSTHROUGH_VARIABLES
         -D${variableName}=${value})
@@ -699,7 +710,7 @@ if (CLANG_ENABLE_BOOTSTRAP)
     USES_TERMINAL_CONFIGURE 1
     USES_TERMINAL_BUILD 1
     USES_TERMINAL_INSTALL 1
-    LIST_SEPARATOR ,
+    LIST_SEPARATOR |
     )
 
   # exclude really-install from main target

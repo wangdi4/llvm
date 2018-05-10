@@ -16,31 +16,56 @@
 #ifndef LLVM_ANALYSIS_XMAINOPTLEVEL_H
 #define LLVM_ANALYSIS_XMAINOPTLEVEL_H
 
+#include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/PassAnalysisSupport.h"
 
 namespace llvm {
 
-class XmainOptLevelPass : public ImmutablePass {
-public:
-  static char ID;
+class XmainOptLevel {
   unsigned OptLevel;
 
-  XmainOptLevelPass(unsigned OptLevel = 2)
-      : ImmutablePass(ID), OptLevel(OptLevel) {
-    initializeXmainOptLevelPassPass(*PassRegistry::getPassRegistry());
+public:
+  XmainOptLevel(unsigned OptLevel);
+
+  unsigned getOptLevel() const { return OptLevel; }
+};
+
+class XmainOptLevelAnalysis
+    : public AnalysisInfoMixin<XmainOptLevelAnalysis> {
+  friend AnalysisInfoMixin<XmainOptLevelAnalysis>;
+  static AnalysisKey Key;
+
+  unsigned OptLevel;
+
+public:
+  typedef XmainOptLevel Result;
+
+  XmainOptLevelAnalysis() : XmainOptLevelAnalysis(2) {}
+  XmainOptLevelAnalysis(unsigned OptLevel) : OptLevel(OptLevel) {}
+
+  Result run(Function &, FunctionAnalysisManager &) {
+    return XmainOptLevel(OptLevel);
   }
+};
+
+
+class XmainOptLevelWrapperPass : public ImmutablePass {
+  XmainOptLevel Impl;
+
+public:
+  static char ID;
+
+  XmainOptLevelWrapperPass(unsigned OptLevel = 2);
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesAll();
   }
 
-  bool doInitialization(Module &M) override;
-
-  unsigned getOptLevel() const { return OptLevel; }
+  unsigned getOptLevel() const { return Impl.getOptLevel(); }
 };
 
-ImmutablePass *createXmainOptLevelPass(unsigned OptLevel = 2);
+ImmutablePass *createXmainOptLevelWrapperPass(unsigned OptLevel = 2);
 
 } // namespace llvm
 

@@ -120,7 +120,7 @@ void CSAMachineFunctionInfo::setLICName(unsigned vreg,
     auto baseIndex = composed.size();
     std::string fname_str;
     if (fname.isTriviallyEmpty()) 
-      fname_str = MF.getFunction()->getName();
+      fname_str = MF.getFunction().getName();
     else
       fname_str = fname.str();
     if (csa_utils::isAlwaysDataFlowLinkageSet() && (composed.find(fname_str) != 0)) {

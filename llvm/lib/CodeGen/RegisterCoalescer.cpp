@@ -22,7 +22,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/CodeGen/LiveInterval.h"
-#include "llvm/CodeGen/LiveIntervalAnalysis.h"
+#include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/LiveRangeEdit.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -70,10 +70,9 @@ STATISTIC(NumInflated , "Number of register classes inflated");
 STATISTIC(NumLaneConflicts, "Number of dead lane conflicts tested");
 STATISTIC(NumLaneResolves,  "Number of dead lane conflicts resolved");
 
-static cl::opt<bool>
-EnableJoining("join-liveintervals",
-              cl::desc("Coalesce copies (default=true)"),
-              cl::init(true));
+static cl::opt<bool> EnableJoining("join-liveintervals",
+                                   cl::desc("Coalesce copies (default=true)"),
+                                   cl::init(true), cl::Hidden);
 
 static cl::opt<bool> UseTerminalRule("terminal-rule",
                                      cl::desc("Apply the terminal rule"),
@@ -680,7 +679,7 @@ bool RegisterCoalescer::removeCopyByCommutingDef(const CoalescerPair &CP,
   // its other operand is coalesced to the copy dest register, see if we can
   // transform the copy into a noop by commuting the definition. For example,
   //
-  //  A3 = op A2 B0<kill>
+  //  A3 = op A2 killed B0
   //    ...
   //  B1 = A3      <- this copy
   //    ...
@@ -688,7 +687,7 @@ bool RegisterCoalescer::removeCopyByCommutingDef(const CoalescerPair &CP,
   //
   // ==>
   //
-  //  B2 = op B0 A2<kill>
+  //  B2 = op B0 killed A2
   //    ...
   //  B1 = B2      <- now an identity copy
   //    ...
@@ -781,7 +780,7 @@ bool RegisterCoalescer::removeCopyByCommutingDef(const CoalescerPair &CP,
   // ...
   // B = A
   // ...
-  // C = A<kill>
+  // C = killed A
   // ...
   //   = B
 
@@ -1002,13 +1001,24 @@ bool RegisterCoalescer::removePartialRedundancy(const CoalescerPair &CP,
   if (CopyLeftBB && CopyLeftBB->succ_size() > 1)
     return false;
 
-  // Now ok to move copy.
+  // Now (almost sure it's) ok to move copy.
   if (CopyLeftBB) {
-    DEBUG(dbgs() << "\tremovePartialRedundancy: Move the copy to BB#"
-                 << CopyLeftBB->getNumber() << '\t' << CopyMI);
+    // Position in CopyLeftBB where we should insert new copy.
+    auto InsPos = CopyLeftBB->getFirstTerminator();
+
+    // Make sure that B isn't referenced in the terminators (if any) at the end
+    // of the predecessor since we're about to insert a new definition of B
+    // before them.
+    if (InsPos != CopyLeftBB->end()) {
+      SlotIndex InsPosIdx = LIS->getInstructionIndex(*InsPos).getRegSlot(true);
+      if (IntB.overlaps(InsPosIdx, LIS->getMBBEndIdx(CopyLeftBB)))
+        return false;
+    }
+
+    DEBUG(dbgs() << "\tremovePartialRedundancy: Move the copy to "
+                 << printMBBReference(*CopyLeftBB) << '\t' << CopyMI);
 
     // Insert new copy to CopyLeftBB.
-    auto InsPos = CopyLeftBB->getFirstTerminator();
     MachineInstr *NewCopyMI = BuildMI(*CopyLeftBB, InsPos, CopyMI.getDebugLoc(),
                                       TII->get(TargetOpcode::COPY), IntB.reg)
                                   .addReg(IntA.reg);
@@ -1023,8 +1033,8 @@ bool RegisterCoalescer::removePartialRedundancy(const CoalescerPair &CP,
     // the deleted list.
     ErasedInstrs.erase(NewCopyMI);
   } else {
-    DEBUG(dbgs() << "\tremovePartialRedundancy: Remove the copy from BB#"
-                 << MBB.getNumber() << '\t' << CopyMI);
+    DEBUG(dbgs() << "\tremovePartialRedundancy: Remove the copy from "
+                 << printMBBReference(MBB) << '\t' << CopyMI);
   }
 
   // Remove CopyMI.
@@ -1267,7 +1277,7 @@ bool RegisterCoalescer::reMaterializeTrivialDef(const CoalescerPair &CP,
     // Make sure that the subrange for resultant undef is removed
     // For example:
     //   %1:sub1<def,read-undef> = LOAD CONSTANT 1
-    //   %2<def> = COPY %1
+    //   %2 = COPY %1
     // ==>
     //   %2:sub1<def, read-undef> = LOAD CONSTANT 1
     //     ; Correct but need to remove the subrange for %2:sub0
@@ -1310,7 +1320,7 @@ bool RegisterCoalescer::reMaterializeTrivialDef(const CoalescerPair &CP,
     // = somedef %1 ; %1 GR8
     // =>
     // %1 = somedef ; %1 GR8
-    // ECX<def, dead> = remat ; CL<imp-def>
+    // dead ECX = remat ; implicit-def CL
     // = somedef %1 ; %1 GR8
     // %1 will see the inteferences with CL but not with CH since
     // no live-ranges would have been created for ECX.
@@ -1365,7 +1375,7 @@ bool RegisterCoalescer::eliminateUndefCopy(MachineInstr *CopyMI) {
   // ProcessImpicitDefs may leave some copies of <undef> values, it only removes
   // local variables. When we have a copy like:
   //
-  //   %1 = COPY %2<undef>
+  //   %1 = COPY undef %2
   //
   // We delete the copy and remove the corresponding value number from %1.
   // Any uses of that value number are marked as <undef>.
@@ -1940,7 +1950,7 @@ bool RegisterCoalescer::joinReservedPhysReg(CoalescerPair &CP) {
 //
 //      %dst:ssub0<def,read-undef> = FOO
 //      %src = BAR
-//      %dst:ssub1<def> = COPY %src
+//      %dst:ssub1 = COPY %src
 //
 //    The live range of %src overlaps the %dst value defined by FOO, but
 //    merging %src into %dst:ssub1 is only going to clobber the ssub1 lane
@@ -1955,9 +1965,9 @@ bool RegisterCoalescer::joinReservedPhysReg(CoalescerPair &CP) {
 //    is live, but never read. This can happen because we don't compute
 //    individual live ranges per lane.
 //
-//      %dst<def> = FOO
+//      %dst = FOO
 //      %src = BAR
-//      %dst:ssub1<def> = COPY %src
+//      %dst:ssub1 = COPY %src
 //
 //    This kind of interference is only resolved locally. If the clobbered
 //    lane value escapes the block, the join is aborted.
@@ -2300,7 +2310,7 @@ JoinVals::analyzeValue(unsigned ValNo, JoinVals &Other) {
       //
       // This adds ssub1 to the set of valid lanes in %src:
       //
-      //   %src:ssub1<def> = FOO
+      //   %src:ssub1 = FOO
       //
       // This leaves only ssub1 valid, making any other lanes undef:
       //
@@ -2389,7 +2399,7 @@ JoinVals::analyzeValue(unsigned ValNo, JoinVals &Other) {
   if (OtherV.ErasableImplicitDef && DefMI &&
       DefMI->getParent() != Indexes->getMBBFromIndex(V.OtherVNI->def)) {
     DEBUG(dbgs() << "IMPLICIT_DEF defined at " << V.OtherVNI->def
-                 << " extends into BB#" << DefMI->getParent()->getNumber()
+                 << " extends into " << printMBBReference(*DefMI->getParent())
                  << ", keeping it.\n");
     OtherV.ErasableImplicitDef = false;
   }
@@ -2438,9 +2448,9 @@ JoinVals::analyzeValue(unsigned ValNo, JoinVals &Other) {
   //
   //   1 %dst:ssub0 = FOO                <-- OtherVNI
   //   2 %src = BAR                      <-- VNI
-  //   3 %dst:ssub1 = COPY %src<kill>    <-- Eliminate this copy.
-  //   4 BAZ %dst<kill>
-  //   5 QUUX %src<kill>
+  //   3 %dst:ssub1 = COPY killed %src    <-- Eliminate this copy.
+  //   4 BAZ killed %dst
+  //   5 QUUX killed %src
   //
   // Here OtherVNI will map to itself in [1;2), but to VNI in [2;5). CR_Replace
   // handles this complex value mapping.
@@ -2450,7 +2460,7 @@ JoinVals::analyzeValue(unsigned ValNo, JoinVals &Other) {
   // If the other live range is killed by DefMI and the live ranges are still
   // overlapping, it must be because we're looking at an early clobber def:
   //
-  //   %dst<def,early-clobber> = ASM %src<kill>
+  //   %dst<def,early-clobber> = ASM killed %src
   //
   // In this case, it is illegal to merge the two live ranges since the early
   // clobber def would clobber %src before it was read.
@@ -2695,7 +2705,7 @@ void JoinVals::pruneValues(JoinVals &Other,
       if (!Def.isBlock()) {
         if (changeInstrs) {
           // Remove <def,read-undef> flags. This def is now a partial redef.
-          // Also remove <def,dead> flags since the joined live range will
+          // Also remove dead flags since the joined live range will
           // continue past this instruction.
           for (MachineOperand &MO :
                Indexes->getInstructionFromIndex(Def)->operands()) {

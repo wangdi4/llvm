@@ -16,7 +16,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/CodeGen/CommandFlags.def"
+#include "llvm/CodeGen/CommandFlags.inc"
 #include "llvm/CodeGen/LinkAllAsmWriterComponents.h"
 #include "llvm/CodeGen/LinkAllCodegenComponents.h"
 #include "llvm/CodeGen/MIRParser/MIRParser.h"
@@ -24,6 +24,7 @@
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include "llvm/IR/AutoUpgrade.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
@@ -40,10 +41,9 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Host.h"
+#include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/PluginLoader.h"
-#include "llvm/Support/PrettyStackTrace.h"
-#include "llvm/Support/Signals.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
@@ -268,8 +268,7 @@ static void InlineAsmDiagHandler(const SMDiagnostic &SMD, void *Context,
 // main - Entry point for the llc compiler.
 //
 int main(int argc, char **argv) {
-  sys::PrintStackTraceOnErrorSignal(argv[0]);
-  PrettyStackTraceProgram X(argc, argv);
+  InitLLVM X(argc, argv);
 
   // Enable debug stream buffering.
   EnableDebugBuffering = true;
@@ -395,17 +394,9 @@ static int compileModule(char **argv, LLVMContext &Context) {
       if (MIR)
         M = MIR->parseIRModule();
     } else
-      M = parseIRFile(InputFilename, Err, Context);
+      M = parseIRFile(InputFilename, Err, Context, false);
     if (!M) {
       Err.print(argv[0], errs());
-      return 1;
-    }
-
-    // Verify module immediately to catch problems before doInitialization() is
-    // called on any passes.
-    if (!NoVerify && verifyModule(*M, &errs())) {
-      errs() << argv[0] << ": " << InputFilename
-             << ": error: input module is broken!\n";
       return 1;
     }
 
@@ -487,6 +478,18 @@ static int compileModule(char **argv, LLVMContext &Context) {
   // Add the target data from the target machine, if it exists, or the module.
   M->setDataLayout(Target->createDataLayout());
 
+  // This needs to be done after setting datalayout since it calls verifier
+  // to check debug info whereas verifier relies on correct datalayout.
+  UpgradeDebugInfo(*M);
+
+  // Verify module immediately to catch problems before doInitialization() is
+  // called on any passes.
+  if (!NoVerify && verifyModule(*M, &errs())) {
+    errs() << argv[0] << ": " << InputFilename
+           << ": error: input module is broken!\n";
+    return 1;
+  }
+
   // Override function attributes based on CPUStr, FeaturesStr, and command line
   // flags.
   setFunctionAttributes(CPUStr, FeaturesStr, *M);
@@ -560,7 +563,7 @@ static int compileModule(char **argv, LLVMContext &Context) {
     // in the future.
     SmallVector<char, 0> CompileTwiceBuffer;
     if (CompileTwice) {
-      std::unique_ptr<Module> M2(llvm::CloneModule(M.get()));
+      std::unique_ptr<Module> M2(llvm::CloneModule(*M));
       PM.run(*M2);
       CompileTwiceBuffer = Buffer;
       Buffer.clear();

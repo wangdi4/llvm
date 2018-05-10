@@ -22,6 +22,10 @@
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
+#ifdef INTEL_CUSTOMIZATION
+#define DEBUG_TYPE "machine-loop-info"
+#endif  // INTEL_CUSTOMIZATION
+
 // Explicitly instantiate methods in LoopInfoImpl.h for MI-level Loops.
 template class llvm::LoopBase<MachineBasicBlock, MachineLoop>;
 template class llvm::LoopInfoBase<MachineBasicBlock, MachineLoop>;
@@ -77,7 +81,7 @@ MachineBasicBlock *MachineLoop::getBottomBlock() {
   return BotMBB;
 }
 
-MachineBasicBlock *MachineLoop::findLoopControlBlock() {
+MachineBasicBlock *MachineLoop::findLoopControlBlock() const { // INTEL
   if (MachineBasicBlock *Latch = getLoopLatch()) {
     if (isLoopExiting(Latch))
       return Latch;
@@ -137,6 +141,81 @@ MachineLoopInfo::findLoopPreheader(MachineLoop *L,
   }
   return Preheader;
 }
+
+#ifdef INTEL_CUSTOMIZATION
+MDNode *MachineLoop::getLoopID() const {
+  MDNode *LoopID = nullptr;
+
+  if (auto *MBB = findLoopControlBlock()) {
+    // If there is a single latch block, then the metadata
+    // node is attached to its terminating instruction.
+    const auto *BB = MBB->getBasicBlock();
+    if (const auto *TI = BB->getTerminator()) {
+      LoopID = TI->getMetadata(LLVMContext::MD_loop);
+      DEBUG(dbgs() << "Fetched MD_loop from the MachineLoop's single latch.");
+    }
+  } else if (auto *MBB = getHeader()) {
+    // There seem to be multiple latch blocks, so we have to
+    // visit all predecessors of the loop header and check
+    // their terminating instructions for the metadata.
+    if (const auto *H = MBB->getBasicBlock()) {
+      // Walk over all blocks in the loop.
+      for (auto *MBB : this->blocks()) {
+        const auto *BB = MBB->getBasicBlock();
+
+        if (!BB) {
+          DEBUG(dbgs() << "Invalid MachineBasicBlock -> BasicBlock mapping.");
+          return nullptr;
+        }
+
+        const auto *TI = BB->getTerminator();
+
+        if (!TI) {
+          DEBUG(dbgs() << "Invalid (nullptr) terminating instruction.");
+          return nullptr;
+        }
+
+        MDNode *MD = nullptr;
+
+        // Check if this terminating instruction jumps to the loop header.
+        for (const auto *S : TI->successors()) {
+          if (S == H) {
+            // This is a jump to the header - gather the metadata from it.
+            MD = TI->getMetadata(LLVMContext::MD_loop);
+            DEBUG(dbgs() << "Fetched MD_loop from the MachineLoop's latch.");
+            break;
+          }
+        }
+
+        if (!MD) {
+          DEBUG(dbgs() << "Dropped inconsistent MD_loop (nullptr).");
+          return nullptr;
+        }
+
+        if (!LoopID)
+          LoopID = MD;
+        else if (MD != LoopID) {
+          DEBUG(dbgs() << "Dropped inconsistent MD_loop (mismatch).");
+          return nullptr;
+        }
+      }
+    }
+  }
+
+  if (LoopID &&
+      (LoopID->getNumOperands() == 0 || LoopID->getOperand(0) != LoopID)) {
+    LoopID = nullptr;
+    DEBUG(dbgs() << "Dropped inconsistent MD_loop (self-ref).");
+  }
+
+  if (!LoopID)
+    DEBUG(dbgs() << "Returning nullptr MD_loop.");
+  else
+    DEBUG(dbgs() << "Returning valid MD_loop.");
+
+  return LoopID;
+}
+#endif  // INTEL_CUSTOMIZATION
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void MachineLoop::dump() const {

@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the two regions verifying that second region adds .lcssa1344 as the livein value when parsing %n.026.i instead of tracing it back to the first region (creating additional liveout value for the first region which isn't handled correctly). 
 ; CHECK: Region 2

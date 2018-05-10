@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -29,12 +29,10 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-#if INTEL_OPENCL
 static cl::opt<bool> UseSimdChannels(
-  "use-simd-channels", cl::init(false),
+  "use-simd-channels", cl::init(true),
   cl::Hidden,
   cl::desc("use simd versions of read/write pipe functions"));
-#endif // INTEL_OPENCL
 
 #define DEBUG_TYPE "vpo-ir-loop-vectorize"
 
@@ -70,16 +68,6 @@ static GetElementPtrInst *getGEPInstruction(Value *Ptr) {
   if (isa<GetElementPtrInst>(Ptr))
     return cast<GetElementPtrInst>(Ptr);
   return dyn_cast<GetElementPtrInst>(getPtrThruBitCast(Ptr));
-}
-
-/// A helper function that returns the pointer operand of a load or store
-/// instruction.
-static Value *getPointerOperand(Value *I) {
-  if (auto *LI = dyn_cast<LoadInst>(I))
-    return LI->getPointerOperand();
-  if (auto *SI = dyn_cast<StoreInst>(I))
-    return SI->getPointerOperand();
-  return nullptr;
 }
 
 /// \brief Check that the instruction has outside loop users and is not an
@@ -1226,7 +1214,7 @@ void VPOCodeGen::vectorizeBitCast(Instruction *Inst) {
   // Do not vectorize bitcast of loop-private if
   // it is used in load/store only
   if (Legal->isLoopPrivate(Inst) && all_of(Inst->users(), [&](User *U) -> bool {
-        return getPointerOperand(U) == Inst;
+        return getLoadStorePointerOperand(U) == Inst;
       }))
     return;
   Value *A = getVectorValue(Inst->getOperand(0));
@@ -1891,14 +1879,13 @@ void VPOCodeGen::vectorizeSelectInstruction(Instruction *Inst) {
   SelectInst *SelectI = cast<SelectInst>(Inst);
   // If the selector is loop invariant we can create a select
   // instruction with a scalar condition. Otherwise, use vector-select.
-  auto *SE = PSE.getSE();
   Value *Cond = SelectI->getOperand(0);
   Value *VCond = getVectorValue(Cond);
   Value *Op0 = getVectorValue(SelectI->getOperand(1));
   Value *Op1 = getVectorValue(SelectI->getOperand(2));
 
   bool InvariantCond =
-    SE->isLoopInvariant(PSE.getSCEV(Cond), OrigLoop);
+    Legal->isLoopInvariant(Cond);
 
   // The condition can be loop invariant  but still defined inside the
   // loop. This means that we can't just use the original 'cond' value.
@@ -2597,6 +2584,9 @@ void VPOCodeGen::vectorizePHIInstruction(Instruction *Inst) {
 VectorVariant* VPOCodeGen::matchVectorVariant(Function *CalledFunc,
                                               bool Masked) {
 
+  VectorVariant *SelectedVariant = nullptr;
+
+  DEBUG(dbgs() << "Trying to find match for: " << CalledFunc->getName() << "\n");
   DEBUG(dbgs() << "\nCall VF: " << VF << "\n");
   unsigned TargetMaxRegWidth = TTI->getRegisterBitWidth(true);
   DEBUG(dbgs() << "Target Max Register Width: " << TargetMaxRegWidth << "\n");
@@ -2655,20 +2645,11 @@ VectorVariant* VPOCodeGen::matchVectorVariant(Function *CalledFunc,
       delete Variant;
     }
 
-    assert(VariantIdx >= 0 && "Invalid vector variant index");
-    VectorVariant *SelectedVariant = new VectorVariant(Variants[VariantIdx]);
-    return SelectedVariant;
+    if (VariantIdx >= 0)
+      SelectedVariant = new VectorVariant(Variants[VariantIdx]);
   }
 
-  llvm_unreachable("Function has vector variants but could not find a match");
-}
-
-#if INTEL_OPENCL
-bool VPOCodeGen::isScalarArgument(StringRef FnName, unsigned Idx) {
-  if (isOpenCLReadChannel(FnName) || isOpenCLWriteChannel(FnName)) {
-    return (Idx == 0);
-  }
-  return false;
+  return SelectedVariant;
 }
 
 bool VPOCodeGen::isScalarArgument(StringRef FnName, unsigned Idx) {
@@ -2776,7 +2757,6 @@ void VPOCodeGen::vectorizeOpenCLReadChannelDest(CallInst *Call,
       Builder.CreateBitCast(VecReadDst, VecCallPtrType, "read_dst_cast");
   Builder.CreateStore(VecCall, VecReadDst);
 }
-#endif // INTEL_OPENCL
 
 void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
                                    SmallVectorImpl<Value*> &VecArgs,
@@ -2790,7 +2770,6 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
   bool isScalarArg = false;
 
   for (unsigned i = 0; i < Call->getNumArgOperands(); i++) {
-#if INTEL_OPENCL
     Function *F = Call->getCalledFunction();
     assert(F && "Function not found for call instruction");
     StringRef FnName = F->getName();
@@ -2805,18 +2784,15 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
       VecArgs.push_back(VecWriteSrc);
       VecArgTys.push_back(VecWriteSrc->getType());
     } else
-#endif // INTEL_OPENCL
     if ((!VecVariant || Parms[i].isVector()) && !isScalarArg) {
       // This is a vector call arg, so vectorize it.
       Value *Arg = Call->getArgOperand(i);
       Value *VecArg;
 
-#if INTEL_OPENCL
       // Generate the right mask for OpenCL vector 'select' intrinsic
       if (isOpenCLSelectMask(FnName, i))
         VecArg = getOpenCLSelectVectorMask(Call->getArgOperand(i));
       else
-#endif
         VecArg = getVectorValue(Arg);
 
       VecArgs.push_back(VecArg);
@@ -2831,10 +2807,8 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
       // added. The same method applies to built-in functions for args that
       // need to be treated as uniform.
 
-#if INTEL_OPENCL
       assert(!isOpenCLSelectMask(FnName, i) &&
              "OpenCL select mask parameter is linear/uniform?");
-#endif
 
       Value *Arg = Call->getArgOperand(i);
       Value *ScalarArg = getScalarValue(Arg, 0);
@@ -2885,7 +2859,6 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
   }
 }
 
-#if INTEL_OPENCL
 void VPOCodeGen::initOpenCLScalarSelectSet(
     ArrayRef<const char *> ScalarSelects) {
 
@@ -2948,7 +2921,6 @@ Value *VPOCodeGen::getOpenCLSelectVectorMask(Value *ScalarMask) {
   Cmp = Builder.CreateICmpNE(VectorMask, Zero);
   return Builder.CreateSExt(Cmp, VecTy);
 }
-#endif // INTEL_OPENCL
 
 void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
 
@@ -2960,11 +2932,8 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   // Don't attempt vector function matching for SVML or built-in functions.
   VectorVariant *MatchedVariant = nullptr;
   if (!TLI->isFunctionVectorizable(CalledFunc->getName())
-#if INTEL_OPENCL
       && !isOpenCLReadChannel(CalledFunc->getName())
-      && !isOpenCLWriteChannel(CalledFunc->getName())
-#endif
-     ) {
+      && !isOpenCLWriteChannel(CalledFunc->getName())) {
     // TLI is not used to check for SIMD functions for two reasons:
     // 1) A more sophisticated interface is needed to determine the most
     //    appropriate match.
@@ -2988,10 +2957,7 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   // TODO: investigate why attempting to copy fast math flags for __read_pipe
   // fails. For now, just don't do the copy.
   if (isa<FPMathOperator>(VecCall)
-#if INTEL_OPENCL
-      && !isOpenCLReadChannel(CalledFunc->getName())
-#endif
-  )
+      && !isOpenCLReadChannel(CalledFunc->getName()))
     VecCall->copyFastMathFlags(Call);
 
   Loop *Lp = LI->getLoopFor(Call->getParent());
@@ -3007,11 +2973,9 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   // 2) Currently, masked stores are always generated for call results stored
   //    to memory within a predicated region. See vectorizeStoreInstruction().
 
-#if INTEL_OPENCL
   if (isOpenCLReadChannel(CalledFunc->getName())) {
     vectorizeOpenCLReadChannelDest(Call, VecCall, Call->getArgOperand(1));
   }
-#endif // INTEL_OPENCL
 
   WidenMap[cast<Value>(Call)] = VecCall;
 }
@@ -3026,11 +2990,11 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   case Instruction::GetElementPtr: {
     // Consecutive Load/Store will clone the GEP
     if (all_of(Inst->users(), [&](User *U) -> bool {
-          return getPointerOperand(U) == Inst;
+          return getLoadStorePointerOperand(U) == Inst;
         }) && Legal->isConsecutivePtr(Inst))
       break;
     if (all_of(Inst->users(), [&](User *U) -> bool {
-          return getPointerOperand(U) == Inst &&
+          return getLoadStorePointerOperand(U) == Inst &&
                  Legal->isUniformForTheLoop(U);
       })) {
       serializeInstruction(Inst);
@@ -3193,14 +3157,13 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     CallInst *Call = cast<CallInst>(Inst);
     Function *F = Call->getCalledFunction();
     StringRef CalledFunc = F->getName();
+    bool isMasked = (MaskValue != nullptr) ? true : false;
     if (TLI->isFunctionVectorizable(CalledFunc, VF) ||
-        F->hasFnAttribute("vector-variants")
-#if INTEL_OPENCL
-      || ((isOpenCLReadChannel(CalledFunc) ||
+        (F->hasFnAttribute("vector-variants") &&
+         matchVectorVariant(F, isMasked)) ||
+        ((isOpenCLReadChannel(CalledFunc) ||
            isOpenCLWriteChannel(CalledFunc)) &&
-          UseSimdChannels)
-#endif // INTEL_OPENCL
-    )
+          UseSimdChannels))
       vectorizeCallInstruction(Call);
     else {
       DEBUG(dbgs() << "Function " << CalledFunc << " is serialized\n");
@@ -3284,7 +3247,7 @@ bool VPOVectorizationLegality::isLoopInvariant(Value *V) {
   if (isLoopPrivate(V))
     return false;
   
-  return (PSE.getSE()->isLoopInvariant(PSE.getSCEV(V), TheLoop));
+  return LoopInvariants.count(V);
 }
 
 bool VPOVectorizationLegality::isLoopPrivate(Value *V) const {
@@ -3337,9 +3300,10 @@ int VPOVectorizationLegality::isConsecutivePtr(Value *Ptr) {
   if (isLoopPrivate(Ptr))
     return 1;
   
-  const ValueToValueMap &Strides = ValueToValueMap();
+  int Stride = 0;
+  if (PtrStrides.count(Ptr))
+    Stride = PtrStrides[Ptr];
 
-  int Stride = getPtrStride(PSE, Ptr, TheLoop, Strides, false);
   if (Stride == 1 || Stride == -1)
     return Stride;
 
@@ -3498,10 +3462,28 @@ void VPOVectorizationLegality::collectLoopUniformsForAnyVF() {
         Value *Cond = Br->getCondition();
         if (TheLoop->isLoopInvariant(Cond))
           Worklist.insert(Br);
+      } else if (isa<GetElementPtrInst>(&I)) {
+        // Collect invariant GEP operands
+        for (Value *Op : I.operands()) {
+          if (PSE.getSE()->isLoopInvariant(PSE.getSCEV(Op), TheLoop))
+            LoopInvariants.insert(Op);
+        }
+      } else if (isa<SelectInst>(&I)) {
+        // Collect invariant select conditions
+        Value *Cond = I.getOperand(0);
+        if (PSE.getSE()->isLoopInvariant(PSE.getSCEV(Cond), TheLoop))
+          LoopInvariants.insert(Cond);
       }
 
       // Load with loop invariant pointer
-      if (auto Ptr = getPointerOperand(&I)) {
+      Value *Ptr = getLoadStorePointerOperand(&I);
+      if (Ptr && !isLoopPrivate(Ptr)) {
+        // Collect pointer stride information
+        if (!PtrStrides.count(Ptr)) {
+          const ValueToValueMap &Strides = ValueToValueMap();
+          int Stride = getPtrStride(PSE, Ptr, TheLoop, Strides, false);
+          PtrStrides[Ptr] = Stride;
+        }
         const SCEV *PtrScevAtTheLoopScope =
           PSE.getSE()->getSCEVAtScope(Ptr, TheLoop);
         if (PSE.getSE()->isLoopInvariant(PtrScevAtTheLoopScope, TheLoop) &&
@@ -3591,14 +3573,14 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
     for (auto &I : *BB) {
       
       // If there's no pointer operand, there's nothing to do.
-      auto *Ptr = dyn_cast_or_null<Instruction>(getPointerOperand(&I));
+      auto *Ptr = dyn_cast_or_null<Instruction>(getLoadStorePointerOperand(&I));
       if (!Ptr)
         continue;
 
       // True if all users of Ptr are memory accesses that have Ptr as their
       // pointer operand.
       auto UsersAreMemAccesses = all_of(Ptr->users(), [&](User *U) -> bool {
-        return getPointerOperand(U) == Ptr;
+        return getLoadStorePointerOperand(U) == Ptr;
       });
 
       // Ensure the memory instruction will not be scalarized or used by
@@ -3646,7 +3628,7 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
   // Returns true if Ptr is the pointer operand of a memory access instruction
   // I, and I is known to not require scalarization.
   auto isVectorizedMemAccessUse = [&](Instruction *I, Value *Ptr) -> bool {
-    return getPointerOperand(I) == Ptr && Legal->isConsecutivePtr(Ptr);
+    return getLoadStorePointerOperand(I) == Ptr && Legal->isConsecutivePtr(Ptr);
   };
 
   // For an instruction to be added into Worklist above, all its users inside

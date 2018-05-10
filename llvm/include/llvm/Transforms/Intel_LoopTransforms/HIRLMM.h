@@ -1,4 +1,4 @@
-//===--- HIRLMM.h -HIR Loop Memory Motion Pass ---------- --*- C++ -*---===//
+//===--- HIRLMM.h -HIR Loop Memory Motion Pass ----------------*- C++ -*---===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
@@ -17,6 +17,7 @@
 
 namespace llvm {
 class Function;
+class LoopOptReportBuilder;
 
 namespace loopopt {
 
@@ -154,6 +155,9 @@ private:
   class CollectMemRefs;
   unsigned LoopLevel = 0;
 
+  // Helper for generating optimization reports.
+  LoopOptReportBuilder LORBuilder;
+
 public:
   static char ID;
 
@@ -208,8 +212,8 @@ private:
 };
 
 //
-}
-}
-}
+} // namespace lmm
+} // namespace loopopt
+} // namespace llvm
 
 #endif

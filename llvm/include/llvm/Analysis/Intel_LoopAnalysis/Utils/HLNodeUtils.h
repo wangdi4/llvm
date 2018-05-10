@@ -21,7 +21,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/NoFolder.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
 
 #include <set>
@@ -36,7 +36,6 @@ namespace loopopt {
 
 class HIRCreation;
 class HIRFramework;
-class CanonExprUtils;
 class BlobUtils;
 class HIRLoopStatistics;
 
@@ -44,6 +43,11 @@ class HIRLoopStatistics;
 /// It contains a bunch of member functions which manipulate HLNodes.
 class HLNodeUtils {
 private:
+  /// Special deleter is required to call HLNodeUtils private destructor.
+  struct HLNodeUtilsDeleter {
+    void operator()(HLNodeUtils *Ptr) const { delete Ptr; }
+  };
+
   /// Keeps track of HLNode objects.
   std::set<HLNode *> Objs;
   unsigned NextUniqueHLNodeNumber;
@@ -54,14 +58,14 @@ private:
 #endif
 
   DDRefUtils *DDRU;
-  HIRFramework *HIRF;
+  std::reference_wrapper<HIRFramework> HIRF;
 
   /// Used to create dummy LLVM instructions corresponding to new HIR
   /// instructions. Dummy instructions are appended to the function entry
   /// bblock. IRBuilder by default uses constant folding which needs to be
   /// suppressed for dummy instructions so we use NoFolder class instead.
   typedef IRBuilder<NoFolder> DummyIRBuilderTy;
-  DummyIRBuilderTy *DummyIRBuilder;
+  std::unique_ptr<DummyIRBuilderTy> DummyIRBuilder;
   /// Points to first dummy instruction of the function.
   Instruction *FirstDummyInst;
   /// Points to last dummy instruction of the function.
@@ -70,9 +74,22 @@ private:
   // insertion should take place.
   HLLabel *Marker;
 
-  HLNodeUtils()
-      : NextUniqueHLNodeNumber(0), DDRU(nullptr), DummyIRBuilder(nullptr),
-        FirstDummyInst(nullptr), LastDummyInst(nullptr), Marker(nullptr) {}
+  HLNodeUtils(HIRFramework &HIRF)
+      : NextUniqueHLNodeNumber(0), DDRU(nullptr), HIRF(HIRF),
+        DummyIRBuilder(nullptr), FirstDummyInst(nullptr),
+        LastDummyInst(nullptr), Marker(nullptr) {}
+
+  HLNodeUtils(HLNodeUtils &&Arg)
+      : Objs(std::move(Arg.Objs)),
+        NextUniqueHLNodeNumber(Arg.NextUniqueHLNodeNumber),
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+        LabelNames(std::move(Arg.LabelNames)),
+#endif
+        DDRU(Arg.DDRU), HIRF(Arg.HIRF),
+        DummyIRBuilder(std::move(Arg.DummyIRBuilder)),
+        FirstDummyInst(Arg.FirstDummyInst), LastDummyInst(Arg.LastDummyInst),
+        Marker(Arg.Marker) {
+  }
 
   /// Make class uncopyable.
   HLNodeUtils(const HLNodeUtils &) = delete;
@@ -153,8 +170,6 @@ private:
           SkipNode = Loop;
         }
         break;
-      default:
-        llvm_unreachable("Invalid Visit Kind.");
       }
     }
 
@@ -189,8 +204,8 @@ private:
   /// Only used by framework.
   HLLoop *createHLLoop(const Loop *LLVMLoop);
 
-  /// Destroys all allocated memory, called by framework.
-  void destroyAll();
+  /// Destroys all allocated memory.
+  ~HLNodeUtils();
 
   /// Performs sanity checking on unary instruction operands.
   void checkUnaryInstOperands(RegDDRef *LvalRef, RegDDRef *RvalRef,
@@ -222,6 +237,11 @@ private:
 
   /// Creates and inserts a dummy copy instruction.
   Instruction *createCopyInstImpl(Type *Ty, const Twine &Name);
+
+  /// Creates a new Call instruction.
+  std::pair<HLInst *, CallInst *>
+  createCallImpl(Function *F, const SmallVectorImpl<RegDDRef *> &CallArgs,
+                 const Twine &Name = "call", RegDDRef *LvalRef = nullptr);
 
   /// Implementation of cloneSequence() which clones from Node1
   /// to Node2 and inserts into the CloneContainer.
@@ -456,6 +476,9 @@ private:
   /// Test the condition described by Pred, LHS and RHS.
   static bool getPredicateResult(APInt &LHS, PredicateTy Pred, APInt &RHS);
 
+  // Get range that corresponds to the first and one after last HLRegion.
+  HLNodeRangeTy getHIRRange();
+
 public:
   /// Returns the first dummy instruction of the function.
   Instruction *getFirstDummyInst() { return FirstDummyInst; }
@@ -476,6 +499,7 @@ public:
 
   /// Returns marker node.
   HLNode *getMarkerNode() { return Marker; }
+  const HLNode *getMarkerNode() const { return Marker; }
 
   // Returns reference to DDRefUtils object.
   DDRefUtils &getDDRefUtils() {
@@ -496,11 +520,9 @@ public:
   BlobUtils &getBlobUtils();
   const BlobUtils &getBlobUtils() const;
 
-  // Returns pointer to HIRFramework.
-  HIRFramework &getHIRFramework() { return *HIRF; }
-
-  // Returns pointer to HIRFramework.
-  const HIRFramework &getHIRFramework() const { return *HIRF; }
+  /// Returns pointer to HIRFramework.
+  const HIRFramework &getHIRFramework() const { return HIRF; }
+  HIRFramework &getHIRFramework() { return HIRF; }
 
   /// Returns Function object.
   Function &getFunction() const;
@@ -738,10 +760,15 @@ public:
   HLInst *createCall(Function *F, const SmallVectorImpl<RegDDRef *> &CallArgs,
                      const Twine &Name = "call", RegDDRef *LvalRef = nullptr);
 
+  /// Creates a new Memcpy intrinsic call.
+  HLInst *createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef, RegDDRef *Size);
+
+  /// Creates a new Memset intrinsic call.
+  HLInst *createMemset(RegDDRef *StoreRef, RegDDRef *Value, RegDDRef *Size);
+
   /// Creates a new ShuffleVector instruction
   HLInst *createShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
-                                  ArrayRef<uint32_t> Mask,
-                                  const Twine &Name = "shuffle",
+                                  RegDDRef *Mask, const Twine &Name = "shuffle",
                                   RegDDRef *LvalRef = nullptr);
 
   /// Creates a new ExtractElement instruction
@@ -808,7 +835,7 @@ public:
             bool Forward = true, typename HV>
   void visitAll(HV &Visitor) {
     HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
-    V.visitRange(getHIRFramework().hir_begin(), getHIRFramework().hir_end());
+    V.visitRange(getHIRRange().begin(), getHIRRange().end());
   }
 
   /// Visits HLNodes in the HIR in InnerToOuter loop hierarchy order. The
@@ -824,8 +851,7 @@ public:
   template <typename HV, bool Forward = true>
   void visitAllInnerToOuter(HV &Visitor) {
     HLInnerToOuterLoopVisitor<HV, Forward> V(Visitor);
-    V.visitRangeRecurseInsideLoops(getHIRFramework().hir_begin(),
-                                   getHIRFramework().hir_end());
+    V.visitRangeRecurseInsideLoops(getHIRRange().begin(), getHIRRange().end());
   }
 
   /// Visits all HLNodes in the HIR in OuterToInner loop hierarchy order. The
@@ -833,7 +859,7 @@ public:
   template <typename HV, bool Forward = true>
   void visitAllOuterToInner(HV &Visitor) {
     HLNodeVisitor<HV, true, true, Forward> V(Visitor);
-    V.visit(getHIRFramework().hir_begin(), getHIRFramework().hir_end());
+    V.visit(getHIRRange().begin(), getHIRRange().end());
   }
 
   /// Inserts an unlinked Node before Pos in HIR.
@@ -868,9 +894,13 @@ public:
   /// Inserts an unlinked Node as first child of this If. The flag IsThenChild
   /// indicates whether this is to be inserted as then or else child.
   static void insertAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild);
-  /// Inserts an unlinked Node as last child of this If. The flaga IsThenChild
+  static void insertAsFirstChildren(HLIf *If, HLContainerTy *NodeContainer,
+                                    bool IsThenChild);
+  /// Inserts an unlinked Node as last child of this If. The flag IsThenChild
   /// indicates whether this is to be inserted as then or else child.
   static void insertAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild);
+  static void insertAsLastChildren(HLIf *If, HLContainerTy *NodeContainer,
+                                   bool IsThenChild);
 
   /// Inserts an unlinked Node as first default case child of switch.
   static void insertAsFirstDefaultChild(HLSwitch *Switch, HLNode *Node);
@@ -888,13 +918,23 @@ public:
 
   /// Inserts an unlinked Node as first preheader node of Loop.
   static void insertAsFirstPreheaderNode(HLLoop *Loop, HLNode *Node);
+  static void insertAsFirstPreheaderNodes(HLLoop *Loop,
+                                          HLContainerTy *NodeContainer);
+
   /// Inserts an unlinked Node as last preheader node of Loop.
   static void insertAsLastPreheaderNode(HLLoop *Loop, HLNode *Node);
+  static void insertAsLastPreheaderNodes(HLLoop *Loop,
+                                         HLContainerTy *NodeContainer);
 
   /// Inserts an unlinked Node as first postexit node of Loop.
   static void insertAsFirstPostexitNode(HLLoop *Loop, HLNode *Node);
+  static void insertAsFirstPostexitNodes(HLLoop *Loop,
+                                         HLContainerTy *NodeContainer);
+
   /// Inserts an unlinked Node as last postexit node of Loop.
   static void insertAsLastPostexitNode(HLLoop *Loop, HLNode *Node);
+  static void insertAsLastPostexitNodes(HLLoop *Loop,
+                                        HLContainerTy *NodeContainer);
 
   /// Unlinks Node from its current position and inserts it before Pos in HIR.
   static void moveBefore(HLNode *Pos, HLNode *Node);
@@ -1093,6 +1133,13 @@ public:
                                            const HLNode *Node = nullptr);
   static HLNode *getLastLexicalChild(HLNode *Parent, HLNode *Node = nullptr);
 
+  // Returns immediate child of \p ParentNode that contain \p Node.
+  static const HLNode *getImmediateChildContainingNode(const HLNode *ParentNode,
+                                                       const HLNode *Node);
+  // Returns immediate child of \p ParentNode that contain \p Node.
+  static HLNode *getImmediateChildContainingNode(HLNode *ParentNode,
+                                                 HLNode *Node);
+
   /// Returns true if Node1 can be proven to dominate Node2, otherwise
   /// conservatively returns false.
   /// \p HLS is used to produce faster results. A valid value can (and should)
@@ -1236,6 +1283,14 @@ public:
                                                    const HLLoop *Lp2);
   static HLLoop *getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2);
 
+  /// Returns the lexical lowest common ancestor parent of Node1 and Node2.
+  /// Returns null if there is no such parent.
+  static const HLNode *
+  getLexicalLowestCommonAncestorParent(const HLNode *Node1,
+                                       const HLNode *Node2);
+  static HLNode *getLexicalLowestCommonAncestorParent(HLNode *Node1,
+                                                      HLNode *Node2);
+
   /// Returns true if the minimum value of blob can be evaluated. Returns the
   /// minimum value in \p Val.
   static bool getMinBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
@@ -1332,13 +1387,13 @@ public:
   // Replaces \p If with its *then* or *else* body.
   // Returns iterator range [FirstBodyChild, LastBodyChild) in the destination
   // container.
-  static NodeRangeTy replaceNodeWithBody(HLIf *If, bool ThenBody);
+  static HLNodeRangeTy replaceNodeWithBody(HLIf *If, bool ThenBody);
 
   // Replaces \p Switch with the body of the case with \p CaseNum.
   // Zero \p CaseNum corresponds to the default case.
   // Returns iterator range [FirstCaseChild, LastCaseChild) in the destination
   // container.
-  static NodeRangeTy replaceNodeWithBody(HLSwitch *Switch, unsigned CaseNum);
+  static HLNodeRangeTy replaceNodeWithBody(HLSwitch *Switch, unsigned CaseNum);
 
   /// Recursively traverse the HIR from the /p Node and remove empty HLLoops and
   /// empty HLIfs.

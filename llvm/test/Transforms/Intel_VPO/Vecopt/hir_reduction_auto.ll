@@ -12,8 +12,7 @@
 ; }
 ; 
 ; ModuleID = 't1.c'
-;RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -default-vpo-vf=8 -VPODriverHIR -hir-cg -mem2reg -print-after=VPODriverHIR -S %s 2>&1 | FileCheck %s
-;RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-default-vf=8 -VPlanDriverHIR -hir-cg -mem2reg -print-after=VPlanDriverHIR -S %s 2>&1 | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=8 -VPlanDriverHIR -hir-cg -mem2reg -print-after=VPlanDriverHIR -S %s 2>&1 | FileCheck %s
 ;
 ; CHECK:           BEGIN REGION { modified }
 ; CHECK:           %RedOp = zeroinitializer;
@@ -23,16 +22,14 @@
 ; CHECK:           |   %RedOp = %.vec  +  %RedOp;
 ; CHECK:           + END LOOP
 
-; CHECK:           %Lo = shufflevector %RedOp,  %RedOp,  <i32 0, i32 1, i32 2, i32 3>;
-; CHECK:           %Hi = shufflevector %RedOp,  %RedOp,  <i32 4, i32 5, i32 6, i32 7>;
-; CHECK:           %reduce = %Lo  +  %Hi;
-; CHECK:           %Lo1 = shufflevector %reduce,  %reduce,  <i32 0, i32 1>;
-; CHECK:           %Hi2 = shufflevector %reduce,  %reduce,  <i32 2, i32 3>;
-; CHECK:           %reduce3 = %Lo1  +  %Hi2;
-; CHECK:           %Lo4 = extractelement %reduce3,  0;
-; CHECK:           %Hi5 = extractelement %reduce3,  1;
-; CHECK:           %reduced = %Lo4  +  %Hi5;
-; CHECK:           %sum.07 = %reduced  +  %sum.07;
+; CHECK:           %rdx.shuf = shufflevector %RedOp,  %RedOp,  <i32 4, i32 5, i32 6, i32 7, i32 undef, i32 undef, i32 undef, i32 undef>;
+; CHECK:           %bin.rdx = %RedOp  +  %rdx.shuf;
+; CHECK:           %rdx.shuf1 = shufflevector %bin.rdx,  %bin.rdx,  <i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>;
+; CHECK:           %bin.rdx2 = %bin.rdx  +  %rdx.shuf1;
+; CHECK:           %rdx.shuf3 = shufflevector %bin.rdx2,  %bin.rdx2,  <i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>;
+; CHECK:           %bin.rdx4 = %bin.rdx2  +  %rdx.shuf3;
+; CHECK:           %bin.final = extractelement %bin.rdx4,  0;
+; CHECK:           %sum.07 = %bin.final  +  %sum.07;
 ; CHECK:           END REGION
 
 ; CHECK: loop
@@ -40,14 +37,12 @@
 ; CHECK: add {{.*}} <8 x i32>
 ; CHECK: afterloop
 ; CHECK: shufflevector <8 x i32>
+; CHECK: add <8 x i32>
 ; CHECK: shufflevector <8 x i32>
-; CHECK: add <4 x i32>
-; CHECK: shufflevector <4 x i32>
-; CHECK: shufflevector <4 x i32>
-; CHECK: add <2 x i32>
-; CHECK: extractelement <2 x i32>
-; CHECK: extractelement <2 x i32>
-; CHECK: add i32
+; CHECK: add <8 x i32>
+; CHECK: shufflevector <8 x i32>
+; CHECK: add <8 x i32>
+; CHECK: extractelement <8 x i32>
 ; CHECK: add i32
 source_filename = "t1.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

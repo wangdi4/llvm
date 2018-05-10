@@ -12,6 +12,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_PLAN_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_PLAN_H
 
+#include "VPLoopAnalysis.h"
 #include "../Intel_VPlan.h"
 #include "VPLoopInfo.h"
 #include "llvm/IR/Dominators.h"
@@ -57,6 +58,15 @@ public:
     OS << " " << *LoopBackedge << "\\l\"";
   }
 
+#if INTEL_CUSTOMIZATION
+  void dump(raw_ostream &OS) const override {
+    OS << *LoopBackedge << "\n";
+  }
+  void dump() const override {
+    dump(errs());
+  }
+#endif /* INTEL_CUSTOMIZATION */
+
   void execute(struct VPTransformState &State) override {
     // TODO: vectorizing this recipe should involve generating a mask for the
     // instructions in the loop body. i.e., a phi instruction that has incoming
@@ -91,33 +101,34 @@ public:
   }
 };
 
-/// \brief Specialization of VPLoopRegion that holds HIR-specific loop
+/// \brief Specialization of VPLoopRegion that holds the HIR-specific loop
 /// representation (HLLoop).
 ///
-/// Design Principle: new public member functions are not allowed. This class is
-/// meant to be used only by VPlan construction and code generation (and
-/// their utilities). For that reason, its interface must be private and be only
-/// accessible from well-justified friendship relationships.
-class VPLoopRegionHIR : private VPLoopRegion {
-  friend class IntelVPlanUtils; 
-  friend class VPlanVerifierHIR; 
-  
-private: 
+/// Design Principle: access to underlying IR is forbidden by default. Adding
+/// new friends to this class to have access to it must be very well justified.
+class VPLoopRegionHIR : public VPLoopRegion {
+  friend class IntelVPlanUtils;
+  friend class VPlanVerifierHIR;
+  friend class VPDecomposerHIR;
+  friend class VPLoopAnalysisHIR;
+
+private:
   // Pointer to the underlying HLLoop.
   HLLoop *HLLp;
 
+protected:
   VPLoopRegionHIR(const std::string &Name, VPLoop *VPLp, HLLoop *HLLp)
       : VPLoopRegion(VPLoopRegionHIRSC, Name, VPLp), HLLp(HLLp) {}
 
   const HLLoop *getHLLoop() const { return HLLp; }
-
+  HLLoop *getHLLoop() { return HLLp; }
 
 public:
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPBlockBase *B) {
     return B->getVPBlockID() == VPBlockBase::VPLoopRegionHIRSC;
   }
-}; 
+};
 
 class IntelVPlan : public VPlan {
 
@@ -125,7 +136,8 @@ private:
   VPLoopInfo *VPLInfo;
 
 public:
-  IntelVPlan() : VPlan(IntelVPlanSC), VPLInfo(nullptr) {}
+  explicit IntelVPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA)
+      : VPlan(IntelVPlanSC, VPLA), VPLInfo(nullptr) {}
 
   ~IntelVPlan() {
     if (VPLInfo)
@@ -177,6 +189,15 @@ public:
     OS << " +\n" << Indent << "\"Const " << val << "\\l\"";
   }
 
+#if INTEL_CUSTOMIZATION
+  void dump(raw_ostream &OS) const override {
+    OS << val << "\n";;
+  }
+  void dump() const override {
+    dump(errs());
+  }
+#endif /* INTEL_CUSTOMIZATION */
+
   StringRef getName() const { return "Constant: " + val; };
 
 private:
@@ -225,6 +246,20 @@ public:
 
     OS << "\\l\"";
   }
+
+#if INTEL_CUSTOMIZATION
+  void dump(raw_ostream &OS) const override {
+    OS << "Phi ";
+    for (auto Item : Incoming) {
+      Item.first.dump(OS);
+      OS << ", " << Item.second->getName() << " ";
+    }
+    OS << "\n";
+  }
+  void dump() const override {
+    dump(errs());
+  }
+#endif /* INTEL_CUSTOMIZATION */
 
   StringRef getName() const { return "Phi Recipe"; };
 
@@ -317,6 +352,7 @@ public:
     VPLoopRegion *Loop =
         new VPLoopRegionHIR(createUniqueName("loop"), VPL, HLLp);
     setReplicator(Loop, false /*IsReplicator*/);
+    getVPlan()->getVPLoopAnalysis()->computeTripCount(Loop);
     return Loop;
   }
 

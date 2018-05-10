@@ -41,16 +41,18 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/CodeGen/TargetLowering.h"
-#include "llvm/CodeGen/TargetLoweringObjectFile.h"
+#include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/LoopSimplify.h"
 #include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
 
 using namespace llvm;
 
@@ -127,7 +129,8 @@ class CSAPassConfig : public TargetPassConfig {
 public:
   CSAPassConfig(CSATargetMachine &TM, legacy::PassManagerBase &PM)
       : TargetPassConfig(TM, PM) {
-    disablePass(&PostRAMachineLICMID);
+    disablePass(&MachineLICMID);
+    disablePass(&MachineCopyPropagationID);
   }
 
   CSATargetMachine &getCSATargetMachine() const {
@@ -257,12 +260,14 @@ public:
     disablePass(&RegisterCoalescerID);
   }
 
+// Last call in TargetPassConfig.cpp to disable passes.  
+// If we don't disable here some other passes may add after disable
   void addPostRegAlloc() override {
     addPass(createCSAAllocUnitPass(), false);
 
     // These functions don't like vregs.
     disablePass(&ShrinkWrapID);
-    disablePass(&MachineCopyPropagationID);
+//RAVI    disablePass(&MachineCopyPropagationID);
     disablePass(&PostRASchedulerID);
     disablePass(&FuncletLayoutID);
     disablePass(&StackMapLivenessID);

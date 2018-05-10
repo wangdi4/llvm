@@ -21,39 +21,14 @@ namespace llvm {
 
 class FunctionPass;
 
-/// createHIRRegionIdentificationPass - This creates a pass that identifies HIR
-/// regions.
-FunctionPass *createHIRRegionIdentificationPass();
+/// This creates a pass that identifies HIR regions.
+FunctionPass *createHIRRegionIdentificationWrapperPass();
 
-/// createHIRSCCFormationPass - This creates a pass that identifies SCCs in the
-/// regions.
-FunctionPass *createHIRSCCFormationPass();
+/// This creates a pass that identifies SCCs in the regions.
+FunctionPass *createHIRSCCFormationWrapperPass();
 
-/// createHIRScalarSymbaseAssignmentPass - This creates a pass that assigns
-/// symbase to livein/liveout scalars.
-FunctionPass *createHIRScalarSymbaseAssignmentPass();
-
-/// createHIRCreationPass - This creates a pass that forms HIR nodes.
-FunctionPass *createHIRCreationPass();
-
-/// createHIRCleanupPass - This creates a pass that cleans up redundant HIR
-/// nodes.
-FunctionPass *createHIRCleanupPass();
-
-/// createHIRLoopFormationPass - This creates a pass that forms HIR loops.
-FunctionPass *createHIRLoopFormationPass();
-
-/// createHIRParserPass - This creates a pass that maps populates DDRefs by
-/// parsing SCEVs into CanonExprs.
-FunctionPass *createHIRParserPass();
-
-/// Assigns a symbase to all ddrefs, which groups dd refs into sets that
-/// never alias
-FunctionPass *createHIRSymbaseAssignmentPass();
-
-/// createHIRFrameworkPass - This creates a pass which serves as the public
-/// interface of HIR Framework.
-FunctionPass *createHIRFrameworkPass();
+/// This creates a pass which serves as the public interface of HIR Framework.
+FunctionPass *createHIRFrameworkWrapperPass();
 
 /// Creates analysis which can provide a data dependence graph of an HLNode
 FunctionPass *createHIRDDAnalysisPass();
@@ -67,10 +42,10 @@ FunctionPass *createHIRLocalityAnalysisPass();
 
 /// Compute the loop resource for HIR Loops which help in cost models of
 /// different transformations.
-FunctionPass *createHIRLoopResourcePass();
+FunctionPass *createHIRLoopResourceWrapperPass();
 
 /// Compute statistics for HIR Loops.
-FunctionPass *createHIRLoopStatisticsPass();
+FunctionPass *createHIRLoopStatisticsWrapperPass();
 
 /// Creates analysis which can provide parallel/vector candidate analysis
 FunctionPass *createHIRParVecAnalysisPass();

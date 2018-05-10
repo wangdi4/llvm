@@ -34,7 +34,6 @@
 #include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/MC/MCInstrDesc.h"
@@ -200,9 +199,10 @@ namespace {
     void spillVirtReg(MachineBasicBlock::iterator MI, unsigned VirtReg);
 
     void usePhysReg(MachineOperand &MO);
-    void definePhysReg(MachineInstr &MI, MCPhysReg PhysReg, RegState NewState);
+    void definePhysReg(MachineBasicBlock::iterator MI, MCPhysReg PhysReg,
+                       RegState NewState);
     unsigned calcSpillCost(MCPhysReg PhysReg) const;
-    void assignVirtToPhysReg(LiveReg&, MCPhysReg PhysReg);
+    void assignVirtToPhysReg(LiveReg &, MCPhysReg PhysReg);
 
     LiveRegMap::iterator findLiveVirtReg(unsigned VirtReg) {
       return LiveVirtRegs.find(TargetRegisterInfo::virtReg2Index(VirtReg));
@@ -278,7 +278,7 @@ void RegAllocFast::addKillFlag(const LiveReg &LR) {
     // subreg of this register and given we don't track which
     // lanes are actually dead, we cannot insert a kill flag here.
     // Otherwise we may end up in a situation like this:
-    // ... = (MO) physreg:sub1, physreg <implicit-use, kill>
+    // ... = (MO) physreg:sub1, implicit killed physreg
     // ... <== Here we would allow later pass to reuse physreg:sub1
     //         which is potentially wrong.
     // LR:sub0 = ...
@@ -441,8 +441,8 @@ void RegAllocFast::usePhysReg(MachineOperand &MO) {
 /// Mark PhysReg as reserved or free after spilling any virtregs. This is very
 /// similar to defineVirtReg except the physreg is reserved instead of
 /// allocated.
-void RegAllocFast::definePhysReg(MachineInstr &MI, MCPhysReg PhysReg,
-                                 RegState NewState) {
+void RegAllocFast::definePhysReg(MachineBasicBlock::iterator MI,
+                                 MCPhysReg PhysReg, RegState NewState) {
   markRegUsedInInstr(PhysReg);
   switch (unsigned VirtReg = PhysRegState[PhysReg]) {
   case regDisabled:
@@ -681,7 +681,7 @@ RegAllocFast::LiveRegMap::iterator RegAllocFast::reloadVirtReg(MachineInstr &MI,
   } else if (MO.isKill()) {
     // We must remove kill flags from uses of reloaded registers because the
     // register would be killed immediately, and there might be a second use:
-    //   %foo = OR %x<kill>, %x
+    //   %foo = OR killed %x, %x
     // This would cause a second reload of %x into a different register.
     DEBUG(dbgs() << "Clearing clean kill: " << MO << "\n");
     MO.setIsKill(false);
@@ -705,11 +705,13 @@ bool RegAllocFast::setPhysReg(MachineInstr &MI, unsigned OpNum,
   bool Dead = MO.isDead();
   if (!MO.getSubReg()) {
     MO.setReg(PhysReg);
+    MO.setIsRenamable(true);
     return MO.isKill() || Dead;
   }
 
   // Handle subregister index.
   MO.setReg(PhysReg ? TRI->getSubReg(PhysReg, MO.getSubReg()) : 0);
+  MO.setIsRenamable(true);
   MO.setSubReg(0);
 
   // A kill flag implies killing the full register. Add corresponding super
@@ -865,7 +867,7 @@ bool RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) { // INTEL
   // Add live-in registers as live.
   for (const MachineBasicBlock::RegisterMaskPair LI : MBB.liveins())
     if (MRI->isAllocatable(LI.PhysReg))
-      definePhysReg(*MII, LI.PhysReg, regReserved);
+      definePhysReg(MII, LI.PhysReg, regReserved);
 
   VirtDead.clear();
   Coalesced.clear();

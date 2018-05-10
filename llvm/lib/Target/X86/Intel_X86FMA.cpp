@@ -2494,7 +2494,7 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
   //
   // Check the LLVM IR function. If there are some instructions in it with
   // attributes not allowing unsafe algebra, then exit.
-  const Function *F = MF->getFunction();
+  const Function *F = &MF->getFunction();
   // If LLVM IR is not available, then just conservatively exit.
   if (!F)
     return false;
@@ -3337,7 +3337,7 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
   if (CM != CodeModel::Small && CM != CodeModel::Large)
     return createConstOneFromImm(VT, InsertPointMI);
 
-  LLVMContext &Context = MF->getFunction()->getContext();
+  LLVMContext &Context = MF->getFunction().getContext();
 
   // Get opcode and type for the created const.
   unsigned Opc;

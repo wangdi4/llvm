@@ -4,6 +4,7 @@
 ; call-sites of _Z3fooiPFbiiE.
 
 ; RUN: opt < %s -ip-cloning -print-ip-cloning -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -print-ip-cloning -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: Cloned call:
 ; CHECK: Cloned call:

@@ -238,11 +238,11 @@ public:
   /// after formatting.
   BreakableStringLiteral(const FormatToken &Tok, unsigned StartColumn,
                          StringRef Prefix, StringRef Postfix,
-                         bool InPPDirective, encoding::Encoding Encoding,
-                         const FormatStyle &Style);
+                         unsigned UnbreakableTailLength, bool InPPDirective,
+                         encoding::Encoding Encoding, const FormatStyle &Style);
 
   Split getSplit(unsigned LineIndex, unsigned TailOffset, unsigned ColumnLimit,
-                 unsigned ReflowColumn,
+                 unsigned ContentStartColumn,
                  llvm::Regex &CommentPragmasRegex) const override;
   void insertBreak(unsigned LineIndex, unsigned TailOffset, Split Split,
                    WhitespaceManager &Whitespaces) const override;
@@ -284,7 +284,7 @@ public:
   bool supportsReflow() const override { return true; }
   unsigned getLineCount() const override;
   Split getSplit(unsigned LineIndex, unsigned TailOffset, unsigned ColumnLimit,
-                 unsigned ReflowColumn,
+                 unsigned ContentStartColumn,
                  llvm::Regex &CommentPragmasRegex) const override;
   void compressWhitespace(unsigned LineIndex, unsigned TailOffset, Split Split,
                           WhitespaceManager &Whitespaces) const override;
@@ -405,6 +405,10 @@ private:
   // If true, make sure that the opening '/**' and the closing '*/' ends on a
   // line of itself. Styles like jsdoc require this for multiline comments.
   bool DelimitersOnNewline;
+
+  // Length of the sequence of tokens after this string literal that cannot
+  // contain line breaks.
+  unsigned UnbreakableTailLength;
 };
 
 class BreakableLineCommentSection : public BreakableComment {

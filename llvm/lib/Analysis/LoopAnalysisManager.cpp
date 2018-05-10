@@ -10,6 +10,7 @@
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"         // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -24,7 +25,7 @@ cl::opt<bool> EnableMSSALoopDependency(
     "enable-mssa-loop-dependency", cl::Hidden, cl::init(false),
     cl::desc("Enable MemorySSA dependency for loop pass manager"));
 
-// Explicit template instantiations and specialization defininitions for core
+// Explicit template instantiations and specialization definitions for core
 // template typedefs.
 template class AllAnalysesOn<Loop>;
 template class AnalysisManager<Loop, LoopStandardAnalysisResults &>;
@@ -154,6 +155,7 @@ PreservedAnalyses llvm::getLoopPassPreservedAnalyses() {
   PA.preserve<AAManager>();
   PA.preserve<BasicAA>();
   PA.preserve<GlobalsAA>();
+  PA.preserve<AndersensAA>();     // INTEL
   PA.preserve<SCEVAA>();
   return PA;
 }

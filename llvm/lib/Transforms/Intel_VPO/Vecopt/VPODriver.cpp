@@ -23,6 +23,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPODefUse.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOSIMDLaneEvolution.h"
@@ -155,6 +156,7 @@ char VPODirectiveCleanup::ID = 0;
 INITIALIZE_PASS_BEGIN(VPODriver, "VPODriver", "VPO Vectorization Driver", false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(AVRGenerate)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
@@ -167,8 +169,9 @@ char VPODriver::ID = 0;
 INITIALIZE_PASS_BEGIN(VPODriverHIR, "VPODriverHIR",
                       "VPO Vectorization Driver HIR", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(AVRGenerateHIR)
-INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRVectVLSAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
@@ -200,6 +203,8 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
   SC = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  auto &OROP = getAnalysis<OptReportOptionsPass>();
+  LORBuilder.setup(Fn.getContext(), OROP.getLoopOptReportVerbosity());
   DL = &Fn.getParent()->getDataLayout();
 
   // We cannot rely on compiler driver not invoking vectorizer for
@@ -240,7 +245,7 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
     } else {
       HIRSafeReductionAnalysis *SRA;
       SRA = &getAnalysis<HIRSafeReductionAnalysis>();
-      AVRCodeGenHIR AvrCGNode(Avr, TLI, SRA, Fn);
+      AVRCodeGenHIR AvrCGNode(Avr, TLI, SRA, Fn, LORBuilder);
 
       assert(isa<VPOScenarioEvaluationHIR>(ScenariosEngine));
       VPOScenarioEvaluationHIR *HIRScenariosEngine =
@@ -307,6 +312,7 @@ void VPODriver::getAnalysisUsage(AnalysisUsage &AU) const {
   // preserved.
 
   AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequired<OptReportOptionsPass>();
   AU.addRequired<AVRGenerate>();
   AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
@@ -336,6 +342,7 @@ void VPODriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   // HIR path does not work without setPreservesAll
   AU.setPreservesAll();
   AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequired<OptReportOptionsPass>();
   AU.addRequired<AVRGenerateHIR>();
   AU.addRequired<HIRVectVLSAnalysis>();
   AU.addRequired<ScalarEvolutionWrapperPass>();
@@ -343,7 +350,7 @@ void VPODriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<AvrDefUseHIR>();
 
-  AU.addRequiredTransitive<HIRParser>();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRLocalityAnalysis>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysis>();

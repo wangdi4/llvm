@@ -42,17 +42,12 @@
 
 #include "SPIRVUtil.h"
 #include "OpenCL.std.h"
+#include "SPIRV.debug.h"
 
 #include <string>
 #include <vector>
 
 namespace SPIRV{
-
-
-inline bool
-isOpenCLBuiltinSet (SPIRVExtInstSetKind Set) {
-  return Set == SPIRVEIS_OpenCL;
-}
 
 typedef OpenCLLIB::Entrypoints OCLExtOpKind;
 
@@ -252,6 +247,47 @@ SPIRVMap<OCLExtOpKind, std::string>::init() {
   add(OpenCLLIB::UMad_hi, "u_mad_hi");
 }
 SPIRV_DEF_NAMEMAP(OCLExtOpKind, OCLExtOpMap)
+
+typedef SPIRVDebug::Instruction SPIRVDebugExtOpKind;
+template<> inline void
+SPIRVMap<SPIRVDebugExtOpKind, std::string>::init() {
+  add(SPIRVDebug::DebugInfoNone,             "DebugInfoNone");
+  add(SPIRVDebug::CompilationUnit,           "DebugCompileUnit");
+  add(SPIRVDebug::Source,                    "DebugSource");
+  add(SPIRVDebug::TypeBasic,                 "DebugTypeBasic");
+  add(SPIRVDebug::TypePointer,               "DebugTypePointer");
+  add(SPIRVDebug::TypeArray,                 "DebugTypeArray");
+  add(SPIRVDebug::TypeVector,                "DebugTypeVector");
+  add(SPIRVDebug::TypeQualifier,             "DebugTypeQualifier");
+  add(SPIRVDebug::TypeFunction,              "DebugTypeFunction");
+  add(SPIRVDebug::TypeComposite,             "DebugTypeComposite");
+  add(SPIRVDebug::TypeMember,                "DebugTypeMember");
+  add(SPIRVDebug::TypeEnum,                  "DebugTypeEnum");
+  add(SPIRVDebug::Typedef,                   "DebugTypedef");
+  add(SPIRVDebug::TypeTemplateParameter,     "DebugTemplateParameter");
+  add(SPIRVDebug::TypeTemplateParameterPack, "DebugTemplateParameterPack");
+  add(SPIRVDebug::TypeTemplateTemplateParameter,
+                                             "DebugTemplateTemplateParameter");
+  add(SPIRVDebug::TypeTemplate,              "DebugTemplate");
+  add(SPIRVDebug::TypePtrToMember,           "DebugTypePtrToMember,");
+  add(SPIRVDebug::Inheritance,               "DebugInheritance");
+  add(SPIRVDebug::Function,                  "DebugFunction");
+  add(SPIRVDebug::FunctionDecl,              "DebugFunctionDecl");
+  add(SPIRVDebug::LexicalBlock,              "DebugLexicalBlock");
+  add(SPIRVDebug::LexicalBlockDiscriminator, "LexicalBlockDiscriminator");
+  add(SPIRVDebug::LocalVariable,             "DebugLocalVariable");
+  add(SPIRVDebug::InlinedVariable,           "DebugInlinedVariable");
+  add(SPIRVDebug::GlobalVariable,            "DebugGlobalVariable");
+  add(SPIRVDebug::Declare,                   "DebugDeclare");
+  add(SPIRVDebug::Value,                     "DebugValue");
+  add(SPIRVDebug::Scope,                     "DebugScope");
+  add(SPIRVDebug::NoScope,                   "DebugNoScope");
+  add(SPIRVDebug::InlinedAt,                 "DebugInlinedAt");
+  add(SPIRVDebug::ImportedEntity,            "DebugImportedEntity");
+  add(SPIRVDebug::Expression,                "DebugExpression");
+  add(SPIRVDebug::Operation,                 "DebugOperation");
+}
+SPIRV_DEF_NAMEMAP(SPIRVDebugExtOpKind, SPIRVDebugExtOpMap)
 
 inline bool
 isReadImage(SPIRVWord EntryPoint) {

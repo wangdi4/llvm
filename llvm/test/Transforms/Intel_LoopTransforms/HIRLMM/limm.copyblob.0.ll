@@ -52,7 +52,15 @@
 ; CHECK:        |      (@C)[0][i1 + sext.i32.i64(%0) + 2] = %limm2;
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
+
+; RUN: opt -hir-ssa-deconstruction -hir-lmm -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
 ;
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT:    LOOP BEGIN
+; OPTREPORT:        Remark #XXXXX: Load hoisted out of the loop
+; OPTREPORT:        Remark #XXXXX: Store sinked out of the loop
+; OPTREPORT:    LOOP END
+; OPTREPORT: LOOP END
 ;
 source_filename = "t.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

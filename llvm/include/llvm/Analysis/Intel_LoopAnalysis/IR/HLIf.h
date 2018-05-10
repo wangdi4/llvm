@@ -194,7 +194,7 @@ public:
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
-    return Node->getHLNodeID() == HLNode::HLIfVal;
+    return Node->getHLNodeClassID() == HLNode::HLIfVal;
   }
 
   /// clone() - Create a copy of 'this' HLIf that is identical in all
@@ -277,6 +277,14 @@ public:
 };
 
 } // End namespace loopopt
+
+template <>
+struct DenseMapInfo<loopopt::HLIf *>
+    : public loopopt::DenseHLNodeMapInfo<loopopt::HLIf> {};
+
+template <>
+struct DenseMapInfo<const loopopt::HLIf *>
+    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLIf> {};
 
 } // End namespace llvm
 

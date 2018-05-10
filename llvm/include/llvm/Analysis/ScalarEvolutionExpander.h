@@ -47,7 +47,7 @@ namespace llvm {
     ScalarEvolution &SE;
     const DataLayout &DL;
 
-    // New instructions receive a name to identifies them with the current pass.
+    // New instructions receive a name to identify them with the current pass.
     const char* IVName;
 
     // InsertedExpressions caches Values for reuse, so must track RAUW.
@@ -328,7 +328,7 @@ private:
 
     /// Arrange for there to be a cast of V to Ty at IP, reusing an existing
     /// cast if a suitable one exists, moving an existing cast if a suitable one
-    /// exists but isn't in the right place, or or creating a new one.
+    /// exists but isn't in the right place, or creating a new one.
     Value *ReuseOrCreateCast(Value *V, Type *Ty,
                              Instruction::CastOps Op,
                              BasicBlock::iterator IP);

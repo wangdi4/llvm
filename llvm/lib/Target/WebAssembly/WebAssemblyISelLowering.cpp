@@ -117,8 +117,7 @@ WebAssemblyTargetLowering::WebAssemblyTargetLowering(
   // As a special case, these operators use the type to mean the type to
   // sign-extend from.
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1, Expand);
-  if (!Subtarget->hasAtomics()) {
-    // The Atomics feature includes signext intructions.
+  if (!Subtarget->hasSignExt()) {
     for (auto T : {MVT::i8, MVT::i16, MVT::i32})
       setOperationAction(ISD::SIGN_EXTEND_INREG, T, Expand);
   }
@@ -214,7 +213,7 @@ LowerFPToInt(
   int64_t Limit = Int64 ? INT64_MIN : INT32_MIN;
   int64_t Substitute = IsUnsigned ? 0 : Limit;
   double CmpVal = IsUnsigned ? -(double)Limit * 2.0 : -(double)Limit;
-  auto &Context = BB->getParent()->getFunction()->getContext();
+  auto &Context = BB->getParent()->getFunction().getContext();
   Type *Ty = Float64 ? Type::getDoubleTy(Context) : Type::getFloatTy(Context);
 
   const BasicBlock *LLVM_BB = BB->getBasicBlock();
@@ -438,7 +437,7 @@ bool WebAssemblyTargetLowering::isIntDivCheap(EVT VT,
 static void fail(const SDLoc &DL, SelectionDAG &DAG, const char *msg) {
   MachineFunction &MF = DAG.getMachineFunction();
   DAG.getContext()->diagnose(
-      DiagnosticInfoUnsupported(*MF.getFunction(), msg, DL.getDebugLoc()));
+      DiagnosticInfoUnsupported(MF.getFunction(), msg, DL.getDebugLoc()));
 }
 
 // Test whether the given calling convention is supported.
@@ -697,7 +696,7 @@ SDValue WebAssemblyTargetLowering::LowerFormalArguments(
   // Record the number and types of results.
   SmallVector<MVT, 4> Params;
   SmallVector<MVT, 4> Results;
-  ComputeSignatureVTs(*MF.getFunction(), DAG.getTarget(), Params, Results);
+  ComputeSignatureVTs(MF.getFunction(), DAG.getTarget(), Params, Results);
   for (MVT VT : Results)
     MFI->addResult(VT);
 

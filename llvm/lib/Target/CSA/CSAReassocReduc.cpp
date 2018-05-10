@@ -267,7 +267,7 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   };
 
   // Another for creating small fountain1s producing <64-bit sequences.
-  LLVMContext &ctx = MI.getParent()->getParent()->getFunction()->getContext();
+  LLVMContext &ctx = MI.getParent()->getParent()->getFunction().getContext();
   const auto smallfountain = [&](uint64_t bits, uint64_t len,
                                  const Twine &name) {
     const unsigned scratch = MCP->getConstantPoolIndex(

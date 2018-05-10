@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that we do not create the SCC (%e.sroa.3.042 -> %e.sroa.3.1 -> %e.sroa.3.1.lcssa) because of loop liveout phi's (%e.sroa.3.1) dependence on the same bblock phi %k.0.
 

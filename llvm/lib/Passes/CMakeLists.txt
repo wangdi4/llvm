@@ -1,5 +1,11 @@
+# INTEL_CUSTOMIZATION
+if (MSVC)
+  set_source_files_properties(PassBuilder.cpp PROPERTIES COMPILE_FLAGS /bigobj)
+endif()
+# END INTEL_CUSTOMIZATION
 add_llvm_library(LLVMPasses
   PassBuilder.cpp
+  PassPlugin.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Passes
@@ -7,3 +13,11 @@ add_llvm_library(LLVMPasses
   DEPENDS
   intrinsics_gen
   )
+
+# INTEL_CUSTOMIZATION
+if(INTEL_INCLUDE_DTRANS)
+  target_link_libraries(LLVMPasses PRIVATE LLVMIntel_DTrans
+                                           LLVMIntel_DTransOpt
+                                           LLVMIntel_DTransAnalysis)
+endif(INTEL_INCLUDE_DTRANS)
+# end INTEL_CUSTOMIZATION

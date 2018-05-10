@@ -1,6 +1,6 @@
 //===- HIRRuntimeDD.h - Implements Multiversioning for Runtime DD *-- C++ --*-//
 //
-// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -28,14 +28,17 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+
+
 namespace llvm {
 namespace loopopt {
 namespace runtimedd {
 
-typedef DDRefGrouping::RefGroupTy<RegDDRef> RefGroupTy;
-typedef DDRefGrouping::RefGroupVecTy<RegDDRef> RefGroupVecTy;
+typedef DDRefGrouping::RefGroupTy<RegDDRef *> RefGroupTy;
+typedef DDRefGrouping::RefGroupVecTy<RegDDRef *> RefGroupVecTy;
 
-const unsigned ExpectedNumberOfTests = 8;
+const unsigned ExpectedNumberOfTests = 16;
 const unsigned SmallTripCountTest = 4;
 
 enum RuntimeDDResult {
@@ -55,7 +58,8 @@ enum RuntimeDDResult {
   UNROLL_PRAGMA_LOOP,
   NON_PROFITABLE,
   NON_PROFITABLE_SUBS,
-  STRUCT_ACCESS
+  STRUCT_ACCESS,
+  DIFF_ADDR_SPACE
 };
 
 // The struct represents a segment of memory. It is used to construct checks
@@ -92,10 +96,8 @@ class IVSegment {
 
   bool IsWrite;
 
-  static void replaceIVByBound(RegDDRef *Ref,
-                               const HLLoop *Loop,
-                               const HLLoop *InnerLoop,
-                               bool IsLowerBound);
+  static void replaceIVByBound(RegDDRef *Ref, const HLLoop *Loop,
+                               const HLLoop *InnerLoop, bool IsLowerBound);
 
 public:
   IVSegment(const RefGroupTy &Group);
@@ -161,14 +163,18 @@ public:
   void releaseMemory() override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequired<OptReportOptionsPass>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
-    AU.addRequiredTransitive<HIRLoopStatistics>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
     AU.setPreservesAll();
   }
 
 private:
   HIRLoopStatistics *HLS;
+
+  // Helper for generating optimization reports.
+  LoopOptReportBuilder LORBuilder;
 
 #ifndef NDEBUG
   static const char *getResultString(RuntimeDDResult Result);
@@ -176,16 +182,16 @@ private:
 
   struct MemoryAliasAnalyzer;
 
-  /// Returns true if \p Loop is considered as profitable for multiversioning.
+  // Returns true if \p Loop is considered as profitable for multiversioning.
   bool isProfitable(const HLLoop *Loop);
 
-  // \brief The method processes each IV segment and updates bounds according to
+  // The method processes each IV segment and updates bounds according to
   // a specified loopnest.
   // It also fills the applicability vector for the further use.
   void processLoopnest(const HLLoop *OuterLoop, const HLLoop *InnerLoop,
-                  SmallVectorImpl<IVSegment> &IVSegments);
+                       SmallVectorImpl<IVSegment> &IVSegments);
 
-  // \brief The predicate used in ref grouping. Returns true if two references
+  // The predicate used in ref grouping. Returns true if two references
   // belong to the same group.
   static bool isGroupMemRefMatchForRTDD(const RegDDRef *Ref1,
                                         const RegDDRef *Ref2);
@@ -194,21 +200,25 @@ private:
   // a group number.
   static unsigned findAndGroup(RefGroupVecTy &Groups, RegDDRef *Ref);
 
-  // \brief Returns required DD tests for an arbitrary loop L.
+  // Returns required DD tests for an arbitrary loop L.
   RuntimeDDResult computeTests(HLLoop *Loop, LoopContext &Context);
+
+  // Creates UGE compare of \p Ref1 and \p Ref2, handles type mismatch.
+  static HLInst *createUGECompare(HLNodeUtils &HNU, HLContainerTy &Nodes,
+                                  RegDDRef *Ref1, RegDDRef *Ref2);
 
   static HLInst *createIntersectionCondition(HLNodeUtils &HNU,
                                              HLContainerTy &Nodes, Segment &S1,
                                              Segment &S2);
 
   // \brief Modifies HIR implementing specified tests.
-  static void generateDDTest(LoopContext &Context);
+  static void generateDDTest(LoopContext &Context, LoopOptReportBuilder &);
 
   // \brief Marks all DDRefs independent across groups.
   static void markDDRefsIndep(LoopContext &Context);
 };
-}
-}
-}
+} // namespace runtimedd
+} // namespace loopopt
+} // namespace llvm
 
 #endif /* LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRRUNTIMEDD_H */

@@ -14,8 +14,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Debug.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
@@ -192,11 +194,9 @@ void HIRTransformUtils::updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
   BoundRef->updateDefLevel();
 }
 
-HLLoop *HIRTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
-                                                 unsigned UnrollOrVecFactor,
-                                                 uint64_t NewTripCount,
-                                                 const RegDDRef *NewTCRef,
-                                                 bool VecMode) {
+HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
+    HLLoop *OrigLoop, unsigned UnrollOrVecFactor, uint64_t NewTripCount,
+    const RegDDRef *NewTCRef, LoopOptReportBuilder &LORBuilder, bool VecMode) {
   HLLoop *NewLoop = OrigLoop->cloneEmptyLoop();
 
   // Number of exits do not change due to vectorization
@@ -261,6 +261,22 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
         UnrollOrVecFactor);
   }
 
+  // NewLoop is the main loop now and hence, we want to associate all the opt
+  // report with it.
+  LORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
+  if (VecMode)
+    LORBuilder(*NewLoop).addRemark(
+        OptReportVerbosity::Low,
+        "Loop has been vectorized with vector %d factor", UnrollOrVecFactor);
+  else if (OrigLoop->isInnermost())
+    LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
+                                   "Loop has been unrolled by %d factor",
+                                   UnrollOrVecFactor);
+  else
+    LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
+                                   "Loop has been unrolled and jammed by %d",
+                                   UnrollOrVecFactor);
+
   return NewLoop;
 }
 
@@ -302,9 +318,90 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
   DEBUG(OrigLoop->dump());
 }
 
+namespace {
+
+class TempDefFinder final : public HLNodeVisitorBase {
+  SmallSet<unsigned, 4> &TempSymbases;
+  SmallVector<unsigned, 4> FoundTempDefs;
+
+public:
+  TempDefFinder(SmallSet<unsigned, 4> &TempSymbases)
+      : TempSymbases(TempSymbases) {}
+
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
+
+  void visit(const HLInst *Inst);
+
+  SmallVector<unsigned, 4> getFoundTempDefs() const { return FoundTempDefs; }
+};
+
+void TempDefFinder::visit(const HLInst *Inst) {
+  auto LvalRef = Inst->getLvalDDRef();
+
+  if (!LvalRef || !LvalRef->isTerminalRef()) {
+    return;
+  }
+
+  unsigned TempDefSB = LvalRef->getSymbase();
+
+  if (TempSymbases.count(TempDefSB)) {
+    FoundTempDefs.push_back(TempDefSB);
+  }
+}
+
+} // namespace
+
+void HIRTransformUtils::addCloningInducedLiveouts(HLLoop *LiveoutLoop,
+                                                  const HLLoop *OrigLoop) {
+  // Creation of a new cloned loop (remainder loop, for example) can result in
+  // additional liveouts from the lexically first loop. Consider this example
+  // where t1 is livein but not liveout of the loop- DO i1
+  //   t1 = t1 + ...
+  // END DO
+  //
+  // After creating main and remainder loop, t1 becomes liveout of main loop.
+  //
+  // DO i1  << main loop
+  //   t1 = t1 + ...
+  // END DO
+  //
+  // DO i2  << remainder loop
+  //   t1 = t1 + ...
+  // END DO
+
+  if (!OrigLoop) {
+    OrigLoop = LiveoutLoop;
+  }
+
+  SmallSet<unsigned, 4> LiveoutCandidates;
+
+  // Collect liveins which are not liveout of the loop.
+  for (auto It = OrigLoop->live_in_begin(), E = OrigLoop->live_in_end();
+       It != E; ++It) {
+    unsigned Symbase = *It;
+
+    if (!OrigLoop->isLiveOut(Symbase)) {
+      LiveoutCandidates.insert(Symbase);
+    }
+  }
+
+  if (LiveoutCandidates.empty()) {
+    return;
+  }
+
+  TempDefFinder TDF(LiveoutCandidates);
+
+  HLNodeUtils::visitRange(TDF, OrigLoop->child_begin(), OrigLoop->child_end());
+
+  for (unsigned LiveoutSB : TDF.getFoundTempDefs()) {
+    LiveoutLoop->addLiveOutTemp(LiveoutSB);
+  }
+}
+
 HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
-    bool VecMode) {
+    LoopOptReportBuilder &LORBuilder, bool VecMode) {
   // Extract Ztt and add it outside the loop.
   OrigLoop->extractZtt();
 
@@ -319,13 +416,24 @@ HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
                                             &NewTripCount, &NewTCRef);
 
   // Create the main loop.
-  HLLoop *MainLoop = createUnrollOrVecLoop(OrigLoop, UnrollOrVecFactor,
-                                           NewTripCount, NewTCRef, VecMode);
+  HLLoop *MainLoop = createUnrollOrVecLoop(
+      OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef, LORBuilder, VecMode);
 
   // Update the OrigLoop to remainder loop by setting bounds appropriately if
   // remainder loop is needed.
   if (NeedRemainderLoop) {
     processRemainderLoop(OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef);
+    addCloningInducedLiveouts(MainLoop, OrigLoop);
+
+    // Since OrigLoop became a remainder and will be lexicographicaly
+    // second to MainLoop, we move all the next siblings back there.
+    LORBuilder(*MainLoop).moveSiblingsTo(*OrigLoop);
+    if (VecMode)
+      LORBuilder(*OrigLoop).addOrigin("Remainder loop for vectorization");
+    else if (OrigLoop->isInnermost())
+      LORBuilder(*OrigLoop).addOrigin("Remainder loop for partial unrolling");
+    else
+      LORBuilder(*OrigLoop).addOrigin("Remainder loop for unroll-and-jam");
   }
 
   // Mark parent for invalidation

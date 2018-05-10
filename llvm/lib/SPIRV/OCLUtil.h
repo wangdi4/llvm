@@ -35,6 +35,12 @@
 // This file declares OCL utility functions.
 //
 //===----------------------------------------------------------------------===//
+
+#ifndef OCLUTIL_H
+#define OCLUTIL_H
+
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/Support/Path.h"
 #include "SPIRVInternal.h"
 
 #include <utility>
@@ -109,10 +115,6 @@ typedef std::tuple<unsigned, OCLMemOrderKind, OCLScopeKind>
 ///     (flag, mem_scope, exec_scope)
 typedef std::tuple<unsigned, OCLScopeKind, OCLScopeKind>
   BarrierLiterals;
-
-class OCLOpaqueType;
-typedef SPIRVMap<std::string, Op, OCLOpaqueType>
-  OCLOpaqueTypeOpCodeMap;
 
 /// Information for translating OCL builtin.
 struct OCLBuiltinTransInfo {
@@ -203,7 +205,13 @@ namespace kOCLBuiltinName {
   const static char SubGroupAll[]        = "sub_group_all";
   const static char SubGroupAny[]        = "sub_group_any";
   const static char WorkPrefix[]         = "work_";
-}
+  const static char SubgroupBlockReadINTELPrefix[] =
+      "intel_sub_group_block_read";
+  const static char SubgroupBlockWriteINTELPrefix[] =
+      "intel_sub_group_block_write";
+  const static char SubgroupImageMediaBlockINTELPrefix[] =
+      "intel_sub_group_media_block";
+  } // namespace kOCLBuiltinName
 
 /// Offset for OpenCL image channel order enumeration values.
 const unsigned int OCLImageChannelOrderOffset = 0x10B0;
@@ -303,6 +311,20 @@ decodeOCLVer(unsigned Ver);
 
 /// Decode a MDNode assuming it contains three integer constants.
 void decodeMDNode(MDNode* N, unsigned& X, unsigned& Y, unsigned& Z);
+
+/// Get full path from debug info metadata
+/// Return empty string if the path is not available.
+template <typename T>
+std::string getFullPath(const T* Scope) {
+  if (!Scope)
+    return std::string();
+  std::string Filename = Scope->getFilename().str();
+  if (sys::path::is_absolute(Filename))
+    return Filename;
+  SmallString<16> DirName = Scope->getDirectory();
+  sys::path::append(DirName, Filename);
+  return DirName.str().str();
+}
 
 /// Decode OpenCL vector type hint MDNode and encode it as SPIR-V execution
 /// mode VecTypeHint.
@@ -572,10 +594,10 @@ _SPIRV_OP(to_local, GenericCastToPtrExplicit)
 _SPIRV_OP(to_private, GenericCastToPtrExplicit)
 _SPIRV_OP(work_group_barrier, ControlBarrier)
 // CL 2.0 pipe builtins
-_SPIRV_OP(read_pipe, ReadPipe)
-_SPIRV_OP(write_pipe, WritePipe)
-_SPIRV_OP(reserved_read_pipe, ReservedReadPipe)
-_SPIRV_OP(reserved_write_pipe, ReservedWritePipe)
+_SPIRV_OP(read_pipe_2, ReadPipe)
+_SPIRV_OP(write_pipe_2, WritePipe)
+_SPIRV_OP(read_pipe_4, ReservedReadPipe)
+_SPIRV_OP(write_pipe_4, ReservedWritePipe)
 _SPIRV_OP(reserve_read_pipe, ReserveReadPipePackets)
 _SPIRV_OP(reserve_write_pipe, ReserveWritePipePackets)
 _SPIRV_OP(commit_read_pipe, CommitReadPipe)
@@ -608,16 +630,13 @@ _SPIRV_OP(get_image_channel_data_type, ImageQueryFormat)
 _SPIRV_OP(get_image_channel_order, ImageQueryOrder)
 _SPIRV_OP(get_image_num_mip_levels, ImageQueryLevels)
 _SPIRV_OP(get_image_num_samples, ImageQuerySamples)
+// Intel Subgroups builtins
+_SPIRV_OP(intel_sub_group_shuffle, SubgroupShuffleINTEL)
+_SPIRV_OP(intel_sub_group_shuffle_down, SubgroupShuffleDownINTEL)
+_SPIRV_OP(intel_sub_group_shuffle_up, SubgroupShuffleUpINTEL)
+_SPIRV_OP(intel_sub_group_shuffle_xor, SubgroupShuffleXorINTEL)
 #undef _SPIRV_OP
 }
 
-template<> inline void
-SPIRVMap<std::string, Op, OCLOpaqueType>::init() {
-  add("opencl.event_t", OpTypeEvent);
-  add("opencl.pipe_t", OpTypePipe);
-  add("opencl.clk_event_t", OpTypeDeviceEvent);
-  add("opencl.reserve_id_t", OpTypeReserveId);
-  add("opencl.queue_t", OpTypeQueue);
-}
-
 } // namespace SPIRV
+#endif //OCLUTIL_H

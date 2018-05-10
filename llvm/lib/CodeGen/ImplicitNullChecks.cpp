@@ -63,13 +63,13 @@ using namespace llvm;
 
 static cl::opt<int> PageSize("imp-null-check-page-size",
                              cl::desc("The page size of the target in bytes"),
-                             cl::init(4096));
+                             cl::init(4096), cl::Hidden);
 
 static cl::opt<unsigned> MaxInstsToConsider(
     "imp-null-max-insts-to-consider",
     cl::desc("The max number of instructions to consider hoisting loads over "
              "(the algorithm is quadratic over this number)"),
-    cl::init(8));
+    cl::Hidden, cl::init(8));
 
 #define DEBUG_TYPE "implicit-null-checks"
 
@@ -134,7 +134,7 @@ class ImplicitNullChecks : public MachineFunctionPass {
     // The block branched to if the pointer is null.
     MachineBasicBlock *NullSucc;
 
-    // If this is non-null, then MemOperation has a dependency on on this
+    // If this is non-null, then MemOperation has a dependency on this
     // instruction; and it needs to be hoisted to execute before MemOperation.
     MachineInstr *OnlyDependency;
 
@@ -198,7 +198,7 @@ class ImplicitNullChecks : public MachineFunctionPass {
   SuitabilityResult isSuitableMemoryOp(MachineInstr &MI, unsigned PointerReg,
                                        ArrayRef<MachineInstr *> PrevInsts);
 
-  /// Return true if \p FaultingMI can be hoisted from after the the
+  /// Return true if \p FaultingMI can be hoisted from after the
   /// instructions in \p InstsSeenSoFar to before them.  Set \p Dependence to a
   /// non-null value if we also need to (and legally can) hoist a depedency.
   bool canHoistInst(MachineInstr *FaultingMI, unsigned PointerReg,
@@ -421,7 +421,7 @@ bool ImplicitNullChecks::canHoistInst(MachineInstr *FaultingMI,
     //    test %rcx, %rcx
     //    je _null_block
     //  _non_null_block:
-    //    %rdx<def> = INST
+    //    %rdx = INST
     //    ...
     //
     // This restriction does not apply to the faulting load inst because in

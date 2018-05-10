@@ -36,6 +36,7 @@ template <typename GraphNode, typename GraphEdge> class HIRGraph {
   }
 
 public:
+  // TODO: fix definition to return non-modifiable edge.
   typedef typename GraphEdgeContainerTy::const_iterator EdgeIterator;
 
   typedef std::pointer_to_unary_function<GraphEdge *, GraphNode *>
@@ -45,11 +46,11 @@ public:
 
   static GraphNode *SinkFun(GraphEdge *E) { return E->getSink(); }
 
-  children_iterator children_begin(GraphNode *Node) {
+  children_iterator children_begin(const GraphNode *Node) const {
     return map_iterator(outgoing_edges_begin(Node), GraphNodeDerefFun(SinkFun));
   }
 
-  children_iterator children_end(GraphNode *Node) {
+  children_iterator children_end(const GraphNode *Node) const {
     return map_iterator(outgoing_edges_end(Node), GraphNodeDerefFun(SinkFun));
   }
 
@@ -108,6 +109,25 @@ public:
     OutEdges.clear();
     EdgesList.clear();
   }
+protected:
+  typedef typename GraphEdgeContainerTy::iterator MutableEdgeIterator;
+  // Descendants may need to enforce particular order of edges
+  MutableEdgeIterator mutable_incoming_edges_begin(const GraphNode *Node) {
+    return InEdges[Node].begin();
+  }
+
+  MutableEdgeIterator mutable_incoming_edges_end(const GraphNode *Node) {
+    return InEdges[Node].end();
+  }
+
+  MutableEdgeIterator mutable_outgoing_edges_begin(const GraphNode *Node) {
+    return OutEdges[Node].begin();
+  }
+
+  MutableEdgeIterator mutable_outgoing_edges_end(const GraphNode *Node) {
+    return OutEdges[Node].end();
+  }
+
 };
 }
 }

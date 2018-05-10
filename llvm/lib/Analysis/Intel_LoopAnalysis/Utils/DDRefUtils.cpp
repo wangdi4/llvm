@@ -13,12 +13,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+
 #include "llvm/Support/Debug.h"
 
-#include "llvm/IR/Constants.h" // needed for UndefValue class
-
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
 
 using namespace llvm;
 using namespace loopopt;
@@ -97,6 +96,12 @@ RegDDRef *DDRefUtils::createConstDDRef(Value *Val) {
   return NewRegDD;
 }
 
+RegDDRef *DDRefUtils::createUndefDDRef(Type *Ty) {
+  Value *UndefVal = UndefValue::get(Ty);
+
+  return createConstDDRef(UndefVal);
+}
+
 BlobDDRef *DDRefUtils::createBlobDDRef(unsigned Index, unsigned Level) {
   return new BlobDDRef(*this, Index, Level);
 }
@@ -108,14 +113,12 @@ void DDRefUtils::destroy(DDRef *Ref) {
   delete Ref;
 }
 
-void DDRefUtils::destroyAll() {
+DDRefUtils::~DDRefUtils() {
   for (auto &I : Objs) {
     delete I;
   }
 
   Objs.clear();
-
-  getCanonExprUtils().destroyAll();
 }
 
 RegDDRef *DDRefUtils::createSelfBlobRef(Value *Temp) {
@@ -132,7 +135,7 @@ RegDDRef *DDRefUtils::createSelfBlobRef(Value *Temp) {
 }
 
 unsigned DDRefUtils::getNewSymbase() {
-  return getBlobUtils().getHIRSymbaseAssignment().getNewSymbase();
+  return getHIRParser().getHIRFramework().getNewSymbase();
 }
 
 bool DDRefUtils::areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2) {
@@ -144,7 +147,8 @@ bool DDRefUtils::areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2) {
   }
 
   // Additional check. Ideally, symbase match should be equal blobs.
-  assert(CanonExprUtils::areEqual(Ref1->getCanonExpr(), Ref2->getCanonExpr()));
+  assert(CanonExprUtils::areEqual(Ref1->getSingleCanonExpr(),
+                                  Ref2->getSingleCanonExpr()));
 
   return true;
 }
@@ -213,6 +217,23 @@ int DDRefUtils::compareOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
   return 0;
 }
 
+bool DDRefUtils::haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2) {
+  assert(Ref1->hasGEPInfo() && "Ref1 is not a GEP DDRef!");
+  assert(Ref2->hasGEPInfo() && "Ref2 is not a GEP DDRef!");
+  assert(CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE()) &&
+         "Same base expected!");
+  assert((Ref1->getNumDimensions() == Ref2->getNumDimensions()) &&
+         "Ref1 and Ref2 have different number of dimensions!");
+
+  for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
+    if (compareOffsets(Ref1, Ref2, I)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
                               bool RelaxedMode) {
 
@@ -232,6 +253,10 @@ bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
     // TODO: compare attributes like volatile, alignment etc.
 
     if (Ref1->isMemRef() != Ref2->isMemRef()) {
+      return false;
+    }
+
+    if (Ref1->getBitCastDestType() != Ref2->getBitCastDestType()) {
       return false;
     }
 
@@ -309,6 +334,15 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
   const CanonExpr *BaseCE2 = Ref2->getBaseCE();
 
   if (!CanonExprUtils::areEqual(BaseCE1, BaseCE2)) {
+    return false;
+  }
+
+  // Ideally, this check shouldn't matter as we can compute distance between
+  // (i32*)A[i] and A[i] but it complicates the life of transformations such as
+  // scalar replacement which now need to handle such cases.
+  // TODO: Remove this check and let the transformations decide what to do with
+  // such refs.
+  if (Ref1->getBitCastDestType() != Ref2->getBitCastDestType()) {
     return false;
   }
 
@@ -466,8 +500,9 @@ bool DDRefUtils::compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2) {
   assert(Ref1->isMemRef() && Ref2->isMemRef() &&
          "Both RegDDRefs are expected to be memory references.");
 
-  if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE()))
+  if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE())) {
     return CanonExprUtils::compare(Ref1->getBaseCE(), Ref2->getBaseCE());
+  }
 
   if (Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
     return (Ref1->getNumDimensions() < Ref2->getNumDimensions());
@@ -489,6 +524,19 @@ bool DDRefUtils::compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2) {
     }
   }
 
+  auto DestTy1 = Ref1->getBitCastDestType();
+  auto DestTy2 = Ref2->getBitCastDestType();
+
+  if (DestTy1 != DestTy2) {
+    if (!DestTy1) {
+      return true;
+    } else if (!DestTy2) {
+      return false;
+    } else {
+      return (Ref1->getCanonExprUtils().compare(DestTy1, DestTy2) < 0);
+    }
+  }
+
   // Place writes first in case everything matches.
   if (Ref1->isLval() != Ref2->isLval()) {
     return Ref1->isLval();
@@ -503,9 +551,7 @@ bool DDRefUtils::canReplaceIVByCanonExpr(const RegDDRef *Ref,
                                          bool RelaxedMode) {
 
   for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
-    CanonExpr *CurCE = (*I);
-
-    if (!CanonExprUtils::canReplaceIVByCanonExpr(CurCE, LoopLevel, CE,
+    if (!CanonExprUtils::canReplaceIVByCanonExpr((*I), LoopLevel, CE,
                                                  RelaxedMode)) {
       return false;
     }
@@ -519,9 +565,7 @@ void DDRefUtils::replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
                                       bool RelaxedMode) {
 
   for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
-    CanonExpr *CurCE = (*I);
-
-    auto Res = CanonExprUtils::replaceIVByCanonExpr(CurCE, LoopLevel, CE, IsNSW,
+    auto Res = CanonExprUtils::replaceIVByCanonExpr((*I), LoopLevel, CE, IsNSW,
                                                     RelaxedMode);
     (void)Res;
     assert(Res && "Replacement failed, caller should call "

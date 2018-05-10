@@ -167,16 +167,16 @@ Still ok. After register allocation:
 
 cond_next140 (0xa910740, LLVM BB @0xa90beb0):
 	%eax = MOV32ri -3
-	%edx = MOV32rm <fi#3>, 1, %noreg, 0
+	%edx = MOV32rm %stack.3, 1, %noreg, 0
 	ADD32rm %eax<def&use>, %edx, 1, %noreg, 0
-	%edx = MOV32rm <fi#7>, 1, %noreg, 0
+	%edx = MOV32rm %stack.7, 1, %noreg, 0
 	%edx = MOV32rm %edx, 1, %noreg, 40
 	IMUL32rr %eax<def&use>, %edx
-	%esi = MOV32rm <fi#5>, 1, %noreg, 0
+	%esi = MOV32rm %stack.5, 1, %noreg, 0
 	%esi = MOV32rm %esi, 1, %noreg, 0
-	MOV32mr <fi#4>, 1, %noreg, 0, %esi
+	MOV32mr %stack.4, 1, %noreg, 0, %esi
 	%eax = LEA32r %esi, 1, %eax, -3
-	%esi = MOV32rm <fi#7>, 1, %noreg, 0
+	%esi = MOV32rm %stack.7, 1, %noreg, 0
 	%esi = MOV32rm %esi, 1, %noreg, 32
 	%edi = MOV32rr %eax
 	SHL32ri %edi<def&use>, 4
@@ -837,14 +837,5 @@ double f (__m128d p) {
 
 similarly, v[0]-v[1] should match to hsubpd, and {v[0]-v[1], w[0]-w[1]} should
 turn into hsubpd also.
-
-//===---------------------------------------------------------------------===//
-
-define <2 x i32> @foo(<2 x double> %in) {
-  %x = fptosi <2 x double> %in to <2 x i32>
-  ret <2 x i32> %x
-}
-
-Should compile into cvttpd2dq instead of being scalarized into 2 cvttsd2si.
 
 //===---------------------------------------------------------------------===//

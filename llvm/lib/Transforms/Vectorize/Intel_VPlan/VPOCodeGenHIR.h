@@ -21,9 +21,9 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include <map>
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 
 using namespace llvm::loopopt;
 
@@ -42,10 +42,11 @@ class WRNVecLoopNode;
 class VPOCodeGenHIR {
 public:
   VPOCodeGenHIR(TargetLibraryInfo *TLI, HIRSafeReductionAnalysis *SRA,
-                Function &Fn, HLLoop *Loop, WRNVecLoopNode *WRLp)
+                Function &Fn, HLLoop *Loop, LoopOptReportBuilder &LORB,
+                WRNVecLoopNode *WRLp)
       : TLI(TLI), SRA(SRA), Fn(Fn), OrigLoop(Loop), MainLoop(nullptr),
         CurMaskValue(nullptr), NeedRemainderLoop(false), TripCount(0), VF(0),
-        WVecNode(WRLp) {}
+        LORBuilder(LORB), WVecNode(WRLp) {}
 
   ~VPOCodeGenHIR() {}
 
@@ -116,6 +117,21 @@ public:
 
   void setCurMaskValue(RegDDRef *V) { CurMaskValue = V; }
 
+  // Return widened instruction if Symbase is in WidenMap, return nullptr
+  // otherwise.
+  HLInst *getWideInst(unsigned Symbase) const {
+    if (WidenMap.find(Symbase) != WidenMap.end())
+      return WidenMap.at(Symbase);
+    else
+      return nullptr;
+  }
+
+  // Widen Ref if needed and return the widened ref.
+  RegDDRef *widenRef(const RegDDRef *Ref);
+
+  // Delete intel intrinsic directives before and after the loop.
+  void eraseLoopIntrins();
+
 private:
   // Target Library Info is used to check for svml.
   TargetLibraryInfo *TLI;
@@ -146,6 +162,8 @@ private:
   // to operate on this number of operands.
   unsigned VF;
 
+  LoopOptReportBuilder &LORBuilder;
+
   // Map of DDRef symbase and widened HLInst
   std::map<unsigned, HLInst *> WidenMap;
   std::map<VPValue *, RegDDRef *> VPValWideRefMap;
@@ -153,10 +171,6 @@ private:
   // Map of avr number and widened DDRef. TODO - look into combining the two
   // maps
   std::map<int, RegDDRef *> WideMap;
-
-  typedef DDRefGatherer<RegDDRef, TerminalRefs> BlobRefGatherer;
-
-  BlobRefGatherer::MapTy MemRefMap;
 
   // WRegion VecLoop Node corresponding to AVRLoop
   WRNVecLoopNode *WVecNode;
@@ -171,8 +185,6 @@ private:
   // before/after the loop based on the BeginDir which determines where we start
   // the lookup.
   void eraseLoopIntrinsImpl(bool BeginDir);
-
-  void eraseLoopIntrins();
 
   /// \brief Analyzes the memory references of \p OrigCall to determine
   /// stride. The resulting stride information is attached to the arguments
@@ -196,18 +208,6 @@ private:
   // Replace math library calls in the remainder loop with the vectorized one
   // used in the main vector loop.
   void replaceLibCallsInRemainderLoop(HLInst *HInst);
-
-  // Return widened instruction if Symbase is in WidenMap, return nullptr
-  // otherwise.
-  HLInst *getWideInst(unsigned Symbase) const {
-    if (WidenMap.find(Symbase) != WidenMap.end())
-      return WidenMap.at(Symbase);
-    else
-      return nullptr;
-  }
-
-  // Widen Ref if needed and return the widened ref.
-  RegDDRef *widenRef(const RegDDRef *Ref);
 
   class HIRLoopVisitor : public HIRVisitor<HIRLoopVisitor> {
   private:

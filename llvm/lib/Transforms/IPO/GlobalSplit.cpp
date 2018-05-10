@@ -196,5 +196,10 @@ ModulePass *llvm::createGlobalSplitPass() {
 PreservedAnalyses GlobalSplitPass::run(Module &M, ModuleAnalysisManager &AM) {
   if (!splitGlobals(M))
     return PreservedAnalyses::all();
-  return PreservedAnalyses::none();
+
+#if INTEL_CUSTOMIZATION
+  PreservedAnalyses PA;
+  PA.preserve<WholeProgramAnalysis>();
+  return PA;
+#endif // INTEL_CUSTOMIZATION
 }

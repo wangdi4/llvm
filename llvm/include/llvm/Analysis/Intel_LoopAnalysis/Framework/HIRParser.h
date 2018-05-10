@@ -23,8 +23,6 @@
 
 #include <map>
 
-#include "llvm/Pass.h"
-
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SmallVector.h"
 
@@ -34,6 +32,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 
 namespace llvm {
 
@@ -58,6 +57,7 @@ namespace loopopt {
 class HIRRegionIdentification;
 class HIRCreation;
 class HIRScalarSymbaseAssignment;
+class HIRFramework;
 class HIRLoopFormation;
 class HLDDNode;
 class HLRegion;
@@ -72,14 +72,11 @@ class DDRef;
 class CanonExpr;
 class HLNodeUtils;
 
-const unsigned InvalidBlobIndex = 0;
-
 /// This analysis creates DDRefs and parses SCEVs into CanonExprs for HLNodes
 /// inside HIR regions. It eliminates HLNodes useless to HIR.
 ///
 /// It is also responsible for assigning symbases to non livein/liveout scalars.
-class HIRParser : public FunctionPass {
-private:
+class HIRParser {
   // CanonExprUtils provides wrapper functions on top of private functions of
   // HIRParser like createBlob() etc.
   friend class BlobUtils;
@@ -97,29 +94,15 @@ private:
   // DDRefUtils object for the framework.
   DDRefUtils DDRU;
 
-  /// DT - The dominator tree.
-  DominatorTree *DT;
-
-  /// LI - The loop information for the function we are currently analyzing.
-  LoopInfo *LI;
-
-  /// SE - Scalar Evolution analysis for the function.
-  ScalarEvolution *SE;
-
-  /// RI - The region identification pass.
-  const HIRRegionIdentification *RI;
-
-  /// HIR - HIR for the function.
-  HIRCreation *HIR;
-
-  /// LF - Loop formation analysis of HIR.
-  HIRLoopFormation *LF;
-
-  /// ScalarSA - Scalar Symbase Assignment Analysis.
-  HIRScalarSymbaseAssignment *ScalarSA;
-
-  /// Func - The function we are operating on.
-  Function *Func;
+  DominatorTree &DT;
+  LoopInfo &LI;
+  ScalarEvolution &SE;
+  const HIRRegionIdentification &RI;
+  std::reference_wrapper<HIRFramework> HIRF;
+  HIRCreation &HIRC;
+  HIRLoopFormation &LF;
+  HIRScalarSymbaseAssignment &ScalarSA;
+  HLNodeUtils &HNU;
 
   /// CurNode - The node we are operating on.
   HLDDNode *CurNode;
@@ -132,6 +115,9 @@ private:
 
   /// CurLevel - The loop level we are operating on.
   unsigned CurLevel;
+
+  // True when the parsing phase is done.
+  bool IsReady;
 
   /// True when we are parsing scalar lval.
   bool ParsingScalarLval;
@@ -456,9 +442,6 @@ private:
   /// definition or a use of GEP.
   RegDDRef *createGEPDDRef(const Value *Val, unsigned Level, bool IsUse);
 
-  /// Returns a RegDDRef representing this Null value.
-  RegDDRef *createUndefDDRef(Type *Type);
-
   /// Returns a RegDDRef representing this scalar value.
   RegDDRef *createScalarDDRef(const Value *Val, unsigned Level,
                               bool IsLval = false);
@@ -615,9 +598,6 @@ private:
                                  int64_t Constant, unsigned &NewBlobIndex,
                                  int64_t &SimplifiedConstant);
 
-  /// Returns the max symbase assigned to any temp.
-  unsigned getMaxScalarSymbase() const;
-
   /// Prints scalar corresponding to Symbase.
   void printScalar(raw_ostream &OS, unsigned Symbase) const;
 
@@ -650,7 +630,7 @@ private:
   ArrayType *traceBackToArrayType(const Value *Ptr) const;
 
   /// Returns HLNodeUtils object.
-  HLNodeUtils &getHLNodeUtils();
+  HLNodeUtils &getHLNodeUtils() { return HNU; }
 
   /// Returns DDRefUtils object.
   DDRefUtils &getDDRefUtils() { return DDRU; }
@@ -661,41 +641,40 @@ private:
   /// Returns BlobUtils object.
   BlobUtils &getBlobUtils() { return DDRU.getBlobUtils(); }
 
-  /// Region iterator methods
-  HLContainerTy::iterator hir_begin();
-  HLContainerTy::const_iterator hir_cbegin() const;
-  HLContainerTy::iterator hir_end();
-  HLContainerTy::const_iterator hir_cend() const;
-
-  HLContainerTy::reverse_iterator hir_rbegin();
-  HLContainerTy::const_reverse_iterator hir_crbegin() const;
-  HLContainerTy::reverse_iterator hir_rend();
-  HLContainerTy::const_reverse_iterator hir_crend() const;
-
 public:
-  static char ID; // Pass identification
-  HIRParser();
+  HIRParser(DominatorTree &DT, LoopInfo &LI, ScalarEvolution &SE,
+            HIRRegionIdentification &RI, HIRFramework &HIRF, HIRCreation &HIRC,
+            HIRLoopFormation &LF, HIRScalarSymbaseAssignment &ScalarSA,
+            HLNodeUtils &HNU)
+      : DDRU(*this), DT(DT), LI(LI), SE(SE), RI(RI), HIRF(HIRF), HIRC(HIRC),
+        LF(LF), ScalarSA(ScalarSA), HNU(HNU), CurNode(nullptr),
+        CurRegion(nullptr), CurOutermostLoop(nullptr), CurLevel(0),
+        IsReady(false), ParsingScalarLval(false) {
+    // Connect contained DDRefUtils to HLNodeUtils object.
+    HNU.DDRU = &DDRU;
+  };
 
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  void print(raw_ostream &OS, const Module * = nullptr) const override;
-  void print(bool FrameworkDetails, raw_ostream &OS,
-             const Module * = nullptr) const;
-  void verifyAnalysis() const override;
+  void run();
+
+  // Returns thre whenever the parsing phase is completed.
+  bool isReady() { return IsReady; }
+
+  /// Returns pointer to HIRFramework.
+  HIRFramework &getHIRFramework() { return HIRF; }
+  const HIRFramework &getHIRFramework() const { return HIRF; }
 
   /// Returns Function object.
-  Function &getFunction() const { return *Func; }
+  Function &getFunction() const { return getHIRFramework().getFunction(); }
 
   /// Returns Module object.
-  Module &getModule() const { return *(getFunction().getParent()); }
+  Module &getModule() const { return getHIRFramework().getModule(); }
 
   /// Returns LLVMContext object.
-  LLVMContext &getContext() const { return getFunction().getContext(); }
+  LLVMContext &getContext() const { return getHIRFramework().getContext(); }
 
   /// Returns DataLayout object.
   const DataLayout &getDataLayout() const {
-    return getModule().getDataLayout();
+    return getHIRFramework().getDataLayout();
   }
 };
 

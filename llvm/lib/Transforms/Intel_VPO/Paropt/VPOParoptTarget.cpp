@@ -48,6 +48,31 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-paropt-target"
 
+// Reset the value in the Map clause to be empty.
+void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
+  if (!W->canHaveMap())
+    return;
+
+  MapClause MpClause = W->getMap();
+  if (MpClause.empty())
+    return;
+
+  for (auto *Item : MpClause.items()) {
+    if (Item->getOrig())
+      resetValueInIntelClauseGeneric(W, Item->getOrig());
+    if (!Item->getIsMapChain())
+      continue;
+    auto MapChain = Item->getMapChain();
+    for (unsigned I = 0; I < MapChain.size(); ++I) {
+      MapAggrTy *Aggr = MapChain[I];
+      Value *SectionPtr = Aggr->getSectionPtr();
+      resetValueInIntelClauseGeneric(W, SectionPtr);
+      Value *Size = Aggr->getSize();
+      if (!dyn_cast<ConstantInt>(Size))
+        resetValueInIntelClauseGeneric(W, Size);
+    }
+  }
+}
 // Generate the code for the directive omp target
 bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
@@ -55,86 +80,126 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
   W->populateBBSet();
 
-  codeExtractorPrepare(W);
   resetValueInIntelClauseGeneric(W, W->getIf());
   resetValueInIsDevicePtrClause(W);
   resetValueInPrivateClause(W);
+  resetValueInMapClause(W);
 
   bool Changed = false;
 
   // extract a W-Region to generate a function
-  CodeExtractor CE(makeArrayRef(W->bbset_begin(), W->bbset_end()), DT, false);
+  CodeExtractor CE(makeArrayRef(W->bbset_begin(), W->bbset_end()), DT, false,
+                   nullptr, nullptr, false, true);
 
   assert(CE.isEligible());
 
   // Set up Fn Attr for the new function
-  if (Function *NewF = CE.extractCodeRegion()) {
+  Function *NewF = CE.extractCodeRegion();
 
-    // Set up the Calling Convention used by OpenMP Runtime Library
-    CallingConv::ID CC = CallingConv::C;
-    NewF->addFnAttr("target.declare", "true");
+  assert(NewF != nullptr && "Expect non-empty outline function");
 
-    DT->verifyDomTree();
+  // Set up the Calling Convention used by OpenMP Runtime Library
+  CallingConv::ID CC = CallingConv::C;
+  NewF->addFnAttr("target.declare", "true");
 
-    // Adjust the calling convention for both the function and the
-    // call site.
-    NewF->setCallingConv(CC);
+  DT->verify(DominatorTree::VerificationLevel::Full);
 
-    assert(NewF->hasOneUse() && "New function should have one use");
-    User *U = NewF->user_back();
+  // Adjust the calling convention for both the function and the
+  // call site.
+  NewF->setCallingConv(CC);
 
-    CallInst *NewCall = cast<CallInst>(U);
-    NewCall->setCallingConv(CC);
+  assert(NewF->hasOneUse() && "New function should have one use");
+  User *U = NewF->user_back();
 
-    IRBuilder<> Builder(F->getEntryBlock().getTerminator());
-    AllocaInst *OffloadError = Builder.CreateAlloca(
-        Type::getInt32Ty(F->getContext()), nullptr, ".run_host_version");
+  CallInst *NewCall = cast<CallInst>(U);
+  NewCall->setCallingConv(CC);
 
-    Value *VIf = W->getIf();
-    CallInst *Call;
-    Instruction *InsertPt = NewCall;
+  IRBuilder<> Builder(F->getEntryBlock().getTerminator());
+  AllocaInst *OffloadError = Builder.CreateAlloca(
+      Type::getInt32Ty(F->getContext()), nullptr, ".run_host_version");
 
-    if (VIf) {
-      Value *Cmp =
-          Builder.CreateICmpNE(VIf, ConstantInt::get(VIf->getType(), 0));
-      TerminatorInst *ThenTerm, *ElseTerm;
-      buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, InsertPt);
-      InsertPt = ThenTerm;
-      Call = genTargetInitCode(W, NewCall, InsertPt);
-      Builder.SetInsertPoint(ElseTerm);
-      Builder.CreateStore(
-          ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), -1),
-          OffloadError);
-    } else
-      Call = genTargetInitCode(W, NewCall, InsertPt);
+  Value *VIf = W->getIf();
+  CallInst *Call;
+  Instruction *InsertPt = NewCall;
 
-    if (isa<WRNTargetNode>(W)) {
-      Builder.SetInsertPoint(InsertPt);
-      Builder.CreateStore(Call, OffloadError);
+  if (VIf) {
+    // If the target construct has if clause, the compiler will generate a
+    // if-then-else statement.
+    //
+    // Example:
+    //   #pragma omp target enter data map(to: arg) if(arg)
+    //
+    // *** IR Dump After VPO Paropt Pass ***
+    // entry:
+    //   ...
+    //   %arg.addr = alloca i32, align 4
+    //   store i32 %arg, i32* %arg.addr, align 4, !tbaa !2
+    //   %tobool = icmp ne i32 %arg, 0
+    //   %.run_host_version = alloca i32
+    //   %0 = icmp ne i1 %tobool, false
+    //   br label %codeRepl
+    //
+    // codeRepl:
+    //   br i1 %0, label %if.then, label %if.else
+    //
+    //  if.then:
+    //    ...
+    //    call void @__tgt_target_data_begin(i64 -1, i32 1, i8** %5,
+    //      i8** %6, i64* getelementptr inbounds ([1 x i64],
+    //      [1 x i64]* @.offload_sizes, i32 0, i32 0),
+    //      i64* getelementptr inbounds ([1 x i64],
+    //      [1 x i64]* @.offload_maptypes, i32 0, i32 0))
+    //    br label %if.end
+    //
+    // if.else:
+    //   store i32 -1, i32* %.run_host_version
+    //   br label %if.end
+    //
+    // if.end:
+    //   ...
+    //
+    Value *Cmp = Builder.CreateICmpNE(VIf, ConstantInt::get(VIf->getType(), 0));
+    TerminatorInst *ThenTerm, *ElseTerm;
+    buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, InsertPt);
+    InsertPt = ThenTerm;
+    Call = genTargetInitCode(W, NewCall, InsertPt);
+    Builder.SetInsertPoint(ElseTerm);
+    Builder.CreateStore(
+        ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), -1),
+        OffloadError);
+  } else
+    Call = genTargetInitCode(W, NewCall, InsertPt);
 
-      Builder.SetInsertPoint(NewCall);
-      LoadInst *LastLoad = Builder.CreateLoad(OffloadError);
-      ConstantInt *ValueZero =
-          ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
-      Value *ErrorCompare = Builder.CreateICmpNE(LastLoad, ValueZero);
-      TerminatorInst *Term = SplitBlockAndInsertIfThen(ErrorCompare, NewCall,
-                                                       false, nullptr, DT, LI);
-      Term->getParent()->setName("omp_offload.failed");
-      LastLoad->getParent()->getTerminator()->getSuccessor(1)->setName(
-          "omp_offload.cont");
-      NewCall->removeFromParent();
-      NewCall->insertBefore(Term->getParent()->getTerminator());
+  if (isa<WRNTargetNode>(W)) {
+    Builder.SetInsertPoint(InsertPt);
+    Builder.CreateStore(Call, OffloadError);
 
-      genRegistrationFunction(W, NewF);
-    } else if (isa<WRNTargetDataNode>(W)) {
-      NewCall->removeFromParent();
-      NewCall->insertAfter(Call);
-    }
+    Builder.SetInsertPoint(NewCall);
+    LoadInst *LastLoad = Builder.CreateLoad(OffloadError);
+    ConstantInt *ValueZero =
+        ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
+    Value *ErrorCompare = Builder.CreateICmpNE(LastLoad, ValueZero);
+    TerminatorInst *Term = SplitBlockAndInsertIfThen(ErrorCompare, NewCall,
+                                                     false, nullptr, DT, LI);
+    Term->getParent()->setName("omp_offload.failed");
+    LastLoad->getParent()->getTerminator()->getSuccessor(1)->setName(
+        "omp_offload.cont");
+    NewCall->removeFromParent();
+    NewCall->insertBefore(Term->getParent()->getTerminator());
 
-    W->resetBBSet(); // Invalidate BBSet after transformations
-
-    Changed = true;
+    genRegistrationFunction(W, NewF);
+  } else if (isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W)) {
+    NewCall->removeFromParent();
+    NewCall->insertAfter(Call);
+  } else if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W)) {
+    NewCall->removeFromParent();
+    NewF->removeFromParent();
   }
+
+  W->resetBBSet(); // Invalidate BBSet after transformations
+
+  Changed = true;
+
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genTargetOffloadingCode\n");
   return Changed;
 }
@@ -151,20 +216,6 @@ void VPOParoptTransform::resetValueInIsDevicePtrClause(WRegionNode *W) {
   for (auto *I : IDevicePtrClause.items()) {
     resetValueInIntelClauseGeneric(W, I->getOrig());
   }
-}
-
-// Return the size_t type for 32/64 bit architecture
-Type *VPOParoptTransform::getSizeTTy() {
-  LLVMContext &C = F->getContext();
-
-  IntegerType *IntTy;
-  const DataLayout &DL = F->getParent()->getDataLayout();
-
-  if (DL.getIntPtrType(Type::getInt8PtrTy(C))->getIntegerBitWidth() == 64)
-    IntTy = Type::getInt64Ty(C);
-  else
-    IntTy = Type::getInt32Ty(C);
-  return IntTy;
 }
 
 // Returns the corresponding flag for a given map clause modifier.
@@ -198,21 +249,38 @@ unsigned VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool IsFirstExprFlag,
 // modifier and the expression V.
 void VPOParoptTransform::GenTgtInformationForPtrs(
     WRegionNode *W, Value *V, SmallVectorImpl<Constant *> &ConstSizes,
-    SmallVectorImpl<uint32_t> &MapTypes) {
+    SmallVectorImpl<uint64_t> &MapTypes,
+    bool &hasRuntimeEvaluationCaptureSize) {
   const DataLayout DL = F->getParent()->getDataLayout();
 
   bool IsFirstExprFlag = true;
-  bool IsFirstComponentFlag = true;
 
   MapClause MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
-    if (MapI->getNew() != V)
+    if (!isa<WRNTargetEnterDataNode>(W) && !isa<WRNTargetExitDataNode>(W) &&
+        (MapI->getNew() != V || !MapI->getOrig()))
       continue;
     Type *T = MapI->getOrig()->getType()->getPointerElementType();
-    ConstSizes.push_back(
-        ConstantInt::get(getSizeTTy(), DL.getTypeAllocSize(T)));
-    MapTypes.push_back(
-        getMapTypeFlag(MapI, !IsFirstExprFlag, IsFirstComponentFlag));
+    if (MapI->getIsMapChain()) {
+      auto MapChain = MapI->getMapChain();
+      for (unsigned I = 0; I < MapChain.size(); ++I) {
+        MapAggrTy *Aggr = MapChain[I];
+        auto ConstValue = dyn_cast<ConstantInt>(Aggr->getSize());
+        if (!ConstValue) {
+          hasRuntimeEvaluationCaptureSize = true;
+          ConstSizes.push_back(ConstantInt::get(
+              IntelGeneralUtils::getSizeTTy(F), DL.getTypeAllocSize(T)));
+        } else
+          ConstSizes.push_back(ConstValue);
+        MapTypes.push_back(
+            getMapTypeFlag(MapI, !IsFirstExprFlag, I == 0 ? true : false));
+      }
+    } else {
+      ConstSizes.push_back(ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
+                                            DL.getTypeAllocSize(T)));
+      MapTypes.push_back(getMapTypeFlag(MapI, !IsFirstExprFlag, true));
+    }
+
     IsFirstExprFlag = false;
   }
 
@@ -224,8 +292,8 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
       if (FprivI->getInMap())
         continue;
       Type *T = FprivI->getOrig()->getType()->getPointerElementType();
-      ConstSizes.push_back(
-          ConstantInt::get(getSizeTTy(), DL.getTypeAllocSize(T)));
+      ConstSizes.push_back(ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
+                                            DL.getTypeAllocSize(T)));
       MapTypes.push_back(TGT_MAP_TO);
     }
   }
@@ -235,7 +303,7 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
     for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
       if (IsDevicePtrI->getNew() != V)
         continue;
-      Type *T = getSizeTTy();
+      Type *T = IntelGeneralUtils::getSizeTTy(F);
       ConstSizes.push_back(ConstantInt::get(T, DL.getTypeAllocSize(T)));
       MapTypes.push_back(TGT_MAP_PRIVATE_VAL | TGT_MAP_FIRST_REF);
     }
@@ -243,6 +311,44 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
 }
 
 // Generate the initialization code for the directive omp target.
+// Given a program as follows. The compiler creates the four arrays
+// offload_baseptrs, offload_ptrs, offload_sizes and offload_maptypes.
+// The compiler initializes the arrays based on the target clauses and passes
+// the arrays into the library call __tgt_target.
+//
+// struct SC *p;
+// void foo(int size) {
+// #pragma omp target map(p->s.a)
+//   {  p->a++; }
+//
+// *** IR Dump After Module Verifier ***
+//
+// %0 = load %struct.SC*, %struct.SC** @p, align 8
+// %a = getelementptr inbounds %struct.SB, %struct.SB* %s, i32 0, i32 0
+// %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+//   "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(%struct.SC* %0, i32* %a, i64 4) ]
+//
+// *** IR Dump After VPO Paropt Pass ***;
+//
+//  %2 = bitcast %struct.SC* %1 to i8*
+//  %3 = getelementptr inbounds [1 x i8*],
+//       [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
+//  store i8* %2, i8** %3
+//  %4 = getelementptr inbounds [1 x i8*],
+//       [1 x i8*]* %.offload_ptrs, i32 0, i32 0
+//  %5 = bitcast i32* %a to i8*
+//  store i8* %5, i8** %4
+//  %6 = getelementptr inbounds [1 x i8*],
+//       [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
+//  %7 = getelementptr inbounds [1 x i8*],
+//       [1 x i8*]* %.offload_ptrs, i32 0, i32 0
+//  %8 = call i32 @__tgt_target(i64 -1, i8* @.omp_offload.region_id,
+//       i32 1, i8** %6, i8** %7, i64* getelementptr inbounds ([1 x i64],
+//       [1 x i64]* @.offload_sizes, i32 0, i32 0),
+//       i64* getelementptr inbounds ([1 x i64],
+//       [1 x i64]* @.offload_maptypes, i32 0, i32 0))
+
+//
 CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
                                                 Instruction *InsertPt) {
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTargetInitCode\n");
@@ -251,8 +357,46 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
 
   MapClause MpClause = W->getMap();
   Info.NumberOfPtrs = Call->getNumArgOperands();
+  bool hasRuntimeEvaluationCaptureSize = false;
+  if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W))
+    Info.NumberOfPtrs = 1;
 
   if (Info.NumberOfPtrs) {
+
+    SmallVector<Constant *, 16> ConstSizes;
+    SmallVector<uint64_t, 16> MapTypes;
+
+    if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W))
+      GenTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes,
+                               hasRuntimeEvaluationCaptureSize);
+    else {
+      for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
+        Value *BPVal = Call->getArgOperand(II);
+        GenTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes,
+                                 hasRuntimeEvaluationCaptureSize);
+      }
+    }
+
+    Info.NumberOfPtrs = MapTypes.size();
+
+    Value *SizesArray;
+
+    if (hasRuntimeEvaluationCaptureSize)
+      SizesArray = Builder.CreateAlloca(
+          ArrayType::get(Builder.getInt8PtrTy(), Info.NumberOfPtrs), nullptr,
+          ".offload_sizes");
+    else {
+      auto *SizesArrayInit = ConstantArray::get(
+          ArrayType::get(IntelGeneralUtils::getSizeTTy(F), ConstSizes.size()),
+          ConstSizes);
+
+      GlobalVariable *SizesArrayGbl =
+          new GlobalVariable(*(F->getParent()), SizesArrayInit->getType(), true,
+                             GlobalValue::PrivateLinkage, SizesArrayInit,
+                             ".offload_sizes", nullptr);
+      SizesArrayGbl->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+      SizesArray = SizesArrayGbl;
+    }
 
     AllocaInst *TgBasePointersArray = Builder.CreateAlloca(
         ArrayType::get(Builder.getInt8PtrTy(), Info.NumberOfPtrs), nullptr,
@@ -261,22 +405,6 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
     AllocaInst *TgPointersArray = Builder.CreateAlloca(
         ArrayType::get(Builder.getInt8PtrTy(), Info.NumberOfPtrs), nullptr,
         ".offload_ptrs");
-
-    SmallVector<Constant *, 16> ConstSizes;
-    SmallVector<uint32_t, 16> MapTypes;
-
-    for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
-      Value *BPVal = Call->getArgOperand(II);
-      GenTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes);
-    }
-
-    auto *SizesArrayInit = ConstantArray::get(
-        ArrayType::get(getSizeTTy(), ConstSizes.size()), ConstSizes);
-
-    GlobalVariable *SizesArrayGbl = new GlobalVariable(
-        *(F->getParent()), SizesArrayInit->getType(), true,
-        GlobalValue::PrivateLinkage, SizesArrayInit, ".offload_sizes", nullptr);
-    SizesArrayGbl->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
 
     Constant *MapTypesArrayInit =
         ConstantDataArray::get(Builder.getContext(), MapTypes);
@@ -288,13 +416,14 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
 
     Info.BaseDataPtrs = TgBasePointersArray;
     Info.DataPtrs = TgPointersArray;
-    Info.DataSizes = SizesArrayGbl;
+    Info.DataSizes = SizesArray;
     Info.DataMapTypes = MapTypesArrayGbl;
 
-    genOffloadArraysInit(W, &Info, Call, InsertPt);
+    genOffloadArraysInit(W, &Info, Call, InsertPt, ConstSizes,
+                         hasRuntimeEvaluationCaptureSize);
   }
 
-  genOffloadArraysArgument(&Info, InsertPt);
+  genOffloadArraysArgument(&Info, InsertPt, hasRuntimeEvaluationCaptureSize);
 
   GlobalVariable *OffloadRegionId = getOMPOffloadRegionId();
 
@@ -307,40 +436,129 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
     TgtCall = VPOParoptUtils::genTgtTargetDataBegin(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
         Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
-    genOffloadArraysArgument(&Info, Call);
+    genOffloadArraysArgument(&Info, Call, hasRuntimeEvaluationCaptureSize);
     VPOParoptUtils::genTgtTargetDataEnd(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
         Info.ResDataSizes, Info.ResDataMapTypes, Call);
-  }
+  } else if (isa<WRNTargetUpdateNode>(W))
+    TgtCall = VPOParoptUtils::genTgtTargetDataUpdate(
+        W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+  else if (isa<WRNTargetEnterDataNode>(W))
+    TgtCall = VPOParoptUtils::genTgtTargetDataBegin(
+        W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+  else if (isa<WRNTargetExitDataNode>(W))
+    TgtCall = VPOParoptUtils::genTgtTargetDataEnd(
+        W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
 
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genTargetInitCode\n");
   return TgtCall;
 }
 
+// Generate the cast i8* for the incoming value BPVal.
+Value *VPOParoptTransform::genCastforAddr(Value *BPVal, IRBuilder<> &Builder) {
+  if (BPVal->getType()->isPointerTy())
+    return Builder.CreateBitCast(BPVal, Builder.getInt8PtrTy());
+  else
+    return Builder.CreateIntToPtr(BPVal, Builder.getInt8PtrTy());
+}
+
+// Utilities to construct the assignment to the base pointers, section
+// pointers and size pointers if the flag hasRuntimeEvaluationCaptureSize is
+// true.
+void VPOParoptTransform::genOffloadArraysInitUtil(
+    IRBuilder<> &Builder, Value *BasePtr, Value *SectionPtr, Value *Size,
+    TgDataInfo *Info, SmallVectorImpl<Constant *> &ConstSizes, unsigned &Cnt,
+    bool hasRuntimeEvaluationCaptureSize) {
+  Value *NewBPVal, *BP, *P, *S, *SizeValue;
+
+  NewBPVal = genCastforAddr(BasePtr, Builder);
+  BP = Builder.CreateConstInBoundsGEP2_32(
+      ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
+      Info->BaseDataPtrs, 0, Cnt);
+  Builder.CreateStore(NewBPVal, BP);
+
+  P = Builder.CreateConstInBoundsGEP2_32(
+      ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
+      Info->DataPtrs, 0, Cnt);
+  NewBPVal = genCastforAddr(SectionPtr, Builder);
+  Builder.CreateStore(NewBPVal, P);
+
+  if (hasRuntimeEvaluationCaptureSize) {
+    S = Builder.CreateConstInBoundsGEP2_32(
+        ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
+        Info->DataSizes, 0, Cnt);
+
+    if (Size && !dyn_cast<ConstantInt>(Size))
+      SizeValue = Size;
+    else
+      SizeValue = ConstSizes[Cnt];
+    Builder.CreateStore(genCastforAddr(SizeValue, Builder), S);
+  }
+  Cnt++;
+}
+
+// Generate the target intialization code for the pointers based
+// on the order of the map clause.
+void VPOParoptTransform::genOffloadArraysInitForClause(
+    WRegionNode *W, TgDataInfo *Info, CallInst *Call, Instruction *InsertPt,
+    SmallVectorImpl<Constant *> &ConstSizes,
+    bool hasRuntimeEvaluationCaptureSize, Value *BPVal, bool &Match,
+    IRBuilder<> &Builder, unsigned &Cnt) {
+  MapClause MpClause = W->getMap();
+  for (MapItem *MapI : MpClause.items()) {
+    if (!isa<WRNTargetEnterDataNode>(W) && !isa<WRNTargetExitDataNode>(W) &&
+        (MapI->getNew() != BPVal || !MapI->getOrig()))
+      continue;
+    if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W))
+      BPVal = MapI->getOrig();
+    Match = true;
+    if (MapI->getIsMapChain()) {
+      auto MapChain = MapI->getMapChain();
+      for (unsigned I = 0; I < MapChain.size(); ++I) {
+        MapAggrTy *Aggr = MapChain[I];
+        genOffloadArraysInitUtil(
+            Builder, Aggr->getBasePtr(), Aggr->getSectionPtr(), Aggr->getSize(),
+            Info, ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize);
+      }
+    } else
+      genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr, Info, ConstSizes,
+                               Cnt, hasRuntimeEvaluationCaptureSize);
+  }
+}
+
 // Pass the data to the array of base pointer as well as  array of
-// section pointers.
-void VPOParoptTransform::genOffloadArraysInit(WRegionNode *W, TgDataInfo *Info,
-                                              CallInst *Call,
-                                              Instruction *InsertPt) {
+// section pointers. If the flag hasRuntimeEvaluationCaptureSize is true,
+// the compiler needs to generate the init code for the size array.
+void VPOParoptTransform::genOffloadArraysInit(
+    WRegionNode *W, TgDataInfo *Info, CallInst *Call, Instruction *InsertPt,
+    SmallVectorImpl<Constant *> &ConstSizes,
+    bool hasRuntimeEvaluationCaptureSize) {
+  Value *BPVal;
   IRBuilder<> Builder(InsertPt);
-  int Cnt = 0;
+  unsigned Cnt = 0;
+  bool Match = false;
+
+  if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W)) {
+    genOffloadArraysInitForClause(W, Info, Call, InsertPt, ConstSizes,
+                                  hasRuntimeEvaluationCaptureSize, nullptr,
+                                  Match, Builder, Cnt);
+    return;
+  }
 
   for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
-    Value *BPVal = Call->getArgOperand(II);
-    if (BPVal->getType()->isPointerTy())
-      BPVal = Builder.CreateBitCast(BPVal, Builder.getInt8PtrTy());
-    else
-      BPVal = Builder.CreateIntToPtr(BPVal, Builder.getInt8PtrTy());
-    Value *BP = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
-        Info->BaseDataPtrs, 0, Cnt);
-    Builder.CreateStore(BPVal, BP);
+    BPVal = Call->getArgOperand(II);
 
-    Value *P = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
-        Info->DataPtrs, 0, Cnt);
-    Builder.CreateStore(BPVal, P);
-    Cnt++;
+    Match = false;
+    genOffloadArraysInitForClause(W, Info, Call, InsertPt, ConstSizes,
+                                  hasRuntimeEvaluationCaptureSize, BPVal, Match,
+                                  Builder, Cnt);
+
+    if (!Match)
+      genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr, Info, ConstSizes,
+                               Cnt, hasRuntimeEvaluationCaptureSize);
   }
 }
 
@@ -376,8 +594,9 @@ GlobalVariable *VPOParoptTransform::getOMPOffloadRegionId() {
 
 // Generate the pointers pointing to the array of base pointer, the
 // array of section pointers, the array of sizes, the array of map types.
-void VPOParoptTransform::genOffloadArraysArgument(TgDataInfo *Info,
-                                                  Instruction *InsertPt) {
+void VPOParoptTransform::genOffloadArraysArgument(
+    TgDataInfo *Info, Instruction *InsertPt,
+    bool hasRuntimeEvaluationCaptureSize) {
   IRBuilder<> Builder(InsertPt);
 
   if (Info->NumberOfPtrs) {
@@ -388,18 +607,23 @@ void VPOParoptTransform::genOffloadArraysArgument(TgDataInfo *Info,
         ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
         Info->DataPtrs, 0, 0);
     Info->ResDataSizes = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(getSizeTTy(), Info->NumberOfPtrs), Info->DataSizes, 0,
-        0);
+        ArrayType::get(hasRuntimeEvaluationCaptureSize
+                           ? Builder.getInt8PtrTy()
+                           : IntelGeneralUtils::getSizeTTy(F),
+                       Info->NumberOfPtrs),
+        Info->DataSizes, 0, 0);
     Info->ResDataMapTypes = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(Type::getInt32Ty(F->getContext()), Info->NumberOfPtrs),
+        ArrayType::get(IntelGeneralUtils::getSizeTTy(F), Info->NumberOfPtrs),
         Info->DataMapTypes, 0, 0);
   } else {
-    Info->ResBaseDataPtrs = ConstantPointerNull::get(Builder.getInt8PtrTy());
-    Info->ResDataPtrs = ConstantPointerNull::get(Builder.getInt8PtrTy());
-    Info->ResDataSizes =
-        ConstantPointerNull::get(PointerType::getUnqual(getSizeTTy()));
+    Info->ResBaseDataPtrs = ConstantPointerNull::get(
+        PointerType::getUnqual(Builder.getInt8PtrTy()));
+    Info->ResDataPtrs = ConstantPointerNull::get(
+        PointerType::getUnqual(Builder.getInt8PtrTy()));
+    Info->ResDataSizes = ConstantPointerNull::get(PointerType::getUnqual(
+                               IntelGeneralUtils::getSizeTTy(F)));
     Info->ResDataMapTypes = ConstantPointerNull::get(
-        PointerType::getUnqual(Type::getInt32Ty(F->getContext())));
+        PointerType::getUnqual(IntelGeneralUtils::getSizeTTy(F)));
   }
 }
 
@@ -420,10 +644,11 @@ StructType *VPOParoptTransform::getTgOffloadEntryTy() {
 
   LLVMContext &C = F->getContext();
 
-  Type *TyArgs[] = { Type::getInt8PtrTy(C), Type::getInt8PtrTy(C), getSizeTTy(),
-                     Type::getInt32Ty(C),   Type::getInt32Ty(C) };
+  Type *TyArgs[] = {Type::getInt8PtrTy(C), Type::getInt8PtrTy(C),
+                    IntelGeneralUtils::getSizeTTy(F), Type::getInt32Ty(C),
+                    Type::getInt32Ty(C)};
   TgOffloadEntryTy =
-      StructType::create(C, TyArgs, "struct.__tgt_offload_entry", false);
+      StructType::get(C, TyArgs, /* "struct.__tgt_offload_entry"*/false);
   return TgOffloadEntryTy;
 }
 
@@ -448,7 +673,7 @@ StructType *VPOParoptTransform::getTgDeviceImageTy() {
                     PointerType::getUnqual(getTgOffloadEntryTy()),
                     PointerType::getUnqual(getTgOffloadEntryTy())};
   TgDeviceImageTy =
-      StructType::create(C, TyArgs, "struct.__tgt_device_image", false);
+      StructType::get(C, TyArgs, /* "struct.__tgt_device_image" */false);
   return TgDeviceImageTy;
 }
 
@@ -476,7 +701,7 @@ StructType *VPOParoptTransform::getTgBinaryDescriptorTy() {
                     PointerType::getUnqual(getTgOffloadEntryTy()),
                     PointerType::getUnqual(getTgOffloadEntryTy())};
   TgBinaryDescriptorTy =
-      StructType::create(C, TyArgs, "struct.__tgt_bin_desc", false);
+      StructType::get(C, TyArgs, /* "struct.__tgt_bin_desc" */false);
   return TgBinaryDescriptorTy;
 }
 
@@ -500,7 +725,8 @@ void VPOParoptTransform::genOffloadEntry(Constant *ID, Constant *Addr) {
   SmallVector<Constant *, 16> EntryInitBuffer;
   EntryInitBuffer.push_back(AddrPtr);
   EntryInitBuffer.push_back(StrPtr);
-  EntryInitBuffer.push_back(ConstantInt::get(getSizeTTy(), 0));
+  EntryInitBuffer.push_back(
+      ConstantInt::get(IntelGeneralUtils::getSizeTTy(F), 0));
   EntryInitBuffer.push_back(ConstantInt::get(Type::getInt32Ty(C), 0));
   EntryInitBuffer.push_back(ConstantInt::get(Type::getInt32Ty(C), 0));
 
@@ -687,6 +913,28 @@ Value *VPOParoptTransform::genGlobalPrivatizationImpl(WRegionNode *W,
   return NewPrivInst;
 }
 
+// Replace the new generated local variables with global variables
+// in the target initialization code.
+bool VPOParoptTransform::finalizeGlobalPrivatizationCode(WRegionNode *W) {
+  MapClause MpClause = W->getMap();
+
+  for (MapItem *MapI : MpClause.items()) {
+    Value *Orig = MapI->getOrig();
+    if (!Orig)
+      continue;
+    GlobalVariable *G = dyn_cast<GlobalVariable>(Orig);
+    if (!G) {
+      LoadInst *LI = dyn_cast<LoadInst>(Orig);
+      if (LI)
+        G = dyn_cast<GlobalVariable>(LI->getPointerOperand());
+    }
+    if (G) {
+      MapI->getNew()->replaceAllUsesWith(G);
+    }
+  }
+  return false;
+}
+
 // If the incoming data is global variable, Create the stack variable and
 // replace the the global variable with the stack variable.
 bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
@@ -694,13 +942,22 @@ bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
   BasicBlock *EntryBB = &(F->getEntryBlock());
   BasicBlock *ExitBB = W->getExitBBlock();
   BasicBlock *NextExitBB = SplitBlock(ExitBB, ExitBB->getTerminator(), DT, LI);
-  W->populateBBSet();
-
   bool Changed = false;
+
+
   for (MapItem *MapI : MpClause.items()) {
     Value *Orig = MapI->getOrig();
-    if (GlobalVariable *G = dyn_cast<GlobalVariable>(Orig)) {
-
+    if (!Orig)
+      continue;
+    GlobalVariable *G = dyn_cast<GlobalVariable>(Orig);
+    if (!G) {
+      LoadInst *LI = dyn_cast<LoadInst>(Orig);
+      if (LI)
+        G = dyn_cast<GlobalVariable>(LI->getPointerOperand());
+    }
+    if (G) {
+      if (!Changed)
+        W->populateBBSet();
       Value *NewPrivInst =
           genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, MapI);
 
@@ -723,11 +980,17 @@ bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
         continue;
       }
       if (GlobalVariable *G = dyn_cast<GlobalVariable>(Orig)) {
+        if (!Changed)
+          W->populateBBSet();
 
         Value *NewPrivInst =
             genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, FprivI);
 
         FprivI->setNew(NewPrivInst);
+        // The Orig of the firstprivate is set to the new private alloca
+        // instruction so that the corresponding firstprivate item will
+        // not be processed later.
+        FprivI->setOrig(NewPrivInst);
         Changed = true;
       } else
         FprivI->setNew(Orig);
@@ -780,4 +1043,22 @@ void VPOParoptTransform::processDeviceTriples() {
       break;
     Pos = Next + 1;
   }
+}
+
+// Return true if one of the region W's ancestor is OMP target
+// construct or the function where W lies in has target declare attribute.
+bool VPOParoptTransform::hasParentTarget(WRegionNode *W) {
+  if (F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
+                                      "target.declare"))
+    return true;
+
+  WRegionNode *PW = W->getParent();
+  while (PW) {
+    if (PW->getIsTarget())
+      return true;
+
+    PW = PW->getParent();
+  }
+
+  return false;
 }

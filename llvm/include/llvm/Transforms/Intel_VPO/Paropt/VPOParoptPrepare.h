@@ -39,6 +39,30 @@ namespace llvm {
 
 class FunctionPass;
 
+/// \brief VPOParopt Prepare class for performing parallelization and offloading
+class VPOParoptPreparePass : public PassInfoMixin<VPOParoptPreparePass> {
+
+public:
+
+  /// \brief ParoptPrepare object constructor
+  /// \brief 0x5 is equivalent to ParPrepare | OmpPar
+  explicit VPOParoptPreparePass(unsigned MyMode = 0x5u,
+    const std::vector<std::string> &OffloadTargets = {});
+  ~VPOParoptPreparePass() {};
+
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+
+  bool runImpl(Function &F, vpo::WRegionInfo &WI);
+
+private:
+
+  // VPO-mode
+  unsigned Mode;
+
+  // List of target triples for offloading.
+  SmallVector<Triple, 16> OffloadTargets;
+};
+
 namespace vpo {
 
 /// \brief VPOParopt Prepare class for performing parallelization and offloading
@@ -54,21 +78,14 @@ public:
     const std::vector<std::string> &OffloadTargets = {});
   ~VPOParoptPrepare() {};
 
-  StringRef getPassName() const override { return "VPO Paropt Prepare Pass"; }
+  StringRef getPassName() const override { return "VPO Paropt Prepare"; }
 
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   //void print(raw_ostream &OS, const Module * = nullptr) const override;
 
 private:
-  /// \brief W-Region information holder
-  WRegionInfo *WI;
-
-  // VPO-mode
-  unsigned Mode;
-
-  // List of target triples for offloading.
-  SmallVector<Triple, 16> OffloadTargets;
+  VPOParoptPreparePass Impl;
 };
 
 } // end namespace vpo

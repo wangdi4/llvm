@@ -10,7 +10,7 @@
 ;           END REGION
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK: llvm.memset.p0i8.i32(&((i8*)(%p)[-1 * %n + 1]),  85,  2 * %n,  2,  0)
+; CHECK: llvm.memset.p0i8.i32(&((i8*)(%p)[-1 * %n + 1]),  85,  2 * %n,  0)
 
 ; ModuleID = 'memset-negative.bc'
 source_filename = "memset-negative.c"

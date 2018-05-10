@@ -21,6 +21,7 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
 #include "llvm/Analysis/OptimizationDiagnosticInfo.h"

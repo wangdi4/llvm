@@ -47,7 +47,7 @@ bool llvm::VerifyLoopInfo = false;
 #endif
 static cl::opt<bool, true>
     VerifyLoopInfoX("verify-loop-info", cl::location(VerifyLoopInfo),
-                    cl::desc("Verify loop info (time consuming)"));
+                    cl::Hidden, cl::desc("Verify loop info (time consuming)"));
 
 //===----------------------------------------------------------------------===//
 // Loop implementation
@@ -733,6 +733,18 @@ PreservedAnalyses LoopPrinterPass::run(Function &F,
 }
 
 void llvm::printLoop(Loop &L, raw_ostream &OS, const std::string &Banner) {
+#if !INTEL_PRODUCT_RELEASE
+  if (forcePrintModuleIR()) {
+    // handling -print-module-scope
+    OS << Banner << " (loop: ";
+    L.getHeader()->printAsOperand(OS, false);
+    OS << ")\n";
+
+    // printing whole module
+    OS << *L.getHeader()->getModule();
+    return;
+  }
+
   OS << Banner;
 
   auto *PreHeader = L.getLoopPreheader();
@@ -758,6 +770,7 @@ void llvm::printLoop(Loop &L, raw_ostream &OS, const std::string &Banner) {
       else
         OS << "Printing <null> block";
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 //===----------------------------------------------------------------------===//

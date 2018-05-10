@@ -95,16 +95,22 @@ public:
     if (Triple.isMacOSX())
       this->TLSSupported = !Triple.isMacOSXVersionLT(10, 7);
     else if (Triple.isiOS()) {
-      // 64-bit iOS supported it from 8 onwards, 32-bit from 9 onwards.
-      if (Triple.getArch() == llvm::Triple::x86_64 ||
-          Triple.getArch() == llvm::Triple::aarch64)
+      // 64-bit iOS supported it from 8 onwards, 32-bit device from 9 onwards,
+      // 32-bit simulator from 10 onwards.
+      if (Triple.isArch64Bit())
         this->TLSSupported = !Triple.isOSVersionLT(8);
-      else if (Triple.getArch() == llvm::Triple::x86 ||
-               Triple.getArch() == llvm::Triple::arm ||
-               Triple.getArch() == llvm::Triple::thumb)
-        this->TLSSupported = !Triple.isOSVersionLT(9);
-    } else if (Triple.isWatchOS())
-      this->TLSSupported = !Triple.isOSVersionLT(2);
+      else if (Triple.isArch32Bit()) {
+        if (!Triple.isSimulatorEnvironment())
+          this->TLSSupported = !Triple.isOSVersionLT(9);
+        else
+          this->TLSSupported = !Triple.isOSVersionLT(10);
+      }
+    } else if (Triple.isWatchOS()) {
+      if (!Triple.isSimulatorEnvironment())
+        this->TLSSupported = !Triple.isOSVersionLT(2);
+      else
+        this->TLSSupported = !Triple.isOSVersionLT(3);
+    }
 
     this->MCountName = "\01mcount";
   }
@@ -479,6 +485,7 @@ public:
     default:
     case llvm::Triple::x86_64:
       this->MCountName = ".mcount";
+      this->NewAlign = 256;
       break;
     }
   }
@@ -545,12 +552,22 @@ protected:
     Builder.defineMacro("_LARGEFILE64_SOURCE");
     Builder.defineMacro("__EXTENSIONS__");
     Builder.defineMacro("_REENTRANT");
+    if (this->HasFloat128)
+      Builder.defineMacro("__FLOAT128__");
   }
 
 public:
   SolarisTargetInfo(const llvm::Triple &Triple, const TargetOptions &Opts)
       : OSTargetInfo<Target>(Triple, Opts) {
     // FIXME: WIntType should be SignedLong
+    switch (Triple.getArch()) {
+    default:
+      break;
+    case llvm::Triple::x86:
+    case llvm::Triple::x86_64:
+      this->HasFloat128 = true;
+      break;
+    }
   }
 };
 
@@ -599,7 +616,7 @@ protected:
         Builder.defineMacro("_HAS_CHAR16_T_LANGUAGE_SUPPORT", Twine(1));
 
       if (Opts.isCompatibleWithMSVC(LangOptions::MSVC2015)) {
-        if (Opts.CPlusPlus1z)
+        if (Opts.CPlusPlus17)
           Builder.defineMacro("_MSVC_LANG", "201403L");
         else if (Opts.CPlusPlus14)
           Builder.defineMacro("_MSVC_LANG", "201402L");
@@ -709,11 +726,6 @@ class LLVM_LIBRARY_VISIBILITY WebAssemblyOSTargetInfo
     // Follow g++ convention and predefine _GNU_SOURCE for C++.
     if (Opts.CPlusPlus)
       Builder.defineMacro("_GNU_SOURCE");
-  }
-
-  // As an optimization, group static init code together in a section.
-  const char *getStaticInitSectionSpecifier() const final {
-    return ".text.__startup";
   }
 
 public:

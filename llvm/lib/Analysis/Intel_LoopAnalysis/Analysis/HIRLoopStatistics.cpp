@@ -19,11 +19,6 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-
-#include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -34,30 +29,36 @@ static cl::opt<bool> PrintTotalStatistics(
     "hir-print-total-statistics", cl::init(false), cl::Hidden,
     cl::desc("Prints total loop statistics instead of self loop statistics"));
 
-FunctionPass *llvm::createHIRLoopStatisticsPass() {
-  return new HIRLoopStatistics();
+FunctionPass *llvm::createHIRLoopStatisticsWrapperPass() {
+  return new HIRLoopStatisticsWrapperPass();
 }
 
-char HIRLoopStatistics::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLoopStatistics, "hir-loop-statistics",
+AnalysisKey HIRLoopStatisticsAnalysis::Key;
+HIRLoopStatistics HIRLoopStatisticsAnalysis::run(Function &F,
+                                                 FunctionAnalysisManager &AM) {
+  return HIRLoopStatistics(AM.getResult<HIRFrameworkAnalysis>(F));
+}
+
+char HIRLoopStatisticsWrapperPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRLoopStatisticsWrapperPass, "hir-loop-statistics",
                       "Loop Statistics Analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
-INITIALIZE_PASS_END(HIRLoopStatistics, "hir-loop-statistics",
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_END(HIRLoopStatisticsWrapperPass, "hir-loop-statistics",
                     "Loop Statistics Analysis", false, true)
 
-void HIRLoopStatistics::getAnalysisUsage(AnalysisUsage &AU) const {
+void HIRLoopStatisticsWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequired<HIRFramework>();
+  AU.addRequired<HIRFrameworkWrapperPass>();
 }
 
-bool HIRLoopStatistics::runOnFunction(Function &F) {
-  // This is an on-demand analysis, so we don't perform any analysis here.
+bool HIRLoopStatisticsWrapperPass::runOnFunction(Function &F) {
+  HLS.reset(
+      new HIRLoopStatistics(getAnalysis<HIRFrameworkWrapperPass>().getHIR()));
   return false;
 }
 
-void HIRLoopStatistics::releaseMemory() {
-  SelfStatisticsMap.clear();
-  TotalStatisticsMap.clear();
+void HIRLoopStatisticsWrapperPass::releaseMemory() {
+  HLS.reset();
 }
 
 struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
@@ -111,8 +112,7 @@ struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
         SelfLS.NumUserCalls++;
       }
 
-      SelfLS.HasCallsWithUnsafeSideEffects |=
-          !Call->onlyReadsMemory() && !Call->onlyAccessesArgMemory();
+      SelfLS.HasCallsWithUnsafeSideEffects |= HLInst::hasUnsafeSideEffect(Call);
 
       SelfLS.HasCallsWithNoDuplicate |= Call->cannotDuplicate();
     }

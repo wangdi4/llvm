@@ -49,6 +49,13 @@ static cl::opt<bool> DisableUniformRegions(
     cl::desc("Disable detection of uniform Regions in VPlan. All regions are "
              "set as divergent."));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+    VPlanPrintSimplifyCFG("vplan-print-after-simplify-cfg", cl::init(false),
+                          cl::desc("Print plain dump after VPlan simplify "
+                                   "plain CFG"));
+#endif
+
 // Split loops' preheader block that are not in canonical form
 void VPlanHCFGBuilderBase::splitLoopsPreheader(VPLoop *VPL) {
 
@@ -653,6 +660,13 @@ void VPlanHCFGBuilderBase::buildHierarchicalCFG() {
   // Prepare/simplify CFG for hierarchical CFG construction
   simplifyPlainCFG();
 
+#if INTEL_CUSTOMIZATION
+  if (VPlanPrintSimplifyCFG) {
+    errs() << "Print after simplify plain CFG\n";
+    Plan->dump(errs());
+  }
+#endif
+
   DEBUG(Plan->setName("HCFGBuilder: After simplifyPlainCFG\n");
         dbgs() << *Plan);
   DEBUG(dbgs() << "Dominator Tree After simplifyPlainCFG\n";
@@ -794,8 +808,8 @@ bool VPlanHCFGBuilderBase::isDivergentBlock(VPBlockBase *Block) {
 }
 
 // Build plain CFG from incomming IR using only VPBasicBlock's that contain
-// OneByOneRecipe's and ConditionBitRecipe's. Return VPRegionBlock that
-// encloses all the VPBasicBlock's of the plain CFG.
+// VPInstructions. Return VPRegionBlock that encloses all the VPBasicBlock's
+// of the plain CFG.
 class PlainCFGBuilder {
 private:
   /// Outermost loop of the input loop nest.
@@ -811,7 +825,7 @@ private:
   unsigned TopRegionSize = 0;
 
   IntelVPlanUtils &PlanUtils;
-  VPBuilderIR VPIRBuilder;
+  VPBuilder VPIRBuilder;
 
   /// Map the branches to the condition VPInstruction they are controlled by
   /// (Possibly at a different VPBB).

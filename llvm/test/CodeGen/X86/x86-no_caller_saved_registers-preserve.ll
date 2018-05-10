@@ -9,7 +9,7 @@
 ;; (that are modified by the function) should be preserved (%rdx and %xmm1).
 define x86_64_sysvcc i32 @bar(i32 %a0, i32 %a1, float %b0) #0 {
 ; CHECK-LABEL: bar:
-; CHECK:       # BB#0:
+; CHECK:       # %bb.0:
 ; CHECK-NEXT:    pushq %rdx
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
 ; CHECK-NEXT:    movaps %xmm1, -{{[0-9]+}}(%rsp) # 16-byte Spill
@@ -20,6 +20,7 @@ define x86_64_sysvcc i32 @bar(i32 %a0, i32 %a1, float %b0) #0 {
 ; CHECK-NEXT:    movl $4, %eax
 ; CHECK-NEXT:    movaps -{{[0-9]+}}(%rsp), %xmm1 # 16-byte Reload
 ; CHECK-NEXT:    popq %rdx
+; CHECK-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-NEXT:    retq
   call void asm sideeffect "", "~{rax},~{rdx},~{xmm1},~{rdi},~{rsi},~{xmm0}"()
   ret i32 4

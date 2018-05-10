@@ -24,10 +24,6 @@
 
 #define DEBUG_TYPE "vpo-wrnnode"
 
-// Define this to 1 for OpenCL (eg, features/vpo branch)
-// Define it to 0 for vpo-xmain
-#define VPO_FOR_OPENCL 0
-
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -42,6 +38,8 @@ std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNDistributeParLoop, "distribute parallel loop"},
     {WRegionNode::WRNTarget, "target"},
     {WRegionNode::WRNTargetData, "target data"},
+    {WRegionNode::WRNTargetEnterData, "target enter data"},
+    {WRegionNode::WRNTargetExitData, "target exit data"},
     {WRegionNode::WRNTargetUpdate, "target update"},
     {WRegionNode::WRNTask, "task"},
     {WRegionNode::WRNTaskloop, "taskloop"},
@@ -50,14 +48,14 @@ std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNSections, "sections"},
     {WRegionNode::WRNWorkshare, "workshare"},
     {WRegionNode::WRNDistribute, "distribute"},
-    {WRegionNode::WRNSingle, "single"},
-    {WRegionNode::WRNMaster, "master"},
     {WRegionNode::WRNAtomic, "atomic"},
     {WRegionNode::WRNBarrier, "barrier"},
     {WRegionNode::WRNCancel, "cancel"},
     {WRegionNode::WRNCritical, "critical"},
     {WRegionNode::WRNFlush, "flush"},
     {WRegionNode::WRNOrdered, "ordered"},
+    {WRegionNode::WRNMaster, "master"},
+    {WRegionNode::WRNSingle, "single"},
     {WRegionNode::WRNTaskgroup, "taskgroup"},
     {WRegionNode::WRNTaskwait, "taskwait"},
     {WRegionNode::WRNTaskyield, "taskyield"}};
@@ -90,7 +88,7 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
 /// 3. If the WRN is for a loop construct:
 ///    3a. Find the associated Loop from the LoopInfo.
 ///    3b. If the WRN is a taskloop, set its SchedCode for grainsize/numtasks.
-void WRegionNode::finalize(BasicBlock *ExitBB) {
+void WRegionNode::finalize(BasicBlock *ExitBB, DominatorTree *DT) {
   setExitBBlock(ExitBB);
 
   // Firstprivate and lastprivate clauses may have the same item X
@@ -129,7 +127,7 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
     LoopInfo *LI = getWRNLoopInfo().getLoopInfo();
     assert(LI && "LoopInfo not present in a loop construct");
     BasicBlock *EntryBB = getEntryBBlock();
-    Loop *Lp = IntelGeneralUtils::getLoopFromLoopInfo(LI, EntryBB, ExitBB);
+    Loop *Lp = IntelGeneralUtils::getLoopFromLoopInfo(LI, DT, EntryBB, ExitBB);
 
     // Do not assert for loop-type constructs when Lp==NULL because transforms
     // before Paropt may have optimized away the loop.
@@ -155,7 +153,6 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
         setSchedCode(0);
     }
 
-#if VPO_FOR_OPENCL
     // For OpenCL, the vectorizer requires that the second operand of
     // __read_pipe_2_bl_intel() be privatized. The code below will look at
     // each occurrence of such a call in the WRN, and find the corresponding
@@ -189,8 +186,20 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
           }
       resetBBSet();
     }
-#endif //VPO_FOR_OPENCL
   } // if (getIsOmpLoop())
+
+  // All target constructs except for "target data" are task-generating
+  // constructs. Furthermore, when the construct has a nowait or depend clause,
+  // then the resulting task is not undeferred (ie, asynchronous offloading).
+  // We want to set the "IsTask" attribute of these target constructs to
+  // facilitate code generation.
+  if (getIsTarget() && getWRegionKindID() != WRNTargetData) {
+    assert(canHaveDepend() && "Corrupt WRN? Depend Clause should be allowed");
+    if (getNowait() || !getDepend().empty()) {
+      // TODO: turn on this code after verifying that task codegen supports it
+      // setIsTask();
+    }
+  }
 }
 
 /// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
@@ -312,6 +321,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
 
   if (canHaveLastprivate())
     PrintedSomething |= getLpriv().print(OS, Depth, Verbosity);
+
+  if (canHaveInReduction())
+    PrintedSomething |= getInRed().print(OS, Depth, Verbosity);
 
   if (canHaveReduction())
     PrintedSomething |= getRed().print(OS, Depth, Verbosity);
@@ -622,6 +634,12 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_DEVICE:
     setDevice(V);
     break;
+  case QUAL_OMP_NORMALIZED_IV:
+    getWRNLoopInfo().setNormIV(V);
+    break;
+  case QUAL_OMP_NORMALIZED_UB:
+    getWRNLoopInfo().setNormUB(V);
+    break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpnd()");
   }
@@ -645,27 +663,44 @@ void WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
   }
 }
 
-template <typename ClauseTy>
-void WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
-                                       const ClauseSpecifier &ClauseInfo,
-                                       ClauseTy &C) {
+template <typename ClauseItemTy>
+void WRegionUtils::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
+                                             const ClauseSpecifier &ClauseInfo,
+                                             Clause<ClauseItemTy> &C) {
   int ClauseID = ClauseInfo.getId();
-  bool IsConditional = ClauseInfo.getIsConditional();
+  C.setClauseID(ClauseID);
 
+  bool IsConditional = ClauseInfo.getIsConditional();
   if (IsConditional)
     assert(ClauseID == QUAL_OMP_LASTPRIVATE &&
            "The CONDITIONAL keyword is for LASTPRIVATE clauses only");
 
-  C.setClauseID(ClauseID);
+  if (ClauseInfo.getIsNonPod()) {
+    // NONPOD representation requires multiple args per var:
+    //  - PRIVATE:      3 args : Var, Ctor, Dtor
+    //  - FIRSTPRIVATE: 3 args : Var, CCtor, Dtor
+    //  - LASTPRIVATE:  4 args : Var, Ctor, CopyAssign, Dtor
+    if (ClauseID == QUAL_OMP_PRIVATE || ClauseID == QUAL_OMP_FIRSTPRIVATE)
+      assert(NumArgs == 3 && "Expected 3 arguments for [FIRST]PRIVATE NONPOD");
+    else if (ClauseID == QUAL_OMP_LASTPRIVATE)
+      assert(NumArgs == 4 && "Expected 4 arguments for LASTPRIVATE NONPOD");
+    else
+      llvm_unreachable("NONPOD support for this clause type TBD");
 
-  for (unsigned I = 0; I < NumArgs; ++I) {
-    Value *V = (Value*) Args[I];
-    C.add(V);
-    if (IsConditional) {
-      auto *I = C.back();
-      I->setIsConditional(true);
+    ClauseItemTy *Item = new ClauseItemTy(Args);
+    Item->setIsNonPod(true);
+    if (IsConditional)
+      Item->setIsConditional(true);
+    C.add(Item);
+  } else
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      Value *V = (Value*) Args[I];
+      C.add(V);
+      if (IsConditional) {
+        auto *Item = C.back();
+        Item->setIsConditional(true);
+      }
     }
-  }
 }
 
 void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
@@ -721,8 +756,31 @@ void WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
 
   if (ClauseInfo.getIsArraySection()) {
     //TODO: Parse array section arguments.
+  } else if (ClauseInfo.getIsMapAggrHead() || ClauseInfo.getIsMapAggr()) {
+    // "AGGRHEAD" or "AGGR" seen: expect 3 arguments: BasePtr, SectionPtr, Size
+    assert(NumArgs == 3 && "Malformed MAP:AGGR[HEAD] clause");
+
+    // Create a MapAggr for the triple: <BasePtr, SectionPtr, Size>.
+    Value *BasePtr = (Value *)Args[0];
+    Value *SectionPtr = (Value *)Args[1];
+    Value *Size = (Value *)Args[2];
+    MapAggrTy *Aggr = new MapAggrTy(BasePtr, SectionPtr, Size);
+
+    MapItem *MI;
+    if (ClauseInfo.getIsMapAggrHead()) { // Start a new chain: Add a MapItem
+      MI = new MapItem(Aggr);
+      MI->setOrig(BasePtr);
+      C.add(MI);
+    } else {         // Continue the chain for the last MapItem
+      MI = C.back(); // Get the last MapItem in the MapClause
+      MapChainTy &MapChain = MI->getMapChain();
+      assert(MapChain.size() > 0 && "MAP:AGGR cannot start a chain");
+      MapChain.push_back(Aggr);
+    }
+    MI->setMapKind(MapKind);
   }
   else
+    // Scalar map items; create a MapItem for each of them
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = (Value*) Args[I];
       C.add(V);
@@ -772,7 +830,8 @@ void WRegionUtils::extractLinearOpndList(const Use *Args, unsigned NumArgs,
 
 void WRegionUtils::extractReductionOpndList(const Use *Args, unsigned NumArgs,
                                       const ClauseSpecifier &ClauseInfo,
-                                      ReductionClause &C, int ReductionKind) {
+                                      ReductionClause &C, int ReductionKind,
+                                      bool IsInReduction) {
   C.setClauseID(QUAL_OMP_REDUCTION_ADD); // dummy reduction op
   bool IsUnsigned = ClauseInfo.getIsUnsigned();
   if (IsUnsigned)
@@ -790,6 +849,7 @@ void WRegionUtils::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       ReductionItem *RI = C.back();
       RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
       RI->setIsUnsigned(IsUnsigned);
+      RI->setIsInReduction(IsInReduction);
     }
 }
 #endif
@@ -851,6 +911,7 @@ static void setReductionItem(ReductionItem *RI, IntrinsicInst *Call) {
 void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                      const ClauseSpecifier &ClauseInfo) {
   int ClauseID = ClauseInfo.getId();
+  bool IsInReduction = false;  // IN_REDUCTION clause?
 
   switch (ClauseID) {
   case QUAL_OMP_SHARED: {
@@ -859,17 +920,34 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_PRIVATE: {
-    WRegionUtils::extractQualOpndList<PrivateClause>(Args, NumArgs, ClauseID,
-                                                     getPriv());
+    WRegionUtils::extractQualOpndListNonPod<PrivateItem>(Args, NumArgs,
+                                                     ClauseInfo, getPriv());
     break;
   }
   case QUAL_OMP_FIRSTPRIVATE: {
-    WRegionUtils::extractQualOpndList<FirstprivateClause>(Args, NumArgs,
-                                                       ClauseID, getFpriv());
+    WRegionUtils::extractQualOpndListNonPod<FirstprivateItem>(Args, NumArgs,
+                                                     ClauseInfo, getFpriv());
+    break;
+  }
+  case QUAL_OMP_CANCELLATION_POINTS: {
+    assert(canHaveCancellationPoints() &&
+           "CANCELLATION.POINTS is not supported on this construct");
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      auto *V = dyn_cast<Instruction>(Args[I]);
+
+      // Cancellation point may have been removed/replaced with undef by
+      // some dead-code elimination optimization e.g.
+      // if (expr)
+      //   %1 = _kmpc_cancel(...)
+      //
+      // 'expr' may be always false, and %1 can be optimized away.
+      if (V)
+        addCancellationPoint(V);
+    }
     break;
   }
   case QUAL_OMP_LASTPRIVATE: {
-    WRegionUtils::extractQualOpndList<LastprivateClause>(Args, NumArgs,
+    WRegionUtils::extractQualOpndListNonPod<LastprivateItem>(Args, NumArgs,
                                                      ClauseInfo, getLpriv());
     break;
   }
@@ -975,6 +1053,20 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                           WRNScheduleStatic);
     break;
   }
+  case QUAL_OMP_INREDUCTION_ADD:
+  case QUAL_OMP_INREDUCTION_SUB:
+  case QUAL_OMP_INREDUCTION_MUL:
+  case QUAL_OMP_INREDUCTION_AND:
+  case QUAL_OMP_INREDUCTION_OR:
+  case QUAL_OMP_INREDUCTION_BXOR:
+  case QUAL_OMP_INREDUCTION_BAND:
+  case QUAL_OMP_INREDUCTION_BOR:
+  case QUAL_OMP_INREDUCTION_MAX:
+  case QUAL_OMP_INREDUCTION_MIN:
+  case QUAL_OMP_INREDUCTION_UDR:
+    IsInReduction = true;
+    // FALLTHROUGH
+//JJJ
   case QUAL_OMP_REDUCTION_ADD:
   case QUAL_OMP_REDUCTION_SUB:
   case QUAL_OMP_REDUCTION_MUL:
@@ -988,8 +1080,12 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_REDUCTION_UDR: {
     int ReductionKind = ReductionItem::getKindFromClauseId(ClauseID);
     assert(ReductionKind > 0 && "Bad reduction operation");
-    WRegionUtils::extractReductionOpndList(Args, NumArgs, ClauseInfo, getRed(),
-                                           ReductionKind);
+    if (IsInReduction)
+      WRegionUtils::extractReductionOpndList(Args, NumArgs, ClauseInfo,
+                                             getInRed(), ReductionKind, true);
+    else
+      WRegionUtils::extractReductionOpndList(Args, NumArgs, ClauseInfo,
+                                             getRed(), ReductionKind, false);
     break;
   }
   default:
@@ -998,18 +1094,30 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   }
 }
 
-void WRegionNode::getClausesFromOperandBundles() {
-  // Under the directive.region.entry/exit representation the intrinsic
-  // is alone in the EntryBB, so EntryBB->front() is the intrinsic call
-  Instruction *I = &(getEntryBBlock()->front());
-  IntrinsicInst *Call = dyn_cast<IntrinsicInst>(&*I);
-  assert (Call && "Call not found for directive.region.entry()");
+void WRegionNode::getClausesFromOperandBundles(bool RegionExit) {
 
+  Instruction *I;
+
+  if (!RegionExit) {
+    // Under the directive.region.entry/exit representation the intrinsic
+    // is alone in the EntryBB, so EntryBB->front() is the intrinsic call
+    I = &(getEntryBBlock()->front());
+    assert(isa<IntrinsicInst>(I) &&
+           "Call not found for directive.region.entry()");
+  } else {
+    // ExitBB can have PHIs, so we get the first non-PHI to access the
+    // directive.region.exit intrinsic.
+    I = getExitBBlock()->getFirstNonPHI();
+    assert(isa<IntrinsicInst>(I) &&
+           "Call not found for directive.region.exit()");
+  }
+
+  IntrinsicInst *Call = cast<IntrinsicInst>(I);
   unsigned i, NumOB = Call->getNumOperandBundles();
 
   // Index i start from 1 (not 0) because we want to skip the first
   // OperandBundle, which is the directive name.
-  for(i=1; i<NumOB; ++i) {
+  for (i = 1; i < NumOB; ++i) {
     // BU is the ith OperandBundle, which represents a clause
     OperandBundleUse BU = Call->getOperandBundleAt(i);
 
@@ -1021,9 +1129,9 @@ void WRegionNode::getClausesFromOperandBundles() {
 
     // Get the argument list from the current OperandBundle
     ArrayRef<llvm::Use> Args = BU.Inputs;
-    unsigned NumArgs = Args.size();   // BU.Inputs.size()
+    unsigned NumArgs = Args.size(); // BU.Inputs.size()
 
-    const Use *ArgList = NumArgs==0 ? nullptr : &Args[0];
+    const Use *ArgList = NumArgs == 0 ? nullptr : &Args[0];
 
     // Parse the clause and update the WRN
     parseClause(ClauseInfo, ArgList, NumArgs);
@@ -1099,12 +1207,23 @@ bool WRegionNode::canHaveLastprivate() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNParallelLoop:
+  case WRNParallelSections:
   case WRNDistributeParLoop:
   case WRNTaskloop:
   case WRNVecLoop:
   case WRNWksLoop:
   case WRNSections:
   case WRNDistribute:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveInReduction() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTask:       // OMP5.0 task's in_reduction clause
+  case WRNTaskloop:   // OMP5.0 taskloop's in_reduction clause
     return true;
   }
   return false;
@@ -1119,9 +1238,8 @@ bool WRegionNode::canHaveReduction() const {
   case WRNParallelWorkshare:
   case WRNTeams:
   case WRNDistributeParLoop:
-  // TODO: support OMP5.0 task/taskloop reduction
-  //  case WRNTask:
-  //  case WRNTaskloop:
+  case WRNTaskgroup:  // OMP5.0 taskgroup's task_reduction clause
+  case WRNTaskloop:   // OMP5.0 taskloop's reduction clause
   case WRNVecLoop:
   case WRNWksLoop:
   case WRNSections:
@@ -1190,8 +1308,16 @@ bool WRegionNode::canHaveUseDevicePtr() const {
 }
 
 bool WRegionNode::canHaveDepend() const {
-  // Only task-type constructs take depend clauses
-  return getIsTask();
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTask:
+  case WRNTarget:
+  case WRNTargetEnterData:
+  case WRNTargetExitData:
+  case WRNTargetUpdate:
+    return true;
+  }
+  return false;
 }
 
 bool WRegionNode::canHaveDepSink() const {
@@ -1208,6 +1334,22 @@ bool WRegionNode::canHaveFlush() const {
   unsigned SubClassID = getWRegionKindID();
   // only WRNFlushNode can have a flush set
   return SubClassID==WRNFlush;
+}
+
+// Returns `true` if the Construct can be cancelled, and thus have
+// Cancellation Points.
+bool WRegionNode::canHaveCancellationPoints() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallel:
+  case WRNWksLoop:
+  case WRNSections:
+  case WRNTask:
+  case WRNParallelLoop:
+  case WRNParallelSections:
+    return true;
+  }
+  return false;
 }
 
 StringRef WRegionNode::getName() const {
@@ -1276,6 +1418,27 @@ void vpo::printVal(StringRef Title, Value *Val, formatted_raw_ostream &OS,
     return;
   }
   OS << *Val << "\n";
+}
+
+// Auxiliary function to print an ArrayRef of Values in a WRN dump
+void vpo::printValList(StringRef Title, ArrayRef<Value *> const &Vals,
+                       formatted_raw_ostream &OS, int Indent,
+                       unsigned Verbosity) {
+
+  if (Vals.empty())
+    return; // print nothing if Vals is empty
+
+  OS.indent(Indent) << Title << ":";
+
+  for (auto *V : Vals) {
+    if (V) {
+      OS << " ";
+      V->printAsOperand(OS);
+    } else if (Verbosity >= 1) {
+      OS << " UNSPECIFIED";
+    }
+  }
+  OS << "\n";
 }
 
 // Auxiliary function to print an Int in a WRN dump

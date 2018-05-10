@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -analyze -hir-creation -hir-cost-model-throttling=0 | FileCheck %s
+; RUN: opt < %s -analyze -hir-framework -hir-framework-debug=creation -debug-only=hir-framework -hir-cost-model-throttling=0 | FileCheck %s
 
 ; Check that we create 3 nested ifs without throttling.
 ; CHECK: BEGIN REGION
@@ -25,7 +25,7 @@
 ; CHECK: END REGION
 
 ; Check that we throttle nested ifs.
-; RUN: opt < %s -analyze -hir-creation -debug-only=hir-region-identification 2>&1 | FileCheck -check-prefix=COST-MODEL %s
+; RUN: opt < %s -analyze -hir-framework -hir-framework-debug=creation -debug-only=hir-framework -debug-only=hir-region-identification 2>&1 | FileCheck -check-prefix=COST-MODEL %s
 ; COST-MODEL: Loop throttled due to presence of too many nested ifs
 
 

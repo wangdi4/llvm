@@ -10,7 +10,7 @@
 ;       END REGION
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK: llvm.memcpy.p0i8.p0i8.i32(&((i8*)(%p)[-1 * %n + 1]),  &((i8*)(%q)[-1 * %n + 2]),  4 * %n,  4,  0);
+; CHECK: llvm.memcpy.p0i8.p0i8.i32(&((i8*)(%p)[-1 * %n + 1]),  &((i8*)(%q)[-1 * %n + 2]),  4 * %n,  0);
 
 ; ModuleID = 'memcpy-negative.bc'
 source_filename = "memcpy-negative.c"

@@ -29,7 +29,6 @@ public:
   uint32_t calcEFlags() const override;
   RelExpr getRelExpr(RelType Type, const Symbol &S,
                      const uint8_t *Loc) const override;
-  bool isPicRel(RelType Type) const override;
   RelType getDynRel(RelType Type) const override;
   int64_t getImplicitAddend(const uint8_t *Buf, RelType Type) const override;
   void writeGotPlt(uint8_t *Buf, const Symbol &S) const override;
@@ -37,8 +36,8 @@ public:
   void writePltHeader(uint8_t *Buf) const override;
   void writePlt(uint8_t *Buf, uint64_t GotPltEntryAddr, uint64_t PltEntryAddr,
                 int32_t Index, unsigned RelOff) const override;
-  void addPltSymbols(InputSectionBase *IS, uint64_t Off) const override;
-  void addPltHeaderSymbols(InputSectionBase *ISD) const override;
+  void addPltSymbols(InputSection &IS, uint64_t Off) const override;
+  void addPltHeaderSymbols(InputSection &ISD) const override;
   bool needsThunk(RelExpr Expr, RelType Type, const InputFile *File,
                   uint64_t BranchAddr, const Symbol &S) const override;
   bool inBranchRange(RelType Type, uint64_t Src, uint64_t Dst) const override;
@@ -55,10 +54,11 @@ ARM::ARM() {
   TlsGotRel = R_ARM_TLS_TPOFF32;
   TlsModuleIndexRel = R_ARM_TLS_DTPMOD32;
   TlsOffsetRel = R_ARM_TLS_DTPOFF32;
+  GotBaseSymInGotPlt = false;
   GotEntrySize = 4;
   GotPltEntrySize = 4;
   PltEntrySize = 16;
-  PltHeaderSize = 20;
+  PltHeaderSize = 32;
   TrapInstr = 0xd4d4d4d4;
   // ARM uses Variant 1 TLS
   TcbSize = 8;
@@ -161,18 +161,10 @@ RelExpr ARM::getRelExpr(RelType Type, const Symbol &S,
   }
 }
 
-bool ARM::isPicRel(RelType Type) const {
-  return (Type == R_ARM_TARGET1 && !Config->Target1Rel) ||
-         (Type == R_ARM_ABS32);
-}
-
 RelType ARM::getDynRel(RelType Type) const {
-  if (Type == R_ARM_TARGET1 && !Config->Target1Rel)
+  if ((Type == R_ARM_ABS32) || (Type == R_ARM_TARGET1 && !Config->Target1Rel))
     return R_ARM_ABS32;
-  if (Type == R_ARM_ABS32)
-    return Type;
-  // Keep it going with a dummy value so that we can find more reloc errors.
-  return R_ARM_ABS32;
+  return R_ARM_NONE;
 }
 
 void ARM::writeGotPlt(uint8_t *Buf, const Symbol &) const {
@@ -184,32 +176,64 @@ void ARM::writeIgotPlt(uint8_t *Buf, const Symbol &S) const {
   write32le(Buf, S.getVA());
 }
 
-void ARM::writePltHeader(uint8_t *Buf) const {
+// Long form PLT Header that does not have any restrictions on the displacement
+// of the .plt from the .plt.got.
+static void writePltHeaderLong(uint8_t *Buf) {
   const uint8_t PltData[] = {
       0x04, 0xe0, 0x2d, 0xe5, //     str lr, [sp,#-4]!
       0x04, 0xe0, 0x9f, 0xe5, //     ldr lr, L2
       0x0e, 0xe0, 0x8f, 0xe0, // L1: add lr, pc, lr
       0x08, 0xf0, 0xbe, 0xe5, //     ldr pc, [lr, #8]
       0x00, 0x00, 0x00, 0x00, // L2: .word   &(.got.plt) - L1 - 8
-  };
+      0xd4, 0xd4, 0xd4, 0xd4, //     Pad to 32-byte boundary
+      0xd4, 0xd4, 0xd4, 0xd4, //     Pad to 32-byte boundary
+      0xd4, 0xd4, 0xd4, 0xd4};
   memcpy(Buf, PltData, sizeof(PltData));
   uint64_t GotPlt = InX::GotPlt->getVA();
   uint64_t L1 = InX::Plt->getVA() + 8;
   write32le(Buf + 16, GotPlt - L1 - 8);
 }
 
-void ARM::addPltHeaderSymbols(InputSectionBase *ISD) const {
-  auto *IS = cast<InputSection>(ISD);
+// The default PLT header requires the .plt.got to be within 128 Mb of the
+// .plt in the positive direction.
+void ARM::writePltHeader(uint8_t *Buf) const {
+  // Use a similar sequence to that in writePlt(), the difference is the calling
+  // conventions mean we use lr instead of ip. The PLT entry is responsible for
+  // saving lr on the stack, the dynamic loader is responsible for reloading
+  // it.
+  const uint32_t PltData[] = {
+      0xe52de004, // L1: str lr, [sp,#-4]!
+      0xe28fe600, //     add lr, pc,  #0x0NN00000 &(.got.plt - L1 - 4)
+      0xe28eea00, //     add lr, lr,  #0x000NN000 &(.got.plt - L1 - 4)
+      0xe5bef000, //     ldr pc, [lr, #0x00000NNN] &(.got.plt -L1 - 4)
+  };
+
+  uint64_t Offset = InX::GotPlt->getVA() - InX::Plt->getVA() - 4;
+  if (!llvm::isUInt<27>(Offset)) {
+    // We cannot encode the Offset, use the long form.
+    writePltHeaderLong(Buf);
+    return;
+  }
+  write32le(Buf + 0, PltData[0]);
+  write32le(Buf + 4, PltData[1] | ((Offset >> 20) & 0xff));
+  write32le(Buf + 8, PltData[2] | ((Offset >> 12) & 0xff));
+  write32le(Buf + 12, PltData[3] | (Offset & 0xfff));
+  write32le(Buf + 16, TrapInstr); // Pad to 32-byte boundary
+  write32le(Buf + 20, TrapInstr);
+  write32le(Buf + 24, TrapInstr);
+  write32le(Buf + 28, TrapInstr);
+}
+
+void ARM::addPltHeaderSymbols(InputSection &IS) const {
   addSyntheticLocal("$a", STT_NOTYPE, 0, 0, IS);
   addSyntheticLocal("$d", STT_NOTYPE, 16, 0, IS);
 }
 
-void ARM::writePlt(uint8_t *Buf, uint64_t GotPltEntryAddr,
-                   uint64_t PltEntryAddr, int32_t Index,
-                   unsigned RelOff) const {
-  // FIXME: Using simple code sequence with simple relocations.
-  // There is a more optimal sequence but it requires support for the group
-  // relocations. See ELF for the ARM Architecture Appendix A.3
+// Long form PLT entries that do not have any restrictions on the displacement
+// of the .plt from the .plt.got.
+static void writePltLong(uint8_t *Buf, uint64_t GotPltEntryAddr,
+                         uint64_t PltEntryAddr, int32_t Index,
+                         unsigned RelOff) {
   const uint8_t PltData[] = {
       0x04, 0xc0, 0x9f, 0xe5, //     ldr ip, L2
       0x0f, 0xc0, 0x8c, 0xe0, // L1: add ip, ip, pc
@@ -221,8 +245,35 @@ void ARM::writePlt(uint8_t *Buf, uint64_t GotPltEntryAddr,
   write32le(Buf + 12, GotPltEntryAddr - L1 - 8);
 }
 
-void ARM::addPltSymbols(InputSectionBase *ISD, uint64_t Off) const {
-  auto *IS = cast<InputSection>(ISD);
+// The default PLT entries require the .plt.got to be within 128 Mb of the
+// .plt in the positive direction.
+void ARM::writePlt(uint8_t *Buf, uint64_t GotPltEntryAddr,
+                   uint64_t PltEntryAddr, int32_t Index,
+                   unsigned RelOff) const {
+  // The PLT entry is similar to the example given in Appendix A of ELF for
+  // the Arm Architecture. Instead of using the Group Relocations to find the
+  // optimal rotation for the 8-bit immediate used in the add instructions we
+  // hard code the most compact rotations for simplicity. This saves a load
+  // instruction over the long plt sequences.
+  const uint32_t PltData[] = {
+      0xe28fc600, // L1: add ip, pc,  #0x0NN00000  Offset(&(.plt.got) - L1 - 8
+      0xe28cca00, //     add ip, ip,  #0x000NN000  Offset(&(.plt.got) - L1 - 8
+      0xe5bcf000, //     ldr pc, [ip, #0x00000NNN] Offset(&(.plt.got) - L1 - 8
+  };
+
+  uint64_t Offset = GotPltEntryAddr - PltEntryAddr - 8;
+  if (!llvm::isUInt<27>(Offset)) {
+    // We cannot encode the Offset, use the long form.
+    writePltLong(Buf, GotPltEntryAddr, PltEntryAddr, Index, RelOff);
+    return;
+  }
+  write32le(Buf + 0, PltData[0] | ((Offset >> 20) & 0xff));
+  write32le(Buf + 4, PltData[1] | ((Offset >> 12) & 0xff));
+  write32le(Buf + 8, PltData[2] | (Offset & 0xfff));
+  write32le(Buf + 12, TrapInstr); // Pad to 16-byte boundary
+}
+
+void ARM::addPltSymbols(InputSection &IS, uint64_t Off) const {
   addSyntheticLocal("$a", STT_NOTYPE, Off, 0, IS);
   addSyntheticLocal("$d", STT_NOTYPE, Off + 12, 0, IS);
 }
@@ -333,7 +384,7 @@ void ARM::relocateOne(uint8_t *Loc, RelType Type, uint64_t Val) const {
     write32le(Loc, 1);
     break;
   case R_ARM_PREL31:
-    checkInt<31>(Loc, Val, Type);
+    checkInt(Loc, Val, 31, Type);
     write32le(Loc, (read32le(Loc) & 0x80000000) | (Val & ~0x80000000));
     break;
   case R_ARM_CALL:
@@ -342,7 +393,7 @@ void ARM::relocateOne(uint8_t *Loc, RelType Type, uint64_t Val) const {
     if (Val & 1) {
       // If bit 0 of Val is 1 the target is Thumb, we must select a BLX.
       // The BLX encoding is 0xfa:H:imm24 where Val = imm24:H:'1'
-      checkInt<26>(Loc, Val, Type);
+      checkInt(Loc, Val, 26, Type);
       write32le(Loc, 0xfa000000 |                    // opcode
                          ((Val & 2) << 23) |         // H
                          ((Val >> 2) & 0x00ffffff)); // imm24
@@ -357,16 +408,16 @@ void ARM::relocateOne(uint8_t *Loc, RelType Type, uint64_t Val) const {
   case R_ARM_JUMP24:
   case R_ARM_PC24:
   case R_ARM_PLT32:
-    checkInt<26>(Loc, Val, Type);
+    checkInt(Loc, Val, 26, Type);
     write32le(Loc, (read32le(Loc) & ~0x00ffffff) | ((Val >> 2) & 0x00ffffff));
     break;
   case R_ARM_THM_JUMP11:
-    checkInt<12>(Loc, Val, Type);
+    checkInt(Loc, Val, 12, Type);
     write16le(Loc, (read32le(Loc) & 0xf800) | ((Val >> 1) & 0x07ff));
     break;
   case R_ARM_THM_JUMP19:
     // Encoding T3: Val = S:J2:J1:imm6:imm11:0
-    checkInt<21>(Loc, Val, Type);
+    checkInt(Loc, Val, 21, Type);
     write16le(Loc,
               (read16le(Loc) & 0xfbc0) |   // opcode cond
                   ((Val >> 10) & 0x0400) | // S
@@ -392,7 +443,7 @@ void ARM::relocateOne(uint8_t *Loc, RelType Type, uint64_t Val) const {
   case R_ARM_THM_JUMP24:
     // Encoding B  T4, BL T1, BLX T2: Val = S:I1:I2:imm10:imm11:0
     // FIXME: Use of I1 and I2 require v6T2ops
-    checkInt<25>(Loc, Val, Type);
+    checkInt(Loc, Val, 25, Type);
     write16le(Loc,
               0xf000 |                     // opcode
                   ((Val >> 14) & 0x0400) | // S
@@ -410,14 +461,14 @@ void ARM::relocateOne(uint8_t *Loc, RelType Type, uint64_t Val) const {
     break;
   case R_ARM_MOVT_ABS:
   case R_ARM_MOVT_PREL:
-    checkInt<32>(Loc, Val, Type);
+    checkInt(Loc, Val, 32, Type);
     write32le(Loc, (read32le(Loc) & ~0x000f0fff) |
                        (((Val >> 16) & 0xf000) << 4) | ((Val >> 16) & 0xfff));
     break;
   case R_ARM_THM_MOVT_ABS:
   case R_ARM_THM_MOVT_PREL:
     // Encoding T1: A = imm4:i:imm3:imm8
-    checkInt<32>(Loc, Val, Type);
+    checkInt(Loc, Val, 32, Type);
     write16le(Loc,
               0xf2c0 |                     // opcode
                   ((Val >> 17) & 0x0400) | // i

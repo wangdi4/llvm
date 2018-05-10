@@ -36,76 +36,25 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRCreation.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRLoopFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRScalarSymbaseAssignment.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+
+#include "HIRCreation.h"
+#include "HIRLoopFormation.h"
+#include "HIRScalarSymbaseAssignment.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-parser"
 
-INITIALIZE_PASS_BEGIN(HIRParser, "hir-parser", "HIR Parser", false, true)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentification)
-INITIALIZE_PASS_DEPENDENCY(HIRCreation)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopFormation)
-INITIALIZE_PASS_DEPENDENCY(HIRScalarSymbaseAssignment)
-INITIALIZE_PASS_END(HIRParser, "hir-parser", "HIR Parser", false, true)
-
 static cl::opt<bool> RemoveDebugIntrinsics(
     DEBUG_TYPE "-remove-dbg-intrin", cl::init(true), cl::Hidden,
     cl::desc("Remove llvm.dbg.* intrinsics from HIR (default: true)"));
-
-char HIRParser::ID = 0;
-
-FunctionPass *llvm::createHIRParserPass() { return new HIRParser(); }
-
-HIRParser::HIRParser()
-    : FunctionPass(ID), DDRU(*this), CurNode(nullptr), CurRegion(nullptr),
-      CurOutermostLoop(nullptr), CurLevel(0) {
-  initializeHIRParserPass(*PassRegistry::getPassRegistry());
-}
-
-void HIRParser::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequiredTransitive<DominatorTreeWrapperPass>();
-  AU.addRequiredTransitive<LoopInfoWrapperPass>();
-  AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
-  AU.addRequiredTransitive<HIRRegionIdentification>();
-  AU.addRequiredTransitive<HIRCreation>();
-  AU.addRequiredTransitive<HIRLoopFormation>();
-  AU.addRequiredTransitive<HIRScalarSymbaseAssignment>();
-}
-
-HLNodeUtils &HIRParser::getHLNodeUtils() { return HIR->getHLNodeUtils(); }
-
-HLContainerTy::iterator HIRParser::hir_begin() { return HIR->begin(); }
-HLContainerTy::const_iterator HIRParser::hir_cbegin() const {
-  return HIR->begin();
-}
-HLContainerTy::iterator HIRParser::hir_end() { return HIR->end(); }
-HLContainerTy::const_iterator HIRParser::hir_cend() const { return HIR->end(); }
-
-HLContainerTy::reverse_iterator HIRParser::hir_rbegin() {
-  return HIR->rbegin();
-}
-HLContainerTy::const_reverse_iterator HIRParser::hir_crbegin() const {
-  return HIR->rbegin();
-}
-HLContainerTy::reverse_iterator HIRParser::hir_rend() { return HIR->rend(); }
-HLContainerTy::const_reverse_iterator HIRParser::hir_crend() const {
-  return HIR->rend();
-}
 
 const Instruction *HIRParser::getCurInst() const {
   if (auto HLoop = dyn_cast<HLLoop>(CurNode)) {
@@ -123,14 +72,14 @@ const Instruction *HIRParser::getCurInst() const {
     return HInst->getLLVMInstruction();
 
   } else if (auto If = dyn_cast<HLIf>(CurNode)) {
-    auto BB = HIR->getSrcBBlock(If);
+    auto BB = HIRC.getSrcBBlock(If);
     auto Term = BB->getTerminator();
     auto BrInst = dyn_cast<BranchInst>(Term);
 
     return cast<Instruction>(BrInst->getCondition());
 
   } else if (auto Switch = dyn_cast<HLSwitch>(CurNode)) {
-    auto BB = HIR->getSrcBBlock(Switch);
+    auto BB = HIRC.getSrcBBlock(Switch);
     return BB->getTerminator();
   }
 
@@ -234,11 +183,11 @@ unsigned HIRParser::findOrInsertTempBlobIndex(unsigned Symbase) {
   }
   // Some lvals may not be parsed as blobs during parsing, insert them as blobs
   // now.
-  assert((Symbase < getMaxScalarSymbase()) &&
+  assert((Symbase < ScalarSA.getMaxScalarSymbase()) &&
          "Blob index for symbase not found!");
 
-  auto Val = ScalarSA->getBaseScalar(Symbase);
-  auto Blob = SE->getUnknown(const_cast<Value *>(Val));
+  auto Val = ScalarSA.getBaseScalar(Symbase);
+  auto Blob = SE.getUnknown(const_cast<Value *>(Val));
 
   return findOrInsertBlob(Blob, Symbase);
 }
@@ -310,7 +259,7 @@ BlobTy HIRParser::createBlob(Value *Val, unsigned Symbase, bool Insert,
                              unsigned *NewBlobIndex) {
   assert(Val && "Value cannot be null!");
 
-  auto Blob = SE->getUnknown(Val);
+  auto Blob = SE.getUnknown(Val);
 
   insertBlobHelper(Blob, Symbase, Insert, NewBlobIndex);
 
@@ -321,7 +270,7 @@ BlobTy HIRParser::createBlob(int64_t Val, Type *Ty, bool Insert,
                              unsigned *NewBlobIndex) {
 
   assert(Ty && "Type cannot be null!");
-  auto Blob = SE->getConstant(Ty, Val, false);
+  auto Blob = SE.getConstant(Ty, Val, false);
 
   insertBlobHelper(Blob, InvalidSymbase, Insert, NewBlobIndex);
 
@@ -332,7 +281,7 @@ BlobTy HIRParser::createAddBlob(BlobTy LHS, BlobTy RHS, bool Insert,
                                 unsigned *NewBlobIndex) {
   assert(LHS && RHS && "Blob cannot be null!");
 
-  auto Blob = SE->getAddExpr(LHS, RHS);
+  auto Blob = SE.getAddExpr(LHS, RHS);
 
   insertBlobHelper(Blob, InvalidSymbase, Insert, NewBlobIndex);
 
@@ -343,7 +292,7 @@ BlobTy HIRParser::createMinusBlob(BlobTy LHS, BlobTy RHS, bool Insert,
                                   unsigned *NewBlobIndex) {
   assert(LHS && RHS && "Blob cannot be null!");
 
-  auto Blob = SE->getMinusSCEV(LHS, RHS);
+  auto Blob = SE.getMinusSCEV(LHS, RHS);
 
   insertBlobHelper(Blob, InvalidSymbase, Insert, NewBlobIndex);
 
@@ -354,7 +303,7 @@ BlobTy HIRParser::createMulBlob(BlobTy LHS, BlobTy RHS, bool Insert,
                                 unsigned *NewBlobIndex) {
   assert(LHS && RHS && "Blob cannot be null!");
 
-  auto Blob = SE->getMulExpr(LHS, RHS);
+  auto Blob = SE.getMulExpr(LHS, RHS);
 
   insertBlobHelper(Blob, InvalidSymbase, Insert, NewBlobIndex);
 
@@ -365,7 +314,7 @@ BlobTy HIRParser::createUDivBlob(BlobTy LHS, BlobTy RHS, bool Insert,
                                  unsigned *NewBlobIndex) {
   assert(LHS && RHS && "Blob cannot be null!");
 
-  auto Blob = SE->getUDivExpr(LHS, RHS);
+  auto Blob = SE.getUDivExpr(LHS, RHS);
 
   insertBlobHelper(Blob, InvalidSymbase, Insert, NewBlobIndex);
 
@@ -377,7 +326,7 @@ BlobTy HIRParser::createTruncateBlob(BlobTy Blob, Type *Ty, bool Insert,
   assert(Blob && "Blob cannot be null!");
   assert(Ty && "Type cannot be null!");
 
-  auto NewBlob = SE->getTruncateExpr(Blob, Ty);
+  auto NewBlob = SE.getTruncateExpr(Blob, Ty);
 
   insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
 
@@ -389,7 +338,7 @@ BlobTy HIRParser::createZeroExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
   assert(Blob && "Blob cannot be null!");
   assert(Ty && "Type cannot be null!");
 
-  auto NewBlob = SE->getZeroExtendExpr(Blob, Ty);
+  auto NewBlob = SE.getZeroExtendExpr(Blob, Ty);
 
   insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
 
@@ -401,7 +350,7 @@ BlobTy HIRParser::createSignExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
   assert(Blob && "Blob cannot be null!");
   assert(Ty && "Type cannot be null!");
 
-  auto NewBlob = SE->getSignExtendExpr(Blob, Ty);
+  auto NewBlob = SE.getSignExtendExpr(Blob, Ty);
 
   insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
 
@@ -418,10 +367,10 @@ BlobTy HIRParser::createCastBlob(BlobTy Blob, bool IsSExt, Type *Ty,
 
   if (Ty->getPrimitiveSizeInBits() >
       Blob->getType()->getPrimitiveSizeInBits()) {
-    NewBlob = IsSExt ? SE->getSignExtendExpr(Blob, Ty)
-                     : SE->getZeroExtendExpr(Blob, Ty);
+    NewBlob = IsSExt ? SE.getSignExtendExpr(Blob, Ty)
+                     : SE.getZeroExtendExpr(Blob, Ty);
   } else {
-    NewBlob = SE->getTruncateExpr(Blob, Ty);
+    NewBlob = SE.getTruncateExpr(Blob, Ty);
   }
 
   insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
@@ -433,7 +382,7 @@ BlobTy HIRParser::createSMinBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
                                  unsigned *NewBlobIndex) {
   assert(BlobA && BlobB && "Blob cannot be null!");
 
-  auto NewBlob = SE->getSMinExpr(BlobA, BlobB);
+  auto NewBlob = SE.getSMinExpr(BlobA, BlobB);
 
   insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
 
@@ -444,7 +393,7 @@ BlobTy HIRParser::createSMaxBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
                                  unsigned *NewBlobIndex) {
   assert(BlobA && BlobB && "Blob cannot be null!");
 
-  auto NewBlob = SE->getSMaxExpr(BlobA, BlobB);
+  auto NewBlob = SE.getSMaxExpr(BlobA, BlobB);
 
   insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
 
@@ -455,7 +404,7 @@ BlobTy HIRParser::createUMinBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
                                  unsigned *NewBlobIndex) {
   assert(BlobA && BlobB && "Blob cannot be null!");
 
-  auto NewBlob = SE->getUMinExpr(BlobA, BlobB);
+  auto NewBlob = SE.getUMinExpr(BlobA, BlobB);
 
   insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
 
@@ -466,7 +415,7 @@ BlobTy HIRParser::createUMaxBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
                                  unsigned *NewBlobIndex) {
   assert(BlobA && BlobB && "Blob cannot be null!");
 
-  auto NewBlob = SE->getUMaxExpr(BlobA, BlobB);
+  auto NewBlob = SE.getUMaxExpr(BlobA, BlobB);
 
   insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
 
@@ -477,7 +426,7 @@ bool HIRParser::contains(BlobTy Blob, BlobTy SubBlob) const {
   assert(Blob && "Blob cannot be null!");
   assert(SubBlob && "SubBlob cannot be null!");
 
-  return SE->hasOperand(Blob, SubBlob);
+  return SE.hasOperand(Blob, SubBlob);
 }
 
 class HIRParser::TempBlobCollector {
@@ -539,7 +488,7 @@ bool HIRParser::replaceTempBlob(unsigned BlobIndex, unsigned TempIndex,
   Map.insert(
       std::make_pair(cast<SCEVUnknown>(TempBlob)->getValue(), ReplaceByValue));
 
-  auto NewBlob = SCEVParameterRewriter::rewrite(Blob, *SE, Map, true);
+  auto NewBlob = SCEVParameterRewriter::rewrite(Blob, SE, Map, true);
 
   if (Blob == NewBlob) {
     NewBlobIndex = BlobIndex;
@@ -561,13 +510,9 @@ bool HIRParser::replaceTempBlobByConstant(unsigned BlobIndex,
                                           unsigned &NewBlobIndex,
                                           int64_t &SimplifiedConstant) {
   auto TempBlob = getBlob(TempIndex);
-  BlobTy ConstantBlob = SE->getConstant(TempBlob->getType(), Constant, true);
+  BlobTy ConstantBlob = SE.getConstant(TempBlob->getType(), Constant, true);
   return replaceTempBlob(BlobIndex, TempIndex, ConstantBlob, NewBlobIndex,
                          SimplifiedConstant);
-}
-
-unsigned HIRParser::getMaxScalarSymbase() const {
-  return ScalarSA->getMaxScalarSymbase();
 }
 
 struct HIRParser::Phase1Visitor final : public HLNodeVisitorBase {
@@ -596,7 +541,7 @@ bool HIRParser::isMinMaxWithAddRecOperand(const SCEV *SC) const {
   // Min is represented using !(Max) ==> (-1 -Max) so we call getNotSCEV() to
   // undo the original 'not' operation.
   if (isa<SCEVAddExpr>(SC)) {
-    SC = SE->getNotSCEV(SC);
+    SC = SE.getNotSCEV(SC);
   }
 
   if (!isa<SCEVSMaxExpr>(SC) && !isa<SCEVUMaxExpr>(SC)) {
@@ -637,7 +582,7 @@ private:
 
 public:
   BlobProcessor(HIRParser *HIRPar, CanonExpr *CE, unsigned Level)
-      : SCEVRewriteVisitor(*(HIRPar->SE)), HIRP(HIRPar), CE(CE),
+      : SCEVRewriteVisitor(HIRPar->SE), HIRP(HIRPar), CE(CE),
         NestingLevel(Level), SafeMode(false), Failed(false) {}
 
   /// Returns true if \p Blob can be processed without encountering failure.
@@ -860,32 +805,32 @@ const SCEV *HIRParser::BlobProcessor::getSubstituteSCEV(const SCEV *SC) {
     return nullptr;
   }
 
-  auto NewSCEV = HIRP->SE->getUnknown(const_cast<Instruction *>(OrigInst));
+  auto NewSCEV = HIRP->SE.getUnknown(const_cast<Instruction *>(OrigInst));
 
   // NOTE: The order of truncation, negation, multiplication and addition
   // matters.
   if (IsTruncOrSExt) {
     if (NewSCEV->getType()->getPrimitiveSizeInBits() <
         SC->getType()->getPrimitiveSizeInBits()) {
-      NewSCEV = HIRP->SE->getSignExtendExpr(NewSCEV, SC->getType());
+      NewSCEV = HIRP->SE.getSignExtendExpr(NewSCEV, SC->getType());
     } else {
-      NewSCEV = HIRP->SE->getTruncateExpr(NewSCEV, SC->getType());
+      NewSCEV = HIRP->SE.getTruncateExpr(NewSCEV, SC->getType());
     }
 
   } else if (IsZExt) {
-    NewSCEV = HIRP->SE->getZeroExtendExpr(NewSCEV, SC->getType());
+    NewSCEV = HIRP->SE.getZeroExtendExpr(NewSCEV, SC->getType());
   }
 
   if (IsNegation) {
-    NewSCEV = HIRP->SE->getNegativeSCEV(NewSCEV);
+    NewSCEV = HIRP->SE.getNegativeSCEV(NewSCEV);
   }
 
   if (ConstMultiplier) {
-    NewSCEV = HIRP->SE->getMulExpr(ConstMultiplier, NewSCEV);
+    NewSCEV = HIRP->SE.getMulExpr(ConstMultiplier, NewSCEV);
   }
 
   if (Additive) {
-    NewSCEV = HIRP->SE->getAddExpr(Additive, NewSCEV);
+    NewSCEV = HIRP->SE.getAddExpr(Additive, NewSCEV);
   }
 
   // Convert value to base value before returning.
@@ -894,7 +839,7 @@ const SCEV *HIRParser::BlobProcessor::getSubstituteSCEV(const SCEV *SC) {
 
 const Instruction *
 HIRParser::BlobProcessor::searchSCEVValues(const SCEV *SC) const {
-  auto ValSet = HIRP->SE->getSCEVValues(SC);
+  auto ValSet = HIRP->SE.getSCEVValues(SC);
 
   if (!ValSet) {
     return nullptr;
@@ -916,8 +861,8 @@ HIRParser::BlobProcessor::searchSCEVValues(const SCEV *SC) const {
       continue;
     }
 
-    if (!HIRP->SE->getHIRMetadata(Inst, ScalarEvolution::HIRLiveKind::LiveIn) &&
-        HIRP->DT->dominates(Inst, CurInst)) {
+    if (!HIRP->SE.getHIRMetadata(Inst, ScalarEvolution::HIRLiveKind::LiveIn) &&
+        HIRP->DT.dominates(Inst, CurInst)) {
       return Inst;
     }
   }
@@ -941,7 +886,7 @@ const Instruction *HIRParser::BlobProcessor::findOrigInst(
 
     CurInst = HIRP->getCurInst();
     IsLiveInCopy =
-        HIRP->SE->getHIRMetadata(CurInst, ScalarEvolution::HIRLiveKind::LiveIn);
+        HIRP->SE.getHIRMetadata(CurInst, ScalarEvolution::HIRLiveKind::LiveIn);
     FirstInst = true;
 
     // We just started the traceback, clear previous entries.
@@ -950,7 +895,7 @@ const Instruction *HIRParser::BlobProcessor::findOrigInst(
 
   // We should not be checking the SCEV of the livein copy instruction as it
   // should inherit the SCEV of the rval.
-  if (!IsLiveInCopy && HIRP->SE->isSCEVable(CurInst->getType())) {
+  if (!IsLiveInCopy && HIRP->SE.isSCEVable(CurInst->getType())) {
     auto CurSCEV = HIRP->getSCEV(const_cast<Instruction *>(CurInst));
 
     // First instruction can only be an exact match. A partial match means that
@@ -964,7 +909,7 @@ const Instruction *HIRParser::BlobProcessor::findOrigInst(
         return CurInst;
       }
       // Original instruction should dominate the current instruction.
-    } else if (HIRP->DT->dominates(CurInst, HIRP->getCurInst()) &&
+    } else if (HIRP->DT.dominates(CurInst, HIRP->getCurInst()) &&
                isReplacable(SC, CurSCEV, IsTruncOrSExt, IsZExt, IsNegation,
                             ConstMultiplier, Additive)) {
       return CurInst;
@@ -988,7 +933,7 @@ const Instruction *HIRParser::BlobProcessor::findOrigInst(
     }
 
     // Limit trace back to these instruction types. They roughly correspond to
-    // instruction types in SE->createSCEV().
+    // instruction types in SE.createSCEV().
     // Looks like ScalarEvolution can parse CmpInsts, if necessary to compute
     // backedge taken count of loops, so including it in the list as well.
     if (!isa<BinaryOperator>(OpInst) && !isa<CastInst>(OpInst) &&
@@ -1064,11 +1009,11 @@ bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
         OrigType->getPrimitiveSizeInBits()) {
 
       auto ExtAddRec = dyn_cast<SCEVAddRecExpr>(
-          HIRP->SE->getSignExtendExpr(NewAddRec, OrigType));
+          HIRP->SE.getSignExtendExpr(NewAddRec, OrigType));
 
       if (!ExtAddRec) {
         ExtAddRec = dyn_cast<SCEVAddRecExpr>(
-            HIRP->SE->getZeroExtendExpr(NewAddRec, OrigType));
+            HIRP->SE.getZeroExtendExpr(NewAddRec, OrigType));
         ZExt = true;
       } else {
         TruncOrSExt = true;
@@ -1083,7 +1028,7 @@ bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
     } else {
 
       NewAddRec = dyn_cast<SCEVAddRecExpr>(
-          HIRP->SE->getTruncateExpr(NewAddRec, OrigType));
+          HIRP->SE.getTruncateExpr(NewAddRec, OrigType));
 
       // In some case truncation of an AddRec returns a non-AddRec SCEV. For
       // example-
@@ -1110,7 +1055,7 @@ bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
   // with a cmp and select instruction. min(a, b) is constructed as: (-1 + -1 *
   // max(-a-1, -b-1)).
   // Therefore, to find a substitute we need to test the negation too.
-  NewAddRec = cast<SCEVAddRecExpr>(HIRP->SE->getNegativeSCEV(NewAddRec));
+  NewAddRec = cast<SCEVAddRecExpr>(HIRP->SE.getNegativeSCEV(NewAddRec));
 
   if (isReplacableAddRec(OrigAddRec, NewAddRec, WrapFlags, ConstMultiplier,
                          Additive)) {
@@ -1126,7 +1071,7 @@ bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
 const SCEVConstant *
 HIRParser::BlobProcessor::getSDiv(const SCEVConstant *LHS,
                                   const SCEVConstant *RHS) const {
-  return cast<SCEVConstant>(HIRP->SE->getConstant(cast<ConstantInt>(
+  return cast<SCEVConstant>(HIRP->SE.getConstant(cast<ConstantInt>(
       ConstantExpr::getSDiv(LHS->getValue(), RHS->getValue()))));
 }
 
@@ -1219,7 +1164,7 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
       return false;
     }
 
-    NewAddRec = cast<SCEVAddRecExpr>(HIRP->SE->getMulExpr(NewAddRec, Mul));
+    NewAddRec = cast<SCEVAddRecExpr>(HIRP->SE.getMulExpr(NewAddRec, Mul));
   }
 
   // Get invariant additive, if any.
@@ -1229,8 +1174,8 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
       return false;
     }
 
-    Add = HIRP->SE->getMinusSCEV(OrigAddRec->getOperand(0),
-                                 NewAddRec->getOperand(0));
+    Add = HIRP->SE.getMinusSCEV(OrigAddRec->getOperand(0),
+                                NewAddRec->getOperand(0));
   }
 
   // Now match operands
@@ -1275,9 +1220,8 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
 }
 
 void HIRParser::printScalar(raw_ostream &OS, unsigned Symbase) const {
-
-  if (Symbase < getMaxScalarSymbase()) {
-    ScalarSA->getBaseScalar(Symbase)->printAsOperand(OS, false);
+  if (Symbase < ScalarSA.getMaxScalarSymbase()) {
+    ScalarSA.getBaseScalar(Symbase)->printAsOperand(OS, false);
     return;
   }
 
@@ -1354,7 +1298,7 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
 }
 
 bool HIRParser::isRegionLiveOut(const Instruction *Inst) const {
-  auto Symbase = ScalarSA->getScalarSymbase(Inst, CurRegion->getIRRegion());
+  auto Symbase = ScalarSA.getScalarSymbase(Inst, CurRegion->getIRRegion());
 
   if (Symbase && CurRegion->isLiveOut(Symbase)) {
     return true;
@@ -1372,7 +1316,7 @@ bool HIRParser::isEssential(const Instruction *Inst) const {
     Ret = true;
   } else if (isRegionLiveOut(Inst)) {
     Ret = true;
-  } else if (!SE->isSCEVable(Inst->getType())) {
+  } else if (!SE.isSCEVable(Inst->getType())) {
     Ret = true;
   }
 
@@ -1380,7 +1324,7 @@ bool HIRParser::isEssential(const Instruction *Inst) const {
 }
 
 const SCEV *HIRParser::getSCEV(Value *Val) const {
-  return SE->getSCEVForHIR(Val, CurOutermostLoop);
+  return SE.getSCEVForHIR(Val, CurOutermostLoop);
 }
 
 int64_t HIRParser::getSCEVConstantValue(const SCEVConstant *ConstSCEV) const {
@@ -1439,7 +1383,7 @@ unsigned HIRParser::findOrInsertBlobWrapper(BlobTy Blob) {
   // Correct symbase is only required in debug mode to pass asserts.
   if (isTempBlob(Blob)) {
     auto Temp = cast<SCEVUnknown>(Blob)->getValue();
-    Symbase = ScalarSA->getScalarSymbase(Temp, CurRegion->getIRRegion());
+    Symbase = ScalarSA.getScalarSymbase(Temp, CurRegion->getIRRegion());
 
     assert((Symbase != InvalidSymbase) &&
            "Temp blob hasn't been assigned a symbase!");
@@ -1452,16 +1396,16 @@ unsigned HIRParser::findOrInsertBlobWrapper(BlobTy Blob) {
 unsigned HIRParser::getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex) {
   const Value *OldTemp = nullptr;
 
-  auto Symbase = ScalarSA->getOrAssignScalarSymbase(
+  auto Symbase = ScalarSA.getOrAssignScalarSymbase(
       Temp, CurRegion->getIRRegion(), &OldTemp);
 
   if (!OldTemp) {
     return Symbase;
   }
 
-  auto OldTempBlob = SE->getUnknown(const_cast<Value *>(OldTemp));
-  auto BaseTemp = ScalarSA->getBaseScalar(Symbase);
-  auto NewTempBlob = SE->getUnknown(const_cast<Value *>(BaseTemp));
+  auto OldTempBlob = SE.getUnknown(const_cast<Value *>(OldTemp));
+  auto BaseTemp = ScalarSA.getBaseScalar(Symbase);
+  auto NewTempBlob = SE.getUnknown(const_cast<Value *>(BaseTemp));
   auto Index = updateBlob(OldTempBlob, NewTempBlob, Symbase);
 
   if (BlobIndex) {
@@ -1474,15 +1418,14 @@ unsigned HIRParser::getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex) {
 unsigned HIRParser::processInstBlob(const Instruction *Inst,
                                     const Instruction *BaseInst,
                                     unsigned Symbase) {
-
   unsigned DefLevel = 0;
   bool IsRegionLivein = false;
   HLLoop *LCALoop = nullptr;
 
   auto ParentBB = Inst->getParent();
-  Loop *DefLp = LI->getLoopFor(Inst->getParent());
+  Loop *DefLp = LI.getLoopFor(Inst->getParent());
 
-  HLLoop *DefLoop = DefLp ? LF->findHLLoop(DefLp) : nullptr;
+  HLLoop *DefLoop = DefLp ? LF.findHLLoop(DefLp) : nullptr;
 
   HLLoop *UseLoop = isa<HLLoop>(CurNode) ? cast<HLLoop>(CurNode)
                                          : CurNode->getLexicalParentLoop();
@@ -1491,15 +1434,9 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
   if (!CurRegion->containsBBlock(ParentBB)) {
     CurRegion->addLiveInTemp(Symbase, Inst);
     IsRegionLivein = true;
+    assert(!DefLoop && "Livein value cannot come from another region!");
 
-    // If Inst is defined in another region, we need to add it as region
-    // liveout.
-    if (DefLoop) {
-      DefLoop->getParentRegion()->addLiveOutTemp(Symbase, Inst);
-    }
-
-  } else if (DefLoop && UseLoop &&
-             (LCALoop =
+  } else if ((LCALoop =
                   HLNodeUtils::getLowestCommonAncestorLoop(DefLoop, UseLoop))) {
     // If the current node where the blob is used and the blob definition are
     // both in some HLLoop, the defined at level should be the lowest common
@@ -1520,32 +1457,18 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
 
   // Set loop livein/liveout as applicable.
 
-  // For livein/liveout analysis we need to set defining loop based on BaseInst
-  // as it represents Inst in HIR.
+  // For loop livein/liveout analysis we need to set defining loop based on
+  // BaseInst as it represents Inst in HIR.
   if (!IsRegionLivein && (Inst != BaseInst)) {
-    DefLp = LI->getLoopFor(BaseInst->getParent());
+    DefLp = LI.getLoopFor(BaseInst->getParent());
+    DefLoop = DefLp ? LF.findHLLoop(DefLp) : nullptr;
 
-    // DefLp can be null for phis which are outside any loop. Such phis can
-    // occur in function level regions or extended regions formed for loop
-    // fusion.
-    if (DefLp) {
-      DefLoop = LF->findHLLoop(DefLp);
-      assert(DefLoop && "Defining HLLoop of BaseInst is null!");
-
-      if (UseLoop) {
-        LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop);
-      }
-    }
+    LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop);
   }
 
-  // Add temp as livein into current and all parent loops till we reach LCA
-  // loop.
-  while (UseLoop && (UseLoop != LCALoop)) {
-    UseLoop->addLiveInTemp(Symbase);
-    UseLoop = UseLoop->getParentLoop();
-  }
-
-  if (DefLoop) {
+  // This if-else case handles liveins/liveouts caused by SSA deconstruction.
+  if (DefLoop && isa<PHINode>(BaseInst) &&
+      (BaseInst->getParent() == DefLp->getHeader())) {
     // If this is a phi in the loop header, it should be added as a livein
     // temp in defining loop since header phis are deconstructed as follows-
     // Before deconstruction-
@@ -1564,18 +1487,29 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
     //   %t1 = %t1 + %step
     // goto L:
     //
-    if (isa<PHINode>(BaseInst) &&
-        (BaseInst->getParent() == DefLp->getHeader())) {
-      DefLoop->addLiveInTemp(Symbase);
+    DefLoop->addLiveInTemp(Symbase);
+
+  } else if (SE.getHIRMetadata(BaseInst,
+                               ScalarEvolution::HIRLiveKind::LiveIn)) {
+    ScalarSA.handleMultiExitLoopLiveoutPhi(dyn_cast<PHINode>(BaseInst),
+                                           Symbase);
+  }
+
+  // Loop livein/liveouts are processed per use (except for the special cases
+  // handled above) so we skip the definitions (scalar lvals).
+  if (!parsingScalarLval()) {
+    // Add temp as livein into UseLoop and all its parent loops till we reach
+    // LCA loop.
+    while (UseLoop != LCALoop) {
+      UseLoop->addLiveInTemp(Symbase);
+      UseLoop = UseLoop->getParentLoop();
     }
 
-    // Instructions with livein metadata are deconstructed definitions (not
-    // uses). Therefore, they should not be used to mark loop liveouts.
-    if (!SE->getHIRMetadata(Inst, ScalarEvolution::HIRLiveKind::LiveIn)) {
-      while (DefLoop != LCALoop) {
-        DefLoop->addLiveOutTemp(Symbase);
-        DefLoop = DefLoop->getParentLoop();
-      }
+    // Add temp as livein into DefLoop and all its parent loops till we reach
+    // LCA loop.
+    while (DefLoop != LCALoop) {
+      DefLoop->addLiveOutTemp(Symbase);
+      DefLoop = DefLoop->getParentLoop();
     }
   }
 
@@ -1592,12 +1526,12 @@ const SCEVUnknown *HIRParser::processTempBlob(const SCEVUnknown *TempBlob,
 
   // Get symbase and base temp.
   auto Symbase = getOrAssignSymbase(Temp, &Index);
-  auto BaseTemp = ScalarSA->getBaseScalar(Symbase);
+  auto BaseTemp = ScalarSA.getBaseScalar(Symbase);
 
   auto BaseTempBlob =
       (Temp == BaseTemp)
           ? TempBlob
-          : cast<SCEVUnknown>(SE->getUnknown(const_cast<Value *>(BaseTemp)));
+          : cast<SCEVUnknown>(SE.getUnknown(const_cast<Value *>(BaseTemp)));
 
   // Insert blob, if Index was not provided by getOrAssignSymbase().
   if (Index == InvalidBlobIndex) {
@@ -1636,7 +1570,7 @@ void HIRParser::breakConstantMultiplierBlob(BlobTy Blob, int64_t *Multiplier,
       }
 
       *Multiplier = getSCEVConstantValue(ConstSCEV);
-      *NewBlob = SE->getMulExpr(Ops, MulSCEV->getNoWrapFlags());
+      *NewBlob = SE.getMulExpr(Ops, MulSCEV->getNoWrapFlags());
       return;
     }
   }
@@ -1696,7 +1630,7 @@ private:
 public:
   ScopeSCEVValidator(const HIRParser &HIRP) : HIRP(HIRP), IsValid(true) {
     CurInst = HIRP.getCurInst();
-    CurLp = HIRP.LI->getLoopFor(CurInst->getParent());
+    CurLp = HIRP.LI.getLoopFor(CurInst->getParent());
   }
 
   bool follow(const SCEV *SC) {
@@ -1737,7 +1671,7 @@ const SCEV *HIRParser::getSCEVAtScope(const SCEV *SC) const {
   auto ParHLoop = CurNode->getLexicalParentLoop();
   const Loop *ParLoop = ParHLoop ? ParHLoop->getLLVMLoop() : nullptr;
 
-  auto NewSC = SE->getSCEVAtScopeForHIR(SC, ParLoop, CurOutermostLoop);
+  auto NewSC = SE.getSCEVAtScopeForHIR(SC, ParLoop, CurOutermostLoop);
 
   return isValidScopeSCEV(NewSC) ? NewSC : SC;
 }
@@ -1746,7 +1680,7 @@ bool HIRParser::parseAddRec(const SCEVAddRecExpr *RecSCEV, CanonExpr *CE,
                             unsigned Level, bool UnderCast,
                             bool IndicateFailure) {
   auto Lp = RecSCEV->getLoop();
-  auto HLoop = LF->findHLLoop(Lp);
+  auto HLoop = LF.findHLLoop(Lp);
 
   assert(HLoop && "Could not find HIR loop!");
 
@@ -1897,7 +1831,7 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
 
 CanonExpr *HIRParser::parseAsBlob(const Value *Val, unsigned Level) {
   CanonExpr *CE = getCanonExprUtils().createCanonExpr(Val->getType());
-  auto BlobSCEV = SE->getUnknown(const_cast<Value *>(Val));
+  auto BlobSCEV = SE.getUnknown(const_cast<Value *>(Val));
 
   parseBlob(BlobSCEV, CE, Level);
 
@@ -2009,7 +1943,7 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop) {
 
   // Parse as blob if the type is not SCEVable.
   // This is currently for handling floating types.
-  if (!SE->isSCEVable(Val->getType())) {
+  if (!SE.isSCEVable(Val->getType())) {
     CE = parseAsBlob(Val, Level);
 
   } else if (Val->getType()->isPointerTy()) {
@@ -2140,10 +2074,10 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
   if (!BETCType->isPointerTy() && (BETCType != IVType)) {
 
     if (IVType->getPrimitiveSizeInBits() > BETCType->getPrimitiveSizeInBits()) {
-      BETC = IsNSW ? SE->getSignExtendExpr(BETC, IVType)
-                   : SE->getZeroExtendExpr(BETC, IVType);
+      BETC = IsNSW ? SE.getSignExtendExpr(BETC, IVType)
+                   : SE.getZeroExtendExpr(BETC, IVType);
     } else {
-      BETC = SE->getTruncateExpr(BETC, IVType);
+      BETC = SE.getTruncateExpr(BETC, IVType);
     }
   }
 
@@ -2181,7 +2115,7 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
 void HIRParser::parse(HLRegion *Reg) {
   CurRegion = Reg;
   // HIR cache built for another region may not be valid for this one.
-  SE->clearHIRCache();
+  SE.clearHIRCache();
 }
 
 void HIRParser::parse(HLLoop *HLoop) {
@@ -2199,7 +2133,7 @@ void HIRParser::parse(HLLoop *HLoop) {
     CurOutermostLoop = Lp;
   }
 
-  auto BETC = SE->getBackedgeTakenCountForHIR(Lp, CurOutermostLoop);
+  auto BETC = SE.getBackedgeTakenCountForHIR(Lp, CurOutermostLoop);
   if (!isa<SCEVCouldNotCompute>(BETC)) {
 
     // Initialize Lower to 0.
@@ -2218,7 +2152,7 @@ void HIRParser::parse(HLLoop *HLoop) {
 
     // Set small max trip count if available from scalar evolution.
     if (!UpperRef->isIntConstant() &&
-        (MaxTC = SE->getSmallConstantMaxTripCount(const_cast<Loop *>(Lp)))) {
+        (MaxTC = SE.getSmallConstantMaxTripCount(const_cast<Loop *>(Lp)))) {
       HLoop->setMaxTripCountEstimate(MaxTC);
     }
 
@@ -2258,8 +2192,8 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
   if (auto CInst = dyn_cast<CmpInst>(Cond)) {
 
     // Suppress traceback if CInst's operand's type is not supported.
-    if (RI->isSupported(CInst->getOperand(0)->getType()) &&
-        RI->isSupported(CInst->getOperand(1)->getType())) {
+    if (RI.isSupported(CInst->getOperand(0)->getType()) &&
+        RI.isSupported(CInst->getOperand(1)->getType())) {
 
       Preds.push_back(
           {CInst->getPredicate(), parseFMF(CInst), CInst->getDebugLoc()});
@@ -2279,7 +2213,7 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
 
     // Do not bring in '&&' conditions from outside the region.
     if (CurRegion->containsBBlock(BOp->getParent()) &&
-        RI->isSupported(Op1->getType()) && RI->isSupported(Op2->getType())) {
+        RI.isSupported(Op1->getType()) && RI.isSupported(Op2->getType())) {
       parseCompare(Op1, Level, Preds, Refs, true);
       parseCompare(Op2, Level, Preds, Refs, true);
       return;
@@ -2288,8 +2222,8 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
 
   if (isa<UndefValue>(Cond)) {
     Preds.push_back(UNDEFINED_PREDICATE);
-    Refs.push_back(createUndefDDRef(Cond->getType()));
-    Refs.push_back(createUndefDDRef(Cond->getType()));
+    Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
+    Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
   } else if (auto ConstVal = dyn_cast<Constant>(Cond)) {
     if (ConstVal->isOneValue()) {
       Preds.push_back(PredicateTy::FCMP_TRUE);
@@ -2298,8 +2232,8 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
     } else {
       llvm_unreachable("Unexpected conditional branch value");
     }
-    Refs.push_back(createUndefDDRef(Cond->getType()));
-    Refs.push_back(createUndefDDRef(Cond->getType()));
+    Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
+    Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
   } else {
     assert(Cond->getType()->isIntegerTy(1) && "Cond should be an i1 type");
     Preds.push_back(PredicateTy::ICMP_NE);
@@ -2328,7 +2262,7 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
 
   setCurNode(If);
 
-  auto SrcBB = HIR->getSrcBBlock(If);
+  auto SrcBB = HIRC.getSrcBBlock(If);
   assert(SrcBB && "Could not find If's src basic block!");
 
   auto BeginPredIter = If->pred_begin();
@@ -2343,7 +2277,7 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
          "Mismatch between number of predicates and DDRefs!");
 
   if (HLoop) {
-    if (LF->requiresZttInversion(HLoop)) {
+    if (LF.requiresZttInversion(HLoop)) {
       Preds[0].Kind = CmpInst::getInversePredicate(Preds[0].Kind);
       assert((Preds.size() == 1) &&
              "Single predicate expected for inversion candidates!");
@@ -2382,7 +2316,7 @@ void HIRParser::parse(HLSwitch *Switch) {
 
   setCurNode(Switch);
 
-  auto SrcBB = HIR->getSrcBBlock(Switch);
+  auto SrcBB = HIRC.getSrcBBlock(Switch);
   assert(SrcBB && "Could not find If's src basic block!");
 
   // For some reason switch case values cannot be accessed using the const
@@ -2413,9 +2347,9 @@ unsigned HIRParser::getElementSize(Type *Ty) const {
 
 const Value *HIRParser::getHeaderPhiOperand(const PHINode *Phi,
                                             bool IsInit) const {
-  assert(RI->isHeaderPhi(Phi) && "Phi is not a header phi!");
+  assert(RI.isHeaderPhi(Phi) && "Phi is not a header phi!");
 
-  auto Lp = LI->getLoopFor(Phi->getParent());
+  auto Lp = LI.getLoopFor(Phi->getParent());
 
   for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
     auto PhiOp = Phi->getIncomingValue(I);
@@ -2423,11 +2357,11 @@ const Value *HIRParser::getHeaderPhiOperand(const PHINode *Phi,
     auto Inst = dyn_cast<Instruction>(PhiOp);
 
     if (IsInit) {
-      if (!Inst || (LI->getLoopFor(Inst->getParent()) != Lp)) {
+      if (!Inst || (LI.getLoopFor(Inst->getParent()) != Lp)) {
         return PhiOp;
       }
     } else {
-      if (Inst && (LI->getLoopFor(Inst->getParent()) == Lp)) {
+      if (Inst && (LI.getLoopFor(Inst->getParent()) == Lp)) {
         return Inst;
       }
     }
@@ -2444,6 +2378,24 @@ const Value *HIRParser::getHeaderPhiUpdateVal(const PHINode *Phi) const {
   return getHeaderPhiOperand(Phi, false);
 }
 
+static bool hasNonGEPAccess(const Instruction *AddRecPhi,
+                            const Instruction *PhiUpdateInst) {
+  auto Inst = PhiUpdateInst;
+
+  // Trace pointers starting from PhiUpdateInst until we reach AddRecPhi.
+  while (Inst != AddRecPhi) {
+    if (auto GEPInst = dyn_cast<GetElementPtrInst>(Inst)) {
+      Inst = cast<Instruction>(GEPInst->getPointerOperand());
+    } else {
+      // Some other kind of instruction is involved, probably a bitcast
+      // instruction.
+      return true;
+    }
+  }
+
+  return false;
+}
+
 CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
                                              unsigned Level) {
   auto UpdateVal = getHeaderPhiUpdateVal(Phi);
@@ -2455,26 +2407,38 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
   // PhiSCEV: {%ptr,+,4)
   // UpdateSCEV : {(%ptr + 4),+,4)
   // StrideSCEV : 4
-  auto StrideSCEV = SE->getMinusSCEV(UpdateSCEV, PhiSCEV);
-
-  auto IndexTy = Type::getIntNTy(
-      getContext(), getDataLayout().getTypeSizeInBits(Phi->getType()));
+  auto StrideSCEV = SE.getMinusSCEV(UpdateSCEV, PhiSCEV);
+  auto StrideTy = StrideSCEV->getType();
+  assert(StrideTy->isIntegerTy() && "stride is not an integer!");
 
   // Create index as {0,+,stride}
-  auto InitSCEV = SE->getConstant(IndexTy, 0);
+  auto InitSCEV = SE.getConstant(StrideTy, 0);
   auto IndexSCEV =
-      SE->getAddRecExpr(InitSCEV, StrideSCEV, LI->getLoopFor(Phi->getParent()),
-                        cast<SCEVAddRecExpr>(PhiSCEV)->getNoWrapFlags());
+      SE.getAddRecExpr(InitSCEV, StrideSCEV, LI.getLoopFor(Phi->getParent()),
+                       cast<SCEVAddRecExpr>(PhiSCEV)->getNoWrapFlags());
 
-  auto IndexCE = getCanonExprUtils().createCanonExpr(IndexTy);
+  std::unique_ptr<CanonExpr> IndexCE(
+      getCanonExprUtils().createCanonExpr(StrideTy));
 
   // Disable cast hiding to prevent possible merging issues.
-  if (!parseRecursive(IndexSCEV, IndexCE, Level, true, true, true)) {
-    getCanonExprUtils().destroy(IndexCE);
+  if (!parseRecursive(IndexSCEV, IndexCE.get(), Level, true, true, true)) {
     return nullptr;
   }
 
-  return IndexCE;
+  auto PhiTy = Phi->getType();
+
+  // Divide by element size to convert byte offset to number of elements.
+  IndexCE->divide(getElementSize(PhiTy));
+  IndexCE->simplify(true);
+
+  // Bail out if element size does not divide stride evenly and Phi has an
+  // unusual access pattern.
+  if ((IndexCE->getDenominator() != 1) &&
+      hasNonGEPAccess(Phi, cast<Instruction>(UpdateVal))) {
+    return nullptr;
+  }
+
+  return IndexCE.release();
 }
 
 void HIRParser::mergeIndexCE(CanonExpr *IndexCE1, const CanonExpr *IndexCE2) {
@@ -2543,7 +2507,7 @@ bool HIRParser::isValidGEPOp(const GEPOperator *GEPOp) const {
   auto GEPInst = dyn_cast<GetElementPtrInst>(GEPOp);
 
   if (GEPInst &&
-      SE->getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange)) {
+      SE.getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange)) {
     return false;
   }
 
@@ -2775,7 +2739,6 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
 
   // A phi can be initialized using another phi so we should trace back.
   do {
-    Type *BaseTy = CurBasePhi->getType();
     const GEPOperator *InitGEPOp = nullptr;
     CanonExpr *IndexCE = nullptr;
 
@@ -2787,14 +2750,6 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
       if (RecSCEV->isAffine() &&
           (BaseVal = getValidPhiBaseVal(PhiInitVal, &InitGEPOp))) {
         IndexCE = createHeaderPhiIndexCE(CurBasePhi, Level);
-
-        if (IndexCE) {
-          unsigned ElementSize = getElementSize(BaseTy);
-
-          // Normalize with respect to element size.
-          IndexCE->divide(ElementSize);
-          IndexCE->simplify(true);
-        }
       }
 
       // Use no wrap flags to set inbounds property.
@@ -2807,7 +2762,8 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
       BaseVal = CurBasePhi;
 
       auto OffsetType = Type::getIntNTy(
-          getContext(), getDataLayout().getTypeSizeInBits(BaseTy));
+          getContext(),
+          getDataLayout().getTypeSizeInBits(CurBasePhi->getType()));
       IndexCE = getCanonExprUtils().createCanonExpr(OffsetType);
     }
 
@@ -2916,20 +2872,18 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
 
   clearTempBlobLevelMap();
 
-  ParsingScalarLval = false;
-
   // Trace though consecutive bitcast operators until we hit something else.
   while (auto BCOp = dyn_cast<BitCastOperator>(GEPVal)) {
 
     if (auto BCInst = dyn_cast<Instruction>(BCOp)) {
-      if (SE->getHIRMetadata(BCInst, ScalarEvolution::HIRLiveKind::LiveOut)) {
+      if (SE.getHIRMetadata(BCInst, ScalarEvolution::HIRLiveKind::LiveOut)) {
         break;
       }
     }
 
     auto Opnd = BCOp->getOperand(0);
     auto OpTy = Opnd->getType();
-    if (!RI->isSupported(OpTy)) {
+    if (!RI.isSupported(OpTy)) {
       break;
     }
 
@@ -2948,7 +2902,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
   // Try to get to the phi associated with this GEP.
   // Do not cross the live range indicator for GEP uses (load/store/bitcast).
   if ((!IsUse || !GEPInst ||
-       !SE->getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange)) &&
+       !SE.getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange)) &&
       (GEPOp = dyn_cast<GEPOperator>(GEPVal))) {
 
     BasePhi = dyn_cast<PHINode>(getBaseGEPOp(GEPOp)->getPointerOperand());
@@ -2957,7 +2911,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
     BasePhi = dyn_cast<PHINode>(GEPInst);
   }
 
-  if (BasePhi && RI->isHeaderPhi(BasePhi)) {
+  if (BasePhi && RI.isHeaderPhi(BasePhi)) {
     Ref = createPhiBaseGEPDDRef(BasePhi, GEPOp, Level);
   } else if (GEPOp) {
     Ref = createRegularGEPDDRef(GEPOp, Level);
@@ -2966,7 +2920,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
   }
 
   if (HasDestTy) {
-    Ref->setBaseDestType(DestTy);
+    Ref->setBitCastDestType(DestTy);
   }
 
   populateBlobDDRefs(Ref, Level);
@@ -2978,12 +2932,6 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
       std::make_pair(Ref, const_cast<Value *>(OrigGEPVal)));
 
   return Ref;
-}
-
-RegDDRef *HIRParser::createUndefDDRef(Type *Ty) {
-  Value *UndefVal = UndefValue::get(Ty);
-
-  return getDDRefUtils().createConstDDRef(UndefVal);
 }
 
 RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
@@ -3027,6 +2975,8 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
     }
     populateBlobDDRefs(Ref, Level);
   }
+
+  ParsingScalarLval = false;
 
   return Ref;
 }
@@ -3087,14 +3037,14 @@ RegDDRef *HIRParser::createLvalDDRef(const Instruction *Inst, unsigned Level) {
 
 bool HIRParser::isLiveinCopy(const HLInst *HInst) {
   return HInst->isCopyInst() &&
-         SE->getHIRMetadata(HInst->getLLVMInstruction(),
-                            ScalarEvolution::HIRLiveKind::LiveIn);
+         SE.getHIRMetadata(HInst->getLLVMInstruction(),
+                           ScalarEvolution::HIRLiveKind::LiveIn);
 }
 
 bool HIRParser::isLiveoutCopy(const HLInst *HInst) {
   return HInst->isCopyInst() &&
-         SE->getHIRMetadata(HInst->getLLVMInstruction(),
-                            ScalarEvolution::HIRLiveKind::LiveOut);
+         SE.getHIRMetadata(HInst->getLLVMInstruction(),
+                           ScalarEvolution::HIRLiveKind::LiveOut);
 }
 
 unsigned HIRParser::getNumRvalOperands(const Instruction *Inst) {
@@ -3165,7 +3115,7 @@ void HIRParser::addFakeRef(HLInst *HInst, const RegDDRef *AddressRef,
     CE->setSrcType(CE->getDestType());
 
     Value *UndefVal = UndefValue::get(CE->getSrcType());
-    BlobTy UndefBlob = SE->getUnknown(UndefVal);
+    BlobTy UndefBlob = SE.getUnknown(UndefVal);
 
     unsigned BlobIndex = findOrInsertBlob(UndefBlob, ConstantSymbase);
     CE->setBlobCoeff(BlobIndex, 1);
@@ -3319,21 +3269,9 @@ void HIRParser::phase2Parse() {
   UnclassifiedSymbaseInsts.clear();
 }
 
-bool HIRParser::runOnFunction(Function &F) {
-  Func = &F;
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  RI = &getAnalysis<HIRRegionIdentification>();
-  HIR = &getAnalysis<HIRCreation>();
-  LF = &getAnalysis<HIRLoopFormation>();
-  ScalarSA = &getAnalysis<HIRScalarSymbaseAssignment>();
-
-  // Connect contained DDRefUtils to HLNodeUtils object.
-  HIR->getHLNodeUtils().DDRU = &DDRU;
-
+void HIRParser::run() {
   // We parse one region at a time to preserve CurRegion during phase2.
-  for (auto I = HIR->begin(), E = HIR->end(); I != E; ++I) {
+  for (auto I = HIRF.get().hir_begin(), E = HIRF.get().hir_end(); I != E; ++I) {
     assert(UnclassifiedSymbaseInsts.empty() &&
            "UnclassifiedSymbaseInsts is not empty!");
     assert(RequiredSymbases.empty() && "RequiredSymbases is not empty!");
@@ -3345,33 +3283,8 @@ bool HIRParser::runOnFunction(Function &F) {
     phase2Parse();
   }
 
-  return false;
+  IsReady = true;
 }
-
-void HIRParser::releaseMemory() {
-  /// Destroy all DDRefs and CanonExprs.
-  DDRU.destroyAll();
-
-  CurTempBlobLevelMap.clear();
-  UnclassifiedSymbaseInsts.clear();
-  RequiredSymbases.clear();
-  BlobTable.clear();
-  BlobToIndexMap.clear();
-  SymbaseToIndexMap.clear();
-  GEPRefToPointerMap.clear();
-}
-
-void HIRParser::print(raw_ostream &OS, const Module *M) const {
-  print(true, OS, M);
-}
-
-void HIRParser::print(bool FrameworkDetails, raw_ostream &OS,
-                      const Module *M) const {
-  HIR->print(FrameworkDetails, OS, M);
-}
-
-// Verification is done by HIRVerifier.
-void HIRParser::verifyAnalysis() const {}
 
 void HIRParser::parseMetadata(const Instruction *Inst, RegDDRef *Ref) {
   assert(Ref->hasGEPInfo() && "Ref is expected to be gep DDRef");
@@ -3419,7 +3332,7 @@ ArrayType *HIRParser::traceBackToArrayType(const Value *Ptr) const {
       if (Phi->getNumIncomingValues() == 1) {
         Ptr = Phi->getIncomingValue(0);
 
-      } else if (RI->isHeaderPhi(Phi)) {
+      } else if (RI.isHeaderPhi(Phi)) {
         Ptr = getHeaderPhiInitVal(Phi);
 
       } else {

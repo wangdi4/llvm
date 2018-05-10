@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that the outer loop IV is parsed as a blob in the inner loop and therefore we keep the IV update instruction explicitly in HIR. It is also marked livein to the region.
 ; CHECK: LiveIns

@@ -53,15 +53,16 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
 }
 
 RegDDRef::GEPInfo::GEPInfo()
-    : BaseCE(nullptr), InBounds(false), AddressOf(false), Volatile(false),
-      Alignment(0) {}
+    : BaseCE(nullptr), BitCastDestTy(nullptr), InBounds(false),
+      AddressOf(false), Volatile(false),
+      IsCollapsed(false), Alignment(0) {}
 
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
-    : BaseCE(Info.BaseCE->clone()), InBounds(Info.InBounds),
-      AddressOf(Info.AddressOf), Volatile(Info.Volatile),
-      Alignment(Info.Alignment), DimensionOffsets(Info.DimensionOffsets),
-      MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
-      MemDbgLoc(Info.MemDbgLoc) {}
+    : BaseCE(Info.BaseCE->clone()), BitCastDestTy(Info.BitCastDestTy),
+      InBounds(Info.InBounds), AddressOf(Info.AddressOf),
+      Volatile(Info.Volatile), IsCollapsed(Info.IsCollapsed), Alignment(Info.Alignment),
+      DimensionOffsets(Info.DimensionOffsets), MDNodes(Info.MDNodes),
+      GepDbgLoc(Info.GepDbgLoc), MemDbgLoc(Info.MemDbgLoc) {}
 
 RegDDRef::GEPInfo::~GEPInfo() {}
 
@@ -224,7 +225,7 @@ void RegDDRef::updateDefLevelInternal(unsigned NewLevel) {
 
   // Update attached blob DDRefs' def level first.
   for (auto It = blob_begin(), EndIt = blob_end(); It != EndIt; ++It) {
-    auto CE = (*It)->getCanonExpr();
+    auto CE = (*It)->getMutableSingleCanonExpr();
 
     if (CE->isNonLinear()) {
       continue;
@@ -252,12 +253,6 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   const CanonExpr *CE;
   bool HasGEP = hasGEPInfo();
 
-  bool PrintBaseCast = false;
-
-  if (HasGEP) {
-    PrintBaseCast = !Detailed && (getBaseSrcType() != getBaseDestType());
-  }
-
   // Do not print linear forms for scalar lvals
   // Treat disconnected DDRefs as rvals. isLval() asserts for disconnected
   // DDRefs. Being able to print disconnected DDRefs is useful for debugging.
@@ -278,8 +273,8 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
         }
       }
 
-      if (PrintBaseCast) {
-        OS << "(" << *getBaseDestType() << ")";
+      if (getBitCastDestType()) {
+        OS << "(" << *getBitCastDestType() << ")";
       }
 
       OS << "(";
@@ -352,13 +347,12 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
   if (hasGEPInfo()) {
     CE = getBaseCE();
 
-    PointerType *BaseSrcTy = cast<PointerType>(CE->getSrcType());
-    auto BaseDestTy = CE->getDestType();
+    PointerType *BaseTy = cast<PointerType>(CE->getSrcType());
+    auto *DestTy = getBitCastDestType();
 
-    // If BaseCE's dest type is different that the src type, it refers to Ref's
-    // destination type.
-    if (!IsSrc && (BaseSrcTy != BaseDestTy)) {
-      return isAddressOf() ? BaseDestTy : BaseDestTy->getPointerElementType();
+    // Derive ref's destination type using BitCastDestType, if available.
+    if (!IsSrc && DestTy) {
+      return isAddressOf() ? DestTy : DestTy->getPointerElementType();
     }
 
     // Extract the type from the first dimension/offsets.
@@ -371,7 +365,7 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
     // For DDRefs representing addresses, we need to return a pointer to
     // RefTy.
     if (isAddressOf()) {
-      return PointerType::get(RefTy, BaseSrcTy->getAddressSpace());
+      return PointerType::get(RefTy, BaseTy->getAddressSpace());
     } else {
       return RefTy;
     }
@@ -386,7 +380,7 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
 bool RegDDRef::accessesStruct() const {
   assert(hasGEPInfo() && "GEP ref expected!");
 
-  auto BaseTy = getBaseSrcType()->getPointerElementType();
+  auto BaseTy = getBaseType()->getPointerElementType();
 
   while (isa<ArrayType>(BaseTy)) {
     BaseTy = BaseTy->getArrayElementType();
@@ -805,7 +799,6 @@ void RegDDRef::removeStaleBlobDDRefs(SmallVectorImpl<unsigned> &BlobIndices,
                                      SmallVectorImpl<BlobDDRef *> &StaleBlobs) {
 
   auto RemovePred = [&](BlobDDRef *BRef) {
-
     unsigned Index = BRef->getBlobIndex();
 
     auto BlobIt =
@@ -972,7 +965,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
     addBlobDDRef(BRef);
 
     // Defined at level is only applicable for instruction blobs. Other types
-    // (like globals, function paramaters) are always proper linear.
+    // (like globals, function parameters) are always proper linear.
     if (!BlobUtils::isGuaranteedProperLinear(getBlobUtils().getBlob(I))) {
       NewBlobs.push_back(BRef);
     }
@@ -1000,7 +993,7 @@ bool RegDDRef::findTempBlobLevel(unsigned BlobIndex, unsigned *DefLevel) const {
     Index = (*I)->getBlobIndex();
 
     if (Index == BlobIndex) {
-      auto CE = (*I)->getCanonExpr();
+      auto CE = (*I)->getSingleCanonExpr();
       *DefLevel = CE->isNonLinear() ? NonLinearLevel : CE->getDefinedAtLevel();
       return true;
     }
@@ -1061,9 +1054,7 @@ bool RegDDRef::isNonLinear(void) const {
 
   // Check each dimension
   for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
-    CanonExpr *CE = (*I);
-
-    if (CE->isNonLinear()) {
+    if ((*I)->isNonLinear()) {
       return true;
     }
   }
@@ -1106,12 +1097,20 @@ void RegDDRef::verify() const {
       assert(isa<PointerType>(CE->getDestType()) &&
              "Invalid BaseCE dest type!");
     }
-    assert((CE->isStandAloneBlob() || CE->isNull()) &&
-           "BaseCE is not a standalone blob!");
+    assert((CE->isSelfBlob() || CE->isStandAloneUndefBlob() || CE->isNull()) &&
+           "BaseCE is not a self blob!");
 
     for (auto CEI = canon_begin(), E = canon_end(); CEI != E; ++CEI) {
       assert((*CEI)->getSrcType()->isIntOrIntVectorTy() &&
              "Subscript should be integer type!");
+    }
+  } else {
+    // assert(isTerminalRef())
+    auto CE = getSingleCanonExpr();
+    if (CE->isSelfBlob() && !isLval()) {
+      auto &BU = getBlobUtils();
+      assert(BU.getTempBlobSymbase(CE->getSingleBlobIndex()) == getSymbase());
+      (void)BU;
     }
   }
 
@@ -1178,6 +1177,22 @@ RegDDRef::getTrailingStructOffsets(unsigned DimensionNum) const {
   }
 
   return &getGEPInfo()->DimensionOffsets[DimensionNum - 1];
+}
+
+bool RegDDRef::hasNonZeroTrailingStructOffsets(unsigned DimensionNum) const {
+  auto Offsets = getTrailingStructOffsets(DimensionNum);
+
+  if (!Offsets) {
+    return false;
+  }
+
+  for (auto Offset : (*Offsets)) {
+    if (Offset != 0) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 bool RegDDRef::hasTrailingStructOffsets() const {
@@ -1255,6 +1270,13 @@ void RegDDRef::demoteIVs(unsigned StartLevel) {
 
 unsigned RegDDRef::getBasePtrSymbase() const {
   assert(hasGEPInfo() && "Base CE accessed for non-GEP DDRef!");
-  return getBlobUtils().getTempBlobSymbase(getBasePtrBlobIndex());
-}
 
+  unsigned Index = getBasePtrBlobIndex();
+
+  if (!getBlobUtils().isTempBlob(Index)) {
+    // Base may be undef or null so we can return constant symbase.
+    return ConstantSymbase;
+  }
+
+  return getBlobUtils().getTempBlobSymbase(Index);
+}

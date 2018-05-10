@@ -1,6 +1,36 @@
 ; REQUIRES: asserts
-; RUN: opt -anders-aa  -hir-ssa-deconstruction  -hir-temp-cleanup -debug-only=hir-loop-interchange -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; RUN: opt -anders-aa -hir-ssa-deconstruction -hir-temp-cleanup -debug-only=hir-loop-interchange -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK:  Interchanged:
+
+; These two instructions appear in between i2-i3 loopnest and are sinked to i3 loop-
+;  |   |   %8 = (%twp.addr.0162)[2 * i2];
+;  |   |   %9 = (%twp.addr.0162)[2 * i2 + 1];
+
+; Verify that %twp.addr.0162 is added as livein to i3 loop and %8/%9 are removed as liveins after sinking.
+
+; RUN: opt -anders-aa -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-loop-interchange -print-after=hir-loop-interchange -hir-loop-interchange -hir-details < %s 2>&1 | FileCheck %s -check-prefix=CHECK-LIVE
+
+; CHECK-LIVE: Dump Before
+
+; CHECK-LIVE: DO i32 i2
+; CHECK-LIVE: DO i32 i2
+
+; CHECK-LIVE: <LVAL-REG> NON-LINEAR double %8 {sb:[[OLDLIVEIN1:.*]]}
+; CHECK-LIVE: BLOB> LINEAR double* %twp.addr.0162{def@1} {sb:[[NEWLIVEIN:.*]]}
+; CHECK-LIVE: <LVAL-REG> NON-LINEAR double %9 {sb:[[OLDLIVEIN2:.*]]}
+
+; CHECK-LIVE: LiveIn symbases: [[OTHERLIVEIN1:.*]], [[OTHERLIVEIN2:.*]], [[OLDLIVEIN1]], [[OLDLIVEIN2]]{{[[:space:]]}}
+; CHECK-LIVE: DO i32 i3
+
+
+; CHECK-LIVE: Dump After
+
+; CHECK-LIVE: DO i32 i2
+; CHECK-LIVE: DO i32 i2
+
+; CHECK-LIVE: LiveIn symbases: [[NEWLIVEIN]], [[OTHERLIVEIN1]], [[OTHERLIVEIN2]]{{[[:space:]]}}
+
+; CHECK-LIVE: DO i32 i3
 
 ;Module Before HIR; ModuleID = 'fft_interchange.c'
 source_filename = "fft_interchange.c"

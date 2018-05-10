@@ -55,10 +55,11 @@
 ; REQUIRES: asserts
 
 ; Skip one iteration
-; CHECK: Hoisting:
+; CHECK: Unswitching
 
 ; Capture second iteration
-; CHECK: Hoisting:
+; CHECK: Unswitching
+; CHECK: H:
 ; CHECK-SAME: if (%y < %x)
 
 ; CHECK: BEGIN REGION

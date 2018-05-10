@@ -75,10 +75,11 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
@@ -89,17 +90,17 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-static cl::opt<bool> DisablePass(
-    "disable-" OPT_SWITCH, cl::init(false), cl::Hidden,
-    cl::desc("Disable " OPT_DESC " pass"));
+static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
+                                 cl::Hidden,
+                                 cl::desc("Disable " OPT_DESC " pass"));
 
-static cl::opt<bool> DisableCostModel(
-    "disable-" OPT_SWITCH "-cost-model", cl::init(false), cl::Hidden,
-    cl::desc("Disable " OPT_DESC " cost model"));
+static cl::opt<bool>
+    DisableCostModel("disable-" OPT_SWITCH "-cost-model", cl::init(false),
+                     cl::Hidden, cl::desc("Disable " OPT_DESC " cost model"));
 
-static cl::list<unsigned> TransformNodes(
-    OPT_SWITCH "-nodes", cl::Hidden,
-    cl::desc("List nodes to transform by " OPT_DESC));
+static cl::list<unsigned>
+    TransformNodes(OPT_SWITCH "-nodes", cl::Hidden,
+                   cl::desc("List nodes to transform by " OPT_DESC));
 
 STATISTIC(LoopsSplit, "Loops split during optimization of predicates.");
 
@@ -123,7 +124,7 @@ public:
   void releaseMemory() override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.setPreservesAll();
   }
 
@@ -156,11 +157,11 @@ private:
   void updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
                             BlobTy SplitPointBlob, bool IsSigned);
 };
-}
+} // namespace
 
 char HIROptVarPredicate::ID = 0;
 INITIALIZE_PASS_BEGIN(HIROptVarPredicate, OPT_SWITCH, OPT_DESC, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIROptVarPredicate, OPT_SWITCH, OPT_DESC, false, false)
 
 FunctionPass *llvm::createHIROptVarPredicatePass() {
@@ -194,9 +195,7 @@ public:
     return true;
   }
 
-  void visit(const HLLabel *Goto) {
-    HasLabel = true;
-  }
+  void visit(const HLLabel *Goto) { HasLabel = true; }
 
   void visit(HLIf *If) {
     SkipNode = If;
@@ -233,9 +232,7 @@ public:
     Candidates.push_back(If);
   }
 
-  void visit(const HLIf *If) {
-    llvm_unreachable("Unexpected const HLIf.");
-  }
+  void visit(const HLIf *If) { llvm_unreachable("Unexpected const HLIf."); }
 
   void visit(HLLoop *Loop) {
     SkipNode = Loop;
@@ -246,9 +243,7 @@ public:
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
 
-  bool skipRecursion(const HLNode *Node) const {
-    return SkipNode == Node;
-  }
+  bool skipRecursion(const HLNode *Node) const { return SkipNode == Node; }
 };
 
 static bool hasIVAndConstOnly(const CanonExpr *CE, unsigned Level) {
@@ -377,19 +372,19 @@ bool HIROptVarPredicate::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Optimization of Variant Predicates Function: " << F.getName()
                << "\n");
 
-  HIR = &getAnalysis<HIRFramework>();
+  HIR = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HLNodeUtilsObj = &HIR->getHLNodeUtils();
   BlobUtilsObj = &HIR->getBlobUtils();
 
-  ForPostEach<HLLoop>::visitRange(HIR->hir_begin(), HIR->hir_end(),
-                                  [this](HLLoop *Loop) {
-    // Opt on non-innermost loops is likely to cause degradations.
-    if (!DisableCostModel && !Loop->isInnermost()) {
-      return;
-    }
+  ForPostEach<HLLoop>::visitRange(
+      HIR->hir_begin(), HIR->hir_end(), [this](HLLoop *Loop) {
+        // Opt on non-innermost loops is likely to cause degradations.
+        if (!DisableCostModel && !Loop->isInnermost()) {
+          return;
+        }
 
-    processLoop(Loop);
-  });
+        processLoop(Loop);
+      });
 
   for (HLNode *Node : NodesToInvalidate) {
     if (HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
@@ -551,6 +546,9 @@ void HIROptVarPredicate::splitLoop(
 
   bool IsSigned = CmpInst::isSigned(Pred) || Pred == PredicateTy::ICMP_EQ ||
                   Pred == PredicateTy::ICMP_NE;
+  bool FirstLoopNeeded = false;
+  bool SecondLoopNeeded = false;
+  bool ThirdLoopNeeded = false;
 
   Loop->extractZtt();
   Loop->extractPreheaderAndPostexit();
@@ -567,8 +565,10 @@ void HIROptVarPredicate::splitLoop(
   unsigned Level = Loop->getNestingLevel();
 
   // Split loop into two loops
-  auto CloneMapper = HLNodeLambdaMapper::mapper([Candidate](
-      const HLNode *Node) { return Node == Candidate || isa<HLLabel>(Node); });
+  auto CloneMapper =
+      HLNodeLambdaMapper::mapper([Candidate](const HLNode *Node) {
+        return Node == Candidate || isa<HLLabel>(Node);
+      });
 
   HLLoop *SecondLoop = Loop->clone(&CloneMapper);
   HLIf *CandidateClone = CloneMapper.getMapped(Candidate);
@@ -597,8 +597,11 @@ void HIROptVarPredicate::splitLoop(
   // %LB
   BlobTy LowerBlob = BlobUtilsObj->getBlob(LowerCE->getSingleBlobIndex());
 
-  SmallVector<const RegDDRef *, 4> Aux {LHS, RHS, Loop->getLowerDDRef(),
-                                        Loop->getUpperDDRef()};
+  // Clone is required as we will be updating *Loop* upper ref and will be using
+  // original ref to make it consistent.
+  std::unique_ptr<RegDDRef> LoopUpperDDRef(Loop->getUpperDDRef()->clone());
+  SmallVector<const RegDDRef *, 4> Aux{LHS, RHS, Loop->getLowerDDRef(),
+                                       LoopUpperDDRef.get()};
 
   // Special case ==, != predicates..
   if (Pred == PredicateTy::ICMP_EQ || Pred == PredicateTy::ICMP_NE) {
@@ -609,8 +612,7 @@ void HIROptVarPredicate::splitLoop(
 
     // %b + 1
     BlobTy SplitPointPlusBlob = BlobUtilsObj->createAddBlob(
-        SplitPointBlob,
-        BlobUtilsObj->createBlob(1, SplitPointBlob->getType()));
+        SplitPointBlob, BlobUtilsObj->createBlob(1, SplitPointBlob->getType()));
 
     updateLoopLowerBound(ThirdLoop, LowerBlob, SplitPointPlusBlob, IsSigned);
 
@@ -620,6 +622,7 @@ void HIROptVarPredicate::splitLoop(
 
       ThirdLoop->createZtt(false, true);
       ThirdLoop->normalize();
+      ThirdLoopNeeded = true;
     }
   }
 
@@ -636,6 +639,8 @@ void HIROptVarPredicate::splitLoop(
 
     HIRInvalidationUtils::invalidateBounds(Loop);
     HIRInvalidationUtils::invalidateBody(Loop);
+    FirstLoopNeeded = true;
+
   } else {
     HLNodeUtils::remove(Loop);
 
@@ -647,8 +652,17 @@ void HIROptVarPredicate::splitLoop(
     SecondLoop->getLowerDDRef()->makeConsistent(&Aux, Level);
     SecondLoop->createZtt(false, true);
     SecondLoop->normalize();
+    SecondLoopNeeded = true;
   } else {
     HLNodeUtils::remove(SecondLoop);
+  }
+
+  if (FirstLoopNeeded && (SecondLoopNeeded || ThirdLoopNeeded)) {
+    HIRTransformUtils::addCloningInducedLiveouts(Loop);
+  }
+
+  if (SecondLoopNeeded && ThirdLoopNeeded) {
+    HIRTransformUtils::addCloningInducedLiveouts(SecondLoop);
   }
 }
 
@@ -755,6 +769,4 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
   return false;
 }
 
-void HIROptVarPredicate::releaseMemory() {
-  NodesToInvalidate.clear();
-}
+void HIROptVarPredicate::releaseMemory() { NodesToInvalidate.clear(); }

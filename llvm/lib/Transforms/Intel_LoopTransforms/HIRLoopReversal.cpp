@@ -102,6 +102,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 
 #define DEBUG_TYPE "hir-loop-reversal"
 
@@ -254,10 +255,11 @@ char HIRLoopReversal::ID = 0;
 
 INITIALIZE_PASS_BEGIN(HIRLoopReversal, "hir-loop-reversal", "HIR Loop Reversal",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRLoopReversal, "hir-loop-reversal", "HIR Loop Reversal",
                     false, false)
 
@@ -345,7 +347,7 @@ void HIRLoopReversal::AnalyzeDDInfo::visit(const HLDDNode *DDNode) {
        It != ItE; ++It) {
 
     // Selectively skip operand(s) from a SafeReduction Instruction
-    RegDDRef *Ref = (*It);
+    const RegDDRef *Ref = (*It);
     if (IsSafeReduction && findSymbase(Ref->getSymbase())) {
       continue;
     }
@@ -378,10 +380,11 @@ HIRLoopReversal::HIRLoopReversal(void) : HIRTransformPass(ID) {
 }
 
 void HIRLoopReversal::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequiredTransitive<HIRFramework>();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
-  AU.addRequiredTransitive<HIRLoopStatistics>();
+  AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+  AU.addRequiredTransitive<OptReportOptionsPass>();
   AU.setPreservesAll();
 }
 
@@ -402,10 +405,12 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
 
   DEBUG(dbgs() << "HIR LoopReversal on Function : " << F.getName() << "\n");
 
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HDDA = &getAnalysis<HIRDDAnalysis>();
   HSRA = &getAnalysis<HIRSafeReductionAnalysis>();
-  HLS = &getAnalysis<HIRLoopStatistics>();
+  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
+  auto &OROP = getAnalysis<OptReportOptionsPass>();
+  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   // Gather ALL Innermost Loops as Candidates, use 64 increment
   SmallVector<HLLoop *, 64> CandidateLoops;
@@ -438,6 +443,8 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
 
     // Reverse the loop
     bool LoopIsReversed = doHIRReversalTransform(Lp);
+    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                              "Loop was reversed");
 
     // Update Loops-Reversal-Triggered Counter
     if (LoopIsReversed) {

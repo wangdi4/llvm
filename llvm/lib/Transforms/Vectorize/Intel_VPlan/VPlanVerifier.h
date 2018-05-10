@@ -11,7 +11,7 @@
 ///
 /// \file
 /// This file declares VPlanVerifier class that is used to verify that several
-/// aspect of a VPlan are correct.
+/// aspects of a VPlan are correct.
 ///
 //===----------------------------------------------------------------------===//
 
@@ -23,13 +23,17 @@
 namespace llvm {
 namespace vpo {
 
-class VPlanVerifierBase {
-
-protected:
-  // VPLoopInfo analysis information.
-  const VPLoopInfo *VPLInfo;
-
+class VPlanVerifier {
 private:
+  // Outermost LLVM-IR loop to be vectorized.
+  const Loop *TheLoop;
+
+  // VPlan-incoming LoopInfo analysis.
+  const LoopInfo *LInfo;
+
+  // VPLoopInfo analysis information.
+  const VPLoopInfo *VPLInfo = nullptr;
+
   // Main functions driving the verification of regions and loops.
   void verifyRegions(const VPRegionBlock *Region) const;
   void verifyLoops(const VPRegionBlock *TopRegion) const;
@@ -40,15 +44,16 @@ private:
                            const VPLoopRegion *ParentLoopR) const;
   void verifyLoopRegions(const VPRegionBlock *TopRegion) const;
   void verifyNumLoops(const VPRegionBlock *TopRegion) const;
-  // Count the number of loops in the underlying IR. 
-  virtual unsigned countLoopsInUnderlyingIR() const = 0;
+  // Count the number of loops in the underlying IR.
+  virtual unsigned countLoopsInUnderlyingIR() const;
   // Perform IR-specific checks for IR-specific VPLoopRegion.
-  virtual void
-  verifyIRSpecificLoopRegion(const VPRegionBlock *Region) const = 0;
+  virtual void verifyIRSpecificLoopRegion(const VPRegionBlock *Region) const {};
 
 public:
-  VPlanVerifierBase() : VPLInfo(nullptr) {}
-  virtual ~VPlanVerifierBase() {}
+  VPlanVerifier(const Loop *Lp, const LoopInfo *LInfo)
+      : TheLoop(Lp), LInfo(LInfo) {}
+
+  VPlanVerifier() : TheLoop(nullptr), LInfo(nullptr) {}
 
   /// Set VPLoopInfo analysis. This information will be used in some
   /// verification steps, if available.
@@ -79,33 +84,13 @@ public:
   ///     (predecessors).
   ///   - Size is correct.
   ///   - Blocks' parent is correct.
-  ///   - Blocks with multiple successors have a ConditionBitRecipe set.
+  ///   - Blocks with multiple successors have a ConditionBit set.
   ///   - Linked blocks have a bi-directional link (successor/predecessor).
   ///   - All predecessors/successors are inside the region.
   ///   - Blocks have no duplicated successor/predecessor (TODO: switch)
   ///
   void verifyHierarchicalCFG(const VPRegionBlock *TopRegion) const;
 };
-
-/// Specialization of VPlanVerifierBase for LLVM-IR. It uses LLVM-IR specific
-/// information such as Loop and LoopInfo.
-class VPlanVerifier : public VPlanVerifierBase {
-
-private:
-  // Outermost LLVM-IR loop to be vectorized.
-  const Loop *TheLoop;
-
-  // VPlan-incoming LoopInfo analysis.
-  const LoopInfo *LInfo;
-
-  unsigned countLoopsInUnderlyingIR() const;
-  void verifyIRSpecificLoopRegion(const VPRegionBlock *Region) const {};
-
-public:
-  VPlanVerifier(const Loop *Lp, const LoopInfo *LInfo)
-      : VPlanVerifierBase(), TheLoop(Lp), LInfo(LInfo) {}
-};
-
 } // namespace vpo
 } // namespace llvm
 

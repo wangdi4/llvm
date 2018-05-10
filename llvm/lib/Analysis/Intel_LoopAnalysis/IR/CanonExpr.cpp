@@ -397,7 +397,7 @@ bool CanonExpr::isNullVector() const {
   return isNullImpl();
 }
 
-bool CanonExpr::isStandAloneIV(bool AllowConversion) const {
+bool CanonExpr::isStandAloneIV(bool AllowConversion, unsigned *Level) const {
 
   if ((AllowConversion || (getSrcType() == getDestType())) && !hasBlob() &&
       !getConstant() && (getDenominator() == 1)) {
@@ -435,6 +435,12 @@ bool CanonExpr::isStandAloneIV(bool AllowConversion) const {
     // After the loop, if NumIVs == 1, then Coeff == 1 and BlobCoeff == 0 for
     // that IV, so it's standalone
     if (NumIVs == 1) {
+
+      // Save the StandAlone Level:
+      if (Level) {
+        *Level = getFirstIVLevel();
+      }
+
       return true;
     }
   }
@@ -908,9 +914,8 @@ void CanonExpr::replaceBlob(unsigned OldIndex, unsigned NewIndex) {
     }
   }
 
-  if (!found) {
-    assert("Old blob index not found!");
-  }
+  assert(found && "Old blob index not found!");
+  (void)found;
 }
 
 template <bool IsConstant, typename T>

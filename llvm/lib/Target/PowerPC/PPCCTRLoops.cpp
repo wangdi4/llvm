@@ -35,6 +35,7 @@
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/CodeGen/TargetSchedule.h"
 #include "llvm/IR/Constants.h"
@@ -50,8 +51,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 
 #ifndef NDEBUG
@@ -403,15 +404,16 @@ bool PPCCTRLoops::mightUseCTR(BasicBlock *BB) {
         }
 
         if (Opcode) {
-          MVT VTy = TLI->getSimpleValueType(
-              *DL, CI->getArgOperand(0)->getType(), true);
-          if (VTy == MVT::Other)
+          EVT EVTy =
+              TLI->getValueType(*DL, CI->getArgOperand(0)->getType(), true);
+
+          if (EVTy == MVT::Other)
             return true;
 
-          if (TLI->isOperationLegalOrCustom(Opcode, VTy))
+          if (TLI->isOperationLegalOrCustom(Opcode, EVTy))
             continue;
-          else if (VTy.isVector() &&
-                   TLI->isOperationLegalOrCustom(Opcode, VTy.getScalarType()))
+          else if (EVTy.isVector() &&
+                   TLI->isOperationLegalOrCustom(Opcode, EVTy.getScalarType()))
             continue;
 
           return true;
@@ -454,13 +456,16 @@ bool PPCCTRLoops::mightUseCTR(BasicBlock *BB) {
         return true;
     }
 
+    // FREM is always a call.
+    if (J->getOpcode() == Instruction::FRem)
+      return true;
+
     if (STI->useSoftFloat()) {
       switch(J->getOpcode()) {
       case Instruction::FAdd:
       case Instruction::FSub:
       case Instruction::FMul:
       case Instruction::FDiv:
-      case Instruction::FRem:
       case Instruction::FPTrunc:
       case Instruction::FPExt:
       case Instruction::FPToUI:
@@ -526,6 +531,27 @@ bool PPCCTRLoops::convertToCTRLoop(Loop *L) {
 
   SmallVector<BasicBlock*, 4> ExitingBlocks;
   L->getExitingBlocks(ExitingBlocks);
+
+  // If there is an exit edge known to be frequently taken,
+  // we should not transform this loop.
+  for (auto &BB : ExitingBlocks) {
+    Instruction *TI = BB->getTerminator();
+    if (!TI) continue;
+
+    if (BranchInst *BI = dyn_cast<BranchInst>(TI)) {
+      uint64_t TrueWeight = 0, FalseWeight = 0;
+      if (!BI->isConditional() ||
+          !BI->extractProfMetadata(TrueWeight, FalseWeight))
+        continue;
+
+      // If the exit path is more frequent than the loop path,
+      // we return here without further analysis for this loop.
+      bool TrueIsExit = !L->contains(BI->getSuccessor(0));
+      if (( TrueIsExit && FalseWeight < TrueWeight) ||
+          (!TrueIsExit && FalseWeight > TrueWeight))
+        return MadeChange;
+    }
+  }
 
   BasicBlock *CountedExitBlock = nullptr;
   const SCEV *ExitCount = nullptr;
@@ -690,12 +716,11 @@ check_block:
     }
 
     if (I != BI && clobbersCTR(*I)) {
-      DEBUG(dbgs() << "BB#" << MBB->getNumber() << " (" <<
-                      MBB->getFullName() << ") instruction " << *I <<
-                      " clobbers CTR, invalidating " << "BB#" <<
-                      BI->getParent()->getNumber() << " (" <<
-                      BI->getParent()->getFullName() << ") instruction " <<
-                      *BI << "\n");
+      DEBUG(dbgs() << printMBBReference(*MBB) << " (" << MBB->getFullName()
+                   << ") instruction " << *I << " clobbers CTR, invalidating "
+                   << printMBBReference(*BI->getParent()) << " ("
+                   << BI->getParent()->getFullName() << ") instruction " << *BI
+                   << "\n");
       return false;
     }
 
@@ -709,10 +734,10 @@ check_block:
   if (CheckPreds) {
 queue_preds:
     if (MachineFunction::iterator(MBB) == MBB->getParent()->begin()) {
-      DEBUG(dbgs() << "Unable to find a MTCTR instruction for BB#" <<
-                      BI->getParent()->getNumber() << " (" <<
-                      BI->getParent()->getFullName() << ") instruction " <<
-                      *BI << "\n");
+      DEBUG(dbgs() << "Unable to find a MTCTR instruction for "
+                   << printMBBReference(*BI->getParent()) << " ("
+                   << BI->getParent()->getFullName() << ") instruction " << *BI
+                   << "\n");
       return false;
     }
 

@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that we do not construct SCC (%mul26.lcssa.lcssa99 -> %inc -> %mul26.lcssa.lcssa98) containing multiple liveout values.
 

@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 include "llvm/CodeGen/ValueTypes.td"
+include "llvm/CodeGen/SDNodeProperties.td"
 
 //===----------------------------------------------------------------------===//
 //  Properties we keep track of for intrinsics.
@@ -116,6 +117,7 @@ def IntrHasSideEffects : IntrinsicProperty;
 
 class LLVMType<ValueType vt> {
   ValueType VT = vt;
+  int isAny = 0;
 }
 
 class LLVMQualPointerType<LLVMType elty, int addrspace>
@@ -130,6 +132,8 @@ class LLVMPointerType<LLVMType elty>
 class LLVMAnyPointerType<LLVMType elty>
   : LLVMType<iPTRAny>{
   LLVMType ElTy = elty;
+
+  let isAny = 1;
 }
 
 // Match the type of another intrinsic parameter.  Number is an index into the
@@ -162,10 +166,12 @@ class LLVMVectorOfAnyPointersToElt<int num> : LLVMMatchType<num>;
 class LLVMHalfElementsVectorType<int num> : LLVMMatchType<num>;
 
 def llvm_void_ty       : LLVMType<isVoid>;
-def llvm_any_ty        : LLVMType<Any>;
-def llvm_anyint_ty     : LLVMType<iAny>;
-def llvm_anyfloat_ty   : LLVMType<fAny>;
-def llvm_anyvector_ty  : LLVMType<vAny>;
+let isAny = 1 in {
+  def llvm_any_ty        : LLVMType<Any>;
+  def llvm_anyint_ty     : LLVMType<iAny>;
+  def llvm_anyfloat_ty   : LLVMType<fAny>;
+  def llvm_anyvector_ty  : LLVMType<vAny>;
+}
 def llvm_i1_ty         : LLVMType<i1>;
 def llvm_i8_ty         : LLVMType<i8>;
 def llvm_i16_ty        : LLVMType<i16>;
@@ -248,7 +254,6 @@ def llvm_v8f64_ty      : LLVMType<v8f64>;    //  8 x double
 
 def llvm_vararg_ty     : LLVMType<isVoid>;   // this means vararg here
 
-
 //===----------------------------------------------------------------------===//
 // Intrinsic Definitions.
 //===----------------------------------------------------------------------===//
@@ -264,16 +269,17 @@ def llvm_vararg_ty     : LLVMType<isVoid>;   // this means vararg here
 //    intrinsic.
 //  * Properties can be set to describe the behavior of the intrinsic.
 //
-class SDPatternOperator;
 class Intrinsic<list<LLVMType> ret_types,
                 list<LLVMType> param_types = [],
-                list<IntrinsicProperty> properties = [],
-                string name = ""> : SDPatternOperator {
+                list<IntrinsicProperty> intr_properties = [],
+                string name = "",
+                list<SDNodeProperty> sd_properties = []> : SDPatternOperator {
   string LLVMName = name;
   string TargetPrefix = "";   // Set to a prefix for target-specific intrinsics.
   list<LLVMType> RetTypes = ret_types;
   list<LLVMType> ParamTypes = param_types;
-  list<IntrinsicProperty> IntrProperties = properties;
+  list<IntrinsicProperty> IntrProperties = intr_properties;
+  let Properties = sd_properties;
 
   bit isTarget = 0;
 }
@@ -395,17 +401,17 @@ def int_instrprof_value_profile : Intrinsic<[],
 
 def int_memcpy  : Intrinsic<[],
                              [llvm_anyptr_ty, llvm_anyptr_ty, llvm_anyint_ty,
-                              llvm_i32_ty, llvm_i1_ty],
+                              llvm_i1_ty],
                             [IntrArgMemOnly, NoCapture<0>, NoCapture<1>,
                              WriteOnly<0>, ReadOnly<1>]>;
 def int_memmove : Intrinsic<[],
                             [llvm_anyptr_ty, llvm_anyptr_ty, llvm_anyint_ty,
-                             llvm_i32_ty, llvm_i1_ty],
+                             llvm_i1_ty],
                             [IntrArgMemOnly, NoCapture<0>, NoCapture<1>,
                              ReadOnly<1>]>;
 def int_memset  : Intrinsic<[],
                             [llvm_anyptr_ty, llvm_i8_ty, llvm_anyint_ty,
-                             llvm_i32_ty, llvm_i1_ty],
+                             llvm_i1_ty],
                             [IntrArgMemOnly, NoCapture<0>, WriteOnly<0>]>;
 
 // FIXME: Add version of these floating point intrinsics which allow non-default
@@ -743,6 +749,8 @@ def int_invariant_end   : Intrinsic<[],
 // which is valid.
 // The argument also can't be marked with 'returned' attribute, because
 // it would remove barrier.
+// Note that it is still experimental, which means that its semantics
+// might change in the future.
 def int_invariant_group_barrier : Intrinsic<[llvm_anyptr_ty],
                                             [LLVMMatchType<0>],
                                             [IntrReadMem, IntrArgMemOnly]>;
@@ -805,6 +813,7 @@ def int_coro_free : Intrinsic<[llvm_ptr_ty], [llvm_token_ty, llvm_ptr_ty],
 def int_coro_end : Intrinsic<[llvm_i1_ty], [llvm_ptr_ty, llvm_i1_ty], []>;
 
 def int_coro_frame : Intrinsic<[llvm_ptr_ty], [], [IntrNoMem]>;
+def int_coro_noop : Intrinsic<[llvm_ptr_ty], [], [IntrNoMem]>;
 def int_coro_size : Intrinsic<[llvm_anyint_ty], [], [IntrNoMem]>;
 
 def int_coro_save : Intrinsic<[llvm_token_ty], [llvm_ptr_ty], []>;
@@ -934,6 +943,10 @@ def int_type_checked_load : Intrinsic<[llvm_ptr_ty, llvm_i1_ty],
                                       [llvm_ptr_ty, llvm_i32_ty, llvm_metadata_ty],
                                       [IntrNoMem]>;
 
+// Create a branch funnel that implements an indirect call to a limited set of
+// callees. This needs to be a musttail call.
+def int_icall_branch_funnel : Intrinsic<[], [llvm_vararg_ty], []>;
+
 def int_load_relative: Intrinsic<[llvm_ptr_ty], [llvm_ptr_ty, llvm_anyint_ty],
                                  [IntrReadMem, IntrArgMemOnly]>;
 
@@ -943,6 +956,10 @@ def int_load_relative: Intrinsic<[llvm_ptr_ty], [llvm_ptr_ty, llvm_anyint_ty],
 // Takes a pointer to a string and the length of the string.
 def int_xray_customevent : Intrinsic<[], [llvm_ptr_ty, llvm_i32_ty],
                                      [NoCapture<0>, ReadOnly<0>, IntrWriteMem]>;
+// Typed event logging for x-ray.
+// Takes a numeric type tag, a pointer to a string and the length of the string.
+def int_xray_typedevent : Intrinsic<[], [llvm_i16_ty, llvm_ptr_ty, llvm_i32_ty],
+                                        [NoCapture<1>, ReadOnly<1>, IntrWriteMem]>;
 //===----------------------------------------------------------------------===//
 
 //===------ Memory intrinsics with element-wise atomicity guarantees ------===//
@@ -1051,6 +1068,19 @@ def int_intel_std_container_ptr  : Intrinsic<[llvm_anyptr_ty],
 def int_intel_std_container_ptr_iter  : Intrinsic<[llvm_anyptr_ty],
                                         [LLVMMatchType<0>],
                                         [IntrReadMem]>;
+
+// Intrinsic generated instead of getelementptr to help HIR parsing and HIR
+// data dependence testing for arrays references.
+//
+// Return value: computed address.
+// Value pointed to by return value has rank equal to first argument.
+// Second and third arguments: lower bound and stride.
+// Forth argument: base pointer.
+// Fifth argument: subscript index.
+def int_intel_subscript : Intrinsic<[llvm_anyptr_ty],
+    [llvm_i8_ty, llvm_anyint_ty, llvm_anyint_ty, llvm_anyptr_ty,
+     llvm_anyint_ty],
+    [IntrSpeculatable, IntrNoMem]>;
 
 // Intrinsic generated for the return pointer. 
 def int_intel_fakeload   : Intrinsic<[llvm_anyptr_ty],

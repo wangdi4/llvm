@@ -1,6 +1,6 @@
 ; ModuleID = 't1.c'
 source_filename = "t1.c"
-; RUN: opt < %s -hir-ssa-deconstruction -disable-hir-pragma-bailout | opt -analyze -disable-hir-pragma-bailout -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -disable-hir-pragma-bailout | opt -analyze -disable-hir-pragma-bailout -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the loop
 ; CHECK:      DO i1 = 0, 99, 1

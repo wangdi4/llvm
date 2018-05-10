@@ -53,7 +53,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeGVNHoistLegacyPassPass(Registry);
   initializeGVNSinkLegacyPassPass(Registry);
   initializeFlattenCFGPassPass(Registry);
-  initializeInductiveRangeCheckEliminationPass(Registry);
+  initializeIRCELegacyPassPass(Registry);
   initializeIndVarSimplifyLegacyPassPass(Registry);
   initializeInferAddressSpacesPass(Registry);
   initializeJumpThreadingPass(Registry);
@@ -62,7 +62,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopDataPrefetchLegacyPassPass(Registry);
   initializeLoopDeletionLegacyPassPass(Registry);
   initializeLoopAccessLegacyAnalysisPass(Registry);
-  initializeLoopInstSimplifyLegacyPassPass(Registry);
   initializeLoopInterchangePass(Registry);
   initializeLoopPredicationLegacyPassPass(Registry);
   initializeLoopRotateLegacyPassPass(Registry);
@@ -76,6 +75,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLowerAtomicLegacyPassPass(Registry);
   initializeLowerExpectIntrinsicPass(Registry);
   initializeLowerGuardIntrinsicLegacyPassPass(Registry);
+  initializeLowerSubscriptIntrinsicLegacyPassPass(Registry); // INTEL
   initializeMemCpyOptLegacyPassPass(Registry);
   initializeMergeICmpsPass(Registry);
   initializeMergedLoadStoreMotionLegacyPassPass(Registry);
@@ -83,9 +83,8 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializePartiallyInlineLibCallsLegacyPassPass(Registry);
   initializeReassociateLegacyPassPass(Registry);
   initializeRegToMemPass(Registry);
-  initializeRewriteStatepointsForGCPass(Registry);
+  initializeRewriteStatepointsForGCLegacyPassPass(Registry);
   initializeSCCPLegacyPassPass(Registry);
-  initializeIPSCCPLegacyPassPass(Registry);
   initializeSROALegacyPassPass(Registry);
   initializeCFGSimplifyPassPass(Registry);
   initializeStructurizeCFGPass(Registry);
@@ -100,12 +99,14 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeFloat2IntLegacyPassPass(Registry);
   initializeLoopDistributeLegacyPass(Registry);
 #if INTEL_CUSTOMIZATION
-  initializeNonLTOGlobalOptPass(Registry);
-  initializeIndirectCallConvPass(Registry);
+  initializeNonLTOGlobalOptLegacyPassPass(Registry);
+  initializeIndirectCallConvLegacyPassPass(Registry);
   initializeStdContainerOptPass(Registry);
-  initializeTbaaMDPropagationPass(Registry); 
-  initializeCleanupFakeLoadsPass(Registry); 
-  initializeLoopOptMarkerPass(Registry);
+  initializeTbaaMDPropagationLegacyPassPass(Registry);
+  initializeCleanupFakeLoadsLegacyPassPass(Registry);
+  initializeMultiVersioningWrapperPass(Registry);
+  initializeLoopOptMarkerLegacyPassPass(Registry);
+  initializeLoopOptReportEmitterLegacyPassPass(Registry);
 #endif // INTEL_CUSTOMIZATION
   initializeAggInlAALegacyPassPass(Registry); // INTEL
   initializeLoopLoadEliminationPass(Registry);
@@ -113,6 +114,10 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopVersioningPassPass(Registry);
   initializeEntryExitInstrumenterPass(Registry);
   initializePostInlineEntryExitInstrumenterPass(Registry);
+}
+
+void LLVMAddLoopSimplifyCFGPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createLoopSimplifyCFGPass());
 }
 
 void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
@@ -159,10 +164,6 @@ void LLVMAddIndVarSimplifyPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createIndVarSimplifyPass());
 }
 
-void LLVMAddInstructionCombiningPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createInstructionCombiningPass());
-}
-
 void LLVMAddJumpThreadingPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createJumpThreadingPass());
 }
@@ -191,10 +192,6 @@ void LLVMAddLoopRerollPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createLoopRerollPass());
 }
 
-void LLVMAddLoopSimplifyCFGPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createLoopSimplifyCFGPass());
-}
-
 void LLVMAddLoopUnrollPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createLoopUnrollPass());
 }
@@ -213,14 +210,6 @@ void LLVMAddMemCpyOptPass(LLVMPassManagerRef PM) {
 
 void LLVMAddPartiallyInlineLibCallsPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createPartiallyInlineLibCallsPass());
-}
-
-void LLVMAddLowerSwitchPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createLowerSwitchPass());
-}
-
-void LLVMAddPromoteMemoryToRegisterPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createPromoteMemoryToRegisterPass());
 }
 
 void LLVMAddReassociatePass(LLVMPassManagerRef PM) {
@@ -301,3 +290,9 @@ void LLVMAddBasicAliasAnalysisPass(LLVMPassManagerRef PM) {
 void LLVMAddLowerExpectIntrinsicPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createLowerExpectIntrinsicPass());
 }
+
+#if INTEL_CUSTOMIZATION
+void LLVMAddLowerSubscriptIntrinsicPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createLowerSubscriptIntrinsicLegacyPass());
+}
+#endif // INTEL_CUSTOMIZATION

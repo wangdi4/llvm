@@ -54,7 +54,7 @@ public:
 #endif
 };
 
-typedef DDRefGrouping::RefGroupTy<const RegDDRef> RefGroupTy;
+typedef DDRefGrouping::RefGroupTy<const RegDDRef *> RefGroupTy;
 
 // MemRefGroup has a vector of RefTuple (RefTupleVec), a vector of TmpRef
 // (TmpV), and some supporting data

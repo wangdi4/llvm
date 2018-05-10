@@ -66,7 +66,7 @@ INITIALIZE_PASS_BEGIN(
     HIRSymbolicTripCountCompleteUnroll,
     "hir-pm-symbolic-tripcount-completeunroll",
     "HIR Symbolic TripCount CompleteUnroll Pattern Match Pass", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_END(HIRSymbolicTripCountCompleteUnroll,
                     "hir-pm-symbolic-tripcount-completeunroll",
@@ -320,7 +320,7 @@ HIRSymbolicTripCountCompleteUnroll::HIRSymbolicTripCountCompleteUnroll()
 
 void HIRSymbolicTripCountCompleteUnroll::getAnalysisUsage(
     AnalysisUsage &AU) const {
-  AU.addRequiredTransitive<HIRFramework>();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
   AU.setPreservesAll();
 }
@@ -343,7 +343,7 @@ bool HIRSymbolicTripCountCompleteUnroll::runOnFunction(Function &F) {
                << F.getName() << "()\n");
 
   // Gather all innermost Loop Candidates:
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HDDA = &getAnalysis<HIRDDAnalysis>();
   SmallVector<HLLoop *, 64> InnermostLoops;
   HNU = &(HIRF->getHLNodeUtils());

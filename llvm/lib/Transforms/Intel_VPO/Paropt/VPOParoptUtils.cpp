@@ -37,7 +37,7 @@
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptUtils.h"
 #include <string>
 
-#define DEBUG_TYPE "VPOParoptUtils"
+#define DEBUG_TYPE "vpo-paropt-utils"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -364,51 +364,52 @@ CallInst *VPOParoptUtils::genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
   return TaskWaitCall;
 }
 
-
-/// \brief Build int32_t __tgt_target_data_begin(int32_t  device_id,
+/// \brief Build int32_t __tgt_target_data_begin(int64_t  device_id,
 ///                                              int32_t  num_args,
 ///                                              void**   args_base,
 ///                                              void**   args,
 ///                                              int64_t* args_size,
-///                                              int32_t* args_maptype)
+///                                              int64_t* args_maptype)
 ///
 CallInst *VPOParoptUtils::genTgtTargetDataBegin(WRegionNode *W, int NumArgs,
                                                 Value *ArgsBase, Value *Args,
                                                 Value *ArgsSize,
                                                 Value *ArgsMaptype,
                                                 Instruction *InsertPt) {
-  assert(isa<WRNTargetDataNode>(W) && "Expected a WRNTargetDataNode");
+  assert((isa<WRNTargetDataNode>(W) || isa<WRNTargetEnterDataNode>(W)) &&
+         "Expected a WRNTargetDataNode or WRNTargetEnterDataNode");
   Value *DeviceIDPtr = W->getDevice();
   CallInst *Call= genTgtCall("__tgt_target_data_begin", DeviceIDPtr, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt);
   return Call;
 }
 
-/// \brief Build int32_t __tgt_target_data_end(int32_t  device_id,
+/// \brief Build int32_t __tgt_target_data_end(int64_t  device_id,
 ///                                            int32_t  num_args,
 ///                                            void**   args_base,
 ///                                            void**   args,
 ///                                            int64_t* args_size,
-///                                            int32_t* args_maptype)
+///                                            int64_t* args_maptype)
 ///
 CallInst *VPOParoptUtils::genTgtTargetDataEnd(WRegionNode *W, int NumArgs,
                                               Value *ArgsBase, Value *Args,
                                               Value *ArgsSize,
                                               Value *ArgsMaptype,
                                               Instruction *InsertPt) {
-  assert(isa<WRNTargetDataNode>(W) && "Expected a WRNTargetDataNode");
+  assert((isa<WRNTargetDataNode>(W) || isa<WRNTargetExitDataNode>(W)) &&
+         "Expected a WRNTargetDataNode or WRNTargetExitDataNode");
   Value *DeviceIDPtr = W->getDevice();
   CallInst *Call= genTgtCall("__tgt_target_data_end", DeviceIDPtr, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt);
   return Call;
 }
 
-/// \brief Build int32_t __tgt_target_data_update(int32_t  device_id,
+/// \brief Build int32_t __tgt_target_data_update(int64_t  device_id,
 ///                                               int32_t  num_args,
 ///                                               void**   args_base,
 ///                                               void**   args,
 ///                                               int64_t* args_size,
-///                                               int32_t* args_maptype)
+///                                               int64_t* args_maptype)
 ///
 CallInst *VPOParoptUtils::genTgtTargetDataUpdate(WRegionNode *W, int NumArgs,
                                                  Value *ArgsBase, Value *Args,
@@ -422,13 +423,13 @@ CallInst *VPOParoptUtils::genTgtTargetDataUpdate(WRegionNode *W, int NumArgs,
   return Call;
 }
 
-/// \brief Build int32_t __tgt_target(int32_t  device_id,
+/// \brief Build int32_t __tgt_target(int64_t  device_id,
 ///                                   void*    host_addr,
 ///                                   int32_t  num_args,
 ///                                   void**   args_base,
 ///                                   void**   args,
 ///                                   int64_t* args_size,
-///                                   int32_t* args_maptype)
+///                                   int64_t* args_maptype)
 ///
 CallInst *VPOParoptUtils::genTgtTarget(WRegionNode *W, Value *HostAddr,
                                        int NumArgs, Value *ArgsBase,
@@ -442,14 +443,13 @@ CallInst *VPOParoptUtils::genTgtTarget(WRegionNode *W, Value *HostAddr,
   return Call;
 }
 
-
-/// \brief Build int32_t __tgt_target_teams(int32_t  device_id,
+/// \brief Build int32_t __tgt_target_teams(int64_t  device_id,
 ///                                         void*    host_addr,
 ///                                         int32_t  num_args,
 ///                                         void**   args_base,
 ///                                         void**   args,
 ///                                         int64_t* args_size,
-///                                         int32_t* args_maptype,
+///                                         int64_t* args_maptype,
 ///                                         int32_t  num_teams,
 ///                                         int32_t  thread_limit)
 ///
@@ -477,11 +477,11 @@ CallInst *VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
 
 /// \brief Base routine to create one of these libomptarget calls:
 /// \code
-///   void    __tgt_target_data_begin( int32_t device_id, <common>)
-///   void    __tgt_target_data_end(   int32_t device_id, <common>)
-///   void    __tgt_target_data_update(int32_t device_id, <common>)
-///   int32_t __tgt_target(int32_t device_id, void *host_addr, <common>)
-///   int32_t __tgt_target_teams(int32_t device_id, void *host_addr,
+///   void    __tgt_target_data_begin( int64_t device_id, <common>)
+///   void    __tgt_target_data_end(   int64_t device_id, <common>)
+///   void    __tgt_target_data_update(int64_t device_id, <common>)
+///   int32_t __tgt_target(int64_t device_id, void *host_addr, <common>)
+///   int32_t __tgt_target_teams(int64_t device_id, void *host_addr,
 ///                              <common>, int32_t num_teams,
 ///                              int32_t thread_limit)
 /// \endcode
@@ -491,7 +491,7 @@ CallInst *VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
 ///   void**   args_base,   // array of base pointers being mapped
 ///   void**   args,        // array of section pointers (base+offset)
 ///   int64_t* args_size,   // array of sizes (bytes) of each mapped datum
-///   int32_t* args_maptype // array of map attributes for each mapping
+///   int64_t* args_maptype // array of map attributes for each mapping
 /// \endcode
 CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
                                      int NumArgsCount, Value *ArgsBase,
@@ -505,23 +505,26 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
   LLVMContext &C = F->getContext();
 
   Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
   Type *ReturnTy; // void for _tgt_target_data_*(); i32 otherwise
 
   Value *NumTeams = nullptr;
   Value *ThreadLimit = nullptr;
 
-  // First parm: "int32_t device_id"
+  // First parm: "int64_t device_id"
   Value *DeviceID;
   if (DeviceIDPtr == nullptr) {
     // user did not specify device; default is -1
-    DeviceID = Builder.getInt32(-1);
+    DeviceID = ConstantInt::get(Int64Ty, -1);
   } else if (isa<Constant>(DeviceIDPtr))
-    DeviceID = DeviceIDPtr;
-  else
+    DeviceID = Builder.CreateSExtOrBitCast(DeviceIDPtr, Int64Ty);
+  else {
     DeviceID = new LoadInst(DeviceIDPtr, "deviceID", InsertPt);
+    DeviceID = Builder.CreateSExtOrBitCast(DeviceID, Int64Ty);
+  }
 
   SmallVector<Value *, 9> FnArgs    = { DeviceID };
-  SmallVector<Type *, 9> FnArgTypes = { Int32Ty  };
+  SmallVector<Type *, 9> FnArgTypes = {Int64Ty};
 
   if (HostAddr) {
     // HostAddr!=null means FnName is __tgt_target or __tgt_target_teams
@@ -1508,7 +1511,7 @@ VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
 
   for (int K = 0; K < 2; ++K) {
     BasicBlock::iterator I = (K == 0) ? BS->begin() : BE->begin();
-    if (Instruction *Inst = dyn_cast<Instruction>(&*I)) {
+    if (Instruction *Inst = dyn_cast<Instruction>(I)) {
       if (DILocation *Loc = Inst->getDebugLoc()) {
         if (K == 0) {
           Path = Loc->getDirectory();
@@ -1645,19 +1648,48 @@ GlobalVariable *VPOParoptUtils::genKmpcLocforImplicitBarrier(
   return KmpcLoc;
 }
 
-// Insert this call at InsertPt:
-//   call void @__kmpc_barrier(%ident_t* %loc, i32 %tid)
+// Insert kmpc_[cancel_]barrier(...) call before InsertPt. If the call emitted
+// is a __kmpc_cancel_barrier(...), add it to the parent WRegionNode's
+// CancellationPoints.
 CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
                                          Instruction *InsertPt,
-                                         StructType *IdentTy,
-                                         bool IsExplicit) {
+                                         StructType *IdentTy, bool IsExplicit) {
+
+  WRegionNode *WParent = W->getParent();
+  bool IsCancelBarrier = WParent && WParent->canHaveCancellationPoints() &&
+                         WRegionUtils::hasCancelConstruct(WParent);
+
+  auto *BarrierCall = VPOParoptUtils::genKmpcBarrierImpl(
+      W, Tid, InsertPt, IdentTy, IsExplicit, IsCancelBarrier);
+
+  if (IsCancelBarrier)
+    WParent->addCancellationPoint(BarrierCall);
+
+  return BarrierCall;
+}
+
+// Insert kmpc_[cancel_]barrier(...) call before InsertPt.
+CallInst *VPOParoptUtils::genKmpcBarrierImpl(WRegionNode *W, Value *Tid,
+                                             Instruction *InsertPt,
+                                             StructType *IdentTy,
+                                             bool IsExplicit,
+                                             bool IsCancelBarrier) {
   BasicBlock  *B = InsertPt->getParent();
   Function    *F = B->getParent();
   Module      *M = F->getParent();
   LLVMContext &C = F->getContext();
 
-  Type      *RetTy = Type::getVoidTy(C);
-  StringRef FnName = "__kmpc_barrier";
+  Type *RetTy;
+  StringRef FnName;
+
+
+  if (IsCancelBarrier) {
+    RetTy = Type::getInt32Ty(C);
+    FnName = "__kmpc_cancel_barrier";
+  } else {
+    RetTy = Type::getVoidTy(C);
+    FnName = "__kmpc_barrier";
+  }
 
   // Create the arg for Loc
   GlobalVariable *Loc;
@@ -1675,6 +1707,7 @@ CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
 
   CallInst *BarrierCall = genCall(M, FnName, RetTy, FnArgs);
   BarrierCall->insertBefore(InsertPt);
+
   return BarrierCall;
 }
 
@@ -1682,7 +1715,7 @@ CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
 // by emitting calls to `__kmpc_critical` before `BeginInst`, and
 // `__kmpc_end_critical` after `EndInst`.
 bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                            AllocaInst *TidPtr,
+                                            Constant *TidPtr,
                                             const StringRef &LockNameSuffix) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
@@ -1733,7 +1766,7 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
 // Wraps the above function for case when the caller does not provide a lock
 // name suffix, and uses a default lock name suffix.
 bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                            AllocaInst *TidPtr) {
+                                            Constant *TidPtr) {
   return genKmpcCriticalSection(W, IdentTy, TidPtr, "");
 }
 
@@ -1764,6 +1797,57 @@ CallInst *VPOParoptUtils::genKmpcCallWithTid(
   // And then try to generate the KMPC call.
   return VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt, IntrinsicName,
                                      ReturnTy, FnArgs);
+}
+
+// This function generates a call as follows.
+// void @__kmpc_taskgroup(%ident_t* %loc.addr.11.12, i32 %my.tid)
+CallInst *VPOParoptUtils::genKmpcTaskgroupCall(WRegionNode *W,
+                                               StructType *IdentTy, Value *Tid,
+                                               Instruction *InsertPt) {
+  return genKmpcTaskgroupOrEndTaskgroupCall(W, IdentTy, Tid, InsertPt, true);
+}
+
+// This function generates a call as follows.
+// void @__kmpc_end_taskgroup(%ident_t* %loc.addr.11.12, i32 %my.tid)
+CallInst *VPOParoptUtils::genKmpcEndTaskgroupCall(WRegionNode *W,
+                                                  StructType *IdentTy,
+                                                  Value *Tid,
+                                                  Instruction *InsertPt) {
+  return genKmpcTaskgroupOrEndTaskgroupCall(W, IdentTy, Tid, InsertPt, false);
+}
+
+// This function generates calls for the taskgroup region.
+//
+//   call void @__kmpc_taskgroup(%ident_t* %loc, i32 %tid)
+//      or
+//   call void @__kmpc_end_taskgroup(%ident_t* %loc, i32 %tid)
+CallInst *VPOParoptUtils::genKmpcTaskgroupOrEndTaskgroupCall(
+    WRegionNode *W, StructType *IdentTy, Value *Tid, Instruction *InsertPt,
+    bool IsTaskgroupStart) {
+
+  BasicBlock *B = W->getEntryBBlock();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+
+  Type *RetTy = nullptr;
+  StringRef FnName;
+
+  if (IsTaskgroupStart)
+    FnName = "__kmpc_taskgroup";
+  else
+    FnName = "__kmpc_end_taskgroup";
+
+  RetTy = Type::getVoidTy(C);
+
+  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadTid->setAlignment(4);
+
+  // Now bundle all the function arguments together.
+  SmallVector<Value *, 3> FnArgs = {LoadTid};
+
+  CallInst *TaskgroupOrEndCall =
+      VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt, FnName, RetTy, FnArgs);
+  return TaskgroupOrEndCall;
 }
 
 // This function generates a call to query the current thread if it is a master
@@ -1941,6 +2025,24 @@ CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
   return genCall(M, IntrinsicName, ReturnTy, FnArgs, InsertPt);
 }
 
+// Genetates a CallInst for the given Function* Fn and its argument list.
+// Fn is assumed to be already declared.
+CallInst *VPOParoptUtils::genCall(Function *Fn, ArrayRef<Value *> FnArgs,
+                                  ArrayRef<Type*> FnArgTypes,
+                                  Instruction *InsertPt,
+                                  bool IsTail, bool IsVarArg) {
+  assert(Fn != nullptr && "Function Declaration is null.");
+  CallInst *Call = CallInst::Create(Fn, FnArgs, "", InsertPt);
+  // Note: if InsertPt!=nullptr, Call is emitted into the IR as well.
+  assert(Call != nullptr && "Failed to generate Function Call");
+
+  Call->setCallingConv(CallingConv::C);
+  Call->setTailCall(IsTail);
+  DEBUG(dbgs() << __FUNCTION__ << ": Function call: " << *Call << "\n");
+
+  return Call;
+}
+
 // Genetates a CallInst for a function with name `FnName`.
 CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
                                   ArrayRef<Value *> FnArgs,
@@ -1958,18 +2060,9 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
   // create and insert it into the symbol table first.
   Constant *FnC = M->getOrInsertFunction(FnName, FnTy);
   Function *Fn = cast<Function>(FnC);
-  assert(Fn != nullptr && "Function Declaration is null.");
 
-  // We now  have the function declaration. Now generate a call to it.
-  CallInst *FnCall = CallInst::Create(Fn, FnArgs, "", InsertPt);
-  // Note: if InsertPt!=nullptr, FnCall is emitted into the IR as well.
-  assert(FnCall != nullptr && "Failed to generate Function Call");
-
-  FnCall->setCallingConv(CallingConv::C);
-  FnCall->setTailCall(IsTail);
-  DEBUG(dbgs() << __FUNCTION__ << ": Function call: " << *FnCall << "\n");
-
-  return FnCall;
+  CallInst *Call = genCall(Fn, FnArgs, FnArgTypes, InsertPt, IsTail, IsVarArg);
+  return Call;
 }
 
 // A genCall() interface where FunArgTypes is omitted; it will be computed from
@@ -2096,7 +2189,7 @@ VPOParoptUtils::genKmpcCriticalLockVar(WRegionNode *W,
 
 // Generates a critical section around Instructions `begin` and `end`.
 bool VPOParoptUtils::genKmpcCriticalSectionImpl(
-    WRegionNode *W, StructType *IdentTy, AllocaInst *TidPtr,
+    WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
     Instruction *BeginInst, Instruction *EndInst, GlobalVariable *LockVar) {
 
   assert(W != nullptr && "WRegionNode is null.");
@@ -2137,10 +2230,10 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(
 // by emitting calls to `__kmpc_critical` before `BeginInst`, and
 // `__kmpc_end_critical` after `EndInst`.
 bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                            AllocaInst *TidPtr,
+                                            Constant *TidPtr,
                                             Instruction *BeginInst,
                                             Instruction *EndInst,
-                                            const StringRef& LockNameSuffix) {
+                                            const StringRef &LockNameSuffix) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
@@ -2153,6 +2246,42 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
 
   return genKmpcCriticalSectionImpl(W, IdentTy, TidPtr, BeginInst, EndInst,
                                     Lock);
+}
+
+// Generates and inserts a 'kmpc_cancel[lationpoint]' CallInst.
+CallInst *VPOParoptUtils::genKmpcCancelOrCancellationPointCall(
+    WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
+    Instruction *InsertPoint, WRNCancelKind CancelKind,
+    bool IsCancellationPoint) {
+
+  assert(W != nullptr && "WRegionNode is null.");
+  assert(IdentTy != nullptr && "IdentTy is null.");
+  assert(TidPtr != nullptr && "TidPtr is null.");
+  assert(InsertPoint != nullptr && "InsertionPoint is null.");
+
+  StringRef FnName;
+
+  if (IsCancellationPoint)
+    FnName = "__kmpc_cancellationpoint";
+  else
+    FnName = "__kmpc_cancel";
+
+  BasicBlock *B = W->getEntryBBlock();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+
+  CallInst *CancelCall = genKmpcCallWithTid(
+      W, IdentTy, TidPtr, InsertPoint, FnName, Type::getInt32Ty(C),
+      {ConstantInt::get(Type::getInt32Ty(C), CancelKind)});
+
+  CancelCall->insertBefore(InsertPoint);
+
+  WRegionNode *WParent = W->getParent();
+  assert(WParent && "genKmpcCancelOrCancellationPointCall: Orphaned "
+                    "cancel/cancellation point construct");
+  WParent->addCancellationPoint(CancelCall);
+
+  return CancelCall;
 }
 
 // Generates a memcpy call at the end of the given basic block BB.
@@ -2191,7 +2320,68 @@ CallInst *VPOParoptUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
     Size = MemcpyBuilder.getInt32(
         DL.getTypeAllocSize(D->getType()->getPointerElementType()));
 
-  return MemcpyBuilder.CreateMemCpy(Dest, Src, Size, Align);
+  AllocaInst *AI = dyn_cast<AllocaInst>(D);
+  if (AI && AI->isArrayAllocation())
+    Size = MemcpyBuilder.CreateMul(Size, AI->getArraySize());
+
+  return MemcpyBuilder.CreateMemCpy(Dest, Align, Src, Align, Size);
+}
+
+// Emit Constructor call and insert it after PrivAlloca
+CallInst *VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
+                                             Value* PrivAlloca) {
+  if (Ctor == nullptr)
+    return nullptr;
+
+  Type *ValType = V->getType();
+  CallInst *Call = genCall(Ctor, {V}, {ValType}, nullptr);
+  Instruction *InsertAfterPt = cast<Instruction>(PrivAlloca);
+  Call->insertAfter(InsertAfterPt);
+  DEBUG(dbgs() << "CONSTRUCTOR: " << *Call << "\n");
+  return Call;
+}
+
+// Emit Destructor call and insert it before InsertBeforePt
+CallInst *VPOParoptUtils::genDestructorCall(Function *Dtor, Value *V,
+                                            Instruction *InsertBeforePt) {
+  if (Dtor == nullptr)
+    return nullptr;
+
+  Type *ValType = V->getType();
+  CallInst *Call = genCall(Dtor, {V}, {ValType}, nullptr);
+  Call->insertBefore(InsertBeforePt);
+  DEBUG(dbgs() << "DESTRUCTOR: " << *Call << "\n");
+  return Call;
+}
+
+// Emit Copy Constructor call and insert it before InsertBeforePt
+CallInst *VPOParoptUtils::genCopyConstructorCall(Function *Cctor, Value *D,
+                                  Value *S, Instruction *InsertBeforePt) {
+  if (Cctor == nullptr)
+    return nullptr;
+
+  Type *DTy = D->getType();
+  Type *STy = S->getType();
+
+  CallInst *Call = genCall(Cctor, {D,S}, {DTy, STy}, nullptr);
+  Call->insertBefore(InsertBeforePt);
+  DEBUG(dbgs() << "COPY CONSTRUCTOR: " << *Call << "\n");
+  return Call;
+}
+
+// Emit Copy Assign call and insert it before InsertBeforePt
+CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
+                                            Instruction *InsertBeforePt) {
+  if (Cp == nullptr)
+    return nullptr;
+
+  Type *DTy = D->getType();
+  Type *STy = S->getType();
+
+  CallInst *Call = genCall(Cp, {D,S}, {DTy, STy}, nullptr);
+  Call->insertBefore(InsertBeforePt);
+  DEBUG(dbgs() << "COPY ASSIGN: " << *Call << "\n");
+  return Call;
 }
 
 // Computes the OpenMP loop upper bound so that the iteration space can be
@@ -2352,6 +2542,42 @@ static Value *findChainToLoad(Value *V,
   llvm_unreachable("findChainToLoad: unhandled instruction");
 }
 
+// Creates a clone of CI, adds OpBundlesToAdd to it, and returns it.
+CallInst *VPOParoptUtils::addOperandBundlesInCall(
+    CallInst *CI,
+    ArrayRef<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd) {
+
+  assert(CI && "addOperandBundlesInCall: Null CallInst");
+
+  if (OpBundlesToAdd.empty())
+    return CI;
+
+  SmallVector<Value *, 8> Args;
+  for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++) {
+    Args.insert(Args.end(), *AI);
+  }
+
+  SmallVector<OperandBundleDef, 1> OpBundles;
+  CI->getOperandBundlesAsDefs(OpBundles);
+
+  for (auto &StrValVec : OpBundlesToAdd) {
+    OperandBundleDef B(StrValVec.first, StrValVec.second);
+    OpBundles.push_back(B);
+  }
+
+  auto NewI = CallInst::Create(CI->getCalledValue(), Args, OpBundles, "", CI);
+
+  NewI->takeName(CI);
+  NewI->setCallingConv(CI->getCallingConv());
+  NewI->setAttributes(CI->getAttributes());
+  NewI->setDebugLoc(CI->getDebugLoc());
+
+  CI->replaceAllUsesWith(NewI);
+  CI->eraseFromParent();
+
+  return NewI;
+}
+
 // Clones the load instruction and inserts before the InsertPt.
 Value *VPOParoptUtils::cloneInstructions(Value *V, Instruction *InsertBefore) {
   if (isa<Constant>(V))
@@ -2378,7 +2604,7 @@ Value *VPOParoptUtils::cloneInstructions(Value *V, Instruction *InsertBefore) {
   /*
     if (auto *LI = dyn_cast<LoadInst>(V)) {
       auto NewLI = LI->clone();
-      NewLI->insertBefore(&*InsertPt);
+      NewLI->insertBefore(InsertPt);
       return NewLI;
     }
     else

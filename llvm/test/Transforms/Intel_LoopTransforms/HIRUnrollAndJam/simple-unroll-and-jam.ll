@@ -58,6 +58,19 @@
 ; CHECK: + END LOOP
 ; CHECK: END REGION
 
+; Check that proper optreport is emitted for Unroll and Jam.
+; RUN: opt -hir-ssa-deconstruction -hir-unroll-and-jam -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT-NEXT:         Remark #XXXXX: Loop has been unrolled and jammed by {{.*}}{{[[:space:]]}}
+; OPTREPORT-NEXT:     LOOP BEGIN
+; OPTREPORT-NEXT:     LOOP END
+; OPTREPORT-NEXT: LOOP END{{[[:space:]]}}
+; OPTREPORT-NEXT:     LOOP BEGIN
+; OPTREPORT-NEXT:        <Remainder loop for unroll-and-jam>{{[[:space:]]}}
+; OPTREPORT-NEXT:     LOOP BEGIN
+; OPTREPORT-NEXT:     LOOP END
+; OPTREPORT-NEXT: LOOP END
 
 ; ModuleID = 'simple-unroll-and-jam.ll'
 source_filename = "simple-unroll-and-jam.c"

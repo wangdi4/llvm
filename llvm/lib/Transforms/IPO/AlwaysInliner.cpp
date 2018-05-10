@@ -15,15 +15,12 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/InlineCost.h"
-#include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Transforms/IPO.h"
@@ -35,6 +32,13 @@ using namespace llvm;
 using namespace InlineReportTypes; // INTEL
 
 #define DEBUG_TYPE "inline"
+
+#if INTEL_CUSTOMIZATION
+extern cl::opt<unsigned> IntelInlineReportLevel;
+
+AlwaysInlinerPass::AlwaysInlinerPass(bool InsertLifetime)
+    : InsertLifetime(InsertLifetime), Report(IntelInlineReportLevel) {}
+#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses AlwaysInlinerPass::run(Module &M, ModuleAnalysisManager &) {
   InlineFunctionInfo IFI;
@@ -55,7 +59,8 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M, ModuleAnalysisManager &) {
       for (CallSite CS : Calls)
         // FIXME: We really shouldn't be able to fail to inline at this point!
         // We should do something to log or check the inline failures here.
-        Changed |= InlineFunction(CS, IFI);
+        Changed |=
+            InlineFunction(CS, IFI, /*CalleeAAR=*/nullptr, InsertLifetime);
 
       // Remember to try and delete this function afterward. This both avoids
       // re-walking the rest of the module and avoids dealing with any iterator
@@ -84,6 +89,9 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M, ModuleAnalysisManager &) {
     for (Function *F : InlinedFunctions)
       M.getFunctionList().erase(F);
   }
+#if INTEL_CUSTOMIZATION
+  getReport().print();
+#endif // INTEL_CUSTOMIZATION
 
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }

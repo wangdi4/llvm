@@ -66,6 +66,7 @@
 #include <vector>
 
 using namespace llvm;
+using ProfileCount = Function::ProfileCount;
 
 #define DEBUG_TYPE "code-extractor"
 
@@ -78,11 +79,16 @@ AggregateArgsOpt("aggregate-extracted-args", cl::Hidden,
                  cl::desc("Aggregate arguments to code-extracted functions"));
 
 /// \brief Test whether a block is valid for extraction.
-bool CodeExtractor::isBlockValidForExtraction(const BasicBlock &BB,
-                                              bool AllowVarArgs) {
+#if INTEL_CUSTOMIZATION // under community review D45904
+static bool isBlockValidForExtraction(const BasicBlock &BB,
+                                      const SetVector<BasicBlock *> &Result,
+                                      bool AllowVarArgs, bool AllowAlloca) {
+#endif // INTEL_CUSTOMIZATION
+#if !INTEL_CUSTOMIZATION // under community review D45904
   // Landing pads must be in the function where they were inserted for cleanup.
   if (BB.isEHPad())
     return false;
+#endif // INTEL_CUSTOMIZATION
   // taking the address of a basic block moved to another function is illegal
   if (BB.hasAddressTaken())
     return false;
@@ -111,17 +117,65 @@ bool CodeExtractor::isBlockValidForExtraction(const BasicBlock &BB,
     }
   }
 
-  // Don't hoist code containing allocas or invokes. If explicitly requested,
-  // allow vastart.
+#if INTEL_CUSTOMIZATION // under community review D45904
+  // If explicitly requested, allow vastart and alloca. For invoke instructions
+  // verify that extraction is valid.
+#endif // INTEL_CUSTOMIZATION
   for (BasicBlock::const_iterator I = BB.begin(), E = BB.end(); I != E; ++I) {
-#ifdef INTEL_CUSTOMIZATION
-    // Allow Alloca in the blocks for extraction. This fixes a bug in the 
-    // way the DT update is handled as well. 
-    if (isa<InvokeInst>(I))
-      return false;
-#else 
-    if (isa<AllocaInst>(I) || isa<InvokeInst>(I))
-      return false;
+#if INTEL_CUSTOMIZATION // under community review D45904
+    if (isa<AllocaInst>(I)) {
+       if (!AllowAlloca)
+         return false;
+       continue;
+    }
+
+    if (const auto *II = dyn_cast<InvokeInst>(I)) {
+      // Unwind destination (either a landingpad, catchswitch, or cleanuppad)
+      // must be a part of the subgraph which is being extracted.
+      if (auto *UBB = II->getUnwindDest())
+        if (!Result.count(UBB))
+          return false;
+      continue;
+    }
+
+    // All catch handlers of a catchswitch instruction as well as the unwind
+    // destination must be in the subgraph.
+    if (const auto *CSI = dyn_cast<CatchSwitchInst>(I)) {
+      if (auto *UBB = CSI->getUnwindDest())
+        if (!Result.count(UBB))
+          return false;
+      for (auto *HBB : CSI->handlers())
+        if (!Result.count(const_cast<BasicBlock*>(HBB)))
+          return false;
+      continue;
+    }
+
+    // Make sure that entire catch handler is within subgraph. It is sufficient
+    // to check that catch return's block is in the list.
+    if (const auto *CPI = dyn_cast<CatchPadInst>(I)) {
+      for (const auto *U : CPI->users())
+        if (const auto *CRI = dyn_cast<CatchReturnInst>(U))
+          if (!Result.count(const_cast<BasicBlock*>(CRI->getParent())))
+            return false;
+      continue;
+    }
+
+    // And do similar checks for cleanup handler - the entire handler must be
+    // in subgraph which is going to be extracted. For cleanup return should
+    // additionally check that the unwind destination is also in the subgraph.
+    if (const auto *CPI = dyn_cast<CleanupPadInst>(I)) {
+      for (const auto *U : CPI->users())
+        if (const auto *CRI = dyn_cast<CleanupReturnInst>(U))
+          if (!Result.count(const_cast<BasicBlock*>(CRI->getParent())))
+            return false;
+      continue;
+    }
+    if (const auto *CRI = dyn_cast<CleanupReturnInst>(I)) {
+      if (auto *UBB = CRI->getUnwindDest())
+        if (!Result.count(UBB))
+          return false;
+      continue;
+    }
 #endif // INTEL_CUSTOMIZATION
 
     if (const CallInst *CI = dyn_cast<CallInst>(I))
@@ -140,7 +194,9 @@ bool CodeExtractor::isBlockValidForExtraction(const BasicBlock &BB,
 /// \brief Build a set of blocks to extract if the input blocks are viable.
 static SetVector<BasicBlock *>
 buildExtractionBlockSet(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
-                        bool AllowVarArgs) {
+#if INTEL_CUSTOMIZATION // under community review D45904
+                        bool AllowVarArgs, bool AllowAlloca) {
+#endif // INTEL_CUSTOMIZATION
   assert(!BBs.empty() && "The set of blocks to extract must be non-empty");
   SetVector<BasicBlock *> Result;
 
@@ -153,32 +209,53 @@ buildExtractionBlockSet(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
 
     if (!Result.insert(BB))
       llvm_unreachable("Repeated basic blocks in extraction input");
+#if !INTEL_CUSTOMIZATION // under community review D45904
     if (!CodeExtractor::isBlockValidForExtraction(*BB, AllowVarArgs)) {
       Result.clear();
       return Result;
     }
+#endif // INTEL_CUSTOMIZATION
   }
 
-#ifndef NDEBUG
-  for (SetVector<BasicBlock *>::iterator I = std::next(Result.begin()),
-                                         E = Result.end();
-       I != E; ++I)
-    for (pred_iterator PI = pred_begin(*I), PE = pred_end(*I);
-         PI != PE; ++PI)
-      assert(Result.count(*PI) &&
-             "No blocks in this region may have entries from outside the region"
-             " except for the first block!");
-#endif
+#if INTEL_CUSTOMIZATION // under community review D45904
+  for (auto *BB : Result) {
+    if (!isBlockValidForExtraction(*BB, Result, AllowVarArgs, AllowAlloca))
+      return {};
+
+    // Make sure that the first block is not a landing pad.
+    if (BB == Result.front()) {
+      if (BB->isEHPad()) {
+        DEBUG(dbgs() << "The first block cannot be an unwind block\n");
+        return {};
+      }
+      continue;
+    }
+
+    // All blocks other than the first must not have predecessors outside of
+    // the subgraph which is being extracted.
+    for (auto *PBB : predecessors(BB))
+      if (!Result.count(PBB)) {
+        DEBUG(dbgs() << "No blocks in this region may have entries from "
+                         "outside the region except for the first block!\n");
+        return {};
+      }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return Result;
 }
 
 CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
                              bool AggregateArgs, BlockFrequencyInfo *BFI,
-                             BranchProbabilityInfo *BPI, bool AllowVarArgs)
+#if INTEL_CUSTOMIZATION // under community review D45904
+                             BranchProbabilityInfo *BPI, bool AllowVarArgs,
+                             bool AllowAlloca)
+#endif // INTEL_CUSTOMIZATION
     : DT(DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
       BPI(BPI), AllowVarArgs(AllowVarArgs),
-      Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs)) {}
+#if INTEL_CUSTOMIZATION // under community review D45904
+      Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca)) {}
+#endif // INTEL_CUSTOMIZATION
 
 CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
                              BlockFrequencyInfo *BFI,
@@ -186,7 +263,10 @@ CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
     : DT(&DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
       BPI(BPI), AllowVarArgs(false),
       Blocks(buildExtractionBlockSet(L.getBlocks(), &DT,
-                                     /* AllowVarArgs */ false)) {}
+#if INTEL_CUSTOMIZATION // under community review D45904
+                                     /* AllowVarArgs */ false,
+                                     /* AllowAlloca */ false)) {}
+#endif // INTEL_CUSTOMIZATION
 
 /// definedInRegion - Return true if the specified value is defined in the
 /// extracted region.
@@ -358,6 +438,7 @@ void CodeExtractor::findAllocas(ValueSet &SinkCands, ValueSet &HoistCands,
       auto GetLifeTimeMarkers =
           [&](Instruction *Addr, bool &SinkLifeStart,
               bool &HoistLifeEnd) -> std::pair<Instruction *, Instruction *> {
+
         Instruction *LifeStart = nullptr, *LifeEnd = nullptr;
 
         for (User *U : Addr->users()) {
@@ -628,16 +709,91 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
   if (oldFunction->hasUWTable())
     newFunction->setHasUWTable();
 
-  // Inherit all of the target dependent attributes.
+  // Inherit all of the target dependent attributes and white-listed
+  // target independent attributes.
   //  (e.g. If the extracted region contains a call to an x86.sse
   //  instruction we need to make sure that the extracted region has the
   //  "target-features" attribute allowing it to be lowered.
   // FIXME: This should be changed to check to see if a specific
   //           attribute can not be inherited.
-  AttrBuilder AB(oldFunction->getAttributes().getFnAttributes());
-  for (const auto &Attr : AB.td_attrs())
-    newFunction->addFnAttr(Attr.first, Attr.second);
+  for (const auto &Attr : oldFunction->getAttributes().getFnAttributes()) {
+    if (Attr.isStringAttribute()) {
+      if (Attr.getKindAsString() == "thunk")
+        continue;
+    } else
+      switch (Attr.getKindAsEnum()) {
+      // Those attributes cannot be propagated safely. Explicitly list them
+      // here so we get a warning if new attributes are added. This list also
+      // includes non-function attributes.
+      case Attribute::Alignment:
+      case Attribute::AllocSize:
+      case Attribute::ArgMemOnly:
+      case Attribute::Builtin:
+      case Attribute::ByVal:
+      case Attribute::Convergent:
+      case Attribute::Dereferenceable:
+      case Attribute::DereferenceableOrNull:
+      case Attribute::InAlloca:
+      case Attribute::InReg:
+      case Attribute::InaccessibleMemOnly:
+      case Attribute::InaccessibleMemOrArgMemOnly:
+      case Attribute::JumpTable:
+      case Attribute::Naked:
+      case Attribute::Nest:
+      case Attribute::NoAlias:
+      case Attribute::NoBuiltin:
+      case Attribute::NoCapture:
+      case Attribute::NoReturn:
+      case Attribute::None:
+      case Attribute::NonNull:
+      case Attribute::ReadNone:
+      case Attribute::ReadOnly:
+      case Attribute::Returned:
+      case Attribute::ReturnsTwice:
+      case Attribute::SExt:
+      case Attribute::Speculatable:
+      case Attribute::StackAlignment:
+      case Attribute::StructRet:
+      case Attribute::SwiftError:
+      case Attribute::SwiftSelf:
+      case Attribute::WriteOnly:
+      case Attribute::ZExt:
+      case Attribute::EndAttrKinds:
+        continue;
+      // Those attributes should be safe to propagate to the extracted function.
+      case Attribute::AlwaysInline:
+      case Attribute::AlwaysInlineRecursive: // INTEL
+      case Attribute::Cold:
+      case Attribute::NoRecurse:
+      case Attribute::InlineHint:
+      case Attribute::InlineHintRecursive:   // INTEL
+      case Attribute::MinSize:
+      case Attribute::NoDuplicate:
+      case Attribute::NoImplicitFloat:
+      case Attribute::NoInline:
+      case Attribute::NonLazyBind:
+      case Attribute::NoRedZone:
+      case Attribute::NoUnwind:
+      case Attribute::OptForFuzzing:
+      case Attribute::OptimizeNone:
+      case Attribute::OptimizeForSize:
+      case Attribute::SafeStack:
+      case Attribute::ShadowCallStack:
+      case Attribute::SanitizeAddress:
+      case Attribute::SanitizeMemory:
+      case Attribute::SanitizeThread:
+      case Attribute::SanitizeHWAddress:
+      case Attribute::StackProtect:
+      case Attribute::StackProtectReq:
+      case Attribute::StackProtectStrong:
+      case Attribute::StrictFP:
+      case Attribute::UWTable:
+      case Attribute::NoCfCheck:
+        break;
+      }
 
+    newFunction->addFnAttr(Attr);
+  }
   newFunction->getBasicBlockList().push_back(newRootNode);
 
   // Create an iterator to name all of the arguments we inserted.
@@ -754,6 +910,14 @@ emitCallAndSwitchStatement(Function *newFunction, BasicBlock *codeReplacer,
   // Emit the call to the function
   CallInst *call = CallInst::Create(newFunction, params,
                                     NumExitBlocks > 1 ? "targetBlock" : "");
+  // Add debug location to the new call, if the original function has debug
+  // info. In that case, the terminator of the entry block of the extracted
+  // function contains the first debug location of the extracted function,
+  // set in extractCodeRegion.
+  if (codeReplacer->getParent()->getSubprogram()) {
+    if (auto DL = newFunction->getEntryBlock().getTerminator()->getDebugLoc())
+      call->setDebugLoc(DL);
+  }
   codeReplacer->getInstList().push_back(call);
 
   Function::arg_iterator OutputArgBegin = newFunction->arg_begin();
@@ -1031,7 +1195,22 @@ Function *CodeExtractor::extractCodeRegion() {
   // head of the region, but the entry node of a function cannot have preds.
   BasicBlock *newFuncRoot = BasicBlock::Create(header->getContext(), 
                                                "newFuncRoot");
-  newFuncRoot->getInstList().push_back(BranchInst::Create(header));
+  auto *BranchI = BranchInst::Create(header);
+  // If the original function has debug info, we have to add a debug location
+  // to the new branch instruction from the artificial entry block.
+  // We use the debug location of the first instruction in the extracted
+  // blocks, as there is no other equivalent line in the source code.
+  if (oldFunction->getSubprogram()) {
+    any_of(Blocks, [&BranchI](const BasicBlock *BB) {
+      return any_of(*BB, [&BranchI](const Instruction &I) {
+        if (!I.getDebugLoc())
+          return false;
+        BranchI->setDebugLoc(I.getDebugLoc());
+        return true;
+      });
+    });
+  }
+  newFuncRoot->getInstList().push_back(BranchI);
 
   findAllocas(SinkingCands, HoistingCands, CommonExit);
   assert(HoistingCands.empty() || CommonExit);
@@ -1078,16 +1257,22 @@ Function *CodeExtractor::extractCodeRegion() {
 
   // Update the entry count of the function.
   if (BFI) {
-    Optional<uint64_t> EntryCount =
-        BFI->getProfileCountFromFreq(EntryFreq.getFrequency());
-    if (EntryCount.hasValue())
-      newFunction->setEntryCount(EntryCount.getValue());
+    auto Count = BFI->getProfileCountFromFreq(EntryFreq.getFrequency());
+    if (Count.hasValue())
+      newFunction->setEntryCount(
+          ProfileCount(Count.getValue(), Function::PCT_Real)); // FIXME
     BFI->setBlockFreq(codeReplacer, EntryFreq.getFrequency());
   }
 
   emitCallAndSwitchStatement(newFunction, codeReplacer, inputs, outputs);
 
   moveCodeToFunction(newFunction);
+
+#if INTEL_CUSTOMIZATION // under community review D45904
+  // Propagate personality info to the new function if there is one.
+  if (oldFunction->hasPersonalityFn())
+    newFunction->setPersonalityFn(oldFunction->getPersonalityFn());
+#endif // INTEL_CUSTOMIZATION
 
   // Update the branch weights for the exit block.
   if (BFI && NumExitBlocks > 1)

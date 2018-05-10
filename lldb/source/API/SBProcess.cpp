@@ -20,13 +20,13 @@
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/State.h"
 #include "lldb/Core/StreamFile.h"
-#include "lldb/Interpreter/Args.h"
 #include "lldb/Target/MemoryRegionInfo.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/SystemRuntime.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/Args.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/Stream.h"
 
@@ -140,7 +140,7 @@ bool SBProcess::RemoteLaunch(char const **argv, char const **envp,
       if (argv)
         launch_info.GetArguments().AppendArguments(argv);
       if (envp)
-        launch_info.GetEnvironmentEntries().SetArguments(envp);
+        launch_info.GetEnvironment() = Environment(envp);
       error.SetError(process_sp->Launch(launch_info));
     } else {
       error.SetErrorString("must be in eStateConnected to call RemoteLaunch");

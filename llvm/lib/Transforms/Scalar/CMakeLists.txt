@@ -20,14 +20,17 @@ add_llvm_library(LLVMScalarOpts
   InductiveRangeCheckElimination.cpp
   IndVarSimplify.cpp
   InferAddressSpaces.cpp
-#ifdef INTEL_CUSTOMIZATION
+# INTEL_CUSTOMIZATION
   Intel_AggInlAA.cpp
   Intel_GlobalOpt.cpp
   Intel_IndirectCallConv.cpp
   Intel_LoopOptMarker.cpp
+  Intel_LoopOptReportEmitter.cpp
+  Intel_LowerSubscriptIntrinsic.cpp
   Intel_StdContainerOpt.cpp
   Intel_TbaaMDPropagation.cpp
-#endif     // INTEL_CUSTOMIZATION
+  Intel_MultiVersioning.cpp
+# end INTEL_CUSTOMIZATION
   JumpThreading.cpp
   LICM.cpp
   LoopAccessAnalysisPrinter.cpp
@@ -36,7 +39,6 @@ add_llvm_library(LLVMScalarOpts
   LoopDataPrefetch.cpp
   LoopDistribute.cpp
   LoopIdiomRecognize.cpp
-  LoopInstSimplify.cpp
   LoopInterchange.cpp
   LoopLoadElimination.cpp
   LoopPassManager.cpp

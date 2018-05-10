@@ -20,12 +20,8 @@
 #include "llvm/Object/COFFImportFile.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/Format.h"
-#include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/Win64EH.h"
 #include "llvm/Support/raw_ostream.h"
-#include <algorithm>
-#include <cstring>
-#include <system_error>
 
 using namespace llvm;
 using namespace object;
@@ -457,7 +453,7 @@ static bool getPDataSection(const COFFObjectFile *Obj,
       Rels.push_back(Reloc);
 
     // Sort relocations by address.
-    std::sort(Rels.begin(), Rels.end(), RelocAddressLess);
+    llvm::sort(Rels.begin(), Rels.end(), RelocAddressLess);
 
     ArrayRef<uint8_t> Contents;
     error(Obj->getSectionContents(Pdata, Contents));

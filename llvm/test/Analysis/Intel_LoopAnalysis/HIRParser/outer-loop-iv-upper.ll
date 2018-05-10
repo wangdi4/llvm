@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the innermost loop verifying that loop upper composed of non-generable outer loop IVs is parsed correctly.
 ; CHECK: DO i1 = 0, -1 * %m.047 + -1 * %l.043 + %n + -3

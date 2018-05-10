@@ -32,6 +32,8 @@
 ; susceptible to phase ordering issues.
 ; CHECK-O2: CallGraph Construction
 ; CHECK-O2-NEXT: Globals Alias Analysis
+; INTEL -- Added the pass setting [no]inline list attributes
+; CHECK-O2-NEXT: Set attributes for callsites in [no]inline list
 ; CHECK-O2-NEXT: Call Graph SCC Pass Manager
 ; CHECK-O2-NEXT: Remove unused exception handling info
 ; CHECK-O2-NEXT: Function Integration/Inlining
@@ -108,7 +110,7 @@
 ; FIXME: There really shouldn't be another pass manager, especially one that
 ; just builds the domtree. It doesn't even run the verifier.
 ; CHECK-O2: Pass Arguments:
-; CHECK-O2-NEXT: FunctionPass Manager
+; CHECK-O2: FunctionPass Manager
 ; CHECK-O2-NEXT: Dominator Tree Construction
 
 define void @foo() {

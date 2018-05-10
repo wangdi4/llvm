@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -analyze -hir-creation -hir-cost-model-throttling=0 | FileCheck %s
+; RUN: opt < %s -analyze -hir-framework -hir-framework-debug=creation -debug-only=hir-framework -hir-cost-model-throttling=0 | FileCheck %s
 
 ; Check sequence of gotos/labels in output of hir-creation
 ; CHECK: switch
@@ -18,7 +18,7 @@
 ; CHECK: goto for.inc;
 ; CHECK-NEXT: for.inc
 
-; RUN: opt < %s -analyze -hir-creation -debug-only=hir-region-identification 2>&1 | FileCheck -check-prefix=COST-MODEL %s
+; RUN: opt < %s -analyze -hir-framework -hir-framework-debug=creation -debug-only=hir-framework -debug-only=hir-region-identification 2>&1 | FileCheck -check-prefix=COST-MODEL %s
 ; COST-MODEL: Loop throttled due to presence of user calls
 
 

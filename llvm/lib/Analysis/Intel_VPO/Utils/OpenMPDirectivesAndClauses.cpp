@@ -27,10 +27,11 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-ClauseSpecifier::ClauseSpecifier(StringRef Name) : FullName(Name),
-      IsArraySection(false), IsNonPod(false), IsUnsigned(false),
+ClauseSpecifier::ClauseSpecifier(StringRef Name)
+    : FullName(Name), IsArraySection(false), IsNonPod(false), IsUnsigned(false),
       IsConditional(false), IsScheduleMonotonic(false),
-      IsScheduleNonmonotonic(false), IsScheduleSimd(false) {
+      IsScheduleNonmonotonic(false), IsScheduleSimd(false),
+      IsMapAggrHead(false), IsMapAggr(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
 
@@ -53,7 +54,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name) : FullName(Name),
   // Temporary hack to accept "QUAL.OMP.LINEAR.VAL" and treat it as
   // "QUAL.OMP.LINEAR". Eventually, Clang will be fixed to never emit
   // "QUAL.OMP.LINEAR.VAL".
-  if (Base == "QUAL.OMP.LINEAR.VAL") 
+  if (Base == "QUAL.OMP.LINEAR.VAL")
     setId(QUAL_OMP_LINEAR);
   else
 #endif
@@ -81,8 +82,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name) : FullName(Name),
         else
           llvm_unreachable("Unknown modifier string for the SCHEDULE clause");
       }
-    }
-    else 
+    } else
       for (unsigned i=0; i < NumberOfModifierStrings; i++) {
         if (ModSubString[i] == "ARRSECT")
           setIsArraySection();
@@ -92,6 +92,10 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name) : FullName(Name),
           setIsUnsigned();
         else if (ModSubString[i] == "CONDITIONAL")  // for lastprivate clause
           setIsConditional();
+        else if (ModSubString[i] == "AGGRHEAD") // map chain head
+          setIsMapAggrHead();
+        else if (ModSubString[i] == "AGGR") // map chain (not head)
+          setIsMapAggr();
         else
           llvm_unreachable("Unknown modifier string for clause");
       }
@@ -114,7 +118,7 @@ StringRef VPOAnalysisUtils::getDirOrClauseString(Instruction *I) {
 
 StringRef VPOAnalysisUtils::getDirectiveString(Instruction *I, bool doClauses){
   StringRef DirString;  // ctor initializes its data to nullptr
-  if (I) { 
+  if (I) {
     IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
     if (Call) {
       Intrinsic::ID Id = Call->getIntrinsicID();
@@ -122,7 +126,7 @@ StringRef VPOAnalysisUtils::getDirectiveString(Instruction *I, bool doClauses){
           (doClauses && VPOAnalysisUtils::isIntelClause(Id)))
         // this is an llvm.intel.directive intrinsic
         DirString = VPOAnalysisUtils::getDirectiveMetadataString(Call);
-      else 
+      else
         // check if it's an llvm.directive.region.entry/exit intrinsic
         DirString = VPOAnalysisUtils::getRegionDirectiveString(I);
     }
@@ -157,7 +161,7 @@ StringRef VPOAnalysisUtils::getClauseName(int Id) {
     return "REDUCTION";
   if (VPOAnalysisUtils::isScheduleClause(Id))
     return "SCHEDULE";
-  
+
   // Regular cases: just skip "QUAL_OMP_"
   return VPOAnalysisUtils::getClauseString(Id).substr(9);
 }
@@ -165,7 +169,7 @@ StringRef VPOAnalysisUtils::getClauseName(int Id) {
 StringRef VPOAnalysisUtils::getReductionOpName(int Id) {
   assert (VPOAnalysisUtils::isReductionClause(Id) &&
           "Expected a QUAL_OMP_REDUCTION_<OP> clause");
-  
+
   // skip "QUAL_OMP_REDUCTION_"
   return VPOAnalysisUtils::getClauseString(Id).substr(19);
 }
@@ -179,7 +183,7 @@ bool VPOAnalysisUtils::isOpenMPClause(StringRef ClauseFullName) {
 }
 
 int VPOAnalysisUtils::getDirectiveID(StringRef DirFullName) {
-  if (VPOAnalysisUtils::isOpenMPDirective(DirFullName)) 
+  if (VPOAnalysisUtils::isOpenMPDirective(DirFullName))
     return IntelDirectives::DirectiveIDs[DirFullName];
   else
     return -1;
@@ -192,7 +196,7 @@ int VPOAnalysisUtils::getDirectiveID(Instruction *I)
 }
 
 int VPOAnalysisUtils::getClauseID(StringRef ClauseFullName) {
-  assert(VPOAnalysisUtils::isOpenMPClause(ClauseFullName) && 
+  assert(VPOAnalysisUtils::isOpenMPClause(ClauseFullName) &&
          "Clause string not found");
   return IntelDirectives::ClauseIDs[ClauseFullName];
 }
@@ -220,6 +224,7 @@ bool VPOAnalysisUtils::isBeginDirective(int DirID) {
   case DIR_OMP_TEAMS:
   case DIR_OMP_DISTRIBUTE:
   case DIR_OMP_DISTRIBUTE_PARLOOP:
+  case DIR_VPO_AUTO_VEC:
     return true;
   }
   return false;
@@ -262,6 +267,7 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_OMP_END_TEAMS:
   case DIR_OMP_END_DISTRIBUTE:
   case DIR_OMP_END_DISTRIBUTE_PARLOOP:
+  case DIR_VPO_END_AUTO_VEC:
     return true;
   }
   return false;
@@ -377,6 +383,28 @@ bool VPOAnalysisUtils::isListEndDirective(Instruction *I) {
   return VPOAnalysisUtils::isListEndDirective(DirID);
 }
 
+Instruction * VPOAnalysisUtils::getEndRegionDir(Instruction *BeginDir) {
+  assert(VPOAnalysisUtils::isRegionDirective(BeginDir) &&
+         "getEndRegionDir: expected BeginDir to be a REGION directive");
+  assert((VPOAnalysisUtils::isBeginDirective(BeginDir) ||
+          VPOAnalysisUtils::isStandAloneBeginDirective(BeginDir)) &&
+         "getEndRegionDir: expected BeginDir to be a BEGIN directive");
+  assert(BeginDir->getNumUses() == 1 &&
+         "getEndRegionDir: there must be exactly 1 use of the BEGIN dir");
+  User *U = *(BeginDir->user_begin());
+  Instruction *EndDir = dyn_cast<Instruction>(U);
+  assert(EndDir && (VPOAnalysisUtils::isEndDirective(EndDir) ||
+                    VPOAnalysisUtils::isStandAloneEndDirective(EndDir)) &&
+           "getEndRegionDir: the use is not an END directive");
+  return EndDir;
+}
+
+BasicBlock * VPOAnalysisUtils::getEndRegionDirBB(Instruction *BeginDir) {
+  Instruction *EndDir = VPOAnalysisUtils::getEndRegionDir(BeginDir);
+  BasicBlock  *EndBB  = EndDir->getParent();
+  return EndBB;
+}
+
 int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
   switch(DirID) {
   case DIR_OMP_PARALLEL:
@@ -421,6 +449,10 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
     return DIR_OMP_END_DISTRIBUTE;
   case DIR_OMP_DISTRIBUTE_PARLOOP:
     return DIR_OMP_END_DISTRIBUTE_PARLOOP;
+
+  // Non-OpenMP Directives
+  case DIR_VPO_AUTO_VEC:
+    return DIR_VPO_END_AUTO_VEC;
 
   // StandAlone Directives
   case DIR_OMP_BARRIER:
@@ -561,6 +593,8 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_NUM_TEAMS:
     case QUAL_OMP_THREAD_LIMIT:
     case QUAL_OMP_DEVICE:
+    case QUAL_OMP_NORMALIZED_IV:
+    case QUAL_OMP_NORMALIZED_UB:
       return 1;
   }
   return 2; //everything else

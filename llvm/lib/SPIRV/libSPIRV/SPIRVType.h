@@ -183,8 +183,7 @@ public:
   SPIRVCapVec getRequiredCapability() const {
     SPIRVCapVec CV;
     if (isTypeFloat(16)) {
-      CV.push_back(CapabilityFloat16Buffer);
-      auto extensions = getModule()->getExtension();
+      auto extensions = getModule()->getSourceExtension();
       if (std::any_of(extensions.begin(), extensions.end(),
           [](const std::string &I){return I == "cl_khr_fp16";}))
         CV.push_back(CapabilityFloat16);
@@ -281,6 +280,8 @@ public:
   bool isValidIndex(SPIRVWord Index) const { return Index < CompCount;}
   SPIRVCapVec getRequiredCapability() const {
     SPIRVCapVec V(getComponentType()->getRequiredCapability());
+    // Even though the capability name is "Vector16", it describes
+    // usage of 8-component or 16-component vectors.
     if (CompCount >= 8)
       V.push_back(CapabilityVector16);
     return std::move(V);
@@ -636,6 +637,17 @@ private:
   SPIRVType *ReturnType;                      // Return Type
   std::vector<SPIRVType *> ParamTypeVec;      // Parameter Types
 };
+
+class OCLOpaqueType;
+template<> inline void
+SPIRVMap<std::string, Op, OCLOpaqueType>::init() {
+  add("opencl.event_t", OpTypeEvent);
+  add("opencl.pipe_t", OpTypePipe);
+  add("opencl.clk_event_t", OpTypeDeviceEvent);
+  add("opencl.reserve_id_t", OpTypeReserveId);
+  add("opencl.queue_t", OpTypeQueue);
+}
+typedef SPIRVMap<std::string, Op, OCLOpaqueType> OCLOpaqueTypeOpCodeMap;
 
 class SPIRVTypeOpaqueGeneric:public SPIRVType {
 public:

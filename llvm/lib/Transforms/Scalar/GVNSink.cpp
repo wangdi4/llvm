@@ -48,6 +48,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -71,7 +72,6 @@
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/GVNExpression.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -239,7 +239,7 @@ public:
     SmallVector<std::pair<BasicBlock *, Value *>, 4> Ops;
     for (unsigned I = 0, E = PN->getNumIncomingValues(); I != E; ++I)
       Ops.push_back({PN->getIncomingBlock(I), PN->getIncomingValue(I)});
-    std::sort(Ops.begin(), Ops.end());
+    llvm::sort(Ops.begin(), Ops.end());
     for (auto &P : Ops) {
       Blocks.push_back(P.first);
       Values.push_back(P.second);
@@ -361,7 +361,7 @@ public:
 
     for (auto &U : I->uses())
       op_push_back(U.getUser());
-    std::sort(op_begin(), op_end());
+    llvm::sort(op_begin(), op_end());
   }
 
   void setMemoryUseOrder(unsigned MUO) { MemoryUseOrder = MUO; }
@@ -592,12 +592,8 @@ private:
   /// Create a ModelledPHI for each PHI in BB, adding to PHIs.
   void analyzeInitialPHIs(BasicBlock *BB, ModelledPHISet &PHIs,
                           SmallPtrSetImpl<Value *> &PHIContents) {
-    for (auto &I : *BB) {
-      auto *PN = dyn_cast<PHINode>(&I);
-      if (!PN)
-        return;
-
-      auto MPHI = ModelledPHI(PN);
+    for (PHINode &PN : BB->phis()) {
+      auto MPHI = ModelledPHI(&PN);
       PHIs.insert(MPHI);
       for (auto *V : MPHI.getValues())
         PHIContents.insert(V);
@@ -641,7 +637,7 @@ Optional<SinkingInstructionCandidate> GVNSink::analyzeInstructionForSinking(
   DenseMap<uint32_t, unsigned> VNums;
   for (auto *I : Insts) {
     uint32_t N = VN.lookupOrAdd(I);
-    DEBUG(dbgs() << " VN=" << utohexstr(N) << " for" << *I << "\n");
+    DEBUG(dbgs() << " VN=" << Twine::utohexstr(N) << " for" << *I << "\n");
     if (N == ~0U)
       return None;
     VNums[N]++;
@@ -765,7 +761,7 @@ unsigned GVNSink::sinkBB(BasicBlock *BBEnd) {
   }
   if (Preds.size() < 2)
     return 0;
-  std::sort(Preds.begin(), Preds.end());
+  llvm::sort(Preds.begin(), Preds.end());
 
   unsigned NumOrigPreds = Preds.size();
   // We can only sink instructions through unconditional branches.

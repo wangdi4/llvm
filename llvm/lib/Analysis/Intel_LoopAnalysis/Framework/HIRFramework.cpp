@@ -13,17 +13,28 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/CommandLine.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+
 #include "llvm/Support/Debug.h"
+
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/PostDominators.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVerifier.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRScalarSymbaseAssignment.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSymbaseAssignment.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "HIRCleanup.h"
+#include "HIRCreation.h"
+#include "HIRLoopFormation.h"
+#include "HIRScalarSymbaseAssignment.h"
+#include "HIRSymbaseAssignment.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -35,43 +46,222 @@ static cl::opt<bool>
               cl::desc("Verify HIR after each transformation (default=true)"),
               cl::init(true));
 
-INITIALIZE_PASS_BEGIN(HIRFramework, "hir-framework", "HIR Framework", false,
-                      true)
-INITIALIZE_PASS_DEPENDENCY(HIRParser)
-INITIALIZE_PASS_DEPENDENCY(HIRSymbaseAssignment)
-INITIALIZE_PASS_DEPENDENCY(HIRScalarSymbaseAssignment)
-INITIALIZE_PASS_END(HIRFramework, "hir-framework", "HIR Framework", false, true)
+static cl::opt<bool> HIRPrinterDetails("hir-details",
+                                       cl::desc("Show HIR with dd_ref details"),
+                                       cl::init(false));
 
-char HIRFramework::ID = 0;
+static cl::opt<bool>
+    HIRFrameworkDetails("hir-framework-details",
+                        cl::desc("Show framework detail in print"),
+                        cl::init(false));
 
-FunctionPass *llvm::createHIRFrameworkPass() { return new HIRFramework(); }
+static cl::opt<bool>
+    HIRPrintModified("hir-print-modified",
+                     cl::desc("Show modified HIR Regions only"),
+                     cl::init(false));
 
-HIRFramework::HIRFramework() : FunctionPass(ID) {
-  initializeHIRFrameworkPass(*PassRegistry::getPassRegistry());
+enum HIRFrameworkDebugEnum {
+  P0_None = 0,
+  P1_Creation,
+  P2_Cleanup,
+  P3_LoopFormation,
+  P4_ScalarSA,
+  P5_Parsing,
+  P6_SA
+};
+
+static cl::opt<HIRFrameworkDebugEnum> HIRFrameworkDebugPhase(
+    "hir-framework-debug", cl::init(HIRFrameworkDebugEnum::P0_None),
+    cl::desc("Debug HIR Framework phase"),
+    cl::values(clEnumValN(P0_None, "none", "Run in normal mode"),
+               clEnumValN(P1_Creation, "creation", "Debug creation phase"),
+               clEnumValN(P2_Cleanup, "cleanup", "Debug cleanup phase"),
+               clEnumValN(P3_LoopFormation, "loop-formation",
+                          "Debug loop formation phase"),
+               clEnumValN(P4_ScalarSA, "scalar-symbase-assignment",
+                          "Debug scalar symbase assignment phase"),
+               clEnumValN(P5_Parsing, "parser", "Debug parsing phase"),
+               clEnumValN(P6_SA, "symbase-assignment",
+                          "Debug symbase assignment phase")));
+
+AnalysisKey HIRFrameworkAnalysis::Key;
+
+HIRFramework HIRFrameworkAnalysis::run(Function &F,
+                                       FunctionAnalysisManager &AM) {
+  // All the real work is done in the constructor for the HIRFramework.
+  return HIRFramework(
+      F, AM.getResult<DominatorTreeAnalysis>(F),
+      AM.getResult<PostDominatorTreeAnalysis>(F), AM.getResult<LoopAnalysis>(F),
+      AM.getResult<ScalarEvolutionAnalysis>(F), AM.getResult<AAManager>(F),
+      AM.getResult<HIRRegionIdentificationAnalysis>(F),
+      AM.getResult<HIRSCCFormationAnalysis>(F),
+      HIRAnalysisProvider(
+          [&]() { return nullptr; }, [&]() { return nullptr; },
+          [&]() { return AM.getCachedResult<HIRLoopResourceAnalysis>(F); },
+          [&]() { return AM.getCachedResult<HIRLoopStatisticsAnalysis>(F); },
+          [&]() { return nullptr; }, [&]() { return nullptr; }));
 }
 
-void HIRFramework::getAnalysisUsage(AnalysisUsage &AU) const {
+INITIALIZE_PASS_BEGIN(HIRFrameworkWrapperPass, "hir-framework", "HIR Framework",
+                      false, true)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+
+INITIALIZE_PASS_DEPENDENCY(HIRSCCFormationWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentificationWrapperPass)
+INITIALIZE_PASS_END(HIRFrameworkWrapperPass, "hir-framework", "HIR Framework",
+                    false, true)
+
+char HIRFrameworkWrapperPass::ID = 0;
+
+FunctionPass *llvm::createHIRFrameworkWrapperPass() {
+  return new HIRFrameworkWrapperPass();
+}
+
+HIRFrameworkWrapperPass::HIRFrameworkWrapperPass() : FunctionPass(ID) {
+  initializeHIRFrameworkWrapperPassPass(*PassRegistry::getPassRegistry());
+}
+
+void HIRFrameworkWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequiredTransitive<HIRParser>();
-  AU.addRequiredTransitive<HIRSymbaseAssignment>();
-  AU.addRequiredTransitive<HIRScalarSymbaseAssignment>();
+
+  AU.addRequiredTransitive<DominatorTreeWrapperPass>();
+  AU.addRequiredTransitive<PostDominatorTreeWrapperPass>();
+  AU.addRequiredTransitive<LoopInfoWrapperPass>();
+  AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
+  AU.addRequiredTransitive<AAResultsWrapperPass>();
+
+  AU.addRequiredTransitive<HIRRegionIdentificationWrapperPass>();
+  AU.addRequiredTransitive<HIRSCCFormationWrapperPass>();
 }
 
-bool HIRFramework::runOnFunction(Function &F) {
-  HIRP = &getAnalysis<HIRParser>();
+bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
+  // All the real work is done in the constructor for the HIRFramework.
+  HIRF.reset(new HIRFramework(
+      F, getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
+      getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree(),
+      getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
+      getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
+      getAnalysis<AAResultsWrapperPass>().getAAResults(),
+      getAnalysis<HIRRegionIdentificationWrapperPass>().getRI(),
+      getAnalysis<HIRSCCFormationWrapperPass>().getSCCF(),
+      HIRAnalysisProvider(
+          [&]() { return getAnalysisIfAvailable<HIRDDAnalysis>(); },
+          [&]() { return getAnalysisIfAvailable<HIRLocalityAnalysis>(); },
+          [&]() {
+            auto *Wrapper =
+                getAnalysisIfAvailable<HIRLoopResourceWrapperPass>();
+            return Wrapper ? &Wrapper->getHLR() : nullptr;
+          },
+          [&]() {
+            auto *Wrapper =
+                getAnalysisIfAvailable<HIRLoopStatisticsWrapperPass>();
+            return Wrapper ? &Wrapper->getHLS() : nullptr;
+          },
+          [&]() { return getAnalysisIfAvailable<HIRSafeReductionAnalysis>(); },
+          [&]() { return getAnalysisIfAvailable<HIRVectVLSAnalysis>(); })));
+  return false;
+}
 
-  getHLNodeUtils().HIRF = this;
+void HIRFramework::runImpl() {
+  // TODO: Refactor code of the framework phases to make them local objects by
+  // moving persistent data structures from individual phases to the
+  // HIRFramework class.
+  HIRSymbaseAssignment PhaseSA(AA, *this, *PhaseParser);
+
+  PhaseCreation->run(Regions);
+
+  if (HIRFrameworkDebugPhase == P1_Creation) {
+    return;
+  }
+
+  PhaseCleanup->run();
+
+  if (HIRFrameworkDebugPhase == P2_Cleanup) {
+    return;
+  }
+
+  PhaseLoopFormation->run();
+
+  if (HIRFrameworkDebugPhase == P3_LoopFormation) {
+    return;
+  }
+
+  PhaseScalarSA->run();
+
+  if (HIRFrameworkDebugPhase == P4_ScalarSA) {
+    DEBUG(PhaseScalarSA->print(dbgs()));
+    return;
+  }
+
+  PhaseParser->run();
+
+  if (HIRFrameworkDebugPhase == P5_Parsing) {
+    return;
+  }
+
+  // Initialize symbase start value.
+  MaxSymbase = PhaseScalarSA->getMaxScalarSymbase();
+  DEBUG(dbgs() << "Initialized max symbase to " << MaxSymbase << " \n");
+
+  PhaseSA.run();
+
+  if (HIRFrameworkDebugPhase == P6_SA) {
+    DEBUG(PhaseSA.print(dbgs()));
+    return;
+  }
+
   HLNodeUtils::removeEmptyNodesRange(hir_begin(), hir_end());
-  getHLNodeUtils().initTopSortNum();
+  HNU->initTopSortNum();
 
   estimateMaxTripCounts();
 
 #ifndef NDEBUG
-  verifyAnalysis();
+  verify();
 #endif
-
-  return false;
 }
+
+HIRFramework::HIRFramework(Function &F, DominatorTree &DT,
+                           PostDominatorTree &PDT, LoopInfo &LI,
+                           ScalarEvolution &SE, AAResults &AA,
+                           HIRRegionIdentification &RI, HIRSCCFormation &SCCF,
+                           HIRAnalysisProvider AnalysisProvider)
+    : Func(F), DT(DT), PDT(PDT), LI(LI), SE(SE), AA(AA), RI(RI), SCCF(SCCF),
+      AnalysisProvider(AnalysisProvider), MaxSymbase(0) {
+  HNU.reset(new HLNodeUtils(*this));
+  HNU->reset(F);
+
+  PhaseCreation.reset(new HIRCreation(DT, PDT, LI, RI, *HNU));
+  PhaseCleanup.reset(new HIRCleanup(LI, *PhaseCreation, *HNU));
+  PhaseLoopFormation.reset(
+      new HIRLoopFormation(LI, SE, RI, *PhaseCreation, *PhaseCleanup, *HNU));
+  PhaseScalarSA.reset(new HIRScalarSymbaseAssignment(
+      LI, SE, RI, SCCF, *PhaseLoopFormation, *HNU));
+  PhaseParser.reset(new HIRParser(DT, LI, SE, RI, *this, *PhaseCreation,
+                                  *PhaseLoopFormation, *PhaseScalarSA, *HNU));
+
+  runImpl();
+}
+
+HIRFramework::HIRFramework(HIRFramework &&Arg)
+    : Func(Arg.Func), DT(Arg.DT), PDT(Arg.PDT), LI(Arg.LI), SE(Arg.SE),
+      AA(Arg.AA), RI(Arg.RI), SCCF(Arg.SCCF), HNU(std::move(Arg.HNU)),
+      AnalysisProvider(std::move(Arg.AnalysisProvider)),
+      Regions(std::move(Arg.Regions)),
+      PhaseCreation(std::move(Arg.PhaseCreation)),
+      PhaseCleanup(std::move(Arg.PhaseCleanup)),
+      PhaseLoopFormation(std::move(Arg.PhaseLoopFormation)),
+      PhaseScalarSA(std::move(Arg.PhaseScalarSA)),
+      PhaseParser(std::move(Arg.PhaseParser)), MaxSymbase(Arg.MaxSymbase) {
+  // Have to update HIRFramework reference to the new location.
+  HNU->HIRF = std::ref(*this);
+  PhaseParser->HIRF = std::ref(*this);
+}
+
+HIRFramework::~HIRFramework() {}
 
 struct HIRFramework::MaxTripCountEstimator final : public HLNodeVisitorBase {
   const HIRFramework *HIRF;
@@ -153,7 +343,7 @@ void HIRFramework::MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
   auto BaseVal =
       BaseCE->getBlobUtils().getTempBlobValue(BaseCE->getSingleBlobIndex());
 
-  auto ArrTy = HIRF->HIRP->traceBackToArrayType(BaseVal);
+  auto ArrTy = HIRF->PhaseParser->traceBackToArrayType(BaseVal);
 
   if (ArrTy) {
     visit(HighestCE, ArrTy, Node);
@@ -249,24 +439,66 @@ void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE, ArrayType *ArrTy,
   }
 }
 
-void HIRFramework::estimateMaxTripCounts() const {
+void HIRFramework::estimateMaxTripCounts() {
   MaxTripCountEstimator MTCE(this);
   getHLNodeUtils().visitAll(MTCE);
 }
 
-void HIRFramework::print(raw_ostream &OS, const Module *M) const {
-  print(true, OS, M);
+void HIRFramework::print(raw_ostream &OS) const { print(true, OS); }
+
+void HIRFramework::print(bool FrameworkDetails, raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE
+  formatted_raw_ostream FOS(OS);
+  auto RegBegin = RI.begin();
+  unsigned Offset = 0;
+  bool PrintFrameworkDetails =
+      PhaseParser->isReady() && (HIRFrameworkDetails || FrameworkDetails);
+
+  for (auto I = hir_begin(), E = hir_end(); I != E; ++I, ++Offset) {
+    assert(isa<HLRegion>(I) && "Top level node is not a region!");
+    const HLRegion *Region = cast<HLRegion>(I);
+    if (!HIRPrintModified || Region->shouldGenCode()) {
+      // Print SCCs in hir-parser output and in detailed mode.
+      if (PrintFrameworkDetails) {
+        SCCF.print(FOS, RegBegin + Offset);
+      }
+
+      FOS << "\n";
+      Region->print(FOS, 0, PrintFrameworkDetails, HIRPrinterDetails);
+    }
+  }
+  FOS << "\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
-void HIRFramework::print(bool FrameworkDetails, raw_ostream &OS,
-                         const Module *M) const {
-  HIRP->print(FrameworkDetails, OS, M);
-}
-
-void HIRFramework::verifyAnalysis() const {
+void HIRFramework::verify() const {
   if (HIRVerify) {
     HIRVerifier::verifyAll(*this);
     DEBUG(dbgs() << "Verification of HIR done"
                  << "\n");
   }
+}
+
+unsigned HIRFramework::getMaxScalarSymbase() const {
+  return PhaseScalarSA->getMaxScalarSymbase();
+}
+
+DDRefUtils &HIRFramework::getDDRefUtils() const {
+  return PhaseParser->getDDRefUtils();
+}
+
+CanonExprUtils &HIRFramework::getCanonExprUtils() const {
+  return PhaseParser->getCanonExprUtils();
+}
+
+BlobUtils &HIRFramework::getBlobUtils() const {
+  return PhaseParser->getBlobUtils();
+}
+
+bool HIRFramework::isLiveinCopy(const HLInst *HInst) {
+  return PhaseParser->isLiveinCopy(HInst);
+}
+
+bool HIRFramework::isLiveoutCopy(const HLInst *HInst) {
+  return PhaseParser->isLiveoutCopy(HInst);
 }

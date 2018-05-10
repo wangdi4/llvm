@@ -295,7 +295,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   }
 
   /// Validates top level nodes in the region. Returns all the found loops in \p
@@ -365,12 +365,13 @@ public:
 
   /// Performs loop concatenation for read loop set. Creates read loop from the
   /// set (1, 2, 5, 6) and returns the other set in \p UnConcatenatedLoops.
-  void createConcatenatedReadLoops(unsigned NewAllocaIndex,
-      SmallVector<HLLoop *, 4> &UnConcatenatedLoops);
+  void
+  createConcatenatedReadLoops(unsigned NewAllocaIndex,
+                              SmallVector<HLLoop *, 4> &UnConcatenatedLoops);
 
   /// Concatenates OtherLoops's bodies to \p FirstLp after making adjustments.
   void createConcatenatedReadLoop(unsigned NewAllocaIndex, HLLoop *FirstLp,
-       SmallVector<HLLoop *, 3> &OtherLoops);
+                                  SmallVector<HLLoop *, 3> &OtherLoops);
 
   /// Helper for createConcatenatedReadLoop() to adjust some refs for
   /// concatenation.
@@ -379,7 +380,7 @@ public:
 
   /// Adds a reduction of the form t = t + A[i] to end of \p Lp.
   void addReductionToLoop(HLLoop *Lp, RegDDRef *TempRef,
-       RegDDRef *AllocaRef) const;
+                          RegDDRef *AllocaRef) const;
 
   /// Created a reduction loop
   void createReductionLoop(SmallVector<HLLoop *, 4> &UnConcatenatedLoops) const;
@@ -390,7 +391,7 @@ private:
   SmallVector<unsigned, 4> AllocaLoadNodeOffset;
   SmallVector<unsigned, 4> AllocaStoreNodeOffset;
   SmallVector<HLInst *, 24> IntermediateInsts;
-  SmallVector<std::pair<RegDDRef*, RegDDRef*>, 4> RednTempToAllocaMap;
+  SmallVector<std::pair<RegDDRef *, RegDDRef *>, 4> RednTempToAllocaMap;
 
   unsigned AllocaSymbase;
   bool Is64Bit;
@@ -400,7 +401,7 @@ private:
 char HIRLoopConcatenation::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopConcatenation, "hir-loop-concatenation",
                       "HIR Loop Concatenation", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIRLoopConcatenation, "hir-loop-concatenation",
                     "HIR Loop Concatenation", false, false)
 
@@ -421,7 +422,7 @@ bool HIRLoopConcatenation::runOnFunction(Function &F) {
     return false;
   }
 
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
 
   // Expect a function level region.
   if (HIRF->hir_begin() == HIRF->hir_end()) {
@@ -755,7 +756,8 @@ bool HIRLoopConcatenation::isValidAllocaLoad(
   return true;
 }
 
-bool HIRLoopConcatenation::isValidBinaryInst(HLInst *HInst, bool CheckAddRedn) const {
+bool HIRLoopConcatenation::isValidBinaryInst(HLInst *HInst,
+                                             bool CheckAddRedn) const {
   // Checks that Binary Op has all scalar operands
   auto LvalRef = HInst->getLvalDDRef();
 
@@ -913,7 +915,7 @@ bool HIRLoopConcatenation::areAnalogousReadLoops(HLLoop *Lp1,
       if (std::next(It1) == End) {
         IsLastInst = true;
         TempBlobMap.push_back(std::make_pair(LvalRef1->getSelfBlobIndex(),
-            LvalRef2->getSelfBlobIndex()));
+                                             LvalRef2->getSelfBlobIndex()));
       }
 
       // We know these are binary operators, checks both rvals.
@@ -933,9 +935,8 @@ bool HIRLoopConcatenation::areAnalogousReadLoops(HLLoop *Lp1,
 
       if (!IsLastInst) {
         TempBlobMap.push_back(std::make_pair(LvalRef1->getSelfBlobIndex(),
-            LvalRef2->getSelfBlobIndex()));
+                                             LvalRef2->getSelfBlobIndex()));
       }
-
     }
   }
 
@@ -1180,6 +1181,7 @@ void HIRLoopConcatenation::createAllocaInitializationLoop() {
   auto &HNU = AllocaInitLp->getHLNodeUtils();
   auto &DDRU = HNU.getDDRefUtils();
   auto &CEU = DDRU.getCanonExprUtils();
+  auto &BU = CEU.getBlobUtils();
 
   AllocaInitLp->getUpperCanonExpr()->setConstant(7);
 
@@ -1192,8 +1194,8 @@ void HIRLoopConcatenation::createAllocaInitializationLoop() {
     auto Int64Ty = Type::getInt64Ty(HNU.getContext());
     auto ArrTy = ArrayType::get(Int32Ty, 8);
 
-    unsigned NewAllocaIndex = HNU.createAlloca(ArrTy,
-                                  AllocaInitLp->getParentRegion());
+    unsigned NewAllocaIndex =
+        HNU.createAlloca(ArrTy, AllocaInitLp->getParentRegion());
 
     // Create new ref of the form A[0][i1] based on the alloca.
     RegDDRef *AllocaRef = DDRU.createMemRef(NewAllocaIndex);
@@ -1209,10 +1211,14 @@ void HIRLoopConcatenation::createAllocaInitializationLoop() {
     auto Store = HNU.createStore(ZeroRef, "store", AllocaRef);
     HLNodeUtils::insertAsLastChild(AllocaInitLp, Store);
     RednTempToAllocaMap.push_back(std::make_pair(nullptr, AllocaRef));
+
+    auto NewSymbase = BU.getTempBlobSymbase(NewAllocaIndex);
+    AllocaInitLp->addLiveInTemp(NewSymbase);
   }
 }
 
-void HIRLoopConcatenation::replaceReductionTempWithAlloca(HLLoop *Lp, unsigned AllocaNum) {
+void HIRLoopConcatenation::replaceReductionTempWithAlloca(HLLoop *Lp,
+                                                          unsigned AllocaNum) {
   auto &TempAllocaPair = RednTempToAllocaMap[AllocaNum];
   auto AllocaRef = TempAllocaPair.second;
 
@@ -1235,7 +1241,9 @@ void HIRLoopConcatenation::replaceReductionTempWithAlloca(HLLoop *Lp, unsigned A
   auto OpRef1 = *LastInst->rval_op_ddref_begin();
 
   OpRef1->replaceTempBlob(LvalBlobIndex,
-      LoadInst->getLvalDDRef()->getSelfBlobIndex());
+                          LoadInst->getLvalDDRef()->getSelfBlobIndex());
+
+  Lp->addLiveInTemp(AllocaRef->getBasePtrSymbase());
 
   // Set temp ref for pair.
   TempAllocaPair.first = LvalRef;
@@ -1268,8 +1276,9 @@ void HIRLoopConcatenation::createConcatenatedReadLoops(
   UnConcatenatedLoops.push_back(AllocaReadLoops[7]);
 }
 
-void HIRLoopConcatenation::createConcatenatedReadLoop(unsigned NewAllocaIndex,
-    HLLoop *FirstLp, SmallVector<HLLoop *, 3> &OtherLoops) {
+void HIRLoopConcatenation::createConcatenatedReadLoop(
+    unsigned NewAllocaIndex, HLLoop *FirstLp,
+    SmallVector<HLLoop *, 3> &OtherLoops) {
 
   // Replace old alloca loads in 1st read loop with new allocas.
   auto FirstChildIt = FirstLp->child_begin();
@@ -1293,7 +1302,7 @@ void HIRLoopConcatenation::createConcatenatedReadLoop(unsigned NewAllocaIndex,
   // Adjust and append Otherloops' bodies to FirstLp.
   int64_t Offset = 4;
   for (unsigned I = 0; I < 3; ++I, Offset += 4) {
-    replaceReductionTempWithAlloca(OtherLoops[I], I+1);
+    replaceReductionTempWithAlloca(OtherLoops[I], I + 1);
     adjustAndAppend(FirstLp, OtherLoops[I], NewAllocaIndex, Offset);
     HLNodeUtils::remove(OtherLoops[I]);
   }
@@ -1306,7 +1315,8 @@ void HIRLoopConcatenation::createConcatenatedReadLoop(unsigned NewAllocaIndex,
 }
 
 void HIRLoopConcatenation::adjustAndAppend(HLLoop *FirstLp, HLLoop *Lp,
-                           unsigned NewAllocaIndex, int64_t Offset) {
+                                           unsigned NewAllocaIndex,
+                                           int64_t Offset) {
 
   auto FirstChildIt = Lp->child_begin();
   auto &DDRU = Lp->getDDRefUtils();
@@ -1340,14 +1350,15 @@ void HIRLoopConcatenation::adjustAndAppend(HLLoop *FirstLp, HLLoop *Lp,
 }
 
 void HIRLoopConcatenation::addReductionToLoop(HLLoop *Lp, RegDDRef *TempRef,
-      RegDDRef *AllocaRef) const {
+                                              RegDDRef *AllocaRef) const {
   auto &HNU = Lp->getHLNodeUtils();
 
-  auto AddInst = HNU.createAdd(TempRef, AllocaRef->clone(), "redn",
-                      TempRef->clone());
+  auto AddInst =
+      HNU.createAdd(TempRef, AllocaRef->clone(), "redn", TempRef->clone());
   HLNodeUtils::insertAsLastChild(Lp, AddInst);
 
   Lp->addLiveInTemp(TempRef->getSymbase());
+  Lp->addLiveInTemp(AllocaRef->getBasePtrSymbase());
   Lp->addLiveOutTemp(TempRef->getSymbase());
 }
 
@@ -1382,4 +1393,3 @@ void HIRLoopConcatenation::createReductionLoop(
   unsigned AllocaSymbase = (*AllocaRef->blob_cbegin())->getSymbase();
   RednLp->addLiveInTemp(AllocaSymbase);
 }
-

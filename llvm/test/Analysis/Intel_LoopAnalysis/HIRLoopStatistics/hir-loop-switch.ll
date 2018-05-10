@@ -1,4 +1,5 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-loop-statistics -hir-cost-model-throttling=0 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-loop-statistics>" -hir-cost-model-throttling=0 -disable-output 2>&1 | FileCheck %s
 
 ; HIR-
 ;  + DO i1 = 0, %n + -1, 1   <DO_LOOP>

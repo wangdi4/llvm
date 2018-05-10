@@ -275,6 +275,17 @@ class TestCursor(unittest.TestCase):
         self.assertTrue(foo.is_virtual_method())
         self.assertFalse(bar.is_virtual_method())
 
+    def test_is_abstract_record(self):
+        """Ensure Cursor.is_abstract_record works."""
+        source = 'struct X { virtual void x() = 0; }; struct Y : X { void x(); };'
+        tu = get_tu(source, lang='cpp')
+
+        cls = get_cursor(tu, 'X')
+        self.assertTrue(cls.is_abstract_record())
+
+        cls = get_cursor(tu, 'Y')
+        self.assertFalse(cls.is_abstract_record())
+
     def test_is_scoped_enum(self):
         """Ensure Cursor.is_scoped_enum works."""
         source = 'class X {}; enum RegularEnum {}; enum class ScopedEnum {};'
@@ -417,6 +428,18 @@ class TestCursor(unittest.TestCase):
         self.assertIsNotNone(foo)
         t = foo.result_type
         self.assertEqual(t.kind, TypeKind.INT)
+
+    def test_result_type_objc_method_decl(self):
+        code = """\
+        @interface Interface : NSObject
+        -(void)voidMethod;
+        @end
+        """
+        tu = get_tu(code, lang='objc')
+        cursor = get_cursor(tu, 'voidMethod')
+        result_type = cursor.result_type
+        self.assertEqual(cursor.kind, CursorKind.OBJC_INSTANCE_METHOD_DECL)
+        self.assertEqual(result_type.kind, TypeKind.VOID)
 
     def test_availability(self):
         tu = get_tu('class A { A(A const&) = delete; };', lang='cpp')

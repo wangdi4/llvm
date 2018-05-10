@@ -1,8 +1,9 @@
 ; RUN: opt -inline -inline-report=3 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=3 < %s -S 2>&1 | FileCheck %s
 
 ; Generated with clang -c -S -emit-llvm sm1.c
 
-; CHECK: Begin 
+; CHECK: Begin
 ; CHECK-NEXT: Option Values:
 ; CHECK-NEXT: inline-threshold:
 ; CHECK-NEXT: inlinehint-threshold:

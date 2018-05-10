@@ -1,5 +1,4 @@
-; RUN: opt %s -vector-library=SVML -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -S 2>&1 | FileCheck %s
-; XFAIL: *
+; RUN: opt %s -vector-library=SVML -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -vplan-force-vf=4 -S 2>&1 | FileCheck %s
 
 ; Verify vectorization of Opencl select build-in. ZExt case.
 ; This test is from Volcano compiler but it's been highly modified by hand.

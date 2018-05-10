@@ -15,16 +15,16 @@
 #include "llvm-c/Target.h"
 #include "llvm-c/TargetMachine.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/CodeGenCWrappers.h"
+#include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/CodeGenCWrappers.h"
 #include "llvm/Target/TargetMachine.h"
 #include <cassert>
 #include <cstdlib>
@@ -236,6 +236,21 @@ LLVMBool LLVMTargetMachineEmitToMemoryBuffer(LLVMTargetMachineRef T,
 
 char *LLVMGetDefaultTargetTriple(void) {
   return strdup(sys::getDefaultTargetTriple().c_str());
+}
+
+char *LLVMGetHostCPUName(void) {
+  return strdup(sys::getHostCPUName().data());
+}
+
+char *LLVMGetHostCPUFeatures(void) {
+  SubtargetFeatures Features;
+  StringMap<bool> HostFeatures;
+
+  if (sys::getHostCPUFeatures(HostFeatures))
+    for (auto &F : HostFeatures)
+      Features.AddFeature(F.first(), F.second);
+
+  return strdup(Features.getString().c_str());
 }
 
 void LLVMAddAnalysisPasses(LLVMTargetMachineRef T, LLVMPassManagerRef PM) {

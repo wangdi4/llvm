@@ -23,8 +23,13 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
+
+class DominatorTree;
+
 namespace loopopt {
 class HIRLoopStatistics;
+class HIRDDAnalysis;
+class HIRSafeReductionAnalysis;
 
 struct UnrollThresholds {
   unsigned LoopTripThreshold;
@@ -53,7 +58,10 @@ private:
   struct CanonExprUpdater;
   class ProfitabilityAnalyzer;
 
+  DominatorTree *DT;
   HIRLoopStatistics *HLS;
+  HIRDDAnalysis *DDA;
+  HIRSafeReductionAnalysis *HSRA;
 
   /// Indicates whether we are in pre or post vec mode.
   bool IsPreVec;
@@ -75,9 +83,13 @@ private:
   // Structure holding thresholds for complete unroll.
   UnrollThresholds Limits;
 
-  // Set of alloca stores that have been unrolled by complete unroll. This is
-  // used to evaluate profitability for corresponding alloca loads.
-  SmallPtrSet<const Value *, 16> UnrolledAllocaStoreBases;
+  // Maps alloca stores (represented by base ptr blob index) from previous
+  // profitable loopnests to their parent loops. This is used to evaluate
+  // profitability for alloca loads in later loopnests.
+  DenseMap<unsigned, const HLLoop *> PrevLoopnestAllocaStores;
+
+  // Helper for generating optimization reports.
+  LoopOptReportBuilder LORBuilder;
 
 private:
   /// Returns true if loop is eligible for complete unrolling.

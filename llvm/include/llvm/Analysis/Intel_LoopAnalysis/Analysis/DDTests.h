@@ -345,7 +345,7 @@ class DDTest {
 
   /// \brief Query LLVM Alias Analysis to check if there is no aliasing between
   /// \p SrcDDRef and \p DstDDref (ex. due to TBAA or AliasScopes)
-  bool queryAAIndep(RegDDRef *SrcDDRef, RegDDRef *DstDDRef);
+  bool queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef);
 
   /// Set DV for various cases.
   /// PeelFirst && Reversed

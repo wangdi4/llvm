@@ -1,4 +1,7 @@
-; RUN: llc -filetype=obj -use-unknown-locations=Enable -mtriple=x86_64-unknown-linux %s -o %t
+; INTEL_CUSTOMIZATION BEGIN
+; Added -dwarf-line-version=4 as workaround for ld.gold internal error until CMPLRS-48167 is fixed.
+; RUN: llc -filetype=obj -use-unknown-locations=Enable -mtriple=x86_64-unknown-linux -dwarf-line-version=4 %s -o %t
+; INTEL_CUSTOMIZATION END
 ; RUN: llvm-dwarfdump -debug-line %t | FileCheck %s
 
 define void @_Z3bazv() !dbg !6 {
@@ -29,8 +32,8 @@ declare void @_Z3foov()
 ; Look at the lengths. We can't verify the line-number-program size
 ; directly, but the difference in the two lengths should not change
 ; unexpectedly.
-; CHECK:    total_length: 0x00000043
-; CHECK: prologue_length: 0x0000001e
+; CHECK:    total_length: 0x00000044
+; CHECK: prologue_length: 0x0000001f
 ;
 ; Verify that we see a line entry with a discriminator, and the next entry
 ; has line 0 and no discriminator.

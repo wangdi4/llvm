@@ -1,6 +1,6 @@
 //===- HIRRuntimeDD.cpp - Implements Multiversioning for Runtime DD -=========//
 //
-// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -94,6 +94,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
@@ -349,7 +350,7 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
   // to check all canon expressions against UB of every loop in loopnest.
   // We skip loops if its IV is absent.
   for (auto I = Lower->canon_begin(), E = Lower->canon_end(); E != I; ++I) {
-    CanonExpr *CE = *I;
+    const CanonExpr *CE = *I;
 
     if (CE->isNonLinear()) {
       return NON_LINEAR_SUBS;
@@ -434,9 +435,10 @@ void IVSegment::replaceIVWithBounds(const HLLoop *Loop,
 
 char HIRRuntimeDD::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
 
 FunctionPass *llvm::createHIRRuntimeDDPass() { return new HIRRuntimeDD(); }
@@ -478,6 +480,8 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "Subscript multiversioning is non-profitable";
   case STRUCT_ACCESS:
     return "Struct refs not supported yet";
+  case DIFF_ADDR_SPACE:
+    return "Different address spaces";
   default:
     llvm_unreachable("Unexpected give up reason");
   }
@@ -524,6 +528,9 @@ void HIRRuntimeDD::processLoopnest(const HLLoop *OuterLoop,
 
 bool HIRRuntimeDD::isGroupMemRefMatchForRTDD(const RegDDRef *Ref1,
                                              const RegDDRef *Ref2) {
+  if (Ref1 == Ref2) {
+    return true;
+  }
 
   // TODO: Temporary workaround to make it easier to bail out on loops with
   // structure access.
@@ -576,6 +583,24 @@ unsigned HIRRuntimeDD::findAndGroup(RefGroupVecTy &Groups, RegDDRef *Ref) {
   Groups.resize(NewGroupNum + 1);
   Groups.back().push_back(Ref);
   return NewGroupNum;
+}
+
+static RuntimeDDResult isTestSupported(const RegDDRef *RefA,
+                                       const RegDDRef *RefB) {
+
+  // Skip loops with refs where base CEs are the same, as this
+  // transformation mostly for cases with different pointers.
+  if (CanonExprUtils::areEqual(RefA->getBaseCE(), RefB->getBaseCE(), true)) {
+    return SAME_BASE;
+  }
+
+  // Skip loops with different address space references.
+  if (RefA->getBaseType()->getPointerAddressSpace() !=
+      RefB->getBaseType()->getPointerAddressSpace()) {
+    return DIFF_ADDR_SPACE;
+  }
+
+  return OK;
 }
 
 RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
@@ -648,11 +673,9 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
       unsigned GroupB = findAndGroup(Groups, DstRef);
 
       if (GroupA != GroupB) {
-        // Skip loops with refs where base CEs are the same, as this
-        // transformation mostly for cases with different pointers.
-        if (CanonExprUtils::areEqual(SrcRef->getBaseCE(), DstRef->getBaseCE(),
-                                     true)) {
-          return SAME_BASE;
+        auto IsSupported = isTestSupported(SrcRef, DstRef);
+        if (IsSupported != OK) {
+          return IsSupported;
         }
 
         auto TestPair = GroupA > GroupB ? std::make_pair(GroupB, GroupA)
@@ -682,6 +705,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     if (Groups[I].front()->accessesStruct()) {
       return STRUCT_ACCESS;
     }
+
     IVSegments.emplace_back(Groups[I]);
 
     // Check every segment for the applicability
@@ -717,36 +741,43 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   return OK;
 }
 
-HLInst *HIRRuntimeDD::createIntersectionCondition(HLNodeUtils &HNU,
-                                                  HLContainerTy &Nodes,
-                                                  Segment &S1, Segment &S2) {
-  Segment *S[] = {&S1, &S2};
-  Type *S1Type = S[0]->getType()->getPointerElementType();
-  Type *S2Type = S[1]->getType()->getPointerElementType();
+HLInst *HIRRuntimeDD::createUGECompare(HLNodeUtils &HNU, HLContainerTy &Nodes,
+                                       RegDDRef *Ref1, RegDDRef *Ref2) {
+  Type *T1 = Ref1->getDestType();
+  Type *T2 = Ref2->getDestType();
 
   // In case of different types, bitcast one segment bounds to another to
   // be in compliance with LLVM IR. (see ex. in lit test ptr-types.ll)
-  if (S1Type != S2Type) {
-    unsigned BiggerTypeIdx =
-        S1Type->getPrimitiveSizeInBits() > S2Type->getPrimitiveSizeInBits() ? 0
-                                                                            : 1;
+  if (T1 != T2) {
+    Type *SmallerType;
+    RegDDRef **LargerTypeRefPtr;
 
-    Segment *BS = S[BiggerTypeIdx];
-    Type *DestType = S[!BiggerTypeIdx]->getType();
+    if (HNU.getDataLayout().getTypeSizeInBits(T1->getPointerElementType()) >
+        HNU.getDataLayout().getTypeSizeInBits(T2->getPointerElementType())) {
+      SmallerType = T2;
+      LargerTypeRefPtr = &Ref1;
+    } else {
+      SmallerType = T1;
+      LargerTypeRefPtr = &Ref2;
+    }
 
-    HLInst *BCIL = HNU.createBitCast(DestType, BS->Lower);
-    HLInst *BCIU = HNU.createBitCast(DestType, BS->Upper);
-    Nodes.push_back(*BCIL);
-    Nodes.push_back(*BCIU);
+    // Cast larger ref to smaller type.
+    HLInst *CastInst =
+        HNU.createBitCast(SmallerType, *LargerTypeRefPtr, "mv.cast");
+    Nodes.push_back(*CastInst);
 
-    BS->Lower = BCIL->getLvalDDRef()->clone();
-    BS->Upper = BCIU->getLvalDDRef()->clone();
+    // Replace larger reference with a cast instruction.
+    *LargerTypeRefPtr = CastInst->getLvalDDRef()->clone();
   }
 
-  HLInst *Cmp1 =
-      HNU.createCmp(PredicateTy::ICMP_UGE, S1.Upper, S2.Lower, "mv.test");
-  HLInst *Cmp2 =
-      HNU.createCmp(PredicateTy::ICMP_UGE, S2.Upper, S1.Lower, "mv.test");
+  return HNU.createCmp(PredicateTy::ICMP_UGE, Ref1, Ref2, "mv.test");
+}
+
+HLInst *HIRRuntimeDD::createIntersectionCondition(HLNodeUtils &HNU,
+                                                  HLContainerTy &Nodes,
+                                                  Segment &S1, Segment &S2) {
+  HLInst *Cmp1 = createUGECompare(HNU, Nodes, S1.Upper, S2.Lower);
+  HLInst *Cmp2 = createUGECompare(HNU, Nodes, S2.Upper, S1.Lower);
   HLInst *And = HNU.createAnd(Cmp1->getLvalDDRef()->clone(),
                               Cmp2->getLvalDDRef()->clone(), "mv.and");
 
@@ -766,7 +797,8 @@ static void applyForLoopnest(HLLoop *OuterLoop, FuncTy Func) {
   }
 }
 
-void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
+void HIRRuntimeDD::generateDDTest(LoopContext &Context,
+                                  LoopOptReportBuilder &LORBuilder) {
   Context.Loop->extractZtt();
   Context.Loop->extractPreheaderAndPostexit();
 
@@ -797,6 +829,9 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
 
   HLLoop *ModifiedLoop = Context.Loop;
   HLLoop *OrigLoop = Context.Loop->clone(&LoopMapper);
+  LORBuilder(*ModifiedLoop).addOrigin("Multiversioned loop");
+  LORBuilder(*OrigLoop).addRemark(OptReportVerbosity::Low,
+                                  "The loop has been multiversioned");
 
   auto &HNU = OrigLoop->getHLNodeUtils();
 
@@ -892,9 +927,12 @@ bool HIRRuntimeDD::runOnFunction(Function &F) {
     return false;
   }
 
-  HLS = &getAnalysis<HIRLoopStatistics>();
-  auto &HIRF = getAnalysis<HIRFramework>();
+  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
+  auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   auto &HNU = HIRF.getHLNodeUtils();
+
+  auto &OROP = getAnalysis<OptReportOptionsPass>();
+  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   DEBUG(dbgs() << "HIRRuntimeDD for function: " << F.getName() << "\n");
 
@@ -904,7 +942,7 @@ bool HIRRuntimeDD::runOnFunction(Function &F) {
 
   if (AliasAnalyzer.LoopContexts.size() != 0) {
     for (LoopContext &Candidate : AliasAnalyzer.LoopContexts) {
-      generateDDTest(Candidate);
+      generateDDTest(Candidate, LORBuilder);
     }
   }
 

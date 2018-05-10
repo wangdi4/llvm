@@ -408,11 +408,88 @@ void DDUtils::updateDDRefsLinearity(SmallVectorImpl<HLInst *> &HLInsts,
         assert(RegRef->isTerminalRef() && "Unexpected memrefs");
         SinkCE = RegRef->getSingleCanonExpr();
       } else {
-        SinkCE = cast<BlobDDRef>(DDRefSink)->getMutableCanonExpr();
+        SinkCE = cast<BlobDDRef>(DDRefSink)->getMutableSingleCanonExpr();
       }
       // There might be defs which are non-linear encountered here,
       // update it anyway
       SinkCE->setNonLinear();
+    }
+  }
+}
+
+// \p IsPreLoop indicates whether the sinked instruction appeared before or
+// after the loop before sinking.
+static void updateSinkedRvalLiveinsLiveouts(unsigned RvalSymbase,
+                                            HLLoop *InnermostLoop,
+                                            bool IsPreLoop) {
+  auto ParentLoop = InnermostLoop->getParentLoop();
+
+  if (ParentLoop->isLiveIn(RvalSymbase)) {
+    InnermostLoop->addLiveInTemp(RvalSymbase);
+  }
+
+  // If rval symbase is not liveout of parent loop, remove it as a liveout
+  // from the innermost loop.
+  // DO i2 =
+  // END DO
+  //   A[i1] = t1; << sinked instruction removes t1 as liveout.
+  if (!IsPreLoop && !ParentLoop->isLiveOut(RvalSymbase)) {
+    InnermostLoop->removeLiveOutTemp(RvalSymbase);
+  }
+}
+
+// \p IsPreLoop indicates whether the sinked instruction appeared before or
+// after the loop before sinking.
+static void updateLiveinsLiveoutsForSinkedInst(HLLoop *InnermostLoop,
+                                               HLInst *SinkedInst,
+                                               bool IsPreLoop) {
+
+  // Mark lval terminal ref in the sinked instruction as liveout to the
+  // innermost loop if it is liveout of the parent loop. Here's an example where
+  // t1 will become liveout of i2 loop- DO i1
+  //     t1 = A[i1]
+  //   DO i2
+  //   END DO
+  // END DO
+  //   A[5] = t1
+  //
+  // Mark all blob refs in the sinked instruction as livein to the innermost
+  // loop if it is livein to the parent loop. Here's an example where t1 will
+  // become livein to i2 loop-
+  //   t1 =
+  // DO i1
+  //     t2 = A[t1]
+  //   DO i2
+  //   END DO
+  // END DO
+  for (auto I = SinkedInst->op_ddref_begin(), E = SinkedInst->op_ddref_end();
+       I != E; ++I) {
+    auto Ref = *I;
+
+    if (Ref->isLval() && Ref->isTerminalRef()) {
+      auto ParentLoop = InnermostLoop->getParentLoop();
+      unsigned Symbase = Ref->getSymbase();
+
+      if (ParentLoop->isLiveOut(Symbase)) {
+        InnermostLoop->addLiveOutTemp(Symbase);
+      }
+
+      // If lval symbase is not livein to parent loop, remove it as a livein
+      // from the innermost loop.
+      //  t1 = A[i1]; << sinked instruction removes t1 as livein.
+      // DO i2 =
+      if (IsPreLoop && !ParentLoop->isLiveIn(Symbase)) {
+        InnermostLoop->removeLiveInTemp(Symbase);
+      }
+    } else if (Ref->isSelfBlob()) {
+      updateSinkedRvalLiveinsLiveouts(Ref->getSymbase(), InnermostLoop,
+                                      IsPreLoop);
+    } else {
+      for (auto BIt = Ref->blob_cbegin(), End = Ref->blob_cend(); BIt != End;
+           ++BIt) {
+        updateSinkedRvalLiveinsLiveouts((*BIt)->getSymbase(), InnermostLoop,
+                                        IsPreLoop);
+      }
     }
   }
 }
@@ -493,12 +570,13 @@ bool DDUtils::enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG) {
 
   // (4) Move Stmts into Innermost Loop
   for (auto I = PreLoopInsts.rbegin(), E = PreLoopInsts.rend(); I != E; ++I) {
-    HLNode *Node = cast<HLNode>(*I);
-    HLNodeUtils::moveAsFirstChild(InnermostLoop, Node);
+    HLNodeUtils::moveAsFirstChild(InnermostLoop, *I);
+    updateLiveinsLiveoutsForSinkedInst(InnermostLoop, *I, true);
   }
+
   for (auto &I : PostLoopInsts) {
-    HLNode *Node = cast<HLNode>(I);
-    HLNodeUtils::moveAsLastChild(InnermostLoop, Node);
+    HLNodeUtils::moveAsLastChild(InnermostLoop, I);
+    updateLiveinsLiveoutsForSinkedInst(InnermostLoop, I, false);
   }
 
   // Call Util to update the temp DDRefs from linear-at-level to non-linear

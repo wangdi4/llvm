@@ -132,6 +132,11 @@ public:
   /// Returns true if Blob is a temp.
   static bool isTempBlob(BlobTy Blob);
 
+  /// Returns true if Blob is a temp.
+  bool isTempBlob(unsigned BlobIndex) const {
+    return isTempBlob(getBlob(BlobIndex));
+  }
+
   /// Returns true if this is a nested blob(SCEV tree with > 1 node).
   static bool isNestedBlob(BlobTy Blob);
 
@@ -263,7 +268,7 @@ public:
   bool replaceTempBlob(unsigned BlobIndex, unsigned TempIndex, int64_t Constant,
                        unsigned &NewBlobIndex, int64_t &SimplifiedConstant);
 
-  /// Returns the number of operations in the blob. 
+  /// Returns the number of operations in the blob.
   /// For example, blob = (a + 2 * b) has 2 operations.
   static unsigned getNumOperations(BlobTy Blob);
   unsigned getNumOperations(unsigned BlobIndex) const;
@@ -277,6 +282,7 @@ public:
   static bool getTempBlobMostProbableConstValue(BlobTy Blob, int64_t &Value);
   bool getTempBlobMostProbableConstValue(unsigned BlobIndex,
                                          int64_t &Val) const;
+  static bool isInstBlob(BlobTy Blob);
 };
 
 } // End namespace loopopt

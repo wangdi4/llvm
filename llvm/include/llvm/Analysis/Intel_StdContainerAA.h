@@ -1,5 +1,5 @@
 //===- StdContainerAA.h - Std Container Alias Analysis -------*- C++ -*-===//
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -32,7 +32,13 @@ public:
   StdContainerAAResult(StdContainerAAResult &&Arg)
       : AAResultBase(std::move(Arg)) {}
 
-  bool invalidate(Function &, const PreservedAnalyses &) { return false; }
+  /// Handle invalidation events from the new pass manager.
+  ///
+  /// By definition, this result is stateless and so remains valid.
+  bool invalidate(Function &, const PreservedAnalyses &,
+                  FunctionAnalysisManager::Invalidator &) {
+    return false;
+  }
 
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB);
   ModRefInfo getModRefInfo(ImmutableCallSite CS, const MemoryLocation &Loc);

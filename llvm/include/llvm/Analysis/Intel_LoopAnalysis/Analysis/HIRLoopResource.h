@@ -27,6 +27,7 @@
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_RESOURCE_H
 
 #include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 
 #include "llvm/ADT/DenseMap.h"
 
@@ -176,10 +177,10 @@ public:
   void print(formatted_raw_ostream &OS, const HLLoop *Lp) const;
 };
 
-class HIRLoopResource final : public HIRAnalysisPass {
+class HIRLoopResource : public HIRAnalysis {
 private:
-  const LoopInfo *LI;
-  const TargetTransformInfo *TTI;
+  const LoopInfo &LI;
+  const TargetTransformInfo &TTI;
 
   /// Maintains self resource information for loops.
   DenseMap<const HLLoop *, LoopResourceInfo> SelfResourceMap;
@@ -199,19 +200,16 @@ protected:
   virtual void print(formatted_raw_ostream &OS, const HLLoop *Lp) override;
 
 public:
-  HIRLoopResource()
-      : HIRAnalysisPass(ID, HIRAnalysisPass::HIRLoopResourceVal), LI(nullptr),
-        TTI(nullptr) {}
-  static char ID;
-
-  bool runOnFunction(Function &F) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  void releaseMemory() override;
+  HIRLoopResource(HIRFramework &HIRF, LoopInfo &LI, TargetTransformInfo &TTI)
+      : HIRAnalysis(HIRF), LI(LI), TTI(TTI) {}
+  HIRLoopResource(HIRLoopResource &&Arg)
+      : HIRAnalysis(std::move(Arg)), LI(Arg.LI), TTI(Arg.TTI),
+        SelfResourceMap(std::move(Arg.SelfResourceMap)),
+        TotalResourceMap(std::move(Arg.TotalResourceMap)) {}
+  HIRLoopResource(const HIRLoopResource &) = delete;
 
   /// Returns pointer to TargetTransformInfo analysis.
-  const TargetTransformInfo *getTTI() const { return TTI; }
+  const TargetTransformInfo &getTTI() const { return TTI; }
 
   /// \brief This method will mark the loop and all its parent loops as
   /// modified. If loop changes, resources of the loop and all its parents loops
@@ -231,10 +229,49 @@ public:
   /// Returns the cost of a LLVM loop excluding sub-loops. The cost is computed
   /// using the same metrics as LoopResourceInfo.
   unsigned getLLVMLoopCost(const Loop &Lp);
+};
 
-  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
-  static bool classof(const HIRAnalysisPass *AP) {
-    return AP->getHIRAnalysisID() == HIRAnalysisPass::HIRLoopResourceVal;
+class HIRLoopResourceWrapperPass : public FunctionPass {
+  std::unique_ptr<HIRLoopResource> HLR;
+
+public:
+  static char ID;
+  HIRLoopResourceWrapperPass() : FunctionPass(ID) {}
+
+  bool runOnFunction(Function &F) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  void releaseMemory() override;
+
+  void print(raw_ostream &OS, const Module * = nullptr) const override {
+    getHLR().printAnalysis(OS);
+  }
+
+  HIRLoopResource &getHLR() { return *HLR; }
+  const HIRLoopResource &getHLR() const { return *HLR; }
+};
+
+class HIRLoopResourceAnalysis
+    : public AnalysisInfoMixin<HIRLoopResourceAnalysis> {
+  friend struct AnalysisInfoMixin<HIRLoopResourceAnalysis>;
+
+  static AnalysisKey Key;
+
+public:
+  using Result = HIRLoopResource;
+
+  HIRLoopResource run(Function &F, FunctionAnalysisManager &AM);
+};
+
+class HIRLoopResourcePrinterPass
+    : public PassInfoMixin<HIRLoopResourcePrinterPass> {
+  raw_ostream &OS;
+
+public:
+  explicit HIRLoopResourcePrinterPass(raw_ostream &OS) : OS(OS) {}
+
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
+    AM.getResult<HIRLoopResourceAnalysis>(F).printAnalysis(OS);
+    return PreservedAnalyses::all();
   }
 };
 

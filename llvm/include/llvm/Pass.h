@@ -371,6 +371,14 @@ extern bool TimePassesIsEnabled;
 //  @brief Tells if the function IR should be printed by PrinterPass.
 extern bool isFunctionInPrintList(StringRef FunctionName);
 
+/// forcePrintModuleIR - returns true if IR printing passes should
+//  be printing module IR (even for local-pass printers e.g. function-pass)
+//  to provide more context, as enabled by debugging option -print-module-scope
+//  @brief Tells if IR printer should be printing module IR
+#if !INTEL_PRODUCT_RELEASE
+extern bool forcePrintModuleIR();
+#endif // !INTEL_PRODUCT_RELEASE
+
 } // end namespace llvm
 
 // Include support files that contain important APIs commonly used by Passes,

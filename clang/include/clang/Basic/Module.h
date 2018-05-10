@@ -197,6 +197,9 @@ public:
   /// will be false to indicate that this (sub)module is not available.
   SmallVector<Requirement, 2> Requirements;
 
+  /// \brief A module with the same name that shadows this module.
+  Module *ShadowingModule = nullptr;
+
   /// \brief Whether this module is missing a feature from \c Requirements.
   unsigned IsMissingRequirement : 1;
 
@@ -254,6 +257,10 @@ public:
   /// \brief Whether files in this module can only include non-modular headers
   /// and headers from used modules.
   unsigned NoUndeclaredIncludes : 1;
+
+  /// \brief Whether this module came from a "private" module map, found next
+  /// to a regular (public) module map.
+  unsigned ModuleMapIsPrivate : 1;
 
   /// \brief Describes the visibility of the various names within a
   /// particular module.
@@ -328,6 +335,10 @@ public:
   /// an entity from this module is used.
   llvm::SmallVector<LinkLibrary, 2> LinkLibraries;
 
+  /// Autolinking uses the framework name for linking purposes
+  /// when this is false and the export_as name otherwise.
+  bool UseExportAsModuleLinkName = false;
+
   /// \brief The set of "configuration macros", which are macros that
   /// (intentionally) change how this module is built.
   std::vector<std::string> ConfigMacros;
@@ -375,13 +386,20 @@ public:
   ///
   /// \param Target The target options used for the current translation unit.
   ///
-  /// \param Req If this module is unavailable, this parameter
-  /// will be set to one of the requirements that is not met for use of
-  /// this module.
+  /// \param Req If this module is unavailable because of a missing requirement,
+  /// this parameter will be set to one of the requirements that is not met for
+  /// use of this module.
+  ///
+  /// \param MissingHeader If this module is unavailable because of a missing
+  /// header, this parameter will be set to one of the missing headers.
+  ///
+  /// \param ShadowingModule If this module is unavailable because it is
+  /// shadowed, this parameter will be set to the shadowing module.
   bool isAvailable(const LangOptions &LangOpts, 
                    const TargetInfo &Target,
                    Requirement &Req,
-                   UnresolvedHeaderDirective &MissingHeader) const;
+                   UnresolvedHeaderDirective &MissingHeader,
+                   Module *&ShadowingModule) const;
 
   /// \brief Determine whether this module is a submodule.
   bool isSubModule() const { return Parent != nullptr; }

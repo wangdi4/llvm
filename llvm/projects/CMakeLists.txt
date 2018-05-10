@@ -12,7 +12,8 @@ foreach(entry ${entries})
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libunwind) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/test-suite) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/parallel-libs) AND
-       (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/openmp))
+       (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/openmp) AND
+       (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/debuginfo-tests))
       add_subdirectory(${entry})
     endif()
   endif()
@@ -39,12 +40,15 @@ endif()
 
 if(INTEL_CUSTOMIZATION)
  if(${LLVM_BUILD_OPENMP})
-# Special handling for OpenMP. Don't try to build it on Windows
-  if(NOT MSVC)
-    add_llvm_external_project(openmp)
-  endif()
+  add_llvm_external_project(openmp)
  endif()
 endif()
 
 add_llvm_external_project(dragonegg)
 add_llvm_external_project(parallel-libs)
+# INTEL: Below logic moved to the flag above.
+#add_llvm_external_project(openmp) INTEL
+
+if(LLVM_INCLUDE_TESTS)
+  add_llvm_external_project(debuginfo-tests)
+endif()

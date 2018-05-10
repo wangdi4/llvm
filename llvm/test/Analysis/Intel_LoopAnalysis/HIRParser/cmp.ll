@@ -1,4 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-framework>" -hir-framework-debug=parser 2>&1 | FileCheck %s
 
 ; Check parsing output for the loop verifying that the compare instruction is parsed correctly.
 ; CHECK: DO i1 = 0, sext.i32.i64((-1 + %n))

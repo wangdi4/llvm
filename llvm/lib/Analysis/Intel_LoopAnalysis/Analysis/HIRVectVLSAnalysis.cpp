@@ -50,7 +50,7 @@ char HIRVectVLSAnalysis::ID = 0;
 
 INITIALIZE_PASS_BEGIN(HIRVectVLSAnalysis, "hir-vect-vls-analysis",
                       "HIR Vect VLS Analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_END(HIRVectVLSAnalysis, "hir-vect-vls-analysis",
                     "HIR Vect VLS Analysis", false, true)
@@ -58,7 +58,7 @@ INITIALIZE_PASS_END(HIRVectVLSAnalysis, "hir-vect-vls-analysis",
 void HIRVectVLSAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
-  AU.addRequired<HIRFramework>();
+  AU.addRequired<HIRFrameworkWrapperPass>();
   AU.addRequired<HIRDDAnalysis>();
 }
 
@@ -89,7 +89,7 @@ void HIRVectVLSAnalysis::testVLSMemrefAnalysis(VectVLSContext *VectContext,
 
   for (auto VecIt = RefVec.begin(), End = RefVec.end(); VecIt != End; ++VecIt) {
 
-    RegDDRef *Ref = *VecIt;
+    const RegDDRef *Ref = *VecIt;
     DEBUG(dbgs() << "\nExamine Ref "; Ref->dump());
 
     // Is it Strided at Level?
@@ -121,7 +121,7 @@ void HIRVectVLSAnalysis::testVLSMemrefAnalysis(VectVLSContext *VectContext,
     // Check relations between pairs of ddrefs
     for (auto VecIt2 = RefVec.begin() + 1, End = RefVec.end(); VecIt2 != End;
          ++VecIt2) {
-      RegDDRef *Ref2 = *VecIt2;
+      const RegDDRef *Ref2 = *VecIt2;
       int64_t Distance;
       DEBUG(dbgs() << "\n   Compare with Ref "; Ref2->dump());
 
@@ -214,7 +214,7 @@ void VectVLSDDRefVisitor::visit(const HLInst *Inst) {
 
   // Using op_ddref iterator because we do not want to optimize fake refs.
   for (auto I = Inst->op_ddref_begin(), E = Inst->op_ddref_end(); I != E; ++I) {
-    RegDDRef *RegRef = *I;
+    const RegDDRef *RegRef = *I;
     if (!RegRef->isMemRef() ||
         RegRef->isStructurallyInvariantAtLevel(LoopLevel)) {
       continue;
@@ -310,7 +310,7 @@ void HIRVectVLSAnalysis::analyze(HIRFramework &HIRF) {
 // Performs a basic setup without actually running the VLS analysis.
 bool HIRVectVLSAnalysis::runOnFunction(Function &F) {
 
-  auto &HIRF = getAnalysis<HIRFramework>();
+  auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   DDA = &getAnalysis<HIRDDAnalysis>();
 
   if (debugHIRVectVLS) {

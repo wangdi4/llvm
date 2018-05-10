@@ -135,6 +135,8 @@ public:
   virtual unsigned short getGeneratorId() const = 0;
   virtual unsigned short getGeneratorVer() const = 0;
   virtual SPIRVWord getSPIRVVersion() const = 0;
+  virtual const std::vector<SPIRVExtInst*>& getDebugInstVec() const = 0;
+  virtual const std::vector<SPIRVString *>& getStringVec() const = 0;
 
   // Module changing functions
   virtual bool importBuiltinSet(const std::string &, SPIRVId *) = 0;
@@ -170,7 +172,7 @@ public:
       SPIRVWord Column) = 0;
   virtual const std::shared_ptr<const SPIRVLine>& getCurrentLine() const = 0;
   virtual void setCurrentLine(const std::shared_ptr<const SPIRVLine>&) = 0;
-  virtual const SPIRVDecorateGeneric *addDecorate(const SPIRVDecorateGeneric*)
+  virtual const SPIRVDecorateGeneric *addDecorate(SPIRVDecorateGeneric*)
     = 0;
   virtual SPIRVDecorationGroup *addDecorationGroup() = 0;
   virtual SPIRVDecorationGroup *addDecorationGroup(SPIRVDecorationGroup *Group)
@@ -243,9 +245,15 @@ public:
       SPIRVLabel *, SPIRVBasicBlock *) = 0;
   virtual SPIRVInstruction *addBranchInst(SPIRVLabel *, SPIRVBasicBlock *) = 0;
   virtual SPIRVInstruction *addExtInst(SPIRVType *, SPIRVWord, SPIRVWord,
-      const std::vector<SPIRVWord> &, SPIRVBasicBlock *) = 0;
+                                       const std::vector<SPIRVWord> &,
+                                       SPIRVBasicBlock *,
+                                       SPIRVInstruction * = nullptr) = 0;
   virtual SPIRVInstruction *addExtInst(SPIRVType *, SPIRVWord, SPIRVWord,
-      const std::vector<SPIRVValue *> &, SPIRVBasicBlock *) = 0;
+                                       const std::vector<SPIRVValue *> &,
+                                       SPIRVBasicBlock *,
+                                       SPIRVInstruction * = nullptr) = 0;
+  virtual SPIRVEntry *addDebugInfo(SPIRVWord, SPIRVType *,
+                                   const std::vector<SPIRVWord>&) = 0;
   virtual void addCapability(SPIRVCapabilityKind) = 0;
   template<typename T>
   void addCapabilities(const T& Caps) {
@@ -321,24 +329,14 @@ public:
       SPIRVValue *, SPIRVBasicBlock *) = 0;
   virtual SPIRVInstruction *addVectorInsertDynamicInst(SPIRVValue *,
     SPIRVValue *, SPIRVValue*, SPIRVBasicBlock *) = 0;
+  virtual SPIRVId getExtInstSetId(SPIRVExtInstSetKind Kind) const = 0;
+
   // I/O functions
   friend spv_ostream & operator<<(spv_ostream &O, SPIRVModule& M);
   friend std::istream & operator>>(std::istream &I, SPIRVModule& M);
 protected:
   bool AutoAddCapability;
   bool ValidateCapability;
-};
-
-class SPIRVDbgInfo {
-public:
-  SPIRVDbgInfo(SPIRVModule *TM);
-  std::string getEntryPointFileStr(SPIRVExecutionModelKind, unsigned);
-  std::string getFunctionFileStr(SPIRVFunction *);
-  unsigned getFunctionLineNo(SPIRVFunction *);
-private:
-  std::unordered_map<SPIRVFunction *, SPIRVLine *> FuncMap;
-  const std::string ModuleFileStr;
-  SPIRVModule *M;
 };
 
 #ifdef _SPIRV_SUPPORT_TEXT_FMT

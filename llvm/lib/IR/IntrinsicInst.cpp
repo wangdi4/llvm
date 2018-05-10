@@ -157,3 +157,23 @@ bool ConstrainedFPIntrinsic::isTernaryOp() const {
   }
 }
 
+#ifdef INTEL_CUSTOMIZATION
+unsigned SubscriptInst::getResultVectorNumElements(ArrayRef<Value *> Args) {
+  unsigned VectorNumElem = 0;
+  for (auto &Arg : Args) {
+    Type *ArgTy = Arg->getType();
+    VectorNumElem = std::max(
+        VectorNumElem, ArgTy->isVectorTy() ? ArgTy->getVectorNumElements() : 0);
+  }
+  return VectorNumElem;
+}
+
+unsigned SubscriptInst::getResultVectorNumElements(ArrayRef<Type*> ArgTys) {
+  unsigned VectorNumElem = 0;
+  for (auto &ArgTy : ArgTys)
+    VectorNumElem = std::max(
+        VectorNumElem, ArgTy->isVectorTy() ? ArgTy->getVectorNumElements() : 0);
+  return VectorNumElem;
+}
+#endif // INTEL_CUSTOMIZATION
+

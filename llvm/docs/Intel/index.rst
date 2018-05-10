@@ -14,6 +14,7 @@ Xmain
    PulldownProcess
    JIRA
    IRSuppression
+   LoopOptReport
    LoopAnalysis/index
    LoopTransforms/index
    VPO/index
@@ -86,6 +87,10 @@ process change requests to them.
 :doc:`IR Suppression in Product Executables <IRSuppression>`
    Describes the rationale behind suppressing IR output in released products
    and the implementation used to do so.
+
+:doc:`Loop Optimization Reports <LoopOptReport>`
+   Describes the usage and implementation details of optimization reports
+   in xmain.
 
 Major Components
 ================

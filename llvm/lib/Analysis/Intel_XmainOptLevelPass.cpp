@@ -21,20 +21,24 @@ using namespace llvm;
 #define DEBUG_TYPE "xmain-opt-level-pass"
 
 static cl::opt<unsigned>
-    XmainOptLevel("xmain-opt-level", cl::init(-1), cl::Hidden,
-                  cl::desc("Command line option to set opt level"));
+    ForceXmainOptLevel("xmain-opt-level", cl::init(-1), cl::Hidden,
+                       cl::desc("Command line option to set opt level"));
 
-char XmainOptLevelPass::ID = 0;
-INITIALIZE_PASS(XmainOptLevelPass, "xmain-opt-level-pass",
+AnalysisKey XmainOptLevelAnalysis::Key;
+
+XmainOptLevel::XmainOptLevel(unsigned OptLevel)
+    : OptLevel((ForceXmainOptLevel == unsigned(-1)) ? OptLevel
+                                                    : ForceXmainOptLevel) {}
+
+char XmainOptLevelWrapperPass::ID = 0;
+INITIALIZE_PASS(XmainOptLevelWrapperPass, "xmain-opt-level-pass",
                 "Xmain opt level pass", false, true)
 
-bool XmainOptLevelPass::doInitialization(Module &M) {
-  // This setup is used to override the opt level using command line when using
-  // 'opt' tool.
-  OptLevel = (XmainOptLevel == unsigned(-1)) ? OptLevel : XmainOptLevel;
-  return false;
+XmainOptLevelWrapperPass::XmainOptLevelWrapperPass(unsigned OptLevel)
+    : ImmutablePass(ID), Impl(OptLevel) {
+  initializeXmainOptLevelWrapperPassPass(*PassRegistry::getPassRegistry());
 }
 
-ImmutablePass *llvm::createXmainOptLevelPass(unsigned OptLevel) {
-  return new XmainOptLevelPass(OptLevel);
+ImmutablePass *llvm::createXmainOptLevelWrapperPass(unsigned OptLevel) {
+  return new XmainOptLevelWrapperPass(OptLevel);
 }

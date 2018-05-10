@@ -28,115 +28,13 @@
 using namespace llvm;
 using namespace llvm::codeview;
 
-namespace {
-
-struct HashedType {
-  hash_code Hash;
-  ArrayRef<uint8_t> Data;
-  TypeIndex Index;
-};
-
-/// Wrapper around a poitner to a HashedType. Hash and equality operations are
-/// based on data in the pointee.
-struct HashedTypePtr {
-  HashedTypePtr() = default;
-  HashedTypePtr(HashedType *Ptr) : Ptr(Ptr) {}
-
-  HashedType *Ptr = nullptr;
-};
-
-} // end anonymous namespace
-
-namespace llvm {
-
-template <> struct DenseMapInfo<HashedTypePtr> {
-  static inline HashedTypePtr getEmptyKey() { return HashedTypePtr(nullptr); }
-
-  static inline HashedTypePtr getTombstoneKey() {
-    return HashedTypePtr(reinterpret_cast<HashedType *>(1));
-  }
-
-  static unsigned getHashValue(HashedTypePtr Val) {
-    assert(Val.Ptr != getEmptyKey().Ptr && Val.Ptr != getTombstoneKey().Ptr);
-    return Val.Ptr->Hash;
-  }
-
-  static bool isEqual(HashedTypePtr LHSP, HashedTypePtr RHSP) {
-    HashedType *LHS = LHSP.Ptr;
-    HashedType *RHS = RHSP.Ptr;
-    if (RHS == getEmptyKey().Ptr || RHS == getTombstoneKey().Ptr)
-      return LHS == RHS;
-    if (LHS->Hash != RHS->Hash)
-      return false;
-    return LHS->Data == RHS->Data;
-  }
-};
-
-} // end namespace llvm
-
-/// Private implementation so that we don't leak our DenseMap instantiations to
-/// users.
-class llvm::codeview::TypeHasher {
-private:
-  /// Storage for type record provided by the caller. Records will outlive the
-  /// hasher object, so they should be allocated here.
-  BumpPtrAllocator &RecordStorage;
-
-  /// Storage for hash keys. These only need to live as long as the hashing
-  /// operation.
-  BumpPtrAllocator KeyStorage;
-
-  /// Hash table. We really want a DenseMap<ArrayRef<uint8_t>, TypeIndex> here,
-  /// but DenseMap is inefficient when the keys are long (like type records)
-  /// because it recomputes the hash value of every key when it grows. This
-  /// value type stores the hash out of line in KeyStorage, so that table
-  /// entries are small and easy to rehash.
-  DenseSet<HashedTypePtr> HashedRecords;
-
-public:
-  TypeHasher(BumpPtrAllocator &RecordStorage) : RecordStorage(RecordStorage) {}
-
-  void reset() { HashedRecords.clear(); }
-
-  /// Takes the bytes of type record, inserts them into the hash table, saves
-  /// them, and returns a pointer to an identical stable type record along with
-  /// its type index in the destination stream.
-  TypeIndex getOrCreateRecord(ArrayRef<uint8_t> &Record, TypeIndex TI);
-};
-
-TypeIndex TypeHasher::getOrCreateRecord(ArrayRef<uint8_t> &Record,
-                                        TypeIndex TI) {
-  assert(Record.size() < UINT32_MAX && "Record too big");
-  assert(Record.size() % 4 == 0 && "Record is not aligned to 4 bytes!");
-
-  // Compute the hash up front so we can store it in the key.
-  HashedType TempHashedType = {hash_value(Record), Record, TI};
-  auto Result = HashedRecords.insert(HashedTypePtr(&TempHashedType));
-  HashedType *&Hashed = Result.first->Ptr;
-
-  if (Result.second) {
-    // This was a new type record. We need stable storage for both the key and
-    // the record. The record should outlive the hashing operation.
-    Hashed = KeyStorage.Allocate<HashedType>();
-    *Hashed = TempHashedType;
-
-    uint8_t *Stable = RecordStorage.Allocate<uint8_t>(Record.size());
-    memcpy(Stable, Record.data(), Record.size());
-    Hashed->Data = makeArrayRef(Stable, Record.size());
-  }
-
-  // Update the caller's copy of Record to point a stable copy.
-  Record = Hashed->Data;
-  return Hashed->Index;
-}
-
 TypeIndex MergingTypeTableBuilder::nextTypeIndex() const {
   return TypeIndex::fromArrayIndex(SeenRecords.size());
 }
 
 MergingTypeTableBuilder::MergingTypeTableBuilder(BumpPtrAllocator &Storage)
     : RecordStorage(Storage) {
-  Hasher = llvm::make_unique<TypeHasher>(Storage);
+  SeenRecords.reserve(4096);
 }
 
 MergingTypeTableBuilder::~MergingTypeTableBuilder() = default;
@@ -183,16 +81,40 @@ ArrayRef<ArrayRef<uint8_t>> MergingTypeTableBuilder::records() const {
 }
 
 void MergingTypeTableBuilder::reset() {
-  Hasher->reset();
+  HashedRecords.clear();
   SeenRecords.clear();
+}
+
+static inline ArrayRef<uint8_t> stabilize(BumpPtrAllocator &Alloc,
+                                          ArrayRef<uint8_t> Data) {
+  uint8_t *Stable = Alloc.Allocate<uint8_t>(Data.size());
+  memcpy(Stable, Data.data(), Data.size());
+  return makeArrayRef(Stable, Data.size());
+}
+
+TypeIndex MergingTypeTableBuilder::insertRecordAs(hash_code Hash,
+                                                  ArrayRef<uint8_t> &Record) {
+  assert(Record.size() < UINT32_MAX && "Record too big");
+  assert(Record.size() % 4 == 0 && "Record is not aligned to 4 bytes!");
+
+  LocallyHashedType WeakHash{Hash, Record};
+  auto Result = HashedRecords.try_emplace(WeakHash, nextTypeIndex());
+
+  if (Result.second) {
+    ArrayRef<uint8_t> RecordData = stabilize(RecordStorage, Record);
+    Result.first->first.RecordData = RecordData;
+    SeenRecords.push_back(RecordData);
+  }
+
+  // Update the caller's copy of Record to point a stable copy.
+  TypeIndex ActualTI = Result.first->second;
+  Record = SeenRecords[ActualTI.toArrayIndex()];
+  return ActualTI;
 }
 
 TypeIndex
 MergingTypeTableBuilder::insertRecordBytes(ArrayRef<uint8_t> &Record) {
-  TypeIndex ActualTI = Hasher->getOrCreateRecord(Record, nextTypeIndex());
-  if (nextTypeIndex() == ActualTI)
-    SeenRecords.push_back(Record);
-  return ActualTI;
+  return insertRecordAs(hash_value(Record), Record);
 }
 
 TypeIndex

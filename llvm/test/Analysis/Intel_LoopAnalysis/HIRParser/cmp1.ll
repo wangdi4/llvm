@@ -1,17 +1,16 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; This command checks that -hir-ssa-deconstruction invalidates SCEV so that the parser doesn't pick up the cached version. HIR output should be the same as for the above command.
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll 2>&1 | FileCheck %s
 
 ; Check parsing output for the loop verifying that the compare instruction is parsed correctly.
 ; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
-; CHECK: |   %small.030.out = %small.030;
 ; CHECK: |   %0 = (%A)[i1];
 ; CHECK: |   %1 = (%B)[i1];
 ; CHECK: |   %cmp3 = %0 < %1;
-; CHECK: |   %tobool = %small.030.out != 0;
-; CHECK: |   %small.030 = %cmp3  ||  %tobool;
-; CHECK: |   if (%small.030 == 0)
+; CHECK: |   %tobool = %small.030 != 0;
+; CHECK: |   %frombool = %cmp3  ||  %tobool;
+; CHECK: |   if (%frombool == 0)
 ; CHECK: |   {
 ; CHECK: |      (%B)[i1] = %0;
 ; CHECK: |   }
@@ -19,6 +18,7 @@
 ; CHECK: |   {
 ; CHECK: |      (%A)[i1] = %1;
 ; CHECK: |   }
+; CHECK: |   %small.030 = %frombool;
 ; CHECK: + END LOOP
 
 

@@ -16,7 +16,6 @@
 #include "lldb/Symbol/ObjectContainer.h"
 #include "lldb/Symbol/SymbolFile.h"
 #include "lldb/Target/Process.h"
-#include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/SectionLoadList.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Utility/DataBuffer.h"
@@ -561,25 +560,9 @@ size_t ObjectFile::ReadSectionData(Section *section,
   } else {
     // The object file now contains a full mmap'ed copy of the object file data,
     // so just use this
-    return MemoryMapSectionData(section, section_data);
-  }
-}
-
-size_t ObjectFile::MemoryMapSectionData(Section *section,
-                                        DataExtractor &section_data) {
-  // If some other objectfile owns this data, pass this to them.
-  if (section->GetObjectFile() != this)
-    return section->GetObjectFile()->MemoryMapSectionData(section,
-                                                          section_data);
-
-  if (IsInMemory()) {
-    return ReadSectionData(section, section_data);
-  } else {
     if (!section->IsRelocated())
       RelocateSection(section);
 
-    // The object file now contains a full mmap'ed copy of the object file data,
-    // so just use this
     return GetData(section->GetFileOffset(), section->GetFileSize(),
                    section_data);
   }
@@ -664,43 +647,38 @@ ConstString ObjectFile::GetNextSyntheticSymbolName() {
   return ConstString(ss.GetString());
 }
 
-Status ObjectFile::LoadInMemory(Target &target, bool set_pc) {
-  Status error;
-  ProcessSP process = target.CalculateProcess();
-  if (!process)
-    return Status("No Process");
-  if (set_pc && !GetEntryPointAddress().IsValid())
-    return Status("No entry address in object file");
-
+std::vector<ObjectFile::LoadableData>
+ObjectFile::GetLoadableData(Target &target) {
+  std::vector<LoadableData> loadables;
   SectionList *section_list = GetSectionList();
   if (!section_list)
-    return Status("No section in object file");
+    return loadables;
+  // Create a list of loadable data from loadable sections
   size_t section_count = section_list->GetNumSections(0);
   for (size_t i = 0; i < section_count; ++i) {
+    LoadableData loadable;
     SectionSP section_sp = section_list->GetSectionAtIndex(i);
-    addr_t addr = target.GetSectionLoadList().GetSectionLoadAddress(section_sp);
-    if (addr != LLDB_INVALID_ADDRESS) {
-      DataExtractor section_data;
-      // We can skip sections like bss
-      if (section_sp->GetFileSize() == 0)
-        continue;
-      section_sp->GetSectionData(section_data);
-      lldb::offset_t written = process->WriteMemory(
-          addr, section_data.GetDataStart(), section_data.GetByteSize(), error);
-      if (written != section_data.GetByteSize())
-        return error;
-    }
+    loadable.Dest =
+        target.GetSectionLoadList().GetSectionLoadAddress(section_sp);
+    if (loadable.Dest == LLDB_INVALID_ADDRESS)
+      continue;
+    // We can skip sections like bss
+    if (section_sp->GetFileSize() == 0)
+      continue;
+    DataExtractor section_data;
+    section_sp->GetSectionData(section_data);
+    loadable.Contents = llvm::ArrayRef<uint8_t>(section_data.GetDataStart(),
+                                                section_data.GetByteSize());
+    loadables.push_back(loadable);
   }
-  if (set_pc) {
-    ThreadList &thread_list = process->GetThreadList();
-    ThreadSP curr_thread(thread_list.GetSelectedThread());
-    RegisterContextSP reg_context(curr_thread->GetRegisterContext());
-    Address file_entry = GetEntryPointAddress();
-    reg_context->SetPC(file_entry.GetLoadAddress(&target));
-  }
-  return error;
+  return loadables;
 }
 
 void ObjectFile::RelocateSection(lldb_private::Section *section)
 {
+}
+
+DataBufferSP ObjectFile::MapFileData(const FileSpec &file, uint64_t Size,
+                                     uint64_t Offset) {
+  return DataBufferLLVM::CreateSliceFromPath(file.GetPath(), Size, Offset);
 }

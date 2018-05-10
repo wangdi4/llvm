@@ -87,6 +87,18 @@ bool ARMFrameLowering::noFramePointerElim(const MachineFunction &MF) const {
          MF.getSubtarget<ARMSubtarget>().useFastISel();
 }
 
+/// Returns true if the target can safely skip saving callee-saved registers
+/// for noreturn nounwind functions.
+bool ARMFrameLowering::enableCalleeSaveSkip(const MachineFunction &MF) const {
+  assert(MF.getFunction().hasFnAttribute(Attribute::NoReturn) &&
+         MF.getFunction().hasFnAttribute(Attribute::NoUnwind) &&
+         !MF.getFunction().hasFnAttribute(Attribute::UWTable));
+
+  // Frame pointer and link register are not treated as normal CSR, thus we
+  // can always skip CSR saves for nonreturning functions.
+  return true;
+}
+
 /// hasFP - Return true if the specified function should have a dedicated frame
 /// pointer register.  This is true if the function has variable sized allocas
 /// or if frame pointer elimination is disabled.
@@ -203,13 +215,14 @@ static int sizeOfSPAdjustment(const MachineInstr &MI) {
 static bool WindowsRequiresStackProbe(const MachineFunction &MF,
                                       size_t StackSizeInBytes) {
   const MachineFrameInfo &MFI = MF.getFrameInfo();
-  const Function *F = MF.getFunction();
+  const Function &F = MF.getFunction();
   unsigned StackProbeSize = (MFI.getStackProtectorIndex() > 0) ? 4080 : 4096;
-  if (F->hasFnAttribute("stack-probe-size"))
-    F->getFnAttribute("stack-probe-size")
+  if (F.hasFnAttribute("stack-probe-size"))
+    F.getFnAttribute("stack-probe-size")
         .getValueAsString()
         .getAsInteger(0, StackProbeSize);
-  return StackSizeInBytes >= StackProbeSize;
+  return (StackSizeInBytes >= StackProbeSize) &&
+         !F.hasFnAttribute("no-stack-arg-probe");
 }
 
 namespace {
@@ -370,7 +383,7 @@ void ARMFrameLowering::emitPrologue(MachineFunction &MF,
 
   // All calls are tail calls in GHC calling conv, and functions have no
   // prologue/epilogue.
-  if (MF.getFunction()->getCallingConv() == CallingConv::GHC)
+  if (MF.getFunction().getCallingConv() == CallingConv::GHC)
     return;
 
   StackAdjustingInsts DefCFAOffsetCandidates;
@@ -448,7 +461,7 @@ void ARMFrameLowering::emitPrologue(MachineFunction &MF,
   int FramePtrOffsetInPush = 0;
   if (HasFP) {
     int FPOffset = MFI.getObjectOffset(FramePtrSpillFI);
-    assert(getMaxFPOffset(*MF.getFunction(), *AFI) <= FPOffset &&
+    assert(getMaxFPOffset(MF.getFunction(), *AFI) <= FPOffset &&
            "Max FP estimation is wrong");
     FramePtrOffsetInPush = FPOffset + ArgRegsSaveSize;
     AFI->setFramePtrSpillOffset(MFI.getObjectOffset(FramePtrSpillFI) +
@@ -766,7 +779,7 @@ void ARMFrameLowering::emitEpilogue(MachineFunction &MF,
 
   // All calls are tail calls in GHC calling conv, and functions have no
   // prologue/epilogue.
-  if (MF.getFunction()->getCallingConv() == CallingConv::GHC)
+  if (MF.getFunction().getCallingConv() == CallingConv::GHC)
     return;
 
   // First put ourselves on the first (from top) terminator instructions.
@@ -918,15 +931,17 @@ ARMFrameLowering::ResolveFrameIndexReference(const MachineFunction &MF,
           return FPOffset;
         }
       }
-    } else if (AFI->isThumb2Function()) {
+    } else if (AFI->isThumbFunction()) {
+      // Prefer SP to base pointer, if the offset is suitably aligned and in
+      // range as the effective range of the immediate offset is bigger when
+      // basing off SP.
       // Use  add <rd>, sp, #<imm8>
       //      ldr <rd>, [sp, #<imm8>]
-      // if at all possible to save space.
       if (Offset >= 0 && (Offset & 3) == 0 && Offset <= 1020)
         return Offset;
       // In Thumb2 mode, the negative offset is very limited. Try to avoid
       // out of range references. ldr <rt>,[<rn>, #-<imm8>]
-      if (FPOffset >= -255 && FPOffset < 0) {
+      if (AFI->isThumb2Function() && FPOffset >= -255 && FPOffset < 0) {
         FrameReg = RegInfo->getFrameRegister(MF);
         return FPOffset;
       }
@@ -991,8 +1006,8 @@ void ARMFrameLowering::emitPushInst(MachineBasicBlock &MBB,
     if (Regs.empty())
       continue;
 
-    std::sort(Regs.begin(), Regs.end(), [&](const RegAndKill &LHS,
-                                            const RegAndKill &RHS) {
+    llvm::sort(Regs.begin(), Regs.end(), [&](const RegAndKill &LHS,
+                                             const RegAndKill &RHS) {
       return TRI.getEncodingValue(LHS.first) < TRI.getEncodingValue(RHS.first);
     });
 
@@ -1065,6 +1080,7 @@ void ARMFrameLowering::emitPopInst(MachineBasicBlock &MBB,
           !isTrap && STI.hasV5TOps()) {
         if (MBB.succ_empty()) {
           Reg = ARM::PC;
+          // Fold the return instruction into the LDM.
           DeleteRet = true;
           LdmOpc = AFI->isThumbFunction() ? ARM::t2LDMIA_RET : ARM::LDMIA_RET;
           // We 'restore' LR into PC so it is not live out of the return block:
@@ -1072,7 +1088,6 @@ void ARMFrameLowering::emitPopInst(MachineBasicBlock &MBB,
           Info.setRestored(false);
         } else
           LdmOpc = AFI->isThumbFunction() ? ARM::t2LDMIA_UPD : ARM::LDMIA_UPD;
-        // Fold the return instruction into the LDM.
       }
 
       // If NoGap is true, pop consecutive registers and then leave the rest
@@ -1088,7 +1103,7 @@ void ARMFrameLowering::emitPopInst(MachineBasicBlock &MBB,
     if (Regs.empty())
       continue;
 
-    std::sort(Regs.begin(), Regs.end(), [&](unsigned LHS, unsigned RHS) {
+    llvm::sort(Regs.begin(), Regs.end(), [&](unsigned LHS, unsigned RHS) {
       return TRI.getEncodingValue(LHS) < TRI.getEncodingValue(RHS);
     });
 
@@ -1533,7 +1548,7 @@ checkNumAlignedDPRCS2Regs(MachineFunction &MF, BitVector &SavedRegs) {
     return;
 
   // Naked functions don't spill callee-saved registers.
-  if (MF.getFunction()->hasFnAttribute(Attribute::Naked))
+  if (MF.getFunction().hasFnAttribute(Attribute::Naked))
     return;
 
   // We are planning to use NEON instructions vst1 / vld1.
@@ -1744,7 +1759,7 @@ void ARMFrameLowering::determineCalleeSaves(MachineFunction &MF,
   EstimatedStackSize += 16; // For possible paddings.
 
   unsigned EstimatedRSStackSizeLimit = estimateRSStackSizeLimit(MF, this);
-  int MaxFPOffset = getMaxFPOffset(*MF.getFunction(), *AFI);
+  int MaxFPOffset = getMaxFPOffset(MF.getFunction(), *AFI);
   bool BigFrameOffsets = EstimatedStackSize >= EstimatedRSStackSizeLimit ||
     MFI.hasVarSizedObjects() ||
     (MFI.adjustsStack() && !canSimplifyCallFramePseudos(MF)) ||
@@ -2102,7 +2117,7 @@ void ARMFrameLowering::adjustForSegmentedStacks(
 
   // Sadly, this currently doesn't support varargs, platforms other than
   // android/linux. Note that thumb1/thumb2 are support for android/linux.
-  if (MF.getFunction()->isVarArg())
+  if (MF.getFunction().isVarArg())
     report_fatal_error("Segmented stacks do not support vararg functions.");
   if (!ST->isTargetAndroid() && !ST->isTargetLinux())
     report_fatal_error("Segmented stacks not supported on this platform.");
@@ -2250,7 +2265,7 @@ void ARMFrameLowering::adjustForSegmentedStacks(
   if (Thumb && ST->isThumb1Only()) {
     unsigned PCLabelId = ARMFI->createPICLabelUId();
     ARMConstantPoolValue *NewCPV = ARMConstantPoolSymbol::Create(
-        MF.getFunction()->getContext(), "__STACK_LIMIT", PCLabelId, 0);
+        MF.getFunction().getContext(), "__STACK_LIMIT", PCLabelId, 0);
     MachineConstantPool *MCP = MF.getConstantPool();
     unsigned CPI = MCP->getConstantPoolIndex(NewCPV, 4);
 

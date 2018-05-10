@@ -107,7 +107,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
@@ -190,7 +189,7 @@ LLVM_DUMP_METHOD void RefTuple::print(bool NewLine) const {
 }
 #endif
 
-typedef DDRefGrouping::RefGroupVecTy<const RegDDRef> RefGroupVecTy;
+typedef DDRefGrouping::RefGroupVecTy<const RegDDRef *> RefGroupVecTy;
 
 MemRefGroup::MemRefGroup(RefGroupTy &Group, HIRScalarReplArray *HSRA)
     : HasRWGap(false), HSRA(HSRA), MaxDepDist(-1), NumLoads(0), NumStores(0),
@@ -894,9 +893,9 @@ char HIRScalarReplArray::ID = 0;
 
 INITIALIZE_PASS_BEGIN(HIRScalarReplArray, "hir-scalarrepl-array",
                       "HIR Scalar Replacement of Array ", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 INITIALIZE_PASS_END(HIRScalarReplArray, "hir-scalarrepl-array",
                     "HIR Scalar Replacement of Array ", false, false)
@@ -910,9 +909,9 @@ HIRScalarReplArray::HIRScalarReplArray(void) : HIRTransformPass(ID) {
 }
 
 void HIRScalarReplArray::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequiredTransitive<HIRFramework>();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
-  AU.addRequiredTransitive<HIRLoopStatistics>();
+  AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   AU.addRequiredTransitive<HIRLocalityAnalysis>();
   AU.setPreservesAll();
 }
@@ -961,7 +960,7 @@ bool HIRScalarReplArray::runOnFunction(Function &F) {
 
   // Gather ALL Innermost Loops as Candidates, use 64 increment
   SmallVector<HLLoop *, 64> CandidateLoops;
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HIRF->getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
 
   if (CandidateLoops.empty()) {
@@ -972,7 +971,7 @@ bool HIRScalarReplArray::runOnFunction(Function &F) {
 
   HDDA = &getAnalysis<HIRDDAnalysis>();
   HLA = &getAnalysis<HIRLocalityAnalysis>();
-  HLS = &getAnalysis<HIRLoopStatistics>();
+  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
 
   for (auto &Lp : CandidateLoops) {
     setupEnvForLoop(Lp);
@@ -1085,7 +1084,7 @@ bool HIRScalarReplArray::checkIV(const RegDDRef *Ref,
                                  bool &HasNegIVCoeff) const {
 
   for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
-    CanonExpr *CE = (*I);
+    const CanonExpr *CE = (*I);
 
     int64_t IvCoeff;
     unsigned IvBlobIndex;

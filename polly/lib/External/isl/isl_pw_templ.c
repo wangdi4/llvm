@@ -11,6 +11,7 @@
  * and Ecole Normale Superieure, 45 rue d’Ulm, 75230 Paris, France
  */
 
+#include <isl/id.h>
 #include <isl/aff.h>
 #include <isl_sort.h>
 #include <isl_val_private.h>
@@ -100,6 +101,41 @@ error:
 	return NULL;
 }
 
+/* Does the space of "set" correspond to that of the domain of "el".
+ */
+static isl_bool FN(PW,compatible_domain)(__isl_keep EL *el,
+	__isl_keep isl_set *set)
+{
+	isl_bool ok;
+	isl_space *el_space, *set_space;
+
+	if (!set || !el)
+		return isl_bool_error;
+	set_space = isl_set_get_space(set);
+	el_space = FN(EL,get_space)(el);
+	ok = isl_space_is_domain_internal(set_space, el_space);
+	isl_space_free(el_space);
+	isl_space_free(set_space);
+	return ok;
+}
+
+/* Check that the space of "set" corresponds to that of the domain of "el".
+ */
+static isl_stat FN(PW,check_compatible_domain)(__isl_keep EL *el,
+	__isl_keep isl_set *set)
+{
+	isl_bool ok;
+
+	ok = FN(PW,compatible_domain)(el, set);
+	if (ok < 0)
+		return isl_stat_error;
+	if (!ok)
+		isl_die(isl_set_get_ctx(set), isl_error_invalid,
+			"incompatible spaces", return isl_stat_error);
+
+	return isl_stat_ok;
+}
+
 #ifdef HAS_TYPE
 __isl_give PW *FN(PW,alloc)(enum isl_fold type,
 	__isl_take isl_set *set, __isl_take EL *el)
@@ -109,7 +145,7 @@ __isl_give PW *FN(PW,alloc)(__isl_take isl_set *set, __isl_take EL *el)
 {
 	PW *pw;
 
-	if (!set || !el)
+	if (FN(PW,check_compatible_domain)(el, set) < 0)
 		goto error;
 
 #ifdef HAS_TYPE
@@ -661,46 +697,6 @@ __isl_give PW *FN(PW,neg)(__isl_take PW *pw)
 __isl_give PW *FN(PW,sub)(__isl_take PW *pw1, __isl_take PW *pw2)
 {
 	return FN(PW,add)(pw1, FN(PW,neg)(pw2));
-}
-#endif
-
-#ifndef NO_EVAL
-__isl_give isl_val *FN(PW,eval)(__isl_take PW *pw, __isl_take isl_point *pnt)
-{
-	int i;
-	int found = 0;
-	isl_ctx *ctx;
-	isl_space *pnt_dim = NULL;
-	isl_val *v;
-
-	if (!pw || !pnt)
-		goto error;
-	ctx = isl_point_get_ctx(pnt);
-	pnt_dim = isl_point_get_space(pnt);
-	isl_assert(ctx, isl_space_is_domain_internal(pnt_dim, pw->dim),
-		    goto error);
-
-	for (i = 0; i < pw->n; ++i) {
-		found = isl_set_contains_point(pw->p[i].set, pnt);
-		if (found < 0)
-			goto error;
-		if (found)
-			break;
-	}
-	if (found)
-		v = FN(EL,eval)(FN(EL,copy)(pw->p[i].FIELD),
-					    isl_point_copy(pnt));
-	else
-		v = isl_val_zero(ctx);
-	FN(PW,free)(pw);
-	isl_space_free(pnt_dim);
-	isl_point_free(pnt);
-	return v;
-error:
-	FN(PW,free)(pw);
-	isl_space_free(pnt_dim);
-	isl_point_free(pnt);
-	return NULL;
 }
 #endif
 
@@ -1464,9 +1460,16 @@ __isl_give isl_val *FN(PW,min)(__isl_take PW *pw)
 }
 #endif
 
+/* Return the space of "pw".
+ */
+__isl_keep isl_space *FN(PW,peek_space)(__isl_keep PW *pw)
+{
+	return pw ? pw->dim : NULL;
+}
+
 __isl_give isl_space *FN(PW,get_space)(__isl_keep PW *pw)
 {
-	return pw ? isl_space_copy(pw->dim) : NULL;
+	return isl_space_copy(FN(PW,peek_space)(pw));
 }
 
 __isl_give isl_space *FN(PW,get_domain_space)(__isl_keep PW *pw)

@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that the pseudo floating point IV is handled correctly.
 
@@ -14,7 +14,7 @@
 
 ; Verify that we set NSW flag for this constant trip count loop.
 
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s --check-prefix=DETAILS
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s --check-prefix=DETAILS
 ; DETAILS: NSW: Yes
 
 ; Function Attrs: nounwind uwtable

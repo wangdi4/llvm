@@ -120,14 +120,14 @@ bool AArch64StorePairSuppress::isNarrowFPStore(const MachineInstr &MI) {
 }
 
 bool AArch64StorePairSuppress::runOnMachineFunction(MachineFunction &MF) {
-  if (skipFunction(*MF.getFunction()))
+  if (skipFunction(MF.getFunction()))
     return false;
 
   const TargetSubtargetInfo &ST = MF.getSubtarget();
   TII = static_cast<const AArch64InstrInfo *>(ST.getInstrInfo());
   TRI = ST.getRegisterInfo();
   MRI = &MF.getRegInfo();
-  SchedModel.init(ST.getSchedModel(), &ST, TII);
+  SchedModel.init(&ST);
   Traces = &getAnalysis<MachineTraceMetrics>();
   MinInstr = nullptr;
 

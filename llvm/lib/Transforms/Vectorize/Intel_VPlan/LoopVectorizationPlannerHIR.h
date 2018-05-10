@@ -18,7 +18,11 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_LOOPVECTORIZATIONPLANNER_HIR_H
 
 #include "LoopVectorizationPlanner.h"
+#include "VPLoopAnalysisHIR.h"
 #include "VPlanHCFGBuilderHIR.h"
+#include "llvm/Support/CommandLine.h"
+
+extern cl::opt<uint64_t> VPlanDefaultEstTripHIR;
 
 namespace llvm {
 namespace vpo {
@@ -31,10 +35,12 @@ private:
   /// HIR DDGraph that contains DD information for the incoming loop nest.
   const DDGraph &DDG;
 
+  std::shared_ptr<VPLoopAnalysisBase> VPLA;
+
   std::shared_ptr<IntelVPlan> buildInitialVPlan(unsigned StartRangeVF,
                                                 unsigned &EndRangeVF) {
     // Create new empty VPlan
-    std::shared_ptr<IntelVPlan> SharedPlan = std::make_shared<IntelVPlan>();
+    std::shared_ptr<IntelVPlan> SharedPlan = std::make_shared<IntelVPlan>(VPLA);
     IntelVPlan *Plan = SharedPlan.get();
 
     // Build hierarchical CFG
@@ -51,11 +57,20 @@ public:
                               VPOVectorizationLegality *Legal,
                               const DDGraph &DDG)
       : LoopVectorizationPlannerBase(WRL, TLI, TTI, Legal), TheLoop(Lp),
-        DDG(DDG) {}
+        DDG(DDG) {
+    VPLA = std::make_shared<VPLoopAnalysisHIR>(VPlanDefaultEstTripHIR);
+  }
 
   /// Generate the HIR code for the body of the vectorized loop according to the
   /// best selected VPlan.
   void executeBestPlan(VPOCodeGenHIR *CG);
+
+  /// Return a pair of the <min, max> types' width used in the underlying loop.
+  std::pair<unsigned, unsigned> getTypesWidthRangeInBits() const final {
+    // FIXME: Implement this!
+    return {8, 64};
+  }
+
 };
 
 } // namespace vpo

@@ -21,15 +21,21 @@
 #include "llvm/LinkAllIR.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/PluginLoader.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/Process.h"
-#include "llvm/Support/Signals.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/DTransCommon.h"
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
 // Enable this macro to debug bugpoint itself.
 //#define DEBUG_BUGPOINT 1
@@ -117,9 +123,7 @@ void initializePollyPasses(llvm::PassRegistry &Registry);
 
 int main(int argc, char **argv) {
 #ifndef DEBUG_BUGPOINT
-  llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
-  llvm::PrettyStackTraceProgram X(argc, argv);
-  llvm_shutdown_obj Y; // Call llvm_shutdown() on exit.
+  InitLLVM X(argc, argv);
 #endif
 
   // Initialize passes
@@ -132,6 +136,7 @@ int main(int argc, char **argv) {
   initializeAnalysis(Registry);
   initializeTransformUtils(Registry);
   initializeInstCombine(Registry);
+  initializeAggressiveInstCombine(Registry);
   initializeInstrumentation(Registry);
   initializeTarget(Registry);
 
@@ -142,7 +147,9 @@ int main(int argc, char **argv) {
   initializeMapIntrinToImlPass(Registry);
   initializeIntel_VPOAnalysis(Registry);
   initializeIntel_VPOTransforms(Registry);
-  initializeDTransAnalysisWrapperPass(Registry);
+#if INTEL_INCLUDE_DTRANS
+  initializeDTransPasses(Registry);
+#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 #ifdef LINK_POLLY_INTO_TOOLS

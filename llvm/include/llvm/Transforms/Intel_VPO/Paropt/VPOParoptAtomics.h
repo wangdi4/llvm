@@ -56,7 +56,7 @@ public:
   /// \param [in] TidPtr is pointer to the alloca instruction for
   /// thread ID. Needed for KMPC calls.
   static bool handleAtomic(WRNAtomicNode *AtomicNode, StructType *IdentTy,
-                           AllocaInst *TidPtr);
+                           Constant *TidPtr);
 
 private:
   /// \name Private constructors, destructors.
@@ -155,7 +155,7 @@ private:
   /// otherwise.
   template <WRNAtomicKind AtomicKind>
   static bool handleAtomicRW(WRNAtomicNode *AtomicNode, StructType *IdentTy,
-                             AllocaInst *TidPtr);
+                             Constant *TidPtr);
 
   /// \brief Handles Emitting of KMPC runtime calls for atomic update.
   /// For an incoming IR of form:
@@ -176,7 +176,7 @@ private:
   /// \returns `true` if \p AtomicNode was successfully handled, `false`
   /// otherwise.
   static bool handleAtomicUpdate(WRNAtomicNode *AtomicNode, StructType *IdentTy,
-                                 AllocaInst *TidPtr);
+                                 Constant *TidPtr);
 
   /// \brief Handles Emitting of KMPC runtime calls for atomic capture.
   /// For atomic_opnd `x`, capture_opnd `v` and value_opnd `expr`, the capture
@@ -205,7 +205,7 @@ private:
   /// \returns `true` if \p AtomicNode was successfully handled, `false`
   /// otherwise.
   static bool handleAtomicCapture(WRNAtomicNode *AtomicNode,
-                                  StructType *IdentTy, AllocaInst *TidPtr);
+                                  StructType *IdentTy, Constant *TidPtr);
 
   /// @}
 

@@ -19,6 +19,7 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/IntrinsicInst.h" // INTEL
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/Casting.h"
@@ -517,6 +518,43 @@ public:
   /// base GEP pointer.
   bool accumulateConstantOffset(const DataLayout &DL, APInt &Offset) const;
 };
+
+#ifdef INTEL_CUSTOMIZATION
+class GEPOrSubsOperator : public Operator {
+public:
+  static bool classof(const Instruction *I) {
+    return GetElementPtrInst::classof(I) || SubscriptInst::classof(I);
+  }
+  static bool classof(const ConstantExpr *CE) {
+    return CE->getOpcode() == Instruction::GetElementPtr;
+  }
+  static bool classof(const Value *V) {
+    return (isa<Instruction>(V) && classof(cast<Instruction>(V))) ||
+           (isa<ConstantExpr>(V) && classof(cast<ConstantExpr>(V)));
+  }
+  const Value *getPointerOperand() const {
+    return const_cast<GEPOrSubsOperator *>(this)->getPointerOperand();
+  }
+  Value *getPointerOperand() {
+    if (GEPOperator *GEP = dyn_cast<GEPOperator>(this))
+      return GEP->getPointerOperand();
+    return cast<SubscriptInst>(this)->getPointerOperand();
+  }
+  /// Method to return the pointer operand as a PointerType.
+  Type *getPointerOperandType() const {
+    return getPointerOperand()->getType();
+  }
+  /// Method to return the address space of the pointer operand.
+  unsigned getPointerAddressSpace() const {
+    return getPointerOperandType()->getPointerAddressSpace();
+  }
+  bool isInBounds() const {
+    if (const GEPOperator *GEP = dyn_cast<GEPOperator>(this))
+      return GEP->isInBounds();
+    return true;
+  }
+};
+#endif // INTEL_CUSTOMIZATION
 
 class PtrToIntOperator
     : public ConcreteOperator<Operator, Instruction::PtrToInt> {

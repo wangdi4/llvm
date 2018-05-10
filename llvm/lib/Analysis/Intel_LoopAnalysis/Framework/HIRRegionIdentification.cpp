@@ -1,6 +1,6 @@
 //===- HIRRegionIdentification.cpp - Identifies HIR Regions ---------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -15,10 +15,12 @@
 
 #include "llvm/Pass.h"
 
+#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/Statistic.h"
 
 #include "llvm/Support/Debug.h"
 
+#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -59,35 +61,68 @@ static cl::opt<bool> CreateFunctionLevelRegion(
 
 STATISTIC(RegionCount, "Number of regions created");
 
-INITIALIZE_PASS_BEGIN(HIRRegionIdentification, "hir-region-identification",
-                      "HIR Region Identification", false, true)
+AnalysisKey HIRRegionIdentificationAnalysis::Key;
+
+HIRRegionIdentification
+HIRRegionIdentificationAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
+  // All the real work is done in the constructor for the
+  // HIRRegionIdentification.
+  return HIRRegionIdentification(
+      F, AM.getResult<LoopAnalysis>(F), AM.getResult<DominatorTreeAnalysis>(F),
+      AM.getResult<PostDominatorTreeAnalysis>(F),
+      AM.getResult<ScalarEvolutionAnalysis>(F),
+      AM.getResult<TargetLibraryAnalysis>(F),
+      AM.getResult<XmainOptLevelAnalysis>(F).getOptLevel());
+}
+
+INITIALIZE_PASS_BEGIN(HIRRegionIdentificationWrapperPass,
+                      "hir-region-identification", "HIR Region Identification",
+                      false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(XmainOptLevelPass)
-INITIALIZE_PASS_END(HIRRegionIdentification, "hir-region-identification",
-                    "HIR Region Identification", false, true)
+INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass)
+INITIALIZE_PASS_END(HIRRegionIdentificationWrapperPass,
+                    "hir-region-identification", "HIR Region Identification",
+                    false, true)
 
-char HIRRegionIdentification::ID = 0;
+char HIRRegionIdentificationWrapperPass::ID = 0;
 
-FunctionPass *llvm::createHIRRegionIdentificationPass() {
-  return new HIRRegionIdentification();
+FunctionPass *llvm::createHIRRegionIdentificationWrapperPass() {
+  return new HIRRegionIdentificationWrapperPass();
 }
 
-HIRRegionIdentification::HIRRegionIdentification() : FunctionPass(ID) {
-  initializeHIRRegionIdentificationPass(*PassRegistry::getPassRegistry());
+bool HIRRegionIdentificationWrapperPass::runOnFunction(Function &F) {
+  // All the real work is done in the constructor for the
+  // HIRRegionIdentification.
+  RI.reset(new HIRRegionIdentification(
+      F, getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
+      getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
+      getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree(),
+      getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
+      getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
+      getAnalysis<XmainOptLevelWrapperPass>().getOptLevel()));
+
+  return true;
 }
 
-void HIRRegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
+void HIRRegionIdentificationWrapperPass::getAnalysisUsage(
+    AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<PostDominatorTreeWrapperPass>();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
-  AU.addRequiredTransitive<XmainOptLevelPass>();
+  AU.addRequiredTransitive<XmainOptLevelWrapperPass>();
+}
+
+HIRRegionIdentificationWrapperPass::HIRRegionIdentificationWrapperPass()
+    : FunctionPass(ID) {
+  initializeHIRRegionIdentificationWrapperPassPass(
+      *PassRegistry::getPassRegistry());
 }
 
 Type *HIRRegionIdentification::getPrimaryElementType(Type *PtrTy) const {
@@ -106,7 +141,7 @@ Type *HIRRegionIdentification::getPrimaryElementType(Type *PtrTy) const {
 bool HIRRegionIdentification::isHeaderPhi(const PHINode *Phi) const {
   auto ParentBB = Phi->getParent();
 
-  auto Lp = LI->getLoopFor(ParentBB);
+  auto Lp = LI.getLoopFor(ParentBB);
 
   if (!Lp) {
     return false;
@@ -215,13 +250,13 @@ HIRRegionIdentification::findIVDefInHeader(const Loop &Lp,
     if (auto OpInst = dyn_cast<Instruction>(I)) {
 
       // Instruction lies outside the loop.
-      if (!Lp.contains(LI->getLoopFor(OpInst->getParent()))) {
+      if (!Lp.contains(LI.getLoopFor(OpInst->getParent()))) {
         continue;
       }
 
       // Skip backedges.
       // This can happen for outer unknown loops.
-      if (DT->dominates(Inst, OpInst)) {
+      if (DT.dominates(Inst, OpInst)) {
         continue;
       }
 
@@ -282,7 +317,7 @@ HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
       OptLevel(RI.OptLevel), InstCount(0), UnstructuredJumpCount(0),
       IfCount(0) {
 
-  HeaderDomNode = RI.DT->getNode(Lp.getHeader());
+  HeaderDomNode = RI.DT.getNode(Lp.getHeader());
 
   auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
   IsSmallTripLoop =
@@ -322,7 +357,7 @@ void HIRRegionIdentification::CostModelAnalyzer::analyze() {
   for (auto BB = Lp.block_begin(), E = Lp.block_end(); BB != E; ++BB) {
 
     // Skip bblocks which belong to inner loops.
-    if (!IsInnermostLoop && (RI.LI->getLoopFor(*BB) != &Lp)) {
+    if (!IsInnermostLoop && (RI.LI.getLoopFor(*BB) != &Lp)) {
       continue;
     }
 
@@ -360,8 +395,8 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
   if (!isa<CmpInst>(Inst)) {
 
     // The following checks are to ignore linear instructions.
-    if (RI.SE->isSCEVable(Inst.getType())) {
-      auto SC = RI.SE->getSCEV(const_cast<Instruction *>(&Inst));
+    if (RI.SE.isSCEVable(Inst.getType())) {
+      auto SC = RI.SE.getSCEV(const_cast<Instruction *>(&Inst));
       auto AddRec = dyn_cast<SCEVAddRecExpr>(SC);
 
       if (!AddRec || !AddRec->isAffine()) {
@@ -424,7 +459,7 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitCallInst(
     if (!isa<IntrinsicInst>(CI)) {
       auto Func = CI.getCalledFunction();
 
-      if (!Func || !RI.TLI->isFunctionVectorizable(Func->getName())) {
+      if (!Func || !RI.TLI.isFunctionVectorizable(Func->getName())) {
         DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of "
                         "user calls.\n");
         return false;
@@ -448,10 +483,6 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     return true;
   }
 
-  // Increase thresholds for small trip innermost loops so that we can unroll
-  // them.
-  bool UseO3Thresholds = (OptLevel > 2) || (IsInnermostLoop && IsSmallTripLoop);
-
   if (++IfCount > MaxIfThreshold) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
                     "many ifs.\n");
@@ -459,7 +490,7 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   }
 
   unsigned IfNestCount = 0;
-  auto DomNode = RI.DT->getNode(const_cast<BasicBlock *>(ParentBB));
+  auto DomNode = RI.DT.getNode(const_cast<BasicBlock *>(ParentBB));
 
   while (DomNode != HeaderDomNode) {
     assert(DomNode && "Dominator tree node of a loop bblock is null!");
@@ -493,9 +524,20 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     DomNode = DomNode->getIDom();
   }
 
+  // Increase thresholds for small trip innermost loops so that we can unroll
+  // them.
+  bool UseO3Thresholds = (OptLevel > 2) || (IsInnermostLoop && IsSmallTripLoop);
+
+  unsigned IfNestThreshold =
+      (UseO3Thresholds ? O3MaxIfNestThreshold : O2MaxIfNestThreshold);
+
+  if (UseO3Thresholds && IsInnermostLoop) {
+    // Allow 1 more If nesting for O3 innermost loops.
+    ++IfNestThreshold;
+  }
+
   // Add 1 to include reaching header node.
-  if ((IfNestCount + 1) >
-      (UseO3Thresholds ? O3MaxIfNestThreshold : O2MaxIfNestThreshold)) {
+  if ((IfNestCount + 1) > IfNestThreshold) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
                     "many nested ifs.\n");
     return false;
@@ -512,10 +554,10 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   // Within the same loop, conditional branches not dominating its successor
   // and the successor not post-dominating the branch indicates presence of a
   // goto in HLLoop.
-  if ((!RI.DT->dominates(ParentBB, Succ0) &&
-       !RI.PDT->dominates(Succ0, ParentBB)) ||
-      (!RI.DT->dominates(ParentBB, Succ1) &&
-       !RI.PDT->dominates(Succ1, ParentBB))) {
+  if ((!RI.DT.dominates(ParentBB, Succ0) &&
+       !RI.PDT.dominates(Succ0, ParentBB)) ||
+      (!RI.DT.dominates(ParentBB, Succ1) &&
+       !RI.PDT.dominates(Succ1, ParentBB))) {
     DEBUG(dbgs()
           << "LOOPOPT_OPTREPORT: Loop throttled due to presence of goto.\n");
     return false;
@@ -564,7 +606,8 @@ bool HIRRegionIdentification::isDebugMetadata(MDNode *Node) {
 
 bool HIRRegionIdentification::isSupportedMetadata(MDNode *Node) {
 
-  if (isDebugMetadata(Node) || isUnrollMetadata(Node)) {
+  if (isDebugMetadata(Node) || isUnrollMetadata(Node) ||
+      LoopOptReport::isOptReportMetadata(Node)) {
     return true;
   }
 
@@ -607,7 +650,7 @@ bool HIRRegionIdentification::isReachableFromImpl(
     auto PredBB = *Pred;
 
     // Skip recursing into backedges.
-    if (!DT->dominates(BB, PredBB) &&
+    if (!DT.dominates(BB, PredBB) &&
         isReachableFromImpl(PredBB, EndBBs, FromBBs, VisitedBBs)) {
       return true;
     }
@@ -624,56 +667,125 @@ bool HIRRegionIdentification::isReachableFrom(
   return isReachableFromImpl(BB, EndBBs, FromBBs, VisitedBBs);
 }
 
-bool HIRRegionIdentification::containsCycle(const BasicBlock *BB,
-                                            const Loop *Lp) const {
-  SmallVector<BasicBlock *, 8> DomChildren;
+namespace {
+// Keeps track of BasicBlock on stack.
+// Finds any back edge during DFS, Loop's back edges and edges going outside
+// Loop are ignored.
+//
+// Essentially, checks that a Loop has irreducible CFG.
+//
+// See also Intel_VPlan/VPlanDriver.cpp isIrreducibleCFG()
+class DFLoopTraverse
+    : public SmallPtrSet<typename GraphTraits<const BasicBlock *>::NodeRef, 32> {
+public:
+  typedef typename GraphTraits<const BasicBlock *>::NodeRef NodeRef;
+  typedef SmallPtrSet<NodeRef, 32> Container;
 
-  auto Node = DT->getNode(const_cast<BasicBlock *>(BB));
+  DFLoopTraverse(const LoopInfo *LI = nullptr, const Loop *Lp = nullptr)
+      : LI(LI), Lp(Lp) {}
 
-  // Collect dominator children in the same loop.
-  for (auto &I : (*Node)) {
-    auto BB = I->getBlock();
-
-    if (!Lp || (LI->getLoopFor(BB) == Lp)) {
-      DomChildren.push_back(BB);
-    }
+  bool isOutgoing(NodeRef ToBBlock) const {
+    return Lp && !Lp->contains(ToBBlock);
   }
 
-  unsigned Size = DomChildren.size();
+  // See LoopBase<>::getNumBackEdges
+  bool isLoopBackedge(Optional<NodeRef> From, NodeRef To) const {
+    if (!From) {
+      return false;
+    }
+    auto ToLoop = LI->getLoopFor(To);
+    return ToLoop && ToLoop->getHeader() == To &&
+           ToLoop->contains(From.getValue());
+  }
 
-  if (Size < 2) {
+private:
+  DFLoopTraverse(const DFLoopTraverse &that) = delete;
+  DFLoopTraverse(const DFLoopTraverse &&that) = delete;
+  DFLoopTraverse &operator=(const DFLoopTraverse &) = delete;
+  DFLoopTraverse &operator=(const DFLoopTraverse &&) = delete;
+
+  const LoopInfo *LI;
+  const Loop *Lp;
+};
+}
+
+namespace llvm {
+// Specialization of po_iterator_storage to implement
+// finishPostorder/insertEdge.
+//
+// These methods compute CycleSeen using info from DFLoopTraverse
+template <> class po_iterator_storage<DFLoopTraverse, false> {
+public:
+  typedef typename GraphTraits<const BasicBlock *>::NodeRef NodeRef;
+
+  po_iterator_storage(DFLoopTraverse &DFLoopInfo)
+      : CycleSeen(false), DFLoopInfo(DFLoopInfo) {}
+
+  // Return true if edge destination should be visited.
+  // Computes CycleSeen
+  bool insertEdge(Optional<NodeRef> From, NodeRef To) {
+    if (CycleSeen || DFLoopInfo.isOutgoing(To) ||
+        DFLoopInfo.isLoopBackedge(From, To)) {
+      return false;
+    }
+
+    // Seen first time ever
+    if (Visited.insert(To).second) {
+      // keep in sync with po_iterator's stack
+      auto res = DFLoopInfo.insert(To);
+      assert(res.second && "DFLoopInfo and DF traversal are out of sync");
+      (void)res;
+      return true;
+    }
+
+    if (DFLoopInfo.find(To) != DFLoopInfo.end()) {
+      CycleSeen = true;
+    }
+
     return false;
   }
 
-  SmallPtrSet<const BasicBlock *, 1> EndBBs;
-  SmallPtrSet<const BasicBlock *, 1> FromBBs;
-  EndBBs.insert(BB);
+  // Called after all children of BB have been visited.
+  void finishPostorder(NodeRef BB) {
+    // Keep in sync with po_iterator's stack.
+    DFLoopInfo.erase(BB);
+  }
 
-  // For each pair of dominator children, check if they can reach each other
-  // without going through the dominator.
-  for (unsigned I = 0; I < Size - 1; ++I) {
-    auto ChildBB1 = DomChildren[I];
+  bool getFoundCycle() const { return CycleSeen; }
 
-    for (unsigned J = I + 1; J < Size; ++J) {
-      auto ChildBB2 = DomChildren[J];
+private:
+  bool CycleSeen;
+  // set of basic block seen in pre-order.
+  DFLoopTraverse::Container Visited;
+  // set of basic block in po_iterator's stack.
+  // need quick check 'if basic block is on stack of depth-first traversal'
+  DFLoopTraverse &DFLoopInfo;
+};
+}
 
-      FromBBs.clear();
-      FromBBs.insert(ChildBB2);
+namespace
+{
+bool isIrreducible(const LoopInfo *LI, const Loop *Lp,
+                   const BasicBlock *EntryBlock = nullptr) {
 
-      if (!isReachableFrom(ChildBB1, EndBBs, FromBBs)) {
-        continue;
-      }
+  assert((Lp == nullptr) == (EntryBlock != nullptr) &&
+         "Exactly one parameter should be non-null");
 
-      FromBBs.clear();
-      FromBBs.insert(ChildBB1);
+  typedef po_iterator<const BasicBlock *, DFLoopTraverse> Iter;
 
-      if (isReachableFrom(ChildBB2, EndBBs, FromBBs)) {
-        return true;
-      }
+  DFLoopTraverse dfs(LI, Lp);
+  auto Start = Lp ? Lp->getHeader() : EntryBlock;
+  for (auto PoIter = Iter::begin(Start, dfs),
+            PoEnd = Iter::end(Start, dfs);
+       PoIter != PoEnd; ++PoIter) {
+    if (PoIter.getFoundCycle()) {
+        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Irreducible CFG not supported.\n");
+      return true;
     }
   }
 
   return false;
+}
 }
 
 bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
@@ -786,19 +898,17 @@ bool HIRRegionIdentification::areBBlocksGenerable(const Loop &Lp) const {
   for (auto BB = Lp.block_begin(), E = Lp.block_end(); BB != E; ++BB) {
 
     // Skip this bblock as it has been checked by an inner loop.
-    if (!IsInnermostLoop && LI->getLoopFor(*BB) != (&Lp)) {
+    if (!IsInnermostLoop && LI.getLoopFor(*BB) != (&Lp)) {
       continue;
     }
 
     if (!isGenerable(*BB, &Lp)) {
       return false;
     }
+  }
 
-    // TODO: Is there a more efficient way to check this?
-    if (containsCycle(*BB, &Lp)) {
-      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Irreducible CFG not supported.\n");
-      return false;
-    }
+  if (isIrreducible(&LI, &Lp)) {
+    return false;
   }
 
   return true;
@@ -846,7 +956,7 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
 
   // We cannot build lexical links if dominator/post-dominator info is absent.
   // This can be due to unreachable/infinite loops.
-  if (!DT->getNode(LatchBB) || !PDT->getNode(LatchBB)) {
+  if (!DT.getNode(LatchBB) || !PDT.getNode(LatchBB)) {
     DEBUG(dbgs()
           << "LOOPOPT_OPTREPORT: Unreachable/Infinite loops not supported.\n");
     return false;
@@ -882,7 +992,7 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   // we are not able to compute trip count of the loop after suppressing some
   // parent loops, the loop will be handled as an unknown loop.
   auto BECount =
-      SE->getBackedgeTakenCountForHIR(&Lp, getOutermostParentLoop(&Lp));
+      SE.getBackedgeTakenCountForHIR(&Lp, getOutermostParentLoop(&Lp));
 
   auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
 
@@ -992,6 +1102,7 @@ bool HIRRegionIdentification::isSIMDLoop(const Loop &Lp,
 
   BasicBlock *ExitBB = Lp.getExitBlock();
 
+  // TODO: Multi-exit SIMD loops
   if (!ExitBB) {
     return false;
   }
@@ -1096,8 +1207,7 @@ void HIRRegionIdentification::formRegions() {
 
   // LoopInfo::iterator visits loops in reverse program order so we need to
   // use reverse_iterator here.
-  for (LoopInfo::reverse_iterator I = LI->rbegin(), E = LI->rend(); I != E;
-       ++I) {
+  for (LoopInfo::reverse_iterator I = LI.rbegin(), E = LI.rend(); I != E; ++I) {
     unsigned Depth;
     isGenerableLoopnest(**I, Depth, GenerableLoops);
   }
@@ -1131,11 +1241,10 @@ bool HIRRegionIdentification::areBBlocksGenerable(Function &Func) const {
     if (!isGenerable(&*BBIt, nullptr)) {
       return false;
     }
+  }
 
-    if (containsCycle(&*BBIt, nullptr)) {
-      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Irreducible CFG not supported.\n");
-      return false;
-    }
+  if (isIrreducible(&LI, nullptr, &Func.getEntryBlock())) {
+    return false;
   }
 
   return true;
@@ -1152,7 +1261,7 @@ bool HIRRegionIdentification::canFormFunctionLevelRegion(Function &Func) {
     return false;
   }
 
-  SmallVector<Loop *, 16> AllLoops = LI->getLoopsInPreorder();
+  SmallVector<Loop *, 16> AllLoops = LI.getLoopsInPreorder();
 
   for (auto Lp : AllLoops) {
     if (!isSelfGenerable(*Lp, Lp->getLoopDepth(), true)) {
@@ -1237,20 +1346,20 @@ bool HIRRegionIdentification::isLoopConcatenationCandidate() const {
 
   // We are looking for 16, single bblock loops which have a backedge count of
   // 3.
-  if (std::distance(LI->begin(), LI->end()) != 16) {
+  if (std::distance(LI.begin(), LI.end()) != 16) {
     return false;
   }
 
   // Perform the cheap bblock count check first.
-  for (auto Lp : *LI) {
+  for (auto Lp : LI) {
     if (Lp->getNumBlocks() != 1) {
       return false;
     }
   }
 
   // Check backedge taken count.
-  for (auto Lp : *LI) {
-    auto BECount = SE->getBackedgeTakenCountForHIR(Lp, Lp);
+  for (auto Lp : LI) {
+    auto BECount = SE.getBackedgeTakenCountForHIR(Lp, Lp);
     auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
 
     if (!ConstBECount || (ConstBECount->getValue()->getSExtValue() != 3)) {
@@ -1260,7 +1369,7 @@ bool HIRRegionIdentification::isLoopConcatenationCandidate() const {
 
   // Perform more checks on the loop body to minimize chances of forming
   // function level region in other cases.
-  for (auto Lp : *LI) {
+  for (auto Lp : LI) {
     if (!isLoopConcatenationCandidate(Lp->getHeader())) {
       return false;
     }
@@ -1269,40 +1378,37 @@ bool HIRRegionIdentification::isLoopConcatenationCandidate() const {
   return true;
 }
 
-bool HIRRegionIdentification::runOnFunction(Function &Func) {
-  if (Func.hasFnAttribute(Attribute::OptimizeNone)) {
-    return false;
+HIRRegionIdentification::HIRRegionIdentification(
+    Function &F, LoopInfo &LI, DominatorTree &DT, PostDominatorTree &PDT,
+    ScalarEvolution &SE, TargetLibraryInfo &TLI, unsigned OptLevel)
+    : LI(LI), DT(DT), PDT(PDT), SE(SE), TLI(TLI), OptLevel(OptLevel) {
+  runImpl(F);
+}
+
+void HIRRegionIdentification::runImpl(Function &F) {
+  if (F.hasFnAttribute(Attribute::OptimizeNone)) {
+    return;
   }
 
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-  OptLevel = getAnalysis<XmainOptLevelPass>().getOptLevel();
-
-  if (CreateFunctionLevelRegion || isLoopConcatenationCandidate()) {
-    if (canFormFunctionLevelRegion(Func)) {
-      createFunctionLevelRegion(Func);
+  if (CreateFunctionLevelRegion || isLoopConcatenationCandidate() ||
+      F.hasFnAttribute("may_have_huge_local_malloc")) {
+    if (canFormFunctionLevelRegion(F)) {
+      createFunctionLevelRegion(F);
     }
   } else {
     formRegions();
   }
-
-  return false;
 }
 
-void HIRRegionIdentification::releaseMemory() { IRRegions.clear(); }
+HIRRegionIdentification::HIRRegionIdentification(HIRRegionIdentification &&RI)
+    : IRRegions(std::move(RI.IRRegions)), LI(RI.LI), DT(RI.DT), PDT(RI.PDT),
+      SE(RI.SE), TLI(RI.TLI), OptLevel(RI.OptLevel) {}
 
-void HIRRegionIdentification::print(raw_ostream &OS, const Module *M) const {
+void HIRRegionIdentification::print(raw_ostream &OS) const {
 
   for (auto I = IRRegions.begin(), E = IRRegions.end(); I != E; ++I) {
     OS << "\nRegion " << I - IRRegions.begin() + 1 << "\n";
     I->print(OS, 3);
     OS << "\n";
   }
-}
-
-void HIRRegionIdentification::verifyAnalysis() const {
-  /// TODO: implement later
 }

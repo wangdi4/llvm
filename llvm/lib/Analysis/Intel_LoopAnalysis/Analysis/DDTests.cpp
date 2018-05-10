@@ -56,12 +56,12 @@
 //                                                                            //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -71,7 +71,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -4191,7 +4190,7 @@ static MemoryLocation getMemoryLocation(const RegDDRef *Ref) {
   return Loc;
 }
 
-bool DDTest::queryAAIndep(RegDDRef *SrcDDRef, RegDDRef *DstDDRef) {
+bool DDTest::queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef) {
   assert(SrcDDRef->isMemRef() && DstDDRef->isMemRef() &&
          "Both should be mem refs");
 
@@ -4403,8 +4402,8 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     }
 
   } else {
-    BlobDDRef *BRef = cast<BlobDDRef>(SrcDDRef);
-    Pair[0].Src = BRef->getCanonExpr();
+    const auto *BRef = cast<BlobDDRef>(SrcDDRef);
+    Pair[0].Src = BRef->getSingleCanonExpr();
   }
 
   if (DstRegDDRef) {
@@ -4414,8 +4413,8 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
       Pair[P].Dst = *CE;
     }
   } else {
-    BlobDDRef *BRef = cast<BlobDDRef>(DstDDRef);
-    Pair[0].Dst = BRef->getCanonExpr();
+    const auto *BRef = cast<BlobDDRef>(DstDDRef);
+    Pair[0].Dst = BRef->getSingleCanonExpr();
   }
 
   // Note: Couple of original functionality were skipped
@@ -5133,13 +5132,9 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   if (Result == nullptr) {
     DEBUG(dbgs() << "\nIs Independent!\n");
+    return false;
   } else {
     DEBUG(Result->dump(dbgs()));
-  }
-
-  // Independent?
-  if (Result == nullptr) {
-    return false;
   }
 
   unsigned Levels = Result->getLevels();

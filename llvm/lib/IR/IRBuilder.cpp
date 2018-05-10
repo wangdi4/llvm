@@ -1,4 +1,4 @@
-//===---- IRBuilder.cpp - Builder for LLVM Instrs -------------------------===//
+//===- IRBuilder.cpp - Builder for LLVM Instrs ----------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -13,11 +13,27 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/None.h"
+#include "llvm/IR/Constant.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/IR/Statepoint.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Value.h"
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/MathExtras.h"
+#include <cassert>
+#include <cstdint>
+#include <vector>
+
 using namespace llvm;
 
 /// CreateGlobalString - Make a new global variable with an initializer that
@@ -29,11 +45,10 @@ GlobalVariable *IRBuilderBase::CreateGlobalString(StringRef Str,
                                                   unsigned AddressSpace) {
   Constant *StrConstant = ConstantDataArray::getString(Context, Str);
   Module &M = *BB->getParent()->getParent();
-  GlobalVariable *GV = new GlobalVariable(M, StrConstant->getType(),
-                                          true, GlobalValue::PrivateLinkage,
-                                          StrConstant, Name, nullptr,
-                                          GlobalVariable::NotThreadLocal,
-                                          AddressSpace);
+  auto *GV = new GlobalVariable(M, StrConstant->getType(), true,
+                                GlobalValue::PrivateLinkage, StrConstant, Name,
+                                nullptr, GlobalVariable::NotThreadLocal,
+                                AddressSpace);
   GV->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
   return GV;
 }
@@ -44,7 +59,7 @@ Type *IRBuilderBase::getCurrentFunctionReturnType() const {
 }
 
 Value *IRBuilderBase::getCastedInt8PtrValue(Value *Ptr) {
-  PointerType *PT = cast<PointerType>(Ptr->getType());
+  auto *PT = cast<PointerType>(Ptr->getType());
   if (PT->getElementType()->isIntegerTy(8))
     return Ptr;
 
@@ -58,8 +73,11 @@ Value *IRBuilderBase::getCastedInt8PtrValue(Value *Ptr) {
 
 static CallInst *createCallHelper(Value *Callee, ArrayRef<Value *> Ops,
                                   IRBuilderBase *Builder,
-                                  const Twine& Name="") {
+                                  const Twine &Name = "",
+                                  Instruction *FMFSource = nullptr) {
   CallInst *CI = CallInst::Create(Callee, Ops, Name);
+  if (FMFSource)
+    CI->copyFastMathFlags(FMFSource);
   Builder->GetInsertBlock()->getInstList().insert(Builder->GetInsertPoint(),CI);
   Builder->SetInstDebugLocation(CI);
   return CI;
@@ -83,12 +101,15 @@ CreateMemSet(Value *Ptr, Value *Val, Value *Size, unsigned Align,
              bool isVolatile, MDNode *TBAATag, MDNode *ScopeTag,
              MDNode *NoAliasTag) {
   Ptr = getCastedInt8PtrValue(Ptr);
-  Value *Ops[] = { Ptr, Val, Size, getInt32(Align), getInt1(isVolatile) };
+  Value *Ops[] = {Ptr, Val, Size, getInt1(isVolatile)};
   Type *Tys[] = { Ptr->getType(), Size->getType() };
   Module *M = BB->getParent()->getParent();
   Value *TheFn = Intrinsic::getDeclaration(M, Intrinsic::memset, Tys);
 
   CallInst *CI = createCallHelper(TheFn, Ops, this);
+
+  if (Align > 0)
+    cast<MemSetInst>(CI)->setDestAlignment(Align);
 
   // Set the TBAA info if present.
   if (TBAATag)
@@ -104,18 +125,26 @@ CreateMemSet(Value *Ptr, Value *Val, Value *Size, unsigned Align,
 }
 
 CallInst *IRBuilderBase::
-CreateMemCpy(Value *Dst, Value *Src, Value *Size, unsigned Align,
-             bool isVolatile, MDNode *TBAATag, MDNode *TBAAStructTag,
-             MDNode *ScopeTag, MDNode *NoAliasTag) {
+CreateMemCpy(Value *Dst, unsigned DstAlign, Value *Src, unsigned SrcAlign,
+             Value *Size, bool isVolatile, MDNode *TBAATag,
+             MDNode *TBAAStructTag, MDNode *ScopeTag, MDNode *NoAliasTag) {
+  assert((DstAlign == 0 || isPowerOf2_32(DstAlign)) && "Must be 0 or a power of 2");
+  assert((SrcAlign == 0 || isPowerOf2_32(SrcAlign)) && "Must be 0 or a power of 2");
   Dst = getCastedInt8PtrValue(Dst);
   Src = getCastedInt8PtrValue(Src);
 
-  Value *Ops[] = { Dst, Src, Size, getInt32(Align), getInt1(isVolatile) };
+  Value *Ops[] = {Dst, Src, Size, getInt1(isVolatile)};
   Type *Tys[] = { Dst->getType(), Src->getType(), Size->getType() };
   Module *M = BB->getParent()->getParent();
   Value *TheFn = Intrinsic::getDeclaration(M, Intrinsic::memcpy, Tys);
 
   CallInst *CI = createCallHelper(TheFn, Ops, this);
+
+  auto* MCI = cast<MemCpyInst>(CI);
+  if (DstAlign > 0)
+    MCI->setDestAlignment(DstAlign);
+  if (SrcAlign > 0)
+    MCI->setSourceAlignment(SrcAlign);
 
   // Set the TBAA info if present.
   if (TBAATag)
@@ -154,8 +183,9 @@ CallInst *IRBuilderBase::CreateElementUnorderedAtomicMemCpy(
   CallInst *CI = createCallHelper(TheFn, Ops, this);
 
   // Set the alignment of the pointer args.
-  CI->addParamAttr(0, Attribute::getWithAlignment(CI->getContext(), DstAlign));
-  CI->addParamAttr(1, Attribute::getWithAlignment(CI->getContext(), SrcAlign));
+  auto *AMCI = cast<AtomicMemCpyInst>(CI);
+  AMCI->setDestAlignment(DstAlign);
+  AMCI->setSourceAlignment(SrcAlign);
 
   // Set the TBAA info if present.
   if (TBAATag)
@@ -175,18 +205,26 @@ CallInst *IRBuilderBase::CreateElementUnorderedAtomicMemCpy(
 }
 
 CallInst *IRBuilderBase::
-CreateMemMove(Value *Dst, Value *Src, Value *Size, unsigned Align,
-              bool isVolatile, MDNode *TBAATag, MDNode *ScopeTag,
+CreateMemMove(Value *Dst, unsigned DstAlign, Value *Src, unsigned SrcAlign,
+              Value *Size, bool isVolatile, MDNode *TBAATag, MDNode *ScopeTag,
               MDNode *NoAliasTag) {
+  assert((DstAlign == 0 || isPowerOf2_32(DstAlign)) && "Must be 0 or a power of 2");
+  assert((SrcAlign == 0 || isPowerOf2_32(SrcAlign)) && "Must be 0 or a power of 2");
   Dst = getCastedInt8PtrValue(Dst);
   Src = getCastedInt8PtrValue(Src);
 
-  Value *Ops[] = { Dst, Src, Size, getInt32(Align), getInt1(isVolatile) };
+  Value *Ops[] = {Dst, Src, Size, getInt1(isVolatile)};
   Type *Tys[] = { Dst->getType(), Src->getType(), Size->getType() };
   Module *M = BB->getParent()->getParent();
   Value *TheFn = Intrinsic::getDeclaration(M, Intrinsic::memmove, Tys);
 
   CallInst *CI = createCallHelper(TheFn, Ops, this);
+
+  auto *MMI = cast<MemMoveInst>(CI);
+  if (DstAlign > 0)
+    MMI->setDestAlignment(DstAlign);
+  if (SrcAlign > 0)
+    MMI->setSourceAlignment(SrcAlign);
 
   // Set the TBAA info if present.
   if (TBAATag)
@@ -424,6 +462,37 @@ Instruction *IRBuilderBase::CreateFakeLoad(Value *Ptr, MDNode *TbaaTag) {
 
   return Ret;
 }
+
+// Intrinsic generated for structured address computations.
+Instruction *IRBuilderBase::CreateSubscript(unsigned Rank, Value *LowerBound,
+                                            Value *Stride, Value *Ptr,
+                                            Value *Index) {
+
+  // First element is reserved for return type.
+  Type *Types[5] = {nullptr, LowerBound->getType(), Stride->getType(),
+                    Ptr->getType(), Index->getType()};
+
+  Value *Ops[] = {
+      ConstantInt::get(Context, APInt(8, static_cast<uint64_t>(Rank), false)),
+      LowerBound, Stride, Ptr, Index};
+
+  // Result's type.
+  {
+    unsigned ResVNE = SubscriptInst::getResultVectorNumElements(Ops);
+    Type *ResTy = Ptr->getType();
+    if (ResVNE != 0 && !isa<VectorType>(ResTy)) {
+      ResTy = VectorType::get(ResTy, ResVNE);
+    }
+    Types[0] = ResTy;
+  }
+
+  Module *M = BB->getParent()->getParent();
+  Value *FnSubscript =
+      Intrinsic::getDeclaration(M, Intrinsic::intel_subscript, Types);
+
+  Instruction *Ret = createCallHelper(FnSubscript, Ops, this);
+  return Ret;
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// \brief Create a call to a Masked Load intrinsic.
@@ -437,7 +506,7 @@ Instruction *IRBuilderBase::CreateFakeLoad(Value *Ptr, MDNode *TbaaTag) {
 CallInst *IRBuilderBase::CreateMaskedLoad(Value *Ptr, unsigned Align,
                                           Value *Mask, Value *PassThru,
                                           const Twine &Name) {
-  PointerType *PtrTy = cast<PointerType>(Ptr->getType());
+  auto *PtrTy = cast<PointerType>(Ptr->getType());
   Type *DataTy = PtrTy->getElementType();
   assert(DataTy->isVectorTy() && "Ptr should point to a vector");
   assert(Mask && "Mask should not be all-ones (null)");
@@ -457,7 +526,7 @@ CallInst *IRBuilderBase::CreateMaskedLoad(Value *Ptr, unsigned Align,
 ///            be accessed in memory
 CallInst *IRBuilderBase::CreateMaskedStore(Value *Val, Value *Ptr,
                                            unsigned Align, Value *Mask) {
-  PointerType *PtrTy = cast<PointerType>(Ptr->getType());
+  auto *PtrTy = cast<PointerType>(Ptr->getType());
   Type *DataTy = PtrTy->getElementType();
   assert(DataTy->isVectorTy() && "Ptr should point to a vector");
   assert(Mask && "Mask should not be all-ones (null)");
@@ -571,7 +640,7 @@ static CallInst *CreateGCStatepointCallCommon(
     ArrayRef<T1> TransitionArgs, ArrayRef<T2> DeoptArgs, ArrayRef<T3> GCArgs,
     const Twine &Name) {
   // Extract out the type of the callee.
-  PointerType *FuncPtrType = cast<PointerType>(ActualCallee->getType());
+  auto *FuncPtrType = cast<PointerType>(ActualCallee->getType());
   assert(isa<FunctionType>(FuncPtrType->getElementType()) &&
          "actual callee must be a callable value");
 
@@ -582,7 +651,7 @@ static CallInst *CreateGCStatepointCallCommon(
     Intrinsic::getDeclaration(M, Intrinsic::experimental_gc_statepoint,
                               ArgTypes);
 
-  std::vector<llvm::Value *> Args =
+  std::vector<Value *> Args =
       getStatepointArgs(*Builder, ID, NumPatchBytes, ActualCallee, Flags,
                         CallArgs, TransitionArgs, DeoptArgs, GCArgs);
   return createCallHelper(FnStatepoint, Args, Builder, Name);
@@ -622,7 +691,7 @@ static InvokeInst *CreateGCStatepointInvokeCommon(
     uint32_t Flags, ArrayRef<T0> InvokeArgs, ArrayRef<T1> TransitionArgs,
     ArrayRef<T2> DeoptArgs, ArrayRef<T3> GCArgs, const Twine &Name) {
   // Extract out the type of the callee.
-  PointerType *FuncPtrType = cast<PointerType>(ActualInvokee->getType());
+  auto *FuncPtrType = cast<PointerType>(ActualInvokee->getType());
   assert(isa<FunctionType>(FuncPtrType->getElementType()) &&
          "actual callee must be a callable value");
 
@@ -631,7 +700,7 @@ static InvokeInst *CreateGCStatepointInvokeCommon(
   Function *FnStatepoint = Intrinsic::getDeclaration(
       M, Intrinsic::experimental_gc_statepoint, {FuncPtrType});
 
-  std::vector<llvm::Value *> Args =
+  std::vector<Value *> Args =
       getStatepointArgs(*Builder, ID, NumPatchBytes, ActualInvokee, Flags,
                         InvokeArgs, TransitionArgs, DeoptArgs, GCArgs);
   return createInvokeHelper(FnStatepoint, NormalDest, UnwindDest, Args, Builder,
@@ -700,7 +769,17 @@ CallInst *IRBuilderBase::CreateGCRelocate(Instruction *Statepoint,
 CallInst *IRBuilderBase::CreateBinaryIntrinsic(Intrinsic::ID ID,
                                                Value *LHS, Value *RHS,
                                                const Twine &Name) {
-  Module *M = BB->getParent()->getParent();
-  Function *Fn =  Intrinsic::getDeclaration(M, ID, { LHS->getType() });
+  Module *M = BB->getModule();
+  Function *Fn = Intrinsic::getDeclaration(M, ID, { LHS->getType() });
   return createCallHelper(Fn, { LHS, RHS }, this, Name);
+}
+
+CallInst *IRBuilderBase::CreateIntrinsic(Intrinsic::ID ID,
+                                         ArrayRef<Value *> Args,
+                                         Instruction *FMFSource,
+                                         const Twine &Name) {
+  assert(!Args.empty() && "Expected at least one argument to intrinsic");
+  Module *M = BB->getModule();
+  Function *Fn = Intrinsic::getDeclaration(M, ID, { Args.front()->getType() });
+  return createCallHelper(Fn, Args, this, Name, FMFSource);
 }

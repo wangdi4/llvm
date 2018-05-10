@@ -181,56 +181,6 @@ OCLTypeToSPIRV::adaptFunction(Function *F) {
   addAdaptedType(F, FT);
 }
 
-MDNode *
-OCLTypeToSPIRV::getArgAccessQualifierMetadata(Function *F) {
-  return getArgMetadata(F, SPIR_MD_KERNEL_ARG_ACCESS_QUAL);
-}
-
-MDNode *
-OCLTypeToSPIRV::getKernelMetadata(Function *F) {
-  NamedMDNode *KernelMDs = M->getNamedMetadata(SPIR_MD_KERNELS);
-  if (!KernelMDs)
-    return nullptr;
-
-  for (unsigned I = 0, E = KernelMDs->getNumOperands(); I < E; ++I) {
-    MDNode *KernelMD = KernelMDs->getOperand(I);
-    if (KernelMD->getNumOperands() == 0)
-      continue;
-    Function *Kernel = mdconst::dyn_extract<Function>(KernelMD->getOperand(0));
-
-    if (Kernel == F)
-      return KernelMD;
-  }
-  return nullptr;
-}
-
-MDNode *
-OCLTypeToSPIRV::getArgMetadata(Function *F, const std::string &MDName) {
-  auto KernelMD = getKernelMetadata(F);
-  if (!KernelMD)
-    return nullptr;
-
-  for (unsigned MI = 1, ME = KernelMD->getNumOperands(); MI < ME; ++MI) {
-    MDNode *MD = dyn_cast<MDNode>(KernelMD->getOperand(MI));
-    if (!MD)
-      continue;
-    MDString *NameMD = dyn_cast<MDString>(MD->getOperand(0));
-    if (!NameMD)
-      continue;
-    StringRef Name = NameMD->getString();
-    if (Name == MDName) {
-      return MD;
-    }
-  }
-  return nullptr;
-}
-
-
-MDNode *
-OCLTypeToSPIRV::getArgBaseTypeMetadata(Function *F) {
-  return getArgMetadata(F, SPIR_MD_KERNEL_ARG_BASE_TYPE);
-}
-
 // Handle functions with sampler arguments that don't get called by
 // a kernel function.
 void OCLTypeToSPIRV::adaptArgumentsBySamplerUse(Module &M) {
@@ -279,7 +229,7 @@ void OCLTypeToSPIRV::adaptArgumentsBySamplerUse(Module &M) {
 
 void
 OCLTypeToSPIRV::adaptFunctionArguments(Function* F) {
-  auto TypeMD = getArgBaseTypeMetadata(F);
+  auto TypeMD = F->getMetadata(SPIR_MD_KERNEL_ARG_BASE_TYPE);
   if (TypeMD)
     return;
   bool Changed = false;
@@ -311,14 +261,14 @@ OCLTypeToSPIRV::adaptFunctionArguments(Function* F) {
 /// ToDo: Map other OpenCL opaque types to SPIR-V types.
 void
 OCLTypeToSPIRV::adaptArgumentsByMetadata(Function* F) {
-  auto TypeMD = getArgBaseTypeMetadata(F);
+  auto TypeMD = F->getMetadata(SPIR_MD_KERNEL_ARG_BASE_TYPE);
   if (!TypeMD)
     return;
   bool Changed = false;
   auto FT = F->getFunctionType();
   auto PI = FT->param_begin();
   auto Arg = F->arg_begin();
-  for (unsigned I = 1, E = TypeMD->getNumOperands(); I != E;
+  for (unsigned I = 0, E = TypeMD->getNumOperands(); I != E;
       ++I, ++PI, ++ Arg) {
     auto OCLTyStr = getMDOperandAsString(TypeMD, I);
     auto NewTy = *PI;
@@ -330,7 +280,7 @@ OCLTypeToSPIRV::adaptArgumentsByMetadata(Function* F) {
       if (STName.startswith(kSPR2TypeName::ImagePrefix) ||
           STName == kSPR2TypeName::Pipe) {
         auto Ty = STName.str();
-        auto AccMD = getArgAccessQualifierMetadata(F);
+        auto AccMD = F->getMetadata(SPIR_MD_KERNEL_ARG_ACCESS_QUAL);
         assert(AccMD && "Invalid access qualifier metadata");
         auto AccStr = getMDOperandAsString(AccMD, I);
         addAdaptedType(&(*Arg), getOrCreateOpaquePtrType(M,

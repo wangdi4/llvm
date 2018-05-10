@@ -159,6 +159,8 @@
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-CL20
 // RUN: %clang_cc1 %s -E -dM -o - -x cl -cl-fast-relaxed-math \
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-FRM
+// RUN: %clang_cc1 %s -E -dM -o - -x cl -cl-std=c++ \
+// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-CLCPP10
 // CHECK-CL10: #define CL_VERSION_1_0 100
 // CHECK-CL10: #define CL_VERSION_1_1 110
 // CHECK-CL10: #define CL_VERSION_1_2 120
@@ -184,6 +186,10 @@
 // CHECK-CL20: #define __OPENCL_C_VERSION__ 200
 // CHECK-CL20-NOT: #define __FAST_RELAXED_MATH__ 1
 // CHECK-FRM: #define __FAST_RELAXED_MATH__ 1
+// CHECK-CLCPP10: #define __CL_CPP_VERSION_1_0__ 100
+// CHECK-CLCPP10: #define __OPENCL_CPP_VERSION__ 100
+// CHECK-CLCPP10-NOT: #define __FAST_RELAXED_MATH__ 1
+// CHECK-CLCPP10-NOT: #define __ENDIAN_LITTLE__ 1
 
 // RUN: %clang_cc1 %s -E -dM -o - -x cl \
 // RUN:   | FileCheck %s --check-prefix=MSCOPE
@@ -267,3 +273,7 @@
 // CHECK-ARM64-MINGW: #define _WIN32 1
 // CHECK-ARM64-MINGW: #define _WIN64 1
 // CHECK-ARM64-MINGW: #define __aarch64__ 1
+
+// RUN: %clang_cc1 %s -E -dM -o - -x cl -triple spir-unknown-unknown \
+// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-SPIR
+// CHECK-SPIR: #define __IMAGE_SUPPORT__ 1
