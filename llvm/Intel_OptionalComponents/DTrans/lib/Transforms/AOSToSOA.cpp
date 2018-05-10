@@ -80,15 +80,6 @@ private:
   ValueMapTypeRemapper &TypeRemapper;
 };
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-// Helper method for getting a name to print for structures in debug traces.
-StringRef getStructName(llvm::Type *Ty) {
-  auto *StructTy = dyn_cast<llvm::StructType>(Ty);
-  assert(StructTy && "Expected structure type");
-  return StructTy->hasName() ? StructTy->getStructName() : "<unnamed struct>";
-}
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
 // This class is responsible for all the transformation work for the AOS to SOA
 // with Indexing conversion.
 class AOSToSOATransformImpl : public DTransOptBase {
@@ -1570,18 +1561,6 @@ bool AOSToSOAPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 // that meet the minimum safety conditions to be considered for transformation.
 void AOSToSOAPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
                                         StructInfoVecImpl &CandidateTypes) {
-  const dtrans::SafetyData AOSToSOASafetyConditions =
-      dtrans::BadCasting | dtrans::BadAllocSizeArg |
-      dtrans::BadPtrManipulation | dtrans::AmbiguousGEP | dtrans::VolatileData |
-      dtrans::MismatchedElementAccess | dtrans::WholeStructureReference |
-      dtrans::UnsafePointerStore | dtrans::FieldAddressTaken |
-      dtrans::GlobalInstance | dtrans::HasInitializerList |
-      dtrans::UnsafePtrMerge | dtrans::BadMemFuncSize |
-      dtrans::BadMemFuncManipulation | dtrans::AmbiguousPointerTarget |
-      dtrans::AddressTaken | dtrans::NoFieldsInStruct | dtrans::NestedStruct |
-      dtrans::ContainsNestedStruct | dtrans::SystemObject |
-      dtrans::LocalInstance | dtrans::MismatchedArgUse | dtrans::GlobalArray |
-      dtrans::HasVTable | dtrans::HasFnPtr;
 
   for (dtrans::TypeInfo *TI : DTInfo.type_info_entries()) {
     auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
@@ -1591,10 +1570,10 @@ void AOSToSOAPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
     if (cast<StructType>(TI->getLLVMType())->isLiteral())
       continue;
 
-    if (TI->testSafetyData(AOSToSOASafetyConditions)) {
+    if (DTInfo.testSafetyData(TI, dtrans::DT_AOSToSOA)) {
       LLVM_DEBUG(
           dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported safety data: "
-                 << getStructName(TI->getLLVMType()) << "\n");
+                 << dtrans::getStructName(TI->getLLVMType()) << "\n");
       continue;
     }
 
@@ -1621,7 +1600,7 @@ void AOSToSOAPass::qualifyCandidates(
   LLVM_DEBUG({
     for (auto *Candidate : CandidateTypes)
       dbgs() << "DTRANS-AOSTOSOA: Passed qualification tests: "
-             << getStructName(Candidate->getLLVMType()) << "\n";
+             << dtrans::getStructName(Candidate->getLLVMType()) << "\n";
   });
 }
 
@@ -1658,7 +1637,8 @@ bool AOSToSOAPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
   for (auto *Candidate : CandidateTypes) {
     if (ArrayElemTypes.find(Candidate) != ArrayElemTypes.end()) {
       LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Array of type seen: "
-                        << getStructName(Candidate->getLLVMType()) << "\n");
+                        << dtrans::getStructName(Candidate->getLLVMType())
+                        << "\n");
       continue;
     }
 
@@ -1681,7 +1661,7 @@ bool AOSToSOAPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
       LLVM_DEBUG(
           dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported structure "
                     "element type: "
-                 << getStructName(Candidate->getLLVMType()) << "\n");
+                 << dtrans::getStructName(Candidate->getLLVMType()) << "\n");
   }
 
   std::swap(CandidateTypes, Qualified);
@@ -1717,7 +1697,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
                  TypeToAllocInstr[StInfo] != nullptr))
               dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported "
                         "allocation function: "
-                     << getStructName(Ty) << "\n"
+                     << dtrans::getStructName(Ty) << "\n"
                      << "  " << *ACI->getInstruction() << "\n";
           });
 
@@ -1740,7 +1720,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
                           StInfo) != CandidateTypes.end() &&
                 TypeToAllocInstr[StInfo] != nullptr)
               dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Too many allocations: "
-                     << getStructName(Ty) << "\n";
+                     << dtrans::getStructName(Ty) << "\n";
           });
           TypeToAllocInstr[StInfo] = nullptr;
           continue;

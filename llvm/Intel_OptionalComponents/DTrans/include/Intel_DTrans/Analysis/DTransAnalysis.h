@@ -19,6 +19,7 @@
 
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/ValueMap.h"
@@ -77,6 +78,11 @@ public:
 
   bool analyzeModule(Module &M, TargetLibraryInfo &TLI,
                      function_ref<BlockFrequencyInfo &(Function &)> GetBFI);
+  /// Parse command line option and create an internal map of
+  /// <transform> -> <list_of_type_names>.
+  void parseIgnoreList();
+
+  bool analyzeModule(Module &M, TargetLibraryInfo &TLI);
   void reset();
 
   /// Return true if we are interested in tracking values of the specified type.
@@ -190,16 +196,24 @@ public:
   uint64_t getMaxTotalFrequency() const { return MaxTotalFrequency; }
   void setMaxTotalFrequency(uint64_t MTFreq) { MaxTotalFrequency = MTFreq;}
 
+  bool testSafetyData(dtrans::TypeInfo *TyInfo, dtrans::Transform Transform);
+
 private:
   void printStructInfo(dtrans::StructInfo *AI);
   void printArrayInfo(dtrans::ArrayInfo *AI);
-  void printFieldInfo(dtrans::FieldInfo &FI);
+  void printFieldInfo(dtrans::FieldInfo &FI,
+                      dtrans::Transform IgnoredInTransform);
+
+  // Prints the list of transformations for which the type was marked as
+  // ignored in command line option.
+  void printIgnoreTransListForStructure(dtrans::StructInfo *SI);
 
   void addCallInfo(llvm::Instruction *I, dtrans::CallInfo *Info);
   void destructCallInfo(dtrans::CallInfo *Info);
 
   void computeStructFrequency(dtrans::StructInfo *StInfo);
 
+  DenseMap<dtrans::Transform, StringSet<>> IgnoreTypeMap;
   DenseMap<llvm::Type *, dtrans::TypeInfo *> TypeInfoMap;
 
   // A mapping from function calls that special information is collected for

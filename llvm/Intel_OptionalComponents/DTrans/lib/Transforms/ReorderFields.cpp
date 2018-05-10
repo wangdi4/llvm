@@ -669,17 +669,6 @@ void ReorderFieldsPass::collectReorderTransInfoIfProfitable(
 
 bool ReorderFieldsPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
                                              const DataLayout &DL) {
-  // TODO: Create a safety mask for the conditions that are common to all
-  //       DTrans optimizations.
-  ReorderFieldsSafetyConditions =
-      BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
-      VolatileData | MismatchedElementAccess | WholeStructureReference |
-      UnsafePointerStore | FieldAddressTaken | GlobalInstance |
-      HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
-      MemFuncPartialWrite | BadMemFuncManipulation | AmbiguousPointerTarget |
-      AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
-      SystemObject | LocalInstance | UnhandledUse;
-
   LLVM_DEBUG(dbgs() << "Reorder fields: looking for candidate structures.\n");
 
   for (TypeInfo *TI : DTInfo.type_info_entries()) {
@@ -687,7 +676,7 @@ bool ReorderFieldsPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
     if (!StInfo)
       continue;
 
-    if (StInfo->testSafetyData(ReorderFieldsSafetyConditions)) {
+    if (DTInfo.testSafetyData(TI, dtrans::DT_ReorderFields)) {
       LLVM_DEBUG(dbgs() << "  Rejecting "
                         << getStName(cast<StructType>(StInfo->getLLVMType()))
                         << " based on safety data.\n");

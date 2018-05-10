@@ -56,6 +56,16 @@ static cl::opt<bool>
     DTransIgnoreBFI("dtrans-ignore-bfi", cl::init(true), cl::ReallyHidden,
                     cl::desc("Ignore using BFI while computing field freq"));
 
+// This internal option is used to avoid assigning safety check violations to
+// types in the list. Syntax: the list should be a sequence of records separated
+// by ';'. Each record should be in the form
+// 'transformation:typename(,typename)*'
+// Ex.: -dtrans-nosafetychecks-list="aostosoa:type1,type2,type3;fsv:type2"
+static cl::list<std::string> DTransNoSafetyChecksList(
+    "dtrans-nosafetychecks-list",
+    cl::desc("Suppress dtrans safety violations for aggregate types."),
+    cl::ReallyHidden);
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Prints information that is saved during analysis about specific function
 /// calls (malloc, free, memset, etc) that may be useful to the transformations.
@@ -5356,13 +5366,14 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
     DTransTy =
         new dtrans::ArrayInfo(Ty, ElementInfo, Ty->getArrayNumElements());
   } else if (Ty->isStructTy()) {
+    llvm::StructType *STy = cast<StructType>(Ty);
     SmallVector<llvm::Type *, 16> FieldTypes;
-    for (llvm::Type *FieldTy : cast<StructType>(Ty)->elements()) {
+    for (llvm::Type *FieldTy : STy->elements()) {
       FieldTypes.push_back(FieldTy);
       // Create a DTrans type for the field, in case it is an aggregate.
       (void)getOrCreateTypeInfo(FieldTy);
     }
-    DTransTy = new dtrans::StructInfo(Ty, FieldTypes);
+    DTransTy = new dtrans::StructInfo(Ty, FieldTypes, 0);
   } else {
     assert(!Ty->isAggregateType() &&
            "DTransAnalysisInfo::getOrCreateTypeInfo unexpected aggregate type");
@@ -5577,6 +5588,7 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
   PaddedMallocSize = Other.getPaddedMallocSize();
   PaddedMallocInterface = Other.getPaddedMallocInterface();
   MaxTotalFrequency = Other.MaxTotalFrequency;
+  IgnoreTypeMap = std::move(Other.IgnoreTypeMap);
   return *this;
 }
 
@@ -5604,6 +5616,93 @@ void DTransAnalysisInfo::reset() {
     }
   }
   TypeInfoMap.clear();
+  IgnoreTypeMap.clear();
+}
+
+// Parse 'dtrans-nosafetychecks-list' option and collect a map of
+// transformations to the list of type names to be ignored.
+// Syntax: -dtrans-ignore-list="record(;record)*"
+//                     record := transform_name:type_name(,type_name)*
+void DTransAnalysisInfo::parseIgnoreList() {
+  if (!DTransNoSafetyChecksList.empty()) {
+    LLVM_DEBUG(dbgs() << "\ndtrans-ignore-list: ");
+    for (auto &List : DTransNoSafetyChecksList) {
+      StringRef IgnoreList(List);
+      if (IgnoreList.empty()) {
+        continue;
+      }
+      SmallVector<StringRef, 20> IgnoreListElements;
+      IgnoreList.split(IgnoreListElements, ";");
+      for (auto Element : IgnoreListElements) {
+        std::pair<StringRef, StringRef> TransformationAndTypes =
+            Element.split(":");
+        if (TransformationAndTypes.first.empty() ||
+            TransformationAndTypes.second.empty()) {
+          LLVM_DEBUG(dbgs() << "\n\tSkipping \'" << Element
+                       << "\': transform name or types list is missing");
+          continue;
+        }
+        dtrans::Transform TransName;
+        if (TransformationAndTypes.first == "fsv")
+          TransName = dtrans::DT_FieldSingleValue;
+        else if (TransformationAndTypes.first == "fsaf")
+          TransName = dtrans::DT_FieldSingleAllocFunction;
+        else if (TransformationAndTypes.first == "reorderfields")
+          TransName = dtrans::DT_ReorderFields;
+        else if (TransformationAndTypes.first == "deletefield")
+          TransName = dtrans::DT_DeleteField;
+        else if (TransformationAndTypes.first == "aostosoa")
+          TransName = dtrans::DT_AOSToSOA;
+        else {
+          LLVM_DEBUG(dbgs() << "\n\tSkipping \'" << Element
+                       << "\': bad transformation name");
+          continue;
+        }
+        LLVM_DEBUG(dbgs() << "\n\tAdding   \'" << Element << "\' ");
+        SmallVector<StringRef, 20> IgnoreTypes;
+        TransformationAndTypes.second.split(IgnoreTypes, ",");
+        for (auto TypeName : IgnoreTypes)
+          IgnoreTypeMap[TransName].insert(TypeName);
+      }
+    }
+    LLVM_DEBUG(dbgs() << "\n");
+  }
+}
+
+// Returns true if type has no safety violations or if it is in the ignore list.
+bool DTransAnalysisInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
+                                        dtrans::Transform Transform) {
+  assert(!(Transform & ~dtrans::DT_Legal) && "Illegal transform");
+
+  dtrans::SafetyData Conditions = dtrans::getConditionsForTransform(Transform);
+  bool checkFailed = TyInfo->testSafetyData(Conditions);
+
+  // If there were no safety check violations, then no need to check ignore
+  // list.
+  if (!checkFailed)
+    return false;
+
+  if (!IgnoreTypeMap[Transform].empty())
+    if (llvm::Type *Ty = TyInfo->getLLVMType())
+      if (Ty->isStructTy()) {
+        StringRef Name = dtrans::getStructName(Ty);
+        // Cut the "struct." from the LLVM type name.
+        if (Name.consume_front("struct."))
+          if (IgnoreTypeMap[Transform].find(Name) !=
+              IgnoreTypeMap[Transform].end())
+            if (checkFailed) {
+              // The type is in the ignore list and indeed violated safety
+              // conditions. So print a note, discard the check and return
+              // 'false'.
+              checkFailed = false;
+              dyn_cast<dtrans::StructInfo>(TyInfo)->setIgnoredFor(Transform);
+              LLVM_DEBUG(dbgs() << "dtrans-"
+                                << dtrans::getStringForTransform(Transform)
+                                << ": ignoring " << dtrans::getStructName(Ty)
+                                << " by user demand\n");
+            }
+      }
+  return checkFailed;
 }
 
 bool DTransAnalysisInfo::analyzeModule(
@@ -5612,6 +5711,8 @@ bool DTransAnalysisInfo::analyzeModule(
   DTransAllocAnalyzer DTAA(TLI);
   DTransInstVisitor Visitor(M.getContext(), *this, M.getDataLayout(), TLI, DTAA,
                             GetBFI);
+  parseIgnoreList();
+
   Visitor.visit(M);
 
   // Computes TotalFrequency for each StructInfo and MaxTotalFrequency.
@@ -5629,10 +5730,10 @@ bool DTransAnalysisInfo::analyzeModule(
   // the SafetyData checks.
   for (auto *TI : type_info_entries()) {
     auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
-    if (StInfo && StInfo->testSafetyData(dtrans::SDFieldSingleValue))
+    if (StInfo && testSafetyData(TI, dtrans::DT_FieldSingleValue))
       for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I)
         StInfo->getField(I).setMultipleValue();
-    if (StInfo && StInfo->testSafetyData(dtrans::SDSingleAllocFunction))
+    if (StInfo && testSafetyData(TI, dtrans::DT_FieldSingleAllocFunction))
       for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I)
         StInfo->getField(I).setBottomAllocFunction();
   }
@@ -5702,9 +5803,10 @@ void DTransAnalysisInfo::printStructInfo(dtrans::StructInfo *SI) {
     outs() << "  CRuleTypeKind: ";
     outs() << dtrans::CRuleTypeKindName(SI->getCRuleTypeKind()) << "\n";
   }
+  printIgnoreTransListForStructure(SI);
   outs() << "  Number of fields: " << SI->getNumFields() << "\n";
   for (auto &Field : SI->getFields()) {
-    printFieldInfo(Field);
+    printFieldInfo(Field, SI->getIgnoredFor());
   }
   outs() << "  Total Frequency: " << SI->getTotalFrequency() << "\n";
   SI->printSafetyData();
@@ -5724,7 +5826,8 @@ void DTransAnalysisInfo::printArrayInfo(dtrans::ArrayInfo *AI) {
   outs() << "\n";
 }
 
-void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field) {
+void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field,
+                                        dtrans::Transform IgnoredInTransform) {
   outs() << "  Field LLVM Type: " << *(Field.getLLVMType()) << "\n";
   outs() << "    Field info:";
 
@@ -5758,6 +5861,8 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field) {
     outs() << "] <" << (Field.isValueSetComplete() ? "complete" : "incomplete")
            << ">";
   }
+  if (IgnoredInTransform & dtrans::DT_FieldSingleValue)
+    outs() << " (ignored)";
   outs() << "\n";
 
   if (Field.isTopAllocFunction())
@@ -5767,7 +5872,8 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field) {
     Field.getSingleAllocFunction()->printAsOperand(outs());
   } else if (Field.isBottomAllocFunction())
     outs() << "    Bottom Alloc Function";
-
+  if (IgnoredInTransform & dtrans::DT_FieldSingleAllocFunction)
+    outs() << " (ignored)";
   outs() << "\n";
 }
 
@@ -5844,6 +5950,26 @@ bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(
   LLVM_DEBUG(dbgs() << "FSV ICS: Specialized TO " << F->getName() << " Load "
                     << *LI << "\n");
   return true;
+}
+
+void DTransAnalysisInfo::printIgnoreTransListForStructure(
+    dtrans::StructInfo *SI) {
+  std::string Output;
+  StringRef Name = dtrans::getStructName(SI->getLLVMType());
+  // Cut the "struct." from the LLVM type name.
+  if (!Name.consume_front("struct."))
+    return;
+
+  for (dtrans::Transform Tr = dtrans::DT_First; Tr < dtrans::DT_Last;
+       Tr <<= 1) {
+    if (IgnoreTypeMap[Tr].find(Name) != IgnoreTypeMap[Tr].end()) {
+      Output += " ";
+      Output += dtrans::getStringForTransform(Tr);
+    }
+  }
+  if (!Output.empty()) {
+    outs() << "  (will be ignored in" << Output << ")\n";
+  }
 }
 
 void DTransAnalysisWrapper::getAnalysisUsage(AnalysisUsage &AU) const {

@@ -37,6 +37,7 @@ class CallInst;
 class Value;
 class Constant;
 class raw_ostream;
+class DTransAnalysisInfo;
 
 namespace dtrans {
 
@@ -261,6 +262,72 @@ const SafetyData HasFnPtr = 0x0000000000008000000;
 /// or unsafe, but we will conservatively assume it is unsafe.
 const SafetyData UnhandledUse = 0x8000000000000000;
 
+// TODO: Create a safety mask for the conditions that are common to all
+//       DTrans optimizations.
+//
+// Safety conditions for field reordering and deletion.
+//
+const SafetyData SDDeleteField =
+    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | FieldAddressTaken | BadMemFuncSize |
+    BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
+    AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
+    MemFuncPartialWrite | SystemObject | MismatchedArgUse | GlobalArray |
+    HasVTable | HasFnPtr;
+
+const SafetyData SDReorderFields =
+    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+    HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
+    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+    NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
+    LocalInstance | UnhandledUse;
+//
+// Safety conditions for field single value analysis
+//
+const SafetyData SDFieldSingleValue =
+    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
+    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
+    AmbiguousPointerTarget | UnsafePtrMerge | AddressTaken | UnhandledUse;
+
+const SafetyData SDSingleAllocFunction =
+    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
+    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
+    BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
+    UnsafePtrMerge | AddressTaken | UnhandledUse;
+
+const SafetyData SDElimROFieldAccess =
+    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
+    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
+    BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
+    HasInitializerList | UnsafePtrMerge | AddressTaken | UnhandledUse;
+
+const SafetyData SDAOSToSOA =
+    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+    HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
+    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+    NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
+    LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr;
+
+//
+// TODO: Update the list each time we add a new safety conditions check for a
+// new transformation pass.
+//
+typedef uint32_t Transform;
+
+const Transform DT_First = 0x0001;
+const Transform DT_FieldSingleValue = 0x0001;
+const Transform DT_FieldSingleAllocFunction = 0x0002;
+const Transform DT_ReorderFields = 0x0004;
+const Transform DT_DeleteField = 0x0008;
+const Transform DT_AOSToSOA = 0x0010;
+const Transform DT_Last = 0x0020;
+const Transform DT_Legal = 0x001f;
+
 /// A three value enum that indicates whether for a particular Type of
 /// interest if a there is another distinct Type with which it is compatible
 /// by C language rules.
@@ -310,26 +377,6 @@ private:
   CRuleTypeKind CRTypeKind;
 };
 
-//
-// Safety conditions for field single value analysis
-//
-const SafetyData SDFieldSingleValue =
-    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
-    AmbiguousPointerTarget | UnsafePtrMerge | AddressTaken | UnhandledUse;
-
-const SafetyData SDSingleAllocFunction =
-    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
-    BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
-    UnsafePtrMerge | AddressTaken | UnhandledUse;
-
-const SafetyData SDElimROFieldAccess =
-    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
-    BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
-    HasInitializerList | UnsafePtrMerge | AddressTaken | UnhandledUse;
-
 class NonAggregateTypeInfo : public TypeInfo {
 public:
   NonAggregateTypeInfo(llvm::Type *Ty)
@@ -353,8 +400,8 @@ public:
 
 class StructInfo : public TypeInfo {
 public:
-  StructInfo(llvm::Type *Ty, ArrayRef<llvm::Type *> FieldTypes)
-      : TypeInfo(TypeInfo::StructInfo, Ty) {
+  StructInfo(llvm::Type *Ty, ArrayRef<llvm::Type *> FieldTypes, bool IgnoreFlag)
+      : TypeInfo(TypeInfo::StructInfo, Ty), IsIgnoredFor(IgnoreFlag) {
     for (llvm::Type *FieldTy : FieldTypes)
       Fields.push_back(FieldInfo(FieldTy));
   }
@@ -370,10 +417,17 @@ public:
   uint64_t getTotalFrequency() const { return TotalFrequency; }
   void setTotalFrequency(uint64_t TFreq) { TotalFrequency = TFreq; }
 
+  /// Sets IsIgnoredFor field to true if the type was indeed ignored during FSV
+  /// and/or FSAF safety checking.
+  void setIgnoredFor(dtrans::Transform Flag) { IsIgnoredFor |= Flag; }
+  /// Returns FSV and/or FSAF if the type was ignored in those optimizations.
+  dtrans::Transform getIgnoredFor() { return IsIgnoredFor; }
+
 private:
   SmallVector<FieldInfo, 16> Fields;
   // Total Frequency of all fields in struct.
   uint64_t TotalFrequency;
+  dtrans::Transform IsIgnoredFor;
 };
 
 class ArrayInfo : public TypeInfo {
@@ -745,6 +799,12 @@ bool isSystemObjectType(llvm::StructType *Ty);
 /// we are unwilling to attempts dtrans optimizations.
 unsigned getMaxFieldsInStruct();
 
+/// Get the transformation printable name.
+StringRef getStringForTransform(dtrans::Transform Trans);
+/// Get the safety conditions for the transformation.
+dtrans::SafetyData getConditionsForTransform(dtrans::Transform Trans);
+
+StringRef getStructName(llvm::Type *Ty);
 } // namespace dtrans
 
 } // namespace llvm

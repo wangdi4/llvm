@@ -121,20 +121,6 @@ ModulePass *llvm::createDTransDeleteFieldWrapperPass() {
 }
 
 bool DeleteFieldImpl::prepareTypes(Module &M) {
-  // TODO: Create a safety mask for the conditions that are common to all
-  //       DTrans optimizations.
-  dtrans::SafetyData DeleteFieldSafetyConditions =
-      dtrans::BadCasting | dtrans::BadAllocSizeArg |
-      dtrans::BadPtrManipulation | dtrans::AmbiguousGEP | dtrans::VolatileData |
-      dtrans::MismatchedElementAccess | dtrans::WholeStructureReference |
-      dtrans::UnsafePointerStore | dtrans::FieldAddressTaken |
-      dtrans::BadMemFuncSize | dtrans::BadMemFuncManipulation |
-      dtrans::AmbiguousPointerTarget | dtrans::UnsafePtrMerge |
-      dtrans::AddressTaken | dtrans::NoFieldsInStruct | dtrans::NestedStruct |
-      dtrans::ContainsNestedStruct | dtrans::MemFuncPartialWrite |
-      dtrans::SystemObject | dtrans::MismatchedArgUse | dtrans::GlobalArray |
-      dtrans::HasVTable | dtrans::HasFnPtr;
-
   LLVM_DEBUG(dbgs() << "Delete field: looking for candidate structures.\n");
 
   uint64_t DeleteableBytes = 0;
@@ -184,7 +170,7 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
     if (!CanDeleteField)
       continue;
 
-    if (StInfo->testSafetyData(DeleteFieldSafetyConditions)) {
+    if (DTInfo.testSafetyData(TI, dtrans::DT_DeleteField)) {
       LLVM_DEBUG({
         dbgs() << "  Rejecting ";
         StInfo->getLLVMType()->print(dbgs(), true, true);

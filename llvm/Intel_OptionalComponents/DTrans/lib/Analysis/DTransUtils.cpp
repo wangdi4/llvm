@@ -498,3 +498,55 @@ void MemfuncCallInfo::print(raw_ostream &OS) {
   }
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+// Returns StringRef with the name of the transformation
+StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
+  if (Trans == 0 || Trans & ~dtrans::DT_Legal)
+    return "";
+
+  switch (Trans) {
+  case dtrans::DT_FieldSingleValue:
+    return "fsv";
+  case dtrans::DT_FieldSingleAllocFunction:
+    return "fsaf";
+  case dtrans::DT_DeleteField:
+    return "deletefield";
+  case dtrans::DT_ReorderFields:
+    return "reorderfields";
+  case dtrans::DT_AOSToSOA:
+    return "aostosoa";
+  }
+  llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
+  return "";
+}
+
+// Returns safety conditions for the transformation
+dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans) {
+  if (Trans == 0 || Trans & ~dtrans::DT_Legal)
+    return dtrans::NoIssues;
+
+  switch (Trans) {
+  case dtrans::DT_FieldSingleValue:
+    return dtrans::SDFieldSingleValue;
+  case dtrans::DT_FieldSingleAllocFunction:
+    return dtrans::SDSingleAllocFunction;
+  case dtrans::DT_DeleteField:
+    return dtrans::SDDeleteField;
+  case dtrans::DT_ReorderFields:
+    return dtrans::SDReorderFields;
+  case dtrans::DT_AOSToSOA:
+    return dtrans::SDAOSToSOA;
+  }
+  llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
+  return dtrans::NoIssues;
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// Helper method for getting a name to print for structures in debug traces.
+StringRef dtrans::getStructName(llvm::Type *Ty) {
+  auto *StructTy = dyn_cast<llvm::StructType>(Ty);
+  assert(StructTy && "Expected structure type");
+  return StructTy->hasName() ? StructTy->getStructName() : "<unnamed struct>";
+}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
