@@ -52,13 +52,13 @@ void foo() {
 // CHECK: %[[ATBC:[0-9]+]] = bitcast %struct.st* %agg-temp to i8*
 // CHECK: %[[IBC2:[0-9]+]] = bitcast %struct.st* %i to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[ATBC]], i8* align 4 %[[IBC2]], i64 8, i1 false)
-// CHECK: call void @llvm.fpga.reg.struct.p0s_struct.sts(%struct.st* %tmp, %struct.st* %agg-temp)
+// CHECK: call void @llvm.fpga.reg.struct.p0s_struct.sts(%struct.st* %ii, %struct.st* %agg-temp)
   struct st iii;
   iii = __builtin_fpga_reg(ii);
-// CHECK: %[[AT3BC:[0-9]+]] = bitcast %struct.st* %agg-temp3 to i8*
+// CHECK: %[[AT3BC:[0-9]+]] = bitcast %struct.st* %agg-temp2 to i8*
 // CHECK: %[[IIBC:[0-9]+]] = bitcast %struct.st* %ii to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[AT3BC]], i8* align 4 %[[IIBC]], i64 8, i1 false)
-// CHECK: call void @llvm.fpga.reg.struct.p0s_struct.sts(%struct.st* %tmp2, %struct.st* %agg-temp3)
+// CHECK: call void @llvm.fpga.reg.struct.p0s_struct.sts(%struct.st* %ref.tmp, %struct.st* %agg-temp2)
 // CHECK: %[[IIIBC:[0-9]+]] = bitcast %struct.st* %iii to i8*
 // CHECK: %[[TMP2BC:[0-9]+]] = bitcast %struct.st* %ref.tmp to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[IIIBC]], i8* align 4 %[[TMP2BC]], i64 8, i1 false)
@@ -70,12 +70,12 @@ void foo() {
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[U1INIT]], i8* align 4 bitcast (%union.un* @_ZZ3foovE2u1 to i8*)
   union un u2, *u3;
   u2 = __builtin_fpga_reg(u1);
-// CHECK: %[[U1TMP:[0-9]+]] = bitcast %union.un* %agg-temp6 to i8*
+// CHECK: %[[U1TMP:[0-9]+]] = bitcast %union.un* %agg-temp4 to i8*
 // CHECK: %[[U1BC:[0-9]+]] = bitcast %union.un* %u1 to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[U1TMP]], i8* align 4 %[[U1BC]], i64 4, i1 false)
-// CHECK: call void @llvm.fpga.reg.struct.p0s_union.uns(%union.un* %tmp5, %union.un* %agg-temp6)
+// CHECK: call void @llvm.fpga.reg.struct.p0s_union.uns(%union.un* %ref.tmp3, %union.un* %agg-temp4)
 // CHECK: %[[U2BC:[0-9]+]] = bitcast %union.un* %u2 to i8*
-// CHECK: %[[RETBC:[0-9]+]] = bitcast %union.un* %ref.tmp4 to i8*
+// CHECK: %[[RETBC:[0-9]+]] = bitcast %union.un* %ref.tmp3 to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[U2BC]], i8* align 4 %[[RETBC]], i64 4, i1 false)
   u3 = __builtin_fpga_reg(&u2);
 // CHECK: %[[U3INIT:[0-9]+]] = call %union.un* @llvm.fpga.reg.p0s_union.uns(%union.un* %u2)

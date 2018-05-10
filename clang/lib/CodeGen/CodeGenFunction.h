@@ -3635,7 +3635,8 @@ public:
 
 #if INTEL_CUSTOMIZATION
   llvm::Value *EmitIntelFPGABuiltinExpr(unsigned BuiltinID, const CallExpr *E);
-  RValue EmitFPGARegBuiltin(unsigned BuiltinID, const CallExpr *E);
+  RValue EmitFPGARegBuiltin(unsigned BuiltinID, const CallExpr *E,
+                            ReturnValueSlot ReturnValue);
   RValue EmitHLSStreamBuiltin(unsigned BuiltinID, const CallExpr *E);
   RValue EmitHLSMemMasterBuiltin(unsigned BuiltinID, const CallExpr *E,
                                  ReturnValueSlot ReturnValue);
