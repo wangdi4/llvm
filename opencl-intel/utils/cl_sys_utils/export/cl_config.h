@@ -567,7 +567,7 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
         bool UseRelaxedMath() const { return m_pConfigFile->Read<bool>("CL_CONFIG_USE_FAST_RELAXED_MATH", false); }
         int  RTLoopUnrollFactor() const { return m_pConfigFile->Read<int>("CL_CONFIG_CPU_RT_LOOP_UNROLL_FACTOR", 1); }
 
-        unsigned long GetForcedLocalMemSize() const
+        cl_ulong GetForcedLocalMemSize() const
         {
             std::string strForcedSize;
             if (!m_pConfigFile->ReadInto(strForcedSize, "CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE"))
@@ -578,7 +578,7 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
             return ParseStringToSize(strForcedSize);
         }
 
-        unsigned long GetForcedPrivateMemSize() const
+        cl_ulong GetForcedPrivateMemSize() const
         {
             std::string strForcedSize;
             if (!m_pConfigFile->ReadInto(strForcedSize, "CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE"))
@@ -616,7 +616,7 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
     protected:
         ConfigFile * m_pConfigFile;
 
-        unsigned long ParseStringToSize(const std::string& userStr) const;
+        cl_ulong ParseStringToSize(const std::string& userStr) const;
     };
 
 }}}

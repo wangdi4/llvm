@@ -165,9 +165,9 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
 //  Parse a string that represents memory size of the format: <integer><units>
 //  And convert it to unsigned long in bytes
 //      e.g. 128MB --> 128 * 1024 * 1024 --> 134,217,728 bytes
-unsigned long BasicCLConfigWrapper::ParseStringToSize(const std::string& userStr) const
+cl_ulong BasicCLConfigWrapper::ParseStringToSize(const std::string& userStr) const
 {
-    unsigned long integer = 0;
+    cl_ulong integer = 0;
     std::string integerStr;
     std::string units;
 
