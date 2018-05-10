@@ -268,6 +268,11 @@ ModulePass *createInlineListsPass();
 /// \brief This pass implements optimization of dynamic_cast calls depending on
 /// the classes hierarchy.
 ModulePass *createOptimizeDynamicCastsPass();
+
+/// \brief This pass implements IP Cloning of call trees based on constant
+/// parameter set propagation and folding.
+ModulePass* createCallTreeCloningPass();
+
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

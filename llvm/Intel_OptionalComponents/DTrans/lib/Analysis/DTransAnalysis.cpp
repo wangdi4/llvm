@@ -1884,11 +1884,71 @@ public:
     if (!DTInfo.isTypeOfInterest(Ty))
       return;
 
-    DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                 << "Type used by a stack variable:\n"
+    if (isa<PointerType>(Ty)) {
+      DEBUG(dbgs() << "dtrans-safety: Local pointer -- "
+                   << "Pointer to type used by an alloca instruction:\n"
+                   << "  " << I << "\n");
+      setBaseTypeInfoSafetyData(Ty, dtrans::LocalPtr);
+      return;
+    }
+
+    if (isa<ArrayType>(Ty)) {
+      // For arrays of arrays, we want the deepest level of element to find
+      // our type of interest.
+      llvm::Type *ElemTy = Ty->getArrayElementType();
+      while (isa<ArrayType>(ElemTy))
+        ElemTy = ElemTy->getArrayElementType();
+      // Arrays of pointers, including pointers to non-pointer arrays, are
+      // effectively pointers to the type for the purposes of our analysis.
+      if (isa<PointerType>(ElemTy)) {
+        DEBUG(dbgs() << "dtrans-safety: Local pointer -- "
+                     << "Array of pointers to type used by "
+                     << "an alloca instruction:\n"
+                     << "  " << I << "\n");
+        setBaseTypeInfoSafetyData(ElemTy, dtrans::LocalPtr);
+        return;
+      }
+      if (isa<VectorType>(ElemTy)) {
+        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                     << "Array of vectors allocated by an alloca instruction:\n"
+                     << "  " << I << "\n");
+        setBaseTypeInfoSafetyData(Ty, dtrans::UnhandledUse);
+        return;
+      }
+      DEBUG(dbgs() << "dtrans-safety: Local instance -- "
+                   << "Array of instance of type used by "
+                   << "an alloca instruction:\n"
+                   << "  " << I << "\n");
+      setBaseTypeInfoSafetyData(Ty, dtrans::LocalInstance);
+      return;
+    }
+
+    if (isa<VectorType>(Ty)) {
+      DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                   << "Vector of type instantiated by an alloca instruction:\n"
+                   << "  " << I << "\n");
+      setBaseTypeInfoSafetyData(Ty, dtrans::UnhandledUse);
+      return;
+    }
+
+    DEBUG(dbgs() << "dtrans-safety: Local instance -- "
+                 << "Type instantiated by an alloca instruction:\n"
                  << "  " << I << "\n");
-    // TODO: Set specific safety info.
-    setBaseTypeInfoSafetyData(Ty, dtrans::UnhandledUse);
+    setBaseTypeInfoSafetyData(Ty, dtrans::LocalInstance);
+  }
+
+  void visitBinaryOperator(BinaryOperator &I) {
+    // Binary operator analysis will be implemented as needed.
+    // For now, unimplemented operators will cause values to be marked
+    // as unhandled use.
+    switch (I.getOpcode()) {
+    case Instruction::Sub:
+      analyzeSub(I);
+      break;
+    default:
+      setBinaryOperatorUnhandledUse(I);
+      break;
+    }
   }
 
   // All instructions not handled by other visit functions.
@@ -3274,6 +3334,86 @@ private:
     } else if (auto *AInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
       auto *ComponentTI = AInfo->getElementDTransInfo();
       markAllFieldsMultipleValue(ComponentTI);
+    }
+  }
+
+  void analyzeSub(BinaryOperator &I) {
+    assert(I.getOpcode() == Instruction::Sub &&
+           "analyzeSub() called with unexpected opcode");
+
+    // If neither operand is of interest, we can ignore this instruction.
+    if (!isValueOfInterest(I.getOperand(0)) &&
+        !isValueOfInterest(I.getOperand(1)))
+      return;
+
+    LocalPointerInfo &LHSLPI = LPA.getLocalPointerInfo(I.getOperand(0));
+    LocalPointerInfo &RHSLPI = LPA.getLocalPointerInfo(I.getOperand(1));
+
+    if (!pointerAliasSetsAreEqual(LHSLPI.getPointerTypeAliasSet(),
+                                  RHSLPI.getPointerTypeAliasSet())) {
+      DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                   << "sub instruction operands do not match:\n"
+                   << "  " << I << "\n");
+      setValueTypeInfoSafetyData(I.getOperand(0), dtrans::UnhandledUse);
+      setValueTypeInfoSafetyData(I.getOperand(1), dtrans::UnhandledUse);
+    }
+
+    if (LHSLPI.pointsToSomeElement()) {
+      DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
+                   << "pointer to element used in sub instruction:\n"
+                   << "  " << I << "\n");
+      // Selects and PHIs may have created a pointer that refers to
+      // elements in multiple aggregate types. This sets the bad pointer
+      // manipulation condition for them all.
+      for (auto &PointeePair : LHSLPI.getElementPointeeSet()) {
+        setBaseTypeInfoSafetyData(PointeePair.first,
+                                  dtrans::BadPtrManipulation);
+      }
+    }
+    if (RHSLPI.pointsToSomeElement()) {
+      DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
+                   << "pointer to element used in sub instruction:\n"
+                   << "  " << I << "\n");
+      // Selects and PHIs may have created a pointer that refers to
+      // elements in multiple aggregate types. This sets the bad pointer
+      // manipulation condition for them all.
+      for (auto &PointeePair : RHSLPI.getElementPointeeSet()) {
+        setBaseTypeInfoSafetyData(PointeePair.first,
+                                  dtrans::BadPtrManipulation);
+      }
+    }
+  }
+
+  bool pointerAliasSetsAreEqual(LocalPointerInfo::PointerTypeAliasSetRef Set1,
+                                LocalPointerInfo::PointerTypeAliasSetRef Set2) {
+    // If the number of aliases is not the same, the sets cannot be equal.
+    if (Set1.size() != Set2.size())
+      return false;
+
+    // Check to make sure each type aliased by V1 are also aliased by V2.
+    // This looks expensive, but typically we will have no more than five
+    // aliased types.
+    for (auto *AliasTy : Set1)
+      if (!Set2.count(AliasTy))
+        return false;
+
+    // If we got here, the alias sets match.
+    return true;
+  }
+
+  void setBinaryOperatorUnhandledUse(BinaryOperator &I) {
+    // It isn't possible for binary operators to return pointers or
+    // aggregate types.
+    assert(!DTInfo.isTypeOfInterest(I.getType()) &&
+           "Unexpected return type for binary operator");
+
+    for (Value *Arg : I.operands()) {
+      if (isValueOfInterest(Arg)) {
+        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                     << "Type used by an unmodeled binary operator:\n"
+                     << "  " << I << "\n");
+        setValueTypeInfoSafetyData(Arg, dtrans::UnhandledUse);
+      }
     }
   }
 

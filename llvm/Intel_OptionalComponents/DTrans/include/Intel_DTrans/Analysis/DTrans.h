@@ -181,6 +181,12 @@ const SafetyData ContainsNestedStruct = 0x0000000000100000;
 /// The structure was identified as a system object type.
 const SafetyData SystemObject = 0x0000000000200000;
 
+/// A local variable was found which is a pointer to the type.
+const SafetyData LocalPtr = 0x00000000000400000;
+
+/// A local variable was found which is an instance of the type.
+const SafetyData LocalInstance = 0x0000000000000800000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.

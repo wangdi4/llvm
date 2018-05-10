@@ -825,15 +825,14 @@ static bool isAllUsesOfNoAliasPtrTracked(const Value *V1, const Value *V2) {
     const Instruction *Inst = cast<Instruction>(U);
     // For now, ignore complex GetElementPtr by limiting number of
     // operands.
-    if (!isa<GetElementPtrInst>(Inst) || Inst->getNumOperands() >= 3)
-      return false;
-
-    const GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(U);
+    if (!isa<SubscriptInst>(Inst))
+      if (!isa<GetElementPtrInst>(Inst) || Inst->getNumOperands() >= 3)
+        return false;
 
     // Check all uses of GetElementPtr are not escaped
-    for (const User *U1 : GEPI->users()) {
+    for (const User *U1 : U->users()) {
       const Value* AU = &*U1;
-      if (PtrUseMayBeEcaped(AU, GEPI))
+      if (PtrUseMayBeEcaped(AU, U))
         return false;
     }
   }
@@ -1182,9 +1181,8 @@ bool AndersensAAResult::analyzeGlobalEscape(
         if (analyzeGlobalEscape(I, PhiUsers, 
                                 SingleAcessingFunction))
           return true;
-      } else if (isa<GetElementPtrInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, 
-                                SingleAcessingFunction))
+      } else if (isa<GetElementPtrInst>(I) || isa<SubscriptInst>(I)) {
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
           return true;
       } else if (isa<SelectInst>(I)) {
         if (analyzeGlobalEscape(I, PhiUsers, 
@@ -1926,6 +1924,13 @@ void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   //errs() << "GetElementPtr: " << GEP << "\n";
   CreateConstraint(Constraint::Copy, getNodeValue(GEP),
                    getNode(GEP.getOperand(0)));
+}
+
+// Compare with visitGetElementPtrInst.
+void AndersensAAResult::visitSubscriptInst(SubscriptInst &I) {
+  // P1 = @llvm.intel.subscript P2, ... --> <Copy/P1/P2>
+  CreateConstraint(Constraint::Copy, getNodeValue(I),
+                   getNode(I.getPointerOperand()));
 }
 
 void AndersensAAResult::visitPHINode(PHINode &PN) {

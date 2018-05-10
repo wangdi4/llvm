@@ -211,6 +211,10 @@ static cl::opt<bool> EnableWPA("enable-whole-program-analysis",
 static cl::opt<bool> EnableIPCloning("enable-ip-cloning",
     cl::init(true), cl::Hidden, cl::desc("Enable IP Cloning"));
 
+// Call Tree Cloning
+static cl::opt<bool> EnableCallTreeCloning("enable-call-tree-cloning",
+    cl::init(false), cl::Hidden, cl::desc("Enable Call Tree Cloning"));
+
 // Inline Aggressive Analysis
 static cl::opt<bool>
     EnableInlineAggAnalysis("enable-inline-aggressive-analysis",
@@ -1093,9 +1097,13 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createGlobalOptimizerPass());
 
 #if INTEL_CUSTOMIZATION
-  if (EnableIPCloning) {
-    // Enable generic IPCloning after Inlining.
-    PM.add(createIPCloningLegacyPass(true));
+  if (EnableIPCloning || EnableCallTreeCloning) {
+    if (EnableIPCloning)
+      // Enable generic IPCloning after Inlining.
+      PM.add(createIPCloningLegacyPass(true));
+    if (EnableCallTreeCloning)
+      // Do function cloning along call trees
+      PM.add(createCallTreeCloningPass());
     // Call IPCP to propagate constants
     PM.add(createIPSCCPPass());
   }

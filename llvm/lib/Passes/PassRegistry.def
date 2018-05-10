@@ -53,6 +53,9 @@ MODULE_PASS("deadargelim", DeadArgumentEliminationPass())
 MODULE_PASS("dtrans-aostosoa", dtrans::AOSToSOAPass()) // INTEL
 MODULE_PASS("dtrans-deletefield", dtrans::DeleteFieldPass()) // INTEL
 MODULE_PASS("dtrans-reorderfields", dtrans::ReorderFieldsPass()) // INTEL
+#if !INTEL_PRODUCT_RELEASE
+MODULE_PASS("dtrans-optbasetest", dtrans::OptBaseTestPass()) // INTEL
+#endif // !INTEL_PRODUCT_RELEASE
 #endif // INTEL_INCLUDE_DTRANS
 MODULE_PASS("elim-avail-extern", EliminateAvailableExternallyPass())
 MODULE_PASS("forceattrs", ForceFunctionAttrsPass())
@@ -68,6 +71,7 @@ MODULE_PASS("internalize", InternalizePass())
 MODULE_PASS("invalidate<all>", InvalidateAllAnalysesPass())
 MODULE_PASS("ip-cloning", IPCloningPass(/*AfterInl*/ false))            // INTEL
 MODULE_PASS("post-inline-ip-cloning", IPCloningPass(/*AfterInl*/ true)) // INTEL
+MODULE_PASS("call-tree-clone", CallTreeCloningPass())                   // INTEL
 MODULE_PASS("ipsccp", IPSCCPPass())
 MODULE_PASS("lowertypetests", LowerTypeTestsPass())
 MODULE_PASS("name-anon-globals", NameAnonGlobalPass())
@@ -179,6 +183,7 @@ FUNCTION_PASS("callsite-splitting", CallSiteSplittingPass())
 FUNCTION_PASS("tbaa-prop", TbaaMDPropagationPass())        // INTEL
 FUNCTION_PASS("cleanup-fakeloads", CleanupFakeLoadsPass()) // INTEL
 FUNCTION_PASS("consthoist", ConstantHoistingPass())
+FUNCTION_PASS("convert-to-subscript", ConvertGEPToSubscriptIntrinsicPass()) // INTEL
 FUNCTION_PASS("correlated-propagation", CorrelatedValuePropagationPass())
 FUNCTION_PASS("dce", DCEPass())
 FUNCTION_PASS("div-rem-pairs", DivRemPairsPass())

@@ -299,6 +299,14 @@ SystemObject
 ~~~~~~~~~~~~
 The type was identified as a known system structure type.
 
+LocalPtr
+~~~~~~~~~
+This indicates that a local variable was found that is a pointer to the type.
+
+LocalInstance
+~~~~~~~~~~~~~~
+This indicates that a local variable was found that is an instance of the type.
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we
@@ -509,6 +517,29 @@ The index argument in this case can be a non-constant value. The DTransAnalysis
 will recognize this as a safe use.
 
 
+Sub
+~~~
+The sub instruction cannot operate on pointer values directly, but it is
+frequently used to operate on pointer-size integers that have been created
+from pointers using the ptrtoint instruction.
+
+If a pointer is subtracted from another pointer the result is a scalar value
+that can have no association with any type, implicit or explicit, so this
+operation is safe for the input pointer type. An offset computed this way may
+be used in ways that present safety concerns but that will be handled when the
+instruction using the value is analyzed.
+
+If either operand of a sub instruction is a pointer to an element within a
+structure then the offset so computed is dependent on the layout of the
+parent structure and so this case is flagged with the `BadPtrManipulation`_
+safety condition.
+
+If the operands of a sub instruction are not known to both point to the same
+structure type, the types pointed to will be marked with the `UnhandledUse`_
+safety condition. This case is not expected and will require further
+consideration if it is found to occur.
+
+
 Bitcast
 ~~~~~~~
 Bitcast instructions are analyzed to determine if the value being cast points
@@ -687,7 +718,12 @@ yet implemented.**
 Alloca
 ~~~~~~
 LLVM uses an explicit alloca instruction to allocate stack space for local
-variables. **This instruction type is currently not handled.**
+variables. If an alloca instruction is seen that allocates space for a type
+of interest, the type will be marked with the `LocalInstance`_ safety condition
+if the alloca is creating an instance of the type (including fixed sized arrays)
+or the `LocalPtr`_ safety condition if the alloca is creating a pointer to the
+type. (Note that the LLVM type of the alloca instruction is always a pointer
+type, so local pointer variables will appear as pointers to pointers.)
 
 
 Global variables

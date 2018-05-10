@@ -144,6 +144,9 @@ void LLVMAddLowerExpectIntrinsicPass(LLVMPassManagerRef PM);
 #if INTEL_CUSTOMIZATION
 /** See llvm::createLowerSubscriptIntrinsicLegacyPass function */
 void LLVMAddLowerSubscriptIntrinsicPass(LLVMPassManagerRef PM);
+
+/** See llvm::createConvertGEPToSubscriptIntrinsicLegacyPass function */
+void LLVMAddConvertGEPToSubscriptIntrinsicPass(LLVMPassManagerRef PM);
 #endif // INTEL_CUSTOMIZATION
 
 /** See llvm::createTypeBasedAliasAnalysisPass function */

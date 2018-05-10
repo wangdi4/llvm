@@ -414,6 +414,12 @@ FunctionPass *createLowerExpectIntrinsicPass();
 //
 // LowerSubscriptIntrinsics - Removes llvm.intel.subscript intrinsics.
 FunctionPass *createLowerSubscriptIntrinsicLegacyPass();
+
+//===----------------------------------------------------------------------===//
+//
+// ConvertGEPtoSubscriptIntrinsic - Converts getelementptr to
+// llvm.intel.subscript intrinsics.
+FunctionPass *createConvertGEPToSubscriptIntrinsicLegacyPass();
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

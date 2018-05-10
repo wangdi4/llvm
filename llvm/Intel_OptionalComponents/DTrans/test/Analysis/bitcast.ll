@@ -210,9 +210,8 @@ define void @test16() {
   ret void
 }
 
-; FIXME: The unhandled use here is the alloca instruction.
 ; CHECK: LLVMType: %struct.test16 = type { i32, i32 }
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: Local instance
 
 ; Bad cast of stack pointer through an intermediate i8*
 %struct.test17.a = type { i32, i32 }
@@ -225,7 +224,7 @@ define void @test17() {
 }
 
 ; CHECK: LLVMType: %struct.test17.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: Bad casting | Local instance
 ; CHECK: LLVMType: %struct.test17.b = type { i32, i32, i32 }
 ; CHECK: Safety data: Bad casting
 
