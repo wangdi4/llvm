@@ -7079,8 +7079,11 @@ public:
     : ExprEvaluatorBaseTy(info), Result(result) {}
 
   bool Success(const llvm::APSInt &SI, const Expr *E, APValue &Result) {
-    assert(E->getType()->isIntegralOrEnumerationType() &&
+#if INTEL_CUSTOMIZATION
+    assert((E->getType()->isIntegralOrEnumerationType() ||
+            E->getType()->isArbPrecIntType()) &&
            "Invalid evaluation result.");
+#endif // INTEL_CUSTOMIZATION
     assert(SI.isSigned() == E->getType()->isSignedIntegerOrEnumerationType() &&
            "Invalid evaluation result.");
     assert(SI.getBitWidth() == Info.Ctx.getIntWidth(E->getType()) &&
@@ -7093,8 +7096,11 @@ public:
   }
 
   bool Success(const llvm::APInt &I, const Expr *E, APValue &Result) {
-    assert(E->getType()->isIntegralOrEnumerationType() && 
+#if INTEL_CUSTOMIZATION
+    assert((E->getType()->isIntegralOrEnumerationType() ||
+            E->getType()->isArbPrecIntType()) &&
            "Invalid evaluation result.");
+#endif // INTEL_CUSTOMIZATION
     assert(I.getBitWidth() == Info.Ctx.getIntWidth(E->getType()) &&
            "Invalid evaluation result.");
     Result = APValue(APSInt(I));
@@ -7107,8 +7113,11 @@ public:
   }
 
   bool Success(uint64_t Value, const Expr *E, APValue &Result) {
-    assert(E->getType()->isIntegralOrEnumerationType() && 
+#if INTEL_CUSTOMIZATION
+    assert((E->getType()->isIntegralOrEnumerationType() ||
+            E->getType()->isArbPrecIntType()) &&
            "Invalid evaluation result.");
+#endif // INTEL_CUSTOMIZATION
     Result = APValue(Info.Ctx.MakeIntValue(Value, E->getType()));
     return true;
   }
@@ -10087,7 +10096,9 @@ static bool Evaluate(APValue &Result, EvalInfo &Info, const Expr *E) {
   } else if (T->isVectorType()) {
     if (!EvaluateVector(E, Result, Info))
       return false;
-  } else if (T->isIntegralOrEnumerationType()) {
+#if INTEL_CUSTOMIZATION
+  } else if (T->isIntegralOrEnumerationType() || T->isArbPrecIntType()) {
+#endif // INTEL_CUSTOMIZATION
     if (!IntExprEvaluator(Info, Result).Visit(E))
       return false;
   } else if (T->hasPointerRepresentation()) {
