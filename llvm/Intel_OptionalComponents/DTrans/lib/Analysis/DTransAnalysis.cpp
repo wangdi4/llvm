@@ -41,6 +41,11 @@ static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
 static cl::opt<bool> DTransPrintAnalyzedTypes("dtrans-print-types",
                                               cl::ReallyHidden);
 
+/// Prints information that is saved during analysis about specific function
+/// calls (malloc, free, memset, etc) that may be useful to the transformations.
+static cl::opt<bool> DTransPrintAnalyzedCalls("dtrans-print-callinfo",
+                                              cl::ReallyHidden);
+
 //
 // An option that indicates that a pointer to a struct could access
 // somewhere beyond the boundaries of that struct:
@@ -2360,6 +2365,9 @@ private:
       return;
     }
 
+    dtrans::AllocCallInfo *ACI = DTInfo.createAllocCallInfo(&CI, Kind);
+    populateCallInfoFromLPI(LPI, ACI);
+
     // If the value is cast to multiple types, mark them all as bad casting.
     bool WasCastToMultipleTypes = LPI.pointsToMultipleAggregateTypes();
 
@@ -3029,6 +3037,22 @@ private:
     setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncSize);
   }
 
+  // This function is used to set the type information captured in the
+  // LPI structure into the CallInfo structure that is going to be exposed
+  // to the transforms.
+  void populateCallInfoFromLPI(LocalPointerInfo &LPI, dtrans::CallInfo *CI) {
+    if (LPI.canAliasToAggregatePointer()) {
+      CI->setAliasesToAggregatePointer(true);
+      LocalPointerInfo::PointerTypeAliasSetRef &AliasSet =
+          LPI.getPointerTypeAliasSet();
+      for (auto *Ty : AliasSet) {
+        if (DTInfo.isTypeOfInterest(Ty)) {
+          CI->addType(Ty);
+        }
+      }
+    }
+  }
+
   // Helper function for retrieving information when the \p LPI argument refers
   // to a pointer-to-member element. This function checks that the
   // pointer to member is a referencing a single member from a single structure.
@@ -3537,6 +3561,91 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
   return DTransTy;
 }
 
+dtrans::CallInfo *DTransAnalysisInfo::getCallInfo(llvm::Instruction *I) {
+  auto Entry = CallInfoMap.find(I);
+  if (Entry == CallInfoMap.end())
+    return nullptr;
+
+  return Entry->second;
+}
+
+void DTransAnalysisInfo::addCallInfo(Instruction *I, dtrans::CallInfo *CI) {
+  assert(getCallInfo(I) == nullptr &&
+         "An instruction is only allowed a single CallInfo mapping");
+  CallInfoMap[I] = CI;
+}
+
+dtrans::AllocCallInfo *
+DTransAnalysisInfo::createAllocCallInfo(Instruction *I, dtrans::AllocKind AK) {
+  dtrans::AllocCallInfo *Info = new dtrans::AllocCallInfo(I, AK);
+  addCallInfo(I, Info);
+  return Info;
+}
+
+void DTransAnalysisInfo::deleteCallInfo(Instruction *I) {
+  dtrans::CallInfo *Info = getCallInfo(I);
+  if (!Info)
+    return;
+
+  CallInfoMap.erase(I);
+  delete Info;
+}
+
+void DTransAnalysisInfo::replaceCallInfoInstruction(dtrans::CallInfo *Info,
+                                                   Instruction *NewI) {
+  CallInfoMap.erase(Info->getInstruction());
+  addCallInfo(NewI, Info);
+  Info->setInstruction(NewI);
+}
+
+/// Print the cached call info data, the type of call, and the function
+/// making the call. This function is just for generating traces for testing.
+void DTransAnalysisInfo::printCallInfo() {
+
+  std::vector<std::tuple<StringRef, dtrans::CallInfo::CallInfoKind,
+                         const Instruction *, dtrans::CallInfo *>>
+      Entries;
+
+  // To get some consistency in the printing order, populate a tuple
+  // that can be sorted, then output the sorted list.
+  for (auto &Entry : call_info_entries()) {
+    Instruction *I = Entry->getInstruction();
+    Entries.push_back(std::make_tuple(I->getParent()->getParent()->getName(),
+                                      Entry->getCallInfoKind(), I, Entry));
+  }
+
+  std::sort(Entries.begin(), Entries.end());
+  for (auto &Entry : Entries) {
+    outs() << "Function: " << std::get<0>(Entry) << "\n";
+    outs() << "Instruction: " << *std::get<2>(Entry) << "\n";
+    std::get<3>(Entry)->dump();
+    outs() << "\n";
+  }
+}
+
+// Helper to invoke the right destructor object for destroying a CallInfo
+// type object.
+void DTransAnalysisInfo::destructCallInfo(dtrans::CallInfo *Info) {
+  if (!Info)
+    return;
+
+  switch (Info->getCallInfoKind()) {
+  case dtrans::CallInfo::CIK_Alloc:
+    delete cast<dtrans::AllocCallInfo>(Info);
+    break;
+  case dtrans::CallInfo::CIK_Free:
+    // TODO: uncomment when FreeCallInfo class is added
+    // delete cast<dtrans::FreeCallInfo>(Info);
+    break;
+  case dtrans::CallInfo::CIK_Memfunc:
+    // TODO: uncomment when FreeCallInfo class is added
+    // delete cast<dtrans::MemfuncCallInfo>(Info);
+    break;
+  default:
+    llvm_unreachable("Missing case for CallInfo type in deleteCallInfo");
+  }
+}
+
 INITIALIZE_PASS_BEGIN(DTransAnalysisWrapper, "dtransanalysis",
                       "Data transformation analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
@@ -3566,6 +3675,10 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
 DTransAnalysisInfo::DTransAnalysisInfo() {}
 
 DTransAnalysisInfo::~DTransAnalysisInfo() {
+  // DTransAnalysisInfo owns the CallInfo pointers in the CallInfoMap.
+  for (auto Info : CallInfoMap)
+    destructCallInfo(Info.second);
+
   // DTransAnalysisInfo owns the TypeInfo pointers in the TypeInfoMap.
   for (auto Entry : TypeInfoMap) {
     switch (Entry.second->getTypeInfoKind()) {
@@ -3644,6 +3757,9 @@ bool DTransAnalysisInfo::analyzeModule(Module &M, TargetLibraryInfo &TLI) {
       }
     }
   }
+
+  if (DTransPrintAnalyzedCalls)
+    printCallInfo();
 
   return false;
 }
