@@ -2514,6 +2514,16 @@ void CSACvtCFDFPass::PatchCFGLeaksFromPcikTree(unsigned phiDst) {
                                .addReg(orSeq)
                                .addReg(tmpResult);
   switchInst->setFlag(MachineInstr::NonSequential);
+
+  // Note the switch output as being set to the current basic block.
+  unsigned bbnum = phiHome->getNumber();
+  unsigned vregNo = TargetRegisterInfo::virtReg2Index(phiDst);
+  licGrouping.grow(vregNo + 1);
+  if (basicBlockRegs[bbnum] == UNMAPPED_REG)
+    basicBlockRegs[bbnum] = vregNo;
+  else {
+    licGrouping.join(vregNo, basicBlockRegs[bbnum]);
+  }
 }
 
 unsigned
@@ -3787,9 +3797,14 @@ void CSACvtCFDFPass::findLICGroups(bool preDFConversion) {
       if (!preDFConversion)
         joinGroupVreg = UNMAPPED_REG;
 
-      if (!TII->isMultiTriggered(&MI)) {
+      if (!TII->isMultiTriggered(&MI) ||
+          TII->getGenericOpcode(MI.getOpcode()) == CSA::Generic::COMPLETION) {
         // Non-multi-triggered operations are easy: all LIC operands must
         // execute the same number of times.
+        // Completion buffers are multi-triggered operations in general, but
+        // they do eventually spit out as many values as they take in (just in a
+        // different order), so the execution counts are guaranteed to be the
+        // same.
         for (auto &op : MI.operands()) {
           // Is this operand a LIC?
           unsigned opIndex = getVregIndex(op);
@@ -3847,6 +3862,12 @@ void CSACvtCFDFPass::findLICGroups(bool preDFConversion) {
             joinWithGroup(opFalse, switchFalseRegs[index]);
           }
         }
+      } else if (MI.getOpcode() == CSA::LAND1 || MI.getOpcode() == CSA::LOR1) {
+        // The operation is guaranteed to always query at least the first
+        // operand, so the first operand must execute as many times as the
+        // result.
+        licGrouping.join(getVregIndex(MI.getOperand(0)),
+            getVregIndex(MI.getOperand(1)));
       } else {
         DEBUG({
           errs() << "Multi-triggered-op: ";
@@ -4011,6 +4032,7 @@ void CSACvtCFDFPass::assignLicFrequencies(MachineBlockFrequencyInfo &MBFI) {
 
   // Assign all of the groups we generated to the LMFI side table.
   unsigned empty = 0, count = 0;
+  DEBUG(dbgs() << "Unassigned lics:");
   for (unsigned i = 0, e = MRI->getNumVirtRegs(); i != e; i++) {
     auto vreg = TargetRegisterInfo::index2VirtReg(i);
     if (MRI->use_nodbg_empty(vreg))
@@ -4018,11 +4040,13 @@ void CSACvtCFDFPass::assignLicFrequencies(MachineBlockFrequencyInfo &MBFI) {
     auto group = groups[licGrouping[i]];
     if (group) {
       LMFI->setLICGroup(vreg, group);
+    } else {
+      DEBUG(dbgs() << " " << i);
     }
     count++;
     empty += !group;
   }
-  DEBUG(dbgs() << empty << " of " << count <<
+  DEBUG(dbgs() << "\n" << empty << " of " << count <<
       " LICs were not assigned to groups.\n");
 
   // We don't need the equivalence classes anymore, since it's all propagated

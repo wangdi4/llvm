@@ -281,6 +281,13 @@ void CSASeqOpt::SequenceIndv(CSASSANode *cmpNode, CSASSANode *switchNode,
     cmpNode->minstr->removeFromParent();
     // currently only the cmp instr can have usage outside the cycle
     cmpNode->minstr = seqInstr;
+
+    // Assign LIC groups for the new registers. first and last execute as many
+    // times as the value does, while pred executes a little more frequently.
+    auto loopGroup = LMFI->getLICGroup(seqReg);
+    LMFI->setLICGroup(firstReg, loopGroup);
+    LMFI->setLICGroup(lastReg, loopGroup);
+    LMFI->setLICGroup(seqPred, getLoopPredicate(lhdrPickNode));
   }
 }
 
@@ -513,6 +520,7 @@ void CSASeqOpt::SequenceSwitchOut(CSASSANode *switchNode, CSASSANode *addNode,
     const TargetRegisterClass *TRC =
       TII->getRegisterClass(addNode->minstr->getOperand(0).getReg(), *MRI);
     unsigned last           = LMFI->allocateLIC(TRC);
+    LMFI->setLICGroup(last, LMFI->getLICGroup(switchOut));
     const unsigned switchOp = TII->makeOpcode(CSA::Generic::SWITCH, TRC);
     MachineInstr *switchLast =
       BuildMI(*lhdrPickNode->minstr->getParent(), lhdrPickNode->minstr,
@@ -746,6 +754,7 @@ void CSASeqOpt::SequenceRepeat(CSASSANode *switchNode,
         predRepeat = reg2neg[predRepeat];
       } else {
         unsigned notReg = LMFI->allocateLIC(&CSA::CI1RegClass);
+        LMFI->setLICGroup(notReg, LMFI->getLICGroup(predRepeat));
         MachineInstr *notInstr =
           BuildMI(*lhdrPickNode->minstr->getParent(), lhdrPickNode->minstr,
                   DebugLoc(), TII->get(CSA::NOT1), notReg)
@@ -964,4 +973,30 @@ void CSASeqOpt::SequenceOPT(bool runMultiSeq) {
   }
   seq2tripcnt.clear();
   reg2neg.clear();
+}
+
+std::shared_ptr<CSALicGroup>
+CSASeqOpt::getLoopPredicate(CSASSANode *lhdrPhiNode) {
+  assert(TII->getGenericOpcode(lhdrPhiNode->minstr->getOpcode()) ==
+      CSA::Generic::PICK && "loop predicate must be a PICK instruction");
+  unsigned ctlreg = lhdrPhiNode->minstr->getOperand(1).getReg();
+  if (loopPredicateGroups.find(ctlreg) == loopPredicateGroups.end()) {
+    auto licGroup = std::make_shared<CSALicGroup>();
+
+    // Assign frequency for the new group. Since we're based off of a PICK, it
+    // is the case that the frequency of the output is the sum of its two input
+    // parameters.
+    auto opA = lhdrPhiNode->minstr->getOperand(2);
+    auto opB = lhdrPhiNode->minstr->getOperand(3);
+    if (opA.isReg() && opB.isReg()) {
+      auto groupA = LMFI->getLICGroup(opA.getReg());
+      auto groupB = LMFI->getLICGroup(opB.getReg());
+      if (groupA && groupB) {
+        licGroup->executionFrequency = groupA->executionFrequency +
+          groupB->executionFrequency;
+      }
+    }
+    loopPredicateGroups[ctlreg] = licGroup;
+  }
+  return loopPredicateGroups[ctlreg];
 }

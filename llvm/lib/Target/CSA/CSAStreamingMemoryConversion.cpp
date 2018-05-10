@@ -212,6 +212,8 @@ MachineOp CSAStreamingMemoryConversionPass::getLength(
     }
     // Doesn't exist, make a new one instead.
     unsigned newLic = LMFI->allocateLIC(TII->getLicClassForSize(licSize));
+    if (loopCondition.isReg())
+      LMFI->setLICGroup(newLic, LMFI->getLICGroup(loopCondition.getReg()));
     builder.makeInstruction(mergeOpcode,
         OpRegDef(newLic),
         loopCondition,
@@ -545,6 +547,9 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
     }
     if (!isZero(seqStart)) {
       unsigned loadBase  = LMFI->allocateLIC(&CSA::CI64RegClass);
+      if (seqStart.isReg()) {
+        LMFI->setLICGroup(loadBase, LMFI->getLICGroup(seqStart.getReg()));
+      }
       auto baseForStream = builder.makeInstruction(
         CSA::SLADD64, OpRegDef(loadBase), seqStart,
         OpImm(countTrailingZeros(TII->getLicSize(MI->getOpcode()) / 8)), *base);

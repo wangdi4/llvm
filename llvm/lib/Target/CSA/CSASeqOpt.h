@@ -67,5 +67,13 @@ private:
   const TargetRegisterInfo *TRI;
   DenseMap<MachineInstr *, MachineOperand *> seq2tripcnt;
   DenseMap<unsigned, unsigned> reg2neg;
+
+  /// This is a mapping of the loop control edges to LIC predicate groups.
+  /// Don't use this mapping directly, go through getLoopPredicate instead.
+  DenseMap<unsigned, std::shared_ptr<CSALicGroup>> loopPredicateGroups;
+
+  /// Get a LIC group that is appropriate for the predicate output of a
+  /// sequence optimization.
+  std::shared_ptr<CSALicGroup> getLoopPredicate(CSASSANode *lhdrPhiNode);
 };
 } // namespace llvm
