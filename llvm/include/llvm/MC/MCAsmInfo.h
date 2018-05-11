@@ -165,7 +165,8 @@ protected:
   const char *ZeroDirective;
 
   /// This directive allows emission of an ascii string with the standard C
-  /// escape characters embedded into it.  Defaults to "\t.ascii\t"
+  /// escape characters embedded into it.  If a target doesn't support this, it
+  /// can be set to null. Defaults to "\t.ascii\t"
   const char *AsciiDirective;
 
   /// If not null, this allows for special handling of zero terminated strings
@@ -342,6 +343,10 @@ protected:
   /// True if target uses parens to indicate the symbol variant instead of @.
   /// For example, foo(plt) instead of foo@plt.  Defaults to false.
   bool UseParensForSymbolVariant = false;
+
+  /// True if the target supports flags in ".loc" directive, false if only
+  /// location is allowed.
+  bool SupportsExtendedDwarfLocDirective = true;
 
   //===--- Prologue State ----------------------------------------------===//
 
@@ -578,6 +583,9 @@ public:
   bool doDwarfFDESymbolsUseAbsDiff() const { return DwarfFDESymbolsUseAbsDiff; }
   bool useDwarfRegNumForCFI() const { return DwarfRegNumForCFI; }
   bool useParensForSymbolVariant() const { return UseParensForSymbolVariant; }
+  bool supportsExtendedDwarfLocDirective() const {
+    return SupportsExtendedDwarfLocDirective;
+  }
 
   void addInitialFrameState(const MCCFIInstruction &Inst) {
     InitialFrameState.push_back(Inst);

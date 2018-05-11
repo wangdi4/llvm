@@ -21,38 +21,31 @@ namespace {
 // Helper for attaching ProtocolCallbacks methods to a JSONRPCDispatcher.
 // Invoke like: Registerer("foo", &ProtocolCallbacks::onFoo)
 // onFoo should be: void onFoo(Ctx &C, FooParams &Params)
-// FooParams should have a static factory method: parse(const json::Expr&).
+// FooParams should have a fromJSON function.
 struct HandlerRegisterer {
   template <typename Param>
-  void operator()(StringRef Method,
-                  void (ProtocolCallbacks::*Handler)(RequestContext, Param)) {
+  void operator()(StringRef Method, void (ProtocolCallbacks::*Handler)(Param)) {
     // Capture pointers by value, as the lambda will outlive this object.
-    auto *Out = this->Out;
     auto *Callbacks = this->Callbacks;
-    Dispatcher.registerHandler(
-        Method, [=](RequestContext C, const json::Expr &RawParams) {
-          if (auto P = [&] {
-                trace::Span Tracer("Parse");
-                return std::decay<Param>::type::parse(RawParams);
-              }()) {
-            (Callbacks->*Handler)(std::move(C), *P);
-          } else {
-            Out->log("Failed to decode " + Method + " request.\n");
-          }
-        });
+    Dispatcher.registerHandler(Method, [=](const json::Expr &RawParams) {
+      typename std::remove_reference<Param>::type P;
+      if (fromJSON(RawParams, P)) {
+        (Callbacks->*Handler)(P);
+      } else {
+        log("Failed to decode " + Method + " request.");
+      }
+    });
   }
 
   JSONRPCDispatcher &Dispatcher;
-  JSONOutput *Out;
   ProtocolCallbacks *Callbacks;
 };
 
 } // namespace
 
 void clangd::registerCallbackHandlers(JSONRPCDispatcher &Dispatcher,
-                                      JSONOutput &Out,
                                       ProtocolCallbacks &Callbacks) {
-  HandlerRegisterer Register{Dispatcher, &Out, &Callbacks};
+  HandlerRegisterer Register{Dispatcher, &Callbacks};
 
   Register("initialize", &ProtocolCallbacks::onInitialize);
   Register("shutdown", &ProtocolCallbacks::onShutdown);
@@ -72,6 +65,11 @@ void clangd::registerCallbackHandlers(JSONRPCDispatcher &Dispatcher,
   Register("textDocument/switchSourceHeader",
            &ProtocolCallbacks::onSwitchSourceHeader);
   Register("textDocument/rename", &ProtocolCallbacks::onRename);
+  Register("textDocument/hover", &ProtocolCallbacks::onHover);
   Register("workspace/didChangeWatchedFiles", &ProtocolCallbacks::onFileEvent);
   Register("workspace/executeCommand", &ProtocolCallbacks::onCommand);
+  Register("textDocument/documentHighlight",
+           &ProtocolCallbacks::onDocumentHighlight);
+  Register("workspace/didChangeConfiguration",
+           &ProtocolCallbacks::onChangeConfiguration);
 }

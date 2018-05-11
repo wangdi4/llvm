@@ -16,7 +16,7 @@
 
 // The basic approach looks for sequence of predicated jump, compare instruciton
 // that genereates the predicate and, the feeder to the predicate. Once it finds
-// all, it collapses compare and jump instruction into a new valu jump
+// all, it collapses compare and jump instruction into a new value jump
 // intstructions.
 //
 //===----------------------------------------------------------------------===//
@@ -24,6 +24,7 @@
 #include "Hexagon.h"
 #include "HexagonInstrInfo.h"
 #include "HexagonRegisterInfo.h"
+#include "HexagonSubtarget.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineBranchProbabilityInfo.h"
@@ -129,9 +130,9 @@ static bool canBeFeederToNewValueJump(const HexagonInstrInfo *QII,
   // using -- if (QRI->isSubRegister(feederReg, cmpReg1) logic
   // before the callsite of this function
   // But we can not as it comes in the following fashion.
-  //    %d0<def> = Hexagon_S2_lsr_r_p %d0<kill>, %r2<kill>
-  //    %r0<def> = KILL %r0, %d0<imp-use,kill>
-  //    %p0<def> = CMPEQri %r0<kill>, 0
+  //    %d0 = Hexagon_S2_lsr_r_p killed %d0, killed %r2
+  //    %r0 = KILL %r0, implicit killed %d0
+  //    %p0 = CMPEQri killed %r0, 0
   // Hence, we need to check if it's a KILL instruction.
   if (II->getOpcode() == TargetOpcode::KILL)
     return false;
@@ -139,7 +140,26 @@ static bool canBeFeederToNewValueJump(const HexagonInstrInfo *QII,
   if (II->isImplicitDef())
     return false;
 
-  // Make sure there there is no 'def' or 'use' of any of the uses of
+  if (QII->isSolo(*II))
+    return false;
+
+  if (QII->isFloat(*II))
+    return false;
+
+  // Make sure that the (unique) def operand is a register from IntRegs.
+  bool HadDef = false;
+  for (const MachineOperand &Op : II->operands()) {
+    if (!Op.isReg() || !Op.isDef())
+      continue;
+    if (HadDef)
+      return false;
+    HadDef = true;
+    if (!Hexagon::IntRegsRegClass.contains(Op.getReg()))
+      return false;
+  }
+  assert(HadDef);
+
+  // Make sure there is no 'def' or 'use' of any of the uses of
   // feeder insn between it's definition, this MI and jump, jmpInst
   // skipping compare, cmpInst.
   // Here's the example.
@@ -193,9 +213,9 @@ static bool commonChecksToProhibitNewValueJump(bool afterRA,
     // to new value jump. If they are in the path, bail out.
     // KILL sets kill flag on the opcode. It also sets up a
     // single register, out of pair.
-    //    %d0<def> = S2_lsr_r_p %d0<kill>, %r2<kill>
-    //    %r0<def> = KILL %r0, %d0<imp-use,kill>
-    //    %p0<def> = C2_cmpeqi %r0<kill>, 0
+    //    %d0 = S2_lsr_r_p killed %d0, killed %r2
+    //    %r0 = KILL %r0, implicit killed %d0
+    //    %p0 = C2_cmpeqi killed %r0, 0
     // PHI can be anything after RA.
     // COPY can remateriaze things in between feeder, compare and nvj.
     if (MII->getOpcode() == TargetOpcode::KILL ||
@@ -267,8 +287,8 @@ static bool canCompareBeNewValueJump(const HexagonInstrInfo *QII,
     if (cmpReg1 == cmpOp2)
       return false;
 
-    // Make sure that that second register is not from COPY
-    // At machine code level, we don't need this, but if we decide
+    // Make sure that the second register is not from COPY
+    // at machine code level, we don't need this, but if we decide
     // to move new value jump prior to RA, we would be needing this.
     MachineRegisterInfo &MRI = MF.getRegInfo();
     if (secondReg && !TargetRegisterInfo::isPhysicalRegister(cmpOp2)) {
@@ -431,7 +451,7 @@ bool HexagonNewValueJump::runOnMachineFunction(MachineFunction &MF) {
   DEBUG(dbgs() << "********** Hexagon New Value Jump **********\n"
                << "********** Function: " << MF.getName() << "\n");
 
-  if (skipFunction(*MF.getFunction()))
+  if (skipFunction(MF.getFunction()))
     return false;
 
   // If we move NewValueJump before register allocation we'll need live variable
@@ -442,9 +462,9 @@ bool HexagonNewValueJump::runOnMachineFunction(MachineFunction &MF) {
       MF.getSubtarget().getRegisterInfo());
   MBPI = &getAnalysis<MachineBranchProbabilityInfo>();
 
-  if (DisableNewValueJumps) {
+  if (DisableNewValueJumps ||
+      !MF.getSubtarget<HexagonSubtarget>().useNewValueJumps())
     return false;
-  }
 
   int nvjCount = DbgNVJCount;
   int nvjGenerated = 0;
@@ -502,7 +522,7 @@ bool HexagonNewValueJump::runOnMachineFunction(MachineFunction &MF) {
         // operands, the following check on the kill flag would suffice.
         // if(!jmpInstr->getOperand(0).isKill()) break;
 
-        // This predicate register is live out out of BB
+        // This predicate register is live out of BB
         // this would only work if we can actually use Live
         // variable analysis on phy regs - but LLVM does not
         // provide LV analysis on phys regs.

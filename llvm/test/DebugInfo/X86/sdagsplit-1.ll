@@ -13,8 +13,8 @@
 ;      return 0;
 ;    }
 ;
-; CHECK-DAG: DBG_VALUE debug-use %{{[a-z]+}}, debug-use %noreg, !{{[0-9]+}}, !DIExpression(DW_OP_LLVM_fragment, 0, 32), debug-location !{{[0-9]+}}
-; CHECK-DAG: DBG_VALUE debug-use %{{[a-z]+}}, debug-use %noreg, !{{[0-9]+}}, !DIExpression(DW_OP_LLVM_fragment, 32, 32), debug-location !{{[0-9]+}}
+; CHECK-DAG: DBG_VALUE debug-use ${{[a-z]+}}, debug-use $noreg, !{{[0-9]+}}, !DIExpression(DW_OP_LLVM_fragment, 0, 32), debug-location !{{[0-9]+}}
+; CHECK-DAG: DBG_VALUE debug-use ${{[a-z]+}}, debug-use $noreg, !{{[0-9]+}}, !DIExpression(DW_OP_LLVM_fragment, 32, 32), debug-location !{{[0-9]+}}
 
 ; ModuleID = 'sdagsplit-1.c'
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
@@ -25,9 +25,9 @@ define i64 @foo(i64 %a, i64 %b) local_unnamed_addr #0 !dbg !8 {
 entry:
   tail call void @llvm.dbg.value(metadata i64 %a, metadata !13, metadata !16), !dbg !17
   tail call void @llvm.dbg.value(metadata i64 %b, metadata !14, metadata !16), !dbg !18
-  tail call void @llvm.dbg.value(metadata i64 %add, metadata !15, metadata !16), !dbg !19
   %cmp = icmp eq i64 %a, %b, !dbg !20
   %add = add nsw i64 %b, 1, !dbg !22
+  tail call void @llvm.dbg.value(metadata i64 %add, metadata !15, metadata !16), !dbg !19
   %retval.0 = select i1 %cmp, i64 %add, i64 0, !dbg !23
   ret i64 %retval.0, !dbg !24
 }

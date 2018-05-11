@@ -45,6 +45,7 @@ typedef int errno_t;
 using namespace llvm;
 
 using llvm::sys::windows::UTF8ToUTF16;
+using llvm::sys::windows::CurCPToUTF16;
 using llvm::sys::windows::UTF16ToUTF8;
 using llvm::sys::path::widenPath;
 
@@ -391,6 +392,20 @@ std::error_code is_local(int FD, bool &Result) {
   return is_local_internal(FinalPath, Result);
 }
 
+static std::error_code setDeleteDisposition(HANDLE Handle, bool Delete) {
+  FILE_DISPOSITION_INFO Disposition;
+  Disposition.DeleteFile = Delete;
+  if (!SetFileInformationByHandle(Handle, FileDispositionInfo, &Disposition,
+                                  sizeof(Disposition)))
+    return mapWindowsError(::GetLastError());
+  return std::error_code();
+}
+
+static std::error_code removeFD(int FD) {
+  HANDLE Handle = reinterpret_cast<HANDLE>(_get_osfhandle(FD));
+  return setDeleteDisposition(Handle, true);
+}
+
 /// In order to handle temporary files we want the following properties
 ///
 /// * The temporary file is deleted on crashes
@@ -425,11 +440,9 @@ static std::error_code cancelDeleteOnClose(int &FD) {
   if (close(FD))
     return mapWindowsError(::GetLastError());
 
-  FILE_DISPOSITION_INFO Disposition;
-  Disposition.DeleteFile = false;
-  if (!SetFileInformationByHandle(NewHandle, FileDispositionInfo, &Disposition,
-                                  sizeof(Disposition)))
-    return mapWindowsError(::GetLastError());
+  if (std::error_code EC = setDeleteDisposition(NewHandle, false))
+    return EC;
+
   FD = ::_open_osfhandle(intptr_t(NewHandle), 0);
   if (FD == -1) {
     ::CloseHandle(NewHandle);
@@ -810,6 +823,8 @@ std::error_code setLastModificationAndAccessTime(int FD, TimePoint<> Time) {
 
 std::error_code mapped_file_region::init(int FD, uint64_t Offset,
                                          mapmode Mode) {
+  this->FD = FD;
+  this->Mode = Mode;
   HANDLE FileHandle = reinterpret_cast<HANDLE>(_get_osfhandle(FD));
   if (FileHandle == INVALID_HANDLE_VALUE)
     return make_error_code(errc::bad_file_descriptor);
@@ -875,8 +890,20 @@ mapped_file_region::mapped_file_region(int fd, mapmode mode, size_t length,
 }
 
 mapped_file_region::~mapped_file_region() {
-  if (Mapping)
+  if (Mapping) {
     ::UnmapViewOfFile(Mapping);
+
+    if (Mode == mapmode::readwrite) {
+      // There is a Windows kernel bug, the exact trigger conditions of which
+      // are not well understood.  When triggered, dirty pages are not properly
+      // flushed and subsequent process's attempts to read a file can return
+      // invalid data.  Calling FlushFileBuffers on the write handle is
+      // sufficient to ensure that this bug is not triggered.
+      HANDLE FileHandle = reinterpret_cast<HANDLE>(_get_osfhandle(FD));
+      if (FileHandle != INVALID_HANDLE_VALUE)
+        ::FlushFileBuffers(FileHandle);
+    }
+  }
 }
 
 size_t mapped_file_region::size() const {
@@ -1075,7 +1102,7 @@ std::error_code openFileForWrite(const Twine &Name, int &ResultFD,
   DWORD CreationDisposition;
   if (Flags & F_Excl)
     CreationDisposition = CREATE_NEW;
-  else if (Flags & F_Append)
+  else if ((Flags & F_Append) || (Flags & F_NoTrunc))
     CreationDisposition = OPEN_ALWAYS;
   else
     CreationDisposition = CREATE_ALWAYS;
@@ -1267,23 +1294,26 @@ void system_temp_directory(bool ErasedOnReboot, SmallVectorImpl<char> &Result) {
 } // end namespace path
 
 namespace windows {
-std::error_code UTF8ToUTF16(llvm::StringRef utf8,
-                            llvm::SmallVectorImpl<wchar_t> &utf16) {
-  if (!utf8.empty()) {
-    int len = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8.begin(),
-                                    utf8.size(), utf16.begin(), 0);
+std::error_code CodePageToUTF16(unsigned codepage,
+                                llvm::StringRef original,
+                                llvm::SmallVectorImpl<wchar_t> &utf16) {
+  if (!original.empty()) {
+    int len = ::MultiByteToWideChar(codepage, MB_ERR_INVALID_CHARS, original.begin(),
+                                    original.size(), utf16.begin(), 0);
 
-    if (len == 0)
+    if (len == 0) {
       return mapWindowsError(::GetLastError());
+    }
 
     utf16.reserve(len + 1);
     utf16.set_size(len);
 
-    len = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8.begin(),
-                                utf8.size(), utf16.begin(), utf16.size());
+    len = ::MultiByteToWideChar(codepage, MB_ERR_INVALID_CHARS, original.begin(),
+                                original.size(), utf16.begin(), utf16.size());
 
-    if (len == 0)
+    if (len == 0) {
       return mapWindowsError(::GetLastError());
+    }
   }
 
   // Make utf16 null terminated.
@@ -1293,32 +1323,44 @@ std::error_code UTF8ToUTF16(llvm::StringRef utf8,
   return std::error_code();
 }
 
+std::error_code UTF8ToUTF16(llvm::StringRef utf8,
+                            llvm::SmallVectorImpl<wchar_t> &utf16) {
+  return CodePageToUTF16(CP_UTF8, utf8, utf16);
+}
+
+std::error_code CurCPToUTF16(llvm::StringRef curcp,
+                            llvm::SmallVectorImpl<wchar_t> &utf16) {
+  return CodePageToUTF16(CP_ACP, curcp, utf16);
+}
+
 static
 std::error_code UTF16ToCodePage(unsigned codepage, const wchar_t *utf16,
                                 size_t utf16_len,
-                                llvm::SmallVectorImpl<char> &utf8) {
+                                llvm::SmallVectorImpl<char> &converted) {
   if (utf16_len) {
     // Get length.
-    int len = ::WideCharToMultiByte(codepage, 0, utf16, utf16_len, utf8.begin(),
+    int len = ::WideCharToMultiByte(codepage, 0, utf16, utf16_len, converted.begin(),
                                     0, NULL, NULL);
 
-    if (len == 0)
+    if (len == 0) {
       return mapWindowsError(::GetLastError());
+    }
 
-    utf8.reserve(len);
-    utf8.set_size(len);
+    converted.reserve(len);
+    converted.set_size(len);
 
     // Now do the actual conversion.
-    len = ::WideCharToMultiByte(codepage, 0, utf16, utf16_len, utf8.data(),
-                                utf8.size(), NULL, NULL);
+    len = ::WideCharToMultiByte(codepage, 0, utf16, utf16_len, converted.data(),
+                                converted.size(), NULL, NULL);
 
-    if (len == 0)
+    if (len == 0) {
       return mapWindowsError(::GetLastError());
+    }
   }
 
-  // Make utf8 null terminated.
-  utf8.push_back(0);
-  utf8.pop_back();
+  // Make the new string null terminated.
+  converted.push_back(0);
+  converted.pop_back();
 
   return std::error_code();
 }
@@ -1329,8 +1371,8 @@ std::error_code UTF16ToUTF8(const wchar_t *utf16, size_t utf16_len,
 }
 
 std::error_code UTF16ToCurCP(const wchar_t *utf16, size_t utf16_len,
-                             llvm::SmallVectorImpl<char> &utf8) {
-  return UTF16ToCodePage(CP_ACP, utf16, utf16_len, utf8);
+                             llvm::SmallVectorImpl<char> &curcp) {
+  return UTF16ToCodePage(CP_ACP, utf16, utf16_len, curcp);
 }
 
 } // end namespace windows

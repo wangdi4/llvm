@@ -29,9 +29,9 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Analysis/DivergenceAnalysis.h"
 #include "llvm/CodeGen/DAGCombine.h"
 #include "llvm/CodeGen/ISDOpcodes.h"
-#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/CodeGen/RuntimeLibcalls.h"
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
@@ -52,6 +52,7 @@
 #include "llvm/Support/AtomicOrdering.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/MachineValueType.h"
 #include "llvm/Target/TargetMachine.h"
 #include <algorithm>
 #include <cassert>
@@ -253,7 +254,8 @@ public:
   /// A documentation for this function would be nice...
   virtual MVT getScalarShiftAmountTy(const DataLayout &, EVT) const;
 
-  EVT getShiftAmountTy(EVT LHSTy, const DataLayout &DL) const;
+  EVT getShiftAmountTy(EVT LHSTy, const DataLayout &DL,
+                       bool LegalTypes = true) const;
 
   /// Returns the type to be used for the index operand of:
   /// ISD::INSERT_VECTOR_ELT, ISD::EXTRACT_VECTOR_ELT,
@@ -702,15 +704,16 @@ public:
   struct IntrinsicInfo {
     unsigned     opc = 0;          // target opcode
     EVT          memVT;            // memory VT
-    const Value* ptrVal = nullptr; // value representing memory location
+
+    // value representing memory location
+    PointerUnion<const Value *, const PseudoSourceValue *> ptrVal;
+
     int          offset = 0;       // offset off of ptrVal
     unsigned     size = 0;         // the size of the memory location
                                    // (taken from memVT if zero)
     unsigned     align = 1;        // alignment
-    bool         vol = false;      // is volatile?
-    bool         readMem = false;  // reads memory?
-    bool         writeMem = false; // writes memory?
 
+    MachineMemOperand::Flags flags = MachineMemOperand::MONone;
     IntrinsicInfo() = default;
   };
 
@@ -719,6 +722,7 @@ public:
   /// true and store the intrinsic information into the IntrinsicInfo that was
   /// passed to the function.
   virtual bool getTgtMemIntrinsic(IntrinsicInfo &, const CallInst &,
+                                  MachineFunction &,
                                   unsigned /*Intrinsic*/) const {
     return false;
   }
@@ -798,7 +802,7 @@ public:
   }
 
   /// Return true if lowering to a jump table is allowed.
-  bool areJTsAllowed(const Function *Fn) const {
+  virtual bool areJTsAllowed(const Function *Fn) const {
     if (Fn->getFnAttribute("no-jump-tables").getValueAsString() == "true")
       return false;
 
@@ -810,7 +814,7 @@ public:
   bool rangeFitsInWord(const APInt &Low, const APInt &High,
                        const DataLayout &DL) const {
     // FIXME: Using the pointer type doesn't seem ideal.
-    uint64_t BW = DL.getPointerSizeInBits();
+    uint64_t BW = DL.getIndexSizeInBits(0u);
     uint64_t Range = (High - Low).getLimitedValue(UINT64_MAX - 1) + 1;
     return Range <= BW;
   }
@@ -818,12 +822,12 @@ public:
   /// Return true if lowering to a jump table is suitable for a set of case
   /// clusters which may contain \p NumCases cases, \p Range range of values.
   /// FIXME: This function check the maximum table size and density, but the
-  /// minimum size is not checked. It would be nice if the the minimum size is
+  /// minimum size is not checked. It would be nice if the minimum size is
   /// also combined within this function. Currently, the minimum size check is
   /// performed in findJumpTable() in SelectionDAGBuiler and
   /// getEstimatedNumberOfCaseClusters() in BasicTTIImpl.
-  bool isSuitableForJumpTable(const SwitchInst *SI, uint64_t NumCases,
-                              uint64_t Range) const {
+  virtual bool isSuitableForJumpTable(const SwitchInst *SI, uint64_t NumCases,
+                                      uint64_t Range) const {
     const bool OptForSize = SI->getParent()->getParent()->optForSize();
     const unsigned MinDensity = getMinimumJumpTableDensity(OptForSize);
     const unsigned MaxJumpTableSize =
@@ -984,9 +988,14 @@ public:
 
   /// Return true if the specified condition code is legal on this target.
   bool isCondCodeLegal(ISD::CondCode CC, MVT VT) const {
-    return
-      getCondCodeAction(CC, VT) == Legal ||
-      getCondCodeAction(CC, VT) == Custom;
+    return getCondCodeAction(CC, VT) == Legal;
+  }
+
+  /// Return true if the specified condition code is legal or custom on this
+  /// target.
+  bool isCondCodeLegalOrCustom(ISD::CondCode CC, MVT VT) const {
+    return getCondCodeAction(CC, VT) == Legal ||
+           getCondCodeAction(CC, VT) == Custom;
   }
 
   /// If the action for this operation is to promote, this method returns the
@@ -1200,6 +1209,18 @@ public:
     return OptSize ? MaxLoadsPerMemcmpOptSize : MaxLoadsPerMemcmp;
   }
 
+  /// For memcmp expansion when the memcmp result is only compared equal or
+  /// not-equal to 0, allow up to this number of load pairs per block. As an
+  /// example, this may allow 'memcmp(a, b, 3) == 0' in a single block:
+  ///   a0 = load2bytes &a[0]
+  ///   b0 = load2bytes &b[0]
+  ///   a2 = load1byte  &a[2]
+  ///   b2 = load1byte  &b[2]
+  ///   r  = cmp eq (a0 ^ b0 | a2 ^ b2), 0
+  virtual unsigned getMemcmpEqZeroLoadsPerBlock() const {
+    return 1;
+  }
+
   /// \brief Get maximum # of store operations permitted for llvm.memmove
   ///
   /// This function returns the maximum number of store operations permitted
@@ -1274,7 +1295,7 @@ public:
   }
 
   /// Return lower limit for number of blocks in a jump table.
-  unsigned getMinimumJumpTableEntries() const;
+  virtual unsigned getMinimumJumpTableEntries() const;
 
   /// Return lower limit of the density in a jump table.
   unsigned getMinimumJumpTableDensity(bool OptForSize) const;
@@ -1360,6 +1381,12 @@ public:
   /// getIRStackGuard returns nullptr.
   virtual Value *getSDagStackGuard(const Module &M) const;
 
+  /// If this function returns true, stack protection checks should XOR the
+  /// frame pointer (or whichever pointer is used to address locals) into the
+  /// stack guard value before checking it. getIRStackGuard must return nullptr
+  /// if this returns true.
+  virtual bool useStackGuardXorFP() const { return false; }
+
   /// If the target has a standard stack protection check function that
   /// performs validation and error handling, returns the function. Otherwise,
   /// returns nullptr. Must be previously inserted by insertSSPDeclarations.
@@ -1433,6 +1460,9 @@ public:
   /// are still natively supported below the minimum; they just
   /// require a more complex expansion.
   unsigned getMinCmpXchgSizeInBits() const { return MinCmpXchgSizeInBits; }
+
+  /// Whether the target supports unaligned atomic operations.
+  bool supportsUnalignedAtomics() const { return SupportsUnalignedAtomics; }
 
   /// Whether AtomicExpandPass should automatically insert fences and reduce
   /// ordering for this atomic. This should be true for most architectures with
@@ -1839,9 +1869,14 @@ protected:
     MaxAtomicSizeInBitsSupported = SizeInBits;
   }
 
-  // Sets the minimum cmpxchg or ll/sc size supported by the backend.
+  /// Sets the minimum cmpxchg or ll/sc size supported by the backend.
   void setMinCmpXchgSizeInBits(unsigned SizeInBits) {
     MinCmpXchgSizeInBits = SizeInBits;
+  }
+
+  /// Sets whether unaligned atomic operations are supported.
+  void setSupportsUnalignedAtomics(bool UnalignedSupported) {
+    SupportsUnalignedAtomics = UnalignedSupported;
   }
 
 public:
@@ -2081,6 +2116,9 @@ public:
                              unsigned & /*RequiredAlignment*/) const {
     return false;
   }
+
+  /// Return true if the target has a vector blend instruction.
+  virtual bool hasVectorBlend() const { return false; }
 
   /// \brief Get the maximum supported factor for interleaved memory accesses.
   /// Default to be the minimum interleave factor: 2.
@@ -2325,6 +2363,9 @@ private:
   /// backend supports.
   unsigned MinCmpXchgSizeInBits;
 
+  /// This indicates if the target supports unaligned atomic operations.
+  bool SupportsUnalignedAtomics;
+
   /// If set to a physical register, this specifies the register that
   /// llvm.savestack/llvm.restorestack should save and restore.
   unsigned StackPointerRegisterToSaveRestore;
@@ -2410,7 +2451,7 @@ private:
     PromoteToType;
 
   /// Stores the name each libcall.
-  const char *LibcallRoutineNames[RTLIB::UNKNOWN_LIBCALL];
+  const char *LibcallRoutineNames[RTLIB::UNKNOWN_LIBCALL + 1];
 
   /// The ISD::CondCode that should be used to test the result of each of the
   /// comparison libcall against zero.
@@ -2418,6 +2459,9 @@ private:
 
   /// Stores the CallingConv that should be used for each libcall.
   CallingConv::ID LibcallCallingConvs[RTLIB::UNKNOWN_LIBCALL];
+
+  /// Set default libcall names and calling conventions.
+  void InitLibcalls(const Triple &TT);
 
 protected:
   /// Return true if the extension represented by \p I is free.
@@ -2498,6 +2542,16 @@ protected:
   /// sequence of memory operands that is recognized by PrologEpilogInserter.
   MachineBasicBlock *emitPatchPoint(MachineInstr &MI,
                                     MachineBasicBlock *MBB) const;
+
+  /// Replace/modify the XRay custom event operands with target-dependent
+  /// details.
+  MachineBasicBlock *emitXRayCustomEvent(MachineInstr &MI,
+                                         MachineBasicBlock *MBB) const;
+
+  /// Replace/modify the XRay typed event operands with target-dependent
+  /// details.
+  MachineBasicBlock *emitXRayTypedEvent(MachineInstr &MI,
+                                        MachineBasicBlock *MBB) const;
 };
 
 /// This class defines information used to lower LLVM code to legal SelectionDAG
@@ -2516,6 +2570,16 @@ public:
   explicit TargetLowering(const TargetMachine &TM);
 
   bool isPositionIndependent() const;
+
+  virtual bool isSDNodeSourceOfDivergence(const SDNode *N,
+                                          FunctionLoweringInfo *FLI,
+                                          DivergenceAnalysis *DA) const {
+    return false;
+  }
+
+  virtual bool isSDNodeAlwaysUniform(const SDNode * N) const {
+    return false;
+  }
 
   /// Returns true by value, base pointer and offset pointer and addressing mode
   /// by reference if the node's address can be legally represented as
@@ -2668,6 +2732,30 @@ public:
   bool SimplifyDemandedBits(SDValue Op, const APInt &DemandedMask,
                             DAGCombinerInfo &DCI) const;
 
+  /// Look at Vector Op. At this point, we know that only the DemandedElts
+  /// elements of the result of Op are ever used downstream.  If we can use
+  /// this information to simplify Op, create a new simplified DAG node and
+  /// return true, storing the original and new nodes in TLO.
+  /// Otherwise, analyze the expression and return a mask of KnownUndef and
+  /// KnownZero elements for the expression (used to simplify the caller).
+  /// The KnownUndef/Zero elements may only be accurate for those bits
+  /// in the DemandedMask.
+  /// \p AssumeSingleUse When this parameter is true, this function will
+  ///    attempt to simplify \p Op even if there are multiple uses.
+  ///    Callers are responsible for correctly updating the DAG based on the
+  ///    results of this function, because simply replacing replacing TLO.Old
+  ///    with TLO.New will be incorrect when this parameter is true and TLO.Old
+  ///    has multiple uses.
+  bool SimplifyDemandedVectorElts(SDValue Op, const APInt &DemandedElts,
+                                  APInt &KnownUndef, APInt &KnownZero,
+                                  TargetLoweringOpt &TLO, unsigned Depth = 0,
+                                  bool AssumeSingleUse = false) const;
+
+  /// Helper wrapper around SimplifyDemandedVectorElts
+  bool SimplifyDemandedVectorElts(SDValue Op, const APInt &DemandedElts,
+                                  APInt &KnownUndef, APInt &KnownZero,
+                                  DAGCombinerInfo &DCI) const;
+
   /// Determine which of the bits specified in Mask are known to be either zero
   /// or one and return them in the KnownZero/KnownOne bitsets. The DemandedElts
   /// argument allows us to only collect the known bits that are shared by the
@@ -2696,6 +2784,15 @@ public:
                                                    const SelectionDAG &DAG,
                                                    unsigned Depth = 0) const;
 
+  /// Attempt to simplify any target nodes based on the demanded vector
+  /// elements, returning true on success. Otherwise, analyze the expression and
+  /// return a mask of KnownUndef and KnownZero elements for the expression
+  /// (used to simplify the caller). The KnownUndef/Zero elements may only be
+  /// accurate for those bits in the DemandedMask
+  virtual bool SimplifyDemandedVectorEltsForTargetNode(
+      SDValue Op, const APInt &DemandedElts, APInt &KnownUndef,
+      APInt &KnownZero, TargetLoweringOpt &TLO, unsigned Depth = 0) const;
+
   struct DAGCombinerInfo {
     void *DC;  // The DAG Combiner object.
     CombineLevel Level;
@@ -2709,7 +2806,7 @@ public:
 
     bool isBeforeLegalize() const { return Level == BeforeLegalizeTypes; }
     bool isBeforeLegalizeOps() const { return Level < AfterLegalizeVectorOps; }
-    bool isAfterLegalizeVectorOps() const {
+    bool isAfterLegalizeDAG() const {
       return Level == AfterLegalizeDAG;
     }
     CombineLevel getDAGCombineLevel() { return Level; }
@@ -2730,10 +2827,6 @@ public:
   /// Return if the N is a constant or constant vector equal to the false value
   /// from getBooleanContents().
   bool isConstFalseVal(const SDNode *N) const;
-
-  /// Return a constant of type VT that contains a true value that respects
-  /// getBooleanContents()
-  SDValue getConstTrueVal(SelectionDAG &DAG, EVT VT, const SDLoc &DL) const;
 
   /// Return if \p N is a True value when extended to \p VT.
   bool isExtendedTrueVal(const ConstantSDNode *N, EVT VT, bool Signed) const;
@@ -3487,9 +3580,21 @@ public:
     return false;
   }
 
+  virtual SDValue emitStackGuardXorFP(SelectionDAG &DAG, SDValue Val,
+                                      const SDLoc &DL) const {
+    llvm_unreachable("not implemented for this target");
+  }
+
   /// Lower TLS global address SDNode for target independent emulated TLS model.
   virtual SDValue LowerToTLSEmulatedModel(const GlobalAddressSDNode *GA,
                                           SelectionDAG &DAG) const;
+
+  /// Expands target specific indirect branch for the case of JumpTable
+  /// expanasion.
+  virtual SDValue expandIndirectJTBranch(const SDLoc& dl, SDValue Value, SDValue Addr,
+                                         SelectionDAG &DAG) const {
+    return DAG.getNode(ISD::BRIND, dl, MVT::Other, Value, Addr);
+  }
 
   // seteq(x, 0) -> truncate(srl(ctlz(zext(x)), log2(#bits)))
   // If we're comparing for equality to zero and isCtlzFast is true, expose the

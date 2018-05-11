@@ -25,6 +25,7 @@
 #include "llvm/MC/LaneBitmask.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/Support/BranchProbability.h"
+#include "llvm/Support/Printable.h"
 #include <cassert>
 #include <cstdint>
 #include <functional>
@@ -222,6 +223,14 @@ public:
   }
   inline iterator_range<const_iterator> terminators() const {
     return make_range(getFirstTerminator(), end());
+  }
+
+  /// Returns a range that iterates over the phis in the basic block.
+  inline iterator_range<iterator> phis() {
+    return make_range(begin(), getFirstNonPHI());
+  }
+  inline iterator_range<const_iterator> phis() const {
+    return const_cast<MachineBasicBlock *>(this)->phis();
   }
 
   // Machine-CFG iterators
@@ -448,6 +457,13 @@ public:
   /// Replace successor OLD with NEW and update probability info.
   void replaceSuccessor(MachineBasicBlock *Old, MachineBasicBlock *New);
 
+  /// Copy a successor (and any probability info) from original block to this
+  /// block's. Uses an iterator into the original blocks successors.
+  ///
+  /// This is useful when doing a partial clone of successors. Afterward, the
+  /// probabilities may need to be normalized.
+  void copySuccessor(MachineBasicBlock *Orig, succ_iterator I);
+
   /// Transfers all the successors from MBB to this machine basic block (i.e.,
   /// copies all the successors FromMBB and remove all the successors from
   /// FromMBB).
@@ -545,7 +561,7 @@ public:
   /// Check if the edge between this block and the given successor \p
   /// Succ, can be split. If this returns true a subsequent call to
   /// SplitCriticalEdge is guaranteed to return a valid basic block if
-  /// no changes occured in the meantime.
+  /// no changes occurred in the meantime.
   bool canSplitCriticalEdge(const MachineBasicBlock *Succ) const;
 
   void pop_front() { Insts.pop_front(); }
@@ -690,6 +706,13 @@ public:
     return findDebugLoc(MBBI.getInstrIterator());
   }
 
+  /// Find the previous valid DebugLoc preceding MBBI, skipping and DBG_VALUE
+  /// instructions.  Return UnknownLoc if there is none.
+  DebugLoc findPrevDebugLoc(instr_iterator MBBI);
+  DebugLoc findPrevDebugLoc(iterator MBBI) {
+    return findPrevDebugLoc(MBBI.getInstrIterator());
+  }
+
   /// Find and return the merged DebugLoc of the branch instructions of the
   /// block. Return UnknownLoc if there is none.
   DebugLoc findBranchDebugLoc();
@@ -701,8 +724,8 @@ public:
     LQR_Unknown ///< Register liveness not decidable from local neighborhood.
   };
 
-  /// Return whether (physical) register \p Reg has been <def>ined and not
-  /// <kill>ed as of just before \p Before.
+  /// Return whether (physical) register \p Reg has been defined and not
+  /// killed as of just before \p Before.
   ///
   /// Search is localised to a neighborhood of \p Neighborhood instructions
   /// before (searching for defs or kills) and \p Neighborhood instructions
@@ -716,9 +739,10 @@ public:
 
   // Debugging methods.
   void dump() const;
-  void print(raw_ostream &OS, const SlotIndexes* = nullptr) const;
+  void print(raw_ostream &OS, const SlotIndexes * = nullptr,
+             bool IsStandalone = true) const;
   void print(raw_ostream &OS, ModuleSlotTracker &MST,
-             const SlotIndexes* = nullptr) const;
+             const SlotIndexes * = nullptr, bool IsStandalone = true) const;
 
   // Printing method used by LoopInfo.
   void printAsOperand(raw_ostream &OS, bool PrintType = true) const;
@@ -770,6 +794,14 @@ private:
 };
 
 raw_ostream& operator<<(raw_ostream &OS, const MachineBasicBlock &MBB);
+
+/// Prints a machine basic block reference.
+///
+/// The format is:
+///   %bb.5           - a machine basic block with MBB.getNumber() == 5.
+///
+/// Usage: OS << printMBBReference(MBB) << '\n';
+Printable printMBBReference(const MachineBasicBlock &MBB);
 
 // This is useful when building IndexedMaps keyed on basic block pointers.
 struct MBB2NumberFunctor {

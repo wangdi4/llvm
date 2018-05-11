@@ -263,16 +263,14 @@ unsigned HexagonMCInstrInfo::getDuplexCandidateGroup(MCInst const &MCI) {
     break;
 
   case Hexagon::L4_return:
-
   case Hexagon::L2_deallocframe:
-
     return HexagonII::HSIG_L2;
-  case Hexagon::EH_RETURN_JMPR:
 
+  case Hexagon::EH_RETURN_JMPR:
   case Hexagon::J2_jumpr:
   case Hexagon::PS_jmpret:
     // jumpr r31
-    // Actual form JMPR %pc<imp-def>, %r31<imp-use>, %r0<imp-use,internal>.
+    // Actual form JMPR implicit-def %pc, implicit %r31, implicit internal %r0.
     DstReg = MCI.getOperand(0).getReg();
     if (Hexagon::R31 == DstReg)
       return HexagonII::HSIG_L2;
@@ -305,7 +303,7 @@ unsigned HexagonMCInstrInfo::getDuplexCandidateGroup(MCInst const &MCI) {
   case Hexagon::L4_return_tnew_pt:
   case Hexagon::L4_return_fnew_pt:
     // [if ([!]p0[.new])] dealloc_return
-    SrcReg = MCI.getOperand(0).getReg();
+    SrcReg = MCI.getOperand(1).getReg();
     if (Hexagon::P0 == SrcReg) {
       return HexagonII::HSIG_L2;
     }
@@ -388,7 +386,7 @@ unsigned HexagonMCInstrInfo::getDuplexCandidateGroup(MCInst const &MCI) {
     }
     break;
   case Hexagon::S2_allocframe:
-    if (inRange<5, 3>(MCI, 0))
+    if (inRange<5, 3>(MCI, 2))
       return HexagonII::HSIG_S2;
     break;
   //
@@ -471,7 +469,7 @@ unsigned HexagonMCInstrInfo::getDuplexCandidateGroup(MCInst const &MCI) {
   case Hexagon::C2_cmovenewif:
     // if ([!]P0[.new]) Rd = #0
     // Actual form:
-    // %r16<def> = C2_cmovenewit %p0<internal>, 0, %r16<imp-use,undef>;
+    // %r16 = C2_cmovenewit internal %p0, 0, implicit undef %r16;
     DstReg = MCI.getOperand(0).getReg();  // Rd
     PredReg = MCI.getOperand(1).getReg(); // P0
     if (HexagonMCInstrInfo::isIntRegForSubInst(DstReg) &&
@@ -742,7 +740,7 @@ MCInst HexagonMCInstrInfo::deriveSubInst(MCInst const &Inst) {
     break; //    1,2,3 SUBInst $Rx = add($_src_, $Rs)
   case Hexagon::S2_allocframe:
     Result.setOpcode(Hexagon::SS2_allocframe);
-    addOps(Result, Inst, 0);
+    addOps(Result, Inst, 2);
     break; //    1 SUBInst allocframe(#$u5_3)
   case Hexagon::A2_andir:
     if (minConstant(Inst, 2) == 255) {
@@ -789,12 +787,12 @@ MCInst HexagonMCInstrInfo::deriveSubInst(MCInst const &Inst) {
       addOps(Result, Inst, 2);
       break; //  1,3 SUBInst $Rdd = combine(#2, #$u2)
     }
+    break;
   case Hexagon::A4_combineir:
     Result.setOpcode(Hexagon::SA1_combinezr);
     addOps(Result, Inst, 0);
     addOps(Result, Inst, 2);
     break; //    1,3 SUBInst $Rdd = combine(#0, $Rs)
-
   case Hexagon::A4_combineri:
     Result.setOpcode(Hexagon::SA1_combinerz);
     addOps(Result, Inst, 0);
@@ -901,6 +899,7 @@ MCInst HexagonMCInstrInfo::deriveSubInst(MCInst const &Inst) {
       addOps(Result, Inst, 1);
       break; //  2 1,2 SUBInst memb($Rs + #$u4_0)=#1
     }
+    break;
   case Hexagon::S2_storerb_io:
     Result.setOpcode(Hexagon::SS1_storeb_io);
     addOps(Result, Inst, 0);
@@ -937,6 +936,7 @@ MCInst HexagonMCInstrInfo::deriveSubInst(MCInst const &Inst) {
       addOps(Result, Inst, 2);
       break; //  1 2,3 SUBInst memw(r29 + #$u5_2) = $Rt
     }
+    break;
   case Hexagon::S2_storeri_io:
     if (Inst.getOperand(0).getReg() == Hexagon::R29) {
       Result.setOpcode(Hexagon::SS2_storew_sp);

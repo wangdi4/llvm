@@ -13,10 +13,10 @@
 #include "lldb/API/SBLaunchInfo.h"
 #include "lldb/API/SBUnixSignals.h"
 #include "lldb/Host/File.h"
-#include "lldb/Interpreter/Args.h"
 #include "lldb/Target/Platform.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Utility/ArchSpec.h"
+#include "lldb/Utility/Args.h"
 #include "lldb/Utility/Status.h"
 
 #include "llvm/Support/FileSystem.h"
@@ -271,7 +271,7 @@ void SBPlatform::DisconnectRemote() {
 bool SBPlatform::IsConnected() {
   PlatformSP platform_sp(GetSP());
   if (platform_sp)
-    platform_sp->IsConnected();
+    return platform_sp->IsConnected();
   return false;
 }
 
@@ -416,7 +416,10 @@ SBError SBPlatform::Run(SBPlatformShellCommand &shell_command) {
 
 SBError SBPlatform::Launch(SBLaunchInfo &launch_info) {
   return ExecuteConnected([&](const lldb::PlatformSP &platform_sp) {
-    return platform_sp->LaunchProcess(launch_info.ref());
+    ProcessLaunchInfo info = launch_info.ref();
+    Status error = platform_sp->LaunchProcess(info);
+    launch_info.set_ref(info);
+    return error;
   });
 }
 

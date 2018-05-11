@@ -69,26 +69,44 @@ statistics from the file. If that fails then the process will quit.
 #define LIBFUZZER_LINUX 1
 #define LIBFUZZER_APPLE 0
 #define LIBFUZZER_NETBSD 0
+#define LIBFUZZER_FREEBSD 0
+#define LIBFUZZER_OPENBSD 0
 #elif __APPLE__
 #define LIBFUZZER_LINUX 0
 #define LIBFUZZER_APPLE 1
 #define LIBFUZZER_NETBSD 0
+#define LIBFUZZER_FREEBSD 0
+#define LIBFUZZER_OPENBSD 0
 #elif __NetBSD__
 #define LIBFUZZER_LINUX 0
 #define LIBFUZZER_APPLE 0
 #define LIBFUZZER_NETBSD 1
+#define LIBFUZZER_FREEBSD 0
+#define LIBFUZZER_OPENBSD 0
+#elif __FreeBSD__
+#define LIBFUZZER_LINUX 0
+#define LIBFUZZER_APPLE 0
+#define LIBFUZZER_NETBSD 0
+#define LIBFUZZER_FREEBSD 1
+#define LIBFUZZER_OPENBSD 0
+#elif __OpenBSD__
+#define LIBFUZZER_LINUX 0
+#define LIBFUZZER_APPLE 0
+#define LIBFUZZER_NETBSD 0
+#define LIBFUZZER_FREEBSD 0
+#define LIBFUZZER_OPENBSD 1
 #else
 #error "Support for your platform has not been implemented"
 #endif
 
 // Used to avoid repeating error checking boilerplate. If cond is false, a
-// fatal error has occured in the program. In this event print error_message
+// fatal error has occurred in the program. In this event print error_message
 // to stderr and abort(). Otherwise do nothing. Note that setting
 // AFL_DRIVER_STDERR_DUPLICATE_FILENAME may cause error_message to be appended
 // to the file as well, if the error occurs after the duplication is performed.
 #define CHECK_ERROR(cond, error_message)                                       \
   if (!(cond)) {                                                               \
-    fprintf(stderr, (error_message));                                          \
+    fprintf(stderr, "%s\n", (error_message));                                  \
     abort();                                                                   \
   }
 
@@ -125,7 +143,8 @@ size_t GetPeakRSSMb() {
   struct rusage usage;
   if (getrusage(RUSAGE_SELF, &usage))
     return 0;
-  if (LIBFUZZER_LINUX || LIBFUZZER_NETBSD) {
+  if (LIBFUZZER_LINUX || LIBFUZZER_NETBSD || LIBFUZZER_FREEBSD ||
+      LIBFUZZER_OPENBSD) {
     // ru_maxrss is in KiB
     return usage.ru_maxrss >> 10;
   } else if (LIBFUZZER_APPLE) {
@@ -270,7 +289,7 @@ int ExecuteFilesOnyByOne(int argc, char **argv) {
     assert(in);
     LLVMFuzzerTestOneInput(reinterpret_cast<const uint8_t *>(bytes.data()),
                            bytes.size());
-    std::cout << "Execution successfull" << std::endl;
+    std::cout << "Execution successful" << std::endl;
   }
   return 0;
 }
@@ -308,6 +327,12 @@ int main(int argc, char **argv) {
     return ExecuteFilesOnyByOne(argc, argv);
 
   assert(N > 0);
+
+  // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
+  // on the first execution of LLVMFuzzerTestOneInput is ignored.
+  uint8_t dummy_input[1] = {0};
+  LLVMFuzzerTestOneInput(dummy_input, 1);
+
   time_t unit_time_secs;
   int num_runs = 0;
   while (__afl_persistent_loop(N)) {

@@ -8,13 +8,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "OutputSections.h"
-
-#include "Config.h"
+#include "InputChunks.h"
 #include "InputFiles.h"
 #include "OutputSegment.h"
-#include "SymbolTable.h"
+#include "WriterUtils.h"
 #include "lld/Common/ErrorHandler.h"
-#include "lld/Common/Memory.h"
 #include "lld/Common/Threads.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/LEB128.h"
@@ -25,12 +23,6 @@ using namespace llvm;
 using namespace llvm::wasm;
 using namespace lld;
 using namespace lld::wasm;
-
-enum class RelocEncoding {
-  Uleb128,
-  Sleb128,
-  I32,
-};
 
 static StringRef sectionTypeToString(uint32_t SectionType) {
   switch (SectionType) {
@@ -63,204 +55,76 @@ static StringRef sectionTypeToString(uint32_t SectionType) {
   }
 }
 
-std::string lld::toString(OutputSection *Section) {
-  std::string rtn = sectionTypeToString(Section->Type);
-  if (!Section->Name.empty())
-    rtn += "(" + Section->Name + ")";
-  return rtn;
+// Returns a string, e.g. "FUNCTION(.text)".
+std::string lld::toString(const OutputSection &Sec) {
+  if (!Sec.Name.empty())
+    return (Sec.getSectionName() + "(" + Sec.Name + ")").str();
+  return Sec.getSectionName();
 }
 
-static void applyRelocation(uint8_t *Buf, const OutputRelocation &Reloc) {
-  DEBUG(dbgs() << "write reloc: type=" << Reloc.Reloc.Type
-               << " index=" << Reloc.Reloc.Index << " new=" << Reloc.NewIndex
-               << " value=" << Reloc.Value << " offset=" << Reloc.Reloc.Offset
-               << "\n");
-  Buf += Reloc.Reloc.Offset;
-  int64_t ExistingValue;
-  switch (Reloc.Reloc.Type) {
-  case R_WEBASSEMBLY_TYPE_INDEX_LEB:
-  case R_WEBASSEMBLY_FUNCTION_INDEX_LEB:
-    ExistingValue = decodeULEB128(Buf);
-    if (ExistingValue != Reloc.Reloc.Index) {
-      DEBUG(dbgs() << "existing value: " << decodeULEB128(Buf) << "\n");
-      assert(decodeULEB128(Buf) == Reloc.Reloc.Index);
-    }
-    LLVM_FALLTHROUGH;
-  case R_WEBASSEMBLY_MEMORY_ADDR_LEB:
-  case R_WEBASSEMBLY_GLOBAL_INDEX_LEB:
-    encodeULEB128(Reloc.Value, Buf, 5);
-    break;
-  case R_WEBASSEMBLY_TABLE_INDEX_SLEB:
-    ExistingValue = decodeSLEB128(Buf);
-    if (ExistingValue != Reloc.Reloc.Index) {
-      DEBUG(dbgs() << "existing value: " << decodeSLEB128(Buf) << "\n");
-      assert(decodeSLEB128(Buf) == Reloc.Reloc.Index);
-    }
-    LLVM_FALLTHROUGH;
-  case R_WEBASSEMBLY_MEMORY_ADDR_SLEB:
-    encodeSLEB128(static_cast<int32_t>(Reloc.Value), Buf, 5);
-    break;
-  case R_WEBASSEMBLY_TABLE_INDEX_I32:
-  case R_WEBASSEMBLY_MEMORY_ADDR_I32:
-    support::endian::write32<support::little>(Buf, Reloc.Value);
-    break;
-  default:
-    llvm_unreachable("unknown relocation type");
-  }
-}
-
-static void applyRelocations(uint8_t *Buf,
-                             const std::vector<OutputRelocation> &Relocs) {
-  log("applyRelocations: count=" + Twine(Relocs.size()));
-  for (const OutputRelocation &Reloc : Relocs) {
-    applyRelocation(Buf, Reloc);
-  }
-}
-
-// Relocations contain an index into the function, global or table index
-// space of the input file.  This function takes a relocation and returns the
-// relocated index (i.e. translates from the input index space to the output
-// index space).
-static uint32_t calcNewIndex(const ObjFile &File, const WasmRelocation &Reloc) {
-  switch (Reloc.Type) {
-  case R_WEBASSEMBLY_TYPE_INDEX_LEB:
-    return File.relocateTypeIndex(Reloc.Index);
-  case R_WEBASSEMBLY_FUNCTION_INDEX_LEB:
-    return File.relocateFunctionIndex(Reloc.Index);
-  case R_WEBASSEMBLY_TABLE_INDEX_I32:
-  case R_WEBASSEMBLY_TABLE_INDEX_SLEB:
-    return File.relocateTableIndex(Reloc.Index);
-  case R_WEBASSEMBLY_GLOBAL_INDEX_LEB:
-  case R_WEBASSEMBLY_MEMORY_ADDR_LEB:
-  case R_WEBASSEMBLY_MEMORY_ADDR_SLEB:
-  case R_WEBASSEMBLY_MEMORY_ADDR_I32:
-    return File.relocateGlobalIndex(Reloc.Index);
-  default:
-    llvm_unreachable("unknown relocation type");
-  }
-}
-
-// Take a vector of relocations from an input file and create output
-// relocations based on them. Calculates the updated index and offset for
-// each relocation as well as the value to write out in the final binary.
-static void calcRelocations(const ObjFile &File,
-                            ArrayRef<WasmRelocation> Relocs,
-                            std::vector<OutputRelocation> &OutputRelocs,
-                            int32_t OutputOffset) {
-  log("calcRelocations: " + File.getName() + " offset=" + Twine(OutputOffset));
-  for (const WasmRelocation &Reloc : Relocs) {
-    int64_t NewIndex = calcNewIndex(File, Reloc);
-    OutputRelocation NewReloc;
-    NewReloc.Reloc = Reloc;
-    NewReloc.Reloc.Offset += OutputOffset;
-    NewReloc.NewIndex = NewIndex;
-    DEBUG(dbgs() << "reloc: type=" << Reloc.Type << " index=" << Reloc.Index
-                 << " offset=" << Reloc.Offset << " new=" << NewIndex
-                 << " newOffset=" << NewReloc.Reloc.Offset << "\n");
-
-    switch (Reloc.Type) {
-    case R_WEBASSEMBLY_MEMORY_ADDR_SLEB:
-    case R_WEBASSEMBLY_MEMORY_ADDR_I32:
-    case R_WEBASSEMBLY_MEMORY_ADDR_LEB:
-      NewReloc.Value = File.getRelocatedAddress(Reloc.Index);
-      if (NewReloc.Value != UINT32_MAX)
-        NewReloc.Value += Reloc.Addend;
-      break;
-    default:
-      NewReloc.Value = NewIndex;
-    }
-
-    OutputRelocs.emplace_back(NewReloc);
-  }
+StringRef OutputSection::getSectionName() const {
+  return sectionTypeToString(Type);
 }
 
 void OutputSection::createHeader(size_t BodySize) {
   raw_string_ostream OS(Header);
-  debugWrite(OS.tell(),
-             "section type [" + Twine(sectionTypeToString(Type)) + "]");
-  writeUleb128(OS, Type, nullptr);
+  debugWrite(OS.tell(), "section type [" + getSectionName() + "]");
+  encodeULEB128(Type, OS);
   writeUleb128(OS, BodySize, "section size");
   OS.flush();
-  log("createHeader: " + toString(this) + " body=" + Twine(BodySize) +
+  log("createHeader: " + toString(*this) + " body=" + Twine(BodySize) +
       " total=" + Twine(getSize()));
 }
 
-CodeSection::CodeSection(uint32_t NumFunctions, std::vector<ObjFile *> &Objs)
-    : OutputSection(WASM_SEC_CODE), InputObjects(Objs) {
+CodeSection::CodeSection(ArrayRef<InputFunction *> Functions)
+    : OutputSection(WASM_SEC_CODE), Functions(Functions) {
+  assert(Functions.size() > 0);
+
   raw_string_ostream OS(CodeSectionHeader);
-  writeUleb128(OS, NumFunctions, "function count");
+  writeUleb128(OS, Functions.size(), "function count");
   OS.flush();
   BodySize = CodeSectionHeader.size();
 
-  for (ObjFile *File : InputObjects) {
-    if (!File->CodeSection)
-      continue;
-
-    File->CodeOffset = BodySize;
-    ArrayRef<uint8_t> Content = File->CodeSection->Content;
-    unsigned HeaderSize = 0;
-    decodeULEB128(Content.data(), &HeaderSize);
-
-    calcRelocations(*File, File->CodeSection->Relocations,
-                    File->CodeRelocations, BodySize - HeaderSize);
-
-    size_t PayloadSize = Content.size() - HeaderSize;
-    BodySize += PayloadSize;
+  for (InputChunk *Func : Functions) {
+    Func->OutputOffset = BodySize;
+    BodySize += Func->getSize();
   }
 
   createHeader(BodySize);
 }
 
 void CodeSection::writeTo(uint8_t *Buf) {
-  log("writing " + toString(this));
+  log("writing " + toString(*this));
   log(" size=" + Twine(getSize()));
+  log(" headersize=" + Twine(Header.size()));
+  log(" codeheadersize=" + Twine(CodeSectionHeader.size()));
   Buf += Offset;
 
   // Write section header
   memcpy(Buf, Header.data(), Header.size());
   Buf += Header.size();
 
-  uint8_t *ContentsStart = Buf;
-
   // Write code section headers
   memcpy(Buf, CodeSectionHeader.data(), CodeSectionHeader.size());
-  Buf += CodeSectionHeader.size();
 
   // Write code section bodies
-  parallelForEach(InputObjects, [ContentsStart](ObjFile *File) {
-    if (!File->CodeSection)
-      return;
-
-    ArrayRef<uint8_t> Content(File->CodeSection->Content);
-
-    // Payload doesn't include the initial header (function count)
-    unsigned HeaderSize = 0;
-    decodeULEB128(Content.data(), &HeaderSize);
-
-    size_t PayloadSize = Content.size() - HeaderSize;
-    memcpy(ContentsStart + File->CodeOffset, Content.data() + HeaderSize,
-           PayloadSize);
-
-    log("applying relocations for: " + File->getName());
-    if (File->CodeRelocations.size())
-      applyRelocations(ContentsStart, File->CodeRelocations);
-  });
+  parallelForEach(Functions,
+                  [&](const InputChunk *Chunk) { Chunk->writeTo(Buf); });
 }
 
 uint32_t CodeSection::numRelocations() const {
   uint32_t Count = 0;
-  for (ObjFile *File : InputObjects)
-    Count += File->CodeRelocations.size();
+  for (const InputChunk *Func : Functions)
+    Count += Func->NumRelocations();
   return Count;
 }
 
 void CodeSection::writeRelocations(raw_ostream &OS) const {
-  for (ObjFile *File : InputObjects)
-    for (const OutputRelocation &Reloc : File->CodeRelocations)
-      writeReloc(OS, Reloc);
+  for (const InputChunk *C : Functions)
+    C->writeRelocations(OS);
 }
 
-DataSection::DataSection(std::vector<OutputSegment *> &Segments)
+DataSection::DataSection(ArrayRef<OutputSegment *> Segments)
     : OutputSection(WASM_SEC_DATA), Segments(Segments) {
   raw_string_ostream OS(DataSectionHeader);
 
@@ -276,25 +140,21 @@ DataSection::DataSection(std::vector<OutputSegment *> &Segments)
     writeUleb128(OS, WASM_OPCODE_END, "opcode:end");
     writeUleb128(OS, Segment->Size, "segment size");
     OS.flush();
-    Segment->setSectionOffset(BodySize);
-    BodySize += Segment->Header.size();
+
+    Segment->SectionOffset = BodySize;
+    BodySize += Segment->Header.size() + Segment->Size;
     log("Data segment: size=" + Twine(Segment->Size));
-    for (const InputSegment *InputSeg : Segment->InputSegments) {
-      uint32_t InputOffset = InputSeg->getInputSectionOffset();
-      uint32_t OutputOffset = Segment->getSectionOffset() +
-                              Segment->Header.size() +
-                              InputSeg->getOutputSegmentOffset();
-      calcRelocations(*InputSeg->File, InputSeg->Relocations, Relocations,
-                      OutputOffset - InputOffset);
-    }
-    BodySize += Segment->Size;
+
+    for (InputSegment *InputSeg : Segment->InputSegments)
+      InputSeg->OutputOffset = Segment->SectionOffset + Segment->Header.size() +
+                               InputSeg->OutputSegmentOffset;
   }
 
   createHeader(BodySize);
 }
 
 void DataSection::writeTo(uint8_t *Buf) {
-  log("writing " + toString(this) + " size=" + Twine(getSize()) +
+  log("writing " + toString(*this) + " size=" + Twine(getSize()) +
       " body=" + Twine(BodySize));
   Buf += Offset;
 
@@ -302,29 +162,65 @@ void DataSection::writeTo(uint8_t *Buf) {
   memcpy(Buf, Header.data(), Header.size());
   Buf += Header.size();
 
-  uint8_t *ContentsStart = Buf;
-
   // Write data section headers
   memcpy(Buf, DataSectionHeader.data(), DataSectionHeader.size());
 
-  parallelForEach(Segments, [ContentsStart](const OutputSegment *Segment) {
+  parallelForEach(Segments, [&](const OutputSegment *Segment) {
     // Write data segment header
-    uint8_t *SegStart = ContentsStart + Segment->getSectionOffset();
+    uint8_t *SegStart = Buf + Segment->SectionOffset;
     memcpy(SegStart, Segment->Header.data(), Segment->Header.size());
 
     // Write segment data payload
-    for (const InputSegment *Input : Segment->InputSegments) {
-      ArrayRef<uint8_t> Content(Input->Segment->Data.Content);
-      memcpy(SegStart + Segment->Header.size() +
-                 Input->getOutputSegmentOffset(),
-             Content.data(), Content.size());
-    }
+    for (const InputChunk *Chunk : Segment->InputSegments)
+      Chunk->writeTo(Buf);
   });
+}
 
-  applyRelocations(ContentsStart, Relocations);
+uint32_t DataSection::numRelocations() const {
+  uint32_t Count = 0;
+  for (const OutputSegment *Seg : Segments)
+    for (const InputChunk *InputSeg : Seg->InputSegments)
+      Count += InputSeg->NumRelocations();
+  return Count;
 }
 
 void DataSection::writeRelocations(raw_ostream &OS) const {
-  for (const OutputRelocation &Reloc : Relocations)
-    writeReloc(OS, Reloc);
+  for (const OutputSegment *Seg : Segments)
+    for (const InputChunk *C : Seg->InputSegments)
+      C->writeRelocations(OS);
+}
+
+CustomSection::CustomSection(std::string Name,
+                             ArrayRef<InputSection *> InputSections)
+    : OutputSection(WASM_SEC_CUSTOM, Name), PayloadSize(0),
+      InputSections(InputSections) {
+  raw_string_ostream OS(NameData);
+  encodeULEB128(Name.size(), OS);
+  OS << Name;
+  OS.flush();
+
+  for (InputSection *Section : InputSections) {
+    Section->OutputOffset = PayloadSize;
+    PayloadSize += Section->getSize();
+  }
+
+  createHeader(PayloadSize + NameData.size());
+}
+
+void CustomSection::writeTo(uint8_t *Buf) {
+  log("writing " + toString(*this) + " size=" + Twine(getSize()) +
+      " chunks=" + Twine(InputSections.size()));
+
+  assert(Offset);
+  Buf += Offset;
+
+  // Write section header
+  memcpy(Buf, Header.data(), Header.size());
+  Buf += Header.size();
+  memcpy(Buf, NameData.data(), NameData.size());
+  Buf += NameData.size();
+
+  // Write custom sections payload
+  parallelForEach(InputSections,
+                  [&](const InputSection *Section) { Section->writeTo(Buf); });
 }

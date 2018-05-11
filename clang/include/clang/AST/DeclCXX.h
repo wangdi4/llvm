@@ -20,6 +20,7 @@
 #include "clang/AST/ASTUnresolvedSet.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
+#include "clang/AST/DeclBase.h"
 #include "clang/AST/DeclarationName.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExternalASTSource.h"
@@ -347,7 +348,12 @@ class CXXRecordDecl : public RecordDecl {
     /// one pure virtual function, (that can come from a base class).
     unsigned Abstract : 1;
 
-    /// \brief True when this class has standard layout.
+    /// \brief True when this class is standard-layout, per the applicable
+    /// language rules (including DRs).
+    unsigned IsStandardLayout : 1;
+
+    /// \brief True when this class was standard-layout under the C++11
+    /// definition.
     ///
     /// C++11 [class]p7.  A standard-layout class is a class that:
     /// * has no non-static data members of type non-standard-layout class (or
@@ -361,13 +367,19 @@ class CXXRecordDecl : public RecordDecl {
     ///   classes with non-static data members, and
     /// * has no base classes of the same type as the first non-static data
     ///   member.
-    unsigned IsStandardLayout : 1;
+    unsigned IsCXX11StandardLayout : 1;
 
-    /// \brief True when there are no non-empty base classes.
-    ///
+    /// \brief True when any base class has any declared non-static data
+    /// members or bit-fields.
     /// This is a helper bit of state used to implement IsStandardLayout more
     /// efficiently.
-    unsigned HasNoNonEmptyBases : 1;
+    unsigned HasBasesWithFields : 1;
+
+    /// \brief True when any base class has any declared non-static data
+    /// members.
+    /// This is a helper bit of state used to implement IsCXX11StandardLayout
+    /// more efficiently.
+    unsigned HasBasesWithNonStaticDataMembers : 1;
 
     /// \brief True when there are private non-static data members.
     unsigned HasPrivateFields : 1;
@@ -437,6 +449,11 @@ class CXXRecordDecl : public RecordDecl {
     /// which have been declared but not yet defined.
     unsigned HasTrivialSpecialMembers : 6;
 
+    /// These bits keep track of the triviality of special functions for the
+    /// purpose of calls. Only the bits corresponding to SMF_CopyConstructor,
+    /// SMF_MoveConstructor, and SMF_Destructor are meaningful here.
+    unsigned HasTrivialSpecialMembersForCall : 6;
+
     /// \brief The declared special members of this class which are known to be
     /// non-trivial.
     ///
@@ -444,6 +461,12 @@ class CXXRecordDecl : public RecordDecl {
     /// which have been declared but not yet defined, and any implicit special
     /// members which have not yet been declared.
     unsigned DeclaredNonTrivialSpecialMembers : 6;
+
+    /// These bits keep track of the declared special members that are
+    /// non-trivial for the purpose of calls.
+    /// Only the bits corresponding to SMF_CopyConstructor,
+    /// SMF_MoveConstructor, and SMF_Destructor are meaningful here.
+    unsigned DeclaredNonTrivialSpecialMembersForCall : 6;
 
     /// \brief True when this class has a destructor with no semantic effect.
     unsigned HasIrrelevantDestructor : 1;
@@ -455,12 +478,6 @@ class CXXRecordDecl : public RecordDecl {
     /// \brief True if this class has a (possibly implicit) defaulted default
     /// constructor.
     unsigned HasDefaultedDefaultConstructor : 1;
-
-    /// \brief True if this class can be passed in a non-address-preserving
-    /// fashion (such as in registers) according to the C++ language rules.
-    /// This does not imply anything about how the ABI in use will actually
-    /// pass an object of this class.
-    unsigned CanPassInRegisters : 1;
 
     /// \brief True if a defaulted default constructor for this class would
     /// be constexpr.
@@ -689,6 +706,12 @@ class CXXRecordDecl : public RecordDecl {
   /// \brief Get the head of our list of friend declarations, possibly
   /// deserializing the friends from an external AST source.
   FriendDecl *getFirstFriend() const;
+
+  /// Determine whether this class has an empty base class subobject of type X
+  /// or of one of the types that might be at offset 0 within X (per the C++
+  /// "standard layout" rules).
+  bool hasSubobjectAtOffsetZeroOfEmptyBaseType(ASTContext &Ctx,
+                                               const CXXRecordDecl *X);
 
 protected:
   CXXRecordDecl(Kind K, TagKind TK, const ASTContext &C, DeclContext *DC,
@@ -1055,7 +1078,7 @@ public:
   /// \brief Determine whether this class has a user-declared copy assignment
   /// operator.
   ///
-  /// When false, a copy assigment operator will be implicitly declared.
+  /// When false, a copy assignment operator will be implicitly declared.
   bool hasUserDeclaredCopyAssignment() const {
     return data().UserDeclaredSpecialMembers & SMF_CopyAssignment;
   }
@@ -1295,9 +1318,13 @@ public:
   /// not overridden.
   bool isAbstract() const { return data().Abstract; }
 
-  /// \brief Determine whether this class has standard layout per 
-  /// (C++ [class]p7)
+  /// \brief Determine whether this class is standard-layout per 
+  /// C++ [class]p7.
   bool isStandardLayout() const { return data().IsStandardLayout; }
+
+  /// \brief Determine whether this class was standard-layout per 
+  /// C++11 [class]p7, specifically using the C++11 rules without any DRs.
+  bool isCXX11StandardLayout() const { return data().IsCXX11StandardLayout; }
 
   /// \brief Determine whether this class, or any of its class subobjects,
   /// contains a mutable field.
@@ -1349,11 +1376,21 @@ public:
     return data().HasTrivialSpecialMembers & SMF_CopyConstructor;
   }
 
+  bool hasTrivialCopyConstructorForCall() const {
+    return data().HasTrivialSpecialMembersForCall & SMF_CopyConstructor;
+  }
+
   /// \brief Determine whether this class has a non-trivial copy constructor
   /// (C++ [class.copy]p6, C++11 [class.copy]p12)
   bool hasNonTrivialCopyConstructor() const {
     return data().DeclaredNonTrivialSpecialMembers & SMF_CopyConstructor ||
            !hasTrivialCopyConstructor();
+  }
+
+  bool hasNonTrivialCopyConstructorForCall() const {
+    return (data().DeclaredNonTrivialSpecialMembersForCall &
+            SMF_CopyConstructor) ||
+           !hasTrivialCopyConstructorForCall();
   }
 
   /// \brief Determine whether this class has a trivial move constructor
@@ -1363,12 +1400,24 @@ public:
            (data().HasTrivialSpecialMembers & SMF_MoveConstructor);
   }
 
+  bool hasTrivialMoveConstructorForCall() const {
+    return hasMoveConstructor() &&
+           (data().HasTrivialSpecialMembersForCall & SMF_MoveConstructor);
+  }
+
   /// \brief Determine whether this class has a non-trivial move constructor
   /// (C++11 [class.copy]p12)
   bool hasNonTrivialMoveConstructor() const {
     return (data().DeclaredNonTrivialSpecialMembers & SMF_MoveConstructor) ||
            (needsImplicitMoveConstructor() &&
             !(data().HasTrivialSpecialMembers & SMF_MoveConstructor));
+  }
+
+  bool hasNonTrivialMoveConstructorForCall() const {
+    return (data().DeclaredNonTrivialSpecialMembersForCall &
+            SMF_MoveConstructor) ||
+           (needsImplicitMoveConstructor() &&
+            !(data().HasTrivialSpecialMembersForCall & SMF_MoveConstructor));
   }
 
   /// \brief Determine whether this class has a trivial copy assignment operator
@@ -1405,10 +1454,23 @@ public:
     return data().HasTrivialSpecialMembers & SMF_Destructor;
   }
 
+  bool hasTrivialDestructorForCall() const {
+    return data().HasTrivialSpecialMembersForCall & SMF_Destructor;
+  }
+
   /// \brief Determine whether this class has a non-trivial destructor
   /// (C++ [class.dtor]p3)
   bool hasNonTrivialDestructor() const {
     return !(data().HasTrivialSpecialMembers & SMF_Destructor);
+  }
+
+  bool hasNonTrivialDestructorForCall() const {
+    return !(data().HasTrivialSpecialMembersForCall & SMF_Destructor);
+  }
+
+  void setHasTrivialSpecialMemberForCall() {
+    data().HasTrivialSpecialMembersForCall =
+        (SMF_CopyConstructor | SMF_MoveConstructor | SMF_Destructor);
   }
 
   /// \brief Determine whether declaring a const variable with this type is ok
@@ -1426,18 +1488,6 @@ public:
   /// and will call only irrelevant destructors.
   bool hasIrrelevantDestructor() const {
     return data().HasIrrelevantDestructor;
-  }
-
-  /// \brief Determine whether this class has at least one trivial, non-deleted
-  /// copy or move constructor.
-  bool canPassInRegisters() const {
-    return data().CanPassInRegisters;
-  }
-
-  /// \brief Set that we can pass this RecordDecl in registers.
-  // FIXME: This should be set as part of completeDefinition.
-  void setCanPassInRegisters(bool CanPass) {
-    data().CanPassInRegisters = CanPass;
   }
 
   /// \brief Determine whether this class has a non-literal or/ volatile type
@@ -1487,10 +1537,10 @@ public:
   /// We resolve DR1361 by ignoring the second bullet. We resolve DR1452 by
   /// treating types with trivial default constructors as literal types.
   ///
-  /// Only in C++1z and beyond, are lambdas literal types.
+  /// Only in C++17 and beyond, are lambdas literal types.
   bool isLiteral() const {
     return hasTrivialDestructor() &&
-           (!isLambda() || getASTContext().getLangOpts().CPlusPlus1z) &&
+           (!isLambda() || getASTContext().getLangOpts().CPlusPlus17) &&
            !hasNonLiteralTypeFieldsOrBases() &&
            (isAggregate() || isLambda() ||
             hasConstexprNonCopyMoveConstructor() ||
@@ -1570,7 +1620,7 @@ public:
   /// \brief If the class is a local class [class.local], returns
   /// the enclosing function declaration.
   const FunctionDecl *isLocalClass() const {
-    if (const CXXRecordDecl *RD = dyn_cast<CXXRecordDecl>(getDeclContext()))
+    if (const auto *RD = dyn_cast<CXXRecordDecl>(getDeclContext()))
       return RD->isLocalClass();
 
     return dyn_cast<FunctionDecl>(getDeclContext());
@@ -1797,6 +1847,8 @@ public:
   /// member function is now complete.
   void finishedDefaultedOrDeletedMember(CXXMethodDecl *MD);
 
+  void setTrivialForCallFlags(CXXMethodDecl *MD);
+
   /// \brief Indicates that the definition of this class is now complete.
   void completeDefinition() override;
 
@@ -1889,7 +1941,7 @@ public:
   }
 
   // \brief Determine whether this type is an Interface Like type for
-  // __interface inheritence purposes.
+  // __interface inheritance purposes.
   bool isInterfaceLike() const;
 
   static bool classof(const Decl *D) { return classofKind(D->getKind()); }
@@ -2007,15 +2059,14 @@ public:
   bool isVolatile() const { return getType()->castAs<FunctionType>()->isVolatile(); }
 
   bool isVirtual() const {
-    CXXMethodDecl *CD =
-      cast<CXXMethodDecl>(const_cast<CXXMethodDecl*>(this)->getCanonicalDecl());
+    CXXMethodDecl *CD = const_cast<CXXMethodDecl*>(this)->getCanonicalDecl();
 
     // Member function is virtual if it is marked explicitly so, or if it is
     // declared in __interface -- then it is automatically pure virtual.
     if (CD->isVirtualAsWritten() || CD->isPure())
       return true;
 
-    return (CD->begin_overridden_methods() != CD->end_overridden_methods());
+    return CD->size_overridden_methods() != 0;
   }
 
   /// If it's possible to devirtualize a call to this method, return the called
@@ -2364,7 +2415,7 @@ public:
   SourceLocation getRParenLoc() const { return RParenLoc; }
 
   /// \brief Get the initializer.
-  Expr *getInit() const { return static_cast<Expr*>(Init); }
+  Expr *getInit() const { return static_cast<Expr *>(Init); }
 };
 
 /// Description of a constructor that was inherited from a base class.
@@ -3018,14 +3069,14 @@ public:
 
   /// \brief Retrieve the namespace declaration aliased by this directive.
   NamespaceDecl *getNamespace() {
-    if (NamespaceAliasDecl *AD = dyn_cast<NamespaceAliasDecl>(Namespace))
+    if (auto *AD = dyn_cast<NamespaceAliasDecl>(Namespace))
       return AD->getNamespace();
 
     return cast<NamespaceDecl>(Namespace);
   }
 
   const NamespaceDecl *getNamespace() const {
-    return const_cast<NamespaceAliasDecl*>(this)->getNamespace();
+    return const_cast<NamespaceAliasDecl *>(this)->getNamespace();
   }
 
   /// Returns the location of the alias name, i.e. 'foo' in
@@ -3129,10 +3180,14 @@ public:
 
   /// \brief Sets the underlying declaration which has been brought into the
   /// local scope.
-  void setTargetDecl(NamedDecl* ND) {
+  void setTargetDecl(NamedDecl *ND) {
     assert(ND && "Target decl is null!");
     Underlying = ND;
-    IdentifierNamespace = ND->getIdentifierNamespace();
+    // A UsingShadowDecl is never a friend or local extern declaration, even
+    // if it is a shadow declaration for one.
+    IdentifierNamespace =
+        ND->getIdentifierNamespace() &
+        ~(IDNS_OrdinaryFriend | IDNS_TagFriend | IDNS_LocalExtern);
   }
 
   /// \brief Gets the using declaration to which this declaration is tied.

@@ -102,6 +102,13 @@ Constant *ConstantFoldInsertValueInstruction(Constant *Agg, Constant *Val,
 Constant *ConstantFoldExtractValueInstruction(Constant *Agg,
                                               ArrayRef<unsigned> Idxs);
 
+/// \brief Attempt to constant fold an insertelement instruction with the
+/// specified operands and indices.  The constant result is returned if
+/// successful; if not, null is returned.
+Constant *ConstantFoldInsertElementInstruction(Constant *Val,
+                                               Constant *Elt,
+                                               Constant *Idx);
+
 /// \brief Attempt to constant fold an extractelement instruction with the
 /// specified operands and indices.  The constant result is returned if
 /// successful; if not, null is returned.
@@ -139,6 +146,12 @@ bool canConstantFoldCallTo(ImmutableCallSite CS, const Function *F);
 Constant *ConstantFoldCall(ImmutableCallSite CS, Function *F,
                            ArrayRef<Constant *> Operands,
                            const TargetLibraryInfo *TLI = nullptr);
+
+/// ConstantFoldLoadThroughBitcast - try to cast constant to destination type
+/// returning null if unsuccessful. Can cast pointer to pointer or pointer to
+/// integer and vice versa if their sizes are equal.
+Constant *ConstantFoldLoadThroughBitcast(Constant *C, Type *DestTy,
+                                         const DataLayout &DL);
 
 /// \brief Check whether the given call has no side-effects.
 /// Specifically checks for math routimes which sometimes set errno.

@@ -55,6 +55,9 @@ static DecodeStatus DecodeFPR16RegisterClass(MCInst &Inst, unsigned RegNo,
 static DecodeStatus DecodeFPR8RegisterClass(MCInst &Inst, unsigned RegNo,
                                             uint64_t Address,
                                             const void *Decoder);
+static DecodeStatus DecodeGPR64commonRegisterClass(MCInst &Inst, unsigned RegNo,
+                                             uint64_t Address,
+                                             const void *Decoder);
 static DecodeStatus DecodeGPR64RegisterClass(MCInst &Inst, unsigned RegNo,
                                              uint64_t Address,
                                              const void *Decoder);
@@ -88,6 +91,21 @@ static DecodeStatus DecodeDDDDRegisterClass(MCInst &Inst, unsigned RegNo,
 static DecodeStatus DecodeZPRRegisterClass(MCInst &Inst, unsigned RegNo,
                                            uint64_t Address,
                                            const void *Decode);
+static DecodeStatus DecodeZPR2RegisterClass(MCInst &Inst, unsigned RegNo,
+                                            uint64_t Address,
+                                            const void *Decode);
+static DecodeStatus DecodeZPR3RegisterClass(MCInst &Inst, unsigned RegNo,
+                                            uint64_t Address,
+                                            const void *Decode);
+static DecodeStatus DecodeZPR4RegisterClass(MCInst &Inst, unsigned RegNo,
+                                            uint64_t Address,
+                                            const void *Decode);
+static DecodeStatus DecodePPRRegisterClass(MCInst &Inst, unsigned RegNo,
+                                           uint64_t Address,
+                                           const void *Decode);
+static DecodeStatus DecodePPR_3bRegisterClass(MCInst &Inst, unsigned RegNo,
+                                              uint64_t Address,
+                                              const void *Decode);
 
 static DecodeStatus DecodeFixedPointScaleImm32(MCInst &Inst, unsigned Imm,
                                                uint64_t Address,
@@ -182,6 +200,10 @@ static DecodeStatus DecodeXSeqPairsClassRegisterClass(MCInst &Inst,
                                                       unsigned RegNo,
                                                       uint64_t Addr,
                                                       const void *Decoder);
+static DecodeStatus DecodeSVELogicalImmInstruction(llvm::MCInst &Inst,
+                                                   uint32_t insn,
+                                                   uint64_t Address,
+                                                   const void *Decoder);
 template<int Bits>
 static DecodeStatus DecodeSImm(llvm::MCInst &Inst, uint64_t Imm,
                                uint64_t Address, const void *Decoder);
@@ -383,6 +405,17 @@ static const unsigned GPR64DecoderTable[] = {
     AArch64::LR,  AArch64::XZR
 };
 
+static DecodeStatus DecodeGPR64commonRegisterClass(MCInst &Inst, unsigned RegNo,
+                                                   uint64_t Addr,
+                                                   const void *Decoder) {
+  if (RegNo > 30)
+    return Fail;
+
+  unsigned Register = GPR64DecoderTable[RegNo];
+  Inst.addOperand(MCOperand::createReg(Register));
+  return Success;
+}
+
 static DecodeStatus DecodeGPR64RegisterClass(MCInst &Inst, unsigned RegNo,
                                              uint64_t Addr,
                                              const void *Decoder) {
@@ -459,6 +492,102 @@ static DecodeStatus DecodeZPRRegisterClass(MCInst &Inst, unsigned RegNo,
   unsigned Register = ZPRDecoderTable[RegNo];
   Inst.addOperand(MCOperand::createReg(Register));
   return Success;
+}
+
+static const unsigned ZZDecoderTable[] = {
+  AArch64::Z0_Z1,   AArch64::Z1_Z2,   AArch64::Z2_Z3,   AArch64::Z3_Z4,
+  AArch64::Z4_Z5,   AArch64::Z5_Z6,   AArch64::Z6_Z7,   AArch64::Z7_Z8,
+  AArch64::Z8_Z9,   AArch64::Z9_Z10,  AArch64::Z10_Z11, AArch64::Z11_Z12,
+  AArch64::Z12_Z13, AArch64::Z13_Z14, AArch64::Z14_Z15, AArch64::Z15_Z16,
+  AArch64::Z16_Z17, AArch64::Z17_Z18, AArch64::Z18_Z19, AArch64::Z19_Z20,
+  AArch64::Z20_Z21, AArch64::Z21_Z22, AArch64::Z22_Z23, AArch64::Z23_Z24,
+  AArch64::Z24_Z25, AArch64::Z25_Z26, AArch64::Z26_Z27, AArch64::Z27_Z28,
+  AArch64::Z28_Z29, AArch64::Z29_Z30, AArch64::Z30_Z31, AArch64::Z31_Z0
+};
+
+static DecodeStatus DecodeZPR2RegisterClass(MCInst &Inst, unsigned RegNo,
+                                            uint64_t Address,
+                                            const void* Decoder) {
+  if (RegNo > 31)
+    return Fail;
+  unsigned Register = ZZDecoderTable[RegNo];
+  Inst.addOperand(MCOperand::createReg(Register));
+  return Success;
+}
+
+static const unsigned ZZZDecoderTable[] = {
+  AArch64::Z0_Z1_Z2,    AArch64::Z1_Z2_Z3,    AArch64::Z2_Z3_Z4,
+  AArch64::Z3_Z4_Z5,    AArch64::Z4_Z5_Z6,    AArch64::Z5_Z6_Z7,
+  AArch64::Z6_Z7_Z8,    AArch64::Z7_Z8_Z9,    AArch64::Z8_Z9_Z10,
+  AArch64::Z9_Z10_Z11,  AArch64::Z10_Z11_Z12, AArch64::Z11_Z12_Z13,
+  AArch64::Z12_Z13_Z14, AArch64::Z13_Z14_Z15, AArch64::Z14_Z15_Z16,
+  AArch64::Z15_Z16_Z17, AArch64::Z16_Z17_Z18, AArch64::Z17_Z18_Z19,
+  AArch64::Z18_Z19_Z20, AArch64::Z19_Z20_Z21, AArch64::Z20_Z21_Z22,
+  AArch64::Z21_Z22_Z23, AArch64::Z22_Z23_Z24, AArch64::Z23_Z24_Z25,
+  AArch64::Z24_Z25_Z26, AArch64::Z25_Z26_Z27, AArch64::Z26_Z27_Z28,
+  AArch64::Z27_Z28_Z29, AArch64::Z28_Z29_Z30, AArch64::Z29_Z30_Z31,
+  AArch64::Z30_Z31_Z0,  AArch64::Z31_Z0_Z1
+};
+
+static DecodeStatus DecodeZPR3RegisterClass(MCInst &Inst, unsigned RegNo,
+                                            uint64_t Address,
+                                            const void* Decoder) {
+  if (RegNo > 31)
+    return Fail;
+  unsigned Register = ZZZDecoderTable[RegNo];
+  Inst.addOperand(MCOperand::createReg(Register));
+  return Success;
+}
+
+static const unsigned ZZZZDecoderTable[] = {
+  AArch64::Z0_Z1_Z2_Z3,     AArch64::Z1_Z2_Z3_Z4,     AArch64::Z2_Z3_Z4_Z5,
+  AArch64::Z3_Z4_Z5_Z6,     AArch64::Z4_Z5_Z6_Z7,     AArch64::Z5_Z6_Z7_Z8,
+  AArch64::Z6_Z7_Z8_Z9,     AArch64::Z7_Z8_Z9_Z10,    AArch64::Z8_Z9_Z10_Z11,
+  AArch64::Z9_Z10_Z11_Z12,  AArch64::Z10_Z11_Z12_Z13, AArch64::Z11_Z12_Z13_Z14,
+  AArch64::Z12_Z13_Z14_Z15, AArch64::Z13_Z14_Z15_Z16, AArch64::Z14_Z15_Z16_Z17,
+  AArch64::Z15_Z16_Z17_Z18, AArch64::Z16_Z17_Z18_Z19, AArch64::Z17_Z18_Z19_Z20,
+  AArch64::Z18_Z19_Z20_Z21, AArch64::Z19_Z20_Z21_Z22, AArch64::Z20_Z21_Z22_Z23,
+  AArch64::Z21_Z22_Z23_Z24, AArch64::Z22_Z23_Z24_Z25, AArch64::Z23_Z24_Z25_Z26,
+  AArch64::Z24_Z25_Z26_Z27, AArch64::Z25_Z26_Z27_Z28, AArch64::Z26_Z27_Z28_Z29,
+  AArch64::Z27_Z28_Z29_Z30, AArch64::Z28_Z29_Z30_Z31, AArch64::Z29_Z30_Z31_Z0,
+  AArch64::Z30_Z31_Z0_Z1,   AArch64::Z31_Z0_Z1_Z2
+};
+
+static DecodeStatus DecodeZPR4RegisterClass(MCInst &Inst, unsigned RegNo,
+                                            uint64_t Address,
+                                            const void* Decoder) {
+  if (RegNo > 31)
+    return Fail;
+  unsigned Register = ZZZZDecoderTable[RegNo];
+  Inst.addOperand(MCOperand::createReg(Register));
+  return Success;
+}
+
+static const unsigned PPRDecoderTable[] = {
+  AArch64::P0,  AArch64::P1,  AArch64::P2,  AArch64::P3,
+  AArch64::P4,  AArch64::P5,  AArch64::P6,  AArch64::P7,
+  AArch64::P8,  AArch64::P9,  AArch64::P10, AArch64::P11,
+  AArch64::P12, AArch64::P13, AArch64::P14, AArch64::P15
+};
+
+static DecodeStatus DecodePPRRegisterClass(MCInst &Inst, unsigned RegNo,
+                                           uint64_t Addr, const void *Decoder) {
+  if (RegNo > 15)
+    return Fail;
+
+  unsigned Register = PPRDecoderTable[RegNo];
+  Inst.addOperand(MCOperand::createReg(Register));
+  return Success;
+}
+
+static DecodeStatus DecodePPR_3bRegisterClass(MCInst &Inst, unsigned RegNo,
+                                              uint64_t Addr,
+                                              const void* Decoder) {
+  if (RegNo > 7)
+    return Fail;
+
+  // Just reuse the PPR decode table
+  return DecodePPRRegisterClass(Inst, RegNo, Addr, Decoder);
 }
 
 static const unsigned VectorDecoderTable[] = {
@@ -1614,6 +1743,22 @@ static DecodeStatus DecodeXSeqPairsClassRegisterClass(MCInst &Inst,
   return DecodeGPRSeqPairsClassRegisterClass(Inst,
                                              AArch64::XSeqPairsClassRegClassID,
                                              RegNo, Addr, Decoder);
+}
+
+static DecodeStatus DecodeSVELogicalImmInstruction(llvm::MCInst &Inst,
+                                                   uint32_t insn,
+                                                   uint64_t Addr,
+                                                   const void *Decoder) {
+  unsigned Zdn = fieldFromInstruction(insn, 0, 5);
+  unsigned imm = fieldFromInstruction(insn, 5, 13);
+  if (!AArch64_AM::isValidDecodeLogicalImmediate(imm, 64))
+    return Fail;
+
+  // The same (tied) operand is added twice to the instruction.
+  DecodeZPRRegisterClass(Inst, Zdn, Addr, Decoder);
+  DecodeZPRRegisterClass(Inst, Zdn, Addr, Decoder);
+  Inst.addOperand(MCOperand::createImm(imm));
+  return Success;
 }
 
 template<int Bits>

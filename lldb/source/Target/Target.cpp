@@ -87,13 +87,14 @@ Target::Target(Debugger &debugger, const ArchSpec &target_arch,
       Broadcaster(debugger.GetBroadcasterManager(),
                   Target::GetStaticBroadcasterClass().AsCString()),
       ExecutionContextScope(), m_debugger(debugger), m_platform_sp(platform_sp),
-      m_mutex(), m_arch(target_arch),
-      m_images(this), m_section_load_history(), m_breakpoint_list(false),
-      m_internal_breakpoint_list(true), m_watchpoint_list(), m_process_sp(),
-      m_search_filter_sp(), m_image_search_paths(ImageSearchPathsChanged, this),
-      m_ast_importer_sp(), m_source_manager_ap(), m_stop_hooks(),
-      m_stop_hook_next_id(0), m_valid(true), m_suppress_stop_hooks(false),
-      m_is_dummy_target(is_dummy_target)
+      m_mutex(), m_arch(target_arch), m_images(this), m_section_load_history(),
+      m_breakpoint_list(false), m_internal_breakpoint_list(true),
+      m_watchpoint_list(), m_process_sp(), m_search_filter_sp(),
+      m_image_search_paths(ImageSearchPathsChanged, this), m_ast_importer_sp(),
+      m_source_manager_ap(), m_stop_hooks(), m_stop_hook_next_id(0),
+      m_valid(true), m_suppress_stop_hooks(false),
+      m_is_dummy_target(is_dummy_target),
+      m_stats_storage(static_cast<int>(StatisticKind::StatisticMax))
 
 {
   SetEventName(eBroadcastBitBreakpointChanged, "breakpoint-changed");
@@ -330,7 +331,7 @@ BreakpointSP Target::CreateBreakpoint(const FileSpecList *containingModules,
   ConstString remapped_path;
   if (GetSourcePathMap().ReverseRemapPath(ConstString(file.GetPath().c_str()),
                                           remapped_path))
-    remapped_file.SetFile(remapped_path.AsCString(), true);
+    remapped_file.SetFile(remapped_path.AsCString(), false);
   else
     remapped_file = file;
 
@@ -2313,7 +2314,7 @@ ExpressionResults Target::EvaluateExpression(
     result_valobj_sp = persistent_var_sp->GetValueObject();
     execution_results = eExpressionCompleted;
   } else {
-    const char *prefix = GetExpressionPrefixContentsAsCString();
+    llvm::StringRef prefix = GetExpressionPrefixContents();
     Status error;
     execution_results = UserExpression::Evaluate(exe_ctx, options, expr, prefix,
                                                  result_valobj_sp, error,
@@ -2679,6 +2680,10 @@ void Target::RunStopHooks() {
 
   if (!m_process_sp)
     return;
+    
+  // Somebody might have restarted the process:
+  if (m_process_sp->GetState() != eStateStopped)
+    return;
 
   // <rdar://problem/12027563> make sure we check that we are not stopped
   // because of us running a user expression
@@ -2784,9 +2789,12 @@ void Target::RunStopHooks() {
         // running the stop hooks.
         if ((result.GetStatus() == eReturnStatusSuccessContinuingNoResult) ||
             (result.GetStatus() == eReturnStatusSuccessContinuingResult)) {
-          result.AppendMessageWithFormat("Aborting stop hooks, hook %" PRIu64
-                                         " set the program running.",
-                                         cur_hook_sp->GetID());
+          // But only complain if there were more stop hooks to do:
+          StopHookCollection::iterator tmp = pos;
+          if (++tmp != end)
+            result.AppendMessageWithFormat("\nAborting stop hooks, hook %" PRIu64
+                                           " set the program running.\n",
+                                           cur_hook_sp->GetID());
           keep_going = false;
         }
       }
@@ -3604,36 +3612,19 @@ protected:
                 nullptr, idx, g_properties[idx].default_uint_value != 0)) {
           PlatformSP platform_sp(m_target->GetPlatform());
           if (platform_sp) {
-            StringList env;
-            if (platform_sp->GetEnvironment(env)) {
-              OptionValueDictionary *env_dict =
-                  GetPropertyAtIndexAsOptionValueDictionary(nullptr,
-                                                            ePropertyEnvVars);
-              if (env_dict) {
-                const bool can_replace = false;
-                const size_t envc = env.GetSize();
-                for (size_t idx = 0; idx < envc; idx++) {
-                  const char *env_entry = env.GetStringAtIndex(idx);
-                  if (env_entry) {
-                    const char *equal_pos = ::strchr(env_entry, '=');
-                    ConstString key;
-                    // It is ok to have environment variables with no values
-                    const char *value = nullptr;
-                    if (equal_pos) {
-                      key.SetCStringWithLength(env_entry,
-                                               equal_pos - env_entry);
-                      if (equal_pos[1])
-                        value = equal_pos + 1;
-                    } else {
-                      key.SetCString(env_entry);
-                    }
-                    // Don't allow existing keys to be replaced with ones we get
-                    // from the platform environment
-                    env_dict->SetValueForKey(
-                        key, OptionValueSP(new OptionValueString(value)),
-                        can_replace);
-                  }
-                }
+            Environment env = platform_sp->GetEnvironment();
+            OptionValueDictionary *env_dict =
+                GetPropertyAtIndexAsOptionValueDictionary(nullptr,
+                                                          ePropertyEnvVars);
+            if (env_dict) {
+              const bool can_replace = false;
+              for (const auto &KV : env) {
+                // Don't allow existing keys to be replaced with ones we get
+                // from the platform environment
+                env_dict->SetValueForKey(
+                    ConstString(KV.first()),
+                    OptionValueSP(new OptionValueString(KV.second.c_str())),
+                    can_replace);
               }
             }
           }
@@ -3899,15 +3890,19 @@ void TargetProperties::SetRunArguments(const Args &args) {
   m_launch_info.GetArguments() = args;
 }
 
-size_t TargetProperties::GetEnvironmentAsArgs(Args &env) const {
+Environment TargetProperties::GetEnvironment() const {
+  // TODO: Get rid of the Args intermediate step
+  Args env;
   const uint32_t idx = ePropertyEnvVars;
-  return m_collection_sp->GetPropertyAtIndexAsArgs(nullptr, idx, env);
+  m_collection_sp->GetPropertyAtIndexAsArgs(nullptr, idx, env);
+  return Environment(env);
 }
 
-void TargetProperties::SetEnvironmentFromArgs(const Args &env) {
+void TargetProperties::SetEnvironment(Environment env) {
+  // TODO: Get rid of the Args intermediate step
   const uint32_t idx = ePropertyEnvVars;
-  m_collection_sp->SetPropertyAtIndexFromArgs(nullptr, idx, env);
-  m_launch_info.GetEnvironmentEntries() = env;
+  m_collection_sp->SetPropertyAtIndexFromArgs(nullptr, idx, Args(env));
+  m_launch_info.GetEnvironment() = std::move(env);
 }
 
 bool TargetProperties::GetSkipPrologue() const {
@@ -4039,18 +4034,19 @@ LanguageType TargetProperties::GetLanguage() const {
   return LanguageType();
 }
 
-const char *TargetProperties::GetExpressionPrefixContentsAsCString() {
+llvm::StringRef TargetProperties::GetExpressionPrefixContents() {
   const uint32_t idx = ePropertyExprPrefix;
   OptionValueFileSpec *file =
       m_collection_sp->GetPropertyAtIndexAsOptionValueFileSpec(nullptr, false,
                                                                idx);
   if (file) {
-    const bool null_terminate = true;
-    DataBufferSP data_sp(file->GetFileContents(null_terminate));
+    DataBufferSP data_sp(file->GetFileContents());
     if (data_sp)
-      return (const char *)data_sp->GetBytes();
+      return llvm::StringRef(
+          reinterpret_cast<const char *>(data_sp->GetBytes()),
+          data_sp->GetByteSize());
   }
-  return nullptr;
+  return "";
 }
 
 bool TargetProperties::GetBreakpointsConsultPlatformAvoidList() {
@@ -4144,7 +4140,7 @@ void TargetProperties::SetProcessLaunchInfo(
   m_launch_info = launch_info;
   SetArg0(launch_info.GetArg0());
   SetRunArguments(launch_info.GetArguments());
-  SetEnvironmentFromArgs(launch_info.GetEnvironmentEntries());
+  SetEnvironment(launch_info.GetEnvironment());
   const FileAction *input_file_action =
       launch_info.GetFileActionForFD(STDIN_FILENO);
   if (input_file_action) {
@@ -4185,9 +4181,7 @@ void TargetProperties::EnvVarsValueChangedCallback(void *target_property_ptr,
                                                    OptionValue *) {
   TargetProperties *this_ =
       reinterpret_cast<TargetProperties *>(target_property_ptr);
-  Args args;
-  if (this_->GetEnvironmentAsArgs(args))
-    this_->m_launch_info.GetEnvironmentEntries() = args;
+  this_->m_launch_info.GetEnvironment() = this_->GetEnvironment();
 }
 
 void TargetProperties::InputPathValueChangedCallback(void *target_property_ptr,

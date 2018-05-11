@@ -223,12 +223,15 @@ class LLVMConfig(object):
             return True
 
         if re.match(r'^x86_64.*-apple', triple):
-            version_number = int(
-                re.search(r'version ([0-9]+)\.', version_string).group(1))
+            version_regex = re.search(r'version ([0-9]+)\.([0-9]+).([0-9]+)', version_string)
+            major_version_number = int(version_regex.group(1))
+            minor_version_number = int(version_regex.group(2))
+            patch_version_number = int(version_regex.group(3))
             if 'Apple LLVM' in version_string:
-                return version_number >= 9
+                # Apple LLVM doesn't yet support LSan
+                return False
             else:
-                return version_number >= 5
+                return major_version_number >= 5
 
         return False
 
@@ -462,9 +465,6 @@ class LLVMConfig(object):
         self.with_environment('PATH', tool_dirs, append_path=True)
         self.with_environment('LD_LIBRARY_PATH', lib_dirs, append_path=True)
 
-        self.config.substitutions.append(
-            (r"\bld.lld\b", 'ld.lld --full-shutdown'))
-
-        tool_patterns = ['ld.lld', 'lld-link', 'lld']
+        tool_patterns = ['lld', 'ld.lld', 'lld-link', 'ld64.lld', 'wasm-ld']
 
         self.add_tool_substitutions(tool_patterns, tool_dirs)

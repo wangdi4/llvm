@@ -60,7 +60,7 @@ to enable XRay at application start. To do this, XRay checks the
   $ ./bin/llc input.ll
 
   # We need to set the XRAY_OPTIONS to enable some features.
-  $ XRAY_OPTIONS="patch_premain=true xray_naive_log=true" ./bin/llc input.ll
+  $ XRAY_OPTIONS="patch_premain=true xray_mode=xray-basic verbosity=1" ./bin/llc input.ll
   ==69819==XRay: Log file in 'xray-log.llc.m35qPB'
 
 At this point we now have an XRay trace we can start analysing.
@@ -178,22 +178,22 @@ add the attribute to the source.
 To use this feature, you can define one file for the functions to always
 instrument, and another for functions to never instrument. The format of these
 files are exactly the same as the SanitizerLists files that control similar
-things for the sanitizer implementations. For example, we can have two
-different files like below:
+things for the sanitizer implementations. For example:
 
 ::
 
-  # always-instrument.txt
+  # xray-attr-list.txt
   # always instrument functions that match the following filters:
+  [always]
   fun:main
 
-  # never-instrument.txt
   # never instrument functions that match the following filters:
+  [never]
   fun:__cxx_*
 
-Given the above two files we can re-build by providing those two files as
-arguments to clang as ``-fxray-always-instrument=always-instrument.txt`` or
-``-fxray-never-instrument=never-instrument.txt``.
+Given the file above we can re-build by providing it to the
+``-fxray-attr-list=`` flag to clang. You can have multiple files, each defining
+different sets of attribute sets, to be combined into a single list by clang.
 
 The XRay stack tool
 -------------------

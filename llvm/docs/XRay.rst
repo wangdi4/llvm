@@ -59,7 +59,7 @@ For example:
 
 ::
 
-  clang -fxray-instrument ..
+  clang -fxray-instrument ...
 
 By default, functions that have at least 200 instructions will get XRay
 instrumentation points. You can tweak that number through the
@@ -67,7 +67,7 @@ instrumentation points. You can tweak that number through the
 
 ::
 
-  clang -fxray-instrument -fxray-instruction-threshold=1 ..
+  clang -fxray-instrument -fxray-instruction-threshold=1 ...
 
 You can also specifically instrument functions in your binary to either always
 or never be instrumented using source-level attributes. You can do it using the
@@ -117,6 +117,27 @@ it gets instrumented.
       ; ...
     }
 
+Special Case File
+-----------------
+
+Attributes can be imbued through the use of special case files instead of
+adding them to the original source files. You can use this to mark certain
+functions and classes to be never, always, or instrumented with first-argument
+logging from a file. The file's format is described below:
+
+.. code-block:: bash
+
+    # Comments are supported
+    [always]
+    fun:always_instrument
+    fun:log_arg1=arg1 # Log the first argument for the function
+
+    [never]
+    fun:never_instrument
+
+These files can be provided through the ``-fxray-attr-list=`` flag to clang.
+You may have multiple files loaded through multiple instances of the flag.
+
 XRay Runtime Library
 --------------------
 
@@ -143,16 +164,29 @@ variable, where we list down the options and their defaults below.
 |                   |                 |               | instrumentation points |
 |                   |                 |               | before main.           |
 +-------------------+-----------------+---------------+------------------------+
-| xray_naive_log    | ``bool``        | ``false``     | Whether to install     |
-|                   |                 |               | the naive log          |
-|                   |                 |               | implementation.        |
+| xray_mode         | ``const char*`` | ``""``        | Default mode to        |
+|                   |                 |               | install and initialize |
+|                   |                 |               | before ``main``.       |
 +-------------------+-----------------+---------------+------------------------+
 | xray_logfile_base | ``const char*`` | ``xray-log.`` | Filename base for the  |
 |                   |                 |               | XRay logfile.          |
 +-------------------+-----------------+---------------+------------------------+
-| xray_fdr_log      | ``bool``        | ``false``     | Whether to install the |
-|                   |                 |               | Flight Data Recorder   |
+| xray_naive_log    | ``bool``        | ``false``     | **DEPRECATED:** Use    |
+|                   |                 |               | xray_mode=xray-basic   |
+|                   |                 |               | instead. Whether to    |
+|                   |                 |               | install the basic log  |
+|                   |                 |               | the naive log          |
+|                   |                 |               | implementation.        |
++-------------------+-----------------+---------------+------------------------+
+| xray_fdr_log      | ``bool``        | ``false``     | **DEPRECATED:** Use    |
+|                   |                 |               | xray_mode=xray-fdr     |
+|                   |                 |               | instead. Whether to    |
+|                   |                 |               | install the Flight     |
+|                   |                 |               | Data Recorder          |
 |                   |                 |               | (FDR) mode.            |
++-------------------+-----------------+---------------+------------------------+
+| verbosity         | ``int``         | ``0``         | Runtime verbosity      |
+|                   |                 |               | level.                 |
 +-------------------+-----------------+---------------+------------------------+
 
 
@@ -241,6 +275,14 @@ following API:
 - ``__xray_set_log_impl(...)``: This function takes a struct of type
   ``XRayLogImpl``, which is defined in ``xray/xray_log_interface.h``, part of
   the XRay compiler-rt installation.
+- ``__xray_log_register_mode(...)``: Register a logging implementation against
+  a string Mode. The implementation is an instance of ``XRayLogImpl`` defined
+  in ``xray/xray_log_interface.h``.
+- ``__xray_log_select_mode(...)``: Select the mode to install, associated with
+  a string Mode. Only implementations registered with
+  ``__xray_log_register_mode(...)`` can be chosen with this function. When
+  successful, has the same effects as calling ``__xray_set_log_impl(...)`` with
+  the registered logging implementation.
 - ``__xray_log_init(...)``: This function allows for initializing and
   re-initializing an installed logging implementation. See
   ``xray/xray_log_interface.h`` for details, part of the XRay compiler-rt

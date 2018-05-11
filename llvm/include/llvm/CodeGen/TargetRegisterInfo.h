@@ -21,11 +21,11 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/MC/LaneBitmask.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/MachineValueType.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Printable.h"
 #include <cassert>
@@ -444,6 +444,13 @@ public:
     return false;
   }
 
+  /// Returns the original SrcReg unless it is the target of a copy-like
+  /// operation, in which case we chain backwards through all such operations
+  /// to the ultimate source register.  If a physical register is encountered,
+  /// we stop the search.
+  virtual unsigned lookThruCopyLike(unsigned SrcReg,
+                                    const MachineRegisterInfo *MRI) const;
+
   /// Return a null-terminated list of all of the callee-saved registers on
   /// this target. The register should be in the order of desired callee-save
   /// stack frame offset. The first register is closest to the incoming stack
@@ -752,6 +759,9 @@ public:
   virtual const RegClassWeight &getRegClassWeight(
     const TargetRegisterClass *RC) const = 0;
 
+  /// Returns size in bits of a phys/virtual/generic register.
+  unsigned getRegSizeInBits(unsigned Reg, const MachineRegisterInfo &MRI) const;
+
   /// Get the weight in units of pressure for this register unit.
   virtual unsigned getRegUnitWeight(unsigned RegUnit) const = 0;
 
@@ -785,11 +795,10 @@ public:
   /// as returned from RegisterClassInfo::getOrder(). The hint registers must
   /// come from Order, and they must not be reserved.
   ///
-  /// The default implementation of this function can resolve
-  /// target-independent hints provided to MRI::setRegAllocationHint with
-  /// HintType == 0. Targets that override this function should defer to the
-  /// default implementation if they have no reason to change the allocation
-  /// order for VirtReg. There may be target-independent hints.
+  /// The default implementation of this function will only add target
+  /// independent register allocation hints. Targets that override this
+  /// function should typically call this default implementation as well and
+  /// expect to see generic copy hints added.
   virtual bool getRegAllocationHints(unsigned VirtReg,
                                      ArrayRef<MCPhysReg> Order,
                                      SmallVectorImpl<MCPhysReg> &Hints,
@@ -807,6 +816,13 @@ public:
                                   MachineFunction &MF) const {
     // Do nothing.
   }
+
+  /// The creation of multiple copy hints have been implemented in
+  /// weightCalcHelper(), but since this affects so many tests for many
+  /// targets, this is temporarily disabled per default. THIS SHOULD BE
+  /// "GENERAL GOODNESS" and hopefully all targets will update their tests
+  /// and enable this soon. This hook should then be removed.
+  virtual bool enableMultipleCopyHints() const { return false; }
 
   /// Allow the target to reverse allocation order of local live ranges. This
   /// will generally allocate shorter local live ranges first. For targets with
@@ -1145,7 +1161,8 @@ struct VirtReg2IndexFunctor {
 ///
 /// Usage: OS << printReg(Reg, TRI, SubRegIdx) << '\n';
 Printable printReg(unsigned Reg, const TargetRegisterInfo *TRI = nullptr,
-                   unsigned SubRegIdx = 0);
+                   unsigned SubRegIdx = 0,
+                   const MachineRegisterInfo *MRI = nullptr);
 
 /// Create Printable object to print register units on a \ref raw_ostream.
 ///
@@ -1160,6 +1177,11 @@ Printable printRegUnit(unsigned Unit, const TargetRegisterInfo *TRI);
 /// \brief Create Printable object to print virtual registers and physical
 /// registers on a \ref raw_ostream.
 Printable printVRegOrUnit(unsigned VRegOrUnit, const TargetRegisterInfo *TRI);
+
+/// \brief Create Printable object to print register classes or register banks
+/// on a \ref raw_ostream.
+Printable printRegClassOrBank(unsigned Reg, const MachineRegisterInfo &RegInfo,
+                              const TargetRegisterInfo *TRI);
 
 } // end namespace llvm
 

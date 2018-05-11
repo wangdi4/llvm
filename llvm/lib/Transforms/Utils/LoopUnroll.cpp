@@ -21,9 +21,9 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopIterator.h"
-#include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfoMetadata.h"
@@ -34,7 +34,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LoopSimplify.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/SimplifyIndVar.h"
@@ -98,15 +97,9 @@ static inline void remapInstruction(Instruction *I,
 
 /// Folds a basic block into its predecessor if it only has one predecessor, and
 /// that predecessor only has one successor.
-/// The LoopInfo Analysis that is passed will be kept consistent.  If folding is
-/// successful references to the containing loop must be removed from
-/// ScalarEvolution by calling ScalarEvolution::forgetLoop because SE may have
-/// references to the eliminated BB.  The argument ForgottenLoops contains a set
-/// of loops that have already been forgotten to prevent redundant, expensive
-/// calls to ScalarEvolution::forgetLoop.  Returns the new combined block.
+/// The LoopInfo Analysis that is passed will be kept consistent.
 static BasicBlock *
 foldBlockIntoPredecessor(BasicBlock *BB, LoopInfo *LI, ScalarEvolution *SE,
-                         SmallPtrSetImpl<Loop *> &ForgottenLoops,
                          DominatorTree *DT) {
   // Merge basic blocks into their predecessor if there is only one distinct
   // pred, and if there is only one distinct successor of the predecessor, and
@@ -150,13 +143,6 @@ foldBlockIntoPredecessor(BasicBlock *BB, LoopInfo *LI, ScalarEvolution *SE,
       DT->eraseNode(BB);
     }
 
-  // ScalarEvolution holds references to loop exit blocks.
-  if (SE) {
-    if (Loop *L = LI->getLoopFor(BB)) {
-      if (ForgottenLoops.insert(L).second)
-        SE->forgetLoop(L);
-    }
-  }
   LI->removeBlock(BB);
 
   // Inherit predecessor's name if it exists...
@@ -259,11 +245,8 @@ static bool isEpilogProfitable(Loop *L) {
   BasicBlock *PreHeader = L->getLoopPreheader();
   BasicBlock *Header = L->getHeader();
   assert(PreHeader && Header);
-  for (Instruction &BBI : *Header) {
-    PHINode *PN = dyn_cast<PHINode>(&BBI);
-    if (!PN)
-      break;
-    if (isa<ConstantInt>(PN->getIncomingValueForBlock(PreHeader)))
+  for (const PHINode &PN : Header->phis()) {
+    if (isa<ConstantInt>(PN.getIncomingValueForBlock(PreHeader)))
       return true;
   }
   return false;
@@ -407,8 +390,9 @@ LoopUnrollResult llvm::UnrollLoop(
          "Did not expect runtime trip-count unrolling "
          "and peeling for the same loop");
 
+  bool Peeled = false;
   if (PeelCount) {
-    bool Peeled = peelLoop(L, PeelCount, LI, SE, DT, AC, PreserveLCSSA);
+    Peeled = peelLoop(L, PeelCount, LI, SE, DT, AC, PreserveLCSSA);
 
     // Successful peeling may result in a change in the loop preheader/trip
     // counts. If we later unroll the loop, we want these to be updated.
@@ -452,11 +436,6 @@ LoopUnrollResult llvm::UnrollLoop(
       return LoopUnrollResult::Unmodified;
     }
   }
-
-  // Notify ScalarEvolution that the loop will be substantially changed,
-  // if not outright eliminated.
-  if (SE)
-    SE->forgetLoop(L);
 
   // If we know the trip count, we know the multiple...
   unsigned BreakoutTrip = 0;
@@ -524,6 +503,21 @@ LoopUnrollResult llvm::UnrollLoop(
     DEBUG(dbgs() << "!\n");
   }
 
+  // We are going to make changes to this loop. SCEV may be keeping cached info
+  // about it, in particular about backedge taken count. The changes we make
+  // are guaranteed to invalidate this information for our loop. It is tempting
+  // to only invalidate the loop being unrolled, but it is incorrect as long as
+  // all exiting branches from all inner loops have impact on the outer loops,
+  // and if something changes inside them then any of outer loops may also
+  // change. When we forget outermost loop, we also forget all contained loops
+  // and this is what we need here.
+  if (SE) {
+    const Loop *CurrL = L;
+    while (const Loop *ParentL = CurrL->getParentLoop())
+      CurrL = ParentL;
+    SE->forgetLoop(CurrL);
+  }
+
   bool ContinueOnTrue = L->contains(BI->getSuccessor(0));
   BasicBlock *LoopExit = BI->getSuccessor(ContinueOnTrue);
 
@@ -581,13 +575,8 @@ LoopUnrollResult llvm::UnrollLoop(
              "Header should not be in a sub-loop");
       // Tell LI about New.
       const Loop *OldLoop = addClonedBlockToLoopInfo(*BB, New, LI, NewLoops);
-      if (OldLoop) {
+      if (OldLoop)
         LoopsToSimplify.insert(NewLoops[OldLoop]);
-
-        // Forget the old loop, since its inputs may have changed.
-        if (SE)
-          SE->forgetLoop(OldLoop);
-      }
 
       if (*BB == Header)
         // Loop over all of the PHI nodes in the block, changing them to use
@@ -612,13 +601,12 @@ LoopUnrollResult llvm::UnrollLoop(
       for (BasicBlock *Succ : successors(*BB)) {
         if (L->contains(Succ))
           continue;
-        for (BasicBlock::iterator BBI = Succ->begin();
-             PHINode *phi = dyn_cast<PHINode>(BBI); ++BBI) {
-          Value *Incoming = phi->getIncomingValueForBlock(*BB);
+        for (PHINode &PHI : Succ->phis()) {
+          Value *Incoming = PHI.getIncomingValueForBlock(*BB);
           ValueToValueMapTy::iterator It = LastValueMap.find(Incoming);
           if (It != LastValueMap.end())
             Incoming = It->second;
-          phi->addIncoming(Incoming, New);
+          PHI.addIncoming(Incoming, New);
         }
       }
       // Keep track of new headers and latches as we create them, so that
@@ -722,10 +710,8 @@ LoopUnrollResult llvm::UnrollLoop(
         for (BasicBlock *Succ: successors(BB)) {
           if (Succ == Headers[i])
             continue;
-          for (BasicBlock::iterator BBI = Succ->begin();
-               PHINode *Phi = dyn_cast<PHINode>(BBI); ++BBI) {
-            Phi->removeIncomingValue(BB, false);
-          }
+          for (PHINode &Phi : Succ->phis())
+            Phi.removeIncomingValue(BB, false);
         }
       }
       // Replace the conditional branch with an unconditional one.
@@ -776,17 +762,15 @@ LoopUnrollResult llvm::UnrollLoop(
     }
   }
 
-  if (DT && UnrollVerifyDomtree)
-    DT->verifyDomTree();
+  assert(!DT || !UnrollVerifyDomtree ||
+      DT->verify(DominatorTree::VerificationLevel::Fast));
 
   // Merge adjacent basic blocks, if possible.
-  SmallPtrSet<Loop *, 4> ForgottenLoops;
   for (BasicBlock *Latch : Latches) {
     BranchInst *Term = cast<BranchInst>(Latch->getTerminator());
     if (Term->isUnconditional()) {
       BasicBlock *Dest = Term->getSuccessor(0);
-      if (BasicBlock *Fold =
-              foldBlockIntoPredecessor(Dest, LI, SE, ForgottenLoops, DT)) {
+      if (BasicBlock *Fold = foldBlockIntoPredecessor(Dest, LI, SE, DT)) {
         // Dest has been folded into Fold. Update our worklists accordingly.
         std::replace(Latches.begin(), Latches.end(), Dest, Fold);
         UnrolledLoopBlocks.erase(std::remove(UnrolledLoopBlocks.begin(),
@@ -797,7 +781,7 @@ LoopUnrollResult llvm::UnrollLoop(
   }
 
   // Simplify any new induction variables in the partially unrolled loop.
-  if (SE && !CompletelyUnroll && Count > 1) {
+  if (SE && !CompletelyUnroll && (Count > 1 || Peeled)) {
     SmallVector<WeakTrackingVH, 16> DeadInsts;
     simplifyLoopIVs(L, SE, DT, LI, DeadInsts);
 

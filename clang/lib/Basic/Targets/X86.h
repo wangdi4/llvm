@@ -48,7 +48,10 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   enum XOPEnum { NoXOP, SSE4A, FMA4, XOP } XOPLevel = NoXOP;
 
   bool HasAES = false;
+  bool HasVAES = false;
   bool HasPCLMUL = false;
+  bool HasVPCLMULQDQ = false;
+  bool HasGFNI = false;
   bool HasLZCNT = false;
   bool HasRDRND = false;
   bool HasFSGSBASE = false;
@@ -65,12 +68,15 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasF16C = false;
   bool HasAVX512CD = false;
   bool HasAVX512VPOPCNTDQ = false;
+  bool HasAVX512VNNI = false;
   bool HasAVX512ER = false;
   bool HasAVX512PF = false;
   bool HasAVX512DQ = false;
+  bool HasAVX512BITALG = false;
   bool HasAVX512BW = false;
   bool HasAVX512VL = false;
   bool HasAVX512VBMI = false;
+  bool HasAVX512VBMI2 = false;
   bool HasAVX512IFMA = false;
   bool HasSHA = false;
   bool HasMPX = false;
@@ -85,12 +91,20 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasXSAVES = false;
   bool HasMWAITX = false;
   bool HasCLZERO = false;
+  bool HasCLDEMOTE = false;
   bool HasPKU = false;
   bool HasCLFLUSHOPT = false;
   bool HasCLWB = false;
   bool HasMOVBE = false;
   bool HasPREFETCHWT1 = false;
+  bool HasRDPID = false;
+  bool HasRetpoline = false;
+  bool HasRetpolineExternalThunk = false;
+  bool HasLAHFSAHF = false;
+  bool HasWBNOINVD = false;
+  bool HasWAITPKG = false;
 
+protected:
   /// \brief Enumeration of all of the X86 CPUs supported by Clang.
   ///
   /// Each enumeration represents a particular CPU supported by Clang. These
@@ -104,6 +118,8 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool checkCPUKind(CPUKind Kind) const;
 
   CPUKind getCPUKind(StringRef CPU) const;
+
+  std::string getCPUKindCanonicalName(CPUKind Kind) const;
 
   enum FPMathKind { FP_Default, FP_SSE, FP_387 } FPMath = FP_Default;
 
@@ -150,6 +166,12 @@ public:
 
   bool validateInputSize(StringRef Constraint, unsigned Size) const override;
 
+  virtual bool
+  checkCFProtectionReturnSupported(DiagnosticsEngine &Diags) const override;
+
+  virtual bool
+  checkCFProtectionBranchSupported(DiagnosticsEngine &Diags) const override;
+
   virtual bool validateOperandSize(StringRef Constraint, unsigned Size) const;
 
   std::string convertConstraint(const char *&Constraint) const override;
@@ -157,8 +179,8 @@ public:
     return "~{dirflag},~{fpsr},~{flags}";
   }
 
-  StringRef getConstraintRegister(const StringRef &Constraint,
-                                  const StringRef &Expression) const override {
+  StringRef getConstraintRegister(StringRef Constraint,
+                                  StringRef Expression) const override {
     StringRef::iterator I, E;
     for (I = Constraint.begin(), E = Constraint.end(); I != E; ++I) {
       if (isalpha(*I))
@@ -191,6 +213,10 @@ public:
       break;
     }
     return "";
+  }
+
+  bool useFP16ConversionIntrinsics() const override {
+    return false;
   }
 
   void getTargetDefines(const LangOptions &Opts,
@@ -242,9 +268,16 @@ public:
     return checkCPUKind(getCPUKind(Name));
   }
 
+  void fillValidCPUList(SmallVectorImpl<StringRef> &Values) const override;
+
   bool setCPU(const std::string &Name) override {
     return checkCPUKind(CPU = getCPUKind(Name));
   }
+
+  bool supportsMultiVersioning() const override {
+    return getTriple().isOSBinFormatELF();
+  }
+  unsigned multiVersionSortPriority(StringRef Name) const override;
 
   bool setFPMath(StringRef Name) override;
 
@@ -257,6 +290,7 @@ public:
     case CC_X86VectorCall:
     case CC_X86RegCall:
     case CC_C:
+    case CC_PreserveMost:
     case CC_Swift:
     case CC_X86Pascal:
     case CC_IntelOclBicc:
@@ -299,9 +333,11 @@ public:
          (1 << TargetInfo::LongDouble));
 
     // x86-32 has atomics up to 8 bytes
-    // FIXME: Check that we actually have cmpxchg8b before setting
-    // MaxAtomicInlineWidth. (cmpxchg8b is an i586 instruction.)
-    MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 64;
+    CPUKind Kind = getCPUKind(Opts.CPU);
+    if (Kind >= CK_i586 || Kind == CK_Generic)
+      MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 64;
+    else if (Kind >= CK_i486)
+      MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 32;
   }
 
   BuiltinVaListKind getBuiltinVaListKind() const override {
@@ -695,6 +731,11 @@ public:
     WindowsX86_64TargetInfo::getVisualStudioDefines(Opts, Builder);
     Builder.defineMacro("_M_X64", "100");
     Builder.defineMacro("_M_AMD64", "100");
+  }
+
+  TargetInfo::CallingConvKind
+  getCallingConvKind(bool ClangABICompat4) const override {
+    return CCK_MicrosoftX86_64;
   }
 };
 

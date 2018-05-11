@@ -29,7 +29,7 @@
 #include "WebAssemblyMachineFunctionInfo.h"
 #include "WebAssemblySubtarget.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/CodeGen/LiveIntervalAnalysis.h"
+#include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
@@ -68,6 +68,9 @@ private:
 } // end anonymous namespace
 
 char WebAssemblyStoreResults::ID = 0;
+INITIALIZE_PASS(WebAssemblyStoreResults, DEBUG_TYPE,
+                "Optimize store result values for WebAssembly", false, false)
+
 FunctionPass *llvm::createWebAssemblyStoreResults() {
   return new WebAssemblyStoreResults();
 }

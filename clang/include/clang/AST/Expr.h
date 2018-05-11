@@ -586,7 +586,7 @@ public:
   bool EvaluateAsRValue(EvalResult &Result, const ASTContext &Ctx) const;
 
   /// EvaluateAsBooleanCondition - Return true if this is a constant
-  /// which we we can fold and convert to a boolean condition using
+  /// which we can fold and convert to a boolean condition using
   /// any crazy technique that we want to, even if the expression has
   /// side-effects.
   bool EvaluateAsBooleanCondition(bool &Result, const ASTContext &Ctx) const;
@@ -883,6 +883,7 @@ public:
            (SourceExpr && SourceExpr->isInstantiationDependent()),
            false),
       SourceExpr(SourceExpr), Loc(Loc) {
+    setIsUnique(false);
   }
 
   /// Given an expression which invokes a copy constructor --- i.e.  a
@@ -924,6 +925,14 @@ public:
   /// expression which binds the opaque value expression in the first
   /// place.
   Expr *getSourceExpr() const { return SourceExpr; }
+
+  void setIsUnique(bool V) {
+    assert((!V || SourceExpr) &&
+           "unique OVEs are expected to have source expressions");
+    OpaqueValueExprBits.IsUnique = V;
+  }
+
+  bool isUnique() const { return OpaqueValueExprBits.IsUnique; }
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OpaqueValueExprClass;
@@ -1720,19 +1729,19 @@ public:
 
 private:
   unsigned Opc : 5;
+  unsigned CanOverflow : 1;
   SourceLocation Loc;
   Stmt *Val;
 public:
-
-  UnaryOperator(Expr *input, Opcode opc, QualType type,
-                ExprValueKind VK, ExprObjectKind OK, SourceLocation l)
-    : Expr(UnaryOperatorClass, type, VK, OK,
-           input->isTypeDependent() || type->isDependentType(),
-           input->isValueDependent(),
-           (input->isInstantiationDependent() ||
-            type->isInstantiationDependentType()),
-           input->containsUnexpandedParameterPack()),
-      Opc(opc), Loc(l), Val(input) {}
+  UnaryOperator(Expr *input, Opcode opc, QualType type, ExprValueKind VK,
+                ExprObjectKind OK, SourceLocation l, bool CanOverflow)
+      : Expr(UnaryOperatorClass, type, VK, OK,
+             input->isTypeDependent() || type->isDependentType(),
+             input->isValueDependent(),
+             (input->isInstantiationDependent() ||
+              type->isInstantiationDependentType()),
+             input->containsUnexpandedParameterPack()),
+        Opc(opc), CanOverflow(CanOverflow), Loc(l), Val(input) {}
 
   /// \brief Build an empty unary operator.
   explicit UnaryOperator(EmptyShell Empty)
@@ -1747,6 +1756,15 @@ public:
   /// getOperatorLoc - Return the location of the operator.
   SourceLocation getOperatorLoc() const { return Loc; }
   void setOperatorLoc(SourceLocation L) { Loc = L; }
+
+  /// Returns true if the unary operator can cause an overflow. For instance,
+  ///   signed int i = INT_MAX; i++;
+  ///   signed char c = CHAR_MAX; c++;
+  /// Due to integer promotions, c++ is promoted to an int before the postfix
+  /// increment, and the result is an int that cannot overflow. However, i++
+  /// can overflow.
+  bool canOverflow() const { return CanOverflow; }
+  void setCanOverflow(bool C) { CanOverflow = C; }
 
   /// isPostfix - Return true if this is a postfix operation, like x++.
   static bool isPostfix(Opcode Op) {
@@ -2160,19 +2178,19 @@ public:
   void setRHS(Expr *E) { SubExprs[RHS] = E; }
 
   Expr *getBase() {
-    return cast<Expr>(getRHS()->getType()->isIntegerType() ? getLHS():getRHS());
+    return getRHS()->getType()->isIntegerType() ? getLHS() : getRHS();
   }
 
   const Expr *getBase() const {
-    return cast<Expr>(getRHS()->getType()->isIntegerType() ? getLHS():getRHS());
+    return getRHS()->getType()->isIntegerType() ? getLHS() : getRHS();
   }
 
   Expr *getIdx() {
-    return cast<Expr>(getRHS()->getType()->isIntegerType() ? getRHS():getLHS());
+    return getRHS()->getType()->isIntegerType() ? getRHS() : getLHS();
   }
 
   const Expr *getIdx() const {
-    return cast<Expr>(getRHS()->getType()->isIntegerType() ? getRHS():getLHS());
+    return getRHS()->getType()->isIntegerType() ? getRHS() : getLHS();
   }
 
   SourceLocation getLocStart() const LLVM_READONLY {
@@ -2347,6 +2365,10 @@ public:
 
   SourceLocation getLocStart() const LLVM_READONLY;
   SourceLocation getLocEnd() const LLVM_READONLY;
+
+  /// Return true if this is a call to __assume() or __builtin_assume() with
+  /// a non-value-dependent constant parameter evaluating as false.
+  bool isBuiltinAssumeFalse(const ASTContext &Ctx) const;
 
   bool isCallToStdMove() const {
     const FunctionDecl* FD = getDirectCallee();
@@ -2742,7 +2764,6 @@ protected:
                ty->containsUnexpandedParameterPack()) ||
               (op && op->containsUnexpandedParameterPack()))),
         Op(op) {
-    assert(kind != CK_Invalid && "creating cast with invalid cast kind");
     CastExprBits.Kind = kind;
     setBasePathSize(BasePathSize);
     assert(CastConsistency());
@@ -3073,13 +3094,13 @@ public:
   static bool isEqualityOp(Opcode Opc) { return Opc == BO_EQ || Opc == BO_NE; }
   bool isEqualityOp() const { return isEqualityOp(getOpcode()); }
 
-  static bool isComparisonOp(Opcode Opc) { return Opc >= BO_LT && Opc<=BO_NE; }
+  static bool isComparisonOp(Opcode Opc) { return Opc >= BO_Cmp && Opc<=BO_NE; }
   bool isComparisonOp() const { return isComparisonOp(getOpcode()); }
 
   static Opcode negateComparisonOp(Opcode Opc) {
     switch (Opc) {
     default:
-      llvm_unreachable("Not a comparsion operator.");
+      llvm_unreachable("Not a comparison operator.");
     case BO_LT: return BO_GE;
     case BO_GT: return BO_LE;
     case BO_LE: return BO_GT;
@@ -3092,7 +3113,7 @@ public:
   static Opcode reverseComparisonOp(Opcode Opc) {
     switch (Opc) {
     default:
-      llvm_unreachable("Not a comparsion operator.");
+      llvm_unreachable("Not a comparison operator.");
     case BO_LT: return BO_GT;
     case BO_GT: return BO_LT;
     case BO_LE: return BO_GE;

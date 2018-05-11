@@ -513,6 +513,11 @@ public:
 
   bool runOnMachineFunction(MachineFunction &F) override;
 
+  bool allowTailDupPlacement() const {
+    assert(F);
+    return TailDupPlacement && !F->getTarget().requiresStructuredCFG();
+  }
+
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<MachineBranchProbabilityInfo>();
     AU.addRequired<MachineBlockFrequencyInfo>();
@@ -546,7 +551,7 @@ INITIALIZE_PASS_END(MachineBlockPlacement, DEBUG_TYPE,
 static std::string getBlockName(const MachineBasicBlock *BB) {
   std::string Result;
   raw_string_ostream OS(Result);
-  OS << "BB#" << BB->getNumber();
+  OS << printMBBReference(*BB);
   OS << " ('" << BB->getName() << "')";
   OS.flush();
   return Result;
@@ -1018,7 +1023,7 @@ MachineBlockPlacement::getBestTrellisSuccessor(
     MachineBasicBlock *Succ1 = BestA.Dest;
     MachineBasicBlock *Succ2 = BestB.Dest;
     // Check to see if tail-duplication would be profitable.
-    if (TailDupPlacement && shouldTailDuplicate(Succ2) &&
+    if (allowTailDupPlacement() && shouldTailDuplicate(Succ2) &&
         canTailDuplicateUnplacedPreds(BB, Succ2, Chain, BlockFilter) &&
         isProfitableToTailDup(BB, Succ2, MBPI->getEdgeProbability(BB, Succ1),
                               Chain, BlockFilter)) {
@@ -1044,7 +1049,7 @@ MachineBlockPlacement::getBestTrellisSuccessor(
   return Result;
 }
 
-/// When the option TailDupPlacement is on, this method checks if the
+/// When the option allowTailDupPlacement() is on, this method checks if the
 /// fallthrough candidate block \p Succ (of block \p BB) can be tail-duplicated
 /// into all of its unplaced, unfiltered predecessors, that are not BB.
 bool MachineBlockPlacement::canTailDuplicateUnplacedPreds(
@@ -1235,7 +1240,7 @@ void MachineBlockPlacement::precomputeTriangleChains() {
 // When profile is available, we need to handle the triangle-shape CFG.
 static BranchProbability getLayoutSuccessorProbThreshold(
       const MachineBasicBlock *BB) {
-  if (!BB->getParent()->getFunction()->getEntryCount())
+  if (!BB->getParent()->getFunction().hasProfileData())
     return BranchProbability(StaticLikelyProb, 100);
   if (BB->succ_size() == 2) {
     const MachineBasicBlock *Succ1 = *BB->succ_begin();
@@ -1493,7 +1498,7 @@ MachineBlockPlacement::selectBestSuccessor(
     if (hasBetterLayoutPredecessor(BB, Succ, SuccChain, SuccProb, RealSuccProb,
                                    Chain, BlockFilter)) {
       // If tail duplication would make Succ profitable, place it.
-      if (TailDupPlacement && shouldTailDuplicate(Succ))
+      if (allowTailDupPlacement() && shouldTailDuplicate(Succ))
         DupCandidates.push_back(std::make_tuple(SuccProb, Succ));
       continue;
     }
@@ -1702,7 +1707,7 @@ void MachineBlockPlacement::buildChain(
     auto Result = selectBestSuccessor(BB, Chain, BlockFilter);
     MachineBasicBlock* BestSucc = Result.BB;
     bool ShouldTailDup = Result.ShouldTailDup;
-    if (TailDupPlacement)
+    if (allowTailDupPlacement())
       ShouldTailDup |= (BestSucc && shouldTailDuplicate(BestSucc));
 
     // If an immediate successor isn't available, look for the best viable
@@ -1724,7 +1729,7 @@ void MachineBlockPlacement::buildChain(
 
     // Placement may have changed tail duplication opportunities.
     // Check for that now.
-    if (TailDupPlacement && BestSucc && ShouldTailDup) {
+    if (allowTailDupPlacement() && BestSucc && ShouldTailDup) {
       // If the chosen successor was duplicated into all its predecessors,
       // don't bother laying it out, just go round the loop again with BB as
       // the chain end.
@@ -1769,7 +1774,7 @@ MachineBlockPlacement::findBestLoopTop(const MachineLoop &L,
   // i.e. when the layout predecessor does not fallthrough to the loop header.
   // In practice this never happens though: there always seems to be a preheader
   // that can fallthrough and that is also placed before the header.
-  if (F->getFunction()->optForSize())
+  if (F->getFunction().optForSize())
     return L.getHeader();
 
   // Check that the header hasn't been fused with a preheader block due to
@@ -2178,7 +2183,7 @@ MachineBlockPlacement::collectLoopBlockSet(const MachineLoop &L) {
   // will be merged into the first outer loop chain for which this block is not
   // cold anymore. This needs precise profile data and we only do this when
   // profile data is available.
-  if (F->getFunction()->getEntryCount() || ForceLoopColdBlock) {
+  if (F->getFunction().hasProfileData() || ForceLoopColdBlock) {
     BlockFrequency LoopFreq(0);
     for (auto LoopPred : L.getHeader()->predecessors())
       if (!L.contains(LoopPred))
@@ -2220,7 +2225,7 @@ void MachineBlockPlacement::buildLoopChains(const MachineLoop &L) {
   // for better layout.
   bool RotateLoopWithProfile =
       ForcePreciseRotationCost ||
-      (PreciseRotationCost && F->getFunction()->getEntryCount());
+      (PreciseRotationCost && F->getFunction().hasProfileData());
 
   // First check to see if there is an obviously preferable top block for the
   // loop. This will default to the header, but may end up as one of the
@@ -2485,7 +2490,7 @@ void MachineBlockPlacement::alignBlocks() {
   // exclusively on the loop info here so that we can align backedges in
   // unnatural CFGs and backedges that were introduced purely because of the
   // loop rotations done during this layout pass.
-  if (F->getFunction()->optForSize())
+  if (F->getFunction().optForSize())
     return;
   BlockChain &FunctionChain = *BlockToChain[&F->front()];
   if (FunctionChain.begin() == FunctionChain.end())
@@ -2715,7 +2720,7 @@ bool MachineBlockPlacement::maybeTailDuplicateBlock(
 }
 
 bool MachineBlockPlacement::runOnMachineFunction(MachineFunction &MF) {
-  if (skipFunction(*MF.getFunction()))
+  if (skipFunction(MF.getFunction()))
     return false;
 
   // Check for single-block functions and skip them.
@@ -2758,9 +2763,9 @@ bool MachineBlockPlacement::runOnMachineFunction(MachineFunction &MF) {
       TailDupSize = TailDupPlacementAggressiveThreshold;
   }
 
-  if (TailDupPlacement) {
+  if (allowTailDupPlacement()) {
     MPDT = &getAnalysis<MachinePostDominatorTree>();
-    if (MF.getFunction()->optForSize())
+    if (MF.getFunction().optForSize())
       TailDupSize = 1;
     bool PreRegAlloc = false;
     TailDup.initMF(MF, PreRegAlloc, MBPI, /* LayoutMode */ true, TailDupSize);
@@ -2817,7 +2822,7 @@ bool MachineBlockPlacement::runOnMachineFunction(MachineFunction &MF) {
   }
   if (ViewBlockLayoutWithBFI != GVDT_None &&
       (ViewBlockFreqFuncName.empty() ||
-       F->getFunction()->getName().equals(ViewBlockFreqFuncName))) {
+       F->getFunction().getName().equals(ViewBlockFreqFuncName))) {
     MBFI->view("MBP." + MF.getName(), false);
   }
 

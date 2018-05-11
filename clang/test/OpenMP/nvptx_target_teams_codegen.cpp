@@ -60,7 +60,7 @@ int bar(int n){
   //
   // CHECK: [[AWAIT_WORK]]
   // CHECK: call void @llvm.nvvm.barrier0()
-  // CHECK: [[KPR:%.+]] = call i1 @__kmpc_kernel_parallel(i8** [[OMP_WORK_FN]], i8*** %shared_args)
+  // CHECK: [[KPR:%.+]] = call i1 @__kmpc_kernel_parallel(i8** [[OMP_WORK_FN]], i16 1)
   // CHECK: [[KPRB:%.+]] = zext i1 [[KPR]] to i8
   // store i8 [[KPRB]], i8* [[OMP_EXEC_STATUS]], align 1
   // CHECK: [[WORK:%.+]] = load i8*, i8** [[OMP_WORK_FN]],
@@ -93,7 +93,7 @@ int bar(int n){
   // CHECK-DAG: [[TID:%.+]] = call i32 @llvm.nvvm.read.ptx.sreg.tid.x()
   // CHECK-DAG: [[NTH:%.+]] = call i32 @llvm.nvvm.read.ptx.sreg.ntid.x()
   // CHECK-DAG: [[WS:%.+]] = call i32 @llvm.nvvm.read.ptx.sreg.warpsize()
-  // CHECK-DAG: [[TH_LIMIT:%.+]] = sub i32 [[NTH]], [[WS]]
+  // CHECK-DAG: [[TH_LIMIT:%.+]] = sub nuw i32 [[NTH]], [[WS]]
   // CHECK: [[IS_WORKER:%.+]] = icmp ult i32 [[TID]], [[TH_LIMIT]]
   // CHECK: br i1 [[IS_WORKER]], label {{%?}}[[WORKER:.+]], label {{%?}}[[CHECK_MASTER:.+]]
   //
@@ -111,7 +111,7 @@ int bar(int n){
   // CHECK: [[MASTER]]
   // CHECK-DAG: [[MNTH:%.+]] = call i32 @llvm.nvvm.read.ptx.sreg.ntid.x()
   // CHECK-DAG: [[MWS:%.+]] = call i32 @llvm.nvvm.read.ptx.sreg.warpsize()
-  // CHECK: [[MTMP1:%.+]] = sub i32 [[MNTH]], [[MWS]]
+  // CHECK: [[MTMP1:%.+]] = sub nuw i32 [[MNTH]], [[MWS]]
   // CHECK: call void @__kmpc_kernel_init(i32 [[MTMP1]]
   //
   // CHECK-NOT: kmpc_fork_teams
@@ -121,9 +121,7 @@ int bar(int n){
   // CHECK: [[ACV:%.+]] = load i[[SZ]], i[[SZ]]* [[AC]], align
   // CHECK: store i[[SZ]] [[ACV]], i[[SZ]]* [[A_ADDR_T:%.+]], align
   // CHECK: [[CONV2:%.+]] = bitcast i[[SZ]]* [[A_ADDR_T]] to i8*
-  // CHECK: [[LD_CONV2:%.+]] = load i8, i8* [[CONV2]],
-  // CHECK: store i8 [[LD_CONV2]], i8* [[A_PRIV:%[^,]+]],
-  // CHECK: store i8 49, i8* [[A_PRIV]], align
+  // CHECK: store i8 49, i8* [[CONV2]], align
   // CHECK: br label {{%?}}[[TERMINATE:.+]]
   //
   // CHECK: [[TERMINATE]]
@@ -148,7 +146,7 @@ int bar(int n){
   //
   // CHECK: [[AWAIT_WORK]]
   // CHECK: call void @llvm.nvvm.barrier0()
-  // CHECK: [[KPR:%.+]] = call i1 @__kmpc_kernel_parallel(i8** [[OMP_WORK_FN]], i8*** %shared_args)
+  // CHECK: [[KPR:%.+]] = call i1 @__kmpc_kernel_parallel(i8** [[OMP_WORK_FN]], i16 1)
   // CHECK: [[KPRB:%.+]] = zext i1 [[KPR]] to i8
   // store i8 [[KPRB]], i8* [[OMP_EXEC_STATUS]], align 1
   // CHECK: [[WORK:%.+]] = load i8*, i8** [[OMP_WORK_FN]],
@@ -181,7 +179,7 @@ int bar(int n){
   // CHECK-DAG: [[TID:%.+]] = call i32 @llvm.nvvm.read.ptx.sreg.tid.x()
   // CHECK-DAG: [[NTH:%.+]] = call i32 @llvm.nvvm.read.ptx.sreg.ntid.x()
   // CHECK-DAG: [[WS:%.+]] = call i32 @llvm.nvvm.read.ptx.sreg.warpsize()
-  // CHECK-DAG: [[TH_LIMIT:%.+]] = sub i32 [[NTH]], [[WS]]
+  // CHECK-DAG: [[TH_LIMIT:%.+]] = sub nuw i32 [[NTH]], [[WS]]
   // CHECK: [[IS_WORKER:%.+]] = icmp ult i32 [[TID]], [[TH_LIMIT]]
   // CHECK: br i1 [[IS_WORKER]], label {{%?}}[[WORKER:.+]], label {{%?}}[[CHECK_MASTER:.+]]
   //
@@ -199,7 +197,7 @@ int bar(int n){
   // CHECK: [[MASTER]]
   // CHECK-DAG: [[MNTH:%.+]] = call i32 @llvm.nvvm.read.ptx.sreg.ntid.x()
   // CHECK-DAG: [[MWS:%.+]] = call i32 @llvm.nvvm.read.ptx.sreg.warpsize()
-  // CHECK: [[MTMP1:%.+]] = sub i32 [[MNTH]], [[MWS]]
+  // CHECK: [[MTMP1:%.+]] = sub nuw i32 [[MNTH]], [[MWS]]
   // CHECK: call void @__kmpc_kernel_init(i32 [[MTMP1]]
   //
   // CHECK-NOT: kmpc_fork_teams
@@ -209,9 +207,7 @@ int bar(int n){
   // CHECK: [[ACV:%.+]] = load i[[SZ]], i[[SZ]]* [[AC]], align
   // CHECK: store i[[SZ]] [[ACV]], i[[SZ]]* [[AA_ADDR_T:%.+]], align
   // CHECK: [[CONV2:%.+]] = bitcast i[[SZ]]* [[AA_ADDR_T]] to i16*
-  // CHECK: [[LD_CONV2:%.+]] = load i16, i16* [[CONV2]],
-  // CHECK: store i16 [[LD_CONV2]], i16* [[A_PRIV:%[^,]+]],
-  // CHECK: store i16 1, i16* [[A_PRIV]], align
+  // CHECK: store i16 1, i16* [[CONV2]], align
   // CHECK: br label {{%?}}[[TERMINATE:.+]]
   //
   // CHECK: [[TERMINATE]]

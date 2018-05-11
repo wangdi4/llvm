@@ -286,32 +286,6 @@ class SDCallSeqEnd<list<SDTypeConstraint> constraints> :
         SDTypeProfile<0, 2, constraints>;
 
 //===----------------------------------------------------------------------===//
-// Selection DAG Node Properties.
-//
-// Note: These are hard coded into tblgen.
-//
-class SDNodeProperty;
-def SDNPCommutative : SDNodeProperty;   // X op Y == Y op X
-def SDNPAssociative : SDNodeProperty;   // (X op Y) op Z == X op (Y op Z)
-def SDNPHasChain    : SDNodeProperty;   // R/W chain operand and result
-def SDNPOutGlue     : SDNodeProperty;   // Write a flag result
-def SDNPInGlue      : SDNodeProperty;   // Read a flag operand
-def SDNPOptInGlue   : SDNodeProperty;   // Optionally read a flag operand
-def SDNPMayStore    : SDNodeProperty;   // May write to memory, sets 'mayStore'.
-def SDNPMayLoad     : SDNodeProperty;   // May read memory, sets 'mayLoad'.
-def SDNPSideEffect  : SDNodeProperty;   // Sets 'HasUnmodelledSideEffects'.
-def SDNPMemOperand  : SDNodeProperty;   // Touches memory, has assoc MemOperand
-def SDNPVariadic    : SDNodeProperty;   // Node has variable arguments.
-def SDNPWantRoot    : SDNodeProperty;   // ComplexPattern gets the root of match
-def SDNPWantParent  : SDNodeProperty;   // ComplexPattern gets the parent
-
-//===----------------------------------------------------------------------===//
-// Selection DAG Pattern Operations
-class SDPatternOperator {
-  list<SDNodeProperty> Properties = [];
-}
-
-//===----------------------------------------------------------------------===//
 // Selection DAG Node definitions.
 //
 class SDNode<string opcode, SDTypeProfile typeprof,
@@ -511,6 +485,8 @@ def atomic_load_sub : SDNode<"ISD::ATOMIC_LOAD_SUB" , SDTAtomic2,
                     [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
 def atomic_load_and : SDNode<"ISD::ATOMIC_LOAD_AND" , SDTAtomic2,
                     [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
+def atomic_load_clr : SDNode<"ISD::ATOMIC_LOAD_CLR" , SDTAtomic2,
+                    [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
 def atomic_load_or  : SDNode<"ISD::ATOMIC_LOAD_OR" , SDTAtomic2,
                     [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
 def atomic_load_xor : SDNode<"ISD::ATOMIC_LOAD_XOR" , SDTAtomic2,
@@ -688,6 +664,14 @@ class PatFrag<dag ops, dag frag, code pred = [{}],
   bit IsAtomicOrderingAcquireRelease = ?;
   // cast<AtomicSDNode>(N)->getOrdering() == AtomicOrdering::SequentiallyConsistent
   bit IsAtomicOrderingSequentiallyConsistent = ?;
+
+  // isAcquireOrStronger(cast<AtomicSDNode>(N)->getOrdering())
+  // !isAcquireOrStronger(cast<AtomicSDNode>(N)->getOrdering())
+  bit IsAtomicOrderingAcquireOrStronger = ?;
+
+  // isReleaseOrStronger(cast<AtomicSDNode>(N)->getOrdering())
+  // !isReleaseOrStronger(cast<AtomicSDNode>(N)->getOrdering())
+  bit IsAtomicOrderingReleaseOrStronger = ?;
 
   // cast<LoadSDNode>(N)->getMemoryVT() == MVT::<VT>;
   // cast<StoreSDNode>(N)->getMemoryVT() == MVT::<VT>;
@@ -1148,27 +1132,27 @@ def setne  : PatFrag<(ops node:$lhs, node:$rhs),
 
 multiclass binary_atomic_op_ord<SDNode atomic_op> {
   def #NAME#_monotonic : PatFrag<(ops node:$ptr, node:$val),
-      (!cast<SDNode>(#NAME) node:$ptr, node:$val)> {
+      (!cast<SDPatternOperator>(#NAME) node:$ptr, node:$val)> {
     let IsAtomic = 1;
     let IsAtomicOrderingMonotonic = 1;
   }
   def #NAME#_acquire : PatFrag<(ops node:$ptr, node:$val),
-      (!cast<SDNode>(#NAME) node:$ptr, node:$val)> {
+      (!cast<SDPatternOperator>(#NAME) node:$ptr, node:$val)> {
     let IsAtomic = 1;
     let IsAtomicOrderingAcquire = 1;
   }
   def #NAME#_release : PatFrag<(ops node:$ptr, node:$val),
-      (!cast<SDNode>(#NAME) node:$ptr, node:$val)> {
+      (!cast<SDPatternOperator>(#NAME) node:$ptr, node:$val)> {
     let IsAtomic = 1;
     let IsAtomicOrderingRelease = 1;
   }
   def #NAME#_acq_rel : PatFrag<(ops node:$ptr, node:$val),
-      (!cast<SDNode>(#NAME) node:$ptr, node:$val)> {
+      (!cast<SDPatternOperator>(#NAME) node:$ptr, node:$val)> {
     let IsAtomic = 1;
     let IsAtomicOrderingAcquireRelease = 1;
   }
   def #NAME#_seq_cst : PatFrag<(ops node:$ptr, node:$val),
-      (!cast<SDNode>(#NAME) node:$ptr, node:$val)> {
+      (!cast<SDPatternOperator>(#NAME) node:$ptr, node:$val)> {
     let IsAtomic = 1;
     let IsAtomicOrderingSequentiallyConsistent = 1;
   }
@@ -1176,27 +1160,27 @@ multiclass binary_atomic_op_ord<SDNode atomic_op> {
 
 multiclass ternary_atomic_op_ord<SDNode atomic_op> {
   def #NAME#_monotonic : PatFrag<(ops node:$ptr, node:$cmp, node:$val),
-      (!cast<SDNode>(#NAME) node:$ptr, node:$cmp, node:$val)> {
+      (!cast<SDPatternOperator>(#NAME) node:$ptr, node:$cmp, node:$val)> {
     let IsAtomic = 1;
     let IsAtomicOrderingMonotonic = 1;
   }
   def #NAME#_acquire : PatFrag<(ops node:$ptr, node:$cmp, node:$val),
-      (!cast<SDNode>(#NAME) node:$ptr, node:$cmp, node:$val)> {
+      (!cast<SDPatternOperator>(#NAME) node:$ptr, node:$cmp, node:$val)> {
     let IsAtomic = 1;
     let IsAtomicOrderingAcquire = 1;
   }
   def #NAME#_release : PatFrag<(ops node:$ptr, node:$cmp, node:$val),
-      (!cast<SDNode>(#NAME) node:$ptr, node:$cmp, node:$val)> {
+      (!cast<SDPatternOperator>(#NAME) node:$ptr, node:$cmp, node:$val)> {
     let IsAtomic = 1;
     let IsAtomicOrderingRelease = 1;
   }
   def #NAME#_acq_rel : PatFrag<(ops node:$ptr, node:$cmp, node:$val),
-      (!cast<SDNode>(#NAME) node:$ptr, node:$cmp, node:$val)> {
+      (!cast<SDPatternOperator>(#NAME) node:$ptr, node:$cmp, node:$val)> {
     let IsAtomic = 1;
     let IsAtomicOrderingAcquireRelease = 1;
   }
   def #NAME#_seq_cst : PatFrag<(ops node:$ptr, node:$cmp, node:$val),
-      (!cast<SDNode>(#NAME) node:$ptr, node:$cmp, node:$val)> {
+      (!cast<SDPatternOperator>(#NAME) node:$ptr, node:$cmp, node:$val)> {
     let IsAtomic = 1;
     let IsAtomicOrderingSequentiallyConsistent = 1;
   }
@@ -1262,6 +1246,7 @@ defm atomic_load_add  : binary_atomic_op<atomic_load_add>;
 defm atomic_swap      : binary_atomic_op<atomic_swap>;
 defm atomic_load_sub  : binary_atomic_op<atomic_load_sub>;
 defm atomic_load_and  : binary_atomic_op<atomic_load_and>;
+defm atomic_load_clr  : binary_atomic_op<atomic_load_clr>;
 defm atomic_load_or   : binary_atomic_op<atomic_load_or>;
 defm atomic_load_xor  : binary_atomic_op<atomic_load_xor>;
 defm atomic_load_nand : binary_atomic_op<atomic_load_nand>;

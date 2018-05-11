@@ -22,7 +22,7 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/CodeGen/LiveInterval.h"
-#include "llvm/CodeGen/LiveIntervalAnalysis.h"
+#include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -32,7 +32,6 @@
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachinePassRegistry.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/RegisterClassInfo.h"
 #include "llvm/CodeGen/RegisterPressure.h"
@@ -55,6 +54,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/GraphWriter.h"
+#include "llvm/Support/MachineValueType.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
@@ -98,7 +98,7 @@ static cl::opt<unsigned> MISchedCutoff("misched-cutoff", cl::Hidden,
 static cl::opt<std::string> SchedOnlyFunc("misched-only-func", cl::Hidden,
   cl::desc("Only schedule this function"));
 static cl::opt<unsigned> SchedOnlyBlock("misched-only-block", cl::Hidden,
-  cl::desc("Only schedule this MBB#"));
+                                        cl::desc("Only schedule this MBB#"));
 #else
 static bool ViewMISchedDAGs = false;
 #endif // NDEBUG
@@ -351,7 +351,7 @@ ScheduleDAGInstrs *PostMachineScheduler::createPostMachineScheduler() {
 /// design would be to split blocks at scheduling boundaries, but LLVM has a
 /// general bias against block splitting purely for implementation simplicity.
 bool MachineScheduler::runOnMachineFunction(MachineFunction &mf) {
-  if (skipFunction(*mf.getFunction()))
+  if (skipFunction(mf.getFunction()))
     return false;
 
   if (EnableMachineSched.getNumOccurrences()) {
@@ -389,7 +389,7 @@ bool MachineScheduler::runOnMachineFunction(MachineFunction &mf) {
 }
 
 bool PostMachineScheduler::runOnMachineFunction(MachineFunction &mf) {
-  if (skipFunction(*mf.getFunction()))
+  if (skipFunction(mf.getFunction()))
     return false;
 
   if (EnablePostRAMachineSched.getNumOccurrences()) {
@@ -548,15 +548,14 @@ void MachineSchedulerBase::scheduleRegions(ScheduleDAGInstrs &Scheduler,
         continue;
       }
       DEBUG(dbgs() << "********** MI Scheduling **********\n");
-      DEBUG(dbgs() << MF->getName()
-            << ":BB#" << MBB->getNumber() << " " << MBB->getName()
-            << "\n  From: " << *I << "    To: ";
+      DEBUG(dbgs() << MF->getName() << ":" << printMBBReference(*MBB) << " "
+                   << MBB->getName() << "\n  From: " << *I << "    To: ";
             if (RegionEnd != MBB->end()) dbgs() << *RegionEnd;
             else dbgs() << "End";
             dbgs() << " RegionInstrs: " << NumRegionInstrs << '\n');
       if (DumpCriticalPathLength) {
         errs() << MF->getName();
-        errs() << ":BB# " << MBB->getNumber();
+        errs() << ":%bb. " << MBB->getNumber();
         errs() << " " << MBB->getName() << " \n";
       }
 
@@ -763,10 +762,6 @@ void ScheduleDAGMI::schedule() {
   SmallVector<SUnit*, 8> TopRoots, BotRoots;
   findRootsAndBiasEdges(TopRoots, BotRoots);
 
-  // Initialize the strategy before modifying the DAG.
-  // This may initialize a DFSResult to be used for queue priority.
-  SchedImpl->initialize(this);
-
   DEBUG(
     if (EntrySU.getInstr() != nullptr)
       EntrySU.dumpAll(this);
@@ -776,6 +771,10 @@ void ScheduleDAGMI::schedule() {
       ExitSU.dumpAll(this);
   );
   if (ViewMISchedDAGs) viewGraph();
+
+  // Initialize the strategy before modifying the DAG.
+  // This may initialize a DFSResult to be used for queue priority.
+  SchedImpl->initialize(this);
 
   // Initialize ready queues now that the DAG and priority data are finalized.
   initQueues(TopRoots, BotRoots);
@@ -823,11 +822,11 @@ void ScheduleDAGMI::schedule() {
   placeDebugValues();
 
   DEBUG({
-      unsigned BBNum = begin()->getParent()->getNumber();
-      dbgs() << "*** Final schedule for BB#" << BBNum << " ***\n";
-      dumpSchedule();
-      dbgs() << '\n';
-    });
+    dbgs() << "*** Final schedule for "
+           << printMBBReference(*begin()->getParent()) << " ***\n";
+    dumpSchedule();
+    dbgs() << '\n';
+  });
 }
 
 /// Apply each ScheduleDAGMutation step in order.
@@ -1054,7 +1053,10 @@ void ScheduleDAGMILive::initRegPressure() {
     dumpRegSetPressure(BotRPTracker.getRegSetPressureAtPos(), TRI);
   );
 
-  assert(BotRPTracker.getPos() == RegionEnd && "Can't find the region bottom");
+  assert((BotRPTracker.getPos() == RegionEnd ||
+          (RegionEnd->isDebugValue() &&
+           BotRPTracker.getPos() == priorNonDebug(RegionEnd, RegionBegin))) &&
+         "Can't find the region bottom");
 
   // Cache the list of excess pressure sets in this region. This will also track
   // the max pressure in the scheduled code for these sets.
@@ -1261,11 +1263,11 @@ void ScheduleDAGMILive::schedule() {
   placeDebugValues();
 
   DEBUG({
-      unsigned BBNum = begin()->getParent()->getNumber();
-      dbgs() << "*** Final schedule for BB#" << BBNum << " ***\n";
-      dumpSchedule();
-      dbgs() << '\n';
-    });
+    dbgs() << "*** Final schedule for "
+           << printMBBReference(*begin()->getParent()) << " ***\n";
+    dumpSchedule();
+    dbgs() << '\n';
+  });
 }
 
 /// Build the DAG and setup three register pressure trackers.
@@ -1447,6 +1449,7 @@ void ScheduleDAGMILive::scheduleMI(SUnit *SU, bool IsTopNode) {
       }
       moveInstruction(MI, CurrentBottom);
       CurrentBottom = MI;
+      BotRPTracker.setPos(CurrentBottom);
     }
     if (ShouldTrackPressure) {
       RegisterOperands RegOpers;
@@ -1460,7 +1463,8 @@ void ScheduleDAGMILive::scheduleMI(SUnit *SU, bool IsTopNode) {
         RegOpers.detectDeadDefs(*MI, *LIS);
       }
 
-      BotRPTracker.recedeSkipDebugValues();
+      if (BotRPTracker.getPos() != CurrentBottom)
+        BotRPTracker.recedeSkipDebugValues();
       SmallVector<RegisterMaskPair, 8> LiveUses;
       BotRPTracker.recede(RegOpers, &LiveUses);
       assert(BotRPTracker.getPos() == CurrentBottom && "out of sync");
@@ -1558,7 +1562,7 @@ void BaseMemOpClusterMutation::clusterNeighboringMemOps(
   if (MemOpRecords.size() < 2)
     return;
 
-  std::sort(MemOpRecords.begin(), MemOpRecords.end());
+  llvm::sort(MemOpRecords.begin(), MemOpRecords.end());
   unsigned ClusterLength = 1;
   for (unsigned Idx = 0, End = MemOpRecords.size(); Idx < (End - 1); ++Idx) {
     SUnit *SUa = MemOpRecords[Idx].SU;
@@ -2557,11 +2561,12 @@ void GenericSchedulerBase::traceCandidate(const SchedCandidate &Cand) {
 }
 #endif
 
+namespace llvm {
 /// Return true if this heuristic determines order.
-static bool tryLess(int TryVal, int CandVal,
-                    GenericSchedulerBase::SchedCandidate &TryCand,
-                    GenericSchedulerBase::SchedCandidate &Cand,
-                    GenericSchedulerBase::CandReason Reason) {
+bool tryLess(int TryVal, int CandVal,
+             GenericSchedulerBase::SchedCandidate &TryCand,
+             GenericSchedulerBase::SchedCandidate &Cand,
+             GenericSchedulerBase::CandReason Reason) {
   if (TryVal < CandVal) {
     TryCand.Reason = Reason;
     return true;
@@ -2574,10 +2579,10 @@ static bool tryLess(int TryVal, int CandVal,
   return false;
 }
 
-static bool tryGreater(int TryVal, int CandVal,
-                       GenericSchedulerBase::SchedCandidate &TryCand,
-                       GenericSchedulerBase::SchedCandidate &Cand,
-                       GenericSchedulerBase::CandReason Reason) {
+bool tryGreater(int TryVal, int CandVal,
+                GenericSchedulerBase::SchedCandidate &TryCand,
+                GenericSchedulerBase::SchedCandidate &Cand,
+                GenericSchedulerBase::CandReason Reason) {
   if (TryVal > CandVal) {
     TryCand.Reason = Reason;
     return true;
@@ -2590,9 +2595,9 @@ static bool tryGreater(int TryVal, int CandVal,
   return false;
 }
 
-static bool tryLatency(GenericSchedulerBase::SchedCandidate &TryCand,
-                       GenericSchedulerBase::SchedCandidate &Cand,
-                       SchedBoundary &Zone) {
+bool tryLatency(GenericSchedulerBase::SchedCandidate &TryCand,
+                GenericSchedulerBase::SchedCandidate &Cand,
+                SchedBoundary &Zone) {
   if (Zone.isTop()) {
     if (Cand.SU->getDepth() > Zone.getScheduledLatency()) {
       if (tryLess(TryCand.SU->getDepth(), Cand.SU->getDepth(),
@@ -2614,6 +2619,7 @@ static bool tryLatency(GenericSchedulerBase::SchedCandidate &TryCand,
   }
   return false;
 }
+} // end namespace llvm
 
 static void tracePick(GenericSchedulerBase::CandReason Reason, bool IsTop) {
   DEBUG(dbgs() << "Pick " << (IsTop ? "Top " : "Bot ")
@@ -2768,13 +2774,14 @@ void GenericScheduler::registerRoots() {
   }
 }
 
-static bool tryPressure(const PressureChange &TryP,
-                        const PressureChange &CandP,
-                        GenericSchedulerBase::SchedCandidate &TryCand,
-                        GenericSchedulerBase::SchedCandidate &Cand,
-                        GenericSchedulerBase::CandReason Reason,
-                        const TargetRegisterInfo *TRI,
-                        const MachineFunction &MF) {
+namespace llvm {
+bool tryPressure(const PressureChange &TryP,
+                 const PressureChange &CandP,
+                 GenericSchedulerBase::SchedCandidate &TryCand,
+                 GenericSchedulerBase::SchedCandidate &Cand,
+                 GenericSchedulerBase::CandReason Reason,
+                 const TargetRegisterInfo *TRI,
+                 const MachineFunction &MF) {
   // If one candidate decreases and the other increases, go with it.
   // Invalid candidates have UnitInc==0.
   if (tryGreater(TryP.getUnitInc() < 0, CandP.getUnitInc() < 0, TryCand, Cand,
@@ -2807,7 +2814,7 @@ static bool tryPressure(const PressureChange &TryP,
   return tryGreater(TryRank, CandRank, TryCand, Cand, Reason);
 }
 
-static unsigned getWeakLeft(const SUnit *SU, bool isTop) {
+unsigned getWeakLeft(const SUnit *SU, bool isTop) {
   return (isTop) ? SU->WeakPredsLeft : SU->WeakSuccsLeft;
 }
 
@@ -2818,7 +2825,7 @@ static unsigned getWeakLeft(const SUnit *SU, bool isTop) {
 /// copies which can be prescheduled. The rest (e.g. x86 MUL) could be bundled
 /// with the operation that produces or consumes the physreg. We'll do this when
 /// regalloc has support for parallel copies.
-static int biasPhysRegCopy(const SUnit *SU, bool isTop) {
+int biasPhysRegCopy(const SUnit *SU, bool isTop) {
   const MachineInstr *MI = SU->getInstr();
   if (!MI->isCopy())
     return 0;
@@ -2838,6 +2845,7 @@ static int biasPhysRegCopy(const SUnit *SU, bool isTop) {
     return AtBoundary ? -1 : 1;
   return 0;
 }
+} // end namespace llvm
 
 void GenericScheduler::initCandidate(SchedCandidate &Cand, SUnit *SU,
                                      bool AtTop,
@@ -2888,7 +2896,7 @@ void GenericScheduler::initCandidate(SchedCandidate &Cand, SUnit *SU,
 //              if Cand is from a different zone than TryCand.
 void GenericScheduler::tryCandidate(SchedCandidate &Cand,
                                     SchedCandidate &TryCand,
-                                    SchedBoundary *Zone) {
+                                    SchedBoundary *Zone) const {
   // Initialize the candidate if needed.
   if (!Cand.isValid()) {
     TryCand.Reason = NodeOrder;

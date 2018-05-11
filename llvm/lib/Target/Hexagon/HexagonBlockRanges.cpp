@@ -85,7 +85,7 @@ void HexagonBlockRanges::RangeList::unionize(bool MergeAdjacent) {
   if (empty())
     return;
 
-  std::sort(begin(), end());
+  llvm::sort(begin(), end());
   iterator Iter = begin();
 
   while (Iter != end()-1) {
@@ -368,7 +368,7 @@ void HexagonBlockRanges::computeInitialLiveRanges(InstrIndexMap &IndexMap,
       }
     }
     // Defs and clobbers can overlap, e.g.
-    // %d0<def,dead> = COPY %5, %r0<imp-def>, %r1<imp-def>
+    // dead %d0 = COPY %5, implicit-def %r0, implicit-def %r1
     for (RegisterRef R : Defs)
       Clobbers.erase(R);
 

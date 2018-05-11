@@ -70,6 +70,7 @@ protected:
 
   void verifyFormat(llvm::StringRef Code,
                     const FormatStyle &Style = getLLVMStyle()) {
+    EXPECT_EQ(Code.str(), format(Code, Style)) << "Expected code is not stable";
     EXPECT_EQ(Code.str(), format(test::messUp(Code), Style));
   }
 
@@ -3078,6 +3079,15 @@ TEST_F(FormatTestComments, PythonStyleComments) {
                    "a:1#commen5 commen6\n"
                    " #commen7",
                    getTextProtoStyleWithColumns(20)));
+}
+
+TEST_F(FormatTestComments, BreaksBeforeTrailingUnbreakableSequence) {
+  // The end of /* trail */ is exactly at 80 columns, but the unbreakable
+  // trailing sequence ); after it exceeds the column limit. Make sure we
+  // correctly break the line in that case.
+  verifyFormat("int a =\n"
+               "    foo(/* trail */);",
+               getLLVMStyleWithColumns(23));
 }
 
 } // end namespace

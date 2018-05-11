@@ -21,6 +21,10 @@
 
 namespace __sanitizer {
 
+// Default allocator names.
+const char *PrimaryAllocatorName = "SizeClassAllocator";
+const char *SecondaryAllocatorName = "LargeMmapAllocator";
+
 // ThreadSanitizer for Go uses libc malloc/free.
 #if SANITIZER_GO || defined(SANITIZER_USE_MALLOC)
 # if SANITIZER_LINUX && !SANITIZER_ANDROID
@@ -140,8 +144,8 @@ void *InternalAlloc(uptr size, InternalAllocatorCache *cache, uptr alignment) {
   if (size + sizeof(u64) < size)
     return nullptr;
   void *p = RawInternalAlloc(size + sizeof(u64), cache, alignment);
-  if (!p)
-    return nullptr;
+  if (UNLIKELY(!p))
+    return DieOnFailure::OnOOM();
   ((u64*)p)[0] = kBlockMagic;
   return (char*)p + sizeof(u64);
 }
@@ -155,16 +159,17 @@ void *InternalRealloc(void *addr, uptr size, InternalAllocatorCache *cache) {
   size = size + sizeof(u64);
   CHECK_EQ(kBlockMagic, ((u64*)addr)[0]);
   void *p = RawInternalRealloc(addr, size, cache);
-  if (!p)
-    return nullptr;
+  if (UNLIKELY(!p))
+    return DieOnFailure::OnOOM();
   return (char*)p + sizeof(u64);
 }
 
 void *InternalCalloc(uptr count, uptr size, InternalAllocatorCache *cache) {
   if (UNLIKELY(CheckForCallocOverflow(count, size)))
-    return InternalAllocator::FailureHandler::OnBadRequest();
+    return DieOnFailure::OnBadRequest();
   void *p = InternalAlloc(count * size, cache);
-  if (p) internal_memset(p, 0, count * size);
+  if (LIKELY(p))
+    internal_memset(p, 0, count * size);
   return p;
 }
 
@@ -217,6 +222,10 @@ bool IsAllocatorOutOfMemory() {
   return atomic_load_relaxed(&allocator_out_of_memory);
 }
 
+void SetAllocatorOutOfMemory() {
+  atomic_store_relaxed(&allocator_out_of_memory, 1);
+}
+
 // Prints error message and kills the program.
 void NORETURN ReportAllocatorCannotReturnNull() {
   Report("%s's allocator is terminating the process instead of returning 0\n",
@@ -255,6 +264,12 @@ void NORETURN *DieOnFailure::OnBadRequest() {
 void NORETURN *DieOnFailure::OnOOM() {
   atomic_store_relaxed(&allocator_out_of_memory, 1);
   ReportAllocatorCannotReturnNull();
+}
+
+// Prints hint message.
+void PrintHintAllocatorCannotReturnNull(const char *options_name) {
+  Report("HINT: if you don't care about these errors you may set "
+         "%s=allocator_may_return_null=1\n", options_name);
 }
 
 } // namespace __sanitizer
