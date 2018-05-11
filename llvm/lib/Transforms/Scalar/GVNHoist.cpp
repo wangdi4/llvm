@@ -48,6 +48,7 @@
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/BasicBlock.h"
@@ -72,7 +73,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include <algorithm>
 #include <cassert>
 #include <iterator>
@@ -570,7 +570,7 @@ private:
   // The ides is inspired from:
   // "Partial Redundancy Elimination in SSA Form"
   // ROBERT KENNEDY, SUN CHAN, SHIN-MING LIU, RAYMOND LO, PENG TU and FRED CHOW
-  // They use similar idea in the forward graph to to find fully redundant and
+  // They use similar idea in the forward graph to find fully redundant and
   // partially redundant expressions, here it is used in the inverse graph to
   // find fully anticipable instructions at merge point (post-dominator in
   // the inverse CFG).
@@ -648,7 +648,7 @@ private:
           // track in a CHI. In the PDom walk, there can be values in the
           // stack which are not control dependent e.g., nested loop.
           if (si != RenameStack.end() && si->second.size() &&
-              DT->dominates(Pred, si->second.back()->getParent())) {
+              DT->properlyDominates(Pred, si->second.back()->getParent())) {
             C.Dest = BB;                     // Assign the edge
             C.I = si->second.pop_back_val(); // Assign the argument
             DEBUG(dbgs() << "\nCHI Inserted in BB: " << C.Dest->getName()
@@ -748,11 +748,11 @@ private:
     // TODO: Remove fully-redundant expressions.
     // Get instruction from the Map, assume that all the Instructions
     // with same VNs have same rank (this is an approximation).
-    std::sort(Ranks.begin(), Ranks.end(),
-              [this, &Map](const VNType &r1, const VNType &r2) {
-                return (rank(*Map.lookup(r1).begin()) <
-                        rank(*Map.lookup(r2).begin()));
-              });
+    llvm::sort(Ranks.begin(), Ranks.end(),
+               [this, &Map](const VNType &r1, const VNType &r2) {
+                 return (rank(*Map.lookup(r1).begin()) <
+                         rank(*Map.lookup(r2).begin()));
+               });
 
     // - Sort VNs according to their rank, and start with lowest ranked VN
     // - Take a VN and for each instruction with same VN
@@ -795,8 +795,8 @@ private:
       for (auto IDFB : IDFBlocks) { // TODO: Prune out useless CHI insertions.
         for (unsigned i = 0; i < V.size(); ++i) {
           CHIArg C = {VN, nullptr, nullptr};
-          if (DT->dominates(IDFB, V[i]->getParent())) { // Ignore spurious PDFs.
-            // InValue[V[i]->getParent()].push_back(std::make_pair(VN, V[i]));
+           // Ignore spurious PDFs.
+          if (DT->properlyDominates(IDFB, V[i]->getParent())) {
             OutValue[IDFB].push_back(C);
             DEBUG(dbgs() << "\nInsertion a CHI for BB: " << IDFB->getName()
                          << ", for Insn: " << *V[i]);
@@ -1200,6 +1200,7 @@ INITIALIZE_PASS_BEGIN(GVNHoistLegacyPass, "gvn-hoist",
 INITIALIZE_PASS_DEPENDENCY(MemoryDependenceWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(MemorySSAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(GVNHoistLegacyPass, "gvn-hoist",
                     "Early GVN Hoisting of Expressions", false, false)

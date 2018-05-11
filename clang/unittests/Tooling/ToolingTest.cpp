@@ -319,8 +319,8 @@ TEST(runToolOnCode, TestSkipFunctionBody) {
 
 TEST(runToolOnCodeWithArgs, TestNoDepFile) {
   llvm::SmallString<32> DepFilePath;
-  ASSERT_FALSE(
-      llvm::sys::fs::createTemporaryFile("depfile", "d", DepFilePath));
+  ASSERT_FALSE(llvm::sys::fs::getPotentiallyUniqueTempFileName("depfile", "d",
+                                                               DepFilePath));
   std::vector<std::string> Args;
   Args.push_back("-MMD");
   Args.push_back("-MT");
@@ -400,6 +400,24 @@ TEST(ClangToolTest, ArgumentAdjusters) {
   Tool.run(Action.get());
   EXPECT_TRUE(Ran);
   EXPECT_FALSE(Found);
+}
+
+TEST(ClangToolTest, BaseVirtualFileSystemUsage) {
+  FixedCompilationDatabase Compilations("/", std::vector<std::string>());
+  llvm::IntrusiveRefCntPtr<vfs::OverlayFileSystem> OverlayFileSystem(
+      new vfs::OverlayFileSystem(vfs::getRealFileSystem()));
+  llvm::IntrusiveRefCntPtr<vfs::InMemoryFileSystem> InMemoryFileSystem(
+      new vfs::InMemoryFileSystem);
+  OverlayFileSystem->pushOverlay(InMemoryFileSystem);
+
+  InMemoryFileSystem->addFile(
+      "a.cpp", 0, llvm::MemoryBuffer::getMemBuffer("int main() {}"));
+
+  ClangTool Tool(Compilations, std::vector<std::string>(1, "a.cpp"),
+                 std::make_shared<PCHContainerOperations>(), OverlayFileSystem);
+  std::unique_ptr<FrontendActionFactory> Action(
+      newFrontendActionFactory<SyntaxOnlyAction>());
+  EXPECT_EQ(0, Tool.run(Action.get()));
 }
 
 // Check getClangStripDependencyFileAdjuster doesn't strip args after -MD/-MMD.

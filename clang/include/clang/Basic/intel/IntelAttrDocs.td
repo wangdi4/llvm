@@ -11,8 +11,8 @@
 def MaxGlobalWorkDimDocs : Documentation {
   let Category = DocCatFunction;
   let Content = [{
-This attribute documented in _Intel FPGA SDK for OpenCL Programming Guide_
-(link_). See section _Omit Hardware that Generates and Dispatches Kernel IDs_.
+This attribute is documented in `Intel FPGA SDK for OpenCL Programming Guide`_.
+See section *Omit Hardware that Generates and Dispatches Kernel IDs*.
 
 The ``max_global_work_dim(0)`` kernel attribute instructs the Intel FPGA SDK
 for OpenCL Offline compiler to omit logic that generates and dispatches global,
@@ -47,16 +47,16 @@ attribute if you modify the kernel code accordingly:
 
 2. Launch the modified kernel with only one work-item.
 
-.. _link: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
+.. _`Intel FPGA SDK for OpenCL Programming Guide`: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
   }];
 }
 
 def NumComputeUnitsDocs : Documentation {
   let Category = DocCatFunction;
   let Content = [{
-This attribute documented in _Intel FPGA SDK for OpenCL Programming Guide_
-(link_). See sections _Specifying Number of Compute Units_ and _Kernel
-replication using the num_compute_units(X, Y, Z) Attribute_.
+This attribute is documented in `Intel FPGA SDK for OpenCL Programming Guide`_.
+See sections *Specifying Number of Compute Units* and *Kernel
+replication using the num_compute_units(X, Y, Z) Attribute*.
 
 To increase the data-processing efficiency of an OpenCL kernel, you can instruct
 the Intel FPGA SDK for OpenCL Offline Compiler to generate multiple kernel
@@ -89,23 +89,22 @@ compute units.
 
 You can replicate your single-work-item OpenCL kernel by including the
 ``num_compute_units(X, Y, Z)`` kernel attribute.
-As mentioned in _Specifying Number of Compute Units_, including the
+As mentioned in *Specifying Number of Compute Units*, including the
 ``num_compute_units(N)`` kernel attribute in your kernel instructs the Intel
 FPGA SDK for OpenCL Offline Compiler to generate multiple compute units to
 process data. Since the offline compiler processes a single work-item kernel in
 one compute unit, the ``num_compute_units(N)`` attribute instructs the offline
-compiler to generate _N_ identical copies of the kernel in hardware.
+compiler to generate *N* identical copies of the kernel in hardware.
 
-.. _link: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
+.. _`Intel FPGA SDK for OpenCL Programming Guide`: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
   }];
 }
 
 def AutorunDocs : Documentation {
   let Category = DocCatFunction;
   let Content = [{
-This attribute documented in _Intel FPGA SDK for OpenCL Programming Guide_
-(link_). See section _Omit Communication Hardware between the Host and the
-Kernel_.
+This attribute is documented in `Intel FPGA SDK for OpenCL Programming Guide`_.
+See section *Omit Communication Hardware between the Host and the Kernel*.
 
 The ``autorun`` kernel attribute instructs the Intel FPGA SDK for OpenCL Offline
 Compiler to omit logic that is used for communication between the host and the
@@ -155,6 +154,132 @@ the results to one or more channels.
     }
   }
 
-.. _link: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
+.. _`Intel FPGA SDK for OpenCL Programming Guide`: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
+  }];
+}
+
+def OpenCLDepthDocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+You may have buffered or unbuffered channels/pipes in your kernel program. If there are
+imbalances in channel/pipe read and write operations, create buffered channels/pipes to prevent
+kernel stalls by including the depth attribute in your channel/pipe declaration.
+Buffered channels/pipes decouple the operation of concurrent work-items executing in
+different kernels.
+If you expect any temporary mismatch between the consumption rate and the
+production rate to the channel/pipe, set the buffer size using the depth
+attribute.
+
+Specify the depth attribute for the pipe arguments. Assign a depth attribute
+value that equals to the maximum number of packets that the pipe creates to
+hold in the host.
+  }];
+}
+
+def OpenCLIODocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+Include an io attribute in your OpenCL channel/pipe declaration to declare a
+special I/O channel/pipe to interface with input or output features of an FPGA
+board. These features might include network interfaces, PCIe, cameras, or other
+data capture or processing devices or protocols.
+
+In the Intel FPGA SDK for OpenCL channels extension, the io("chan_id") attribute
+specifies the I/O feature of an accelerator board with which a channel
+interfaces. The chan_id argument is the name of the I/O interface listed in the
+board_spec.xml file of your Custom Platform. The same I/O features can be used
+to identify I/O pipes.
+  }];
+}
+
+def OpenCLBufferLocationDocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+The board support package for your FPGA board can assemble a global memory space
+consisting of different memory technologies (for example, DRAM or SRAM). The
+board support package designates one such memory, which might consist of
+multiple interfaces, as the default memory. All buffers reside there.
+
+To instruct the host to allocate a buffer to a specific global memory type,
+insert the buffer_location("<memory_type>") attribute, where <memory_type> is
+the name of the global memory type provided by your board vendor.
+
+If you do not specify the buffer_location attribute, the host allocates the
+buffer to the default memory type automatically. To determine the default memory
+type, consult the documentation provided by your board vendor. Alternatively, in
+the board_spec.xml file of your Custom Platform, search for the memory type that
+is defined first or has the attribute default=1 assigned to it.
+  }];
+}
+
+def VecLenHintDocs : Documentation {
+  let Category = DocCatFunction;
+  let Content = [{
+The optional __attribute__((intel_vec_len_hint(<int>))) can be used to provide
+a hint to the compiler that the kernel performs the best if vectorized to
+the specified vector length.
+
+The lengths accepted by the attribute are:
+
+``0``
+  The compiler makes heuristic-based decision whether to vectorize the kernel,
+  and if so which vector length to use (default behavior).
+
+``1``
+  No vectorization by the compiler. Explicit vector data types in kernels are
+  left intact.
+
+``4,8,16``
+  Disables heuristic and vectorizes to the length of 4,8,16 respectively.
+
+Other values are invalid. An error will be reported during compilation.
+
+An error will be given if:
+  - Specified value is not in range of supported values.
+  }];
+}
+
+def OpenCLBlockingDocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+By default, pipes exhibit nonblocking behavior. If you want the pipes in your
+kernel to exhibit blocking behavior, specify the blocking attribute
+(__attribute__((blocking))) when you declare the read and write pipes.
+  }];
+}
+
+def OpenCLHostAccessibleDocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+By default OpenCL pipes cannot be accessed from host. Optional
+__attribute__((intel_host_accessible)) may be applied to pipe kernel arguments
+to specify that a pipe kernel argument will be connected by the host to a
+host-accessible pipe, and therefore will not be connected to another kernel pipe
+argument.
+  }];
+}
+
+def ArbPrecIntDocs : Documentation {
+  let Category = DocCatType;
+  let Content = [{
+Since FPGAs have the ability to produce non-power-of-2 math units, there is a
+requirement to have an integer type that supports an arbitrary compile time bit
+representation. These need to be expressed in IR as the correct precision int
+types (such as i3, i46, etc).
+
+This implements an arbitrary precision integer type (and a version where the
+number of bits is Dependent). The syntax for declaring an integer with an
+arbitrary number of bits is via the attribute __ap_int(N), which is usable only
+on typedef/using clauses. For example:
+
+typedef int int3_tt __attribute__((__ap_int(3)));
+// Dependent Version:
+template <unsigned Size>
+using MyInt = int __attribute__((__ap_int(Size)));
+
+The typedef inherits its 'signedness' from the 'underlying type'. Otherwise,
+this type has no affect on the ArbPrecInt. All operations on an ArbPrecInt
+should take place as an ArbPrecInt type, promoting to the larger of the two
+types. All integer operations are currently supported.
   }];
 }

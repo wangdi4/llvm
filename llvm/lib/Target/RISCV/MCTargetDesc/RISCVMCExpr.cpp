@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "RISCV.h"
 #include "RISCVMCExpr.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
@@ -53,6 +54,7 @@ RISCVMCExpr::VariantKind RISCVMCExpr::getVariantKindForName(StringRef name) {
   return StringSwitch<RISCVMCExpr::VariantKind>(name)
       .Case("lo", VK_RISCV_LO)
       .Case("hi", VK_RISCV_HI)
+      .Case("pcrel_lo", VK_RISCV_PCREL_LO)
       .Case("pcrel_hi", VK_RISCV_PCREL_HI)
       .Default(VK_RISCV_Invalid);
 }
@@ -65,6 +67,8 @@ StringRef RISCVMCExpr::getVariantKindName(VariantKind Kind) {
     return "lo";
   case VK_RISCV_HI:
     return "hi";
+  case VK_RISCV_PCREL_LO:
+    return "pcrel_lo";
   case VK_RISCV_PCREL_HI:
     return "pcrel_hi";
   }
@@ -73,7 +77,7 @@ StringRef RISCVMCExpr::getVariantKindName(VariantKind Kind) {
 bool RISCVMCExpr::evaluateAsConstant(int64_t &Res) const {
   MCValue Value;
 
-  if (Kind == VK_RISCV_PCREL_HI)
+  if (Kind == VK_RISCV_PCREL_HI || Kind == VK_RISCV_PCREL_LO)
     return false;
 
   if (!getSubExpr()->evaluateAsRelocatable(Value, nullptr, nullptr))

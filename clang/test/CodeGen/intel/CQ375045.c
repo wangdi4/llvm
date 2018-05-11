@@ -1,4 +1,3 @@
-// REQUIRES: llvm-backend
 // RUN: %clang_cc1 -triple x86_64-unknown-unknown -fintel-compatibility %s -emit-llvm -o - | FileCheck %s
 // RUN: %clang_cc1 -triple i686-unknown-unknown -fintel-compatibility %s -emit-llvm -o - | FileCheck %s
 

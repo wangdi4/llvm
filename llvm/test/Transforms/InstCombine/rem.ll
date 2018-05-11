@@ -150,14 +150,6 @@ define i32 @test1(i32 %A) {
   ret i32 %B
 }
 
-define i32 @test2(i32 %A) {	; 0 % X = 0, we don't need to preserve traps
-; CHECK-LABEL: @test2(
-; CHECK-NEXT:    ret i32 0
-;
-  %B = srem i32 0, %A
-  ret i32 %B
-}
-
 define i32 @test3(i32 %A) {
 ; CHECK-LABEL: @test3(
 ; CHECK-NEXT:    [[B:%.*]] = and i32 %A, 7
@@ -593,3 +585,17 @@ define <2 x i32> @test23(<2 x i32> %A) {
   %mul = srem <2 x i32> %and, <i32 2147483647, i32 2147483647>
   ret <2 x i32> %mul
 }
+
+; FP division-by-zero is not UB.
+
+define double @PR34870(i1 %cond, double %x, double %y) {
+; CHECK-LABEL: @PR34870(
+; CHECK-NEXT:    [[SEL:%.*]] = select i1 %cond, double %y, double 0.000000e+00
+; CHECK-NEXT:    [[FMOD:%.*]] = frem double %x, [[SEL]]
+; CHECK-NEXT:    ret double [[FMOD]]
+;
+  %sel = select i1 %cond, double %y, double 0.0
+  %fmod = frem double %x, %sel
+  ret double %fmod
+}
+

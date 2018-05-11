@@ -25,6 +25,7 @@
 #include "AMDGPURegisterInfo.h"
 #include "AMDGPUSubtarget.h"
 #include "AMDGPUTargetMachine.h"
+#include "Utils/AMDGPUBaseInfo.h"
 #include "R600MachineFunctionInfo.h"
 #include "SIInstrInfo.h"
 #include "SIMachineFunctionInfo.h"
@@ -748,6 +749,106 @@ bool AMDGPUTargetLowering::isCheapToSpeculateCtlz() const {
   return true;
 }
 
+bool AMDGPUTargetLowering::isSDNodeAlwaysUniform(const SDNode * N) const {
+  switch (N->getOpcode()) {
+    default:
+    return false;
+    case ISD::EntryToken:
+    case ISD::TokenFactor:
+      return true;
+    case ISD::INTRINSIC_WO_CHAIN:
+    {
+      unsigned IntrID = cast<ConstantSDNode>(N->getOperand(0))->getZExtValue();
+      switch (IntrID) {
+        default:
+        return false;
+        case Intrinsic::amdgcn_readfirstlane:
+        case Intrinsic::amdgcn_readlane:
+          return true;
+      }
+    }
+    break;
+    case ISD::LOAD:
+    {
+      const LoadSDNode * L = dyn_cast<LoadSDNode>(N);
+      if (L->getMemOperand()->getAddrSpace()
+      == Subtarget->getAMDGPUAS().CONSTANT_ADDRESS_32BIT)
+        return true;
+      return false;
+    }
+    break;
+  }
+}
+
+bool AMDGPUTargetLowering::isSDNodeSourceOfDivergence(const SDNode * N,
+  FunctionLoweringInfo * FLI, DivergenceAnalysis * DA) const
+{
+  switch (N->getOpcode()) {
+    case ISD::Register:
+    case ISD::CopyFromReg:
+    {
+      const RegisterSDNode *R = nullptr;
+      if (N->getOpcode() == ISD::Register) {
+        R = dyn_cast<RegisterSDNode>(N);
+      }
+      else {
+        R = dyn_cast<RegisterSDNode>(N->getOperand(1));
+      }
+      if (R)
+      {
+        const MachineFunction * MF = FLI->MF;
+        const SISubtarget &ST = MF->getSubtarget<SISubtarget>();
+        const MachineRegisterInfo &MRI = MF->getRegInfo();
+        const SIRegisterInfo &TRI = ST.getInstrInfo()->getRegisterInfo();
+        unsigned Reg = R->getReg();
+        if (TRI.isPhysicalRegister(Reg))
+          return TRI.isVGPR(MRI, Reg);
+
+        if (MRI.isLiveIn(Reg)) {
+          // workitem.id.x workitem.id.y workitem.id.z
+          // Any VGPR formal argument is also considered divergent
+          if ((MRI.getLiveInPhysReg(Reg) == AMDGPU::T0_X) ||
+              (MRI.getLiveInPhysReg(Reg) == AMDGPU::T0_Y) ||
+              (MRI.getLiveInPhysReg(Reg) == AMDGPU::T0_Z) ||
+              (TRI.isVGPR(MRI, Reg)))
+              return true;
+          // Formal arguments of non-entry functions
+          // are conservatively considered divergent
+          else if (!AMDGPU::isEntryFunctionCC(FLI->Fn->getCallingConv()))
+            return true;
+        }
+        return !DA || DA->isDivergent(FLI->getValueFromVirtualReg(Reg));
+      }
+    }
+    break;
+    case ISD::LOAD: {
+      const LoadSDNode *L = dyn_cast<LoadSDNode>(N);
+      if (L->getMemOperand()->getAddrSpace() ==
+          Subtarget->getAMDGPUAS().PRIVATE_ADDRESS)
+        return true;
+    } break;
+    case ISD::CALLSEQ_END:
+    return true;
+    break;
+    case ISD::INTRINSIC_WO_CHAIN:
+    {
+
+    }
+      return AMDGPU::isIntrinsicSourceOfDivergence(
+      cast<ConstantSDNode>(N->getOperand(0))->getZExtValue());
+    case ISD::INTRINSIC_W_CHAIN:
+      return AMDGPU::isIntrinsicSourceOfDivergence(
+      cast<ConstantSDNode>(N->getOperand(1))->getZExtValue());
+    // In some cases intrinsics that are a source of divergence have been
+    // lowered to AMDGPUISD so we also need to check those too.
+    case AMDGPUISD::INTERP_MOV:
+    case AMDGPUISD::INTERP_P1:
+    case AMDGPUISD::INTERP_P2:
+      return true;
+  }
+  return false;
+}
+
 //===---------------------------------------------------------------------===//
 // Target Properties
 //===---------------------------------------------------------------------===//
@@ -1069,7 +1170,7 @@ SDValue AMDGPUTargetLowering::lowerUnhandledCall(CallLoweringInfo &CLI,
   SDValue Callee = CLI.Callee;
   SelectionDAG &DAG = CLI.DAG;
 
-  const Function &Fn = *DAG.getMachineFunction().getFunction();
+  const Function &Fn = DAG.getMachineFunction().getFunction();
 
   StringRef FuncName("<unknown>");
 
@@ -1097,7 +1198,7 @@ SDValue AMDGPUTargetLowering::LowerCall(CallLoweringInfo &CLI,
 
 SDValue AMDGPUTargetLowering::LowerDYNAMIC_STACKALLOC(SDValue Op,
                                                       SelectionDAG &DAG) const {
-  const Function &Fn = *DAG.getMachineFunction().getFunction();
+  const Function &Fn = DAG.getMachineFunction().getFunction();
 
   DiagnosticInfoUnsupported NoDynamicAlloca(Fn, "unsupported dynamic alloca",
                                             SDLoc(Op).getDebugLoc());
@@ -1190,7 +1291,7 @@ SDValue AMDGPUTargetLowering::LowerGlobalAddress(AMDGPUMachineFunction* MFI,
     }
   }
 
-  const Function &Fn = *DAG.getMachineFunction().getFunction();
+  const Function &Fn = DAG.getMachineFunction().getFunction();
   DiagnosticInfoUnsupported BadInit(
       Fn, "unsupported initializer for address space", SDLoc(Op).getDebugLoc());
   DAG.getContext()->diagnose(BadInit);
@@ -1985,7 +2086,7 @@ SDValue AMDGPUTargetLowering::LowerFTRUNC(SDValue Op, SelectionDAG &DAG) const {
   const SDValue SignBitMask = DAG.getConstant(UINT32_C(1) << 31, SL, MVT::i32);
   SDValue SignBit = DAG.getNode(ISD::AND, SL, MVT::i32, Hi, SignBitMask);
 
-  // Extend back to to 64-bits.
+  // Extend back to 64-bits.
   SDValue SignBit64 = DAG.getBuildVector(MVT::v2i32, SL, {Zero, SignBit});
   SignBit64 = DAG.getNode(ISD::BITCAST, SL, MVT::i64, SignBit64);
 
@@ -3957,6 +4058,10 @@ const char* AMDGPUTargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(CVT_F32_UBYTE2)
   NODE_NAME_CASE(CVT_F32_UBYTE3)
   NODE_NAME_CASE(CVT_PKRTZ_F16_F32)
+  NODE_NAME_CASE(CVT_PKNORM_I16_F32)
+  NODE_NAME_CASE(CVT_PKNORM_U16_F32)
+  NODE_NAME_CASE(CVT_PK_I16_I32)
+  NODE_NAME_CASE(CVT_PK_U16_U32)
   NODE_NAME_CASE(FP_TO_FP16)
   NODE_NAME_CASE(FP16_ZEXT)
   NODE_NAME_CASE(BUILD_VERTICAL_VECTOR)
@@ -3976,14 +4081,21 @@ const char* AMDGPUTargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(LOAD_CONSTANT)
   NODE_NAME_CASE(TBUFFER_STORE_FORMAT)
   NODE_NAME_CASE(TBUFFER_STORE_FORMAT_X3)
+  NODE_NAME_CASE(TBUFFER_STORE_FORMAT_D16)
   NODE_NAME_CASE(TBUFFER_LOAD_FORMAT)
+  NODE_NAME_CASE(TBUFFER_LOAD_FORMAT_D16)
   NODE_NAME_CASE(ATOMIC_CMP_SWAP)
   NODE_NAME_CASE(ATOMIC_INC)
   NODE_NAME_CASE(ATOMIC_DEC)
+  NODE_NAME_CASE(ATOMIC_LOAD_FADD)
+  NODE_NAME_CASE(ATOMIC_LOAD_FMIN)
+  NODE_NAME_CASE(ATOMIC_LOAD_FMAX)
   NODE_NAME_CASE(BUFFER_LOAD)
   NODE_NAME_CASE(BUFFER_LOAD_FORMAT)
+  NODE_NAME_CASE(BUFFER_LOAD_FORMAT_D16)
   NODE_NAME_CASE(BUFFER_STORE)
   NODE_NAME_CASE(BUFFER_STORE_FORMAT)
+  NODE_NAME_CASE(BUFFER_STORE_FORMAT_D16)
   NODE_NAME_CASE(BUFFER_ATOMIC_SWAP)
   NODE_NAME_CASE(BUFFER_ATOMIC_ADD)
   NODE_NAME_CASE(BUFFER_ATOMIC_SUB)
@@ -3995,6 +4107,83 @@ const char* AMDGPUTargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(BUFFER_ATOMIC_OR)
   NODE_NAME_CASE(BUFFER_ATOMIC_XOR)
   NODE_NAME_CASE(BUFFER_ATOMIC_CMPSWAP)
+  NODE_NAME_CASE(IMAGE_LOAD)
+  NODE_NAME_CASE(IMAGE_LOAD_MIP)
+  NODE_NAME_CASE(IMAGE_STORE)
+  NODE_NAME_CASE(IMAGE_STORE_MIP)
+  // Basic sample.
+  NODE_NAME_CASE(IMAGE_SAMPLE)
+  NODE_NAME_CASE(IMAGE_SAMPLE_CL)
+  NODE_NAME_CASE(IMAGE_SAMPLE_D)
+  NODE_NAME_CASE(IMAGE_SAMPLE_D_CL)
+  NODE_NAME_CASE(IMAGE_SAMPLE_L)
+  NODE_NAME_CASE(IMAGE_SAMPLE_B)
+  NODE_NAME_CASE(IMAGE_SAMPLE_B_CL)
+  NODE_NAME_CASE(IMAGE_SAMPLE_LZ)
+  NODE_NAME_CASE(IMAGE_SAMPLE_CD)
+  NODE_NAME_CASE(IMAGE_SAMPLE_CD_CL)
+  // Sample with comparison.
+  NODE_NAME_CASE(IMAGE_SAMPLE_C)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_CL)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_D)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_D_CL)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_L)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_B)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_B_CL)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_LZ)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_CD)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_CD_CL)
+  // Sample with offsets.
+  NODE_NAME_CASE(IMAGE_SAMPLE_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_CL_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_D_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_D_CL_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_L_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_B_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_B_CL_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_LZ_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_CD_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_CD_CL_O)
+  // Sample with comparison and offsets.
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_CL_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_D_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_D_CL_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_L_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_B_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_B_CL_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_LZ_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_CD_O)
+  NODE_NAME_CASE(IMAGE_SAMPLE_C_CD_CL_O)
+  // Basic gather4.
+  NODE_NAME_CASE(IMAGE_GATHER4)
+  NODE_NAME_CASE(IMAGE_GATHER4_CL)
+  NODE_NAME_CASE(IMAGE_GATHER4_L)
+  NODE_NAME_CASE(IMAGE_GATHER4_B)
+  NODE_NAME_CASE(IMAGE_GATHER4_B_CL)
+  NODE_NAME_CASE(IMAGE_GATHER4_LZ)
+  // Gather4 with comparison.
+  NODE_NAME_CASE(IMAGE_GATHER4_C)
+  NODE_NAME_CASE(IMAGE_GATHER4_C_CL)
+  NODE_NAME_CASE(IMAGE_GATHER4_C_L)
+  NODE_NAME_CASE(IMAGE_GATHER4_C_B)
+  NODE_NAME_CASE(IMAGE_GATHER4_C_B_CL)
+  NODE_NAME_CASE(IMAGE_GATHER4_C_LZ)
+  // Gather4 with offsets.
+  NODE_NAME_CASE(IMAGE_GATHER4_O)
+  NODE_NAME_CASE(IMAGE_GATHER4_CL_O)
+  NODE_NAME_CASE(IMAGE_GATHER4_L_O)
+  NODE_NAME_CASE(IMAGE_GATHER4_B_O)
+  NODE_NAME_CASE(IMAGE_GATHER4_B_CL_O)
+  NODE_NAME_CASE(IMAGE_GATHER4_LZ_O)
+  // Gather4 with comparison and offsets.
+  NODE_NAME_CASE(IMAGE_GATHER4_C_O)
+  NODE_NAME_CASE(IMAGE_GATHER4_C_CL_O)
+  NODE_NAME_CASE(IMAGE_GATHER4_C_L_O)
+  NODE_NAME_CASE(IMAGE_GATHER4_C_B_O)
+  NODE_NAME_CASE(IMAGE_GATHER4_C_B_CL_O)
+  NODE_NAME_CASE(IMAGE_GATHER4_C_LZ_O)
+
   case AMDGPUISD::LAST_AMDGPU_ISD_NUMBER: break;
   }
   return nullptr;

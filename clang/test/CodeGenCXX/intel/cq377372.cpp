@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -o - -O1 %s | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-unknown-linux-gnu -emit-llvm -o - -O1 %s | FileCheck %s
 
 __attribute__((gnu_inline)) extern inline void getline(int a, double b) {
   b = a;

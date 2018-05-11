@@ -600,7 +600,7 @@ public:
   bool EvaluateAsRValue(EvalResult &Result, const ASTContext &Ctx) const;
 
   /// EvaluateAsBooleanCondition - Return true if this is a constant
-  /// which we we can fold and convert to a boolean condition using
+  /// which we can fold and convert to a boolean condition using
   /// any crazy technique that we want to, even if the expression has
   /// side-effects.
   bool EvaluateAsBooleanCondition(bool &Result, const ASTContext &Ctx) const;
@@ -752,33 +752,7 @@ public:
   const Expr *IgnoreImplicit() const LLVM_READONLY {
     return const_cast<Expr*>(this)->IgnoreImplicit();
   }
-#if INTEL_SPECIFIC_CILKPLUS
-  /// \brief Skip past implicit casts or other intermediate nodes introduced
-  /// by semantic analysis.
-  Expr *IgnoreImpCastsAsWritten() LLVM_READONLY;
 
-  const Expr *IgnoreImpCastsAsWritten() const LLVM_READONLY {
-    return const_cast<Expr*>(this)->IgnoreImpCastsAsWritten();
-  }
-
-  /// \brief Skip past any implicit AST node and other intermediate nodes
-  /// introduced by semantic analysis.
-  Expr *getSubExprAsWritten() LLVM_READONLY;
-
-  const Expr *getSubExprAsWritten() const LLVM_READONLY {
-    return const_cast<Expr*>(this)->getSubExprAsWritten();
-  }
-
-  /// \brief Skip past any implicit AST nodes and other immediate nodes
-  /// introduced by semantics analysis for a Cilk spawn call.
-  Expr *IgnoreImplicitForCilkSpawn();
-  const Expr *IgnoreImplicitForCilkSpawn() const LLVM_READONLY {
-    return const_cast<Expr*>(this)->IgnoreImplicitForCilkSpawn();
-  }
-  /// \biref Returns true if this is a Cilk spawn call expression, with
-  /// possible implicit AST nodes associated.
-  bool isCilkSpawn() const;
-#endif // INTEL_SPECIFIC_CILKPLUS
   /// IgnoreParens - Ignore parentheses.  If this Expr is a ParenExpr, return
   ///  its subexpression.  If that subexpression is also a ParenExpr,
   ///  then this method recursively returns its subexpression, and so forth.
@@ -923,6 +897,7 @@ public:
            (SourceExpr && SourceExpr->isInstantiationDependent()),
            false),
       SourceExpr(SourceExpr), Loc(Loc) {
+    setIsUnique(false);
   }
 
   /// Given an expression which invokes a copy constructor --- i.e.  a
@@ -964,6 +939,14 @@ public:
   /// expression which binds the opaque value expression in the first
   /// place.
   Expr *getSourceExpr() const { return SourceExpr; }
+
+  void setIsUnique(bool V) {
+    assert((!V || SourceExpr) &&
+           "unique OVEs are expected to have source expressions");
+    OpaqueValueExprBits.IsUnique = V;
+  }
+
+  bool isUnique() const { return OpaqueValueExprBits.IsUnique; }
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OpaqueValueExprClass;
@@ -1760,19 +1743,19 @@ public:
 
 private:
   unsigned Opc : 5;
+  unsigned CanOverflow : 1;
   SourceLocation Loc;
   Stmt *Val;
 public:
-
-  UnaryOperator(Expr *input, Opcode opc, QualType type,
-                ExprValueKind VK, ExprObjectKind OK, SourceLocation l)
-    : Expr(UnaryOperatorClass, type, VK, OK,
-           input->isTypeDependent() || type->isDependentType(),
-           input->isValueDependent(),
-           (input->isInstantiationDependent() ||
-            type->isInstantiationDependentType()),
-           input->containsUnexpandedParameterPack()),
-      Opc(opc), Loc(l), Val(input) {}
+  UnaryOperator(Expr *input, Opcode opc, QualType type, ExprValueKind VK,
+                ExprObjectKind OK, SourceLocation l, bool CanOverflow)
+      : Expr(UnaryOperatorClass, type, VK, OK,
+             input->isTypeDependent() || type->isDependentType(),
+             input->isValueDependent(),
+             (input->isInstantiationDependent() ||
+              type->isInstantiationDependentType()),
+             input->containsUnexpandedParameterPack()),
+        Opc(opc), CanOverflow(CanOverflow), Loc(l), Val(input) {}
 
   /// \brief Build an empty unary operator.
   explicit UnaryOperator(EmptyShell Empty)
@@ -1787,6 +1770,15 @@ public:
   /// getOperatorLoc - Return the location of the operator.
   SourceLocation getOperatorLoc() const { return Loc; }
   void setOperatorLoc(SourceLocation L) { Loc = L; }
+
+  /// Returns true if the unary operator can cause an overflow. For instance,
+  ///   signed int i = INT_MAX; i++;
+  ///   signed char c = CHAR_MAX; c++;
+  /// Due to integer promotions, c++ is promoted to an int before the postfix
+  /// increment, and the result is an int that cannot overflow. However, i++
+  /// can overflow.
+  bool canOverflow() const { return CanOverflow; }
+  void setCanOverflow(bool C) { CanOverflow = C; }
 
   /// isPostfix - Return true if this is a postfix operation, like x++.
   static bool isPostfix(Opcode Op) {
@@ -2200,19 +2192,19 @@ public:
   void setRHS(Expr *E) { SubExprs[RHS] = E; }
 
   Expr *getBase() {
-    return cast<Expr>(getRHS()->getType()->isIntegerType() ? getLHS():getRHS());
+    return getRHS()->getType()->isIntegerType() ? getLHS() : getRHS();
   }
 
   const Expr *getBase() const {
-    return cast<Expr>(getRHS()->getType()->isIntegerType() ? getLHS():getRHS());
+    return getRHS()->getType()->isIntegerType() ? getLHS() : getRHS();
   }
 
   Expr *getIdx() {
-    return cast<Expr>(getRHS()->getType()->isIntegerType() ? getRHS():getLHS());
+    return getRHS()->getType()->isIntegerType() ? getRHS() : getLHS();
   }
 
   const Expr *getIdx() const {
-    return cast<Expr>(getRHS()->getType()->isIntegerType() ? getRHS():getLHS());
+    return getRHS()->getType()->isIntegerType() ? getRHS() : getLHS();
   }
 
   SourceLocation getLocStart() const LLVM_READONLY {
@@ -2251,10 +2243,6 @@ class CallExpr : public Expr {
   Stmt **SubExprs;
   unsigned NumArgs;
   SourceLocation RParenLoc;
-#if INTEL_SPECIFIC_CILKPLUS
-  // Valid only if it is a Cilk spawn call
-  SourceLocation CilkSpawnLoc;
-#endif // INTEL_SPECIFIC_CILKPLUS
   void updateDependenciesFromArg(Expr *Arg);
 
 protected:
@@ -2390,11 +2378,10 @@ public:
 
   SourceLocation getLocStart() const LLVM_READONLY;
   SourceLocation getLocEnd() const LLVM_READONLY;
-#if INTEL_SPECIFIC_CILKPLUS
-  void setCilkSpawnLoc(SourceLocation Loc) { CilkSpawnLoc = Loc; }
-  SourceLocation getCilkSpawnLoc() const LLVM_READONLY { return CilkSpawnLoc; }
-  bool isCilkSpawnCall() const { return CilkSpawnLoc.isValid(); }
-#endif // INTEL_SPECIFIC_CILKPLUS
+
+  /// Return true if this is a call to __assume() or __builtin_assume() with
+  /// a non-value-dependent constant parameter evaluating as false.
+  bool isBuiltinAssumeFalse(const ASTContext &Ctx) const;
 
   bool isCallToStdMove() const {
     const FunctionDecl* FD = getDirectCallee();
@@ -2790,7 +2777,6 @@ protected:
                ty->containsUnexpandedParameterPack()) ||
               (op && op->containsUnexpandedParameterPack()))),
         Op(op) {
-    assert(kind != CK_Invalid && "creating cast with invalid cast kind");
     CastExprBits.Kind = kind;
     setBasePathSize(BasePathSize);
     assert(CastConsistency());
@@ -3121,13 +3107,13 @@ public:
   static bool isEqualityOp(Opcode Opc) { return Opc == BO_EQ || Opc == BO_NE; }
   bool isEqualityOp() const { return isEqualityOp(getOpcode()); }
 
-  static bool isComparisonOp(Opcode Opc) { return Opc >= BO_LT && Opc<=BO_NE; }
+  static bool isComparisonOp(Opcode Opc) { return Opc >= BO_Cmp && Opc<=BO_NE; }
   bool isComparisonOp() const { return isComparisonOp(getOpcode()); }
 
   static Opcode negateComparisonOp(Opcode Opc) {
     switch (Opc) {
     default:
-      llvm_unreachable("Not a comparsion operator.");
+      llvm_unreachable("Not a comparison operator.");
     case BO_LT: return BO_GE;
     case BO_GT: return BO_LE;
     case BO_LE: return BO_GT;
@@ -3140,7 +3126,7 @@ public:
   static Opcode reverseComparisonOp(Opcode Opc) {
     switch (Opc) {
     default:
-      llvm_unreachable("Not a comparsion operator.");
+      llvm_unreachable("Not a comparison operator.");
     case BO_LT: return BO_GT;
     case BO_GT: return BO_LT;
     case BO_LE: return BO_GE;
@@ -4937,42 +4923,7 @@ public:
     return const_child_range(const_child_iterator(), const_child_iterator());
   }
 };
-#if INTEL_SPECIFIC_CILKPLUS
-/// \brief Adaptor class for mixing a CilkSpawnDecl with expressions.
-class CilkSpawnExpr : public Expr {
-  CilkSpawnDecl *TheSpawn;
 
-public:
-  explicit CilkSpawnExpr(CilkSpawnDecl *D, QualType Ty)
-    : Expr(CilkSpawnExprClass, Ty, VK_RValue, OK_Ordinary,
-           Ty->isDependentType(), Ty->isDependentType(),
-           Ty->isInstantiationDependentType(), false), TheSpawn(D) { }
-
-  /// \brief Build an empty block expression.
-  explicit CilkSpawnExpr(EmptyShell Empty) : Expr(CilkSpawnExprClass, Empty) { }
-
-  const CilkSpawnDecl *getSpawnDecl() const { return TheSpawn; }
-  CilkSpawnDecl *getSpawnDecl() { return TheSpawn; }
-  void setSpawnDecl(CilkSpawnDecl *D) { TheSpawn = D; }
-
-  Stmt *getSpawnStmt() { return TheSpawn->getSpawnStmt(); }
-  const Stmt *getSpawnStmt() const { return TheSpawn->getSpawnStmt(); }
-
-  Expr *getSpawnExpr() { return dyn_cast<Expr>(getSpawnStmt()); }
-  const Expr *getSpawnExpr() const { return dyn_cast<Expr>(getSpawnStmt()); }
-
-  SourceLocation getLocStart() const LLVM_READONLY;
-  SourceLocation getLocEnd() const LLVM_READONLY;
-
-  static bool classof(const Stmt *T) {
-    return T->getStmtClass() == CilkSpawnExprClass;
-  }
-
-  child_range children() {
-    return child_range(child_iterator(), child_iterator());
-  }
-};
-#endif // INTEL_SPECIFIC_CILKPLUS
 /// AsTypeExpr - Clang builtin function __builtin_astype [OpenCL 6.2.4.2]
 /// This AST node provides support for reinterpreting a type to another
 /// type of the same size.
@@ -5351,209 +5302,6 @@ public:
     return T->getStmtClass() == TypoExprClass;
   }
 };
-
-#if INTEL_SPECIFIC_CILKPLUS
-/// CEANIndexExpr - CEAN index triplet.
-class CEANIndexExpr : public Expr {
-  enum { BASE, LOWER_BOUND, LENGTH, STRIDE, INDEX_EXPR, END_EXPR };
-  Stmt* SubExprs[END_EXPR];
-  SourceLocation ColonLoc1, ColonLoc2;
-  unsigned Rank;
-public:
-  CEANIndexExpr(Expr *Base, Expr *LowerBound, SourceLocation ColonLoc1,
-                Expr *Length, SourceLocation ColonLoc2, Expr *Stride,
-                QualType QTy)
-  : Expr(CEANIndexExprClass, QTy, VK_RValue, OK_Ordinary,
-         (Base && Base->isTypeDependent()) ||
-         (LowerBound && LowerBound->isTypeDependent()) ||
-         (Length && Length->isTypeDependent()) ||
-         (Stride && Stride->isTypeDependent()),
-         (Base && Base->isValueDependent()) ||
-         (LowerBound && LowerBound->isValueDependent()) ||
-         (Length && Length->isValueDependent()) ||
-         (Stride && Stride->isValueDependent()),
-         ((Base && Base->isInstantiationDependent()) ||
-          (LowerBound && LowerBound->isInstantiationDependent()) ||
-          (Length && Length->isInstantiationDependent()) ||
-          (Stride && Stride->isInstantiationDependent())),
-         ((Base && Base->containsUnexpandedParameterPack()) ||
-          (LowerBound && LowerBound->containsUnexpandedParameterPack()) ||
-          (Length && Length->containsUnexpandedParameterPack()) ||
-          (Stride && Stride->containsUnexpandedParameterPack()))),
-    ColonLoc1(ColonLoc1), ColonLoc2(ColonLoc2), Rank(0) {
-    SubExprs[BASE] = Base;
-    SubExprs[LOWER_BOUND] = LowerBound;
-    SubExprs[LENGTH] = Length;
-    SubExprs[STRIDE] = Stride;
-    SubExprs[INDEX_EXPR] = 0;
-  }
-
-  /// \brief Create an empty CEAN index expression.
-  explicit CEANIndexExpr(EmptyShell Shell)
-    : Expr(CEANIndexExprClass, Shell), ColonLoc1(), ColonLoc2(), Rank(0) { }
-
-  Expr *getBase() { return dyn_cast_or_null<Expr>(SubExprs[BASE]); }
-  const Expr *getBase() const { return dyn_cast_or_null<Expr>(SubExprs[BASE]); }
-  void setBase(Expr *E) { SubExprs[BASE] = E; }
-
-  Expr *getLowerBound() { return dyn_cast_or_null<Expr>(SubExprs[LOWER_BOUND]); }
-  const Expr *getLowerBound() const { return dyn_cast_or_null<Expr>(SubExprs[LOWER_BOUND]); }
-  void setLowerBound(Expr *E) { SubExprs[LOWER_BOUND] = E; }
-
-  Expr *getLength() { return dyn_cast_or_null<Expr>(SubExprs[LENGTH]); }
-  const Expr *getLength() const { return dyn_cast_or_null<Expr>(SubExprs[LENGTH]); }
-  void setLength(Expr *E) { SubExprs[LENGTH] = E; }
-
-  Expr *getStride() { return dyn_cast_or_null<Expr>(SubExprs[STRIDE]); }
-  const Expr *getStride() const { return dyn_cast_or_null<Expr>(SubExprs[STRIDE]); }
-  void setStride(Expr *E) { SubExprs[STRIDE] = E; }
-
-  SourceLocation getLocStart() const LLVM_READONLY {
-    return getLowerBound()->getLocStart();
-  }
-  SourceLocation getLocEnd() const LLVM_READONLY { return getStride()->getLocEnd(); }
-
-  SourceLocation getColonLoc1() const { return ColonLoc1; }
-  void setColonLoc1(SourceLocation L) { ColonLoc1 = L; }
-  SourceLocation getColonLoc2() const { return ColonLoc2; }
-  void setColonLoc2(SourceLocation L) { ColonLoc2 = L; }
-
-  SourceLocation getExprLoc() const LLVM_READONLY {
-    return getLocStart();
-  }
-
-  unsigned getRank() const { return Rank; }
-  void setRank(unsigned R) { Rank = R; }
-
-  Expr *getIndexExpr() { return (!SubExprs[INDEX_EXPR] || SubExprs[INDEX_EXPR] == SubExprs[STRIDE]) ? 0 : cast<Expr>(SubExprs[INDEX_EXPR]); }
-  Expr *getIndexExpr() const { return (!SubExprs[INDEX_EXPR] || SubExprs[INDEX_EXPR] == SubExprs[STRIDE]) ? 0 : cast<Expr>(SubExprs[INDEX_EXPR]); }
-  void setIndexExpr(Expr *E) { SubExprs[INDEX_EXPR] = E; }
-
-  static bool classof(const Stmt *T) {
-    return T->getStmtClass() == CEANIndexExprClass;
-  }
-
-  // Iterators
-  child_range children() {
-    return child_range(&SubExprs[LOWER_BOUND], &SubExprs[END_EXPR]);
-  }
-};
-
-/// CEANBuiltinExpr - CEAN builtin expressions.
-class CEANBuiltinExpr : public Expr {
-public:
-  enum CEANKindType {ReduceAdd, ReduceMul, ReduceMax, ReduceMin, ReduceMaxIndex,
-                     ReduceMinIndex, ReduceAllZero, ReduceAllNonZero, ReduceAnyZero,
-                     ReduceAnyNonZero, Reduce, ReduceMutating, ImplicitIndex, Unknown};
-private:
-  unsigned Rank, ArgsSize;
-  CEANKindType CEANKind;
-  SourceLocation StartLoc, RParenLoc;
-
-  CEANBuiltinExpr(SourceLocation StartLoc, unsigned Rank, unsigned ArgsSize,
-                  CEANKindType Kind, QualType QTy, SourceLocation RParenLoc,
-                  ExprValueKind VK)
-      : Expr(CEANBuiltinExprClass, QTy, VK, OK_Ordinary, false, false, false,
-             false),
-        Rank(Rank), ArgsSize(ArgsSize), CEANKind(Kind), StartLoc(StartLoc),
-        RParenLoc(RParenLoc) {}
-
-  /// \brief Create an empty CEAN builtin expression.
-  explicit CEANBuiltinExpr(unsigned Rank, unsigned ArgsSize)
-    : Expr(CEANBuiltinExprClass, EmptyShell()), Rank(Rank), ArgsSize(ArgsSize), CEANKind(Unknown),
-      StartLoc(), RParenLoc() { }
-
-public:
-  /// \brief Creates expression.
-  ///
-  /// \param C AST context.
-  /// \param StartLoc Starting location of the directive kind.
-  /// \param EndLoc Ending Location of the directive.
-  /// \param Rank Rank of expression.
-  /// \param Kind Kind of builtin expression.
-  /// \param Args List of arguments.
-  /// \param Lengths List of lengths.
-  /// \param Vars List of vars.
-  /// \param Increments List of increments.
-  /// \param Body Statement, associated with the statement.
-  /// \param Return Return expression.
-  /// \param QTy Type of expression.
-  ///
-  static CEANBuiltinExpr *Create(ASTContext &C,
-                                 SourceLocation StartLoc,
-                                 SourceLocation EndLoc,
-                                 unsigned Rank,
-                                 CEANKindType Kind,
-                                 ArrayRef<Expr *> Args,
-                                 ArrayRef<Expr *> Lengths,
-                                 ArrayRef<Stmt *> Vars,
-                                 ArrayRef<Stmt *> Increments,
-                                 Stmt *Init, Stmt *Body, Expr *Return,
-                                 QualType QTy);
-
-  /// \brief Creates an empty expression.
-  ///
-  /// \param C AST context.
-  /// \param Rank Rank of the arguments.
-  /// \param ArgsSize Number of arguments.
-  ///
-  static CEANBuiltinExpr *CreateEmpty(ASTContext &C, unsigned Rank, unsigned ArgsSize);
-
-  CEANKindType getBuiltinKind() const { return CEANKind; }
-  void setBuiltinKind(CEANKindType Kind) { CEANKind = Kind; }
-
-  unsigned getRank() const { return Rank; }
-  unsigned getArgsSize() const { return ArgsSize; }
-
-  Stmt *getInit() { return reinterpret_cast<Stmt **>(this + 1)[0]; }
-  const Stmt *getInit() const { return reinterpret_cast<const Stmt * const*>(this + 1)[0]; }
-  void setInit(Stmt *S) { reinterpret_cast<Stmt **>(this + 1)[0] = S; }
-
-  Stmt *getBody() { return reinterpret_cast<Stmt **>(this + 1)[1]; }
-  const Stmt *getBody() const { return reinterpret_cast<const Stmt * const*>(this + 1)[1]; }
-  void setBody(Stmt *S) { reinterpret_cast<Stmt **>(this + 1)[1] = S; }
-
-  Expr *getReturnExpr() { return reinterpret_cast<Expr **>(this + 1)[2]; }
-  const Expr *getReturnExpr() const { return reinterpret_cast<const Expr * const*>(this + 1)[2]; }
-  void setReturnExpr(Expr *E) { reinterpret_cast<Expr **>(this + 1)[2] = E; }
-
-  ArrayRef<Expr *> getArgs() { return llvm::makeArrayRef(&reinterpret_cast<Expr **>(this + 1)[3], ArgsSize); }
-  ArrayRef<const Expr *> getArgs() const { return llvm::makeArrayRef(&reinterpret_cast<const Expr * const*>(this + 1)[3], ArgsSize); }
-  void setArgs(ArrayRef<Expr *> Args);
-
-  ArrayRef<Expr *> getLengths() { return llvm::makeArrayRef(&reinterpret_cast<Expr **>(this + 1)[3 + ArgsSize], Rank); }
-  ArrayRef<const Expr *> getLengths() const { return llvm::makeArrayRef(&reinterpret_cast<const Expr * const*>(this + 1)[3 + ArgsSize], Rank); }
-  void setLengths(ArrayRef<Expr *> Lengths);
-
-  ArrayRef<Stmt *> getVars() { return llvm::makeArrayRef(&reinterpret_cast<Stmt **>(this + 1)[3 + Rank + ArgsSize], Rank); }
-  ArrayRef<const Stmt *> getVars() const { return llvm::makeArrayRef(&reinterpret_cast<const Stmt * const*>(this + 1)[3 + Rank + ArgsSize], Rank); }
-  void setVars(ArrayRef<Stmt *> Vars);
-
-  ArrayRef<Stmt *> getIncrements() { return llvm::makeArrayRef(&reinterpret_cast<Stmt **>(this + 1)[3 + 2 * Rank + ArgsSize], Rank); }
-  ArrayRef<const Stmt *> getIncrements() const { return llvm::makeArrayRef(&reinterpret_cast<const Stmt * const*>(this + 1)[3 + 2 * Rank + ArgsSize], Rank); }
-  void setIncrements(ArrayRef<Stmt *> Increments);
-
-  SourceLocation getLocStart() const LLVM_READONLY { return StartLoc; }
-  SourceLocation getLocEnd() const LLVM_READONLY { return RParenLoc; }
-  void setStartLoc(SourceLocation L) { StartLoc = L; }
-  void setRParenLoc(SourceLocation L) { RParenLoc = L; }
-
-  SourceLocation getExprLoc() const LLVM_READONLY {
-    return getLocStart();
-  }
-
-  static bool classof(const Stmt *T) {
-    return T->getStmtClass() == CEANBuiltinExprClass;
-  }
-
-  // Iterators
-  child_range children() {
-    return child_range(reinterpret_cast<Stmt **>(this + 1),
-                       &reinterpret_cast<Stmt **>(this + 1)[3 + 3 * Rank + ArgsSize]);
-  }
-};
-#endif // INTEL_SPECIFIC_CILKPLUS
-
 } // end namespace clang
 
 #endif // LLVM_CLANG_AST_EXPR_H

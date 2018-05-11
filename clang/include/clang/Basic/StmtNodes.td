@@ -229,8 +229,6 @@ def OMPTeamsDirective : DStmt<OMPExecutableDirective>;
 def OMPCancellationPointDirective : DStmt<OMPExecutableDirective>;
 def OMPCancelDirective : DStmt<OMPExecutableDirective>;
 
-include "../Basic/intel/IntelStmtNodes.td" // INTEL
-
 def OMPTaskLoopDirective : DStmt<OMPLoopDirective>;
 def OMPTaskLoopSimdDirective : DStmt<OMPLoopDirective>;
 def OMPDistributeDirective : DStmt<OMPLoopDirective>;

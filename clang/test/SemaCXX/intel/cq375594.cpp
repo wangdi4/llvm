@@ -1,5 +1,4 @@
 // RUN: %clang_cc1 -fintel-compatibility -verify %s
-// REQUIRES: llvm-backend
 
 // Check that we don't crash with assertion on IL0-specific attributes
 // in non-IL0 configuration.

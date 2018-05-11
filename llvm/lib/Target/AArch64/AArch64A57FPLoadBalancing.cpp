@@ -161,9 +161,9 @@ namespace {
 /// A Chain is a sequence of instructions that are linked together by
 /// an accumulation operand. For example:
 ///
-///   fmul d0<def>, ?
-///   fmla d1<def>, ?, ?, d0<kill>
-///   fmla d2<def>, ?, ?, d1<kill>
+///   fmul def d0, ?
+///   fmla def d1, ?, ?, killed d0
+///   fmla def d2, ?, ?, killed d1
 ///
 /// There may be other instructions interleaved in the sequence that
 /// do not belong to the chain. These other instructions must not use
@@ -308,7 +308,7 @@ public:
 //===----------------------------------------------------------------------===//
 
 bool AArch64A57FPLoadBalancing::runOnMachineFunction(MachineFunction &F) {
-  if (skipFunction(*F.getFunction()))
+  if (skipFunction(F.getFunction()))
     return false;
 
   if (!F.getSubtarget<AArch64Subtarget>().balanceFPOps())
@@ -375,9 +375,9 @@ bool AArch64A57FPLoadBalancing::runOnBasicBlock(MachineBasicBlock &MBB) {
 
   // Now we have a set of sets, order them by start address so
   // we can iterate over them sequentially.
-  std::sort(V.begin(), V.end(),
-            [](const std::vector<Chain*> &A,
-               const std::vector<Chain*> &B) {
+  llvm::sort(V.begin(), V.end(),
+             [](const std::vector<Chain*> &A,
+                const std::vector<Chain*> &B) {
       return A.front()->startsBefore(B.front());
     });
 
@@ -451,7 +451,7 @@ bool AArch64A57FPLoadBalancing::colorChainSet(std::vector<Chain*> GV,
   // change them to!
   // Final tie-break with instruction order so pass output is stable (i.e. not
   // dependent on malloc'd pointer values).
-  std::sort(GV.begin(), GV.end(), [](const Chain *G1, const Chain *G2) {
+  llvm::sort(GV.begin(), GV.end(), [](const Chain *G1, const Chain *G2) {
       if (G1->size() != G2->size())
         return G1->size() > G2->size();
       if (G1->requiresFixup() != G2->requiresFixup())

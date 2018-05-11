@@ -4,106 +4,109 @@ struct Foo {
   char a, b, c, d;
 };
 // Quick sanity check to validate the normal implementations.
-template <typename T, int ReadyLatency, int BitsPerSymbol,
+template <typename T, int buffer, int ReadyLatency, int BitsPerSymbol,
           bool FirstSymbolInHighOrderBits, bool UsesPackets, bool UsesEmpty,
           bool UsesValid>
 class stream_in {
 public:
-  T read() {
-    return *__builtin_intel_hls_instream_read((T *)0, (__int64)this, ReadyLatency,
-                                        BitsPerSymbol,
-                                        FirstSymbolInHighOrderBits,
-                                        UsesPackets,
-                                        UsesEmpty,
-                                        UsesValid);
+  T read(bool &sop, bool &eop, __int32 &empty) {
+    return *__builtin_intel_hls_instream_read((T *)0, (__int64)this, buffer, ReadyLatency,
+                                              BitsPerSymbol,
+                                              FirstSymbolInHighOrderBits,
+                                              UsesPackets,
+                                              UsesEmpty,
+                                              UsesValid, &sop, &eop, &empty);
   }
-  T tryRead(bool *success) {
-    return *__builtin_intel_hls_instream_tryRead((T *)0, (__int64)this, ReadyLatency,
-                                           BitsPerSymbol,
-                                           FirstSymbolInHighOrderBits,
-                                           UsesPackets,
-                                           UsesEmpty,
-                                           UsesValid,
-                                           success);
+  T tryRead(bool &success, bool &sop, bool &eop, __int32 &empty) {
+    return *__builtin_intel_hls_instream_tryRead((T *)0, (__int64)this, buffer, ReadyLatency,
+                                                 BitsPerSymbol,
+                                                 FirstSymbolInHighOrderBits,
+                                                 UsesPackets,
+                                                 UsesEmpty,
+                                                 UsesValid, &sop, &eop, &empty,
+                                                 &success);
   }
-  void write(const T *arg) {
-    __builtin_intel_hls_instream_write(arg, (__int64)this, ReadyLatency,
-                                 BitsPerSymbol,
-                                 FirstSymbolInHighOrderBits,
-                                 UsesPackets,
-                                 UsesEmpty,
-                                 UsesValid);
+  void write(const T arg, bool sop, bool eop, __int32 empty) {
+    __builtin_intel_hls_instream_write(&arg, (__int64)this, buffer, ReadyLatency,
+                                       BitsPerSymbol,
+                                       FirstSymbolInHighOrderBits,
+                                       UsesPackets,
+                                       UsesEmpty,
+                                       UsesValid, sop, eop, empty);
   }
-  bool tryWrite(const T *arg) {
-    return __builtin_intel_hls_instream_tryWrite(arg, (__int64)this, ReadyLatency,
-                                           BitsPerSymbol,
-                                           FirstSymbolInHighOrderBits,
-                                           UsesPackets,
-                                           UsesEmpty,
-                                           UsesValid);
+  bool tryWrite(const T arg, bool sop, bool eop, __int32 empty) {
+    return __builtin_intel_hls_instream_tryWrite(&arg, (__int64)this, buffer, ReadyLatency,
+                                                 BitsPerSymbol,
+                                                 FirstSymbolInHighOrderBits,
+                                                 UsesPackets,
+                                                 UsesEmpty,
+                                                 UsesValid, sop, eop, empty);
   }
 };
 
-template <typename T, int ReadyLatency, int BitsPerSymbol,
+template <typename T, int buffer, int ReadyLatency, int BitsPerSymbol,
           bool FirstSymbolInHighOrderBits, bool UsesPackets, bool UsesEmpty,
           bool UsesReady>
 class stream_out {
 public:
-  T read() {
-    return *__builtin_intel_hls_outstream_read((T *)0, (__int64)this, ReadyLatency,
-                                         BitsPerSymbol,
-                                         FirstSymbolInHighOrderBits,
-                                         UsesPackets, UsesEmpty, UsesReady);
+  T read(bool &sop, bool &eop, __int32 &empty) {
+    return *__builtin_intel_hls_outstream_read((T *)0, (__int64)this, buffer, ReadyLatency,
+                                               BitsPerSymbol,
+                                               FirstSymbolInHighOrderBits,
+                                               UsesPackets, UsesEmpty, UsesReady,
+                                               &sop, &eop, &empty);
   }
-  T tryRead(bool *success) {
-    return *__builtin_intel_hls_outstream_tryRead((T *)0, (__int64)this, ReadyLatency,
-                                            BitsPerSymbol,
-                                            FirstSymbolInHighOrderBits,
-                                            UsesPackets,
-                                            UsesEmpty, UsesReady, success);
+  T tryRead(bool &success, bool &sop, bool &eop, __int32 &empty) {
+    return *__builtin_intel_hls_outstream_tryRead((T *)0, (__int64)this, buffer, ReadyLatency,
+                                                  BitsPerSymbol,
+                                                  FirstSymbolInHighOrderBits,
+                                                  UsesPackets,
+                                                  UsesEmpty, UsesReady, &sop, &eop, &empty, &success);
   }
-  void write(const T *arg) {
-    __builtin_intel_hls_outstream_write(arg, (__int64)this, ReadyLatency,
-                                  BitsPerSymbol,
-                                  FirstSymbolInHighOrderBits,
-                                  UsesPackets, UsesEmpty, UsesReady);
+  void write(const T arg, bool sop, bool eop, __int32 empty) {
+    __builtin_intel_hls_outstream_write(&arg, (__int64)this, buffer, ReadyLatency,
+                                        BitsPerSymbol,
+                                        FirstSymbolInHighOrderBits,
+                                        UsesPackets, UsesEmpty, UsesReady, sop, eop, empty);
   }
-  bool tryWrite(const T *arg) {
-    return __builtin_intel_hls_outstream_tryWrite(arg, (__int64)this, ReadyLatency,
-                                            BitsPerSymbol,
-                                            FirstSymbolInHighOrderBits,
-                                            UsesPackets, UsesEmpty, UsesReady);
+  bool tryWrite(const T arg, bool sop, bool eop, __int32 empty) {
+    return __builtin_intel_hls_outstream_tryWrite(&arg, (__int64)this, buffer, ReadyLatency,
+                                                  BitsPerSymbol,
+                                                  FirstSymbolInHighOrderBits,
+                                                  UsesPackets, UsesEmpty, UsesReady, sop, eop, empty);
   }
 };
 
 void TestStreams() {
-  stream_in<Foo, 5, 4, true, true, false, false> StrIn;
-  stream_out<Foo, 5, 4, false, false, true, true> StrOut;
+  stream_in<Foo, 3, 5, 4, true, true, false, false> StrIn;
+  stream_out<Foo, 3, 5, 4, false, false, true, true> StrOut;
   Foo f;
+  bool b;
+  int i;
 
-  f = StrIn.read();
+  f = StrIn.read(b, b, i);
   bool s;
-  f = StrIn.tryRead(&s);
-  StrIn.write(&f);
-  s = StrIn.tryWrite(&f);
+  f = StrIn.tryRead(s, b, b, i);
+  StrIn.write(f, b, b, i);
+  s = StrIn.tryWrite(f, b, b, i);
 
-  f = StrOut.read();
-  f = StrOut.tryRead(&s);
-  StrOut.write(&f);
-  s = StrOut.tryWrite(&f);
+  f = StrOut.read(b, b, i);
+  f = StrOut.tryRead(s, b, b, i);
+  StrOut.write(f, b, b, i);
+  s = StrOut.tryWrite(f, b, b, i);
 }
 
 void TestArgCounts() {
-  // expected-error@+1 {{too few arguments to function call, expected 8, have 7}}
-  __builtin_intel_hls_instream_read((Foo *)0, 99, 4, 0, true, true, true);
-  // expected-error@+1 {{too few arguments to function call, expected 9, have 7}}
-  __builtin_intel_hls_instream_tryRead((Foo *)0, 99, 4, true, true, true, true);
+  // expected-error@+1 {{too few arguments to function call, expected 12, have 11}}
+  __builtin_intel_hls_instream_read((Foo *)0, 1, 99, 4, 0, true, true, true, nullptr, nullptr, nullptr);
+  // expected-error@+1 {{too few arguments to function call, expected 13, have 11}}
+  __builtin_intel_hls_instream_tryRead((Foo *)0, 1, 99, 4, true, true, true, true, nullptr, nullptr, nullptr);
 
-  // expected-error@+1 {{too many arguments to function call, expected 8, have 9}}
-  __builtin_intel_hls_instream_read((Foo *)0, 99, 4, 0, true, true, false, true, 5);
+  // expected-error@+1 {{too many arguments to function call, expected 12, have 13}}
+  __builtin_intel_hls_instream_read((Foo *)0, 1, 99, 4, 0, true, true, false, true, 5, nullptr, nullptr, nullptr);
   bool b;
-  // expected-error@+1 {{too many arguments to function call, expected 9, have 10}}
-  __builtin_intel_hls_instream_tryRead((Foo *)0, 99, 4, 0, true, true, true, true, &b, 5);
+  // expected-error@+1 {{too many arguments to function call, expected 13, have 14}}
+  __builtin_intel_hls_instream_tryRead((Foo *)0, 1, 99, 4, 0, true, true, true, true, &b, 5, nullptr, nullptr, nullptr);
 }
 
 struct F;
@@ -111,39 +114,61 @@ int temp;
 
 void ArgValues() {
   Foo f;
-  // First Arg:
+  bool b;
+  int i;
+  // Type Arg:
   // expected-error@+1 {{HLS builtin parameter must be a pointer to a complete object type}}
-  __builtin_intel_hls_instream_read(f, 99, 0, 4, true, true, false, true);
+  __builtin_intel_hls_instream_read(f, 1, 99, 0, 4, true, true, false, true, nullptr, nullptr, nullptr);
   // expected-error@+1 {{HLS builtin parameter must be a pointer to a complete object type}}
-  __builtin_intel_hls_instream_read((F *)0, 99, 0, 4, true, true, false, true);
+  __builtin_intel_hls_instream_read((F *)0, 1, 99, 0, 4, true, true, false, true, nullptr, nullptr, nullptr);
   // expected-error@+1 {{HLS builtin parameter must be a pointer to a complete object type}}
-  __builtin_intel_hls_instream_read((void *)0, 99, 0, 4, true, true, false, true);
+  __builtin_intel_hls_instream_read((void *)0, 1, 99, 0, 4, true, true, false, true, nullptr, nullptr, nullptr);
 
-  // Second Arg:
+  // BufferID Arg:
   // expected-error@+1 {{HLS builtin parameter must be an integer}}
-  __builtin_intel_hls_instream_read((Foo *)0, "str", 0, 4, true, true, false, true);
+  __builtin_intel_hls_instream_read((Foo *)0, "str", 1, 0, 4, true, true, false, true, nullptr, nullptr, nullptr);
 
-  // Third Arg:
+  // Buffer Arg:
   // expected-error@+1 {{HLS builtin parameter must be a non-negative integer constant}}
-  __builtin_intel_hls_instream_read((Foo *)0, 99, -1, 4, true, true, false, true);
+  __builtin_intel_hls_instream_read(&f, 99, -1, 0, 4, true, true, false, true, nullptr, nullptr, nullptr);
   // expected-error@+1 {{argument to '__builtin_intel_hls_instream_read' must be a constant integer}}
-  __builtin_intel_hls_instream_read((Foo *)0, 99, temp, 4, true, true, false, true);
+  __builtin_intel_hls_instream_read(&f, 99, "str", 0, 4, true, true, false, true, nullptr, nullptr, nullptr);
 
-  // Fourth Arg:
-  // expected-error@+1 {{HLS builtin parameter must be a factor of the type size}}
-  __builtin_intel_hls_instream_read((Foo *)0, 99, 0, -1, true, true, false, true);
+  // ReadyLatency Arg:
+  // expected-error@+1 {{HLS builtin parameter must be a non-negative integer constant}}
+  __builtin_intel_hls_instream_read((Foo *)0, 1, 99, -1, 4, true, true, false, true, nullptr, nullptr, nullptr);
   // expected-error@+1 {{argument to '__builtin_intel_hls_instream_read' must be a constant integer}}
-  __builtin_intel_hls_instream_read((Foo *)0, 99, 0, temp, true, true, false, true);
+  __builtin_intel_hls_instream_read((Foo *)0, 1, 99, temp, 4, true, true, false, true, nullptr, nullptr, nullptr);
+
+  // BitsPerSymbol Arg:
   // expected-error@+1 {{HLS builtin parameter must be a factor of the type size}}
-  __builtin_intel_hls_instream_read((Foo *)0, 99, 0, 3, true, true, false, true);
+  __builtin_intel_hls_instream_read((Foo *)0, 1, 99, 0, -1, true, true, false, true, nullptr, nullptr, nullptr);
+  // expected-error@+1 {{argument to '__builtin_intel_hls_instream_read' must be a constant integer}}
+  __builtin_intel_hls_instream_read((Foo *)0, 1, 99, 0, temp, true, true, false, true, nullptr, nullptr, nullptr);
+  // expected-error@+1 {{HLS builtin parameter must be a factor of the type size}}
+  __builtin_intel_hls_instream_read((Foo *)0, 1, 99, 0, 3, true, true, false, true, nullptr, nullptr, nullptr);
 
   // Bool Args:
   // expected-error@+1 {{HLS builtin parameter must be a boolean value}}
-  __builtin_intel_hls_instream_read((Foo *)0, 99, 3, 1, 5, true, false, true);
+  __builtin_intel_hls_instream_read((Foo *)0, 1, 99, 3, 1, 5, true, false, true, nullptr, nullptr, nullptr);
+
+  // sop/eop/empty
+  // OK
+  __builtin_intel_hls_instream_read((Foo *)0, 1, 99, 3, 1, true, true, false, true, &b, &b, &i);
+  // expected-error@+1 {{HLS builtin parameter must be a pointer to a boolean}}
+  __builtin_intel_hls_instream_read((Foo *)0, 1, 99, 3, 1, true, true, false, true, 5, nullptr, nullptr);
+  // expected-error@+1 {{HLS builtin parameter must be a pointer to an integer}}
+  __builtin_intel_hls_instream_read((Foo *)0, 1, 99, 3, 1, true, true, false, true, &b, nullptr, 3);
+
+  __builtin_intel_hls_instream_write((Foo *)0, 1, 99, 3, 1, true, true, false, true, b, b, i);
+  // expected-error@+1 {{HLS builtin parameter must be a boolean}}
+  __builtin_intel_hls_instream_write((Foo *)0, 1, 99, 3, 1, true, true, false, true, &b, nullptr, i);
+  // expected-error@+1 {{HLS builtin parameter must be an integer}}
+  __builtin_intel_hls_instream_write((Foo *)0, 1, 99, 3, 1, true, true, false, true, b, true, "str");
 
   // Success:
   // expected-error@+1 {{HLS builtin parameter must be a pointer to a boolean}}
-  __builtin_intel_hls_instream_tryRead((Foo *)0, 99, 3, 1, false, true, false, true, false);
+  __builtin_intel_hls_instream_tryRead((Foo *)0, 1, 99, 3, 1, false, true, false, true, nullptr, nullptr, nullptr, false);
   // expected-error@+1 {{HLS builtin parameter must be a pointer to a boolean}}
-  __builtin_intel_hls_instream_tryRead((Foo *)0, 99, 3, 1, false, true, false, true, &temp);
+  __builtin_intel_hls_instream_tryRead((Foo *)0, 1, 99, 3, 1, false, true, false, true, nullptr, nullptr, nullptr, &temp);
 }

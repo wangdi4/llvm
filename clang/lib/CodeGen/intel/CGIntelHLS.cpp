@@ -18,10 +18,12 @@ void CodeGenFunction::EmitHLSComponentMetadata(const FunctionDecl *FD,
   if (!FD->hasAttr<ComponentAttr>())
     return;
 
-  // ComponentMD contains {name, return type, argument metadata...}
+  // ComponentMD contains {name, return type}
   SmallVector<llvm::Metadata *, 10> ComponentMD;
-  // AttrMD contains the function-level attributes.
-  SmallVector<llvm::Metadata *, 10> AttrMD;
+  SmallVector<llvm::Metadata *, 10> ArgTypeMD;
+  SmallVector<llvm::Metadata *, 10> ImplTypeMD;
+  SmallVector<llvm::Metadata *, 10> StableMD;
+  SmallVector<llvm::Metadata *, 10> CosimNameMD;
 
   llvm::LLVMContext &Ctx = getLLVMContext();
   llvm::IntegerType *Int32Ty = llvm::Type::getInt32Ty(Ctx);
@@ -36,68 +38,101 @@ void CodeGenFunction::EmitHLSComponentMetadata(const FunctionDecl *FD,
     ComponentMD.push_back(
         llvm::ValueAsMetadata::get(llvm::UndefValue::get(retType)));
   }
+  Fn->setMetadata("ihc_component", llvm::MDNode::get(Ctx, ComponentMD));
 
   for (const ParmVarDecl *PVD : FD->parameters()) {
     const Type *ParamType = PVD->getType().getCanonicalType().getTypePtr();
 
-    std::pair<StringRef, StringRef> ArgType = {"arg_type", "default"};
-    std::pair<StringRef, StringRef> ImplType = {"impl_type", "wire"};
-    std::pair<StringRef, int> Stable = {"stable", 0};
-    std::pair<StringRef, StringRef> CosimName = {"cosim_name", PVD->getName()};
+    StringRef ArgType = "default";
+    if (PVD->getAttr<SlaveMemoryArgumentAttr>())
+      ArgType = "mm_slave";
+    else if (ParamType->isPointerType() || ParamType->isReferenceType())
+      ArgType = "pointer";
+    ArgTypeMD.push_back(llvm::MDString::get(Ctx, ArgType));
 
+    StringRef ImplType = "wire";
     if (const auto *AIA = PVD->getAttr<ArgumentInterfaceAttr>())
-      ImplType.second =
+      ImplType =
           ArgumentInterfaceAttr::ConvertArgumentInterfaceTypeToStr(
               AIA->getType());
+    ImplTypeMD.push_back(llvm::MDString::get(Ctx, ImplType));
 
+    int Stable = 0;
     if (PVD->hasAttr<StableArgumentAttr>())
-      Stable.second = 1;
+      Stable = 1;
+    StableMD.push_back(llvm::ConstantAsMetadata::get(
+            llvm::ConstantInt::get(Int32Ty, Stable)));
 
-    if (PVD->getAttr<SlaveMemoryArgumentAttr>())
-      ArgType.second = "mm_slave";
-    else if (ParamType->isPointerType() || ParamType->isReferenceType())
-      ArgType.second = "pointer";
-
-    SmallVector<llvm::Metadata *, 10> MDs = {
-        llvm::MDString::get(Ctx, ArgType.first),
-        llvm::MDString::get(Ctx, ArgType.second),
-        llvm::MDString::get(Ctx, ImplType.first),
-        llvm::MDString::get(Ctx, ImplType.second),
-        llvm::MDString::get(Ctx, Stable.first),
-        llvm::ConstantAsMetadata::get(
-            llvm::ConstantInt::get(Int32Ty, Stable.second)),
-        llvm::MDString::get(Ctx, CosimName.first),
-        llvm::MDString::get(Ctx, CosimName.second)};
-    if (const auto *LMSA = PVD->getAttr<OpenCLLocalMemSizeAttr>()) {
-      MDs.push_back(llvm::MDString::get(Ctx, "local_mem_size"));
-      MDs.push_back(llvm::ConstantAsMetadata::get(
-          llvm::ConstantInt::get(Int32Ty, LMSA->getLocalMemSize())));
-    }
-    ComponentMD.push_back(llvm::MDNode::get(Ctx, MDs));
+    CosimNameMD.push_back(llvm::MDString::get(Ctx, PVD->getName()));
+  }
+  if (FD->getNumParams()) {
+    Fn->setMetadata("arg_type", llvm::MDNode::get(Ctx, ArgTypeMD));
+    Fn->setMetadata("impl_type", llvm::MDNode::get(Ctx, ImplTypeMD));
+    Fn->setMetadata("stable", llvm::MDNode::get(Ctx, StableMD));
+    Fn->setMetadata("cosim_name", llvm::MDNode::get(Ctx, CosimNameMD));
   }
 
-  AttrMD.push_back(llvm::MDString::get(Ctx, "cosim_name"));
-  AttrMD.push_back(llvm::MDString::get(Ctx, Fn->getName()));
-
-  AttrMD.push_back(llvm::MDString::get(Ctx, "component_interface"));
   const auto *CIA = FD->getAttr<ComponentInterfaceAttr>();
   StringRef CompIntString =
       ComponentInterfaceAttr::ConvertComponentInterfaceTypeToStr(
           CIA->getType());
-  AttrMD.push_back(llvm::MDString::get(Ctx, CompIntString));
+  Fn->setMetadata(
+      "component_interface",
+      llvm::MDNode::get(Ctx, {llvm::MDString::get(Ctx, CompIntString)}));
 
-  AttrMD.push_back(llvm::MDString::get(Ctx, "stall_free_return"));
   int IsStallFreeReturn = FD->hasAttr<StallFreeReturnAttr>() ? 1 : 0;
-  AttrMD.push_back(llvm::ConstantAsMetadata::get(
-      llvm::ConstantInt::get(Int32Ty, IsStallFreeReturn)));
+  llvm::ConstantInt *SFRC = llvm::ConstantInt::get(Int32Ty, IsStallFreeReturn);
+  Fn->setMetadata("stall_free_return",
+                  llvm::MDNode::get(Ctx, llvm::ConstantAsMetadata::get(SFRC)));
 
-  if (const auto *MCA = FD->getAttr<MaxConcurrencyAttr>()) {
-    llvm::Value *MaxValue = EmitScalarExpr(MCA->getMax());
-    llvm::ConstantInt *MaxCI = cast<llvm::ConstantInt>(MaxValue);
-    AttrMD.push_back(llvm::MDString::get(Ctx, "max_concurrency"));
-    AttrMD.push_back(llvm::ConstantAsMetadata::get(MaxCI));
+  int IsUseSingleClock = FD->hasAttr<UseSingleClockAttr>() ? 1 : 0;
+  llvm::ConstantInt *USCC = llvm::ConstantInt::get(Int32Ty, IsUseSingleClock);
+  Fn->setMetadata("use_single_clock",
+                  llvm::MDNode::get(Ctx, llvm::ConstantAsMetadata::get(USCC)));
+}
+
+void CodeGenFunction::EmitOpenCLHLSComponentMetadata(const FunctionDecl *FD,
+                                                     llvm::Function *Fn) {
+  llvm::LLVMContext &Context = getLLVMContext();
+
+  // MDNode for the local_mem_size attribute.
+  SmallVector<llvm::Metadata*, 8> ArgLocalMemSizeAttr;
+  bool IsLocalMemSizeAttr = false;
+  for (unsigned I = 0, E = FD->getNumParams(); I != E; ++I) {
+    const ParmVarDecl *parm = FD->getParamDecl(I);
+
+    auto *LocalMemSizeAttr = parm->getAttr<OpenCLLocalMemSizeAttr>();
+    if (LocalMemSizeAttr)
+      IsLocalMemSizeAttr = true;
+    ArgLocalMemSizeAttr.push_back(llvm::ConstantAsMetadata::get(
+        (LocalMemSizeAttr)
+            ? Builder.getInt32(LocalMemSizeAttr->getLocalMemSize())
+            : Builder.getInt32(0)));
   }
 
-  Fn->setMetadata("ihc_component", llvm::MDNode::get(Ctx, ComponentMD));
-  Fn->setMetadata("ihc_attrs", llvm::MDNode::get(Ctx, AttrMD));
+  if (IsLocalMemSizeAttr)
+    Fn->setMetadata("local_mem_size",
+                    llvm::MDNode::get(Context, ArgLocalMemSizeAttr));
+
+  if (const auto *MCA = FD->getAttr<MaxConcurrencyAttr>()) {
+    llvm::APSInt MCAInt = MCA->getMax()->EvaluateKnownConstInt(getContext());
+    Fn->setMetadata("max_concurrency",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                                   Builder.getInt(MCAInt))));
+  }
+
+  if (FD->hasAttr<StallFreeAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getTrue())};
+    Fn->setMetadata("stall_free", llvm::MDNode::get(Context, attrMDArgs));
+  }
+
+  if (const auto *A = FD->getAttr<SchedulerPipeliningEffortPctAttr>()) {
+    llvm::APSInt SPEPInt =
+        A->getSchedulerPipeliningEffortPct()->EvaluateKnownConstInt(
+            getContext());
+    Fn->setMetadata("scheduler_pipelining_effort_pct",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                                   Builder.getInt(SPEPInt))));
+  }
 }

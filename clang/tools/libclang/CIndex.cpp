@@ -81,6 +81,8 @@ CXTranslationUnit cxtu::MakeCXTranslationUnit(CIndexer *CIdx,
   D->Diagnostics = nullptr;
   D->OverridenCursorsPool = createOverridenCXCursorsPool();
   D->CommentToXML = nullptr;
+  D->ParsingOptions = 0;
+  D->Arguments = {};
   return D;
 }
 
@@ -166,19 +168,6 @@ CXSourceRange cxloc::translateSourceRange(const SourceManager &SM,
 
 static SourceRange getRawCursorExtent(CXCursor C);
 static SourceRange getFullCursorExtent(CXCursor C, SourceManager &SrcMgr);
-
-#if INTEL_CUSTOMIZATION
-bool CursorVisitor::VisitPragmaDecl(PragmaDecl *D) {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  if (Stmt *PS = D->getStmt())
-    return Visit(MakeCXCursor(PS, StmtParent, TU, RegionOfInterest));
-  return false;
-#else
-  llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-  return false;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-}
-#endif  // INTEL_CUSTOMIZATION
 
 RangeComparisonResult CursorVisitor::CompareRegionOfInterest(SourceRange R) {
   return RangeCompare(AU->getSourceManager(), R, RegionOfInterest);
@@ -795,6 +784,16 @@ bool CursorVisitor::VisitDeclaratorDecl(DeclaratorDecl *DD) {
   return false;
 }
 
+static bool HasTrailingReturnType(FunctionDecl *ND) {
+  const QualType Ty = ND->getType();
+  if (const FunctionType *AFT = Ty->getAs<FunctionType>()) {
+    if (const FunctionProtoType *FT = dyn_cast<FunctionProtoType>(AFT))
+      return FT->hasTrailingReturn();
+  }
+
+  return false;
+}
+
 /// \brief Compare two base or member initializers based on their source order.
 static int CompareCXXCtorInitializers(CXXCtorInitializer *const *X,
                                       CXXCtorInitializer *const *Y) {
@@ -814,14 +813,16 @@ bool CursorVisitor::VisitFunctionDecl(FunctionDecl *ND) {
     // written. This requires a bit of work.
     TypeLoc TL = TSInfo->getTypeLoc().IgnoreParens();
     FunctionTypeLoc FTL = TL.getAs<FunctionTypeLoc>();
+    const bool HasTrailingRT = HasTrailingReturnType(ND);
     
     // If we have a function declared directly (without the use of a typedef),
     // visit just the return type. Otherwise, just visit the function's type
     // now.
-    if ((FTL && !isa<CXXConversionDecl>(ND) && Visit(FTL.getReturnLoc())) ||
+    if ((FTL && !isa<CXXConversionDecl>(ND) && !HasTrailingRT &&
+         Visit(FTL.getReturnLoc())) ||
         (!FTL && Visit(TL)))
       return true;
-    
+
     // Visit the nested-name-specifier, if present.
     if (NestedNameSpecifierLoc QualifierLoc = ND->getQualifierLoc())
       if (VisitNestedNameSpecifierLoc(QualifierLoc))
@@ -837,7 +838,11 @@ bool CursorVisitor::VisitFunctionDecl(FunctionDecl *ND) {
     // Visit the function parameters, if we have a function type.
     if (FTL && VisitFunctionTypeLoc(FTL, true))
       return true;
-    
+
+    // Visit the function's trailing return type.
+    if (FTL && HasTrailingRT && Visit(FTL.getReturnLoc()))
+      return true;
+
     // FIXME: Attributes?
   }
   
@@ -1033,8 +1038,8 @@ bool CursorVisitor::VisitObjCContainerDecl(ObjCContainerDecl *D) {
   }
 
   // Now sort the Decls so that they appear in lexical order.
-  std::sort(DeclsInContainer.begin(), DeclsInContainer.end(),
-            [&SM](Decl *A, Decl *B) {
+  llvm::sort(DeclsInContainer.begin(), DeclsInContainer.end(),
+             [&SM](Decl *A, Decl *B) {
     SourceLocation L_A = A->getLocStart();
     SourceLocation L_B = B->getLocStart();
     return L_A != L_B ?
@@ -1750,16 +1755,18 @@ bool CursorVisitor::VisitPipeTypeLoc(PipeTypeLoc TL) {
   return Visit(TL.getValueLoc());
 }
 
-#if INTEL_CUSTOMIZATION
-bool CursorVisitor::VisitChannelTypeLoc(ChannelTypeLoc TL) {
-  return Visit(TL.getValueLoc());
-}
-#endif // INTEL_CUSTOMIZATION
-
 #define DEFAULT_TYPELOC_IMPL(CLASS, PARENT) \
 bool CursorVisitor::Visit##CLASS##TypeLoc(CLASS##TypeLoc TL) { \
   return Visit##PARENT##Loc(TL); \
 }
+
+#if INTEL_CUSTOMIZATION
+bool CursorVisitor::VisitChannelTypeLoc(ChannelTypeLoc TL) {
+  return Visit(TL.getValueLoc());
+}
+DEFAULT_TYPELOC_IMPL(ArbPrecInt, Type)
+DEFAULT_TYPELOC_IMPL(DependentSizedArbPrecInt, Type)
+#endif // INTEL_CUSTOMIZATION
 
 DEFAULT_TYPELOC_IMPL(Complex, Type)
 DEFAULT_TYPELOC_IMPL(ConstantArray, ArrayType)
@@ -1796,7 +1803,7 @@ bool CursorVisitor::VisitCXXRecordDecl(CXXRecordDecl *D) {
 
 bool CursorVisitor::VisitAttributes(Decl *D) {
   for (const auto *I : D->attrs())
-    if (Visit(MakeCXCursor(I, D, TU)))
+    if (!I->isImplicit() && Visit(MakeCXCursor(I, D, TU)))
         return true;
 
   return false;
@@ -2593,7 +2600,7 @@ void EnqueueVisitor::VisitMemberExpr(const MemberExpr *M) {
     return;
 
   // Ignore base anonymous struct/union fields, otherwise they will shadow the
-  // real field that that we are interested in.
+  // real field that we are interested in.
   if (auto *SubME = dyn_cast<MemberExpr>(M->getBase())) {
     if (auto *FD = dyn_cast_or_null<FieldDecl>(SubME->getMemberDecl())) {
       if (FD->isAnonymousStructOrUnion()) {
@@ -3273,6 +3280,12 @@ unsigned clang_CXIndex_getGlobalOptions(CXIndex CIdx) {
   return 0;
 }
 
+void clang_CXIndex_setInvocationEmissionPathOption(CXIndex CIdx,
+                                                   const char *Path) {
+  if (CIdx)
+    static_cast<CIndexer *>(CIdx)->setInvocationEmissionPath(Path ? Path : "");
+}
+
 void clang_toggleCrashRecovery(unsigned isEnabled) {
   if (isEnabled)
     llvm::CrashRecoveryContext::Enable();
@@ -3449,6 +3462,11 @@ clang_parseTranslationUnit_Impl(CXIndex CIdx, const char *source_filename,
   // faster, trading for a slower (first) reparse.
   unsigned PrecompilePreambleAfterNParses =
       !PrecompilePreamble ? 0 : 2 - CreatePreambleOnFirstParse;
+
+  LibclangInvocationReporter InvocationReporter(
+      *CXXIdx, LibclangInvocationReporter::OperationKind::ParseOperation,
+      options, llvm::makeArrayRef(*Args), /*InvocationArgs=*/None,
+      unsaved_files);
   std::unique_ptr<ASTUnit> Unit(ASTUnit::LoadFromCommandLine(
       Args->data(), Args->data() + Args->size(),
       CXXIdx->getPCHContainerOperations(), Diags,
@@ -3475,7 +3493,14 @@ clang_parseTranslationUnit_Impl(CXIndex CIdx, const char *source_filename,
     return CXError_ASTReadError;
 
   *out_TU = MakeCXTranslationUnit(CXXIdx, std::move(Unit));
-  return *out_TU ? CXError_Success : CXError_Failure;
+  if (CXTranslationUnitImpl *TU = *out_TU) {
+    TU->ParsingOptions = options;
+    TU->Arguments.reserve(Args->size());
+    for (const char *Arg : *Args)
+      TU->Arguments.push_back(Arg);
+    return CXError_Success;
+  }
+  return CXError_Failure;
 }
 
 CXTranslationUnit
@@ -4170,6 +4195,27 @@ CXFile clang_getFile(CXTranslationUnit TU, const char *file_name) {
   return const_cast<FileEntry *>(FMgr.getFile(file_name));
 }
 
+const char *clang_getFileContents(CXTranslationUnit TU, CXFile file,
+                                  size_t *size) {
+  if (isNotUsableTU(TU)) {
+    LOG_BAD_TU(TU);
+    return nullptr;
+  }
+
+  const SourceManager &SM = cxtu::getASTUnit(TU)->getSourceManager();
+  FileID fid = SM.translateFile(static_cast<FileEntry *>(file));
+  bool Invalid = true;
+  llvm::MemoryBuffer *buf = SM.getBuffer(fid, &Invalid);
+  if (Invalid) {
+    if (size)
+      *size = 0;
+    return nullptr;
+  }
+  if (size)
+    *size = buf->getBufferSize();
+  return buf->getBufferStart();
+}
+
 unsigned clang_isFileMultipleIncludeGuarded(CXTranslationUnit TU,
                                             CXFile file) {
   if (isNotUsableTU(TU)) {
@@ -4208,6 +4254,14 @@ int clang_File_isEqual(CXFile file1, CXFile file2) {
   FileEntry *FEnt1 = static_cast<FileEntry *>(file1);
   FileEntry *FEnt2 = static_cast<FileEntry *>(file2);
   return FEnt1->getUniqueID() == FEnt2->getUniqueID();
+}
+
+CXString clang_File_tryGetRealPathName(CXFile SFile) {
+  if (!SFile)
+    return cxstring::createNull();
+
+  FileEntry *FEnt = static_cast<FileEntry *>(SFile);
+  return cxstring::createRef(FEnt->tryGetRealPathName());
 }
 
 //===----------------------------------------------------------------------===//
@@ -4667,6 +4721,195 @@ CXStringSet *clang_Cursor_getObjCManglings(CXCursor C) {
   return cxstring::createSet(Manglings);
 }
 
+CXPrintingPolicy clang_getCursorPrintingPolicy(CXCursor C) {
+  if (clang_Cursor_isNull(C))
+    return 0;
+  return new PrintingPolicy(getCursorContext(C).getPrintingPolicy());
+}
+
+void clang_PrintingPolicy_dispose(CXPrintingPolicy Policy) {
+  if (Policy)
+    delete static_cast<PrintingPolicy *>(Policy);
+}
+
+unsigned
+clang_PrintingPolicy_getProperty(CXPrintingPolicy Policy,
+                                 enum CXPrintingPolicyProperty Property) {
+  if (!Policy)
+    return 0;
+
+  PrintingPolicy *P = static_cast<PrintingPolicy *>(Policy);
+  switch (Property) {
+  case CXPrintingPolicy_Indentation:
+    return P->Indentation;
+  case CXPrintingPolicy_SuppressSpecifiers:
+    return P->SuppressSpecifiers;
+  case CXPrintingPolicy_SuppressTagKeyword:
+    return P->SuppressTagKeyword;
+  case CXPrintingPolicy_IncludeTagDefinition:
+    return P->IncludeTagDefinition;
+  case CXPrintingPolicy_SuppressScope:
+    return P->SuppressScope;
+  case CXPrintingPolicy_SuppressUnwrittenScope:
+    return P->SuppressUnwrittenScope;
+  case CXPrintingPolicy_SuppressInitializers:
+    return P->SuppressInitializers;
+  case CXPrintingPolicy_ConstantArraySizeAsWritten:
+    return P->ConstantArraySizeAsWritten;
+  case CXPrintingPolicy_AnonymousTagLocations:
+    return P->AnonymousTagLocations;
+  case CXPrintingPolicy_SuppressStrongLifetime:
+    return P->SuppressStrongLifetime;
+  case CXPrintingPolicy_SuppressLifetimeQualifiers:
+    return P->SuppressLifetimeQualifiers;
+  case CXPrintingPolicy_SuppressTemplateArgsInCXXConstructors:
+    return P->SuppressTemplateArgsInCXXConstructors;
+  case CXPrintingPolicy_Bool:
+    return P->Bool;
+  case CXPrintingPolicy_Restrict:
+    return P->Restrict;
+  case CXPrintingPolicy_Alignof:
+    return P->Alignof;
+  case CXPrintingPolicy_UnderscoreAlignof:
+    return P->UnderscoreAlignof;
+  case CXPrintingPolicy_UseVoidForZeroParams:
+    return P->UseVoidForZeroParams;
+  case CXPrintingPolicy_TerseOutput:
+    return P->TerseOutput;
+  case CXPrintingPolicy_PolishForDeclaration:
+    return P->PolishForDeclaration;
+  case CXPrintingPolicy_Half:
+    return P->Half;
+  case CXPrintingPolicy_MSWChar:
+    return P->MSWChar;
+  case CXPrintingPolicy_IncludeNewlines:
+    return P->IncludeNewlines;
+  case CXPrintingPolicy_MSVCFormatting:
+    return P->MSVCFormatting;
+  case CXPrintingPolicy_ConstantsAsWritten:
+    return P->ConstantsAsWritten;
+  case CXPrintingPolicy_SuppressImplicitBase:
+    return P->SuppressImplicitBase;
+  case CXPrintingPolicy_FullyQualifiedName:
+    return P->FullyQualifiedName;
+  }
+
+  assert(false && "Invalid CXPrintingPolicyProperty");
+  return 0;
+}
+
+void clang_PrintingPolicy_setProperty(CXPrintingPolicy Policy,
+                                      enum CXPrintingPolicyProperty Property,
+                                      unsigned Value) {
+  if (!Policy)
+    return;
+
+  PrintingPolicy *P = static_cast<PrintingPolicy *>(Policy);
+  switch (Property) {
+  case CXPrintingPolicy_Indentation:
+    P->Indentation = Value;
+    return;
+  case CXPrintingPolicy_SuppressSpecifiers:
+    P->SuppressSpecifiers = Value;
+    return;
+  case CXPrintingPolicy_SuppressTagKeyword:
+    P->SuppressTagKeyword = Value;
+    return;
+  case CXPrintingPolicy_IncludeTagDefinition:
+    P->IncludeTagDefinition = Value;
+    return;
+  case CXPrintingPolicy_SuppressScope:
+    P->SuppressScope = Value;
+    return;
+  case CXPrintingPolicy_SuppressUnwrittenScope:
+    P->SuppressUnwrittenScope = Value;
+    return;
+  case CXPrintingPolicy_SuppressInitializers:
+    P->SuppressInitializers = Value;
+    return;
+  case CXPrintingPolicy_ConstantArraySizeAsWritten:
+    P->ConstantArraySizeAsWritten = Value;
+    return;
+  case CXPrintingPolicy_AnonymousTagLocations:
+    P->AnonymousTagLocations = Value;
+    return;
+  case CXPrintingPolicy_SuppressStrongLifetime:
+    P->SuppressStrongLifetime = Value;
+    return;
+  case CXPrintingPolicy_SuppressLifetimeQualifiers:
+    P->SuppressLifetimeQualifiers = Value;
+    return;
+  case CXPrintingPolicy_SuppressTemplateArgsInCXXConstructors:
+    P->SuppressTemplateArgsInCXXConstructors = Value;
+    return;
+  case CXPrintingPolicy_Bool:
+    P->Bool = Value;
+    return;
+  case CXPrintingPolicy_Restrict:
+    P->Restrict = Value;
+    return;
+  case CXPrintingPolicy_Alignof:
+    P->Alignof = Value;
+    return;
+  case CXPrintingPolicy_UnderscoreAlignof:
+    P->UnderscoreAlignof = Value;
+    return;
+  case CXPrintingPolicy_UseVoidForZeroParams:
+    P->UseVoidForZeroParams = Value;
+    return;
+  case CXPrintingPolicy_TerseOutput:
+    P->TerseOutput = Value;
+    return;
+  case CXPrintingPolicy_PolishForDeclaration:
+    P->PolishForDeclaration = Value;
+    return;
+  case CXPrintingPolicy_Half:
+    P->Half = Value;
+    return;
+  case CXPrintingPolicy_MSWChar:
+    P->MSWChar = Value;
+    return;
+  case CXPrintingPolicy_IncludeNewlines:
+    P->IncludeNewlines = Value;
+    return;
+  case CXPrintingPolicy_MSVCFormatting:
+    P->MSVCFormatting = Value;
+    return;
+  case CXPrintingPolicy_ConstantsAsWritten:
+    P->ConstantsAsWritten = Value;
+    return;
+  case CXPrintingPolicy_SuppressImplicitBase:
+    P->SuppressImplicitBase = Value;
+    return;
+  case CXPrintingPolicy_FullyQualifiedName:
+    P->FullyQualifiedName = Value;
+    return;
+  }
+
+  assert(false && "Invalid CXPrintingPolicyProperty");
+}
+
+CXString clang_getCursorPrettyPrinted(CXCursor C, CXPrintingPolicy cxPolicy) {
+  if (clang_Cursor_isNull(C))
+    return cxstring::createEmpty();
+
+  if (clang_isDeclaration(C.kind)) {
+    const Decl *D = getCursorDecl(C);
+    if (!D)
+      return cxstring::createEmpty();
+
+    SmallString<128> Str;
+    llvm::raw_svector_ostream OS(Str);
+    PrintingPolicy *UserPolicy = static_cast<PrintingPolicy *>(cxPolicy);
+    D->print(OS, UserPolicy ? *UserPolicy
+                            : getCursorContext(C).getPrintingPolicy());
+
+    return cxstring::createDup(OS.str());
+  }
+
+  return cxstring::createEmpty();
+}
+
 CXString clang_getCursorDisplayName(CXCursor C) {
   if (!clang_isDeclaration(C.kind))
     return clang_getCursorSpelling(C);
@@ -5075,10 +5318,6 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("CXXAccessSpecifier");
   case CXCursor_ModuleImportDecl:
     return cxstring::createRef("ModuleImport");
-#if INTEL_SPECIFIC_CILKPLUS
-  case CXCursor_CilkRankedStmt:
-    return cxstring::createRef("CilkRankedStmt");
-#endif // INTEL_SPECIFIC_CILKPLUS
   case CXCursor_OMPParallelDirective:
     return cxstring::createRef("OMPParallelDirective");
   case CXCursor_OMPSimdDirective:
@@ -5400,6 +5639,15 @@ unsigned clang_isInvalid(enum CXCursorKind K) {
 unsigned clang_isDeclaration(enum CXCursorKind K) {
   return (K >= CXCursor_FirstDecl && K <= CXCursor_LastDecl) ||
          (K >= CXCursor_FirstExtraDecl && K <= CXCursor_LastExtraDecl);
+}
+
+unsigned clang_isInvalidDeclaration(CXCursor C) {
+  if (clang_isDeclaration(C.kind)) {
+    if (const Decl *D = getCursorDecl(C))
+      return D->isInvalidDecl();
+  }
+
+  return 0;
 }
 
 unsigned clang_isReference(enum CXCursorKind K) {
@@ -5892,14 +6140,6 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
     return clang_getNullCursor();
 
   switch (D->getKind()) {
-#if INTEL_CUSTOMIZATION
-  case Decl::Pragma:
-#ifndef INTEL_SPECIFIC_IL0_BACKEND
-    llvm_unreachable(
-      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-    break;
-#endif  // INTEL_CUSTOMIZATION
   // Declaration kinds that don't really separate the notions of
   // declaration and definition.
   case Decl::Namespace:
@@ -5929,9 +6169,6 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::Block:
   case Decl::Captured:
   case Decl::OMPCapturedExpr:
-#if INTEL_SPECIFIC_CILKPLUS
-  case Decl::CilkSpawn:
-#endif               // INTEL_SPECIFIC_CILKPLUS
   case Decl::Label:  // FIXME: Is this right??
   case Decl::ClassScopeFunctionSpecialization:
   case Decl::CXXDeductionGuide:
@@ -6444,7 +6681,8 @@ void clang_tokenize(CXTranslationUnit TU, CXSourceRange Range,
   if (CXTokens.empty())
     return;
 
-  *Tokens = (CXToken *)malloc(sizeof(CXToken) * CXTokens.size());
+  *Tokens = static_cast<CXToken *>(
+      llvm::safe_malloc(sizeof(CXToken) * CXTokens.size()));
   memmove(*Tokens, CXTokens.data(), sizeof(CXToken) * CXTokens.size());
   *NumTokens = CXTokens.size();
 }
@@ -7350,10 +7588,10 @@ static void getCursorPlatformAvailabilityForDecl(
   if (AvailabilityAttrs.empty())
     return;
 
-  std::sort(AvailabilityAttrs.begin(), AvailabilityAttrs.end(),
-            [](AvailabilityAttr *LHS, AvailabilityAttr *RHS) {
-              return LHS->getPlatform()->getName() <
-                     RHS->getPlatform()->getName();
+  llvm::sort(AvailabilityAttrs.begin(), AvailabilityAttrs.end(),
+             [](AvailabilityAttr *LHS, AvailabilityAttr *RHS) {
+               return LHS->getPlatform()->getName() <
+                      RHS->getPlatform()->getName();
             });
   ASTContext &Ctx = D->getASTContext();
   auto It = std::unique(
@@ -7472,7 +7710,7 @@ CXTLSKind clang_getCursorTLSKind(CXCursor cursor) {
 }
 
  /// \brief If the given cursor is the "templated" declaration
- /// descibing a class or function template, return the class or
+ /// describing a class or function template, return the class or
  /// function template.
 static const Decl *maybeGetTemplateCursor(const Decl *D) {
   if (!D)
@@ -7911,6 +8149,17 @@ unsigned clang_CXXMethod_isVirtual(CXCursor C) {
   return (Method && Method->isVirtual()) ? 1 : 0;
 }
 
+unsigned clang_CXXRecord_isAbstract(CXCursor C) {
+  if (!clang_isDeclaration(C.kind))
+    return 0;
+
+  const auto *D = cxcursor::getCursorDecl(C);
+  const auto *RD = dyn_cast_or_null<CXXRecordDecl>(D);
+  if (RD)
+    RD = RD->getDefinition();
+  return (RD && RD->isAbstract()) ? 1 : 0;
+}
+
 unsigned clang_EnumDecl_isScoped(CXCursor C) {
   if (!clang_isDeclaration(C.kind))
     return 0;
@@ -8116,12 +8365,15 @@ CXSourceRangeList *clang_getSkippedRanges(CXTranslationUnit TU, CXFile file) {
   SourceManager &sm = Ctx.getSourceManager();
   FileEntry *fileEntry = static_cast<FileEntry *>(file);
   FileID wantedFileID = sm.translateFile(fileEntry);
+  bool isMainFile = wantedFileID == sm.getMainFileID();
 
   const std::vector<SourceRange> &SkippedRanges = ppRec->getSkippedRanges();
   std::vector<SourceRange> wantedRanges;
   for (std::vector<SourceRange>::const_iterator i = SkippedRanges.begin(), ei = SkippedRanges.end();
        i != ei; ++i) {
     if (sm.getFileID(i->getBegin()) == wantedFileID || sm.getFileID(i->getEnd()) == wantedFileID)
+      wantedRanges.push_back(*i);
+    else if (isMainFile && (astUnit->isInPreambleFileID(i->getBegin()) || astUnit->isInPreambleFileID(i->getEnd())))
       wantedRanges.push_back(*i);
   }
 

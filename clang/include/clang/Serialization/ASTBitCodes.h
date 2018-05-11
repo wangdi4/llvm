@@ -198,6 +198,25 @@ namespace serialization {
       }
     };
 
+    /// \brief Source range of a skipped preprocessor region
+    struct PPSkippedRange {
+      /// \brief Raw source location of beginning of range.
+      unsigned Begin;
+      /// \brief Raw source location of end of range.
+      unsigned End;
+
+      PPSkippedRange(SourceRange R)
+        : Begin(R.getBegin().getRawEncoding()),
+          End(R.getEnd().getRawEncoding()) { }
+
+      SourceLocation getBegin() const {
+        return SourceLocation::getFromRawEncoding(Begin);
+      }
+      SourceLocation getEnd() const {
+        return SourceLocation::getFromRawEncoding(End);
+      }
+    };
+
     /// \brief Source range/offset of a preprocessed entity.
     struct DeclOffset {
       /// \brief Raw source location.
@@ -627,6 +646,9 @@ namespace serialization {
 
       /// \brief The stack of open #ifs/#ifdefs recorded in a preamble.
       PP_CONDITIONAL_STACK = 62,
+
+      /// \brief A table of skipped ranges within the preprocessing record.
+      PPD_SKIPPED_RANGES = 63
     };
 
     /// \brief Record types used within a source manager block.
@@ -938,6 +960,10 @@ namespace serialization {
       /// Intel specific type codes
       /// \brief A ChannelType record.
       TYPE_CHANNEL               = 1024,
+      /// \brief An ArbPrecIntType record.
+      TYPE_ARBPRECINT            = 1025,
+      /// \brief A DependentSizedArbPrecIntType record.
+      TYPE_DEPENDENT_SIZED_ARBPRECINT = 1026,
 #endif // INTEL_CUSTOMIZATION
       /// \brief An ExtQualType record.
       TYPE_EXT_QUAL                 = 1,
@@ -1426,12 +1452,7 @@ namespace serialization {
 
       /// \brief An ObjCTypeParamDecl record.
       DECL_OBJC_TYPE_PARAM,
-
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-      /// \brief A PragmaDecl record.
-      DECL_PRAGMA,
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-
+ 
       /// \brief An OMPCapturedExprDecl record.
       DECL_OMP_CAPTUREDEXPR,
 
@@ -1477,11 +1498,6 @@ namespace serialization {
 
       /// \brief A LabelStmt record.
       STMT_LABEL,
-
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-      /// \brief A PragmaStmt record.
-      STMT_PRAGMA,
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
       /// \brief An AttributedStmt record.
       STMT_ATTRIBUTED,
@@ -1647,11 +1663,7 @@ namespace serialization {
 
       /// \brief An AtomicExpr record.
       EXPR_ATOMIC,
-#if INTEL_SPECIFIC_CILKPLUS
-      /// \brief A CEANIndexExpr record.
-      EXPR_CEAN_INDEX,
-      EXPR_CEAN_BUILTIN,
-#endif // INTEL_SPECIFIC_CILKPLUS
+
       // Objective-C
 
       /// \brief An ObjCStringLiteral record.
@@ -1876,14 +1888,6 @@ namespace serialization {
       EXPR_OBJC_BRIDGED_CAST,     // ObjCBridgedCastExpr
 
       STMT_MS_DEPENDENT_EXISTS,   // MSDependentExistsStmt
-#if INTEL_SPECIFIC_CILKPLUS
-      // Cilk Plus
-      STMT_CILKSYNC,
-      STMT_CILK_FOR_GRAINSIZE,
-      STMT_CILK_FOR,
-      STMT_SIMD_FOR,
-      STMT_CILK_RANKED,
-#endif // INTEL_SPECIFIC_CILKPLUS
       EXPR_LAMBDA,                // LambdaExpr
       STMT_COROUTINE_BODY,
       STMT_CORETURN,

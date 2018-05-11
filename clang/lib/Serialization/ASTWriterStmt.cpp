@@ -509,6 +509,7 @@ void ASTStmtWriter::VisitUnaryOperator(UnaryOperator *E) {
   Record.AddStmt(E->getSubExpr());
   Record.push_back(E->getOpcode()); // FIXME: stable encoding
   Record.AddSourceLocation(E->getOperatorLoc());
+  Record.push_back(E->canOverflow());
   Code = serialization::EXPR_UNARY_OPERATOR;
 }
 
@@ -568,117 +569,6 @@ void ASTStmtWriter::VisitArraySubscriptExpr(ArraySubscriptExpr *E) {
   Record.AddSourceLocation(E->getRBracketLoc());
   Code = serialization::EXPR_ARRAY_SUBSCRIPT;
 }
-
-#if INTEL_SPECIFIC_CILKPLUS
-//===----------------------------------------------------------------------===//
-// Cilk Plus Expressions and Statements.
-//===----------------------------------------------------------------------===//
-void ASTStmtWriter::VisitCEANIndexExpr(CEANIndexExpr *E) {
-  VisitExpr(E);
-  Record.AddStmt(E->getLowerBound());
-  Record.AddSourceLocation(E->getColonLoc1());
-  Record.AddStmt(E->getLength());
-  Record.AddSourceLocation(E->getColonLoc2());
-  Record.AddStmt(E->getStride());
-  Record.AddStmt(E->getIndexExpr());
-  Record.push_back(E->getRank());
-  Code = serialization::EXPR_CEAN_INDEX;
-}
-
-void ASTStmtWriter::VisitCEANBuiltinExpr(CEANBuiltinExpr *E) {
-  VisitExpr(E);
-  Record.push_back(E->getRank());
-  Record.push_back(E->getArgsSize());
-  Record.push_back(E->getBuiltinKind());
-  Record.AddSourceLocation(E->getLocStart());
-  Record.AddSourceLocation(E->getLocEnd());
-  ArrayRef<Expr *> Args = E->getArgs();
-  for (ArrayRef<Expr *>::const_iterator I = Args.begin(), E = Args.end();
-       I != E; ++I)
-    Record.AddStmt(*I);
-  Args = E->getLengths();
-  for (ArrayRef<Expr *>::const_iterator I = Args.begin(), E = Args.end();
-       I != E; ++I)
-    Record.AddStmt(*I);
-  ArrayRef<Stmt *> Vars = E->getVars();
-  for (ArrayRef<Stmt *>::const_iterator I = Vars.begin(), E = Vars.end();
-       I != E; ++I)
-    Record.AddStmt(*I);
-  Vars = E->getIncrements();
-  for (ArrayRef<Stmt *>::const_iterator I = Vars.begin(), E = Vars.end();
-       I != E; ++I)
-    Record.AddStmt(*I);
-  Record.AddStmt(E->getInit());
-  Record.AddStmt(E->getBody());
-  Record.AddStmt(E->getReturnExpr());
-  Code = serialization::EXPR_CEAN_BUILTIN;
-}
-
-void ASTStmtWriter::VisitCilkSpawnExpr(CilkSpawnExpr *E) {
-  llvm_unreachable("not implemented yet");
-}
-
-void ASTStmtWriter::VisitCilkSyncStmt(CilkSyncStmt *S) {
-  VisitStmt(S);
-  Record.AddSourceLocation(S->getSyncLoc());
-  Code = serialization::STMT_CILKSYNC;
-}
-
-void ASTStmtWriter::VisitCilkForGrainsizeStmt(CilkForGrainsizeStmt *S) {
-  Code = serialization::STMT_CILK_FOR_GRAINSIZE;
-  llvm_unreachable("not implemented yet");
-}
-
-void ASTStmtWriter::VisitCilkForStmt(CilkForStmt *S) {
-  Code = serialization::STMT_CILK_FOR;
-  llvm_unreachable("not implemented yet");
-}
-
-void ASTStmtWriter::VisitSIMDForStmt(SIMDForStmt *S) {
-  Code = serialization::STMT_SIMD_FOR;
-  llvm_unreachable("not implemented yet");
-}
-
-void ASTStmtWriter::VisitCilkRankedStmt(CilkRankedStmt *S) {
-  VisitStmt(S);
-  Record.push_back(S->getRank());
-  for (unsigned i = 0, N = S->getRank(); i < N; ++i) {
-    Record.AddStmt(S->getLengths()[i]);
-  }
-  for (unsigned i = 0, N = S->getRank(); i < N; ++i) {
-    Record.AddStmt(S->getVars()[i]);
-  }
-  for (unsigned i = 0, N = S->getRank(); i < N; ++i) {
-    Record.AddStmt(S->getIncrements()[i]);
-  }
-  Record.AddStmt(S->getAssociatedStmt());
-  Record.AddStmt(S->getInits());
-}
-#endif // INTEL_SPECIFIC_CILKPLUS
-
-#if INTEL_CUSTOMIZATION
-void ASTStmtWriter::VisitPragmaStmt(PragmaStmt *S) {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  VisitStmt(S);
-  Record.AddSourceLocation(S->getSemiLoc());
-  Record.push_back(S->Attribs.size());
-  for(size_t i = 0; i < S->Attribs.size(); ++i) {
-    Record.AddStmt(S->Attribs[i].Value);
-    Record.push_back(S->Attribs[i].ExprKind);
-  }
-  Record.push_back(S->RealAttribs.size());
-  for(size_t i = 0; i < S->RealAttribs.size(); ++i) {
-    Record.AddStmt(S->RealAttribs[i]);
-  }
-  Record.push_back(S->getPragmaKind());
-  Record.push_back(S->IsDecl ? 1 : 0);
-  Code = serialization::STMT_PRAGMA;
-#else
-  llvm_unreachable(
-    "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-}
-#endif // INTEL_CUSTOMIZATION
 
 void ASTStmtWriter::VisitOMPArraySectionExpr(OMPArraySectionExpr *E) {
   VisitExpr(E);
@@ -1809,6 +1699,7 @@ void ASTStmtWriter::VisitOpaqueValueExpr(OpaqueValueExpr *E) {
   VisitExpr(E);
   Record.AddStmt(E->getSourceExpr());
   Record.AddSourceLocation(E->getLocation());
+  Record.push_back(E->isUnique());
   Code = serialization::EXPR_OPAQUE_VALUE;
 }
 

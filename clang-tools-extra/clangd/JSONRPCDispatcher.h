@@ -26,6 +26,8 @@ namespace clangd {
 /// Encapsulates output and logs streams and provides thread-safe access to
 /// them.
 class JSONOutput : public Logger {
+  // FIXME(ibiryukov): figure out if we can shrink the public interface of
+  // JSONOutput now that we pass Context everywhere.
 public:
   JSONOutput(llvm::raw_ostream &Outs, llvm::raw_ostream &Logs,
              llvm::raw_ostream *InputMirror = nullptr, bool Pretty = false)
@@ -34,8 +36,7 @@ public:
   /// Emit a JSONRPC message.
   void writeMessage(const json::Expr &Result);
 
-  /// Write to the logging stream.
-  /// No newline is implicitly added. (TODO: we should fix this!)
+  /// Write a line to the logging stream.
   void log(const Twine &Message) override;
 
   /// Mirror \p Message into InputMirror stream. Does nothing if InputMirror is
@@ -54,38 +55,22 @@ private:
   std::mutex StreamMutex;
 };
 
-/// Context object passed to handlers to allow replies.
-class RequestContext {
-public:
-  RequestContext(JSONOutput &Out, StringRef Method,
-                 llvm::Optional<json::Expr> ID)
-      : Out(Out), ID(std::move(ID)),
-        Tracer(llvm::make_unique<trace::Span>(Method)) {
-    if (this->ID)
-      SPAN_ATTACH(tracer(), "ID", *this->ID);
-  }
-
-  /// Sends a successful reply.
-  void reply(json::Expr &&Result);
-  /// Sends an error response to the client, and logs it.
-  void replyError(ErrorCode code, const llvm::StringRef &Message);
-  /// Sends a request to the client.
-  void call(llvm::StringRef Method, json::Expr &&Params);
-
-  trace::Span &tracer() { return *Tracer; }
-
-private:
-  JSONOutput &Out;
-  llvm::Optional<json::Expr> ID;
-  std::unique_ptr<trace::Span> Tracer;
-};
+/// Sends a successful reply.
+/// Current context must derive from JSONRPCDispatcher::Handler.
+void reply(json::Expr &&Result);
+/// Sends an error response to the client, and logs it.
+/// Current context must derive from JSONRPCDispatcher::Handler.
+void replyError(ErrorCode code, const llvm::StringRef &Message);
+/// Sends a request to the client.
+/// Current context must derive from JSONRPCDispatcher::Handler.
+void call(llvm::StringRef Method, json::Expr &&Params);
 
 /// Main JSONRPC entry point. This parses the JSONRPC "header" and calls the
 /// registered Handler for the method received.
 class JSONRPCDispatcher {
 public:
   // A handler responds to requests for a particular method name.
-  using Handler = std::function<void(RequestContext, const json::Expr &)>;
+  using Handler = std::function<void(const json::Expr &)>;
 
   /// Create a new JSONRPCDispatcher. UnknownHandler is called when an unknown
   /// method is received.
@@ -103,6 +88,14 @@ private:
   Handler UnknownHandler;
 };
 
+/// Controls the way JSON-RPC messages are encoded (both input and output).
+enum JSONStreamStyle {
+  /// Encoding per the LSP specification, with mandatory Content-Length header.
+  Standard,
+  /// Messages are delimited by a '---' line. Comment lines start with #.
+  Delimited
+};
+
 /// Parses input queries from LSP client (coming from \p In) and runs call
 /// method of \p Dispatcher for each query.
 /// After handling each query checks if \p IsDone is set true and exits the loop
@@ -110,6 +103,7 @@ private:
 /// Input stream(\p In) must be opened in binary mode to avoid preliminary
 /// replacements of \r\n with \n.
 void runLanguageServerLoop(std::istream &In, JSONOutput &Out,
+                           JSONStreamStyle InputStyle,
                            JSONRPCDispatcher &Dispatcher, bool &IsDone);
 
 } // namespace clangd

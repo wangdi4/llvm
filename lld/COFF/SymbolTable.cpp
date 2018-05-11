@@ -11,9 +11,11 @@
 #include "Config.h"
 #include "Driver.h"
 #include "LTO.h"
+#include "PDB.h"
 #include "Symbols.h"
 #include "lld/Common/ErrorHandler.h"
 #include "lld/Common/Memory.h"
+#include "lld/Common/Timer.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -23,6 +25,8 @@ using namespace llvm;
 
 namespace lld {
 namespace coff {
+
+static Timer LTOTimer("LTO", Timer::root());
 
 SymbolTable *Symtab;
 
@@ -61,8 +65,69 @@ static void errorOrWarn(const Twine &S) {
     error(S);
 }
 
+// Returns the name of the symbol in SC whose value is <= Addr that is closest
+// to Addr. This is generally the name of the global variable or function whose
+// definition contains Addr.
+static StringRef getSymbolName(SectionChunk *SC, uint32_t Addr) {
+  DefinedRegular *Candidate = nullptr;
+
+  for (Symbol *S : SC->File->getSymbols()) {
+    auto *D = dyn_cast_or_null<DefinedRegular>(S);
+    if (!D || D->getChunk() != SC || D->getValue() > Addr ||
+        (Candidate && D->getValue() < Candidate->getValue()))
+      continue;
+
+    Candidate = D;
+  }
+
+  if (!Candidate)
+    return "";
+  return Candidate->getName();
+}
+
+static std::string getSymbolLocations(ObjFile *File, uint32_t SymIndex) {
+  struct Location {
+    StringRef SymName;
+    std::pair<StringRef, uint32_t> FileLine;
+  };
+  std::vector<Location> Locations;
+
+  for (Chunk *C : File->getChunks()) {
+    auto *SC = dyn_cast<SectionChunk>(C);
+    if (!SC)
+      continue;
+    for (const coff_relocation &R : SC->Relocs) {
+      if (R.SymbolTableIndex != SymIndex)
+        continue;
+      std::pair<StringRef, uint32_t> FileLine =
+          getFileLine(SC, R.VirtualAddress);
+      StringRef SymName = getSymbolName(SC, R.VirtualAddress);
+      if (!FileLine.first.empty() || !SymName.empty())
+        Locations.push_back({SymName, FileLine});
+    }
+  }
+
+  if (Locations.empty())
+    return "\n>>> referenced by " + toString(File) + "\n";
+
+  std::string Out;
+  llvm::raw_string_ostream OS(Out);
+  for (Location Loc : Locations) {
+    OS << "\n>>> referenced by ";
+    if (!Loc.FileLine.first.empty())
+      OS << Loc.FileLine.first << ":" << Loc.FileLine.second
+         << "\n>>>               ";
+    OS << toString(File);
+    if (!Loc.SymName.empty())
+      OS << ":(" << Loc.SymName << ')';
+  }
+  OS << '\n';
+  return OS.str();
+}
+
 void SymbolTable::reportRemainingUndefines() {
   SmallPtrSet<Symbol *, 8> Undefs;
+  DenseMap<Symbol *, Symbol *> LocalImports;
 
   for (auto &I : SymMap) {
     Symbol *Sym = I.second;
@@ -98,6 +163,7 @@ void SymbolTable::reportRemainingUndefines() {
         auto *D = cast<Defined>(Imp);
         replaceSymbol<DefinedLocalImport>(Sym, Name, D);
         LocalImportChunks.push_back(cast<DefinedLocalImport>(Sym)->getChunk());
+        LocalImports[Sym] = D;
         continue;
       }
     }
@@ -109,24 +175,41 @@ void SymbolTable::reportRemainingUndefines() {
     Undefs.insert(Sym);
   }
 
-  if (Undefs.empty())
+  if (Undefs.empty() && LocalImports.empty())
     return;
 
-  for (Symbol *B : Config->GCRoot)
+  for (Symbol *B : Config->GCRoot) {
     if (Undefs.count(B))
       errorOrWarn("<root>: undefined symbol: " + B->getName());
+    if (Config->WarnLocallyDefinedImported)
+      if (Symbol *Imp = LocalImports.lookup(B))
+        warn("<root>: locally defined symbol imported: " + Imp->getName() +
+             " (defined in " + toString(Imp->getFile()) + ") [LNK4217]");
+  }
 
-  for (ObjFile *File : ObjFile::Instances)
-    for (Symbol *Sym : File->getSymbols())
-      if (Sym && Undefs.count(Sym))
-        errorOrWarn(toString(File) + ": undefined symbol: " + Sym->getName());
+  for (ObjFile *File : ObjFile::Instances) {
+    size_t SymIndex = -1ull;
+    for (Symbol *Sym : File->getSymbols()) {
+      ++SymIndex;
+      if (!Sym)
+        continue;
+      if (Undefs.count(Sym))
+        errorOrWarn("undefined symbol: " + Sym->getName() +
+                    getSymbolLocations(File, SymIndex));
+      if (Config->WarnLocallyDefinedImported)
+        if (Symbol *Imp = LocalImports.lookup(Sym))
+          warn(toString(File) + ": locally defined symbol imported: " +
+               Imp->getName() + " (defined in " + toString(Imp->getFile()) +
+               ") [LNK4217]");
+    }
+  }
 }
 
 std::pair<Symbol *, bool> SymbolTable::insert(StringRef Name) {
   Symbol *&Sym = SymMap[CachedHashStringRef(Name)];
   if (Sym)
     return {Sym, false};
-  Sym = (Symbol *)make<SymbolUnion>();
+  Sym = reinterpret_cast<Symbol *>(make<SymbolUnion>());
   Sym->IsUsedInRegularObj = false;
   Sym->PendingArchiveLoad = false;
   return {Sym, true};
@@ -291,17 +374,14 @@ DefinedImportThunk *SymbolTable::addImportThunk(StringRef Name,
 std::vector<Chunk *> SymbolTable::getChunks() {
   std::vector<Chunk *> Res;
   for (ObjFile *File : ObjFile::Instances) {
-    std::vector<Chunk *> &V = File->getChunks();
+    ArrayRef<Chunk *> V = File->getChunks();
     Res.insert(Res.end(), V.begin(), V.end());
   }
   return Res;
 }
 
 Symbol *SymbolTable::find(StringRef Name) {
-  auto It = SymMap.find(CachedHashStringRef(Name));
-  if (It == SymMap.end())
-    return nullptr;
-  return It->second;
+  return SymMap.lookup(CachedHashStringRef(Name));
 }
 
 Symbol *SymbolTable::findUnderscore(StringRef Name) {
@@ -368,6 +448,8 @@ std::vector<StringRef> SymbolTable::compileBitcodeFiles() {
 void SymbolTable::addCombinedLTOObjects() {
   if (BitcodeFile::Instances.empty())
     return;
+
+  ScopedTimer T(LTOTimer);
   for (StringRef Object : compileBitcodeFiles()) {
     auto *Obj = make<ObjFile>(MemoryBufferRef(Object, "lto.tmp"));
     Obj->parse();

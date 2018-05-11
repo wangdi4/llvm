@@ -12,9 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenFunction.h"
-#if INTEL_SPECIFIC_CILKPLUS
-#include "intel/CGCilkPlusRuntime.h"
-#endif // INTEL_SPECIFIC_CILKPLUS
 #include "CGCXXABI.h"
 #include "CGCleanup.h"
 #include "CGObjCRuntime.h"
@@ -68,7 +65,7 @@ llvm::Constant *CodeGenModule::getTerminateFn() {
     if (getLangOpts().isCompatibleWithMSVC(LangOptions::MSVC2015))
       name = "__std_terminate";
     else
-      name = "\01?terminate@@YAXXZ";
+      name = "?terminate@@YAXXZ";
   } else if (getLangOpts().ObjC1 &&
              getLangOpts().ObjCRuntime.hasTerminate())
     name = "objc_terminate";
@@ -119,6 +116,10 @@ static const EHPersonality &getCPersonality(const llvm::Triple &T,
                                             const LangOptions &L) {
   if (L.SjLjExceptions)
     return EHPersonality::GNU_C_SJLJ;
+  if (L.DWARFExceptions)
+    return EHPersonality::GNU_C;
+  if (T.isWindowsMSVCEnvironment())
+    return EHPersonality::MSVC_CxxFrameHandler3;
   if (L.SEHExceptions)
     return EHPersonality::GNU_C_SEH;
   return EHPersonality::GNU_C;
@@ -132,11 +133,13 @@ static const EHPersonality &getObjCPersonality(const llvm::Triple &T,
   case ObjCRuntime::MacOSX:
   case ObjCRuntime::iOS:
   case ObjCRuntime::WatchOS:
+    if (T.isWindowsMSVCEnvironment())
+      return EHPersonality::MSVC_CxxFrameHandler3;
     return EHPersonality::NeXT_ObjC;
   case ObjCRuntime::GNUstep:
     if (L.ObjCRuntime.getVersion() >= VersionTuple(1, 7))
       return EHPersonality::GNUstep_ObjC;
-    // fallthrough
+    LLVM_FALLTHROUGH;
   case ObjCRuntime::GCC:
   case ObjCRuntime::ObjFW:
     if (L.SjLjExceptions)
@@ -152,6 +155,10 @@ static const EHPersonality &getCXXPersonality(const llvm::Triple &T,
                                               const LangOptions &L) {
   if (L.SjLjExceptions)
     return EHPersonality::GNU_CPlusPlus_SJLJ;
+  if (L.DWARFExceptions)
+    return EHPersonality::GNU_CPlusPlus;
+  if (T.isWindowsMSVCEnvironment())
+    return EHPersonality::MSVC_CxxFrameHandler3;
   if (L.SEHExceptions)
     return EHPersonality::GNU_CPlusPlus_SEH;
   return EHPersonality::GNU_CPlusPlus;
@@ -202,25 +209,9 @@ const EHPersonality &EHPersonality::get(CodeGenModule &CGM,
   if (FD && FD->usesSEHTry())
     return getSEHPersonalityMSVC(T);
 
-  // Try to pick a personality function that is compatible with MSVC if we're
-  // not compiling Obj-C. Obj-C users better have an Obj-C runtime that supports
-  // the GCC-style personality function.
-  if (T.isWindowsMSVCEnvironment() && !L.ObjC1) {
-    if (L.SjLjExceptions)
-      return EHPersonality::GNU_CPlusPlus_SJLJ;
-    if (L.DWARFExceptions)
-      return EHPersonality::GNU_CPlusPlus;
-    return EHPersonality::MSVC_CxxFrameHandler3;
-  }
-
-  if (L.CPlusPlus && L.ObjC1)
-    return getObjCXXPersonality(T, L);
-  else if (L.CPlusPlus)
-    return getCXXPersonality(T, L);
-  else if (L.ObjC1)
-    return getObjCPersonality(T, L);
-  else
-    return getCPersonality(T, L);
+  if (L.ObjC1)
+    return L.CPlusPlus ? getObjCXXPersonality(T, L) : getObjCPersonality(T, L);
+  return L.CPlusPlus ? getCXXPersonality(T, L) : getCPersonality(T, L);
 }
 
 const EHPersonality &EHPersonality::get(CodeGenFunction &CGF) {
@@ -547,34 +538,22 @@ void CodeGenFunction::EmitEndEHSpec(const Decl *D) {
 
 void CodeGenFunction::EmitCXXTryStmt(const CXXTryStmt &S) {
   EnterCXXTryStmt(S);
-#if INTEL_SPECIFIC_CILKPLUS
-  // CQ#372058 - associate landing pad in debug info with the end of the try
-  // scope. The landing pad is associated with CurEHLocation.
-  SourceLocation OldEHLocation = CurEHLocation;
-  CurEHLocation = S.getTryBlock()->getLocEnd();
-  {
-    if (getLangOpts().CilkPlus && CurCGCilkImplicitSyncInfo) {
-      // The following implicit sync is not required by the Cilk Plus
-      // Language Extension Specificition V1.1. However, this is required
-      // in N1665 [2.8.1] and other compilers also insert this implicit sync.
-      //
-      // Optimizations should be able to elide those unnecessary syncs.
-      CGM.getCilkPlusRuntime().EmitCilkSync(*this);
-    }
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().IntelCompat) {
+    // CQ#372058 - associate landing pad in debug info with the end of the try
+    // scope. The landing pad is associated with CurEHLocation.
+    SourceLocation OldEHLocation = CurEHLocation;
+    CurEHLocation = S.getTryBlock()->getLocEnd();
 
-    // Entering a new scope before we emit the try body. An implicit sync will
-    // be emitted on exiting the try (and before any catch blocks).
+    // Entering a new scope before we emit the try body.
     RunCleanupsScope Scope(*this);
-    if (CurCGCilkImplicitSyncInfo &&
-        CurCGCilkImplicitSyncInfo->needsImplicitSync(&S))
-      CGM.getCilkPlusRuntime().pushCilkImplicitSyncCleanup(*this);
     EmitStmt(S.getTryBlock());
-  }
-  // Restore EH location.
-  CurEHLocation = OldEHLocation;
-#else
-  EmitStmt(S.getTryBlock());
-#endif // INTEL_SPECIFIC_CILKPLUS
+
+    // Restore EH location.
+    CurEHLocation = OldEHLocation;
+  } else
+    EmitStmt(S.getTryBlock());
+#endif // INTEL_CUSTOMIZATION
   ExitCXXTryStmt(S);
 }
 
@@ -676,7 +655,7 @@ CodeGenFunction::getMSVCDispatchBlock(EHScopeStack::stable_iterator SI) {
     return DispatchBlock;
 
   if (EHS.getKind() == EHScope::Terminate)
-    DispatchBlock = getTerminateHandler();
+    DispatchBlock = getTerminateFunclet();
   else
     DispatchBlock = createBasicBlock();
   CGBuilderTy Builder(*this, DispatchBlock);
@@ -724,11 +703,6 @@ static bool isNonEHScope(const EHScope &S) {
 llvm::BasicBlock *CodeGenFunction::getInvokeDestImpl() {
   assert(EHStack.requiresLandingPad());
   assert(!EHStack.empty());
-
-#if INTEL_SPECIFIC_CILKPLUS
-  if (ExceptionsDisabled)
-    return nullptr;
-#endif // INTEL_SPECIFIC_CILKPLUS
 
   // If exceptions are disabled and SEH is not in use, then there is no invoke
   // destination. SEH "works" even if exceptions are off. In practice, this
@@ -1369,24 +1343,15 @@ llvm::BasicBlock *CodeGenFunction::getTerminateHandler() {
   if (TerminateHandler)
     return TerminateHandler;
 
-  CGBuilderTy::InsertPoint SavedIP = Builder.saveAndClearIP();
-
   // Set up the terminate handler.  This block is inserted at the very
   // end of the function by FinishFunction.
   TerminateHandler = createBasicBlock("terminate.handler");
+  CGBuilderTy::InsertPoint SavedIP = Builder.saveAndClearIP();
   Builder.SetInsertPoint(TerminateHandler);
+
   llvm::Value *Exn = nullptr;
-  SaveAndRestore<llvm::Instruction *> RestoreCurrentFuncletPad(
-      CurrentFuncletPad);
-  if (EHPersonality::get(*this).usesFuncletPads()) {
-    llvm::Value *ParentPad = CurrentFuncletPad;
-    if (!ParentPad)
-      ParentPad = llvm::ConstantTokenNone::get(CGM.getLLVMContext());
-    CurrentFuncletPad = Builder.CreateCleanupPad(ParentPad);
-  } else {
-    if (getLangOpts().CPlusPlus)
-      Exn = getExceptionFromSlot();
-  }
+  if (getLangOpts().CPlusPlus)
+    Exn = getExceptionFromSlot();
   llvm::CallInst *terminateCall =
       CGM.getCXXABI().emitTerminateForUnexpectedException(*this, Exn);
   terminateCall->setDoesNotReturn();
@@ -1396,6 +1361,42 @@ llvm::BasicBlock *CodeGenFunction::getTerminateHandler() {
   Builder.restoreIP(SavedIP);
 
   return TerminateHandler;
+}
+
+llvm::BasicBlock *CodeGenFunction::getTerminateFunclet() {
+  assert(EHPersonality::get(*this).usesFuncletPads() &&
+         "use getTerminateLandingPad for non-funclet EH");
+
+  llvm::BasicBlock *&TerminateFunclet = TerminateFunclets[CurrentFuncletPad];
+  if (TerminateFunclet)
+    return TerminateFunclet;
+
+  CGBuilderTy::InsertPoint SavedIP = Builder.saveAndClearIP();
+
+  // Set up the terminate handler.  This block is inserted at the very
+  // end of the function by FinishFunction.
+  TerminateFunclet = createBasicBlock("terminate.handler");
+  Builder.SetInsertPoint(TerminateFunclet);
+
+  // Create the cleanuppad using the current parent pad as its token. Use 'none'
+  // if this is a top-level terminate scope, which is the common case.
+  SaveAndRestore<llvm::Instruction *> RestoreCurrentFuncletPad(
+      CurrentFuncletPad);
+  llvm::Value *ParentPad = CurrentFuncletPad;
+  if (!ParentPad)
+    ParentPad = llvm::ConstantTokenNone::get(CGM.getLLVMContext());
+  CurrentFuncletPad = Builder.CreateCleanupPad(ParentPad);
+
+  // Emit the __std_terminate call.
+  llvm::CallInst *terminateCall =
+      CGM.getCXXABI().emitTerminateForUnexpectedException(*this, nullptr);
+  terminateCall->setDoesNotReturn();
+  Builder.CreateUnreachable();
+
+  // Restore the saved insertion state.
+  Builder.restoreIP(SavedIP);
+
+  return TerminateFunclet;
 }
 
 llvm::BasicBlock *CodeGenFunction::getEHResumeBlock(bool isCleanup) {

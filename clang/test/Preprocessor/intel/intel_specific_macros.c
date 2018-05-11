@@ -1,4 +1,3 @@
-// REQUIRES: llvm-backend
 // The same test for IL0 backend is in the Preprocessor/intel/il0-backend subfolder
 // CQ#366613
 // RUN: %clang_cc1 -E -dM < %s | FileCheck -check-prefix CHECK1 %s

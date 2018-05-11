@@ -319,6 +319,14 @@ public:
   virtual bool useThunkForDtorVariant(const CXXDestructorDecl *Dtor,
                                       CXXDtorType DT) const = 0;
 
+  virtual void setCXXDestructorDLLStorage(llvm::GlobalValue *GV,
+                                          const CXXDestructorDecl *Dtor,
+                                          CXXDtorType DT) const;
+
+  virtual llvm::GlobalValue::LinkageTypes
+  getCXXDestructorLinkage(GVALinkage Linkage, const CXXDestructorDecl *Dtor,
+                          CXXDtorType DT) const;
+
   /// Emit destructor variants required by this ABI.
   virtual void EmitCXXDestructors(const CXXDestructorDecl *D) = 0;
 
@@ -414,8 +422,7 @@ public:
 
   /// Build a virtual function pointer in the ABI-specific way.
   virtual CGCallee getVirtualFunctionPointer(CodeGenFunction &CGF,
-                                             GlobalDecl GD,
-                                             Address This,
+                                             GlobalDecl GD, Address This,
                                              llvm::Type *Ty,
                                              SourceLocation Loc) = 0;
 
@@ -434,6 +441,7 @@ public:
   /// base tables.
   virtual void emitVirtualInheritanceTables(const CXXRecordDecl *RD) = 0;
 
+  virtual bool exportThunk() = 0;
   virtual void setThunkLinkage(llvm::Function *Thunk, bool ForVTable,
                                GlobalDecl GD, bool ReturnAdjustment) = 0;
 
@@ -582,6 +590,13 @@ public:
   /// Emit a single constructor/destructor with the given type from a C++
   /// constructor Decl.
   virtual void emitCXXStructor(const CXXMethodDecl *MD, StructorType Type) = 0;
+
+  /// Load a vtable from This, an object of polymorphic type RD, or from one of
+  /// its virtual bases if it does not have its own vtable. Returns the vtable
+  /// and the class from which the vtable was loaded.
+  virtual std::pair<llvm::Value *, const CXXRecordDecl *>
+  LoadVTablePtr(CodeGenFunction &CGF, Address This,
+                const CXXRecordDecl *RD) = 0;
 };
 
 // Create an instance of a C++ ABI class:

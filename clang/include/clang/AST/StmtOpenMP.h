@@ -20,11 +20,6 @@
 #include "clang/AST/Stmt.h"
 #include "clang/Basic/OpenMPKinds.h"
 #include "clang/Basic/SourceLocation.h"
-#if INTEL_CUSTOMIZATION
-// Fix for CQ378452: Error when #pragma simd vectorlength(8) follows #pragma omp
-// parallel for
-#include "clang/Basic/intel/StmtIntel.h"
-#endif // INTEL_CUSTOMIZATION
 
 namespace clang {
 
@@ -198,16 +193,20 @@ public:
   bool hasAssociatedStmt() const { return NumChildren > 0; }
 
   /// \brief Returns statement associated with the directive.
-  Stmt *getAssociatedStmt() const {
+  const Stmt *getAssociatedStmt() const {
     assert(hasAssociatedStmt() && "no associated statement.");
-    return const_cast<Stmt *>(*child_begin());
+    return *child_begin();
+  }
+  Stmt *getAssociatedStmt() {
+    assert(hasAssociatedStmt() && "no associated statement.");
+    return *child_begin();
   }
 
   /// \brief Returns the captured statement associated with the
   /// component region within the (combined) directive.
   //
   // \param RegionKind Component region kind.
-  CapturedStmt *getCapturedStmt(OpenMPDirectiveKind RegionKind) const {
+  const CapturedStmt *getCapturedStmt(OpenMPDirectiveKind RegionKind) const {
     SmallVector<OpenMPDirectiveKind, 4> CaptureRegions;
     getOpenMPCaptureRegions(CaptureRegions, getDirectiveKind());
     assert(std::any_of(
@@ -221,6 +220,25 @@ public:
       CS = cast<CapturedStmt>(CS->getCapturedStmt());
     }
     llvm_unreachable("Incorrect RegionKind specified for directive.");
+  }
+
+  /// Get innermost captured statement for the construct.
+  CapturedStmt *getInnermostCapturedStmt() {
+    assert(hasAssociatedStmt() && getAssociatedStmt() &&
+           "Must have associated statement.");
+    SmallVector<OpenMPDirectiveKind, 4> CaptureRegions;
+    getOpenMPCaptureRegions(CaptureRegions, getDirectiveKind());
+    assert(!CaptureRegions.empty() &&
+           "At least one captured statement must be provided.");
+    auto *CS = cast<CapturedStmt>(getAssociatedStmt());
+    for (unsigned Level = CaptureRegions.size(); Level > 1; --Level)
+      CS = cast<CapturedStmt>(CS->getCapturedStmt());
+    return CS;
+  }
+
+  const CapturedStmt *getInnermostCapturedStmt() const {
+    return const_cast<OMPExecutableDirective *>(this)
+        ->getInnermostCapturedStmt();
   }
 
   OpenMPDirectiveKind getDirectiveKind() const { return Kind; }
@@ -611,10 +629,10 @@ public:
     /// Distribute Loop condition used when composing 'omp distribute'
     ///  with 'omp for' in a same construct
     Expr *Cond;
-    /// Update of LowerBound for statically sheduled omp loops for
+    /// Update of LowerBound for statically scheduled omp loops for
     /// outer loop in combined constructs (e.g. 'distribute parallel for')
     Expr *NLB;
-    /// Update of UpperBound for statically sheduled omp loops for
+    /// Update of UpperBound for statically scheduled omp loops for
     /// outer loop in combined constructs (e.g. 'distribute parallel for')
     Expr *NUB;
   };
@@ -648,9 +666,9 @@ public:
     Expr *ST;
     /// \brief EnsureUpperBound -- expression UB = min(UB, NumIterations).
     Expr *EUB;
-    /// \brief Update of LowerBound for statically sheduled 'omp for' loops.
+    /// \brief Update of LowerBound for statically scheduled 'omp for' loops.
     Expr *NLB;
-    /// \brief Update of UpperBound for statically sheduled 'omp for' loops.
+    /// \brief Update of UpperBound for statically scheduled 'omp for' loops.
     Expr *NUB;
     /// \brief PreviousLowerBound - local variable passed to runtime in the
     /// enclosing schedule or null if that does not apply.
@@ -904,27 +922,11 @@ public:
   }
   const Stmt *getBody() const {
     // This relies on the loop form is already checked by Sema.
-    const Stmt *Body = getAssociatedStmt()->IgnoreContainers(true);
-    while(const auto *CS = dyn_cast<CapturedStmt>(Body))
-      Body = CS->getCapturedStmt();
-
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ378452: Error when #pragma simd vectorlength(8) follows #pragma
-    // omp parallel for
-    if (auto *SIMDFor = dyn_cast<SIMDForStmt>(Body))
-      Body = SIMDFor->getBody()->getCapturedStmt();
-    else
-#endif // INTEL_CUSTOMIZATION
+    const Stmt *Body =
+        getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
     Body = cast<ForStmt>(Body)->getBody();
     for (unsigned Cnt = 1; Cnt < CollapsedNum; ++Cnt) {
       Body = Body->IgnoreContainers();
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ378452: Error when #pragma simd vectorlength(8) follows #pragma
-    // omp parallel for
-    if (auto *SIMDFor = dyn_cast<SIMDForStmt>(Body))
-      Body = SIMDFor->getBody()->getCapturedStmt();
-    else
-#endif // INTEL_CUSTOMIZATION
       Body = cast<ForStmt>(Body)->getBody();
     }
     return Body;
@@ -983,7 +985,9 @@ public:
            T->getStmtClass() ==
                OMPTargetTeamsDistributeParallelForDirectiveClass ||
            T->getStmtClass() ==
-               OMPTargetTeamsDistributeParallelForSimdDirectiveClass;
+               OMPTargetTeamsDistributeParallelForSimdDirectiveClass ||
+           T->getStmtClass() == OMPTargetTeamsDistributeDirectiveClass ||
+           T->getStmtClass() == OMPTargetTeamsDistributeSimdDirectiveClass;
   }
 };
 

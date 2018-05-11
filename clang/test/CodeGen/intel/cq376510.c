@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -verify %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -triple x86_64-unknown-linux-gnu -verify %s -emit-llvm -o - | FileCheck %s
 //
 // intel-clang emits a warning, not an error, if function declaration has a
 // parameter list without types. CQ#376510.

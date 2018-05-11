@@ -1,18 +1,20 @@
-target datalayout = "e-m:e-p:32:32-i64:64-n32:64-S128"
 target triple = "wasm32-unknown-unknown-wasm"
 
-@indirect_bar = hidden local_unnamed_addr global i32 ()* @bar, align 4
+@indirect_bar = internal local_unnamed_addr global i64 ()* @bar, align 4
+@indirect_foo = internal local_unnamed_addr global i32 ()* @foo, align 4
 
-; Function Attrs: norecurse nounwind readnone
-define hidden i32 @bar() #0 {
+declare i32 @foo() local_unnamed_addr
+
+define i64 @bar() {
 entry:
-  ret i32 1
+  ret i64 1
 }
 
-; Function Attrs: nounwind
-define hidden void @call_bar_indirect() local_unnamed_addr #1 {
+define void @call_bar_indirect() local_unnamed_addr #1 {
 entry:
-  %0 = load i32 ()*, i32 ()** @indirect_bar, align 4
-  %call = tail call i32 %0() #2
+  %0 = load i64 ()*, i64 ()** @indirect_bar, align 4
+  %1 = load i32 ()*, i32 ()** @indirect_foo, align 4
+  %call0 = tail call i64 %0() #2
+  %call1 = tail call i32 %1() #2
   ret void
 }

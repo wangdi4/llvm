@@ -1,4 +1,3 @@
-// REQUIRES: llvm-backend
 // RUN: %clang_cc1 %s -fsyntax-only -verify -std=c++11 -fcxx-exceptions
 // RUN: %clang_cc1 %s -fsyntax-only -verify -std=c++1z -fcxx-exceptions
 typedef const struct __CFString * CFStringRef;

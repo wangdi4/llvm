@@ -21,9 +21,6 @@
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtOpenMP.h"
-#if INTEL_SPECIFIC_CILKPLUS
-#include "clang/Basic/intel/StmtIntel.h"
-#endif // INTEL_SPECIFIC_CILKPLUS
 #include "clang/Basic/LLVM.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -68,6 +65,7 @@ public:
       case BO_GE:        DISPATCH(BinGE,        BinaryOperator);
       case BO_EQ:        DISPATCH(BinEQ,        BinaryOperator);
       case BO_NE:        DISPATCH(BinNE,        BinaryOperator);
+      case BO_Cmp:       DISPATCH(BinCmp,       BinaryOperator);
 
       case BO_And:       DISPATCH(BinAnd,       BinaryOperator);
       case BO_Xor:       DISPATCH(BinXor,       BinaryOperator);
@@ -135,6 +133,8 @@ public:
 
   BINOP_FALLBACK(LT)    BINOP_FALLBACK(GT)   BINOP_FALLBACK(LE)
   BINOP_FALLBACK(GE)    BINOP_FALLBACK(EQ)   BINOP_FALLBACK(NE)
+  BINOP_FALLBACK(Cmp)
+
   BINOP_FALLBACK(And)   BINOP_FALLBACK(Xor)  BINOP_FALLBACK(Or)
   BINOP_FALLBACK(LAnd)  BINOP_FALLBACK(LOr)
 

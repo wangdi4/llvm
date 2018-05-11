@@ -127,6 +127,9 @@ set(LIBCXXABI_TARGETS)
 # Build the shared library.
 if (LIBCXXABI_ENABLE_SHARED)
   add_library(cxxabi_shared SHARED $<TARGET_OBJECTS:cxxabi_objects>)
+  if(COMMAND llvm_setup_rpath)
+    llvm_setup_rpath(cxxabi_shared)
+  endif()
   target_link_libraries(cxxabi_shared ${LIBCXXABI_LIBRARIES})
   set_target_properties(cxxabi_shared
                         PROPERTIES
@@ -191,6 +194,12 @@ if (NOT CMAKE_CONFIGURATION_TYPES AND LIBCXXABI_INSTALL_LIBRARY)
     DEPENDS cxxabi
     COMMAND "${CMAKE_COMMAND}"
             -DCMAKE_INSTALL_COMPONENT=cxxabi
+            -P "${LIBCXXABI_BINARY_DIR}/cmake_install.cmake")
+  add_custom_target(install-cxxabi-stripped
+    DEPENDS cxxabi
+    COMMAND "${CMAKE_COMMAND}"
+            -DCMAKE_INSTALL_COMPONENT=cxxabi
+            -DCMAKE_INSTALL_DO_STRIP=1
             -P "${LIBCXXABI_BINARY_DIR}/cmake_install.cmake")
 
   # TODO: This is a legacy target name and should be removed at some point.

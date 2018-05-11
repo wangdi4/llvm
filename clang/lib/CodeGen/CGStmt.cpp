@@ -27,11 +27,6 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Intrinsics.h"
-#if INTEL_SPECIFIC_CILKPLUS
-#include "intel/CGCilkPlusRuntime.h"
-#include "clang/Basic/CapturedStmt.h"
-#include "llvm/IR/TypeBuilder.h"
-#endif // INTEL_SPECIFIC_CILKPLUS
 #include "llvm/IR/MDBuilder.h"
 
 using namespace clang;
@@ -80,7 +75,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   // Generate a stoppoint if we are emitting debug info.
   EmitStopPoint(S);
 
-#if INTEL_SPECIFIC_OPENMP
+#if INTEL_CUSTOMIZATION
   if (CGM.getLangOpts().IntelCompat &&
       (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion)) {
     if (S->getStmtClass() == Stmt::OMPSimdDirectiveClass)
@@ -106,22 +101,24 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
        if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
          return EmitIntelOpenMPDirective(*Dir);
   }
-#endif // INTEL_SPECIFIC_OPENMP
+#endif // INTEL_CUSTOMIZATION
+
+  // Ignore all OpenMP directives except for simd if OpenMP with Simd is
+  // enabled.
+  if (getLangOpts().OpenMP && getLangOpts().OpenMPSimd) {
+    if (const auto *D = dyn_cast<OMPExecutableDirective>(S)) {
+      EmitSimpleOMPExecutableDirective(*D);
+      return;
+    }
+  }
 
   switch (S->getStmtClass()) {
-#if INTEL_CUSTOMIZATION
-  case Stmt::PragmaStmtClass:
-    llvm_unreachable("should have emitted this statement as simple");
-#endif  // INTEL_CUSTOMIZATION
   case Stmt::NoStmtClass:
   case Stmt::CXXCatchStmtClass:
   case Stmt::SEHExceptStmtClass:
   case Stmt::SEHFinallyStmtClass:
   case Stmt::MSDependentExistsStmtClass:
     llvm_unreachable("invalid statement class to emit generically");
-#if INTEL_SPECIFIC_CILKPLUS
-  case Stmt::CilkSyncStmtClass:
-#endif // INTEL_SPECIFIC_CILKPLUS
   case Stmt::NullStmtClass:
   case Stmt::CompoundStmtClass:
   case Stmt::DeclStmtClass:
@@ -224,20 +221,6 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   case Stmt::SEHTryStmtClass:
     EmitSEHTryStmt(cast<SEHTryStmt>(*S));
     break;
-#if INTEL_SPECIFIC_CILKPLUS
-  case Stmt::CilkForGrainsizeStmtClass:
-    EmitCilkForGrainsizeStmt(cast<CilkForGrainsizeStmt>(*S));
-    break;
-  case Stmt::CilkForStmtClass:
-    EmitCilkForStmt(cast<CilkForStmt>(*S));
-    break;
-  case Stmt::SIMDForStmtClass:
-    EmitSIMDForStmt(cast<SIMDForStmt>(*S));
-    break;
-  case Stmt::CilkRankedStmtClass:
-    EmitCilkRankedStmt(cast<CilkRankedStmt>(*S));
-    break;
-#endif // INTEL_SPECIFIC_CILKPLUS
   case Stmt::OMPParallelDirectiveClass:
     EmitOMPParallelDirective(cast<OMPParallelDirective>(*S));
     break;
@@ -395,13 +378,6 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 bool CodeGenFunction::EmitSimpleStmt(const Stmt *S) {
   switch (S->getStmtClass()) {
   default: return false;
-#if INTEL_SPECIFIC_CILKPLUS
-  case Stmt::CilkSyncStmtClass:
-    CGM.getCilkPlusRuntime().EmitCilkSync(*this); break;
-#endif // INTEL_SPECIFIC_CILKPLUS
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  case Stmt::PragmaStmtClass:   EmitPragmaStmt(cast<PragmaStmt>(*S));     break;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
   case Stmt::NullStmtClass: break;
   case Stmt::CompoundStmtClass: EmitCompoundStmt(cast<CompoundStmt>(*S)); break;
   case Stmt::DeclStmtClass:     EmitDeclStmt(cast<DeclStmt>(*S));         break;
@@ -661,47 +637,74 @@ CodeGenFunction::IntelPragmaInlineState::getPragmaInlineAttribute() {
 CodeGenFunction::IntelIVDepArrayHandler::IntelIVDepArrayHandler(
     CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
     : CGF(CGF), CallEntry(nullptr) {
-  auto AttrItr =
-      std::find_if(std::begin(Attrs), std::end(Attrs), [](const Attr *A) {
-        return A->getKind() == attr::LoopHint &&
-               cast<LoopHintAttr>(A)->getLoopExprValue();
-      });
 
-  if (AttrItr == std::end(Attrs))
-    return;
+  SmallVector<llvm::Value *, 4> BundleValues;
+  for (auto A : Attrs) {
+    if (const auto *LHAttr = dyn_cast<LoopHintAttr>(A)) {
+      if (const Expr *E = LHAttr->getLoopExprValue()) {
+        assert(E->isGLValue());
+        BundleValues.push_back(CGF.EmitLValue(E).getPointer());
+      }
+    }
+  }
 
-  // Since only one array expression is allowed, it's the first found.
-  auto *LHAttr = cast<LoopHintAttr>(*AttrItr);
-  Expr *E = LHAttr->getLoopExprValue();
-  assert(E->isGLValue());
-  llvm::Value *Val = CGF.EmitLValue(E).getPointer();
+  if (!BundleValues.empty()) {
+    SmallVector<llvm::OperandBundleDef, 8> OpBundles{
+     llvm::OperandBundleDef("DIR.PRAGMA.IVDEP", ArrayRef<llvm::Value *>{}),
+     llvm::OperandBundleDef("QUAL.PRAGMA.ARRAY", BundleValues)};
 
-  SmallVector<llvm::Value *, 1> BundleValues;
-  SmallVector<llvm::OperandBundleDef, 8> OpBundles;
-  llvm::OperandBundleDef B1("DIR.PRAGMA.IVDEP", BundleValues);
-  OpBundles.push_back(B1);
-  BundleValues.push_back(Val);
-  llvm::OperandBundleDef B2("QUAL.PRAGMA.ARRAY", BundleValues);
-  OpBundles.push_back(B2);
-  SmallVector<llvm::Value *, 1> CallArgs;
-  CallEntry = CGF.Builder.CreateCall(
-      CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), CallArgs,
-      OpBundles);
-  CallEntry->setCallingConv(CGF.getRuntimeCC());
+    CallEntry = CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), {},
+        OpBundles);
+  }
 }
 
 CodeGenFunction::IntelIVDepArrayHandler::~IntelIVDepArrayHandler() {
   if (CallEntry) {
-    SmallVector<llvm::Value *, 1> BundleValues;
-    SmallVector<llvm::OperandBundleDef, 1> OpBundles;
-    llvm::OperandBundleDef B1("DIR.PRAGMA.END.IVDEP", BundleValues);
-    OpBundles.push_back(B1);
-    SmallVector<llvm::Value *, 1> CallArgs;
-    CallArgs.push_back(CallEntry);
-    auto *CallExit = CGF.Builder.CreateCall(
-        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit), CallArgs,
-        OpBundles);
-    CallExit->setCallingConv(CGF.getRuntimeCC());
+    SmallVector<llvm::OperandBundleDef, 1> OpBundles{
+      llvm::OperandBundleDef("DIR.PRAGMA.END.IVDEP",
+                             ArrayRef<llvm::Value *>{})};
+
+    CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
+        SmallVector<llvm::Value *, 1>{CallEntry}, OpBundles);
+  }
+}
+
+CodeGenFunction::DistributePointHandler::DistributePointHandler(
+    CodeGenFunction &CGF, const Stmt *S, ArrayRef<const Attr *> Attrs)
+    : CGF(CGF), CallEntry(nullptr) {
+  // Pragma on loop statements get loop meta-data generated elsewhere
+  // We can't handle distribute_point on statements with OpenMP pragmas either
+  if (S->getStmtClass() == Stmt::WhileStmtClass ||
+      S->getStmtClass() == Stmt::DoStmtClass ||
+      S->getStmtClass() == Stmt::ForStmtClass ||
+      S->getStmtClass() == Stmt::CXXForRangeStmtClass ||
+      dyn_cast<OMPLoopDirective>(S))
+    return;
+
+  auto AttrItr =
+      std::find_if(std::begin(Attrs), std::end(Attrs), [](const Attr *A) {
+        return A->getKind() == attr::LoopHint &&
+               cast<LoopHintAttr>(A)->getOption() == LoopHintAttr::Distribute;
+      });
+  if (AttrItr == std::end(Attrs))
+    return;
+
+  SmallVector<llvm::OperandBundleDef, 1> OpBundles{llvm::OperandBundleDef{
+      "DIR.PRAGMA.DISTRIBUTE_POINT", ArrayRef<llvm::Value *>{}}};
+  CallEntry = CGF.Builder.CreateCall(
+      CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry),
+      ArrayRef<llvm::Value *>{}, OpBundles);
+}
+
+CodeGenFunction::DistributePointHandler::~DistributePointHandler() {
+  if (CallEntry) {
+    SmallVector<llvm::OperandBundleDef, 1> OpBundles{llvm::OperandBundleDef{
+        "DIR.PRAGMA.END.DISTRIBUTE_POINT", ArrayRef<llvm::Value *>{}}};
+    CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
+        ArrayRef<llvm::Value *>{CallEntry}, OpBundles);
   }
 }
 #endif // INTEL_CUSTOMIZATION
@@ -710,6 +713,7 @@ void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
 #if INTEL_CUSTOMIZATION
   IntelPragmaInlineState PS(*this, S.getAttrs());
   IntelIVDepArrayHandler IAH(*this, S.getAttrs());
+  DistributePointHandler DPH(*this, S.getSubStmt(), S.getAttrs());
 #endif // INTEL_CUSTOMIZATION
   EmitStmt(S.getSubStmt(), S.getAttrs());
 }
@@ -755,7 +759,7 @@ void CodeGenFunction::EmitIfStmt(const IfStmt &S) {
     EmitStmt(S.getInit());
 
   if (S.getConditionVariable())
-    EmitAutoVarDecl(*S.getConditionVariable());
+    EmitDecl(*S.getConditionVariable());
 
   // If the condition constant folds and can be elided, try to avoid emitting
   // the condition and the dead arm of the if/else.
@@ -852,7 +856,7 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
   RunCleanupsScope ConditionScope(*this);
 
   if (S.getConditionVariable())
-    EmitAutoVarDecl(*S.getConditionVariable());
+    EmitDecl(*S.getConditionVariable());
 
   // Evaluate the conditional in the while header.  C99 6.8.5.1: The
   // evaluation of the controlling expression takes place before each
@@ -1012,7 +1016,7 @@ void CodeGenFunction::EmitForStmt(const ForStmt &S,
     // If the for statement has a condition scope, emit the local variable
     // declaration.
     if (S.getConditionVariable()) {
-      EmitAutoVarDecl(*S.getConditionVariable());
+      EmitDecl(*S.getConditionVariable());
     }
 
     llvm::BasicBlock *ExitBlock = LoopExit.getBlock();
@@ -1152,7 +1156,9 @@ void CodeGenFunction::EmitReturnOfRValue(RValue RV, QualType Ty) {
   if (RV.isScalar()) {
     Builder.CreateStore(RV.getScalarVal(), ReturnValue);
   } else if (RV.isAggregate()) {
-    EmitAggregateCopy(ReturnValue, RV.getAggregateAddress(), Ty);
+    LValue Dest = MakeAddrLValue(ReturnValue, Ty);
+    LValue Src = MakeAddrLValue(RV.getAggregateAddress(), Ty);
+    EmitAggregateCopy(Dest, Src, Ty, overlapForReturnValue());
   } else {
     EmitStoreOfComplex(RV.getComplexVal(), MakeAddrLValue(ReturnValue, Ty),
                        /*init*/ true);
@@ -1213,7 +1219,7 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
     Builder.ClearInsertionPoint();
   }
 
-  // Emit the result value, even if unused, to evalute the side effects.
+  // Emit the result value, even if unused, to evaluate the side effects.
   const Expr *RV = S.getRetValue();
 
   // Treat block literals in a return expression as if they appeared
@@ -1282,11 +1288,12 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
                                 /*isInit*/ true);
       break;
     case TEK_Aggregate:
-      EmitAggExpr(RV, AggValueSlot::forAddr(ReturnValue,
-                                            Qualifiers(),
-                                            AggValueSlot::IsDestructed,
-                                            AggValueSlot::DoesNotNeedGCBarriers,
-                                            AggValueSlot::IsNotAliased));
+      EmitAggExpr(RV, AggValueSlot::forAddr(
+                          ReturnValue, Qualifiers(),
+                          AggValueSlot::IsDestructed,
+                          AggValueSlot::DoesNotNeedGCBarriers,
+                          AggValueSlot::IsNotAliased,
+                          overlapForReturnValue()));
       break;
     }
   }
@@ -1305,13 +1312,8 @@ void CodeGenFunction::EmitDeclStmt(const DeclStmt &S) {
   if (HaveInsertPoint())
     EmitStopPoint(&S);
 
-  for (const auto *I : S.decls()) { // INTEL
+  for (const auto *I : S.decls())
     EmitDecl(*I);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-    if (I->hasAttr<AvoidFalseShareAttr>())
-      EmitIntelAttribute(*I);
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-  }                                 // INTEL
 }
 
 void CodeGenFunction::EmitBreakStmt(const BreakStmt &S) {
@@ -1776,7 +1778,7 @@ void CodeGenFunction::EmitSwitchStmt(const SwitchStmt &S) {
       // Emit the condition variable if needed inside the entire cleanup scope
       // used by this special case for constant folded switches.
       if (S.getConditionVariable())
-        EmitAutoVarDecl(*S.getConditionVariable());
+        EmitDecl(*S.getConditionVariable());
 
       // At this point, we are no longer "within" a switch instance, so
       // we can temporarily enforce this to ensure that any embedded case
@@ -1805,7 +1807,7 @@ void CodeGenFunction::EmitSwitchStmt(const SwitchStmt &S) {
     EmitStmt(S.getInit());
 
   if (S.getConditionVariable())
-    EmitAutoVarDecl(*S.getConditionVariable());
+    EmitDecl(*S.getConditionVariable());
   llvm::Value *CondV = EmitScalarExpr(S.getCond());
 
   // Create basic block to hold stuff that comes after switch
@@ -2149,7 +2151,7 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
     // Simplify the output constraint.
     std::string OutputConstraint(S.getOutputConstraint(i));
     OutputConstraint = SimplifyConstraint(OutputConstraint.c_str() + 1,
-                                          getTarget());
+                                          getTarget(), &OutputConstraintInfos);
 
     const Expr *OutExpr = S.getOutputExpr(i);
     OutExpr = OutExpr->IgnoreParenNoopCasts(getContext());
@@ -2356,7 +2358,8 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
   llvm::InlineAsm *IA =
     llvm::InlineAsm::get(FTy, AsmString, Constraints, HasSideEffect,
                          /* IsAlignStack */ false, AsmDialect);
-  llvm::CallInst *Result = Builder.CreateCall(IA, Args);
+  llvm::CallInst *Result =
+      Builder.CreateCall(IA, Args, getBundlesForFunclet(IA));
   Result->addAttribute(llvm::AttributeList::FunctionIndex,
                        llvm::Attribute::NoUnwind);
 
@@ -2509,9 +2512,6 @@ CodeGenFunction::GenerateCapturedStmtFunction(const CapturedStmt &S) {
   llvm::Function *F =
     llvm::Function::Create(FuncLLVMTy, llvm::GlobalValue::InternalLinkage,
                            CapturedStmtInfo->getHelperName(), &CGM.getModule());
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  CGM.registerAsMangled(F->getName(), CD);
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
   CGM.SetInternalFunctionAttributes(CD, F, FuncInfo);
   if (CD->isNothrow())
     F->addFnAttr(llvm::Attribute::NoUnwind);

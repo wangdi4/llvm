@@ -1,15 +1,20 @@
 //RUN: %clang_cc1 -fhls -emit-llvm -o - %s | FileCheck %s
+//RUN: %clang_cc1 -fhls -debug-info-kind=limited -emit-llvm -o - %s
 
-//CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{numbanks:4}{bank_bits:4,5}
-//CHECK: [[ANN3:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{numreadports:2}{numwriteports:3}
+//CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numbanks:4}{bank_bits:4,5}
+//CHECK: [[ANN2A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numbanks:4}{bank_bits:5,4}
+//CHECK: [[ANN3:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numreadports:2}{numwriteports:3}
 //CHECK: [[ANN4:@.str[\.]*[0-9]*]] = {{.*}}{register:1}
-//CHECK: [[ANN5:@.str[\.]*[0-9]*]] = {{.*}}{register:0}
-//CHECK: [[ANN6:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{bankwidth:4}
-//CHECK: [[ANN7:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{pump:1}
-//CHECK: [[ANN8:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{pump:2}
-//CHECK: [[ANN9:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{merge:foo:depth}
-//CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{merge:bar:width}
-//CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{register:0}{pump:1}{bankwidth:4}{numbanks:8}{numreadports:2}{numwriteports:3}{bank_bits:2,3,4}{merge:merge_foo_one:depth}
+//CHECK: [[ANN5:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}
+//CHECK: [[ANN5A:@.str[\.]*[0-9]*]] = {{.*}}{memory:MLAB}
+//CHECK: [[ANN5B:@.str[\.]*[0-9]*]] = {{.*}}{memory:BLOCK_RAM}
+//CHECK: [[ANN6:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{bankwidth:4}
+//CHECK: [[ANN7:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:1}
+//CHECK: [[ANN8:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:2}
+//CHECK: [[ANN9:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:foo:depth}
+//CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:bar:width}
+//CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:1}{bankwidth:4}{numbanks:8}{numreadports:2}{numwriteports:3}{bank_bits:2,3,4}{merge:merge_foo_one:depth}
+//CHECK: [[ANN1A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numbanks:8}{bank_bits:4,3,2}
 
 __attribute__((ihc_component))
 void foo_two() {
@@ -19,6 +24,8 @@ void foo_two() {
   int __attribute__((numbanks(4),bank_bits(4,5))) var_three;
   //CHECK: llvm.var.annotation{{.*}}var_four{{.*}}[[ANN2]]
   int __attribute__((bank_bits(4,5),numbanks(4))) var_four;
+  //CHECK: llvm.var.annotation{{.*}}var_four_A{{.*}}[[ANN2A]]
+  int __attribute__((bank_bits(5,4),numbanks(4))) var_four_A;
   //CHECK: llvm.var.annotation{{.*}}var_five{{.*}}[[ANN3]]
   int __attribute__((numports_readonly_writeonly(2,3))) var_five;
   //CHECK: llvm.var.annotation{{.*}}var_six{{.*}}[[ANN3]]
@@ -27,6 +34,10 @@ void foo_two() {
   int __attribute__((register)) var_seven;
   //CHECK: llvm.var.annotation{{.*}}var_eight{{.*}}[[ANN5]]
   int __attribute__((__memory__)) var_eight;
+  //CHECK: llvm.var.annotation{{.*}}var_eightA{{.*}}[[ANN5A]]
+  int __attribute__((__memory__("MLAB"))) var_eightA;
+  //CHECK: llvm.var.annotation{{.*}}var_eightB{{.*}}[[ANN5B]]
+  int __attribute__((__memory__("BLOCK_RAM"))) var_eightB;
   //CHECK: llvm.var.annotation{{.*}}var_nine{{.*}}[[ANN6]]
   int __attribute__((__bankwidth__(4))) var_nine;
   //CHECK: llvm.var.annotation{{.*}}var_ten{{.*}}[[ANN7]]
@@ -54,7 +65,19 @@ void foo_one()
 //CHECK: define{{.*}}foo_one{{.*}}!ihc_component
 //CHECK: llvm.var.annotation{{.*}}var_one{{.*}}[[ANN1]]
 
+template <int numbanks, int bit>
+__attribute__((ihc_component))
+void foo_two()
+{
+  __attribute__((numbanks(numbanks), __bank_bits__(4,bit,2)))
+  int var_two;
+}
+
+//CHECK: define{{.*}}foo_two{{.*}}!ihc_component
+//CHECK: llvm.var.annotation{{.*}}var_two{{.*}}[[ANN1A]]
+
 void call()
 {
   foo_one<4,8,2,3,2,3,4>();
+  foo_two<8,3>();
 }

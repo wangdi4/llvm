@@ -195,9 +195,6 @@ public:
   bool VisitChildren(CXCursor Parent);
 
   // Declaration visitors
-#if INTEL_CUSTOMIZATION
-  bool VisitPragmaDecl(PragmaDecl *);
-#endif  // INTEL_CUSTOMIZATION
   bool VisitTypeAliasTemplateDecl(TypeAliasTemplateDecl *D);
   bool VisitTypeAliasDecl(TypeAliasDecl *D);
   bool VisitAttributes(Decl *D);

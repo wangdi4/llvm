@@ -1,9 +1,5 @@
 # CMake build for CompilerRT.
 #
-# This build assumes that CompilerRT is checked out into the
-# 'projects/compiler-rt' or 'runtimes/compiler-rt' inside of an LLVM tree.
-# Standalone build system for CompilerRT is not yet ready.
-#
 # An important constraint of the build is that it only produces libraries
 # based on the ability of the host toolchain to target various platforms.
 
@@ -156,11 +152,15 @@ endif()
 
 if (SANITIZER_CXX_ABI_LIBNAME STREQUAL "libcxxabi")
   if (SANITIZER_CXX_ABI_INTREE)
-    if (TARGET unwind_shared OR HAVE_LIBUNWIND)
+    if (NOT LIBCXXABI_ENABLE_STATIC_UNWINDER AND (TARGET unwind_shared OR HAVE_LIBUNWIND))
       list(APPEND SANITIZER_CXX_ABI_LIBRARY unwind_shared)
+    elseif (LIBCXXABI_ENABLE_STATIC_UNWINDER AND (TARGET unwind_static OR HAVE_LIBUNWIND))
+      list(APPEND SANITIZER_CXX_ABI_LIBRARY unwind_static)
     endif()
-    if (TARGET cxxabi_shared OR HAVE_LIBCXXABI)
+    if (NOT LIBCXX_ENABLE_STATIC_ABI_LIBRARY AND (TARGET cxxabi_shared OR HAVE_LIBCXXABI))
       list(APPEND SANITIZER_CXX_ABI_LIBRARY cxxabi_shared)
+    elseif (LIBCXX_ENABLE_STATIC_ABI_LIBRARY AND (TARGET cxxabi_static OR HAVE_LIBCXXABI))
+      list(APPEND SANITIZER_CXX_ABI_LIBRARY cxxabi_static)
     endif()
   else()
     list(APPEND SANITIZER_CXX_ABI_LIBRARY "c++abi")
@@ -343,22 +343,20 @@ if (CMAKE_LINKER MATCHES "link.exe$")
   # it, but CMake doesn't seem to have a way to set linker flags for
   # individual static libraries, so we enable the suppression flag for
   # the whole compiler-rt project.
-  append("/IGNORE:4221" CMAKE_STATIC_LINKER_FLAGS)
+  set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} /IGNORE:4221")
 endif()
 
 add_subdirectory(include)
 
-set(COMPILER_RT_LIBCXX_PATH ${LLVM_MAIN_SRC_DIR}/projects/libcxx)
-if(EXISTS ${COMPILER_RT_LIBCXX_PATH}/)
-  set(COMPILER_RT_HAS_LIBCXX_SOURCES TRUE)
-else()
-  set(COMPILER_RT_LIBCXX_PATH ${LLVM_MAIN_SRC_DIR}/../libcxx)
-  if(EXISTS ${COMPILER_RT_LIBCXX_PATH}/)
-    set(COMPILER_RT_HAS_LIBCXX_SOURCES TRUE)
-  else()
-    set(COMPILER_RT_HAS_LIBCXX_SOURCES FALSE)
+foreach(path IN ITEMS ${LLVM_MAIN_SRC_DIR}/projects/libcxx
+                      ${LLVM_MAIN_SRC_DIR}/runtimes/libcxx
+                      ${LLVM_MAIN_SRC_DIR}/../libcxx
+                      ${LLVM_EXTERNAL_LIBCXX_SOURCE_DIR})
+  if(IS_DIRECTORY ${path})
+    set(COMPILER_RT_LIBCXX_PATH ${path})
+    break()
   endif()
-endif()
+endforeach()
 
 set(COMPILER_RT_LLD_PATH ${LLVM_MAIN_SRC_DIR}/tools/lld)
 if(EXISTS ${COMPILER_RT_LLD_PATH}/ AND LLVM_TOOL_LLD_BUILD)

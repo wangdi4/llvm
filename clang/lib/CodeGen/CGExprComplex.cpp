@@ -155,23 +155,14 @@ public:
   }
   ComplexPairTy VisitOpaqueValueExpr(OpaqueValueExpr *E) {
     if (E->isGLValue())
-      return EmitLoadOfLValue(CGF.getOpaqueLValueMapping(E), E->getExprLoc());
-    return CGF.getOpaqueRValueMapping(E).getComplexVal();
+      return EmitLoadOfLValue(CGF.getOrCreateOpaqueLValueMapping(E),
+                              E->getExprLoc());
+    return CGF.getOrCreateOpaqueRValueMapping(E).getComplexVal();
   }
 
   ComplexPairTy VisitPseudoObjectExpr(PseudoObjectExpr *E) {
     return CGF.EmitPseudoObjectRValue(E).getComplexVal();
   }
-#if INTEL_SPECIFC_CILKPLUS
-  ComplexPairTy VisitCEANBuiltinExpr(CEANBuiltinExpr *E) {
-    CodeGenFunction::LocalVarsDeclGuard Guard(CGF);
-    CGF.EmitCEANBuiltinExprBody(E);
-    if (E->getBuiltinKind() != CEANBuiltinExpr::ReduceMutating)
-      return E->getReturnExpr()->isRValue() ? Visit(E->getReturnExpr()) :
-                                              EmitLoadOfLValue(E->getReturnExpr());
-    return ComplexPairTy();
-  }
-#endif // INTEL_SPECIFC_CILKPLUS
   // FIXME: CompoundLiteralExpr
 
   ComplexPairTy EmitCast(CastKind CK, Expr *Op, QualType DestTy);
@@ -637,7 +628,7 @@ ComplexPairTy ComplexExprEmitter::EmitComplexBinOpLibCall(StringRef LibCallName,
 
   llvm::Instruction *Call;
   RValue Res = CGF.EmitCall(FuncInfo, Callee, ReturnValueSlot(), Args, &Call);
-  cast<llvm::CallInst>(Call)->setCallingConv(CGF.CGM.getBuiltinCC());
+  cast<llvm::CallInst>(Call)->setCallingConv(CGF.CGM.getRuntimeCC());
   return Res.getComplexVal();
 }
 
@@ -679,19 +670,6 @@ ComplexPairTy ComplexExprEmitter::EmitBinMul(const BinOpInfo &Op) {
     // still more of this within the type system.
 
     if (Op.LHS.second && Op.RHS.second) {
-#if INTEL_CUSTOMIZATION
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-      // Simplify complex dtype recognition in the LLVM->IL0 translator.
-      // Just emit call to 'mul' function. It will be pattern matched and
-      // translated to EXPR_MUL, without any calls.
-      // Need to re-visit this if/when LLVM IR will have special types for
-      // complex numbers.
-      if (CGF.getLangOpts().IntelCompat)
-        return EmitComplexBinOpLibCall(
-            getComplexMultiplyLibCallName(Op.LHS.first->getType()), Op);
-#endif // INTEL_SPECIFIC_IL0_BACKEND
-#endif // INTEL_CUSTOMIZATION
-
       // If both operands are complex, emit the core math directly, and then
       // test for NaNs. If we find NaNs in the result, we delegate to a libcall
       // to carefully re-compute the correct infinity representation if
@@ -783,16 +761,16 @@ ComplexPairTy ComplexExprEmitter::EmitBinDiv(const BinOpInfo &Op) {
   llvm::Value *LHSr = Op.LHS.first, *LHSi = Op.LHS.second;
   llvm::Value *RHSr = Op.RHS.first, *RHSi = Op.RHS.second;
 
-
   llvm::Value *DSTr, *DSTi;
-
   if (LHSr->getType()->isFloatingPointTy()) {
-    // If we have a complex operand on the RHS, we delegate to a libcall to
-    // handle all of the complexities and minimize underflow/overflow cases.
+    // If we have a complex operand on the RHS and FastMath is not allowed, we
+    // delegate to a libcall to handle all of the complexities and minimize
+    // underflow/overflow cases. When FastMath is allowed we construct the
+    // divide inline using the same algorithm as for integer operands.
     //
     // FIXME: We would be able to avoid the libcall in many places if we
     // supported imaginary types in addition to complex types.
-    if (RHSi) {
+    if (RHSi && !CGF.getLangOpts().FastMath) {
       BinOpInfo LibCallOp = Op;
       // If LHS was a real, supply a null imaginary part.
       if (!LHSi)
@@ -814,10 +792,31 @@ ComplexPairTy ComplexExprEmitter::EmitBinDiv(const BinOpInfo &Op) {
       case llvm::Type::FP128TyID:
         return EmitComplexBinOpLibCall("__divtc3", LibCallOp);
       }
+    } else if (RHSi) {
+      if (!LHSi)
+        LHSi = llvm::Constant::getNullValue(RHSi->getType());
+
+      // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
+      llvm::Value *AC = Builder.CreateFMul(LHSr, RHSr); // a*c
+      llvm::Value *BD = Builder.CreateFMul(LHSi, RHSi); // b*d
+      llvm::Value *ACpBD = Builder.CreateFAdd(AC, BD); // ac+bd
+
+      llvm::Value *CC = Builder.CreateFMul(RHSr, RHSr); // c*c
+      llvm::Value *DD = Builder.CreateFMul(RHSi, RHSi); // d*d
+      llvm::Value *CCpDD = Builder.CreateFAdd(CC, DD); // cc+dd
+
+      llvm::Value *BC = Builder.CreateFMul(LHSi, RHSr); // b*c
+      llvm::Value *AD = Builder.CreateFMul(LHSr, RHSi); // a*d
+      llvm::Value *BCmAD = Builder.CreateFSub(BC, AD); // bc-ad
+
+      DSTr = Builder.CreateFDiv(ACpBD, CCpDD);
+      DSTi = Builder.CreateFDiv(BCmAD, CCpDD);
+    } else {
+      assert(LHSi && "Can have at most one non-complex operand!");
+
+      DSTr = Builder.CreateFDiv(LHSr, RHSr);
+      DSTi = Builder.CreateFDiv(LHSi, RHSr);
     }
-    assert(LHSi && "Can have at most one non-complex operand!");
-    DSTr = Builder.CreateFDiv(LHSr, RHSr);
-    DSTi = Builder.CreateFDiv(LHSi, RHSr);
   } else {
     assert(Op.LHS.second && Op.RHS.second &&
            "Both operands of integer complex operators must be complex!");
@@ -883,17 +882,6 @@ EmitCompoundAssignLValue(const CompoundAssignOperator *E,
   OpInfo.Ty = E->getComputationResultType();
   QualType ComplexElementTy = cast<ComplexType>(OpInfo.Ty)->getElementType();
 
-#if INTEL_SPECIFIC_CILKPLUS
-  LValue LHS;
-
-  // Cilk Plus needs the LHS evaluated first to handle cases such as
-  // array[f()] = _Cilk_spawn foo();
-  // This evaluation order requirement implies that _Cilk_spawn cannot
-  // spawn Objective C block calls.
-  if (CGF.getLangOpts().CilkPlus &&  E->getRHS()->isCilkSpawn())
-    LHS = CGF.EmitLValue(E->getLHS());
-#endif // INTEL_SPECIFIC_CILKPLUS
-
   // The RHS should have been converted to the computation type.
   if (E->getRHS()->getType()->isRealFloatingType()) {
     assert(
@@ -906,12 +894,7 @@ EmitCompoundAssignLValue(const CompoundAssignOperator *E,
     OpInfo.RHS = Visit(E->getRHS());
   }
 
-#if INTEL_SPECIFIC_CILKPLUS
-  if (!(CGF.getLangOpts().CilkPlus &&  E->getRHS()->isCilkSpawn()))
-    LHS = CGF.EmitLValue(E->getLHS());
-#else
   LValue LHS = CGF.EmitLValue(E->getLHS());
-#endif // INTEL_SPECIFIC_CILKPLUS
 
   // Load from the l-value and convert it.
   SourceLocation Loc = E->getExprLoc();
@@ -975,27 +958,12 @@ LValue ComplexExprEmitter::EmitBinAssignLValue(const BinaryOperator *E,
          "Invalid assignment");
   TestAndClearIgnoreReal();
   TestAndClearIgnoreImag();
-#if INTEL_SPECIFIC_CILKPLUS
-  LValue LHS;
-  // Cilk Plus needs the LHS evaluated first to handle cases such as
-  // array[f()] = _Cilk_spawn foo();
-  // This evaluation order requirement implies that _Cilk_spawn cannot
-  // spawn Objective C block calls.
-  if (CGF.getLangOpts().CilkPlus && E->getRHS()->isCilkSpawn()) {
-    LHS = CGF.EmitLValue(E->getLHS());
-    Val = Visit(E->getRHS());
-  } else {
-    // Emit the RHS.  __block variables need the RHS evaluated first.
-    Val = Visit(E->getRHS());
-    // Compute the address to store into.
-    LHS = CGF.EmitLValue(E->getLHS());
-  }
-#else
   // Emit the RHS.  __block variables need the RHS evaluated first.
   Val = Visit(E->getRHS());
+
   // Compute the address to store into.
   LValue LHS = CGF.EmitLValue(E->getLHS());
-#endif // INTEL_SPECIFIC_CILKPLUS
+
   // Store the result value into the LHS lvalue.
   EmitStoreOfComplex(Val, LHS, /*isInit*/ false);
 
@@ -1086,7 +1054,7 @@ ComplexPairTy ComplexExprEmitter::VisitInitListExpr(InitListExpr *E) {
     return Visit(E->getInit(0));
   }
 
-  // Empty init list intializes to null
+  // Empty init list initializes to null
   assert(E->getNumInits() == 0 && "Unexpected number of inits");
   QualType Ty = E->getType()->castAs<ComplexType>()->getElementType();
   llvm::Type* LTy = CGF.ConvertType(Ty);

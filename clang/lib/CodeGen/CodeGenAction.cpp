@@ -126,7 +126,7 @@ namespace clang {
           Gen(CreateLLVMCodeGen(Diags, InFile, HeaderSearchOpts, PPOpts,
                                 CodeGenOpts, C, CoverageInfo)),
           LinkModules(std::move(LinkModules)) {
-      llvm::TimePassesIsEnabled = TimePasses;
+      FrontendTimesIsEnabled = TimePasses;
     }
     llvm::Module *getModule() const { return Gen->GetModule(); }
     std::unique_ptr<llvm::Module> takeModule() {
@@ -144,12 +144,12 @@ namespace clang {
 
       Context = &Ctx;
 
-      if (llvm::TimePassesIsEnabled)
+      if (FrontendTimesIsEnabled)
         LLVMIRGeneration.startTimer();
 
       Gen->Initialize(Ctx);
 
-      if (llvm::TimePassesIsEnabled)
+      if (FrontendTimesIsEnabled)
         LLVMIRGeneration.stopTimer();
     }
 
@@ -159,7 +159,7 @@ namespace clang {
                                      "LLVM IR generation of declaration");
 
       // Recurse.
-      if (llvm::TimePassesIsEnabled) {
+      if (FrontendTimesIsEnabled) {
         LLVMIRGenerationRefCount += 1;
         if (LLVMIRGenerationRefCount == 1)
           LLVMIRGeneration.startTimer();
@@ -167,7 +167,7 @@ namespace clang {
 
       Gen->HandleTopLevelDecl(D);
 
-      if (llvm::TimePassesIsEnabled) {
+      if (FrontendTimesIsEnabled) {
         LLVMIRGenerationRefCount -= 1;
         if (LLVMIRGenerationRefCount == 0)
           LLVMIRGeneration.stopTimer();
@@ -180,12 +180,12 @@ namespace clang {
       PrettyStackTraceDecl CrashInfo(D, SourceLocation(),
                                      Context->getSourceManager(),
                                      "LLVM IR generation of inline function");
-      if (llvm::TimePassesIsEnabled)
+      if (FrontendTimesIsEnabled)
         LLVMIRGeneration.startTimer();
 
       Gen->HandleInlineFunctionDefinition(D);
 
-      if (llvm::TimePassesIsEnabled)
+      if (FrontendTimesIsEnabled)
         LLVMIRGeneration.stopTimer();
     }
 
@@ -227,7 +227,7 @@ namespace clang {
     void HandleTranslationUnit(ASTContext &C) override {
       {
         PrettyStackTraceString CrashInfo("Per-file LLVM IR generation");
-        if (llvm::TimePassesIsEnabled) {
+        if (FrontendTimesIsEnabled) {
           LLVMIRGenerationRefCount += 1;
           if (LLVMIRGenerationRefCount == 1)
             LLVMIRGeneration.startTimer();
@@ -235,7 +235,7 @@ namespace clang {
 
         Gen->HandleTranslationUnit(C);
 
-        if (llvm::TimePassesIsEnabled) {
+        if (FrontendTimesIsEnabled) {
           LLVMIRGenerationRefCount -= 1;
           if (LLVMIRGenerationRefCount == 0)
             LLVMIRGeneration.stopTimer();
@@ -834,6 +834,10 @@ GetOutputStream(CompilerInstance &CI, StringRef InFile, BackendAction Action) {
     return CI.createDefaultOutputFile(false, InFile, "ll");
   case Backend_EmitBC:
     return CI.createDefaultOutputFile(true, InFile, "bc");
+#if INTEL_CUSTOMIZATION
+  case Backend_EmitSPIRV:
+    return CI.createDefaultOutputFile(true, InFile, "spv");
+#endif // INTEL_CUSTOMIZATION
   case Backend_EmitNothing:
     return nullptr;
   case Backend_EmitMCNull:
@@ -848,12 +852,9 @@ GetOutputStream(CompilerInstance &CI, StringRef InFile, BackendAction Action) {
 std::unique_ptr<ASTConsumer>
 CodeGenAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
   BackendAction BA = static_cast<BackendAction>(Act);
-
-#if INTEL_CUSTOMIZATION
-  std::unique_ptr<raw_pwrite_stream> OS = CI.GetOutputStream();
+  std::unique_ptr<raw_pwrite_stream> OS = CI.takeOutputStream();
   if (!OS)
-      OS = GetOutputStream(CI, InFile, BA);
-#endif // INTEL_CUSTOMIZATION
+    OS = GetOutputStream(CI, InFile, BA);
 
   if (BA != Backend_EmitNothing && !OS)
     return nullptr;
@@ -955,12 +956,21 @@ std::unique_ptr<llvm::Module> CodeGenAction::loadModule(MemoryBufferRef MBRef) {
       return {};
     };
 
-    Expected<llvm::BitcodeModule> BMOrErr = FindThinLTOModule(MBRef);
-    if (!BMOrErr)
-      return DiagErrors(BMOrErr.takeError());
-
+    Expected<std::vector<BitcodeModule>> BMsOrErr = getBitcodeModuleList(MBRef);
+    if (!BMsOrErr)
+      return DiagErrors(BMsOrErr.takeError());
+    BitcodeModule *Bm = FindThinLTOModule(*BMsOrErr);
+    // We have nothing to do if the file contains no ThinLTO module. This is
+    // possible if ThinLTO compilation was not able to split module. Content of
+    // the file was already processed by indexing and will be passed to the
+    // linker using merged object file.
+    if (!Bm) {
+      auto M = llvm::make_unique<llvm::Module>("empty", *VMContext);
+      M->setTargetTriple(CI.getTargetOpts().Triple);
+      return M;
+    }
     Expected<std::unique_ptr<llvm::Module>> MOrErr =
-        BMOrErr->parseModule(*VMContext);
+        Bm->parseModule(*VMContext);
     if (!MOrErr)
       return DiagErrors(MOrErr.takeError());
     return std::move(*MOrErr);
@@ -1050,6 +1060,12 @@ EmitAssemblyAction::EmitAssemblyAction(llvm::LLVMContext *_VMContext)
 void EmitBCAction::anchor() { }
 EmitBCAction::EmitBCAction(llvm::LLVMContext *_VMContext)
   : CodeGenAction(Backend_EmitBC, _VMContext) {}
+
+#if INTEL_CUSTOMIZATION
+void EmitSPIRVAction::anchor() { }
+EmitSPIRVAction::EmitSPIRVAction(llvm::LLVMContext *_VMContext)
+  : CodeGenAction(Backend_EmitSPIRV, _VMContext) {}
+#endif // INTEL_CUSTOMIZATION
 
 void EmitLLVMAction::anchor() { }
 EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)

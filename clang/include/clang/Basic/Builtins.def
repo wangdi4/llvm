@@ -48,8 +48,8 @@
 //  . -> "...".  This may only occur at the end of the function list.
 //
 // Types may be prefixed with the following modifiers:
-//  L   -> long (e.g. Li for 'long int')
-//  LL  -> long long
+//  L   -> long (e.g. Li for 'long int', Ld for 'long double')
+//  LL  -> long long (e.g. LLi for 'long long int', LLd for __float128)
 //  LLL -> __int128_t (e.g. LLLi)
 //  W   -> int64_t
 //  N   -> 'int' size if target is LP64, 'L' otherwise.
@@ -89,7 +89,7 @@
 //  S:N: -> similar to the s:N: attribute, but the function is like vscanf
 //          in that it accepts its arguments as a va_list rather than
 //          through an ellipsis
-//  e -> const, but only when -fmath-errno=0
+//  e -> const, but only when -fno-math-errno
 //  j -> returns_twice (like setjmp)
 //  u -> arguments are not evaluated for their side-effects
 //  FIXME: gcc has nonnull
@@ -110,9 +110,11 @@ BUILTIN(__builtin_abs  , "ii"  , "ncF")
 BUILTIN(__builtin_copysign, "ddd", "ncF")
 BUILTIN(__builtin_copysignf, "fff", "ncF")
 BUILTIN(__builtin_copysignl, "LdLdLd", "ncF")
+BUILTIN(__builtin_copysignf128, "LLdLLdLLd", "ncF")
 BUILTIN(__builtin_fabs , "dd"  , "ncF")
 BUILTIN(__builtin_fabsf, "ff"  , "ncF")
 BUILTIN(__builtin_fabsl, "LdLd", "ncF")
+BUILTIN(__builtin_fabsf128, "LLdLLd", "ncF")
 BUILTIN(__builtin_fmod , "ddd"  , "Fne")
 BUILTIN(__builtin_fmodf, "fff"  , "Fne")
 BUILTIN(__builtin_fmodl, "LdLdLd", "Fne")
@@ -122,9 +124,11 @@ BUILTIN(__builtin_frexpl, "LdLdi*", "Fn")
 BUILTIN(__builtin_huge_val, "d", "nc")
 BUILTIN(__builtin_huge_valf, "f", "nc")
 BUILTIN(__builtin_huge_vall, "Ld", "nc")
+BUILTIN(__builtin_huge_valf128, "LLd", "nc")
 BUILTIN(__builtin_inf  , "d"   , "nc")
 BUILTIN(__builtin_inff , "f"   , "nc")
 BUILTIN(__builtin_infl , "Ld"  , "nc")
+BUILTIN(__builtin_inff128 , "LLd"  , "nc")
 BUILTIN(__builtin_labs , "LiLi"  , "Fnc")
 BUILTIN(__builtin_llabs, "LLiLLi", "Fnc")
 BUILTIN(__builtin_ldexp , "ddi"  , "Fne")
@@ -136,9 +140,11 @@ BUILTIN(__builtin_modfl, "LdLdLd*", "Fn")
 BUILTIN(__builtin_nan,  "dcC*" , "ncF")
 BUILTIN(__builtin_nanf, "fcC*" , "ncF")
 BUILTIN(__builtin_nanl, "LdcC*", "ncF")
+BUILTIN(__builtin_nanf128, "LLdcC*", "ncF")
 BUILTIN(__builtin_nans,  "dcC*" , "ncF")
 BUILTIN(__builtin_nansf, "fcC*" , "ncF")
 BUILTIN(__builtin_nansl, "LdcC*", "ncF")
+BUILTIN(__builtin_nansf128, "LLdcC*", "ncF")
 BUILTIN(__builtin_powi , "ddi"  , "Fnc")
 BUILTIN(__builtin_powif, "ffi"  , "Fnc")
 BUILTIN(__builtin_powil, "LdLdi", "Fnc")
@@ -380,6 +386,8 @@ BUILTIN(__builtin_exit,       "vi",     "Fnc")
 // HLS FPGA Prototype
 // FIXME: Once we have an HLS Target type, these likely needs to end up in
 // the intel/BuiltinsHLS.def file.
+BUILTIN(__builtin_fpga_reg, "v.", "nt")
+
 BUILTIN(__builtin_intel_hls_instream_read, "v.", "nt")
 BUILTIN(__builtin_intel_hls_outstream_read, "v.", "nt")
 BUILTIN(__builtin_intel_hls_instream_tryRead, "v.", "nt")
@@ -938,23 +946,6 @@ BUILTIN(__notify_intrinsic, "vcC*vCD*", "n")
 BUILTIN(__notify_zc_intrinsic, "vcC*vCD*", "n")
 #endif  // INTEL_CUSTOMIZATION
 
-#if INTEL_SPECIFIC_CILKPLUS
-// CEAN intrinsics
-BUILTIN(__sec_reduce_add, "ii", "t")
-BUILTIN(__sec_reduce_mul, "ii", "t")
-BUILTIN(__sec_reduce_max, "ii", "t")
-BUILTIN(__sec_reduce_min, "ii", "t")
-BUILTIN(__sec_reduce_max_ind, "ii", "t")
-BUILTIN(__sec_reduce_min_ind, "ii", "t")
-BUILTIN(__sec_reduce_all_zero, "ii", "t")
-BUILTIN(__sec_reduce_all_nonzero, "ii", "t")
-BUILTIN(__sec_reduce_any_zero, "ii", "t")
-BUILTIN(__sec_reduce_any_nonzero, "ii", "t")
-BUILTIN(__sec_reduce, "iiiv*.", "t")
-BUILTIN(__sec_reduce_mutating, "vi&iv*.", "t")
-BUILTIN(__sec_implicit_index, "ii", "t")
-#endif // INTEL_SPECIFIC_CILKPLUS
-
 #if INTEL_CUSTOMIZATION
 BUILTIN(__assume_aligned, "v.", "tn")
 #endif // INTEL_CUSTOMIZATION
@@ -994,11 +985,6 @@ BUILTIN(__builtin_rindex, "c*cC*i", "Fn")
 // CQ#370960: _alloca is always enabled in ICC mode.
 LANGBUILTIN(_alloca, "v*z", "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 #endif // INTEL_CUSTOMIZATION
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-// CQ#368488 - builtins fixes for iclang.
-BUILTIN(__assume,     "vb",  "n")
-BUILTIN(__debugbreak, "v",   "n")
-#else
 #if INTEL_CUSTOMIZATION
 // CQ#373187: __assume is always enabled in ICC mode.
 LANGBUILTIN(__assume, "vb",  "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
@@ -1008,7 +994,6 @@ LIBBUILTIN(_byteswap_ushort, "UsUs",     "fnc", "stdlib.h", ALL_MS_LANGUAGES)
 LIBBUILTIN(_byteswap_ulong,  "UNiUNi",   "fnc", "stdlib.h", ALL_MS_LANGUAGES)
 LIBBUILTIN(_byteswap_uint64, "ULLiULLi", "fnc", "stdlib.h", ALL_MS_LANGUAGES)
 LANGBUILTIN(__debugbreak,     "v",   "n", ALL_MS_LANGUAGES)
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 LANGBUILTIN(__exception_code, "UNi", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_exception_code,  "UNi", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(__exception_info, "v*",  "n", ALL_MS_LANGUAGES)
@@ -1065,12 +1050,7 @@ LANGBUILTIN(_InterlockedXor8,  "ccD*c",       "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedXor16, "ssD*s",       "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedXor,   "NiNiD*Ni",    "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_interlockedbittestandset, "UcNiD*Ni", "n", ALL_MS_LANGUAGES)
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-// CQ#368488 - builtins fixes for iclang.
-BUILTIN(__noop,       "i.",  "n")
-#else
 LANGBUILTIN(__noop,           "i.",  "n", ALL_MS_LANGUAGES)
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 LANGBUILTIN(__popcnt16, "UsUs",     "nc", ALL_MS_LANGUAGES)
 LANGBUILTIN(__popcnt,   "UiUi",     "nc", ALL_MS_LANGUAGES)
 LANGBUILTIN(__popcnt64, "ULLiULLi", "nc", ALL_MS_LANGUAGES)
@@ -1092,6 +1072,10 @@ LANGBUILTIN(__fastfail, "vUi",    "nr", ALL_MS_LANGUAGES)
 LIBBUILTIN(_setjmpex, "iJ", "fj",   "setjmpex.h", ALL_MS_LANGUAGES)
 
 // C99 library functions
+// C99 stdarg.h
+LIBBUILTIN(va_start, "vA.",       "fn",    "stdarg.h", ALL_LANGUAGES)
+LIBBUILTIN(va_end, "vA",          "fn",    "stdarg.h", ALL_LANGUAGES)
+LIBBUILTIN(va_copy, "vAA",        "fn",    "stdarg.h", ALL_LANGUAGES)
 // C99 stdlib.h
 LIBBUILTIN(abort, "v",            "fr",    "stdlib.h", ALL_LANGUAGES)
 LIBBUILTIN(calloc, "v*zz",        "f",     "stdlib.h", ALL_LANGUAGES)
@@ -1657,9 +1641,10 @@ BUILTIN(__builtin_smulll_overflow, "bSLLiCSLLiCSLLi*", "n")
 
 // Clang builtins (not available in GCC).
 BUILTIN(__builtin_addressof, "v*v&", "nct")
-BUILTIN(__builtin_operator_new, "v*z", "c")
-BUILTIN(__builtin_operator_delete, "vv*", "n")
+BUILTIN(__builtin_operator_new, "v*z", "tc")
+BUILTIN(__builtin_operator_delete, "vv*", "tn")
 BUILTIN(__builtin_char_memchr, "c*cC*iz", "n")
+BUILTIN(__builtin_dump_struct, "ivC*v*", "tn")
 
 #if INTEL_CUSTOMIZATION
 BUILTIN(__intel_castf32_u32, "Uif", "nc")
@@ -1684,6 +1669,7 @@ BUILTIN(__builtin_coro_promise, "v*v*IiIb", "n")
 
 BUILTIN(__builtin_coro_size, "z", "n")
 BUILTIN(__builtin_coro_frame, "v*", "n")
+BUILTIN(__builtin_coro_noop, "v*", "n")
 BUILTIN(__builtin_coro_free, "v*v*", "n")
 
 BUILTIN(__builtin_coro_id, "v*Iiv*v*v*", "n")
@@ -1746,10 +1732,11 @@ LANGBUILTIN(omp_is_initial_device, "i", "nc", OMP_LANG)
 
 // Builtins for XRay
 BUILTIN(__xray_customevent, "vcC*z", "")
+BUILTIN(__xray_typedevent, "vzcC*z", "")
 
 #if INTEL_CUSTOMIZATION
-BUILTIN(__builtin_va_arg_pack_len, "Si", "n")
-BUILTIN(__builtin_va_arg_pack, ".", "n")
+LANGBUILTIN(__builtin_va_arg_pack_len, "Si", "n", ICC_LANG)
+LANGBUILTIN(__builtin_va_arg_pack, ".", "n", ICC_LANG)
 #endif
 
 // Win64-compatible va_list functions

@@ -27,32 +27,32 @@ struct __reflection_typelist<_First, _Rest...> {
 
 //CHECK: ClassTemplateSpecializationDecl {{.+}} struct __reflection_typelist
 //CHECK-NEXT: TemplateArgument pack
-//CHECK-NEXT: TemplateArgument type 'struct A'
+//CHECK-NEXT: TemplateArgument type 'A'
 //CHECK-NEXT: ClassTemplateSpecializationDecl {{.+}} struct __reflection_typelist
 //CHECK-NEXT: TemplateArgument pack
-//CHECK-NEXT: TemplateArgument type 'struct A'
-//CHECK-NEXT: TemplateArgument type 'struct B'
+//CHECK-NEXT: TemplateArgument type 'A'
+//CHECK-NEXT: TemplateArgument type 'B'
 //CHECK-NEXT: ClassTemplateSpecializationDecl {{.+}} struct __reflection_typelist
 //CHECK-NEXT: TemplateArgument pack
-//CHECK-NEXT: TemplateArgument type 'struct A'
-//CHECK-NEXT: TemplateArgument type 'struct C'
-//CHECK-NEXT: TemplateArgument type 'struct B'
-//CHECK-NEXT: TemplateArgument type 'struct D'
+//CHECK-NEXT: TemplateArgument type 'A'
+//CHECK-NEXT: TemplateArgument type 'C'
+//CHECK-NEXT: TemplateArgument type 'B'
+//CHECK-NEXT: TemplateArgument type 'D'
 //CHECK-NEXT: ClassTemplateSpecializationDecl {{.+}} struct __reflection_typelist
 //CHECK-NEXT: TemplateArgument pack
-//CHECK-NEXT: TemplateArgument type 'struct A'
-//CHECK-NEXT: TemplateArgument type 'struct B'
-//CHECK-NEXT: TemplateArgument type 'struct D'
-//CHECK-NEXT: TemplateArgument type 'struct A'
-//CHECK-NEXT: TemplateArgument type 'struct C'
+//CHECK-NEXT: TemplateArgument type 'A'
+//CHECK-NEXT: TemplateArgument type 'B'
+//CHECK-NEXT: TemplateArgument type 'D'
+//CHECK-NEXT: TemplateArgument type 'A'
+//CHECK-NEXT: TemplateArgument type 'C'
 //CHECK-NEXT: ClassTemplateSpecializationDecl {{.+}} struct __reflection_typelist
 //CHECK-NEXT: TemplateArgument pack
-//CHECK-NEXT: TemplateArgument type 'struct C'
-//CHECK-NEXT: TemplateArgument type 'struct D'
+//CHECK-NEXT: TemplateArgument type 'C'
+//CHECK-NEXT: TemplateArgument type 'D'
 //CHECK-NEXT: ClassTemplateSpecializationDecl {{.+}} struct __reflection_typelist
 //CHECK-NEXT: TemplateArgument pack
-//CHECK-NEXT: TemplateArgument type 'struct D'
-//CHECK-NEXT: TemplateArgument type 'struct C'
+//CHECK-NEXT: TemplateArgument type 'D'
+//CHECK-NEXT: TemplateArgument type 'C'
 
 template <typename _Tp>
 struct bases {
@@ -60,37 +60,37 @@ struct bases {
 };
 
 //CHECK: ClassTemplateSpecializationDecl {{.+}} struct bases definition
-//CHECK: TemplateArgument type 'struct A'
+//CHECK: TemplateArgument type 'A'
 //CHECK-NEXT: CXXRecordDecl {{.+}} implicit struct bases
-//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<>':'struct __reflection_typelist<>'
+//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<>':'__reflection_typelist<>'
 //CHECK: ClassTemplateSpecializationDecl {{.+}} struct bases definition
-//CHECK: TemplateArgument type 'struct B'
+//CHECK: TemplateArgument type 'B'
 //CHECK-NEXT: CXXRecordDecl {{.+}} implicit struct bases
-//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<struct A>':'struct __reflection_typelist<struct A>'
+//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<A>':'__reflection_typelist<A>'
 //CHECK: ClassTemplateSpecializationDecl {{.+}} struct bases definition
-//CHECK: TemplateArgument type 'struct C'
+//CHECK: TemplateArgument type 'C'
 //CHECK-NEXT: CXXRecordDecl {{.+}} implicit struct bases
-//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<struct A>':'struct __reflection_typelist<struct A>'
+//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<A>':'__reflection_typelist<A>'
 //CHECK: ClassTemplateSpecializationDecl {{.+}} struct bases definition
-//CHECK: TemplateArgument type 'struct D'
+//CHECK: TemplateArgument type 'D'
 //CHECK-NEXT: CXXRecordDecl {{.+}} implicit struct bases
-//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<struct A, struct B>':'struct __reflection_typelist<struct A, struct B>'
+//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<A, B>':'__reflection_typelist<A, B>'
 //CHECK: ClassTemplateSpecializationDecl {{.+}} struct bases definition
-//CHECK: TemplateArgument type 'struct E'
+//CHECK: TemplateArgument type 'E'
 //CHECK-NEXT: CXXRecordDecl {{.+}} implicit struct bases
-//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<struct A, struct C, struct B, struct D>':'struct __reflection_typelist<struct A, struct C, struct B, struct D>'
+//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<A, C, B, D>':'__reflection_typelist<A, C, B, D>'
 //CHECK: ClassTemplateSpecializationDecl {{.+}} struct bases definition
-//CHECK: TemplateArgument type 'struct E2'
+//CHECK: TemplateArgument type 'E2'
 //CHECK-NEXT: CXXRecordDecl {{.+}} implicit struct bases
-//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<struct A, struct C, struct B, struct D>':'struct __reflection_typelist<struct A, struct C, struct B, struct D>'
+//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<A, C, B, D>':'__reflection_typelist<A, C, B, D>'
 //CHECK: ClassTemplateSpecializationDecl {{.+}} struct bases definition
-//CHECK: TemplateArgument type 'struct E3'
+//CHECK: TemplateArgument type 'E3'
 //CHECK-NEXT: CXXRecordDecl {{.+}} implicit struct bases
-//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<struct A, struct B, struct D, struct A, struct C>':'struct __reflection_typelist<struct A, struct B, struct D, struct A, struct C>'
+//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<A, B, D, A, C>':'__reflection_typelist<A, B, D, A, C>'
 //CHECK: ClassTemplateSpecializationDecl {{.+}} struct bases definition
-//CHECK: TemplateArgument type 'struct F'
+//CHECK: TemplateArgument type 'F'
 //CHECK-NEXT: CXXRecordDecl {{.+}} implicit struct bases
-//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<>':'struct __reflection_typelist<>'
+//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<>':'__reflection_typelist<>'
 
 template <typename _Tp>
 struct direct_bases {
@@ -98,37 +98,37 @@ struct direct_bases {
 };
 
 //CHECK: ClassTemplateSpecializationDecl {{.+}} struct direct_bases definition
-//CHECK: TemplateArgument type 'struct A'
+//CHECK: TemplateArgument type 'A'
 //CHECK-NEXT: CXXRecordDecl {{.+}} implicit struct direct_bases
-//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<>':'struct __reflection_typelist<>'
+//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<>':'__reflection_typelist<>'
 //CHECK: ClassTemplateSpecializationDecl {{.+}} struct direct_bases definition
-//CHECK: TemplateArgument type 'struct B'
+//CHECK: TemplateArgument type 'B'
 //CHECK-NEXT: CXXRecordDecl {{.+}} implicit struct direct_bases
-//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<struct A>':'struct __reflection_typelist<struct A>'
+//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<A>':'__reflection_typelist<A>'
 //CHECK: ClassTemplateSpecializationDecl {{.+}} struct direct_bases definition
-//CHECK: TemplateArgument type 'struct C'
+//CHECK: TemplateArgument type 'C'
 //CHECK-NEXT: CXXRecordDecl {{.+}} implicit struct direct_bases
-//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<struct A>':'struct __reflection_typelist<struct A>'
+//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<A>':'__reflection_typelist<A>'
 //CHECK: ClassTemplateSpecializationDecl {{.+}} struct direct_bases definition
-//CHECK: TemplateArgument type 'struct D'
+//CHECK: TemplateArgument type 'D'
 //CHECK-NEXT: CXXRecordDecl {{.+}} implicit struct direct_bases
-//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<struct A, struct B>':'struct __reflection_typelist<struct A, struct B>'
+//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<A, B>':'__reflection_typelist<A, B>'
 //CHECK: ClassTemplateSpecializationDecl {{.+}} struct direct_bases definition
-//CHECK: TemplateArgument type 'struct E'
+//CHECK: TemplateArgument type 'E'
 //CHECK-NEXT: CXXRecordDecl {{.+}} implicit struct direct_bases
-//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<struct C, struct D>':'struct __reflection_typelist<struct C, struct D>'
+//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<C, D>':'__reflection_typelist<C, D>'
 //CHECK: ClassTemplateSpecializationDecl {{.+}} struct direct_bases definition
-//CHECK: TemplateArgument type 'struct E2'
+//CHECK: TemplateArgument type 'E2'
 //CHECK-NEXT: CXXRecordDecl {{.+}} implicit struct direct_bases
-//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<struct C, struct D>':'struct __reflection_typelist<struct C, struct D>'
+//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<C, D>':'__reflection_typelist<C, D>'
 //CHECK: ClassTemplateSpecializationDecl {{.+}} struct direct_bases definition
-//CHECK: TemplateArgument type 'struct E3'
+//CHECK: TemplateArgument type 'E3'
 //CHECK-NEXT: CXXRecordDecl {{.+}} implicit struct direct_bases
-//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<struct D, struct C>':'struct __reflection_typelist<struct D, struct C>'
+//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<D, C>':'__reflection_typelist<D, C>'
 //CHECK: ClassTemplateSpecializationDecl {{.+}} struct direct_bases definition
-//CHECK: TemplateArgument type 'struct F'
+//CHECK: TemplateArgument type 'F'
 //CHECK-NEXT: CXXRecordDecl {{.+}} implicit struct direct_bases
-//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<>':'struct __reflection_typelist<>'
+//CHECK-NEXT: TypedefDecl {{.+}} type '__reflection_typelist<>':'__reflection_typelist<>'
 
 struct A {};
 struct B : virtual A {};

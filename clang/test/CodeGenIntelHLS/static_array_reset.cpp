@@ -1,23 +1,32 @@
 //RUN: %clang_cc1 -fhls -emit-llvm -o - %s | FileCheck %s
+//RUN: %clang_cc1 -fhls -debug-info-kind=limited -emit-llvm -o - %s
+
+//CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{staticreset:2}
+//CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{staticreset:0}
+//CHECK: [[ANN3:@.str[\.]*[0-9]*]] = {{.*}}{staticreset:1}
+//CHECK: [[ANN4:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{staticreset:1}
+
+//CHECK: @llvm.global.annotations
 
 void foo()
 {
+//CHECK-SAME: array_one{{.*}}[[ANN1]]{{.*}}i32 14
   static int array_one[16];
+//CHECK-SAME: array_two{{.*}}[[ANN2]]{{.*}}i32 16
   static int array_two[32] __attribute__((static_array_reset(0)));
+//CHECK-SAME: array_thr{{.*}}[[ANN3]]{{.*}}i32 18
   static int array_thr[64] __attribute__((static_array_reset(1)));
 }
 
 void bar()
 {
+//CHECK-SAME: array_fou{{.*}}[[ANN3]]{{.*}}i32 24
   static int array_fou[48] __attribute__((address_space(4),
                                           static_array_reset(1)));
 }
 
-//CHECK: !hls.staticreset = !{[[A1:![0-9]+]], [[A2:![0-9]+]], [[A3:![0-9]+]],  [[A4:![0-9]+]]}
-//CHECK: [[A1]] = !{i32 0, [16 x i32]* {{.*}}array_one{{.*}}, [[AA1:![0-9]+]]}
-//CHECK: [[AA1]] = !{!"staticreset", i32 2, !"unset"}
-//CHECK: [[A2]] = !{i32 0, [32 x i32]* {{.*}}array_two{{.*}}, [[AA2:![0-9]+]]}
-//CHECK: [[AA2]] = !{!"staticreset", i32 0, !"unset"}
-//CHECK: [[A3]] = !{i32 0, [64 x i32]* {{.*}}array_thr{{.*}}, [[AA3:![0-9]+]]}
-//CHECK: [[AA3]] = !{!"staticreset", i32 1, !"unset"}
-//CHECK: [[A4]] = !{i32 4, [48 x i32]{{.*}}array_fou{{.*}}, [[AA3]]}
+//CHECK-SAME: array_gl_one{{.*}}[[ANN2]]{{.*}}i32 29
+static int array_gl_one[8] __attribute__((static_array_reset(0)));
+//CHECK-SAME: array_gl_two{{.*}}[[ANN4]]{{.*}}i32 31
+static int array_gl_two[8] __attribute__((static_array_reset(1), memory));
+int use() { return array_gl_one[0] + array_gl_two[1]; }

@@ -28,7 +28,7 @@
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
-#include "lldb/Interpreter/Args.h"
+#include "lldb/Interpreter/OptionArgParser.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Target/FileAction.h"
 #include "lldb/Target/Platform.h"
@@ -36,13 +36,14 @@
 #include "lldb/Utility/Endian.h"
 #include "lldb/Utility/JSON.h"
 #include "lldb/Utility/Log.h"
+#include "lldb/Utility/SafeMachO.h"
 #include "lldb/Utility/StreamGDBRemote.h"
 #include "lldb/Utility/StreamString.h"
 #include "llvm/ADT/Triple.h"
 
 // Project includes
 #include "ProcessGDBRemoteLog.h"
-#include "Utility/StringExtractorGDBRemote.h"
+#include "lldb/Utility/StringExtractorGDBRemote.h"
 
 #ifdef __ANDROID__
 #include "lldb/Host/android/HostInfoAndroid.h"
@@ -218,12 +219,15 @@ GDBRemoteCommunicationServerCommon::Handle_qHostInfo(
   if (sub != LLDB_INVALID_CPUTYPE)
     response.Printf("cpusubtype:%u;", sub);
 
-  if (cpu == ArchSpec::kCore_arm_any) {
+  if (cpu == llvm::MachO::CPU_TYPE_ARM
+      || cpu == llvm::MachO::CPU_TYPE_ARM64) {
 // Indicate the OS type.
 #if defined(TARGET_OS_TV) && TARGET_OS_TV == 1
     response.PutCString("ostype:tvos;");
 #elif defined(TARGET_OS_WATCH) && TARGET_OS_WATCH == 1
     response.PutCString("ostype:watchos;");
+#elif defined(TARGET_OS_BRIDGE) && TARGET_OS_BRIDGE == 1
+    response.PutCString("ostype:bridgeos;");
 #else
     response.PutCString("ostype:ios;");
 #endif
@@ -401,7 +405,7 @@ GDBRemoteCommunicationServerCommon::Handle_qfProcessInfo(
         match_info.GetProcessInfo().SetEffectiveGroupID(gid);
       } else if (key.equals("all_users")) {
         match_info.SetMatchAllUsers(
-            Args::StringToBoolean(value, false, &success));
+            OptionArgParser::ToBoolean(value, false, &success));
       } else if (key.equals("triple")) {
         match_info.GetProcessInfo().GetArchitecture() =
             HostInfo::GetAugmentedArchSpec(value);
@@ -945,8 +949,7 @@ GDBRemoteCommunicationServerCommon::Handle_QEnvironment(
   packet.SetFilePos(::strlen("QEnvironment:"));
   const uint32_t bytes_left = packet.GetBytesLeft();
   if (bytes_left > 0) {
-    m_process_launch_info.GetEnvironmentEntries().AppendArgument(
-        llvm::StringRef::withNullAsEmpty(packet.Peek()));
+    m_process_launch_info.GetEnvironment().insert(packet.Peek());
     return SendOKResponse();
   }
   return SendErrorResponse(12);
@@ -960,7 +963,7 @@ GDBRemoteCommunicationServerCommon::Handle_QEnvironmentHexEncoded(
   if (bytes_left > 0) {
     std::string str;
     packet.GetHexByteString(str);
-    m_process_launch_info.GetEnvironmentEntries().AppendArgument(str);
+    m_process_launch_info.GetEnvironment().insert(str);
     return SendOKResponse();
   }
   return SendErrorResponse(12);

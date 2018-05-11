@@ -16,7 +16,7 @@
 #include "clang/AST/DeclObjC.h"
 #include "clang/Basic/IdentifierTable.h"
 #include "clang/Serialization/ASTDeserializationListener.h"
-#include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/DJB.h"
 
 using namespace clang;
 
@@ -175,7 +175,7 @@ unsigned serialization::ComputeHash(Selector Sel) {
   unsigned R = 5381;
   for (unsigned I = 0; I != N; ++I)
     if (IdentifierInfo *II = Sel.getIdentifierInfoForSlot(I))
-      R = llvm::HashString(II->getName(), R);
+      R = llvm::djbHash(II->getName(), R);
   return R;
 }
 
@@ -235,7 +235,7 @@ serialization::getDefinitiveDeclContext(const DeclContext *DC) {
   default:
     llvm_unreachable("Unhandled DeclContext in AST reader");
   }
-  
+
   llvm_unreachable("Unhandled decl kind");
 }
 
@@ -276,13 +276,6 @@ bool serialization::isRedeclarableDeclKind(unsigned Kind) {
     return true;
 
   // Never redeclarable.
-#if INTEL_CUSTOMIZATION
-  case Decl::Pragma:
-#ifndef INTEL_SPECIFIC_IL0_BACKEND
-    llvm_unreachable(
-      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-#endif  // INTEL_CUSTOMIZATION
   case Decl::UsingDirective:
   case Decl::Label:
   case Decl::UnresolvedUsingTypename:
@@ -316,9 +309,6 @@ bool serialization::isRedeclarableDeclKind(unsigned Kind) {
   case Decl::StaticAssert:
   case Decl::Block:
   case Decl::Captured:
-#if INTEL_SPECIFIC_CILKPLUS
-  case Decl::CilkSpawn:
-#endif // INTEL_SPECIFIC_CILKPLUS
   case Decl::ClassScopeFunctionSpecialization:
   case Decl::Import:
   case Decl::OMPThreadPrivate:

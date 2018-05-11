@@ -14,8 +14,8 @@
 #include "InterferenceCache.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/CodeGen/LiveInterval.h"
-#include "llvm/CodeGen/LiveIntervalAnalysis.h"
 #include "llvm/CodeGen/LiveIntervalUnion.h"
+#include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineOperand.h"
@@ -48,8 +48,8 @@ void InterferenceCache::reinitPhysRegEntries() {
   if (PhysRegEntriesCount == TRI->getNumRegs()) return;
   free(PhysRegEntries);
   PhysRegEntriesCount = TRI->getNumRegs();
-  PhysRegEntries = (unsigned char*)
-    calloc(PhysRegEntriesCount, sizeof(unsigned char));
+  PhysRegEntries = static_cast<unsigned char*>(
+      safe_calloc(PhysRegEntriesCount, sizeof(unsigned char)));
 }
 
 void InterferenceCache::init(MachineFunction *mf,

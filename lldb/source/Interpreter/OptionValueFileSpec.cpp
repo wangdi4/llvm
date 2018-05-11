@@ -12,9 +12,9 @@
 #include "lldb/Core/State.h"
 #include "lldb/DataFormatters/FormatManager.h"
 #include "lldb/Host/FileSystem.h"
-#include "lldb/Interpreter/Args.h"
 #include "lldb/Interpreter/CommandCompletions.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
+#include "lldb/Utility/Args.h"
 #include "lldb/Utility/DataBufferLLVM.h"
 
 using namespace lldb;
@@ -113,14 +113,12 @@ size_t OptionValueFileSpec::AutoComplete(
   return matches.GetSize();
 }
 
-const lldb::DataBufferSP &
-OptionValueFileSpec::GetFileContents(bool null_terminate) {
+const lldb::DataBufferSP &OptionValueFileSpec::GetFileContents() {
   if (m_current_value) {
     const auto file_mod_time = FileSystem::GetModificationTime(m_current_value);
     if (m_data_sp && m_data_mod_time == file_mod_time)
       return m_data_sp;
-    m_data_sp = DataBufferLLVM::CreateFromPath(m_current_value.GetPath(),
-                                               null_terminate);
+    m_data_sp = DataBufferLLVM::CreateFromPath(m_current_value.GetPath());
     m_data_mod_time = file_mod_time;
   }
   return m_data_sp;

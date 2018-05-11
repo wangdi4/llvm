@@ -15,6 +15,23 @@ void foo1()
   __attribute__((__memory__))
   unsigned int v_two[64];
 
+  //CHECK: VarDecl{{.*}}v_two_A
+  //CHECK: MemoryAttr{{.*}}MLAB{{$}}
+  __attribute__((__memory__("MLAB")))
+  unsigned int v_two_A[64];
+
+  //CHECK: VarDecl{{.*}}v_two_B
+  //CHECK: MemoryAttr{{.*}}BlockRAM{{$}}
+  __attribute__((__memory__("BLOCK_RAM")))
+  unsigned int v_two_B[64];
+
+  //CHECK: VarDecl{{.*}}v_two_C
+  //CHECK: DoublePumpAttr
+  //CHECK: MemoryAttr{{.*}}BlockRAM{{$}}
+  __attribute__((__memory__("BLOCK_RAM")))
+  __attribute__((doublepump))
+  unsigned int v_two_C[64];
+
   //CHECK: VarDecl{{.*}}v_three
   //CHECK: RegisterAttr
   __attribute__((__register__))
@@ -86,6 +103,18 @@ void foo1()
   //CHECK-NEXT: IntegerLiteral{{.*}}5{{$}}
   __attribute__((__bank_bits__(2,3,4,5)))
   unsigned int v_twelve[64];
+
+  //CHECK: VarDecl{{.*}}v_twelve_A
+  //CHECK: NumBanksAttr{{.*}}Implicit{{$}}
+  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: BankBitsAttr
+  //CHECK-NEXT: IntegerLiteral{{.*}}5{{$}}
+  //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
+  //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
+  //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
+  __attribute__((__bank_bits__(5,4,3,2)))
+  unsigned int v_twelve_A[64];
 
   //CHECK: VarDecl{{.*}}v_thirteen
   //CHECK: MemoryAttr{{.*}}Implicit
@@ -232,6 +261,38 @@ void foo1()
   //expected-warning@+1{{attribute 'memory' is already applied}}
   __attribute__((memory)) __attribute__((__memory__))
   unsigned int mem_two[64];
+
+  //expected-warning@+1{{attribute 'memory' is already applied}}
+  __attribute__((memory)) __attribute__((memory("MLAB")))
+      unsigned int mem_three[64];
+
+  //expected-warning@+1{{attribute 'memory' is already applied}}
+  __attribute__((memory("BLOCK_RAM"))) __attribute__((memory("MLAB")))
+      unsigned int mem_four[64];
+
+  //expected-warning@+1{{attribute 'memory' is already applied}}
+  __attribute__((memory("BLOCK_RAM"))) __attribute__((__memory__))
+      unsigned int mem_five[64];
+
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((__memory__("MLAB")))
+  __attribute__((__doublepump__))
+  //expected-note@-1 {{conflicting attribute is here}}
+  unsigned int mem_six[64];
+
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((doublepump))
+  __attribute__((memory("MLAB")))
+  //expected-note@-1 {{conflicting attribute is here}}
+  unsigned int mem_seven[64];
+
+  //expected-error@+1{{requires either no argument or one of: MLAB BLOCK_RAM}}
+  __attribute__((memory("")))
+  unsigned int mem_eight[64];
+
+  //expected-error@+1{{requires either no argument or one of: MLAB BLOCK_RAM}}
+  __attribute__((memory("NLAB")))
+  unsigned int mem_nine[64];
 
   // bankwidth
   //expected-error@+1{{attributes are not compatible}}
@@ -523,7 +584,7 @@ void foo1()
 //CHECK: BankWidthAttr
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
 //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-template <unsigned bankwidth, unsigned numbanks, unsigned numreadports,
+template <unsigned bankwidth, unsigned numbanks, int numreadports,
           unsigned numwriteports, int bit1, int bit2, int bit3>
 void tattr() {
 
@@ -548,6 +609,9 @@ void foo2()
   //expected-note@+1{{in instantiation of function template specialization}}
   tattr</*bankwidth=*/4, /*numbanks=*/8, /*numreadports=*/-1,
         /*numwriteports=*/8, /*bit1=*/2, /*bit2=*/3, /*bit3=*/4>();
+
+  tattr</*bankwidth=*/4, /*numbanks=*/8, /*numreadports=*/2,
+        /*numwriteports=*/8, /*bit1=*/4, /*bit2=*/3, /*bit3=*/2>();
 }
 
 template <typename T>
@@ -573,3 +637,6 @@ void other()
   int i = 1;
   type_temp(i);
 }
+
+//expected-error@+1{{attribute only applies to local or static variables}}
+__attribute__((__doublepump__)) unsigned int ext_one[64];

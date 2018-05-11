@@ -238,6 +238,16 @@ protected:
     unsigned ResultIndex : 32 - 8 - NumExprBits;
   };
 
+  class OpaqueValueExprBitfields {
+    friend class OpaqueValueExpr;
+
+    unsigned : NumExprBits;
+
+    /// The OVE is a unique semantic reference to its source expressio if this
+    /// bit is set to true.
+    unsigned IsUnique : 1;
+  };
+
   class ObjCIndirectCopyRestoreExprBitfields {
     friend class ObjCIndirectCopyRestoreExpr;
 
@@ -295,6 +305,7 @@ protected:
     CallExprBitfields CallExprBits;
     ExprWithCleanupsBitfields ExprWithCleanupsBits;
     PseudoObjectExprBitfields PseudoObjectExprBits;
+    OpaqueValueExprBitfields OpaqueValueExprBits;
     ObjCIndirectCopyRestoreExprBitfields ObjCIndirectCopyRestoreExprBits;
     InitListExprBitfields InitListExprBits;
     TypeTraitExprBitfields TypeTraitExprBits;
@@ -445,6 +456,7 @@ public:
   using const_child_range = llvm::iterator_range<const_child_iterator>;
 
   child_range children();
+
   const_child_range children() const {
     auto Children = const_cast<Stmt *>(this)->children();
     return const_child_range(Children.begin(), Children.end());
@@ -533,9 +545,11 @@ public:
   using decl_const_range = llvm::iterator_range<const_decl_iterator>;
 
   decl_range decls() { return decl_range(decl_begin(), decl_end()); }
+
   decl_const_range decls() const {
     return decl_const_range(decl_begin(), decl_end());
   }
+
   decl_iterator decl_begin() { return DG.begin(); }
   decl_iterator decl_end() { return DG.end(); }
   const_decl_iterator decl_begin() const { return DG.begin(); }
@@ -593,15 +607,21 @@ public:
 };
 
 /// CompoundStmt - This represents a group of statements like { stmt stmt }.
-class CompoundStmt : public Stmt {
+class CompoundStmt final : public Stmt,
+                           private llvm::TrailingObjects<CompoundStmt, Stmt *> {
   friend class ASTStmtReader;
+  friend TrailingObjects;
 
-  Stmt** Body = nullptr;
   SourceLocation LBraceLoc, RBraceLoc;
 
+  CompoundStmt(ArrayRef<Stmt *> Stmts, SourceLocation LB, SourceLocation RB);
+  explicit CompoundStmt(EmptyShell Empty) : Stmt(CompoundStmtClass, Empty) {}
+
+  void setStmts(ArrayRef<Stmt *> Stmts);
+
 public:
-  CompoundStmt(const ASTContext &C, ArrayRef<Stmt*> Stmts,
-               SourceLocation LB, SourceLocation RB);
+  static CompoundStmt *Create(const ASTContext &C, ArrayRef<Stmt *> Stmts,
+                              SourceLocation LB, SourceLocation RB);
 
   // \brief Build an empty compound statement with a location.
   explicit CompoundStmt(SourceLocation Loc)
@@ -610,11 +630,7 @@ public:
   }
 
   // \brief Build an empty compound statement.
-  explicit CompoundStmt(EmptyShell Empty) : Stmt(CompoundStmtClass, Empty) {
-    CompoundStmtBits.NumStmts = 0;
-  }
-
-  void setStmts(const ASTContext &C, ArrayRef<Stmt *> Stmts);
+  static CompoundStmt *CreateEmpty(const ASTContext &C, unsigned NumStmts);
 
   bool body_empty() const { return CompoundStmtBits.NumStmts == 0; }
   unsigned size() const { return CompoundStmtBits.NumStmts; }
@@ -623,14 +639,17 @@ public:
   using body_range = llvm::iterator_range<body_iterator>;
 
   body_range body() { return body_range(body_begin(), body_end()); }
-  body_iterator body_begin() { return Body; }
-  body_iterator body_end() { return Body + size(); }
-  Stmt *body_front() { return !body_empty() ? Body[0] : nullptr; }
-  Stmt *body_back() { return !body_empty() ? Body[size()-1] : nullptr; }
+  body_iterator body_begin() { return getTrailingObjects<Stmt *>(); }
+  body_iterator body_end() { return body_begin() + size(); }
+  Stmt *body_front() { return !body_empty() ? body_begin()[0] : nullptr; }
+
+  Stmt *body_back() {
+    return !body_empty() ? body_begin()[size() - 1] : nullptr;
+  }
 
   void setLastStmt(Stmt *S) {
     assert(!body_empty() && "setLastStmt");
-    Body[size()-1] = S;
+    body_begin()[size() - 1] = S;
   }
 
   using const_body_iterator = Stmt* const *;
@@ -640,15 +659,18 @@ public:
     return body_const_range(body_begin(), body_end());
   }
 
-  const_body_iterator body_begin() const { return Body; }
-  const_body_iterator body_end() const { return Body + size(); }
+  const_body_iterator body_begin() const {
+    return getTrailingObjects<Stmt *>();
+  }
+
+  const_body_iterator body_end() const { return body_begin() + size(); }
 
   const Stmt *body_front() const {
-    return !body_empty() ? Body[0] : nullptr;
+    return !body_empty() ? body_begin()[0] : nullptr;
   }
 
   const Stmt *body_back() const {
-    return !body_empty() ? Body[size() - 1] : nullptr;
+    return !body_empty() ? body_begin()[size() - 1] : nullptr;
   }
 
   using reverse_body_iterator = std::reverse_iterator<body_iterator>;
@@ -683,13 +705,10 @@ public:
   }
 
   // Iterators
-  child_range children() {
-    return child_range(Body, Body + CompoundStmtBits.NumStmts);
-  }
+  child_range children() { return child_range(body_begin(), body_end()); }
 
   const_child_range children() const {
-    return const_child_range(child_iterator(Body),
-                             child_iterator(Body + CompoundStmtBits.NumStmts));
+    return const_child_range(body_begin(), body_end());
   }
 };
 
@@ -782,7 +801,7 @@ public:
   SourceLocation getLocEnd() const LLVM_READONLY {
     // Handle deeply nested case statements with iteration instead of recursion.
     const CaseStmt *CS = this;
-    while (const CaseStmt *CS2 = dyn_cast<CaseStmt>(CS->getSubStmt()))
+    while (const auto *CS2 = dyn_cast<CaseStmt>(CS->getSubStmt()))
       CS = CS2;
 
     return CS->getSubStmt()->getLocEnd();
@@ -830,7 +849,7 @@ public:
 };
 
 inline SourceLocation SwitchCase::getLocEnd() const {
-  if (const CaseStmt *CS = dyn_cast<CaseStmt>(this))
+  if (const auto *CS = dyn_cast<CaseStmt>(this))
     return CS->getLocEnd();
   return cast<DefaultStmt>(this)->getLocEnd();
 }
@@ -876,8 +895,11 @@ public:
 ///
 /// Represents an attribute applied to a statement. For example:
 ///   [[omp::for(...)]] for (...) { ... }
-class AttributedStmt : public Stmt {
+class AttributedStmt final
+    : public Stmt,
+      private llvm::TrailingObjects<AttributedStmt, const Attr *> {
   friend class ASTStmtReader;
+  friend TrailingObjects;
 
   Stmt *SubStmt;
   SourceLocation AttrLoc;
@@ -890,16 +912,14 @@ class AttributedStmt : public Stmt {
   }
 
   explicit AttributedStmt(EmptyShell Empty, unsigned NumAttrs)
-    : Stmt(AttributedStmtClass, Empty), NumAttrs(NumAttrs) {
+      : Stmt(AttributedStmtClass, Empty), NumAttrs(NumAttrs) {
     std::fill_n(getAttrArrayPtr(), NumAttrs, nullptr);
   }
 
   const Attr *const *getAttrArrayPtr() const {
-    return reinterpret_cast<const Attr *const *>(this + 1);
+    return getTrailingObjects<const Attr *>();
   }
-  const Attr **getAttrArrayPtr() {
-    return reinterpret_cast<const Attr **>(this + 1);
-  }
+  const Attr **getAttrArrayPtr() { return getTrailingObjects<const Attr *>(); }
 
 public:
   static AttributedStmt *Create(const ASTContext &C, SourceLocation Loc,
@@ -1498,8 +1518,8 @@ public:
   bool isVolatile() const { return IsVolatile; }
   void setVolatile(bool V) { IsVolatile = V; }
 
-  SourceLocation getLocStart() const LLVM_READONLY { return SourceLocation(); }
-  SourceLocation getLocEnd() const LLVM_READONLY { return SourceLocation(); }
+  SourceLocation getLocStart() const LLVM_READONLY { return {}; }
+  SourceLocation getLocEnd() const LLVM_READONLY { return {}; }
 
   //===--- Asm String Analysis ---===//
 
@@ -1672,9 +1692,7 @@ public:
     bool isString() const { return MyKind == String; }
     bool isOperand() const { return MyKind == Operand; }
 
-    const std::string &getString() const {
-      return Str;
-    }
+    const std::string &getString() const { return Str; }
 
     unsigned getOperandNo() const {
       assert(isOperand());
@@ -1704,15 +1722,13 @@ public:
 
   //===--- Output operands ---===//
 
-  IdentifierInfo *getOutputIdentifier(unsigned i) const {
-    return Names[i];
-  }
+  IdentifierInfo *getOutputIdentifier(unsigned i) const { return Names[i]; }
 
   StringRef getOutputName(unsigned i) const {
     if (IdentifierInfo *II = getOutputIdentifier(i))
       return II->getName();
 
-    return StringRef();
+    return {};
   }
 
   StringRef getOutputConstraint(unsigned i) const;
@@ -1740,7 +1756,7 @@ public:
     if (IdentifierInfo *II = getInputIdentifier(i))
       return II->getName();
 
-    return StringRef();
+    return {};
   }
 
   StringRef getInputConstraint(unsigned i) const;
@@ -1927,7 +1943,7 @@ public:
   }
 
   child_range children() {
-    return child_range(Children,Children+2);
+    return child_range(Children, Children+2);
   }
 
   static bool classof(const Stmt *T) {
@@ -2008,7 +2024,7 @@ public:
   SEHFinallyStmt *getFinallyHandler() const;
 
   child_range children() {
-    return child_range(Children,Children+2);
+    return child_range(Children, Children+2);
   }
 
   static bool classof(const Stmt *T) {
@@ -2118,7 +2134,7 @@ private:
 
   /// \brief The pointer part is the implicit the outlined function and the
   /// int part is the captured region kind, 'CR_Default' etc.
-#if INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
+#if INTEL_CUSTOMIZATION
   // The old code here used to use
   //
   // llvm::PointerIntPair<CapturedDecl *, 1, CapturedRegionKind> CapDeclAndKind;
@@ -2294,123 +2310,6 @@ public:
 
   child_range children();
 };
-
-#if INTEL_CUSTOMIZATION
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-/// PragmaStmt
-///
-
-enum IntelPragmaKindType {
-  IntelUnknownPragmaKind,
-  IntelPragmaIvdep,
-  IntelPragmaDistribute,
-  IntelPragmaInline,
-  IntelPragmaInlineEnd,
-  IntelPragmaLoopCount,
-  IntelPragmaNoVector,
-  IntelPragmaOptimize,
-  IntelPragmaOptimizationLevel,
-  IntelPragmaOptimizationLevelGCC,
-  IntelPragmaNoParallel,
-  IntelPragmaUnroll,
-  IntelPragmaUnrollAndJam,
-  IntelPragmaNoFusion,
-  IntelPragmaVector,
-  IntelPragmaOptimizationParameter,
-  IntelPragmaParallel,
-  IntelPragmaAllocSection,
-  IntelPragmaSection,
-  IntelPragmaAllocText,
-  IntelPragmaAutoInline,
-  IntelPragmaBCCDSeg,
-  IntelPragmaCheckStack,
-  IntelPragmaInitSeg,
-  IntelPragmaFloatControl,
-  IntelPragmaKindCommonOnOff,
-  IntelCommonAttribute,
-  IntelAssumeAligned,
-  IntelPragma_SPECCALL,
-  IntelPragma_SPECCALLAGG
-};
-
-struct IntelPragmaAttrib {
-  Expr *Value;
-  IntelPragmaExprKind ExprKind;
-  
-  IntelPragmaAttrib(Expr *Val, IntelPragmaExprKind Kind) : Value(Val), ExprKind(Kind) {}
-};
-
-typedef llvm::SmallVector<IntelPragmaAttrib, 4> PragmaAttribsVector;
-typedef llvm::SmallVector<Expr *, 4> PragmaRealAttribsVector;
-
-class PragmaStmt : public Stmt {
-  SourceLocation SemiLoc;
-  PragmaAttribsVector Attribs;
-  PragmaRealAttribsVector RealAttribs;
-  IntelPragmaKindType PragmaKind;
-  bool IsDecl;
-public:
-  PragmaStmt(SourceLocation L)
-    : Stmt(PragmaStmtClass), SemiLoc(L), Attribs(), RealAttribs(),
-      PragmaKind(IntelUnknownPragmaKind), IsDecl(false) {}
-
-  /// \brief Build an empty null statement.
-  explicit PragmaStmt(EmptyShell Empty) : Stmt(PragmaStmtClass, Empty),
-    SemiLoc(), Attribs(), RealAttribs(), PragmaKind(IntelUnknownPragmaKind), IsDecl(false) { }
-
-  SourceLocation getSemiLoc() const { return SemiLoc; }
-  void setSemiLoc(SourceLocation L) { SemiLoc = L; }
-
-  SourceRange getSourceRange() const LLVM_READONLY { return SourceRange(SemiLoc); }
-  SourceLocation getLocStart() const LLVM_READONLY { return SemiLoc; }
-  SourceLocation getLocEnd() const LLVM_READONLY { return SemiLoc; }
-
-  PragmaAttribsVector &getAttribs() { return (Attribs); }
-  const PragmaAttribsVector &getAttribs() const { return (Attribs); }
-  PragmaRealAttribsVector &getRealAttribs() { return (RealAttribs); }
-  const PragmaRealAttribsVector &getRealAttribs() const { return (RealAttribs); }
-
-  bool isNullOp() const { return (PragmaKind == IntelUnknownPragmaKind); }
-  void turnToNullOp();
-  IntelPragmaKindType getPragmaKind() const { return PragmaKind; }
-  void setPragmaKind(IntelPragmaKindType K) { PragmaKind = K; }
-  void setDecl() { IsDecl = true; }
-  bool isDecl() const { return (IsDecl); }
-
-  static bool classof(const Stmt *T) {
-    return T->getStmtClass() == PragmaStmtClass;
-  }
-  static bool classof(const PragmaStmt *) { return true; }
-
-  child_range children() {
-    return child_range(child_iterator(), child_iterator());
-  }
-
-  friend class ASTStmtReader;
-  friend class ASTStmtWriter;
-};
-#else
-class PragmaStmt : public Stmt {
-public:
-  SourceLocation getLocStart() const LLVM_READONLY {
-    llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-    return SourceLocation();
-  }
-  SourceLocation getLocEnd() const LLVM_READONLY {
-    llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-    return SourceLocation();
-  }
-  child_range children() {
-    llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-    return child_range(child_iterator(), child_iterator());
-  }
-  static bool classof(const Stmt *) {
-    llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-    return false;
-  }
-};
-#endif // INTEL_SPECIFIC_IL0_BACKEND
-#endif // INTEL_CUSTOMIZATION
 } // namespace clang
 
 #endif // LLVM_CLANG_AST_STMT_H

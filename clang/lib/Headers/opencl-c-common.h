@@ -10825,6 +10825,12 @@ half16 __ovld __cnfn select(half16 a, half16 b, ushort16 c);
 #define CLK_GLOBAL_MEM_FENCE   0x02
 
 /**
+ * Queue a memory fence to ensure correct
+ * ordering of memory operations to channel
+ */
+#define CLK_CHANNEL_MEM_FENCE  0x04
+
+/**
  * All work-items in a work-group executing the kernel
  * on a processor must execute this function before any
  * are allowed to continue execution beyond the barrier.
@@ -10852,6 +10858,11 @@ half16 __ovld __cnfn select(half16 a, half16 b, ushort16 c);
  * of memory operations to global memory. This can be
  * useful when work-items, for example, write to buffer or
  * image objects and then want to read the updated data.
+ * CLK_CHANNEL_MEM_FENCE - The barrier function
+ * will queue a memory fence to ensure correct ordering of
+ * channel operations. For example one can use it with CLK_GLOBAL_MEM_FENCE,
+ * so a call can't start until the global memory operation
+ * is committed to the shared memory buffer.
  */
 
 void __ovld __conv barrier(cl_mem_fence_flags flags);
@@ -10869,7 +10880,8 @@ void __ovld __conv barrier(cl_mem_fence_flags flags);
  * combination of the following literal
  * values:
  * CLK_LOCAL_MEM_FENCE
- * CLK_GLOBAL_MEM_FENCE.
+ * CLK_GLOBAL_MEM_FENCE
+ * CLK_CHANNEL_MEM_FENCE.
  */
 void __ovld mem_fence(cl_mem_fence_flags flags);
 
@@ -10877,11 +10889,12 @@ void __ovld mem_fence(cl_mem_fence_flags flags);
  * Read memory barrier that orders only
  * loads.
  * The flags argument specifies the memory
- * address space and can be set to to a
+ * address space and can be set to a
  * combination of the following literal
  * values:
  * CLK_LOCAL_MEM_FENCE
- * CLK_GLOBAL_MEM_FENCE.
+ * CLK_GLOBAL_MEM_FENCE
+ * CLK_CHANNEL_MEM_FENCE.
  */
 void __ovld read_mem_fence(cl_mem_fence_flags flags);
 
@@ -10889,11 +10902,12 @@ void __ovld read_mem_fence(cl_mem_fence_flags flags);
  * Write memory barrier that orders only
  * stores.
  * The flags argument specifies the memory
- * address space and can be set to to a
+ * address space and can be set to a
  * combination of the following literal
  * values:
  * CLK_LOCAL_MEM_FENCE
- * CLK_GLOBAL_MEM_FENCE.
+ * CLK_GLOBAL_MEM_FENCE
+ * CLK_CHANNEL_MEM_FENCE.
  */
 void __ovld write_mem_fence(cl_mem_fence_flags flags);
 

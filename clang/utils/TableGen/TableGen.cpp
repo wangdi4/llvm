@@ -52,9 +52,14 @@ enum ActionType {
   GenClangCommentCommandInfo,
   GenClangCommentCommandList,
   GenArmNeon,
+  GenArmFP16,
   GenArmNeonSema,
   GenArmNeonTest,
   GenAttrDocs,
+#if INTEL_CUSTOMIZATION
+  GenIntelCustDocs,
+  GenIntelCustImpl,
+#endif // INTEL_CUSTOMIZATION
   GenDiagDocs,
   GenOptDocs,
   GenDataCollectors,
@@ -139,12 +144,19 @@ cl::opt<ActionType> Action(
                    "Generate list of commands that are used in "
                    "documentation comments"),
         clEnumValN(GenArmNeon, "gen-arm-neon", "Generate arm_neon.h for clang"),
+        clEnumValN(GenArmFP16, "gen-arm-fp16", "Generate arm_fp16.h for clang"),
         clEnumValN(GenArmNeonSema, "gen-arm-neon-sema",
                    "Generate ARM NEON sema support for clang"),
         clEnumValN(GenArmNeonTest, "gen-arm-neon-test",
                    "Generate ARM NEON tests for clang"),
         clEnumValN(GenAttrDocs, "gen-attr-docs",
                    "Generate attribute documentation"),
+#if INTEL_CUSTOMIZATION
+        clEnumValN(GenIntelCustDocs, "gen-intel-cust-docs",
+                   "Generate Intel customization documentation"),
+        clEnumValN(GenIntelCustImpl, "gen-intel-cust-impl",
+                   "Generate Intel customization implementation members"),
+#endif // INTEL_CUSTOMIZATION
         clEnumValN(GenDiagDocs, "gen-diag-docs",
                    "Generate diagnostic documentation"),
         clEnumValN(GenOptDocs, "gen-opt-docs", "Generate option documentation"),
@@ -250,6 +262,9 @@ bool ClangTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
   case GenArmNeon:
     EmitNeon(Records, OS);
     break;
+  case GenArmFP16:
+    EmitFP16(Records, OS);
+    break;
   case GenArmNeonSema:
     EmitNeonSema(Records, OS);
     break;
@@ -259,6 +274,14 @@ bool ClangTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
   case GenAttrDocs:
     EmitClangAttrDocs(Records, OS);
     break;
+#if INTEL_CUSTOMIZATION
+  case GenIntelCustDocs:
+    EmitClangIntelCustDocs(Records, OS);
+    break;
+  case GenIntelCustImpl:
+    EmitClangIntelCustImpl(Records, OS);
+    break;
+#endif // INTEL_CUSTOMIZATION
   case GenDiagDocs:
     EmitClangDiagDocs(Records, OS);
     break;

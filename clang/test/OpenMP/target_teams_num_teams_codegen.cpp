@@ -6,6 +6,14 @@
 // RUN: %clang_cc1 -fopenmp -fopenmp-version=45 -x c++ -std=c++11 -triple i386-unknown-unknown -fopenmp-targets=i386-pc-linux-gnu -emit-pch -o %t %s
 // RUN: %clang_cc1 -fopenmp -fopenmp-version=45 -x c++ -triple i386-unknown-unknown -fopenmp-targets=i386-pc-linux-gnu -std=c++11 -include-pch %t -verify %s -emit-llvm -o - | FileCheck %s --check-prefix CHECK --check-prefix CHECK-32
 
+// RUN: %clang_cc1 -verify -fopenmp-simd -fopenmp-version=45 -x c++ -triple powerpc64le-unknown-unknown -fopenmp-targets=powerpc64le-ibm-linux-gnu -emit-llvm %s -o - | FileCheck --check-prefix SIMD-ONLY0 %s
+// RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=45 -x c++ -std=c++11 -triple powerpc64le-unknown-unknown -fopenmp-targets=powerpc64le-ibm-linux-gnu -emit-pch -o %t %s
+// RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=45 -x c++ -triple powerpc64le-unknown-unknown -fopenmp-targets=powerpc64le-ibm-linux-gnu -std=c++11 -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefix SIMD-ONLY0 %s
+// RUN: %clang_cc1 -verify -fopenmp-simd -fopenmp-version=45 -x c++ -triple i386-unknown-unknown -fopenmp-targets=i386-pc-linux-gnu -emit-llvm %s -o - | FileCheck --check-prefix SIMD-ONLY0 %s
+// RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=45 -x c++ -std=c++11 -triple i386-unknown-unknown -fopenmp-targets=i386-pc-linux-gnu -emit-pch -o %t %s
+// RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=45 -x c++ -triple i386-unknown-unknown -fopenmp-targets=i386-pc-linux-gnu -std=c++11 -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefix SIMD-ONLY0 %s
+// SIMD-ONLY0-NOT: {{__kmpc|__tgt}}
+
 // Test target codegen - host bc file has to be created first.
 // RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=45 -x c++ -triple powerpc64le-unknown-unknown -fopenmp-targets=powerpc64le-ibm-linux-gnu -emit-llvm-bc %s -o %t-ppc-host.bc
 // RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=45 -x c++ -triple powerpc64le-unknown-unknown -fopenmp-targets=powerpc64le-ibm-linux-gnu -emit-llvm %s -fopenmp-is-device -fopenmp-host-ir-file-path %t-ppc-host.bc -o - | FileCheck %s --check-prefix TCHECK --check-prefix TCHECK-64
@@ -16,6 +24,16 @@
 // RUN: %clang_cc1 -fopenmp -fopenmp-version=45 -x c++ -std=c++11 -triple i386-unknown-unknown -fopenmp-targets=i386-pc-linux-gnu -emit-pch -fopenmp-is-device -fopenmp-host-ir-file-path %t-x86-host.bc -o %t %s
 // RUN: %clang_cc1 -fopenmp -fopenmp-version=45 -x c++ -triple i386-unknown-unknown -fopenmp-targets=i386-pc-linux-gnu -std=c++11 -fopenmp-is-device -fopenmp-host-ir-file-path %t-x86-host.bc -include-pch %t -verify %s -emit-llvm -o - | FileCheck %s --check-prefix TCHECK --check-prefix TCHECK-32
 
+// RUN: %clang_cc1 -verify -fopenmp-simd -fopenmp-version=45 -x c++ -triple powerpc64le-unknown-unknown -fopenmp-targets=powerpc64le-ibm-linux-gnu -emit-llvm-bc %s -o %t-ppc-host.bc
+// RUN: %clang_cc1 -verify -fopenmp-simd -fopenmp-version=45 -x c++ -triple powerpc64le-unknown-unknown -fopenmp-targets=powerpc64le-ibm-linux-gnu -emit-llvm %s -fopenmp-is-device -fopenmp-host-ir-file-path %t-ppc-host.bc -o - | FileCheck --check-prefix SIMD-ONLY1 %s
+// RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=45 -x c++ -std=c++11 -triple powerpc64le-unknown-unknown -fopenmp-targets=powerpc64le-ibm-linux-gnu -emit-pch -fopenmp-is-device -fopenmp-host-ir-file-path %t-ppc-host.bc -o %t %s
+// RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=45 -x c++ -triple powerpc64le-unknown-unknown -fopenmp-targets=powerpc64le-ibm-linux-gnu -std=c++11 -fopenmp-is-device -fopenmp-host-ir-file-path %t-ppc-host.bc -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefix SIMD-ONLY1 %s
+// RUN: %clang_cc1 -verify -fopenmp-simd -fopenmp-version=45 -x c++ -triple i386-unknown-unknown -fopenmp-targets=i386-pc-linux-gnu -emit-llvm-bc %s -o %t-x86-host.bc
+// RUN: %clang_cc1 -verify -fopenmp-simd -fopenmp-version=45 -x c++ -triple i386-unknown-unknown -fopenmp-targets=i386-pc-linux-gnu -emit-llvm %s -fopenmp-is-device -fopenmp-host-ir-file-path %t-x86-host.bc -o - | FileCheck --check-prefix SIMD-ONLY1 %s
+// RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=45 -x c++ -std=c++11 -triple i386-unknown-unknown -fopenmp-targets=i386-pc-linux-gnu -emit-pch -fopenmp-is-device -fopenmp-host-ir-file-path %t-x86-host.bc -o %t %s
+// RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=45 -x c++ -triple i386-unknown-unknown -fopenmp-targets=i386-pc-linux-gnu -std=c++11 -fopenmp-is-device -fopenmp-host-ir-file-path %t-x86-host.bc -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefix SIMD-ONLY1 %s
+// SIMD-ONLY1-NOT: {{__kmpc|__tgt}}
+
 // expected-no-diagnostics
 //
 // XFAIL: *
@@ -23,9 +41,9 @@
 #ifndef HEADER
 #define HEADER
 
-// CHECK-DAG: %ident_t = type { i32, i32, i32, i32, i8* }
+// CHECK-DAG: %struct.ident_t = type { i32, i32, i32, i32, i8* }
 // CHECK-DAG: [[STR:@.+]] = private unnamed_addr constant [23 x i8] c";unknown;unknown;0;0;;\00"
-// CHECK-DAG: [[DEF_LOC:@.+]] = private unnamed_addr constant %ident_t { i32 0, i32 2, i32 0, i32 0, i8* getelementptr inbounds ([23 x i8], [23 x i8]* [[STR]], i32 0, i32 0) }
+// CHECK-DAG: [[DEF_LOC:@.+]] = private unnamed_addr constant %struct.ident_t { i32 0, i32 2, i32 0, i32 0, i8* getelementptr inbounds ([23 x i8], [23 x i8]* [[STR]], i32 0, i32 0) }
 
 // CHECK-DAG: [[S1:%.+]] = type { double }
 // CHECK-DAG: [[ENTTY:%.+]] = type { i8*, i8*, i[[SZ:32|64]], i32, i32 }
@@ -45,12 +63,12 @@
 // CHECK-DAG: @{{.*}} = private constant i8 0
 // CHECK-DAG: @{{.*}} = private constant i8 0
 
-// TCHECK: @{{.+}} = constant [[ENTTY]]
-// TCHECK: @{{.+}} = constant [[ENTTY]]
-// TCHECK: @{{.+}} = constant [[ENTTY]]
-// TCHECK: @{{.+}} = constant [[ENTTY]]
-// TCHECK: @{{.+}} = constant [[ENTTY]]
-// TCHECK: @{{.+}} = constant [[ENTTY]]
+// TCHECK: @{{.+}} = weak constant [[ENTTY]]
+// TCHECK: @{{.+}} = weak constant [[ENTTY]]
+// TCHECK: @{{.+}} = weak constant [[ENTTY]]
+// TCHECK: @{{.+}} = weak constant [[ENTTY]]
+// TCHECK: @{{.+}} = weak constant [[ENTTY]]
+// TCHECK: @{{.+}} = weak constant [[ENTTY]]
 
 // Check if offloading descriptor is created.
 // CHECK: [[ENTBEGIN:@.+]] = external constant [[ENTTY]]
@@ -61,7 +79,7 @@
 // CHECK: [[DESC:@.+]] = internal constant [[DSCTY]] { i32 1, [[DEVTY]]* getelementptr inbounds ([1 x [[DEVTY]]], [1 x [[DEVTY]]]* [[IMAGES]], i32 0, i32 0), [[ENTTY]]* [[ENTBEGIN]], [[ENTTY]]* [[ENTEND]] }, comdat($[[REGFN]])
 
 // Check target registration is registered as a Ctor.
-// CHECK: appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 0, void ()* bitcast (void (i8*)* @[[REGFN]] to void ()*), i8* bitcast (void (i8*)* @[[REGFN]] to i8*) }]
+// CHECK: appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 0, void ()* @[[REGFN]], i8* bitcast (void ()* @[[REGFN]] to i8*) }]
 
 
 template<typename tx>
@@ -273,15 +291,15 @@ int bar(int n){
 // CHECK-64:    [[CONV:%.+]] = bitcast i[[SZ]]* [[CAPE_ADDR]] to i32*
 // CHECK-64:    [[NT:%.+]] = load i32, i32* [[CONV]], align
 // CHECK-32:    [[NT:%.+]] = load i32, i32* [[CAPE_ADDR]], align
-// CHECK:       call i32 @__kmpc_push_num_teams(%ident_t* {{[^,]+}}, i32 {{[^,]+}}, i32 [[NT]], i32 0)
-// CHECK:       call {{.*}}void (%ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_teams(%ident_t* [[DEF_LOC]], i32 2,
+// CHECK:       call i32 @__kmpc_push_num_teams(%struct.ident_t* {{[^,]+}}, i32 {{[^,]+}}, i32 [[NT]], i32 0)
+// CHECK:       call {{.*}}void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_teams(%struct.ident_t* [[DEF_LOC]], i32 2,
 //
 //
 
 
 // CHECK:       define internal void [[HVT2]]([[S1]]* {{%.+}})
-// CHECK:       call i32 @__kmpc_push_num_teams(%ident_t* {{[^,]+}}, i32 {{[^,]+}}, i32 1024, i32 0)
-// CHECK:       call {{.*}}void (%ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_teams(%ident_t* [[DEF_LOC]], i32 1,
+// CHECK:       call i32 @__kmpc_push_num_teams(%struct.ident_t* {{[^,]+}}, i32 {{[^,]+}}, i32 1024, i32 0)
+// CHECK:       call {{.*}}void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_teams(%struct.ident_t* [[DEF_LOC]], i32 1,
 //
 //
 
@@ -297,8 +315,8 @@ int bar(int n){
 // CHECK-64:    [[CONV:%.+]] = bitcast i[[SZ]]* [[CAPE_ADDR]] to i32*
 // CHECK-64:    [[NT:%.+]] = load i32, i32* [[CONV]], align
 // CHECK-32:    [[NT:%.+]] = load i32, i32* [[CAPE_ADDR]], align
-// CHECK:       call i32 @__kmpc_push_num_teams(%ident_t* {{[^,]+}}, i32 {{[^,]+}}, i32 [[NT]], i32 0)
-// CHECK:       call {{.*}}void (%ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_teams(%ident_t* [[DEF_LOC]], i32 0,
+// CHECK:       call i32 @__kmpc_push_num_teams(%struct.ident_t* {{[^,]+}}, i32 {{[^,]+}}, i32 [[NT]], i32 0)
+// CHECK:       call {{.*}}void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_teams(%struct.ident_t* [[DEF_LOC]], i32 0,
 //
 //
 // CHECK:       define internal void [[HVT4]](i[[SZ]] [[PARM:%.+]])
@@ -306,8 +324,8 @@ int bar(int n){
 // CHECK-64:    [[CONV:%.+]] = bitcast i[[SZ]]* [[CAPE_ADDR]] to i32*
 // CHECK-64:    [[NT:%.+]] = load i32, i32* [[CONV]], align
 // CHECK-32:    [[NT:%.+]] = load i32, i32* [[CAPE_ADDR]], align
-// CHECK:       call i32 @__kmpc_push_num_teams(%ident_t* {{[^,]+}}, i32 {{[^,]+}}, i32 [[NT]], i32 0)
-// CHECK:       call {{.*}}void (%ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_teams(%ident_t* [[DEF_LOC]], i32 0,
+// CHECK:       call i32 @__kmpc_push_num_teams(%struct.ident_t* {{[^,]+}}, i32 {{[^,]+}}, i32 [[NT]], i32 0)
+// CHECK:       call {{.*}}void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_teams(%struct.ident_t* [[DEF_LOC]], i32 0,
 //
 //
 
@@ -316,8 +334,8 @@ int bar(int n){
 
 
 // CHECK:       define internal void [[HVT5]](
-// CHECK:       call i32 @__kmpc_push_num_teams(%ident_t* {{[^,]+}}, i32 {{[^,]+}}, i32 20, i32 0)
-// CHECK:       call {{.*}}void (%ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_teams(%ident_t* [[DEF_LOC]], i32 0,
+// CHECK:       call i32 @__kmpc_push_num_teams(%struct.ident_t* {{[^,]+}}, i32 {{[^,]+}}, i32 20, i32 0)
+// CHECK:       call {{.*}}void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_teams(%struct.ident_t* [[DEF_LOC]], i32 0,
 //
 //
 
@@ -327,8 +345,8 @@ int bar(int n){
 // CHECK:       [[CONV:%.+]] = bitcast i[[SZ]]* [[CAPE_ADDR]] to i16*
 // CHECK:       [[T:%.+]] = load i16, i16* [[CONV]], align
 // CHECK:       [[NT:%.+]] = sext i16 [[T]] to i32
-// CHECK:       call i32 @__kmpc_push_num_teams(%ident_t* {{[^,]+}}, i32 {{[^,]+}}, i32 [[NT]], i32 0)
-// CHECK:       call {{.*}}void (%ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_teams(%ident_t* [[DEF_LOC]], i32 2,
+// CHECK:       call i32 @__kmpc_push_num_teams(%struct.ident_t* {{[^,]+}}, i32 {{[^,]+}}, i32 [[NT]], i32 0)
+// CHECK:       call {{.*}}void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_teams(%struct.ident_t* [[DEF_LOC]], i32 2,
 //
 //
 

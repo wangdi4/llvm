@@ -21,10 +21,9 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/Regex.h"
-#include "llvm/Support/Signals.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
@@ -718,6 +717,9 @@ static size_t CheckTypeSize(Check::CheckType Ty) {
 }
 
 static Check::CheckType FindCheckType(StringRef Buffer, StringRef Prefix) {
+  if (Buffer.size() <= Prefix.size())
+    return Check::CheckNone;
+
   char NextChar = Buffer[Prefix.size()];
 
   // Verify that the : is present after the prefix.
@@ -1357,8 +1359,7 @@ bool CheckInput(SourceMgr &SM, StringRef Buffer,
 }
 
 int main(int argc, char **argv) {
-  sys::PrintStackTraceOnErrorSignal(argv[0]);
-  PrettyStackTraceProgram X(argc, argv);
+  InitLLVM X(argc, argv);
   cl::ParseCommandLineOptions(argc, argv);
 
   if (!ValidateCheckPrefixes()) {

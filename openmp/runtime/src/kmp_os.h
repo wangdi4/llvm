@@ -61,7 +61,7 @@
 #error Unknown compiler
 #endif
 
-#if (KMP_OS_LINUX || KMP_OS_WINDOWS) && !KMP_OS_CNK && !KMP_ARCH_PPC64
+#if (KMP_OS_LINUX || KMP_OS_WINDOWS) && !KMP_OS_CNK
 #define KMP_AFFINITY_SUPPORTED 1
 #if KMP_OS_WINDOWS && KMP_ARCH_X86_64
 #define KMP_GROUP_AFFINITY 1
@@ -208,6 +208,14 @@ template <> struct traits_t<unsigned int> {
   static const unsigned_t max_value = 0xffffffff;
   static const unsigned_t min_value = 0x00000000;
   static const int type_size = sizeof(unsigned_t);
+};
+// long
+template <> struct traits_t<signed long> {
+  typedef signed long signed_t;
+  typedef unsigned long unsigned_t;
+  typedef long double floating_t;
+  static char const *spec;
+  static const int type_size = sizeof(signed_t);
 };
 // long long
 template <> struct traits_t<signed long long> {
@@ -859,9 +867,6 @@ typedef void (*microtask_t)(int *gtid, int *npr, ...);
 #endif
 
 // Switches for OSS builds
-#ifndef USE_SYSFS_INFO
-#define USE_SYSFS_INFO 0
-#endif
 #ifndef USE_CMPXCHG_FIX
 #define USE_CMPXCHG_FIX 1
 #endif

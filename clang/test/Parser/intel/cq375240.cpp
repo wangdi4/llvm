@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fintel-compatibility -verify %s
+// RUN: %clang_cc1 -fintel-compatibility -verify -std=c++98 %s
 
 union U
 {

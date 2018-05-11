@@ -1786,6 +1786,7 @@ BinaryOperator::getOverloadedOpcode(OverloadedOperatorKind OO) {
   case OO_Amp: return BO_And;
   case OO_Pipe: return BO_Or;
   case OO_Equal: return BO_Assign;
+  case OO_Spaceship: return BO_Cmp;
   case OO_Less: return BO_LT;
   case OO_Greater: return BO_GT;
   case OO_PlusEqual: return BO_AddAssign;
@@ -1817,6 +1818,7 @@ OverloadedOperatorKind BinaryOperator::getOverloadedOperator(Opcode Opc) {
     OO_Star, OO_Slash, OO_Percent,
     OO_Plus, OO_Minus,
     OO_LessLess, OO_GreaterGreater,
+    OO_Spaceship,
     OO_Less, OO_Greater, OO_LessEqual, OO_GreaterEqual,
     OO_EqualEqual, OO_ExclaimEqual,
     OO_Amp,
@@ -2053,6 +2055,10 @@ bool Expr::isUnusedResultAWarning(const Expr *&WarnE, SourceLocation &Loc,
   case GenericSelectionExprClass:
     return cast<GenericSelectionExpr>(this)->getResultExpr()->
       isUnusedResultAWarning(WarnE, Loc, R1, R2, Ctx);
+  case CoawaitExprClass:
+  case CoyieldExprClass:
+    return cast<CoroutineSuspendExpr>(this)->getResumeExpr()->
+      isUnusedResultAWarning(WarnE, Loc, R1, R2, Ctx);
   case ChooseExprClass:
     return cast<ChooseExpr>(this)->getChosenSubExpr()->
       isUnusedResultAWarning(WarnE, Loc, R1, R2, Ctx);
@@ -2121,26 +2127,6 @@ bool Expr::isUnusedResultAWarning(const Expr *&WarnE, SourceLocation &Loc,
     R2 = BO->getRHS()->getSourceRange();
     return true;
   }
-#if INTEL_SPECIFIC_CILKPLUS
-  case CEANBuiltinExprClass: {
-    if (getType()->isVoidType())
-      return false;
-    WarnE = this;
-    Loc = getLocStart();
-    R1 = getSourceRange();
-    return true;
-  }
-  case CilkSpawnExprClass: {
-    const CilkSpawnExpr *SpawnE = cast<CilkSpawnExpr>(this);
-    const Stmt *SpawnS = SpawnE->getSpawnDecl()->getSpawnStmt();
-    if (isa<Expr>(SpawnS)) {
-      const Expr *E = cast<Expr>(SpawnS);
-      return E->isUnusedResultAWarning(WarnE, Loc, R1, R2, Ctx);
-    }
-    return false;
-  }  
-  case CEANIndexExprClass:
-#endif // INTEL_SPECIFIC_CILKPLUS
   case CompoundAssignOperatorClass:
   case VAArgExprClass:
   case AtomicExprClass:
@@ -2941,6 +2927,18 @@ bool Expr::isConstantInitializer(ASTContext &Ctx, bool IsForRef,
   return false;
 }
 
+bool CallExpr::isBuiltinAssumeFalse(const ASTContext &Ctx) const {
+  const FunctionDecl* FD = getDirectCallee();
+  if (!FD || (FD->getBuiltinID() != Builtin::BI__assume &&
+              FD->getBuiltinID() != Builtin::BI__builtin_assume))
+    return false;
+  
+  const Expr* Arg = getArg(0);
+  bool ArgVal;
+  return !Arg->isValueDependent() &&
+         Arg->EvaluateAsBooleanCondition(ArgVal, Ctx) && !ArgVal;
+}
+
 namespace {
   /// \brief Look for any side effects within a Stmt.
   class SideEffectFinder : public ConstEvaluatedExprVisitor<SideEffectFinder> {
@@ -3056,11 +3054,6 @@ bool Expr::HasSideEffects(const ASTContext &Ctx,
   case CXXThrowExprClass:
   case CXXNewExprClass:
   case CXXDeleteExprClass:
-#if INTEL_SPECIFIC_CILKPLUS
-  case CilkSpawnExprClass:
-  case CEANIndexExprClass:
-  case CEANBuiltinExprClass:
-#endif // INTEL_SPECIFIC_CILKPLUS
   case CoawaitExprClass:
   case DependentCoawaitExprClass:
   case CoyieldExprClass:
@@ -3145,7 +3138,8 @@ bool Expr::HasSideEffects(const ASTContext &Ctx,
     if (DCE->getTypeAsWritten()->isReferenceType() &&
         DCE->getCastKind() == CK_Dynamic)
       return true;
-  } // Fall through.
+    }
+    LLVM_FALLTHROUGH;
   case ImplicitCastExprClass:
   case CStyleCastExprClass:
   case CXXStaticCastExprClass:
@@ -3478,10 +3472,11 @@ FieldDecl *Expr::getSourceBitField() {
       if (Field->isBitField())
         return Field;
 
-  if (ObjCIvarRefExpr *IvarRef = dyn_cast<ObjCIvarRefExpr>(E))
-    if (FieldDecl *Ivar = dyn_cast<FieldDecl>(IvarRef->getDecl()))
-      if (Ivar->isBitField())
-        return Ivar;
+  if (ObjCIvarRefExpr *IvarRef = dyn_cast<ObjCIvarRefExpr>(E)) {
+    FieldDecl *Ivar = IvarRef->getDecl();
+    if (Ivar->isBitField())
+      return Ivar;
+  }
 
   if (DeclRefExpr *DeclRef = dyn_cast<DeclRefExpr>(E)) {
     if (FieldDecl *Field = dyn_cast<FieldDecl>(DeclRef->getDecl()))

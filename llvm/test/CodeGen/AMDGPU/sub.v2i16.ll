@@ -1,4 +1,4 @@
-; RUN: llc -march=amdgcn -mcpu=gfx901 -mattr=-flat-for-global -verify-machineinstrs -enable-packed-inlinable-literals < %s | FileCheck -check-prefix=GFX9 -check-prefix=GCN %s
+; RUN: llc -march=amdgcn -mcpu=gfx900 -mattr=-flat-for-global -verify-machineinstrs < %s | FileCheck -check-prefix=GFX9 -check-prefix=GCN %s
 ; RUN: llc -march=amdgcn -mcpu=tonga -mattr=-flat-for-global -verify-machineinstrs < %s | FileCheck -check-prefix=VI -check-prefix=GCN %s
 
 ; FIXME: Need to handle non-uniform case for function below (load without gep).
@@ -27,9 +27,9 @@ define amdgpu_kernel void @v_test_sub_v2i16(<2 x i16> addrspace(1)* %out, <2 x i
 
 ; VI: s_sub_i32
 ; VI: s_sub_i32
-define amdgpu_kernel void @s_test_sub_v2i16(<2 x i16> addrspace(1)* %out, <2 x i16> addrspace(2)* %in0, <2 x i16> addrspace(2)* %in1) #1 {
-  %a = load <2 x i16>, <2 x i16> addrspace(2)* %in0
-  %b = load <2 x i16>, <2 x i16> addrspace(2)* %in1
+define amdgpu_kernel void @s_test_sub_v2i16(<2 x i16> addrspace(1)* %out, <2 x i16> addrspace(4)* %in0, <2 x i16> addrspace(4)* %in1) #1 {
+  %a = load <2 x i16>, <2 x i16> addrspace(4)* %in0
+  %b = load <2 x i16>, <2 x i16> addrspace(4)* %in1
   %add = sub <2 x i16> %a, %b
   store <2 x i16> %add, <2 x i16> addrspace(1)* %out
   ret void
@@ -38,8 +38,8 @@ define amdgpu_kernel void @s_test_sub_v2i16(<2 x i16> addrspace(1)* %out, <2 x i
 ; GCN-LABEL: {{^}}s_test_sub_self_v2i16:
 ; GCN: v_mov_b32_e32 [[ZERO:v[0-9]+]]
 ; GCN: buffer_store_dword [[ZERO]]
-define amdgpu_kernel void @s_test_sub_self_v2i16(<2 x i16> addrspace(1)* %out, <2 x i16> addrspace(2)* %in0) #1 {
-  %a = load <2 x i16>, <2 x i16> addrspace(2)* %in0
+define amdgpu_kernel void @s_test_sub_self_v2i16(<2 x i16> addrspace(1)* %out, <2 x i16> addrspace(4)* %in0) #1 {
+  %a = load <2 x i16>, <2 x i16> addrspace(4)* %in0
   %add = sub <2 x i16> %a, %a
   store <2 x i16> %add, <2 x i16> addrspace(1)* %out
   ret void
@@ -93,7 +93,7 @@ define amdgpu_kernel void @v_test_sub_v2i16_neg_constant(<2 x i16> addrspace(1)*
 }
 
 ; GCN-LABEL: {{^}}v_test_sub_v2i16_inline_neg1:
-; GFX9: v_pk_sub_i16 v{{[0-9]+}}, v{{[0-9]+}}, -1{{$}}
+; GFX9: v_pk_sub_i16 v{{[0-9]+}}, v{{[0-9]+}}, -1 op_sel_hi:[1,0]{{$}}
 
 ; VI: v_mov_b32_e32 [[ONE:v[0-9]+]], 1
 ; VI: flat_load_ushort [[LOAD0:v[0-9]+]]
@@ -112,8 +112,7 @@ define amdgpu_kernel void @v_test_sub_v2i16_inline_neg1(<2 x i16> addrspace(1)* 
 }
 
 ; GCN-LABEL: {{^}}v_test_sub_v2i16_inline_lo_zero_hi:
-; GFX9: s_mov_b32 [[K:s[0-9]+]], 32{{$}}
-; GFX9: v_pk_sub_i16 v{{[0-9]+}}, v{{[0-9]+}}, [[K]]
+; GFX9: v_pk_sub_i16 v{{[0-9]+}}, v{{[0-9]+}}, 32{{$}}
 
 ; VI-NOT: v_subrev_i16
 ; VI: v_add_u16_e32 v{{[0-9]+}}, 0xffffffe0, v{{[0-9]+}}

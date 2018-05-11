@@ -3,11 +3,6 @@ set(LLVM_LINK_COMPONENTS
   Support
   )
 
-add_clang_library(clangSemaIntel
-  SemaCilk.cpp
-  SemaIntelAttr.cpp
-  )
-
 # INTEL_CUSTOMIZATION
 if(MSVC)
   # /bigobj is required for windows builds because of the size of

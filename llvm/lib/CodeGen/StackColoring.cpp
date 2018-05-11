@@ -600,12 +600,12 @@ bool StackColoring::isLifetimeStartOrEnd(const MachineInstr &MI,
       isStart = false;
       return true;
     }
-    if (! applyFirstUse(Slot)) {
+    if (!applyFirstUse(Slot)) {
       isStart = true;
       return true;
     }
   } else if (LifetimeStartOnFirstUse && !ProtectFromEscapedAllocas) {
-    if (! MI.isDebugValue()) {
+    if (!MI.isDebugValue()) {
       bool found = false;
       for (const MachineOperand &MO : MI.operands()) {
         if (!MO.isFI())
@@ -739,7 +739,7 @@ unsigned StackColoring::collectMarkers(unsigned NumSlot) {
         } else {
           for (auto Slot : slots) {
             DEBUG(dbgs() << "Found a use of slot #" << Slot);
-            DEBUG(dbgs() << " at BB#" << MBB->getNumber() << " index ");
+            DEBUG(dbgs() << " at " << printMBBReference(*MBB) << " index ");
             DEBUG(Indexes->getInstructionIndex(MI).print(dbgs()));
             const AllocaInst *Allocation = MFI->getObjectAllocation(Slot);
             if (Allocation) {
@@ -993,7 +993,7 @@ void StackColoring::remapInstructions(DenseMap<int, int> &SlotRemap) {
         // the calculated range then it means that the alloca usage moved
         // outside of the lifetime markers, or that the user has a bug.
         // NOTE: Alloca address calculations which happen outside the lifetime
-        // zone are are okay, despite the fact that we don't have a good way
+        // zone are okay, despite the fact that we don't have a good way
         // for validating all of the usages of the calculation.
 #ifndef NDEBUG
         bool TouchesMemory = I.mayLoad() || I.mayStore();
@@ -1129,8 +1129,7 @@ void StackColoring::expungeSlotMap(DenseMap<int, int> &SlotRemap,
 
 bool StackColoring::runOnMachineFunction(MachineFunction &Func) {
   DEBUG(dbgs() << "********** Stack Coloring **********\n"
-               << "********** Function: "
-               << ((const Value*)Func.getFunction())->getName() << '\n');
+               << "********** Function: " << Func.getName() << '\n');
   MF = &Func;
   MFI = &MF->getFrameInfo();
   Indexes = &getAnalysis<SlotIndexes>();
@@ -1170,7 +1169,7 @@ bool StackColoring::runOnMachineFunction(MachineFunction &Func) {
   // Don't continue because there are not enough lifetime markers, or the
   // stack is too small, or we are told not to optimize the slots.
   if (NumMarkers < 2 || TotalSize < 16 || DisableColoring ||
-      skipFunction(*Func.getFunction())) {
+      skipFunction(Func.getFunction())) {
     DEBUG(dbgs()<<"Will not try to merge slots.\n");
     return removeAllMarkers();
   }
@@ -1225,7 +1224,7 @@ bool StackColoring::runOnMachineFunction(MachineFunction &Func) {
   });
 
   for (auto &s : LiveStarts)
-    std::sort(s.begin(), s.end());
+    llvm::sort(s.begin(), s.end());
 
   bool Changed = true;
   while (Changed) {

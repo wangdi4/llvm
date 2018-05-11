@@ -38,6 +38,8 @@ namespace {
 
     void VisitStmt(const Stmt *S);
 
+    virtual void HandleStmtClass(Stmt::StmtClass SC) = 0;
+
 #define STMT(Node, Base) void Visit##Node(const Node *S);
 #include "clang/AST/StmtNodes.inc"
 
@@ -50,7 +52,7 @@ namespace {
     virtual void VisitType(QualType T) = 0;
 
     /// \brief Visit a name that occurs within an expression or statement.
-    virtual void VisitName(DeclarationName Name) = 0;
+    virtual void VisitName(DeclarationName Name, bool TreatAsDecl = false) = 0;
 
     /// \brief Visit identifiers that are not in Decl's or Type's.
     virtual void VisitIdentifierInfo(IdentifierInfo *II) = 0;
@@ -80,6 +82,10 @@ namespace {
                              const ASTContext &Context, bool Canonical)
         : StmtProfiler(ID, Canonical), Context(Context) {}
   private:
+    void HandleStmtClass(Stmt::StmtClass SC) override {
+      ID.AddInteger(SC);
+    }
+
     void VisitDecl(const Decl *D) override {
       ID.AddInteger(D ? D->getKind() : 0);
 
@@ -134,7 +140,7 @@ namespace {
       ID.AddPointer(T.getAsOpaquePtr());
     }
 
-    void VisitName(DeclarationName Name) override {
+    void VisitName(DeclarationName Name, bool /*TreatAsDecl*/) override {
       ID.AddPointer(Name.getAsOpaquePtr());
     }
 
@@ -163,11 +169,26 @@ namespace {
         : StmtProfiler(ID, false), Hash(Hash) {}
 
   private:
+    void HandleStmtClass(Stmt::StmtClass SC) override {
+      if (SC == Stmt::UnresolvedLookupExprClass) {
+        // Pretend that the name looked up is a Decl due to how templates
+        // handle some Decl lookups.
+        ID.AddInteger(Stmt::DeclRefExprClass);
+      } else {
+        ID.AddInteger(SC);
+      }
+    }
+
     void VisitType(QualType T) override {
       Hash.AddQualType(T);
     }
 
-    void VisitName(DeclarationName Name) override {
+    void VisitName(DeclarationName Name, bool TreatAsDecl) override {
+      if (TreatAsDecl) {
+        // A Decl can be null, so each Decl is preceded by a boolean to
+        // store its nullness.  Add a boolean here to match.
+        ID.AddBoolean(true);
+      }
       Hash.AddDeclarationName(Name);
     }
     void VisitIdentifierInfo(IdentifierInfo *II) override {
@@ -196,7 +217,9 @@ namespace {
 
 void StmtProfiler::VisitStmt(const Stmt *S) {
   assert(S && "Requires non-null Stmt pointer");
-  ID.AddInteger(S->getStmtClass());
+
+  HandleStmtClass(S->getStmtClass());
+
   for (const Stmt *SubStmt : S->children()) {
     if (SubStmt)
       Visit(SubStmt);
@@ -966,8 +989,11 @@ void StmtProfiler::VisitDeclRefExpr(const DeclRefExpr *S) {
   if (!Canonical)
     VisitNestedNameSpecifier(S->getQualifier());
   VisitDecl(S->getDecl());
-  if (!Canonical)
-    VisitTemplateArguments(S->getTemplateArgs(), S->getNumTemplateArgs());
+  if (!Canonical) {
+    ID.AddBoolean(S->hasExplicitTemplateArgs());
+    if (S->hasExplicitTemplateArgs())
+      VisitTemplateArguments(S->getTemplateArgs(), S->getNumTemplateArgs());
+  }
 }
 
 void StmtProfiler::VisitPredefinedExpr(const PredefinedExpr *S) {
@@ -1056,51 +1082,6 @@ StmtProfiler::VisitUnaryExprOrTypeTraitExpr(const UnaryExprOrTypeTraitExpr *S) {
 void StmtProfiler::VisitArraySubscriptExpr(const ArraySubscriptExpr *S) {
   VisitExpr(S);
 }
-
-#if INTEL_SPECIFIC_CILKPLUS
-void StmtProfiler::VisitCEANIndexExpr(const CEANIndexExpr *S) {
-  VisitExpr(S);
-}
-
-void StmtProfiler::VisitCEANBuiltinExpr(const CEANBuiltinExpr *S) {
-  VisitExpr(S);
-}
-
-void StmtProfiler::VisitCilkSpawnExpr(const CilkSpawnExpr *S) {
-  llvm_unreachable("not implemented yet");
-}
-
-void StmtProfiler::VisitCilkSyncStmt(const CilkSyncStmt *S) {
-  VisitStmt(S);
-}
-
-void StmtProfiler::VisitCilkForGrainsizeStmt(const CilkForGrainsizeStmt *S) {
-  VisitStmt(S);
-}
-
-void StmtProfiler::VisitCilkForStmt(const CilkForStmt *S) {
-  VisitStmt(S);
-}
-
-void StmtProfiler::VisitSIMDForStmt(const SIMDForStmt *S) {
-  VisitStmt(S);
-}
-
-void StmtProfiler::VisitCilkRankedStmt(const CilkRankedStmt *S) {
-  VisitStmt(S);
-}
-#endif // INTEL_SPECIFIC_CILKPLUS
-
-#if INTEL_CUSTOMIZATION
-void StmtProfiler::VisitPragmaStmt(const PragmaStmt *S) {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  VisitStmt(S);
-#else
-  llvm_unreachable(
-    "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-}
-#endif // INTEL_CUSTOMIZATION
 
 void StmtProfiler::VisitOMPArraySectionExpr(const OMPArraySectionExpr *S) {
   VisitExpr(S);
@@ -1429,6 +1410,10 @@ static Stmt::StmtClass DecodeOperatorCall(const CXXOperatorCallExpr *S,
   case OO_GreaterEqual:
     BinaryOp = BO_GE;
     return Stmt::BinaryOperatorClass;
+
+  case OO_Spaceship:
+    // FIXME: Update this once we support <=> expressions.
+    llvm_unreachable("<=> expressions not supported yet");
       
   case OO_AmpAmp:
     BinaryOp = BO_LAnd;
@@ -1700,7 +1685,7 @@ StmtProfiler::VisitCXXPseudoDestructorExpr(const CXXPseudoDestructorExpr *S) {
 void StmtProfiler::VisitOverloadExpr(const OverloadExpr *S) {
   VisitExpr(S);
   VisitNestedNameSpecifier(S->getQualifier());
-  VisitName(S->getName());
+  VisitName(S->getName(), /*TreatAsDecl*/ true);
   ID.AddBoolean(S->hasExplicitTemplateArgs());
   if (S->hasExplicitTemplateArgs())
     VisitTemplateArguments(S->getTemplateArgs(), S->getNumTemplateArgs());

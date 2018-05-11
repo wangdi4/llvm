@@ -90,9 +90,6 @@ class CGObjCRuntime;
 class CGOpenCLRuntime;
 class CGOpenMPRuntime;
 class CGCUDARuntime;
-#if INTEL_SPECIFIC_CILKPLUS
-class CGCilkPlusRuntime;
-#endif // INTEL_SPECIFIC_CILKPLUS
 class BlockFieldFlags;
 class FunctionArgList;
 class CoverageMappingModuleGen;
@@ -305,36 +302,10 @@ private:
   InstrProfStats PGOStats;
   std::unique_ptr<llvm::SanitizerStatReport> SanStats;
 
-#if INTEL_SPECIFIC_CILKPLUS
-  std::unique_ptr<CGCilkPlusRuntime> CilkPlusRuntime;
-  struct ElementalVariantInfo {
-    /// \brief The CodeGen infomation of this function.
-    const CGFunctionInfo *FnInfo;
-    /// \brief The elemental function declaration.
-    const FunctionDecl *FD;
-    /// \brief The LLVM function of this declaration.
-    llvm::Function *Fn;
-    /// \brief The metadata describing this elemental function.
-    llvm::MDNode *KernelMD;
-
-    ElementalVariantInfo(const CGFunctionInfo *FnInfo, const FunctionDecl *FD,
-                         llvm::Function *Fn, llvm::MDNode *KernelMD)
-    : FnInfo(FnInfo), FD(FD), Fn(Fn), KernelMD(KernelMD) { }
-  };
-
-  /// ElementalVariantToEmit - This contains all Cilk Plus elemental function
-  /// variants to be emitted.
-  llvm::SmallVector<ElementalVariantInfo, 8> ElementalVariantToEmit;
-
-  /// ElementalAttributes - This contains all attributes of elemental functions.
-  llvm::StringMap<llvm::Function *, llvm::BumpPtrAllocator> ElementalAttributes;
-#endif // INTEL_SPECIFIC_CILKPLUS
 #if INTEL_CUSTOMIZATION
-#if INTEL_SPECIFIC_OPENMP
   // CQ#411303 Intel driver requires front-end to produce special file if
   // translation unit has any target code.
   bool HasTargetCode = false;
-#endif // INTEL_SPECIFIC_OPENMP
 #endif // INTEL_CUSTOMIZATION
 
   // A set of references that have only been seen via a weakref so far. This is
@@ -358,6 +329,10 @@ private:
   /// List of alias we have emitted. Used to make sure that what they point to
   /// is defined once we get to the end of the of the translation unit.
   std::vector<GlobalDecl> Aliases;
+
+  /// List of multiversion functions that have to be emitted.  Used to make sure
+  /// we properly emit the iFunc.
+  std::vector<GlobalDecl> MultiVersionFuncs;
 
   typedef llvm::StringMap<llvm::TrackingVH<llvm::Constant> > ReplacementsTy;
   ReplacementsTy Replacements;
@@ -485,9 +460,6 @@ private:
   void createOpenCLRuntime();
   void createOpenMPRuntime();
   void createCUDARuntime();
-#if INTEL_SPECIFIC_CILKPLUS
-  void createCilkPlusRuntime();
-#endif // INTEL_SPECIFIC_CILKPLUS
   bool isTriviallyRecursive(const FunctionDecl *F);
   bool shouldEmitFunction(GlobalDecl GD);
   bool shouldOpportunisticallyEmitVTables();
@@ -527,7 +499,7 @@ private:
 
   /// @}
 
-  llvm::DenseMap<const Decl *, bool> DeferredEmptyCoverageMappingDecls;
+  llvm::MapVector<const Decl *, bool> DeferredEmptyCoverageMappingDecls;
 
   std::unique_ptr<CoverageMappingModuleGen> CoverageMapping;
 
@@ -581,86 +553,6 @@ public:
     assert(CUDARuntime != nullptr);
     return *CUDARuntime;
   }
-#if INTEL_SPECIFIC_CILKPLUS
-  CGCilkPlusRuntime &getCilkPlusRuntime() {
-    assert(CilkPlusRuntime != 0);
-    return *CilkPlusRuntime;
-  }
-
-  // A common data structure to represent vector function attributes in
-  // cilk vector functions and 'omp declare simd' functions.
-  struct CilkElementalGroup {
-    typedef SmallVector<CilkProcessorAttr::CilkProcessor, 1> ProcessorVector;
-    typedef SmallVector<QualType, 1> VecLengthForVector;
-    typedef SmallVector<unsigned, 1> VecLengthVector;
-    // Masking: 0-nomask/notinbranch, 1-mask/inbranch
-    typedef SmallVector<unsigned, 2> MaskVector;
-    typedef std::map<std::string, std::pair<int,std::string> > LinearMap;
-    typedef std::map<std::string, unsigned> AlignedMap;
-    typedef std::set<std::string> UniformSet;
-
-    ProcessorVector Processor;
-    VecLengthVector VecLength;
-    VecLengthForVector VecLengthFor;
-    LinearMap  LinearParms;
-    AlignedMap AlignedParms;
-    UniformSet UniformParms;
-    MaskVector Mask;
-
-    bool getUniformAttr(std::string Name) const {
-      return UniformParms.count(Name) != 0;
-    }
-
-    bool getLinearAttr(std::string Name, std::pair<int,std::string> *out_step) const {
-      const LinearMap::const_iterator it = LinearParms.find(Name);
-      if (it == LinearParms.end()) return false;
-      *out_step = it->second;
-      return true;
-    }
-
-    bool getAlignedAttr(std::string Name, unsigned *out_alignment) const {
-      const AlignedMap::const_iterator I = AlignedParms.find(Name);
-      if (I == AlignedParms.end()) return false;
-      *out_alignment = I->second;
-      return true;
-    }
-
-    void setLinear(std::string Name, std::string Idname, int Step) {
-      LinearParms[Name].first = Step;
-      LinearParms[Name].second = Idname;
-    }
-
-    void setAligned(std::string Name, unsigned Alignment) {
-      AlignedParms[Name] = Alignment;
-    }
-
-    void setUniform(std::string Name) {
-      UniformParms.insert(Name);
-    }
-  };
-
-  typedef llvm::SmallDenseMap<unsigned, CilkElementalGroup, 4> GroupMap;
-
-  // The following is common part for 'cilk vector functions' and
-  // 'omp declare simd' functions metadata generation.
-  //
-  void EmitVectorVariantsMetadata(const CGFunctionInfo &FnInfo,
-                                  const FunctionDecl *FD,
-                                  llvm::Function *Fn,
-                                  GroupMap &Groups);
-
-  /// Add an elemental function metadata node to the named metadata node
-  /// 'cilk.functions'.
-  void EmitCilkElementalMetadata(const CGFunctionInfo &FnInfo,
-                                 const FunctionDecl *FD, llvm::Function *Fn);
-
-  /// Emit all elemental function vector variants in this module.
-  void EmitCilkElementalVariants();
-
-  /// Emit an attribute for given elemental function.
-  void EmitCilkElementalAttribute(llvm::Function *Func, llvm::MDNode *MD,
-                                  bool IsMasked);
-#endif // INTEL_SPECIFIC_CILKPLUS
 
   ObjCEntrypoints &getObjCEntrypoints() const {
     assert(ObjCData != nullptr);
@@ -802,12 +694,16 @@ public:
   TBAAAccessInfo mergeTBAAInfoForConditionalOperator(TBAAAccessInfo InfoA,
                                                      TBAAAccessInfo InfoB);
 
+  /// mergeTBAAInfoForMemoryTransfer - Get merged TBAA information for the
+  /// purposes of memory transfer calls.
+  TBAAAccessInfo mergeTBAAInfoForMemoryTransfer(TBAAAccessInfo DestInfo,
+                                                TBAAAccessInfo SrcInfo);
+
   /// getTBAAInfoForSubobject - Get TBAA information for an access with a given
   /// base lvalue.
   TBAAAccessInfo getTBAAInfoForSubobject(LValue Base, QualType AccessType) {
-    TBAAAccessInfo TBAAInfo = Base.getTBAAInfo();
-    if (TBAAInfo.isMayAlias() || TBAAInfo.isUnionMember())
-      return TBAAInfo;
+    if (Base.getTBAAInfo().isMayAlias())
+      return TBAAAccessInfo::getMayAliasInfo();
     return getTBAAAccessInfo(AccessType);
   }
 
@@ -828,8 +724,19 @@ public:
   llvm::ConstantInt *getSize(CharUnits numChars);
 
   /// Set the visibility for the given LLVM GlobalValue.
-  void setGlobalVisibility(llvm::GlobalValue *GV, const NamedDecl *D,
-                           ForDefinition_t IsForDefinition) const;
+  void setGlobalVisibility(llvm::GlobalValue *GV, const NamedDecl *D) const;
+
+  void setGlobalVisibilityAndLocal(llvm::GlobalValue *GV,
+                                   const NamedDecl *D) const;
+
+  void setDSOLocal(llvm::GlobalValue *GV) const;
+
+  void setDLLImportDLLExport(llvm::GlobalValue *GV, GlobalDecl D) const;
+  void setDLLImportDLLExport(llvm::GlobalValue *GV, const NamedDecl *D) const;
+  /// Set visibility, dllimport/dllexport and dso_local.
+  /// This must be called after dllimport/dllexport is set.
+  void setGVProperties(llvm::GlobalValue *GV, GlobalDecl GD) const;
+  void setGVProperties(llvm::GlobalValue *GV, const NamedDecl *D) const;
 
   /// Set the TLS mode for the given LLVM GlobalValue for the thread-local
   /// variable declaration D.
@@ -875,7 +782,7 @@ public:
   /// Return the llvm::Constant for the address of the given global variable.
   /// If Ty is non-null and if the global doesn't exist, then it will be created
   /// with the specified type instead of whatever the normal requested type
-  /// would be. If IsForDefinition is true, it is guranteed that an actual
+  /// would be. If IsForDefinition is true, it is guaranteed that an actual
   /// global with type Ty will be returned, not conversion of a variable with
   /// the same mangled name but some other type.
   llvm::Constant *GetAddrOfGlobalVar(const VarDecl *D,
@@ -898,7 +805,8 @@ public:
   ConstantAddress GetAddrOfUuidDescriptor(const CXXUuidofExpr* E);
 
   /// Get the address of the thunk for the given global decl.
-  llvm::Constant *GetAddrOfThunk(GlobalDecl GD, const ThunkInfo &Thunk);
+  llvm::Constant *GetAddrOfThunk(StringRef Name, llvm::Type *FnTy,
+                                 GlobalDecl GD);
 
   /// Get a reference to the target of VD.
   ConstantAddress GetWeakRefReference(const ValueDecl *VD);
@@ -1060,14 +968,15 @@ public:
   /// "__apply_args", return a Function* for "__apply_args".
   llvm::Constant *getBuiltinIntelLibFunction(const FunctionDecl *FD,
                                              unsigned BuiltinID);
-#if INTEL_SPECIFIC_OPENMP
   // CQ#411303 Intel driver requires front-end to produce special file if
   // translation unit has any target code.
   void setHasTargetCode() { HasTargetCode = true; }
   // Write communication file for Intel driver to notify that current module
   // has target specific code and target compilation is required.
   void EmitIntelDriverTempfile();
-#endif // INTEL_SPECIFIC_OPENMP
+  void generateHLSAnnotation(const VarDecl *VD,
+                             llvm::SmallString<256> &AnnotStr);
+  void addGlobalHLSAnnotation(const VarDecl *VD, llvm::GlobalValue *GV);
 #endif  // INTEL_CUSTOMIZATION
   /// Given a builtin id for a function like "__builtin_fabsf", return a
   /// Function* for "fabsf".
@@ -1169,7 +1078,7 @@ public:
   /// Set the attributes on the LLVM function for the given decl and function
   /// info. This applies attributes necessary for handling the ABI as well as
   /// user specified attributes like section.
-  void SetInternalFunctionAttributes(const Decl *D, llvm::Function *F,
+  void SetInternalFunctionAttributes(GlobalDecl GD, llvm::Function *F,
                                      const CGFunctionInfo &FI);
 
   /// Set the LLVM function attributes (sext, zext, etc).
@@ -1235,9 +1144,7 @@ public:
 
   StringRef getMangledName(GlobalDecl GD);
   StringRef getBlockMangledName(GlobalDecl GD, const BlockDecl *BD);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  void registerAsMangled(StringRef Name, GlobalDecl GD);
-#endif // INTEL_SPECIFIC_IL0_BACKEND
+
   void EmitTentativeDefinition(const VarDecl *D);
 
   void EmitVTable(CXXRecordDecl *Class);
@@ -1254,14 +1161,13 @@ public:
   /// value.
   void AddDependentLib(StringRef Lib);
 
+  void AddELFLibDirective(StringRef Lib);
+
   llvm::GlobalVariable::LinkageTypes getFunctionLinkage(GlobalDecl GD);
 
   void setFunctionLinkage(GlobalDecl GD, llvm::Function *F) {
     F->setLinkage(getFunctionLinkage(GD));
   }
-
-  /// Set the DLL storage class on F.
-  void setFunctionDLLStorageClass(GlobalDecl GD, llvm::Function *F);
 
   /// Return the appropriate linkage for the vtable, VTT, and type information
   /// of the given class.
@@ -1327,16 +1233,12 @@ public:
     DeferredVTables.push_back(RD);
   }
 
-  /// Emit code for a singal global function or var decl. Forward declarations
+  /// Emit code for a single global function or var decl. Forward declarations
   /// are emitted lazily.
   void EmitGlobal(GlobalDecl D);
 
   bool TryEmitDefinitionAsAlias(GlobalDecl Alias, GlobalDecl Target);
   bool TryEmitBaseDestructorAsAlias(const CXXDestructorDecl *D);
-
-  /// Set attributes for a global definition.
-  void setFunctionDefinitionAttributes(const FunctionDecl *D,
-                                       llvm::Function *F);
 
   llvm::GlobalValue *GetGlobalValue(StringRef Ref);
 
@@ -1344,13 +1246,7 @@ public:
   /// Objective-C method, function, global variable).
   ///
   /// NOTE: This should only be called for definitions.
-  void SetCommonAttributes(const Decl *D, llvm::GlobalValue *GV);
-
-  /// Set attributes which must be preserved by an alias. This includes common
-  /// attributes (i.e. it includes a call to SetCommonAttributes).
-  ///
-  /// NOTE: This should only be called for definitions.
-  void setAliasAttributes(const Decl *D, llvm::GlobalValue *GV);
+  void SetCommonAttributes(GlobalDecl GD, llvm::GlobalValue *GV);
 
   void addReplacement(StringRef Name, llvm::Constant *C);
 
@@ -1416,18 +1312,25 @@ private:
       llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
       ForDefinition_t IsForDefinition = NotForDefinition);
 
+  llvm::Constant *GetOrCreateMultiVersionIFunc(GlobalDecl GD,
+                                               llvm::Type *DeclTy,
+                                               StringRef MangledName,
+                                               const FunctionDecl *FD);
+  void UpdateMultiVersionNames(GlobalDecl GD, const FunctionDecl *FD);
+
   llvm::Constant *GetOrCreateLLVMGlobal(StringRef MangledName,
                                         llvm::PointerType *PTy,
                                         const VarDecl *D,
                                         ForDefinition_t IsForDefinition
                                           = NotForDefinition);
 
-  void setNonAliasAttributes(const Decl *D, llvm::GlobalObject *GO);
+  bool GetCPUAndFeaturesAttributes(const Decl *D,
+                                   llvm::AttrBuilder &AttrBuilder);
+  void setNonAliasAttributes(GlobalDecl GD, llvm::GlobalObject *GO);
 
   /// Set function attributes for a function declaration.
   void SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
-                             bool IsIncompleteFunction, bool IsThunk,
-                             ForDefinition_t IsForDefinition);
+                             bool IsIncompleteFunction, bool IsThunk);
 
   void EmitGlobalDefinition(GlobalDecl D, llvm::GlobalValue *GV = nullptr);
 
@@ -1487,6 +1390,14 @@ private:
   void applyGlobalValReplacements();
 
   void checkAliases();
+
+  std::map<int, llvm::TinyPtrVector<llvm::Function *>> DtorsUsingAtExit;
+
+  /// Register functions annotated with __attribute__((destructor)) using
+  /// __cxa_atexit, if it is available, or atexit otherwise.
+  void registerGlobalDtorsWithAtExit();
+
+  void emitMultiVersionFunctions();
 
   /// Emit any vtables which we deferred and still have a use for.
   void EmitDeferredVTables();

@@ -1,6 +1,4 @@
 // RUN: %clang_cc1 -fintel-compatibility -ast-dump %s | FileCheck %s
-// REQUIRES: llvm-backend
-
 
 __declspec(avoid_false_share) int i;
 

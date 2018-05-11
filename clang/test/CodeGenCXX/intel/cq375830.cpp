@@ -12,7 +12,7 @@ class C {
 };
 
 void C::foo() __restrict { ; }
-// CHECK: define void @"\01?foo@C@@AEAAXXZ"(%class.C* %this)
+// CHECK: define dso_local void @"?foo@C@@AEAAXXZ"(%class.C* %this)
 void C::bar() { ; }
-// CHECK: define void @"\01?bar@C@@AEIAAXXZ"(%class.C* %this)
+// CHECK: define dso_local void @"?bar@C@@AEIAAXXZ"(%class.C* %this)
 

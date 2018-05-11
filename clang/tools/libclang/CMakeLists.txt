@@ -67,7 +67,7 @@ option(LIBCLANG_BUILD_STATIC
 set(LLVM_EXPORTED_SYMBOL_FILE ${CMAKE_CURRENT_SOURCE_DIR}/libclang.exports)
 
 if(MSVC)
-  # Avoid LNK4197 not to spceify libclang.def here.
+  # Avoid LNK4197 by not specifying libclang.exports here.
   # Each functions is exported as "dllexport" in include/clang-c.
   # KB835326
   set(LLVM_EXPORTED_SYMBOL_FILE)
@@ -148,9 +148,6 @@ add_custom_target(libclang-headers)
 set_target_properties(libclang-headers PROPERTIES FOLDER "Misc")
 
 if (NOT CMAKE_CONFIGURATION_TYPES) # don't add this for IDE's.
-  add_custom_target(install-libclang-headers
-    DEPENDS
-    COMMAND "${CMAKE_COMMAND}"
-            -DCMAKE_INSTALL_COMPONENT=libclang-headers
-            -P "${CMAKE_BINARY_DIR}/cmake_install.cmake")
+  add_llvm_install_targets(install-libclang-headers
+                           COMPONENT libclang-headers)
 endif()

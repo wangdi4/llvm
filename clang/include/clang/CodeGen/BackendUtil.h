@@ -31,6 +31,9 @@ namespace clang {
   enum BackendAction {
     Backend_EmitAssembly,  ///< Emit native assembly files
     Backend_EmitBC,        ///< Emit LLVM bitcode files
+#if INTEL_CUSTOMIZATION
+    Backend_EmitSPIRV,     ///< Emit SPIR-V bitcode files
+#endif // INTEL_CUSTOMIZATION
     Backend_EmitLL,        ///< Emit human-readable LLVM assembly
     Backend_EmitNothing,   ///< Don't emit anything (benchmarking mode)
     Backend_EmitMCNull,    ///< Run CodeGen, but don't emit anything
@@ -51,6 +54,8 @@ namespace clang {
 
   llvm::Expected<llvm::BitcodeModule>
   FindThinLTOModule(llvm::MemoryBufferRef MBRef);
+  llvm::BitcodeModule *
+  FindThinLTOModule(llvm::MutableArrayRef<llvm::BitcodeModule> BMs);
 }
 
 #endif

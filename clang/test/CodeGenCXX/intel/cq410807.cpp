@@ -15,11 +15,11 @@ public:
 
   void g() {
     B b = {f}; // expected-warning {{must explicitly qualify name of member function when taking its address}}
-// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* {{%.*}}, i8* bitcast (%"struct.cq410807::A::B"* @_ZZN8cq4108071A1gEvE1b to i8*), i64 16, i32 8, i1 false)
+// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 {{%.*}}, i8* align 8 bitcast (%"struct.cq410807::A::B"* @_ZZN8cq4108071A1gEvE1b to i8*), i64 16, i1 false)
     B b2 = {&A::f};
-// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* {{%.*}}, i8* bitcast (%"struct.cq410807::A::B"* @_ZZN8cq4108071A1gEvE2b2 to i8*), i64 16, i32 8, i1 false)
+// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 {{%.*}}, i8* align 8 bitcast (%"struct.cq410807::A::B"* @_ZZN8cq4108071A1gEvE2b2 to i8*), i64 16, i1 false)
     B b3 = {(TAmtd)f}; // expected-warning {{must explicitly qualify name of member function when taking its address}}
-// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* {{%.*}}, i8* bitcast (%"struct.cq410807::A::B"* @_ZZN8cq4108071A1gEvE2b3 to i8*), i64 16, i32 8, i1 false)
+// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 {{%.*}}, i8* align 8 bitcast (%"struct.cq410807::A::B"* @_ZZN8cq4108071A1gEvE2b3 to i8*), i64 16, i1 false)
   }
 };
 

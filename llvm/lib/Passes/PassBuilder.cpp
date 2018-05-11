@@ -22,7 +22,6 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
-#include "llvm/Analysis/BlockFrequencyInfoImpl.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/Analysis/CFLAndersAliasAnalysis.h"
@@ -60,7 +59,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Regex.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/GCOVProfiler.h"
+#include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
+#include "llvm/Transforms/Instrumentation/GCOVProfiler.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/ArgumentPromotion.h"
 #include "llvm/Transforms/IPO/CalledValuePropagation.h"
@@ -80,13 +80,14 @@
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
 #include "llvm/Transforms/IPO/PartialInlining.h"
 #include "llvm/Transforms/IPO/SCCP.h"
+#include "llvm/Transforms/IPO/SampleProfile.h"
 #include "llvm/Transforms/IPO/StripDeadPrototypes.h"
+#include "llvm/Transforms/IPO/SyntheticCountsPropagation.h"
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
-#include "llvm/Transforms/InstrProfiling.h"
+#include "llvm/Transforms/Instrumentation/InstrProfiling.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
-#include "llvm/Transforms/PGOInstrumentation.h"
-#include "llvm/Transforms/SampleProfile.h"
+#include "llvm/Transforms/Instrumentation/PGOInstrumentation.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
 #include "llvm/Transforms/Scalar/AlignmentFromAssumptions.h"
 #include "llvm/Transforms/Scalar/BDCE.h"
@@ -102,6 +103,7 @@
 #include "llvm/Transforms/Scalar/GuardWidening.h"
 #include "llvm/Transforms/Scalar/IVUsersPrinter.h"
 #include "llvm/Transforms/Scalar/IndVarSimplify.h"
+#include "llvm/Transforms/Scalar/InductiveRangeCheckElimination.h"
 #include "llvm/Transforms/Scalar/JumpThreading.h"
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/LoopAccessAnalysisPrinter.h"
@@ -109,7 +111,6 @@
 #include "llvm/Transforms/Scalar/LoopDeletion.h"
 #include "llvm/Transforms/Scalar/LoopDistribute.h"
 #include "llvm/Transforms/Scalar/LoopIdiomRecognize.h"
-#include "llvm/Transforms/Scalar/LoopInstSimplify.h"
 #include "llvm/Transforms/Scalar/LoopLoadElimination.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include "llvm/Transforms/Scalar/LoopPredication.h"
@@ -127,6 +128,7 @@
 #include "llvm/Transforms/Scalar/NewGVN.h"
 #include "llvm/Transforms/Scalar/PartiallyInlineLibCalls.h"
 #include "llvm/Transforms/Scalar/Reassociate.h"
+#include "llvm/Transforms/Scalar/RewriteStatepointsForGC.h"
 #include "llvm/Transforms/Scalar/SCCP.h"
 #include "llvm/Transforms/Scalar/SROA.h"
 #include "llvm/Transforms/Scalar/SimpleLoopUnswitch.h"
@@ -144,13 +146,10 @@
 #include "llvm/Transforms/Utils/LowerInvoke.h"
 #include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
-#include "llvm/Transforms/Utils/PredicateInfo.h"
 #include "llvm/Transforms/Utils/SimplifyInstructions.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Vectorize/LoopVectorize.h"
 #include "llvm/Transforms/Vectorize/SLPVectorizer.h"
-
-#include <type_traits>
 
 using namespace llvm;
 
@@ -177,6 +176,11 @@ static cl::opt<bool> EnableGVNHoist(
 static cl::opt<bool> EnableGVNSink(
     "enable-npm-gvn-sink", cl::init(false), cl::Hidden,
     cl::desc("Enable the GVN hoisting pass for the new PM (default = off)"));
+
+static cl::opt<bool> EnableSyntheticCounts(
+    "enable-npm-synthetic-counts", cl::init(false), cl::Hidden, cl::ZeroOrMore,
+    cl::desc("Run synthetic function entry count generation "
+             "pass"));
 
 static Regex DefaultAliasRegex(
     "^(default|thinlto-pre-link|thinlto|lto-pre-link|lto)<(O[0123sz])>$");
@@ -360,6 +364,8 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(JumpThreadingPass());
   FPM.addPass(CorrelatedValuePropagationPass());
   FPM.addPass(SimplifyCFGPass());
+  if (Level == O3)
+    FPM.addPass(AggressiveInstCombinePass());
   FPM.addPass(InstCombinePass());
 
   if (!isOptimizingForSize(Level))
@@ -385,9 +391,8 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // FIXME: Currently this is split into two loop pass pipelines because we run
   // some function passes in between them. These can and should be replaced by
   // loop pass equivalenst but those aren't ready yet. Specifically,
-  // `SimplifyCFGPass` and `InstCombinePass` are used. We have
-  // `LoopSimplifyCFGPass` which isn't yet powerful enough, and the closest to
-  // the other we have is `LoopInstSimplify`.
+  // `SimplifyCFGPass` and `InstCombinePass` are used. We just have
+  // `LoopSimplifyCFGPass` which isn't yet powerful enough.
   LoopPassManager LPM1(DebugLogging), LPM2(DebugLogging);
 
   // Rotate Loop - disable header duplication at -Oz
@@ -414,10 +419,10 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // We provide the opt remark emitter pass for LICM to use. We only need to do
   // this once as it is immutable.
   FPM.addPass(RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
-  FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM1)));
+  FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM1), DebugLogging));
   FPM.addPass(SimplifyCFGPass());
   FPM.addPass(InstCombinePass());
-  FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM2)));
+  FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM2), DebugLogging));
 
   // Eliminate redundancies.
   if (Level != O1) {
@@ -452,7 +457,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(JumpThreadingPass());
   FPM.addPass(CorrelatedValuePropagationPass());
   FPM.addPass(DSEPass());
-  FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass()));
+  FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass(), DebugLogging));
 
   for (auto &C : ScalarOptimizerLateEPCallbacks)
     C(FPM, Level);
@@ -512,7 +517,8 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM, bool DebugLogging,
     MPM.addPass(PGOInstrumentationGen());
 
     FunctionPassManager FPM;
-    FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));
+    FPM.addPass(
+        createFunctionToLoopPassAdaptor(LoopRotatePass(), DebugLogging));
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 
     // Add the profile lowering pass.
@@ -582,7 +588,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
                                            true));
   }
 
-  // Interprocedural constant propagation now that basic cleanup has occured
+  // Interprocedural constant propagation now that basic cleanup has occurred
   // and prior to optimizing globals.
   // FIXME: This position in the pipeline hasn't been carefully considered in
   // years, it should be re-analyzed.
@@ -622,6 +628,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
                       PGOOpt->ProfileGenFile, PGOOpt->ProfileUseFile);
     MPM.addPass(PGOIndirectCallPromotion(false, false));
   }
+
+  // Synthesize function entry counts for non-PGO compilation.
+  if (EnableSyntheticCounts && !PGOOpt)
+    MPM.addPass(SyntheticCountsPropagation());
 
   // Require the GlobalsAA analysis for the module so we can query it within
   // the CGSCC pipeline.
@@ -732,7 +742,8 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
     C(OptimizePM, Level);
 
   // First rotate loops that may have been un-rotated by prior passes.
-  OptimizePM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));
+  OptimizePM.addPass(
+      createFunctionToLoopPassAdaptor(LoopRotatePass(), DebugLogging));
 
   // Distribute loops to allow partial vectorization.  I.e. isolate dependences
   // into separate loop that would otherwise inhibit vectorization.  This is
@@ -750,21 +761,24 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // Cleanup after the loop optimization passes.
   OptimizePM.addPass(InstCombinePass());
 
-
   // Now that we've formed fast to execute loop structures, we do further
   // optimizations. These are run afterward as they might block doing complex
   // analyses and transforms such as what are needed for loop vectorization.
 
+  // Cleanup after loop vectorization, etc. Simplification passes like CVP and
+  // GVN, loop transforms, and others have already run, so it's now better to
+  // convert to more optimized IR using more aggressive simplify CFG options.
+  // The extra sinking transform can create larger basic blocks, so do this
+  // before SLP vectorization.
+  OptimizePM.addPass(SimplifyCFGPass(SimplifyCFGOptions().
+                                     forwardSwitchCondToPhi(true).
+                                     convertSwitchToLookupTable(true).
+                                     needCanonicalLoops(false).
+                                     sinkCommonInsts(true)));
+
   // Optimize parallel scalar instruction chains into SIMD instructions.
   OptimizePM.addPass(SLPVectorizerPass());
 
-  // Cleanup after all of the vectorizers. Simplification passes like CVP and
-  // GVN, loop transforms, and others have already run, so it's now better to
-  // convert to more optimized IR using more aggressive simplify CFG options.
-  OptimizePM.addPass(SimplifyCFGPass(SimplifyCFGOptions().
-                                         forwardSwitchCondToPhi(true).
-                                         convertSwitchToLookupTable(true).
-                                         needCanonicalLoops(false)));
   OptimizePM.addPass(InstCombinePass());
 
   // Unroll small loops to hide loop backedge latency and saturate any parallel
@@ -776,7 +790,7 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   OptimizePM.addPass(LoopUnrollPass(Level));
   OptimizePM.addPass(InstCombinePass());
   OptimizePM.addPass(RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
-  OptimizePM.addPass(createFunctionToLoopPassAdaptor(LICMPass()));
+  OptimizePM.addPass(createFunctionToLoopPassAdaptor(LICMPass(), DebugLogging));
 
   // Now that we've vectorized and unrolled loops, we may have more refined
   // alignment information, try to re-derive it here.
@@ -828,6 +842,10 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
   // Force any function attributes we want the rest of the pipeline to observe.
   MPM.addPass(ForceFunctionAttrsPass());
 
+  // Apply module pipeline start EP callback.
+  for (auto &C : PipelineStartEPCallbacks)
+    C(MPM);
+
   if (PGOOpt && PGOOpt->SamplePGOSupport)
     MPM.addPass(createModuleToFunctionPassAdaptor(AddDiscriminatorsPass()));
 
@@ -853,6 +871,10 @@ PassBuilder::buildThinLTOPreLinkDefaultPipeline(OptimizationLevel Level,
 
   if (PGOOpt && PGOOpt->SamplePGOSupport)
     MPM.addPass(createModuleToFunctionPassAdaptor(AddDiscriminatorsPass()));
+
+  // Apply module pipeline start EP callback.
+  for (auto &C : PipelineStartEPCallbacks)
+    C(MPM);
 
   // If we are planning to perform ThinLTO later, we don't bloat the code with
   // unrolling/vectorization/... now. Just simplify the module as much as we
@@ -990,6 +1012,8 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // function pointers.  When this happens, we often have to resolve varargs
   // calls, etc, so let instcombine do this.
   FunctionPassManager PeepholeFPM(DebugLogging);
+  if (Level == O3)
+    PeepholeFPM.addPass(AggressiveInstCombinePass());
   PeepholeFPM.addPass(InstCombinePass());
   invokePeepholeEPCallbacks(PeepholeFPM, Level);
 
@@ -1532,7 +1556,8 @@ bool PassBuilder::parseFunctionPass(FunctionPassManager &FPM,
                                  DebugLogging))
         return false;
       // Add the nested pass manager with the appropriate adaptor.
-      FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM)));
+      FPM.addPass(
+          createFunctionToLoopPassAdaptor(std::move(LPM), DebugLogging));
       return true;
     }
     if (auto Count = parseRepeatPassName(Name)) {

@@ -43,7 +43,7 @@ void Sema::AddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
   if (NumReadPortsAttr::classof(&TmpAttr) ||
       NumWritePortsAttr::classof(&TmpAttr)) {
     if (!D->hasAttr<MemoryAttr>())
-      D->addAttr(MemoryAttr::CreateImplicit(Context));
+      D->addAttr(MemoryAttr::CreateImplicit(Context, MemoryAttr::Default));
   }
 
   D->addAttr(::new (Context)
@@ -80,7 +80,7 @@ void Sema::AddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
   }
 
   if (!D->hasAttr<MemoryAttr>())
-    D->addAttr(MemoryAttr::CreateImplicit(Context));
+    D->addAttr(MemoryAttr::CreateImplicit(Context, MemoryAttr::Default));
 
   // We are adding a user NumBanks, drop any implicit default.
   if (NumBanksAttr::classof(&TmpAttr)) {

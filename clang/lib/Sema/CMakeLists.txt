@@ -6,9 +6,7 @@ if (MSVC)
   set_source_files_properties(SemaDeclAttr.cpp PROPERTIES COMPILE_FLAGS /bigobj)
   set_source_files_properties(SemaExpr.cpp PROPERTIES COMPILE_FLAGS /bigobj)
 # INTEL_CUSTOMIZATION
-  set_source_files_properties(intel/SemaCilk.cpp intel/SemaIntelAttr.cpp
-                              SemaExprCXX.cpp SemaTemplate.cpp
-                              SemaOpenMP.cpp
+  set_source_files_properties( SemaExprCXX.cpp SemaTemplate.cpp
                               PROPERTIES COMPILE_FLAGS /bigobj)
 # end INTEL_CUSTOMIZATION
 endif()
@@ -61,10 +59,6 @@ add_clang_library(clangSema
   SemaTemplateVariadic.cpp
   SemaType.cpp
   TypeLocBuilder.cpp
-# INTEL_CUSTOMIZATION
-  intel/SemaCilk.cpp
-  intel/SemaIntelAttr.cpp
-# end INTEL_CUSTOMIZATION
 
   LINK_LIBS
   clangAST

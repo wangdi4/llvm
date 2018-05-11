@@ -25,6 +25,7 @@
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/BasicBlock.h"
@@ -55,7 +56,6 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -263,7 +263,7 @@ public:
 
   void addMemSet(int64_t OffsetFromFirst, MemSetInst *MSI) {
     int64_t Size = cast<ConstantInt>(MSI->getLength())->getZExtValue();
-    addRange(OffsetFromFirst, Size, MSI->getDest(), MSI->getAlignment(), MSI);
+    addRange(OffsetFromFirst, Size, MSI->getDest(), MSI->getDestAlignment(), MSI);
   }
 
   void addRange(int64_t Start, int64_t Size, Value *Ptr,
@@ -498,16 +498,25 @@ Instruction *MemCpyOptPass::tryMergingIntoMemset(Instruction *StartInst,
   return AMemSet;
 }
 
-static unsigned findCommonAlignment(const DataLayout &DL, const StoreInst *SI,
-                                     const LoadInst *LI) {
+static unsigned findStoreAlignment(const DataLayout &DL, const StoreInst *SI) {
   unsigned StoreAlign = SI->getAlignment();
   if (!StoreAlign)
     StoreAlign = DL.getABITypeAlignment(SI->getOperand(0)->getType());
+  return StoreAlign;
+}
+
+static unsigned findLoadAlignment(const DataLayout &DL, const LoadInst *LI) {
   unsigned LoadAlign = LI->getAlignment();
   if (!LoadAlign)
     LoadAlign = DL.getABITypeAlignment(LI->getType());
+  return LoadAlign;
+}
 
-  return std::min(StoreAlign, LoadAlign);
+static unsigned findCommonAlignment(const DataLayout &DL, const StoreInst *SI,
+                                     const LoadInst *LI) {
+  unsigned StoreAlign = findStoreAlignment(DL, SI);
+  unsigned LoadAlign = findLoadAlignment(DL, LI);
+  return MinAlign(StoreAlign, LoadAlign);
 }
 
 // This method try to lift a store instruction before position P.
@@ -518,7 +527,7 @@ static bool moveUp(AliasAnalysis &AA, StoreInst *SI, Instruction *P,
                    const LoadInst *LI) {
   // If the store alias this position, early bail out.
   MemoryLocation StoreLoc = MemoryLocation::get(SI);
-  if (AA.getModRefInfo(P, StoreLoc) != MRI_NoModRef)
+  if (isModOrRefSet(AA.getModRefInfo(P, StoreLoc)))
     return false;
 
   // Keep track of the arguments of all instruction we plan to lift
@@ -542,20 +551,20 @@ static bool moveUp(AliasAnalysis &AA, StoreInst *SI, Instruction *P,
   for (auto I = --SI->getIterator(), E = P->getIterator(); I != E; --I) {
     auto *C = &*I;
 
-    bool MayAlias = AA.getModRefInfo(C, None) != MRI_NoModRef;
+    bool MayAlias = isModOrRefSet(AA.getModRefInfo(C, None));
 
     bool NeedLift = false;
     if (Args.erase(C))
       NeedLift = true;
     else if (MayAlias) {
       NeedLift = llvm::any_of(MemLocs, [C, &AA](const MemoryLocation &ML) {
-        return AA.getModRefInfo(C, ML);
+        return isModOrRefSet(AA.getModRefInfo(C, ML));
       });
 
       if (!NeedLift)
         NeedLift =
             llvm::any_of(CallSites, [C, &AA](const ImmutableCallSite &CS) {
-              return AA.getModRefInfo(C, CS);
+              return isModOrRefSet(AA.getModRefInfo(C, CS));
             });
     }
 
@@ -565,18 +574,18 @@ static bool moveUp(AliasAnalysis &AA, StoreInst *SI, Instruction *P,
     if (MayAlias) {
       // Since LI is implicitly moved downwards past the lifted instructions,
       // none of them may modify its source.
-      if (AA.getModRefInfo(C, LoadLoc) & MRI_Mod)
+      if (isModSet(AA.getModRefInfo(C, LoadLoc)))
         return false;
       else if (auto CS = ImmutableCallSite(C)) {
         // If we can't lift this before P, it's game over.
-        if (AA.getModRefInfo(P, CS) != MRI_NoModRef)
+        if (isModOrRefSet(AA.getModRefInfo(P, CS)))
           return false;
 
         CallSites.push_back(CS);
       } else if (isa<LoadInst>(C) || isa<StoreInst>(C) || isa<VAArgInst>(C)) {
         // If we can't lift this before P, it's game over.
         auto ML = MemoryLocation::get(C);
-        if (AA.getModRefInfo(P, ML) != MRI_NoModRef)
+        if (isModOrRefSet(AA.getModRefInfo(P, ML)))
           return false;
 
         MemLocs.push_back(ML);
@@ -631,7 +640,7 @@ bool MemCpyOptPass::processStore(StoreInst *SI, BasicBlock::iterator &BBI) {
         // of at the store position.
         Instruction *P = SI;
         for (auto &I : make_range(++LI->getIterator(), SI->getIterator())) {
-          if (AA.getModRefInfo(&I, LoadLoc) & MRI_Mod) {
+          if (isModSet(AA.getModRefInfo(&I, LoadLoc))) {
             P = &I;
             break;
           }
@@ -656,19 +665,20 @@ bool MemCpyOptPass::processStore(StoreInst *SI, BasicBlock::iterator &BBI) {
           if (!AA.isNoAlias(MemoryLocation::get(SI), LoadLoc))
             UseMemMove = true;
 
-          unsigned Align = findCommonAlignment(DL, SI, LI);
           uint64_t Size = DL.getTypeStoreSize(T);
 
           IRBuilder<> Builder(P);
           Instruction *M;
           if (UseMemMove)
-            M = Builder.CreateMemMove(SI->getPointerOperand(),
-                                      LI->getPointerOperand(), Size,
-                                      Align, SI->isVolatile());
+            M = Builder.CreateMemMove(
+                SI->getPointerOperand(), findStoreAlignment(DL, SI),
+                LI->getPointerOperand(), findLoadAlignment(DL, LI), Size,
+                SI->isVolatile());
           else
-            M = Builder.CreateMemCpy(SI->getPointerOperand(),
-                                     LI->getPointerOperand(), Size,
-                                     Align, SI->isVolatile());
+            M = Builder.CreateMemCpy(
+                SI->getPointerOperand(), findStoreAlignment(DL, SI),
+                LI->getPointerOperand(), findLoadAlignment(DL, LI), Size,
+                SI->isVolatile());
 
           DEBUG(dbgs() << "Promoting " << *LI << " to " << *SI
                        << " => " << *M << "\n");
@@ -702,7 +712,7 @@ bool MemCpyOptPass::processStore(StoreInst *SI, BasicBlock::iterator &BBI) {
         MemoryLocation StoreLoc = MemoryLocation::get(SI);
         for (BasicBlock::iterator I = --SI->getIterator(), E = C->getIterator();
              I != E; --I) {
-          if (AA.getModRefInfo(&*I, StoreLoc) != MRI_NoModRef) {
+          if (isModOrRefSet(AA.getModRefInfo(&*I, StoreLoc))) {
             C = nullptr;
             break;
           }
@@ -934,9 +944,9 @@ bool MemCpyOptPass::performCallSlotOptzn(Instruction *cpy, Value *cpyDest,
   AliasAnalysis &AA = LookupAliasAnalysis();
   ModRefInfo MR = AA.getModRefInfo(C, cpyDest, srcSize);
   // If necessary, perform additional analysis.
-  if (MR != MRI_NoModRef)
+  if (isModOrRefSet(MR))
     MR = AA.callCapturesBefore(C, cpyDest, srcSize, &DT);
-  if (MR != MRI_NoModRef)
+  if (isModOrRefSet(MR))
     return false;
 
   // We can't create address space casts here because we don't know if they're
@@ -1031,22 +1041,9 @@ bool MemCpyOptPass::processMemCpyMemCpyDependence(MemCpyInst *M,
   //
   // NOTE: This is conservative, it will stop on any read from the source loc,
   // not just the defining memcpy.
-  MemoryLocation SourceLoc = MemoryLocation::getForSource(MDep);
-  MemDepResult SourceDep = MD->getPointerDependencyFrom(SourceLoc, false,
-                                                        M->getIterator(), M->getParent());
-
-  if (SourceDep.isNonLocal()) {
-    SmallVector<NonLocalDepResult, 2> NonLocalDepResults;
-    MD->getNonLocalPointerDependencyFrom(M, SourceLoc, /*isLoad=*/false,
-                                         NonLocalDepResults);
-    if (NonLocalDepResults.size() == 1) {
-      SourceDep = NonLocalDepResults[0].getResult();
-      assert((!SourceDep.getInst() ||
-              LookupDomTree().dominates(SourceDep.getInst(), M)) &&
-             "when memdep returns exactly one result, it should dominate");
-    }
-  }
-
+  MemDepResult SourceDep =
+      MD->getPointerDependencyFrom(MemoryLocation::getForSource(MDep), false,
+                                   M->getIterator(), M->getParent());
   if (!SourceDep.isClobber() || SourceDep.getInst() != MDep)
     return false;
 
@@ -1060,20 +1057,17 @@ bool MemCpyOptPass::processMemCpyMemCpyDependence(MemCpyInst *M,
 
   // If all checks passed, then we can transform M.
 
-  // Make sure to use the lesser of the alignment of the source and the dest
-  // since we're changing where we're reading from, but don't want to increase
-  // the alignment past what can be read from or written to.
   // TODO: Is this worth it if we're creating a less aligned memcpy? For
   // example we could be moving from movaps -> movq on x86.
-  unsigned Align = std::min(MDep->getAlignment(), M->getAlignment());
-
   IRBuilder<> Builder(M);
   if (UseMemMove)
-    Builder.CreateMemMove(M->getRawDest(), MDep->getRawSource(), M->getLength(),
-                          Align, M->isVolatile());
+    Builder.CreateMemMove(M->getRawDest(), M->getDestAlignment(),
+                          MDep->getRawSource(), MDep->getSourceAlignment(),
+                          M->getLength(), M->isVolatile());
   else
-    Builder.CreateMemCpy(M->getRawDest(), MDep->getRawSource(), M->getLength(),
-                         Align, M->isVolatile());
+    Builder.CreateMemCpy(M->getRawDest(), M->getDestAlignment(),
+                         MDep->getRawSource(), MDep->getSourceAlignment(),
+                         M->getLength(), M->isVolatile());
 
   // Remove the instruction we're replacing.
   MD->removeInstruction(M);
@@ -1119,7 +1113,7 @@ bool MemCpyOptPass::processMemSetMemCpyDependence(MemCpyInst *MemCpy,
   // If Dest is aligned, and SrcSize is constant, use the minimum alignment
   // of the sum.
   const unsigned DestAlign =
-      std::max(MemSet->getAlignment(), MemCpy->getAlignment());
+      std::max(MemSet->getDestAlignment(), MemCpy->getDestAlignment());
   if (DestAlign > 1)
     if (ConstantInt *SrcSizeC = dyn_cast<ConstantInt>(SrcSize))
       Align = MinAlign(SrcSizeC->getZExtValue(), DestAlign);
@@ -1179,7 +1173,7 @@ bool MemCpyOptPass::performMemCpyToMemSetOptzn(MemCpyInst *MemCpy,
 
   IRBuilder<> Builder(MemCpy);
   Builder.CreateMemSet(MemCpy->getRawDest(), MemSet->getOperand(1),
-                       CopySize, MemCpy->getAlignment());
+                       CopySize, MemCpy->getDestAlignment());
   return true;
 }
 
@@ -1205,7 +1199,7 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M) {
       if (Value *ByteVal = isBytewiseValue(GV->getInitializer())) {
         IRBuilder<> Builder(M);
         Builder.CreateMemSet(M->getRawDest(), ByteVal, M->getLength(),
-                             M->getAlignment(), false);
+                             M->getDestAlignment(), false);
         MD->removeInstruction(M);
         M->eraseFromParent();
         ++NumCpyToSet;
@@ -1234,8 +1228,11 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M) {
   //   d) memcpy from a just-memset'd source can be turned into memset.
   if (DepInfo.isClobber()) {
     if (CallInst *C = dyn_cast<CallInst>(DepInfo.getInst())) {
+      // FIXME: Can we pass in either of dest/src alignment here instead
+      // of conservatively taking the minimum?
+      unsigned Align = MinAlign(M->getDestAlignment(), M->getSourceAlignment());
       if (performCallSlotOptzn(M, M->getDest(), M->getSource(),
-                               CopySize->getZExtValue(), M->getAlignment(),
+                               CopySize->getZExtValue(), Align,
                                C)) {
         MD->removeInstruction(M);
         M->eraseFromParent();
@@ -1247,18 +1244,6 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M) {
   MemoryLocation SrcLoc = MemoryLocation::getForSource(M);
   MemDepResult SrcDepInfo = MD->getPointerDependencyFrom(
       SrcLoc, true, M->getIterator(), M->getParent());
-
-  if (SrcDepInfo.isNonLocal()) {
-    SmallVector<NonLocalDepResult, 2> NonLocalDepResults;
-    MD->getNonLocalPointerDependencyFrom(M, SrcLoc, /*isLoad=*/true,
-                                         NonLocalDepResults);
-    if (NonLocalDepResults.size() == 1) {
-      SrcDepInfo = NonLocalDepResults[0].getResult();
-      assert((!SrcDepInfo.getInst() ||
-              LookupDomTree().dominates(SrcDepInfo.getInst(), M)) &&
-             "when memdep returns exactly one result, it should dominate");
-    }
-  }
 
   if (SrcDepInfo.isClobber()) {
     if (MemCpyInst *MDep = dyn_cast<MemCpyInst>(SrcDepInfo.getInst()))
@@ -1362,7 +1347,7 @@ bool MemCpyOptPass::processByValArgument(CallSite CS, unsigned ArgNo) {
   // source of the memcpy to the alignment we need.  If we fail, we bail out.
   AssumptionCache &AC = LookupAssumptionCache();
   DominatorTree &DT = LookupDomTree();
-  if (MDep->getAlignment() < ByValAlign &&
+  if (MDep->getSourceAlignment() < ByValAlign &&
       getOrEnforceKnownAlignment(MDep->getSource(), ByValAlign, DL,
                                  CS.getInstruction(), &AC, &DT) < ByValAlign)
     return false;
@@ -1406,10 +1391,19 @@ bool MemCpyOptPass::processByValArgument(CallSite CS, unsigned ArgNo) {
 bool MemCpyOptPass::iterateOnFunction(Function &F) {
   bool MadeChange = false;
 
+  DominatorTree &DT = LookupDomTree();
+
   // Walk all instruction in the function.
   for (BasicBlock &BB : F) {
+    // Skip unreachable blocks. For example processStore assumes that an
+    // instruction in a BB can't be dominated by a later instruction in the
+    // same BB (which is a scenario that can happen for an unreachable BB that
+    // has itself as a predecessor).
+    if (!DT.isReachableFromEntry(&BB))
+      continue;
+
     for (BasicBlock::iterator BI = BB.begin(), BE = BB.end(); BI != BE;) {
-      // Avoid invalidating the iterator.
+        // Avoid invalidating the iterator.
       Instruction *I = &*BI++;
 
       bool RepeatInstruction = false;

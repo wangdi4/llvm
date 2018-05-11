@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Basic/TargetInfo.h"
-#include "clang/AST/Type.h"
 #include "clang/Basic/AddressSpaces.h"
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/LangOptions.h"
@@ -33,6 +32,7 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   TLSSupported = true;
   VLASupported = true;
   NoAsmVariants = false;
+  HasLegalHalfType = false;
   HasFloat128 = false;
   PointerWidth = PointerAlign = 32;
   BoolWidth = BoolAlign = 8;
@@ -362,23 +362,21 @@ bool TargetInfo::initFeatureMap(
   return true;
 }
 
-LangAS TargetInfo::getOpenCLTypeAddrSpace(const Type *T) const {
-  auto BT = dyn_cast<BuiltinType>(T);
+TargetInfo::CallingConvKind
+TargetInfo::getCallingConvKind(bool ClangABICompat4) const {
+  if (getCXXABI() != TargetCXXABI::Microsoft &&
+      (ClangABICompat4 || getTriple().getOS() == llvm::Triple::PS4))
+    return CCK_ClangABI4OrPS4;
+  return CCK_Default;
+}
 
-  if (!BT) {
-    if (isa<PipeType>(T))
-      return LangAS::opencl_global;
-
-    return LangAS::Default;
-  }
-
-  switch (BT->getKind()) {
-#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
-  case BuiltinType::Id:                                                        \
+LangAS TargetInfo::getOpenCLTypeAddrSpace(OpenCLTypeKind TK) const {
+  switch (TK) {
+  case OCLTK_Image:
+  case OCLTK_Pipe:
     return LangAS::opencl_global;
-#include "clang/Basic/OpenCLImageTypes.def"
 
-  case BuiltinType::OCLSampler:
+  case OCLTK_Sampler:
     return LangAS::opencl_constant;
 
   default:

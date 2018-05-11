@@ -9,6 +9,7 @@
 #include <isl/multi.h>
 #include <isl/union_set_type.h>
 #include <isl/val.h>
+#include <isl/point.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -20,6 +21,8 @@ __isl_give isl_aff *isl_aff_val_on_domain(__isl_take isl_local_space *ls,
 __isl_give isl_aff *isl_aff_var_on_domain(__isl_take isl_local_space *ls,
 	enum isl_dim_type type, unsigned pos);
 __isl_give isl_aff *isl_aff_nan_on_domain(__isl_take isl_local_space *ls);
+__isl_give isl_aff *isl_aff_param_on_domain_space_id(
+	__isl_take isl_space *space, __isl_take isl_id *id);
 
 __isl_give isl_aff *isl_aff_copy(__isl_keep isl_aff *aff);
 __isl_null isl_aff *isl_aff_free(__isl_take isl_aff *aff);
@@ -80,6 +83,8 @@ isl_bool isl_aff_is_nan(__isl_keep isl_aff *aff);
 
 __isl_give isl_aff *isl_aff_get_div(__isl_keep isl_aff *aff, int pos);
 
+__isl_give isl_aff *isl_aff_from_range(__isl_take isl_aff *aff);
+
 __isl_export
 __isl_give isl_aff *isl_aff_neg(__isl_take isl_aff *aff);
 __isl_export
@@ -129,6 +134,9 @@ __isl_give isl_aff *isl_aff_gist(__isl_take isl_aff *aff,
 	__isl_take isl_set *context);
 __isl_give isl_aff *isl_aff_gist_params(__isl_take isl_aff *aff,
 	__isl_take isl_set *context);
+
+__isl_give isl_val *isl_aff_eval(__isl_take isl_aff *aff,
+	__isl_take isl_point *pnt);
 
 __isl_give isl_aff *isl_aff_pullback_aff(__isl_take isl_aff *aff1,
 	__isl_take isl_aff *aff2);
@@ -320,6 +328,9 @@ __isl_give isl_pw_aff *isl_pw_aff_gist(__isl_take isl_pw_aff *pwaff,
 	__isl_take isl_set *context);
 __isl_give isl_pw_aff *isl_pw_aff_gist_params(__isl_take isl_pw_aff *pwaff,
 	__isl_take isl_set *context);
+
+__isl_give isl_val *isl_pw_aff_eval(__isl_take isl_pw_aff *pa,
+	__isl_take isl_point *pnt);
 
 __isl_overload
 __isl_give isl_pw_aff *isl_pw_aff_pullback_multi_aff(
@@ -636,6 +647,8 @@ __isl_give isl_union_pw_multi_aff *isl_union_pw_multi_aff_from_domain(
 	__isl_take isl_union_set *uset);
 __isl_give isl_union_pw_multi_aff *isl_union_pw_multi_aff_multi_val_on_domain(
 	__isl_take isl_union_set *domain, __isl_take isl_multi_val *mv);
+__isl_give isl_union_pw_aff *isl_union_pw_aff_param_on_domain_id(
+	__isl_take isl_union_set *domain, __isl_take isl_id *id);
 __isl_give isl_union_pw_multi_aff *isl_union_pw_multi_aff_copy(
 	__isl_keep isl_union_pw_multi_aff *upma);
 __isl_null isl_union_pw_multi_aff *isl_union_pw_multi_aff_free(
@@ -861,6 +874,8 @@ __isl_give isl_union_pw_aff *isl_union_pw_aff_val_on_domain(
 	__isl_take isl_union_set *domain, __isl_take isl_val *v);
 __isl_give isl_union_pw_aff *isl_union_pw_aff_aff_on_domain(
 	__isl_take isl_union_set *domain, __isl_take isl_aff *aff);
+__isl_give isl_union_pw_aff *isl_union_pw_aff_pw_aff_on_domain(
+	__isl_take isl_union_set *domain, __isl_take isl_pw_aff *pa);
 __isl_give isl_union_pw_aff *isl_union_pw_aff_add_pw_aff(
 	__isl_take isl_union_pw_aff *upa, __isl_take isl_pw_aff *pa);
 
@@ -959,6 +974,9 @@ __isl_give isl_multi_union_pw_aff *isl_multi_union_pw_aff_multi_val_on_domain(
 	__isl_take isl_union_set *domain, __isl_take isl_multi_val *mv);
 __isl_give isl_multi_union_pw_aff *isl_multi_union_pw_aff_multi_aff_on_domain(
 	__isl_take isl_union_set *domain, __isl_take isl_multi_aff *ma);
+__isl_give isl_multi_union_pw_aff *
+isl_multi_union_pw_aff_pw_multi_aff_on_domain(__isl_take isl_union_set *domain,
+	__isl_take isl_pw_multi_aff *pma);
 
 __isl_give isl_multi_union_pw_aff *isl_multi_union_pw_aff_floor(
 	__isl_take isl_multi_union_pw_aff *mupa);

@@ -109,17 +109,6 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   CXCursorKind K = CXCursor_NotImplemented;
   
   switch (S->getStmtClass()) {
-#if INTEL_CUSTOMIZATION
-  case Stmt::PragmaStmtClass:
-#ifndef INTEL_SPECIFIC_IL0_BACKEND
-    llvm_unreachable(
-      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-#else
-    K = CXCursor_UnexposedStmt;
-    break;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-#endif  // INTEL_CUSTOMIZATION
-
   case Stmt::NoStmtClass:
     break;
   
@@ -553,21 +542,6 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::MSDependentExistsStmtClass:
     K = CXCursor_UnexposedStmt;
     break;
-#if INTEL_SPECIFIC_CILKPLUS
-  case Stmt::CEANIndexExprClass:
-  case Stmt::CEANBuiltinExprClass:
-    K = CXCursor_UnexposedExpr;
-  case Stmt::CilkSyncStmtClass:
-  case Stmt::CilkSpawnExprClass:
-  case Stmt::CilkForGrainsizeStmtClass:
-  case Stmt::CilkForStmtClass:
-  case Stmt::SIMDForStmtClass:
-    K = CXCursor_UnexposedStmt;
-    break;
-  case Stmt::CilkRankedStmtClass:
-    K = CXCursor_CilkRankedStmt;
-    break;
-#endif // INTEL_SPECIFIC_CILKPLUS
   case Stmt::OMPParallelDirectiveClass:
     K = CXCursor_OMPParallelDirective;
     break;
@@ -1495,17 +1469,17 @@ void clang_getOverriddenCursors(CXCursor cursor,
   assert(cxcursor::getCursorTU(backRefCursor) == TU);
   Vec->push_back(backRefCursor);
 
-  // Get the overriden cursors.
+  // Get the overridden cursors.
   cxcursor::getOverriddenCursors(cursor, *Vec);
   
-  // Did we get any overriden cursors?  If not, return Vec to the pool
+  // Did we get any overridden cursors?  If not, return Vec to the pool
   // of available cursor vectors.
   if (Vec->size() == 1) {
     pool.AvailableCursors.push_back(Vec);
     return;
   }
 
-  // Now tell the caller about the overriden cursors.
+  // Now tell the caller about the overridden cursors.
   assert(Vec->size() > 1);
   *overridden = &((*Vec)[1]);
   *num_overridden = Vec->size() - 1;

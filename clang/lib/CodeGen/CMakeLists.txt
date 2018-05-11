@@ -7,6 +7,7 @@ set(LLVM_LINK_COMPONENTS
   Coverage
   IPO
   IRReader
+  AggressiveInstCombine
   InstCombine
   Instrumentation
   LTO
@@ -20,7 +21,16 @@ set(LLVM_LINK_COMPONENTS
   Support
   Target
   TransformUtils
+# INTEL_CUSTOMIZATION
+  SPIRVlib
+# end INTEL_CUSTOMIZATION
   )
+
+# INTEL_CUSTOMIZATION
+if (MSVC)
+  set_source_files_properties(CodeGenModule.cpp PROPERTIES COMPILE_FLAGS /bigobj)
+endif()
+# end INTEL_CUSTOMIZATION
 
 # In a standard Clang+LLVM build, we need to generate intrinsics before
 # building codegen. In a standalone build, LLVM is already built and we don't
@@ -63,6 +73,7 @@ add_clang_library(clangCodeGen
   CGExprScalar.cpp
   CGGPUBuiltin.cpp
   CGLoopInfo.cpp
+  CGNonTrivialStruct.cpp
   CGObjC.cpp
   CGObjCGNU.cpp
   CGObjCMac.cpp
@@ -94,11 +105,7 @@ add_clang_library(clangCodeGen
   TargetInfo.cpp
   VarBypassDetector.cpp
 # INTEL_CUSTOMIZATION
-  intel/CGCilkPlusRuntime.cpp
-  intel/CGElementalFunction.cpp
   intel/CGBuiltin_getBuiltinIntelLibFunction.cpp
-  intel/CGIntelEmit.cpp
-  intel/CGIntelStmt.cpp
   intel/CGIntelStmtOpenMP.cpp
   intel/CGSPIRMetadataAdder.cpp
   intel/CGIntelHLS.cpp
@@ -110,7 +117,6 @@ add_clang_library(clangCodeGen
   LINK_LIBS
   clangAnalysis
   clangAST
-  clangAnalysis
   clangBasic
   clangFrontend
   clangLex

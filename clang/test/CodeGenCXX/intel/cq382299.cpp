@@ -8,5 +8,5 @@ struct C3 {
 C3::~C3() {
 }
 
-// CHECK: define void @"\01??1C3@@QEAA@XZ"(%struct.C3* %this)
-// CHECK: store i32 (...)** bitcast (i8** @"\01??_7C3@@6B@" to i32 (...)**), i32 (...)*** %{{.+}}, align 8
+// CHECK: define dso_local void @"??1C3@@QEAA@XZ"(%struct.C3* %this)
+// CHECK: store i32 (...)** bitcast (i8** @"??_7C3@@6B@" to i32 (...)**), i32 (...)*** %{{.+}}, align 8

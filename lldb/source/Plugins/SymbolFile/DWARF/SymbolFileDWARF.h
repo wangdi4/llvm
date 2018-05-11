@@ -54,7 +54,6 @@ class DWARFDebugAranges;
 class DWARFDebugInfo;
 class DWARFDebugInfoEntry;
 class DWARFDebugLine;
-class DWARFDebugPubnames;
 class DWARFDebugRanges;
 class DWARFDeclContext;
 class DWARFDIECollection;
@@ -72,7 +71,7 @@ public:
   friend class SymbolFileDWARFDwo;
   friend class DebugMapModule;
   friend struct DIERef;
-  friend class DWARFCompileUnit;
+  friend class DWARFUnit;
   friend class DWARFDIE;
   friend class DWARFASTParserClang;
   friend class DWARFASTParserGo;
@@ -273,19 +272,19 @@ public:
   HasForwardDeclForClangType(const lldb_private::CompilerType &compiler_type);
 
   lldb_private::CompileUnit *
-  GetCompUnitForDWARFCompUnit(DWARFCompileUnit *dwarf_cu,
+  GetCompUnitForDWARFCompUnit(DWARFUnit *dwarf_cu,
                               uint32_t cu_idx = UINT32_MAX);
 
   virtual size_t GetObjCMethodDIEOffsets(lldb_private::ConstString class_name,
                                          DIEArray &method_die_offsets);
 
-  bool Supports_DW_AT_APPLE_objc_complete_type(DWARFCompileUnit *cu);
+  bool Supports_DW_AT_APPLE_objc_complete_type(DWARFUnit *cu);
 
   lldb_private::DebugMacrosSP ParseDebugMacros(lldb::offset_t *offset);
 
   static DWARFDIE GetParentSymbolContextDIE(const DWARFDIE &die);
 
-  virtual lldb::CompUnitSP ParseCompileUnit(DWARFCompileUnit *dwarf_cu,
+  virtual lldb::CompUnitSP ParseCompileUnit(DWARFUnit *dwarf_cu,
                                             uint32_t cu_idx);
 
   virtual lldb_private::DWARFExpression::LocationListFormat
@@ -293,16 +292,24 @@ public:
 
   lldb::ModuleSP GetDWOModule(lldb_private::ConstString name);
 
+  typedef std::map<lldb_private::ConstString, lldb::ModuleSP>
+      ExternalTypeModuleMap;
+
+  /// Return the list of Clang modules imported by this SymbolFile.
+  const ExternalTypeModuleMap& getExternalTypeModules() const {
+      return m_external_type_modules;
+  }
+
   virtual DWARFDIE GetDIE(const DIERef &die_ref);
 
   virtual std::unique_ptr<SymbolFileDWARFDwo>
-  GetDwoSymbolFileForCompileUnit(DWARFCompileUnit &dwarf_cu,
+  GetDwoSymbolFileForCompileUnit(DWARFUnit &dwarf_cu,
                                  const DWARFDebugInfoEntry &cu_die);
 
   // For regular SymbolFileDWARF instances the method returns nullptr,
   // for the instances of the subclass SymbolFileDWARFDwo
   // the method returns a pointer to the base compile unit.
-  virtual DWARFCompileUnit *GetBaseCompileUnit();
+  virtual DWARFUnit *GetBaseCompileUnit();
 
 protected:
   typedef llvm::DenseMap<const DWARFDebugInfoEntry *, lldb_private::Type *>
@@ -335,10 +342,10 @@ protected:
   DIEInDeclContext(const lldb_private::CompilerDeclContext *parent_decl_ctx,
                    const DWARFDIE &die);
 
-  virtual DWARFCompileUnit *
+  virtual DWARFUnit *
   GetDWARFCompileUnit(lldb_private::CompileUnit *comp_unit);
 
-  DWARFCompileUnit *GetNextUnparsedDWARFCompileUnit(DWARFCompileUnit *prev_cu);
+  DWARFUnit *GetNextUnparsedDWARFCompileUnit(DWARFUnit *prev_cu);
 
   bool GetFunction(const DWARFDIE &die, lldb_private::SymbolContext &sc);
 
@@ -438,9 +445,6 @@ protected:
   bool FixupAddress(lldb_private::Address &addr);
 
   typedef std::set<lldb_private::Type *> TypeSet;
-
-  typedef std::map<lldb_private::ConstString, lldb::ModuleSP>
-      ExternalTypeModuleMap;
 
   void GetTypes(const DWARFDIE &die, dw_offset_t min_die_offset,
                 dw_offset_t max_die_offset, uint32_t type_mask,

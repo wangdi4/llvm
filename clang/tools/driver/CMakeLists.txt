@@ -4,6 +4,7 @@ set( LLVM_LINK_COMPONENTS
   CodeGen
   Core
   IPO
+  AggressiveInstCombine
   InstCombine
   Instrumentation
   MC
@@ -15,13 +16,12 @@ set( LLVM_LINK_COMPONENTS
   TransformUtils
   Vectorize
 # INTEL_CUSTOMIZATION
-  Intel_DTransAnalysis
-  Intel_DTrans
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml
   Intel_VPOAnalysis
   Intel_VPOTransforms
+  Intel_OptReport
 # end INTEL_CUSTOMIZATION
   )
 
@@ -41,12 +41,14 @@ add_clang_tool(clang
   driver.cpp
   cc1_main.cpp
   cc1as_main.cpp
+  cc1gen_reproducer_main.cpp
 
   DEPENDS
   ${tablegen_deps}
   )
 
 target_link_libraries(clang
+  PRIVATE
   clangBasic
   clangCodeGen
   clangDriver
@@ -94,6 +96,7 @@ if (APPLE)
 
   set(TOOL_INFO_PLIST_OUT "${CMAKE_CURRENT_BINARY_DIR}/${TOOL_INFO_PLIST}")
   target_link_libraries(clang
+    PRIVATE
     "-Wl,-sectcreate,__TEXT,__info_plist,${TOOL_INFO_PLIST_OUT}")
   configure_file("${TOOL_INFO_PLIST}.in" "${TOOL_INFO_PLIST_OUT}" @ONLY)
 
@@ -130,11 +133,17 @@ if(CLANG_ORDER_FILE AND (LD64_EXECUTABLE OR GOLD_EXECUTABLE))
   if("${ORDER_FILE}" STREQUAL "\n")
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CLANG_ORDER_FILE})
   elseif(LINKER_ORDER_FILE_WORKS)
-    target_link_libraries(clang ${LINKER_ORDER_FILE_OPTION})
+    target_link_libraries(clang PRIVATE ${LINKER_ORDER_FILE_OPTION})
     set_target_properties(clang PROPERTIES LINK_DEPENDS ${CLANG_ORDER_FILE})
   endif()
 endif()
 
+# INTEL_CUSTOMIZATION
+if(INTEL_INCLUDE_DTRANS)
+  target_link_libraries(clang PRIVATE LLVMIntel_DTrans)
+endif(INTEL_INCLUDE_DTRANS)
+# end INTEL_CUSTOMIZATION
+
 if(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
-  target_link_libraries(clang Polly)
+  target_link_libraries(clang PRIVATE Polly)
 endif(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)

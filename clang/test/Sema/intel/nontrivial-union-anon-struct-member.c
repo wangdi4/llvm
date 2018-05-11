@@ -1,9 +1,9 @@
 // CQ#364709
-// RUN: %clang_cc1 -x c++ -fintel-ms-compatibility -DDESTRUCTOR -verify %s
-// RUN: %clang_cc1 -x c++ -fintel-ms-compatibility -DCONSTRUCTOR -verify %s
-// RUN: %clang_cc1 -x c++ -fintel-ms-compatibility -DCOPY_CONSTRUCTOR -verify %s
-// RUN: %clang_cc1 -x c++ -fintel-ms-compatibility -DCOPY_ASSIGNMENT -verify %s
-// RUN: %clang_cc1 -x c++ -DERROR -verify %s
+// RUN: %clang_cc1 -x c++ -fintel-ms-compatibility -std=c++98 -DDESTRUCTOR -verify %s
+// RUN: %clang_cc1 -x c++ -fintel-ms-compatibility -std=c++98 -DCONSTRUCTOR -verify %s
+// RUN: %clang_cc1 -x c++ -fintel-ms-compatibility -std=c++98 -DCOPY_CONSTRUCTOR -verify %s
+// RUN: %clang_cc1 -x c++ -fintel-ms-compatibility -std=c++98 -DCOPY_ASSIGNMENT -verify %s
+// RUN: %clang_cc1 -x c++ -DERROR -std=c++98 -verify %s
 
 struct X
 {

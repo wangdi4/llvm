@@ -48,8 +48,8 @@ typedef enum memory_order
 
 // Channel order, numbering must be aligned with cl_channel_order in cl.h
 #define CLK_sRGB              0x10BF
-#define CLK_sRGBA             0x10C1
 #define CLK_sRGBx             0x10C0
+#define CLK_sRGBA             0x10C1
 #define CLK_sBGRA             0x10C2
 #define CLK_ABGR              0x10C3
 

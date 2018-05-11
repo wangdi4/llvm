@@ -17,6 +17,12 @@ void foo2a(int i) {}
 // CHECK: FunctionDecl{{.*}}foo2a
 // CHECK: UseSingleClockAttr
 
+__attribute__((hls_component_use_single_clock))
+__attribute__((ihc_component))
+void foo2aa(int i) {}
+// CHECK: FunctionDecl{{.*}}foo2a
+// CHECK: UseSingleClockAttr
+
 __attribute__((component_interface("avalon_streaming")))
 __attribute__((ihc_component))
 void foo3(int i) {}
@@ -110,3 +116,47 @@ void bar9(__attribute__((stable_argument(0))) int i) {} // expected-error{{'stab
 
 __attribute__((ihc_component))
 void bar10(__attribute__((slave_memory_argument(0))) int i) {} // expected-error{{'slave_memory_argument' attribute takes no arguments}}
+
+__attribute__((stall_free)) //expected-error{{'stall_free' attribute only applies to functions}}
+__attribute__((scheduler_pipelining_effort_pct(1))) //expected-error{{'scheduler_pipelining_effort_pct' attribute only applies to functions}}
+const int i = 10;
+
+__attribute__((stall_free(0))) //expected-error{{'stall_free' attribute takes no arguments}}
+void bar11(int a) {
+}
+__attribute__((scheduler_pipelining_effort_pct)) //expected-error{{'scheduler_pipelining_effort_pct' attribute takes one argument}}
+void bar12() {
+}
+
+__attribute__((scheduler_pipelining_effort_pct(12)))
+void bar13() {
+}
+
+__attribute__((scheduler_pipelining_effort_pct("sch"))) //expected-error{{integral constant expression must have integral or unscoped enumeration type, not 'const char [4]'}}
+void bar14() {
+}
+
+__attribute__((scheduler_pipelining_effort_pct(-12))) // expected-error{{'scheduler_pipelining_effort_pct' attribute requires integer constant between 0 and 1048576 inclusive}}
+void bar15() {
+}
+
+__attribute__((scheduler_pipelining_effort_pct(0)))
+void bar16() {
+}
+
+void bar17() {
+    int stuff[100] __attribute__((__internal_max_block_ram_depth__(64)));
+    int __attribute__((__internal_max_block_ram_depth__(64))) s;
+    int __attribute__((__internal_max_block_ram_depth__("sch"))) s1; // expected-error{{integral constant expression must have integral or unscoped enumeration type, not 'const char [4]'}}
+    int __attribute__((__internal_max_block_ram_depth__(0))) s2;
+    int __attribute__((__internal_max_block_ram_depth__(-64))) s3; // expected-error{{'__internal_max_block_ram_depth__' attribute requires integer constant between 0 and 1048576 inclusive}}
+    int __attribute__((__internal_max_block_ram_depth__(64))) __attribute__((register)) s4; // expected-error{{'__internal_max_block_ram_depth__' and 'register' attributes are not compatible}}
+// expected-note@-1{{conflicting attribute is here}}
+    int __attribute__((register)) __attribute__((__internal_max_block_ram_depth__(64))) s5; // expected-error{{'register' and '__internal_max_block_ram_depth__' attributes are not compatible}}
+// expected-note@-1{{conflicting attribute is here}}
+}
+
+__attribute__((__internal_max_block_ram_depth__(64))) // expected-error{{'__internal_max_block_ram_depth__' attribute only applies to local or static variables}}
+void bar18() {
+}
+

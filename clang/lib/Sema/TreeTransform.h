@@ -27,9 +27,6 @@
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtOpenMP.h"
-#if INTEL_SPECIFIC_CILKPLUS
-#include "clang/Basic/intel/StmtIntel.h"
-#endif // INTEL_SPECIFIC_CILKPLUS
 #if INTEL_CUSTOMIZATION
 #include "clang/Basic/Builtins.h"
 #endif  // INTEL_CUSTOMIZATION
@@ -63,7 +60,7 @@ using namespace sema;
 /// subclasses to customize any of its operations. Thus, a subclass can
 /// override any of the transformation or rebuild operators by providing an
 /// operation with the same signature as the default implementation. The
-/// overridding function should not be virtual.
+/// overriding function should not be virtual.
 ///
 /// Semantic tree transformations are split into two stages, either of which
 /// can be replaced by a subclass. The "transform" step transforms an AST node
@@ -154,14 +151,6 @@ public:
   /// pack expansion, in order to avoid violating the AST invariant that each
   /// statement node appears at most once in its containing declaration.
   bool AlwaysRebuild() { return SemaRef.ArgumentPackSubstitutionIndex != -1; }
-
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ374244: non-template call of template function is ambiguous.
-  /// \brief true if the qualifiers must be suppressed for types that should not
-  /// be qualified for template instantiation. false, if all types must be
-  /// qualified (for example, for type substitution on function parameters).
-  bool SuppressQualifiers() { return SemaRef.SuppressQualifiersOnTypeSubst; }
-#endif  // INTEL_CUSTOMIZATION
 
   /// \brief Returns the location of the entity being transformed, if that
   /// information was not available elsewhere in the AST.
@@ -435,10 +424,6 @@ public:
 
     return D;
   }
-#if INTEL_SPECIFIC_CILKPLUS
-  /// \brief Transform the SIMD attribute associated with a SIMD for loop.
-  AttrResult TransformSIMDAttr(Attr *A);
-#endif // INTEL_SPECIFIC_CILKPLUS
   /// \brief Transform the specified condition.
   ///
   /// By default, this transforms the variable and expression and rebuilds
@@ -1175,6 +1160,11 @@ public:
 #if INTEL_CUSTOMIZATION
   /// \brief Build a new channel type given its value type.
   QualType RebuildChannelType(QualType ValueType, SourceLocation KWLoc);
+  QualType RebuildArbPrecIntType(QualType ValueType, unsigned NumBits,
+                                 SourceLocation Loc);
+  QualType RebuildDependentSizedArbPrecIntType(QualType ValueType,
+                                               Expr *NumBitsExpr,
+                                               SourceLocation Loc);
 #endif // INTEL_CUSTOMIZATION
 
   /// \brief Build a new template name given a nested name specifier, a flag
@@ -2250,72 +2240,6 @@ public:
                                              RBracketLoc);
   }
 
-#if INTEL_SPECIFIC_CILKPLUS
-  /// \brief Build a new CEAN index expression.
-  ///
-  /// By default, performs semantic analysis to build the new expression.
-  /// Subclasses may override this routine to provide different behavior.
-  ExprResult RebuildCEANIndexExpr(Expr *Base, Expr *LowerBound,
-                                  SourceLocation ColonLoc1,
-                                  Expr *Length,
-                                  SourceLocation ColonLoc2,
-                                  Expr *Stride) {
-    return getSema().ActOnCEANIndexExpr(0, Base, LowerBound, ColonLoc1,
-                                        Length, ColonLoc2, Stride);
-  }
-
-  /// \brief Build a new CEAN builtin expression.
-  ///
-  /// By default, performs semantic analysis to build the new expression.
-  /// Subclasses may override this routine to provide different behavior.
-  ExprResult RebuildCEANBuiltinExpr(SourceLocation StartLoc,
-                                    unsigned Kind,
-                                    ArrayRef<Expr *> Args,
-                                    SourceLocation RParenLoc) {
-    bool Res = false;
-    switch(Kind) {
-    case CEANBuiltinExpr::ReduceAdd:
-    case CEANBuiltinExpr::ReduceMul:
-    case CEANBuiltinExpr::ReduceMax:
-    case CEANBuiltinExpr::ReduceMin:
-    case CEANBuiltinExpr::ReduceMaxIndex:
-    case CEANBuiltinExpr::ReduceMinIndex:
-    case CEANBuiltinExpr::ReduceAllZero:
-    case CEANBuiltinExpr::ReduceAllNonZero:
-    case CEANBuiltinExpr::ReduceAnyZero:
-    case CEANBuiltinExpr::ReduceAnyNonZero:
-      getSema().ActOnStartCEANExpr(Sema::FullCEANAllowed);
-      getSema().ActOnEndCEANExpr(Args[0]);
-      break;
-    case CEANBuiltinExpr::Reduce:
-    case CEANBuiltinExpr::ReduceMutating:
-      getSema().StartCEAN(Sema::FullCEANAllowed);
-      Res = getSema().CheckCEANExpr(0, Args[0]);
-      Res = Res || getSema().CheckCEANExpr(0, Args[2]);
-      getSema().EndCEAN();
-      getSema().ActOnStartCEANExpr(Sema::FullCEANAllowed);
-      getSema().ActOnEndCEANExpr(Args[1]);
-      break;
-    case CEANBuiltinExpr::ImplicitIndex:
-      getSema().StartCEAN(Sema::NoCEANAllowed);
-      Res = getSema().CheckCEANExpr(0, Args[0]);
-      getSema().EndCEAN();
-      break;
-    }
-    if (Res) return ExprError();
-
-    return getSema().ActOnCEANBuiltinExpr(0, StartLoc, Kind, Args, RParenLoc);
-  }
-
-  /// \brief Build a new Cilk spawn expression.
-  ///
-  /// By default, performs semantic analysis to build the new expression.
-  /// Subclasses may override this routine to provide different behavior.
-  ExprResult RebuildCilkSpawnCall(SourceLocation SpawnLoc, Expr *E) {
-    return getSema().BuildCilkSpawnCall(SpawnLoc, E);
-  }
-#endif // INTEL_SPECIFIC_CILKPLUS
-
   /// \brief Build a new array section expression.
   ///
   /// By default, performs semantic analysis to build the new expression.
@@ -2359,7 +2283,6 @@ public:
       // We have a reference to an unnamed field.  This is always the
       // base of an anonymous struct/union member access, i.e. the
       // field is always of record type.
-      assert(!QualifierLoc && "Can't have an unnamed field with a qualifier!");
       assert(Member->getType()->isRecordType() &&
              "unnamed member not of record type?");
 
@@ -2370,11 +2293,11 @@ public:
       if (BaseResult.isInvalid())
         return ExprError();
       Base = BaseResult.get();
-      ExprValueKind VK = isArrow ? VK_LValue : Base->getValueKind();
-      MemberExpr *ME = new (getSema().Context)
-          MemberExpr(Base, isArrow, OpLoc, Member, MemberNameInfo,
-                     cast<FieldDecl>(Member)->getType(), VK, OK_Ordinary);
-      return ME;
+
+      CXXScopeSpec EmptySS;
+      return getSema().BuildFieldReferenceExpr(
+          Base, isArrow, OpLoc, EmptySS, cast<FieldDecl>(Member),
+          DeclAccessPair::make(FoundDecl, FoundDecl->getAccess()), MemberNameInfo);
     }
 
     CXXScopeSpec SS;
@@ -2472,18 +2395,8 @@ public:
   /// Subclasses may override this routine to provide different behavior.
   ExprResult RebuildInitList(SourceLocation LBraceLoc,
                              MultiExprArg Inits,
-                             SourceLocation RBraceLoc,
-                             QualType ResultTy) {
-    ExprResult Result
-      = SemaRef.ActOnInitList(LBraceLoc, Inits, RBraceLoc);
-    if (Result.isInvalid() || ResultTy->isDependentType())
-      return Result;
-
-    // Patch in the result type we were given, which may have been computed
-    // when the initial InitListExpr was built.
-    InitListExpr *ILE = cast<InitListExpr>((Expr *)Result.get());
-    ILE->setType(ResultTy);
-    return Result;
+                             SourceLocation RBraceLoc) {
+    return SemaRef.ActOnInitList(LBraceLoc, Inits, RBraceLoc);
   }
 
   /// \brief Build a new designated initializer expression.
@@ -2711,10 +2624,11 @@ public:
   ExprResult RebuildCXXFunctionalCastExpr(TypeSourceInfo *TInfo,
                                           SourceLocation LParenLoc,
                                           Expr *Sub,
-                                          SourceLocation RParenLoc) {
+                                          SourceLocation RParenLoc,
+                                          bool ListInitialization) {
     return getSema().BuildCXXTypeConstructExpr(TInfo, LParenLoc,
-                                               MultiExprArg(&Sub, 1),
-                                               RParenLoc);
+                                               MultiExprArg(&Sub, 1), RParenLoc,
+                                               ListInitialization);
   }
 
   /// \brief Build a new C++ typeid(type) expression.
@@ -2814,8 +2728,8 @@ public:
   ExprResult RebuildCXXScalarValueInitExpr(TypeSourceInfo *TSInfo,
                                            SourceLocation LParenLoc,
                                            SourceLocation RParenLoc) {
-    return getSema().BuildCXXTypeConstructExpr(TSInfo, LParenLoc,
-                                               None, RParenLoc);
+    return getSema().BuildCXXTypeConstructExpr(
+        TSInfo, LParenLoc, None, RParenLoc, /*ListInitialization=*/false);
   }
 
   /// \brief Build a new C++ "new" expression.
@@ -2972,13 +2886,12 @@ public:
   /// By default, performs semantic analysis to build the new expression.
   /// Subclasses may override this routine to provide different behavior.
   ExprResult RebuildCXXTemporaryObjectExpr(TypeSourceInfo *TSInfo,
-                                           SourceLocation LParenLoc,
+                                           SourceLocation LParenOrBraceLoc,
                                            MultiExprArg Args,
-                                           SourceLocation RParenLoc) {
-    return getSema().BuildCXXTypeConstructExpr(TSInfo,
-                                               LParenLoc,
-                                               Args,
-                                               RParenLoc);
+                                           SourceLocation RParenOrBraceLoc,
+                                           bool ListInitialization) {
+    return getSema().BuildCXXTypeConstructExpr(
+        TSInfo, LParenOrBraceLoc, Args, RParenOrBraceLoc, ListInitialization);
   }
 
   /// \brief Build a new object-construction expression.
@@ -2988,11 +2901,10 @@ public:
   ExprResult RebuildCXXUnresolvedConstructExpr(TypeSourceInfo *TSInfo,
                                                SourceLocation LParenLoc,
                                                MultiExprArg Args,
-                                               SourceLocation RParenLoc) {
-    return getSema().BuildCXXTypeConstructExpr(TSInfo,
-                                               LParenLoc,
-                                               Args,
-                                               RParenLoc);
+                                               SourceLocation RParenLoc,
+                                               bool ListInitialization) {
+    return getSema().BuildCXXTypeConstructExpr(TSInfo, LParenLoc, Args,
+                                               RParenLoc, ListInitialization);
   }
 
   /// \brief Build a new member reference expression.
@@ -3406,13 +3318,7 @@ StmtResult TreeTransform<Derived>::TransformStmt(Stmt *S) {
 #define EXPR(Node, Parent) case Stmt::Node##Class:
 #include "clang/AST/StmtNodes.inc"
     {
-#if INTEL_SPECIFIC_CILKPLUS
-      getSema().ActOnStartCEANExpr(Sema::FullCEANAllowed);
-#endif // INTEL_SPECIFIC_CILKPLUS
       ExprResult E = getDerived().TransformExpr(cast<Expr>(S));
-#if INTEL_SPECIFIC_CILKPLUS
-      getSema().ActOnEndCEANExpr(E.get());
-#endif // INTEL_SPECIFIC_CILKPLUS
       if (E.isInvalid())
         return StmtError();
 
@@ -3450,18 +3356,8 @@ ExprResult TreeTransform<Derived>::TransformExpr(Expr *E) {
     case Stmt::NoStmtClass: break;
 #define STMT(Node, Parent) case Stmt::Node##Class: break;
 #define ABSTRACT_STMT(Stmt)
-#if INTEL_SPECIFIC_CILKPLUS
-#define EXPR(Node, Parent)                                              \
-    case Stmt::Node##Class: {                                           \
-      ExprResult Res = getDerived().Transform##Node(cast<Node>(E));     \
-      if (getSema().CheckCEANExpr(0, Res.get()))                        \
-        return ExprError();                                             \
-      return Res;                                                       \
-  }
-#else
 #define EXPR(Node, Parent)                                              \
     case Stmt::Node##Class: return getDerived().Transform##Node(cast<Node>(E));
-#endif // INTEL_SPECIFIC_CILKPLUS
 #include "clang/AST/StmtNodes.inc"
   }
 
@@ -3530,11 +3426,10 @@ ExprResult TreeTransform<Derived>::TransformInitializer(Expr *Init,
                                   /*IsCall*/true, NewArgs, &ArgChanged))
     return ExprError();
 
-  // If this was list initialization, revert to list form.
+  // If this was list initialization, revert to syntactic list form.
   if (Construct->isListInitialization())
     return getDerived().RebuildInitList(Construct->getLocStart(), NewArgs,
-                                        Construct->getLocEnd(),
-                                        Construct->getType());
+                                        Construct->getLocEnd());
 
   // Build a ParenListExpr to represent anything else.
   SourceRange Parens = Construct->getParenOrBraceRange();
@@ -4394,10 +4289,6 @@ QualType TreeTransform<Derived>::RebuildQualifiedType(QualType T,
   // Note that [dcl.ref]p1 lists all cases in which cv-qualifiers can be
   // applied to a reference type.
   // FIXME: This removes all qualifiers, not just cv-qualifiers!
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ374244: non-template call of template function is ambiguous.
-  if (SuppressQualifiers())
-#endif  // INTEL_CUSTOMIZATION
   if (T->isFunctionType() || T->isReferenceType())
     return T;
 
@@ -6025,6 +5916,67 @@ QualType TreeTransform<Derived>::TransformChannelType(TypeLocBuilder &TLB,
 
   return Result;
 }
+
+template <typename Derived>
+QualType TreeTransform<Derived>::TransformArbPrecIntType(TypeLocBuilder &TLB,
+                                                         ArbPrecIntTypeLoc TL) {
+  const ArbPrecIntType *T = TL.getTypePtr();
+  QualType UnderlyingType = getDerived().TransformType(T->getUnderlyingType());
+  if (UnderlyingType.isNull())
+    return QualType();
+
+  QualType Result = TL.getType();
+  if (getDerived().AlwaysRebuild() ||
+      UnderlyingType != T->getUnderlyingType()) {
+    Result = getDerived().RebuildArbPrecIntType(UnderlyingType, T->getNumBits(),
+                                                T->getAttributeLoc());
+    if (Result.isNull())
+      return QualType();
+  }
+
+  ArbPrecIntTypeLoc NewTL = TLB.push<ArbPrecIntTypeLoc>(Result);
+  NewTL.setNameLoc(TL.getNameLoc());
+
+  return Result;
+}
+
+template <typename Derived>
+QualType TreeTransform<Derived>::TransformDependentSizedArbPrecIntType(
+    TypeLocBuilder &TLB, DependentSizedArbPrecIntTypeLoc TL) {
+  const DependentSizedArbPrecIntType *T = TL.getTypePtr();
+  QualType UnderlyingType = getDerived().TransformType(T->getUnderlyingType());
+  if (UnderlyingType.isNull())
+    return QualType();
+
+  EnterExpressionEvaluationContext Unevaluated(
+      SemaRef, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+
+  ExprResult NumBits = getDerived().TransformExpr(T->getNumBitsExpr());
+  NumBits = SemaRef.ActOnConstantExpression(NumBits);
+  if (NumBits.isInvalid())
+    return QualType();
+
+  QualType Result = TL.getType();
+  if (getDerived().AlwaysRebuild() ||
+      UnderlyingType != T->getUnderlyingType() ||
+      NumBits.get() != T->getNumBitsExpr()) {
+    Result = getDerived().RebuildDependentSizedArbPrecIntType(
+        UnderlyingType, NumBits.get(), T->getAttributeLoc());
+    if (Result.isNull())
+      return QualType();
+  }
+
+  if (isa<DependentSizedArbPrecIntType>(Result)) {
+    DependentSizedArbPrecIntTypeLoc NewTL =
+        TLB.push<DependentSizedArbPrecIntTypeLoc>(Result);
+    NewTL.setNameLoc(TL.getNameLoc());
+  } else {
+    ArbPrecIntTypeLoc NewTL = TLB.push<ArbPrecIntTypeLoc>(Result);
+    NewTL.setNameLoc(TL.getNameLoc());
+  }
+
+  return Result;
+}
 #endif // INTEL_CUSTOMIZATION
 
   /// \brief Simple iterator that traverses the template arguments in a
@@ -6675,33 +6627,6 @@ TreeTransform<Derived>::TransformObjCObjectPointerType(TypeLocBuilder &TLB,
 //===----------------------------------------------------------------------===//
 // Statement transformation
 //===----------------------------------------------------------------------===//
-#if INTEL_CUSTOMIZATION
-template<typename Derived>
-StmtResult TreeTransform<Derived>::TransformPragmaStmt(PragmaStmt *S) {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  PragmaStmt *PS = new (SemaRef.Context) PragmaStmt(S->getSemiLoc());
-  PS->setPragmaKind(S->getPragmaKind());
-  if (S->isDecl())
-    PS->setDecl();
-  for (unsigned i = 0; i < S->getAttribs().size(); ++i) {
-    Expr *E = S->getAttribs()[i].Value;
-    PS->getAttribs().push_back(IntelPragmaAttrib(E ?
-                                  getDerived().TransformExpr(E).get() :
-                                  0, S->getAttribs()[i].ExprKind));
-  }
-  for (unsigned i = 0; i < S->getRealAttribs().size(); ++i) {
-    Expr *E = S->getRealAttribs()[i];
-    PS->getRealAttribs().push_back(E ? getDerived().TransformExpr(E).get() : 0);
-  }
-  return PS;
-#else
-  llvm_unreachable(
-      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-  return StmtError();
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-}
-#endif  // INTEL_CUSTOMIZATION
-
 template<typename Derived>
 StmtResult
 TreeTransform<Derived>::TransformNullStmt(NullStmt *S) {
@@ -6866,124 +6791,6 @@ StmtResult TreeTransform<Derived>::TransformAttributedStmt(AttributedStmt *S) {
                                             SubStmt.get());
 }
 
-#if INTEL_SPECIFIC_CILKPLUS
-// FIXME: Use TableGen to generate this function
-template <typename Derived>
-AttrResult TreeTransform<Derived>::TransformSIMDAttr(Attr *A) {
-  AttrResult R = AttrEmpty();
-
-  switch (A->getKind()) {
-  case attr::SIMD: {
-    R = AttrResult(A);
-    break;
-  }
-  case attr::SIMDLength: {
-    SIMDLengthAttr *LengthAttr = cast<SIMDLengthAttr>(A);
-    ExprResult E = getDerived().TransformExpr(LengthAttr->getValueExpr());
-    if (E.isUsable())
-      R = getSema().ActOnPragmaSIMDLength(LengthAttr->getLocation(), E.get());
-    break;
-  }
-  case attr::SIMDLinear: {
-    SIMDLinearAttr *LinearAttr = cast<SIMDLinearAttr>(A);
-    SmallVector<Expr *, 1> Exprs;
-    for (SIMDLinearAttr::items_iterator it = LinearAttr->items_begin(),
-                                        end = LinearAttr->items_end();
-         it != end; ++it) {
-      ExprResult E = getDerived().TransformExpr(*it);
-      // We need to push even if it is an invalid expr to make a pair.
-      Exprs.push_back(E.get());
-    }
-
-    R = getSema().ActOnPragmaSIMDLinear(LinearAttr->getLocation(), Exprs);
-    break;
-  }
-  case attr::SIMDPrivate: {
-    SIMDPrivateAttr *PrivateAttr = cast<SIMDPrivateAttr>(A);
-    SmallVector<Expr *, 1> Exprs;
-    for (SIMDPrivateAttr::variables_iterator
-             it = PrivateAttr->variables_begin(),
-             end = PrivateAttr->variables_end();
-         it != end; ++it) {
-      ExprResult E = getDerived().TransformExpr(*it);
-      if (E.isUsable())
-        Exprs.push_back(E.get());
-    }
-
-    R = getSema().ActOnPragmaSIMDPrivate(PrivateAttr->getLocation(),
-                                         llvm::MutableArrayRef<Expr *>(Exprs),
-                                         Sema::SIMD_Private);
-    break;
-  }
-  case attr::SIMDFirstPrivate: {
-    SIMDFirstPrivateAttr *FirstPrivateAttr = cast<SIMDFirstPrivateAttr>(A);
-    SmallVector<Expr *, 1> Exprs;
-    for (SIMDFirstPrivateAttr::variables_iterator
-             it = FirstPrivateAttr->variables_begin(),
-             end = FirstPrivateAttr->variables_end();
-         it != end; ++it) {
-      ExprResult E = getDerived().TransformExpr(*it);
-      if (E.isUsable())
-        Exprs.push_back(E.get());
-    }
-
-    R = getSema().ActOnPragmaSIMDPrivate(FirstPrivateAttr->getLocation(),
-                                         llvm::MutableArrayRef<Expr *>(Exprs),
-                                         Sema::SIMD_FirstPrivate);
-    break;
-  }
-  case attr::SIMDLastPrivate: {
-    SIMDLastPrivateAttr *LastPrivateAttr = cast<SIMDLastPrivateAttr>(A);
-    SmallVector<Expr *, 1> Exprs;
-    for (SIMDLastPrivateAttr::variables_iterator
-             it = LastPrivateAttr->variables_begin(),
-             end = LastPrivateAttr->variables_end();
-         it != end; ++it) {
-      ExprResult E = getDerived().TransformExpr(*it);
-      if (E.isUsable())
-        Exprs.push_back(E.get());
-    }
-
-    R = getSema().ActOnPragmaSIMDPrivate(LastPrivateAttr->getLocation(),
-                                         llvm::MutableArrayRef<Expr *>(Exprs),
-                                         Sema::SIMD_LastPrivate);
-    break;
-  }
-  case attr::SIMDReduction: {
-    SIMDReductionAttr *ReductionAttr = cast<SIMDReductionAttr>(A);
-    SmallVector<Expr *, 1> Exprs;
-    for (SIMDReductionAttr::variables_iterator
-             it = ReductionAttr->variables_begin(),
-             end = ReductionAttr->variables_end();
-         it != end; ++it) {
-      ExprResult E = getDerived().TransformExpr(*it);
-      if (E.isUsable())
-        Exprs.push_back(E.get());
-    }
-
-    R = getSema().ActOnPragmaSIMDReduction(
-        ReductionAttr->getLocation(), ReductionAttr->Operator,
-        llvm::MutableArrayRef<Expr *>(Exprs));
-    break;
-  }
-
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  case attr::SIMDAssert: {
-    SIMDAssertAttr *AssertAttr = cast<SIMDAssertAttr>(A);
-    R = getSema().ActOnPragmaSIMDAssert(AssertAttr->getLocation());
-    break;
-  }
-#endif // INTEL_SPECIFIC_IL0_BACKEND
-
-  default:
-    llvm_unreachable("Unknown SIMD clause");
-    break;
-  }
-
-  return R;
-}
-#endif // INTEL_SPECIFIC_CILKPLUS
-
 template<typename Derived>
 StmtResult
 TreeTransform<Derived>::TransformIfStmt(IfStmt *S) {
@@ -6993,16 +6800,10 @@ TreeTransform<Derived>::TransformIfStmt(IfStmt *S) {
     return StmtError();
 
   // Transform the condition
-#if INTEL_SPECIFIC_CILKPLUS
-  getSema().ActOnStartCEANExpr(Sema::FullCEANAllowed);
-#endif // INTEL_SPECIFIC_CILKPLUS
   Sema::ConditionResult Cond = getDerived().TransformCondition(
       S->getIfLoc(), S->getConditionVariable(), S->getCond(),
       S->isConstexpr() ? Sema::ConditionKind::ConstexprIf
                        : Sema::ConditionKind::Boolean);
-#if INTEL_SPECIFIC_CILKPLUS
-  getSema().ActOnEndCEANExpr(Cond.get().second);
-#endif // INTEL_SPECIFIC_CILKPLUS
   if (Cond.isInvalid())
     return StmtError();
 
@@ -7356,6 +7157,8 @@ TreeTransform<Derived>::TransformCoroutineBodyStmt(CoroutineBodyStmt *S) {
 
   // The new CoroutinePromise object needs to be built and put into the current
   // FunctionScopeInfo before any transformations or rebuilding occurs.
+  if (!SemaRef.buildCoroutineParameterMoves(FD->getLocation()))
+    return StmtError();
   auto *Promise = SemaRef.buildCoroutinePromise(FD->getLocation());
   if (!Promise)
     return StmtError();
@@ -7446,8 +7249,6 @@ TreeTransform<Derived>::TransformCoroutineBodyStmt(CoroutineBodyStmt *S) {
       Builder.ReturnStmt = Res.get();
     }
   }
-  if (!Builder.buildParameterMoves())
-    return StmtError();
 
   return getDerived().RebuildCoroutineBodyStmt(Builder);
 }
@@ -8042,11 +7843,7 @@ StmtResult TreeTransform<Derived>::TransformOMPExecutableDirective(
     StmtResult Body;
     {
       Sema::CompoundScopeRAII CompoundScope(getSema());
-      int ThisCaptureLevel =
-          Sema::getOpenMPCaptureLevels(D->getDirectiveKind());
-      Stmt *CS = D->getAssociatedStmt();
-      while (--ThisCaptureLevel >= 0)
-        CS = cast<CapturedStmt>(CS)->getCapturedStmt();
+      Stmt *CS = D->getInnermostCapturedStmt()->getCapturedStmt();
       Body = getDerived().TransformStmt(CS);
     }
     AssociatedStmt =
@@ -9545,10 +9342,7 @@ TreeTransform<Derived>::TransformUnaryExprOrTypeTraitExpr(
   EnterExpressionEvaluationContext Unevaluated(
       SemaRef, Sema::ExpressionEvaluationContext::Unevaluated,
       Sema::ReuseLambdaContextDecl);
-#if INTEL_SPECIFIC_CILKPLUS
-  if (E->getKind() == UETT_SizeOf)
-    getSema().ActOnStartCEANExpr(Sema::FullCEANAllowed);
-#endif // INTEL_SPECIFIC_CILKPLUS
+
   // Try to recover if we have something like sizeof(T::X) where X is a type.
   // Notably, there must be *exactly* one set of parens if X is a type.
   TypeSourceInfo *RecoveryTSI = nullptr;
@@ -9560,10 +9354,7 @@ TreeTransform<Derived>::TransformUnaryExprOrTypeTraitExpr(
         PE, DRE, false, &RecoveryTSI);
   else
     SubExpr = getDerived().TransformExpr(E->getArgumentExpr());
-#if INTEL_SPECIFIC_CILKPLUS
-  if (E->getKind() == UETT_SizeOf)
-    getSema().ActOnEndCEANExpr(SubExpr.get());
-#endif // INTEL_SPECIFIC_CILKPLUS
+
   if (RecoveryTSI) {
     return getDerived().RebuildUnaryExprOrTypeTrait(
         RecoveryTSI, E->getOperatorLoc(), E->getKind(), E->getSourceRange());
@@ -9632,59 +9423,6 @@ TreeTransform<Derived>::TransformOMPArraySectionExpr(OMPArraySectionExpr *E) {
       Length.get(), E->getRBracketLoc());
 }
 
-#if INTEL_SPECIFIC_CILKPLUS
-template<typename Derived>
-ExprResult
-TreeTransform<Derived>::TransformCEANIndexExpr(CEANIndexExpr *E) {
-  ExprResult Base = getDerived().TransformExpr(E->getBase());
-  if (Base.isInvalid())
-    return ExprError();
-  ExprResult LowerBound = getDerived().TransformExpr(E->getLowerBound());
-  if (LowerBound.isInvalid())
-    return ExprError();
-  ExprResult Length = getDerived().TransformExpr(E->getLength());
-  if (Length.isInvalid())
-    return ExprError();
-  ExprResult Stride = getDerived().TransformExpr(E->getStride());
-  if (Stride.isInvalid())
-    return ExprError();
-
-  if (!getDerived().AlwaysRebuild() &&
-      Base.get() == E->getBase() &&
-      LowerBound.get() == E->getLowerBound() &&
-      Length.get() == E->getLength() &&
-      Stride.get() == E->getStride())
-    return E;
-
-  return getDerived().RebuildCEANIndexExpr(Base.get(),
-                                           LowerBound.get(),
-                                           E->getColonLoc1(),
-                                           Length.get(),
-                                           E->getColonLoc2(),
-                                           Stride.get());
-}
-
-template<typename Derived>
-ExprResult
-TreeTransform<Derived>::TransformCEANBuiltinExpr(CEANBuiltinExpr *E) {
-  ArrayRef<Expr *> Args = E->getArgs();
-  llvm::SmallVector<Expr *, 16> TArgs;
-  for (ArrayRef<Expr *>::iterator I = Args.begin(), E = Args.end();
-       I != E; ++I) {
-    if (!*I) return ExprError();
-    ExprResult Argument = getDerived().TransformExpr(*I);
-    if (Argument.isInvalid())
-      return ExprError();
-    TArgs.push_back(Argument.get());
-  }
-
-  return getDerived().RebuildCEANBuiltinExpr(E->getLocStart(),
-                                             E->getBuiltinKind(),
-                                             TArgs,
-                                             E->getLocEnd());
-}
-#endif // INTEL_SPECIFIC_CILKPLUS
-
 template<typename Derived>
 ExprResult
 TreeTransform<Derived>::TransformCallExpr(CallExpr *E) {
@@ -9693,126 +9431,24 @@ TreeTransform<Derived>::TransformCallExpr(CallExpr *E) {
   if (Callee.isInvalid())
     return ExprError();
 
-#if INTEL_SPECIFIC_CILKPLUS
-  unsigned BuiltinId = 0;
-  if (Callee.isUsable()) {
-    Expr *Fn = Callee.get()->IgnoreParens();
-    if (isa<DeclRefExpr>(Fn)) {
-      FunctionDecl *FnDecl =
-        dyn_cast_or_null<FunctionDecl>(cast<DeclRefExpr>(Fn)->getDecl());
-      BuiltinId = (FnDecl ? FnDecl->getBuiltinID() : 0);
-    }
-  }
-  switch (BuiltinId) {
-  case Builtin::BI__sec_reduce_add:
-  case Builtin::BI__sec_reduce_mul:
-  case Builtin::BI__sec_reduce_max:
-  case Builtin::BI__sec_reduce_min:
-  case Builtin::BI__sec_reduce_max_ind:
-  case Builtin::BI__sec_reduce_min_ind:
-  case Builtin::BI__sec_reduce_all_zero:
-  case Builtin::BI__sec_reduce_all_nonzero:
-  case Builtin::BI__sec_reduce_any_zero:
-  case Builtin::BI__sec_reduce_any_nonzero:
-  case Builtin::BI__sec_reduce:
-  case Builtin::BI__sec_reduce_mutating:
-    getSema().ActOnStartCEANExpr(Sema::FullCEANAllowed);
-    break;
-  default:
-    break;
-  }
-#endif // INTEL_SPECIFIC_CILKPLUS
-
   // Transform arguments.
   bool ArgChanged = false;
   SmallVector<Expr*, 8> Args;
   if (getDerived().TransformExprs(E->getArgs(), E->getNumArgs(), true, Args,
-                                  &ArgChanged)) {
-#if INTEL_SPECIFIC_CILKPLUS
-    switch (BuiltinId) {
-    case Builtin::BI__sec_reduce_add:
-    case Builtin::BI__sec_reduce_mul:
-    case Builtin::BI__sec_reduce_max:
-    case Builtin::BI__sec_reduce_min:
-    case Builtin::BI__sec_reduce_max_ind:
-    case Builtin::BI__sec_reduce_min_ind:
-    case Builtin::BI__sec_reduce_all_zero:
-    case Builtin::BI__sec_reduce_all_nonzero:
-    case Builtin::BI__sec_reduce_any_zero:
-    case Builtin::BI__sec_reduce_any_nonzero:
-    case Builtin::BI__sec_reduce:
-    case Builtin::BI__sec_reduce_mutating:
-      getSema().ActOnEndCEANExpr(0);
-      break;
-    default:
-      break;
-    }
-#endif // INTEL_SPECIFIC_CILKPLUS
+                                  &ArgChanged))
     return ExprError();
-  }
 
   if (!getDerived().AlwaysRebuild() &&
       Callee.get() == E->getCallee() &&
-      !ArgChanged) {
-#if INTEL_SPECIFIC_CILKPLUS
-    switch (BuiltinId) {
-    case Builtin::BI__sec_reduce_add:
-    case Builtin::BI__sec_reduce_mul:
-    case Builtin::BI__sec_reduce_max:
-    case Builtin::BI__sec_reduce_min:
-    case Builtin::BI__sec_reduce_max_ind:
-    case Builtin::BI__sec_reduce_min_ind:
-    case Builtin::BI__sec_reduce_all_zero:
-    case Builtin::BI__sec_reduce_all_nonzero:
-    case Builtin::BI__sec_reduce_any_zero:
-    case Builtin::BI__sec_reduce_any_nonzero:
-    case Builtin::BI__sec_reduce:
-    case Builtin::BI__sec_reduce_mutating:
-      getSema().ActOnEndCEANExpr(0);
-      break;
-    default:
-      break;
-    }
-#endif // INTEL_SPECIFIC_CILKPLUS
+      !ArgChanged)
     return SemaRef.MaybeBindToTemporary(E);
-  }
 
   // FIXME: Wrong source location information for the '('.
   SourceLocation FakeLParenLoc
     = ((Expr *)Callee.get())->getSourceRange().getBegin();
-
-#if INTEL_SPECIFIC_CILKPLUS
-  ExprResult CE = getDerived().RebuildCallExpr(Callee.get(), FakeLParenLoc,
-                                               Args,
-                                               E->getRParenLoc());
-  switch (BuiltinId) {
-  case Builtin::BI__sec_reduce_add:
-  case Builtin::BI__sec_reduce_mul:
-  case Builtin::BI__sec_reduce_max:
-  case Builtin::BI__sec_reduce_min:
-  case Builtin::BI__sec_reduce_max_ind:
-  case Builtin::BI__sec_reduce_min_ind:
-  case Builtin::BI__sec_reduce_all_zero:
-  case Builtin::BI__sec_reduce_all_nonzero:
-  case Builtin::BI__sec_reduce_any_zero:
-  case Builtin::BI__sec_reduce_any_nonzero:
-  case Builtin::BI__sec_reduce:
-  case Builtin::BI__sec_reduce_mutating:
-    getSema().ActOnEndCEANExpr(CE.get());
-    break;
-  default:
-    break;
-  }
-
-  if (!E->isCilkSpawnCall())
-    return CE;
-
-  return getDerived().RebuildCilkSpawnCall(E->getCilkSpawnLoc(), CE.get());
-#else
   return getDerived().RebuildCallExpr(Callee.get(), FakeLParenLoc,
                                       Args,
                                       E->getRParenLoc());
-#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 template<typename Derived>
@@ -10081,7 +9717,7 @@ TreeTransform<Derived>::TransformInitListExpr(InitListExpr *E) {
   }
 
   return getDerived().RebuildInitList(E->getLBraceLoc(), Inits,
-                                      E->getRBraceLoc(), E->getType());
+                                      E->getRBraceLoc());
 }
 
 template<typename Derived>
@@ -10515,7 +10151,8 @@ TreeTransform<Derived>::TransformCXXFunctionalCastExpr(
   return getDerived().RebuildCXXFunctionalCastExpr(Type,
                                                    E->getLParenLoc(),
                                                    SubExpr.get(),
-                                                   E->getRParenLoc());
+                                                   E->getRParenLoc(),
+                                                   E->isListInitialization());
 }
 
 template<typename Derived>
@@ -10967,7 +10604,7 @@ bool TreeTransform<Derived>::TransformOverloadExprDecls(OverloadExpr *Old,
   //   the corresponding pack is empty
   if (AllEmptyPacks && !RequiresADL) {
     getSema().Diag(Old->getNameLoc(), diag::err_using_pack_expansion_empty)
-        << isa<UnresolvedMemberExpr>(Old) << Old->getNameInfo().getName();
+        << isa<UnresolvedMemberExpr>(Old) << Old->getName();
     return true;
   }
 
@@ -11431,11 +11068,12 @@ TreeTransform<Derived>::TransformCXXTemporaryObjectExpr(
     return SemaRef.MaybeBindToTemporary(E);
   }
 
-  // FIXME: Pass in E->isListInitialization().
-  return getDerived().RebuildCXXTemporaryObjectExpr(T,
-                                          /*FIXME:*/T->getTypeLoc().getEndLoc(),
-                                                    Args,
-                                                    E->getLocEnd());
+  // FIXME: We should just pass E->isListInitialization(), but we're not
+  // prepared to handle list-initialization without a child InitListExpr.
+  SourceLocation LParenLoc = T->getTypeLoc().getEndLoc();
+  return getDerived().RebuildCXXTemporaryObjectExpr(
+      T, LParenLoc, Args, E->getLocEnd(),
+      /*ListInitialization=*/LParenLoc.isInvalid());
 }
 
 template<typename Derived>
@@ -11721,10 +11359,8 @@ TreeTransform<Derived>::TransformCXXUnresolvedConstructExpr(
     return E;
 
   // FIXME: we're faking the locations of the commas
-  return getDerived().RebuildCXXUnresolvedConstructExpr(T,
-                                                        E->getLParenLoc(),
-                                                        Args,
-                                                        E->getRParenLoc());
+  return getDerived().RebuildCXXUnresolvedConstructExpr(
+      T, E->getLParenLoc(), Args, E->getRParenLoc(), E->isListInitialization());
 }
 
 template<typename Derived>
@@ -11972,8 +11608,10 @@ TreeTransform<Derived>::TransformSizeOfPackExpr(SizeOfPackExpr *E) {
         ArgStorage = TemplateArgument(TemplateName(TTPD), None);
       } else {
         auto *VD = cast<ValueDecl>(Pack);
-        ExprResult DRE = getSema().BuildDeclRefExpr(VD, VD->getType(),
-                                                    VK_RValue, E->getPackLoc());
+        ExprResult DRE = getSema().BuildDeclRefExpr(
+            VD, VD->getType().getNonLValueExprType(getSema().Context),
+            VD->getType()->isReferenceType() ? VK_LValue : VK_RValue,
+            E->getPackLoc());
         if (DRE.isInvalid())
           return ExprError();
         ArgStorage = new (getSema().Context) PackExpansionExpr(
@@ -12754,21 +12392,6 @@ TreeTransform<Derived>::TransformBlockExpr(BlockExpr *E) {
                                     /*Scope=*/nullptr);
 }
 
-#if INTEL_SPECIFIC_CILKPLUS
-template<typename Derived>
-ExprResult
-TreeTransform<Derived>::TransformCilkSpawnExpr(CilkSpawnExpr *E) {
-  Expr *EE = E->getSpawnExpr();
-  assert(EE && "null _Cilk_spawn expression");
-
-  ExprResult NewSpawn = getDerived().TransformExpr(EE);
-  if (NewSpawn.isInvalid())
-    return ExprError();
-
-  return getSema().BuildCilkSpawnExpr(NewSpawn.get());
-}
-#endif // INTEL_SPECIFIC_CILKPLUS
-
 template<typename Derived>
 ExprResult
 TreeTransform<Derived>::TransformAsTypeExpr(AsTypeExpr *E) {
@@ -13100,10 +12723,26 @@ QualType TreeTransform<Derived>::RebuildPipeType(QualType ValueType,
 }
 
 #if INTEL_CUSTOMIZATION
-template<typename Derived>
+template <typename Derived>
 QualType TreeTransform<Derived>::RebuildChannelType(QualType ValueType,
-                                                   SourceLocation KWLoc) {
+                                                    SourceLocation KWLoc) {
   return SemaRef.BuildChannelType(ValueType, KWLoc);
+}
+
+template <typename Derived>
+QualType TreeTransform<Derived>::RebuildArbPrecIntType(
+    QualType UnderlyingType, unsigned NumBits, SourceLocation AttributeLoc) {
+  llvm::APInt NumBitsAP(SemaRef.Context.getIntWidth(SemaRef.Context.IntTy),
+                        NumBits, true);
+  IntegerLiteral *Bits = IntegerLiteral::Create(
+      SemaRef.Context, NumBitsAP, SemaRef.Context.IntTy, AttributeLoc);
+  return SemaRef.BuildArbPrecIntType(UnderlyingType, Bits, AttributeLoc);
+}
+
+template <typename Derived>
+QualType TreeTransform<Derived>::RebuildDependentSizedArbPrecIntType(
+    QualType ElementType, Expr *NumExpr, SourceLocation AttributeLoc) {
+  return SemaRef.BuildArbPrecIntType(ElementType, NumExpr, AttributeLoc);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -13366,199 +13005,6 @@ TreeTransform<Derived>::TransformCapturedStmt(CapturedStmt *S) {
   return getSema().ActOnCapturedRegionEnd(Body.get());
 }
 
-#if INTEL_SPECIFIC_CILKPLUS
-template<typename Derived>
-StmtResult
-TreeTransform<Derived>::TransformCilkSyncStmt(CilkSyncStmt *S) {
-  return Owned(S);
-}
-
-template<typename Derived>
-StmtResult
-TreeTransform<Derived>::TransformCilkRankedStmt(CilkRankedStmt *S) {
-  SmallVector<Expr *, 8> Lengths;
-  for (ArrayRef<Expr *>::iterator I = S->getLengths().begin(), E = S->getLengths().end();
-       I != E; ++I) {
-    ExprResult SrcExpr = getDerived().TransformExpr(*I);
-    if (SrcExpr.isInvalid())
-      return StmtError();
-    Lengths.push_back(SrcExpr.get());
-  }
-  SmallVector<Stmt *, 8> Vars;
-  for (ArrayRef<Stmt *>::iterator I = S->getVars().begin(), E = S->getVars().end();
-       I != E; ++I) {
-    StmtResult SrcStmt = getDerived().TransformStmt(*I);
-    if (SrcStmt.isInvalid())
-      return StmtError();
-    Vars.push_back(SrcStmt.get());
-  }
-  SmallVector<Stmt *, 8> Increments;
-  for (ArrayRef<Stmt *>::iterator I = S->getIncrements().begin(), E = S->getIncrements().end();
-       I != E; ++I) {
-    StmtResult SrcStmt = getDerived().TransformStmt(*I);
-    if (SrcStmt.isInvalid())
-      return StmtError();
-    Increments.push_back(SrcStmt.get());
-  }
-  StmtResult AssociatedStmt = getDerived().TransformStmt(S->getAssociatedStmt());
-  if (AssociatedStmt.isInvalid())
-    return StmtError();
-  StmtResult Inits = getDerived().TransformStmt(S->getInits());
-  if (Inits.isInvalid())
-    return StmtError();
-  return Owned(CilkRankedStmt::Create(getSema().Context, S->getLocStart(), S->getLocEnd(), Lengths, Vars, Increments, AssociatedStmt.get(), Inits.get()));
-}
-
-template<typename Derived>
-StmtResult
-TreeTransform<Derived>::TransformCilkForGrainsizeStmt(CilkForGrainsizeStmt *S) {
-  Expr *Grainsize = S->getGrainsize();
-  ExprResult Result = getDerived().TransformExpr(Grainsize);
-  if (Result.isInvalid())
-    return StmtError();
-
-  StmtResult SubS = getDerived().TransformStmt(S->getCilkFor());
-  if (SubS.isInvalid())
-    return StmtError();
-
-  if (!getDerived().AlwaysRebuild() &&
-    Result.get() == Grainsize && SubS.get() == S->getCilkFor())
-    return Owned(S);
-
-  return getSema().ActOnCilkForGrainsizePragma(Result.get(), SubS.get(),
-                                               Grainsize->getLocStart());
-}
-
-template<typename Derived>
-StmtResult
-TreeTransform<Derived>::TransformCilkForStmt(CilkForStmt *S) {
-  // Transform loop initialization.
-  StmtResult Init = getDerived().TransformStmt(S->getInit());
-  if (Init.isInvalid())
-    return StmtError();
-
-  // Transform loop condition.
-  ExprResult Cond = getDerived().TransformExpr(S->getCond());
-  if (Cond.isInvalid())
-    return StmtError();
-
-  assert(S->getCond() && "unexpected empty condition in Cilk for");
-  SourceLocation CilkForLoc = S->getCilkForLoc();
-  ExprResult CondExpr = getSema().CheckBooleanCondition(CilkForLoc, Cond.get());
-
-  if (CondExpr.isInvalid())
-    return StmtError();
-  Cond = CondExpr.get();
-
-  Sema::FullExprArg FullCond(getSema().MakeFullExpr(Cond.get()));
-  if (!FullCond.get())
-    return StmtError();
-
-  // Enter the capturing region before processing loop increment.
-  getSema().ActOnStartOfCilkForStmt(CilkForLoc, /*Scope*/0, Init);
-
-  // Transform loop increment.
-  ExprResult Inc = getDerived().TransformExpr(S->getInc());
-  if (Inc.isInvalid()) {
-    getSema().ActOnCilkForStmtError();
-    return StmtError();
-  }
-
-  Sema::FullExprArg FullInc(getSema().MakeFullExpr(Inc.get()));
-  if (!FullInc.get()) {
-    getSema().ActOnCilkForStmtError();
-    return StmtError();
-  }
-
-  // Transform loop body.
-  StmtResult Body = getDerived().TransformStmt(S->getBody()->getCapturedStmt());
-  if (Body.isInvalid()) {
-    getSema().ActOnCilkForStmtError();
-    return StmtError();
-  }
-
-  StmtResult Result = getSema().ActOnCilkForStmt(CilkForLoc, S->getLParenLoc(),
-                                                 Init.get(), FullCond,
-                                                 FullInc,  S->getRParenLoc(),
-                                                 Body.get());
-  if (Result.isInvalid()) {
-    getSema().ActOnCilkForStmtError();
-    return StmtError();
-  }
-
-  return Result;
-}
-
-template <typename Derived>
-StmtResult
-TreeTransform<Derived>::TransformSIMDForStmt(SIMDForStmt *S) {
-  ArrayRef<Attr *> Attrs = S->getSIMDAttrs();
-  SourceLocation PragmaLoc = S->getPragmaLoc();
-
-  SmallVector<Attr *, 1> TransformedAttrs;
-  bool InvalidAttr = false;
-  for (ArrayRef<Attr *>::iterator it = Attrs.begin(), end = Attrs.end();
-       it != end; ++it) {
-    AttrResult TransformedAttr = TransformSIMDAttr(*it);
-    InvalidAttr |= TransformedAttr.isInvalid();
-    TransformedAttrs.push_back(TransformedAttr.get());
-  }
-
-  if (InvalidAttr)
-    return StmtError();
-
-  // Transform loop initialization.
-  StmtResult Init = getDerived().TransformStmt(S->getInit());
-  if (Init.isInvalid())
-    return StmtError();
-
-  // Transform loop condition.
-  ExprResult Cond = getDerived().TransformExpr(S->getCond());
-  if (Cond.isInvalid())
-    return StmtError();
-
-  assert(S->getCond() && "unexpected empty condition in Cilk for");
-  SourceLocation ForLoc = S->getForLoc();
-  ExprResult CondExpr = getSema().CheckBooleanCondition(ForLoc, Cond.get());
-
-  if (CondExpr.isInvalid())
-    return StmtError();
-
-  Cond = CondExpr.get();
-
-  Sema::FullExprArg FullCond(getSema().MakeFullExpr(Cond.get()));
-  if (!FullCond.get())
-    return StmtError();
-
-  // Transform loop increment.
-  ExprResult Inc = getDerived().TransformExpr(S->getInc());
-  if (Inc.isInvalid())
-    return StmtError();
-
-  Sema::FullExprArg FullInc(getSema().MakeFullExpr(Inc.get()));
-  if (!FullInc.get())
-    return StmtError();
-
-  getSema().ActOnStartOfSIMDForStmt(PragmaLoc, /*Scope*/ 0, TransformedAttrs);
-
-  // Transform loop body.
-  StmtResult Body = getDerived().TransformStmt(S->getBody()->getCapturedStmt());
-  if (Body.isInvalid()) {
-    getSema().ActOnSIMDForStmtError();
-    return StmtError();
-  }
-
-  StmtResult Result = getSema().ActOnSIMDForStmt(
-      PragmaLoc, TransformedAttrs, ForLoc, S->getLParenLoc(), Init.get(),
-      FullCond, FullInc, S->getRParenLoc(), Body.get());
-  if (Result.isInvalid()) {
-    getSema().ActOnSIMDForStmtError();
-    return StmtError();
-  }
-
-  return Result;
-}
-#endif // INTEL_SPECIFIC_CILKPLUS
 } // end namespace clang
 
 #endif // LLVM_CLANG_LIB_SEMA_TREETRANSFORM_H

@@ -1,6 +1,10 @@
 // RUN: %clang_cc1 -verify -fopenmp -ast-print %s | FileCheck %s
 // RUN: %clang_cc1 -fopenmp -x c++ -std=c++11 -emit-pch -o %t %s
 // RUN: %clang_cc1 -fopenmp -std=c++11 -include-pch %t -fsyntax-only -verify %s -ast-print | FileCheck %s
+
+// RUN: %clang_cc1 -verify -fopenmp-simd -ast-print %s | FileCheck %s
+// RUN: %clang_cc1 -fopenmp-simd -x c++ -std=c++11 -emit-pch -o %t %s
+// RUN: %clang_cc1 -fopenmp-simd -std=c++11 -include-pch %t -fsyntax-only -verify %s -ast-print | FileCheck %s
 // expected-no-diagnostics
 
 #ifndef HEADER
@@ -37,7 +41,7 @@ public:
   }
 };
 
-// CHECK: #pragma omp distribute simd private(this->a) private(this->a) private(T::a)
+// CHECK: #pragma omp distribute simd private(this->a) private(this->a) private(T::a){{$}}
 // CHECK: #pragma omp distribute simd private(this->a) private(this->a)
 // CHECK: #pragma omp distribute simd private(this->a) private(this->a) private(this->S::a)
 
@@ -84,14 +88,14 @@ T tmain(T argc) {
 
 #pragma omp target
 #pragma omp teams
-#pragma omp distribute simd private(argc, b), firstprivate(c, d), lastprivate(d, f) collapse(N) reduction(+ : h) dist_schedule(static,N)
+#pragma omp distribute simd private(argc, b), firstprivate(c, d), lastprivate(f) collapse(N) reduction(+ : h) dist_schedule(static,N)
   for (int i = 0; i < 2; ++i)
     for (int j = 0; j < 2; ++j)
       for (int k = 0; k < 10; ++k)
         for (int m = 0; m < 10; ++m)
           for (int n = 0; n < 10; ++n)
             a++;
-// CHECK: #pragma omp distribute simd private(argc,b) firstprivate(c,d) lastprivate(d,f) collapse(N) reduction(+: h) dist_schedule(static, N)
+// CHECK: #pragma omp distribute simd private(argc,b) firstprivate(c,d) lastprivate(f) collapse(N) reduction(+: h) dist_schedule(static, N)
 // CHECK-NEXT: for (int i = 0; i < 2; ++i)
 // CHECK-NEXT: for (int j = 0; j < 2; ++j)
 // CHECK-NEXT: for (int k = 0; k < 10; ++k)

@@ -23,8 +23,8 @@ int *f6(float a) __attribute__((__alloc_size__(1))); // expected-error{{'__alloc
 int *f7(int a, unsigned b, double c) __attribute__((__alloc_size__(1, 3))); // expected-error{{'__alloc_size__' attribute argument may only refer to a function parameter of integer type}}
 
 // Check the bounds of attribute's arguments.
-int *f8(int a) __attribute__((__alloc_size__(0))); // expected-error{{'__alloc_size__' attribute parameter 0 is out of bounds}}
-int *f9(int a) __attribute__((__alloc_size__(2))); // expected-error{{'__alloc_size__' attribute parameter 2 is out of bounds}}
+int *f8(int a) __attribute__((__alloc_size__(0))); // expected-error{{'__alloc_size__' attribute parameter 1 is out of bounds}}
+int *f9(int a) __attribute__((__alloc_size__(2))); // expected-error{{'__alloc_size__' attribute parameter 1 is out of bounds}}
 
 // Check that function declared with __alloc_size__ returns a pointer.
 int f10(int a) __attribute__((__alloc_size__(1))); //expected-warning{{'__alloc_size__' attribute only applies to return values that are pointers}}
@@ -38,5 +38,5 @@ struct X {
   int *g2(float a, int b, char *c, void *d, int e)
       __attribute__((__alloc_size__(3, 6)));         // OK, 'this' is counted first.
   int *g2(int a) __attribute__((__alloc_size__(1))); // expected-error{{'__alloc_size__' attribute is invalid for the implicit this argument}}
-  int *g3(int a) __attribute__((__alloc_size__(3))); // expected-error{{'__alloc_size__' attribute parameter 3 is out of bounds}}
+  int *g3(int a) __attribute__((__alloc_size__(3))); // expected-error{{'__alloc_size__' attribute parameter 1 is out of bounds}}
 };

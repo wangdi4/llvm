@@ -39,5 +39,5 @@ int main() {
   direct_baselist.print(d1, d2);
 }
 
-// CHECK: struct typelist<class Base1, class Base2, class Derived1, class Base2, class Derived2>
-// CHECK: struct typelist<class Derived1, class Derived2>
+// CHECK: typelist<Base1, Base2, Derived1, Base2, Derived2>
+// CHECK: typelist<Derived1, Derived2>

@@ -1,6 +1,6 @@
 //===--- BuiltinsSPIRINTELFpga.td - FPGA-specific built-ins ---------------===//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -8,6 +8,13 @@
 //
 // ===--------------------------------------------------------------------=== //
 
+#if defined(BUILTIN) && !defined(LANGBUILTIN)
+#  define LANGBUILTIN(ID, TYPE, ATTRS, BUILTIN_LANG) BUILTIN(ID, TYPE, ATTRS)
+#endif
+
 BUILTIN(get_compute_id, "zi", "i")
+LANGBUILTIN(read_pipe, "i.", "tn", OCLC1X_LANG)
+LANGBUILTIN(write_pipe, "i.", "tn", OCLC1X_LANG)
 
 #undef BUILTIN
+#undef LANGBUILTIN

@@ -293,6 +293,9 @@
 // RUN: %clang_cl /TP /c /GX /GX- -### -- %s 2>&1 | FileCheck -check-prefix=GX_ %s
 // GX_-NOT: "-fcxx-exceptions" "-fexceptions"
 
+// RUN: %clang_cl /d1PP -### -- %s 2>&1 | FileCheck -check-prefix=d1PP %s
+// d1PP: -dD
+
 // We forward any unrecognized -W diagnostic options to cc1.
 // RUN: %clang_cl -Wunused-pragmas -### -- %s 2>&1 | FileCheck -check-prefix=WJoined %s
 // WJoined: "-cc1"
@@ -343,7 +346,9 @@
 // RUN:    /GS- \
 // RUN:    /kernel- \
 // RUN:    /nologo \
+// RUN:    /Og \
 // RUN:    /openmp- \
+// RUN:    /permissive- \
 // RUN:    /RTC1 \
 // RUN:    /sdl \
 // RUN:    /sdl- \
@@ -353,6 +358,14 @@
 // RUN:    /volatile:iso \
 // RUN:    /w12345 \
 // RUN:    /wd1234 \
+// RUN:    /Zc:__cplusplus \
+// RUN:    /Zc:auto \
+// RUN:    /Zc:forScope \
+// RUN:    /Zc:inline \
+// RUN:    /Zc:rvalueCast \
+// RUN:    /Zc:ternary \
+// RUN:    /Zc:wchar_t \
+// RUN:    /Zm \
 // RUN:    /Zo \
 // RUN:    /Zo- \
 // RUN:    -### -- %s 2>&1 | FileCheck -check-prefix=IGNORED %s
@@ -376,6 +389,8 @@
 // (/Zs is for syntax-only)
 // RUN: %clang_cl /Zs \
 // RUN:     /AIfoo \
+// RUN:     /Bt \
+// RUN:     /Bt+ \
 // RUN:     /clr:pure \
 // RUN:     /docname \
 // RUN:     /EHsc \

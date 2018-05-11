@@ -202,7 +202,7 @@ namespace clang {
     ParsingDeclRAIIObject ParsingRAII;
 
   public:
-    ParsingDeclarator(Parser &P, const ParsingDeclSpec &DS, TheContext C)
+    ParsingDeclarator(Parser &P, const ParsingDeclSpec &DS, DeclaratorContext C)
       : Declarator(DS, C), ParsingRAII(P, &DS.getDelayedDiagnosticPool()) {
     }
 
@@ -336,19 +336,7 @@ namespace clang {
       P.BraceCount = BraceCount;
     }
   };
-#if INTEL_SPECIFIC_CILKPLUS
-  class SuppressCEANSupport {
-  private:
-    Parser &P;
-  public:
-    SuppressCEANSupport(Parser &P) : P(P) {
-      P.getActions().StartCEAN(Sema::NoCEANAllowed);
-    }
-    ~SuppressCEANSupport() {
-      P.getActions().EndCEAN();
-    }
-  };
-#endif // INTEL_SPECIFIC_CILKPLUS
+
   class PoisonSEHIdentifiersRAIIObject {
     PoisonIdentifierRAIIObject Ident_AbnormalTermination;
     PoisonIdentifierRAIIObject Ident_GetExceptionCode;
@@ -389,8 +377,6 @@ namespace clang {
         default: llvm_unreachable("Wrong token kind");
       }
     }
-    
-    enum { MaxDepth = 256 };
     
     bool diagnoseOverflow();
     bool diagnoseMissingClose();

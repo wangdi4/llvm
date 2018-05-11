@@ -17,12 +17,10 @@
 #include "X86InstrInfo.h"
 #include "X86Subtarget.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/Passes.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
+#include "llvm/CodeGen/TargetSchedule.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
@@ -127,6 +125,7 @@ public:
   }
 
 private:
+  TargetSchedModel TSM;
   MachineFunction *MF;
   const X86InstrInfo *TII; // Machine instruction info.
   bool OptIncDec;
@@ -193,17 +192,18 @@ FixupLEAPass::postRAConvertToLEA(MachineFunction::iterator &MFI,
 FunctionPass *llvm::createX86FixupLEAs() { return new FixupLEAPass(); }
 
 bool FixupLEAPass::runOnMachineFunction(MachineFunction &Func) {
-  if (skipFunction(*Func.getFunction()))
+  if (skipFunction(Func.getFunction()))
     return false;
 
   MF = &Func;
   const X86Subtarget &ST = Func.getSubtarget<X86Subtarget>();
-  OptIncDec = !ST.slowIncDec() || Func.getFunction()->optForMinSize();
+  OptIncDec = !ST.slowIncDec() || Func.getFunction().optForMinSize();
   OptLEA = ST.LEAusesAG() || ST.slowLEA() || ST.slow3OpsLEA();
 
   if (!OptLEA && !OptIncDec)
     return false;
 
+  TSM.init(&Func.getSubtarget());
   TII = ST.getInstrInfo();
 
   DEBUG(dbgs() << "Start X86FixupLEAs\n";);
@@ -266,8 +266,7 @@ FixupLEAPass::searchBackwards(MachineOperand &p, MachineBasicBlock::iterator &I,
     if (usesRegister(p, CurInst) == RU_Write) {
       return CurInst;
     }
-    InstrDistance += TII->getInstrLatency(
-        MF->getSubtarget().getInstrItineraryData(), *CurInst);
+    InstrDistance += TSM.computeInstrLatency(&*CurInst);
     Found = getPreviousInstr(CurInst, MFI);
   }
   return MachineBasicBlock::iterator();
@@ -550,7 +549,8 @@ FixupLEAPass::processInstrForSlow3OpLEA(MachineInstr &MI,
 
   // lea (%base,%index,1), %dst => mov %base,%dst; add %index,%dst
   if (IsScale1 && !hasLEAOffset(Offset)) {
-    TII->copyPhysReg(*MFI, MI, DL, DstR, BaseR, Base.isKill());
+    bool BIK = Base.isKill() && BaseR != IndexR;
+    TII->copyPhysReg(*MFI, MI, DL, DstR, BaseR, BIK);
     DEBUG(MI.getPrevNode()->dump(););
 
     MachineInstr *NewMI =

@@ -165,7 +165,7 @@ static bool CanElideOverflowCheck(const ASTContext &Ctx, const BinOpInfo &Op) {
 
   // If a unary op has a widened operand, the op cannot overflow.
   if (const auto *UO = dyn_cast<UnaryOperator>(Op.E))
-    return IsWidenedIntegerOp(Ctx, UO->getSubExpr());
+    return !UO->canOverflow();
 
   // We usually don't need overflow checks for binops with widened operands.
   // Multiplication with promoted unsigned operands is a special case.
@@ -422,26 +422,12 @@ public:
 
   Value *VisitOpaqueValueExpr(OpaqueValueExpr *E) {
     if (E->isGLValue())
-      return EmitLoadOfLValue(CGF.getOpaqueLValueMapping(E), E->getExprLoc());
+      return EmitLoadOfLValue(CGF.getOrCreateOpaqueLValueMapping(E),
+                              E->getExprLoc());
 
     // Otherwise, assume the mapping is the scalar directly.
-    return CGF.getOpaqueRValueMapping(E).getScalarVal();
+    return CGF.getOrCreateOpaqueRValueMapping(E).getScalarVal();
   }
-#if INTEL_SPECIFIC_CILKPLUS
-  Value *VisitCEANIndexExpr(CEANIndexExpr *E) {
-    assert (E->getIndexExpr() && "Index expr is not set");
-    return CGF.EmitScalarExpr(E->getIndexExpr());
-  }
-
-  Value *VisitCEANBuiltinExpr(CEANBuiltinExpr *E) {
-    CodeGenFunction::LocalVarsDeclGuard Guard(CGF);
-    CGF.EmitCEANBuiltinExprBody(E);
-    if (E->getBuiltinKind() != CEANBuiltinExpr::ReduceMutating)
-      return E->getReturnExpr()->isRValue() ? Visit(E->getReturnExpr()) :
-                                              EmitLoadOfLValue(E->getReturnExpr());
-    return 0;
-  }
-#endif // INTEL_SPECIFIC_CILKPLUS
 
   Value *emitConstant(const CodeGenFunction::ConstantEmission &Constant,
                       Expr *E) {
@@ -685,6 +671,13 @@ public:
                                                   llvm::Value *Zero,bool isDiv);
   // Common helper for getting how wide LHS of shift is.
   static Value *GetWidthMinusOneValue(Value* LHS,Value* RHS);
+#if INTEL_CUSTOMIZATION
+  // Used for OpenCL/IntelCOmpat modes, will constrain the RHS of a shift to
+  // avoid poisonable shift-results (shifting greater-than the bitcount of the
+  // LHS).
+  Value *ConstrainShiftValue(QualType OpTy, Value *LHS, Value *RHS,
+                             const Twine &Name);
+#endif // INTEL_CUSTOMIZATION
   Value *EmitDiv(const BinOpInfo &Ops);
   Value *EmitRem(const BinOpInfo &Ops);
   Value *EmitAdd(const BinOpInfo &Ops);
@@ -773,12 +766,6 @@ public:
   }
   Value *VisitAsTypeExpr(AsTypeExpr *CE);
   Value *VisitAtomicExpr(AtomicExpr *AE);
-#if INTEL_SPECIFIC_CILKPLUS
-  Value *VisitCilkSpawnExpr(CilkSpawnExpr *E) {
-    CGF.EmitCilkSpawnExpr(E);
-    return 0;
-  }
-#endif // INTEL_SPECIFIC_CILKPLUS
 };
 }  // end anonymous namespace.
 
@@ -797,10 +784,13 @@ Value *ScalarExprEmitter::EmitConversionToBool(Value *Src, QualType SrcType) {
   if (const MemberPointerType *MPT = dyn_cast<MemberPointerType>(SrcType))
     return CGF.CGM.getCXXABI().EmitMemberPointerIsNotNull(CGF, Src, MPT);
 
-  assert((SrcType->isIntegerType() || isa<llvm::PointerType>(Src->getType())) &&
+#if INTEL_CUSTOMIZATION
+  assert((SrcType->isIntegerType() || isa<llvm::PointerType>(Src->getType()) ||
+          SrcType->isArbPrecIntType()) &&
          "Unknown scalar type to convert");
 
-  if (isa<llvm::IntegerType>(Src->getType()))
+  if (isa<llvm::IntegerType>(Src->getType()) || SrcType->isArbPrecIntType())
+#endif // INTEL_CUSTOMIZATION
     return EmitIntToBoolConversion(Src);
 
   assert(isa<llvm::PointerType>(Src->getType()));
@@ -972,7 +962,7 @@ Value *ScalarExprEmitter::EmitScalarConversion(Value *Src, QualType SrcType,
   if (SrcType->isHalfType() && !CGF.getContext().getLangOpts().NativeHalfType) {
     // Cast to FP using the intrinsic if the half type itself isn't supported.
     if (DstTy->isFloatingPointTy()) {
-      if (!CGF.getContext().getLangOpts().HalfArgsAndReturns)
+      if (CGF.getContext().getTargetInfo().useFP16ConversionIntrinsics())
         return Builder.CreateCall(
             CGF.CGM.getIntrinsic(llvm::Intrinsic::convert_from_fp16, DstTy),
             Src);
@@ -980,7 +970,7 @@ Value *ScalarExprEmitter::EmitScalarConversion(Value *Src, QualType SrcType,
       // Cast to other types through float, using either the intrinsic or FPExt,
       // depending on whether the half type itself is supported
       // (as opposed to operations on half, available with NativeHalfType).
-      if (!CGF.getContext().getLangOpts().HalfArgsAndReturns) {
+      if (CGF.getContext().getTargetInfo().useFP16ConversionIntrinsics()) {
         Src = Builder.CreateCall(
             CGF.CGM.getIntrinsic(llvm::Intrinsic::convert_from_fp16,
                                  CGF.CGM.FloatTy),
@@ -1089,7 +1079,7 @@ Value *ScalarExprEmitter::EmitScalarConversion(Value *Src, QualType SrcType,
     if (SrcTy->isFloatingPointTy()) {
       // Use the intrinsic if the half type itself isn't supported
       // (as opposed to operations on half, available with NativeHalfType).
-      if (!CGF.getContext().getLangOpts().HalfArgsAndReturns)
+      if (CGF.getContext().getTargetInfo().useFP16ConversionIntrinsics())
         return Builder.CreateCall(
             CGF.CGM.getIntrinsic(llvm::Intrinsic::convert_to_fp16, SrcTy), Src);
       // If the half type is supported, just use an fptrunc.
@@ -1125,7 +1115,7 @@ Value *ScalarExprEmitter::EmitScalarConversion(Value *Src, QualType SrcType,
   }
 
   if (DstTy != ResTy) {
-    if (!CGF.getContext().getLangOpts().HalfArgsAndReturns) {
+    if (CGF.getContext().getTargetInfo().useFP16ConversionIntrinsics()) {
       assert(ResTy->isIntegerTy(16) && "Only half FP requires extra conversion");
       Res = Builder.CreateCall(
         CGF.CGM.getIntrinsic(llvm::Intrinsic::convert_to_fp16, CGF.CGM.FloatTy),
@@ -1907,7 +1897,7 @@ llvm::Value *ScalarExprEmitter::EmitIncDecConsiderOverflowBehavior(
       return Builder.CreateNSWAdd(InVal, Amount, Name);
     // Fall through.
   case LangOptions::SOB_Trapping:
-    if (IsWidenedIntegerOp(CGF.getContext(), E->getSubExpr()))
+    if (!E->canOverflow())
       return Builder.CreateNSWAdd(InVal, Amount, Name);
     return EmitOverflowCheckedBinOp(createBinOpInfoFromIncDec(E, InVal, IsInc));
   }
@@ -1986,14 +1976,12 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
     value = Builder.getTrue();
 
   // Most common case by far: integer increment.
-  } else if (type->isIntegerType()) {
+  } else if (type->isIntegerType() || type->isArbPrecIntType()) { // INTEL
     // Note that signed integer inc/dec with width less than int can't
     // overflow because of promotion rules; we're just eliding a few steps here.
-    bool CanOverflow = value->getType()->getIntegerBitWidth() >=
-                       CGF.IntTy->getIntegerBitWidth();
-    if (CanOverflow && type->isSignedIntegerOrEnumerationType()) {
+    if (E->canOverflow() && type->isSignedIntegerOrEnumerationType()) {
       value = EmitIncDecConsiderOverflowBehavior(E, value, isInc);
-    } else if (CanOverflow && type->isUnsignedIntegerType() &&
+    } else if (E->canOverflow() && type->isUnsignedIntegerType() &&
                CGF.SanOpts.has(SanitizerKind::UnsignedIntegerOverflow)) {
       value =
           EmitOverflowCheckedBinOp(createBinOpInfoFromIncDec(E, value, isInc));
@@ -2009,7 +1997,7 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
     // VLA types don't have constant size.
     if (const VariableArrayType *vla
           = CGF.getContext().getAsVariableArrayType(type)) {
-      llvm::Value *numElts = CGF.getVLASize(vla).first;
+      llvm::Value *numElts = CGF.getVLASize(vla).NumElts;
       if (!isInc) numElts = Builder.CreateNSWNeg(numElts, "vla.negsize");
       if (CGF.getLangOpts().isSignedOverflowDefined())
         value = Builder.CreateGEP(value, numElts, "vla.inc");
@@ -2062,7 +2050,7 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
 
     if (type->isHalfType() && !CGF.getContext().getLangOpts().NativeHalfType) {
       // Another special case: half FP increment should be done via float
-      if (!CGF.getContext().getLangOpts().HalfArgsAndReturns) {
+      if (CGF.getContext().getTargetInfo().useFP16ConversionIntrinsics()) {
         value = Builder.CreateCall(
             CGF.CGM.getIntrinsic(llvm::Intrinsic::convert_from_fp16,
                                  CGF.CGM.FloatTy),
@@ -2097,7 +2085,7 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
     value = Builder.CreateFAdd(value, amt, isInc ? "inc" : "dec");
 
     if (type->isHalfType() && !CGF.getContext().getLangOpts().NativeHalfType) {
-      if (!CGF.getContext().getLangOpts().HalfArgsAndReturns) {
+      if (CGF.getContext().getTargetInfo().useFP16ConversionIntrinsics()) {
         value = Builder.CreateCall(
             CGF.CGM.getIntrinsic(llvm::Intrinsic::convert_to_fp16,
                                  CGF.CGM.FloatTy),
@@ -2307,22 +2295,15 @@ ScalarExprEmitter::VisitUnaryExprOrTypeTraitExpr(
         CGF.EmitIgnoredExpr(E->getArgumentExpr());
       }
 
-      QualType eltType;
-      llvm::Value *numElts;
-      std::tie(numElts, eltType) = CGF.getVLASize(VAT);
-
-      llvm::Value *size = numElts;
+      auto VlaSize = CGF.getVLASize(VAT);
+      llvm::Value *size = VlaSize.NumElts;
 
       // Scale the number of non-VLA elements by the non-VLA element size.
-      CharUnits eltSize = CGF.getContext().getTypeSizeInChars(eltType);
+      CharUnits eltSize = CGF.getContext().getTypeSizeInChars(VlaSize.Type);
       if (!eltSize.isOne())
-        size = CGF.Builder.CreateNUWMul(CGF.CGM.getSize(eltSize), numElts);
+        size = CGF.Builder.CreateNUWMul(CGF.CGM.getSize(eltSize), size);
 
-#if defined (INTEL_CUSTOMIZATION) && defined(INTEL_SPECIFIC_IL0_BACKEND)
-      return CGF.EmitIntelSizeof(TypeToSize, size);
-#else
       return size;
-#endif // defined (INTEL_CUSTOMIZATION) && defined(INTEL_SPECIFIC_IL0_BACKEND)
     }
   } else if (E->getKind() == UETT_OpenMPRequiredSimdAlign) {
     auto Alignment =
@@ -2335,12 +2316,7 @@ ScalarExprEmitter::VisitUnaryExprOrTypeTraitExpr(
 
   // If this isn't sizeof(vla), the result must be constant; use the constant
   // folding logic so we don't have to duplicate it here.
-#if defined (INTEL_CUSTOMIZATION) && defined(INTEL_SPECIFIC_IL0_BACKEND)
-  auto Size = Builder.getInt(E->EvaluateKnownConstInt(CGF.getContext()));
-  return CGF.EmitIntelSizeof(TypeToSize, Size);
-#else
   return Builder.getInt(E->EvaluateKnownConstInt(CGF.getContext()));
-#endif // defined (INTEL_CUSTOMIZATION) && defined(INTEL_SPECIFIC_IL0_BACKEND)
 }
 
 Value *ScalarExprEmitter::VisitUnaryReal(const UnaryOperator *E) {
@@ -2812,7 +2788,7 @@ static Value *emitPointerArithmetic(CodeGenFunction &CGF,
   if (const VariableArrayType *vla
         = CGF.getContext().getAsVariableArrayType(elementType)) {
     // The element count here is the total number of non-VLA elements.
-    llvm::Value *numElements = CGF.getVLASize(vla).first;
+    llvm::Value *numElements = CGF.getVLASize(vla).NumElts;
 
     // Effectively, the multiply by the VLA size is part of the GEP.
     // GEP indexes are signed, and scaling an index isn't permitted to
@@ -3007,10 +2983,9 @@ Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
   // For a variable-length array, this is going to be non-constant.
   if (const VariableArrayType *vla
         = CGF.getContext().getAsVariableArrayType(elementType)) {
-    llvm::Value *numElements;
-    std::tie(numElements, elementType) = CGF.getVLASize(vla);
-
-    divisor = numElements;
+    auto VlaSize = CGF.getVLASize(vla);
+    elementType = VlaSize.Type;
+    divisor = VlaSize.NumElts;
 
     // Scale the number of non-VLA elements by the non-VLA element size.
     CharUnits eltSize = CGF.getContext().getTypeSizeInChars(elementType);
@@ -3051,6 +3026,23 @@ Value *ScalarExprEmitter::GetWidthMinusOneValue(Value* LHS,Value* RHS) {
   return llvm::ConstantInt::get(RHS->getType(), Ty->getBitWidth() - 1);
 }
 
+#if INTEL_CUSTOMIZATION
+Value *ScalarExprEmitter::ConstrainShiftValue(QualType OpTy, Value *LHS,
+                                              Value *RHS, const Twine &Name) {
+  llvm::IntegerType *Ty;
+  if (const auto *VT = dyn_cast<llvm::VectorType>(LHS->getType()))
+    Ty = cast<llvm::IntegerType>(VT->getElementType());
+  else
+    Ty = cast<llvm::IntegerType>(LHS->getType());
+
+  if (llvm::isPowerOf2_64(Ty->getBitWidth()))
+    return Builder.CreateAnd(RHS, GetWidthMinusOneValue(LHS, RHS), Name);
+
+  return Builder.CreateURem(
+      RHS, llvm::ConstantInt::get(RHS->getType(), Ty->getBitWidth()), Name);
+}
+#endif // INTEL_CUSTOMIZATION
+
 Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
   // LLVM requires the LHS and RHS to be the same type: promote or truncate the
   // RHS to the same size as the LHS.
@@ -3061,7 +3053,7 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
   // Fix for CQ375045: xmain's bitwise shift show results that differ from
   // results of icc/gcc
   if (CGF.getLangOpts().IntelCompat)
-    RHS = Builder.CreateAnd(RHS, RHS->getType()->getScalarSizeInBits() - 1);
+    RHS = ConstrainShiftValue(Ops.Ty, Ops.LHS, RHS, "shl.mask");
 #endif // INTEL_CUSTOMIZATION
 
   bool SanitizeBase = CGF.SanOpts.has(SanitizerKind::ShiftBase) &&
@@ -3070,8 +3062,10 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
   bool SanitizeExponent = CGF.SanOpts.has(SanitizerKind::ShiftExponent);
   // OpenCL 6.3j: shift values are effectively % word size of LHS.
   if (CGF.getLangOpts().OpenCL)
-    RHS =
-        Builder.CreateAnd(RHS, GetWidthMinusOneValue(Ops.LHS, RHS), "shl.mask");
+#if INTEL_CUSTOMIZATION
+    // FIXME: Fix the sanitizer code in the else-if below to use similar logic.
+    RHS = ConstrainShiftValue(Ops.Ty, Ops.LHS, RHS, "shl.mask");
+#endif // INTEL_CUSTOMIZATION
   else if ((SanitizeBase || SanitizeExponent) &&
            isa<llvm::IntegerType>(Ops.LHS->getType())) {
     CodeGenFunction::SanitizerScope SanScope(&CGF);
@@ -3134,13 +3128,15 @@ Value *ScalarExprEmitter::EmitShr(const BinOpInfo &Ops) {
   // Fix for CQ375045: xmain's bitwise shift show results that differ from
   // results of icc/gcc
   if (CGF.getLangOpts().IntelCompat)
-    RHS = Builder.CreateAnd(RHS, RHS->getType()->getScalarSizeInBits() - 1);
+    RHS = ConstrainShiftValue(Ops.Ty, Ops.LHS, RHS, "shl.mask");
 #endif // INTEL_CUSTOMIZATION
 
   // OpenCL 6.3j: shift values are effectively % word size of LHS.
   if (CGF.getLangOpts().OpenCL)
-    RHS =
-        Builder.CreateAnd(RHS, GetWidthMinusOneValue(Ops.LHS, RHS), "shr.mask");
+#if INTEL_CUSTOMIZATION
+    // FIXME: Fix the sanitizer code in the else-if below to use similar logic.
+    RHS = ConstrainShiftValue(Ops.Ty, Ops.LHS, RHS, "shr.mask");
+#endif // INTEL_CUSTOMIZATION
   else if (CGF.SanOpts.has(SanitizerKind::ShiftExponent) &&
            isa<llvm::IntegerType>(Ops.LHS->getType())) {
     CodeGenFunction::SanitizerScope SanScope(&CGF);
@@ -3381,26 +3377,11 @@ Value *ScalarExprEmitter::VisitBinAssign(const BinaryOperator *E) {
     break;
 
   case Qualifiers::OCL_None:
-#if INTEL_SPECIFIC_CILKPLUS
-    // Cilk Plus needs the LHS evaluated first to handle cases such as
-    // array[f()] = _Cilk_spawn foo();
-    // This evaluation order requirement implies that _Cilk_spawn cannot
-    // spawn Objective C block calls.
-    if (CGF.getLangOpts().CilkPlus && E->getRHS()->isCilkSpawn()) {
-      LHS = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
-      RHS = Visit(E->getRHS());
-    } else {
-      // __block variables need to have the rhs evaluated first, plus
-      // this should improve codegen just a little.
-      RHS = Visit(E->getRHS());
-      LHS = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
-    }
-#else
     // __block variables need to have the rhs evaluated first, plus
     // this should improve codegen just a little.
     RHS = Visit(E->getRHS());
     LHS = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
-#endif // INTEL_SPECIFIC_CILKPLUS
+
     // Store the value into the LHS.  Bit-fields are handled specially
     // because the result is altered by the store, i.e., [C99 6.5.16p1]
     // 'An assignment expression has the value of the left operand after
@@ -3992,6 +3973,7 @@ LValue CodeGenFunction::EmitCompoundAssignmentLValue(
   case BO_GE:
   case BO_EQ:
   case BO_NE:
+  case BO_Cmp:
   case BO_And:
   case BO_Xor:
   case BO_Or:

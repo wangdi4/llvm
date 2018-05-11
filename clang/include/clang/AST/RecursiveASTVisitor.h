@@ -38,9 +38,6 @@
 #include "clang/AST/TemplateName.h"
 #include "clang/AST/Type.h"
 #include "clang/AST/TypeLoc.h"
-#if INTEL_SPECIFIC_CILKPLUS
-#include "clang/Basic/intel/StmtIntel.h"
-#endif // INTEL_SPECIFIC_CILKPLUS
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/OpenMPKinds.h"
 #include "clang/Basic/Specifiers.h"
@@ -66,8 +63,8 @@
   OPERATOR(PtrMemD) OPERATOR(PtrMemI) OPERATOR(Mul) OPERATOR(Div)              \
       OPERATOR(Rem) OPERATOR(Add) OPERATOR(Sub) OPERATOR(Shl) OPERATOR(Shr)    \
       OPERATOR(LT) OPERATOR(GT) OPERATOR(LE) OPERATOR(GE) OPERATOR(EQ)         \
-      OPERATOR(NE) OPERATOR(And) OPERATOR(Xor) OPERATOR(Or) OPERATOR(LAnd)     \
-      OPERATOR(LOr) OPERATOR(Assign) OPERATOR(Comma)
+      OPERATOR(NE) OPERATOR(Cmp) OPERATOR(And) OPERATOR(Xor) OPERATOR(Or)      \
+      OPERATOR(LAnd) OPERATOR(LOr) OPERATOR(Assign) OPERATOR(Comma)
 
 // All compound assign operators.
 #define CAO_LIST()                                                             \
@@ -149,7 +146,7 @@ namespace clang {
 /// from which they were produced.
 ///
 /// By default, this visitor preorder traverses the AST. If postorder traversal
-/// is needed, the \c shouldTraversePostOrder method needs to be overriden
+/// is needed, the \c shouldTraversePostOrder method needs to be overridden
 /// to return \c true.
 template <typename Derived> class RecursiveASTVisitor {
 public:
@@ -1106,6 +1103,15 @@ DEF_TRAVERSE_TYPE(AtomicType, { TRY_TO(TraverseType(T->getValueType())); })
 
 #if INTEL_CUSTOMIZATION
 DEF_TRAVERSE_TYPE(ChannelType, { TRY_TO(TraverseType(T->getElementType())); })
+
+DEF_TRAVERSE_TYPE(ArbPrecIntType,
+                  { TRY_TO(TraverseType(T->getUnderlyingType())); })
+
+DEF_TRAVERSE_TYPE(DependentSizedArbPrecIntType, {
+  if (T->getNumBitsExpr())
+    TRY_TO(TraverseStmt(T->getNumBitsExpr()));
+  TRY_TO(TraverseType(T->getUnderlyingType()));
+})
 #endif // INTEL_CUSTOMIZATION
 
 DEF_TRAVERSE_TYPE(PipeType, { TRY_TO(TraverseType(T->getElementType())); })
@@ -1356,6 +1362,16 @@ DEF_TRAVERSE_TYPELOC(AtomicType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
 
 #if INTEL_CUSTOMIZATION
 DEF_TRAVERSE_TYPELOC(ChannelType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
+
+DEF_TRAVERSE_TYPELOC(ArbPrecIntType, {
+  TRY_TO(TraverseType(TL.getTypePtr()->getUnderlyingType()));
+})
+
+DEF_TRAVERSE_TYPELOC(DependentSizedArbPrecIntType, {
+  TRY_TO(TraverseType(TL.getTypePtr()->getUnderlyingType()));
+  TRY_TO(TraverseStmt(TL.getTypePtr()->getNumBitsExpr()));
+})
+
 #endif // INTEL_CUSTOMIZATION
 
 DEF_TRAVERSE_TYPELOC(PipeType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
@@ -1424,9 +1440,7 @@ DEF_TRAVERSE_DECL(CapturedDecl, {
   TRY_TO(TraverseStmt(D->getBody()));
   ShouldVisitChildren = false;
 })
-#if INTEL_SPECIFIC_CILKPLUS
-DEF_TRAVERSE_DECL(CilkSpawnDecl, {})
-#endif // INTEL_SPECIFIC_CILKPLUS
+
 DEF_TRAVERSE_DECL(EmptyDecl, {})
 
 DEF_TRAVERSE_DECL(FileScopeAsmDecl,
@@ -2080,9 +2094,6 @@ DEF_TRAVERSE_DECL(ParmVarDecl, {
       !D->hasUnparsedDefaultArg())
     TRY_TO(TraverseStmt(D->getDefaultArg()));
 })
-#if INTEL_CUSTOMIZATION
-DEF_TRAVERSE_DECL(PragmaDecl, { })
-#endif  // INTEL_CUSTOMIZATION
 #undef DEF_TRAVERSE_DECL
 
 // ----------------- Stmt traversal -----------------
@@ -2444,12 +2455,6 @@ DEF_TRAVERSE_STMT(BlockExpr, {
   TRY_TO(TraverseDecl(S->getBlockDecl()));
   return true; // no child statements to loop through.
 })
-#if INTEL_SPECIFIC_CILKPLUS
-DEF_TRAVERSE_STMT(CilkSpawnExpr, {
-  TRY_TO(TraverseDecl(S->getSpawnDecl()));
-  return true; // no child statements to loop through.
-})
-#endif // INTEL_SPECIFIC_CILKPLUS
 
 DEF_TRAVERSE_STMT(ChooseExpr, {})
 DEF_TRAVERSE_STMT(CompoundLiteralExpr, {
@@ -2541,15 +2546,7 @@ DEF_TRAVERSE_STMT(UnresolvedMemberExpr, {
                                               S->getNumTemplateArgs()));
   }
 })
-#if INTEL_SPECIFIC_CILKPLUS
-DEF_TRAVERSE_STMT(CEANIndexExpr, { })
-DEF_TRAVERSE_STMT(CEANBuiltinExpr, { })
-DEF_TRAVERSE_STMT(CilkSyncStmt, { })
-DEF_TRAVERSE_STMT(CilkForGrainsizeStmt, { })
-DEF_TRAVERSE_STMT(CilkForStmt, { })
-DEF_TRAVERSE_STMT(SIMDForStmt, { })
-DEF_TRAVERSE_STMT(CilkRankedStmt, { })
-#endif // INTEL_SPECIFIC_CILKPLUS
+
 DEF_TRAVERSE_STMT(SEHTryStmt, {})
 DEF_TRAVERSE_STMT(SEHExceptStmt, {})
 DEF_TRAVERSE_STMT(SEHFinallyStmt, {})
@@ -3248,9 +3245,6 @@ bool RecursiveASTVisitor<Derived>::VisitOMPIsDevicePtrClause(
 //    http://clang.llvm.org/doxygen/classclang_1_1UnaryExprOrTypeTraitExpr.html
 //    http://clang.llvm.org/doxygen/classclang_1_1TypesCompatibleExpr.html
 //    Every class that has getQualifier.
-#if INTEL_CUSTOMIZATION
-DEF_TRAVERSE_STMT(PragmaStmt, { })
-#endif  // INTEL_CUSTOMIZATION
 #undef DEF_TRAVERSE_STMT
 #undef TRAVERSE_STMT
 #undef TRAVERSE_STMT_BASE

@@ -338,7 +338,7 @@ class CXXNameMangler {
                        AdditionalAbiTags->end());
       }
 
-      std::sort(TagList.begin(), TagList.end());
+      llvm::sort(TagList.begin(), TagList.end());
       TagList.erase(std::unique(TagList.begin(), TagList.end()), TagList.end());
 
       writeSortedUniqueAbiTags(Out, TagList);
@@ -354,7 +354,7 @@ class CXXNameMangler {
     }
 
     const AbiTagList &getSortedUniqueUsedAbiTags() {
-      std::sort(UsedAbiTags.begin(), UsedAbiTags.end());
+      llvm::sort(UsedAbiTags.begin(), UsedAbiTags.end());
       UsedAbiTags.erase(std::unique(UsedAbiTags.begin(), UsedAbiTags.end()),
                         UsedAbiTags.end());
       return UsedAbiTags;
@@ -1357,8 +1357,7 @@ void CXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
 
     if (const VarDecl *VD = dyn_cast<VarDecl>(ND)) {
       // We must have an anonymous union or struct declaration.
-      const RecordDecl *RD =
-        cast<RecordDecl>(VD->getType()->getAs<RecordType>()->getDecl());
+      const RecordDecl *RD = VD->getType()->getAs<RecordType>()->getDecl();
 
       // Itanium C++ ABI 5.1.2:
       //
@@ -1501,7 +1500,7 @@ void CXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
         if (!MD->isStatic())
           Arity++;
     }
-  // FALLTHROUGH
+    LLVM_FALLTHROUGH;
   case DeclarationName::CXXConversionFunctionName:
   case DeclarationName::CXXLiteralOperatorName:
     mangleOperatorName(Name, Arity);
@@ -1981,6 +1980,8 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
   case Type::Atomic:
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
+  case Type::ArbPrecInt:
+  case Type::DependentSizedArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     llvm_unreachable("type is illegal as a nested name specifier");
@@ -2231,6 +2232,9 @@ CXXNameMangler::mangleOperatorName(OverloadedOperatorKind OO, unsigned Arity) {
   // Proposal on cxx-abi-dev, 2015-10-21.
   //              ::= aw        # co_await
   case OO_Coawait: Out << "aw"; break;
+  // Proposed in cxx-abi github issue 43.
+  //              ::= ss        # <=>
+  case OO_Spaceship: Out << "ss"; break;
 
   case OO_None:
   case NUM_OVERLOADED_OPERATORS:
@@ -2793,7 +2797,7 @@ void CXXNameMangler::mangleType(const FunctionProtoType *T) {
 
   // Mangle CV-qualifiers, if present.  These are 'this' qualifiers,
   // e.g. "const" in "int (A::*)() const".
-  mangleQualifiers(Qualifiers::fromCVRMask(T->getTypeQuals()));
+  mangleQualifiers(Qualifiers::fromCVRUMask(T->getTypeQuals()));
 
   // Mangle instantiation-dependent exception-specification, if present,
   // per cxx-abi-dev proposal on 2016-10-11.
@@ -3428,6 +3432,18 @@ void CXXNameMangler::mangleType(const ChannelType *T) {
   Out << "11ocl_channel";
   mangleType(T->getElementType());
 }
+void CXXNameMangler::mangleType(const ArbPrecIntType *T) {
+  Out << "11intel_apint_";
+  mangleNumber(T->getNumBits());
+  Out << '_';
+  mangleType(T->getUnderlyingType());
+}
+void CXXNameMangler::mangleType(const DependentSizedArbPrecIntType *T) {
+  Out << "11intel_apint_";
+  mangleExpression(T->getNumBitsExpr());
+  Out << '_';
+  mangleType(T->getUnderlyingType());
+}
 #endif // INTEL_CUSTOMIZATION
 
 void CXXNameMangler::mangleIntegerLiteral(QualType T,
@@ -3616,11 +3632,6 @@ recurse:
   case Expr::AsTypeExprClass:
   case Expr::PseudoObjectExprClass:
   case Expr::AtomicExprClass:
-#if INTEL_SPECIFIC_CILKPLUS
-  case Expr::CilkSpawnExprClass:
-  case Expr::CEANIndexExprClass:
-  case Expr::CEANBuiltinExprClass:
-#endif // INTEL_SPECIFIC_CILKPLUS
   {
     if (!NullOut) {
       // As bad as this diagnostic is, it's better than crashing.

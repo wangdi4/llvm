@@ -1,5 +1,4 @@
 // RUN: %clang_cc1 -triple=x86_64-unknown-unknown -fintel-compatibility -std=c++11 %s -emit-llvm -o - | FileCheck %s
-// REQUIRES: llvm-backend
 
 int main() {
   int i = 0, x  = 0;

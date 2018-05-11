@@ -26,7 +26,7 @@
 #include "WebAssemblySubtarget.h"
 #include "WebAssemblyUtilities.h"
 #include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/CodeGen/LiveIntervalAnalysis.h"
+#include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -67,6 +67,10 @@ public:
 } // end anonymous namespace
 
 char WebAssemblyRegStackify::ID = 0;
+INITIALIZE_PASS(WebAssemblyRegStackify, DEBUG_TYPE,
+                "Reorder instructions to use the WebAssembly value stack",
+                false, false)
+
 FunctionPass *llvm::createWebAssemblyRegStackify() {
   return new WebAssemblyRegStackify();
 }
@@ -107,12 +111,12 @@ static void ConvertImplicitDefToConstZero(MachineInstr *MI,
   } else if (RegClass == &WebAssembly::F32RegClass) {
     MI->setDesc(TII->get(WebAssembly::CONST_F32));
     ConstantFP *Val = cast<ConstantFP>(Constant::getNullValue(
-        Type::getFloatTy(MF.getFunction()->getContext())));
+        Type::getFloatTy(MF.getFunction().getContext())));
     MI->addOperand(MachineOperand::CreateFPImm(Val));
   } else if (RegClass == &WebAssembly::F64RegClass) {
     MI->setDesc(TII->get(WebAssembly::CONST_F64));
     ConstantFP *Val = cast<ConstantFP>(Constant::getNullValue(
-        Type::getDoubleTy(MF.getFunction()->getContext())));
+        Type::getDoubleTy(MF.getFunction().getContext())));
     MI->addOperand(MachineOperand::CreateFPImm(Val));
   } else {
     llvm_unreachable("Unexpected reg class");
@@ -746,6 +750,14 @@ bool WebAssemblyRegStackify::runOnMachineFunction(MachineFunction &MF) {
   MachineDominatorTree &MDT = getAnalysis<MachineDominatorTree>();
   LiveIntervals &LIS = getAnalysis<LiveIntervals>();
 
+  // Disable the TEE optimization if we aren't doing direct wasm object
+  // emission, because lowering TEE to TEE_LOCAL is done in the ExplicitLocals
+  // pass, which is also disabled.
+  bool UseTee = true;
+  if (MF.getSubtarget<WebAssemblySubtarget>()
+        .getTargetTriple().isOSBinFormatELF())
+    UseTee = false;
+
   // Walk the instructions from the bottom up. Currently we don't look past
   // block boundaries, and the blocks aren't ordered so the block visitation
   // order isn't significant, but we may want to change this in the future.
@@ -811,7 +823,7 @@ bool WebAssemblyRegStackify::runOnMachineFunction(MachineFunction &MF) {
           Insert =
               RematerializeCheapDef(Reg, Op, *Def, MBB, Insert->getIterator(),
                                     LIS, MFI, MRI, TII, TRI);
-        } else if (CanMove &&
+        } else if (UseTee && CanMove &&
                    OneUseDominatesOtherUses(Reg, Op, MBB, MRI, MDT, LIS, MFI)) {
           Insert = MoveAndTeeForMultiUse(Reg, Op, Def, MBB, Insert, LIS, MFI,
                                          MRI, TII);

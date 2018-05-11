@@ -16,6 +16,8 @@
 
 #include "clang/Basic/DebugInfoOptions.h"
 #include "clang/Basic/Sanitizers.h"
+#include "clang/Basic/XRayInstr.h"
+#include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Regex.h"
 #include "llvm/Target/TargetOptions.h"
 #include <map>
@@ -185,7 +187,7 @@ public:
   std::string SplitDwarfFile;
 
   /// The name of the relocation model to use.
-  std::string RelocationModel;
+  llvm::Reloc::Model RelocationModel;
 
   /// The thread model to use
   std::string ThreadModel;
@@ -193,9 +195,6 @@ public:
   /// If not an empty string, trap intrinsics are lowered to calls to this
   /// function instead of to trap instructions.
   std::string TrapFuncName;
-
-  /// A list of command-line options to forward to the LLVM backend.
-  std::vector<std::string> BackendOptions;
 
 #if INTEL_CUSTOMIZATION
   /// OpenCL compile options to embed in the SPIR metadata
@@ -227,10 +226,12 @@ public:
   /// the summary and module symbol table (and not, e.g. any debug metadata).
   std::string ThinLinkBitcodeFile;
 
-  /// A list of file names passed with -fcuda-include-gpubinary options to
-  /// forward to CUDA runtime back-end for incorporating them into host-side
-  /// object file.
-  std::vector<std::string> CudaGpuBinaryFileNames;
+  /// Prefix to use for -save-temps output.
+  std::string SaveTempsFilePrefix;
+
+  /// Name of file passed with -fcuda-include-gpubinary option to forward to
+  /// CUDA runtime back-end for incorporating them into host-side object file.
+  std::string CudaGpuBinaryFileName;
 
   /// The name of the file to which the backend should save YAML optimization
   /// records.
@@ -279,6 +280,14 @@ public:
   // List of target triples for offloading.
   std::vector<std::string> OffloadTargets;
 #endif // INTEL_CUSTOMIZATION
+
+  /// The preferred width for auto-vectorization transforms. This is intended to
+  /// override default transforms based on the width of the architected vector
+  /// registers.
+  std::string PreferVectorWidth;
+
+  /// Set of XRay instrumentation kinds to emit.
+  XRayInstrSet XRayInstrumentationBundle;
 
 public:
   // Define accessors/mutators for code generation options of enumeration type.

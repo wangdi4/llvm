@@ -10,11 +10,13 @@
 #ifndef LLVM_DEBUGINFO_DWARFDEBUGLINE_H
 #define LLVM_DEBUGINFO_DWARFDEBUGLINE_H
 
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/DebugInfo/DIContext.h"
 #include "llvm/DebugInfo/DWARF/DWARFDataExtractor.h"
 #include "llvm/DebugInfo/DWARF/DWARFFormValue.h"
 #include "llvm/DebugInfo/DWARF/DWARFRelocMap.h"
+#include "llvm/Support/MD5.h"
 #include <cstdint>
 #include <map>
 #include <string>
@@ -30,10 +32,30 @@ public:
   struct FileNameEntry {
     FileNameEntry() = default;
 
-    StringRef Name;
+    DWARFFormValue Name;
     uint64_t DirIdx = 0;
     uint64_t ModTime = 0;
     uint64_t Length = 0;
+    MD5::MD5Result Checksum;
+    DWARFFormValue Source;
+  };
+
+  /// Tracks which optional content types are present in a DWARF file name
+  /// entry format.
+  struct ContentTypeTracker {
+    ContentTypeTracker() = default;
+
+    /// Whether filename entries provide a modification timestamp.
+    bool HasModTime = false;
+    /// Whether filename entries provide a file size.
+    bool HasLength = false;
+    /// For v5, whether filename entries provide an MD5 checksum.
+    bool HasMD5 = false;
+    /// For v5, whether filename entries provide source text.
+    bool HasSource = false;
+
+    /// Update tracked content types with \p ContentType.
+    void trackContentType(dwarf::LineNumberEntryFormat ContentType);
   };
 
   struct Prologue {
@@ -45,12 +67,12 @@ public:
     /// Version, address size (starting in v5), and DWARF32/64 format; these
     /// parameters affect interpretation of forms (used in the directory and
     /// file tables starting with v5).
-    DWARFFormParams FormParams;
-    /// In v5, size in bytes of a segment selector.
-    uint8_t SegSelectorSize;
+    dwarf::FormParams FormParams;
     /// The number of bytes following the prologue_length field to the beginning
     /// of the first byte of the statement program itself.
     uint64_t PrologueLength;
+    /// In v5, size in bytes of a segment selector.
+    uint8_t SegSelectorSize;
     /// The size in bytes of the smallest target machine instruction. Statement
     /// program opcodes that alter the address register first multiply their
     /// operands by this value.
@@ -66,11 +88,13 @@ public:
     uint8_t LineRange;
     /// The number assigned to the first special opcode.
     uint8_t OpcodeBase;
+    /// This tracks which optional file format content types are present.
+    ContentTypeTracker ContentTypes;
     std::vector<uint8_t> StandardOpcodeLengths;
-    std::vector<StringRef> IncludeDirectories;
+    std::vector<DWARFFormValue> IncludeDirectories;
     std::vector<FileNameEntry> FileNames;
 
-    const DWARFFormParams getFormParams() const { return FormParams; }
+    const dwarf::FormParams getFormParams() const { return FormParams; }
     uint16_t getVersion() const { return FormParams.Version; }
     uint8_t getAddressSize() const { return FormParams.AddrSize; }
     bool isDWARF64() const { return FormParams.Format == dwarf::DWARF64; }
@@ -95,9 +119,9 @@ public:
     }
 
     void clear();
-    void dump(raw_ostream &OS) const;
+    void dump(raw_ostream &OS, DIDumpOptions DumpOptions) const;
     bool parse(const DWARFDataExtractor &DebugLineData, uint32_t *OffsetPtr,
-               const DWARFUnit *U = nullptr);
+               const DWARFContext &Ctx, const DWARFUnit *U = nullptr);
   };
 
   /// Standard .debug_line state machine structure.
@@ -215,12 +239,13 @@ public:
                                    DILineInfoSpecifier::FileLineInfoKind Kind,
                                    DILineInfo &Result) const;
 
-    void dump(raw_ostream &OS) const;
+    void dump(raw_ostream &OS, DIDumpOptions DumpOptions) const;
     void clear();
 
     /// Parse prologue and all rows.
     bool parse(DWARFDataExtractor &DebugLineData, uint32_t *OffsetPtr,
-               const DWARFUnit *U, raw_ostream *OS = nullptr);
+               const DWARFContext &Ctx, const DWARFUnit *U,
+               raw_ostream *OS = nullptr);
 
     using RowVector = std::vector<Row>;
     using RowIter = RowVector::const_iterator;
@@ -234,11 +259,14 @@ public:
   private:
     uint32_t findRowInSeq(const DWARFDebugLine::Sequence &Seq,
                           uint64_t Address) const;
+    Optional<StringRef> getSourceByIndex(uint64_t FileIndex,
+                                         DILineInfoSpecifier::FileLineInfoKind Kind) const;
   };
 
   const LineTable *getLineTable(uint32_t Offset) const;
   const LineTable *getOrParseLineTable(DWARFDataExtractor &DebugLineData,
-                                       uint32_t Offset, const DWARFUnit *U);
+                                       uint32_t Offset, const DWARFContext &C,
+                                       const DWARFUnit *U);
 
 private:
   struct ParsingState {

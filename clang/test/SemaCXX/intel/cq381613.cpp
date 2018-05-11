@@ -19,5 +19,5 @@ struct C2 {
 
 int main() {
   C2 o2;
-  printf("o2.m0 = %x\n", o2.m0); // expected-warning {{cannot pass non-POD object of type 'C3' to variadic function; expected type from format string was 'unsigned int'}}
+  printf("o2.m0 = %x\n", o2.m0); // expected-warning {{cannot pass non-trivial object of type 'C3' to variadic function; expected type from format string was 'unsigned int'}}
 }

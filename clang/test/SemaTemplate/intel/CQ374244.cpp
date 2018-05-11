@@ -1,13 +1,33 @@
 // RUN: %clang_cc1 -fsyntax-only -verify -fintel-compatibility %s
+template <class Ty>
+inline void Foo(Ty *, const Ty *) {}
+template <class Ty>
+inline void Foo(Ty *, Ty *) {}
 
 template <class Ty>
-inline void Foo(Ty *, const Ty *) { Ty::error; }
-// expected-error@+2 {{type 'void ()' cannot be used prior to '::' because it has no members}}
+inline void Bar(Ty *, const Ty *) {}
 template <class Ty>
-inline void Foo(Ty *, Ty *) { Ty::error; }
+inline void Bar(const Ty *, Ty *) {}
 
 void Call() {
   void (*CP)();
-// expected-note@+1 {{in instantiation of function template specialization 'Foo<void ()>' requested here}}
   Foo(CP, CP);
+  // expected-error@+3{{call to 'Bar' is ambiguous}}
+  // expected-note@8{{candidate function}}
+  // expected-note@10{{candidate function}}
+  Bar(CP, CP);
 }
+
+// Original test case from CQ110092.
+template <class _Ty>
+inline void foo(_Ty **, _Ty **) {}
+template <class _Ty>
+inline void foo(_Ty **, const _Ty **) {}
+
+typedef void (*pf)();
+
+void foo() {
+  pf *cp;
+  foo(cp, cp);
+}
+

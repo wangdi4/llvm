@@ -109,9 +109,6 @@ namespace {
     void prettyPrintAttributes(Decl *D);
     void prettyPrintPragmas(Decl *D);
     void printDeclType(QualType T, StringRef DeclName, bool Pack = false);
-#if  INTEL_CUSTOMIZATION
-    void VisitPragmaDecl(PragmaDecl *D);
-#endif  // INTEL_CUSTOMIZATION
   };
 }
 
@@ -131,9 +128,7 @@ static QualType GetBaseType(QualType T) {
   // FIXME: This should be on the Type class!
   QualType BaseType = T;
   while (!BaseType->isSpecifierType()) {
-    if (isa<TypedefType>(BaseType))
-      break;
-    else if (const PointerType* PTy = BaseType->getAs<PointerType>())
+    if (const PointerType *PTy = BaseType->getAs<PointerType>())
       BaseType = PTy->getPointeeType();
     else if (const BlockPointerType *BPy = BaseType->getAs<BlockPointerType>())
       BaseType = BPy->getPointeeType();
@@ -147,8 +142,11 @@ static QualType GetBaseType(QualType T) {
       BaseType = RTy->getPointeeType();
     else if (const AutoType *ATy = BaseType->getAs<AutoType>())
       BaseType = ATy->getDeducedType();
+    else if (const ParenType *PTy = BaseType->getAs<ParenType>())
+      BaseType = PTy->desugar();
     else
-      llvm_unreachable("Unknown declarator!");
+      // This must be a syntax error.
+      break;
   }
   return BaseType;
 }
@@ -441,10 +439,6 @@ void DeclPrinter::VisitDeclContext(DeclContext *DC, bool Indent) {
              isa<ObjCCategoryImplDecl>(*D) ||
              isa<ObjCCategoryDecl>(*D))
       Terminator = nullptr;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-    else if (isa<PragmaDecl>(*D))
-      Terminator = 0;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
     else if (isa<EnumConstantDecl>(*D)) {
       DeclContext::decl_iterator Next = D;
       ++Next;
@@ -502,14 +496,17 @@ void DeclPrinter::VisitTypeAliasDecl(TypeAliasDecl *D) {
 void DeclPrinter::VisitEnumDecl(EnumDecl *D) {
   if (!Policy.SuppressSpecifiers && D->isModulePrivate())
     Out << "__module_private__ ";
-  Out << "enum ";
+  Out << "enum";
   if (D->isScoped()) {
     if (D->isScopedUsingClassTag())
-      Out << "class ";
+      Out << " class";
     else
-      Out << "struct ";
+      Out << " struct";
   }
-  Out << *D;
+
+  prettyPrintAttributes(D);
+
+  Out << ' ' << *D;
 
   if (D->isFixed() && D->getASTContext().getLangOpts().CPlusPlus11)
     Out << " : " << D->getIntegerType().stream(Policy);
@@ -519,7 +516,6 @@ void DeclPrinter::VisitEnumDecl(EnumDecl *D) {
     VisitDeclContext(D);
     Indent() << "}";
   }
-  prettyPrintAttributes(D);
 }
 
 void DeclPrinter::VisitRecordDecl(RecordDecl *D) {
@@ -1526,17 +1522,6 @@ void DeclPrinter::VisitUsingShadowDecl(UsingShadowDecl *D) {
   // ignore
 }
 
-#if INTEL_CUSTOMIZATION
-void DeclPrinter::VisitPragmaDecl(PragmaDecl *PD) {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  PD->getStmt()->printPretty(Out, 0, Policy, Indentation);
-#else
-  llvm_unreachable(
-      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-}
-#endif  // INTEL_CUSTOMIZATION
-
 void DeclPrinter::VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D) {
   Out << "#pragma omp threadprivate";
   if (!D->varlist_empty()) {
@@ -1544,7 +1529,7 @@ void DeclPrinter::VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D) {
                                                 E = D->varlist_end();
                                                 I != E; ++I) {
       Out << (I == D->varlist_begin() ? '(' : ',');
-      NamedDecl *ND = cast<NamedDecl>(cast<DeclRefExpr>(*I)->getDecl());
+      NamedDecl *ND = cast<DeclRefExpr>(*I)->getDecl();
       ND->printQualifiedName(Out);
     }
     Out << ")";

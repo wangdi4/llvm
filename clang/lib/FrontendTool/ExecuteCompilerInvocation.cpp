@@ -29,99 +29,11 @@
 #include "llvm/Option/Option.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/ErrorHandling.h"
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-#include "llvm/Support/raw_ostream.h"
-
-class HelpPragmaPrinter {
-  public:
-    static void Print(llvm::raw_ostream &OS) {
-      OS << "PRAGMA                      ARGUMENTS\n";
-      OS << "============================================================\n";
-      OS << "align                       = native|natural|packed|power|mac68k|reset\n";
-      OS << "alloc_section               ( var, \"section-name\" )\n";
-      OS << "alloc_text                  ( \"section-name\", func1[, func2, ...] )\n";
-      OS << "auto_inline                 ( on|off )\n";
-      OS << "bss_seg                     ( [[{push|pop},] [identifier,]] [\"segment-name\" [,\"segment-class\"] )\n";
-      OS << "check_stack                 ([{on|off}] | {+|-})\n";
-      OS << "clang __debug               assert|crash|llvm_fatal_error|llvm_unreachable|overflow_stack|handle_crash\n";
-      OS << "clang arc_cf_code_audited   begin|end\n";
-      OS << "code_seg                    ( [[{push|pop},] [identifier,]] [\"segment-name\" [,\"segment-class\"] )\n";
-      OS << "comment                     message\n";
-      OS << "component                   <none>\n";
-      OS << "conform                     (forScope [, show|push|pop] [, identifier ] [, on|off])\n";
-      OS << "const_seg                   ( [[{push|pop},] [identifier,]] [\"segment-name\" [,\"segment-class\"] )\n";
-      OS << "data_seg                    ( [[{push|pop},] [identifier,]] [\"segment-name\" [,\"segment-class\"] )\n";
-      OS << "deprecated                  <none>\n";
-      OS << "distribute_point            <none>\n";
-      OS << "endregion                   <none>\n";
-      OS << "fenv_access                 on|off\n";
-      OS << "float_control               (push|pop)|(precise|except, on|off [,push])\n";
-      OS << "forceinline                 [recursive]\n";
-      OS << "fp_contract                 ( on|off )\n";
-      OS << "GCC|clang dependency        \"filename\"\n";
-      OS << "GCC|clang diagnostic        warning|error|ignored|fatal|pop|push \"diagnostic option\"\n";
-      OS << "[GCC|clang] poison|POISON   id1 [id2 ...]\n";
-      OS << "GCC|clang system_header     <none>\n";
-      OS << "GCC visibility              push ( default|hidden|internal|protected ) | pop\n";
-      OS << "include_alias               ( {<|\"} oldfilename {\"|>} , {<|\"} newfilename {\"|>} )\n";
-      OS << "include_directory           directory_name\n";
-      OS << "init_seg                    ( {compiler | lib | user | \"sect-name\"[,\"func-name\"]})\n";
-      OS << "inline                      [recursive]\n";
-      OS << "ident                       \"id\"\n";
-      OS << "ivdep                       [loop]\n";
-      OS << "loop_count                  [min|max|avg](n1)[,[min|max|avg](n2)]...\n";
-      OS << "mark                        <none>\n";
-      OS << "message                     ( \"message\" )\n";
-      OS << "ms_struct                   on|off|reset\n";
-      OS << "nofusion                    <none>\n";
-      OS << "noinline                    <none>\n";
-      OS << "noparallel                  <none>\n";
-      OS << "nounroll                    <none>\n";
-      OS << "nounroll_and_jam            <none>\n";
-      OS << "novector                    <none>\n";
-      OS << "omp parallel                [for|sections| [clause[[,] clause]...]]\n";
-      OS << "once                        <none>\n";
-      OS << "optimization_level          0|1|2|3\n";
-      OS << "optimization_parameter      <args>\n";
-      OS << "optimize                    ( "", {on | off} )\n";
-      OS << "options align               = native|natural|packed|power|mac68k|reset\n";
-      OS << "pack                        ( n|show|{push|pop[,identifier][,n]} )\n";
-      OS << "parallel                    [clause [clause]...]\n";
-      OS << "push_macro                  ( \"macroname\" )\n";
-      OS << "pop_macro                   ( \"macroname\" )\n";
-      OS << "redefine_extname            id1 id2\n";
-      OS << "region                      <none>\n";
-      OS << "section                     ( \"sect-name\", attribute-list )\n";
-      OS << "start_map_region            (<string-literal>)\n";
-      OS << "STDC CX_LIMITED_RANGE       ON|OFF|DEFAULT\n";
-      OS << "STDC FENV_ACCESS            ON|OFF|DEFAULT\n";
-      OS << "STDC|OPENCL FP_CONTRACT     ON|OFF|DEFAULT\n";
-      OS << "stop_map_region             <none>\n";
-      OS << "OPENCL EXTENSION            id, enable|disable\n";
-      OS << "unroll                      [(n|expr)]\n";
-      OS << "unroll_and_jam              [ ( n ) ]\n";
-      OS << "unused                      ( id1 [, id2 ...] )\n";
-      OS << "vector                      always[none]|aligned[none]|unaligned[none]|no_mask_readwrite[none]|mask_readwrite[none]|nontemporal [ ( var [, var]... ) ]\n";
-      OS << "vtordisp                    ( on|off )\n";
-      OS << "weak                        id1 [= id2]\n";
-      OS << "\n";
-      OS << "                 Note: \"clause\" can be following cases depend on different pragmas\n";
-      OS << "                          if (scalar-expresssion)\n";
-      OS << "                          num_threads (integer-expr)\n";
-      OS << "                          default (shared|none)\n";
-      OS << "                          copyin ([var [,var]...])\n";
-      OS << "                          shared ([var [,var]...])\n";
-      OS << "                          private ([var [,var]...])\n";
-      OS << "                          firstprivate ([var [,var]...])\n";
-      OS << "                          lastprivate ([var [,var]...]\n";
-      OS << "                          reduction (operator : [var [,var]...])\n";
-      OS << "                          ordered|nowait\n";
-    }
-};
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
 using namespace clang;
 using namespace llvm::opt;
+
+namespace clang {
 
 static std::unique_ptr<FrontendAction>
 CreateFrontendBaseAction(CompilerInstance &CI) {
@@ -138,6 +50,9 @@ CreateFrontendBaseAction(CompilerInstance &CI) {
   case DumpTokens:             return llvm::make_unique<DumpTokensAction>();
   case EmitAssembly:           return llvm::make_unique<EmitAssemblyAction>();
   case EmitBC:                 return llvm::make_unique<EmitBCAction>();
+#if INTEL_CUSTOMIZATION
+  case EmitSPIRV:              return llvm::make_unique<EmitSPIRVAction>();
+#endif // INTEL_CUSTOMIZATION
   case EmitHTML:               return llvm::make_unique<HTMLPrintAction>();
   case EmitLLVM:               return llvm::make_unique<EmitLLVMAction>();
   case EmitLLVMOnly:           return llvm::make_unique<EmitLLVMOnlyAction>();
@@ -154,6 +69,7 @@ CreateFrontendBaseAction(CompilerInstance &CI) {
   case ParseSyntaxOnly:        return llvm::make_unique<SyntaxOnlyAction>();
   case ModuleFileInfo:         return llvm::make_unique<DumpModuleInfoAction>();
   case VerifyPCH:              return llvm::make_unique<VerifyPCHAction>();
+  case TemplightDump:          return llvm::make_unique<TemplightDumpAction>();
 
   case PluginAction: {
     for (FrontendPluginRegistry::iterator it =
@@ -213,7 +129,7 @@ CreateFrontendBaseAction(CompilerInstance &CI) {
 #endif
 }
 
-static std::unique_ptr<FrontendAction>
+std::unique_ptr<FrontendAction>
 CreateFrontendAction(CompilerInstance &CI) {
   // Create the underlying action.
   std::unique_ptr<FrontendAction> Act = CreateFrontendBaseAction(CI);
@@ -264,7 +180,7 @@ CreateFrontendAction(CompilerInstance &CI) {
   return Act;
 }
 
-bool clang::ExecuteCompilerInvocation(CompilerInstance *Clang) {
+bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
   // Honor -help.
   if (Clang->getFrontendOpts().ShowHelp) {
     std::unique_ptr<OptTable> Opts = driver::createDriverOptTable();
@@ -282,12 +198,13 @@ bool clang::ExecuteCompilerInvocation(CompilerInstance *Clang) {
     llvm::cl::PrintVersionMessage();
     return true;
   }
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  if (Clang->getFrontendOpts().HelpPragma) {
-    HelpPragmaPrinter::Print(llvm::outs());
-    return 0;
+
+#if INTEL_CUSTOMIZATION
+  if (Clang->getLangOpts().ShowIntelCompatHelp) {
+    llvm::outs() << Clang->getLangOpts().helpIntelCompat();
+    return true;
   }
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif // INTEL_CUSTOMIZATION
   // Load any requested plugins.
   for (unsigned i = 0,
          e = Clang->getFrontendOpts().Plugins.size(); i != e; ++i) {
@@ -350,3 +267,5 @@ bool clang::ExecuteCompilerInvocation(CompilerInstance *Clang) {
     BuryPointer(std::move(Act));
   return Success;
 }
+
+} // namespace clang 

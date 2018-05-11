@@ -2,6 +2,15 @@
  * include/50/ompt.h.var
  */
 
+//===----------------------------------------------------------------------===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is dual licensed under the MIT and the University of Illinois Open
+// Source Licenses. See LICENSE.txt for details.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef __OMPT__
 #define __OMPT__
 
@@ -32,6 +41,7 @@
     macro (ompt_get_thread_data)            \
     macro (ompt_get_unique_id)              \
                                             \
+    macro(ompt_get_num_procs)               \
     macro(ompt_get_num_places)              \
     macro(ompt_get_place_proc_ids)          \
     macro(ompt_get_place_num)               \
@@ -83,11 +93,11 @@
     /* implementation-specific states (512..) */
 
 
-#define FOREACH_OMPT_MUTEX_IMPL(macro)                                                \
-    macro (ompt_mutex_impl_unknown, 0)      /* unknown implementatin */               \
-    macro (ompt_mutex_impl_spin, 1)         /* based on spin */                       \
-    macro (ompt_mutex_impl_queuing, 2)      /* based on some fair policy */           \
-    macro (ompt_mutex_impl_speculative, 3)  /* based on HW-supported speculation */
+#define FOREACH_KMP_MUTEX_IMPL(macro)                                                \
+    macro (ompt_mutex_impl_unknown, 0)     /* unknown implementation */              \
+    macro (kmp_mutex_impl_spin, 1)         /* based on spin */                       \
+    macro (kmp_mutex_impl_queuing, 2)      /* based on some fair policy */           \
+    macro (kmp_mutex_impl_speculative, 3)  /* based on HW-supported speculation */
 
 #define FOREACH_OMPT_EVENT(macro)                                                                                        \
                                                                                                                          \
@@ -236,11 +246,11 @@ typedef enum ompt_set_result_t {
 /*----------------------
  * mutex implementations
  *----------------------*/
-typedef enum ompt_mutex_impl_t {
-#define ompt_mutex_impl_macro(impl, code) impl = code,
-    FOREACH_OMPT_MUTEX_IMPL(ompt_mutex_impl_macro)
-#undef ompt_mutex_impl_macro
-} ompt_mutex_impl_t;
+typedef enum kmp_mutex_impl_t {
+#define kmp_mutex_impl_macro(impl, code) impl = code,
+    FOREACH_KMP_MUTEX_IMPL(kmp_mutex_impl_macro)
+#undef kmp_mutex_impl_macro
+} kmp_mutex_impl_t;
 
 
 /*****************************************************************************
@@ -581,6 +591,9 @@ OMPT_API_FUNCTION(int, ompt_get_task_info, (
     ompt_data_t **parallel_data,
     int *thread_num
 ));
+
+/* procs */
+OMPT_API_FUNCTION(int, ompt_get_num_procs, (void));
 
 /* places */
 OMPT_API_FUNCTION(int, ompt_get_num_places, (void));

@@ -35,10 +35,9 @@ class CGRecordLayout;
 
 // TBAAAccessKind - A kind of TBAA memory access descriptor.
 enum class TBAAAccessKind : unsigned {
-  Ordinary,     // An ordinary memory access.
-  MayAlias,     // An access that may alias with any other accesses.
-  Incomplete,   // Used to designate pointee values of incomplete types.
-  UnionMember,  // An access to a direct or indirect union member.
+  Ordinary,
+  MayAlias,
+  Incomplete,
 };
 
 // TBAAAccessInfo - Describes a memory access in terms of TBAA.
@@ -78,14 +77,6 @@ struct TBAAAccessInfo {
   }
 
   bool isIncomplete() const { return Kind == TBAAAccessKind::Incomplete; }
-
-  static TBAAAccessInfo getUnionMemberInfo(llvm::MDNode *BaseType,
-                                           uint64_t Offset, uint64_t Size) {
-    return TBAAAccessInfo(TBAAAccessKind::UnionMember, BaseType,
-                          /* AccessType= */ nullptr, Offset, Size);
-  }
-
-  bool isUnionMember() const { return Kind == TBAAAccessKind::UnionMember; }
 
   bool operator==(const TBAAAccessInfo &Other) const {
     return Kind == Other.Kind &&
@@ -158,10 +149,6 @@ class CodeGenTBAA {
   /// considered to be equivalent to it.
   llvm::MDNode *getChar();
 
-  /// getUnionMemberType - Get metadata that represents the type of union
-  /// members.
-  llvm::MDNode *getUnionMemberType(uint64_t Size);
-
   /// CollectFields - Collect information about the fields of a type for
   /// !tbaa.struct metadata formation. Return false for an unsupported type.
   bool CollectFields(uint64_t BaseOffset,
@@ -203,6 +190,10 @@ public:
   /// given type.
   llvm::MDNode *getTypeInfo(QualType QTy);
 
+  /// getAccessInfo - Get TBAA information that describes an access to
+  /// an object of the given type.
+  TBAAAccessInfo getAccessInfo(QualType AccessType);
+
   /// getVTablePtrAccessInfo - Get the TBAA information that describes an
   /// access to a virtual table pointer.
   TBAAAccessInfo getVTablePtrAccessInfo(llvm::Type *VTablePtrType);
@@ -227,6 +218,11 @@ public:
   /// purpose of conditional operator.
   TBAAAccessInfo mergeTBAAInfoForConditionalOperator(TBAAAccessInfo InfoA,
                                                      TBAAAccessInfo InfoB);
+
+  /// mergeTBAAInfoForMemoryTransfer - Get merged TBAA information for the
+  /// purpose of memory transfer calls.
+  TBAAAccessInfo mergeTBAAInfoForMemoryTransfer(TBAAAccessInfo DestInfo,
+                                                TBAAAccessInfo SrcInfo);
 };
 
 }  // end namespace CodeGen
