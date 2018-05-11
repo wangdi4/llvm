@@ -1281,6 +1281,8 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       PM.add(createHIRArrayTransposePass());
     }
 
+    PM.add(createHIRDeadStoreEliminationPass());
+
     // TODO: refine cost model for individual transformations for code size.
     if (SizeLevel == 0) {
       // If VPO is disabled, we don't have to insert ParVec directives.

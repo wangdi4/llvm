@@ -1,7 +1,7 @@
 //===--- HIRScalarReplArray.cpp -Loop Scalar Replacement Impl -*- C++ -*---===//
 // Implement HIR Loop Scalar Replacement of Array Access Transformation
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -405,7 +405,7 @@ bool MemRefGroup::areDDEdgesInSameMRG(DDGraph &DDG) const {
 //
 // This makes the logic is bit difficult to understand.
 //
-// Once HIRLocalityAnalysis relaxes this behavior, the code can be simplified
+// Once HIRLoopLocality relaxes this behavior, the code can be simplified
 // with easy-to-understand logic.
 //
 void MemRefGroup::markMaxLoad(void) {
@@ -894,9 +894,9 @@ char HIRScalarReplArray::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRScalarReplArray, "hir-scalarrepl-array",
                       "HIR Scalar Replacement of Array ", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
 INITIALIZE_PASS_END(HIRScalarReplArray, "hir-scalarrepl-array",
                     "HIR Scalar Replacement of Array ", false, false)
 
@@ -910,9 +910,9 @@ HIRScalarReplArray::HIRScalarReplArray(void) : HIRTransformPass(ID) {
 
 void HIRScalarReplArray::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysis>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  AU.addRequiredTransitive<HIRLocalityAnalysis>();
+  AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
   AU.setPreservesAll();
 }
 
@@ -969,8 +969,8 @@ bool HIRScalarReplArray::runOnFunction(Function &F) {
     return false;
   }
 
-  HDDA = &getAnalysis<HIRDDAnalysis>();
-  HLA = &getAnalysis<HIRLocalityAnalysis>();
+  HDDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
+  HLA = &getAnalysis<HIRLoopLocalityWrapperPass>().getHLL();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
 
   for (auto &Lp : CandidateLoops) {
@@ -1156,6 +1156,13 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp) {
       Transformed = true;
     }
   }
+
+  LoopOptReportBuilder &LORBuilder =
+      Lp->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                            "Number of Array Refs Scalar Replaced In Loop: %d",
+                            NumGPRsPromoted);
 
   // Mark the loop has been changed, request CodeGen support
   // Note: ScalarReplArray won't change current HIRLoopStatistics

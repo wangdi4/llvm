@@ -1,6 +1,6 @@
 //===--- CanonExprUtils.cpp - Implements CanonExprUtils class -------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -164,9 +164,22 @@ uint64_t CanonExprUtils::getTypeSizeInBits(Type *Ty) const {
 
 bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,
                                  bool RelaxedMode) {
-  return (CE1->getSrcType() == CE2->getSrcType()) &&
-         (RelaxedMode || (CE1->getDestType() == CE2->getDestType() &&
-                          (CE1->isSExt() == CE2->isSExt())));
+
+  Type *Ty1 = CE1->getSrcType();
+  Type *Ty2 = CE2->getSrcType();
+
+  bool SameSrcType = (Ty1 == Ty2);
+  // Change related to normalize i2+2 in sitofp.i32.float(i2 + 2) to
+  // (64 * i1 + i2 + 2).
+  if (RelaxedMode && !CE1->hasBlob() && !CE2->hasBlob() &&
+      CE1->getDenominator() == 1 && CE2->getDenominator() == 1 &&
+      !CE1->hasIVBlobCoeffs() && !CE2->hasIVBlobCoeffs()) {
+    return true;
+  }
+
+  return (SameSrcType &&
+          (RelaxedMode || (CE1->getDestType() == CE2->getDestType() &&
+                           (CE1->isSExt() == CE2->isSExt()))));
 }
 
 bool CanonExprUtils::mergeable(const CanonExpr *CE1, const CanonExpr *CE2,

@@ -4,6 +4,10 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-dd-analysis -hir-dd-analysis-verify=L1|sort > %t2.out
 ; RUN: diff %t1.out %t2.out
 
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Innermost,L1 -disable-output 2>&1 | sort > %t3.out
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=L1 -disable-output 2>&1 | sort > %t4.out
+; RUN: diff %t3.out %t4.out
+
 ; Most interesting part of the test HIR
 ; BEGIN REGION { }
 ;  + DO i1 = 0, 19, 1   <DO_LOOP>

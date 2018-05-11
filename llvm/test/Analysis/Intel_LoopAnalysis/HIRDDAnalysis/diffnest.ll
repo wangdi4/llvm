@@ -10,7 +10,9 @@
 ;  S1 -> S2 anti (=) 
 ;  S2 -> S1 flow (<)  
 ; RUN:  opt < %s    -hir-ssa-deconstruction | opt  -hir-dd-analysis  -hir-dd-analysis-verify=Region  -analyze  | FileCheck %s 
-; CHECK: 'HIR Data Dependence Analysis'
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
+
+; CHECK: DD graph for function
 ; CHECK-DAG:  (@xk)[0][-1 * i1 + i2 + 26] --> (@xk)[0][-1 * i1 + 26] ANTI (=)
 ; CHECK-DAG:  (@xk)[0][-1 * i1 + 26] --> (@xk)[0][-1 * i1 + i2 + 26] FLOW (<)
 ;

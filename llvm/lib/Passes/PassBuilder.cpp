@@ -173,14 +173,24 @@
 #include "llvm/Transforms/Scalar/Intel_LoopOptReportEmitter.h"
 
 // Intel Loop Optimization framework
+// Framework passes
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSSADeconstruction.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptReportEmitter.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGen.h"
+
+// Analysis passes
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopResource.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+
+// Transformation passes
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTempCleanup.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopConcatenation.h"
 
 // Intel VPO
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"

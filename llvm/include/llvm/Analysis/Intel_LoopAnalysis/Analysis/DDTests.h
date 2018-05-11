@@ -1,6 +1,6 @@
 //===-- DDTests.h - Data dependence testing between two DDRefs --*- C++ -*-===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -57,7 +57,6 @@ class DDRef;
 class RegDDRef;
 class HLLoop;
 class HLNodeUtils;
-class HIRLoopStatistics;
 
 enum DVKind : unsigned char {
   NONE = 0,
@@ -263,9 +262,8 @@ class DDTest {
 
   AAResults &AAR;
   HLNodeUtils &HNU;
-  HIRLoopStatistics &HLS;
 
-  DDTest(AAResults &AAR, HLNodeUtils &HNU, HIRLoopStatistics &HLS);
+  DDTest(AAResults &AAR, HLNodeUtils &HNU);
   ~DDTest();
 
   /// \brief Tests for a dependence between the Src and Dst DDRefs

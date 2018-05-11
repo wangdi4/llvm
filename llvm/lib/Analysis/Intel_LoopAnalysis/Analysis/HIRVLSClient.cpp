@@ -1,6 +1,6 @@
 //===---- HIRVLAAnalysis.cpp - Computes VLS Analysis ---------------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -61,7 +61,7 @@ bool HIRVLSClientMemref::canAccessWith(const RegDDRef *Ref,
   // now anytime Ref is accessed AtRef will be accessed and vice versa. So
   // if there is a scenario/path in which Ref is accessed and AtRef isn't,
   // or the other way around, we have to return false.
-  if (!HLNodeUtils::canAccessTogether(DDNode, AtDDNode, nullptr))
+  if (!HLNodeUtils::canAccessTogether(DDNode, AtDDNode))
     return false;
 
   //(2) Check Aliasing:

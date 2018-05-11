@@ -18,7 +18,8 @@
 ; ModuleID = 'exp1.c'
 ; Test seg faults - check that it compiles cleanly
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-after=hir-temp-cleanup 2>&1 | FileCheck %s
-; CHECK: Dump After HIR Temp Cleanup
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>" 2>&1 | FileCheck %s
+
 ; CHECK:   BEGIN REGION { }
 ; CHECK:   END REGION
 source_filename = "exp1.c"

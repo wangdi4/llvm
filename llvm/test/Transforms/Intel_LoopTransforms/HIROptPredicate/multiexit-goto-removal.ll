@@ -48,6 +48,18 @@
 ; CHECK:        + END LOOP
 ; CHECK:   END REGION
 
+;RUN opt -loop-simplify -hir-ssa-deconstruction -hir-opt-predicate -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+;
+;OPTREPORT: LOOP BEGIN
+;OPTREPORT:     LOOP BEGIN
+;OPTREPORT:     <Predicate Optimized v1>
+;OPTREPORT:         Remark #XXXXX: Invariant Condition hoisted out of this loop
+;OPTREPORT:     LOOP END
+;OPTREPORT:     LOOP BEGIN
+;OPTREPORT:     <Predicate Optimized v2>
+;OPTREPORT:     LOOP END
+;OPTREPORT: LOOP END
+
 ;Module Before HIR; ModuleID = 'multiexit-goto-remap.c'
 source_filename = "multiexit-goto-remap.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

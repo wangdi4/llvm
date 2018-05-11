@@ -1,6 +1,6 @@
 //===-- HIRGeneralUnroll.cpp - Implements GeneralUnroll class -------------===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -82,7 +82,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
@@ -144,7 +143,6 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<OptReportOptionsPass>();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
@@ -153,9 +151,6 @@ public:
 private:
   HIRLoopResource *HLR;
   HIRLoopStatistics *HLS;
-
-  // Helper for generating optimization reports.
-  LoopOptReportBuilder LORBuilder;
 
   bool IsUnrollTriggered;
   bool Is32Bit;
@@ -190,7 +185,6 @@ private:
 char HIRGeneralUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRGeneralUnroll, "hir-general-unroll",
                       "HIR General Unroll", false, false)
-INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
@@ -213,8 +207,6 @@ bool HIRGeneralUnroll::runOnFunction(Function &F) {
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HLR = &getAnalysis<HIRLoopResourceWrapperPass>().getHLR();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  auto &OROP = getAnalysis<OptReportOptionsPass>();
-  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   IsUnrollTriggered = false;
 
@@ -290,7 +282,7 @@ void HIRGeneralUnroll::processGeneralUnroll(
         addUnrollDisablingPragma(Loop);
       }
 
-      unrollLoop(Loop, UnrollFactor, LORBuilder);
+      unrollLoop(Loop, UnrollFactor);
       IsUnrollTriggered = true;
       LoopsGenUnrolled++;
     }
@@ -467,15 +459,14 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
 // TODO: Add temporal locality analysis?
 class ReuseAnalyzer final : public HLNodeVisitorBase {
 private:
-  HIRLoopStatistics *HLS;
   const HLLoop *Loop;
   SmallSet<unsigned, 16> RvalTempBlobSymbases;
   int Reuse;
   bool CyclicalDefUse;
 
 public:
-  ReuseAnalyzer(HIRLoopStatistics *HLS, const HLLoop *Loop)
-      : HLS(HLS), Loop(Loop), Reuse(0), CyclicalDefUse(false) {}
+  ReuseAnalyzer(const HLLoop *Loop)
+      : Loop(Loop), Reuse(0), CyclicalDefUse(false) {}
 
   void analyze() {
     HLNodeUtils::visitRange(*this, Loop->child_begin(), Loop->child_end());
@@ -504,7 +495,7 @@ void ReuseAnalyzer::visit(const HLDDNode *Node) {
     if (cast<HLInst>(Node)->isCopyInst()) {
       // Only consider reuse for copies which dominate the backedge path.
       if (RvalTempBlobSymbases.count(LvalSymbase) &&
-          HLNodeUtils::dominates(Node, Loop->getLastChild(), HLS)) {
+          HLNodeUtils::dominates(Node, Loop->getLastChild())) {
         ++Reuse;
       }
       // No more processing needed for copy instructions.
@@ -547,7 +538,7 @@ unsigned HIRGeneralUnroll::refineUnrollFactorUsingReuseAnalysis(
     return CurUnrollFactor;
   }
 
-  ReuseAnalyzer RA(HLS, Loop);
+  ReuseAnalyzer RA(Loop);
 
   RA.analyze();
 

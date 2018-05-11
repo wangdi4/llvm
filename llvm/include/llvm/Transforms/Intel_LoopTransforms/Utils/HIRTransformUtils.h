@@ -1,6 +1,6 @@
 //===------ HIRTransformUtils.h ---------------------------- --*- C++ -*---===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -21,7 +21,10 @@
 
 #include "llvm/ADT/SmallVector.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
 
 #include <stdint.h>
 
@@ -75,6 +78,9 @@ private:
   static void processRemainderLoop(HLLoop *OrigLoop, unsigned UnrollOrVecFactor,
                                    uint64_t NewTripCount,
                                    const RegDDRef *NewTCRef);
+
+  /// \brief Update CE for stripmined Loops
+  static void updateStripminedLoopCE(HLLoop *Loop);
 
 public:
   ///
@@ -223,15 +229,32 @@ public:
                                             bool VecMode = false);
 
   /// Updates Loop properties (Bounds, etc) based on input Permutations
-  /// Used by Interchange now. Could be used later for blocking.
+  /// Used by Interchange now.
   /// Loops are added to \p LoopPermutation in the desired permuted order.
+  /// The given loopnest starting from OutermostLoop does not have to be
+  /// a perfect loop nest.
   static void
   permuteLoopNests(HLLoop *OutermostLoop,
                    const SmallVectorImpl<const HLLoop *> &LoopPermutation);
+  /// Update loop body's IVs accordingly to LoopPermuation.
+  /// E.g. If Loop is permutated from (1 2) --> (2 1), IV i1 is changed into i2,
+  /// and i2 is changed into i1.
+  /// Notice for full interchange effect, both permuteLoopNests() and
+  /// updatePermutedLoopBody need to be called.
+  /// TODO: Consider Providing one API for permuting loops and updating loop
+  /// body
+  static void
+  updatePermutedLoopBody(HLLoop *Loop,
+                         const SmallVectorImpl<const HLLoop *> &LoopPermutation,
+                         unsigned InnermostLevel);
 
   /// Updates target HLLabel in every HLGoto node according to the mapping.
   static void remapLabelsRange(const HLNodeMapper &Mapper, HLNode *Begin,
                                HLNode *End);
+
+  ///  Perform Stripmine.
+  static void stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
+                        unsigned StripmineSize);
 };
 
 } // End namespace loopopt

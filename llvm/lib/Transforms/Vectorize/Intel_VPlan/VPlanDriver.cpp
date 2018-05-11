@@ -605,10 +605,10 @@ INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 // INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-// INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
+// INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
 // INITIALIZE_PASS_DEPENDENCY(HIRVectVLSAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
@@ -631,9 +631,9 @@ void VPlanDriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.addRequired<HIRFrameworkWrapperPass>();
   AU.addRequired<HIRLoopStatisticsWrapperPass>();
-  //  AU.addRequiredTransitive<HIRLocalityAnalysis>();
-  AU.addRequired<HIRDDAnalysis>();
-  AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
+  //  AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
+  AU.addRequired<HIRDDAnalysisWrapperPass>();
+  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
   //  AU.addRequired<HIRVectVLSAnalysis>();
   AU.addRequired<OptReportOptionsPass>();
 }
@@ -646,7 +646,7 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
 
   HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HIRLoopStats = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  DDA = &getAnalysis<HIRDDAnalysis>();
+  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   // VLS = &getAnalysis<HIRVectVLSAnalysis>();
   auto &OROP = getAnalysis<OptReportOptionsPass>();
   LORBuilder.setup(Fn.getContext(), OROP.getLoopOptReportVerbosity());
@@ -726,7 +726,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
     HIRSafeReductionAnalysis *SRA;
-    SRA = &getAnalysis<HIRSafeReductionAnalysis>();
+    SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
     VPOCodeGenHIR VCodeGen(TLI, SRA, Fn, Lp, LORBuilder, WRLp);
     bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF));
 

@@ -1,8 +1,9 @@
 ; Check that TempCleanup updated liveouts for the loopnest
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-temp-cleanup -print-after=hir-temp-cleanup -disable-output -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" -disable-output -hir-details 2>&1 | FileCheck %s
 
-; CHECK: IR Dump Before
+; CHECK: Function
 ; CHECK: + LiveOut symbases: 6
 ; CHECK-NOT: ,
 ; CHECK-SAME: {{$}}
@@ -15,7 +16,7 @@
 ; CHECK-SAME: {{$}}
 ; CHECK: |   + END LOOP
 
-; CHECK: IR Dump After
+; CHECK: Function
 ; CHECK: + LiveOut symbases: 4
 ; CHECK-NOT: ,
 ; CHECK-SAME: {{$}}

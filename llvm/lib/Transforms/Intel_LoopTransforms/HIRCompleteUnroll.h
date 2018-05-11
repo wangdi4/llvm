@@ -1,6 +1,6 @@
 //===----- HIRCompleteUnroll.h - Implements complete unroll ---------------===//
 //
-// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -25,6 +25,7 @@
 namespace llvm {
 
 class DominatorTree;
+class TargetTransformInfo;
 
 namespace loopopt {
 class HIRLoopStatistics;
@@ -59,6 +60,7 @@ private:
   class ProfitabilityAnalyzer;
 
   DominatorTree *DT;
+  const TargetTransformInfo *TTI;
   HIRLoopStatistics *HLS;
   HIRDDAnalysis *DDA;
   HIRSafeReductionAnalysis *HSRA;
@@ -87,9 +89,6 @@ private:
   // profitable loopnests to their parent loops. This is used to evaluate
   // profitability for alloca loads in later loopnests.
   DenseMap<unsigned, const HLLoop *> PrevLoopnestAllocaStores;
-
-  // Helper for generating optimization reports.
-  LoopOptReportBuilder LORBuilder;
 
 private:
   /// Returns true if loop is eligible for complete unrolling.

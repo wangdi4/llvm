@@ -2,6 +2,7 @@
 ;
 ; REQUIRES: asserts
 ; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -force-hir-safe-reduction-analysis -hir-safe-reduction-analysis  | FileCheck %s
+; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -force-hir-safe-reduction-analysis -disable-output 2>&1 | FileCheck %s
 ; CHECK:   Safe Reduction
 ; CHECK:   %j.08 = %0  +  %j.08
 ; ModuleID = 'sum.c'

@@ -1,6 +1,6 @@
 //===---- HIRSafeReductionAnalysis.cpp - Identify Safe Reduction Chain ----===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -42,25 +42,38 @@ static cl::opt<bool>
     ForceSRA("force-hir-safe-reduction-analysis", cl::init(false), cl::Hidden,
              cl::desc("forces safe reduction analysis by request"));
 
-FunctionPass *llvm::createHIRSafeReductionAnalysisPass() {
-  return new HIRSafeReductionAnalysis();
+AnalysisKey HIRSafeReductionAnalysisPass::Key;
+HIRSafeReductionAnalysis
+HIRSafeReductionAnalysisPass::run(Function &F, FunctionAnalysisManager &AM) {
+  return HIRSafeReductionAnalysis(AM.getResult<HIRFrameworkAnalysis>(F),
+                                  AM.getResult<HIRDDAnalysisPass>(F));
 }
 
-char HIRSafeReductionAnalysis::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRSafeReductionAnalysis, "hir-safe-reduction-analysis",
+FunctionPass *llvm::createHIRSafeReductionAnalysisPass() {
+  return new HIRSafeReductionAnalysisWrapperPass();
+}
+
+char HIRSafeReductionAnalysisWrapperPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRSafeReductionAnalysisWrapperPass,
+                      "hir-safe-reduction-analysis",
                       "HIR Safe Reduction Analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
-INITIALIZE_PASS_END(HIRSafeReductionAnalysis, "hir-safe-reduction-analysis",
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_END(HIRSafeReductionAnalysisWrapperPass,
+                    "hir-safe-reduction-analysis",
                     "HIR Safe Reduction Analysis", false, true)
 
-void HIRSafeReductionAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
+void HIRSafeReductionAnalysisWrapperPass::getAnalysisUsage(
+    AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+  // Loop Statistics is not used by this pass directly but it used by
+  // HLNodeUtils::dominates() utility. This is a workaround to keep the pass
+  // manager from freeing it.
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysis>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
 }
 
 //  Sample code for calling Safe Reduction.
@@ -81,27 +94,29 @@ void HIRSafeReductionAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 //			 	Inst->print(OS, 2, false);
 //  TODO: Compute SafeReduction chains for non-innermost loops
 //
-bool HIRSafeReductionAnalysis::runOnFunction(Function &F) {
+bool HIRSafeReductionAnalysisWrapperPass::runOnFunction(Function &F) {
+  HSR.reset(new HIRSafeReductionAnalysis(
+      getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+      getAnalysis<HIRDDAnalysisWrapperPass>().getDDA()));
+  return false;
+}
 
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  DDA = &getAnalysis<HIRDDAnalysis>();
-  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
+void HIRSafeReductionAnalysisWrapperPass::releaseMemory() { HSR.reset(); }
 
+HIRSafeReductionAnalysis::HIRSafeReductionAnalysis(HIRFramework &HIRF,
+                                                   HIRDDAnalysis &DDA)
+    : HIRAnalysis(HIRF), DDA(DDA) {
   if (!ForceSRA) {
-    return false;
+    return;
   }
-  // For stress testing only
-  formatted_raw_ostream OS(dbgs());
 
   // Gather the innermost loops as candidates.
   SmallVector<HLLoop *, 32> CandidateLoops;
-  HIRF->getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
+  HIRF.getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
 
   for (auto &Loop : CandidateLoops) {
     identifySafeReduction(Loop);
   }
-
-  return false;
 }
 
 namespace {
@@ -150,7 +165,7 @@ void HIRSafeReductionAnalysis::identifySafeReduction(const HLLoop *Loop) {
     return;
   }
 
-  DDGraph DDG = DDA->getGraph(Loop, false);
+  DDGraph DDG = DDA.getGraph(Loop, false);
 
   identifySafeReductionChain(Loop, DDG);
 }
@@ -207,7 +222,7 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
     }
     *SinkDDRef = Edge->getSink();
     HLNode *SinkNode = (*SinkDDRef)->getHLDDNode();
-    if (!HLNodeUtils::postDominates(SinkNode, FirstChild, HLS)) {
+    if (!HLNodeUtils::postDominates(SinkNode, FirstChild)) {
       return false;
     }
     *SinkInst = dyn_cast<HLInst>(SinkNode);
@@ -322,7 +337,7 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
     }
 
     // By checking for PostDomination, it allows goto and label
-    if (!HLNodeUtils::postDominates(Inst, FirstChild, HLS)) {
+    if (!HLNodeUtils::postDominates(Inst, FirstChild)) {
       continue;
     }
 
@@ -373,7 +388,7 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
       // e.g.    s2:   x = y
       //         s3:   z = w
       //         s4:   w = x + z
-      if (HLNodeUtils::strictlyDominates(SinkInst, Inst, HLS)) {
+      if (HLNodeUtils::strictlyDominates(SinkInst, Inst)) {
         break;
       }
       RedInsts.push_back(SinkInst);
@@ -474,7 +489,7 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
         // child of the loop. So, SrcInst postDominating Inst implies that- a)
         // SrcInst also postdominates first child of the loop. b) This is a
         // cross-iteration dependency.
-        if (!HLNodeUtils::postDominates(SrcInst, Inst, HLS)) {
+        if (!HLNodeUtils::postDominates(SrcInst, Inst)) {
           return SKIPTONEXT;
         }
 
@@ -563,11 +578,6 @@ void HIRSafeReductionAnalysis::print(formatted_raw_ostream &OS,
 
   auto &SRCL = SafeReductionMap[Loop];
   print(OS, Loop, &SRCL);
-}
-
-void HIRSafeReductionAnalysis::releaseMemory() {
-  SafeReductionMap.clear();
-  SafeReductionInstMap.clear();
 }
 
 void HIRSafeReductionAnalysis::markLoopBodyModified(const HLLoop *Loop) {

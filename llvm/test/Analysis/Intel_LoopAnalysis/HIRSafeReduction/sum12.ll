@@ -1,7 +1,9 @@
 ;   for (int i=0; i< n; i++) {
 ;        s  =  c[s] + n;
 ; REQUIRES: asserts
-; RUN: opt < %s  -hir-ssa-deconstruction | opt -analyze -force-hir-safe-reduction-analysis -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -force-hir-safe-reduction-analysis -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -force-hir-safe-reduction-analysis -disable-output 2>&1 | FileCheck %s
+
 ; CHECK-NOT:   Safe Reduction:
 ; ModuleID = 'sum12.c'
 source_filename = "sum12.c"

@@ -3,7 +3,9 @@
 ;      A[10*i + j] =  A[10*i + j - 1];
 
 ; RUN:  opt < %s  -loop-simplify  -hir-ssa-deconstruction | opt  -hir-dd-analysis  -hir-dd-analysis-verify=Region  -analyze  | FileCheck %s 
-; CHECK: 'HIR Data Dependence Analysis' for function 'sub8'
+; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction" | opt -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
+
+; CHECK: DD graph for function sub8
 ; CHECK-DAG:  ANTI (* <>)
 ; CHECK-DAG:  FLOW (* <>)
 ; CHECK-DAG:  OUTPUT (* *)

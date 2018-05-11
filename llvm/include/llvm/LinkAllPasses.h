@@ -313,6 +313,7 @@ namespace {
       (void) llvm::createHIRLoopFusionPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenWrapperPass();
+      (void) llvm::createHIRDeadStoreEliminationPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

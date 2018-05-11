@@ -107,7 +107,7 @@ public:
   }
   bool runOnFunction(Function &F) override {
     AV = &getAnalysis<AVRGenerateHIR>();
-    DDA = &getAnalysis<HIRDDAnalysis>();
+    DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
     VLS = &getAnalysis<HIRVectVLSAnalysis>();
     DefUse = &getAnalysis<AvrDefUseHIR>();
     return VPODriverBase::runOnFunction(F);
@@ -172,10 +172,10 @@ INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(AVRGenerateHIR)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRVectVLSAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AvrDefUseHIR)
@@ -244,7 +244,7 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
       ret_val = ret_val | AvrCGNode.vectorize(VF);
     } else {
       HIRSafeReductionAnalysis *SRA;
-      SRA = &getAnalysis<HIRSafeReductionAnalysis>();
+      SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
       AVRCodeGenHIR AvrCGNode(Avr, TLI, SRA, Fn, LORBuilder);
 
       assert(isa<VPOScenarioEvaluationHIR>(ScenariosEngine));
@@ -351,7 +351,7 @@ void VPODriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AvrDefUseHIR>();
 
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRLocalityAnalysis>();
-  AU.addRequiredTransitive<HIRDDAnalysis>();
-  AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
+  AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
 }

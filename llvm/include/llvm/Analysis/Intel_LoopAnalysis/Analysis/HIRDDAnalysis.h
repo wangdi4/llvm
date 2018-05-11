@@ -1,6 +1,6 @@
 //===---- HIRDDAnalysis.h - Provides Data Dependence Analysis --*-- C++--*-===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -21,6 +21,7 @@
 #define INTEL_LOOPANALYSIS_HIR_DD_ANALYSIS
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -42,7 +43,6 @@ class HLRegion;
 class HLDDNode;
 class HLLoop;
 class HIRFramework;
-class HIRLoopStatistics;
 struct DirectionVector;
 
 enum DDVerificationLevel {
@@ -109,14 +109,62 @@ public:
   }
 };
 
-class HIRDDAnalysis final : public HIRAnalysisPass {
-public:
-  HIRDDAnalysis() : HIRAnalysisPass(ID, HIRAnalysisPass::HIRDDAnalysisVal) {}
-  static char ID;
-  bool runOnFunction(Function &F) override;
-  void print(raw_ostream &OS, const Module * = nullptr) const override;
+class HIRDDAnalysis : public HIRAnalysis {
+  // GraphState initializes to NoData by default.
+  enum class GraphState : unsigned char {
+    NoData,
+    Invalid,
+    Valid,
+  };
 
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  typedef DenseMap<const HLNode *, GraphState> ValidationMapTy;
+
+  /// The HLNode visitor that recursively marks HLNodes as invalid.
+  class GraphStateUpdater final : public HLNodeVisitorBase {
+    ValidationMapTy &ValidityMapRef;
+    GraphState State;
+
+  public:
+    GraphStateUpdater(HIRDDAnalysis::ValidationMapTy &ValidityMapRef,
+                      HIRDDAnalysis::GraphState State)
+        : ValidityMapRef(ValidityMapRef), State(State) {}
+
+    void visit(const HLLoop *Loop) { ValidityMapRef[Loop] = State; }
+
+    void visit(const HLRegion *Region) { ValidityMapRef[Region] = State; }
+
+    void visit(const HLNode *Node) {}
+    void postVisit(const HLNode *Node) {}
+  };
+
+  // Used to rebuild graphs for node/regions based on cl options
+  // in DDA's runonPass for verification purposes.
+  class GraphVerifier final : public HLNodeVisitorBase {
+  private:
+    HIRDDAnalysis *CurDDA;
+    DDVerificationLevel CurLevel;
+
+  public:
+    GraphVerifier(HIRDDAnalysis *DDA, DDVerificationLevel Level)
+        : CurDDA(DDA), CurLevel(Level) {}
+
+    void visit(HLRegion *Region);
+
+    void visit(HLLoop *Loop);
+
+    void visit(HLNode *Node) {}
+    void postVisit(HLNode *Node) {}
+  };
+
+public:
+  HIRDDAnalysis(HIRFramework &HIRF, AAResults *AAR);
+  HIRDDAnalysis(HIRDDAnalysis &&Arg)
+      : HIRAnalysis(Arg.HIRF), AAR(std::move(Arg.AAR)),
+        ValidationMap(std::move(Arg.ValidationMap)),
+        FunctionDDGraph(std::move(Arg.FunctionDDGraph)) {}
+  HIRDDAnalysis(const HIRDDAnalysis &) = delete;
+
+  void printAnalysis(raw_ostream &OS) const override;
 
   // \brief Marks a loop body as modified, causing DD to rebuild the graph
   // for this loop and its children. This should be done when modifying the
@@ -200,42 +248,22 @@ public:
   /// Both the refs are supposed to be memrefs.
   bool doRefsAlias(const RegDDRef *SrcRef, const RegDDRef *DstRef) const;
 
+  /// Forces DDG build for verification purposes.
+  void forceBuild();
+
   // TODO still needed? Call findDependences directly?
   // bool demandDrivenDD(DDRef* SrcRef, DDRef* SinkRef,
   //  DirectionVector* input_dv, DirectionVector* output_dv);
 
-  // \brief Returns a new unused symbase ID.
-  void releaseMemory() override;
-
-  void verifyAnalysis() const override;
-
-  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
-  static bool classof(const HIRAnalysisPass *AP) {
-    return AP->getHIRAnalysisID() == HIRAnalysisPass::HIRDDAnalysisVal;
-  }
-
-  // TODO
-  // void print(raw_stream &OS, const Module* = nullptr) const override;
-  //
-
   // init_incremental_rebuild(HLNode*)
 private:
-  Function *F;
   std::unique_ptr<AAResults> AAR;
-  HIRFramework *HIRF;
-  HIRLoopStatistics *HLS;
 
-  // GraphState initializes to NoData by default.
-  enum class GraphState : unsigned char {
-    NoData,
-    Invalid,
-    Valid,
-  };
+  ValidationMapTy ValidationMap;
 
-  DenseMap<const HLNode *, GraphState> ValidationMap;
-
-  /// The HLNode visitor that recursively marks HLNodes as invalid.
-  class GraphStateUpdater;
+  // TODO: consider per-region graph instead of per-function graph.
+  // full dd graph
+  DDGraphTy FunctionDDGraph;
 
   /// Returns tuple where the first value is a parent Loop or Region for \p Ref
   /// and the second is true or false whether the parent node is HLLoop.
@@ -257,32 +285,54 @@ private:
 
   void buildGraph(const HLNode *Node, bool BuildInputEdges);
 
-  // TODO: consider per-region graph instead of per-function graph.
-  // full dd graph
-  DDGraphTy FunctionDDGraph;
-
   bool edgeNeeded(DDRef *Ref1, DDRef *Ref2, bool InputEdgesReq);
   void setInputDV(DirectionVector &DV, HLNode *Node, DDRef *Ref1, DDRef *Ref2);
-
-  // Used to rebuild graphs for node/regions based on cl options
-  // in DDA's runonPass for verification purposes.
-  class GraphVerifier final : public HLNodeVisitorBase {
-  private:
-    HIRDDAnalysis *CurDDA;
-    DDVerificationLevel CurLevel;
-
-  public:
-    GraphVerifier(HIRDDAnalysis *DDA, DDVerificationLevel Level)
-        : CurDDA(DDA), CurLevel(Level) {}
-
-    void visit(HLRegion *Region);
-
-    void visit(HLLoop *Loop);
-
-    void visit(HLNode *Node) {}
-    void postVisit(HLNode *Node) {}
-  };
 };
+
+class HIRDDAnalysisWrapperPass : public FunctionPass {
+  std::unique_ptr<HIRDDAnalysis> DDA;
+
+public:
+  static char ID;
+  HIRDDAnalysisWrapperPass() : FunctionPass(ID) {}
+
+  bool runOnFunction(Function &F) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  void releaseMemory() override;
+
+  void print(raw_ostream &OS, const Module * = nullptr) const override {
+    getDDA().printAnalysis(OS);
+  }
+
+  HIRDDAnalysis &getDDA() { return *DDA; }
+  const HIRDDAnalysis &getDDA() const { return *DDA; }
+};
+
+class HIRDDAnalysisPass
+    : public AnalysisInfoMixin<HIRDDAnalysisPass> {
+  friend struct AnalysisInfoMixin<HIRDDAnalysisPass>;
+
+  static AnalysisKey Key;
+
+public:
+  using Result = HIRDDAnalysis;
+
+  HIRDDAnalysis run(Function &F, FunctionAnalysisManager &AM);
+};
+
+class HIRDDAnalysisPrinterPass
+    : public PassInfoMixin<HIRDDAnalysisPrinterPass> {
+  raw_ostream &OS;
+
+public:
+  explicit HIRDDAnalysisPrinterPass(raw_ostream &OS) : OS(OS) {}
+
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
+    AM.getResult<HIRDDAnalysisPass>(F).printAnalysis(OS);
+    return PreservedAnalyses::all();
+  }
+};
+
 } // namespace loopopt
 } // namespace llvm
 

@@ -1,8 +1,10 @@
 ;   for (long int i=1; i <= 100; i++) {
 ;      B[100] = A[100];
 ;      A[i] = i; }
-; RUN:  opt < %s  -hir-ssa-deconstruction | opt  -hir-dd-analysis  -hir-dd-analysis-verify=Region  -analyze  | FileCheck %s 
-; CHECK: 'HIR Data Dependence Analysis' 
+; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s 
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
+
+; CHECK: DD graph for function  
 ; CHECK-DAG:  (%A)[100] --> (%A)[i1 + 1] ANTI (<=)
 ;
 ; ModuleID = 'WeakZeroSrcSIV2.c'

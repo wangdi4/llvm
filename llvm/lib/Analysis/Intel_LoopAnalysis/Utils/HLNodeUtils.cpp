@@ -1,6 +1,6 @@
 //===------- HLNodeUtils.cpp - Implements HLNodeUtils class ---------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -21,9 +21,9 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/ADT/Statistic.h"
-#include <llvm/IR/IntrinsicInst.h>
 #include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
 #include "llvm/Support/Debug.h"
+#include <llvm/IR/IntrinsicInst.h>
 
 #include <memory>
 
@@ -279,6 +279,8 @@ Instruction *HLNodeUtils::createCopyInstImpl(Type *Ty, const Twine &Name) {
   auto Inst = cast<Instruction>(InstVal);
   Inst->insertBefore(&*(DummyIRBuilder->GetInsertPoint()));
 
+  setFirstAndLastDummyInst(Inst);
+
   return Inst;
 }
 
@@ -287,6 +289,27 @@ RegDDRef *HLNodeUtils::createTemp(Type *Ty, const Twine &Name) {
 
   return getDDRefUtils().createSelfBlobRef(Inst);
 }
+
+unsigned HLNodeUtils::createAndReplaceTemp(RegDDRef *TempRef, const Twine &Name) {
+  assert(TempRef && "TempRef is null!");
+  assert(TempRef->isTerminalRef() && "TempRef is suppored to be a terminal!");
+
+  auto Inst = createCopyInstImpl(TempRef->getDestType(), Name);
+
+  unsigned Symbase = getHIRFramework().getNewSymbase();
+  unsigned Index = 0;
+
+  getBlobUtils().createBlob(Inst, Symbase, true, &Index);
+
+  if (TempRef->isSelfBlob()) {
+    TempRef->replaceSelfBlobIndex(Index);
+  } else {
+    TempRef->setSymbase(Symbase);
+  }
+
+  return Index;
+}
+
 
 HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, const Twine &Name,
                                     RegDDRef *LvalRef) {
@@ -612,9 +635,8 @@ HLInst *HLNodeUtils::createShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
   auto UndefVal = UndefValue::get(OpRef1->getDestType());
   auto MaskUndefVal = UndefValue::get(Mask->getDestType());
 
-  Value *InstVal =
-      DummyIRBuilder->CreateShuffleVector(UndefVal, UndefVal, MaskUndefVal,
-                                          Name);
+  Value *InstVal = DummyIRBuilder->CreateShuffleVector(UndefVal, UndefVal,
+                                                       MaskUndefVal, Name);
   Instruction *Inst = cast<Instruction>(InstVal);
 
   assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
@@ -859,6 +881,43 @@ HLInst *HLNodeUtils::createSelect(const HLPredicate &Pred, RegDDRef *OpRef1,
   HInst->setOperandDDRef(OpRef4, 4);
 
   return HInst;
+}
+
+static PredicateTy getMinMaxPredKind(RegDDRef *Ref, bool IsSigned,
+                                     bool IsFPOrdered) {
+  PredicateTy PredKind;
+
+  if (Ref->getDestType()->isFloatingPointTy()) {
+    PredKind = IsFPOrdered ? PredicateTy::FCMP_OLE : PredicateTy::FCMP_ULE;
+  } else {
+    PredKind = IsSigned ? PredicateTy::ICMP_SLE : PredicateTy::ICMP_ULE;
+  }
+
+  return PredKind;
+}
+
+HLInst *HLNodeUtils::createMin(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                               RegDDRef *LvalRef, bool IsSigned,
+                               bool IsFPOrdered, FastMathFlags FMF,
+                               const Twine &Name) {
+  PredicateTy PredKind = getMinMaxPredKind(OpRef1, IsSigned, IsFPOrdered);
+
+  HLPredicate Pred(PredKind, FMF);
+
+  return createSelect(Pred, OpRef1, OpRef2, OpRef1->clone(), OpRef2->clone(),
+                      Name, LvalRef);
+}
+
+HLInst *HLNodeUtils::createMax(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                               RegDDRef *LvalRef, bool IsSigned,
+                               bool IsFPOrdered, FastMathFlags FMF,
+                               const Twine &Name) {
+  PredicateTy PredKind = getMinMaxPredKind(OpRef1, IsSigned, IsFPOrdered);
+
+  HLPredicate Pred(PredKind, FMF);
+
+  return createSelect(Pred, OpRef1, OpRef2, OpRef2->clone(), OpRef1->clone(),
+                      Name, LvalRef);
 }
 
 std::pair<HLInst *, CallInst *>
@@ -2558,8 +2617,7 @@ const HLNode *HLNodeUtils::getCommonDominatingParent(
 }
 
 bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
-                                bool PostDomination, bool StrictDomination,
-                                HIRLoopStatistics *HLS) {
+                                bool PostDomination, bool StrictDomination) {
   assert(Node1 && Node2 && "Node is null!");
 
   assert(!isa<HLRegion>(Node1) && !isa<HLRegion>(Node2) &&
@@ -2583,6 +2641,11 @@ bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
   } else if (Num1 > Num2) {
     return false;
   }
+
+  auto *HLS = Node1->getHLNodeUtils()
+                  .getHIRFramework()
+                  .getHIRAnalysisProvider()
+                  .get<HIRLoopStatistics>();
 
   // We need to find out the common parent of Node1 and Node2 and their last
   // parents which tell us the path taken to reach the common parent.
@@ -2666,29 +2729,24 @@ bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
   llvm_unreachable("Unexpected condition encountered!");
 }
 
-bool HLNodeUtils::dominates(const HLNode *Node1, const HLNode *Node2,
-                            HIRLoopStatistics *HLS) {
-  return dominatesImpl(Node1, Node2, false, false, HLS);
+bool HLNodeUtils::dominates(const HLNode *Node1, const HLNode *Node2) {
+  return dominatesImpl(Node1, Node2, false, false);
 }
 
-bool HLNodeUtils::strictlyDominates(const HLNode *Node1, const HLNode *Node2,
-                                    HIRLoopStatistics *HLS) {
-  return dominatesImpl(Node1, Node2, false, true, HLS);
+bool HLNodeUtils::strictlyDominates(const HLNode *Node1, const HLNode *Node2) {
+  return dominatesImpl(Node1, Node2, false, true);
 }
 
-bool HLNodeUtils::postDominates(const HLNode *Node1, const HLNode *Node2,
-                                HIRLoopStatistics *HLS) {
-  return dominatesImpl(Node1, Node2, true, false, HLS);
+bool HLNodeUtils::postDominates(const HLNode *Node1, const HLNode *Node2) {
+  return dominatesImpl(Node1, Node2, true, false);
 }
 
 bool HLNodeUtils::strictlyPostDominates(const HLNode *Node1,
-                                        const HLNode *Node2,
-                                        HIRLoopStatistics *HLS) {
-  return dominatesImpl(Node1, Node2, true, true, HLS);
+                                        const HLNode *Node2) {
+  return dominatesImpl(Node1, Node2, true, true);
 }
 
-bool HLNodeUtils::canAccessTogether(const HLNode *Node1, const HLNode *Node2,
-                                    HIRLoopStatistics *HLS) {
+bool HLNodeUtils::canAccessTogether(const HLNode *Node1, const HLNode *Node2) {
   // The dominance checks can return true for nodes under different parent
   // loops when the references are under constant bound loops. For the example
   // below these checks might incorrectly deduce that both references can be
@@ -2718,8 +2776,8 @@ bool HLNodeUtils::canAccessTogether(const HLNode *Node1, const HLNode *Node2,
     return false;
   }
 
-  if (!(dominates(Node2, Node1, HLS) && postDominates(Node1, Node2, HLS)) &&
-      !(dominates(Node1, Node2, HLS) && postDominates(Node2, Node1, HLS))) {
+  if (!(dominates(Node2, Node1) && postDominates(Node1, Node2)) &&
+      !(dominates(Node1, Node2) && postDominates(Node2, Node1))) {
     return false;
   }
 
@@ -3303,6 +3361,9 @@ bool HLNodeUtils::isKnownPredicate(const CanonExpr *LHS, PredicateTy Pred,
   return false;
 }
 
+// TODO: Consider removing AllowNearPerfect argument and
+//       just use bool* IsNearPerfectLoop only instead
+//       similar to the logic of its caller, IsPerfectLoopNest().
 bool HLNodeUtils::hasPerfectLoopProperties(const HLLoop *Lp,
                                            const HLLoop **InnerLp,
                                            bool AllowNearPerfect,
@@ -3325,6 +3386,9 @@ bool HLNodeUtils::hasPerfectLoopProperties(const HLLoop *Lp,
         return false;
       }
       *InnerLp = cast<HLLoop>(NodeIt);
+
+    } else if (!isa<HLInst>(NodeIt)) {
+      return false;
     }
 
     if (++NumChildren > MaxChildren) {
@@ -3350,13 +3414,17 @@ bool HLNodeUtils::hasPerfectLoopProperties(const HLLoop *Lp,
 }
 
 ///  Check if Loop has perfect loop nests
-///  Default to allow pre and post header is false
+///  An innermost loop can't be given as the first argument.
 ///  Default to allow Triangular loop is false with exceptions made for first
 ///  iteration.
-///  Default for AllowNearPerfect is false
-///  If AllowNearPerfect is true, this function will return true for
-///     near-perfect loop of this form:
-///     (stmts found before or after the innermost loop)
+///  IsNearPerfectNest is used as in-out arguement: if non-null,
+///  and whether the loop nest is near perfect (as shown below) will be set
+///  to the argument.
+///  Note that this function returns false if the given loop nest is near
+///  perfect. After all, near perfect is not perfect.
+///
+///     A near-perfect loop is this form:
+///     (stmts found before or after only around the *innermost* loop)
 ///
 ///     do i1
 ///       do i2
@@ -3369,54 +3437,70 @@ bool HLNodeUtils::hasPerfectLoopProperties(const HLLoop *Lp,
 ///       end do
 ///     end do
 ///
-///     s1, s2 are siblings of the innermost loop.
-///     This form may further be transformed to perfect loopnest.
+///     s1, s2 are siblings or preheader/postexit. of the innermost loop.
+///     This form may further be transformed to perfect loopnest by clients.
 ///     Will not make it too general because of compile time considerations
 ///     In addition, if this bool is on, it will indicate if Near Perfect Lp is
-///     found
-///  endif
-///
-bool HLNodeUtils::isPerfectLoopNest(
-    const HLLoop *Loop, const HLLoop **InnermostLoop, bool AllowPrePostHdr,
-    bool AllowTriangularLoop, bool AllowNearPerfect, bool *IsNearPerfectLoop) {
+///     found.
+bool HLNodeUtils::isPerfectLoopNest(const HLLoop *Loop,
+                                    const HLLoop **InnermostLoop,
+                                    bool AllowTriangularLoop,
+                                    bool *IsNearPerfectNest) {
 
   assert(Loop && "Loop is null!");
   assert(!Loop->isInnermost() && "Innermost loop not expected!");
-
   if (!Loop->isDo()) {
     return false;
   }
 
-  if (IsNearPerfectLoop) {
-    *IsNearPerfectLoop = false;
-  }
-
+  // Note the innermost loop never runs as Lp the following loop-body.
+  // It can only be InnerLp.
+  const bool &AllowNearPerfect = static_cast<bool>(IsNearPerfectNest);
+  const HLLoop *Lp = Loop;
+  bool IsNearPerfect = false;
   do {
-    if (!hasPerfectLoopProperties(Loop, &Loop, AllowNearPerfect,
-                                  IsNearPerfectLoop)) {
+    const HLLoop *InnerLp;
+    if (!hasPerfectLoopProperties(Lp, &InnerLp, AllowNearPerfect,
+                                  &IsNearPerfect)) {
+      // We don't allow near-perfection to non-innermost loops
+      // hasPerfectLoopProperties does not allow NearPerfect for
+      // non-innermost loop anyway.
       return false;
     }
 
-    if (!Loop->isDo()) {
+    if (!InnerLp->isDo()) {
       return false;
     }
 
-    if (!AllowPrePostHdr && (Loop->hasPreheader() || Loop->hasPostexit())) {
-      return false;
+    if (InnerLp->hasPreheader() || InnerLp->hasPostexit()) {
+      // We don't allow near-perfection to non-innermost loops
+      // If preheader and postexit exist for a non-innermost loop,
+      // we don't need to look further.
+      if (InnerLp->isInnermost() && AllowNearPerfect) {
+        IsNearPerfect = true;
+      } else {
+        return false;
+      }
     }
 
     // TODO: check if IV belongs to any loop within the perfect loopnest.
-    if (!AllowTriangularLoop && Loop->isTriangularLoop()) {
+    if (!AllowTriangularLoop && InnerLp->isTriangularLoop()) {
       return false;
     }
 
-  } while (!Loop->isInnermost());
+    Lp = InnerLp;
+
+  } while (!Lp->isInnermost());
 
   if (InnermostLoop) {
-    *InnermostLoop = Loop;
+    *InnermostLoop = Lp;
+  }
+  if (IsNearPerfectNest) {
+    *IsNearPerfectNest = IsNearPerfect;
   }
 
-  return true;
+  // NearPerfect is not perfect.
+  return IsNearPerfect ? false : true;
 }
 
 class NonUnitStrideMemRefs final : public HLNodeVisitorBase {
@@ -3704,6 +3788,12 @@ public:
       notifyWillRemoveNode(Loop);
 
       Loop->extractPreheaderAndPostexit();
+
+      LoopOptReportBuilder &LORBuilder =
+          Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+      LORBuilder(*Loop).preserveLostLoopOptReport();
+
       HLNodeUtils::remove(Loop);
       Changed = true;
 
@@ -3865,6 +3955,12 @@ public:
       notifyWillRemoveNode(Loop);
 
       SkipNode = Loop;
+
+      LoopOptReportBuilder &LORBuilder =
+          Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+      LORBuilder(*Loop).preserveLostLoopOptReport();
+
       HLNodeUtils::remove(Loop);
       Changed = true;
       return;
@@ -4055,6 +4151,12 @@ public:
              "Non exit goto found at the end of the loop.");
 
       notifyWillRemoveNode(Loop);
+
+      LoopOptReportBuilder &LORBuilder =
+          Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+      LORBuilder(*Loop).preserveLostLoopOptReport();
+
       Loop->replaceByFirstIteration();
       RedundantEarlyExitLoops++;
 

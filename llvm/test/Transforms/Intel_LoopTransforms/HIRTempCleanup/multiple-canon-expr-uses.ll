@@ -1,8 +1,9 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-temp-cleanup -print-after=hir-temp-cleanup 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" -disable-output 2>&1 | FileCheck %s
 
 ; Verify that we are able to replace multiple uses of liveout copy %ll.addr.034.out in a single canon expr successfully and eliminate it.
 
-; CHECK: Dump Before HIR Temp Cleanup
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, %0 + -1, 1   <DO_LOOP>
 ; CHECK: |   %ll.addr.034.out = %ll.addr.034;
@@ -26,7 +27,7 @@
 ; CHECK: + END LOOP
 
 
-; CHECK: Dump After HIR Temp Cleanup
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, %0 + -1, 1   <DO_LOOP>
 ; CHECK: |   %1 = (%rnp)[i1];
