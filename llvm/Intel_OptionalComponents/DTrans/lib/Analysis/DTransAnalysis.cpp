@@ -156,9 +156,39 @@ public:
     ElementPointees.insert(std::make_pair(Base, ElemIdx));
   }
 
+  bool typesCompatible(llvm::Type *T1, llvm::Type *T2) {
+    if (T1 == T2)
+      return true;
+
+    if (T1 == nullptr || T2 == nullptr)
+      return false;
+
+    if (T1->isPointerTy() && T2->isPointerTy()) {
+      // Consider a pointer to type T and a pointer to an array of type T as
+      // compatible types.
+      if (T1->getPointerElementType()->isArrayTy())
+        return (T2->getPointerElementType() ==
+                T1->getPointerElementType()->getArrayElementType());
+
+      if (T2->getPointerElementType()->isArrayTy())
+        return (T1->getPointerElementType() ==
+                T2->getPointerElementType()->getArrayElementType());
+      else
+        return typesCompatible(T1->getPointerElementType(),
+                               T2->getPointerElementType());
+    }
+
+    if (T1->isArrayTy() && T2->isArrayTy() &&
+        (T1->getArrayNumElements() == T2->getArrayNumElements()))
+      return typesCompatible(T1->getArrayElementType(),
+                             T2->getArrayElementType());
+    return false;
+  }
+
   bool canPointToType(llvm::Type *T) {
     for (auto *AliasTy : PointerTypeAliases)
-      if (AliasTy->isPointerTy() && AliasTy->getPointerElementType() == T)
+      if (AliasTy->isPointerTy() &&
+          typesCompatible(AliasTy->getPointerElementType(), T))
         return true;
     return false;
   }
