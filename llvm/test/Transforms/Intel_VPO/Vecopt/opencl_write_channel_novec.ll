@@ -1,6 +1,6 @@
-; RUN: opt %s -S -VPlanDriver 2>&1 | FileCheck %s
+; RUN: opt %s -S -use-simd-channels=false -VPlanDriver 2>&1 | FileCheck %s
 
-; CHECK: __write_pipe_2_bl_intel_v4i8
+; CHECK-NOT: __write_pipe_2_bl_intel_v4i8
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

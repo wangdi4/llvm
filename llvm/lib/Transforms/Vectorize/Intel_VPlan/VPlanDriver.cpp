@@ -574,6 +574,14 @@ static bool isSupportedRec(Loop *Lp) {
 // Return true if this loop is supported in VPlan
 bool VPlanDriver::isSupported(Loop *Lp) {
 
+  // When running directly from opt there is no guarantee that the loop is in
+  // LCSSA form because we no longer apply this transformation from within
+  // VPlanDriver. The reasoning behind this is due to the idea that we want to
+  // perform all the enabling transformations before VPlanDriver so that the
+  // only modifications to the underlying LLVM IR are done as a result of
+  // vectorization.
+  assert(Lp->isRecursivelyLCSSAForm(*DT, *LI) && "Loop is not in LCSSA form!");
+
   // Check for loop specific constraints
   if (!isSupportedRec(Lp)) {
     DEBUG(dbgs() << "VD: loop nest "
