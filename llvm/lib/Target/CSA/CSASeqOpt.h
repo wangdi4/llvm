@@ -9,6 +9,7 @@
 //
 #include "CSAMachineFunctionInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
+#include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 
 namespace llvm {
@@ -45,7 +46,9 @@ public:
                          CSASSANode *lhdrPickNode, MachineInstr *seqIndv,
                          unsigned seqReg, unsigned backedgeReg);
   void SequenceRepeat(CSASSANode *switchNode, CSASSANode *lhdrPhiNode);
-  CSASeqOpt(MachineFunction *F);
+
+  CSASeqOpt(MachineFunction *F, MachineOptimizationRemarkEmitter &ORE,
+            const char *PassName);
   /// Set lic depth for a lic out of a sequence instr
   /// \parameter lic - channel that need new depth
   /// \parameter depth - new depth for the channel
@@ -61,6 +64,13 @@ public:
 
 private:
   MachineFunction *thisMF;
+
+  /// \brief Optimization remark emitter for users of CSASeqOpt.
+  MachineOptimizationRemarkEmitter &ORE;
+
+  /// \brief Pass name to be used for emitting optimization remarks
+  /// on behalf of the passes using CSASeqOpt.
+  const char *PassName;
   const CSAInstrInfo *TII;
   MachineRegisterInfo *MRI;
   CSAMachineFunctionInfo *LMFI;

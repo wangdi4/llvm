@@ -132,6 +132,7 @@ INITIALIZE_PASS_BEGIN(CSAInnerLoopPrep, "csa-inner-loop-prep", PASS_DESC, false,
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
 INITIALIZE_PASS_END(CSAInnerLoopPrep, "csa-inner-loop-prep", PASS_DESC, false,
                     false)
 

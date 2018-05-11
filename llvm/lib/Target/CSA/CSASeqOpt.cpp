@@ -32,7 +32,9 @@ static cl::opt<bool> DisableMultiSeq(
   "csa-disable-multiseq", cl::Hidden,
   cl::desc("CSA Specific: Disable multiple sequence conversion"));
 
-CSASeqOpt::CSASeqOpt(MachineFunction *F) {
+CSASeqOpt::CSASeqOpt(MachineFunction *F, MachineOptimizationRemarkEmitter &ORE,
+                     const char *PassName) :
+  ORE(ORE), PassName(PassName) {
   thisMF = F;
   TII    = static_cast<const CSAInstrInfo *>(
     thisMF->getSubtarget<CSASubtarget>().getInstrInfo());
@@ -112,6 +114,19 @@ void CSASeqOpt::SequenceIndv(CSASSANode *cmpNode, CSASSANode *switchNode,
   } else {
     return;
   }
+
+  // CMPLRS-50091: we cannot mix differently sized values in one
+  // sequence instruction.
+  if (TII->getLicSize(cmpNode->minstr->getOpcode()) !=
+      TII->getLicSize(addNode->minstr->getOpcode())) {
+    MachineOptimizationRemarkMissed Remark(PassName, "CSASeqOptMissed: ",
+                                           cmpNode->minstr->getDebugLoc(),
+                                           cmpNode->minstr->getParent());
+    ORE.emit(Remark << " bounded sequence cannot be generated; "
+             "compare and increment have different size");
+    return;
+  }
+
   isIDVCycle = isIDVCycle &&
                (MRI->getVRegDef(cmpNode->minstr->getOperand(idvIdx).getReg()) ==
                   lhdrPickNode->minstr ||

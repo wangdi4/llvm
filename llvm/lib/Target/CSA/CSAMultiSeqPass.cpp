@@ -29,6 +29,7 @@
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
+#include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineSSAUpdater.h"
 #include "llvm/Pass.h"
@@ -44,6 +45,7 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "csa-multi-sequence"
+#define PASS_NAME "CSA: Multiple Sequence"
 
 static cl::opt<int> CSAMultiSeqPass("csa-multi-seq", cl::Hidden,
                                     cl::desc("CSA Specific: Multiple Sequence"),
@@ -55,10 +57,11 @@ public:
   static char ID;
   CSAMultiSeq();
 
-  StringRef getPassName() const override { return "CSA: Multiple Sequence"; }
+  StringRef getPassName() const override { return PASS_NAME; }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<MachineOptimizationRemarkEmitterPass>();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 
@@ -76,8 +79,9 @@ void initializeCSAMultiSeqPass(PassRegistry &);
 //  Because of the namespace-related syntax limitations of gcc, we need
 //  To hoist init out of namespace blocks.
 char CSAMultiSeq::ID = 0;
-INITIALIZE_PASS(CSAMultiSeq, "csa-multi-seq", "CSA Multiple Sequence", true,
-                true)
+INITIALIZE_PASS_BEGIN(CSAMultiSeq, DEBUG_TYPE, PASS_NAME, false, false)
+INITIALIZE_PASS_DEPENDENCY(MachineOptimizationRemarkEmitterPass)
+INITIALIZE_PASS_END(CSAMultiSeq, DEBUG_TYPE, PASS_NAME, false, false)
 
 CSAMultiSeq::CSAMultiSeq() : MachineFunctionPass(ID) {
   initializeCSAMultiSeqPass(*PassRegistry::getPassRegistry());
@@ -88,7 +92,8 @@ MachineFunctionPass *llvm::createCSAMultiSeqPass() { return new CSAMultiSeq(); }
 bool CSAMultiSeq::runOnMachineFunction(MachineFunction &MF) {
   if (CSAMultiSeqPass == 0)
     return false;
-  CSASeqOpt seqOpt(&MF);
+  auto &ORE = getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();
+  CSASeqOpt seqOpt(&MF, ORE, DEBUG_TYPE);
   seqOpt.SequenceOPT(true);
   return true;
 }

@@ -47,6 +47,7 @@ static cl::opt<int> OptDFPass("csa-opt-df-pass", cl::Hidden,
                               cl::init(1));
 
 #define DEBUG_TYPE "csa-opt-df"
+#define PASS_NAME "CSA: (Sequence) Optimizations to Data Flow"
 
 const TargetRegisterClass *const SeqPredRC = &CSA::CI1RegClass;
 
@@ -135,14 +136,14 @@ public:
   CSAOptDFPass() : MachineFunctionPass(ID) { thisMF = nullptr; }
 
   StringRef getPassName() const override {
-    return "CSA: (Sequence) Optimizations to Data Flow";
+    return PASS_NAME;
   }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<MachineLoopInfo>();
-    // AU.addRequired<MachineDominatorTree>();
+    AU.addRequired<MachineOptimizationRemarkEmitterPass>();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 
@@ -361,8 +362,11 @@ MachineFunctionPass *llvm::createCSAOptDFPass() { return new CSAOptDFPass(); }
 
 char CSAOptDFPass::ID = 0;
 
-static RegisterPass<CSAOptDFPass>
-  CSAOptRegistration("csaopt-df", "CSA Optimize Dataflow pass", false, false);
+INITIALIZE_PASS_BEGIN(CSAOptDFPass, DEBUG_TYPE, PASS_NAME, false, false)
+INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
+INITIALIZE_PASS_DEPENDENCY(MachineOptimizationRemarkEmitterPass)
+INITIALIZE_PASS_END(CSAOptDFPass, DEBUG_TYPE, PASS_NAME, false, false)
+
 
 bool CSAOptDFPass::runOnMachineFunction(MachineFunction &MF) {
 
@@ -371,13 +375,14 @@ bool CSAOptDFPass::runOnMachineFunction(MachineFunction &MF) {
 
   thisMF = &MF;
   MLI    = &getAnalysis<MachineLoopInfo>();
-  // DT = &getAnalysis<MachineDominatorTree>();
+  auto &ORE = getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();
+
   TII = static_cast<const CSAInstrInfo *>(MF.getSubtarget().getInstrInfo());
 
   bool Modified = false;
 
   if (RunSequenceOpt && RunSequenceOptType == SequenceOptMode::scc) {
-    CSASeqOpt seqOpt(thisMF);
+    CSASeqOpt seqOpt(thisMF, ORE, DEBUG_TYPE);
     seqOpt.SequenceOPT(false);
     return Modified;
   }

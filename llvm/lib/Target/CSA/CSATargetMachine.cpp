@@ -82,6 +82,7 @@ extern "C" void LLVMInitializeCSATarget() {
   // The original comment in the CSA target says this optimization
   // is placed here because it is too target-specific.
   PassRegistry &PR = *PassRegistry::getPassRegistry();
+  initializeCSAOptDFPassPass(PR);
   initializeCSAInnerLoopPrepPass(PR);
   initializeCSALowerAggrCopiesPass(PR);
   initializeCSAFortranIntrinsicsPass(PR);

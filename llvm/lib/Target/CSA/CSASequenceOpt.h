@@ -493,6 +493,8 @@ public:
                                           const CSAInstrInfo &TII,
                                           unsigned *indvar_opcode) {
 
+    *indvar_opcode = CSA::INVALID_OPCODE;
+
     // Transform the comparison opcode if needed.
     unsigned compareOp = ciOp;
     compareOp          = TII.commuteNegateCompareOpcode(
@@ -502,6 +504,12 @@ public:
 
     // Find a sequence opcode that matches our compare opcode.
     unsigned seqOp = TII.convertCompareOpToSeqOTOp(compareOp);
+
+    // CMPLRS-50091: we cannot mix differently sized values in one
+    // sequence instruction.
+    if (TII.getLicSize(seqOp) != TII.getLicSize(tOp))
+      return false;
+
     if (seqOp != CSA::INVALID_OPCODE &&
         TII.getGenericOpcode(tOp) == CSA::Generic::ADD) {
       // If we have a matching sequence op, then check that the

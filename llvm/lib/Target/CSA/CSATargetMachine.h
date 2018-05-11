@@ -21,6 +21,8 @@
 
 namespace llvm {
 
+void initializeCSAOptDFPassPass(PassRegistry &);
+
 class CSATargetMachine : public LLVMTargetMachine {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;
   CSASubtarget Subtarget;
