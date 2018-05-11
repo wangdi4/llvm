@@ -210,6 +210,7 @@ bool CSADataflowCanonicalizationPass::createFilterOps(MachineInstr *MI) {
               invertedReg)
         .addReg(MI->getOperand(1).getReg())
         ->setFlag(MachineInstr::NonSequential);
+      LMFI->setLICGroup(invertedReg, LMFI->getLICGroup(MI->getOperand(1).getReg()));
     }
     MI->getOperand(1).setReg(invertedReg);
     return true;

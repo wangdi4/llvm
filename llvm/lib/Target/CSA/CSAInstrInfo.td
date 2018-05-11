@@ -483,6 +483,14 @@ class MergeOp<string opStr, CSAOpInfo t,
     [(set t.VT:$dst, (select RCLi1:$sel, (t.VT t.RCL:$v1), (t.VT t.RCL:$v0)))],
     preds, itin>;
 
+class GateOp<GenericOp gen, CSAOpInfo oi,
+             InstrItinClass itin, list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs oi.RC:$dst),
+    (ins CI0:$sel, oi.RCL:$v),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
+
 let isMultiTriggered = 1 in {
 class SwitchOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin, list<Predicate> preds = []> :
@@ -522,14 +530,6 @@ class PickAnyOp<GenericOp gen, CSAOpInfo oi,
     (outs oi.RC:$dst, I1:$sel),
     (ins oi.RCL:$v0, oi.RCL:$v1, PrioOrderOperand:$mode),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v0, $v1, $mode"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
-
-class GateOp<GenericOp gen, CSAOpInfo oi,
-             InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<gen, oi,
-    (outs oi.RC:$dst),
-    (ins CI0:$sel, oi.RCL:$v),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
 class CompletionOp<GenericOp gen, CSAOpInfo oi,

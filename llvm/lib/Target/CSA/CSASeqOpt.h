@@ -46,6 +46,18 @@ public:
                          unsigned seqReg, unsigned backedgeReg);
   void SequenceRepeat(CSASSANode *switchNode, CSASSANode *lhdrPhiNode);
   CSASeqOpt(MachineFunction *F);
+  /// Set lic depth for a lic out of a sequence instr
+  /// \parameter lic - channel that need new depth
+  /// \parameter depth - new depth for the channel
+  void SetSeqLicDepth(unsigned lic, unsigned depth);
+  /// Given a sequence instr corresponding to an INDV, find the ideal
+  /// lic depth for its output
+  /// \parameter seqIndv - the sequence induction variable
+  unsigned GetSeqIndvLicDepth(MachineInstr *seqIndv);
+  /// find the const src def if it happens to be a constant
+  /// supplied through repeats/filters/movs
+  /// \parameter opnd - the src operand started from
+  MachineOperand* GetConstSrc(MachineOperand &opnd);
 
 private:
   MachineFunction *thisMF;
@@ -55,5 +67,13 @@ private:
   const TargetRegisterInfo *TRI;
   DenseMap<MachineInstr *, MachineOperand *> seq2tripcnt;
   DenseMap<unsigned, unsigned> reg2neg;
+
+  /// This is a mapping of the loop control edges to LIC predicate groups.
+  /// Don't use this mapping directly, go through getLoopPredicate instead.
+  DenseMap<unsigned, std::shared_ptr<CSALicGroup>> loopPredicateGroups;
+
+  /// Get a LIC group that is appropriate for the predicate output of a
+  /// sequence optimization.
+  std::shared_ptr<CSALicGroup> getLoopPredicate(CSASSANode *lhdrPhiNode);
 };
 } // namespace llvm

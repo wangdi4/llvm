@@ -137,6 +137,8 @@ MachineOp CSAInstBuilder::makeOrConstantFold(CSAMachineFunctionInfo &LMFI,
 
 build_mi:
   unsigned newLic = LMFI.allocateLIC(TII.getLicClassForSize(outputSize));
+  LMFI.setLICGroup(newLic,
+      LMFI.getLICGroup(lhs.isReg() ? lhs.getReg() : rhs.getReg()));
   makeInstruction(opcode, OpRegDef(newLic), lhs, rhs);
   return OpReg(newLic);
 }

@@ -19,6 +19,12 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
+namespace {
+  //128 is what simulator uses now.
+  //32 is the experimental number
+  static const unsigned  SimLicMaxDepth = 128;
+  static const unsigned  DefaultSeqLicDepth = 32;
+}
 
 using namespace llvm;
 
@@ -236,6 +242,13 @@ void CSASeqOpt::SequenceIndv(CSASSANode *cmpNode, CSASSANode *switchNode,
         .              // boundary
       add(indvStride); // stride
     seqInstr->setFlag(MachineInstr::NonSequential);
+    unsigned licDepth = GetSeqIndvLicDepth(seqInstr);
+    //set lic depth for sequence instrution, since it is the driver
+    //instruction for all other instructions in the SCC
+    SetSeqLicDepth(seqReg, licDepth);
+    SetSeqLicDepth(seqPred, licDepth);
+    SetSeqLicDepth(firstReg, licDepth);
+    SetSeqLicDepth(lastReg, licDepth);
 
     // If the switcher is expecting 1, 1, 1, ... 1, 0, then
     // loop.header.switcherSense should be 0, and we want a NOT1 to
@@ -268,6 +281,13 @@ void CSASeqOpt::SequenceIndv(CSASSANode *cmpNode, CSASSANode *switchNode,
     cmpNode->minstr->removeFromParent();
     // currently only the cmp instr can have usage outside the cycle
     cmpNode->minstr = seqInstr;
+
+    // Assign LIC groups for the new registers. first and last execute as many
+    // times as the value does, while pred executes a little more frequently.
+    auto loopGroup = LMFI->getLICGroup(seqReg);
+    LMFI->setLICGroup(firstReg, loopGroup);
+    LMFI->setLICGroup(lastReg, loopGroup);
+    LMFI->setLICGroup(seqPred, getLoopPredicate(lhdrPickNode));
   }
 }
 
@@ -500,6 +520,7 @@ void CSASeqOpt::SequenceSwitchOut(CSASSANode *switchNode, CSASSANode *addNode,
     const TargetRegisterClass *TRC =
       TII->getRegisterClass(addNode->minstr->getOperand(0).getReg(), *MRI);
     unsigned last           = LMFI->allocateLIC(TRC);
+    LMFI->setLICGroup(last, LMFI->getLICGroup(switchOut));
     const unsigned switchOp = TII->makeOpcode(CSA::Generic::SWITCH, TRC);
     MachineInstr *switchLast =
       BuildMI(*lhdrPickNode->minstr->getParent(), lhdrPickNode->minstr,
@@ -624,6 +645,13 @@ void CSASeqOpt::MultiSequence(CSASSANode *switchNode, CSASSANode *addNode,
         addReg(fmaReg)
           .                                          // boundary
         add(addNode->minstr->getOperand(strideIdx)); // stride
+      unsigned licDepth = GetSeqIndvLicDepth(seqIndv);
+      //set lic depth for sequence instrution, since it is the driver
+      //instruction for all other instructions in the SCC
+      SetSeqLicDepth(seqReg, licDepth);
+      SetSeqLicDepth(predReg, licDepth);
+      SetSeqLicDepth(firstReg, licDepth);
+      SetSeqLicDepth(lastReg, licDepth);
       seqInstr->setFlag(MachineInstr::NonSequential);
     } else {
       // can't figure out trip-counter; generate stride
@@ -639,6 +667,8 @@ void CSASeqOpt::MultiSequence(CSASSANode *switchNode, CSASSANode *addNode,
           .addReg(seqIndv->getOperand(1).getReg())
           .add(initOpnd)
           .add(strideOpnd);
+      unsigned licDepth = GetSeqIndvLicDepth(seqIndv);
+      SetSeqLicDepth(seqReg, licDepth);
       strideInstr->setFlag(MachineInstr::NonSequential);
     }
     SequenceSwitchOut(switchNode, addNode, lhdrPickNode, seqIndv, seqReg,
@@ -724,6 +754,7 @@ void CSASeqOpt::SequenceRepeat(CSASSANode *switchNode,
         predRepeat = reg2neg[predRepeat];
       } else {
         unsigned notReg = LMFI->allocateLIC(&CSA::CI1RegClass);
+        LMFI->setLICGroup(notReg, LMFI->getLICGroup(predRepeat));
         MachineInstr *notInstr =
           BuildMI(*lhdrPickNode->minstr->getParent(), lhdrPickNode->minstr,
                   DebugLoc(), TII->get(CSA::NOT1), notReg)
@@ -741,14 +772,14 @@ void CSASeqOpt::SequenceRepeat(CSASSANode *switchNode,
     unsigned repeatOp =
       TII->adjustOpcode(switchNode->minstr->getOpcode(), CSA::Generic::REPEATO);
     assert(repeatOp != CSA::INVALID_OPCODE);
+    unsigned rptOut = lhdrPickNode->minstr->getOperand(0).getReg();
     MachineInstr *repeatInstr =
       BuildMI(*lhdrPickNode->minstr->getParent(), lhdrPickNode->minstr,
-              DebugLoc(), TII->get(repeatOp),
-              lhdrPickNode->minstr->getOperand(0).getReg())
+              DebugLoc(), TII->get(repeatOp), rptOut)
         .addReg(predRepeat)
         .addReg(valueRepeat);
     repeatInstr->setFlag(MachineInstr::NonSequential);
-
+    SetSeqLicDepth(rptOut, DefaultSeqLicDepth);
     // remove the instructions in the IDV cycle.
     switchNode->minstr->removeFromParent();
     lhdrPickNode->minstr->removeFromParent();
@@ -799,6 +830,56 @@ void CSASeqOpt::PrepRepeat() {
   reg2neg.clear();
 }
 
+
+void CSASeqOpt::SetSeqLicDepth(unsigned lic, unsigned newDepth) {
+  newDepth = newDepth > SimLicMaxDepth ? SimLicMaxDepth : newDepth;
+  int depth = LMFI->getLICDepth(lic);
+  if (depth >=0 && (unsigned int)(depth) < newDepth)
+    LMFI->setLICDepth(lic, newDepth);
+}
+
+MachineOperand* CSASeqOpt::GetConstSrc(MachineOperand &opnd) {
+  // Walk backwards through repeats/filters/movs to see if there is a
+  // constant to be propagated.
+  MachineOperand* cur_opnd = &opnd;
+  while (!cur_opnd->isImm()) {
+    if (!cur_opnd->isReg())
+      return nullptr;
+    MachineInstr *def = MRI->getUniqueVRegDef(cur_opnd->getReg());
+    if (!def)
+      return nullptr;
+    switch (TII->getGenericOpcode(def->getOpcode())) {
+        case CSA::Generic::REPEAT:
+        case CSA::Generic::REPEATO:
+        case CSA::Generic::FILTER:
+          cur_opnd = &def->getOperand(2);
+          break;
+        case CSA::Generic::MOV:
+          cur_opnd = &def->getOperand(1);
+          break;
+        default:
+          return nullptr;
+    }
+  }
+  return cur_opnd;
+}
+
+
+unsigned CSASeqOpt::GetSeqIndvLicDepth(MachineInstr *seqIndv) {
+  unsigned tripCnt = DefaultSeqLicDepth;
+  MachineOperand* initOpnd = GetConstSrc(seqIndv->getOperand(4));
+  MachineOperand* bndOpnd = GetConstSrc(seqIndv->getOperand(5));
+  MachineOperand* strideOpnd = GetConstSrc(seqIndv->getOperand(6));
+  if (initOpnd && initOpnd->isImm() &&
+      strideOpnd && strideOpnd->isImm() &&
+      bndOpnd && bndOpnd->isImm()) {
+    //sequence has one extra terminaion token
+    tripCnt = (bndOpnd->getImm() - initOpnd->getImm()) / strideOpnd->getImm() + 1;
+  }
+  return tripCnt;
+}
+
+
 void CSASeqOpt::SequenceOPT(bool runMultiSeq) {
   if (!runMultiSeq)
     DisableMultiSeq = true;
@@ -806,6 +887,29 @@ void CSASeqOpt::SequenceOPT(bool runMultiSeq) {
   PrepRepeat();
   CSASSAGraph csaSSAGraph;
   csaSSAGraph.BuildCSASSAGraph(*thisMF);
+  //for memory operation in a SCC, set its input lic depth to the length
+  //of SCC assuming each operation in the SCC generate an output each cycle
+  for (scc_iterator<CSASSANode *> I  = scc_begin(csaSSAGraph.getRoot()),
+                                  IE = scc_end(csaSSAGraph.getRoot());
+       I != IE; ++I) {
+    const std::vector<CSASSANode *> &SCCNodes = *I;
+    if (SCCNodes.size() > 1 && SCCNodes.size() < SimLicMaxDepth) {
+      for (std::vector<CSASSANode *>::const_iterator nodeI  = SCCNodes.begin(),
+             nodeIE = SCCNodes.end(); nodeI != nodeIE; ++nodeI) {
+        CSASSANode *sccn     = *nodeI;
+        MachineInstr *minstr = sccn->minstr;
+        if (minstr->mayLoad() || minstr->mayStore()) {
+          for (auto op = minstr->uses().begin(), e = minstr->uses().end() - 1;
+               op != e; op++) {
+            if (op->isReg()) {
+              SetSeqLicDepth(op->getReg(), SCCNodes.size());
+            }
+          }
+        }
+      }
+    }
+  }
+  
   for (scc_iterator<CSASSANode *> I  = scc_begin(csaSSAGraph.getRoot()),
                                   IE = scc_end(csaSSAGraph.getRoot());
        I != IE; ++I) {
@@ -869,4 +973,30 @@ void CSASeqOpt::SequenceOPT(bool runMultiSeq) {
   }
   seq2tripcnt.clear();
   reg2neg.clear();
+}
+
+std::shared_ptr<CSALicGroup>
+CSASeqOpt::getLoopPredicate(CSASSANode *lhdrPhiNode) {
+  assert(TII->getGenericOpcode(lhdrPhiNode->minstr->getOpcode()) ==
+      CSA::Generic::PICK && "loop predicate must be a PICK instruction");
+  unsigned ctlreg = lhdrPhiNode->minstr->getOperand(1).getReg();
+  if (loopPredicateGroups.find(ctlreg) == loopPredicateGroups.end()) {
+    auto licGroup = std::make_shared<CSALicGroup>();
+
+    // Assign frequency for the new group. Since we're based off of a PICK, it
+    // is the case that the frequency of the output is the sum of its two input
+    // parameters.
+    auto opA = lhdrPhiNode->minstr->getOperand(2);
+    auto opB = lhdrPhiNode->minstr->getOperand(3);
+    if (opA.isReg() && opB.isReg()) {
+      auto groupA = LMFI->getLICGroup(opA.getReg());
+      auto groupB = LMFI->getLICGroup(opB.getReg());
+      if (groupA && groupB) {
+        licGroup->executionFrequency = groupA->executionFrequency +
+          groupB->executionFrequency;
+      }
+    }
+    loopPredicateGroups[ctlreg] = licGroup;
+  }
+  return loopPredicateGroups[ctlreg];
 }
