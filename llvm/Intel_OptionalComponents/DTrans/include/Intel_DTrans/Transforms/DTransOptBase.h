@@ -252,6 +252,10 @@ private:
   // Perform all the module and function processing to transform the IR.
   void transformIR(Module &M, ValueMapper &Mapper);
 
+  // Remove functions and global variables that have been completely
+  // replaced due to the remapping.
+  void removeDeadValues();
+
 protected:
   DTransAnalysisInfo &DTInfo;
   LLVMContext &Context;
@@ -276,6 +280,14 @@ protected:
   // Initially it will be primed with the global variables and functions that
   // need cloning. As the ValueMapper replaces values those will get inserted.
   ValueToValueMapTy VMap;
+
+  // A mapping from the original function to the clone function that will
+  // replace the original function.
+  DenseMap<Function *, Function *> OrigFuncToCloneFuncMap;
+
+  // A mapping from the clone function to the original function to enable
+  // lookups of the original function based on a clone function pointer.
+  DenseMap<Function *, Function *> CloneFuncToOrigFuncMap;
 };
 
 } // namespace llvm

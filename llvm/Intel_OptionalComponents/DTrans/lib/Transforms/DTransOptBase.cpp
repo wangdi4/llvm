@@ -203,6 +203,8 @@ bool DTransOptBase::run(Module &M) {
   // Transform all the functions.
   transformIR(M, Mapper);
 
+  removeDeadValues();
+
   return true;
 }
 
@@ -448,30 +450,110 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
     if (F.isDeclaration())
       continue;
 
+    // The clone function body will be populated when processing the original
+    // function. Skip over any functions that represent the clones.
+    if (CloneFuncToOrigFuncMap.count(&F))
+      continue;
+
     // Let the derived class perform any IR translation needed for the function
     processFunction(F);
 
-    // TODO: This version did not perform any function cloning, so all functions
-    // just use the ValueMapper. In a subsequent change, functions that have
-    // prototype changes will be handled with cloneFunctionInfo.
+    // Check whether the function should be cloned or remapped.
+    if (OrigFuncToCloneFuncMap.count(&F)) {
+      // The CloneFunctionInto function will populate a list of return
+      // instructions and some information gathered during the cloning process
+      // into these variables. We don't currently use that info.
+      SmallVector<ReturnInst *, 8> Returns;
+      ClonedCodeInfo CodeInfo;
+      Function *CloneFunc = OrigFuncToCloneFuncMap[&F];
+      assert(CloneFuncToOrigFuncMap[CloneFunc] == &F &&
+             "CloneFuncToOrigFuncMap is invalid");
 
-    // Perform the type remapping for the function
-    ValueMapper(VMap, RF_IgnoreMissingLocals, TypeRemapper, Materializer)
-        .remapFunction(F);
+      CloneFunctionInto(CloneFunc, &F, VMap, true, Returns, "", &CodeInfo,
+                        TypeRemapper, Materializer);
 
-    // Let the derived class perform any additional actions needed on the
-    // remapped function.
-    postprocessFunction(F, /*is_clone=*/false);
+      // Let the derived class perform any additional actions needed on the
+      // cloned function. For example, if the transformation is changing
+      // data types that will create incompatible parameter attributes, the
+      // post-processing function should update them.
+      //
+      // Do the post processing before deleting the original function
+      // because the original instructions may be needed to identify the cloned
+      // instruction via the VMap table.
+      postprocessFunction(F, /*is_clone=*/true);
+      F.deleteBody();
+    } else {
+      // Perform the type remapping for the function
+      ValueMapper(VMap, RF_IgnoreMissingLocals, TypeRemapper, Materializer)
+          .remapFunction(F);
+
+      // Let the derived class perform any additional actions needed on the
+      // remapped function.
+      postprocessFunction(F, /*is_clone=*/false);
+    }
   }
 }
 
 // Identify and create new function prototypes for dependent functions
 void DTransOptBase::createCloneFunctionDeclarations(Module &M) {
-  // TODO: Subsequent change will implement identification of functions that
-  // need cloning, and create new FunctionTypes for them.
+  // Create a work list of all the function definitions that need to be
+  // considered for cloning.
+  std::vector<Function *> WL;
+  for (auto &F : M) {
+    if (!F.isDeclaration())
+      WL.push_back(&F);
+  }
+
+  for (auto *F : WL) {
+    // If the function signature changes as a result of the type remapping
+    // then a clone will be necessary.
+    Type *FuncTy = F->getType();
+    Type *ReplTy = TypeRemapper->remapType(FuncTy);
+    if (ReplTy != FuncTy) {
+      Function *NewF =
+          Function::Create(cast<FunctionType>(ReplTy->getPointerElementType()),
+                           F->getLinkage(), F->getName(), &M);
+      NewF->copyAttributesFrom(F);
+      VMap[F] = NewF;
+
+      // Save a forward and backward mapping between the original
+      // function and the new function. (The forward mapping is also in the
+      // VMap, but we maintain  this separately because that mapping will
+      // be updated to also include entries for the cloned functions, which
+      // complicates looking up whether a function is going to be cloned or
+      // not)
+      OrigFuncToCloneFuncMap[F] = NewF;
+      CloneFuncToOrigFuncMap[NewF] = F;
+
+      // Create VMap entries for the arguments that will be used during the
+      // call to cloneFunctionInfo. This must be done to make the information
+      // available for the later call to cloneFunctionInto.
+      Function::arg_iterator DestI = NewF->arg_begin();
+      for (Argument &I : F->args()) {
+        DestI->setName(I.getName());
+        VMap[&I] = &*DestI++;
+      }
+
+      DEBUG(dbgs() << "DTRANS-OPTBASE: Will clone: " << F->getName() << " "
+                   << *F->getType() << " into: " << NewF->getName() << " "
+                   << *NewF->getType() << "\n");
+    }
+  }
 }
 
 // Remap global variables for new types
 void DTransOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
   // TODO: Subsequent change will implement remapping for global vars.
+}
+
+// Update the module to remove objects that should no longer be referenced.
+void DTransOptBase::removeDeadValues() {
+  for (auto &OTCPair : OrigFuncToCloneFuncMap)
+    OTCPair.first->eraseFromParent();
+
+  OrigFuncToCloneFuncMap.clear();
+  CloneFuncToOrigFuncMap.clear();
+
+  // TODO: Subsequent change will implement removal for global variables that
+  // have been converted to new types.
 }
