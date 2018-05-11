@@ -253,9 +253,8 @@ private:
   /// Transform the original loop.
   void transformCandidate(HLLoop *TargetLoop, HoistCandidate &Candidate,
                           unsigned &VNum,
-                          SmallPtrSetImpl<HLLoop *> &TargetLoopVisitedSet,
-                          SmallPtrSetImpl<HLLoop *> &ElseLoopVisitedSet,
-                          SmallSet<unsigned, 16> &IfVisitedSet);
+                          SmallPtrSetImpl<HLLoop *> &OptReportVisitedSet,
+                          SmallPtrSetImpl<HLIf *> &IfVisitedSet);
 
   /// Removes the Then and Else children of HLIf and stores them
   /// in the container.
@@ -270,8 +269,8 @@ private:
   void hoistIf(HLIf *&If, HLLoop *OrigLoop);
 
   void addPredicateOptReport(HLLoop *TargetLoop, HLIf *If,
-                             SmallPtrSetImpl<HLLoop *> &TargetLoopVisitedSet,
-                             SmallSet<unsigned, 16> &IfVisitedSet,
+                             SmallPtrSetImpl<HLLoop *> &OptReportVisitedSet,
+                             SmallPtrSetImpl<HLIf *> &IfVisitedSet,
                              unsigned &VNum);
 
 #ifndef NDEBUG
@@ -799,9 +798,8 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
   unsigned VNum = 1;
 
   // Sets including visited TargetLoop, visited NewElseLoop and If line nums
-  SmallPtrSet<HLLoop *, 8> TargetLoopVisitedSet;
-  SmallPtrSet<HLLoop *, 8> ElseLoopVisitedSet;
-  SmallSet<unsigned, 16> IfVisitedSet;
+  SmallPtrSet<HLLoop *, 8> OptReportVisitedSet;
+  SmallPtrSet<HLIf *, 8> IfVisitedSet;
 
   while (!Candidates.empty()) {
     HoistCandidate &Candidate = Candidates.back();
@@ -834,8 +832,8 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
     TargetLoop->extractPreheader();
 
     // TransformLoop and its clones.
-    transformCandidate(TargetLoop, Candidate, VNum, TargetLoopVisitedSet,
-                       ElseLoopVisitedSet, IfVisitedSet);
+    transformCandidate(TargetLoop, Candidate, VNum, OptReportVisitedSet,
+                       IfVisitedSet);
 
     DEBUG(dbgs() << "While " OPT_DESC ":\n");
     DEBUG(ParentLoop->getParentRegion()->dump());
@@ -895,9 +893,8 @@ static bool hasEqualParentIf(HLIf *FromIf, HLLoop *ToLoop) {
 // If-Then and other inside the Else.
 void HIROptPredicate::transformCandidate(
     HLLoop *TargetLoop, HoistCandidate &Candidate, unsigned &VNum,
-    SmallPtrSetImpl<HLLoop *> &TargetLoopVisitedSet,
-    SmallPtrSetImpl<HLLoop *> &ElseLoopVisitedSet,
-    SmallSet<unsigned, 16> &IfVisitedSet) {
+    SmallPtrSetImpl<HLLoop *> &OptReportVisitedSet,
+    SmallPtrSetImpl<HLIf *> &IfVisitedSet) {
 
   SmallDenseMap<HLIf *, std::pair<HLContainerTy, HLContainerTy>, 8> Containers;
   SmallPtrSet<HLNode *, 32> TrackClonedNodes;
@@ -1023,7 +1020,7 @@ void HIROptPredicate::transformCandidate(
       }
     }
 
-    addPredicateOptReport(TargetLoop, If, TargetLoopVisitedSet, IfVisitedSet,
+    addPredicateOptReport(TargetLoop, If, OptReportVisitedSet, IfVisitedSet,
                           VNum);
 
     // Handle second loop - NewElseLoop
@@ -1069,15 +1066,8 @@ void HIROptPredicate::transformCandidate(
       }
     }
 
-    if (!ElseLoopVisitedSet.count(NewElseLoop)) {
-      LoopOptReportBuilder &LORBuilder =
-          NewElseLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
-
-      LORBuilder(*NewElseLoop).addOrigin("Predicate Optimized v%d", VNum);
-      VNum++;
-
-      ElseLoopVisitedSet.insert(NewElseLoop);
-    }
+    addPredicateOptReport(NewElseLoop, If, OptReportVisitedSet, IfVisitedSet,
+                          VNum);
   }
 
   assert(PivotIf && "should be defined");
@@ -1158,8 +1148,8 @@ void HIROptPredicate::hoistIf(HLIf *&If, HLLoop *OrigLoop) {
 
 void HIROptPredicate::addPredicateOptReport(
     HLLoop *TargetLoop, HLIf *If,
-    SmallPtrSetImpl<HLLoop *> &TargetLoopVisitedSet,
-    SmallSet<unsigned, 16> &IfVisitedSet, unsigned &VNum) {
+    SmallPtrSetImpl<HLLoop *> &OptReportVisitedSet,
+    SmallPtrSetImpl<HLIf *> &IfVisitedSet, unsigned &VNum) {
 
   LoopOptReportBuilder &LORBuilder =
       TargetLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
@@ -1167,6 +1157,16 @@ void HIROptPredicate::addPredicateOptReport(
   bool IsReportOn = LORBuilder.isLoopOptReportOn();
 
   if (!IsReportOn) {
+    return;
+  }
+
+  if (!OptReportVisitedSet.count(TargetLoop)) {
+    LORBuilder(*TargetLoop).addOrigin("Predicate Optimized v%d", VNum);
+    VNum++;
+    OptReportVisitedSet.insert(TargetLoop);
+  }
+
+  if (IfVisitedSet.count(If)) {
     return;
   }
 
@@ -1180,16 +1180,8 @@ void HIROptPredicate::addPredicateOptReport(
     VOS << LineNum;
   }
 
-  if (!TargetLoopVisitedSet.count(TargetLoop)) {
-    LORBuilder(*TargetLoop).addOrigin("Predicate Optimized v%d", VNum);
-    VNum++;
-    TargetLoopVisitedSet.insert(TargetLoop);
-  }
-
-  if (!IfVisitedSet.count(LineNum)) {
-    LORBuilder(*TargetLoop)
-        .addRemark(OptReportVerbosity::Low,
-                   "Invariant Condition%s hoisted out of this loop", IfNum);
-    IfVisitedSet.insert(LineNum);
-  }
+  LORBuilder(*TargetLoop)
+      .addRemark(OptReportVerbosity::Low,
+                 "Invariant Condition%s hoisted out of this loop", IfNum);
+  IfVisitedSet.insert(If);
 }
