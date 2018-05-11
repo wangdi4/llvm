@@ -1278,9 +1278,13 @@ VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
       IntelGeneralUtils::breakExpressions(I);
     }
   } else {
-    // TODO: Privatize Value that is neither global nor alloca
-    DEBUG(dbgs() << "\ngenPrivatizationAlloca: TODO: Handle Arguments.\n");
-    llvm_unreachable("genPrivatizationAlloca: unsupported private item");
+    assert((isa<Argument>(PrivValue) || isa<GetElementPtrInst>(PrivValue)) &&
+           "genPrivatizationAlloca: unsupported private item");
+    Type *ElemTy = cast<PointerType>(PrivValue->getType())->getElementType();
+    const DataLayout &DL = F->getParent()->getDataLayout();
+    NewPrivInst = new AllocaInst(ElemTy, DL.getAllocaAddrSpace(), nullptr,
+                                 PrivValue->getName());
+    NewPrivInst->insertBefore(InsertPt);
   }
 
   return NewPrivInst;
