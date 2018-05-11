@@ -140,6 +140,13 @@ public:
 
   ObjectFile::Strata CalculateStrata() override;
 
+  size_t ReadSectionData(lldb_private::Section *section,
+                         lldb::offset_t section_offset, void *dst,
+                         size_t dst_len) override;
+
+  size_t ReadSectionData(lldb_private::Section *section,
+                         lldb_private::DataExtractor &section_data) override;
+
   // Returns number of program headers found in the ELF file.
   size_t GetProgramHeaderCount();
 
@@ -153,6 +160,11 @@ public:
   StripLinkerSymbolAnnotations(llvm::StringRef symbol_name) const override;
 
   void RelocateSection(lldb_private::Section *section) override;
+
+protected:
+
+  std::vector<LoadableData>
+  GetLoadableData(lldb_private::Target &target) override;
 
 private:
   ObjectFileELF(const lldb::ModuleSP &module_sp, lldb::DataBufferSP &data_sp,
@@ -376,6 +388,8 @@ private:
   RefineModuleDetailsFromNote(lldb_private::DataExtractor &data,
                               lldb_private::ArchSpec &arch_spec,
                               lldb_private::UUID &uuid);
+
+  bool AnySegmentHasPhysicalAddress();
 };
 
 #endif // liblldb_ObjectFileELF_h_

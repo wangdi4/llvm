@@ -306,7 +306,11 @@ public:
                               MachineBasicBlock *MBB) const override;
 
   bool getTgtMemIntrinsic(IntrinsicInfo &Info, const CallInst &I,
+                          MachineFunction &MF,
                           unsigned Intrinsic) const override;
+
+  bool shouldReduceLoadWidth(SDNode *Load, ISD::LoadExtType ExtTy,
+                             EVT NewVT) const override;
 
   bool isTruncateFree(Type *Ty1, Type *Ty2) const override;
   bool isTruncateFree(EVT VT1, EVT VT2) const override;
@@ -364,6 +368,11 @@ public:
   bool shouldConvertConstantLoadToIntImm(const APInt &Imm,
                                          Type *Ty) const override;
 
+  /// Return true if EXTRACT_SUBVECTOR is cheap for this result type
+  /// with this index.
+  bool isExtractSubvectorCheap(EVT ResVT, EVT SrcVT,
+                               unsigned Index) const override;
+
   Value *emitLoadLinked(IRBuilder<> &Builder, Value *Addr,
                         AtomicOrdering Ord) const override;
   Value *emitStoreConditional(IRBuilder<> &Builder, Value *Val,
@@ -414,7 +423,7 @@ public:
     // Do not merge to float value size (128 bytes) if no implicit
     // float attribute is set.
 
-    bool NoFloat = DAG.getMachineFunction().getFunction()->hasFnAttribute(
+    bool NoFloat = DAG.getMachineFunction().getFunction().hasFnAttribute(
         Attribute::NoImplicitFloat);
 
     if (NoFloat)
@@ -443,8 +452,8 @@ public:
   }
 
   bool supportSplitCSR(MachineFunction *MF) const override {
-    return MF->getFunction()->getCallingConv() == CallingConv::CXX_FAST_TLS &&
-           MF->getFunction()->hasFnAttribute(Attribute::NoUnwind);
+    return MF->getFunction().getCallingConv() == CallingConv::CXX_FAST_TLS &&
+           MF->getFunction().hasFnAttribute(Attribute::NoUnwind);
   }
   void initializeSplitCSR(MachineBasicBlock *Entry) const override;
   void insertCopiesSplitCSR(
@@ -454,6 +463,9 @@ public:
   bool supportSwiftError() const override {
     return true;
   }
+
+  /// Enable aggressive FMA fusion on targets that want it.
+  bool enableAggressiveFMAFusion(EVT VT) const override;
 
   /// Returns the size of the platform's va_list object.
   unsigned getVaListSizeInBits(const DataLayout &DL) const override;
@@ -544,12 +556,14 @@ private:
   SDValue getAddrLarge(NodeTy *N, SelectionDAG &DAG, unsigned Flags = 0) const;
   template <class NodeTy>
   SDValue getAddr(NodeTy *N, SelectionDAG &DAG, unsigned Flags = 0) const;
+  SDValue LowerADDROFRETURNADDR(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerGlobalTLSAddress(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerDarwinGlobalTLSAddress(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerELFGlobalTLSAddress(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerELFTLSDescCallSeq(SDValue SymAddr, const SDLoc &DL,
                                  SelectionDAG &DAG) const;
+  SDValue LowerWindowsGlobalTLSAddress(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerSELECT(SDValue Op, SelectionDAG &DAG) const;
@@ -591,6 +605,12 @@ private:
   SDValue LowerCONCAT_VECTORS(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerFSINCOS(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerVECREDUCE(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerATOMIC_LOAD_SUB(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerATOMIC_LOAD_AND(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerDYNAMIC_STACKALLOC(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerWindowsDYNAMIC_STACKALLOC(SDValue Op, SDValue Chain,
+                                         SDValue &Size,
+                                         SelectionDAG &DAG) const;
 
   SDValue BuildSDIVPow2(SDNode *N, const APInt &Divisor, SelectionDAG &DAG,
                         std::vector<SDNode *> *Created) const override;
@@ -646,6 +666,8 @@ private:
                           SelectionDAG &DAG) const override;
 
   bool shouldNormalizeToSelectSequence(LLVMContext &, EVT) const override;
+
+  void finalizeLowering(MachineFunction &MF) const override;
 };
 
 namespace AArch64 {

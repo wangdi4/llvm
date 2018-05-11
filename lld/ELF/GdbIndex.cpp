@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "GdbIndex.h"
+#include "Symbols.h"
 #include "lld/Common/Memory.h"
 #include "llvm/DebugInfo/DWARF/DWARFDebugPubTable.h"
 #include "llvm/Object/ELFObjectFile.h"
@@ -33,7 +34,7 @@ template <class ELFT> LLDDwarfObj<ELFT>::LLDDwarfObj(ObjFile<ELFT> *Obj) {
                                  .Case(".debug_ranges", &RangeSection)
                                  .Case(".debug_line", &LineSection)
                                  .Default(nullptr)) {
-      Sec->maybeUncompress();
+      Sec->maybeDecompress();
       M->Data = toStringRef(Sec->Data);
       M->Sec = Sec;
       continue;

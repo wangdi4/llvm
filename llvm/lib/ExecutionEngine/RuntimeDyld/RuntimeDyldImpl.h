@@ -385,7 +385,8 @@ protected:
   /// new section for them and update the symbol mappings in the object and
   /// symbol table.
   Error emitCommonSymbols(const ObjectFile &Obj,
-                          CommonSymbolList &CommonSymbols);
+                          CommonSymbolList &CommonSymbols, uint64_t CommonSize,
+                          uint32_t CommonAlign);
 
   /// \brief Emits section data from the object file to the MemoryManager.
   /// \param IsCode if it's true then allocateCodeSection() will be
@@ -516,6 +517,21 @@ public:
     //        infrastructure for.
     TargetAddr = modifyAddressBasedOnFlags(TargetAddr, SymEntry.getFlags());
     return JITEvaluatedSymbol(TargetAddr, SymEntry.getFlags());
+  }
+
+  std::map<StringRef, JITEvaluatedSymbol> getSymbolTable() const {
+    std::map<StringRef, JITEvaluatedSymbol> Result;
+
+    for (auto &KV : GlobalSymbolTable) {
+      auto SectionID = KV.second.getSectionID();
+      uint64_t SectionAddr = 0;
+      if (SectionID != AbsoluteSymbolSection)
+        SectionAddr = getSectionLoadAddress(SectionID);
+      Result[KV.first()] =
+        JITEvaluatedSymbol(SectionAddr + KV.second.getOffset(), KV.second.getFlags());
+    }
+
+    return Result;
   }
 
   void resolveRelocations();

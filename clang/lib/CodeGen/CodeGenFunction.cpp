@@ -70,7 +70,7 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
       IsSanitizerScope(false), CurFuncIsThunk(false), AutoreleaseResult(false),
       SawAsmBlock(false), IsOutlinedSEHHelper(false), BlockInfo(nullptr),
       BlockPointer(nullptr), LambdaThisCaptureField(nullptr),
-      NormalCleanupDest(nullptr), NextCleanupDestIndex(1),
+      NormalCleanupDest(Address::invalid()), NextCleanupDestIndex(1),
       FirstBlockInfo(nullptr), EHResumeBlock(nullptr), ExceptionSlot(nullptr),
       EHSelectorSlot(nullptr), DebugInfo(CGM.getModuleDebugInfo()),
       DisableDebugInfo(false), DidCallStackSave(false), IndirectBranch(nullptr),
@@ -102,6 +102,9 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
   }
   if (CGM.getCodeGenOpts().ReciprocalMath) {
     FMF.setAllowReciprocal();
+  }
+  if (CGM.getCodeGenOpts().Reassociate) {
+    FMF.setAllowReassoc();
   }
   Builder.setFastMathFlags(FMF);
 }
@@ -416,6 +419,9 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   EmitIfUsed(*this, TerminateHandler);
   EmitIfUsed(*this, UnreachableBlock);
 
+  for (const auto &FuncletAndParent : TerminateFunclets)
+    EmitIfUsed(*this, FuncletAndParent.second);
+
   if (CGM.getCodeGenOpts().EmitDeclMetadata)
     EmitDeclMetadata();
 
@@ -433,10 +439,11 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   // if compiled with no optimizations. We do it for coroutine as the lifetime
   // of CleanupDestSlot alloca make correct coroutine frame building very
   // difficult.
-  if (NormalCleanupDest && isCoroutine()) {
+  if (NormalCleanupDest.isValid() && isCoroutine()) {
     llvm::DominatorTree DT(*CurFn);
-    llvm::PromoteMemToReg(NormalCleanupDest, DT);
-    NormalCleanupDest = nullptr;
+    llvm::PromoteMemToReg(
+        cast<llvm::AllocaInst>(NormalCleanupDest.getPointer()), DT);
+    NormalCleanupDest = Address::invalid();
   }
 }
 
@@ -459,9 +466,19 @@ bool CodeGenFunction::ShouldXRayInstrumentFunction() const {
 }
 
 /// AlwaysEmitXRayCustomEvents - Return true if we should emit IR for calls to
-/// the __xray_customevent(...) builin calls, when doing XRay instrumentation.
+/// the __xray_customevent(...) builtin calls, when doing XRay instrumentation.
 bool CodeGenFunction::AlwaysEmitXRayCustomEvents() const {
-  return CGM.getCodeGenOpts().XRayAlwaysEmitCustomEvents;
+  return CGM.getCodeGenOpts().XRayInstrumentFunctions &&
+         (CGM.getCodeGenOpts().XRayAlwaysEmitCustomEvents ||
+          CGM.getCodeGenOpts().XRayInstrumentationBundle.Mask ==
+              XRayInstrKind::Custom);
+}
+
+bool CodeGenFunction::AlwaysEmitXRayTypedEvents() const {
+  return CGM.getCodeGenOpts().XRayInstrumentFunctions &&
+         (CGM.getCodeGenOpts().XRayAlwaysEmitTypedEvents ||
+          CGM.getCodeGenOpts().XRayInstrumentationBundle.Mask ==
+              XRayInstrKind::Typed);
 }
 
 llvm::Constant *
@@ -839,19 +856,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
 
   if (D) {
     // Apply the no_sanitize* attributes to SanOpts.
-    for (auto Attr : D->specific_attrs<NoSanitizeAttr>())
-      SanOpts.Mask &= ~Attr->getMask();
+    for (auto Attr : D->specific_attrs<NoSanitizeAttr>()) {
+      SanitizerMask mask = Attr->getMask();
+      SanOpts.Mask &= ~mask;
+      if (mask & SanitizerKind::Address)
+        SanOpts.set(SanitizerKind::KernelAddress, false);
+      if (mask & SanitizerKind::KernelAddress)
+        SanOpts.set(SanitizerKind::Address, false);
+      if (mask & SanitizerKind::HWAddress)
+        SanOpts.set(SanitizerKind::KernelHWAddress, false);
+      if (mask & SanitizerKind::KernelHWAddress)
+        SanOpts.set(SanitizerKind::HWAddress, false);
+    }
   }
 
   // Apply sanitizer attributes to the function.
   if (SanOpts.hasOneOf(SanitizerKind::Address | SanitizerKind::KernelAddress))
     Fn->addFnAttr(llvm::Attribute::SanitizeAddress);
+  if (SanOpts.hasOneOf(SanitizerKind::HWAddress | SanitizerKind::KernelHWAddress))
+    Fn->addFnAttr(llvm::Attribute::SanitizeHWAddress);
   if (SanOpts.has(SanitizerKind::Thread))
     Fn->addFnAttr(llvm::Attribute::SanitizeThread);
   if (SanOpts.has(SanitizerKind::Memory))
     Fn->addFnAttr(llvm::Attribute::SanitizeMemory);
   if (SanOpts.has(SanitizerKind::SafeStack))
     Fn->addFnAttr(llvm::Attribute::SafeStack);
+  if (SanOpts.has(SanitizerKind::ShadowCallStack))
+    Fn->addFnAttr(llvm::Attribute::ShadowCallStack);
+
+  // Apply fuzzing attribute to the function.
+  if (SanOpts.hasOneOf(SanitizerKind::Fuzzer | SanitizerKind::FuzzerNoLink))
+    Fn->addFnAttr(llvm::Attribute::OptForFuzzing);
 
   // Ignore TSan memory acesses from within ObjC/ObjC++ dealloc, initialize,
   // .cxx_destruct, __destroy_helper_block_ and all of their calees at run time.
@@ -879,7 +914,10 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
   }
 
   // Apply xray attributes to the function (as a string, for now)
-  if (D && ShouldXRayInstrumentFunction()) {
+  bool InstrumentXray = ShouldXRayInstrumentFunction() &&
+                        CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
+                            XRayInstrKind::Function);
+  if (D && InstrumentXray) {
     if (const auto *XRayAttr = D->getAttr<XRayInstrumentAttr>()) {
       if (XRayAttr->alwaysXRayInstrument())
         Fn->addFnAttr("function-instrument", "xray-always");
@@ -896,10 +934,6 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
             llvm::itostr(CGM.getCodeGenOpts().XRayInstructionThreshold));
     }
   }
-
-  if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-    if (CGM.getLangOpts().OpenMP && FD->hasAttr<OMPDeclareSimdDeclAttr>())
-      CGM.getOpenMPRuntime().emitDeclareSimdFunction(FD, Fn);
 
   // Add no-jump-tables value.
   Fn->addFnAttr("no-jump-tables",
@@ -920,8 +954,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
   if (getLangOpts().CPlusPlus && SanOpts.has(SanitizerKind::Function)) {
     if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
       if (llvm::Constant *PrologueSig = getPrologueSignature(CGM, FD)) {
+        // Remove any (C++17) exception specifications, to allow calling e.g. a
+        // noexcept function through a non-noexcept pointer.
+        auto ProtoTy =
+          getContext().getFunctionTypeWithExceptionSpec(FD->getType(),
+                                                        EST_None);
         llvm::Constant *FTRTTIConst =
-            CGM.GetAddrOfRTTIDescriptor(FD->getType(), /*ForEH=*/true);
+            CGM.GetAddrOfRTTIDescriptor(ProtoTy, /*ForEH=*/true);
         llvm::Constant *FTRTTIConstEncoded =
             EncodeAddrForUseInPrologue(Fn, FTRTTIConst);
         llvm::Constant *PrologueStructElems[] = {PrologueSig,
@@ -986,7 +1025,8 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
       ArgTypes.push_back(VD->getType());
     QualType FnType = getContext().getFunctionType(
         RetTy, ArgTypes, FunctionProtoType::ExtProtoInfo(CC));
-    DI->EmitFunctionStart(GD, Loc, StartLoc, FnType, CurFn, Builder);
+    DI->EmitFunctionStart(GD, Loc, StartLoc, FnType, CurFn, CurFuncIsThunk,
+                          Builder);
   }
 
   if (ShouldInstrumentFunction()) {
@@ -1005,10 +1045,12 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
   // The attribute "counting-function" is set to mcount function name which is
   // architecture dependent.
   if (CGM.getCodeGenOpts().InstrumentForProfiling) {
-    if (CGM.getCodeGenOpts().CallFEntry)
-      Fn->addFnAttr("fentry-call", "true");
-    else {
-      if (!CurFuncDecl || !CurFuncDecl->hasAttr<NoInstrumentFunctionAttr>()) {
+    // Calls to fentry/mcount should not be generated if function has
+    // the no_instrument_function attribute.
+    if (!CurFuncDecl || !CurFuncDecl->hasAttr<NoInstrumentFunctionAttr>()) {
+      if (CGM.getCodeGenOpts().CallFEntry)
+        Fn->addFnAttr("fentry-call", "true");
+      else {
         Fn->addFnAttr("instrument-function-entry-inlined",
                       getTarget().getMCountName());
       }
@@ -1054,6 +1096,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
   EmitStartEHSpec(CurCodeDecl);
 
   PrologueCleanupDepth = EHStack.stable_begin();
+
+  // Emit OpenMP specific initialization of the device functions.
+  if (getLangOpts().OpenMP && CurCodeDecl)
+    CGM.getOpenMPRuntime().emitFunctionProlog(*this, CurCodeDecl);
+
   EmitFunctionProlog(*CurFnInfo, CurFn, Args);
 
   if (D && isa<CXXMethodDecl>(D) && cast<CXXMethodDecl>(D)->isInstance()) {
@@ -1107,8 +1154,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
       // may have a static invoker function, which may call this operator with
       // a null 'this' pointer.
       if (isLambdaCallOperator(MD) &&
-          cast<CXXRecordDecl>(MD->getParent())->getLambdaCaptureDefault() ==
-              LCD_None)
+          MD->getParent()->getLambdaCaptureDefault() == LCD_None)
         SkippedChecks.set(SanitizerKind::Null, true);
 
       EmitTypeCheck(isa<CXXConstructorDecl>(MD) ? TCK_ConstructorCall
@@ -1747,12 +1793,9 @@ CodeGenFunction::EmitNullInitialization(Address DestPtr, QualType Ty) {
     if (const VariableArrayType *vlaType =
           dyn_cast_or_null<VariableArrayType>(
                                           getContext().getAsArrayType(Ty))) {
-      QualType eltType;
-      llvm::Value *numElts;
-      std::tie(numElts, eltType) = getVLASize(vlaType);
-
-      SizeVal = numElts;
-      CharUnits eltSize = getContext().getTypeSizeInChars(eltType);
+      auto VlaSize = getVLASize(vlaType);
+      SizeVal = VlaSize.NumElts;
+      CharUnits eltSize = getContext().getTypeSizeInChars(VlaSize.Type);
       if (!eltSize.isOne())
         SizeVal = Builder.CreateNUWMul(SizeVal, CGM.getSize(eltSize));
       vla = vlaType;
@@ -1835,7 +1878,7 @@ llvm::Value *CodeGenFunction::emitArrayLength(const ArrayType *origArrayType,
   // this is the size of the VLA in bytes, not its size in elements.
   llvm::Value *numVLAElements = nullptr;
   if (isa<VariableArrayType>(arrayType)) {
-    numVLAElements = getVLASize(cast<VariableArrayType>(arrayType)).first;
+    numVLAElements = getVLASize(cast<VariableArrayType>(arrayType)).NumElts;
 
     // Walk into all VLAs.  This doesn't require changes to addr,
     // which has type T* where T is the first non-VLA element type.
@@ -1916,14 +1959,13 @@ llvm::Value *CodeGenFunction::emitArrayLength(const ArrayType *origArrayType,
   return numElements;
 }
 
-std::pair<llvm::Value*, QualType>
-CodeGenFunction::getVLASize(QualType type) {
+CodeGenFunction::VlaSizePair CodeGenFunction::getVLASize(QualType type) {
   const VariableArrayType *vla = getContext().getAsVariableArrayType(type);
   assert(vla && "type was not a variable array type!");
   return getVLASize(vla);
 }
 
-std::pair<llvm::Value*, QualType>
+CodeGenFunction::VlaSizePair
 CodeGenFunction::getVLASize(const VariableArrayType *type) {
   // The number of elements so far; always size_t.
   llvm::Value *numElements = nullptr;
@@ -1944,7 +1986,22 @@ CodeGenFunction::getVLASize(const VariableArrayType *type) {
     }
   } while ((type = getContext().getAsVariableArrayType(elementType)));
 
-  return std::pair<llvm::Value*,QualType>(numElements, elementType);
+  return { numElements, elementType };
+}
+
+CodeGenFunction::VlaSizePair
+CodeGenFunction::getVLAElements1D(QualType type) {
+  const VariableArrayType *vla = getContext().getAsVariableArrayType(type);
+  assert(vla && "type was not a variable array type!");
+  return getVLAElements1D(vla);
+}
+
+CodeGenFunction::VlaSizePair
+CodeGenFunction::getVLAElements1D(const VariableArrayType *Vla) {
+  llvm::Value *VlaSize = VLASizeMap[Vla->getSizeExpr()];
+  assert(VlaSize && "no size for VLA!");
+  assert(VlaSize->getType() == SizeTy);
+  return { VlaSize, Vla->getElementType() };
 }
 
 void CodeGenFunction::EmitVariablyModifiedType(QualType type) {
@@ -2294,6 +2351,60 @@ void CodeGenFunction::EmitSanitizerStatReport(llvm::SanitizerStatKind SSK) {
   llvm::IRBuilder<> IRB(Builder.GetInsertBlock(), Builder.GetInsertPoint());
   IRB.SetCurrentDebugLocation(Builder.getCurrentDebugLocation());
   CGM.getSanStats().create(IRB, SSK);
+}
+
+llvm::Value *
+CodeGenFunction::FormResolverCondition(const MultiVersionResolverOption &RO) {
+  llvm::Value *TrueCondition = nullptr;
+  if (!RO.ParsedAttribute.Architecture.empty())
+    TrueCondition = EmitX86CpuIs(RO.ParsedAttribute.Architecture);
+
+  if (!RO.ParsedAttribute.Features.empty()) {
+    SmallVector<StringRef, 8> FeatureList;
+    llvm::for_each(RO.ParsedAttribute.Features,
+                   [&FeatureList](const std::string &Feature) {
+                     FeatureList.push_back(StringRef{Feature}.substr(1));
+                   });
+    llvm::Value *FeatureCmp = EmitX86CpuSupports(FeatureList);
+    TrueCondition = TrueCondition ? Builder.CreateAnd(TrueCondition, FeatureCmp)
+                                  : FeatureCmp;
+  }
+  return TrueCondition;
+}
+
+void CodeGenFunction::EmitMultiVersionResolver(
+    llvm::Function *Resolver, ArrayRef<MultiVersionResolverOption> Options) {
+  assert((getContext().getTargetInfo().getTriple().getArch() ==
+              llvm::Triple::x86 ||
+          getContext().getTargetInfo().getTriple().getArch() ==
+              llvm::Triple::x86_64) &&
+         "Only implemented for x86 targets");
+
+  // Main function's basic block.
+  llvm::BasicBlock *CurBlock = createBasicBlock("entry", Resolver);
+  Builder.SetInsertPoint(CurBlock);
+  EmitX86CpuInit();
+
+  llvm::Function *DefaultFunc = nullptr;
+  for (const MultiVersionResolverOption &RO : Options) {
+    Builder.SetInsertPoint(CurBlock);
+    llvm::Value *TrueCondition = FormResolverCondition(RO);
+
+    if (!TrueCondition) {
+      DefaultFunc = RO.Function;
+    } else {
+      llvm::BasicBlock *RetBlock = createBasicBlock("ro_ret", Resolver);
+      llvm::IRBuilder<> RetBuilder(RetBlock);
+      RetBuilder.CreateRet(RO.Function);
+      CurBlock = createBasicBlock("ro_else", Resolver);
+      Builder.CreateCondBr(TrueCondition, RetBlock, CurBlock);
+    }
+  }
+
+  assert(DefaultFunc && "No default version?");
+  // Emit return from the 'else-ist' block.
+  Builder.SetInsertPoint(CurBlock);
+  Builder.CreateRet(DefaultFunc);
 }
 
 llvm::DebugLoc CodeGenFunction::SourceLocToDebugLoc(SourceLocation Location) {

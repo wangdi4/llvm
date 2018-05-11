@@ -601,29 +601,22 @@ bool RegBankSelect::runOnMachineFunction(MachineFunction &MF) {
     return false;
 
   DEBUG(dbgs() << "Assign register banks for: " << MF.getName() << '\n');
-  const Function *F = MF.getFunction();
+  const Function &F = MF.getFunction();
   Mode SaveOptMode = OptMode;
-  if (F->hasFnAttribute(Attribute::OptimizeNone))
+  if (F.hasFnAttribute(Attribute::OptimizeNone))
     OptMode = Mode::Fast;
   init(MF);
 
 #ifndef NDEBUG
   // Check that our input is fully legal: we require the function to have the
   // Legalized property, so it should be.
-  // FIXME: This should be in the MachineVerifier, but it can't use the
-  // LegalizerInfo as it's currently in the separate GlobalISel library.
-  const MachineRegisterInfo &MRI = MF.getRegInfo();
-  if (const LegalizerInfo *MLI = MF.getSubtarget().getLegalizerInfo()) {
-    for (MachineBasicBlock &MBB : MF) {
-      for (MachineInstr &MI : MBB) {
-        if (isPreISelGenericOpcode(MI.getOpcode()) && !MLI->isLegal(MI, MRI)) {
-          reportGISelFailure(MF, *TPC, *MORE, "gisel-regbankselect",
-                             "instruction is not legal", MI);
-          return false;
-        }
-      }
+  // FIXME: This should be in the MachineVerifier.
+  if (!DisableGISelLegalityCheck)
+    if (const MachineInstr *MI = machineFunctionIsIllegal(MF)) {
+      reportGISelFailure(MF, *TPC, *MORE, "gisel-regbankselect",
+                         "instruction is not legal", *MI);
+      return false;
     }
-  }
 #endif
 
   // Walk the function and assign register banks to all operands.

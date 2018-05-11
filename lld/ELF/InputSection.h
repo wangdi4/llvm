@@ -18,8 +18,6 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/TinyPtrVector.h"
 #include "llvm/Object/ELF.h"
-#include "llvm/Support/Threading.h"
-#include <mutex>
 
 namespace lld {
 namespace elf {
@@ -44,6 +42,13 @@ public:
   Kind kind() const { return (Kind)SectionKind; }
 
   StringRef Name;
+
+  // This pointer points to the "real" instance of this instance.
+  // Usually Repl == this. However, if ICF merges two sections,
+  // Repl pointer of one section points to another section. So,
+  // if you need to get a pointer to this instance, do not use
+  // this but instead this->Repl.
+  SectionBase *Repl;
 
   unsigned SectionKind : 3;
 
@@ -73,26 +78,22 @@ public:
   // section.
   uint64_t getOffset(uint64_t Offset) const;
 
+  uint64_t getVA(uint64_t Offset = 0) const;
+
 protected:
   SectionBase(Kind SectionKind, StringRef Name, uint64_t Flags,
               uint64_t Entsize, uint64_t Alignment, uint32_t Type,
               uint32_t Info, uint32_t Link)
-      : Name(Name), SectionKind(SectionKind), Live(false), Bss(false),
-        Alignment(Alignment), Flags(Flags), Entsize(Entsize), Type(Type),
-        Link(Link), Info(Info) {}
+      : Name(Name), Repl(this), SectionKind(SectionKind), Live(false),
+        Bss(false), Alignment(Alignment), Flags(Flags), Entsize(Entsize),
+        Type(Type), Link(Link), Info(Info) {}
 };
 
 // This corresponds to a section of an input file.
 class InputSectionBase : public SectionBase {
 public:
-  InputSectionBase()
-      : SectionBase(Regular, "", /*Flags*/ 0, /*Entsize*/ 0, /*Alignment*/ 0,
-                    /*Type*/ 0,
-                    /*Info*/ 0, /*Link*/ 0),
-        NumRelocations(0), AreRelocsRela(false), Repl(this) {}
-
   template <class ELFT>
-  InputSectionBase(ObjFile<ELFT> *File, const typename ELFT::Shdr *Header,
+  InputSectionBase(ObjFile<ELFT> &File, const typename ELFT::Shdr &Header,
                    StringRef Name, Kind SectionKind);
 
   InputSectionBase(InputFile *File, uint64_t Flags, uint32_t Type,
@@ -113,8 +114,6 @@ public:
 
   ArrayRef<uint8_t> Data;
   uint64_t getOffsetInFile() const;
-
-  static InputSectionBase Discarded;
 
   // True if this section has already been placed to a linker script
   // output section. This is needed because, in a linker script, you
@@ -154,13 +153,6 @@ public:
         NumRelocations);
   }
 
-  // This pointer points to the "real" instance of this instance.
-  // Usually Repl == this. However, if ICF merges two sections,
-  // Repl pointer of one section points to another section. So,
-  // if you need to get a pointer to this instance, do not use
-  // this but instead this->Repl.
-  InputSectionBase *Repl;
-
   // InputSections that are dependent on us (reverse dependency for GC)
   llvm::TinyPtrVector<InputSection *> DependentSections;
 
@@ -172,11 +164,10 @@ public:
   // Compilers emit zlib-compressed debug sections if the -gz option
   // is given. This function checks if this section is compressed, and
   // if so, decompress in memory.
-  void maybeUncompress();
+  void maybeDecompress();
 
   // Returns a source location string. Used to construct an error message.
   template <class ELFT> std::string getLocation(uint64_t Offset);
-  template <class ELFT>
   std::string getSrcMsg(const Symbol &Sym, uint64_t Offset);
   std::string getObjMsg(uint64_t Offset);
 
@@ -198,9 +189,9 @@ public:
   }
 
 private:
-  // A pointer that owns uncompressed data if a section is compressed by zlib.
+  // A pointer that owns decompressed data if a section is compressed by zlib.
   // Since the feature is not used often, this is usually a nullptr.
-  std::unique_ptr<char[]> UncompressBuf;
+  std::unique_ptr<char[]> DecompressBuf;
 };
 
 // SectionPiece represents a piece of splittable section contents.
@@ -209,7 +200,7 @@ private:
 // be found by looking at the next one).
 struct SectionPiece {
   SectionPiece(size_t Off, uint32_t Hash, bool Live)
-      : InputOff(Off), Hash(Hash), OutputOff(-1),
+      : InputOff(Off), Hash(Hash), OutputOff(0),
         Live(Live || !Config->GcSections) {}
 
   uint32_t InputOff;
@@ -224,8 +215,11 @@ static_assert(sizeof(SectionPiece) == 16, "SectionPiece is too big");
 class MergeInputSection : public InputSectionBase {
 public:
   template <class ELFT>
-  MergeInputSection(ObjFile<ELFT> *F, const typename ELFT::Shdr *Header,
+  MergeInputSection(ObjFile<ELFT> &F, const typename ELFT::Shdr &Header,
                     StringRef Name);
+  MergeInputSection(uint64_t Flags, uint32_t Type, uint64_t Entsize,
+                    ArrayRef<uint8_t> Data, StringRef Name);
+
   static bool classof(const SectionBase *S) { return S->kind() == Merge; }
   void splitIntoPieces();
 
@@ -235,13 +229,14 @@ public:
       LiveOffsets.insert(Offset);
   }
 
-  // Translate an offset in the input section to an offset
-  // in the output section.
-  uint64_t getOffset(uint64_t Offset) const;
+  // Translate an offset in the input section to an offset in the parent
+  // MergeSyntheticSection.
+  uint64_t getParentOffset(uint64_t Offset) const;
 
   // Splittable sections are handled as a sequence of data
   // rather than a single large blob of data.
   std::vector<SectionPiece> Pieces;
+  llvm::DenseMap<uint32_t, uint32_t> OffsetMap;
 
   // Returns I'th piece's data. This function is very hot when
   // string merging is enabled, so we want to inline.
@@ -255,7 +250,9 @@ public:
 
   // Returns the SectionPiece at a given input section offset.
   SectionPiece *getSectionPiece(uint64_t Offset);
-  const SectionPiece *getSectionPiece(uint64_t Offset) const;
+  const SectionPiece *getSectionPiece(uint64_t Offset) const {
+    return const_cast<MergeInputSection *>(this)->getSectionPiece(Offset);
+  }
 
   SyntheticSection *getParent() const;
 
@@ -263,10 +260,7 @@ private:
   void splitStrings(ArrayRef<uint8_t> A, size_t Size);
   void splitNonStrings(ArrayRef<uint8_t> A, size_t Size);
 
-  mutable llvm::DenseMap<uint32_t, uint32_t> OffsetMap;
-  mutable llvm::once_flag InitOffsetMap;
-
-  llvm::DenseSet<uint64_t> LiveOffsets;
+  llvm::DenseSet<uint32_t> LiveOffsets;
 };
 
 struct EhSectionPiece {
@@ -287,7 +281,7 @@ struct EhSectionPiece {
 class EhInputSection : public InputSectionBase {
 public:
   template <class ELFT>
-  EhInputSection(ObjFile<ELFT> *F, const typename ELFT::Shdr *Header,
+  EhInputSection(ObjFile<ELFT> &F, const typename ELFT::Shdr &Header,
                  StringRef Name);
   static bool classof(const SectionBase *S) { return S->kind() == EHFrame; }
   template <class ELFT> void split();
@@ -306,20 +300,24 @@ public:
 // .eh_frame. It also includes the synthetic sections themselves.
 class InputSection : public InputSectionBase {
 public:
-  InputSection(uint64_t Flags, uint32_t Type, uint32_t Alignment,
+  InputSection(InputFile *F, uint64_t Flags, uint32_t Type, uint32_t Alignment,
                ArrayRef<uint8_t> Data, StringRef Name, Kind K = Regular);
   template <class ELFT>
-  InputSection(ObjFile<ELFT> *F, const typename ELFT::Shdr *Header,
+  InputSection(ObjFile<ELFT> &F, const typename ELFT::Shdr &Header,
                StringRef Name);
 
   // Write this section to a mmap'ed file, assuming Buf is pointing to
   // beginning of the output section.
   template <class ELFT> void writeTo(uint8_t *Buf);
 
+  uint64_t getOffset(uint64_t Offset) const { return OutSecOff + Offset; }
+
   OutputSection *getParent() const;
 
-  // The offset from beginning of the output sections this section was assigned
-  // to. The writer sets a value.
+  // This variable has two usages. Initially, it represents an index in the
+  // OutputSection's InputSection list, and is used when ordering SHF_LINK_ORDER
+  // sections. After assignAddresses is called, it represents the offset from
+  // the beginning of the output section this section was assigned to.
   uint64_t OutSecOff = 0;
 
   static bool classof(const SectionBase *S);
@@ -335,6 +333,8 @@ public:
   // Called by ICF to merge two input sections.
   void replace(InputSection *Other);
 
+  static InputSection Discarded;
+
 private:
   template <class ELFT, class RelTy>
   void copyRelocations(uint8_t *Buf, llvm::ArrayRef<RelTy> Rels);
@@ -344,10 +344,6 @@ private:
 
 // The list of all input sections.
 extern std::vector<InputSectionBase *> InputSections;
-
-// Builds section order for handling --symbol-ordering-file.
-llvm::DenseMap<SectionBase *, int> buildSectionOrder();
-
 } // namespace elf
 
 std::string toString(const elf::InputSectionBase *);

@@ -24,6 +24,7 @@ struct isl_vec;
 typedef struct isl_vec isl_vec;
 
 __isl_give isl_vec *isl_vec_alloc(isl_ctx *ctx, unsigned size);
+__isl_give isl_vec *isl_vec_zero(isl_ctx *ctx, unsigned size);
 __isl_give isl_vec *isl_vec_copy(__isl_keep isl_vec *vec);
 __isl_null isl_vec *isl_vec_free(__isl_take isl_vec *vec);
 
@@ -64,6 +65,7 @@ __isl_give isl_vec *isl_vec_read_from_file(isl_ctx *ctx, FILE *input);
 
 __isl_give isl_vec *isl_vec_drop_els(__isl_take isl_vec *vec,
 	unsigned pos, unsigned n);
+__isl_give isl_vec *isl_vec_add_els(__isl_take isl_vec *vec, unsigned n);
 __isl_give isl_vec *isl_vec_insert_els(__isl_take isl_vec *vec,
 	unsigned pos, unsigned n);
 __isl_give isl_vec *isl_vec_insert_zero_els(__isl_take isl_vec *vec,

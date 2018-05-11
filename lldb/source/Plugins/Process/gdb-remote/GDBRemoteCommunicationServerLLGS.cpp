@@ -33,9 +33,9 @@
 #include "lldb/Host/common/NativeProcessProtocol.h"
 #include "lldb/Host/common/NativeRegisterContext.h"
 #include "lldb/Host/common/NativeThreadProtocol.h"
-#include "lldb/Interpreter/Args.h"
 #include "lldb/Target/FileAction.h"
 #include "lldb/Target/MemoryRegionInfo.h"
+#include "lldb/Utility/Args.h"
 #include "lldb/Utility/DataBuffer.h"
 #include "lldb/Utility/Endian.h"
 #include "lldb/Utility/JSON.h"
@@ -49,7 +49,7 @@
 // Project includes
 #include "ProcessGDBRemote.h"
 #include "ProcessGDBRemoteLog.h"
-#include "Utility/StringExtractorGDBRemote.h"
+#include "lldb/Utility/StringExtractorGDBRemote.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -204,21 +204,8 @@ void GDBRemoteCommunicationServerLLGS::RegisterPacketHandlers() {
                         });
 }
 
-Status
-GDBRemoteCommunicationServerLLGS::SetLaunchArguments(const char *const args[],
-                                                     int argc) {
-  if ((argc < 1) || !args || !args[0] || !args[0][0])
-    return Status("%s: no process command line specified to launch",
-                  __FUNCTION__);
-
-  m_process_launch_info.SetArguments(const_cast<const char **>(args), true);
-  return Status();
-}
-
-Status
-GDBRemoteCommunicationServerLLGS::SetLaunchFlags(unsigned int launch_flags) {
-  m_process_launch_info.GetFlags().Set(launch_flags);
-  return Status();
+void GDBRemoteCommunicationServerLLGS::SetLaunchInfo(const ProcessLaunchInfo &info) {
+  m_process_launch_info = info;
 }
 
 Status GDBRemoteCommunicationServerLLGS::LaunchProcess() {
@@ -244,13 +231,8 @@ Status GDBRemoteCommunicationServerLLGS::LaunchProcess() {
                                      "process but one already exists");
     auto process_or =
         m_process_factory.Launch(m_process_launch_info, *this, m_mainloop);
-    if (!process_or) {
-      Status status(process_or.takeError());
-      llvm::errs() << llvm::formatv(
-          "failed to launch executable `{0}`: {1}",
-          m_process_launch_info.GetArguments().GetArgumentAtIndex(0), status);
-      return status;
-    }
+    if (!process_or)
+      return Status(process_or.takeError());
     m_debugged_process_up = std::move(*process_or);
   }
 
@@ -309,7 +291,7 @@ Status GDBRemoteCommunicationServerLLGS::AttachToProcess(lldb::pid_t pid) {
   // else.
   if (m_debugged_process_up &&
       m_debugged_process_up->GetID() != LLDB_INVALID_PROCESS_ID)
-    return Status("cannot attach to a process %" PRIu64
+    return Status("cannot attach to process %" PRIu64
                   " when another process with pid %" PRIu64
                   " is being debugged.",
                   pid, m_debugged_process_up->GetID());
@@ -830,6 +812,7 @@ void GDBRemoteCommunicationServerLLGS::HandleInferiorState_Exited(
 
   // We are ready to exit the debug monitor.
   m_exit_now = true;
+  m_mainloop.RequestTermination();
 }
 
 void GDBRemoteCommunicationServerLLGS::HandleInferiorState_Stopped(
@@ -2952,7 +2935,7 @@ GDBRemoteCommunicationServerLLGS::Handle_vAttach(
       log->Printf("GDBRemoteCommunicationServerLLGS::%s failed to attach to "
                   "pid %" PRIu64 ": %s\n",
                   __FUNCTION__, pid, error.AsCString());
-    return SendErrorResponse(0x01);
+    return SendErrorResponse(error);
   }
 
   // Notify we attached by sending a stop packet.

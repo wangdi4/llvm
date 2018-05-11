@@ -26,7 +26,6 @@
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/CodeGen/ScheduleDAG.h"
 #include "llvm/CodeGen/ScheduleHazardRecognizer.h"
 #include "llvm/CodeGen/SchedulerRegistry.h"
@@ -46,6 +45,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/MachineValueType.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
@@ -346,9 +346,8 @@ static void GetCostForDef(const ScheduleDAGSDNodes::RegDefIter &RegDefPos,
 
 /// Schedule - Schedule the DAG using list scheduling.
 void ScheduleDAGRRList::Schedule() {
-  DEBUG(dbgs()
-        << "********** List Scheduling BB#" << BB->getNumber()
-        << " '" << BB->getName() << "' **********\n");
+  DEBUG(dbgs() << "********** List Scheduling " << printMBBReference(*BB)
+               << " '" << BB->getName() << "' **********\n");
 
   CurCycle = 0;
   IssueCount = 0;
@@ -1118,22 +1117,34 @@ SUnit *ScheduleDAGRRList::CopyAndMoveSuccessors(SUnit *SU) {
   if (!N)
     return nullptr;
 
-  if (SU->getNode()->getGluedNode())
+  DEBUG(dbgs() << "Considering duplicating the SU\n");
+  DEBUG(SU->dump(this));
+
+  if (N->getGluedNode() &&
+      !TII->canCopyGluedNodeDuringSchedule(N)) {
+    DEBUG(dbgs()
+        << "Giving up because it has incoming glue and the target does not "
+           "want to copy it\n");
     return nullptr;
+  }
 
   SUnit *NewSU;
   bool TryUnfold = false;
   for (unsigned i = 0, e = N->getNumValues(); i != e; ++i) {
     MVT VT = N->getSimpleValueType(i);
-    if (VT == MVT::Glue)
+    if (VT == MVT::Glue) {
+      DEBUG(dbgs() << "Giving up because it has outgoing glue\n");
       return nullptr;
-    else if (VT == MVT::Other)
+    } else if (VT == MVT::Other)
       TryUnfold = true;
   }
   for (const SDValue &Op : N->op_values()) {
     MVT VT = Op.getNode()->getSimpleValueType(Op.getResNo());
-    if (VT == MVT::Glue)
+    if (VT == MVT::Glue && !TII->canCopyGluedNodeDuringSchedule(N)) {
+      DEBUG(dbgs() << "Giving up because it one of the operands is glue and "
+                      "the target does not want to copy it\n");
       return nullptr;
+    }
   }
 
   // If possible unfold instruction.

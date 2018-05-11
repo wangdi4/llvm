@@ -56,7 +56,8 @@ public:
 protected:
   ~DWARFUnitSectionBase() = default;
 
-  virtual void parseImpl(DWARFContext &Context, const DWARFSection &Section,
+  virtual void parseImpl(DWARFContext &Context, const DWARFObject &Obj,
+                         const DWARFSection &Section,
                          const DWARFDebugAbbrev *DA, const DWARFSection *RS,
                          StringRef SS, const DWARFSection &SOS,
                          const DWARFSection *AOS, const DWARFSection &LS,
@@ -116,14 +117,14 @@ public:
   }
 
 private:
-  void parseImpl(DWARFContext &Context, const DWARFSection &Section,
-                 const DWARFDebugAbbrev *DA, const DWARFSection *RS,
-                 StringRef SS, const DWARFSection &SOS, const DWARFSection *AOS,
-                 const DWARFSection &LS, bool LE, bool IsDWO,
-                 bool Lazy) override {
+  void parseImpl(DWARFContext &Context, const DWARFObject &Obj,
+                 const DWARFSection &Section, const DWARFDebugAbbrev *DA,
+                 const DWARFSection *RS, StringRef SS, const DWARFSection &SOS,
+                 const DWARFSection *AOS, const DWARFSection &LS, bool LE,
+                 bool IsDWO, bool Lazy) override {
     if (Parsed)
       return;
-    DataExtractor Data(Section.Data, LE, 0);
+    DWARFDataExtractor Data(Obj, Section, LE, 0);
     if (!Parser) {
       const DWARFUnitIndex *Index = nullptr;
       if (IsDWO)
@@ -165,6 +166,29 @@ struct BaseAddress {
   uint64_t SectionIndex;
 };
 
+/// Represents a unit's contribution to the string offsets table.
+struct StrOffsetsContributionDescriptor {
+  uint64_t Base = 0;
+  uint64_t Size = 0;
+  /// Format and version.
+  dwarf::FormParams FormParams = {0, 0, dwarf::DwarfFormat::DWARF32};
+
+  StrOffsetsContributionDescriptor(uint64_t Base, uint64_t Size,
+                                   uint8_t Version, dwarf::DwarfFormat Format)
+      : Base(Base), Size(Size), FormParams({Version, 0, Format}) {}
+
+  uint8_t getVersion() const { return FormParams.Version; }
+  dwarf::DwarfFormat getFormat() const { return FormParams.Format; }
+  uint8_t getDwarfOffsetByteSize() const {
+    return FormParams.getDwarfOffsetByteSize();
+  }
+  /// Determine whether a contribution to the string offsets table is
+  /// consistent with the relevant section size and that its length is
+  /// a multiple of the size of one of its entries.
+  Optional<StrOffsetsContributionDescriptor>
+  validateContributionSize(DWARFDataExtractor &DA);
+};
+
 class DWARFUnit {
   DWARFContext &Context;
   /// Section containing this DWARFUnit.
@@ -176,7 +200,6 @@ class DWARFUnit {
   const DWARFSection &LineSection;
   StringRef StringSection;
   const DWARFSection &StringOffsetSection;
-  uint64_t StringOffsetSectionBase = 0;
   const DWARFSection *AddrOffsetSection;
   uint32_t AddrOffsetSectionBase = 0;
   bool isLittleEndian;
@@ -184,7 +207,10 @@ class DWARFUnit {
   const DWARFUnitSectionBase &UnitSection;
 
   // Version, address size, and DWARF format.
-  DWARFFormParams FormParams;
+  dwarf::FormParams FormParams;
+  /// Start, length, and DWARF format of the unit's contribution to the string
+  /// offsets table (DWARF v5).
+  Optional<StrOffsetsContributionDescriptor> StringOffsetsTableContribution;
 
   uint32_t Offset;
   uint32_t Length;
@@ -214,10 +240,26 @@ class DWARFUnit {
   }
 
 protected:
-  virtual bool extractImpl(DataExtractor debug_info, uint32_t *offset_ptr);
+  virtual bool extractImpl(const DWARFDataExtractor &debug_info,
+                           uint32_t *offset_ptr);
 
   /// Size in bytes of the unit header.
   virtual uint32_t getHeaderSize() const { return getVersion() <= 4 ? 11 : 12; }
+
+  /// Find the unit's contribution to the string offsets table and determine its
+  /// length and form. The given offset is expected to be derived from the unit
+  /// DIE's DW_AT_str_offsets_base attribute.
+  Optional<StrOffsetsContributionDescriptor>
+  determineStringOffsetsTableContribution(DWARFDataExtractor &DA,
+                                          uint64_t Offset);
+
+  /// Find the unit's contribution to the string offsets table and determine its
+  /// length and form. The given offset is expected to be 0 in a dwo file or,
+  /// in a dwp file, the start of the unit's contribution to the string offsets
+  /// table section (as determined by the index table).
+  Optional<StrOffsetsContributionDescriptor>
+  determineStringOffsetsTableContributionDWO(DWARFDataExtractor &DA,
+                                             uint64_t Offset);
 
 public:
   DWARFUnit(DWARFContext &Context, const DWARFSection &Section,
@@ -259,8 +301,7 @@ public:
     return DataExtractor(StringSection, false, 0);
   }
 
-
-  bool extract(DataExtractor debug_info, uint32_t* offset_ptr);
+  bool extract(const DWARFDataExtractor &debug_info, uint32_t *offset_ptr);
 
   /// extractRangeList - extracts the range list referenced by this compile
   /// unit from .debug_ranges section. Returns true on success.
@@ -272,13 +313,27 @@ public:
   uint32_t getNextUnitOffset() const { return Offset + Length + 4; }
   uint32_t getLength() const { return Length; }
 
-  const DWARFFormParams &getFormParams() const { return FormParams; }
+  const Optional<StrOffsetsContributionDescriptor> &
+  getStringOffsetsTableContribution() const {
+    return StringOffsetsTableContribution;
+  }
+  const dwarf::FormParams &getFormParams() const { return FormParams; }
   uint16_t getVersion() const { return FormParams.Version; }
   dwarf::DwarfFormat getFormat() const { return FormParams.Format; }
   uint8_t getAddressByteSize() const { return FormParams.AddrSize; }
   uint8_t getRefAddrByteSize() const { return FormParams.getRefAddrByteSize(); }
   uint8_t getDwarfOffsetByteSize() const {
     return FormParams.getDwarfOffsetByteSize();
+  }
+
+  uint8_t getDwarfStringOffsetsByteSize() const {
+    assert(StringOffsetsTableContribution);
+    return StringOffsetsTableContribution->getDwarfOffsetByteSize();
+  }
+
+  uint64_t getStringOffsetsBase() const {
+    assert(StringOffsetsTableContribution);
+    return StringOffsetsTableContribution->Base;
   }
 
   const DWARFAbbreviationDeclarationSet *getAbbreviations() const;

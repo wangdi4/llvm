@@ -717,6 +717,13 @@ TEST(MemorySanitizer, readlink) {
   delete [] x;
 }
 
+TEST(MemorySanitizer, readlinkat) {
+  char *x = new char[1000];
+  readlinkat(AT_FDCWD, SYMLINK_TO_READ, x, 1000);
+  EXPECT_NOT_POISONED(x[0]);
+  delete[] x;
+}
+
 TEST(MemorySanitizer, stat) {
   struct stat* st = new struct stat;
   int res = stat(FILE_TO_READ, st);
@@ -1788,6 +1795,7 @@ TEST_STRTO_INT(strtol, char, )
 TEST_STRTO_INT(strtoll, char, )
 TEST_STRTO_INT(strtoul, char, )
 TEST_STRTO_INT(strtoull, char, )
+TEST_STRTO_INT(strtouq, char, )
 
 TEST_STRTO_FLOAT(strtof, char, )
 TEST_STRTO_FLOAT(strtod, char, )
@@ -3653,8 +3661,8 @@ TEST(MemorySanitizer, getgrent_r) {
   EXPECT_NOT_POISONED(grpres);
 }
 
-// There's no fgetgrent_r() on FreeBSD.
-#if !defined(__FreeBSD__)
+// There's no fgetgrent_r() on FreeBSD and NetBSD.
+#if !defined(__FreeBSD__) && !defined(__NetBSD__)
 TEST(MemorySanitizer, fgetgrent_r) {
   FILE *fp = fopen("/etc/group", "r");
   struct group grp;

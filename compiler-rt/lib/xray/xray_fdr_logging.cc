@@ -136,8 +136,8 @@ XRayLogFlushStatus fdrLoggingFlush() XRAY_NEVER_INSTRUMENT {
       retryingWriteAll(Fd, reinterpret_cast<char *>(&ExtentsRecord),
                        reinterpret_cast<char *>(&ExtentsRecord) +
                            sizeof(MetadataRecord));
-      retryingWriteAll(Fd, reinterpret_cast<char *>(B.Buffer),
-                       reinterpret_cast<char *>(B.Buffer) + BufferExtents);
+      retryingWriteAll(Fd, reinterpret_cast<char *>(B.Data),
+                       reinterpret_cast<char *>(B.Data) + BufferExtents);
     }
   });
 
@@ -289,6 +289,63 @@ void fdrLoggingHandleCustomEvent(void *Event,
   endBufferIfFull();
 }
 
+void fdrLoggingHandleTypedEvent(
+    uint16_t EventType, const void *Event,
+    std::size_t EventSize) noexcept XRAY_NEVER_INSTRUMENT {
+  using namespace __xray_fdr_internal;
+  auto TC = getTimestamp();
+  auto &TSC = TC.TSC;
+  auto &CPU = TC.CPU;
+  RecursionGuard Guard{Running};
+  if (!Guard)
+    return;
+  if (EventSize > std::numeric_limits<int32_t>::max()) {
+    using Empty = struct {};
+    static Empty Once = [&] {
+      Report("Event size too large = %zu ; > max = %d\n", EventSize,
+             std::numeric_limits<int32_t>::max());
+      return Empty();
+    }();
+    (void)Once;
+  }
+  int32_t ReducedEventSize = static_cast<int32_t>(EventSize);
+  auto &TLD = getThreadLocalData();
+  if (!isLogInitializedAndReady(TLD.BQ, TSC, CPU, clock_gettime))
+    return;
+
+  // Here we need to prepare the log to handle:
+  //   - The metadata record we're going to write. (16 bytes)
+  //   - The additional data we're going to write. Currently, that's the size of
+  //   the event we're going to dump into the log as free-form bytes.
+  if (!prepareBuffer(TSC, CPU, clock_gettime, MetadataRecSize + EventSize)) {
+    TLD.BQ = nullptr;
+    return;
+  }
+  // Write the custom event metadata record, which consists of the following
+  // information:
+  //   - 8 bytes (64-bits) for the full TSC when the event started.
+  //   - 4 bytes (32-bits) for the length of the data.
+  //   - 2 bytes (16-bits) for the event type. 3 bytes remain since one of the
+  //       bytes has the record type (Metadata Record) and kind (TypedEvent).
+  //       We'll log the error if the event type is greater than 2 bytes.
+  //       Event types are generated sequentially, so 2^16 is enough.
+  MetadataRecord TypedEvent;
+  TypedEvent.Type = uint8_t(RecordType::Metadata);
+  TypedEvent.RecordKind =
+      uint8_t(MetadataRecord::RecordKinds::TypedEventMarker);
+  constexpr auto TSCSize = sizeof(TC.TSC);
+  std::memcpy(&TypedEvent.Data, &ReducedEventSize, sizeof(int32_t));
+  std::memcpy(&TypedEvent.Data[sizeof(int32_t)], &TSC, TSCSize);
+  std::memcpy(&TypedEvent.Data[sizeof(int32_t) + TSCSize], &EventType,
+              sizeof(EventType));
+  std::memcpy(TLD.RecordPtr, &TypedEvent, sizeof(TypedEvent));
+
+  TLD.RecordPtr += sizeof(TypedEvent);
+  std::memcpy(TLD.RecordPtr, Event, ReducedEventSize);
+  incrementExtents(MetadataRecSize + EventSize);
+  endBufferIfFull();
+}
+
 XRayLogInitStatus fdrLoggingInit(std::size_t BufferSize, std::size_t BufferMax,
                                  void *Options,
                                  size_t OptionsSize) XRAY_NEVER_INSTRUMENT {
@@ -341,7 +398,7 @@ XRayLogInitStatus fdrLoggingInit(std::size_t BufferSize, std::size_t BufferMax,
       auto EC = TLD.BQ->releaseBuffer(TLD.Buffer);
       if (EC != BufferQueue::ErrorCode::Ok)
         Report("At thread exit, failed to release buffer at %p; error=%s\n",
-               TLD.Buffer.Buffer, BufferQueue::getErrorString(EC));
+               TLD.Buffer.Data, BufferQueue::getErrorString(EC));
     });
     return false;
   }();
@@ -352,6 +409,7 @@ XRayLogInitStatus fdrLoggingInit(std::size_t BufferSize, std::size_t BufferMax,
   // Install the actual handleArg0 handler after initialising the buffers.
   __xray_set_handler(fdrLoggingHandleArg0);
   __xray_set_customevent_handler(fdrLoggingHandleCustomEvent);
+  __xray_set_typedevent_handler(fdrLoggingHandleTypedEvent);
 
   __sanitizer::atomic_store(&LoggingStatus,
                             XRayLogInitStatus::XRAY_LOG_INITIALIZED,
@@ -362,16 +420,25 @@ XRayLogInitStatus fdrLoggingInit(std::size_t BufferSize, std::size_t BufferMax,
   return XRayLogInitStatus::XRAY_LOG_INITIALIZED;
 }
 
+bool fdrLogDynamicInitializer() XRAY_NEVER_INSTRUMENT {
+  using namespace __xray;
+  XRayLogImpl Impl{
+      fdrLoggingInit,
+      fdrLoggingFinalize,
+      fdrLoggingHandleArg0,
+      fdrLoggingFlush,
+  };
+  auto RegistrationResult = __xray_log_register_mode("xray-fdr", Impl);
+  if (RegistrationResult != XRayLogRegisterStatus::XRAY_REGISTRATION_OK &&
+      __sanitizer::Verbosity())
+    Report("Cannot register XRay FDR mode to 'xray-fdr'; error = %d\n",
+           RegistrationResult);
+  if (flags()->xray_fdr_log ||
+      !__sanitizer::internal_strcmp(flags()->xray_mode, "xray-fdr"))
+    __xray_set_log_impl(Impl);
+  return true;
+}
+
 } // namespace __xray
 
-static auto UNUSED Unused = [] {
-  using namespace __xray;
-  if (flags()->xray_fdr_log) {
-    XRayLogImpl Impl{
-        fdrLoggingInit, fdrLoggingFinalize, fdrLoggingHandleArg0,
-        fdrLoggingFlush,
-    };
-    __xray_set_log_impl(Impl);
-  }
-  return true;
-}();
+static auto UNUSED Unused = __xray::fdrLogDynamicInitializer();

@@ -176,8 +176,7 @@ bool MachineCSE::PerformTrivialCopyPropagation(MachineInstr *MI,
     // class given a super-reg class and subreg index.
     if (DefMI->getOperand(1).getSubReg())
       continue;
-    const TargetRegisterClass *RC = MRI->getRegClass(Reg);
-    if (!MRI->constrainRegClass(SrcReg, RC))
+    if (!MRI->constrainRegAttrs(SrcReg, Reg))
       continue;
     DEBUG(dbgs() << "Coalescing: " << *DefMI);
     DEBUG(dbgs() << "***     to: " << *MI);
@@ -588,11 +587,11 @@ bool MachineCSE::ProcessBlock(MachineBasicBlock *MBB) {
         break;
       }
 
-      // Don't perform CSE if the result of the old instruction cannot exist
-      // within the register class of the new instruction.
-      const TargetRegisterClass *OldRC = MRI->getRegClass(OldReg);
-      if (!MRI->constrainRegClass(NewReg, OldRC)) {
-        DEBUG(dbgs() << "*** Not the same register class, avoid CSE!\n");
+      // Don't perform CSE if the result of the new instruction cannot exist
+      // within the constraints (register class, bank, or low-level type) of
+      // the old instruction.
+      if (!MRI->constrainRegAttrs(NewReg, OldReg)) {
+        DEBUG(dbgs() << "*** Not the same register constraints, avoid CSE!\n");
         DoCSE = false;
         break;
       }
@@ -623,10 +622,10 @@ bool MachineCSE::ProcessBlock(MachineBasicBlock *MBB) {
       // Go through implicit defs of CSMI and MI, and clear the kill flags on
       // their uses in all the instructions between CSMI and MI.
       // We might have made some of the kill flags redundant, consider:
-      //   subs  ... %nzcv<imp-def>        <- CSMI
-      //   csinc ... %nzcv<imp-use,kill>   <- this kill flag isn't valid anymore
-      //   subs  ... %nzcv<imp-def>        <- MI, to be eliminated
-      //   csinc ... %nzcv<imp-use,kill>
+      //   subs  ... implicit-def %nzcv    <- CSMI
+      //   csinc ... implicit killed %nzcv <- this kill flag isn't valid anymore
+      //   subs  ... implicit-def %nzcv    <- MI, to be eliminated
+      //   csinc ... implicit killed %nzcv
       // Since we eliminated MI, and reused a register imp-def'd by CSMI
       // (here %nzcv), that register, if it was killed before MI, should have
       // that kill flag removed, because it's lifetime was extended.
@@ -727,7 +726,7 @@ bool MachineCSE::PerformCSE(MachineDomTreeNode *Node) {
 }
 
 bool MachineCSE::runOnMachineFunction(MachineFunction &MF) {
-  if (skipFunction(*MF.getFunction()))
+  if (skipFunction(MF.getFunction()))
     return false;
 
   TII = MF.getSubtarget().getInstrInfo();

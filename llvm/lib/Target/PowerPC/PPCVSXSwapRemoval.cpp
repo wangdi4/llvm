@@ -191,7 +191,7 @@ private:
 public:
   // Main entry point for this pass.
   bool runOnMachineFunction(MachineFunction &MF) override {
-    if (skipFunction(*MF.getFunction()))
+    if (skipFunction(MF.getFunction()))
       return false;
 
     // If we don't have VSX on the subtarget, don't do anything.
@@ -519,6 +519,8 @@ bool PPCVSXSwapRemoval::gatherVectorInstructions() {
       // permute control vectors (for shift values 1, 2, 3).  However,
       // VPERM has a more restrictive register class.
       case PPC::XXSLDWI:
+      case PPC::XSCVDPSPN:
+      case PPC::XSCVSPDPN:
         break;
       }
     }
@@ -966,7 +968,7 @@ LLVM_DUMP_METHOD void PPCVSXSwapRemoval::dumpSwapVector() {
 
     dbgs() << format("%6d", ID);
     dbgs() << format("%6d", EC->getLeaderValue(ID));
-    dbgs() << format(" BB#%3d", MI->getParent()->getNumber());
+    dbgs() << format(" %bb.%3d", MI->getParent()->getNumber());
     dbgs() << format("  %14s  ", TII->getName(MI->getOpcode()).str().c_str());
 
     if (SwapVector[EntryIdx].IsLoad)

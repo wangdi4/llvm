@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CodeGenDAGPatterns.h"
 #include "CodeGenTarget.h"
 #include "X86RecognizableInstr.h"
 #include "llvm/TableGen/Error.h"
@@ -107,8 +106,8 @@ class X86FoldTablesEmitter {
 
     friend raw_ostream &operator<<(raw_ostream &OS,
                                    const X86FoldTableEntry &E) {
-      OS << "{ X86::" << E.RegInst->TheDef->getName().str()
-         << ", X86::" << E.MemInst->TheDef->getName().str() << ", ";
+      OS << "{ X86::" << E.RegInst->TheDef->getName()
+         << ", X86::" << E.MemInst->TheDef->getName() << ", ";
 
       if (E.IsLoad)
         OS << "TB_FOLDED_LOAD | ";
@@ -158,7 +157,7 @@ private:
 
   // Print the given table as a static const C++ array of type
   // X86MemoryFoldTableEntry.
-  void printTable(const FoldTable &Table, std::string TableName,
+  void printTable(const FoldTable &Table, StringRef TableName,
                   raw_ostream &OS) {
     OS << "static const X86MemoryFoldTableEntry MemoryFold" << TableName
        << "[] = {\n";
@@ -342,14 +341,17 @@ public:
             MemRec->getValueAsBit("hasEVEX_K") ||
         RegRec->getValueAsBit("hasEVEX_Z") !=
             MemRec->getValueAsBit("hasEVEX_Z") ||
-        RegRec->getValueAsBit("hasEVEX_B") !=
-            MemRec->getValueAsBit("hasEVEX_B") ||
+        // EVEX_B means different things for memory and register forms.
+        RegRec->getValueAsBit("hasEVEX_B") != 0 ||
+        MemRec->getValueAsBit("hasEVEX_B") != 0 ||
         RegRec->getValueAsBit("hasEVEX_RC") !=
             MemRec->getValueAsBit("hasEVEX_RC") ||
         RegRec->getValueAsBit("hasREX_WPrefix") !=
             MemRec->getValueAsBit("hasREX_WPrefix") ||
         RegRec->getValueAsBit("hasLockPrefix") !=
             MemRec->getValueAsBit("hasLockPrefix") ||
+        RegRec->getValueAsBit("hasNoTrackPrefix") !=
+            MemRec->getValueAsBit("hasNoTrackPrefix") ||
         !equalBitsInits(RegRec->getValueAsBitsInit("EVEX_LL"),
                         MemRec->getValueAsBitsInit("EVEX_LL")) ||
         !equalBitsInits(RegRec->getValueAsBitsInit("VEX_WPrefix"),
@@ -549,7 +551,7 @@ void X86FoldTablesEmitter::updateTables(const CodeGenInstruction *RegInstr,
     }
   } else if (MemInSize == RegInSize + 1 && MemOutSize + 1 == RegOutSize) {
     // Store-Folding cases.
-    // If the memory form instruction performs performs a store, the *output*
+    // If the memory form instruction performs a store, the *output*
     // register of the register form instructions disappear and instead a
     // memory *input* operand appears in the memory form instruction.
     // For example:

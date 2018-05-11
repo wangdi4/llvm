@@ -246,6 +246,10 @@ public:
                     C2.ScaleCost, C2.ImmCost, C2.SetupCost);
   }
 
+  bool canMacroFuseCmp() { return false; }
+
+  bool shouldFavorPostInc() const { return false; }
+
   bool isLegalMaskedStore(Type *DataType) { return false; }
 
   bool isLegalMaskedLoad(Type *DataType) { return false; }
@@ -275,6 +279,8 @@ public:
 
   bool isProfitableToHoist(Instruction *I) { return true; }
 
+  bool useAA() { return false; }
+
   bool isTypeLegal(Type *Ty) { return false; }
 
   unsigned getJumpBufAlignment() { return 0; }
@@ -283,6 +289,8 @@ public:
 
   bool shouldBuildLookupTables() { return true; }
   bool shouldBuildLookupTablesForConstant(Constant *C) { return true; }
+
+  bool useColdCCForColdCall(Function &F) { return false; }
 
   unsigned getScalarizationOverhead(Type *Ty, bool Insert, bool Extract) {
     return 0;
@@ -342,6 +350,10 @@ public:
   unsigned getRegisterBitWidth(bool Vector) const { return 32; }
 
   unsigned getMinVectorRegisterBitWidth() { return 128; }
+
+  bool shouldMaximizeVectorBandwidth(bool OptSize) const { return false; }
+
+  unsigned getMinimumVF(unsigned ElemWidth) const { return 0; }
 
   bool
   shouldConsiderAddressTypePromotion(const Instruction &I,
@@ -505,6 +517,16 @@ public:
             Callee->getFnAttribute("target-cpu")) &&
            (Caller->getFnAttribute("target-features") ==
             Callee->getFnAttribute("target-features"));
+  }
+
+  bool isIndexedLoadLegal(TTI::MemIndexedMode Mode, Type *Ty,
+                          const DataLayout &DL) const {
+    return false;
+  }
+
+  bool isIndexedStoreLegal(TTI::MemIndexedMode Mode, Type *Ty,
+                           const DataLayout &DL) const {
+    return false;
   }
 
   unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) const { return 128; }

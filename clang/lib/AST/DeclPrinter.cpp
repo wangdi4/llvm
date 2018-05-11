@@ -128,9 +128,7 @@ static QualType GetBaseType(QualType T) {
   // FIXME: This should be on the Type class!
   QualType BaseType = T;
   while (!BaseType->isSpecifierType()) {
-    if (isa<TypedefType>(BaseType))
-      break;
-    else if (const PointerType* PTy = BaseType->getAs<PointerType>())
+    if (const PointerType *PTy = BaseType->getAs<PointerType>())
       BaseType = PTy->getPointeeType();
     else if (const BlockPointerType *BPy = BaseType->getAs<BlockPointerType>())
       BaseType = BPy->getPointeeType();
@@ -144,8 +142,11 @@ static QualType GetBaseType(QualType T) {
       BaseType = RTy->getPointeeType();
     else if (const AutoType *ATy = BaseType->getAs<AutoType>())
       BaseType = ATy->getDeducedType();
+    else if (const ParenType *PTy = BaseType->getAs<ParenType>())
+      BaseType = PTy->desugar();
     else
-      llvm_unreachable("Unknown declarator!");
+      // This must be a syntax error.
+      break;
   }
   return BaseType;
 }
@@ -495,14 +496,17 @@ void DeclPrinter::VisitTypeAliasDecl(TypeAliasDecl *D) {
 void DeclPrinter::VisitEnumDecl(EnumDecl *D) {
   if (!Policy.SuppressSpecifiers && D->isModulePrivate())
     Out << "__module_private__ ";
-  Out << "enum ";
+  Out << "enum";
   if (D->isScoped()) {
     if (D->isScopedUsingClassTag())
-      Out << "class ";
+      Out << " class";
     else
-      Out << "struct ";
+      Out << " struct";
   }
-  Out << *D;
+
+  prettyPrintAttributes(D);
+
+  Out << ' ' << *D;
 
   if (D->isFixed() && D->getASTContext().getLangOpts().CPlusPlus11)
     Out << " : " << D->getIntegerType().stream(Policy);
@@ -512,7 +516,6 @@ void DeclPrinter::VisitEnumDecl(EnumDecl *D) {
     VisitDeclContext(D);
     Indent() << "}";
   }
-  prettyPrintAttributes(D);
 }
 
 void DeclPrinter::VisitRecordDecl(RecordDecl *D) {
@@ -1526,7 +1529,7 @@ void DeclPrinter::VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D) {
                                                 E = D->varlist_end();
                                                 I != E; ++I) {
       Out << (I == D->varlist_begin() ? '(' : ',');
-      NamedDecl *ND = cast<NamedDecl>(cast<DeclRefExpr>(*I)->getDecl());
+      NamedDecl *ND = cast<DeclRefExpr>(*I)->getDecl();
       ND->printQualifiedName(Out);
     }
     Out << ")";

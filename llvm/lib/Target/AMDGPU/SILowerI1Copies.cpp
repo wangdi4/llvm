@@ -17,7 +17,8 @@
 #include "AMDGPU.h"
 #include "AMDGPUSubtarget.h"
 #include "SIInstrInfo.h"
-#include "llvm/CodeGen/LiveIntervalAnalysis.h"
+#include "Utils/AMDGPULaneDominator.h"
+#include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
@@ -141,7 +142,8 @@ bool SILowerI1Copies::runOnMachineFunction(MachineFunction &MF) {
               DefInst->getOperand(3).getReg()) &&
             TRI->getCommonSubClass(
               MRI.getRegClass(DefInst->getOperand(3).getReg()),
-              &AMDGPU::SGPR_64RegClass)) {
+              &AMDGPU::SGPR_64RegClass) &&
+            AMDGPU::laneDominates(DefInst->getParent(), &MBB)) {
           BuildMI(MBB, &MI, DL, TII->get(AMDGPU::S_AND_B64))
               .add(Dst)
               .addReg(AMDGPU::EXEC)

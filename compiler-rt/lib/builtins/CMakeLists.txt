@@ -243,8 +243,6 @@ set(x86_ARCH_SOURCES
 
 if (NOT MSVC)
   set(x86_64_SOURCES
-      x86_64/chkstk.S
-      x86_64/chkstk2.S
       x86_64/floatdidf.c
       x86_64/floatdisf.c
       x86_64/floatdixf.c
@@ -264,8 +262,6 @@ if (NOT MSVC)
   set(i386_SOURCES
       i386/ashldi3.S
       i386/ashrdi3.S
-      i386/chkstk.S
-      i386/chkstk2.S
       i386/divdi3.S
       i386/floatdidf.S
       i386/floatdisf.S
@@ -457,6 +453,12 @@ set(aarch64_SOURCES
   ${GENERIC_TF_SOURCES}
   ${GENERIC_SOURCES})
 
+if (MINGW)
+  set(aarch64_SOURCES
+      ${aarch64_SOURCES}
+      aarch64/chkstk.S)
+endif()
+
 set(armhf_SOURCES ${arm_SOURCES})
 set(armv7_SOURCES ${arm_SOURCES})
 set(armv7s_SOURCES ${arm_SOURCES})
@@ -488,6 +490,12 @@ set(powerpc64_SOURCES
   ppc/multc3.c
   ${GENERIC_SOURCES})
 set(powerpc64le_SOURCES ${powerpc64_SOURCES})
+
+set(riscv_SOURCES ${GENERIC_SOURCES} ${GENERIC_TF_SOURCES})
+set(riscv32_SOURCES
+  riscv/mulsi3.S
+  ${riscv_SOURCES})
+set(riscv64_SOURCES ${riscv_SOURCES})
 
 set(wasm32_SOURCES
   ${GENERIC_TF_SOURCES}
@@ -549,6 +557,12 @@ else ()
       # Release mode already sets it via -O2/3, Debug mode doesn't.
       if (${arch} STREQUAL "armhf")
         list(APPEND BUILTIN_CFLAGS -fomit-frame-pointer -DCOMPILER_RT_ARMHF_TARGET)
+      endif()
+
+      # For RISCV32, we must force enable int128 for compiling long
+      # double routines.
+      if("${arch}" STREQUAL "riscv32")
+        list(APPEND BUILTIN_CFLAGS -fforce-enable-int128)
       endif()
 
       add_compiler_rt_runtime(clang_rt.builtins

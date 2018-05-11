@@ -30,12 +30,14 @@
 
 namespace lld {
 namespace elf {
+class Defined;
+class SharedSymbol;
 
 class SyntheticSection : public InputSection {
 public:
   SyntheticSection(uint64_t Flags, uint32_t Type, uint32_t Alignment,
                    StringRef Name)
-      : InputSection(Flags, Type, Alignment, {}, Name,
+      : InputSection(nullptr, Flags, Type, Alignment, {}, Name,
                      InputSectionBase::Synthetic) {
     this->Live = true;
   }
@@ -50,7 +52,6 @@ public:
   // If any additional finalization of contents are needed post thunk creation.
   virtual void postThunkContents() {}
   virtual bool empty() const { return false; }
-  uint64_t getVA() const;
 
   static bool classof(const SectionBase *D) {
     return D->kind() == InputSectionBase::Synthetic;
@@ -82,6 +83,7 @@ public:
   };
 
   std::vector<FdeData> getFdeData() const;
+  ArrayRef<CieRecord *> getCieRecords() const { return CieRecords; }
 
 private:
   uint64_t Size = 0;
@@ -268,7 +270,7 @@ public:
   void addEntry(Symbol &Sym);
   size_t getSize() const override;
   void writeTo(uint8_t *Buf) override;
-  bool empty() const override { return Entries.empty(); }
+  bool empty() const override;
 
 private:
   std::vector<const Symbol *> Entries;
@@ -309,22 +311,30 @@ private:
 
 class DynamicReloc {
 public:
-  DynamicReloc(uint32_t Type, const InputSectionBase *InputSec,
+  DynamicReloc(RelType Type, const InputSectionBase *InputSec,
                uint64_t OffsetInSec, bool UseSymVA, Symbol *Sym, int64_t Addend)
       : Type(Type), Sym(Sym), InputSec(InputSec), OffsetInSec(OffsetInSec),
         UseSymVA(UseSymVA), Addend(Addend) {}
 
   uint64_t getOffset() const;
-  int64_t getAddend() const;
   uint32_t getSymIndex() const;
   const InputSectionBase *getInputSec() const { return InputSec; }
 
-  uint32_t Type;
+  // Computes the addend of the dynamic relocation. Note that this is not the
+  // same as the Addend member variable as it also includes the symbol address
+  // if UseSymVA is true.
+  int64_t computeAddend() const;
+
+  RelType Type;
 
 private:
   Symbol *Sym;
   const InputSectionBase *InputSec = nullptr;
   uint64_t OffsetInSec;
+  // If this member is true, the dynamic relocation will not be against the
+  // symbol but will instead be a relative relocation that simply adds the
+  // load address. This means we need to write the symbol virtual address
+  // plus the original addend as the final relocation addend.
   bool UseSymVA;
   int64_t Addend;
 };
@@ -346,11 +356,10 @@ public:
   size_t getSize() const override { return Size; }
 
 private:
-  void addEntries();
-
   void add(int32_t Tag, std::function<uint64_t()> Fn);
   void addInt(int32_t Tag, uint64_t Val);
   void addInSec(int32_t Tag, InputSection *Sec);
+  void addInSecRelative(int32_t Tag, InputSection *Sec);
   void addOutSec(int32_t Tag, OutputSection *Sec);
   void addSize(int32_t Tag, OutputSection *Sec);
   void addSym(int32_t Tag, Symbol *Sym);
@@ -362,6 +371,13 @@ class RelocationBaseSection : public SyntheticSection {
 public:
   RelocationBaseSection(StringRef Name, uint32_t Type, int32_t DynamicTag,
                         int32_t SizeDynamicTag);
+  void addReloc(RelType DynType, InputSectionBase *IS, uint64_t OffsetInSec,
+                Symbol *Sym);
+  // Add a dynamic relocation that might need an addend. This takes care of
+  // writing the addend to the output section if needed.
+  void addReloc(RelType DynType, InputSectionBase *InputSec,
+                uint64_t OffsetInSec, Symbol *Sym, int64_t Addend, RelExpr Expr,
+                RelType Type);
   void addReloc(const DynamicReloc &Reloc);
   bool empty() const override { return Relocs.empty(); }
   size_t getSize() const override { return Relocs.size() * this->Entsize; }
@@ -456,7 +472,7 @@ public:
   void addSymbols(std::vector<SymbolTableEntry> &Symbols);
 
 private:
-  size_t getShift2() const { return Config->Is64 ? 6 : 5; }
+  enum { Shift2 = 6 };
 
   void writeBloomFilter(uint8_t *Buf);
   void writeHashTable(uint8_t *Buf);
@@ -465,6 +481,7 @@ private:
     Symbol *Sym;
     size_t StrTabOffset;
     uint32_t Hash;
+    uint32_t BucketIdx;
   };
 
   std::vector<Entry> Symbols;
@@ -484,13 +501,13 @@ private:
   size_t Size = 0;
 };
 
-// The PltSection is used for both the Plt and Iplt. The former always has a
+// The PltSection is used for both the Plt and Iplt. The former usually has a
 // header as its first entry that is used at run-time to resolve lazy binding.
 // The latter is used for GNU Ifunc symbols, that will be subject to a
 // Target->IRelativeRel.
 class PltSection : public SyntheticSection {
 public:
-  PltSection(size_t HeaderSize);
+  PltSection(bool IsIplt);
   void writeTo(uint8_t *Buf) override;
   size_t getSize() const override;
   bool empty() const override { return Entries.empty(); }
@@ -501,8 +518,8 @@ public:
 private:
   unsigned getPltRelocOff() const;
   std::vector<std::pair<const Symbol *, unsigned>> Entries;
-  // Iplt always has HeaderSize of 0, the Plt HeaderSize is always non-zero
   size_t HeaderSize;
+  bool IsIplt;
 };
 
 // GdbIndexChunk is created for each .debug_info section and contains
@@ -668,13 +685,12 @@ public:
 class MergeSyntheticSection : public SyntheticSection {
 public:
   void addSection(MergeInputSection *MS);
+  std::vector<MergeInputSection *> Sections;
 
 protected:
   MergeSyntheticSection(StringRef Name, uint32_t Type, uint64_t Flags,
                         uint32_t Alignment)
       : SyntheticSection(Flags, Type, Alignment, Name) {}
-
-  std::vector<MergeInputSection *> Sections;
 };
 
 class MergeTailSection final : public MergeSyntheticSection {
@@ -785,6 +801,12 @@ public:
   ARMExidxSentinelSection();
   size_t getSize() const override { return 8; }
   void writeTo(uint8_t *Buf) override;
+  bool empty() const override;
+
+  // The last section referenced by a regular .ARM.exidx section.
+  // It is found and filled in Writer<ELFT>::resolveShfLinkOrder().
+  // The sentinel points at the end of that section.
+  InputSection *Highest = nullptr;
 };
 
 // A container for one or more linker generated thunks. Instances of these
@@ -802,19 +824,20 @@ public:
   size_t getSize() const override { return Size; }
   void writeTo(uint8_t *Buf) override;
   InputSection *getTargetInputSection() const;
+  bool assignOffsets();
 
 private:
-  std::vector<const Thunk *> Thunks;
+  std::vector<Thunk *> Thunks;
   size_t Size = 0;
 };
 
 InputSection *createInterpSection();
-template <class ELFT> MergeInputSection *createCommentSection();
+MergeInputSection *createCommentSection();
 void decompressSections();
 void mergeSections();
 
-Symbol *addSyntheticLocal(StringRef Name, uint8_t Type, uint64_t Value,
-                          uint64_t Size, InputSectionBase *Section);
+Defined *addSyntheticLocal(StringRef Name, uint8_t Type, uint64_t Value,
+                           uint64_t Size, InputSectionBase &Section);
 
 // Linker generated sections which can be used as inputs.
 struct InX {
@@ -838,23 +861,20 @@ struct InX {
   static MipsRldMapSection *MipsRldMap;
   static PltSection *Plt;
   static PltSection *Iplt;
+  static RelocationBaseSection *RelaDyn;
+  static RelocationBaseSection *RelaPlt;
+  static RelocationBaseSection *RelaIplt;
   static StringTableSection *ShStrTab;
   static StringTableSection *StrTab;
   static SymbolTableBaseSection *SymTab;
 };
 
 template <class ELFT> struct In {
-  static RelocationBaseSection *RelaDyn;
-  static RelocationSection<ELFT> *RelaPlt;
-  static RelocationSection<ELFT> *RelaIplt;
   static VersionDefinitionSection<ELFT> *VerDef;
   static VersionTableSection<ELFT> *VerSym;
   static VersionNeedSection<ELFT> *VerNeed;
 };
 
-template <class ELFT> RelocationBaseSection *In<ELFT>::RelaDyn;
-template <class ELFT> RelocationSection<ELFT> *In<ELFT>::RelaPlt;
-template <class ELFT> RelocationSection<ELFT> *In<ELFT>::RelaIplt;
 template <class ELFT> VersionDefinitionSection<ELFT> *In<ELFT>::VerDef;
 template <class ELFT> VersionTableSection<ELFT> *In<ELFT>::VerSym;
 template <class ELFT> VersionNeedSection<ELFT> *In<ELFT>::VerNeed;

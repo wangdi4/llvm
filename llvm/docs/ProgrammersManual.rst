@@ -1040,7 +1040,7 @@ line argument:
 
 .. code-block:: c++
 
-  DEBUG(errs() << "I am here!\n");
+  DEBUG(dbgs() << "I am here!\n");
 
 Then you can run your pass like this:
 
@@ -1076,10 +1076,10 @@ follows:
 .. code-block:: c++
 
   #define DEBUG_TYPE "foo"
-  DEBUG(errs() << "'foo' debug type\n");
+  DEBUG(dbgs() << "'foo' debug type\n");
   #undef  DEBUG_TYPE
   #define DEBUG_TYPE "bar"
-  DEBUG(errs() << "'bar' debug type\n"));
+  DEBUG(dbgs() << "'bar' debug type\n");
   #undef  DEBUG_TYPE
 
 Then you can run your pass like this:
@@ -1120,8 +1120,8 @@ preceding example could be written as:
 
 .. code-block:: c++
 
-  DEBUG_WITH_TYPE("foo", errs() << "'foo' debug type\n");
-  DEBUG_WITH_TYPE("bar", errs() << "'bar' debug type\n"));
+  DEBUG_WITH_TYPE("foo", dbgs() << "'foo' debug type\n");
+  DEBUG_WITH_TYPE("bar", dbgs() << "'bar' debug type\n");
 
 .. _Statistic:
 
@@ -2984,7 +2984,7 @@ Conceptually, ``LLVMContext`` provides isolation.  Every LLVM entity
 in-memory IR belongs to an ``LLVMContext``.  Entities in different contexts
 *cannot* interact with each other: ``Module``\ s in different contexts cannot be
 linked together, ``Function``\ s cannot be added to ``Module``\ s in different
-contexts, etc.  What this means is that is is safe to compile on multiple
+contexts, etc.  What this means is that is safe to compile on multiple
 threads simultaneously, as long as no two threads operate on entities within the
 same context.
 

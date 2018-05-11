@@ -14,7 +14,7 @@
 #include "SIInstrInfo.h"
 #include "SIMachineFunctionInfo.h"
 #include "llvm/ADT/DepthFirstIterator.h"
-#include "llvm/CodeGen/LiveIntervalAnalysis.h"
+#include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
@@ -155,6 +155,35 @@ static bool updateOperand(FoldCandidate &Fold,
   assert(Old.isReg());
 
   if (Fold.isImm()) {
+    if (MI->getDesc().TSFlags & SIInstrFlags::IsPacked) {
+      // Set op_sel/op_sel_hi on this operand or bail out if op_sel is
+      // already set.
+      unsigned Opcode = MI->getOpcode();
+      int OpNo = MI->getOperandNo(&Old);
+      int ModIdx = -1;
+      if (OpNo == AMDGPU::getNamedOperandIdx(Opcode, AMDGPU::OpName::src0))
+        ModIdx = AMDGPU::OpName::src0_modifiers;
+      else if (OpNo == AMDGPU::getNamedOperandIdx(Opcode, AMDGPU::OpName::src1))
+        ModIdx = AMDGPU::OpName::src1_modifiers;
+      else if (OpNo == AMDGPU::getNamedOperandIdx(Opcode, AMDGPU::OpName::src2))
+        ModIdx = AMDGPU::OpName::src2_modifiers;
+      assert(ModIdx != -1);
+      ModIdx = AMDGPU::getNamedOperandIdx(Opcode, ModIdx);
+      MachineOperand &Mod = MI->getOperand(ModIdx);
+      unsigned Val = Mod.getImm();
+      if ((Val & SISrcMods::OP_SEL_0) || !(Val & SISrcMods::OP_SEL_1))
+        return false;
+      // If upper part is all zero we do not need op_sel_hi.
+      if (!isUInt<16>(Fold.ImmToFold)) {
+        if (!(Fold.ImmToFold & 0xffff)) {
+          Mod.setImm(Mod.getImm() | SISrcMods::OP_SEL_0);
+          Mod.setImm(Mod.getImm() & ~SISrcMods::OP_SEL_1);
+          Old.ChangeToImmediate(Fold.ImmToFold >> 16);
+          return true;
+        }
+        Mod.setImm(Mod.getImm() & ~SISrcMods::OP_SEL_1);
+      }
+    }
     Old.ChangeToImmediate(Fold.ImmToFold);
     return true;
   }
@@ -345,6 +374,7 @@ void SIFoldOperands::foldOperand(
     // Don't fold into target independent nodes.  Target independent opcodes
     // don't have defined register classes.
     if (UseDesc.isVariadic() ||
+        UseOp.isImplicit() ||
         UseDesc.OpInfo[UseOpIdx].RegClass == -1)
       return;
   }
@@ -470,7 +500,8 @@ static MachineOperand *getImmOrMaterializedImm(MachineRegisterInfo &MRI,
                                                MachineOperand &Op) {
   if (Op.isReg()) {
     // If this has a subregister, it obviously is a register source.
-    if (Op.getSubReg() != AMDGPU::NoSubRegister)
+    if (Op.getSubReg() != AMDGPU::NoSubRegister ||
+        !TargetRegisterInfo::isVirtualRegister(Op.getReg()))
       return &Op;
 
     MachineInstr *Def = MRI.getVRegDef(Op.getReg());
@@ -926,7 +957,7 @@ bool SIFoldOperands::tryFoldOMod(MachineInstr &MI) {
 }
 
 bool SIFoldOperands::runOnMachineFunction(MachineFunction &MF) {
-  if (skipFunction(*MF.getFunction()))
+  if (skipFunction(MF.getFunction()))
     return false;
 
   MRI = &MF.getRegInfo();
@@ -971,9 +1002,9 @@ bool SIFoldOperands::runOnMachineFunction(MachineFunction &MF) {
       // Prevent folding operands backwards in the function. For example,
       // the COPY opcode must not be replaced by 1 in this example:
       //
-      //    %3<def> = COPY %vgpr0; VGPR_32:%3
+      //    %3 = COPY %vgpr0; VGPR_32:%3
       //    ...
-      //    %vgpr0<def> = V_MOV_B32_e32 1, %exec<imp-use>
+      //    %vgpr0 = V_MOV_B32_e32 1, implicit %exec
       MachineOperand &Dst = MI.getOperand(0);
       if (Dst.isReg() &&
           !TargetRegisterInfo::isVirtualRegister(Dst.getReg()))

@@ -21,7 +21,9 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/DemandedBits.h"
 #include "llvm/Analysis/EHPersonalities.h"
+#include "llvm/Analysis/MustExecute.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
@@ -46,17 +48,6 @@ class SCEV;
 class TargetLibraryInfo;
 class TargetTransformInfo;
 
-/// \brief Captures loop safety information.
-/// It keep information for loop & its header may throw exception.
-struct LoopSafetyInfo {
-  bool MayThrow = false;       // The current loop contains an instruction which
-                               // may throw.
-  bool HeaderMayThrow = false; // Same as previous, but specific to loop header
-  // Used to update funclet bundle operands.
-  DenseMap<BasicBlock *, ColorVector> BlockColors;
-
-  LoopSafetyInfo() = default;
-};
 
 /// The RecurrenceDescriptor is used to identify recurrences variables in a
 /// loop. Reduction is a special case of recurrence that has uses of the
@@ -172,15 +163,25 @@ public:
                                Value *Left, Value *Right);
 
   /// Returns true if Phi is a reduction of type Kind and adds it to the
-  /// RecurrenceDescriptor.
+  /// RecurrenceDescriptor. If either \p DB is non-null or \p AC and \p DT are
+  /// non-null, the minimal bit width needed to compute the reduction will be
+  /// computed.
   static bool AddReductionVar(PHINode *Phi, RecurrenceKind Kind, Loop *TheLoop,
                               bool HasFunNoNaNAttr,
-                              RecurrenceDescriptor &RedDes);
+                              RecurrenceDescriptor &RedDes,
+                              DemandedBits *DB = nullptr,
+                              AssumptionCache *AC = nullptr,
+                              DominatorTree *DT = nullptr);
 
-  /// Returns true if Phi is a reduction in TheLoop. The RecurrenceDescriptor is
-  /// returned in RedDes.
+  /// Returns true if Phi is a reduction in TheLoop. The RecurrenceDescriptor
+  /// is returned in RedDes. If either \p DB is non-null or \p AC and \p DT are
+  /// non-null, the minimal bit width needed to compute the reduction will be
+  /// computed.
   static bool isReductionPHI(PHINode *Phi, Loop *TheLoop,
-                             RecurrenceDescriptor &RedDes);
+                             RecurrenceDescriptor &RedDes,
+                             DemandedBits *DB = nullptr,
+                             AssumptionCache *AC = nullptr,
+                             DominatorTree *DT = nullptr);
 
   /// Returns true if Phi is a first-order recurrence. A first-order recurrence
   /// is a non-reduction recurrence relation in which the value of the
@@ -217,24 +218,6 @@ public:
 
   /// Returns true if the recurrence kind is an arithmetic kind.
   static bool isArithmeticRecurrenceKind(RecurrenceKind Kind);
-
-  /// Determines if Phi may have been type-promoted. If Phi has a single user
-  /// that ANDs the Phi with a type mask, return the user. RT is updated to
-  /// account for the narrower bit width represented by the mask, and the AND
-  /// instruction is added to CI.
-  static Instruction *lookThroughAnd(PHINode *Phi, Type *&RT,
-                                     SmallPtrSetImpl<Instruction *> &Visited,
-                                     SmallPtrSetImpl<Instruction *> &CI);
-
-  /// Returns true if all the source operands of a recurrence are either
-  /// SExtInsts or ZExtInsts. This function is intended to be used with
-  /// lookThroughAnd to determine if the recurrence has been type-promoted. The
-  /// source operands are added to CI, and IsSigned is updated to indicate if
-  /// all source operands are SExtInsts.
-  static bool getSourceExtensionKind(Instruction *Start, Instruction *Exit,
-                                     Type *RT, bool &IsSigned,
-                                     SmallPtrSetImpl<Instruction *> &Visited,
-                                     SmallPtrSetImpl<Instruction *> &CI);
 
   /// Returns the type of the recurrence. This type can be narrower than the
   /// actual type of the Phi if the recurrence has been type-promoted.
@@ -306,13 +289,16 @@ public:
   /// induction, the induction descriptor \p D will contain the data describing
   /// this induction. If by some other means the caller has a better SCEV
   /// expression for \p Phi than the one returned by the ScalarEvolution
-  /// analysis, it can be passed through \p Expr.
-  static bool isInductionPHI(PHINode *Phi, const Loop* L, ScalarEvolution *SE,
-                             InductionDescriptor &D,
-                             const SCEV *Expr = nullptr);
+  /// analysis, it can be passed through \p Expr. If the def-use chain
+  /// associated with the phi includes casts (that we know we can ignore
+  /// under proper runtime checks), they are passed through \p CastsToIgnore.
+  static bool
+  isInductionPHI(PHINode *Phi, const Loop* L, ScalarEvolution *SE,
+                 InductionDescriptor &D, const SCEV *Expr = nullptr,
+                 SmallVectorImpl<Instruction *> *CastsToIgnore = nullptr);
 
   /// Returns true if \p Phi is a floating point induction in the loop \p L.
-  /// If \p Phi is an induction, the induction descriptor \p D will contain 
+  /// If \p Phi is an induction, the induction descriptor \p D will contain
   /// the data describing this induction.
   static bool isFPInductionPHI(PHINode *Phi, const Loop* L,
                                ScalarEvolution *SE, InductionDescriptor &D);
@@ -348,10 +334,18 @@ public:
       Instruction::BinaryOpsEnd;
   }
 
+  /// Returns a reference to the type cast instructions in the induction
+  /// update chain, that are redundant when guarded with a runtime
+  /// SCEV overflow check.
+  const SmallVectorImpl<Instruction *> &getCastInsts() const {
+    return RedundantCasts;
+  }
+
 private:
   /// Private constructor - used by \c isInductionPHI.
   InductionDescriptor(Value *Start, InductionKind K, const SCEV *Step,
-                      BinaryOperator *InductionBinOp = nullptr);
+                      BinaryOperator *InductionBinOp = nullptr,
+                      SmallVectorImpl<Instruction *> *Casts = nullptr);
 
   /// Start value.
   TrackingVH<Value> StartValue;
@@ -361,6 +355,9 @@ private:
   const SCEV *Step = nullptr;
   // Instruction that advances induction variable.
   BinaryOperator *InductionBinOp = nullptr;
+  // Instructions used for type-casts of the induction variable,
+  // that are redundant when guarded with a runtime SCEV overflow check.
+  SmallVector<Instruction *, 2> RedundantCasts;
 };
 
 BasicBlock *InsertPreheaderForLoop(Loop *L, DominatorTree *DT, LoopInfo *LI,
@@ -422,8 +419,9 @@ bool formLCSSARecursively(Loop &L, DominatorTree &DT, LoopInfo *LI,
 /// instructions of the loop and loop safety information as
 /// arguments. Diagnostics is emitted via \p ORE. It returns changed status.
 bool sinkRegion(DomTreeNode *, AliasAnalysis *, LoopInfo *, DominatorTree *,
-                TargetLibraryInfo *, Loop *, AliasSetTracker *,
-                LoopSafetyInfo *, OptimizationRemarkEmitter *ORE);
+                TargetLibraryInfo *, TargetTransformInfo *, Loop *,
+                AliasSetTracker *, LoopSafetyInfo *,
+                OptimizationRemarkEmitter *ORE);
 
 /// \brief Walk the specified region of the CFG (defined by all blocks
 /// dominated by the specified block, and that are in the current loop) in depth
@@ -472,18 +470,6 @@ bool promoteLoopAccessesToScalars(const SmallSetVector<Value *, 8> &,
 SmallVector<DomTreeNode *, 16> collectChildrenInLoop(DomTreeNode *N,
                                                      const Loop *CurLoop);
 
-/// \brief Computes safety information for a loop
-/// checks loop body & header for the possibility of may throw
-/// exception, it takes LoopSafetyInfo and loop as argument.
-/// Updates safety information in LoopSafetyInfo argument.
-void computeLoopSafetyInfo(LoopSafetyInfo *, Loop *);
-
-/// Returns true if the instruction in a loop is guaranteed to execute at least
-/// once.
-bool isGuaranteedToExecute(const Instruction &Inst, const DominatorTree *DT,
-                           const Loop *CurLoop,
-                           const LoopSafetyInfo *SafetyInfo);
-
 /// \brief Returns the instructions that use values defined in the loop.
 SmallVector<Instruction *, 8> findDefsUsedOutsideOfLoop(Loop *L);
 
@@ -523,11 +509,18 @@ bool canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
                         LoopSafetyInfo *SafetyInfo,
                         OptimizationRemarkEmitter *ORE = nullptr);
 
+/// Generates an ordered vector reduction using extracts to reduce the value.
+Value *
+getOrderedReduction(IRBuilder<> &Builder, Value *Acc, Value *Src, unsigned Op,
+                    RecurrenceDescriptor::MinMaxRecurrenceKind MinMaxKind =
+                        RecurrenceDescriptor::MRK_Invalid,
+                    ArrayRef<Value *> RedOps = None);
+
 /// Generates a vector reduction using shufflevectors to reduce the value.
 Value *getShuffleReduction(IRBuilder<> &Builder, Value *Src, unsigned Op,
                            RecurrenceDescriptor::MinMaxRecurrenceKind
                                MinMaxKind = RecurrenceDescriptor::MRK_Invalid,
-                           ArrayRef<Value *> RedOps = ArrayRef<Value *>());
+                           ArrayRef<Value *> RedOps = None);
 
 /// Create a target reduction of the given vector. The reduction operation
 /// is described by the \p Opcode parameter. min/max reductions require
@@ -539,7 +532,7 @@ createSimpleTargetReduction(IRBuilder<> &B, const TargetTransformInfo *TTI,
                             unsigned Opcode, Value *Src,
                             TargetTransformInfo::ReductionFlags Flags =
                                 TargetTransformInfo::ReductionFlags(),
-                            ArrayRef<Value *> RedOps = ArrayRef<Value *>());
+                            ArrayRef<Value *> RedOps = None);
 
 /// Create a generic target reduction using a recurrence descriptor \p Desc
 /// The target is queried to determine if intrinsics or shuffle sequences are

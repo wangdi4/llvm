@@ -275,6 +275,23 @@ GDBRemoteCommunication::PacketResult GDBRemoteCommunication::GetAck() {
 }
 
 GDBRemoteCommunication::PacketResult
+GDBRemoteCommunication::ReadPacketWithOutputSupport(
+    StringExtractorGDBRemote &response, Timeout<std::micro> timeout,
+    bool sync_on_timeout,
+    llvm::function_ref<void(llvm::StringRef)> output_callback) {
+  auto result = ReadPacket(response, timeout, sync_on_timeout);
+  while (result == PacketResult::Success && response.IsNormalResponse() &&
+         response.PeekChar() == 'O') {
+    response.GetChar();
+    std::string output;
+    if (response.GetHexByteString(output))
+      output_callback(output);
+    result = ReadPacket(response, timeout, sync_on_timeout);
+  }
+  return result;
+}
+
+GDBRemoteCommunication::PacketResult
 GDBRemoteCommunication::ReadPacket(StringExtractorGDBRemote &response,
                                    Timeout<std::micro> timeout,
                                    bool sync_on_timeout) {
@@ -600,10 +617,9 @@ bool GDBRemoteCommunication::DecompressPacket() {
 #if defined(HAVE_LIBCOMPRESSION)
   // libcompression is weak linked so check that compression_decode_buffer() is
   // available
-  if (compression_decode_buffer != NULL &&
-      (m_compression_type == CompressionType::ZlibDeflate ||
-       m_compression_type == CompressionType::LZFSE ||
-       m_compression_type == CompressionType::LZ4)) {
+  if (m_compression_type == CompressionType::ZlibDeflate ||
+      m_compression_type == CompressionType::LZFSE ||
+      m_compression_type == CompressionType::LZ4) {
     compression_algorithm compression_type;
     if (m_compression_type == CompressionType::LZFSE)
       compression_type = COMPRESSION_LZFSE;
@@ -898,7 +914,8 @@ GDBRemoteCommunication::CheckForPacket(const uint8_t *src, size_t src_len,
           if (GetSendAcks()) {
             const char *packet_checksum_cstr = &m_bytes[checksum_idx];
             char packet_checksum = strtol(packet_checksum_cstr, NULL, 16);
-            char actual_checksum = CalculcateChecksum(packet_str);
+            char actual_checksum = CalculcateChecksum(
+                llvm::StringRef(m_bytes).slice(content_start, content_end));
             success = packet_checksum == actual_checksum;
             if (!success) {
               if (log)
@@ -1207,11 +1224,7 @@ Status GDBRemoteCommunication::StartDebugserverProcess(
     }
 
     // Copy the current environment to the gdbserver/debugserver instance
-    StringList env;
-    if (Host::GetEnvironment(env)) {
-      for (size_t i = 0; i < env.GetSize(); ++i)
-        launch_info.GetEnvironmentEntries().AppendArgument(env[i]);
-    }
+    launch_info.GetEnvironment() = Host::GetEnvironment();
 
     // Close STDIN, STDOUT and STDERR.
     launch_info.AppendCloseFileAction(STDIN_FILENO);

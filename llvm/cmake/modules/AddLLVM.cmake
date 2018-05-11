@@ -83,7 +83,7 @@ function(add_llvm_symbol_exports target_name export_file)
     # FIXME: Don't write the "local:" line on OpenBSD.
     # in the export file, also add a linker script to version LLVM symbols (form: LLVM_N.M)
     add_custom_command(OUTPUT ${native_export_file}
-      COMMAND echo "LLVM_${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR} {" > ${native_export_file}
+      COMMAND echo "LLVM_${LLVM_VERSION_MAJOR} {" > ${native_export_file}
       COMMAND grep -q "[[:alnum:]]" ${export_file} && echo "  global:" >> ${native_export_file} || :
       COMMAND sed -e "s/$/;/" -e "s/^/    /" < ${export_file} >> ${native_export_file}
       COMMAND echo "  local: *;" >> ${native_export_file}
@@ -486,7 +486,7 @@ function(llvm_add_library name)
         PROPERTIES
         # Since 4.0.0, the ABI version is indicated by the major version
         SOVERSION ${LLVM_VERSION_MAJOR}
-        VERSION ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}${LLVM_VERSION_SUFFIX})
+        VERSION ${LLVM_VERSION_MAJOR}${LLVM_VERSION_SUFFIX})
     endif()
   endif()
 
@@ -508,7 +508,7 @@ function(llvm_add_library name)
       if(${output_name} STREQUAL "output_name-NOTFOUND")
         set(output_name ${name})
       endif()
-      set(library_name ${output_name}-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}${LLVM_VERSION_SUFFIX})
+      set(library_name ${output_name}-${LLVM_VERSION_MAJOR}${LLVM_VERSION_SUFFIX})
       set(api_name ${output_name}-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}${LLVM_VERSION_SUFFIX})
       set_target_properties(${name} PROPERTIES OUTPUT_NAME ${library_name})
       llvm_install_library_symlink(${api_name} ${library_name} SHARED
@@ -768,7 +768,7 @@ macro(add_llvm_executable name)
     # libpthreads overrides some standard library symbols, so main
     # executable must be linked with it in order to provide consistent
     # API for all shared libaries loaded by this executable.
-    target_link_libraries(${name} ${LLVM_PTHREAD_LIB})
+    target_link_libraries(${name} PRIVATE ${LLVM_PTHREAD_LIB})
   endif()
 endmacro(add_llvm_executable name)
 
@@ -923,7 +923,7 @@ macro(add_llvm_fuzzer name)
   if( LLVM_LIB_FUZZING_ENGINE )
     set(LLVM_OPTIONAL_SOURCES ${ARG_DUMMY_MAIN})
     add_llvm_executable(${name} ${ARG_UNPARSED_ARGUMENTS})
-    target_link_libraries(${name} ${LLVM_LIB_FUZZING_ENGINE})
+    target_link_libraries(${name} PRIVATE ${LLVM_LIB_FUZZING_ENGINE})
     set_target_properties(${name} PROPERTIES FOLDER "Fuzzers")
   elseif( LLVM_USE_SANITIZE_COVERAGE )
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=fuzzer")
@@ -1093,7 +1093,7 @@ function(add_unittest test_suite test_name)
   # libpthreads overrides some standard library symbols, so main
   # executable must be linked with it in order to provide consistent
   # API for all shared libaries loaded by this executable.
-  target_link_libraries(${test_name} gtest_main gtest ${LLVM_PTHREAD_LIB})
+  target_link_libraries(${test_name} PRIVATE gtest_main gtest ${LLVM_PTHREAD_LIB})
 
   add_dependencies(${test_suite} ${test_name})
   get_target_property(test_suite_folder ${test_suite} FOLDER)
@@ -1473,7 +1473,7 @@ function(add_llvm_tool_symlink link_name target)
   if(NOT ARG_OUTPUT_DIR)
     # If you're not overriding the OUTPUT_DIR, we can make the link relative in
     # the same directory.
-    if(UNIX)
+    if(CMAKE_HOST_UNIX)
       set(dest_binary "$<TARGET_FILE_NAME:${target}>")
     endif()
     if(CMAKE_CONFIGURATION_TYPES)
@@ -1499,7 +1499,7 @@ function(add_llvm_tool_symlink link_name target)
     endif()
   endif()
 
-  if(UNIX)
+  if(CMAKE_HOST_UNIX)
     set(LLVM_LINK_OR_COPY create_symlink)
   else()
     set(LLVM_LINK_OR_COPY copy)
@@ -1589,7 +1589,8 @@ function(llvm_setup_rpath name)
     if(${CMAKE_SYSTEM_NAME} MATCHES "(FreeBSD|DragonFly)")
       set_property(TARGET ${name} APPEND_STRING PROPERTY
                    LINK_FLAGS " -Wl,-z,origin ")
-    elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND NOT LLVM_LINKER_IS_GOLD)
+    endif()
+    if(LLVM_LINKER_IS_GNULD)
       # $ORIGIN is not interpreted at link time by ld.bfd
       set_property(TARGET ${name} APPEND_STRING PROPERTY
                    LINK_FLAGS " -Wl,-rpath-link,${LLVM_LIBRARY_OUTPUT_INTDIR} ")

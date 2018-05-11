@@ -51,10 +51,6 @@ if (${OPENMP_STANDALONE_BUILD})
   if (MSVC OR XCODE)
     set(DEFAULT_LIT_ARGS "${DEFAULT_LIT_ARGS} --no-progress-bar")
   endif()
-  # TODO: Remove once bots are updated to use the new option.
-  if (DEFINED LIBOMP_LIT_ARGS)
-    set(DEFAULT_LIT_ARGS ${LIBOMP_LIT_ARGS})
-  endif()
   set(OPENMP_LIT_ARGS "${DEFAULT_LIT_ARGS}" CACHE STRING "Options for lit.")
   separate_arguments(OPENMP_LIT_ARGS)
 else()
@@ -121,13 +117,16 @@ else()
   # Cannot use CLANG_VERSION because we are not guaranteed that this is already set.
   set(OPENMP_TEST_COMPILER_VERSION "${LLVM_VERSION}")
   set(OPENMP_TEST_COMPILER_VERSION_MAJOR "${LLVM_MAJOR_VERSION}")
-  set(OPENMP_TEST_COMPILER_OPENMP_FLAGS "-fopenmp")
+  # TODO: Implement blockaddress in GlobalISel and remove this flag!
+  set(OPENMP_TEST_COMPILER_OPENMP_FLAGS "-fopenmp -fno-experimental-isel")
 endif()
 
 # Function to set compiler features for use in lit.
 function(set_test_compiler_features)
   if ("${OPENMP_TEST_COMPILER_ID}" STREQUAL "GNU")
     set(comp "gcc")
+  elseif ("${OPENMP_TEST_COMPILER_ID}" STREQUAL "Intel")
+    set(comp "icc")
   else()
     # Just use the lowercase of the compiler ID as fallback.
     string(TOLOWER "${OPENMP_TEST_COMPILER_ID}" comp)

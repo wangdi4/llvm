@@ -377,7 +377,7 @@ FunctionPass *llvm::createHexagonHardwareLoops() {
 
 bool HexagonHardwareLoops::runOnMachineFunction(MachineFunction &MF) {
   DEBUG(dbgs() << "********* Hexagon Hardware Loops *********\n");
-  if (skipFunction(*MF.getFunction()))
+  if (skipFunction(MF.getFunction()))
     return false;
 
   bool Changed = false;
@@ -928,6 +928,7 @@ CountValue *HexagonHardwareLoops::computeCount(MachineLoop *Loop,
       // 'Add' instruction.
       const MachineInstr *EndValInstr = MRI->getVRegDef(End->getReg());
       if (EndValInstr->getOpcode() == Hexagon::A2_addi &&
+          EndValInstr->getOperand(1).getSubReg() == 0 &&
           EndValInstr->getOperand(2).getImm() == StartV) {
         DistR = EndValInstr->getOperand(1).getReg();
       } else {
@@ -1011,7 +1012,7 @@ bool HexagonHardwareLoops::isInvalidLoopOperation(const MachineInstr *MI,
 bool HexagonHardwareLoops::containsInvalidInstruction(MachineLoop *L,
     bool IsInnerHWLoop) const {
   const std::vector<MachineBasicBlock *> &Blocks = L->getBlocks();
-  DEBUG(dbgs() << "\nhw_loop head, BB#" << Blocks[0]->getNumber(););
+  DEBUG(dbgs() << "\nhw_loop head, " << printMBBReference(*Blocks[0]));
   for (unsigned i = 0, e = Blocks.size(); i != e; ++i) {
     MachineBasicBlock *MBB = Blocks[i];
     for (MachineBasicBlock::iterator
@@ -1367,7 +1368,7 @@ bool HexagonHardwareLoops::isLoopFeeder(MachineLoop *L, MachineBasicBlock *A,
                                         LoopFeederMap &LoopFeederPhi) const {
   if (LoopFeederPhi.find(MO->getReg()) == LoopFeederPhi.end()) {
     const std::vector<MachineBasicBlock *> &Blocks = L->getBlocks();
-    DEBUG(dbgs() << "\nhw_loop head, BB#" << Blocks[0]->getNumber(););
+    DEBUG(dbgs() << "\nhw_loop head, " << printMBBReference(*Blocks[0]));
     // Ignore all BBs that form Loop.
     for (unsigned i = 0, e = Blocks.size(); i != e; ++i) {
       MachineBasicBlock *MBB = Blocks[i];
@@ -1720,7 +1721,7 @@ bool HexagonHardwareLoops::fixupInductionVariable(MachineLoop *L) {
     MachineOperand &MO = PredDef->getOperand(i);
     if (MO.isReg()) {
       // Skip all implicit references.  In one case there was:
-      //   %140<def> = FCMPUGT32_rr %138, %139, %usr<imp-use>
+      //   %140 = FCMPUGT32_rr %138, %139, implicit %usr
       if (MO.isImplicit())
         continue;
       if (MO.isUse()) {

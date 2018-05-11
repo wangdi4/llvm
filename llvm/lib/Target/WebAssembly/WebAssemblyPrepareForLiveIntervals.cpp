@@ -55,6 +55,9 @@ private:
 } // end anonymous namespace
 
 char WebAssemblyPrepareForLiveIntervals::ID = 0;
+INITIALIZE_PASS(WebAssemblyPrepareForLiveIntervals, DEBUG_TYPE,
+                "Fix up code for LiveIntervals", false, false)
+
 FunctionPass *llvm::createWebAssemblyPrepareForLiveIntervals() {
   return new WebAssemblyPrepareForLiveIntervals();
 }
@@ -117,7 +120,7 @@ bool WebAssemblyPrepareForLiveIntervals::runOnMachineFunction(MachineFunction &M
     }
   }
 
-  // Ok, we're now ready to run LiveIntervalAnalysis again.
+  // Ok, we're now ready to run the LiveIntervals analysis again.
   MF.getProperties().set(MachineFunctionProperties::Property::TracksLiveness);
 
   return Changed;

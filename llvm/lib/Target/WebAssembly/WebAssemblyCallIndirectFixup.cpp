@@ -27,7 +27,7 @@
 #include "WebAssemblyMachineFunctionInfo.h"
 #include "WebAssemblySubtarget.h"
 #include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/CodeGen/LiveIntervalAnalysis.h"
+#include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -54,6 +54,9 @@ public:
 } // end anonymous namespace
 
 char WebAssemblyCallIndirectFixup::ID = 0;
+INITIALIZE_PASS(WebAssemblyCallIndirectFixup, DEBUG_TYPE,
+                "Rewrite call_indirect argument orderings", false, false)
+
 FunctionPass *llvm::createWebAssemblyCallIndirectFixup() {
   return new WebAssemblyCallIndirectFixup();
 }

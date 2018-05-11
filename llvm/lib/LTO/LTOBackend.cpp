@@ -30,6 +30,10 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/Program.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/ThreadPool.h"
 #include "llvm/Target/TargetMachine.h"
@@ -82,7 +86,7 @@ Error Config::addSaveTemps(std::string OutputFileName,
       // directly and exit.
       if (EC)
         reportOpenError(Path, EC.message());
-      WriteBitcodeToFile(&M, OS, /*ShouldPreserveUseListOrder=*/false);
+      WriteBitcodeToFile(M, OS, /*ShouldPreserveUseListOrder=*/false);
       return true;
     };
   };
@@ -103,6 +107,12 @@ Error Config::addSaveTemps(std::string OutputFileName,
     if (EC)
       reportOpenError(Path, EC.message());
     WriteIndexToFile(Index, OS);
+
+    Path = OutputFileName + "index.dot";
+    raw_fd_ostream OSDot(Path, EC, sys::fs::OpenFlags::F_None);
+    if (EC)
+      reportOpenError(Path, EC.message());
+    Index.exportToDot(OSDot);
     return true;
   };
 
@@ -273,10 +283,73 @@ bool opt(Config &Conf, TargetMachine *TM, unsigned Task, Module &Mod,
   return !Conf.PostOptModuleHook || Conf.PostOptModuleHook(Task, Mod);
 }
 
+void codegenWithSplitDwarf(Config &Conf, TargetMachine *TM,
+                           AddStreamFn AddStream, unsigned Task, Module &Mod) {
+  SmallString<128> TempFile;
+  int FD = -1;
+  if (auto EC =
+      sys::fs::createTemporaryFile("lto-llvm-fission", "o", FD, TempFile))
+    report_fatal_error("Could not create temporary file " +
+        TempFile.str() + ": " + EC.message());
+  llvm::raw_fd_ostream OS(FD, true);
+  SmallString<1024> DwarfFile(Conf.DwoDir);
+  std::string DwoName = sys::path::filename(Mod.getModuleIdentifier()).str() +
+      "-" + std::to_string(Task) + "-";
+  size_t index = TempFile.str().rfind("lto-llvm-fission");
+  StringRef TempID = TempFile.str().substr(index + 17, 6);
+  DwoName += TempID.str() + ".dwo";
+  sys::path::append(DwarfFile, DwoName);
+  TM->Options.MCOptions.SplitDwarfFile = DwarfFile.str().str();
+
+  legacy::PassManager CodeGenPasses;
+  if (TM->addPassesToEmitFile(CodeGenPasses, OS, Conf.CGFileType))
+    report_fatal_error("Failed to setup codegen");
+  CodeGenPasses.run(Mod);
+
+  if (auto EC = llvm::sys::fs::create_directories(Conf.DwoDir))
+    report_fatal_error("Failed to create directory " +
+		       Conf.DwoDir + ": " + EC.message());
+
+  SmallVector<const char*, 5> ExtractArgs, StripArgs;
+  ExtractArgs.push_back(Conf.Objcopy.c_str());
+  ExtractArgs.push_back("--extract-dwo");
+  ExtractArgs.push_back(TempFile.c_str());
+  ExtractArgs.push_back(TM->Options.MCOptions.SplitDwarfFile.c_str());
+  ExtractArgs.push_back(nullptr);
+  StripArgs.push_back(Conf.Objcopy.c_str());
+  StripArgs.push_back("--strip-dwo");
+  StripArgs.push_back(TempFile.c_str());
+  StripArgs.push_back(nullptr);
+
+  if (auto Ret = sys::ExecuteAndWait(Conf.Objcopy, ExtractArgs.data())) {
+    report_fatal_error("Failed to extract dwo from " + TempFile.str() +
+        ". Exit code " + std::to_string(Ret));
+  }
+  if (auto Ret = sys::ExecuteAndWait(Conf.Objcopy, StripArgs.data())) {
+    report_fatal_error("Failed to strip dwo from " + TempFile.str() +
+        ". Exit code " + std::to_string(Ret));
+  }
+
+  auto Stream = AddStream(Task);
+  auto Buffer = MemoryBuffer::getFile(TempFile);
+  if (auto EC = Buffer.getError())
+    report_fatal_error("Failed to load file " +
+                       TempFile.str() + ": " + EC.message());
+  *Stream->OS << Buffer.get()->getBuffer();
+  if (auto EC = sys::fs::remove(TempFile))
+    report_fatal_error("Failed to delete file " +
+                       TempFile.str() + ": " + EC.message());
+}
+
 void codegen(Config &Conf, TargetMachine *TM, AddStreamFn AddStream,
              unsigned Task, Module &Mod) {
   if (Conf.PreCodeGenModuleHook && !Conf.PreCodeGenModuleHook(Task, Mod))
     return;
+
+  if (!Conf.DwoDir.empty()) {
+    codegenWithSplitDwarf(Conf, TM, AddStream, Task, Mod);
+    return;
+  }
 
   auto Stream = AddStream(Task);
   legacy::PassManager CodeGenPasses;
@@ -303,7 +376,7 @@ void splitCodeGen(Config &C, TargetMachine *TM, AddStreamFn AddStream,
         // FIXME: Provide a more direct way to do this in LLVM.
         SmallString<0> BC;
         raw_svector_ostream BCOS(BC);
-        WriteBitcodeToFile(MPart.get(), BCOS);
+        WriteBitcodeToFile(*MPart, BCOS);
 
         // Enqueue the task
         CodegenThreadPool.async(
@@ -393,6 +466,27 @@ Error lto::backend(Config &C, AddStreamFn AddStream,
   return Error::success();
 }
 
+static void dropDeadSymbols(Module &Mod, const GVSummaryMapTy &DefinedGlobals,
+                            const ModuleSummaryIndex &Index) {
+  std::vector<GlobalValue*> DeadGVs;
+  for (auto &GV : Mod.global_values())
+    if (GlobalValueSummary *GVS = DefinedGlobals.lookup(GV.getGUID()))
+      if (!Index.isGlobalValueLive(GVS)) {
+        DeadGVs.push_back(&GV);
+        convertToDeclaration(GV);
+      }
+
+  // Now that all dead bodies have been dropped, delete the actual objects
+  // themselves when possible.
+  for (GlobalValue *GV : DeadGVs) {
+    GV->removeDeadConstantUsers();
+    // Might reference something defined in native object (i.e. dropped a
+    // non-prevailing IR def, but we need to keep the declaration).
+    if (GV->use_empty())
+      GV->eraseFromParent();
+  }
+}
+
 Error lto::thinBackend(Config &Conf, unsigned Task, AddStreamFn AddStream,
                        Module &Mod, const ModuleSummaryIndex &CombinedIndex,
                        const FunctionImporter::ImportMapTy &ImportList,
@@ -413,6 +507,8 @@ Error lto::thinBackend(Config &Conf, unsigned Task, AddStreamFn AddStream,
     return Error::success();
 
   renameModuleForThinLTO(Mod, CombinedIndex);
+
+  dropDeadSymbols(Mod, DefinedGlobals, CombinedIndex);
 
   thinLTOResolveWeakForLinkerModule(Mod, DefinedGlobals);
 

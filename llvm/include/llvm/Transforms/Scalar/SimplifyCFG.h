@@ -15,9 +15,9 @@
 #ifndef LLVM_TRANSFORMS_SCALAR_SIMPLIFYCFG_H
 #define LLVM_TRANSFORMS_SCALAR_SIMPLIFYCFG_H
 
+#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/Utils/Local.h"
 
 namespace llvm {
 
@@ -39,7 +39,8 @@ public:
       : SimplifyCFGPass(SimplifyCFGOptions()
                             .forwardSwitchCondToPhi(false)
                             .convertSwitchToLookupTable(false)
-                            .needCanonicalLoops(true)) {}
+                            .needCanonicalLoops(true)
+                            .sinkCommonInsts(false)) {}
 
 
   /// Construct a pass with optional optimizations.

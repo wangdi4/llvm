@@ -103,6 +103,9 @@ static int modRMRequired(OpcodeType type,
   case XOPA_MAP:
     decision = &XOPA_MAP_SYM;
     break;
+  case THREEDNOW_MAP:
+    decision = &THREEDNOW_MAP_SYM;
+    break;
   }
 
   return decision->opcodeDecisions[insnContext].modRMDecisions[opcode].
@@ -146,6 +149,9 @@ static InstrUID decode(OpcodeType type,
     break;
   case XOPA_MAP:
     dec = &XOPA_MAP_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
+    break;
+  case THREEDNOW_MAP:
+    dec = &THREEDNOW_MAP_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
     break;
   }
 
@@ -623,6 +629,8 @@ static int readPrefixes(struct InternalInstruction* insn) {
   return 0;
 }
 
+static int readModRM(struct InternalInstruction* insn);
+
 /*
  * readOpcode - Reads the opcode (excepting the ModR/M byte in the case of
  *   extended or escape opcodes).
@@ -715,6 +723,17 @@ static int readOpcode(struct InternalInstruction* insn) {
         return -1;
 
       insn->opcodeType = THREEBYTE_3A;
+    } else if (current == 0x0f) {
+      dbgprintf(insn, "Found a 3dnow escape prefix (0x%hhx)", current);
+
+      // Consume operands before the opcode to comply with the 3DNow encoding
+      if (readModRM(insn))
+        return -1;
+
+      if (consumeByte(insn, &current))
+        return -1;
+
+      insn->opcodeType = THREEDNOW_MAP;
     } else {
       dbgprintf(insn, "Didn't find a three-byte escape prefix");
 
@@ -734,8 +753,6 @@ static int readOpcode(struct InternalInstruction* insn) {
 
   return 0;
 }
-
-static int readModRM(struct InternalInstruction* insn);
 
 /*
  * getIDWithAttrMask - Determines the ID of an instruction, consuming
@@ -947,6 +964,7 @@ static int getID(struct InternalInstruction* insn, const void *miiArg) {
       attrMask |= ATTR_ADSIZE;
       break;
     }
+
   }
 
   if (insn->rexPrefix & 0x08) {
@@ -1039,13 +1057,14 @@ static int getID(struct InternalInstruction* insn, const void *miiArg) {
   }
 
   /*
-   * Absolute moves need special handling.
+   * Absolute moves and umonitor need special handling.
    * -For 16-bit mode because the meaning of the AdSize and OpSize prefixes are
    *  inverted w.r.t.
    * -For 32-bit mode we need to ensure the ADSIZE prefix is observed in
    *  any position.
    */
-  if (insn->opcodeType == ONEBYTE && ((insn->opcode & 0xFC) == 0xA0)) {
+  if ((insn->opcodeType == ONEBYTE && ((insn->opcode & 0xFC) == 0xA0)) ||
+      (insn->opcodeType == TWOBYTE && (insn->opcode == 0xAE))) {
     /* Make sure we observed the prefixes in any position. */
     if (insn->hasAdSize)
       attrMask |= ATTR_ADSIZE;
@@ -1053,8 +1072,12 @@ static int getID(struct InternalInstruction* insn, const void *miiArg) {
       attrMask |= ATTR_OPSIZE;
 
     /* In 16-bit, invert the attributes. */
-    if (insn->mode == MODE_16BIT)
-      attrMask ^= ATTR_ADSIZE | ATTR_OPSIZE;
+    if (insn->mode == MODE_16BIT) {
+      attrMask ^= ATTR_ADSIZE;
+      /* The OpSize attribute is only valid with the absolute moves. */
+      if (insn->opcodeType == ONEBYTE && ((insn->opcode & 0xFC) == 0xA0))
+        attrMask ^= ATTR_OPSIZE;
+    }
 
     if (getIDWithAttrMask(&instructionID, insn, attrMask))
       return -1;

@@ -2028,9 +2028,17 @@ static int __kmp_affinity_create_cpuinfo_map(AddrUnsPair **address2os,
         if ((p == NULL) || (KMP_SSCANF(p + 1, "%u\n", &val) != 1))
           goto no_val;
         if (threadInfo[num_avail][osIdIndex] != UINT_MAX)
+#if KMP_ARCH_AARCH64
+          // Handle the old AArch64 /proc/cpuinfo layout differently,
+          // it contains all of the 'processor' entries listed in a
+          // single 'Processor' section, therefore the normal looking
+          // for duplicates in that section will always fail.
+          num_avail++;
+#else
           goto dup_field;
+#endif
         threadInfo[num_avail][osIdIndex] = val;
-#if KMP_OS_LINUX && USE_SYSFS_INFO
+#if KMP_OS_LINUX && !(KMP_ARCH_X86 || KMP_ARCH_X86_64)
         char path[256];
         KMP_SNPRINTF(
             path, sizeof(path),
@@ -3949,7 +3957,19 @@ static int __kmp_aff_depth = 0;
   KMP_ASSERT(__kmp_affinity_type == affinity_none);                            \
   KMP_ASSERT(address2os == NULL);                                              \
   __kmp_apply_thread_places(NULL, 0);                                          \
+  __kmp_create_affinity_none_places();                                         \
   return;
+
+// Create a one element mask array (set of places) which only contains the
+// initial process's affinity mask
+static void __kmp_create_affinity_none_places() {
+  KMP_ASSERT(__kmp_affin_fullMask != NULL);
+  KMP_ASSERT(__kmp_affinity_type == affinity_none);
+  __kmp_affinity_num_masks = 1;
+  KMP_CPU_ALLOC_ARRAY(__kmp_affinity_masks, __kmp_affinity_num_masks);
+  kmp_affin_mask_t *dest = KMP_CPU_INDEX(__kmp_affinity_masks, 0);
+  KMP_CPU_COPY(dest, __kmp_affin_fullMask);
+}
 
 static int __kmp_affinity_cmp_Address_child_num(const void *a, const void *b) {
   const Address *aa = &(((const AddrUnsPair *)a)->first);
@@ -4287,6 +4307,7 @@ static void __kmp_aux_affinity_initialize(void) {
       KMP_WARNING(ErrorInitializeAffinity);
     }
     __kmp_affinity_type = affinity_none;
+    __kmp_create_affinity_none_places();
     KMP_AFFINITY_DISABLE();
     return;
   }
@@ -4570,7 +4591,7 @@ void __kmp_affinity_set_init_mask(int gtid, int isa_root) {
   int i;
 
 #if OMP_40_ENABLED
-  if (__kmp_nested_proc_bind.bind_types[0] == proc_bind_intel)
+  if (KMP_AFFINITY_NON_PROC_BIND)
 #endif
   {
     if ((__kmp_affinity_type == affinity_none) ||
@@ -4581,7 +4602,7 @@ void __kmp_affinity_set_init_mask(int gtid, int isa_root) {
       }
 #endif
       KMP_ASSERT(__kmp_affin_fullMask != NULL);
-      i = KMP_PLACE_ALL;
+      i = 0;
       mask = __kmp_affin_fullMask;
     } else {
       KMP_DEBUG_ASSERT(__kmp_affinity_num_masks > 0);
@@ -4640,7 +4661,9 @@ void __kmp_affinity_set_init_mask(int gtid, int isa_root) {
 
   KMP_CPU_COPY(th->th.th_affin_mask, mask);
 
-  if (__kmp_affinity_verbose) {
+  if (__kmp_affinity_verbose
+      /* to avoid duplicate printing (will be correctly printed on barrier) */
+      && (__kmp_affinity_type == affinity_none || i != KMP_PLACE_ALL)) {
     char buf[KMP_AFFIN_MASK_PRINT_LEN];
     __kmp_affinity_print_mask(buf, KMP_AFFIN_MASK_PRINT_LEN,
                               th->th.th_affin_mask);

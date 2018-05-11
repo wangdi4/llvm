@@ -13,6 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+// FIXME: Investigate a better scheduler class once MPX is used inside LLVM.
+let SchedRW = [WriteSystem] in {
+
 multiclass mpx_bound_make<bits<8> opc, string OpcodeStr> {
 let mayLoad = 1 in {
   def 32rm: I<opc, MRMSrcMem, (outs BNDR:$dst), (ins i32mem:$src),
@@ -73,6 +76,7 @@ def BNDSTXmr:      I<0x1B, MRMDestMem, (outs), (ins i64mem:$dst, BNDR:$src),
                     Requires<[HasMPX]>;
 }
 let mayLoad = 1 in
-def BNDLDXrm:      I<0x1A, MRMSrcMem, (outs BNDR:$dst), (ins i64mem:$src),
+def BNDLDXrm:      I<0x1A, MRMSrcMem, (outs BNDR:$dst), (ins anymem:$src),
                     "bndldx\t{$src, $dst|$dst, $src}", []>, PS,
                     Requires<[HasMPX]>;
+} // SchedRW

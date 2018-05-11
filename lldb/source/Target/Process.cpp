@@ -30,6 +30,7 @@
 #include "lldb/Expression/DiagnosticManager.h"
 #include "lldb/Expression/IRDynamicChecks.h"
 #include "lldb/Expression/UserExpression.h"
+#include "lldb/Expression/UtilityFunction.h"
 #include "lldb/Host/ConnectionFileDescriptor.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/Host.h"
@@ -39,6 +40,7 @@
 #include "lldb/Host/Terminal.h"
 #include "lldb/Host/ThreadLauncher.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
+#include "lldb/Interpreter/OptionArgParser.h"
 #include "lldb/Interpreter/OptionValueProperties.h"
 #include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/Symbol.h"
@@ -144,6 +146,9 @@ static PropertyDefinition g_properties[] = {
     {"optimization-warnings", OptionValue::eTypeBoolean, false, true, nullptr,
      nullptr, "If true, warn when stopped in code that is optimized where "
               "stepping and variable availability may not behave as expected."},
+    {"stop-on-exec", OptionValue::eTypeBoolean, true, true,
+     nullptr, nullptr,
+     "If true, stop when a shared library is loaded or unloaded."},
     {nullptr, OptionValue::eTypeInvalid, false, 0, nullptr, nullptr, nullptr}};
 
 enum {
@@ -155,7 +160,8 @@ enum {
   ePropertyStopOnSharedLibraryEvents,
   ePropertyDetachKeepsStopped,
   ePropertyMemCacheLineSize,
-  ePropertyWarningOptimization
+  ePropertyWarningOptimization,
+  ePropertyStopOnExec
 };
 
 ProcessProperties::ProcessProperties(lldb_private::Process *process)
@@ -272,6 +278,12 @@ bool ProcessProperties::GetWarningsOptimization() const {
       nullptr, idx, g_properties[idx].default_uint_value != 0);
 }
 
+bool ProcessProperties::GetStopOnExec() const {
+  const uint32_t idx = ePropertyStopOnExec;
+  return m_collection_sp->GetPropertyAtIndexAsBoolean(
+      nullptr, idx, g_properties[idx].default_uint_value != 0);
+}
+
 void ProcessInstanceInfo::Dump(Stream &s, Platform *platform) const {
   const char *cstr;
   if (m_pid != LLDB_INVALID_PROCESS_ID)
@@ -297,16 +309,7 @@ void ProcessInstanceInfo::Dump(Stream &s, Platform *platform) const {
     }
   }
 
-  const uint32_t envc = m_environment.GetArgumentCount();
-  if (envc > 0) {
-    for (uint32_t i = 0; i < envc; i++) {
-      const char *env = m_environment.GetArgumentAtIndex(i);
-      if (i < 10)
-        s.Printf(" env[%u] = %s\n", i, env);
-      else
-        s.Printf("env[%u] = %s\n", i, env);
-    }
-  }
+  s.Format("{0}", m_environment);
 
   if (m_arch.IsValid()) {
     s.Printf("   arch = ");
@@ -488,7 +491,7 @@ Status ProcessLaunchCommandOptions::SetOptionValue(
   {
     bool success;
     const bool disable_aslr_arg =
-        Args::StringToBoolean(option_arg, true, &success);
+        OptionArgParser::ToBoolean(option_arg, true, &success);
     if (success)
       disable_aslr = disable_aslr_arg ? eLazyBoolYes : eLazyBoolNo;
     else
@@ -501,7 +504,8 @@ Status ProcessLaunchCommandOptions::SetOptionValue(
   case 'X': // shell expand args.
   {
     bool success;
-    const bool expand_args = Args::StringToBoolean(option_arg, true, &success);
+    const bool expand_args =
+        OptionArgParser::ToBoolean(option_arg, true, &success);
     if (success)
       launch_info.SetShellExpandArguments(expand_args);
     else
@@ -519,7 +523,7 @@ Status ProcessLaunchCommandOptions::SetOptionValue(
     break;
 
   case 'v':
-    launch_info.GetEnvironmentEntries().AppendArgument(option_arg);
+    launch_info.GetEnvironment().insert(option_arg);
     break;
 
   default:
@@ -2532,6 +2536,17 @@ size_t Process::ReadScalarIntegerFromMemory(addr_t addr, uint32_t byte_size,
   return 0;
 }
 
+Status Process::WriteObjectFile(std::vector<ObjectFile::LoadableData> entries) {
+  Status error;
+  for (const auto &Entry : entries) {
+    WriteMemory(Entry.Dest, Entry.Contents.data(), Entry.Contents.size(),
+                error);
+    if (!error.Success())
+      break;
+  }
+  return error;
+}
+
 #define USE_ALLOCATE_MEMORY_CACHE 1
 addr_t Process::AllocateMemory(size_t size, uint32_t permissions,
                                Status &error) {
@@ -2856,10 +2871,10 @@ Status Process::LoadCore() {
     // state.
     SetPrivateState(eStateStopped);
 
-    // Wait indefinitely for a stopped event since we just posted one above...
+    // Wait for a stopped event since we just posted one above...
     lldb::EventSP event_sp;
-    listener_sp->GetEvent(event_sp, llvm::None);
-    StateType state = ProcessEventData::GetStateFromEvent(event_sp.get());
+    StateType state =
+        WaitForProcessToStop(seconds(10), &event_sp, true, listener_sp);
 
     if (!StateIsStoppedState(state, false)) {
       Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_PROCESS));
@@ -6231,3 +6246,15 @@ Status Process::UpdateAutomaticSignalFiltering() {
   // No automatic signal filtering to speak of.
   return Status();
 }
+
+UtilityFunction *Process::GetLoadImageUtilityFunction(Platform *platform) {
+  if (platform != GetTarget().GetPlatform().get())
+    return nullptr;
+  return m_dlopen_utility_func_up.get();
+}
+
+void Process::SetLoadImageUtilityFunction(std::unique_ptr<UtilityFunction> 
+                                          utility_func_up) {
+  m_dlopen_utility_func_up.swap(utility_func_up);
+}
+

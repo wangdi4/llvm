@@ -221,19 +221,19 @@
 //
 // Checks for ARM+Apple+IOS including -fapple-kext, -mkernel, and iphoneos
 // version boundaries.
-// RUN: %clang -c %s -target armv7-apple-ios -fapple-kext -miphoneos-version-min=6.0.0 -### 2>&1 \
+// RUN: %clang -c %s -target armv7-apple-ios6 -fapple-kext -### 2>&1 \
 // RUN:   | FileCheck %s --check-prefix=CHECK-PIC2
-// RUN: %clang -c %s -target armv7-apple-ios -mkernel -miphoneos-version-min=6.0.0 -### 2>&1 \
+// RUN: %clang -c %s -target armv7-apple-ios6 -mkernel -### 2>&1 \
 // RUN:   | FileCheck %s --check-prefix=CHECK-PIC2
-// RUN: %clang -c %s -target arm64-apple-ios -mkernel -miphoneos-version-min=7.0.0 -### 2>&1 \
+// RUN: %clang -c %s -target arm64-apple-ios7 -mkernel -### 2>&1 \
 // RUN:   | FileCheck %s --check-prefix=CHECK-PIC2
-// RUN: %clang -x assembler -c %s -target arm64-apple-ios -mkernel -miphoneos-version-min=7.0.0 -no-integrated-as -### 2>&1 \
+// RUN: %clang -x assembler -c %s -target arm64-apple-ios7 -mkernel -no-integrated-as -### 2>&1 \
 // RUN:   | FileCheck %s --check-prefix=CHECK-NO-STATIC
-// RUN: %clang -c %s -target armv7k-apple-watchos -fapple-kext -mwatchos-version-min=1.0.0 -### 2>&1 \
+// RUN: %clang -c %s -target armv7k-apple-watchos1 -fapple-kext -### 2>&1 \
 // RUN:   | FileCheck %s --check-prefix=CHECK-PIC2
-// RUN: %clang -c %s -target armv7-apple-ios -fapple-kext -miphoneos-version-min=5.0.0 -### 2>&1 \
+// RUN: %clang -c %s -target armv7-apple-ios5 -fapple-kext -### 2>&1 \
 // RUN:   | FileCheck %s --check-prefix=CHECK-NO-PIC
-// RUN: %clang -c %s -target armv7-apple-ios -fapple-kext -miphoneos-version-min=6.0.0 -static -### 2>&1 \
+// RUN: %clang -c %s -target armv7-apple-ios6 -fapple-kext -static -### 2>&1 \
 // RUN:   | FileCheck %s --check-prefix=CHECK-NO-PIC
 // RUN: %clang -c %s -target armv7-apple-unknown-macho -static -### 2>&1 \
 // RUN:   | FileCheck %s --check-prefix=CHECK-NO-PIC
@@ -292,9 +292,9 @@
 // RUN: %clang -c %s -target mipsel-linux-android14 -### 2>&1 \
 // RUN:   | FileCheck %s --check-prefix=CHECK-PIC1
 // RUN: %clang -c %s -target mipsel-linux-android16 -### 2>&1 \
-// RUN:   | FileCheck %s --check-prefix=CHECK-PIE2
+// RUN:   | FileCheck %s --check-prefix=CHECK-PIE1
 // RUN: %clang -c %s -target mipsel-linux-android24 -### 2>&1 \
-// RUN:   | FileCheck %s --check-prefix=CHECK-PIE2
+// RUN:   | FileCheck %s --check-prefix=CHECK-PIE1
 //
 // 64-bit Android targets are always PIE.
 // RUN: %clang -c %s -target aarch64-linux-android -### 2>&1 \

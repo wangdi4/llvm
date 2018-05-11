@@ -35,13 +35,13 @@
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/MachineValueType.h"
 #include <cassert>
 #include <cstdint>
 #include <iterator>
@@ -210,6 +210,11 @@ R600TargetLowering::R600TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::SHL_PARTS, MVT::i32, Custom);
   setOperationAction(ISD::SRL_PARTS, MVT::i32, Custom);
   setOperationAction(ISD::SRA_PARTS, MVT::i32, Custom);
+
+  if (!Subtarget->hasFMA()) {
+    setOperationAction(ISD::FMA, MVT::f32, Expand);
+    setOperationAction(ISD::FMA, MVT::f64, Expand);
+  }
 
   setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
 

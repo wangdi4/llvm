@@ -14,7 +14,6 @@
 //
 //===----------------------------------------------------------------------===//
 #include "llvm/Analysis/RegionPass.h"
-#include "llvm/Analysis/RegionIterator.h"
 #include "llvm/IR/OptBisect.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Timer.h"
@@ -284,7 +283,7 @@ Pass *RegionPass::createPrinterPass(raw_ostream &O,
 
 bool RegionPass::skipRegion(Region &R) const {
   Function &F = *R.getEntry()->getParent();
-  if (!F.getContext().getOptBisect().shouldRunPass(this, R))
+  if (!F.getContext().getOptPassGate().shouldRunPass(this, R))
     return true;
 
   if (F.hasFnAttribute(Attribute::OptimizeNone)) {

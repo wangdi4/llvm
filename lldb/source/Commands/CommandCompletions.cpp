@@ -23,14 +23,13 @@
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Host/FileSystem.h"
-#include "lldb/Interpreter/Args.h"
 #include "lldb/Interpreter/CommandCompletions.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/OptionValueProperties.h"
 #include "lldb/Symbol/CompileUnit.h"
 #include "lldb/Symbol/Variable.h"
 #include "lldb/Target/Target.h"
-#include "lldb/Utility/CleanUp.h"
+#include "lldb/Utility/Args.h"
 #include "lldb/Utility/FileSpec.h"
 #include "lldb/Utility/StreamString.h"
 #include "lldb/Utility/TildeExpressionResolver.h"
@@ -165,7 +164,7 @@ static int DiskFilesOrDirectories(const llvm::Twine &partial_name,
     // search in the fully resolved directory, but CompletionBuffer keeps the
     // unmodified form that the user typed.
     Storage = Resolved;
-    SearchDir = Resolved;
+    SearchDir = Storage;
   } else {
     SearchDir = path::parent_path(CompletionBuffer);
   }

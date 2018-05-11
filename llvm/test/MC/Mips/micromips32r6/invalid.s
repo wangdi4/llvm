@@ -1,4 +1,4 @@
-# RUN: not llvm-mc %s -triple=mips -show-encoding -mcpu=mips32r6 -mattr=micromips 2>%t1
+# RUN: not llvm-mc %s -triple=mips -show-encoding -mcpu=mips32r6 -mattr=+micromips,+eva 2>%t1
 # RUN: FileCheck %s < %t1
 
   addiur1sp $7, 260        # CHECK: :[[@LINE]]:17: error: expected both 8-bit unsigned immediate and multiple of 4
@@ -351,3 +351,27 @@
   bnezc $2, -4194303       # CHECK: :[[@LINE]]:{{[0-9]+}}: error: branch to misaligned address
   bnezc $2, 4194304        # CHECK: :[[@LINE]]:{{[0-9]+}}: error: branch target out of range
   bnezc $2, 4194303        # CHECK: :[[@LINE]]:{{[0-9]+}}: error: branch to misaligned address
+  teq $8, $9, $2           # CHECK: :[[@LINE]]:15: error: expected 4-bit unsigned immediate
+  teq $8, $9, -1           # CHECK: :[[@LINE]]:15: error: expected 4-bit unsigned immediate
+  tge $8, $9, $2           # CHECK: :[[@LINE]]:15: error: expected 4-bit unsigned immediate
+  tge $8, $9, -1           # CHECK: :[[@LINE]]:15: error: expected 4-bit unsigned immediate
+  tgeu $8, $9, $2          # CHECK: :[[@LINE]]:16: error: expected 4-bit unsigned immediate
+  tgeu $8, $9, -1          # CHECK: :[[@LINE]]:16: error: expected 4-bit unsigned immediate
+  tlt $8, $9, $2           # CHECK: :[[@LINE]]:15: error: expected 4-bit unsigned immediate
+  tlt $8, $9, -1           # CHECK: :[[@LINE]]:15: error: expected 4-bit unsigned immediate
+  tltu $8, $9, $2          # CHECK: :[[@LINE]]:16: error: expected 4-bit unsigned immediate
+  tltu $8, $9, -1          # CHECK: :[[@LINE]]:16: error: expected 4-bit unsigned immediate
+  tne $8, $9, $2           # CHECK: :[[@LINE]]:15: error: expected 4-bit unsigned immediate
+  tne $8, $9, -1           # CHECK: :[[@LINE]]:15: error: expected 4-bit unsigned immediate
+  teqi $4, 5               # CHECK: :[[@LINE]]:{{[0-9]+}}: error: instruction requires a CPU feature not currently enabled
+  tgei $4, 5               # CHECK: :[[@LINE]]:{{[0-9]+}}: error: instruction requires a CPU feature not currently enabled
+  tgeiu $4, 5              # CHECK: :[[@LINE]]:{{[0-9]+}}: error: instruction requires a CPU feature not currently enabled
+  tlti $4, 5               # CHECK: :[[@LINE]]:{{[0-9]+}}: error: instruction requires a CPU feature not currently enabled
+  tltiu $4, 5              # CHECK: :[[@LINE]]:{{[0-9]+}}: error: instruction requires a CPU feature not currently enabled
+  tnei $4, 5               # CHECK: :[[@LINE]]:{{[0-9]+}}: error: instruction requires a CPU feature not currently enabled
+  syscall -1               # CHECK: :[[@LINE]]:11: error: expected 10-bit unsigned immediate
+  syscall $4               # CHECK: :[[@LINE]]:11: error: expected 10-bit unsigned immediate
+  ldc2 $1, 1023($32)       # CHECK: :[[@LINE]]:12: error: expected memory with 11-bit signed offset
+  lwc2 $1, 16($32)         # CHECK: :[[@LINE]]:12: error: expected memory with 11-bit signed offset
+  sdc2 $1, 8($32)          # CHECK: :[[@LINE]]:12: error: expected memory with 11-bit signed offset
+  swc2 $1, 777($32)        # CHECK: :[[@LINE]]:12: error: expected memory with 11-bit signed offset

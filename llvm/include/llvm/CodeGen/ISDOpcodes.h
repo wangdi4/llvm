@@ -186,7 +186,8 @@ namespace ISD {
     /// BUILD_PAIR - This is the opposite of EXTRACT_ELEMENT in some ways.
     /// Given two values of the same integer value type, this produces a value
     /// twice as big.  Like EXTRACT_ELEMENT, this can only be used before
-    /// legalization.
+    /// legalization. The lower part of the composite value should be in
+    /// element 0 and the upper part should be in element 1.
     BUILD_PAIR,
 
     /// MERGE_VALUES - This node takes multiple discrete operands and returns
@@ -494,7 +495,8 @@ namespace ISD {
     ZERO_EXTEND_VECTOR_INREG,
 
     /// FP_TO_[US]INT - Convert a floating point value to a signed or unsigned
-    /// integer.
+    /// integer. These have the same semantics as fptosi and fptoui in IR. If
+    /// the FP value cannot fit in the integer type, the results are undefined.
     FP_TO_SINT,
     FP_TO_UINT,
 
@@ -778,6 +780,7 @@ namespace ISD {
     ATOMIC_LOAD_ADD,
     ATOMIC_LOAD_SUB,
     ATOMIC_LOAD_AND,
+    ATOMIC_LOAD_CLR,
     ATOMIC_LOAD_OR,
     ATOMIC_LOAD_XOR,
     ATOMIC_LOAD_NAND,

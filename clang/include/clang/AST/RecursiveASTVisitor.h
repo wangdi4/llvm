@@ -63,8 +63,8 @@
   OPERATOR(PtrMemD) OPERATOR(PtrMemI) OPERATOR(Mul) OPERATOR(Div)              \
       OPERATOR(Rem) OPERATOR(Add) OPERATOR(Sub) OPERATOR(Shl) OPERATOR(Shr)    \
       OPERATOR(LT) OPERATOR(GT) OPERATOR(LE) OPERATOR(GE) OPERATOR(EQ)         \
-      OPERATOR(NE) OPERATOR(And) OPERATOR(Xor) OPERATOR(Or) OPERATOR(LAnd)     \
-      OPERATOR(LOr) OPERATOR(Assign) OPERATOR(Comma)
+      OPERATOR(NE) OPERATOR(Cmp) OPERATOR(And) OPERATOR(Xor) OPERATOR(Or)      \
+      OPERATOR(LAnd) OPERATOR(LOr) OPERATOR(Assign) OPERATOR(Comma)
 
 // All compound assign operators.
 #define CAO_LIST()                                                             \
@@ -146,7 +146,7 @@ namespace clang {
 /// from which they were produced.
 ///
 /// By default, this visitor preorder traverses the AST. If postorder traversal
-/// is needed, the \c shouldTraversePostOrder method needs to be overriden
+/// is needed, the \c shouldTraversePostOrder method needs to be overridden
 /// to return \c true.
 template <typename Derived> class RecursiveASTVisitor {
 public:

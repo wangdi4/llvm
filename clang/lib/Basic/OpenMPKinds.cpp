@@ -889,6 +889,9 @@ void clang::getOpenMPCaptureRegions(
     CaptureRegions.push_back(OMPD_parallel);
     break;
   case OMPD_target_teams:
+  case OMPD_target_teams_distribute:
+  case OMPD_target_teams_distribute_simd:
+    CaptureRegions.push_back(OMPD_task);
     CaptureRegions.push_back(OMPD_target);
     CaptureRegions.push_back(OMPD_teams);
     break;
@@ -899,15 +902,18 @@ void clang::getOpenMPCaptureRegions(
     break;
   case OMPD_target:
   case OMPD_target_simd:
+    CaptureRegions.push_back(OMPD_task);
     CaptureRegions.push_back(OMPD_target);
     break;
   case OMPD_teams_distribute_parallel_for:
+  case OMPD_teams_distribute_parallel_for_simd:
     CaptureRegions.push_back(OMPD_teams);
     CaptureRegions.push_back(OMPD_parallel);
     break;
   case OMPD_target_parallel:
   case OMPD_target_parallel_for:
   case OMPD_target_parallel_for_simd:
+    CaptureRegions.push_back(OMPD_task);
     CaptureRegions.push_back(OMPD_target);
     CaptureRegions.push_back(OMPD_parallel);
     break;
@@ -920,6 +926,13 @@ void clang::getOpenMPCaptureRegions(
   case OMPD_taskloop:
   case OMPD_taskloop_simd:
     CaptureRegions.push_back(OMPD_taskloop);
+    break;
+  case OMPD_target_teams_distribute_parallel_for:
+  case OMPD_target_teams_distribute_parallel_for_simd:
+    CaptureRegions.push_back(OMPD_task);
+    CaptureRegions.push_back(OMPD_target);
+    CaptureRegions.push_back(OMPD_teams);
+    CaptureRegions.push_back(OMPD_parallel);
     break;
   case OMPD_simd:
   case OMPD_for:
@@ -935,11 +948,6 @@ void clang::getOpenMPCaptureRegions(
   case OMPD_atomic:
   case OMPD_target_data:
   case OMPD_distribute_simd:
-  case OMPD_teams_distribute_parallel_for_simd:
-  case OMPD_target_teams_distribute:
-  case OMPD_target_teams_distribute_parallel_for:
-  case OMPD_target_teams_distribute_parallel_for_simd:
-  case OMPD_target_teams_distribute_simd:
     CaptureRegions.push_back(OMPD_unknown);
     break;
   case OMPD_threadprivate:

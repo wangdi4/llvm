@@ -15,11 +15,10 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
-#include "llvm/CodeGen/CommandFlags.def"
+#include "llvm/CodeGen/CommandFlags.inc"
 #include "llvm/FuzzMutate/FuzzerCLI.h"
 #include "llvm/FuzzMutate/IRMutator.h"
 #include "llvm/FuzzMutate/Operations.h"
-#include "llvm/FuzzMutate/Random.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -32,7 +31,6 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
-#include <random>
 
 #define DEBUG_TYPE "isel-fuzzer"
 
@@ -86,8 +84,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
     return 0;
 
   LLVMContext Context;
-  auto M = parseModule(Data, Size, Context);
-  if (!M || verifyModule(*M, &errs())) {
+  auto M = parseAndVerify(Data, Size, Context);
+  if (!M) {
     errs() << "error: input module is broken!\n";
     return 0;
   }

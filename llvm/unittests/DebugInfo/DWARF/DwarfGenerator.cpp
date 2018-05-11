@@ -13,10 +13,8 @@
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/DIE.h"
-#include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include "llvm/DebugInfo/DWARF/DWARFDebugLine.h"
 #include "llvm/DebugInfo/DWARF/DWARFFormValue.h"
-#include "llvm/IR/LegacyPassManagers.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCCodeEmitter.h"
@@ -27,9 +25,8 @@
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/MC/MCTargetOptionsCommandFlags.def"
+#include "llvm/MC/MCTargetOptionsCommandFlags.inc"
 #include "llvm/PassAnalysisSupport.h"
-#include "llvm/Support/LEB128.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
@@ -155,8 +152,13 @@ llvm::Error dwarfgen::Generator::init(Triple TheTriple, uint16_t V) {
   MC.reset(new MCContext(MAI.get(), MRI.get(), MOFI.get()));
   MOFI->InitMCObjectFileInfo(TheTriple, /*PIC*/ false, *MC);
 
+  MSTI.reset(TheTarget->createMCSubtargetInfo(TripleName, "", ""));
+  if (!MSTI)
+    return make_error<StringError>("no subtarget info for target " + TripleName,
+                                   inconvertibleErrorCode());
+
   MCTargetOptions MCOptions = InitMCTargetOptionsFromFlags();
-  MAB = TheTarget->createMCAsmBackend(*MRI, TripleName, "", MCOptions);
+  MAB = TheTarget->createMCAsmBackend(*MSTI, *MRI, MCOptions);
   if (!MAB)
     return make_error<StringError>("no asm backend for target " + TripleName,
                                    inconvertibleErrorCode());
@@ -165,11 +167,6 @@ llvm::Error dwarfgen::Generator::init(Triple TheTriple, uint16_t V) {
   if (!MII)
     return make_error<StringError>("no instr info info for target " +
                                        TripleName,
-                                   inconvertibleErrorCode());
-
-  MSTI.reset(TheTarget->createMCSubtargetInfo(TripleName, "", ""));
-  if (!MSTI)
-    return make_error<StringError>("no subtarget info for target " + TripleName,
                                    inconvertibleErrorCode());
 
   MCE = TheTarget->createMCCodeEmitter(*MII, *MRI, *MC);
@@ -234,15 +231,15 @@ StringRef dwarfgen::Generator::generate() {
     auto Length = CU->getLength();
     MC->setDwarfVersion(Version);
     assert(Length != -1U);
-    Asm->EmitInt32(Length);
-    Asm->EmitInt16(Version);
+    Asm->emitInt32(Length);
+    Asm->emitInt16(Version);
     if (Version <= 4) {
-      Asm->EmitInt32(0);
-      Asm->EmitInt8(CU->getAddressSize());
+      Asm->emitInt32(0);
+      Asm->emitInt8(CU->getAddressSize());
     } else {
-      Asm->EmitInt8(dwarf::DW_UT_compile);
-      Asm->EmitInt8(CU->getAddressSize());
-      Asm->EmitInt32(0);
+      Asm->emitInt8(dwarf::DW_UT_compile);
+      Asm->emitInt8(CU->getAddressSize());
+      Asm->emitInt32(0);
     }
     Asm->emitDwarfDIE(*CU->getUnitDIE().Die);
   }

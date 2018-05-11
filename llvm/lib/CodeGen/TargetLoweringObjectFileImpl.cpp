@@ -91,8 +91,26 @@ static void GetObjCImageInfo(Module &M, unsigned &Version, unsigned &Flags,
 //                                  ELF
 //===----------------------------------------------------------------------===//
 
-void TargetLoweringObjectFileELF::emitModuleMetadata(
-    MCStreamer &Streamer, Module &M, const TargetMachine &TM) const {
+void TargetLoweringObjectFileELF::emitModuleMetadata(MCStreamer &Streamer,
+                                                     Module &M) const {
+  auto &C = getContext();
+
+  if (NamedMDNode *LinkerOptions = M.getNamedMetadata("llvm.linker.options")) {
+    auto *S = C.getELFSection(".linker-options", ELF::SHT_LLVM_LINKER_OPTIONS,
+                              ELF::SHF_EXCLUDE);
+
+    Streamer.SwitchSection(S);
+
+    for (const auto &Operand : LinkerOptions->operands()) {
+      if (cast<MDNode>(Operand)->getNumOperands() != 2)
+        report_fatal_error("invalid llvm.linker.options");
+      for (const auto &Option : cast<MDNode>(Operand)->operands()) {
+        Streamer.EmitBytes(cast<MDString>(Option)->getString());
+        Streamer.EmitIntValue(0, 1);
+      }
+    }
+  }
+
   unsigned Version = 0;
   unsigned Flags = 0;
   StringRef Section;
@@ -101,7 +119,6 @@ void TargetLoweringObjectFileELF::emitModuleMetadata(
   if (Section.empty())
     return;
 
-  auto &C = getContext();
   auto *S = C.getELFSection(Section, ELF::SHT_PROGBITS, ELF::SHF_ALLOC);
   Streamer.SwitchSection(S);
   Streamer.EmitLabel(C.getOrCreateSymbol(StringRef("OBJC_IMAGE_INFO")));
@@ -617,8 +634,8 @@ void TargetLoweringObjectFileMachO::Initialize(MCContext &Ctx,
   }
 }
 
-void TargetLoweringObjectFileMachO::emitModuleMetadata(
-    MCStreamer &Streamer, Module &M, const TargetMachine &TM) const {
+void TargetLoweringObjectFileMachO::emitModuleMetadata(MCStreamer &Streamer,
+                                                       Module &M) const {
   // Emit the linker options if present.
   if (auto *LinkerOptions = M.getNamedMetadata("llvm.linker.options")) {
     for (const auto &Option : LinkerOptions->operands()) {
@@ -727,6 +744,8 @@ MCSection *TargetLoweringObjectFileMachO::SelectSectionForGlobal(
   if (GO->isWeakForLinker()) {
     if (Kind.isReadOnly())
       return ConstTextCoalSection;
+    if (Kind.isReadOnlyWithRel())
+      return ConstDataCoalSection;
     return DataCoalSection;
   }
 
@@ -1149,8 +1168,8 @@ MCSection *TargetLoweringObjectFileCOFF::getSectionForJumpTable(
                                      COFF::IMAGE_COMDAT_SELECT_ASSOCIATIVE, UniqueID);
 }
 
-void TargetLoweringObjectFileCOFF::emitModuleMetadata(
-    MCStreamer &Streamer, Module &M, const TargetMachine &TM) const {
+void TargetLoweringObjectFileCOFF::emitModuleMetadata(MCStreamer &Streamer,
+                                                      Module &M) const {
   if (NamedMDNode *LinkerOptions = M.getNamedMetadata("llvm.linker.options")) {
     // Emit the linker options to the linker .drectve section.  According to the
     // spec, this section is a space-separated string containing flags for
@@ -1250,33 +1269,60 @@ void TargetLoweringObjectFileCOFF::emitLinkerFlagsForGlobal(
   emitLinkerFlagsForGlobalCOFF(OS, GV, getTargetTriple(), getMangler());
 }
 
+void TargetLoweringObjectFileCOFF::emitLinkerFlagsForUsed(
+    raw_ostream &OS, const GlobalValue *GV) const {
+  emitLinkerFlagsForUsedCOFF(OS, GV, getTargetTriple(), getMangler());
+}
+
 //===----------------------------------------------------------------------===//
 //                                  Wasm
 //===----------------------------------------------------------------------===//
 
-static void checkWasmComdat(const GlobalValue *GV) {
+static const Comdat *getWasmComdat(const GlobalValue *GV) {
   const Comdat *C = GV->getComdat();
   if (!C)
-    return;
+    return nullptr;
 
-  // TODO(sbc): At some point we may need COMDAT support but currently
-  // they are not supported.
-  report_fatal_error("WebAssembly doesn't support COMDATs, '" + C->getName() +
-                     "' cannot be lowered.");
+  if (C->getSelectionKind() != Comdat::Any)
+    report_fatal_error("WebAssembly COMDATs only support "
+                       "SelectionKind::Any, '" + C->getName() + "' cannot be "
+                       "lowered.");
+
+  return C;
+}
+
+static SectionKind getWasmKindForNamedSection(StringRef Name, SectionKind K) {
+  // If we're told we have function data, then use that.
+  if (K.isText())
+    return SectionKind::getText();
+
+  // Otherwise, ignore whatever section type the generic impl detected and use
+  // a plain data section.
+  return SectionKind::getData();
 }
 
 MCSection *TargetLoweringObjectFileWasm::getExplicitSectionGlobal(
     const GlobalObject *GO, SectionKind Kind, const TargetMachine &TM) const {
   StringRef Name = GO->getSection();
-  checkWasmComdat(GO);
-  return getContext().getWasmSection(Name, SectionKind::getData());
+
+  Kind = getWasmKindForNamedSection(Name, Kind);
+
+  StringRef Group = "";
+  if (const Comdat *C = getWasmComdat(GO)) {
+    Group = C->getName();
+  }
+
+  return getContext().getWasmSection(Name, Kind, Group,
+                                     MCContext::GenericSectionID);
 }
 
 static MCSectionWasm *selectWasmSectionForGlobal(
     MCContext &Ctx, const GlobalObject *GO, SectionKind Kind, Mangler &Mang,
     const TargetMachine &TM, bool EmitUniqueSection, unsigned *NextUniqueID) {
   StringRef Group = "";
-  checkWasmComdat(GO);
+  if (const Comdat *C = getWasmComdat(GO)) {
+    Group = C->getName();
+  }
 
   bool UniqueSectionNames = TM.getUniqueSectionNames();
   SmallString<128> Name = getSectionPrefixForGlobal(Kind);
@@ -1348,6 +1394,18 @@ const MCExpr *TargetLoweringObjectFileWasm::lowerRelativeReference(
 void TargetLoweringObjectFileWasm::InitializeWasm() {
   StaticCtorSection =
       getContext().getWasmSection(".init_array", SectionKind::getData());
-  StaticDtorSection =
-      getContext().getWasmSection(".fini_array", SectionKind::getData());
+}
+
+MCSection *TargetLoweringObjectFileWasm::getStaticCtorSection(
+    unsigned Priority, const MCSymbol *KeySym) const {
+  return Priority == UINT16_MAX ?
+         StaticCtorSection :
+         getContext().getWasmSection(".init_array." + utostr(Priority),
+                                     SectionKind::getData());
+}
+
+MCSection *TargetLoweringObjectFileWasm::getStaticDtorSection(
+    unsigned Priority, const MCSymbol *KeySym) const {
+  llvm_unreachable("@llvm.global_dtors should have been lowered already");
+  return nullptr;
 }

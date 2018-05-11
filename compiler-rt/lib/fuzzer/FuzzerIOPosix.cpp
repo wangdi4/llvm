@@ -9,7 +9,7 @@
 // IO functions implementation using Posix API.
 //===----------------------------------------------------------------------===//
 #include "FuzzerDefs.h"
-#if LIBFUZZER_POSIX
+#if LIBFUZZER_POSIX || LIBFUZZER_FUCHSIA
 
 #include "FuzzerExtFunctions.h"
 #include "FuzzerIO.h"
@@ -54,7 +54,7 @@ void ListFilesInDirRecursive(const std::string &Dir, long *Epoch,
 
   DIR *D = opendir(Dir.c_str());
   if (!D) {
-    Printf("No such directory: %s; exiting\n", Dir.c_str());
+    Printf("%s: %s; exiting\n", strerror(errno), Dir.c_str());
     exit(1);
   }
   while (auto E = readdir(D)) {

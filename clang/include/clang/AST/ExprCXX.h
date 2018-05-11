@@ -715,7 +715,7 @@ public:
   child_range children() {
     if (isTypeOperand())
       return child_range(child_iterator(), child_iterator());
-    Stmt **begin = reinterpret_cast<Stmt**>(&Operand);
+    auto **begin = reinterpret_cast<Stmt **>(&Operand);
     return child_range(begin, begin + 1);
   }
 };
@@ -925,7 +925,7 @@ public:
   child_range children() {
     if (isTypeOperand())
       return child_range(child_iterator(), child_iterator());
-    Stmt **begin = reinterpret_cast<Stmt**>(&Operand);
+    auto **begin = reinterpret_cast<Stmt **>(&Operand);
     return child_range(begin, begin + 1);
   }
 };
@@ -1503,6 +1503,9 @@ public:
   void setLParenLoc(SourceLocation L) { LParenLoc = L; }
   SourceLocation getRParenLoc() const { return RParenLoc; }
   void setRParenLoc(SourceLocation L) { RParenLoc = L; }
+
+  /// Determine whether this expression models list-initialization.
+  bool isListInitialization() const { return LParenLoc.isInvalid(); }
 
   SourceLocation getLocStart() const LLVM_READONLY;
   SourceLocation getLocEnd() const LLVM_READONLY;
@@ -2618,7 +2621,7 @@ public:
     if (isa<UnaryOperator>(E)) {
       assert(cast<UnaryOperator>(E)->getOpcode() == UO_AddrOf);
       E = cast<UnaryOperator>(E)->getSubExpr();
-      OverloadExpr *Ovl = cast<OverloadExpr>(E->IgnoreParens());
+      auto *Ovl = cast<OverloadExpr>(E->IgnoreParens());
 
       Result.HasFormOfMemberPointer = (E == Ovl && Ovl->getQualifier());
       Result.IsAddressOfOperand = true;
@@ -3187,7 +3190,7 @@ public:
 
   // Iterators
   child_range children() {
-    Stmt **begin = reinterpret_cast<Stmt **>(arg_begin());
+    auto **begin = reinterpret_cast<Stmt **>(arg_begin());
     return child_range(begin, begin + NumArgs);
   }
 };
@@ -3765,7 +3768,7 @@ class SizeOfPackExpr final
         Length(Length ? *Length : PartialArgs.size()), Pack(Pack) {
     assert((!Length || PartialArgs.empty()) &&
            "have partial args for non-dependent sizeof... expression");
-    TemplateArgument *Args = getTrailingObjects<TemplateArgument>();
+    auto *Args = getTrailingObjects<TemplateArgument>();
     std::uninitialized_copy(PartialArgs.begin(), PartialArgs.end(), Args);
   }
 
@@ -3816,7 +3819,7 @@ public:
   /// \brief Get
   ArrayRef<TemplateArgument> getPartialArguments() const {
     assert(isPartiallySubstituted());
-    const TemplateArgument *Args = getTrailingObjects<TemplateArgument>();
+    const auto *Args = getTrailingObjects<TemplateArgument>();
     return llvm::makeArrayRef(Args, Args + Length);
   }
 
@@ -3913,6 +3916,7 @@ class SubstNonTypeTemplateParmPackExpr : public Expr {
 
 public:
   SubstNonTypeTemplateParmPackExpr(QualType T,
+                                   ExprValueKind ValueKind,
                                    NonTypeTemplateParmDecl *Param,
                                    SourceLocation NameLoc,
                                    const TemplateArgument &ArgPack);

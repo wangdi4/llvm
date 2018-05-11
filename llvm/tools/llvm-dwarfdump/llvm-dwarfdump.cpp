@@ -19,23 +19,16 @@
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/MachOUniversal.h"
 #include "llvm/Object/ObjectFile.h"
-#include "llvm/Object/RelocVisitor.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
-#include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/Regex.h"
-#include "llvm/Support/Signals.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/raw_ostream.h"
-#include <algorithm>
-#include <cstring>
-#include <string>
-#include <system_error>
 
 using namespace llvm;
 using namespace object;
@@ -136,6 +129,10 @@ static list<std::string>
                      "name or by number. This option can be specified "
                      "multiple times, once for each desired architecture."),
                 cat(DwarfDumpCategory));
+static opt<bool>
+    Diff("diff",
+         desc("Emit diff-friendly output by omitting offsets and addresses."),
+         cat(DwarfDumpCategory));
 static list<std::string>
     Find("find",
          desc("Search for the exact match for <name> in the accelerator tables "
@@ -157,8 +154,7 @@ static list<std::string> Name(
          "the -regex option <pattern> is interpreted as a regular expression."),
     value_desc("pattern"), cat(DwarfDumpCategory));
 static alias NameAlias("n", desc("Alias for -name"), aliasopt(Name));
-static opt<unsigned>
-    Lookup("lookup",
+static opt<unsigned long long> Lookup("lookup",
            desc("Lookup <address> in the debug information and print out any"
                 "available file, function, block and line table details."),
            value_desc("address"), cat(DwarfDumpCategory));
@@ -237,6 +233,7 @@ static DIDumpOptions getDumpOpts() {
   DIDumpOptions DumpOpts;
   DumpOpts.DumpType = DumpType;
   DumpOpts.RecurseDepth = RecurseDepth;
+  DumpOpts.ShowAddresses = !Diff;
   DumpOpts.ShowChildren = ShowChildren;
   DumpOpts.ShowParents = ShowParents;
   DumpOpts.ShowForm = ShowForm;
@@ -337,6 +334,15 @@ static bool lookup(DWARFContext &DICtx, uint64_t Address, raw_ostream &OS) {
 bool collectStatsForObjectFile(ObjectFile &Obj, DWARFContext &DICtx,
                                Twine Filename, raw_ostream &OS);
 
+template <typename AccelTable>
+static llvm::Optional<uint64_t> getDIEOffset(const AccelTable &Accel,
+                                       StringRef Name) {
+  for (const auto &Entry : Accel.equal_range(Name))
+    if (llvm::Optional<uint64_t> Off = Entry.getDIESectionOffset())
+      return *Off;
+  return None;
+}
+
 static bool dumpObjectFile(ObjectFile &Obj, DWARFContext &DICtx, Twine Filename,
                            raw_ostream &OS) {
   logAllUnhandledErrors(DICtx.loadRegisterInfo(Obj), errs(),
@@ -364,19 +370,13 @@ static bool dumpObjectFile(ObjectFile &Obj, DWARFContext &DICtx, Twine Filename,
   if (!Find.empty()) {
     DumpOffsets[DIDT_ID_DebugInfo] = [&]() -> llvm::Optional<uint64_t> {
       for (auto Name : Find) {
-        auto find = [&](const DWARFAcceleratorTable &Accel)
-            -> llvm::Optional<uint64_t> {
-          for (auto Entry : Accel.equal_range(Name))
-            for (auto Atom : Entry)
-              if (auto Offset = Atom.getAsSectionOffset())
-                return Offset;
-          return None;
-        };
-        if (auto Offset = find(DICtx.getAppleNames()))
+        if (auto Offset = getDIEOffset(DICtx.getAppleNames(), Name))
           return DumpOffsets[DIDT_ID_DebugInfo] = *Offset;
-        if (auto Offset = find(DICtx.getAppleTypes()))
+        if (auto Offset = getDIEOffset(DICtx.getAppleTypes(), Name))
           return DumpOffsets[DIDT_ID_DebugInfo] = *Offset;
-        if (auto Offset = find(DICtx.getAppleNamespaces()))
+        if (auto Offset = getDIEOffset(DICtx.getAppleNamespaces(), Name))
+          return DumpOffsets[DIDT_ID_DebugInfo] = *Offset;
+        if (auto Offset = getDIEOffset(DICtx.getDebugNames(), Name))
           return DumpOffsets[DIDT_ID_DebugInfo] = *Offset;
       }
       return None;
@@ -478,6 +478,8 @@ static bool handleFile(StringRef Filename, HandlerFn HandleObj,
 static std::vector<std::string> expandBundle(const std::string &InputPath) {
   std::vector<std::string> BundlePaths;
   SmallString<256> BundlePath(InputPath);
+  // Normalize input path. This is necessary to accept `bundle.dSYM/`.
+  sys::path::remove_dots(BundlePath);
   // Manually open up the bundle to avoid introducing additional dependencies.
   if (sys::fs::is_directory(BundlePath) &&
       sys::path::extension(BundlePath) == ".dSYM") {
@@ -506,10 +508,7 @@ static std::vector<std::string> expandBundle(const std::string &InputPath) {
 }
 
 int main(int argc, char **argv) {
-  // Print a stack trace if we signal out.
-  sys::PrintStackTraceOnErrorSignal(argv[0]);
-  PrettyStackTraceProgram X(argc, argv);
-  llvm_shutdown_obj Y;  // Call llvm_shutdown() on exit.
+  InitLLVM X(argc, argv);
 
   llvm::InitializeAllTargetInfos();
   llvm::InitializeAllTargetMCs();
