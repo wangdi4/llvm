@@ -1747,6 +1747,12 @@ void ItaniumRecordLayoutBuilder::LayoutField(const FieldDecl *D,
       Context.getTypeInfoInChars(D->getType());
     FieldSize = FieldInfo.first;
     FieldAlign = FieldInfo.second;
+#if INTEL_CUSTOMIZATION
+    // Arbitrary precision integer sizes require extra room to llvm::alloca due to
+    // their strange offset.  Thus, we need to include this in the layout size.
+    if (D->getType()->isArbPrecIntType())
+      FieldSize = FieldSize.alignTo(FieldAlign);
+#endif // INTEL_CUSTOMIZATION
 
     if (IsMsStruct && !FieldPacked) { //***INTEL
       // If MS bitfield layout is required, figure out what type is being
@@ -2386,6 +2392,12 @@ MicrosoftRecordLayoutBuilder::getAdjustedElementInfo(
   ElementInfo Info;
   std::tie(Info.Size, Info.Alignment) =
       Context.getTypeInfoInChars(FD->getType()->getUnqualifiedDesugaredType());
+#if INTEL_CUSTOMIZATION
+  // Arbitrary precision integer sizes require extra room to llvm::alloca due to
+  // their strange offset.  Thus, we need to include this in the layout size.
+  if (FD->getType()->isArbPrecIntType())
+    Info.Size = Info.Size.alignTo(Info.Alignment);
+#endif // INTEL_CUSTOMIZATION
   // Respect align attributes on the field.
   CharUnits FieldRequiredAlignment =
       Context.toCharUnitsFromBits(FD->getMaxAlignment());

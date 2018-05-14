@@ -52,7 +52,7 @@ void foo() {
 // CHECK: %[[ATBC:[0-9]+]] = bitcast %struct.st* %agg-temp to i8*
 // CHECK: %[[IBC2:[0-9]+]] = bitcast %struct.st* %i to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %[[ATBC]], i8* align 4 %[[IBC2]], i32 8, i1 false)
-// CHECK: call void @llvm.fpga.reg.struct.p0s_struct.sts(%struct.st* %tmp, %struct.st* %agg-temp)
+// CHECK: call void @llvm.fpga.reg.struct.p0s_struct.sts(%struct.st* %ii, %struct.st* %agg-temp)
   struct st iii;
   iii = __builtin_fpga_reg(ii);
 // CHECK: %[[AT3BC:[0-9]+]] = bitcast %struct.st* %[[AT3:agg-temp[0-9]*]] to i8*

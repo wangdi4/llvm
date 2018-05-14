@@ -2,8 +2,8 @@
 // 1. member variable whose width depends on the template parameters, and
 // 2. method that uses ap_[u]ints whose type depends on the template parameters
 
-// RUN: %clang -cc1 -O3 -disable-llvm-passes -fhls %s -emit-llvm -o %t
-// RUN: FileCheck %s < %t
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple x86_64-windows-pc -fhls %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple x86_64-linux-pc -fhls %s -emit-llvm -o - | FileCheck %s
 // CHECK: %a = alloca i3, align 1
 // CHECK: %b = alloca i3, align 1
 
@@ -19,6 +19,12 @@
 // CHECK: %[[U5:[0-9]+]] = load i3, i3* %b, align 1
 // CHECK: %[[U6:[a-zA-Z0-9]+]] = icmp eq i3 %[[U4]], %[[U5]]
 // CHECK: ret i1 %[[U6]]
+
+// CHECK: %[[ONEBIT:[a-zA-Z0-9_]+]] = alloca i1, align 1
+// CHECK: store i1 false, i1* %[[ONEBIT]], align 1
+// CHECK: %[[OB1:[0-9]+]] = load i1, i1* %[[ONEBIT]], align 1
+// CHECK: %[[OB_CONV:[a-zA-Z0-9]+]] = zext i1 %[[OB1]] to i32
+// CHECK: store i32 %[[OB_CONV]], i32*
 
 #define AC_MAX(a, b) ((a) > (b) ? (a) : (b))
 
@@ -57,4 +63,13 @@ bool foo() {
   x.value = 3;
   y.value = 3;
   return x.equal(y);
+}
+
+template <unsigned int Bits>
+using ap_uint = unsigned int __attribute__((__ap_int(Bits)));
+
+
+void bar() {
+  ap_uint<1> unsigned_one_bit = 0;
+  int i = unsigned_one_bit;
 }
