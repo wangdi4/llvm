@@ -2335,10 +2335,17 @@ unsigned CSACvtCFDFPass::generateLandSeq(SmallVectorImpl<unsigned> &landOpnds,
       }
     }
   }
-  if (i % 4) {
-    for (unsigned j = i % 4; j < 4; j++) {
+  // If only one LAND is reqired, then we have to fill up to 4
+  // source operands.  If multiple LAND are required, then
+  // we have already encoded one with the other LAND being its
+  // first source operand - we need to fill up to 3 source
+  // operands in this case.
+  if (i < 4 && (i % 4) != 0) {
+    for (unsigned j = i % 4; j < 4; j++)
       landInstr->addOperand(MachineOperand::CreateImm(1));
-    }
+  } else if (i > 4 && ((i - 4) % 3) != 0) {
+    for (unsigned j = (i - 4) % 3; j < 3; j++)
+      landInstr->addOperand(MachineOperand::CreateImm(1));
   }
   return landInstr->getOperand(0).getReg();
 }
