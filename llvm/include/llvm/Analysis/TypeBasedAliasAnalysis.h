@@ -102,6 +102,22 @@ public:
 //
 ImmutablePass *createTypeBasedAAWrapperPass();
 
+
+#if INTEL_CUSTOMIZATION
+/// Given two consequtive GEPs annotated with \p BaseGepNode and \p GepMD
+/// !intel-tbaa metadata, calculate the most precise possible annotation for the
+/// memory operation using \p GepMD.
+MDNode *mergeIntelTBAA(MDNode *BaseGepNode, MDNode *GepMD);
+
+/// Try to refine the tbaa annotation for the load/store with \p MemOpNode tbaa
+/// annotation (might be nullptr if there is no annotation) from/to the GEP with
+/// \p GepNode !intel-tbaa annotation.
+///
+/// \Returns the refined metadata or original \p MemOpNode if no refinement was
+/// possible.
+MDNode *getMostSpecificTBAA(MDNode *GepNode, MDNode *MemOpNode);
+#endif // INTEL_CUSTOMIZATION
+
 } // end namespace llvm
 
 #endif // LLVM_ANALYSIS_TYPEBASEDALIASANALYSIS_H

@@ -60,6 +60,7 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TargetFolder.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TypeBasedAliasAnalysis.h" // INTEL
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
@@ -88,6 +89,7 @@
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/ValueHandle.h"
+#include "llvm/IR/Verifier.h" // INTEL
 #include "llvm/Pass.h"
 #include "llvm/Support/CBindingWrapping.h"
 #include "llvm/Support/Casting.h"
@@ -1448,6 +1450,43 @@ Instruction *InstCombiner::foldShuffledBinop(BinaryOperator &Inst) {
   return nullptr;
 }
 
+#if INTEL_CUSTOMIZATION
+// TODO: Can it be merged into combineMetadata* in Local.h?
+
+/// Try to combine !intel-tbaa metadata for the \p GEP and \p Src that are being
+/// merged (no RAUW happenned yet) into the \p NewGEP.
+static void mergeIntelTBAAMetadata(GetElementPtrInst &GEP, const Value *Src,
+                                   GetElementPtrInst *NewGEP) {
+  MDNode *GepMD = GEP.getMetadata(LLVMContext::MD_intel_tbaa);
+  if (!GepMD)
+    return;
+  MDNode *SrcMD =
+      isa<Instruction>(Src)
+          ? cast<Instruction>(Src)->getMetadata(LLVMContext::MD_intel_tbaa)
+          : nullptr;
+  if (!SrcMD)
+    return;
+
+  assert(TBAAVerifier::isCanonicalIntelTBAAGEP(&GEP) &&
+         "GEP does not have canonical !intel-tbaa metadata!");
+  assert(TBAAVerifier::isCanonicalIntelTBAAGEP(cast<GetElementPtrInst>(Src)) &&
+         "Src does not have canonical !intel-tbaa metadata!");
+
+  // LangRef actually allows non-"canonical" GEPs to be merged, but we don't
+  // expect to encounter them and want to be more restrictive in such case and
+  // abandon any combining.
+  if (!TBAAVerifier::isCanonicalIntelTBAAGEP(&GEP) ||
+      !TBAAVerifier::isCanonicalIntelTBAAGEP(cast<GetElementPtrInst>(Src)))
+    return;
+
+  MDNode *MergedTBAA = mergeIntelTBAA(SrcMD, GepMD);
+  if (!MergedTBAA)
+    return;
+
+  NewGEP->setMetadata(LLVMContext::MD_intel_tbaa, MergedTBAA);
+}
+#endif // INTEL_CUSTOMIZATION
+
 Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   SmallVector<Value*, 8> Ops(GEP.op_begin(), GEP.op_end());
   Type *GEPType = GEP.getType();
@@ -1703,6 +1742,8 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       if (Src->getNumOperands() == 2) {
         GEP.setOperand(0, Src->getOperand(0));
         GEP.setOperand(1, Sum);
+        // TODO: INTEL: Should we drop all the metadata and upstream?
+        GEP.setMetadata(LLVMContext::MD_intel_tbaa, nullptr); // INTEL
         return &GEP;
       }
       Indices.append(Src->op_begin()+1, Src->op_end()-1);
@@ -1716,14 +1757,20 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       Indices.append(GEP.idx_begin()+1, GEP.idx_end());
     }
 
-    if (!Indices.empty())
-      return GEP.isInBounds() && Src->isInBounds()
-                 ? GetElementPtrInst::CreateInBounds(
-                       Src->getSourceElementType(), Src->getOperand(0), Indices,
-                       GEP.getName())
-                 : GetElementPtrInst::Create(Src->getSourceElementType(),
-                                             Src->getOperand(0), Indices,
-                                             GEP.getName());
+#if INTEL_CUSTOMIZATION
+    // Handle merging of IntelTBAA nodes and update all users accordingly.
+    if (!Indices.empty()) {
+      auto NewGEP = GEP.isInBounds() && Src->isInBounds()
+                        ? GetElementPtrInst::CreateInBounds(
+                              Src->getSourceElementType(), Src->getOperand(0),
+                              Indices, GEP.getName())
+                        : GetElementPtrInst::Create(Src->getSourceElementType(),
+                                                    Src->getOperand(0), Indices,
+                                                    GEP.getName());
+      mergeIntelTBAAMetadata(GEP, Src, NewGEP);
+      return NewGEP;
+#endif // INTEL_CUSTOMIZATION
+    }
   }
 
   if (GEP.getNumIndices() == 1) {

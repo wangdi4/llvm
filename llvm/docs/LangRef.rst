@@ -5096,6 +5096,63 @@ For example,
     %2 = load float, float* %c, align 4, !alias.scope !6
     store float %0, float* %arrayidx.i, align 4, !noalias !7
 
+.. INTEL_CUSTOMIZATION
+
+'``intel-tbaa``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In LLORG version, TBAA annotation is emitted by the front end and is only
+consumed by the optimizer. In cases when memory access is done throught the
+getter in the user code it results in a very "short" path in the tbaa access
+tag. And optimizer, once inlining is done, is unable to refine the TBAA
+metadata.
+
+In order to improve the situation, ``intel-tbaa`` metadata on GEP instruction is
+introduced. It is expected to be used for annotating GEPs emitted for
+  * accessing a field of a structure
+  * indexing into an array
+  * pointer arithmetic when both source pointer and the resulting one are in the
+    same array according to the source language semantics
+
+Semantics
+"""""""""
+
+The ``intel-tbaa`` metadata has format similar to the *Access Tags* of the
+regular ``tbaa`` metadata, i.e. ``(OuterTy, InnerTy, Offset)``. The
+``intel-tbaa`` metadata can desribe one of two things:
+
+ * If ``OuterTy`` is different from the ``InnerTy`` then ``InnerTy`` must be
+   contained in the ``OuterTy`` in the TBAA type descriptors hierarchy. Also,
+   the following guarantee takes place: if load/store is done from/to the
+   address calculated by the annoated GEP and that load/store has ``tbaa``
+   annotation with access tag that is sub-path of the GEP's ``intel-tbaa`` data
+   treated as access tag (i.e. GEP's annotation is reachable from load/store's
+   annotation via ImmediateParent relation) then that access in the source
+   language is representable with ``(OuterTy, InnerTy, Offset)`` access tag with
+   the base pointer operand of the annotated GEP pointing to the ``OuterTy``
+   object.
+
+   Notes about C++:
+   * array-to-pointer might be annotated by the same ``intel-tbaa`` tag as the
+     access of the first element of the array which is totally correct, even
+     though there won't be any load/store directly using that GEP.
+
+   * a chain of GEPs emitted for the memory access trhough the union type must
+     *not* be annotated with the ``intel-tbaa`` metadata because such way of
+     type-punning should be allowed.
+
+ * If ``OuterTy`` is the same as ``InnerTy`` then ``Offset`` must be zero and
+   the GEP must represent pointer arithmetic where the result of the GEP and the
+   GEP's base pointer must point inside the same array of ``InnerTy`` objects in
+   the source language.
+
+   Note about C++: this tag can only appear when calculating the offset using
+   pointer arithmetic without array types involved. In order for this GEP to be
+   combined in a way "widening" the resulting outer type the base of it should
+   be an array-to-pointer decay GEP or a GEP produced based on such a pointer.
+
+.. END INTEL_CUSTOMIZATION
+
 '``fpmath``' Metadata
 ^^^^^^^^^^^^^^^^^^^^^
 

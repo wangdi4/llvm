@@ -844,3 +844,69 @@ bool TypeBasedAAWrapperPass::doFinalization(Module &M) {
 void TypeBasedAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
 }
+
+#if INTEL_CUSTOMIZATION
+MDNode *llvm::mergeIntelTBAA(MDNode *BaseMD, MDNode *GepMD) {
+  if (!GepMD)
+    return nullptr;
+
+  if (!BaseMD)
+    return GepMD;
+
+  assert(isStructPathTBAA(BaseMD) && "BaseMD is not in struct-path aware TBAA format!");
+  assert(isStructPathTBAA(GepMD) && "GepMD is not in struct-path aware TBAA format!");
+
+  // TODO: Can one be more precise than another? Should we just return the GepMD
+  // in that case or would it be illegal?
+  if (BaseMD->getOperand(1) != GepMD->getOperand(0))
+    return nullptr;
+
+  auto GepTBAAOffset =
+      cast<ConstantAsMetadata>(GepMD->getOperand(2))->getValue();
+  auto SrcTBAAOffset =
+      cast<ConstantAsMetadata>(BaseMD->getOperand(2))->getValue();
+
+  Metadata *Operands[] = {BaseMD->getOperand(0), GepMD->getOperand(1),
+                          ConstantAsMetadata::get(ConstantExpr::getAdd(
+                              GepTBAAOffset, SrcTBAAOffset))};
+  MDNode *MergeIntelTBAA = MDNode::get(BaseMD->getContext(), Operands);
+  return MergeIntelTBAA;
+}
+
+MDNode *llvm::getMostSpecificTBAA(MDNode *GepNode, MDNode *MemOpNode) {
+  // Can't refine TBAA annotation if the GEP does not have any additional
+  // information.
+  if (!GepNode)
+    return MemOpNode;
+
+  // LangRef semantics requires the actual load/store to be annotated for the
+  // !intel-tbaa metadata to take the effect.
+  //
+  // That helps not to propagate the information from the translation units
+  // compiled with -ansi-alias (and thus having annotations on the GEPs) to
+  // un-annotated loads/stores if that load/store was compiled without
+  // ansi-alias in a different TU.
+  if (!MemOpNode)
+    return nullptr;
+
+  // Verify that both input nodes are struct-path aware. !intel-tbaa tags on
+  // GEPs are designed like this from the scratch and auto-upgrade should have
+  // taken care of the TBAA metadata on loads/stores.
+  assert(isStructPathTBAA(GepNode) && "Access GepNode is not struct-path aware!");
+  assert(isStructPathTBAA(MemOpNode) && "Access MemOpNode is not struct-path aware!");
+
+  TBAAStructTagNode GepTag(GepNode), MemOpTag(MemOpNode);
+
+  const MDNode *CommonType =
+      getLeastCommonType(GepTag.getAccessType(), MemOpTag.getAccessType());
+  bool MayAlias;
+
+  if (mayBeAccessToSubobjectOf(/* BaseTag */ GepTag,
+                               /* SubobjectTag */ MemOpTag,
+                               /* BaseGlobalScalar */ false, CommonType,
+                               /* GenericTag */ nullptr, MayAlias))
+    return GepNode;
+
+  return MemOpNode;
+}
+#endif // INTEL_CUSTOMIZATION
