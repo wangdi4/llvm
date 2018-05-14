@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple x86_64-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s
 
 //CHECK: [[IMD:@.str[\.]*[0-9]*]] = {{.*}}{__internal_max_block_ram_depth__:64}
 
@@ -45,7 +46,7 @@ __kernel void k12() __attribute__((scheduler_pipelining_effort_pct(12))) {}
 
 __kernel void k13() {
 // CHECK: define spir_kernel void @k13{{[^{]+}}
-// CHECK: stuff = alloca [100 x i32], align 4
+// CHECK: stuff = alloca [100 x i32], align
 // CHECK: %[[STUFFBC:[0-9]+]] = bitcast [100 x i32]* %stuff to i8*
     int stuff[100] __attribute__((__internal_max_block_ram_depth__(64)));
 // CHECK: llvm.var.annotation{{.*}}[[STUFFBC]]{{.*}}[[IMD]]

@@ -30,6 +30,12 @@ const Builtin::Info BuiltinInfoX86[] = {
   {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
 #define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANGS, FEATURE)         \
   {#ID, TYPE, ATTRS, HEADER, LANGS, FEATURE},
+
+#if INTEL_CUSTOMIZATION
+#define LANGBUILTIN(ID, TYPE, ATTRS, LANGS)                                    \
+  {#ID, TYPE, ATTRS, nullptr, LANGS, nullptr},
+#endif // INTEL_CUSTOMIZATION
+
 #include "clang/Basic/BuiltinsX86.def"
 
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
@@ -38,6 +44,12 @@ const Builtin::Info BuiltinInfoX86[] = {
   {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
 #define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANGS, FEATURE)         \
   {#ID, TYPE, ATTRS, HEADER, LANGS, FEATURE},
+
+#if INTEL_CUSTOMIZATION
+#define LANGBUILTIN(ID, TYPE, ATTRS, LANGS)                                    \
+  {#ID, TYPE, ATTRS, nullptr, LANGS, nullptr},
+#endif // INTEL_CUSTOMIZATION
+
 #include "clang/Basic/BuiltinsX86_64.def"
 };
 

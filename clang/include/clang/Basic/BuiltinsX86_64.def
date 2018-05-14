@@ -13,6 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 // The format of this database matches clang/Basic/Builtins.def.
+#if INTEL_CUSTOMIZATION
+#if defined(BUILTIN) && !defined(LANGBUILTIN)
+#  define LANGBUILTIN(ID, TYPE, ATTRS, BUILTIN_LANG) BUILTIN(ID, TYPE, ATTRS)
+#endif
+#endif // INTEL_CUSTOMIZATION
 
 #if defined(BUILTIN) && !defined(TARGET_BUILTIN)
 #   define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE) BUILTIN(ID, TYPE, ATTRS)
@@ -94,6 +99,13 @@ TARGET_BUILTIN(__builtin_ia32_cvtsi2sd64, "V2dV2dLLiIi","","avx512f")
 TARGET_BUILTIN(__builtin_ia32_cvtsi2ss64, "V4fV4fLLiIi","","avx512f")
 TARGET_BUILTIN(__builtin_ia32_cvtusi2sd64, "V2dV2dULLiIi","","avx512f")
 TARGET_BUILTIN(__builtin_ia32_cvtusi2ss64, "V4fV4fULLiIi","","avx512f")
+
+#if INTEL_CUSTOMIZATION
+LANGBUILTIN(get_compute_id, "zi", "i", OCLC1X_LANG)
+LANGBUILTIN(read_pipe, "i.", "tn", OCLC1X_LANG)
+LANGBUILTIN(write_pipe, "i.", "tn", OCLC1X_LANG)
+#undef LANGBUILTIN
+#endif // INTEL_CUSTOMIZATION
 
 #undef BUILTIN
 #undef TARGET_BUILTIN

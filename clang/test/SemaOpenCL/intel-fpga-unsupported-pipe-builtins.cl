@@ -1,5 +1,6 @@
 // RUN: %clang_cc1 %s -x cl -triple spir64-unknown-unknown-intelfpga -cl-std=CL1.2 -verify -pedantic -fsyntax-only
 // RUN: %clang_cc1 %s -x cl -triple spir-unknown-unknown-intelfpga -cl-std=CL1.2 -verify -pedantic -fsyntax-only
+// RUN: %clang_cc1 %s -x cl -triple x86_64-unknown-unknown-intelfpga -cl-std=CL1.2 -verify -pedantic -fsyntax-only
 
 typedef unsigned int uint;
 typedef int reserve_id_t; // dummy typedef to avoid extra diagnostics

@@ -2444,6 +2444,17 @@ bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   if (CheckX86BuiltinGatherScatterScale(BuiltinID, TheCall))
     return true;
 
+#if INTEL_CUSTOMIZATION
+  if (BuiltinID == X86::BIget_compute_id)
+    return false;
+  if (BuiltinID == X86::BIread_pipe || BuiltinID == X86::BIwrite_pipe) {
+    if (SemaBuiltinRWPipe(*this, TheCall))
+      return true;
+    TheCall->setType(Context.IntTy);
+    return false;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // For intrinsics which take an immediate value as part of the instruction,
   // range check them here.
   int i = 0, l = 0, u = 0;

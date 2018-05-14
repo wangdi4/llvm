@@ -2,6 +2,8 @@
 // RUN: %clang_cc1 -x cl -triple spir64-unknown-unknown-intelfpga -cl-std=CL1.2 -verify -fsyntax-only %s
 // RUN: %clang_cc1 -x cl -triple spir-unknown-unknown-intelfpga -cl-std=CL2.0 -verify -fsyntax-only %s
 // RUN: %clang_cc1 -x cl -triple spir-unknown-unknown-intelfpga -cl-std=CL1.2 -verify -fsyntax-only %s
+// RUN: %clang_cc1 -x cl -triple x86_64-unknown-unknown-intelfpga -cl-std=CL2.0 -verify -fsyntax-only %s
+// RUN: %clang_cc1 -x cl -triple x86_64-unknown-unknown-intelfpga -cl-std=CL1.2 -verify -fsyntax-only %s
 
 // expected-no-diagnostics
 

@@ -3635,6 +3635,8 @@ public:
 
 #if INTEL_CUSTOMIZATION
   llvm::Value *EmitIntelFPGABuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+  llvm::Value *EmitGetComputeIDExpr(const CallExpr *E);
+  llvm::Value *EmitRWPipeExpr(const CallExpr *E, bool IsSpir, bool IsReadPipe);
   RValue EmitFPGARegBuiltin(unsigned BuiltinID, const CallExpr *E,
                             ReturnValueSlot ReturnValue);
   RValue EmitHLSStreamBuiltin(unsigned BuiltinID, const CallExpr *E);

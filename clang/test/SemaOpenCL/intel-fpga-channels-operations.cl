@@ -1,5 +1,7 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL1.2 -triple spir-unknown-unknown-intelfpga -fsyntax-only %s -verify
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir-unknown-unknown-intelfpga -fsyntax-only %s -verify
+// RUN: %clang_cc1 -x cl -cl-std=CL1.2 -triple x86_64-unknown-unknown-intelfpga -fsyntax-only %s -verify
+// RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple x86_64-unknown-unknown-intelfpga -fsyntax-only %s -verify
 
 #pragma OPENCL EXTENSION cl_intel_channels : enable
 

@@ -2,6 +2,7 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir64-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s --check-prefix CHECK64
 // RUN: %clang_cc1 -x cl -triple spir-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s --check-prefix CHECK32
 // RUN: %clang_cc1 -x cl -triple spir64-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s --check-prefix CHECK64
+// RUN: %clang_cc1 -x cl -triple x86_64-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s --check-prefix CHECK64
 
 __attribute__((max_global_work_dim(0)))
 __attribute__((num_compute_units(2, 2)))

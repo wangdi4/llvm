@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 %s -triple spir64-unknown-unknown-intelfpga -cl-std=CL2.0 -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 %s -triple x86_64-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s
 
 #define QDR \
     __global __attribute__((buffer_location("QDR")))
