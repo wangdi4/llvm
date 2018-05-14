@@ -27,6 +27,7 @@
 // END DO
 //
 //===----------------------------------------------------------------------===//
+#include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreElimination.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
@@ -50,7 +51,6 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
 namespace {
 
 class HIRDeadStoreElimination : public HIRTransformPass {
-  HIRFramework *HIR;
 
 public:
   static char ID;
@@ -60,7 +60,6 @@ public:
   }
 
   bool runOnFunction(Function &F) override;
-  bool doTransform(HLLoop *Lp);
   void releaseMemory() override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
@@ -80,34 +79,7 @@ FunctionPass *llvm::createHIRDeadStoreEliminationPass() {
   return new HIRDeadStoreElimination();
 }
 
-bool HIRDeadStoreElimination::runOnFunction(Function &F) {
-  if (DisablePass || skipFunction(F)) {
-    return false;
-  }
-
-  DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
-
-  // Gather all inner-most Loop Candidates
-  SmallVector<HLLoop *, 64> CandidateLoops;
-
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HIRF->getHLNodeUtils().gatherOutermostLoops(CandidateLoops);
-
-  if (CandidateLoops.empty()) {
-    DEBUG(dbgs() << F.getName() << "() has no outer-most loop\n ");
-    return false;
-  }
-
-  bool Result = false;
-
-  for (auto &Lp : CandidateLoops) {
-    Result = doTransform(Lp) || Result;
-  }
-
-  return Result;
-}
-
-bool HIRDeadStoreElimination::doTransform(HLLoop *OutermostLp) {
+static bool doTransform(HLLoop *OutermostLp) {
   bool Result = false;
 
   HIRLoopLocality::RefGroupVecTy TemporalGroups;
@@ -176,6 +148,49 @@ bool HIRDeadStoreElimination::doTransform(HLLoop *OutermostLp) {
   }
 
   return Result;
+}
+
+static bool runDeadStoreElimination(HIRFramework &HIRF) {
+  if (DisablePass) {
+    DEBUG(dbgs() << "HIR Dead Store Elimination Disabled \n");
+    return false;
+  }
+
+  SmallVector<HLLoop *, 64> CandidateLoops;
+
+  HIRF.getHLNodeUtils().gatherOutermostLoops(CandidateLoops);
+
+  if (CandidateLoops.empty()) {
+    DEBUG(dbgs() << HIRF.getFunction().getName()
+                 << "() has no outer-most loop\n ");
+    return false;
+  }
+
+  bool Result = false;
+
+  for (auto &Lp : CandidateLoops) {
+    Result = doTransform(Lp) || Result;
+  }
+
+  return Result;
+}
+
+bool HIRDeadStoreElimination::runOnFunction(Function &F) {
+  if (skipFunction(F)) {
+    DEBUG(dbgs() << "HIR Dead Store Elimination Disabled \n");
+    return false;
+  }
+
+  bool Result =
+      runDeadStoreElimination(getAnalysis<HIRFrameworkWrapperPass>().getHIR());
+  return Result;
+}
+
+PreservedAnalyses
+HIRDeadStoreEliminationPass::run(llvm::Function &F,
+                                 llvm::FunctionAnalysisManager &AM) {
+  runDeadStoreElimination(AM.getResult<HIRFrameworkAnalysis>(F));
+  return PreservedAnalyses::all();
 }
 
 void HIRDeadStoreElimination::releaseMemory() {}

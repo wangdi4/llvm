@@ -190,6 +190,7 @@
 // Transformation passes
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTempCleanup.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopConcatenation.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreElimination.h"
 
 // Intel VPO
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"

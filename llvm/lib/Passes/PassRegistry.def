@@ -266,6 +266,7 @@ FUNCTION_PASS("print<hir-loop-resource>", loopopt::HIRLoopResourcePrinterPass(db
 FUNCTION_PASS("print<hir-locality-analysis>", loopopt::HIRLoopLocalityPrinterPass(dbgs()))
 FUNCTION_PASS("print<hir-dd-analysis>", loopopt::HIRDDAnalysisPrinterPass(dbgs()))
 FUNCTION_PASS("print<hir-safe-reduction-analysis>", loopopt::HIRSafeReductionAnalysisPrinterPass(dbgs()))
+FUNCTION_PASS("hir-dead-store-elimination", loopopt::HIRDeadStoreEliminationPass())
 FUNCTION_PASS("hir-optreport-emitter", loopopt::HIROptReportEmitterPass())
 FUNCTION_PASS("hir-cg", loopopt::HIRCodeGenPass())
 FUNCTION_PASS("hir-temp-cleanup", loopopt::HIRTempCleanupPass())
