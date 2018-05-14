@@ -59,12 +59,14 @@ PassDebugging("debug-pass", cl::Hidden,
   clEnumVal(Structure , "print pass structure before run()"),
   clEnumVal(Executions, "print pass name before it is executed"),
   clEnumVal(Details   , "print pass details when it is executed")));
+#endif  // !INTEL_PRODUCT_RELEASE
 
 namespace {
 typedef llvm::cl::list<const llvm::PassInfo *, bool, PassNameParser>
 PassOptionList;
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 // Print IR out before/after specified passes.
 static PassOptionList
 PrintBefore("print-before",
@@ -124,16 +126,16 @@ static bool ShouldPrintAfterPass(const PassInfo *PI) {
 
 bool llvm::forcePrintModuleIR() { return PrintModuleScope; }
 
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 bool llvm::isFunctionInPrintList(StringRef FunctionName) {
-#if INTEL_PRODUCT_RELEASE
+#if defined(NDEBUG) && !defined(LLVM_ENABLE_DUMP) // INTEL
   return false;
-#else // !INTEL_PRODUCT_RELEASE
+#else // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   static std::unordered_set<std::string> PrintFuncNames(PrintFuncsList.begin(),
                                                         PrintFuncsList.end());
   return PrintFuncNames.empty() || PrintFuncNames.count(FunctionName);
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 /// isPassDebuggingExecutionsOrMore - Return true if -debug-pass=Executions
 /// or higher is specified.
@@ -261,13 +263,13 @@ public:
     schedulePass(P);
   }
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   /// createPrinterPass - Get a function printer pass.
   Pass *createPrinterPass(raw_ostream &O,
                           const std::string &Banner) const override {
     return createPrintFunctionPass(O, Banner);
   }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   // Prepare for running an on the fly pass, freeing memory if needed
   // from a previous run.
@@ -331,13 +333,13 @@ public:
     }
   }
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   /// createPrinterPass - Get a module printer pass.
   Pass *createPrinterPass(raw_ostream &O,
                           const std::string &Banner) const override {
     return createPrintModulePass(O, Banner);
   }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   /// run - Execute all of the passes scheduled for execution.  Keep track of
   /// whether any of the passes modifies the module, and if so, return true.
@@ -423,13 +425,13 @@ public:
     schedulePass(P);
   }
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   /// createPrinterPass - Get a module printer pass.
   Pass *createPrinterPass(raw_ostream &O,
                           const std::string &Banner) const override {
     return createPrintModulePass(O, Banner);
   }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   /// run - Execute all of the passes scheduled for execution.  Keep track of
   /// whether any of the passes modifies the module, and if so, return true.
@@ -711,24 +713,24 @@ void PMTopLevelManager::schedulePass(Pass *P) {
     return;
   }
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (PI && !PI->isAnalysis() && ShouldPrintBeforePass(PI)) {
     Pass *PP = P->createPrinterPass(
         dbgs(), ("*** IR Dump Before " + P->getPassName() + " ***").str());
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   // Add the requested pass to the best available pass manager.
   P->assignPassManager(activeStack, getTopLevelPassManagerType());
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (PI && !PI->isAnalysis() && ShouldPrintAfterPass(PI)) {
     Pass *PP = P->createPrinterPass(
         dbgs(), ("*** IR Dump After " + P->getPassName() + " ***").str());
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
 /// Find the pass that implements Analysis AID. Search immutable

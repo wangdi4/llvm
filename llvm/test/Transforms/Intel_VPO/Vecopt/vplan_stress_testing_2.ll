@@ -1,4 +1,8 @@
-; RUN: opt < %s -VPlanDriver -vplan-build-vect-candidates=1000000 -disable-output
+; Test to check that we vectorize a loop using loop vectorization legality with
+; vplan-build-vect-candidates.
+; RUN: opt < %s -VPlanDriver -vplan-build-vect-candidates=1000000 -S -vplan-force-vf=4
+; CHECK: vector_body:
+; CHECK: store <4 x float>
 
 @arr.float.1 = common local_unnamed_addr global [1024 x float] zeroinitializer, align 16
 @arr.float.2 = common local_unnamed_addr global [1024 x float] zeroinitializer, align 16

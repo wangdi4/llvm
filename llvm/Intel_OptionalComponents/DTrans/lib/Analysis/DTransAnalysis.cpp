@@ -2754,36 +2754,12 @@ private:
       // Check if the pointer-to-member is a member of structure that can
       // be analyzed.
       if (isSimpleStructureMember(DstLPI, &StructTy, &FieldNum)) {
-        // Try to determine if a set of fields in a structure is being written.
-        unsigned int FirstField = 0;
-        unsigned int LastField = 0;
-        if (analyzePartialStructUse(StructTy, FieldNum, SetSize, &FirstField,
-                                    &LastField)) {
-          auto *ParentTI = DTInfo.getOrCreateTypeInfo(StructTy);
 
-          // If not all members of the structure were set, mark it as
-          // a partial write.
-          if (!(FirstField == 0 &&
-                LastField == (StructTy->getNumElements() - 1))) {
-            DEBUG(dbgs() << "dtrans-safety: Memfunc partial write -- "
-                         << "size is a subset of fields:\n"
-                         << "  " << I << "\n");
-
-            ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
-          }
-          markStructFieldsWritten(ParentTI, FirstField, LastField);
-          // Conservatively mark all fields as having been written by the
-          // memset.  We can improve this analysis later.
-          markAllFieldsMultipleValue(ParentTI);
-        } else {
-          // The size could not be matched to the fields of the structure.
-          DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
-                       << "size does not equal member field type(s) size:\n"
-                       << "  " << I << "\n");
-
-          setBaseTypeInfoSafetyData(StructTy, dtrans::BadMemFuncSize);
-        }
-
+        // Pass 'false' for IsValuePreservingWrite to conservatively mark all
+        // fields as being multiple value from the memset.  We can improve this
+        // analysis later by analyzing the value being set.
+        analyzeMemfuncStructureMemberParam(I, StructTy, FieldNum, SetSize,
+                                           /*IsValuePreservingWrite=*/false);
         return;
       }
 
@@ -2832,28 +2808,10 @@ private:
 
     // Consider the case where a portion of a structure is being set, starting
     // from the 1st field.
-    if (DestPointeeTy->isStructTy()) {
-      StructType *StructTy = cast<StructType>(DestPointeeTy);
-      unsigned int FirstField = 0;
-      unsigned int LastField = 0;
-      if (analyzePartialStructUse(StructTy, 0, SetSize, &FirstField,
-                                  &LastField)) {
-
-        // It's possible the write covered all the fields, but excluded any
-        // padding after the last element, so check whether it was a partial
-        // write or not.
-        if (!(FirstField == 0 &&
-              LastField == (StructTy->getNumElements() - 1))) {
-          DEBUG(dbgs() << "dtrans-safety: Memfunc partial write -- "
-                       << "size is a subset of fields:\n"
-                       << "  " << I << "\n");
-
-          ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
-        }
-
-        markStructFieldsWritten(ParentTI, FirstField, LastField);
-        return;
-      }
+    if (auto *StructTy = dyn_cast<StructType>(DestPointeeTy)) {
+      analyzeMemfuncStructureMemberParam(I, StructTy, 0, SetSize,
+                                         /*IsValuePreservingWrite=*/false);
+      return;
     }
 
     DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
@@ -3023,31 +2981,9 @@ private:
       // case.
       if (DstSimple == SrcSimple && DstStructTy == SrcStructTy &&
           DstFieldNum == SrcFieldNum) {
-        unsigned int FirstField = 0;
-        unsigned int LastField = 0;
-        if (analyzePartialStructUse(DstStructTy, DstFieldNum, SetSize,
-                                    &FirstField, &LastField)) {
-          auto *ParentTI = DTInfo.getOrCreateTypeInfo(DstStructTy);
-
-          // If the not all members of the structure were set, mark it as
-          // a partial write.
-          if (!(FirstField == 0 &&
-                LastField == (DstStructTy->getNumElements() - 1))) {
-            DEBUG(dbgs() << "dtrans-safety: Memfunc partial write -- "
-                         << "size is a subset of fields:\n"
-                         << "  " << I << "\n");
-
-            ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
-          }
-          markStructFieldsWritten(ParentTI, FirstField, LastField);
-        } else {
-          // The size could not be matched to the fields of the structure.
-          DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
-                       << "size does not equal member field type(s) size:\n"
-                       << "  " << I << "\n");
-
-          setBaseTypeInfoSafetyData(DstStructTy, dtrans::BadMemFuncSize);
-        }
+        analyzeMemfuncStructureMemberParam(I, DstStructTy, DstFieldNum, SetSize,
+                                           /*IsValuePreservingWrite=*/true);
+        return;
       } else {
         DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
                      << "source and destination pointer to member types or "
@@ -3080,27 +3016,10 @@ private:
 
     // Consider the case where a portion of a structure is being set, starting
     // from the 1st field.
-    if (DestPointeeTy->isStructTy()) {
-      StructType *StructTy = cast<StructType>(DestPointeeTy);
-      unsigned int FirstField = 0;
-      unsigned int LastField = 0;
-      if (analyzePartialStructUse(StructTy, 0, SetSize, &FirstField,
-                                  &LastField)) {
-        auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
-        // It's possible the write covered all the fields, but excluded any
-        // padding after the last element, so check whether it was a partial
-        // write or not.
-        if (!(FirstField == 0 &&
-              LastField == (StructTy->getNumElements() - 1))) {
-          DEBUG(dbgs() << "dtrans-safety: Memfunc partial write -- "
-                       << "size is a subset of fields:\n"
-                       << "  " << I << "\n");
-
-          ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
-        }
-        markStructFieldsWritten(ParentTI, FirstField, LastField);
-        return;
-      }
+    if (auto *StructTy = dyn_cast<StructType>(DestPointeeTy)) {
+      analyzeMemfuncStructureMemberParam(I, StructTy, 0, SetSize,
+                                         /*IsValuePreservingWrite=*/true);
+      return;
     }
 
     DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
@@ -3164,12 +3083,53 @@ private:
     return false;
   }
 
+  // Analyze a structure pointer that is passed to memfunc call, possibly using
+  // a pointer to one of the fields within the structure to determine which
+  // fields are modified, and whether it is a safe usage. Return 'true' if safe
+  // usage.
+  bool analyzeMemfuncStructureMemberParam(Instruction &I, StructType *StructTy,
+                                          size_t FieldNum, Value *SetSize,
+                                          bool IsValuePreservingWrite) {
+    // Try to determine if a set of fields in a structure is being written.
+    dtrans::MemfuncRegion RegionDesc;
+    if (analyzePartialStructUse(StructTy, FieldNum, SetSize, &RegionDesc)) {
+      auto *ParentTI = DTInfo.getOrCreateTypeInfo(StructTy);
+
+      // If not all members of the structure were set, mark it as
+      // a partial write.
+      if (!RegionDesc.IsCompleteAggregate) {
+        DEBUG(dbgs() << "dtrans-safety: Memfunc partial write -- "
+                     << "size is a subset of fields:\n"
+                     << "  " << I << "\n");
+
+        ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
+      }
+      markStructFieldsWritten(ParentTI, RegionDesc.FirstField,
+                              RegionDesc.LastField);
+
+      // A copy is considered as preserving the single value analysis info.
+      // However, for a memset, it is not known whether the value changed
+      // without checking the value being set.
+      if (!IsValuePreservingWrite)
+        markAllFieldsMultipleValue(ParentTI);
+    } else {
+      // The size could not be matched to the fields of the structure.
+      DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
+                   << "size does not equal member field type(s) size:\n"
+                   << "  " << I << "\n");
+
+      setBaseTypeInfoSafetyData(StructTy, dtrans::BadMemFuncSize);
+      return false;
+    }
+
+    return true;
+  }
+
   // Wrapper function for analyzing structure field access which prepares
   // parameters for that function.
   bool analyzePartialStructUse(StructType *StructTy, size_t FieldNum,
                                const Value *AccessSizeVal,
-                               unsigned int *FirstField,
-                               unsigned int *LastField) {
+                               dtrans::MemfuncRegion *RegionDesc) {
     if (!StructTy)
       return false;
 
@@ -3183,8 +3143,7 @@ private:
     uint64_t AccessSize = AccessSizeCI->getLimitedValue();
     assert(FieldNum < StructTy->getNumElements());
 
-    return analyzeStructFieldAccess(StructTy, FieldNum, AccessSize, FirstField,
-                                    LastField);
+    return analyzeStructFieldAccess(StructTy, FieldNum, AccessSize, RegionDesc);
   }
 
   // Helper to analyze a pointer-to-member usage to determine if only a
@@ -3194,11 +3153,12 @@ private:
   //
   // Return 'true' if it can be resolved to precisely match one or more
   // adjacent fields starting with the field number identified in the 'LPI'.
-  // If so, also set the starting index into 'FirstField' and the ending index
-  // of affected fields into 'LastField'. Otherwise, return 'false'.
+  // If so, also updated the RegionDesc to set the starting index into
+  // 'FirstField' and the ending index of affected fields into 'LastField'.
+  // Otherwise, return 'false'.
   bool analyzeStructFieldAccess(StructType *StructTy, size_t FieldNum,
-                                uint64_t AccessSize, unsigned int *FirstField,
-                                unsigned int *LastField) {
+                                uint64_t AccessSize,
+                                dtrans::MemfuncRegion *RegionDesc) {
     uint64_t TypeSize = DL.getTypeAllocSize(StructTy);
 
     // If the size is larger than the base structure size, then the write
@@ -3227,8 +3187,12 @@ private:
     if (LastOffset < (LastFieldStart + LastFieldSize - 1))
       return false;
 
-    *FirstField = FieldNum;
-    *LastField = LF;
+    RegionDesc->FirstField = FieldNum;
+    RegionDesc->LastField = LF;
+    if (!(FieldNum == 0 && LF == (StructTy->getNumElements() - 1)))
+      RegionDesc->IsCompleteAggregate = false;
+    else
+      RegionDesc->IsCompleteAggregate = true;
     return true;
   }
 

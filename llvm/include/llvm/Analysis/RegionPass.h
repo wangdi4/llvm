@@ -49,7 +49,7 @@ public:
   /// @return True if the pass modifies this Region.
   virtual bool runOnRegion(Region *R, RGPassManager &RGM) = 0;
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   /// @brief Get a pass to print the LLVM IR in the region.
   ///
   /// @param O      The output stream to print the Region.
@@ -58,7 +58,7 @@ public:
   /// @return The pass to print the LLVM IR in the region.
   Pass *createPrinterPass(raw_ostream &O,
                           const std::string &Banner) const override;
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   using llvm::Pass::doInitialization;
   using llvm::Pass::doFinalization;

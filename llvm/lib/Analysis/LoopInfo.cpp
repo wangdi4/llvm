@@ -443,13 +443,13 @@ BasicBlock *Loop::getUniqueExitBlock() const {
 }
 #endif // INTEL_CUSTOMIZATION
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 LLVM_DUMP_METHOD void Loop::dump() const { print(dbgs()); }
 
 LLVM_DUMP_METHOD void Loop::dumpVerbose() const {
   print(dbgs(), /*Depth=*/0, /*Verbose=*/true);
 }
-#endif
+#endif  // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 //===----------------------------------------------------------------------===//
 // UnloopUpdater implementation
@@ -734,7 +734,7 @@ PreservedAnalyses LoopPrinterPass::run(Function &F,
 }
 
 void llvm::printLoop(Loop &L, raw_ostream &OS, const std::string &Banner) {
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (forcePrintModuleIR()) {
     // handling -print-module-scope
     OS << Banner << " (loop: ";
@@ -771,7 +771,7 @@ void llvm::printLoop(Loop &L, raw_ostream &OS, const std::string &Banner) {
       else
         OS << "Printing <null> block";
   }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
 //===----------------------------------------------------------------------===//

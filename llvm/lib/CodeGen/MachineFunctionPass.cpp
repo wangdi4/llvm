@@ -30,12 +30,12 @@
 
 using namespace llvm;
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 Pass *MachineFunctionPass::createPrinterPass(raw_ostream &O,
                                              const std::string &Banner) const {
   return createMachineFunctionPrinterPass(O, Banner);
 }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 bool MachineFunctionPass::runOnFunction(Function &F) {
   // Do not codegen any 'available_externally' functions at all, they have
