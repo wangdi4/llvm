@@ -1185,8 +1185,8 @@ bool CodeGenFunction::IsFakeLoadCand(const Expr *RV) {
   return false;
 }
 
-// Generates the load for the return pointer and saves the tbaa information
-// for the return pointer dereference.
+// Generates the load for the return pointer and saves the tbaa
+// information for the return pointer dereference.
 bool CodeGenFunction::EmitFakeLoadForRetPtr(const Expr *RV) {
   LValue Des = EmitLValue(RV);
   llvm::Value *LV = EmitLoadOfLValue(Des, RV->getExprLoc()).getScalarVal();
@@ -1264,9 +1264,8 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
     // rather than the value.
 #if INTEL_CUSTOMIZATION
     // Handle the case of ret_type& function();
-    if (!getLangOpts().IntelCompat ||
-        CGM.getCodeGenOpts().OptimizationLevel < 2 ||
-        !IsFakeLoadCand(RV) ||
+    if (!getLangOpts().isIntelCompat(LangOptions::FakeLoad) ||
+        CGM.getCodeGenOpts().OptimizationLevel < 2 || !IsFakeLoadCand(RV) ||
         !EmitFakeLoadForRetPtr(RV)) {
       RValue Result = EmitReferenceBindingToExpr(RV);
       Builder.CreateStore(Result.getScalarVal(), ReturnValue);
@@ -1276,18 +1275,16 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
     switch (getEvaluationKind(RV->getType())) {
     case TEK_Scalar:
 #if INTEL_CUSTOMIZATION
-      {
-        const UnaryOperator *Exp = dyn_cast<UnaryOperator>(RV);
-        // Handle the case of ret_type* function();
-        if (!getLangOpts().IntelCompat ||
-            CGM.getCodeGenOpts().OptimizationLevel < 2 || 
-            !Exp ||
-            Exp->getOpcode() != UO_AddrOf ||
-            !IsFakeLoadCand(Exp->getSubExpr()) ||
-            !EmitFakeLoadForRetPtr(Exp->getSubExpr())) {
-          Builder.CreateStore(EmitScalarExpr(RV), ReturnValue);
-        }
+    {
+      const UnaryOperator *Exp = dyn_cast<UnaryOperator>(RV);
+      // Handle the case of ret_type* function();
+      if (!getLangOpts().isIntelCompat(LangOptions::FakeLoad) ||
+          CGM.getCodeGenOpts().OptimizationLevel < 2 || !Exp ||
+          Exp->getOpcode() != UO_AddrOf || !IsFakeLoadCand(Exp->getSubExpr()) ||
+          !EmitFakeLoadForRetPtr(Exp->getSubExpr())) {
+        Builder.CreateStore(EmitScalarExpr(RV), ReturnValue);
       }
+    }
 #endif // INTEL_CUSTOMIZATION
       break;
     case TEK_Complex:

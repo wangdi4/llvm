@@ -2898,9 +2898,9 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
 #if INTEL_CUSTOMIZATION
         // Generates the intrinsic to hold the tbaa metadata for
         // the return pointer.
-        if (getLangOpts().IntelCompat) {
+        if (getLangOpts().isIntelCompat(LangOptions::FakeLoad)) {
           auto RTI = RetPtrMap.find(RV);
-          if (RTI != RetPtrMap.end()) 
+          if (RTI != RetPtrMap.end())
             RV = Builder.CreateFakeLoad(RV, RTI->second);
         }
 #endif // INTEL_CUSTOMIZATION

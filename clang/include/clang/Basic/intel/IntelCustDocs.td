@@ -35,6 +35,7 @@ class DocumentationCategory<string name> {
 // New categories can be added by adding a new record here.
 def DocCatMSCompat : DocumentationCategory<"Microsoft Compatibility">;
 def DocCatIntelCompat : DocumentationCategory<"Intel Compatibility">;
+def DocCatIntelOptimization : DocumentationCategory<"Optimization">;
 
 // Specifies the documentation to be associated with the given category.
 class Documentation {
@@ -52,6 +53,8 @@ class Documentation {
   string Owner = "";
   string CompatVersions = "";
 }
+
+// Microsoft Compatibility
 
 def StringCharStarCatchableDocs : Documentation {
   let Category = DocCatMSCompat;
@@ -95,6 +98,8 @@ Microsoft allows you to catch a string literal with catch(char \*).
 
   }];
 }
+
+// Intel Compatibility
 
 def UnrollExtensionsDocs : Documentation {
   let Category = DocCatIntelCompat;
@@ -348,6 +353,81 @@ A correct usage of this pragma:
 
   }];
 }
+
+// Optimization
+
+def FakeLoadDocs : Documentation {
+  let Category = DocCatIntelOptimization;
+  let Option = "IntelCompat";
+  let BugTracker= "CQ414386/CMPLRS-915";
+  let RegressionTest = "CodeGen/intel/tbaa-prop1.cpp,tbaa-prop2.cpp";
+  let Content = [{
+Adds an intrinsic to improve alias analysis for pointers returned from a
+function.
+
+For example, in the case below, it helps the compiler prove that s.getA(x)
+and s.getB(y) do not overlap.
+
+.. code-block:: c
+
+  struct S {
+    int A[4];
+    int B[4];
+    int& getA(int i) { return A[i]; }
+    int& getB(int i) { return B[i]; }
+  };
+
+  int foo(S& s, int i, int j) {
+    s.getA(i) = 0;
+    s.getB(j) = 1;
+    return s.getA(i);
+  }
+
+The output code generated for the return in getA() would normally be:
+
+.. code-block:: llvm
+
+  %arrayidx = getelementptr inbounds [4 x i32], [4 x i32]* %A, i64 0, i64 %idxprom
+  ret i32* %arrayidx
+
+The intrinsic is added between with tbaa metadata:
+
+.. code-block:: llvm
+
+  %arrayidx = getelementptr inbounds [4 x i32], [4 x i32]* %A, i64 0, i64 %idxprom
+  %1 = call i32* @llvm.intel.fakeload.p0i32(i32* %arrayidx, metadata !10) #2
+  ret i32* %1
+
+  !7 = !{!"int", !4, i64 0}
+  !10 = !{!11, !7, i64 0}
+  !11 = !{!"struct@_ZTS1S", !12, i64 0, !12, i64 16}
+  !12 = !{!"array@_ZTSA4_i", !7, i64 0}
+
+This is implemented during clang CodeGen of the ReturnStmt. Return statements
+are considered if the function returns a reference type or the return value is
+an addressof expression.
+
+.. code-block:: c++
+
+  int& getA(int i) { return A[i]; }
+  int* getB(int i) { return &B[i]; }
+
+The function IsFakeLoadCand further narrows the cases handled to array
+subscripts and member select expressions.
+
+.. code-block:: c++
+
+  int& getA(int i) { return A.b; }
+  int* getB(int i) { return &B.b; }
+  int& getC(int i) { return C->b; }
+  int* getD(int i) { return &D->b; }
+
+The function EmitFakeLoadForRetPtr is then called to generate a new load with
+metadata.  The load and metadata is saved in a map and the fakeload intrinsic
+is created and emitted during EmitFunctionEpilog.
+  }];
+}
+
 
 def GlobalDocumentation {
   code Intro =[{..
