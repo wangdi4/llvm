@@ -1157,72 +1157,68 @@ bool AndersensAAResult::analyzeGlobalEscape(
     const Value *V, SmallPtrSet<const PHINode *, 16> PhiUsers,
     const Function **SingleAcessingFunction) {
   const ConstantExpr *CE;
+  bool escapes = false;
   for (const Use &U : V->uses()) {
     const User *UR = U.getUser();
     CE = dyn_cast<ConstantExpr>(UR);
     if (CE) {
-      if (analyzeGlobalEscape(CE, PhiUsers,
-                              SingleAcessingFunction))
-        return true;
+      if (analyzeGlobalEscape(CE, PhiUsers, SingleAcessingFunction))
+        escapes = true;
     } else if (const Instruction *I = dyn_cast<Instruction>(UR)) {
       if (*SingleAcessingFunction == nullptr) {
         *SingleAcessingFunction = I->getParent()->getParent();
       } else if (*SingleAcessingFunction != I->getParent()->getParent()) {
         *SingleAcessingFunction = nullptr;
-        return true;
+        escapes = true;
       }
       if (const LoadInst *LI = dyn_cast<LoadInst>(I)) {
         if (LI->isVolatile()) {
-          return true;
+          escapes = true;
         }
-        if (!isPointsToType(LI->getType())) 
+        if (!isPointsToType(LI->getType()))
           NonPointerAssignments.insert(LI);
-        
+
         CE = dyn_cast<ConstantExpr>(V);
         if (LI->getOperand(0) == V && CE) {
-          if (analyzeGlobalEscape(LI, PhiUsers, 
-                                  SingleAcessingFunction)) {
-            return true;
+          if (analyzeGlobalEscape(LI, PhiUsers, SingleAcessingFunction)) {
+            escapes = true;
           }
         }
       } else if (const StoreInst *SI = dyn_cast<StoreInst>(I)) {
         if (SI->isVolatile()) {
-          return true;
+          escapes = true;
         }
         if (!isPointsToType(SI->getOperand(0)->getType()))
           NonPointerAssignments.insert(SI);
 
       } else if (isa<BitCastInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, 
-                                SingleAcessingFunction))
-          return true;
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+          escapes = true;
       } else if (isa<GetElementPtrInst>(I) || isa<AddressInst>(I)) {
         if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
-          return true;
+          escapes = true;
       } else if (isa<SelectInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, 
-                                SingleAcessingFunction))
-          return true;
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+          escapes = true;
       } else if (const PHINode *PN = dyn_cast<PHINode>(I)) {
         if (PhiUsers.insert(PN).second) {
-          if (!isPointsToType(PN->getType())) 
+          if (!isPointsToType(PN->getType()))
             NonPointerAssignments.insert(PN);
 
-          if (analyzeGlobalEscape(I, PhiUsers, 
-                                  SingleAcessingFunction))
-            return true;
+          if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+            escapes = true;
         }
       } else if (const MemTransferInst *MTI = dyn_cast<MemTransferInst>(I)) {
         if (MTI->isVolatile())
-          return true;
+          escapes = true;
       } else if (const MemSetInst *MSI = dyn_cast<MemSetInst>(I)) {
         if (MSI->isVolatile())
-          return true;
+          escapes = true;
       }
     }
   }
 
-  return false;
+  return escapes;
 }
 
 //===----------------------------------------------------------------------===//
