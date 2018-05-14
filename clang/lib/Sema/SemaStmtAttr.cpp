@@ -94,6 +94,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
   bool PragmaIVDep = PragmaNameLoc->Ident->getName() == "ivdep";
   bool PragmaDistributePoint =
       PragmaNameLoc->Ident->getName() == "distribute_point";
+  bool PragmaNoFusion = PragmaNameLoc->Ident->getName() == "nofusion";
   bool NonLoopPragmaDistributePoint =
       PragmaDistributePoint && St->getStmtClass() != Stmt::DoStmtClass &&
       St->getStmtClass() != Stmt::ForStmtClass &&
@@ -130,6 +131,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
             .Case("ii", "#pragma ii")
             .Case("max_concurrency", "#pragma max_concurrency")
             .Case("ivdep", "#pragma ivdep")
+            .Case("nofusion", "#pragma nofusion")
 #endif // INTEL_CUSTOMIZATION
             .Default("#pragma clang loop");
     S.Diag(St->getLocStart(), diag::err_pragma_loop_precedes_nonloop) << Pragma;
@@ -200,6 +202,9 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
       State = LoopHintAttr::Enable;
   } else if (PragmaDistributePoint) {
     Option = LoopHintAttr::Distribute;
+    State = LoopHintAttr::Enable;
+  } else if (PragmaNoFusion) {
+    Option = LoopHintAttr::NoFusion;
     State = LoopHintAttr::Enable;
 #endif // INTEL_CUSTOMIZATION
   } else {
@@ -290,6 +295,7 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr},
                    {nullptr, nullptr},
                    {nullptr, nullptr},
+                   {nullptr, nullptr},
 #endif // INTEL_CUSTOMIZATION
                    {nullptr, nullptr},
                    {nullptr, nullptr},
@@ -312,7 +318,8 @@ CheckForIncompatibleAttributes(Sema &S,
       MaxConcurrency,
       Interleave,
       Unroll,
-      Distribute
+      Distribute,
+      NoFusion
     } Category;
 #endif // INTEL_CUSTOMIZATION
     switch (Option) {
@@ -328,6 +335,9 @@ CheckForIncompatibleAttributes(Sema &S,
       break;
     case LoopHintAttr::MaxConcurrency:
       Category = MaxConcurrency;
+      break;
+    case LoopHintAttr::NoFusion:
+      Category = NoFusion;
       break;
 #endif // INTEL_CUSTOMIZATION
     case LoopHintAttr::Vectorize:
@@ -362,7 +372,7 @@ CheckForIncompatibleAttributes(Sema &S,
     //    the Category to Unroll and the community code will take care of it.
     if (Option == LoopHintAttr::II || Option == LoopHintAttr::LoopCoalesce ||
         Option == LoopHintAttr::MaxConcurrency ||
-        Option == LoopHintAttr::IVDep) {
+        Option == LoopHintAttr::IVDep || Option == LoopHintAttr::NoFusion) {
       switch (LH->getState()) {
       case LoopHintAttr::Numeric:
       case LoopHintAttr::Full:
