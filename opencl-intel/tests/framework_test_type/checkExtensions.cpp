@@ -14,21 +14,50 @@ public:
         m_ext(ext)
     {}
 
-    bool IsSpirSupported()              { return IsExtSupported("cl_khr_spir"); }
+    bool IsSpirSupported()
+    {
+        return IsExtSupported("cl_khr_spir");
+    }
 
-    bool IsICDSupported()               { return IsExtSupported("cl_khr_icd"); }
+    bool IsICDSupported()
+    {
+        return IsExtSupported("cl_khr_icd");
+    }
 
-    bool IsDX9Supported()               { return IsExtSupported("cl_khr_dx9_media_sharing"); }
+    bool IsDX9Supported()
+    {
+        return IsExtSupported("cl_khr_dx9_media_sharing");
+    }
 
-    bool IsDX9Supported_INTEL()         { return IsExtSupported("cl_intel_dx9_media_sharing"); }
+    bool IsDX9Supported_INTEL()
+    {
+        return IsExtSupported("cl_intel_dx9_media_sharing");
+    }
 
-    bool IsDX11Supported()              { return IsExtSupported("cl_khr_d3d11_sharing"); }
+    bool IsDX11Supported()
+    {
+        return IsExtSupported("cl_khr_d3d11_sharing");
+    }
 
-    bool IsGLSupported()                { return IsExtSupported("cl_khr_gl_sharing"); }
+    bool IsGLSupported()
+    {
+        return IsExtSupported("cl_khr_gl_sharing");
+    }
 
-    bool IsLocalThreadSupported_INTEL() { return IsExtSupported("cl_intel_exec_by_local_thread"); }
+    bool IsLocalThreadSupported_INTEL()
+    {
+        return IsExtSupported("cl_intel_exec_by_local_thread");
+    }
 
-    bool IsVecLenHintSupported()        { return IsExtSupported("cl_intel_vec_len_hint"); }
+    bool IsVecLenHintSupported()
+    {
+        return IsExtSupported("cl_intel_vec_len_hint");
+    }
+
+    bool IsDevicePartitionByNamesSupported_INTEL()
+    {
+        return IsExtSupported("cl_intel_device_partition_by_names");
+    }
 };
 
 void CL::CheckExtensions()
@@ -90,7 +119,8 @@ void CL::CheckExtensions()
 
 #if defined (_WIN32)
     ASSERT_TRUE(extensions.IsLocalThreadSupported_INTEL())
-        << " Expected that cl_intel_exec_by_local_thread is supported on " << os;
+        << " Expected that cl_intel_exec_by_local_thread is supported on "
+        << os;
 
     ASSERT_TRUE(extensions.IsDX9Supported_INTEL())
         << " Expected that cl_intel_dx9_media_sharing is supported on " << os;
@@ -106,10 +136,12 @@ void CL::CheckExtensions()
 
 #else //LINUX
     ASSERT_TRUE(extensions.IsLocalThreadSupported_INTEL())
-        << " Expected that cl_intel_exec_by_local_thread is supported on " << os;
+        << " Expected that cl_intel_exec_by_local_thread is supported on "
+        << os;
 
     ASSERT_FALSE(extensions.IsDX9Supported_INTEL())
-        << " Expected that cl_intel_dx9_media_sharing is not supported on " << os;
+        << " Expected that cl_intel_dx9_media_sharing is not supported on "
+        << os;
 
     ASSERT_FALSE(extensions.IsDX9Supported())
         << " Expected that cl_khr_dx9_media_sharing is not supported on " << os;
@@ -119,6 +151,11 @@ void CL::CheckExtensions()
 
     ASSERT_FALSE(extensions.IsGLSupported())
         << " Expected that cl_khr_gl_sharing is not supported on " << os;
+
+    ASSERT_TRUE(extensions.IsDevicePartitionByNames_INTEL())
+        << " Expected that cl_intel_device_partition_by_names  is supported"
+           " on "
+        << os;
 
 #endif
 }
