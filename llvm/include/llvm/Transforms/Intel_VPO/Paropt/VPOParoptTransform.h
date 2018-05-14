@@ -82,7 +82,7 @@ public:
                      const TargetLibraryInfo *TLI, int Mode,
                      const SmallVectorImpl<Triple> &OffloadTargets)
       : F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI),
-        Mode(Mode),
+        Mode(Mode), TargetTriple(F->getParent()->getTargetTriple()),
         OffloadTargets(OffloadTargets.begin(), OffloadTargets.end()),
         IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
         KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),

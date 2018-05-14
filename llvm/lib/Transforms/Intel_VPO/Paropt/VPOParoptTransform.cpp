@@ -281,6 +281,7 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
+          Changed |= regularizeOMPLoop(W, false);
 
           if (isTargetCSA()) {
             Changed |= genCSAParallelLoop(W);
@@ -288,7 +289,6 @@ bool VPOParoptTransform::paroptTransforms() {
             break;
           }
 
-          Changed |= regularizeOMPLoop(W, false);
           AllocaInst *IsLastVal = nullptr;
           Changed |= genLoopSchedulingCode(W, IsLastVal);
           // Privatization is enabled for both Prepare and Transform passes
