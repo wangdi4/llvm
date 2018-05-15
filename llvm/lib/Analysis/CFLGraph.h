@@ -412,9 +412,9 @@ template <typename CFLAA> class CFLGraphBuilder {
       return true;
     }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Compare with visitGEP.
-    void visitSubscriptInst(SubscriptInst &Inst) {
+    void visitAddressInst(AddressInst &Inst) {
       // Edge from base pointer
       addAssignEdge(Inst.getPointerOperand(), &Inst, UnknownOffset);
     }

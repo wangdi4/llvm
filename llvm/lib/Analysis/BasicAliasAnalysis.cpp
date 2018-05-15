@@ -562,6 +562,10 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
         V = Decomposed.Base;
         continue;
       }
+      if (auto *Fakeload = dyn_cast<FakeloadInst>(V)) {
+        V = Fakeload->getPointerOperand();
+        continue;
+      }
 #endif // INTEL_CUSTOMIZATION
 
       // If it's not a GEP, hand it off to SimplifyInstruction to see if it
@@ -1288,12 +1292,19 @@ static AliasResult aliasSameBasePointerGEPs(const GEPOperator *GEP1,
 // point into the same object. But since %f0 points to the beginning of %alloca,
 // the highest %f1 can be is (%alloca + 3). This means %random can not be higher
 // than (%alloca - 1), and so is not inbounds, a contradiction.
-bool BasicAAResult::isGEPBaseAtNegativeOffset(const GEPOrSubsOperator *GEPOp, // INTEL
+bool BasicAAResult::isGEPBaseAtNegativeOffset(const AddressOperator *GEPOp, // INTEL
       const DecomposedGEP &DecompGEP, const DecomposedGEP &DecompObject, 
       uint64_t ObjectAccessSize) {
   // If the object access size is unknown, or the GEP isn't inbounds, bail.
-  if (ObjectAccessSize == MemoryLocation::UnknownSize || !GEPOp->isInBounds())
+  // INTEL:
+  // SubscriptInst, GetElementPtrInst and FakeloadInst are structured
+  // address computations and/or pointer annotations.
+  if (ObjectAccessSize == MemoryLocation::UnknownSize) // INTEL
     return false;
+
+  if (auto *S = dyn_cast<GEPOrSubsOperator>(GEPOp)) // INTEL
+    if (!S->isInBounds())                           // INTEL
+      return false;                                 // INTEL
 
   // We need the object to be an alloca or a globalvariable, and want to know
   // the offset of the pointer from the object precisely, so no variable
@@ -1324,7 +1335,7 @@ bool BasicAAResult::isGEPBaseAtNegativeOffset(const GEPOrSubsOperator *GEPOp, //
 /// We know that V1 is a GEP, but we don't know anything about V2.
 /// UnderlyingV1 is GetUnderlyingObject(GEP1, DL), UnderlyingV2 is the same for
 /// V2.
-AliasResult BasicAAResult::aliasGEP(const GEPOrSubsOperator *GEP1, // INTEL
+AliasResult BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
                                     uint64_t V1Size,
                                     const AAMDNodes &V1AAInfo, const Value *V2,
                                     uint64_t V2Size, const AAMDNodes &V2AAInfo,
@@ -1355,7 +1366,7 @@ AliasResult BasicAAResult::aliasGEP(const GEPOrSubsOperator *GEP1, // INTEL
   // If we have two gep instructions with must-alias or not-alias'ing base
   // pointers, figure out if the indexes to the GEP tell us anything about the
   // derived pointer.
-  if (const GEPOrSubsOperator *GEP2 = dyn_cast<GEPOrSubsOperator>(V2)) { // INTEL
+  if (const AddressOperator *GEP2 = dyn_cast<AddressOperator>(V2)) { // INTEL
     // Check for the GEP base being at a negative offset, this time in the other
     // direction.
     if (!GEP1MaxLookupReached && !GEP2MaxLookupReached &&
@@ -1718,12 +1729,17 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, uint64_t PNSize,
 #if INTEL_CUSTOMIZATION
     // FIXME: limited support of recursive updates. phi-loop.ll
     if (EnableRecPhiAnalysis)
-      if (SubscriptInst *PV1Subs = dyn_cast<SubscriptInst>(PV1))
+      if (auto *PV1Subs = dyn_cast<SubscriptInst>(PV1))
         if (isa<ConstantInt>(PV1Subs->getIndex()))
           if (PV1Subs->getPointerOperand() == PN) {
             isRecursive = true;
             continue;
           }
+      if (auto *PV1F = dyn_cast<FakeloadInst>(PV1))
+        if (PV1F->getPointerOperand() == PN) {
+          isRecursive = true;
+          continue;
+        }
 #endif // INTEL_CUSTOMIZATION
 
     if (UniqueSrc.insert(PV1).second)
@@ -1943,13 +1959,13 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
 
   // FIXME: This isn't aggressively handling alias(GEP, PHI) for example: if the
   // GEP can't simplify, we don't even look at the PHI cases.
-  if (!isa<GEPOrSubsOperator>(V1) && isa<GEPOrSubsOperator>(V2)) { // INTEL
+  if (!isa<AddressOperator>(V1) && isa<AddressOperator>(V2)) { // INTEL
     std::swap(V1, V2);
     std::swap(V1Size, V2Size);
     std::swap(O1, O2);
     std::swap(V1AAInfo, V2AAInfo);
   }
-  if (const GEPOrSubsOperator *GV1 = dyn_cast<GEPOrSubsOperator>(V1)) { // INTEL
+  if (const AddressOperator *GV1 = dyn_cast<AddressOperator>(V1)) { // INTEL
     AliasResult Result =
         aliasGEP(GV1, V1Size, V1AAInfo, V2, V2Size, V2AAInfo, O1, O2);
     if (Result != MayAlias)

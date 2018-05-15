@@ -275,7 +275,7 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker) {
       }
 
 #if INTEL_CUSTOMIZATION
-      if (isa<SubscriptInst>(I)) {
+      if (isa<AddressInst>(I)) {
         AddUses(I);
         break;
       }

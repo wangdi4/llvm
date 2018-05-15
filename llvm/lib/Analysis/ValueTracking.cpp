@@ -2043,6 +2043,11 @@ bool isKnownNonZero(const Value *V, unsigned Depth, const Query &Q) {
           if (IC->isZero() && isKnownNonZero(SI->getLowerBound(), Depth, Q))
             return true;
       }
+    if (const FakeloadInst *FI = dyn_cast<FakeloadInst>(V))
+      if (FI->getPointerAddressSpace() == 0 &&
+          isKnownNonZero(FI->getPointerOperand(), Depth, Q))
+        return true;
+
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -3537,7 +3542,7 @@ Value *llvm::GetUnderlyingObject(Value *V, const DataLayout &DL,
   if (!V->getType()->isPointerTy())
     return V;
   for (unsigned Count = 0; MaxLookup == 0 || Count < MaxLookup; ++Count) {
-    if (auto *GEP = dyn_cast<GEPOrSubsOperator>(V)) { // INTEL
+    if (auto *GEP = dyn_cast<AddressOperator>(V)) { // INTEL
       V = GEP->getPointerOperand();
     } else if (Operator::getOpcode(V) == Instruction::BitCast ||
                Operator::getOpcode(V) == Instruction::AddrSpaceCast) {

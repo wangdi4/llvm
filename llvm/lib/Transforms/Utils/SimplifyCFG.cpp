@@ -6187,7 +6187,7 @@ static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I) {
         return passingValueIsAlwaysUndefined(V, GEP);
 
 #if INTEL_CUSTOMIZATION
-    if (SubscriptInst *SI = dyn_cast<SubscriptInst>(Use))
+    if (auto *SI = dyn_cast<AddressInst>(Use))
       if (SI->getPointerOperand() == I)
         return passingValueIsAlwaysUndefined(V, SI);
 #endif // INTEL_CUSTOMIZATION

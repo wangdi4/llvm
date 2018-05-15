@@ -392,7 +392,7 @@ bool GlobalsAAResult::AnalyzeUsesOfPointer(Value *V,
       // passing into the function.
       if (CS.isDataOperand(&U)) {
 #if INTEL_CUSTOMIZATION
-        if (isa<SubscriptInst>(I)) {
+        if (isa<AddressInst>(I)) {
           if (AnalyzeUsesOfPointer(I, Readers, Writers))
             return true;
           continue;

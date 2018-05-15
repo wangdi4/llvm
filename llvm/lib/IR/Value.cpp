@@ -572,6 +572,10 @@ static const Value *stripPointerCastsAndOffsets(const Value *V) {
           V = Subs->getPointerOperand();
           continue;
         }
+        if (auto *Fakeload = dyn_cast<FakeloadInst>(V)) {
+          V = Fakeload->getPointerOperand();
+          continue;
+        }
 #endif // INTEL_CUSTOMIZATION
       }
       return V;

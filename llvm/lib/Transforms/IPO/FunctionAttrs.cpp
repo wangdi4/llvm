@@ -855,8 +855,8 @@ static bool isFunctionMallocLike(Function *F, const SCCNodeSet &SCCNodes) {
         break;
       case Instruction::Call:
       case Instruction::Invoke: {
-        if (auto *SI = dyn_cast<SubscriptInst>(RVI)) {   // INTEL
-          FlowsToReturn.insert(SI->getPointerOperand()); // INTEL
+        if (auto *I = dyn_cast<AddressInst>(RVI)) {      // INTEL
+          FlowsToReturn.insert(I->getPointerOperand());  // INTEL
           continue;                                      // INTEL
         }                                                // INTEL
         CallSite CS(RVI);
@@ -968,8 +968,8 @@ static bool isReturnNonNull(Function *F, const SCCNodeSet &SCCNodes,
     }
     case Instruction::Call:
     case Instruction::Invoke: {
-      if (auto *SI = dyn_cast<SubscriptInst>(RVI)) {   // INTEL
-        FlowsToReturn.insert(SI->getPointerOperand()); // INTEL
+      if (auto *I = dyn_cast<AddressInst>(RVI)) {      // INTEL
+        FlowsToReturn.insert(I->getPointerOperand());  // INTEL
         continue;                                      // INTEL
       }                                                // INTEL
 

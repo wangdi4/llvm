@@ -220,8 +220,10 @@ public:
   RetTy visitMemMoveInst(MemMoveInst &I)          { DELEGATE(MemTransferInst); }
   RetTy visitMemTransferInst(MemTransferInst &I)  { DELEGATE(MemIntrinsic); }
   RetTy visitMemIntrinsic(MemIntrinsic &I)        { DELEGATE(IntrinsicInst); }
-#ifdef INTEL_CUSTOMIZATION
-  RetTy visitSubscriptInst(SubscriptInst &I)      { DELEGATE(IntrinsicInst); }
+#if INTEL_CUSTOMIZATION
+  RetTy visitAddressInst(AddressInst &I)          { DELEGATE(IntrinsicInst); }
+  RetTy visitSubscriptInst(SubscriptInst &I)      { DELEGATE(AddressInst); }
+  RetTy visitFakeloadInst(FakeloadInst &I)        { DELEGATE(AddressInst); }
 #endif // INTEL_CUSTOMIZATION
   RetTy visitVAStartInst(VAStartInst &I)          { DELEGATE(IntrinsicInst); }
   RetTy visitVAEndInst(VAEndInst &I)              { DELEGATE(IntrinsicInst); }
@@ -280,9 +282,11 @@ private:
       case Intrinsic::memcpy:      DELEGATE(MemCpyInst);
       case Intrinsic::memmove:     DELEGATE(MemMoveInst);
       case Intrinsic::memset:      DELEGATE(MemSetInst);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       case Intrinsic::intel_subscript:
                                    DELEGATE(SubscriptInst);
+      case Intrinsic::intel_fakeload:
+                                   DELEGATE(FakeloadInst);
 #endif // INTEL_CUSTOMIZATION
       case Intrinsic::vastart:     DELEGATE(VAStartInst);
       case Intrinsic::vaend:       DELEGATE(VAEndInst);

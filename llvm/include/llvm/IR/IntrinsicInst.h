@@ -642,8 +642,35 @@ namespace llvm {
     }
   };
 
-#ifdef INTEL_CUSTOMIZATION
-  class SubscriptInst : public IntrinsicInst {
+#if INTEL_CUSTOMIZATION
+  class AddressInst : public IntrinsicInst {
+  public:
+    static bool classof(const IntrinsicInst *I) {
+      return I->getIntrinsicID() == Intrinsic::intel_fakeload ||
+             I->getIntrinsicID() == Intrinsic::intel_subscript;
+    }
+    static bool classof(const Value *V) {
+      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+    }
+
+    Value *getPointerOperand() const {
+      return getArgOperand(getPointerOperandIndex());
+    }
+
+    Type *getPointerOperandType() const {
+      return getPointerOperand()->getType();
+    }
+
+    unsigned getPointerAddressSpace() const {
+      return getPointerOperandType()->getPointerAddressSpace();
+    }
+  private:
+    int getPointerOperandIndex() const {
+      return getIntrinsicID() == Intrinsic::intel_fakeload ? 0 : 3;
+    }
+  };
+
+  class SubscriptInst : public AddressInst {
   public:
     static bool classof(const IntrinsicInst *I) {
       return I->getIntrinsicID() == Intrinsic::intel_subscript;
@@ -667,20 +694,8 @@ namespace llvm {
       return cast<Value>(const_cast<Value *>(getArgOperand(2)));
     }
 
-    Value *getPointerOperand() const {
-      return cast<Value>(const_cast<Value *>(getArgOperand(3)));
-    }
-
     Value *getIndex() const {
       return cast<Value>(const_cast<Value *>(getArgOperand(4)));
-    }
-
-    Type *getPointerOperandType() const {
-      return getPointerOperand()->getType();
-    }
-
-    unsigned getPointerAddressSpace() const {
-      return getPointerOperandType()->getPointerAddressSpace();
     }
 
     bool hasAllConstantIndices() const {
@@ -695,6 +710,16 @@ namespace llvm {
     /// Computes number of elements in returned pointer
     /// For scalar pointer returns 0.
     static unsigned getResultVectorNumElements(ArrayRef<Type*> ArgTys);
+  };
+
+  class FakeloadInst : public AddressInst {
+  public:
+    static bool classof(const IntrinsicInst *I) {
+      return I->getIntrinsicID() == Intrinsic::intel_fakeload;
+    }
+    static bool classof(const Value *V) {
+      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+    }
   };
 #endif // INTEL_CUSTOMIZATION
 

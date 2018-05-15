@@ -833,7 +833,7 @@ static bool isAllUsesOfNoAliasPtrTracked(const Value *V1, const Value *V2) {
     const Instruction *Inst = cast<Instruction>(U);
     // For now, ignore complex GetElementPtr by limiting number of
     // operands.
-    if (!isa<SubscriptInst>(Inst))
+    if (!isa<AddressInst>(Inst))
       if (!isa<GetElementPtrInst>(Inst) || Inst->getNumOperands() >= 3)
         return false;
 
@@ -1203,7 +1203,7 @@ bool AndersensAAResult::analyzeGlobalEscape(
         if (analyzeGlobalEscape(I, PhiUsers, 
                                 SingleAcessingFunction))
           return true;
-      } else if (isa<GetElementPtrInst>(I) || isa<SubscriptInst>(I)) {
+      } else if (isa<GetElementPtrInst>(I) || isa<AddressInst>(I)) {
         if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
           return true;
       } else if (isa<SelectInst>(I)) {
@@ -1949,7 +1949,7 @@ void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {
 }
 
 // Compare with visitGetElementPtrInst.
-void AndersensAAResult::visitSubscriptInst(SubscriptInst &I) {
+void AndersensAAResult::visitAddressInst(AddressInst &I) {
   // P1 = @llvm.intel.subscript P2, ... --> <Copy/P1/P2>
   CreateConstraint(Constraint::Copy, getNodeValue(I),
                    getNode(I.getPointerOperand()));

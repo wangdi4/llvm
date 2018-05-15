@@ -1320,6 +1320,7 @@ LLVMTypeRef LLVMX86MMXType(void);
             macro(MemMoveInst)              \
             macro(MemSetInst)               \
           intel_macro_call(macro, SubscriptInst) \
+          intel_macro_call(macro, FakeloadInst)  \
       macro(CmpInst)                        \
         macro(FCmpInst)                     \
         macro(ICmpInst)                     \

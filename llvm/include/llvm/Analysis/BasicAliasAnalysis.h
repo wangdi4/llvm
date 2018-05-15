@@ -38,7 +38,7 @@ class BasicBlock;
 class DataLayout;
 class DominatorTree;
 class Function;
-class GEPOrSubsOperator; // INTEL
+class AddressOperator; // INTEL
 class LoopInfo;
 class PHINode;
 class SelectInst;
@@ -178,7 +178,7 @@ private:
   static bool DecomposeGEPExpression(const Value *V, DecomposedGEP &Decomposed,
       const DataLayout &DL, AssumptionCache *AC, DominatorTree *DT);
 
-  static bool isGEPBaseAtNegativeOffset(const GEPOrSubsOperator *GEPOp, // INTEL
+  static bool isGEPBaseAtNegativeOffset(const AddressOperator *GEPOp, // INTEL
       const DecomposedGEP &DecompGEP, const DecomposedGEP &DecompObject,
       uint64_t ObjectAccessSize);
 
@@ -200,7 +200,7 @@ private:
   void GetIndexDifference(SmallVectorImpl<VariableGEPIndex> &Dest,
                           const SmallVectorImpl<VariableGEPIndex> &Src);
 
-  AliasResult aliasGEP(const GEPOrSubsOperator *V1, // INTEL
+  AliasResult aliasGEP(const AddressOperator *V1,   // INTEL
                        uint64_t V1Size,             // INTEL
                        const AAMDNodes &V1AAInfo, const Value *V2,
                        uint64_t V2Size, const AAMDNodes &V2AAInfo,

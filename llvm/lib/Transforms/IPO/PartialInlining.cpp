@@ -872,6 +872,8 @@ int PartialInlinerImpl::computeBBInlineCost(BasicBlock *BB) {
           IntrInst->getIntrinsicID() == Intrinsic::lifetime_end)
         continue;
 #if INTEL_CUSTOMIZATION
+      if (isa<FakeloadInst>(IntrInst))
+        continue;
       if (isa<SubscriptInst>(IntrInst)) {
         // Treat as GEP with non-zero indexes.
         InlineCost += InlineConstants::InstrCost;

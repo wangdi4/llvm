@@ -1087,10 +1087,10 @@ def int_intel_subscript : Intrinsic<[llvm_anyptr_ty],
      llvm_anyint_ty],
     [IntrSpeculatable, IntrNoMem]>;
 
-// Intrinsic generated for the return pointer. 
+// Intrinsic generated for the return pointer.
 def int_intel_fakeload   : Intrinsic<[llvm_anyptr_ty],
                                  [LLVMMatchType<0>, llvm_metadata_ty],
-                                 [IntrNoMem]>;
+                                 [IntrSpeculatable, IntrNoMem]>;
 // endif INTEL_CUSTOMIZATION
 
 include "llvm/IR/IntrinsicsPowerPC.td"
