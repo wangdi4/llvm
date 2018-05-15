@@ -886,13 +886,10 @@ void HIRLoopInterchange::transformLoop(HLLoop *Loop) {
   HIRInvalidationUtils::invalidateBounds(InnermostLoop);
   HIRInvalidationUtils::invalidateBody(InnermostLoop);
   DEBUG(dbgs() << "\tBefore permuteloopNests:"; Loop->dump());
-
-  HIRTransformUtils::permuteLoopNests(Loop, LoopPermutation);
-
   assert(OutmostNestingLevel == Loop->getNestingLevel());
   assert(InnermostNestingLevel == InnermostLoop->getNestingLevel());
-  HIRTransformUtils::updatePermutedLoopBody(Loop, LoopPermutation,
-                                            InnermostNestingLevel);
+  HIRTransformUtils::permuteLoopNests(Loop, LoopPermutation,
+                                      InnermostNestingLevel);
 
   LoopOptReportBuilder &LORBuilder =
       Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();

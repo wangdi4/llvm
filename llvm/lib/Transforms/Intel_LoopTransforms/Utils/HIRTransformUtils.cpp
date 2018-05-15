@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
@@ -442,57 +442,6 @@ HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
   return MainLoop;
 }
 
-void HIRTransformUtils::permuteLoopNests(
-    HLLoop *OutermostLoop,
-    const SmallVectorImpl<const HLLoop *> &LoopPermutation) {
-
-  SmallVector<HLLoop *, MaxLoopNestLevel> SavedLoops;
-
-  // isPerfectLoopNest() allows Prehdr/PostExit
-  // in outermost loop. If not extracted, it will lead to errors
-  // in this case:
-  // do i2=1,n   (before interchange)
-  //    do i3 =1,6
-  //    end
-  // end
-  //	 a[i1] = 2 (PostExit)
-  //
-  if (OutermostLoop != LoopPermutation.front()) {
-    OutermostLoop->extractPreheaderAndPostexit();
-  }
-
-  SmallVector<HLLoop *, MaxLoopNestLevel> OrigLoops;
-  for (auto &Lp : LoopPermutation) {
-    HLLoop *LoopCopy = Lp->cloneEmptyLoop();
-    LoopCopy->setNestingLevel(Lp->getNestingLevel());
-    SavedLoops.push_back(LoopCopy);
-
-    // Preparation for sorting
-    OrigLoops.push_back(const_cast<HLLoop *>(Lp));
-  }
-
-  // Sort by loop nesting level from the LoopPermutation
-  // to get the current loopnest.
-  // OrigLoopnests will be used to be the destination of the
-  // loop permutation. This way non-perfect loopnest can be covered.
-  std::sort(OrigLoops.begin(), OrigLoops.end(),
-            [](HLLoop *A, HLLoop *B) -> bool {
-              return A->getNestingLevel() < B->getNestingLevel();
-            });
-
-  // Range-based iteration is purposely avoided to visit
-  // all LoopPermutation, SavedLoops and OrigLoops in sync.
-  // OrigLoops are rewritten.
-  for (int I = 0, Size = LoopPermutation.size(); I < Size; I++) {
-    assert(OrigLoops[I] && "LoopPermutation logic is wrong");
-    if (LoopPermutation[I] == OrigLoops[I]) {
-      continue;
-    }
-    assert(OrigLoops[I] != SavedLoops[I] && "Dst, Src loop cannot be equal");
-    *(OrigLoops[I]) = std::move(*(SavedLoops[I]));
-  }
-}
-
 namespace {
 
 class LabelRemapVisitor final : public HLNodeVisitorBase {
@@ -553,10 +502,58 @@ struct UpdateDDRefForLoopPermutation final : public HLNodeVisitorBase {
 };
 } // namespace
 
-void HIRTransformUtils::updatePermutedLoopBody(
-    HLLoop *OutmostLoop, const SmallVectorImpl<const HLLoop *> &LoopPermutation,
+void HIRTransformUtils::permuteLoopNests(
+    HLLoop *OutermostLoop,
+    const SmallVectorImpl<const HLLoop *> &LoopPermutation,
     unsigned InnermostNestingLevel) {
 
+  SmallVector<HLLoop *, MaxLoopNestLevel> SavedLoops;
+
+  // isPerfectLoopNest() allows Prehdr/PostExit
+  // in outermost loop. If not extracted, it will lead to errors
+  // in this case:
+  // do i2=1,n   (before interchange)
+  //    do i3 =1,6
+  //    end
+  // end
+  //  a[i1] = 2 (PostExit)
+  //
+  if (OutermostLoop != LoopPermutation.front()) {
+    OutermostLoop->extractPreheaderAndPostexit();
+  }
+
+  SmallVector<HLLoop *, MaxLoopNestLevel> OrigLoops;
+  for (auto &Lp : LoopPermutation) {
+    HLLoop *LoopCopy = Lp->cloneEmptyLoop();
+    LoopCopy->setNestingLevel(Lp->getNestingLevel());
+    SavedLoops.push_back(LoopCopy);
+
+    // Preparation for sorting
+    OrigLoops.push_back(const_cast<HLLoop *>(Lp));
+  }
+
+  // Sort by loop nesting level from the LoopPermutation
+  // to get the current loopnest.
+  // OrigLoopnests will be used to be the destination of the
+  // loop permutation. This way non-perfect loopnest can be covered.
+  std::sort(OrigLoops.begin(), OrigLoops.end(),
+            [](HLLoop *A, HLLoop *B) -> bool {
+              return A->getNestingLevel() < B->getNestingLevel();
+            });
+
+  // Range-based iteration is purposely avoided to visit
+  // all LoopPermutation, SavedLoops and OrigLoops in sync.
+  // OrigLoops are rewritten.
+  for (int I = 0, Size = LoopPermutation.size(); I < Size; I++) {
+    assert(OrigLoops[I] && "LoopPermutation logic is wrong");
+    if (LoopPermutation[I] == OrigLoops[I]) {
+      continue;
+    }
+    assert(OrigLoops[I] != SavedLoops[I] && "Dst, Src loop cannot be equal");
+    *(OrigLoops[I]) = std::move(*(SavedLoops[I]));
+  }
+
+  // Update Loop Body
   unsigned NewLoopLevels[MaxLoopNestLevel];
   unsigned Idx = 0;
 
@@ -564,11 +561,11 @@ void HIRTransformUtils::updatePermutedLoopBody(
     NewLoopLevels[Idx++] = I->getNestingLevel();
   }
 
-  unsigned OutmostNestingLevel = OutmostLoop->getNestingLevel();
+  unsigned OutmostNestingLevel = OutermostLoop->getNestingLevel();
   UpdateDDRefForLoopPermutation UpdateDDRef(
       OutmostNestingLevel, InnermostNestingLevel, &NewLoopLevels[0]);
 
-  HLNodeUtils::visit(UpdateDDRef, OutmostLoop);
+  HLNodeUtils::visit(UpdateDDRef, OutermostLoop);
 }
 
 void UpdateDDRefForLoopPermutation::updateDDRef(HLDDNode *Node,
