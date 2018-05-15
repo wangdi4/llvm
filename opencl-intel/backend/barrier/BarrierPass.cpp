@@ -312,8 +312,9 @@ namespace intel {
 
             // create copy to work item buffer (from stack)
             builder.SetInsertPoint(insertBefore);
-            builder.CreateMemCpy(pAddrInSpecialBufferCopyOut,
-                            pAllocaInst, pSizeToCopy, pAllocaInst->getAlignment(), false);
+            builder.CreateMemCpy(
+                pAddrInSpecialBufferCopyOut, pAllocaInst->getAlignment(),
+                pAllocaInst, pAllocaInst->getAlignment(), pSizeToCopy, false);
           }
 
           if (insertBeforeEnd) {
@@ -322,8 +323,10 @@ namespace intel {
 
             // create copy to stack (from work item buffer)
             builder.SetInsertPoint(insertBeforeEnd);
-            builder.CreateMemCpy(pAllocaInst, pAddrInSpecialBufferCopyIn,
-                            pSizeToCopy, pAllocaInst->getAlignment(), false);
+            builder.CreateMemCpy(pAllocaInst, pAllocaInst->getAlignment(),
+                                 pAddrInSpecialBufferCopyIn,
+                                 pAllocaInst->getAlignment(), pSizeToCopy,
+                                 false);
           }
         } else {
           if (insertBefore) {

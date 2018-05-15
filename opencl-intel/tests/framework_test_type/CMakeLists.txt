@@ -57,7 +57,7 @@ if (WIN32)
 endif (WIN32)
 
 
-set( INCLUDE_HEADERS_PATH ${LLVM_INCLUDE_DIRS}/cclang)
+set( INCLUDE_HEADERS_PATH ${CCLANG_INCLUDE_DIRS})
 
 set( INPUT_FILE test.cl )
 set( SPIR_OUTPUT_FILE test.bc )
