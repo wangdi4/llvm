@@ -22,4 +22,4 @@ type = OptionalLibrary
 name = Intel_DTransOpt
 parent = Intel_DTrans
 
-required_libraries = Analysis Core Support Intel_DTransAnalysis
+required_libraries = Analysis Core Support Intel_DTransAnalysis TransformUtils
