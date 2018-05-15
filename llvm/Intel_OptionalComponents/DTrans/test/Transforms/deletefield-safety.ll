@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
 ; RUN: opt -dtrans-deletefield < %s -debug-only=dtrans-deletefield \
 ; RUN:     -disable-output 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes=dtrans-deletefield \
+; RUN:     -debug-only=dtrans-deletefield %s 2>&1 | FileCheck %s
 
 ; This test verifies that the dtrans delete pass does not try to transform
 ; structures that do not meet the necessary safety conditions.

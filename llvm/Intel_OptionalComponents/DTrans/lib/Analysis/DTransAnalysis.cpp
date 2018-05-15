@@ -3800,10 +3800,20 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
 
 DTransAnalysisInfo::DTransAnalysisInfo() {}
 
-DTransAnalysisInfo::~DTransAnalysisInfo() {
+DTransAnalysisInfo::~DTransAnalysisInfo() { reset(); }
+
+DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
+  reset();
+  TypeInfoMap = std::move(Other.TypeInfoMap);
+  CallInfoMap = std::move(Other.CallInfoMap);
+  return *this;
+}
+
+void DTransAnalysisInfo::reset() {
   // DTransAnalysisInfo owns the CallInfo pointers in the CallInfoMap.
   for (auto Info : CallInfoMap)
     destructCallInfo(Info.second);
+  CallInfoMap.clear();
 
   // DTransAnalysisInfo owns the TypeInfo pointers in the TypeInfoMap.
   for (auto Entry : TypeInfoMap) {
@@ -3824,6 +3834,7 @@ DTransAnalysisInfo::~DTransAnalysisInfo() {
       llvm_unreachable("Missing cast for appropriate TypeInfo destruction");
     }
   }
+  TypeInfoMap.clear();
 }
 
 bool DTransAnalysisInfo::analyzeModule(Module &M, TargetLibraryInfo &TLI) {
@@ -3928,10 +3939,6 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field) {
   } else if (Field.isMultipleValue())
     outs() << "    Multiple Value";
   outs() << "\n";
-}
-
-void DTransAnalysisInfo::reset() {
-  // TODO: Release resources.
 }
 
 void DTransAnalysisWrapper::getAnalysisUsage(AnalysisUsage &AU) const {

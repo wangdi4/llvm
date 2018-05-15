@@ -78,7 +78,13 @@ public:
 
 public:
   DTransAnalysisInfo();
+  DTransAnalysisInfo(DTransAnalysisInfo&&) = default;
   ~DTransAnalysisInfo();
+
+  DTransAnalysisInfo(const DTransAnalysisInfo&) = delete;
+  DTransAnalysisInfo& operator=(const DTransAnalysisInfo&) = delete;
+
+  DTransAnalysisInfo& operator=(DTransAnalysisInfo&&);
 
   bool analyzeModule(Module &M, TargetLibraryInfo &TLI);
   void reset();
