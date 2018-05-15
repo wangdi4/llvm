@@ -178,6 +178,10 @@ int CheckDeviceAndCtors(int64_t device_id) {
   bool hasPendingGlobals = Device.HasPendingGlobals;
   Device.PendingGlobalsMtx.unlock();
   if (hasPendingGlobals && InitLibrary(Device) != OFFLOAD_SUCCESS) {
+#ifdef INTEL_CUSTOMIZATION
+    CheckMandatoryIsOffload("Failed to load device binary and/or "
+                            "initialize globals");
+#endif
     DP("Failed to init globals on device %" PRId64 "\n", device_id);
     return OFFLOAD_FAIL;
   }
