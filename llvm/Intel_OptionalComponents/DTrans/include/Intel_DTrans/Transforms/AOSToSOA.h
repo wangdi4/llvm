@@ -25,17 +25,56 @@
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
+class DominatorTree;
 
 namespace dtrans {
 
 /// Pass to perform DTrans AOS to SOA optimizations.
 class AOSToSOAPass : public PassInfoMixin<dtrans::AOSToSOAPass> {
 public:
+  using StructInfoVec = SmallVector<dtrans::StructInfo *, 16>;
+  using StructInfoVecImpl = SmallVectorImpl<dtrans::StructInfo *>;
+  using DominatorTreeFuncType = std::function<DominatorTree &(Function &)>;
+
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // This is used to share the core implementation with the legacy pass.
   bool runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-               const TargetLibraryInfo &TLI);
+               const TargetLibraryInfo &TLI, DominatorTreeFuncType &GetDT);
+
+private:
+  // Populate the \p CandidateTypes vector with all the structure types
+  // that should be considered for transformation.
+  void gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
+                            StructInfoVecImpl &CandidateTypes);
+
+  // This function filters the \p CandidateTypes list
+  // to remove types that are not supported for transformation.
+  void qualifyCandidates(StructInfoVecImpl &CandidateTypes,
+                         DTransAnalysisInfo &DTInfo,
+                         DominatorTreeFuncType &GetDT);
+
+  // Filter the \p CandidateTypes list based on data types and usage of the
+  // structure.
+  bool qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
+                              DTransAnalysisInfo &DTInfo);
+
+  // Filter the \p CandidateTypes list based on whether the dynamic memory
+  // allocation of the type is supported.
+  bool qualifyAllocations(StructInfoVecImpl &CandidateTypes,
+                          DTransAnalysisInfo &DTInfo,
+                          DominatorTreeFuncType &GetDT);
+
+  // Filter the \p CandidateTypes list based on whether the type meets
+  // the criteria of the profitability heuristics
+  bool qualifyHeuristics(StructInfoVecImpl &CandidateTypes,
+                         DTransAnalysisInfo &DTInfo);
+
+  // Helper routine used when analyzing the call graph to reach the memory
+  // allocation.
+  bool collectCallChain(
+      Instruction *I,
+      SmallVectorImpl<std::pair<Function *, Instruction *>> &CallChain);
 };
 
 } // namespace dtrans
