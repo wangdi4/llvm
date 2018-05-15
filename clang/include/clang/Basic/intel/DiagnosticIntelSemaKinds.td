@@ -201,6 +201,9 @@ def err_bankbits_numbanks_conflicting : Error<
   "the number of bank_bits must be equal to ceil(log2(numbanks))">;
 def err_bankbits_non_consecutive : Error<
   "bank_bits must be consecutive">;
+def err_memory_attribute_invalid : Error<
+  "%0 attribute only applies to local or static variables"
+  "%select{| or slave memory arguments}1">;
 
 // Intel OpenCL FPGA extension
 def warn_opencl_attribute_only_for_local_address_space : Warning<

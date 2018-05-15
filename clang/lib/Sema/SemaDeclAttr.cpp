@@ -3757,6 +3757,28 @@ static void handleVecLenHint(Sema &S, Decl *D, const AttributeList &Attr) {
                                 Attr.getAttributeSpellingListIndex()));
 }
 
+template <typename AttrTy>
+static bool diagnoseMemoryAttrs(Sema &S, Decl *D) {
+  if (const auto *A = D->getAttr<AttrTy>())
+    if (!A->isImplicit()) {
+      S.Diag(A->getLocation(), diag::err_memory_attribute_invalid)
+          << A << (S.getLangOpts().OpenCL ? 0 : 1);
+      return true;
+    }
+  return false;
+}
+
+template <typename AttrTy, typename AttrTy2, typename... AttrTys>
+static inline bool diagnoseMemoryAttrs(Sema &S, Decl *D) {
+  bool Diagnosed = diagnoseMemoryAttrs<AttrTy>(S, D);
+  return diagnoseMemoryAttrs<AttrTy2, AttrTys...>(S, D) || Diagnosed;
+}
+
+static bool IsSlaveMemory(Sema &S, Decl *D) {
+  return S.getLangOpts().HLS && D->hasAttr<OpenCLLocalMemSizeAttr>() &&
+         D->hasAttr<SlaveMemoryArgumentAttr>();
+}
+
 // Handles reqd_work_group_size, work_group_size_hint and max_work_group_size
 // attributes
 #endif // INTEL_CUSTOMIZATION
@@ -7810,6 +7832,15 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
           << A << "'reqd_work_group_size' or 'max_global_work_dim' attribute";
       D->setInvalidDecl();
     }
+  }
+  if ((getLangOpts().HLS || getLangOpts().OpenCL) &&
+      D->getKind() == Decl::ParmVar && !IsSlaveMemory(*this, D)) {
+    // Check that memory attributes are only added to slave memory.
+    if (diagnoseMemoryAttrs<MemoryAttr, NumBanksAttr, BankWidthAttr,
+                            SinglePumpAttr, DoublePumpAttr, BankBitsAttr,
+                            NumReadPortsAttr, NumWritePortsAttr,
+                            InternalMaxBlockRamDepthAttr>(*this, D))
+      D->setInvalidDecl();
   }
 #endif // INTEL_CUSTOMIZATION
 }

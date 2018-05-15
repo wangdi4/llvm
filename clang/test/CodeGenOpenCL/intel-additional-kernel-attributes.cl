@@ -1,7 +1,7 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple x86_64-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s
 
-//CHECK: [[IMD:@.str[\.]*[0-9]*]] = {{.*}}{__internal_max_block_ram_depth__:64}
+//CHECK: [[IMD:@.str[\.]*[0-9]*]] = {{.*}}{internal_max_block_ram_depth:64}
 
 __attribute__((max_work_group_size(1024, 1, 1)))
 __kernel void k1() {}

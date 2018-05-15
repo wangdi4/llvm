@@ -1,0 +1,55 @@
+//RUN: %clang_cc1 -fhls -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s
+//
+#define component __attribute__((ihc_component))
+#define slave_arg __attribute__((local_mem_size(32), slave_memory_argument))
+
+//CHECK: define{{.*}}foo0a
+//CHECK-SAME: !ihc_component [[CFOO0A:![0-9]+]]
+//CHECK-SAME: !arg_type [[ATFOO0A:![0-9]+]]
+//CHECK-SAME: !memory [[MFOO0A:![0-9]+]]
+//CHECK-SAME: !local_mem_size [[LMSFOO0A:![0-9]+]]
+
+component int foo0a(int *j0,
+                    slave_arg int *j1,
+                    slave_arg __attribute__((memory("MLAB")))      int *i0,
+                    slave_arg __attribute__((memory("BLOCK_RAM"))) int *i1,
+                    slave_arg __attribute__((numbanks(4)))         int *i2,
+                    slave_arg __attribute__((bankwidth(4)))        int *i3,
+                    slave_arg __attribute__((singlepump))          int *i4,
+                    slave_arg __attribute__((doublepump))          int *i5,
+                    slave_arg __attribute__((numports_readonly_writeonly(4,8)))
+                                                                   int *i6,
+                    slave_arg __attribute__((bank_bits(4,3,2)))    int *i7,
+                    slave_arg __attribute__((numreadports(4)))     int *i8,
+                    slave_arg __attribute__((numwriteports(4)))    int *i9,
+                    slave_arg __attribute__((internal_max_block_ram_depth(32)))
+                                                                   int *i10)
+{
+  return 0;
+}
+
+//CHECK: define{{.*}}foo0b
+//CHECK-SAME: !ihc_component [[CFOO1A:![0-9]+]]
+//CHECK-SAME: !arg_type [[ATFOO1A:![0-9]+]]
+//CHECK-SAME: !memory [[MFOO1A:![0-9]+]]
+//CHECK-SAME: !local_mem_size [[LMSFOO1A:![0-9]+]]
+component
+int foo0b(slave_arg __attribute__((memory("MLAB")))
+                    __attribute__((singlepump))
+                    __attribute__((bankwidth(4)))
+                    __attribute__((numbanks(8)))
+                    __attribute__((bank_bits(4,3,2)))
+                    __attribute__((numports_readonly_writeonly(4,2)))
+                    __attribute__((internal_max_block_ram_depth(64)))
+
+          int *i0)
+{
+  return 0;
+}
+
+//CHECK: [[CFOO1A]] = !{!"_Z5foo0bPi", i32 undef}
+//CHECK: [[ATFOO1A]] = !{!"mm_slave"}
+//CHECK: [[MFOO1A]] = !{!"{memory:MLAB}{pump:1}{bankwidth:4}{numbanks:8}
+//CHECK-SAME: {numreadports:4}{numwriteports:2}
+//CHECK-SAME: {internal_max_block_ram_depth:64}{bank_bits:4,3,2}"
+//CHECK: [[LMSFOO1A]] = !{i32 32}
