@@ -1217,8 +1217,8 @@ def CMPUO  :   GenericOp<"cmpuo">;
 defm CMPO  :    FloatCmp<CMPO, seto>;
 defm CMPUO :    FloatCmp<CMPUO, setuo>;
 
-// Note - there is no cmpeq1.  As long as operands are clean, cmpeq8
-// suffices
+def : Pat<(i1 (seteq i1:$op1, i1:$op2)), (NOT1 (XOR1 $op1,$op2))>;
+def : Pat<(i1 (seteq i1:$op1, (i1 imm:$imm))), (NOT1 (XOR1 $op1,$imm))>;
 def CMPEQ8    : CmpOp<   CMPEQ,  seteq,  Ti8,  IIALU>;
 def CMPEQ16   : CmpOp<   CMPEQ,  seteq,  Ti16, IIALU>;
 def CMPEQ32   : CmpOp<   CMPEQ,  seteq,  Ti32, IIALU>;
