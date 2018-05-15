@@ -464,7 +464,7 @@ private:
   void visitSelectInst(SelectInst &SI);
   void visitUserOp1(Instruction &I);
   void visitUserOp2(Instruction &I) { visitUserOp1(I); }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   void visitSubscriptInst(SubscriptInst& II);
 #endif // INTEL_CUSTOMIZATION
   void visitIntrinsicCallSite(Intrinsic::ID ID, CallSite CS);
@@ -3112,7 +3112,7 @@ void Verifier::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   visitInstruction(GEP);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Completely parallel to visitGetElementPtrInst
 void Verifier::visitSubscriptInst(SubscriptInst &I) {
   Value *Lower = I.getLowerBound();
@@ -3177,12 +3177,6 @@ void Verifier::visitSubscriptInst(SubscriptInst &I) {
 
   Assert(I.getNumOperandBundles() == 0,
          "llvm.intel.subscript should not have operand bundles", &I);
-
-  if (isa<SubscriptInst>(Ptr))
-    Assert(cast<SubscriptInst>(Ptr)->getRank() >= I.getRank(),
-           "Base pointer's rank should be no less than the rank of "
-           "SubscriptInst",
-           &I, Ptr);
 
   unsigned PointerSize = DL.getPointerSizeInBits(I.getPointerAddressSpace());
   if (const ConstantInt *CStride = dyn_cast<ConstantInt>(Stride)) {

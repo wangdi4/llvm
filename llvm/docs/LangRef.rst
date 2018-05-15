@@ -15245,6 +15245,8 @@ access is being restored.
 It is guaranteed that function is strictly monotonic  (decreasing or
 increasing) with respect to ``index`` argument. Additionally:
 
+.. _subscript_node_same_rank_simplify:
+
 .. code-block:: llvm
 
     %elem_ptr = tail call double* @llvm.intel.subscript...(
@@ -15294,7 +15296,15 @@ specified in :ref:`Pointer Aliasing Rules <pointeraliasing>` section.
 
 
 Def-use chains of intrinsics corresponding to single multi-dimensional access
-should have non-increasing ranks.
+should have non-increasing ranks traversing from def to use.
+If ``base`` argument of intrinsic is defined by ``llvm.intel.subscript`` with
+equal ``rank`` argument, then intrinsic and its ``base`` argument are part of
+the same address computation if and only if
+:ref:`simplification rule <subscript_node_same_rank_simplify>` for equal ranks
+applies. Otherwise and in the case ``base`` argument of intrinsic is defined by
+``llvm.intel.subscript`` with smaller ``rank`` argument, computation of
+``base`` argument belongs to different multi-dimensional access with implicit
+pointer cast between definition and use of ``base`` argument.
 
 .. _subscript_node_lowering:
 
