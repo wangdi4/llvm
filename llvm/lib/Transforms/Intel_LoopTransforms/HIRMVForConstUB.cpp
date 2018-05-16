@@ -83,9 +83,7 @@ private:
     void postVisit(const HLNode *) {}
     void visit(const HLNode *) {}
 
-    bool skipRecursion(const HLNode *Node) const {
-      return Node == SkipNode;
-    }
+    bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
   };
 };
 } // namespace
@@ -161,7 +159,7 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
                                     int64_t Constant) {
   unsigned Level = Loop->getNestingLevel();
 
-  RegDDRef *LHS = DRU->createSelfBlobRef(TempIndex, Level - 1);
+  RegDDRef *LHS = DRU->createSelfBlobRef(TempIndex, 0);
   RegDDRef *RHS = DRU->createConstDDRef(LHS->getDestType(), Constant);
 
   HLIf *If = Loop->getHLNodeUtils().createHLIf(PredicateTy::ICMP_EQ, LHS, RHS);
@@ -170,10 +168,10 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
   HLNodeUtils::insertAsFirstChild(If, Loop->clone(), false);
   HLNodeUtils::moveAsFirstChild(If, Loop, true);
 
-  propagateConstant(Loop, TempIndex, Constant);
-
   SmallVector<const RegDDRef *, 1> Aux = {Loop->getUpperDDRef()};
   LHS->makeConsistent(&Aux, Level - 1);
+
+  propagateConstant(Loop, TempIndex, Constant);
 
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(If);
 
