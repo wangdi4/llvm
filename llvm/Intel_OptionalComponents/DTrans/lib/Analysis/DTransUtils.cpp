@@ -55,6 +55,18 @@ StringRef dtrans::AllocKindName(AllocKind Kind) {
   llvm_unreachable("Unexpected continuation past AllocKind switch.");
 }
 
+StringRef dtrans::FreeKindName(FreeKind Kind) {
+  switch (Kind) {
+  case FK_NotFree:
+    return "NotFree";
+  case FK_Free:
+    return "Free";
+  case FK_UserFree:
+    return "UserFree";
+  }
+  llvm_unreachable("Unexpected continuation past FreeKind switch.");
+}
+
 AllocKind dtrans::getAllocFnKind(Function *F, const TargetLibraryInfo &TLI) {
   // TODO: Make this implementation more comprehensive.
   if (!F)
@@ -308,8 +320,29 @@ bool dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
   return false;
 }
 
+bool dtrans::FieldInfo::processNewSingleAllocFunction(llvm::Function *F) {
+  if (isTopAllocFunction()) {
+    if (F == nullptr)
+      setBottomAllocFunction();
+    else
+      setSingleAllocFunction(F);
+    return true;
+  }
+  if (isSingleAllocFunction() && getSingleAllocFunction() != F) {
+    setBottomAllocFunction();
+    return true;
+  }
+  return false;
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void PointerTypeInfo::dump() {
-  if (!AliasesToAggregatePointer) {
+  if (!getAnalyzed()) {
+    outs() << "    Type: Not analyzed\n";
+    return;
+  }
+
+  if (!getAliasesToAggregatePointer()) {
     outs() << "    Type: Non-aggregate\n";
     return;
   }
@@ -337,8 +370,7 @@ void CallInfo::dump() {
     cast<AllocCallInfo>(this)->dump();
     break;
   case CIK_Free:
-    // TODO: uncomment when FreeCallInfo class is added
-    // cast<FreeCallInfo>(this)->dump();
+    cast<FreeCallInfo>(this)->dump();
     break;
   case CIK_Memfunc:
     // TODO: uncomment when MemfuncCallInfo class is added
@@ -351,21 +383,14 @@ void AllocCallInfo::dump() {
   outs() << "AllocCallInfo:\n";
   outs() << "  Kind: " << AllocKindName(AK) << "\n";
   outs() << "  Aliased types:\n";
-
   PTI.dump();
 }
 
-bool dtrans::FieldInfo::processNewSingleAllocFunction(llvm::Function *F) {
-  if (isTopAllocFunction()) {
-    if (F == nullptr)
-      setBottomAllocFunction();
-    else
-      setSingleAllocFunction(F);
-    return true;
-  }
-  if (isSingleAllocFunction() && getSingleAllocFunction() != F) {
-    setBottomAllocFunction();
-    return true;
-  }
-  return false;
+void FreeCallInfo::dump() {
+  outs() << "FreeCallInfo:\n";
+  outs() << "  Kind: " << FreeKindName(FK) << "\n";
+  outs() << "  Aliased types:\n";
+  PTI.dump();
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+

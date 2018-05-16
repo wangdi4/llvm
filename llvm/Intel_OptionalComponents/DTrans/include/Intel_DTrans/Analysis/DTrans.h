@@ -23,6 +23,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/Casting.h"
 
 namespace llvm {
 
@@ -31,6 +32,7 @@ class Function;
 class Instruction;
 class Type;
 class StructType;
+class PointerType;
 class CallInst;
 class Value;
 class Constant;
@@ -357,8 +359,16 @@ enum AllocKind {
   AK_UserMalloc0
 };
 
+/// Kind of free function call.
+/// - FK_Free represents a direct call to the standard library function 'free'
+/// - FK_UserFree represents a call to a user-wrapper function of 'free''
+enum FreeKind { FK_NotFree, FK_Free, FK_UserFree };
+
 /// Get a printable string for the AllocKind
 StringRef AllocKindName(AllocKind Kind);
+
+/// Get a printable string for the FreeKind
+StringRef FreeKindName(FreeKind Kind);
 
 // This class is used to hold information that has been
 // extracted from the LocalPointerInfo to contain a
@@ -371,7 +381,7 @@ public:
   typedef SmallPtrSet<llvm::Type *, 2> PointerTypeAliasSet;
   typedef SmallPtrSetImpl<llvm::Type *> &PointerTypeAliasSetRef;
 
-  PointerTypeInfo() : AliasesToAggregatePointer(false) {}
+  PointerTypeInfo() : AliasesToAggregatePointer(false), Analyzed(false) {}
 
   // Returns 'true' if the type (at some level of indirection)
   // was known to be a pointer to an aggregate type.
@@ -383,16 +393,35 @@ public:
     AliasesToAggregatePointer = Val;
   }
 
+  void setAnalyzed(bool Val) { Analyzed = Val; }
+
+  bool getAnalyzed() const { return Analyzed; }
+
   // Returns 'true' if  one of the types exactly matches \p Ty
   bool containsType(llvm::Type *Ty) const { return Types.count(Ty) != 0; }
 
-  void addType(llvm::Type *Ty) { Types.insert(Ty); }
+  void addType(llvm::Type *Ty) {
+    assert(isa<llvm::PointerType>(Ty) &&
+           "PointerTypeInfo::addType: Expecting pointer type");
+    Types.insert(Ty);
+  }
   PointerTypeAliasSetRef getTypes() { return Types; }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump();
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
+  // When true, indicates that the base type for one or more of the pointer
+  // types collected for the pointer was an aggregate type.
   bool AliasesToAggregatePointer;
+
+  // When true, indicates the LocalPointerAnalysis was performed to collect type
+  // information for the pointer.
+  bool Analyzed;
+
+  // List of pointer to aggregate types resolved by the local pointer analysis
+  // for this item.
   PointerTypeAliasSet Types;
 };
 
@@ -408,7 +437,7 @@ public:
   Instruction *getInstruction() const { return I; }
   void setInstruction(Instruction *NewI) { I = NewI; }
 
-  bool getAliasesToAggregatePointer() {
+  bool getAliasesToAggregatePointer() const {
     return PTI.getAliasesToAggregatePointer();
   }
 
@@ -416,12 +445,18 @@ public:
     PTI.setAliasesToAggregatePointer(Val);
   }
 
+  void setAnalyzed(bool Val) { PTI.setAnalyzed(Val); }
+
+  bool getAnalyzed() const { return PTI.getAnalyzed(); }
+
   void addType(llvm::Type *Ty) { PTI.addType(Ty); }
   bool containsType(llvm::Type *Ty) const { return PTI.containsType(Ty); }
 
   PointerTypeInfo &getPointerTypeInfoRef() { return PTI; }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump();
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 protected:
   CallInfo(Instruction *I, CallInfoKind Kind) : I(I), CIK(Kind) {}
@@ -454,10 +489,37 @@ public:
 
   AllocKind getAllocKind() const { return AK; }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump();
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
   AllocKind AK;
+};
+
+/// The FreeCallInfo class tracks the TypeInfo for a call to 'free' that
+/// releases a type of interest.
+class FreeCallInfo : public CallInfo {
+public:
+  explicit FreeCallInfo(Instruction *I, FreeKind FK)
+      : CallInfo(I, CallInfoKind::CIK_Free), FK(FK) {}
+
+  FreeCallInfo(const FreeCallInfo &) = delete;
+  FreeCallInfo &operator=(const FreeCallInfo &) = delete;
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast:
+  static inline bool classof(const CallInfo *CI) {
+    return CI->getCallInfoKind() == CallInfo::CIK_Free;
+  }
+
+  FreeKind getFreeKind() const { return FK; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump();
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+private:
+  FreeKind FK;
 };
 
 /// Determine whether the specified Function is an allocation function, and

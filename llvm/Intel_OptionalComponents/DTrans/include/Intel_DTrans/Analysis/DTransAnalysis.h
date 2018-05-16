@@ -123,10 +123,11 @@ public:
   dtrans::AllocCallInfo *createAllocCallInfo(Instruction *I,
                                              dtrans::AllocKind AK);
 
+  dtrans::FreeCallInfo *createFreeCallInfo(Instruction *I, dtrans::FreeKind FK);
+
 #if 0
-  // These will be enabled in a subsequent changeset when FreeCallInfo
-  // and MemfuncCallInfo are added.
-  dtrans::FreeCallInfo *createFreeCallInfo(Instruction *I);
+  // These will be enabled in a subsequent changeset when
+  // MemfuncCallInfo is added.
 
   dtrans::MemfuncCallInfo *createMemfuncCallInfo(Instruction *I,
     dtrans::MemfuncCallInfo::MemfuncKind MK,
@@ -146,7 +147,9 @@ public:
   // newly created instruction of the cloned routine.
   void replaceCallInfoInstruction(dtrans::CallInfo *Info, Instruction *NewI);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printCallInfo();
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
   void printStructInfo(dtrans::StructInfo *AI);

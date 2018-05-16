@@ -41,10 +41,12 @@ static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
 static cl::opt<bool> DTransPrintAnalyzedTypes("dtrans-print-types",
                                               cl::ReallyHidden);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Prints information that is saved during analysis about specific function
 /// calls (malloc, free, memset, etc) that may be useful to the transformations.
 static cl::opt<bool> DTransPrintAnalyzedCalls("dtrans-print-callinfo",
                                               cl::ReallyHidden);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 //
 // An option that indicates that a pointer to a struct could access
@@ -1574,10 +1576,19 @@ public:
       return;
     }
 
-    // If this is a call to the "free" lib function, we don't need
-    // to analyze the argument.
-    if (dtrans::isFreeFn(F, TLI) || DTAA.isFreePostDom(F))
+    // If this is a call to the "free" lib function,  the call is safe, but
+    // we analyze the instruction for the purpose of capturing the argument
+    // TypeInfo, which will be needed by some of the transformations when
+    // rewriting allocations and frees.
+    if (dtrans::isFreeFn(F, TLI)) {
+      analyzeFreeCall(CI, dtrans::FK_Free);
       return;
+    }
+
+    if (DTAA.isFreePostDom(F)) {
+      analyzeFreeCall(CI, dtrans::FK_UserFree);
+      return;
+    }
 
     // For all other calls, if a pointer to an aggregate type is passed as an
     // argument to a function in a form other than its dominant type, the
@@ -2564,6 +2575,30 @@ private:
     }
   }
 
+  /// Record the type of object being passed to a call to "free".
+  /// This is useful for transformations that need to rewrite allocation and
+  /// free calls.
+  void analyzeFreeCall(CallInst &CI, dtrans::FreeKind FK) {
+    DEBUG(dbgs() << "dtrans: Analyzing free call.\n  " << CI << "\n");
+    dtrans::FreeCallInfo *FCI = DTInfo.createFreeCallInfo(&CI, FK);
+
+    // If it's a standard free call, we can check for the type of the first
+    // argument for the potential pointer types. If it's a user free call, there
+    // is currently no guarantee to know which argument contains the TypeInfo.
+    if (FK == dtrans::FK_Free) {
+      Value *Arg = CI.getOperand(0);
+      LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
+      LocalPointerInfo::PointerTypeAliasSetRef &AliasSet =
+          LPI.getPointerTypeAliasSet();
+      if (AliasSet.empty()) {
+        return;
+      }
+      populateCallInfoFromLPI(LPI, FCI);
+    } else {
+      FCI->setAnalyzed(false);
+    }
+  }
+
   // Return true if the Instruction *I is not used in some way that inhibits
   // marking it as a single alloc function.  Right now, we allow the
   // following cases:
@@ -3292,6 +3327,7 @@ private:
   // LPI structure into the CallInfo structure that is going to be exposed
   // to the transforms.
   void populateCallInfoFromLPI(LocalPointerInfo &LPI, dtrans::CallInfo *CI) {
+    CI->setAnalyzed(true);
     if (LPI.canAliasToAggregatePointer()) {
       CI->setAliasesToAggregatePointer(true);
       LocalPointerInfo::PointerTypeAliasSetRef &AliasSet =
@@ -3839,6 +3875,13 @@ DTransAnalysisInfo::createAllocCallInfo(Instruction *I, dtrans::AllocKind AK) {
   return Info;
 }
 
+dtrans::FreeCallInfo *
+DTransAnalysisInfo::createFreeCallInfo(Instruction *I, dtrans::FreeKind FK) {
+  dtrans::FreeCallInfo *Info = new dtrans::FreeCallInfo(I, FK);
+  addCallInfo(I, Info);
+  return Info;
+}
+
 void DTransAnalysisInfo::deleteCallInfo(Instruction *I) {
   dtrans::CallInfo *Info = getCallInfo(I);
   if (!Info)
@@ -3855,6 +3898,7 @@ void DTransAnalysisInfo::replaceCallInfoInstruction(dtrans::CallInfo *Info,
   Info->setInstruction(NewI);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Print the cached call info data, the type of call, and the function
 /// making the call. This function is just for generating traces for testing.
 void DTransAnalysisInfo::printCallInfo() {
@@ -3879,6 +3923,7 @@ void DTransAnalysisInfo::printCallInfo() {
     outs() << "\n";
   }
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Helper to invoke the right destructor object for destroying a CallInfo
 // type object.
@@ -3891,8 +3936,7 @@ void DTransAnalysisInfo::destructCallInfo(dtrans::CallInfo *Info) {
     delete cast<dtrans::AllocCallInfo>(Info);
     break;
   case dtrans::CallInfo::CIK_Free:
-    // TODO: uncomment when FreeCallInfo class is added
-    // delete cast<dtrans::FreeCallInfo>(Info);
+    delete cast<dtrans::FreeCallInfo>(Info);
     break;
   case dtrans::CallInfo::CIK_Memfunc:
     // TODO: uncomment when FreeCallInfo class is added
@@ -4032,8 +4076,10 @@ bool DTransAnalysisInfo::analyzeModule(Module &M, TargetLibraryInfo &TLI) {
     }
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (DTransPrintAnalyzedCalls)
     printCallInfo();
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   return false;
 }
