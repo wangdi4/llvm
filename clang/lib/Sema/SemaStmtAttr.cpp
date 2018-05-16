@@ -253,7 +253,9 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
   }
 
   return LoopHintAttr::CreateImplicit(S.Context, Spelling, Option, State,
+#if INTEL_CUSTOMIZATION
                                       ValueExpr, ArrayExpr, A.getRange());
+#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_CUSTOMIZATION
@@ -377,13 +379,35 @@ CheckForIncompatibleAttributes(Sema &S,
     //  If the attribute cannot conflict set PrevAttr to nullptr.
     //  If you want a diagnostic if both state and numeric are used set
     //    the Category to Unroll and the community code will take care of it.
-    if (Option == LoopHintAttr::II || Option == LoopHintAttr::LoopCoalesce ||
-        Option == LoopHintAttr::MaxConcurrency ||
-        Option == LoopHintAttr::IVDep || Option == LoopHintAttr::NoFusion) {
+    if (Option == LoopHintAttr::IVDep) {
       switch (LH->getState()) {
       case LoopHintAttr::Numeric:
+        // safelen only - diagnose duplicates
+        PrevAttr = CategoryState.NumericAttr;
+        CategoryState.NumericAttr = LH;
+        break;
+      case LoopHintAttr::LoopExpr:
       case LoopHintAttr::Full:
-        // Numeric and Full both contain numeric values.
+        // array alone or with safelen - multiple ivdeps with array clauses
+        // is okay.
+        PrevAttr = nullptr;
+        break;
+      case LoopHintAttr::Enable:
+        // Just #pragma ivdep
+        PrevAttr = CategoryState.StateAttr;
+        CategoryState.StateAttr = LH;
+        break;
+      case LoopHintAttr::Disable:
+      case LoopHintAttr::AssumeSafety:
+        llvm_unreachable("unexpected ivdep state");
+      }
+      Category = Unroll; // For multiple safelen diagnostics.
+    } else if (Option == LoopHintAttr::II ||
+               Option == LoopHintAttr::LoopCoalesce ||
+               Option == LoopHintAttr::MaxConcurrency ||
+               Option == LoopHintAttr::NoFusion) {
+      switch (LH->getState()) {
+      case LoopHintAttr::Numeric:
         PrevAttr = CategoryState.NumericAttr;
         CategoryState.NumericAttr = LH;
         break;
@@ -391,15 +415,13 @@ CheckForIncompatibleAttributes(Sema &S,
         PrevAttr = CategoryState.StateAttr;
         CategoryState.StateAttr = LH;
         break;
-      case LoopHintAttr::LoopExpr:
-        // Multiple ivdeps with array clauses is okay.
-        PrevAttr = nullptr;
-        break;
       case LoopHintAttr::Disable:
+      case LoopHintAttr::LoopExpr:
+      case LoopHintAttr::Full:
       case LoopHintAttr::AssumeSafety:
-        llvm_unreachable("unexpected ivdep state");
+        llvm_unreachable("unexpected loop pragma state");
       }
-      if (Option == LoopHintAttr::LoopCoalesce || Option == LoopHintAttr::IVDep)
+      if (Option == LoopHintAttr::LoopCoalesce)
         Category = Unroll;
     } else
 #endif // INTEL_CUSTOMIZATION

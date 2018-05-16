@@ -166,7 +166,7 @@ void foo_ivdep()
   tivdep(p);
   t2ivdep<4>(0);
 
-  //expected-error@+1{{duplicate directives}}
+  //okay now
   #pragma ivdep safelen(4)
   #pragma ivdep safelen(8) array(myArray)
   for (int i=0;i<32;++i) {}

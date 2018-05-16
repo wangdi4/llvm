@@ -342,21 +342,21 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::Unroll:
         setUnrollState(LoopAttributes::Full);
         break;
-      case LoopHintAttr::Vectorize:
-      case LoopHintAttr::Interleave:
-      case LoopHintAttr::UnrollCount:
-      case LoopHintAttr::VectorizeWidth:
-      case LoopHintAttr::InterleaveCount:
-      case LoopHintAttr::Distribute:
 #if INTEL_CUSTOMIZATION
       case LoopHintAttr::IVDep:
-        setIVDepCount(ValueInt);
+        // Handled with IntelIVDepArrayHandler.
         break;
       case LoopHintAttr::II:
       case LoopHintAttr::LoopCoalesce:
       case LoopHintAttr::MaxConcurrency:
       case LoopHintAttr::NoFusion:
 #endif // INTEL_CUSTOMIZATION
+      case LoopHintAttr::Vectorize:
+      case LoopHintAttr::Interleave:
+      case LoopHintAttr::UnrollCount:
+      case LoopHintAttr::VectorizeWidth:
+      case LoopHintAttr::InterleaveCount:
+      case LoopHintAttr::Distribute:
         llvm_unreachable("Options cannot be used with 'full' hint.");
         break;
       }

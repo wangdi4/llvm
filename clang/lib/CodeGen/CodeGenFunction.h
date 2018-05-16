@@ -345,7 +345,7 @@ public:
     ~IntelIVDepArrayHandler();
   private:
     CodeGenFunction &CGF;
-    llvm::CallInst *CallEntry;
+    llvm::CallInst *CallEntry = nullptr;
   };
 
   class DistributePointHandler {

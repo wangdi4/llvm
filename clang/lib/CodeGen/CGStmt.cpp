@@ -632,29 +632,38 @@ CodeGenFunction::IntelPragmaInlineState::getPragmaInlineAttribute() {
   llvm_unreachable("unhandled attribute");
 }
 
+/// Handle #pragma ivdep when it contains an array clause.
 CodeGenFunction::IntelIVDepArrayHandler::IntelIVDepArrayHandler(
     CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
-    : CGF(CGF), CallEntry(nullptr) {
+    : CGF(CGF) {
 
-  SmallVector<llvm::Value *, 4> BundleValues;
-  for (auto A : Attrs) {
+  llvm::LLVMContext &Ctx = CGF.getLLVMContext();
+  llvm::IntegerType *Int32Ty = llvm::Type::getInt32Ty(Ctx);
+  SmallVector<llvm::OperandBundleDef, 8> OpBundles;
+  for (const auto *A : Attrs) {
     if (const auto *LHAttr = dyn_cast<LoopHintAttr>(A)) {
-      if (const Expr *E = LHAttr->getLoopExprValue()) {
-        assert(E->isGLValue());
-        BundleValues.push_back(CGF.EmitLValue(E).getPointer());
+      SmallVector<llvm::Value *, 4> BundleValues;
+      if (const Expr *LE = LHAttr->getLoopExprValue()) {
+        assert(LE->isGLValue());
+        BundleValues.push_back(CGF.EmitLValue(LE).getPointer());
+        if (const Expr *E = LHAttr->getValue())
+          BundleValues.push_back(CGF.EmitScalarExpr(E));
+        else
+          BundleValues.push_back(llvm::ConstantInt::get(Int32Ty, -1));
+      }
+      if (!BundleValues.empty()) {
+        if (OpBundles.empty())
+          OpBundles.push_back(llvm::OperandBundleDef(
+              "DIR.PRAGMA.IVDEP", ArrayRef<llvm::Value *>{}));
+        OpBundles.push_back(
+            llvm::OperandBundleDef("QUAL.PRAGMA.ARRAY", BundleValues));
       }
     }
   }
-
-  if (!BundleValues.empty()) {
-    SmallVector<llvm::OperandBundleDef, 8> OpBundles{
-     llvm::OperandBundleDef("DIR.PRAGMA.IVDEP", ArrayRef<llvm::Value *>{}),
-     llvm::OperandBundleDef("QUAL.PRAGMA.ARRAY", BundleValues)};
-
+  if (!OpBundles.empty())
     CallEntry = CGF.Builder.CreateCall(
         CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), {},
         OpBundles);
-  }
 }
 
 CodeGenFunction::IntelIVDepArrayHandler::~IntelIVDepArrayHandler() {
