@@ -754,7 +754,7 @@ VPOParoptAtomics::identifyNonSwapCaptureKind(
 //     store i64 %conv, i64* %v, align 8         ; <- (3)
 //     %3 = load double, double* %expr, align 8
 //     %conv1 = fptrunc double %3 to float
-//     store float %conv1, float* %x, align 4
+//     store float %conv1, float* %x, align 4    ; <- (4)
 //
 //  Details on InstsToDelete are in the header file.
 bool VPOParoptAtomics::extractSwapOp(
@@ -811,7 +811,8 @@ bool VPOParoptAtomics::extractSwapOp(
   ValueOpnd = AtomicStore->getValueOperand();
 
   // Also the KMPC call will be of form: v = __kmpc_atomic<...>(...x, expr). So
-  // we don't need the existing store to v.
+  // we don't need the existing store to v and x.
+  InstsToDelete.push_back(AtomicStore);  // (4)
   InstsToDelete.push_back(CaptureStore); // (3)
   InstsToDelete.push_back(LoadX);        // (1)
   if (ValVCast != nullptr)
