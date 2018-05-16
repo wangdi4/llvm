@@ -109,14 +109,7 @@ namespace intel {
     /// @brief get or add from/to  module declaration of type used for local
     /// memory buffers specified in enqueue_kernel
     Type* getLocalMemBufType() const;
-    /// @brief Add instructions handling variable number
-    ///        of local mem arguments in Enqueue_kernel
-    /// @param args input/output vector with arguments to call ocl20_* callback
-    ///        When done args will be added with 2 arguments for local_mem handling
-    /// @param pCall - enqueue_kernel call instruction
-    /// @param LocalMemArgsOffs offset of 1st argument with local mem arguments
-    void addLocalMemArgs(SmallVectorImpl<Value *> &args, CallInst *pCall,
-                         const unsigned LocalMemArgsOffs);
+
     void appendWithCallBackContextAndRuntimeHandleTypes(
         unsigned FuncType, SmallVectorImpl<Type *> &ArgTypes);
     void appendWithCallBackContextAndRuntimeHandleValues(
@@ -131,20 +124,8 @@ namespace intel {
     FunctionType* getOrCreateEnqueueKernelFuncType(unsigned type);
     ///@brief returns description of GetKernelWGSize and GerKernelPreferredWGSizeMultiple callbacks
     FunctionType* getOrCreateGetKernelQueryFuncType(unsigned type);
-    // getBlockLiteralSize - Return size of block literal for F
-    size_t getBlockLiteralSize(Function* F);
     FunctionType* getOrCreatePrintfFuncType();
 
-    ///@brief returns params List taken from pCall call
-    ///!!! NOTE implicitly copies all pCall params to output
-    ///!!! callback function should have the same arguments list + ExtExecContext as last argument
-    void getExtExecFunctionParams(CallInst *pCall,
-                                  SmallVectorImpl<Value *> &Res);
-    ///@brief returns params List taken from pCall call converted to
-    /// proper representation
-    ///!!! NOTE implicitly copies all pCall params to output
-    ///!!! callback function should have the same arguments list + list of local vars sizes + ExtExecContext as last argument
-    void getEnqueueKernelLocalMemFunctionParams(CallInst *pCall, const uint32_t FixedArgs, SmallVectorImpl<Value*> &Res);
     /// @brief helper function.
     ///    maps ndrange_ built-ins argument index to index of array within ndrange_t struct
     uint32_t MapIndexToIndexOfArray(const uint32_t Index, const uint32_t argsNum);

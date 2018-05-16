@@ -21,7 +21,6 @@ File Name:  CPUBlockToKernelMapper.cpp
 #include "CPUProgram.h"
 #include "Kernel.h"
 #include "CPUBlockToKernelMapper.h"
-#include "BlockUtils.h"
 #include "exceptions.h"
 
 #include "llvm/IR/Module.h"
@@ -51,16 +50,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       // detect block
       if(!pKernel->GetKernelProporties()->IsBlock())
         continue;
-      // get block_invoke function name
-      std::string BlockInvokeName = 
-        BlockUtils::ObtainBlockInvokeFuncNameFromKernel(pKernel->GetKernelName());
-      DEBUG(llvm::dbgs() << "Found block_invoke kernel " 
-        << pKernel->GetKernelName() << " \n");
-      // get llvm function for block_invoke 
-      llvm::Function *pBlockInvokeFunc = pModule->getFunction(BlockInvokeName);
-      assert(pBlockInvokeFunc && "Cannot find original block_invoke func in module");
-
-      DEBUG(llvm::dbgs() << "Found original block_invoke function " << BlockInvokeName << " \n");
+      // get llvm function for block_invoke
+      llvm::Function *pBlockInvokeFunc =
+        pModule->getFunction(pKernel->GetKernelName());
+      assert(pBlockInvokeFunc &&
+             "Cannot find block invoke kernel in the module");
 
       // obtain CPUProgram
       CPUProgram * pCpuProgram = static_cast<CPUProgram*>(pProgram);
@@ -85,6 +79,4 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         std::string("CPUBlockToKernelMapper not found key in map. Key must be in map"));
     return it->second;
   }
-
-
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

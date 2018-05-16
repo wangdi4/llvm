@@ -6,10 +6,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "PrepareKernelArgs.h"
+
 #include "TypeAlignment.h"
 #include "CompilationUtils.h"
 #include "ImplicitArgsUtils.h"
 #include "MetadataAPI.h"
+#include "OCLAddressSpace.h"
 #include "OCLPassSupport.h"
 #include "OclTune.h"
 
@@ -372,6 +374,44 @@ namespace intel{
     }
   }
 
+  void PrepareKernelArgs::replaceFunctionPointers(Function* Wrapper,
+                                                  Function* WrappedKernel) {
+  // BIs like enqueue_kernel and kernel query have a function pointer to a
+  // block invoke kernel as an argument.
+  // Replace these arguments by a pointer to the wrapper function.
+    for (auto &EEF : *m_pModule) {
+      if (!EEF.isDeclaration())
+        continue;
+
+      StringRef EEFName = EEF.getName();
+      if (!(EEFName.startswith("ocl20_enqueue_kernel_") ||
+            EEFName.equals("ocl20_get_kernel_wg_size") ||
+            EEFName.equals("ocl20_get_kernel_preferred_wg_size_multiple")))
+        continue;
+
+      unsigned BlockInvokeIdx = (EEFName.startswith("ocl20_enqueue_kernel_"))
+            ? (EEFName.contains("_events") ? 6 : 3)
+            : 0;
+
+      for (auto *U : EEF.users()) {
+        if (auto *EECall = dyn_cast<CallInst>(U)) {
+          Value *BlockInvoke =
+            EECall->getArgOperand(BlockInvokeIdx)->stripPointerCasts();
+          if (BlockInvoke != WrappedKernel)
+            continue;
+          auto *Int8PtrTy = PointerType::get(
+            IntegerType::getInt8Ty(m_pModule->getContext()),
+            Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Generic);
+
+          auto *NewCast =
+            CastInst::CreatePointerCast(Wrapper, Int8PtrTy, "", EECall);
+          EECall->getArgOperand(BlockInvokeIdx)->replaceAllUsesWith(NewCast);
+        }
+      }
+    }
+
+  }
+
   bool PrepareKernelArgs::runOnFunction(Function *pFunc) {
     using namespace Intel::MetadataAPI;
 
@@ -390,6 +430,10 @@ namespace intel{
 
     // Add declaration of original function with its signature
     m_pModule->getFunctionList().push_back(pWrapper);
+
+    // Replace function pointers to the original function (occures in case of
+    // a call of a device execution built-in) by ones to the wrapper
+    replaceFunctionPointers(pWrapper, pFunc);
 
     auto kernelWrapperMetadata = KernelInternalMetadataAPI(pFunc).KernelWrapper;
     kernelWrapperMetadata.set(pWrapper);

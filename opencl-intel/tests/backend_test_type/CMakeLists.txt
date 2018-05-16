@@ -61,7 +61,6 @@ add_ocl_unittest( ${TARGET_NAME}
     FactoryTest.cpp
     CompilationServiceTest.cpp
     PluginsTest.cpp
-    BlockLiteralTest.cpp
     KernelSubGroupInfoTest.cpp
     CompilationUtilsTest.cpp
 

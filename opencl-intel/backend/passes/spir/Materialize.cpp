@@ -17,6 +17,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -242,6 +243,52 @@ private:
   BuiltinLibInfo &BLI;
 };
 
+static void setBlockLiteralSizeMetadata(Function &F) {
+  // Find all enqueue_kernel and kernel query calls
+  for (const auto &EEF : *(F.getParent())) {
+    if (!EEF.isDeclaration())
+      continue;
+
+    StringRef EEFName = EEF.getName();
+    using namespace Intel::OpenCL::DeviceBackend;
+    if (!(CompilationUtils::isEnqueueKernel(EEFName.str()) ||
+          EEFName.equals("__get_kernel_work_group_size_impl") ||
+          EEFName.equals("__get_kernel_preferred_work_group_multiple_impl")))
+      continue;
+
+    unsigned BlockInvokeIdx = (EEFName.startswith("__enqueue_kernel_"))
+          ? (EEFName.contains("_events") ? 6 : 3)
+          : 0;
+    unsigned BlockLiteralIdx = BlockInvokeIdx + 1;
+
+    for (auto *U : EEF.users()) {
+      auto *EECall = dyn_cast<CallInst>(U);
+      if (!EECall)
+        continue;
+      Value *BlockInvoke =
+        EECall->getArgOperand(BlockInvokeIdx)->stripPointerCasts();
+      if (BlockInvoke != &F)
+        continue;
+      Value *BlockLiteral =
+        EECall->getArgOperand(BlockLiteralIdx)->stripPointerCasts();
+      int64_t BlockSize = 0;
+      if (auto *BlockAlloca = dyn_cast<AllocaInst>(BlockLiteral)) {
+        BlockSize = F.getParent()->getDataLayout().getTypeAllocSize(
+          BlockAlloca->getAllocatedType());
+      } else if (auto *BlockGlobal = dyn_cast<Constant>(BlockLiteral)) {
+        auto *BlockGlobalConst = cast<Constant>(BlockGlobal->getOperand(0));
+        auto *Size = cast<ConstantInt>(BlockGlobalConst->getOperand(0));
+        BlockSize = Size->getZExtValue();
+      } else {
+        llvm_unreachable("Unexpected instruction");
+      }
+      auto KIMD = Intel::MetadataAPI::KernelInternalMetadataAPI(&F);
+      KIMD.BlockLiteralSize.set(BlockSize);
+      return;
+    }
+  }
+}
+
 static void FormOpenCLKernelsMetadata(Module &M) {
   assert(!M.getNamedMetadata("opencl.kernels") &&
     "Do not expect opencl.kernels Metadata");
@@ -251,9 +298,20 @@ static void FormOpenCLKernelsMetadata(Module &M) {
   KernelList::KernelVectorTy kernels;
 
   for (auto &Func : M) {
-    if ((Func.getCallingConv() == CallingConv::SPIR_KERNEL)
-        && (!Func.isDeclaration())) {
-      kernels.push_back(&Func);
+    if (Func.isDeclaration())
+      continue;
+    if (Func.getCallingConv() != CallingConv::SPIR_KERNEL)
+      continue;
+
+    kernels.push_back(&Func);
+    if (Func.getName().contains("_block_invoke_") &&
+        Func.getName().endswith("_kernel")) {
+      // Clang generates enqueued block invoke functions as kernels with
+      // InternalLinkage, so ensure the linkage is External.
+      // FIXME: It looks like a bug in clang
+      Func.setLinkage(GlobalValue::ExternalLinkage);
+      // Set BlockLiteralSizeMetadata for enqueued kernels
+      setBlockLiteralSizeMetadata(Func);
     }
   }
 

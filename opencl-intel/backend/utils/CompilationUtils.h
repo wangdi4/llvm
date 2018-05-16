@@ -228,6 +228,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isMemFence(const std::string&);
     static bool isReadMemFence(const std::string&);
     static bool isWriteMemFence(const std::string&);
+    static bool isEnqueueKernel(const std::string& S);
     static bool isEnqueueKernelLocalMem(const std::string&);
     static bool isEnqueueKernelEventsLocalMem(const std::string&);
     static bool isWorkGroupAll(const std::string&);
@@ -555,6 +556,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //         NOTE: current implementation is *the only* workaround for global
     //         ctor/dtor for pipes. See TODO inside the implementation
     static bool isGlobalCtorDtor(Function *F);
+
+    /// @brief Returns true if the function is a block invoke kernel
+    static bool isBlockInvocationKernel(Function *F);
   };
 
   class OCLBuiltins {

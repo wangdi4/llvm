@@ -32,7 +32,6 @@ File Name:  ProgramBuilder.cpp
 #include "BuiltinModuleManager.h"
 #include "MetadataAPI.h"
 #include "BitCodeContainer.h"
-#include "BlockUtils.h"
 #include "CompilationUtils.h"
 #include "cache_binary_handler.h"
 #include "ObjectCodeContainer.h"
@@ -511,7 +510,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetMaxPrivateMemorySize(m_forcedPrivateMemorySize);
 
   // set isBlock property
-  pProps->SetIsBlock(BlockUtils::IsBlockInvocationKernel(*func));
+  pProps->SetIsBlock(CompilationUtils::isBlockInvocationKernel(func));
 
   // OpenCL 2.0 related properties
   if (OclVersion::CL_VER_2_0 <=

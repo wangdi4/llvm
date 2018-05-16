@@ -78,11 +78,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
                       "atomic_flag_test_and_set_explicit",
                       "atomic_flag_clear",
                       "atomic_flag_clear_explicit",
-                      "enqueue_kernel",
                       "enqueue_marker",
-                      "read_pipe",
                       "wait_group_events",
-                      "write_pipe"
   };
 
   bool isAddressQualifierBI(const Function *pFunc) {
@@ -113,13 +110,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
 
   bool needToSkipResolution(const Function *F) {
     StringRef FName = F->getName();
+    using namespace Intel::OpenCL::DeviceBackend;
     // It isn't needed to process this extended execution BIs
-    if (FName.startswith("__enqueue_kernel") ||
+    if (CompilationUtils::isEnqueueKernel(FName.str()) ||
         FName.equals("__get_kernel_work_group_size_impl") ||
         FName.equals("__get_kernel_preferred_work_group_multiple_impl"))
       return true;
     // It isn't needed to process pipes BIs
-    using namespace Intel::OpenCL::DeviceBackend;
     if (CompilationUtils::isPipeBuiltin(FName))
       return true;
 

@@ -26,7 +26,6 @@ set (TARGET_INCLUDE_FILES
   TypeAlignment.h
   TypeConversion.h
   VectorizerUtils.h
-  BlockUtils.h
   RefcountThreadSafe.h
   Atomics.h
   Logger.h
@@ -43,7 +42,6 @@ set (TARGET_SOURCE_FILES
   TypeAlignment.cpp
   TypeConversion.cpp
   VectorizerUtils.cpp
-  BlockUtils.cpp
   Atomics.cpp
   OclTune.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
@@ -51,9 +49,11 @@ set (TARGET_SOURCE_FILES
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
+  ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
   ${BACKEND_ROOT_DIR}/name_mangling
   ${BACKEND_ROOT_DIR}/reflection_module
   ${BACKEND_ROOT_DIR}/metadata_api
+  ${BACKEND_ROOT_DIR}/ocl_cpu_backend
   ${CMAKE_BINARY_DIR}/include
   ${CMAKE_BINARY_DIR}
 )
