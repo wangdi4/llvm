@@ -120,7 +120,10 @@ public:
       : HasBeenAnalyzed(false), IsPartialAnalysis(false),
         AliasesToAggregatePointer(false) {}
 
-  void setAnalyzed() { IsPartialAnalysis = false; HasBeenAnalyzed = true; }
+  void setAnalyzed() {
+    IsPartialAnalysis = false;
+    HasBeenAnalyzed = true;
+  }
   bool getAnalyzed() { return HasBeenAnalyzed; }
 
   bool canAliasToAggregatePointer() {
@@ -211,9 +214,7 @@ public:
     return DomTy;
   }
 
-  PointerTypeAliasSetRef getPointerTypeAliasSet() {
-    return PointerTypeAliases;
-  }
+  PointerTypeAliasSetRef getPointerTypeAliasSet() { return PointerTypeAliases; }
   ElementPointeeSetRef getElementPointeeSet() { return ElementPointees; }
 
   void merge(LocalPointerInfo &Other) {
@@ -255,7 +256,6 @@ private:
   ElementPointeeSet ElementPointees;
 };
 
-//
 // Class to analyze and identify functions that are post-dominated by
 // a call to malloc() or free(). Those post-dominated by malloc() will
 // yield true for isMallocPostDom().  Those post-dominated by free()
@@ -554,8 +554,7 @@ bool DTransAllocAnalyzer::mallocBasedGEPChain(GetElementPtrInst *GV,
   auto CI = dyn_cast<CallInst>(V->getPointerOperand());
   if (!CI)
     return false;
-  if (dtrans::getAllocFnKind(CI->getCalledFunction(), TLI) !=
-      dtrans::AK_Malloc)
+  if (dtrans::getAllocFnKind(CI->getCalledFunction(), TLI) != dtrans::AK_Malloc)
     return false;
   *GBV = V;
   *GCI = CI;
@@ -716,11 +715,12 @@ bool DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
     return false;
   DEBUG(dbgs() << "Analyzing for MallocPostDom " << F->getName() << "\n");
   VisitedBlocks.clear();
-  if (std::distance(F->arg_begin(), F->arg_end()) == 1 &&
-      F->arg_begin()->getType()->isIntegerTy()) {
-    visitNullPtrBlocks(F);
-    VisitedBlocks.clear();
+  if (std::distance(F->arg_begin(), F->arg_end()) != 1 ||
+      !F->arg_begin()->getType()->isIntegerTy()) {
+    return false;
   }
+  visitNullPtrBlocks(F);
+  VisitedBlocks.clear();
   bool rv = false;
   for (BasicBlock &BB : *F)
     if (auto RI = dyn_cast<ReturnInst>(BB.getTerminator())) {
@@ -859,7 +859,7 @@ private:
 
     // Build a stack of unresolved dependent values that must be analyzed
     // before we can complete the analysis of this value.
-    SmallVector<Value*, 16> DependentVals;
+    SmallVector<Value *, 16> DependentVals;
     DependentVals.push_back(V);
     populateDependencyStack(V, DependentVals);
 
@@ -882,9 +882,9 @@ private:
     }
 
     DEBUG({
-            if (Info.isPartialAnalysis())
-              dbgs() << " Analysis completed but was reported as partial.\n";
-          });
+      if (Info.isPartialAnalysis())
+        dbgs() << " Analysis completed but was reported as partial.\n";
+    });
     DEBUG(Info.dump());
     DEBUG(dbgs() << "\n");
 
@@ -945,7 +945,7 @@ private:
   // and returns true if this is the first occurance of the value on the stack
   // or false if it was present before the call. The value is pushed onto the
   // stack in either case.
-  bool addDependency(Value *DV, SmallVectorImpl<Value*> &DependentVals) {
+  bool addDependency(Value *DV, SmallVectorImpl<Value *> &DependentVals) {
     auto REnd = DependentVals.rend();
     auto It = std::find(DependentVals.rbegin(), REnd, DV);
     DependentVals.push_back(DV);
@@ -969,7 +969,7 @@ private:
   // secondary dependencies appear just once, as far down in the stack as
   // possible.
   void populateDependencyStack(Value *V,
-                               SmallVectorImpl<Value*> &DependentVals) {
+                               SmallVectorImpl<Value *> &DependentVals) {
     // BitCast and PtrToInt can be a ConstExpr acting on a global, so we
     // need to check the operator form. The instruction form of these
     // would be covered by CastInst, but that also handles IntToPtr which
@@ -1042,14 +1042,14 @@ private:
     // Allocation calls have a non-trivial dependency on their uses.
     // We have a helper function to handle this case.
     if (auto *CI = getCallInstIfAlloc(V)) {
-      SmallPtrSet<User*, 8> VisitedUsers;
+      SmallPtrSet<User *, 8> VisitedUsers;
       addAllocUsesToDependencyStack(CI, DependentVals, VisitedUsers);
     }
   }
 
   void addAllocUsesToDependencyStack(Value *V,
-                                     SmallVectorImpl<Value*> &DependentVals,
-                                     SmallPtrSetImpl<User*> &VisitedUsers) {
+                                     SmallVectorImpl<Value *> &DependentVals,
+                                     SmallPtrSetImpl<User *> &VisitedUsers) {
     for (auto *U : V->users()) {
       // Don't re-visit users we've already seen.
       if (!VisitedUsers.insert(U).second)
@@ -1078,7 +1078,7 @@ private:
     }
   }
 
-  void dumpDependencyStack(SmallVectorImpl<Value*> &DependentVals) {
+  void dumpDependencyStack(SmallVectorImpl<Value *> &DependentVals) {
     dbgs() << "  DependentVals:\n";
     for (auto *V : DependentVals)
       dbgs() << "    " << *V << "\n";
@@ -1538,7 +1538,7 @@ public:
     // analyze the allocation.
     dtrans::AllocKind Kind = dtrans::getAllocFnKind(F, TLI);
     if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(F))
-      Kind = dtrans::AK_Malloc;
+      Kind = dtrans::AK_UserMalloc;
     if (Kind != dtrans::AK_NotAlloc) {
       analyzeAllocationCall(CI, Kind);
       return;
@@ -2534,6 +2534,50 @@ private:
     }
   }
 
+  // Return true if the Instruction *I is not used in some way that inhibits
+  // marking it as a single alloc function.  Right now, we allow the
+  // following cases:
+  //   (1) It can be used in a test against a nullptr.
+  //   (2) It can be passed to "free" or something equivalent.
+  //   (3) It can be passed down to a load.
+  // The point here is to determine whether the pointer being assigned to
+  // a field can escape.  If it does, the memory could be, for example, be
+  // realloc'ed and it might not have the same properties that it had
+  // when it was returned from the single alloc function.
+  bool isSafeLoadForSingleAllocFunction(Instruction *I) {
+    for (auto *U : I->users()) {
+      if (auto ICI = dyn_cast<ICmpInst>(U)) {
+        Value *V = nullptr;
+        if (isa<ConstantPointerNull>(ICI->getOperand(0)))
+          V = ICI->getOperand(1);
+        else if (isa<ConstantPointerNull>(ICI->getOperand(1)))
+          V = ICI->getOperand(0);
+        if (V == nullptr)
+          return false;
+      } else if (auto CI = dyn_cast<CallInst>(U)) {
+        Function *F = CI->getCalledFunction();
+        if (F == nullptr)
+          return false;
+        if (!dtrans::isFreeFn(F, TLI) && !DTAA.isFreePostDom(F))
+          return false;
+      } else if (!isa<LoadInst>(U))
+        return false;
+    }
+    return true;
+  }
+
+  // Return true if the CallInst *CI is to a suitably identified alloc
+  // function.
+  bool isSafeStoreForSingleAllocFunction(CallInst *CI) {
+    Function *F = CI->getCalledFunction();
+    if (F == nullptr)
+      return false;
+    dtrans::AllocKind Kind = dtrans::getAllocFnKind(F, TLI);
+    if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(F))
+      Kind = dtrans::AK_UserMalloc;
+    return Kind != dtrans::AK_NotAlloc;
+  }
+
   // The element access analysis for load and store instructions are nearly
   // identical, so we use this helper function to perform the task for both.
   // For both loads and stores the PtrInfo argument refers to the address that
@@ -2588,18 +2632,69 @@ private:
           auto *ParentStInfo =
               cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(ParentTy));
           dtrans::FieldInfo &FI = ParentStInfo->getField(PointeePair.second);
-          if (IsLoad)
+          if (IsLoad) {
             FI.setRead(true);
-          else {
-            DEBUG(dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
-                         << " [" << PointeePair.second << "] ");
+            if (!isSafeLoadForSingleAllocFunction(&I)) {
+              if (!FI.isBottomAllocFunction())
+                DEBUG(dbgs()
+                      << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
+                      << " [" << PointeePair.second << "] <BOTTOM>\n");
+              FI.setBottomAllocFunction();
+            }
+          } else {
             if (auto *ConstVal = dyn_cast<llvm::Constant>(WriteVal)) {
-              DEBUG(ConstVal->printAsOperand(dbgs()));
-              FI.processNewSingleValue(ConstVal);
-              DEBUG(dbgs() << (FI.isMultipleValue() ? " <MULTIPLE>\n" : "\n"));
-            } else {
-              DEBUG(dbgs() << "<MULTIPLE>\n");
+              if (FI.processNewSingleValue(ConstVal)) {
+                DEBUG({
+                  dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType());
+                  if (FI.isSingleValue())
+                    ConstVal->printAsOperand(dbgs());
+                  else
+                    dbgs() << "<MULTIPLE>";
+                  dbgs() << "\n";
+                });
+              }
+              if (!isa<ConstantPointerNull>(WriteVal)) {
+                if (!FI.isBottomAllocFunction())
+                  DEBUG(dbgs()
+                        << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
+                        << " [" << PointeePair.second << "] <BOTTOM>\n");
+                FI.setBottomAllocFunction();
+              }
+            } else if (auto *CI = dyn_cast<CallInst>(WriteVal)) {
+              if (!FI.isMultipleValue())
+                DEBUG(dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
+                             << " [" << PointeePair.second << "] <MULTIPLE>\n");
               FI.setMultipleValue();
+              if (isSafeStoreForSingleAllocFunction(CI)) {
+                Function *Callee = CI->getCalledFunction();
+                if (FI.processNewSingleAllocFunction(Callee)) {
+                  DEBUG({
+                    dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
+                           << " [" << PointeePair.second << "] ";
+                    if (FI.isSingleAllocFunction())
+                      Callee->printAsOperand(dbgs());
+                    else
+                      dbgs() << "<BOTTOM>";
+                    dbgs() << "\n";
+                  });
+                }
+              } else {
+                if (!FI.isBottomAllocFunction())
+                  DEBUG(dbgs()
+                        << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
+                        << " [" << PointeePair.second << "] <BOTTOM>\n");
+                FI.setBottomAllocFunction();
+              }
+            } else {
+              if (!FI.isMultipleValue())
+                DEBUG(dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
+                             << " [" << PointeePair.second << "] <MULTIPLE>\n");
+              FI.setMultipleValue();
+              if (!FI.isBottomAllocFunction())
+                DEBUG(dbgs()
+                      << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
+                      << " [" << PointeePair.second << "] <BOTTOM>\n");
+              FI.setBottomAllocFunction();
             }
             FI.setWritten(true);
           }
@@ -3415,6 +3510,12 @@ private:
           DEBUG(dbgs() << "<MULTIPLE>\n");
           FI.setMultipleValue();
         }
+        if (!isa<ConstantPointerNull>(ConstVal)) {
+          if (!FI.isBottomAllocFunction())
+            DEBUG(dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType()) << " ["
+                         << I << "] <BOTTOM>\n");
+          FI.setBottomAllocFunction();
+        }
       }
     } else if (auto *ArTy = dyn_cast<ArrayType>(GVElemTy)) {
       auto *ArInfo = cast<dtrans::ArrayInfo>(DTInfo.getOrCreateTypeInfo(ArTy));
@@ -3718,7 +3819,7 @@ void DTransAnalysisInfo::deleteCallInfo(Instruction *I) {
 }
 
 void DTransAnalysisInfo::replaceCallInfoInstruction(dtrans::CallInfo *Info,
-                                                   Instruction *NewI) {
+                                                    Instruction *NewI) {
   CallInfoMap.erase(Info->getInstruction());
   addCallInfo(NewI, Info);
   Info->setInstruction(NewI);
@@ -3850,14 +3951,20 @@ bool DTransAnalysisInfo::analyzeModule(Module &M, TargetLibraryInfo &TLI) {
     if (StInfo && StInfo->testSafetyData(dtrans::SDFieldSingleValue))
       for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I)
         StInfo->getField(I).setMultipleValue();
+    if (StInfo && StInfo->testSafetyData(dtrans::SDSingleAllocFunction))
+      for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I)
+        StInfo->getField(I).setBottomAllocFunction();
   }
 
-  // Set all aggregate fields conservatively as MultipleValue for now.
+  // Set all aggregate fields conservatively as MultipleValue and
+  // BottomAllocFunction for now.
   for (auto *TI : type_info_entries()) {
     if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI))
       for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I)
-        if (StInfo->getField(I).getLLVMType()->isAggregateType())
+        if (StInfo->getField(I).getLLVMType()->isAggregateType()) {
           StInfo->getField(I).setMultipleValue();
+          StInfo->getField(I).setBottomAllocFunction();
+        }
   }
 
   if (DTransPrintAnalyzedTypes) {
@@ -3938,6 +4045,14 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field) {
     Field.getSingleValue()->printAsOperand(outs());
   } else if (Field.isMultipleValue())
     outs() << "    Multiple Value";
+  outs() << "\n";
+  if (Field.isTopAllocFunction())
+    outs() << "    Top Alloc Function";
+  else if (Field.isSingleAllocFunction()) {
+    outs() << "    Single Alloc Function: ";
+    Field.getSingleAllocFunction()->printAsOperand(outs());
+  } else if (Field.isBottomAllocFunction())
+    outs() << "    Bottom Alloc Function";
   outs() << "\n";
 }
 

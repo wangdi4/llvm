@@ -46,11 +46,28 @@ namespace dtrans {
 //
 enum SingleValueKind { SVK_None, SVK_Single, SVK_Multiple };
 
+//
+// Enum to indicate the "single value" status of a field:
+//   Top: No write to field seen
+//   Single: The field is assigned either nullptr or the return value of
+//     calling a specific function which has been determined to be malloc-like
+//     by the DtransAllocAnalyzer.
+//   Bottom: Anything else, including an assignment by something other
+//     than a nullptr or assignments from return values of multiple
+//     functions.
+//
+enum SingleAllocFunctionKind { SAFK_Top, SAFK_Single, SAFK_Bottom };
+
 class FieldInfo {
 public:
   FieldInfo(llvm::Type *Ty)
       : LLVMType(Ty), Read(false), Written(false), AddressTaken(false),
-        SVKind(SVK_None), SingleValue(nullptr) {}
+        SVKind(SVK_None), SingleValue(nullptr), SAFKind(SAFK_Top),
+        SingleAllocFunction(nullptr) {}
+  ~FieldInfo() {
+    setMultipleValue();
+    setBottomAllocFunction();
+  }
 
   llvm::Type *getLLVMType() const { return LLVMType; }
 
@@ -58,10 +75,16 @@ public:
   bool isWritten() const { return Written; }
   bool isAddressTaken() const { return AddressTaken; }
   bool isNoValue() const { return SVKind == SVK_None; }
+  bool isTopAllocFunction() const { return SAFKind == SAFK_Top; }
   bool isSingleValue() const { return SVKind == SVK_Single; }
+  bool isSingleAllocFunction() const { return SAFKind == SAFK_Single; }
   bool isMultipleValue() const { return SVKind == SVK_Multiple; }
+  bool isBottomAllocFunction() const { return SAFKind == SAFK_Bottom; }
   llvm::Constant *getSingleValue() {
     return SVKind == SVK_Single ? SingleValue : nullptr;
+  }
+  llvm::Function *getSingleAllocFunction() {
+    return SAFKind == SAFK_Single ? SingleAllocFunction : nullptr;
   }
   void setRead(bool b) { Read = b; }
   void setWritten(bool b) { Written = b; }
@@ -70,15 +93,30 @@ public:
     SVKind = SVK_Single;
     SingleValue = C;
   }
+  void setSingleAllocFunction(llvm::Function *F) {
+    assert((SAFKind == SAFK_Top) && "Expecting lattice at top");
+    SAFKind = SAFK_Single;
+    SingleAllocFunction = F;
+  }
   void setMultipleValue() {
     SVKind = SVK_Multiple;
     SingleValue = nullptr;
   }
+  void setBottomAllocFunction() {
+    SAFKind = SAFK_Bottom;
+    SingleAllocFunction = nullptr;
+  }
   //
   // Update the "single value" of the field, given that a constant value C
-  // for the field has just been seen.
+  // for the field has just been seen. Return true if the value is updated.
   //
-  void processNewSingleValue(llvm::Constant *C);
+  bool processNewSingleValue(llvm::Constant *C);
+  //
+  // Update the single alloc function for the field, given that we have just
+  // seen an assignment to it from the return value of a call to F. Return
+  // true if the value is updated.
+  //
+  bool processNewSingleAllocFunction(llvm::Function *F);
 
 private:
   llvm::Type *LLVMType;
@@ -87,6 +125,8 @@ private:
   bool AddressTaken;
   SingleValueKind SVKind;
   llvm::Constant *SingleValue;
+  SingleAllocFunctionKind SAFKind;
+  llvm::Function *SingleAllocFunction;
 };
 
 /// DTrans optimization safety conditions for a structure type.
@@ -236,6 +276,12 @@ const SafetyData SDFieldSingleValue =
     BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
     UnsafePtrMerge | AddressTaken | UnhandledUse;
 
+const SafetyData SDSingleAllocFunction =
+    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
+    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
+    BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
+    UnsafePtrMerge | AddressTaken | UnhandledUse;
+
 class NonAggregateTypeInfo : public TypeInfo {
 public:
   NonAggregateTypeInfo(llvm::Type *Ty)
@@ -302,7 +348,14 @@ private:
 /// The malloc, calloc, and realloc allocation kinds each correspond to a call
 /// to the standard library function of the same name.  C++ new operators are
 /// not currently supported.
-enum AllocKind { AK_NotAlloc, AK_Malloc, AK_Calloc, AK_Realloc, AK_UserAlloc };
+enum AllocKind {
+  AK_NotAlloc,
+  AK_Malloc,
+  AK_Calloc,
+  AK_Realloc,
+  AK_UserMalloc,
+  AK_UserMalloc0
+};
 
 /// Get a printable string for the AllocKind
 StringRef AllocKindName(AllocKind Kind);
@@ -389,7 +442,7 @@ private:
 class AllocCallInfo : public CallInfo {
 public:
   AllocCallInfo(Instruction *I, AllocKind AK)
-    : CallInfo(I, CallInfo::CIK_Alloc), AK(AK) {}
+      : CallInfo(I, CallInfo::CIK_Alloc), AK(AK) {}
 
   AllocCallInfo(const AllocCallInfo &) = delete;
   AllocCallInfo &operator=(const AllocCallInfo &) = delete;

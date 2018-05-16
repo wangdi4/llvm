@@ -47,8 +47,10 @@ StringRef dtrans::AllocKindName(AllocKind Kind) {
     return "Calloc";
   case AK_Realloc:
     return "Realloc";
-  case AK_UserAlloc:
-    return "UserAlloc";
+  case AK_UserMalloc:
+    return "UserMalloc";
+  case AK_UserMalloc0:
+    return "UserMalloc0";
   }
   llvm_unreachable("Unexpected continuation past AllocKind switch.");
 }
@@ -75,10 +77,10 @@ AllocKind dtrans::getAllocFnKind(Function *F, const TargetLibraryInfo &TLI) {
 
 void dtrans::getAllocSizeArgs(AllocKind Kind, CallInst *CI,
                               Value *&AllocSizeVal, Value *&AllocCountVal) {
-  assert(Kind != AK_NotAlloc && Kind != AK_UserAlloc &&
+  assert(Kind != AK_NotAlloc && Kind != AK_UserMalloc0 &&
          "Unexpected alloc kind passed to getAllocSizeArgs");
 
-  if (Kind == AK_Malloc) {
+  if (Kind == AK_Malloc || Kind == AK_UserMalloc) {
     AllocSizeVal = CI->getArgOperand(0);
     AllocCountVal = nullptr;
     return;
@@ -198,22 +200,21 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
-  static_assert(ImplementedMask ==
-                    (dtrans::BadCasting ^ dtrans::BadAllocSizeArg ^
-                     dtrans::BadPtrManipulation ^ dtrans::AmbiguousGEP ^
-                     dtrans::VolatileData ^ dtrans::MismatchedElementAccess ^
-                     dtrans::WholeStructureReference ^
-                     dtrans::UnsafePointerStore ^ dtrans::FieldAddressTaken ^
-                     dtrans::GlobalPtr ^ dtrans::GlobalInstance ^
-                     dtrans::HasInitializerList ^ dtrans::BadMemFuncSize ^
-                     dtrans::MemFuncPartialWrite ^
-                     dtrans::BadMemFuncManipulation ^
-                     dtrans::AmbiguousPointerTarget ^ dtrans::UnsafePtrMerge ^
-                     dtrans::AddressTaken ^ dtrans::NoFieldsInStruct ^
-                     dtrans::NestedStruct ^ dtrans::ContainsNestedStruct ^
-                     dtrans::SystemObject ^ dtrans::LocalPtr ^
-                     dtrans::LocalInstance ^ dtrans::UnhandledUse),
-                "Duplicate value used in dtrans safety conditions");
+  static_assert(
+      ImplementedMask ==
+          (dtrans::BadCasting ^ dtrans::BadAllocSizeArg ^
+           dtrans::BadPtrManipulation ^ dtrans::AmbiguousGEP ^
+           dtrans::VolatileData ^ dtrans::MismatchedElementAccess ^
+           dtrans::WholeStructureReference ^ dtrans::UnsafePointerStore ^
+           dtrans::FieldAddressTaken ^ dtrans::GlobalPtr ^
+           dtrans::GlobalInstance ^ dtrans::HasInitializerList ^
+           dtrans::BadMemFuncSize ^ dtrans::MemFuncPartialWrite ^
+           dtrans::BadMemFuncManipulation ^ dtrans::AmbiguousPointerTarget ^
+           dtrans::UnsafePtrMerge ^ dtrans::AddressTaken ^
+           dtrans::NoFieldsInStruct ^ dtrans::NestedStruct ^
+           dtrans::ContainsNestedStruct ^ dtrans::SystemObject ^
+           dtrans::LocalPtr ^ dtrans::LocalInstance ^ dtrans::UnhandledUse),
+      "Duplicate value used in dtrans safety conditions");
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
     SafetyIssues.push_back("Bad casting");
@@ -277,7 +278,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
   // TODO: Make this unnecessary.
   if (SafetyInfo & ~ImplementedMask) {
     ostr << " + other issues that need format support ("
-           << (SafetyInfo & ~ImplementedMask) << ")";
+         << (SafetyInfo & ~ImplementedMask) << ")";
     ostr << "\nImplementedMask = " << ImplementedMask;
   }
 
@@ -295,11 +296,16 @@ void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
   DEBUG(printSafetyInfo(Conditions, dbgs()));
 }
 
-void dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
-  if (isNoValue())
+bool dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
+  if (isNoValue()) {
     setSingleValue(C);
-  else if (isSingleValue() && getSingleValue() != C)
+    return true;
+  }
+  if (isSingleValue() && getSingleValue() != C) {
     setMultipleValue();
+    return true;
+  }
+  return false;
 }
 
 void PointerTypeInfo::dump() {
@@ -347,4 +353,19 @@ void AllocCallInfo::dump() {
   outs() << "  Aliased types:\n";
 
   PTI.dump();
+}
+
+bool dtrans::FieldInfo::processNewSingleAllocFunction(llvm::Function *F) {
+  if (isTopAllocFunction()) {
+    if (F == nullptr)
+      setBottomAllocFunction();
+    else
+      setSingleAllocFunction(F);
+    return true;
+  }
+  if (isSingleAllocFunction() && getSingleAllocFunction() != F) {
+    setBottomAllocFunction();
+    return true;
+  }
+  return false;
 }

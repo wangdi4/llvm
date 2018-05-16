@@ -389,10 +389,25 @@ describe what the analysis is doing.)
 Call
 ~~~~
 When a call instruction is encountered, the DTrans analysis will attempt to
-determine whether or not the call is allocating memory. Currently this is
-done by using LLVM's LibFunc mechanism to check for calls to malloc, calloc,
-and realloc. At some point this mechanism will be extended to handle additional
-functions, including user-defined allocation functions.
+determine whether or not the call is allocating memory. For LibFuncs,
+LLVM's LibFunc mechanism is used to check for calls to malloc, calloc,
+and realloc.
+
+Some user functions are also handled.  Right now, we distinguish two types:
+  AK_UserMalloc0: The user function may have any number of arguments, but the
+    first (0th argument) must specify the "size" of memory to be allocated
+    (the "size" argument). Each return of the user function must be post
+    dominated by a call to malloc, and the return must return a pointer to
+    the malloc'ed memory. (An exception is made for some returns that may
+    return nullptr if the user function is passed 0 in its "size" argument,
+    or if some call to malloc returns a nullptr.)
+  AK_UserMalloc: Same as AK_UserMalloc0, but there must be only 1 argument
+    (the "size" argument).
+At some point this mechanism will be extended to handle additional user
+functions, including those that call calloc and realloc.
+
+(Note: At this moment, there is no recognition of the AK_UserMalloc0 case,
+that will be taken care of shortly when the code is extended.)
 
 If the call is an allocation function, we look for uses that bitcast the
 returned value to a pointer to an aggregate type to determine the type of the
@@ -748,3 +763,64 @@ a simple zero-initializer, or it may be specific aggregate data. If the global
 variable is an instance of a type and not a pointer to that type and the
 initializer is non-zero aggregate data, the type will be marked with the
 `HasInitializerList`_ safety condition.
+
+Field Single Value Analysis
+===========================
+
+DTrans supports a Field Single Value Analysis that determines whether a field
+of a structure can have only one value during the execution of the program.
+Whole program is required. Values may be assigned via static initialization
+or during dynamic execution. Field Single Value Analysis is an important
+base analysis for Indirect Call Specialization.
+
+Query methods for Field Single Value Analysis are defined in the public
+member functions of the FieldInfo class in DTrans.h:
+
+  bool isNoValue() const
+    The field has not been assigned a value
+  bool isSingleValue() const
+    The field has been assigned a single value
+  bool isMultipleValue() const
+    The field has been assigned multiple values, or we have no idea what
+      value(s) the field has been assigned.
+
+Only one of these three will be true for any field at any point in time.
+The represent three classic states of a lattice: Top, Middle, and Bottom.
+In the case that isSingleValue() is true, the value can be obtained with
+
+  llvm::Constant *getSingleValue()
+
+Single Alloc Function Analysis
+==============================
+
+DTrans supports a Single Alloc Function Analysis which determines whether
+a field points to memory allocated by a specific function.
+
+Query methods for Single Alloc Function Analysis are defined in the public
+member functions of the FieldInfo class in DTrans.h:
+
+  bool isTopAllocFunction() const
+    The field has not been assigned a value
+  bool isSingleAllocFunction() const
+    The field is assigned either a nullptr or the return value of a specific
+    function which has returned a pointer to uniquely allocated memory.
+  bool isBottomAllocFunction() const
+    Everything else
+
+Only one of these three will be true for any field at any point in time.
+The represent three classic states of a lattice: Top, Middle, and Bottom.
+In the case of isSingleAllocFunction(), the specific function allocating
+the memory can be obtained with
+
+  llvm::Function *getSingleAllocFunction()
+
+There is no requirement that the return value of this function be assigned
+only once to the field value, or that the amount of memory assigned on
+successive calls be the same.  There also is no requirement that the specific
+function only be called to assign a pointer to the field.
+
+An escape analysis is performed to ensure that the pointer to memory in
+a field for which isSingleAllocFunction() is true is not manipulated in
+such a way to invalidate the isSingleAllocFunction() property.
+
+
