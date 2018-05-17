@@ -365,6 +365,9 @@ private:
   void visitRegDDRef(RegDDRef *RegDD);
   void visitCanonExpr(CanonExpr *CExpr, bool InMemRef, bool InMaskedStmt);
 
+  // For each blob of the Ref check whether it's changed somewhere in the loop.
+  bool isUniform(const RegDDRef *Ref) const;
+
 public:
   HandledCheck(const HLLoop *OrigLoop, TargetLibraryInfo *TLI, int VF)
       : IsHandled(true), OrigLoop(OrigLoop), TLI(TLI), VF(VF),
@@ -451,6 +454,14 @@ void HandledCheck::visit(HLDDNode *Node) {
       LLVM_DEBUG(Inst->dump());
       LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Liveout conditional scalar assign "
                            "not handled\n");
+      IsHandled = false;
+      return;
+    }
+
+    // FIXME: With proper support from CG this bail-out is not needed.
+    if (TLval && TLval->isMemRef() && isUniform(TLval)) {
+      LLVM_DEBUG(Inst->dump());
+      LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Uniform store is not handled\n");
       IsHandled = false;
       return;
     }
@@ -608,6 +619,12 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
       return;
     }
   }
+}
+
+// Return true if given memory reference is uniform.
+bool HandledCheck::isUniform(const RegDDRef *Ref) const {
+  assert(Ref->isMemRef() && "Given RegDDRef is not memory reference.");
+  return Ref->isStructurallyInvariantAtLevel(LoopLevel);
 }
 
 // Return true if Loop is currently handled by HIR vector code generation.
@@ -1072,9 +1089,33 @@ bool VPOCodeGenHIR::isReductionRef(const RegDDRef *Ref, unsigned &Opcode) {
   return SRA->isReductionRef(Ref, Opcode);
 }
 
+// FIXME: Temporal solution to check that index of the Ref will wrap.
+// This function has to be removed after proper DA.
+bool VPOCodeGenHIR::refIsUnit(const HLLoop *HLoop, const RegDDRef *Ref) {
+  unsigned NestingLevel = HLoop->getNestingLevel();
+  int64_t IVConstCoeff;
+  if (!isConstStrideRef(Ref, NestingLevel, &IVConstCoeff) || IVConstCoeff != 1)
+    return false;
+
+  for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
+    auto CE = *I;
+
+    if (CE->hasIV(NestingLevel) && CE->isZExt()) {
+      std::unique_ptr<CanonExpr> ClonedCE(CE->clone());
+      ClonedCE.get()->removeIV(NestingLevel);
+      int64_t Val;
+      // FIXME: Index can also wrap when Val + UB is huge for a given type of an
+      // index.
+      if (!ClonedCE->isIntConstant(&Val) || Val < 0 ||
+          !HLoop->isConstTripLoop())
+        return false;
+    }
+  }
+  return true;
+}
+
 RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
   RegDDRef *WideRef;
-  int64_t IVConstCoeff;
   auto RefDestTy = Ref->getDestType();
   auto VecRefDestTy = VectorType::get(RefDestTy, VF);
   auto RefSrcTy = Ref->getSrcType();
@@ -1158,7 +1199,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
 
   unsigned NestingLevel = OrigLoop->getNestingLevel();
   // For unit stride ref, nothing else to do
-  if (isConstStrideRef(Ref, NestingLevel, &IVConstCoeff) && IVConstCoeff == 1)
+  if (refIsUnit(OrigLoop, Ref))
     return WideRef;
 
   SmallVector<const RegDDRef *, 4> AuxRefs;

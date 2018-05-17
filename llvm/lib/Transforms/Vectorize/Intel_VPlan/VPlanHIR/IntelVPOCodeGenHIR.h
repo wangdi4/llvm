@@ -70,6 +70,8 @@ public:
   static bool isConstStrideRef(const RegDDRef *Ref, unsigned Level,
                                int64_t *CoeffPtr = nullptr);
 
+  static bool refIsUnit(const HLLoop *HLoop, const RegDDRef *Ref);
+
   Function &getFunction() const { return Fn; }
   HLLoop *getMainLoop() const { return MainLoop; }
   int getVF() const { return VF; };
