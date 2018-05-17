@@ -15295,16 +15295,16 @@ Returned pointer value is ``based on`` pointer value of ``base`` argument as
 specified in :ref:`Pointer Aliasing Rules <pointeraliasing>` section.
 
 
-Def-use chains of intrinsics corresponding to single multi-dimensional access
+Def-use chains of intrinsics corresponding to a single multi-dimensional access
 should have non-increasing ranks traversing from def to use.
-If ``base`` argument of intrinsic is defined by ``llvm.intel.subscript`` with
-equal ``rank`` argument, then intrinsic and its ``base`` argument are part of
-the same address computation if and only if
-:ref:`simplification rule <subscript_node_same_rank_simplify>` for equal ranks
-applies. Otherwise and in the case ``base`` argument of intrinsic is defined by
-``llvm.intel.subscript`` with smaller ``rank`` argument, computation of
-``base`` argument belongs to different multi-dimensional access with implicit
-pointer cast between definition and use of ``base`` argument.
+If the ``base`` argument of a subscript intrinsic is defined by another ``llvm.intel.subscript`` with
+an equal ``rank`` argument, then the intrinsic and its ``base`` argument are part of
+the same address computation, if and only if
+the :ref:`simplification rule <subscript_node_same_rank_simplify>` for equal ranks
+applies. If the ``base`` argument of a subscript intrinsic is defined by
+a ``llvm.intel.subscript`` with a smaller ``rank`` argument (increasing rank from def to use),
+they are considered to be separate multi-dimensional accesses.
+There is an implicit pointer type cast between the definition and use of the ``base`` argument.
 
 .. _subscript_node_lowering:
 
