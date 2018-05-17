@@ -69,12 +69,5 @@ endif()
 add_subdirectory(plugins)
 add_subdirectory(deviceRTLs)
 
-#INTEL_CUSTOMIZATION
-if(INTEL_CUSTOMIZATION)
-  # Add device libraries.
-  add_subdirectory(deviceRTLs)
-endif()
-#END INTEL_CUSTOMIZATION
-
 # Add tests.
 add_subdirectory(test)
