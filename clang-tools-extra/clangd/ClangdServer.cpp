@@ -9,6 +9,7 @@
 
 #include "ClangdServer.h"
 #include "CodeComplete.h"
+#include "FindSymbols.h"
 #include "Headers.h"
 #include "SourceCode.h"
 #include "XRefs.h"
@@ -231,14 +232,8 @@ void ClangdServer::rename(PathRef File, Position Pos, llvm::StringRef NewName,
 
     RefactoringResultCollector ResultCollector;
     const SourceManager &SourceMgr = AST.getASTContext().getSourceManager();
-    const FileEntry *FE =
-        SourceMgr.getFileEntryForID(SourceMgr.getMainFileID());
-    if (!FE)
-      return CB(llvm::make_error<llvm::StringError>(
-          "rename called for non-added document",
-          llvm::errc::invalid_argument));
     SourceLocation SourceLocationBeg =
-        clangd::getBeginningOfIdentifier(AST, Pos, FE);
+        clangd::getBeginningOfIdentifier(AST, Pos, SourceMgr.getMainFileID());
     tooling::RefactoringRuleContext Context(
         AST.getASTContext().getSourceManager());
     Context.setASTContext(AST.getASTContext());
@@ -360,11 +355,11 @@ void ClangdServer::dumpAST(PathRef File,
 void ClangdServer::findDefinitions(PathRef File, Position Pos,
                                    Callback<std::vector<Location>> CB) {
   auto FS = FSProvider.getFileSystem();
-  auto Action = [Pos, FS](Callback<std::vector<Location>> CB,
-                          llvm::Expected<InputsAndAST> InpAST) {
+  auto Action = [Pos, FS, this](Callback<std::vector<Location>> CB,
+                                llvm::Expected<InputsAndAST> InpAST) {
     if (!InpAST)
       return CB(InpAST.takeError());
-    CB(clangd::findDefinitions(InpAST->AST, Pos));
+    CB(clangd::findDefinitions(InpAST->AST, Pos, this->FileIdx.get()));
   };
 
   WorkScheduler.runWithAST("Definitions", File, Bind(Action, std::move(CB)));
@@ -497,6 +492,11 @@ void ClangdServer::consumeDiagnostics(PathRef File, DocVersion Version,
 void ClangdServer::onFileEvent(const DidChangeWatchedFilesParams &Params) {
   // FIXME: Do nothing for now. This will be used for indexing and potentially
   // invalidating other caches.
+}
+
+void ClangdServer::workspaceSymbols(
+    StringRef Query, int Limit, Callback<std::vector<SymbolInformation>> CB) {
+  CB(clangd::getWorkspaceSymbols(Query, Limit, Index));
 }
 
 std::vector<std::pair<Path, std::size_t>>

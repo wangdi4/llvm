@@ -16,6 +16,7 @@
 #define LLVM_MC_MCSCHEDULE_H
 
 #include "llvm/ADT/Optional.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/Support/DataTypes.h"
 #include <cassert>
 
@@ -311,10 +312,6 @@ struct MCSchedModel {
 
   static Optional<double>
   getReciprocalThroughput(unsigned SchedClass, const InstrItineraryData &IID);
-
-  Optional<double> computeReciprocalThroughput(const MCSubtargetInfo &STI,
-                                               const MCInstrInfo &MCII,
-                                               unsigned Opcode) const;
 
   /// Returns the default initialized model.
   static const MCSchedModel &GetDefaultSchedModel() { return Default; }

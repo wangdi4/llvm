@@ -1106,7 +1106,7 @@ sortISDBySectionOrder(InputSectionDescription *ISD,
     }
     OrderedSections.push_back({IS, I->second});
   }
-  std::sort(
+  llvm::sort(
       OrderedSections.begin(), OrderedSections.end(),
       [&](std::pair<InputSection *, int> A, std::pair<InputSection *, int> B) {
         return A.second < B.second;
@@ -1570,9 +1570,9 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
 
     if (InX::DynSymTab && Sym->includeInDynsym()) {
       InX::DynSymTab->addSymbol(Sym);
-      if (auto *SS = dyn_cast<SharedSymbol>(Sym))
-        if (cast<SharedFile<ELFT>>(Sym->File)->IsNeeded)
-          In<ELFT>::VerNeed->addSymbol(SS);
+      if (auto *File = dyn_cast_or_null<SharedFile<ELFT>>(Sym->File))
+        if (File->IsNeeded && !Sym->isUndefined())
+          In<ELFT>::VerNeed->addSymbol(Sym);
     }
   }
 
@@ -1598,7 +1598,7 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
   }
 
   // This is a bit of a hack. A value of 0 means undef, so we set it
-  // to 1 t make __ehdr_start defined. The section number is not
+  // to 1 to make __ehdr_start defined. The section number is not
   // particularly relevant.
   Out::ElfHeader->SectionIndex = 1;
 
@@ -2056,10 +2056,10 @@ struct SectionOffset {
 // Check whether sections overlap for a specific address range (file offsets,
 // load and virtual adresses).
 static void checkOverlap(StringRef Name, std::vector<SectionOffset> &Sections) {
-  std::sort(Sections.begin(), Sections.end(),
-            [=](const SectionOffset &A, const SectionOffset &B) {
-              return A.Offset < B.Offset;
-            });
+  llvm::sort(Sections.begin(), Sections.end(),
+             [=](const SectionOffset &A, const SectionOffset &B) {
+               return A.Offset < B.Offset;
+             });
 
   // Finding overlap is easy given a vector is sorted by start position.
   // If an element starts before the end of the previous element, they overlap.
