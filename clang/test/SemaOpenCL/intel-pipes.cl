@@ -1,5 +1,7 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir-unknown-unknown -fsyntax-only -verify %s
 // RUN: %clang_cc1 -x cl -cl-std=CL1.2 -triple spir-unknown-unknown-intelfpga -fsyntax-only -verify %s
+// RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple x86_64-unknown-unknown -fsyntax-only -verify %s
+// RUN: %clang_cc1 -x cl -cl-std=CL1.2 -triple x86_64-unknown-unknown-intelfpga -fsyntax-only -verify %s
 
 struct st {
   int i1;

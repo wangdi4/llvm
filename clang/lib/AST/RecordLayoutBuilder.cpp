@@ -967,7 +967,7 @@ void ItaniumRecordLayoutBuilder::ComputeBaseSubobjectInfo(
 
 void ItaniumRecordLayoutBuilder::EnsureVTablePointerAlignment(
     CharUnits UnpackedBaseAlign) {
-  CharUnits BaseAlign = (Packed) ? CharUnits::One() : UnpackedBaseAlign;
+  CharUnits BaseAlign = Packed ? CharUnits::One() : UnpackedBaseAlign;
 
   // The maximum field alignment overrides base align.
   if (!MaxFieldAlignment.isZero()) {
@@ -1175,9 +1175,14 @@ ItaniumRecordLayoutBuilder::LayoutBase(const BaseSubobjectInfo *Base) {
       HasExternalLayout = External.getExternalVBaseOffset(Base->Class, Offset);
   }
   
+  // Clang <= 6 incorrectly applied the 'packed' attribute to base classes.
+  // Per GCC's documentation, it only applies to non-static data members.
   CharUnits UnpackedBaseAlign = Layout.getNonVirtualAlignment();
-  CharUnits BaseAlign = (Packed) ? CharUnits::One() : UnpackedBaseAlign;
- 
+  CharUnits BaseAlign = (Packed && Context.getLangOpts().getClangABICompat() <=
+                                       LangOptions::ClangABI::Ver6)
+                            ? CharUnits::One()
+                            : UnpackedBaseAlign;
+
   // If we have an empty base class, try to place it at offset 0.
   if (Base->Class->isEmpty() &&
       (!HasExternalLayout || Offset == CharUnits::Zero()) &&
@@ -1742,6 +1747,12 @@ void ItaniumRecordLayoutBuilder::LayoutField(const FieldDecl *D,
       Context.getTypeInfoInChars(D->getType());
     FieldSize = FieldInfo.first;
     FieldAlign = FieldInfo.second;
+#if INTEL_CUSTOMIZATION
+    // Arbitrary precision integer sizes require extra room to llvm::alloca due to
+    // their strange offset.  Thus, we need to include this in the layout size.
+    if (D->getType()->isArbPrecIntType())
+      FieldSize = FieldSize.alignTo(FieldAlign);
+#endif // INTEL_CUSTOMIZATION
 
     if (IsMsStruct && !FieldPacked) { //***INTEL
       // If MS bitfield layout is required, figure out what type is being
@@ -2381,6 +2392,12 @@ MicrosoftRecordLayoutBuilder::getAdjustedElementInfo(
   ElementInfo Info;
   std::tie(Info.Size, Info.Alignment) =
       Context.getTypeInfoInChars(FD->getType()->getUnqualifiedDesugaredType());
+#if INTEL_CUSTOMIZATION
+  // Arbitrary precision integer sizes require extra room to llvm::alloca due to
+  // their strange offset.  Thus, we need to include this in the layout size.
+  if (FD->getType()->isArbPrecIntType())
+    Info.Size = Info.Size.alignTo(Info.Alignment);
+#endif // INTEL_CUSTOMIZATION
   // Respect align attributes on the field.
   CharUnits FieldRequiredAlignment =
       Context.toCharUnitsFromBits(FD->getMaxAlignment());

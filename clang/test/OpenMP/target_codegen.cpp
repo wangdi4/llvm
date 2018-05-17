@@ -83,6 +83,7 @@
 // TCHECK: @{{.+}} = weak constant [[ENTTY]]
 // TCHECK: @{{.+}} = weak constant [[ENTTY]]
 // TCHECK: @{{.+}} = {{.*}}constant [[ENTTY]]
+// TCHECK: @{{.+}} = {{.*}}constant [[ENTTY]]
 // TCHECK-NOT: @{{.+}} = weak constant [[ENTTY]]
 
 // Check if offloading descriptor is created.
@@ -753,4 +754,10 @@ int bar(int n){
 // CHECK-32-DAG:   load i32, i32* [[LOCAL_A]]
 // CHECK-DAG:   load i16, i16* [[REF_AA]]
 // CHECK-DAG:   getelementptr inbounds [10 x i32], [10 x i32]* [[REF_B]], i[[SZ]] 0, i[[SZ]] 2
+
+void bar () {
+#define pragma_target _Pragma("omp target")
+pragma_target
+{}
+}
 #endif

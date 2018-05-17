@@ -1489,7 +1489,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__builtin_intel_hls_mm_master_load:
     return EmitHLSMemMasterBuiltin(BuiltinID, E, ReturnValue);
   case Builtin::BI__builtin_fpga_reg:
-    return EmitFPGARegBuiltin(BuiltinID, E);
+    return EmitFPGARegBuiltin(BuiltinID, E, ReturnValue);
 #endif // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_stdarg_start:
   case Builtin::BI__builtin_va_start:
@@ -3492,11 +3492,14 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   // OpenCL v2.0 s6.13.16.4 Built-in pipe query functions
   case Builtin::BIget_pipe_num_packets:
   case Builtin::BIget_pipe_max_packets: {
-    const char *Name;
+    const char *BaseName;
+    const PipeType *PipeTy = E->getArg(0)->getType()->getAs<PipeType>();
     if (BuiltinID == Builtin::BIget_pipe_num_packets)
-      Name = "__get_pipe_num_packets";
+      BaseName = "__get_pipe_num_packets";
     else
-      Name = "__get_pipe_max_packets";
+      BaseName = "__get_pipe_max_packets";
+    auto Name = std::string(BaseName) +
+                std::string(PipeTy->isReadOnly() ? "_ro" : "_wo");
 
     // Building the generic function prototype.
     Value *Arg0 = EmitScalarExpr(E->getArg(0));
@@ -4328,6 +4331,8 @@ static const NeonIntrinsicInfo ARMSIMDIntrinsicMap [] = {
   NEONMAP0(vcvtq_u16_v),
   NEONMAP0(vcvtq_u32_v),
   NEONMAP0(vcvtq_u64_v),
+  NEONMAP2(vdot_v, arm_neon_udot, arm_neon_sdot, 0),
+  NEONMAP2(vdotq_v, arm_neon_udot, arm_neon_sdot, 0),
   NEONMAP0(vext_v),
   NEONMAP0(vextq_v),
   NEONMAP0(vfma_v),
@@ -4522,6 +4527,8 @@ static const NeonIntrinsicInfo AArch64SIMDIntrinsicMap[] = {
   NEONMAP1(vcvtq_n_u32_v, aarch64_neon_vcvtfp2fxu, 0),
   NEONMAP1(vcvtq_n_u64_v, aarch64_neon_vcvtfp2fxu, 0),
   NEONMAP1(vcvtx_f32_v, aarch64_neon_fcvtxn, AddRetType | Add1ArgType),
+  NEONMAP2(vdot_v, aarch64_neon_udot, aarch64_neon_sdot, 0),
+  NEONMAP2(vdotq_v, aarch64_neon_udot, aarch64_neon_sdot, 0),
   NEONMAP0(vext_v),
   NEONMAP0(vextq_v),
   NEONMAP0(vfma_v),
@@ -5435,6 +5442,14 @@ Value *CodeGenFunction::EmitCommonNeonBuiltinExpr(
     }
     return SV;
   }
+  case NEON::BI__builtin_neon_vdot_v:
+  case NEON::BI__builtin_neon_vdotq_v: {
+    llvm::Type *InputTy =
+        llvm::VectorType::get(Int8Ty, Ty->getPrimitiveSizeInBits() / 8);
+    llvm::Type *Tys[2] = { Ty, InputTy };
+    Int = Usgn ? LLVMIntrinsic : AltLLVMIntrinsic;
+    return EmitNeonCall(CGM.getIntrinsic(Int, Tys), Ops, "vdot");
+  }
   }
 
   assert(Int && "Expected valid intrinsic number");
@@ -5644,75 +5659,90 @@ static bool HasExtraNeonArgument(unsigned BuiltinID) {
 }
 
 #if INTEL_CUSTOMIZATION
+// Emit an FPGA specific built-in "get_compute_id".
+Value *CodeGenFunction::EmitGetComputeIDExpr(const CallExpr *E) {
+  Value *Arg = EmitScalarExpr(E->getArg(0));
+  llvm::Type *ArgTys[] = {Arg->getType()};
+  llvm::Type *SizeTy = llvm::Type::getIntNTy(
+      getLLVMContext(), getTarget().getTypeWidth(getTarget().getSizeType()));
+  llvm::FunctionType *FTy = llvm::FunctionType::get(
+      SizeTy, llvm::ArrayRef<llvm::Type *>(ArgTys), false);
+  // Let's use the same name.
+  const char *Name = "get_compute_id";
+  CGOpenCLRuntime OpenCLRT(CGM);
+  return Builder.CreateCall(CGM.CreateRuntimeFunction(FTy, Name), {Arg});
+}
+
+// Emit FPGA specific built-ins "read_pipe" and "write_pipe".
+Value *CodeGenFunction::EmitRWPipeExpr(const CallExpr *E, bool IsSpir,
+                                       bool IsReadPipe) {
+  Value *Arg0 = EmitScalarExpr(E->getArg(0)),
+        *Arg1 = EmitScalarExpr(E->getArg(1));
+  CGOpenCLRuntime OpenCLRT(CGM);
+  Value *PacketSize = OpenCLRT.getPipeElemSize(E->getArg(0));
+  Value *PacketAlign = OpenCLRT.getPipeElemAlign(E->getArg(0));
+
+  // Type of the generic packet parameter. If triple is SPIR we shall
+  // mangle the built-ins appropriately.
+  unsigned AS = 0;
+  if (IsSpir) {
+    llvm::PointerType *PT = cast<llvm::PointerType>(Arg1->getType());
+    LangAS ArgAS = getLangASFromTargetAS(PT->getAddressSpace());
+    AS = getContext().getTargetAddressSpace(ArgAS);
+  }
+
+  llvm::Type *I8PTy =
+        llvm::PointerType::get(llvm::Type::getInt8Ty(getLLVMContext()), AS);
+
+  // Testing which overloaded version we should generate the call for.
+  SmallString<21> Name;
+  Name = (IsReadPipe) ? "__read_pipe_2" : "__write_pipe_2";
+  if (auto *DR = dyn_cast<DeclRefExpr>(E->getArg(0)))
+    if (DR->getDecl()->hasAttr<OpenCLBlockingAttr>())
+      Name += "_bl";
+
+  if (IsSpir)
+    Name += ("_AS" + std::to_string(AS));
+
+  // Creating a function with mangled type to be able to call with any
+  // builtin or user defined type.
+  llvm::Type *ArgTys[] = {Arg0->getType(), I8PTy, Int32Ty, Int32Ty};
+  llvm::FunctionType *FTy = llvm::FunctionType::get(Int32Ty, ArgTys, false);
+  Value *BCast = Builder.CreatePointerCast(Arg1, I8PTy);
+  return Builder.CreateCall(CGM.CreateRuntimeFunction(FTy, Name),
+                            {Arg0, BCast, PacketSize, PacketAlign});
+}
+
 Value *CodeGenFunction::EmitIntelFPGABuiltinExpr(unsigned BuiltinID,
                                                  const CallExpr *E) {
   if (BuiltinID == SPIRINTELFpga::BIget_compute_id) {
-    Value *Arg = EmitScalarExpr(E->getArg(0));
-    llvm::Type *ArgTys[] = {Arg->getType()};
-    llvm::Type *SizeTy = llvm::Type::getIntNTy(
-        getLLVMContext(), getTarget().getTypeWidth(getTarget().getSizeType()));
-    llvm::FunctionType *FTy = llvm::FunctionType::get(
-        SizeTy, llvm::ArrayRef<llvm::Type *>(ArgTys), false);
-    // Let's use the same name.
-    const char *Name = "get_compute_id";
-    CGOpenCLRuntime OpenCLRT(CGM);
-    return Builder.CreateCall(CGM.CreateRuntimeFunction(FTy, Name), {Arg});
+    return EmitGetComputeIDExpr(E);
   }
 
   if (BuiltinID == SPIRINTELFpga::BIread_pipe ||
       BuiltinID == SPIRINTELFpga::BIwrite_pipe) {
-    Value *Arg0 = EmitScalarExpr(E->getArg(0)),
-          *Arg1 = EmitScalarExpr(E->getArg(1));
-    CGOpenCLRuntime OpenCLRT(CGM);
-    Value *PacketSize = OpenCLRT.getPipeElemSize(E->getArg(0));
-    Value *PacketAlign = OpenCLRT.getPipeElemAlign(E->getArg(0));
-
-    // Type of the generic packet parameter.
-    llvm::PointerType *PT = cast<llvm::PointerType>(Arg1->getType());
-    LangAS ArgAS = getLangASFromTargetAS(PT->getAddressSpace());
-    unsigned AS = getContext().getTargetAddressSpace(ArgAS);
-    llvm::Type *I8PTy =
-        llvm::PointerType::get(llvm::Type::getInt8Ty(getLLVMContext()), AS);
-
-    // Testing which overloaded version we should generate the call for.
-    bool IsReadPipe = BuiltinID == SPIRINTELFpga::BIread_pipe;
-    SmallString<21> Name;
-    Name = (IsReadPipe) ? "__read_pipe_2" : "__write_pipe_2";
-    if (auto *DR = dyn_cast<DeclRefExpr>(E->getArg(0))) {
-      auto DRDecl = DR->getDecl();
-      if (DRDecl->hasAttr<OpenCLBlockingAttr>())
-        Name += "_bl";
-    }
-    Name += ("_AS" + std::to_string(AS));
-
-    // Creating a function with mangled type to be able to call with any
-    // builtin or user defined type.
-    llvm::Type *ArgTys[] = {Arg0->getType(), I8PTy, Int32Ty, Int32Ty};
-    llvm::FunctionType *FTy = llvm::FunctionType::get(Int32Ty, ArgTys, false);
-    Value *BCast = Builder.CreatePointerCast(Arg1, I8PTy);
-    return Builder.CreateCall(CGM.CreateRuntimeFunction(FTy, Name),
-                              {Arg0, BCast, PacketSize, PacketAlign});
+    bool IsReadPipe = (BuiltinID == SPIRINTELFpga::BIread_pipe);
+    return EmitRWPipeExpr(E, /*IsSpir*/ true, IsReadPipe);
   }
 
   return nullptr;
 }
 
 RValue CodeGenFunction::EmitFPGARegBuiltin(unsigned BuiltinID,
-                                           const CallExpr *E) {
+                                           const CallExpr *E,
+                                           ReturnValueSlot ReturnValue) {
   llvm::SmallVector<Value *, 2> Args;
   const Expr *PtrArg = E->getArg(0);
   QualType ArgType = PtrArg->getType();
-  Address StRetPtr = Address::invalid();
 
   if (ArgType->isStructureType() || ArgType->isUnionType()) {
-    StRetPtr = CreateMemTemp(ArgType);
     RValue RVal = EmitAnyExpr(PtrArg);
-    Args.push_back(StRetPtr.getPointer());
+    Args.push_back(ReturnValue.getValue().getPointer());
     Args.push_back(RVal.getAggregatePointer());
     auto *Func =
         CGM.getIntrinsic(Intrinsic::fpga_reg_struct, {Args[0]->getType()});
     Builder.CreateCall(Func, Args);
-    return convertTempToRValue(StRetPtr, ArgType, SourceLocation());
+    return convertTempToRValue(ReturnValue.getValue(), ArgType, SourceLocation());
   }
 
   auto Val = EmitScalarExpr(PtrArg);
@@ -8993,76 +9023,6 @@ static Value *EmitX86SExtMask(CodeGenFunction &CGF, Value *Op,
   return CGF.Builder.CreateSExt(Mask, DstTy, "vpmovm2");
 }
 
-// Emit addition or subtraction with saturation.
-// Handles both signed and unsigned intrinsics.
-static Value *EmitX86AddSubSatExpr(CodeGenFunction &CGF, const CallExpr *E,
-                                   SmallVectorImpl<Value *> &Ops,
-                                   bool IsAddition, bool Signed) {
-
-  // Collect vector elements and type data.
-  llvm::Type *ResultType = CGF.ConvertType(E->getType());
-  int NumElements = ResultType->getVectorNumElements();
-  Value *Res;
-  if (!IsAddition && !Signed) {
-    Value *ICmp = CGF.Builder.CreateICmp(ICmpInst::ICMP_UGT, Ops[0], Ops[1]);
-    Value *Select = CGF.Builder.CreateSelect(ICmp, Ops[0], Ops[1]);
-    Res = CGF.Builder.CreateSub(Select, Ops[1]);
-  } else {
-    unsigned EltSizeInBits = ResultType->getScalarSizeInBits();
-    llvm::Type *ExtElementType = EltSizeInBits == 8 ?
-                                 CGF.Builder.getInt16Ty() :
-                                 CGF.Builder.getInt32Ty();
-
-    // Extending vectors to next possible width to make space for possible
-    // overflow.
-    llvm::Type *ExtType = llvm::VectorType::get(ExtElementType, NumElements);
-    Value *VecA = Signed ? CGF.Builder.CreateSExt(Ops[0], ExtType)
-                         : CGF.Builder.CreateZExt(Ops[0], ExtType);
-    Value *VecB = Signed ? CGF.Builder.CreateSExt(Ops[1], ExtType)
-                         : CGF.Builder.CreateZExt(Ops[1], ExtType);
-
-    llvm::Value *ExtProduct = IsAddition ? CGF.Builder.CreateAdd(VecA, VecB)
-                                         : CGF.Builder.CreateSub(VecA, VecB);
-
-    // Create vector of the same type as expected result with max possible
-    // values and extend it to the same type as the product of the addition.
-    APInt SignedMaxValue =
-        llvm::APInt::getSignedMaxValue(EltSizeInBits);
-    Value *Max = Signed ? llvm::ConstantInt::get(ResultType, SignedMaxValue)
-                        : llvm::Constant::getAllOnesValue(ResultType);
-    Value *ExtMaxVec = Signed ? CGF.Builder.CreateSExt(Max, ExtType)
-                              : CGF.Builder.CreateZExt(Max, ExtType);
-    // In Product, replace all overflowed values with max values of non-extended
-    // type.
-    ICmpInst::Predicate Pred = Signed ? ICmpInst::ICMP_SLE : ICmpInst::ICMP_ULE;
-    Value *Cmp = CGF.Builder.CreateICmp(Pred, ExtProduct,
-                                        ExtMaxVec); // 1 if no overflow.
-    Value *SaturatedProduct = CGF.Builder.CreateSelect(
-        Cmp, ExtProduct, ExtMaxVec); // If overflowed, copy from max values.
-
-    if (Signed) {
-      APInt SignedMinValue =
-          llvm::APInt::getSignedMinValue(EltSizeInBits);
-      Value *Min = llvm::ConstantInt::get(ResultType, SignedMinValue);
-      Value *ExtMinVec = CGF.Builder.CreateSExt(Min, ExtType);
-      Value *IsNegative =
-        CGF.Builder.CreateICmp(ICmpInst::ICMP_SLT, SaturatedProduct, ExtMinVec);
-      SaturatedProduct =
-        CGF.Builder.CreateSelect(IsNegative, ExtMinVec, SaturatedProduct);
-    }
-
-    Res = CGF.Builder.CreateTrunc(SaturatedProduct,
-                                  ResultType); // Trunc to ResultType.
-  }
-  if (E->getNumArgs() == 4) { // For masked intrinsics.
-    Value *VecSRC = Ops[2];
-    Value *Mask = Ops[3];
-    return EmitX86Select(CGF, Mask, Res, VecSRC);
-  }
-
-  return Res;
-}
-
 Value *CodeGenFunction::EmitX86CpuIs(const CallExpr *E) {
   const Expr *CPUExpr = E->getArg(0)->IgnoreParenCasts();
   StringRef CPUStr = cast<clang::StringLiteral>(CPUExpr)->getString();
@@ -9174,6 +9134,17 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     return EmitX86CpuSupports(E);
   if (BuiltinID == X86::BI__builtin_cpu_init)
     return EmitX86CpuInit();
+
+#if INTEL_CUSTOMIZATION
+  // Enable FPGA feature built-ins for X86 target
+  if (BuiltinID == X86::BIget_compute_id)
+    return EmitGetComputeIDExpr(E);
+
+  if (BuiltinID == X86::BIread_pipe || BuiltinID == X86::BIwrite_pipe) {
+    bool IsReadPipe = (BuiltinID == X86::BIread_pipe);
+    return EmitRWPipeExpr(E, /*IsSpir*/ false, IsReadPipe);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   SmallVector<Value*, 4> Ops;
 
@@ -10140,34 +10111,6 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     Load->setVolatile(true);
     return Load;
   }
-  case X86::BI__builtin_ia32_paddusb512_mask:
-  case X86::BI__builtin_ia32_paddusw512_mask:
-  case X86::BI__builtin_ia32_paddusb256:
-  case X86::BI__builtin_ia32_paddusw256:
-  case X86::BI__builtin_ia32_paddusb128:
-  case X86::BI__builtin_ia32_paddusw128:
-    return EmitX86AddSubSatExpr(*this, E, Ops, true, false); // Add, unsigned.
-  case X86::BI__builtin_ia32_paddsb512_mask:
-  case X86::BI__builtin_ia32_paddsw512_mask:
-  case X86::BI__builtin_ia32_paddsb256:
-  case X86::BI__builtin_ia32_paddsw256:
-  case X86::BI__builtin_ia32_paddsb128:
-  case X86::BI__builtin_ia32_paddsw128:
-    return EmitX86AddSubSatExpr(*this, E, Ops, true, true); // Add, signed.
-  case X86::BI__builtin_ia32_psubusb512_mask:
-  case X86::BI__builtin_ia32_psubusw512_mask:
-  case X86::BI__builtin_ia32_psubusb256:
-  case X86::BI__builtin_ia32_psubusw256:
-  case X86::BI__builtin_ia32_psubusb128:
-  case X86::BI__builtin_ia32_psubusw128:
-    return EmitX86AddSubSatExpr(*this, E, Ops, false, false); // Sub, unsigned.
-  case X86::BI__builtin_ia32_psubsb512_mask:
-  case X86::BI__builtin_ia32_psubsw512_mask:
-  case X86::BI__builtin_ia32_psubsb256:
-  case X86::BI__builtin_ia32_psubsw256:
-  case X86::BI__builtin_ia32_psubsb128:
-  case X86::BI__builtin_ia32_psubsw128:
-    return EmitX86AddSubSatExpr(*this, E, Ops, false, true); // Sub, signed.
   }
 }
 

@@ -23,10 +23,13 @@ defm split_dwo : Eq<"split-dwo">,
                  HelpText<"Equivalent to extract-dwo on the input file to <dwo-file>, then strip-dwo on the input file">;
 defm add_gnu_debuglink : Eq<"add-gnu-debuglink">,
                          MetaVarName<"debug-file">,
-                         HelpText<"adds a .gnu_debuglink for <debug-file>">;
+                         HelpText<"Add a .gnu_debuglink for <debug-file>">;
 defm remove_section : Eq<"remove-section">,
                       MetaVarName<"section">,
                       HelpText<"Remove <section>">;
+defm redefine_symbol : Eq<"redefine-sym">,
+                       MetaVarName<"old=new">,
+                       HelpText<"Change the name of a symbol old to new">;
 def R : JoinedOrSeparate<["-"], "R">,
         Alias<remove_section>;
 defm keep : Eq<"keep">,
@@ -41,11 +44,11 @@ defm add_section : Eq<"add-section">,
                    MetaVarName<"section=file">,
                    HelpText<"Make a section named <section> with the contents of <file>.">;
 def strip_all : Flag<["-", "--"], "strip-all">,
-                HelpText<"Removes non-allocated sections other than .gnu.warning* sections">;
+                HelpText<"Remove non-allocated sections other than .gnu.warning* sections">;
 def strip_all_gnu : Flag<["-", "--"], "strip-all-gnu">,
                     HelpText<"Compaitable with GNU objcopy's --strip-all">;
 def strip_debug : Flag<["-", "--"], "strip-debug">,
-                  HelpText<"Removes all debug information">;
+                  HelpText<"Remove all debug information">;
 def strip_dwo : Flag<["-", "--"], "strip-dwo">,
                 HelpText<"Remove all DWARF .dwo sections from file">;
 def strip_sections : Flag<["-", "--"], "strip-sections">,
@@ -56,3 +59,16 @@ def extract_dwo : Flag<["-", "--"], "extract-dwo">,
                   HelpText<"Remove all sections that are not DWARF .dwo sections from file">;
 def localize_hidden : Flag<["-", "--"], "localize-hidden">,
                       HelpText<"Mark all symbols that have hidden or internal visibility as local">;
+defm localize_symbol : Eq<"localize-symbol">,
+                       MetaVarName<"symbol">,
+                       HelpText<"Mark <symbol> as local">;
+def L : JoinedOrSeparate<["-"], "L">,
+        Alias<localize_symbol>;
+defm globalize_symbol : Eq<"globalize-symbol">,
+                       MetaVarName<"symbol">,
+                       HelpText<"Mark <symbol> as global">;
+defm weaken_symbol : Eq<"weaken-symbol">,
+                       MetaVarName<"symbol">,
+                       HelpText<"Mark <symbol> as weak">;
+def W : JoinedOrSeparate<["-"], "W">,
+        Alias<weaken_symbol>;

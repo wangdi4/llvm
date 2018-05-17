@@ -2412,12 +2412,29 @@ bool Sema::CheckX86BuiltinGatherScatterScale(unsigned BuiltinID,
     << Arg->getSourceRange();
 }
 
+static bool isX86_32Builtin(unsigned BuiltinID) {
+  // These builtins only work on x86-32 targets.
+  switch (BuiltinID) {
+  case X86::BI__builtin_ia32_readeflags_u32:
+  case X86::BI__builtin_ia32_writeeflags_u32:
+    return true;
+  }
+
+  return false;
+}
+
 bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   if (BuiltinID == X86::BI__builtin_cpu_supports)
     return SemaBuiltinCpuSupports(*this, TheCall);
 
   if (BuiltinID == X86::BI__builtin_cpu_is)
     return SemaBuiltinCpuIs(*this, TheCall);
+
+  // Check for 32-bit only builtins on a 64-bit target.
+  const llvm::Triple &TT = Context.getTargetInfo().getTriple();
+  if (TT.getArch() != llvm::Triple::x86 && isX86_32Builtin(BuiltinID))
+    return Diag(TheCall->getCallee()->getLocStart(),
+                diag::err_32_bit_builtin_64_bit_tgt);
 
   // If the intrinsic has rounding or SAE make sure its valid.
   if (CheckX86BuiltinRoundingOrSAE(BuiltinID, TheCall))
@@ -2426,6 +2443,17 @@ bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   // If the intrinsic has a gather/scatter scale immediate make sure its valid.
   if (CheckX86BuiltinGatherScatterScale(BuiltinID, TheCall))
     return true;
+
+#if INTEL_CUSTOMIZATION
+  if (BuiltinID == X86::BIget_compute_id)
+    return false;
+  if (BuiltinID == X86::BIread_pipe || BuiltinID == X86::BIwrite_pipe) {
+    if (SemaBuiltinRWPipe(*this, TheCall))
+      return true;
+    TheCall->setType(Context.IntTy);
+    return false;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // For intrinsics which take an immediate value as part of the instruction,
   // range check them here.
@@ -10288,7 +10316,7 @@ static void DiagnoseNullConversion(Sema &S, Expr *E, QualType T,
     StringRef MacroName = Lexer::getImmediateMacroNameForDiagnostics(
         Loc, S.SourceMgr, S.getLangOpts());
     if (MacroName == "NULL")
-      Loc = S.SourceMgr.getImmediateExpansionRange(Loc).first;
+      Loc = S.SourceMgr.getImmediateExpansionRange(Loc).getBegin();
   }
 
   // Only warn if the null and context location are in the same macro expansion.
@@ -12032,7 +12060,12 @@ void Sema::CheckArrayAccess(const Expr *expr) {
         const ArraySubscriptExpr *ASE = cast<ArraySubscriptExpr>(expr);
         CheckArrayAccess(ASE->getBase(), ASE->getIdx(), ASE,
                          AllowOnePastEnd > 0);
-        return;
+        expr = ASE->getBase();
+        break;
+      }
+      case Stmt::MemberExprClass: {
+        expr = cast<MemberExpr>(expr)->getBase();
+        break;
       }
       case Stmt::OMPArraySectionExprClass: {
         const OMPArraySectionExpr *ASE = cast<OMPArraySectionExpr>(expr);

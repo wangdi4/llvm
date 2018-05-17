@@ -1946,6 +1946,7 @@ static unsigned CreateSLocExpansionAbbrev(llvm::BitstreamWriter &Stream) {
   Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8)); // Spelling location
   Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8)); // Start location
   Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8)); // End location
+  Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // Is token range
   Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6)); // Token length
   return Stream.EmitAbbrev(std::move(Abbrev));
 }
@@ -2362,6 +2363,7 @@ void ASTWriter::WriteSourceManagerBlock(SourceManager &SourceMgr,
                             ? SourceLocation()
                             : Expansion.getExpansionLocEnd(),
                         Record);
+      Record.push_back(Expansion.isExpansionTokenRange());
 
       // Compute the token length for this macro expansion.
       unsigned NextOffset = SourceMgr.getNextLocalOffset();
