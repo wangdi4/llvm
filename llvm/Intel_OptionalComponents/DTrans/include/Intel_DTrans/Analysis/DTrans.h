@@ -66,10 +66,6 @@ public:
       : LLVMType(Ty), Read(false), Written(false), AddressTaken(false),
         SVKind(SVK_None), SingleValue(nullptr), SAFKind(SAFK_Top),
         SingleAllocFunction(nullptr) {}
-  ~FieldInfo() {
-    setMultipleValue();
-    setBottomAllocFunction();
-  }
 
   llvm::Type *getLLVMType() const { return LLVMType; }
 
