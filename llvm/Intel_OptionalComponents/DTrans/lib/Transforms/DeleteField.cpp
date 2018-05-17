@@ -13,9 +13,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/Transforms/DeleteField.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/DTransCommon.h"
+#include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
@@ -52,6 +53,25 @@ public:
   }
 };
 
+class DeleteFieldImpl : public DTransOptBase {
+public:
+  DeleteFieldImpl(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
+                  const DataLayout &DL, StringRef DepTypePrefix,
+                  DTransTypeRemapper *TypeRemapper)
+      : DTransOptBase(DTInfo, Context, DL, DepTypePrefix, TypeRemapper) {}
+
+  virtual bool prepareTypes(Module &M) override;
+  virtual void populateTypes(Module &M) override;
+
+private:
+  // The pointers in this vector are owned by the DTransAnalysisInfo.
+  // The list is populated during prepareTypes() and used in populateTypes().
+  SmallVector<dtrans::StructInfo *, 4> StructsToConvert;
+
+  // A mapping from the original structure type to the new structure type
+  TypeToTypeMap OrigToNewTypeMapping;
+};
+
 } // end anonymous namespace
 
 char DTransDeleteFieldWrapper::ID = 0;
@@ -65,18 +85,17 @@ ModulePass *llvm::createDTransDeleteFieldWrapperPass() {
   return new DTransDeleteFieldWrapper();
 }
 
-bool dtrans::DeleteFieldPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo) {
+bool DeleteFieldImpl::prepareTypes(Module &M) {
   // TODO: Create a safety mask for the conditions that are common to all
   //       DTrans optimizations.
-  DeleteFieldSafetyConditions =
+  dtrans::SafetyData DeleteFieldSafetyConditions =
       dtrans::BadCasting | dtrans::BadAllocSizeArg |
       dtrans::BadPtrManipulation | dtrans::AmbiguousGEP | dtrans::VolatileData |
       dtrans::MismatchedElementAccess | dtrans::WholeStructureReference |
       dtrans::UnsafePointerStore | dtrans::FieldAddressTaken |
       dtrans::HasInitializerList | dtrans::BadMemFuncSize |
-      dtrans::BadMemFuncManipulation |
-      dtrans::AmbiguousPointerTarget | dtrans::UnsafePtrMerge |
-      dtrans::AddressTaken | dtrans::NoFieldsInStruct |
+      dtrans::BadMemFuncManipulation | dtrans::AmbiguousPointerTarget |
+      dtrans::UnsafePtrMerge | dtrans::AddressTaken | dtrans::NoFieldsInStruct |
       dtrans::NestedStruct | dtrans::ContainsNestedStruct |
       dtrans::SystemObject;
 
@@ -115,24 +134,44 @@ bool dtrans::DeleteFieldPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo) {
     }
 
     DEBUG(dbgs() << "  Selected for deletion: "
-                 << cast<StructType>(StInfo->getLLVMType())->getName()
-                 << "\n");
+                 << cast<StructType>(StInfo->getLLVMType())->getName() << "\n");
 
-    CandidateTypes.push_back(StInfo);
+    StructsToConvert.push_back(StInfo);
   }
 
-  DEBUG(if (CandidateTypes.empty()) dbgs() << "  No candidates found.\n");
+  if (StructsToConvert.empty()) {
+    DEBUG(dbgs() << "  No candidates found.\n");
+    return false;
+  }
 
-  return !CandidateTypes.empty();
+  LLVMContext &Context = M.getContext();
+  for (auto *StInfo : StructsToConvert) {
+    // Create an Opaque type as a placeholder, until the base class has
+    // computed all the types that need to be created.
+    StructType *OrigTy = cast<StructType>(StInfo->getLLVMType());
+    StructType *NewStructTy = StructType::create(
+        Context, (Twine("__DFT_" + OrigTy->getName()).str()));
+    TypeRemapper->addTypeMapping(OrigTy, NewStructTy);
+    OrigToNewTypeMapping[OrigTy] = NewStructTy;
+  }
+
+  return true;
+}
+
+void DeleteFieldImpl::populateTypes(Module &M) {
+  // In the initial implementation we are simply renaming types without
+  // changing anything within the body of the type other than renaming
+  // any dependent types. Therefore, it can rely on the base class
+  // functionality to fill in the body for the new type.
+  DTransOptBase::populateDependentTypes(M, OrigToNewTypeMapping);
 }
 
 bool dtrans::DeleteFieldPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo) {
-  if (!gatherCandidateTypes(DTInfo))
-    return false;
 
-  // TODO: Implement the optimization.
-
-  return false;
+  DTransTypeRemapper TypeRemapper;
+  DeleteFieldImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(),
+                              "__DFDT_", &TypeRemapper);
+  return Transformer.run(M);
 }
 
 PreservedAnalyses dtrans::DeleteFieldPass::run(Module &M,

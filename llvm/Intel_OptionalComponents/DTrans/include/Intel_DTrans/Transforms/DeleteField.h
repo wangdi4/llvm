@@ -34,14 +34,6 @@ public:
 
   // This is used to share the core implementation with the legacy pass.
   bool runImpl(Module &M, DTransAnalysisInfo &Info);
-
-private:
-  SafetyData DeleteFieldSafetyConditions;
-
-  // The pointers in this vector are owned by the DTransAnalysisInfo.
-  SmallVector<dtrans::StructInfo*, 4> CandidateTypes;
-
-  bool gatherCandidateTypes(DTransAnalysisInfo &DTInfo);
 };
 
 } // namespace dtrans
