@@ -111,10 +111,7 @@ struct VectorizeConfig {
 // LoopVectorize - Create a loop vectorization pass.
 //
 Pass *createLoopVectorizePass(bool NoUnrolling = false,
-#if INTEL_CUSTOMIZATION
-                              bool AlwaysVectorize = true,
-                              bool OnlyLegal = false);
-#endif
+                              bool AlwaysVectorize = true);
 
 //===----------------------------------------------------------------------===//
 //

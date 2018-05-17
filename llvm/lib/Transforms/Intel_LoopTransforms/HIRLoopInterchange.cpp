@@ -1,6 +1,6 @@
 //===----- HIRLoopInterchange.cpp - Permutations of HIR loops -------------===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -51,7 +51,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
@@ -86,17 +85,16 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysis>();
-    AU.addRequiredTransitive<HIRLocalityAnalysis>();
-    AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
+    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequired<OptReportOptionsPass>();
   }
 
 private:
   Function *F;
   HIRDDAnalysis *DDA;
-  HIRLocalityAnalysis *LA;
+  HIRLoopLocality *LA;
   HIRSafeReductionAnalysis *SRA;
   HIRLoopStatistics *HLS;
   bool AnyLoopInterchanged;
@@ -112,9 +110,8 @@ private:
   SmallVector<const HLLoop *, MaxLoopNestLevel> NearByPerm;
   SmallVector<const HLLoop *, 5> PerfectLoopsEnabled;
   SmallVector<DirectionVector, 16> DVs;
-
-  // Helper for generating optimization reports.
-  LoopOptReportBuilder LORBuilder;
+  std::map<const HLLoop *, InterchangeIgnorableSymbasesTy>
+      CandLoopToIgnorableSymBases;
 
   bool shouldInterchange(const HLLoop *);
   bool getPermutation(const HLLoop *);
@@ -132,7 +129,7 @@ private:
   void permuteNearBy(unsigned DstLevel, unsigned SrcLevel);
   void transformLoop(HLLoop *Loop);
   void updateLoopBody(HLLoop *Loop);
-  void reportTransformation();
+  void reportTransformation(LoopOptReportBuilder &LORBuilder);
   bool isInPresentOrder(SmallVectorImpl<const HLLoop *> &LoopNests) const;
 };
 } // namespace
@@ -140,20 +137,21 @@ private:
 char HIRLoopInterchange::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopInterchange, "hir-loop-interchange",
                       "HIR Loop Interchange", false, false)
-INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRLoopInterchange, "hir-loop-interchange",
                     "HIR Loop Interchange", false, false)
 
-static bool isBlockingCandidate(const HLLoop *Loop) {
+namespace {
+bool isBlockingCandidate(const HLLoop *Loop) {
   // Will be in blocking code when it is ready
   // To be deleted
   return false;
 }
+} // namespace
 
 /// Gather all perfect Loop Nest and enable near perfect one if needed
 struct HIRLoopInterchange::CollectCandidateLoops final
@@ -180,66 +178,83 @@ struct HIRLoopInterchange::CollectCandidateLoops final
       return;
     }
     DEBUG(dbgs() << "In collect Perfect loopnest\n");
-    // Last 3 arguments of next call:
-    // Allow PrePost Hdr, allow Triangular loop, allow Near Perfect loop
+    // Allow Triangular loop, allow Near Perfect loop (and return the result).
     bool IsNearPerfectLoop = false;
-    if (HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop, false, false, true,
-                                       &IsNearPerfectLoop)) {
+    bool IsPerfectNest = HLNodeUtils::isPerfectLoopNest(
+        Loop, &InnermostLoop, false, &IsNearPerfectLoop);
+    assert((!IsPerfectNest || !IsNearPerfectLoop) &&
+           "isPerfectLoopNest is malfunctioning");
 
-      if (LIP->HLS->getSelfLoopStatistics(InnermostLoop)
-              .hasCallsWithUnsafeSideEffects()) {
-        DEBUG(dbgs() << "Skipping loop with calls that have side effects\n");
+    if (!IsPerfectNest && !IsNearPerfectLoop) {
+      // Do not skip recursion.
+      // We might find a perfect loop nest starting from an inner loop.
+      return;
+    }
+
+    if (LIP->HLS->getSelfLoopStatistics(InnermostLoop)
+            .hasCallsWithUnsafeSideEffects()) {
+      DEBUG(dbgs() << "\nSkipping loop with calls that have side effects\n");
+      SkipNode = Loop;
+      return;
+    }
+
+    for (const HLLoop *TmpLoop = InnermostLoop,
+                      *EndLoop = Loop->getParentLoop();
+         TmpLoop != EndLoop; TmpLoop = TmpLoop->getParentLoop()) {
+      if (TmpLoop->hasUnrollEnablingPragma()) {
+        DEBUG(dbgs() << "\nSkipping loop with unroll pragma\n");
         SkipNode = Loop;
         return;
-      }
-
-      for (const HLLoop *TmpLoop = InnermostLoop,
-                        *EndLoop = Loop->getParentLoop();
-           TmpLoop != EndLoop; TmpLoop = TmpLoop->getParentLoop()) {
-        if (TmpLoop->hasUnrollEnablingPragma()) {
-          DEBUG(dbgs() << "Skipping loop with unroll pragma\n");
-          SkipNode = Loop;
-          return;
-        }
-      }
-
-      DEBUG(dbgs() << "Is  Perfect loopnest\n");
-
-      if (!IsNearPerfectLoop) {
-        DEBUG(dbgs() << "Is Perfect");
-        if (HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop)) {
-          DEBUG(dbgs() << "\nHas non unit stride");
-          CandidateLoops.push_back(
-              std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
-        } else {
-          DEBUG(dbgs() << "MemRefs are in unit stride or non-linear Defs");
-        }
-
-        SkipNode = Loop;
-        return;
-
-      } else if (HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop) ||
-                 isBlockingCandidate(Loop)) {
-        // Near perfect loops found
-        DEBUG(dbgs() << "is NearPerfect Loop:\n");
-        DEBUG(dbgs(); Loop->dump());
-        DDGraph DDG = DDA->getGraph(Loop);
-
-        if (DDUtils::enablePerfectLoopNest(const_cast<HLLoop *>(InnermostLoop),
-                                           DDG)) {
-          CandidateLoops.push_back(
-              std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
-          SkipNode = Loop;
-          DEBUG(dbgs() << "Perfect Loopnest enabled\n");
-          DEBUG(dbgs(); Loop->dump());
-          // Save & invalidate later to avoid DDRebuild and safe reduction map
-          // released
-          LIP->PerfectLoopsEnabled.push_back(InnermostLoop);
-          return;
-        }
       }
     }
+
+    bool HasNonUnitStrideRefs =
+        HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop);
+
+    if (IsPerfectNest) {
+
+      DEBUG(dbgs() << "\nIs Perfect Nest\n");
+
+      if (!HasNonUnitStrideRefs) {
+        DEBUG(dbgs() << "\nMemRefs are in unit stride or non-linear Defs\n");
+      } else {
+        DEBUG(dbgs() << "\nHas non unit stride\n");
+        CandidateLoops.push_back(
+            std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
+      }
+
+      SkipNode = Loop;
+      return;
+
+    } else if (HasNonUnitStrideRefs || isBlockingCandidate(Loop)) {
+
+      DEBUG(dbgs() << "\n Is NearPerfect Loop:\n");
+      DEBUG(dbgs(); Loop->dump());
+
+      DDGraph DDG = DDA->getGraph(Loop);
+      DEBUG(dbgs() << "DDG's==\n");
+      DEBUG(DDG.dump());
+
+      if (DDUtils::enablePerfectLoopNest(
+              const_cast<HLLoop *>(InnermostLoop), DDG,
+              LIP->CandLoopToIgnorableSymBases[Loop])) {
+        CandidateLoops.push_back(
+            std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
+        DEBUG(dbgs() << "Perfect Loopnest enabled\n");
+        DEBUG(dbgs(); Loop->dump());
+        // Save & invalidate later to avoid DDRebuild and safe reduction map
+        // released
+        LIP->PerfectLoopsEnabled.push_back(InnermostLoop);
+      }
+      // Nearperfect loops: skip recursion into the nest regardless of
+      // being enabled as perfect loop or not.
+      // Either way, loop interchange is not possible due to unconforming
+      // innermost loop.
+      SkipNode = Loop;
+      return;
+    }
   }
+
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
   bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
@@ -250,19 +265,17 @@ FunctionPass *llvm::createHIRLoopInterchangePass() {
 }
 
 bool HIRLoopInterchange::runOnFunction(Function &F) {
-  if (skipFunction(F))
+  if (skipFunction(F) || DisableHIRLoopInterchange)
     return false;
 
   DEBUG(dbgs() << "Loop Interchange for Function : " << F.getName() << "\n");
 
   this->F = &F;
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  DDA = &getAnalysis<HIRDDAnalysis>();
-  LA = &getAnalysis<HIRLocalityAnalysis>();
-  SRA = &getAnalysis<HIRSafeReductionAnalysis>();
+  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
+  LA = &getAnalysis<HIRLoopLocalityWrapperPass>().getHLL();
+  SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  auto &OROP = getAnalysis<OptReportOptionsPass>();
-  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   AnyLoopInterchanged = false;
 
@@ -291,6 +304,7 @@ bool HIRLoopInterchange::runOnFunction(Function &F) {
 
   CandidateLoops.clear();
   PerfectLoopsEnabled.clear();
+  CandLoopToIgnorableSymBases.clear();
 
   return AnyLoopInterchanged;
 }
@@ -356,7 +370,7 @@ bool HIRLoopInterchange::getPermutation(const HLLoop *Loop) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       DEBUG(dbgs() << "\nNearby permutation obtained\n");
       for (auto &I : LoopPermutation) {
-	(void)I; // Variable is used in DEBUG only.
+        (void)I; // Variable is used in DEBUG only.
         DEBUG(dbgs(); I->dump());
       }
 #endif
@@ -497,6 +511,7 @@ void HIRLoopInterchange::getNearbyPermutation(const HLLoop *Loop) {
   }
 }
 
+namespace {
 ///  1. Ignore all  (= = ..)
 ///  2. for temps, ignore  anti (< ..)
 ///     If there is a loop carried flow for scalars, the DV will not
@@ -504,8 +519,8 @@ void HIRLoopInterchange::getNearbyPermutation(const HLLoop *Loop) {
 ///     (check no longer needed because of change in DD for compile time
 ///     saving)
 ///  3. Safe reduction (already excluded out in collectDDInfo)
-static bool ignoreEdge(const DDEdge *Edge, const HLLoop *CandidateLoop,
-                       DirectionVector *RefinedDV = nullptr) {
+bool ignoreEdge(const DDEdge *Edge, const HLLoop *CandidateLoop,
+                DirectionVector *RefinedDV = nullptr) {
 
   const DirectionVector *DV = RefinedDV;
   if (DV == nullptr) {
@@ -531,9 +546,8 @@ static bool ignoreEdge(const DDEdge *Edge, const HLLoop *CandidateLoop,
 ///  Scan presence of  < ... >
 ///  If none, return true, which  means DV can be dropped for
 ///  Interchange legality checking
-static bool ignoreDVWithNoLTGT(const DirectionVector &DV,
-                               unsigned OutmostNestingLevel,
-                               unsigned InnermostNestingLevel) {
+bool ignoreDVWithNoLTGT(const DirectionVector &DV, unsigned OutmostNestingLevel,
+                        unsigned InnermostNestingLevel) {
 
   bool DVhasLT = false;
   unsigned LTLevel = 0;
@@ -552,6 +566,8 @@ static bool ignoreDVWithNoLTGT(const DirectionVector &DV,
   }
   return true;
 }
+
+} // namespace
 
 /// Collect all DV edges in loop nests
 /// Call Demand Driven DD as needed (Currently  not calling)
@@ -579,7 +595,20 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
       DEBUG(dbgs() << "\n\tIs Safe Red");
       return;
     }
+
+    const InterchangeIgnorableSymbasesTy &IgnorableSymBases =
+        (LIP.CandLoopToIgnorableSymBases)[CandidateLoop];
+
     for (auto I = DDNode->ddref_begin(), E = DDNode->ddref_end(); I != E; ++I) {
+
+      // Ignorable symbases are symbases of temps originally were
+      // in pre(post)loop or preheader/postexit.
+      // Those were legally sinked into the innermost loop.
+      // The fact allows us to ignore DDs related to those temps.
+      if ((*I)->isTerminalRef() &&
+          IgnorableSymBases.count((*I)->getSymbase())) {
+        continue;
+      }
 
       for (auto II = DDG.outgoing_edges_begin(*I),
                 EE = DDG.outgoing_edges_end(*I);
@@ -587,6 +616,7 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
         // Examining outoging edges is sufficent
         const DDEdge *Edge = *II;
         DDRef *DDref = Edge->getSink();
+
         if (ignoreEdge(Edge, CandidateLoop)) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -604,16 +634,23 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
           DDRef *SrcDDRef = Edge->getSrc();
           DDRef *DstDDRef = DDref;
 
+          // Refine works only for non-terminal refs
           RefinedDep =
               LIP.DDA->refineDV(SrcDDRef, DstDDRef, LIP.OutmostNestingLevel,
                                 LIP.InnermostNestingLevel, false);
 
           if (RefinedDep.isIndependent()) {
+            DEBUG(dbgs() << "\n\t<Edge dropped with DDTest Indep>");
+            DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
             continue;
           }
 
           if (RefinedDep.isRefined()) {
+            DEBUG(dbgs() << "\n\t<Edge with refined DV>");
+            DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
             if (ignoreEdge(Edge, CandidateLoop, &RefinedDep.getDV())) {
+              DEBUG(dbgs() << "\n\t<Edge dropped with refined DV Ignore>");
+              DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
               continue;
             }
 
@@ -622,6 +659,8 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
         }
         if (ignoreDVWithNoLTGT(*TempDV, LIP.OutmostNestingLevel,
                                LIP.InnermostNestingLevel)) {
+          DEBUG(dbgs() << "\n\t<Edge dropped with NoLTGT>");
+          DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
           continue;
         }
 
@@ -811,89 +850,8 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *Loop) {
   return true;
 }
 
-// Update DD REF
-struct UpdateDDRef final : public HLNodeVisitorBase {
-
-  // Smallest value of OutmostNestingLevel & InnermostNestingLevel is 1.
-  unsigned OutmostNestingLevel;
-  unsigned InnermostNestingLevel;
-  unsigned *NewLoopLevels;
-  void updateDDRef(HLDDNode *Node, unsigned InnermostNestingLevel,
-                   unsigned OutmostNestingLevel, unsigned *NewLoopLevels);
-  void updateCE(CanonExpr *CE, unsigned InnermostNestingLevel,
-                unsigned OutmostNestingLevel, unsigned *NewLoopLevels);
-
-  UpdateDDRef(unsigned OutmostNestingLevel, unsigned InnermostNestingLevel,
-              unsigned *NewLoopLevels)
-      : OutmostNestingLevel(OutmostNestingLevel),
-        InnermostNestingLevel(InnermostNestingLevel),
-        NewLoopLevels(NewLoopLevels) {}
-
-  void visit(const HLNode *Node) {}
-  void visit(HLDDNode *Node) {
-    updateDDRef(Node, InnermostNestingLevel, OutmostNestingLevel,
-                NewLoopLevels);
-  }
-  void postVisit(HLNode *) {}
-};
-
-void UpdateDDRef::updateDDRef(HLDDNode *Node, unsigned InnermostNestingLevel,
-                              unsigned OutmostNestingLevel,
-                              unsigned *NewLoopLevels) {
-
-  for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
-    RegDDRef *RegRef = *I;
-
-    for (auto Iter = RegRef->canon_begin(), E2 = RegRef->canon_end();
-         Iter != E2; ++Iter) {
-      CanonExpr *CE = *Iter;
-      updateCE(CE, InnermostNestingLevel, OutmostNestingLevel, NewLoopLevels);
-    }
-    if (RegRef->hasGEPInfo()) {
-      updateCE(RegRef->getBaseCE(), InnermostNestingLevel, OutmostNestingLevel,
-               NewLoopLevels);
-    }
-  }
-}
-
-void UpdateDDRef::updateCE(CanonExpr *CE, unsigned InnermostNestingLevel,
-                           unsigned OutmostNestingLevel,
-                           unsigned *NewLoopLevels) {
-
-  if (!(CE->hasIV())) {
-    return;
-  }
-
-  // Save Coffs
-  int64_t ConstCoeff[MaxLoopNestLevel];
-  unsigned BlobCoeff[MaxLoopNestLevel];
-
-  unsigned II = 0;
-  for (II = OutmostNestingLevel; II <= InnermostNestingLevel; ++II) {
-    ConstCoeff[II - 1] = 0;
-    BlobCoeff[II - 1] = 0;
-  }
-  for (auto CurIVPair = CE->iv_begin(), E2 = CE->iv_end(); CurIVPair != E2;
-       ++CurIVPair) {
-    II = CE->getLevel(CurIVPair);
-    ConstCoeff[II - 1] = CE->getIVConstCoeff(CurIVPair);
-    BlobCoeff[II - 1] = CE->getIVBlobCoeff(CurIVPair);
-  }
-
-  // For each level, replace coeffs with the new one
-  // Indexes to local arrays here start with 0
-  // Levels used start with at least 1
-  for (unsigned OL = OutmostNestingLevel; OL <= InnermostNestingLevel; ++OL) {
-    unsigned NL = NewLoopLevels[OL - OutmostNestingLevel];
-    if (OL == NL || (ConstCoeff[OL - 1] == 0 && ConstCoeff[NL - 1] == 0)) {
-      continue;
-    }
-    CE->removeIV(OL);
-    CE->addIV(OL, BlobCoeff[NL - 1], ConstCoeff[NL - 1]);
-  }
-}
-
-void HIRLoopInterchange::reportTransformation() {
+void HIRLoopInterchange::reportTransformation(
+    LoopOptReportBuilder &LORBuilder) {
   // Do not do any string processing if OptReports are not needed.
   // "&& DebugFlag" should be deleted when lit-tests are rewritten to use opt
   // report info.
@@ -922,32 +880,24 @@ void HIRLoopInterchange::reportTransformation() {
   DEBUG(dbgs() << OS.str() << '\n');
 }
 
-/// Update Loop Body
-void HIRLoopInterchange::updateLoopBody(HLLoop *Loop) {
-
-  unsigned NewLoopLevels[MaxLoopNestLevel];
-  unsigned Idx = 0;
-
-  for (auto &I : LoopPermutation) {
-    NewLoopLevels[Idx++] = I->getNestingLevel();
-  }
-
-  UpdateDDRef UpdateDDRef(OutmostNestingLevel, InnermostNestingLevel,
-                          &NewLoopLevels[0]);
-
-  Loop->getHLNodeUtils().visit(UpdateDDRef, Loop);
-}
-
 void HIRLoopInterchange::transformLoop(HLLoop *Loop) {
 
   // Invalidate all analysis for InnermostLoop.
   HIRInvalidationUtils::invalidateBounds(InnermostLoop);
   HIRInvalidationUtils::invalidateBody(InnermostLoop);
   DEBUG(dbgs() << "\tBefore permuteloopNests:"; Loop->dump());
+
   HIRTransformUtils::permuteLoopNests(Loop, LoopPermutation);
 
-  updateLoopBody(Loop);
-  reportTransformation();
+  assert(OutmostNestingLevel == Loop->getNestingLevel());
+  assert(InnermostNestingLevel == InnermostLoop->getNestingLevel());
+  HIRTransformUtils::updatePermutedLoopBody(Loop, LoopPermutation,
+                                            InnermostNestingLevel);
+
+  LoopOptReportBuilder &LORBuilder =
+      Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+  reportTransformation(LORBuilder);
 
   Loop->getParentRegion()->setGenCode();
 

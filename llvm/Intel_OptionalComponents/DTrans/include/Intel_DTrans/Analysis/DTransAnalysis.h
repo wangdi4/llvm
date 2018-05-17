@@ -26,6 +26,27 @@ namespace llvm {
 
 class TargetLibraryInfo;
 
+namespace dtrans {
+// This structure is used to describe the affected portion of an aggregate type
+// passed as an argument of the memfunc call. This will be used to communicate
+// information collected during the analysis to the transforms about how
+// a memfunc call is impacting a structure.
+struct MemfuncRegion {
+  MemfuncRegion() : IsCompleteAggregate(true), FirstField(0), LastField(0) {}
+
+  // If this is 'false', the FirstField and LastField members must be set
+  // to indicate an inclusive set of fields within the structure that are
+  // affected. If this is 'true', the FieldField and LastField member values
+  // are undefined.
+  bool IsCompleteAggregate;
+
+  // If the region is a description of a partial structure modification, these
+  // members specify the first and last fields touched.
+  unsigned int FirstField;
+  unsigned int LastField;
+};
+} // end namespace dtrans
+
 class DTransAnalysisInfo {
 public:
   /// Adaptor for directly iterating over the dtrans::TypeInfo pointers.
@@ -39,6 +60,20 @@ public:
 
     dtrans::TypeInfo *&operator*() const { return I->second; }
     dtrans::TypeInfo *&operator->() const { return operator*(); }
+  };
+
+  using CallInfoMapType = DenseMap<llvm::Instruction *, dtrans::CallInfo *>;
+
+  /// Adaptor for directly iterating over the dtrans::CallInfo pointers.
+  struct call_info_iterator
+      : public iterator_adaptor_base<
+            call_info_iterator, CallInfoMapType::iterator,
+            std::forward_iterator_tag, CallInfoMapType::value_type> {
+    explicit call_info_iterator(CallInfoMapType::iterator X)
+        : iterator_adaptor_base(X) {}
+
+    dtrans::CallInfo *&operator*() const { return I->second; }
+    dtrans::CallInfo *&operator->() const { return operator*(); }
   };
 
 public:
@@ -69,12 +104,57 @@ public:
                       type_info_iterator(TypeInfoMap.end()));
   }
 
+  iterator_range<call_info_iterator> call_info_entries() {
+    return make_range(call_info_iterator(CallInfoMap.begin()),
+                      call_info_iterator(CallInfoMap.end()));
+  }
+
+  // Retrieve the CallInfo object for the instruction, if information exists.
+  // Otherwise, return nullptr.
+  dtrans::CallInfo *getCallInfo(Instruction *I);
+
+  // Create an entry in the CallInfoMap about a memory allocation call.
+  dtrans::AllocCallInfo *createAllocCallInfo(Instruction *I,
+                                             dtrans::AllocKind AK);
+
+#if 0
+  // These will be enabled in a subsequent changeset when FreeCallInfo
+  // and MemfuncCallInfo are added.
+  dtrans::FreeCallInfo *createFreeCallInfo(Instruction *I);
+
+  dtrans::MemfuncCallInfo *createMemfuncCallInfo(Instruction *I,
+    dtrans::MemfuncCallInfo::MemfuncKind MK,
+    dtrans::MemfuncRegion &MR);
+  dtrans::MemfuncCallInfo *createMemfuncCallInfo(Instruction *I,
+    dtrans::MemfuncCallInfo::MemfuncKind MK,
+    dtrans::MemfuncRegion &MR1,
+    dtrans::MemfuncRegion &MR2);
+#endif
+
+  // Destroy the CallInfo stored about the specific instruction.
+  void deleteCallInfo(Instruction *I);
+
+  // Update the instruction associated with the CallInfo object. This
+  // is necessary because when a function is cloned during the DTrans
+  // optimizations, the information needs to be transferred to the
+  // newly created instruction of the cloned routine.
+  void replaceCallInfoInstruction(dtrans::CallInfo *Info, Instruction *NewI);
+
+  void printCallInfo();
+
 private:
   void printStructInfo(dtrans::StructInfo *AI);
   void printArrayInfo(dtrans::ArrayInfo *AI);
   void printFieldInfo(dtrans::FieldInfo &FI);
 
+  void addCallInfo(llvm::Instruction *I, dtrans::CallInfo *Info);
+  void destructCallInfo(dtrans::CallInfo *Info);
+
   DenseMap<llvm::Type *, dtrans::TypeInfo *> TypeInfoMap;
+
+  // A mapping from function calls that special information is collected for
+  // (malloc, free, memset, etc) to the information stored about those calls.
+  CallInfoMapType CallInfoMap;
 };
 
 // Analysis pass providing a data transformation analysis result.

@@ -1,6 +1,6 @@
 //===------- HIRLoopFormation.cpp - Creates HIR Loops ---------------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -126,7 +126,7 @@ APInt HIRLoopFormation::getAddRecRefinedSignedMax(
 bool HIRLoopFormation::isNonNegativeNSWIV(const Loop *Lp,
                                           const PHINode *IVPhi) const {
   auto SC = SE.getSCEVForHIR(const_cast<PHINode *>(IVPhi),
-                              getOutermostHIRParentLoop(Lp));
+                             getOutermostHIRParentLoop(Lp));
 
   if (!isa<SCEVAddRecExpr>(SC)) {
     return false;
@@ -301,7 +301,7 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
   auto IfBrInst = cast<BranchInst>(IfBB->getTerminator());
 
   if (!SE.isLoopZtt(Lp, getOutermostHIRParentLoop(Lp), IfBrInst,
-                     PredicateInversion)) {
+                    PredicateInversion)) {
     return;
   }
 
@@ -469,8 +469,13 @@ void HIRLoopFormation::formLoops() {
 
     if (!IsUnknownLoop) {
       // Remove label and bottom test.
-      HLNodeUtils::erase(Label);
-      HLNodeUtils::erase(BottomTest);
+      HLNodeUtils::remove(Label);
+      HLNodeUtils::remove(BottomTest);
+
+      // Keep a reference to label and bottom test in case parsing needs it as a
+      // backup option.
+      LoopLabelAndBottomTestMap.insert(std::make_pair(
+          HLoop, LoopLabelAndBottomTestPairTy(Label, BottomTest)));
 
       // TODO: Look into whether setting ztt is beneficial for unknown loops.
       if (!IsConstTripLoop) {
@@ -486,4 +491,21 @@ void HIRLoopFormation::formLoops() {
 void HIRLoopFormation::run() {
   this->Func = &HNU.getFunction();
   formLoops();
+}
+
+void HIRLoopFormation::reattachLoopLabelAndBottomTest(HLLoop *Loop) {
+  auto It = LoopLabelAndBottomTestMap.find(Loop);
+  assert(It != LoopLabelAndBottomTestMap.end() && "Could not find loop label!");
+
+  HLNodeUtils::insertAsFirstChild(Loop, It->second.first);
+  HLNodeUtils::insertAsLastChild(Loop, It->second.second);
+
+  LoopLabelAndBottomTestMap.erase(It);
+}
+
+void HIRLoopFormation::eraseStoredLoopLabelsAndBottomTests() {
+  for (auto &LabelAndBottomTestPair : LoopLabelAndBottomTestMap) {
+    HNU.destroy(LabelAndBottomTestPair.second.first);
+    HNU.destroy(LabelAndBottomTestPair.second.second);
+  }
 }

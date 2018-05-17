@@ -1,6 +1,6 @@
 //===--- HIRLMM.cpp -Implements Loop Memory Motion Pass -*- C++ -*---===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -109,10 +109,9 @@ STATISTIC(
     HIRLIMMRefPromoted,
     "Number of HIR loop-invariant memory load(s)/store(s) References Promoted");
 
-MemRefGroup::MemRefGroup(RegDDRef *FirstRef, HIRLoopStatistics *HLS)
+MemRefGroup::MemRefGroup(RegDDRef *FirstRef)
     : IsProfitable(false), IsLegal(false), IsAnalyzed(false), HasLoad(false),
-      HasLoadOnDomPath(false), HasStore(false), HasStoreOnDomPath(false),
-      HLS(HLS) {
+      HasLoadOnDomPath(false), HasStore(false), HasStoreOnDomPath(false) {
   RefV.push_back(FirstRef);
 
   Lp = FirstRef->getHLDDNode()->getParentLoop();
@@ -141,7 +140,7 @@ void MemRefGroup::analyze(void) {
 
       // Load on DomPath
       if (!HasLoadOnDomPath &&
-          HLNodeUtils::dominates(Ref->getHLDDNode(), LoopTail, HLS)) {
+          HLNodeUtils::dominates(Ref->getHLDDNode(), LoopTail)) {
         HasLoadOnDomPath = true;
       }
     }
@@ -151,7 +150,7 @@ void MemRefGroup::analyze(void) {
 
       // Store on DomPath
       if (!HasStoreOnDomPath &&
-          HLNodeUtils::dominates(Ref->getHLDDNode(), LoopTail, HLS)) {
+          HLNodeUtils::dominates(Ref->getHLDDNode(), LoopTail)) {
         HasStoreOnDomPath = true;
       }
     }
@@ -237,7 +236,7 @@ void MemRefCollection::insert(RegDDRef *Ref) {
   if (find(Ref, Idx)) {
     MRVV[Idx].insert(Ref);
   } else {
-    MRVV.emplace_back(Ref, HLS);
+    MRVV.emplace_back(Ref);
   }
 }
 
@@ -315,9 +314,8 @@ void HIRLMM::CollectMemRefs::collectMemRef(RegDDRef *Ref) {
 char HIRLMM::ID = 0;
 
 INITIALIZE_PASS_BEGIN(HIRLMM, "hir-lmm", "HIR Loop Memory Motion", false, false)
-INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRLMM, "hir-lmm", "HIR Loop Memory Motion", false, false)
 
@@ -329,9 +327,8 @@ HIRLMM::HIRLMM(void) : HIRTransformPass(ID) {
 
 void HIRLMM::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysis>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  AU.addRequiredTransitive<OptReportOptionsPass>();
   AU.setPreservesAll();
 }
 
@@ -376,8 +373,6 @@ bool HIRLMM::runOnFunction(Function &F) {
 
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HIRF->getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
-  auto &OROP = getAnalysis<OptReportOptionsPass>();
-  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   if (CandidateLoops.empty()) {
     DEBUG(dbgs() << F.getName() << "() has no inner-most loop\n ");
@@ -385,9 +380,8 @@ bool HIRLMM::runOnFunction(Function &F) {
   }
   // DEBUG(dbgs() << " # Innermost Loops: " << CandidateLoops.size() << "\n");
 
-  HDDA = &getAnalysis<HIRDDAnalysis>();
+  HDDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  MRC.HLS = HLS;
   bool Result = false;
 
   for (auto &Lp : CandidateLoops) {
@@ -591,7 +585,7 @@ bool HIRLMM::isLoadNeededInPrehder(HLLoop *Lp, MemRefGroup &MRG) {
     }
 
     // If hit a Store (on dominate path) 1st, no need of tmp
-    if (HLNodeUtils::dominates(CurRef->getHLDDNode(), LoopTail, HLS)) {
+    if (HLNodeUtils::dominates(CurRef->getHLDDNode(), LoopTail)) {
       return false;
     }
   }
@@ -636,6 +630,9 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG) {
   NeedLoadInPrehdr = isLoadNeededInPrehder(Lp, MRG);
 
   // ### Promote LIMM for the MRG ###
+
+  LoopOptReportBuilder &LORBuilder =
+      Lp->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
   // Create a Load in prehdr if needed
   if (NeedLoadInPrehdr) {

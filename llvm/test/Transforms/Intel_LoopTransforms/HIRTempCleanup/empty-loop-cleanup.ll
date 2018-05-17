@@ -1,9 +1,10 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-temp-cleanup -print-after=hir-temp-cleanup 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" 2>&1 | FileCheck %s
 
 ; Verify that we remove the empty loop after the load is removed by temp cleanup.
 ; Note that the loop is not doing anything other than traversing the string @.str.94.
 
-; CHECK: Dump Before 
+; CHECK: Function 
 
 ; CHECK:          BEGIN REGION { }
 ; CHECK:             + DO i1 = 0, 1, 1   <DO_LOOP>
@@ -11,7 +12,7 @@
 ; CHECK:             + END LOOP
 ; CHECK:          END REGION
 
-; CHECK: Dump After 
+; CHECK: Function 
 
 ; CHECK:          BEGIN REGION { }
 ; CHECK-NEXT:     END REGION

@@ -1,6 +1,6 @@
 //===------ Passes.h - Constructors for HIR transformations -----*- C++ -*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -27,10 +27,10 @@ FunctionPass *createHIRSSADeconstructionLegacyPass();
 /// Creates a pass which cleans up unnecessary temps in HIR.
 FunctionPass *createHIRTempCleanupPass();
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// createHIRPrinterPass - This creates a pass that prints HIR.
 FunctionPass *createHIRPrinterPass(raw_ostream &OS, const std::string &Banner);
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 /// createHIRCodeGenPass - This creates a pass that generates LLVM IR from HIR.
 FunctionPass *createHIRCodeGenWrapperPass();
@@ -126,6 +126,9 @@ FunctionPass *createHIRLoopFusionPass();
 
 /// This creates a pass that emits HIR opt report.
 FunctionPass *createHIROptReportEmitterWrapperPass();
+
+/// Create pass that eliminates dead store.
+FunctionPass *createHIRDeadStoreEliminationPass();
 }
 
 #endif

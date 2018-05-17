@@ -1,4 +1,6 @@
 ; RUN: opt < %s -basicaa -gvn -instcombine -S | FileCheck %s
+; INTEL
+; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -gvn -instcombine -S | FileCheck %s
 
 ; BasicAA was incorrectly concluding that P1 and P2 didn't conflict!
 

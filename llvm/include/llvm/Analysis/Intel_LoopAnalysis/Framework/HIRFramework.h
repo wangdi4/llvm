@@ -1,6 +1,6 @@
 //===--- HIRFramework.h - public interface of HIR framework ---*-- C++ --*-===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -19,6 +19,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 
@@ -53,13 +54,13 @@ const unsigned ConstantSymbase = 1;
 const unsigned GenericRvalSymbase = 2;
 
 class HIRDDAnalysis;
-class HIRLocalityAnalysis;
+class HIRLoopLocality;
 class HIRLoopResource;
 class HIRLoopStatistics;
 class HIRSafeReductionAnalysis;
 class HIRVectVLSAnalysis;
 
-typedef HIRAnalysisProviderBase<HIRDDAnalysis, HIRLocalityAnalysis,
+typedef HIRAnalysisProviderBase<HIRDDAnalysis, HIRLoopLocality,
                                 HIRLoopResource, HIRLoopStatistics,
                                 HIRSafeReductionAnalysis, HIRVectVLSAnalysis>
     HIRAnalysisProvider;
@@ -100,6 +101,7 @@ private:
   AAResults &AA;
   HIRRegionIdentification &RI;
   HIRSCCFormation &SCCF;
+  LoopOptReportBuilder LORBuilder;
 
   /// HLNodeUtils object for the framework.
   std::unique_ptr<HLNodeUtils, HLNodeUtils::HLNodeUtilsDeleter> HNU;
@@ -128,6 +130,7 @@ public:
   HIRFramework(Function &F, DominatorTree &DT, PostDominatorTree &PDT,
                LoopInfo &LI, ScalarEvolution &SE, AAResults &AA,
                HIRRegionIdentification &RI, HIRSCCFormation &SCCF,
+               OptReportVerbosity::Level VerbosityLevel,
                HIRAnalysisProvider AnalysisProvider);
   HIRFramework(const HIRFramework &) = delete;
   HIRFramework(HIRFramework &&);
@@ -190,6 +193,9 @@ public:
   const DataLayout &getDataLayout() const {
     return getModule().getDataLayout();
   }
+
+  /// Returns LORBuilder
+  LoopOptReportBuilder &getLORBuilder() { return LORBuilder; }
 
   HIRAnalysisProvider &getHIRAnalysisProvider() { return AnalysisProvider; }
 };

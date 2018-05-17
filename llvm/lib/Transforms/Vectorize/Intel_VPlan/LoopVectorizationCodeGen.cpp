@@ -527,6 +527,19 @@ bool VPOVectorizationLegality::canVectorize() {
               *ShufInst << "\n");
         return false;
       }
+
+      // Bail out if we need to scalarize the read/write pipe OpenCL calls. We
+      // have to do this because there are no users of these calls directly
+      // since the results are written through a ptr argument. Thus, the
+      // vectorizer is unable to correctly materialize the necessary scalars
+      // into a vector through the VectorLoopValueMap. See
+      // getOrCreateVectorValue().
+      if (auto Call = dyn_cast<CallInst>(&I)) {
+        Function *F = Call->getCalledFunction();
+        if (F && (isOpenCLReadChannel(F->getName()) ||
+            isOpenCLWriteChannel(F->getName())) && !UseSimdChannels)
+          return false;
+      }
     }
   }
   if (!Induction && Inductions.empty()) {
@@ -3161,9 +3174,8 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     if (TLI->isFunctionVectorizable(CalledFunc, VF) ||
         (F->hasFnAttribute("vector-variants") &&
          matchVectorVariant(F, isMasked)) ||
-        ((isOpenCLReadChannel(CalledFunc) ||
-           isOpenCLWriteChannel(CalledFunc)) &&
-          UseSimdChannels))
+        (isOpenCLReadChannel(CalledFunc) ||
+           isOpenCLWriteChannel(CalledFunc)))
       vectorizeCallInstruction(Call);
     else {
       DEBUG(dbgs() << "Function " << CalledFunc << " is serialized\n");

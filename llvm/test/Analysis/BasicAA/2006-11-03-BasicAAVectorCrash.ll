@@ -1,4 +1,6 @@
 ; RUN: opt < %s -basicaa -licm -disable-output
+; INTEL
+; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -licm -disable-output
 target datalayout = "E-p:32:32"
 target triple = "powerpc-apple-darwin8.7.0"
 

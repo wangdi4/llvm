@@ -142,8 +142,10 @@ defm : SLMWriteResPair<WriteCvtI2F, [SLM_FPC_RSV01], 4>;
 defm : SLMWriteResPair<WriteCvtF2F, [SLM_FPC_RSV01], 4>;
 defm : SLMWriteResPair<WriteFSign,  [SLM_FPC_RSV01], 1>;
 defm : SLMWriteResPair<WriteFLogic, [SLM_FPC_RSV01], 1>;
+defm : SLMWriteResPair<WriteFLogicY, [SLM_FPC_RSV01], 1>;
 defm : SLMWriteResPair<WriteFShuffle, [SLM_FPC_RSV0],  1>;
 defm : SLMWriteResPair<WriteFVarShuffle, [SLM_FPC_RSV0],  1>;
+defm : SLMWriteResPair<WriteFVarShuffleY,[SLM_FPC_RSV0],  1>;
 defm : SLMWriteResPair<WriteFBlend,  [SLM_FPC_RSV0],  1>;
 def  : WriteRes<WriteCvtF2FSt, [SLM_FPC_RSV01, SLM_MEC_RSV]>;
 
@@ -164,6 +166,7 @@ defm : SLMWriteResPair<WriteVarShuffle,  [SLM_FPC_RSV0],  1>;
 defm : SLMWriteResPair<WriteBlend,  [SLM_FPC_RSV0],  1>;
 defm : SLMWriteResPair<WriteMPSAD,  [SLM_FPC_RSV0],  7>;
 defm : SLMWriteResPair<WritePSADBW, [SLM_FPC_RSV0],  4>;
+defm : SLMWriteResPair<WritePHMINPOS,  [SLM_FPC_RSV0],   4>;
 
 // Vector insert/extract operations.
 defm : SLMWriteResPair<WriteVecInsert, [SLM_FPC_RSV0],  1>;
@@ -180,6 +183,7 @@ def  : WriteRes<WriteVecExtractSt, [SLM_FPC_RSV0, SLM_MEC_RSV]> {
 ////////////////////////////////////////////////////////////////////////////////
 
 defm : SLMWriteResPair<WriteFHAdd,   [SLM_FPC_RSV01], 3, [2]>;
+defm : SLMWriteResPair<WriteFHAddY,  [SLM_FPC_RSV01], 3, [2]>;
 defm : SLMWriteResPair<WritePHAdd,   [SLM_FPC_RSV01], 1>;
 
 // String instructions.
@@ -275,14 +279,18 @@ def : WriteRes<WriteNop, []>;
 // AVX/FMA is not supported on that architecture, but we should define the basic
 // scheduling resources anyway.
 def  : WriteRes<WriteIMulH, [SLM_FPC_RSV0]>;
+defm : SLMWriteResPair<WriteFBlendY, [SLM_FPC_RSV0],  1>;
 defm : SLMWriteResPair<WriteVarBlend, [SLM_FPC_RSV0], 1>;
 defm : SLMWriteResPair<WriteFVarBlend, [SLM_FPC_RSV0], 1>;
+defm : SLMWriteResPair<WriteFVarBlendY, [SLM_FPC_RSV0], 1>;
 defm : SLMWriteResPair<WriteFShuffle256, [SLM_FPC_RSV0],  1>;
 defm : SLMWriteResPair<WriteFVarShuffle256, [SLM_FPC_RSV0],  1>;
 defm : SLMWriteResPair<WriteShuffle256, [SLM_FPC_RSV0],  1>;
 defm : SLMWriteResPair<WriteVarShuffle256, [SLM_FPC_RSV0],  1>;
 defm : SLMWriteResPair<WriteVarVecShift, [SLM_FPC_RSV0],  1>;
 defm : SLMWriteResPair<WriteFMA, [SLM_FPC_RSV0],  1>;
+defm : SLMWriteResPair<WriteFMAS, [SLM_FPC_RSV0],  1>;
+defm : SLMWriteResPair<WriteFMAY, [SLM_FPC_RSV0],  1>;
 
 // Instruction overrides
 

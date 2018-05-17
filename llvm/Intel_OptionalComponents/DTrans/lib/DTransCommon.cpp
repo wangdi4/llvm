@@ -25,6 +25,10 @@ void llvm::initializeDTransPasses(PassRegistry& PR) {
   initializeDTransAOSToSOAWrapperPass(PR);
   initializeDTransDeleteFieldWrapperPass(PR);
   initializeDTransReorderFieldsWrapperPass(PR);
+
+#if !INTEL_PRODUCT_RELEASE
+  initializeDTransOptBaseTestWrapperPass(PR);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void llvm::addDTransPasses(ModulePassManager &MPM) {
@@ -46,4 +50,8 @@ void llvm::createDTransPasses() {
   (void) llvm::createDTransAOSToSOAWrapperPass();
   (void) llvm::createDTransReorderFieldsWrapperPass();
   (void) llvm::createDTransAnalysisWrapperPass();
+
+#if !INTEL_PRODUCT_RELEASE
+  (void) llvm::createDTransOptBaseTestWrapperPass();
+#endif // !INTEL_PRODUCT_RELEASE
 }

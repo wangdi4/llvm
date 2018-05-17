@@ -22,6 +22,7 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/Support/PointerLikeTypeTraits.h"
 #include <bitset>
 #include <cassert>
@@ -70,7 +71,7 @@ public:
     // IR-Level Attributes
     None,                  ///< No attributes have been set
     #define GET_ATTR_ENUM
-    #include "llvm/IR/Attributes.gen"
+    #include "llvm/IR/Attributes.inc"
     EndAttrKinds           ///< Sentinal value useful for loops
   };
 

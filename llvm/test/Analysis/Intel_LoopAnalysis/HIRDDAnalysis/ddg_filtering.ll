@@ -4,6 +4,7 @@
 ; DD Graphs are printed to the output.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-dd-analysis -hir-dd-analysis-dump-nodes=-1 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,require<hir-dd-analysis>" -hir-dd-analysis-dump-nodes=-1 -disable-output 2>&1 | FileCheck %s
 
 ; Source:
 ; void foo(char * a, char * b, char * c, int n) {

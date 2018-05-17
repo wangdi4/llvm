@@ -1,6 +1,6 @@
 //===---- HIRVLAAnalysis.cpp - Computes VLS Analysis ---------------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -51,7 +51,7 @@ char HIRVectVLSAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRVectVLSAnalysis, "hir-vect-vls-analysis",
                       "HIR Vect VLS Analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRVectVLSAnalysis, "hir-vect-vls-analysis",
                     "HIR Vect VLS Analysis", false, true)
 
@@ -59,7 +59,7 @@ void HIRVectVLSAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
   AU.addRequired<HIRFrameworkWrapperPass>();
-  AU.addRequired<HIRDDAnalysis>();
+  AU.addRequired<HIRDDAnalysisWrapperPass>();
 }
 
 void HIRVectVLSAnalysis::releaseMemory() {}
@@ -311,7 +311,7 @@ void HIRVectVLSAnalysis::analyze(HIRFramework &HIRF) {
 bool HIRVectVLSAnalysis::runOnFunction(Function &F) {
 
   auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  DDA = &getAnalysis<HIRDDAnalysis>();
+  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
 
   if (debugHIRVectVLS) {
     analyze(HIRF);

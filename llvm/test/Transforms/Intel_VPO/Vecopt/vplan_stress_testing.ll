@@ -22,11 +22,9 @@ for.body:
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
-  br i1 %exitcond, label %for.end, label %for.body, !llvm.loop !0
+  br i1 %exitcond, label %for.end, label %for.body
 
 for.end:
   ret void
 }
 
-!0 = distinct !{!0, !1}
-!1 = !{!"vplan.vect.candidate"}

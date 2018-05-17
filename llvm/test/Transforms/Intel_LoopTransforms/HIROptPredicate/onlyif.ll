@@ -26,7 +26,20 @@
 ; CHECK-NOT: (@B)[0][i1 + 2][i2 + 2] = 
 ; CHECK: END LOOP
 
+;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-predicate -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 
+; OPTREPORT: Global loop optimization report for : sub3
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT: <Predicate Optimized v2>
+; OPTREPORT:     LOOP BEGIN
+; OPTREPORT:     LOOP END
+; OPTREPORT: LOOP END
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT: <Predicate Optimized v1>
+; OPTREPORT:     Remark #XXXXX: Invariant Condition hoisted out of this loop
+; OPTREPORT:     LOOP BEGIN
+; OPTREPORT:     LOOP END
+; OPTREPORT: LOOP END
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

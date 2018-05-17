@@ -1,8 +1,9 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-temp-cleanup -print-after=hir-temp-cleanup -hir-cost-model-throttling=0 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" -disable-output -hir-cost-model-throttling=0 2>&1 | FileCheck %s
 
 ; Verify that we are able to get rid of the liveout copies in the outer loop.
 
-; CHECK: Dump Before HIR Temp Cleanup
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, sext.i32.i64((-1 + %m)), 1   <DO_LOOP>
@@ -20,7 +21,7 @@
 ; CHECK: + END LOOP
 
 
-; CHECK: Dump After HIR Temp Cleanup
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 1000>
 ; CHECK: |   + DO i2 = 0, sext.i32.i64((-1 + %m)), 1   <DO_LOOP>  <MAX_TC_EST = 1000>

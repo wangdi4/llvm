@@ -38,10 +38,11 @@ class BasicBlock;
 class DataLayout;
 class DominatorTree;
 class Function;
-class GEPOperator;
+class GEPOrSubsOperator; // INTEL
 class LoopInfo;
 class PHINode;
 class SelectInst;
+class SubscriptInst; // INTEL
 class TargetLibraryInfo;
 class Value;
 
@@ -166,10 +167,18 @@ private:
                       const DataLayout &DL, unsigned Depth, AssumptionCache *AC,
                       DominatorTree *DT, bool &NSW, bool &NUW);
 
+#if INTEL_CUSTOMIZATION
+  /// Corresponds to processing of single GEP in DecomposeGEPExpression.
+  static void DecomposeSubscript(const SubscriptInst *V,
+                                 DecomposedGEP &Decomposed,
+                                 const DataLayout &DL, AssumptionCache *AC,
+                                 DominatorTree *DT);
+#endif // INTEL_CUSTOMIZATION
+
   static bool DecomposeGEPExpression(const Value *V, DecomposedGEP &Decomposed,
       const DataLayout &DL, AssumptionCache *AC, DominatorTree *DT);
 
-  static bool isGEPBaseAtNegativeOffset(const GEPOperator *GEPOp,
+  static bool isGEPBaseAtNegativeOffset(const GEPOrSubsOperator *GEPOp, // INTEL
       const DecomposedGEP &DecompGEP, const DecomposedGEP &DecompObject,
       uint64_t ObjectAccessSize);
 
@@ -191,12 +200,11 @@ private:
   void GetIndexDifference(SmallVectorImpl<VariableGEPIndex> &Dest,
                           const SmallVectorImpl<VariableGEPIndex> &Src);
 
-  AliasResult aliasGEP(const GEPOperator *V1, uint64_t V1Size,
+  AliasResult aliasGEP(const GEPOrSubsOperator *V1, // INTEL
+                       uint64_t V1Size,             // INTEL
                        const AAMDNodes &V1AAInfo, const Value *V2,
                        uint64_t V2Size, const AAMDNodes &V2AAInfo,
-                       const Value *UnderlyingV1, const Value *UnderlyingV2,
-                       bool SameOperand = false // INTEL
-                       );
+                       const Value *UnderlyingV1, const Value *UnderlyingV2);
 
   AliasResult aliasPHI(const PHINode *PN, uint64_t PNSize,
                        const AAMDNodes &PNAAInfo, const Value *V2,

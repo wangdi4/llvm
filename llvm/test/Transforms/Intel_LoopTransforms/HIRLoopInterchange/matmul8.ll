@@ -6,8 +6,6 @@
 ; RUN: opt -O2 -debug-only=hir-loop-interchange -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 1 3 2 )  
-; XFAIL: *
-;  Disable now because safe reduction is not ready
 
 ; ModuleID = 'matmul8.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

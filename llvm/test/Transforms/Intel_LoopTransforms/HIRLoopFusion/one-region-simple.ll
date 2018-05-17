@@ -26,7 +26,16 @@
 ; CHECK-NOT: + DO i1
 ; CHECK: END REGION
 
-;Module Before HIR; ModuleID = 'enclosed-simple.c'
+;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-fusion -hir-cg -hir-create-function-level-region -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+;
+;OPTREPORT: LOOP BEGIN
+;OPTREPORT:     Remark #XXXXX: Loops have been fused
+;OPTREPORT: LOOP END
+;OPTREPORT: LOOP BEGIN
+;OPTREPORT:     Remark #XXXXX: Loop lost in Fusion
+;OPTREPORT: LOOP END
+
+
 source_filename = "enclosed-simple.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

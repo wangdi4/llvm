@@ -27,6 +27,28 @@ class LowerSubscriptIntrinsicPass
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &FM);
 };
+
+/// Lowers getelementptr to llvm.intel.subscript for testing.
+class ConvertGEPToSubscriptIntrinsicPass
+    : public PassInfoMixin<ConvertGEPToSubscriptIntrinsicPass> {
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &FM);
+
+  /// Replaces GetElementPtrInst with llvm.intel.subscripts.
+  /// New instructions are inserted before \p GEP.
+  /// If \p Unlink is false, then GEP is not removed. All Uses are replaced
+  /// though.
+  ///
+  /// Returns true if replacement happened.
+  /// There is no replacement if no array type are involved and/or
+  /// array indexes are all 0.
+  static bool convertGEPToSubscriptIntrinsic(const DataLayout &DL,
+                                             GetElementPtrInst *GEP,
+                                             bool Unlink = true);
+  // Replace single use, suitable for replacement of constant expression.
+  static bool convertGEPToSubscriptIntrinsic(const DataLayout &DL,
+                                             Instruction *Inst, Use *GEP);
+};
 } // end namespace llvm
 
 #endif // LLVM_TRANSFORMS_SCALAR_INTELLOWERSUBSCRIPTINTRINSIC_H

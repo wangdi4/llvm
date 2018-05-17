@@ -1,6 +1,6 @@
 //==--- HIRLoopCollpase.cpp -Implements Loop Collapse Pass -*- C++ -*---===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -192,7 +192,6 @@ char HIRLoopCollapse::ID = 0;
 
 INITIALIZE_PASS_BEGIN(HIRLoopCollapse, "hir-loop-collapse", "HIR Loop Collapse",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIRLoopCollapse, "hir-loop-collapse", "HIR Loop Collapse",
                     false, false)
@@ -207,7 +206,6 @@ HIRLoopCollapse::HIRLoopCollapse(void) : HIRTransformPass(ID) {
 
 void HIRLoopCollapse::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<OptReportOptionsPass>();
   AU.setPreservesAll();
 }
 
@@ -230,8 +228,6 @@ bool HIRLoopCollapse::runOnFunction(Function &F) {
   auto *HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HNU = &(HIRF->getHLNodeUtils());
   BU = &(HIRF->getBlobUtils());
-  auto &OROP = getAnalysis<OptReportOptionsPass>();
-  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   // Collect all possible perfect-LoopNest candidate InnerOuterLoopPairs into
   // CandidateLoops. Each InnerOuterLoopPair marks (OutermostLp,InnermostLp),
@@ -734,6 +730,9 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
       HIRSafeReductionAnalysis>(ToCollapseLp);
 
   ++HIRLoopNestsCollapsed;
+
+  LoopOptReportBuilder &LORBuilder =
+      ToCollapseLp->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
   LORBuilder(*ToCollapseLp)
       .addRemark(OptReportVerbosity::Low, "%d loops have been collapsed",

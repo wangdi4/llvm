@@ -7,7 +7,9 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This library implements the functionality defined in llvm/IR/Writer.h
+// This library implements `print` family of functions in classes like
+// Module, Function, Value, etc. In-memory representation of those classes is
+// converted to IR strings.
 //
 // Note that these routines must be extremely tolerant of various errors in the
 // LLVM code, because it can be used for debugging transformations.
@@ -28,6 +30,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/BinaryFormat/Dwarf.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/Attributes.h"
@@ -89,7 +92,17 @@ using namespace llvm;
 // Make virtual table appear in this compilation unit.
 AssemblyAnnotationWriter::~AssemblyAnnotationWriter() = default;
 
-#if !INTEL_PRODUCT_RELEASE
+#if INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG)
+#error INTEL_PRODUCT_RELEASE requires that NDEBUG also be defined.
+#endif
+
+#if defined(LLVM_ENABLE_DUMP) // INTEL
+#error LLVM_ENABLE_DUMP cannot be used with INTEL_PRODUCT_RELEASE
+#endif
+#endif  // !INTEL_PRODUCT_RELEASE
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 //===----------------------------------------------------------------------===//
 // Helper Functions
 //===----------------------------------------------------------------------===//
@@ -3708,7 +3721,6 @@ void Metadata::print(raw_ostream &OS, ModuleSlotTracker &MST,
   printMetadataImpl(OS, *this, MST, M, /* OnlyAsOperand */ false);
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Value::dump - allow easy printing of Values from the debugger.
 LLVM_DUMP_METHOD
 void Value::dump() const { print(dbgs(), /*IsForDebug=*/true); dbgs() << '\n'; }
@@ -3740,19 +3752,10 @@ void Metadata::dump(const Module *M) const {
   print(dbgs(), M, /*IsForDebug=*/true);
   dbgs() << '\n';
 }
-#endif
 
-#else // INTEL_PRODUCT_RELEASE
+#else // defined(NDEBUG) && !defined(LLVM_ENABLE_DUMP) // INTEL
 
 // TODO: Define stubs for the printing functions
-
-#if !defined(NDEBUG)
-#error INTEL_PRODUCT_RELEASE requires that NDEBUG also be defined.
-#endif
-
-#if defined(LLVM_ENABLE_DUMP)
-#error LLVM_ENABLE_DUMP cannot be used with INTEL_PRODUCT_RELEASE
-#endif
 
 void llvm::printLLVMNameWithoutPrefix(raw_ostream &OS, StringRef Name) {}
 
@@ -3808,5 +3811,5 @@ void Metadata::print(raw_ostream &OS, const Module *M,
 void Metadata::print(raw_ostream &OS, ModuleSlotTracker &MST,
                      const Module *M, bool /*IsForDebug*/) const {}
 
-#endif // INTEL_PRODUCT_RELEASE
+#endif // defined(NDEBUG) && !defined(LLVM_ENABLE_DUMP) // INTEL
 

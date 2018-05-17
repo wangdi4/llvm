@@ -1,6 +1,6 @@
 //===- HIRLoopFusionGraph.cpp - Implements Loop Fusion Graph --------------===//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -34,7 +34,8 @@ typedef DDRefGatherer<RegDDRef, AllRefs ^ (BlobRefs | ConstantRefs |
     Gatherer;
 
 bool fusion::isGoodLoop(const HLLoop *Loop) {
-  return Loop->isDo() && Loop->isNormalized();
+  return Loop->isDo() && Loop->isNormalized() &&
+         !(Loop->isDistributedForMemRec());
 }
 
 class fusion::FuseEdgeHeap {
@@ -186,8 +187,7 @@ public:
 };
 
 static unsigned areLoopsFusibleWithCommonTC(const HLLoop *Loop1,
-                                            const HLLoop *Loop2,
-                                            HIRLoopStatistics &HLS) {
+                                            const HLLoop *Loop2) {
   const CanonExpr *UB1 = Loop1->getUpperCanonExpr();
   const CanonExpr *UB2 = Loop2->getUpperCanonExpr();
 
@@ -201,11 +201,11 @@ static unsigned areLoopsFusibleWithCommonTC(const HLLoop *Loop1,
     return 0;
   }
 
-  if (!HLNodeUtils::dominates(Loop1, Loop2, &HLS)) {
+  if (!HLNodeUtils::dominates(Loop1, Loop2)) {
     return 0;
   }
 
-  if (!HLNodeUtils::postDominates(Loop2, Loop1, &HLS)) {
+  if (!HLNodeUtils::postDominates(Loop2, Loop1)) {
     return 0;
   }
 
@@ -390,7 +390,7 @@ unsigned FuseGraph::areFusibleWithCommonTC(FusibleCacheTy &Cache,
 
     if (MayBeFused) {
       CommonTC = areLoopsFusibleWithCommonTC(Node1.pilotLoop(),
-                                             Node2.pilotLoop(), HLS);
+                                             Node2.pilotLoop());
     }
 
     return CommonTC;

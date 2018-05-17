@@ -1,6 +1,6 @@
 //===- HIROptVarPredicate.cpp - Optimization of predicates containing IVs -===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -156,6 +156,9 @@ private:
 
   void updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
                             BlobTy SplitPointBlob, bool IsSigned);
+
+  void addVarPredicateReport(HLIf *If, HLLoop *Loop,
+                             LoopOptReportBuilder &LORBuilder);
 };
 } // namespace
 
@@ -524,6 +527,26 @@ static bool isLoopRedundant(HLLoop *Loop) {
   return false;
 }
 
+void HIROptVarPredicate::addVarPredicateReport(
+    HLIf *If, HLLoop *Loop, LoopOptReportBuilder &LORBuilder) {
+  bool IsReportOn = LORBuilder.isLoopOptReportOn();
+
+  if (!IsReportOn || !Loop) {
+    return;
+  }
+
+  SmallString<32> LoopNum;
+  unsigned LineNum;
+  raw_svector_ostream VOS(LoopNum);
+  if (If->getDebugLoc()) {
+    LineNum = If->getDebugLoc().getLine();
+    VOS << " at line ";
+    VOS << LineNum;
+  }
+  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                              "Condition%s was optimized", LoopNum);
+}
+
 // The loop could be split into two loops:
 // for i = 0, min(%b - 1, %UB) ztt: %b > 0            <-- Loop
 // for i = max(%b, 0), %UB     ztt: %b <= %UB         <-- LoopClone
@@ -604,8 +627,9 @@ void HIROptVarPredicate::splitLoop(
                                        LoopUpperDDRef.get()};
 
   // Special case ==, != predicates..
+  HLLoop *ThirdLoop = nullptr;
   if (Pred == PredicateTy::ICMP_EQ || Pred == PredicateTy::ICMP_NE) {
-    HLLoop *ThirdLoop = Loop->clone();
+    ThirdLoop = Loop->clone();
 
     updateLoopUpperBound(SecondLoop, UpperBlob, SplitPointBlob, IsSigned);
     SecondLoop->getUpperDDRef()->makeConsistent(&Aux, Level);
@@ -653,6 +677,7 @@ void HIROptVarPredicate::splitLoop(
     SecondLoop->createZtt(false, true);
     SecondLoop->normalize();
     SecondLoopNeeded = true;
+
   } else {
     HLNodeUtils::remove(SecondLoop);
   }
@@ -664,6 +689,33 @@ void HIROptVarPredicate::splitLoop(
   if (SecondLoopNeeded && ThirdLoopNeeded) {
     HIRTransformUtils::addCloningInducedLiveouts(SecondLoop);
   }
+
+  LoopOptReportBuilder &LORBuilder =
+      Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+  HLLoop *OptReportLoop = nullptr;
+  unsigned VNum = 1;
+
+  if (FirstLoopNeeded) {
+    OptReportLoop = Loop;
+    LORBuilder(*Loop).addOrigin("Predicate Optimized v%d", VNum++);
+  }
+
+  if (SecondLoopNeeded) {
+    if (!OptReportLoop) {
+      OptReportLoop = SecondLoop;
+    }
+    LORBuilder(*SecondLoop).addOrigin("Predicate Optimized v%d", VNum++);
+  }
+
+  if (ThirdLoopNeeded) {
+    if (!OptReportLoop) {
+      OptReportLoop = ThirdLoop;
+    }
+    LORBuilder(*ThirdLoop).addOrigin("Predicate Optimized v%d", VNum++);
+  }
+
+  addVarPredicateReport(Candidate, OptReportLoop, LORBuilder);
 }
 
 bool HIROptVarPredicate::processLoop(HLLoop *Loop) {

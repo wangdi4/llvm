@@ -212,6 +212,10 @@ static cl::opt<bool> EnableWPA("enable-whole-program-analysis",
 static cl::opt<bool> EnableIPCloning("enable-ip-cloning",
     cl::init(true), cl::Hidden, cl::desc("Enable IP Cloning"));
 
+// Call Tree Cloning
+static cl::opt<bool> EnableCallTreeCloning("enable-call-tree-cloning",
+    cl::init(false), cl::Hidden, cl::desc("Enable Call Tree Cloning"));
+
 // Inline Aggressive Analysis
 static cl::opt<bool>
     EnableInlineAggAnalysis("enable-inline-aggressive-analysis",
@@ -1130,9 +1134,13 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createGlobalOptimizerPass());
 
 #if INTEL_CUSTOMIZATION
-  if (EnableIPCloning) {
-    // Enable generic IPCloning after Inlining.
-    PM.add(createIPCloningLegacyPass(true));
+  if (EnableIPCloning || EnableCallTreeCloning) {
+    if (EnableIPCloning)
+      // Enable generic IPCloning after Inlining.
+      PM.add(createIPCloningLegacyPass(true));
+    if (EnableCallTreeCloning)
+      // Do function cloning along call trees
+      PM.add(createCallTreeCloningPass());
     // Call IPCP to propagate constants
     PM.add(createIPSCCPPass());
   }
@@ -1314,6 +1322,8 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       PM.add(createHIRArrayTransposePass());
     }
 
+    PM.add(createHIRDeadStoreEliminationPass());
+
     // TODO: refine cost model for individual transformations for code size.
     if (SizeLevel == 0) {
       // If VPO is disabled, we don't have to insert ParVec directives.
@@ -1390,10 +1400,6 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
   }
   // TODO: Temporal hook-up for VPlan VPO Vectorizer
   if (EnableVPlanDriver && RunVec) {
-    // We are using the loop vectorize pass to generate tests for VPlan LLVM IR
-    // path. Do not use EnableLV to check if loop vectorize pass needs to be
-    // created.
-    PM.add(createLoopVectorizePass(true, LoopVectorize, true));
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPlanDriverPass());
   }

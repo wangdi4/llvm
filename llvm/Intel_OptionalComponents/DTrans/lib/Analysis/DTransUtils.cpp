@@ -20,6 +20,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 using namespace dtrans;
@@ -34,6 +35,22 @@ bool dtrans::isSystemObjectType(llvm::StructType *Ty) {
       .Case("struct._IO_FILE", true)
       .Case("struct._IO_marker", true)
       .Default(false);
+}
+
+StringRef dtrans::AllocKindName(AllocKind Kind) {
+  switch (Kind) {
+  case AK_NotAlloc:
+    return "NotAlloc";
+  case AK_Malloc:
+    return "Malloc";
+  case AK_Calloc:
+    return "Calloc";
+  case AK_Realloc:
+    return "Realloc";
+  case AK_UserAlloc:
+    return "UserAlloc";
+  }
+  llvm_unreachable("Unexpected continuation past AllocKind switch.");
 }
 
 AllocKind dtrans::getAllocFnKind(Function *F, const TargetLibraryInfo &TLI) {
@@ -177,7 +194,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::BadMemFuncManipulation | dtrans::AmbiguousPointerTarget |
       dtrans::UnsafePtrMerge | dtrans::AddressTaken | dtrans::NoFieldsInStruct |
       dtrans::NestedStruct | dtrans::ContainsNestedStruct |
-      dtrans::SystemObject | dtrans::UnhandledUse;
+      dtrans::SystemObject | dtrans::LocalPtr | dtrans::LocalInstance |
+      dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
   static_assert(ImplementedMask ==
@@ -193,7 +211,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
                      dtrans::AmbiguousPointerTarget ^ dtrans::UnsafePtrMerge ^
                      dtrans::AddressTaken ^ dtrans::NoFieldsInStruct ^
                      dtrans::NestedStruct ^ dtrans::ContainsNestedStruct ^
-                     dtrans::SystemObject ^ dtrans::UnhandledUse),
+                     dtrans::SystemObject ^ dtrans::LocalPtr ^
+                     dtrans::LocalInstance ^ dtrans::UnhandledUse),
                 "Duplicate value used in dtrans safety conditions");
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
@@ -240,6 +259,10 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
     SafetyIssues.push_back("Contains nested structure");
   if (SafetyInfo & dtrans::SystemObject)
     SafetyIssues.push_back("System object");
+  if (SafetyInfo & dtrans::LocalPtr)
+    SafetyIssues.push_back("Local pointer");
+  if (SafetyInfo & dtrans::LocalInstance)
+    SafetyIssues.push_back("Local instance");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
   // Print the safety issues found
@@ -279,3 +302,49 @@ void dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
     setMultipleValue();
 }
 
+void PointerTypeInfo::dump() {
+  if (!AliasesToAggregatePointer) {
+    outs() << "    Type: Non-aggregate\n";
+    return;
+  }
+
+  // Put the type names in a vector so that we can output
+  // it in sorted order to enable consistency for testing.
+  std::vector<std::string> StrVec;
+
+  for (auto *T : Types) {
+    std::string Name;
+    raw_string_ostream(Name) << "    Type: " << *T;
+    StrVec.push_back(Name);
+  }
+
+  std::sort(StrVec.begin(), StrVec.end());
+  for (auto &S : StrVec)
+    outs() << S << "\n";
+}
+
+/// Dispatcher to invoke the appropriate dump method based on the specific type
+/// of call being tracked.
+void CallInfo::dump() {
+  switch (getCallInfoKind()) {
+  case CIK_Alloc:
+    cast<AllocCallInfo>(this)->dump();
+    break;
+  case CIK_Free:
+    // TODO: uncomment when FreeCallInfo class is added
+    // cast<FreeCallInfo>(this)->dump();
+    break;
+  case CIK_Memfunc:
+    // TODO: uncomment when MemfuncCallInfo class is added
+    // cast<MemfuncCallInfo>(this)->dump();
+    break;
+  }
+}
+
+void AllocCallInfo::dump() {
+  outs() << "AllocCallInfo:\n";
+  outs() << "  Kind: " << AllocKindName(AK) << "\n";
+  outs() << "  Aliased types:\n";
+
+  PTI.dump();
+}

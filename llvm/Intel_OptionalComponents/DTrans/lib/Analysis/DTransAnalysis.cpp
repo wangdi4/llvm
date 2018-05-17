@@ -41,6 +41,11 @@ static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
 static cl::opt<bool> DTransPrintAnalyzedTypes("dtrans-print-types",
                                               cl::ReallyHidden);
 
+/// Prints information that is saved during analysis about specific function
+/// calls (malloc, free, memset, etc) that may be useful to the transformations.
+static cl::opt<bool> DTransPrintAnalyzedCalls("dtrans-print-callinfo",
+                                              cl::ReallyHidden);
+
 //
 // An option that indicates that a pointer to a struct could access
 // somewhere beyond the boundaries of that struct:
@@ -112,15 +117,19 @@ public:
   typedef SmallPtrSetImpl<llvm::Type *> &PointerTypeAliasSetRef;
 
   LocalPointerInfo()
-      : HasBeenAnalyzed(false), AliasesToAggregatePointer(false) {}
+      : HasBeenAnalyzed(false), IsPartialAnalysis(false),
+        AliasesToAggregatePointer(false) {}
 
-  void setAnalyzed() { HasBeenAnalyzed = true; }
+  void setAnalyzed() { IsPartialAnalysis = false; HasBeenAnalyzed = true; }
   bool getAnalyzed() { return HasBeenAnalyzed; }
 
   bool canAliasToAggregatePointer() {
     assert(HasBeenAnalyzed);
     return AliasesToAggregatePointer;
   }
+
+  bool isPartialAnalysis() { return IsPartialAnalysis; }
+  void setPartialAnalysis(bool b) { IsPartialAnalysis = b; }
 
   void addPointerTypeAlias(llvm::Type *T) {
     // This should only be called for integers that are returned by PtrToInt
@@ -202,7 +211,9 @@ public:
     return DomTy;
   }
 
-  PointerTypeAliasSetRef getPointerTypeAliasSet() { return PointerTypeAliases; }
+  PointerTypeAliasSetRef getPointerTypeAliasSet() {
+    return PointerTypeAliases;
+  }
   ElementPointeeSetRef getElementPointeeSet() { return ElementPointees; }
 
   void merge(LocalPointerInfo &Other) {
@@ -238,6 +249,7 @@ public:
 
 private:
   bool HasBeenAnalyzed;
+  bool IsPartialAnalysis;
   bool AliasesToAggregatePointer;
   PointerTypeAliasSet PointerTypeAliases;
   ElementPointeeSet ElementPointees;
@@ -811,13 +823,10 @@ public:
       : DL(DL), TLI(TLI), DTAA(DTAA) {}
 
   LocalPointerInfo &getLocalPointerInfo(Value *V) {
-    // If we don't already have an entry for this pointer, do some analysis.
-    if (!LocalMap.count(V))
-      analyzeValue(V);
-    // Now the information we want will be in the map.
     LocalPointerInfo &Info = LocalMap[V];
-    assert((Info.getAnalyzed() || InProgressValues.count(V)) &&
-           "Local pointer analysis failed.");
+    if (!Info.getAnalyzed())
+      analyzeValue(V);
+    assert(Info.getAnalyzed() && "Local pointer analysis failed.");
     return Info;
   }
 
@@ -830,15 +839,6 @@ private:
   // that would cause the LocalPointerInfo to be copied and our local
   // reference to it to be invalidated.
   std::map<Value *, LocalPointerInfo> LocalMap;
-  SmallPtrSet<Value *, 8> InProgressValues;
-
-  // These two maps are needed to manage cyclic dependencies in the
-  // analysis chain. DependentValues maps a Value to the set of other
-  // values that require the final alias set from the analysis of the key
-  // value. PendingValues maps a value to the set of other Values on
-  // which it is waiting.
-  DenseMap<Value *, SmallPtrSet<Value *, 8>> DependentValues;
-  DenseMap<Value *, SmallPtrSet<Value *, 8>> PendingValues;
 
   void analyzeValue(Value *V) {
     // If we've already analyzed this value, there is no need to
@@ -854,19 +854,47 @@ private:
           (V->getType() == llvm::Type::getIntNTy(V->getContext(),
                                                  DL.getPointerSizeInBits())))) {
       Info.setAnalyzed();
-      InProgressValues.erase(V);
       return;
     }
 
-    // If we're already working on this value (for instance, tracing the
-    // incoming values of a PHI node), don't go any further.
-    if (!InProgressValues.insert(V).second) {
-      DEBUG(dbgs() << "  InProgress skip analyzing " << *V << "\n");
-      return;
+    // Build a stack of unresolved dependent values that must be analyzed
+    // before we can complete the analysis of this value.
+    SmallVector<Value*, 16> DependentVals;
+    DependentVals.push_back(V);
+    populateDependencyStack(V, DependentVals);
+
+    DEBUG(dbgs() << "analyzeValue " << *V << "\n");
+    DEBUG(dumpDependencyStack(DependentVals));
+
+    // Now attempt to analyze each of these values. Some may be left in a
+    // partially analyzed state, but they will be fully resolved when
+    // their complete info is needed.
+    while (!DependentVals.empty()) {
+      Value *Dep = DependentVals.back();
+      DependentVals.pop_back();
+      LocalPointerInfo &DepInfo = LocalMap[Dep];
+      // If we have complete results for this value, don't repeat the analysis.
+      if (DepInfo.getAnalyzed()) {
+        DEBUG(dbgs() << "  Already analyzed: " << *Dep << "\n");
+        continue;
+      }
+      analyzeValueImpl(Dep, DepInfo);
     }
 
-    DEBUG(dbgs() << "Analyzing " << *V << "\n");
+    DEBUG({
+            if (Info.isPartialAnalysis())
+              dbgs() << " Analysis completed but was reported as partial.\n";
+          });
+    DEBUG(Info.dump());
+    DEBUG(dbgs() << "\n");
 
+    // Some of the dependencies may have reported partial analysis, but
+    // by the time we get here everything will have been complete for
+    // this value.
+    Info.setAnalyzed();
+  }
+
+  void analyzeValueImpl(Value *V, LocalPointerInfo &Info) {
     // If this value is derived from another local value, follow the
     // collect info from the source operand.
     if (isDerivedValue(V))
@@ -882,14 +910,8 @@ private:
     // If the value we're analyzing is a call to an allocation function
     // we need to look for bitcast users so that we can proactively assign
     // the type to which the value will be cast as an alias.
-    if (auto *CI = dyn_cast<CallInst>(V)) {
-      Function *Callee = CI->getCalledFunction();
-      dtrans::AllocKind Kind = dtrans::getAllocFnKind(Callee, TLI);
-      if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(Callee))
-        Kind = dtrans::AK_Malloc;
-      if (Kind != dtrans::AK_NotAlloc)
-        analyzeAllocationCallAliases(CI, Info);
-    }
+    if (auto *CI = getCallInstIfAlloc(V))
+      analyzeAllocationCallAliases(CI, Info);
 
     // If this is a GetElementPtr, figure out what element it is
     // accessing.
@@ -901,82 +923,177 @@ private:
     if (auto *Load = dyn_cast<LoadInst>(V))
       analyzeLoadInstruction(Load, Info);
 
-    // Mark the info as analyzed.
-    Info.setAnalyzed();
-
-    // If any other values were dependent on the result of the current
-    // analysis, merge these results now.
-    if (DependentValues.count(V)) {
-      for (Value *Dependent : DependentValues[V]) {
-        DEBUG(dbgs() << "  Merge analysis for " << V->getName() << " into "
-                     << Dependent->getName() << "\n");
-        LocalPointerInfo &DepLPI = LocalMap[Dependent];
-        DepLPI.merge(Info);
-        PendingValues[Dependent].erase(V);
-      }
-      DependentValues[V].clear();
-    }
-
-    // Erase this value from the in-progress set.
-    // The 'analyzed' flag will be sufficient to prevent future re-analysis.
-    InProgressValues.erase(V);
+    // If there were no unresolved dependencies, mark the info as analyzed.
+    if (!Info.isPartialAnalysis())
+      Info.setAnalyzed();
   }
 
-  // This routine is called to attempt to get local pointer info for one
-  // value while analyzing another. If the value has been previously
-  // analyzed, a reference to its LocalPointerInfo will be returned.
-  // If the value has not been analyzed and is not in the 'InProgressValues'
-  // set, we will attempt to analyze it. If the analysis for this value is
-  // already in progress (as can happen with a cycle containing PHI nodes)
-  // the currently available (though incomplete) LocalPointerInfo will be
-  // returned and an entry will be created in the dependent value map
-  // indicating that the Dependent value has an unresolved dependency on
-  // value V. When analysis of V is complete, these results will be merged
-  // with the LocalPointerInfo for the Dependent value.
-  LocalPointerInfo &tryGetLocalPointerInfo(Value *V, Value *Dependent) {
-    // Helper lambda
-    auto recordSecondaryDependencies = [this](Value *V, Value *Dependent) {
-      if (PendingValues.count(V)) {
-        for (Value *Pending : PendingValues[V]) {
-          // Don't make values dependent on themselves.
-          if (Pending == Dependent)
-            continue;
-          DEBUG(dbgs() << "  Recording secondary dependency of "
-                       << Dependent->getName() << " on " << Pending->getName()
-                       << "\n");
-          DependentValues[Pending].insert(Dependent);
-          PendingValues[Dependent].insert(Pending);
-        }
+  CallInst *getCallInstIfAlloc(Value *V) {
+    auto *CI = dyn_cast<CallInst>(V);
+    if (!CI)
+      return nullptr;
+    Function *Callee = CI->getCalledFunction();
+    dtrans::AllocKind Kind = dtrans::getAllocFnKind(Callee, TLI);
+    if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(Callee))
+      Kind = dtrans::AK_Malloc;
+    if (Kind != dtrans::AK_NotAlloc)
+      return CI;
+    return nullptr;
+  }
+
+  // This helper function pushes a value on the back of the dependency stack
+  // and returns true if this is the first occurance of the value on the stack
+  // or false if it was present before the call. The value is pushed onto the
+  // stack in either case.
+  bool addDependency(Value *DV, SmallVectorImpl<Value*> &DependentVals) {
+    auto REnd = DependentVals.rend();
+    auto It = std::find(DependentVals.rbegin(), REnd, DV);
+    DependentVals.push_back(DV);
+    return (It == REnd);
+  }
+
+  // This routine adds the values on which \p V depends to the \p DependentVals
+  // stack, calling itself recursively to add additional dependencies as
+  // necessary.
+  //
+  // In order to handle cyclic dependencies, some values may be added to the
+  // stack multiple times. If we are able to fully analyze a value, any
+  // subsequent attempts to analyze the value will return a cached result.
+  // However, we may only get partial results at some point which may be
+  // improved by later re-analysis.
+  //
+  // In order to avoid infinite recursion, we do not traverse secondary
+  // dependencies for values that have been added to the stack more than
+  // once. Because we only need complete results for the initial value at
+  // the base of the dependency stack, it is sufficient to have these
+  // secondary dependencies appear just once, as far down in the stack as
+  // possible.
+  void populateDependencyStack(Value *V,
+                               SmallVectorImpl<Value*> &DependentVals) {
+    // BitCast and PtrToInt can be a ConstExpr acting on a global, so we
+    // need to check the operator form. The instruction form of these
+    // would be covered by CastInst, but that also handles IntToPtr which
+    // does not have a ConstExpr equivalent.
+    if (isa<BitCastOperator>(V) || isa<PtrToIntOperator>(V) ||
+        isa<CastInst>(V)) {
+      Value *Src = cast<User>(V)->getOperand(0);
+      if (addDependency(Src, DependentVals))
+        populateDependencyStack(Src, DependentVals);
+      return;
+    }
+
+    // For PHI nodes we need to add all of the non-self incoming values.
+    // The values themselves should all be analyzed after the dependencies for
+    // all of the incoming values have been handled. This resolves as many
+    // partial results as possible.
+    if (auto *PN = dyn_cast<PHINode>(V)) {
+      // We use a set here to avoid adding the same value twice if there are
+      // duplicate incoming values. As we add these values to the dependency
+      // stack we'll remove them from the set if they were previously on
+      // the stack.
+      SmallPtrSet<Value *, 4> NewDeps;
+      for (Value *InVal : PN->incoming_values())
+        if (InVal != PN)
+          NewDeps.insert(InVal);
+      auto It = NewDeps.begin();
+      auto End = NewDeps.end();
+      while (It != End) {
+        Value *Dep = *It;
+        ++It;
+        if (!addDependency(Dep, DependentVals))
+          NewDeps.erase(Dep);
       }
-    };
-
-    LocalPointerInfo &Info = LocalMap[V];
-    if (Info.getAnalyzed()) {
-      recordSecondaryDependencies(V, Dependent);
-      return Info;
+      for (Value *Dep : NewDeps)
+        populateDependencyStack(Dep, DependentVals);
     }
 
-    // If analysis of this value is currently in progress, add an entry
-    // to the pending values map so that its analysis can be appended to
-    // the Dependent value when it is complete.
-    if (InProgressValues.count(V)) {
-      DEBUG(dbgs() << "  Recording dependency of " << Dependent->getName()
-                   << " on " << V->getName() << "\n");
-      DependentValues[V].insert(Dependent);
-      PendingValues[Dependent].insert(V);
-      return Info;
+    // For select nodes, we add both the true and false values.
+    if (auto *Sel = dyn_cast<SelectInst>(V)) {
+      Value *TV = Sel->getTrueValue();
+      Value *FV = Sel->getFalseValue();
+      bool TrueWasNew = addDependency(TV, DependentVals);
+      bool FalseWasNew = addDependency(FV, DependentVals);
+      if (TrueWasNew)
+        populateDependencyStack(TV, DependentVals);
+      if (FalseWasNew)
+        populateDependencyStack(FV, DependentVals);
+      return;
     }
 
-    // Otherwise, we can attempt analysis.
-    analyzeValue(V);
+    // GEPs only depend on the analysis of other values if they are in their
+    // byte-flattened form.
+    if (auto *GEP = dyn_cast<GEPOperator>(V)) {
+      Value *BasePtr = GEP->getPointerOperand();
+      if (BasePtr->getType() == llvm::Type::getInt8PtrTy(GEP->getContext())) {
+        if (addDependency(BasePtr, DependentVals))
+          populateDependencyStack(BasePtr, DependentVals);
+      }
+      return;
+    }
 
-    // It is still possible that the analysis of V could not be completed
-    // because it depends on a value that was pending. If so, mark our
-    // Dependent value as also being dependent on the results for which
-    // the analysis of V is waiting.
-    recordSecondaryDependencies(V, Dependent);
+    // Load instructions depend on the analysis of their pointer operand.
+    if (auto *LI = dyn_cast<LoadInst>(V)) {
+      Value *SrcPtr = LI->getPointerOperand();
+      if (addDependency(SrcPtr, DependentVals))
+        populateDependencyStack(SrcPtr, DependentVals);
+      return;
+    }
 
-    return Info;
+    // Allocation calls have a non-trivial dependency on their uses.
+    // We have a helper function to handle this case.
+    if (auto *CI = getCallInstIfAlloc(V)) {
+      SmallPtrSet<User*, 8> VisitedUsers;
+      addAllocUsesToDependencyStack(CI, DependentVals, VisitedUsers);
+    }
+  }
+
+  void addAllocUsesToDependencyStack(Value *V,
+                                     SmallVectorImpl<Value*> &DependentVals,
+                                     SmallPtrSetImpl<User*> &VisitedUsers) {
+    for (auto *U : V->users()) {
+      // Don't re-visit users we've already seen.
+      if (!VisitedUsers.insert(U).second)
+        continue;
+
+      // Although BitCast instructions are fundamental to the analysis
+      // of allocation calls, we don't need to track their dependencies
+      // because we're looking in the opposite direction of the use-chain
+      // here.
+
+      // We do need to follow the uses of PHI nodes and selects, because
+      // they might lead to a store instruction, which does introduce a
+      // dependency.
+      if (isa<PHINode>(U) || isa<SelectInst>(U))
+        addAllocUsesToDependencyStack(U, DependentVals, VisitedUsers);
+
+      // Finally, if the allocated value is passed to a store instruction
+      // we need to record a dependency on the pointer value because
+      // the allocated type may be inferred from the alias information
+      // for this pointer.
+      if (auto *SI = dyn_cast<StoreInst>(U)) {
+        Value *SrcPtr = SI->getPointerOperand();
+        if (addDependency(SrcPtr, DependentVals))
+          populateDependencyStack(SrcPtr, DependentVals);
+      }
+    }
+  }
+
+  void dumpDependencyStack(SmallVectorImpl<Value*> &DependentVals) {
+    dbgs() << "  DependentVals:\n";
+    for (auto *V : DependentVals)
+      dbgs() << "    " << *V << "\n";
+    dbgs() << "\n";
+  }
+
+  // This helper function is here to avoid repeating the check for an
+  // incomplete result.
+  inline void mergeOperandInfo(Value *Op, LocalPointerInfo &TargetInfo) {
+    LocalPointerInfo &OperandInfo = LocalMap[Op];
+    TargetInfo.merge(OperandInfo);
+    if (!OperandInfo.getAnalyzed()) {
+      TargetInfo.setPartialAnalysis(true);
+      DEBUG(dbgs() << "Incomplete analysis merged from " << *Op << "\n");
+    }
   }
 
   void collectSourceOperandInfo(Value *V, LocalPointerInfo &Info) {
@@ -984,29 +1101,31 @@ private:
     // prevent infinite recursion if we track back to a block we've
     // already visited.
     if (auto *PN = dyn_cast<PHINode>(V)) {
-      for (Value *InVal : PN->incoming_values()) {
-        LocalPointerInfo &InLPI = tryGetLocalPointerInfo(InVal, V);
-        Info.merge(InLPI);
-      }
+      for (Value *InVal : PN->incoming_values())
+        mergeOperandInfo(InVal, Info);
       return;
     }
     if (auto *Sel = dyn_cast<SelectInst>(V)) {
-      Value *TV = Sel->getTrueValue();
-      LocalPointerInfo &TrueLPI = tryGetLocalPointerInfo(TV, V);
-      Info.merge(TrueLPI);
-      Value *FV = Sel->getFalseValue();
-      LocalPointerInfo &FalseLPI = tryGetLocalPointerInfo(FV, V);
-      Info.merge(FalseLPI);
+      mergeOperandInfo(Sel->getTrueValue(), Info);
+      mergeOperandInfo(Sel->getFalseValue(), Info);
       return;
     }
     if (isa<CastInst>(V) || isa<BitCastOperator>(V) ||
         isa<PtrToIntOperator>(V)) {
       Value *SrcVal = cast<User>(V)->getOperand(0);
-      LocalPointerInfo &SrcLPI = tryGetLocalPointerInfo(SrcVal, V);
+      LocalPointerInfo &SrcLPI = LocalMap[SrcVal];
+      // If the incoming analysis was incomplete, what we do below won't be
+      // complete, but the partial analysis may be necessary so we note the
+      // incompleteness and continue.
+      if (!SrcLPI.getAnalyzed()) {
+        Info.setPartialAnalysis(true);
+        DEBUG(dbgs() << "Incomplete analysis collected from " << *SrcVal
+                     << "\n");
+      }
       // If this is a bitcast that would be a valid way to access element
       // zero of any type known to be aliased by SrcVal, then record this
       // as an element access rather than merging the incoming value's aliases.
-      if (auto *BC = dyn_cast<BitCastInst>(V)) {
+      if (auto *BC = dyn_cast<BitCastOperator>(V)) {
         // FIXME: This has the potential to miss the case where the bitcast
         //        is accessing element zero of a type that is aliased through
         //        some value that we were not able to analyze (because of a
@@ -1039,20 +1158,22 @@ private:
     llvm_unreachable("Unexpected class for derived value!");
   }
 
-  bool analyzeElementAccess(GEPOperator *GEP, LocalPointerInfo &Info) {
+  void analyzeElementAccess(GEPOperator *GEP, LocalPointerInfo &Info) {
     auto *Int8PtrTy = llvm::Type::getInt8PtrTy(GEP->getContext());
 
     // If the base pointer is an i8* we need to analyze this as a
     // byte-flattened GEP.
     Value *BasePointer = GEP->getPointerOperand();
-    if (BasePointer->getType() == Int8PtrTy)
-      return analyzeByteFlattenedGEPAccess(GEP, Info);
+    if (BasePointer->getType() == Int8PtrTy) {
+      analyzeByteFlattenedGEPAccess(GEP, Info);
+      return;
+    }
 
     // A GEP with only one index argument is a special case where a pointer
     // is being used as an array. That doesn't get us a pointer to an element
     // within an aggregate type.
     if (GEP->getNumIndices() == 1)
-      return false;
+      return;
 
     // There's an odd case where LLVM's constant folder will transform
     // a bitcast into a GEP if the first element of the structure at
@@ -1094,13 +1215,13 @@ private:
     auto *LastArg =
         dyn_cast<ConstantInt>(GEP->getOperand(GEP->getNumOperands() - 1));
     if (!LastArg)
-      return false;
+      return;
     uint64_t Idx = LastArg->getLimitedValue();
 
     // Add this information to the local pointer information for the GEP.
     Info.addElementPointee(IndexedTy, Idx);
 
-    return true;
+    return;
   }
 
   // This method determines the real aggregate type and element index being
@@ -1130,7 +1251,15 @@ private:
     uint64_t Offset = APOffset.getLimitedValue();
 
     // Check for types that the base pointer is known to alias.
-    LocalPointerInfo &BaseLPI = getLocalPointerInfo(BasePointer);
+    LocalPointerInfo &BaseLPI = LocalMap[BasePointer];
+    // If the incoming analysis was incomplete, what we do below won't be
+    // complete, but the partial analysis may be necessary so we note the
+    // incompleteness and continue.
+    if (!BaseLPI.getAnalyzed()) {
+      Info.setPartialAnalysis(true);
+      DEBUG(dbgs() << "Incomplete analysis derived from " << *BasePointer
+                   << "\n");
+    }
     for (auto *AliasTy : BaseLPI.getPointerTypeAliasSet()) {
       if (!AliasTy->isPointerTy())
         continue;
@@ -1217,7 +1346,10 @@ private:
     // If the pointer operand aliases any pointers-to-pointers, the loaded
     // value will be considered to alias to the pointed-to pointer type.
     Value *Src = Load->getPointerOperand();
-    LocalPointerInfo &SrcLPI = getLocalPointerInfo(Src);
+    // We should have at least attempted to analyze this value already.
+    // If not, there is a problem in populateDependencyStack().
+    assert(LocalMap.count(Src) && "Load pointer operand missing from map!");
+    LocalPointerInfo &SrcLPI = LocalMap[Src];
     for (auto *AliasTy : SrcLPI.getPointerTypeAliasSet())
       if (AliasTy->isPointerTy() &&
           AliasTy->getPointerElementType()->isPointerTy())
@@ -1340,7 +1472,6 @@ private:
       StoreInst *Store, SmallPtrSetImpl<llvm::PointerType *> &Types) {
     // Get the local pointer info for the destination address.
     Value *DestPtr = Store->getPointerOperand();
-    analyzeValue(DestPtr);
     LocalPointerInfo &DestInfo = LocalMap[DestPtr];
 
     // For each type aliased by the destination, if the type is a pointer
@@ -1884,11 +2015,71 @@ public:
     if (!DTInfo.isTypeOfInterest(Ty))
       return;
 
-    DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                 << "Type used by a stack variable:\n"
+    if (isa<PointerType>(Ty)) {
+      DEBUG(dbgs() << "dtrans-safety: Local pointer -- "
+                   << "Pointer to type used by an alloca instruction:\n"
+                   << "  " << I << "\n");
+      setBaseTypeInfoSafetyData(Ty, dtrans::LocalPtr);
+      return;
+    }
+
+    if (isa<ArrayType>(Ty)) {
+      // For arrays of arrays, we want the deepest level of element to find
+      // our type of interest.
+      llvm::Type *ElemTy = Ty->getArrayElementType();
+      while (isa<ArrayType>(ElemTy))
+        ElemTy = ElemTy->getArrayElementType();
+      // Arrays of pointers, including pointers to non-pointer arrays, are
+      // effectively pointers to the type for the purposes of our analysis.
+      if (isa<PointerType>(ElemTy)) {
+        DEBUG(dbgs() << "dtrans-safety: Local pointer -- "
+                     << "Array of pointers to type used by "
+                     << "an alloca instruction:\n"
+                     << "  " << I << "\n");
+        setBaseTypeInfoSafetyData(ElemTy, dtrans::LocalPtr);
+        return;
+      }
+      if (isa<VectorType>(ElemTy)) {
+        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                     << "Array of vectors allocated by an alloca instruction:\n"
+                     << "  " << I << "\n");
+        setBaseTypeInfoSafetyData(Ty, dtrans::UnhandledUse);
+        return;
+      }
+      DEBUG(dbgs() << "dtrans-safety: Local instance -- "
+                   << "Array of instance of type used by "
+                   << "an alloca instruction:\n"
+                   << "  " << I << "\n");
+      setBaseTypeInfoSafetyData(Ty, dtrans::LocalInstance);
+      return;
+    }
+
+    if (isa<VectorType>(Ty)) {
+      DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                   << "Vector of type instantiated by an alloca instruction:\n"
+                   << "  " << I << "\n");
+      setBaseTypeInfoSafetyData(Ty, dtrans::UnhandledUse);
+      return;
+    }
+
+    DEBUG(dbgs() << "dtrans-safety: Local instance -- "
+                 << "Type instantiated by an alloca instruction:\n"
                  << "  " << I << "\n");
-    // TODO: Set specific safety info.
-    setBaseTypeInfoSafetyData(Ty, dtrans::UnhandledUse);
+    setBaseTypeInfoSafetyData(Ty, dtrans::LocalInstance);
+  }
+
+  void visitBinaryOperator(BinaryOperator &I) {
+    // Binary operator analysis will be implemented as needed.
+    // For now, unimplemented operators will cause values to be marked
+    // as unhandled use.
+    switch (I.getOpcode()) {
+    case Instruction::Sub:
+      analyzeSub(I);
+      break;
+    default:
+      setBinaryOperatorUnhandledUse(I);
+      break;
+    }
   }
 
   // All instructions not handled by other visit functions.
@@ -2300,6 +2491,9 @@ private:
       return;
     }
 
+    dtrans::AllocCallInfo *ACI = DTInfo.createAllocCallInfo(&CI, Kind);
+    populateCallInfoFromLPI(LPI, ACI);
+
     // If the value is cast to multiple types, mark them all as bad casting.
     bool WasCastToMultipleTypes = LPI.pointsToMultipleAggregateTypes();
 
@@ -2694,36 +2888,12 @@ private:
       // Check if the pointer-to-member is a member of structure that can
       // be analyzed.
       if (isSimpleStructureMember(DstLPI, &StructTy, &FieldNum)) {
-        // Try to determine if a set of fields in a structure is being written.
-        unsigned int FirstField = 0;
-        unsigned int LastField = 0;
-        if (analyzePartialStructUse(StructTy, FieldNum, SetSize, &FirstField,
-                                    &LastField)) {
-          auto *ParentTI = DTInfo.getOrCreateTypeInfo(StructTy);
 
-          // If not all members of the structure were set, mark it as
-          // a partial write.
-          if (!(FirstField == 0 &&
-                LastField == (StructTy->getNumElements() - 1))) {
-            DEBUG(dbgs() << "dtrans-safety: Memfunc partial write -- "
-                         << "size is a subset of fields:\n"
-                         << "  " << I << "\n");
-
-            ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
-          }
-          markStructFieldsWritten(ParentTI, FirstField, LastField);
-          // Conservatively mark all fields as having been written by the
-          // memset.  We can improve this analysis later.
-          markAllFieldsMultipleValue(ParentTI);
-        } else {
-          // The size could not be matched to the fields of the structure.
-          DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
-                       << "size does not equal member field type(s) size:\n"
-                       << "  " << I << "\n");
-
-          setBaseTypeInfoSafetyData(StructTy, dtrans::BadMemFuncSize);
-        }
-
+        // Pass 'false' for IsValuePreservingWrite to conservatively mark all
+        // fields as being multiple value from the memset.  We can improve this
+        // analysis later by analyzing the value being set.
+        analyzeMemfuncStructureMemberParam(I, StructTy, FieldNum, SetSize,
+                                           /*IsValuePreservingWrite=*/false);
         return;
       }
 
@@ -2772,28 +2942,10 @@ private:
 
     // Consider the case where a portion of a structure is being set, starting
     // from the 1st field.
-    if (DestPointeeTy->isStructTy()) {
-      StructType *StructTy = cast<StructType>(DestPointeeTy);
-      unsigned int FirstField = 0;
-      unsigned int LastField = 0;
-      if (analyzePartialStructUse(StructTy, 0, SetSize, &FirstField,
-                                  &LastField)) {
-
-        // It's possible the write covered all the fields, but excluded any
-        // padding after the last element, so check whether it was a partial
-        // write or not.
-        if (!(FirstField == 0 &&
-              LastField == (StructTy->getNumElements() - 1))) {
-          DEBUG(dbgs() << "dtrans-safety: Memfunc partial write -- "
-                       << "size is a subset of fields:\n"
-                       << "  " << I << "\n");
-
-          ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
-        }
-
-        markStructFieldsWritten(ParentTI, FirstField, LastField);
-        return;
-      }
+    if (auto *StructTy = dyn_cast<StructType>(DestPointeeTy)) {
+      analyzeMemfuncStructureMemberParam(I, StructTy, 0, SetSize,
+                                         /*IsValuePreservingWrite=*/false);
+      return;
     }
 
     DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
@@ -2963,31 +3115,9 @@ private:
       // case.
       if (DstSimple == SrcSimple && DstStructTy == SrcStructTy &&
           DstFieldNum == SrcFieldNum) {
-        unsigned int FirstField = 0;
-        unsigned int LastField = 0;
-        if (analyzePartialStructUse(DstStructTy, DstFieldNum, SetSize,
-                                    &FirstField, &LastField)) {
-          auto *ParentTI = DTInfo.getOrCreateTypeInfo(DstStructTy);
-
-          // If the not all members of the structure were set, mark it as
-          // a partial write.
-          if (!(FirstField == 0 &&
-                LastField == (DstStructTy->getNumElements() - 1))) {
-            DEBUG(dbgs() << "dtrans-safety: Memfunc partial write -- "
-                         << "size is a subset of fields:\n"
-                         << "  " << I << "\n");
-
-            ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
-          }
-          markStructFieldsWritten(ParentTI, FirstField, LastField);
-        } else {
-          // The size could not be matched to the fields of the structure.
-          DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
-                       << "size does not equal member field type(s) size:\n"
-                       << "  " << I << "\n");
-
-          setBaseTypeInfoSafetyData(DstStructTy, dtrans::BadMemFuncSize);
-        }
+        analyzeMemfuncStructureMemberParam(I, DstStructTy, DstFieldNum, SetSize,
+                                           /*IsValuePreservingWrite=*/true);
+        return;
       } else {
         DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
                      << "source and destination pointer to member types or "
@@ -3020,27 +3150,10 @@ private:
 
     // Consider the case where a portion of a structure is being set, starting
     // from the 1st field.
-    if (DestPointeeTy->isStructTy()) {
-      StructType *StructTy = cast<StructType>(DestPointeeTy);
-      unsigned int FirstField = 0;
-      unsigned int LastField = 0;
-      if (analyzePartialStructUse(StructTy, 0, SetSize, &FirstField,
-                                  &LastField)) {
-        auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
-        // It's possible the write covered all the fields, but excluded any
-        // padding after the last element, so check whether it was a partial
-        // write or not.
-        if (!(FirstField == 0 &&
-              LastField == (StructTy->getNumElements() - 1))) {
-          DEBUG(dbgs() << "dtrans-safety: Memfunc partial write -- "
-                       << "size is a subset of fields:\n"
-                       << "  " << I << "\n");
-
-          ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
-        }
-        markStructFieldsWritten(ParentTI, FirstField, LastField);
-        return;
-      }
+    if (auto *StructTy = dyn_cast<StructType>(DestPointeeTy)) {
+      analyzeMemfuncStructureMemberParam(I, StructTy, 0, SetSize,
+                                         /*IsValuePreservingWrite=*/true);
+      return;
     }
 
     DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
@@ -3048,6 +3161,22 @@ private:
                  << "  " << I << "\n");
 
     setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncSize);
+  }
+
+  // This function is used to set the type information captured in the
+  // LPI structure into the CallInfo structure that is going to be exposed
+  // to the transforms.
+  void populateCallInfoFromLPI(LocalPointerInfo &LPI, dtrans::CallInfo *CI) {
+    if (LPI.canAliasToAggregatePointer()) {
+      CI->setAliasesToAggregatePointer(true);
+      LocalPointerInfo::PointerTypeAliasSetRef &AliasSet =
+          LPI.getPointerTypeAliasSet();
+      for (auto *Ty : AliasSet) {
+        if (DTInfo.isTypeOfInterest(Ty)) {
+          CI->addType(Ty);
+        }
+      }
+    }
   }
 
   // Helper function for retrieving information when the \p LPI argument refers
@@ -3104,12 +3233,53 @@ private:
     return false;
   }
 
+  // Analyze a structure pointer that is passed to memfunc call, possibly using
+  // a pointer to one of the fields within the structure to determine which
+  // fields are modified, and whether it is a safe usage. Return 'true' if safe
+  // usage.
+  bool analyzeMemfuncStructureMemberParam(Instruction &I, StructType *StructTy,
+                                          size_t FieldNum, Value *SetSize,
+                                          bool IsValuePreservingWrite) {
+    // Try to determine if a set of fields in a structure is being written.
+    dtrans::MemfuncRegion RegionDesc;
+    if (analyzePartialStructUse(StructTy, FieldNum, SetSize, &RegionDesc)) {
+      auto *ParentTI = DTInfo.getOrCreateTypeInfo(StructTy);
+
+      // If not all members of the structure were set, mark it as
+      // a partial write.
+      if (!RegionDesc.IsCompleteAggregate) {
+        DEBUG(dbgs() << "dtrans-safety: Memfunc partial write -- "
+                     << "size is a subset of fields:\n"
+                     << "  " << I << "\n");
+
+        ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
+      }
+      markStructFieldsWritten(ParentTI, RegionDesc.FirstField,
+                              RegionDesc.LastField);
+
+      // A copy is considered as preserving the single value analysis info.
+      // However, for a memset, it is not known whether the value changed
+      // without checking the value being set.
+      if (!IsValuePreservingWrite)
+        markAllFieldsMultipleValue(ParentTI);
+    } else {
+      // The size could not be matched to the fields of the structure.
+      DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
+                   << "size does not equal member field type(s) size:\n"
+                   << "  " << I << "\n");
+
+      setBaseTypeInfoSafetyData(StructTy, dtrans::BadMemFuncSize);
+      return false;
+    }
+
+    return true;
+  }
+
   // Wrapper function for analyzing structure field access which prepares
   // parameters for that function.
   bool analyzePartialStructUse(StructType *StructTy, size_t FieldNum,
                                const Value *AccessSizeVal,
-                               unsigned int *FirstField,
-                               unsigned int *LastField) {
+                               dtrans::MemfuncRegion *RegionDesc) {
     if (!StructTy)
       return false;
 
@@ -3123,8 +3293,7 @@ private:
     uint64_t AccessSize = AccessSizeCI->getLimitedValue();
     assert(FieldNum < StructTy->getNumElements());
 
-    return analyzeStructFieldAccess(StructTy, FieldNum, AccessSize, FirstField,
-                                    LastField);
+    return analyzeStructFieldAccess(StructTy, FieldNum, AccessSize, RegionDesc);
   }
 
   // Helper to analyze a pointer-to-member usage to determine if only a
@@ -3134,11 +3303,12 @@ private:
   //
   // Return 'true' if it can be resolved to precisely match one or more
   // adjacent fields starting with the field number identified in the 'LPI'.
-  // If so, also set the starting index into 'FirstField' and the ending index
-  // of affected fields into 'LastField'. Otherwise, return 'false'.
+  // If so, also updated the RegionDesc to set the starting index into
+  // 'FirstField' and the ending index of affected fields into 'LastField'.
+  // Otherwise, return 'false'.
   bool analyzeStructFieldAccess(StructType *StructTy, size_t FieldNum,
-                                uint64_t AccessSize, unsigned int *FirstField,
-                                unsigned int *LastField) {
+                                uint64_t AccessSize,
+                                dtrans::MemfuncRegion *RegionDesc) {
     uint64_t TypeSize = DL.getTypeAllocSize(StructTy);
 
     // If the size is larger than the base structure size, then the write
@@ -3167,8 +3337,12 @@ private:
     if (LastOffset < (LastFieldStart + LastFieldSize - 1))
       return false;
 
-    *FirstField = FieldNum;
-    *LastField = LF;
+    RegionDesc->FirstField = FieldNum;
+    RegionDesc->LastField = LF;
+    if (!(FieldNum == 0 && LF == (StructTy->getNumElements() - 1)))
+      RegionDesc->IsCompleteAggregate = false;
+    else
+      RegionDesc->IsCompleteAggregate = true;
     return true;
   }
 
@@ -3274,6 +3448,86 @@ private:
     } else if (auto *AInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
       auto *ComponentTI = AInfo->getElementDTransInfo();
       markAllFieldsMultipleValue(ComponentTI);
+    }
+  }
+
+  void analyzeSub(BinaryOperator &I) {
+    assert(I.getOpcode() == Instruction::Sub &&
+           "analyzeSub() called with unexpected opcode");
+
+    // If neither operand is of interest, we can ignore this instruction.
+    if (!isValueOfInterest(I.getOperand(0)) &&
+        !isValueOfInterest(I.getOperand(1)))
+      return;
+
+    LocalPointerInfo &LHSLPI = LPA.getLocalPointerInfo(I.getOperand(0));
+    LocalPointerInfo &RHSLPI = LPA.getLocalPointerInfo(I.getOperand(1));
+
+    if (!pointerAliasSetsAreEqual(LHSLPI.getPointerTypeAliasSet(),
+                                  RHSLPI.getPointerTypeAliasSet())) {
+      DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                   << "sub instruction operands do not match:\n"
+                   << "  " << I << "\n");
+      setValueTypeInfoSafetyData(I.getOperand(0), dtrans::UnhandledUse);
+      setValueTypeInfoSafetyData(I.getOperand(1), dtrans::UnhandledUse);
+    }
+
+    if (LHSLPI.pointsToSomeElement()) {
+      DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
+                   << "pointer to element used in sub instruction:\n"
+                   << "  " << I << "\n");
+      // Selects and PHIs may have created a pointer that refers to
+      // elements in multiple aggregate types. This sets the bad pointer
+      // manipulation condition for them all.
+      for (auto &PointeePair : LHSLPI.getElementPointeeSet()) {
+        setBaseTypeInfoSafetyData(PointeePair.first,
+                                  dtrans::BadPtrManipulation);
+      }
+    }
+    if (RHSLPI.pointsToSomeElement()) {
+      DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
+                   << "pointer to element used in sub instruction:\n"
+                   << "  " << I << "\n");
+      // Selects and PHIs may have created a pointer that refers to
+      // elements in multiple aggregate types. This sets the bad pointer
+      // manipulation condition for them all.
+      for (auto &PointeePair : RHSLPI.getElementPointeeSet()) {
+        setBaseTypeInfoSafetyData(PointeePair.first,
+                                  dtrans::BadPtrManipulation);
+      }
+    }
+  }
+
+  bool pointerAliasSetsAreEqual(LocalPointerInfo::PointerTypeAliasSetRef Set1,
+                                LocalPointerInfo::PointerTypeAliasSetRef Set2) {
+    // If the number of aliases is not the same, the sets cannot be equal.
+    if (Set1.size() != Set2.size())
+      return false;
+
+    // Check to make sure each type aliased by V1 are also aliased by V2.
+    // This looks expensive, but typically we will have no more than five
+    // aliased types.
+    for (auto *AliasTy : Set1)
+      if (!Set2.count(AliasTy))
+        return false;
+
+    // If we got here, the alias sets match.
+    return true;
+  }
+
+  void setBinaryOperatorUnhandledUse(BinaryOperator &I) {
+    // It isn't possible for binary operators to return pointers or
+    // aggregate types.
+    assert(!DTInfo.isTypeOfInterest(I.getType()) &&
+           "Unexpected return type for binary operator");
+
+    for (Value *Arg : I.operands()) {
+      if (isValueOfInterest(Arg)) {
+        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                     << "Type used by an unmodeled binary operator:\n"
+                     << "  " << I << "\n");
+        setValueTypeInfoSafetyData(Arg, dtrans::UnhandledUse);
+      }
     }
   }
 
@@ -3433,6 +3687,91 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
   return DTransTy;
 }
 
+dtrans::CallInfo *DTransAnalysisInfo::getCallInfo(llvm::Instruction *I) {
+  auto Entry = CallInfoMap.find(I);
+  if (Entry == CallInfoMap.end())
+    return nullptr;
+
+  return Entry->second;
+}
+
+void DTransAnalysisInfo::addCallInfo(Instruction *I, dtrans::CallInfo *CI) {
+  assert(getCallInfo(I) == nullptr &&
+         "An instruction is only allowed a single CallInfo mapping");
+  CallInfoMap[I] = CI;
+}
+
+dtrans::AllocCallInfo *
+DTransAnalysisInfo::createAllocCallInfo(Instruction *I, dtrans::AllocKind AK) {
+  dtrans::AllocCallInfo *Info = new dtrans::AllocCallInfo(I, AK);
+  addCallInfo(I, Info);
+  return Info;
+}
+
+void DTransAnalysisInfo::deleteCallInfo(Instruction *I) {
+  dtrans::CallInfo *Info = getCallInfo(I);
+  if (!Info)
+    return;
+
+  CallInfoMap.erase(I);
+  delete Info;
+}
+
+void DTransAnalysisInfo::replaceCallInfoInstruction(dtrans::CallInfo *Info,
+                                                   Instruction *NewI) {
+  CallInfoMap.erase(Info->getInstruction());
+  addCallInfo(NewI, Info);
+  Info->setInstruction(NewI);
+}
+
+/// Print the cached call info data, the type of call, and the function
+/// making the call. This function is just for generating traces for testing.
+void DTransAnalysisInfo::printCallInfo() {
+
+  std::vector<std::tuple<StringRef, dtrans::CallInfo::CallInfoKind,
+                         const Instruction *, dtrans::CallInfo *>>
+      Entries;
+
+  // To get some consistency in the printing order, populate a tuple
+  // that can be sorted, then output the sorted list.
+  for (auto &Entry : call_info_entries()) {
+    Instruction *I = Entry->getInstruction();
+    Entries.push_back(std::make_tuple(I->getParent()->getParent()->getName(),
+                                      Entry->getCallInfoKind(), I, Entry));
+  }
+
+  std::sort(Entries.begin(), Entries.end());
+  for (auto &Entry : Entries) {
+    outs() << "Function: " << std::get<0>(Entry) << "\n";
+    outs() << "Instruction: " << *std::get<2>(Entry) << "\n";
+    std::get<3>(Entry)->dump();
+    outs() << "\n";
+  }
+}
+
+// Helper to invoke the right destructor object for destroying a CallInfo
+// type object.
+void DTransAnalysisInfo::destructCallInfo(dtrans::CallInfo *Info) {
+  if (!Info)
+    return;
+
+  switch (Info->getCallInfoKind()) {
+  case dtrans::CallInfo::CIK_Alloc:
+    delete cast<dtrans::AllocCallInfo>(Info);
+    break;
+  case dtrans::CallInfo::CIK_Free:
+    // TODO: uncomment when FreeCallInfo class is added
+    // delete cast<dtrans::FreeCallInfo>(Info);
+    break;
+  case dtrans::CallInfo::CIK_Memfunc:
+    // TODO: uncomment when FreeCallInfo class is added
+    // delete cast<dtrans::MemfuncCallInfo>(Info);
+    break;
+  default:
+    llvm_unreachable("Missing case for CallInfo type in deleteCallInfo");
+  }
+}
+
 INITIALIZE_PASS_BEGIN(DTransAnalysisWrapper, "dtransanalysis",
                       "Data transformation analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
@@ -3462,6 +3801,10 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
 DTransAnalysisInfo::DTransAnalysisInfo() {}
 
 DTransAnalysisInfo::~DTransAnalysisInfo() {
+  // DTransAnalysisInfo owns the CallInfo pointers in the CallInfoMap.
+  for (auto Info : CallInfoMap)
+    destructCallInfo(Info.second);
+
   // DTransAnalysisInfo owns the TypeInfo pointers in the TypeInfoMap.
   for (auto Entry : TypeInfoMap) {
     switch (Entry.second->getTypeInfoKind()) {
@@ -3540,6 +3883,9 @@ bool DTransAnalysisInfo::analyzeModule(Module &M, TargetLibraryInfo &TLI) {
       }
     }
   }
+
+  if (DTransPrintAnalyzedCalls)
+    printCallInfo();
 
   return false;
 }

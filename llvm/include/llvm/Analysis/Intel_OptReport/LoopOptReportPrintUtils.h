@@ -20,6 +20,7 @@
 #include "llvm/Support/FormattedStream.h"
 
 namespace llvm {
+class DebugLoc;
 namespace OptReportUtils {
 void printRemark(formatted_raw_ostream &FOS, unsigned Depth, LoopOptRemark R);
 void printOrigin(formatted_raw_ostream &FOS, unsigned Depth,
@@ -28,7 +29,8 @@ void printDebugLocation(formatted_raw_ostream &FOS, unsigned Depth,
                         const DILocation *DL);
 void printLoopHeader(formatted_raw_ostream &FOS, unsigned Depth);
 void printLoopFooter(formatted_raw_ostream &FOS, unsigned Depth);
-
+void printLoopHeaderAndOrigin(formatted_raw_ostream &FOS, unsigned Depth,
+                              LoopOptReport OptReport, const DebugLoc &DL);
 // This function prints the opt report enclosed with header/footer.
 // It is useful for printing first childs or next siblings.
 void printEnclosedOptReport(formatted_raw_ostream &FOS, unsigned Depth,

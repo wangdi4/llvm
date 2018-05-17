@@ -1,6 +1,6 @@
 //===--------   HIRSafeReductionAnalysis.h    -----------------------------===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -34,7 +34,6 @@ namespace loopopt {
 class CanonExpr;
 class HLInst;
 class HLLoop;
-class HIRLoopStatistics;
 
 typedef SmallVector<const HLInst *, 4> SafeRedChain;
 
@@ -49,11 +48,9 @@ struct SafeRedInfo {
 
 typedef SmallVector<SafeRedInfo, 4> SafeRedChainList;
 
-class HIRSafeReductionAnalysis final : public HIRAnalysisPass {
+class HIRSafeReductionAnalysis : public HIRAnalysis {
+  HIRDDAnalysis &DDA;
 
-private:
-  HIRDDAnalysis *DDA;
-  HIRLoopStatistics *HLS;
   unsigned FirstRvalSB;
   const HLNode *FirstChild;
   // From Loop, look up all sets of Insts in a Safe Reduction chain
@@ -81,22 +78,22 @@ private:
   bool isRedTemp(CanonExpr *CE, unsigned BlobIndex);
 
 public:
-  HIRSafeReductionAnalysis()
-      : HIRAnalysisPass(ID, HIRAnalysisPass::HIRSafeReductionAnalysisVal) {}
-  static char ID;
+  HIRSafeReductionAnalysis(HIRFramework &HIRF, HIRDDAnalysis &DDA);
+  HIRSafeReductionAnalysis(const HIRSafeReductionAnalysis &) = delete;
+  HIRSafeReductionAnalysis(HIRSafeReductionAnalysis &&Arg)
+      : HIRAnalysis(Arg.HIRF), DDA(Arg.DDA),
+        SafeReductionMap(std::move(Arg.SafeReductionMap)),
+        SafeReductionInstMap(std::move(Arg.SafeReductionInstMap)) {}
+  virtual ~HIRSafeReductionAnalysis() {}
 
-  bool runOnFunction(Function &F) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  // \brief Compute SafeReduction for all innermost loops
+  // Compute SafeReduction for all innermost loops
   void computeSafeReductionChains(const HLLoop *Loop);
 
-  // \brief Get SafeReduction of a Loop
+  // Get SafeReduction of a Loop
   const SafeRedChainList &getSafeReductionChain(const HLLoop *Loop);
 
-  // \brief Is Inst part of a Safe Reduction. Indicate of Single Stmt when
-  // argument
-  //  supplied
+  // Is Inst part of a Safe Reduction. Indicate of Single Stmt when
+  // argument supplied
   bool isSafeReduction(const HLInst *Inst, bool *IsSingleStmt = nullptr) const;
 
   // Get Safe Reduction Info of a Loop (Chain, Symbase and Opcode). Returns null
@@ -109,13 +106,51 @@ public:
   void print(formatted_raw_ostream &OS, const HLLoop *Loop) override;
   void print(formatted_raw_ostream &OS, const HLLoop *Loop,
              const SafeRedChainList *SR);
+
   void markLoopBodyModified(const HLLoop *L) override;
+};
+
+class HIRSafeReductionAnalysisWrapperPass : public FunctionPass {
+  std::unique_ptr<HIRSafeReductionAnalysis> HSR;
+
+public:
+  static char ID;
+  HIRSafeReductionAnalysisWrapperPass() : FunctionPass(ID) {}
+
+  bool runOnFunction(Function &F) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
   void releaseMemory() override;
 
-  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
-  static bool classof(const HIRAnalysisPass *AP) {
-    return AP->getHIRAnalysisID() ==
-           HIRAnalysisPass::HIRSafeReductionAnalysisVal;
+  void print(raw_ostream &OS, const Module * = nullptr) const override {
+    getHSR().printAnalysis(OS);
+  }
+
+  HIRSafeReductionAnalysis &getHSR() { return *HSR; }
+  const HIRSafeReductionAnalysis &getHSR() const { return *HSR; }
+};
+
+class HIRSafeReductionAnalysisPass
+    : public AnalysisInfoMixin<HIRSafeReductionAnalysisPass> {
+  friend struct AnalysisInfoMixin<HIRSafeReductionAnalysisPass>;
+
+  static AnalysisKey Key;
+
+public:
+  using Result = HIRSafeReductionAnalysis;
+
+  HIRSafeReductionAnalysis run(Function &F, FunctionAnalysisManager &AM);
+};
+
+class HIRSafeReductionAnalysisPrinterPass
+    : public PassInfoMixin<HIRSafeReductionAnalysisPrinterPass> {
+  raw_ostream &OS;
+
+public:
+  explicit HIRSafeReductionAnalysisPrinterPass(raw_ostream &OS) : OS(OS) {}
+
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
+    AM.getResult<HIRSafeReductionAnalysisPass>(F).printAnalysis(OS);
+    return PreservedAnalyses::all();
   }
 };
 

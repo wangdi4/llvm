@@ -1,6 +1,6 @@
 //===-- Intel_LoopTransforms.cpp-------------------------------------------===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -17,7 +17,7 @@ using namespace llvm;
 void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRSSADeconstructionLegacyPassPass(Registry);
   initializeHIRTempCleanupPass(Registry);
-  initializeHIRSymbolicTripCountCompleteUnrollPass(Registry);
+  initializeHIRSymbolicTripCountCompleteUnrollLegacyPassPass(Registry);
   initializeHIRLoopInterchangePass(Registry);
   initializeHIROptPredicatePass(Registry);
   initializeHIRPreVecCompleteUnrollPass(Registry);
@@ -39,7 +39,8 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIROptVarPredicatePass(Registry);
   initializeHIRIdiomRecognitionPass(Registry);
   initializeHIRMVForConstUBPass(Registry);
-  initializeHIRLoopConcatenationPass(Registry);
+  initializeHIRLoopConcatenationLegacyPassPass(Registry);
   initializeHIRArrayTransposePass(Registry);
   initializeHIRLoopFusionPass(Registry);
+  initializeHIRDeadStoreEliminationPass(Registry);
 }

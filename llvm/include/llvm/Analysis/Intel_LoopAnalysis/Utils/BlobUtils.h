@@ -1,6 +1,6 @@
 //===-------------- BlobUtils.h - Blob utilities --------------*- C++ -*---===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -32,6 +32,7 @@ class Module;
 class LLVMContext;
 class DataLayout;
 class MetadataAsValue;
+class TargetTransformInfo;
 
 namespace loopopt {
 
@@ -270,8 +271,12 @@ public:
 
   /// Returns the number of operations in the blob.
   /// For example, blob = (a + 2 * b) has 2 operations.
-  static unsigned getNumOperations(BlobTy Blob);
-  unsigned getNumOperations(unsigned BlobIndex) const;
+  /// If TTI is passed, 'free' operations are ignored.
+  static unsigned getNumOperations(BlobTy Blob, const TargetTransformInfo *TTI);
+  unsigned getNumOperations(unsigned BlobIndex,
+                            const TargetTransformInfo *TTI) const {
+    return getNumOperations(getBlob(BlobIndex), TTI);
+  }
 
   /// Returns underlying LLVM value for the temp blob.
   static Value *getTempBlobValue(BlobTy Blob);

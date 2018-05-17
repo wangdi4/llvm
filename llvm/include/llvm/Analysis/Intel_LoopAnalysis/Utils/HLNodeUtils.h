@@ -1,6 +1,6 @@
 //===-------- HLNodeUtils.h - Utilities for HLNode class ---*- C++ -*------===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -376,8 +376,7 @@ private:
 
   /// Implements domination/post-domination functionality.
   static bool dominatesImpl(const HLNode *Node1, const HLNode *Node2,
-                            bool PostDomination, bool StrictDomination,
-                            HIRLoopStatistics *HLS);
+                            bool PostDomination, bool StrictDomination);
 
   /// Set TopSortNums for the first time
   void initTopSortNum();
@@ -568,6 +567,10 @@ public:
   /// underlying setup exists here. Can we move this to DDRefUtils()?
   RegDDRef *createTemp(Type *Ty, const Twine &Name = "temp");
 
+  /// Creates a new underlying instruction and replaces the current temp in
+  /// TempRef by the new instruction. Returns the blob index of the new temp.
+  unsigned createAndReplaceTemp(RegDDRef *TempRef, const Twine &Name = "temp");
+
   /// Used to create copy instructions of the form: Lval = Rval;
   HLInst *createCopyInst(RegDDRef *RvalRef, const Twine &Name = "copy",
                          RegDDRef *LvalRef = nullptr);
@@ -755,6 +758,22 @@ public:
                        RegDDRef *OpRef2, RegDDRef *OpRef3, RegDDRef *OpRef4,
                        const Twine &Name = "select",
                        RegDDRef *LvalRef = nullptr);
+
+  /// Creates a select instruction representing a min operation:
+  /// OpRef1 <(=) OpRef2 ? OpRef1 : OpRef2
+  HLInst *createMin(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                    RegDDRef *LvalRef = nullptr, bool IsSigned = true,
+                    bool IsFPOrdered = true,
+                    FastMathFlags FMF = FastMathFlags(),
+                    const Twine &Name = "min");
+
+  /// Creates a select instruction representing a max operation:
+  /// OpRef1 <(=) OpRef2 ? OpRef2 : OpRef1
+  HLInst *createMax(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                    RegDDRef *LvalRef = nullptr, bool IsSigned = true,
+                    bool IsFPOrdered = true,
+                    FastMathFlags FMF = FastMathFlags(),
+                    const Twine &Name = "max");
 
   /// Creates a new Call instruction.
   HLInst *createCall(Function *F, const SmallVectorImpl<RegDDRef *> &CallArgs,
@@ -1142,28 +1161,19 @@ public:
 
   /// Returns true if Node1 can be proven to dominate Node2, otherwise
   /// conservatively returns false.
-  /// \p HLS is used to produce faster results. A valid value can (and should)
-  /// be passed by clients whenever the loop is in a valid state. This is true
-  /// for all analysis passes and analysis part of the transformations. Null
-  /// should be passed if the loop was modified but has not yet been invalidated
-  /// by a transformation (invalid state).
-  static bool dominates(const HLNode *Node1, const HLNode *Node2,
-                        HIRLoopStatistics *HLS);
+  static bool dominates(const HLNode *Node1, const HLNode *Node2);
 
   /// This is identical to dominates() except the case where Node1 == Node2, in
   /// which case it return false.
-  static bool strictlyDominates(const HLNode *Node1, const HLNode *Node2,
-                                HIRLoopStatistics *HLS);
+  static bool strictlyDominates(const HLNode *Node1, const HLNode *Node2);
 
   /// Returns true if Node1 can be proven to post-dominate Node2, otherwise
   /// conservatively returns false.
-  static bool postDominates(const HLNode *Node1, const HLNode *Node2,
-                            HIRLoopStatistics *HLS);
+  static bool postDominates(const HLNode *Node1, const HLNode *Node2);
 
   /// This is identical to postDominates() except the case where Node1 == Node2,
   /// in which case it return false.
-  static bool strictlyPostDominates(const HLNode *Node1, const HLNode *Node2,
-                                    HIRLoopStatistics *HLS);
+  static bool strictlyPostDominates(const HLNode *Node1, const HLNode *Node2);
 
   /// Checks if \p Node1 and \p Node2 are "equivalent" in terms of CFG: namely
   /// if \p Node1 is reached/accessed anytime \p Node2 is reached/Accessed and
@@ -1173,8 +1183,7 @@ public:
   /// reached/accessed and Node2 isn't, or the other way around.
   /// Note: In the presence of complicated unstructured code (containing
   /// gotos/labels) this function will conservatively return false.
-  static bool canAccessTogether(const HLNode *Node1, const HLNode *Node2,
-                                HIRLoopStatistics *HLS);
+  static bool canAccessTogether(const HLNode *Node1, const HLNode *Node2);
 
   /// Returns true if Parent contains Node. IncludePrePostHdr indicates whether
   /// loop should be considered to contain preheader/postexit nodes.
@@ -1262,14 +1271,11 @@ public:
   }
 
   /// Returns true if Loop is a perfect Loop nest. Also returns the
-  /// innermost loop.
+  /// innermost loop. NearPerfect is only allowed around innermost loop.
   /// Asserts if incoming loop is innermost.
-  /// TODO: AllowPrePostHdr is unused, remove it?
   static bool isPerfectLoopNest(const HLLoop *Loop,
                                 const HLLoop **InnermostLoop = nullptr,
-                                bool AllowPrePostHdr = false,
                                 bool AllowTriangularLoop = false,
-                                bool AllowNearPerfect = false,
                                 bool *IsNearPerfect = nullptr);
 
   /// Any memref with non-unit stride?

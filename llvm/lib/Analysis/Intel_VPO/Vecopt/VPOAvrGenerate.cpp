@@ -1329,8 +1329,8 @@ AVRGenerateHIR::AVRGenerateHIR() : AVRGenerateBase(ID) {
 void AVRGenerateHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AVRGenerateBase::getAnalysisUsage(AU);
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRLocalityAnalysis>();
-  AU.addRequiredTransitive<HIRDDAnalysis>();
+  AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
 }
 
 bool AVRGenerateHIR::runOnFunction(Function &F) {

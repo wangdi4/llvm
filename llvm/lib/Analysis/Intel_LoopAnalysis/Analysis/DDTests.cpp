@@ -1,6 +1,6 @@
 //===- DDTests.cpp - Data dependence testing between two DDRefs -*- C++ -*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -57,6 +57,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
+
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -1119,7 +1120,7 @@ void DependenceAnalysis::unifySubscriptType(Subscript *Pair) {
 // the actual analysis.
 void DDTest::removeMatchingExtensions(Subscript *Pair) {
 
-// TODO:  will handle this later
+  // TODO:  will handle this later
 
 #if 0
   const CanonExpr *Src = Pair->Src;
@@ -3634,8 +3635,10 @@ bool DDTest::delinearizeTo2Dim(const RegDDRef *DDRef, const CanonExpr *CE,
     }
   }
 
-  assert(LoopLevelForUnitStride &&
-         "At least 1 IV with constant coeff expected");
+  if (!LoopLevelForUnitStride) {
+    // No constant coeffs. Cannot proceed further
+    return false;
+  }
 
   IVNum = 0;
 
@@ -4155,8 +4158,8 @@ static void dumpSmallBitVector(SmallBitVector &BV) {
 }
 #endif
 
-DDTest::DDTest(AAResults &AAR, HLNodeUtils &HNU, HIRLoopStatistics &HLS)
-    : AAR(AAR), HNU(HNU), HLS(HLS) {
+DDTest::DDTest(AAResults &AAR, HLNodeUtils &HNU)
+    : AAR(AAR), HNU(HNU) {
   DEBUG(dbgs() << "DDTest initiated\n");
   WorkCE.clear();
 }
@@ -5249,7 +5252,7 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
       return false;
     }
 
-    if (HLNodeUtils::dominates(SrcHIR, DstHIR, &HLS)) {
+    if (HLNodeUtils::dominates(SrcHIR, DstHIR)) {
       if (IsFlow) {
         // If src can reach Dst lexically
         //   assuming 2 level loop

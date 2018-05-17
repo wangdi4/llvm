@@ -181,6 +181,12 @@ const SafetyData ContainsNestedStruct = 0x0000000000100000;
 /// The structure was identified as a system object type.
 const SafetyData SystemObject = 0x0000000000200000;
 
+/// A local variable was found which is a pointer to the type.
+const SafetyData LocalPtr = 0x00000000000400000;
+
+/// A local variable was found which is an instance of the type.
+const SafetyData LocalInstance = 0x0000000000000800000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.
@@ -297,6 +303,109 @@ private:
 /// to the standard library function of the same name.  C++ new operators are
 /// not currently supported.
 enum AllocKind { AK_NotAlloc, AK_Malloc, AK_Calloc, AK_Realloc, AK_UserAlloc };
+
+/// Get a printable string for the AllocKind
+StringRef AllocKindName(AllocKind Kind);
+
+// This class is used to hold information that has been
+// extracted from the LocalPointerInfo to contain a
+// list of aggregate types being used by one of the tracked
+// call instructions. This is kept outside of the CallInfo
+// class itself to allow for cases where type information needs
+// to be tracked for more than a single function argument.
+class PointerTypeInfo {
+public:
+  typedef SmallPtrSet<llvm::Type *, 2> PointerTypeAliasSet;
+  typedef SmallPtrSetImpl<llvm::Type *> &PointerTypeAliasSetRef;
+
+  PointerTypeInfo() : AliasesToAggregatePointer(false) {}
+
+  // Returns 'true' if the type (at some level of indirection)
+  // was known to be a pointer to an aggregate type.
+  bool getAliasesToAggregatePointer() const {
+    return AliasesToAggregatePointer;
+  }
+
+  void setAliasesToAggregatePointer(bool Val) {
+    AliasesToAggregatePointer = Val;
+  }
+
+  // Returns 'true' if  one of the types exactly matches \p Ty
+  bool containsType(llvm::Type *Ty) const { return Types.count(Ty) != 0; }
+
+  void addType(llvm::Type *Ty) { Types.insert(Ty); }
+  PointerTypeAliasSetRef getTypes() { return Types; }
+
+  void dump();
+
+private:
+  bool AliasesToAggregatePointer;
+  PointerTypeAliasSet Types;
+};
+
+// Base class for storing collected information about specific
+// call instructions.
+class CallInfo {
+public:
+  /// Kind of function or intrinsic call.
+  enum CallInfoKind { CIK_Alloc, CIK_Free, CIK_Memfunc };
+
+  CallInfoKind getCallInfoKind() const { return CIK; }
+
+  Instruction *getInstruction() const { return I; }
+  void setInstruction(Instruction *NewI) { I = NewI; }
+
+  bool getAliasesToAggregatePointer() {
+    return PTI.getAliasesToAggregatePointer();
+  }
+
+  void setAliasesToAggregatePointer(bool Val) {
+    PTI.setAliasesToAggregatePointer(Val);
+  }
+
+  void addType(llvm::Type *Ty) { PTI.addType(Ty); }
+  bool containsType(llvm::Type *Ty) const { return PTI.containsType(Ty); }
+
+  PointerTypeInfo &getPointerTypeInfoRef() { return PTI; }
+
+  void dump();
+
+protected:
+  CallInfo(Instruction *I, CallInfoKind Kind) : I(I), CIK(Kind) {}
+
+  // Instruction the info corresponds to.
+  Instruction *I;
+
+  // The type list from the local pointer analysis.
+  PointerTypeInfo PTI;
+
+private:
+  // ID to support type inquiry through isa, cast, and dyn_cast
+  CallInfoKind CIK;
+};
+
+/// The AllocCallInfo class tracks a memory allocation site that dynamically
+/// allocates a type of interest.
+class AllocCallInfo : public CallInfo {
+public:
+  AllocCallInfo(Instruction *I, AllocKind AK)
+    : CallInfo(I, CallInfo::CIK_Alloc), AK(AK) {}
+
+  AllocCallInfo(const AllocCallInfo &) = delete;
+  AllocCallInfo &operator=(const AllocCallInfo &) = delete;
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast:
+  static inline bool classof(const CallInfo *CI) {
+    return CI->getCallInfoKind() == CallInfo::CIK_Alloc;
+  }
+
+  AllocKind getAllocKind() const { return AK; }
+
+  void dump();
+
+private:
+  AllocKind AK;
+};
 
 /// Determine whether the specified Function is an allocation function, and
 /// if so what kind of allocation function it is and the size of the allocation.

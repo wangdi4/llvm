@@ -108,6 +108,7 @@ namespace {
       (void) llvm::createOptReportOptionsPass();
       (void) llvm::createLoopOptReportEmitterLegacyPass();
       (void) llvm::createLowerSubscriptIntrinsicLegacyPass();
+      (void) llvm::createConvertGEPToSubscriptIntrinsicLegacyPass();
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();
@@ -149,6 +150,7 @@ namespace {
       (void) llvm::createGlobalOptimizerPass();
       (void) llvm::createGlobalsAAWrapperPass();
       (void) llvm::createGuardWideningPass();
+      (void) llvm::createLoopGuardWideningPass();
       (void) llvm::createIPConstantPropagationPass();
       (void) llvm::createIPSCCPPass();
       (void) llvm::createIndirectCallConvLegacyPass(); // INTEL
@@ -311,6 +313,7 @@ namespace {
       (void) llvm::createHIRLoopFusionPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenWrapperPass();
+      (void) llvm::createHIRDeadStoreEliminationPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

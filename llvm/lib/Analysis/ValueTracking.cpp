@@ -1042,12 +1042,9 @@ static void computeKnownBitsFromOperator(const Operator *I, KnownBits &Known,
     // matching the form add(x, add(x, y)) where y is odd.
     // TODO: This could be generalized to clearing any bit set in y where the
     // following bit is known to be unset in y.
-    Value *Y = nullptr;
+    Value *X = nullptr, *Y = nullptr;
     if (!Known.Zero[0] && !Known.One[0] &&
-        (match(I->getOperand(0), m_Add(m_Specific(I->getOperand(1)),
-                                       m_Value(Y))) ||
-         match(I->getOperand(1), m_Add(m_Specific(I->getOperand(0)),
-                                       m_Value(Y))))) {
+        match(I, m_c_BinOp(m_Value(X), m_Add(m_Deferred(X), m_Value(Y))))) {
       Known2.resetAll();
       computeKnownBits(Y, Known2, Depth + 1, Q);
       if (Known2.countMinTrailingOnes() > 0)
@@ -2032,6 +2029,20 @@ bool isKnownNonZero(const Value *V, unsigned Depth, const Query &Q) {
     if (const GEPOperator *GEP = dyn_cast<GEPOperator>(V))
       if (isGEPKnownNonNull(GEP, Depth, Q))
         return true;
+
+#if INTEL_CUSTOMIZATION
+    if (const SubscriptInst *SI = dyn_cast<SubscriptInst>(V))
+      if (SI->getPointerAddressSpace() == 0) {
+        if (isKnownNonZero(SI->getPointerOperand(), Depth, Q))
+          return true;
+        if (auto *LC = dyn_cast<ConstantInt>(SI->getLowerBound()))
+          if (LC->isZero() && isKnownNonZero(SI->getIndex(), Depth, Q))
+            return true;
+        if (auto *IC = dyn_cast<ConstantInt>(SI->getIndex()))
+          if (IC->isZero() && isKnownNonZero(SI->getLowerBound(), Depth, Q))
+            return true;
+      }
+#endif // INTEL_CUSTOMIZATION
   }
 
   unsigned BitWidth = getBitWidth(V->getType()->getScalarType(), Q.DL);
@@ -3525,7 +3536,7 @@ Value *llvm::GetUnderlyingObject(Value *V, const DataLayout &DL,
   if (!V->getType()->isPointerTy())
     return V;
   for (unsigned Count = 0; MaxLookup == 0 || Count < MaxLookup; ++Count) {
-    if (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
+    if (auto *GEP = dyn_cast<GEPOrSubsOperator>(V)) { // INTEL
       V = GEP->getPointerOperand();
     } else if (Operator::getOpcode(V) == Instruction::BitCast ||
                Operator::getOpcode(V) == Instruction::AddrSpaceCast) {
