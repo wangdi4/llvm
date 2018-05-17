@@ -241,6 +241,11 @@ struct PragmaNoFusionHandler : public PragmaHandler {
   void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
                     Token &Tok);
 };
+struct PragmaNoVectorHandler : public PragmaHandler {
+  PragmaNoVectorHandler(const char *name) : PragmaHandler(name) {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                    Token &Tok);
+};
 #endif // INTEL_CUSTOMIZATION
 
 struct PragmaMSRuntimeChecksHandler : public EmptyPragmaHandler {
@@ -400,6 +405,10 @@ void Parser::initializePragmaHandlers() {
     NoFusionHandler.reset(new PragmaNoFusionHandler("nofusion"));
     PP.AddPragmaHandler(NoFusionHandler.get());
   }
+  if (getLangOpts().isIntelCompat(LangOptions::PragmaNoVector)) {
+    NoVectorHandler.reset(new PragmaNoVectorHandler("novector"));
+    PP.AddPragmaHandler(NoVectorHandler.get());
+  }
 #endif // INTEL_CUSTOMIZATION
   UnrollHintHandler.reset(new PragmaUnrollHintHandler("unroll"));
   PP.AddPragmaHandler(UnrollHintHandler.get());
@@ -519,6 +528,10 @@ void Parser::resetPragmaHandlers() {
     DistributePointHandler.reset();
     PP.RemovePragmaHandler(NoFusionHandler.get());
     NoFusionHandler.reset();
+  }
+  if (getLangOpts().isIntelCompat(LangOptions::PragmaNoVector)) {
+    PP.RemovePragmaHandler(NoVectorHandler.get());
+    NoVectorHandler.reset();
   }
 #endif // INTEL_CUSTOMIZATION
   PP.RemovePragmaHandler(UnrollHintHandler.get());
@@ -1068,9 +1081,10 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
   bool PragmaIVDep = PragmaNameInfo->getName() == "ivdep";
   bool PragmaDistributePoint = PragmaNameInfo->getName() == "distribute_point";
   bool PragmaNoFusion = PragmaNameInfo->getName() == "nofusion";
+  bool PragmaNoVector = PragmaNameInfo->getName() == "novector";
   if (Toks.empty() && Info->ArrayToks.empty() &&
       (PragmaUnroll || PragmaNoUnroll || PragmaLoopCoalesce || PragmaIVDep ||
-       PragmaDistributePoint || PragmaNoFusion)) {
+       PragmaDistributePoint || PragmaNoFusion || PragmaNoVector)) {
 #endif // INTEL_CUSTOMIZATION
     ConsumeAnnotationToken();
     Hint.Range = Info->PragmaName.getLocation();
@@ -3353,6 +3367,34 @@ void PragmaNoFusionHandler::HandlePragma(Preprocessor &PP,
   PP.EnterTokenStream(std::move(TokenArray), 1,
                       /*DisableMacroExpansion=*/false);
 }
+
+void PragmaNoVectorHandler::HandlePragma(Preprocessor &PP,
+                                         PragmaIntroducerKind Introducer,
+                                         Token &Tok) {
+  // Incoming token is "novector" for "#pragma novector"
+  Token PragmaName = Tok;
+  PP.Lex(Tok);
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+        << "novector";
+    return;
+  }
+
+  // Generate the hint token.
+  PragmaLoopHintInfo *Info =
+      new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
+  Info->PragmaName = PragmaName;
+  Info->Option.startToken();
+  auto TokenArray = llvm::make_unique<Token[]>(1);
+  TokenArray[0].startToken();
+  TokenArray[0].setKind(tok::annot_pragma_loop_hint);
+  TokenArray[0].setLocation(PragmaName.getLocation());
+  TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
+  TokenArray[0].setAnnotationValue(Info);
+  PP.EnterTokenStream(std::move(TokenArray), 1,
+                      /*DisableMacroExpansion=*/false);
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 /// Handle the Microsoft \#pragma intrinsic extension.

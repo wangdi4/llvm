@@ -304,6 +304,50 @@ A correct usage of these builtin functions are as follows:
 
   }];
 }
+def PragmaNoVectorDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let BugTracker= "";
+  let RegressionTest = "test/Sema/intel/vector.cpp,test/CodeGenCXX/intel/vector.cpp";
+  let Owner = "jyu2";
+  let CompatVersions = "";
+  let Content = [{
+The ``novector`` pragma specifies that a particular loop should never be
+vectorized, even if it is legal to do so. When avoiding vectorization of a
+loop is desirable (when vectorization results in a performance regression
+rather than improvement), the ``novector`` pragma can be used in the source text
+to disable vectorization of a loop. This behavior is in contrast to the ``vector
+always`` pragma.
+
+the ``pragma novector`` will be recognized and map to existing
+  pragma vectorize(disable)
+For :
+ #pragma novector
+  for(;;);
+AST:
+
+-AttributedStmt 0xc257138 <<invalid sloc>, line:12:3>
+      |-LoopHintAttr 0xc257110 <line:8:11> Implicit novector Vectorize Disable
+
+Metadata:
+
+.. code-block:: llvm
+
+  br label %for.cond, !llvm.loop !2
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.vector.vectorize.width", i32 1}
+
+A correct usage of this pragma:
+
+.. code-block:: c
+
+  void foo(int lb, int ub) {
+  #pragma novector
+    for(j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+  }
+
+  }];
+}
 
 def GlobalDocumentation {
   code Intro =[{..

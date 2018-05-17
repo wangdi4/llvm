@@ -2695,7 +2695,8 @@ def LoopHint : Attr {
                    Pragma<"", "ii">, Pragma<"", "ivdep">,
                    Pragma<"", "loop_coalesce">, Pragma<"", "max_concurrency">,
                    Pragma<"", "distribute_point">,
-                   Pragma<"", "nofusion">];
+                   Pragma<"", "nofusion">,
+                   Pragma<"", "novector">];
 //endif INTEL_CUSTOMIZATION
   /// State of the loop optimization specified by the spelling.
   let Args = [EnumArgument<"Option", "OptionType",
@@ -2703,13 +2704,13 @@ def LoopHint : Attr {
 //if INTEL_CUSTOMIZATION
                            "unroll", "unroll_count", "distribute",
                            "ii", "ivdep", "loop_coalesce", "max_concurrency",
-                           "distribute_point", "nofusion"],
+                           "distribute_point", "nofusion", "novector"],
 //endif INTEL_CUSTOMIZATION
                           ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
 //if INTEL_CUSTOMIZATION
                            "Unroll", "UnrollCount", "Distribute",
                            "II", "IVDep", "LoopCoalesce", "MaxConcurrency",
-                           "Distribute", "NoFusion"]>,
+                           "Distribute", "NoFusion", "Vectorize"]>,
 //endif INTEL_CUSTOMIZATION
               EnumArgument<"State", "LoopHintState",
 //if INTEL_CUSTOMIZATION

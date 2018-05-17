@@ -95,6 +95,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
   bool PragmaDistributePoint =
       PragmaNameLoc->Ident->getName() == "distribute_point";
   bool PragmaNoFusion = PragmaNameLoc->Ident->getName() == "nofusion";
+  bool PragmaNoVector = PragmaNameLoc->Ident->getName() == "novector";
   bool NonLoopPragmaDistributePoint =
       PragmaDistributePoint && St->getStmtClass() != Stmt::DoStmtClass &&
       St->getStmtClass() != Stmt::ForStmtClass &&
@@ -132,6 +133,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
             .Case("max_concurrency", "#pragma max_concurrency")
             .Case("ivdep", "#pragma ivdep")
             .Case("nofusion", "#pragma nofusion")
+            .Case("novector", "#pragma novector")
 #endif // INTEL_CUSTOMIZATION
             .Default("#pragma clang loop");
     S.Diag(St->getLocStart(), diag::err_pragma_loop_precedes_nonloop) << Pragma;
@@ -206,6 +208,9 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
   } else if (PragmaNoFusion) {
     Option = LoopHintAttr::NoFusion;
     State = LoopHintAttr::Enable;
+  } else if (PragmaNoVector) {
+    Option = LoopHintAttr::Vectorize;
+    State = LoopHintAttr::Disable;
 #endif // INTEL_CUSTOMIZATION
   } else {
     // #pragma clang loop ...
@@ -296,6 +301,7 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr},
                    {nullptr, nullptr},
                    {nullptr, nullptr},
+                   {nullptr, nullptr},
 #endif // INTEL_CUSTOMIZATION
                    {nullptr, nullptr},
                    {nullptr, nullptr},
@@ -319,7 +325,8 @@ CheckForIncompatibleAttributes(Sema &S,
       Interleave,
       Unroll,
       Distribute,
-      NoFusion
+      NoFusion,
+      NoVector
     } Category;
 #endif // INTEL_CUSTOMIZATION
     switch (Option) {
