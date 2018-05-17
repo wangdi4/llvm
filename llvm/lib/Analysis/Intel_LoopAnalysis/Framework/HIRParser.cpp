@@ -3199,6 +3199,27 @@ void HIRParser::addFakeRef(HLInst *HInst, const RegDDRef *AddressRef,
   GEPRefToPointerMap.insert(std::make_pair(FakeRef, getGEPRefPtr(AddressRef)));
 }
 
+static bool isDistributePoint(const CallInst *CI, bool &IsBegin) {
+  if (!CI->hasOperandBundles()) {
+    return false;
+  }
+
+  OperandBundleUse BU = CI->getOperandBundleAt(0);
+
+  StringRef TagName = BU.getTagName();
+
+  if (TagName.equals("DIR.PRAGMA.DISTRIBUTE_POINT")) {
+    IsBegin = true;
+    return true;
+
+  } else if (TagName.equals("DIR.PRAGMA.END.DISTRIBUTE_POINT")) {
+    IsBegin = false;
+    return true;
+  }
+
+  return false;
+}
+
 void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   bool HasLval = false;
   auto Inst = HInst->getLLVMInstruction();
@@ -3242,6 +3263,19 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   bool FakeDDRefsRequired = (Call && !Call->doesNotAccessMemory());
   bool IsReadOnly =
       (FakeDDRefsRequired && Call->hasFnAttr(Attribute::ReadOnly));
+
+  bool IsBegin;
+  if (Call && isDistributePoint(Call, IsBegin)) {
+    if (IsBegin) {
+      // Delay processing after phase2 because at this point we don't know the
+      // 'next' node.
+      DistributePoints.push_back(HInst);
+    } else {
+      // Do not need region end directive.
+      HLNodeUtils::erase(HInst);
+    }
+    return;
+  }
 
   // Process rvals
   for (unsigned I = 0; I < NumRvalOp; ++I) {
@@ -3334,6 +3368,18 @@ void HIRParser::phase2Parse() {
   }
 
   UnclassifiedSymbaseInsts.clear();
+
+  for (auto *Call : DistributePoints) {
+    auto *NextNode = Call->getNextNode();
+    assert(NextNode &&
+           "Could not find next node of distribute point intrinsic!");
+    assert(isa<HLDDNode>(NextNode) &&
+           "Next node of distribute point intrinsic is not a HLDDNode!");
+
+    cast<HLDDNode>(NextNode)->setDistributePoint(true);
+
+    HLNodeUtils::erase(Call);
+  }
 }
 
 void HIRParser::run() {

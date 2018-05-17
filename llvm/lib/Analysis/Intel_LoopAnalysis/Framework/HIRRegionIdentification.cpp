@@ -579,7 +579,7 @@ bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp,
   return !CMA.isProfitable();
 }
 
-bool HIRRegionIdentification::isUnrollMetadata(StringRef Str) {
+static bool isUnrollMetadata(StringRef Str) {
   return (Str.equals("llvm.loop.unroll.count") ||
           Str.equals("llvm.loop.unroll.enable") ||
           Str.equals("llvm.loop.unroll.disable") ||
@@ -587,7 +587,7 @@ bool HIRRegionIdentification::isUnrollMetadata(StringRef Str) {
           Str.equals("llvm.loop.unroll.full"));
 }
 
-bool HIRRegionIdentification::isUnrollMetadata(MDNode *Node) {
+static bool isUnrollMetadata(MDNode *Node) {
   assert(Node->getNumOperands() > 0 &&
          "metadata should have at least one operand!");
 
@@ -600,14 +600,27 @@ bool HIRRegionIdentification::isUnrollMetadata(MDNode *Node) {
   return isUnrollMetadata(Str->getString());
 }
 
-bool HIRRegionIdentification::isDebugMetadata(MDNode *Node) {
+static bool isDistributeMetadata(MDNode *Node) {
+  assert(Node->getNumOperands() > 0 &&
+         "metadata should have at least one operand!");
+
+  MDString *Str = dyn_cast<MDString>(Node->getOperand(0));
+
+  if (!Str) {
+    return false;
+  }
+
+  return Str->getString().equals("llvm.loop.distribute.enable");
+}
+
+static bool isDebugMetadata(MDNode *Node) {
   return isa<DILocation>(Node) || isa<DINode>(Node);
 }
 
-bool HIRRegionIdentification::isSupportedMetadata(MDNode *Node) {
+static bool isSupportedMetadata(MDNode *Node) {
 
   if (isDebugMetadata(Node) || isUnrollMetadata(Node) ||
-      LoopOptReport::isOptReportMetadata(Node)) {
+      isDistributeMetadata(Node) || LoopOptReport::isOptReportMetadata(Node)) {
     return true;
   }
 
@@ -676,7 +689,8 @@ namespace {
 //
 // See also Intel_VPlan/VPlanDriver.cpp isIrreducibleCFG()
 class DFLoopTraverse
-    : public SmallPtrSet<typename GraphTraits<const BasicBlock *>::NodeRef, 32> {
+    : public SmallPtrSet<typename GraphTraits<const BasicBlock *>::NodeRef,
+                         32> {
 public:
   typedef typename GraphTraits<const BasicBlock *>::NodeRef NodeRef;
   typedef SmallPtrSet<NodeRef, 32> Container;
@@ -707,7 +721,7 @@ private:
   const LoopInfo *LI;
   const Loop *Lp;
 };
-}
+} // namespace
 
 namespace llvm {
 // Specialization of po_iterator_storage to implement
@@ -761,10 +775,9 @@ private:
   // need quick check 'if basic block is on stack of depth-first traversal'
   DFLoopTraverse &DFLoopInfo;
 };
-}
+} // namespace llvm
 
-namespace
-{
+namespace {
 bool isIrreducible(const LoopInfo *LI, const Loop *Lp,
                    const BasicBlock *EntryBlock = nullptr) {
 
@@ -775,17 +788,29 @@ bool isIrreducible(const LoopInfo *LI, const Loop *Lp,
 
   DFLoopTraverse dfs(LI, Lp);
   auto Start = Lp ? Lp->getHeader() : EntryBlock;
-  for (auto PoIter = Iter::begin(Start, dfs),
-            PoEnd = Iter::end(Start, dfs);
+  for (auto PoIter = Iter::begin(Start, dfs), PoEnd = Iter::end(Start, dfs);
        PoIter != PoEnd; ++PoIter) {
     if (PoIter.getFoundCycle()) {
-        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Irreducible CFG not supported.\n");
+      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Irreducible CFG not supported.\n");
       return true;
     }
   }
 
   return false;
 }
+} // namespace
+
+static bool hasUnsupportedOperandBundle(const CallInst *CI) {
+  if (!CI->hasOperandBundles()) {
+    return false;
+  }
+
+  OperandBundleUse BU = CI->getOperandBundleAt(0);
+
+  StringRef TagName = BU.getTagName();
+
+  return !TagName.equals("DIR.PRAGMA.DISTRIBUTE_POINT") &&
+         !TagName.equals("DIR.PRAGMA.END.DISTRIBUTE_POINT");
 }
 
 bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
@@ -875,10 +900,8 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
         return false;
       }
 
-      if (CInst->hasOperandBundles()) {
-        DEBUG(
-            dbgs()
-            << "LOOPOPT_OPTREPORT: Operand bundles currently not supported.\n");
+      if (hasUnsupportedOperandBundle(CInst)) {
+        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Unsupported operand bundle.\n");
         return false;
       }
     }

@@ -165,19 +165,6 @@ private:
   /// Checks whether the current function is loop concatenation candidate.
   bool isLoopConcatenationCandidate() const;
 
-  /// Returns true if \p Str refers to unroll related metadata.
-  static bool isUnrollMetadata(StringRef Str);
-
-  /// Returns true if \p Node refers to unroll related metadata.
-  static bool isUnrollMetadata(MDNode *Node);
-
-  /// Returns true if \p Node is a debug related metadata type.
-  static bool isDebugMetadata(MDNode *Node);
-
-  /// Returns true if metadata node \p Node only contains metadata supported in
-  /// HIR.
-  static bool isSupportedMetadata(MDNode *Node);
-
   void runImpl(Function &F);
 
 public:

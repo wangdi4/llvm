@@ -26,12 +26,14 @@ static cl::opt<bool>
 
 /// DDRefs are taken care of in the derived classes.
 HLDDNode::HLDDNode(HLNodeUtils &HNU, unsigned SCID)
-    : HLNode(HNU, SCID), MaskDDRef(nullptr), NumFakeLvals(0) {}
+    : HLNode(HNU, SCID), MaskDDRef(nullptr), NumFakeLvals(0),
+      IsDistributePoint(false) {}
 
 /// DDRefs are taken care of in the derived classes.
 HLDDNode::HLDDNode(const HLDDNode &HLDDNodeObj)
     : HLNode(HLDDNodeObj), MaskDDRef(nullptr),
-      NumFakeLvals(HLDDNodeObj.NumFakeLvals) {}
+      NumFakeLvals(HLDDNodeObj.NumFakeLvals),
+      IsDistributePoint(HLDDNodeObj.IsDistributePoint) {}
 
 void HLDDNode::setNode(RegDDRef *Ref, HLDDNode *HNode) {
   Ref->setHLDDNode(HNode);
@@ -316,6 +318,14 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
 #endif // !INTEL_PRODUCT_RELEASE
 }
 
+void HLDDNode::printDistributePoint(formatted_raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE
+  if (IsDistributePoint) {
+    OS << " <distribute_point>";
+  }
+#endif // !INTEL_PRODUCT_RELEASE
+}
+
 void HLDDNode::verify() const {
   for (auto I = ddref_begin(), E = ddref_end(); I != E; ++I) {
     assert((*I) != nullptr && "null ddref found in the list");
@@ -334,4 +344,3 @@ bool HLDDNode::isLiveIntoParentLoop(unsigned SB) const {
 bool HLDDNode::isLiveOutOfParentLoop(unsigned SB) const {
   return getLexicalParentLoop()->isLiveOut(SB);
 }
-

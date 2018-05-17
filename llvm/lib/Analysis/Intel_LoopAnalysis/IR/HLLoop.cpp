@@ -23,7 +23,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-#include "llvm/Transforms/Utils/UnrollLoop.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -332,6 +331,8 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
   if (getMVTag()) {
     OS << "  <MVTag: " << getMVTag() << ">";
   }
+
+  printDistributePoint(OS);
 
   OS << "\n";
 
@@ -1317,24 +1318,40 @@ HLLabel *HLLoop::getHeaderLabel() {
   return cast<HLLabel>(FirstChild);
 }
 
-bool HLLoop::hasUnrollEnablingPragma() const {
+MDNode *HLLoop::getLoopStringMetadata(StringRef Name) const {
   if (!LoopMetadata) {
-    return false;
+    return nullptr;
   }
 
-  return (GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.enable") ||
-          GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.count") ||
-          (isConstTripLoop() &&
-           GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.full")));
+  for (unsigned I = 1, E = LoopMetadata->getNumOperands(); I < E; ++I) {
+    MDNode *MD = dyn_cast<MDNode>(LoopMetadata->getOperand(I));
+    if (!MD) {
+      continue;
+    }
+
+    MDString *StrMD = dyn_cast<MDString>(MD->getOperand(0));
+
+    if (!StrMD) {
+      continue;
+    }
+
+    if (Name.equals(StrMD->getString()))
+      return MD;
+  }
+
+  return nullptr;
+}
+
+bool HLLoop::hasUnrollEnablingPragma() const {
+  return (
+      getLoopStringMetadata("llvm.loop.unroll.enable") ||
+      getLoopStringMetadata("llvm.loop.unroll.count") ||
+      (isConstTripLoop() && getLoopStringMetadata("llvm.loop.unroll.full")));
 }
 
 bool HLLoop::hasCompleteUnrollEnablingPragma() const {
-  if (!LoopMetadata) {
-    return false;
-  }
-
-  if (GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.enable") ||
-      GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.full")) {
+  if (getLoopStringMetadata("llvm.loop.unroll.enable") ||
+      getLoopStringMetadata("llvm.loop.unroll.full")) {
     return true;
   }
 
@@ -1350,11 +1367,8 @@ bool HLLoop::hasCompleteUnrollEnablingPragma() const {
 }
 
 bool HLLoop::hasCompleteUnrollDisablingPragma() const {
-  if (!LoopMetadata) {
-    return false;
-  }
 
-  if (GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.disable")) {
+  if (getLoopStringMetadata("llvm.loop.unroll.disable")) {
     return true;
   }
 
@@ -1372,23 +1386,15 @@ bool HLLoop::hasCompleteUnrollDisablingPragma() const {
 }
 
 bool HLLoop::hasGeneralUnrollEnablingPragma() const {
-  if (!LoopMetadata) {
-    return false;
-  }
-
-  return GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.enable") ||
-         GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.count");
+  return getLoopStringMetadata("llvm.loop.unroll.enable") ||
+         getLoopStringMetadata("llvm.loop.unroll.count");
 }
 
 bool HLLoop::hasGeneralUnrollDisablingPragma() const {
-  if (!LoopMetadata) {
-    return false;
-  }
-
-  return GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.disable") ||
-         GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.runtime.disable") ||
+  return getLoopStringMetadata("llvm.loop.unroll.disable") ||
+         getLoopStringMetadata("llvm.loop.unroll.runtime.disable") ||
          // 'full' metadata only implies complete unroll, not partial unroll.
-         GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.full");
+         getLoopStringMetadata("llvm.loop.unroll.full");
 }
 
 bool HLLoop::hasUnrollAndJamEnablingPragma() const {
@@ -1403,18 +1409,36 @@ bool HLLoop::hasUnrollAndJamDisablingPragma() const {
 }
 
 unsigned HLLoop::getUnrollPragmaCount() const {
-  if (!LoopMetadata) {
-    return 0;
-  }
-
   // Unroll if loop's trip count is less than unroll count.
-  auto MD = GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.count");
+  auto MD = getLoopStringMetadata("llvm.loop.unroll.count");
 
   if (!MD) {
     return 0;
   }
 
   return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+}
+
+bool HLLoop::hasDistributionEnablingPragma() const {
+  auto MD = getLoopStringMetadata("llvm.loop.distribute.enable");
+
+  if (!MD) {
+    return false;
+  }
+
+  // first operand is i1 type.
+  return mdconst::extract<ConstantInt>(MD->getOperand(1))->isOne();
+}
+
+bool HLLoop::hasDistributionDisablingPragma() const {
+  auto MD = getLoopStringMetadata("llvm.loop.distribute.enable");
+
+  if (!MD) {
+    return false;
+  }
+
+  // first operand is i1 type.
+  return mdconst::extract<ConstantInt>(MD->getOperand(1))->isZero();
 }
 
 LoopOptReport LoopOptReportTraits<HLLoop>::getOrCreatePrevOptReport(

@@ -748,6 +748,9 @@ public:
   /// Remove !llvm.loop metadata that starts with \p ID.
   void removeLoopMetadata(StringRef ID) { addRemoveLoopMetadataImpl({}, &ID); }
 
+  /// Returns loop metadata corresponding to \p Name. Returns null if not found.
+  MDNode *getLoopStringMetadata(StringRef Name) const;
+
   /// Documentation for clang loop pragmas-
   /// http://clang.llvm.org/docs/LanguageExtensions.html#extensions-for-loop-hint-optimizations
 
@@ -775,6 +778,12 @@ public:
   /// Returns unroll count specified through a pragma if present, othweise
   /// returns 0.
   unsigned getUnrollPragmaCount() const;
+
+  /// Returns true if loop has pragma to enable distribution.
+  bool hasDistributionEnablingPragma() const;
+
+  /// Returns true if loop has pragma to disable distribution.
+  bool hasDistributionDisablingPragma() const;
 
   uint64_t getMaxTripCountEstimate() const { return MaxTripCountEstimate; }
 

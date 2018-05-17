@@ -150,6 +150,10 @@ class HIRParser {
   /// reference.
   DenseMap<const RegDDRef *, Value *> GEPRefToPointerMap;
 
+  /// Stores the DistributePoints intrinsics which are populated in phase1 and
+  /// processed/discarded at the end of phase2.
+  SmallVector<HLInst *, 4> DistributePoints;
+
   /// BlobProcessor - Performs necessary processing for a blob being added to a
   /// CanonExpr.
   class BlobProcessor;
