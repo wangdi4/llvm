@@ -99,6 +99,8 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
     {InlPrtCost, "Callee has multiple callsites with loops that could be fused"},
     // InlrDeeplyNestedIfs,
     {InlPrtCost, "Callee was inlined due to deeply nested ifs"},
+    // InlrAddressComputations,
+    {InlPrtCost, "Inlining for complicated address computations"},
     // InlrProfitable,
     {InlPrtCost, "Inlining is profitable"},
     // InlrLast,

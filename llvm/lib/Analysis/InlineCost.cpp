@@ -118,7 +118,7 @@ static cl::opt<bool> OptComputeFullInlineCost(
              "exceeds the threshold."));
 
 #if INTEL_CUSTOMIZATION
-// InliningForDeeplyNestedIfs has tree possible values(BOU_UNSET is default).
+// InliningForDeeplyNestedIfs has three possible values(BOU_UNSET is default).
 // Use TRUE to force enabling of heuristic. Use FALSE to disable.
 static cl::opt<cl::boolOrDefault> InliningForDeeplyNestedIfs(
     "inlining-for-deep-ifs", cl::ReallyHidden,
@@ -127,6 +127,22 @@ static cl::opt<cl::boolOrDefault> InliningForDeeplyNestedIfs(
 static cl::opt<unsigned> MinDepthOfNestedIfs(
     "inlining-min-if-depth", cl::init(9), cl::ReallyHidden,
     cl::desc("Minimal depth of IF nest to trigger inlining"));
+
+// InliningForAddressComputations has three possible values(BOU_UNSET is
+// default). Use TRUE to force enabling of heuristic. Use FALSE to disable.
+static cl::opt<cl::boolOrDefault> InliningForAddressComputations(
+    "inlining-for-address-computations", cl::ReallyHidden,
+    cl::desc("Option that enables inlining for address computations"));
+
+static cl::opt<unsigned> InliningForACLoopDepth(
+    "inlining-for-ac-loop-depth", cl::init(2), cl::ReallyHidden,
+    cl::desc("Nesting level of the loop in which appears the callsite."));
+
+static cl::opt<unsigned>
+    InliningForACMinArgRefs("inlining-for-ac-min-arg-refs", cl::init(11),
+                            cl::ReallyHidden,
+                            cl::desc("Minimal number of arguments appearing in "
+                                     "array accesses inside callee."));
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
@@ -2113,6 +2129,116 @@ static bool preferCloningToInlining(CallSite& CS,
   return false;
 }
 
+//
+// Return 'true' if 'CS' is worth inlining due to multiple arguments being
+// pointers dereferenced in callee code.
+//
+// The criteria for this heuristic are:
+//   (1) Caller and callee have loops.
+//   (2) Callsite is in loop nest of depth InliningForACLoopDepth (default 2),
+//       and it is the only callsite in the loop.
+//   (3) Callee's arguments are pointers dereferenced in the code multiple
+//       times.
+//
+static bool worthInliningForAddressComputations(CallSite &CS,
+                                                InliningLoopInfoCache &ILIC,
+                                                bool PrepareForLTO) {
+  // Heuristic is enabled if option is unset and it is first inliner run
+  // (on PrepareForLTO phase) OR if option is set to true.
+  if (((InliningForAddressComputations != cl::BOU_UNSET) || !PrepareForLTO) &&
+      (InliningForAddressComputations != cl::BOU_TRUE))
+    return false;
+
+  Function *Callee = CS.getCalledFunction();
+  Function *Caller = CS.getCaller();
+
+  if (Caller == Callee) {
+    LLVM_DEBUG(llvm::dbgs() << "IC: No inlining for AC: recursive callee.\n");
+    return false;
+  }
+
+  LoopInfo *CalleeLI = ILIC.getLI(Callee);
+  if (CalleeLI->empty()) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "IC: No inlining for AC: callee has no loops.\n");
+    return false;
+  }
+
+  LoopInfo *CallerLI = ILIC.getLI(Caller);
+  if (CallerLI->empty()) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "IC: No inlining for AC: caller has no loops.\n");
+    return false;
+  }
+
+  Loop *InnerLoop = CallerLI->getLoopFor(CS.getInstruction()->getParent());
+  if (!InnerLoop)
+    return false;
+
+  if (InnerLoop->getLoopDepth() != InliningForACLoopDepth) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "IC: No inlining for AC: callee is not in the loop "
+                  "nest of depth InliningForACLoopDepth.\n");
+    return false;
+  }
+
+  int CallSiteCount = 0;
+  for (auto *BB : InnerLoop->blocks()) {
+    for (auto &I : *BB) {
+      if (isa<CallInst>(I) || isa<InvokeInst>(I)) {
+        CallInst *CI = dyn_cast_or_null<CallInst>(&I);
+        InvokeInst *II = dyn_cast_or_null<InvokeInst>(&I);
+        auto InnerFunc = CI ? CI->getCalledFunction() : II->getCalledFunction();
+        if (!InnerFunc) {
+          LLVM_DEBUG(
+              llvm::dbgs()
+              << "IC: No inlining for AC: indirect call inside callee.\n");
+          return false;
+        }
+        if (!InnerFunc->isIntrinsic())
+          ++CallSiteCount;
+
+        if (CallSiteCount > 1) {
+          LLVM_DEBUG(llvm::dbgs()
+                     << "IC: No inlining for AC: only one callsite "
+                        "allowed in the loop.\n");
+          return false;
+        }
+      }
+    }
+  }
+
+  unsigned ArgCnt = 0;
+  // Check how many array refs in GEP instructions are arguments of
+  // the callee.
+  for (auto &BB : *Callee) {
+    for (auto &I : BB) {
+      if (auto *GEPI = dyn_cast<GetElementPtrInst>(&I)) {
+        if (isa<Argument>(GEPI->getPointerOperand()))
+          ArgCnt++;
+        if (auto *Node = dyn_cast<PHINode>(GEPI->getPointerOperand()))
+          for (unsigned J = 0, E = Node->getNumIncomingValues(); J < E; ++J)
+            if (isa<Argument>(Node->getIncomingValue(J)))
+              ArgCnt++;
+      }
+      if (ArgCnt > InliningForACMinArgRefs)
+        break;
+    }
+    if (ArgCnt > InliningForACMinArgRefs)
+      break;
+  }
+
+  // Not enough arguments-arrays were found in callee.
+  if (ArgCnt < InliningForACMinArgRefs) {
+    LLVM_DEBUG(llvm::dbgs() << "IC: No inlining for AC: not enough argument "
+                               "arrays inside callee.\n");
+    return false;
+  }
+
+  LLVM_DEBUG(llvm::dbgs() << "IC: Do inlining for AC.\n");
+  return true;
+}
+
 // Check that loop has normalized structure and constant trip count.
 static bool isConstantTripCount(Loop *L) {
   // Get canonical IV.
@@ -2592,13 +2718,18 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
         }
       }
       if (worthInliningForFusion(CS, *ILIC, CallSitesForFusion)) {
-        Cost -= InlineConstants::InliningForFusionBonus;
+        Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrForFusion);
       }
       if (worthInliningForDeeplyNestedIfs(CS, *ILIC, IsCallerRecursive,
                                           Params.PrepareForLTO)) {
-        Cost -= InlineConstants::InliningForDeepIfsBonus;
+        Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrDeeplyNestedIfs);
+      }
+      if (worthInliningForAddressComputations(CS, *ILIC,
+                                              Params.PrepareForLTO)) {
+        Cost -= InlineConstants::InliningHeuristicBonus;
+        YesReasonVector.push_back(InlrAddressComputations);
       }
     }
   }
