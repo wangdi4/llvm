@@ -129,12 +129,16 @@ static bool doTransform(HLLoop *OutermostLp) {
         // Check whether the DDRef with high top sort number post-dominates the
         // DDRef with lower top sort number. If Yes, remove the instruction with
         // lower top sort number.
-        if (!HLNodeUtils::postDominates(DDNode, RefVec[I]->getHLDDNode())) {
+        const HLDDNode *PrevDDNode = RefVec[I]->getHLDDNode();
+        if (!HLNodeUtils::postDominates(DDNode, PrevDDNode)) {
           I++;
           continue;
         }
 
-        HLNodeUtils::remove(const_cast<HLDDNode *>(RefVec[I]->getHLDDNode()));
+        auto ParentNode = PrevDDNode->getParent();
+        HLNodeUtils::remove(const_cast<HLDDNode *>(PrevDDNode));
+        HLNodeUtils::removeEmptyNodes(ParentNode, true);
+
         Result = true;
         RefVec.erase(RefVec.begin() + I);
       }
@@ -144,7 +148,7 @@ static bool doTransform(HLLoop *OutermostLp) {
   // Mark the loop and its parent loop/region have been changed
   if (Result) {
     OutermostLp->getParentRegion()->setGenCode();
-    HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(OutermostLp);
+    HIRInvalidationUtils::invalidateBody(OutermostLp);
   }
 
   return Result;
