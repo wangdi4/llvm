@@ -3991,8 +3991,6 @@ def err_template_member_noparams : Error<
   "extraneous 'template<>' in declaration of member %0">;
 def err_template_tag_noparams : Error<
   "extraneous 'template<>' in declaration of %0 %1">;
-def err_template_decl_ref : Error<
-  "cannot refer to %select{class|variable}0 template %1 without a template argument list">;
 
 // C++ Template Argument Lists
 def err_template_missing_args : Error<
@@ -8253,6 +8251,8 @@ def err_systemz_invalid_tabort_code : Error<
   "invalid transaction abort code">;
 def err_64_bit_builtin_32_bit_tgt : Error<
   "this builtin is only available on 64-bit targets">;
+def err_32_bit_builtin_64_bit_tgt : Error<
+  "this builtin is only available on 32-bit targets">;
 def err_builtin_x64_aarch64_only : Error<
   "this builtin is only available on x86-64 and aarch64 targets">;
 def err_ppc_builtin_only_on_pwr7 : Error<

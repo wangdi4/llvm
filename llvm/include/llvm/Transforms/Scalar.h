@@ -80,7 +80,6 @@ FunctionPass *createDeadStoreEliminationPass();
 // values.
 FunctionPass *createCallSiteSplittingPass();
 
-
 //===----------------------------------------------------------------------===//
 //
 // AggressiveDCE - This pass uses the SSA based Aggressive DCE algorithm.  This
@@ -89,7 +88,6 @@ FunctionPass *createCallSiteSplittingPass();
 //
 FunctionPass *createAggressiveDCEPass();
 
-
 //===----------------------------------------------------------------------===//
 //
 // GuardWidening - An optimization over the @llvm.experimental.guard intrinsic
@@ -97,6 +95,16 @@ FunctionPass *createAggressiveDCEPass();
 // at runtime.
 //
 FunctionPass *createGuardWideningPass();
+
+
+//===----------------------------------------------------------------------===//
+//
+// LoopGuardWidening - Analogous to the GuardWidening pass, but restricted to a
+// single loop at a time for use within a LoopPassManager.  Desired effect is
+// to widen guards into preheader or a single guard within loop if that's not
+// possible.
+//
+Pass *createLoopGuardWideningPass();
 
 
 //===----------------------------------------------------------------------===//
@@ -125,13 +133,6 @@ Pass *createInductiveRangeCheckEliminationPass();
 // use a single canonical induction variable per loop.
 //
 Pass *createIndVarSimplifyPass();
-
-//===----------------------------------------------------------------------===//
-//
-// AggressiveInstCombiner - Combine expression patterns to form expressions with
-// fewer, simple instructions. This pass does not modify the CFG.
-//
-FunctionPass *createAggressiveInstCombinerPass();
 
 //===----------------------------------------------------------------------===//
 //

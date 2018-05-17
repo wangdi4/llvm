@@ -362,7 +362,7 @@ public:
   bool canBeIssued(const InstrDesc &Desc) const;
 
   void issueInstruction(
-      unsigned Index, const InstrDesc &Desc,
+      const InstrDesc &Desc,
       llvm::SmallVectorImpl<std::pair<ResourceRef, double>> &Pipes);
 
   void cycleEvent(llvm::SmallVectorImpl<ResourceRef> &ResourcesFreed);
@@ -465,7 +465,6 @@ public:
   /// Otherwise, a generic HWStallEvent is notified to the listeners.
   bool canBeDispatched(unsigned Idx, const InstrDesc &Desc) const;
   void scheduleInstruction(unsigned Idx, Instruction &MCIS);
-
 
   /// Issue an instruction.
   void issueInstruction(unsigned Index, Instruction &IS);

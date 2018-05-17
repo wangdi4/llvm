@@ -45,6 +45,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeScalarizerPass(Registry);
   initializeDSELegacyPassPass(Registry);
   initializeGuardWideningLegacyPassPass(Registry);
+  initializeLoopGuardWideningLegacyPassPass(Registry);
   initializeGVNLegacyPassPass(Registry);
   initializeNewGVNLegacyPassPass(Registry);
   initializeEarlyCSELegacyPassPass(Registry);
@@ -112,10 +113,6 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
 
 void LLVMAddAggressiveDCEPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createAggressiveDCEPass());
-}
-
-void LLVMAddAggressiveInstCombinerPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createAggressiveInstCombinerPass());
 }
 
 void LLVMAddBitTrackingDCEPass(LLVMPassManagerRef PM) {

@@ -179,7 +179,7 @@ bool ResourceManager::mustIssueImmediately(const InstrDesc &Desc) {
 }
 
 void ResourceManager::issueInstruction(
-    unsigned Index, const InstrDesc &Desc,
+    const InstrDesc &Desc,
     SmallVectorImpl<std::pair<ResourceRef, double>> &Pipes) {
   for (const std::pair<uint64_t, ResourceUsage> &R : Desc.Resources) {
     const CycleSegment &CS = R.second.CS;
@@ -263,7 +263,7 @@ void Scheduler::scheduleInstruction(unsigned Idx, Instruction &MCIS) {
   // issued immediately to the pipeline(s). Any other in-order buffered
   // resources (i.e. BufferSize=1) is consumed.
 
-  if (!MCIS.isZeroLatency() && !Resources->mustIssueImmediately(Desc)) {
+  if (Desc.MaxLatency && !Resources->mustIssueImmediately(Desc)) {
     DEBUG(dbgs() << "[SCHEDULER] Adding " << Idx << " to the Ready Queue\n");
     ReadyQueue[Idx] = &MCIS;
     return;
@@ -350,7 +350,7 @@ void Scheduler::issueInstructionImpl(
 
   // Issue the instruction and collect all the consumed resources
   // into a vector. That vector is then used to notify the listener.
-  Resources->issueInstruction(InstrIndex, D, UsedResources);
+  Resources->issueInstruction(D, UsedResources);
 
   // Notify the instruction that it started executing.
   // This updates the internal state of each write.
