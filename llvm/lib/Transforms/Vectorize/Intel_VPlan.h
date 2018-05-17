@@ -2094,13 +2094,13 @@ class VPLoopRegionHIR : public VPLoopRegion {
 
 private:
   // Pointer to the underlying HLLoop.
-  HLLoop *HLLp;
+  loopopt::HLLoop *HLLp;
 
-  VPLoopRegionHIR(const std::string &Name, VPLoop *VPLp, HLLoop *HLLp)
+  VPLoopRegionHIR(const std::string &Name, VPLoop *VPLp, loopopt::HLLoop *HLLp)
       : VPLoopRegion(VPLoopRegionHIRSC, Name, VPLp), HLLp(HLLp) {}
 
-  const HLLoop *getHLLoop() const { return HLLp; }
-  HLLoop *getHLLoop() { return HLLp; }
+  const loopopt::HLLoop *getHLLoop() const { return HLLp; }
+  loopopt::HLLoop *getHLLoop() { return HLLp; }
 
 public:
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -2688,7 +2688,7 @@ public:
   }
 
   /// Create a new and empty VPLoopRegionHIR.
-  VPLoopRegion *createLoopRegionHIR(VPLoop *VPL, HLLoop *HLLp) {
+  VPLoopRegion *createLoopRegionHIR(VPLoop *VPL, loopopt::HLLoop *HLLp) {
     assert (VPL && HLLp && "Expected a valid VPLoop and HLLoop.");
     VPLoopRegion *Loop =
         new VPLoopRegionHIR(createUniqueName("loop"), VPL, HLLp);
