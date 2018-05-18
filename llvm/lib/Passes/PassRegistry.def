@@ -261,6 +261,8 @@ FUNCTION_PASS("print<hir-region-identification>", loopopt::HIRRegionIdentificati
 FUNCTION_PASS("print<hir-scc-formation>", loopopt::HIRSCCFormationPrinterPass(dbgs()))
 FUNCTION_PASS("print<hir-framework>", loopopt::HIRFrameworkPrinterPass(dbgs()))
 FUNCTION_PASS("verify<hir-framework>", loopopt::HIRFrameworkVerifierPass())
+FUNCTION_PASS("print<hir>", loopopt::HIRFrameworkPrinterPass(dbgs()))
+FUNCTION_PASS("verify<hir>", loopopt::HIRFrameworkVerifierPass())
 FUNCTION_PASS("print<hir-loop-statistics>", loopopt::HIRLoopStatisticsPrinterPass(dbgs()))
 FUNCTION_PASS("print<hir-loop-resource>", loopopt::HIRLoopResourcePrinterPass(dbgs()))
 FUNCTION_PASS("print<hir-locality-analysis>", loopopt::HIRLoopLocalityPrinterPass(dbgs()))

@@ -29,26 +29,23 @@ public:
   XmainOptLevel(unsigned OptLevel);
 
   unsigned getOptLevel() const { return OptLevel; }
-};
 
-class XmainOptLevelAnalysis
-    : public AnalysisInfoMixin<XmainOptLevelAnalysis> {
-  friend AnalysisInfoMixin<XmainOptLevelAnalysis>;
-  static AnalysisKey Key;
-
-  unsigned OptLevel;
-
-public:
-  typedef XmainOptLevel Result;
-
-  XmainOptLevelAnalysis() : XmainOptLevelAnalysis(2) {}
-  XmainOptLevelAnalysis(unsigned OptLevel) : OptLevel(OptLevel) {}
-
-  Result run(Function &, FunctionAnalysisManager &) {
-    return XmainOptLevel(OptLevel);
+  // Handle invalidation explicitly
+  bool invalidate(Function &, const PreservedAnalyses &,
+                  FunctionAnalysisManager::Invalidator &) {
+    // Never invalidate analysis.
+    return false;
   }
 };
 
+class XmainOptLevelAnalysis : public AnalysisInfoMixin<XmainOptLevelAnalysis> {
+  friend AnalysisInfoMixin<XmainOptLevelAnalysis>;
+  static AnalysisKey Key;
+
+public:
+  typedef XmainOptLevel Result;
+  Result run(Function &, FunctionAnalysisManager &) { return XmainOptLevel(2); }
+};
 
 class XmainOptLevelWrapperPass : public ImmutablePass {
   XmainOptLevel Impl;
