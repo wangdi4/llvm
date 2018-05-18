@@ -101,7 +101,7 @@ HIRFramework HIRFrameworkAnalysis::run(Function &F,
           [&]() { return AM.getCachedResult<HIRDDAnalysisPass>(F); },
           [&]() { return AM.getCachedResult<HIRLoopLocalityAnalysis>(F); },
           [&]() { return AM.getCachedResult<HIRLoopResourceAnalysis>(F); },
-          [&]() { return &AM.getResult<HIRLoopStatisticsAnalysis>(F); },
+          [&]() { return AM.getCachedResult<HIRLoopStatisticsAnalysis>(F); },
           [&]() { return AM.getCachedResult<HIRSafeReductionAnalysisPass>(F); },
           [&]() { return nullptr; }));
 }
