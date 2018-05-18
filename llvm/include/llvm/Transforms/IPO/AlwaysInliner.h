@@ -45,10 +45,6 @@ public:
 /// Create a legacy pass manager instance of a pass to inline and remove
 /// functions marked as "always_inline".
 Pass *createAlwaysInlinerLegacyPass(bool InsertLifetime = true);
-#if INTEL_SPECIFIC_IL0_BACKEND
-Pass *createAlwaysInlinerLegacyPass(bool InsertLifetime, bool Il0BackendMode);
-#endif // INTEL_SPECIFIC_IL0_BACKEND
-
 }
 
 #endif // LLVM_TRANSFORMS_IPO_ALWAYSINLINER_H

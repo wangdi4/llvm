@@ -5772,11 +5772,6 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
   case Intrinsic::sideeffect:
     // Discard annotate attributes, assumptions, and artificial side-effects.
     return nullptr;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  case Intrinsic::intel_pragma:
-    // Discard everything
-    return nullptr;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
   case Intrinsic::codeview_annotation: {
     // Emit a label associated with this metadata.

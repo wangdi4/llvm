@@ -238,12 +238,12 @@ if not 'hexagon' in config.target_triple:
 if config.target_triple:
     config.available_features.add('default_triple')
 
-#if INTEL_OPENCL
+# INTEL_CUSTOMIZATION
 # Add 'intel_opencl' feature based on ICS_WSVARIANT value.
 ics_wsvariant = os.environ.get("ICS_WSVARIANT")
 if ics_wsvariant and ics_wsvariant.startswith('xmainocl'):
     config.available_features.add("intel_opencl")
-#endif INTEL_OPENCL
+# end INTEL_CUSTOMIZATION
 
 import subprocess
 
