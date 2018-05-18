@@ -31,13 +31,13 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 
+#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Analysis/Utils/Local.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVisitor.h"
 // TODO audit includes
@@ -356,9 +356,8 @@ private:
   bool shouldGenCode(HLRegion *Reg, unsigned RegionIdx) const;
 
 public:
-  HIRCodeGen(ScalarEvolution &SE, HIRFramework &HIRF,
-             LoopOptReportBuilder &LORB)
-      : SE(SE), HIRF(HIRF), LORBuilder(LORB) {}
+  HIRCodeGen(ScalarEvolution &SE, HIRFramework &HIRF)
+      : SE(SE), HIRF(HIRF), LORBuilder(HIRF.getLORBuilder()) {}
 
   bool run();
 
@@ -375,17 +374,11 @@ public:
   }
 
   bool runOnFunction(Function &F) override {
-    auto &OROP = getAnalysis<OptReportOptionsPass>();
-    LoopOptReportBuilder LORBuilder;
-    LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
-
     return HIRCodeGen(getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
-                      getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                      LORBuilder)
+                      getAnalysis<HIRFrameworkWrapperPass>().getHIR())
         .run();
   }
   void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<OptReportOptionsPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<HIRFrameworkWrapperPass>();
   }
@@ -400,7 +393,6 @@ FunctionPass *llvm::createHIRCodeGenWrapperPass() {
 char HIRCodeGenWrapperPass::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRCodeGenWrapperPass, "hir-cg", "HIR Code Generation",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIRCodeGenWrapperPass, "hir-cg", "HIR Code Generation",
@@ -408,14 +400,9 @@ INITIALIZE_PASS_END(HIRCodeGenWrapperPass, "hir-cg", "HIR Code Generation",
 
 PreservedAnalyses HIRCodeGenPass::run(Function &F,
                                       FunctionAnalysisManager &AM) {
-  auto &OROP = AM.getResult<OptReportOptionsAnalysis>(F);
-  LoopOptReportBuilder LORBuilder;
-  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
-
-  bool Transformed =
-      HIRCodeGen(AM.getResult<ScalarEvolutionAnalysis>(F),
-                 AM.getResult<HIRFrameworkAnalysis>(F), LORBuilder)
-          .run();
+  bool Transformed = HIRCodeGen(AM.getResult<ScalarEvolutionAnalysis>(F),
+                                AM.getResult<HIRFrameworkAnalysis>(F))
+                         .run();
 
   return Transformed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
@@ -880,19 +867,18 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
     // is <4 x float>*, we will have pointer vector <4 x int*>. This vector
     // needs to be bitcast to <4 x float*> so that the gather/scatter
     // loads/stores <4 x float>.
-    auto PtrDestTy = cast<PointerType>(BitCastDestTy);   // <4 x float>*
-    auto DestElTy = PtrDestTy->getElementType();         // <4 x float>
-    auto DestScTy = DestElTy->getScalarType();           // float
-    auto DestScPtrTy = PointerType::get(DestScTy,        // float *
-                                            PtrDestTy->getAddressSpace());
+    auto PtrDestTy = cast<PointerType>(BitCastDestTy); // <4 x float>*
+    auto DestElTy = PtrDestTy->getElementType();       // <4 x float>
+    auto DestScTy = DestElTy->getScalarType();         // float
+    auto DestScPtrTy = PointerType::get(DestScTy,      // float *
+                                        PtrDestTy->getAddressSpace());
 
     if (BaseTy != DestScPtrTy) {
       auto VL = DestElTy->getVectorNumElements();
 
       // We have a vector of pointers of BaseSrcType. We need to convert it to
       // vector of pointers of DestScType.
-      GEPVal =
-          Builder.CreateBitCast(GEPVal, VectorType::get(DestScPtrTy, VL));
+      GEPVal = Builder.CreateBitCast(GEPVal, VectorType::get(DestScPtrTy, VL));
     }
   } else if (BitCastDestTy) {
     // Base CE could have different src and dest types in which case we need a

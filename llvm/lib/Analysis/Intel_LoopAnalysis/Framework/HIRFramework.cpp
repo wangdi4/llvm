@@ -96,7 +96,7 @@ HIRFramework HIRFrameworkAnalysis::run(Function &F,
       AM.getResult<ScalarEvolutionAnalysis>(F), AM.getResult<AAManager>(F),
       AM.getResult<HIRRegionIdentificationAnalysis>(F),
       AM.getResult<HIRSCCFormationAnalysis>(F),
-      AM.getResult<OptReportOptionsAnalysis>(F).getLoopOptReportVerbosity(),
+      AM.getResult<OptReportOptionsAnalysis>(F).getVerbosity(),
       HIRAnalysisProvider(
           [&]() { return AM.getCachedResult<HIRDDAnalysisPass>(F); },
           [&]() { return AM.getCachedResult<HIRLoopLocalityAnalysis>(F); },
@@ -156,7 +156,7 @@ bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
       getAnalysis<AAResultsWrapperPass>().getAAResults(),
       getAnalysis<HIRRegionIdentificationWrapperPass>().getRI(),
       getAnalysis<HIRSCCFormationWrapperPass>().getSCCF(),
-      getAnalysis<OptReportOptionsPass>().getLoopOptReportVerbosity(),
+      getAnalysis<OptReportOptionsPass>().getVerbosity(),
       HIRAnalysisProvider(
           [&]() {
             auto *Wrapper =

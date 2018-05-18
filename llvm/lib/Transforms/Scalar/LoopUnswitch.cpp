@@ -530,8 +530,8 @@ bool LoopUnswitch::runOnLoop(Loop *L, LPPassManager &LPM_Ref) {
   Function *F = currentLoop->getHeader()->getParent();
 
 #ifdef INTEL_CUSTOMIZATION
-  auto &OROP = getAnalysis<OptReportOptionsPass>();
-  LORBuilder.setup(F->getContext(), OROP.getLoopOptReportVerbosity());
+  LORBuilder.setup(F->getContext(),
+                   getAnalysis<OptReportOptionsPass>().getVerbosity());
 #endif
 
   SanitizeMemory = F->hasFnAttribute(Attribute::SanitizeMemory);

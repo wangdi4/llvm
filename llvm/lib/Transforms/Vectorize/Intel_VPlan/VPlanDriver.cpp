@@ -648,8 +648,8 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
   HIRLoopStats = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   // VLS = &getAnalysis<HIRVectVLSAnalysis>();
-  auto &OROP = getAnalysis<OptReportOptionsPass>();
-  LORBuilder.setup(Fn.getContext(), OROP.getLoopOptReportVerbosity());
+  LORBuilder.setup(Fn.getContext(),
+                   getAnalysis<OptReportOptionsPass>().getVerbosity());
 
   return VPlanDriverBase::processFunction(Fn, WRegionCollection::HIR);
 }

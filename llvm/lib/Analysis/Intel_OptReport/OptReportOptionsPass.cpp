@@ -51,8 +51,7 @@ static cl::opt<OptReportOptions::LoopOptReportEmitterKind, true>
         "intel-loop-optreport-emitter",
         cl::desc("Option for choosing the way compiler outputs the "
                  "optimization reports"),
-        cl::location(IntelOptReportEmitter),
-        cl::init(OptReportOptions::None),
+        cl::location(IntelOptReportEmitter), cl::init(OptReportOptions::None),
         cl::values(
             clEnumValN(OptReportOptions::None, "none",
                        "Optimization reports are not emitted"),
@@ -62,21 +61,20 @@ static cl::opt<OptReportOptions::LoopOptReportEmitterKind, true>
             clEnumValN(
                 OptReportOptions::HIR, "hir",
                 "Optimization reports are emitted before HIR Code Gen phase"),
-            clEnumValN(
-                OptReportOptions::MIR, "mir",
-                "Optimization reports are emitted at the end of "
-                "MIR processing")));
+            clEnumValN(OptReportOptions::MIR, "mir",
+                       "Optimization reports are emitted at the end of "
+                       "MIR processing")));
 
 char OptReportOptionsPass::ID = 0;
 INITIALIZE_PASS(OptReportOptionsPass, "optimization-report-options-pass",
                 "Optimization report options pass", false, true)
 
-OptReportOptionsPass::OptReportOptionsPass()
-    : ImmutablePass(ID), Impl(LoopOptReportVerbosityOption) {
+OptReportOptions::OptReportOptions()
+    : Verbosity(LoopOptReportVerbosityOption) {}
+
+OptReportOptionsPass::OptReportOptionsPass() : ImmutablePass(ID) {
   initializeOptReportOptionsPassPass(*PassRegistry::getPassRegistry());
 }
-
-bool OptReportOptionsPass::doInitialization(Module &M) { return false; }
 
 ImmutablePass *llvm::createOptReportOptionsPass() {
   return new OptReportOptionsPass();
