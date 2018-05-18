@@ -34,11 +34,11 @@ define i32 @main(i32 %argc, i8** %argv) {
   ret i32 %val
 }
 
-; FIXME: These checks currently assume the type is only renamed.
-;        Several checks will need to be updated when the optimization
+; FIXME: These checks currently assume that size-related constants are not
+;        updated. Several checks will need to be updated when the optimization
 ;        is fully implemented.
 
-; CHECK: %__DFT_struct.test = type { i32, i64, i32 }
+; CHECK: %__DFT_struct.test = type { i32, i32 }
 
 ; CHECK-LABEL: define i32 @main(i32 %argc, i8** %argv)
 ; CHECK: %p = call i8* @malloc(i64 16)
@@ -49,10 +49,9 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK: define i32 @doSomething.1(%__DFT_struct.test* %p_test)
 ; CHECK: %p_test_A = getelementptr %__DFT_struct.test,
 ; CHECK-SAME:                      %__DFT_struct.test* %p_test, i64 0, i32 0
-; FIXME: When the optimization is working, we should check that the B GEP
-;        is gone, and the index for C should become 1.
+; CHECK-NOT: %p_test_B = getelementptr
 ; CHECK: %p_test_C = getelementptr %__DFT_struct.test,
-; CHECK-SAME:                      %__DFT_struct.test* %p_test, i64 0, i32 2
+; CHECK-SAME:                      %__DFT_struct.test* %p_test, i64 0, i32 1
 
 
 declare i8* @malloc(i64)

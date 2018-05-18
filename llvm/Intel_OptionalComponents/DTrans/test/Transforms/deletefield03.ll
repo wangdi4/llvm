@@ -54,12 +54,12 @@ define i32 @main(i32 %argc, i8** %argv) {
   ret i32 0
 }
 
-; FIXME: These checks currently assume the type is only renamed.
-;        Several checks will need to be updated when the optimization
+; FIXME: These checks currently assume that size-related constants are not
+;        updated. Several checks will need to be updated when the optimization
 ;        is fully implemented.
 
-; CHECK-DAG: %__DFT_struct.other = type { i32, %__DFT_struct.test* }
-; CHECK-DAG: %__DFT_struct.test = type { i32, i64, i32, %__DFT_struct.other* }
+; CHECK-DAG: %__DFT_struct.other = type { %__DFT_struct.test* }
+; CHECK-DAG: %__DFT_struct.test = type { i32, i32, %__DFT_struct.other* }
 
 ; CHECK: define i32 @main(i32 %argc, i8** %argv)
 ; CHECK: %p1 = call i8* @malloc(i64 24)
@@ -67,13 +67,13 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK: %p2 = call i8* @malloc(i64 16)
 ; CHECK: %p_other = bitcast i8* %p2 to %__DFT_struct.other*
 ; CHECK: %pp_test = getelementptr %__DFT_struct.other,
-; CHECK-SAME:                     %__DFT_struct.other* %p_other, i64 0, i32 1
+; CHECK-SAME:                     %__DFT_struct.other* %p_other, i64 0, i32 0
 ; CHECK: store %__DFT_struct.test* %p_test, %__DFT_struct.test** %pp_test
 ; CHECK: %pp_other = getelementptr %__DFT_struct.test,
-; CHECK-SAME:                      %__DFT_struct.test* %p_test, i64 0, i32 3
+; CHECK-SAME:                      %__DFT_struct.test* %p_test, i64 0, i32 2
 ; CHECK: store %__DFT_struct.other* %p_other, %__DFT_struct.other** %pp_other
 ; CHECK: %pp_test2 = getelementptr %__DFT_struct.other,
-; CHECK-SAME:                      %__DFT_struct.other* %p_other, i64 0, i32 1
+; CHECK-SAME:                      %__DFT_struct.other* %p_other, i64 0, i32 0
 ; CHECK: %p_test2 = load %__DFT_struct.test*, %__DFT_struct.test** %pp_test2
 ; CHECK: %ret = call i1 @doSomething.1(%__DFT_struct.test* %p_test2,
 ; CHECK-SAME:                          %__DFT_struct.other* %p_other)
@@ -82,12 +82,11 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK-SAME:                     %__DFT_struct.other* %p_other_in)
 ; CHECK: %p_test_A = getelementptr %__DFT_struct.test,
 ; CHECK-SAME:                      %__DFT_struct.test* %p_test, i64 0, i32 0
-; FIXME: When the optimization is working, we should check that the B GEP
-;        is gone, and the index for C should become 1 and other should become 2.
+; CHECK-NOT: %p_test_B = getelementptr %__DFT_struct.test,
 ; CHECK: %p_test_C = getelementptr %__DFT_struct.test,
-; CHECK-SAME:                      %__DFT_struct.test* %p_test, i64 0, i32 2
+; CHECK-SAME:                      %__DFT_struct.test* %p_test, i64 0, i32 1
 ; CHECK: %pp_other = getelementptr %__DFT_struct.test,
-; CHECK-SAME:                      %__DFT_struct.test* %p_test, i64 0, i32 3
+; CHECK-SAME:                      %__DFT_struct.test* %p_test, i64 0, i32 2
 
 
 declare i8* @malloc(i64)
