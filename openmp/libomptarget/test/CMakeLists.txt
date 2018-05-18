@@ -12,14 +12,11 @@ else()
   set(LIBOMPTARGET_DEBUG False)
 endif()
 
-#INTEL_CUSTOMIZATION
-# Do not add omp as a dependency if Intel specific OpenMP runtime is being used.
-if (NOT INTEL_SPECIFIC_OPENMP)
-  add_openmp_testsuite(check-libomptarget "Running libomptarget tests" ${CMAKE_CURRENT_BINARY_DIR} DEPENDS omptarget omp)
-else()
+# INTEL_CUSTOMIZATION
+# Do not add omp as a dependency since Intel specific OpenMP runtime is being
+# used.
   add_openmp_testsuite(check-libomptarget "Running libomptarget tests" ${CMAKE_CURRENT_BINARY_DIR} DEPENDS omptarget)
-endif()
-#END INTEL_CUSTOMIZATION
+# end INTEL_CUSTOMIZATION
 
 if(${OPENMP_STANDALONE_BUILD})
   set(LIBOMPTARGET_OPENMP_HEADER_FOLDER "${CMAKE_CURRENT_BINARY_DIR}/../../runtime/src" CACHE STRING
