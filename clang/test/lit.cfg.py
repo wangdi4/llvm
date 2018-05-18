@@ -172,12 +172,12 @@ if lit.util.which('xmllint'):
 if config.enable_backtrace:
     config.available_features.add('backtrace')
 
-#if INTEL_OPENCL
+# INTEL_CUSTOMIZATION
 # Add 'intel_opencl' feature based on ICS_WSVARIANT value.
 ics_wsvariant = os.environ.get("ICS_WSVARIANT")
 if ics_wsvariant and ics_wsvariant.startswith('xmainocl'):
     config.available_features.add("intel_opencl")
-#endif INTEL_OPENCL
+# end INTEL_CUSTOMIZATION
 
 # Check if we should allow outputs to console.
 run_console_tests = int(lit_config.params.get('enable_console', '0'))
