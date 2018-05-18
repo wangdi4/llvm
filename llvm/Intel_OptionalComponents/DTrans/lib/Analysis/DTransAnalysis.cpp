@@ -862,6 +862,29 @@ public:
     return Info;
   }
 
+  // This utility function is used by both the local pointer analysis and
+  // in the main DTransAnalysisInfo class.
+  bool isPossiblePtrValue(Value *V) {
+    // If the value is a pointer or the result of a pointer-to-int cast
+    // it definitely is a pointer.
+    if (V->getType()->isPointerTy() || isa<PtrToIntOperator>(V))
+      return true;
+
+    // If the value is not a pointer and is not a pointer-sized integer, it
+    // is definitely not a value we will track as a pointer.
+    if (V->getType() != llvm::Type::getIntNTy(V->getContext(),
+                                              DL.getPointerSizeInBits()))
+      return false;
+
+    // If it is a pointer-sized integer, we need may need to analyze it if
+    // it is the result of a load, select or PHI node.
+    if (isa<LoadInst>(V) || isa<SelectInst>(V) || isa<PHINode>(V))
+      return true;
+
+    // Otherwise, we don't need to analyze it as a pointer.
+    return false;
+  }
+
 private:
   const DataLayout &DL;
   const TargetLibraryInfo &TLI;
@@ -879,12 +902,9 @@ private:
     if (Info.getAnalyzed())
       return;
 
-    // If this isn't either a pointer, the result of a ptrtoint, or the load
-    // of a pointer-sized integer we don't need to do any analysis.
-    if (!V->getType()->isPointerTy() && !isa<PtrToIntInst>(V) &&
-        !(isa<LoadInst>(V) &&
-          (V->getType() == llvm::Type::getIntNTy(V->getContext(),
-                                                 DL.getPointerSizeInBits())))) {
+    // If this isn't either a pointer or derived from a pointer, we don't need
+    // to do any analysis.
+    if (!isPossiblePtrValue(V)) {
       Info.setAnalyzed();
       return;
     }
@@ -927,6 +947,13 @@ private:
   }
 
   void analyzeValueImpl(Value *V, LocalPointerInfo &Info) {
+    // If this isn't either a pointer or derived from a pointer, we don't need
+    // to do any analysis.
+    if (!isPossiblePtrValue(V)) {
+      Info.setAnalyzed();
+      return;
+    }
+
     // If this value is derived from another local value, follow the
     // collect info from the source operand.
     if (isDerivedValue(V))
@@ -1001,7 +1028,12 @@ private:
   // secondary dependencies appear just once, as far down in the stack as
   // possible.
   void populateDependencyStack(Value *V,
-                               SmallVectorImpl<Value *> &DependentVals) {
+                               SmallVectorImpl<Value*> &DependentVals) {
+    // If this isn't either a pointer or derived from a pointer, we don't need
+    // to do any analysis.
+    if (!isPossiblePtrValue(V))
+      return;
+
     // BitCast and PtrToInt can be a ConstExpr acting on a global, so we
     // need to check the operator form. The instruction form of these
     // would be covered by CastInst, but that also handles IntToPtr which
@@ -1091,6 +1123,11 @@ private:
       // of allocation calls, we don't need to track their dependencies
       // because we're looking in the opposite direction of the use-chain
       // here.
+      //
+      // However, we need to follow the uses of the bitcast to see if this
+      // value is stored somewhere.
+      if (isa<CastInst>(U))
+        addAllocUsesToDependencyStack(U, DependentVals, VisitedUsers);
 
       // We do need to follow the uses of PHI nodes and selects, because
       // they might lead to a store instruction, which does introduce a
@@ -1103,9 +1140,15 @@ private:
       // the allocated type may be inferred from the alias information
       // for this pointer.
       if (auto *SI = dyn_cast<StoreInst>(U)) {
-        Value *SrcPtr = SI->getPointerOperand();
-        if (addDependency(SrcPtr, DependentVals))
-          populateDependencyStack(SrcPtr, DependentVals);
+        Value *PtrOp = SI->getPointerOperand();
+        Value *ValOp = SI->getValueOperand();
+        // If the value we're analyzing is the pointer operand we will be
+        // inferring the allocated type from the value written to this
+        // location. If the value we're analyzing is the value operand we will
+        // be inferring the allocated type from the pointer operand.
+        Value *InferenceOp = (PtrOp == V) ? ValOp : PtrOp;
+        if (addDependency(InferenceOp, DependentVals))
+          populateDependencyStack(InferenceOp, DependentVals);
       }
     }
   }
@@ -1415,7 +1458,10 @@ private:
     DEBUG(dbgs() << "dtrans: Analyzing allocation call.\n  " << *CI << "\n");
     SmallPtrSet<llvm::PointerType *, 4> CastTypes;
     SmallPtrSet<Value *, 4> VisitedUsers;
-    collectAllocatedPtrBitcasts(CI, CastTypes, VisitedUsers);
+    bool IsPartial = false;
+    collectAllocatedPtrBitcasts(CI, CastTypes, VisitedUsers, IsPartial);
+    if (IsPartial)
+      Info.setPartialAnalysis(true);
     // Eliminate casts that access element zero in other known types.
     // This is an N^2 algorithm, but N will generally be very small.
     if (CastTypes.size() > 1) {
@@ -1456,7 +1502,8 @@ private:
   void
   collectAllocatedPtrBitcasts(Instruction *I,
                               SmallPtrSetImpl<llvm::PointerType *> &CastTypes,
-                              SmallPtrSetImpl<Value *> &VisitedUsers) {
+                              SmallPtrSetImpl<Value *> &VisitedUsers,
+                              bool &IsPartial) {
     for (auto *U : I->users()) {
       // If we've already visited this user, don't visit again.
       // This prevents infinite loops as we follow the sub-users of PHI nodes
@@ -1473,17 +1520,22 @@ private:
 
         // Save the type information.
         CastTypes.insert(PtrTy);
+
+        // Follow the uses of the bitcast as it may be stored in a location
+        // from which we can infer more information.
+        collectAllocatedPtrBitcasts(BI, CastTypes, VisitedUsers, IsPartial);
         continue;
       }
       // If the user is a PHI node or a select instruction, we need to follow
       // the users of that instruction.
       if (isa<PHINode>(U) || isa<SelectInst>(U))
         collectAllocatedPtrBitcasts(cast<Instruction>(U), CastTypes,
-                                    VisitedUsers);
+                                    VisitedUsers, IsPartial);
+
       // If the user is a store instruction, treat the alias types of the
       // destination pointer as implicit casts.
       if (auto *Store = dyn_cast<StoreInst>(U))
-        inferAllocatedTypesFromStoreInst(Store, CastTypes);
+        inferAllocatedTypesFromStoreInst(I, Store, CastTypes, IsPartial);
     }
   }
 
@@ -1500,18 +1552,53 @@ private:
   // object because its pointer (effectively %struct.A*) is stored in a
   // location that aliases to %struct.A**. This often happens when an
   // allocated pointer is stored in a structure field.
+  //
+  // There are also cases where we need to infer the allocated type from
+  // what is stored there. For example:
+  //
+  //   %t1 = call i8* @malloc(i64 8)
+  //   %t2 = call i8* @calloc(i64 %N, i64 8)
+  //   %t3 = bitcast i8* %t1 to i8**
+  //   %t4 = bitcast i8* %t2 to %struct.A**
+  //   store i8* %t2, i8** %t3
+  //
+  // In this case, because we see a %struct.A** value being stored to the
+  // memory allocated at %t1 we can infer that the %t1 and %t3 values must
+  // alias to %struct.A***.
   void inferAllocatedTypesFromStoreInst(
-      StoreInst *Store, SmallPtrSetImpl<llvm::PointerType *> &Types) {
+      Instruction *ValOfInterest, StoreInst *Store,
+      SmallPtrSetImpl<llvm::PointerType *> &Types,
+      bool &IsPartial) {
     // Get the local pointer info for the destination address.
     Value *DestPtr = Store->getPointerOperand();
-    LocalPointerInfo &DestInfo = LocalMap[DestPtr];
+    Value *StoredVal = Store->getValueOperand();
 
-    // For each type aliased by the destination, if the type is a pointer
-    // add the type that it points to to the Types set.
-    for (auto *AliasTy : DestInfo.getPointerTypeAliasSet())
-      if (AliasTy->isPointerTy() &&
-          AliasTy->getPointerElementType()->isPointerTy())
-        Types.insert(cast<PointerType>(AliasTy->getPointerElementType()));
+    // If the value of interest is the value being stored, we infer the type
+    // from the aliases of the pointer value where it is being stored.
+    if (ValOfInterest == StoredVal) {
+      // For each type aliased by the destination, if the type is a pointer
+      // add the type that it points to to the Types set.
+      LocalPointerInfo &DestInfo = LocalMap[DestPtr];
+      if (!DestInfo.getAnalyzed())
+        IsPartial = true;
+      for (auto *AliasTy : DestInfo.getPointerTypeAliasSet())
+        if (AliasTy->isPointerTy() &&
+            AliasTy->getPointerElementType()->isPointerTy())
+          Types.insert(cast<PointerType>(AliasTy->getPointerElementType()));
+      return;
+    }
+
+    // Otherwise, the value of interest must be the destination pointer and
+    // we must infer its type from what is being stored there.
+    assert(ValOfInterest == DestPtr &&
+           "Can't infer type from unused value of interest.");
+    // For each type aliased by the stored value, add a pointer to that type
+    // to the Types set for the destination.
+    LocalPointerInfo StoredLPI = LocalMap[StoredVal];
+    if (!StoredLPI.getAnalyzed())
+      IsPartial = true;
+    for (auto *AliasTy : StoredLPI.getPointerTypeAliasSet())
+      Types.insert(AliasTy->getPointerTo());
   }
 };
 
@@ -2283,9 +2370,7 @@ private:
     // results of pointer-to-int casts may also alias to interesting values.
     // The local pointer info for the value will tell us if any of these
     // conditions are met.
-    if (V->getType()->isPointerTy() ||
-        ((isa<PtrToIntInst>(V) || isa<PtrToIntOperator>(V)) &&
-         isPtrSizeInt(V))) {
+    if (LPA.isPossiblePtrValue(V)) {
       LocalPointerInfo &LPI = LPA.getLocalPointerInfo(V);
       return (LPI.pointsToSomeElement() || LPI.canAliasToAggregatePointer());
     }

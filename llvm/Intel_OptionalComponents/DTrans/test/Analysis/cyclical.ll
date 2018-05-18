@@ -222,5 +222,46 @@ BB3:
 ; CHECK: LLVMType: %struct.test06 = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 
+; In test07 there are two buffers allocated with the pointer allocated by
+; one stored in the buffer allocated by the other. In this case the alias
+; information for the destination pointer must be inferred from what is
+; stored there. The stored value is then loaded and bitcast back to a
+; type that can only be recognized as valid from this inference.
+
+%struct.test07 = type { i32, i32 }
+define void @test07() {
+  ; Allocate a pointer-sized buffer.
+  ; From %t3, we know this aliases i8**.
+  %t1 = call i8* @malloc(i64 8)
+
+  ; Allocate a 1-element array of pointers.
+  ; From %t4 we know this aliases %struct.test07**.
+  %t2 = call i8* @calloc(i64 1, i64 8)
+
+  ; We now know that %t1 is a pointer-to-pointer.
+  %t3 = bitcast i8* %t1 to i8**
+
+  ; From this store we infer from this that %t1 and %t3 are %struct.test07***.
+  store i8* %t2, i8** %t3
+
+  ; We now know that %t2 is a %struct.test07**.
+  %t4 = bitcast i8* %t2 to %struct.test07**
+
+  ; We know here that %t5 is a %struct.test07**.
+  %t5 = load i8*, i8** %t3
+
+  ; This will only be view as safe if all of the other alias tracking worked.
+  %t6 = bitcast i8* %t5 to %struct.test07**
+
+  ; Clean up.
+  call void @free(i8* %t5)
+  call void @free(i8* %t1)
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test07 = type { i32, i32 }
+; CHECK: Safety data: No issues found
+
 declare void @free(i8* nocapture)
+declare noalias i8* @calloc(i64, i64)
 declare noalias i8* @malloc(i64)
