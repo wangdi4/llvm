@@ -26,35 +26,26 @@ namespace llvm {
 class IntelIntrinsicUtils {
 
 public:
-
-  /// \brief Private utility function used to encode a StringRef as a
-  /// Metadata Value. This Value is then used by the createDirective*
-  /// functions as the parameter representing the type of directive.
-  static Value* createMetadataAsValueFromString(Module &M, StringRef Str);
-
-  /// \brief Return a call to the llvm.intel.directive intrinsic.
-  static CallInst* createDirectiveCall(Module &M, StringRef DirectiveStr);
-
-  /// \brief Return a call to the llvm.intel.directive.qual intrinsic.
-  static CallInst* createDirectiveQualCall(Module &M, StringRef DirectiveStr);
-
-  /// \brief Return a call to the llvm.intel.directive.qual.opnd intrinsic.
-  static CallInst* createDirectiveQualOpndCall(Module &M,
-                                               StringRef DirectiveStr,
-                                               Value *Val);
-
-  /// \brief Return a call to the llvm.intel.directive.qual.opndlist
-  /// intrinsic.
-  static CallInst* createDirectiveQualOpndListCall(
+  /// \brief Return a call to the llvm.directive.region.entry() intrinsic for
+  /// SIMD.
+  static CallInst *createSimdDirectiveBegin(
       Module &M,
-      StringRef DirectiveStr,
-      SmallVector<Value*, 4>& VarCallArgs);
+      SmallDenseMap<StringRef, SmallVector<Value *, 4>> &DirectiveStrMap);
+
+  /// \brief Return a call to the llvm.directive.region.exit() intrinsic for
+  /// SIMD.
+  static CallInst *createSimdDirectiveEnd(Module &M, CallInst *DirCall);
 
   /// \brief Returns strings corresponding to OpenMP directives.
   static StringRef getDirectiveString(int Id);
 
   /// \brief Returns strings corresponding to OpenMP clauses.
   static StringRef getClauseString(int Id);
+
+  /// \brief Private utility function used to encode a StringRef as a
+  /// Metadata Value. This Value is then used by the createDirective*
+  /// functions as the parameter representing the type of directive.
+  static Value *createMetadataAsValueFromString(Module &M, StringRef Str);
 
   /// \brief Returns MetadataAsValue corresponding to OpenMP directives.
   static MetadataAsValue *createDirectiveMetadataAsValue(Module &M, int Id) {
@@ -73,7 +64,7 @@ public:
   static bool isIntelDirective(Instruction *I);
 };
 
-} // end llvm namespace
+} // namespace llvm
 
 #endif // LLVM_TRANSFORM_UTILS_INTEL_INTRINSICUTILS_H
 #endif // INTEL_COLLAB

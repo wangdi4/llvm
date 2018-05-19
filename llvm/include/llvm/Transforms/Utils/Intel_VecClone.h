@@ -49,8 +49,11 @@ struct ParmRef {
 };
 
 class VecClone : public ModulePass {
-  // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
   protected:
+#endif // INTEL_CUSTOMIZATION
+
     /// Set of allocas to mark private for the SIMD loop
     SmallSet<Value*, 4> PrivateAllocas;
 
@@ -140,17 +143,17 @@ class VecClone : public ModulePass {
     /// the loop.
     void insertDirectiveIntrinsics(Module& M, Function *Clone, Function &F,
                                    VectorVariant &V,
-                                   BasicBlock *EntryBlock, 
+                                   BasicBlock *EntryBlock,
                                    BasicBlock *LoopExitBlock,
                                    BasicBlock *ReturnBlock);
 
     /// \brief Create the basic block indicating the begin of the SIMD loop.
-    void insertBeginRegion(Module& M, Function *Clone, Function &F,
-                           VectorVariant &V, BasicBlock *EntryBlock);
+    CallInst *insertBeginRegion(Module &M, Function *Clone, Function &F,
+                                VectorVariant &V, BasicBlock *EntryBlock);
 
     /// \brief Create the basic block indicating the end of the SIMD loop.
     void insertEndRegion(Module& M, Function *Clone, BasicBlock *LoopExitBlock,
-                         BasicBlock *ReturnBlock);
+                         BasicBlock *ReturnBlock, CallInst *EntryDirCall);
 
     /// \brief Create a new vector alloca instruction for the return vector and
     /// bitcast to the appropriate element type.
