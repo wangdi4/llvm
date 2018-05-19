@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Support/Debug.h"
@@ -737,4 +738,286 @@ bool DDUtils::isValidReductionDDRef(RegDDRef *RRef, HLLoop *Loop,
   }
 
   return true;
+}
+
+namespace {
+bool isLegalToShiftLoop(unsigned DstLevel, unsigned SrcLevel,
+                        unsigned OutmostNestingLevel,
+                        SmallVectorImpl<DirectionVector> &DVs) {
+
+  unsigned SmallerLevel;
+
+  //  Trying to move Loop from Srclevel to DstLevel
+  //  The loop can either shift inwards or outwards depending if SrcLevel <
+  //  DstLevel
+  //  It would become illegal if the leftmost non-equal dv is  ">".
+  //  for each DV
+  // (1)
+  //  First scan if there is any leading dv "<" outside the range of movement
+  //  e.g.  ( <  < = >)  if we are moving only last 3 levels then it is always
+  //  legal
+  //  because it will end up as ( < > = <)
+  // (2) Moving < inwards: Once we hit <, then it is legal , if we hit > or *
+  //     return illegal
+  // (3) Moving > outwards: okay to shift * to left as long as it does
+  //     not hit <
+  //
+
+  //  Adjust DstLevel based on OutmostNestingLevel
+  //  because DV are based on actual loop level, input Dst/Src level
+  //  are relative to 1
+  DstLevel += OutmostNestingLevel - 1;
+  SrcLevel += OutmostNestingLevel - 1;
+  SmallerLevel = std::min(SrcLevel, DstLevel);
+
+  for (auto &II : DVs) {
+    bool Ok = false;
+    const DirectionVector &WorkDV = II;
+    // (1)
+    for (unsigned KK = OutmostNestingLevel; KK < SmallerLevel; ++KK) {
+      if (WorkDV[KK - 1] == DVKind::LT) {
+        Ok = true;
+        break;
+      }
+    }
+    if (Ok) {
+      continue;
+    }
+    // (2)
+    if (DstLevel > SrcLevel) {
+      if (WorkDV[SrcLevel - 1] & DVKind::LT) {
+        for (unsigned JJ = SrcLevel + 1; JJ <= DstLevel; ++JJ) {
+          if (WorkDV[JJ - 1] == DVKind::LT || WorkDV[JJ - 1] == DVKind::LE) {
+            break;
+          }
+          if (WorkDV[JJ - 1] & DVKind::GT) {
+            return false;
+          }
+        }
+      }
+    } else {
+      // (3)
+      // (= = *)  Okay to shift * to left as long as it does not hit <
+      if (WorkDV[SrcLevel - 1] & DVKind::GT) {
+        for (unsigned JJ = SrcLevel - 1; JJ >= DstLevel; --JJ) {
+          if (WorkDV[JJ - 1] & DVKind::LT) {
+            return false;
+          }
+        }
+      }
+    }
+  }
+  return true;
+}
+} // namespace
+
+bool DDUtils::isLegalForPermutation(unsigned DstLevel, unsigned SrcLevel,
+                                    unsigned OutmostNestingLevel,
+                                    SmallVectorImpl<DirectionVector> &DVs) {
+  if (SrcLevel == DstLevel) {
+    return true;
+  }
+  return isLegalToShiftLoop(DstLevel, SrcLevel, OutmostNestingLevel, DVs);
+}
+
+namespace {
+///  1. Ignore all  (= = ..)
+///  2. for temps, ignore  anti (< ..)
+///     If there is a loop carried flow for scalars, the DV will not
+///     be all =
+///     (check no longer needed because of change in DD for compile time
+///     saving)
+///  3. Safe reduction (already excluded out in collectDDInfo)
+bool ignoreEdgeForPermute(const DDEdge *Edge, const HLLoop *CandidateLoop,
+                          DirectionVector *RefinedDV = nullptr) {
+
+  const DirectionVector *DV = RefinedDV;
+  if (DV == nullptr) {
+    DV = &Edge->getDV();
+  }
+  if (DV->isEQ()) {
+    return true;
+  }
+
+  if (DV->isIndepFromLevel(CandidateLoop->getNestingLevel())) {
+    return true;
+  }
+
+  // t1 =
+  //    = t1
+  // Anti dep (<) for LoopIndepDepTemp is no longer generated
+  // no need to check
+
+  return false;
+}
+
+///  Scan presence of  < ... >
+///  If none, return true, which  means DV can be dropped for
+///  Interchange legality checking
+bool ignoreDVWithNoLTGTForPermute(const DirectionVector &DV,
+                                  unsigned OutmostNestingLevel,
+                                  unsigned InnermostNestingLevel) {
+
+  bool DVhasLT = false;
+  unsigned LTLevel = 0;
+
+  for (unsigned II = OutmostNestingLevel; II <= InnermostNestingLevel; ++II) {
+    if (DVhasLT && (DV[II - 1] & DVKind::GT)) {
+      if (II != LTLevel) {
+        return false;
+      }
+    }
+
+    if (!DVhasLT && (DV[II - 1] & DVKind::LT)) {
+      DVhasLT = true;
+      LTLevel = II;
+    }
+  }
+  return true;
+}
+
+// Collect DVs to be examined for permuting loops
+// For a candidate loop, DVs of its Edges are collected.
+// Some Edges are ignored since does not affect the legality of interchange
+// This visitor assumes SRA is computed already
+struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
+
+  const HLLoop *CandidateLoop;
+  const unsigned OutermostLevel;
+  const unsigned InnermostLevel;
+  HIRDDAnalysis *DDA;
+  DDGraph &DDG;
+  HIRSafeReductionAnalysis *SRA;
+  InterchangeIgnorableSymbasesTy *IgnorableSymBases;
+
+  // Indicates if we need to call Demand Driven DD to refine DV
+  bool RefineDV;
+
+  // Outputs of this visitor
+  SmallVectorImpl<DirectionVector> &DVs;
+
+  InterchangeIgnorableSymbasesTy EmptyIgnorableSBs;
+
+  CollectDDInfoForPermute(const HLLoop *CandidateLoop, unsigned OutermostLevel,
+                          unsigned InnermostLevel, HIRDDAnalysis *DDA,
+                          DDGraph &DDG, HIRSafeReductionAnalysis *SRA,
+                          InterchangeIgnorableSymbasesTy *Ignores,
+                          bool RefineDV, SmallVectorImpl<DirectionVector> &DVs);
+
+  void visit(const HLDDNode *DDNode);
+
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
+  void postVisit(const HLDDNode *Node) {}
+};
+} // namespace
+
+CollectDDInfoForPermute::CollectDDInfoForPermute(
+    const HLLoop *CandidateLoop, unsigned OutermostLevel,
+    unsigned InnermostLevel, HIRDDAnalysis *DDA, DDGraph &DDG,
+    HIRSafeReductionAnalysis *SRA, InterchangeIgnorableSymbasesTy *Ignores,
+    bool RefineDV, SmallVectorImpl<DirectionVector> &DVs)
+    : CandidateLoop(CandidateLoop), OutermostLevel(OutermostLevel),
+      InnermostLevel(InnermostLevel), DDA(DDA), DDG(DDG), SRA(SRA),
+      IgnorableSymBases(Ignores), RefineDV(RefineDV), DVs(DVs) {
+  DVs.clear();
+  if (!IgnorableSymBases) {
+    IgnorableSymBases = &EmptyIgnorableSBs;
+  }
+}
+
+void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
+
+  const HLInst *Inst = dyn_cast<HLInst>(DDNode);
+  if (Inst && SRA->isSafeReduction(Inst)) {
+    DEBUG(dbgs() << "\n\tIs Safe Red");
+    return;
+  }
+
+  for (auto I = DDNode->ddref_begin(), E = DDNode->ddref_end(); I != E; ++I) {
+
+    // Ignorable symbases are symbases of temps originally were
+    // in pre(post)loop or preheader/postexit.
+    // Those were legally sinked into the innermost loop.
+    // The fact allows us to ignore DDs related to those temps.
+    if ((*I)->isTerminalRef() && IgnorableSymBases->count((*I)->getSymbase())) {
+      continue;
+    }
+
+    for (auto II = DDG.outgoing_edges_begin(*I),
+              EE = DDG.outgoing_edges_end(*I);
+         II != EE; ++II) {
+      // Examining outoging edges is sufficent
+      const DDEdge *Edge = *II;
+      DDRef *DDref = Edge->getSink();
+
+      if (ignoreEdgeForPermute(Edge, CandidateLoop)) {
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+        DEBUG(dbgs() << "\n\t<Edge dropped>");
+        DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+#endif
+        continue;
+      }
+      const DirectionVector *TempDV = &Edge->getDV();
+
+      // Calling Demand Driven DD to refine DV
+      RefinedDependence RefinedDep;
+
+      if (RefineDV) {
+        DDRef *SrcDDRef = Edge->getSrc();
+        DDRef *DstDDRef = DDref;
+
+        // Refine works only for non-terminal refs
+        RefinedDep = DDA->refineDV(SrcDDRef, DstDDRef, OutermostLevel,
+                                   InnermostLevel, false);
+
+        if (RefinedDep.isIndependent()) {
+          DEBUG(dbgs() << "\n\t<Edge dropped with DDTest Indep>");
+          DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+          continue;
+        }
+
+        if (RefinedDep.isRefined()) {
+          DEBUG(dbgs() << "\n\t<Edge with refined DV>");
+          DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+          if (ignoreEdgeForPermute(Edge, CandidateLoop, &RefinedDep.getDV())) {
+            DEBUG(dbgs() << "\n\t<Edge dropped with refined DV Ignore>");
+            DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+            continue;
+          }
+
+          TempDV = &RefinedDep.getDV();
+        }
+      }
+      if (ignoreDVWithNoLTGTForPermute(*TempDV, OutermostLevel,
+                                       InnermostLevel)) {
+        DEBUG(dbgs() << "\n\t<Edge dropped with NoLTGT>");
+        DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+        continue;
+      }
+
+      //  Save the DV in an array which will be used later
+      DVs.push_back(*TempDV);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      DEBUG(dbgs() << "\n\t<Edge selected>");
+      DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+#endif
+    }
+  }
+}
+
+void DDUtils::computeDVsForPermute(
+    SmallVectorImpl<DirectionVector> &DVs, const HLLoop *CandidateLoop,
+    unsigned OutmostNestingLevel, unsigned InnermostNestingLevel,
+    HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA, bool RefineDV,
+    InterchangeIgnorableSymbasesTy *IgnorableSBs) {
+
+  DDGraph DDG = DDA->getGraph(CandidateLoop);
+  CollectDDInfoForPermute CDD(CandidateLoop, OutmostNestingLevel,
+                              InnermostNestingLevel, DDA, DDG, SRA,
+                              IgnorableSBs, RefineDV, DVs);
+
+  HLNodeUtils::visit(CDD, CandidateLoop);
 }

@@ -101,7 +101,6 @@ private:
   unsigned OutmostNestingLevel;
   unsigned InnermostNestingLevel;
   HLLoop *InnermostLoop;
-  struct CollectDDInfo;
   struct CollectCandidateLoops;
 
   SmallVector<CandidateLoopPair, 12> CandidateLoops;
@@ -118,13 +117,10 @@ private:
   // returns true means legal for any permutation
   bool isLegalForAnyPermutation(const HLLoop *Loop);
   //  SrcLevel and DstLevel start from 1
-  bool isLegalToShiftLoop(unsigned DstLevel, unsigned SrcLevel) const;
 
   bool isBestLocalityInInnermost(const HLLoop *Loop,
                                  const HLLoop *BestLocalityLoop);
   void getNearbyPermutation(const HLLoop *Loop);
-  // SrcLevel and DstLevel start from 1
-  bool isLegalForPermutation(unsigned DstLevel, unsigned SrcLevel) const;
   // SrcLevel and DstLevel start from 1
   void permuteNearBy(unsigned DstLevel, unsigned SrcLevel);
   void transformLoop(HLLoop *Loop);
@@ -132,6 +128,7 @@ private:
   void reportTransformation(LoopOptReportBuilder &LORBuilder);
   bool isInPresentOrder(SmallVectorImpl<const HLLoop *> &LoopNests) const;
 };
+
 } // namespace
 
 char HIRLoopInterchange::ID = 0;
@@ -391,7 +388,8 @@ bool HIRLoopInterchange::isBestLocalityInInnermost(
   unsigned SrcLevel =
       BestLocalityLoop->getNestingLevel() - OutmostNestingLevel + 1;
   if (InnermostNestingLevel == BestLocalityLoop->getNestingLevel() ||
-      isLegalForPermutation(InnermostNestingLevel, SrcLevel)) {
+      DDUtils::isLegalForPermutation(InnermostNestingLevel, SrcLevel,
+                                     OutmostNestingLevel, DVs)) {
     return true;
   }
   DEBUG(dbgs() << "\nCannot move best locality loop as innermost\n");
@@ -495,7 +493,8 @@ void HIRLoopInterchange::getNearbyPermutation(const HLLoop *Loop) {
         SrcLevel++;
       }
       assert(SrcLevel != 0 && "Loop not found");
-      if (isLegalForPermutation(DstLevel, SrcLevel)) {
+      if (DDUtils::isLegalForPermutation(DstLevel, SrcLevel,
+                                         OutmostNestingLevel, DVs)) {
         permuteNearBy(DstLevel, SrcLevel);
         LoopPermutation.erase(&I);
         DstLevel++;
@@ -509,256 +508,6 @@ void HIRLoopInterchange::getNearbyPermutation(const HLLoop *Loop) {
       }
     }
   }
-}
-
-namespace {
-///  1. Ignore all  (= = ..)
-///  2. for temps, ignore  anti (< ..)
-///     If there is a loop carried flow for scalars, the DV will not
-///     be all =
-///     (check no longer needed because of change in DD for compile time
-///     saving)
-///  3. Safe reduction (already excluded out in collectDDInfo)
-bool ignoreEdge(const DDEdge *Edge, const HLLoop *CandidateLoop,
-                DirectionVector *RefinedDV = nullptr) {
-
-  const DirectionVector *DV = RefinedDV;
-  if (DV == nullptr) {
-    DV = &Edge->getDV();
-  }
-  if (DV->isEQ()) {
-    return true;
-  }
-
-  const HLLoop *Loop = CandidateLoop;
-  if (DV->isIndepFromLevel(Loop->getNestingLevel())) {
-    return true;
-  }
-
-  // t1 =
-  //    = t1
-  // Anti dep (<) for LoopIndepDepTemp is no longer generated
-  // no need to check
-
-  return false;
-}
-
-///  Scan presence of  < ... >
-///  If none, return true, which  means DV can be dropped for
-///  Interchange legality checking
-bool ignoreDVWithNoLTGT(const DirectionVector &DV, unsigned OutmostNestingLevel,
-                        unsigned InnermostNestingLevel) {
-
-  bool DVhasLT = false;
-  unsigned LTLevel = 0;
-
-  for (unsigned II = OutmostNestingLevel; II <= InnermostNestingLevel; ++II) {
-    if (DVhasLT && (DV[II - 1] & DVKind::GT)) {
-      if (II != LTLevel) {
-        return false;
-      }
-    }
-
-    if (!DVhasLT && (DV[II - 1] & DVKind::LT)) {
-      DVhasLT = true;
-      LTLevel = II;
-    }
-  }
-  return true;
-}
-
-} // namespace
-
-/// Collect all DV edges in loop nests
-/// Call Demand Driven DD as needed (Currently  not calling)
-struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
-
-  HIRLoopInterchange &LIP;
-  const HLLoop *CandidateLoop;
-  DDGraph DDG;
-
-  CollectDDInfo(HIRLoopInterchange &LIP, const HLLoop *CandidateLoop,
-                bool RefineDV)
-      : LIP(LIP), CandidateLoop(CandidateLoop),
-        DDG(LIP.DDA->getGraph(CandidateLoop)), RefineDV(RefineDV) {
-    LIP.DVs.clear();
-  }
-
-  // Indicates if we need to call Demand Driven DD to refine DV
-  bool RefineDV;
-  // start, end level of Candidate Loop nest
-
-  void visit(const HLDDNode *DDNode) {
-
-    const HLInst *Inst = dyn_cast<HLInst>(DDNode);
-    if (Inst && LIP.SRA->isSafeReduction(Inst)) {
-      DEBUG(dbgs() << "\n\tIs Safe Red");
-      return;
-    }
-
-    const InterchangeIgnorableSymbasesTy &IgnorableSymBases =
-        (LIP.CandLoopToIgnorableSymBases)[CandidateLoop];
-
-    for (auto I = DDNode->ddref_begin(), E = DDNode->ddref_end(); I != E; ++I) {
-
-      // Ignorable symbases are symbases of temps originally were
-      // in pre(post)loop or preheader/postexit.
-      // Those were legally sinked into the innermost loop.
-      // The fact allows us to ignore DDs related to those temps.
-      if ((*I)->isTerminalRef() &&
-          IgnorableSymBases.count((*I)->getSymbase())) {
-        continue;
-      }
-
-      for (auto II = DDG.outgoing_edges_begin(*I),
-                EE = DDG.outgoing_edges_end(*I);
-           II != EE; ++II) {
-        // Examining outoging edges is sufficent
-        const DDEdge *Edge = *II;
-        DDRef *DDref = Edge->getSink();
-
-        if (ignoreEdge(Edge, CandidateLoop)) {
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-          DEBUG(dbgs() << "\n\t<Edge dropped>");
-          DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
-#endif
-          continue;
-        }
-        const DirectionVector *TempDV = &Edge->getDV();
-
-        // Calling Demand Driven DD to refine DV
-        RefinedDependence RefinedDep;
-
-        if (RefineDV) {
-          DDRef *SrcDDRef = Edge->getSrc();
-          DDRef *DstDDRef = DDref;
-
-          // Refine works only for non-terminal refs
-          RefinedDep =
-              LIP.DDA->refineDV(SrcDDRef, DstDDRef, LIP.OutmostNestingLevel,
-                                LIP.InnermostNestingLevel, false);
-
-          if (RefinedDep.isIndependent()) {
-            DEBUG(dbgs() << "\n\t<Edge dropped with DDTest Indep>");
-            DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
-            continue;
-          }
-
-          if (RefinedDep.isRefined()) {
-            DEBUG(dbgs() << "\n\t<Edge with refined DV>");
-            DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
-            if (ignoreEdge(Edge, CandidateLoop, &RefinedDep.getDV())) {
-              DEBUG(dbgs() << "\n\t<Edge dropped with refined DV Ignore>");
-              DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
-              continue;
-            }
-
-            TempDV = &RefinedDep.getDV();
-          }
-        }
-        if (ignoreDVWithNoLTGT(*TempDV, LIP.OutmostNestingLevel,
-                               LIP.InnermostNestingLevel)) {
-          DEBUG(dbgs() << "\n\t<Edge dropped with NoLTGT>");
-          DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
-          continue;
-        }
-
-        //  Save the DV in an array which will be used later
-        LIP.DVs.push_back(*TempDV);
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-        DEBUG(dbgs() << "\n\t<Edge selected>");
-        DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
-#endif
-      }
-    }
-  }
-
-  void visit(const HLNode *Node) {}
-  void postVisit(const HLNode *Node) {}
-  void postVisit(const HLDDNode *Node) {}
-};
-
-bool HIRLoopInterchange::isLegalToShiftLoop(unsigned DstLevel,
-                                            unsigned SrcLevel) const {
-
-  unsigned SmallerLevel;
-
-  //  Trying to move Loop from Srclevel to DstLevel
-  //  The loop can either shift inwards or outwards depending if SrcLevel <
-  //  DstLevel
-  //  It would become illegal if the leftmost non-equal dv is  ">".
-  //  for each DV
-  // (1)
-  //  First scan if there is any leading dv "<" outside the range of movement
-  //  e.g.  ( <  < = >)  if we are moving only last 3 levels then it is always
-  //  legal
-  //  because it will end up as ( < > = <)
-  // (2) Moving < inwards: Once we hit <, then it is legal , if we hit > or *
-  //     return illegal
-  // (3) Moving > outwards: okay to shift * to left as long as it does
-  //     not hit <
-  //
-
-  //  Adjust DstLevel based on OutmostNestingLevel
-  //  because DV are based on actual loop level, input Dst/Src level
-  //  are relative to 1
-  DstLevel += OutmostNestingLevel - 1;
-  SrcLevel += OutmostNestingLevel - 1;
-  SmallerLevel = std::min(SrcLevel, DstLevel);
-
-  for (auto &II : DVs) {
-    bool Ok = false;
-    const DirectionVector &WorkDV = II;
-    // (1)
-    for (unsigned KK = OutmostNestingLevel; KK < SmallerLevel; ++KK) {
-      if (WorkDV[KK - 1] == DVKind::LT) {
-        Ok = true;
-        break;
-      }
-    }
-    if (Ok) {
-      continue;
-    }
-    // (2)
-    if (DstLevel > SrcLevel) {
-      if (WorkDV[SrcLevel - 1] & DVKind::LT) {
-        for (unsigned JJ = SrcLevel + 1; JJ <= DstLevel; ++JJ) {
-          if (WorkDV[JJ - 1] == DVKind::LT || WorkDV[JJ - 1] == DVKind::LE) {
-            break;
-          }
-          if (WorkDV[JJ - 1] & DVKind::GT) {
-            return false;
-          }
-        }
-      }
-    } else {
-      // (3)
-      // (= = *)  Okay to shift * to left as long as it does not hit <
-      if (WorkDV[SrcLevel - 1] & DVKind::GT) {
-        for (unsigned JJ = SrcLevel - 1; JJ >= DstLevel; --JJ) {
-          if (WorkDV[JJ - 1] & DVKind::LT) {
-            return false;
-          }
-        }
-      }
-    }
-  }
-  return true;
-}
-
-///  Check all DV to see if it's legal to move SrcLoop pass DstLevel
-///  e.g. Assuming  dv = (< = >),  ScrLoop is the 3rd level loop
-///                 DstLevel  = 1
-///       It will return false because > cannot cross <
-///  Input Levels are relative to 1 (starting in level 1)
-bool HIRLoopInterchange::isLegalForPermutation(unsigned DstLevel,
-                                               unsigned SrcLevel) const {
-  if (SrcLevel == DstLevel) {
-    return true;
-  }
-  return isLegalToShiftLoop(DstLevel, SrcLevel);
 }
 
 ///  No need to interchange if suggested Permutation is same as present order
@@ -837,8 +586,9 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *Loop) {
   // The following visitor will gather DVs from DDG and push them into
   // HIRLoopInterchange::DVs;
 
-  CollectDDInfo CDD(*this, Lp, false);
-  Lp->getHLNodeUtils().visit(CDD, Lp);
+  DDUtils::computeDVsForPermute(DVs, Lp, OutmostNestingLevel,
+                                InnermostNestingLevel, DDA, SRA, false,
+                                &CandLoopToIgnorableSymBases[Lp]);
 
   // If edges are selected,
   // there are dependencies to check out w.r.t to interchange order

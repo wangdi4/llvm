@@ -73,6 +73,22 @@ public:
   static bool isValidReductionDDRef(RegDDRef *RRef, HLLoop *Loop,
                                     unsigned FirstSymbase,
                                     bool *LastReductionInst, DDGraph DDG);
+  ///  Check all DV to see if it's legal to move SrcLoop pass DstLevel
+  ///  e.g. Assuming  dv = (< = >),  ScrLoop is the 3rd level loop
+  ///                 DstLevel  = 1
+  ///       It will return false because > cannot cross <
+  ///  Input Levels are relative to 1 (starting in level 1)
+  static bool isLegalForPermutation(unsigned DstLevel, unsigned SrcLevel,
+                                    unsigned OutmostNestingLevel,
+                                    SmallVectorImpl<DirectionVector> &DVs);
+
+  /// Collect DVs for checking the legality of loop permutation (a.k.a
+  /// interchange)
+  static void computeDVsForPermute(
+      SmallVectorImpl<DirectionVector> &DV, const HLLoop *CandidateLoop,
+      unsigned OutmostNestingLevel, unsigned InnermostNestingLevel,
+      HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA, bool RefineDV,
+      InterchangeIgnorableSymbasesTy *IgnorableSBs = nullptr);
 };
 } // End namespace loopopt
 } // End namespace llvm
