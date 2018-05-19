@@ -23,7 +23,7 @@
 #ifndef INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_GRAPH
 #define INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_GRAPH
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopDistributionPreProcGraph.h"
+#include "HIRLoopDistributionPreProcGraph.h"
 
 namespace llvm {
 

@@ -75,7 +75,7 @@
 // it would have already been done. This forces clients to analyze loops
 // innermost to outermost if considering all distribution possibilities
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopDistributionPreProcGraph.h"
+#include "HIRLoopDistributionPreProcGraph.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;

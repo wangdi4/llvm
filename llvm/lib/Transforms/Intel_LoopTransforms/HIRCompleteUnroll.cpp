@@ -45,7 +45,7 @@
 //  (1) Extend it for non normalized loops.
 //  (2) Add opt report.
 
-#include "HIRCompleteUnroll.h"
+#include "HIRCompleteUnrollImpl.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"

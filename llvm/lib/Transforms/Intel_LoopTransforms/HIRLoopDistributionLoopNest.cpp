@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 //
 
-#include "HIRLoopDistribution.h"
+#include "HIRLoopDistributionImpl.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;

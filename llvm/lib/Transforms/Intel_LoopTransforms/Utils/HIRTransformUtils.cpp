@@ -21,8 +21,10 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
+
+#include "HIRLMMImpl.h"
+#include "HIRLoopReversalImpl.h"
+
 #define DEBUG_TYPE "hir-transform-utils"
 
 using namespace llvm;

@@ -18,13 +18,14 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopDistributionGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopResource.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+
+#include "HIRLoopDistributionGraph.h"
 
 namespace llvm {
 namespace loopopt {

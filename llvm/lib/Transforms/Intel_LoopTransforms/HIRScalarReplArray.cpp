@@ -113,7 +113,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
-#include "HIRScalarReplArray.h"
+#include "HIRScalarReplArrayImpl.h"
 
 #define DEBUG_TYPE "hir-scalarrepl-array"
 

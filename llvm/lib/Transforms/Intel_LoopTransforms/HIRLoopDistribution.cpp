@@ -15,7 +15,7 @@
 //===----------------------------------------------------------------------===//
 //
 
-#include "HIRLoopDistribution.h"
+#include "HIRLoopDistributionImpl.h"
 
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"

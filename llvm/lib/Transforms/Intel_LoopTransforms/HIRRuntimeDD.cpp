@@ -80,7 +80,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "HIRRuntimeDD.h"
+#include "HIRRuntimeDDImpl.h"
 
 #include "llvm/Pass.h"
 

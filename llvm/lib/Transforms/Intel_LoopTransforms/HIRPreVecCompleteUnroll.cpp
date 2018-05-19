@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 //
 
-#include "HIRCompleteUnroll.h"
+#include "HIRCompleteUnrollImpl.h"
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm;

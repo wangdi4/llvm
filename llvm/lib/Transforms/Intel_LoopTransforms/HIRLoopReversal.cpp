@@ -93,7 +93,6 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
@@ -102,6 +101,8 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
+
+#include "HIRLoopReversalImpl.h"
 
 #define DEBUG_TYPE "hir-loop-reversal"
 

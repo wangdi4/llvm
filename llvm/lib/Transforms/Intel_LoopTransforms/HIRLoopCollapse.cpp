@@ -77,7 +77,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
-#include "HIRLoopCollapse.h"
+#include "HIRLoopCollapseImpl.h"
 
 #define DEBUG_TYPE "hir-loop-collapse"
 

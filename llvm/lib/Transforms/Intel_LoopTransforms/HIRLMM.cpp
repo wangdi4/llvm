@@ -87,9 +87,11 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
+
+#include "HIRLMMImpl.h"
 
 #define DEBUG_TYPE "hir-lmm"
 
