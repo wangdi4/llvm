@@ -20,11 +20,15 @@ target triple = "x86_64-apple-macosx10.10.0"
 
 ; INTEL
 ; Sequence of transformations: complete unroll and instcombine
+; FIXME: This is not a sufficiently reduced unit test and the intent of the
+;        Intel-specific RUN line as a test for the llvm.intel.subscript support
+;        in IR/Value.cpp and Analysis/Loads.cpp is not clear. We do need proper
+;        specific tests (not the whole -O1 pipeline) for that support.
 ; CHECK-BB-LABEL: @main
 ; CHECK-BB-NOT: load
 ; CHECK-BB-NOT: br
-; First store to @a
-; CHECK-BB:      store i32 1
+; First store to @a is removed by "Dead Store Elimination."
+; CHECK-BB-NOT:      store i32 1
 ; Unrolled loop after first store to @a
 ; CHECK-BB:      store i32 0
 ; CHECK-BB:      store i32 0

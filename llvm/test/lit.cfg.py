@@ -135,6 +135,7 @@ tools = [
     ToolSubst('%ocamlopt', ocamlopt_command, unresolved='ignore'),
     ToolSubst('%opt-viewer', opt_viewer_cmd),
     ToolSubst('%llvm-objcopy', FindTool('llvm-objcopy')),
+    ToolSubst('%llvm-strip', FindTool('llvm-strip')),
 ]
 
 # FIXME: Why do we have both `lli` and `%lli` that do slightly different things?
@@ -145,7 +146,7 @@ tools.extend([
     'llvm-link', 'llvm-lto', 'llvm-lto2', 'llvm-mc', 'llvm-mca',
     'llvm-modextract', 'llvm-nm', 'llvm-objcopy', 'llvm-objdump',
     'llvm-pdbutil', 'llvm-profdata', 'llvm-ranlib', 'llvm-readobj',
-    'llvm-rtdyld', 'llvm-size', 'llvm-split', 'llvm-strings', 'llvm-tblgen',
+    'llvm-rtdyld', 'llvm-size', 'llvm-split', 'llvm-strings', 'llvm-strip', 'llvm-tblgen',
     #ifdef INTEL_CUSTOMIZATION
     "llvm-spirv",
     #endif // INTEL_CUSTOMIZATION

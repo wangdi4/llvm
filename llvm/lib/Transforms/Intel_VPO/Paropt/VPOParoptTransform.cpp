@@ -1597,7 +1597,7 @@ void VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *V) {
   // Create a new @llvm.invariant.group.barrier for V
   BasicBlock *EntryBB = W->getEntryBBlock();
   IRBuilder<> Builder(EntryBB->getTerminator());
-  Value *NewI = Builder.CreateInvariantGroupBarrier(V);
+  Value *NewI = Builder.CreateLaunderInvariantGroup(V);
 
   // Replace uses of V with NewI
   for (Instruction * User : Users) {
@@ -1695,7 +1695,7 @@ void VPOParoptTransform::genFenceIntrinsic(WRegionNode *W, Value *I) {
 CallInst*  VPOParoptTransform::isFenceCall(Instruction *I) {
   if (CallInst *CI = dyn_cast<CallInst>(I))
     if (CI->getCalledFunction() && CI->getCalledFunction()->getIntrinsicID() ==
-                                       Intrinsic::invariant_group_barrier)
+                                       Intrinsic::launder_invariant_group)
       return CI;
   return nullptr;
 }

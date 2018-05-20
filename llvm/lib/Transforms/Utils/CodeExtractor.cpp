@@ -78,7 +78,7 @@ static cl::opt<bool>
 AggregateArgsOpt("aggregate-extracted-args", cl::Hidden,
                  cl::desc("Aggregate arguments to code-extracted functions"));
 
-/// \brief Test whether a block is valid for extraction.
+/// Test whether a block is valid for extraction.
 #if INTEL_CUSTOMIZATION // under community review D45904
 static bool isBlockValidForExtraction(const BasicBlock &BB,
                                       const SetVector<BasicBlock *> &Result,
@@ -191,7 +191,7 @@ static bool isBlockValidForExtraction(const BasicBlock &BB,
   return true;
 }
 
-/// \brief Build a set of blocks to extract if the input blocks are viable.
+/// Build a set of blocks to extract if the input blocks are viable.
 static SetVector<BasicBlock *>
 buildExtractionBlockSet(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
 #if INTEL_CUSTOMIZATION // under community review D45904
