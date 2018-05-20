@@ -1634,8 +1634,10 @@ public:
       return;
 
     case Intrinsic::memcpy:
+      analyzeMemcpyOrMemmove(I, dtrans::MemfuncCallInfo::MK_Memcpy);
+      return;
     case Intrinsic::memmove:
-      analyzeMemcpyOrMemmove(I);
+      analyzeMemcpyOrMemmove(I, dtrans::MemfuncCallInfo::MK_Memmove);
       return;
     }
 
@@ -3137,8 +3139,12 @@ private:
         // Pass 'false' for IsValuePreservingWrite to conservatively mark all
         // fields as being multiple value from the memset.  We can improve this
         // analysis later by analyzing the value being set.
-        analyzeMemfuncStructureMemberParam(I, StructTy, FieldNum, SetSize,
-                                           /*IsValuePreservingWrite=*/false);
+        dtrans::MemfuncRegion RegionDesc;
+        if (analyzeMemfuncStructureMemberParam(I, StructTy, FieldNum, SetSize,
+                                               /*IsValuePreservingWrite=*/false,
+                                               RegionDesc))
+          createMemsetCallInfo(I, StructTy, RegionDesc);
+
         return;
       }
 
@@ -3182,14 +3188,23 @@ private:
     if (isValueMultipleOfSize(SetSize, ElementSize)) {
       // It is a safe use. Mark all the fields as being written.
       markAllFieldsWritten(ParentTI);
+
+      dtrans::MemfuncRegion RegionDesc;
+      RegionDesc.IsCompleteAggregate = true;
+      createMemsetCallInfo(I, DestParentTy, RegionDesc);
+
       return;
     }
 
     // Consider the case where a portion of a structure is being set, starting
     // from the 1st field.
     if (auto *StructTy = dyn_cast<StructType>(DestPointeeTy)) {
-      analyzeMemfuncStructureMemberParam(I, StructTy, 0, SetSize,
-                                         /*IsValuePreservingWrite=*/false);
+      dtrans::MemfuncRegion RegionDesc;
+      if (analyzeMemfuncStructureMemberParam(I, StructTy, 0, SetSize,
+                                             /*IsValuePreservingWrite=*/false,
+                                             RegionDesc))
+        createMemsetCallInfo(I, StructTy, RegionDesc);
+
       return;
     }
 
@@ -3223,7 +3238,8 @@ private:
   // will be updated to indicate the field is written to for the destination.
   // Fields of the source operand will not be updated to allow for fields
   // to be eliminated if they are never directly read.
-  void analyzeMemcpyOrMemmove(IntrinsicInst &I) {
+  void analyzeMemcpyOrMemmove(IntrinsicInst &I,
+                              dtrans::MemfuncCallInfo::MemfuncKind Kind) {
     DEBUG(dbgs() << "dtrans: Analyzing memcpy/memmove call:\n  " << I << "\n");
     assert(I.getNumArgOperands() >= 2);
 
@@ -3360,8 +3376,15 @@ private:
       // case.
       if (DstSimple == SrcSimple && DstStructTy == SrcStructTy &&
           DstFieldNum == SrcFieldNum) {
-        analyzeMemfuncStructureMemberParam(I, DstStructTy, DstFieldNum, SetSize,
-                                           /*IsValuePreservingWrite=*/true);
+        // The structures for the source and destination match, so we only need
+        // to populate a RegionDesc structure for the destination.
+        dtrans::MemfuncRegion RegionDesc;
+        if (analyzeMemfuncStructureMemberParam(
+                I, DstStructTy, DstFieldNum, SetSize,
+                /*IsValuePreservingWrite=*/true, RegionDesc))
+          createMemcpyOrMemmoveCallInfo(I, DstStructTy, Kind, RegionDesc,
+                                        RegionDesc);
+
         return;
       } else {
         DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
@@ -3390,14 +3413,26 @@ private:
       // It is a safe use. Mark all the fields as being written.
       auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
       markAllFieldsWritten(ParentTI);
+
+      // The copy/move is the complete aggregate of the source and destination,
+      // which are the same types/
+      dtrans::MemfuncRegion RegionDesc;
+      RegionDesc.IsCompleteAggregate = true;
+      createMemcpyOrMemmoveCallInfo(I, DestParentTy, Kind, RegionDesc,
+                                    RegionDesc);
+
       return;
     }
 
     // Consider the case where a portion of a structure is being set, starting
     // from the 1st field.
     if (auto *StructTy = dyn_cast<StructType>(DestPointeeTy)) {
-      analyzeMemfuncStructureMemberParam(I, StructTy, 0, SetSize,
-                                         /*IsValuePreservingWrite=*/true);
+      dtrans::MemfuncRegion RegionDesc;
+      if (analyzeMemfuncStructureMemberParam(I, StructTy, 0, SetSize,
+                                             /*IsValuePreservingWrite=*/true,
+                                             RegionDesc))
+        createMemcpyOrMemmoveCallInfo(I, StructTy, Kind, RegionDesc,
+                                      RegionDesc);
       return;
     }
 
@@ -3423,6 +3458,30 @@ private:
         }
       }
     }
+  }
+
+  // Create a MemfuncCallInfo object that will store the details about a safe
+  // memset call.
+  void createMemsetCallInfo(Instruction &I, llvm::Type *Ty,
+                            dtrans::MemfuncRegion &RegionDesc) {
+    dtrans::MemfuncCallInfo *MCI = DTInfo.createMemfuncCallInfo(
+        &I, dtrans::MemfuncCallInfo::MK_Memset, RegionDesc);
+    MCI->setAliasesToAggregatePointer(true);
+    MCI->setAnalyzed(true);
+    MCI->addType(Ty->getPointerTo());
+  }
+
+  // Create a MemfuncCallInfo object that will store the details about a safe
+  // memcpy/memmove call.
+  void createMemcpyOrMemmoveCallInfo(Instruction &I, llvm::Type *Ty,
+                                     dtrans::MemfuncCallInfo::MemfuncKind Kind,
+                                     dtrans::MemfuncRegion &RegionDescDest,
+                                     dtrans::MemfuncRegion &RegionDescSrc) {
+    dtrans::MemfuncCallInfo *MCI =
+        DTInfo.createMemfuncCallInfo(&I, Kind, RegionDescDest, RegionDescSrc);
+    MCI->setAliasesToAggregatePointer(true);
+    MCI->setAnalyzed(true);
+    MCI->addType(Ty->getPointerTo());
   }
 
   // Helper function for retrieving information when the \p LPI argument refers
@@ -3482,12 +3541,12 @@ private:
   // Analyze a structure pointer that is passed to memfunc call, possibly using
   // a pointer to one of the fields within the structure to determine which
   // fields are modified, and whether it is a safe usage. Return 'true' if safe
-  // usage.
+  // usage, and populate the \p RegionDesc with the results.
   bool analyzeMemfuncStructureMemberParam(Instruction &I, StructType *StructTy,
                                           size_t FieldNum, Value *SetSize,
-                                          bool IsValuePreservingWrite) {
+                                          bool IsValuePreservingWrite,
+                                          dtrans::MemfuncRegion &RegionDesc) {
     // Try to determine if a set of fields in a structure is being written.
-    dtrans::MemfuncRegion RegionDesc;
     if (analyzePartialStructUse(StructTy, FieldNum, SetSize, &RegionDesc)) {
       auto *ParentTI = DTInfo.getOrCreateTypeInfo(StructTy);
 
@@ -3967,6 +4026,22 @@ DTransAnalysisInfo::createFreeCallInfo(Instruction *I, dtrans::FreeKind FK) {
   return Info;
 }
 
+dtrans::MemfuncCallInfo *DTransAnalysisInfo::createMemfuncCallInfo(
+    Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+    dtrans::MemfuncRegion &MR) {
+  dtrans::MemfuncCallInfo *Info = new dtrans::MemfuncCallInfo(I, MK, MR);
+  addCallInfo(I, Info);
+  return Info;
+}
+
+dtrans::MemfuncCallInfo *DTransAnalysisInfo::createMemfuncCallInfo(
+    Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+    dtrans::MemfuncRegion &MR1, dtrans::MemfuncRegion &MR2) {
+  dtrans::MemfuncCallInfo *Info = new dtrans::MemfuncCallInfo(I, MK, MR1, MR2);
+  addCallInfo(I, Info);
+  return Info;
+}
+
 void DTransAnalysisInfo::deleteCallInfo(Instruction *I) {
   dtrans::CallInfo *Info = getCallInfo(I);
   if (!Info)
@@ -4024,11 +4099,8 @@ void DTransAnalysisInfo::destructCallInfo(dtrans::CallInfo *Info) {
     delete cast<dtrans::FreeCallInfo>(Info);
     break;
   case dtrans::CallInfo::CIK_Memfunc:
-    // TODO: uncomment when FreeCallInfo class is added
-    // delete cast<dtrans::MemfuncCallInfo>(Info);
+    delete cast<dtrans::MemfuncCallInfo>(Info);
     break;
-  default:
-    llvm_unreachable("Missing case for CallInfo type in deleteCallInfo");
   }
 }
 

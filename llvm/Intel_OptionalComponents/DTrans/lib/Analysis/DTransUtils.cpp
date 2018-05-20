@@ -373,8 +373,7 @@ void CallInfo::dump() {
     cast<FreeCallInfo>(this)->dump();
     break;
   case CIK_Memfunc:
-    // TODO: uncomment when MemfuncCallInfo class is added
-    // cast<MemfuncCallInfo>(this)->dump();
+    cast<MemfuncCallInfo>(this)->dump();
     break;
   }
 }
@@ -392,5 +391,22 @@ void FreeCallInfo::dump() {
   outs() << "  Aliased types:\n";
   PTI.dump();
 }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+void MemfuncCallInfo::dump() {
+  outs() << "MemfuncInfo:\n";
+  outs() << "    Kind: " << MemfuncKindName(MK) << "\n";
+
+  unsigned int NumRegions = getNumRegions();
+  for (unsigned int RN = 0; RN < NumRegions; ++RN) {
+    bool IsComplete = getIsCompleteAggregate(RN);
+    outs() << "  Region " << RN << ":\n";
+    outs() << "    Complete: " << (IsComplete ? "true" : "false") << "\n";
+    if (!IsComplete) {
+      outs() << "    FirstField: " << getFirstField(RN) << "\n";
+      outs() << "    LastField:  " << getLastField(RN) << "\n";
+    }
+
+    PTI.dump();
+  }
+}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

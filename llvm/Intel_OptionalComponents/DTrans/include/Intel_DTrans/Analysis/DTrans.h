@@ -366,6 +366,25 @@ StringRef AllocKindName(AllocKind Kind);
 /// Get a printable string for the FreeKind
 StringRef FreeKindName(FreeKind Kind);
 
+// This structure is used to describe the affected portion of an aggregate type
+// passed as an argument of the memfunc call. This will be used to communicate
+// information collected during the analysis to the transforms about how
+// a memfunc call is impacting a structure.
+struct MemfuncRegion {
+  MemfuncRegion() : IsCompleteAggregate(true), FirstField(0), LastField(0) {}
+
+  // If this is 'false', the FirstField and LastField members must be set
+  // to indicate an inclusive set of fields within the structure that are
+  // affected. If this is 'true', the FieldField and LastField member values
+  // are undefined.
+  bool IsCompleteAggregate;
+
+  // If the region is a description of a partial structure modification, these
+  // members specify the first and last fields touched.
+  unsigned int FirstField;
+  unsigned int LastField;
+};
+
 // This class is used to hold information that has been
 // extracted from the LocalPointerInfo to contain a
 // list of aggregate types being used by one of the tracked
@@ -517,6 +536,99 @@ public:
 private:
   FreeKind FK;
 };
+
+/// The MemfuncCallInfo class tracks a call to a memfunc that impacts a
+/// type that DTrans may need to transform. The memfunc analysis supports
+/// identifying when a complete aggregate is affected, or in the case of
+/// a structure, when a subset of fields is affected.
+class MemfuncCallInfo : public CallInfo {
+public:
+  /// Kind of memfunc intrinsic call that was analyzed.
+  enum MemfuncKind { MK_Memset, MK_Memcpy, MK_Memmove };
+
+  // Constructor to hold info about calls that only use a single memory
+  // region, such as memset.
+  MemfuncCallInfo(Instruction *I, MemfuncKind MK, MemfuncRegion &MR)
+      : CallInfo(I, CallInfoKind::CIK_Memfunc), MK(MK) {
+
+    assert(MK == MK_Memset &&
+           "MemfuncCallInfo: Single range form expects memset");
+    Regions.push_back(MR);
+  }
+
+  // Constructor to hold info about calls that have destination and source
+  // regions, such as memcpy or memmove call.
+  // The first region parameter is the destination, the second region parameter
+  // is the source region.
+  MemfuncCallInfo(Instruction *I, MemfuncKind MK, MemfuncRegion &MRDest,
+                  MemfuncRegion &MRSrc)
+      : CallInfo(I, CallInfoKind::CIK_Memfunc), MK(MK) {
+    assert((MK == MK_Memcpy || MK_Memmove) &&
+           "MemfuncCallInfo: Dual range form expects memcpy or memmove");
+
+    Regions.push_back(MRDest);
+    Regions.push_back(MRSrc);
+  }
+
+  static StringRef MemfuncKindName(MemfuncKind MK) {
+    switch (MK) {
+    case MK_Memset:
+      return "memset";
+    case MK_Memcpy:
+      return "memcpy";
+    case MK_Memmove:
+      return "memmove";
+    }
+
+    llvm_unreachable("MemfuncKindName: Missing case in switch");
+  }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast:
+  static inline bool classof(const CallInfo *CI) {
+    return CI->getCallInfoKind() == CallInfo::CIK_Memfunc;
+  }
+
+  /// Returns the number of region objects for this call.
+  unsigned int getNumRegions() const {
+    switch (MK) {
+    case MK_Memset:
+      return 1;
+    case MK_Memcpy:
+    case MK_Memmove:
+      return 2;
+    }
+
+    llvm_unreachable("MemfuncCall::getNumRegions missing case");
+  }
+
+  bool getIsCompleteAggregate(unsigned int RN) const {
+    assert(RN <= getNumRegions() && "RegionNum for memfunc call out of range");
+    return Regions[RN].IsCompleteAggregate;
+  }
+
+  unsigned int getFirstField(unsigned int RN) const {
+    assert(RN <= getNumRegions() && "RegionNum for memfunc call out of range");
+    assert(!getIsCompleteAggregate(RN) &&
+           "Field tracking only value when not a complete aggregate");
+    return Regions[RN].FirstField;
+  }
+
+  unsigned int getLastField(unsigned int RN) const {
+    assert(RN <= getNumRegions() && "RegionNum for memfunc call out of range");
+    assert(!getIsCompleteAggregate(RN) &&
+           "Field tracking only value when not a complete aggregate");
+    return Regions[RN].LastField;
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump();
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+private:
+  MemfuncKind MK;
+  SmallVector<MemfuncRegion, 2> Regions;
+};
+
 
 /// Determine whether the specified Function is an allocation function, and
 /// if so what kind of allocation function it is and the size of the allocation.
