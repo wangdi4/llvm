@@ -579,6 +579,10 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     PM.add(createInfiniteLoopCreatorPass());
   }
 
+  // Barrier pass can't work with a token type, so here we remove region
+  // directives
+  PM.add(llvm::createRemoveRegionDirectivesLegacyPass());
+
   PM.add(createBarrierMainPass(debugType));
 
   // After adding loops run loop optimizations.
