@@ -1689,7 +1689,7 @@ static void AddAttributesFromFunctionProtoType(ASTContext &Ctx,
     return;
 
   if (!isUnresolvedExceptionSpec(FPT->getExceptionSpecType()) &&
-      FPT->isNothrow(Ctx))
+      FPT->isNothrow())
     FuncAttrs.addAttribute(llvm::Attribute::NoUnwind);
 }
 
@@ -1845,7 +1845,7 @@ void CodeGenModule::ConstructAttributeList(
     FuncAttrs.addAttribute(llvm::Attribute::NoReturn);
 
   // If we have information about the function prototype, we can learn
-  // attributes form there.
+  // attributes from there.
   AddAttributesFromFunctionProtoType(getContext(), FuncAttrs,
                                      CalleeInfo.getCalleeFunctionProtoType());
 

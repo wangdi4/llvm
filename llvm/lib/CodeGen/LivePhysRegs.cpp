@@ -24,7 +24,7 @@
 using namespace llvm;
 
 
-/// \brief Remove all registers from the set that get clobbered by the register
+/// Remove all registers from the set that get clobbered by the register
 /// mask.
 /// The clobbers set will be the list of live registers clobbered
 /// by the regmask.
@@ -106,8 +106,12 @@ void LivePhysRegs::stepForward(const MachineInstr &MI,
 
   // Add defs to the set.
   for (auto Reg : Clobbers) {
-    // Skip dead defs.  They shouldn't be added to the set.
+    // Skip dead defs and registers clobbered by regmasks. They shouldn't
+    // be added to the set.
     if (Reg.second->isReg() && Reg.second->isDead())
+      continue;
+    if (Reg.second->isRegMask() &&
+        MachineOperand::clobbersPhysReg(Reg.second->getRegMask(), Reg.first))
       continue;
     addReg(Reg.first);
   }

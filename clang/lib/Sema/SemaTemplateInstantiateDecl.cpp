@@ -1710,7 +1710,7 @@ Decl *TemplateDeclInstantiator::VisitCXXRecordDecl(CXXRecordDecl *D) {
   return Record;
 }
 
-/// \brief Adjust the given function type for an instantiation of the
+/// Adjust the given function type for an instantiation of the
 /// given declaration, to cope with modifications to the function's type that
 /// aren't reflected in the type-source information.
 ///
@@ -3240,7 +3240,7 @@ Decl *Sema::SubstDecl(Decl *D, DeclContext *Owner,
   return Instantiator.Visit(D);
 }
 
-/// \brief Instantiates a nested template parameter list in the current
+/// Instantiates a nested template parameter list in the current
 /// instantiation context.
 ///
 /// \param L The parameter list to instantiate
@@ -3283,7 +3283,7 @@ Sema::SubstTemplateParams(TemplateParameterList *Params, DeclContext *Owner,
   return Instantiator.SubstTemplateParams(Params);
 }
 
-/// \brief Instantiate the declaration of a class template partial
+/// Instantiate the declaration of a class template partial
 /// specialization.
 ///
 /// \param ClassTemplate the (instantiated) class template that is partially
@@ -3417,7 +3417,7 @@ TemplateDeclInstantiator::InstantiateClassTemplatePartialSpecialization(
   return InstPartialSpec;
 }
 
-/// \brief Instantiate the declaration of a variable template partial
+/// Instantiate the declaration of a variable template partial
 /// specialization.
 ///
 /// \param VarTemplate the (instantiated) variable template that is partially
@@ -3759,7 +3759,7 @@ void Sema::InstantiateExceptionSpec(SourceLocation PointOfInstantiation,
                      TemplateArgs);
 }
 
-/// \brief Initializes the common fields of an instantiation function
+/// Initializes the common fields of an instantiation function
 /// declaration (New) from the corresponding fields of its template (Tmpl).
 ///
 /// \returns true if there was an error
@@ -3847,7 +3847,7 @@ TemplateDeclInstantiator::InitFunctionInstantiation(FunctionDecl *New,
   return false;
 }
 
-/// \brief Initializes common fields of an instantiated method
+/// Initializes common fields of an instantiated method
 /// declaration (New) from the corresponding fields of its template
 /// (Tmpl).
 ///
@@ -3911,7 +3911,7 @@ static void InstantiateDefaultCtorDefaultArgs(Sema &S,
   }
 }
 
-/// \brief Instantiate the definition of the given function from its
+/// Instantiate the definition of the given function from its
 /// template.
 ///
 /// \param PointOfInstantiation the point at which the instantiation was
@@ -4187,7 +4187,7 @@ VarTemplateSpecializationDecl *Sema::BuildVarTemplateInstantiation(
           VarTemplate, FromVar, InsertPos, TemplateArgsInfo, Converted));
 }
 
-/// \brief Instantiates a variable template specialization by completing it
+/// Instantiates a variable template specialization by completing it
 /// with appropriate type information and initializer.
 VarTemplateSpecializationDecl *Sema::CompleteVarTemplateSpecializationDecl(
     VarTemplateSpecializationDecl *VarSpec, VarDecl *PatternDecl,
@@ -4311,7 +4311,7 @@ void Sema::BuildVariableInstantiation(
     DiagnoseUnusedDecl(NewVar);
 }
 
-/// \brief Instantiate the initializer of a variable.
+/// Instantiate the initializer of a variable.
 void Sema::InstantiateVariableInitializer(
     VarDecl *Var, VarDecl *OldVar,
     const MultiLevelTemplateArgumentList &TemplateArgs) {
@@ -4377,7 +4377,7 @@ void Sema::InstantiateVariableInitializer(
   }
 }
 
-/// \brief Instantiate the definition of the given variable from its
+/// Instantiate the definition of the given variable from its
 /// template.
 ///
 /// \param PointOfInstantiation the point at which the instantiation was
@@ -4996,7 +4996,7 @@ static NamedDecl *findInstantiationOf(ASTContext &Ctx,
   return nullptr;
 }
 
-/// \brief Finds the instantiation of the given declaration context
+/// Finds the instantiation of the given declaration context
 /// within the current instantiation.
 ///
 /// \returns NULL if there was an error
@@ -5008,7 +5008,7 @@ DeclContext *Sema::FindInstantiatedContext(SourceLocation Loc, DeclContext* DC,
   } else return DC;
 }
 
-/// \brief Find the instantiation of the given declaration within the
+/// Find the instantiation of the given declaration within the
 /// current instantiation.
 ///
 /// This routine is intended to be used when \p D is a declaration
@@ -5321,7 +5321,7 @@ NamedDecl *Sema::FindInstantiatedDecl(SourceLocation Loc, NamedDecl *D,
   return D;
 }
 
-/// \brief Performs template instantiation for all implicit template
+/// Performs template instantiation for all implicit template
 /// instantiations we have seen until this point.
 void Sema::PerformPendingInstantiations(bool LocalOnly) {
   while (!PendingLocalImplicitInstantiations.empty() ||
