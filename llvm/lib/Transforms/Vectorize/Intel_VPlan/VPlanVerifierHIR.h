@@ -21,6 +21,9 @@
 #include "VPlanVerifier.h"
 
 namespace llvm {
+namespace loopopt {
+class HLLoop;
+} // namespace loopopt
 namespace vpo {
 
 /// Specialization of VPlanVerifier for HIR. It uses HIR specific information
@@ -29,13 +32,13 @@ class VPlanVerifierHIR : public VPlanVerifier {
 
 private:
   // Outermost HIR loop to be vectorized.
-  const HLLoop *TheLoop;
+  const loopopt::HLLoop *TheLoop;
 
   unsigned countLoopsInUnderlyingIR() const override;
   void verifyIRSpecificLoopRegion(const VPRegionBlock *Region) const override;
 
 public:
-  VPlanVerifierHIR(const HLLoop *HLLp) : VPlanVerifier(), TheLoop(HLLp) {}
+  VPlanVerifierHIR(const loopopt::HLLoop *HLLp) : VPlanVerifier(), TheLoop(HLLp) {}
 };
 
 } // namespace vpo

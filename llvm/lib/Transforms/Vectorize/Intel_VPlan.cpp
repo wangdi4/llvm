@@ -666,9 +666,8 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
   // to generate the whole "re-composed" HIR. This approach won't work when we
   // introduce VPlan-to-VPlan transformations that modify the input
   // VPInstructions.
-  if (auto *HIRData = dyn_cast_or_null<VPInstructionDataHIR>(getHIRData())) {
-    HLDDNode *Node = HIRData->getInstruction();
-    assert(isa<HLDDNode>(Node) && "Expected HLDDNode.");
+  if (HIR.isMaster()) {
+    HLDDNode *Node = HIR.getUnderlyingDDN();
     if (HLInst *Inst = dyn_cast<HLInst>(Node))
       CG->widenNode(Inst, nullptr);
     else if (HLIf *HIf = dyn_cast<HLIf>(Node)) {

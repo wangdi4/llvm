@@ -39,7 +39,7 @@
 #if INTEL_CUSTOMIZATION
 #include "Intel_VPlan/VPLoopAnalysis.h"
 #include "Intel_VPlan/VPLoopInfo.h"
-#include "Intel_VPlan/VPlanInstructionData.h"
+#include "Intel_VPlan/VPlanInstructionDataHIR.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/IR/Dominators.h"
@@ -533,18 +533,177 @@ private:
 /// executed, these instructions would always form a single-def expression as
 /// the VPInstruction is also a single def-use vertex.
 ///
-/// Design Principle: access to underlying IR is forbidden by default. Adding
+#if INTEL_CUSTOMIZATION
+/// For HIR, we classify VPInstructions into 3 sub-types:
+///   1) Master VPInstruction: It has underlying HIR data attached and its
+///      operands could have been decomposed or not. If so, this VPInstruction
+///      is the last one in the UD chain of the group of decomposed
+///      VPInstructions. If this VPInstruction or any of its decomposed ones are
+///      modified, the HIR will automatically be marked as invalid.
+///   2) Decomposed VPInstruction: It's created as a result of decomposing a
+///      master VPInstruction. It doesn't have underlying HIR directly attached
+///      but it has a pointer to its master VPInstruction holding it. In order
+///      to check whether the underlying HIR of a decomposed VPInstruction is
+///      valid, its master VPInstruction must be checked.
+///   3) New VPInstruction: It's created as a result of a VPlan-to-VPlan
+///      transformation, excluding decomposition. It doesn't have underlying HIR
+///      or master VPInstruction attached. New VPInstructions also exist in the
+///      LLVM-IR path.
+///
+/// DESIGN PRINCIPLE: access to underlying IR is forbidden by default. Adding
 /// new friends to this class to have access to it must be very well justified.
+/// DESIGN DECISION: for VPO, we decided to pay the memory and design cost of
+/// having LLVM-IR data (Inst) HIR data (MasterData) and their respective
+/// interfaces in the same class in favor of minimizing divergence with the
+/// community. We know that this is not the best design but creating a
+/// VPInstructionHIR sub-class would be complicated because VPInstruction also
+/// has sub-classes (VPCmpInst, VPPHINode, etc.) that would need to be
+/// replicated under the VPInstructionHIR.
+#endif
 class VPInstruction : public VPUser, public VPRecipeBase {
 #if INTEL_CUSTOMIZATION
+  friend class HIRSpecifics;
   friend class VPBuilder;
   friend class VPBuilderHIR;
-#endif
-
-#if INTEL_CUSTOMIZATION
-  // To get underlying HIRData until we have proper VPType.
+  // To get underlying MasterData until we have proper VPType.
   friend class VPlanCostModel;
   friend class VPlanCostModelProprietary;
+
+  /// Hold all the HIR-specific data and interfaces for a VPInstruction.
+  class HIRSpecifics {
+  public: 
+    HIRSpecifics() {}
+    ~HIRSpecifics() {
+      if (isMaster())
+        delete getVPInstData();
+    }
+
+    // DESIGN PRINCIPLE: IR-independent algorithms don't need to know about
+    // HIR-specific master, decomposed and new VPInstructions. For that reason,
+    // access to the following HIR-specific methods must be restricted. We
+    // achieve that goal by making VPInstruction's HIRSpecifics member private.
+
+    /// Pointer to access the underlying HIR data attached to this
+    /// VPInstruction, if any, depending on its sub-type:
+    ///   1) Master VPInstruction: MasterData points to a VPInstDataHIR holding
+    ///      the actual HIR data.
+    ///   2) Decomposed VPInstruction: MasterData points to master VPInstruction
+    ///      holding the actual HIR data.
+    ///   3) Other VPInstruction (!Master and !Decomposed): MasterData is null.
+    ///      We use a void pointer to represent this case.
+    PointerUnion3<MasterVPInstData *, VPInstruction *, void *> MasterData =
+        (int *)nullptr;
+
+    // Wrapper that returns the VPInstruction data of a master VPInstruction.
+    MasterVPInstData *getVPInstData() {
+      assert(isMaster() && "Only master VPInstructions have HIR Data!");
+      return MasterData.get<MasterVPInstData *>();
+    }
+    const MasterVPInstData *getVPInstData() const {
+      return const_cast<HIRSpecifics *>(this)->getVPInstData();
+    }
+
+    void verifyState() const {
+      if (MasterData.is<MasterVPInstData *>())
+        assert(!MasterData.isNull() &&
+               "MasterData can't be null for master VPInstruction!");
+      else if (MasterData.is<VPInstruction *>())
+        assert(!MasterData.isNull() &&
+               "MasterData can't be null for decomposed VPInstruction!");
+      else
+        assert(MasterData.is<void *>() && MasterData.isNull() &&
+               "MasterData must be null for VPInstruction that is not master "
+               "or decomposed!");
+    }
+
+    /// Return true if this is a master VPInstruction.
+    bool isMaster() const {
+      verifyState();
+      return MasterData.is<MasterVPInstData *>();
+    }
+
+    /// Return true if this is a decomposed VPInstruction.
+    bool isDecomposed() const {
+      verifyState();
+      return MasterData.is<VPInstruction *>();
+    }
+
+    // Return true if MasterData contains actual HIR data.
+    bool isSet() const {
+      verifyState();
+      return !MasterData.is<void *>();
+    }
+
+    /// Return the underlying HIR attached to this master VPInstruction.
+    loopopt::HLDDNode *getUnderlyingDDN() {
+      loopopt::HLDDNode *DDNode = getVPInstData()->getNode();
+      assert(DDNode && "Underlying HIR cannot be null!");
+      return DDNode;
+    }
+    const loopopt::HLDDNode *getUnderlyingDDN() const {
+      return const_cast<HIRSpecifics *>(this)->getUnderlyingDDN();
+    }
+
+    /// Attach \p UnderlyingDDN to this VPInstruction and turn it into a master
+    /// VPInstruction.
+    void setUnderlyingDDN(loopopt::HLDDNode *UnderlyingDDN) {
+      assert(!isSet() && "MasterData is already set!");
+      MasterData = new MasterVPInstData(UnderlyingDDN);
+    }
+
+    /// Return the master VPInstruction attached to a decomposed VPInstruction.
+    VPInstruction *getMaster() {
+      assert(isDecomposed() && "Only decomposed VPInstructions have a pointer "
+                               "to a master VPInstruction!");
+      return MasterData.get<VPInstruction *>();
+    }
+    const VPInstruction *getMaster() const {
+      return const_cast<HIRSpecifics *>(this)->getMaster();
+    }
+
+    /// Attach \p MasterVPI as master VPInstruction of a decomposed
+    /// VPInstruction.
+    void setMaster(VPInstruction *MasterVPI) {
+      assert(MasterVPI && "Master VPInstruction cannot be set to null!");
+      assert(!isMaster() &&
+             "A master VPInstruction can't point to a master VPInstruction!");
+      assert(!isSet() && "Master VPInstruction is already set!");
+      MasterData = MasterVPI;
+    }
+
+    /// Return true if the underlying HIR data is valid. If it's a decomposed
+    /// VPInstruction, the HIR of the attached master VPInstruction is checked.
+    bool isValid() const {
+      if (isMaster())
+        return getVPInstData()->isValid();
+      if (isDecomposed())
+        return getMaster()->HIR.getVPInstData()->isValid();
+      // For other VPInstructions without underlying HIR.
+      assert(!isSet() && "HIR data must be unset!");
+      return false;
+    }
+
+    /// Mark the underlying HIR data as valid.
+    void setValid() {
+      assert(isMaster() && "Only a master VPInstruction must set HIR!");
+      getVPInstData()->setValid();
+    }
+
+    /// Invalidate underlying HIR deta. If decomposed VPInstruction, the HIR of
+    /// its master VPInstruction is invalidated.
+    void invalidate() {
+      if (isMaster())
+        getVPInstData()->setInvalid();
+      else if (isDecomposed())
+        getMaster()->HIR.getVPInstData()->setInvalid();
+    }
+
+    /// Print HIR-specific flags. It's mainly for debugging purposes.
+    void printHIRFlags(raw_ostream &OS) const {
+      OS << "IsMaster=" << isMaster() << " IsDecomp=" << isDecomposed()
+         << " IsNew=" << !isSet() << " HasValidHIR= " << isValid() << "\n";
+    }
+  };
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -566,15 +725,8 @@ private:
 
 #if INTEL_CUSTOMIZATION
   // Hold the underlying Instruction, if any, attached to this VPInstruction.
-  Instruction * Inst = nullptr;
-
-  // Hold the underlying HIR information, if any, attached to this
-  // VPInstruction.
-  // For VPO, we decided to pay the memory cost of having Inst and HIRData
-  // pointers in this class in favor of minimizing divergence with the
-  // community. If memory footprint becomes a problem, we can always move Inst
-  // to a VPInstructionData subclass.
-  VPInstructionData *HIRData = nullptr;
+  Instruction *Inst = nullptr;
+  HIRSpecifics HIR;
 #endif
 
   /// Utility method serving execute(): generates a single instance of the
@@ -582,7 +734,6 @@ private:
   void generateInstruction(VPTransformState &State, unsigned Part);
 
 #if INTEL_CUSTOMIZATION
-protected:
   Value *getValue() override { return Inst; }
   /// Return the underlying Instruction attached to this VPInstruction. If there
   /// is no Instruction attached, it returns null. This interface is similar to
@@ -590,12 +741,11 @@ protected:
   /// VPInstruction pointers.
   Instruction *getInstruction() const { return Inst; }
 
-  /// Return the underlying HIR data attached to this VPInstruction. If there
-  /// is no HIR data attached, it returns null.
-  VPInstructionData *getHIRData() const { return HIRData; }
-
   void setInstruction(Instruction *I) { Inst = I; }
-  void setHIRData(VPInstructionData *HD) { HIRData = HD; }
+
+  /// Return true if this is a new VPInstruction (i.e., an VPInstruction that is
+  /// not coming from the underlying IR.
+  bool isNew() const { return Inst == nullptr && !HIR.isSet(); }
 #endif
 
 public:
@@ -628,12 +778,11 @@ public:
     if (Inst)
       return Inst->getType();
 
-    if (!HIRData)
+    if (!HIR.isMaster())
       return nullptr;
 
-    auto InstDataHIR = cast<VPInstructionDataHIR>(HIRData);
-    HLDDNode *Node = InstDataHIR->getInstruction();
-    HLInst *Inst = dyn_cast_or_null<HLInst>(Node);
+    const loopopt::HLDDNode *Node = HIR.getUnderlyingDDN();
+    const loopopt::HLInst *Inst = dyn_cast_or_null<loopopt::HLInst>(Node);
 
     if (!Inst)
       return nullptr;
@@ -737,7 +886,7 @@ public:
   /// Type definition for an array of vectorized masks. One per unroll
   /// iteration.
   typedef SmallVector<Value *, 2> VectorParts;
-  typedef SmallVector<RegDDRef *, 2> HIRVectorParts;
+  typedef SmallVector<loopopt::RegDDRef *, 2> HIRVectorParts;
 
   /// Temporary, should be removed.
   BasicBlock *SourceBB;
@@ -2094,13 +2243,13 @@ class VPLoopRegionHIR : public VPLoopRegion {
 
 private:
   // Pointer to the underlying HLLoop.
-  HLLoop *HLLp;
+  loopopt::HLLoop *HLLp;
 
-  VPLoopRegionHIR(const std::string &Name, VPLoop *VPLp, HLLoop *HLLp)
+  VPLoopRegionHIR(const std::string &Name, VPLoop *VPLp, loopopt::HLLoop *HLLp)
       : VPLoopRegion(VPLoopRegionHIRSC, Name, VPLp), HLLp(HLLp) {}
 
-  const HLLoop *getHLLoop() const { return HLLp; }
-  HLLoop *getHLLoop() { return HLLp; }
+  const loopopt::HLLoop *getHLLoop() const { return HLLp; }
+  loopopt::HLLoop *getHLLoop() { return HLLp; }
 
 public:
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -2688,7 +2837,7 @@ public:
   }
 
   /// Create a new and empty VPLoopRegionHIR.
-  VPLoopRegion *createLoopRegionHIR(VPLoop *VPL, HLLoop *HLLp) {
+  VPLoopRegion *createLoopRegionHIR(VPLoop *VPL, loopopt::HLLoop *HLLp) {
     assert (VPL && HLLp && "Expected a valid VPLoop and HLLoop.");
     VPLoopRegion *Loop =
         new VPLoopRegionHIR(createUniqueName("loop"), VPL, HLLp);

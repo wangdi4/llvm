@@ -154,6 +154,9 @@ public:
   void addOperand(VPValue *Operand) {
     Operands.push_back(Operand);
     Operand->addUser(*this);
+#if INTEL_CUSTOMIZATION
+    invalidateHIR();
+#endif
   }
 #if INTEL_CUSTOMIZATION
   // Adding 'private' back in case more members are added after 'addOperand' in
@@ -174,6 +177,16 @@ protected:
     for (VPValue *Operand : Operands)
       addOperand(Operand);
   }
+
+#if INTEL_CUSTOMIZATION
+  virtual void invalidateHIR() {
+    // Do nothing for VPUsers without underlying HIR. Unfortunately, this method
+    // is also invoked when VPUser ctor is invoked for the construction of a
+    // VPInstruction (sub-class), instead of the VPInstruction's counterpart
+    // (vtable not ready at that time). However, this shouldn't be a problem
+    // because the HIR is invalid by default at construction.
+  }
+#endif
 
 public:
   VPUser() : VPValue(VPValue::VPUserSC) {}
