@@ -109,6 +109,47 @@ define void @test_gep_as_bitcast(%struct.S6 *%pS6) {
   ret void
 }
 
+; Test cases where GEP operators are used to access globals.
+%struct.S7 = type { i32, i32 }
+@g_instance.S7 = internal unnamed_addr global %struct.S7 zeroinitializer
+%struct.S8 = type { i32, i32 }
+@g_instance.S8 = internal unnamed_addr global %struct.S8 zeroinitializer
+%struct.S9 = type { i32, i32 }
+@g_instance.S9 = internal unnamed_addr global %struct.S9 zeroinitializer
+
+define void @test_gep_operators() {
+  ; Load the value of g_instance.S7.a and store it in g_instance.S7.b.
+  %s7.a = load i32, i32* getelementptr (%struct.S7, %struct.S7* @g_instance.S7,
+                                        i64 0, i32 0)
+  store i32 %s7.a, i32* getelementptr (%struct.S7, %struct.S7* @g_instance.S7,
+                                       i64 0, i32 1)
+
+  ; Load the value of g_instance.S8.b and store it in g_instance.S8.a using
+  ; intermediate bitcast instructions.
+  %tmp1 = bitcast i32* getelementptr (%struct.S8, %struct.S8* @g_instance.S8,
+                                      i64 0, i32 0) to i8*
+  %ps8.a = bitcast i8* %tmp1 to i32*
+  %tmp2 = bitcast i32* getelementptr (%struct.S8, %struct.S8* @g_instance.S8,
+                                      i64 0, i32 1) to i8*
+  %ps8.b = bitcast i8* %tmp2 to i32*
+  %b = load i32, i32* %ps8.b
+  store i32 %b, i32* %ps8.a
+
+  ; Use byte-flattened GEP operator via bitcast operator access fields of
+  ; g_instance.S9
+  %ps9.a = bitcast i8* getelementptr (i8,
+                                      i8* bitcast (%struct.S9* @g_instance.S9
+                                        to i8*), i64 0) to i32*
+  %ps9.b = bitcast i8* getelementptr (i8,
+                                      i8* bitcast (%struct.S9* @g_instance.S9
+                                        to i8*), i64 4) to i32*
+  %a = load i32, i32* %ps9.a
+  store i32 %a, i32* %ps9.b
+  store i32 0, i32* %ps9.a
+
+  ret void
+}
+
 ; The redundant types here are to allow separate testing of safety conditions.
 
 ; struct S1 {
@@ -220,6 +261,24 @@ declare noalias i8* @malloc(i64)
 ; CHECK: Safety data: Global instance | Contains nested structure
 ; CHECK: LLVMType: %struct.S6 = type { [256 x i8], i32 }
 ; CHECK: Safety data: No issues found
+
+; CHECK: DTRANS_StructInfo:
+; CHECK: LLVMType: %struct.S7 = type { i32, i32 }
+; CHECK: Field info: Read
+; CHECK: Field info: Written
+; CHECK: Safety data: Global instance
+
+; CHECK: DTRANS_StructInfo:
+; CHECK: LLVMType: %struct.S8 = type { i32, i32 }
+; CHECK: Field info: Written
+; CHECK: Field info: Read
+; CHECK: Safety data: Global instance
+
+; CHECK: DTRANS_StructInfo:
+; CHECK: LLVMType: %struct.S9 = type { i32, i32 }
+; CHECK: Field info: Read Written
+; CHECK: Field info: Written
+; CHECK: Safety data: Global instance
 
 ; CHECK: LLVMType: %struct.bad.S1 = type { i32, i32, i32 }
 ; CHECK: Safety data: Bad pointer manipulation
