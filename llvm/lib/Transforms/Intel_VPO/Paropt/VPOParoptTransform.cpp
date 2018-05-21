@@ -2120,8 +2120,21 @@ void VPOParoptTransform::wrnCollectLiveOutVals(
       break;
     if (WRegionUtils::getOmpCanonicalInductionVariable(&L) == &I)
       continue;
-    LiveOutVals.insert(&I);
-    buildECs(&L, dyn_cast<PHINode>(&I), ECs);
+    // If any use occurs in the loop header, the loop carried dependence
+    // exists.
+    bool Match = false;
+    for (const Use &U : I.uses()) {
+      const Instruction *UI = cast<Instruction>(U.getUser());
+      const BasicBlock *UserBB = UI->getParent();
+      if (UserBB == L.getHeader()) {
+        Match = true;
+        break;
+      }
+    }
+    if (Match) {
+      LiveOutVals.insert(&I);
+      buildECs(&L, dyn_cast<PHINode>(&I), ECs);
+    }
   }
 }
 
