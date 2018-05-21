@@ -99,6 +99,7 @@ public:
   HIRAnalysis(HIRFramework &HIRF) : HIRF(HIRF) {}
   HIRAnalysis(HIRAnalysis &&Arg) : HIRF(Arg.HIRF) {}
   HIRAnalysis(const HIRAnalysis &) = delete;
+  virtual ~HIRAnalysis() {};
 
   void printAnalysis(raw_ostream &OS) const override;
 };

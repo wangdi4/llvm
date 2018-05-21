@@ -310,7 +310,7 @@ public:
   NonLTOGlobalOptLegacyPass() : FunctionPass(ID) {
     initializeNonLTOGlobalOptLegacyPassPass(*PassRegistry::getPassRegistry());
   }
-  bool runOnFunction(Function &F);
+  bool runOnFunction(Function &F) override;
 };
 }
 

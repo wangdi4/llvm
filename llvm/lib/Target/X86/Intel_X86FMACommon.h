@@ -204,13 +204,13 @@ class FMADagCommon {
     // \p NodeInd.
     static unsigned getBitOffsetForOperand(unsigned NodeInd,
                                            unsigned OpndInd) {
-      static const uint8_t OpndOffsets[MaxNumOfNodesInDAG][3] = { 3,  7, 11,
-                                                                 15, 18, 21,
-                                                                 24, 27, 30,
-                                                                 33, 36, 39,
-                                                                 42, 45, 48,
-                                                                 51, 53, 55,
-                                                                 57, 59, 61};
+      static const uint8_t OpndOffsets[MaxNumOfNodesInDAG][3] = { {3,  7, 11},
+                                                                 {15, 18, 21},
+                                                                 {24, 27, 30},
+                                                                 {33, 36, 39},
+                                                                 {42, 45, 48},
+                                                                 {51, 53, 55},
+                                                                 {57, 59, 61}};
       assert((NodeInd < MaxNumOfNodesInDAG && OpndInd < 3) &&
              "NodeInd is incorrect.");
       return OpndOffsets[NodeInd][OpndInd];
