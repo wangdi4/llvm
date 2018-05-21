@@ -390,7 +390,16 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   bool isAutorun = false;
   if (kmd.Autorun.hasValue()) {
     isAutorun = true;
-    kernelAttributes << "autorun";
+    kernelAttributes << "autorun ";
+  }
+
+  bool isTask = false;
+  if (kmd.MaxGlobalWorkDim.hasValue()) {
+    int MaxGlobalWorkDim = kmd.MaxGlobalWorkDim.get();
+    kernelAttributes << "max_global_work_dim(" << MaxGlobalWorkDim << ") ";
+    if (0 == MaxGlobalWorkDim) {
+      isTask = true;
+    }
   }
 
   if (kmd.VecLenHint.hasValue()) {
@@ -434,8 +443,12 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
 
   auto skimd = KernelInternalMetadataAPI(func);
 
+  // Since work-group autorun kernels should be launched with
+  // global size = (2^32, 2^32, 2^32) and local size = reqd_work_group_size, we
+  // need to serialize work-groups even if there is no fpga pipes/channels to
+  // avoid grabbing all of available threads by work-groups of autorun kernels
   bool needSerializeWGs =
-      skimd.UseFPGAPipes.hasValue() && skimd.UseFPGAPipes.get();
+      (skimd.UseFPGAPipes.hasValue() && skimd.UseFPGAPipes.get()) || isAutorun;
 
   // Need to check if NoBarrierPath Value exists, it is not guaranteed that
   // KernelAnalysisPass is running in all scenarios.
@@ -492,6 +505,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetKernelExecutionLength(executionLength);
   pProps->SetIsAutorun(isAutorun);
   pProps->SetNeedSerializeWGs(needSerializeWGs);
+  pProps->SetIsTask(isTask);
   auto kernelAttributesStr = kernelAttributes.str();
   // Remove space at the end
   if (!kernelAttributesStr.empty())

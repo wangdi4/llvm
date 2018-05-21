@@ -832,6 +832,12 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         stValSize = (nullptr != value) ? sizeof(cl_bool) : 0;
         break;
     }
+    case CL_DEV_KERNEL_IS_TASK:
+    {
+        *(cl_bool*)pValue = (cl_bool)pKernelProps->IsTask();
+        stValSize = (nullptr != value) ? sizeof(cl_bool) : 0;
+        break;
+    }
 
     default:
         return CL_DEV_INVALID_VALUE;

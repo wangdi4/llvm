@@ -176,6 +176,20 @@ DeviceKernel::DeviceKernel(Kernel*                             pKernel,
         }
     }
 
+    cl_bool isTask = CL_FALSE;
+    clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(
+        m_clDevKernel, CL_DEV_KERNEL_IS_TASK, 0, nullptr, sizeof(isTask),
+        &isTask, nullptr);
+    if (CL_DEV_FAILED(clErrRet))
+    {
+        LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"),
+            pKernelName, clErrRet);
+        *pErr = (clErrRet == CL_DEV_INVALID_KERNEL_NAME)
+            ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
+        return;
+    }
+    m_bIsTask = isTask;
+
     // we are here - all passed ok    
     if (!CacheRequiredInfo())
     {

@@ -532,11 +532,6 @@ TEST(FPGA, Test_FPGAPipes)
     FPGAPipes();
 }
 
-TEST(FPGA, Test_FPGAPipeOrdering)
-{
-    FPGAPipeOrdering();
-}
-
 TEST(FPGA, Test_MaxTBBNumWorkers)
 {
     maxTBBNumWorkers();

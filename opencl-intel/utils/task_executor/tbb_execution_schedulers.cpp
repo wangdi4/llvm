@@ -365,7 +365,7 @@ bool TBB_ExecutionSchedulers::parallel_execute( base_command_list& cmdList,
         return false;
     }
 
-    unsigned int grainSize    = task->PreferredSequentialItemsPerThread();
+    size_t grainSize = task->PreferredSequentialItemsPerThread();
 
     ExecutorFunc execute = g_executor[scheduler][optimization][dimCount-1];
 

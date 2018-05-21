@@ -915,15 +915,26 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
     return CL_DEV_SUCCESS;
 }
 
-unsigned int NDRange::PreferredSequentialItemsPerThread() const
+size_t NDRange::PreferredSequentialItemsPerThread() const
 {
-    unsigned int preferredSize = 1;
-    if(m_needSerializeWGs)
+    size_t preferredSize = 1;
+    if (m_needSerializeWGs)
     {
         assert(m_pImplicitArgs != nullptr && "Init should be called first.");
         const size_t* pWGSize = m_pImplicitArgs->WGCount;
         for (unsigned int i = 0; i < m_pImplicitArgs->WorkDim; ++i)
-          preferredSize *= pWGSize[i];
+        {
+            // The whole NDRange are splitted to several tasks using grainsize.
+            // The important fact that 3D-range are handled as three independent
+            // 1D-ranges with the same grainsize computed here.
+            // So, to ensure that 3D-range will not be splitted we need to
+            // ensure that no one from independent 1D-ranges will not be
+            // splitted. That is why it is enough to use maximum number of
+            // work-groups among all dimensions instead of total count of
+            // work-groups in NDRange.
+            preferredSize =
+                (preferredSize < pWGSize[i]) ? pWGSize[i] : preferredSize;
+        }
     }
 
     return preferredSize;
@@ -1053,13 +1064,13 @@ bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgCtx)
     // We always start from (0,0,0) and process whole WG
     // No Need in parameters now
 #ifdef _DEBUG
-    const size_t*    pWGSize = m_pImplicitArgs->WGCount;
+    const size_t* pWGCount = m_pImplicitArgs->WGCount;
 
     cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
     size_t tDimArr[3] = {x, y, z};
     for (unsigned int i=0; i<cmdParams->work_dim;++i)
     {
-        unsigned int val = pWGSize[i];
+        size_t val = pWGCount[i];
         assert(tDimArr[i]<val);
     }
 

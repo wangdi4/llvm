@@ -173,6 +173,12 @@ public:
     virtual bool IsAutorun() const;
 
     /**
+     * @returns true if the specified kernel is a single-work item kernel
+     *  false otherwise
+     */
+    virtual bool IsTask() const;
+
+    /**
      * @returns true if the specified kernel needs to serialize workgroups
      *  false otherwise
      */
@@ -207,6 +213,7 @@ public:
     void SetIsBlock(const bool value) { m_bIsBlock = value; }
     void SetIsAutorun(const bool value) { m_bIsAutorun = value; }
     void SetNeedSerializeWGs(const bool value) { m_bNeedSerializeWGs = value; }
+    void SetIsTask(const bool value) { m_bIsTask = value; }
     void SetIsNonUniformWGSizeSupported(const bool value) { m_bIsNonUniformWGSizeSupported = value; }
     void SetCanUniteWG(const bool value) { m_canUniteWG = value; }
     void SetVerctorizeOnDimention(unsigned int value) { m_verctorizeOnDimention = value; }
@@ -251,6 +258,7 @@ protected:
     bool m_bIsBlock;
     bool m_bIsAutorun;
     bool m_bNeedSerializeWGs;
+    bool m_bIsTask;
     bool m_bIsNonUniformWGSizeSupported;
     bool m_canUniteWG;
     unsigned int m_verctorizeOnDimention;

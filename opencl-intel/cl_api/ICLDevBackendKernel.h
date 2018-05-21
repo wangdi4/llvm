@@ -152,6 +152,13 @@ public:
     virtual bool IsAutorun() const = 0;
 
     /**
+     * @returns true if the specified kernel is a single-work item kernel
+     *  false otherwise
+     *
+     */
+    virtual bool IsTask() const = 0;
+
+    /**
      * @returns true if the specified kernel needs to serialize workgroups
      *  false otherwise
      */

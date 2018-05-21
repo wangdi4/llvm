@@ -338,7 +338,7 @@ public:
 
     // Optimize By
     virtual TASK_SET_OPTIMIZATION OptimizeBy()                        const = 0;
-    virtual unsigned int          PreferredSequentialItemsPerThread() const = 0;
+    virtual size_t PreferredSequentialItemsPerThread() const = 0;
 
 };
 
