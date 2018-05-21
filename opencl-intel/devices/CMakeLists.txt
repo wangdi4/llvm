@@ -20,13 +20,6 @@ if( INCLUDE_MKL )
 	endif(WIN32)
     add_definitions( -D__INCLUDE_MKL__ )
 
-    # [Protex IP] Do not use omp2tbb.
-    #if( USE_OMP2TBB )
-    #message(STATUS "Including OMP2TBB library" )
-    #add_definitions(-D__OMP2TBB__)
-    #add_subdirectory( common/omp2tbb )
-    #endif()
-
     if (ADDR EQUAL 64)
         set ( ICC_ARCH_DIR intel64 )
         add_definitions(-DMKL_ILP64 )
