@@ -88,6 +88,10 @@ void AMDGPUCallLowering::lowerParameter(MachineIRBuilder &MIRBuilder,
 bool AMDGPUCallLowering::lowerFormalArguments(MachineIRBuilder &MIRBuilder,
                                               const Function &F,
                                               ArrayRef<unsigned> VRegs) const {
+  // AMDGPU_GS and AMDGP_HS are not supported yet.
+  if (F.getCallingConv() == CallingConv::AMDGPU_GS ||
+      F.getCallingConv() == CallingConv::AMDGPU_HS)
+    return false;
 
   MachineFunction &MF = MIRBuilder.getMF();
   const SISubtarget *Subtarget = static_cast<const SISubtarget *>(&MF.getSubtarget());

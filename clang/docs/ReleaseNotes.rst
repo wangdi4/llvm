@@ -84,19 +84,27 @@ Non-comprehensive list of changes in this release
   Clang 7 and earlier versions. The old behavior can be restored by setting
   ``-fclang-abi-compat`` to ``6`` or earlier.
 
+- Clang implements the proposed resolution of LWG issue 2358, along with the
+  `corresponding change to the Itanium C++ ABI
+  <https://github.com/itanium-cxx-abi/cxx-abi/pull/51>`_, which make classes
+  containing only unnamed non-zero-length bit-fields be considered non-empty.
+  This is an ABI break compared to prior Clang releases, but makes Clang
+  generate code that is ABI-compatible with other compilers. The old
+  behavior can be restored by setting ``-fclang-abi-compat`` to ``6`` or
+  lower.
+
 - ...
 
 New Compiler Flags
 ------------------
 
-- :option:`-ffp-cast-overflow-workaround` and
-  :option:`-fno-fp-cast-overflow-workaround`
-  enable (disable) a workaround for code that casts floating-point values to
-  integers and back to floating-point. If the floating-point value is not
-  representable in the intermediate integer type, the code is incorrect
-  according to the language standard. This flag will attempt to generate code
-  as if the result of an overflowing conversion matches the overflowing behavior
-  of a target's native float-to-int conversion instructions.
+- :option:`-fstrict-float-cast-overflow` and
+  :option:`-fno-strict-float-cast-overflow` -
+   When a floating-point value is not representable in a destination integer
+   type, the code has undefined behavior according to the language standard.
+   By default, Clang will not guarantee any particular result in that case.
+   With the 'no-strict' option, Clang attempts to match the overflowing behavior
+   of the target's native float-to-int conversion instructions.
 
 - ...
 
@@ -207,6 +215,10 @@ AST Matchers
 
 clang-format
 ------------
+
+- Clang-format will now support detecting and formatting code snippets in raw
+  string literals.  This is configured through the `RawStringFormats` style
+  option.
 
 - ...
 

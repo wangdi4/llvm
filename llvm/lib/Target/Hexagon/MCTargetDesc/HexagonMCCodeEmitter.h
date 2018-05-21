@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// \brief Definition for classes that emit Hexagon machine code from MCInsts
+/// Definition for classes that emit Hexagon machine code from MCInsts
 ///
 //===----------------------------------------------------------------------===//
 
@@ -37,6 +37,7 @@ class HexagonMCCodeEmitter : public MCCodeEmitter {
   MCInstrInfo const &MCII;
   std::unique_ptr<unsigned> Addend;
   std::unique_ptr<bool> Extended;
+  std::unique_ptr<bool> SubInst1;
   std::unique_ptr<MCInst const *> CurrentBundle;
   std::unique_ptr<size_t> CurrentIndex;
 
@@ -64,13 +65,13 @@ public:
                                const MCSubtargetInfo &STI,
                                uint32_t Parse) const;
 
-  // \brief TableGen'erated function for getting the
+  // TableGen'erated function for getting the
   // binary encoding for an instruction.
   uint64_t getBinaryCodeForInstr(MCInst const &MI,
                                  SmallVectorImpl<MCFixup> &Fixups,
                                  MCSubtargetInfo const &STI) const;
 
-  /// \brief Return binary encoding of operand.
+  /// Return binary encoding of operand.
   unsigned getMachineOpValue(MCInst const &MI, MCOperand const &MO,
                              SmallVectorImpl<MCFixup> &Fixups,
                              MCSubtargetInfo const &STI) const;

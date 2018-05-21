@@ -1255,15 +1255,13 @@ are listed below.
    flushed-to-zero number is preserved in the sign of 0, denormals are
    flushed to positive zero, respectively.
 
-.. option:: -f[no-]fp-cast-overflow-workaround
+.. option:: -f[no-]strict-float-cast-overflow
 
-   Enable a workaround for code that casts floating-point values to 
-   integers and back to floating-point. If the floating-point value 
-   is not representable in the intermediate integer type, the code is
-   incorrect according to the language standard. This flag will attempt 
-   to generate code as if the result of an overflowing conversion matches
-   the overflowing behavior of a target's native float-to-int conversion
-   instructions.
+   When a floating-point value is not representable in a destination integer 
+   type, the code has undefined behavior according to the language standard.
+   By default, Clang will not guarantee any particular result in that case.
+   With the 'no-strict' option, Clang attempts to match the overflowing behavior
+   of the target's native float-to-int conversion instructions.
 
 .. option:: -fwhole-program-vtables
 
@@ -1737,11 +1735,11 @@ profile creation and use.
 .. option:: -fprofile-generate[=<dirname>]
 
   The ``-fprofile-generate`` and ``-fprofile-generate=`` flags will use
-  an alterantive instrumentation method for profile generation. When
+  an alternative instrumentation method for profile generation. When
   given a directory name, it generates the profile file
   ``default_%m.profraw`` in the directory named ``dirname`` if specified.
   If ``dirname`` does not exist, it will be created at runtime. ``%m`` specifier
-  will be substibuted with a unique id documented in step 2 above. In other words,
+  will be substituted with a unique id documented in step 2 above. In other words,
   with ``-fprofile-generate[=<dirname>]`` option, the "raw" profile data automatic
   merging is turned on by default, so there will no longer any risk of profile
   clobbering from different running processes.  For example,

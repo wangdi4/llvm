@@ -4668,10 +4668,14 @@ bool Sema::CheckTemplateArgument(NamedDecl *Param,
 
     case TemplateArgument::Expression: {
       TemplateArgument Result;
+      unsigned CurSFINAEErrors = NumSFINAEErrors;
       ExprResult Res =
         CheckTemplateArgument(NTTP, NTTPType, Arg.getArgument().getAsExpr(),
                               Result, CTAK);
       if (Res.isInvalid())
+        return true;
+      // If the current template argument causes an error, give up now.
+      if (CurSFINAEErrors < NumSFINAEErrors)
         return true;
 
       // If the resulting expression is new, then use it in place of the
@@ -6771,11 +6775,11 @@ Sema::BuildExpressionFromIntegralTemplateArgument(const TemplateArgument &Arg,
 
   Expr *E;
   if (T->isAnyCharacterType()) {
-    // This does not need to handle u8 character literals because those are
-    // of type char, and so can also be covered by an ASCII character literal.
     CharacterLiteral::CharacterKind Kind;
     if (T->isWideCharType())
       Kind = CharacterLiteral::Wide;
+    else if (T->isChar8Type() && getLangOpts().Char8)
+      Kind = CharacterLiteral::UTF8;
     else if (T->isChar16Type())
       Kind = CharacterLiteral::UTF16;
     else if (T->isChar32Type())

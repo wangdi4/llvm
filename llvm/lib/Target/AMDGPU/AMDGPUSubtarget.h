@@ -8,7 +8,7 @@
 //==-----------------------------------------------------------------------===//
 //
 /// \file
-/// \brief AMDGPU specific subclass of TargetSubtarget.
+/// AMDGPU specific subclass of TargetSubtarget.
 //
 //===----------------------------------------------------------------------===//
 
@@ -72,7 +72,9 @@ public:
     ISAVersion8_0_3,
     ISAVersion8_1_0,
     ISAVersion9_0_0,
-    ISAVersion9_0_2
+    ISAVersion9_0_2,
+    ISAVersion9_0_4,
+    ISAVersion9_0_6,
   };
 
   enum TrapHandlerAbi {
@@ -150,6 +152,7 @@ protected:
   bool HasIntClamp;
   bool HasVOP3PInsts;
   bool HasMadMixInsts;
+  bool HasFmaMixInsts;
   bool HasMovrel;
   bool HasVGPRIndexMode;
   bool HasScalarStores;
@@ -162,6 +165,8 @@ protected:
   bool HasSDWAMac;
   bool HasSDWAOutModsVOPC;
   bool HasDPP;
+  bool HasDLInsts;
+  bool D16PreservesUnusedBits;
   bool FlatAddressSpace;
   bool FlatInstOffsets;
   bool FlatGlobalInsts;
@@ -327,6 +332,10 @@ public:
 
   bool hasMadMixInsts() const {
     return HasMadMixInsts;
+  }
+
+  bool hasFmaMixInsts() const {
+    return HasFmaMixInsts;
   }
 
   bool hasCARRY() const {
@@ -534,7 +543,15 @@ public:
     return getGeneration() < SEA_ISLANDS;
   }
 
-  /// \brief Returns the offset in bytes from the start of the input buffer
+  bool hasDLInsts() const {
+    return HasDLInsts;
+  }
+
+  bool d16PreservesUnusedBits() const {
+    return D16PreservesUnusedBits;
+  }
+
+  /// Returns the offset in bytes from the start of the input buffer
   ///        of the first explicit kernel argument.
   unsigned getExplicitKernelArgOffset(const MachineFunction &MF) const {
     return isAmdCodeObjectV2(MF) ? 0 : 36;
