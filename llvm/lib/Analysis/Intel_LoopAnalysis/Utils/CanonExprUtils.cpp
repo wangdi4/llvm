@@ -162,6 +162,10 @@ uint64_t CanonExprUtils::getTypeSizeInBits(Type *Ty) const {
   return getHIRParser().getDataLayout().getTypeSizeInBits(Ty);
 }
 
+uint64_t CanonExprUtils::getTypeSizeInBytes(Type *Ty) const {
+  return getHIRParser().getDataLayout().getTypeSizeInBits(Ty) / 8;
+}
+
 bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,
                                  bool RelaxedMode) {
 
