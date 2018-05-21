@@ -329,6 +329,157 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_atoll);
     TLI.setUnavailable(LibFunc_frexpf);
     TLI.setUnavailable(LibFunc_llabs);
+
+#if INTEL_CUSTOMIZATION
+    TLI.setUnavailable(LibFunc_fxstat);
+    TLI.setUnavailable(LibFunc_fxstat64);
+    TLI.setUnavailable(LibFunc_lxstat);
+    TLI.setUnavailable(LibFunc_sysv_signal);
+    TLI.setUnavailable(LibFunc_alphasort);
+    TLI.setUnavailable(LibFunc_asprintf);
+    TLI.setUnavailable(LibFunc_backtrace);
+    TLI.setUnavailable(LibFunc_backtrace_symbols);
+    TLI.setUnavailable(LibFunc_chdir);
+    TLI.setUnavailable(LibFunc_close);
+    TLI.setUnavailable(LibFunc_dup);
+    TLI.setUnavailable(LibFunc_execl);
+    TLI.setUnavailable(LibFunc_execv);
+    TLI.setUnavailable(LibFunc_execvp);
+    TLI.setUnavailable(LibFunc_fcntl);
+    TLI.setUnavailable(LibFunc_fnmatch);
+    TLI.setUnavailable(LibFunc_fork);
+    TLI.setUnavailable(LibFunc_freopen64);
+    TLI.setUnavailable(LibFunc_fsync);
+    TLI.setUnavailable(LibFunc_ftruncate64);
+    TLI.setUnavailable(LibFunc_getcwd);
+    TLI.setUnavailable(LibFunc_getegid);
+    TLI.setUnavailable(LibFunc_geteuid);
+    TLI.setUnavailable(LibFunc_getgid);
+    TLI.setUnavailable(LibFunc_getopt_long);
+    TLI.setUnavailable(LibFunc_getpid);
+    TLI.setUnavailable(LibFunc_getpwuid);
+    TLI.setUnavailable(LibFunc_getrlimit);
+    TLI.setUnavailable(LibFunc_getrusage);
+    TLI.setUnavailable(LibFunc_getuid);
+    TLI.setUnavailable(LibFunc_glob);
+    TLI.setUnavailable(LibFunc_globfree);
+    TLI.setUnavailable(LibFunc_gmtime_r);
+    TLI.setUnavailable(LibFunc_ioctl);
+    TLI.setUnavailable(LibFunc_isatty);
+    TLI.setUnavailable(LibFunc_iscntrl);
+    TLI.setUnavailable(LibFunc_kill);
+    TLI.setUnavailable(LibFunc_link);
+    TLI.setUnavailable(LibFunc_localtime_r);
+    TLI.setUnavailable(LibFunc_lseek);
+    TLI.setUnavailable(LibFunc_lseek64);
+    TLI.setUnavailable(LibFunc_mkdtemp);
+    TLI.setUnavailable(LibFunc_mmap);
+    TLI.setUnavailable(LibFunc_munmap);
+    TLI.setUnavailable(LibFunc_pipe);
+    TLI.setUnavailable(LibFunc_pthread_self);
+    TLI.setUnavailable(LibFunc_putenv);
+    TLI.setUnavailable(LibFunc_qsort_r);
+    TLI.setUnavailable(LibFunc_raise);
+    TLI.setUnavailable(LibFunc_readdir);
+    TLI.setUnavailable(LibFunc_readdir64);
+    TLI.setUnavailable(LibFunc_scandir);
+    TLI.setUnavailable(LibFunc_select);
+    TLI.setUnavailable(LibFunc_setgid);
+    TLI.setUnavailable(LibFunc_setrlimit);
+    TLI.setUnavailable(LibFunc_setuid);
+    TLI.setUnavailable(LibFunc_siglongjmp);
+    TLI.setUnavailable(LibFunc_strsignal);
+    TLI.setUnavailable(LibFunc_symlink);
+    TLI.setUnavailable(LibFunc_sysconf);
+    TLI.setUnavailable(LibFunc_truncate64);
+    TLI.setUnavailable(LibFunc_usleep);
+    TLI.setUnavailable(LibFunc_vasprintf);
+    TLI.setUnavailable(LibFunc_waitpid);
+
+    TLI.setUnavailable(LibFunc_ZNKSs17find_first_not_ofEPKcmm);
+    TLI.setUnavailable(LibFunc_ZNKSs4findEPKcmm);
+    TLI.setUnavailable(LibFunc_ZNKSs4findEcm);
+    TLI.setUnavailable(LibFunc_ZNKSs5rfindEPKcmm);
+    TLI.setUnavailable(LibFunc_ZNKSs5rfindEcm);
+    TLI.setUnavailable(LibFunc_ZNKSs7compareEPKc);
+    TLI.setUnavailable(LibFunc_ZNKSt13runtime_error4whatEv);
+    TLI.setUnavailable(LibFunc_ZNKSt5ctypeIcE13_M_widen_initEv);
+    TLI.setUnavailable(LibFunc_ZNKSt9exception4whatEv);
+    TLI.setUnavailable(LibFunc_ZNSi10_M_extractIdEERSiRT_);
+    TLI.setUnavailable(LibFunc_ZNSi10_M_extractIfEERSiRT_);
+    TLI.setUnavailable(LibFunc_ZNSi10_M_extractIlEERSiRT_);
+    TLI.setUnavailable(LibFunc_ZNSi10_M_extractImEERSiRT_);
+    TLI.setUnavailable(LibFunc_ZNSi4readEPcl);
+    TLI.setUnavailable(LibFunc_ZNSi5tellgEv);
+    TLI.setUnavailable(LibFunc_ZNSi5ungetEv);
+    TLI.setUnavailable(LibFunc_ZNSirsERi);
+    TLI.setUnavailable(LibFunc_ZNSo3putEc);
+    TLI.setUnavailable(LibFunc_ZNSo5flushEv);
+    TLI.setUnavailable(LibFunc_ZNSo5writeEPKcl);
+    TLI.setUnavailable(LibFunc_ZNSo9_M_insertIPKvEERSoT_);
+    TLI.setUnavailable(LibFunc_ZNSo9_M_insertIbEERSoT_);
+    TLI.setUnavailable(LibFunc_ZNSo9_M_insertIdEERSoT_);
+    TLI.setUnavailable(LibFunc_ZNSo9_M_insertIlEERSoT_);
+    TLI.setUnavailable(LibFunc_ZNSo9_M_insertImEERSoT_);
+    TLI.setUnavailable(LibFunc_ZNSolsEi);
+    TLI.setUnavailable(LibFunc_ZNSs12_M_leak_hardEv);
+    TLI.setUnavailable(LibFunc_ZNSs4_Rep10_M_destroyERKSaIcE);
+    TLI.setUnavailable(LibFunc_ZNSs4_Rep9_S_createEmmRKSaIcE);
+    TLI.setUnavailable(LibFunc_ZNSs6appendEPKcm);
+    TLI.setUnavailable(LibFunc_ZNSs6appendERKSs);
+    TLI.setUnavailable(LibFunc_ZNSs6appendEmc);
+    TLI.setUnavailable(LibFunc_ZNSs6assignEPKcm);
+    TLI.setUnavailable(LibFunc_ZNSs6assignERKSs);
+    TLI.setUnavailable(LibFunc_ZNSs6insertEmPKcm);
+    TLI.setUnavailable(LibFunc_ZNSs6resizeEmc);
+    TLI.setUnavailable(LibFunc_ZNSs7replaceEmmPKcm);
+    TLI.setUnavailable(LibFunc_ZNSs7reserveEm);
+    TLI.setUnavailable(LibFunc_ZNSs9_M_mutateEmmm);
+    TLI.setUnavailable(LibFunc_ZNSsC1EPKcRKSaIcE);
+    TLI.setUnavailable(LibFunc_ZNSsC1EPKcmRKSaIcE);
+    TLI.setUnavailable(LibFunc_ZNSsC1ERKSs);
+    TLI.setUnavailable(LibFunc_ZNSsC1ERKSsmm);
+    TLI.setUnavailable(LibFunc_ZNSt12__basic_fileIcED1Ev);
+    TLI.setUnavailable(LibFunc_ZNSt13basic_filebufIcSt11char_traitsIcEE4openEPKcSt13_Ios_Openmode);
+    TLI.setUnavailable(LibFunc_ZNSt13basic_filebufIcSt11char_traitsIcEE5closeEv);
+    TLI.setUnavailable(LibFunc_ZNSt13basic_filebufIcSt11char_traitsIcEEC1Ev);
+    TLI.setUnavailable(LibFunc_ZNSt13runtime_errorC1ERKSs);
+    TLI.setUnavailable(LibFunc_ZNSt13runtime_errorC2ERKSs);
+    TLI.setUnavailable(LibFunc_ZNSt13runtime_errorD1Ev);
+    TLI.setUnavailable(LibFunc_ZNSt13runtime_errorD2Ev);
+    TLI.setUnavailable(LibFunc_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsputnEPKcl);
+    TLI.setUnavailable(LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm);
+    TLI.setUnavailable(LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEEC2ERKSsSt13_Ios_Openmode);
+    TLI.setUnavailable(LibFunc_ZNSt6localeC1Ev);
+    TLI.setUnavailable(LibFunc_ZNSt6localeD1Ev);
+    TLI.setUnavailable(LibFunc_ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_);
+    TLI.setUnavailable(LibFunc_ZNSt8__detail15_List_node_base7_M_hookEPS0_);
+    TLI.setUnavailable(LibFunc_ZNSt8__detail15_List_node_base9_M_unhookEv);
+    TLI.setUnavailable(LibFunc_ZNSt8ios_base4InitC1Ev);
+    TLI.setUnavailable(LibFunc_ZNSt8ios_base4InitD1Ev);
+    TLI.setUnavailable(LibFunc_ZNSt8ios_baseC2Ev);
+    TLI.setUnavailable(LibFunc_ZNSt8ios_baseD2Ev);
+    TLI.setUnavailable(LibFunc_ZNSt9basic_iosIcSt11char_traitsIcEE4initEPSt15basic_streambufIcS1_E);
+    TLI.setUnavailable(LibFunc_ZNSt9basic_iosIcSt11char_traitsIcEE5clearESt12_Ios_Iostate);
+    TLI.setUnavailable(LibFunc_ZNSt9basic_iosIcSt11char_traitsIcEE5rdbufEPSt15basic_streambufIcS1_E);
+    TLI.setUnavailable(LibFunc_ZNSt9exceptionD1Ev);
+    TLI.setUnavailable(LibFunc_ZNSt9exceptionD2Ev);
+    TLI.setUnavailable(LibFunc_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l);
+    TLI.setUnavailable(LibFunc_ZSt16__throw_bad_castv);
+    TLI.setUnavailable(LibFunc_ZSt17__throw_bad_allocv);
+    TLI.setUnavailable(LibFunc_ZSt18_Rb_tree_decrementPKSt18_Rb_tree_node_base);
+    TLI.setUnavailable(LibFunc_ZSt18_Rb_tree_decrementPSt18_Rb_tree_node_base);
+    TLI.setUnavailable(LibFunc_ZSt18_Rb_tree_incrementPKSt18_Rb_tree_node_base);
+    TLI.setUnavailable(LibFunc_ZSt18_Rb_tree_incrementPSt18_Rb_tree_node_base);
+    TLI.setUnavailable(LibFunc_ZSt19__throw_logic_errorPKc);
+    TLI.setUnavailable(LibFunc_ZSt20__throw_length_errorPKc);
+    TLI.setUnavailable(LibFunc_ZSt20__throw_out_of_rangePKc);
+    TLI.setUnavailable(LibFunc_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_);
+    TLI.setUnavailable(LibFunc_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_);
+    TLI.setUnavailable(LibFunc_ZSt7getlineIcSt11char_traitsIcESaIcEERSt13basic_istreamIT_T0_ES7_RSbIS4_S5_T1_ES4_);
+    TLI.setUnavailable(LibFunc_ZSt9terminatev);
+    TLI.setUnavailable(LibFunc_ZStrsIcSt11char_traitsIcEERSt13basic_istreamIT_T0_ES6_RS3_);
+#endif // INTEL_CUSTOMIZATION
   }
 
   switch (T.getOS()) {
@@ -1405,12 +1556,1158 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isFloatTy() &&
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isPointerTy());
+
+  case LibFunc_assert_fail:
+    return (NumParams == 4 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy());
+
+  case LibFunc_clang_call_terminate:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_ctype_b_loc:
+    return (NumParams == 0 && FTy.getReturnType()->isPointerTy());
+
+  case LibFunc_ctype_get_mb_cur_max:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+
+  case LibFunc_ctype_tolower_loc:
+    return (NumParams == 0 && FTy.getReturnType()->isPointerTy());
+
+  case LibFunc_ctype_toupper_loc:
+    return (NumParams == 0 && FTy.getReturnType()->isPointerTy());
+
+  case LibFunc_cxa_allocate_exception:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_cxa_bad_typeid:
+    return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
+  case LibFunc_cxa_begin_catch:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_cxa_call_unexpected:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_cxa_end_catch:
+    return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
+  case LibFunc_cxa_free_exception:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_cxa_get_exception_ptr:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_cxa_rethrow:
+    return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
+  case LibFunc_cxa_throw:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy());
+
   case LibFunc_dynamic_cast:
     return (NumParams == 4 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isIntegerTy());
+
+  case LibFunc_errno_location:
+    return (NumParams == 0 && FTy.getReturnType()->isPointerTy());
+
+  case LibFunc_fxstat:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy());
+
+  case LibFunc_fxstat64:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy());
+
+  case LibFunc_isinf:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isFloatingPointTy());
+
+  case LibFunc_isnan:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isFloatingPointTy());
+
+  case LibFunc_isnanf:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isFloatingPointTy());
+
+  case LibFunc_kmpc_barrier:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_kmpc_critical:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy());
+
+  case LibFunc_kmpc_dispatch_init_4:
+    return (NumParams == 7 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isIntegerTy() &&
+            FTy.getParamType(4)->isIntegerTy() &&
+            FTy.getParamType(5)->isIntegerTy() &&
+            FTy.getParamType(6)->isIntegerTy());
+
+  case LibFunc_kmpc_dispatch_next_4:
+    return (NumParams == 6 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isPointerTy() &&
+            FTy.getParamType(5)->isPointerTy());
+
+  case LibFunc_kmpc_end_critical:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy());
+
+  case LibFunc_kmpc_end_reduce_nowait:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy());
+
+  case LibFunc_kmpc_end_serialized_parallel:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_kmpc_for_static_fini:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_kmpc_for_static_init_4:
+    return (NumParams == 9 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isPointerTy() &&
+            FTy.getParamType(5)->isPointerTy() &&
+            FTy.getParamType(6)->isPointerTy() &&
+            FTy.getParamType(7)->isIntegerTy() &&
+            FTy.getParamType(8)->isIntegerTy());
+
+  case LibFunc_kmpc_for_static_init_8:
+    return (NumParams == 9 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isPointerTy() &&
+            FTy.getParamType(5)->isPointerTy() &&
+            FTy.getParamType(6)->isPointerTy() &&
+            FTy.getParamType(7)->isIntegerTy() &&
+            FTy.getParamType(8)->isIntegerTy());
+
+  case LibFunc_kmpc_fork_call:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy());
+
+  case LibFunc_kmpc_global_thread_num:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_kmpc_push_num_threads:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_kmpc_reduce_nowait:
+    return (NumParams == 7 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isIntegerTy() &&
+            FTy.getParamType(4)->isPointerTy() &&
+            FTy.getParamType(5)->isPointerTy() &&
+            FTy.getParamType(6)->isPointerTy());
+
+  case LibFunc_kmpc_serialized_parallel:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_lxstat:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy());
+
+  case LibFunc_sigsetjmp:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_sysv_signal:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_under_exit:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_obstack_begin:
+    return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isPointerTy());
+
+  case LibFunc_obstack_memory_used:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_obstack_newchunk:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_setjmp:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_ZNKSs17find_first_not_ofEPKcmm:
+    return (NumParams == 4 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isIntegerTy());
+
+  case LibFunc_ZNKSs4findEcm:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_ZNKSs4findEPKcmm:
+    return (NumParams == 4 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isIntegerTy());
+
+  case LibFunc_ZNKSs5rfindEcm:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_ZNKSs5rfindEPKcmm:
+    return (NumParams == 4 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isIntegerTy());
+
+  case LibFunc_ZNKSs7compareEPKc:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNKSt13runtime_error4whatEv:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNKSt5ctypeIcE13_M_widen_initEv:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNKSt9exception4whatEv:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSi10_M_extractIdEERSiRT_:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSi10_M_extractIfEERSiRT_:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSi10_M_extractIlEERSiRT_:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSi10_M_extractImEERSiRT_:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSi4readEPcl:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_ZNSi5tellgEv:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSi5ungetEv:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSirsERi:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSo3putEc:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_ZNSo5flushEv:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSo5writeEPKcl:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_ZNSo9_M_insertIbEERSoT_:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_ZNSo9_M_insertIdEERSoT_:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isFloatingPointTy());
+
+  case LibFunc_ZNSo9_M_insertIlEERSoT_:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_ZNSo9_M_insertImEERSoT_:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_ZNSo9_M_insertIPKvEERSoT_:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSolsEi:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_ZNSs12_M_leak_hardEv:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSs4_Rep10_M_destroyERKSaIcE:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  // static call (not a member function)
+  case LibFunc_ZNSs4_Rep9_S_createEmmRKSaIcE:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy());
+
+  case LibFunc_ZNSs6appendEmc:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_ZNSs6appendEPKcm:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_ZNSs6appendERKSs:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSs6assignEPKcm:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_ZNSs6assignERKSs:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSs6insertEmPKcm:
+    return (NumParams == 4 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isIntegerTy());
+
+  case LibFunc_ZNSs6resizeEmc:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_ZNSs7replaceEmmPKcm:
+    return (NumParams == 5 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isIntegerTy());
+
+  case LibFunc_ZNSs7reserveEm:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_ZNSs9_M_mutateEmmm:
+    return (NumParams == 4 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isIntegerTy());
+
+  case LibFunc_ZNSsC1EPKcmRKSaIcE:
+    return (NumParams == 4 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy());
+
+  case LibFunc_ZNSsC1EPKcRKSaIcE:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy());
+
+  case LibFunc_ZNSsC1ERKSs:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSsC1ERKSsmm:
+    return (NumParams == 4 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isIntegerTy());
+
+  case LibFunc_ZNSt12__basic_fileIcED1Ev:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSt13basic_filebufIcSt11char_traitsIcEE4openEPKcSt13_Ios_Openmode:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_ZNSt13basic_filebufIcSt11char_traitsIcEE5closeEv:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSt13basic_filebufIcSt11char_traitsIcEEC1Ev:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSt13runtime_errorC1ERKSs:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSt13runtime_errorC2ERKSs:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSt13runtime_errorD1Ev:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSt13runtime_errorD2Ev:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsputnEPKcl:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm:
+    return (NumParams == 4 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isIntegerTy());
+
+  case LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEEC2ERKSsSt13_Ios_Openmode:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_ZNSt6localeC1Ev:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSt6localeD1Ev:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy());
+
+  case LibFunc_ZNSt8__detail15_List_node_base7_M_hookEPS0_:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSt8__detail15_List_node_base9_M_unhookEv:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSt8ios_base4InitC1Ev:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSt8ios_base4InitD1Ev:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSt8ios_baseC2Ev:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSt8ios_baseD2Ev:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSt9basic_iosIcSt11char_traitsIcEE4initEPSt15basic_streambufIcS1_E:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSt9basic_iosIcSt11char_traitsIcEE5clearESt12_Ios_Iostate:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_ZNSt9basic_iosIcSt11char_traitsIcEE5rdbufEPSt15basic_streambufIcS1_E:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSt9exceptionD1Ev:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSt9exceptionD2Ev:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l:
+    return (NumParams == 4 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isIntegerTy());
+
+  // static call (not a member function)
+  case LibFunc_ZSt16__throw_bad_castv:
+    return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
+  // static call (not a member function)
+  case LibFunc_ZSt17__throw_bad_allocv:
+    return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
+  // static call (not a member function)
+  case LibFunc_ZSt18_Rb_tree_decrementPKSt18_Rb_tree_node_base:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  // static call (not a member function)
+  case LibFunc_ZSt18_Rb_tree_decrementPSt18_Rb_tree_node_base:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  // static call (not a member function)
+  case LibFunc_ZSt18_Rb_tree_incrementPKSt18_Rb_tree_node_base:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  // static call (not a member function)
+  case LibFunc_ZSt18_Rb_tree_incrementPSt18_Rb_tree_node_base:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  // static call (not a member function)
+  case LibFunc_ZSt19__throw_logic_errorPKc:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  // static call (not a member function)
+  case LibFunc_ZSt20__throw_length_errorPKc:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  // static call (not a member function)
+  case LibFunc_ZSt20__throw_out_of_rangePKc:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  // static call (not a member function)
+  case LibFunc_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  // static call (not a member function)
+  case LibFunc_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_:
+    return (NumParams == 4 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isPointerTy());
+
+  case LibFunc_ZSt7getlineIcSt11char_traitsIcESaIcEERSt13basic_istreamIT_T0_ES7_RSbIS4_S5_T1_ES4_:
+    return (NumParams == 4 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isIntegerTy());
+
+  // static call (not a member function)
+  case LibFunc_ZSt9terminatev:
+    return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
+  // static call (not a member function)
+  case LibFunc_ZStrsIcSt11char_traitsIcEERSt13basic_istreamIT_T0_ES6_RS3_:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_abort:
+    return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
+  case LibFunc_alphasort:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_asctime:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_asprintf:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_backtrace:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_backtrace_symbols:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_bsearch:
+    return (NumParams == 5 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isIntegerTy() &&
+            FTy.getParamType(4)->isPointerTy());
+
+  case LibFunc_chdir:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_clock:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+
+  case LibFunc_close:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_ctime:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_difftime:
+    return (NumParams == 2 && FTy.getReturnType()->isFloatingPointTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_div:
+    return (NumParams == 2 && FTy.getReturnType()->isStructTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_dup:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_erfc:
+    return (NumParams == 1 && FTy.getReturnType()->isFloatingPointTy() &&
+            FTy.getParamType(0)->isFloatingPointTy());
+
+  case LibFunc_execl:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_execv:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_execvp:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_fcntl:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_fnmatch:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_fork:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+
+  case LibFunc_freopen64:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy());
+
+  case LibFunc_fsync:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_ftruncate64:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_getcwd:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_getegid:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+
+  case LibFunc_geteuid:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+
+  case LibFunc_getgid:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+
+  case LibFunc_getopt_long:
+    return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isPointerTy());
+
+  case LibFunc_getpid:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+
+  case LibFunc_getpwuid:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_getrlimit:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_getrusage:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_getuid:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+
+  case LibFunc_glob:
+    return (NumParams == 4 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isPointerTy());
+
+  case LibFunc_globfree:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_gmtime:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_gmtime_r:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_hypot:
+    return (NumParams == 2 && FTy.getReturnType()->isFloatingPointTy() &&
+            FTy.getParamType(0)->isFloatingPointTy() &&
+            FTy.getParamType(1)->isFloatingPointTy());
+
+  case LibFunc_hypotf:
+    return (NumParams == 2 && FTy.getReturnType()->isFloatingPointTy() &&
+            FTy.getParamType(0)->isFloatingPointTy() &&
+            FTy.getParamType(1)->isFloatingPointTy());
+
+  case LibFunc_ioctl:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_isalnum:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_isalpha:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_isatty:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_iscntrl:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_isspace:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_isupper:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_iswspace:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_j0:
+    return (NumParams == 1 && FTy.getReturnType()->isFloatingPointTy() &&
+            FTy.getParamType(0)->isFloatingPointTy());
+
+  case LibFunc_j1:
+    return (NumParams == 1 && FTy.getReturnType()->isFloatingPointTy() &&
+            FTy.getParamType(0)->isFloatingPointTy());
+
+  case LibFunc_kill:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_link:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_localeconv:
+    return (NumParams == 0 && FTy.getReturnType()->isPointerTy());
+
+  case LibFunc_localtime:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_localtime_r:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_longjmp:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_lseek:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_lseek64:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy(64) &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_mblen:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_mbstowcs:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_mkdtemp:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_mmap:
+    return (NumParams == 6 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isIntegerTy() &&
+            FTy.getParamType(4)->isIntegerTy() &&
+            FTy.getParamType(5)->isIntegerTy());
+
+  case LibFunc_munmap:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_obstack_free:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_omp_destroy_lock:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_omp_get_max_threads:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+
+  case LibFunc_omp_get_num_threads:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+
+  case LibFunc_omp_get_thread_num:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+
+  case LibFunc_omp_init_lock:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_omp_set_lock:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_omp_unset_lock:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_pipe:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_pthread_self:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+
+  case LibFunc_putenv:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_qsort_r:
+    return (NumParams == 5 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isPointerTy());
+
+  case LibFunc_raise:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_rand:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+
+  case LibFunc_readdir:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_readdir64:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_scandir:
+    return (NumParams == 4 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isPointerTy());
+
+  case LibFunc_select:
+    return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isPointerTy());
+
+  case LibFunc_setgid:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_setlocale:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_setrlimit:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_setuid:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_siglongjmp:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_signal:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_sleep:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_srand:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_strerror:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_strftime:
+    return (NumParams == 4 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isPointerTy());
+
+  case LibFunc_strsignal:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_symlink:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_sysconf:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_time:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_tolower:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_toupper:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_towlower:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_towupper:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_truncate64:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_usleep:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_vasprintf:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_waitpid:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_wcstombs:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
 
 #endif // INTEL_CUSTOMIZATION
   }
