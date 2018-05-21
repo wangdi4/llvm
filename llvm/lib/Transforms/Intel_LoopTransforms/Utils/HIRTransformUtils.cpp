@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
@@ -23,6 +23,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
+#include "HIRUnroll.h"
+
 #define DEBUG_TYPE "hir-transform-utils"
 
 using namespace llvm;
@@ -800,4 +802,10 @@ void HIRTransformUtils::updateStripminedLoopCE(HLLoop *Loop) {
           }
         }
       });
+}
+
+void HIRTransformUtils::completeUnroll(HLLoop *Loop) {
+  assert(Loop->isConstTripLoop() &&
+         "Cannot unroll non-constant trip count loop!");
+  unroll::completeUnrollLoop(Loop);
 }
