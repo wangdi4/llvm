@@ -106,6 +106,7 @@ namespace {
       (void) llvm::createInlineListsPass();
       (void) llvm::createXmainOptLevelWrapperPass();
       (void) llvm::createOptReportOptionsPass();
+      (void) llvm::createRemoveRegionDirectivesLegacyPass();
       (void) llvm::createLoopOptReportEmitterLegacyPass();
       (void) llvm::createLowerSubscriptIntrinsicLegacyPass();
       (void) llvm::createConvertGEPToSubscriptIntrinsicLegacyPass();

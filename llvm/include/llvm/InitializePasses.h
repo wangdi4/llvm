@@ -446,6 +446,8 @@ void initializeLoopOptMarkerLegacyPassPass(PassRegistry&);
 // Pass to store the opt level.
 void initializeXmainOptLevelWrapperPassPass(PassRegistry&);
 void initializeOptReportOptionsPassPass(PassRegistry &);
+// Pass for removing region directives.
+void initializeRemoveRegionDirectivesLegacyPassPass(PassRegistry &);
 void initializeLoopOptReportEmitterLegacyPassPass(PassRegistry&);
 // HIR Passes
 void initializeHIRRegionIdentificationWrapperPassPass(PassRegistry&);
