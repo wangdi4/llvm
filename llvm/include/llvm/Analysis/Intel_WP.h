@@ -1,6 +1,6 @@
 //===------- Intel_WP.h - Whole program Analysis -*------===//
 //
-// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -13,12 +13,16 @@
 #ifndef LLVM_ANALYSIS_INTELWP_H
 #define LLVM_ANALYSIS_INTELWP_H
 
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Pass.h"
 
 namespace llvm {
+
+void SetWholeProgramRead(bool ProgramRead);
+void SetLinkingExecutable(bool LinikingExe);
 
 // It handles actual analysis and results of whole program analysis.
 class WholeProgramInfo {
@@ -29,6 +33,8 @@ private:
 
   // Set to true if all symbols have been resolved.
   bool WholeProgramSeen;
+
+  size_t UnresolvedCallsCount;
 
 public:
   WholeProgramInfo();
@@ -45,8 +51,9 @@ public:
   void wholeProgramAllExternsAreIntrins(Module &M,
                                         const TargetLibraryInfo &TLI);
   bool resolveAllLibFunctions(Module &M, const TargetLibraryInfo &TLI);
-  bool resolveCallsInRoutine(const TargetLibraryInfo &TLI,
-                             llvm::Function*, int*);
+  bool resolveCallsInRoutine(const TargetLibraryInfo &TLI, llvm::Function *F);
+  bool resolveCalledValue(const TargetLibraryInfo &TLI, const Value *Arg,
+                          const Function *Caller);
   void makeAllLocalToCompilationUnit(Module &M, CallGraph *CG);
   bool makeInternalize(GlobalValue &GV, const StringSet<> &AlwaysPreserved);
 };

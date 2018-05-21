@@ -318,6 +318,12 @@ private:
     /// The unmangled name of the global.
     std::string IRName;
 
+#if INTEL_CUSTOMIZATION
+    /// True if linker resolved the definition i.e. the definition is somewhere
+    /// either in one of linked modules or one of linked libraries.
+    bool ResolvedByLinker = false;
+#endif // INTEL_CUSTOMIZATION
+
     /// Keep track if the symbol is visible outside of a module with a summary
     /// (i.e. in either a regular object or a regular LTO module without a
     /// summary).
@@ -394,6 +400,7 @@ private:
 struct SymbolResolution {
   SymbolResolution()
       : Prevailing(0), FinalDefinitionInLinkageUnit(0), VisibleToRegularObj(0),
+        ResolvedByLinker(0), // INTEL
         LinkerRedefined(0) {}
 
   /// The linker has chosen this definition of the symbol.
@@ -405,6 +412,13 @@ struct SymbolResolution {
 
   /// The definition of this symbol is visible outside of the LTO unit.
   unsigned VisibleToRegularObj : 1;
+
+#if INTEL_CUSTOMIZATION
+  /// The definition of this symbol has been resolved by the linker. This is
+  /// similar to FinalDefinitionInLinkageUnit, however this flag will be true
+  /// also for symbols resolved in dynamic libraries.
+  unsigned ResolvedByLinker : 1;
+#endif // INTEL_CUSTOMIZATION
 
   /// Linker redefined version of the symbol which appeared in -wrap or -defsym
   /// linker option.

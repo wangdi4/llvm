@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/Intel_WP.h" // INTEL
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/CodeGen/CommandFlags.inc"
@@ -348,6 +349,9 @@ ld_plugin_status onload(ld_plugin_tv *tv) {
         break;
       case LDPO_EXEC: // .exe
         IsExecutable = true;
+#if INTEL_CUSTOMIZATION
+        SetLinkingExecutable(true);
+#endif // INTEL_CUSTOMIZATION
         RelocationModel = Reloc::Static;
         break;
       default:
@@ -721,6 +725,10 @@ static void addModule(LTO &Lto, claimed_file &F, const void *View,
         (ld_plugin_symbol_resolution)Sym.resolution;
 
     ResolutionInfo &Res = ResInfo[Sym.name];
+
+#if INTEL_CUSTOMIZATION
+    R.ResolvedByLinker = Resolution != LDPR_UNDEF;
+#endif // INTEL_CUSTOMIZATION
 
     switch (Resolution) {
     case LDPR_UNKNOWN:

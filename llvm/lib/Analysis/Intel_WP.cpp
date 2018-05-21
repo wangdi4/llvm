@@ -1,6 +1,6 @@
 //===------- Intel_WP.cpp - Whole Program Analysis -*------===//
 //
-// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -19,12 +19,10 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 
-
-
 using namespace llvm;
 
 // If it is true, compiler assumes that source files in the current
-// compilation have entire program.  
+// compilation have entire program.
 static cl::opt<bool> AssumeWholeProgram("whole-program-assume",
                                         cl::init(false), cl::ReallyHidden);
 
@@ -36,6 +34,23 @@ static cl::opt<bool> WholeProgramTrace("whole-program-trace",
 static cl::opt<bool> WholeProgramAssert("whole-program-assert",
                                         cl::init(false), cl::ReallyHidden);
 
+// If it is true, compiler assumes that whole program has been read (linker can
+// reach all symbols).
+static cl::opt<bool> AssumeWholeProgramRead("whole-program-assume-read",
+                                            cl::init(false), cl::ReallyHidden);
+
+// If it is true, compiler assumes that program is linked as executable.
+static cl::opt<bool> AssumeWholeProgramExecutable(
+    "whole-program-assume-executable", cl::init(false), cl::ReallyHidden);
+
+// This flag will be set to true after the whole program has been read i.e. the
+// linker was able to resolve each function symbol to either one of linked
+// modules or dynamic libraries.
+static bool WholeProgramRead = false;
+
+// This flag will be set to true by linker plugin when the linker is linking an
+// exectubale.
+static bool LinkingExecutable = false;
 
 #define DEBUG_TYPE  "wholeprogramanalysis"
 
@@ -45,6 +60,23 @@ INITIALIZE_PASS_BEGIN(WholeProgramWrapperPass, "wholeprogramanalysis",
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(WholeProgramWrapperPass, "wholeprogramanalysis",
                 "Whole program analysis", false, false)
+
+void llvm::SetWholeProgramRead(bool ProgramRead) {
+  WholeProgramRead = ProgramRead;
+}
+
+void llvm::SetLinkingExecutable(bool LinkingExe) {
+  LinkingExecutable = LinkingExe;
+}
+
+static bool IsWholeProgramRead() {
+  return WholeProgramRead || AssumeWholeProgramRead;
+}
+
+static bool IsLinkedAsExecutable() {
+  return LinkingExecutable || AssumeWholeProgramExecutable;
+}
+
 
 char WholeProgramWrapperPass::ID = 0;
 
@@ -82,8 +114,8 @@ WholeProgramInfo::~WholeProgramInfo() {}
 // This routine sets linkage of "GV" to Internal except when GV is in
 // "AlwaysPreserved".
 //
-bool WholeProgramInfo::makeInternalize(GlobalValue &GV, 
-                                const StringSet<> &AlwaysPreserved) {
+bool WholeProgramInfo::makeInternalize(GlobalValue &GV,
+                                       const StringSet<> &AlwaysPreserved) {
 
   if (GV.hasLocalLinkage())
     return false;
@@ -100,21 +132,21 @@ bool WholeProgramInfo::makeInternalize(GlobalValue &GV,
 }
 
 // This routine is called when WholeProgramAssume is true. It sets
-// linkage of all globals to Internal if possible. 
+// linkage of all globals to Internal if possible.
 //
 void WholeProgramInfo::makeAllLocalToCompilationUnit(Module &M,
                                                          CallGraph *CG) {
 
   // Set of symbols private to the compiler that this pass should not touch.
   StringSet<> AlwaysPreserved;
-   
+
   AlwaysPreserved.insert("main");
 
   // Never internalize the llvm.used symbol.  It is used to implement
   // attribute((used)).
   AlwaysPreserved.insert("llvm.used");
   AlwaysPreserved.insert("llvm.compiler.used");
-  
+
   // Never internalize anchors used by the machine module info
   AlwaysPreserved.insert("llvm.global_ctors");
   AlwaysPreserved.insert("llvm.global_dtors");
@@ -157,7 +189,7 @@ WholeProgramInfo
 WholeProgramInfo::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
                                 CallGraph *CG) {
 
-  WholeProgramInfo Result; 
+  WholeProgramInfo Result;
   Result.wholeProgramAllExternsAreIntrins(M, TLI);
 
   if (AssumeWholeProgram) {
@@ -167,28 +199,54 @@ WholeProgramInfo::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
     Result.WholeProgramSeen = true;
     Result.makeAllLocalToCompilationUnit(M, CG);
   }
-   
+
   return Result;
 }
 
 // This analysis depends on TargetLibraryInfo. Analysis info is not
 // modified by any other pass.
-//
 void WholeProgramWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
 }
 
+// This function takes Value that is an operand to call or invoke instruction
+// and checks if it can be resolved as a known function.
+bool WholeProgramInfo::resolveCalledValue(
+    const TargetLibraryInfo &TLI, const Value *Arg, const Function *Caller) {
+  assert(Arg && "Whole-Program-Analysis: invalid call argument");
+  // Remove any potential cast before doing anything with the value.
+  Arg = Arg->stripPointerCasts();
+
+  // If the value is a function try to resolve it.
+  if (const Function *Callee = dyn_cast<Function>(Arg)) {
+    if (Callee->isIntrinsic() || !Callee->isDeclaration())
+      return true;
+
+    LibFunc TheLibFunc;
+    if (!TLI.getLibFunc(Callee->getName(), TheLibFunc) ||
+        !TLI.has(TheLibFunc)) {
+      if (WholeProgramTrace) {
+        errs() << Callee->getName() << "    Is not a recognized LibFunc.\n";
+      }
+      ++UnresolvedCallsCount;
+      return false;
+    }
+    return true;
+  }
+
+  // Callees which are result of instructions like load cannot be resolved at
+  // compile time, ignore them. If the whole program is read we can assume that
+  // indirect calls will invoke one of the analyzed functions.
+  return true;
+}
+
 // This function returns true if all calls in "F" can be resolved using
 // "TLI" info. Otherwise, it returns false and sets "unresolved_funcs_count"
-// to number of unresolved calls in "F". 
-//
-bool WholeProgramInfo::resolveCallsInRoutine(
-                 const TargetLibraryInfo &TLI, Function *F, 
-                 int *unresolved_funcs_count) {
-
-  bool resolved = true;
-
+// to number of unresolved calls in "F".
+bool WholeProgramInfo::resolveCallsInRoutine(const TargetLibraryInfo &TLI,
+                                             Function *F) {
+  bool Resolved = true;
   for (inst_iterator II = inst_begin(&(*F)), E = inst_end(&(*F));
        II != E; ++II) {
     // Skip if it is not a call inst
@@ -197,79 +255,28 @@ bool WholeProgramInfo::resolveCallsInRoutine(
     }
 
     CallSite CS = CallSite(&*II);
-    Function *Callee = CS.getCalledFunction();
-    if (Callee == nullptr) {
-      // Indirect call:
-      // It is possible that getCalledFunction can return nullptr even for
-      // direct calls in some rare cases. It is possible to get name of
-      // direct call by parsing getCalledValue() but go conservative for 
-      // now.
-      if (isa<ConstantExpr>(CS.getCalledValue())) {
-          (*unresolved_funcs_count)++;
-          resolved = false;
-          if (WholeProgramTrace)
-            errs() <<  "    Unhandled call:  " << &*II << "\n";
-      }
-    }
-    else {
-      if (Callee->isDeclaration() || Callee->isIntrinsic()) {
-         LibFunc TheLibFunc;
-
-         if (!(TLI.getLibFunc(Callee->getName(), TheLibFunc) &&
-             TLI.has(TheLibFunc)) && !Callee->isIntrinsic()) {
-
-          (*unresolved_funcs_count)++;
-          resolved = false;
-          if (WholeProgramTrace)
-            errs() << Callee->getName()  << "    Not in intrinsic table \n";
-       
-        }
-      }
-      else if (!F->hasExactDefinition()) {
-        // Treat it as unresolved. 
-        // TODO: It can be improved by finding why it doesn't have
-        // exact definition.
-        (*unresolved_funcs_count)++;
-        resolved = false;
-        if (WholeProgramTrace)
-          errs() << Callee->getName()  << "    No exact defintion \n";
-      }
-    }
+    Resolved &= resolveCalledValue(TLI, CS.getCalledValue(), F);
+    if (!Resolved && !WholeProgramTrace)
+      return false;
   }
-  return resolved;
+  return Resolved;
 }
 
 bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
                                        const TargetLibraryInfo &TLI) {
   bool all_resolved = true;
   bool main_def_seen_in_ir = false;
-  int unresolved_funcs_count = 0;
   int unresolved_globals_count = 0;
   int unresolved_aliases_count = 0;
+
+  UnresolvedCallsCount = 0;
 
   // Walk through all functions to find unresolved calls.
   for (Function &F : M) {
     if (F.getName() == "main" && !F.isDeclaration()) {
       main_def_seen_in_ir = true;
     }
-    all_resolved &= resolveCallsInRoutine(TLI, &F, &unresolved_funcs_count);
-  }
-   
-  StringSet<> IgnoreKnownGlobals;
-   
-  IgnoreKnownGlobals.insert("stdin");
-  IgnoreKnownGlobals.insert("stdout");
-  IgnoreKnownGlobals.insert("stderr");
-  IgnoreKnownGlobals.insert("environ");
-
-  // Walk through all globals to find unresolved globals.
-  for (auto &GV : M.globals()) {
-    if (GV.hasLocalLinkage() || IgnoreKnownGlobals.count(GV.getName()))
-      continue;
-    if (WholeProgramTrace)
-      errs() << GV.getName() << "  global is not local\n";
-    all_resolved &= false;
-    unresolved_globals_count++;
+    all_resolved &= resolveCallsInRoutine(TLI, &F);
   }
 
   // Walk through all aliases to find unresolved aliases.
@@ -287,14 +294,14 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
       errs() << "      " << "  Main def seen \n";
     else
       errs() << "      " << "  Main def not seen \n";
-    errs() << "      " << unresolved_funcs_count << "  FUNCTIONS UNRESOLVED \n";
+    errs() << "      " << UnresolvedCallsCount << "  FUNCTIONS UNRESOLVED \n";
     errs() << "      " << unresolved_globals_count << "  GLOBALS UNRESOLVED \n";
     errs() << "      " << unresolved_aliases_count << "  ALIASES UNRESOLVED \n";
   }
 
   // Check for all_resolved if WholeProgramAssert is true.
   if (WholeProgramAssert)
-    assert(all_resolved && 
+    assert(all_resolved &&
            "Whole-Program-Analysis: Did not detect whole program");
 
   all_resolved &= main_def_seen_in_ir;
@@ -321,14 +328,19 @@ void WholeProgramInfo::wholeProgramAllExternsAreIntrins(Module &M,
         errs() <<  "  WHOLE PROGRAM NOT DETECTED \n";
     }
 
-    // TODO: WholeProgramSafe is set only if we are building executable.
-    // Need to another check here to make sure we are building
-    // executable. Not yet found good solution to check this. It will be
-    // fixed in the next check-in
-    if (WholeProgramSeen) {
-      WholeProgramSafe = true;
-      if (WholeProgramTrace)
+    WholeProgramSafe = WholeProgramSeen && IsWholeProgramRead() && IsLinkedAsExecutable();
+    if (WholeProgramTrace) {
+      if (WholeProgramSafe) {
         errs() <<  "  WHOLE PROGRAM SAFE is determined\n";
+      } else {
+        errs() <<  "  WHOLE PROGRAM SAFE is *NOT* determined:\n";
+        if (!WholeProgramSeen)
+          errs() <<  "    whole program not seen;\n";
+        if (!IsWholeProgramRead())
+          errs() <<  "    whole program not read;\n";
+        if (!IsLinkedAsExecutable())
+          errs() <<  "    not linking an executable;\n";
+      }
     }
 }
 
