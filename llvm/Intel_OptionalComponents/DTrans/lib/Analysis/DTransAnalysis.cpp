@@ -119,22 +119,23 @@ public:
   typedef SmallPtrSetImpl<llvm::Type *> &PointerTypeAliasSetRef;
 
   LocalPointerInfo()
-      : HasBeenAnalyzed(false), IsPartialAnalysis(false),
-        AliasesToAggregatePointer(false) {}
+      : AnalysisState(LPIS_NotAnalyzed), AliasesToAggregatePointer(false) {}
 
-  void setAnalyzed() {
-    IsPartialAnalysis = false;
-    HasBeenAnalyzed = true;
-  }
-  bool getAnalyzed() { return HasBeenAnalyzed; }
+  void setAnalyzed() { AnalysisState = LPIS_AnalysisComplete; }
+  bool getAnalyzed() { return AnalysisState == LPIS_AnalysisComplete; }
 
   bool canAliasToAggregatePointer() {
-    assert(HasBeenAnalyzed);
+    assert(getAnalyzed() &&
+           "canAliasToAggregatePointer called for incomplete LPI!");
     return AliasesToAggregatePointer;
   }
 
-  bool isPartialAnalysis() { return IsPartialAnalysis; }
-  void setPartialAnalysis(bool b) { IsPartialAnalysis = b; }
+  bool isPartialAnalysis() { return AnalysisState == LPIS_PartiallyAnalyzed; }
+  void setPartialAnalysis(bool b) {
+    assert(AnalysisState != LPIS_AnalysisComplete &&
+           "Regression in analysis state!");
+    AnalysisState = LPIS_PartiallyAnalyzed;
+  }
 
   void addPointerTypeAlias(llvm::Type *T) {
     // This should only be called for integers that are returned by PtrToInt
@@ -250,7 +251,7 @@ public:
   ElementPointeeSetRef getElementPointeeSet() { return ElementPointees; }
 
   void merge(LocalPointerInfo &Other) {
-    // This routine is called during analysis, so don't change HasBeenAnalyzed.
+    // This routine is called during analysis, so don't change AnalysisState.
     AliasesToAggregatePointer |= Other.AliasesToAggregatePointer;
     for (auto *Ty : Other.PointerTypeAliases)
       PointerTypeAliases.insert(Ty);
@@ -281,8 +282,13 @@ public:
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
-  bool HasBeenAnalyzed;
-  bool IsPartialAnalysis;
+  enum LPIState {
+    LPIS_NotAnalyzed,
+    LPIS_PartiallyAnalyzed,
+    LPIS_AnalysisComplete
+  };
+
+  LPIState AnalysisState;
   bool AliasesToAggregatePointer;
   PointerTypeAliasSet PointerTypeAliases;
   ElementPointeeSet ElementPointees;
@@ -872,8 +878,8 @@ public:
 
     // If the value is not a pointer and is not a pointer-sized integer, it
     // is definitely not a value we will track as a pointer.
-    if (V->getType() != llvm::Type::getIntNTy(V->getContext(),
-                                              DL.getPointerSizeInBits()))
+    if (V->getType() !=
+        llvm::Type::getIntNTy(V->getContext(), DL.getPointerSizeInBits()))
       return false;
 
     // If it is a pointer-sized integer, we need may need to analyze it if
@@ -966,21 +972,20 @@ private:
     if (isa<PointerType>(VTy))
       Info.addPointerTypeAlias(VTy);
 
-    // If the value we're analyzing is a call to an allocation function
-    // we need to look for bitcast users so that we can proactively assign
-    // the type to which the value will be cast as an alias.
-    if (auto *CI = getCallInstIfAlloc(V))
+    if (auto *CI = getCallInstIfAlloc(V)) {
+      // If the value we're analyzing is a call to an allocation function
+      // we need to look for bitcast users so that we can proactively assign
+      // the type to which the value will be cast as an alias.
       analyzeAllocationCallAliases(CI, Info);
-
-    // If this is a GetElementPtr, figure out what element it is
-    // accessing.
-    if (auto *GEP = dyn_cast<GEPOperator>(V))
+    } else if (auto *GEP = dyn_cast<GEPOperator>(V)) {
+      // If this is a GetElementPtr, figure out what element it is
+      // accessing.
       analyzeElementAccess(GEP, Info);
-
-    // If the value being analyzed is a load instruction the loaded value
-    // may inherit some alias information from the load's pointer operand.
-    if (auto *Load = dyn_cast<LoadInst>(V))
+    } else if (auto *Load = dyn_cast<LoadInst>(V)) {
+      // If the value being analyzed is a load instruction the loaded value
+      // may inherit some alias information from the load's pointer operand.
       analyzeLoadInstruction(Load, Info);
+    }
 
     // If there were no unresolved dependencies, mark the info as analyzed.
     if (!Info.isPartialAnalysis())
@@ -1028,7 +1033,7 @@ private:
   // secondary dependencies appear just once, as far down in the stack as
   // possible.
   void populateDependencyStack(Value *V,
-                               SmallVectorImpl<Value*> &DependentVals) {
+                               SmallVectorImpl<Value *> &DependentVals) {
     // If this isn't either a pointer or derived from a pointer, we don't need
     // to do any analysis.
     if (!isPossiblePtrValue(V))
@@ -1069,6 +1074,7 @@ private:
       }
       for (Value *Dep : NewDeps)
         populateDependencyStack(Dep, DependentVals);
+      return;
     }
 
     // For select nodes, we add both the true and false values.
@@ -1499,11 +1505,9 @@ private:
   //    ...
   //
   // In such a case, this routine will recursively call itself.
-  void
-  collectAllocatedPtrBitcasts(Instruction *I,
-                              SmallPtrSetImpl<llvm::PointerType *> &CastTypes,
-                              SmallPtrSetImpl<Value *> &VisitedUsers,
-                              bool &IsPartial) {
+  void collectAllocatedPtrBitcasts(
+      Instruction *I, SmallPtrSetImpl<llvm::PointerType *> &CastTypes,
+      SmallPtrSetImpl<Value *> &VisitedUsers, bool &IsPartial) {
     for (auto *U : I->users()) {
       // If we've already visited this user, don't visit again.
       // This prevents infinite loops as we follow the sub-users of PHI nodes
@@ -1565,10 +1569,10 @@ private:
   // In this case, because we see a %struct.A** value being stored to the
   // memory allocated at %t1 we can infer that the %t1 and %t3 values must
   // alias to %struct.A***.
-  void inferAllocatedTypesFromStoreInst(
-      Instruction *ValOfInterest, StoreInst *Store,
-      SmallPtrSetImpl<llvm::PointerType *> &Types,
-      bool &IsPartial) {
+  void
+  inferAllocatedTypesFromStoreInst(Instruction *ValOfInterest, StoreInst *Store,
+                                   SmallPtrSetImpl<llvm::PointerType *> &Types,
+                                   bool &IsPartial) {
     // Get the local pointer info for the destination address.
     Value *DestPtr = Store->getPointerOperand();
     Value *StoredVal = Store->getValueOperand();
