@@ -204,7 +204,10 @@ protected:
   // this method to handle the initialization of any GlobalVariable objects the
   // derived class returned within that method
   virtual void initializeGlobalVariableReplacement(GlobalVariable *OrigGV,
-                                                   GlobalVariable *NewGV) {}
+                                                   GlobalVariable *NewGV) {
+    llvm_unreachable("Global variable replacement must be done by derived "
+                     "class implementing createGlobalVariableReplacement");
+  }
 
   // Derived classes may implement this to perform the transformation on a
   // function.
@@ -288,6 +291,11 @@ protected:
   // A mapping from the clone function to the original function to enable
   // lookups of the original function based on a clone function pointer.
   DenseMap<Function *, Function *> CloneFuncToOrigFuncMap;
+
+  // List of global variables that are being replaced with variables of the new
+  // types due to the type remapping. The variables in this list need to be
+  // destroyed once the entire module has been remapped.
+  SmallVector<GlobalVariable *, 16> GlobalsForRemoval;
 };
 
 } // namespace llvm
