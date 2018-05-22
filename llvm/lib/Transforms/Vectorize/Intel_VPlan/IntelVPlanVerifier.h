@@ -44,10 +44,30 @@ private:
                            const VPLoopRegion *ParentLoopR) const;
   void verifyLoopRegions(const VPRegionBlock *TopRegion) const;
   void verifyNumLoops(const VPRegionBlock *TopRegion) const;
+
   // Count the number of loops in the underlying IR.
   virtual unsigned countLoopsInUnderlyingIR() const;
   // Perform IR-specific checks for IR-specific VPLoopRegion.
   virtual void verifyIRSpecificLoopRegion(const VPRegionBlock *Region) const {};
+
+
+  // Separate verifyOperands/verifyUsers below are needed because we don't fully
+  // represent each use with an explicit edge (unlike llvm::Value hierarchy).
+  // Still, better than nothing.
+
+  /// Verify that:
+  /// 1. No operands are null, and
+  /// 2. Every operand has \p U in its users.
+  static void verifyOperands(const VPUser *U);
+
+  /// Verify that each user of \p Def has \p Def as an operand.
+  static void verifyUsers(const VPValue *Def);
+
+  /// Verify both operands and uses of \p U.
+  static void verifyInstr(const VPUser *U);
+
+  /// Verify VPInstructions in \p VPBB.
+  static void verifyBBInstrs(const VPBasicBlock *VPBB);
 
 public:
   VPlanVerifier(const Loop *Lp, const LoopInfo *LInfo)

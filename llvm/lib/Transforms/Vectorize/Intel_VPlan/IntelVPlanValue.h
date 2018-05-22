@@ -136,7 +136,12 @@ public:
     assert(It != user_end() && "User not found!");
     Users.erase(It);
   }
-#endif
+
+  /// Return the number of users that match \p U.
+  int getNumUsersTo(const VPUser *U) const {
+    return std::count(Users.begin(), Users.end(), U);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   typedef SmallVectorImpl<VPUser *>::iterator user_iterator;
   typedef SmallVectorImpl<VPUser *>::const_iterator const_user_iterator;
@@ -223,7 +228,12 @@ public:
     Operands[Idx] = Val;
     Operands[Idx]->addUser(*this);
   }
-#endif
+
+  /// Return the number of operands that match \p Op.
+  int getNumOperandsFrom(const VPValue *Op) const {
+    return std::count(op_begin(), op_end(), Op);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   typedef SmallVectorImpl<VPValue *>::iterator operand_iterator;
   typedef SmallVectorImpl<VPValue *>::const_iterator const_operand_iterator;

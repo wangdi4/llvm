@@ -252,17 +252,16 @@ void VPlanVerifier::verifyRegions(const VPRegionBlock *Region) const {
              "Missing successor link");
       (void)PredSuccs;
     }
-  }
 
-  assert(NumBlocks == Region->getSize() && "Region has a wrong size");
+    if (const auto *VPBB = dyn_cast<VPBasicBlock>(VPB))
+      verifyBBInstrs(VPBB);
 
-  // Visit subregions
-  for (const VPBlockBase *VPB :
-       make_range(df_iterator<const VPBlockBase *>::begin(Region->getEntry()),
-                  df_iterator<const VPBlockBase *>::end(Region->getExit()))) {
+    // Recurse here so that we won't need to do the traversal twice.
     if (const auto *SubRegion = dyn_cast<VPRegionBlock>(VPB))
       verifyRegions(SubRegion);
   }
+
+  assert(NumBlocks == Region->getSize() && "Region has a wrong size");
 }
 
 // Public interface to verify the hierarchical CFG.
@@ -285,3 +284,33 @@ unsigned VPlanVerifier::countLoopsInUnderlyingIR() const {
   return countLoopsInLoop<Loop>(TheLoop);
 }
 
+void VPlanVerifier::verifyOperands(const VPUser *U) {
+  for (const VPValue *Op : U->operands()) {
+    (void)Op;
+    assert(Op && "Null operand found!");
+    // We expect that for each Op->U edge there is a matching U->Op edge.
+    assert(Op->getNumUsersTo(U) == U->getNumOperandsFrom(Op) &&
+           "Op->U and U->Op do not match!");
+  }
+}
+
+void VPlanVerifier::verifyUsers(const VPValue *Def) {
+  for (const VPUser *U : Def->users()) {
+    (void)U;
+    // We expect that for each Def->U edge there is a matching U->Def edge.
+    assert(Def->getNumUsersTo(U) == U->getNumOperandsFrom(Def) &&
+           "Def->U and U->Def do not match!");
+  }
+}
+
+void VPlanVerifier::verifyInstr(const VPUser *U) {
+  verifyOperands(U);
+  verifyUsers(U);
+}
+
+void VPlanVerifier::verifyBBInstrs(const VPBasicBlock *VPBB) {
+  for (const VPRecipeBase &R : *VPBB) {
+    if (const auto *I = dyn_cast<VPInstruction>(&R))
+      verifyInstr(I);
+  }
+}
