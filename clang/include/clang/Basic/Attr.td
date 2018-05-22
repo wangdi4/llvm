@@ -2703,13 +2703,15 @@ def LoopHint : Attr {
                           ["vectorize", "vectorize_width", "interleave", "interleave_count",
 //if INTEL_CUSTOMIZATION
                            "unroll", "unroll_count", "distribute",
-                           "ii", "ivdep", "loop_coalesce", "max_concurrency",
+                           "ii", "ivdep", "ivdep-loop", "ivdep-back",
+                           "loop_coalesce", "max_concurrency",
                            "distribute_point", "nofusion", "novector"],
 //endif INTEL_CUSTOMIZATION
                           ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
 //if INTEL_CUSTOMIZATION
                            "Unroll", "UnrollCount", "Distribute",
-                           "II", "IVDep", "LoopCoalesce", "MaxConcurrency",
+                           "II", "IVDep", "IVDepLoop", "IVDepBack",
+                           "LoopCoalesce", "MaxConcurrency",
                            "Distribute", "NoFusion", "Vectorize"]>,
 //endif INTEL_CUSTOMIZATION
               EnumArgument<"State", "LoopHintState",

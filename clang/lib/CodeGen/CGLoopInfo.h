@@ -64,6 +64,12 @@ struct LoopAttributes {
 
   /// \brief Value for llvm.loop.nofusion.enable metadata.
   LVEnableState NoFusionEnable;
+
+  /// \brief Value for llvm.loop.vectorize.ivdep_loop metadata.
+  bool IVDepLoop;
+
+  /// \brief Value for llvm.loop.vectorize.ivdep_back metadata.
+  bool IVDepBack;
 #endif // INTEL_CUSTOMIZATION
 
   /// Value for llvm.loop.vectorize.enable metadata.
@@ -89,7 +95,11 @@ struct LoopAttributes {
 class LoopInfo {
 public:
   /// Construct a new LoopInfo for the loop with entry Header.
-  LoopInfo(llvm::BasicBlock *Header, const LoopAttributes &Attrs,
+#if INTEL_CUSTOMIZATION
+  LoopInfo(llvm::BasicBlock *Header,
+           clang::ASTContext &Ctx,
+           const LoopAttributes &Attrs,
+#endif // INTEL_CUSTOMIZATION
            const llvm::DebugLoc &StartLoc, const llvm::DebugLoc &EndLoc);
 #if INTEL_CUSTOMIZATION
   /// Construct a new LoopInfo with a given loop id metadata.
@@ -126,7 +136,11 @@ public:
 
   /// Begin a new structured loop. The set of staged attributes will be
   /// applied to the loop and then cleared.
-  void push(llvm::BasicBlock *Header, const llvm::DebugLoc &StartLoc,
+#if INTEL_CUSTOMIZATION
+  void push(llvm::BasicBlock *Header,
+            clang::ASTContext &Ctx,
+            const llvm::DebugLoc &StartLoc,
+#endif // INTEL_CUSTOMIZATION
             const llvm::DebugLoc &EndLoc);
 
 #if INTEL_CUSTOMIZATION
@@ -188,6 +202,12 @@ public:
   void setNoFusionEnable() {
     StagedAttrs.NoFusionEnable = LoopAttributes::Enable;
   }
+
+  /// \brief Set the loop flag for ivdep.
+  void setIVDepLoop() { StagedAttrs.IVDepLoop = true; }
+
+  /// \brief Set the back flag for ivdep.
+  void setIVDepBack() { StagedAttrs.IVDepBack = true; }
 #endif // INTEL_CUSTOMIZATION
 
   /// Set the next pushed loop 'vectorize.enable'

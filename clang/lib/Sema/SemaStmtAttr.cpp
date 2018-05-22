@@ -104,7 +104,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
 #endif // INTEL_CUSTOMIZATION
   bool PragmaUnroll = PragmaNameLoc->Ident->getName() == "unroll";
   bool PragmaNoUnroll = PragmaNameLoc->Ident->getName() == "nounroll";
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   if (NonLoopPragmaDistributePoint) {
     bool withinLoop = false;
     for (Scope *CS = S.getCurScope(); CS; CS = CS->getParent())
@@ -200,7 +200,13 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
       State = LoopHintAttr::Numeric;
     else if (ArrayExpr)
       State = LoopHintAttr::LoopExpr;
-    else
+    else if (OptionLoc->Ident && OptionLoc->Ident->getName() == "loop") {
+      Option = LoopHintAttr::IVDepLoop;
+      State = LoopHintAttr::Enable;
+    } else if (OptionLoc->Ident && OptionLoc->Ident->getName() == "back") {
+      Option = LoopHintAttr::IVDepBack;
+      State = LoopHintAttr::Enable;
+    } else
       State = LoopHintAttr::Enable;
   } else if (PragmaDistributePoint) {
     Option = LoopHintAttr::Distribute;
@@ -304,6 +310,7 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr},
                    {nullptr, nullptr},
                    {nullptr, nullptr},
+                   {nullptr, nullptr},
 #endif // INTEL_CUSTOMIZATION
                    {nullptr, nullptr},
                    {nullptr, nullptr},
@@ -322,6 +329,8 @@ CheckForIncompatibleAttributes(Sema &S,
       Vectorize,
       II,
       IVDep,
+      IVDepLoop,
+      IVDepBack,
       LoopCoalesce,
       MaxConcurrency,
       Interleave,
@@ -338,6 +347,12 @@ CheckForIncompatibleAttributes(Sema &S,
       break;
     case LoopHintAttr::IVDep:
       Category = IVDep;
+      break;
+    case LoopHintAttr::IVDepLoop:
+      Category = IVDepLoop;
+      break;
+    case LoopHintAttr::IVDepBack:
+      Category = IVDepBack;
       break;
     case LoopHintAttr::LoopCoalesce:
       Category = LoopCoalesce;
@@ -405,6 +420,8 @@ CheckForIncompatibleAttributes(Sema &S,
     } else if (Option == LoopHintAttr::II ||
                Option == LoopHintAttr::LoopCoalesce ||
                Option == LoopHintAttr::MaxConcurrency ||
+               Option == LoopHintAttr::IVDepLoop ||
+               Option == LoopHintAttr::IVDepBack ||
                Option == LoopHintAttr::NoFusion) {
       switch (LH->getState()) {
       case LoopHintAttr::Numeric:

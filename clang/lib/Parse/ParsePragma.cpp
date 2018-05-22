@@ -385,9 +385,10 @@ void Parser::initializePragmaHandlers() {
 
 #if INTEL_CUSTOMIZATION
   initializeIntelPragmaHandlers ();
-  if (getLangOpts().HLS ||
-      (getLangOpts().OpenCL &&
-       getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
+  bool HLSCompat = getLangOpts().HLS ||
+                   (getLangOpts().OpenCL &&
+                    getTargetInfo().getTriple().isINTELFPGAEnvironment());
+  if (HLSCompat) {
     LoopCoalesceHandler.reset(new PragmaLoopCoalesceHandler("loop_coalesce"));
     PP.AddPragmaHandler(LoopCoalesceHandler.get());
     IIHandler.reset(new PragmaIIHandler("ii"));
@@ -395,10 +396,9 @@ void Parser::initializePragmaHandlers() {
     MaxConcurrencyHandler.reset(
         new PragmaMaxConcurrencyHandler("max_concurrency"));
     PP.AddPragmaHandler(MaxConcurrencyHandler.get());
-    IVDepHandler.reset(new PragmaIVDepHandler("ivdep"));
-    PP.AddPragmaHandler(IVDepHandler.get());
   }
-  if (getLangOpts().IntelCompat) {
+  bool IntelCompat = getLangOpts().IntelCompat;
+  if (IntelCompat) {
     DistributePointHandler.reset(
         new PragmaDistributePointHandler("distribute_point"));
     PP.AddPragmaHandler(DistributePointHandler.get());
@@ -408,6 +408,10 @@ void Parser::initializePragmaHandlers() {
   if (getLangOpts().isIntelCompat(LangOptions::PragmaNoVector)) {
     NoVectorHandler.reset(new PragmaNoVectorHandler("novector"));
     PP.AddPragmaHandler(NoVectorHandler.get());
+  }
+  if (HLSCompat || IntelCompat) {
+    IVDepHandler.reset(new PragmaIVDepHandler("ivdep"));
+    PP.AddPragmaHandler(IVDepHandler.get());
   }
 #endif // INTEL_CUSTOMIZATION
   UnrollHintHandler.reset(new PragmaUnrollHintHandler("unroll"));
@@ -511,19 +515,19 @@ void Parser::resetPragmaHandlers() {
 
 #if INTEL_CUSTOMIZATION
   resetIntelPragmaHandlers();
-  if (getLangOpts().HLS ||
-      (getLangOpts().OpenCL &&
-       getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
+  bool HLSCompat = getLangOpts().HLS ||
+                   (getLangOpts().OpenCL &&
+                    getTargetInfo().getTriple().isINTELFPGAEnvironment());
+  if (HLSCompat) {
     PP.RemovePragmaHandler(LoopCoalesceHandler.get());
     LoopCoalesceHandler.reset();
     PP.RemovePragmaHandler(IIHandler.get());
     IIHandler.reset();
     PP.RemovePragmaHandler(MaxConcurrencyHandler.get());
     MaxConcurrencyHandler.reset();
-    PP.RemovePragmaHandler(IVDepHandler.get());
-    IVDepHandler.reset();
   }
-  if (getLangOpts().IntelCompat) {
+  bool IntelCompat = getLangOpts().IntelCompat;
+  if (IntelCompat) {
     PP.RemovePragmaHandler(DistributePointHandler.get());
     DistributePointHandler.reset();
     PP.RemovePragmaHandler(NoFusionHandler.get());
@@ -532,6 +536,10 @@ void Parser::resetPragmaHandlers() {
   if (getLangOpts().isIntelCompat(LangOptions::PragmaNoVector)) {
     PP.RemovePragmaHandler(NoVectorHandler.get());
     NoVectorHandler.reset();
+  }
+  if (HLSCompat || IntelCompat) {
+    PP.RemovePragmaHandler(IVDepHandler.get());
+    IVDepHandler.reset();
   }
 #endif // INTEL_CUSTOMIZATION
   PP.RemovePragmaHandler(UnrollHintHandler.get());
@@ -3220,6 +3228,8 @@ void PragmaIVDepHandler::HandlePragma(Preprocessor &PP,
   SmallVector<Token, 4> ArrayValueList;
   bool HasSafelen = false;
   bool HasArray = false;
+  bool HasLoop = false;
+  bool HasBack = false;
   Token PragmaName = Tok;
   PP.Lex(Tok);
   auto *Info = new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
@@ -3228,13 +3238,23 @@ void PragmaIVDepHandler::HandlePragma(Preprocessor &PP,
     Info->PragmaName = PragmaName;
     Info->Option.startToken();
   } else {
+    bool isHLSCompat =
+        (PP.getLangOpts().HLS ||
+         (PP.getLangOpts().OpenCL &&
+          PP.getTargetInfo().getTriple().isINTELFPGAEnvironment()));
+    bool isIntelCompat = PP.getLangOpts().IntelCompat;
     while (Tok.isNot(tok::eod)) {
       if (Tok.isNot(tok::identifier)) {
-        PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_ivdep_clause);
+        if (isHLSCompat)
+          PP.Diag(Tok.getLocation(),
+                  diag::warn_pragma_expected_safelen_array_ivdep_clause);
+        else
+          PP.Diag(Tok.getLocation(),
+                  diag::warn_pragma_expected_loop_back_ivdep_clause);
         return;
       }
       IdentifierInfo *II = Tok.getIdentifierInfo();
-      if (II->isStr("safelen")) {
+      if (isHLSCompat && II->isStr("safelen")) {
         if (HasSafelen) {
           PP.Diag(Tok.getLocation(), diag::warn_multiple_ivdep_clause) << 0;
           return;
@@ -3251,7 +3271,7 @@ void PragmaIVDepHandler::HandlePragma(Preprocessor &PP,
         Option.startToken();
         if (ParseLoopHintValue(PP, Tok, PragmaName, Option, true, *Info))
           return;
-      } else if (II->isStr("array")) {
+      } else if (isHLSCompat && II->isStr("array")) {
         if (HasArray) {
           PP.Diag(Tok.getLocation(), diag::warn_multiple_ivdep_clause) << 1;
           return;
@@ -3280,8 +3300,37 @@ void PragmaIVDepHandler::HandlePragma(Preprocessor &PP,
             ArrayValueList.push_back(Tok);
           PP.Lex(Tok);
         }
+      } else if (isIntelCompat && II->isStr("loop")) {
+        if (HasLoop) {
+          PP.Diag(Tok.getLocation(), diag::warn_multiple_ivdep_clause) << 2;
+          return;
+        }
+        if (HasBack) {
+          PP.Diag(Tok.getLocation(), diag::warn_invalid_ivdep_combination) << 0;
+          return;
+        }
+        HasLoop = true;
+        Info->Option = Tok;
+        PP.Lex(Tok);
+      } else if (isIntelCompat && II->isStr("back")) {
+        if (HasBack) {
+          PP.Diag(Tok.getLocation(), diag::warn_multiple_ivdep_clause) << 3;
+          return;
+        }
+        if (HasLoop) {
+          PP.Diag(Tok.getLocation(), diag::warn_invalid_ivdep_combination) << 1;
+          return;
+        }
+        HasBack = true;
+        Info->Option = Tok;
+        PP.Lex(Tok);
       } else {
-        PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_ivdep_clause);
+        if (isHLSCompat)
+          PP.Diag(Tok.getLocation(),
+                  diag::warn_pragma_expected_safelen_array_ivdep_clause);
+        else
+          PP.Diag(Tok.getLocation(),
+                  diag::warn_pragma_expected_loop_back_ivdep_clause);
         return;
       }
     }
