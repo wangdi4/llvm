@@ -667,12 +667,14 @@ void HIRLoopLocality::populateTemporalLocalityGroups(
     SmallSet<unsigned, 8> *UniqueGroupSymbases) {
   assert(Lp && " Loop parameter is null!");
 
-  LocalityRefGatherer::MapTy MemRefMap;
+  typedef DDRefGatherer<const RegDDRef, MemRefs | FakeRefs> MemRefGatherer;
 
-  LocalityRefGatherer::gatherRange(Lp->child_begin(), Lp->child_end(),
+  MemRefGatherer::MapTy MemRefMap;
+
+  MemRefGatherer::gatherRange(Lp->child_begin(), Lp->child_end(),
                                    MemRefMap);
 
-  LocalityRefGatherer::sort(MemRefMap);
+  MemRefGatherer::sort(MemRefMap);
 
   DDRefGrouping::groupMap(TemporalGroups, MemRefMap,
                           std::bind(isTemporalMatch, std::placeholders::_1,

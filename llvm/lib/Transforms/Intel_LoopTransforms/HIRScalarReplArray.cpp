@@ -355,6 +355,8 @@ bool MemRefGroup::isCompleteStoreOnly(void) {
 }
 
 bool MemRefGroup::isLegal(void) const {
+  // TODO: first check unique group symbases returned by
+  // populateTemporalLocalityGroups() to save compile time by avoiding DDG.
   DDGraph DDG = HSRA->HDDA->getGraph(Lp, false);
 
   // Check: outgoing edge(s)
@@ -1068,7 +1070,7 @@ bool HIRScalarReplArray::isValid(RefGroupTy &Group, bool &HasNegIVCoeff) {
 
   // Check for each occurrence(s):
   for (auto &MemRef : Group) {
-    if (MemRef->isVolatile()) {
+    if (MemRef->isVolatile() || MemRef->isFake()) {
       return false;
     }
 
@@ -1107,7 +1109,8 @@ bool HIRScalarReplArray::checkIV(const RegDDRef *Ref,
 bool HIRScalarReplArray::doCollection(HLLoop *Lp) {
   // Collect and group RegDDRefs:Don't sort the groups
   RefGroupVecTy Groups;
-  HLA->populateTemporalLocalityGroups(Lp, ScalarReplArrayMaxDepDist, Groups);
+  HIRLoopLocality::populateTemporalLocalityGroups(Lp, ScalarReplArrayMaxDepDist,
+                                                  Groups);
   DEBUG(DDRefGrouping::dump(Groups));
 
   // Examine each individual group, validate it, and save only the good ones.

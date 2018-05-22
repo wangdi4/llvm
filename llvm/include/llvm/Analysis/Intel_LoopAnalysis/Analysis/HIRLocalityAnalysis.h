@@ -242,6 +242,7 @@ public:
 
   /// Populates \p TemporalGroups by populating it with memref groups which have
   /// temporal locality within \p ReuseThreshold.
+  ///
   /// Examples-
   /// 1) A[2*i], A[2*i+1], A[2*i+2], A[2*i+3]
   ///    Group 0 - A[2*i], A[2*i+2]
@@ -254,6 +255,9 @@ public:
   /// which are unique to a single temporal locality group. This can prove
   /// legality of transformation for the client without looking at DD edges
   /// essentially saving compile time.
+  //
+  /// Function also accumulates fake refs otherwise the info in
+  /// UniqueGroupSymbases might be wrong.
   static void populateTemporalLocalityGroups(
       const HLLoop *Lp, unsigned ReuseThreshold, RefGroupVecTy &TemporalGroups,
       SmallSet<unsigned, 8> *UniqueGroupSymbases = nullptr);

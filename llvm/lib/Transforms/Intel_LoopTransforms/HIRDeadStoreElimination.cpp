@@ -159,23 +159,27 @@ static bool doTransform(HLLoop *OutermostLp) {
     // no load in between two stores.
     for (unsigned Index = 0; Index != RefGroup.size(); ++Index) {
 
-      if (!RefGroup[Index]->isLval()) {
+      auto *PostDominatingRef = RefGroup[Index];
+
+      if (!PostDominatingRef->isLval() || PostDominatingRef->isFake()) {
         continue;
       }
 
-      const HLDDNode *DDNode = RefGroup[Index]->getHLDDNode();
+      const HLDDNode *DDNode = PostDominatingRef->getHLDDNode();
 
       for (unsigned I = Index + 1; I != RefGroup.size();) {
 
-        // Skip if we encounter a load in between two stores.
-        if (RefGroup[I]->isRval()) {
+        auto *PrevRef = RefGroup[I];
+
+        // Skip if we encounter a load or fake ref in between two stores.
+        if (PrevRef->isRval() || PrevRef->isFake()) {
           break;
         }
 
         // Check whether the DDRef with high top sort number post-dominates the
         // DDRef with lower top sort number. If Yes, remove the instruction with
         // lower top sort number.
-        const HLDDNode *PrevDDNode = RefGroup[I]->getHLDDNode();
+        const HLDDNode *PrevDDNode = PrevRef->getHLDDNode();
         if (!HLNodeUtils::postDominates(DDNode, PrevDDNode)) {
           I++;
           continue;
