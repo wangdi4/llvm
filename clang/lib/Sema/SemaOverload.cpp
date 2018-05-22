@@ -1645,6 +1645,10 @@ static bool IsArbPrecIntConversion(Sema &S, QualType FromType, QualType ToType,
     return false;
   if (S.Context.hasSameUnqualifiedType(FromType, ToType))
     return false;
+  if (FromType->isArbPrecIntType() && ToType->isBooleanType()) {
+    ICK = ICK_Boolean_Conversion;
+    return true;
+  }
   if ((ToType->isArbPrecIntType() || ToType->isIntegerType()) &&
       (FromType->isArbPrecIntType() || FromType->isIntegerType())) {
     ICK = ICK_Integral_Conversion;
