@@ -198,7 +198,7 @@ _mm256_cvtph_ps(__m128i __a)
 #include <avx512vlbwintrin.h>
 #endif
 
-#ifndef __INTEL_COMPILER
+#if !defined(__INTEL_COMPILER) && !defined(__INTEL_LLVM_COMPILER)
 #if !defined(_MSC_VER) || __has_feature(modules) || \
     (defined(__AVX512VL__) && defined(__AVX512CD__))
 #include <avx512vlcdintrin.h>
@@ -241,7 +241,7 @@ _mm256_cvtph_ps(__m128i __a)
 #include <avx512vlvbmi2intrin.h>
 #endif
 
-#ifndef __INTEL_COMPILER
+#if !defined(__INTEL_COMPILER) && !defined(__INTEL_LLVM_COMPILER)
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512PF__)
 #include <avx512pfintrin.h>
 #endif

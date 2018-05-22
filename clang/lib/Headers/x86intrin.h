@@ -28,7 +28,7 @@
 
 #include <immintrin.h>
 
-#ifndef __INTEL_COMPILER
+#if !defined(__INTEL_COMPILER) && !defined(__INTEL_LLVM_COMPILER)
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__3dNOW__)
 #include <mm3dnow.h>
 #endif
@@ -58,7 +58,7 @@
 #include <prfchwintrin.h>
 #endif
 
-#ifndef __INTEL_COMPILER
+#if !defined(__INTEL_COMPILER) && !defined(__INTEL_LLVM_COMPILER)
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__SSE4A__)
 #include <ammintrin.h>
 #endif
@@ -84,7 +84,7 @@
 #include <f16cintrin.h>
 #endif
 
-#ifndef __INTEL_COMPILER
+#if !defined(__INTEL_COMPILER) && !defined(__INTEL_LLVM_COMPILER)
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__MWAITX__)
 #include <mwaitxintrin.h>
 #endif
