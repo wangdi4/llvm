@@ -283,11 +283,12 @@ class DDTest {
   //  forwardDV[0:1]  is (0, 0)
   //  backwardDV[0:1] is (= ,<)
 
-  bool findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
-                       const DirectionVector &InputDV,
-                       DirectionVector &ForwardDV, DirectionVector &BackwardDV,
-                       DistanceVector &ForwardDistV,
-                       DistanceVector &BackwardDistV, bool *IsLoopIndepDepTemp);
+  bool findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
+                        const DirectionVector &InputDV,
+                        DirectionVector &ForwardDV, DirectionVector &BackwardDV,
+                        DistanceVector &ForwardDistV,
+                        DistanceVector &BackwardDistV,
+                        bool *IsLoopIndepDepTemp);
 
   /// getSplitIteration - Give a dependence that's splittable at some
   /// particular level, return the iteration that should be used to split
@@ -828,10 +829,6 @@ class DDTest {
 
   /// return CE for srcCE  + dstCE
   const CanonExpr *getAdd(const CanonExpr *SrcConst, const CanonExpr *DstConst);
-
-  /// return true if 2 CE are equal
-  bool areCEEqual(const CanonExpr *CE1, const CanonExpr *CE2,
-                  bool RelaxedMode = true) const;
 
   /// return negation of CE
   const CanonExpr *getNegative(const CanonExpr *CE);

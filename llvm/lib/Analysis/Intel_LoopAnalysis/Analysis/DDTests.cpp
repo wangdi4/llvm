@@ -62,7 +62,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -383,15 +383,6 @@ const CanonExpr *DDTest::getAdd(const CanonExpr *SrcConst,
 
   push(CE);
   return CE;
-}
-
-bool DDTest::areCEEqual(const CanonExpr *CE1, const CanonExpr *CE2,
-                        bool RelaxedMode) const {
-
-  if (!CE1 || !CE2) {
-    return false;
-  }
-  return CanonExprUtils::areEqual(CE1, CE2, RelaxedMode);
 }
 
 const CanonExpr *DDTest::getNegative(const CanonExpr *CE) {
@@ -2603,10 +2594,11 @@ bool DDTest::testSIV(const CanonExpr *Src, const CanonExpr *Dst,
     Level = mapSrcLoop(CurLoop);
     bool Disproven;
 
-    if (areCEEqual(SrcCoeff, DstCoeff)) {
+    if (CanonExprUtils::areEqual(SrcCoeff, DstCoeff, true)) {
       Disproven = strongSIVtest(SrcCoeff, SrcConst, DstConst, CurLoop, Level,
                                 Result, NewConstraint);
-    } else if (areCEEqual(SrcCoeff, getNegative(DstCoeff))) {
+    } else if (CanonExprUtils::areEqual(SrcCoeff, getNegative(DstCoeff),
+                                        true)) {
       Disproven = weakCrossingSIVtest(SrcCoeff, SrcConst, DstConst, CurLoop,
                                       Level, Result, NewConstraint, SplitIter);
     } else {
@@ -4175,24 +4167,6 @@ DDTest::~DDTest() {
   WorkCE.clear();
 }
 
-static MemoryLocation getMemoryLocation(const RegDDRef *Ref) {
-  MemoryLocation Loc;
-
-  const CanonExpr *BaseCE = Ref->getBaseCE();
-  if (BaseCE->isNull()) {
-    Loc.Ptr = Constant::getNullValue(BaseCE->getDestType());
-  } else {
-    auto BaseBlobIndex = Ref->getBaseCE()->getSingleBlobIndex();
-    Loc.Ptr = Ref->getBlobUtils().getTempBlobValue(BaseBlobIndex);
-  }
-
-  Loc.Size = MemoryLocation::UnknownSize;
-
-  Ref->getAAMetadata(Loc.AATags);
-
-  return Loc;
-}
-
 bool DDTest::queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef) {
   assert(SrcDDRef->isMemRef() && DstDDRef->isMemRef() &&
          "Both should be mem refs");
@@ -4207,7 +4181,8 @@ bool DDTest::queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef) {
   DEBUG_AA(DstDDRef->dump());
   DEBUG_AA(dbgs() << "\nR: ");
 
-  if (AAR.isNoAlias(getMemoryLocation(SrcDDRef), getMemoryLocation(DstDDRef))) {
+  if (AAR.isNoAlias(SrcDDRef->getMemoryLocation(),
+                    DstDDRef->getMemoryLocation())) {
     DEBUG_AA(dbgs() << "No Alias\n\n");
     return true;
   }
@@ -4290,10 +4265,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   bool IsSrcRval = false;
   bool IsDstRval = false;
 
-  int NumSrcDim = 1;
-  int NumDstDim = 1;
-
-  bool EqualBaseCE = false;
+  bool EqualBaseAndShape = false;
 
   DEBUG(dbgs() << "\n Src, Dst DDRefs\n"; SrcDDRef->dump());
   DEBUG(dbgs() << ",  "; DstDDRef->dump());
@@ -4313,7 +4285,6 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   RegDDRef *SrcRegDDRef = dyn_cast<RegDDRef>(SrcDDRef);
   if (SrcRegDDRef) {
-    NumSrcDim = SrcRegDDRef->getNumDimensions();
     if (!SrcRegDDRef->isLval()) {
       IsSrcRval = true;
     }
@@ -4323,7 +4294,6 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   RegDDRef *DstRegDDRef = dyn_cast<RegDDRef>(DstDDRef);
   if (DstRegDDRef) {
-    NumDstDim = DstRegDDRef->getNumDimensions();
     if (!DstRegDDRef->isLval()) {
       IsDstRval = true;
     }
@@ -4356,11 +4326,9 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     }
     DEBUG(dbgs() << "may alias\n");
 
-    auto SrcBaseCE = SrcRegDDRef->getBaseCE();
-    auto DstBaseCE = DstRegDDRef->getBaseCE();
-
-    // We check for equal base CE
-    EqualBaseCE = areCEEqual(SrcBaseCE, DstBaseCE);
+    // TODO: MaxLoopNestLevel should be computed from InputDV.
+    EqualBaseAndShape =
+        DDRefUtils::haveEqualBaseAndShape(SrcRegDDRef, DstRegDDRef, true);
   }
 
   // Set loop nesting levels, NoCommonNest flag
@@ -4384,14 +4352,14 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   WorkCE.clear();
 
   //  Number of dimemsion are different or different base: need to bail out
-  if (!EqualBaseCE || NumSrcDim != NumDstDim || (NoCommonNest && !ForFusion)) {
+  if (!EqualBaseAndShape || (NoCommonNest && !ForFusion)) {
     DEBUG(dbgs() << "\nDiff dim,  base, or no common nests\n");
     auto Final = make_unique<Dependences>(Result);
     Result.DV = nullptr;
     return std::move(Final);
   }
 
-  unsigned Pairs = NumSrcDim;
+  unsigned Pairs = SrcRegDDRef->getNumDimensions();
 
   DEBUG(dbgs() << " # of Pairs " << Pairs << "\n");
 
@@ -5089,13 +5057,13 @@ void DDTest::setDVForLE(DirectionVector &ForwardDV, DirectionVector &BackwardDV,
   BackwardDV[Levels - 1] = DVKind::LT;
 }
 
-bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
-                             const DirectionVector &InputDV,
-                             DirectionVector &ForwardDV,
-                             DirectionVector &BackwardDV,
-                             DistanceVector &ForwardDistV,
-                             DistanceVector &BackwardDistV,
-                             bool *IsLoopIndepDepTemp) {
+bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
+                              const DirectionVector &InputDV,
+                              DirectionVector &ForwardDV,
+                              DirectionVector &BackwardDV,
+                              DistanceVector &ForwardDistV,
+                              DistanceVector &BackwardDistV,
+                              bool *IsLoopIndepDepTemp) {
 
   // This interface is created to facilitate the building of DDG when forward or
   // backward  edges are needed.
@@ -5119,8 +5087,6 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   //  Loop independent dependence
   //    t1 =
   //       = t1
-
-  bool IsTemp = false;
 
   ForwardDV.setZero();
   BackwardDV.setZero();
@@ -5175,15 +5141,6 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     }
   }
 
-  if (isa<BlobDDRef>(SrcDDRef)) {
-    IsTemp = true;
-  } else {
-    RegDDRef *RegRef = cast<RegDDRef>(SrcDDRef);
-    if (RegRef->isTerminalRef()) {
-      IsTemp = true;
-    }
-  }
-
   bool IsSrcRval = true;
   bool IsDstRval = true;
 
@@ -5207,6 +5164,7 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     }
   }
 
+  bool IsTemp = SrcDDRef->isTerminalRef();
   if (IsTemp) {
 
     // DV for Scalar temps could be refined. Calls to DA.depends

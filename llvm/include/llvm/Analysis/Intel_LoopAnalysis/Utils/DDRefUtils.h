@@ -251,6 +251,11 @@ public:
   /// and A[i1].1. Both refs should have same base and number of dimensions.
   static bool haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2);
 
+  /// Compares BaseCE and number of dimension.
+  /// Preliminary check for index comparison.
+  static bool haveEqualBaseAndShape(const RegDDRef *Ref1, const RegDDRef *Ref2,
+                                    bool RelaxedMode);
+
   // Sorting comparator operator for two Mem-RegDDRef.
   static bool compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2);
 

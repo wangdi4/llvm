@@ -313,7 +313,8 @@ void HIRLoopLocality::computeNumNoLocalityCacheLines(LocalityInfo &LI,
     }
 
     auto DimSize = Ref->getDimensionSize(I);
-    // Dimension size is not available for pointer dimension.
+    // Dimension size is not available for pointer dimension
+    // and variable size arrays
     if (DimSize == 0) {
       // Use info from the CE to construct a more accurate stride.
       int64_t Coeff;

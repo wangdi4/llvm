@@ -858,8 +858,6 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
     GEPVal = Builder.CreateGEP(BaseV, IndexV, "arrayIdx");
   }
 
-  auto BaseTy = Ref->getBaseType();
-
   if (GEPVal->getType()->isVectorTy() && isa<PointerType>(BitCastDestTy)) {
     // When we have a vector of pointers and base src and dest types do not
     // match, we need to bitcast from vector of pointers of src type to vector
@@ -873,7 +871,7 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
     auto DestScPtrTy = PointerType::get(DestScTy,      // float *
                                         PtrDestTy->getAddressSpace());
 
-    if (BaseTy != DestScPtrTy) {
+    if (GEPVal->getType()->getScalarType() != DestScPtrTy) {
       auto VL = DestElTy->getVectorNumElements();
 
       // We have a vector of pointers of BaseSrcType. We need to convert it to

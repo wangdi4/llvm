@@ -1328,8 +1328,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isDDIndependentInLoop(
     }
 
     // Give up if the refs do not look structurally similar: A[i1] and B[0].
-    if ((Ref->getNumDimensions() != SymRef->getNumDimensions()) ||
-        !CanonExprUtils::areEqual(Ref->getBaseCE(), SymRef->getBaseCE()) ||
+    if (!DDRefUtils::haveEqualBaseAndShape(Ref, SymRef, false) ||
         !DDRefUtils::haveEqualOffsets(Ref, SymRef)) {
       RefinedOccurences = 0;
       return false;

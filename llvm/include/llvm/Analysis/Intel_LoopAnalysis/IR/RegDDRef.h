@@ -24,6 +24,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/BlobDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/DDRef.h"
+#include "llvm/Analysis/MemoryLocation.h"
 
 namespace llvm {
 
@@ -204,6 +205,10 @@ private:
   /// Implements get*Type() functionality.
   Type *getTypeImpl(bool IsSrc) const;
 
+  /// Returns the src type of the base CanonExpr for GEP DDRefs, asserts for
+  /// non-GEP DDRefs.
+  Type *getBaseType() const { return getBaseCE()->getSrcType(); }
+
   /// Updates def level of CE based on the level of the blobs present in
   /// CE. DDRef is assumed to have the passed in NestingLevel.
   void updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel);
@@ -239,9 +244,24 @@ public:
   /// TODO: extend to handle struct types.
   Type *getDestType() const override { return getTypeImpl(false); }
 
-  /// Returns the src type of the base CanonExpr for GEP DDRefs, asserts for
-  /// non-GEP DDRefs.
-  Type *getBaseType() const { return getBaseCE()->getSrcType(); }
+  /// MemoryLocation for AA.
+  MemoryLocation getMemoryLocation() const;
+
+  /// Returns address spaces for GEP DDRefs.
+  /// Asserts for non-GEP DDRefs.
+  unsigned getPointerAddressSpace() const {
+    return getBaseType()->getPointerAddressSpace();
+  }
+
+  bool isOpaqueAddressOf() const {
+    if  (!isAddressOf()) {
+      return false;
+    }
+
+    auto StructElemTy = dyn_cast<StructType>(
+        getBaseType()->getPointerElementType());
+    return StructElemTy && StructElemTy->isOpaque();
+  }
 
   /// Returns the dest type of the bitcast applied to GEP DDRefs, asserts
   /// for non-GEP DDRefs. For example-

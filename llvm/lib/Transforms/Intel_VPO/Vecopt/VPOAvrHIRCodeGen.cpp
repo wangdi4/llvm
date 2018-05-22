@@ -1220,10 +1220,7 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
   // type of VL-wide vector of Ref's DestType. For addressof DDRef, desttype
   // is set to vector of pointers(scalar desttype).
   if (WideRef->hasGEPInfo()) {
-    Type *DstTy = Ref->getBaseType();
-    PointerType *PtrType = cast<PointerType>(DstTy);
-
-    auto AddressSpace = PtrType->getAddressSpace();
+    auto AddressSpace = Ref->getPointerAddressSpace();
 
     // Omit the range metadata as is done in loop vectorize which does
     // not propagate the same. We get a compile time error otherwise about
@@ -1233,12 +1230,9 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
     if (WideRef->isAddressOf()) {
       WideRef->setBitCastDestType(VecRefDestTy);
 
-      auto StructElemTy =
-          dyn_cast<StructType>(PtrType->getPointerElementType());
-
       // There is nothing more to do for opaque types as they can only occur in
       // this form: &p[0].
-      if (StructElemTy && StructElemTy->isOpaque()) {
+      if (Ref->isOpaqueAddressOf()) {
         return WideRef;
       }
     } else {

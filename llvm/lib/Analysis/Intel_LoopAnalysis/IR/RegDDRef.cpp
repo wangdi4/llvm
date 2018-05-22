@@ -383,13 +383,31 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
 bool RegDDRef::accessesStruct() const {
   assert(hasGEPInfo() && "GEP ref expected!");
 
-  auto BaseTy = getBaseType()->getPointerElementType();
+  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
+    if (isa<StructType>(getDimensionElementType(I))) {
+      return true;
+    }
+  }
+  return false;
+}
 
-  while (isa<ArrayType>(BaseTy)) {
-    BaseTy = BaseTy->getArrayElementType();
-  };
+MemoryLocation RegDDRef::getMemoryLocation() const {
+  MemoryLocation Loc;
 
-  return BaseTy->isStructTy();
+  const CanonExpr *BaseCE = getBaseCE();
+  // TODO: handle undefined blobs
+  if (BaseCE->isNull()) {
+    Loc.Ptr = Constant::getNullValue(BaseCE->getDestType());
+  } else {
+    auto BaseBlobIndex = getBaseCE()->getSingleBlobIndex();
+    Loc.Ptr = getBlobUtils().getTempBlobValue(BaseBlobIndex);
+  }
+
+  Loc.Size = MemoryLocation::UnknownSize;
+
+  getAAMetadata(Loc.AATags);
+
+  return Loc;
 }
 
 Value *RegDDRef::getTempBaseValue() const {
