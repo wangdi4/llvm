@@ -17,6 +17,8 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "Intel_DTrans/Transforms/DTransOptBase.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Dominators.h"
@@ -27,7 +29,114 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dtrans-aostosoa"
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// This option is used during testing to allow qualifying specific structure
+// types be converted via the AOS-to-SOA transform without running the
+// profitability heuristics. (The type must pass all other qualification tests,
+// just the profitability test is skipped).
+//
+// This is a comma separated list of structure type names that will not be
+// disqualified by the profitability heuristic.
+static cl::opt<std::string>
+    DTransAOSToSOAHeurOverride("dtrans-aostosoa-heur-override",
+                               cl::ReallyHidden);
+
+// This is a temporary flag to allow testing of the selection/qualification of
+// candidates without the transformation code being available to completely
+// transform the IR contained within those tests. Once the transformation code
+// is complete, this flag will be removed.
+static cl::opt<bool>
+    DTransAOSToSOAQualificationOnly("dtrans-aostosoa-qualification-only",
+                                    cl::ReallyHidden);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 namespace {
+
+// This class is responsible for all the transformation work for the AOS to SOA
+// with Indexing conversion.
+class AOSToSOATransformImpl : public DTransOptBase {
+public:
+  // Constructor that takes parameters needed for the base class, plus a list of
+  // types that have been qualified for the transformation.
+  AOSToSOATransformImpl(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
+                        const DataLayout &DL, StringRef DepTypePrefix,
+                        DTransTypeRemapper *TypeRemapper,
+                        SmallVectorImpl<dtrans::StructInfo *> &Types)
+      : DTransOptBase(DTInfo, Context, DL, DepTypePrefix, TypeRemapper) {
+    std::copy(Types.begin(), Types.end(), std::back_inserter(TypesToTransform));
+  }
+
+  ~AOSToSOATransformImpl() {}
+
+  // Create new data types for each of the types being converted.
+  virtual bool prepareTypes(Module &M) override {
+    for (auto *StInfo : TypesToTransform) {
+      StructType *OrigTy = cast<StructType>(StInfo->getLLVMType());
+      StructType *NewTy = StructType::create(
+          Context, (Twine("__SOA_" + OrigTy->getName()).str()));
+      TypeRemapper->addTypeMapping(OrigTy, NewTy);
+      TypeRemapper->addTypeMapping(OrigTy->getPointerTo(),
+                                   getPeeledIndexType());
+      OrigToNewTypeMapping[OrigTy] = NewTy;
+    }
+
+    return !OrigToNewTypeMapping.empty();
+  }
+
+  // Set the structure body of all the types this transformation created.
+  virtual void populateTypes(Module &M) override {
+    for (auto &ONPair : OrigToNewTypeMapping) {
+      Type *OrigTy = ONPair.first;
+      Type *NewTy = ONPair.second;
+
+      SmallVector<Type *, 8> DataTypes;
+      StructType *OrigStructTy = cast<StructType>(OrigTy);
+      for (auto *MemberTy : OrigStructTy->elements()) {
+        DataTypes.push_back(TypeRemapper->remapType(MemberTy)->getPointerTo());
+      }
+
+      StructType *NewStructTy = cast<StructType>(NewTy);
+      NewStructTy->setBody(DataTypes);
+    }
+  }
+
+  // Create a new global variable for each type peeled that will serve as the
+  // base pointer to the peeled variable.
+  virtual void prepareModule(Module &M) {
+    for (auto &ONPair : OrigToNewTypeMapping) {
+      StructType *StType = cast<StructType>(ONPair.first);
+      StructType *PeelTy = cast<StructType>(ONPair.second);
+
+      auto *PeelVar = new GlobalVariable(
+          M, PeelTy, false, GlobalValue::InternalLinkage,
+          /*init=*/ConstantAggregateZero::get(PeelTy),
+          "__soa_" + StType->getName(),
+          /*insertbefore=*/nullptr, GlobalValue::NotThreadLocal,
+          /*AddressSpace=*/0, /*isExternallyInitialized=*/false);
+      PeeledTypeToVariable.insert(std::make_pair(PeelTy, PeelVar));
+      DEBUG(dbgs() << "DTRANS-AOSTOSOA: PeelVar: " << *PeelVar << "\n");
+    }
+  }
+
+private:
+  // Return an integer type that will be used as a replacement type for pointers
+  // to the types being peeled. Currently, the index type will just be an
+  // integer value that is the same bit width as the original pointer. In later
+  // versions, the index type will be an integer type that uses fewer bits.
+  llvm::Type *getPeeledIndexType() const {
+    return Type::getIntNTy(Context, DL.getPointerSizeInBits());
+  }
+
+  // The list of types to be transformed.
+  SmallVector<dtrans::StructInfo *, 4> TypesToTransform;
+
+  // A mapping from the original structure type to the new structure type
+  TypeToTypeMap OrigToNewTypeMapping;
+
+  // A mapping from the peeled structure type to the global variable used to
+  // access it.
+  DenseMap<StructType *, GlobalVariable *> PeeledTypeToVariable;
+};
 
 class DTransAOSToSOAWrapper : public ModulePass {
 private:
@@ -88,16 +197,28 @@ namespace dtrans {
 bool AOSToSOAPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
                            const TargetLibraryInfo &TLI,
                            AOSToSOAPass::DominatorTreeFuncType &GetDT) {
-  bool Changed = false;
-
   // Check whether there are any candidate structures that can be transformed.
   StructInfoVec CandidateTypes;
   gatherCandidateTypes(DTInfo, CandidateTypes);
-  qualifyCandidates(CandidateTypes, DTInfo, GetDT);
+  qualifyCandidates(CandidateTypes, M, DTInfo, GetDT);
 
-  // TODO: Implement the optimization here.
+  if (CandidateTypes.empty())
+    return false;
 
-  return Changed;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Temporary code to allow testing of qualification criteria without having
+  // implemented transformation code. Currently, there is no profitability
+  // heuristic so only cases specified with the dtrans-aostosoa-heur-override
+  // option will reach this point.
+  if (DTransAOSToSOAQualificationOnly)
+    return false;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+  // Perform the actual transformation.
+  DTransTypeRemapper TypeRemapper;
+  AOSToSOATransformImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(),
+                                    "__SOADT_", &TypeRemapper, CandidateTypes);
+  return Transformer.run(M);
 }
 
 // Populate the \p CandidateTypes vector with all the structure types
@@ -136,7 +257,7 @@ void AOSToSOAPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
 // being transformed. The \p CandidateTypes list will be updated to only contain
 // the elements that pass all the safety checks.
 void AOSToSOAPass::qualifyCandidates(
-    StructInfoVecImpl &CandidateTypes, DTransAnalysisInfo &DTInfo,
+    StructInfoVecImpl &CandidateTypes, Module &M, DTransAnalysisInfo &DTInfo,
     AOSToSOAPass::DominatorTreeFuncType &GetDT) {
   if (!qualifyCandidatesTypes(CandidateTypes, DTInfo))
     return;
@@ -144,7 +265,7 @@ void AOSToSOAPass::qualifyCandidates(
   if (!qualifyAllocations(CandidateTypes, DTInfo, GetDT))
     return;
 
-  if (!qualifyHeuristics(CandidateTypes, DTInfo))
+  if (!qualifyHeuristics(CandidateTypes, M, DTInfo))
     return;
 
   DEBUG({
@@ -312,9 +433,9 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
       for (auto &FuncInstrPair : CallChain)
         AllocPathMap[FuncInstrPair.first].insert(
             std::make_pair(FuncInstrPair.second, TyInfo));
-
-      Qualified.push_back(TyInfo);
     }
+
+    Qualified.push_back(TyInfo);
   }
 
   std::swap(CandidateTypes, Qualified);
@@ -379,10 +500,37 @@ bool AOSToSOAPass::collectCallChain(
 // the criteria of the profitability heuristics.
 // Return 'true' if candidates remain after this filtering.
 bool AOSToSOAPass::qualifyHeuristics(StructInfoVecImpl &CandidateTypes,
-                                     DTransAnalysisInfo &DTInfo) {
-  // TODO: Implement checks for usage frequency to determine whether
-  // a candidate should be converted.
+                                     Module &M, DTransAnalysisInfo &DTInfo) {
+  StructInfoVec Qualified;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Check for any command line structures that do not need to meet the
+  // profitability heuristics, and add them to the Qualified list.
+  SmallVector<StringRef, 4> SubStrings;
+  if (!DTransAOSToSOAHeurOverride.empty()) {
+    SplitString(DTransAOSToSOAHeurOverride, SubStrings, ",");
+    for (auto &Name : SubStrings) {
+      Type *Ty = M.getTypeByName(Name);
+      if (auto *StructTy = dyn_cast_or_null<StructType>(Ty)) {
+        DEBUG(dbgs()
+              << "DTRANS-AOSTOSOA: Skipped profitability heuristics for type: "
+              << Name << "\n");
+        dtrans::TypeInfo *Info = DTInfo.getTypeInfo(StructTy);
+        assert(Info &&
+               "DTransAnalysisInfo does not contain info for structure");
+
+        dtrans::StructInfo *StInfo = cast<dtrans::StructInfo>(Info);
+        Qualified.push_back(StInfo);
+      }
+    }
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+  // TODO: Add the type to the qualified list if it passes the heuristic
+  // check. For now, we reject everything not explicitly added above, by
+  // not placing them in the Qualified list.
+
+  std::swap(CandidateTypes, Qualified);
   return !CandidateTypes.empty();
 }
 

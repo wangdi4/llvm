@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -dtrans-aostosoa -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 -dtrans-aostosoa-qualification-only -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
 
 ; This test verifies that a type that passes all the qualification
 ; conditions is accepted for transformation.

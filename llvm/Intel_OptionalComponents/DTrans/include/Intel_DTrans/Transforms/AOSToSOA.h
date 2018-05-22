@@ -50,7 +50,7 @@ private:
 
   // This function filters the \p CandidateTypes list
   // to remove types that are not supported for transformation.
-  void qualifyCandidates(StructInfoVecImpl &CandidateTypes,
+  void qualifyCandidates(StructInfoVecImpl &CandidateTypes, Module &M,
                          DTransAnalysisInfo &DTInfo,
                          DominatorTreeFuncType &GetDT);
 
@@ -67,7 +67,7 @@ private:
 
   // Filter the \p CandidateTypes list based on whether the type meets
   // the criteria of the profitability heuristics
-  bool qualifyHeuristics(StructInfoVecImpl &CandidateTypes,
+  bool qualifyHeuristics(StructInfoVecImpl &CandidateTypes, Module &M,
                          DTransAnalysisInfo &DTInfo);
 
   // Helper routine used when analyzing the call graph to reach the memory
