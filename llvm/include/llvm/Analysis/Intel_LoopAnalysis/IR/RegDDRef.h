@@ -220,6 +220,24 @@ private:
   void populateTempBlobImpl(SmallVectorImpl<unsigned> &Blobs,
                             bool GetIndices) const;
 
+  /// Returns the type associated with \p DimensionNum. For example, consider
+  /// this case-
+  /// %struct.S2 = type { float, [100 x %struct.S1] }
+  /// %struct.S1 = type { i32, i32 }
+  /// @obj2 = [50 x %struct.S2]
+  ///
+  /// %t = GEP @obj2, 0, i, 1, j, 1
+  /// store to %t
+  ///
+  /// This reference looks like this in HIR-
+  /// (@obj2)[0][i].1[j].1
+  ///
+  /// This reference has the following dimension types (from lower to higher)-
+  /// Dimension1 - [100 x %struct.S1]
+  /// Dimension2 - [50 x %struct.S2]
+  /// Dimension3 - [50 x %struct.S2]*
+  Type *getDimensionType(unsigned DimensionNum) const;
+
 public:
   /// Returns HLDDNode this DDRef is attached to.
   const HLDDNode *getHLDDNode() const override { return Node; };
@@ -279,24 +297,6 @@ public:
   void setBitCastDestType(Type *DestTy) {
     getGEPInfo()->BitCastDestTy = DestTy;
   }
-
-  /// Returns the type associated with \p DimensionNum. For example, consider
-  /// this case-
-  /// %struct.S2 = type { float, [100 x %struct.S1] }
-  /// %struct.S1 = type { i32, i32 }
-  /// @obj2 = [50 x %struct.S2]
-  ///
-  /// %t = GEP @obj2, 0, i, 1, j, 1
-  /// store to %t
-  ///
-  /// This reference looks like this in HIR-
-  /// (@obj2)[0][i].1[j].1
-  ///
-  /// This reference has the following dimension types (from lower to higher)-
-  /// Dimension1 - [100 x %struct.S1]
-  /// Dimension2 - [50 x %struct.S2]
-  /// Dimension3 - [50 x %struct.S2]*
-  Type *getDimensionType(unsigned DimensionNum) const;
 
   /// Returns the element type of the dimension type associated with \p
   /// DimensionNum. For the example in description of getDimensionType() they

@@ -300,7 +300,7 @@ struct HIRFramework::MaxTripCountEstimator final : public HLNodeVisitorBase {
   void visit(HLDDNode *Node);
 
   void visit(RegDDRef *Ref, HLDDNode *Node);
-  void visit(CanonExpr *CE, ArrayType *ArrTy, HLDDNode *Node);
+  void visit(CanonExpr *CE, unsigned NumElements, HLDDNode *Node);
 };
 
 void HIRFramework::MaxTripCountEstimator::visit(HLLoop *Lp) {
@@ -346,7 +346,7 @@ void HIRFramework::MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
   // Highest dimension is intentionally skipped as it doesn't contain
   // information about number of elements.
   for (unsigned I = 1; I < NumDims; ++I) {
-    visit(Ref->getDimensionIndex(I), cast<ArrayType>(Ref->getDimensionType(I)),
+    visit(Ref->getDimensionIndex(I), Ref->getNumDimensionElements(I),
           Node);
   }
 
@@ -368,24 +368,19 @@ void HIRFramework::MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
   auto BaseVal =
       BaseCE->getBlobUtils().getTempBlobValue(BaseCE->getSingleBlobIndex());
 
-  auto ArrTy = HIRF->PhaseParser->traceBackToArrayType(BaseVal);
+  auto NumElements = HIRF->PhaseParser->getPointerDimensionSize(BaseVal);
 
-  if (ArrTy) {
-    visit(HighestCE, ArrTy, Node);
+  if (NumElements) {
+    visit(HighestCE, NumElements, Node);
   }
 }
 
-void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE, ArrayType *ArrTy,
+void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE,
+                                                unsigned NumElements,
                                                 HLDDNode *Node) {
 
   // We cannot estimate the iteration space of the IV with a varying blob.
   if (CE->isNonLinear() || !CE->hasIV()) {
-    return;
-  }
-
-  uint64_t NumElements = ArrTy->getNumElements();
-
-  if (!NumElements) {
     return;
   }
 

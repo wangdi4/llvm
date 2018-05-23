@@ -636,8 +636,8 @@ class HIRParser {
   // For example, if \p Ptr is %1 in the example below we will return [12 x i8].
   //
   // %1 = getelementptr inbounds [12 x i8], [12 x i8]* %tmpbuf.i, i32 0, i32 0
-  //
-  ArrayType *traceBackToArrayType(const Value *Ptr) const;
+  // Returns number of elements in outer dimension.
+  unsigned getPointerDimensionSize(const Value *Ptr) const;
 
   /// Returns HLNodeUtils object.
   HLNodeUtils &getHLNodeUtils() { return HNU; }

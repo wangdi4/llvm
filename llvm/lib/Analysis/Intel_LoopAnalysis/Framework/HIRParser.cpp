@@ -3435,9 +3435,9 @@ void HIRParser::parseMetadata(const Instruction *Inst, CanonExpr *CE) {
   CE->setDebugLoc(Inst->getDebugLoc());
 }
 
-ArrayType *HIRParser::traceBackToArrayType(const Value *Ptr) const {
+unsigned HIRParser::getPointerDimensionSize(const Value *Ptr) const {
   if (!Ptr->getType()->isPointerTy()) {
-    return nullptr;
+    return 0;
   }
 
   // Trace back as far as possible, until we hit a GEP whose result type is an
@@ -3452,19 +3452,20 @@ ArrayType *HIRParser::traceBackToArrayType(const Value *Ptr) const {
 
       } else {
         // Give up on merge phis.
-        return nullptr;
+        return 0;
       }
     } else if (auto GEPOp = dyn_cast<GEPOperator>(Ptr)) {
       if (GEPOp->getNumOperands() == 2) {
         Ptr = GEPOp->getPointerOperand();
       } else {
-        return dyn_cast<ArrayType>(GEPOp->getSourceElementType());
+        auto *ArrTy = dyn_cast<ArrayType>(GEPOp->getSourceElementType());
+        return ArrTy ? ArrTy->getArrayNumElements() : 0;
       }
     } else {
       // Give up on other value types.
-      return nullptr;
+      return 0;
     }
   }
 
-  return nullptr;
+  return 0;
 }
