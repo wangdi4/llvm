@@ -3778,15 +3778,6 @@ private:
     LocalPointerInfo &LHSLPI = LPA.getLocalPointerInfo(I.getOperand(0));
     LocalPointerInfo &RHSLPI = LPA.getLocalPointerInfo(I.getOperand(1));
 
-    if (!pointerAliasSetsAreEqual(LHSLPI.getPointerTypeAliasSet(),
-                                  RHSLPI.getPointerTypeAliasSet())) {
-      DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                   << "sub instruction operands do not match:\n"
-                   << "  " << I << "\n");
-      setValueTypeInfoSafetyData(I.getOperand(0), dtrans::UnhandledUse);
-      setValueTypeInfoSafetyData(I.getOperand(1), dtrans::UnhandledUse);
-    }
-
     if (LHSLPI.pointsToSomeElement()) {
       DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
                    << "pointer to element used in sub instruction:\n"
@@ -3811,6 +3802,80 @@ private:
                                   dtrans::BadPtrManipulation);
       }
     }
+
+    if (!pointerAliasSetsAreEqual(LHSLPI.getPointerTypeAliasSet(),
+                                  RHSLPI.getPointerTypeAliasSet())) {
+      DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                   << "sub instruction operands do not match:\n"
+                   << "  " << I << "\n");
+      setValueTypeInfoSafetyData(I.getOperand(0), dtrans::UnhandledUse);
+      setValueTypeInfoSafetyData(I.getOperand(1), dtrans::UnhandledUse);
+      return;
+    }
+
+    // A subtract instruction can safely be used to compute the index offset
+    // between to pointers in a fixed array, but only if the result is
+    // divided by the size of the structure. If these were pointers-to-pointers
+    // that's not a concern, but if they are pointers to structures we need
+    // to look for the divide.
+    //
+    // If DomTy is null here, either the alias set is overloaded, which will
+    // have been reported at the PHI or select that created the condition or
+    // one or both pointers are pointers to some element and we already set
+    // the necessary safety condition above.
+    if (auto *DomTy = LHSLPI.getDominantAggregateTy()) {
+      // Since we won't get here unless the alias sets are equal, the
+      // dominant types must match.
+      assert(RHSLPI.getDominantAggregateTy() == DomTy &&
+             "Unexpected dominant type mismatch");
+      assert(DomTy->isPointerTy() && "Pointer sub analysis of non-pointers!");
+
+      // If the dominant type is a pointer to a pointer, we don't need to look
+      // at its uses.
+      llvm::Type* ElementTy = DomTy->getPointerElementType();
+      if (!ElementTy->isPointerTy()) {
+        SmallPtrSet<Value *, 4> VisitedUsers;
+        uint64_t ElementSize = DL.getTypeAllocSize(ElementTy);
+        if (hasNonDivBySizeUses(&I, ElementSize, VisitedUsers)) {
+          DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
+                       << "Pointer subtract result has non-div use:\n"
+                       << "  " << I << "\n");
+          // Both operands have the same alias set, so we only need to set the
+          // safety condition once.
+          setAllAliasedTypeSafetyData(LHSLPI, dtrans::BadPtrManipulation);
+        }
+      }
+    }
+  }
+
+  bool hasNonDivBySizeUses(Value *V, uint64_t Size,
+                           SmallPtrSetImpl<Value*> &VisitedUses) {
+    // If we've already looked at this, don't look again.
+    if (!VisitedUses.insert(V).second)
+      return false;
+    for (auto *U : V->users()) {
+      if (auto *BinOp = dyn_cast<BinaryOperator>(U)) {
+        if (BinOp->getOpcode() != Instruction::SDiv &&
+            BinOp->getOpcode() != Instruction::UDiv)
+          return true;
+        if (BinOp->getOperand(0) != V)
+          return true;
+        if (!isValueMultipleOfSize(BinOp->getOperand(1), Size))
+          return true;
+        continue;
+      }
+      if (isa<PHINode>(U) || isa<SelectInst>(U)) {
+        if (hasNonDivBySizeUses(U, Size, VisitedUses))
+          return true;
+        continue;
+      }
+      // If we get here, the use is something other than PHI, select or div.
+      DEBUG(dbgs() << "Non-div use found for pointer sub: " << *U << "\n");
+      return true;
+    }
+    // If we got through all the uses and didn't return true, all the uses
+    // were either PHI, select or div.
+    return false;
   }
 
   bool pointerAliasSetsAreEqual(LocalPointerInfo::PointerTypeAliasSetRef Set1,

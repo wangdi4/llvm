@@ -110,7 +110,7 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       dtrans::BadMemFuncManipulation | dtrans::AmbiguousPointerTarget |
       dtrans::UnsafePtrMerge | dtrans::AddressTaken | dtrans::NoFieldsInStruct |
       dtrans::NestedStruct | dtrans::ContainsNestedStruct |
-      dtrans::SystemObject;
+      dtrans::MemFuncPartialWrite | dtrans::SystemObject;
 
   DEBUG(dbgs() << "Delete field: looking for candidate structures.\n");
 

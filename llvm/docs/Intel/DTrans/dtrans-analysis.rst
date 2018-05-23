@@ -544,6 +544,14 @@ operation is safe for the input pointer type. An offset computed this way may
 be used in ways that present safety concerns but that will be handled when the
 instruction using the value is analyzed.
 
+However, because the offset depends on the size of the structure being pointed
+to, if the pointers are pointers to structures (as opposed to pointer to
+pointers) the result of the sub instruction must only be used by sdiv or udiv
+instructions that divide by the size of the structure or PHI nodes or select
+instructions that lead to such div instructions. If any other use is found
+the type being pointed to will be marked with the `BadPtrManipulation`_
+safety condition.
+
 If either operand of a sub instruction is a pointer to an element within a
 structure then the offset so computed is dependent on the layout of the
 parent structure and so this case is flagged with the `BadPtrManipulation`_
