@@ -3695,6 +3695,25 @@ bool llvm::onlyUsedByLifetimeMarkers(const Value *V) {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+/// Return true if the only users of this pointer are lifetime markers and
+/// var.annotation intrinsics with register attribute set.
+bool llvm::onlyUsedByLifetimeAndVarAnnot(const Value *V) {
+  for (const User *U : V->users()) {
+    const IntrinsicInst *II = dyn_cast<IntrinsicInst>(U);
+    if (!II) return false;
+
+    if (const auto *VAI = dyn_cast<VarAnnotIntrinsic>(II)) {
+      if (!VAI->hasRegisterAttributeSet())
+        return false;
+    } else if (II->getIntrinsicID() != Intrinsic::lifetime_start &&
+               II->getIntrinsicID() != Intrinsic::lifetime_end)
+      return false;
+  }
+  return true;
+}
+#endif  //INTEL_CUSTOMIZATION
+
 bool llvm::isSafeToSpeculativelyExecute(const Value *V,
                                         const Instruction *CtxI,
                                         const DominatorTree *DT) {

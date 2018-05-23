@@ -82,13 +82,16 @@ bool llvm::isAllocaPromotable(const AllocaInst *AI) {
       if (SI->isVolatile())
         return false;
     } else if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(U)) {
-      if (II->getIntrinsicID() != Intrinsic::lifetime_start &&
-          II->getIntrinsicID() != Intrinsic::lifetime_end)
+      if (const VarAnnotIntrinsic *VAI = dyn_cast<VarAnnotIntrinsic>(II)) {   //INTEL
+        if (!VAI->hasRegisterAttributeSet())                                  //INTEL
+          return false;                                                       //INTEL
+      } else if (II->getIntrinsicID() != Intrinsic::lifetime_start &&         //INTEL
+                 II->getIntrinsicID() != Intrinsic::lifetime_end)
         return false;
     } else if (const BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
       if (BCI->getType() != Type::getInt8PtrTy(U->getContext(), AS))
         return false;
-      if (!onlyUsedByLifetimeMarkers(BCI))
+      if (!onlyUsedByLifetimeAndVarAnnot(BCI))       //INTEL
         return false;
     } else if (const GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(U)) {
       if (GEPI->getType() != Type::getInt8PtrTy(U->getContext(), AS))

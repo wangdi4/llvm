@@ -906,12 +906,17 @@ private:
            "Map index doesn't point back to a slice with this user.");
   }
 
-  // Disable SRoA for any intrinsics except for lifetime invariants.
+  // Disable SRoA for any intrinsics except for lifetime invariants and     //INTEL
+  // var.annotation intrinsics with register attribute set.                 //INTEL
   // FIXME: What about debug intrinsics? This matches old behavior, but
   // doesn't make sense.
   void visitIntrinsicInst(IntrinsicInst &II) {
     if (!IsOffsetKnown)
       return PI.setAborted(&II);
+
+    if (auto *VAI = dyn_cast<VarAnnotIntrinsic>(&II))   //INTEL
+      if (VAI->hasRegisterAttributeSet())               //INTEL
+        return;                                         //INTEL
 
     if (II.getIntrinsicID() == Intrinsic::lifetime_start ||
         II.getIntrinsicID() == Intrinsic::lifetime_end) {
@@ -3158,9 +3163,16 @@ private:
 
   bool visitIntrinsicInst(IntrinsicInst &II) {
     assert(II.getIntrinsicID() == Intrinsic::lifetime_start ||
-           II.getIntrinsicID() == Intrinsic::lifetime_end);
+           II.getIntrinsicID() == Intrinsic::lifetime_end   ||  //INTEL
+           II.getIntrinsicID() == Intrinsic::var_annotation);   //INTEL
     DEBUG(dbgs() << "    original: " << II << "\n");
-    assert(II.getArgOperand(1) == OldPtr);
+
+#if INTEL_CUSTOMIZATION
+    if (II.getIntrinsicID() == Intrinsic::var_annotation)
+        assert(II.getArgOperand(0) == OldPtr);
+    else
+        assert(II.getArgOperand(1) == OldPtr);
+#endif  //INTEL_CUSTOMIZATION
 
     // Record this instruction for deletion.
     Pass.DeadInsts.insert(&II);
@@ -3176,14 +3188,16 @@ private:
         NewEndOffset != NewAllocaEndOffset)
       return true;
 
-    ConstantInt *Size =
-        ConstantInt::get(cast<IntegerType>(II.getArgOperand(0)->getType()),
+    ConstantInt *Size;                                          //INTEL
+    if (II.getIntrinsicID() != Intrinsic::var_annotation)       //INTEL
+        Size =                                                  //INTEL
+            ConstantInt::get(cast<IntegerType>(II.getArgOperand(0)->getType()),
                          NewEndOffset - NewBeginOffset);
     Value *Ptr = getNewAllocaSlicePtr(IRB, OldPtr->getType());
     Value *New;
     if (II.getIntrinsicID() == Intrinsic::lifetime_start)
       New = IRB.CreateLifetimeStart(Ptr, Size);
-    else
+    if (II.getIntrinsicID() == Intrinsic::lifetime_end)         //INTEL
       New = IRB.CreateLifetimeEnd(Ptr, Size);
 
     (void)New;

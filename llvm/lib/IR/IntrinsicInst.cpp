@@ -25,10 +25,32 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Operator.h"       //INTEL
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
+
+#if INTEL_CUSTOMIZATION
+//===----------------------------------------------------------------------===//
+/// VarAnnotIntrinsic - This is the common base class for var.annotation
+/// intrinsics
+///
+
+bool VarAnnotIntrinsic::hasRegisterAttributeSet() const{
+  if (auto *GEPOp = dyn_cast<GEPOperator>(getOperand(1))) {
+    Value *OperandVal = GEPOp->getPointerOperand();
+    if (GlobalVariable *GlobalVar = dyn_cast<GlobalVariable>(OperandVal)) {
+      Constant *GlobalVal = GlobalVar->getInitializer();
+      ConstantDataSequential *Annotation;
+      if ((Annotation = dyn_cast<ConstantDataSequential>(GlobalVal)) &&
+           Annotation->isCString())
+        return (Annotation->getAsCString()).contains("{register:1}");
+    }
+  }
+  return false;
+}
+#endif  //INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 /// DbgInfoIntrinsic - This is the common base class for debug info intrinsics

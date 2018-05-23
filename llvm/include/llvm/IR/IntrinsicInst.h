@@ -63,6 +63,28 @@ namespace llvm {
     }
   };
 
+#if INTEL_CUSTOMIZATION
+  /// This is the common base class for var.annotation intrinsic.
+  class VarAnnotIntrinsic : public IntrinsicInst {
+  public:
+    /// \brief Return true if the register attribute is set for var.annotation.
+    ///
+    /// When the HLS feature is on, var.annotation intrinsic is annotated with
+    /// a string which indicates whether the register attribute is set or not.
+    bool hasRegisterAttributeSet() const;
+
+    /// \name Casting methods
+    /// @{
+    static bool classof(const IntrinsicInst *I) {
+      return I->getIntrinsicID() == Intrinsic::var_annotation;
+    }
+    static bool classof(const Value *V) {
+      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+    }
+    /// @}
+  };
+#endif  //INTEL_CUSTOMIZATION
+
   /// This is the common base class for debug info intrinsics.
   class DbgInfoIntrinsic : public IntrinsicInst {
   public:
