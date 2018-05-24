@@ -151,6 +151,13 @@ MDNode *MachineLoop::getLoopID() const {
     // If there is a single latch block, then the metadata
     // node is attached to its terminating instruction.
     const auto *BB = MBB->getBasicBlock();
+
+    // TODO (vzakhari 5/23/2018): it may be too strict, because we may
+    //       not be able to preserve the mapping in all cases.
+    //       I want to keep it for now to conduct broad testing
+    //       of the mapping validity.
+    assert(BB && "MBB->BB mapping is invalid.");
+
     if (const auto *TI = BB->getTerminator()) {
       LoopID = TI->getMetadata(LLVMContext::MD_loop);
       LLVM_DEBUG(
