@@ -469,14 +469,20 @@ bool TBBTaskExecutor::LoadTBBLibrary()
     bool bLoadRes = true;
 
 #ifdef WIN32
-    // The loading on tbb.dll was delayed,
+    // The loading on ocltbb.dll was delayed,
     // Need to load manually before defualt dll is loaded
 
     std::string tbbPath(MAX_PATH, '\0');
 
     Intel::OpenCL::Utils::GetModuleDirectory(&tbbPath[0], MAX_PATH);
     tbbPath.resize(tbbPath.find_first_of('\0'));
-    tbbPath += "tbb\\tbb";
+    tbbPath += "tbb\\ocltbb";
+
+#ifdef _WIN64
+    tbbPath += "64";
+#else
+    tbbPath += "32";
+#endif // _WIN64
 
 #ifdef _DEBUG
     tbbPath += "_debug";
