@@ -295,6 +295,48 @@ done:
   ret void
 }
 
+; Here we must look through a sext to find the size being used.
+define void @test16(i32 %num1, i64 %num2) {
+  ; s1 = (struct S1*)malloc((num1 * 3 * sizeof(struct S1)) * num2);
+  %mul1 = mul i32 %num1, 24
+  %tmp = sext i32 %mul1 to i64
+  %mul2 = mul i64 %tmp, %num2
+  %p = call noalias i8* @malloc(i64 %mul2)
+  %s1 = bitcast i8* %p to %struct.good.S1*
+  ret void
+}
+
+; CHECK: dtrans: Detected allocation cast to pointer type
+; CHECK: Detected type: %struct.good.S1 = type { i32, i32 }
+
+; Here we must look through a zext to find the size being used.
+define void @test17(i32 %num1, i64 %num2) {
+  ; s1 = (struct S1*)malloc((num1 * 3 * sizeof(struct S1)) * num2);
+  %mul1 = mul i32 %num1, 24
+  %tmp = zext i32 %mul1 to i64
+  %mul2 = mul i64 %tmp, %num2
+  %p = call noalias i8* @malloc(i64 %mul2)
+  %s1 = bitcast i8* %p to %struct.good.S1*
+  ret void
+}
+
+; CHECK: dtrans: Detected allocation cast to pointer type
+; CHECK: Detected type: %struct.good.S1 = type { i32, i32 }
+
+; Here we make sure that our sext handling isn't masking a bad size.
+%struct.badsize.S4 = type { i32, i32, i32 }
+define void @test18(i32 %num1, i64 %num2) {
+  ; s1 = (struct S4*)malloc((num1 * 19) * num2);
+  %mul1 = mul i32 %num1, 19
+  %tmp = sext i32 %mul1 to i64
+  %mul2 = mul i64 %tmp, %num2
+  %p = call noalias i8* @malloc(i64 %mul2)
+  %s1 = bitcast i8* %p to %struct.badsize.S4*
+  ret void
+}
+
+; CHECK: dtrans: Detected allocation cast to pointer type
+; CHECK: Detected type: %struct.badsize.S4 = type { i32, i32, i32 }
 
 ; The allocation output immediately follows the test where the allocation
 ; occurs. All type safety info is printed at the end. We check that here.
@@ -321,6 +363,8 @@ done:
 ; CHECK: LLVMType: %struct.badsize.S2
 ; CHECK: Safety data: Bad alloc size
 ; CHECK: LLVMType: %struct.badsize.S3
+; CHECK: Safety data: Bad alloc size
+; CHECK: LLVMType: %struct.badsize.S4
 ; CHECK: Safety data: Bad alloc size
 
 ; 'good' types should have 'No issues found'

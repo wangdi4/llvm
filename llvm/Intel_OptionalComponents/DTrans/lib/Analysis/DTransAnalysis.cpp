@@ -3037,6 +3037,9 @@ private:
       return (isValueMultipleOfSize(LHS, Size) ||
               isValueMultipleOfSize(RHS, Size));
     }
+    // Handle sext and zext
+    if (isa<SExtInst>(Val) || isa<ZExtInst>(Val))
+      return isValueMultipleOfSize(cast<Instruction>(Val)->getOperand(0), Size);
     // Otherwise, it's not what we needed.
     return false;
   }
@@ -4266,7 +4269,7 @@ void DTransAnalysisInfo::reset() {
       delete cast<dtrans::ArrayInfo>(Entry.second);
       break;
     default:
-      llvm_unreachable("Missing cast for appropriate TypeInfo destruction");
+      llvm_unreachable("Missing case for appropriate TypeInfo destruction");
     }
   }
   TypeInfoMap.clear();
