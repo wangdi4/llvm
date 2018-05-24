@@ -1,8 +1,9 @@
 ; RUN: opt -dtrans-deletefield -S -o - %s | FileCheck %s
 ; RUN: opt -passes=dtrans-deletefield -S -o - %s | FileCheck %s
 
-; This test verifies that the dtrans delete pass correctly transforms
-; structures that have unused fields and meet the necessary safety conditions.
+; This test verifies that the size argument of a malloc call is correctly
+; updated when it is a variable multiple of the structure size where the
+; intermediate values have other uses.
 
 %struct.test = type { i32, i64, i32 }
 
@@ -22,8 +23,13 @@ define i32 @doSomething(%struct.test* %p_test) {
 }
 
 define i32 @main(i32 %argc, i8** %argv) {
-  ; Allocate a structure.
-  %p = call i8* @malloc(i64 16)
+  ; Calculate a size.
+  %sz = mul i32 %argc, 16
+  %sz64 = sext i32 %sz to i64
+  ; This is an arbitrary use. Imagine it having some purpose.
+  %other = add i32 %sz, 32
+  ; Allocate an array of structures.
+  %p = call i8* @malloc(i64 %sz64)
   %p_test = bitcast i8* %p to %struct.test*
 
   ; Call a function to do something.
@@ -37,7 +43,10 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK: %__DFT_struct.test = type { i32, i32 }
 
 ; CHECK-LABEL: define i32 @main(i32 %argc, i8** %argv)
-; CHECK: %p = call i8* @malloc(i64 8)
+; CHECK: %sz.dt = mul i32 %argc, 8
+; CHECK: %sz = mul i32 %argc, 16
+; CHECK: %sz64 = sext i32 %sz.dt to i64
+; CHECK: %p = call i8* @malloc(i64 %sz64)
 ; CHECK: %p_test = bitcast i8* %p to %__DFT_struct.test*
 ; CHECK: %val = call i32 @doSomething.1(%__DFT_struct.test* %p_test)
 

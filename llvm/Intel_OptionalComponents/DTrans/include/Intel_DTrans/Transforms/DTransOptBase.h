@@ -30,6 +30,10 @@
 
 namespace llvm {
 
+namespace dtrans {
+class CallInfo;
+}
+
 class DTransAnalysisInfo;
 
 // This class handles the remapping of structure types from old to new types
@@ -258,6 +262,42 @@ private:
   // Remove functions and global variables that have been completely
   // replaced due to the remapping.
   void removeDeadValues();
+
+protected:
+  // Derived classes may call this function to find and replace the
+  // input value to the specified instruction which is a multiple of the
+  // original operand size. This function uses the instruction type to
+  // determine which operand is expected to be a size operand and then
+  // searches the use-def chain of that operand (if necessary) to find
+  // a constant value which is a multiple of the alloc size of the original
+  // type and replaces it with the same constant multiple of the alloc size
+  // of the replacement type. If multiple possible values are found (such
+  // as in the case of a calloc instruction whose size and count arguments
+  // are both multiples of the original size) only one value will be
+  // replaced. If any value in the use-def chain between the instruction and
+  // the constant value that is updated has multiple uses, all instructions
+  // between the first instruction in the chain with multiple uses and the
+  // value being replaced will be cloned.
+  //
+  // Note: This function assumes that the calls involved are all processing
+  // the entire function. Optimizations which use this function should check
+  // the MemFuncPartialWrite safety condition.
+  void updateSizeOperand(Instruction *I, dtrans::CallInfo *CInfo,
+                         llvm::Type *OrigTy, llvm::Type *ReplTy);
+
+  // Derived classes may use this function to find a constant input value,
+  // searching from the specified operand and following the use-def chain
+  // as necessary, which is a multiple of the specified size. If such a value
+  // is found, the function will return true and the \p UseStack vector will
+  // contain the stack of User-Index pairs in the use-def chain which led to
+  // the constant. Each entry in the stack represents an instruction and the
+  // index of the operand that was followed.
+  //
+  // If such a value is not found, the function will return false and the
+  // \p UseStack vector will not be changed.
+  bool findValueMultipleOfSizeInst(
+      User *U, unsigned Idx, uint64_t Size,
+      SmallVectorImpl<std::pair<User *, unsigned>> &UseStack);
 
 protected:
   DTransAnalysisInfo &DTInfo;

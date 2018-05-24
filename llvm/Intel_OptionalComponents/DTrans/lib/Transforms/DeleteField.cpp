@@ -71,6 +71,8 @@ private:
   // The list is populated during prepareTypes() and used in populateTypes().
   SmallVector<dtrans::StructInfo *, 4> StructsToConvert;
 
+  const uint64_t FIELD_DELETED = ~0ULL;
+
   // A mapping from the original structure type to the new structure type
   TypeToTypeMap OrigToNewTypeMapping;
 
@@ -81,8 +83,7 @@ private:
 
   bool processGEPInst(GetElementPtrInst *GEP, uint64_t &NewIndex,
                       bool IsPreCloning);
-
-  const uint64_t FIELD_DELETED = ~0ULL;
+  void postProcessCallInst(Instruction *I);
 };
 
 } // end anonymous namespace
@@ -313,15 +314,53 @@ bool DeleteFieldImpl::processGEPInst(GetElementPtrInst *GEP, uint64_t &NewIndex,
 void DeleteFieldImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
   // TODO: Add code to update instructions using the size of our structs.
   Function *F = isCloned ? OrigFuncToCloneFuncMap[&OrigFunc] : &OrigFunc;
-  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-    if (auto *GEP = dyn_cast<GetElementPtrInst>(&*I)) {
+  for (inst_iterator It = inst_begin(F), E = inst_end(F); It != E; ++It) {
+    Instruction *I = &*It;
+    if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
       uint64_t NewIndex;
       if (processGEPInst(GEP, NewIndex, /*IsPreCloning=*/false)) {
-        DEBUG(dbgs() << "Delete field: Replacing instruction\n" << *GEP);
+        LLVM_DEBUG(dbgs() << "Delete field: Replacing instruction\n"
+                          << *GEP << "\n");
         GEP->setOperand(
             2, ConstantInt::get(Type::getInt32Ty(GEP->getContext()), NewIndex));
-        DEBUG(dbgs() << "    with\n" << *GEP);
+        LLVM_DEBUG(dbgs() << "    with\n" << *GEP << "\n");
       }
+      continue;
+    }
+    if (isa<CallInst>(I))
+      postProcessCallInst(I);
+  }
+}
+
+void DeleteFieldImpl::postProcessCallInst(Instruction *I) {
+  auto *CInfo = DTInfo.getCallInfo(I);
+  if (!CInfo || isa<dtrans::FreeCallInfo>(CInfo))
+    return;
+
+  // The number of types in the pointer info and the number of types
+  // in the OrigToNew type mapping should both be very small.
+  auto &PtrInfo = CInfo->getPointerTypeInfoRef();
+  for (auto *CallTy : PtrInfo.getTypes()) {
+    if (!CallTy->isPointerTy())
+      continue;
+    auto *PointeeTy = CallTy->getPointerElementType();
+    // FIXME: For some reason MemfuncCallInfo seems to have an extra layer of
+    //        indirection.
+    if (isa<dtrans::MemfuncCallInfo>(CInfo) && PointeeTy->isPointerTy())
+      PointeeTy = PointeeTy->getPointerElementType();
+    for (auto &ONPair : OrigToNewTypeMapping) {
+      llvm::Type *OrigTy = ONPair.first;
+      llvm::Type *ReplTy = ONPair.second;
+      // FIXME: Shouldn't the CallInfo have been updated?
+      //      assert(PointeeTy != OrigTy &&
+      //             "Original type found after type replacement!");
+      //      if (PointeeTy != ReplTy)
+      if (PointeeTy != OrigTy)
+        continue;
+      LLVM_DEBUG(dbgs() << "Found call involving type with deleted fields:\n"
+                        << *I << "\n"
+                        << "  " << *OrigTy << "\n");
+      updateSizeOperand(I, CInfo, OrigTy, ReplTy);
     }
   }
 }

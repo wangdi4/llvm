@@ -51,15 +51,11 @@ define i32 @main(i32 %argc, i8** %argv) {
   ret i32 %val
 }
 
-; FIXME: These checks currently assume that size-related constants are not
-;        updated. Several checks will need to be updated when the optimization
-;        is fully implemented.
-
 ; CHECK-DAG: %__DFDT_struct.other = type { %__DFT_struct.test* }
 ; CHECK-DAG: %__DFT_struct.test = type { i32, i32 }
 
 ; CHECK: define i32 @main(i32 %argc, i8** %argv)
-; CHECK: %p1 = call i8* @malloc(i64 16)
+; CHECK: %p1 = call i8* @malloc(i64 8)
 ; CHECK: %p_test = bitcast i8* %p1 to %__DFT_struct.test*
 ; CHECK: %p2 = call i8* @malloc(i64 16)
 ; CHECK: %p_other = bitcast i8* %p2 to %__DFDT_struct.other*

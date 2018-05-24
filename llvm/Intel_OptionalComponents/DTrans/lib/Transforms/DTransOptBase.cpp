@@ -687,3 +687,170 @@ void DTransOptBase::removeDeadValues() {
 
   GlobalsForRemoval.clear();
 }
+
+void DTransOptBase::updateSizeOperand(Instruction *I, dtrans::CallInfo *CInfo,
+                                      llvm::Type *OrigTy, llvm::Type *ReplTy) {
+  uint64_t OrigSize = DL.getTypeAllocSize(OrigTy);
+  uint64_t ReplSize = DL.getTypeAllocSize(ReplTy);
+
+  // Find the User value that has a constant integer multiple of the original
+  // structure size as an operand.
+  bool Found = false;
+  SmallVector<std::pair<User *, unsigned>, 4> SizeUseStack;
+  if (auto *AInfo = dyn_cast<dtrans::AllocCallInfo>(CInfo)) {
+    dtrans::AllocKind AK = AInfo->getAllocKind();
+    switch (AK) {
+    case dtrans::AK_NotAlloc:
+      llvm_unreachable("No AllocCallInfo for AK_NotAlloc!");
+    case dtrans::AK_UserMalloc0:
+      llvm_unreachable("AK_UserMalloc0 not yet supported!");
+    case dtrans::AK_Malloc:
+    case dtrans::AK_UserMalloc:
+      Found = findValueMultipleOfSizeInst(I, 0, OrigSize, SizeUseStack);
+      break;
+    case dtrans::AK_Realloc:
+      Found = findValueMultipleOfSizeInst(I, 1, OrigSize, SizeUseStack);
+      break;
+    case dtrans::AK_Calloc:
+      Found = findValueMultipleOfSizeInst(I, 0, OrigSize, SizeUseStack);
+      assert((Found || SizeUseStack.empty()) &&
+             "SizeUseStack not empty after failed value search!");
+      if (!Found)
+        Found = findValueMultipleOfSizeInst(I, 1, OrigSize, SizeUseStack);
+      break;
+    }
+  } else {
+    // This asserts because we only expect alloc info or memfunc info.
+    assert(isa<dtrans::MemfuncCallInfo>(CInfo) &&
+           "Expected either alloc or memfunc!");
+    // All memfunc calls have the size as operand 2.
+    Found = findValueMultipleOfSizeInst(I, 2, OrigSize, SizeUseStack);
+  }
+
+  // The safety conditions should guarantee that we can find this constant.
+  assert(Found && "Constant multiple of size not found!");
+
+  // If we need to replace a constant in some instruction other than our
+  // call, we need to check all the values in our use stack before the call
+  // to see if they have other users. If they do, we'll need to clone all
+  // values before and including the first one with multiple uses.
+  // Note that we are walking from the bottom of the stack here -- that is
+  // from the call instruction back to the use where the constant was found.
+  bool NeedToClone = false;
+  std::pair<User *, unsigned> PrevPair;
+  for (auto &UsePair : SizeUseStack) {
+    // Skip over the call instruction, its number of users doesn't matter.
+    if (UsePair.first == I) {
+      PrevPair = UsePair;
+      continue;
+    }
+
+    // If we haven't seen a value with multiple uses yet, and this value
+    // doesn't have multiple uses, don't clone it.
+    if (!NeedToClone && (UsePair.first->getNumUses() == 1)) {
+      PrevPair = UsePair;
+      continue;
+    }
+
+    // Otherwise, we need to clone.
+    NeedToClone = true;
+    auto *OrigUse = cast<Instruction>(UsePair.first);
+    auto *Clone = OrigUse->clone();
+    if (OrigUse->hasName())
+      Clone->setName(OrigUse->getName() + ".dt");
+    Clone->insertBefore(OrigUse);
+    UsePair.first = Clone;
+
+    // Also replace the use of this value in the previous instruction
+    // on the stack.
+    User *PrevUser = PrevPair.first;
+    unsigned PrevIdx = PrevPair.second;
+    assert((PrevUser->getOperand(PrevIdx) == OrigUse) &&
+           "Size use stack is broken!");
+    PrevUser->setOperand(PrevIdx, Clone);
+
+    // Get ready for the next iteration.
+    PrevPair = UsePair;
+  }
+
+  // Figure out the multiplier, if any, needed for the size constant.
+  std::pair<User *, unsigned> SizePair = SizeUseStack.back();
+  User *SizeUser = SizePair.first;
+  unsigned SizeOpIdx = SizePair.second;
+  auto *ConstVal = cast<ConstantInt>(SizeUser->getOperand(SizeOpIdx));
+  uint64_t ConstSize = ConstVal->getLimitedValue();
+  assert((ConstSize % OrigSize) == 0 && "Size multiplier search is broken");
+  uint64_t Multiplier = ConstSize / OrigSize;
+
+  LLVM_DEBUG(dbgs() << "Delete field: Updating size operand (" << SizeOpIdx
+                    << ") of " << *SizeUser << "\n");
+  llvm::Type *SizeOpTy = SizeUser->getOperand(SizeOpIdx)->getType();
+  SizeUser->setOperand(SizeOpIdx,
+                       ConstantInt::get(SizeOpTy, ReplSize * Multiplier));
+  LLVM_DEBUG(dbgs() << "  New value: " << *SizeUser << "\n");
+
+  // Otherwise we need to check each value to make sure it doesn't have
+  // other uses. If it does, we need to clone the value before replacing
+  //
+}
+
+// This helper function searches, starting with \p U opernad \p Idx and
+// following only multiply operations, for a User value with an operand that
+// is a constant integer and is an exact multiple of the specified size. If a
+// match is found, the \p UseStack vector will be populated with <User, Index>
+// pairs of the use chain between \p U and the value where the constant was
+// found.
+//
+// The return value indicates whether or not a match was found.
+bool DTransOptBase::findValueMultipleOfSizeInst(
+    User *U, unsigned Idx, uint64_t Size,
+    SmallVectorImpl<std::pair<User *, unsigned>> &UseStack) {
+  if (!U)
+    return false;
+
+  // Get the specified operand value.
+  Value *Val = U->getOperand(Idx);
+
+  // Is it a constant?
+  if (auto *ConstVal = dyn_cast<ConstantInt>(Val)) {
+    // If so, is it a multiple of the size?
+    uint64_t ConstSize = ConstVal->getLimitedValue();
+    if (ConstSize == ~0ULL || ((ConstSize % Size) != 0))
+      return false;
+    // If it is, this is what we were looking for.
+    UseStack.push_back(std::make_pair(U, Idx));
+    return true;
+  }
+
+  // Is it a binary operator?
+  if (auto *BinOp = dyn_cast<BinaryOperator>(Val)) {
+    // Not a mul? Then it's not what we're looking for.
+    if (BinOp->getOpcode() != Instruction::Mul)
+      return false;
+    // If it is a mul, speculatively push the current value operand pair
+    // on the use stack and then check both operands for a constant multiple.
+    UseStack.push_back(std::make_pair(U, Idx));
+    if (findValueMultipleOfSizeInst(BinOp, 0, Size, UseStack))
+      return true;
+    if (findValueMultipleOfSizeInst(BinOp, 1, Size, UseStack))
+      return true;
+    // If neither matched, get our pair off of the stack and return false.
+    UseStack.pop_back();
+    return false;
+  }
+
+  // Is it sext or zext?
+  if (isa<SExtInst>(Val) || isa<ZExtInst>(Val)) {
+    // If so, speculatively push the current value operand pair on the stack
+    // and check the operand for a constant multiple.
+    UseStack.push_back(std::make_pair(U, Idx));
+    if (findValueMultipleOfSizeInst(cast<User>(Val), 0, Size, UseStack))
+      return true;
+    // If it didn't match, get our pair off of the stack and return false.
+    UseStack.pop_back();
+    return false;
+  }
+
+  // Otherwise, it's definitely not what we were looking for.
+  return false;
+}
