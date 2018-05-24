@@ -14,12 +14,30 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h" // INTEL
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
 using namespace llvm;
+
+#if INTEL_CUSTOMIZATION
+#ifndef NDEBUG
+// DetectLostOptReports enables detection of opt-reports attached
+// to an isTerminator() instruction being deleted along with the instruction.
+// We currently use Loop's back branch instructions as containers of
+// opt-reports metadata, and we do not want to lose this metadata, in general.
+// In most cases, before deleting the back branch instruction(s) for a Loop,
+// we erase the opt-report metadata from this instruction(s).  This verification
+// helps to find places, where we do not do this (i.e. the places have not been
+// analyzed from the point of preserving opt-reports).
+static cl::opt<bool> DetectLostOptReports(
+    "detect-lost-opt-reports", cl::init(false), cl::Hidden,
+    cl::desc("Enables checking of opt-reports being lost during "
+             "instructions erasing"));
+#endif  // NDEBUG
+#endif  // INTEL_CUSTOMIZATION
 
 Instruction::Instruction(Type *ty, unsigned it, Use *Ops, unsigned NumOps,
                          Instruction *InsertBefore)
@@ -66,6 +84,24 @@ void Instruction::removeFromParent() {
 }
 
 iplist<Instruction>::iterator Instruction::eraseFromParent() {
+#if INTEL_CUSTOMIZATION
+#ifndef NDEBUG
+  // Deleting a terminator instruction with an attached opt-report metadata
+  // may result in losing this opt-report for good (e.g. if it is not
+  // previously reattached to somewhere else).  This verification check
+  // is not friendly, because it requires explicitly deleting opt-report
+  // metadata from a terminator instruction before deleting the instruction
+  // itself, even if the opt-report was previously reattached.
+  // If you hit this assertion, you need to make sure that you reattach
+  // the opt-report and explicitly delete it from this terminator instruction
+  // before running eraseFromParent().
+  if (DetectLostOptReports && isTerminator())
+    if (auto *MD = getMetadata(LLVMContext::MD_loop))
+      for (unsigned I = 1, IE = MD->getNumOperands(); I < IE; ++I)
+        if (LoopOptReport::isOptReportMetadata(MD->getOperand(I)))
+          llvm_unreachable("The deleted OptReport will be missing.");
+#endif  // NDEBUG
+#endif  // INTEL_CUSTOMIZATION
   return getParent()->getInstList().erase(getIterator());
 }
 
