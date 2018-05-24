@@ -3348,19 +3348,22 @@ private:
         // member of an array type, or the element pointee set contained
         // multiple entries.
         if (DstLPI.getElementPointeeSet().size() != 1) {
-          DEBUG(dbgs() << "dtrans-safety: Ambiguous pointer target -- "
-                       << "Pointer to member with multiple potential target "
-                          "members:\n"
-                       << "  " << I << "\n");
+          LLVM_DEBUG(dbgs()
+                     << "dtrans-safety: Ambiguous pointer target -- "
+                     << "Pointer to member with multiple potential target "
+                        "members (destination operand):\n"
+                     << "  " << I << "\n");
 
           setValueTypeInfoSafetyData(DestArg, dtrans::AmbiguousPointerTarget);
           setValueTypeInfoSafetyData(SrcArg, dtrans::AmbiguousPointerTarget);
         } else {
           // This could be extended in the future to handle the case that it was
           // member of an array.
-          DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                       << "Pointer to member of array type:\n"
-                       << "  " << I << "\n");
+          LLVM_DEBUG(
+              dbgs()
+              << "dtrans-safety: Unhandled use -- "
+              << "Pointer to member of array type (destination operand):\n"
+              << "  " << I << "\n");
 
           setValueTypeInfoSafetyData(DestArg, dtrans::UnhandledUse);
           setValueTypeInfoSafetyData(SrcArg, dtrans::UnhandledUse);
@@ -3371,6 +3374,38 @@ private:
 
       bool SrcSimple =
           isSimpleStructureMember(SrcLPI, &SrcStructTy, &SrcFieldNum);
+      if (!SrcSimple) {
+        // The destination was found to be a member of a structure. The
+        // copy/move is only supported when the source is also a simple
+        // structure member.
+
+        // The pointer to member was not able to be analyzed. It could be a
+        // member of an array type, or the element pointee set contained
+        // multiple entries.
+        if (SrcLPI.getElementPointeeSet().size() != 1) {
+          LLVM_DEBUG(dbgs()
+                     << "dtrans-safety: Ambiguous pointer target -- "
+                     << "Pointer to member with multiple potential target "
+                        "members (source operand):\n"
+                     << "  " << I << "\n");
+
+          setValueTypeInfoSafetyData(DestArg, dtrans::AmbiguousPointerTarget);
+          setValueTypeInfoSafetyData(SrcArg, dtrans::AmbiguousPointerTarget);
+        } else {
+          // This could be extended in the future to handle the case where an
+          // array that is not within a structure is copied to an array
+          // that is within a structure.
+          LLVM_DEBUG(dbgs()
+                     << "dtrans-safety: Unhandled use -- "
+                     << "Pointer to member of array type (source operand): \n"
+                     << "  " << I << "\n");
+
+          setValueTypeInfoSafetyData(DestArg, dtrans::UnhandledUse);
+          setValueTypeInfoSafetyData(SrcArg, dtrans::UnhandledUse);
+        }
+
+        return;
+      }
 
       // It is probably safe to copy from one set of fields to a different set
       // of fields in the structure, if the data types for each source and
@@ -3378,8 +3413,7 @@ private:
       // transformations, we will currently require the same source and
       // destination types and fields when processing the pointer to member
       // case.
-      if (DstSimple == SrcSimple && DstStructTy == SrcStructTy &&
-          DstFieldNum == SrcFieldNum) {
+      if (DstStructTy == SrcStructTy && DstFieldNum == SrcFieldNum) {
         // The structures for the source and destination match, so we only need
         // to populate a RegionDesc structure for the destination.
         dtrans::MemfuncRegion RegionDesc;
