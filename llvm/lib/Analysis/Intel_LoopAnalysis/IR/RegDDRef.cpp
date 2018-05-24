@@ -54,15 +54,15 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
 
 RegDDRef::GEPInfo::GEPInfo()
     : BaseCE(nullptr), BitCastDestTy(nullptr), InBounds(false),
-      AddressOf(false), Volatile(false),
-      IsCollapsed(false), Alignment(0) {}
+      AddressOf(false), Volatile(false), IsCollapsed(false), Alignment(0) {}
 
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
     : BaseCE(Info.BaseCE->clone()), BitCastDestTy(Info.BitCastDestTy),
       InBounds(Info.InBounds), AddressOf(Info.AddressOf),
-      Volatile(Info.Volatile), IsCollapsed(Info.IsCollapsed), Alignment(Info.Alignment),
-      DimensionOffsets(Info.DimensionOffsets), MDNodes(Info.MDNodes),
-      GepDbgLoc(Info.GepDbgLoc), MemDbgLoc(Info.MemDbgLoc) {}
+      Volatile(Info.Volatile), IsCollapsed(Info.IsCollapsed),
+      Alignment(Info.Alignment), DimensionOffsets(Info.DimensionOffsets),
+      MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
+      MemDbgLoc(Info.MemDbgLoc) {}
 
 RegDDRef::GEPInfo::~GEPInfo() {}
 
@@ -657,16 +657,15 @@ uint64_t RegDDRef::getDimensionStride(unsigned DimensionNum) const {
   assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
 
   auto DimElemType = getDimensionElementType(DimensionNum);
-  uint64_t Stride = getCanonExprUtils().getTypeSizeInBits(DimElemType) / 8;
+  uint64_t Stride = getCanonExprUtils().getTypeSizeInBytes(DimElemType);
 
   return Stride;
 }
 
 uint64_t RegDDRef::getDimensionSize(unsigned DimensionNum) const {
   auto DimTy = getDimensionType(DimensionNum);
-  return DimTy->isPointerTy()
-             ? 0
-             : getCanonExprUtils().getTypeSizeInBits(DimTy) / 8;
+  return DimTy->isPointerTy() ? 0
+                              : getCanonExprUtils().getTypeSizeInBytes(DimTy);
 }
 
 uint64_t RegDDRef::getNumDimensionElements(unsigned DimensionNum) const {

@@ -2406,13 +2406,14 @@ unsigned HIRParser::getElementSize(Type *Ty) const {
 
   auto ElTy = cast<PointerType>(Ty)->getElementType();
 
-  return getDataLayout().getTypeSizeInBits(ElTy) / 8;
+  return getDataLayout().getTypeStoreSize(ElTy);
 }
 
 const Value *HIRParser::getHeaderPhiOperand(const PHINode *Phi,
                                             bool IsInit) const {
   assert(RI.isHeaderPhi(Phi) && "Phi is not a header phi!");
-  assert((Phi->getNumIncomingValues() == 2) && "Unexpected number of header phi predecessors!");
+  assert((Phi->getNumIncomingValues() == 2) &&
+         "Unexpected number of header phi predecessors!");
 
   auto *Lp = LI.getLoopFor(Phi->getParent());
   auto *LatchBlock = Lp->getLoopLatch();

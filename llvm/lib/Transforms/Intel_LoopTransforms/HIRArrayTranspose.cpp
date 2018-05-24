@@ -400,7 +400,8 @@ void HIRArrayTranspose::MallocAnalyzer::processIntToPtrInst(
   }
 
   HAT.MallocArrayBaseTy = DestTy;
-  HAT.ArrayElementSizeInBytes = ArrElemTy->getPrimitiveSizeInBits() / 8;
+  HAT.ArrayElementSizeInBytes =
+      HInst->getCanonExprUtils().getTypeSizeInBytes(ArrElemTy);
 
   if ((HAT.MallocSizeInBytes % HAT.ArrayElementSizeInBytes) != 0) {
     // Cannot transpose if malloc size is not evenly divisible by array element

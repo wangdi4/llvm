@@ -373,7 +373,7 @@ void HIRLoopLocality::computeNumTempInvCacheLines(LocalityInfo &LI,
 
   auto Ref = RefGroup.front();
   auto RefSize =
-      Ref->getCanonExprUtils().getTypeSizeInBits(Ref->getDestType()) / 8;
+      Ref->getCanonExprUtils().getTypeSizeInBytes(Ref->getDestType());
 
   updateTotalStrideAndRefs(LI, RefGroup, 0);
 
