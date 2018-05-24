@@ -109,6 +109,8 @@
 ; CHECK-O-NEXT: Running pass: CGSCCToFunctionPassAdaptor<{{.*}}PassManager{{.*}}>
 ; CHECK-O-NEXT: Starting llvm::Function pass manager run.
 ; CHECK-O-NEXT: Running pass: TbaaMDPropagationPass  ;INTEL
+; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}OptReportOptionsAnalysis       ;INTEL
+; CHECK-O-NEXT: Running analysis: OptReportOptionsAnalysis                             ;INTEL
 ; CHECK-O-NEXT: Running pass: SROA
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O-NEXT: Running analysis: MemorySSAAnalysis

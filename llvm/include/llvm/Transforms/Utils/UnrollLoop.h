@@ -18,6 +18,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h" // INTEL
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
@@ -61,6 +62,7 @@ LoopUnrollResult UnrollLoop(Loop *L, unsigned Count, unsigned TripCount,
                             unsigned PeelCount, bool UnrollRemainder,
                             LoopInfo *LI, ScalarEvolution *SE,
                             DominatorTree *DT, AssumptionCache *AC,
+                            const LoopOptReportBuilder &LORBuilder, // INTEL
                             OptimizationRemarkEmitter *ORE, bool PreserveLCSSA);
 
 bool UnrollRuntimeLoopRemainder(Loop *L, unsigned Count,
@@ -69,6 +71,7 @@ bool UnrollRuntimeLoopRemainder(Loop *L, unsigned Count,
                                 LoopInfo *LI,
                                 ScalarEvolution *SE, DominatorTree *DT,
                                 AssumptionCache *AC,
+                                const LoopOptReportBuilder &LORBuilder, // INTEL
                                 bool PreserveLCSSA);
 
 void computePeelCount(Loop *L, unsigned LoopSize,

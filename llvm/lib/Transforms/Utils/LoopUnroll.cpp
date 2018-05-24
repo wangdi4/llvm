@@ -19,6 +19,8 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h" // INTEL
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
@@ -334,6 +336,7 @@ LoopUnrollResult llvm::UnrollLoop(
     bool AllowExpensiveTripCount, bool PreserveCondBr, bool PreserveOnlyFirst,
     unsigned TripMultiple, unsigned PeelCount, bool UnrollRemainder,
     LoopInfo *LI, ScalarEvolution *SE, DominatorTree *DT, AssumptionCache *AC,
+    const LoopOptReportBuilder &LORBuilder, // INTEL
     OptimizationRemarkEmitter *ORE, bool PreserveLCSSA) {
 
   BasicBlock *Preheader = L->getLoopPreheader();
@@ -468,7 +471,9 @@ LoopUnrollResult llvm::UnrollLoop(
   if (RuntimeTripCount && TripMultiple % Count != 0 &&
       !UnrollRuntimeLoopRemainder(L, Count, AllowExpensiveTripCount,
                                   EpilogProfitability, UnrollRemainder, LI, SE,
-                                  DT, AC, PreserveLCSSA)) {
+                                  DT, AC,           // INTEL
+                                  LORBuilder,       // INTEL
+                                  PreserveLCSSA)) { // INTEL
     if (Force)
       RuntimeTripCount = false;
     else {
@@ -501,6 +506,12 @@ LoopUnrollResult llvm::UnrollLoop(
                << "completely unrolled loop with "
                << NV("UnrollCount", TripCount) << " iterations";
       });
+#if INTEL_CUSTOMIZATION
+    LORBuilder(*L, *LI).
+        addRemark(OptReportVerbosity::Low,
+                  "LLorg: Loop has been completely unrolled").
+        preserveLostLoopOptReport();
+#endif  // INTEL_CUSTOMIZATION
   } else if (PeelCount) {
     LLVM_DEBUG(dbgs() << "PEELING loop %" << Header->getName()
                       << " with iteration count " << PeelCount << "!\n");
@@ -511,6 +522,16 @@ LoopUnrollResult llvm::UnrollLoop(
                << " peeled loop by " << NV("PeelCount", PeelCount)
                << " iterations";
       });
+
+#if INTEL_CUSTOMIZATION
+    // TODO (vzakhari 5/22/2018): we may want to be more precise
+    //       and report all the different unrolling cases in the
+    //       conditional clauses below.
+    LORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,
+                                  "LLorg: Loop has been peeled by %d "
+                                  "iterations",
+                                  PeelCount);
+#endif  // INTEL_CUSTOMIZATION
   } else {
     auto DiagBuilder = [&]() {
       OptimizationRemark Diag(DEBUG_TYPE, "PartialUnrolled", L->getStartLoc(),
@@ -519,8 +540,18 @@ LoopUnrollResult llvm::UnrollLoop(
                   << NV("UnrollCount", Count);
     };
 
+#if INTEL_CUSTOMIZATION
+    // TODO (vzakhari 5/22/2018): we may want to be more precise
+    //       and report all the different unrolling cases in the
+    //       conditional clauses below.
+    LORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,
+                                  "LLorg: Loop has been unrolled by %d factor",
+                                  Count);
+#endif  // INTEL_CUSTOMIZATION
+
     LLVM_DEBUG(dbgs() << "UNROLLING loop %" << Header->getName() << " by "
                       << Count);
+
     if (TripMultiple == 0 || BreakoutTrip != TripMultiple) {
       LLVM_DEBUG(dbgs() << " with a breakout at trip " << BreakoutTrip);
       if (ORE)
@@ -753,6 +784,18 @@ LoopUnrollResult llvm::UnrollLoop(
       }
       // Replace the conditional branch with an unconditional one.
       BranchInst::Create(Dest, Term);
+#if INTEL_CUSTOMIZATION
+      // Remove Loop metadata from the loop branch instruction
+      // to avoid failing the check of LoopOptReport metadata
+      // being dropped accidentally.
+      //
+      // This branch is being replaced with an unconditional branch
+      // to either the header block of some duplicated loop body or
+      // the exit block.  In any case, only the conditional branch
+      // (if we are not applying complete unroll) will hold
+      // the Loop metadata.
+      Term->setMetadata(LLVMContext::MD_loop, nullptr);
+#endif  // INTEL_CUSTOMIZATION
       Term->eraseFromParent();
     }
   }
