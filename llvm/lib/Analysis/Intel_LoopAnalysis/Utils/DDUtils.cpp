@@ -1009,15 +1009,15 @@ void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
 }
 
 void DDUtils::computeDVsForPermute(
-    SmallVectorImpl<DirectionVector> &DVs, const HLLoop *CandidateLoop,
-    unsigned OutmostNestingLevel, unsigned InnermostNestingLevel,
-    HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA, bool RefineDV,
+    SmallVectorImpl<DirectionVector> &DVs, const HLLoop *OutermostLoop,
+    unsigned InnermostNestingLevel, HIRDDAnalysis *DDA,
+    HIRSafeReductionAnalysis *SRA, bool RefineDV,
     InterchangeIgnorableSymbasesTy *IgnorableSBs) {
 
-  DDGraph DDG = DDA->getGraph(CandidateLoop);
-  CollectDDInfoForPermute CDD(CandidateLoop, OutmostNestingLevel,
+  DDGraph DDG = DDA->getGraph(OutermostLoop);
+  CollectDDInfoForPermute CDD(OutermostLoop, OutermostLoop->getNestingLevel(),
                               InnermostNestingLevel, DDA, DDG, SRA,
                               IgnorableSBs, RefineDV, DVs);
 
-  HLNodeUtils::visit(CDD, CandidateLoop);
+  HLNodeUtils::visit(CDD, OutermostLoop);
 }
