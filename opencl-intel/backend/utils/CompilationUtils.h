@@ -58,7 +58,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     ChannelPipeMD getChannelPipeMetadata(
         GlobalVariable *Channel,
-        int ChannelDepthEmulationMode = CHANNEL_DEPTH_MODE_IGNORE_DEPTH);
+        int ChannelDepthEmulationMode = CHANNEL_DEPTH_MODE_STRICT);
   }
 
   struct PipeKind {

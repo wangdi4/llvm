@@ -50,7 +50,7 @@ using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::OpenCL::DeviceBackend::ChannelPipeMetadata;
 
 static cl::opt<int> ChannelDepthEmulationMode("channel-depth-emulation-mode",
-    cl::init(CHANNEL_DEPTH_MODE_IGNORE_DEPTH), cl::Hidden,
+    cl::init(CHANNEL_DEPTH_MODE_STRICT), cl::Hidden,
     cl::desc("Channel depth emulation mode"));
 
 namespace intel {

@@ -566,52 +566,6 @@ TEST(FPGA, Test_checkNumWorkers)
 {
    checkNumWorkers();
 }
-TEST(FPGA, Test_ChannelDepthEmulationStrict)
-{
-    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationStrictWithDepth());
-    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationStrictWithoutDepth());
-    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationPipesStrictWithDepth());
-    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationPipesStrictWithoutDepth());
-}
-
-TEST(FPGA, Test_ChannelDepthEmulationDefault)
-{
-    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationDefaultWithDepth());
-    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationDefaultWithoutDepth());
-    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationPipesDefaultWithDepth());
-    ASSERT_NO_FATAL_FAILURE(
-        FPGAChannelDepthEmulationPipesDefaultWithoutDepth());
-    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationDiagnosticMessage());
-}
-
-TEST(FPGA, Test_ChannelDepthEmulationIgnoreDepth)
-{
-    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationIgnoreDepthWithDepth());
-    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationIgnoreDepthWithoutDepth());
-    ASSERT_NO_FATAL_FAILURE(
-        FPGAChannelDepthEmulationPipesIgnoreDepthWithDepth());
-    ASSERT_NO_FATAL_FAILURE(
-        FPGAChannelDepthEmulationPipesIgnoreDepthWithoutDepth());
-}
-
-TEST(FPGA, Test_ChannelDepthEmulationStrictVPO)
-{
-    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationStrictWithDepthVPO());
-    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationStrictWithoutDepthVPO());
-}
-
-TEST(FPGA, Test_ChannelDepthEmulationDefaultVPO)
-{
-    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationDefaultWithDepthVPO());
-    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationDefaultWithoutDepthVPO());
-}
-
-TEST(FPGA, Test_ChannelDepthEmulationIgnoreDepthVPO)
-{
-    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationIgnoreDepthWithDepthVPO());
-    ASSERT_NO_FATAL_FAILURE(
-        FPGAChannelDepthEmulationIgnoreDepthWithoutDepthVPO());
-}
 
 TEST(FrameworkTestType, Test_clGetProfileDataDeviceIntelFPGATest)
 {

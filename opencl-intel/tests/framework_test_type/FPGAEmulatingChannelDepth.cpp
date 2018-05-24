@@ -479,7 +479,21 @@ static void doPipesTest(int depth, std::vector<cl_int> &data,
   clReleaseContext(context);
 }
 
-void FPGAChannelDepthEmulationStrictWithDepth() {
+static void FPGAChannelDepthEmulationWithoutEnvWithDepth() {
+  UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
+  std::vector<cl_int> data(129);
+  std::iota(data.begin(), data.end(), 0);
+  ASSERT_NO_FATAL_FAILURE(doChannelsTest(128, data, 128, 1));
+}
+
+static void FPGAChannelDepthEmulationWithoutEnvWithoutDepth() {
+  UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
+  std::vector<cl_int> data(2);
+  std::iota(data.begin(), data.end(), 0);
+  ASSERT_NO_FATAL_FAILURE(doChannelsTest(0, data, 1, 1));
+}
+
+static void FPGAChannelDepthEmulationStrictWithDepth() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "strict");
   std::vector<cl_int> data(129);
   std::iota(data.begin(), data.end(), 0);
@@ -487,7 +501,7 @@ void FPGAChannelDepthEmulationStrictWithDepth() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
-void FPGAChannelDepthEmulationStrictWithoutDepth() {
+static void FPGAChannelDepthEmulationStrictWithoutDepth() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "strict");
   std::vector<cl_int> data(2);
   std::iota(data.begin(), data.end(), 0);
@@ -495,7 +509,7 @@ void FPGAChannelDepthEmulationStrictWithoutDepth() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
-void FPGAChannelDepthEmulationDefaultWithDepth() {
+static void FPGAChannelDepthEmulationDefaultWithDepth() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "default");
   std::vector<cl_int> data(129);
   std::iota(data.begin(), data.end(), 0);
@@ -503,7 +517,7 @@ void FPGAChannelDepthEmulationDefaultWithDepth() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
-void FPGAChannelDepthEmulationDefaultWithoutDepth() {
+static void FPGAChannelDepthEmulationDefaultWithoutDepth() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "default");
   std::vector<cl_int> data(129);
   std::iota(data.begin(), data.end(), 0);
@@ -511,7 +525,7 @@ void FPGAChannelDepthEmulationDefaultWithoutDepth() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
-void FPGAChannelDepthEmulationIgnoreDepthWithDepth() {
+static void FPGAChannelDepthEmulationIgnoreDepthWithDepth() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "ignore-depth");
   std::vector<cl_int> data(129);
   std::iota(data.begin(), data.end(), 0);
@@ -519,7 +533,7 @@ void FPGAChannelDepthEmulationIgnoreDepthWithDepth() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
-void FPGAChannelDepthEmulationIgnoreDepthWithoutDepth() {
+static void FPGAChannelDepthEmulationIgnoreDepthWithoutDepth() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "ignore-depth");
   std::vector<cl_int> data(129);
   std::iota(data.begin(), data.end(), 0);
@@ -527,7 +541,7 @@ void FPGAChannelDepthEmulationIgnoreDepthWithoutDepth() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
-void FPGAChannelDepthEmulationPipesStrictWithDepth() {
+static void FPGAChannelDepthEmulationPipesStrictWithDepth() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "strict");
   std::vector<cl_int> data(129);
   std::iota(data.begin(), data.end(), 0);
@@ -535,7 +549,7 @@ void FPGAChannelDepthEmulationPipesStrictWithDepth() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
-void FPGAChannelDepthEmulationPipesStrictWithoutDepth() {
+static void FPGAChannelDepthEmulationPipesStrictWithoutDepth() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "strict");
   std::vector<cl_int> data(2);
   std::iota(data.begin(), data.end(), 0);
@@ -543,7 +557,7 @@ void FPGAChannelDepthEmulationPipesStrictWithoutDepth() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
-void FPGAChannelDepthEmulationPipesDefaultWithDepth() {
+static void FPGAChannelDepthEmulationPipesDefaultWithDepth() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "default");
   std::vector<cl_int> data(129);
   std::iota(data.begin(), data.end(), 0);
@@ -551,7 +565,7 @@ void FPGAChannelDepthEmulationPipesDefaultWithDepth() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
-void FPGAChannelDepthEmulationPipesDefaultWithoutDepth() {
+static void FPGAChannelDepthEmulationPipesDefaultWithoutDepth() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "default");
   std::vector<cl_int> data(129);
   std::iota(data.begin(), data.end(), 0);
@@ -559,7 +573,7 @@ void FPGAChannelDepthEmulationPipesDefaultWithoutDepth() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
-void FPGAChannelDepthEmulationPipesIgnoreDepthWithDepth() {
+static void FPGAChannelDepthEmulationPipesIgnoreDepthWithDepth() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "ignore-depth");
   std::vector<cl_int> data(129);
   std::iota(data.begin(), data.end(), 0);
@@ -567,7 +581,7 @@ void FPGAChannelDepthEmulationPipesIgnoreDepthWithDepth() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
-void FPGAChannelDepthEmulationPipesIgnoreDepthWithoutDepth() {
+static void FPGAChannelDepthEmulationPipesIgnoreDepthWithoutDepth() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "ignore-depth");
   std::vector<cl_int> data(129);
   std::iota(data.begin(), data.end(), 0);
@@ -575,8 +589,44 @@ void FPGAChannelDepthEmulationPipesIgnoreDepthWithoutDepth() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
-void FPGAChannelDepthEmulationDiagnosticMessage() {
+static void FPGAChannelDepthEmulationDiagnosticMessage() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "default");
   ASSERT_NO_FATAL_FAILURE(doChannelDiagnosticTest());
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
+
+#ifdef BUILD_FPGA_EMULATOR
+TEST(FPGA, Test_ChannelDepthEmulationWithoutEnv)
+{
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationWithoutEnvWithDepth());
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationWithoutEnvWithoutDepth());
+}
+
+TEST(FPGA, Test_ChannelDepthEmulationStrict)
+{
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationStrictWithDepth());
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationStrictWithoutDepth());
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationPipesStrictWithDepth());
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationPipesStrictWithoutDepth());
+}
+
+TEST(FPGA, Test_ChannelDepthEmulationDefault)
+{
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationDefaultWithDepth());
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationDefaultWithoutDepth());
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationPipesDefaultWithDepth());
+    ASSERT_NO_FATAL_FAILURE(
+        FPGAChannelDepthEmulationPipesDefaultWithoutDepth());
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationDiagnosticMessage());
+}
+
+TEST(FPGA, Test_ChannelDepthEmulationIgnoreDepth)
+{
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationIgnoreDepthWithDepth());
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationIgnoreDepthWithoutDepth());
+    ASSERT_NO_FATAL_FAILURE(
+        FPGAChannelDepthEmulationPipesIgnoreDepthWithDepth());
+    ASSERT_NO_FATAL_FAILURE(
+        FPGAChannelDepthEmulationPipesIgnoreDepthWithoutDepth());
+}
+#endif // BUILD_FPGA_EMULATOR
