@@ -25,6 +25,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CodeMetrics.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -963,6 +964,7 @@ static LoopUnrollResult tryToUnrollLoop(
     Loop *L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution &SE,
     const TargetTransformInfo &TTI, AssumptionCache &AC,
     OptimizationRemarkEmitter &ORE, bool PreserveLCSSA, int OptLevel,
+    const LoopOptReportBuilder &LORBuilder, // INTEL
     Optional<unsigned> ProvidedCount, Optional<unsigned> ProvidedThreshold,
     Optional<bool> ProvidedAllowPartial, Optional<bool> ProvidedRuntime,
     Optional<bool> ProvidedUpperBound, Optional<bool> ProvidedAllowPeeling) {
@@ -1070,7 +1072,9 @@ static LoopUnrollResult tryToUnrollLoop(
   LoopUnrollResult UnrollResult = UnrollLoop(
       L, UP.Count, TripCount, UP.Force, UP.Runtime, UP.AllowExpensiveTripCount,
       UseUpperBound, MaxOrZero, TripMultiple, UP.PeelCount, UP.UnrollRemainder,
-      LI, &SE, &DT, &AC, &ORE, PreserveLCSSA);
+      LI, &SE, &DT, &AC,        // INTEL
+      LORBuilder,               // INTEL
+      &ORE, PreserveLCSSA);     // INTEL
   if (UnrollResult == LoopUnrollResult::Unmodified)
     return LoopUnrollResult::Unmodified;
 
@@ -1117,6 +1121,11 @@ public:
 
     Function &F = *L->getHeader()->getParent();
 
+#if INTEL_CUSTOMIZATION
+    auto &ORO = getAnalysis<OptReportOptionsPass>().Impl;
+    LoopOptReportBuilder LORBuilder;
+    LORBuilder.setup(F.getContext(), ORO.getVerbosity());
+#endif  // INTEL_CUSTOMIZATION
     auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
@@ -1130,7 +1139,10 @@ public:
     bool PreserveLCSSA = mustPreserveAnalysisID(LCSSAID);
 
     LoopUnrollResult Result = tryToUnrollLoop(
-        L, DT, LI, SE, TTI, AC, ORE, PreserveLCSSA, OptLevel, ProvidedCount,
+        L, DT, LI, SE, TTI, AC, ORE,
+        PreserveLCSSA, OptLevel, // INTEL
+        LORBuilder,              // INTEL
+        ProvidedCount,           // INTEL
         ProvidedThreshold, ProvidedAllowPartial, ProvidedRuntime,
         ProvidedUpperBound, ProvidedAllowPeeling);
 
@@ -1145,6 +1157,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
+    AU.addRequired<OptReportOptionsPass>(); // INTEL
     // FIXME: Loop passes are required to preserve domtree, and for now we just
     // recreate dom info if anything gets unrolled.
     getLoopAnalysisUsage(AU);
@@ -1159,6 +1172,7 @@ INITIALIZE_PASS_BEGIN(LoopUnroll, "loop-unroll", "Unroll loops", false, false)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(LoopPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass) // INTEL
 INITIALIZE_PASS_END(LoopUnroll, "loop-unroll", "Unroll loops", false, false)
 
 Pass *llvm::createLoopUnrollPass(int OptLevel, int Threshold, int Count,
@@ -1194,6 +1208,13 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
         "LoopFullUnrollPass: OptimizationRemarkEmitterAnalysis not "
         "cached at a higher level");
 
+#if INTEL_CUSTOMIZATION
+  auto *ORO = FAM.getCachedResult<OptReportOptionsAnalysis>(*F);
+  LoopOptReportBuilder LORBuilder;
+  LORBuilder.setup(F->getContext(),
+                   ORO ? ORO->getVerbosity() : OptReportVerbosity::None);
+#endif  // INTEL_CUSTOMIZATION
+
   // Keep track of the previous loop structure so we can identify new loops
   // created by unrolling.
   Loop *ParentL = L.getParentLoop();
@@ -1207,7 +1228,9 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
 
   bool Changed =
       tryToUnrollLoop(&L, AR.DT, &AR.LI, AR.SE, AR.TTI, AR.AC, *ORE,
-                      /*PreserveLCSSA*/ true, OptLevel, /*Count*/ None,
+                      /*PreserveLCSSA*/ true, OptLevel, // INTEL
+                      LORBuilder,                       // INTEL
+                      /*Count*/ None,                   // INTEL
                       /*Threshold*/ None, /*AllowPartial*/ false,
                       /*Runtime*/ false, /*UpperBound*/ false,
                       /*AllowPeeling*/ false) != LoopUnrollResult::Unmodified;
@@ -1299,6 +1322,11 @@ PreservedAnalyses LoopUnrollPass::run(Function &F,
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
+#if INTEL_CUSTOMIZATION
+  auto &ORO = AM.getResult<OptReportOptionsAnalysis>(F); // INTEL
+  LoopOptReportBuilder LORBuilder;
+  LORBuilder.setup(F.getContext(), ORO.getVerbosity());
+#endif  // INTEL_CUSTOMIZATION
 
   LoopAnalysisManager *LAM = nullptr;
   if (auto *LAMProxy = AM.getCachedResult<LoopAnalysisManagerFunctionProxy>(F))
@@ -1347,7 +1375,9 @@ PreservedAnalyses LoopUnrollPass::run(Function &F,
     std::string LoopName = L.getName();
     LoopUnrollResult Result =
         tryToUnrollLoop(&L, DT, &LI, SE, TTI, AC, ORE,
-                        /*PreserveLCSSA*/ true, OptLevel, /*Count*/ None,
+                        /*PreserveLCSSA*/ true, OptLevel, // INTEL
+                        LORBuilder,                       // INTEL
+                        /*Count*/ None,                   // INTEL
                         /*Threshold*/ None, AllowPartialParam, RuntimeParam,
                         UpperBoundParam, AllowPeeling);
     Changed |= Result != LoopUnrollResult::Unmodified;

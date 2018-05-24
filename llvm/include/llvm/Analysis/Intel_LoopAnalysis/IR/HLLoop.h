@@ -964,6 +964,9 @@ public:
 
 // Traits of HLLoop for LoopOptReportBuilder.
 template <> struct LoopOptReportTraits<loopopt::HLLoop> {
+  using ObjectHandleTy = loopopt::HLLoop &;
+  using ChildLoopTy = loopopt::HLLoop;
+
   static LoopOptReport getOptReport(const loopopt::HLLoop &Loop) {
     return Loop.getOptReport();
   }
@@ -986,8 +989,7 @@ template <> struct LoopOptReportTraits<loopopt::HLLoop> {
   getOrCreateParentOptReport(loopopt::HLLoop &Loop,
                              const LoopOptReportBuilder &Builder);
 
-  using ChildLoopTy = loopopt::HLLoop;
-  using LoopVisitorTy = std::function<void(ChildLoopTy &)>;
+  using LoopVisitorTy = std::function<void(loopopt::HLLoop &)>;
   static void traverseChildLoopsBackward(loopopt::HLLoop &Loop,
                                          LoopVisitorTy Func);
 };

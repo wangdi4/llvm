@@ -194,9 +194,20 @@ llvm::UnrollAndJamLoop(Loop *L, unsigned Count, unsigned TripCount,
 
   // We use the runtime remainder in cases where we don't know trip multiple
   if (TripMultiple == 1 || TripMultiple % Count != 0) {
+#if INTEL_CUSTOMIZATION
+    LoopOptReportBuilder LORBuilder;
+    // In xmain, LoopOpt will do loop unroll and jam, so this pass
+    // will be disabled for good.  As long as we need to pass
+    // a valid LoopOptReportBuilder to UnrollRuntimeLoopRemainder(),
+    // just create a phony builder with OptReportVerbosity::None.
+    LORBuilder.setup(Header->getParent()->getContext(),
+                     OptReportVerbosity::None);
+#endif  // INTEL_CUSTOMIZATION
     if (!UnrollRuntimeLoopRemainder(L, Count, /*AllowExpensiveTripCount*/ false,
                                     /*UseEpilogRemainder*/ true,
-                                    UnrollRemainder, LI, SE, DT, AC, true)) {
+                                    UnrollRemainder, LI, SE, DT, AC, // INTEL
+                                    LORBuilder,                      // INTEL
+                                    true)) {                         // INTEL
       LLVM_DEBUG(dbgs() << "Won't unroll-and-jam; remainder loop could not be "
                            "generated when assuming runtime trip count\n");
       return LoopUnrollResult::Unmodified;
