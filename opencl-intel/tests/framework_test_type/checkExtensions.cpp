@@ -152,10 +152,9 @@ void CL::CheckExtensions()
     ASSERT_FALSE(extensions.IsGLSupported())
         << " Expected that cl_khr_gl_sharing is not supported on " << os;
 
-    ASSERT_TRUE(extensions.IsDevicePartitionByNames_INTEL())
-        << " Expected that cl_intel_device_partition_by_names  is supported"
-           " on "
-        << os;
+    ASSERT_TRUE(extensions.IsDevicePartitionByNamesSupported_INTEL())
+        << " Expected that cl_intel_device_partition_by_names is supported"
+           " on " << os;
 
 #endif
 }
