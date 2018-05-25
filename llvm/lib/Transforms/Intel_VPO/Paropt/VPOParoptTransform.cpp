@@ -396,10 +396,13 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
 
       case WRegionNode::WRNVecLoop:
+        if (Mode & ParPrepare)
+          regularizeOMPLoop(W);
         // Privatization is enabled for SIMD Transform passes
         if ((Mode & OmpVec) && (Mode & ParTrans)) {
           debugPrintHeader(W, false);
-          Changed = genPrivatizationCode(W);
+          Changed = regularizeOMPLoop(W, false);
+          Changed |= genPrivatizationCode(W);
           // keep SIMD directives; will be processed by the Vectorizer
           RemoveDirectives = false;
           RemovePrivateClauses = false;
@@ -1726,6 +1729,33 @@ CallInst*  VPOParoptTransform::isFenceCall(Instruction *I) {
   return nullptr;
 }
 
+// Transform the loop branch predicate from sle/ule to sgt/ugt in order
+// to faciliate the scev based loop trip count calculation.
+//
+//         do {
+//             %omp.iv = phi(%omp.lb, %omp.inc)
+//             ...
+//             %omp.inc = %omp.iv + 1;
+//          }while (%omp.inc <= %omp.ub)
+//          ===>
+//         do {
+//             %omp.iv = phi(%omp.lb, %omp.inc)
+//             ...
+//             %omp.inc = %omp.iv + 1;
+//          }while (%omp.ub > %omp.inc)
+void VPOParoptTransform::fixOmpBottomTestExpr(Loop *L) {
+  BasicBlock *Backedge = L->getLoopLatch();
+  TerminatorInst *TermInst = Backedge->getTerminator();
+  BranchInst *ExitBrInst = cast<BranchInst>(TermInst);
+  ICmpInst *CondInst = cast<ICmpInst>(ExitBrInst->getCondition());
+  assert((CondInst->getPredicate() == CmpInst::ICMP_SLE ||
+         CondInst->getPredicate() == CmpInst::ICMP_ULE) &&
+         "Expect incoming loop predicate is SLE or ULE");
+  ICmpInst::Predicate NewPred = CondInst->getInversePredicate();
+  CondInst->swapOperands();
+  CondInst->setPredicate(NewPred);
+}
+
 // Transform the given do-while loop loop into the canonical form as follows.
 //         do {
 //             %omp.iv = phi(%omp.lb, %omp.inc)
@@ -1737,9 +1767,11 @@ void VPOParoptTransform::fixOMPDoWhileLoop(WRegionNode *W) {
 
   Loop *L = W->getWRNLoopInfo().getLoop();
 
-  if (WRegionUtils::isDoWhileLoop(L))
+  if (WRegionUtils::isDoWhileLoop(L)) {
     fixOmpDoWhileLoopImpl(L);
-  else if (WRegionUtils::isWhileLoop(L))
+    if (W->getWRegionKindID() == WRegionNode::WRNVecLoop)
+      fixOmpBottomTestExpr(L);
+  } else if (WRegionUtils::isWhileLoop(L))
     llvm_unreachable(
         "fixOMPLoop: Unexpected OMP while loop after the loop is rotated.");
   else
@@ -1826,6 +1858,10 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
 
   W->populateBBSet();
   if (!First) {
+    // For the case of #pragma omp parallel for simd, the clang only
+    // needs to generate the bundle omp.iv for the parallel region.
+    if (!W->getWRNLoopInfo().getNormIV())
+      return false;
     Loop *L = W->getWRNLoopInfo().getLoop();
     const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
     const SimplifyQuery SQ = {DL, TLI, DT, AC};

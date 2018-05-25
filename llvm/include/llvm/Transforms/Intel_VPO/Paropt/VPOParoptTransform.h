@@ -834,6 +834,10 @@ private:
   /// canonical do-while loop.
   void fixOmpDoWhileLoopImpl(Loop *L);
 
+  /// \brief Utilty to transform the loop branch predicate from sle/ule to
+  /// sgt/ugt in order to faciliate the scev based loop trip count calculation.
+  void fixOmpBottomTestExpr(Loop *L);
+
   /// \brief Replace the use of OldV within region W with the value NewV.
   void replaceUseWithinRegion(WRegionNode *W, Value *OldV, Value *NewV);
 
