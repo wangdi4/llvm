@@ -575,6 +575,10 @@ private:
   /// region execution order
   bool genOrderedThreadCode(WRegionNode *W);
 
+  /// Emit __kmpc_doacross_post/wait call for an 'ordered depend(source/sink)'
+  /// construct.
+  bool genDoacrossWaitOrPost(WRNOrderedNode *W);
+
   /// \brief Generates code for the OpenMP critical construct:
   /// #pragma omp critical [(name)]
   bool genCriticalCode(WRNCriticalNode *CriticalNode);

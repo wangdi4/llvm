@@ -464,7 +464,12 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNOrdered:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, true);
-          Changed = genOrderedThreadCode(W);
+          if (W->getIsDoacross()) {
+            Changed = genDoacrossWaitOrPost(cast<WRNOrderedNode>(W));
+          } else {
+            Changed = genOrderedThreadCode(W);
+          }
+
           RemoveDirectives = true;
         }
         break;
@@ -2277,6 +2282,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   DEBUG(dbgs() << "--- Loop Header: " << *(L->getHeader()) << "\n");
   DEBUG(dbgs() << "--- Loop Latch: " << *(L->getLoopLatch()) << "\n\n");
 
+  bool IsDoacrossLoop =
+      ((isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
+       W->getOrdered() > 0);
+
 #if 0
   DEBUG(dbgs() << "---- Loop Induction: "
                << *(L->getCanonicalInductionVariable()) << "\n\n");
@@ -2450,6 +2459,11 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                                UpperBnd, Stride, Size, IsUnsigned, InsertPt);
   }
 
+  // Insert doacross_init call for ordered(n)
+  if (IsDoacrossLoop)
+    VPOParoptUtils::genKmpcDoacrossInit(W, IdentTy, LoadTid, KmpcInitCI,
+                                        LowerBnd, UpperBnd, Stride);
+
   LoadInst *LoadLB = new LoadInst(LowerBnd, "lb.new", InsertPt);
   LoadLB->setAlignment(4);
 
@@ -2499,6 +2513,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                                         IdentTy, LoadTid, InsertPt);
     KmpcFiniCI->setCallingConv(CallingConv::C);
 
+    // Insert doacross_fini call for ordered(n)
+    if (IsDoacrossLoop)
+      VPOParoptUtils::genKmpcDoacrossFini(W, IdentTy, LoadTid, KmpcFiniCI);
+
     if (DT)
       DT->changeImmediateDominator(LoopExitBB, StaticInitBB);
 
@@ -2516,6 +2534,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     KmpcFiniCI = VPOParoptUtils::genKmpcStaticFini(W,
                                         IdentTy, LoadTid, InsertPt);
     KmpcFiniCI->setCallingConv(CallingConv::C);
+
+    // Insert doacross_fini call for ordered(n)
+    if (IsDoacrossLoop)
+      VPOParoptUtils::genKmpcDoacrossFini(W, IdentTy, LoadTid, KmpcFiniCI);
 
     //                          |
     //                    dispatch.header <----------------+
@@ -2685,6 +2707,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     // Update Dispatch Header BB Branch instruction
     TermInst = DispatchHeaderBB->getTerminator();
     TermInst->setSuccessor(1, DispatchFiniBB);
+
+    // Insert doacross_fini call for ordered(n)
+    if (IsDoacrossLoop)
+      VPOParoptUtils::genKmpcDoacrossFini(W, IdentTy, LoadTid, KmpcFiniCI);
 
     KmpcFiniCI->eraseFromParent();
 
@@ -3451,6 +3477,49 @@ bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
   W->resetBBSet(); // Invalidate BBSet
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genOrderedThreadCode\n");
   return true;  // Changed
+}
+
+// Emit __kmpc_doacross_post/wait call for an 'ordered depend(source/sink)'
+// construct.
+bool VPOParoptTransform::genDoacrossWaitOrPost(WRNOrderedNode *W) {
+  assert(W &&"genDoacrossWaitOrPost: Null WRN");
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genDoacrossWaitOrPost\n");
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  Instruction *InsertPt = EntryBB->getTerminator();
+
+  auto *WParent = W->getParent();
+  (void)WParent;
+  assert(WParent && "Orphaned ordered depend source/sink construct.");
+  assert(WParent->getIsOmpLoop() && "Parent is not a loop-type WRN");
+
+  // Emit doacross post call for 'depend(source)'
+  if (W->getIsDepSource()) {
+
+    // For doacross post, we send in the outer WRegion's loop index.
+    auto *ParentNormIV = WParent->getWRNLoopInfo().getNormIV();
+    assert(ParentNormIV && "Cannot find IV of outer construct.");
+
+    // Generate __kmpc_doacross_post call
+    CallInst *DoacrossPostCI = VPOParoptUtils::genDoacrossWaitOrPostCall(
+        W, IdentTy, TidPtrHolder, InsertPt, ParentNormIV,
+        true); // 'depend (source)'
+    (void)DoacrossPostCI;
+    assert(DoacrossPostCI && "Failed to emit doacross_post call.");
+  }
+
+  // Emit doacross wait call(s) for 'depend(sink:...)'
+  for (DepSinkItem *DSI : W->getDepSink().items()) {
+    // Generate __kmpc_doacross_wait call
+    CallInst *DoacrossWaitCI = VPOParoptUtils::genDoacrossWaitOrPostCall(
+        W, IdentTy, TidPtrHolder, InsertPt, DSI->getSinkExpr(),
+        false); // 'depend (sink:...)'
+    (void)DoacrossWaitCI;
+    assert(DoacrossWaitCI && "Failed to emit doacross_wait call.");
+  }
+
+  W->resetBBSet(); // Invalidate BBSet
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genDoacrossWaitOrPost\n");
+  return true; // Changed
 }
 
 // Generates code for the OpenMP critical construct.

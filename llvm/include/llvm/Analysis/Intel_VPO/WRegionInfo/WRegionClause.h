@@ -699,8 +699,9 @@ class UseDevicePtrItem : public Item
 //   DepSinkItem   (for the depend(sink:<vec>) clause in ordered constructs)
 //   AlignedItem   (for the aligned clause in simd constructs)
 //
-// TODO: we need a better array section representation;
-//       the one hard-coded in DependItem only handles 1-dim.
+// Clang collapses the 'n' loops for 'ordered(n)'. So VPO always
+// receives a single EXPR for depend(sink:sink_expr), which is already in
+// the form ' IV +/- offset'.
 //
 class DependItem
 {
@@ -737,6 +738,7 @@ class DependItem
     }
 };
 
+// TODO: Delete extra fields. Only SinkExpr is used at the moment.
 class DepSinkItem
 {
   private:

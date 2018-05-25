@@ -81,7 +81,7 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
   setDefault(WRNDefaultAbsent);
   setProcBind(WRNProcBindAbsent);
   setCollapse(0);
-  setOrdered(0);
+  setOrdered(-1);
 
   DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber() << ">\n");
 }
@@ -186,7 +186,7 @@ WRNDistributeParLoopNode::WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *Li)
   setDefault(WRNDefaultAbsent);
   setProcBind(WRNProcBindAbsent);
   setCollapse(0);
-  setOrdered(0);
+  setOrdered(-1);
 
   DEBUG(dbgs() << "\nCreated WRNDistributeParLoopNode<" << getNumber() << ">\n");
 }
@@ -440,7 +440,7 @@ WRNWksLoopNode::WRNWksLoopNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNWksLoop, BB), WRNLI(Li) {
   setIsOmpLoop();
   setCollapse(0);
-  setOrdered(0);
+  setOrdered(-1);
   setNowait(false);
 
   DEBUG(dbgs() << "\nCreated WRNWksLoopNode<" << getNumber() << ">\n");
@@ -706,9 +706,9 @@ void vpo::printExtraForParallel(WRegionNode const *W,
 void vpo::printExtraForCancellationPoints(WRegionNode const *W,
                                           formatted_raw_ostream &OS, int Depth,
                                           unsigned Verbosity) {
-  assert(W->canHaveCancellationPoints() &&
-         "printExtraForCancellationPoints is for WRNs with "
-         "canHaveCancellationPoints() == true");
+
+  if (!W->canHaveCancellationPoints())
+    return;
 
   unsigned Indent = 2 * Depth;
   auto &CPs = W->getCancellationPoints();
@@ -726,7 +726,10 @@ void vpo::printExtraForOmpLoop(WRegionNode const *W, formatted_raw_ostream &OS,
          "printExtraForOmpLoop is for WRNs with getIsOmpLoop()==true");
   unsigned Indent = 2 * Depth;
   vpo::printInt("COLLAPSE", W->getCollapse(), OS, Indent, Verbosity);
-  vpo::printInt("ORDERED", W->getOrdered(), OS, Indent, Verbosity);
+  if (W->getOrdered() > 0)
+    vpo::printInt("ORDERED(N)", W->getOrdered(), OS, Indent, Verbosity);
+  else
+    vpo::printBool("ORDERED", W->getOrdered() == 0, OS, Indent, Verbosity);
 
   // WRNs with getIsPar()==true don't have the Nowait clause
   if (!(W->getIsPar()))
