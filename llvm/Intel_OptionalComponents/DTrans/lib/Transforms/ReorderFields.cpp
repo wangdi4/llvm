@@ -42,6 +42,9 @@ static cl::opt<unsigned> DTransReorderFieldsUnusedSpacePercentThreshold(
 // after doing more experiments.
 static const unsigned MaxStructSize = 64;
 
+// Minimum number of fields to select a struct as candidate.
+static const unsigned MinNumElems = 3;
+
 namespace {
 
 class DTransReorderFieldsWrapper : public ModulePass {
@@ -90,20 +93,21 @@ bool dtrans::ReorderFieldsPass::isCandidateTypeHasEnoughPadding(
     return false;
 
   size_t StructSize = DL.getTypeAllocSize(StructT);
-  if (StructSize > MaxStructSize)
+  uint32_t NumElems = StructT->getNumElements();
+  if (StructSize > MaxStructSize || NumElems < MinNumElems)
     return false;
 
   // Compute unused space due to alignment
   uint32_t ExpectedOffset = 0;
   int32_t UnusedSpace = 0;
-  for (unsigned i = 0; i < StructT->getNumElements(); ++i) {
+  for (unsigned i = 0; i < NumElems; ++i) {
     Type *Ty = StructT->getElementType(i);
     uint32_t FieldOff = DL.getStructLayout(StructT)->getElementOffset(i);
     UnusedSpace += (FieldOff - ExpectedOffset);
     ExpectedOffset = FieldOff + DL.getTypeAllocSize(Ty);
   }
   UnusedSpace += (StructSize - ExpectedOffset);
-  if ((UnusedSpace * 100) / DL.getTypeAllocSize(StructT) <
+  if ((UnusedSpace * 100) / StructSize <
       DTransReorderFieldsUnusedSpacePercentThreshold)
     return false;
 
