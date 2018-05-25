@@ -22,6 +22,7 @@
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
@@ -52,6 +53,15 @@ static cl::opt<bool>
 
 namespace {
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// Helper method for getting a name to print for structures in debug traces.
+StringRef getStructName(llvm::Type *Ty) {
+  auto *StructTy = dyn_cast<llvm::StructType>(Ty);
+  assert(StructTy && "Expected structure type");
+  return StructTy->hasName() ? StructTy->getStructName() : "<unnamed struct>";
+}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 // This class is responsible for all the transformation work for the AOS to SOA
 // with Indexing conversion.
 class AOSToSOATransformImpl : public DTransOptBase {
@@ -64,6 +74,9 @@ public:
                         SmallVectorImpl<dtrans::StructInfo *> &Types)
       : DTransOptBase(DTInfo, Context, DL, DepTypePrefix, TypeRemapper) {
     std::copy(Types.begin(), Types.end(), std::back_inserter(TypesToTransform));
+
+    PeelIndexType = Type::getIntNTy(Context, DL.getPointerSizeInBits());
+    IncompatiblePeelTypeAttrs = AttributeFuncs::typeIncompatible(PeelIndexType);
   }
 
   ~AOSToSOATransformImpl() {}
@@ -118,13 +131,132 @@ public:
     }
   }
 
+  virtual void processFunction(Function &F) {
+    // TODO: Need to add conversion of GEP instructions, and
+    // rewriting of the allocation and free sites for converted types.
+    // For now, we just process the function call attributes.
+    for (auto I = inst_begin(&F), E = inst_end(F); I != E; ++I) {
+      if (isa<CallInst>(&*I) || isa<InvokeInst>(&*I)) {
+        CallSite CS(&*I);
+        updateCallAttributes(CS);
+      }
+    }
+  }
+
+  // Update the signature of the function's clone and any instructions that need
+  // to be modified after the type remapping of data types has taken place.
+  virtual void postprocessFunction(Function &OrigFunc, bool isCloned) {
+    Function *Func = &OrigFunc;
+    if (isCloned) {
+      Func = cast<Function>(VMap[&OrigFunc]);
+
+      LLVM_DEBUG({
+        dbgs() << "DTRANS-AOSTOSOA: Updating function attributes for: "
+               << Func->getName() << " Type: " << *Func->getType() << "\n";
+        Func->getAttributes().dump();
+      });
+
+      // For cloned functions, update any attributes on the return type or
+      // arguments that are not compatible with types that have been converted
+      // from pointers to integers. We do not change attributes on types
+      // that were pointers-to-pointers of the transformed types because those
+      // are now pointers-to-integer types, but the attributes they contained
+      // should still be valid.
+      llvm::Type *CloneRetTy = Func->getReturnType();
+      llvm::Type *OrigRetTy = OrigFunc.getReturnType();
+      if (!CloneRetTy->isPointerTy() && OrigRetTy->isPointerTy()) {
+
+        // The only time we expect processing a function to change a pointer
+        // type to an integer type is when the original argument was pointer to
+        // the type being transformed, and integer type is the peeled type.
+        assert(OrigToNewTypeMapping.count(OrigRetTy->getPointerElementType()) &&
+               "Expected original return type to be a type being transformed");
+        assert(CloneRetTy == getPeeledIndexType() &&
+               "Expected clone return type to be peeling index type");
+
+        Func->removeAttributes(0, IncompatiblePeelTypeAttrs);
+      }
+
+
+      assert(OrigFunc.arg_size() == Func->arg_size() &&
+             "Expected clone arg for each original arg");
+      Function::arg_iterator OrigArgIt = OrigFunc.arg_begin();
+      Function::arg_iterator OrigArgEnd = OrigFunc.arg_end();
+      Function::arg_iterator CloneArgIt = Func->arg_begin();
+      for (uint64_t Idx = 0; OrigArgIt != OrigArgEnd;
+           ++OrigArgIt, ++CloneArgIt, ++Idx) {
+        llvm::Type *CloneArgType = CloneArgIt->getType();
+        llvm::Type *OrigArgType = OrigArgIt->getType();
+        if (!CloneArgType->isPointerTy() && OrigArgType->isPointerTy()) {
+          assert(
+              OrigToNewTypeMapping.count(
+                  OrigArgType->getPointerElementType()) &&
+              "Expected original argument type to be a type being transformed");
+          assert(CloneArgType == getPeeledIndexType() &&
+                 "Expected clone argument type to be peeling index type");
+
+          Func->removeParamAttrs(Idx, IncompatiblePeelTypeAttrs);
+        }
+      }
+
+      LLVM_DEBUG({
+        dbgs() << "DTRANS-AOSTOSOA: After function attribute update\n";
+        Func->getAttributes().dump();
+      });
+    }
+
+    // TODO: Add code to clean up pointer-to-int instruction conversions.
+  }
+
 private:
   // Return an integer type that will be used as a replacement type for pointers
-  // to the types being peeled. Currently, the index type will just be an
-  // integer value that is the same bit width as the original pointer. In later
-  // versions, the index type will be an integer type that uses fewer bits.
-  llvm::Type *getPeeledIndexType() const {
-    return Type::getIntNTy(Context, DL.getPointerSizeInBits());
+  // to the types being peeled.
+  llvm::Type *getPeeledIndexType() const { return PeelIndexType; }
+
+  // When rewriting pointers to the transformed structure type to integer types,
+  // attributes on the return type and function parameters may need to be
+  // updated because some attributes are only allowed on pointer parameters.
+  // This routine updates callsites in the original function prior to the clone
+  // function creation.
+  void updateCallAttributes(CallSite &CS) {
+    bool Changed = false;
+    AttributeList Attrs = CS.getAttributes();
+
+    // Only calls to functions to be cloned (or indirect calls) need to be
+    // checked because the parameter types will not be changing for any
+    // other calls.
+    Function *Callee = CS.getCalledFunction();
+    if (Callee && !OrigFuncToCloneFuncMap.count(Callee))
+      return;
+
+    LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Updating callsite attributes for: "
+                      << *CS.getInstruction() << "\n");
+
+    Type *OrigRetTy = CS.getType();
+    if (OrigRetTy->isPointerTy() &&
+        OrigToNewTypeMapping.count(OrigRetTy->getPointerElementType())) {
+      // Argument index 0 is used for return type attributes
+      Attrs = Attrs.removeAttributes(Context, 0, IncompatiblePeelTypeAttrs);
+      Changed = true;
+    }
+
+    // Argument index numbers start with 1 for calls to removeAttributes.
+    unsigned Idx = 1;
+    for (auto &Arg : CS.args()) {
+      Type *ArgTy = Arg->getType();
+      if (ArgTy->isPointerTy() &&
+          OrigToNewTypeMapping.count(ArgTy->getPointerElementType())) {
+        Attrs = Attrs.removeAttributes(Context, Idx, IncompatiblePeelTypeAttrs);
+        Changed = true;
+      }
+      ++Idx;
+    }
+
+    if (Changed)
+      CS.setAttributes(Attrs);
+
+    LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: After callsite update: "
+                      << *CS.getInstruction() << "\n");
   }
 
   // The list of types to be transformed.
@@ -136,6 +268,18 @@ private:
   // A mapping from the peeled structure type to the global variable used to
   // access it.
   DenseMap<StructType *, GlobalVariable *> PeeledTypeToVariable;
+
+  // Pointers to the peeled structure will be converted to an index
+  // value for the array element of the structure of arrays. This
+  // variable holds the integer type that will used for the index.
+  llvm::Type *PeelIndexType;
+
+  // When the pointer to the peeled structure is converted, there are several
+  // attributes that may have been used on function parameters or return
+  // types that are not valid on the index type being used. This variable
+  // holds the list of incompatible attributes that need to be removed
+  // from function signatures and call sites for the cloned routines.
+  AttrBuilder IncompatiblePeelTypeAttrs;
 };
 
 class DTransAOSToSOAWrapper : public ModulePass {
@@ -244,7 +388,7 @@ void AOSToSOAPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
 
     if (TI->testSafetyData(AOSToSOASafetyConditions)) {
       DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported safety data: "
-                   << TI->getLLVMType()->getStructName() << "\n");
+                   << getStructName(TI->getLLVMType()) << "\n");
       continue;
     }
 
@@ -271,7 +415,7 @@ void AOSToSOAPass::qualifyCandidates(
   DEBUG({
     for (auto *Candidate : CandidateTypes)
       dbgs() << "DTRANS-AOSTOSOA: Passed qualification tests: "
-             << Candidate->getLLVMType()->getStructName() << "\n";
+             << getStructName(Candidate->getLLVMType()) << "\n";
   });
 }
 
@@ -308,7 +452,7 @@ bool AOSToSOAPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
   for (auto *Candidate : CandidateTypes) {
     if (ArrayElemTypes.find(Candidate) != ArrayElemTypes.end()) {
       DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Array of type seen: "
-                   << Candidate->getLLVMType()->getStructName() << "\n");
+                   << getStructName(Candidate->getLLVMType()) << "\n");
       continue;
     }
 
@@ -330,7 +474,7 @@ bool AOSToSOAPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
     else
       DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported structure "
                       "element type: "
-                   << Candidate->getLLVMType()->getStructName() << "\n");
+                   << getStructName(Candidate->getLLVMType()) << "\n");
   }
 
   std::swap(CandidateTypes, Qualified);
@@ -366,7 +510,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
                  TypeToAllocInstr[StInfo] != nullptr))
               dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported "
                         "allocation function: "
-                     << Ty->getStructName() << "\n"
+                     << getStructName(Ty) << "\n"
                      << "  " << *ACI->getInstruction() << "\n";
           });
 
@@ -389,7 +533,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
                           StInfo) != CandidateTypes.end() &&
                 TypeToAllocInstr[StInfo] != nullptr)
               dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Too many allocations: "
-                     << Ty->getStructName() << "\n";
+                     << getStructName(Ty) << "\n";
           });
           TypeToAllocInstr[StInfo] = nullptr;
           continue;
