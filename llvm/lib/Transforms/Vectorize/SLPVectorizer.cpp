@@ -6479,7 +6479,8 @@ public:
 
         V.buildTree(VL, ExternallyUsedValues, IgnoreList);
         Optional<ArrayRef<unsigned>> Order = V.bestOrder();
-        if (Order) {
+        // TODO: Handle orders of size less than number of elements in the vector.
+        if (Order && Order->size() == VL.size()) {
           // TODO: reorder tree nodes without tree rebuilding.
           SmallVector<Value *, 4> ReorderedOps(VL.size());
           llvm::transform(*Order, ReorderedOps.begin(),
