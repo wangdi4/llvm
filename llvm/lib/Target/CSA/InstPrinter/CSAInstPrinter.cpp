@@ -29,7 +29,7 @@ using namespace llvm;
 
 #define DEBUG_TYPE "asm-printer"
 
-static cl::opt<bool> WrapAsmOpt("csa-wrap-asm", cl::Hidden,
+static cl::opt<bool> WrapAsmOpt("csa-wrap-asm", cl::Hidden, cl::ZeroOrMore,
                                 cl::desc("CSA Specific: Wrap assembly for x86"),
                                 cl::init(false));
 
