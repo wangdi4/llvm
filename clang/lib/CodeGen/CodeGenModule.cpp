@@ -3304,6 +3304,10 @@ void CodeGenModule::generateHLSAnnotation(const VarDecl *VD,
             getContext());
     Out << '{' << IMDA->getSpelling() << ':' << IMDAInt << '}';
   }
+  if (VD->hasAttr<OptimizeFMaxAttr>())
+    Out << "{optimize_fmax:1}";
+  if (VD->hasAttr<OptimizeRamUsageAttr>())
+    Out << "{optimize_ram_usage:1}";
   if (const auto *BBA = VD->getAttr<BankBitsAttr>()) {
     Out << '{' << BBA->getSpelling() << ':';
     for (BankBitsAttr::args_iterator I = BBA->args_begin(), E = BBA->args_end();

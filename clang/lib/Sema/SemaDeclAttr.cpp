@@ -3034,8 +3034,30 @@ void Sema::AddSchedulerPipeliningEffortPctAttr(SourceRange AttrRange, Decl *D,
       AttrRange, Context, E, SpellingListIndex));
 }
 
+/// Give a warning for duplicate attributes, return true if duplicate.
+template <typename AttrType>
+static bool checkForDuplicateAttribute(Sema &S, Decl *D,
+                                       const AttributeList &Attr) {
+  // Give a warning for duplicates but not if it's one we've implicitly added.
+  auto *A = D->getAttr<AttrType>();
+  if (A && !A->isImplicit()) {
+    S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact)
+        << Attr.getName();
+    return true;
+  }
+  return false;
+}
+
 static void handleInternalMaxBlockRamDepthAttr(Sema &S, Decl *D,
                                                const AttributeList &Attr) {
+  if (checkForDuplicateAttribute<InternalMaxBlockRamDepthAttr>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr.getRange(),
+                                                 Attr.getName()))
+    return;
+  if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr.getRange(),
+                                                     Attr.getName()))
+    return;
   if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
                                              Attr.getName()))
     return;
@@ -3052,6 +3074,17 @@ static void handleInternalMaxBlockRamDepthAttr(Sema &S, Decl *D,
 
   if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/1))
     return;
+
+  if (const auto *AIA = D->getAttr<ArgumentInterfaceAttr>()) {
+    if (AIA->getType() == ArgumentInterfaceAttr::Slave) {
+      (void)checkAttrMutualExclusion<ArgumentInterfaceAttr>(
+          S, D, Attr.getRange(), Attr.getName());
+      return;
+    }
+  }
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context, MemoryAttr::Default));
 
   S.AddInternalMaxBlockRamDepthAttr(Attr.getRange(), D, Attr.getArgAsExpr(0),
                                     Attr.getAttributeSpellingListIndex());
@@ -3221,18 +3254,66 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
       Attr.getAttributeSpellingListIndex()));
 }
 
-/// \brief Give a warning for duplicate attributes, return true if duplicate.
-template <typename AttrType>
-static bool checkForDuplicateAttribute(Sema &S, Decl *D,
-                                       const AttributeList &Attr) {
-  // Give a warning for duplicates but not if it's one we've implicitly added.
-  auto *A = D->getAttr<AttrType>();
-  if (A && !A->isImplicit()) {
-    S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact)
-        << Attr.getName();
-    return true;
+static void handleOptimizeFMaxAttr(Sema &S, Decl *D,
+                                   const AttributeList &Attr) {
+  if (checkForDuplicateAttribute<OptimizeFMaxAttr>(S, D, Attr))
+    return;
+
+  if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr.getRange(),
+                                                     Attr.getName()))
+    return;
+
+  if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(
+          S, D, Attr.getRange(), Attr.getName()))
+    return;
+
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  if (const auto *AIA = D->getAttr<ArgumentInterfaceAttr>()) {
+    if (AIA->getType() == ArgumentInterfaceAttr::Slave) {
+      (void)checkAttrMutualExclusion<ArgumentInterfaceAttr>(
+          S, D, Attr.getRange(), Attr.getName());
+      return;
+    }
   }
-  return false;
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context, MemoryAttr::Default));
+
+  handleSimpleAttribute<OptimizeFMaxAttr>(S, D, Attr);
+}
+
+static void handleOptimizeRamUsageAttr(Sema &S, Decl *D,
+                                       const AttributeList &Attr) {
+  if (checkForDuplicateAttribute<OptimizeRamUsageAttr>(S, D, Attr))
+    return;
+
+  if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr.getRange(),
+                                                 Attr.getName()))
+    return;
+
+  if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(
+          S, D, Attr.getRange(), Attr.getName()))
+    return;
+
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  if (const auto *AIA = D->getAttr<ArgumentInterfaceAttr>()) {
+    if (AIA->getType() == ArgumentInterfaceAttr::Slave) {
+      (void)checkAttrMutualExclusion<ArgumentInterfaceAttr>(
+          S, D, Attr.getRange(), Attr.getName());
+      return;
+    }
+  }
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context, MemoryAttr::Default));
+
+  handleSimpleAttribute<OptimizeRamUsageAttr>(S, D, Attr);
 }
 
 /// \brief Handle the __doublepump__ and __singlepump__ attributes.
@@ -3340,6 +3421,14 @@ static bool checkRegisterAttrCompatibility(Sema &S, Decl *D,
                                                   Attr.getName()))
     InCompat = true;
   if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(
+          S, D, Attr.getRange(), Attr.getName()))
+    InCompat = true;
+
+  if (checkAttrMutualExclusion<OptimizeFMaxAttr>(
+          S, D, Attr.getRange(), Attr.getName()))
+    InCompat = true;
+
+  if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(
           S, D, Attr.getRange(), Attr.getName()))
     InCompat = true;
 
@@ -3644,6 +3733,17 @@ static void handleArgumentInterfaceAttr(Sema & S, Decl * D,
     S.Diag(D->getLocation(), diag::err_attribute_interface_invalid_type)
         << Attr.getName() << ValidStrings;
     return;
+  }
+  if (Type == ArgumentInterfaceAttr::Slave) {
+    if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(
+            S, D, Attr.getRange(), Attr.getName()))
+      return;
+    if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr.getRange(),
+                                                   Attr.getName()))
+      return;
+    if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr.getRange(),
+                                                       Attr.getName()))
+      return;
   }
 
   D->addAttr(::new (S.Context) ArgumentInterfaceAttr(
@@ -7661,6 +7761,12 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleInternalMaxBlockRamDepthAttr(S, D, AL);
     break;
   // Intel HLS specific attributes
+  case AttributeList::AT_OptimizeFMax:
+    handleOptimizeFMaxAttr(S, D, AL);
+    break;
+  case AttributeList::AT_OptimizeRamUsage:
+    handleOptimizeRamUsageAttr(S, D, AL);
+    break;
   case AttributeList::AT_SinglePump:
     handlePumpAttr<SinglePumpAttr, DoublePumpAttr>(S, D, AL);
     break;
@@ -7839,7 +7945,8 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
     if (diagnoseMemoryAttrs<MemoryAttr, NumBanksAttr, BankWidthAttr,
                             SinglePumpAttr, DoublePumpAttr, BankBitsAttr,
                             NumReadPortsAttr, NumWritePortsAttr,
-                            InternalMaxBlockRamDepthAttr>(*this, D))
+                            InternalMaxBlockRamDepthAttr, OptimizeFMaxAttr,
+                            OptimizeRamUsageAttr>(*this, D))
       D->setInvalidDecl();
   }
 #endif // INTEL_CUSTOMIZATION

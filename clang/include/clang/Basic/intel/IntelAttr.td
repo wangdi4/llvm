@@ -375,6 +375,20 @@ def Register : Attr {
   let Documentation = [Undocumented];
 }
 
+def OptimizeFMax : Attr {
+  let Spellings = [GNU<"optimize_fmax">];
+  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar], ErrorDiag>;
+  let LangOpts = [OpenCL, HLS];
+  let Documentation = [Undocumented];
+}
+
+def OptimizeRamUsage : Attr {
+  let Spellings = [GNU<"optimize_ram_usage">];
+  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar], ErrorDiag>;
+  let LangOpts = [OpenCL, HLS];
+  let Documentation = [Undocumented];
+}
+
 // One integral argument.
 def BankWidth : Attr {
   let Spellings = [GNU<"bankwidth">];

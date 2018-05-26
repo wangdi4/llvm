@@ -22,6 +22,8 @@ component int foo0a(int *j0,
                     slave_arg __attribute__((bank_bits(4,3,2)))    int *i7,
                     slave_arg __attribute__((numreadports(4)))     int *i8,
                     slave_arg __attribute__((numwriteports(4)))    int *i9,
+                    slave_arg __attribute__((optimize_fmax))       int *i9a,
+                    slave_arg __attribute__((optimize_ram_usage))  int *i9b,
                     slave_arg __attribute__((internal_max_block_ram_depth(32)))
                                                                    int *i10)
 {
@@ -46,6 +48,22 @@ int foo0b(slave_arg __attribute__((memory("MLAB")))
 {
   return 0;
 }
+//CHECK: [[MFOO0A]] =
+//CHECK-SAME: !{!"",
+//CHECK-SAME: !"",
+//CHECK-SAME: !"{memory:MLAB}",
+//CHECK-SAME: !"{memory:BLOCK_RAM}",
+//CHECK-SAME: !"{memory:DEFAULT}{numbanks:4}",
+//CHECK-SAME: !"{memory:DEFAULT}{bankwidth:4}",
+//CHECK-SAME: !"{memory:DEFAULT}{pump:1}",
+//CHECK-SAME: !"{memory:DEFAULT}{pump:2}",
+//CHECK-SAME: !"{memory:DEFAULT}{numreadports:4}{numwriteports:8}",
+//CHECK-SAME: !"{memory:DEFAULT}{numbanks:8}{bank_bits:4,3,2}",
+//CHECK-SAME: !"{memory:DEFAULT}{numreadports:4}",
+//CHECK-SAME: !"{memory:DEFAULT}{numwriteports:4}",
+//CHECK-SAME: !"{memory:DEFAULT}{optimize_fmax:1}",
+//CHECK-SAME: !"{memory:DEFAULT}{optimize_ram_usage:1}",
+//CHECK-SAME: !"{memory:DEFAULT}{internal_max_block_ram_depth:32}"}
 
 //CHECK: [[CFOO1A]] = !{!"_Z5foo0bPi", i32 undef}
 //CHECK: [[ATFOO1A]] = !{!"mm_slave"}

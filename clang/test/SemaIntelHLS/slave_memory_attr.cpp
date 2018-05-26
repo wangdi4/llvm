@@ -128,6 +128,28 @@ void foo10(slave_arg __attribute__((internal_max_block_ram_depth(32)))
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
 // CHECK: ComponentAttr
 
+__attribute__((ihc_component))
+void foo11(slave_arg __attribute__((optimize_fmax))
+           int *i_par1)
+{}
+// CHECK: FunctionDecl{{.*}}foo11
+// CHECK: ParmVarDecl{{.*}}i_par1
+// CHECK: OptimizeFMaxAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK: ComponentAttr
+
+__attribute__((ihc_component))
+void foo12(slave_arg __attribute__((optimize_ram_usage))
+           int *i_par1)
+{}
+// CHECK: FunctionDecl{{.*}}foo12
+// CHECK: ParmVarDecl{{.*}}i_par1
+// CHECK: OptimizeRamUsageAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK: ComponentAttr
+
 
 // Diagnostics
 
@@ -340,6 +362,42 @@ void bar10c(
   not_slave_arg3 __attribute__((internal_max_block_ram_depth(32)))
   int *i) {}
 
+// expected-error@+3{{local or static variables or slave memory arguments}}
+__attribute__((ihc_component))
+void bar11a(
+  not_slave_arg1 __attribute__((optimize_fmax))
+  int *i) {}
+
+// expected-error@+3{{local or static variables or slave memory arguments}}
+__attribute__((ihc_component))
+void bar11b(
+  not_slave_arg2 __attribute__((optimize_fmax))
+  int *i) {}
+
+// expected-error@+3{{local or static variables or slave memory arguments}}
+__attribute__((ihc_component))
+void bar11c(
+  not_slave_arg3 __attribute__((optimize_fmax))
+  int *i) {}
+
+// expected-error@+3{{local or static variables or slave memory arguments}}
+__attribute__((ihc_component))
+void bar12a(
+  not_slave_arg1 __attribute__((optimize_ram_usage))
+  int *i) {}
+
+// expected-error@+3{{local or static variables or slave memory arguments}}
+__attribute__((ihc_component))
+void bar12b(
+  not_slave_arg2 __attribute__((optimize_ram_usage))
+  int *i) {}
+
+// expected-error@+3{{local or static variables or slave memory arguments}}
+__attribute__((ihc_component))
+void bar12c(
+  not_slave_arg3 __attribute__((optimize_ram_usage))
+  int *i) {}
+
 // expected-error@+5{{local or static variables or slave memory arguments}}
 // expected-error@+5{{local or static variables or slave memory arguments}}
 // expected-error@+5{{local or static variables or slave memory arguments}}
@@ -356,3 +414,44 @@ void baz1(
   slave_arg __attribute__((register))
   int *i) {}
 
+void baz2(
+  slave_arg
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((argument_interface("avalon_mm_slave")))
+  __attribute__((internal_max_block_ram_depth(32)))
+  //expected-note@-1 {{conflicting attribute is here}}
+  int *i0,
+  slave_arg
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((internal_max_block_ram_depth(32)))
+  __attribute__((argument_interface("avalon_mm_slave")))
+  //expected-note@-1 {{conflicting attribute is here}}
+  int *ip) {}
+
+void baz3(
+  slave_arg
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((argument_interface("avalon_mm_slave")))
+  __attribute__((optimize_fmax))
+  //expected-note@-1 {{conflicting attribute is here}}
+  int *i0,
+  slave_arg
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((optimize_fmax))
+  __attribute__((argument_interface("avalon_mm_slave")))
+  //expected-note@-1 {{conflicting attribute is here}}
+  int *ip) {}
+
+void baz4(
+  slave_arg
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((argument_interface("avalon_mm_slave")))
+  __attribute__((optimize_ram_usage))
+  //expected-note@-1 {{conflicting attribute is here}}
+  int *i0,
+  slave_arg
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((optimize_ram_usage))
+  __attribute__((argument_interface("avalon_mm_slave")))
+  //expected-note@-1 {{conflicting attribute is here}}
+  int *ip) {}
