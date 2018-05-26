@@ -3147,7 +3147,7 @@ private:
         if (analyzeMemfuncStructureMemberParam(I, StructTy, FieldNum, SetSize,
                                                /*IsValuePreservingWrite=*/false,
                                                RegionDesc))
-          createMemsetCallInfo(I, StructTy, RegionDesc);
+          createMemsetCallInfo(I, StructTy->getPointerTo(), RegionDesc);
 
         return;
       }
@@ -3207,7 +3207,7 @@ private:
       if (analyzeMemfuncStructureMemberParam(I, StructTy, 0, SetSize,
                                              /*IsValuePreservingWrite=*/false,
                                              RegionDesc))
-        createMemsetCallInfo(I, StructTy, RegionDesc);
+        createMemsetCallInfo(I, StructTy->getPointerTo(), RegionDesc);
 
       return;
     }
@@ -3420,8 +3420,8 @@ private:
         if (analyzeMemfuncStructureMemberParam(
                 I, DstStructTy, DstFieldNum, SetSize,
                 /*IsValuePreservingWrite=*/true, RegionDesc))
-          createMemcpyOrMemmoveCallInfo(I, DstStructTy, Kind, RegionDesc,
-                                        RegionDesc);
+          createMemcpyOrMemmoveCallInfo(I, DstStructTy->getPointerTo(), Kind,
+                                        RegionDesc, RegionDesc);
 
         return;
       } else {
@@ -3469,8 +3469,8 @@ private:
       if (analyzeMemfuncStructureMemberParam(I, StructTy, 0, SetSize,
                                              /*IsValuePreservingWrite=*/true,
                                              RegionDesc))
-        createMemcpyOrMemmoveCallInfo(I, StructTy, Kind, RegionDesc,
-                                      RegionDesc);
+        createMemcpyOrMemmoveCallInfo(I, StructTy->getPointerTo(), Kind,
+                                      RegionDesc, RegionDesc);
       return;
     }
 
@@ -3506,7 +3506,7 @@ private:
         &I, dtrans::MemfuncCallInfo::MK_Memset, RegionDesc);
     MCI->setAliasesToAggregatePointer(true);
     MCI->setAnalyzed(true);
-    MCI->addType(Ty->getPointerTo());
+    MCI->addType(Ty);
   }
 
   // Create a MemfuncCallInfo object that will store the details about a safe
@@ -3519,7 +3519,7 @@ private:
         DTInfo.createMemfuncCallInfo(&I, Kind, RegionDescDest, RegionDescSrc);
     MCI->setAliasesToAggregatePointer(true);
     MCI->setAnalyzed(true);
-    MCI->addType(Ty->getPointerTo());
+    MCI->addType(Ty);
   }
 
   // Helper function for retrieving information when the \p LPI argument refers
