@@ -37,9 +37,9 @@
 #include "llvm/IR/Value.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Casting.h"
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 #include <cassert>
 #include <cstdint>
 #include <string>
@@ -124,10 +124,10 @@ bool llvm::MergeBlockIntoPredecessor(BasicBlock *BB, DominatorTree *DT,
   // Don't merge away blocks who have their address taken.
   if (BB->hasAddressTaken()) return false;
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   if (IntelIntrinsicUtils::isIntelDirective(&(BB->front())))
     return false;
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   // Can't merge if there are multiple predecessors, or no predecessors.
   BasicBlock *PredBB = BB->getUniquePredecessor();

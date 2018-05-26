@@ -74,6 +74,10 @@ void initializeIntel_LoopTransforms(PassRegistry&);
 // Intel_OpenCLTransforms library
 void initializeIntel_OpenCLTransforms(PassRegistry&);
 
+void initializeInlineListsPass(PassRegistry&);
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
 // initializeIntel_VPOAnaylsis - Initialize all passes linked into the
 // Intel_VPOAnalysis library
 void initializeIntel_VPOAnalysis(PassRegistry&);
@@ -81,9 +85,7 @@ void initializeIntel_VPOAnalysis(PassRegistry&);
 // initializeIntel_VPOTransforms - Initialize all passes linked into the
 // Intel_VPOTransforms library
 void initializeIntel_VPOTransforms(PassRegistry&);
-
-void initializeInlineListsPass(PassRegistry&);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 void initializeAAEvalLegacyPassPass(PassRegistry&);
 void initializeAAResultsWrapperPassPass(PassRegistry&);
@@ -489,18 +491,6 @@ void initializeHIRLoopConcatenationLegacyPassPass(PassRegistry&);
 void initializeHIRArrayTransposePass(PassRegistry&);
 void initializeHIRLoopFusionPass(PassRegistry&);
 void initializeHIRDeadStoreEliminationPass(PassRegistry&);
-// VPO WRegion Passes
-void initializeWRegionCollectionWrapperPassPass(PassRegistry&);
-void initializeWRegionInfoWrapperPassPass(PassRegistry&);
-void initializeWRegionInfoAnalysisPass(PassRegistry&);
-// VPO Utility Pass
-void initializeVPOCFGRestructuringPass(PassRegistry&);
-// VPO Paropt Prepare Pass
-void initializeVPOParoptPreparePass(PassRegistry&);
-// VPO Parallelizer Pass
-void initializeVPOParoptPass(PassRegistry&);
-// VPO Tpv Transformation
-void initializeVPOParoptTpvPass(PassRegistry&);
 // VPO Vectorizer Passes
 void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);
@@ -521,8 +511,9 @@ void initializeVectorGraphInfoPass(PassRegistry&);
 void initializeVectorGraphPredicatorPass(PassRegistry&);
 void initializeWholeProgramWrapperPassPass(PassRegistry&);
 void initializeMultiVersioningWrapperPass(PassRegistry&);
-// VPO VPlan Vectorizer Passes
+// VPO VPlan Vectorizer Pass  --  TODO: VEC to COLLAB
 void initializeVPlanDriverPass(PassRegistry&);
+// VPO VPlan Vectorizer HIR Pass
 void initializeVPlanDriverHIRPass(PassRegistry&);
 // OpenCL Passes
 void initializeFMASplitterLegacyPassPass(PassRegistry&);
@@ -530,6 +521,22 @@ void initializeFMASplitterLegacyPassPass(PassRegistry&);
 void initializeOptimizeDynamicCastsWrapperPass(PassRegistry&);
 void initializeMachineLoopOptReportEmitterPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+// VPO WRegion Passes
+void initializeWRegionCollectionWrapperPassPass(PassRegistry&);
+void initializeWRegionInfoWrapperPassPass(PassRegistry&);
+void initializeWRegionInfoAnalysisPass(PassRegistry&);
+// VPO Utility Pass
+void initializeVPOCFGRestructuringPass(PassRegistry&);
+// VPO Paropt Prepare Pass
+void initializeVPOParoptPreparePass(PassRegistry&);
+// VPO Parallelizer Pass
+void initializeVPOParoptPass(PassRegistry&);
+// VPO Tpv Transformation
+void initializeVPOParoptTpvPass(PassRegistry&);
+#endif // INTEL_COLLAB
+
 void initializeMIRCanonicalizerPass(PassRegistry &);
 
 } // end namespace llvm

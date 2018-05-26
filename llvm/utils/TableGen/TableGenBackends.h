@@ -81,10 +81,14 @@ void EmitMapTable(RecordKeeper &RK, raw_ostream &OS);
 void EmitOptParser(RecordKeeper &RK, raw_ostream &OS);
 void EmitCTags(RecordKeeper &RK, raw_ostream &OS);
 void EmitAttributes(RecordKeeper &RK, raw_ostream &OS);
-void EmitDirectives(RecordKeeper &RK, raw_ostream &OS);   // INTEL
-void EmitSVMLVariants(RecordKeeper &RK, raw_ostream &OS); // INTEL
-void EmitLibmvecVariants(RecordKeeper &RK, raw_ostream &OS); // INTEL
-void EmitMAPatterns(RecordKeeper &RK, raw_ostream &OS);   // INTEL
+#if INTEL_COLLAB
+void EmitDirectives(RecordKeeper &RK, raw_ostream &OS);
+#endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+void EmitSVMLVariants(RecordKeeper &RK, raw_ostream &OS); //TODO: VEC to COLLAB
+void EmitLibmvecVariants(RecordKeeper &RK, raw_ostream &OS);
+void EmitMAPatterns(RecordKeeper &RK, raw_ostream &OS);
+#endif // INTEL_CUSTOMIZATION
 void EmitSearchableTables(RecordKeeper &RK, raw_ostream &OS);
 void EmitGlobalISel(RecordKeeper &RK, raw_ostream &OS);
 void EmitX86EVEX2VEXTables(RecordKeeper &RK, raw_ostream &OS);

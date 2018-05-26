@@ -1,5 +1,4 @@
 //===- llvm/LinkAllPasses.h ------------ Reference All Passes ---*- C++ -*-===//
-//
 //                      The LLVM Compiler Infrastructure
 //
 // This file is distributed under the University of Illinois Open Source
@@ -35,8 +34,7 @@
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" // INTEL - HIR
 #include "llvm/Analysis/Intel_StdContainerAA.h"  // INTEL
-#include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"   // INTEL
-#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionPasses.h" // INTEL
+#include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h" // INTEL
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
 #include "llvm/Analysis/ScopedNoAliasAA.h"
@@ -64,7 +62,6 @@
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"         // INTEL - HIR
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" // INTEL
-#include "llvm/Transforms/Intel_VPO/VPOPasses.h"                 // INTEL
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"       // INTEL
 #include "llvm/Transforms/Utils/Intel_VecClone.h"                // INTEL
 
@@ -73,6 +70,11 @@
 #include "Intel_DTrans/DTransCommon.h"
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionPasses.h"
+#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
+#endif // INTEL_COLLAB
 
 #include <cstdlib>
 
@@ -245,10 +247,10 @@ namespace {
       (void) llvm::createLoopVectorizePass();
       (void) llvm::createSLPVectorizerPass();
       (void) llvm::createLoadStoreVectorizerPass();
-#if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION //TODO: VEC to COLLAB
       (void) llvm::createVPlanDriverPass();
       (void) llvm::createVPlanDriverHIRPass();
-#endif
+#endif // INTEL_CUSTOMIZATION
       (void) llvm::createPartiallyInlineLibCallsPass();
       (void) llvm::createScalarizerPass();
       (void) llvm::createSeparateConstOffsetFromGEPPass();
@@ -342,6 +344,11 @@ namespace {
       (void) llvm::createVectorGraphPredicatorPass();
       (void) llvm::createAVRDecomposeHIRPass();
 
+      // dynamic_cast calls optimization pass.
+      (void) llvm::createOptimizeDynamicCastsWrapperPass();
+  #endif // INTEL_CUSTOMIZATION
+
+  #if INTEL_COLLAB
       // VPO Paropt Prepare Passes
       (void) llvm::createVPOParoptPreparePass();
 
@@ -350,10 +357,7 @@ namespace {
 
       // VPO Thread Private Transformation
       (void) llvm::createVPOParoptTpvPass();
-
-      // dynamic_cast calls optimization pass.
-      (void) llvm::createOptimizeDynamicCastsWrapperPass();
-  #endif // INTEL_CUSTOMIZATION
+  #endif // INTEL_COLLAB
     }
   } ForcePassLinking; // Force link by creating a global definition.
 }

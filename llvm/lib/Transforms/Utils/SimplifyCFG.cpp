@@ -67,9 +67,9 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
-#endif
+#endif //INTEL_COLLAB
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
 #include <cassert>
@@ -1311,11 +1311,11 @@ static bool HoistThenElseCodeToIf(BranchInst *BI,
     if (!TTI.isProfitableToHoist(I1) || !TTI.isProfitableToHoist(I2))
       return Changed;
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
     // Do not hoist llvm intrinsics that represent OpenMP directives.
     if (IntelIntrinsicUtils::isIntelDirective(I1))
       return Changed;
-#endif // INTEL_CUSTOMIZATION
+#endif //INTEL_COLLAB
 
     if (isa<DbgInfoIntrinsic>(I1) || isa<DbgInfoIntrinsic>(I2)) {
       assert (isa<DbgInfoIntrinsic>(I1) && isa<DbgInfoIntrinsic>(I2));
@@ -2149,10 +2149,10 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
     if (Size > 10)
       return false; // Don't clone large BB's.
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
     if (IntelIntrinsicUtils::isIntelDirective(&I))
       return false;
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
     ++Size;
 

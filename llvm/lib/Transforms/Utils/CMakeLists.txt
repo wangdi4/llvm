@@ -22,11 +22,13 @@ add_llvm_library(LLVMTransformUtils
   ImportedFunctionsInliningStatistics.cpp
   InstructionNamer.cpp
   IntegerDivision.cpp
-# INTEL_CUSTOMIZATION
+# INTEL_COLLAB
   Intel_GeneralUtils.cpp
   Intel_IntrinsicUtils.cpp
-  Intel_VecClone.cpp
   ../Intel_VPO/Utils/IntrinsicUtils.cpp # TODO: Move to lib/Transforms/Utils
+# end INTEL_COLLAB
+# INTEL_CUSTOMIZATION -- TODO: VEC to COLLAB
+  Intel_VecClone.cpp
 # end INTEL_CUSTOMIZATION
   LCSSA.cpp
   LibCallsShrinkWrap.cpp
@@ -70,5 +72,5 @@ add_llvm_library(LLVMTransformUtils
 
   DEPENDS
   intrinsics_gen
-  intel_directives_gen  #INTEL
+  intel_directives_gen  #INTEL_COLLAB
   )

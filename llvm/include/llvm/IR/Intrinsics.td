@@ -792,12 +792,12 @@ def int_experimental_gc_relocate : Intrinsic<[llvm_any_ty],
                                 [llvm_token_ty, llvm_i32_ty, llvm_i32_ty],
                                 [IntrReadMem]>;
 
-// INTEL_CUSTOMIZATION
+// INTEL_COLLAB
 //===------------------------ Directive Intrinsics ------------------------===//
 //
 def int_directive_region_entry : Intrinsic<[llvm_token_ty], [], []>;
 def int_directive_region_exit  : Intrinsic<[], [llvm_token_ty], []>;
-// end INTEL_CUSTOMIZATION
+// end INTEL_COLLAB
 
 //===------------------------ Coroutine Intrinsics ---------------===//
 // These are documented in docs/Coroutines.rst
@@ -920,7 +920,7 @@ def int_masked_compressstore: Intrinsic<[],
 def int_type_test : Intrinsic<[llvm_i1_ty], [llvm_ptr_ty, llvm_metadata_ty],
                               [IntrNoMem]>;
 
-// INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION // (to be obsoleted)
 //===--------------------- Intel Directive Intrinsics ---------------------===//
 
 def int_intel_directive : Intrinsic<[], [llvm_metadata_ty],
