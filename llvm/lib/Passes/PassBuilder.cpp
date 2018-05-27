@@ -1147,9 +1147,20 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (EnableAndersen) {
     MPM.addPass(RequireAnalysisPass<AndersensAA, Module>());
   }
-  // Indirect to direct call convertion.
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans) {
+    MPM.addPass(RequireAnalysisPass<DTransAnalysis, Module>());
+  }
+#endif // INTEL_INCLUDE_DTRANS
+  // Indirect to direct call conversion.
   if (EnableIndirectCallConv)
-    MPM.addPass(createModuleToFunctionPassAdaptor(IndirectCallConvPass()));
+#if INTEL_INCLUDE_DTRANS
+    MPM.addPass(createModuleToFunctionPassAdaptor(
+        IndirectCallConvPass(EnableAndersen, EnableDTrans)));
+#else
+    MPM.addPass(createModuleToFunctionPassAdaptor(
+        IndirectCallConvPass(EnableAndersen, false)));
+#endif // INTEL_INCLUDE_DTRANS
   // Require the InlineAggAnalysis for the module so we can query it within
   // the inliner and AggInlAAPass.
   if (EnableInlineAggAnalysis) {

@@ -19,6 +19,7 @@
 
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/IR/CallSite.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 
@@ -57,13 +58,13 @@ public:
 
 public:
   DTransAnalysisInfo();
-  DTransAnalysisInfo(DTransAnalysisInfo&&) = default;
+  DTransAnalysisInfo(DTransAnalysisInfo &&) = default;
   ~DTransAnalysisInfo();
 
-  DTransAnalysisInfo(const DTransAnalysisInfo&) = delete;
-  DTransAnalysisInfo& operator=(const DTransAnalysisInfo&) = delete;
+  DTransAnalysisInfo(const DTransAnalysisInfo &) = delete;
+  DTransAnalysisInfo &operator=(const DTransAnalysisInfo &) = delete;
 
-  DTransAnalysisInfo& operator=(DTransAnalysisInfo&&);
+  DTransAnalysisInfo &operator=(DTransAnalysisInfo &&);
 
   bool analyzeModule(Module &M, TargetLibraryInfo &TLI);
   void reset();
@@ -107,22 +108,32 @@ public:
 
   // Create an entry in the CallInfoMap about a memory setting/copying/moving
   // call.
-  dtrans::MemfuncCallInfo *createMemfuncCallInfo(Instruction *I,
-    dtrans::MemfuncCallInfo::MemfuncKind MK,
-    dtrans::MemfuncRegion &MR);
+  dtrans::MemfuncCallInfo *
+  createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+                        dtrans::MemfuncRegion &MR);
 
-    dtrans::MemfuncCallInfo *createMemfuncCallInfo(
-        Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
-        dtrans::MemfuncRegion &MR1, dtrans::MemfuncRegion &MR2);
+  dtrans::MemfuncCallInfo *
+  createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+                        dtrans::MemfuncRegion &MR1, dtrans::MemfuncRegion &MR2);
 
-    // Destroy the CallInfo stored about the specific instruction.
-    void deleteCallInfo(Instruction *I);
+  // Destroy the CallInfo stored about the specific instruction.
+  void deleteCallInfo(Instruction *I);
 
-    // Update the instruction associated with the CallInfo object. This
-    // is necessary because when a function is cloned during the DTrans
-    // optimizations, the information needs to be transferred to the
-    // newly created instruction of the cloned routine.
-    void replaceCallInfoInstruction(dtrans::CallInfo *Info, Instruction *NewI);
+  // Update the instruction associated with the CallInfo object. This
+  // is necessary because when a function is cloned during the DTrans
+  // optimizations, the information needs to be transferred to the
+  // newly created instruction of the cloned routine.
+  void replaceCallInfoInstruction(dtrans::CallInfo *Info, Instruction *NewI);
+
+  // Interface routine to get possible targets of given function pointer 'FP'.
+  // It computes all possible targets of 'FP' using field single value analysis
+  // and adds valid targets to 'Targets' vector. It skips adding unknown/
+  // invalid targets to 'Targets' vector and returns false if there are any
+  // unknown/invalid targets.
+  //
+  bool GetFuncPointerPossibleTargets(llvm::Value *FP,
+                                     std::vector<llvm::Value *> &Targets,
+                                     llvm::CallSite, bool);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printCallInfo(raw_ostream &OS);
@@ -152,7 +163,7 @@ class DTransAnalysis : public AnalysisInfoMixin<DTransAnalysis> {
 public:
   typedef DTransAnalysisInfo Result;
 
-  Result run(Module &M, AnalysisManager<Module> &AM);
+  Result run(Module &M, ModuleAnalysisManager &AM);
 };
 
 // Legacy wrapper pass to provide DTrans analysis.

@@ -261,8 +261,9 @@ FunctionPass *createTbaaMDPropagationLegacyPass();
 FunctionPass *createCleanupFakeLoadsPass();
 
 // IndirectCallConv - Converts indirect calls to direct calls using
-// points-to info if possible 
-FunctionPass *createIndirectCallConvLegacyPass();
+// points-to info and/or DTrans Field Single Value Info if possible
+FunctionPass *createIndirectCallConvLegacyPass(bool UseAndersen = false,
+                                               bool UseDTrans = false);
 
 // VPOParoptTpv - Supports the thread private legacy mode.
 ModulePass *createVPOParoptTpvPass();

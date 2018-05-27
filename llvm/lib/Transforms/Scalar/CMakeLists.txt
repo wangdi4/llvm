@@ -85,3 +85,9 @@ add_llvm_library(LLVMScalarOpts
   DEPENDS
   intrinsics_gen
   )
+
+# INTEL_CUSTOMIZATION
+if(INTEL_INCLUDE_DTRANS)
+  target_link_libraries(LLVMScalarOpts PRIVATE LLVMIntel_DTransAnalysis)
+endif(INTEL_INCLUDE_DTRANS)
+# end INTEL_CUSTOMIZATION

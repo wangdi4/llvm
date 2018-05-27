@@ -3869,7 +3869,7 @@ private:
 
       // If the dominant type is a pointer to a pointer, we don't need to look
       // at its uses.
-      llvm::Type* ElementTy = DomTy->getPointerElementType();
+      llvm::Type *ElementTy = DomTy->getPointerElementType();
       if (!ElementTy->isPointerTy()) {
         SmallPtrSet<Value *, 4> VisitedUsers;
         uint64_t ElementSize = DL.getTypeAllocSize(ElementTy);
@@ -3886,7 +3886,7 @@ private:
   }
 
   bool hasNonDivBySizeUses(Value *V, uint64_t Size,
-                           SmallPtrSetImpl<Value*> &VisitedUses) {
+                           SmallPtrSetImpl<Value *> &VisitedUses) {
     // If we've already looked at this, don't look again.
     if (!VisitedUses.insert(V).second)
       return false;
@@ -4393,6 +4393,66 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field) {
   } else if (Field.isBottomAllocFunction())
     outs() << "    Bottom Alloc Function";
   outs() << "\n";
+}
+
+bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(
+    llvm::Value *FP, std::vector<llvm::Value *> &Targets, llvm::CallSite,
+    bool) {
+  Targets.clear();
+  LLVM_DEBUG({
+    dbgs() << "FSV ICS: Analyzing";
+    FP->dump();
+  });
+  auto LI = dyn_cast<LoadInst>(FP);
+  llvm::Type *Ty = nullptr;
+  ConstantInt *CZ = nullptr;
+  ConstantInt *CI = nullptr;
+  if (!LI)
+    return false;
+  auto *GEPI = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+  GEPOperator *GEPO = nullptr;
+  if (GEPI) {
+    if (GEPI->getNumIndices() != 2 || !GEPI->hasAllConstantIndices())
+      return false;
+    CZ = cast<ConstantInt>(GEPI->getOperand(1));
+    CI = cast<ConstantInt>(GEPI->getOperand(2));
+    Ty = GEPI->getSourceElementType();
+  } else {
+    GEPO = dyn_cast<GEPOperator>(LI->getPointerOperand());
+    if (!GEPO)
+      return false;
+    if (GEPO->getNumIndices() != 2 || !GEPO->hasAllConstantIndices())
+      return false;
+    CZ = cast<ConstantInt>(GEPO->getOperand(1));
+    CI = cast<ConstantInt>(GEPO->getOperand(2));
+    Ty = GEPO->getSourceElementType();
+  }
+  if (!Ty->isStructTy())
+    return false;
+  if (!CZ->isZeroValue())
+    return false;
+  dtrans::TypeInfo *TI = getTypeInfo(Ty);
+  if (!TI)
+    return false;
+  auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
+  if (!StInfo)
+    return false;
+  uint64_t Index = CI->getLimitedValue();
+  if (Index >= StInfo->getNumFields())
+    return false;
+  dtrans::FieldInfo FI = StInfo->getField(Index);
+  auto F = dyn_cast_or_null<Function>(FI.getSingleValue());
+  if (!F)
+    return false;
+  Targets.push_back(F);
+  LLVM_DEBUG({
+    dbgs() << "FSV ICS: Specialized TO " << F->getName() << " GEP ";
+    if (GEPI)
+      GEPI->dump();
+    else
+      GEPO->dump();
+  });
+  return true;
 }
 
 void DTransAnalysisWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
