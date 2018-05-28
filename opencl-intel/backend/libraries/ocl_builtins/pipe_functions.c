@@ -107,11 +107,7 @@ typedef struct _tag_pipe_control_intel_t {
 
 #define RTOS(r) ((size_t)(__builtin_astype((r), void *)))
 #define STOR(s) (__builtin_astype(((void *)(s)), reserve_id_t))
-
-// WORKAROUND: __builtin_astype isn't working with pipes for the moment
-//#define PTOC(p)(__builtin_astype((p), (__global pipe_control_intel_t*)))
-typedef __global pipe_control_intel_t *gp_pipe_control_intel_t;
-#define PTOC(p) (*(gp_pipe_control_intel_t *)(&(p)))
+#define PTOC(p) (__builtin_astype((p), __global pipe_control_intel_t *))
 
 /////////////////////////////////////////////////////////////////////
 // Pipe Helper Functions (static)
@@ -495,11 +491,7 @@ bool OVERLOADABLE is_valid_reserve_id(reserve_id_t reserve_id) {
 
 /////////////////////////////////////////////////////////////////////
 // Pipe Queries
-uint __get_pipe_num_packets(pipe uchar pipe_, uint size_of_packet,
-                            uint alignment_of_packet) {
-  (void)size_of_packet; // Avoid warning about unused variable.
-  __global pipe_control_intel_t *p = PTOC(pipe_);
-
+static uint __get_pipe_num_packets(__global pipe_control_intel_t *p) {
   // load from tail shouldn't be moved before load from head so acquire head
   // first then relaxively load tail
   uint head = atomic_load_explicit(&p->head, memory_order_acquire,
@@ -510,10 +502,22 @@ uint __get_pipe_num_packets(pipe uchar pipe_, uint size_of_packet,
   return select(p->pipe_max_packets_plus_one - head + tail, tail - head,
                 (uint)(head <= tail));
 }
+uint __get_pipe_num_packets_ro(read_only pipe uchar pipe_, uint size_of_packet,
+                               uint alignment_of_packet) {
+  return __get_pipe_num_packets(PTOC(pipe_));
+}
+uint __get_pipe_num_packets_wo(write_only pipe uchar pipe_, uint size_of_packet,
+                               uint alignment_of_packet) {
+  return __get_pipe_num_packets(PTOC(pipe_));
+}
 
-uint __get_pipe_max_packets(pipe uchar pipe_, uint size_of_packet,
-                            uint alignment_of_packet) {
-  (void)size_of_packet; // Avoid warning about unused variable.
+uint __get_pipe_max_packets_ro(read_only pipe uchar pipe_, uint size_of_packet,
+                               uint alignment_of_packet) {
+  __global pipe_control_intel_t *p = PTOC(pipe_);
+  return p->pipe_max_packets_plus_one - 1;
+}
+uint __get_pipe_max_packets_wo(write_only pipe uchar pipe_, uint size_of_packet,
+                               uint alignment_of_packet) {
   __global pipe_control_intel_t *p = PTOC(pipe_);
   return p->pipe_max_packets_plus_one - 1;
 }
