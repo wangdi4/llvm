@@ -64,7 +64,7 @@ _mm512_setzero_si512(void)
 }
 
 __m512i __attribute__ ((__always_inline__, __nodebug__))
-_mm512_maskz_set1_epi64(__mmask8 __M, long long __A);
+_mm512_maskz_set1_epi64(__mmask8 __M, __i64 __A);
 
 static __inline __m512 __attribute__ ((__always_inline__, __nodebug__))
 _mm512_setzero_ps(void)
@@ -108,7 +108,7 @@ _mm512_maskz_set1_epi32(__mmask16 __M, int __A)
 }
 
 static __inline __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_set1_epi64(long __d)
+_mm512_set1_epi64(__i64 __d)
 {
   return (__m512i)(__v8di){ __d, __d, __d, __d, __d, __d, __d, __d };
 }

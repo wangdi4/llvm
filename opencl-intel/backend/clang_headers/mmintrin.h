@@ -57,23 +57,15 @@ _mm_cvtsi64_si32(__m64 __m)
 }
 
 static __inline__ __m64 __attribute__((__always_inline__, __nodebug__))
-#ifdef __OPENCL__
-_mm_cvtsi64_m64(long __i)
-#else
-_mm_cvtsi64_m64(long long __i)
-#endif
+_mm_cvtsi64_m64(__i64 __i)
 {
     return (__m64)__i;
 }
 
-static __inline__ long __attribute__((__always_inline__, __nodebug__))
+static __inline__ __i64 __attribute__((__always_inline__, __nodebug__))
 _mm_cvtm64_si64(__m64 __m)
 {
-#ifdef __OPENCL__
-    return (long)__m;
-#else
-    return (long long)__m;
-#endif
+    return (__i64)__m;
 }
 
 static __inline__ __m64 __attribute__((__always_inline__, __nodebug__))

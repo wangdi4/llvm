@@ -798,7 +798,7 @@ _mm256_maskload_epi32(int const *__X, __m256i __M)
 }
 
 __m256i __attribute__((__always_inline__, __nodebug__))
-_mm256_maskload_epi64(long long const *__X, __m256i __M);
+_mm256_maskload_epi64(__i64 const *__X, __m256i __M);
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_maskload_epi32(int const *__X, __m128i __M)
@@ -813,7 +813,7 @@ _mm256_maskstore_epi32(int *__X, __m256i __M, __m256i __Y)
 }
 
 void __attribute__((__always_inline__, __nodebug__))
-_mm256_maskstore_epi64(long long *__X, __m256i __M, __m256i __Y);
+_mm256_maskstore_epi64(__i64 *__X, __m256i __M, __m256i __Y);
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_maskstore_epi32(int *__X, __m128i __M, __m128i __Y)
@@ -1006,28 +1006,28 @@ _mm256_cvtph_ps (__m128i x)
   __m128i __i = (i); \
   (__m128d)__builtin_ia32_gatherd_pd((__v2df)_mm_setzero_pd(), \
              (const __v2df *)__m, (__v4si)__i, \
-             (__v2df)_mm_set1_pd((double)(long long int)-1), (s)); })
+             (__v2df)_mm_set1_pd((double)(__i64)-1), (s)); })
 
 #define _mm256_i32gather_pd(m, i, s) __extension__ ({ \
   double const *__m = (m); \
   __m128i __i = (i); \
   (__m256d)__builtin_ia32_gatherd_pd256((__v4df)_mm256_setzero_pd(), \
              (const __v4df *)__m, (__v4si)__i, \
-             (__v4df)_mm256_set1_pd((double)(long long int)-1), (s)); })
+             (__v4df)_mm256_set1_pd((double)(__i64)-1), (s)); })
 
 #define _mm_i64gather_pd(m, i, s) __extension__ ({ \
   double const *__m = (m); \
   __m128i __i = (i); \
   (__m128d)__builtin_ia32_gatherq_pd((__v2df)_mm_setzero_pd(), \
              (const __v2df *)__m, (__v2di)__i, \
-             (__v2df)_mm_set1_pd((double)(long long int)-1), (s)); })
+             (__v2df)_mm_set1_pd((double)(__i64)-1), (s)); })
 
 #define _mm256_i64gather_pd(m, i, s) __extension__ ({ \
   double const *__m = (m); \
   __m256i __i = (i); \
   (__m256d)__builtin_ia32_gatherq_pd256((__v4df)_mm256_setzero_pd(), \
              (const __v4df *)__m, (__v4di)__i, \
-             (__v4df)_mm256_set1_pd((double)(long long int)-1), (s)); })
+             (__v4df)_mm256_set1_pd((double)(__i64)-1), (s)); })
 
 #define _mm_i32gather_ps(m, i, s) __extension__ ({ \
   float const *__m = (m); \

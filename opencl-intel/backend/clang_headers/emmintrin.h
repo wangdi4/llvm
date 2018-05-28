@@ -1033,19 +1033,19 @@ _mm_cmplt_epi32(__m128i a, __m128i b)
 
 #ifdef __x86_64__
 static __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
-_mm_cvtsi64_sd(__m128d a, long long b)
+_mm_cvtsi64_sd(__m128d a, __i64 b)
 {
   a[0] = b;
   return a;
 }
 
-static __inline__ long long __attribute__((__always_inline__, __nodebug__))
+static __inline__ __i64 __attribute__((__always_inline__, __nodebug__))
 _mm_cvtsd_si64(__m128d a)
 {
   return __builtin_ia32_cvtsd2si64(a);
 }
 
-static __inline__ long long __attribute__((__always_inline__, __nodebug__))
+static __inline__ __i64 __attribute__((__always_inline__, __nodebug__))
 _mm_cvttsd_si64(__m128d a)
 {
   return a[0];
@@ -1078,7 +1078,7 @@ _mm_cvtsi32_si128(int a)
 
 #ifdef __x86_64__
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_cvtsi64_si128(long long a)
+_mm_cvtsi64_si128(__i64 a)
 {
   return (__m128i){ a, 0 };
 }
@@ -1092,7 +1092,7 @@ _mm_cvtsi128_si32(__m128i a)
 }
 
 #ifdef __x86_64__
-static __inline__ long long __attribute__((__always_inline__, __nodebug__))
+static __inline__ __i64 __attribute__((__always_inline__, __nodebug__))
 _mm_cvtsi128_si64(__m128i a)
 {
   return a[0];
@@ -1118,13 +1118,13 @@ static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_loadl_epi64(__m128i const *p)
 {
   struct __mm_loadl_epi64_struct {
-    long long u;
+    __i64 u;
   } __attribute__((__packed__, __may_alias__));
   return (__m128i) { ((struct __mm_loadl_epi64_struct*)p)->u, 0};
 }
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_set_epi64x(long long q1, long long q0)
+_mm_set_epi64x(__i64 q1, __i64 q0)
 {
   return (__m128i){ q0, q1 };
 }
@@ -1132,11 +1132,7 @@ _mm_set_epi64x(long long q1, long long q0)
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_set_epi64(__m64 q1, __m64 q0)
 {
-#ifdef __OPENCL__
-  return (__m128i){ (long)q0, (long)q1 };
-#else
-  return (__m128i){ (long long)q0, (long long)q1 };
-#endif
+  return (__m128i){ (__i64)q0, (__i64)q1 };
 }
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
@@ -1158,7 +1154,7 @@ _mm_set_epi8(char b15, char b14, char b13, char b12, char b11, char b10, char b9
 }
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_set1_epi64x(long long q)
+_mm_set1_epi64x(__i64 q)
 {
   return (__m128i){ q, q };
 }
@@ -1166,11 +1162,7 @@ _mm_set1_epi64x(long long q)
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_set1_epi64(__m64 q)
 {
-#ifdef __OPENCL__
-  return (__m128i) { (long)q, (long)q };
-#else
-  return (__m128i) { (long long)q, (long long)q };
-#endif // __OPENCL__
+  return (__m128i) { (__i64)q, (__i64)q };
 }
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
@@ -1194,11 +1186,7 @@ _mm_set1_epi8(char b)
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_setr_epi64(__m64 q0, __m64 q1)
 {
-#ifdef __OPENCL__
-  return (__m128i) { (long)q0, (long)q1 };
-#else
-  return (__m128i) { (long long)q0, (long long)q1 };
-#endif // __OPENCL__
+  return (__m128i) { (__i64)q0, (__i64)q1 };
 }
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
@@ -1250,7 +1238,7 @@ static __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_storel_epi64(__m128i *p, __m128i a)
 {
   struct __mm_storel_epi64_struct {
-    long u;
+    __i64 u;
   } __attribute__((__packed__, __may_alias__));
   ((struct __mm_storel_epi64_struct*)p)->u = a[0];
 }
@@ -1388,11 +1376,7 @@ _mm_movepi64_pi64(__m128i a)
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_movpi64_pi64(__m64 a)
 {
-#ifdef __OPENCL__
-  return (__m128i) { (long)a, 0 };
-#else
-  return (__m128i) { (long long)a, 0 };
-#endif // __OPENCL__
+  return (__m128i) { (__i64)a, 0 };
 }
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))

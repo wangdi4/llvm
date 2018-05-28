@@ -480,7 +480,7 @@ _mm256_extract_epi8(__m256i a, int const imm)
 }
 
 #ifdef __x86_64__
-static __inline long long  __attribute__((__always_inline__, __nodebug__))
+static __inline __i64  __attribute__((__always_inline__, __nodebug__))
 _mm256_extract_epi64(__m256i a, const int imm)
 {
   __v4di b = (__v4di)a;
