@@ -446,6 +446,39 @@ void DTransOptBase::populateDependentTypes(
 }
 
 void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
+  // Create a mapping of "Function -> { call info set }" objects.
+  // The CallInfo objects will need to have their types updated
+  // following cloning/remapping of the function. This map will
+  // be used to find which CallInfo objects need to be updated after
+  // processing each function.
+  DenseMap<Function *, SmallVector<dtrans::CallInfo *, 4>>
+      FunctionToCallInfoVec;
+
+  // This lambda function is used to update the CallInfo objects associated
+  // with a specific function. The type list of each call info will be
+  // updated to reflect the remapped types. For cloned functions, the
+  // instruction pointer in the call info will be updated to point
+  // to the instruction in the cloned function.
+  auto UpdateCallInfo = [this, &FunctionToCallInfoVec](Function *F,
+                                                       bool isCloned) {
+    if (FunctionToCallInfoVec.count(F))
+      for (auto *CInfo : FunctionToCallInfoVec[F]) {
+        if (isCloned)
+          DTInfo.replaceCallInfoInstruction(
+              CInfo, cast<Instruction>(VMap[CInfo->getInstruction()]));
+
+        dtrans::PointerTypeInfo &PTI = CInfo->getPointerTypeInfoRef();
+        size_t Num = PTI.getNumTypes();
+        for (size_t i = 0; i < Num; ++i)
+          PTI.setType(i, TypeRemapper->remapType(PTI.getType(i)));
+      }
+  };
+
+  for (auto *CInfo : DTInfo.call_info_entries()) {
+    Function *F = CInfo->getInstruction()->getParent()->getParent();
+    FunctionToCallInfoVec[F].push_back(CInfo);
+  }
+
   for (auto &F : M) {
     if (F.isDeclaration())
       continue;
@@ -471,6 +504,7 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
 
       CloneFunctionInto(CloneFunc, &F, VMap, true, Returns, "", &CodeInfo,
                         TypeRemapper, Materializer);
+      UpdateCallInfo(&F, /* IsCloned=*/true);
 
       // Let the derived class perform any additional actions needed on the
       // cloned function. For example, if the transformation is changing
@@ -486,12 +520,18 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
       // Perform the type remapping for the function
       ValueMapper(VMap, RF_IgnoreMissingLocals, TypeRemapper, Materializer)
           .remapFunction(F);
+      UpdateCallInfo(&F, /* IsCloned=*/false);
 
       // Let the derived class perform any additional actions needed on the
       // remapped function.
       postprocessFunction(F, /*is_clone=*/false);
     }
   }
+
+  LLVM_DEBUG({
+    dbgs() << "Call info after remapping\n";
+    DTInfo.printCallInfo(dbgs());
+  });
 }
 
 // Identify and create new function prototypes for dependent functions

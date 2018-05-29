@@ -394,8 +394,8 @@ struct MemfuncRegion {
 // to be tracked for more than a single function argument.
 class PointerTypeInfo {
 public:
-  typedef SmallPtrSet<llvm::Type *, 2> PointerTypeAliasSet;
-  typedef SmallPtrSetImpl<llvm::Type *> &PointerTypeAliasSetRef;
+  typedef SmallVector<llvm::Type *, 2> PointerTypeAliasSet;
+  typedef SmallVectorImpl<llvm::Type *> &PointerTypeAliasSetRef;
 
   PointerTypeInfo() : AliasesToAggregatePointer(false), Analyzed(false) {}
 
@@ -413,15 +413,27 @@ public:
 
   bool getAnalyzed() const { return Analyzed; }
 
-  // Returns 'true' if  one of the types exactly matches \p Ty
-  bool containsType(llvm::Type *Ty) const { return Types.count(Ty) != 0; }
-
   void addType(llvm::Type *Ty) {
     assert(isa<llvm::PointerType>(Ty) &&
            "PointerTypeInfo::addType: Expecting pointer type");
-    Types.insert(Ty);
+    Types.push_back(Ty);
   }
   PointerTypeAliasSetRef getTypes() { return Types; }
+
+  size_t getNumTypes() { return Types.size(); }
+
+  llvm::Type *getType(size_t Idx) const {
+    assert(Idx < Types.size() && "Index out of range");
+    return Types[Idx];
+  }
+
+  // Change the type at index \p Idx to type \p Ty. This
+  // function should only be used for updating a type based
+  // on the type remapping done when processing a function.
+  void setType(size_t Idx, llvm::Type *Ty) {
+    assert(Idx < Types.size() && "Index out of range");
+    Types[Idx] = Ty;
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump();
@@ -467,7 +479,6 @@ public:
   bool getAnalyzed() const { return PTI.getAnalyzed(); }
 
   void addType(llvm::Type *Ty) { PTI.addType(Ty); }
-  bool containsType(llvm::Type *Ty) const { return PTI.containsType(Ty); }
 
   PointerTypeInfo &getPointerTypeInfoRef() { return PTI; }
 
