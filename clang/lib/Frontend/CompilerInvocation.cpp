@@ -2410,9 +2410,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   }
   Opts.IntelOpenMP = Args.hasArg(OPT_fintel_openmp);
   Opts.IntelOpenMPRegion = Args.hasArg(OPT_fintel_openmp_region);
-#if RAVI
   Opts.IntelOpenMPOffload = Args.hasArg(OPT_fintel_openmp_offload);
-#endif
   Opts.OpenMPThreadPrivateLegacy =
       Args.hasArg(OPT_fopenmp_threadprivate_legacy);
   Opts.IntelDriverTempfileName =
