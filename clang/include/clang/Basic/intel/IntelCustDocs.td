@@ -101,7 +101,7 @@ Microsoft allows you to catch a string literal with catch(char \*).
 
 // Intel Compatibility
 
-def UnrollExtensionsDocs : Documentation {
+def LoopPragmaExtensionsDocs : Documentation {
   let Category = DocCatIntelCompat;
   let Option = "IntelCompat";
   let BugTracker = "CQ#371799,CMPLRS-36479";
@@ -109,18 +109,26 @@ def UnrollExtensionsDocs : Documentation {
   let Owner = "mprice1";
   let CompatVersions = "";
   let Content = [{
-#pragma unroll applies to a loop.  The classic Intel compiler allows it on any
-statement and applies it to the first loop it encounters.  This would produce
-a diagnostic on most other compilers.
+The classic Intel compiler supports many pragmas that apply to loops, such as
+#pragma unroll. It also allows a pragma like this on any statement and applies
+it to the first loop it encounters.  This would produce a diagnostic on most
+other compilers.
 
-Also allows the user to specify multiple #pragma unrolls on a single loop.  The
-compiler ignores all but that last one.
+Also we allow multiple pragmas on a single loop. The compiler ignores all but
+that last one.
 
 In the classic Intel compiler the IL0 directive is emitted at the location the
 user specified and the back end does the work to get it applied to the loop.
 
-In clang the front end must deal with it. When an unroll is seen it is saved
-and applied when a loop statement is seen.
+In clang the front end must deal with it. When a pragma like this is seen it
+is saved and applied when a loop statement is seen.
+
+Note: It isn't clear what value this provides the user.  It may just be an
+unfortunate result of the implementation.
+
+Recommendation: Run full testing without this customization.  Ask back end
+teams if they know any reason we need this.  If there is a good reason, can
+we upstream it?
 
 .. code-block:: c++
 

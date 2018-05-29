@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -fintel-compatibility -fsyntax-only %s -verify -ast-dump -pedantic | FileCheck %s
-// RUN: %clang_cc1 -fintel-compatibility-enable=PragmaNoVector -fintel-compatibility-enable=UnrollExtensions -fsyntax-only %s -verify -ast-dump -pedantic | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility-enable=PragmaNoVector -fintel-compatibility-enable=LoopPragmaExtensions -fsyntax-only %s -verify -ast-dump -pedantic | FileCheck %s
 // expected-no-diagnostics
 
 void foo(int i, int *x, int *y) {

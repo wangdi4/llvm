@@ -1,6 +1,6 @@
 // RUN: %clang_cc1 -DFULL -fintel-compatibility -fsyntax-only -verify %s
-// RUN: %clang_cc1 -DONLY -fintel-compatibility-enable=UnrollExtensions -fsyntax-only -verify %s
-// RUN: %clang_cc1 -DDISABLE -fintel-compatibility -fintel-compatibility-disable=UnrollExtensions -fsyntax-only -verify %s
+// RUN: %clang_cc1 -DONLY -fintel-compatibility-enable=LoopPragmaExtensions -fsyntax-only -verify %s
+// RUN: %clang_cc1 -DDISABLE -fintel-compatibility -fintel-compatibility-disable=LoopPragmaExtensions -fsyntax-only -verify %s
 // RUN: %clang_cc1 -DOFF -fsyntax-only -verify %s
 
 int main() {

@@ -1340,30 +1340,31 @@ private:
   };
 #if INTEL_CUSTOMIZATION
   // CQ#371799 - let #pragma unroll precede non-loop statements.
-  /// Save #pragma unroll as pending to be applied once any loop occurs.
+  /// Save #pragma unroll and other loop pragmas as pending to be applied
+  /// once any loop occurs.
 public:
-  void pushPendingPragmaUnroll() {
-    PendingPragmaUnroll.push_back(new ParsedAttributesWithRange(AttrFactory));
+  void pushPendingLoopPragma() {
+    PendingLoopPragma.push_back(new ParsedAttributesWithRange(AttrFactory));
   }
-  void popPendingPragmaUnroll() {
-    auto *Pending = PendingPragmaUnroll.back();
+  void popPendingLoopPragma() {
+    auto *Pending = PendingLoopPragma.back();
     delete Pending;
-    PendingPragmaUnroll.pop_back();
+    PendingLoopPragma.pop_back();
   }
-  ParsedAttributesWithRange *getPendingUnrollAttr() {
-    return PendingPragmaUnroll.back();
+  ParsedAttributesWithRange *getPendingLoopPragmaAttr() {
+    return PendingLoopPragma.back();
   }
-  class PendingPragmaUnrollRAII {
+  class PendingLoopPragmaRAII {
     Parser &P;
 
   public:
-    PendingPragmaUnrollRAII(Parser &P) : P(P) { P.pushPendingPragmaUnroll(); }
-    ~PendingPragmaUnrollRAII() { P.popPendingPragmaUnroll(); }
+    PendingLoopPragmaRAII(Parser &P) : P(P) { P.pushPendingLoopPragma(); }
+    ~PendingLoopPragmaRAII() { P.popPendingLoopPragma(); }
   };
 
 private:
-  SmallVector<ParsedAttributesWithRange *, 4> PendingPragmaUnroll;
-  PendingPragmaUnrollRAII PendingPragmaUnrollRAIIObject;
+  SmallVector<ParsedAttributesWithRange *, 4> PendingLoopPragma;
+  PendingLoopPragmaRAII PendingLoopPragmaRAIIObject;
 #endif // INTEL_CUSTOMIZATION
 
   DeclGroupPtrTy ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
