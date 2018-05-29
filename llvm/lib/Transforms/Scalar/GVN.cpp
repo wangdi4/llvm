@@ -1278,6 +1278,20 @@ bool GVN::PerformLoadPRE(LoadInst *LI, AvailValInBlkVect &ValuesPerBlock,
   if (NumUnavailablePreds != 1)
       return false;
 
+#if INTEL_CUSTOMIZATION
+  // This check is needed to handle a case where a null pointer value is
+  // initialized by a non-ANSI compliant pointer store.
+  // If we see a type** pointing to a null type* value, and the value is only
+  // partially redundant, we treat it as suspicious and do not propagate it.
+  // Jira: CMPLRS-45922
+  if (LI->getType()->isPointerTy())
+    for (const AvailableValueInBlock &AVB : ValuesPerBlock)
+      if (AVB.AV.isSimpleValue())
+        if (Constant *C = dyn_cast<Constant>(AVB.AV.getSimpleValue()))
+          if (C->isNullValue())
+            return false;
+#endif // INTEL_CUSTOMIZATION
+
   // Split critical edges, and update the unavailable predecessors accordingly.
   for (BasicBlock *OrigPred : CriticalEdgePred) {
     BasicBlock *NewPred = splitCriticalEdges(OrigPred, LoadBB);
