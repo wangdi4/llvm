@@ -1,21 +1,14 @@
 ; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
-
-; This file tests the implementation to support OMP taskgroup construct.
-; void foo() {}
 ;
-; int main() {
-;   char a;
+; It test whethe the OMP backend outlining supports the task group
+; as well as the inreduction clause.
 ;
-;   #pragma omp taskgroup
-;     a = 2;
-;   #pragma omp taskgroup
-;     foo();
-;   return a;
-; }
-
-
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
+
+@_ZZ4mainE1a = internal global i32 0, align 4
+@"@tid.addr" = external global i32
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @_Z3foov() #0 {
@@ -24,32 +17,54 @@ entry:
 }
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local i32 @main() #1 {
+define dso_local i32 @main(i32 %argc, i8** %argv) #1 {
 entry:
-  %retval = alloca i32, align 4
-  %a = alloca i8, align 1
-  store i32 0, i32* %retval, align 4
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* %a) #3
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASKGROUP"() ]
-  store i8 2, i8* %a, align 1, !tbaa !2
-  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TASKGROUP"() ]
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASKGROUP"() ]
+  %0 = zext i32 %argc to i64
+  %1 = call i8* @llvm.stacksave()
+  %vla = alloca i32, i64 %0, align 16
+  br label %DIR.OMP.TASKGROUP.1
+
+DIR.OMP.TASKGROUP.1:                              ; preds = %entry
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASKGROUP"(), "QUAL.OMP.REDUCTION.ADD"(i32* %vla) ]
+  br label %DIR.OMP.TASKGROUP.2
+
+DIR.OMP.TASKGROUP.2:                              ; preds = %DIR.OMP.TASKGROUP.1
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.REDUCTION.ADD"(i32* %vla) ]
+  br label %DIR.OMP.PARALLEL.3
+
+DIR.OMP.PARALLEL.3:                               ; preds = %DIR.OMP.TASKGROUP.2
+  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(), "QUAL.OMP.INREDUCTION.ADD"(i32* %vla) ]
   call void @_Z3foov()
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TASKGROUP"() ]
-  %2 = load i8, i8* %a, align 1, !tbaa !2
-  %conv = sext i8 %2 to i32
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* %a) #3
-  ret i32 %conv
+  br label %DIR.OMP.END.TASK.5
+
+DIR.OMP.END.TASK.5:                               ; preds = %DIR.OMP.PARALLEL.3
+  call void @llvm.directive.region.exit(token %4) [ "DIR.OMP.END.TASK"() ]
+  br label %DIR.OMP.END.TASK.6
+
+DIR.OMP.END.TASK.6:                               ; preds = %DIR.OMP.END.TASK.5
+  call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.PARALLEL"() ]
+  br label %DIR.OMP.END.PARALLEL.7
+
+DIR.OMP.END.PARALLEL.7:                           ; preds = %DIR.OMP.END.TASK.6
+  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TASKGROUP"() ]
+  call void @llvm.stackrestore(i8* %1)
+  ret i32 0
 }
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #2
 
 ; Function Attrs: nounwind
+declare i8* @llvm.stacksave() #3
+
+; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #3
 
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #3
+
+; Function Attrs: nounwind
+declare void @llvm.stackrestore(i8*) #3
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #2
@@ -64,9 +79,6 @@ attributes #3 = { nounwind }
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{!"clang version 7.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 8e5e2d4d55ae16b8aa25a76d96fe36ed10033c3e) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 6bf09771f6bc185de0c0203e070e8b11d7203f30)"}
-!2 = !{!3, !3, i64 0}
-!3 = !{!"omnipotent char", !4, i64 0}
-!4 = !{!"Simple C++ TBAA"}
 
-; CHECK:  call void @__kmpc_taskgroup({{.*}})
-; CHECK:  call void @__kmpc_end_taskgroup({{.*}})
+; CHECK:  %{{.*}} = call i8* @__kmpc_task_reduction_init({{.*}})
+; CHECK:  %{{.*}} = call i8* @__kmpc_task_reduction_get_th_data({{.*}})

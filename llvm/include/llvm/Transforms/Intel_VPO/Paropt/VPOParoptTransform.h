@@ -374,7 +374,7 @@ private:
 
   /// \brief Generate the call __kmpc_task_reduction_init and the corresponding
   /// preparation.
-  void genRedInitForTaskLoop(WRegionNode *W, Instruction *InsertBefore);
+  void genRedInitForTask(WRegionNode *W, Instruction *InsertBefore);
 
   /// \brief Generate the initialization code for the depend clause
   AllocaInst *genDependInitForTask(WRegionNode *W, Instruction *InsertBefore);

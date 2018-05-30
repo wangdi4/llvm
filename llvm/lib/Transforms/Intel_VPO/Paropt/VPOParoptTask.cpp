@@ -49,39 +49,55 @@ using namespace llvm::vpo;
 #define DEBUG_TYPE "vpo-paropt-task"
 
 // Replace the reduction variable reference with the dereference of
-// the return pointer __kmpc_task_reduction_get_th_data
+// the return pointer __kmpc_task_reduction_get_th_data. It handles
+// both reduction and inreduction clause.
 bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
 
   bool Changed = false;
 
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genRedCodeForTaskGeneric\n");
 
+  // Utility to replace the reduction variable specified in
+  // the reduction/inreduction clause with the return value of
+  // function __kmpc_task_reduction_get_th_data.
+  auto replaceReductionVarInTask = [&](WRegionNode *W,
+                                       ReductionClause &RedClause) {
+    assert(W->isBBSetEmpty() &&
+           "genRedCodeForTaskGeneric: BBSET should start empty");
+    W->populateBBSet();
+    BasicBlock *EntryBB = W->getEntryBBlock();
+    BasicBlock *ExitBB = W->getExitBBlock();
+
+    for (ReductionItem *RedI : RedClause.items()) {
+
+      Value *Orig = RedI->getOrig();
+
+      if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
+        Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
+        Value *NewPrivInst =
+            genPrivatizationAlloca(W, Orig, AllocaInsertPt, ".red");
+        genPrivatizationReplacement(W, Orig, NewPrivInst, RedI);
+        IRBuilder<> Builder(EntryBB->getTerminator());
+        Builder.CreateStore(Builder.CreateLoad(RedI->getNew()), NewPrivInst);
+        Builder.SetInsertPoint(ExitBB->getTerminator());
+        Builder.CreateStore(Builder.CreateLoad(NewPrivInst), RedI->getNew());
+      }
+    }
+  };
+
   if (W->canHaveReduction()) {
     ReductionClause &RedClause = W->getRed();
     if (!RedClause.empty()) {
+      replaceReductionVarInTask(W, RedClause);
+      Changed = true;
+      W->resetBBSet(); // Invalidate BBSet after transformations
+    }
+  }
 
-      assert(W->isBBSetEmpty() &&
-             "genRedCodeForTaskGeneric: BBSET should start empty");
-      W->populateBBSet();
-      BasicBlock *EntryBB = W->getEntryBBlock();
-      BasicBlock *ExitBB = W->getExitBBlock();
-
-      for (ReductionItem *RedI : RedClause.items()) {
-
-        Value *Orig = RedI->getOrig();
-
-        if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
-          Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
-          Value *NewPrivInst =
-              genPrivatizationAlloca(W, Orig, AllocaInsertPt, ".red");
-          genPrivatizationReplacement(W, Orig, NewPrivInst, RedI);
-          IRBuilder<> Builder(EntryBB->getTerminator());
-          Builder.CreateStore(Builder.CreateLoad(RedI->getNew()), NewPrivInst);
-          Builder.SetInsertPoint(ExitBB->getTerminator());
-          Builder.CreateStore(Builder.CreateLoad(NewPrivInst), RedI->getNew());
-        }
-      }
-
+  if (W->canHaveInReduction()) {
+    ReductionClause &RedClause = W->getInRed();
+    if (!RedClause.empty()) {
+      replaceReductionVarInTask(W, RedClause);
       Changed = true;
       W->resetBBSet(); // Invalidate BBSet after transformations
     }
@@ -306,8 +322,10 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
 
   Count = SaveCount;
 
-  if (W->canHaveReduction()) {
-    ReductionClause &RedClause = W->getRed();
+  // Utility to add fields in the thunk for the reduction variables.
+  auto AddRedVarInThunk = [&](ReductionClause &RedClause,
+                              SmallVectorImpl<Type *> &SharedIndices,
+                              unsigned &Count) {
     if (!RedClause.empty()) {
       for (ReductionItem *RedI : RedClause.items()) {
         Value *Orig = RedI->getOrig();
@@ -318,6 +336,16 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
         RedI->setThunkIdx(Count++);
       }
     }
+  };
+
+  if (W->canHaveReduction()) {
+    ReductionClause &RedClause = W->getRed();
+    AddRedVarInThunk(RedClause, SharedIndices, Count);
+  }
+
+  if (W->canHaveInReduction()) {
+    ReductionClause &RedClause = W->getInRed();
+    AddRedVarInThunk(RedClause, SharedIndices, Count);
   }
 
   SharedClause &ShaClause = W->getShared();
@@ -514,8 +542,10 @@ bool VPOParoptTransform::genTaskLoopInitCode(
     }
   }
 
-  if (W->canHaveReduction()) {
-    ReductionClause &RedClause = W->getRed();
+  // Utility to generate the new reference from the call KmpcRedGetNthData
+  // for the reduction variables.
+  auto GenRefForRedVarsInTask = [&] (ReductionClause &RedClause,
+                                     IRBuilder<> &Builder) {
     if (!RedClause.empty()) {
       for (ReductionItem *RedI : RedClause.items()) {
         Indices.clear();
@@ -530,6 +560,16 @@ bool VPOParoptTransform::genTaskLoopInitCode(
         RedI->setNew(Builder.CreateBitCast(RedRes, RedI->getOrig()->getType()));
       }
     }
+  };
+
+  if (W->canHaveReduction()) {
+    ReductionClause &RedClause = W->getRed();
+    GenRefForRedVarsInTask(RedClause, Builder);
+  }
+
+  if (W->canHaveInReduction()) {
+    ReductionClause &RedClause = W->getInRed();
+    GenRefForRedVarsInTask(RedClause, Builder);
   }
 
   SharedClause &ShaClause = W->getShared();
@@ -587,8 +627,9 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
     }
   }
 
-  if (W->canHaveReduction()) {
-    ReductionClause &RedClause = W->getRed();
+  // Utility to generate the gep instructions for the reduction variables.
+  auto GenGepForRedVarsInTask = [&] (ReductionClause &RedClause,
+                                     IRBuilder<> &Builder) {
     if (!RedClause.empty()) {
       for (ReductionItem *RedI : RedClause.items()) {
         Indices.clear();
@@ -599,6 +640,16 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
         Builder.CreateStore(RedI->getOrig(), Gep);
       }
     }
+  };
+
+  if (W->canHaveReduction()) {
+    ReductionClause &RedClause = W->getRed();
+    GenGepForRedVarsInTask(RedClause, Builder);
+  }
+
+  if (W->canHaveInReduction()) {
+    ReductionClause &RedClause = W->getInRed();
+    GenGepForRedVarsInTask(RedClause, Builder);
   }
 
   SharedClause &ShaClause = W->getShared();
@@ -949,10 +1000,10 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
 }
 // Generate the call __kmpc_task_reduction_init and the corresponding
 // preparation.
-void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
-                                               Instruction *InsertBefore) {
+void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
+                                           Instruction *InsertBefore) {
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genRedInitForTaskLoop\n");
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genRedInitForTask\n");
 
   genTaskTRedType();
 
@@ -1021,7 +1072,7 @@ void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
   VPOParoptUtils::genKmpcTaskReductionInit(
       W, TidPtrHolder, Count, DummyTaskTRedRec, &*Builder.GetInsertPoint(),
       Mode & OmpTbb);
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genRedInitForTaskLoop\n");
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genRedInitForTask\n");
 }
 
 bool VPOParoptTransform::genTaskCode(WRegionNode *W,
@@ -1182,7 +1233,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
     // Keep the orginal extraced function name after finalization
     MTFnCI->takeName(NewCall);
 
-    genRedInitForTaskLoop(W, NewCall);
+    genRedInitForTask(W, NewCall);
 
     AllocaInst *DummyTaskTDependRec = genDependInitForTask(W, NewCall);
 
@@ -1291,6 +1342,8 @@ void VPOParoptTransform::buildCFGForIfClause(Value *Cmp,
 //   #pragma omp taskgroup
 bool VPOParoptTransform::genTaskgroupRegion(WRegionNode *W) {
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskgroupRegion\n");
+
+  W->populateBBSet();
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
@@ -1299,11 +1352,14 @@ bool VPOParoptTransform::genTaskgroupRegion(WRegionNode *W) {
   CallInst *TaskgroupCI =
       VPOParoptUtils::genKmpcTaskgroupCall(W, IdentTy, TidPtrHolder, InsertPt);
   TaskgroupCI->insertBefore(InsertPt);
+  genRedInitForTask(W, InsertPt);
 
   Instruction *InsertEndPt = ExitBB->getTerminator();
 
   CallInst *EndTaskgroupCI = VPOParoptUtils::genKmpcEndTaskgroupCall(
       W, IdentTy, TidPtrHolder, InsertEndPt);
   EndTaskgroupCI->insertBefore(InsertEndPt);
+
+  W->resetBBSet();
   return true;
 }

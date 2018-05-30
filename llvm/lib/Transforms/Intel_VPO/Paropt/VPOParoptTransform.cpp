@@ -382,7 +382,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
       case WRegionNode::WRNTaskgroup:
         debugPrintHeader(W, IsPrepare);
-        if (Mode & ParPrepare) {
+        if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = genTaskgroupRegion(W);
           RemoveDirectives = true;
         }
