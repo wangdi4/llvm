@@ -601,6 +601,19 @@ isSpecialTypeInitializer(Instruction* Inst) {
   return isSamplerInitializer(Inst) || isPipeStorageInitializer(Inst);
 }
 
+bool isEnqueueKernelBI(const StringRef MangledName) {
+  return MangledName == "__enqueue_kernel_basic" ||
+         MangledName == "__enqueue_kernel_basic_events" ||
+         MangledName == "__enqueue_kernel_vaargs" ||
+         MangledName == "__enqueue_kernel_events_vaargs";
+}
+
+bool isKernelQueryBI(const StringRef MangledName) {
+  return MangledName == "__get_kernel_work_group_size_impl" ||
+         MangledName == "__get_kernel_sub_group_count_for_ndrange_impl" ||
+         MangledName == "__get_kernel_max_sub_group_size_for_ndrange_impl" ||
+         MangledName == "__get_kernel_preferred_work_group_multiple_impl";
+}
 } // namespace OCLUtil
 
 void

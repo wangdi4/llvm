@@ -545,6 +545,10 @@ Function *getOrCreateFunction(Module *M, Type *RetTy,
     BuiltinFuncMangleInfo *Mangle = nullptr,
     AttributeList *Attrs = nullptr, bool takeName = true);
 
+PointerType* getOCLClkEventType(Module *M);
+PointerType* getOCLClkEventPtrType(Module *M);
+Constant* getOCLNullClkEventPtr(Module *M);
+
 /// Get function call arguments.
 /// \param Start Starting index.
 /// \param End Ending index.
