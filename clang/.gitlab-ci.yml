@@ -19,7 +19,7 @@ build_job:
         - call cd %ICS_WSROOT%
         - call ics set ws %WS_NAME%
         - call ics update head
-        - alloy run -file xmain_lit
+        - alloy run -file xmain_pgopti
     only:
         - xmain
         
@@ -31,6 +31,7 @@ cleanup_job:
     - "if exist %CURRENT_RUN_RESULTS%\\status.log (copy %CURRENT_RUN_RESULTS%\\status.log)"
     - "if exist %CURRENT_RUN_RESULTS%\\copy.log (copy %CURRENT_RUN_RESULTS%\\copy.log)"
     - "if exist %CURRENT_RUN_RESULTS%\\warning.log (copy %CURRENT_RUN_RESULTS%\\warning.log)"
+    - "if exist %CURRENT_RUN_RESULTS%\\fail.log (copy %CURRENT_RUN_RESULTS%\\fail.log)"
     - "if exist %CURRENT_RUN_RESULTS% (rmdir %CURRENT_RUN_RESULTS% /S /Q)"
     artifacts:
         paths:
@@ -39,6 +40,7 @@ cleanup_job:
         - status.log
         - copy.log
         - warning.log
+        - fail.log
     only:
         - xmain
     when: always
