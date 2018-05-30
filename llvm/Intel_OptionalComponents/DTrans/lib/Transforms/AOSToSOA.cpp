@@ -52,6 +52,37 @@ static cl::opt<bool>
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 namespace {
+// This class is used during the type remapping process to perform the
+// translation of a null value pointer to an integer index.
+//
+// The AOS to SOA conversion modifies pointers to the structure to be
+// integer indices. During the type remapping, pointers to the constant
+// nullptr need to be converted to be represented with an integer 0 index.
+class AOSToSOAMaterializer : public ValueMaterializer {
+public:
+  AOSToSOAMaterializer(ValueMapTypeRemapper &TypeRemapper)
+      : TypeRemapper(TypeRemapper) {}
+
+  virtual Value *materialize(Value *V) override {
+    // Check if a null value of a different type needs to be generated.
+    auto *C = dyn_cast<Constant>(V);
+    if (!C)
+      return nullptr;
+
+    if (!C->isNullValue())
+      return nullptr;
+
+    Type *Ty = V->getType();
+    Type *ReTy = TypeRemapper.remapType(Ty);
+    if (Ty == ReTy)
+      return nullptr;
+
+    return Constant::getNullValue(ReTy);
+  }
+
+private:
+  ValueMapTypeRemapper &TypeRemapper;
+};
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Helper method for getting a name to print for structures in debug traces.
@@ -71,8 +102,10 @@ public:
   AOSToSOATransformImpl(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
                         const DataLayout &DL, StringRef DepTypePrefix,
                         DTransTypeRemapper *TypeRemapper,
+                        AOSToSOAMaterializer *Materializer,
                         SmallVectorImpl<dtrans::StructInfo *> &Types)
-      : DTransOptBase(DTInfo, Context, DL, DepTypePrefix, TypeRemapper) {
+      : DTransOptBase(DTInfo, Context, DL, DepTypePrefix, TypeRemapper,
+                      Materializer) {
     std::copy(Types.begin(), Types.end(), std::back_inserter(TypesToTransform));
 
     PeelIndexType = Type::getIntNTy(Context, DL.getPointerSizeInBits());
@@ -360,8 +393,10 @@ bool AOSToSOAPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 
   // Perform the actual transformation.
   DTransTypeRemapper TypeRemapper;
+  AOSToSOAMaterializer Materializer(TypeRemapper);
   AOSToSOATransformImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(),
-                                    "__SOADT_", &TypeRemapper, CandidateTypes);
+                                    "__SOADT_", &TypeRemapper, &Materializer,
+                                    CandidateTypes);
   return Transformer.run(M);
 }
 
