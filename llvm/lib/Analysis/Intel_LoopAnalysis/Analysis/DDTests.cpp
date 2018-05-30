@@ -129,40 +129,39 @@ STATISTIC(WeakZeroSIVindependence, "Weak-Zero SIV independence");
 
 Dependences::Dependences(DDRef *Source, DDRef *Destination,
                          unsigned CommonLevels)
-    : Src(Source), Dst(Destination), Levels(CommonLevels) {
+    : Src(Source), Dst(Destination), CommonLevels(CommonLevels) {
 
+  assert(CommonLevels <= MaxLoopNestLevel && "CommonLevel exceeded");
   Consistent = true;
   LoopIndependent = false;
   Reversed = false;
-  DV = CommonLevels ? new DVEntry[CommonLevels] : nullptr;
 }
 
-Dependences::~Dependences() { delete[] DV; }
+Dependences::~Dependences() {}
 
 // The rest are simple getters that hide the implementation.
 
 // getDirection - Returns the direction associated with a particular level.
 DVKind Dependences::getDirection(unsigned Level) const {
-  assert(0 < Level && Level <= Levels && "Level out of range");
+  assert(0 < Level && Level <= CommonLevels && "Level out of range");
   return DV[Level - 1].Direction;
 }
 
 // Returns the distance (or NULL) associated with a particular level.
 const CanonExpr *Dependences::getDistance(unsigned Level) const {
-  assert(0 < Level && Level <= Levels && "Level out of range");
+  assert(0 < Level && Level <= CommonLevels && "Level out of range");
   return DV[Level - 1].Distance;
 }
 
 // setDirection - sets DV for  with a particular level.
-void Dependences::setDirection(const unsigned Level,
-                               const DVKind Direction) const {
-  assert(0 < Level && Level <= Levels && "Level out of range");
+void Dependences::setDirection(const unsigned Level, const DVKind Direction) {
+  assert(0 < Level && Level <= CommonLevels && "Level out of range");
   DV[Level - 1].Direction = Direction;
 }
 
 // sets the distance for a particular level.
-void Dependences::setDistance(const unsigned Level, const CanonExpr *CE) const {
-  assert(0 < Level && Level <= Levels && "Level out of range");
+void Dependences::setDistance(const unsigned Level, const CanonExpr *CE) {
+  assert(0 < Level && Level <= CommonLevels && "Level out of range");
   DV[Level - 1].Distance = CE;
 }
 
@@ -170,27 +169,27 @@ void Dependences::setDistance(const unsigned Level, const CanonExpr *CE) const {
 // if no subscript in the source or destination mention the induction
 // variable associated with the loop at this level.
 bool Dependences::isScalar(unsigned Level) const {
-  assert(0 < Level && Level <= Levels && "Level out of range");
+  assert(0 < Level && Level <= CommonLevels && "Level out of range");
   return DV[Level - 1].Scalar;
 }
 
 // Returns true if peeling the first iteration from this loop
 // will break this dependence.
 bool Dependences::isPeelFirst(unsigned Level) const {
-  assert(0 < Level && Level <= Levels && "Level out of range");
+  assert(0 < Level && Level <= CommonLevels && "Level out of range");
   return DV[Level - 1].PeelFirst;
 }
 
 // Returns true if peeling the last iteration from this loop
 // will break this dependence.
 bool Dependences::isPeelLast(unsigned Level) const {
-  assert(0 < Level && Level <= Levels && "Level out of range");
+  assert(0 < Level && Level <= CommonLevels && "Level out of range");
   return DV[Level - 1].PeelLast;
 }
 
 // Returns true if splitting this loop will break the dependence.
 bool Dependences::isSplitable(unsigned Level) const {
-  assert(0 < Level && Level <= Levels && "Level out of range");
+  assert(0 < Level && Level <= CommonLevels && "Level out of range");
   return DV[Level - 1].Splitable;
 }
 
@@ -2803,8 +2802,9 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     if (K1 == 0) {
       continue;
     }
-    //  okay to ignore blobcoeff
-    //  BlobCoeff(CurIVPair)
+    // Okay to ignore blobcoeff
+    // [3*n*i + 2*j] and [n*i' + 2*j' - 1] will also simplify to
+    // [2*n*i + 2*j] vs  [2*j' - 1]
 
     // do i=1,n; do j=2,n; a(i+2*j) = a(i+2*j-1) with input dv (= *)
     // returns INDEP (Tested already)
@@ -2897,16 +2897,12 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     if (!CE->getIVConstCoeff(CurIVPair)) {
       continue;
     }
-    if (CE->getIVBlobCoeff(CurIVPair)) {
-      // TODO   3 * N .. return false for now
-      // return false;
+
+    //  DV is not computed beyond common level
+    unsigned Level = CE->getLevel(CurIVPair);
+    if (Level > CommonLevels) {
+      break;
     }
-
-    // based on level, get to corrs. parent loop
-    const HLLoop *CurLoop =
-        SrcParentLoop->getParentLoopAtLevel(CE->getLevel(CurIVPair));
-
-    assert(CurLoop && "Expecting parent loop not null");
 
     RunningGCD = ExtraGCD;
 
@@ -2926,7 +2922,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
       if (!CE2->getIVConstCoeff(CurIVPair2)) {
         continue;
       }
-      if (CE->getLevel(CurIVPair) == CE2->getLevel(CurIVPair2)) {
+      if (Level == CE2->getLevel(CurIVPair2)) {
         // SrcCoeff == Coeff
       } else {
 
@@ -2948,7 +2944,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
         continue;
       }
 
-      if (CE->getLevel(CurIVPair) == CE2->getLevel(CurIVPair2)) {
+      if (Level == CE2->getLevel(CurIVPair2)) {
         DstCoeff = getConstantWithType(Dst->getSrcType(),
                                        CE2->getIVConstCoeff(CurIVPair2));
       } else {
@@ -2976,9 +2972,9 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
       Remainder = ConstDelta.srem(RunningGCD);
       DEBUG(dbgs() << "\tRemainder = " << Remainder << "\n");
       if (Remainder != 0) {
-        unsigned Level = mapSrcLoop(CurLoop);
         DEBUG(dbgs() << "\tLevel=" << Level << "\n");
-        Result.DV[Level - 1].Direction &= ~DVKind::EQ;
+        assert(((Level - 1) < CommonLevels) && "Invalid Level ");
+        Result.setDirection(Level, Result.getDirection(Level) & ~DVKind::EQ);
         Improved = true;
       }
     }
@@ -4150,8 +4146,7 @@ static void dumpSmallBitVector(SmallBitVector &BV) {
 }
 #endif
 
-DDTest::DDTest(AAResults &AAR, HLNodeUtils &HNU)
-    : AAR(AAR), HNU(HNU) {
+DDTest::DDTest(AAResults &AAR, HLNodeUtils &HNU) : AAR(AAR), HNU(HNU) {
   DEBUG(dbgs() << "DDTest initiated\n");
   WorkCE.clear();
 }
@@ -4355,7 +4350,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   if (!EqualBaseAndShape || (NoCommonNest && !ForFusion)) {
     DEBUG(dbgs() << "\nDiff dim,  base, or no common nests\n");
     auto Final = make_unique<Dependences>(Result);
-    Result.DV = nullptr;
+    // DV has been initialized as *
     return std::move(Final);
   }
 
@@ -4589,7 +4584,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
         unsigned Level = mapSrcLoop(IVLoop);
 
-        if (Level <= Result.Levels) {
+        if (Level <= Result.CommonLevels) {
           // DV is computed up to Common Level of the 2 DDRef
           Result.setDirection(Level,
                               Result.getDirection(Level) & InputDV[Level - 1]);
@@ -4839,7 +4834,6 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   auto Final = make_unique<Dependences>(Result);
-  Result.DV = nullptr;
   return std::move(Final);
 }
 

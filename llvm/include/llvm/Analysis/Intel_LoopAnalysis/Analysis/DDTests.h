@@ -202,7 +202,7 @@ public:
 
   /// getLevels - Returns the number of common loops surrounding the
   /// source and destination of the dependence.
-  unsigned getLevels() const { return Levels; }
+  unsigned getLevels() const { return CommonLevels; }
 
   bool isReversed() const { return Reversed; }
 
@@ -237,8 +237,7 @@ public:
 
 private:
   DDRef *Src, *Dst;
-
-  unsigned short Levels; // commonLevels
+  unsigned CommonLevels; // Common Levels for the Src & Dst Refs
   bool LoopIndependent;
   bool Consistent; // Init to true, then refine.
   /// Reversed
@@ -248,9 +247,9 @@ private:
   /// Result returned:  anti (>), IsReversed=true,
   //  DD edge is from Dst->Src
   bool Reversed;
-  DVEntry *DV;
-  void setDirection(const unsigned Level, const DVKind dv) const;
-  void setDistance(const unsigned Level, const CanonExpr *CE) const;
+  DVEntry DV[MaxLoopNestLevel];
+  void setDirection(const unsigned Level, const DVKind dv);
+  void setDistance(const unsigned Level, const CanonExpr *CE);
   friend class DDTest;
 };
 
@@ -499,7 +498,7 @@ class DDTest {
     /// out to OS.
     void dump(raw_ostream &OS) const;
   };
-
+  ///  CommonLevels - levels that need to set DV
   unsigned CommonLevels = 0;
   unsigned SrcLevels = 0;
   unsigned DstLevels = 0;
