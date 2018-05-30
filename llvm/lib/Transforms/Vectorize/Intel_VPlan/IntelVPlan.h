@@ -34,6 +34,7 @@
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Support/GenericDomTreeConstruction.h"
 #include "llvm/Support/raw_ostream.h"
 
 #if INTEL_CUSTOMIZATION
@@ -42,9 +43,7 @@
 #include "Intel_VPlan/VPlanHIR/IntelVPlanInstructionDataHIR.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
-#include "llvm/IR/Dominators.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/GenericDomTreeConstruction.h"
 #endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
@@ -70,6 +69,8 @@ class VPOCodeGen;
 class VPOCodeGenHIR;
 class VPOVectorizationLegality;
 class VPBasicBlock;
+using VPDominatorTree = DomTreeBase<VPBlockBase>;
+using VPPostDominatorTree = PostDomTreeBase<VPBlockBase>;
 #if INTEL_CUSTOMIZATION
 class VPlanCostModel; // INTEL: to be later declared as a friend
 class VPlanCostModelProprietary; // INTEL: to be later declared as a friend
@@ -1425,10 +1426,9 @@ public:
     print(FOS, 0);
   }
 
-  // TODO: Improve implementation for debugging
   void print(formatted_raw_ostream &OS, unsigned Depth) const {
     std::string Indent((Depth * 4), ' ');
-    OS << Indent << getName(); // << "\n";
+    OS << Indent << getName();
   }
 
   virtual void dump() const = 0;
@@ -1672,181 +1672,6 @@ private:
   BasicBlock *createEmptyBasicBlock(VPTransformState::CFGState &CFG);
 #endif
 };
-} // namespace vpo
-
-#if !INTEL_CUSTOMIZATION // Opensource version
-//===--------------------------------------------------------------------===//
-// GraphTraits specializations for VPlan/VPRegionBlock Control-Flow Graphs  //
-//===--------------------------------------------------------------------===//
-
-// Provide specializations of GraphTraits to be able to treat a VPRegionBlock
-// as a graph of VPBlockBases...
-
-template <> struct GraphTraits<VPBlockBase *> {
-  typedef VPBlockBase *NodeRef;
-  typedef SmallVectorImpl<VPBlockBase *>::iterator ChildIteratorType;
-
-  static NodeRef getEntryNode(NodeRef N) { return N; }
-
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    return N->getSuccessors().begin();
-  }
-
-  static inline ChildIteratorType child_end(NodeRef N) {
-    return N->getSuccessors().end();
-  }
-};
-
-template <> struct GraphTraits<const VPBlockBase *> {
-  typedef const VPBlockBase *NodeRef;
-  typedef SmallVectorImpl<VPBlockBase *>::const_iterator ChildIteratorType;
-
-  static NodeRef getEntryNode(NodeRef N) { return N; }
-
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    return N->getSuccessors().begin();
-  }
-
-  static inline ChildIteratorType child_end(NodeRef N) {
-    return N->getSuccessors().end();
-  }
-};
-
-// Provide specializations of GraphTraits to be able to treat a VPRegionBlock as
-// a graph of VPBasicBlocks... and to walk it in inverse order. Inverse order
-// for a VPRegionBlock is considered to be when traversing the predecessor edges
-// of a VPBlockBase instead of the successor edges.
-
-template <> struct GraphTraits<Inverse<VPBlockBase *>> {
-  typedef VPBlockBase *NodeRef;
-  typedef SmallVectorImpl<VPBlockBase *>::iterator ChildIteratorType;
-
-  static Inverse<VPBlockBase *> getEntryNode(Inverse<VPBlockBase *> B) {
-    return B;
-  }
-
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    return N->getPredecessors().begin();
-  }
-
-  static inline ChildIteratorType child_end(NodeRef N) {
-    return N->getPredecessors().end();
-  }
-};
-
-#else // VPO version (Experimental)
-
-//===--------------------------------------------------------------------===//
-// GraphTraits specializations for VPlan/VPRegionBlock Control-Flow Graphs  //
-//===--------------------------------------------------------------------===//
-
-template <class GraphT, class GT = GraphTraits<GraphT>>
-class standard_df_iterator
-    : public std::iterator<std::forward_iterator_tag, typename GT::NodeType> {
-private:
-  df_iterator<GraphT> impl;
-
-  standard_df_iterator() {}
-
-public:
-  typedef std::iterator<std::forward_iterator_tag, typename GT::NodeType> super;
-
-  standard_df_iterator(const GraphT &G, bool Begin)
-      : impl(Begin ? df_iterator<GraphT>::begin(G)
-                   : df_iterator<GraphT>::end(G)) {}
-
-  typename super::pointer operator*() const { return *impl; }
-
-  bool operator==(const standard_df_iterator &x) const {
-    return impl == x.impl;
-  }
-
-  bool operator!=(const standard_df_iterator &x) const { return !(*this == x); }
-
-  standard_df_iterator &operator++() { // Preincrement
-    impl++;
-    return *this;
-  }
-
-  standard_df_iterator operator++(int) { // Postincrement
-    standard_df_iterator tmp = *this;
-    ++*this;
-    return tmp;
-  }
-};
-
-//
-// Provide specializations of GraphTraits to be able to treat a VPRegionBlock
-// as a graph of VPBlockBases...
-
-template <> struct GraphTraits<vpo::VPBlockBase *> {
-  typedef vpo::VPBlockBase NodeType;
-  typedef NodeType *NodeRef;
-  typedef SmallVectorImpl<NodeRef>::iterator ChildIteratorType;
-
-  static NodeRef getEntryNode(NodeRef N) { return N; }
-
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    return N->getSuccessors().begin();
-  }
-
-  static inline ChildIteratorType child_end(NodeRef N) {
-    return N->getSuccessors().end();
-  }
-};
-
-template <> struct GraphTraits<const vpo::VPBlockBase *> {
-  typedef const vpo::VPBlockBase NodeType;
-  typedef const NodeType *NodeRef;
-  typedef SmallVectorImpl<NodeRef>::const_iterator ChildIteratorType;
-
-  static NodeRef getEntryNode(const vpo::VPBlockBase *N) { return N; }
-
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    return N->getSuccessors().begin();
-  }
-
-  static inline ChildIteratorType child_end(NodeRef N) {
-    return N->getSuccessors().end();
-  }
-};
-
-//
-// Provide specializations of GraphTraits to be able to treat a VPRegionBlock as
-// a graph of VPBasicBlocks... and to walk it in inverse order. Inverse order
-// for a VPRegionBlock is considered to be when traversing the predecessor edges
-// of a VPBlockBase instead of the successor edges.
-
-template <> struct GraphTraits<Inverse<vpo::VPBlockBase *>> {
-  typedef vpo::VPBlockBase NodeType;
-  typedef NodeType *NodeRef;
-  typedef SmallVectorImpl<vpo::VPBlockBase *>::iterator ChildIteratorType;
-
-  static NodeRef getEntryNode(Inverse<vpo::VPBlockBase *> B) {
-    return B.Graph;
-  }
-
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    return N->getPredecessors().begin();
-  }
-
-  static inline ChildIteratorType child_end(NodeRef N) {
-    return N->getPredecessors().end();
-  }
-};
-
-namespace vpo {
-#endif // INTEL_CUSTOMIZATION
-
-class VPDominatorTree : public DomTreeBase<VPBlockBase> {
-public:
-  VPDominatorTree() : DomTreeBase<VPBlockBase>() {}
-};
-
-class VPPostDominatorTree : public PostDomTreeBase<VPBlockBase> {
-public:
-  VPPostDominatorTree() : PostDomTreeBase<VPBlockBase>() {}
-};
 
 /// VPRegionBlock represents a collection of VPBasicBlocks and VPRegionBlocks
 /// which form a single-entry-single-exit subgraph of the CFG in the vectorized
@@ -1875,20 +1700,19 @@ private:
   /// Hold the Single Exit of the SESE region represented by the VPRegionBlock.
   VPBlockBase *Exit;
 
-#if INTEL_CUSTOMIZATION
-  /// Holds the number of VPBasicBlocks within the region. It is necessary for
-  /// dominator tree
-  unsigned Size;
-
-  /// Holds whether the control flow within the region is divergent or uniform.
-  bool IsDivergent;
-#endif
   /// A VPRegionBlock can represent either a single instance of its
   /// VPBlockBases, or multiple (VF * UF) replicated instances. The latter is
   /// used when the internal SESE region handles a single scalarized lane.
   bool IsReplicator;
 
 #if INTEL_CUSTOMIZATION
+  /// Holds the number of VPBasicBlocks within the region. It is necessary for
+  /// dominator tree.
+  unsigned Size;
+
+  /// Holds whether the control flow within the region is divergent or uniform.
+  bool IsDivergent;
+
   /// Traverse all the region VPBasicBlocks to recompute Size
   void recomputeSize();
 #endif
@@ -1908,25 +1732,16 @@ public:
 #if INTEL_CUSTOMIZATION
   VPRegionBlock(const unsigned char SC, const std::string &Name,
                 bool IsReplicator = false)
-      : VPBlockBase(SC, Name), Entry(nullptr), Exit(nullptr), Size(0),
-        IsDivergent(true), IsReplicator(IsReplicator), RegionDT(nullptr),
-        RegionPDT(nullptr) {}
+      : VPBlockBase(SC, Name), Entry(nullptr), Exit(nullptr),
+        IsReplicator(IsReplicator), Size(0), IsDivergent(true),
+        RegionDT(nullptr), RegionPDT(nullptr) {}
 #else
   VPRegionBlock(const std::string &Name, bool IsReplicator = false)
       : VPBlockBase(VPRegionBlockSC, Name), Entry(nullptr), Exit(nullptr),
         IsReplicator(IsReplicator) {}
 #endif
 
-  ~VPRegionBlock() {
-    if (Entry)
-      deleteCFG(Entry);
-#if INTEL_CUSTOMIZATION
-    if (RegionDT)
-      delete RegionDT;
-    if (RegionPDT)
-      delete RegionPDT;
-#endif
-  }
+  ~VPRegionBlock();
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPBlockBase *V) {
@@ -1990,17 +1805,11 @@ public:
   VPPostDominatorTree *getPDT(void) { return RegionPDT; }
 
   /// Compute the Dominator Tree for this region
-  void computeDT(void) {
-    assert(!RegionDT && "Null expected");
-    RegionDT = new VPDominatorTree();
-    RegionDT->recalculate(*this);
-  }
+  void computeDT(void);
+
   /// Compute the Post-Dominator Tree for this region
-  void computePDT(void) {
-    assert(!RegionPDT && "Null expected");
-    RegionPDT = new VPPostDominatorTree();
-    RegionPDT->recalculate(*this);
-  }
+  void computePDT(void);
+
   void getOrderedBlocks(std::vector<const VPBlockBase *> &Blocks) const;
   void dump() const;
   void dump(raw_ostream &OS, unsigned Indent = 0) const;
@@ -2014,84 +1823,7 @@ public:
   void executeHIR(VPOCodeGenHIR *CG) override;
 #endif
 };
-#if INTEL_CUSTOMIZATION
-} // namespace vpo
-#endif
 
-template <>
-struct GraphTraits<vpo::VPRegionBlock *>
-    : public GraphTraits<vpo::VPBlockBase *> {
-  typedef vpo::VPRegionBlock GraphType;
-  typedef GraphType *GraphRef;
-  typedef standard_df_iterator<NodeRef> nodes_iterator;
-
-  static NodeRef getEntryNode(GraphRef N) { return N->getEntry(); }
-
-  static nodes_iterator nodes_begin(GraphRef N) {
-    return nodes_iterator(N->getEntry(), true);
-  }
-
-  static nodes_iterator nodes_end(GraphRef N) {
-    // When 'false' is used in nodes_iterator, it returns and empty iterator, so
-    // the node used doesn't matter
-    return nodes_iterator(N, false);
-  }
-
-  static unsigned size(GraphRef N) { return N->getSize(); }
-};
-
-template <>
-struct GraphTraits<const vpo::VPRegionBlock *>
-    : public GraphTraits<const vpo::VPBlockBase *> {
-  typedef const vpo::VPRegionBlock GraphType;
-  typedef GraphType *GraphRef;
-  typedef standard_df_iterator<NodeRef> nodes_iterator;
-
-  static NodeRef getEntryNode(GraphRef N) { return N->getEntry(); }
-
-  static nodes_iterator nodes_begin(GraphRef N) {
-    return nodes_iterator(N->getEntry(), true);
-  }
-
-  static nodes_iterator nodes_end(GraphRef N) {
-    // When 'false' is used in nodes_iterator, it returns and empty iterator, so
-    // the node used doesn't matter
-    return nodes_iterator(N, false);
-  }
-
-  static unsigned size(GraphRef N) { return N->getSize(); }
-};
-
-template <>
-struct GraphTraits<Inverse<vpo::VPRegionBlock *>>
-    : public GraphTraits<Inverse<vpo::VPBlockBase *>> {
-  typedef vpo::VPRegionBlock GraphType;
-  typedef GraphType *GraphRef;
-  typedef standard_df_iterator<NodeRef> nodes_iterator;
-
-  static NodeRef getEntryNode(Inverse<GraphRef> N) {
-    return N.Graph->getExit();
-  }
-
-  static nodes_iterator nodes_begin(GraphRef N) {
-    return nodes_iterator(N->getExit(), true);
-  }
-
-  static nodes_iterator nodes_end(GraphRef N) {
-    // When 'false' is used in nodes_iterator, it returns and empty iterator, so
-    // the node used doesn't matter
-    return nodes_iterator(N, false);
-  }
-
-  static unsigned size(GraphRef N) { return N->getSize(); }
-};
-
-
-
-#if INTEL_CUSTOMIZATION
-namespace vpo {
-
-#endif
 /// VPlan models a candidate for vectorization, encoding various decisions take
 /// to produce efficient output IR, including which branches, basic-blocks and
 /// output IR instructions to generate, and their cost. VPlan holds a
@@ -2360,23 +2092,8 @@ inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan) {
   Printer.dump();
   return OS;
 }
-#if INTEL_CUSTOMIZATION
-} // namespace vpo
-#endif
-
-typedef DomTreeNodeBase<vpo::VPBlockBase> VPDomTreeNode;
-
-template <>
-struct GraphTraits<VPDomTreeNode *>
-    : public DomTreeGraphTraitsBase<VPDomTreeNode, VPDomTreeNode::iterator> {};
-
-template <>
-struct GraphTraits<const VPDomTreeNode *>
-    : public DomTreeGraphTraitsBase<const VPDomTreeNode,
-                                    VPDomTreeNode::const_iterator> {};
 
 #if INTEL_CUSTOMIZATION
-namespace vpo {
 inline bool VPBlockBase::isInsideLoop() {
   if (auto *ParentRegion = getParent()) {
     // TODO: Use VPLoopRegion
@@ -2706,7 +2423,133 @@ public:
 
 };
 } // namespace vpo
+
+//===----------------------------------------------------------------------===//
+// GraphTraits specializations for VPlan H-CFG Control-Flow Graphs            //
+//===----------------------------------------------------------------------===//
+
+// The following set of template specializations implement GraphTraits to treat
+// any VPBlockBase as a node in a graph of VPBlockBases. It's important to note
+// that VPBlockBase traits don't recurse into VPRegionBlocks, i.e., if the
+// VPBlockBase is a VPRegionBlock, this specialization provides access to its
+// successors/predecessors but not to the blocks inside the region.
+
+template <> struct GraphTraits<vpo::VPBlockBase *> {
+  using NodeRef = vpo::VPBlockBase *;
+  using ChildIteratorType = SmallVectorImpl<vpo::VPBlockBase *>::iterator;
+
+  static NodeRef getEntryNode(NodeRef N) { return N; }
+
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return N->getSuccessors().begin();
+  }
+
+  static inline ChildIteratorType child_end(NodeRef N) {
+    return N->getSuccessors().end();
+  }
+};
+
+template <> struct GraphTraits<const vpo::VPBlockBase *> {
+  using NodeRef = const vpo::VPBlockBase *;
+  using ChildIteratorType = SmallVectorImpl<vpo::VPBlockBase *>::const_iterator;
+
+  static NodeRef getEntryNode(NodeRef N) { return N; }
+
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return N->getSuccessors().begin();
+  }
+
+  static inline ChildIteratorType child_end(NodeRef N) {
+    return N->getSuccessors().end();
+  }
+};
+
+// Inverse order specialization for VPBlockBases. Predecessors are used instead
+// of successors for the inverse traversal.
+template <> struct GraphTraits<Inverse<vpo::VPBlockBase *>> {
+  using NodeRef = vpo::VPBlockBase *;
+  using ChildIteratorType = SmallVectorImpl<vpo::VPBlockBase *>::iterator;
+
+  static NodeRef getEntryNode(Inverse<NodeRef> B) { return B.Graph; }
+
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return N->getPredecessors().begin();
+  }
+
+  static inline ChildIteratorType child_end(NodeRef N) {
+    return N->getPredecessors().end();
+  }
+};
+
+// The following set of template specializations implement GraphTraits to
+// treat VPRegionBlock as a graph and recurse inside its nodes. It's important
+// to note that the blocks inside the VPRegionBlock are treated as VPBlockBases
+// (i.e., no dyn_cast is performed, VPBlockBases specialization is used), so
+// there won't be automatic recursion into other VPBlockBases that turn to be
+// VPRegionBlocks.
+
+template <>
+struct GraphTraits<vpo::VPRegionBlock *>
+    : public GraphTraits<vpo::VPBlockBase *> {
+  using GraphRef = vpo::VPRegionBlock *;
+  using nodes_iterator = df_iterator<NodeRef>;
+
+  static NodeRef getEntryNode(GraphRef N) { return N->getEntry(); }
+
+  static nodes_iterator nodes_begin(GraphRef N) {
+    return nodes_iterator::begin(N->getEntry());
+  }
+
+  static nodes_iterator nodes_end(GraphRef N) {
+    // df_iterator returns an empty iterator so the node used doesn't matter.
+    return nodes_iterator::end(N);
+  }
+
+  static unsigned size(GraphRef N) { return N->getSize(); }
+};
+
+template <>
+struct GraphTraits<const vpo::VPRegionBlock *>
+    : public GraphTraits<const vpo::VPBlockBase *> {
+  using GraphRef = const vpo::VPRegionBlock *;
+  using nodes_iterator = df_iterator<NodeRef>;
+
+  static NodeRef getEntryNode(GraphRef N) { return N->getEntry(); }
+
+  static nodes_iterator nodes_begin(GraphRef N) {
+    return nodes_iterator::begin(N->getEntry());
+  }
+
+  static nodes_iterator nodes_end(GraphRef N) {
+    // df_iterator returns an empty iterator so the node used doesn't matter.
+    return nodes_iterator::end(N);
+  }
+
+  static unsigned size(GraphRef N) { return N->getSize(); }
+};
+
+template <>
+struct GraphTraits<Inverse<vpo::VPRegionBlock *>>
+    : public GraphTraits<Inverse<vpo::VPBlockBase *>> {
+  using GraphRef = vpo::VPRegionBlock *;
+  using nodes_iterator = df_iterator<NodeRef>;
+
+  static NodeRef getEntryNode(Inverse<GraphRef> N) {
+    return N.Graph->getExit();
+  }
+
+  static nodes_iterator nodes_begin(GraphRef N) {
+    return nodes_iterator::begin(N->getExit());
+  }
+
+  static nodes_iterator nodes_end(GraphRef N) {
+    // df_iterator returns an empty iterator so the node used doesn't matter.
+    return nodes_iterator::end(N);
+  }
+
+  static unsigned size(GraphRef N) { return N->getSize(); }
+};
+
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLAN_H
-

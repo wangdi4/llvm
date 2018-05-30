@@ -19,6 +19,7 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
 #include "IntelLoopVectorizationCodeGen.h"
+#include "IntelVPlanDominatorTree.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
 #else
 #include "VPlan.h"
@@ -407,6 +408,17 @@ void VPBasicBlock::execute(VPTransformState *State) {
 #endif
 }
 
+VPRegionBlock::~VPRegionBlock() {
+  if (Entry)
+    deleteCFG(Entry);
+#if INTEL_CUSTOMIZATION
+  if (RegionDT)
+    delete RegionDT;
+  if (RegionPDT)
+    delete RegionPDT;
+#endif
+}
+
 void VPRegionBlock::execute(VPTransformState *State) {
   ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
 
@@ -536,6 +548,18 @@ void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
   CG->setCurMaskValue(nullptr);
   for (VPRecipeBase &Recipe : Recipes)
     Recipe.executeHIR(CG);
+}
+
+void VPRegionBlock::computeDT(void) {
+  assert(!RegionDT && "Null expected");
+  RegionDT = new VPDominatorTree();
+  RegionDT->recalculate(*this);
+}
+
+void VPRegionBlock::computePDT(void) {
+  assert(!RegionPDT && "Null expected");
+  RegionPDT = new VPPostDominatorTree();
+  RegionPDT->recalculate(*this);
 }
 
 /// Get a list of the basic blocks which make up this region.
@@ -1395,10 +1419,11 @@ void VPIfFalsePredicateRecipe::print(raw_ostream &OS,
   OS << "!";
   ConditionValue->printAsOperand(OS);
 }
+
 #if INTEL_CUSTOMIZATION
 using VPDomTree = DomTreeBase<VPBlockBase>;
-template void llvm::DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);
+template void DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);
 
 using VPPostDomTree = PostDomTreeBase<VPBlockBase>;
-template void llvm::DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);
+template void DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);
 #endif

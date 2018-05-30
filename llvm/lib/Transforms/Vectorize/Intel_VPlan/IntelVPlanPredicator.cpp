@@ -58,6 +58,7 @@
 
 #include "IntelVPlanPredicator.h"
 #include "IntelVPlan.h"
+#include "IntelVPlanDominatorTree.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/PostOrderIterator.h"

@@ -821,9 +821,10 @@ private:
   // TODO: This should be removed together with the UniformCBVs set.
   LoopVectorizationLegality *Legal;
 
-  /// Output TopRegion.
+  // Output TopRegion.
   VPRegionBlock *TopRegion = nullptr;
-  /// Number of VPBasicBlocks in TopRegion.
+
+  // Number of VPBasicBlocks in TopRegion.
   unsigned TopRegionSize = 0;
 
   VPlan *Plan;
