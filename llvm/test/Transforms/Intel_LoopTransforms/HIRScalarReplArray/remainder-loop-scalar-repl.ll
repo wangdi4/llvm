@@ -33,22 +33,12 @@ target triple = "x86_64-unknown-linux-gnu"
 @dest = common local_unnamed_addr global [64 x [64 x i32]] zeroinitializer, align 16
 
 ; Function Attrs: nounwind uwtable
-define void @roo(i32 %u1, i32 %u2) local_unnamed_addr {
+define void @roo(i32 %u1, i32 %__index.addr.014, i32 %indvars.iv16) local_unnamed_addr {
 entry:
   %0 = icmp sgt i32 %u1, 0
-  br i1 %0, label %for.cond.i.preheader.preheader, label %if.end, !llvm.loop !1
+  br label %for.body.i.lr.ph
 
-for.cond.i.preheader.preheader:                   ; preds = %entry
-  br label %for.cond.i.preheader
-
-for.cond.i.preheader:                             ; preds = %for.cond.i.preheader.preheader, %__simd_for_helper.exit
-  %indvars.iv16 = phi i32 [ %indvars.iv.next17, %__simd_for_helper.exit ], [ %u2, %for.cond.i.preheader.preheader ]
-  %__index.addr.014 = phi i32 [ %4, %__simd_for_helper.exit ], [ 0, %for.cond.i.preheader.preheader ]
-  %add.i = add nsw i32 %__index.addr.014, %u2
-  %cmp.i12 = icmp sgt i32 %add.i, 1
-  br i1 %cmp.i12, label %for.body.i.lr.ph, label %__simd_for_helper.exit
-
-for.body.i.lr.ph:                                 ; preds = %for.cond.i.preheader
+for.body.i.lr.ph:                                 ; preds = %entry
   %idxprom7.i = sext i32 %__index.addr.014 to i64
   %wide.trip.count = zext i32 %indvars.iv16 to i64
   br label %for.body.i
@@ -65,29 +55,15 @@ for.body.i:                                       ; preds = %for.body.i, %for.bo
   store i32 %add12.i, i32* %arrayidx18.i, align 4, !tbaa !8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
-  br i1 %exitcond, label %__simd_for_helper.exit.loopexit, label %for.body.i
+  br i1 %exitcond, label %exit, label %for.body.i
 
-__simd_for_helper.exit.loopexit:                  ; preds = %for.body.i
-  br label %__simd_for_helper.exit
-
-__simd_for_helper.exit:                           ; preds = %__simd_for_helper.exit.loopexit, %for.cond.i.preheader
-  %4 = add nuw i32 %__index.addr.014, 1
-  %indvars.iv.next17 = add i32 %indvars.iv16, 1
-  %exitcond18 = icmp eq i32 %4, %u1
-  br i1 %exitcond18, label %if.end.loopexit, label %for.cond.i.preheader, !llvm.loop !1
-
-if.end.loopexit:                                  ; preds = %__simd_for_helper.exit
-  br label %if.end
-
-if.end:                                           ; preds = %if.end.loopexit, %entry
+exit:                                           ; preds = %for.body.i
   ret void
 }
 
 !llvm.ident = !{!0}
 
 !0 = !{!"clang version 4.0.0 (trunk 20848) (llvm/branches/loopopt 20950)"}
-!1 = distinct !{!1, !2}
-!2 = !{!"llvm.loop.vectorize.enable", i1 true}
 !3 = !{!4, !5, i64 0}
 !4 = !{!"array@_ZTSA64_i", !5, i64 0}
 !5 = !{!"int", !6, i64 0}

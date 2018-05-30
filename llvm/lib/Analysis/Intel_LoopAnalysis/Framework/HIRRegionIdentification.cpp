@@ -784,38 +784,29 @@ bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp,
   return !CMA.isProfitable();
 }
 
-static bool isUnrollMetadata(StringRef Str) {
-  return (Str.equals("llvm.loop.unroll.count") ||
-          Str.equals("llvm.loop.unroll.enable") ||
-          Str.equals("llvm.loop.unroll.disable") ||
-          Str.equals("llvm.loop.unroll.runtime.disable") ||
-          Str.equals("llvm.loop.unroll.full"));
+static MDString *getStringMetadata(MDNode *Node) {
+  assert(Node->getNumOperands() > 0 &&
+         "metadata should have at least one operand!");
+
+  return dyn_cast<MDString>(Node->getOperand(0));
 }
 
 static bool isUnrollMetadata(MDNode *Node) {
-  assert(Node->getNumOperands() > 0 &&
-         "metadata should have at least one operand!");
+  MDString *Str = getStringMetadata(Node);
 
-  MDString *Str = dyn_cast<MDString>(Node->getOperand(0));
-
-  if (!Str) {
-    return false;
-  }
-
-  return isUnrollMetadata(Str->getString());
+  return Str && Str->getString().startswith("llvm.loop.unroll");
 }
 
 static bool isDistributeMetadata(MDNode *Node) {
-  assert(Node->getNumOperands() > 0 &&
-         "metadata should have at least one operand!");
+  MDString *Str = getStringMetadata(Node);
 
-  MDString *Str = dyn_cast<MDString>(Node->getOperand(0));
+  return Str && Str->getString().equals("llvm.loop.distribute.enable");
+}
 
-  if (!Str) {
-    return false;
-  }
+static bool isVectorizeMetadata(MDNode *Node) {
+  MDString *Str = getStringMetadata(Node);
 
-  return Str->getString().equals("llvm.loop.distribute.enable");
+  return Str && Str->getString().startswith("llvm.loop.vectorize");
 }
 
 static bool isDebugMetadata(MDNode *Node) {
@@ -825,7 +816,8 @@ static bool isDebugMetadata(MDNode *Node) {
 static bool isSupportedMetadata(MDNode *Node) {
 
   if (isDebugMetadata(Node) || isUnrollMetadata(Node) ||
-      isDistributeMetadata(Node) || LoopOptReport::isOptReportMetadata(Node)) {
+      isDistributeMetadata(Node) || isVectorizeMetadata(Node) ||
+      LoopOptReport::isOptReportMetadata(Node)) {
     return true;
   }
 

@@ -503,6 +503,10 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
       DEBUG(dbgs() << "Skipping unroll & jam of pragma disabled loop!\n");
       HUAJ.throttle(Lp);
       return;
+    } else if (Lp->hasVectorizeEnablingPragma()) {
+      DEBUG(dbgs() << "Skipping unroll & jam of vector pragma loop!\n");
+      HUAJ.throttle(Lp);
+      return;
     }
   } else if (Lp->hasUnrollEnablingPragma()) {
     // TODO: Check this for all loops when we have unroll & jam metadata.

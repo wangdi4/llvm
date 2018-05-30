@@ -371,6 +371,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
           Simplified(false), NumOperations(0), IsNewCoeff(0) {}
   };
 
+  // Structure to store CanonExpr related info.
   struct CanonExprInfo {
     unsigned NumSimplifiedTerms = 0;
     unsigned NumNonLinearTerms = 0;
@@ -2587,6 +2588,12 @@ bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
   if (Loop->hasCompleteUnrollDisablingPragma()) {
     DEBUG(dbgs() << "Skipping complete unroll due to presence of unroll "
                     "disabling pragma!\n");
+    return false;
+  }
+
+  if (IsPreVec && Loop->hasVectorizeEnablingPragma()) {
+    DEBUG(dbgs()
+          << "Skipping complete unroll due to presence of vector pragma!\n");
     return false;
   }
 

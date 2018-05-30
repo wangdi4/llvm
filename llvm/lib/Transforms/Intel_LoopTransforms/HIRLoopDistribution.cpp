@@ -548,6 +548,10 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
   // edge between the two new loops when considering I. Distributing
   // again won't enable vectorization, but create more loop overhead.
 
+  if (Lp->hasUnrollEnablingPragma() || Lp->hasVectorizeEnablingPragma()) {
+    return false;
+  }
+
   if (DistCostModel == DistHeuristics::NestFormation && Lp->isInnermost()) {
     return false;
   }
@@ -610,10 +614,6 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
     if (!NonUnitStride) {
       return false;
     }
-  }
-
-  if (Lp->hasUnrollEnablingPragma()) {
-    return false;
   }
 
   return true;

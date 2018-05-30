@@ -179,8 +179,9 @@ struct HIRLoopInterchange::CollectCandidateLoops final
     for (const HLLoop *TmpLoop = InnermostLoop,
                       *EndLoop = Loop->getParentLoop();
          TmpLoop != EndLoop; TmpLoop = TmpLoop->getParentLoop()) {
-      if (TmpLoop->hasUnrollEnablingPragma()) {
-        DEBUG(dbgs() << "\nSkipping loop with unroll pragma\n");
+      if (TmpLoop->hasUnrollEnablingPragma() ||
+          TmpLoop->hasVectorizeEnablingPragma()) {
+        DEBUG(dbgs() << "\nSkipping loop with unroll/vector pragma\n");
         SkipNode = Loop;
         return;
       }

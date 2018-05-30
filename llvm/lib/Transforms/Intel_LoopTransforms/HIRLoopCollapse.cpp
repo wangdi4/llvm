@@ -324,6 +324,11 @@ bool HIRLoopCollapse::doPreliminaryChecks(void) {
       break;
     }
 
+    if (CurLp->hasUnrollEnablingPragma() ||
+        CurLp->hasVectorizeEnablingPragma()) {
+      break;
+    }
+
     unsigned LoopLevel = CurLp->getNestingLevel();
     CanonExpr *UBCE = CurLp->getUpperCanonExpr();
 

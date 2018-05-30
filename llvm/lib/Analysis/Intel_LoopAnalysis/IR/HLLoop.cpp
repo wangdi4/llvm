@@ -1342,13 +1342,6 @@ MDNode *HLLoop::getLoopStringMetadata(StringRef Name) const {
   return nullptr;
 }
 
-bool HLLoop::hasUnrollEnablingPragma() const {
-  return (
-      getLoopStringMetadata("llvm.loop.unroll.enable") ||
-      getLoopStringMetadata("llvm.loop.unroll.count") ||
-      (isConstTripLoop() && getLoopStringMetadata("llvm.loop.unroll.full")));
-}
-
 bool HLLoop::hasCompleteUnrollEnablingPragma() const {
   if (getLoopStringMetadata("llvm.loop.unroll.enable") ||
       getLoopStringMetadata("llvm.loop.unroll.full")) {
@@ -1385,60 +1378,41 @@ bool HLLoop::hasCompleteUnrollDisablingPragma() const {
   return false;
 }
 
-bool HLLoop::hasGeneralUnrollEnablingPragma() const {
-  return getLoopStringMetadata("llvm.loop.unroll.enable") ||
-         getLoopStringMetadata("llvm.loop.unroll.count");
-}
+bool HLLoop::hasVectorizeEnablingPragma() const {
+  // The logic is complicated due to the fact that both
+  // "llvm.loop.vectorize.width" and "llvm.loop.vectorize.enable" can be used as
+  // vectorization enablers/disablers.
 
-bool HLLoop::hasGeneralUnrollDisablingPragma() const {
-  return getLoopStringMetadata("llvm.loop.unroll.disable") ||
-         getLoopStringMetadata("llvm.loop.unroll.runtime.disable") ||
-         // 'full' metadata only implies complete unroll, not partial unroll.
-         getLoopStringMetadata("llvm.loop.unroll.full");
-}
+  auto *EnableMD = getLoopStringMetadata("llvm.loop.vectorize.enable");
 
-bool HLLoop::hasUnrollAndJamEnablingPragma() const {
-  // TODO: Use unroll & jam metadata when available. Also add the check to other
-  // passes such as loop interchange and loop distribution.
-  return hasGeneralUnrollEnablingPragma();
-}
-
-bool HLLoop::hasUnrollAndJamDisablingPragma() const {
-  // TODO: Use unroll & jam metadata when available.
-  return hasGeneralUnrollDisablingPragma();
-}
-
-unsigned HLLoop::getUnrollPragmaCount() const {
-  // Unroll if loop's trip count is less than unroll count.
-  auto MD = getLoopStringMetadata("llvm.loop.unroll.count");
-
-  if (!MD) {
-    return 0;
-  }
-
-  return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
-}
-
-bool HLLoop::hasDistributionEnablingPragma() const {
-  auto MD = getLoopStringMetadata("llvm.loop.distribute.enable");
-
-  if (!MD) {
+  if (EnableMD &&
+      mdconst::extract<ConstantInt>(EnableMD->getOperand(1))->isZero()) {
     return false;
   }
 
-  // first operand is i1 type.
-  return mdconst::extract<ConstantInt>(MD->getOperand(1))->isOne();
-}
+  auto *WidthMD = getLoopStringMetadata("llvm.loop.vectorize.width");
 
-bool HLLoop::hasDistributionDisablingPragma() const {
-  auto MD = getLoopStringMetadata("llvm.loop.distribute.enable");
-
-  if (!MD) {
+  if (WidthMD &&
+      mdconst::extract<ConstantInt>(WidthMD->getOperand(1))->isOne()) {
     return false;
   }
 
-  // first operand is i1 type.
-  return mdconst::extract<ConstantInt>(MD->getOperand(1))->isZero();
+  return (EnableMD || WidthMD);
+}
+
+bool HLLoop::hasVectorizeDisablingPragma() const {
+  // Return true if either the loop has "llvm.loop.vectorize.width" metadata
+  // with width of 1 or it has "llvm.loop.vectorize.enable" metadata with
+  // boolean operand set to false.
+  auto *MD = getLoopStringMetadata("llvm.loop.vectorize.width");
+
+  if (MD && mdconst::extract<ConstantInt>(MD->getOperand(1))->isOne()) {
+    return true;
+  }
+
+  MD = getLoopStringMetadata("llvm.loop.vectorize.enable");
+
+  return MD && mdconst::extract<ConstantInt>(MD->getOperand(1))->isZero();
 }
 
 LoopOptReport LoopOptReportTraits<HLLoop>::getOrCreatePrevOptReport(

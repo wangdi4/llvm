@@ -696,8 +696,8 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
     return false;
   }
 
-  if (Loop->hasUnrollEnablingPragma()) {
-    DEBUG(dbgs() << "Loop with unroll pragma skipped\n");
+  if (Loop->hasUnrollEnablingPragma() || Loop->hasVectorizeEnablingPragma()) {
+    DEBUG(dbgs() << "Loop with unroll/vector pragma skipped\n");
     return false;
   }
 

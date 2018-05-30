@@ -35,7 +35,8 @@ typedef DDRefGatherer<RegDDRef, AllRefs ^ (BlobRefs | ConstantRefs |
 
 bool fusion::isGoodLoop(const HLLoop *Loop) {
   return Loop->isDo() && Loop->isNormalized() &&
-         !(Loop->isDistributedForMemRec());
+         !(Loop->isDistributedForMemRec() || Loop->hasUnrollEnablingPragma() ||
+           Loop->hasVectorizeEnablingPragma());
 }
 
 class fusion::FuseEdgeHeap {
@@ -946,8 +947,7 @@ void FuseGraph::constructUnknownMemoryAccessChains() {
 }
 
 template <typename Iter>
-void FuseGraph::constructUnknownMemoryAccessChainsOneWay(Iter Begin,
-                                                         Iter End) {
+void FuseGraph::constructUnknownMemoryAccessChainsOneWay(Iter Begin, Iter End) {
   // Set to one past end element.
   auto FirstUMANode = std::find_if(Begin, End, [](const FuseNode &Node) {
     return Node.hasUnknownMemoryAccess();

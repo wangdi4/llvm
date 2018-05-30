@@ -606,7 +606,7 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   DEBUG(dbgs() << "\nProcessing Loop: <" << Loop->getNumber() << ">\n");
 
   if (!Loop->isDo() || !Loop->isNormalized() || Loop->isVecLoop() ||
-      Loop->hasUnrollEnablingPragma()) {
+      Loop->hasUnrollEnablingPragma() || Loop->hasVectorizeEnablingPragma()) {
     DEBUG(dbgs() << "Skipping - non-DO-Loop / non-Normalized / Vec / unroll "
                     "pragma loop\n");
     return false;
