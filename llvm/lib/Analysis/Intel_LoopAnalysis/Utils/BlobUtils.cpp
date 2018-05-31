@@ -363,6 +363,26 @@ Value *BlobUtils::getTempBlobValue(unsigned BlobIndex) const {
   return getTempBlobValue(getBlob(BlobIndex));
 }
 
+Value *BlobUtils::getTempOrUndefBlobValue(BlobTy Blob) {
+
+  assert((isTempBlob(Blob) || isUndefBlob(Blob)) && "Not Temp nor Undef Blob");
+  if (isTempBlob(Blob)) {
+    return getTempBlobValue(Blob);
+  }
+  if (auto *UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
+    return UnknownSCEV->getValue();
+  }
+  if (auto *ConstantSCEV = dyn_cast<SCEVConstant>(Blob)) {
+    return ConstantSCEV->getValue();
+  }
+  llvm_unreachable("Blob should have a value");
+  return nullptr;
+}
+
+Value *BlobUtils::getTempOrUndefBlobValue(unsigned BlobIndex) const {
+  return getTempOrUndefBlobValue(getBlob(BlobIndex));
+}
+
 class NestedBlobChecker {
 private:
   unsigned NumSubBlobs;

@@ -13,10 +13,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Debug.h"
@@ -395,12 +395,13 @@ MemoryLocation RegDDRef::getMemoryLocation() const {
   MemoryLocation Loc;
 
   const CanonExpr *BaseCE = getBaseCE();
-  // TODO: handle undefined blobs
+
   if (BaseCE->isNull()) {
     Loc.Ptr = Constant::getNullValue(BaseCE->getDestType());
   } else {
-    auto BaseBlobIndex = getBaseCE()->getSingleBlobIndex();
-    Loc.Ptr = getBlobUtils().getTempBlobValue(BaseBlobIndex);
+    auto &BU = getBlobUtils();
+    auto Blob = BU.getBlob(getBaseCE()->getSingleBlobIndex());
+    Loc.Ptr = BU.getTempOrUndefBlobValue(Blob);
   }
 
   Loc.Size = MemoryLocation::UnknownSize;
