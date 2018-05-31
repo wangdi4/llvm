@@ -1363,7 +1363,7 @@ bool HLLoop::hasCompleteUnrollEnablingPragma() const {
   // Unroll if loop's trip count is less than unroll count.
   auto PragmaTC = getUnrollPragmaCount();
 
-  return PragmaTC && (TC < PragmaTC);
+  return PragmaTC && (TC <= PragmaTC);
 }
 
 bool HLLoop::hasCompleteUnrollDisablingPragma() const {

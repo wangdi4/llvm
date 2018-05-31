@@ -136,4 +136,4 @@ for.end166:                                       ; preds = %for.body79
 }
 
 !0 = distinct !{!0, !1}
-!1 = !{!"llvm.loop.unroll.count", i32 16}
+!1 = !{!"llvm.loop.unroll.count", i32 8}
