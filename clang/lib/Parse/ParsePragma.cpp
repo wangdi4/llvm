@@ -246,6 +246,11 @@ struct PragmaNoVectorHandler : public PragmaHandler {
   void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
                     Token &Tok);
 };
+struct PragmaVectorHandler : public PragmaHandler {
+  PragmaVectorHandler(const char *name) : PragmaHandler(name) {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                    Token &Tok);
+};
 #endif // INTEL_CUSTOMIZATION
 
 struct PragmaMSRuntimeChecksHandler : public EmptyPragmaHandler {
@@ -413,6 +418,10 @@ void Parser::initializePragmaHandlers() {
     IVDepHandler.reset(new PragmaIVDepHandler("ivdep"));
     PP.AddPragmaHandler(IVDepHandler.get());
   }
+  if (getLangOpts().isIntelCompat(LangOptions::PragmaVector)) {
+    VectorHandler.reset(new PragmaVectorHandler("vector"));
+    PP.AddPragmaHandler(VectorHandler.get());
+  }
 #endif // INTEL_CUSTOMIZATION
   UnrollHintHandler.reset(new PragmaUnrollHintHandler("unroll"));
   PP.AddPragmaHandler(UnrollHintHandler.get());
@@ -540,6 +549,10 @@ void Parser::resetPragmaHandlers() {
   if (HLSCompat || IntelCompat) {
     PP.RemovePragmaHandler(IVDepHandler.get());
     IVDepHandler.reset();
+  }
+  if (getLangOpts().isIntelCompat(LangOptions::PragmaVector)) {
+    PP.RemovePragmaHandler(VectorHandler.get());
+    VectorHandler.reset();
   }
 #endif // INTEL_CUSTOMIZATION
   PP.RemovePragmaHandler(UnrollHintHandler.get());
@@ -1090,9 +1103,11 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
   bool PragmaDistributePoint = PragmaNameInfo->getName() == "distribute_point";
   bool PragmaNoFusion = PragmaNameInfo->getName() == "nofusion";
   bool PragmaNoVector = PragmaNameInfo->getName() == "novector";
+  bool PragmaVector = PragmaNameInfo->getName() == "vector";
   if (Toks.empty() && Info->ArrayToks.empty() &&
       (PragmaUnroll || PragmaNoUnroll || PragmaLoopCoalesce || PragmaIVDep ||
-       PragmaDistributePoint || PragmaNoFusion || PragmaNoVector)) {
+       PragmaDistributePoint || PragmaNoFusion || PragmaNoVector ||
+       PragmaVector)) {
 #endif // INTEL_CUSTOMIZATION
     ConsumeAnnotationToken();
     Hint.Range = Info->PragmaName.getLocation();
@@ -3441,6 +3456,59 @@ void PragmaNoVectorHandler::HandlePragma(Preprocessor &PP,
   TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
   TokenArray[0].setAnnotationValue(Info);
   PP.EnterTokenStream(std::move(TokenArray), 1,
+                      /*DisableMacroExpansion=*/false);
+}
+
+void PragmaVectorHandler::HandlePragma(Preprocessor &PP,
+                                         PragmaIntroducerKind Introducer,
+                                         Token &Tok) {
+  // Incoming token is "vector" for
+  // "#pragma vector {always[assert]|aligned|unaligned|
+  //  temporal|nontemporal|[no]vecremainder|[no]mask_readwrite}"
+  Token PragmaName = Tok;
+  SmallVector<Token, 2> TokenList;
+
+  if (Tok.isNot(tok::identifier) && Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::err_pragma_loop_invalid_option)
+        << "vector";
+    return;
+  }
+  do {
+    Token Option = Tok;
+    IdentifierInfo *OptionInfo = Tok.getIdentifierInfo();
+    bool OptionValid = llvm::StringSwitch<bool>(OptionInfo->getName())
+                           .Case("vector", true)
+                           .Case("always", true)
+                           .Default(false);
+    if (!OptionValid) {
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_vector_invalid_option)
+          << /*MissingOption=*/false << OptionInfo;
+      return;
+    }
+    auto *Info = new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
+    Info->PragmaName = PragmaName;
+    Info->Option = Option;
+    PP.Lex(Tok);
+    // Generate the loop hint token.
+    Token LoopHintTok;
+    LoopHintTok.startToken();
+    LoopHintTok.setKind(tok::annot_pragma_loop_hint);
+    LoopHintTok.setLocation(PragmaName.getLocation());
+    LoopHintTok.setAnnotationEndLoc(PragmaName.getLocation());
+    LoopHintTok.setAnnotationValue(static_cast<void *>(Info));
+    TokenList.push_back(LoopHintTok);
+  } while (Tok.is(tok::identifier) &&
+           Tok.getIdentifierInfo()->getName() != "vector");
+
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+        << "vector";
+    return;
+  }
+  auto TokenArray = llvm::make_unique<Token[]>(TokenList.size());
+  std::copy(TokenList.begin(), TokenList.end(), TokenArray.get());
+
+  PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),
                       /*DisableMacroExpansion=*/false);
 }
 

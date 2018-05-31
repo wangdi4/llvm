@@ -2696,7 +2696,8 @@ def LoopHint : Attr {
                    Pragma<"", "loop_coalesce">, Pragma<"", "max_concurrency">,
                    Pragma<"", "distribute_point">,
                    Pragma<"", "nofusion">,
-                   Pragma<"", "novector">];
+                   Pragma<"", "novector">,
+                   Pragma<"", "vector">];
 //endif INTEL_CUSTOMIZATION
   /// State of the loop optimization specified by the spelling.
   let Args = [EnumArgument<"Option", "OptionType",
@@ -2706,7 +2707,8 @@ def LoopHint : Attr {
                            "ii", "ivdep", "ivdep-loop", "ivdep-back",
                            "ivdep-hls", "ivdep-hls-intel",
                            "loop_coalesce", "max_concurrency",
-                           "distribute_point", "nofusion", "novector"],
+                           "distribute_point", "nofusion", "novector",
+                           "always"],
 //endif INTEL_CUSTOMIZATION
                           ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
 //if INTEL_CUSTOMIZATION
@@ -2714,7 +2716,8 @@ def LoopHint : Attr {
                            "II", "IVDep", "IVDepLoop", "IVDepBack",
                            "IVDepHLS", "IVDepHLSIntel",
                            "LoopCoalesce", "MaxConcurrency",
-                           "Distribute", "NoFusion", "Vectorize"]>,
+                           "Distribute", "NoFusion", "Vectorize",
+                           "VectorizeAlways"]>,
 //endif INTEL_CUSTOMIZATION
               EnumArgument<"State", "LoopHintState",
 //if INTEL_CUSTOMIZATION
@@ -2734,6 +2737,9 @@ def LoopHint : Attr {
     case Unroll: return "unroll";
     case UnrollCount: return "unroll_count";
     case Distribute: return "distribute";
+//if INTEL_CUSTOMIZATION
+    case VectorizeAlways: return "vectorize_always";
+//endif INTEL_CUSTOMIZATION
     }
     llvm_unreachable("Unhandled LoopHint option.");
   }
@@ -2751,6 +2757,10 @@ def LoopHint : Attr {
     } else if (SpellingIndex == Pragma_distribute_point)
       return;
     else if (SpellingIndex == Pragma_nofusion)
+      return;
+    else if (SpellingIndex == Pragma_novector)
+      return;
+    else if (SpellingIndex == Pragma_vector)
       return;
 //endif INTEL_CUSTOMIZATION
 
@@ -2798,6 +2808,10 @@ def LoopHint : Attr {
       return "#pragma distribute_point";
     else if (SpellingIndex == Pragma_nofusion)
       return "#pragma nofusion";
+    else if (SpellingIndex == Pragma_novector)
+      return "#pragma novector";
+    else if (SpellingIndex == Pragma_vector)
+      return "#pragma vector";
 //endif INTEL_CUSTOMIZATION
 
     assert(SpellingIndex == Pragma_clang_loop && "Unexpected spelling");

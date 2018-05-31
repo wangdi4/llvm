@@ -2011,7 +2011,9 @@ StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts,
         Hint.PragmaNameLoc->Ident->getName() != "loop" &&
         Hint.PragmaNameLoc->Ident->getName() != "distribute_point") {
       auto *PendingAttr = getPendingLoopPragmaAttr();
-      PendingAttr->clear();
+      if (Hint.PragmaNameLoc->Ident->getName() != "vector" &&
+          Hint.PragmaNameLoc->Ident->getName() != "novector")
+        PendingAttr->clear();
       PendingAttr->takeAllFrom(TempAttrs);
     }
 #endif // INTEL_CUSTOMIZATION

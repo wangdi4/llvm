@@ -317,6 +317,7 @@ A correct usage of these builtin functions are as follows:
 
   }];
 }
+
 def PragmaNoVectorDocs : Documentation {
   let Category = DocCatIntelCompat;
   let Option = "IntelCompat";
@@ -333,14 +334,22 @@ to disable vectorization of a loop. This behavior is in contrast to the ``vector
 always`` pragma.
 
 the ``pragma novector`` will be recognized and map to existing
-  pragma vectorize(disable)
+
+.. code-block:: c
+
+  #pragma vectorize(disable)
+
 For :
- #pragma novector
+
+.. code-block:: c
+
+  #pragma novector
   for(;;);
+
 AST:
 
--AttributedStmt 0xc257138 <<invalid sloc>, line:12:3>
-      |-LoopHintAttr 0xc257110 <line:8:11> Implicit novector Vectorize Disable
+AttributedStmt
+      LoopHintAttr Implicit novector Vectorize Disable
 
 Metadata:
 
@@ -356,10 +365,79 @@ A correct usage of this pragma:
 
   void foo(int lb, int ub) {
   #pragma novector
-    for(j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+  for(j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
   }
 
   }];
+
+}
+
+def PragmaVectorDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let BugTracker= "";
+  let RegressionTest = "test/Sema/intel/vector.cpp,test/CodeGenCXX/intel/vector.cpp";
+  let Owner = "jyu2";
+  let CompatVersions = "";
+  let Content = [{
+The ''pragma vector'' indicates to the compiler that the loop should be vectorized according to the argument keywords.
+  "assert, aligned, unaligned, vecremainder, novecremainder">;
+
+.. code-block:: c
+
+  vector {always[assert]|aligned|unaligned|temporal|nontemporal|[no]vecremainder|[no]mask_readwrite}
+
+``pragma vector`` will be represented like the existing:
+
+.. code-block:: c
+
+  #pragma vectorize(enable)
+
+For :
+
+.. code-block:: c
+
+  #pragma vector
+  for(;;);
+
+AST:
+
+AttributedStmt
+      LoopHintAttr Implicit vector Vectorize Enable
+
+Metadata:
+
+.. code-block:: llvm
+
+  br label %for.cond, !llvm.loop !2
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.vector.vectorize.enable", i1 true}
+
+``#pragma vector always`` will be represented as two LoopHint attributes:
+
+.. code-block:: c
+
+  #pragma vector always
+  for(;;);
+
+AST:
+
+AttributedStmt
+      LoopHintAttr Implicit vector VectorizeAlways Enable
+
+      LoopHintAttr Implicit vector Vectorize Enable
+
+Metadata:
+
+.. code-block:: llvm
+
+  br label %for.cond, !llvm.loop !2
+  !2 = distinct !{!2, !3 !4}
+  !3 = !{!"llvm.loop.ignore_profitability"}
+  !4 = !{!"llvm.loop.vectorize.enable", i1 true}
+
+  }];
+
 }
 
 def PragmaIVDepDocs : Documentation {

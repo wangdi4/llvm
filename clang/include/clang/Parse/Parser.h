@@ -1882,6 +1882,8 @@ private:  //***INTEL
   std::unique_ptr<PragmaHandler> NoFusionHandler;
   // Pragma novector
   std::unique_ptr<PragmaHandler> NoVectorHandler;
+  // Pragma vector
+  std::unique_ptr<PragmaHandler> VectorHandler;
 #endif // INTEL_CUSTOMIZATION
 
   /// Describes the behavior that should be taken for an __if_exists

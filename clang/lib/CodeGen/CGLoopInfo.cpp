@@ -35,6 +35,7 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
       !Attrs.IVDepEnable && !Attrs.IVDepHLSEnable &&
       !Attrs.IVDepHLSIntelEnable && !Attrs.IVDepLoop && !Attrs.IVDepBack &&
       !Attrs.NoFusionEnable &&
+      !Attrs.VectorizeAlwaysEnable &&
 #endif // INTEL_CUSTOMIZATION
       !StartLoc && !EndLoc)
     return nullptr;
@@ -125,6 +126,11 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
     Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.vectorize.ivdep_back")};
     Args.push_back(MDNode::get(Ctx, Vals));
   }
+  // Setting vector always
+  if (Attrs.VectorizeAlwaysEnable) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.ignore_profitability")};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Setting interleave.count
@@ -177,6 +183,7 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       LoopCoalesceCount(0), IICount(0), MaxConcurrencyCount(0),
       IVDepEnable(false), IVDepHLSEnable(false), IVDepHLSIntelEnable(false),
       IVDepCount(0), NoFusionEnable(false), IVDepLoop(false), IVDepBack(false),
+      VectorizeAlwaysEnable(false),
       VectorizeEnable(LoopAttributes::Unspecified),
 #endif // INTEL_CUSTOMIZATION
       UnrollEnable(LoopAttributes::Unspecified), VectorizeWidth(0),
@@ -197,6 +204,7 @@ void LoopAttributes::clear() {
   NoFusionEnable = false;
   IVDepLoop = false;
   IVDepBack = false;
+  VectorizeAlwaysEnable = false;
 #endif // INTEL_CUSTOMIZATION
   VectorizeWidth = 0;
   InterleaveCount = 0;
@@ -292,6 +300,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::LoopCoalesce:
       case LoopHintAttr::MaxConcurrency:
       case LoopHintAttr::NoFusion:
+      case LoopHintAttr::VectorizeAlways:
 #endif // INTEL_CUSTOMIZATION
         llvm_unreachable("Options cannot be disabled.");
         break;
@@ -340,6 +349,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::NoFusion:
         setNoFusionEnable();
         break;
+      case LoopHintAttr::VectorizeAlways:
+        setVectorizeAlwaysEnable();
+        break;
 #endif // INTEL_CUSTOMIZATION
       }
       break;
@@ -366,6 +378,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::LoopCoalesce:
       case LoopHintAttr::MaxConcurrency:
       case LoopHintAttr::NoFusion:
+      case LoopHintAttr::VectorizeAlways:
 #endif // INTEL_CUSTOMIZATION
         llvm_unreachable("Options cannot be used to assume mem safety.");
         break;
@@ -388,6 +401,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepLoop:
       case LoopHintAttr::IVDepBack:
       case LoopHintAttr::IVDepHLSIntel:
+      case LoopHintAttr::VectorizeAlways:
 #endif // INTEL_CUSTOMIZATION
       case LoopHintAttr::Vectorize:
       case LoopHintAttr::Interleave:
@@ -428,6 +442,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepLoop:
       case LoopHintAttr::IVDepBack:
       case LoopHintAttr::IVDepHLSIntel:
+      case LoopHintAttr::VectorizeAlways:
 #endif // INTEL_CUSTOMIZATION
       case LoopHintAttr::Unroll:
       case LoopHintAttr::Vectorize:
@@ -458,6 +473,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepLoop:
       case LoopHintAttr::IVDepBack:
       case LoopHintAttr::IVDepHLSIntel:
+      case LoopHintAttr::VectorizeAlways:
         llvm_unreachable("Options cannot be assigned a loopexpr value.");
         break;
       }
