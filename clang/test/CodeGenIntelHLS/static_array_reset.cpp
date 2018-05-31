@@ -1,5 +1,5 @@
 //RUN: %clang_cc1 -fhls -emit-llvm -o - %s | FileCheck %s
-//RUN: %clang_cc1 -fhls -debug-info-kind=limited -emit-llvm -o - %s
+//RUN: %clang_cc1 -fhls -debug-info-kind=limited -emit-llvm -o %t %s
 
 //CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{staticreset:2}
 //CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{staticreset:0}

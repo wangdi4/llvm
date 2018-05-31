@@ -45,7 +45,7 @@ struct LoopAttributes {
 
 #if INTEL_CUSTOMIZATION
   /// Value for llvm.loop.coalesce.enable metadata.
-  LVEnableState LoopCoalesceEnable;
+  bool LoopCoalesceEnable;
 
   /// Value for llvm.loop.coalesce.count metadata.
   unsigned LoopCoalesceCount;
@@ -56,14 +56,21 @@ struct LoopAttributes {
   /// Value for llvm.loop.max_concurrency.count metadata.
   unsigned MaxConcurrencyCount;
 
+  /// Value for llvm.loop.vectorize.ivdep_back metadata.
+  bool IVDepEnable;
+
   /// Value for llvm.loop.ivdep.enable metadata.
-  LVEnableState IVDepEnable;
+  bool IVDepHLSEnable;
+
+  /// Value for both  llvm.loop.vectorize.ivdep_back and
+  /// llvm.loop.ivdep.enable metadata.
+  bool IVDepHLSIntelEnable;
 
   /// Value for llvm.loop.ivdep.safelen metadata.
   unsigned IVDepCount;
 
   /// \brief Value for llvm.loop.nofusion.enable metadata.
-  LVEnableState NoFusionEnable;
+  bool NoFusionEnable;
 
   /// \brief Value for llvm.loop.vectorize.ivdep_loop metadata.
   bool IVDepLoop;
@@ -95,12 +102,9 @@ struct LoopAttributes {
 class LoopInfo {
 public:
   /// Construct a new LoopInfo for the loop with entry Header.
-#if INTEL_CUSTOMIZATION
-  LoopInfo(llvm::BasicBlock *Header,
-           clang::ASTContext &Ctx,
-           const LoopAttributes &Attrs,
-#endif // INTEL_CUSTOMIZATION
+  LoopInfo(llvm::BasicBlock *Header, const LoopAttributes &Attrs,
            const llvm::DebugLoc &StartLoc, const llvm::DebugLoc &EndLoc);
+
 #if INTEL_CUSTOMIZATION
   /// Construct a new LoopInfo with a given loop id metadata.
   LoopInfo(llvm::MDNode *LoopID, const LoopAttributes &Attrs);
@@ -136,11 +140,7 @@ public:
 
   /// Begin a new structured loop. The set of staged attributes will be
   /// applied to the loop and then cleared.
-#if INTEL_CUSTOMIZATION
-  void push(llvm::BasicBlock *Header,
-            clang::ASTContext &Ctx,
-            const llvm::DebugLoc &StartLoc,
-#endif // INTEL_CUSTOMIZATION
+  void push(llvm::BasicBlock *Header, const llvm::DebugLoc &StartLoc,
             const llvm::DebugLoc &EndLoc);
 
 #if INTEL_CUSTOMIZATION
@@ -178,7 +178,7 @@ public:
 #if INTEL_CUSTOMIZATION
   /// Set the next pushed loop 'coalesce.enable'
   void setLoopCoalesceEnable() {
-    StagedAttrs.LoopCoalesceEnable = LoopAttributes::Enable;
+    StagedAttrs.LoopCoalesceEnable = true;
   }
 
   /// Set the coalesce count for the next loop pushed.
@@ -192,15 +192,17 @@ public:
     StagedAttrs.MaxConcurrencyCount = C;
   }
 
-  /// Set the next pushed loop 'ivdep.enable'
-  void setIVDepEnable() { StagedAttrs.IVDepEnable = LoopAttributes::Enable; }
+  /// Set flag for three types of plain #pragma ivdep
+  void setIVDepEnable() { StagedAttrs.IVDepEnable = true; }
+  void setIVDepHLSEnable() { StagedAttrs.IVDepHLSEnable = true; }
+  void setIVDepHLSIntelEnable() { StagedAttrs.IVDepHLSIntelEnable = true; }
 
   /// Set the safelen count for the next loop pushed.
   void setIVDepCount(unsigned C) { StagedAttrs.IVDepCount = C; }
 
   /// \brief Set the next pushed loop 'nofusion.enable'
   void setNoFusionEnable() {
-    StagedAttrs.NoFusionEnable = LoopAttributes::Enable;
+    StagedAttrs.NoFusionEnable = true;
   }
 
   /// \brief Set the loop flag for ivdep.

@@ -2704,6 +2704,7 @@ def LoopHint : Attr {
 //if INTEL_CUSTOMIZATION
                            "unroll", "unroll_count", "distribute",
                            "ii", "ivdep", "ivdep-loop", "ivdep-back",
+                           "ivdep-hls", "ivdep-hls-intel",
                            "loop_coalesce", "max_concurrency",
                            "distribute_point", "nofusion", "novector"],
 //endif INTEL_CUSTOMIZATION
@@ -2711,6 +2712,7 @@ def LoopHint : Attr {
 //if INTEL_CUSTOMIZATION
                            "Unroll", "UnrollCount", "Distribute",
                            "II", "IVDep", "IVDepLoop", "IVDepBack",
+                           "IVDepHLS", "IVDepHLSIntel",
                            "LoopCoalesce", "MaxConcurrency",
                            "Distribute", "NoFusion", "Vectorize"]>,
 //endif INTEL_CUSTOMIZATION

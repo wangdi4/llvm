@@ -1,5 +1,5 @@
 //RUN: %clang_cc1 -fhls -emit-llvm -o - %s | FileCheck %s
-//RUN: %clang_cc1 -fhls -debug-info-kind=limited -emit-llvm -o - %s
+//RUN: %clang_cc1 -fhls -debug-info-kind=limited -emit-llvm -o %t %s
 
 void bar(int i);
 int ibar(int i);

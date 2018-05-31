@@ -1,5 +1,5 @@
 //RUN: %clang_cc1 -fhls -emit-llvm -triple x86_64-unknown-linux-gnu -o - %s | FileCheck %s
-//RUN: %clang_cc1 -fhls -debug-info-kind=limited -emit-llvm -triple x86_64-unknown-linux-gnu -o - %s
+//RUN: %clang_cc1 -fhls -debug-info-kind=limited -emit-llvm -triple x86_64-unknown-linux-gnu -o %t %s
 
 //CHECK: [[IMD:@.str[\.]*[0-9]*]] = {{.*}}{internal_max_block_ram_depth:64}
 //CHECK: [[IMD2:@.str[\.]*[0-9]*]] = {{.*}}{internal_max_block_ram_depth:512}

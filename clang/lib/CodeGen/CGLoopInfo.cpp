@@ -19,11 +19,7 @@
 using namespace clang::CodeGen;
 using namespace llvm;
 
-#if INTEL_CUSTOMIZATION
-static MDNode *createMetadata(LLVMContext &Ctx,
-                              clang::ASTContext &ASTCtx,
-                              const LoopAttributes &Attrs,
-#endif // INTEL_CUSTOMIZATION
+static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
                               const llvm::DebugLoc &StartLoc,
                               const llvm::DebugLoc &EndLoc) {
 
@@ -33,12 +29,12 @@ static MDNode *createMetadata(LLVMContext &Ctx,
       Attrs.UnrollEnable == LoopAttributes::Unspecified &&
       Attrs.DistributeEnable == LoopAttributes::Unspecified &&
 #if INTEL_CUSTOMIZATION
-      Attrs.LoopCoalesceEnable == LoopAttributes::Unspecified &&
+      !Attrs.LoopCoalesceEnable &&
       Attrs.LoopCoalesceCount == 0 && Attrs.IICount == 0 &&
       Attrs.MaxConcurrencyCount == 0 && Attrs.IVDepCount == 0 &&
-      Attrs.IVDepEnable == LoopAttributes::Unspecified &&
-      !Attrs.IVDepLoop && !Attrs.IVDepBack &&
-      Attrs.NoFusionEnable == LoopAttributes::Unspecified &&
+      !Attrs.IVDepEnable && !Attrs.IVDepHLSEnable &&
+      !Attrs.IVDepHLSIntelEnable && !Attrs.IVDepLoop && !Attrs.IVDepBack &&
+      !Attrs.NoFusionEnable &&
 #endif // INTEL_CUSTOMIZATION
       !StartLoc && !EndLoc)
     return nullptr;
@@ -96,7 +92,7 @@ static MDNode *createMetadata(LLVMContext &Ctx,
     Args.push_back(MDNode::get(Ctx, Vals));
   }
   // Setting loop_coalesce
-  if (Attrs.LoopCoalesceEnable != LoopAttributes::Unspecified) {
+  if (Attrs.LoopCoalesceEnable) {
     Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.coalesce.enable")};
     Args.push_back(MDNode::get(Ctx, Vals));
   }
@@ -108,20 +104,16 @@ static MDNode *createMetadata(LLVMContext &Ctx,
     Args.push_back(MDNode::get(Ctx, Vals));
   }
   // Setting ivdep
-  if (Attrs.IVDepEnable != LoopAttributes::Unspecified) {
-    if (ASTCtx.getLangOpts().HLS ||
-        (ASTCtx.getLangOpts().OpenCL &&
-         ASTCtx.getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
-      Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.ivdep.enable")};
-      Args.push_back(MDNode::get(Ctx, Vals));
-    }
-    if (ASTCtx.getLangOpts().IntelCompat) {
-      Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.vectorize.ivdep_back")};
-      Args.push_back(MDNode::get(Ctx, Vals));
-    }
+  if (Attrs.IVDepHLSEnable || Attrs.IVDepHLSIntelEnable) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.ivdep.enable")};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+  if (Attrs.IVDepEnable ||  Attrs.IVDepHLSIntelEnable) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.vectorize.ivdep_back")};
+    Args.push_back(MDNode::get(Ctx, Vals));
   }
   // Setting nofusion
-  if (Attrs.NoFusionEnable != LoopAttributes::Unspecified) {
+  if (Attrs.NoFusionEnable) {
     Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.nofusion.enable")};
     Args.push_back(MDNode::get(Ctx, Vals));
   }
@@ -181,11 +173,10 @@ static MDNode *createMetadata(LLVMContext &Ctx,
 
 LoopAttributes::LoopAttributes(bool IsParallel)
 #if INTEL_CUSTOMIZATION
-    : IsParallel(IsParallel), LoopCoalesceEnable(LoopAttributes::Unspecified),
+    : IsParallel(IsParallel), LoopCoalesceEnable(false),
       LoopCoalesceCount(0), IICount(0), MaxConcurrencyCount(0),
-      IVDepEnable(LoopAttributes::Unspecified), IVDepCount(0),
-      NoFusionEnable(LoopAttributes::Unspecified),
-      IVDepLoop(false), IVDepBack(false),
+      IVDepEnable(false), IVDepHLSEnable(false), IVDepHLSIntelEnable(false),
+      IVDepCount(0), NoFusionEnable(false), IVDepLoop(false), IVDepBack(false),
       VectorizeEnable(LoopAttributes::Unspecified),
 #endif // INTEL_CUSTOMIZATION
       UnrollEnable(LoopAttributes::Unspecified), VectorizeWidth(0),
@@ -195,13 +186,15 @@ LoopAttributes::LoopAttributes(bool IsParallel)
 void LoopAttributes::clear() {
   IsParallel = false;
 #if INTEL_CUSTOMIZATION
-  LoopCoalesceEnable = LoopAttributes::Unspecified;
+  LoopCoalesceEnable = false;
   LoopCoalesceCount = 0;
   IICount = 0;
   MaxConcurrencyCount = 0;
-  IVDepEnable = LoopAttributes::Unspecified;
+  IVDepEnable = false;
+  IVDepHLSEnable = false;
+  IVDepHLSIntelEnable = false;
   IVDepCount = 0;
-  NoFusionEnable = LoopAttributes::Unspecified;
+  NoFusionEnable = false;
   IVDepLoop = false;
   IVDepBack = false;
 #endif // INTEL_CUSTOMIZATION
@@ -212,30 +205,16 @@ void LoopAttributes::clear() {
   UnrollEnable = LoopAttributes::Unspecified;
   DistributeEnable = LoopAttributes::Unspecified;
 }
-#if INTEL_CUSTOMIZATION
-LoopInfo::LoopInfo(BasicBlock *Header,
-                   clang::ASTContext &Ctx,
-                   const LoopAttributes &Attrs,
-#endif  // INTEL_CUSTOMIZATION
+
+LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
                    const llvm::DebugLoc &StartLoc, const llvm::DebugLoc &EndLoc)
     : LoopID(nullptr), Header(Header), Attrs(Attrs) {
-#if INTEL_CUSTOMIZATION
-  LoopID = createMetadata(Header->getContext(), Ctx, Attrs, StartLoc, EndLoc);
-#endif  // INTEL_CUSTOMIZATION
+  LoopID = createMetadata(Header->getContext(), Attrs, StartLoc, EndLoc);
 }
-#if INTEL_CUSTOMIZATION
-LoopInfo::LoopInfo(llvm::MDNode *LoopID, const LoopAttributes &Attrs)
-  : LoopID(LoopID), Header(0), Attrs(Attrs) { }
-#endif  // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
-void LoopInfoStack::push(BasicBlock *Header,
-                         clang::ASTContext &Ctx,
-                         const llvm::DebugLoc &StartLoc,
-#endif  // INTEL_CUSTOMIZATION
+
+void LoopInfoStack::push(BasicBlock *Header, const llvm::DebugLoc &StartLoc,
                          const llvm::DebugLoc &EndLoc) {
-#if INTEL_CUSTOMIZATION
-  Active.push_back(LoopInfo(Header, Ctx, StagedAttrs, StartLoc, EndLoc));
-#endif  // INTEL_CUSTOMIZATION
+  Active.push_back(LoopInfo(Header, StagedAttrs, StartLoc, EndLoc));
   // Clear the attributes so nested loops do not inherit them.
   StagedAttrs.clear();
 }
@@ -308,6 +287,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
       case LoopHintAttr::IVDepBack:
+      case LoopHintAttr::IVDepHLS:
+      case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::LoopCoalesce:
       case LoopHintAttr::MaxConcurrency:
       case LoopHintAttr::NoFusion:
@@ -347,6 +328,12 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepBack:
         setIVDepBack();
         break;
+      case LoopHintAttr::IVDepHLS:
+        setIVDepHLSEnable();
+        break;
+      case LoopHintAttr::IVDepHLSIntel:
+        setIVDepHLSIntelEnable();
+        break;
       case LoopHintAttr::LoopCoalesce:
         setLoopCoalesceEnable();
         break;
@@ -374,6 +361,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
       case LoopHintAttr::IVDepBack:
+      case LoopHintAttr::IVDepHLS:
+      case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::LoopCoalesce:
       case LoopHintAttr::MaxConcurrency:
       case LoopHintAttr::NoFusion:
@@ -388,15 +377,17 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
         setUnrollState(LoopAttributes::Full);
         break;
 #if INTEL_CUSTOMIZATION
-      case LoopHintAttr::IVDep:
+      case LoopHintAttr::IVDepHLS:
         // Handled with IntelIVDepArrayHandler.
         break;
       case LoopHintAttr::II:
       case LoopHintAttr::LoopCoalesce:
       case LoopHintAttr::MaxConcurrency:
       case LoopHintAttr::NoFusion:
+      case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
       case LoopHintAttr::IVDepBack:
+      case LoopHintAttr::IVDepHLSIntel:
 #endif // INTEL_CUSTOMIZATION
       case LoopHintAttr::Vectorize:
       case LoopHintAttr::Interleave:
@@ -429,12 +420,14 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::MaxConcurrency:
         setMaxConcurrencyCount(ValueInt);
         break;
-      case LoopHintAttr::IVDep:
+      case LoopHintAttr::IVDepHLS:
         setIVDepCount(ValueInt);
         break;
       case LoopHintAttr::NoFusion:
+      case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
       case LoopHintAttr::IVDepBack:
+      case LoopHintAttr::IVDepHLSIntel:
 #endif // INTEL_CUSTOMIZATION
       case LoopHintAttr::Unroll:
       case LoopHintAttr::Vectorize:
@@ -447,7 +440,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
 #if INTEL_CUSTOMIZATION
     case LoopHintAttr::LoopExpr:
       switch (Option) {
-      case LoopHintAttr::IVDep:
+      case LoopHintAttr::IVDepHLS:
         // Handled with IntelIVDepArrayHandler.
         break;
       case LoopHintAttr::VectorizeWidth:
@@ -461,8 +454,10 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::Interleave:
       case LoopHintAttr::Distribute:
       case LoopHintAttr::NoFusion:
+      case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
       case LoopHintAttr::IVDepBack:
+      case LoopHintAttr::IVDepHLSIntel:
         llvm_unreachable("Options cannot be assigned a loopexpr value.");
         break;
       }
@@ -472,7 +467,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
   }
 
   /// Stage the attributes.
-  push(Header, Ctx, StartLoc, EndLoc); // INTEL
+  push(Header, StartLoc, EndLoc);
 }
 
 void LoopInfoStack::pop() {
@@ -501,10 +496,12 @@ void LoopInfoStack::InsertHelper(Instruction *I) const {
     I->setMetadata("llvm.mem.parallel_loop_access", L.getLoopID());
 }
 #if INTEL_CUSTOMIZATION
+LoopInfo::LoopInfo(llvm::MDNode *LoopID, const LoopAttributes &Attrs)
+  : LoopID(LoopID), Header(0), Attrs(Attrs) { }
+
 void LoopInfoStack::push(llvm::MDNode *LoopID, bool IsParallel) {
   assert(Active.empty() && "cannot have an active loop");
   Active.push_back(LoopInfo(LoopID, LoopAttributes(IsParallel)));
   StagedAttrs.clear();
 }
 #endif  // INTEL_CUSTOMIZATION
-

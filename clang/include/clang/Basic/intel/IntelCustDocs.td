@@ -362,6 +362,49 @@ A correct usage of this pragma:
   }];
 }
 
+def PragmaIVDepDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Owner = "mprice1,pmrao";
+  let Content = [{
+The ``ivdep`` pragma instructs the compiler to ignore assumed vector
+dependencies in a loop.
+
+The HLS form (enabled with -fhls) is:
+
+.. code-block:: c
+
+  #pragma ivdep [safelen(n)] [array(<arrayname>)]
+
+The Intel form (enabled with -fintel-compatibility) is:
+
+.. code-block:: c
+
+  #pragma ivdep [back|loop]
+
+The implementation uses the existing clang LoopHint attribute framework.  We
+are using five new Options and four States and produce both LoopHint metadata
+and intrinsic directives.  The table below shows how they relate.
+
+.. csv-table::
+  :header: Syntax, Option, State, Metadata, Directive
+  :widths: 24,13,13,25,25
+
+  #pragma #ivdep, IVDep, Enable, llvm.loop.vectorize.ivdep_back,
+  "", IVDepHLS, Enable, llvm.loop.ivdep.enable, ""
+  "", IVDepHLSIntel, Enable, llvm.loop.vectorize.ivdep_back llvm.loop.ivdep.enable, ""
+
+  #pragma ivdep back, IVDepBack, Enable, llvm.loop.vectorize.ivdep_back, ""
+  #pragma ivdep loop, IVDepLoop, Enable, llvm.loop.vectorize.ivdep_loop, ""
+
+  #pragma ivdep safelen(4), IVDepHLS, Numeric, llvm.loop.ivdep.safelen(4), ""
+
+  #pragma ivdep array(Arr), IVDepHLS, LoopExpr, "", "QUAL.PRAGMA.ARRAY(%Arr, i32 -1)"
+
+  #pragma ivdep safelen(4) array(Arr), IVDepHLS, Full, "", "QUAL.PRAGMA.ARRAY(%Arr, i32 4)"
+
+  }];
+}
+
 // Optimization
 
 def FakeLoadDocs : Documentation {

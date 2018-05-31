@@ -24,14 +24,14 @@ void foo()
 
   //CHECK: OMPSimdDirective
   //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDep Enable
+  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLSIntel Enable
   #pragma omp simd simdlen(16)
   #pragma ivdep
   for (int i=0;i<32;++i) {}
 
   //CHECK: OMPSimdDirective
   //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDep Enable
+  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLSIntel Enable
   #pragma ivdep
   #pragma omp simd simdlen(16)
   for (int i=0;i<32;++i) {}

@@ -193,21 +193,34 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
     Option = LoopHintAttr::MaxConcurrency;
     State = LoopHintAttr::Numeric;
   } else if (PragmaIVDep) {
-    Option = LoopHintAttr::IVDep;
-    if (ValueExpr && ArrayExpr)
+    if (ValueExpr && ArrayExpr) {
+      Option = LoopHintAttr::IVDepHLS;
       State = LoopHintAttr::Full;
-    else if (ValueExpr)
+    } else if (ValueExpr) {
+      Option = LoopHintAttr::IVDepHLS;
       State = LoopHintAttr::Numeric;
-    else if (ArrayExpr)
+    } else if (ArrayExpr) {
+      Option = LoopHintAttr::IVDepHLS;
       State = LoopHintAttr::LoopExpr;
-    else if (OptionLoc->Ident && OptionLoc->Ident->getName() == "loop") {
+    } else if (OptionLoc->Ident && OptionLoc->Ident->getName() == "loop") {
       Option = LoopHintAttr::IVDepLoop;
       State = LoopHintAttr::Enable;
     } else if (OptionLoc->Ident && OptionLoc->Ident->getName() == "back") {
       Option = LoopHintAttr::IVDepBack;
       State = LoopHintAttr::Enable;
-    } else
+    } else {
+      bool HLSCompat = S.getLangOpts().HLS ||
+                       (S.getLangOpts().OpenCL &&
+                        S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment());
+      bool IntelCompat = S.getLangOpts().IntelCompat;
+      if (HLSCompat && IntelCompat)
+        Option = LoopHintAttr::IVDepHLSIntel;
+      else if (HLSCompat)
+        Option = LoopHintAttr::IVDepHLS;
+      else
+        Option = LoopHintAttr::IVDep;
       State = LoopHintAttr::Enable;
+    }
   } else if (PragmaDistributePoint) {
     Option = LoopHintAttr::Distribute;
     State = LoopHintAttr::Enable;
@@ -346,6 +359,8 @@ CheckForIncompatibleAttributes(Sema &S,
       Category = II;
       break;
     case LoopHintAttr::IVDep:
+    case LoopHintAttr::IVDepHLS:
+    case LoopHintAttr::IVDepHLSIntel:
       Category = IVDep;
       break;
     case LoopHintAttr::IVDepLoop:
@@ -394,7 +409,10 @@ CheckForIncompatibleAttributes(Sema &S,
     //  If the attribute cannot conflict set PrevAttr to nullptr.
     //  If you want a diagnostic if both state and numeric are used set
     //    the Category to Unroll and the community code will take care of it.
-    if (Option == LoopHintAttr::IVDep) {
+    if (Option == LoopHintAttr::IVDep || Option == LoopHintAttr::IVDepLoop ||
+        Option == LoopHintAttr::IVDepBack ||
+        Option == LoopHintAttr::IVDepHLS ||
+        Option == LoopHintAttr::IVDepHLSIntel) {
       switch (LH->getState()) {
       case LoopHintAttr::Numeric:
         // safelen only - diagnose duplicates
@@ -420,8 +438,6 @@ CheckForIncompatibleAttributes(Sema &S,
     } else if (Option == LoopHintAttr::II ||
                Option == LoopHintAttr::LoopCoalesce ||
                Option == LoopHintAttr::MaxConcurrency ||
-               Option == LoopHintAttr::IVDepLoop ||
-               Option == LoopHintAttr::IVDepBack ||
                Option == LoopHintAttr::NoFusion) {
       switch (LH->getState()) {
       case LoopHintAttr::Numeric:

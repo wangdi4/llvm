@@ -88,7 +88,7 @@ struct IV_S {
 void ivdep1(IV_S* sp)
 {
   int i;
-  //CHECK: LoopHintAttr{{.*}}IVDep LoopExpr
+  //CHECK: LoopHintAttr{{.*}}IVDepHLS LoopExpr
   //CHECK-NEXT: NULL
   //CHECK-NEXT: MemberExpr{{.*}}arr1
   //CHECK: DeclRefExpr{{.*}}'sp' 'IV_S *'
@@ -97,7 +97,7 @@ void ivdep1(IV_S* sp)
 }
 
 //CHECK: FunctionDecl{{.*}}tivdep 'void (IV_S *)'
-//CHECK: LoopHintAttr{{.*}}IVDep LoopExpr
+//CHECK: LoopHintAttr{{.*}}IVDepHLS LoopExpr
 //CHECK-NEXT: NULL
 //CHECK-NEXT: MemberExpr{{.*}}arr1
 //CHECK: DeclRefExpr{{.*}}'tsp' 'IV_S *'
@@ -110,7 +110,7 @@ void tivdep(T* tsp)
 }
 
 //CHECK: FunctionDecl{{.*}}t2ivdep 'void (int)'
-//CHECK: LoopHintAttr{{.*}}IVDep LoopExpr
+//CHECK: LoopHintAttr{{.*}}IVDepHLS LoopExpr
 //CHECK-NEXT: NULL
 //CHECK-NEXT: MemberExpr{{.*}}arr1
 //CHECK: DeclRefExpr{{.*}}'lsp' 'IV_S *'
@@ -126,35 +126,35 @@ void foo_ivdep()
 {
   int myArray[40];
   //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDep Enable
+  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLS Enable
   #pragma ivdep
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDep Numeric
+  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLS Numeric
   //CHECK-NEXT: IntegerLiteral{{.*}}4
   #pragma ivdep safelen(4)
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDep LoopExpr
+  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLS LoopExpr
   //CHECK-NEXT: NULL
   //CHECK-NEXT: DeclRefExpr{{.*}}myArray
   #pragma ivdep array(myArray)
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDep Full
+  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLS Full
   //CHECK-NEXT: IntegerLiteral{{.*}}4
   //CHECK-NEXT: DeclRefExpr{{.*}}myArray
   #pragma ivdep safelen(4) array(myArray)
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDep LoopExpr
+  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLS LoopExpr
   //CHECK-NEXT: NULL
   //CHECK-NEXT: DeclRefExpr{{.*}}dArray
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDep Full
+  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLS Full
   //CHECK-NEXT: IntegerLiteral{{.*}}4
   //CHECK-NEXT: DeclRefExpr{{.*}}myArray
   double dArray[42];
