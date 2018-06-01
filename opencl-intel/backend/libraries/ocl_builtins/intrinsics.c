@@ -220,4 +220,13 @@ _mm512_mask_blend_ps(__mmask16 __U, __m512 __A, __m512 __W)
                 (__v16sf) __W,
                 (__v16sf) __A);
 }
+
+__m512i __attribute__ ((__always_inline__, __nodebug__))
+_mm512_maskz_mov_epi64 (__mmask8 __U, __m512i __A)
+{
+  return (__m512i) __builtin_ia32_selectq_512 ((__mmask8) __U,
+                 (__v8di) __A,
+                 (__v8di) _mm512_setzero_si512 ());
+}
+
 #endif
