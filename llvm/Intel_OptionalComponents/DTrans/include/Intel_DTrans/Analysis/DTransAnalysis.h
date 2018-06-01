@@ -125,7 +125,7 @@ public:
     void replaceCallInfoInstruction(dtrans::CallInfo *Info, Instruction *NewI);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void printCallInfo();
+  void printCallInfo(raw_ostream &OS);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:

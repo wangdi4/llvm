@@ -337,13 +337,17 @@ bool dtrans::FieldInfo::processNewSingleAllocFunction(llvm::Function *F) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void PointerTypeInfo::dump() {
+  print(dbgs());
+}
+
+void PointerTypeInfo::print(raw_ostream &OS) {
   if (!getAnalyzed()) {
-    outs() << "    Type: Not analyzed\n";
+    OS << "    Type: Not analyzed\n";
     return;
   }
 
   if (!getAliasesToAggregatePointer()) {
-    outs() << "    Type: Non-aggregate\n";
+    OS << "    Type: Non-aggregate\n";
     return;
   }
 
@@ -359,54 +363,70 @@ void PointerTypeInfo::dump() {
 
   std::sort(StrVec.begin(), StrVec.end());
   for (auto &S : StrVec)
-    outs() << S << "\n";
+    OS << S << "\n";
+}
+
+void CallInfo::dump() {
+  print(dbgs());
 }
 
 /// Dispatcher to invoke the appropriate dump method based on the specific type
 /// of call being tracked.
-void CallInfo::dump() {
+void CallInfo::print(raw_ostream &OS) {
   switch (getCallInfoKind()) {
   case CIK_Alloc:
-    cast<AllocCallInfo>(this)->dump();
+    cast<AllocCallInfo>(this)->print(OS);
     break;
   case CIK_Free:
-    cast<FreeCallInfo>(this)->dump();
+    cast<FreeCallInfo>(this)->print(OS);
     break;
   case CIK_Memfunc:
-    cast<MemfuncCallInfo>(this)->dump();
+    cast<MemfuncCallInfo>(this)->print(OS);
     break;
   }
 }
 
 void AllocCallInfo::dump() {
-  outs() << "AllocCallInfo:\n";
-  outs() << "  Kind: " << AllocKindName(AK) << "\n";
-  outs() << "  Aliased types:\n";
-  PTI.dump();
+  print(dbgs());
+}
+
+void AllocCallInfo::print(raw_ostream &OS) {
+  OS << "AllocCallInfo:\n";
+  OS << "  Kind: " << AllocKindName(AK) << "\n";
+  OS << "  Aliased types:\n";
+  PTI.print(OS);
 }
 
 void FreeCallInfo::dump() {
-  outs() << "FreeCallInfo:\n";
-  outs() << "  Kind: " << FreeKindName(FK) << "\n";
-  outs() << "  Aliased types:\n";
-  PTI.dump();
+  print(dbgs());
+}
+
+void FreeCallInfo::print(raw_ostream &OS) {
+  OS << "FreeCallInfo:\n";
+  OS << "  Kind: " << FreeKindName(FK) << "\n";
+  OS << "  Aliased types:\n";
+  PTI.print(OS);
 }
 
 void MemfuncCallInfo::dump() {
-  outs() << "MemfuncInfo:\n";
-  outs() << "    Kind: " << MemfuncKindName(MK) << "\n";
+  print(dbgs());
+}
+
+void MemfuncCallInfo::print(raw_ostream &OS) {
+  OS << "MemfuncInfo:\n";
+  OS << "    Kind: " << MemfuncKindName(MK) << "\n";
 
   unsigned int NumRegions = getNumRegions();
   for (unsigned int RN = 0; RN < NumRegions; ++RN) {
     bool IsComplete = getIsCompleteAggregate(RN);
-    outs() << "  Region " << RN << ":\n";
-    outs() << "    Complete: " << (IsComplete ? "true" : "false") << "\n";
+    OS << "  Region " << RN << ":\n";
+    OS << "    Complete: " << (IsComplete ? "true" : "false") << "\n";
     if (!IsComplete) {
-      outs() << "    FirstField: " << getFirstField(RN) << "\n";
-      outs() << "    LastField:  " << getLastField(RN) << "\n";
+      OS << "    FirstField: " << getFirstField(RN) << "\n";
+      OS << "    LastField:  " << getLastField(RN) << "\n";
     }
 
-    PTI.dump();
+    PTI.print(OS);
   }
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

@@ -36,6 +36,7 @@ class PointerType;
 class CallInst;
 class Value;
 class Constant;
+class raw_ostream;
 
 namespace dtrans {
 
@@ -424,6 +425,7 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump();
+  void print(raw_ostream &OS);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
@@ -471,6 +473,7 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump();
+  void print(raw_ostream &OS);
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 protected:
@@ -506,6 +509,7 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump();
+  void print(raw_ostream &OS);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
@@ -531,6 +535,7 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump();
+  void print(raw_ostream &OS);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
@@ -622,6 +627,7 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump();
+  void print(raw_ostream &OS);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:

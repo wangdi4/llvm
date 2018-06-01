@@ -4167,7 +4167,7 @@ void DTransAnalysisInfo::replaceCallInfoInstruction(dtrans::CallInfo *Info,
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Print the cached call info data, the type of call, and the function
 /// making the call. This function is just for generating traces for testing.
-void DTransAnalysisInfo::printCallInfo() {
+void DTransAnalysisInfo::printCallInfo(raw_ostream &OS) {
 
   std::vector<std::tuple<StringRef, dtrans::CallInfo::CallInfoKind,
                          const Instruction *, dtrans::CallInfo *>>
@@ -4183,10 +4183,10 @@ void DTransAnalysisInfo::printCallInfo() {
 
   std::sort(Entries.begin(), Entries.end());
   for (auto &Entry : Entries) {
-    outs() << "Function: " << std::get<0>(Entry) << "\n";
-    outs() << "Instruction: " << *std::get<2>(Entry) << "\n";
-    std::get<3>(Entry)->dump();
-    outs() << "\n";
+    OS << "Function: " << std::get<0>(Entry) << "\n";
+    OS << "Instruction: " << *std::get<2>(Entry) << "\n";
+    std::get<3>(Entry)->print(OS);
+    OS << "\n";
   }
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -4341,7 +4341,7 @@ bool DTransAnalysisInfo::analyzeModule(Module &M, TargetLibraryInfo &TLI) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (DTransPrintAnalyzedCalls)
-    printCallInfo();
+    printCallInfo(outs());
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   return false;
