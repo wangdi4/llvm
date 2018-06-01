@@ -2213,26 +2213,26 @@ void VPOParoptTransform::rewriteUsesOfOutInstructions(
     Value *ExitVal = I;
     if (ExitVal->use_empty())
       continue;
-    PHINode *PN = dyn_cast<PHINode>(ExitVal);
-    if (!PN)
+    Instruction *EI = dyn_cast<Instruction>(ExitVal);
+    if (!EI)
       continue;
-    FirstLoopExitBB = PN->getParent();
+    FirstLoopExitBB = EI->getParent();
     SSA.Initialize(ExitVal->getType(), ExitVal->getName());
 
     BasicBlock *OrigPreheader = nullptr;
     Value *OrigPreHeaderVal = nullptr;
 
     for (auto M : ValueToLiveinMap) {
-      if (ECs.findLeader(M.first) == ECs.findLeader(PN)) {
+      if (ECs.findLeader(M.first) == ECs.findLeader(EI)) {
         OrigPreheader = M.second.second;
         OrigPreHeaderVal = M.second.first;
         SSA.AddAvailableValue(M.second.second, M.second.first);
         break;
       }
     }
-    SSA.AddAvailableValue(PN->getParent(), PN);
-    assert(OrigPreheader && OrigPreHeaderVal &&
-           "rewriteUsesOfOutInstructions: live in value is missing\n");
+    SSA.AddAvailableValue(EI->getParent(), EI);
+    // OrigPreheader can be empty since the instrution EI may not have
+    // other incoming value.
     for (Value::use_iterator UI = ExitVal->use_begin(), UE = ExitVal->use_end();
          UI != UE;) {
       Use &U = *UI;
@@ -2245,7 +2245,7 @@ void VPOParoptTransform::rewriteUsesOfOutInstructions(
         if (UserBB == FirstLoopExitBB)
           continue;
 
-        if (UserBB == OrigPreheader) {
+        if (!OrigPreheader && UserBB == OrigPreheader) {
           U = OrigPreHeaderVal;
           continue;
         }
