@@ -111,6 +111,11 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   assert(NewF->hasOneUse() && "New function should have one use");
   User *U = NewF->user_back();
 
+  // Remove @llvm.dbg.declare, @llvm.dbg.value intrinsics from NewF
+  // to prevent verification failures. This is due due to the
+  // CodeExtractor not properly handling them at the moment.
+  VPOUtils::stripDebugInfoInstrinsics(*NewF);
+
   CallInst *NewCall = cast<CallInst>(U);
   NewCall->setCallingConv(CC);
 

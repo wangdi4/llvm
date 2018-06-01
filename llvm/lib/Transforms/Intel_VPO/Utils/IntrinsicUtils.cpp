@@ -214,3 +214,19 @@ CallInst *VPOUtils::createMaskedStoreCall(Value *VecPtr,
                                                 Mask);
   return NewCallInst;
 }
+
+// Removes '@llvm.dbg.declare', '@llvm.dbg.value' calls from the Function F.
+// This is a workaround for now till CodeExtractor learns to handle these.
+void VPOUtils::stripDebugInfoInstrinsics(Function &F)
+{
+  for (auto &BB : F) {
+    for (BasicBlock::iterator BI = BB.begin(), BE = BB.end(); BI != BE;) {
+      Instruction *Insn = &*BI++;
+      if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(Insn)) {
+        DVI->eraseFromParent();
+      } else if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(Insn)) {
+        DDI->eraseFromParent();
+      }
+    }
+  }
+}
