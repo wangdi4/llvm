@@ -188,8 +188,7 @@ static bool simplifyFunctionPtrCasts(Function &F) {
       continue; // nothing to do with globals
 
     auto *BlockLiteralAlloca = cast<AllocaInst>(BlockLiteralVal);
-    auto *BlockLiteralTy = BlockLiteralAlloca->getAllocatedType();
-    assert(!BlockLiteralTy->isFunctionTy() &&
+    assert(!BlockLiteralAlloca->getAllocatedType()->isFunctionTy() &&
            "Function type shouldn't be there");
 
     auto *NewBlockLiteral = CastInst::CreatePointerBitCastOrAddrSpaceCast(
