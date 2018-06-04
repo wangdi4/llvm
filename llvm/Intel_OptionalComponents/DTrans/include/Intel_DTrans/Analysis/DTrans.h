@@ -663,6 +663,11 @@ void getAllocSizeArgs(AllocKind Kind, CallInst *CI, Value *&AllocSizeVal,
 /// function.
 bool isFreeFn(Function *F, const TargetLibraryInfo &TLI);
 
+/// This helper function checks if \p Val is a constant integer equal to
+/// \p Size. Allows for \p Val to be nullptr, and will return false in
+/// this case.
+bool isValueEqualToSize(Value *Val, uint64_t Size);
+
 /// This helper function checks \p Val to see if it is either (a) a constant
 /// whose value is a multiple of \p Size, or (b) an integer multiplication
 /// operator where either operand is a constant multiple of \p Size.

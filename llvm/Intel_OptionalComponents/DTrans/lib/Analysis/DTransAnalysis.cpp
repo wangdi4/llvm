@@ -3065,20 +3065,6 @@ private:
     setBaseTypeInfoSafetyData(Ty, dtrans::BadAllocSizeArg);
   }
 
-  // This helper function checks if a value is a constant integer equal to
-  // 'Size'.
-  bool isValueEqualToSize(Value *Val, uint64_t Size) {
-    if (!Val)
-      return false;
-
-    if (auto *ConstVal = dyn_cast<ConstantInt>(Val)) {
-      uint64_t ConstSize = ConstVal->getLimitedValue();
-      return ConstSize == Size;
-    }
-
-    return false;
-  }
-
   // Check the destination of a call to memset for safety.
   //
   // A safe call is one where it can be resolved that the operand to the
@@ -3109,7 +3095,7 @@ private:
     Value *SetSize = I.getArgOperand(2);
 
     // A memset of 0 bytes will not affect the safety of any data structure.
-    if (isValueEqualToSize(SetSize, 0))
+    if (dtrans::isValueEqualToSize(SetSize, 0))
       return;
 
     if (!isValueOfInterest(DestArg))
@@ -3278,7 +3264,7 @@ private:
 
     // A memcpy/memmove of 0 bytes will not affect the safety of any data
     // structure.
-    if (isValueEqualToSize(SetSize, 0))
+    if (dtrans::isValueEqualToSize(SetSize, 0))
       return;
 
     bool DestOfInterest = isValueOfInterest(DestArg);

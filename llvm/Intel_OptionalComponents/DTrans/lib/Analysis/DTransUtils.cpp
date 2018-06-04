@@ -123,6 +123,20 @@ bool dtrans::isFreeFn(Function *F, const TargetLibraryInfo &TLI) {
   return (LF == LibFunc_free);
 }
 
+/// This helper function checks if \p Val is a constant integer equal to
+/// \p Size
+bool dtrans::isValueEqualToSize(Value *Val, uint64_t Size) {
+  if (!Val)
+    return false;
+
+  if (auto *ConstVal = dyn_cast<ConstantInt>(Val)) {
+    uint64_t ConstSize = ConstVal->getLimitedValue();
+    return ConstSize == Size;
+  }
+
+  return false;
+}
+
 // This helper function checks a value to see if it is either (a) a constant
 // whose value is a multiple of the specified size, or (b) an integer
 // multiplication operator where either operand is a constant multiple of the
