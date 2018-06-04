@@ -18,7 +18,7 @@ else(WIN32)
 endif(WIN32)
 
 #include dirs
-include_directories( ${OCL_SOURCE_DIR}/externals/gtest/include
+include_directories( ${OCL_SOURCE_DIR}/externals/gtest/googletest/include
   ${OCL_SOURCE_DIR}/cl_api
   ${CL_API_HEADERS}
   ${OCL_SOURCE_DIR}/tests/framework_test_type/
@@ -37,7 +37,7 @@ add_executable(
 #linking
 link_directories( ${TBB_LIB_DIR} ${CMAKE_INSTALL_PREFIX}/bin/ )
 
-target_link_libraries( ${TARGET_NAME} googletest cl_logger${OPENCL_BINARIES_POSTFIX} OpenCL )
+target_link_libraries( ${TARGET_NAME} gtest cl_logger${OPENCL_BINARIES_POSTFIX} OpenCL )
 
 if (NOT WIN32)
   target_link_libraries(${TARGET_NAME} ${PTHREAD_LIB})

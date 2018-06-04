@@ -3,7 +3,7 @@ set(TARGET_NAME test_metadataapi)
 include_directories(
   ${LLVM_INCLUDE_DIRS}
   ${BACKEND_ROOT_DIR}/metadata_api
-  ${OCL_SOURCE_DIR}/externals/gtest/include
+  ${OCL_SOURCE_DIR}/externals/gtest/googletest/include
 )
 
 set(TARGET_INCLUDE_FILES
@@ -22,7 +22,7 @@ add_executable(
 
 target_link_libraries(
   ${TARGET_NAME}
-  googletest
+  gtest
   metadataapi
   ${LLVM_MODULE_LIBS}
 )

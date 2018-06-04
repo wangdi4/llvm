@@ -11,7 +11,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/OpenCL
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/Volcano
-  ${OCL_SOURCE_DIR}/externals/gtest/include
+  ${OCL_SOURCE_DIR}/externals/gtest/googletest/include
 )
 
 add_executable(
@@ -26,7 +26,7 @@ target_link_libraries(
   reflection_module
   name_mangle
   metadataapi
-  googletest
+  gtest
   ${LLVM_MODULE_LIBS}
 )
 
