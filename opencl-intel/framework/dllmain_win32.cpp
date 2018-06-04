@@ -1,6 +1,10 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
-#include "stdafx.h"
 #include "framework_proxy.h"
+
+#if defined (_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 #pragma comment(lib, "cl_sys_utils.lib")
 #pragma comment(lib, "cl_logger" OPENCL_BINARIES_POSTFIX ".lib")

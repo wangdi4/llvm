@@ -6,10 +6,6 @@
 #include <stdio.h>
 #include <limits>
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
 /**************************************************************************************************
 * saturated_conversion_NaN_test
 * According to OpenCL Spec, in saturated mode, values that are outside

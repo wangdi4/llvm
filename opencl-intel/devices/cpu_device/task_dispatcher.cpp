@@ -25,7 +25,6 @@
 //  Intercats with the compiler backend
 ///////////////////////////////////////////////////////////
 
-#include "stdafx.h"
 #include "cpu_logger.h"
 #include "cpu_config.h"
 #include "task_executor.h"
@@ -45,6 +44,11 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <limits.h>
+
+#if defined (_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::TaskExecutor;

@@ -6,10 +6,6 @@
 #include "FrameworkTest.h"
 #include "mic_dev_limits.h"
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
 extern cl_device_type gDeviceType;
 
 // build program options that set APF level and dumped asm file name

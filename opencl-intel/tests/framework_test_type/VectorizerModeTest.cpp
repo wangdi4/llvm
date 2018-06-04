@@ -9,10 +9,6 @@
 #include "cl_types.h"
 #include "common_utils.h"
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
 //#define DEBUGGING_DEATH_TEST
 
 #define CL_CONFIG_CPU_VECTORIZER_MODE "CL_CONFIG_CPU_VECTORIZER_MODE"

@@ -2,9 +2,6 @@
 #include "cl_types.h"
 #include <stdio.h>
 #include "FrameworkTest.h"
-#ifdef _WIN32
-#include <windows.h>
-#endif
 
 #define BUFFERS_LENGTH 20000
 #define NUM_LOOPS   4

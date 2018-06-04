@@ -27,11 +27,15 @@
 
 #ifdef __THREAD_EXECUTOR__
 
-#include "stdafx.h"
 #include "thread_executor.h"
 #include "cl_shared_ptr.hpp"
 #include <process.h>
 #include <cassert>
+
+#if defined (_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 using namespace std;
 using namespace Intel::OpenCL::TaskExecutor;

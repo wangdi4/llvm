@@ -4,10 +4,6 @@
 #include "FrameworkTest.h"
 #include <memory>
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
 static const char* g_BINFILENAME = "jit.bin";
 
 extern cl_device_type gDeviceType;

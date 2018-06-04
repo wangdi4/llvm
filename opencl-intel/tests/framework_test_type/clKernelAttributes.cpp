@@ -2,9 +2,6 @@
 #include "cl_types.h"
 #include "FrameworkTest.h"
 #include <stdio.h>
-#ifdef _WIN32
-#include <windows.h>
-#endif
 
 extern cl_device_type gDeviceType;
 

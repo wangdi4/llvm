@@ -1,6 +1,6 @@
-#include "stdafx.h"
 #include "MemoryAllocator/MemoryObjectFactory.h"
 #include "MemoryAllocator/GenericMemObj.h"
+
 #if defined (_WIN32)
 #include "gl_sharing/gl_array_buffer.h"
 #include "gl_sharing/gl_texture_buffer.h"
@@ -18,6 +18,11 @@
 #include "GenericImageArray.h"
 #include "pipe.h"
 #include "cl_shared_ptr.hpp"
+
+#if defined (_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 using namespace Intel::OpenCL::Framework;
 

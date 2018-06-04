@@ -3,10 +3,6 @@
 #include <stdio.h>
 #include "FrameworkTest.h"
 #include <gtest/gtest.h>
-#ifdef _WIN32
-#include <windows.h>
-#endif
-#include <float.h>
 
 //
 // Testing note: This test case creates a dedicated process for each test. In order to test it in Visual Studio define the

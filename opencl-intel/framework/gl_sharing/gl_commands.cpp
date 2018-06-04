@@ -21,7 +21,6 @@
 #include <cassert>
 #include "gl_commands.h"
 #include "queue_event.h"
-#include <stdafx.h>
 
 using namespace Intel::OpenCL::Framework;
 

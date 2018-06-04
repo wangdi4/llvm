@@ -23,7 +23,6 @@
 ///////////////////////////////////////////////////////////
 
 
-#include "stdafx.h"
 #include "program_config.h"
 #include "cpu_config.h"
 

@@ -33,7 +33,6 @@ set (OCL_NEAT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../validations/NEAT)
 set (OCL_RECORDER_INCLUDE_FILES
   ocl_recorder.h
   ocl_source_recorder.h
-  stdafx.h
   ${VALIDATIONS_ROOT}/Common/md5.h
   )
 
@@ -41,7 +40,6 @@ set (OCL_RECORDER_SOURCE_FILES
   dllmain.cpp
   ocl_recorder.cpp
   ocl_source_recorder.cpp
-  stdafx.cpp
   ${VALIDATIONS_ROOT}/Common/md5.cpp
   )
 

@@ -2,9 +2,6 @@
 #include "cl_types.h"
 #include <stdio.h>
 #include "FrameworkTest.h"
-#ifdef _WIN32
-#include <windows.h>
-#endif
 
 /**************************************************************************************************
 * clGetKernelArgInfoTest

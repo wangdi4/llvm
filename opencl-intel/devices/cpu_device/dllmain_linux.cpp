@@ -22,8 +22,6 @@
 //  dllmain.cpp
 ///////////////////////////////////////////////////////////
 
-#include "stdafx.h"
-
 #include "cpu_device.h"
 #include "cl_sys_info.h"
 

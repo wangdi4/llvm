@@ -3,10 +3,6 @@
 #include <stdio.h>
 #include <math.h>
 #include "FrameworkTest.h"
-#ifdef _WIN32
-#include <windows.h>
-#endif
-#include <float.h>
 
 #define BUFFERS_LENGTH 20000
 //#define TASK_TEST
