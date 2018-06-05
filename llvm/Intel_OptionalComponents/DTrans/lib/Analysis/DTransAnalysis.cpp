@@ -24,7 +24,6 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
-#include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <algorithm>
@@ -2989,8 +2988,8 @@ private:
 
     // If either AllocSizeVal or AllocCountVal can be proven to be a multiple
     // of the element size, the size arguments are acceptable.
-    if (isValueMultipleOfSize(AllocSizeVal, ElementSize) ||
-        isValueMultipleOfSize(AllocCountVal, ElementSize))
+    if (dtrans::isValueMultipleOfSize(AllocSizeVal, ElementSize) ||
+        dtrans::isValueMultipleOfSize(AllocCountVal, ElementSize))
       return;
 
     // If the allocation is cast as a pointer to a fixed size array, and
@@ -3002,10 +3001,10 @@ private:
       uint64_t NumArrElements = PointeeTy->getArrayNumElements();
       uint64_t ArrElementSize =
           DL.getTypeAllocSize(PointeeTy->getArrayElementType());
-      if ((isValueMultipleOfSize(AllocSizeVal, ArrElementSize) &&
-           isValueMultipleOfSize(AllocCountVal, NumArrElements)) ||
-          (isValueMultipleOfSize(AllocCountVal, ArrElementSize) &&
-           isValueMultipleOfSize(AllocSizeVal, NumArrElements)))
+      if ((dtrans::isValueMultipleOfSize(AllocSizeVal, ArrElementSize) &&
+           dtrans::isValueMultipleOfSize(AllocCountVal, NumArrElements)) ||
+          (dtrans::isValueMultipleOfSize(AllocCountVal, ArrElementSize) &&
+           dtrans::isValueMultipleOfSize(AllocSizeVal, NumArrElements)))
         return;
     }
 
@@ -3013,35 +3012,6 @@ private:
     DEBUG(dbgs() << "dtrans-safety: Bad alloc size:\n"
                  << "  " << CI << "\n");
     setBaseTypeInfoSafetyData(Ty, dtrans::BadAllocSizeArg);
-  }
-
-  // This helper function checks a value to see if it is either (a) a constant
-  // whose value is a multiple of the specified size, or (b) an integer
-  // multiplication operator where either operand is a constant multiple of the
-  // specified size.
-  bool isValueMultipleOfSize(Value *Val, uint64_t Size) {
-    if (!Val)
-      return false;
-
-    // Is it a constant?
-    if (auto *ConstVal = dyn_cast<ConstantInt>(Val)) {
-      uint64_t ConstSize = ConstVal->getLimitedValue();
-      return ((ConstSize % Size) == 0);
-    }
-    // Is it a mul?
-    Value *LHS;
-    Value *RHS;
-    if (PatternMatch::match(Val,
-                            PatternMatch::m_Mul(PatternMatch::m_Value(LHS),
-                                                PatternMatch::m_Value(RHS)))) {
-      return (isValueMultipleOfSize(LHS, Size) ||
-              isValueMultipleOfSize(RHS, Size));
-    }
-    // Handle sext and zext
-    if (isa<SExtInst>(Val) || isa<ZExtInst>(Val))
-      return isValueMultipleOfSize(cast<Instruction>(Val)->getOperand(0), Size);
-    // Otherwise, it's not what we needed.
-    return false;
   }
 
   // This helper function checks if a value is a constant integer equal to
@@ -3192,7 +3162,7 @@ private:
 
     // Consider the case where the complete aggregate (or an array of
     // aggregates is being set).
-    if (isValueMultipleOfSize(SetSize, ElementSize)) {
+    if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
       // It is a safe use. Mark all the fields as being written.
       markAllFieldsWritten(ParentTI);
 
@@ -3450,7 +3420,7 @@ private:
 
     // Consider the case where the complete aggregate (or an array of
     // aggregates is being set.
-    if (isValueMultipleOfSize(SetSize, ElementSize)) {
+    if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
       // It is a safe use. Mark all the fields as being written.
       auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
       markAllFieldsWritten(ParentTI);
@@ -3897,7 +3867,7 @@ private:
           return true;
         if (BinOp->getOperand(0) != V)
           return true;
-        if (!isValueMultipleOfSize(BinOp->getOperand(1), Size))
+        if (!dtrans::isValueMultipleOfSize(BinOp->getOperand(1), Size))
           return true;
         continue;
       }

@@ -661,6 +661,11 @@ void getAllocSizeArgs(AllocKind Kind, CallInst *CI, Value *&AllocSizeVal,
 /// function.
 bool isFreeFn(Function *F, const TargetLibraryInfo &TLI);
 
+/// This helper function checks \p Val to see if it is either (a) a constant
+/// whose value is a multiple of \p Size, or (b) an integer multiplication
+/// operator where either operand is a constant multiple of \p Size.
+bool isValueMultipleOfSize(Value *Val, uint64_t Size);
+
 /// Examine the specified types to determine if a bitcast from \p SrcTy to
 /// \p DestTy could be used to access the first element of SrcTy. The
 /// \p AccessedTy argument if non-null returns the type (possibly a nested

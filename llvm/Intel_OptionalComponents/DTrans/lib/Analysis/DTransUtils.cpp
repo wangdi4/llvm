@@ -20,6 +20,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
@@ -120,6 +121,35 @@ bool dtrans::isFreeFn(Function *F, const TargetLibraryInfo &TLI) {
   if (!TLI.getLibFunc(*F, LF))
     return false;
   return (LF == LibFunc_free);
+}
+
+// This helper function checks a value to see if it is either (a) a constant
+// whose value is a multiple of the specified size, or (b) an integer
+// multiplication operator where either operand is a constant multiple of the
+// specified size.
+bool dtrans::isValueMultipleOfSize(Value *Val, uint64_t Size) {
+  if (!Val)
+    return false;
+
+  // Is it a constant?
+  if (auto *ConstVal = dyn_cast<ConstantInt>(Val)) {
+    uint64_t ConstSize = ConstVal->getLimitedValue();
+    return ((ConstSize % Size) == 0);
+  }
+  // Is it a mul?
+  Value *LHS;
+  Value *RHS;
+  if (PatternMatch::match(Val,
+                          PatternMatch::m_Mul(PatternMatch::m_Value(LHS),
+                                              PatternMatch::m_Value(RHS)))) {
+    return (isValueMultipleOfSize(LHS, Size) ||
+            isValueMultipleOfSize(RHS, Size));
+  }
+  // Handle sext and zext
+  if (isa<SExtInst>(Val) || isa<ZExtInst>(Val))
+    return isValueMultipleOfSize(cast<Instruction>(Val)->getOperand(0), Size);
+  // Otherwise, it's not what we needed.
+  return false;
 }
 
 // This function is called to determine if a bitcast to the specified

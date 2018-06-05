@@ -1,35 +1,35 @@
 ; This test verifies that Field-reordering transformation applied
-; correctly to malloc with non-constant size  related to %struct.test.
+; correctly to malloc/calloc with constant and non-constant sizes related
+; to %struct.test.
 
 ;  RUN: opt < %s -S -dtrans-reorderfields | FileCheck %s
 ;  RUN: opt < %s -S -passes=dtrans-reorderfields | FileCheck %s
 
 ; CHECK:   %0 = sdiv i64 %mul, 48
 ; CHECK:   %1 = mul i64 %0, 40
-; CHECK:  %call = tail call noalias i8* @malloc(i64 %1)
+; CHECK:   %call = tail call noalias i8* @malloc(i64 %1)
 
 ; CHECK-NOT: malloc(i64 %mul)
 
+; CHECK:   %call1 = tail call noalias i8* @malloc(i64 40)
+
+; CHECK:   %call2 = tail call noalias i8* @calloc(i64 10, i64 40)
+
+; CHECK:   %call3 = tail call noalias i8* @calloc(i64 40, i64 20)
+
+; CHECK:   %2 = sdiv i64 %mul, 48
+; CHECK:   %3 = mul i64 %2, 40
+; CHECK:   %call4 = tail call noalias i8* @calloc(i64 %3, i64 20)
+
+; CHECK:   %4 = sdiv i64 %mul, 48
+; CHECK:   %5 = mul i64 %4, 40
+; CHECK:   %call5 = tail call noalias i8* @calloc(i64 10, i64 %5)
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 @G =  global i32 20, align 4
 %struct.test = type { i32, i64, i32, i32, i16, i64, i64 }
-
-define void @foo(%struct.test* %tp) {
-entry:
-  %i = getelementptr inbounds %struct.test, %struct.test* %tp, i64 0, i32 0
-  %0 = load i32, i32* %i, align 8
-  %add = add nsw i32 %0, 20
-  %conv = sext i32 %add to i64
-  %c = getelementptr inbounds %struct.test, %struct.test* %tp, i64 0, i32 1
-  store i64 %conv, i64* %c, align 8
-  %add2 = add i32 %0, 40
-  %t = getelementptr inbounds %struct.test, %struct.test* %tp, i64 0, i32 2
-  store i32 %add2, i32* %t, align 8
-  ret void
-}
 
 define i32 @main() {
 entry:
@@ -38,11 +38,19 @@ entry:
   %mul = mul nsw i64 %conv, 48
   %call = tail call noalias i8* @malloc(i64 %mul)
   %j = bitcast i8* %call to %struct.test*
-  %i = bitcast i8* %call to i32*
-  store i32 10, i32* %i, align 8
-  tail call void @foo(%struct.test* %j)
+  %call1 = tail call noalias i8* @malloc(i64 48)
+  %k = bitcast i8* %call1 to %struct.test*
+  %call2 = tail call noalias i8* @calloc(i64 10, i64 48)
+  %l = bitcast i8* %call2 to %struct.test*
+  %call3 = tail call noalias i8* @calloc(i64 48, i64 20)
+  %m = bitcast i8* %call3 to %struct.test*
+  %call4 = tail call noalias i8* @calloc(i64 %mul, i64 20)
+  %n = bitcast i8* %call4 to %struct.test*
+  %call5 = tail call noalias i8* @calloc(i64 10, i64 %mul)
+  %o = bitcast i8* %call5 to %struct.test*
   ret i32 0
 }
 
 ; Function Attrs: nounwind
 declare noalias i8* @malloc(i64)
+declare noalias i8* @calloc(i64, i64)

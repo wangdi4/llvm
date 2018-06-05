@@ -221,11 +221,9 @@ bool ReorderFieldsImpl::replaceOldSizeWithNewSize(Value *Val, uint64_t OldSize,
                                                   uint32_t APos) {
   if (!Val)
     return false;
-  // TODO: Make isValueMultipleOfSize as DTransUtils function so that
-  // it can be used in Transformations. Enable this code once it is
-  // moved to DTransUtils.
-  // if (!isValueMultipleOfSize(Val, OldSize))
-  //  return false;
+  // Check if Val is multiple of OldSize.
+  if (!isValueMultipleOfSize(Val, OldSize))
+    return false;
   if (replaceOldSizeWithNewSizeForConst(Val, OldSize, NewSize, I, APos))
     return true;
   Value *OldSizeVal = ConstantInt::get(Val->getType(), OldSize);
