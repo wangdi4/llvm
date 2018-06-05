@@ -14,18 +14,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMVForConstUB.h"
 
 #include "llvm/ADT/Statistic.h"
-
 #include "llvm/IR/Function.h"
-
+#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 #define OPT_SWITCH "hir-mv-const-ub"
@@ -44,24 +44,16 @@ STATISTIC(LoopsMultiversioned,
 
 namespace {
 
-class HIRMVForConstUB : public HIRTransformPass {
-  DDRefUtils *DRU;
-  BlobUtils *BU;
+class HIRMVForConstUB {
+  HIRFramework &HIRF;
+  DDRefUtils &DRU;
+  BlobUtils &BU;
 
 public:
-  static char ID;
+  HIRMVForConstUB(HIRFramework &HIRF)
+      : HIRF(HIRF), DRU(HIRF.getDDRefUtils()), BU(HIRF.getBlobUtils()) {}
 
-  HIRMVForConstUB() : HIRTransformPass(ID) {
-    initializeHIRMVForConstUBPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.setPreservesAll();
-  }
+  bool run();
 
 private:
   bool analyzeAndTransformLoop(HLLoop *Loop);
@@ -87,15 +79,6 @@ private:
   };
 };
 } // namespace
-
-char HIRMVForConstUB::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRMVForConstUB, OPT_SWITCH, OPT_DESCR, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRMVForConstUB, OPT_SWITCH, OPT_DESCR, false, false)
-
-FunctionPass *llvm::createHIRMVForConstUBPass() {
-  return new HIRMVForConstUB();
-}
 
 static void propagateConstant(HLLoop *Loop, unsigned TempIndex,
                               int64_t Constant) {
@@ -159,8 +142,8 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
                                     int64_t Constant) {
   unsigned Level = Loop->getNestingLevel();
 
-  RegDDRef *LHS = DRU->createSelfBlobRef(TempIndex, 0);
-  RegDDRef *RHS = DRU->createConstDDRef(LHS->getDestType(), Constant);
+  RegDDRef *LHS = DRU.createSelfBlobRef(TempIndex, 0);
+  RegDDRef *RHS = DRU.createConstDDRef(LHS->getDestType(), Constant);
 
   HLIf *If = Loop->getHLNodeUtils().createHLIf(PredicateTy::ICMP_EQ, LHS, RHS);
 
@@ -195,7 +178,7 @@ bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
   int64_t ConstValue;
   unsigned BlobIndex = BlobRef->getBlobIndex();
 
-  if (BU->getTempBlobMostProbableConstValue(BlobIndex, ConstValue) &&
+  if (BU.getTempBlobMostProbableConstValue(BlobIndex, ConstValue) &&
       isProfitable(CE, ConstValue)) {
     transformLoop(Loop, BlobIndex, ConstValue);
     return true;
@@ -204,16 +187,13 @@ bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
   return false;
 }
 
-bool HIRMVForConstUB::runOnFunction(Function &F) {
-  if (DisablePass || skipFunction(F)) {
+bool HIRMVForConstUB::run() {
+  if (DisablePass) {
     return false;
   }
 
-  auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  BU = &HIRF.getBlobUtils();
-  DRU = &HIRF.getDDRefUtils();
-
-  DEBUG(dbgs() << "HIRRuntimeDD for function: " << F.getName() << "\n");
+  DEBUG(dbgs() << "HIRRuntimeDD for function: " << HIRF.getFunction().getName()
+               << "\n");
 
   // Multiversion for most probable constant UB.
   LoopVisitor V(*this);
@@ -222,4 +202,42 @@ bool HIRMVForConstUB::runOnFunction(Function &F) {
   return true;
 }
 
-void HIRMVForConstUB::releaseMemory() {}
+PreservedAnalyses HIRMVForConstUBPass::run(llvm::Function &F,
+                                           llvm::FunctionAnalysisManager &AM) {
+  HIRMVForConstUB(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+  return PreservedAnalyses::all();
+}
+
+class HIRMVForConstUBLegacyPass : public HIRTransformPass {
+public:
+  static char ID;
+
+  HIRMVForConstUBLegacyPass() : HIRTransformPass(ID) {
+    initializeHIRMVForConstUBLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesAll();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+  }
+
+  bool runOnFunction(Function &F) override {
+    if (skipFunction(F)) {
+      return false;
+    }
+
+    return HIRMVForConstUB(getAnalysis<HIRFrameworkWrapperPass>().getHIR())
+        .run();
+  }
+};
+
+char HIRMVForConstUBLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRMVForConstUBLegacyPass, OPT_SWITCH, OPT_DESCR, false,
+                      false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_END(HIRMVForConstUBLegacyPass, OPT_SWITCH, OPT_DESCR, false,
+                    false)
+
+FunctionPass *llvm::createHIRMVForConstUBPass() {
+  return new HIRMVForConstUBLegacyPass();
+}

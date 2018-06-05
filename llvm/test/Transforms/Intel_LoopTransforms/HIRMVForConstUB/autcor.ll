@@ -71,13 +71,14 @@
 ; <0>       END REGION
 
 ; RUN: opt -hir-ssa-deconstruction -hir-mv-const-ub -print-before=hir-mv-const-ub -print-after=hir-mv-const-ub -disable-output -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-mv-const-ub,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-details < %s 2>&1 | FileCheck %s
 
-; CHECK: IR Dump Before
+; CHECK: Function
 ; CHECK: <0> BEGIN REGION
 ; CHECK: DO i32 i2 = 0
 ; CHECK-SAME: %tmp30
 
-; CHECK: IR Dump After
+; CHECK: Function
 ; CHECK: <0> BEGIN REGION
 ; CHECK: if (%tmp30 == 8)
 ; CHECK-NEXT: LINEAR 
