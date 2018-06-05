@@ -225,7 +225,7 @@ public:
     /// \Brief Update loop scheduling kind based on ordered clause and chunk
     /// size information
     static WRNScheduleKind genScheduleKind(WRNScheduleKind Kind,
-                                           int IsOrdered, int Chunk);
+                                           bool IsOrdered, int Chunk);
 
     /// \Brief Query loop scheduling kind based on ordered clause and chunk
     /// size information
@@ -390,6 +390,59 @@ public:
     static CallInst* genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
                        StructType *IdentTy, Value *Tid,
                        Instruction *InsertPt, bool IsOrderedStart);
+
+    /// \name Utilities for handling do-across loops.
+    /// @{
+
+    ///  \brief This function generates and inserts calls to
+    ///  kmpc_doacross_wait/post for '#pragma omp ordered depend(source/sink)'.
+    ///
+    ///   %dep.vec = alloca i64, align 8
+    ///   %dv.val = load i32, i32* %<dep.vec.value>
+    ///   %conv = sext i32 %dv.val to i64
+    ///   store i64 %conv, i64* %dep.vec, align 8
+    ///   %tid = load i32, i32* %tidptr, align 4
+    ///   call void @__kmpc_doacross_wait/post(%{ i32, i32, i32, i32, i8* }*
+    ///   %loc, i32 %tid, i64* %dims)
+    ///
+    /// If \p DepVecValue is an alloca, a load is first done from it before
+    /// storing it to 'dims' for the runtime.
+    ///
+    /// A load from \p TidPtr is emitted to get 'tid' for the call.
+    ///
+    /// The call is inserted before \p InsertPt.
+    ///
+    static CallInst *
+    genDoacrossWaitOrPostCall(WRNOrderedNode *W, StructType *IdentTy,
+                              Value *TidPtr, Instruction *InsertPt,
+                              Value *DepVecValue, bool IsDoacrossPost);
+
+    /// \brief This function generates and inserts a call to
+    /// 'kmpc_doacross_init' for '#pragma omp for ordered(n)'
+    ///
+    ///   call void @__kmpc_doacross_init(%{ i32, i32, i32, i32, i8* }* %loc,
+    ///   i32 %tid, {i64, i64, i64}* %dims.vec)
+    ///
+    /// Here '%dims.vec' is a struct pf 3 I64s corresponding to \p LBound, \p
+    /// UBound and \p Stride respectively.
+    /// The call, along with the initialization of %dims.vec, is inserted before
+    /// \p InsertPt.
+    static CallInst *genKmpcDoacrossInit(WRegionNode *W, StructType *IdentTy,
+                                         Value *Tid, Instruction *InsertPt,
+                                         Value *LBound, Value *UBound,
+                                         Value *Stride);
+
+    /// \brief This function generates and inserts a call to kmpc_doacross_fini,
+    /// for '#pragma omp for ordered(n)'
+    ///
+    ///   call void @__kmpc_doacross_fini({ i32, i32, i32, i32, i8* }*
+    ///   @.kmpc_loc, i32 %my.tid)
+    ///
+    ///   The call is inserted \b after \p InsertPt.
+    static CallInst *genKmpcDoacrossFini(WRegionNode *W, StructType *IdentTy,
+                                         Value *Tid, Instruction *InsertPt);
+
+    /// @}
 
     /// \Brief This function inserts a __kmpc_flush call at InsertPt:
     ///

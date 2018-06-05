@@ -3,6 +3,7 @@
 ; is a copy of %b.
 ;
 ; RUN: opt < %s -anders-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; FIXME: CMPLRS-49922 : opt < %s -convert-to-subscript -S | opt -anders-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 
 ; CHECK-NOT:  NoAlias:      i32* %arrayidx3, i32* %b
 

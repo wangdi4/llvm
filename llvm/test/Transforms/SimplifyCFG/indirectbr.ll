@@ -1,4 +1,6 @@
 ; RUN: opt -S -simplifycfg < %s | FileCheck %s
+; INTEL
+; RUN: opt < %s -S -convert-to-subscript | opt -S -simplifycfg | FileCheck %s
 
 ; SimplifyCFG should eliminate redundant indirectbr edges.
 

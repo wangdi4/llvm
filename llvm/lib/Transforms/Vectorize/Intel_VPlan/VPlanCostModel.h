@@ -27,26 +27,24 @@ class Value;
 class raw_ostream;
 
 namespace vpo {
-class IntelVPlan;
+class VPlan;
 class VPBasicBlock;
 class VPBlockBase;
 class VPInstruction;
 
 class VPlanCostModel {
 public:
-  VPlanCostModel(const IntelVPlan *Plan, unsigned VF,
+  VPlanCostModel(const VPlan *Plan, const unsigned VF,
                  const TargetTransformInfo *TTI)
       : Plan(Plan), VF(VF), TTI(TTI) {}
-
   virtual unsigned getCost(const VPInstruction *VPInst) const;
   virtual unsigned getCost(const VPBasicBlock *VPBB) const;
   virtual unsigned getCost() const;
   void print(raw_ostream &OS) const;
-
   virtual ~VPlanCostModel() {}
 
 protected:
-  const IntelVPlan *Plan;
+  const VPlan *Plan;
   unsigned VF;
   const TargetTransformInfo *TTI;
 

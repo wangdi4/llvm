@@ -14,7 +14,7 @@
 #include "pdbInterface.h"
 #include "llvm/Config/llvm-config.h"
 
-#ifdef LLVM_ON_WIN32
+#ifdef _WIN32
 
 #include "pdb.h"
 #include <windows.h>
@@ -740,7 +740,7 @@ size_t  pdb_get_age(unsigned char *buf, size_t maxlen)
     return sizeof(age);
 }
 
-#else // LLVM_ON_WIN32
+#else // _WIN32
 
 dgi_bool pdb_open(const char *name) { return 0; }
 
@@ -760,4 +760,4 @@ size_t pdb_get_age(unsigned char *buf, size_t maxlen) {  return 0; }
 
 void pdb_set_default_dll_name(const char * dll_name) {}
 
-#endif // LLVM_ON_WIN32
+#endif // _WIN32

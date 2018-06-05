@@ -28,9 +28,10 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -48,6 +49,11 @@
 using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt;
+
+namespace llvm {
+class DemandedBits;
+class OptimizationRemarkEmitter;
+} // namespace llvm
 
 // static cl::opt<bool>
 //    DisableVPODirectiveCleanup("disable-vpo-directive-cleanup",
@@ -132,7 +138,12 @@ protected:
   // TODO: Move isSupported to Legality class.
   virtual bool isSupported(LoopType *Lp) = 0;
   virtual void collectAllLoops(SmallVectorImpl<LoopType *> &Loops) = 0;
-  virtual bool isVPlanCandidate(LoopType *Lp) = 0;
+
+  // Return true if the given loop is a candidate for VPlan vectorization.
+  // Currently this function is used in the LLVM IR path to generate VPlan
+  // candidates using LoopVectorizationLegality for stress testing the LLVM IR
+  // VPlan implementation.
+  virtual bool isVPlanCandidate(Function &Fn, LoopType *Lp) = 0;
 };
 
 class VPlanDriver : public VPlanDriverBase<Loop> {
@@ -142,12 +153,16 @@ private:
   ScalarEvolution *SE;
   DominatorTree *DT;
   AssumptionCache *AC;
+  AliasAnalysis *AA;
+  DemandedBits *DB;
+  LoopAccessLegacyAnalysis *LAA;
+  OptimizationRemarkEmitter *ORE;
 
   bool processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp = 0) override;
 
   bool isSupported(Loop *Lp) override;
   void collectAllLoops(SmallVectorImpl<Loop *> &Loops) override;
-  bool isVPlanCandidate(Loop *Lp) override;
+  bool isVPlanCandidate(Function &Fn, Loop *Lp) override;
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -185,8 +200,11 @@ private:
     HIRF->getHLNodeUtils().gatherAllLoops(Loops);
   };
 
-  // TODO
-  bool isVPlanCandidate(HLLoop *Lp) override { return false; };
+  bool isVPlanCandidate(Function &Fn, HLLoop *Lp) override {
+    // This function is only used in the LLVM-IR path to generate VPlan
+    // candidates.
+    return false;
+  };
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -197,14 +215,14 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// \brief Overrides FunctionPass's printer pass to return one which prints
   /// HIR instead of LLVM IR.
   FunctionPass *createPrinterPass(raw_ostream &OS,
                                   const std::string &Banner) const override {
     return createHIRPrinterPass(OS, Banner);
   }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   bool runOnFunction(Function &Fn) override;
 };
@@ -219,7 +237,7 @@ void printCostModelAnalysisIfRequested(LoopVectorizationPlannerBase &LVP,
       errs() << "VPlan for VF = " << VFRequested << " was not constructed\n";
       continue;
     }
-    IntelVPlan *Plan = LVP.getVPlanForVF(VFRequested);
+    VPlan *Plan = LVP.getVPlanForVF(VFRequested);
     CostModelTy CM(Plan, VFRequested, TTI);
 
     // If different stages in VPlanDriver were proper passes under pass manager
@@ -391,7 +409,7 @@ bool VPlanDriverBase<LoopType>::runCGStressTestMode(Function &Fn) {
 
   int ModifiedFunc = false;
   for (LoopType *Lp : Worklist) {
-    if (CandLoopsVectorized < VPlanVectCand && isVPlanCandidate(Lp)) {
+    if (CandLoopsVectorized < VPlanVectCand && isVPlanCandidate(Fn, Lp)) {
       ModifiedFunc |= processLoop(Lp, Fn);
       CandLoopsVectorized++;
     }
@@ -406,6 +424,12 @@ INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
+
+INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(DemandedBitsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopAccessLegacyAnalysis)
+INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
+
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(VPlanDriver, "VPlanDriver", "VPlan Vectorization Driver",
@@ -426,6 +450,11 @@ void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<AssumptionCacheTracker>();
+
+  AU.addRequired<AAResultsWrapperPass>();
+  AU.addRequired<DemandedBitsWrapperPass>();
+  AU.addRequired<LoopAccessLegacyAnalysis>();
+  AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
 }
 
 bool VPlanDriver::runOnFunction(Function &Fn) {
@@ -441,6 +470,11 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   // for debug/stress testing.
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(Fn);
+
+  AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
+  DB = &getAnalysis<DemandedBitsWrapperPass>().getDemandedBits();
+  ORE = &getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
+  LAA = &getAnalysis<LoopAccessLegacyAnalysis>();
 
   bool ModifiedFunc =
       VPlanDriverBase::processFunction(Fn, WRegionCollection::LLVMIR);
@@ -540,6 +574,14 @@ static bool isSupportedRec(Loop *Lp) {
 // Return true if this loop is supported in VPlan
 bool VPlanDriver::isSupported(Loop *Lp) {
 
+  // When running directly from opt there is no guarantee that the loop is in
+  // LCSSA form because we no longer apply this transformation from within
+  // VPlanDriver. The reasoning behind this is due to the idea that we want to
+  // perform all the enabling transformations before VPlanDriver so that the
+  // only modifications to the underlying LLVM IR are done as a result of
+  // vectorization.
+  assert(Lp->isRecursivelyLCSSAForm(*DT, *LI) && "Loop is not in LCSSA form!");
+
   // Check for loop specific constraints
   if (!isSupportedRec(Lp)) {
     DEBUG(dbgs() << "VD: loop nest "
@@ -579,24 +621,6 @@ void VPlanDriver::collectAllLoops(SmallVectorImpl<Loop *> &Loops) {
 
   for (Loop *Lp : *LI)
     collectSubLoops(Lp);
-}
-
-bool VPlanDriver::isVPlanCandidate(Loop *Lp) {
-  MDNode *LoopID = Lp->getLoopID();
-
-  if (LoopID) {
-    for (unsigned i = 1, ie = LoopID->getNumOperands(); i < ie; ++i) {
-      MDNode *MD = dyn_cast<MDNode>(LoopID->getOperand(i));
-      if (MD) {
-        const MDString *S = dyn_cast<MDString>(MD->getOperand(0));
-        if (S && S->getString().startswith("vplan.vect.candidate")) {
-          return true;
-        }
-      }
-    }
-  }
-
-  return false;
 }
 
 INITIALIZE_PASS_BEGIN(VPlanDriverHIR, "VPlanDriverHIR",
@@ -788,3 +812,35 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
 //
 //  return true;
 //}
+
+// IMPORTANT -- keep this function at the end of the file until VPO and
+// LoopVectorization legality can be merged.
+#undef LoopVectorizationLegality
+#include "llvm/Transforms/Vectorize/LoopVectorizationLegality.h"
+bool VPlanDriver::isVPlanCandidate(Function &Fn, Loop *Lp) {
+  // Only consider inner loops
+  if (!Lp->empty())
+    return false;
+
+  PredicatedScalarEvolution PSE(*SE, *Lp);
+  LoopVectorizationRequirements Requirements(*ORE);
+  LoopVectorizeHints Hints(Lp, true, *ORE);
+  std::function<const LoopAccessInfo &(Loop &)> GetLAA =
+      [&](Loop &L) -> const LoopAccessInfo & { return LAA->getInfo(&L); };
+  LoopVectorizationLegality LVL(Lp, PSE, DT, TLI, AA, &Fn, &GetLAA, LI, ORE,
+                                &Requirements, &Hints, DB, AC);
+
+  if (!LVL.canVectorize(false /* EnableVPlanNativePath */))
+    return false;
+
+  // No induction - bail out for now
+  if (!LVL.getPrimaryInduction())
+    return false;
+
+  // Bail out if any runtime checks are needed
+  auto LAI = &GetLAA(*Lp);
+  if (LAI->getNumRuntimePointerChecks())
+    return false;
+
+  return true;
+}

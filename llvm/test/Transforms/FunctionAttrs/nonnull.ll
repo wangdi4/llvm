@@ -1,5 +1,8 @@
 ; RUN: opt -S -functionattrs -enable-nonnull-arg-prop %s | FileCheck %s
 ; RUN: opt -S -passes=function-attrs -enable-nonnull-arg-prop %s | FileCheck %s
+; INTEL
+; RUN: opt -S -convert-to-subscript %s | opt -S -functionattrs -enable-nonnull-arg-prop | FileCheck %s
+; RUN: opt -S -passes=convert-to-subscript %s | opt -S -passes=function-attrs -enable-nonnull-arg-prop | FileCheck %s
 
 declare nonnull i8* @ret_nonnull()
 

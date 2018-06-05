@@ -4,6 +4,7 @@
 ; the compilation of 1st routine in a module file and AndersensAAResults are
 ; used in test routine, which is 3rd routine in this module.
 ; RUN: opt < %s -S -anders-aa -licm -disable-output  -stats 2>&1 | grep "1 licm"
+; RUN: opt < %s -convert-to-subscript -S | opt -S -anders-aa -licm -disable-output  -stats 2>&1 | grep "1 licm"
 ; REQUIRES: asserts
 
 

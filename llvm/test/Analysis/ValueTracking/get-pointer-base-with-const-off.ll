@@ -1,4 +1,6 @@
 ; RUN: opt -gvn -S < %s | FileCheck %s
+; INTEL
+; opt -S -convert-to-subscript < %s | opt -S -gvn | FileCheck %s
 
 ; Make sure we don't crash when analyzing an addrspacecast in
 ; GetPointerBaseWithConstantOffset()

@@ -1206,8 +1206,8 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
 /// reductions is enabled.
 static HLInst *buildReductionTail(HLContainerTy &InstContainer,
                                   unsigned BOpcode, const RegDDRef *VecRef,
-                                  const RegDDRef *InitValRef, HLLoop *HLLp,
-                                  const RegDDRef *ResultRef) {
+                                  RegDDRef *InitValRefClone, HLLoop *HLLp,
+                                  RegDDRef *ResultRefClone) {
 
   // Take Vector Length from the WideRedInst type
   Type *VecTy = VecRef->getDestType();
@@ -1226,7 +1226,7 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
   const Loop *Lp = HLLp->getLLVMLoop();
   LLVMContext &Context = Lp->getHeader()->getContext();
   for (unsigned i = 0; i < Stages; i++) {
-    SmallVector<Constant*, 16> ShuffleMask;
+    SmallVector<Constant *, 16> ShuffleMask;
     unsigned MaskElemVal = MaskElems;
     for (unsigned j = 0; j < VF; j++) {
       if (j > MaskElems - 1) {
@@ -1259,8 +1259,8 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
 
   // Combine with initial value
   auto FinalInst = HLLp->getHLNodeUtils().createBinaryHLInst(
-      BOpcode, Extract->getLvalDDRef()->clone(), InitValRef->clone(), "final",
-      ResultRef->clone());
+      BOpcode, Extract->getLvalDDRef()->clone(), InitValRefClone, "final",
+      ResultRefClone);
   InstContainer.push_back(*FinalInst);
   return FinalInst;
 }
@@ -1500,22 +1500,25 @@ void VPOCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
 
   unsigned OpCode;
 
+  RegDDRef *FinalLvalRef = ScalRef->clone();
   if (isReductionRef(ScalRef, OpCode)) {
     HLContainerTy Tail;
 
-    buildReductionTail(Tail, OpCode, VecRef, ScalRef, MainLoop, ScalRef);
+    buildReductionTail(Tail, OpCode, VecRef, ScalRef->clone(), MainLoop,
+                       FinalLvalRef);
     HLNodeUtils::insertAfter(MainLoop, &Tail);
   } else {
     auto Extr = WideInst->getHLNodeUtils().createExtractElementInst(
-        VecRef->clone(), VF - 1, "Last", ScalRef->clone());
-    auto Lval = Extr->getLvalDDRef();
-
-    // Convert to selfblob if Lval has IV at Loop level since last value
-    // extract instruction is added after the Loop.
-    if (Lval->getSingleCanonExpr()->hasIV(MainLoop->getNestingLevel()))
-      Lval->makeSelfBlob();
+        VecRef->clone(), VF - 1, "Last", FinalLvalRef);
 
     HLNodeUtils::insertAfter(MainLoop, Extr);
+  }
+
+  // The original ScalarRef may have linear/IV information from the loop. Final
+  // value is computed after the loop, make the final lval ref a selfblob.
+  if (FinalLvalRef->isTerminalRef()) {
+    assert(FinalLvalRef->isLval() && "DDRef is expected to be an lval ref!");
+    FinalLvalRef->makeSelfBlob();
   }
 }
 } // end namespace llvm

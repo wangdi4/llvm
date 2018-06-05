@@ -13,7 +13,6 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_PREDICATOR_H
 
 #include "../Intel_VPlan.h"
-#include "VPlan.h"
 #include "llvm/IR/Dominators.h"
 
 namespace llvm {
@@ -27,9 +26,9 @@ private:
     EDGE_TYPE_MAX,
   };
 
-  IntelVPlan *Plan;
+  VPlan *Plan;
   VPLoopInfo *VPLI;
-  IntelVPlanUtils PlanUtils;
+  VPlanUtils PlanUtils;
 
   EdgeType getEdgeTypeBetween(VPBlockBase *FromBlock, VPBlockBase *ToBlock);
   int countSuccessorsNoBE(VPBlockBase *PredBlock, bool &HasBE);
@@ -52,7 +51,7 @@ private:
   void linearizeRegionRec(VPRegionBlock *Region);
 
 public:
-  VPlanPredicator(IntelVPlan *Plan)
+  VPlanPredicator(VPlan *Plan)
       : Plan(Plan), VPLI(Plan->getVPLoopInfo()), PlanUtils(Plan) {}
   
   /// The driver function for the predicator

@@ -76,7 +76,6 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Regex.h"
-#include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetOptions.h"
 #include <algorithm>
@@ -396,7 +395,7 @@ static llvm::Reloc::Model getRelocModel(ArgList &Args,
   return llvm::Reloc::PIC_;
 }
 
-/// \brief Create a new Regex instance out of the string value in \p RpassArg.
+/// Create a new Regex instance out of the string value in \p RpassArg.
 /// It returns a pointer to the newly generated Regex instance.
 static std::shared_ptr<llvm::Regex>
 GenerateOptimizationRemarkRegex(DiagnosticsEngine &Diags, ArgList &Args,
@@ -699,6 +698,9 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.Reciprocals = Args.getAllArgValues(OPT_mrecip_EQ);
   Opts.ReciprocalMath = Args.hasArg(OPT_freciprocal_math);
   Opts.NoTrappingMath = Args.hasArg(OPT_fno_trapping_math);
+  Opts.StrictFloatCastOverflow =
+      !Args.hasArg(OPT_fno_strict_float_cast_overflow);
+
   Opts.NoZeroInitializedInBSS = Args.hasArg(OPT_mno_zero_initialized_in_bss);
   Opts.NumRegisterParameters = getLastArgIntValue(Args, OPT_mregparm, 0, Diags);
   Opts.NoExecStack = Args.hasArg(OPT_mno_exec_stack);
@@ -1072,7 +1074,9 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   bool UsingProfile = UsingSampleProfile ||
       (Opts.getProfileUse() != CodeGenOptions::ProfileNone);
 
-  if (Opts.DiagnosticsWithHotness && !UsingProfile)
+  if (Opts.DiagnosticsWithHotness && !UsingProfile &&
+      // An IR file will contain PGO as metadata
+      IK.getLanguage() != InputKind::LLVM_IR)
     Diags.Report(diag::warn_drv_diagnostics_hotness_requires_pgo)
         << "-fdiagnostics-show-hotness";
 
@@ -1127,7 +1131,17 @@ static void ParseDependencyOutputArgs(DependencyOutputOptions &Opts,
   Opts.ShowHeaderIncludes = Args.hasArg(OPT_H);
   Opts.HeaderIncludeOutputFile = Args.getLastArgValue(OPT_header_include_file);
   Opts.AddMissingHeaderDeps = Args.hasArg(OPT_MG);
-  Opts.PrintShowIncludes = Args.hasArg(OPT_show_includes);
+  if (Args.hasArg(OPT_show_includes)) {
+    // Writing both /showIncludes and preprocessor output to stdout
+    // would produce interleaved output, so use stderr for /showIncludes.
+    // This behaves the same as cl.exe, when /E, /EP or /P are passed.
+    if (Args.hasArg(options::OPT_E) || Args.hasArg(options::OPT_P))
+      Opts.ShowIncludesDest = ShowIncludesDestination::Stderr;
+    else
+      Opts.ShowIncludesDest = ShowIncludesDestination::Stdout;
+  } else {
+    Opts.ShowIncludesDest = ShowIncludesDestination::None;
+  }
   Opts.DOTOutputFile = Args.getLastArgValue(OPT_dependency_dot);
   Opts.ModuleDependencyOutputDir =
       Args.getLastArgValue(OPT_module_dependency_dir);
@@ -1608,6 +1622,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
                 .Case("c", InputKind::C)
                 .Case("cl", InputKind::OpenCL)
                 .Case("cuda", InputKind::CUDA)
+                .Case("hip", InputKind::HIP)
                 .Case("c++", InputKind::CXX)
                 .Case("objective-c", InputKind::ObjC)
                 .Case("objective-c++", InputKind::ObjCXX)
@@ -1887,6 +1902,9 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
     case InputKind::RenderScript:
       LangStd = LangStandard::lang_c99;
       break;
+    case InputKind::HIP:
+      LangStd = LangStandard::lang_hip;
+      break;
     }
   }
 
@@ -1934,7 +1952,8 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
     }
   }
 
-  Opts.CUDA = IK.getLanguage() == InputKind::CUDA;
+  Opts.HIP = IK.getLanguage() == InputKind::HIP;
+  Opts.CUDA = IK.getLanguage() == InputKind::CUDA || Opts.HIP;
   if (Opts.CUDA)
     // Set default FP_CONTRACT to FAST.
     Opts.setDefaultFPContractMode(LangOptions::FPC_Fast);
@@ -2005,6 +2024,10 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
     return S.getLanguage() == InputKind::CUDA ||
            S.getLanguage() == InputKind::CXX;
 
+  case InputKind::HIP:
+    return S.getLanguage() == InputKind::CXX ||
+           S.getLanguage() == InputKind::HIP;
+
   case InputKind::Asm:
     // Accept (and ignore) all -std= values.
     // FIXME: The -std= value is not ignored; it affects the tokenization
@@ -2032,6 +2055,8 @@ static const StringRef GetInputKindName(InputKind IK) {
     return "CUDA";
   case InputKind::RenderScript:
     return "RenderScript";
+  case InputKind::HIP:
+    return "HIP";
 
   case InputKind::Asm:
     return "Asm";
@@ -2131,11 +2156,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   // this option was added for compatibility with OpenCL 1.0.
   if (Args.getLastArg(OPT_cl_strict_aliasing)
        && Opts.OpenCLVersion > 100) {
-    std::string VerSpec = llvm::to_string(Opts.OpenCLVersion / 100) +
-                          std::string(".") +
-                          llvm::to_string((Opts.OpenCLVersion % 100) / 10);
     Diags.Report(diag::warn_option_invalid_ocl_version)
-      << VerSpec << Args.getLastArg(OPT_cl_strict_aliasing)->getAsString(Args);
+        << Opts.getOpenCLVersionTuple().getAsString()
+        << Args.getLastArg(OPT_cl_strict_aliasing)->getAsString(Args);
   }
 
   // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
@@ -2348,6 +2371,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.ImplicitModules = !Args.hasArg(OPT_fno_implicit_modules);
   Opts.CharIsSigned = Opts.OpenCL || !Args.hasArg(OPT_fno_signed_char);
   Opts.WChar = Opts.CPlusPlus && !Args.hasArg(OPT_fno_wchar);
+  Opts.Char8 = Args.hasArg(OPT_fchar8__t);
   if (const Arg *A = Args.getLastArg(OPT_fwchar_type_EQ)) {
     Opts.WCharSize = llvm::StringSwitch<unsigned>(A->getValue())
                          .Case("char", 1)
@@ -2571,6 +2595,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   // Set the flag to prevent the implementation from emitting device exception
   // handling code for those requiring so.
+  Opts.OpenMPHostCXXExceptions = Opts.Exceptions && Opts.CXXExceptions;
   if (Opts.OpenMPIsDevice && T.isNVPTX()) {
     Opts.Exceptions = 0;
     Opts.CXXExceptions = 0;

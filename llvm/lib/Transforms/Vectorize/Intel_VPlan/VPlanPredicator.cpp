@@ -389,7 +389,7 @@ void VPlanPredicator::predicateRegionRec(VPRegionBlock *Region) {
 // that join multiple predicates in IPostDom block (e.g., BP5 = BP3 || BP4) by
 // just the predicate in IDom block (e.g., BP5 = BP2)
 static void optimizeImmediatePostdomBlocks(VPRegionBlock *Region,
-                                           IntelVPlanUtils &PlanUtils) {
+                                           VPlanUtils &PlanUtils) {
   Region->computeDT();
   Region->computePDT();
 
@@ -505,7 +505,7 @@ static void optimizeAllOnesPredicates(
 static void
 optimizeRegionPreOrder(VPRegionBlock *Region,
                        SmallPtrSetImpl<VPPredicateRecipeBase *> &AllOnesPreds,
-                       IntelVPlanUtils &PlanUtils) {
+                       VPlanUtils &PlanUtils) {
 
   // Pre-order 1. Propagate predicates to IPostDoms
   optimizeImmediatePostdomBlocks(Region, PlanUtils);
@@ -586,7 +586,7 @@ void VPlanPredicator::optimizeRegionRec(
 }
 
 // FIXME: Only for debugging. Can be removed.
-static void dumpVplanDot(IntelVPlan *Plan,
+static void dumpVplanDot(VPlan *Plan,
                          const char *dotFile = "/tmp/vplan.dot") {
   if (DumpVPlanDot) {
     std::error_code EC;
@@ -610,7 +610,7 @@ public:
 
   // These functions are defined below.
   bool insertEdge(VPBlockBase * From, VPBlockBase *To) {
-    if (IntelVPlanUtils::isBackEdge(From, To)) {
+    if (VPlanUtils::isBackEdge(From, To)) {
       errs() << "Saw backedge\n";
       return false;
     }

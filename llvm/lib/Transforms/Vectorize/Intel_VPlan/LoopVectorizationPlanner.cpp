@@ -59,7 +59,7 @@ static unsigned getForcedVF(const WRNVecLoopNode *WRLp) {
 // FIXME: This function is incorrect if peel, main and remainder loop will be
 // explicitly represented in VPlan. Also it's incorrect for multi level loop
 // vectorization.
-static uint64_t getTripCountForFirstLoopInDfs(const IntelVPlan *VPlan) {
+static uint64_t getTripCountForFirstLoopInDfs(const VPlan *VPlan) {
 
   std::function<const VPLoopRegion *(const VPBlockBase *)> FindLoop =
       [&](const VPBlockBase *VPBlock) -> const VPLoopRegion * {
@@ -110,7 +110,7 @@ unsigned LoopVectorizationPlannerBase::buildInitialVPlans() {
   unsigned i = 0;
   for (; StartRangeVF < EndRangeVF; ++i) {
     // TODO: revisit when we build multiple VPlans.
-    std::shared_ptr<IntelVPlan> Plan =
+    std::shared_ptr<VPlan> Plan =
         buildInitialVPlan(StartRangeVF, EndRangeVF);
 
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
@@ -145,7 +145,7 @@ unsigned LoopVectorizationPlannerBase::selectBestPlan() {
     return ForcedVF;
   }
 
-  IntelVPlan *ScalarPlan = getVPlanForVF(1);
+  VPlan *ScalarPlan = getVPlanForVF(1);
   assert(ScalarPlan && "There is no scalar VPlan!");
   // FIXME: Without peel and remainder vectorization, it's ok to get trip count
   // from the original loop. Has to be revisited after enabling of
@@ -171,7 +171,7 @@ unsigned LoopVectorizationPlannerBase::selectBestPlan() {
     if (TripCount < VF)
       continue; // FIXME: Consider masked low trip later.
 
-    IntelVPlan *Plan = getVPlanForVF(VF);
+    VPlan *Plan = getVPlanForVF(VF);
 
     // FIXME: The remainder loop should be an explicit part of VPlan and the
     // cost model should just do the right thing calulating the cost of the
@@ -208,11 +208,11 @@ void LoopVectorizationPlannerBase::predicate() {
   if (DisableVPlanPredicator)
     return;
 
-  DenseSet<IntelVPlan*> PredicatedVPlans;
+  DenseSet<VPlan*> PredicatedVPlans;
   for (auto It : VPlans) {
     if (It.first == 1)
       continue; // Ignore Scalar VPlan;
-    IntelVPlan *VPlan = It.second.get();
+    VPlan *VPlan = It.second.get();
     if (PredicatedVPlans.count(VPlan))
       continue; // Already predicated.
 
@@ -247,12 +247,12 @@ LoopVectorizationPlanner::getTypesWidthRangeInBits() const {
   return {MinWidth, MaxWidth};
 }
 
-std::shared_ptr<IntelVPlan>
+std::shared_ptr<VPlan>
 LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
                                             unsigned &EndRangeVF) {
   // Create new empty VPlan
-  std::shared_ptr<IntelVPlan> SharedPlan = std::make_shared<IntelVPlan>(VPLA);
-  IntelVPlan *Plan = SharedPlan.get();
+  std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(VPLA);
+  VPlan *Plan = SharedPlan.get();
 
   // Build hierarchical CFG
   VPlanHCFGBuilder HCFGBuilder(WRLp, TheLoop, Plan, LI, SE, Legal);

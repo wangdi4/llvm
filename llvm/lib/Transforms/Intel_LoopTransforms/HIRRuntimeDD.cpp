@@ -494,7 +494,7 @@ bool HIRRuntimeDD::isProfitable(const HLLoop *Loop) {
 
   const LoopStatistics &LS = HLS->getSelfLoopStatistics(Loop);
 
-  return (!LS.hasCalls() && !LS.hasSwitches() && !LS.hasIfs());
+  return (!LS.hasCalls() && !LS.hasSwitches());
 }
 
 void HIRRuntimeDD::processLoopnest(const HLLoop *OuterLoop,

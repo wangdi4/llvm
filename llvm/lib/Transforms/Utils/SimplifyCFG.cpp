@@ -67,9 +67,9 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
-#endif
+#endif //INTEL_COLLAB
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
 #include <cassert>
@@ -1311,11 +1311,11 @@ static bool HoistThenElseCodeToIf(BranchInst *BI,
     if (!TTI.isProfitableToHoist(I1) || !TTI.isProfitableToHoist(I2))
       return Changed;
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
     // Do not hoist llvm intrinsics that represent OpenMP directives.
     if (IntelIntrinsicUtils::isIntelDirective(I1))
       return Changed;
-#endif // INTEL_CUSTOMIZATION
+#endif //INTEL_COLLAB
 
     if (isa<DbgInfoIntrinsic>(I1) || isa<DbgInfoIntrinsic>(I2)) {
       assert (isa<DbgInfoIntrinsic>(I1) && isa<DbgInfoIntrinsic>(I2));
@@ -1851,7 +1851,7 @@ static bool SinkCommonCodeFromPredecessors(BasicBlock *BB) {
   return Changed;
 }
 
-/// \brief Determine if we can hoist sink a sole store instruction out of a
+/// Determine if we can hoist sink a sole store instruction out of a
 /// conditional block.
 ///
 /// We are looking for code like the following:
@@ -1891,12 +1891,9 @@ static Value *isSafeToSpeculateStore(Instruction *I, BasicBlock *BrBB,
 
   // Look for a store to the same pointer in BrBB.
   unsigned MaxNumInstToLookAt = 9;
-  for (Instruction &CurI : reverse(*BrBB)) {
+  for (Instruction &CurI : reverse(BrBB->instructionsWithoutDebug())) {
     if (!MaxNumInstToLookAt)
       break;
-    // Skip debug info.
-    if (isa<DbgInfoIntrinsic>(CurI))
-      continue;
     --MaxNumInstToLookAt;
 
     // Could be calling an instruction that affects memory like free().
@@ -1915,7 +1912,7 @@ static Value *isSafeToSpeculateStore(Instruction *I, BasicBlock *BrBB,
   return nullptr;
 }
 
-/// \brief Speculate a conditional basic block flattening the CFG.
+/// Speculate a conditional basic block flattening the CFG.
 ///
 /// Note that this is a very risky transform currently. Speculating
 /// instructions like this is most often not desirable. Instead, there is an MI
@@ -2146,26 +2143,22 @@ static bool SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
 
 /// Return true if we can thread a branch across this block.
 static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
-  BranchInst *BI = cast<BranchInst>(BB->getTerminator());
   unsigned Size = 0;
 
-  for (BasicBlock::iterator BBI = BB->begin(); &*BBI != BI; ++BBI) {
-    if (isa<DbgInfoIntrinsic>(BBI))
-      continue;
-
+  for (Instruction &I : BB->instructionsWithoutDebug()) {
     if (Size > 10)
       return false; // Don't clone large BB's.
 
-#if INTEL_CUSTOMIZATION
-    if (IntelIntrinsicUtils::isIntelDirective(&*BBI))
+#if INTEL_COLLAB
+    if (IntelIntrinsicUtils::isIntelDirective(&I))
       return false;
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
     ++Size;
 
     // We can only support instructions that do not define values that are
     // live outside of the current basic block.
-    for (User *U : BBI->users()) {
+    for (User *U : I.users()) {
       Instruction *UI = cast<Instruction>(U);
       if (UI->getParent() != BB || isa<PHINode>(UI))
         return false;
@@ -3035,14 +3028,13 @@ static bool mergeConditionalStoreToAddress(BasicBlock *PTB, BasicBlock *PFB,
     // instructions inside are all cheap (arithmetic/GEPs), it's worthwhile to
     // thread this store.
     unsigned N = 0;
-    for (auto &I : *BB) {
+    for (auto &I : BB->instructionsWithoutDebug()) {
       // Cheap instructions viable for folding.
       if (isa<BinaryOperator>(I) || isa<GetElementPtrInst>(I) ||
           isa<StoreInst>(I))
         ++N;
       // Free instructions.
-      else if (isa<TerminatorInst>(I) || isa<DbgInfoIntrinsic>(I) ||
-               IsaBitcastOfPointerType(I))
+      else if (isa<TerminatorInst>(I) || IsaBitcastOfPointerType(I))
         continue;
       else
         return false;
@@ -3347,11 +3339,9 @@ static bool SimplifyCondBranchToCondBranch(BranchInst *PBI, BranchInst *BI,
   // If this is a conditional branch in an empty block, and if any
   // predecessors are a conditional branch to one of our destinations,
   // fold the conditions into logical ops and one cond br.
-  BasicBlock::iterator BBI = BB->begin();
+
   // Ignore dbg intrinsics.
-  while (isa<DbgInfoIntrinsic>(BBI))
-    ++BBI;
-  if (&*BBI != BI)
+  if (&*BB->instructionsWithoutDebug().begin() != BI)
     return false;
 
   int PBIOp, BIOp;
@@ -4020,6 +4010,7 @@ static bool removeEmptyCleanup(CleanupReturnInst *RI) {
     switch (IntrinsicID) {
     case Intrinsic::dbg_declare:
     case Intrinsic::dbg_value:
+    case Intrinsic::dbg_label:
     case Intrinsic::lifetime_end:
       break;
     default:
@@ -4754,24 +4745,20 @@ GetCaseResults(SwitchInst *SI, ConstantInt *CaseVal, BasicBlock *CaseDest,
   // which we can constant-propagate the CaseVal, continue to its successor.
   SmallDenseMap<Value *, Constant *> ConstantPool;
   ConstantPool.insert(std::make_pair(SI->getCondition(), CaseVal));
-  for (BasicBlock::iterator I = CaseDest->begin(), E = CaseDest->end(); I != E;
-       ++I) {
-    if (TerminatorInst *T = dyn_cast<TerminatorInst>(I)) {
+  for (Instruction &I :CaseDest->instructionsWithoutDebug()) {
+    if (TerminatorInst *T = dyn_cast<TerminatorInst>(&I)) {
       // If the terminator is a simple branch, continue to the next block.
       if (T->getNumSuccessors() != 1 || T->isExceptional())
         return false;
       Pred = CaseDest;
       CaseDest = T->getSuccessor(0);
-    } else if (isa<DbgInfoIntrinsic>(I)) {
-      // Skip debug intrinsic.
-      continue;
-    } else if (Constant *C = ConstantFold(&*I, DL, ConstantPool)) {
+    } else if (Constant *C = ConstantFold(&I, DL, ConstantPool)) {
       // Instruction is side-effect free and constant.
 
       // If the instruction has uses outside this block or a phi node slot for
       // the block, it is not safe to bypass the instruction since it would then
       // no longer dominate all its uses.
-      for (auto &Use : I->uses()) {
+      for (auto &Use : I.uses()) {
         User *User = Use.getUser();
         if (Instruction *I = dyn_cast<Instruction>(User))
           if (I->getParent() == CaseDest)
@@ -4782,7 +4769,7 @@ GetCaseResults(SwitchInst *SI, ConstantInt *CaseVal, BasicBlock *CaseDest,
         return false;
       }
 
-      ConstantPool.insert(std::make_pair(&*I, C));
+      ConstantPool.insert(std::make_pair(&I, C));
     } else {
       break;
     }
@@ -5668,8 +5655,7 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
   }
 
   bool ReturnedEarly = false;
-  for (size_t I = 0, E = PHIs.size(); I != E; ++I) {
-    PHINode *PHI = PHIs[I];
+  for (PHINode *PHI : PHIs) {
     const ResultListTy &ResultList = ResultLists[PHI];
 
     // If using a bitmask, use any value to fill the lookup table holes.
@@ -5842,11 +5828,7 @@ bool SimplifyCFGOpt::SimplifySwitch(SwitchInst *SI, IRBuilder<> &Builder) {
 
     // If the block only contains the switch, see if we can fold the block
     // away into any preds.
-    BasicBlock::iterator BBI = BB->begin();
-    // Ignore dbg intrinsics.
-    while (isa<DbgInfoIntrinsic>(BBI))
-      ++BBI;
-    if (SI == &*BBI)
+    if (SI == &*BB->instructionsWithoutDebug().begin())
       if (FoldValueComparisonIntoPredecessors(SI, Builder))
         return simplifyCFG(BB, TTI, Options) | true;
   }
@@ -6080,18 +6062,12 @@ bool SimplifyCFGOpt::SimplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
 
     // This block must be empty, except for the setcond inst, if it exists.
     // Ignore dbg intrinsics.
-    BasicBlock::iterator I = BB->begin();
-    // Ignore dbg intrinsics.
-    while (isa<DbgInfoIntrinsic>(I))
-      ++I;
+    auto I = BB->instructionsWithoutDebug().begin();
     if (&*I == BI) {
       if (FoldValueComparisonIntoPredecessors(BI, Builder))
         return simplifyCFG(BB, TTI, Options) | true;
     } else if (&*I == cast<Instruction>(BI->getCondition())) {
       ++I;
-      // Ignore dbg intrinsics.
-      while (isa<DbgInfoIntrinsic>(I))
-        ++I;
       if (&*I == BI && FoldValueComparisonIntoPredecessors(BI, Builder))
         return simplifyCFG(BB, TTI, Options) | true;
     }
@@ -6209,6 +6185,12 @@ static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I) {
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Use))
       if (GEP->getPointerOperand() == I)
         return passingValueIsAlwaysUndefined(V, GEP);
+
+#if INTEL_CUSTOMIZATION
+    if (auto *SI = dyn_cast<AddressInst>(Use))
+      if (SI->getPointerOperand() == I)
+        return passingValueIsAlwaysUndefined(V, SI);
+#endif // INTEL_CUSTOMIZATION
 
     // Look through bitcasts.
     if (BitCastInst *BC = dyn_cast<BitCastInst>(Use))

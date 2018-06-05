@@ -16,9 +16,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if INTEL_CUSTOMIZATION
 #include "Intel_VPlan.h"
 #include "./Intel_VPlan/LoopVectorizationCodeGen.h"
 #include "./Intel_VPlan/VPOCodeGenHIR.h"
+#else
+#include "VPlan.h"
+#endif //INTEL_CUSTOMIZATION
+
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Dominators.h"
@@ -26,19 +31,22 @@
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
+#if INTEL_CUSTOMIZATION
+#define DEBUG_TYPE "intel-vplan"
+#else
 #define DEBUG_TYPE "vplan"
+#endif
 
+using namespace llvm;
+using namespace llvm::vpo;
+
+unsigned VPlanUtils::NextOrdinal = 1;
 #if INTEL_CUSTOMIZATION
 // Replace dot print output with plain print.
 static cl::opt<bool>
     DumpPlainVPlanIR("vplan-plain-dump", cl::init(false), cl::Hidden,
                        cl::desc("Print plain VPlan IR"));
-#endif /* INTEL_CUSTOMIZATION */
 
-namespace llvm {
-namespace vpo {
-
-#if INTEL_CUSTOMIZATION
 raw_ostream &operator<<(raw_ostream &OS, const VPValue &V) {
   if (const VPInstruction *I = dyn_cast<VPInstruction>(&V))
     I->dump(OS);
@@ -46,9 +54,13 @@ raw_ostream &operator<<(raw_ostream &OS, const VPValue &V) {
     V.dump(OS);
   return OS;
 }
-#endif /* INTEL_CUSTOMIZATION */
 
-unsigned VPlanUtils::NextOrdinal = 1;
+VPMaskGenerationRecipe *
+VPlanUtils::createMaskGenerationRecipe(const Value *Pred,
+                                            const Value *Backedge) {
+  return new VPMaskGenerationRecipe(Pred, Backedge);
+}
+#endif
 
 /// \return the VPBasicBlock that is the entry of Block, possibly indirectly.
 const VPBasicBlock *VPBlockBase::getEntryBasicBlock() const {
@@ -72,6 +84,72 @@ VPBasicBlock *VPBlockBase::getExitBasicBlock() {
     Block = Region->getExit();
   return cast<VPBasicBlock>(Block);
 }
+
+#if INTEL_CUSTOMIZATION
+// It turns A->B into A->NewSucc->B and updates VPLoopInfo, DomTree and
+// PostDomTree accordingly.
+VPBasicBlock *VPlanUtils::splitBlock(VPBlockBase *Block,
+                                     VPLoopInfo *VPLInfo,
+                                     VPDominatorTree &DomTree,
+                                     VPPostDominatorTree &PostDomTree) {
+  VPBasicBlock *NewBlock = createBasicBlock();
+  insertBlockAfter(NewBlock, Block);
+
+  // Add NewBlock to VPLoopInfo
+  if (VPLoop *Loop = VPLInfo->getLoopFor(Block)) {
+    Loop->addBasicBlockToLoop(NewBlock, *VPLInfo);
+  }
+
+  // Update dom information
+
+  VPDomTreeNode *BlockDT = DomTree.getNode(Block);
+  SmallVector<VPDomTreeNode *, 2> BlockDTChildren(BlockDT->begin(),
+                                                  BlockDT->end());
+  // Block is NewBlock's idom.
+  VPDomTreeNode *NewBlockDT = DomTree.addNewBlock(NewBlock, Block /*IDom*/);
+
+  // NewBlock dominates all other nodes dominated by Block.
+  for (VPDomTreeNode *Child : BlockDTChildren)
+    DomTree.changeImmediateDominator(Child, NewBlockDT);
+
+  // Update postdom information
+
+  VPDomTreeNode *NewBlockPDT;
+  if (VPBlockBase *NewBlockSucc = NewBlock->getSingleSuccessor()) {
+    // NewBlock has a single successor. That successor is NewBlock's ipostdom.
+    NewBlockPDT = PostDomTree.addNewBlock(NewBlock, NewBlockSucc /*IDom*/);
+  } else {
+    // NewBlock has multiple successors. NewBlock's ipostdom is the nearest
+    // common post-dominator of both successors.
+
+    // TODO: getSuccessor(0)
+    auto &Successors = NewBlock->getSuccessors();
+    VPBlockBase *Succ1 = *Successors.begin();
+    VPBlockBase *Succ2 = *std::next(Successors.begin());
+
+    NewBlockPDT = PostDomTree.addNewBlock(
+        NewBlock, PostDomTree.findNearestCommonDominator(Succ1, Succ2));
+  }
+
+  VPDomTreeNode *BlockPDT = PostDomTree.getNode(Block);
+
+  // TODO: remove getBlock?
+  if (BlockPDT->getIDom()->getBlock() == NewBlockPDT->getIDom()->getBlock()) {
+    // Block's old ipostdom is the same as NewBlock's ipostdom. Block's new
+    // ipostdom is NewBlock
+    PostDomTree.changeImmediateDominator(BlockPDT, NewBlockPDT);
+
+  } else {
+    // Otherwise, Block's new ipostdom is the nearest common post-dominator of
+    // NewBlock and Block's old ipostdom
+    PostDomTree.changeImmediateDominator(
+        BlockPDT, PostDomTree.getNode(PostDomTree.findNearestCommonDominator(
+                      NewBlock, BlockPDT->getIDom()->getBlock())));
+  }
+
+  return NewBlock;
+}
+#endif
 
 /// Returns the closest ancestor, starting from "this", which has successors.
 /// Returns the root ancestor if all ancestors have no successors.
@@ -168,7 +246,7 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
         if (State->CBVToConditionBitMap.count(CBV)) {
           Bit = State->CBVToConditionBitMap[CBV];
         } else {
-          Bit = CBV->getValue();
+          Bit = CBV->getUnderlyingValue();
         }
         assert(Bit && "Cannot create conditional branch with empty bit.");
         assert(!Bit->getType()->isVectorTy() && "Should be 1-bit scalar");
@@ -203,34 +281,108 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
   return NewBB;
 }
 
-#if !INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
-// Eventually, we will remove the ifndef macro above, when we use separate
-// libraries for opensource VPlan and VPO VPlan. In the meantime, this function
-// cannot be shared by both implementations. This implementation is for
-// opensource VPlan, currently disabled in XMAIN. Implementation for VPO is in
-// IntelVPlan.cpp
-#endif
 void VPBasicBlock::execute(VPTransformState *State) {
-  VPIteration *I = State->Instance;
-  bool Replica = I && !(I->Part == 0 && I->Lane == 0);
+
+#if INTEL_CUSTOMIZATION
+  // The community version and 'vpo' version of "execute" for VPBB diverge
+  // considerably. Instead of having INTEL_CUSTOMIZATIONS every few lines of
+  // code and make the code unreadable, we decided to seperate both the
+  // versions with a single INTEL_CUSTOMIZATION
+
+  // Loop PH and Loop Exit VPBasicBlocks are part of VPLoopRegion but they are
+  // actually ouside of the loop and they shouldn't be vectorized. We decided to
+  // vectorize Loop PH, so this function is only returning false for Loop Exit.
+  // TODO: Use a better name for this function.
+  if (!isInsideLoop())
+    return;
+
+  bool Replica = State->Instance &&
+                 !(State->Instance->Part == 0 && State->Instance->Lane == 0);
+  VPBasicBlock *PrevVPBB = State->CFG.PrevVPBB;
+  VPBlockBase *SingleHPred = nullptr;
+  BasicBlock *NewBB = State->CFG.PrevBB; // Reuse it if possible.
+  VPLoopRegion *ParentLoop = nullptr;
+
+  // 1. Create an IR basic block, or reuse one already available if possible.
+  // The last IR basic block is reused in four cases:
+  // A. the first VPBB reuses the pre-header BB - when PrevVPBB is null;
+  // B. the second VPBB reuses the header BB;
+  // C. when the current VPBB has a single (hierarchical) predecessor which
+  //    is PrevVPBB and the latter has a single (hierarchical) successor; and
+  // D. when the current VPBB is an entry of a region replica - where PrevVPBB
+  //    is the exit of this region from a previous instance.
+  // TODO: We currently cannot use VPLoopRegion class here
+  if (PrevVPBB && (ParentLoop = dyn_cast<VPLoopRegion>(this->getParent())) &&
+      ParentLoop->getEntry() == PrevVPBB /* B */ &&
+      // TODO: We need to properly support outer-loop vectorization scenarios.
+      // Latches for inner loops are not removed and we don't have VPlan,
+      // VPLoopInfo, etc. accessible from State. Temporal fix: outermost loop's
+      // parent is TopRegion. TopRegion's parent is null.
+      !ParentLoop->getParent()->getParent()) {
+
+    // Set NewBB to loop H basic block
+    BasicBlock *LoopPH = State->CFG.PrevBB;
+    NewBB = LoopPH->getSingleSuccessor();
+    assert(NewBB && "Expected single successor from loop pre-header");
+    State->Builder.SetInsertPoint(NewBB->getTerminator());
+    State->CFG.PrevBB = NewBB;
+  } else if (PrevVPBB /* A */ &&
+             !((SingleHPred = getSingleHierarchicalPredecessor()) &&
+               SingleHPred->getExitBasicBlock() == PrevVPBB &&
+               PrevVPBB->getSingleHierarchicalSuccessor()) && /* C */
+             !(Replica && getPredecessors().empty())) {       /* D */
+
+    NewBB = createEmptyBasicBlock(State);
+    State->Builder.SetInsertPoint(NewBB);
+    // Temporarily terminate with unreachable until CFG is rewired.
+    UnreachableInst *Terminator = State->Builder.CreateUnreachable();
+    State->Builder.SetInsertPoint(Terminator);
+    // Register NewBB in its loop. In innermost loops its the same for all
+    // BB's.
+    Loop *L = State->LI->getLoopFor(State->CFG.LastBB);
+    L->addBasicBlockToLoop(NewBB, *State->LI);
+    State->CFG.PrevBB = NewBB;
+  }
+
+  // 2. Fill the IR basic block with IR instructions.
+  DEBUG(dbgs() << "LV: vectorizing VPBB:" << getName()
+               << " in BB:" << NewBB->getName() << '\n');
+
+  State->CFG.VPBB2IRBB[this] = NewBB;
+  State->CFG.PrevVPBB = this;
+
+  for (VPRecipeBase &Recipe : Recipes)
+    Recipe.execute(*State);
+
+  // ILV's MaskValue is set when we find a BlockPredicateRecipe in
+  // VPBasicBlock's list of recipes. After generating code for all the
+  // VPBasicBlock's instructions, we have to reset MaskValue in order not to
+  // propagate its value to the next VPBasicBlock.
+  State->ILV->setMaskValue(nullptr);
+
+  DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
+
+#else
+
+  bool Replica = State->Instance &&
+                 !(State->Instance->Part == 0 && State->Instance->Lane == 0);
   VPBasicBlock *PrevVPBB = State->CFG.PrevVPBB;
   VPBlockBase *SingleHPred = nullptr;
   BasicBlock *NewBB = State->CFG.PrevBB; // Reuse it if possible.
 
   // 1. Create an IR basic block, or reuse the last one if possible.
-  // The last IR basic block is reused in three cases:
-  // A. the first VPBB reuses the header BB - when PrevVPBB is null;
+  // The last IR basic block is reused, as an optimization, in three cases:
+  // A. the first VPBB reuses the loop header BB - when PrevVPBB is null;
   // B. when the current VPBB has a single (hierarchical) predecessor which
   //    is PrevVPBB and the latter has a single (hierarchical) successor; and
   // C. when the current VPBB is an entry of a region replica - where PrevVPBB
-  //    is the exit of this region from a previous instance.
+  //    is the exit of this region from a previous instance, or the predecessor
+  //    of this region.
   if (PrevVPBB && /* A */
       !((SingleHPred = getSingleHierarchicalPredecessor()) &&
         SingleHPred->getExitBasicBlock() == PrevVPBB &&
         PrevVPBB->getSingleHierarchicalSuccessor()) && /* B */
       !(Replica && getPredecessors().empty())) {       /* C */
-
     NewBB = createEmptyBasicBlock(State->CFG);
     State->Builder.SetInsertPoint(NewBB);
     // Temporarily terminate with unreachable until CFG is rewired.
@@ -253,8 +405,41 @@ void VPBasicBlock::execute(VPTransformState *State) {
     Recipe.execute(*State);
 
   DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
+#endif
 }
-#endif // INTEL_CUSTOMIZATION
+
+void VPRegionBlock::execute(VPTransformState *State) {
+  ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
+
+  if (!isReplicator()) {
+    // Visit the VPBlocks connected to "this", starting from it.
+    for (VPBlockBase *Block : RPOT) {
+      DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
+      Block->execute(State);
+    }
+    return;
+  }
+
+  assert(!State->Instance && "Replicating a Region with non-null instance.");
+
+  // Enter replicating mode.
+  State->Instance = {0, 0};
+
+  for (unsigned Part = 0, UF = State->UF; Part < UF; ++Part) {
+    State->Instance->Part = Part;
+    for (unsigned Lane = 0, VF = State->VF; Lane < VF; ++Lane) {
+      State->Instance->Lane = Lane;
+      // Visit the VPBlocks connected to \p this, starting from it.
+      for (VPBlockBase *Block : RPOT) {
+        DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
+        Block->execute(State);
+      }
+    }
+  }
+
+  // Exit replicating mode.
+  State->Instance.reset();
+}
 
 #if INTEL_CUSTOMIZATION
 void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB, VPlan *Plan) {
@@ -340,6 +525,19 @@ void VPBasicBlock::dump() const {
   dump(errs(), 1);
 }
 
+void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
+  // Loop PH and Loop Exit VPBasicBlocks are part of VPLoopRegion but they are
+  // actually ouside of the loop and they shouldn't be vectorized. For the LLVM
+  // IR path we specifically vectorize the PH, for now this is not needed for
+  // the HIR path - this may be revisited later if needed.
+  if (!isInsideLoop())
+    return;
+
+  CG->setCurMaskValue(nullptr);
+  for (VPRecipeBase &Recipe : Recipes)
+    Recipe.executeHIR(CG);
+}
+
 /// Get a list of the basic blocks which make up this region.
 void VPRegionBlock::getOrderedBlocks(std::vector<const VPBlockBase *> &Blocks) const {
   ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
@@ -394,9 +592,6 @@ void VPRegionBlock::dump() const {
   dump(errs(), 1);
 }
 
-#endif
-
-#if INTEL_CUSTOMIZATION
 void VPRegionBlock::executeHIR(VPOCodeGenHIR *CG) {
   ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
 
@@ -406,46 +601,13 @@ void VPRegionBlock::executeHIR(VPOCodeGenHIR *CG) {
     Block->executeHIR(CG);
   }
 }
-#endif
-
-void VPRegionBlock::execute(VPTransformState *State) {
-  ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
-
-  if (!isReplicator()) {
-    // Visit the VPBlocks connected to "this", starting from it.
-    for (VPBlockBase *Block : RPOT) {
-      DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
-      Block->execute(State);
-    }
-    return;
-  }
-
-  assert(!State->Instance && "Replicating a Region with non-null instance.");
-
-  // Enter replicating mode.
-  State->Instance = {0, 0};
-
-  for (unsigned Part = 0, UF = State->UF; Part < UF; ++Part) {
-    State->Instance->Part = Part;
-    for (unsigned Lane = 0, VF = State->VF; Lane < VF; ++Lane) {
-      State->Instance->Lane = Lane;
-      // Visit the VPBlocks connected to \p this, starting from it.
-      for (VPBlockBase *Block : RPOT) {
-        DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
-        Block->execute(State);
-      }
-    }
-  }
-
-  // Exit replicating mode.
-  State->Instance.reset();
-}
+#endif //INTEL_CUSTOMIZATION
 
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
 #if INTEL_CUSTOMIZATION
-  assert(Inst && "There is no underlying Instruction.");
-  State.ILV->vectorizeInstruction(Inst);
+  assert(getInstruction() && "There is no underlying Instruction.");
+  State.ILV->vectorizeInstruction(getInstruction());
   return;
 #endif
   IRBuilder<> &Builder = State.Builder;
@@ -504,9 +666,8 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
   // to generate the whole "re-composed" HIR. This approach won't work when we
   // introduce VPlan-to-VPlan transformations that modify the input
   // VPInstructions.
-  if (auto *HIRData = dyn_cast_or_null<VPInstructionDataHIR>(getHIRData())) {
-    HLDDNode *Node = HIRData->getInstruction();
-    assert(isa<HLDDNode>(Node) && "Expected HLDDNode.");
+  if (HIR.isMaster()) {
+    HLDDNode *Node = HIR.getUnderlyingDDN();
     if (HLInst *Inst = dyn_cast<HLInst>(Node))
       CG->widenNode(Inst, nullptr);
     else if (HLIf *HIf = dyn_cast<HLIf>(Node)) {
@@ -527,7 +688,7 @@ void VPInstruction::execute(VPTransformState &State) {
   // TODO: Remove this block of code. Its purpose is to emulate the execute()
   //       of the conditionbit recipies that have now been removed.
   if (State.UniformCBVs->count(this)) {
-    Value *ScConditionBit = getValue();
+    Value *ScConditionBit = getUnderlyingValue();
     State.ILV->serializeInstruction(cast<Instruction>(ScConditionBit));
     Value *ConditionBit = State.ILV->getScalarValue(ScConditionBit, 0);
     assert(!ConditionBit->getType()->isVectorTy() && "Bit should be scalar");
@@ -584,15 +745,16 @@ void VPInstruction::print(raw_ostream &O) const {
   }
 }
 
-/// Generate the code inside the body of the vectorized loop. Assumes a single
-/// LoopVectorBody basic block was created for this; introduces additional
-/// basic blocks as needed, and fills them all.
+// Generate the code inside the body of the vectorized loop. Assumes a single
+// LoopVectorBody basic block was created for this; introduces additional
+// basic blocks as needed, and fills them all.
 void VPlan::execute(VPTransformState *State) {
-#if INTEL_CUSTOMIZATION
-// NOTE: This function is not used in VPO vectorizer. IntelVPlan::vectorize is
-// used instead.
-#endif
 
+#if INTEL_CUSTOMIZATION
+  // The community version and "vpo" version of "execute" for VPlan, diverge
+  // considerably. Instead of having INTEL_CUSTOMIZATION for every few lines
+  // of code, we decided to seperate both versions with a single
+  // INTEL_CUSTOMIZATION
   BasicBlock *VectorPreHeaderBB = State->CFG.PrevBB;
   BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
   assert(VectorHeaderBB && "Loop preheader does not have a single successor.");
@@ -610,12 +772,13 @@ void VPlan::execute(VPTransformState *State) {
   // can be dereferenced into an Instruction.
   VectorHeaderBB->getTerminator()->eraseFromParent();
   State->Builder.SetInsertPoint(VectorHeaderBB);
-  UnreachableInst *Terminator = State->Builder.CreateUnreachable();
-  State->Builder.SetInsertPoint(Terminator);
+  State->Builder.CreateUnreachable();
+  // Set insertion point to vector loop PH
+  State->Builder.SetInsertPoint(VectorPreHeaderBB->getTerminator());
 
   // 2. Generate code in loop body of vectorized version.
   State->CFG.PrevVPBB = nullptr;
-  State->CFG.PrevBB = VectorHeaderBB;
+  State->CFG.PrevBB = VectorPreHeaderBB;
   State->CFG.LastBB = VectorLatchBB;
 
   for (VPBlockBase *CurrentBlock = Entry; CurrentBlock != nullptr;
@@ -642,19 +805,16 @@ void VPlan::execute(VPTransformState *State) {
 
     BasicBlock *FirstSuccBB = FromBB->getSingleSuccessor();
     FromBB->getTerminator()->eraseFromParent();
-#if INTEL_CUSTOMIZATION
     VPValue *CBV = FromVPBB->getCondBitVPVal();
     assert(State->CBVToConditionBitMap.count(CBV) && "Must be in map.");
-    Value *Bit = State->CBVToConditionBitMap[CBV];
-#else
-    Value *Bit = FromVPBB->getCondBitVPVal()->getValue();
-    assert(Bit && "Cannot create conditional branch with empty bit.");
-#endif
-    BranchInst::Create(FirstSuccBB, ToBB, Bit, FromBB);
+    Value *NCondBit = State->CBVToConditionBitMap[CBV];
+    assert(NCondBit && "Null scalar value for condition bit.");
+    BranchInst::Create(FirstSuccBB, ToBB, NCondBit, FromBB);
   }
 
-  // 3. Merge the temporary latch created with the last basic block filled.
+  // 4. Merge the temporary latch created with the last basic block filled.
   BasicBlock *LastBB = State->CFG.PrevBB;
+
   // Connect LastBB to VectorLatchBB to facilitate their merge.
   assert(isa<UnreachableInst>(LastBB->getTerminator()) &&
          "Expected VPlan CFG to terminate with unreachable");
@@ -664,12 +824,72 @@ void VPlan::execute(VPTransformState *State) {
   // Merge LastBB with Latch.
   bool merged = MergeBlockIntoPredecessor(VectorLatchBB, nullptr, State->LI);
   assert(merged && "Could not merge last basic block with latch.");
-  (void)merged;
+  (void) merged;
+  VectorLatchBB = LastBB;
+
+  // Do no try to update dominator tree as we may be generating vector loops
+  // with inner loops. Right now we are not marking any analyses as
+  // preserved - so this should be ok.
+  // updateDominatorTree(State->DT, VectorPreHeaderBB, VectorLatchBB);
+  State->Builder.restoreIP(CurrIP);
+
+#else
+  // 0. Set the reverse mapping from VPValues to Values for code generation.
+  for (auto &Entry : Value2VPValue)
+    State->VPValue2Value[Entry.second] = Entry.first;
+
+  BasicBlock *VectorPreHeaderBB = State->CFG.PrevBB;
+  BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
+  assert(VectorHeaderBB && "Loop preheader does not have a single successor.");
+  BasicBlock *VectorLatchBB = VectorHeaderBB;
+
+  // 1. Make room to generate basic-blocks inside loop body if needed.
+  VectorLatchBB = VectorHeaderBB->splitBasicBlock(
+      VectorHeaderBB->getFirstInsertionPt(), "vector.body.latch");
+  Loop *L = State->LI->getLoopFor(VectorHeaderBB);
+  L->addBasicBlockToLoop(VectorLatchBB, *State->LI);
+  // Remove the edge between Header and Latch to allow other connections.
+  // Temporarily terminate with unreachable until CFG is rewired.
+  // Note: this asserts the generated code's assumption that
+  // getFirstInsertionPt() can be dereferenced into an Instruction.
+  VectorHeaderBB->getTerminator()->eraseFromParent();
+  State->Builder.SetInsertPoint(VectorHeaderBB);
+  UnreachableInst *Terminator = State->Builder.CreateUnreachable();
+  State->Builder.SetInsertPoint(Terminator);
+
+  // 2. Generate code in loop body.
+  State->CFG.PrevVPBB = nullptr;
+  State->CFG.PrevBB = VectorHeaderBB;
+  State->CFG.LastBB = VectorLatchBB;
+
+  for (VPBlockBase *Block : depth_first(Entry))
+    Block->execute(State);
+
+  // 3. Merge the temporary latch created with the last basic-block filled.
+  BasicBlock *LastBB = State->CFG.PrevBB;
+  // Connect LastBB to VectorLatchBB to facilitate their merge.
+  assert(isa<UnreachableInst>(LastBB->getTerminator()) &&
+         "Expected VPlan CFG to terminate with unreachable");
+  LastBB->getTerminator()->eraseFromParent();
+  BranchInst::Create(VectorLatchBB, LastBB);
+
+  // Merge LastBB with Latch.
+  bool Merged = MergeBlockIntoPredecessor(VectorLatchBB, nullptr, State->LI);
+  (void)Merged;
+  assert(Merged && "Could not merge last basic block with latch.");
   VectorLatchBB = LastBB;
 
   updateDominatorTree(State->DT, VectorPreHeaderBB, VectorLatchBB);
-  State->Builder.restoreIP(CurrIP);
+#endif
 }
+
+#if INTEL_CUSTOMIZATION
+void VPlan::executeHIR(VPOCodeGenHIR *CG) {
+  assert(isa<VPRegionBlock>(Entry) && Entry->getNumPredecessors() == 0 &&
+         Entry->getNumSuccessors() == 0 && "Invalid VPlan entry");
+  Entry->executeHIR(CG);
+}
+#endif
 
 void VPlan::updateDominatorTree(DominatorTree *DT, BasicBlock *LoopPreHeaderBB,
                                 BasicBlock *LoopLatchBB) {
@@ -711,7 +931,7 @@ void VPlan::updateDominatorTree(DominatorTree *DT, BasicBlock *LoopPreHeaderBB,
 
 const Twine VPlanPrinter::getUID(const VPBlockBase *Block) {
   return (isa<VPRegionBlock>(Block) ? "cluster_N" : "N") +
-         Twine(getOrCreateBID(Block));
+    Twine(getOrCreateBID(Block));
 }
 
 const Twine VPlanPrinter::getOrCreateName(const VPBlockBase *Block) {
@@ -1008,7 +1228,8 @@ void VPIfTruePredicateRecipe::execute(VPTransformState &State) {
                         : nullptr;
 
   // Get the vector mask value of the branch condition
-  auto VecCondMask = State.ILV->getVectorValue(ConditionValue->getValue());
+  auto VecCondMask =
+      State.ILV->getVectorValue(ConditionValue->getUnderlyingValue());
 
   // Combine with the predecessor block mask if needed - a null predecessor
   // mask
@@ -1107,7 +1328,8 @@ void VPIfFalsePredicateRecipe::execute(VPTransformState &State) {
   // Get the vector mask value of the branch condition - since this
   // edge is taken if the mask value is false we compute the negation
   // of this mask value.
-  auto VecCondMask = State.ILV->getVectorValue(ConditionValue->getValue());
+  auto VecCondMask =
+      State.ILV->getVectorValue(ConditionValue->getUnderlyingValue());
   VecCondMask = State.Builder.CreateNot(VecCondMask);
 
   // Combine with the predecessor block mask if needed - a null predecessor
@@ -1134,5 +1356,10 @@ void VPIfFalsePredicateRecipe::print(raw_ostream &OS,
   OS << "!";
   ConditionValue->printAsOperand(OS);
 }
-} // namespace vpo
-} // namespace llvm
+#if INTEL_CUSTOMIZATION
+using VPDomTree = DomTreeBase<VPBlockBase>;
+template void llvm::DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);
+
+using VPPostDomTree = PostDomTreeBase<VPBlockBase>;
+template void llvm::DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);
+#endif

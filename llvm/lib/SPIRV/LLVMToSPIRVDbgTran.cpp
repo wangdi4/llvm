@@ -819,7 +819,7 @@ SPIRVEntry *LLVMToSPIRVDbgTran::transDbgFunction(const DISubprogram *Func) {
     // Functions local variable might be not refered to anywhere else, except
     // here.
     // Just translate them.
-    for (DILocalVariable *Var : Func->getVariables())
+    for (const DINode *Var : Func->getRetainedNodes())
       transDbgEntry(Var);
   }
   // If the function has template parameters the function *is* a template.

@@ -37,6 +37,7 @@
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/CodeGen/VirtRegMap.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/MC/LaneBitmask.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/Pass.h"
@@ -1390,7 +1391,7 @@ private:
 
     MachineBasicBlock::iterator Begin = MBB->begin();
     while (MII != Begin) {
-      if ((--MII)->isDebugValue())
+      if ((--MII)->isDebugInstr())
         continue;
       SlotIndex Idx = Indexes->getInstructionIndex(*MII);
 
@@ -1452,7 +1453,7 @@ void LiveIntervals::repairOldRegInRange(const MachineBasicBlock::iterator Begin,
   for (MachineBasicBlock::iterator I = End; I != Begin;) {
     --I;
     MachineInstr &MI = *I;
-    if (MI.isDebugValue())
+    if (MI.isDebugInstr())
       continue;
 
     SlotIndex instrIdx = getInstructionIndex(MI);
@@ -1549,7 +1550,7 @@ LiveIntervals::repairIntervalsInRange(MachineBasicBlock *MBB,
   for (MachineBasicBlock::iterator I = End; I != Begin;) {
     --I;
     MachineInstr &MI = *I;
-    if (MI.isDebugValue())
+    if (MI.isDebugInstr())
       continue;
     for (MachineInstr::const_mop_iterator MOI = MI.operands_begin(),
                                           MOE = MI.operands_end();

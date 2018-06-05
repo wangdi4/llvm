@@ -120,6 +120,8 @@ raw_ostream &dbgs();
 //
 #define DEBUG(X) DEBUG_WITH_TYPE(DEBUG_TYPE, X)
 
+#define LLVM_DEBUG(X) DEBUG(X) // INTEL: Temporary, to be removed.
+
 #endif // INTEL
 
 } // end namespace llvm

@@ -39,6 +39,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeCallSiteSplittingLegacyPassPass(Registry);
   initializeConstantHoistingLegacyPassPass(Registry);
   initializeConstantPropagationPass(Registry);
+  initializeConvertGEPToSubscriptIntrinsicLegacyPassPass(Registry); // INTEL
   initializeCorrelatedValuePropagationPass(Registry);
   initializeDCELegacyPassPass(Registry);
   initializeDeadInstEliminationPass(Registry);
@@ -46,6 +47,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeScalarizerPass(Registry);
   initializeDSELegacyPassPass(Registry);
   initializeGuardWideningLegacyPassPass(Registry);
+  initializeLoopGuardWideningLegacyPassPass(Registry);
   initializeGVNLegacyPassPass(Registry);
   initializeNewGVNLegacyPassPass(Registry);
   initializeEarlyCSELegacyPassPass(Registry);
@@ -106,6 +108,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeMultiVersioningWrapperPass(Registry);
   initializeLoopOptMarkerLegacyPassPass(Registry);
   initializeLoopOptReportEmitterLegacyPassPass(Registry);
+  initializeRemoveRegionDirectivesLegacyPassPass(Registry);
 #endif // INTEL_CUSTOMIZATION
   initializeAggInlAALegacyPassPass(Registry); // INTEL
   initializeLoopLoadEliminationPass(Registry);
@@ -289,5 +292,9 @@ void LLVMAddLowerExpectIntrinsicPass(LLVMPassManagerRef PM) {
 #if INTEL_CUSTOMIZATION
 void LLVMAddLowerSubscriptIntrinsicPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createLowerSubscriptIntrinsicLegacyPass());
+}
+
+void LLVMAddConvertGEPToSubscriptIntrinsicPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createConvertGEPToSubscriptIntrinsicLegacyPass());
 }
 #endif // INTEL_CUSTOMIZATION

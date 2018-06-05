@@ -250,6 +250,11 @@ public:
   ///  Perform Stripmine.
   static void stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
                         unsigned StripmineSize);
+
+  /// Performs complete unroll for \p Loop.
+  /// NOTE: Does not handle non-constant lower bounds. For example-
+  /// DO i1 = t, t+1, 1
+  static void completeUnroll(HLLoop *Loop);
 };
 
 } // End namespace loopopt

@@ -382,7 +382,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
       case WRegionNode::WRNTaskgroup:
         debugPrintHeader(W, IsPrepare);
-        if (Mode & ParPrepare) {
+        if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = genTaskgroupRegion(W);
           RemoveDirectives = true;
         }
@@ -464,7 +464,12 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNOrdered:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, true);
-          Changed = genOrderedThreadCode(W);
+          if (W->getIsDoacross()) {
+            Changed = genDoacrossWaitOrPost(cast<WRNOrderedNode>(W));
+          } else {
+            Changed = genOrderedThreadCode(W);
+          }
+
           RemoveDirectives = true;
         }
         break;
@@ -818,7 +823,8 @@ Value *VPOParoptTransform::genReductionScalarFini(ReductionItem *RedI,
 //   br label %DIR.QUAL.LIST.END.2.exitStub
 //
 void VPOParoptTransform::genReductionFini(ReductionItem *RedI, Value *OldV,
-                                          Instruction *InsertPt) {
+                                          Instruction *InsertPt,
+                                          DominatorTree *DT) {
   AllocaInst *NewAI = dyn_cast<AllocaInst>(RedI->getNew());
   Type *AllocaTy = NewAI->getAllocatedType();
   Type *ScalarTy = AllocaTy->getScalarType();
@@ -828,7 +834,7 @@ void VPOParoptTransform::genReductionFini(ReductionItem *RedI, Value *OldV,
   if (!AllocaTy->isSingleValueType() ||
       !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
       DL.getTypeSizeInBits(ScalarTy) % 8 != 0) {
-    genRedAggregateInitOrFini(RedI, NewAI, OldV, InsertPt, false);
+    genRedAggregateInitOrFini(RedI, NewAI, OldV, InsertPt, false, DT);
   } else {
     LoadInst *OldLoad = Builder.CreateLoad(OldV);
     LoadInst *NewLoad = Builder.CreateLoad(NewAI);
@@ -916,7 +922,8 @@ void VPOParoptTransform::genReductionFini(ReductionItem *RedI, Value *OldV,
 void VPOParoptTransform::genRedAggregateInitOrFini(ReductionItem *RedI,
                                                    AllocaInst *AI, Value *OldV,
                                                    Instruction *InsertPt,
-                                                   bool IsInit) {
+                                                   bool IsInit,
+                                                   DominatorTree *DT) {
 
   IRBuilder<> Builder(InsertPt);
   auto EntryBB = Builder.GetInsertBlock();
@@ -1101,7 +1108,8 @@ void VPOParoptTransform::genLprivFini(LastprivateItem *LprivI,
 //    br label %DIR.QUAL.LIST.END.1
 //
 void VPOParoptTransform::genReductionInit(ReductionItem *RedI,
-                                          Instruction *InsertPt) {
+                                          Instruction *InsertPt,
+                                          DominatorTree *DT) {
 
   AllocaInst *AI = dyn_cast<AllocaInst>(RedI->getNew());
   Type *AllocaTy = AI->getAllocatedType();
@@ -1112,7 +1120,7 @@ void VPOParoptTransform::genReductionInit(ReductionItem *RedI,
   if (!AllocaTy->isSingleValueType() ||
       !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
       DL.getTypeSizeInBits(ScalarTy) % 8 != 0) {
-    genRedAggregateInitOrFini(RedI, AI, nullptr, InsertPt, true);
+    genRedAggregateInitOrFini(RedI, AI, nullptr, InsertPt, true, DT);
   } else {
     Value *V = genReductionScalarInit(RedI, ScalarTy);
     Builder.CreateStore(V, AI);
@@ -1193,10 +1201,10 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       genPrivatizationReplacement(W, Orig, NewRedInst, RedI);
       RedI->setNew(NewRedInst);
       createEmptyPrvInitBB(W, RedInitEntryBB);
-      genReductionInit(RedI, RedInitEntryBB->getTerminator());
+      genReductionInit(RedI, RedInitEntryBB->getTerminator(), DT);
       BasicBlock *BeginBB;
       createEmptyPrivFiniBB(W, BeginBB);
-      genReductionFini(RedI, RedI->getOrig(), BeginBB->getTerminator());
+      genReductionFini(RedI, RedI->getOrig(), BeginBB->getTerminator(), DT);
       DEBUG(dbgs() << "genReductionCode: reduced " << *Orig << "\n");
     }
 
@@ -1275,9 +1283,13 @@ VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
       IntelGeneralUtils::breakExpressions(I);
     }
   } else {
-    // TODO: Privatize Value that is neither global nor alloca
-    DEBUG(dbgs() << "\ngenPrivatizationAlloca: TODO: Handle Arguments.\n");
-    llvm_unreachable("genPrivatizationAlloca: unsupported private item");
+    assert((isa<Argument>(PrivValue) || isa<GetElementPtrInst>(PrivValue)) &&
+           "genPrivatizationAlloca: unsupported private item");
+    Type *ElemTy = cast<PointerType>(PrivValue->getType())->getElementType();
+    const DataLayout &DL = F->getParent()->getDataLayout();
+    NewPrivInst = new AllocaInst(ElemTy, DL.getAllocaAddrSpace(), nullptr,
+                                 PrivValue->getName());
+    NewPrivInst->insertBefore(InsertPt);
   }
 
   return NewPrivInst;
@@ -1590,7 +1602,7 @@ void VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *V) {
   // Create a new @llvm.invariant.group.barrier for V
   BasicBlock *EntryBB = W->getEntryBBlock();
   IRBuilder<> Builder(EntryBB->getTerminator());
-  Value *NewI = Builder.CreateInvariantGroupBarrier(V);
+  Value *NewI = Builder.CreateLaunderInvariantGroup(V);
 
   // Replace uses of V with NewI
   for (Instruction * User : Users) {
@@ -1688,7 +1700,7 @@ void VPOParoptTransform::genFenceIntrinsic(WRegionNode *W, Value *I) {
 CallInst*  VPOParoptTransform::isFenceCall(Instruction *I) {
   if (CallInst *CI = dyn_cast<CallInst>(I))
     if (CI->getCalledFunction() && CI->getCalledFunction()->getIntrinsicID() ==
-                                       Intrinsic::invariant_group_barrier)
+                                       Intrinsic::launder_invariant_group)
       return CI;
   return nullptr;
 }
@@ -1746,10 +1758,31 @@ void VPOParoptTransform::fixOmpDoWhileLoopImpl(Loop *L) {
             return;
           else
             llvm_unreachable("cannot fix omp do-while loop");
-        } else if (Pred == CmpInst::ICMP_SGT) {
+        } else if (Pred == CmpInst::ICMP_SGT || Pred == CmpInst::ICMP_UGT) {
           Value *Operand = CondInst->getOperand(0);
+          if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand))
+            Operand = cast<CastInst>(Operand)->getOperand(0);
+
           if (Operand == Inc) {
-            CondInst->setPredicate(CmpInst::ICMP_SLE);
+            if (Pred == CmpInst::ICMP_SGT)
+              CondInst->setPredicate(CmpInst::ICMP_SLE);
+            else
+              CondInst->setPredicate(CmpInst::ICMP_ULE);
+            ExitBrInst->swapSuccessors();
+            return;
+          } else
+            llvm_unreachable("cannot fix omp do-while loop");
+        } else if (Pred == CmpInst::ICMP_SLT || Pred == CmpInst::ICMP_ULT) {
+          Value *Operand = CondInst->getOperand(1);
+          if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand))
+            Operand = cast<CastInst>(Operand)->getOperand(0);
+
+          if (Operand == Inc) {
+            if (Pred == CmpInst::ICMP_SLT)
+              CondInst->setPredicate(CmpInst::ICMP_SLE);
+            else
+              CondInst->setPredicate(CmpInst::ICMP_ULE);
+            CondInst->swapOperands();
             ExitBrInst->swapSuccessors();
             return;
           } else
@@ -2080,8 +2113,21 @@ void VPOParoptTransform::wrnCollectLiveOutVals(
       break;
     if (WRegionUtils::getOmpCanonicalInductionVariable(&L) == &I)
       continue;
-    LiveOutVals.insert(&I);
-    buildECs(&L, dyn_cast<PHINode>(&I), ECs);
+    // If any use occurs in the loop header, the loop carried dependence
+    // exists.
+    bool Match = false;
+    for (const Use &U : I.uses()) {
+      const Instruction *UI = cast<Instruction>(U.getUser());
+      const BasicBlock *UserBB = UI->getParent();
+      if (UserBB == L.getHeader()) {
+        Match = true;
+        break;
+      }
+    }
+    if (Match) {
+      LiveOutVals.insert(&I);
+      buildECs(&L, dyn_cast<PHINode>(&I), ECs);
+    }
   }
 }
 
@@ -2235,6 +2281,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   DEBUG(dbgs() << "--- Loop Preheader: " << *(L->getLoopPreheader()) << "\n");
   DEBUG(dbgs() << "--- Loop Header: " << *(L->getHeader()) << "\n");
   DEBUG(dbgs() << "--- Loop Latch: " << *(L->getLoopLatch()) << "\n\n");
+
+  bool IsDoacrossLoop =
+      ((isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
+       W->getOrdered() > 0);
 
 #if 0
   DEBUG(dbgs() << "---- Loop Induction: "
@@ -2409,6 +2459,11 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                                UpperBnd, Stride, Size, IsUnsigned, InsertPt);
   }
 
+  // Insert doacross_init call for ordered(n)
+  if (IsDoacrossLoop)
+    VPOParoptUtils::genKmpcDoacrossInit(W, IdentTy, LoadTid, KmpcInitCI,
+                                        LowerBnd, UpperBnd, Stride);
+
   LoadInst *LoadLB = new LoadInst(LowerBnd, "lb.new", InsertPt);
   LoadLB->setAlignment(4);
 
@@ -2458,6 +2513,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                                         IdentTy, LoadTid, InsertPt);
     KmpcFiniCI->setCallingConv(CallingConv::C);
 
+    // Insert doacross_fini call for ordered(n)
+    if (IsDoacrossLoop)
+      VPOParoptUtils::genKmpcDoacrossFini(W, IdentTy, LoadTid, KmpcFiniCI);
+
     if (DT)
       DT->changeImmediateDominator(LoopExitBB, StaticInitBB);
 
@@ -2475,6 +2534,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     KmpcFiniCI = VPOParoptUtils::genKmpcStaticFini(W,
                                         IdentTy, LoadTid, InsertPt);
     KmpcFiniCI->setCallingConv(CallingConv::C);
+
+    // Insert doacross_fini call for ordered(n)
+    if (IsDoacrossLoop)
+      VPOParoptUtils::genKmpcDoacrossFini(W, IdentTy, LoadTid, KmpcFiniCI);
 
     //                          |
     //                    dispatch.header <----------------+
@@ -2644,6 +2707,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     // Update Dispatch Header BB Branch instruction
     TermInst = DispatchHeaderBB->getTerminator();
     TermInst->setSuccessor(1, DispatchFiniBB);
+
+    // Insert doacross_fini call for ordered(n)
+    if (IsDoacrossLoop)
+      VPOParoptUtils::genKmpcDoacrossFini(W, IdentTy, LoadTid, KmpcFiniCI);
 
     KmpcFiniCI->eraseFromParent();
 
@@ -3410,6 +3477,49 @@ bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
   W->resetBBSet(); // Invalidate BBSet
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genOrderedThreadCode\n");
   return true;  // Changed
+}
+
+// Emit __kmpc_doacross_post/wait call for an 'ordered depend(source/sink)'
+// construct.
+bool VPOParoptTransform::genDoacrossWaitOrPost(WRNOrderedNode *W) {
+  assert(W &&"genDoacrossWaitOrPost: Null WRN");
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genDoacrossWaitOrPost\n");
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  Instruction *InsertPt = EntryBB->getTerminator();
+
+  auto *WParent = W->getParent();
+  (void)WParent;
+  assert(WParent && "Orphaned ordered depend source/sink construct.");
+  assert(WParent->getIsOmpLoop() && "Parent is not a loop-type WRN");
+
+  // Emit doacross post call for 'depend(source)'
+  if (W->getIsDepSource()) {
+
+    // For doacross post, we send in the outer WRegion's loop index.
+    auto *ParentNormIV = WParent->getWRNLoopInfo().getNormIV();
+    assert(ParentNormIV && "Cannot find IV of outer construct.");
+
+    // Generate __kmpc_doacross_post call
+    CallInst *DoacrossPostCI = VPOParoptUtils::genDoacrossWaitOrPostCall(
+        W, IdentTy, TidPtrHolder, InsertPt, ParentNormIV,
+        true); // 'depend (source)'
+    (void)DoacrossPostCI;
+    assert(DoacrossPostCI && "Failed to emit doacross_post call.");
+  }
+
+  // Emit doacross wait call(s) for 'depend(sink:...)'
+  for (DepSinkItem *DSI : W->getDepSink().items()) {
+    // Generate __kmpc_doacross_wait call
+    CallInst *DoacrossWaitCI = VPOParoptUtils::genDoacrossWaitOrPostCall(
+        W, IdentTy, TidPtrHolder, InsertPt, DSI->getSinkExpr(),
+        false); // 'depend (sink:...)'
+    (void)DoacrossWaitCI;
+    assert(DoacrossWaitCI && "Failed to emit doacross_wait call.");
+  }
+
+  W->resetBBSet(); // Invalidate BBSet
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genDoacrossWaitOrPost\n");
+  return true; // Changed
 }
 
 // Generates code for the OpenMP critical construct.

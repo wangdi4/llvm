@@ -26,6 +26,10 @@
 #include "Intel_DTrans/Transforms/DeleteField.h"
 #include "Intel_DTrans/Transforms/ReorderFields.h"
 
+#if !INTEL_PRODUCT_RELEASE
+#include "Intel_DTrans/Transforms/DTransOptBaseTest.h"
+#endif // !INTEL_PRODUCT_RELEASE
+
 namespace llvm {
 
 namespace legacy {
@@ -38,6 +42,10 @@ void initializeDTransAnalysisWrapperPass(PassRegistry&);
 void initializeDTransAOSToSOAWrapperPass(PassRegistry&);
 void initializeDTransDeleteFieldWrapperPass(PassRegistry&);
 void initializeDTransReorderFieldsWrapperPass(PassRegistry&);
+
+#if !INTEL_PRODUCT_RELEASE
+void initializeDTransOptBaseTestWrapperPass(PassRegistry&);
+#endif // !INTEL_PRODUCT_RELEASE
 
 // This is used by ForcePassLinking.
 void createDTransPasses();

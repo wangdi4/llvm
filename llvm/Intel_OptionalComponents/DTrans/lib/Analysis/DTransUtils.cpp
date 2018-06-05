@@ -20,6 +20,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 using namespace dtrans;
@@ -34,6 +35,36 @@ bool dtrans::isSystemObjectType(llvm::StructType *Ty) {
       .Case("struct._IO_FILE", true)
       .Case("struct._IO_marker", true)
       .Default(false);
+}
+
+StringRef dtrans::AllocKindName(AllocKind Kind) {
+  switch (Kind) {
+  case AK_NotAlloc:
+    return "NotAlloc";
+  case AK_Malloc:
+    return "Malloc";
+  case AK_Calloc:
+    return "Calloc";
+  case AK_Realloc:
+    return "Realloc";
+  case AK_UserMalloc:
+    return "UserMalloc";
+  case AK_UserMalloc0:
+    return "UserMalloc0";
+  }
+  llvm_unreachable("Unexpected continuation past AllocKind switch.");
+}
+
+StringRef dtrans::FreeKindName(FreeKind Kind) {
+  switch (Kind) {
+  case FK_NotFree:
+    return "NotFree";
+  case FK_Free:
+    return "Free";
+  case FK_UserFree:
+    return "UserFree";
+  }
+  llvm_unreachable("Unexpected continuation past FreeKind switch.");
 }
 
 AllocKind dtrans::getAllocFnKind(Function *F, const TargetLibraryInfo &TLI) {
@@ -58,10 +89,10 @@ AllocKind dtrans::getAllocFnKind(Function *F, const TargetLibraryInfo &TLI) {
 
 void dtrans::getAllocSizeArgs(AllocKind Kind, CallInst *CI,
                               Value *&AllocSizeVal, Value *&AllocCountVal) {
-  assert(Kind != AK_NotAlloc && Kind != AK_UserAlloc &&
+  assert(Kind != AK_NotAlloc && Kind != AK_UserMalloc0 &&
          "Unexpected alloc kind passed to getAllocSizeArgs");
 
-  if (Kind == AK_Malloc) {
+  if (Kind == AK_Malloc || Kind == AK_UserMalloc) {
     AllocSizeVal = CI->getArgOperand(0);
     AllocCountVal = nullptr;
     return;
@@ -177,24 +208,25 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::BadMemFuncManipulation | dtrans::AmbiguousPointerTarget |
       dtrans::UnsafePtrMerge | dtrans::AddressTaken | dtrans::NoFieldsInStruct |
       dtrans::NestedStruct | dtrans::ContainsNestedStruct |
-      dtrans::SystemObject | dtrans::UnhandledUse;
+      dtrans::SystemObject | dtrans::LocalPtr | dtrans::LocalInstance |
+      dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
-  static_assert(ImplementedMask ==
-                    (dtrans::BadCasting ^ dtrans::BadAllocSizeArg ^
-                     dtrans::BadPtrManipulation ^ dtrans::AmbiguousGEP ^
-                     dtrans::VolatileData ^ dtrans::MismatchedElementAccess ^
-                     dtrans::WholeStructureReference ^
-                     dtrans::UnsafePointerStore ^ dtrans::FieldAddressTaken ^
-                     dtrans::GlobalPtr ^ dtrans::GlobalInstance ^
-                     dtrans::HasInitializerList ^ dtrans::BadMemFuncSize ^
-                     dtrans::MemFuncPartialWrite ^
-                     dtrans::BadMemFuncManipulation ^
-                     dtrans::AmbiguousPointerTarget ^ dtrans::UnsafePtrMerge ^
-                     dtrans::AddressTaken ^ dtrans::NoFieldsInStruct ^
-                     dtrans::NestedStruct ^ dtrans::ContainsNestedStruct ^
-                     dtrans::SystemObject ^ dtrans::UnhandledUse),
-                "Duplicate value used in dtrans safety conditions");
+  static_assert(
+      ImplementedMask ==
+          (dtrans::BadCasting ^ dtrans::BadAllocSizeArg ^
+           dtrans::BadPtrManipulation ^ dtrans::AmbiguousGEP ^
+           dtrans::VolatileData ^ dtrans::MismatchedElementAccess ^
+           dtrans::WholeStructureReference ^ dtrans::UnsafePointerStore ^
+           dtrans::FieldAddressTaken ^ dtrans::GlobalPtr ^
+           dtrans::GlobalInstance ^ dtrans::HasInitializerList ^
+           dtrans::BadMemFuncSize ^ dtrans::MemFuncPartialWrite ^
+           dtrans::BadMemFuncManipulation ^ dtrans::AmbiguousPointerTarget ^
+           dtrans::UnsafePtrMerge ^ dtrans::AddressTaken ^
+           dtrans::NoFieldsInStruct ^ dtrans::NestedStruct ^
+           dtrans::ContainsNestedStruct ^ dtrans::SystemObject ^
+           dtrans::LocalPtr ^ dtrans::LocalInstance ^ dtrans::UnhandledUse),
+      "Duplicate value used in dtrans safety conditions");
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
     SafetyIssues.push_back("Bad casting");
@@ -240,6 +272,10 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
     SafetyIssues.push_back("Contains nested structure");
   if (SafetyInfo & dtrans::SystemObject)
     SafetyIssues.push_back("System object");
+  if (SafetyInfo & dtrans::LocalPtr)
+    SafetyIssues.push_back("Local pointer");
+  if (SafetyInfo & dtrans::LocalInstance)
+    SafetyIssues.push_back("Local instance");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
   // Print the safety issues found
@@ -254,7 +290,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
   // TODO: Make this unnecessary.
   if (SafetyInfo & ~ImplementedMask) {
     ostr << " + other issues that need format support ("
-           << (SafetyInfo & ~ImplementedMask) << ")";
+         << (SafetyInfo & ~ImplementedMask) << ")";
     ostr << "\nImplementedMask = " << ImplementedMask;
   }
 
@@ -272,10 +308,125 @@ void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
   DEBUG(printSafetyInfo(Conditions, dbgs()));
 }
 
-void dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
-  if (isNoValue())
+bool dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
+  if (isNoValue()) {
     setSingleValue(C);
-  else if (isSingleValue() && getSingleValue() != C)
+    return true;
+  }
+  if (isSingleValue() && getSingleValue() != C) {
     setMultipleValue();
+    return true;
+  }
+  return false;
 }
 
+bool dtrans::FieldInfo::processNewSingleAllocFunction(llvm::Function *F) {
+  if (isTopAllocFunction()) {
+    if (F == nullptr)
+      setBottomAllocFunction();
+    else
+      setSingleAllocFunction(F);
+    return true;
+  }
+  if (isSingleAllocFunction() && getSingleAllocFunction() != F) {
+    setBottomAllocFunction();
+    return true;
+  }
+  return false;
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void PointerTypeInfo::dump() {
+  print(dbgs());
+}
+
+void PointerTypeInfo::print(raw_ostream &OS) {
+  if (!getAnalyzed()) {
+    OS << "    Type: Not analyzed\n";
+    return;
+  }
+
+  if (!getAliasesToAggregatePointer()) {
+    OS << "    Type: Non-aggregate\n";
+    return;
+  }
+
+  // Put the type names in a vector so that we can output
+  // it in sorted order to enable consistency for testing.
+  std::vector<std::string> StrVec;
+
+  for (auto *T : Types) {
+    std::string Name;
+    raw_string_ostream(Name) << "    Type: " << *T;
+    StrVec.push_back(Name);
+  }
+
+  std::sort(StrVec.begin(), StrVec.end());
+  for (auto &S : StrVec)
+    OS << S << "\n";
+}
+
+void CallInfo::dump() {
+  print(dbgs());
+}
+
+/// Dispatcher to invoke the appropriate dump method based on the specific type
+/// of call being tracked.
+void CallInfo::print(raw_ostream &OS) {
+  switch (getCallInfoKind()) {
+  case CIK_Alloc:
+    cast<AllocCallInfo>(this)->print(OS);
+    break;
+  case CIK_Free:
+    cast<FreeCallInfo>(this)->print(OS);
+    break;
+  case CIK_Memfunc:
+    cast<MemfuncCallInfo>(this)->print(OS);
+    break;
+  }
+}
+
+void AllocCallInfo::dump() {
+  print(dbgs());
+}
+
+void AllocCallInfo::print(raw_ostream &OS) {
+  OS << "AllocCallInfo:\n";
+  OS << "  Kind: " << AllocKindName(AK) << "\n";
+  OS << "  Aliased types:\n";
+  PTI.print(OS);
+}
+
+void FreeCallInfo::dump() {
+  print(dbgs());
+}
+
+void FreeCallInfo::print(raw_ostream &OS) {
+  OS << "FreeCallInfo:\n";
+  OS << "  Kind: " << FreeKindName(FK) << "\n";
+  OS << "  Aliased types:\n";
+  PTI.print(OS);
+}
+
+void MemfuncCallInfo::dump() {
+  print(dbgs());
+}
+
+void MemfuncCallInfo::print(raw_ostream &OS) {
+  OS << "MemfuncInfo:\n";
+  OS << "    Kind: " << MemfuncKindName(MK) << "\n";
+
+  unsigned int NumRegions = getNumRegions();
+  for (unsigned int RN = 0; RN < NumRegions; ++RN) {
+    bool IsComplete = getIsCompleteAggregate(RN);
+    OS << "  Region " << RN << ":\n";
+    OS << "    Complete: " << (IsComplete ? "true" : "false") << "\n";
+    if (!IsComplete) {
+      OS << "    FirstField: " << getFirstField(RN) << "\n";
+      OS << "    LastField:  " << getLastField(RN) << "\n";
+    }
+
+    PTI.print(OS);
+  }
+}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

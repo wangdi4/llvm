@@ -301,19 +301,18 @@ bool AsmPrinter::doInitialization(Module &M) {
 
   if (MAI->doesSupportDebugInformation()) {
     bool EmitCodeView = MMI->getModule()->getCodeViewFlag();
-    if (EmitCodeView && (TM.getTargetTriple().isKnownWindowsMSVCEnvironment() ||
-                         TM.getTargetTriple().isWindowsItaniumEnvironment())) {
+    if (EmitCodeView && TM.getTargetTriple().isOSWindows()) {
 #if INTEL_CUSTOMIZATION
       if (MMI->getModule()->getModuleFlag("Intel STI") != nullptr) {
         Handlers.push_back(HandlerInfo(STIDebug::create(this),
                                        DbgTimerName, DbgTimerDescription,
-                                       STIDebugGroupName, 
-									   STIDebugGroupDescription));
+                                       STIDebugGroupName,
+				       STIDebugGroupDescription));
       } else {
         Handlers.push_back(HandlerInfo(new CodeViewDebug(this),
                                        DbgTimerName, DbgTimerDescription,
                                        CodeViewLineTablesGroupName,
-									   CodeViewLineTablesGroupDescription));
+				       CodeViewLineTablesGroupDescription));
       }
 #endif // INTEL_CUSTOMIZATION
     }
@@ -927,6 +926,30 @@ static bool emitDebugValueComment(const MachineInstr *MI, AsmPrinter &AP) {
   return true;
 }
 
+/// This method handles the target-independent form of DBG_LABEL, returning
+/// true if it was able to do so.  A false return means the target will need
+/// to handle MI in EmitInstruction.
+static bool emitDebugLabelComment(const MachineInstr *MI, AsmPrinter &AP) {
+  if (MI->getNumOperands() != 1)
+    return false;
+
+  SmallString<128> Str;
+  raw_svector_ostream OS(Str);
+  OS << "DEBUG_LABEL: ";
+
+  const DILabel *V = MI->getDebugLabel();
+  if (auto *SP = dyn_cast<DISubprogram>(V->getScope())) {
+    StringRef Name = SP->getName();
+    if (!Name.empty())
+      OS << Name << ":";
+  }
+  OS << V->getName();
+
+  // NOTE: Want this comment at start of line, don't emit with AddComment.
+  AP.OutStreamer->emitRawComment(OS.str());
+  return true;
+}
+
 AsmPrinter::CFIMoveType AsmPrinter::needsCFIMoves() const {
   if (MAI->getExceptionHandlingType() == ExceptionHandling::DwarfCFI &&
       MF->getFunction().needsUnwindTableEntry())
@@ -1051,7 +1074,7 @@ void AsmPrinter::EmitFunctionBody() {
     for (auto &MI : MBB) {
       // Print the assembly for the instruction.
       if (!MI.isPosition() && !MI.isImplicitDef() && !MI.isKill() &&
-          !MI.isDebugValue()) {
+          !MI.isDebugInstr()) {
         HasAnyRealCode = true;
         ++NumInstsInFunction;
       }
@@ -1087,6 +1110,12 @@ void AsmPrinter::EmitFunctionBody() {
       case TargetOpcode::DBG_VALUE:
         if (isVerbose()) {
           if (!emitDebugValueComment(&MI, *this))
+            EmitInstruction(&MI);
+        }
+        break;
+      case TargetOpcode::DBG_LABEL:
+        if (isVerbose()) {
+          if (!emitDebugLabelComment(&MI, *this))
             EmitInstruction(&MI);
         }
         break;
@@ -1201,7 +1230,7 @@ void AsmPrinter::EmitFunctionBody() {
   OutStreamer->AddBlankLine();
 }
 
-/// \brief Compute the number of Global Variables that uses a Constant.
+/// Compute the number of Global Variables that uses a Constant.
 static unsigned getNumGlobalVariableUses(const Constant *C) {
   if (!C)
     return 0;
@@ -1216,7 +1245,7 @@ static unsigned getNumGlobalVariableUses(const Constant *C) {
   return NumUses;
 }
 
-/// \brief Only consider global GOT equivalents if at least one user is a
+/// Only consider global GOT equivalents if at least one user is a
 /// cstexpr inside an initializer of another global variables. Also, don't
 /// handle cstexpr inside instructions. During global variable emission,
 /// candidates are skipped and are emitted later in case at least one cstexpr
@@ -1239,7 +1268,7 @@ static bool isGOTEquivalentCandidate(const GlobalVariable *GV,
   return NumGOTEquivUsers > 0;
 }
 
-/// \brief Unnamed constant global variables solely contaning a pointer to
+/// Unnamed constant global variables solely contaning a pointer to
 /// another globals variable is equivalent to a GOT table entry; it contains the
 /// the address of another symbol. Optimize it and replace accesses to these
 /// "GOT equivalents" by using the GOT entry for the final global instead.
@@ -1260,7 +1289,7 @@ void AsmPrinter::computeGlobalGOTEquivs(Module &M) {
   }
 }
 
-/// \brief Constant expressions using GOT equivalent globals may not be eligible
+/// Constant expressions using GOT equivalent globals may not be eligible
 /// for PC relative GOT entry conversion, in such cases we need to emit such
 /// globals we previously omitted in EmitGlobalVariable.
 void AsmPrinter::emitGlobalGOTEquivs() {
@@ -2250,6 +2279,7 @@ static void emitGlobalConstantDataSequential(const DataLayout &DL,
   unsigned Size = DL.getTypeAllocSize(CDS->getType());
   unsigned EmittedSize = DL.getTypeAllocSize(CDS->getType()->getElementType()) *
                         CDS->getNumElements();
+  assert(EmittedSize <= Size && "Size cannot be less than EmittedSize!");
   if (unsigned Padding = Size - EmittedSize)
     AP.OutStreamer->EmitZeros(Padding);
 }
@@ -2420,7 +2450,7 @@ static void emitGlobalConstantLargeInt(const ConstantInt *CI, AsmPrinter &AP) {
   }
 }
 
-/// \brief Transform a not absolute MCExpr containing a reference to a GOT
+/// Transform a not absolute MCExpr containing a reference to a GOT
 /// equivalent global, by a target specific GOT pc relative access to the
 /// final symbol.
 static void handleIndirectSymViaGOTPCRel(AsmPrinter &AP, const MCExpr **ME,

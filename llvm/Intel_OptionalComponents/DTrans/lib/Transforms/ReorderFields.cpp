@@ -16,8 +16,12 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
 using namespace llvm;
@@ -35,6 +39,14 @@ static cl::opt<unsigned> DTransReorderFieldsUnusedSpacePercentThreshold(
     "dtrans-reorder-fields-unused-space-percent-threshold", cl::init(20),
     cl::ReallyHidden);
 
+// Field reordering may not help to utilize all unused space in the original
+// structure layout. This flag is used to avoid applying reordering
+// transformation if reordering is not profitable. Minimum saved space
+// percent threshold with field reordering to enable the transformation.
+static cl::opt<unsigned> DTransReorderFieldsSavedSpacePercentThreshold(
+    "dtrans-reorder-fields-saved-space-percent-threshold", cl::init(16),
+    cl::ReallyHidden);
+
 // Limit size of structs that are selected for reordering fields based
 // on padding heuristic. Field affinity info may be needed to apply
 // reordering for structs that don’t fit cache Line.
@@ -42,7 +54,16 @@ static cl::opt<unsigned> DTransReorderFieldsUnusedSpacePercentThreshold(
 // after doing more experiments.
 static const unsigned MaxStructSize = 64;
 
+// Minimum number of fields to select a struct as candidate.
+static const unsigned MinNumElems = 3;
+
 namespace {
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+StringRef getStName(StructType *StTy) {
+  return StTy->hasName() ? StTy->getName() : "<unnamed struct>";
+}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 class DTransReorderFieldsWrapper : public ModulePass {
 private:
@@ -60,11 +81,13 @@ public:
       return false;
     DTransAnalysisInfo &DTInfo =
         getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
-    return Impl.runImpl(M, DTInfo);
+    return Impl.runImpl(M, DTInfo,
+                        getAnalysis<TargetLibraryInfoWrapperPass>().getTLI());
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DTransAnalysisWrapper>();
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
@@ -75,6 +98,7 @@ char DTransReorderFieldsWrapper::ID = 0;
 INITIALIZE_PASS_BEGIN(DTransReorderFieldsWrapper, "dtrans-reorderfields",
                       "DTrans reorder fields", false, false)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(DTransReorderFieldsWrapper, "dtrans-reorderfields",
                     "DTrans reorder fields", false, false)
 
@@ -82,41 +106,411 @@ ModulePass *llvm::createDTransReorderFieldsWrapperPass() {
   return new DTransReorderFieldsWrapper();
 }
 
+namespace llvm {
+
+namespace dtrans {
+
+// This class, which is derived from DTransOptBase, does all necessary
+// changes for field-reordering.
+// postprocessFunction:
+//   1. GEP: Replace old index with new index of fields
+//   2. memset/memcpy/memmov/alloc/calloc/realloc/sdiv: Replace old size
+//      with new size.
+// prepareTypes & populateTypes:
+//    Create new types for structs that are field-reordered and let
+//    DTransOptBase do the actual type replacement.
+class ReorderFieldsImpl : public DTransOptBase {
+public:
+  ReorderFieldsImpl(TargetLibraryInfo &TLI, ReorderTransInfo &RTI,
+                    DTransAnalysisInfo &DTInfo, LLVMContext &Context,
+                    const DataLayout &DL, StringRef DepTypePrefix,
+                    DTransTypeRemapper *TypeRemapper)
+      : DTransOptBase(DTInfo, Context, DL, DepTypePrefix, TypeRemapper),
+        TLI(TLI), RTI(RTI) {}
+
+  virtual bool prepareTypes(Module &M) override;
+  virtual void populateTypes(Module &M) override;
+  virtual void postprocessFunction(Function &Func, bool isCloned) override;
+
+private:
+  TargetLibraryInfo &TLI;
+  ReorderTransInfo &RTI;
+  TypeToTypeMap OrigToNewTypeMapping;
+
+  void processBinaryOperator(BinaryOperator &BO);
+  void processCallInst(CallInst &CI);
+  void transformSDiv(BinaryOperator &I);
+  void processGetElementPtrInst(GetElementPtrInst &GEP);
+  void transformAllocCall(CallInst &CI, StructType *Ty);
+  void transformMemfunc(CallInst &CI, StructType *Ty);
+  bool replaceOldSizeWithNewSize(Value *Val, uint64_t OldSize, uint64_t NewSize,
+                                 Instruction *I, uint32_t APos);
+  bool replaceOldSizeWithNewSizeForConst(Value *Val, uint64_t OldSize,
+                                         uint64_t NewSize, Instruction *I,
+                                         uint32_t APos);
+  void replaceOldValWithNewVal(Instruction *I, uint32_t APos, Value *NewVal);
+  StructType *getAssociatedOrigTypeOfSub(Value *SubV);
+  Type *getOrigTyOfTransformedType(Type *TType);
+  StructType *getStructTyAssociatedWithCallInfo(CallInfo *CallInfo);
+};
+
+// Helper function to get associated StructType of \p CallInfo.
+StructType *
+ReorderFieldsImpl::getStructTyAssociatedWithCallInfo(CallInfo *CallInfo) {
+  for (auto *PTy : CallInfo->getPointerTypeInfoRef().getTypes()) {
+    Type *StrTy = PTy->getPointerElementType();
+    // StrTy is orignal type but call getOrigTyOfTransformedType to
+    // make sure the type is transformed.
+    Type *OrigStrTy = getOrigTyOfTransformedType(StrTy);
+    if (OrigStrTy)
+      return cast<StructType>(OrigStrTy);
+  }
+  return nullptr;
+}
+
+// Helper function to get original StructType of given \p TType
+// if it is either Orig or New type in OrigToNewTypeMapping.
+// Otherwise, returns nullptr.
+Type *ReorderFieldsImpl::getOrigTyOfTransformedType(Type *TType) {
+  for (auto &TypesPair : OrigToNewTypeMapping) {
+    Type *OrigTy = TypesPair.first;
+    Type *NewTy = TypesPair.second;
+    if (NewTy == TType || OrigTy == TType)
+      return OrigTy;
+  }
+  return nullptr;
+}
+
+// Sets \p NewVal as \p APos th operand of \p I. This routine expects
+// only CallInst and Instruction::SDiv instructions.
+void ReorderFieldsImpl::replaceOldValWithNewVal(Instruction *I, uint32_t APos,
+                                                Value *NewVal) {
+  if (auto *CI = dyn_cast<CallInst>(I))
+    CI->setArgOperand(APos, NewVal);
+  else if (I->getOpcode() == Instruction::SDiv)
+    I->setOperand(APos, NewVal);
+  else
+    llvm_unreachable("Invalid Inst");
+}
+
+// If \p Val is ConstantInt, routine expects it is multiple of
+// \p OldSize and it is replaced with
+//        (Val / OldSize ) * NewSize
+// Otherwise, it returns false.
+bool ReorderFieldsImpl::replaceOldSizeWithNewSizeForConst(Value *Val,
+                                                          uint64_t OldSize,
+                                                          uint64_t NewSize,
+                                                          Instruction *I,
+                                                          uint32_t APos) {
+  auto *ConstVal = dyn_cast<ConstantInt>(Val);
+  if (!ConstVal)
+    return false;
+  uint64_t ConstSize = ConstVal->getLimitedValue();
+  assert((ConstSize % OldSize) == 0 && "Expects multiple of OldSize");
+  uint64_t NewConst = (ConstSize / OldSize) * NewSize;
+  replaceOldValWithNewVal(I, APos, ConstantInt::get(Val->getType(), NewConst));
+  return true;
+}
+
+// This routine converts \p Val from multiple of OldSize to multiple
+// of NewSize. If \p Val is not constant, it generates Mul & SDiv to
+// do the same.
+bool ReorderFieldsImpl::replaceOldSizeWithNewSize(Value *Val, uint64_t OldSize,
+                                                  uint64_t NewSize,
+                                                  Instruction *I,
+                                                  uint32_t APos) {
+  if (!Val)
+    return false;
+  // TODO: Make isValueMultipleOfSize as DTransUtils function so that
+  // it can be used in Transformations. Enable this code once it is
+  // moved to DTransUtils.
+  // if (!isValueMultipleOfSize(Val, OldSize))
+  //  return false;
+  if (replaceOldSizeWithNewSizeForConst(Val, OldSize, NewSize, I, APos))
+    return true;
+  Value *OldSizeVal = ConstantInt::get(Val->getType(), OldSize);
+  Value *NewSizeVal = ConstantInt::get(Val->getType(), NewSize);
+  Instruction *Div = BinaryOperator::CreateSDiv(Val, OldSizeVal);
+  Instruction *Mul = BinaryOperator::CreateMul(Div, NewSizeVal);
+  Mul->insertBefore(I);
+  Div->insertBefore(Mul);
+  LLVM_DEBUG(dbgs() << "Replacing " << *Val << "\nwith\n"
+                    << *Div << "\n"
+                    << *Mul << "\nin\n"
+                    << *I << "\n");
+  replaceOldValWithNewVal(I, APos, Mul);
+  return true;
+}
+
+// Field-reordering is not enabled for types that are marked with
+// MemFuncPartialWrite. So, just need to handle MemFunc with
+// Complete aggregates. Only Size argument needs to be fixed.
+void ReorderFieldsImpl::transformMemfunc(CallInst &CI, StructType *Ty) {
+  Value *SizeVal = CI.getArgOperand(2);
+  LLVM_DEBUG(dbgs() << "Memfunc Before:" << CI << "\n");
+
+  bool Replaced =
+      replaceOldSizeWithNewSize(SizeVal, DL.getTypeAllocSize(Ty),
+                                RTI.getTransformedTypeNewSize(Ty), &CI, 2);
+  assert(Replaced == true &&
+         "Expecting oldSize should be replaced with NewSize");
+
+  (void) Replaced;
+  LLVM_DEBUG(dbgs() << "Memfunc After:" << CI << "\n");
+}
+
+// Fix size argument of calloc/malloc/realloc
+void ReorderFieldsImpl::transformAllocCall(CallInst &CI, StructType *Ty) {
+  Function *F = CI.getCalledFunction();
+  AllocKind Kind = getAllocFnKind(F, TLI);
+  Value *AllocSizeVal;
+  Value *AllocCountVal;
+  assert((Kind == AK_Calloc || Kind == AK_Malloc || Kind == AK_Realloc) &&
+         "Unexpected alloc call");
+  LLVM_DEBUG(dbgs() << "Alloc Before:" << CI << "\n");
+  getAllocSizeArgs(Kind, &CI, AllocCountVal, AllocSizeVal);
+  uint32_t SizeArgPos = (Kind == AK_Malloc) ? 0 : 1;
+  uint64_t OldSize = DL.getTypeAllocSize(Ty);
+  uint64_t NewSize = RTI.getTransformedTypeNewSize(Ty);
+  bool Replaced = replaceOldSizeWithNewSize(AllocSizeVal, OldSize, NewSize, &CI,
+                                            SizeArgPos);
+  // If AllocSizeVal is not multiple of size of struct, try to fix
+  // AllocCountVal.
+  if (AllocCountVal && !Replaced)
+    Replaced =
+        replaceOldSizeWithNewSize(AllocCountVal, OldSize, NewSize, &CI, 0);
+
+  assert(Replaced == true &&
+         "Expecting oldSize should be replaced with NewSize");
+  LLVM_DEBUG(dbgs() << "Alloc After:" << CI << "\n");
+}
+
+// Fix field index value in GEP if GEP is computing address of a field
+// in any reordered struct.
+void ReorderFieldsImpl::processGetElementPtrInst(GetElementPtrInst &GEP) {
+  Type *SourceTy = GEP.getSourceElementType();
+  uint32_t NewIdx;
+
+  if (!isa<StructType>(SourceTy))
+    return;
+  // Get original struct type.
+  Type *OrigStrTy = getOrigTyOfTransformedType(SourceTy);
+  if (!OrigStrTy)
+    return;
+
+  StructType *StructTy = cast<StructType>(OrigStrTy);
+  // Nothing to do if it is not computing address of any field.
+  if (GEP.getNumOperands() != 3)
+    return;
+  // Get struct field index.
+  Value *Op = GEP.getOperand(2);
+  auto *LastArg = dyn_cast<ConstantInt>(Op);
+
+  LLVM_DEBUG(dbgs() << "GEP Before:" << GEP << "\n");
+  NewIdx = RTI.getTransformedIndex(StructTy, LastArg->getLimitedValue());
+  GEP.setOperand(2, ConstantInt::get(Op->getType(), NewIdx));
+  LLVM_DEBUG(dbgs() << "GEP After:" << GEP << "\n");
+}
+
+// Gets StructType associated with \p SubV if it is subtraction
+// of pointers to a structure. Otherwise, it returns nullptr.
+StructType *ReorderFieldsImpl::getAssociatedOrigTypeOfSub(Value *SubV) {
+  // FIXME: This is just temporary fix to get type info of operands
+  // of Instruction::Sub. Once LPI is available in transformations,
+  // get type info using LPI instead of this work around.
+  if (!isa<Instruction>(SubV) || !SubV->hasOneUse())
+    return nullptr;
+
+  auto *I = cast<Instruction>(SubV);
+
+  if (I->getOpcode() != Instruction::Sub)
+    return nullptr;
+
+  if (I->getOperand(0)->getType() != I->getOperand(1)->getType())
+    return nullptr;
+  if (!isa<PtrToIntInst>(I->getOperand(0)))
+    return nullptr;
+  PtrToIntInst *Src = cast<PtrToIntInst>(I->getOperand(0));
+  Type *PtrTy = Src->getPointerOperand()->getType();
+  if (!isa<PointerType>(PtrTy))
+    return nullptr;
+  Type *StrTy = PtrTy->getPointerElementType();
+  // Get original struct Type from transformed type.
+  Type *OrigStrTy = getOrigTyOfTransformedType(StrTy);
+  if (!OrigStrTy)
+    return nullptr;
+  return cast<StructType>(OrigStrTy);
+}
+
+// DTransAnalysis allows below pointer arithmetic pattern:
+//    %2 = sub Ptr1_str1, Ptr2_str1
+//    %3 = sdiv %2, size_of(Str1)
+//
+//    size_of(str1) needs to be changed if reordering is applied to str1
+//
+void ReorderFieldsImpl::transformSDiv(BinaryOperator &I) {
+  assert(I.getOpcode() == Instruction::SDiv && "Unexpected opcode");
+  Value *SubI = I.getOperand(0);
+
+  StructType *STy = getAssociatedOrigTypeOfSub(SubI);
+  if (!STy)
+    return;
+
+  LLVM_DEBUG(dbgs() << "SDIV  Before:" << I << "\n");
+  Value *SizeVal = I.getOperand(1);
+  bool Replaced =
+      replaceOldSizeWithNewSize(SizeVal, DL.getTypeAllocSize(STy),
+                                RTI.getTransformedTypeNewSize(STy), &I, 1);
+  assert(Replaced == true &&
+         "Expecting oldSize should be replaced with NewSize");
+
+  (void) Replaced;
+  LLVM_DEBUG(dbgs() << "SDIV  After:" << I << "\n");
+}
+
+// Only Pointer arithmetic that is allowed in Analysis is Instruction::Sub
+// that is used by SDiv.
+void ReorderFieldsImpl::processBinaryOperator(BinaryOperator &BO) {
+  switch (BO.getOpcode()) {
+  // TODO: Handle UDiv also.
+  case Instruction::SDiv:
+    transformSDiv(BO);
+    break;
+  default:
+    break;
+  }
+}
+
+// Handle all CallInsts here. The only CallInst instructions that need
+// to be handled by Reordering are Alloc and Memfunc. There is no need
+// to process GEPs that are passed as arguments to any calls since
+// Reordering is disabled as it is treated as AddressTaken.
+void ReorderFieldsImpl::processCallInst(CallInst &CI) {
+  CallInfo *CallInfo = DTInfo.getCallInfo(&CI);
+  if (CallInfo == nullptr)
+    return;
+  switch (CallInfo->getCallInfoKind()) {
+  case CallInfo::CIK_Alloc: {
+    StructType *StrTy = getStructTyAssociatedWithCallInfo(CallInfo);
+    if (!StrTy)
+      return;
+    transformAllocCall(CI, StrTy);
+    break;
+  }
+
+  case CallInfo::CIK_Memfunc: {
+    // FIXME: Use CallInfo to get associated type once it is
+    // available for CIK_Memfunc.
+    Value *Dst = CI.getArgOperand(0)->stripPointerCasts();
+    if (!Dst->getType()->isPointerTy())
+      return;
+    Type *StrTy = cast<PointerType>(Dst->getType())->getElementType();
+    if (!dyn_cast<StructInfo>(DTInfo.getTypeInfo(StrTy)))
+      return;
+    Type *OrigStrTy = getOrigTyOfTransformedType(StrTy);
+    if (!OrigStrTy)
+      return;
+
+    transformMemfunc(CI, cast<StructType>(OrigStrTy));
+    break;
+  }
+  default:
+    break;
+  }
+}
+
+// Fix all necessary IR changes related to field-reordering transform.
+//   GEP Inst: Replace old index of a field with new index
+//   CallInst: Replace old size of struct with new size in malloc/calloc/
+//             realloc/memset/memcpy etc.
+//   BinaryOp: Fix size that is used in SDiv.
+void ReorderFieldsImpl::postprocessFunction(Function &Func, bool isCloned) {
+  Function *F = isCloned ? OrigFuncToCloneFuncMap[&Func] : &Func;
+  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+    Instruction *Inst = &*I;
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Inst))
+      processGetElementPtrInst(*GEP);
+    else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(Inst))
+      processBinaryOperator(*BO);
+    else if (CallInst *CI = dyn_cast<CallInst>(Inst))
+      processCallInst(*CI);
+  }
+}
+
+// Create new types based on reordered field layout.
+void ReorderFieldsImpl::populateTypes(Module &M) {
+  for (auto &TySetTyPair : RTI.getTypesMap()) {
+    auto StTy = TySetTyPair.first;
+    std::vector<Type *> EltTys(StTy->getNumElements());
+
+    // Create reordered field layout
+    for (unsigned I = 0; I < StTy->getNumElements(); ++I) {
+      Type *Ty = StTy->getElementType(I);
+      unsigned NewIdx = RTI.getTransformedIndex(StTy, I);
+      EltTys[NewIdx] = TypeRemapper->remapType(Ty);
+    }
+    StructType *NewSt = cast<StructType>(OrigToNewTypeMapping[StTy]);
+    NewSt->setBody(EltTys);
+    LLVM_DEBUG(dbgs() << "Struct " << getStName(StTy)
+                      << "after field-reordering: \n"
+                      << *NewSt << "\n");
+    assert(RTI.getTransformedTypeNewSize(StTy) == DL.getTypeAllocSize(NewSt) &&
+           "Size computation is incorrect");
+  }
+}
+
+bool ReorderFieldsImpl::prepareTypes(Module &M) {
+  for (auto &TySetTyPair : RTI.getTypesMap()) {
+    StructType *NewSt =
+        StructType::create(TySetTyPair.first->getContext(),
+                           "__DFR_" + TySetTyPair.first->getName().str());
+    TypeRemapper->addTypeMapping(TySetTyPair.first, NewSt);
+    OrigToNewTypeMapping[TySetTyPair.first] = NewSt;
+  }
+  return true;
+}
+
 // Returns true if StructT is a candidate for field reordering based
 // on unused space in the structure due to alignment
-bool dtrans::ReorderFieldsPass::isCandidateTypeHasEnoughPadding(
-    StructType *StructT, const DataLayout &DL) {
+bool ReorderFieldsPass::isCandidateTypeHasEnoughPadding(StructType *StructT,
+                                                        const DataLayout &DL) {
   if (!DTransReoderFieldsPaddingHeuristic)
     return false;
 
   size_t StructSize = DL.getTypeAllocSize(StructT);
-  if (StructSize > MaxStructSize)
+  uint32_t NumElems = StructT->getNumElements();
+  if (StructSize > MaxStructSize || NumElems < MinNumElems)
     return false;
 
   // Compute unused space due to alignment
-  uint32_t ExpectedOffset = 0;
+  uint32_t TotalFieldSize = 0;
   int32_t UnusedSpace = 0;
-  for (unsigned i = 0; i < StructT->getNumElements(); ++i) {
+  for (unsigned i = 0; i < NumElems; ++i) {
     Type *Ty = StructT->getElementType(i);
-    uint32_t FieldOff = DL.getStructLayout(StructT)->getElementOffset(i);
-    UnusedSpace += (FieldOff - ExpectedOffset);
-    ExpectedOffset = FieldOff + DL.getTypeAllocSize(Ty);
+    TotalFieldSize += DL.getTypeAllocSize(Ty);
   }
-  UnusedSpace += (StructSize - ExpectedOffset);
-  if ((UnusedSpace * 100) / DL.getTypeAllocSize(StructT) <
+  UnusedSpace = StructSize - TotalFieldSize;
+  if ((UnusedSpace * 100) / StructSize <
       DTransReorderFieldsUnusedSpacePercentThreshold)
     return false;
 
-  DEBUG(dbgs() << "  Selected based on padding heuristic: "
-               << StructT->getName() << " ( Size: " << StructSize
-               << " UnusedSpace: " << UnusedSpace << " )\n");
+  LLVM_DEBUG(dbgs() << "  Selected based on padding heuristic: "
+                    << getStName(StructT) << " ( Size: " << StructSize
+                    << " UnusedSpace: " << UnusedSpace << " )\n");
   return true;
 }
 
 // Returns true if StructT is a candidate for field reordering based
 // on heuristics.
-bool dtrans::ReorderFieldsPass::isCandidateType(StructType *StructT,
-                                                const DataLayout &DL) {
+bool ReorderFieldsPass::isCandidateType(StructType *StructT,
+                                        const DataLayout &DL) {
+
+  if (!doesTypeMeetReorderRestrictions(StructT)) {
+    LLVM_DEBUG(dbgs() << "  Rejecting " << getStName(StructT)
+                      << " based on reordering restrictions.\n");
+    return false;
+  }
+
   // Check Padding heuristic
   if (isCandidateTypeHasEnoughPadding(StructT, DL))
     return true;
@@ -126,32 +520,141 @@ bool dtrans::ReorderFieldsPass::isCandidateType(StructType *StructT,
   return false;
 }
 
-bool dtrans::ReorderFieldsPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
-                                                     const DataLayout &DL) {
+// Returns true if okay to apply field-reordering
+bool ReorderFieldsPass::doesTypeMeetReorderRestrictions(StructType *StructT) {
+  // check if it is packed.
+  if (StructT->isPacked())
+    return false;
+
+  auto NotSimpleField = [](Type *Ty) -> bool {
+    // Check if it has aggregate types.
+    // No attributes are marked to indicate bit-fields, force alignment
+    // on fields but adding char array fields to fill gaps between source
+    // level fields. isAggregateType() check is good enough to avoid those
+    // cases.
+    if (Ty->isAggregateType() || Ty->isVectorTy())
+      return true;
+    return false;
+  };
+
+  if (std::any_of(StructT->element_begin(), StructT->element_end(),
+                  NotSimpleField))
+    return false;
+  return true;
+}
+
+// This is used to sort fields based on alignment, size and index of
+// fields.
+class FieldData {
+  uint64_t Align;
+  uint64_t Size;
+  uint32_t Index;
+
+public:
+  FieldData(uint64_t Align, uint64_t Size, uint64_t Index)
+      : Align(Align), Size(Size), Index(Index) {}
+
+  uint64_t getFieldAlign() const { return Align; }
+  uint64_t getFieldSize() const { return Size; }
+  uint64_t getFieldIndex() const { return Index; }
+
+  bool operator<(const FieldData &RHS) const {
+    // Sort fields based on below compare function to avoid gaps between
+    // fields.
+    //    Ascending order based on Alignment, then
+    //    Ascending order based on Size, then
+    //    Descending order based on Index.
+    //
+    // The purpose of using Index in sorting fields is to maintain source
+    // order of fields if alignment and size of the fields are same.
+    // "Index + 1" is used instead of "Index" to avoid incorrect comparison
+    // with zero (i.e for 1st field) since negative index values are used
+    // for sorting.
+    // TODO: Revisit this to have even better layout.
+    return std::make_tuple(RHS.getFieldAlign(), RHS.getFieldSize(),
+                           -(RHS.getFieldIndex() + 1)) <
+           std::make_tuple(Align, Size, -(Index + 1));
+  }
+};
+
+// Finds new layout of \p TI based on alignment, size and index of fields
+// and collects required info to apply reorder transformation if it
+// is profitable.
+void ReorderFieldsPass::collectReorderTransInfoIfProfitable(
+    TypeInfo *TI, const DataLayout &DL) {
+  SmallVector<FieldData, 8> Fields;
+  auto *StInfo = dyn_cast<StructInfo>(TI);
+  StructType *StructT = cast<StructType>(StInfo->getLLVMType());
+
+  // Collect info Fields
+  for (unsigned I = 0; I < StructT->getNumElements(); ++I) {
+    Type *Ty = StructT->getElementType(I);
+    FieldData FD(DL.getABITypeAlignment(Ty), DL.getTypeStoreSize(Ty), I);
+    Fields.push_back(FD);
+  }
+  // Sort Fields
+  llvm::sort(Fields.begin(), Fields.end());
+
+  // Compute size of reordered layout
+  uint64_t Offset = 0;
+  for (const FieldData &FD : Fields) {
+    uint64_t TyAlign = FD.getFieldAlign();
+    if ((Offset & (TyAlign - 1)) != 0)
+      Offset = alignTo(Offset, TyAlign);
+    Offset += FD.getFieldSize();
+  }
+  uint64_t StructAlign = DL.getABITypeAlignment(StructT);
+  if ((Offset & (StructAlign - 1)) != 0)
+    Offset = alignTo(Offset, StructAlign);
+
+  // Check if it really saves space by doing field-reordering
+  uint64_t SpaceSaved = DL.getTypeAllocSize(StructT) - Offset;
+  if (DL.getTypeAllocSize(StructT) <= Offset ||
+      (SpaceSaved * 100) / DL.getTypeAllocSize(StructT) <
+          DTransReorderFieldsSavedSpacePercentThreshold) {
+    LLVM_DEBUG(dbgs() << "  Not profitable to reorder: " << getStName(StructT)
+                      << " ( Size: " << DL.getTypeAllocSize(StructT)
+                      << " SpaceSaved: " << SpaceSaved << " )\n");
+    return;
+  }
+  LLVM_DEBUG(dbgs() << "  Field-reorder will be applied: "
+                    << getStName(StructT)
+                    << " ( Size: " << DL.getTypeAllocSize(StructT)
+                    << " SpaceSaved: " << SpaceSaved << " )\n");
+
+  // Update field reorder info that is required to do IR transform.
+  RTI.setTransformedTypeNewSize(StructT, Offset);
+  std::vector<uint32_t> NewIdxVec(Fields.size());
+  uint32_t NewIndex = 0;
+  for (const FieldData &FD : Fields)
+    NewIdxVec[FD.getFieldIndex()] = NewIndex++;
+  RTI.setTransformedIndexes(StructT, NewIdxVec);
+}
+
+bool ReorderFieldsPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
+                                             const DataLayout &DL) {
   // TODO: Create a safety mask for the conditions that are common to all
   //       DTrans optimizations.
   ReorderFieldsSafetyConditions =
-      dtrans::BadCasting | dtrans::BadAllocSizeArg |
-      dtrans::BadPtrManipulation | dtrans::AmbiguousGEP | dtrans::VolatileData |
-      dtrans::MismatchedElementAccess | dtrans::WholeStructureReference |
-      dtrans::UnsafePointerStore | dtrans::FieldAddressTaken |
-      dtrans::HasInitializerList | dtrans::BadMemFuncSize |
-      dtrans::BadMemFuncManipulation | dtrans::AmbiguousPointerTarget |
-      dtrans::UnsafePtrMerge | dtrans::AddressTaken | dtrans::NoFieldsInStruct |
-      dtrans::NestedStruct | dtrans::ContainsNestedStruct |
-      dtrans::SystemObject;
+      BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+      VolatileData | MismatchedElementAccess | WholeStructureReference |
+      UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+      HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
+      MemFuncPartialWrite | BadMemFuncManipulation | AmbiguousPointerTarget |
+      AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
+      SystemObject | LocalInstance | UnhandledUse;
 
-  DEBUG(dbgs() << "Reorder fields: looking for candidate structures.\n");
+  LLVM_DEBUG(dbgs() << "Reorder fields: looking for candidate structures.\n");
 
-  for (dtrans::TypeInfo *TI : DTInfo.type_info_entries()) {
-    auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
+  for (TypeInfo *TI : DTInfo.type_info_entries()) {
+    auto *StInfo = dyn_cast<StructInfo>(TI);
     if (!StInfo)
       continue;
 
     if (StInfo->testSafetyData(ReorderFieldsSafetyConditions)) {
-      DEBUG(dbgs() << "  Rejecting "
-                   << cast<StructType>(StInfo->getLLVMType())->getName()
-                   << " based on safety data.\n");
+      LLVM_DEBUG(dbgs() << "  Rejecting "
+                        << getStName(cast<StructType>(StInfo->getLLVMType()))
+                        << " based on safety data.\n");
       continue;
     }
     StructType *StructT = cast<StructType>(StInfo->getLLVMType());
@@ -162,26 +665,37 @@ bool dtrans::ReorderFieldsPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
     CandidateTypes.push_back(StInfo);
   }
 
-  DEBUG(if (CandidateTypes.empty()) dbgs() << "  No candidates found.\n");
+  LLVM_DEBUG(if (CandidateTypes.empty()) dbgs() << "  No candidates found.\n");
 
   return !CandidateTypes.empty();
 }
 
-bool dtrans::ReorderFieldsPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo) {
+bool ReorderFieldsPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
+                                TargetLibraryInfo &TLI) {
   auto &DL = M.getDataLayout();
+
   if (!gatherCandidateTypes(DTInfo, DL))
     return false;
 
-  // TODO: Implement the optimization.
+  for (auto *TI : CandidateTypes)
+    collectReorderTransInfoIfProfitable(TI, DL);
 
-  return false;
+  // Check if any type is selected for field-reordering.
+  if (!RTI.hasAnyTypeTransformed())
+    return false;
+
+  // Apply IR and type transformations using ReorderFieldsImpl.
+  DTransTypeRemapper TypeRemapper;
+  ReorderFieldsImpl ReorderFieldsImpl(TLI, RTI, DTInfo, M.getContext(), DL,
+                                      "__BDFR_", &TypeRemapper);
+  ReorderFieldsImpl.run(M);
+  return true;
 }
 
-PreservedAnalyses dtrans::ReorderFieldsPass::run(Module &M,
-                                                 ModuleAnalysisManager &AM) {
+PreservedAnalyses ReorderFieldsPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
 
-  if (!runImpl(M, DTransInfo))
+  if (!runImpl(M, DTransInfo, AM.getResult<TargetLibraryAnalysis>(M)))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.
@@ -190,3 +704,7 @@ PreservedAnalyses dtrans::ReorderFieldsPass::run(Module &M,
   PA.preserve<DTransAnalysis>();
   return PA;
 }
+
+} // namespace dtrans
+
+} // namespace llvm

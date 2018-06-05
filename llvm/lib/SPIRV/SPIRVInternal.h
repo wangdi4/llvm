@@ -62,7 +62,10 @@ namespace SPIRV{
   /// The LLVM/SPIR-V translator version used to fill the lower 16 bits of the
   /// generator's magic number in the generated SPIR-V module.
   /// This number should be bumped up whenever the generated SPIR-V changes.
-  const static unsigned short kTranslatorVer = 14;
+
+#if INTEL_CUSTOMIZATION
+  const static unsigned short kTranslatorVer = 3;
+#endif
 
 #define SPCV_TARGET_LLVM_IMAGE_TYPE_ENCODE_ACCESS_QUAL 0
 // Workaround for SPIR 2 producer bug about kernel function calling convention.
@@ -541,6 +544,10 @@ Function *getOrCreateFunction(Module *M, Type *RetTy,
     ArrayRef<Type *> ArgTypes, StringRef Name,
     BuiltinFuncMangleInfo *Mangle = nullptr,
     AttributeList *Attrs = nullptr, bool takeName = true);
+
+PointerType* getOCLClkEventType(Module *M);
+PointerType* getOCLClkEventPtrType(Module *M);
+Constant* getOCLNullClkEventPtr(Module *M);
 
 /// Get function call arguments.
 /// \param Start Starting index.

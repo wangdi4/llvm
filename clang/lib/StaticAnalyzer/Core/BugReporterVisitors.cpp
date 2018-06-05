@@ -213,7 +213,7 @@ static bool isFunctionMacroExpansion(SourceLocation Loc,
   if (!Loc.isMacroID())
     return false;
   while (SM.isMacroArgExpansion(Loc))
-    Loc = SM.getImmediateExpansionRange(Loc).first;
+    Loc = SM.getImmediateExpansionRange(Loc).getBegin();
   std::pair<FileID, unsigned> TLInfo = SM.getDecomposedLoc(Loc);
   SrcMgr::SLocEntry SE = SM.getSLocEntry(TLInfo.first);
   const SrcMgr::ExpansionInfo &EInfo = SE.getExpansion();
@@ -483,7 +483,7 @@ private:
       if (!(isa<FieldRegion>(R) || isa<CXXBaseObjectRegion>(R)))
         return false; // Pattern-matching failed.
       Subregions.push_back(R);
-      R = dyn_cast<SubRegion>(R)->getSuperRegion();
+      R = cast<SubRegion>(R)->getSuperRegion();
     }
     bool IndirectReference = !Subregions.empty();
 

@@ -25,6 +25,7 @@
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/CodeGen/CommandFlags.inc"
 #include "llvm/CodeGen/TargetPassConfig.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IRPrintingPasses.h"
@@ -437,13 +438,16 @@ int main(int argc, char **argv) {
   initializeVecClonePass(Registry);
   initializeMapIntrinToImlPass(Registry);
   initializeIntel_OpenCLTransforms(Registry);
-  initializeIntel_VPOAnalysis(Registry);
-  initializeIntel_VPOTransforms(Registry);
 #if INTEL_INCLUDE_DTRANS
   initializeDTransPasses(Registry);
 #endif // INTEL_INCLUDE_DTRANS
   initializeOptimizeDynamicCastsWrapperPass(Registry);
 #endif  // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+  initializeIntel_VPOAnalysis(Registry);
+  initializeIntel_VPOTransforms(Registry);
+#endif // INTEL_COLLAB
 
 #ifdef LINK_POLLY_INTO_TOOLS
   polly::initializePollyPasses(Registry);

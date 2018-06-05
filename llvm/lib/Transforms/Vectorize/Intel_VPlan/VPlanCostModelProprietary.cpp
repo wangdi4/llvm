@@ -14,11 +14,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "VPlanCostModelProprietary.h"
-#include "VPlan.h"
+#include "Intel_VPlan.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
-#include <llvm/Analysis/TargetTransformInfo.h>
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 #define DEBUG_TYPE "vplan-cost-model-proprietary"
+
+using namespace llvm::loopopt;
 
 // TODO: Replace this function with a call to divergence analysis when it is
 // ready.
@@ -51,11 +53,10 @@ bool VPlanCostModelProprietary::isUnitStrideLoadStore(
   unsigned Opcode = VPInst->getOpcode();
   assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
          "Is not load or store instruction.");
-  auto HIRData = dyn_cast_or_null<VPInstructionDataHIR>(VPInst->getHIRData());
-  if (!HIRData)
+  if (!VPInst->HIR.isMaster())
     return false; // CHECKME: Is that correct?
 
-  if (auto Inst = dyn_cast_or_null<HLInst>(HIRData->getInstruction())) {
+  if (auto Inst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingDDN())) {
     unsigned NestingLevel = Inst->getParentLoop()->getNestingLevel();
 
     return Opcode == Instruction::Load

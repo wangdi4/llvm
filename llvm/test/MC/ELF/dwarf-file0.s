@@ -3,6 +3,7 @@
 # Added -dwarf-line-version=5 as workaround for ld.gold internal error until CMPLRS-48167 is fixed.
 # RUN: llvm-mc -dwarf-version 5 -dwarf-line-version 5  %s -filetype=obj -o - | llvm-dwarfdump -debug-line - | FileCheck %s --check-prefixes=CHECK,CHECK-5
 # INTEL_CUSTOMIZATION END
+# REQUIRES: default_triple
 # Darwin is stuck on DWARF v2.
 # XFAIL: darwin
         .file 0 "root.cpp"

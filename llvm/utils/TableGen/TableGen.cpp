@@ -44,10 +44,14 @@ enum ActionType {
   PrintSets,
   GenOptParserDefs,
   GenCTags,
-  GenDirectives,      // INTEL
-  GenSVMLVariants,    // INTEL
-  GenLibmvecVariants, // INTEL
-  GenMAPatterns,      // INTEL
+#if INTEL_COLLAB
+  GenDirectives,
+#endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  GenSVMLVariants,     // TODO: VEC to COLLAB
+  GenLibmvecVariants,
+  GenMAPatterns,
+#endif // INTEL_CUSTOMIZATION
   GenAttributes,
   GenSearchableTables,
   GenGlobalISel,
@@ -103,17 +107,19 @@ namespace {
                                "Generate ctags-compatible index"),
                     clEnumValN(GenAttributes, "gen-attrs",
                                "Generate attributes"),
-// INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
                     clEnumValN(GenDirectives, "gen-directives",
                                "Generate directive enums and tables for \
                                 parallel/vector constructs and regions"),
-                    clEnumValN(GenSVMLVariants, "gen-svml",
+#endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+                    clEnumValN(GenSVMLVariants, "gen-svml", // VEC to COLLAB
                                "Generate SVML variant function names"),
                     clEnumValN(GenLibmvecVariants, "gen-libmvec",
                                "Generate Libmvec variant function names"),
                     clEnumValN(GenMAPatterns, "gen-ma-patterns",
                                "Generate MUL/ADD patterns"),
-// END INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
                     clEnumValN(GenSearchableTables, "gen-searchable-tables",
                                "Generate generic binary-searchable table"),
                     clEnumValN(GenGlobalISel, "gen-global-isel",
@@ -213,11 +219,13 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
   case GenAttributes:
     EmitAttributes(Records, OS);
     break;
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   case GenDirectives:
     EmitDirectives(Records, OS);
     break;
-  case GenSVMLVariants:
+#endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  case GenSVMLVariants:  // TODO: VEC to COLLAB
     EmitSVMLVariants(Records, OS);
     break;
   case GenLibmvecVariants:

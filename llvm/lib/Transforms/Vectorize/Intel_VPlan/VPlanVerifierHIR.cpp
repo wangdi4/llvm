@@ -22,6 +22,7 @@
 
 using namespace llvm;
 using namespace vpo;
+using namespace loopopt;
 
 unsigned VPlanVerifierHIR::countLoopsInUnderlyingIR() const {
   assert(TheLoop && "TheLoop can't be null.");

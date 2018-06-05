@@ -561,6 +561,7 @@ bool llvm::isAssumeLikeIntrinsic(const Instruction *I) {
       case Intrinsic::sideeffect:
       case Intrinsic::dbg_declare:
       case Intrinsic::dbg_value:
+      case Intrinsic::dbg_label:
       case Intrinsic::invariant_start:
       case Intrinsic::invariant_end:
       case Intrinsic::lifetime_start:
@@ -1042,12 +1043,9 @@ static void computeKnownBitsFromOperator(const Operator *I, KnownBits &Known,
     // matching the form add(x, add(x, y)) where y is odd.
     // TODO: This could be generalized to clearing any bit set in y where the
     // following bit is known to be unset in y.
-    Value *Y = nullptr;
+    Value *X = nullptr, *Y = nullptr;
     if (!Known.Zero[0] && !Known.One[0] &&
-        (match(I->getOperand(0), m_Add(m_Specific(I->getOperand(1)),
-                                       m_Value(Y))) ||
-         match(I->getOperand(1), m_Add(m_Specific(I->getOperand(0)),
-                                       m_Value(Y))))) {
+        match(I, m_c_BinOp(m_Value(X), m_Add(m_Deferred(X), m_Value(Y))))) {
       Known2.resetAll();
       computeKnownBits(Y, Known2, Depth + 1, Q);
       if (Known2.countMinTrailingOnes() > 0)
@@ -1817,7 +1815,7 @@ bool isKnownToBeAPowerOfTwo(const Value *V, bool OrZero, unsigned Depth,
   return false;
 }
 
-/// \brief Test whether a GEP's result is known to be non-null.
+/// Test whether a GEP's result is known to be non-null.
 ///
 /// Uses properties inherent in a GEP to try to determine whether it is known
 /// to be non-null.
@@ -2032,6 +2030,25 @@ bool isKnownNonZero(const Value *V, unsigned Depth, const Query &Q) {
     if (const GEPOperator *GEP = dyn_cast<GEPOperator>(V))
       if (isGEPKnownNonNull(GEP, Depth, Q))
         return true;
+
+#if INTEL_CUSTOMIZATION
+    if (const SubscriptInst *SI = dyn_cast<SubscriptInst>(V))
+      if (SI->getPointerAddressSpace() == 0) {
+        if (isKnownNonZero(SI->getPointerOperand(), Depth, Q))
+          return true;
+        if (auto *LC = dyn_cast<ConstantInt>(SI->getLowerBound()))
+          if (LC->isZero() && isKnownNonZero(SI->getIndex(), Depth, Q))
+            return true;
+        if (auto *IC = dyn_cast<ConstantInt>(SI->getIndex()))
+          if (IC->isZero() && isKnownNonZero(SI->getLowerBound(), Depth, Q))
+            return true;
+      }
+    if (const FakeloadInst *FI = dyn_cast<FakeloadInst>(V))
+      if (FI->getPointerAddressSpace() == 0 &&
+          isKnownNonZero(FI->getPointerOperand(), Depth, Q))
+        return true;
+
+#endif // INTEL_CUSTOMIZATION
   }
 
   unsigned BitWidth = getBitWidth(V->getType()->getScalarType(), Q.DL);
@@ -3493,7 +3510,7 @@ uint64_t llvm::GetStringLength(const Value *V, unsigned CharSize) {
   return Len == ~0ULL ? 1 : Len;
 }
 
-/// \brief \p PN defines a loop-variant pointer to an object.  Check if the
+/// \p PN defines a loop-variant pointer to an object.  Check if the
 /// previous iteration of the loop was referring to the same object as \p PN.
 static bool isSameUnderlyingObjectInLoop(const PHINode *PN,
                                          const LoopInfo *LI) {
@@ -3525,7 +3542,7 @@ Value *llvm::GetUnderlyingObject(Value *V, const DataLayout &DL,
   if (!V->getType()->isPointerTy())
     return V;
   for (unsigned Count = 0; MaxLookup == 0 || Count < MaxLookup; ++Count) {
-    if (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
+    if (auto *GEP = dyn_cast<AddressOperator>(V)) { // INTEL
       V = GEP->getPointerOperand();
     } else if (Operator::getOpcode(V) == Instruction::BitCast ||
                Operator::getOpcode(V) == Instruction::AddrSpaceCast) {
@@ -3677,6 +3694,25 @@ bool llvm::onlyUsedByLifetimeMarkers(const Value *V) {
   }
   return true;
 }
+
+#if INTEL_CUSTOMIZATION
+/// Return true if the only users of this pointer are lifetime markers and
+/// var.annotation intrinsics with register attribute set.
+bool llvm::onlyUsedByLifetimeAndVarAnnot(const Value *V) {
+  for (const User *U : V->users()) {
+    const IntrinsicInst *II = dyn_cast<IntrinsicInst>(U);
+    if (!II) return false;
+
+    if (const auto *VAI = dyn_cast<VarAnnotIntrinsic>(II)) {
+      if (!VAI->hasRegisterAttributeSet())
+        return false;
+    } else if (II->getIntrinsicID() != Intrinsic::lifetime_start &&
+               II->getIntrinsicID() != Intrinsic::lifetime_end)
+      return false;
+  }
+  return true;
+}
+#endif  //INTEL_CUSTOMIZATION
 
 bool llvm::isSafeToSpeculativelyExecute(const Value *V,
                                         const Instruction *CtxI,
@@ -3842,7 +3878,7 @@ OverflowResult llvm::computeOverflowForUnsignedAdd(const Value *LHS,
   return OverflowResult::MayOverflow;
 }
 
-/// \brief Return true if we can prove that adding the two values of the
+/// Return true if we can prove that adding the two values of the
 /// knownbits will not overflow.
 /// Otherwise return false.
 static bool checkRippleForSignedAdd(const KnownBits &LHSKnown,

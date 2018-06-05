@@ -69,11 +69,11 @@ private:
   MachineFunctionProperties SetProperties;
   MachineFunctionProperties ClearedProperties;
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   /// createPrinterPass - Get a machine function printer pass.
   Pass *createPrinterPass(raw_ostream &O,
                           const std::string &Banner) const override;
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   bool runOnFunction(Function &F) override;
 };

@@ -575,6 +575,7 @@ static int getEquivalentCallShort(int Opcode) {
   case Mips::BLTZAL:
     return Mips::BLTZALS_MM;
   case Mips::JAL:
+  case Mips::JAL_MM:
     return Mips::JALS_MM;
   case Mips::JALR:
     return Mips::JALRS_MM;
@@ -678,7 +679,7 @@ bool Filler::searchRange(MachineBasicBlock &MBB, IterTy Begin, IterTy End,
     ++I;
 
     // skip debug value
-    if (CurrI->isDebugValue())
+    if (CurrI->isDebugInstr())
       continue;
 
     if (terminateSearch(*CurrI))

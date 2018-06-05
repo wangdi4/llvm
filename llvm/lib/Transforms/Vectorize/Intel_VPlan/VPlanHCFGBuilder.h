@@ -19,7 +19,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHCFGBUILDER_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHCFGBUILDER_H
 
-#include "VPlan.h"
+#include "../Intel_VPlan.h"
 #include "LoopVectorizationCodeGen.h" //Only for Legal.
 #include "VPlanVerifier.h"
 #include "llvm/ADT/DenseMap.h"
@@ -43,7 +43,7 @@ protected:
   VPDominatorTree VPDomTree;
   VPPostDominatorTree VPPostDomTree;
 
-  IntelVPlanUtils PlanUtils;
+  VPlanUtils PlanUtils;
 
   /// VPlan verifier utility.
   VPlanVerifier *Verifier = nullptr;
@@ -69,7 +69,7 @@ protected:
   // of the new loop, so the old one can become dead.
   // SmallPtrSet<Instruction *, 4> DeadInstructions;
 
-  VPlanHCFGBuilderBase(const WRNVecLoopNode *WRL, IntelVPlan *Plan,
+  VPlanHCFGBuilderBase(const WRNVecLoopNode *WRL, VPlan *Plan,
                        VPOVectorizationLegality *Legal)
       : WRLp(WRL), PlanUtils(Plan), Legal(Legal) {}
 
@@ -116,7 +116,7 @@ private:
   void collectUniforms(VPRegionBlock *Region) override;
 
 public:
-  VPlanHCFGBuilder(const WRNVecLoopNode *WRL, Loop *Lp, IntelVPlan *Plan,
+  VPlanHCFGBuilder(const WRNVecLoopNode *WRL, Loop *Lp, VPlan *Plan,
                    LoopInfo *LI, ScalarEvolution *SE,
                    VPOVectorizationLegality *Legal)
       : VPlanHCFGBuilderBase(WRL, Plan, Legal), TheLoop(Lp), LI(LI), SE(SE) {

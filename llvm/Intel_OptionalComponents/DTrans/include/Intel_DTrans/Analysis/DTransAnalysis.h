@@ -19,6 +19,7 @@
 
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/IR/CallSite.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 
@@ -41,9 +42,29 @@ public:
     dtrans::TypeInfo *&operator->() const { return operator*(); }
   };
 
+  using CallInfoMapType = DenseMap<llvm::Instruction *, dtrans::CallInfo *>;
+
+  /// Adaptor for directly iterating over the dtrans::CallInfo pointers.
+  struct call_info_iterator
+      : public iterator_adaptor_base<
+            call_info_iterator, CallInfoMapType::iterator,
+            std::forward_iterator_tag, CallInfoMapType::value_type> {
+    explicit call_info_iterator(CallInfoMapType::iterator X)
+        : iterator_adaptor_base(X) {}
+
+    dtrans::CallInfo *&operator*() const { return I->second; }
+    dtrans::CallInfo *&operator->() const { return operator*(); }
+  };
+
 public:
   DTransAnalysisInfo();
+  DTransAnalysisInfo(DTransAnalysisInfo &&) = default;
   ~DTransAnalysisInfo();
+
+  DTransAnalysisInfo(const DTransAnalysisInfo &) = delete;
+  DTransAnalysisInfo &operator=(const DTransAnalysisInfo &) = delete;
+
+  DTransAnalysisInfo &operator=(DTransAnalysisInfo &&);
 
   bool analyzeModule(Module &M, TargetLibraryInfo &TLI);
   void reset();
@@ -69,12 +90,68 @@ public:
                       type_info_iterator(TypeInfoMap.end()));
   }
 
+  iterator_range<call_info_iterator> call_info_entries() {
+    return make_range(call_info_iterator(CallInfoMap.begin()),
+                      call_info_iterator(CallInfoMap.end()));
+  }
+
+  // Retrieve the CallInfo object for the instruction, if information exists.
+  // Otherwise, return nullptr.
+  dtrans::CallInfo *getCallInfo(Instruction *I);
+
+  // Create an entry in the CallInfoMap about a memory allocation call.
+  dtrans::AllocCallInfo *createAllocCallInfo(Instruction *I,
+                                             dtrans::AllocKind AK);
+
+  // Create an entry in the CallInfoMap about a memory freeing call
+  dtrans::FreeCallInfo *createFreeCallInfo(Instruction *I, dtrans::FreeKind FK);
+
+  // Create an entry in the CallInfoMap about a memory setting/copying/moving
+  // call.
+  dtrans::MemfuncCallInfo *
+  createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+                        dtrans::MemfuncRegion &MR);
+
+  dtrans::MemfuncCallInfo *
+  createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+                        dtrans::MemfuncRegion &MR1, dtrans::MemfuncRegion &MR2);
+
+  // Destroy the CallInfo stored about the specific instruction.
+  void deleteCallInfo(Instruction *I);
+
+  // Update the instruction associated with the CallInfo object. This
+  // is necessary because when a function is cloned during the DTrans
+  // optimizations, the information needs to be transferred to the
+  // newly created instruction of the cloned routine.
+  void replaceCallInfoInstruction(dtrans::CallInfo *Info, Instruction *NewI);
+
+  // Interface routine to get possible targets of given function pointer 'FP'.
+  // It computes all possible targets of 'FP' using field single value analysis
+  // and adds valid targets to 'Targets' vector. It skips adding unknown/
+  // invalid targets to 'Targets' vector and returns false if there are any
+  // unknown/invalid targets.
+  //
+  bool GetFuncPointerPossibleTargets(llvm::Value *FP,
+                                     std::vector<llvm::Value *> &Targets,
+                                     llvm::CallSite, bool);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printCallInfo(raw_ostream &OS);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 private:
   void printStructInfo(dtrans::StructInfo *AI);
   void printArrayInfo(dtrans::ArrayInfo *AI);
   void printFieldInfo(dtrans::FieldInfo &FI);
 
+  void addCallInfo(llvm::Instruction *I, dtrans::CallInfo *Info);
+  void destructCallInfo(dtrans::CallInfo *Info);
+
   DenseMap<llvm::Type *, dtrans::TypeInfo *> TypeInfoMap;
+
+  // A mapping from function calls that special information is collected for
+  // (malloc, free, memset, etc) to the information stored about those calls.
+  CallInfoMapType CallInfoMap;
 };
 
 // Analysis pass providing a data transformation analysis result.
@@ -86,7 +163,7 @@ class DTransAnalysis : public AnalysisInfoMixin<DTransAnalysis> {
 public:
   typedef DTransAnalysisInfo Result;
 
-  Result run(Module &M, AnalysisManager<Module> &AM);
+  Result run(Module &M, ModuleAnalysisManager &AM);
 };
 
 // Legacy wrapper pass to provide DTrans analysis.

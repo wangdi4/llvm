@@ -78,7 +78,7 @@ static cl::opt<bool>
 AggregateArgsOpt("aggregate-extracted-args", cl::Hidden,
                  cl::desc("Aggregate arguments to code-extracted functions"));
 
-/// \brief Test whether a block is valid for extraction.
+/// Test whether a block is valid for extraction.
 #if INTEL_CUSTOMIZATION // under community review D45904
 static bool isBlockValidForExtraction(const BasicBlock &BB,
                                       const SetVector<BasicBlock *> &Result,
@@ -191,7 +191,7 @@ static bool isBlockValidForExtraction(const BasicBlock &BB,
   return true;
 }
 
-/// \brief Build a set of blocks to extract if the input blocks are viable.
+/// Build a set of blocks to extract if the input blocks are viable.
 static SetVector<BasicBlock *>
 buildExtractionBlockSet(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
 #if INTEL_CUSTOMIZATION // under community review D45904
@@ -845,6 +845,22 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
   return newFunction;
 }
 
+#if INTEL_CUSTOMIZATION
+// Hoisting the alloca instructions in the non-entry blocks to the entry block.
+void CodeExtractor::hoistAlloca(Function &F) {
+  Function::iterator I = F.begin();
+  TerminatorInst *FirstTerminatorInst = (I++)->getTerminator();
+
+  for (Function::iterator E = F.end(); I != E; ++I) {
+    for (BasicBlock::iterator BI = I->begin(), BE = I->end(); BI != BE;) {
+      AllocaInst *AI = dyn_cast<AllocaInst>(BI++);
+      if (AI && isa<ConstantInt>(AI->getArraySize()))
+        AI->moveBefore(FirstTerminatorInst);
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// emitCallAndSwitchStatement - This method sets up the caller side by adding
 /// the call instruction, splitting any PHI nodes in the header block as
 /// necessary.
@@ -1341,6 +1357,7 @@ Function *CodeExtractor::extractCodeRegion() {
         }
     }
 
+  hoistAlloca(*newFunction); // INTEL
   DEBUG(if (verifyFunction(*newFunction)) 
         report_fatal_error("verifyFunction failed!"));
   return newFunction;

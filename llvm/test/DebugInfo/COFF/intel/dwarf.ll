@@ -182,10 +182,10 @@ attributes #2 = { "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-
 !4 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !5, size: 64, align: 64)
 !5 = !DIBasicType(name: "int", size: 32, align: 32, encoding: DW_ATE_signed)
 !6 = !{!7, !10}
-!7 = distinct !DISubprogram(unit: !0, name: "erase", linkageName: "\01?erase@@YAXPEAH@Z", scope: !1, file: !1, line: 4, type: !8, isLocal: false, isDefinition: true, scopeLine: 4, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
+!7 = distinct !DISubprogram(unit: !0, name: "erase", linkageName: "\01?erase@@YAXPEAH@Z", scope: !1, file: !1, line: 4, type: !8, isLocal: false, isDefinition: true, scopeLine: 4, flags: DIFlagPrototyped, isOptimized: false, retainedNodes: !2)
 !8 = !DISubroutineType(types: !9)
 !9 = !{null, !4}
-!10 = distinct !DISubprogram(unit: !0, name: "erase_all", linkageName: "\01?erase_all@@YAXXZ", scope: !1, file: !1, line: 29, type: !11, isLocal: false, isDefinition: true, scopeLine: 29, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
+!10 = distinct !DISubprogram(unit: !0, name: "erase_all", linkageName: "\01?erase_all@@YAXXZ", scope: !1, file: !1, line: 29, type: !11, isLocal: false, isDefinition: true, scopeLine: 29, flags: DIFlagPrototyped, isOptimized: false, retainedNodes: !2)
 !11 = !DISubroutineType(types: !12)
 !12 = !{null}
 !13 = !{i32 2, !"Dwarf Version", i32 4}

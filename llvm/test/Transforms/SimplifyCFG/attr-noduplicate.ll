@@ -1,4 +1,6 @@
 ; RUN: opt < %s -simplifycfg -S | FileCheck %s
+; INTEL
+; RUN: opt < %s -S -convert-to-subscript | opt -simplifycfg -S | FileCheck %s
 
 ; This test checks that the SimplifyCFG pass won't duplicate a call to a
 ; function marked noduplicate.

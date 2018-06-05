@@ -391,6 +391,13 @@ bool GlobalsAAResult::AnalyzeUsesOfPointer(Value *V,
       // Make sure that this is just the function being called, not that it is
       // passing into the function.
       if (CS.isDataOperand(&U)) {
+#if INTEL_CUSTOMIZATION
+        if (isa<AddressInst>(I)) {
+          if (AnalyzeUsesOfPointer(I, Readers, Writers))
+            return true;
+          continue;
+        }
+#endif // INTEL_CUSTOMIZATION
         // Detect calls to free.
         if (CS.isArgOperand(&U) && (isFreeCall(I, &TLI) ||       // INTEL
             (isNonEscapingArgsLibCall(I)))) {                    // INTEL

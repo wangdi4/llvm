@@ -24,7 +24,11 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_H
 
+#if INTEL_CUSTOMIZATION
 #include "Intel_VPlanValue.h"
+#else
+#include "VPlanValue.h"
+#endif //INTEL_CUSTOMIZATION
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/ilist.h"
@@ -34,11 +38,13 @@
 
 #if INTEL_CUSTOMIZATION
 #include "Intel_VPlan/VPLoopAnalysis.h"
-#include "Intel_VPlan/VPlanInstructionData.h"
+#include "Intel_VPlan/VPLoopInfo.h"
+#include "Intel_VPlan/VPlanInstructionDataHIR.h"
 #include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
+#include "llvm/Support/GenericDomTreeConstruction.h"
 #endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
@@ -48,12 +54,12 @@ namespace llvm {
 class InnerLoopVectorizer;
 class LoopVectorizationLegality;
 class LoopInfo;
-
 //}
 
 #if INTEL_CUSTOMIZATION
 namespace loopopt {
 class RegDDRef;
+class HLLoop;
 } // namespace loopopt
 
 namespace vpo {
@@ -436,23 +442,268 @@ public:
   virtual void print(raw_ostream &O, const Twine &Indent) const = 0;
 };
 
+#if INTEL_CUSTOMIZATION
+class VPMaskGenerationRecipe : public VPRecipeBase {
+  friend class VPlanUtilsLoopVectorizer;
+
+private:
+  const Value *IncomingPred;
+  const Value *LoopBackedge;
+
+public:
+  VPMaskGenerationRecipe(const Value *Pred, const Value *Backedge)
+      : VPRecipeBase(VPMaskGenerationRecipeSC), IncomingPred(Pred),
+        LoopBackedge(Backedge) {}
+
+  ~VPMaskGenerationRecipe() {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPMaskGenerationRecipeSC;
+  }
+
+  /// Print the recipe.
+  void print(raw_ostream &OS, const Twine &Indent) const override {
+    OS << " +\n" << Indent << "\"MaskGeneration";
+    OS << " " << *LoopBackedge << "\\l\"";
+  }
+
+  void dump(raw_ostream &OS) const override {
+    OS << *LoopBackedge << "\n";
+  }
+  void dump() const override {
+    dump(errs());
+  }
+
+  void execute(struct VPTransformState &State) override {
+    // TODO: vectorizing this recipe should involve generating a mask for the
+    // instructions in the loop body. i.e., a phi instruction that has incoming
+    // values using IncomingPred and LoopBackedge.
+  }
+  void executeHIR(VPOCodeGenHIR *CG) override {}
+};
+
+/// A VPConstantRecipe is a recipe which represents a constant in VPlan.
+/// This recipe represents a scalar integer w/o any relation to the source IR.
+/// The usage of this recipe is mainly beneficial when we need to argue about
+/// new recipes altering the original structure of the code and introducing new
+/// commands. e.g. consider the single-exit loop massaging, we need to
+/// represent a new \phi with respect to new constant values and compares to
+/// those same values
+class VPConstantRecipe : public VPRecipeBase {
+public:
+  VPConstantRecipe(int val) : VPRecipeBase(VPConstantSC), val(val) {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPConstantSC;
+  }
+
+  /// The method clones a uniform instruction that calculates condition
+  /// for uniform branch.
+  void execute(VPTransformState &State) override {}
+  void executeHIR(VPOCodeGenHIR *CG) override {}
+
+  Value *getValue(void) const {
+    // TODO after vectorize.
+    return nullptr;
+  }
+
+  /// Print the recipe.
+  void print(raw_ostream &OS, const Twine &Indent) const override {
+    OS << " +\n" << Indent << "\"Const " << val << "\\l\"";
+  }
+
+  void dump(raw_ostream &OS) const override {
+    OS << val << "\n";;
+  }
+  void dump() const override {
+    dump(errs());
+  }
+
+  StringRef getName() const { return "Constant: " + val; };
+
+private:
+  int val;
+   };
+#endif //INTEL_CUSTOMIZATION
+
 /// This is a concrete Recipe that models a single VPlan-level instruction.
 /// While as any Recipe it may generate a sequence of IR instructions when
 /// executed, these instructions would always form a single-def expression as
 /// the VPInstruction is also a single def-use vertex.
 ///
-/// Design Principle: access to underlying IR is forbidden by default. Adding
+#if INTEL_CUSTOMIZATION
+/// For HIR, we classify VPInstructions into 3 sub-types:
+///   1) Master VPInstruction: It has underlying HIR data attached and its
+///      operands could have been decomposed or not. If so, this VPInstruction
+///      is the last one in the UD chain of the group of decomposed
+///      VPInstructions. If this VPInstruction or any of its decomposed ones are
+///      modified, the HIR will automatically be marked as invalid.
+///   2) Decomposed VPInstruction: It's created as a result of decomposing a
+///      master VPInstruction. It doesn't have underlying HIR directly attached
+///      but it has a pointer to its master VPInstruction holding it. In order
+///      to check whether the underlying HIR of a decomposed VPInstruction is
+///      valid, its master VPInstruction must be checked.
+///   3) New VPInstruction: It's created as a result of a VPlan-to-VPlan
+///      transformation, excluding decomposition. It doesn't have underlying HIR
+///      or master VPInstruction attached. New VPInstructions also exist in the
+///      LLVM-IR path.
+///
+/// DESIGN PRINCIPLE: access to underlying IR is forbidden by default. Adding
 /// new friends to this class to have access to it must be very well justified.
+/// DESIGN DECISION: for VPO, we decided to pay the memory and design cost of
+/// having LLVM-IR data (Inst) HIR data (MasterData) and their respective
+/// interfaces in the same class in favor of minimizing divergence with the
+/// community. We know that this is not the best design but creating a
+/// VPInstructionHIR sub-class would be complicated because VPInstruction also
+/// has sub-classes (VPCmpInst, VPPHINode, etc.) that would need to be
+/// replicated under the VPInstructionHIR.
+#endif
 class VPInstruction : public VPUser, public VPRecipeBase {
 #if INTEL_CUSTOMIZATION
+  friend class HIRSpecifics;
   friend class VPBuilder;
   friend class VPBuilderHIR;
-#endif
-
-#if INTEL_CUSTOMIZATION
-  // To get underlying HIRData until we have proper VPType.
+  // To get underlying MasterData until we have proper VPType.
   friend class VPlanCostModel;
   friend class VPlanCostModelProprietary;
+
+  /// Hold all the HIR-specific data and interfaces for a VPInstruction.
+  class HIRSpecifics {
+  public: 
+    HIRSpecifics() {}
+    ~HIRSpecifics() {
+      if (isMaster())
+        delete getVPInstData();
+    }
+
+    // DESIGN PRINCIPLE: IR-independent algorithms don't need to know about
+    // HIR-specific master, decomposed and new VPInstructions. For that reason,
+    // access to the following HIR-specific methods must be restricted. We
+    // achieve that goal by making VPInstruction's HIRSpecifics member private.
+
+    /// Pointer to access the underlying HIR data attached to this
+    /// VPInstruction, if any, depending on its sub-type:
+    ///   1) Master VPInstruction: MasterData points to a VPInstDataHIR holding
+    ///      the actual HIR data.
+    ///   2) Decomposed VPInstruction: MasterData points to master VPInstruction
+    ///      holding the actual HIR data.
+    ///   3) Other VPInstruction (!Master and !Decomposed): MasterData is null.
+    ///      We use a void pointer to represent this case.
+    PointerUnion3<MasterVPInstData *, VPInstruction *, void *> MasterData =
+        (int *)nullptr;
+
+    // Wrapper that returns the VPInstruction data of a master VPInstruction.
+    MasterVPInstData *getVPInstData() {
+      assert(isMaster() && "Only master VPInstructions have HIR Data!");
+      return MasterData.get<MasterVPInstData *>();
+    }
+    const MasterVPInstData *getVPInstData() const {
+      return const_cast<HIRSpecifics *>(this)->getVPInstData();
+    }
+
+    void verifyState() const {
+      if (MasterData.is<MasterVPInstData *>())
+        assert(!MasterData.isNull() &&
+               "MasterData can't be null for master VPInstruction!");
+      else if (MasterData.is<VPInstruction *>())
+        assert(!MasterData.isNull() &&
+               "MasterData can't be null for decomposed VPInstruction!");
+      else
+        assert(MasterData.is<void *>() && MasterData.isNull() &&
+               "MasterData must be null for VPInstruction that is not master "
+               "or decomposed!");
+    }
+
+    /// Return true if this is a master VPInstruction.
+    bool isMaster() const {
+      verifyState();
+      return MasterData.is<MasterVPInstData *>();
+    }
+
+    /// Return true if this is a decomposed VPInstruction.
+    bool isDecomposed() const {
+      verifyState();
+      return MasterData.is<VPInstruction *>();
+    }
+
+    // Return true if MasterData contains actual HIR data.
+    bool isSet() const {
+      verifyState();
+      return !MasterData.is<void *>();
+    }
+
+    /// Return the underlying HIR attached to this master VPInstruction.
+    loopopt::HLDDNode *getUnderlyingDDN() {
+      loopopt::HLDDNode *DDNode = getVPInstData()->getNode();
+      assert(DDNode && "Underlying HIR cannot be null!");
+      return DDNode;
+    }
+    const loopopt::HLDDNode *getUnderlyingDDN() const {
+      return const_cast<HIRSpecifics *>(this)->getUnderlyingDDN();
+    }
+
+    /// Attach \p UnderlyingDDN to this VPInstruction and turn it into a master
+    /// VPInstruction.
+    void setUnderlyingDDN(loopopt::HLDDNode *UnderlyingDDN) {
+      assert(!isSet() && "MasterData is already set!");
+      MasterData = new MasterVPInstData(UnderlyingDDN);
+    }
+
+    /// Return the master VPInstruction attached to a decomposed VPInstruction.
+    VPInstruction *getMaster() {
+      assert(isDecomposed() && "Only decomposed VPInstructions have a pointer "
+                               "to a master VPInstruction!");
+      return MasterData.get<VPInstruction *>();
+    }
+    const VPInstruction *getMaster() const {
+      return const_cast<HIRSpecifics *>(this)->getMaster();
+    }
+
+    /// Attach \p MasterVPI as master VPInstruction of a decomposed
+    /// VPInstruction.
+    void setMaster(VPInstruction *MasterVPI) {
+      assert(MasterVPI && "Master VPInstruction cannot be set to null!");
+      assert(!isMaster() &&
+             "A master VPInstruction can't point to a master VPInstruction!");
+      assert(!isSet() && "Master VPInstruction is already set!");
+      MasterData = MasterVPI;
+    }
+
+    /// Return true if the underlying HIR data is valid. If it's a decomposed
+    /// VPInstruction, the HIR of the attached master VPInstruction is checked.
+    bool isValid() const {
+      if (isMaster())
+        return getVPInstData()->isValid();
+      if (isDecomposed())
+        return getMaster()->HIR.getVPInstData()->isValid();
+      // For other VPInstructions without underlying HIR.
+      assert(!isSet() && "HIR data must be unset!");
+      return false;
+    }
+
+    /// Mark the underlying HIR data as valid.
+    void setValid() {
+      assert(isMaster() && "Only a master VPInstruction must set HIR!");
+      getVPInstData()->setValid();
+    }
+
+    /// Invalidate underlying HIR deta. If decomposed VPInstruction, the HIR of
+    /// its master VPInstruction is invalidated.
+    void invalidate() {
+      if (isMaster())
+        getVPInstData()->setInvalid();
+      else if (isDecomposed())
+        getMaster()->HIR.getVPInstData()->setInvalid();
+    }
+
+    /// Print HIR-specific flags. It's mainly for debugging purposes.
+    void printHIRFlags(raw_ostream &OS) const {
+      OS << "IsMaster=" << isMaster() << " IsDecomp=" << isDecomposed()
+         << " IsNew=" << !isSet() << " HasValidHIR= " << isValid() << "\n";
+    }
+  };
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -473,16 +724,9 @@ private:
   OpcodeTy Opcode;
 
 #if INTEL_CUSTOMIZATION
-  // Hold the underlying Instruction, if any, attached to this VPInstruction.
-  Instruction * Inst = nullptr;
-
   // Hold the underlying HIR information, if any, attached to this
   // VPInstruction.
-  // For VPO, we decided to pay the memory cost of having Inst and HIRData
-  // pointers in this class in favor of minimizing divergence with the
-  // community. If memory footprint becomes a problem, we can always move Inst
-  // to a VPInstructionData subclass.
-  VPInstructionData *HIRData = nullptr;
+  HIRSpecifics HIR;
 #endif
 
   /// Utility method serving execute(): generates a single instance of the
@@ -491,33 +735,29 @@ private:
 
 #if INTEL_CUSTOMIZATION
 protected:
-  Value *getValue() override { return Inst; }
-  /// Return the underlying Instruction attached to this VPInstruction. If there
-  /// is no Instruction attached, it returns null. This interface is similar to
-  /// getValue() but allows to avoid the cast when we are working with
-  /// VPInstruction pointers.
-  Instruction *getInstruction() const { return Inst; }
+  /// Return the underlying Instruction attached to this VPInstruction. Return
+  /// null if there is no Instruction attached. This interface is similar to
+  /// getValue() but it hides the cast when we are working with VPInstruction
+  /// pointers.
+  Instruction *getInstruction() const {
+    assert((!UnderlyingVal || isa<Instruction>(UnderlyingVal)) &&
+           "Expected Instruction as underlying Value.");
+    return cast_or_null<Instruction>(UnderlyingVal);
+  }
 
-  /// Return the underlying HIR data attached to this VPInstruction. If there
-  /// is no HIR data attached, it returns null.
-  VPInstructionData *getHIRData() const { return HIRData; }
-
-  void setInstruction(Instruction *I) { Inst = I; }
-  void setHIRData(VPInstructionData *HD) { HIRData = HD; }
+  /// Return true if this is a new VPInstruction (i.e., an VPInstruction that is
+  /// not coming from the underlying IR.
+  bool isNew() const { return UnderlyingVal == nullptr && !HIR.isSet(); }
 #endif
 
 public:
 #if INTEL_CUSTOMIZATION
-  // TODO: Ideally, we should make the next createInstruction invoke this one.
-  // Replicating the code to minimize conflicts with open-source.
   VPInstruction(unsigned Opcode, ArrayRef<VPValue *> Operands)
       : VPUser(VPValue::VPInstructionSC, Operands),
         VPRecipeBase(VPRecipeBase::VPInstructionSC), Opcode(Opcode) {}
 #endif
-
   VPInstruction(unsigned Opcode, std::initializer_list<VPValue *> Operands)
-      : VPUser(VPValue::VPInstructionSC, Operands),
-        VPRecipeBase(VPRecipeBase::VPInstructionSC), Opcode(Opcode) {}
+      : VPInstruction(Opcode, ArrayRef<VPValue *>(Operands)) {}
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPValue *V) {
@@ -533,15 +773,14 @@ public:
 #if INTEL_CUSTOMIZATION
   // FIXME: To be replaced by a proper VPType.
   virtual Type *getType() const override {
-    if (Inst)
-      return Inst->getType();
+    if (UnderlyingVal)
+      return UnderlyingVal->getType();
 
-    if (!HIRData)
+    if (!HIR.isMaster())
       return nullptr;
 
-    auto InstDataHIR = cast<VPInstructionDataHIR>(HIRData);
-    HLDDNode *Node = InstDataHIR->getInstruction();
-    HLInst *Inst = dyn_cast_or_null<HLInst>(Node);
+    const loopopt::HLDDNode *Node = HIR.getUnderlyingDDN();
+    const loopopt::HLInst *Inst = dyn_cast_or_null<loopopt::HLInst>(Node);
 
     if (!Inst)
       return nullptr;
@@ -584,7 +823,10 @@ public:
       : VPInstruction(inferOpcodeFromPredicate(Pred),
                       ((LHS || RHS) ? ArrayRef<VPValue *>({LHS, RHS})
                                     : ArrayRef<VPValue *>({}))),
-        Pred(Pred) {}
+        Pred(Pred) {
+    // TODO: Enable assert after fixing VPlanHCFGBuilderHIR.
+    // assert(LHS && RHS && "VPCmpInst's operands can't be null!");
+  }
 
   /// \brief Return the predicate for this instruction
   Predicate getPredicate() const { return Pred; }
@@ -645,7 +887,7 @@ public:
   /// Type definition for an array of vectorized masks. One per unroll
   /// iteration.
   typedef SmallVector<Value *, 2> VectorParts;
-  typedef SmallVector<RegDDRef *, 2> HIRVectorParts;
+  typedef SmallVector<loopopt::RegDDRef *, 2> HIRVectorParts;
 
   /// Temporary, should be removed.
   BasicBlock *SourceBB;
@@ -1161,6 +1403,75 @@ public:
   virtual void dump(raw_ostream &OS, unsigned Indent = 0) const = 0;
 #endif
 };
+
+#if INTEL_CUSTOMIZATION
+/// A VPPhiValueRecipe is a recipe which represents a new Phi in VPlan to
+/// facilitate the alteration of VPlan from its original source coded form.
+/// Currently the elements of the phi are constants in-order to generate the
+/// needed \phi for the single-exit loop massaging. However, this phi can be
+/// further enhanced to handle any type of value.
+class VPPhiValueRecipe : public VPRecipeBase {
+public:
+  VPPhiValueRecipe() : VPRecipeBase(VPPhiValueSC), Incoming(), Phi(nullptr) {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPLiveInBranchSC;
+  }
+
+  /// The method clones a uniform instruction that calculates condition
+  /// for uniform branch.
+  void execute(VPTransformState &State) override {}
+  void executeHIR(VPOCodeGenHIR *CG) override {}
+
+  /// Return the phi value after vectorization.
+  Value *getValue(void) const {
+    return Phi;
+  }
+
+  /// Adds a new element to the resulting \phi.
+  void addIncomingValue(VPConstantRecipe IncomingValue,
+    VPBlockBase* IncomingBlock) {
+    Incoming.push_back(IncomingPair(IncomingValue, IncomingBlock));
+  }
+
+  /// Print the recipe.
+  void print(raw_ostream &OS, const Twine &Indent) const override {
+    OS << " +\n" << Indent << "\"Phi ";
+
+    for (auto item : Incoming) {
+      OS << "[";
+      item.first.print(OS, Indent);
+      OS << ", " << item.second->getName() << "] ";
+    }
+
+    OS << "\\l\"";
+  }
+
+  void dump(raw_ostream &OS) const override {
+    OS << "Phi ";
+    for (auto Item : Incoming) {
+      Item.first.dump(OS);
+      OS << ", " << Item.second->getName() << " ";
+    }
+    OS << "\n";
+  }
+  void dump() const override {
+    dump(errs());
+  }
+
+  StringRef getName() const { return "Phi Recipe"; };
+
+  ~VPPhiValueRecipe() {
+    Phi->deleteValue();
+  }
+
+private:
+  typedef std::pair<VPConstantRecipe , VPBlockBase *> IncomingPair;
+  SmallVector<IncomingPair, 4> Incoming;
+  Value* Phi;
+};
+#endif //INTEL_CUSTOMIZATION
 
 /// VPBasicBlock serves as the leaf of the Hierarchical CFG. It represents a
 /// sequence of instructions that will appear consecutively in a basic block
@@ -1719,6 +2030,8 @@ struct GraphTraits<Inverse<vpo::VPRegionBlock *>>
   static unsigned size(GraphRef N) { return N->getSize(); }
 };
 
+
+
 #if INTEL_CUSTOMIZATION
 namespace vpo {
 
@@ -1735,7 +2048,9 @@ class VPlan {
 #endif
 
 private:
-  const unsigned char VPID;
+#if INTEL_CUSTOMIZATION
+  VPLoopInfo *VPLInfo = nullptr;
+#endif
 
 #if INTEL_CUSTOMIZATION
 protected:
@@ -1772,7 +2087,7 @@ protected:
   // after the construction. For now, the following data structure is used only
   // for memory deallocation purposes.
   /// Holds all the external definitions created for this VPlan.
-  SmallVector<VPInstruction *, 32> VPExternalDefs;
+  SmallSet<VPValue *, 32> VPExternalDefs;
 
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
 #else
@@ -1787,23 +2102,17 @@ public:
   /// the underlying IR.
   // TODO: To be moved to the Divergence Analysis Infrastructure
   UniformsTy UniformCBVs;
+  VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, VPBlockBase *Entry = nullptr)
+      : Entry(Entry), VPLA(VPLA) {}
 #endif
-#if INTEL_CUSTOMIZATION
-  typedef enum {
-    IntelVPlanSC,
-  } VPlanTy;
-
-  VPlan(const unsigned char SC, std::shared_ptr<VPLoopAnalysisBase> VPLA,
-        VPBlockBase *Entry = nullptr)
-      : VPID(SC), Entry(Entry), VPLA(VPLA) {}
-#else
   VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
-#endif
 
   ~VPlan() {
     if (Entry)
       VPBlockBase::deleteCFG(Entry);
 #if INTEL_CUSTOMIZATION
+    if (VPLInfo)
+      delete (VPLInfo);
     for (auto *VPConst : VPConstants)
       delete VPConst;
     for (auto *VPInst : VPExternalDefs)
@@ -1814,16 +2123,17 @@ public:
 #endif
   }
 
-#if INTEL_CUSTOMIZATION
-  unsigned getVPlanID() const { return VPID; }
-
-  /// Generate the IR code for this VPlan.
-  virtual void execute(struct VPTransformState *State);
-  virtual void executeHIR(VPOCodeGenHIR *CG) {}
-  VPLoopAnalysisBase* getVPLoopAnalysis(void) const { return VPLA.get(); }
-#else
   /// Generate the IR code for this VPlan.
   void execute(struct VPTransformState *State);
+#if INTEL_CUSTOMIZATION
+  void executeHIR(VPOCodeGenHIR *CG);
+  VPLoopInfo *getVPLoopInfo() { return VPLInfo; }
+
+  VPLoopAnalysisBase* getVPLoopAnalysis(void) const { return VPLA.get(); }
+
+  const VPLoopInfo *getVPLoopInfo() const { return VPLInfo; }
+
+  void setVPLoopInfo(VPLoopInfo *VPLI) { VPLInfo = VPLI; }
 #endif // INTEL_CUSTOMIZATION
 
   VPBlockBase *getEntry() { return Entry; }
@@ -1879,9 +2189,10 @@ public:
     return *VPConstants.insert(new VPConstant(Const)).first;
   }
 
-  /// Add a new element to the pool of external definitions.
-  void addExternalDef(VPInstruction *VPInst) {
-    VPExternalDefs.push_back(VPInst);
+  /// Add \p VPVal to the pool of external definitions if it's not already
+  /// in the pool.
+  void addExternalDef(VPValue *VPVal) {
+    VPExternalDefs.insert(VPVal);
   }
 #else
   void addVPValue(Value &V) {
@@ -1900,6 +2211,197 @@ private:
                                   BasicBlock *LoopLatchBB);
 };
 
+#if INTEL_CUSTOMIZATION
+class VPLoopRegion : public VPRegionBlock {
+  friend class VPlanUtils;
+
+private:
+  // Pointer to VPLoopInfo analysis information for this loop region
+  VPLoop *VPLp;
+
+protected:
+  VPLoopRegion(const unsigned char SC, const std::string &Name, VPLoop *Lp)
+      : VPRegionBlock(SC, Name), VPLp(Lp) {}
+
+public:
+  VPLoopRegion(const std::string &Name, VPLoop *Lp)
+      : VPRegionBlock(VPLoopRegionSC, Name), VPLp(Lp) {}
+
+  const VPLoop *getVPLoop() const { return VPLp; }
+  VPLoop *getVPLoop() { return VPLp; }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPBlockBase *B) {
+    return B->getVPBlockID() == VPBlockBase::VPLoopRegionSC ||
+           B->getVPBlockID() == VPBlockBase::VPLoopRegionHIRSC;
+  }
+};
+
+class VPLoopRegionHIR : public VPLoopRegion {
+  friend class VPDecomposerHIR;
+  friend class VPLoopAnalysisHIR;
+  friend class VPlanUtils;
+  friend class VPlanVerifierHIR;
+
+private:
+  // Pointer to the underlying HLLoop.
+  loopopt::HLLoop *HLLp;
+
+  VPLoopRegionHIR(const std::string &Name, VPLoop *VPLp, loopopt::HLLoop *HLLp)
+      : VPLoopRegion(VPLoopRegionHIRSC, Name, VPLp), HLLp(HLLp) {}
+
+  const loopopt::HLLoop *getHLLoop() const { return HLLp; }
+  loopopt::HLLoop *getHLLoop() { return HLLp; }
+
+public:
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPBlockBase *B) {
+    return B->getVPBlockID() == VPBlockBase::VPLoopRegionHIRSC;
+  }
+};
+#endif
+
+/// VPlanPrinter prints a given VPlan to a given output stream. The printing is
+/// indented and follows the dot format.
+class VPlanPrinter {
+  friend inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan);
+  friend inline raw_ostream &operator<<(raw_ostream &OS,
+                                        const struct VPlanIngredient &I);
+
+private:
+  raw_ostream &OS;
+  const VPlan &Plan;
+  unsigned Depth;
+  unsigned TabWidth = 2;
+  std::string Indent;
+
+  unsigned BID = 0;
+
+  SmallDenseMap<const VPBlockBase *, unsigned> BlockID;
+
+  /// Handle indentation.
+  void bumpIndent(int b) { Indent = std::string((Depth += b) * TabWidth, ' '); }
+
+  /// Print a given \p Block of the Plan.
+  void dumpBlock(const VPBlockBase *Block);
+
+  /// Print the information related to the CFG edges going out of a given
+  /// \p Block, followed by printing the successor blocks themselves.
+  void dumpEdges(const VPBlockBase *Block);
+
+  /// Print a given \p BasicBlock, including its VPRecipes, followed by printing
+  /// its successor blocks.
+  void dumpBasicBlock(const VPBasicBlock *BasicBlock);
+
+  /// Print a given \p Region of the Plan.
+  void dumpRegion(const VPRegionBlock *Region);
+
+  unsigned getOrCreateBID(const VPBlockBase *Block) {
+    return BlockID.count(Block) ? BlockID[Block] : BlockID[Block] = BID++;
+  }
+
+  const Twine getOrCreateName(const VPBlockBase *Block);
+
+  const Twine getUID(const VPBlockBase *Block);
+
+  /// Print the information related to a CFG edge between two VPBlockBases.
+  void drawEdge(const VPBlockBase *From, const VPBlockBase *To, bool Hidden,
+                const Twine &Label);
+
+  VPlanPrinter(raw_ostream &O, const VPlan &P) : OS(O), Plan(P) {}
+
+  void dump();
+
+  static void printAsIngredient(raw_ostream &O, Value *V);
+};
+
+#if !INTEL_CUSTOMIZATION
+inline raw_ostream &operator<<(raw_ostream &OS, const VPlanIngredient &I) {
+  VPlanPrinter::printAsIngredient(OS, I.V);
+  return OS;
+}
+#endif
+
+inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan) {
+  VPlanPrinter Printer(OS, Plan);
+  Printer.dump();
+  return OS;
+}
+#if INTEL_CUSTOMIZATION
+} // namespace vpo
+#endif
+
+typedef DomTreeNodeBase<vpo::VPBlockBase> VPDomTreeNode;
+
+template <>
+struct GraphTraits<VPDomTreeNode *>
+    : public DomTreeGraphTraitsBase<VPDomTreeNode, VPDomTreeNode::iterator> {};
+
+template <>
+struct GraphTraits<const VPDomTreeNode *>
+    : public DomTreeGraphTraitsBase<const VPDomTreeNode,
+                                    VPDomTreeNode::const_iterator> {};
+
+#if INTEL_CUSTOMIZATION
+namespace vpo {
+inline bool VPBlockBase::isInsideLoop() {
+  if (auto *ParentRegion = getParent()) {
+    // TODO: Use VPLoopRegion
+    if (ParentRegion->getVPBlockID() == VPLoopRegionSC) {
+      if (/*ParentRegion->getEntry() != this &&*/
+          ParentRegion->getExit() != this)
+        return true;
+    }
+    if (ParentRegion->getVPBlockID() == VPLoopRegionHIRSC) {
+      if (ParentRegion->getEntry() != this &&
+          ParentRegion->getExit() != this)
+        return true;
+    }
+    return ParentRegion->isInsideLoop();
+  }
+  return false;
+}
+
+// Set of print functions
+inline raw_ostream &operator<<(raw_ostream &OS, const VPInstruction &I) {
+  I.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS, const VPRecipeBase &R) {
+  R.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS,
+                               const VPBlockPredicateRecipe &P) {
+  P.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS,
+                               const VPEdgePredicateRecipe &P) {
+  P.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS,
+                               const VPIfTruePredicateRecipe &P) {
+  P.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS,
+                               const VPIfFalsePredicateRecipe &P) {
+  P.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS, const VPBasicBlock &BB) {
+  BB.dump(OS, 2);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS, const VPRegionBlock &RB) {
+  RB.dump(OS, 2);
+  return OS;
+}
+
+#endif // INTEL_CUSTOMIZATION
+
 /// The VPlanUtils class provides interfaces for the construction and
 /// manipulation of a VPlan.
 class VPlanUtils {
@@ -1917,6 +2419,10 @@ public:
   VPlanUtils(VPlan *Plan) : Plan(Plan) {}
 
   ~VPlanUtils() {}
+
+#if INTEL_CUSTOMIZATION
+  VPlan *getVPlan() { return Plan; }
+#endif
 
   /// Create a unique name for a new VPlan entity such as a VPBasicBlock or
   /// VPRegionBlock.
@@ -2267,150 +2773,99 @@ public:
   void clearIncomingsFromBlockPred(VPBlockPredicateRecipe *BlockPred) {
     BlockPred->clearIncomingPredicates();
   }
-#endif // INTEL_CUSTOMIZATION
-};
 
-/// VPlanPrinter prints a given VPlan to a given output stream. The printing is
-/// indented and follows the dot format.
-class VPlanPrinter {
-  friend inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan);
-  friend inline raw_ostream &operator<<(raw_ostream &OS,
-                                        const struct VPlanIngredient &I);
+  /// Creates a new recipe that represents generation of an i1 vector to be used
+  /// as a mask.
+  VPMaskGenerationRecipe *createMaskGenerationRecipe(
+    const Value *Pred, const Value *Backedge);
 
-private:
-  raw_ostream &OS;
-  const VPlan &Plan;
-  unsigned Depth;
-  unsigned TabWidth = 2;
-  std::string Indent;
-
-  unsigned BID = 0;
-
-  SmallDenseMap<const VPBlockBase *, unsigned> BlockID;
-
-  /// Handle indentation.
-  void bumpIndent(int b) { Indent = std::string((Depth += b) * TabWidth, ' '); }
-
-  /// Print a given \p Block of the Plan.
-  void dumpBlock(const VPBlockBase *Block);
-
-  /// Print the information related to the CFG edges going out of a given
-  /// \p Block, followed by printing the successor blocks themselves.
-  void dumpEdges(const VPBlockBase *Block);
-
-  /// Print a given \p BasicBlock, including its VPRecipes, followed by printing
-  /// its successor blocks.
-  void dumpBasicBlock(const VPBasicBlock *BasicBlock);
-
-  /// Print a given \p Region of the Plan.
-  void dumpRegion(const VPRegionBlock *Region);
-
-  unsigned getOrCreateBID(const VPBlockBase *Block) {
-    return BlockID.count(Block) ? BlockID[Block] : BlockID[Block] = BID++;
+  /// Create a new VPIfTruePredicateRecipe.
+  VPIfTruePredicateRecipe *
+  createIfTruePredicateRecipe(VPValue *CV,
+                              VPPredicateRecipeBase *PredecessorPredicate,
+                              BasicBlock *From, BasicBlock *To) {
+    VPIfTruePredicateRecipe *newRecipe =
+        new VPIfTruePredicateRecipe(CV, PredecessorPredicate, From, To);
+    newRecipe->setName(createUniqueName("IfT"));
+    return newRecipe;
   }
 
-  const Twine getOrCreateName(const VPBlockBase *Block);
-
-  const Twine getUID(const VPBlockBase *Block);
-
-  /// Print the information related to a CFG edge between two VPBlockBases.
-  void drawEdge(const VPBlockBase *From, const VPBlockBase *To, bool Hidden,
-                const Twine &Label);
-
-  VPlanPrinter(raw_ostream &O, const VPlan &P) : OS(O), Plan(P) {}
-
-  void dump();
-
-  static void printAsIngredient(raw_ostream &O, Value *V);
-};
-
-#if !INTEL_CUSTOMIZATION
-inline raw_ostream &operator<<(raw_ostream &OS, const VPlanIngredient &I) {
-  VPlanPrinter::printAsIngredient(OS, I.V);
-  return OS;
-}
-#endif
-
-inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan) {
-  VPlanPrinter Printer(OS, Plan);
-  Printer.dump();
-  return OS;
-}
-#if INTEL_CUSTOMIZATION
-} // namespace vpo
-#endif
-
-typedef DomTreeNodeBase<vpo::VPBlockBase> VPDomTreeNode;
-
-template <>
-struct GraphTraits<VPDomTreeNode *>
-    : public DomTreeGraphTraitsBase<VPDomTreeNode, VPDomTreeNode::iterator> {};
-
-template <>
-struct GraphTraits<const VPDomTreeNode *>
-    : public DomTreeGraphTraitsBase<const VPDomTreeNode,
-                                    VPDomTreeNode::const_iterator> {};
-
-#if INTEL_CUSTOMIZATION
-namespace vpo {
-inline bool VPBlockBase::isInsideLoop() {
-  if (auto *ParentRegion = getParent()) {
-    // TODO: Use VPLoopRegion
-    if (ParentRegion->getVPBlockID() == VPLoopRegionSC) {
-      if (/*ParentRegion->getEntry() != this &&*/
-          ParentRegion->getExit() != this)
-        return true;
-    }
-    if (ParentRegion->getVPBlockID() == VPLoopRegionHIRSC) {
-      if (ParentRegion->getEntry() != this &&
-          ParentRegion->getExit() != this)
-        return true;
-    }
-    return ParentRegion->isInsideLoop();
+  /// Create a new VPIfFalsePredicateRecipe.
+  VPIfFalsePredicateRecipe *
+  createIfFalsePredicateRecipe(VPValue *CV,
+                               VPPredicateRecipeBase *PredecessorPredicate,
+                               BasicBlock *From, BasicBlock *To) {
+    VPIfFalsePredicateRecipe *newRecipe =
+        new VPIfFalsePredicateRecipe(CV, PredecessorPredicate, From, To);
+    newRecipe->setName(createUniqueName("IfF"));
+    return newRecipe;
   }
-  return false;
-}
 
-// Set of print functions
-inline raw_ostream &operator<<(raw_ostream &OS, const VPInstruction &I) {
-  I.dump(OS);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS, const VPRecipeBase &R) {
-  R.dump(OS);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS,
-                               const VPBlockPredicateRecipe &P) {
-  P.dump(OS);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS,
-                               const VPEdgePredicateRecipe &P) {
-  P.dump(OS);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS,
-                               const VPIfTruePredicateRecipe &P) {
-  P.dump(OS);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS,
-                               const VPIfFalsePredicateRecipe &P) {
-  P.dump(OS);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS, const VPBasicBlock &BB) {
-  BB.dump(OS, 2);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS, const VPRegionBlock &RB) {
-  RB.dump(OS, 2);
-  return OS;
-}
+  VPEdgePredicateRecipe *
+  createEdgePredicateRecipe(VPPredicateRecipeBase *PredecessorPredicate,
+                            BasicBlock *From, BasicBlock *To) {
+    VPEdgePredicateRecipe *newRecipe =
+        new VPEdgePredicateRecipe(PredecessorPredicate, From, To);
+    newRecipe->setName(createUniqueName("AuxEdgeForMaskSetting"));
+    return newRecipe;
+  }
+  /// Create a new VPBlockPredicateRecipe.
+  VPBlockPredicateRecipe *createBlockPredicateRecipe(void) {
+    VPBlockPredicateRecipe *newRecipe = new VPBlockPredicateRecipe();
+    newRecipe->setName(createUniqueName("BP"));
+    return newRecipe;
+  }
 
+  /// Returns true if the edge FromBlock->ToBlock is a back-edge.
+  bool isBackEdge(const VPBlockBase *FromBlock, const VPBlockBase *ToBlock,
+                  const VPLoopInfo *VPLI) {
+    assert(FromBlock->getParent() == ToBlock->getParent() &&
+           FromBlock->getParent() != nullptr && "Must be in same region");
+    const VPLoop *FromLoop = VPLI->getLoopFor(FromBlock);
+    const VPLoop *ToLoop = VPLI->getLoopFor(ToBlock);
+    if (FromLoop == nullptr || ToLoop == nullptr || FromLoop != ToLoop) {
+      return false;
+    }
+    // A back-edge is latch->header
+    return (ToBlock == ToLoop->getHeader() && ToLoop->isLoopLatch(FromBlock));
+  }
+
+  /// Create a new and empty VPLoopRegion.
+  VPLoopRegion *createLoopRegion(VPLoop *VPL) {
+    assert (VPL && "Expected a valid VPLoop.");
+    VPLoopRegion *Loop = new VPLoopRegion(createUniqueName("loop"), VPL);
+    setReplicator(Loop, false /*IsReplicator*/);
+    return Loop;
+  }
+
+  /// Create a new and empty VPLoopRegionHIR.
+  VPLoopRegion *createLoopRegionHIR(VPLoop *VPL, loopopt::HLLoop *HLLp) {
+    assert (VPL && HLLp && "Expected a valid VPLoop and HLLoop.");
+    VPLoopRegion *Loop =
+        new VPLoopRegionHIR(createUniqueName("loop"), VPL, HLLp);
+    setReplicator(Loop, false /*IsReplicator*/);
+    return Loop;
+  }
+
+  /// Returns true if Block is a loop latch
+  bool blockIsLoopLatch(const VPBlockBase *Block,
+                        const VPLoopInfo *VPLInfo) const {
+
+    if (const VPLoop *ParentVPL = VPLInfo->getLoopFor(Block)) {
+      return ParentVPL->isLoopLatch(Block);
+    }
+
+    return false;
+  }
+
+  VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
+                           VPDominatorTree &DomTree,
+                           VPPostDominatorTree &PostDomTree);
 #endif // INTEL_CUSTOMIZATION
+
+};
 } // namespace vpo
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_H
+

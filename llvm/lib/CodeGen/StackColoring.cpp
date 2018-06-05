@@ -42,6 +42,7 @@
 #include "llvm/CodeGen/StackProtector.h"
 #include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/CodeGen/WinEHFuncInfo.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Function.h"
@@ -605,7 +606,7 @@ bool StackColoring::isLifetimeStartOrEnd(const MachineInstr &MI,
       return true;
     }
   } else if (LifetimeStartOnFirstUse && !ProtectFromEscapedAllocas) {
-    if (!MI.isDebugValue()) {
+    if (!MI.isDebugInstr()) {
       bool found = false;
       for (const MachineOperand &MO : MI.operands()) {
         if (!MO.isFI())
@@ -999,7 +1000,7 @@ void StackColoring::remapInstructions(DenseMap<int, int> &SlotRemap) {
         bool TouchesMemory = I.mayLoad() || I.mayStore();
         // If we *don't* protect the user from escaped allocas, don't bother
         // validating the instructions.
-        if (!I.isDebugValue() && TouchesMemory && ProtectFromEscapedAllocas) {
+        if (!I.isDebugInstr() && TouchesMemory && ProtectFromEscapedAllocas) {
           SlotIndex Index = Indexes->getInstructionIndex(I);
           const LiveInterval *Interval = &*Intervals[FromSlot];
           assert(Interval->find(Index) != Interval->end() &&
@@ -1073,7 +1074,7 @@ void StackColoring::removeInvalidSlotRanges() {
   for (MachineBasicBlock &BB : *MF)
     for (MachineInstr &I : BB) {
       if (I.getOpcode() == TargetOpcode::LIFETIME_START ||
-          I.getOpcode() == TargetOpcode::LIFETIME_END || I.isDebugValue())
+          I.getOpcode() == TargetOpcode::LIFETIME_END || I.isDebugInstr())
         continue;
 
       // Some intervals are suspicious! In some cases we find address

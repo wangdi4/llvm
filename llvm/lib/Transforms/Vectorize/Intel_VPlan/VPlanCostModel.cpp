@@ -14,11 +14,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "VPlanCostModel.h"
-#include "VPlan.h"
+#include "../Intel_VPlan.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 
 #define DEBUG_TYPE "vplan-cost-model"
-
+using namespace loopopt;
 // FIXME: The following helper functions have multiple implementations
 // in the project. They can be effectively organized in a common Load/Store
 // utilities unit. This copy is from the LoopVectorize.cpp.
@@ -85,19 +85,17 @@ Type *VPlanCostModel::getMemInstValueType(const VPInstruction *VPInst) {
   // goes beyond just accessing the type of the underlying IR.
 
   // This path seems to be covered by the one above.
-  if (const Instruction *Inst = VPInst->Inst)
-    return ::getMemInstValueType(Inst);
+  if (const Value *Val = VPInst->UnderlyingVal)
+    return ::getMemInstValueType(Val);
 
 #if INTEL_CUSTOMIZATION
-  auto HIRData = dyn_cast_or_null<VPInstructionDataHIR>(VPInst->getHIRData());
-  if (!HIRData)
-    return nullptr; // CHECKME: Is that correct?
-  HLDDNode *Node = HIRData->getInstruction();
-
+  if (!VPInst->HIR.isMaster())
+    return nullptr;
+  const HLDDNode *Node = VPInst->HIR.getUnderlyingDDN();
   if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
     return ::getMemInstValueType(Inst);
 
-  RegDDRef *LvalDDRef = Node->getLvalDDRef();
+  const RegDDRef *LvalDDRef = Node->getLvalDDRef();
   // FIXME: Is that correct?
   return LvalDDRef->getDestType();
 #endif // INTEL_CUSTOMIZATION
@@ -113,15 +111,13 @@ unsigned VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) {
   // TODO: getType() working without underlying Inst - seems we can return
   // alignment too.
 
-  if (const Instruction *Inst = VPInst->Inst)
-    return ::getMemInstAlignment(Inst);
+  if (const Value *Val = VPInst->UnderlyingVal)
+    return ::getMemInstAlignment(Val);
 
 #if INTEL_CUSTOMIZATION
-  auto HIRData = dyn_cast_or_null<VPInstructionDataHIR>(VPInst->getHIRData());
-  if (!HIRData)
+  if (!VPInst->HIR.isMaster())
     return 0; // CHECKME: Is that correct?
-  HLDDNode *Node = HIRData->getInstruction();
-
+  const HLDDNode *Node = VPInst->HIR.getUnderlyingDDN();
   if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
     return ::getMemInstAlignment(Inst);
 #endif // INTEL_CUSTOMIZATION
@@ -137,15 +133,13 @@ unsigned VPlanCostModel::getMemInstAddressSpace(const VPInstruction *VPInst) {
   // TODO: getType() working without underlying Inst - seems we can return
   // address space too.
 
-  if (const Instruction *Inst = VPInst->Inst)
-    return ::getMemInstAddressSpace(Inst);
+  if (const Value *Val = VPInst->UnderlyingVal)
+    return ::getMemInstAddressSpace(Val);
 
 #if INTEL_CUSTOMIZATION
-  auto HIRData = dyn_cast_or_null<VPInstructionDataHIR>(VPInst->getHIRData());
-  if (!HIRData)
+  if (!VPInst->HIR.isMaster())
     return 0; // CHECKME: Is that correct?
-  HLDDNode *Node = HIRData->getInstruction();
-
+  const HLDDNode *Node = VPInst->HIR.getUnderlyingDDN();
   if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
     return ::getMemInstAddressSpace(Inst);
 #endif // INTEL_CUSTOMIZATION
@@ -158,7 +152,8 @@ Value* VPlanCostModel::getGEP(const VPInstruction *VPInst) {
   (void)Opcode;
   assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
 
-  if (const Instruction *Inst = VPInst->Inst) {
+  if (const Instruction *Inst =
+          dyn_cast_or_null<Instruction>(VPInst->UnderlyingVal)) {
     auto GEPInst = Opcode == Instruction::Load ? Inst->getOperand(0)
                                                : Inst->getOperand(1);
     if (dyn_cast_or_null<GetElementPtrInst>(GEPInst))
@@ -166,10 +161,9 @@ Value* VPlanCostModel::getGEP(const VPInstruction *VPInst) {
   }
 
 #if INTEL_CUSTOMIZATION
-  auto HIRData = dyn_cast_or_null<VPInstructionDataHIR>(VPInst->getHIRData());
-  if (!HIRData)
+  if (!VPInst->HIR.isMaster())
     return nullptr;
-  auto *HInst = dyn_cast<HLInst>(HIRData->getInstruction());
+  auto *HInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingDDN());
   auto RegDD = Opcode == Instruction::Load ? HInst->getOperandDDRef(1)
                                            : HInst->getLvalDDRef();
 

@@ -67,6 +67,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #define DEBUG_TYPE "hir-complete-unroll"
@@ -171,6 +172,17 @@ static cl::opt<bool>
                          cl::init(false), cl::Hidden,
                          cl::desc("Cost model will assume DD independence for "
                                   "all memrefs in the unroll loopnest"));
+
+// External interface
+namespace llvm {
+namespace loopopt {
+namespace unroll {
+
+void completeUnrollLoop(HLLoop *Loop) { HIRCompleteUnroll::doUnroll(Loop); }
+
+} // namespace unroll
+} // namespace loopopt
+} // namespace llvm
 
 HIRCompleteUnroll::HIRCompleteUnroll(char &ID, unsigned OptLevel, bool IsPreVec)
     : HIRTransformPass(ID), DT(nullptr), HLS(nullptr), IsPreVec(IsPreVec) {
@@ -366,18 +378,14 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
           Simplified(false), NumOperations(0), IsNewCoeff(0) {}
   };
 
-// <<<<<<< HEAD
-  // Structure to store CanonExpr related info.
   struct CanonExprInfo {
     unsigned NumSimplifiedTerms = 0;
     unsigned NumNonLinearTerms = 0;
     unsigned NumUnrollableIVBlobs = 0;
     bool HasUnrollableStandAloneIV = false;
   };
-//=======
-//
+
   class InvalidAllocaRefFinder;
-// >>>>>>> xmain
 
   HIRCompleteUnroll &HCU;
   const HLLoop *CurLoop;
@@ -2832,48 +2840,55 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop) {
   return false;
 }
 
+void HIRCompleteUnroll::doUnroll(HLLoop *Loop) {
+
+  LoopOptReportBuilder &LORBuilder =
+      Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+  if (Loop->isInnermost()) {
+    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                                "Loop completely unrolled");
+  } else {
+    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                                "Loopnest completely unrolled");
+  }
+
+  LORBuilder(*Loop).preserveLostLoopOptReport();
+
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
+  // Also invalidate analyses for the loops being unrolled. Since we reuse the
+  // instructions from the unrolled loops, not invalidating the analyses may
+  // leave them in an inconsistent state. This is the case for safe reduction
+  // analysis.
+  HIRInvalidationUtils::invalidateLoopNestBody(Loop);
+
+  Loop->getParentRegion()->setGenCode();
+
+  SmallVector<int64_t, MaxLoopNestLevel> IVValues;
+  CanonExprUpdater CEUpdater(Loop->getNestingLevel(), IVValues);
+
+  transformLoop(Loop, CEUpdater, true);
+
+  assert(IVValues.empty() && "IV values were not cleaned up!");
+}
+
 // Transform (Complete Unroll) each loop inside the CandidateLoops vector
 void HIRCompleteUnroll::transformLoops() {
-  SmallVector<int64_t, MaxLoopNestLevel> IVValues;
 
   LoopnestsCompletelyUnrolled += CandidateLoops.size();
 
   // Transform the loop nest from outer to inner.
   for (auto &Loop : CandidateLoops) {
 
-    LoopOptReportBuilder &LORBuilder =
-        Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
-
-    if (Loop->isInnermost())
-      LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
-                                  "Loop completely unrolled");
-    else
-      LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
-                                  "Loopnest completely unrolled");
-    LORBuilder(*Loop).preserveLostLoopOptReport();
-
     auto &LS = HLS->getTotalLoopStatistics(Loop);
     bool HasIfsOrSwitches = LS.hasIfs() || LS.hasSwitches();
 
-    auto Reg = Loop->getParentRegion();
     HLNode *ParentNode = Loop->getParentLoop();
     if (!ParentNode) {
-      ParentNode = Reg;
+      ParentNode = Loop->getParentRegion();
     }
 
-    // Generate code for the parent region and invalidate parent
-    Reg->setGenCode();
-    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
-    // Also invalidate analyses for the loops being unrolled. Since we reuse the
-    // instructions from the unrolled loops, not invalidating the analyses may
-    // leave them in an inconsistent state. This is the case for safe reduction
-    // analysis.
-    HIRInvalidationUtils::invalidateLoopNestBody(Loop);
-
-    CanonExprUpdater CEUpdater(Loop->getNestingLevel(), IVValues);
-    transformLoop(Loop, CEUpdater, true);
-
-    assert(IVValues.empty() && "IV values were not cleaned up!");
+    doUnroll(Loop);
 
     if (HasIfsOrSwitches) {
       HLNodeUtils::removeRedundantNodes(ParentNode);
@@ -2921,6 +2936,9 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
   int64_t LB = Loop->getLowerCanonExpr()->getConstant();
   int64_t UB = computeUB(Loop, CEUpdater.TopLoopLevel, IVValues);
   int64_t Step = Loop->getStrideCanonExpr()->getConstant();
+
+  // This may be different than UB when Step is not 1.
+  int64_t LastIVVal = LB + (((UB - LB) / Step) * Step);
   bool ZttHasBlob = false;
 
   // At this point loop preheader has been visited already but postexit is
@@ -2971,7 +2989,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
 
   // Iterate over Loop Child for unrolling with trip value incremented
   // each time. Thus, loop body will be expanded by no. of stmts x TripCount.
-  for (int64_t IVVal = LB; IVVal < UB; IVVal += Step) {
+  for (int64_t IVVal = LB; IVVal < LastIVVal; IVVal += Step) {
     // Clone iteration
     HLNodeUtils::cloneSequence(&LoopBody, OrigFirstChild, OrigLastChild);
 
@@ -2991,7 +3009,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
   }
 
   // Reuse original children for last iteration.
-  IVValues.back() = UB;
+  IVValues.back() = LastIVVal;
   HLNodeUtils::visitRange<true, false>(CEUpdater, OrigFirstChild,
                                        OrigLastChild);
 

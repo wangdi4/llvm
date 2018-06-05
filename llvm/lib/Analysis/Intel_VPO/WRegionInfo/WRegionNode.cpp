@@ -610,7 +610,8 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
     setNumThreads(V);
     break;
   case QUAL_OMP_ORDERED:
-    assert(N > 0 && "ORDERED parameter must be positive");
+    assert(N >= 0 && "ORDERED parameter must be positive (for doacross), or "
+                     "zero (for ordered).");
     setOrdered(N);
     break;
   case QUAL_OMP_FINAL:

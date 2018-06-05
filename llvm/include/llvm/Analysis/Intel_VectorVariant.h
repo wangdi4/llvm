@@ -284,10 +284,9 @@ public:
     case FUTURE_CPU_22:
     case FUTURE_CPU_23:
       return ZMM;
-    default:
-      llvm_unreachable("unsupported target processor");
-      return XMM;
     }
+
+    llvm_unreachable("unsupported target processor");
   }
 
   /// \brief Get the maximum vector register width for the ISA class.

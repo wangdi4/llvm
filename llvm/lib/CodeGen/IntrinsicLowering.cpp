@@ -457,6 +457,7 @@ void IntrinsicLowering::LowerIntrinsicCall(CallInst *CI) {
   }
 
   case Intrinsic::dbg_declare:
+  case Intrinsic::dbg_label:
     break;    // Simply strip out debugging intrinsics
 
   case Intrinsic::eh_typeid_for:
@@ -489,10 +490,6 @@ void IntrinsicLowering::LowerIntrinsicCall(CallInst *CI) {
   case Intrinsic::var_annotation:
     break;   // Strip out these intrinsics
  
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  case Intrinsic::intel_pragma:
-    break;   // Strip out intrinsic
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
   case Intrinsic::memcpy: {
     Type *IntPtr = DL.getIntPtrType(Context);
     Value *Size = Builder.CreateIntCast(CI->getArgOperand(2), IntPtr,

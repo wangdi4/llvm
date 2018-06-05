@@ -119,12 +119,12 @@ public:
 
   void dump() const; // dump - Print to stderr.
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   /// createPrinterPass - Get a Pass appropriate to print the IR this
   /// pass operates on (Module, Function or MachineFunction).
   virtual Pass *createPrinterPass(raw_ostream &OS,
                                   const std::string &Banner) const = 0;
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   /// Each pass is responsible for assigning a pass manager to itself.
   /// PMS is the stack of available pass manager.
@@ -233,11 +233,11 @@ public:
   // Force out-of-line virtual method.
   ~ModulePass() override;
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   /// createPrinterPass - Get a module printer pass.
   Pass *createPrinterPass(raw_ostream &OS,
                           const std::string &Banner) const override;
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   /// runOnModule - Virtual method overriden by subclasses to process the module
   /// being operated on.
@@ -292,11 +292,11 @@ class FunctionPass : public Pass {
 public:
   explicit FunctionPass(char &pid) : Pass(PT_Function, pid) {}
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   /// createPrinterPass - Get a function printer pass.
   Pass *createPrinterPass(raw_ostream &OS,
                           const std::string &Banner) const override;
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   /// runOnFunction - Virtual method overriden by subclasses to do the
   /// per-function processing of the pass.
@@ -328,11 +328,11 @@ class BasicBlockPass : public Pass {
 public:
   explicit BasicBlockPass(char &pid) : Pass(PT_BasicBlock, pid) {}
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   /// createPrinterPass - Get a basic block printer pass.
   Pass *createPrinterPass(raw_ostream &OS,
                           const std::string &Banner) const override;
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   using llvm::Pass::doInitialization;
   using llvm::Pass::doFinalization;
@@ -363,21 +363,21 @@ protected:
 
 /// If the user specifies the -time-passes argument on an LLVM tool command line
 /// then the value of this boolean will be true, otherwise false.
-/// @brief This is the storage for the -time-passes option.
+/// This is the storage for the -time-passes option.
 extern bool TimePassesIsEnabled;
 
 /// isFunctionInPrintList - returns true if a function should be printed via
 //  debugging options like -print-after-all/-print-before-all.
-//  @brief Tells if the function IR should be printed by PrinterPass.
+//  Tells if the function IR should be printed by PrinterPass.
 extern bool isFunctionInPrintList(StringRef FunctionName);
 
 /// forcePrintModuleIR - returns true if IR printing passes should
 //  be printing module IR (even for local-pass printers e.g. function-pass)
 //  to provide more context, as enabled by debugging option -print-module-scope
-//  @brief Tells if IR printer should be printing module IR
-#if !INTEL_PRODUCT_RELEASE
+//  Tells if IR printer should be printing module IR
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 extern bool forcePrintModuleIR();
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 } // end namespace llvm
 

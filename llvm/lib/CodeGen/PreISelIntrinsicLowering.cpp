@@ -83,6 +83,26 @@ static bool lowerSubscript(Function &F) {
   }
   return Changed;
 }
+
+static bool lowerFakeload(Function &F) {
+  if (F.use_empty())
+    return false;
+
+  bool Changed = false;
+  for (auto I = F.use_begin(), E = F.use_end(); I != E;) {
+    FakeloadInst *CI = dyn_cast<FakeloadInst>(I->getUser());
+    ++I;
+    if (!CI || CI->getCalledValue() != &F)
+      continue;
+
+    CI->replaceAllUsesWith(CI->getPointerOperand());
+    salvageDebugInfo(*CI);
+    CI->eraseFromParent();
+
+    Changed = true;
+  }
+  return Changed;
+}
 #endif // INTEL_CUSTOMIZATION
 
 static bool lowerIntrinsics(Module &M) {
@@ -93,6 +113,9 @@ static bool lowerIntrinsics(Module &M) {
 
     if (F.getIntrinsicID() == Intrinsic::intel_subscript) // INTEL
       Changed |= lowerSubscript(F);                       // INTEL
+
+    if (F.getIntrinsicID() == Intrinsic::intel_fakeload)  // INTEL
+      Changed |= lowerFakeload(F);                        // INTEL
   }
   return Changed;
 }

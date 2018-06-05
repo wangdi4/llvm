@@ -1,4 +1,8 @@
 ; RUN: opt < %s -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; INTEL
+; RUN: opt < %s -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck --check-prefix=CHECK-GEP %s
+; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck --check-prefix=CHECK-SUBS %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
@@ -74,9 +78,16 @@ define void @test_in_array([1 x %struct]* %st, i64 %i, i64 %j, i64 %k, i64 %i1, 
 ; CHECK-DAG: MayAlias: [1 x [1 x [1 x %struct]]]* %st, i32* %y
 ; CHECK-DAG: MayAlias: [1 x [1 x [1 x %struct]]]* %st, i32* %z
 
-; CHECK-DAG: NoAlias: i32* %x, i32* %y
-; CHECK-DAG: NoAlias: i32* %x, i32* %z
-; CHECK-DAG: NoAlias: i32* %y, i32* %z
+; INTEL
+; CHECK-GEP-DAG: NoAlias: i32* %x, i32* %y
+; CHECK-GEP-DAG: NoAlias: i32* %x, i32* %z
+; CHECK-GEP-DAG: NoAlias: i32* %y, i32* %z
+
+; INTEL
+; Insufficient number of lookups.
+; CHECK-SUBS-DAG: MayAlias: i32* %x, i32* %y
+; CHECK-SUBS-DAG: MayAlias: i32* %x, i32* %z
+; CHECK-SUBS-DAG: MayAlias: i32* %y, i32* %z
 
 ; CHECK-DAG: MayAlias: %struct* %y_12, [1 x [1 x [1 x %struct]]]* %st
 ; CHECK-DAG: MayAlias: %struct* %y_12, i32* %x
@@ -84,7 +95,11 @@ define void @test_in_array([1 x %struct]* %st, i64 %i, i64 %j, i64 %k, i64 %i1, 
 
 ; CHECK-DAG: MayAlias: [1 x [1 x [1 x %struct]]]* %st, i64* %y_8
 ; CHECK-DAG: MayAlias: i32* %z, i64* %y_8
-; CHECK-DAG: NoAlias: i32* %x, i64* %y_8
+; INTEL
+; CHECK-GEP-DAG: NoAlias: i32* %x, i64* %y_8
+; INTEL
+; Insufficient number of lookups.
+; CHECK-SUBS-DAG: MayAlias: i32* %x, i64* %y_8
 
 ; CHECK-DAG: MustAlias: %struct* %y_12, i32* %y
 ; CHECK-DAG: MustAlias: i32* %y, i64* %y_8
@@ -106,14 +121,17 @@ define void @test_in_3d_array([1 x [1 x [1 x %struct]]]* %st, i64 %i, i64 %j, i6
 ; CHECK-DAG: NoAlias: i32* %y, i32* %y2
 ; CHECK-DAG: NoAlias: i32* %z, i32* %z2
 
-; CHECK-DAG: MayAlias: i32* %x, i32* %y2
-; CHECK-DAG: MayAlias: i32* %x, i32* %z2
+; INTEL
+; CHECK-DAG: NoAlias: i32* %x, i32* %y2
+; CHECK-DAG: NoAlias: i32* %x, i32* %z2
 
-; CHECK-DAG: MayAlias: i32* %x2, i32* %y
-; CHECK-DAG: MayAlias: i32* %y, i32* %z2
+; INTEL
+; CHECK-DAG: NoAlias: i32* %x2, i32* %y
+; CHECK-DAG: NoAlias: i32* %y, i32* %z2
 
-; CHECK-DAG: MayAlias: i32* %x2, i32* %z
-; CHECK-DAG: MayAlias: i32* %y2, i32* %z
+; INTEL
+; CHECK-DAG: NoAlias: i32* %x2, i32* %z
+; CHECK-DAG: NoAlias: i32* %y2, i32* %z
 
 define void @test_same_underlying_object_same_indices(%struct* %st, i64 %i, i64 %j, i64 %k) {
   %st2 = getelementptr %struct, %struct* %st, i32 10
@@ -132,14 +150,17 @@ define void @test_same_underlying_object_same_indices(%struct* %st, i64 %i, i64 
 ; CHECK-DAG: MayAlias: i32* %y, i32* %y2
 ; CHECK-DAG: MayAlias: i32* %z, i32* %z2
 
-; CHECK-DAG: MayAlias: i32* %x, i32* %y2
-; CHECK-DAG: MayAlias: i32* %x, i32* %z2
+; INTEL
+; CHECK-DAG: NoAlias: i32* %x, i32* %y2
+; CHECK-DAG: NoAlias: i32* %x, i32* %z2
 
-; CHECK-DAG: MayAlias: i32* %x2, i32* %y
-; CHECK-DAG: MayAlias: i32* %y, i32* %z2
+; INTEL
+; CHECK-DAG: NoAlias: i32* %x2, i32* %y
+; CHECK-DAG: NoAlias: i32* %y, i32* %z2
 
-; CHECK-DAG: MayAlias: i32* %x2, i32* %z
-; CHECK-DAG: MayAlias: i32* %y2, i32* %z
+; INTEL
+; CHECK-DAG: NoAlias: i32* %x2, i32* %z
+; CHECK-DAG: NoAlias: i32* %y2, i32* %z
 
 define void @test_same_underlying_object_different_indices(%struct* %st, i64 %i1, i64 %j1, i64 %k1, i64 %i2, i64 %k2, i64 %j2) {
   %st2 = getelementptr %struct, %struct* %st, i32 10

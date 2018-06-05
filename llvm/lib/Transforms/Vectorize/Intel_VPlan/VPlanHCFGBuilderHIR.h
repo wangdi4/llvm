@@ -52,7 +52,7 @@ private:
   }
 
 public:
-  VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, IntelVPlan *Plan,
+  VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, VPlan *Plan,
                       VPOVectorizationLegality *Legal, const DDGraph &DDG)
       : VPlanHCFGBuilderBase(WRL, Plan, Legal), TheLoop(Lp), DDG(DDG) {
 

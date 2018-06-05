@@ -601,7 +601,7 @@ void CallGraphSCCPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addPreserved<WholeProgramWrapperPass>();  // INTEL
 }
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 //===----------------------------------------------------------------------===//
 // PrintCallGraphPass Implementation
 //===----------------------------------------------------------------------===//
@@ -657,7 +657,7 @@ Pass *CallGraphSCCPass::createPrinterPass(raw_ostream &OS,
                                           const std::string &Banner) const {
   return new PrintCallGraphPass(Banner, OS);
 }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 bool CallGraphSCCPass::skipSCC(CallGraphSCC &SCC) const {
   return !SCC.getCallGraph().getModule()
