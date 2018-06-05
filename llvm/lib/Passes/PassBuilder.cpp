@@ -197,6 +197,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForLoopNest.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForMemRec.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreElimination.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopFusion.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopInterchange.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMVForConstUB.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptPredicate.h"
