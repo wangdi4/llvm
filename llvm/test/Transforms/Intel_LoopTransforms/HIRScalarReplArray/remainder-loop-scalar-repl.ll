@@ -1,8 +1,9 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-scalarrepl-array -print-before=hir-scalarrepl-array -print-after=hir-scalarrepl-array -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,print<hir>,hir-scalarrepl-array,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that scalar-replactment works correctly for remainder loops.
 
-; CHECK: Before HIR Scalar Replacement
+; CHECK: Function
 
 ; CHECK: + DO i1 = 4 * %tgu, zext.i32.i64(%indvars.iv16) + -2, 1   <DO_LOOP>  <MAX_TC_EST = 3>
 ; CHECK: |   %1 = (@sour)[0][i1 + 1];
@@ -11,7 +12,7 @@
 ; CHECK: + END LOOP
 
 
-; CHECK: After HIR Scalar Replacement
+; CHECK: Function
 
 ; CHECK:  %scalarepl14 = (@dest)[0][%__index.addr.014][4 * %tgu];
 ; CHECK:  + DO i1 = 4 * %tgu, zext.i32.i64(%indvars.iv16) + -2, 1   <DO_LOOP>  <MAX_TC_EST = 3>

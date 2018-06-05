@@ -13,7 +13,6 @@
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_SCALARREPL_ARRAY_H
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
-#include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
@@ -347,30 +346,29 @@ struct MemRefGroup {
 #endif
 };
 
-class HIRScalarReplArray : public HIRTransformPass {
+class HIRScalarReplArray {
   friend MemRefGroup;
 
-  HIRDDAnalysis *HDDA = nullptr;
-  HIRLoopLocality *HLA = nullptr;
-  HIRLoopStatistics *HLS = nullptr;
+  HIRFramework &HIRF;
+  HIRDDAnalysis &HDDA;
+  HIRLoopLocality &HLA;
+  HIRLoopStatistics &HLS;
+  HLNodeUtils &HNU;
+  DDRefUtils &DDRU;
+  CanonExprUtils &CEU;
+
   unsigned LoopLevel;
 
   SmallVector<MemRefGroup, 8> MRGVec;
 
-  HLNodeUtils *HNU = nullptr;
-  DDRefUtils *DDRU = nullptr;
-  CanonExprUtils *CEU = nullptr;
   bool Is32Bit; // Check if target is a 32b or 64b platform
   unsigned ScalarReplArrayMaxDepDist;
 
 public:
-  static char ID;
+  HIRScalarReplArray(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
+                     HIRLoopLocality &HLA, HIRLoopStatistics &HLS);
 
-  HIRScalarReplArray(void);
-
-  bool doInitialization(Module &M) override;
-
-  bool runOnFunction(Function &F) override;
+  bool run();
 
   void setupEnvForLoop(const HLLoop *Lp);
 
@@ -489,8 +487,7 @@ public:
   void doInLoopProc(HLLoop *Lp, MemRefGroup &MRG);
 
   // Utility Functions
-  bool handleCmdlineArgs(Function &F);
-  void releaseMemory(void) override;
+  bool handleCmdlineArgs();
   void clearWorkingSetMemory(void);
   void getAnalysisUsage(AnalysisUsage &AU) const;
 
