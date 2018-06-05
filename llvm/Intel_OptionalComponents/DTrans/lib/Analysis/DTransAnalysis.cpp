@@ -4551,8 +4551,6 @@ void DTransAnalysisInfo::reset() {
     case dtrans::TypeInfo::ArrayInfo:
       delete cast<dtrans::ArrayInfo>(Entry.second);
       break;
-    default:
-      llvm_unreachable("Missing case for appropriate TypeInfo destruction");
     }
   }
   TypeInfoMap.clear();

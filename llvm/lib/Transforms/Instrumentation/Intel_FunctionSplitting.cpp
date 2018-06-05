@@ -123,11 +123,13 @@ void printNames(raw_ostream &OS, const ContainerT &Container)
   OS << "\n";
 }
 
+#ifndef NDEBUG
 raw_ostream &operator<<(raw_ostream &OS, const SplinterRegionT &Region)
 {
   printNames(OS, Region);
   return OS;
 }
+#endif // !NDEBUG
 
 // Helper class that implements the functionality for splitting a
 // SplinterRegion out of the Function.
