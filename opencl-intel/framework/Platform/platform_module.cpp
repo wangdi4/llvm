@@ -205,7 +205,7 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
         break;
     }
 #ifdef BUILD_FPGA_EMULATOR
-    m_vPlatformVersionStr += " Intel(R) FPGA SDK for OpenCL(TM), Version 18.0";
+    m_vPlatformVersionStr += " Intel(R) FPGA SDK for OpenCL(TM), Version 18.1";
 #elif defined (_WIN32)
     m_vPlatformVersionStr += " WINDOWS";
 #else // LINUX

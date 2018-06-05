@@ -1479,7 +1479,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             // format is (Major version).(Minor version).(Revision number).(Build number)
             driverVerStream << major << "." << minor << "." << revision << "." << build;
 #ifdef BUILD_FPGA_EMULATOR
-            std::string driverVer = "18.0";
+            std::string driverVer = "18.1";
 #else
             std::string driverVer = driverVerStream.str();
 #endif
