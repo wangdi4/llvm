@@ -15,18 +15,19 @@
 //===----------------------------------------------------------------------===//
 //
 
-#include "HIRLoopDistributionImpl.h"
-
 #include "llvm/ADT/SCCIterator.h"
+#include "llvm/Support/Debug.h"
+
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
+
+#include "HIRLoopDistributionImpl.h"
 
 #define DEBUG_TYPE "hir-loop-distribute"
 
@@ -38,30 +39,18 @@ cl::opt<bool> DisableDist("disable-hir-loop-distribute",
                           cl::desc("Disable HIR Loop Distribution"), cl::Hidden,
                           cl::init(false));
 
-bool HIRLoopDistribution::runOnFunction(Function &F) {
-
-  this->F = &F;
-
-  if (DisableDist || skipFunction(F)) {
-    if (OptReportLevel >= 3) {
-      dbgs() << "LOOP DISTRIBUTION: Transform disabled \n";
-    }
+bool HIRLoopDistribution::run() {
+  if (DisableDist) {
+    DEBUG(dbgs() << "LOOP DISTRIBUTION: Transform disabled\n");
     return false;
   }
 
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-  HNU = &(HIRF->getHLNodeUtils());
-
   SmallVector<HLLoop *, 64> Loops;
 
-  HLR = &getAnalysis<HIRLoopResourceWrapperPass>().getHLR();
-  SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
-
   if (DistCostModel == DistHeuristics::BreakMemRec) {
-    HIRF->getHLNodeUtils().gatherInnermostLoops(Loops);
+    HIRF.getHLNodeUtils().gatherInnermostLoops(Loops);
   } else {
-    HIRF->getHLNodeUtils().gatherAllLoops(Loops);
+    HIRF.getHLNodeUtils().gatherAllLoops(Loops);
     // Work from innermost to outermost
     std::sort(Loops.begin(), Loops.end(), [](HLLoop *A, HLLoop *B) -> bool {
       return A->getNestingLevel() > B->getNestingLevel();
@@ -82,8 +71,8 @@ bool HIRLoopDistribution::runOnFunction(Function &F) {
     bool ForceCycleForLoopIndepDep = true;
 
     if (DistCostModel == DistHeuristics::BreakMemRec) {
-      TotalMemOps = HLR->getSelfLoopResource(Lp).getNumIntMemOps() +
-                    HLR->getSelfLoopResource(Lp).getNumFPMemOps();
+      TotalMemOps = HLR.getSelfLoopResource(Lp).getNumIntMemOps() +
+                    HLR.getSelfLoopResource(Lp).getNumFPMemOps();
       if (TotalMemOps >= MaxMemResourceToDistribute) {
         ForceCycleForLoopIndepDep = false;
       }
@@ -116,7 +105,7 @@ bool HIRLoopDistribution::runOnFunction(Function &F) {
     findDistPoints(Lp, PG, NewOrdering);
 
     if (NewOrdering.size() > 1) {
-      Modified = distributeLoop(Lp, NewOrdering, HIRF->getLORBuilder());
+      Modified = distributeLoop(Lp, NewOrdering, HIRF.getLORBuilder());
     } else {
       if (OptReportLevel >= 3) {
         dbgs() << "LOOP DISTRIBUTION: "
@@ -158,9 +147,9 @@ RegDDRef *HIRLoopDistribution::createTempArrayStore(RegDDRef *TempRef) {
 
   auto ArrTy = ArrayType::get(TempRef->getDestType(), StripmineSize);
 
-  AllocaBlobIdx = HNU->createAlloca(ArrTy, RegionNode, ".TempArray");
+  AllocaBlobIdx = HNU.createAlloca(ArrTy, RegionNode, ".TempArray");
 
-  RegDDRef *TmpArrayRef = HNU->getDDRefUtils().createMemRef(AllocaBlobIdx);
+  RegDDRef *TmpArrayRef = HNU.getDDRefUtils().createMemRef(AllocaBlobIdx);
 
   auto IVType = Lp->getIVType();
   CanonExpr *FirstCE = TempRef->getCanonExprUtils().createCanonExpr(IVType);
@@ -169,10 +158,9 @@ RegDDRef *HIRLoopDistribution::createTempArrayStore(RegDDRef *TempRef) {
   CanonExpr *SecondCE = TempRef->getCanonExprUtils().createCanonExpr(IVType);
   TmpArrayRef->addDimension(FirstCE);
   TmpArrayRef->addDimension(SecondCE);
-  HLInst *StoreInst =
-      HNU->createStore(TempRef->clone(), ".TempSt", TmpArrayRef);
+  HLInst *StoreInst = HNU.createStore(TempRef->clone(), ".TempSt", TmpArrayRef);
 
-  HNU->insertAfter(HLNode, StoreInst);
+  HLNodeUtils::insertAfter(HLNode, StoreInst);
 
   updateLiveInAllocaTemp(Lp, TmpArrayRef->getBasePtrSymbase());
   TempArraySB.push_back(TmpArrayRef->getSymbase());
@@ -189,7 +177,7 @@ void HIRLoopDistribution::createTempArrayLoad(RegDDRef *TempRef,
 
   const std::string TempName = "scextmp";
   HLInst *LoadInst =
-      HNU->createLoad(TmpArrayRef->clone(), TempName, TempRef->clone());
+      HNU.createLoad(TmpArrayRef->clone(), TempName, TempRef->clone());
 
   // if stmt is inside an if, insertion should be done before If
   // because we do insert once per loop
@@ -202,7 +190,7 @@ void HIRLoopDistribution::createTempArrayLoad(RegDDRef *TempRef,
     TmpNode = dyn_cast<HLIf>(TmpNode->getParent());
   } while (TmpNode);
 
-  HNU->insertBefore(IfParent, LoadInst);
+  HLNodeUtils::insertBefore(IfParent, LoadInst);
   updateLiveInAllocaTemp(Lp, TmpArrayRef->getBasePtrSymbase());
   TempArraySB.push_back(TmpArrayRef->getSymbase());
 }
@@ -221,7 +209,7 @@ void HIRLoopDistribution::replaceWithArrayTemp(
       const HLInst *Inst = dyn_cast<HLInst>(TempRef->getHLDDNode());
 
       if (Inst &&
-          (Inst->isInPreheaderOrPostexit() || SRA->isSafeReduction(Inst))) {
+          (Inst->isInPreheaderOrPostexit() || SRA.isSafeReduction(Inst))) {
         continue;
       }
       for (unsigned J = I + 1; J < LastLoopNum; ++J) {
@@ -268,7 +256,7 @@ bool HIRLoopDistribution::arrayTempExceeded(
       }
       const HLInst *Inst = dyn_cast<HLInst>(TempRef->getHLDDNode());
       if (Inst &&
-          (Inst->isInPreheaderOrPostexit() || SRA->isSafeReduction(Inst))) {
+          (Inst->isInPreheaderOrPostexit() || SRA.isSafeReduction(Inst))) {
         continue;
       }
       // Check any usage in another loop
@@ -389,21 +377,21 @@ bool HIRLoopDistribution::distributeLoop(
     NewLoops[I++] = LoopNode;
 
     if (CopyPreHeader) {
-      HNU->moveAsFirstPreheaderNodes(LoopNode, Loop->pre_begin(),
-                                     Loop->pre_end());
+      HLNodeUtils::moveAsFirstPreheaderNodes(LoopNode, Loop->pre_begin(),
+                                             Loop->pre_end());
       CopyPreHeader = false;
       LORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low,
                                       "Loop distributed (%d way)", LastLoopNum);
     }
     if (++Num == LastLoopNum) {
-      HNU->moveAsFirstPostexitNodes(LoopNode, Loop->post_begin(),
-                                    Loop->post_end());
+      HLNodeUtils::moveAsFirstPostexitNodes(LoopNode, Loop->post_begin(),
+                                            Loop->post_end());
     }
     // Each piblock is comprised of multiple HLNodes
     for (PiBlock *PiBlk : PList) {
       for (auto NodeI = PiBlk->nodes_begin(), E = PiBlk->nodes_end();
            NodeI != E; ++NodeI) {
-        HNU->moveAsLastChild(LoopNode, *NodeI);
+        HLNodeUtils::moveAsLastChild(LoopNode, *NodeI);
       }
     }
     LORBuilder(*LoopNode).addOrigin("Distributed chunk %d", Num);
@@ -421,7 +409,7 @@ bool HIRLoopDistribution::distributeLoop(
     if (DistCostModel == DistHeuristics::BreakMemRec) {
       NewLoops[I]->setDistributedForMemRec();
     }
-    HNU->insertBefore(Loop, NewLoops[I]);
+    HLNodeUtils::insertBefore(Loop, NewLoops[I]);
   }
 
   if (NumArrayTemps) {
@@ -440,7 +428,7 @@ bool HIRLoopDistribution::distributeLoop(
   HIRInvalidationUtils::invalidateBody(Loop);
 
   RegionNode->setGenCode();
-  HNU->remove(Loop);
+  HLNodeUtils::remove(Loop);
   return true;
 }
 
@@ -567,7 +555,7 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
   uint64_t TripCount;
   // Skip  some constant trip counts loops:  small, looks like copy stmt
   if (Lp->isInnermost() && Lp->isConstTripLoop(&TripCount)) {
-    if (TripCount < 5 || HLR->getSelfLoopResource(Lp).getNumFPOps() == 0) {
+    if (TripCount < 5 || HLR.getSelfLoopResource(Lp).getNumFPOps() == 0) {
       return false;
     }
   }
@@ -606,7 +594,7 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
 
     SmallVector<HLLoop *, 12> InnermostLPVector;
 
-    HNU->gatherInnermostLoops(InnermostLPVector, const_cast<HLLoop *>(Lp));
+    HNU.gatherInnermostLoops(InnermostLPVector, const_cast<HLLoop *>(Lp));
     if (InnermostLPVector.size() > 2) {
       return false;
     }
@@ -615,7 +603,7 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
       if ((Loop->getNestingLevel() - Lp->getNestingLevel()) > 2) {
         return false;
       }
-      if (!NonUnitStride && HNU->hasNonUnitStrideRefs(Loop)) {
+      if (!NonUnitStride && HLNodeUtils::hasNonUnitStrideRefs(Loop)) {
         NonUnitStride = true;
       }
     }
@@ -647,7 +635,7 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
   unsigned NumRefCounter = 0;
   SmallVector<unsigned, 12> MemRefSBVector;
 
-  SRA->computeSafeReductionChains(Lp);
+  SRA.computeSafeReductionChains(Lp);
 
   // Get number of loads/stores, needed to decide if threashold is exceeded.
   // Arrays with same SB, in general, have locality, and do not need to be
@@ -724,4 +712,30 @@ void HIRLoopDistribution::findDistPoints(
   }
 
   DEBUG(dbgs() << "Loop Dist proposes " << DistPoints.size() << " Loops\n");
+}
+
+void HIRLoopDistributionLegacyPass::getAnalysisUsage(
+    llvm::AnalysisUsage &AU) const {
+  AU.setPreservesAll();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+  // Loop Statistics is not used by this pass directly but it used by
+  // HLNodeUtils::dominates() utility. This is a workaround to keep the pass
+  // manager from freeing it.
+  AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+  AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
+}
+
+bool HIRLoopDistributionLegacyPass::runOnFunction(Function &F) {
+  if (skipFunction(F)) {
+    return false;
+  }
+
+  return HIRLoopDistribution(
+             getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+             getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+             getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
+             getAnalysis<HIRLoopResourceWrapperPass>().getHLR(), DistCostModel)
+      .run();
 }

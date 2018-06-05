@@ -12,9 +12,10 @@
 // This file is used for HIR Loop Distribution
 //
 //===----------------------------------------------------------------------===//
-#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLOOPDISTRIBUTION_H
-#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLOOPDISTRIBUTION_H
+#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLOOPDISTRIBUTIONIMPL_H
+#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLOOPDISTRIBUTIONIMPL_H
 
+#include "HIRLoopDistributionGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
@@ -48,34 +49,30 @@ enum class DistHeuristics : unsigned char {
   BreakScalarRec    // Break recurrence among scalars. Requires scalar expansion
 };
 
-class HIRLoopDistribution : public HIRTransformPass {
+class HIRLoopDistribution {
   typedef SmallVector<PiBlock *, 4> PiBlockList;
   typedef DDRefGatherer<RegDDRef, TerminalRefs> TerminalRefGatherer;
 
 public:
-  HIRLoopDistribution(char &ID, DistHeuristics DistCostModel)
-      : HIRTransformPass(ID), DistCostModel(DistCostModel) {}
-  bool runOnFunction(Function &F) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    // Loop Statistics is not used by this pass directly but it used by
-    // HLNodeUtils::dominates() utility. This is a workaround to keep the pass
-    // manager from freeing it.
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-  }
+  HIRLoopDistribution(HIRFramework &HIRF, HIRDDAnalysis &DDA,
+                      HIRSafeReductionAnalysis &SRA, HIRLoopResource &HLR,
+                      DistHeuristics DistCostModel)
+      : HIRF(HIRF), DDA(DDA), SRA(SRA), HNU(HIRF.getHLNodeUtils()), HLR(HLR),
+        DistCostModel(DistCostModel) {}
+
+  bool run();
+
   int OptReportLevel = 1;
 
 private:
-  Function *F;
-  HIRDDAnalysis *DDA;
-  HIRSafeReductionAnalysis *SRA;
-  HLNodeUtils *HNU;
-  HIRLoopResource *HLR;
+  HIRFramework &HIRF;
+  HIRDDAnalysis &DDA;
+  HIRSafeReductionAnalysis &SRA;
+  HLNodeUtils &HNU;
+  HIRLoopResource &HLR;
+
   DistHeuristics DistCostModel;
+
   unsigned AllocaBlobIdx;
   unsigned NumArrayTemps;
   unsigned LastLoopNum;
@@ -133,7 +130,19 @@ private:
   // as single IV:  TEMP[i2], while other indexes have i1, i2
   void fixTempArrayCoeff(HLLoop *Loop);
 };
+
+class HIRLoopDistributionLegacyPass : public HIRTransformPass {
+  DistHeuristics DistCostModel;
+
+public:
+  HIRLoopDistributionLegacyPass(char &ID, DistHeuristics DistCostModel)
+      : HIRTransformPass(ID), DistCostModel(DistCostModel) {}
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  bool runOnFunction(Function &F) override;
+};
+
 } // namespace distribute
 } // namespace loopopt
 } // namespace llvm
-#endif // LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLOOPDISTRIBUTION_H
+#endif // LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLOOPDISTRIBUTIONIMPL_H

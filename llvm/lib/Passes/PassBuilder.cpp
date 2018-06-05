@@ -191,6 +191,8 @@
 // Transformation passes
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTempCleanup.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopConcatenation.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForLoopNest.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForMemRec.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreElimination.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopInterchange.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPostVecCompleteUnroll.h"

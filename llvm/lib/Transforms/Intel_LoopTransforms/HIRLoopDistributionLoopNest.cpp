@@ -12,45 +12,62 @@
 //
 
 #include "HIRLoopDistributionImpl.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForLoopNest.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::loopopt::distribute;
+
+#define DEBUG_TYPE "hir-loop-distribute"
 
 cl::opt<bool>
     DisableDistLoopNest("disable-hir-loop-distribute-loopnest",
                         cl::desc("Disable HIR Loop Distribution LoopNest"),
                         cl::Hidden, cl::init(false));
 
+PreservedAnalyses
+HIRLoopDistributionForLoopNestPass::run(llvm::Function &F,
+                                        llvm::FunctionAnalysisManager &AM) {
+  if (DisableDistLoopNest) {
+    DEBUG(dbgs() << "LOOP DISTRIBUTION enable perfect Loop Nest Disabled\n");
+    return PreservedAnalyses::all();
+  }
+
+  HIRLoopDistribution(
+      AM.getResult<HIRFrameworkAnalysis>(F), AM.getResult<HIRDDAnalysisPass>(F),
+      AM.getResult<HIRSafeReductionAnalysisPass>(F),
+      AM.getResult<HIRLoopResourceAnalysis>(F), DistHeuristics::NestFormation)
+      .run();
+
+  return PreservedAnalyses::all();
+}
+
 namespace {
 
-class HIRLoopDistributionForLoopNest : public HIRLoopDistribution {
-
+class HIRLoopDistributionForLoopNestLegacyPass
+    : public HIRLoopDistributionLegacyPass {
 public:
   static char ID;
 
-  HIRLoopDistributionForLoopNest()
-      : HIRLoopDistribution(ID, DistHeuristics::NestFormation) {
-    initializeHIRLoopDistributionForLoopNestPass(
+  HIRLoopDistributionForLoopNestLegacyPass()
+      : HIRLoopDistributionLegacyPass(ID, DistHeuristics::NestFormation) {
+    initializeHIRLoopDistributionForLoopNestLegacyPassPass(
         *PassRegistry::getPassRegistry());
   }
 
   bool runOnFunction(Function &F) override {
-
-    if (DisableDistLoopNest || skipFunction(F)) {
-      if (OptReportLevel >= 3) {
-        dbgs() << "LOOP DISTRIBUTION enable perfect Loop Nest Diabled \n";
-      }
+    if (DisableDistLoopNest) {
+      DEBUG(dbgs() << "LOOP DISTRIBUTION enable perfect Loop Nest Disabled\n");
       return false;
     }
 
-    return HIRLoopDistribution::runOnFunction(F);
+    return HIRLoopDistributionLegacyPass::runOnFunction(F);
   }
 };
 } // namespace
 
-char HIRLoopDistributionForLoopNest::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLoopDistributionForLoopNest,
+char HIRLoopDistributionForLoopNestLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRLoopDistributionForLoopNestLegacyPass,
                       "hir-loop-distribute-loopnest",
                       "HIR Loop Distribution LoopNest", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
@@ -58,10 +75,10 @@ INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
-INITIALIZE_PASS_END(HIRLoopDistributionForLoopNest,
+INITIALIZE_PASS_END(HIRLoopDistributionForLoopNestLegacyPass,
                     "hir-loop-distribute-loopnest",
                     "HIR Loop Distribution LoopNest", false, false)
 
 FunctionPass *llvm::createHIRLoopDistributionForLoopNestPass() {
-  return new HIRLoopDistributionForLoopNest();
+  return new HIRLoopDistributionForLoopNestLegacyPass();
 }

@@ -167,7 +167,7 @@ class PiGraph : public HIRGraph<PiBlock, PiGraphEdge> {
   DistPPGraph *PPGraph;
 
 public:
-  PiGraph(HLLoop *Loop, HIRDDAnalysis *DDA, bool ForceCycleForLoopIndepDep) {
+  PiGraph(HLLoop *Loop, HIRDDAnalysis &DDA, bool ForceCycleForLoopIndepDep) {
 
     PPGraph = new DistPPGraph(Loop, DDA, ForceCycleForLoopIndepDep);
 
