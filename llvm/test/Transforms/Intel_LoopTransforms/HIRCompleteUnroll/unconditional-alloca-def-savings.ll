@@ -1,7 +1,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that this loop is deemed profitable. We should be able to deduce that the alloca loads (%heaps)[0][i1] can be optimized away after unrolling.
-; CHECK: Dump Before HIR PostVec Complete Unroll
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, 2, 1   <DO_LOOP>
 ; CHECK: |   %2 = (%heaps)[0][i1];
@@ -39,7 +40,7 @@
 ; CHECK: |   }
 ; CHECK: + END LOOP
 
-; CHECK: Dump After HIR PostVec Complete Unroll
+; CHECK: Function
 ; CHECK-NOT: DO i1
 
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"

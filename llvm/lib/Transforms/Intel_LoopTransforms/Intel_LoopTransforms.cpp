@@ -20,8 +20,8 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRSymbolicTripCountCompleteUnrollLegacyPassPass(Registry);
   initializeHIRLoopInterchangeLegacyPassPass(Registry);
   initializeHIROptPredicatePass(Registry);
-  initializeHIRPreVecCompleteUnrollPass(Registry);
-  initializeHIRPostVecCompleteUnrollPass(Registry);
+  initializeHIRPreVecCompleteUnrollLegacyPassPass(Registry);
+  initializeHIRPostVecCompleteUnrollLegacyPassPass(Registry);
   initializeHIRGeneralUnrollPass(Registry);
   initializeHIRUnrollAndJamLegacyPassPass(Registry);
   initializeHIRDummyTransformationPass(Registry);

@@ -1,6 +1,7 @@
 ; REQUIRES: asserts
 
 ; RUN: opt -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; Verify that there are GEP savings of 2 due to these address simplifications-
 ; 1. Addition of i1 and the trailing offset 1.

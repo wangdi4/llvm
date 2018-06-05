@@ -193,6 +193,8 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopConcatenation.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreElimination.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopInterchange.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPostVecCompleteUnroll.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPreVecCompleteUnroll.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJam.h"
 
 // Intel VPO

@@ -17,6 +17,7 @@
 
 
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -hir-details 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-post-vec-complete-unroll,print<hir>" -hir-details 2>&1 < %s | FileCheck %s
 
 ; Traverse to first level loop.
 ; CHECK: DO i64 i1 = 0

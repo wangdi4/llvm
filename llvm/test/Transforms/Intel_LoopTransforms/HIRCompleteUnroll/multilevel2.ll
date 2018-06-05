@@ -2,6 +2,7 @@
 ; Only the innermost loop should be unrolled as it has small trip count.
 
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-complete-unroll-loop-trip-threshold=50 -hir-cg -S < %s | FileCheck %s
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg" -hir-complete-unroll-loop-trip-threshold=50 -S < %s | FileCheck %s
 ; CHECK: entry
 
 ; terminator of entry bblock should point to new unrolled region.
