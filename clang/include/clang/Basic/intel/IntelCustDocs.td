@@ -101,63 +101,6 @@ Microsoft allows you to catch a string literal with catch(char \*).
 
 // Intel Compatibility
 
-def LoopPragmaExtensionsDocs : Documentation {
-  let Category = DocCatIntelCompat;
-  let Option = "IntelCompat";
-  let BugTracker = "CQ#371799,CMPLRS-36479";
-  let RegressionTest = "regC/tr50768";
-  let Owner = "mprice1";
-  let CompatVersions = "";
-  let Content = [{
-The classic Intel compiler supports many pragmas that apply to loops, such as
-#pragma unroll. It also allows a pragma like this on any statement and applies
-it to the first loop it encounters.  This would produce a diagnostic on most
-other compilers.
-
-Also we allow multiple pragmas on a single loop. The compiler ignores all but
-that last one.
-
-In the classic Intel compiler the IL0 directive is emitted at the location the
-user specified and the back end does the work to get it applied to the loop.
-
-In clang the front end must deal with it. When a pragma like this is seen it
-is saved and applied when a loop statement is seen.
-
-Note: It isn't clear what value this provides the user.  It may just be an
-unfortunate result of the implementation.
-
-Recommendation: Run full testing without this customization.  Ask back end
-teams if they know any reason we need this.  If there is a good reason, can
-we upstream it?
-
-.. code-block:: c++
-
-  void foo()
-  {
-    int i;
-    #pragma unroll
-    i = 100;
-    for( i = 0; i < 2; i++ ) { i++; }
-  }
-
-.. code-block:: console
-
-  $ icc -c t.c
-  $
-
-.. code-block:: console
-
-  $ clang -c t.c
-  t.c:5:5: error: expected a for, while, or do-while loop to follow
-        '#pragma unroll'
-      i = 100;
-      ^
-  1 error generated.
-  $
-
-  }];
-}
-
 def AllowMissingTypenameDocs : Documentation {
   let Category = DocCatIntelCompat;
   let Option = "IntelCompat";

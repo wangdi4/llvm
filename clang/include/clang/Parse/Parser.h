@@ -1338,34 +1338,6 @@ private:
 
     SourceRange Range;
   };
-#if INTEL_CUSTOMIZATION
-  // CQ#371799 - let #pragma unroll precede non-loop statements.
-  /// Save #pragma unroll and other loop pragmas as pending to be applied
-  /// once any loop occurs.
-public:
-  void pushPendingLoopPragma() {
-    PendingLoopPragma.push_back(new ParsedAttributesWithRange(AttrFactory));
-  }
-  void popPendingLoopPragma() {
-    auto *Pending = PendingLoopPragma.back();
-    delete Pending;
-    PendingLoopPragma.pop_back();
-  }
-  ParsedAttributesWithRange *getPendingLoopPragmaAttr() {
-    return PendingLoopPragma.back();
-  }
-  class PendingLoopPragmaRAII {
-    Parser &P;
-
-  public:
-    PendingLoopPragmaRAII(Parser &P) : P(P) { P.pushPendingLoopPragma(); }
-    ~PendingLoopPragmaRAII() { P.popPendingLoopPragma(); }
-  };
-
-private:
-  SmallVector<ParsedAttributesWithRange *, 4> PendingLoopPragma;
-  PendingLoopPragmaRAII PendingLoopPragmaRAIIObject;
-#endif // INTEL_CUSTOMIZATION
 
   DeclGroupPtrTy ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
                                           ParsingDeclSpec *DS = nullptr);

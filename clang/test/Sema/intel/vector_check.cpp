@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -fintel-compatibility -fsyntax-only %s -verify -pedantic
-// RUN: %clang_cc1 -fintel-compatibility-enable=PragmaNoVector -fintel-compatibility-enable=PragmaVector -fintel-compatibility-enable=LoopPragmaExtensions -fsyntax-only %s -verify -pedantic
+// RUN: %clang_cc1 -fintel-compatibility-enable=PragmaNoVector -fintel-compatibility-enable=PragmaVector -fsyntax-only %s -verify -pedantic
 // expected error
 
 void foo()

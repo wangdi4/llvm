@@ -1,5 +1,4 @@
 // RUN: %clang_cc1 -fintel-compatibility -fsyntax-only %s -verify -ast-dump -pedantic | FileCheck %s
-// expected-no-diagnostics
 
 void foo() {
   int i;
@@ -11,11 +10,10 @@ void foo() {
   for (i = 0; i < 10; ++i) {  // this is OK
     a[i] = b[i] = 0;
   }
+  // expected-error@+2 {{expected a for, while, or do-while loop to follow '#pragma nofusion'}}
   #pragma nofusion
   i = 7;
-  for (i = 0; i < 10; ++i) {  // this is OK
+  for (i = 0; i < 10; ++i) {
     a[i] = b[i] = 0;
   }
-  // CHECK: AttributedStmt
-  // CHECK-NEXT: LoopHintAttr{{.*}}NoFusion Enable
 }
