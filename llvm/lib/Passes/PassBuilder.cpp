@@ -189,6 +189,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 
 // Transformation passes
+#include "llvm/Transforms/Intel_LoopTransforms/HIRGeneralUnroll.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTempCleanup.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopConcatenation.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForLoopNest.h"

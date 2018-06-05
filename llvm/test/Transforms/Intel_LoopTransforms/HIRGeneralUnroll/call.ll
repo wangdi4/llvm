@@ -1,8 +1,9 @@
 ; Test for General Unrolling with call statement.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s 
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-general-unroll,print<hir>" -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s 
 
-; CHECK: Dump Before
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, 499, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, 499, 1   <DO_LOOP>
@@ -12,7 +13,7 @@
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 
-; CHECK: Dump After
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, 499, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, 61, 1   <DO_LOOP>

@@ -66,6 +66,8 @@
 //    is always executed. Investigate whether this version is better in
 //    performance as compared to the existing one.
 
+#include "llvm/Transforms/Intel_LoopTransforms/HIRGeneralUnroll.h"
+
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/Triple.h"
@@ -128,29 +130,19 @@ static cl::opt<unsigned> MaxLoopCost(
 
 namespace {
 
-class HIRGeneralUnroll : public HIRTransformPass {
+class HIRGeneralUnroll {
 public:
-  static char ID;
+  HIRGeneralUnroll(HIRFramework &HIRF, HIRLoopResource &HLR,
+                   HIRLoopStatistics &HLS)
+      : HIRF(HIRF), HLR(HLR), HLS(HLS), IsUnrollTriggered(false),
+        Is32Bit(false) {}
 
-  HIRGeneralUnroll()
-      : HIRTransformPass(ID), HLR(nullptr), HLS(nullptr),
-        IsUnrollTriggered(false), Is32Bit(false) {
-    initializeHIRGeneralUnrollPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  }
+  bool run();
 
 private:
-  HIRLoopResource *HLR;
-  HIRLoopStatistics *HLS;
+  HIRFramework &HIRF;
+  HIRLoopResource &HLR;
+  HIRLoopStatistics &HLS;
 
   bool IsUnrollTriggered;
   bool Is32Bit;
@@ -182,51 +174,32 @@ private:
 };
 } // namespace
 
-char HIRGeneralUnroll::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRGeneralUnroll, "hir-general-unroll",
-                      "HIR General Unroll", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRGeneralUnroll, "hir-general-unroll",
-                    "HIR General Unroll", false, false)
-
-FunctionPass *llvm::createHIRGeneralUnrollPass() {
-  return new HIRGeneralUnroll();
-}
-
-bool HIRGeneralUnroll::runOnFunction(Function &F) {
+bool HIRGeneralUnroll::run() {
   // Skip if DisableHIRGeneralUnroll is enabled
-  if (DisableHIRGeneralUnroll || skipFunction(F)) {
+  if (DisableHIRGeneralUnroll) {
     DEBUG(dbgs() << "HIR LOOP General Unroll Transformation Disabled \n");
     return false;
   }
 
-  DEBUG(dbgs() << "General unrolling for Function : " << F.getName() << "\n");
-
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HLR = &getAnalysis<HIRLoopResourceWrapperPass>().getHLR();
-  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
+  DEBUG(dbgs() << "General unrolling for Function : "
+               << HIRF.getFunction().getName() << "\n");
 
   IsUnrollTriggered = false;
 
-  llvm::Triple TargetTriple(F.getParent()->getTargetTriple());
+  llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
   Is32Bit = (TargetTriple.getArch() == llvm::Triple::x86);
 
   sanitizeOptions();
 
   // Gather the innermost loops as candidates.
   SmallVector<HLLoop *, 64> CandidateLoops;
-  HIRF->getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
+  HIRF.getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
 
   // Process General Unrolling
   processGeneralUnroll(CandidateLoops);
 
   return IsUnrollTriggered;
 }
-
-// Nothing to release?
-void HIRGeneralUnroll::releaseMemory() {}
 
 void HIRGeneralUnroll::sanitizeOptions() {
 
@@ -292,7 +265,7 @@ void HIRGeneralUnroll::processGeneralUnroll(
 unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
                                                bool HasEnablingPragma) const {
 
-  unsigned SelfCost = HLR->getSelfLoopResource(HLoop).getTotalCost();
+  unsigned SelfCost = HLR.getSelfLoopResource(HLoop).getTotalCost();
 
   // Exit if loop exceeds threshold.
   if (SelfCost > MaxLoopCost) {
@@ -382,7 +355,7 @@ bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
     return false;
   }
 
-  const LoopStatistics &LS = HLS->getSelfLoopStatistics(Loop);
+  const LoopStatistics &LS = HLS.getSelfLoopStatistics(Loop);
 
   // Cannot unroll loop if it has calls with noduplicate attribute.
   if (LS.hasCallsWithNoDuplicate()) {
@@ -417,7 +390,7 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
       return false;
     }
 
-    const LoopStatistics &LS = HLS->getSelfLoopStatistics(Loop);
+    const LoopStatistics &LS = HLS.getSelfLoopStatistics(Loop);
 
     // TODO: remove this condition?
     if (LS.hasSwitches()) {
@@ -553,4 +526,54 @@ unsigned HIRGeneralUnroll::refineUnrollFactorUsingReuseAnalysis(
   }
 
   return CurUnrollFactor;
+}
+
+PreservedAnalyses HIRGeneralUnrollPass::run(llvm::Function &F,
+                                            llvm::FunctionAnalysisManager &AM) {
+  HIRGeneralUnroll(AM.getResult<HIRFrameworkAnalysis>(F),
+                   AM.getResult<HIRLoopResourceAnalysis>(F),
+                   AM.getResult<HIRLoopStatisticsAnalysis>(F))
+      .run();
+  return PreservedAnalyses::all();
+}
+
+class HIRGeneralUnrollLegacyPass : public HIRTransformPass {
+public:
+  static char ID;
+
+  HIRGeneralUnrollLegacyPass() : HIRTransformPass(ID) {
+    initializeHIRGeneralUnrollLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesAll();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+  }
+
+  bool runOnFunction(Function &F) override {
+    if (skipFunction(F)) {
+      return false;
+    }
+
+    return HIRGeneralUnroll(
+               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+               getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
+               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
+        .run();
+  }
+};
+
+char HIRGeneralUnrollLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRGeneralUnrollLegacyPass, "hir-general-unroll",
+                      "HIR General Unroll", false, false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
+INITIALIZE_PASS_END(HIRGeneralUnrollLegacyPass, "hir-general-unroll",
+                    "HIR General Unroll", false, false)
+
+FunctionPass *llvm::createHIRGeneralUnrollPass() {
+  return new HIRGeneralUnrollLegacyPass();
 }

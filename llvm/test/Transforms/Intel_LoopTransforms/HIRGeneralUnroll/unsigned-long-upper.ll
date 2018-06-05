@@ -1,8 +1,9 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-general-unroll,print<hir>" < %s 2>&1 | FileCheck %s
 
 ; Verify that general unroll is able to handle loops with very big constant trip counts which are outside the positive int64_t range.
 
-; CHECK: Before HIR General Unroll
+; CHECK: Function
 ; CHECK: + DO i1 = 0, -1152921504606846979, 1   <DO_LOOP>
 ; CHECK: |   %sub = i1 + 1  +  -1;
 ; CHECK: |   %0 = (@A)[0][i1 + -50 * (%sub /u 50)];
@@ -10,7 +11,7 @@
 ; CHECK: |   %i.08 = i1 + 2;
 ; CHECK: + END LOOP
 
-; CHECK: IR Dump After HIR General Unroll
+; CHECK: Function
 ; CHECK: + DO i1 = 0, 4323455642275676158, 1   <DO_LOOP>
 ; CHECK: DO i1 = -1152921504606846980, -1152921504606846979, 1
 
