@@ -1,4 +1,4 @@
-//===--- HIRLMM.h -HIR Loop Memory Motion Pass ----------------*- C++ -*---===//
+//===--- HIRLMMImpl.h -----------------------------------------*- C++ -*---===//
 //
 // Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
@@ -8,15 +8,18 @@
 // from the company.
 //
 
-#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_LMM_H
-#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_LMM_H
+#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLMMIMPL_H
+#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLMMIMPL_H
+
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 
 #include "llvm/Pass.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
-class Function;
 
 namespace loopopt {
 
@@ -142,27 +145,27 @@ struct MemRefCollection {
 #endif
 };
 
-class HIRLMM : public HIRTransformPass {
-private:
-  HIRDDAnalysis *HDDA;
-  HIRLoopStatistics *HLS;
+class HIRLMM {
+  HIRFramework &HIRF;
+  HIRDDAnalysis &HDDA;
+  HIRLoopStatistics &HLS;
+  HLNodeUtils &HNU;
+
   MemRefCollection MRC;
-  HLNodeUtils *HNU;
 
   class CollectMemRefs;
   unsigned LoopLevel = 0;
 
 public:
-  static char ID;
-
-  HIRLMM(void);
+  HIRLMM(HIRFramework &HIRF, HIRDDAnalysis &HDDA, HIRLoopStatistics &HLS)
+      : HIRF(HIRF), HDDA(HDDA), HLS(HLS), HNU(HIRF.getHLNodeUtils()) {}
 
   // The only entry for all caller(s) for doing loop memory motion
-  bool doLoopMemoryMotion(HLLoop *Lp, HIRDDAnalysis &DDA,
-                          HIRLoopStatistics &LS);
+  bool doLoopMemoryMotion(HLLoop *Lp);
+
+  bool run();
 
 private:
-  bool runOnFunction(Function &F) override;
 
   bool doLoopPreliminaryChecks(const HLLoop *Lp);
 
@@ -177,7 +180,7 @@ private:
   // Analyze the Loop by doing collection, profit analysis and legal analysis.
   // Return true indicates that the loop has at least 1 MRG suitable
   // (profitable+legal) for LMM.
-  bool doAnalysis(HLLoop *Lp, HIRDDAnalysis &DDA, HIRLoopStatistics &LS);
+  bool doAnalysis(HLLoop *Lp);
 
   void doTransform(HLLoop *Lp);
 
@@ -191,11 +194,7 @@ private:
 
   void setLinear(RegDDRef *TmpRef);
 
-  void releaseMemory(void) override { clearWorkingSetMemory(); }
   void clearWorkingSetMemory(void) { MRC.clear(); }
-  void getAnalysisUsage(AnalysisUsage &AU) const;
-
-  bool handleCmdlineArgs(Function &F);
 
   // *** Utility functions ***
   HLInst *findOrCreateLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const;

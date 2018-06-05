@@ -111,8 +111,8 @@ bool HIRTransformUtils::doHIRLoopInvariantMemoryMotion(
                                        "Motion) can only work on an inner-most "
                                        "loop\n");
 
-  HIRLMM LMMPass;
-  return LMMPass.doLoopMemoryMotion(InnermostLp, HDDA, HLS);
+  HIRLMM LMMPass(InnermostLp->getHLNodeUtils().getHIRFramework(), HDDA, HLS);
+  return LMMPass.doLoopMemoryMotion(InnermostLp);
 }
 
 bool HIRTransformUtils::doHIRLoopMemoryMotion(

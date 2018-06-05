@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-lmm -print-before=hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>,hir-lmm,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 ; (This test is based on Interchange/matmul2.ll)
 ;
 ; C Source Code:
@@ -42,7 +43,7 @@
 ;          END REGION
 ;
 ;
-; CHECK: IR Dump Before HIR Loop Memory Motion
+; CHECK: Function
 ; 
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:        + DO i1 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
@@ -59,7 +60,7 @@
 ;  
 ; Check that after hir-lmm, the loop-inv load(s)/store(s) are promoted/sinked properly 
 ;  
-; CHECK: IR Dump After HIR Loop Memory Motion
+; CHECK: Function
 ;
 ; CHECK: BEGIN REGION { modified }
 ; CHECK:        + DO i1 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>

@@ -1,4 +1,5 @@
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-post-vec-complete-unroll -hir-complete-unroll-loop-trip-threshold=30 -hir-lmm -print-before=hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-post-vec-complete-unroll,print<hir>,hir-lmm,print<hir>" -aa-pipeline="basic-aa" -hir-complete-unroll-loop-trip-threshold=30 < %s 2>&1 | FileCheck %s
 ;
 ; (This test is based on CompleteUnroll/triinner.ll)
 ;
@@ -32,7 +33,7 @@
 ; - LILHSS:(0)
 ;
 ;  
-; CHECK: IR Dump Before HIR Loop Memory Motion
+; CHECK: Function
 ;
 ; CHECK: BEGIN REGION { modified }
 ; CHECK:        + DO i1 = 0, 39, 1   <DO_LOOP>
@@ -53,7 +54,7 @@
 
 ; *** *** 
 ;          
-; CHECK: IR Dump After HIR Loop Memory Motion
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:           %limm = (%B)[0];
