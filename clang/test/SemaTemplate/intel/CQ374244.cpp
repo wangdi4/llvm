@@ -12,9 +12,9 @@ inline void Bar(const Ty *, Ty *) {}
 void Call() {
   void (*CP)();
   Foo(CP, CP);
-  // expected-error@+3{{call to 'Bar' is ambiguous}}
-  // expected-note@8{{candidate function}}
-  // expected-note@10{{candidate function}}
+  // expected-error@+3{{no matching function for call to 'Bar'}}
+  // expected-note@8{{candidate template ignored: could not match 'const Ty *' against 'void (*)()}}
+  // expected-note@10{{candidate template ignored: could not match 'const Ty *' against 'void (*)()}}
   Bar(CP, CP);
 }
 

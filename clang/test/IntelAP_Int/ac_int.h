@@ -562,7 +562,7 @@ namespace ac_private {
     actype value;
   public:
     template<int N2, bool S2> friend class iv;
-    iv() {}
+    constexpr iv() {}
     template<int N2, bool S2>
     iv ( const iv<N2, S2> &b ) {
       value = b.value;
@@ -570,42 +570,29 @@ namespace ac_private {
     /* Note: char and short constructors are an extension to Calypto's
        implementation to address the i++ default behaviour of not promoting
        to integers. (these functions are not in Calypto's ac_int.h) */
-    iv ( char t) {
-      value = t;
-    }
-    iv ( unsigned char t) {
-      value = t;
-    }
-    iv ( short t) {
-      value = t;
-    }
-    iv ( unsigned short t) {
-      value = t;
-    }
-    iv ( Slong t) {
-      value = t;
-    }
-    iv ( Ulong t) {
-      value = t;
-    }
-    iv ( int t) {
-      value = t;
-    }
-    iv ( unsigned int t) {
-      value = t;
-    }
-    iv ( long t) {
-      value = t;
-    }
-    iv ( unsigned long t) {
-      value = t;
-    }
-    iv ( double d ) {
-      value = (actype) (long long)d;
-    }
-    iv ( float d ) {
-      value = (actype) (long long)d;
-    }
+    constexpr iv ( char t) : value(t) {}
+
+    constexpr iv ( unsigned char t) : value(t) {}
+
+    constexpr iv ( short t) : value(t) {}
+
+    constexpr iv ( unsigned short t) : value(t) {}
+
+    constexpr iv ( Slong t) : value(t) {}
+
+    constexpr iv ( Ulong t) : value(t) {}
+
+    constexpr iv ( int t) : value(t) {}
+
+    constexpr iv ( unsigned int t) : value(t) {}
+
+    constexpr iv ( long t) : value(t) {}
+
+    constexpr iv ( unsigned long t) : value(t) {}
+
+    constexpr iv ( double d ) : value((actype) (long long)d) {}
+
+    constexpr iv ( float d ) : value((actype) (long long)d) {}
 
     // Explicit conversion functions to C built-in types -------------
     inline Slong to_int64() const {
@@ -1078,8 +1065,8 @@ namespace ac_private {
   template<int N, bool S, bool C>
   class iv_conv : public iv<N, S> {
   protected:
-    iv_conv() {}
-    template<class T> iv_conv(const T& t) : iv<N, S>(t) {}
+    constexpr iv_conv() {}
+    template<class T> constexpr iv_conv(const T& t) : iv<N, S>(t) {}
   };
 
   template<int N>
@@ -1087,8 +1074,8 @@ namespace ac_private {
   public:
     operator Ulong () const { return iv<N, false>::to_uint64(); }
   protected:
-    iv_conv() {}
-    template<class T> iv_conv(const T& t) : iv<N, false>(t) {}
+    constexpr iv_conv() {}
+    template<class T> constexpr iv_conv(const T& t) : iv<N, false>(t) {}
   };
 
   template<int N>
@@ -1096,8 +1083,8 @@ namespace ac_private {
   public:
     operator Slong () const { return iv<N, true>::to_int64(); }
   protected:
-    iv_conv() {}
-    template<class T> iv_conv(const T& t) : iv<N, true>(t) {}
+    constexpr iv_conv() {}
+    template<class T> constexpr iv_conv(const T& t) : iv<N, true>(t) {}
   };
 
   // Set default to promote to int as this is the case for almost all types
@@ -1462,7 +1449,7 @@ public:
 
   template<int W2, bool S2> friend class ac_int;
   template<int W2, int I2, bool S2, ac_q_mode Q2, ac_o_mode O2> friend class ac_fixed;
-  ac_int() {
+  constexpr ac_int() {
     // #ifndef SUPPRESS_AC_INT_WARNINGS
     // #ifdef HLS_X86
     //   if(!warned_undef) {
@@ -1479,41 +1466,41 @@ public:
     Base::operator =(op);
   }
 
-  inline ac_int( bool b ) : ConvBase(b) { }
-  inline ac_int( char b ) : ConvBase(b) {
+  constexpr inline ac_int( bool b ) : ConvBase(b) { }
+  constexpr inline ac_int( char b ) : ConvBase(b) {
     // Base::debug_within_range(Ulong(b));
   }
-  inline ac_int( signed char b ) : ConvBase(b) {
+  constexpr inline ac_int( signed char b ) : ConvBase(b) {
     // Base::debug_within_range(Slong(b));
   }
-  inline ac_int( unsigned char b ) : ConvBase(b) {
+  constexpr inline ac_int( unsigned char b ) : ConvBase(b) {
     // Base::debug_within_range(Ulong(b));
   }
-  inline ac_int( signed short b ) : ConvBase(b) {
+  constexpr inline ac_int( signed short b ) : ConvBase(b) {
     // Base::debug_within_range(Slong(b));
   }
-  inline ac_int( unsigned short b ) : ConvBase(b) {
+  constexpr inline ac_int( unsigned short b ) : ConvBase(b) {
     // Base::debug_within_range(Ulong(b));
   }
-  inline ac_int( signed int b ) : ConvBase(b) {
+  constexpr inline ac_int( signed int b ) : ConvBase(b) {
     // Base::debug_within_range(Slong(b));
   }
-  inline ac_int( unsigned int b ) : ConvBase(b) {
+  constexpr inline ac_int( unsigned int b ) : ConvBase(b) {
     // Base::debug_within_range(Ulong(b));
   }
-  inline ac_int( signed long b ) : ConvBase(b) {
+  constexpr inline ac_int( signed long b ) : ConvBase(b) {
     // Base::debug_within_range(Slong(b));
   }
-  inline ac_int( unsigned long b ) : ConvBase(b) {
+  constexpr inline ac_int( unsigned long b ) : ConvBase(b) {
     // Base::debug_within_range(Ulong(b));
   }
-  inline ac_int( Slong b ) : ConvBase(b) {
+  constexpr inline ac_int( Slong b ) : ConvBase(b) {
     // Base::debug_within_range(b);
   }
-  inline ac_int( Ulong b ) : ConvBase(b) {
+  constexpr inline ac_int( Ulong b ) : ConvBase(b) {
     // Base::debug_within_range(b);
   }
-  inline ac_int( double d ) : ConvBase(d) { }
+  constexpr inline ac_int( double d ) : ConvBase(d) { }
 
 #if defined(__clang__)
 #pragma clang diagnostic push
@@ -2496,3 +2483,4 @@ namespace ac {
 #endif
 
 #endif // __ALTR_AC_INT_H
+

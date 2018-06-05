@@ -1,4 +1,6 @@
-// RUN: %clang_cc1 %s -fblocks -verify -pedantic-errors -fsyntax-only -ferror-limit 100
+// if INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 %s -D NO_CHECK -fblocks -verify -pedantic-errors -fsyntax-only -ferror-limit 100
+// endif INTEL_CUSTOMIZATION
 
 // Confirm CL2.0 Clang builtins are not available in earlier versions
 
@@ -24,8 +26,12 @@ void pipe_builtins() {
   boo(); // expected-error{{implicit declaration of function 'boo' is invalid in OpenCL}}
   // expected-note@-1{{did you mean 'foo'?}}
 
+// if INTEL_CUSTOMIZATION
+#ifndef NO_CHECK
   read_pipe(tmp, tmp);  // expected-error{{implicit declaration of function 'read_pipe' is invalid in OpenCL}}
   write_pipe(tmp, tmp); // expected-error{{implicit declaration of function 'write_pipe' is invalid in OpenCL}}
+#endif // NO_CHECK
+// endif INTEL_CUSTOMIZATION
 
   reserve_read_pipe(tmp, tmp);  // expected-error{{implicit declaration of function 'reserve_read_pipe' is invalid in OpenCL}}
   // expected-note@-1{{'reserve_read_pipe' declared here}}

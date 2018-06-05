@@ -78,10 +78,33 @@ Non-comprehensive list of changes in this release
   standard-layout if all base classes and the first data member (or bit-field)
   can be laid out at offset zero.
 
+- Clang's handling of the GCC ``packed`` class attribute in C++ has been fixed
+  to apply only to non-static data members and not to base classes. This fixes
+  an ABI difference between Clang and GCC, but creates an ABI difference between
+  Clang 7 and earlier versions. The old behavior can be restored by setting
+  ``-fclang-abi-compat`` to ``6`` or earlier.
+
+- Clang implements the proposed resolution of LWG issue 2358, along with the
+  `corresponding change to the Itanium C++ ABI
+  <https://github.com/itanium-cxx-abi/cxx-abi/pull/51>`_, which make classes
+  containing only unnamed non-zero-length bit-fields be considered non-empty.
+  This is an ABI break compared to prior Clang releases, but makes Clang
+  generate code that is ABI-compatible with other compilers. The old
+  behavior can be restored by setting ``-fclang-abi-compat`` to ``6`` or
+  lower.
+
 - ...
 
 New Compiler Flags
 ------------------
+
+- :option:`-fstrict-float-cast-overflow` and
+  :option:`-fno-strict-float-cast-overflow` -
+   When a floating-point value is not representable in a destination integer
+   type, the code has undefined behavior according to the language standard.
+   By default, Clang will not guarantee any particular result in that case.
+   With the 'no-strict' option, Clang attempts to match the overflowing behavior
+   of the target's native float-to-int conversion instructions.
 
 - ...
 
@@ -192,6 +215,10 @@ AST Matchers
 
 clang-format
 ------------
+
+- Clang-format will now support detecting and formatting code snippets in raw
+  string literals.  This is configured through the `RawStringFormats` style
+  option.
 
 - ...
 

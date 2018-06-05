@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 //
 /// \file
-/// \brief Insert wait instructions for memory reads and writes.
+/// Insert wait instructions for memory reads and writes.
 ///
 /// Memory reads and writes are issued asynchronously, so we need to insert
 /// S_WAITCNT instructions when we want to access any of their results or
@@ -40,6 +40,7 @@
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/DebugCounter.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
@@ -50,9 +51,21 @@
 #include <utility>
 #include <vector>
 
+using namespace llvm;
+
 #define DEBUG_TYPE "si-insert-waitcnts"
 
-using namespace llvm;
+DEBUG_COUNTER(ForceExpCounter, DEBUG_TYPE"-forceexp",
+              "Force emit s_waitcnt expcnt(0) instrs");
+DEBUG_COUNTER(ForceLgkmCounter, DEBUG_TYPE"-forcelgkm",
+              "Force emit s_waitcnt lgkmcnt(0) instrs");
+DEBUG_COUNTER(ForceVMCounter, DEBUG_TYPE"-forcevm",
+              "Force emit s_waitcnt vmcnt(0) instrs");
+
+static cl::opt<unsigned> ForceEmitZeroFlag(
+  "amdgpu-waitcnt-forcezero",
+  cl::desc("Force all waitcnt instrs to be emitted as s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0)"),
+  cl::init(0), cl::Hidden);
 
 namespace {
 
@@ -373,6 +386,11 @@ private:
 
   std::vector<std::unique_ptr<BlockWaitcntBrackets>> KillWaitBrackets;
 
+  // ForceEmitZeroWaitcnts: force all waitcnts insts to be s_waitcnt 0
+  // because of amdgpu-waitcnt-forcezero flag
+  bool ForceEmitZeroWaitcnts;
+  bool ForceEmitWaitcnt[NUM_INST_CNTS];
+
 public:
   static char ID;
 
@@ -397,10 +415,45 @@ public:
         llvm::make_unique<BlockWaitcntBrackets>(*Bracket));
   }
 
+  bool isForceEmitWaitcnt() const {
+    for (enum InstCounterType T = VM_CNT; T < NUM_INST_CNTS;
+         T = (enum InstCounterType)(T + 1))
+      if (ForceEmitWaitcnt[T])
+        return true;
+    return false;
+  }
+
+  void setForceEmitWaitcnt() {
+// For non-debug builds, ForceEmitWaitcnt has been initialized to false;
+// For debug builds, get the debug counter info and adjust if need be
+#ifndef NDEBUG
+    if (DebugCounter::isCounterSet(ForceExpCounter) &&
+        DebugCounter::shouldExecute(ForceExpCounter)) {
+      ForceEmitWaitcnt[EXP_CNT] = true;
+    } else {
+      ForceEmitWaitcnt[EXP_CNT] = false;
+    }
+
+    if (DebugCounter::isCounterSet(ForceLgkmCounter) &&
+         DebugCounter::shouldExecute(ForceLgkmCounter)) {
+      ForceEmitWaitcnt[LGKM_CNT] = true;
+    } else {
+      ForceEmitWaitcnt[LGKM_CNT] = false;
+    }
+
+    if (DebugCounter::isCounterSet(ForceVMCounter) &&
+        DebugCounter::shouldExecute(ForceVMCounter)) {
+      ForceEmitWaitcnt[VM_CNT] = true;
+    } else {
+      ForceEmitWaitcnt[VM_CNT] = false;
+    }
+#endif // NDEBUG
+  }
+
   bool mayAccessLDSThroughFlat(const MachineInstr &MI) const;
-  void generateSWaitCntInstBefore(MachineInstr &MI,
+  void generateWaitcntInstBefore(MachineInstr &MI,
                                   BlockWaitcntBrackets *ScoreBrackets);
-  void updateEventWaitCntAfter(MachineInstr &Inst,
+  void updateEventWaitcntAfter(MachineInstr &Inst,
                                BlockWaitcntBrackets *ScoreBrackets);
   void mergeInputScoreBrackets(MachineBasicBlock &Block);
   bool isLoopBottom(const MachineLoop *Loop, const MachineBasicBlock *Block);
@@ -792,7 +845,7 @@ static bool readsVCCZ(const MachineInstr &MI) {
          !MI.getOperand(1).isUndef();
 }
 
-/// \brief Given wait count encodings checks if LHS is stronger than RHS.
+/// Given wait count encodings checks if LHS is stronger than RHS.
 bool SIInsertWaitcnts::isWaitcntStronger(unsigned LHS, unsigned RHS) {
   if (AMDGPU::decodeVmcnt(IV, LHS) > AMDGPU::decodeVmcnt(IV, RHS))
     return false;
@@ -803,7 +856,7 @@ bool SIInsertWaitcnts::isWaitcntStronger(unsigned LHS, unsigned RHS) {
   return true;
 }
 
-/// \brief Given wait count encodings create a new encoding which is stronger
+/// Given wait count encodings create a new encoding which is stronger
 /// or equal to both.
 unsigned SIInsertWaitcnts::combineWaitcnt(unsigned LHS, unsigned RHS) {
   unsigned VmCnt = std::min(AMDGPU::decodeVmcnt(IV, LHS),
@@ -815,7 +868,7 @@ unsigned SIInsertWaitcnts::combineWaitcnt(unsigned LHS, unsigned RHS) {
   return AMDGPU::encodeWaitcnt(IV, VmCnt, ExpCnt, LgkmCnt);
 }
 
-///  \brief Generate s_waitcnt instruction to be placed before cur_Inst.
+///  Generate s_waitcnt instruction to be placed before cur_Inst.
 ///  Instructions of a given type are returned in order,
 ///  but instructions of different types can complete out of order.
 ///  We rely on this in-order completion
@@ -825,18 +878,26 @@ unsigned SIInsertWaitcnts::combineWaitcnt(unsigned LHS, unsigned RHS) {
 ///  and if so what the value of each counter is.
 ///  The "score bracket" is bound by the lower bound and upper bound
 ///  scores (*_score_LB and *_score_ub respectively).
-void SIInsertWaitcnts::generateSWaitCntInstBefore(
+void SIInsertWaitcnts::generateWaitcntInstBefore(
     MachineInstr &MI, BlockWaitcntBrackets *ScoreBrackets) {
   // To emit, or not to emit - that's the question!
   // Start with an assumption that there is no need to emit.
-  unsigned int EmitSwaitcnt = 0;
+  unsigned int EmitWaitcnt = 0;
+
   // No need to wait before phi. If a phi-move exists, then the wait should
   // has been inserted before the move. If a phi-move does not exist, then
   // wait should be inserted before the real use. The same is true for
   // sc-merge. It is not a coincident that all these cases correspond to the
   // instructions that are skipped in the assembling loop.
   bool NeedLineMapping = false; // TODO: Check on this.
-  if (MI.isDebugValue() &&
+
+  // ForceEmitZeroWaitcnt: force a single s_waitcnt 0 due to hw bug
+  bool ForceEmitZeroWaitcnt = false;
+
+  setForceEmitWaitcnt();
+  bool IsForceEmitWaitcnt = isForceEmitWaitcnt();
+
+  if (MI.isDebugInstr() &&
       // TODO: any other opcode?
       !NeedLineMapping) {
     return;
@@ -850,7 +911,7 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
     ScoreBrackets->clearWaitAtBeginning();
     for (enum InstCounterType T = VM_CNT; T < NUM_INST_CNTS;
          T = (enum InstCounterType)(T + 1)) {
-      EmitSwaitcnt |= CNT_MASK(T);
+      EmitWaitcnt |= CNT_MASK(T);
       ScoreBrackets->setScoreLB(T, ScoreBrackets->getScoreUB(T));
     }
   }
@@ -860,7 +921,7 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
   else if (MI.getOpcode() == AMDGPU::BUFFER_WBINVL1 ||
            MI.getOpcode() == AMDGPU::BUFFER_WBINVL1_SC ||
            MI.getOpcode() == AMDGPU::BUFFER_WBINVL1_VOL) {
-    EmitSwaitcnt |=
+    EmitWaitcnt |=
         ScoreBrackets->updateByWait(VM_CNT, ScoreBrackets->getScoreUB(VM_CNT));
   }
 
@@ -874,7 +935,7 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
          T = (enum InstCounterType)(T + 1)) {
       if (ScoreBrackets->getScoreUB(T) > ScoreBrackets->getScoreLB(T)) {
         ScoreBrackets->setScoreLB(T, ScoreBrackets->getScoreUB(T));
-        EmitSwaitcnt |= CNT_MASK(T);
+        EmitWaitcnt |= CNT_MASK(T);
       }
     }
   }
@@ -885,7 +946,7 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
             AMDGPU::SendMsg::ID_GS_DONE)) {
     if (ScoreBrackets->getScoreUB(VM_CNT) > ScoreBrackets->getScoreLB(VM_CNT)) {
       ScoreBrackets->setScoreLB(VM_CNT, ScoreBrackets->getScoreUB(VM_CNT));
-      EmitSwaitcnt |= CNT_MASK(VM_CNT);
+      EmitWaitcnt |= CNT_MASK(VM_CNT);
     }
   }
 #if 0 // TODO: the following blocks of logic when we have fence.
@@ -903,11 +964,11 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
         case SCMEM_LDS:
           if (group_is_multi_wave ||
             context->OptFlagIsOn(OPT_R1100_LDSMEM_FENCE_CHICKEN_BIT)) {
-            EmitSwaitcnt |= ScoreBrackets->updateByWait(LGKM_CNT,
+            EmitWaitcnt |= ScoreBrackets->updateByWait(LGKM_CNT,
                                ScoreBrackets->getScoreUB(LGKM_CNT));
             // LDS may have to wait for VM_CNT after buffer load to LDS
             if (target_info->HasBufferLoadToLDS()) {
-              EmitSwaitcnt |= ScoreBrackets->updateByWait(VM_CNT,
+              EmitWaitcnt |= ScoreBrackets->updateByWait(VM_CNT,
                                  ScoreBrackets->getScoreUB(VM_CNT));
             }
           }
@@ -915,9 +976,9 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
 
         case SCMEM_GDS:
           if (group_is_multi_wave || fence_is_global) {
-            EmitSwaitcnt |= ScoreBrackets->updateByWait(EXP_CNT,
+            EmitWaitcnt |= ScoreBrackets->updateByWait(EXP_CNT,
               ScoreBrackets->getScoreUB(EXP_CNT));
-            EmitSwaitcnt |= ScoreBrackets->updateByWait(LGKM_CNT,
+            EmitWaitcnt |= ScoreBrackets->updateByWait(LGKM_CNT,
               ScoreBrackets->getScoreUB(LGKM_CNT));
           }
           break;
@@ -927,9 +988,9 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
         case SCMEM_RING:
         case SCMEM_SCATTER:
           if (group_is_multi_wave || fence_is_global) {
-            EmitSwaitcnt |= ScoreBrackets->updateByWait(EXP_CNT,
+            EmitWaitcnt |= ScoreBrackets->updateByWait(EXP_CNT,
               ScoreBrackets->getScoreUB(EXP_CNT));
-            EmitSwaitcnt |= ScoreBrackets->updateByWait(VM_CNT,
+            EmitWaitcnt |= ScoreBrackets->updateByWait(VM_CNT,
               ScoreBrackets->getScoreUB(VM_CNT));
           }
           break;
@@ -950,13 +1011,13 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
     if (MI.modifiesRegister(AMDGPU::EXEC, TRI)) {
       // Export and GDS are tracked individually, either may trigger a waitcnt
       // for EXEC.
-      EmitSwaitcnt |= ScoreBrackets->updateByWait(
+      EmitWaitcnt |= ScoreBrackets->updateByWait(
           EXP_CNT, ScoreBrackets->getEventUB(EXP_GPR_LOCK));
-      EmitSwaitcnt |= ScoreBrackets->updateByWait(
+      EmitWaitcnt |= ScoreBrackets->updateByWait(
           EXP_CNT, ScoreBrackets->getEventUB(EXP_PARAM_ACCESS));
-      EmitSwaitcnt |= ScoreBrackets->updateByWait(
+      EmitWaitcnt |= ScoreBrackets->updateByWait(
           EXP_CNT, ScoreBrackets->getEventUB(EXP_POS_ACCESS));
-      EmitSwaitcnt |= ScoreBrackets->updateByWait(
+      EmitWaitcnt |= ScoreBrackets->updateByWait(
           EXP_CNT, ScoreBrackets->getEventUB(GDS_GPR_LOCK));
     }
 
@@ -971,7 +1032,7 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
       if (ScoreBrackets->getScoreUB(EXP_CNT) >
         ScoreBrackets->getScoreLB(EXP_CNT)) {
         ScoreBrackets->setScoreLB(EXP_CNT, ScoreBrackets->getScoreUB(EXP_CNT));
-        EmitSwaitcnt |= CNT_MASK(EXP_CNT);
+        EmitWaitcnt |= CNT_MASK(EXP_CNT);
       }
     }
 #endif
@@ -989,7 +1050,7 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
         continue;
       unsigned RegNo = SQ_MAX_PGM_VGPRS + EXTRA_VGPR_LDS;
       // VM_CNT is only relevant to vgpr or LDS.
-      EmitSwaitcnt |= ScoreBrackets->updateByWait(
+      EmitWaitcnt |= ScoreBrackets->updateByWait(
           VM_CNT, ScoreBrackets->getRegScore(RegNo, VM_CNT));
     }
 
@@ -1001,10 +1062,10 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
       for (signed RegNo = Interval.first; RegNo < Interval.second; ++RegNo) {
         if (TRI->isVGPR(MRIA, Op.getReg())) {
           // VM_CNT is only relevant to vgpr or LDS.
-          EmitSwaitcnt |= ScoreBrackets->updateByWait(
+          EmitWaitcnt |= ScoreBrackets->updateByWait(
               VM_CNT, ScoreBrackets->getRegScore(RegNo, VM_CNT));
         }
-        EmitSwaitcnt |= ScoreBrackets->updateByWait(
+        EmitWaitcnt |= ScoreBrackets->updateByWait(
             LGKM_CNT, ScoreBrackets->getRegScore(RegNo, LGKM_CNT));
       }
     }
@@ -1023,9 +1084,9 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
         if (AS != AMDGPUASI.LOCAL_ADDRESS)
           continue;
         unsigned RegNo = SQ_MAX_PGM_VGPRS + EXTRA_VGPR_LDS;
-        EmitSwaitcnt |= ScoreBrackets->updateByWait(
+        EmitWaitcnt |= ScoreBrackets->updateByWait(
             VM_CNT, ScoreBrackets->getRegScore(RegNo, VM_CNT));
-        EmitSwaitcnt |= ScoreBrackets->updateByWait(
+        EmitWaitcnt |= ScoreBrackets->updateByWait(
             EXP_CNT, ScoreBrackets->getRegScore(RegNo, EXP_CNT));
       }
     }
@@ -1036,19 +1097,16 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
           ScoreBrackets->getRegInterval(&MI, TII, MRI, TRI, I, true);
       for (signed RegNo = Interval.first; RegNo < Interval.second; ++RegNo) {
         if (TRI->isVGPR(MRIA, Def.getReg())) {
-          EmitSwaitcnt |= ScoreBrackets->updateByWait(
+          EmitWaitcnt |= ScoreBrackets->updateByWait(
               VM_CNT, ScoreBrackets->getRegScore(RegNo, VM_CNT));
-          EmitSwaitcnt |= ScoreBrackets->updateByWait(
+          EmitWaitcnt |= ScoreBrackets->updateByWait(
               EXP_CNT, ScoreBrackets->getRegScore(RegNo, EXP_CNT));
         }
-        EmitSwaitcnt |= ScoreBrackets->updateByWait(
+        EmitWaitcnt |= ScoreBrackets->updateByWait(
             LGKM_CNT, ScoreBrackets->getRegScore(RegNo, LGKM_CNT));
       }
     } // End of for loop that looks at all dest operands.
   }
-
-  // TODO: Tie force zero to a compiler triage option.
-  bool ForceZero = false;
 
   // Check to see if this is an S_BARRIER, and if an implicit S_WAITCNT 0
   // occurs before the instruction. Doing it here prevents any additional
@@ -1056,11 +1114,11 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
   // requiring a WAITCNT beforehand.
   if (MI.getOpcode() == AMDGPU::S_BARRIER &&
       !ST->hasAutoWaitcntBeforeBarrier()) {
-    EmitSwaitcnt |=
+    EmitWaitcnt |=
         ScoreBrackets->updateByWait(VM_CNT, ScoreBrackets->getScoreUB(VM_CNT));
-    EmitSwaitcnt |= ScoreBrackets->updateByWait(
+    EmitWaitcnt |= ScoreBrackets->updateByWait(
         EXP_CNT, ScoreBrackets->getScoreUB(EXP_CNT));
-    EmitSwaitcnt |= ScoreBrackets->updateByWait(
+    EmitWaitcnt |= ScoreBrackets->updateByWait(
         LGKM_CNT, ScoreBrackets->getScoreUB(LGKM_CNT));
   }
 
@@ -1076,17 +1134,20 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
       // block, so if we only wait on LGKM here, we might end up with
       // another s_waitcnt inserted right after this if there are non-LGKM
       // instructions still outstanding.
-      ForceZero = true;
-      EmitSwaitcnt = true;
+      // FIXME: this is too conservative / the comment is wrong.
+      // We don't wait on everything at the end of the block and we combine
+      // waitcnts so we should never have back-to-back waitcnts.
+      ForceEmitZeroWaitcnt = true;
+      EmitWaitcnt = true;
     }
   }
 
   // Does this operand processing indicate s_wait counter update?
-  if (EmitSwaitcnt) {
+  if (EmitWaitcnt || IsForceEmitWaitcnt) {
     int CntVal[NUM_INST_CNTS];
 
     bool UseDefaultWaitcntStrategy = true;
-    if (ForceZero) {
+    if (ForceEmitZeroWaitcnt || ForceEmitZeroWaitcnts) {
       // Force all waitcnts to 0.
       for (enum InstCounterType T = VM_CNT; T < NUM_INST_CNTS;
            T = (enum InstCounterType)(T + 1)) {
@@ -1101,7 +1162,7 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
     if (UseDefaultWaitcntStrategy) {
       for (enum InstCounterType T = VM_CNT; T < NUM_INST_CNTS;
            T = (enum InstCounterType)(T + 1)) {
-        if (EmitSwaitcnt & CNT_MASK(T)) {
+        if (EmitWaitcnt & CNT_MASK(T)) {
           int Delta =
               ScoreBrackets->getScoreUB(T) - ScoreBrackets->getScoreLB(T);
           int MaxDelta = ScoreBrackets->getWaitCountMax(T);
@@ -1111,7 +1172,7 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
               ScoreBrackets->setScoreLB(
                   T, ScoreBrackets->getScoreUB(T) - MaxDelta);
             }
-            EmitSwaitcnt &= ~CNT_MASK(T);
+            EmitWaitcnt &= ~CNT_MASK(T);
           }
           CntVal[T] = Delta;
         } else {
@@ -1123,7 +1184,7 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
     }
 
     // If we are not waiting on any counter we can skip the wait altogether.
-    if (EmitSwaitcnt != 0) {
+    if (EmitWaitcnt != 0 || IsForceEmitWaitcnt) {
       MachineInstr *OldWaitcnt = ScoreBrackets->getWaitcnt();
       int Imm = (!OldWaitcnt) ? 0 : OldWaitcnt->getOperand(0).getImm();
       if (!OldWaitcnt ||
@@ -1151,8 +1212,10 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
       }
 
       // Update an existing waitcount, or make a new one.
-      unsigned Enc = AMDGPU::encodeWaitcnt(IV, CntVal[VM_CNT],
-                                           CntVal[EXP_CNT], CntVal[LGKM_CNT]);
+      unsigned Enc = AMDGPU::encodeWaitcnt(IV,
+                      ForceEmitWaitcnt[VM_CNT] ? 0 : CntVal[VM_CNT],
+                      ForceEmitWaitcnt[EXP_CNT] ? 0 : CntVal[EXP_CNT],
+                      ForceEmitWaitcnt[LGKM_CNT] ? 0 : CntVal[LGKM_CNT]);
       // We don't remove waitcnts that existed prior to the waitcnt
       // pass. Check if the waitcnt to-be-inserted can be avoided
       // or if the prev waitcnt can be updated.
@@ -1178,6 +1241,11 @@ void SIInsertWaitcnts::generateSWaitCntInstBefore(
       }
       if (insertSWaitInst) {
         if (OldWaitcnt && OldWaitcnt->getOpcode() == AMDGPU::S_WAITCNT) {
+          if (ForceEmitZeroWaitcnts)
+            DEBUG(dbgs() << "Force emit s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0)\n");
+          if (IsForceEmitWaitcnt)
+            DEBUG(dbgs() << "Force emit a s_waitcnt due to debug counter\n");
+
           OldWaitcnt->getOperand(0).setImm(Enc);
           if (!OldWaitcnt->getParent())
             MI.getParent()->insert(MI, OldWaitcnt);
@@ -1235,7 +1303,7 @@ bool SIInsertWaitcnts::mayAccessLDSThroughFlat(const MachineInstr &MI) const {
   return false;
 }
 
-void SIInsertWaitcnts::updateEventWaitCntAfter(
+void SIInsertWaitcnts::updateEventWaitcntAfter(
     MachineInstr &Inst, BlockWaitcntBrackets *ScoreBrackets) {
   // Now look at the instruction opcode. If it is a memory access
   // instruction, update the upper-bound of the appropriate counter's
@@ -1269,7 +1337,7 @@ void SIInsertWaitcnts::updateEventWaitCntAfter(
              Inst.getOpcode() != AMDGPU::BUFFER_WBINVL1_SC &&
              Inst.getOpcode() != AMDGPU::BUFFER_WBINVL1_VOL) {
     ScoreBrackets->updateByEvent(TII, TRI, MRI, VMEM_ACCESS, Inst);
-    if ( // TODO: assumed yes -- target_info->MemWriteNeedsExpWait() &&
+    if (ST->vmemWriteNeedsExpWaitcnt() &&
         (Inst.mayStore() || AMDGPU::getAtomicNoRetOp(Inst.getOpcode()) != -1)) {
       ScoreBrackets->updateByEvent(TII, TRI, MRI, VMW_GPR_LOCK, Inst);
     }
@@ -1603,7 +1671,7 @@ void SIInsertWaitcnts::insertWaitcntInBlock(MachineFunction &MF,
   BlockWaitcntBrackets *ScoreBrackets = BlockWaitcntBracketsMap[&Block].get();
 
   DEBUG({
-    dbgs() << "Block" << Block.getNumber();
+    dbgs() << "*** Block" << Block.getNumber() << " ***";
     ScoreBrackets->dump();
   });
 
@@ -1646,9 +1714,9 @@ void SIInsertWaitcnts::insertWaitcntInBlock(MachineFunction &MF,
 
     // Generate an s_waitcnt instruction to be placed before
     // cur_Inst, if needed.
-    generateSWaitCntInstBefore(Inst, ScoreBrackets);
+    generateWaitcntInstBefore(Inst, ScoreBrackets);
 
-    updateEventWaitCntAfter(Inst, ScoreBrackets);
+    updateEventWaitcntAfter(Inst, ScoreBrackets);
 
 #if 0 // TODO: implement resource type check controlled by options with ub = LB.
     // If this instruction generates a S_SETVSKIP because it is an
@@ -1768,6 +1836,11 @@ bool SIInsertWaitcnts::runOnMachineFunction(MachineFunction &MF) {
   IV = AMDGPU::IsaInfo::getIsaVersion(ST->getFeatureBits());
   const SIMachineFunctionInfo *MFI = MF.getInfo<SIMachineFunctionInfo>();
   AMDGPUASI = ST->getAMDGPUAS();
+
+  ForceEmitZeroWaitcnts = ForceEmitZeroFlag;
+  for (enum InstCounterType T = VM_CNT; T < NUM_INST_CNTS;
+       T = (enum InstCounterType)(T + 1))
+    ForceEmitWaitcnt[T] = false;
 
   HardwareLimits.VmcntMax = AMDGPU::getVmcntBitMask(IV);
   HardwareLimits.ExpcntMax = AMDGPU::getExpcntBitMask(IV);

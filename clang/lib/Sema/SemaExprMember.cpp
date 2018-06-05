@@ -763,9 +763,9 @@ Sema::BuildMemberReferenceExpr(Expr *Base, QualType BaseType,
     TypoExpr *TE = nullptr;
     QualType RecordTy = BaseType;
     if (IsArrow) RecordTy = RecordTy->getAs<PointerType>()->getPointeeType();
-    if (LookupMemberExprInRecord(*this, R, nullptr,
-                                 RecordTy->getAs<RecordType>(), OpLoc, IsArrow,
-                                 SS, TemplateArgs != nullptr, TE))
+    if (LookupMemberExprInRecord(
+            *this, R, nullptr, RecordTy->getAs<RecordType>(), OpLoc, IsArrow,
+            SS, TemplateKWLoc.isValid() || TemplateArgs != nullptr, TE))
       return ExprError();
     if (TE)
       return TE;
@@ -773,10 +773,10 @@ Sema::BuildMemberReferenceExpr(Expr *Base, QualType BaseType,
   // Explicit member accesses.
   } else {
     ExprResult BaseResult = Base;
-    ExprResult Result = LookupMemberExpr(
-        *this, R, BaseResult, IsArrow, OpLoc, SS,
-        ExtraArgs ? ExtraArgs->ObjCImpDecl : nullptr,
-        TemplateArgs != nullptr);
+    ExprResult Result =
+        LookupMemberExpr(*this, R, BaseResult, IsArrow, OpLoc, SS,
+                         ExtraArgs ? ExtraArgs->ObjCImpDecl : nullptr,
+                         TemplateKWLoc.isValid() || TemplateArgs != nullptr);
 
     if (BaseResult.isInvalid())
       return ExprError();
@@ -892,7 +892,7 @@ BuildMSPropertyRefExpr(Sema &S, Expr *BaseExpr, bool IsArrow,
                                            NameInfo.getLoc());
 }
 
-/// \brief Build a MemberExpr AST node.
+/// Build a MemberExpr AST node.
 static MemberExpr *BuildMemberExpr(
     Sema &SemaRef, ASTContext &C, Expr *Base, bool isArrow,
     SourceLocation OpLoc, const CXXScopeSpec &SS, SourceLocation TemplateKWLoc,
@@ -907,7 +907,7 @@ static MemberExpr *BuildMemberExpr(
   return E;
 }
 
-/// \brief Determine if the given scope is within a function-try-block handler.
+/// Determine if the given scope is within a function-try-block handler.
 static bool IsInFnTryBlockHandler(const Scope *S) {
   // Walk the scope stack until finding a FnTryCatchScope, or leave the
   // function scope. If a FnTryCatchScope is found, check whether the TryScope
@@ -924,16 +924,12 @@ getVarTemplateSpecialization(Sema &S, VarTemplateDecl *VarTempl,
                       const TemplateArgumentListInfo *TemplateArgs,
                       const DeclarationNameInfo &MemberNameInfo,
                       SourceLocation TemplateKWLoc) {
-
   if (!TemplateArgs) {
-    S.Diag(MemberNameInfo.getBeginLoc(), diag::err_template_decl_ref)
-        << /*Variable template*/ 1 << MemberNameInfo.getName()
-        << MemberNameInfo.getSourceRange();
-
-    S.Diag(VarTempl->getLocation(), diag::note_template_decl_here);
-
+    S.diagnoseMissingTemplateArguments(TemplateName(VarTempl),
+                                       MemberNameInfo.getBeginLoc());
     return nullptr;
   }
+
   DeclResult VDecl = S.CheckVarTemplateId(
       VarTempl, TemplateKWLoc, MemberNameInfo.getLoc(), *TemplateArgs);
   if (VDecl.isInvalid())

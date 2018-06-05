@@ -372,6 +372,11 @@ bool llvm::wouldInstructionBeTriviallyDead(Instruction *I,
       return false;
     return true;
   }
+  if (DbgLabelInst *DLI = dyn_cast<DbgLabelInst>(I)) {
+    if (DLI->getLabel())
+      return false;
+    return true;
+  }
 
   if (!I->mayHaveSideEffects())
     return true;
@@ -791,7 +796,7 @@ static bool CanPropagatePredecessorsForPHIs(BasicBlock *BB, BasicBlock *Succ) {
 using PredBlockVector = SmallVector<BasicBlock *, 16>;
 using IncomingValueMap = DenseMap<BasicBlock *, Value *>;
 
-/// \brief Determines the value to use as the phi node input for a block.
+/// Determines the value to use as the phi node input for a block.
 ///
 /// Select between \p OldVal any value that we know flows from \p BB
 /// to a particular phi on the basis of which one (if either) is not
@@ -820,7 +825,7 @@ static Value *selectIncomingValueForBlock(Value *OldVal, BasicBlock *BB,
   return OldVal;
 }
 
-/// \brief Create a map from block to value for the operands of a
+/// Create a map from block to value for the operands of a
 /// given phi.
 ///
 /// Create a map from block to value for each non-undef value flowing
@@ -839,7 +844,7 @@ static void gatherIncomingValuesToPhi(PHINode *PN,
   }
 }
 
-/// \brief Replace the incoming undef values to a phi with the values
+/// Replace the incoming undef values to a phi with the values
 /// from a block-to-value map.
 ///
 /// \param PN The phi we are replacing the undefs in.
@@ -859,7 +864,7 @@ static void replaceUndefValuesInPhi(PHINode *PN,
   }
 }
 
-/// \brief Replace a value flowing from a block to a phi with
+/// Replace a value flowing from a block to a phi with
 /// potentially multiple instances of that value flowing from the
 /// block's predecessors to the phi.
 ///
@@ -1522,8 +1527,8 @@ void llvm::salvageDebugInfo(Instruction &I) {
 
   auto doSalvage = [&](DbgInfoIntrinsic *DII, SmallVectorImpl<uint64_t> &Ops) {
     auto *DIExpr = DII->getExpression();
-    DIExpr = DIExpression::doPrepend(DIExpr, Ops,
-                                     DIExpression::WithStackValue);
+    DIExpr =
+        DIExpression::prependOpcodes(DIExpr, Ops, DIExpression::WithStackValue);
     DII->setOperand(0, wrapMD(I.getOperand(0)));
     DII->setOperand(2, MetadataAsValue::get(I.getContext(), DIExpr));
     DEBUG(dbgs() << "SALVAGE: " << *DII << '\n');
@@ -2496,7 +2501,7 @@ bool llvm::canReplaceOperandWithVariable(const Instruction *I, unsigned OpIdx) {
     // Static allocas (constant size in the entry block) are handled by
     // prologue/epilogue insertion so they're free anyway. We definitely don't
     // want to make them non-constant.
-    return !dyn_cast<AllocaInst>(I)->isStaticAlloca();
+    return !cast<AllocaInst>(I)->isStaticAlloca();
   case Instruction::GetElementPtr:
     if (OpIdx == 0)
       return true;

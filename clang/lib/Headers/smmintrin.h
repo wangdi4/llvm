@@ -29,8 +29,8 @@
  *===-----------------------------------------------------------------------===
  */
 
-#ifndef _SMMINTRIN_H
-#define _SMMINTRIN_H
+#ifndef __SMMINTRIN_H
+#define __SMMINTRIN_H
 
 #include <tmmintrin.h>
 
@@ -54,7 +54,7 @@
 #define _MM_FROUND_RINT      (_MM_FROUND_RAISE_EXC | _MM_FROUND_CUR_DIRECTION)
 #define _MM_FROUND_NEARBYINT (_MM_FROUND_NO_EXC | _MM_FROUND_CUR_DIRECTION)
 
-/// \brief Rounds up each element of the 128-bit vector of [4 x float] to an
+/// Rounds up each element of the 128-bit vector of [4 x float] to an
 ///    integer and returns the rounded values in a 128-bit vector of
 ///    [4 x float].
 ///
@@ -71,7 +71,7 @@
 /// \returns A 128-bit vector of [4 x float] containing the rounded values.
 #define _mm_ceil_ps(X)       _mm_round_ps((X), _MM_FROUND_CEIL)
 
-/// \brief Rounds up each element of the 128-bit vector of [2 x double] to an
+/// Rounds up each element of the 128-bit vector of [2 x double] to an
 ///    integer and returns the rounded values in a 128-bit vector of
 ///    [2 x double].
 ///
@@ -88,7 +88,7 @@
 /// \returns A 128-bit vector of [2 x double] containing the rounded values.
 #define _mm_ceil_pd(X)       _mm_round_pd((X), _MM_FROUND_CEIL)
 
-/// \brief Copies three upper elements of the first 128-bit vector operand to
+/// Copies three upper elements of the first 128-bit vector operand to
 ///    the corresponding three upper elements of the 128-bit result vector of
 ///    [4 x float]. Rounds up the lowest element of the second 128-bit vector
 ///    operand to an integer and copies it to the lowest element of the 128-bit
@@ -113,7 +113,7 @@
 ///    values.
 #define _mm_ceil_ss(X, Y)    _mm_round_ss((X), (Y), _MM_FROUND_CEIL)
 
-/// \brief Copies the upper element of the first 128-bit vector operand to the
+/// Copies the upper element of the first 128-bit vector operand to the
 ///    corresponding upper element of the 128-bit result vector of [2 x double].
 ///    Rounds up the lower element of the second 128-bit vector operand to an
 ///    integer and copies it to the lower element of the 128-bit result vector
@@ -138,7 +138,7 @@
 ///    values.
 #define _mm_ceil_sd(X, Y)    _mm_round_sd((X), (Y), _MM_FROUND_CEIL)
 
-/// \brief Rounds down each element of the 128-bit vector of [4 x float] to an
+/// Rounds down each element of the 128-bit vector of [4 x float] to an
 ///    an integer and returns the rounded values in a 128-bit vector of
 ///    [4 x float].
 ///
@@ -155,7 +155,7 @@
 /// \returns A 128-bit vector of [4 x float] containing the rounded values.
 #define _mm_floor_ps(X)      _mm_round_ps((X), _MM_FROUND_FLOOR)
 
-/// \brief Rounds down each element of the 128-bit vector of [2 x double] to an
+/// Rounds down each element of the 128-bit vector of [2 x double] to an
 ///    integer and returns the rounded values in a 128-bit vector of
 ///    [2 x double].
 ///
@@ -172,7 +172,7 @@
 /// \returns A 128-bit vector of [2 x double] containing the rounded values.
 #define _mm_floor_pd(X)      _mm_round_pd((X), _MM_FROUND_FLOOR)
 
-/// \brief Copies three upper elements of the first 128-bit vector operand to
+/// Copies three upper elements of the first 128-bit vector operand to
 ///    the corresponding three upper elements of the 128-bit result vector of
 ///    [4 x float]. Rounds down the lowest element of the second 128-bit vector
 ///    operand to an integer and copies it to the lowest element of the 128-bit
@@ -197,7 +197,7 @@
 ///    values.
 #define _mm_floor_ss(X, Y)   _mm_round_ss((X), (Y), _MM_FROUND_FLOOR)
 
-/// \brief Copies the upper element of the first 128-bit vector operand to the
+/// Copies the upper element of the first 128-bit vector operand to the
 ///    corresponding upper element of the 128-bit result vector of [2 x double].
 ///    Rounds down the lower element of the second 128-bit vector operand to an
 ///    integer and copies it to the lower element of the 128-bit result vector
@@ -222,7 +222,7 @@
 ///    values.
 #define _mm_floor_sd(X, Y)   _mm_round_sd((X), (Y), _MM_FROUND_FLOOR)
 
-/// \brief Rounds each element of the 128-bit vector of [4 x float] to an
+/// Rounds each element of the 128-bit vector of [4 x float] to an
 ///    integer value according to the rounding control specified by the second
 ///    argument and returns the rounded values in a 128-bit vector of
 ///    [4 x float].
@@ -255,7 +255,7 @@
 #define _mm_round_ps(X, M) __extension__ ({ \
   (__m128)__builtin_ia32_roundps((__v4sf)(__m128)(X), (M)); })
 
-/// \brief Copies three upper elements of the first 128-bit vector operand to
+/// Copies three upper elements of the first 128-bit vector operand to
 ///    the corresponding three upper elements of the 128-bit result vector of
 ///    [4 x float]. Rounds the lowest element of the second 128-bit vector
 ///    operand to an integer value according to the rounding control specified
@@ -297,7 +297,7 @@
   (__m128)__builtin_ia32_roundss((__v4sf)(__m128)(X), \
                                  (__v4sf)(__m128)(Y), (M)); })
 
-/// \brief Rounds each element of the 128-bit vector of [2 x double] to an
+/// Rounds each element of the 128-bit vector of [2 x double] to an
 ///    integer value according to the rounding control specified by the second
 ///    argument and returns the rounded values in a 128-bit vector of
 ///    [2 x double].
@@ -330,7 +330,7 @@
 #define _mm_round_pd(X, M) __extension__ ({ \
   (__m128d)__builtin_ia32_roundpd((__v2df)(__m128d)(X), (M)); })
 
-/// \brief Copies the upper element of the first 128-bit vector operand to the
+/// Copies the upper element of the first 128-bit vector operand to the
 ///    corresponding upper element of the 128-bit result vector of [2 x double].
 ///    Rounds the lower element of the second 128-bit vector operand to an
 ///    integer value according to the rounding control specified by the third
@@ -373,7 +373,7 @@
                                   (__v2df)(__m128d)(Y), (M)); })
 
 /* SSE4 Packed Blending Intrinsics.  */
-/// \brief Returns a 128-bit vector of [2 x double] where the values are
+/// Returns a 128-bit vector of [2 x double] where the values are
 ///    selected from either the first or second operand as specified by the
 ///    third operand, the control mask.
 ///
@@ -403,7 +403,7 @@
                                    (((M) & 0x01) ? 2 : 0), \
                                    (((M) & 0x02) ? 3 : 1)); })
 
-/// \brief Returns a 128-bit vector of [4 x float] where the values are selected
+/// Returns a 128-bit vector of [4 x float] where the values are selected
 ///    from either the first or second operand as specified by the third
 ///    operand, the control mask.
 ///
@@ -434,7 +434,7 @@
                                   (((M) & 0x04) ? 6 : 2), \
                                   (((M) & 0x08) ? 7 : 3)); })
 
-/// \brief Returns a 128-bit vector of [2 x double] where the values are
+/// Returns a 128-bit vector of [2 x double] where the values are
 ///    selected from either the first or second operand as specified by the
 ///    third operand, the control mask.
 ///
@@ -461,7 +461,7 @@ _mm_blendv_pd (__m128d __V1, __m128d __V2, __m128d __M)
                                             (__v2df)__M);
 }
 
-/// \brief Returns a 128-bit vector of [4 x float] where the values are
+/// Returns a 128-bit vector of [4 x float] where the values are
 ///    selected from either the first or second operand as specified by the
 ///    third operand, the control mask.
 ///
@@ -488,7 +488,7 @@ _mm_blendv_ps (__m128 __V1, __m128 __V2, __m128 __M)
                                            (__v4sf)__M);
 }
 
-/// \brief Returns a 128-bit vector of [16 x i8] where the values are selected
+/// Returns a 128-bit vector of [16 x i8] where the values are selected
 ///    from either of the first or second operand as specified by the third
 ///    operand, the control mask.
 ///
@@ -515,7 +515,7 @@ _mm_blendv_epi8 (__m128i __V1, __m128i __V2, __m128i __M)
                                                (__v16qi)__M);
 }
 
-/// \brief Returns a 128-bit vector of [8 x i16] where the values are selected
+/// Returns a 128-bit vector of [8 x i16] where the values are selected
 ///    from either of the first or second operand as specified by the third
 ///    operand, the control mask.
 ///
@@ -552,7 +552,7 @@ _mm_blendv_epi8 (__m128i __V1, __m128i __V2, __m128i __M)
                                    (((M) & 0x80) ? 15 : 7)); })
 
 /* SSE4 Dword Multiply Instructions.  */
-/// \brief Multiples corresponding elements of two 128-bit vectors of [4 x i32]
+/// Multiples corresponding elements of two 128-bit vectors of [4 x i32]
 ///    and returns the lower 32 bits of the each product in a 128-bit vector of
 ///    [4 x i32].
 ///
@@ -571,7 +571,7 @@ _mm_mullo_epi32 (__m128i __V1, __m128i __V2)
   return (__m128i) ((__v4su)__V1 * (__v4su)__V2);
 }
 
-/// \brief Multiplies corresponding even-indexed elements of two 128-bit
+/// Multiplies corresponding even-indexed elements of two 128-bit
 ///    vectors of [4 x i32] and returns a 128-bit vector of [2 x i64]
 ///    containing the products.
 ///
@@ -592,7 +592,7 @@ _mm_mul_epi32 (__m128i __V1, __m128i __V2)
 }
 
 /* SSE4 Floating Point Dot Product Instructions.  */
-/// \brief Computes the dot product of the two 128-bit vectors of [4 x float]
+/// Computes the dot product of the two 128-bit vectors of [4 x float]
 ///    and returns it in the elements of the 128-bit result vector of
 ///    [4 x float].
 ///
@@ -628,7 +628,7 @@ _mm_mul_epi32 (__m128i __V1, __m128i __V2)
   (__m128) __builtin_ia32_dpps((__v4sf)(__m128)(X), \
                                (__v4sf)(__m128)(Y), (M)); })
 
-/// \brief Computes the dot product of the two 128-bit vectors of [2 x double]
+/// Computes the dot product of the two 128-bit vectors of [2 x double]
 ///    and returns it in the elements of the 128-bit result vector of
 ///    [2 x double].
 ///
@@ -664,7 +664,7 @@ _mm_mul_epi32 (__m128i __V1, __m128i __V2)
                                 (__v2df)(__m128d)(Y), (M)); })
 
 /* SSE4 Streaming Load Hint Instruction.  */
-/// \brief Loads integer values from a 128-bit aligned memory location to a
+/// Loads integer values from a 128-bit aligned memory location to a
 ///    128-bit integer vector.
 ///
 /// \headerfile <x86intrin.h>
@@ -683,7 +683,7 @@ _mm_stream_load_si128 (__m128i const *__V)
 }
 
 /* SSE4 Packed Integer Min/Max Instructions.  */
-/// \brief Compares the corresponding elements of two 128-bit vectors of
+/// Compares the corresponding elements of two 128-bit vectors of
 ///    [16 x i8] and returns a 128-bit vector of [16 x i8] containing the lesser
 ///    of the two values.
 ///
@@ -702,7 +702,7 @@ _mm_min_epi8 (__m128i __V1, __m128i __V2)
   return (__m128i) __builtin_ia32_pminsb128 ((__v16qi) __V1, (__v16qi) __V2);
 }
 
-/// \brief Compares the corresponding elements of two 128-bit vectors of
+/// Compares the corresponding elements of two 128-bit vectors of
 ///    [16 x i8] and returns a 128-bit vector of [16 x i8] containing the
 ///    greater value of the two.
 ///
@@ -721,7 +721,7 @@ _mm_max_epi8 (__m128i __V1, __m128i __V2)
   return (__m128i) __builtin_ia32_pmaxsb128 ((__v16qi) __V1, (__v16qi) __V2);
 }
 
-/// \brief Compares the corresponding elements of two 128-bit vectors of
+/// Compares the corresponding elements of two 128-bit vectors of
 ///    [8 x u16] and returns a 128-bit vector of [8 x u16] containing the lesser
 ///    value of the two.
 ///
@@ -740,7 +740,7 @@ _mm_min_epu16 (__m128i __V1, __m128i __V2)
   return (__m128i) __builtin_ia32_pminuw128 ((__v8hi) __V1, (__v8hi) __V2);
 }
 
-/// \brief Compares the corresponding elements of two 128-bit vectors of
+/// Compares the corresponding elements of two 128-bit vectors of
 ///    [8 x u16] and returns a 128-bit vector of [8 x u16] containing the
 ///    greater value of the two.
 ///
@@ -759,7 +759,7 @@ _mm_max_epu16 (__m128i __V1, __m128i __V2)
   return (__m128i) __builtin_ia32_pmaxuw128 ((__v8hi) __V1, (__v8hi) __V2);
 }
 
-/// \brief Compares the corresponding elements of two 128-bit vectors of
+/// Compares the corresponding elements of two 128-bit vectors of
 ///    [4 x i32] and returns a 128-bit vector of [4 x i32] containing the lesser
 ///    value of the two.
 ///
@@ -778,7 +778,7 @@ _mm_min_epi32 (__m128i __V1, __m128i __V2)
   return (__m128i) __builtin_ia32_pminsd128 ((__v4si) __V1, (__v4si) __V2);
 }
 
-/// \brief Compares the corresponding elements of two 128-bit vectors of
+/// Compares the corresponding elements of two 128-bit vectors of
 ///    [4 x i32] and returns a 128-bit vector of [4 x i32] containing the
 ///    greater value of the two.
 ///
@@ -797,7 +797,7 @@ _mm_max_epi32 (__m128i __V1, __m128i __V2)
   return (__m128i) __builtin_ia32_pmaxsd128 ((__v4si) __V1, (__v4si) __V2);
 }
 
-/// \brief Compares the corresponding elements of two 128-bit vectors of
+/// Compares the corresponding elements of two 128-bit vectors of
 ///    [4 x u32] and returns a 128-bit vector of [4 x u32] containing the lesser
 ///    value of the two.
 ///
@@ -816,7 +816,7 @@ _mm_min_epu32 (__m128i __V1, __m128i __V2)
   return (__m128i) __builtin_ia32_pminud128((__v4si) __V1, (__v4si) __V2);
 }
 
-/// \brief Compares the corresponding elements of two 128-bit vectors of
+/// Compares the corresponding elements of two 128-bit vectors of
 ///    [4 x u32] and returns a 128-bit vector of [4 x u32] containing the
 ///    greater value of the two.
 ///
@@ -836,7 +836,7 @@ _mm_max_epu32 (__m128i __V1, __m128i __V2)
 }
 
 /* SSE4 Insertion and Extraction from XMM Register Instructions.  */
-/// \brief Takes the first argument \a X and inserts an element from the second
+/// Takes the first argument \a X and inserts an element from the second
 ///    argument \a Y as selected by the third argument \a N. That result then
 ///    has elements zeroed out also as selected by the third argument \a N. The
 ///    resulting 128-bit vector of [4 x float] is then returned.
@@ -878,7 +878,7 @@ _mm_max_epu32 (__m128i __V1, __m128i __V2)
 ///    single-precision floating point elements from the operands.
 #define _mm_insert_ps(X, Y, N) __builtin_ia32_insertps128((X), (Y), (N))
 
-/// \brief Extracts a 32-bit integer from a 128-bit vector of [4 x float] and
+/// Extracts a 32-bit integer from a 128-bit vector of [4 x float] and
 ///    returns it, using the immediate value parameter \a N as a selector.
 ///
 /// \headerfile <x86intrin.h>
@@ -920,7 +920,7 @@ _mm_max_epu32 (__m128i __V1, __m128i __V2)
                                              _MM_MK_INSERTPS_NDX((N), 0, 0x0e))
 
 /* Insert int into packed integer array at index.  */
-/// \brief Constructs a 128-bit vector of [16 x i8] by first making a copy of
+/// Constructs a 128-bit vector of [16 x i8] by first making a copy of
 ///    the 128-bit integer vector parameter, and then inserting the lower 8 bits
 ///    of an integer parameter \a I into an offset specified by the immediate
 ///    value parameter \a N.
@@ -965,7 +965,7 @@ _mm_max_epu32 (__m128i __V1, __m128i __V2)
                                      __a[(N) & 15] = (I);                 \
                                      (__m128i)__a;}))
 
-/// \brief Constructs a 128-bit vector of [4 x i32] by first making a copy of
+/// Constructs a 128-bit vector of [4 x i32] by first making a copy of
 ///    the 128-bit integer vector parameter, and then inserting the 32-bit
 ///    integer parameter \a I at the offset specified by the immediate value
 ///    parameter \a N.
@@ -999,7 +999,7 @@ _mm_max_epu32 (__m128i __V1, __m128i __V2)
                                       (__m128i)__a;}))
 
 #ifdef __x86_64__
-/// \brief Constructs a 128-bit vector of [2 x i64] by first making a copy of
+/// Constructs a 128-bit vector of [2 x i64] by first making a copy of
 ///    the 128-bit integer vector parameter, and then inserting the 64-bit
 ///    integer parameter \a I, using the immediate value parameter \a N as an
 ///    insertion location selector.
@@ -1034,7 +1034,7 @@ _mm_max_epu32 (__m128i __V1, __m128i __V2)
 /* Extract int from packed integer array at index.  This returns the element
  * as a zero extended value, so it is unsigned.
  */
-/// \brief Extracts an 8-bit element from the 128-bit integer vector of
+/// Extracts an 8-bit element from the 128-bit integer vector of
 ///    [16 x i8], using the immediate value parameter \a N as a selector.
 ///
 /// \headerfile <x86intrin.h>
@@ -1073,7 +1073,7 @@ _mm_max_epu32 (__m128i __V1, __m128i __V2)
                                 ({ __v16qi __a = (__v16qi)(__m128i)(X); \
                                    (int)(unsigned char) __a[(N) & 15];}))
 
-/// \brief Extracts a 32-bit element from the 128-bit integer vector of
+/// Extracts a 32-bit element from the 128-bit integer vector of
 ///    [4 x i32], using the immediate value parameter \a N as a selector.
 ///
 /// \headerfile <x86intrin.h>
@@ -1100,7 +1100,7 @@ _mm_max_epu32 (__m128i __V1, __m128i __V2)
                                     (int)__a[(N) & 3];}))
 
 #ifdef __x86_64__
-/// \brief Extracts a 64-bit element from the 128-bit integer vector of
+/// Extracts a 64-bit element from the 128-bit integer vector of
 ///    [2 x i64], using the immediate value parameter \a N as a selector.
 ///
 /// \headerfile <x86intrin.h>
@@ -1125,7 +1125,7 @@ _mm_max_epu32 (__m128i __V1, __m128i __V2)
 #endif /* __x86_64 */
 
 /* SSE4 128-bit Packed Integer Comparisons.  */
-/// \brief Tests whether the specified bits in a 128-bit integer vector are all
+/// Tests whether the specified bits in a 128-bit integer vector are all
 ///    zeros.
 ///
 /// \headerfile <x86intrin.h>
@@ -1143,7 +1143,7 @@ _mm_testz_si128(__m128i __M, __m128i __V)
   return __builtin_ia32_ptestz128((__v2di)__M, (__v2di)__V);
 }
 
-/// \brief Tests whether the specified bits in a 128-bit integer vector are all
+/// Tests whether the specified bits in a 128-bit integer vector are all
 ///    ones.
 ///
 /// \headerfile <x86intrin.h>
@@ -1161,7 +1161,7 @@ _mm_testc_si128(__m128i __M, __m128i __V)
   return __builtin_ia32_ptestc128((__v2di)__M, (__v2di)__V);
 }
 
-/// \brief Tests whether the specified bits in a 128-bit integer vector are
+/// Tests whether the specified bits in a 128-bit integer vector are
 ///    neither all zeros nor all ones.
 ///
 /// \headerfile <x86intrin.h>
@@ -1180,7 +1180,7 @@ _mm_testnzc_si128(__m128i __M, __m128i __V)
   return __builtin_ia32_ptestnzc128((__v2di)__M, (__v2di)__V);
 }
 
-/// \brief Tests whether the specified bits in a 128-bit integer vector are all
+/// Tests whether the specified bits in a 128-bit integer vector are all
 ///    ones.
 ///
 /// \headerfile <x86intrin.h>
@@ -1197,7 +1197,7 @@ _mm_testnzc_si128(__m128i __M, __m128i __V)
 ///    otherwise.
 #define _mm_test_all_ones(V) _mm_testc_si128((V), _mm_cmpeq_epi32((V), (V)))
 
-/// \brief Tests whether the specified bits in a 128-bit integer vector are
+/// Tests whether the specified bits in a 128-bit integer vector are
 ///    neither all zeros nor all ones.
 ///
 /// \headerfile <x86intrin.h>
@@ -1216,7 +1216,7 @@ _mm_testnzc_si128(__m128i __M, __m128i __V)
 ///    FALSE otherwise.
 #define _mm_test_mix_ones_zeros(M, V) _mm_testnzc_si128((M), (V))
 
-/// \brief Tests whether the specified bits in a 128-bit integer vector are all
+/// Tests whether the specified bits in a 128-bit integer vector are all
 ///    zeros.
 ///
 /// \headerfile <x86intrin.h>
@@ -1235,7 +1235,7 @@ _mm_testnzc_si128(__m128i __M, __m128i __V)
 #define _mm_test_all_zeros(M, V) _mm_testz_si128 ((M), (V))
 
 /* SSE4 64-bit Packed Integer Comparisons.  */
-/// \brief Compares each of the corresponding 64-bit values of the 128-bit
+/// Compares each of the corresponding 64-bit values of the 128-bit
 ///    integer vectors for equality.
 ///
 /// \headerfile <x86intrin.h>
@@ -1254,7 +1254,7 @@ _mm_cmpeq_epi64(__m128i __V1, __m128i __V2)
 }
 
 /* SSE4 Packed Integer Sign-Extension.  */
-/// \brief Sign-extends each of the lower eight 8-bit integer elements of a
+/// Sign-extends each of the lower eight 8-bit integer elements of a
 ///    128-bit vector of [16 x i8] to 16-bit values and returns them in a
 ///    128-bit vector of [8 x i16]. The upper eight elements of the input vector
 ///    are unused.
@@ -1275,7 +1275,7 @@ _mm_cvtepi8_epi16(__m128i __V)
   return (__m128i)__builtin_convertvector(__builtin_shufflevector((__v16qs)__V, (__v16qs)__V, 0, 1, 2, 3, 4, 5, 6, 7), __v8hi);
 }
 
-/// \brief Sign-extends each of the lower four 8-bit integer elements of a
+/// Sign-extends each of the lower four 8-bit integer elements of a
 ///    128-bit vector of [16 x i8] to 32-bit values and returns them in a
 ///    128-bit vector of [4 x i32]. The upper twelve elements of the input
 ///    vector are unused.
@@ -1296,7 +1296,7 @@ _mm_cvtepi8_epi32(__m128i __V)
   return (__m128i)__builtin_convertvector(__builtin_shufflevector((__v16qs)__V, (__v16qs)__V, 0, 1, 2, 3), __v4si);
 }
 
-/// \brief Sign-extends each of the lower two 8-bit integer elements of a
+/// Sign-extends each of the lower two 8-bit integer elements of a
 ///    128-bit integer vector of [16 x i8] to 64-bit values and returns them in
 ///    a 128-bit vector of [2 x i64]. The upper fourteen elements of the input
 ///    vector are unused.
@@ -1317,7 +1317,7 @@ _mm_cvtepi8_epi64(__m128i __V)
   return (__m128i)__builtin_convertvector(__builtin_shufflevector((__v16qs)__V, (__v16qs)__V, 0, 1), __v2di);
 }
 
-/// \brief Sign-extends each of the lower four 16-bit integer elements of a
+/// Sign-extends each of the lower four 16-bit integer elements of a
 ///    128-bit integer vector of [8 x i16] to 32-bit values and returns them in
 ///    a 128-bit vector of [4 x i32]. The upper four elements of the input
 ///    vector are unused.
@@ -1336,7 +1336,7 @@ _mm_cvtepi16_epi32(__m128i __V)
   return (__m128i)__builtin_convertvector(__builtin_shufflevector((__v8hi)__V, (__v8hi)__V, 0, 1, 2, 3), __v4si);
 }
 
-/// \brief Sign-extends each of the lower two 16-bit integer elements of a
+/// Sign-extends each of the lower two 16-bit integer elements of a
 ///    128-bit integer vector of [8 x i16] to 64-bit values and returns them in
 ///    a 128-bit vector of [2 x i64]. The upper six elements of the input
 ///    vector are unused.
@@ -1355,7 +1355,7 @@ _mm_cvtepi16_epi64(__m128i __V)
   return (__m128i)__builtin_convertvector(__builtin_shufflevector((__v8hi)__V, (__v8hi)__V, 0, 1), __v2di);
 }
 
-/// \brief Sign-extends each of the lower two 32-bit integer elements of a
+/// Sign-extends each of the lower two 32-bit integer elements of a
 ///    128-bit integer vector of [4 x i32] to 64-bit values and returns them in
 ///    a 128-bit vector of [2 x i64]. The upper two elements of the input vector
 ///    are unused.
@@ -1375,7 +1375,7 @@ _mm_cvtepi32_epi64(__m128i __V)
 }
 
 /* SSE4 Packed Integer Zero-Extension.  */
-/// \brief Zero-extends each of the lower eight 8-bit integer elements of a
+/// Zero-extends each of the lower eight 8-bit integer elements of a
 ///    128-bit vector of [16 x i8] to 16-bit values and returns them in a
 ///    128-bit vector of [8 x i16]. The upper eight elements of the input vector
 ///    are unused.
@@ -1394,7 +1394,7 @@ _mm_cvtepu8_epi16(__m128i __V)
   return (__m128i)__builtin_convertvector(__builtin_shufflevector((__v16qu)__V, (__v16qu)__V, 0, 1, 2, 3, 4, 5, 6, 7), __v8hi);
 }
 
-/// \brief Zero-extends each of the lower four 8-bit integer elements of a
+/// Zero-extends each of the lower four 8-bit integer elements of a
 ///    128-bit vector of [16 x i8] to 32-bit values and returns them in a
 ///    128-bit vector of [4 x i32]. The upper twelve elements of the input
 ///    vector are unused.
@@ -1413,7 +1413,7 @@ _mm_cvtepu8_epi32(__m128i __V)
   return (__m128i)__builtin_convertvector(__builtin_shufflevector((__v16qu)__V, (__v16qu)__V, 0, 1, 2, 3), __v4si);
 }
 
-/// \brief Zero-extends each of the lower two 8-bit integer elements of a
+/// Zero-extends each of the lower two 8-bit integer elements of a
 ///    128-bit integer vector of [16 x i8] to 64-bit values and returns them in
 ///    a 128-bit vector of [2 x i64]. The upper fourteen elements of the input
 ///    vector are unused.
@@ -1432,7 +1432,7 @@ _mm_cvtepu8_epi64(__m128i __V)
   return (__m128i)__builtin_convertvector(__builtin_shufflevector((__v16qu)__V, (__v16qu)__V, 0, 1), __v2di);
 }
 
-/// \brief Zero-extends each of the lower four 16-bit integer elements of a
+/// Zero-extends each of the lower four 16-bit integer elements of a
 ///    128-bit integer vector of [8 x i16] to 32-bit values and returns them in
 ///    a 128-bit vector of [4 x i32]. The upper four elements of the input
 ///    vector are unused.
@@ -1451,7 +1451,7 @@ _mm_cvtepu16_epi32(__m128i __V)
   return (__m128i)__builtin_convertvector(__builtin_shufflevector((__v8hu)__V, (__v8hu)__V, 0, 1, 2, 3), __v4si);
 }
 
-/// \brief Zero-extends each of the lower two 16-bit integer elements of a
+/// Zero-extends each of the lower two 16-bit integer elements of a
 ///    128-bit integer vector of [8 x i16] to 64-bit values and returns them in
 ///    a 128-bit vector of [2 x i64]. The upper six elements of the input vector
 ///    are unused.
@@ -1470,7 +1470,7 @@ _mm_cvtepu16_epi64(__m128i __V)
   return (__m128i)__builtin_convertvector(__builtin_shufflevector((__v8hu)__V, (__v8hu)__V, 0, 1), __v2di);
 }
 
-/// \brief Zero-extends each of the lower two 32-bit integer elements of a
+/// Zero-extends each of the lower two 32-bit integer elements of a
 ///    128-bit integer vector of [4 x i32] to 64-bit values and returns them in
 ///    a 128-bit vector of [2 x i64]. The upper two elements of the input vector
 ///    are unused.
@@ -1490,7 +1490,7 @@ _mm_cvtepu32_epi64(__m128i __V)
 }
 
 /* SSE4 Pack with Unsigned Saturation.  */
-/// \brief Converts 32-bit signed integers from both 128-bit integer vector
+/// Converts 32-bit signed integers from both 128-bit integer vector
 ///    operands into 16-bit unsigned integers, and returns the packed result.
 ///    Values greater than 0xFFFF are saturated to 0xFFFF. Values less than
 ///    0x0000 are saturated to 0x0000.
@@ -1519,7 +1519,7 @@ _mm_packus_epi32(__m128i __V1, __m128i __V2)
 }
 
 /* SSE4 Multiple Packed Sums of Absolute Difference.  */
-/// \brief Subtracts 8-bit unsigned integer values and computes the absolute
+/// Subtracts 8-bit unsigned integer values and computes the absolute
 ///    values of the differences to the corresponding bits in the destination.
 ///    Then sums of the absolute differences are returned according to the bit
 ///    fields in the immediate operand.
@@ -1558,7 +1558,7 @@ _mm_packus_epi32(__m128i __V1, __m128i __V2)
   (__m128i) __builtin_ia32_mpsadbw128((__v16qi)(__m128i)(X), \
                                       (__v16qi)(__m128i)(Y), (M)); })
 
-/// \brief Finds the minimum unsigned 16-bit element in the input 128-bit
+/// Finds the minimum unsigned 16-bit element in the input 128-bit
 ///    vector of [8 x u16] and returns it and along with its index.
 ///
 /// \headerfile <x86intrin.h>
@@ -1612,7 +1612,7 @@ _mm_minpos_epu16(__m128i __V)
 #define _SIDD_UNIT_MASK                 0x40
 
 /* SSE4.2 Packed Comparison Intrinsics.  */
-/// \brief Uses the immediate operand \a M to perform a comparison of string
+/// Uses the immediate operand \a M to perform a comparison of string
 ///    data with implicitly defined lengths that is contained in source operands
 ///    \a A and \a B. Returns a 128-bit integer vector representing the result
 ///    mask of the comparison.
@@ -1668,7 +1668,7 @@ _mm_minpos_epu16(__m128i __V)
   (__m128i)__builtin_ia32_pcmpistrm128((__v16qi)(__m128i)(A), \
                                        (__v16qi)(__m128i)(B), (int)(M))
 
-/// \brief Uses the immediate operand \a M to perform a comparison of string
+/// Uses the immediate operand \a M to perform a comparison of string
 ///    data with implicitly defined lengths that is contained in source operands
 ///    \a A and \a B. Returns an integer representing the result index of the
 ///    comparison.
@@ -1722,7 +1722,7 @@ _mm_minpos_epu16(__m128i __V)
   (int)__builtin_ia32_pcmpistri128((__v16qi)(__m128i)(A), \
                                    (__v16qi)(__m128i)(B), (int)(M))
 
-/// \brief Uses the immediate operand \a M to perform a comparison of string
+/// Uses the immediate operand \a M to perform a comparison of string
 ///    data with explicitly defined lengths that is contained in source operands
 ///    \a A and \a B. Returns a 128-bit integer vector representing the result
 ///    mask of the comparison.
@@ -1783,7 +1783,7 @@ _mm_minpos_epu16(__m128i __V)
                                        (__v16qi)(__m128i)(B), (int)(LB), \
                                        (int)(M))
 
-/// \brief Uses the immediate operand \a M to perform a comparison of string
+/// Uses the immediate operand \a M to perform a comparison of string
 ///    data with explicitly defined lengths that is contained in source operands
 ///    \a A and \a B. Returns an integer representing the result index of the
 ///    comparison.
@@ -1843,7 +1843,7 @@ _mm_minpos_epu16(__m128i __V)
                                    (int)(M))
 
 /* SSE4.2 Packed Comparison Intrinsics and EFlag Reading.  */
-/// \brief Uses the immediate operand \a M to perform a comparison of string
+/// Uses the immediate operand \a M to perform a comparison of string
 ///    data with implicitly defined lengths that is contained in source operands
 ///    \a A and \a B. Returns 1 if the bit mask is zero and the length of the
 ///    string in \a B is the maximum, otherwise, returns 0.
@@ -1893,7 +1893,7 @@ _mm_minpos_epu16(__m128i __V)
   (int)__builtin_ia32_pcmpistria128((__v16qi)(__m128i)(A), \
                                     (__v16qi)(__m128i)(B), (int)(M))
 
-/// \brief Uses the immediate operand \a M to perform a comparison of string
+/// Uses the immediate operand \a M to perform a comparison of string
 ///    data with implicitly defined lengths that is contained in source operands
 ///    \a A and \a B. Returns 1 if the bit mask is non-zero, otherwise, returns
 ///    0.
@@ -1942,7 +1942,7 @@ _mm_minpos_epu16(__m128i __V)
   (int)__builtin_ia32_pcmpistric128((__v16qi)(__m128i)(A), \
                                     (__v16qi)(__m128i)(B), (int)(M))
 
-/// \brief Uses the immediate operand \a M to perform a comparison of string
+/// Uses the immediate operand \a M to perform a comparison of string
 ///    data with implicitly defined lengths that is contained in source operands
 ///    \a A and \a B. Returns bit 0 of the resulting bit mask.
 ///
@@ -1990,7 +1990,7 @@ _mm_minpos_epu16(__m128i __V)
   (int)__builtin_ia32_pcmpistrio128((__v16qi)(__m128i)(A), \
                                     (__v16qi)(__m128i)(B), (int)(M))
 
-/// \brief Uses the immediate operand \a M to perform a comparison of string
+/// Uses the immediate operand \a M to perform a comparison of string
 ///    data with implicitly defined lengths that is contained in source operands
 ///    \a A and \a B. Returns 1 if the length of the string in \a A is less than
 ///    the maximum, otherwise, returns 0.
@@ -2040,7 +2040,7 @@ _mm_minpos_epu16(__m128i __V)
   (int)__builtin_ia32_pcmpistris128((__v16qi)(__m128i)(A), \
                                     (__v16qi)(__m128i)(B), (int)(M))
 
-/// \brief Uses the immediate operand \a M to perform a comparison of string
+/// Uses the immediate operand \a M to perform a comparison of string
 ///    data with implicitly defined lengths that is contained in source operands
 ///    \a A and \a B. Returns 1 if the length of the string in \a B is less than
 ///    the maximum, otherwise, returns 0.
@@ -2090,7 +2090,7 @@ _mm_minpos_epu16(__m128i __V)
   (int)__builtin_ia32_pcmpistriz128((__v16qi)(__m128i)(A), \
                                     (__v16qi)(__m128i)(B), (int)(M))
 
-/// \brief Uses the immediate operand \a M to perform a comparison of string
+/// Uses the immediate operand \a M to perform a comparison of string
 ///    data with explicitly defined lengths that is contained in source operands
 ///    \a A and \a B. Returns 1 if the bit mask is zero and the length of the
 ///    string in \a B is the maximum, otherwise, returns 0.
@@ -2145,7 +2145,7 @@ _mm_minpos_epu16(__m128i __V)
                                     (__v16qi)(__m128i)(B), (int)(LB), \
                                     (int)(M))
 
-/// \brief Uses the immediate operand \a M to perform a comparison of string
+/// Uses the immediate operand \a M to perform a comparison of string
 ///    data with explicitly defined lengths that is contained in source operands
 ///    \a A and \a B. Returns 1 if the resulting mask is non-zero, otherwise,
 ///    returns 0.
@@ -2199,7 +2199,7 @@ _mm_minpos_epu16(__m128i __V)
                                     (__v16qi)(__m128i)(B), (int)(LB), \
                                     (int)(M))
 
-/// \brief Uses the immediate operand \a M to perform a comparison of string
+/// Uses the immediate operand \a M to perform a comparison of string
 ///    data with explicitly defined lengths that is contained in source operands
 ///    \a A and \a B. Returns bit 0 of the resulting bit mask.
 ///
@@ -2252,7 +2252,7 @@ _mm_minpos_epu16(__m128i __V)
                                     (__v16qi)(__m128i)(B), (int)(LB), \
                                     (int)(M))
 
-/// \brief Uses the immediate operand \a M to perform a comparison of string
+/// Uses the immediate operand \a M to perform a comparison of string
 ///    data with explicitly defined lengths that is contained in source operands
 ///    \a A and \a B. Returns 1 if the length of the string in \a A is less than
 ///    the maximum, otherwise, returns 0.
@@ -2307,7 +2307,7 @@ _mm_minpos_epu16(__m128i __V)
                                     (__v16qi)(__m128i)(B), (int)(LB), \
                                     (int)(M))
 
-/// \brief Uses the immediate operand \a M to perform a comparison of string
+/// Uses the immediate operand \a M to perform a comparison of string
 ///    data with explicitly defined lengths that is contained in source operands
 ///    \a A and \a B. Returns 1 if the length of the string in \a B is less than
 ///    the maximum, otherwise, returns 0.
@@ -2362,7 +2362,7 @@ _mm_minpos_epu16(__m128i __V)
                                     (int)(M))
 
 /* SSE4.2 Compare Packed Data -- Greater Than.  */
-/// \brief Compares each of the corresponding 64-bit values of the 128-bit
+/// Compares each of the corresponding 64-bit values of the 128-bit
 ///    integer vectors to determine if the values in the first operand are
 ///    greater than those in the second operand.
 ///
@@ -2382,7 +2382,7 @@ _mm_cmpgt_epi64(__m128i __V1, __m128i __V2)
 }
 
 /* SSE4.2 Accumulate CRC32.  */
-/// \brief Adds the unsigned integer operand to the CRC-32C checksum of the
+/// Adds the unsigned integer operand to the CRC-32C checksum of the
 ///    unsigned char operand.
 ///
 /// \headerfile <x86intrin.h>
@@ -2402,7 +2402,7 @@ _mm_crc32_u8(unsigned int __C, unsigned char __D)
   return __builtin_ia32_crc32qi(__C, __D);
 }
 
-/// \brief Adds the unsigned integer operand to the CRC-32C checksum of the
+/// Adds the unsigned integer operand to the CRC-32C checksum of the
 ///    unsigned short operand.
 ///
 /// \headerfile <x86intrin.h>
@@ -2422,7 +2422,7 @@ _mm_crc32_u16(unsigned int __C, unsigned short __D)
   return __builtin_ia32_crc32hi(__C, __D);
 }
 
-/// \brief Adds the first unsigned integer operand to the CRC-32C checksum of
+/// Adds the first unsigned integer operand to the CRC-32C checksum of
 ///    the second unsigned integer operand.
 ///
 /// \headerfile <x86intrin.h>
@@ -2443,7 +2443,7 @@ _mm_crc32_u32(unsigned int __C, unsigned int __D)
 }
 
 #ifdef __x86_64__
-/// \brief Adds the unsigned integer operand to the CRC-32C checksum of the
+/// Adds the unsigned integer operand to the CRC-32C checksum of the
 ///    unsigned 64-bit integer operand.
 ///
 /// \headerfile <x86intrin.h>
@@ -2468,4 +2468,4 @@ _mm_crc32_u64(unsigned long long __C, unsigned long long __D)
 
 #include <popcntintrin.h>
 
-#endif /* _SMMINTRIN_H */
+#endif /* __SMMINTRIN_H */

@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// \brief This file implements specific functions of \c FormatTokens and their
+/// This file implements specific functions of \c FormatTokens and their
 /// roles.
 ///
 //===----------------------------------------------------------------------===//
@@ -62,6 +62,7 @@ bool FormatToken::isSimpleTypeSpecifier() const {
   case tok::kw___direct_bases:
 #endif // INTEL_CUSTOMIZATION
   case tok::annot_typename:
+  case tok::kw_char8_t:
   case tok::kw_char16_t:
   case tok::kw_char32_t:
   case tok::kw_typeof:

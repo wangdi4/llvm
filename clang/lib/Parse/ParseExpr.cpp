@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// \brief Provides the Expression parsing implementation.
+/// Provides the Expression parsing implementation.
 ///
 /// Expressions in C99 basically consist of a bunch of binary operators with
 /// unary operators and other random stuff at the leaves.
@@ -33,7 +33,7 @@
 #include "llvm/ADT/SmallVector.h"
 using namespace clang;
 
-/// \brief Simple precedence-based parser for binary/ternary operators.
+/// Simple precedence-based parser for binary/ternary operators.
 ///
 /// Note: we diverge from the C99 grammar when parsing the assignment-expression
 /// production.  C99 specifies that the LHS of an assignment operator should be
@@ -157,7 +157,7 @@ Parser::ParseExpressionWithLeadingExtension(SourceLocation ExtLoc) {
   return ParseRHSOfBinaryExpression(LHS, prec::Comma);
 }
 
-/// \brief Parse an expr that doesn't include (top-level) commas.
+/// Parse an expr that doesn't include (top-level) commas.
 ExprResult Parser::ParseAssignmentExpression(TypeCastState isTypeCast) {
   if (Tok.is(tok::code_completion)) {
     Actions.CodeCompleteOrdinaryName(getCurScope(), Sema::PCC_Expression);
@@ -176,7 +176,7 @@ ExprResult Parser::ParseAssignmentExpression(TypeCastState isTypeCast) {
   return ParseRHSOfBinaryExpression(LHS, prec::Assignment);
 }
 
-/// \brief Parse an assignment expression where part of an Objective-C message
+/// Parse an assignment expression where part of an Objective-C message
 /// send has already been parsed.
 ///
 /// In this case \p LBracLoc indicates the location of the '[' of the message
@@ -218,7 +218,7 @@ ExprResult Parser::ParseConstantExpression(TypeCastState isTypeCast) {
   return ParseConstantExpressionInExprEvalContext(isTypeCast);
 }
 
-/// \brief Parse a constraint-expression.
+/// Parse a constraint-expression.
 ///
 /// \verbatim
 ///       constraint-expression: [Concepts TS temp.constr.decl p1]
@@ -280,7 +280,7 @@ bool Parser::isFoldOperator(tok::TokenKind Kind) const {
   return isFoldOperator(getBinOpPrecedence(Kind, GreaterThanIsOperator, true));
 }
 
-/// \brief Parse a binary expression that starts with \p LHS and has a
+/// Parse a binary expression that starts with \p LHS and has a
 /// precedence of at least \p MinPrec.
 ExprResult
 Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
@@ -524,7 +524,7 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
   }
 }
 
-/// \brief Parse a cast-expression, or, if \p isUnaryExpression is true,
+/// Parse a cast-expression, or, if \p isUnaryExpression is true,
 /// parse a unary-expression.
 ///
 /// \p isAddressOfOperand exists because an id-expression that is the
@@ -581,7 +581,7 @@ class CastExpressionIdValidator : public CorrectionCandidateCallback {
 };
 }
 
-/// \brief Parse a cast-expression, or, if \pisUnaryExpression is true, parse
+/// Parse a cast-expression, or, if \pisUnaryExpression is true, parse
 /// a unary-expression.
 ///
 /// \p isAddressOfOperand exists because an id-expression that is the operand
@@ -1262,6 +1262,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
   case tok::annot_decltype:
   case tok::kw_char:
   case tok::kw_wchar_t:
+  case tok::kw_char8_t:
   case tok::kw_char16_t:
   case tok::kw_char32_t:
   case tok::kw_bool:
@@ -1504,7 +1505,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
   return Res;
 }
 
-/// \brief Once the leading part of a postfix-expression is parsed, this
+/// Once the leading part of a postfix-expression is parsed, this
 /// method parses any suffixes that apply.
 ///
 /// \verbatim
@@ -1809,7 +1810,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
                                     /*AllowConstructorName=*/
                                       getLangOpts().MicrosoftExt, 
                                     /*AllowDeductionGuide=*/false,
-                                    ObjectType, TemplateKWLoc, Name)) {
+                                    ObjectType, &TemplateKWLoc, Name)) {
         (void)Actions.CorrectDelayedTyposInExpr(LHS);
         LHS = ExprError();
       }
@@ -1935,7 +1936,7 @@ Parser::ParseExprAfterUnaryExprOrTypeTrait(const Token &OpTok,
 }
 
 
-/// \brief Parse a sizeof or alignof expression.
+/// Parse a sizeof or alignof expression.
 ///
 /// \verbatim
 ///       unary-expression:  [C99 6.5.3]
@@ -2950,7 +2951,7 @@ bool Parser::getTypeOfPossibleControllingExpr(QualType &QT) {
 
 #endif // INTEL_CUSTOMIZATION
 
-/// \brief Parse A C++1z fold-expression after the opening paren and optional
+/// Parse A C++1z fold-expression after the opening paren and optional
 /// left-hand-side expression.
 ///
 /// \verbatim

@@ -143,6 +143,8 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
     // members.
     BuildingUsingDirective(false), ParsingTemplateArg(false),
 #endif  // INTEL_CUSTOMIZATION
+      FullyCheckedComparisonCategories(
+          static_cast<unsigned>(ComparisonCategoryType::Last) + 1),
       AccessCheckingSFINAE(false), InNonInstantiationSFINAEContext(false),
       NonInstantiationEntries(0), ArgumentPackSubstitutionIndex(-1),
       CurrentInstantiationScope(nullptr), DisableTypoCorrection(false),
@@ -438,7 +440,7 @@ ASTMutationListener *Sema::getASTMutationListener() const {
   return getASTConsumer().GetASTMutationListener();
 }
 
-///\brief Registers an external source. If an external source already exists,
+///Registers an external source. If an external source already exists,
 /// creates a multiplex external source and appends to it.
 ///
 ///\param[in] E - A non-null external sema source.
@@ -459,7 +461,7 @@ void Sema::addExternalSource(ExternalSemaSource *E) {
   }
 }
 
-/// \brief Print out statistics about the semantic analysis.
+/// Print out statistics about the semantic analysis.
 void Sema::PrintStats() const {
   llvm::errs() << "\n*** Semantic Analysis Stats:\n";
   llvm::errs() << NumSFINAEErrors << " SFINAE diagnostics trapped.\n";
@@ -579,7 +581,7 @@ CastKind Sema::ScalarTypeToBooleanCastKind(QualType ScalarTy) {
   llvm_unreachable("unknown scalar type kind");
 }
 
-/// \brief Used to prune the decls of Sema's UnusedFileScopedDecls vector.
+/// Used to prune the decls of Sema's UnusedFileScopedDecls vector.
 static bool ShouldRemoveFromUnused(Sema *SemaRef, const DeclaratorDecl *D) {
   if (D->getMostRecentDecl()->isUsed())
     return true;
@@ -767,7 +769,7 @@ void Sema::LoadExternalWeakUndeclaredIdentifiers() {
 
 typedef llvm::DenseMap<const CXXRecordDecl*, bool> RecordCompleteMap;
 
-/// \brief Returns true, if all methods and nested classes of the given
+/// Returns true, if all methods and nested classes of the given
 /// CXXRecordDecl are defined in this translation unit.
 ///
 /// Should only be called from ActOnEndOfTranslationUnit so that all
@@ -807,7 +809,7 @@ static bool MethodsAndNestedClassesComplete(const CXXRecordDecl *RD,
   return Complete;
 }
 
-/// \brief Returns true, if the given CXXRecordDecl is fully defined in this
+/// Returns true, if the given CXXRecordDecl is fully defined in this
 /// translation unit, i.e. all methods are defined or pure virtual and all
 /// friends, friend functions and nested classes are fully defined in this
 /// translation unit.
@@ -1354,7 +1356,7 @@ Sema::Diag(SourceLocation Loc, const PartialDiagnostic& PD) {
   return Builder;
 }
 
-/// \brief Looks through the macro-expansion chain for the given
+/// Looks through the macro-expansion chain for the given
 /// location, looking for a macro expansion with the given name.
 /// If one is found, returns true and sets the location to that
 /// expansion loc.
@@ -1375,7 +1377,7 @@ bool Sema::findMacroSpelling(SourceLocation &locref, StringRef name) {
   return false;
 }
 
-/// \brief Determines the active Scope associated with the given declaration
+/// Determines the active Scope associated with the given declaration
 /// context.
 ///
 /// This routine maps a declaration context to the active Scope object that
@@ -1404,7 +1406,7 @@ Scope *Sema::getScopeForContext(DeclContext *Ctx) {
   return nullptr;
 }
 
-/// \brief Enter a new function scope
+/// Enter a new function scope
 void Sema::PushFunctionScope() {
   if (FunctionScopes.empty()) {
     // Use PreallocatedFunctionScope to avoid allocating memory when possible.
@@ -1468,7 +1470,7 @@ void Sema::PopCompoundScope() {
   CurFunction->CompoundScopes.pop_back();
 }
 
-/// \brief Determine whether any errors occurred within this function/method/
+/// Determine whether any errors occurred within this function/method/
 /// block.
 bool Sema::hasAnyUnrecoverableErrorsInThisFunction() const {
   return getCurFunction()->ErrorTrap.hasUnrecoverableErrorOccurred();
@@ -1591,7 +1593,7 @@ void ExternalSemaSource::ReadUndefinedButUsed(
 void ExternalSemaSource::ReadMismatchingDeleteExpressions(llvm::MapVector<
     FieldDecl *, llvm::SmallVector<std::pair<SourceLocation, bool>, 4>> &) {}
 
-/// \brief Figure out if an expression could be turned into a call.
+/// Figure out if an expression could be turned into a call.
 ///
 /// Use this when trying to recover from an error where the programmer may have
 /// written just the name of a function instead of actually calling it.
@@ -1693,7 +1695,7 @@ bool Sema::tryExprAsCall(Expr &E, QualType &ZeroArgCallReturnTy,
   return false;
 }
 
-/// \brief Give notes for a set of overloads.
+/// Give notes for a set of overloads.
 ///
 /// A companion to tryExprAsCall. In cases when the name that the programmer
 /// wrote was an overloaded function, we may be able to make some guesses about

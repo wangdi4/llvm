@@ -19,6 +19,7 @@
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/RegisterPressure.h"
 #include "llvm/CodeGen/ScheduleDAG.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -68,14 +69,14 @@ static void printRegion(raw_ostream &OS,
   auto I = Begin;
   MaxInstNum = std::max(MaxInstNum, 1u);
   for (; I != End && MaxInstNum; ++I, --MaxInstNum) {
-    if (!I->isDebugValue() && LIS)
+    if (!I->isDebugInstr() && LIS)
       OS << LIS->getInstructionIndex(*I);
     OS << '\t' << *I;
   }
   if (I != End) {
     OS << "\t...\n";
     I = std::prev(End);
-    if (!I->isDebugValue() && LIS)
+    if (!I->isDebugInstr() && LIS)
       OS << LIS->getInstructionIndex(*I);
     OS << '\t' << *I;
   }
@@ -383,10 +384,10 @@ void GCNIterativeScheduler::scheduleRegion(Region &R, Range &&Schedule,
     if (MI != &*Top) {
       BB->remove(MI);
       BB->insert(Top, MI);
-      if (!MI->isDebugValue())
+      if (!MI->isDebugInstr())
         LIS->handleMove(*MI, true);
     }
-    if (!MI->isDebugValue()) {
+    if (!MI->isDebugInstr()) {
       // Reset read - undef flags and update them later.
       for (auto &Op : MI->operands())
         if (Op.isReg() && Op.isDef())

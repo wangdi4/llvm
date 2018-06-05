@@ -1,5 +1,7 @@
 // RUN: %clang_cc1 %s -triple spir64-unknown-unknown-intelfpga -cl-std=CL2.0 -verify -pedantic -fsyntax-only
 // RUN: %clang_cc1 %s -triple spir64-unknown-unknown-intelfpga -verify -pedantic -fsyntax-only
+// RUN: %clang_cc1 %s -triple x86_64-unknown-unknown-intelfpga -cl-std=CL2.0 -verify -pedantic -fsyntax-only
+// RUN: %clang_cc1 %s -triple x86_64-unknown-unknown-intelfpga -verify -pedantic -fsyntax-only
 
 #ifndef cl_intel_fpga_host_pipe
 #error "cl_intel_fpga_host_pipe is not defined."

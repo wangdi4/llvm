@@ -46,6 +46,7 @@
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/CodeGen/VirtRegMap.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/Support/BlockFrequency.h"
 #include "llvm/Support/BranchProbability.h"
 #include "llvm/Support/CommandLine.h"
@@ -616,7 +617,7 @@ void InlineSpiller::reMaterializeAll() {
       MachineInstr &MI = *RegI++;
 
       // Debug values are not allowed to affect codegen.
-      if (MI.isDebugValue())
+      if (MI.isDebugInstr())
         continue;
 
       anyRemat |= reMaterializeFor(LI, MI);
@@ -931,7 +932,7 @@ void InlineSpiller::spillAroundUses(unsigned Reg) {
     MachineInstr *MI = &*(RegI++);
 
     // Debug values are not allowed to affect codegen.
-    if (MI->isDebugValue()) {
+    if (MI->isDebugInstr()) {
       // Modify DBG_VALUE now that the value is in a spill slot.
       MachineBasicBlock *MBB = MI->getParent();
       DEBUG(dbgs() << "Modifying debug info due to spill:\t" << *MI);

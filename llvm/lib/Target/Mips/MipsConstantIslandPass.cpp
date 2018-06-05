@@ -37,6 +37,7 @@
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugLoc.h"
@@ -660,7 +661,7 @@ initializeFunctionInfo(const std::vector<MachineInstr*> &CPEMIs) {
     if (!BBHasFallthrough(&MBB))
       WaterList.push_back(&MBB);
     for (MachineInstr &MI : MBB) {
-      if (MI.isDebugValue())
+      if (MI.isDebugInstr())
         continue;
 
       int Opc = MI.getOpcode();

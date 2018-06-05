@@ -47,6 +47,7 @@
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSchedule.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/MC/LaneBitmask.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
@@ -271,7 +272,7 @@ priorNonDebug(MachineBasicBlock::const_iterator I,
               MachineBasicBlock::const_iterator Beg) {
   assert(I != Beg && "reached the top of the region, cannot decrement");
   while (--I != Beg) {
-    if (!I->isDebugValue())
+    if (!I->isDebugInstr())
       break;
   }
   return I;
@@ -291,7 +292,7 @@ static MachineBasicBlock::const_iterator
 nextIfDebug(MachineBasicBlock::const_iterator I,
             MachineBasicBlock::const_iterator End) {
   for(; I != End; ++I) {
-    if (!I->isDebugValue())
+    if (!I->isDebugInstr())
       break;
   }
   return I;
@@ -481,7 +482,7 @@ getSchedRegions(MachineBasicBlock *MBB,
       MachineInstr &MI = *std::prev(I);
       if (isSchedBoundary(&MI, &*MBB, MF, TII))
         break;
-      if (!MI.isDebugValue())
+      if (!MI.isDebugInstr())
         // MBB::size() uses instr_iterator to count. Here we need a bundle to
         // count as a single instruction.
         ++NumRegionInstrs;
@@ -1054,7 +1055,7 @@ void ScheduleDAGMILive::initRegPressure() {
   );
 
   assert((BotRPTracker.getPos() == RegionEnd ||
-          (RegionEnd->isDebugValue() &&
+          (RegionEnd->isDebugInstr() &&
            BotRPTracker.getPos() == priorNonDebug(RegionEnd, RegionBegin))) &&
          "Can't find the region bottom");
 
@@ -1485,7 +1486,7 @@ void ScheduleDAGMILive::scheduleMI(SUnit *SU, bool IsTopNode) {
 
 namespace {
 
-/// \brief Post-process the DAG to create cluster edges between neighboring
+/// Post-process the DAG to create cluster edges between neighboring
 /// loads or between neighboring stores.
 class BaseMemOpClusterMutation : public ScheduleDAGMutation {
   struct MemOpInfo {
@@ -1589,7 +1590,7 @@ void BaseMemOpClusterMutation::clusterNeighboringMemOps(
   }
 }
 
-/// \brief Callback from DAG postProcessing to create cluster edges for loads.
+/// Callback from DAG postProcessing to create cluster edges for loads.
 void BaseMemOpClusterMutation::apply(ScheduleDAGInstrs *DAGInstrs) {
   ScheduleDAGMI *DAG = static_cast<ScheduleDAGMI*>(DAGInstrs);
 
@@ -1630,7 +1631,7 @@ void BaseMemOpClusterMutation::apply(ScheduleDAGInstrs *DAGInstrs) {
 
 namespace {
 
-/// \brief Post-process the DAG to create weak edges from all uses of a copy to
+/// Post-process the DAG to create weak edges from all uses of a copy to
 /// the one use that defines the copy's source vreg, most likely an induction
 /// variable increment.
 class CopyConstrain : public ScheduleDAGMutation {
@@ -1805,7 +1806,7 @@ void CopyConstrain::constrainLocalCopy(SUnit *CopySU, ScheduleDAGMILive *DAG) {
   }
 }
 
-/// \brief Callback from DAG postProcessing to create weak edges to encourage
+/// Callback from DAG postProcessing to create weak edges to encourage
 /// copy elimination.
 void CopyConstrain::apply(ScheduleDAGInstrs *DAGInstrs) {
   ScheduleDAGMI *DAG = static_cast<ScheduleDAGMI*>(DAGInstrs);
@@ -3360,7 +3361,7 @@ ScheduleDAGMI *llvm::createGenericSchedPostRA(MachineSchedContext *C) {
 
 namespace {
 
-/// \brief Order nodes by the ILP metric.
+/// Order nodes by the ILP metric.
 struct ILPOrder {
   const SchedDFSResult *DFSResult = nullptr;
   const BitVector *ScheduledTrees = nullptr;
@@ -3368,7 +3369,7 @@ struct ILPOrder {
 
   ILPOrder(bool MaxILP) : MaximizeILP(MaxILP) {}
 
-  /// \brief Apply a less-than relation on node priority.
+  /// Apply a less-than relation on node priority.
   ///
   /// (Return true if A comes after B in the Q.)
   bool operator()(const SUnit *A, const SUnit *B) const {
@@ -3393,7 +3394,7 @@ struct ILPOrder {
   }
 };
 
-/// \brief Schedule based on the ILP metric.
+/// Schedule based on the ILP metric.
 class ILPScheduler : public MachineSchedStrategy {
   ScheduleDAGMILive *DAG = nullptr;
   ILPOrder Cmp;
@@ -3436,7 +3437,7 @@ public:
     return SU;
   }
 
-  /// \brief Scheduler callback to notify that a new subtree is scheduled.
+  /// Scheduler callback to notify that a new subtree is scheduled.
   void scheduleTree(unsigned SubtreeID) override {
     std::make_heap(ReadyQ.begin(), ReadyQ.end(), Cmp);
   }

@@ -25,12 +25,12 @@
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/ObjCRuntime.h"
 #include "clang/Basic/Version.h"
-#include "clang/Config/config.h"
 #include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/Options.h"
 #include "clang/Driver/SanitizerArgs.h"
 #include "clang/Driver/XRayArgs.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Compression.h"
@@ -130,6 +130,10 @@ forAllAssociatedToolChains(Compilation &C, const JobAction &JA,
   if (JA.isHostOffloading(Action::OFK_Cuda))
     Work(*C.getSingleOffloadToolChain<Action::OFK_Cuda>());
   else if (JA.isDeviceOffloading(Action::OFK_Cuda))
+    Work(*C.getSingleOffloadToolChain<Action::OFK_Host>());
+  else if (JA.isHostOffloading(Action::OFK_HIP))
+    Work(*C.getSingleOffloadToolChain<Action::OFK_HIP>());
+  else if (JA.isDeviceOffloading(Action::OFK_HIP))
     Work(*C.getSingleOffloadToolChain<Action::OFK_Host>());
 
   if (JA.isHostOffloading(Action::OFK_OpenMP)) {
@@ -612,7 +616,7 @@ static void addDebugCompDirArg(const ArgList &Args, ArgStringList &CmdArgs) {
   }
 }
 
-/// \brief Vectorize at all optimization levels greater than 1 except for -Oz.
+/// Vectorize at all optimization levels greater than 1 except for -Oz.
 /// For -Oz the loop vectorizer is disable, while the slp vectorizer is enabled.
 static bool shouldEnableVectorizerAtOLevel(const ArgList &Args, bool isSlpVec) {
   if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
@@ -834,7 +838,7 @@ static void addPGOAndCoverageFlags(Compilation &C, const Driver &D,
   }
 }
 
-/// \brief Check whether the given input tree contains any compilation actions.
+/// Check whether the given input tree contains any compilation actions.
 static bool ContainsCompileAction(const Action *A) {
   if (isa<CompileJobAction>(A) || isa<BackendJobAction>(A))
     return true;
@@ -846,7 +850,7 @@ static bool ContainsCompileAction(const Action *A) {
   return false;
 }
 
-/// \brief Check if -relax-all should be passed to the internal assembler.
+/// Check if -relax-all should be passed to the internal assembler.
 /// This is done by default when compiling non-assembler source with -O0.
 static bool UseRelaxAll(Compilation &C, const ArgList &Args) {
   bool RelaxDefault = true;
@@ -1483,6 +1487,12 @@ void Clang::AddAArch64TargetArgs(const ArgList &Args,
       CmdArgs.push_back("-aarch64-enable-global-merge=false");
     else
       CmdArgs.push_back("-aarch64-enable-global-merge=true");
+  }
+
+  if (!Args.hasArg(options::OPT_mno_outline) &&
+       Args.getLastArg(options::OPT_moutline)) {
+    CmdArgs.push_back("-mllvm");
+    CmdArgs.push_back("-enable-machine-outliner");
   }
 }
 
@@ -2241,6 +2251,11 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
     CmdArgs.push_back("-mfpmath");
     CmdArgs.push_back(A->getValue());
   }
+
+  // Disable a codegen optimization for floating-point casts.
+  if (Args.hasFlag(options::OPT_fno_strict_float_cast_overflow,
+                   options::OPT_fstrict_float_cast_overflow, false))
+    CmdArgs.push_back("-fno-strict-float-cast-overflow");
 }
 
 static void RenderAnalyzerOptions(const ArgList &Args, ArgStringList &CmdArgs,
@@ -2682,6 +2697,9 @@ static void RenderCharacterOptions(const ArgList &Args, const llvm::Triple &T,
     CmdArgs.push_back("-fno-signed-char");
   }
 
+  if (Args.hasFlag(options::OPT_fchar8__t, options::OPT_fno_char8__t, false))
+    CmdArgs.push_back("-fchar8_t");
+
   if (const Arg *A = Args.getLastArg(options::OPT_fshort_wchar,
                                      options::OPT_fno_short_wchar)) {
     if (A->getOption().matches(options::OPT_fshort_wchar)) {
@@ -2987,7 +3005,7 @@ static void RenderDebugOptions(const ToolChain &TC, const Driver &D,
   // debuggers don't handle missing end columns well, so it's better not to
   // include any column info.
   if (Args.hasFlag(options::OPT_gcolumn_info, options::OPT_gno_column_info,
-                   /*Default=*/!(IsWindowsMSVC && EmitCodeView) &&
+                   /*Default=*/!EmitCodeView &&
                        DebuggerTuning != llvm::DebuggerKind::SCE))
     CmdArgs.push_back("-dwarf-column-info");
 
@@ -3091,13 +3109,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // Check number of inputs for sanity. We need at least one input.
   assert(Inputs.size() >= 1 && "Must have at least one input.");
   const InputInfo &Input = Inputs[0];
-  // CUDA compilation may have multiple inputs (source file + results of
+  // CUDA/HIP compilation may have multiple inputs (source file + results of
   // device-side compilations). OpenMP device jobs also take the host IR as a
   // second input. All other jobs are expected to have exactly one
   // input.
   bool IsCuda = JA.isOffloading(Action::OFK_Cuda);
+  bool IsHIP = JA.isOffloading(Action::OFK_HIP);
   bool IsOpenMPDevice = JA.isDeviceOffloading(Action::OFK_OpenMP);
-  assert((IsCuda || (IsOpenMPDevice && Inputs.size() == 2) ||
+  assert((IsCuda || IsHIP || (IsOpenMPDevice && Inputs.size() == 2) ||
           Inputs.size() == 1) &&
          "Unable to handle multiple inputs.");
 
@@ -3109,10 +3128,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   bool IsWindowsMSVC = RawTriple.isWindowsMSVCEnvironment();
   bool IsIAMCU = RawTriple.isOSIAMCU();
 
-  // Adjust IsWindowsXYZ for CUDA compilations.  Even when compiling in device
-  // mode (i.e., getToolchain().getTriple() is NVPTX, not Windows), we need to
-  // pass Windows-specific flags to cc1.
-  if (IsCuda) {
+  // Adjust IsWindowsXYZ for CUDA/HIP compilations.  Even when compiling in
+  // device mode (i.e., getToolchain().getTriple() is NVPTX/AMDGCN, not
+  // Windows), we need to pass Windows-specific flags to cc1.
+  if (IsCuda || IsHIP) {
     IsWindowsMSVC |= AuxTriple && AuxTriple->isWindowsMSVCEnvironment();
     IsWindowsGNU |= AuxTriple && AuxTriple->isWindowsGNUEnvironment();
     IsWindowsCygnus |= AuxTriple && AuxTriple->isWindowsCygwinEnvironment();
@@ -3136,18 +3155,21 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     Args.ClaimAllArgs(options::OPT_MJ);
   }
 
-  if (IsCuda) {
-    // We have to pass the triple of the host if compiling for a CUDA device and
-    // vice-versa.
+  if (IsCuda || IsHIP) {
+    // We have to pass the triple of the host if compiling for a CUDA/HIP device
+    // and vice-versa.
     std::string NormalizedTriple;
-    if (JA.isDeviceOffloading(Action::OFK_Cuda))
+    if (JA.isDeviceOffloading(Action::OFK_Cuda) ||
+        JA.isDeviceOffloading(Action::OFK_HIP))
       NormalizedTriple = C.getSingleOffloadToolChain<Action::OFK_Host>()
                              ->getTriple()
                              .normalize();
     else
-      NormalizedTriple = C.getSingleOffloadToolChain<Action::OFK_Cuda>()
-                             ->getTriple()
-                             .normalize();
+      NormalizedTriple =
+          (IsCuda ? C.getSingleOffloadToolChain<Action::OFK_Cuda>()
+                  : C.getSingleOffloadToolChain<Action::OFK_HIP>())
+              ->getTriple()
+              .normalize();
 
     CmdArgs.push_back("-aux-triple");
     CmdArgs.push_back(Args.MakeArgString(NormalizedTriple));
@@ -4194,7 +4216,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (Args.hasFlag(options::OPT_fregister_global_dtors_with_atexit,
                    options::OPT_fno_register_global_dtors_with_atexit,
-                   RawTriple.isOSDarwin()))
+                   RawTriple.isOSDarwin() && !KernelOrKext))
     CmdArgs.push_back("-fregister-global-dtors-with-atexit");
 
   // -fms-extensions=0 is default.
@@ -5071,13 +5093,8 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     CmdArgs.push_back("--dependent-lib=oldnames");
   }
 
-  // Both /showIncludes and /E (and /EP) write to stdout. Allowing both
-  // would produce interleaved output, so ignore /showIncludes in such cases.
-  if ((!Args.hasArg(options::OPT_E) && !Args.hasArg(options::OPT__SLASH_EP)) ||
-      (Args.hasArg(options::OPT__SLASH_P) &&
-       Args.hasArg(options::OPT__SLASH_EP) && !Args.hasArg(options::OPT_E)))
-    if (Arg *A = Args.getLastArg(options::OPT_show_includes))
-      A->render(Args, CmdArgs);
+  if (Arg *A = Args.getLastArg(options::OPT_show_includes))
+    A->render(Args, CmdArgs);
 
   // This controls whether or not we emit RTTI data for polymorphic types.
   if (Args.hasFlag(options::OPT__SLASH_GR_, options::OPT__SLASH_GR,

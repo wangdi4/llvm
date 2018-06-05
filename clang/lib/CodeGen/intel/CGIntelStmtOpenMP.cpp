@@ -745,7 +745,7 @@ namespace CGIntelOpenMP {
     if (auto *E = C->getNumForLoops())
       addArg(CGF.EmitScalarExpr(E));
     else
-      addArg(CGF.Builder.getInt32(1));
+      addArg(CGF.Builder.getInt32(0));
     CGF.Builder.restoreIP(SavedIP);
     emitOpndClause();
   }

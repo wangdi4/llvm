@@ -55,10 +55,6 @@
 #include <thread.h>
 #endif
 
-#if SANITIZER_LINUX
-#include <sys/prctl.h>
-#endif
-
 #if SANITIZER_ANDROID
 #include <android/api-level.h>
 #if !defined(CPU_COUNT) && !defined(__aarch64__)
@@ -160,27 +156,6 @@ bool SetEnv(const char *name, const char *value) {
   return setenv_f(name, value, 1) == 0;
 }
 #endif
-
-bool SanitizerSetThreadName(const char *name) {
-#ifdef PR_SET_NAME
-  return 0 == prctl(PR_SET_NAME, (unsigned long)name, 0, 0, 0);  // NOLINT
-#else
-  return false;
-#endif
-}
-
-bool SanitizerGetThreadName(char *name, int max_len) {
-#ifdef PR_GET_NAME
-  char buff[17];
-  if (prctl(PR_GET_NAME, (unsigned long)buff, 0, 0, 0))  // NOLINT
-    return false;
-  internal_strncpy(name, buff, max_len);
-  name[max_len] = 0;
-  return true;
-#else
-  return false;
-#endif
-}
 
 #if !SANITIZER_FREEBSD && !SANITIZER_ANDROID && !SANITIZER_GO &&               \
     !SANITIZER_NETBSD && !SANITIZER_OPENBSD && !SANITIZER_SOLARIS
@@ -632,7 +607,7 @@ u32 GetNumberOfCPUs() {
   uptr fd = internal_open("/sys/devices/system/cpu", O_RDONLY | O_DIRECTORY);
   if (internal_iserror(fd))
     return 0;
-  InternalScopedBuffer<u8> buffer(4096);
+  InternalMmapVector<u8> buffer(4096);
   uptr bytes_read = buffer.size();
   uptr n_cpus = 0;
   u8 *d_type;

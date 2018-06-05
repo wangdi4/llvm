@@ -1337,7 +1337,7 @@ static bool isCapturedBy(const VarDecl &var, const Expr *e) {
   return false;
 }
 
-/// \brief Determine whether the given initializer is trivial in the sense
+/// Determine whether the given initializer is trivial in the sense
 /// that it requires no code to be generated.
 bool CodeGenFunction::isTrivialInitializer(const Expr *Init) {
   if (!Init)
@@ -2016,6 +2016,8 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
                 DtorKind == QualType::DK_nontrivial_c_struct) &&
                "unexpected destructor type");
         pushDestroy(DtorKind, DeclPtr, Ty);
+        CalleeDestructedParamCleanups[cast<ParmVarDecl>(&D)] =
+            EHStack.stable_begin();
       }
     }
   } else {

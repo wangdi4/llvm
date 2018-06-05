@@ -93,7 +93,7 @@ static void AddImplicitIncludePTH(MacroBuilder &Builder, Preprocessor &PP,
   AddImplicitInclude(Builder, OriginalFile);
 }
 
-/// \brief Add an implicit \#include using the original file used to generate
+/// Add an implicit \#include using the original file used to generate
 /// a PCH file.
 static void AddImplicitIncludePCH(MacroBuilder &Builder, Preprocessor &PP,
                                   const PCHContainerReader &PCHContainerRdr,
@@ -301,7 +301,7 @@ static const char *getLockFreeValue(unsigned TypeWidth, unsigned TypeAlign,
   return "1"; // "sometimes lock free"
 }
 
-/// \brief Add definitions required for a smooth interaction between
+/// Add definitions required for a smooth interaction between
 /// Objective-C++ automated reference counting and libstdc++ (4.2).
 static void AddObjCXXARCLibstdcxxDefines(const LangOptions &LangOpts,
                                          MacroBuilder &Builder) {
@@ -471,8 +471,14 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
   // Not "standard" per se, but available even with the -undef flag.
   if (LangOpts.AsmPreprocessor)
     Builder.defineMacro("__ASSEMBLER__");
-  if (LangOpts.CUDA)
+  if (LangOpts.CUDA && !LangOpts.HIP)
     Builder.defineMacro("__CUDA__");
+  if (LangOpts.HIP) {
+    Builder.defineMacro("__HIP__");
+    Builder.defineMacro("__HIPCC__");
+    if (LangOpts.CUDAIsDevice)
+      Builder.defineMacro("__HIP_DEVICE_COMPILE__");
+  }
 }
 
 /// Initialize the predefined C++ language feature test macros defined in
@@ -553,6 +559,10 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_experimental_concepts", "1");
   if (LangOpts.CoroutinesTS)
     Builder.defineMacro("__cpp_coroutines", "201703L");
+
+  // Potential future breaking changes.
+  if (LangOpts.Char8)
+    Builder.defineMacro("__cpp_char8_t", "201803");
 }
 
 static void InitializePredefinedMacros(const TargetInfo &TI,
@@ -984,6 +994,8 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
                                        InlineWidthBits));
     DEFINE_LOCK_FREE_MACRO(BOOL, Bool);
     DEFINE_LOCK_FREE_MACRO(CHAR, Char);
+    if (LangOpts.Char8)
+      DEFINE_LOCK_FREE_MACRO(CHAR8_T, Char); // Treat char8_t like char.
     DEFINE_LOCK_FREE_MACRO(CHAR16_T, Char16);
     DEFINE_LOCK_FREE_MACRO(CHAR32_T, Char32);
     DEFINE_LOCK_FREE_MACRO(WCHAR_T, WChar);
@@ -1081,7 +1093,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     break;
   }
   // CUDA device path compilaton
-  if (LangOpts.CUDAIsDevice) {
+  if (LangOpts.CUDAIsDevice && !LangOpts.HIP) {
     // The CUDA_ARCH value is set for the GPU target specified in the NVPTX
     // backend's target defines.
     Builder.defineMacro("__CUDA_ARCH__");

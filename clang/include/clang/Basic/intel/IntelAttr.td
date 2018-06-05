@@ -287,6 +287,14 @@ def HLSLocalOrStaticVar : SubsetSubject<Var,
                                 (S->getStorageClass() == SC_Static ||
                                  S->hasLocalStorage())}],
                               "local or static variables">;
+
+def HLSLocalStaticSlaveMemVar : SubsetSubject<Var,
+      [{S->getKind() != Decl::ImplicitParam &&
+        S->getKind() != Decl::NonTypeTemplateParm &&
+        (S->getStorageClass() == SC_Static ||
+         S->hasLocalStorage())}],
+         "local or static variables or slave memory arguments">;
+
 def StallFree : InheritableAttr {
   let Spellings = [GNU<"stall_free">];
   let LangOpts = [OpenCL, HLS];
@@ -311,9 +319,9 @@ def SchedulerPipeliningEffortPct : InheritableAttr {
 }
 
 def InternalMaxBlockRamDepth : InheritableAttr {
-  let Spellings = [GNU<"__internal_max_block_ram_depth__">];
+  let Spellings = [GNU<"internal_max_block_ram_depth">];
   let Args = [ExprArgument<"InternalMaxBlockRamDepth">];
-  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar], ErrorDiag>;
   let Documentation = [Undocumented];
   let LangOpts = [OpenCL, HLS];
   let AdditionalMembers = [{
@@ -329,14 +337,14 @@ def InternalMaxBlockRamDepth : InheritableAttr {
 // No arguments.
 def SinglePump : Attr {
   let Spellings = [GNU<"singlepump">];
-  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
 }
 
 def DoublePump : Attr {
   let Spellings = [GNU<"doublepump">];
-  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
 }
@@ -355,7 +363,7 @@ def Memory : Attr {
       }
     }
   }];
-  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
 }
@@ -367,11 +375,25 @@ def Register : Attr {
   let Documentation = [Undocumented];
 }
 
+def OptimizeFMax : Attr {
+  let Spellings = [GNU<"optimize_fmax">];
+  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar], ErrorDiag>;
+  let LangOpts = [OpenCL, HLS];
+  let Documentation = [Undocumented];
+}
+
+def OptimizeRamUsage : Attr {
+  let Spellings = [GNU<"optimize_ram_usage">];
+  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar], ErrorDiag>;
+  let LangOpts = [OpenCL, HLS];
+  let Documentation = [Undocumented];
+}
+
 // One integral argument.
 def BankWidth : Attr {
   let Spellings = [GNU<"bankwidth">];
   let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
@@ -387,7 +409,7 @@ def BankWidth : Attr {
 def NumBanks : Attr {
   let Spellings = [GNU<"numbanks">];
   let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
@@ -403,7 +425,7 @@ def NumBanks : Attr {
 def NumReadPorts : Attr {
   let Spellings = [GNU<"numreadports">];
   let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
@@ -419,7 +441,7 @@ def NumReadPorts : Attr {
 def NumWritePorts : Attr {
   let Spellings = [GNU<"numwriteports">];
   let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
@@ -436,7 +458,7 @@ def NumWritePorts : Attr {
 def NumPortsReadOnlyWriteOnly : Attr {
   let Spellings = [GNU<"numports_readonly_writeonly">];
   let Args = [ExprArgument<"NumReadPorts">, ExprArgument<"NumWritePorts">];
-  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
@@ -462,7 +484,7 @@ def Merge : Attr {
 def BankBits : Attr {
   let Spellings = [GNU<"bank_bits">];
   let Args = [VariadicExprArgument<"Args">];
-  let Subjects = SubjectList<[HLSLocalOrStaticVar], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
   let Documentation = [Undocumented];
   let AdditionalMembers = [{

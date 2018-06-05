@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 %s -triple spir64-unknown-unknown-intelfpga -cl-std=CL2.0 -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 %s -triple x86_64-unknown-unknown-intelfpga -cl-std=CL2.0 -emit-llvm %s -o - | FileCheck %s
 
 kernel void k1(read_only pipe int p1 __attribute__((depth(10))),
                write_only pipe float p2 __attribute__((depth(25))),

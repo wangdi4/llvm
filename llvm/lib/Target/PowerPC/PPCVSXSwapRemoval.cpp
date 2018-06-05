@@ -51,6 +51,7 @@
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
@@ -248,7 +249,7 @@ bool PPCVSXSwapRemoval::gatherVectorInstructions() {
   for (MachineBasicBlock &MBB : *MF) {
     for (MachineInstr &MI : MBB) {
 
-      if (MI.isDebugValue())
+      if (MI.isDebugInstr())
         continue;
 
       bool RelevantInstr = false;

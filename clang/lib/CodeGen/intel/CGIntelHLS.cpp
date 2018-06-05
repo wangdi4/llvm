@@ -24,6 +24,7 @@ void CodeGenFunction::EmitHLSComponentMetadata(const FunctionDecl *FD,
   SmallVector<llvm::Metadata *, 10> ImplTypeMD;
   SmallVector<llvm::Metadata *, 10> StableMD;
   SmallVector<llvm::Metadata *, 10> CosimNameMD;
+  SmallVector<llvm::Metadata *, 10> MemoryMD;
 
   llvm::LLVMContext &Ctx = getLLVMContext();
   llvm::IntegerType *Int32Ty = llvm::Type::getInt32Ty(Ctx);
@@ -64,12 +65,17 @@ void CodeGenFunction::EmitHLSComponentMetadata(const FunctionDecl *FD,
             llvm::ConstantInt::get(Int32Ty, Stable)));
 
     CosimNameMD.push_back(llvm::MDString::get(Ctx, PVD->getName()));
+
+    SmallString<256> AnnotStr;
+    CGM.generateHLSAnnotation(PVD, AnnotStr);
+    MemoryMD.push_back(llvm::MDString::get(Ctx, AnnotStr));
   }
   if (FD->getNumParams()) {
     Fn->setMetadata("arg_type", llvm::MDNode::get(Ctx, ArgTypeMD));
     Fn->setMetadata("impl_type", llvm::MDNode::get(Ctx, ImplTypeMD));
     Fn->setMetadata("stable", llvm::MDNode::get(Ctx, StableMD));
     Fn->setMetadata("cosim_name", llvm::MDNode::get(Ctx, CosimNameMD));
+    Fn->setMetadata("memory", llvm::MDNode::get(Ctx, MemoryMD));
   }
 
   const auto *CIA = FD->getAttr<ComponentInterfaceAttr>();

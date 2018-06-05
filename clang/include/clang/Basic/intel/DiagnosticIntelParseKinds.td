@@ -20,11 +20,18 @@ let CategoryName = "Parse Issue" in {
 def warn_pragma_expected_value : Warning<
   "expected value with '#pragma %0' - ignored">,
   InGroup<IgnoredPragmas>;
-def warn_pragma_expected_ivdep_clause : Warning<
+def warn_pragma_expected_safelen_array_ivdep_clause : Warning<
   "expected safelen or array value with '#pragma ivdep' - ignored">,
   InGroup<IgnoredPragmas>;
+def warn_pragma_expected_loop_back_ivdep_clause : Warning<
+  "expected loop or back with '#pragma ivdep' - ignored">,
+  InGroup<IgnoredPragmas>;
 def warn_multiple_ivdep_clause : Warning<
-  "%select{'safelen'|'array'}0 cannot appear multiple times in #pragma ivdep' - ignored">,
+  "%select{'safelen'|'array'|'loop'|'back'}0 cannot appear "
+  "multiple times in '#pragma ivdep' - ignored">,
+  InGroup<IgnoredPragmas>;
+def warn_invalid_ivdep_combination : Warning<
+  "%select{'loop'|'back'}0 may not appear in '#pragma ivdep' here - ignored">,
   InGroup<IgnoredPragmas>;
 
 // CQ#364426
