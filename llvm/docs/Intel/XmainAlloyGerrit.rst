@@ -43,6 +43,10 @@ Supported Xmain Repo
         ocl-cclang
         ocl-spirv-headers
         ocl-externals
+        xtoolsup
+        xalloy
+        icsconfig
+        icsproject
 
 
 Reviewer ( ``xmain_checkin_sanity, xmain_checkin, zperf_checkin_xmain`` )
@@ -251,6 +255,14 @@ No update in review.log for an extended period of time.
 
 - Abort current alloy run by replying #abort#, and start from scratch by
   replying #restartscratch#
+
+To reproduce exact workspace used by Alloy Gerrit, look for reproducer link in
+Gerrit post.
+
+::
+
+        Manifest: http://dss-sc.intel.com/review/lab_iclt/1315035.xml
+        Reproduce WS: http://dss-sc.intel.com/review/lab_iclt/1315035.reproduce.txt
 
 Any other issue with Alloy Gerrit infrastructure: Contact
 sunil.k.pandey@intel.com
