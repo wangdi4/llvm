@@ -488,7 +488,7 @@ void initializeHIROptVarPredicateLegacyPassPass(PassRegistry&);
 void initializeHIRIdiomRecognitionLegacyPassPass(PassRegistry&);
 void initializeHIRMVForConstUBLegacyPassPass(PassRegistry&);
 void initializeHIRLoopConcatenationLegacyPassPass(PassRegistry&);
-void initializeHIRArrayTransposePass(PassRegistry&);
+void initializeHIRArrayTransposeLegacyPassPass(PassRegistry&);
 void initializeHIRLoopFusionLegacyPassPass(PassRegistry&);
 void initializeHIRDeadStoreEliminationPass(PassRegistry&);
 // VPO Vectorizer Passes
