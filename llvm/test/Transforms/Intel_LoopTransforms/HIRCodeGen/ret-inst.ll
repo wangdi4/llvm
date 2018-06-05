@@ -1,4 +1,5 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg -S | FileCheck %s
 
 ; Verify that return instruction is correctly handled by CG.
 
