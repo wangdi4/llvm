@@ -17,8 +17,8 @@
 // Utility.
 //
 
-#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_REVERSAL_H
-#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_REVERSAL_H
+#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_REVERSALIMPL_H
+#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_REVERSALIMPL_H
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
@@ -38,6 +38,7 @@ namespace llvm {
 namespace loopopt {
 
 struct DirectionVector;
+class HIRFramework;
 class HIRDDAnalysis;
 class HIRLoopStatistics;
 class HIRSafeReductionAnalysis;
@@ -108,10 +109,12 @@ struct MarkedCanonExpr {
 };
 
 // HIRLoopReversal Pass Declaration
-class HIRLoopReversal : public HIRTransformPass {
-private:
-  HIRDDAnalysis *HDDA; // Data-Dependence Analysis Result
-  HIRLoopStatistics *HLS;
+class HIRLoopReversal {
+  HIRFramework &HIRF;
+  HIRDDAnalysis &HDDA;
+  HIRLoopStatistics &HLS;
+  HIRSafeReductionAnalysis &HSRA;
+
   SmallVector<MarkedCanonExpr, 8> MCEAV; // Vector of MarkedCanonExpr
   struct MarkedCECollector;              // MarkedCE Collector
   struct AnalyzeDDInfo;                  // AnalyzeDDInfo Forward Declaration
@@ -119,63 +122,46 @@ private:
   bool HasNegIVExpr = false; // Has at least 1 Neg IV Expr in the collected MCEs
 
 public:
-  static char ID;
-  HIRSafeReductionAnalysis *HSRA;
+  HIRLoopReversal(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
+                  HIRLoopStatistics &HLS, HIRSafeReductionAnalysis &HSRA)
+      : HIRF(HIRF), HDDA(HDDA), HLS(HLS), HSRA(HSRA) {}
 
-  /// \brief HIRLoopReversal's default constructor
-  HIRLoopReversal(void);
+  /// Entry to the HIRLoopReversal pass
+  bool run();
 
-  /// \brief handle command-line arguments on Function level
-  bool handleCmdlineArgs(Function &F);
-
-  /// \brief Entry to the HIRLoopReversal pass
-  bool runOnFunction(Function &F) override;
-
-  /// \brief Free pass-specific memory
-  void releaseMemory(void) override;
-
-  /// \brief Free per-iteration working-set memory
+  /// Free per-iteration working-set memory
   void clearWorkingSetMemory(void);
 
-  /// \brief Do Preliminary Checks on the given loop
+  /// Do Preliminary Checks on the given loop
   /// (and bail out quickly if the loop doesn't pass the filter tests.)
   bool doLoopPreliminaryChecks(const HLLoop *Lp);
 
-  /// \brief Do a Collection on the given HLLoop
+  /// Do a Collection on the given HLLoop
   /// (and bail out if the loop doesn't have any suitable case to reverse)
   bool doCollection(HLLoop *Lp);
 
-  /// \brief Profitability check for HIR Loop Reversal
+  /// Profitability check for HIR Loop Reversal
   //(is the given loop Profitable?)
   bool isProfitable(const HLLoop *Lp);
 
-  /// \brief Legality check for HIR Loop Reversal
+  /// Legality check for HIR Loop Reversal
   //(is the given loop Legal to reverse?)
   bool isLegal(const HLLoop *Lp);
 
-  /// \brief setup context before calling isReversible(-)
-  void setupBeforeTests(HLLoop *Lp, HIRDDAnalysis &DDA,
-                        HIRSafeReductionAnalysis &SRA, HIRLoopStatistics &LS);
-
-  /// \brief conduct HIR-Loop-Reversal related Tests to decide whether the given
+  /// conduct HIR-Loop-Reversal related Tests to decide whether the given
   /// loop is suitable for reversal.
   //
   // Add control flags to allow the same function to be called from inside a
   // pass and from external utility APIs.
-  bool isReversible(HLLoop *Lp, HIRDDAnalysis &DDA,
-                    HIRSafeReductionAnalysis &SRA, HIRLoopStatistics &LS,
-                    bool DoProfitTest, bool DoLegalTest,
+  bool isReversible(HLLoop *Lp, bool DoProfitTest, bool DoLegalTest,
                     bool DoShortCircuitUtilityAPI);
 
   /// \brief HIR Loop Reversal Transformation
   bool doHIRReversalTransform(HLLoop *Lp);
 
-  /// \brief Add all needed passes and mark changes
-  void getAnalysisUsage(AnalysisUsage &AU) const;
-
 private:
   /// \brief Legality check for a given DVectorTy with a loop level
-  bool isLegal(const DirectionVector &DV, unsigned Level);
+  static bool isLegal(const DirectionVector &DV, unsigned Level);
 };
 } // namespace reversal
 } // namespace loopopt
