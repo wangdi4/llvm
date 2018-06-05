@@ -53,11 +53,11 @@
 //
 // TODO: Add opt-report messages.
 //===----------------------------------------------------------------------===//
+#include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJam.h"
+#include "HIRUnroll.h"
 
 #include "llvm/ADT/Statistic.h"
-
 #include "llvm/IR/Function.h"
-
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
@@ -74,8 +74,6 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
-
-#include "HIRUnroll.h"
 
 #define DEBUG_TYPE "hir-unroll-and-jam"
 
@@ -132,25 +130,15 @@ void unrollLoop(HLLoop *Loop, unsigned UnrollFactor) {
 namespace {
 
 // Main unroll and jam class.
-class HIRUnrollAndJam : public HIRTransformPass {
+class HIRUnrollAndJam {
 public:
-  static char ID;
+  HIRUnrollAndJam(HIRFramework &HIRF, HIRLoopStatistics &HLS,
+                  HIRLoopResource &HLR, HIRLoopLocality &HLA,
+                  HIRDDAnalysis &DDA)
+      : HIRF(HIRF), HLS(HLS), HLR(HLR), HLA(HLA), DDA(DDA),
+        HaveUnrollCandidates(false) {}
 
-  HIRUnrollAndJam() : HIRTransformPass(ID), HaveUnrollCandidates(false) {
-    initializeHIRUnrollAndJamPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override {}
-
-  void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-  }
+  bool run();
 
 private:
   typedef std::pair<HLLoop *, unsigned> LoopUFPairTy;
@@ -158,10 +146,11 @@ private:
   // Stores the info for each loop in the loopnest by loop level.
   typedef std::array<LoopUFInfoPerLevelTy, MaxLoopNestLevel> LoopNestUFInfoTy;
 
-  HIRLoopStatistics *HLS;
-  HIRLoopResource *HLR;
-  HIRLoopLocality *HLA;
-  HIRDDAnalysis *DDA;
+  HIRFramework &HIRF;
+  HIRLoopStatistics &HLS;
+  HIRLoopResource &HLR;
+  HIRLoopLocality &HLA;
+  HIRDDAnalysis &DDA;
 
   LoopNestUFInfoTy LoopNestUFInfo;
   bool HaveUnrollCandidates;
@@ -285,21 +274,6 @@ public:
   bool isLegal();
 };
 } // namespace
-
-char HIRUnrollAndJam::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRUnrollAndJam, "hir-unroll-and-jam", "HIR Unroll & Jam",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_END(HIRUnrollAndJam, "hir-unroll-and-jam", "HIR Unroll & Jam",
-                    false, false)
-
-FunctionPass *llvm::createHIRUnrollAndJamPass() {
-  return new HIRUnrollAndJam();
-}
 
 bool LegalityChecker::isLegal() {
   HLNodeUtils::visitRange(*this, CandidateLoop->child_begin(),
@@ -509,7 +483,7 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
     return;
   }
 
-  auto &LS = HUAJ.HLS->getSelfLoopStatistics(Lp);
+  auto &LS = HUAJ.HLS.getSelfLoopStatistics(Lp);
 
   // Cannot unroll loop if it has calls with noduplicate attribute.
   if (LS.hasCallsWithNoDuplicate()) {
@@ -563,7 +537,7 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
 }
 
 unsigned HIRUnrollAndJam::computeLoopNestCost(HLLoop *Lp) const {
-  unsigned Cost = HLR->getSelfLoopResource(Lp).getTotalCost();
+  unsigned Cost = HLR.getSelfLoopResource(Lp).getTotalCost();
 
   if (Lp->isInnermost()) {
     return Cost;
@@ -598,7 +572,7 @@ unsigned HIRUnrollAndJam::computeLoopNestCost(HLLoop *Lp) const {
 
 unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
     HLLoop *Lp, bool HasEnablingPragma) const {
-  unsigned LoopCost = HUAJ.HLR->getSelfLoopResource(Lp).getTotalCost();
+  unsigned LoopCost = HUAJ.HLR.getSelfLoopResource(Lp).getTotalCost();
 
   if (LoopCost > MaxOuterLoopCost) {
     DEBUG(dbgs() << "Skipping unroll & jam of loop as the loop body cost "
@@ -668,7 +642,7 @@ unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
 
 bool HIRUnrollAndJam::Analyzer::canLegallyUnrollAndJam(HLLoop *Lp) const {
   // TODO: use a smaller unroll factor if allowed by the distance vector.
-  LegalityChecker LC(*HUAJ.DDA, Lp);
+  LegalityChecker LC(HUAJ.DDA, Lp);
 
   return LC.isLegal();
 }
@@ -694,7 +668,7 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
   if (!HasEnablingPragma &&
       // TODO: refine unroll factor using extra cache lines accessed by
       // unrolling?
-      !HUAJ.HLA->hasTemporalLocality(Lp, UnrollFactor - 1)) {
+      !HUAJ.HLA.hasTemporalLocality(Lp, UnrollFactor - 1)) {
     DEBUG(
         dbgs()
         << "Skipping unroll & jam as loop does not have temporal locality!\n");
@@ -784,22 +758,16 @@ void HIRUnrollAndJam::unrollCandidates(HLLoop *Lp) {
   }
 }
 
-bool HIRUnrollAndJam::runOnFunction(Function &F) {
-  if (DisableHIRUnrollAndJam || skipFunction(F)) {
+bool HIRUnrollAndJam::run() {
+  if (DisableHIRUnrollAndJam) {
     return false;
   }
-
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  HLR = &getAnalysis<HIRLoopResourceWrapperPass>().getHLR();
-  HLA = &getAnalysis<HIRLoopLocalityWrapperPass>().getHLL();
-  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
 
   sanitizeOptions();
 
   SmallVector<HLLoop *, 16> OutermostLoops;
 
-  HIRF->getHLNodeUtils().gatherOutermostLoops(OutermostLoops);
+  HIRF.getHLNodeUtils().gatherOutermostLoops(OutermostLoops);
 
   Analyzer AY(*this);
 
@@ -1259,4 +1227,62 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
 
     HLNodeUtils::remove(Loop);
   }
+}
+
+PreservedAnalyses HIRUnrollAndJamPass::run(llvm::Function &F,
+                                           llvm::FunctionAnalysisManager &AM) {
+  HIRUnrollAndJam(AM.getResult<HIRFrameworkAnalysis>(F),
+                  AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                  AM.getResult<HIRLoopResourceAnalysis>(F),
+                  AM.getResult<HIRLoopLocalityAnalysis>(F),
+                  AM.getResult<HIRDDAnalysisPass>(F))
+      .run();
+
+  return PreservedAnalyses::all();
+}
+
+class HIRUnrollAndJamLegacyPass : public HIRTransformPass {
+public:
+  static char ID;
+
+  HIRUnrollAndJamLegacyPass() : HIRTransformPass(ID) {
+    initializeHIRUnrollAndJamLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesAll();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+  }
+
+  bool runOnFunction(Function &F) {
+    if (skipFunction(F)) {
+      return false;
+    }
+
+    return HIRUnrollAndJam(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+                           getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
+                           getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
+                           getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(),
+                           getAnalysis<HIRDDAnalysisWrapperPass>().getDDA())
+        .run();
+  }
+};
+
+char HIRUnrollAndJamLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRUnrollAndJamLegacyPass, "hir-unroll-and-jam",
+                      "HIR Unroll & Jam", false, false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_END(HIRUnrollAndJamLegacyPass, "hir-unroll-and-jam",
+                    "HIR Unroll & Jam", false, false)
+
+FunctionPass *llvm::createHIRUnrollAndJamPass() {
+  return new HIRUnrollAndJamLegacyPass();
 }
