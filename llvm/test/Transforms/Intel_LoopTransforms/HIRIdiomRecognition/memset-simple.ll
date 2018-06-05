@@ -1,6 +1,7 @@
 ; Test that simple memset is handled.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-idiom -hir-cg -print-after=hir-idiom -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-idiom,print<hir>,hir-cg" -disable-output 2>&1 < %s | FileCheck %s
 
 ; HIR:
 ;           BEGIN REGION { }
@@ -13,6 +14,7 @@
 ; CHECK: memset 
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-idiom -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ;
 ;OPTREPORT: Global loop optimization report for : foo
 ;

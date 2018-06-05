@@ -15,13 +15,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/ADT/Statistic.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRIdiomRecognition.h"
 
+#include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Intrinsics.h"
-
 #include "llvm/Pass.h"
-
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -29,15 +28,13 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-
-#include "llvm/Analysis/TargetLibraryInfo.h"
-
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 #define OPT_SWITCH "hir-idiom"
 #define OPT_DESC "HIR Loop Idiom Recognition"
@@ -78,13 +75,14 @@ struct MemOpCandidate {
   }
 };
 
-class HIRIdiomRecognition : public HIRTransformPass {
-  const DataLayout *DL;
-  Module *M;
+class HIRIdiomRecognition {
+  HIRFramework &HIRF;
+  HIRLoopStatistics &HLS;
+  HIRDDAnalysis &DDA;
+  TargetLibraryInfo &TLI;
 
-  HIRFramework *HIR;
-  HIRLoopStatistics *HLS;
-  HIRDDAnalysis *DDA;
+  const DataLayout &DL;
+  Module &M;
 
   bool HasMemcopy;
   bool HasMemset;
@@ -137,38 +135,15 @@ class HIRIdiomRecognition : public HIRTransformPass {
   RegDDRef *createFakeDDRef(const RegDDRef *Ref, unsigned Level);
 
 public:
-  static char ID;
+  HIRIdiomRecognition(HIRFramework &HIRF, HIRLoopStatistics &HLS,
+                      HIRDDAnalysis &DDA, TargetLibraryInfo &TLI)
+      : HIRF(HIRF), HLS(HLS), DDA(DDA), TLI(TLI), DL(HIRF.getDataLayout()),
+        M(HIRF.getModule()) {}
 
-  HIRIdiomRecognition() : HIRTransformPass(ID) {
-    initializeHIRIdiomRecognitionPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-
+  bool run();
   bool runOnLoop(HLLoop *Loop);
-
-  void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.setPreservesAll();
-  }
 };
 } // namespace
-
-char HIRIdiomRecognition::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRIdiomRecognition, OPT_SWITCH, OPT_DESC, false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_END(HIRIdiomRecognition, OPT_SWITCH, OPT_DESC, false, false)
-
-FunctionPass *llvm::createHIRIdiomRecognitionPass() {
-  return new HIRIdiomRecognition();
-}
 
 /// If the specified terminal /p Ref can be set by repeating the same byte in
 /// memory, return true. This can be done for all i8 values obviously, but is
@@ -295,7 +270,7 @@ bool HIRIdiomRecognition::isLegalGraph(const DDGraph &DDG, const HLLoop *Loop,
 bool HIRIdiomRecognition::isLegalCandidate(const HLLoop *Loop,
                                            const MemOpCandidate &Candidate) {
   DEBUG(dbgs() << "R: ");
-  DDGraph DDG = DDA->getGraph(Loop);
+  DDGraph DDG = DDA.getGraph(Loop);
 
   if (!isLegalGraph<true>(DDG, Loop, Candidate.StoreRef, true)) {
     return false;
@@ -465,7 +440,7 @@ bool HIRIdiomRecognition::makeStartRef(RegDDRef *Ref, HLLoop *Loop,
 
   // Set destination address (i8*)
   Ref->setBitCastDestType(Type::getInt8PtrTy(
-      HIR->getContext(), Ref->getPointerAddressSpace()));
+      HIRF.getContext(), Ref->getPointerAddressSpace()));
 
   return true;
 }
@@ -518,7 +493,7 @@ RegDDRef *HIRIdiomRecognition::createSizeDDRef(HLLoop *Loop,
 
 bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
                                     int64_t StoreSize, bool IsNegStride) {
-  HLNodeUtils &HNU = HIR->getHLNodeUtils();
+  HLNodeUtils &HNU = HIRF.getHLNodeUtils();
 
   std::unique_ptr<RegDDRef> Ref(Candidate.StoreRef->clone());
   if (!makeStartRef(Ref.get(), Loop, IsNegStride)) {
@@ -557,7 +532,7 @@ bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
 }
 
 unsigned HIRIdiomRecognition::getRefSizeInBytes(const RegDDRef *Ref) {
-  auto SizeInBits = DL->getTypeSizeInBits(Ref->getDestType());
+  auto SizeInBits = DL.getTypeSizeInBits(Ref->getDestType());
   return (unsigned)SizeInBits >> 3;
 }
 
@@ -585,7 +560,7 @@ bool HIRIdiomRecognition::processMemset(HLLoop *Loop,
 bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
                                         MemOpCandidate &Candidate) {
 
-  HLNodeUtils &HNU = HIR->getHLNodeUtils();
+  HLNodeUtils &HNU = HIRF.getHLNodeUtils();
 
   std::unique_ptr<RegDDRef> StoreRef(Candidate.StoreRef->clone());
   std::unique_ptr<RegDDRef> LoadRef(Candidate.RHS->clone());
@@ -667,7 +642,7 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
 
   if (!Candidates.empty()) {
     DEBUG(dbgs() << "Loop DD graph:\n");
-    DEBUG(DDA->getGraph(Loop).dump());
+    DEBUG(DDA.getGraph(Loop).dump());
     DEBUG(dbgs() << "\n");
   }
 
@@ -702,14 +677,14 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   return Changed;
 }
 
-bool HIRIdiomRecognition::runOnFunction(Function &F) {
-  if (skipFunction(F) || DisablePass) {
+bool HIRIdiomRecognition::run() {
+  if (DisablePass) {
     return false;
   }
 
-  DEBUG(dbgs() << OPT_DESC " for Function: " << F.getName() << "\n");
+  DEBUG(dbgs() << OPT_DESC " for Function: " << HIRF.getFunction().getName()
+               << "\n");
 
-  TargetLibraryInfo &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   HasMemcopy = TLI.has(LibFunc_memcpy);
   HasMemset = TLI.has(LibFunc_memset);
 
@@ -718,17 +693,10 @@ bool HIRIdiomRecognition::runOnFunction(Function &F) {
     return false;
   }
 
-  M = F.getParent();
-  DL = &M->getDataLayout();
-
-  HIR = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-
   SmallPtrSet<HLNode *, 8> NodesToInvalidate;
 
   ForPostEach<HLLoop>::visitRange(
-      HIR->hir_begin(), HIR->hir_end(),
+      HIRF.hir_begin(), HIRF.hir_end(),
       [&NodesToInvalidate, this](HLLoop *Loop) {
         if (!TransformNodes.empty()) {
           if (std::find(TransformNodes.begin(), TransformNodes.end(),
@@ -771,4 +739,58 @@ bool HIRIdiomRecognition::runOnFunction(Function &F) {
   return false;
 }
 
-void HIRIdiomRecognition::releaseMemory() { RemovedNodes.clear(); }
+PreservedAnalyses
+HIRIdiomRecognitionPass::run(llvm::Function &F,
+                             llvm::FunctionAnalysisManager &AM) {
+  HIRIdiomRecognition(AM.getResult<HIRFrameworkAnalysis>(F),
+                      AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                      AM.getResult<HIRDDAnalysisPass>(F),
+                      AM.getResult<TargetLibraryAnalysis>(F))
+      .run();
+  return PreservedAnalyses::all();
+}
+
+class HIRIdiomRecognitionLegacyPass : public HIRTransformPass {
+public:
+  static char ID;
+
+  HIRIdiomRecognitionLegacyPass() : HIRTransformPass(ID) {
+    initializeHIRIdiomRecognitionLegacyPassPass(
+        *PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+    AU.setPreservesAll();
+  }
+
+  bool runOnFunction(Function &F) override {
+    if (skipFunction(F)) {
+      return false;
+    }
+
+    return HIRIdiomRecognition(
+               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
+               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+               getAnalysis<TargetLibraryInfoWrapperPass>().getTLI())
+        .run();
+  }
+};
+
+char HIRIdiomRecognitionLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRIdiomRecognitionLegacyPass, OPT_SWITCH, OPT_DESC,
+                      false, false)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_END(HIRIdiomRecognitionLegacyPass, OPT_SWITCH, OPT_DESC, false,
+                    false)
+
+FunctionPass *llvm::createHIRIdiomRecognitionPass() {
+  return new HIRIdiomRecognitionLegacyPass();
+}

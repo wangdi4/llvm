@@ -190,6 +190,7 @@
 
 // Transformation passes
 #include "llvm/Transforms/Intel_LoopTransforms/HIRGeneralUnroll.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRIdiomRecognition.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopCollapse.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTempCleanup.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopConcatenation.h"
