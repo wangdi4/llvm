@@ -280,6 +280,8 @@ def FeaturePOPCNTFalseDeps : SubtargetFeature<"false-deps-popcnt",
 def FeatureLZCNTFalseDeps : SubtargetFeature<"false-deps-lzcnt-tzcnt",
                                      "HasLZCNTFalseDeps", "true",
                                      "LZCNT/TZCNT have a false dependency on dest register">;
+def FeaturePCONFIG : SubtargetFeature<"pconfig", "HasPCONFIG", "true",
+                                      "platform configuration instruction">;
 // On recent X86 (port bound) processors, its preferable to combine to a single shuffle
 // using a variable mask over multiple fixed shuffles.
 def FeatureFastVariableShuffle
@@ -378,6 +380,12 @@ def FeatureRetpolineExternalThunk
           "retpoline-external-thunk", "UseRetpolineExternalThunk", "true",
           "Enable retpoline, but with an externally provided thunk.",
           [FeatureRetpoline]>;
+
+// Direct Move instructions.
+def FeatureMOVDIRI  : SubtargetFeature<"movdiri", "HasMOVDIRI", "true",
+                                       "Support movdiri instruction">;
+def FeatureMOVDIR64B : SubtargetFeature<"movdir64b", "HasMOVDIR64B", "true",
+                                        "Support movdir64b instruction">;
 
 //===----------------------------------------------------------------------===//
 // Register File Description
@@ -629,6 +637,8 @@ class TremontProc<string Name> : ProcModel<Name, SLMModel,
   ProcIntelTRM,
   FeatureCLDEMOTE,
   FeatureGFNI,
+  FeatureMOVDIRI,
+  FeatureMOVDIR64B,
   FeatureRDPID,
   FeatureSGX,
   FeatureWAITPKG
@@ -860,6 +870,7 @@ def : IcelakeClientProc<"icelake-client">;
 class IcelakeServerProc<string Name> : ProcModel<Name, SkylakeServerModel,
                                                  ICLFeatures.Value, [
   ProcIntelICX,
+  FeaturePCONFIG,
   FeatureWBNOINVD,
   FeatureHasFastGather
 ]>;

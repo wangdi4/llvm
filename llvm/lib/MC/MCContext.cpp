@@ -516,8 +516,10 @@ MCSectionWasm *MCContext::getWasmSection(const Twine &Section, SectionKind Kind,
   StringRef CachedName = Entry.first.SectionName;
 
   MCSymbol *Begin = nullptr;
-  if (BeginSymName)
-    Begin = createTempSymbol(BeginSymName, false);
+  if (BeginSymName) {
+    Begin = createSymbol(BeginSymName, false, false);
+    cast<MCSymbolWasm>(Begin)->setType(wasm::WASM_SYMBOL_TYPE_SECTION);
+  }
 
   MCSectionWasm *Result = new (WasmAllocator.Allocate())
       MCSectionWasm(CachedName, Kind, GroupSym, UniqueID, Begin);
@@ -568,6 +570,11 @@ CodeViewContext &MCContext::getCVContext() {
   if (!CVContext.get())
     CVContext.reset(new CodeViewContext);
   return *CVContext.get();
+}
+
+void MCContext::clearCVLocSeen() {
+  if (CVContext)
+    CVContext->clearCVLocSeen();
 }
 
 //===----------------------------------------------------------------------===//

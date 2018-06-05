@@ -3760,23 +3760,28 @@ AST_POLYMORPHIC_MATCHER(isNoThrow,
   if (isUnresolvedExceptionSpec(FnTy->getExceptionSpecType()))
     return true;
 
-  return FnTy->isNothrow(Finder->getASTContext());
+  return FnTy->isNothrow();
 }
 
-/// \brief Matches constexpr variable and function declarations.
+/// \brief Matches constexpr variable and function declarations,
+///        and if constexpr.
 ///
 /// Given:
 /// \code
 ///   constexpr int foo = 42;
 ///   constexpr int bar();
+///   void baz() { if constexpr(1 > 0) {} }
 /// \endcode
 /// varDecl(isConstexpr())
 ///   matches the declaration of foo.
 /// functionDecl(isConstexpr())
 ///   matches the declaration of bar.
+/// ifStmt(isConstexpr())
+///   matches the if statement in baz.
 AST_POLYMORPHIC_MATCHER(isConstexpr,
                         AST_POLYMORPHIC_SUPPORTED_TYPES(VarDecl,
-                                                        FunctionDecl)) {
+                                                        FunctionDecl,
+                                                        IfStmt)) {
   return Node.isConstexpr();
 }
 
@@ -4038,7 +4043,7 @@ AST_POLYMORPHIC_MATCHER_P(hasOperatorName,
   return Name == Node.getOpcodeStr(Node.getOpcode());
 }
 
-/// \brief Matches on all kinds of assignment operators.
+/// \brief Matches all kinds of assignment operators.
 ///
 /// Example 1: matches a += b (matcher = binaryOperator(isAssignmentOperator()))
 /// \code
