@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 //
 /// \file
-/// \brief SI implementation of the TargetRegisterInfo class.
+/// SI implementation of the TargetRegisterInfo class.
 //
 //===----------------------------------------------------------------------===//
 
@@ -657,6 +657,10 @@ bool SIRegisterInfo::spillSGPR(MachineBasicBlock::iterator MI,
   bool SpillToSMEM = spillSGPRToSMEM();
   if (SpillToSMEM && OnlyToVGPR)
     return false;
+
+  assert(SpillToVGPR || (SuperReg != MFI->getStackPtrOffsetReg() &&
+                         SuperReg != MFI->getFrameOffsetReg() &&
+                         SuperReg != MFI->getScratchWaveOffsetReg()));
 
   assert(SuperReg != AMDGPU::M0 && "m0 should never spill");
 
@@ -1366,7 +1370,7 @@ bool SIRegisterInfo::shouldRewriteCopySrc(
   return getCommonSubClass(DefRC, SrcRC) != nullptr;
 }
 
-/// \brief Returns a register that is not used at any point in the function.
+/// Returns a register that is not used at any point in the function.
 ///        If all registers are used, then this function will return
 //         AMDGPU::NoRegister.
 unsigned

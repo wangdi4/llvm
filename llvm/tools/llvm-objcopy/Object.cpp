@@ -194,26 +194,24 @@ void SymbolTableSection::removeSectionReferences(const SectionBase *Sec) {
           " cannot be removed because it is referenced by the symbol table " +
           this->Name);
   }
-  auto Iter =
-      std::remove_if(std::begin(Symbols), std::end(Symbols),
-                     [=](const SymPtr &Sym) { return Sym->DefinedIn == Sec; });
-  Size -= (std::end(Symbols) - Iter) * this->EntrySize;
-  Symbols.erase(Iter, std::end(Symbols));
-  assignIndices();
+  removeSymbols([Sec](const Symbol &Sym) { return Sym.DefinedIn == Sec; });
 }
 
-void SymbolTableSection::localize(
-    std::function<bool(const Symbol &)> ToLocalize) {
-  for (const auto &Sym : Symbols) {
-    if (ToLocalize(*Sym))
-      Sym->Binding = STB_LOCAL;
-  }
-
-  // Now that the local symbols aren't grouped at the start we have to reorder
-  // the symbols to respect this property.
+void SymbolTableSection::updateSymbols(function_ref<void(Symbol &)> Callable) {
+  for (auto &Sym : Symbols)
+    Callable(*Sym);
   std::stable_partition(
       std::begin(Symbols), std::end(Symbols),
       [](const SymPtr &Sym) { return Sym->Binding == STB_LOCAL; });
+  assignIndices();
+}
+
+void SymbolTableSection::removeSymbols(function_ref<bool(Symbol &)> ToRemove) {
+  Symbols.erase(
+      std::remove_if(std::begin(Symbols), std::end(Symbols),
+                     [ToRemove](const SymPtr &Sym) { return ToRemove(*Sym); }),
+      std::end(Symbols));
+  Size = Symbols.size() * EntrySize;
   assignIndices();
 }
 
@@ -353,9 +351,9 @@ void DynamicRelocationSection::accept(SectionVisitor &Visitor) const {
   Visitor.visit(*this);
 }
 
-void SectionWithStrTab::removeSectionReferences(const SectionBase *Sec) {
-  if (StrTab == Sec) {
-    error("String table " + StrTab->Name +
+void Section::removeSectionReferences(const SectionBase *Sec) {
+  if (LinkSection == Sec) {
+    error("Section " + LinkSection->Name +
           " cannot be removed because it is "
           "referenced by the section " +
           this->Name);
@@ -367,22 +365,17 @@ void GroupSection::finalize() {
   this->Link = SymTab->Index;
 }
 
-bool SectionWithStrTab::classof(const SectionBase *S) {
-  return isa<DynamicSymbolTableSection>(S) || isa<DynamicSection>(S);
+void Section::initialize(SectionTableRef SecTable) {
+  if (Link != ELF::SHN_UNDEF)
+    LinkSection =
+        SecTable.getSection(Link, "Link field value " + Twine(Link) +
+                                      " in section " + Name + " is invalid");
 }
 
-void SectionWithStrTab::initialize(SectionTableRef SecTable) {
-  auto StrTab =
-      SecTable.getSection(Link, "Link field value " + Twine(Link) +
-                                    " in section " + Name + " is invalid");
-  if (StrTab->Type != SHT_STRTAB) {
-    error("Link field value " + Twine(Link) + " in section " + Name +
-          " is not a string table");
-  }
-  setStrTab(StrTab);
+void Section::finalize() {
+  if (LinkSection)
+    this->Link = LinkSection->Index;
 }
-
-void SectionWithStrTab::finalize() { this->Link = StrTab->Index; }
 
 void GnuDebugLinkSection::init(StringRef File, StringRef Data) {
   FileName = sys::path::filename(File);

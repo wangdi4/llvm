@@ -151,49 +151,6 @@ typedef void (*fill_profile_f)(uptr start, uptr rss, bool file,
 // |stats_size| elements.
 void GetMemoryProfile(fill_profile_f cb, uptr *stats, uptr stats_size);
 
-// InternalScopedBuffer can be used instead of large stack arrays to
-// keep frame size low.
-// FIXME: use InternalAlloc instead of MmapOrDie once
-// InternalAlloc is made libc-free.
-template <typename T>
-class InternalScopedBuffer {
- public:
-  explicit InternalScopedBuffer(uptr cnt) {
-    cnt_ = cnt;
-    ptr_ = (T *)MmapOrDie(cnt * sizeof(T), "InternalScopedBuffer");
-  }
-  ~InternalScopedBuffer() { UnmapOrDie(ptr_, cnt_ * sizeof(T)); }
-  T &operator[](uptr i) { return ptr_[i]; }
-  T *data() { return ptr_; }
-  uptr size() { return cnt_ * sizeof(T); }
-
- private:
-  T *ptr_;
-  uptr cnt_;
-  // Disallow copies and moves.
-  InternalScopedBuffer(const InternalScopedBuffer &) = delete;
-  InternalScopedBuffer &operator=(const InternalScopedBuffer &) = delete;
-  InternalScopedBuffer(InternalScopedBuffer &&) = delete;
-  InternalScopedBuffer &operator=(InternalScopedBuffer &&) = delete;
-};
-
-class InternalScopedString : public InternalScopedBuffer<char> {
- public:
-  explicit InternalScopedString(uptr max_length)
-      : InternalScopedBuffer<char>(max_length), length_(0) {
-    (*this)[0] = '\0';
-  }
-  uptr length() { return length_; }
-  void clear() {
-    (*this)[0] = '\0';
-    length_ = 0;
-  }
-  void append(const char *format, ...);
-
- private:
-  uptr length_;
-};
-
 // Simple low-level (mmap-based) allocator for internal use. Doesn't have
 // constructor, so all instances of LowLevelAllocator should be
 // linker initialized.
@@ -307,13 +264,6 @@ CheckFailed(const char *file, int line, const char *cond, u64 v1, u64 v2);
 void NORETURN ReportMmapFailureAndDie(uptr size, const char *mem_type,
                                       const char *mmap_type, error_t err,
                                       bool raw_report = false);
-
-// Set the name of the current thread to 'name', return true on succees.
-// The name may be truncated to a system-dependent limit.
-bool SanitizerSetThreadName(const char *name);
-// Get the name of the current thread (no more than max_len bytes),
-// return true on succees. name should have space for at least max_len+1 bytes.
-bool SanitizerGetThreadName(char *name, int max_len);
 
 // Specific tools may override behavior of "Die" and "CheckFailed" functions
 // to do tool-specific job.
@@ -532,6 +482,10 @@ class InternalMmapVectorNoCtor {
   uptr capacity() const {
     return capacity_;
   }
+  void reserve(uptr new_size) {
+    if (new_size >= size()) return;
+    Resize(new_size);
+  }
   void resize(uptr new_size) {
     Resize(new_size);
     if (new_size > size_) {
@@ -574,16 +528,50 @@ class InternalMmapVectorNoCtor {
   uptr size_;
 };
 
+template <typename T>
+bool operator==(const InternalMmapVectorNoCtor<T> &lhs,
+                const InternalMmapVectorNoCtor<T> &rhs) {
+  if (lhs.size() != rhs.size()) return false;
+  return internal_memcmp(lhs.data(), rhs.data(), lhs.size() * sizeof(T)) == 0;
+}
+
+template <typename T>
+bool operator!=(const InternalMmapVectorNoCtor<T> &lhs,
+                const InternalMmapVectorNoCtor<T> &rhs) {
+  return !(lhs == rhs);
+}
+
 template<typename T>
 class InternalMmapVector : public InternalMmapVectorNoCtor<T> {
  public:
-  explicit InternalMmapVector(uptr initial_capacity) {
-    InternalMmapVectorNoCtor<T>::Initialize(initial_capacity);
+  InternalMmapVector() { InternalMmapVectorNoCtor<T>::Initialize(1); }
+  explicit InternalMmapVector(uptr cnt) {
+    InternalMmapVectorNoCtor<T>::Initialize(cnt);
+    this->resize(cnt);
   }
   ~InternalMmapVector() { InternalMmapVectorNoCtor<T>::Destroy(); }
-  // Disallow evil constructors.
-  InternalMmapVector(const InternalMmapVector&);
-  void operator=(const InternalMmapVector&);
+  // Disallow copies and moves.
+  InternalMmapVector(const InternalMmapVector &) = delete;
+  InternalMmapVector &operator=(const InternalMmapVector &) = delete;
+  InternalMmapVector(InternalMmapVector &&) = delete;
+  InternalMmapVector &operator=(InternalMmapVector &&) = delete;
+};
+
+class InternalScopedString : public InternalMmapVector<char> {
+ public:
+  explicit InternalScopedString(uptr max_length)
+      : InternalMmapVector<char>(max_length), length_(0) {
+    (*this)[0] = '\0';
+  }
+  uptr length() { return length_; }
+  void clear() {
+    (*this)[0] = '\0';
+    length_ = 0;
+  }
+  void append(const char *format, ...);
+
+ private:
+  uptr length_;
 };
 
 // HeapSort for arrays and InternalMmapVector.

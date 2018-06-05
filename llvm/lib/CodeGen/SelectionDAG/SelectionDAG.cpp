@@ -773,7 +773,7 @@ static void VerifySDNode(SDNode *N) {
 }
 #endif // NDEBUG
 
-/// \brief Insert a newly allocated node into the DAG.
+/// Insert a newly allocated node into the DAG.
 ///
 /// Handles insertion into the all nodes list and CSE map, as well as
 /// verification and other common operations when a new node is allocated.
@@ -5446,7 +5446,7 @@ static SDValue getMemmoveLoadsAndStores(SelectionDAG &DAG, const SDLoc &dl,
   return DAG.getNode(ISD::TokenFactor, dl, MVT::Other, OutChains);
 }
 
-/// \brief Lower the call to 'memset' intrinsic function into a series of store
+/// Lower the call to 'memset' intrinsic function into a series of store
 /// operations.
 ///
 /// \param DAG Selection DAG where lowered code is placed.
@@ -5630,6 +5630,47 @@ SDValue SelectionDAG::getMemcpy(SDValue Chain, const SDLoc &dl, SDValue Dst,
   return CallResult.second;
 }
 
+SDValue SelectionDAG::getAtomicMemcpy(SDValue Chain, const SDLoc &dl,
+                                      SDValue Dst, unsigned DstAlign,
+                                      SDValue Src, unsigned SrcAlign,
+                                      SDValue Size, Type *SizeTy,
+                                      unsigned ElemSz, bool isTailCall,
+                                      MachinePointerInfo DstPtrInfo,
+                                      MachinePointerInfo SrcPtrInfo) {
+  // Emit a library call.
+  TargetLowering::ArgListTy Args;
+  TargetLowering::ArgListEntry Entry;
+  Entry.Ty = getDataLayout().getIntPtrType(*getContext());
+  Entry.Node = Dst;
+  Args.push_back(Entry);
+
+  Entry.Node = Src;
+  Args.push_back(Entry);
+
+  Entry.Ty = SizeTy;
+  Entry.Node = Size;
+  Args.push_back(Entry);
+
+  RTLIB::Libcall LibraryCall =
+      RTLIB::getMEMCPY_ELEMENT_UNORDERED_ATOMIC(ElemSz);
+  if (LibraryCall == RTLIB::UNKNOWN_LIBCALL)
+    report_fatal_error("Unsupported element size");
+
+  TargetLowering::CallLoweringInfo CLI(*this);
+  CLI.setDebugLoc(dl)
+      .setChain(Chain)
+      .setLibCallee(TLI->getLibcallCallingConv(LibraryCall),
+                    Type::getVoidTy(*getContext()),
+                    getExternalSymbol(TLI->getLibcallName(LibraryCall),
+                                      TLI->getPointerTy(getDataLayout())),
+                    std::move(Args))
+      .setDiscardResult()
+      .setTailCall(isTailCall);
+
+  std::pair<SDValue, SDValue> CallResult = TLI->LowerCallTo(CLI);
+  return CallResult.second;
+}
+
 SDValue SelectionDAG::getMemmove(SDValue Chain, const SDLoc &dl, SDValue Dst,
                                  SDValue Src, SDValue Size, unsigned Align,
                                  bool isVol, bool isTailCall,
@@ -5688,6 +5729,47 @@ SDValue SelectionDAG::getMemmove(SDValue Chain, const SDLoc &dl, SDValue Dst,
       .setTailCall(isTailCall);
 
   std::pair<SDValue,SDValue> CallResult = TLI->LowerCallTo(CLI);
+  return CallResult.second;
+}
+
+SDValue SelectionDAG::getAtomicMemmove(SDValue Chain, const SDLoc &dl,
+                                       SDValue Dst, unsigned DstAlign,
+                                       SDValue Src, unsigned SrcAlign,
+                                       SDValue Size, Type *SizeTy,
+                                       unsigned ElemSz, bool isTailCall,
+                                       MachinePointerInfo DstPtrInfo,
+                                       MachinePointerInfo SrcPtrInfo) {
+  // Emit a library call.
+  TargetLowering::ArgListTy Args;
+  TargetLowering::ArgListEntry Entry;
+  Entry.Ty = getDataLayout().getIntPtrType(*getContext());
+  Entry.Node = Dst;
+  Args.push_back(Entry);
+
+  Entry.Node = Src;
+  Args.push_back(Entry);
+
+  Entry.Ty = SizeTy;
+  Entry.Node = Size;
+  Args.push_back(Entry);
+
+  RTLIB::Libcall LibraryCall =
+      RTLIB::getMEMMOVE_ELEMENT_UNORDERED_ATOMIC(ElemSz);
+  if (LibraryCall == RTLIB::UNKNOWN_LIBCALL)
+    report_fatal_error("Unsupported element size");
+
+  TargetLowering::CallLoweringInfo CLI(*this);
+  CLI.setDebugLoc(dl)
+      .setChain(Chain)
+      .setLibCallee(TLI->getLibcallCallingConv(LibraryCall),
+                    Type::getVoidTy(*getContext()),
+                    getExternalSymbol(TLI->getLibcallName(LibraryCall),
+                                      TLI->getPointerTy(getDataLayout())),
+                    std::move(Args))
+      .setDiscardResult()
+      .setTailCall(isTailCall);
+
+  std::pair<SDValue, SDValue> CallResult = TLI->LowerCallTo(CLI);
   return CallResult.second;
 }
 
@@ -5750,6 +5832,46 @@ SDValue SelectionDAG::getMemset(SDValue Chain, const SDLoc &dl, SDValue Dst,
       .setTailCall(isTailCall);
 
   std::pair<SDValue,SDValue> CallResult = TLI->LowerCallTo(CLI);
+  return CallResult.second;
+}
+
+SDValue SelectionDAG::getAtomicMemset(SDValue Chain, const SDLoc &dl,
+                                      SDValue Dst, unsigned DstAlign,
+                                      SDValue Value, SDValue Size, Type *SizeTy,
+                                      unsigned ElemSz, bool isTailCall,
+                                      MachinePointerInfo DstPtrInfo) {
+  // Emit a library call.
+  TargetLowering::ArgListTy Args;
+  TargetLowering::ArgListEntry Entry;
+  Entry.Ty = getDataLayout().getIntPtrType(*getContext());
+  Entry.Node = Dst;
+  Args.push_back(Entry);
+
+  Entry.Ty = Type::getInt8Ty(*getContext());
+  Entry.Node = Value;
+  Args.push_back(Entry);
+
+  Entry.Ty = SizeTy;
+  Entry.Node = Size;
+  Args.push_back(Entry);
+
+  RTLIB::Libcall LibraryCall =
+      RTLIB::getMEMSET_ELEMENT_UNORDERED_ATOMIC(ElemSz);
+  if (LibraryCall == RTLIB::UNKNOWN_LIBCALL)
+    report_fatal_error("Unsupported element size");
+
+  TargetLowering::CallLoweringInfo CLI(*this);
+  CLI.setDebugLoc(dl)
+      .setChain(Chain)
+      .setLibCallee(TLI->getLibcallCallingConv(LibraryCall),
+                    Type::getVoidTy(*getContext()),
+                    getExternalSymbol(TLI->getLibcallName(LibraryCall),
+                                      TLI->getPointerTy(getDataLayout())),
+                    std::move(Args))
+      .setDiscardResult()
+      .setTailCall(isTailCall);
+
+  std::pair<SDValue, SDValue> CallResult = TLI->LowerCallTo(CLI);
   return CallResult.second;
 }
 
@@ -7188,6 +7310,17 @@ SDDbgValue *SelectionDAG::getFrameIndexDbgValue(DIVariable *Var,
   return new (DbgInfo->getAlloc()) SDDbgValue(Var, Expr, FI, DL, O);
 }
 
+/// VReg
+SDDbgValue *SelectionDAG::getVRegDbgValue(DIVariable *Var,
+                                          DIExpression *Expr,
+                                          unsigned VReg, bool IsIndirect,
+                                          const DebugLoc &DL, unsigned O) {
+  assert(cast<DILocalVariable>(Var)->isValidLocationForIntrinsic(DL) &&
+         "Expected inlined-at fields to agree");
+  return new (DbgInfo->getAlloc()) SDDbgValue(Var, Expr, VReg, IsIndirect, DL,
+                                              O);
+}
+
 void SelectionDAG::transferDbgValues(SDValue From, SDValue To,
                                      unsigned OffsetInBits, unsigned SizeInBits,
                                      bool InvalidateDbg) {
@@ -8389,7 +8522,7 @@ bool ShuffleVectorSDNode::isSplatMask(const int *Mask, EVT VT) {
   return true;
 }
 
-// \brief Returns the SDNode if it is a constant integer BuildVector
+// Returns the SDNode if it is a constant integer BuildVector
 // or constant integer.
 SDNode *SelectionDAG::isConstantIntBuildVectorOrConstantInt(SDValue N) {
   if (isa<ConstantSDNode>(N))

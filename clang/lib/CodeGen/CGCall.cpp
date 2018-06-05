@@ -1679,7 +1679,7 @@ static void AddAttributesFromFunctionProtoType(ASTContext &Ctx,
     return;
 
   if (!isUnresolvedExceptionSpec(FPT->getExceptionSpecType()) &&
-      FPT->isNothrow(Ctx))
+      FPT->isNothrow())
     FuncAttrs.addAttribute(llvm::Attribute::NoUnwind);
 }
 
@@ -1726,6 +1726,11 @@ void CodeGenModule::ConstructDefaultFnAttrList(StringRef Name, bool HasOptnone,
 
     FuncAttrs.addAttribute("no-trapping-math",
                            llvm::toStringRef(CodeGenOpts.NoTrappingMath));
+
+    // Strict (compliant) code is the default, so only add this attribute to
+    // indicate that we are trying to workaround a problem case.
+    if (!CodeGenOpts.StrictFloatCastOverflow)
+      FuncAttrs.addAttribute("strict-float-cast-overflow", "false");
 
     // TODO: Are these all needed?
     // unsafe/inf/nan/nsz are handled by instruction-level FastMathFlags.
@@ -1804,7 +1809,7 @@ void CodeGenModule::ConstructAttributeList(
     FuncAttrs.addAttribute(llvm::Attribute::NoReturn);
 
   // If we have information about the function prototype, we can learn
-  // attributes form there.
+  // attributes from there.
   AddAttributesFromFunctionProtoType(getContext(), FuncAttrs,
                                      CalleeInfo.getCalleeFunctionProtoType());
 
@@ -3062,6 +3067,18 @@ void CodeGenFunction::EmitDelegateCallArg(CallArgList &args,
   // aggregate r-values are actually pointers to temporaries.
   } else {
     args.add(convertTempToRValue(local, type, loc), type);
+  }
+
+  // Deactivate the cleanup for the callee-destructed param that was pushed.
+  if (hasAggregateEvaluationKind(type) && !CurFuncIsThunk &&
+      getContext().isParamDestroyedInCallee(type) && type.isDestructedType()) {
+    EHScopeStack::stable_iterator cleanup =
+        CalleeDestructedParamCleanups.lookup(cast<ParmVarDecl>(param));
+    assert(cleanup.isValid() &&
+           "cleanup for callee-destructed param not recorded");
+    // This unreachable is a temporary marker which will be removed later.
+    llvm::Instruction *isActive = Builder.CreateUnreachable();
+    args.addArgCleanupDeactivation(cleanup, isActive);
   }
 }
 

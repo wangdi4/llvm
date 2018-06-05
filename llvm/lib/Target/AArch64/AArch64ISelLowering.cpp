@@ -577,6 +577,8 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
   setTargetDAGCombine(ISD::INTRINSIC_W_CHAIN);
   setTargetDAGCombine(ISD::INSERT_VECTOR_ELT);
 
+  setTargetDAGCombine(ISD::GlobalAddress);
+
   MaxStoresPerMemset = MaxStoresPerMemsetOptSize = 8;
   MaxStoresPerMemcpy = MaxStoresPerMemcpyOptSize = 4;
   MaxStoresPerMemmove = MaxStoresPerMemmoveOptSize = 4;
@@ -701,9 +703,14 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
     for (MVT VT : MVT::vector_valuetypes()) {
       setOperationAction(ISD::SIGN_EXTEND_INREG, VT, Expand);
 
-      setOperationAction(ISD::MULHS, VT, Expand);
+      if (VT == MVT::v16i8 || VT == MVT::v8i16 || VT == MVT::v4i32) {
+        setOperationAction(ISD::MULHS, VT, Custom);
+        setOperationAction(ISD::MULHU, VT, Custom);
+      } else {
+        setOperationAction(ISD::MULHS, VT, Expand);
+        setOperationAction(ISD::MULHU, VT, Expand);
+      }
       setOperationAction(ISD::SMUL_LOHI, VT, Expand);
-      setOperationAction(ISD::MULHU, VT, Expand);
       setOperationAction(ISD::UMUL_LOHI, VT, Expand);
 
       setOperationAction(ISD::BSWAP, VT, Expand);
@@ -2547,6 +2554,66 @@ static SDValue LowerMUL(SDValue Op, SelectionDAG &DAG) {
                                DAG.getNode(ISD::BITCAST, DL, Op1VT, N01), Op1));
 }
 
+// Lower vector multiply high (ISD::MULHS and ISD::MULHU).
+static SDValue LowerMULH(SDValue Op, SelectionDAG &DAG) {
+  // Multiplications are only custom-lowered for 128-bit vectors so that
+  // {S,U}MULL{2} can be detected.  Otherwise v2i64 multiplications are not
+  // legal.
+  EVT VT = Op.getValueType();
+  assert(VT.is128BitVector() && VT.isInteger() &&
+         "unexpected type for custom-lowering ISD::MULH{U,S}");
+
+  SDValue V0 = Op.getOperand(0);
+  SDValue V1 = Op.getOperand(1);
+
+  SDLoc DL(Op);
+
+  EVT ExtractVT = VT.getHalfNumVectorElementsVT(*DAG.getContext());
+
+  // We turn (V0 mulhs/mulhu V1) to:
+  //
+  // (uzp2 (smull (extract_subvector (ExtractVT V128:V0, (i64 0)),
+  //              (extract_subvector (ExtractVT V128:V1, (i64 0))))),
+  //       (smull (extract_subvector (ExtractVT V128:V0, (i64 VMull2Idx)),
+  //              (extract_subvector (ExtractVT V128:V2, (i64 VMull2Idx))))))
+  //
+  // Where ExtractVT is a subvector with half number of elements, and
+  // VMullIdx2 is the index of the middle element (the high part).
+  //
+  // The vector hight part extract and multiply will be matched against
+  // {S,U}MULL{v16i8_v8i16,v8i16_v4i32,v4i32_v2i64} which in turn will
+  // issue a {s}mull2 instruction.
+  //
+  // This basically multiply the lower subvector with '{s,u}mull', the high
+  // subvector with '{s,u}mull2', and shuffle both results high part in
+  // resulting vector.
+  unsigned Mull2VectorIdx = VT.getVectorNumElements () / 2;
+  SDValue VMullIdx = DAG.getConstant(0, DL, MVT::i64);
+  SDValue VMull2Idx = DAG.getConstant(Mull2VectorIdx, DL, MVT::i64);
+
+  SDValue VMullV0 =
+    DAG.getNode(ISD::EXTRACT_SUBVECTOR, DL, ExtractVT, V0, VMullIdx);
+  SDValue VMullV1 =
+    DAG.getNode(ISD::EXTRACT_SUBVECTOR, DL, ExtractVT, V1, VMullIdx);
+
+  SDValue VMull2V0 =
+    DAG.getNode(ISD::EXTRACT_SUBVECTOR, DL, ExtractVT, V0, VMull2Idx);
+  SDValue VMull2V1 =
+    DAG.getNode(ISD::EXTRACT_SUBVECTOR, DL, ExtractVT, V1, VMull2Idx);
+
+  unsigned MullOpc = Op.getOpcode() == ISD::MULHS ? AArch64ISD::SMULL
+                                                  : AArch64ISD::UMULL;
+
+  EVT MullVT = ExtractVT.widenIntegerVectorElementType(*DAG.getContext());
+  SDValue Mull  = DAG.getNode(MullOpc, DL, MullVT, VMullV0, VMullV1);
+  SDValue Mull2 = DAG.getNode(MullOpc, DL, MullVT, VMull2V0, VMull2V1);
+
+  Mull  = DAG.getNode(ISD::BITCAST, DL, VT, Mull);
+  Mull2 = DAG.getNode(ISD::BITCAST, DL, VT, Mull2);
+
+  return DAG.getNode(AArch64ISD::UZP2, DL, VT, Mull, Mull2);
+}
+
 SDValue AArch64TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
                                                      SelectionDAG &DAG) const {
   unsigned IntNo = cast<ConstantSDNode>(Op.getOperand(0))->getZExtValue();
@@ -2679,6 +2746,9 @@ SDValue AArch64TargetLowering::LowerOperation(SDValue Op,
     return LowerFSINCOS(Op, DAG);
   case ISD::MUL:
     return LowerMUL(Op, DAG);
+  case ISD::MULHS:
+  case ISD::MULHU:
+    return LowerMULH(Op, DAG);
   case ISD::INTRINSIC_WO_CHAIN:
     return LowerINTRINSIC_WO_CHAIN(Op, DAG);
   case ISD::VECREDUCE_ADD:
@@ -3677,7 +3747,8 @@ AArch64TargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
 SDValue AArch64TargetLowering::getTargetNode(GlobalAddressSDNode *N, EVT Ty,
                                              SelectionDAG &DAG,
                                              unsigned Flag) const {
-  return DAG.getTargetGlobalAddress(N->getGlobal(), SDLoc(N), Ty, 0, Flag);
+  return DAG.getTargetGlobalAddress(N->getGlobal(), SDLoc(N), Ty,
+                                    N->getOffset(), Flag);
 }
 
 SDValue AArch64TargetLowering::getTargetNode(JumpTableSDNode *N, EVT Ty,
@@ -3752,8 +3823,9 @@ SDValue AArch64TargetLowering::LowerGlobalAddress(SDValue Op,
   unsigned char OpFlags =
       Subtarget->ClassifyGlobalReference(GV, getTargetMachine());
 
-  assert(cast<GlobalAddressSDNode>(Op)->getOffset() == 0 &&
-         "unexpected offset in global node");
+  if (OpFlags != AArch64II::MO_NO_FLAG)
+    assert(cast<GlobalAddressSDNode>(Op)->getOffset() == 0 &&
+           "unexpected offset in global node");
 
   // This also catches the large code model case for Darwin.
   if ((OpFlags & AArch64II::MO_GOT) != 0) {
@@ -3774,7 +3846,7 @@ SDValue AArch64TargetLowering::LowerGlobalAddress(SDValue Op,
   return Result;
 }
 
-/// \brief Convert a TLS address reference into the correct sequence of loads
+/// Convert a TLS address reference into the correct sequence of loads
 /// and calls to compute the variable's address (for Darwin, currently) and
 /// return an SDValue containing the final node.
 
@@ -4991,10 +5063,8 @@ SDValue AArch64TargetLowering::LowerShiftLeftParts(SDValue Op,
 
 bool AArch64TargetLowering::isOffsetFoldingLegal(
     const GlobalAddressSDNode *GA) const {
-  DEBUG(dbgs() << "Skipping offset folding global address: ");
-  DEBUG(GA->dump());
-  DEBUG(dbgs() << "AArch64 doesn't support folding offsets into global "
-        "addresses\n");
+  // Offsets are folded in the DAG combine rather than here so that we can
+  // intelligently choose an offset based on the uses.
   return false;
 }
 
@@ -5075,7 +5145,7 @@ SDValue AArch64TargetLowering::getSqrtEstimate(SDValue Operand,
       EVT VT = Operand.getValueType();
 
       SDNodeFlags Flags;
-      Flags.setUnsafeAlgebra(true);
+      Flags.setAllowReassociation(true);
 
       // Newton reciprocal square root iteration: E * 0.5 * (3 - X * E^2)
       // AArch64 reciprocal square root iteration instruction: 0.5 * (3 - M * N)
@@ -5114,7 +5184,7 @@ SDValue AArch64TargetLowering::getRecipEstimate(SDValue Operand,
       EVT VT = Operand.getValueType();
 
       SDNodeFlags Flags;
-      Flags.setUnsafeAlgebra(true);
+      Flags.setAllowReassociation(true);
 
       // Newton reciprocal iteration: E * (2 - X * E)
       // AArch64 reciprocal iteration instruction: (2 - M * N)
@@ -7861,7 +7931,7 @@ bool AArch64TargetLowering::isLegalInterleavedAccessType(
   return VecSize == 64 || VecSize % 128 == 0;
 }
 
-/// \brief Lower an interleaved load into a ldN intrinsic.
+/// Lower an interleaved load into a ldN intrinsic.
 ///
 /// E.g. Lower an interleaved load (Factor = 2):
 ///        %wide.vec = load <8 x i32>, <8 x i32>* %ptr
@@ -7973,7 +8043,7 @@ bool AArch64TargetLowering::lowerInterleavedLoad(
   return true;
 }
 
-/// \brief Lower an interleaved store into a stN intrinsic.
+/// Lower an interleaved store into a stN intrinsic.
 ///
 /// E.g. Lower an interleaved store (Factor = 3):
 ///        %i.vec = shuffle <8 x i32> %v0, <8 x i32> %v1,
@@ -8031,8 +8101,7 @@ bool AArch64TargetLowering::lowerInterleavedStore(StoreInst *SI,
   // vectors to integer vectors.
   if (EltTy->isPointerTy()) {
     Type *IntTy = DL.getIntPtrType(EltTy);
-    unsigned NumOpElts =
-        dyn_cast<VectorType>(Op0->getType())->getVectorNumElements();
+    unsigned NumOpElts = Op0->getType()->getVectorNumElements();
 
     // Convert to the corresponding integer vector.
     Type *IntVecTy = VectorType::get(IntTy, NumOpElts);
@@ -9157,26 +9226,26 @@ static bool isEssentiallyExtractSubvector(SDValue N) {
          N.getOperand(0).getOpcode() == ISD::EXTRACT_SUBVECTOR;
 }
 
-/// \brief Helper structure to keep track of ISD::SET_CC operands.
+/// Helper structure to keep track of ISD::SET_CC operands.
 struct GenericSetCCInfo {
   const SDValue *Opnd0;
   const SDValue *Opnd1;
   ISD::CondCode CC;
 };
 
-/// \brief Helper structure to keep track of a SET_CC lowered into AArch64 code.
+/// Helper structure to keep track of a SET_CC lowered into AArch64 code.
 struct AArch64SetCCInfo {
   const SDValue *Cmp;
   AArch64CC::CondCode CC;
 };
 
-/// \brief Helper structure to keep track of SetCC information.
+/// Helper structure to keep track of SetCC information.
 union SetCCInfo {
   GenericSetCCInfo Generic;
   AArch64SetCCInfo AArch64;
 };
 
-/// \brief Helper structure to be able to read SetCC information.  If set to
+/// Helper structure to be able to read SetCC information.  If set to
 /// true, IsAArch64 field, Info is a AArch64SetCCInfo, otherwise Info is a
 /// GenericSetCCInfo.
 struct SetCCInfoAndKind {
@@ -9184,7 +9253,7 @@ struct SetCCInfoAndKind {
   bool IsAArch64;
 };
 
-/// \brief Check whether or not \p Op is a SET_CC operation, either a generic or
+/// Check whether or not \p Op is a SET_CC operation, either a generic or
 /// an
 /// AArch64 lowered one.
 /// \p SetCCInfo is filled accordingly.
@@ -10617,6 +10686,59 @@ static SDValue performNVCASTCombine(SDNode *N) {
   return SDValue();
 }
 
+// If all users of the globaladdr are of the form (globaladdr + constant), find
+// the smallest constant, fold it into the globaladdr's offset and rewrite the
+// globaladdr as (globaladdr + constant) - constant.
+static SDValue performGlobalAddressCombine(SDNode *N, SelectionDAG &DAG,
+                                           const AArch64Subtarget *Subtarget,
+                                           const TargetMachine &TM) {
+  auto *GN = dyn_cast<GlobalAddressSDNode>(N);
+  if (!GN || Subtarget->ClassifyGlobalReference(GN->getGlobal(), TM) !=
+                 AArch64II::MO_NO_FLAG)
+    return SDValue();
+
+  uint64_t MinOffset = -1ull;
+  for (SDNode *N : GN->uses()) {
+    if (N->getOpcode() != ISD::ADD)
+      return SDValue();
+    auto *C = dyn_cast<ConstantSDNode>(N->getOperand(0));
+    if (!C)
+      C = dyn_cast<ConstantSDNode>(N->getOperand(1));
+    if (!C)
+      return SDValue();
+    MinOffset = std::min(MinOffset, C->getZExtValue());
+  }
+  uint64_t Offset = MinOffset + GN->getOffset();
+
+  // Require that the new offset is larger than the existing one. Otherwise, we
+  // can end up oscillating between two possible DAGs, for example,
+  // (add (add globaladdr + 10, -1), 1) and (add globaladdr + 9, 1).
+  if (Offset <= uint64_t(GN->getOffset()))
+    return SDValue();
+
+  // Check whether folding this offset is legal. It must not go out of bounds of
+  // the referenced object to avoid violating the code model, and must be
+  // smaller than 2^21 because this is the largest offset expressible in all
+  // object formats.
+  //
+  // This check also prevents us from folding negative offsets, which will end
+  // up being treated in the same way as large positive ones. They could also
+  // cause code model violations, and aren't really common enough to matter.
+  if (Offset >= (1 << 21))
+    return SDValue();
+
+  const GlobalValue *GV = GN->getGlobal();
+  Type *T = GV->getValueType();
+  if (!T->isSized() ||
+      Offset > GV->getParent()->getDataLayout().getTypeAllocSize(T))
+    return SDValue();
+
+  SDLoc DL(GN);
+  SDValue Result = DAG.getGlobalAddress(GV, DL, MVT::i64, Offset);
+  return DAG.getNode(ISD::SUB, DL, MVT::i64, Result,
+                     DAG.getConstant(MinOffset, DL, MVT::i64));
+}
+
 SDValue AArch64TargetLowering::PerformDAGCombine(SDNode *N,
                                                  DAGCombinerInfo &DCI) const {
   SelectionDAG &DAG = DCI.DAG;
@@ -10704,6 +10826,8 @@ SDValue AArch64TargetLowering::PerformDAGCombine(SDNode *N,
     default:
       break;
     }
+  case ISD::GlobalAddress:
+    return performGlobalAddressCombine(N, DAG, Subtarget, getTargetMachine());
   }
   return SDValue();
 }

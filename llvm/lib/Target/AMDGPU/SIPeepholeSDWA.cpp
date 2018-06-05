@@ -39,6 +39,7 @@
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/MC/LaneBitmask.h"
 #include "llvm/MC/MCInstrDesc.h"
 #include "llvm/Pass.h"
@@ -699,7 +700,7 @@ SIPeepholeSDWA::matchSDWAOperand(MachineInstr &MI) {
 
     MachineOperand *Dst = TII->getNamedOperand(MI, AMDGPU::OpName::vdst);
 
-    if (TRI->isPhysicalRegister(Src1->getReg()) ||
+    if (TRI->isPhysicalRegister(ValSrc->getReg()) ||
         TRI->isPhysicalRegister(Dst->getReg()))
       break;
 

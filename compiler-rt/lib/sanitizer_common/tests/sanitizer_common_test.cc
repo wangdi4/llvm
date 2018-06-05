@@ -88,25 +88,8 @@ TEST(SanitizerCommon, MmapAlignedOrDieOnFatalError) {
   }
 }
 
-#if SANITIZER_LINUX
-TEST(SanitizerCommon, SanitizerSetThreadName) {
-  const char *names[] = {
-    "0123456789012",
-    "01234567890123",
-    "012345678901234",  // Larger names will be truncated on linux.
-  };
-
-  for (size_t i = 0; i < ARRAY_SIZE(names); i++) {
-    EXPECT_TRUE(SanitizerSetThreadName(names[i]));
-    char buff[100];
-    EXPECT_TRUE(SanitizerGetThreadName(buff, sizeof(buff) - 1));
-    EXPECT_EQ(0, internal_strcmp(buff, names[i]));
-  }
-}
-#endif
-
 TEST(SanitizerCommon, InternalMmapVector) {
-  InternalMmapVector<uptr> vector(1);
+  InternalMmapVector<uptr> vector;
   for (uptr i = 0; i < 100; i++) {
     EXPECT_EQ(i, vector.size());
     vector.push_back(i);
@@ -119,9 +102,32 @@ TEST(SanitizerCommon, InternalMmapVector) {
     vector.pop_back();
     EXPECT_EQ((uptr)i, vector.size());
   }
-  InternalMmapVector<uptr> empty_vector(0);
+  InternalMmapVector<uptr> empty_vector;
   CHECK_GT(empty_vector.capacity(), 0U);
   CHECK_EQ(0U, empty_vector.size());
+}
+
+TEST(SanitizerCommon, InternalMmapVectorEq) {
+  InternalMmapVector<uptr> vector1;
+  InternalMmapVector<uptr> vector2;
+  for (uptr i = 0; i < 100; i++) {
+    vector1.push_back(i);
+    vector2.push_back(i);
+  }
+  EXPECT_TRUE(vector1 == vector2);
+  EXPECT_FALSE(vector1 != vector2);
+
+  vector1.push_back(1);
+  EXPECT_FALSE(vector1 == vector2);
+  EXPECT_TRUE(vector1 != vector2);
+
+  vector2.push_back(1);
+  EXPECT_TRUE(vector1 == vector2);
+  EXPECT_FALSE(vector1 != vector2);
+
+  vector1[55] = 1;
+  EXPECT_FALSE(vector1 == vector2);
+  EXPECT_TRUE(vector1 != vector2);
 }
 
 void TestThreadInfo(bool main) {

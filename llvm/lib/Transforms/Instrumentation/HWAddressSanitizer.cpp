@@ -121,7 +121,7 @@ static cl::opt<unsigned long long> ClMappingOffset(
 
 namespace {
 
-/// \brief An instrumentation pass implementing detection of addressability bugs
+/// An instrumentation pass implementing detection of addressability bugs
 /// using tagged pointers.
 class HWAddressSanitizer : public FunctionPass {
 public:
@@ -223,7 +223,7 @@ FunctionPass *llvm::createHWAddressSanitizerPass(bool CompileKernel,
   return new HWAddressSanitizer(CompileKernel, Recover);
 }
 
-/// \brief Module-level initialization.
+/// Module-level initialization.
 ///
 /// inserts a call to __hwasan_init to the module's constructor list.
 bool HWAddressSanitizer::doInitialization(Module &M) {
@@ -737,19 +737,17 @@ bool HWAddressSanitizer::runOnFunction(Function &F) {
 
 void HWAddressSanitizer::ShadowMapping::init(Triple &TargetTriple) {
   const bool IsAndroid = TargetTriple.isAndroid();
-  const bool IsLinux = TargetTriple.isOSLinux();
-  const bool IsX86_64 = TargetTriple.getArch() == Triple::x86_64;
   const bool IsAndroidWithIfuncSupport =
       IsAndroid && !TargetTriple.isAndroidVersionLT(21);
 
   Scale = kDefaultShadowScale;
 
-  if (ClEnableKhwasan || ClInstrumentWithCalls)
+  if (ClEnableKhwasan || ClInstrumentWithCalls || !IsAndroidWithIfuncSupport)
     Offset = 0;
   else
     Offset = kDynamicShadowSentinel;
   if (ClMappingOffset.getNumOccurrences() > 0)
     Offset = ClMappingOffset;
 
-  InGlobal = (IsX86_64 && IsLinux) || IsAndroidWithIfuncSupport;
+  InGlobal = IsAndroidWithIfuncSupport;
 }

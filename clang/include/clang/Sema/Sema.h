@@ -4716,7 +4716,7 @@ public:
 
     /// \brief Get the computed exception specification type.
     ExceptionSpecificationType getExceptionSpecType() const {
-      assert(ComputedEST != EST_ComputedNoexcept &&
+      assert(!isComputedNoexcept(ComputedEST) &&
              "noexcept(expr) should not be a possible result");
       return ComputedEST;
     }
@@ -4744,7 +4744,7 @@ public:
         /// C++11 [except.spec]p14:
         ///   The exception-specification is noexcept(false) if the set of
         ///   potential exceptions of the special member function contains "any"
-        ESI.Type = EST_ComputedNoexcept;
+        ESI.Type = EST_NoexceptFalse;
         ESI.NoexceptExpr = Self->ActOnCXXBoolLiteral(SourceLocation(),
                                                      tok::kw_false).get();
       }
@@ -4794,6 +4794,11 @@ public:
   /// \brief Evaluate the implicit exception specification for a defaulted
   /// special member function.
   void EvaluateImplicitExceptionSpec(SourceLocation Loc, CXXMethodDecl *MD);
+
+  /// Check the given noexcept-specifier, convert its expression, and compute
+  /// the appropriate ExceptionSpecificationType.
+  ExprResult ActOnNoexceptSpec(SourceLocation NoexceptLoc, Expr *NoexceptExpr,
+                               ExceptionSpecificationType &EST);
 
   /// \brief Check the given exception-specification and update the
   /// exception specification information with the results.
@@ -6074,7 +6079,7 @@ public:
   TemplateNameKind isTemplateName(Scope *S,
                                   CXXScopeSpec &SS,
                                   bool hasTemplateKeyword,
-                                  UnqualifiedId &Name,
+                                  const UnqualifiedId &Name,
                                   ParsedType ObjectType,
                                   bool EnteringContext,
                                   TemplateTy &Template,
@@ -6229,6 +6234,8 @@ public:
                                 SourceLocation TemplateLoc,
                                 const TemplateArgumentListInfo *TemplateArgs);
 
+  void diagnoseMissingTemplateArguments(TemplateName Name, SourceLocation Loc);
+
   ExprResult BuildTemplateIdExpr(const CXXScopeSpec &SS,
                                  SourceLocation TemplateKWLoc,
                                  LookupResult &R,
@@ -6242,7 +6249,7 @@ public:
 
   TemplateNameKind ActOnDependentTemplateName(
       Scope *S, CXXScopeSpec &SS, SourceLocation TemplateKWLoc,
-      UnqualifiedId &Name, ParsedType ObjectType, bool EnteringContext,
+      const UnqualifiedId &Name, ParsedType ObjectType, bool EnteringContext,
       TemplateTy &Template, bool AllowInjectedClassName = false);
 
   DeclResult

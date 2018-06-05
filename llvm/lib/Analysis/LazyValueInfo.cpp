@@ -1222,7 +1222,7 @@ static ValueLatticeElement constantFoldUser(User *Usr, Value *Op,
   return ValueLatticeElement::getOverdefined();
 }
 
-/// \brief Compute the value of Val on the edge BBFrom -> BBTo. Returns false if
+/// Compute the value of Val on the edge BBFrom -> BBTo. Returns false if
 /// Val is not constrained on the edge.  Result is unspecified if return value
 /// is false.
 static bool getEdgeValueLocal(Value *Val, BasicBlock *BBFrom,
@@ -1347,7 +1347,7 @@ static bool getEdgeValueLocal(Value *Val, BasicBlock *BBFrom,
   return false;
 }
 
-/// \brief Compute the value of Val on the edge BBFrom -> BBTo or the value at
+/// Compute the value of Val on the edge BBFrom -> BBTo or the value at
 /// the basic block if the edge does not constrain Val.
 bool LazyValueInfoImpl::getEdgeValue(Value *Val, BasicBlock *BBFrom,
                                      BasicBlock *BBTo,
@@ -1843,7 +1843,7 @@ void LazyValueInfoAnnotatedWriter::emitBasicBlockStartAnnot(
 
 // This function prints the LVI analysis for the instruction I at the beginning
 // of various basic blocks. It relies on calculated values that are stored in
-// the LazyValueInfoCache, and in the absence of cached values, recalculte the
+// the LazyValueInfoCache, and in the absence of cached values, recalculate the
 // LazyValueInfo for `I`, and print that info.
 void LazyValueInfoAnnotatedWriter::emitInstructionAnnot(
     const Instruction *I, formatted_raw_ostream &OS) {

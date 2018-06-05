@@ -51,7 +51,7 @@ STATISTIC(NumStoreStrongs, "Number objc_storeStrong calls formed");
 //===----------------------------------------------------------------------===//
 
 namespace {
-  /// \brief Late ARC optimizations
+  /// Late ARC optimizations
   ///
   /// These change the IR in a way that makes it difficult to be analyzed by
   /// ObjCARCOpt, so it's run late.
@@ -75,13 +75,12 @@ namespace {
     SmallPtrSet<CallInst *, 8> StoreStrongCalls;
 
     /// Returns true if we eliminated Inst.
-    bool
-    tryToPeepholeInstruction(Function &F, Instruction *Inst,
-                             inst_iterator &Iter,
-                             SmallPtrSetImpl<Instruction *> &DepInsts,
-                             SmallPtrSetImpl<const BasicBlock *> &Visited,
-                             bool &TailOkForStoreStrong,
-                             DenseMap<BasicBlock *, ColorVector> &BlockColors);
+    bool tryToPeepholeInstruction(
+        Function &F, Instruction *Inst, inst_iterator &Iter,
+        SmallPtrSetImpl<Instruction *> &DepInsts,
+        SmallPtrSetImpl<const BasicBlock *> &Visited,
+        bool &TailOkForStoreStrong,
+        const DenseMap<BasicBlock *, ColorVector> &BlockColors);
 
     bool optimizeRetainCall(Function &F, Instruction *Retain);
 
@@ -91,8 +90,9 @@ namespace {
                         SmallPtrSetImpl<Instruction *> &DependingInstructions,
                         SmallPtrSetImpl<const BasicBlock *> &Visited);
 
-    void tryToContractReleaseIntoStoreStrong(Instruction *Release,
-                                             inst_iterator &Iter);
+    void tryToContractReleaseIntoStoreStrong(
+        Instruction *Release, inst_iterator &Iter,
+        const DenseMap<BasicBlock *, ColorVector> &BlockColors);
 
     void getAnalysisUsage(AnalysisUsage &AU) const override;
     bool doInitialization(Module &M) override;
@@ -306,6 +306,24 @@ findRetainForStoreStrongContraction(Value *New, StoreInst *Store,
   return Retain;
 }
 
+/// Create a call instruction with the correct funclet token. Should be used
+/// instead of calling CallInst::Create directly.
+static CallInst *
+createCallInst(Value *Func, ArrayRef<Value *> Args, const Twine &NameStr,
+               Instruction *InsertBefore,
+               const DenseMap<BasicBlock *, ColorVector> &BlockColors) {
+  SmallVector<OperandBundleDef, 1> OpBundles;
+  if (!BlockColors.empty()) {
+    const ColorVector &CV = BlockColors.find(InsertBefore->getParent())->second;
+    assert(CV.size() == 1 && "non-unique color for block!");
+    Instruction *EHPad = CV.front()->getFirstNonPHI();
+    if (EHPad->isEHPad())
+      OpBundles.emplace_back("funclet", EHPad);
+  }
+
+  return CallInst::Create(Func, Args, OpBundles, NameStr, InsertBefore);
+}
+
 /// Attempt to merge an objc_release with a store, load, and objc_retain to form
 /// an objc_storeStrong. An objc_storeStrong:
 ///
@@ -333,8 +351,9 @@ findRetainForStoreStrongContraction(Value *New, StoreInst *Store,
 ///     (4).
 ///  2. We need to make sure that any re-orderings of (1), (2), (3), (4) are
 ///     safe.
-void ObjCARCContract::tryToContractReleaseIntoStoreStrong(Instruction *Release,
-                                                          inst_iterator &Iter) {
+void ObjCARCContract::tryToContractReleaseIntoStoreStrong(
+    Instruction *Release, inst_iterator &Iter,
+    const DenseMap<BasicBlock *, ColorVector> &BlockColors) {
   // See if we are releasing something that we just loaded.
   auto *Load = dyn_cast<LoadInst>(GetArgRCIdentityRoot(Release));
   if (!Load || !Load->isSimple())
@@ -386,7 +405,7 @@ void ObjCARCContract::tryToContractReleaseIntoStoreStrong(Instruction *Release,
   if (Args[1]->getType() != I8X)
     Args[1] = new BitCastInst(Args[1], I8X, "", Store);
   Constant *Decl = EP.get(ARCRuntimeEntryPointKind::StoreStrong);
-  CallInst *StoreStrong = CallInst::Create(Decl, Args, "", Store);
+  CallInst *StoreStrong = createCallInst(Decl, Args, "", Store, BlockColors);
   StoreStrong->setDoesNotThrow();
   StoreStrong->setDebugLoc(Store->getDebugLoc());
 
@@ -411,7 +430,7 @@ bool ObjCARCContract::tryToPeepholeInstruction(
   SmallPtrSetImpl<Instruction *> &DependingInsts,
   SmallPtrSetImpl<const BasicBlock *> &Visited,
   bool &TailOkForStoreStrongs,
-  DenseMap<BasicBlock *, ColorVector> &BlockColors) {
+  const DenseMap<BasicBlock *, ColorVector> &BlockColors) {
     // Only these library routines return their argument. In particular,
     // objc_retainBlock does not necessarily return its argument.
   ARCInstKind Class = GetBasicARCInstKind(Inst);
@@ -462,16 +481,7 @@ bool ObjCARCContract::tryToPeepholeInstruction(
             RVInstMarker->getString(),
             /*Constraints=*/"", /*hasSideEffects=*/true);
 
-        SmallVector<OperandBundleDef, 1> OpBundles;
-        if (!BlockColors.empty()) {
-          const ColorVector &CV = BlockColors.find(Inst->getParent())->second;
-          assert(CV.size() == 1 && "non-unique color for block!");
-          Instruction *EHPad = CV.front()->getFirstNonPHI();
-          if (EHPad->isEHPad())
-            OpBundles.emplace_back("funclet", EHPad);
-        }
-
-        CallInst::Create(IA, None, OpBundles, "", Inst);
+        createCallInst(IA, None, "", Inst, BlockColors);
       }
     decline_rv_optimization:
       return false;
@@ -496,7 +506,7 @@ bool ObjCARCContract::tryToPeepholeInstruction(
     case ARCInstKind::Release:
       // Try to form an objc store strong from our release. If we fail, there is
       // nothing further to do below, so continue.
-      tryToContractReleaseIntoStoreStrong(Inst, Iter);
+      tryToContractReleaseIntoStoreStrong(Inst, Iter, BlockColors);
       return true;
     case ARCInstKind::User:
       // Be conservative if the function has any alloca instructions.
@@ -587,35 +597,48 @@ bool ObjCARCContract::runOnFunction(Function &F) {
         // trivially dominate itself, which would lead us to rewriting its
         // argument in terms of its return value, which would lead to
         // infinite loops in GetArgRCIdentityRoot.
-        if (DT->isReachableFromEntry(U) && DT->dominates(Inst, U)) {
-          Changed = true;
-          Instruction *Replacement = Inst;
-          Type *UseTy = U.get()->getType();
-          if (PHINode *PHI = dyn_cast<PHINode>(U.getUser())) {
-            // For PHI nodes, insert the bitcast in the predecessor block.
-            unsigned ValNo = PHINode::getIncomingValueNumForOperand(OperandNo);
-            BasicBlock *BB = PHI->getIncomingBlock(ValNo);
-            if (Replacement->getType() != UseTy)
-              Replacement = new BitCastInst(Replacement, UseTy, "",
-                                            &BB->back());
-            // While we're here, rewrite all edges for this PHI, rather
-            // than just one use at a time, to minimize the number of
-            // bitcasts we emit.
-            for (unsigned i = 0, e = PHI->getNumIncomingValues(); i != e; ++i)
-              if (PHI->getIncomingBlock(i) == BB) {
-                // Keep the UI iterator valid.
-                if (UI != UE &&
-                    &PHI->getOperandUse(
-                        PHINode::getOperandNumForIncomingValue(i)) == &*UI)
-                  ++UI;
-                PHI->setIncomingValue(i, Replacement);
-              }
-          } else {
-            if (Replacement->getType() != UseTy)
-              Replacement = new BitCastInst(Replacement, UseTy, "",
-                                            cast<Instruction>(U.getUser()));
-            U.set(Replacement);
+        if (!DT->isReachableFromEntry(U) || !DT->dominates(Inst, U))
+          continue;
+
+        Changed = true;
+        Instruction *Replacement = Inst;
+        Type *UseTy = U.get()->getType();
+        if (PHINode *PHI = dyn_cast<PHINode>(U.getUser())) {
+          // For PHI nodes, insert the bitcast in the predecessor block.
+          unsigned ValNo = PHINode::getIncomingValueNumForOperand(OperandNo);
+          BasicBlock *IncomingBB = PHI->getIncomingBlock(ValNo);
+          if (Replacement->getType() != UseTy) {
+            // A catchswitch is both a pad and a terminator, meaning a basic
+            // block with a catchswitch has no insertion point. Keep going up
+            // the dominator tree until we find a non-catchswitch.
+            BasicBlock *InsertBB = IncomingBB;
+            while (isa<CatchSwitchInst>(InsertBB->getFirstNonPHI())) {
+              InsertBB = DT->getNode(InsertBB)->getIDom()->getBlock();
+            }
+
+            assert(DT->dominates(Inst, &InsertBB->back()) &&
+                   "Invalid insertion point for bitcast");
+            Replacement =
+                new BitCastInst(Replacement, UseTy, "", &InsertBB->back());
           }
+
+          // While we're here, rewrite all edges for this PHI, rather
+          // than just one use at a time, to minimize the number of
+          // bitcasts we emit.
+          for (unsigned i = 0, e = PHI->getNumIncomingValues(); i != e; ++i)
+            if (PHI->getIncomingBlock(i) == IncomingBB) {
+              // Keep the UI iterator valid.
+              if (UI != UE &&
+                  &PHI->getOperandUse(
+                      PHINode::getOperandNumForIncomingValue(i)) == &*UI)
+                ++UI;
+              PHI->setIncomingValue(i, Replacement);
+            }
+        } else {
+          if (Replacement->getType() != UseTy)
+            Replacement = new BitCastInst(Replacement, UseTy, "",
+                                          cast<Instruction>(U.getUser()));
+          U.set(Replacement);
         }
       }
     };

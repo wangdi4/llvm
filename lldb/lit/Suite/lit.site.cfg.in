@@ -19,6 +19,7 @@ config.dotest_args_str = "@LLDB_DOTEST_ARGS@"
 try:
     config.llvm_tools_dir = config.llvm_tools_dir % lit_config.params
     config.llvm_libs_dir = config.llvm_libs_dir % lit_config.params
+    config.dotest_args_str = config.dotest_args_str % lit_config.params
     config.llvm_build_mode = config.llvm_build_mode % lit_config.params
 except KeyError as e:
     key, = e.args

@@ -453,14 +453,10 @@ def ISB   : CRmSystemI<barrier_op, 0b110, "isb",
 
 // ARMv8.2 Dot Product
 let Predicates = [HasDotProd] in {
-def UDOT2S    : BaseSIMDThreeSameVectorDot<0, 1, "udot", ".2s", ".8b">;
-def SDOT2S    : BaseSIMDThreeSameVectorDot<0, 0, "sdot", ".2s", ".8b">;
-def UDOT4S    : BaseSIMDThreeSameVectorDot<1, 1, "udot", ".4s", ".16b">;
-def SDOT4S    : BaseSIMDThreeSameVectorDot<1, 0, "sdot", ".4s", ".16b">;
-def UDOTIDX2S : BaseSIMDThreeSameVectorDotIndex<0, 1, "udot", ".2s", ".8b", ".4b">;
-def SDOTIDX2S : BaseSIMDThreeSameVectorDotIndex<0, 0, "sdot", ".2s", ".8b", ".4b">;
-def UDOTIDX4S : BaseSIMDThreeSameVectorDotIndex<1, 1, "udot", ".4s", ".16b", ".4b">;
-def SDOTIDX4S : BaseSIMDThreeSameVectorDotIndex<1, 0, "sdot", ".4s", ".16b", ".4b">;
+defm SDOT : SIMDThreeSameVectorDot<0, "sdot", int_aarch64_neon_sdot>;
+defm UDOT : SIMDThreeSameVectorDot<1, "udot", int_aarch64_neon_udot>;
+defm SDOTlane : SIMDThreeSameVectorDotIndex<0, "sdot", int_aarch64_neon_sdot>;
+defm UDOTlane : SIMDThreeSameVectorDotIndex<1, "udot", int_aarch64_neon_udot>;
 }
 
 let Predicates = [HasRCPC] in {
@@ -3776,6 +3772,25 @@ defm : Neon_mul_widen_patterns<AArch64smull, SMULLv8i8_v8i16,
   SMULLv4i16_v4i32, SMULLv2i32_v2i64>;
 defm : Neon_mul_widen_patterns<AArch64umull, UMULLv8i8_v8i16,
   UMULLv4i16_v4i32, UMULLv2i32_v2i64>;
+
+// Patterns for smull2/umull2.
+multiclass Neon_mul_high_patterns<SDPatternOperator opnode,
+  Instruction INST8B, Instruction INST4H, Instruction INST2S> {
+  def : Pat<(v8i16 (opnode (extract_high_v16i8 V128:$Rn),
+                           (extract_high_v16i8 V128:$Rm))),
+             (INST8B V128:$Rn, V128:$Rm)>;
+  def : Pat<(v4i32 (opnode (extract_high_v8i16 V128:$Rn),
+                           (extract_high_v8i16 V128:$Rm))),
+             (INST4H V128:$Rn, V128:$Rm)>;
+  def : Pat<(v2i64 (opnode (extract_high_v4i32 V128:$Rn),
+                           (extract_high_v4i32 V128:$Rm))),
+             (INST2S V128:$Rn, V128:$Rm)>;
+}
+
+defm : Neon_mul_high_patterns<AArch64smull, SMULLv16i8_v8i16,
+  SMULLv8i16_v4i32, SMULLv4i32_v2i64>;
+defm : Neon_mul_high_patterns<AArch64umull, UMULLv16i8_v8i16,
+  UMULLv8i16_v4i32, UMULLv4i32_v2i64>;
 
 // Additional patterns for SMLAL/SMLSL and UMLAL/UMLSL
 multiclass Neon_mulacc_widen_patterns<SDPatternOperator opnode,

@@ -35,6 +35,7 @@
 
 #include "InstCombineInternal.h"
 #include "llvm-c/Initialization.h"
+#include "llvm-c/Transforms/InstCombine.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
@@ -74,6 +75,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PassManager.h"
@@ -95,7 +97,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/InstCombine/InstCombineWorklist.h"
-#include "llvm/Transforms/Scalar.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -1350,7 +1351,7 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
   } while (true);
 }
 
-/// \brief Creates node of binary operation with the same attributes as the
+/// Creates node of binary operation with the same attributes as the
 /// specified one but with other operands.
 static Value *CreateBinOpAsGiven(BinaryOperator &Inst, Value *LHS, Value *RHS,
                                  InstCombiner::BuilderTy &B) {
@@ -1361,7 +1362,7 @@ static Value *CreateBinOpAsGiven(BinaryOperator &Inst, Value *LHS, Value *RHS,
   return BO;
 }
 
-/// \brief Makes transformation of binary operation specific for vector types.
+/// Makes transformation of binary operation specific for vector types.
 /// \param Inst Binary operator to transform.
 /// \return Pointer to node that must replace the original binary operator, or
 ///         null pointer if no transformation was made.
@@ -2206,7 +2207,7 @@ Instruction *InstCombiner::visitAllocSite(Instruction &MI) {
   return nullptr;
 }
 
-/// \brief Move the call to free before a NULL test.
+/// Move the call to free before a NULL test.
 ///
 /// Check if this free is accessed after its argument has been test
 /// against NULL (property 0).
@@ -3210,7 +3211,7 @@ static bool AddReachableCodeToWorklist(BasicBlock *BB, const DataLayout &DL,
   return MadeIRChange;
 }
 
-/// \brief Populate the IC worklist from a function, and prune any dead basic
+/// Populate the IC worklist from a function, and prune any dead basic
 /// blocks discovered in the process.
 ///
 /// This also does basic constant propagation and other forward fixing to make
@@ -3366,4 +3367,8 @@ void LLVMInitializeInstCombine(LLVMPassRegistryRef R) {
 
 FunctionPass *llvm::createInstructionCombiningPass(bool ExpensiveCombines) {
   return new InstructionCombiningPass(ExpensiveCombines);
+}
+
+void LLVMAddInstructionCombiningPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createInstructionCombiningPass());
 }
