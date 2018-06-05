@@ -1,7 +1,9 @@
 ; Transformation of the outer loops considered non-benificial
 
 ; RUN: opt -hir-ssa-deconstruction -S -print-after=hir-opt-var-predicate -disable-output -hir-opt-var-predicate -disable-hir-opt-var-predicate-cost-model < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -S -disable-output -disable-hir-opt-var-predicate-cost-model < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-ssa-deconstruction -S -print-after=hir-opt-var-predicate -disable-output -hir-opt-var-predicate < %s 2>&1 | FileCheck %s -check-prefix=CM-CHECK
+; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -S -disable-output < %s 2>&1 | FileCheck %s -check-prefix=CM-CHECK
 
 ; Source code:
 ;
@@ -30,7 +32,7 @@
 ; <23>            + END LOOP
 ;           END REGION
 ;
-; CHECK: *** IR Dump After
+; CHECK: Function
 ; Function: foo
 ;
 ; CHECK:    BEGIN REGION { modified }
@@ -42,7 +44,7 @@
 ; CHECK:          + END LOOP
 ; CHECK:    END REGION
 
-; CM-CHECK: *** IR Dump After
+; CM-CHECK: Function
 ; CM-CHECK: BEGIN REGION { }
 
 ;Module Before HIR; ModuleID = 'iv-outer.c'

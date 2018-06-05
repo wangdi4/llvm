@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -disable-output -hir-opt-var-predicate -print-after=hir-opt-var-predicate -hir-cg < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>,hir-cg" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; XFAIL: *
 
@@ -11,7 +12,7 @@
 ;      + END LOOP
 ; END REGION
 
-; CHECK: After
+; CHECK: Function
 ; CHECK: BEGIN REGION { modified }
 ; CHECK:       goto if.end3.loopexit;
 ; CHECK: END REGION

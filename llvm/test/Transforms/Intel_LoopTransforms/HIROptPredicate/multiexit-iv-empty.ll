@@ -1,6 +1,7 @@
 ; XFAIL: *
 
 ; RUN: opt -hir-ssa-deconstruction -disable-output -hir-opt-var-predicate -print-after=hir-opt-var-predicate -hir-cg < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>,hir-cg" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; BEGIN REGION { }
 ;      + DO i1 = 0, %argc + -2, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 11>
@@ -11,7 +12,7 @@
 ;      + END LOOP
 ; END REGION
 
-; CHECK: After
+; CHECK: Function
 ; CHECK: BEGIN REGION { modified }
 ; CHECK:      if (10 < (-1 + (-1 * smax(-11, (1 + (-1 * %argc))))) + 1)
 ; CHECK:      {

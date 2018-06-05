@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -disable-output -hir-opt-predicate -print-after=hir-opt-predicate < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Test that cloned ifs which are under the same target loop are handled properly.
 ; In this case we have multiple if (%0 != 0) cases under their target loop DO i2.

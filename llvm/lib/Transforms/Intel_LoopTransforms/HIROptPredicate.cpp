@@ -46,6 +46,8 @@
 //    the HLIf condition for OptPredicate.
 // 5. Add opt report messages.
 
+#include "llvm/Transforms/Intel_LoopTransforms/HIROptPredicate.h"
+
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
@@ -64,6 +66,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
@@ -189,31 +192,20 @@ struct HoistCandidate {
 #endif
 };
 
-class HIROptPredicate : public HIRTransformPass {
+class HIROptPredicate {
 public:
   static char ID;
 
-  HIROptPredicate(bool EnablePartialUnswitch = true)
-      : HIRTransformPass(ID), EnablePartialUnswitch(EnablePartialUnswitch &&
-                                                    !DisablePartialUnswitch) {
-    initializeHIROptPredicatePass(*PassRegistry::getPassRegistry());
-  }
+  HIROptPredicate(HIRFramework &HIRF, HIRDDAnalysis &DDA,
+                  bool EnablePartialUnswitch = true)
+      : HIRF(HIRF), DDA(DDA), EnablePartialUnswitch(EnablePartialUnswitch &&
+                                                    !DisablePartialUnswitch) {}
 
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    // Loop Statistics is not used by this pass directly but it used by
-    // HLNodeUtils::dominates() utility. This is a workaround to keep the pass
-    // manager from freeing it.
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  }
+  bool run();
 
 private:
-  HIRDDAnalysis *DDA;
+  HIRFramework &HIRF;
+  HIRDDAnalysis &DDA;
 
   bool EnablePartialUnswitch;
 
@@ -501,7 +493,7 @@ bool HIROptPredicate::isPUCandidate(const HLIf *If, const RegDDRef *Ref,
 
   HLLoop *ParentLoop = If->getParentLoop();
   unsigned ParentLoopLevel = ParentLoop->getNestingLevel();
-  DDGraph DDG = DDA->getGraph(ParentLoop);
+  DDGraph DDG = DDA.getGraph(ParentLoop);
 
 #ifndef NDEBUG
   static HLLoop *DDGShownForLoop = nullptr;
@@ -651,17 +643,6 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
                                     Loop->child_end());
 }
 
-char HIROptPredicate::ID = 0;
-INITIALIZE_PASS_BEGIN(HIROptPredicate, OPT_SWITCH, OPT_DESC, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIROptPredicate, OPT_SWITCH, OPT_DESC, false, false)
-
-FunctionPass *llvm::createHIROptPredicatePass(bool EnablePartialUnswitch) {
-  return new HIROptPredicate(EnablePartialUnswitch);
-}
-
 void HIROptPredicate::sortCandidates() {
   std::sort(Candidates.begin(), Candidates.end(),
             [](const HoistCandidate &A, const HoistCandidate &B) {
@@ -669,17 +650,15 @@ void HIROptPredicate::sortCandidates() {
             });
 }
 
-bool HIROptPredicate::runOnFunction(Function &F) {
-  if (skipFunction(F) || DisableLoopUnswitch) {
+bool HIROptPredicate::run() {
+  if (DisableLoopUnswitch) {
     return false;
   }
 
-  DEBUG(dbgs() << "Opt Predicate for Function: " << F.getName() << "\n");
+  DEBUG(dbgs() << "Opt Predicate for Function: " << HIRF.getFunction().getName()
+               << "\n");
 
-  HIRFramework &HIR = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-
-  for (HLNode &Node : make_range(HIR.hir_begin(), HIR.hir_end())) {
+  for (HLNode &Node : make_range(HIRF.hir_begin(), HIRF.hir_end())) {
     HLRegion *Region = cast<HLRegion>(&Node);
 
     DEBUG(dbgs() << "Region: " << Region->getNumber() << ":\n");
@@ -706,8 +685,6 @@ bool HIROptPredicate::runOnFunction(Function &F) {
 
   return false;
 }
-
-void HIROptPredicate::releaseMemory() {}
 
 unsigned HIROptPredicate::getPossibleDefLevel(const CanonExpr *CE,
                                               bool &NonLinearBlob) {
@@ -1184,4 +1161,59 @@ void HIROptPredicate::addPredicateOptReport(
       .addRemark(OptReportVerbosity::Low,
                  "Invariant Condition%s hoisted out of this loop", IfNum);
   IfVisitedSet.insert(If);
+}
+
+PreservedAnalyses HIROptPredicatePass::run(llvm::Function &F,
+                                           llvm::FunctionAnalysisManager &AM) {
+  HIROptPredicate(AM.getResult<HIRFrameworkAnalysis>(F),
+                  AM.getResult<HIRDDAnalysisPass>(F), EnablePartialUnswitch)
+      .run();
+
+  return PreservedAnalyses::all();
+}
+
+class HIROptPredicateLegacyPass : public HIRTransformPass {
+  bool EnablePartialUnswitch;
+
+public:
+  static char ID;
+
+  HIROptPredicateLegacyPass(bool EnablePartialUnswitch = true)
+      : HIRTransformPass(ID), EnablePartialUnswitch(EnablePartialUnswitch) {
+    initializeHIROptPredicateLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.setPreservesAll();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+    // Loop Statistics is not used by this pass directly but it used by
+    // HLNodeUtils::dominates() utility. This is a workaround to keep the pass
+    // manager from freeing it.
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+  }
+
+  bool runOnFunction(Function &F) {
+    if (skipFunction(F)) {
+      return false;
+    }
+
+    return HIROptPredicate(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+                           getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+                           EnablePartialUnswitch)
+        .run();
+  }
+};
+
+char HIROptPredicateLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIROptPredicateLegacyPass, OPT_SWITCH, OPT_DESC, false,
+                      false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
+INITIALIZE_PASS_END(HIROptPredicateLegacyPass, OPT_SWITCH, OPT_DESC, false,
+                    false)
+
+FunctionPass *llvm::createHIROptPredicatePass(bool EnablePartialUnswitch) {
+  return new HIROptPredicateLegacyPass(EnablePartialUnswitch);
 }

@@ -3,6 +3,7 @@
 ; (%m > 100) should not be duplicated after all.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
 
 ; Source:
 ; int foo(int m, char *a, char *b) {
@@ -25,7 +26,7 @@
 ;
 ; }
 
-; CHECK:      IR Dump After
+; CHECK: Function
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK:                 if (%m > 100)
 ; CHECK-NEXT:            {

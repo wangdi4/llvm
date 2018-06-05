@@ -1,4 +1,5 @@
 ; RUN: opt -hir-cost-model-throttling=0 -hir-ssa-deconstruction -disable-output -hir-opt-predicate -print-after=hir-opt-predicate -debug-only=hir-opt-predicate < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -disable-output -debug-only=hir-opt-predicate < %s 2>&1 | FileCheck %s
 
 ; Incoming HIR:
 ;  BEGIN REGION { }
@@ -73,7 +74,7 @@
 
 ; Verify that there are no goto or labels
 
-; CHECK: After
+; CHECK: Function
 ; CHECK: BEGIN REGION { modified }
 ; CHECK-NOT: goto
 ; CHECK-NOT: :
