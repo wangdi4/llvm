@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-loop-collapse -print-before=hir-loop-collapse -print-after=hir-loop-collapse -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; HIR Loop Collapse Sanity Test: test collecting perfect-loopnest(s) starting from an outermost lp
 ;
@@ -32,7 +33,7 @@
 ;  return A[0][0][0] + B[1][1][1] + 1;
 ;}
 ;
-; CHECK: IR Dump Before HIR Loop Collapse
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { }
 ; CHECK:        + DO i1 = 0, 9, 1   <DO_LOOP>
@@ -55,7 +56,7 @@
 ; CHECK:  END REGION
 ;
 ;
-; CHECK: IR Dump After HIR Loop Collapse
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:        + DO i1 = 0, 9, 1   <DO_LOOP>
