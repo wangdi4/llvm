@@ -83,7 +83,8 @@ private:
 
   bool processGEPInst(GetElementPtrInst *GEP, uint64_t &NewIndex,
                       bool IsPreCloning);
-  void postProcessCallInst(Instruction *I);
+  void postprocessCallInst(Instruction *I);
+  void postprocessSubInst(Instruction *I);
 };
 
 } // end anonymous namespace
@@ -315,8 +316,11 @@ void DeleteFieldImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
   // TODO: Add code to update instructions using the size of our structs.
   Function *F = isCloned ? OrigFuncToCloneFuncMap[&OrigFunc] : &OrigFunc;
   for (inst_iterator It = inst_begin(F), E = inst_end(F); It != E; ++It) {
-    Instruction *I = &*It;
-    if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
+    switch (It->getOpcode()) {
+    default:
+      break;
+    case Instruction::GetElementPtr: {
+      auto *GEP = cast<GetElementPtrInst>(&*It);
       uint64_t NewIndex;
       if (processGEPInst(GEP, NewIndex, /*IsPreCloning=*/false)) {
         LLVM_DEBUG(dbgs() << "Delete field: Replacing instruction\n"
@@ -325,14 +329,18 @@ void DeleteFieldImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
             2, ConstantInt::get(Type::getInt32Ty(GEP->getContext()), NewIndex));
         LLVM_DEBUG(dbgs() << "    with\n" << *GEP << "\n");
       }
-      continue;
+    } break;
+    case Instruction::Call:
+      postprocessCallInst(&*It);
+      break;
+    case Instruction::Sub:
+      postprocessSubInst(&*It);
+      break;
     }
-    if (isa<CallInst>(I))
-      postProcessCallInst(I);
   }
 }
 
-void DeleteFieldImpl::postProcessCallInst(Instruction *I) {
+void DeleteFieldImpl::postprocessCallInst(Instruction *I) {
   auto *CInfo = DTInfo.getCallInfo(I);
   if (!CInfo || isa<dtrans::FreeCallInfo>(CInfo))
     return;
@@ -354,8 +362,31 @@ void DeleteFieldImpl::postProcessCallInst(Instruction *I) {
       LLVM_DEBUG(dbgs() << "Found call involving type with deleted fields:\n"
                         << *I << "\n"
                         << "  " << *OrigTy << "\n");
-      updateSizeOperand(I, CInfo, OrigTy, ReplTy);
+      updateCallSizeOperand(I, CInfo, OrigTy, ReplTy);
     }
+  }
+}
+
+void DeleteFieldImpl::postprocessSubInst(Instruction *I) {
+  auto *BinOp = cast<BinaryOperator>(I);
+  assert(BinOp->getOpcode() == Instruction::Sub &&
+         "postProcessSubInst called for non-sub instruction!");
+  llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
+  if (!PtrSubTy)
+    return;
+  for (auto &ONPair : OrigToNewTypeMapping) {
+    llvm::Type *OrigTy = ONPair.first;
+    llvm::Type *ReplTy = ONPair.second;
+    // FIXME: We should be remapping these the ptr sub type.
+    //    assert(PtrSubTy != OrigTy &&
+    //           "Original type ptr sub found after type replacement!");
+    //    if (PtrSubTy != ReplTy)
+    //      continue;
+    if (PtrSubTy != OrigTy)
+      continue;
+    // Call the base class to find and update all users that divide this result
+    // by the structure size.
+    updatePtrSubDivUserSizeOperand(BinOp, OrigTy, ReplTy);
   }
 }
 

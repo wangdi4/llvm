@@ -3841,25 +3841,25 @@ private:
       // at its uses.
       llvm::Type *ElementTy = DomTy->getPointerElementType();
       if (!ElementTy->isPointerTy()) {
-        SmallPtrSet<Value *, 4> VisitedUsers;
         uint64_t ElementSize = DL.getTypeAllocSize(ElementTy);
-        if (hasNonDivBySizeUses(&I, ElementSize, VisitedUsers)) {
+        if (hasNonDivBySizeUses(&I, ElementSize)) {
           DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
                        << "Pointer subtract result has non-div use:\n"
                        << "  " << I << "\n");
           // Both operands have the same alias set, so we only need to set the
           // safety condition once.
           setAllAliasedTypeSafetyData(LHSLPI, dtrans::BadPtrManipulation);
+        } else {
+          // Otherwise, add a hint in DTInfo that will make it easier for
+          // optimizations to identify the type of the element whose
+          // pointers were subtracted.
+          DTInfo.addPtrSubMapping(&I, ElementTy);
         }
       }
     }
   }
 
-  bool hasNonDivBySizeUses(Value *V, uint64_t Size,
-                           SmallPtrSetImpl<Value *> &VisitedUses) {
-    // If we've already looked at this, don't look again.
-    if (!VisitedUses.insert(V).second)
-      return false;
+  bool hasNonDivBySizeUses(Value *V, uint64_t Size) {
     for (auto *U : V->users()) {
       if (auto *BinOp = dyn_cast<BinaryOperator>(U)) {
         if (BinOp->getOpcode() != Instruction::SDiv &&
@@ -3871,17 +3871,9 @@ private:
           return true;
         continue;
       }
-      if (isa<PHINode>(U) || isa<SelectInst>(U)) {
-        if (hasNonDivBySizeUses(U, Size, VisitedUses))
-          return true;
-        continue;
-      }
-      // If we get here, the use is something other than PHI, select or div.
       DEBUG(dbgs() << "Non-div use found for pointer sub: " << *U << "\n");
       return true;
     }
-    // If we got through all the uses and didn't return true, all the uses
-    // were either PHI, select or div.
     return false;
   }
 
@@ -4132,6 +4124,18 @@ void DTransAnalysisInfo::replaceCallInfoInstruction(dtrans::CallInfo *Info,
   CallInfoMap.erase(Info->getInstruction());
   addCallInfo(NewI, Info);
   Info->setInstruction(NewI);
+}
+
+void DTransAnalysisInfo::addPtrSubMapping(llvm::BinaryOperator *BinOp,
+                                          llvm::Type *Ty) {
+  PtrSubInfoMap[BinOp] = Ty;
+}
+
+llvm::Type *DTransAnalysisInfo::getResolvedPtrSubType(BinaryOperator *BinOp) {
+  auto It = PtrSubInfoMap.find(BinOp);
+  if (It == PtrSubInfoMap.end())
+    return nullptr;
+  return It->second;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

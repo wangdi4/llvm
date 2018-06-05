@@ -30,6 +30,8 @@
 
 namespace llvm {
 
+class BinaryOperator;
+
 namespace dtrans {
 class CallInfo;
 }
@@ -263,6 +265,16 @@ private:
   // replaced due to the remapping.
   void removeDeadValues();
 
+  // Given a stack of value-operand pairs representing the use-def chain from
+  // a place where a size-multiple value is used, back to the instruction that
+  // defines a multiplication by a constant multiple of the size, replace
+  // the size constant and clone any intermediate values as needed based on
+  // other uses of values in the chain.
+  void
+  replaceSizeValue(Instruction *I,
+                   SmallVectorImpl<std::pair<User *, unsigned>> &SizeUseStack,
+                   uint64_t OrigSize, uint64_t ReplSize);
+
 protected:
   // Derived classes may call this function to find and replace the
   // input value to the specified instruction which is a multiple of the
@@ -282,8 +294,17 @@ protected:
   // Note: This function assumes that the calls involved are all processing
   // the entire function. Optimizations which use this function should check
   // the MemFuncPartialWrite safety condition.
-  void updateSizeOperand(Instruction *I, dtrans::CallInfo *CInfo,
-                         llvm::Type *OrigTy, llvm::Type *ReplTy);
+  void updateCallSizeOperand(Instruction *I, dtrans::CallInfo *CInfo,
+                             llvm::Type *OrigTy, llvm::Type *ReplTy);
+
+  // Given a pointer to a sub instruction that is known to subtract two
+  // pointers, find all users of the instruction that divide the result by
+  // a constant multiple of the original type and replace them with a divide
+  // by the a constant that is the same multiple of the replacement type.
+  // This function requires that all uses of this instruction be either
+  // sdiv or udiv instructions.
+  void updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
+                                      llvm::Type *OrigTy, llvm::Type *ReplTy);
 
   // Derived classes may use this function to find a constant input value,
   // searching from the specified operand and following the use-def chain

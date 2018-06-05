@@ -688,8 +688,10 @@ void DTransOptBase::removeDeadValues() {
   GlobalsForRemoval.clear();
 }
 
-void DTransOptBase::updateSizeOperand(Instruction *I, dtrans::CallInfo *CInfo,
-                                      llvm::Type *OrigTy, llvm::Type *ReplTy) {
+void DTransOptBase::updateCallSizeOperand(Instruction *I,
+                                          dtrans::CallInfo *CInfo,
+                                          llvm::Type *OrigTy,
+                                          llvm::Type *ReplTy) {
   uint64_t OrigSize = DL.getTypeAllocSize(OrigTy);
   uint64_t ReplSize = DL.getTypeAllocSize(ReplTy);
 
@@ -730,6 +732,35 @@ void DTransOptBase::updateSizeOperand(Instruction *I, dtrans::CallInfo *CInfo,
   // The safety conditions should guarantee that we can find this constant.
   assert(Found && "Constant multiple of size not found!");
 
+  replaceSizeValue(I, SizeUseStack, OrigSize, ReplSize);
+}
+
+void DTransOptBase::updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
+                                                   llvm::Type *OrigTy,
+                                                   llvm::Type *ReplTy) {
+  uint64_t OrigSize = DL.getTypeAllocSize(OrigTy);
+  uint64_t ReplSize = DL.getTypeAllocSize(ReplTy);
+
+  for (auto *U : Sub->users()) {
+    auto *BinOp = cast<BinaryOperator>(U);
+    assert((BinOp->getOpcode() == Instruction::SDiv ||
+            BinOp->getOpcode() == Instruction::UDiv) &&
+           "Unexpected user in updatePtrSubDivUserSizeOperand!");
+    // The sub instruction must be operand zero.
+    assert(BinOp->getOperand(0) == Sub &&
+           "Unexpected operand use for ptr sub!");
+    // Look for the size in operand 1.
+    SmallVector<std::pair<User *, unsigned>, 4> SizeUseStack;
+    bool Found = findValueMultipleOfSizeInst(U, 1, OrigSize, SizeUseStack);
+    assert(Found && "Couldn't find size div for ptr sub!");
+    replaceSizeValue(BinOp, SizeUseStack, OrigSize, ReplSize);
+  }
+}
+
+void DTransOptBase::replaceSizeValue(
+    Instruction *BaseI,
+    SmallVectorImpl<std::pair<User *, unsigned>> &SizeUseStack,
+    uint64_t OrigSize, uint64_t ReplSize) {
   // If we need to replace a constant in some instruction other than our
   // call, we need to check all the values in our use stack before the call
   // to see if they have other users. If they do, we'll need to clone all
@@ -739,8 +770,8 @@ void DTransOptBase::updateSizeOperand(Instruction *I, dtrans::CallInfo *CInfo,
   bool NeedToClone = false;
   std::pair<User *, unsigned> PrevPair;
   for (auto &UsePair : SizeUseStack) {
-    // Skip over the call instruction, its number of users doesn't matter.
-    if (UsePair.first == I) {
+    // Skip over the base instruction, its number of users doesn't matter.
+    if (UsePair.first == BaseI) {
       PrevPair = UsePair;
       continue;
     }
@@ -788,10 +819,6 @@ void DTransOptBase::updateSizeOperand(Instruction *I, dtrans::CallInfo *CInfo,
   SizeUser->setOperand(SizeOpIdx,
                        ConstantInt::get(SizeOpTy, ReplSize * Multiplier));
   LLVM_DEBUG(dbgs() << "  New value: " << *SizeUser << "\n");
-
-  // Otherwise we need to check each value to make sure it doesn't have
-  // other uses. If it does, we need to clone the value before replacing
-  //
 }
 
 // This helper function searches, starting with \p U opernad \p Idx and

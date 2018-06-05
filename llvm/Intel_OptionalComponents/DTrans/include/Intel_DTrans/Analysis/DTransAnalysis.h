@@ -25,6 +25,8 @@
 
 namespace llvm {
 
+class BinaryOperator;
+
 class TargetLibraryInfo;
 
 class DTransAnalysisInfo {
@@ -55,6 +57,8 @@ public:
     dtrans::CallInfo *&operator*() const { return I->second; }
     dtrans::CallInfo *&operator->() const { return operator*(); }
   };
+
+  using PtrSubInfoMapType = DenseMap<llvm::BinaryOperator *, llvm::Type *>;
 
 public:
   DTransAnalysisInfo();
@@ -94,6 +98,11 @@ public:
     return make_range(call_info_iterator(CallInfoMap.begin()),
                       call_info_iterator(CallInfoMap.end()));
   }
+
+  // If the specified BinaryOperator was identified as a subtraction of
+  // pointers to a type of interest, return the type that is pointed to
+  // by the pointers being subtracted. Otherwise, return nullptr.
+  llvm::Type *getResolvedPtrSubType(BinaryOperator *BinOp);
 
   // Retrieve the CallInfo object for the instruction, if information exists.
   // Otherwise, return nullptr.
@@ -139,6 +148,8 @@ public:
   void printCallInfo(raw_ostream &OS);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+  void addPtrSubMapping(llvm::BinaryOperator *BinOp, llvm::Type *Ty);
+
 private:
   void printStructInfo(dtrans::StructInfo *AI);
   void printArrayInfo(dtrans::ArrayInfo *AI);
@@ -152,6 +163,11 @@ private:
   // A mapping from function calls that special information is collected for
   // (malloc, free, memset, etc) to the information stored about those calls.
   CallInfoMapType CallInfoMap;
+
+  // A mapping from BinaryOperator instructions that have been identified as
+  // subtracting two pointers to types of interest to the interesting type
+  // aliased by the operands.
+  PtrSubInfoMapType PtrSubInfoMap;
 };
 
 // Analysis pass providing a data transformation analysis result.
