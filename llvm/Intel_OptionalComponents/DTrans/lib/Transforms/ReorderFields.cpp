@@ -267,7 +267,7 @@ void ReorderFieldsImpl::transformAllocCall(CallInst &CI, StructType *Ty) {
   assert((Kind == AK_Calloc || Kind == AK_Malloc || Kind == AK_Realloc) &&
          "Unexpected alloc call");
   LLVM_DEBUG(dbgs() << "Alloc Before:" << CI << "\n");
-  getAllocSizeArgs(Kind, &CI, AllocCountVal, AllocSizeVal);
+  getAllocSizeArgs(Kind, &CI, AllocSizeVal, AllocCountVal);
   uint32_t SizeArgPos = (Kind == AK_Malloc) ? 0 : 1;
   uint64_t OldSize = DL.getTypeAllocSize(Ty);
   uint64_t NewSize = RTI.getTransformedTypeNewSize(Ty);
@@ -386,32 +386,20 @@ void ReorderFieldsImpl::processBinaryOperator(BinaryOperator &BO) {
 // to process GEPs that are passed as arguments to any calls since
 // Reordering is disabled as it is treated as AddressTaken.
 void ReorderFieldsImpl::processCallInst(CallInst &CI) {
-  CallInfo *CallInfo = DTInfo.getCallInfo(&CI);
-  if (CallInfo == nullptr)
+  CallInfo *CInfo = DTInfo.getCallInfo(&CI);
+  if (CInfo == nullptr)
     return;
-  switch (CallInfo->getCallInfoKind()) {
+  StructType *StrTy = getStructTyAssociatedWithCallInfo(CInfo);
+  if (!StrTy)
+    return;
+  switch (CInfo->getCallInfoKind()) {
   case CallInfo::CIK_Alloc: {
-    StructType *StrTy = getStructTyAssociatedWithCallInfo(CallInfo);
-    if (!StrTy)
-      return;
     transformAllocCall(CI, StrTy);
     break;
   }
 
   case CallInfo::CIK_Memfunc: {
-    // FIXME: Use CallInfo to get associated type once it is
-    // available for CIK_Memfunc.
-    Value *Dst = CI.getArgOperand(0)->stripPointerCasts();
-    if (!Dst->getType()->isPointerTy())
-      return;
-    Type *StrTy = cast<PointerType>(Dst->getType())->getElementType();
-    if (!dyn_cast<StructInfo>(DTInfo.getTypeInfo(StrTy)))
-      return;
-    Type *OrigStrTy = getOrigTyOfTransformedType(StrTy);
-    if (!OrigStrTy)
-      return;
-
-    transformMemfunc(CI, cast<StructType>(OrigStrTy));
+    transformMemfunc(CI, StrTy);
     break;
   }
   default:

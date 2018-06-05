@@ -100,8 +100,8 @@ void dtrans::getAllocSizeArgs(AllocKind Kind, CallInst *CI,
   }
 
   if (Kind == AK_Calloc) {
-    AllocSizeVal = CI->getArgOperand(0);
-    AllocCountVal = CI->getArgOperand(1);
+    AllocCountVal = CI->getArgOperand(0);
+    AllocSizeVal = CI->getArgOperand(1);
     return;
   }
 
