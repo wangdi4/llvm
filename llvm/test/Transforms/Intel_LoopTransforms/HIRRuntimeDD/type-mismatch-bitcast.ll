@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -disable-output -print-after=hir-runtime-dd -hir-runtime-dd < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that refs in the compare of segment with bounds of different types are casted to a compatible type.
 
@@ -37,7 +38,7 @@
 
 ; %v %pDst1 %pSrc1
 
-; CHECK: After
+; CHECK: Function
 ; CHECK: %mv.cast = bitcast.float*.i32*(&((%v)[0]));
 ; CHECK: %mv.test = &((%v)[2]) >=u &((%pDst1)[sext.i32.i64(%div1) * i1]);
 ; CHECK: %mv.test5 = &((i32*)(%pDst1)[sext.i32.i64(%div1) * i1 + 3 * ((-1 + smax(3, %0)) /u 3) + 2]) >=u %mv.cast;

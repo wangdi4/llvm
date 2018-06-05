@@ -1,9 +1,11 @@
 ; Check runtime dd multiversioning for a simple case with p[i] and q[i]
 
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -hir-details -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
 
 ; Check HIR CG ability to emit !llvm.loop metadata
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -hir-cg -force-hir-cg -S < %s 2>&1 | FileCheck %s -check-prefix=CG-CHECK
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,hir-cg" -aa-pipeline="basic-aa" -force-hir-cg -S < %s 2>&1 | FileCheck %s -check-prefix=CG-CHECK
 
 ; int foo(int *p, int *q, int N) {
 ;   int i;
@@ -13,7 +15,7 @@
 ;   return p[0];
 ; }
 
-; CHECK: IR Dump After
+; CHECK: Function
 ; CHECK: %mv.test = &((%q)[%N + -1]) >=u &((%p)[0]);
 ; CHECK: %mv.test1 = &((%p)[%N + -1]) >=u &((%q)[0]);
 ; CHECK: %mv.and = %mv.test  &&  %mv.test1;

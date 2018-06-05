@@ -195,6 +195,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopInterchange.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPostVecCompleteUnroll.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPreVecCompleteUnroll.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRRuntimeDD.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJam.h"
 
 // Intel VPO
