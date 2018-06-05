@@ -96,8 +96,8 @@ public:
   static void
   computeDVsForPermute(SmallVectorImpl<DirectionVector> &DV,
                        const HLLoop *OutermostLoop,
-                       unsigned InnermostNestingLevel, HIRDDAnalysis *DDA,
-                       HIRSafeReductionAnalysis *SRA, bool RefineDV,
+                       unsigned InnermostNestingLevel, HIRDDAnalysis &DDA,
+                       HIRSafeReductionAnalysis &SRA, bool RefineDV,
                        InterchangeIgnorableSymbasesTy *IgnorableSBs = nullptr);
 };
 } // End namespace loopopt

@@ -470,7 +470,7 @@ void initializeHIRVectVLSAnalysisPass(PassRegistry&);
 void initializeHIRPrinterPass(llvm::PassRegistry&);
 void initializeHIRPreVecCompleteUnrollPass(PassRegistry&);
 void initializeHIRPostVecCompleteUnrollPass(PassRegistry&);
-void initializeHIRLoopInterchangePass(PassRegistry&);
+void initializeHIRLoopInterchangeLegacyPassPass(PassRegistry&);
 void initializeHIRLoopDistributionForMemRecPass(PassRegistry&);
 void initializeHIRLoopDistributionForLoopNestPass(PassRegistry&);
 void initializeHIRGeneralUnrollPass(PassRegistry&);

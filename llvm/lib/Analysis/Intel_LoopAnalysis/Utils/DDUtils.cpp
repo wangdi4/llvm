@@ -885,9 +885,9 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
   const HLLoop *CandidateLoop;
   const unsigned OutermostLevel;
   const unsigned InnermostLevel;
-  HIRDDAnalysis *DDA;
+  HIRDDAnalysis &DDA;
   DDGraph &DDG;
-  HIRSafeReductionAnalysis *SRA;
+  HIRSafeReductionAnalysis &SRA;
   InterchangeIgnorableSymbasesTy *IgnorableSymBases;
 
   // Indicates if we need to call Demand Driven DD to refine DV
@@ -899,8 +899,8 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
   InterchangeIgnorableSymbasesTy EmptyIgnorableSBs;
 
   CollectDDInfoForPermute(const HLLoop *CandidateLoop, unsigned OutermostLevel,
-                          unsigned InnermostLevel, HIRDDAnalysis *DDA,
-                          DDGraph &DDG, HIRSafeReductionAnalysis *SRA,
+                          unsigned InnermostLevel, HIRDDAnalysis &DDA,
+                          DDGraph &DDG, HIRSafeReductionAnalysis &SRA,
                           InterchangeIgnorableSymbasesTy *Ignores,
                           bool RefineDV, SmallVectorImpl<DirectionVector> &DVs);
 
@@ -914,8 +914,8 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
 
 CollectDDInfoForPermute::CollectDDInfoForPermute(
     const HLLoop *CandidateLoop, unsigned OutermostLevel,
-    unsigned InnermostLevel, HIRDDAnalysis *DDA, DDGraph &DDG,
-    HIRSafeReductionAnalysis *SRA, InterchangeIgnorableSymbasesTy *Ignores,
+    unsigned InnermostLevel, HIRDDAnalysis &DDA, DDGraph &DDG,
+    HIRSafeReductionAnalysis &SRA, InterchangeIgnorableSymbasesTy *Ignores,
     bool RefineDV, SmallVectorImpl<DirectionVector> &DVs)
     : CandidateLoop(CandidateLoop), OutermostLevel(OutermostLevel),
       InnermostLevel(InnermostLevel), DDA(DDA), DDG(DDG), SRA(SRA),
@@ -929,7 +929,7 @@ CollectDDInfoForPermute::CollectDDInfoForPermute(
 void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
 
   const HLInst *Inst = dyn_cast<HLInst>(DDNode);
-  if (Inst && SRA->isSafeReduction(Inst)) {
+  if (Inst && SRA.isSafeReduction(Inst)) {
     DEBUG(dbgs() << "\n\tIs Safe Red");
     return;
   }
@@ -969,8 +969,8 @@ void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
         DDRef *DstDDRef = DDref;
 
         // Refine works only for non-terminal refs
-        RefinedDep = DDA->refineDV(SrcDDRef, DstDDRef, OutermostLevel,
-                                   InnermostLevel, false);
+        RefinedDep = DDA.refineDV(SrcDDRef, DstDDRef, OutermostLevel,
+                                  InnermostLevel, false);
 
         if (RefinedDep.isIndependent()) {
           DEBUG(dbgs() << "\n\t<Edge dropped with DDTest Indep>");
@@ -1010,11 +1010,11 @@ void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
 
 void DDUtils::computeDVsForPermute(
     SmallVectorImpl<DirectionVector> &DVs, const HLLoop *OutermostLoop,
-    unsigned InnermostNestingLevel, HIRDDAnalysis *DDA,
-    HIRSafeReductionAnalysis *SRA, bool RefineDV,
+    unsigned InnermostNestingLevel, HIRDDAnalysis &DDA,
+    HIRSafeReductionAnalysis &SRA, bool RefineDV,
     InterchangeIgnorableSymbasesTy *IgnorableSBs) {
 
-  DDGraph DDG = DDA->getGraph(OutermostLoop);
+  DDGraph DDG = DDA.getGraph(OutermostLoop);
   CollectDDInfoForPermute CDD(OutermostLoop, OutermostLoop->getNestingLevel(),
                               InnermostNestingLevel, DDA, DDG, SRA,
                               IgnorableSBs, RefineDV, DVs);

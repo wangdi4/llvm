@@ -192,6 +192,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTempCleanup.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopConcatenation.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreElimination.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopInterchange.h"
 
 // Intel VPO
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"

@@ -38,6 +38,8 @@
 //       do i; do j; s = s + a(j) ->  do j; do i; s = s + a(j)
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopInterchange.h"
+
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LLVMContext.h"
@@ -51,6 +53,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
@@ -72,31 +75,22 @@ static cl::opt<bool>
 namespace {
 typedef std::pair<HLLoop *, HLLoop *> CandidateLoopPair;
 
-class HIRLoopInterchange : public HIRTransformPass {
-
+class HIRLoopInterchange {
 public:
-  static char ID;
+  HIRLoopInterchange(HIRFramework &HIRF, HIRDDAnalysis &DDA,
+                     HIRLoopLocality &LA, HIRSafeReductionAnalysis &SRA,
+                     HIRLoopStatistics &HLS)
+      : HIRF(HIRF), DDA(DDA), LA(LA), SRA(SRA), HLS(HLS) {}
 
-  HIRLoopInterchange() : HIRTransformPass(ID) {
-    initializeHIRLoopInterchangePass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
-    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  }
+  bool run();
 
 private:
-  Function *F;
-  HIRDDAnalysis *DDA;
-  HIRLoopLocality *LA;
-  HIRSafeReductionAnalysis *SRA;
-  HIRLoopStatistics *HLS;
+  HIRFramework &HIRF;
+  HIRDDAnalysis &DDA;
+  HIRLoopLocality &LA;
+  HIRSafeReductionAnalysis &SRA;
+  HIRLoopStatistics &HLS;
+
   bool AnyLoopInterchanged;
   unsigned OutmostNestingLevel;
   unsigned InnermostNestingLevel;
@@ -131,37 +125,24 @@ private:
 
 } // namespace
 
-char HIRLoopInterchange::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLoopInterchange, "hir-loop-interchange",
-                      "HIR Loop Interchange", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRLoopInterchange, "hir-loop-interchange",
-                    "HIR Loop Interchange", false, false)
-
-namespace {
-bool isBlockingCandidate(const HLLoop *Loop) {
+static bool isBlockingCandidate(const HLLoop *Loop) {
   // Will be in blocking code when it is ready
   // To be deleted
   return false;
 }
-} // namespace
 
 /// Gather all perfect Loop Nest and enable near perfect one if needed
 struct HIRLoopInterchange::CollectCandidateLoops final
     : public HLNodeVisitorBase {
 
-  HIRLoopInterchange *LIP;
+  HIRLoopInterchange &LIP;
   SmallVectorImpl<CandidateLoopPair> &CandidateLoops;
-  HIRDDAnalysis *DDA;
+  HIRDDAnalysis &DDA;
   HLNode *SkipNode;
 
-  CollectCandidateLoops(HIRLoopInterchange *LoopIP,
+  CollectCandidateLoops(HIRLoopInterchange &LoopIP,
                         SmallVectorImpl<CandidateLoopPair> &CandidateLoops,
-                        HIRDDAnalysis *DDA)
+                        HIRDDAnalysis &DDA)
       : LIP(LoopIP), CandidateLoops(CandidateLoops), DDA(DDA),
         SkipNode(nullptr) {}
 
@@ -188,7 +169,7 @@ struct HIRLoopInterchange::CollectCandidateLoops final
       return;
     }
 
-    if (LIP->HLS->getSelfLoopStatistics(InnermostLoop)
+    if (LIP.HLS.getSelfLoopStatistics(InnermostLoop)
             .hasCallsWithUnsafeSideEffects()) {
       DEBUG(dbgs() << "\nSkipping loop with calls that have side effects\n");
       SkipNode = Loop;
@@ -228,20 +209,20 @@ struct HIRLoopInterchange::CollectCandidateLoops final
       DEBUG(dbgs() << "\n Is NearPerfect Loop:\n");
       DEBUG(dbgs(); Loop->dump());
 
-      DDGraph DDG = DDA->getGraph(Loop);
+      DDGraph DDG = DDA.getGraph(Loop);
       DEBUG(dbgs() << "DDG's==\n");
       DEBUG(DDG.dump());
 
       if (DDUtils::enablePerfectLoopNest(
               const_cast<HLLoop *>(InnermostLoop), DDG,
-              LIP->CandLoopToIgnorableSymBases[Loop])) {
+              LIP.CandLoopToIgnorableSymBases[Loop])) {
         CandidateLoops.push_back(
             std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
         DEBUG(dbgs() << "Perfect Loopnest enabled\n");
         DEBUG(dbgs(); Loop->dump());
         // Save & invalidate later to avoid DDRebuild and safe reduction map
         // released
-        LIP->PerfectLoopsEnabled.push_back(InnermostLoop);
+        LIP.PerfectLoopsEnabled.push_back(InnermostLoop);
       }
       // Nearperfect loops: skip recursion into the nest regardless of
       // being enabled as perfect loop or not.
@@ -257,29 +238,19 @@ struct HIRLoopInterchange::CollectCandidateLoops final
   bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
 };
 
-FunctionPass *llvm::createHIRLoopInterchangePass() {
-  return new HIRLoopInterchange();
-}
-
-bool HIRLoopInterchange::runOnFunction(Function &F) {
-  if (skipFunction(F) || DisableHIRLoopInterchange)
+bool HIRLoopInterchange::run() {
+  if (DisableHIRLoopInterchange)
     return false;
 
-  DEBUG(dbgs() << "Loop Interchange for Function : " << F.getName() << "\n");
-
-  this->F = &F;
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-  LA = &getAnalysis<HIRLoopLocalityWrapperPass>().getHLL();
-  SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
-  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
+  DEBUG(dbgs() << "Loop Interchange for Function : "
+               << HIRF.getFunction().getName() << "\n");
 
   AnyLoopInterchanged = false;
 
   // 1) Walk all loops, look for outer loops that are perfectly nested
 
-  CollectCandidateLoops CCL(this, CandidateLoops, DDA);
-  HIRF->getHLNodeUtils().visitAll(CCL);
+  CollectCandidateLoops CCL(*this, CandidateLoops, DDA);
+  HIRF.getHLNodeUtils().visitAll(CCL);
 
   for (auto &Iter : CandidateLoops) {
     HLLoop *Loop = Iter.first;
@@ -313,7 +284,7 @@ bool HIRLoopInterchange::shouldInterchange(const HLLoop *Loop) {
   bool InterchangeNeeded = true;
 
   // Call Util in Locality Analysis to get Best Permutation
-  LA->sortedLocalityLoops(Loop, SortedLoops);
+  LA.sortedLocalityLoops(Loop, SortedLoops);
 
   if (isInPresentOrder(SortedLoops)) {
     InterchangeNeeded = false;
@@ -578,7 +549,7 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *Loop) {
   DEBUG(dbgs() << "\n\tStart, End level\n"
                << OutmostNestingLevel << " " << InnermostNestingLevel);
 
-  SRA->computeSafeReductionChains(Lp);
+  SRA.computeSafeReductionChains(Lp);
 
   //  Set refineDV as false for now (last argument) until we see kernels
   //  that really need to refine DV.
@@ -649,4 +620,65 @@ void HIRLoopInterchange::transformLoop(HLLoop *Loop) {
 
   LoopsInterchanged++;
   AnyLoopInterchanged = true;
+}
+
+PreservedAnalyses
+HIRLoopInterchangePass::run(llvm::Function &F,
+                            llvm::FunctionAnalysisManager &AM) {
+  HIRLoopInterchange(AM.getResult<HIRFrameworkAnalysis>(F),
+                     AM.getResult<HIRDDAnalysisPass>(F),
+                     AM.getResult<HIRLoopLocalityAnalysis>(F),
+                     AM.getResult<HIRSafeReductionAnalysisPass>(F),
+                     AM.getResult<HIRLoopStatisticsAnalysis>(F))
+      .run();
+
+  return PreservedAnalyses::all();
+}
+
+class HIRLoopInterchangeLegacyPass : public HIRTransformPass {
+public:
+  static char ID;
+
+  HIRLoopInterchangeLegacyPass() : HIRTransformPass(ID) {
+    initializeHIRLoopInterchangeLegacyPassPass(
+        *PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.setPreservesAll();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
+    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+  }
+
+  bool runOnFunction(Function &F) {
+    if (skipFunction(F)) {
+      return false;
+    }
+
+    return HIRLoopInterchange(
+               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+               getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(),
+               getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
+               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
+        .run();
+  }
+};
+
+char HIRLoopInterchangeLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRLoopInterchangeLegacyPass, "hir-loop-interchange",
+                      "HIR Loop Interchange", false, false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
+INITIALIZE_PASS_END(HIRLoopInterchangeLegacyPass, "hir-loop-interchange",
+                    "HIR Loop Interchange", false, false)
+
+FunctionPass *llvm::createHIRLoopInterchangePass() {
+  return new HIRLoopInterchangeLegacyPass();
 }
