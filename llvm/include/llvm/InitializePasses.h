@@ -462,7 +462,7 @@ void initializeHIRLoopResourceWrapperPassPass(PassRegistry&);
 void initializeHIRSafeReductionAnalysisWrapperPassPass(PassRegistry&);
 void initializeHIRLoopStatisticsWrapperPassPass(PassRegistry&);
 void initializeHIRSSADeconstructionLegacyPassPass(PassRegistry&);
-void initializeHIRTempCleanupPass(PassRegistry&);
+void initializeHIRTempCleanupLegacyPassPass(PassRegistry&);
 void initializeHIRParVecAnalysisPass(PassRegistry&);
 void initializeHIRParDirInsertPass(PassRegistry&);
 void initializeHIRVecDirInsertPass(PassRegistry&);
