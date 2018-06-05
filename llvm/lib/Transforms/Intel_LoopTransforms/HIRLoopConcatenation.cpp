@@ -269,6 +269,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 #define DEBUG_TYPE "hir-loop-concatenation"
@@ -1362,6 +1363,13 @@ void HIRLoopConcatenation::createReductionLoop(
   RednLp->addLiveInTemp(AllocaSymbase);
 }
 
+PreservedAnalyses
+HIRLoopConcatenationPass::run(llvm::Function &F,
+                              llvm::FunctionAnalysisManager &AM) {
+  HIRLoopConcatenation(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+  return PreservedAnalyses::all();
+}
+
 class HIRLoopConcatenationLegacyPass : public HIRTransformPass {
 public:
   static char ID;
@@ -1386,13 +1394,6 @@ public:
         .run();
   }
 };
-
-PreservedAnalyses
-HIRLoopConcatenationPass::run(llvm::Function &F,
-                              llvm::FunctionAnalysisManager &AM) {
-  HIRLoopConcatenation(AM.getResult<HIRFrameworkAnalysis>(F)).run();
-  return PreservedAnalyses::all();
-}
 
 char HIRLoopConcatenationLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopConcatenationLegacyPass, "hir-loop-concatenation",
