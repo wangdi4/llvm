@@ -344,18 +344,12 @@ void DeleteFieldImpl::postProcessCallInst(Instruction *I) {
     if (!CallTy->isPointerTy())
       continue;
     auto *PointeeTy = CallTy->getPointerElementType();
-    // FIXME: For some reason MemfuncCallInfo seems to have an extra layer of
-    //        indirection.
-    if (isa<dtrans::MemfuncCallInfo>(CInfo) && PointeeTy->isPointerTy())
-      PointeeTy = PointeeTy->getPointerElementType();
     for (auto &ONPair : OrigToNewTypeMapping) {
       llvm::Type *OrigTy = ONPair.first;
       llvm::Type *ReplTy = ONPair.second;
-      // FIXME: Shouldn't the CallInfo have been updated?
-      //      assert(PointeeTy != OrigTy &&
-      //             "Original type found after type replacement!");
-      //      if (PointeeTy != ReplTy)
-      if (PointeeTy != OrigTy)
+      assert(PointeeTy != OrigTy &&
+             "Original type found after type replacement!");
+      if (PointeeTy != ReplTy)
         continue;
       LLVM_DEBUG(dbgs() << "Found call involving type with deleted fields:\n"
                         << *I << "\n"
