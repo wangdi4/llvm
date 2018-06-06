@@ -22,6 +22,7 @@ add_ocl_unittest(
     local_mem_size_attribute.cpp
     tbb_num_workers.cpp
     multiple_devices.cpp
+    fpga_features.cpp
 
   LINK_LIBRARIES
     OpenCL
