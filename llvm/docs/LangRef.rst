@@ -675,7 +675,7 @@ an optional list of attached :ref:`metadata <metadata>`.
 Variables and aliases can have a
 :ref:`Thread Local Storage Model <tls_model>`.
 
-.. INTEL_CUSTOMIZATION
+.. INTEL_COLLAB
 .. Added [ThreadPrivate] as a global variable attribute.
 
 Syntax::
@@ -689,7 +689,7 @@ Syntax::
                          [, section "name"] [, comdat [($name)]]
                          [, align <Alignment>] (, !name !N)*
 
-.. END INTEL_CUSTOMIZATION
+.. END INTEL_COLLAB
 
 For example, the following defines a global in a numbered address space
 with an initializer, section, and alignment:
@@ -711,7 +711,7 @@ The following example defines a thread-local global with the
 
     @G = thread_local(initialexec) global i32 0, align 4
 
-.. INTEL_CUSTOMIZATION
+.. INTEL_COLLAB
 
 The following example defines a thread-private global which is
 in the argument list of the directive omp threadprivate (list).
@@ -727,7 +727,7 @@ in the argument list of the directive omp declare target (list).
 
    @G = target_declare global i32 0, align 4
 
-.. END INTEL_CUSTOMIZATION
+.. END INTEL_COLLAB
 
 .. _functionstructure:
 
@@ -2118,7 +2118,7 @@ This information is passed along to the backend so that it generates
 code for the proper architecture. It's possible to override this on the
 command line with the ``-mtriple`` command line option.
 
-.. INTEL_CUSTOMIZATION
+.. INTEL_COLLAB
 .. _target_devices_triples:
 
 Devices Triples
@@ -2137,7 +2137,7 @@ minus sign character ('-'), is in the same format of the *target triple*.
 
 This information is passed along to the backend so that it generates
 code for the proper architecture.
-.. END INTEL_CUSTOMIZATION
+.. END INTEL_COLLAB
 
 .. _pointeraliasing:
 

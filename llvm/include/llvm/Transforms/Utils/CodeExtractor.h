@@ -138,11 +138,11 @@ class Value;
     /// original block will be added to the outline region.
     BasicBlock *findOrCreateBlockForHoisting(BasicBlock *CommonExitBlock);
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
     // Hoisting the alloca instructions in the non-entry blocks to the entry
     // block.
     void hoistAlloca(Function &F);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   private:
     void severSplitPHINodes(BasicBlock *&Header);

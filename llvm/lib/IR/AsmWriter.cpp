@@ -2429,10 +2429,10 @@ void AssemblyWriter::printModule(const Module *M) {
   if (!M->getTargetTriple().empty())
     Out << "target triple = \"" << M->getTargetTriple() << "\"\n";
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   if (!M->getTargetDevices().empty())
     Out << "target device_triples = \"" << M->getTargetDevices() << "\"\n";
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   if (!M->getModuleInlineAsm().empty()) {
     Out << '\n';
@@ -2672,13 +2672,13 @@ void AssemblyWriter::printGlobal(const GlobalVariable *GV) {
   PrintVisibility(GV->getVisibility(), Out);
   PrintDLLStorageClass(GV->getDLLStorageClass(), Out);
   PrintThreadLocalModel(GV->getThreadLocalMode(), Out);
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   if (GV->isThreadPrivate())
     Out << "thread_private ";
 
   if (GV->isTargetDeclare())
     Out << "target_declare ";
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   StringRef UA = getUnnamedAddrEncoding(GV->getUnnamedAddr());
   if (!UA.empty())
       Out << UA << ' ';

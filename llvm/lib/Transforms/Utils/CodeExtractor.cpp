@@ -819,7 +819,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
   return newFunction;
 }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 // Hoisting the alloca instructions in the non-entry blocks to the entry block.
 void CodeExtractor::hoistAlloca(Function &F) {
   Function::iterator I = F.begin();
@@ -833,7 +833,7 @@ void CodeExtractor::hoistAlloca(Function &F) {
     }
   }
 }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 /// emitCallAndSwitchStatement - This method sets up the caller side by adding
 /// the call instruction, splitting any PHI nodes in the header block as
@@ -1266,14 +1266,14 @@ Function *CodeExtractor::extractCodeRegion() {
   if (BFI && NumExitBlocks > 1)
     calculateNewCallTerminatorWeights(codeReplacer, ExitWeights, BPI);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   // CodeExtractor only partially updated the DT. This completes the update.
   // It needs to be contributed back to the community.
-  
+
   // Update the DT
   if (DT) {
     // Add the new block to the DT instead of the region header
-    DomTreeNode *ReplacerNode = 
+    DomTreeNode *ReplacerNode =
       DT->addNewBlock(codeReplacer, DT->getNode(header)->getIDom()->getBlock());
 
     SmallVector<DomTreeNode*, 16> Successors;
@@ -1296,7 +1296,7 @@ Function *CodeExtractor::extractCodeRegion() {
          e = Blocks.end(); i != e; ++i)
       DT->eraseNode(*i);
   }
-#endif //INTEL_CUSTOMIZATION
+#endif //INTEL_COLLAB
 
   // Loop over all of the PHI nodes in the header block, and change any
   // references to the old incoming edge to be the new incoming edge.
@@ -1329,7 +1329,9 @@ Function *CodeExtractor::extractCodeRegion() {
         }
     }
 
-  hoistAlloca(*newFunction); // INTEL
+#if INTEL_COLLAB
+  hoistAlloca(*newFunction);
+#endif // INTEL_COLLAB
   LLVM_DEBUG(if (verifyFunction(*newFunction))
                  report_fatal_error("verifyFunction failed!"));
   return newFunction;
