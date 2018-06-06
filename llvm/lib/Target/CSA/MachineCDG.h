@@ -294,12 +294,13 @@ class ControlDependenceGraph : public MachineFunctionPass,
                                public ControlDependenceGraphBase {
 public:
   static char ID;
-
+  MachineLoopInfo* MLI;
   ControlDependenceGraph();
   virtual ~ControlDependenceGraph() {}
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequired<MachineDominatorTree>();
     AU.addRequired<MachinePostDominatorTree>();
+    AU.addRequired<MachineLoopInfo>();
     AU.setPreservesAll();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
@@ -308,11 +309,14 @@ public:
   void viewMachineCFG(void);
   void viewMachinePDT(void);
   void viewMachineDT(void);
+  bool modifyLoopLatchSucc(MachineLoop*);
   virtual bool runOnMachineFunction(MachineFunction &F);
 
   StringRef getPassName() const override {
     return "CSA: Machine Control Dependence Graph Construction";
   }
+private:
+  SmallPtrSet<MachineBasicBlock *, 4> modifiedLatch;
 };
 
 template <>
@@ -400,7 +404,8 @@ struct DOTGraphTraits<MachinePostDominatorTree *>
   DOTGraphTraits(bool isSimple = false) : DefaultDOTGraphTraits(isSimple) {}
 
   static std::string getGraphName(MachinePostDominatorTree *Graph) {
-    std::string fName(Graph->getRootNode()->getBlock()->getParent()->getName());
+    //PDT root is a fake exit node which has no corresponding block.
+    std::string fName(Graph->getRootNode()->getChildren().front()->getBlock()->getParent()->getName());
     return "Machine PDT for '" + fName + "' function";
   }
 
@@ -409,7 +414,8 @@ struct DOTGraphTraits<MachinePostDominatorTree *>
 #if 0
       return Node->getBlock()->getFullName();
 #else
-    std::string blkNumber = std::to_string(Node->getBlock()->getNumber());
+    std::string blkNumber = Node->getBlock() ? std::to_string(Node->getBlock()->getNumber()) :
+                            "Exit";
     std::string name = "BB#" + blkNumber;
     return name;
 #endif

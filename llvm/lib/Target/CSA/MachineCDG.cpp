@@ -580,15 +580,49 @@ ControlDependenceGraph::ControlDependenceGraph()
   initializeControlDependenceGraphPass(*PassRegistry::getPassRegistry());
 }
 
+
+bool ControlDependenceGraph::modifyLoopLatchSucc(MachineLoop* L) {
+  bool modified = false;
+  for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
+    modified = modified || modifyLoopLatchSucc(*LI);
+  }
+  MachineLoop *mloop = L;
+  MachineBasicBlock* exitingBB = mloop->getExitingBlock();
+  MachineBasicBlock* latchBB = mloop->getLoopLatch();
+  //single exiting, single latch
+  if (exitingBB && latchBB && 
+      latchBB->succ_size() == 1 && 
+      !mloop->isLoopExiting(mloop->getHeader())) {
+    latchBB->removeSuccessor(mloop->getHeader());
+    latchBB->addSuccessor(mloop->getExitBlock());
+    modifiedLatch.insert(latchBB);
+    modified = 1;
+  }
+  return modified;
+}
+
 bool ControlDependenceGraph::runOnMachineFunction(MachineFunction &F) {
   thisMF                        = &F;
   TII                           = thisMF->getSubtarget().getInstrInfo();
+  MLI = &getAnalysis<MachineLoopInfo>();
+  modifiedLatch.clear();
+  bool modified = false;
+  for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE;
+    ++LI) {
+    modified = modified || modifyLoopLatchSucc(*LI);
+  }
+
   MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
+  if (modified)
+    pdt.runOnMachineFunction(F);
+
   if (pdt.getRootNode() == nullptr) {
     return false;
   }
+  
   thisPDT = &pdt;
   graphForFunction(F, pdt);
+
   if (CSADumpDotGraph) {
     writeDotGraph(F.getName());
   }
@@ -604,6 +638,22 @@ bool ControlDependenceGraph::runOnMachineFunction(MachineFunction &F) {
   if (CSAViewMachineDT) {
     viewMachineDT();
   }
+  if (modified) {
+    for (SmallPtrSet<MachineBasicBlock *, 4>::iterator I = modifiedLatch.begin(),
+      E = modifiedLatch.end(); I != E; ++I) {
+      MachineBasicBlock* latchBB = *I;
+      MachineLoop* mloop = MLI->getLoopFor(latchBB);
+      assert(latchBB->succ_size() == 1);
+      latchBB->removeSuccessor(latchBB->succ_begin());
+      latchBB->addSuccessor(mloop->getHeader());
+    }
+    pdt.runOnMachineFunction(F);
+    std::string newName = F.getName().str() + "_org";
+    if (CSADumpDotGraph) {
+      writeDotGraph(newName);
+    }
+  }
+  modifiedLatch.clear();
   return false;
 }
 
@@ -639,19 +689,19 @@ void ControlDependenceGraph::writeDotGraph(StringRef fname) {
   raw_fd_ostream File1(Filename, EC, sys::fs::F_Text);
   GraphWriter<MachineFunction *> gwr1(File1, thisMF, false);
   gwr1.writeGraph();
-#if 0
+
   MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
   Filename = fname.str() + "_PDT" + ".dot";
   raw_fd_ostream File2(Filename, EC, sys::fs::F_Text);
   GraphWriter<MachinePostDominatorTree *> gwr2(File2, &pdt, false);
   gwr2.writeGraph();
+  //pdt.print(File2);
 
   MachineDominatorTree &dt = getAnalysis<MachineDominatorTree>();
   Filename = fname.str() + "_DT" + ".dot";
   raw_fd_ostream File3(Filename, EC, sys::fs::F_Text);
   GraphWriter<MachineDominatorTree *> gwr3(File3, &dt, false);
   gwr3.writeGraph();
-#endif
 }
 
 void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F, bool ignCtrl) {

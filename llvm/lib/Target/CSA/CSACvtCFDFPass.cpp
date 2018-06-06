@@ -159,6 +159,7 @@ public:
   void generateCompletePickTreeForPhi(MachineBasicBlock *);
   void CombineDuplicatePickTreeInput();
   void PatchCFGLeaksFromPcikTree(unsigned phiDst);
+  unsigned findLoopExitCondition(MachineLoop* mloop);
   unsigned generateLandSeq(SmallVectorImpl<unsigned> &landOpnds,
                            MachineBasicBlock *mbb, MachineInstr *MI = nullptr);
   unsigned generateOrSeq(SmallVectorImpl<unsigned> &orOpnds,
@@ -1219,12 +1220,31 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock *mbb) {
   MachineBasicBlock *exitingBB       = mloop->getExitingBlock();
   ControlDependenceNode *exitingNode = CDG->getNode(exitingBB);
   MachineBasicBlock *exitBB          = mloop->getExitBlock();
-  assert(exitBB);
-  assert(latchBB && exitingBB && (latchBB == exitingBB || headerBB == exitingBB));
+  assert(latchBB);
+  bool needCmpExitCond = false;
+  //assert(latchBB && exitingBB && (latchBB == exitingBB || headerBB == exitingBB));
+  if (!exitingBB) {
+    needCmpExitCond = true;
+  } else if (latchBB != exitingBB && headerBB != exitingBB) {
+    ControlDependenceNode *exitingNode = CDG->getNode(exitingBB);
+    for (ControlDependenceNode::node_iterator pnode = exitingNode->parent_begin(),
+      pend = exitingNode->parent_end();
+      pnode != pend; ++pnode) {
+      ControlDependenceNode *ctrlNode = *pnode;
+      MachineBasicBlock *ctrlBB = ctrlNode->getBlock();
+      if (MLI->getLoopFor(ctrlBB) == mloop) {
+        needCmpExitCond = true;
+        break;
+      }
+    }
+  }
+
   MachineInstr *bi                = &*exitingBB->getFirstInstrTerminator();
   MachineBasicBlock::iterator loc = exitingBB->getFirstTerminator();
   unsigned predReg                = bi->getOperand(0).getReg();
-
+  if (needCmpExitCond) {
+    predReg = findLoopExitCondition(mloop);
+  }
   const TargetRegisterClass *TRC = MRI->getRegClass(predReg);
   CSAMachineFunctionInfo *LMFI   = thisMF->getInfo<CSAMachineFunctionInfo>();
   // Look up target register class corresponding to this register.
@@ -1249,7 +1269,7 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock *mbb) {
   MachineBasicBlock::iterator hdrloc = lphdr->begin();
   const unsigned InitOpcode          = TII->getInitOpcode(TRC);
   MachineInstr *initInst             = nullptr;
-  bool pickCtrlInverted =
+  bool pickCtrlInverted = needCmpExitCond ? 1 :
     CDG->getEdgeType(exitingBB, exitBB, true) != ControlDependenceNode::FALSE;
   if (pickCtrlInverted) {
     initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII->get(InitOpcode), cpyReg)
@@ -2446,6 +2466,56 @@ void CSACvtCFDFPass::CombineDuplicatePickTreeInput() {
   }
 }
 
+
+unsigned CSACvtCFDFPass::findLoopExitCondition(MachineLoop* mloop) {
+  SmallVector<unsigned, 4> landOpnds;
+  SmallVector<unsigned, 4> orOpnds;
+  SmallVector<MachineBasicBlock*, 4> exitingBBs;
+  mloop->getExitingBlocks(exitingBBs);
+  for (unsigned i = 0; i < exitingBBs.size(); i++) {
+    MachineBasicBlock* exitingBB = exitingBBs[i];
+    MachineBasicBlock*exitBB = nullptr;
+    for (MachineBasicBlock::succ_iterator psucc = exitingBB->succ_begin();
+      psucc != exitingBB->succ_end(); psucc++) {
+      MachineBasicBlock *msucc = *psucc;
+      if (MLI->getLoopFor(msucc) != mloop) {
+        exitBB = msucc;
+        break;
+      }
+    }
+    MachineInstr *bi = &*exitingBB->getFirstInstrTerminator();
+    MachineBasicBlock::iterator loc = exitingBB->getFirstTerminator();
+    unsigned predReg = bi->getOperand(0).getReg();
+    const TargetRegisterClass *new_LIC_RC =
+      LMFI->licRCFromGenRC(MRI->getRegClass(predReg));
+    assert(new_LIC_RC && "Can't determine register class for register");
+    unsigned cpyReg =
+      LMFI->allocateLIC(new_LIC_RC, Twine("loop_") + exitingBB->getName() + "_exiting");
+
+    const TargetRegisterClass *TRC = MRI->getRegClass(predReg);
+    if (CDG->getEdgeType(exitingBB, exitBB, true) != ControlDependenceNode::FALSE) {
+      unsigned int notOpcode = TII->makeOpcode(CSA::Generic::NOT, TRC);
+      MachineInstr* notInstr = BuildMI(*exitingBB, loc, DebugLoc(), 
+                                       TII->get(notOpcode), cpyReg).addReg(predReg);
+      notInstr->setFlag(MachineInstr::NonSequential);
+      predReg = cpyReg;
+    }
+    landOpnds.clear();
+    landOpnds.push_back(predReg);
+    TraceLeak(exitingBB, mloop->getHeader(), landOpnds);
+    std::reverse(landOpnds.begin(), landOpnds.end());
+    unsigned landSeq = generateLandSeq(landOpnds, exitingBB);
+    orOpnds.push_back(landSeq);
+  }
+  
+  unsigned orSeq = generateOrSeq(orOpnds, mloop->getLoopLatch());
+  return orSeq;
+}
+
+
+
+
+
 // for each IGN remaining in the multiInputPick, generate an land
 void CSACvtCFDFPass::PatchCFGLeaksFromPcikTree(unsigned phiDst) {
   CombineDuplicatePickTreeInput();
@@ -2923,10 +2993,12 @@ bool CSACvtCFDFPass::needDynamicPreds(MachineLoop *L) {
   MachineBasicBlock *latch = mloop->getLoopLatch();
   if (!latch)
     return true;
+#if 0
   // both loop lattch and header are not exiting point
   if (!mloop->isLoopExiting(mloop->getLoopLatch()) &&
       !mloop->isLoopExiting(mloop->getHeader()))
     return true;
+#endif
   return false;
 }
 
