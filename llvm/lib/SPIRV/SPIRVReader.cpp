@@ -359,9 +359,15 @@ SPIRVToLLVM::transOCLSampledImageTypeName(SPIRV::SPIRVTypeSampledImage* ST) {
 
 std::string
 SPIRVToLLVM::transOCLPipeTypeName(SPIRV::SPIRVTypePipe* PT,
-                                  bool UseSPIRVFriendlyFormat, int PipeAccess){
+                                  bool UseSPIRVFriendlyFormat,
+                                  SPIRVAccessQualifierKind PipeAccess) {
+  assert((PipeAccess == AccessQualifierReadOnly ||
+          PipeAccess == AccessQualifierWriteOnly) &&
+         "Invalid access qualifier");
+
   if (!UseSPIRVFriendlyFormat)
-    return kSPR2TypeName::Pipe;
+    return PipeAccess == AccessQualifierWriteOnly ? kSPR2TypeName::PipeWO
+                                                  : kSPR2TypeName::PipeRO;
   else
     return std::string(kSPIRVTypeName::PrefixAndDelim)
           + kSPIRVTypeName::Pipe

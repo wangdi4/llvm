@@ -43,7 +43,8 @@ namespace SPIR {
     "image2d_depth_t",
     "image2d_array_depth_t",
     "event_t",
-    "pipe_t",
+    "pipe_ro_t",
+    "pipe_wo_t",
     "reserve_id_t",
     "queue_t",
     "ndrange_t",
@@ -83,7 +84,8 @@ namespace SPIR {
     "16ocl_image2ddepth",            //PRIMITIVE_IMAGE_2D_DEPTH_T
     "21ocl_image2darraydepth",       //PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_T
     "9ocl_event",                    //PRIMITIVE_EVENT_T
-    "8ocl_pipe",                     //PRIMITIVE_PIPE_T
+    "11ocl_pipe_ro",                 //PRIMITIVE_PIPE_RO_T
+    "11ocl_pipe_wo",                 //PRIMITIVE_PIPE_WO_T
     "13ocl_reserveid",               //PRIMITIVE_RESERVE_ID_T
     "9ocl_queue",                    //PRIMITIVE_QUEUE_T
     "9ndrange_t",                    //PRIMITIVE_NDRANGE_T
@@ -152,6 +154,7 @@ namespace SPIR {
     SPIR12,        //PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_T
     SPIR12,        //PRIMITIVE_EVENT_T
     SPIR20,        //PRIMITIVE_PIPE_T
+    SPIR20,        //PRIMITIVE_PIPE_T
     SPIR20,        //PRIMITIVE_RESERVE_ID_T
     SPIR20,        //PRIMITIVE_QUEUE_T
     SPIR20,        //PRIMITIVE_NDRANGE_T
@@ -194,25 +197,6 @@ namespace SPIR {
         assert(false && "Unknown SPIR Version");
         return "Unknown SPIR Version";
     }
-  }
-
-  bool isPipeBuiltin(std::string unmangledName) {
-    return unmangledName == "write_pipe_2" || unmangledName == "read_pipe_2" ||
-           unmangledName == "write_pipe_4" || unmangledName == "read_pipe_4" ||
-           unmangledName == "reserve_write_pipe" ||
-           unmangledName == "reserve_read_pipe" ||
-           unmangledName == "commit_write_pipe" ||
-           unmangledName == "commit_read_pipe" ||
-           unmangledName == "work_group_reserve_write_pipe" ||
-           unmangledName == "work_group_reserve_read_pipe" ||
-           unmangledName == "work_group_commit_write_pipe" ||
-           unmangledName == "work_group_commit_read_pipe" ||
-           unmangledName == "get_pipe_num_packets" ||
-           unmangledName == "get_pipe_max_packets" ||
-           unmangledName == "sub_group_reserve_write_pipe" ||
-           unmangledName == "sub_group_reserve_read_pipe" ||
-           unmangledName == "sub_group_commit_write_pipe" ||
-           unmangledName == "sub_group_commit_read_pipe";
   }
 
 } // End SPIR namespace
