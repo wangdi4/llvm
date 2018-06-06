@@ -86,10 +86,6 @@ static std::unique_ptr<String2StringMap> Entry2AsmFile;
 // csa-clang -S -o <tempfile>.s <csa-compile-options> <tempfile>.bc
 #define ENV_COMPILE_OPTIONS "CSA_COMPILE_OPTIONS"
 
-// Specifies whether the application should be aborted if an error occurs.
-// If not, then OpenMP will automagically run the native code
-#define ENV_EXIT_ON_ERROR "CSA_EXIT_ON_ERROR"
-
 // Specifies the path to the LLVMgold.so plugin. If not define
 // LD_LIBRARY_PATH will be searched for an executable copy.
 #define ENV_GOLD_PLUGIN "CSA_GOLD_PLUGIN"
@@ -149,6 +145,23 @@ struct BitcodeBounds {
   }
 };
 
+} // anonymous namespace
+
+// Create temporary file. Returns file name if successfull or empty string
+// otherwise.
+static std::string makeTempFile() {
+  char Template[] = "/tmp/tmpfile_XXXXXX";
+  int FD = mkstemp(Template);
+  if (FD < 0) {
+    DP(1, "Error creating temporary file: %s\n", strerror(errno));
+    return "";
+  }
+  close(FD);
+  return Template;
+}
+
+namespace {
+
 // Represents a dynamic library which is loaded for this target.
 class DynLibTy {
   std::string FileName;
@@ -157,26 +170,17 @@ class DynLibTy {
 public:
   explicit DynLibTy(const char *Data, size_t Size) : Handle(nullptr) {
     // Create temporary file for the dynamic library
-    char Template[] = "/tmp/tmpfile_XXXXXX";
-    int FD = mkstemp(Template);
-    if (FD < 0)
+    FileName = makeTempFile();
+    if (FileName.empty())
       return;
-
-    // File name is valid now, save it.
-    FileName = Template;
 
     // Write library contents to the file.
-    auto *FP = fdopen(FD, "wb");
-    if (!FP) {
-      DP(1, "Error while openning temporary file %s\n", FileName.c_str());
-      return;
-    }
-    if (fwrite(Data, 1u, Size, FP) != Size) {
+    std::ofstream OFS(FileName, std::ofstream::binary | std::ofstream::trunc);
+    if (!OFS || !OFS.write(Data, Size)) {
       DP(1, "Error while writing to a temporary file %s\n", FileName.c_str());
-      fclose(FP);
       return;
     }
-    fclose(FP);
+    OFS.close();
 
     // And finally load the library.
     Handle = dlopen(FileName.c_str(), RTLD_LAZY);
@@ -277,15 +281,26 @@ class RTLDeviceInfoTy {
   // For function entries target address in the offload entry table for CSA
   // will point to this object. It is a pair of two null-termminated strings
   // where the first string is the offload entry name, and the second is the
-  // entry's assembly.
+  // name of file which contains entry's assembly.
   using EntryAddr = std::pair<const char*, const char*>;
 
   // Structure which represents an offload entry table for CSA binary.
   struct EntryTable : public __tgt_target_table {
-    explicit EntryTable(const __tgt_offload_entry *Table, size_t Size) {
-      std::unordered_set<void*> AsmSet;
-      static std::atomic<unsigned int> AsmCount;
+    static EntryTable* create(const __tgt_offload_entry *Entries, size_t Size) {
+      std::unique_ptr<EntryTable> Table(new EntryTable());
+      if (!Table->construct(Entries, Size))
+        return nullptr;
+      return Table.release();
+    }
 
+    ~EntryTable() {
+      if (!SaveTemps)
+        for (const auto &File : Addr2AsmFile)
+          remove(File.second.c_str());
+    }
+
+  private:
+    bool construct(const __tgt_offload_entry *Table, size_t Size) {
       Entries.resize(Size);
       for (size_t I = 0u; I < Size; ++I) {
         Entries[I] = Table[I];
@@ -294,29 +309,11 @@ class RTLDeviceInfoTy {
           // its address the the entry address.
           DP(2, "Entry[%lu]: name %s\n", I, Entries[I].name);
 
-          // Save assembly to a file if SAVE_TEMPS is on and there is no user
-          // provided assembly file(s).
-          if (SaveTemps && AsmFile.empty() && !Entry2AsmFile &&
-              !AsmSet.count(Entries[I].addr)) {
-            AsmSet.insert(Entries[I].addr);
+          const auto *FileName = getEntryFile(Entries[I]);
+          if (!FileName)
+            return false;
 
-            // Compose file name.
-            std::stringstream SS;
-            SS << TempPrefix << AsmCount++ << ".s";
-
-            if (Verbosity)
-              fprintf(stderr, "Saving CSA assembly to \"%s\"\n",
-                      SS.str().c_str());
-
-            // And save assembly to it.
-            std::ofstream OFS(SS.str().c_str());
-            if (OFS)
-              OFS << static_cast<const char*>(Entries[I].addr);
-            OFS.close();
-          }
-
-          Addresses.emplace_front(Entries[I].name,
-            static_cast<const char*>(Entries[I].addr));
+          Addresses.emplace_front(Entries[I].name, FileName);
           Entries[I].addr = &Addresses.front();
         }
         else
@@ -328,16 +325,70 @@ class RTLDeviceInfoTy {
       }
       EntriesBegin = Entries.data();
       EntriesEnd = Entries.data() + Size;
+      return true;
+    }
+
+    const char *getEntryFile(const __tgt_offload_entry &Entry) {
+      // There are three possible options for getting assembly for an entry.
+      // (1) If we have a single user-defined assembly file, then we use it.
+      if (!AsmFile.empty())
+        return AsmFile.c_str();
+
+      // (2) Otherwise if there is an entry -> assembly map, try to find
+      // assembly file for the given entry.
+      if (Entry2AsmFile) {
+        auto It = Entry2AsmFile->find(Entry.name);
+        if (It != Entry2AsmFile->end())
+          return It->second.c_str();
+      }
+
+      // (3) Otherwise save the embedded assembly to a file.
+      // Check if we have already saved this asm string earlier.
+      auto It = Addr2AsmFile.find(Entry.addr);
+      if (It != Addr2AsmFile.end())
+        return It->second.c_str();
+
+      // We have not seen this entry yet.
+      std::string FileName;
+      if (SaveTemps) {
+        static std::atomic<unsigned int> AsmCount;
+        std::stringstream SS;
+        SS << TempPrefix << AsmCount++ << ".s";
+        FileName = SS.str();
+
+        if (Verbosity)
+          fprintf(stderr, "Saving CSA assembly to \"%s\"\n", FileName.c_str());
+      }
+      else {
+        FileName = makeTempFile();
+        if (FileName.empty())
+          return nullptr;
+      }
+
+      // Save assembly.
+      DP(3, "Saving CSA assembly to \"%s\"\n", FileName.c_str());
+      std::ofstream OFS(FileName, std::ofstream::trunc);
+      if (!OFS || !(OFS << static_cast<const char*>(Entry.addr))) {
+        DP(1, "Error while saving assembly to a file %s\n", FileName.c_str());
+        return nullptr;
+      }
+      OFS.close();
+
+      // And update asm files map.
+      auto Res = Addr2AsmFile.emplace(Entry.addr, std::move(FileName));
+      assert(Res.second && "unexpected entry in the map");
+      return Res.first->second.c_str();
     }
 
   private:
     std::vector<__tgt_offload_entry> Entries;
     std::forward_list<EntryAddr> Addresses;
+    std::unordered_map<void*, std::string> Addr2AsmFile;
   };
 
   // An object which contains all data for a single CSA binary - dynamic library
   // object and the entry table for this binary.
-  using CSAImage = std::pair<DynLibTy, EntryTable>;
+  using CSAImage = std::pair<DynLibTy, std::unique_ptr<EntryTable>>;
 
   // Keep a list of loaded CSA binaries. This list is always accessed from a
   // single thread so, there is no need to do any synchronization while
@@ -397,7 +448,7 @@ public:
         BCDataSec->getAddr());
 
       if (!build_csa_assembly(DL.getName(), BCBoundsSec, BCDataSec, AsmFile)) {
-        DP(1, "Error while compiling bitcide to assembly\n");
+        DP(1, "Error while compiling bitcode to assembly\n");
         return nullptr;
       }
 
@@ -409,9 +460,16 @@ public:
     auto *Tab = reinterpret_cast<__tgt_offload_entry*>(DL.getBase() +
                                                        EntriesAddr);
 
+    // Construct entry table.
+    auto *Table = EntryTable::create(Tab, TabSize);
+    if (!Table) {
+      DP(1, "Error while creating entry table\n");
+      return nullptr;
+    }
+
     // Construct new CSA image and insert it into the list.
-    CSAImages.emplace_front(std::move(DL), EntryTable(Tab, TabSize));
-    return &CSAImages.front().second;
+    CSAImages.emplace_front(std::move(DL), std::unique_ptr<EntryTable>(Table));
+    return CSAImages.front().second.get();
   }
 
 public:
@@ -500,31 +558,9 @@ public:
           return nullptr;
         }
 
-        // We have three possible options for getting assembly now
-        // (1) If we have a single user-defined assembly file, then we use it.
-        // (2) Otherwise if there is an entry -> assembly map, use it.
-        // (3) Otherwise use the embedded assembly.
-        std::string *File = nullptr;
-        if (!AsmFile.empty())
-          File = &AsmFile;
-        else if (Entry2AsmFile) {
-          auto It = Entry2AsmFile->find(Addr->first);
-          if (It != Entry2AsmFile->end())
-            File = &It->second;
-        }
-
-        // Run assemble.
-        csa_module *Mod = nullptr;
-        if (File) {
-          DP(5, "Using assembly from \"%s\" for entry \"%s\"\n",
-             File->c_str(), Addr->first);
-          Mod = csa_assemble(File->c_str(), Proc);
-        }
-        else {
-          DP(5, "Using embedded assembly for entry \"%s\"\n",
-             Addr->first);
-          Mod = csa_assemble_string(Addr->second, Addr->first, Proc);
-        }
+        DP(5, "Using assembly from \"%s\" for entry \"%s\"\n",
+           Addr->second, Addr->first);
+        auto *Mod = csa_assemble(Addr->second, Proc);
         if (!Mod) {
           DP(1, "Failed to assemble entry\n");
           return nullptr;
