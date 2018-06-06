@@ -27,25 +27,6 @@ using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt;
 
-// \brief RAII object that stores the current master VPInstruction under
-// decomposition in VPDecomposerHIR and restores it when the object is
-// destroyed.
-class llvm::vpo::MasterVPIGuard {
-  VPDecomposerHIR &Decomposer;
-  VPInstruction *MasterVPI;
-
-public:
-  MasterVPIGuard(VPDecomposerHIR &Dec, VPInstruction *NewMasterVPI)
-      : Decomposer(Dec), MasterVPI(Dec.MasterVPI) {
-    Decomposer.MasterVPI = NewMasterVPI;
-  }
-
-  MasterVPIGuard(const MasterVPIGuard &) = delete;
-  MasterVPIGuard &operator=(const MasterVPIGuard &) = delete;
-
-  ~MasterVPIGuard() { Decomposer.MasterVPI = MasterVPI; }
-};
-
 // Creates a decomposed VPInstruction that combines \p LHS and \p RHS VPValues
 // using \p OpCode as operator and \p MasterVPI as master VPInstruction. If \p
 // LHS or \p RHS is null, it returns the non-null VPValue.
@@ -59,7 +40,6 @@ VPValue *VPDecomposerHIR::combineDecompDefs(VPValue *LHS, VPValue *RHS,
     return LHS;
 
   auto *NewVPI = cast<VPInstruction>(Builder.createNaryOp(OpCode, {LHS, RHS}));
-  NewVPI->HIR.setMaster(MasterVPI);
   return NewVPI;
 }
 
@@ -87,7 +67,6 @@ VPInstruction *VPDecomposerHIR::decomposeConversion(VPValue *Src,
 
   // TODO: We need to set the conversion type (DestType)!
   auto *NewConv = cast<VPInstruction>(Builder.createNaryOp(ConvOpCode, {Src}));
-  NewConv->HIR.setMaster(MasterVPI);
   return NewConv;
 }
 
@@ -328,57 +307,106 @@ static CmpInst::Predicate getPredicateFromHIR(HLDDNode *DDNode) {
   return CmpInst::ICMP_ULE;
 }
 
-// Create a VPInstruction with no operands for the incoming DDNode. If
-// InsertVPInst is true, the new VPInstruction is inserted in the current
-// VPBuilder's insertion point. Otherwise, it's not inserted.
-// During *plain* CFG construction, we create VPCmpInst for the following
-// complex HIR constructs:
-//     1) HLIf: The VPCmpInst represents the multi-predicate comparisons and
+// Return true if \p Def is considered an external definition. An external
+// definition is a definition that happens outside of the outermost HLLoop,
+// including its preheader and exit.
+bool VPDecomposerHIR::isExternalDef(DDRef *UseDDR) {
+  // TODO: We are pushing outermost loop PH and Exit outside of the VPlan region
+  // for now so this code won't be valid until we bring them back. return
+  // !Def->getHLNodeUtils().contains(OutermostHLp, Def,
+  //                                 true /*include preheader/exit*/);
+  assert(UseDDR->isRval() && "DDRef must be an RValue!");
+  return OutermostHLp->isLiveIn(UseDDR->getSymbase());
+}
+
+// Return the number of reaching definitions for \p DDR. Reaching definitions
+// are computed based on the edges of the DDGraph of the outermost loop that we
+// are representing, plus one, if \p DDR is a live-in value of the outermost
+// loop.
+unsigned VPDecomposerHIR::getNumReachingDefinitions(DDRef *UseDDR) {
+  assert(UseDDR->isRval() && "DDRef must be an RValue!");
+  assert((UseDDR->isSelfBlob() || isa<BlobDDRef>(UseDDR)) &&
+         "Expected self blob or BlobDDRef!");
+
+  auto BlobInEdges = DDG.incoming(UseDDR);
+  return std::distance(BlobInEdges.begin(), BlobInEdges.end()) +
+         OutermostHLp->isLiveIn(UseDDR->getSymbase());
+}
+
+// Return a pointer to the last VPInstruction of \p VPBB. Return nullptr if \p
+// VPBB is empty.
+static VPInstruction *getLastVPI(VPBasicBlock *VPBB) {
+  assert((VPBB->empty() || isa<VPInstruction>(&VPBB->back())) &&
+         "VPRecipes in HIR?");
+  return VPBB->empty() ? nullptr : cast<VPInstruction>(&VPBB->back());
+}
+
+// Set \p MasterVPI as master VPInstruction of all the decomposed VPInstructions
+// between \p LastVPIBeforeDec and the own MasterVPI. If LastVPIBeforeDec is
+// null, the first decomposed VPInstruction is the first one in \p VPBB.
+void VPDecomposerHIR::setMasterForDecomposedVPIs(
+    VPInstruction *MasterVPI, VPInstruction *LastVPIBeforeDec,
+    VPBasicBlock *VPBB) {
+  assert(MasterVPI->getParent() == VPBB && "MasterVPI must be in VPBB.");
+  assert((!LastVPIBeforeDec || LastVPIBeforeDec->getParent() == VPBB) &&
+         "LastVPIBeforeDec must be in VPBB.");
+
+  VPBasicBlock::iterator DecompVPIStart =
+      LastVPIBeforeDec == nullptr
+          ? VPBB->begin()
+          : std::next(VPBasicBlock::iterator(LastVPIBeforeDec));
+  VPBasicBlock::iterator DecompVPIEnd = VPBasicBlock::iterator(MasterVPI);
+  for (auto &Recipe : make_range(DecompVPIStart, DecompVPIEnd)) {
+    assert(isa<VPInstruction>(Recipe) && "VPRecipes in HIR?");
+    auto *DecompVPI = cast<VPInstruction>(&Recipe);
+    // DecompVPI is a new VPInstruction at this point. To be marked as
+    // decomposed VPInstruction with the following 'setMaster'.
+    assert(DecompVPI->isNew() && "Expected new VPInstruction!");
+    DecompVPI->HIR.setMaster(MasterVPI);
+  }
+}
+
+// Create a VPInstruction for the incoming DDNode and insert it in the current
+// VPBuilder's insertion point. During *plain* CFG construction, we create
+// VPCmpInst for the following complex HIR constructs:
+//     1) HLIf: The VPCmpInst represents the (multi-)predicate comparisons and
 //        contains all the operands involved in the comparisons.
-//     2) HLLoop: The VPCmpInst represents the bottom test comparison. It
-//        contains the HLLoop lower-bound, the upper-bound and the step.
-// Please, note that the previous semantics are only valid during *plain* CFG
-// constructions and may become invalid after HIR decomposition. Do not reuse
-// this code for other purposes.
-VPInstruction *VPDecomposerHIR::createNoOperandVPInst(HLDDNode *DDNode,
-                                                      bool InsertVPInst) {
+//     2) HLLoop: The VPCmpInst represents the bottom test comparison.
+VPInstruction *
+VPDecomposerHIR::createVPInstruction(HLDDNode *DDNode,
+                                     ArrayRef<VPValue *> VPOperands) {
   assert(DDNode && "Expected DDNode to create a VPInstruction.");
-
-  // Clear the insertion point if we don't have to insert the new VPInstruction.
-  VPBuilder::InsertPointGuard Guard(Builder);
-  if (!InsertVPInst)
-    Builder.clearInsertionPoint();
-
   HLInst *HInst = dyn_cast<HLInst>(DDNode);
   assert((!HInst || HInst->getLLVMInstruction()) &&
          "Missing LLVM Instruction for HLInst.");
 
   // Create VPCmpInst for HLInst representing a CmpInst, HLIfs and HLLoops
   // (bottom test).
+  VPInstruction *NewVPInst;
   if ((HInst && isa<CmpInst>(HInst->getLLVMInstruction())) ||
       isa<HLIf>(DDNode) || isa<HLLoop>(DDNode)) {
-    VPCmpInst *NewCmp = Builder.createCmpInst(
-        nullptr, nullptr, getPredicateFromHIR(DDNode), DDNode);
-    HLDef2VPValue[DDNode] = NewCmp;
-    return NewCmp;
+    assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
+    NewVPInst = Builder.createCmpInst(VPOperands[0], VPOperands[1],
+                                      getPredicateFromHIR(DDNode), DDNode);
+  } else {
+    // Generic VPInstruction.
+    assert(HInst && HInst->getLLVMInstruction() &&
+           "Expected HLInst with underlying LLVM IR.");
+    NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
+        HInst->getLLVMInstruction()->getOpcode(), VPOperands, DDNode));
   }
 
-  // Generic VPInstruction.
-  assert(HInst && HInst->getLLVMInstruction() &&
-         "Expected HLInst with underlying LLVM IR.");
-  auto *NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
-      HInst->getLLVMInstruction()->getOpcode(), {}, DDNode));
   HLDef2VPValue[DDNode] = NewVPInst;
   return NewVPInst;
 }
 
-// Return a sequence of VPValues (VPValueOps) that represents DDNode's operands
+// Return a sequence of VPValues (VPOperands) that represents DDNode's operands
 // in VPlan. In addition to the RegDDRef to VPValue translation, operands are
 // sorted in the way VPlan expects them. Some operands, such as the LHS operand
 // in some HIR instructions, are ignored because they are not explicitly
 // represented as an operand in VPlan.
 void VPDecomposerHIR::createVPOperandsForMasterVPInst(
-    HLDDNode *DDNode, SmallVectorImpl<VPValue *> &VPValueOps) {
+    HLDDNode *DDNode, SmallVectorImpl<VPValue *> &VPOperands) {
 
   auto *HInst = dyn_cast<HLInst>(DDNode);
   bool IsStore =
@@ -392,14 +420,50 @@ void VPDecomposerHIR::createVPOperandsForMasterVPInst(
     if (HIROp->isLval() && !IsStore)
       continue;
 
-    VPValueOps.push_back(decomposeVPOperand(HIROp));
+    VPOperands.push_back(decomposeVPOperand(HIROp));
   }
 
   // Fix discrepancies in the order of operands between HLInst and
   // VPInstruction:
-  //     - Store: dest = store src -> store src dest
+  //   - Store:
+  //       HLInst: (%A)[i1] = %add;
+  //       VPInstruction: store %add, %decompAi1
   if (IsStore)
-    std::iter_swap(VPValueOps.begin(), std::next(VPValueOps.begin()));
+    std::iter_swap(VPOperands.begin(), std::next(VPOperands.begin()));
+}
+
+// Create or retrieve an existing VPValue that represents the definition of the
+// use \p UseDDR (R-value DDRef representing a use). Return an external
+// definition if such definition happens outside of the outermost loop
+// represented in VPlan. Otherwise, return a VPInstruction representing the
+// definition.
+void VPDecomposerHIR::createOrGetVPDefsForUse(
+    DDRef *UseDDR, SmallVectorImpl<VPValue *> &VPDefs) {
+
+  assert(UseDDR->isRval() && "DDRef must be an RValue!");
+
+  // Process external definitions.
+  // TODO: We are creating redundant external definitions. To be fixed with the
+  // introduction of VPExternalDef class.
+  if (isExternalDef(UseDDR)) {
+    VPValue *VPExtDef = new VPValue();
+    Plan->addExternalDef(VPExtDef);
+    VPDefs.push_back(VPExtDef);
+  }
+
+  // Process definitions coming from incoming DD edges. At this point, all
+  // the sources of the incoming edges of UseDDR must have an associated
+  // VPInstruction modeling the definition.
+  auto InEdges = DDG.incoming(UseDDR);
+  for (const DDEdge *Edge : InEdges) {
+    // Get the HLDDNode causing the definition.
+    HLDDNode *DefNode = Edge->getSrc()->getHLDDNode();
+
+    auto VPValIt = HLDef2VPValue.find(DefNode);
+    assert(VPValIt != HLDef2VPValue.end() &&
+           "Missing VPInstruction for HLDDNode!");
+    VPDefs.push_back(VPValIt->second);
+  }
 }
 
 void VPDecomposerHIR::createLoopIVAndIVStart(HLLoop *HLp, VPBasicBlock *LpPH) {
@@ -450,98 +514,88 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   // Add IVNext to induction semi-phi.
   IndSemiPhi->addOperand(IVNext);
 
-  // Create VPInstruction for bottom test condition. We 1) create the
-  // VPInstruction for the test condition without operands, 2) decompose UB
-  // operand setting the VPInstruction as master VPInstruction and 3) add
-  // operands to the VPInstruction. The VPInstructions resulting from the UB
-  // decomposition are inserted into the loop PH since they are loop invariant.
+  // Create VPInstruction for bottom test condition. We 1) decompose UB operand,
+  // 2) create master VPInstruction for the test condition with IVNext and UB as
+  // operands and 3) set master VPInstruction of decomposed VPInstructions. The
+  // VPInstructions resulting from the UB decomposition are inserted into the
+  // loop PH since they are loop invariant.
   assert(HLp->getUpperDDRef() && "Expected a valid upper DDRef for HLLoop.");
-  auto *BottomTest = createNoOperandVPInst(HLp, LpLatch);
-  BottomTest->addOperand(IVNext);
-  VPBuilder::InsertPointGuard Guard(Builder);
-  Builder.setInsertPoint(LpPH);
-  MasterVPIGuard MasterGuard(*this, BottomTest);
-  BottomTest->addOperand(decomposeVPOperand(HLp->getUpperDDRef()));
+  SmallVector<VPValue *, 2> VPOperands;
+  VPOperands.push_back(IVNext);
+  { // Scope for Guard (RAII).
+    VPBuilder::InsertPointGuard Guard(Builder);
+    Builder.setInsertPoint(LpPH);
+    VPOperands.push_back(decomposeVPOperand(HLp->getUpperDDRef()));
+  }
+  auto *BottomTest = createVPInstruction(HLp, VPOperands);
+  // Set NewVPInst as master VPInstruction of any decomposed VPInstruction
+  // resulting from decomposing its operands.
+  setMasterForDecomposedVPIs(BottomTest, IVNext /*First VPI before decomp*/,
+                             LpLatch);
 
-  // Set the underlying HIR of the new VPInstructions to valid.
+  // Set the underlying HIR of the new VPInstructions (and its potential
+  // decomposed VPInstructions) to valid.
   IndSemiPhi->HIR.setValid();
   IVNext->HIR.setValid();
   BottomTest->HIR.setValid();
   return BottomTest;
 }
 
+// Add operands to VPInstructions representing phi nodes from the input IR.
+// PhisToFix contains a pair with VPPhi and its associated sink DDRef. We get
+// the source of each incoming edge of DDRef and set the VPValue associated to
+// that source as operand of the VPPhi.
+void VPDecomposerHIR::fixPhiNodes() {
+  for (auto &VPPhiDDRPair : PhisToFix) {
+    VPInstruction *VPPhi = VPPhiDDRPair.first;
+    DDRef *UseDDR = VPPhiDDRPair.second;
+    assert(VPPhi->getNumOperands() == 0 &&
+           "Expected VPInstruction with no operands.");
+
+    SmallVector<VPValue *, 4> VPOperands;
+    createOrGetVPDefsForUse(UseDDR, VPOperands);
+    assert(VPOperands.size() > 1 && "Expected multiple definitions for VPPhi!");
+    for (auto *VPOp : VPOperands)
+      VPPhi->addOperand(VPOp);
+
+    // Set the master VPInstruction of this VPPhi as valid after the fix.
+    VPPhi->HIR.getMaster()->HIR.setValid();
+  }
+}
+
 VPInstruction *
-VPDecomposerHIR::createVPInstructions(HLDDNode *DDNode,
-                                      VPBasicBlock *InsPointVPBB) {
+VPDecomposerHIR::createVPInstructionsForDDNode(HLDDNode *DDNode,
+                                               VPBasicBlock *InsPointVPBB) {
   LLVM_DEBUG(dbgs() << "Generating VPInstructions for "; DDNode->dump();
              dbgs() << "\n");
+
+  // There should't be any VPValue for DDNode at this point. Otherwise, we
+  // visited DDNode when we shouldn't, breaking the RPO traversal order.
+  assert(!HLDef2VPValue.count(DDNode) && "DDNode shouldn't have been visited.");
 
   // Set the insertion point in the builder for the VPInstructions that we are
   // going to create for this DDNode.
   Builder.setInsertPoint(InsPointVPBB);
+  // Keep last instruction before decomposition. We will need it to set the
+  // master VPInstruction of all the decomposed VPInstructions created.
+  VPInstruction *LastVPIBeforeDec = getLastVPI(InsPointVPBB);
 
-  auto VPValIt = HLDef2VPValue.find(DDNode);
-  VPInstruction *NewVPInst;
+  // Create and decompose the operands of the future new VPInstruction.
+  // They will be inserted (obviously) before the new VPInstruction.
+  SmallVector<VPValue *, 4> VPOperands;
+  createVPOperandsForMasterVPInst(DDNode, VPOperands);
 
-  if (VPValIt != HLDef2VPValue.end()) {
-    // DDNode is a definition with a user that has been previously visited. We
-    // have to set its operands properly and insert it into the VPBasicBlock.
-    NewVPInst = cast<VPInstruction>(VPValIt->second);
-    Builder.insert(NewVPInst);
-  } else
-    // Create new VPInstruction without operands. Operands are created later. We
-    // need to follow this order because this VPInstruction needs to be set as
-    // master VPInstruction of its operands.
-    NewVPInst = createNoOperandVPInst(DDNode, true /*Insert VPInst*/);
+  // Create new VPInstruction with previous operands.
+  VPInstruction *NewVPInst = createVPInstruction(DDNode, VPOperands);
 
-  // Create and decompose the operands of the new VPInstruction. We insert the
-  // operands before the new VPInstruction the belong to. We use the new
-  // VPInstruction as master VPInstruction of the decomposed operands.
-  VPBuilder::InsertPointGuard BuilderGuard(Builder);
-  Builder.setInsertPoint(NewVPInst);
-  MasterVPIGuard MasterGuard(*this, NewVPInst);
+  // Set NewVPInst as master VPInstruction of any decomposed VPInstruction
+  // resulting from decomposing its operands.
+  setMasterForDecomposedVPIs(NewVPInst, LastVPIBeforeDec, InsPointVPBB);
 
-  SmallVector<VPValue *, 4> VPValueOps;
-  createVPOperandsForMasterVPInst(DDNode, VPValueOps);
-
-  // Set VPInstruction's operands.
-  for (VPValue *Operand : VPValueOps) {
-    NewVPInst->addOperand(Operand);
-  }
-
+  // Set the underlying HIR of the new VPInstruction (and its potential
+  // decomposed VPInstructions) to valid.
   NewVPInst->HIR.setValid();
   return NewVPInst;
-}
-
-// Create or retrieve an existing VPValue for the definition of \p Edge. Return
-// an external definition if the \p Edge definition is outside of the outermost
-// loop in VPlan. Otherwise, return a VPInstruction.
-VPValue *
-VPDecomposerHIR::VPBlobDecompVisitor::createOrGetVPDefFor(const DDEdge *Edge) {
-  // Get the HLDDNode causing the definition.
-  HLDDNode *DefNode = Edge->getSrc()->getHLDDNode();
-  auto VPValIt = Decomposer.HLDef2VPValue.find(DefNode);
-
-  if (VPValIt != Decomposer.HLDef2VPValue.end())
-    // Return the VPValue associated to the HLDDNode definition created
-    // previously.
-    return VPValIt->second;
-
-  if (!DefNode->getHLNodeUtils().contains(Decomposer.OutermostHLp, DefNode,
-                                          true /*include preheader/exit*/)) {
-    // The definition is outside of the outermost loop. Create an external
-    // definition.
-    VPValue *VPExtDef = new VPValue();
-    Decomposer.Plan->addExternalDef(VPExtDef);
-    Decomposer.HLDef2VPValue[DefNode] = VPExtDef;
-    return VPExtDef;
-  }
-
-  // HLDDNode definition hasn't been visited yet. Create VPInstruction without
-  // operands and do not insert it in the VPBasicBlock. This VPInstruction will
-  // be fixed and inserted when the HLDDNode definition is processed in
-  // createVPInstructions.
-  return Decomposer.createNoOperandVPInst(DefNode, false /*Insert VPIntr*/);
 }
 
 // Create a VPValue for a non-integer constant \p Blob. A non-integer constant
@@ -584,37 +638,24 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
     assert(DDR != nullptr && "BlobDDRef not found!");
   }
 
-  auto BlobInEdges = Decomposer.DDG.incoming(DDR);
-  if (BlobInEdges.begin() != BlobInEdges.end()) {
-    // Blob has incoming DD edges. We need to retrieve (or create) the VPValues
-    // associated to the DD sources (definitions). If there are multiple
-    // definitions, in addition, we introduce a semi-phi operation that "blends"
-    // all the VPValue definitions.
+  unsigned BlobNumReachDefs = Decomposer.getNumReachingDefinitions(DDR);
+  assert(BlobNumReachDefs > 0 && "Blob without reaching definitions!");
 
-    if (std::next(BlobInEdges.begin()) == BlobInEdges.end())
-      // Single definition.
-      return createOrGetVPDefFor(*BlobInEdges.begin());
-
-    // Multiple definitions.
-    SmallVector<VPValue *, 4> BlobVPDefs;
-    for (const DDEdge *Edge : BlobInEdges)
-      BlobVPDefs.push_back(createOrGetVPDefFor(Edge));
-
-    auto *NewSemiPhi =
-        cast<VPInstruction>(Decomposer.Builder.createSemiPhiOp(BlobVPDefs));
-    NewSemiPhi->HIR.setMaster(Decomposer.MasterVPI);
-    return NewSemiPhi;
-  }
-
-  // Blob has no incoming DD edges. This means that it is an external definition
-  // that is not even part of the DD graph.
-  // TODO: We could be creating redundant external definitions here because this
-  // external definition cannot be mapped to an HLInst. Add check at the
-  // beginning of this function to return an existing external definition in the
-  // VPlan pool.
-  VPValue *VPExtDef = new VPValue();
-  Decomposer.Plan->addExternalDef(VPExtDef);
-  return VPExtDef;
+  // Blob has reaching definitions. We need to retrieve (or create) the VPValues
+  // associated to the sources DDRefs (definitions). If there are multiple
+  // definitions, in addition, we introduce a semi-phi operation that "blends"
+  // all the VPValue definitions.
+  if (BlobNumReachDefs == 1) {
+    // Single definition.
+    SmallVector<VPValue *, 1> VPDefs;
+    Decomposer.createOrGetVPDefsForUse(DDR, VPDefs);
+    assert(VPDefs.size() == 1 && "Expected single definition.");
+    return VPDefs.front();
+  } else
+    // The operands of the semi-phi are not set right now since some of them
+    // might not have been created yet. They will be set by fixPhiNodes.
+    return cast<VPInstruction>(
+        Decomposer.Builder.createSemiPhiOp({} /*No operands*/));
 }
 
 // Helper function to decomposed an SCEVNAryExpr using the same \p OpCode to

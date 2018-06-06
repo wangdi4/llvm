@@ -49,8 +49,7 @@ private:
   /// \brief Create VPCmpInst with its two operands.
   VPCmpInst *createCmpInst(VPValue *LeftOp, VPValue *RightOp,
                            CmpInst::Predicate Pred) {
-    // TODO: Enable assert after fixing VPlanHCFGBuilderHIR.
-    //assert(LeftOp && RightOp && "VPCmpInst's operands can't be null!");
+    assert(LeftOp && RightOp && "VPCmpInst's operands can't be null!");
     VPCmpInst *Instr = new VPCmpInst(LeftOp, RightOp, Pred);
     if (BB)
       BB->insert(Instr, InsertPt);

@@ -203,19 +203,22 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   // Force creation of a new VPBB for PH.
   ActiveVPBB = nullptr;
 
-  if (HLp->hasPreheader()) {
-    HLNodeUtils::visitRange<false /*Recursive*/>(
-        *this /*visitor*/, HLp->pre_begin(), HLp->pre_end());
+  // TODO: DDGraph doesn't include HLLoop PH and Exit at this point. As a
+  // workaround, we push them outside of the region represented in VPlan and
+  // create an empty VPBasicBlock for them.
+  // if (HLp->hasPreheader()) {
+  //  HLNodeUtils::visitRange<false /*Recursive*/>(
+  //      *this /*visitor*/, HLp->pre_begin(), HLp->pre_end());
 
-    assert(ActiveVPBB == HLN2VPBB[&*HLp->pre_begin()] &&
-           "Loop PH generates more than one VPBB?");
-  } else {
-    // There is no PH in HLLoop. Create dummy VPBB as PH. We could introduce
-    // this dummy VPBB in simplifyPlainCFG, but according to the design for
-    // LLVM-IR, we expect to have a loop with a PH as input. It's then better to
-    // introduce the dummy PH here.
-    updateActiveVPBB();
-  }
+  //  assert(ActiveVPBB == HLN2VPBB[&*HLp->pre_begin()] &&
+  //         "Loop PH generates more than one VPBB?");
+  //} else
+  // There is no PH in HLLoop. Create dummy VPBB as PH. We could introduce
+  // this dummy VPBB in simplifyPlainCFG, but according to the design for
+  // LLVM-IR, we expect to have a loop with a PH as input. It's then better to
+  // introduce the dummy PH here.
+  updateActiveVPBB();
+
   VPBasicBlock *Preheader = ActiveVPBB;
 
   // - Loop Body -
@@ -252,17 +255,24 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   // Force creation of a new VPBB for Exit.
   ActiveVPBB = nullptr;
 
-  if (HLp->hasPostexit()) {
-    HLNodeUtils::visitRange<false /*Recursive*/>(
-        *this /*visitor*/, HLp->post_begin(), HLp->post_end());
+  // TODO: DDGraph doesn't include HLLoop PH and Exit at this point. As a
+  // workaround, we push them outside of the region represented in VPlan and
+  // create an empty VPBasicBlock for them.
+  // if (HLp->hasPostexit()) {
+  //  HLNodeUtils::visitRange<false /*Recursive*/>(
+  //      *this /*visitor*/, HLp->post_begin(), HLp->post_end());
 
-    assert(ActiveVPBB == HLN2VPBB[&*HLp->post_begin()] &&
-           "Loop Exit generates more than one VPBB?");
-  } else {
-    // There is no Exit in HLLoop. Create dummy VPBB as Exit (see comment for
-    // dummy PH).
-    updateActiveVPBB();
-  }
+  //  assert(ActiveVPBB == HLN2VPBB[&*HLp->post_begin()] &&
+  //         "Loop Exit generates more than one VPBB?");
+  //} else
+  // There is no Exit in HLLoop. Create dummy VPBB as Exit (see comment for
+  // dummy PH).
+  updateActiveVPBB();
+
+  // At this point, all the VPBasicBlocks have been built and all the
+  // VPInstructions have been created for this loop. It's time to fix
+  // VPInstructions representing a semi-phi operation.
+  Decomposer.fixPhiNodes();
 }
 
 void PlainCFGBuilderHIR::visit(HLIf *HIf) {
@@ -276,7 +286,8 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
   // Create (single, not decomposed) VPInstruction for HLIf's predicate and set
   // it as condition bit of the active VPBasicBlock.
   // TODO: Remove "not decomposed" when decomposing HLIfs.
-  VPInstruction *CondBit = Decomposer.createVPInstructions(HIf, ActiveVPBB);
+  VPInstruction *CondBit =
+      Decomposer.createVPInstructionsForDDNode(HIf, ActiveVPBB);
   VPlanUtils::setBlockCondBit(ConditionVPBB, CondBit, Plan);
 
   // - Then branch -
@@ -325,7 +336,7 @@ void PlainCFGBuilderHIR::visit(HLInst *HInst) {
   updateActiveVPBB(HInst);
 
   // Create VPInstructions for HInst.
-  Decomposer.createVPInstructions(HInst, ActiveVPBB);
+  Decomposer.createVPInstructionsForDDNode(HInst, ActiveVPBB);
 }
 
 void PlainCFGBuilderHIR::visit(HLGoto *HGoto) {

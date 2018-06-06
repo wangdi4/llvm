@@ -23,15 +23,14 @@ class HLLoop;
 class CanonExpr;
 class DDGraph;
 class DDEdge;
+class DDRef;
 } // namespace loopopt
 
 namespace vpo {
-class MasterVPIGuard;
 
 // Main class to create VPInstructions out of HLDDNodes during the VPlan plain
 // CFG construction.
 class VPDecomposerHIR {
-  friend MasterVPIGuard;
 private:
   /// The VPlan we are working on.
   VPlan *Plan;
@@ -51,16 +50,23 @@ private:
   /// Map HLLoop to the semi-phi instruction representing its IV in VPlan.
   SmallDenseMap<loopopt::HLLoop *, VPInstruction *> HLLp2IVSemiPhi;
 
-  // Hold a pointer to the current Master VPInstruction under decomposition.
-  // It's set to null if there is no VPInstruction under decomposition. It must
-  // be modified using MasterVPIGuard (RAII).
-  VPInstruction * MasterVPI = nullptr;
+  // Hold pairs with VPPhi nodes that need to be fixed once the plain CFG
+  // has been built and the sink DDRef that triggered the creating of such
+  // VPPhis.
+  SmallVector<std::pair<VPInstruction *, loopopt::DDRef *>, 8> PhisToFix;
 
   // Methods to create VPInstructions out of an HLDDNode.
-  VPInstruction *createNoOperandVPInst(loopopt::HLDDNode *DDNode,
-                                       bool InsertVPInst);
+  bool isExternalDef(loopopt::DDRef *UseDDR);
+  unsigned getNumReachingDefinitions(loopopt::DDRef *UseDDR);
+  void setMasterForDecomposedVPIs(VPInstruction *MasterVPI,
+                                  VPInstruction *LastVPIBeforeDec,
+                                  VPBasicBlock *VPBB);
+  VPInstruction *createVPInstruction(loopopt::HLDDNode *DDNode,
+                                     ArrayRef<VPValue *> VPOperands);
   void createVPOperandsForMasterVPInst(loopopt::HLDDNode *DDNode,
-                                       SmallVectorImpl<VPValue *> &VPValueOps);
+                                       SmallVectorImpl<VPValue *> &VPOperands);
+  void createOrGetVPDefsForUse(loopopt::DDRef *UseDDR,
+                               SmallVectorImpl<VPValue *> &VPDefs);
 
   // Methods to decompose complex HIR.
   VPValue *combineDecompDefs(VPValue *LHS, VPValue *RHS, Type *Ty,
@@ -123,8 +129,8 @@ public:
   /// InsPointVPBB. \p DDNode will be decomposed into several VPInstructions if
   /// it's too complex to be represented using a single VPInstruction. Return
   /// the last VPInstruction of the Def/Use chain created.
-  VPInstruction *createVPInstructions(loopopt::HLDDNode *DDNode,
-                                      VPBasicBlock *InsPointVPBB);
+  VPInstruction *createVPInstructionsForDDNode(loopopt::HLDDNode *DDNode,
+                                               VPBasicBlock *InsPointVPBB);
 
   /// Create a semi-phi VPInstruction representing the \p HLp IV and a VPValue
   /// for the IV Start. The semi-phi is inserted in the loop header VPBasicBlock
@@ -141,6 +147,10 @@ public:
   VPValue *createLoopIVNextAndBottomTest(loopopt::HLLoop *HLp,
                                          VPBasicBlock *LpPH,
                                          VPBasicBlock *LpLatch);
+
+  /// Add operands to VPInstructions representing semi-phi operation resulting
+  /// from decomposition.
+  void fixPhiNodes();
 };
 
 } // namespace vpo
