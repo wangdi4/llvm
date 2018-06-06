@@ -1,6 +1,8 @@
 // RUN: %clang_cc1 %s -triple spir-unknown-unknown-intelfpga -cl-std=CL2.0 -verify -pedantic -fsyntax-only
 // RUN: %clang_cc1 %s -triple spir-unknown-unknown-intelfpga -cl-std=CL1.2 -verify -pedantic -fsyntax-only
-// RUN: %clang_cc1 %s -cl-std=CL1.2 -verify -pedantic -fsyntax-only -DWITHOUTTRIPLE
+// RUN: %clang_cc1 %s -triple x86_64-unknown-unknown-intelfpga -cl-std=CL1.2 -verify -pedantic -fsyntax-only
+// RUN: %clang_cc1 %s -triple x86_64-unknown-unknown -cl-std=CL1.2 -verify -pedantic -fsyntax-only -DWITHOUTTRIPLE
+// RUN: %clang_cc1 %s -triple spir-unknown-unknown -cl-std=CL1.2 -verify -pedantic -fsyntax-only -DWITHOUTTRIPLE
 
 struct st {
   int a;
@@ -27,9 +29,14 @@ void foo() {
   // expected-error@-1{{too few arguments to function call, expected 1, have 0}}
   int tmp = __builtin_fpga_reg(1, 2);
   // expected-error@-1{{too many arguments to function call, expected 1, have 2}}
+
+  // __fpga_reg should be an alias to __builtin_fpga_reg
+  int orig_name = __fpga_reg(a);
 #else
   int a=123;
   int b = __builtin_fpga_reg(a);
   // expected-error@-1{{'__builtin_fpga_reg' is only available in OpenCL FPGA}}
+  int c = __fpga_reg(a);
+  // expected-warning@-1{{implicit declaration of function '__fpga_reg' is invalid in OpenCL}}
 #endif
 }

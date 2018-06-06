@@ -1274,6 +1274,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 
   if (HasFloat128)
     Builder.defineMacro("__SIZEOF_FLOAT128__", "16");
+
+#if INTEL_CUSTOMIZATION
+  if (getTriple().getEnvironment() == llvm::Triple::IntelFPGA)
+    Builder.defineMacro("__fpga_reg", "__builtin_fpga_reg");
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool X86TargetInfo::isValidFeatureName(StringRef Name) const {

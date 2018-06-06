@@ -135,6 +135,8 @@ public:
                             const TargetOptions &Opts)
       : SPIR32TargetInfo(Triple, Opts) {}
   ArrayRef<Builtin::Info> getTargetBuiltins() const override;
+  void getTargetDefines(const LangOptions &Opts,
+                        MacroBuilder &Builder) const override;
 };
 
 class LLVM_LIBRARY_VISIBILITY SPIR64INTELFpgaTargetInfo
@@ -145,6 +147,8 @@ public:
                             const TargetOptions &Opts)
       : SPIR64TargetInfo(Triple, Opts) {}
   ArrayRef<Builtin::Info> getTargetBuiltins() const override;
+  void getTargetDefines(const LangOptions &Opts,
+                        MacroBuilder &Builder) const override;
 };
 #endif // INTEL_CUSTOMIZATION
 } // namespace targets
