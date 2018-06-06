@@ -699,7 +699,17 @@ bool AOSToSOAPass::qualifyHeuristics(StructInfoVecImpl &CandidateTypes,
         assert(Info &&
                "DTransAnalysisInfo does not contain info for structure");
 
+        // Only allow the heuristic override to enable cases that actually
+        // met the required safety conditions.
         dtrans::StructInfo *StInfo = cast<dtrans::StructInfo>(Info);
+        if (std::find(CandidateTypes.begin(), CandidateTypes.end(), StInfo) ==
+            CandidateTypes.end()) {
+          LLVM_DEBUG(dbgs()
+                     << "DTRANS-AOSTOSOA: Cannot force transformation on type "
+                        "that fails safety checks: "
+                     << Name << "\n");
+          continue;
+        }
         Qualified.push_back(StInfo);
       }
     }
