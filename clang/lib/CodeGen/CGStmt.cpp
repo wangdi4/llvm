@@ -32,6 +32,23 @@
 using namespace clang;
 using namespace CodeGen;
 
+#if INTEL_CUSTOMIZATION
+static bool useFrontEndOutlining(CodeGenModule &CGM, const Stmt *S) {
+  if (S->getStmtClass() != Stmt::OMPAtomicDirectiveClass)
+    return false;
+
+  ASTContext &Ctx = CGM.getContext();
+  if (Ctx.getTargetInfo().getTriple().getArch() == llvm::Triple::csa)
+   return true;
+
+  const auto *AD = cast<OMPAtomicDirective>(S);
+  if (Ctx.getTypeSize(AD->getX()->getType()) <= 64)
+    return true;
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 //                              Statement Emission
 //===----------------------------------------------------------------------===//
@@ -76,7 +93,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   EmitStopPoint(S);
 
 #if INTEL_CUSTOMIZATION
-  if (CGM.getLangOpts().IntelCompat &&
+  if (CGM.getLangOpts().IntelCompat && !useFrontEndOutlining(CGM, S) &&
       (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion)) {
     if (S->getStmtClass() == Stmt::OMPSimdDirectiveClass)
       return EmitIntelOMPSimdDirective(cast<OMPSimdDirective>(*S));

@@ -145,100 +145,45 @@ int main(int argc, char **argv) {
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.END.PARALLEL")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   n1 = 0;
-// CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.UPDATE")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-// CHECK-NEXT: load i64, i64*
-// CHECK-NEXT: add nsw i64 %{{.+}}, 1
-// CHECK-NEXT: store i64
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK: atomicrmw add i64* [[N1_ADDR]], i64 1 monotonic
 #pragma omp atomic
   ++n1;
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.UPDATE")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-// CHECK-NEXT: load i64, i64*
-// CHECK-NEXT: add nsw i64 %{{.+}}, 1
-// CHECK-NEXT: store i64
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: atomicrmw add i64* [[N1_ADDR]], i64 1 monotonic
 #pragma omp atomic update
   ++n1;
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.READ")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-// CHECK-NEXT: load i64, i64*
-// CHECK-NEXT: store i64
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: [[ALOAD:%.+]] = load atomic i64, i64* [[N1_ADDR]] monotonic
+// CHECK-NEXT: store i64 [[ALOAD]], i64* [[N2_ADDR]], align 8
 #pragma omp atomic read
   n2 = n1;
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.WRITE")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-// CHECK-NEXT: store i64 1, i64*
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: store atomic i64 1, i64* [[N1_ADDR]] monotonic, align 8
 #pragma omp atomic write
   n1 = 1;
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.CAPTURE")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-// CHECK-NEXT: load i64, i64*
-// CHECK-NEXT: add nsw i64 %{{.+}}, 1
-// CHECK-NEXT: store i64
-// CHECK-NEXT: store i64
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: [[L45:%.+]] = atomicrmw add i64* [[N1_ADDR]], i64 1 monotonic
+// CHECK-NEXT: [[A51:%.+]] = add nsw i64 [[L45]], 1
+// CHECK-NEXT: store i64 [[A51]], i64* [[N2_ADDR]], align 8
 #pragma omp atomic capture
   n2 = ++n1;
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.UPDATE.SEQ_CST")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-// CHECK-NEXT: load i64, i64*
-// CHECK-NEXT: add nsw i64 %{{.+}}, 1
-// CHECK-NEXT: store i64
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: atomicrmw add i64* [[N1_ADDR]], i64 1 seq_cst
+// CHECK-NEXT: call void @__kmpc_flush
 #pragma omp atomic seq_cst
   ++n1;
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.UPDATE.SEQ_CST")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-// CHECK-NEXT: load i64, i64*
-// CHECK-NEXT: add nsw i64 %{{.+}}, 1
-// CHECK-NEXT: store i64
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: atomicrmw add i64* [[N1_ADDR]], i64 1 seq_cst
+// CHECK-NEXT: call void @__kmpc_flush
 #pragma omp atomic seq_cst update
   ++n1;
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.READ.SEQ_CST")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-// CHECK-NEXT: load i64, i64*
-// CHECK-NEXT: store i64
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: [[ALOAD52:%.+]] = load atomic i64, i64* [[N1_ADDR]] seq_cst
+// CHECK-NEXT: call void @__kmpc_flush
+// CHECK-NEXT: store i64 [[ALOAD52]], i64* [[N2_ADDR]], align 8
 #pragma omp atomic read, seq_cst
   n2 = n1;
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.WRITE.SEQ_CST")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-// CHECK-NEXT: store i64 1, i64*
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: store atomic i64 1, i64* [[N1_ADDR]] seq_cst, align 8
+// CHECK-NEXT: call void @__kmpc_flush
 #pragma omp atomic write seq_cst
   n1 = 1;
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.CAPTURE.SEQ_CST")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-// CHECK-NEXT: load i64, i64*
-// CHECK-NEXT: add nsw i64 %{{.+}}, 1
-// CHECK-NEXT: store i64
-// CHECK-NEXT: store i64
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: [[L48:%.+]] = atomicrmw add i64* [[N1_ADDR]], i64 1 seq_cst
+// CHECK-NEXT: [[ADD53:%.+]] = add nsw i64 [[L48]], 1
+// CHECK-NEXT: store i64 [[ADD53]], i64* [[N2_ADDR]], align 8
+// CHECK-NEXT: call void @__kmpc_flush
 #pragma omp atomic seq_cst, capture
   n2 = ++n1;
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.CRITICAL")
