@@ -751,9 +751,10 @@ void DTransOptBase::updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
            "Unexpected operand use for ptr sub!");
     // Look for the size in operand 1.
     SmallVector<std::pair<User *, unsigned>, 4> SizeUseStack;
-    assert(findValueMultipleOfSizeInst(U, 1, OrigSize, SizeUseStack) &&
-           "Couldn't find size div for ptr sub!");
-    replaceSizeValue(BinOp, SizeUseStack, OrigSize, ReplSize);
+    bool Found = findValueMultipleOfSizeInst(U, 1, OrigSize, SizeUseStack);
+    assert(Found && "Couldn't find size div for ptr sub!");
+    if (Found)
+      replaceSizeValue(BinOp, SizeUseStack, OrigSize, ReplSize);
   }
 }
 
