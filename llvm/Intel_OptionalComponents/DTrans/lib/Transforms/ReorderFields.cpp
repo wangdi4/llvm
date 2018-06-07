@@ -139,7 +139,7 @@ private:
 
   void processBinaryOperator(BinaryOperator &BO);
   void processCallInst(CallInst &CI);
-  void transformSDiv(BinaryOperator &I);
+  void transformDivOp(BinaryOperator &I);
   void processGetElementPtrInst(GetElementPtrInst &GEP);
   void transformAllocCall(CallInst &CI, StructType *Ty);
   void transformMemfunc(CallInst &CI, StructType *Ty);
@@ -182,12 +182,13 @@ Type *ReorderFieldsImpl::getOrigTyOfTransformedType(Type *TType) {
 }
 
 // Sets \p NewVal as \p APos th operand of \p I. This routine expects
-// only CallInst and Instruction::SDiv instructions.
+// only CallInst and SDiv/UDiv instructions.
 void ReorderFieldsImpl::replaceOldValWithNewVal(Instruction *I, uint32_t APos,
                                                 Value *NewVal) {
   if (auto *CI = dyn_cast<CallInst>(I))
     CI->setArgOperand(APos, NewVal);
-  else if (I->getOpcode() == Instruction::SDiv)
+  else if (I->getOpcode() == Instruction::SDiv ||
+           I->getOpcode() == Instruction::UDiv)
     I->setOperand(APos, NewVal);
   else
     llvm_unreachable("Invalid Inst");
@@ -346,15 +347,16 @@ StructType *ReorderFieldsImpl::getAssociatedOrigTypeOfSub(Value *SubV) {
 //
 //    size_of(str1) needs to be changed if reordering is applied to str1
 //
-void ReorderFieldsImpl::transformSDiv(BinaryOperator &I) {
-  assert(I.getOpcode() == Instruction::SDiv && "Unexpected opcode");
+void ReorderFieldsImpl::transformDivOp(BinaryOperator &I) {
+  assert((I.getOpcode() == Instruction::SDiv ||
+          I.getOpcode() == Instruction::UDiv) && "Unexpected opcode");
   Value *SubI = I.getOperand(0);
 
   StructType *STy = getAssociatedOrigTypeOfSub(SubI);
   if (!STy)
     return;
 
-  LLVM_DEBUG(dbgs() << "SDIV  Before:" << I << "\n");
+  LLVM_DEBUG(dbgs() << "SDiv/UDiv  Before:" << I << "\n");
   Value *SizeVal = I.getOperand(1);
   bool Replaced =
       replaceOldSizeWithNewSize(SizeVal, DL.getTypeAllocSize(STy),
@@ -363,16 +365,16 @@ void ReorderFieldsImpl::transformSDiv(BinaryOperator &I) {
          "Expecting oldSize should be replaced with NewSize");
 
   (void) Replaced;
-  LLVM_DEBUG(dbgs() << "SDIV  After:" << I << "\n");
+  LLVM_DEBUG(dbgs() << "SDiv/UDiv  After:" << I << "\n");
 }
 
 // Only Pointer arithmetic that is allowed in Analysis is Instruction::Sub
 // that is used by SDiv.
 void ReorderFieldsImpl::processBinaryOperator(BinaryOperator &BO) {
   switch (BO.getOpcode()) {
-  // TODO: Handle UDiv also.
   case Instruction::SDiv:
-    transformSDiv(BO);
+  case Instruction::UDiv:
+    transformDivOp(BO);
     break;
   default:
     break;
@@ -421,7 +423,7 @@ void ReorderFieldsImpl::processCallInst(CallInst &CI) {
 //   GEP Inst: Replace old index of a field with new index
 //   CallInst: Replace old size of struct with new size in malloc/calloc/
 //             realloc/memset/memcpy etc.
-//   BinaryOp: Fix size that is used in SDiv.
+//   BinaryOp: Fix size that is used in SDiv/UDiv.
 void ReorderFieldsImpl::postprocessFunction(Function &Func, bool isCloned) {
   Function *F = isCloned ? OrigFuncToCloneFuncMap[&Func] : &Func;
   for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
