@@ -1051,8 +1051,13 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans)
+  if (EnableDTrans) {
+    // These passes get the IR into a form that DTrans is able to analyze.
+    PM.add(createInstructionSimplifierPass());
+    PM.add(createCFGSimplificationPass());
+    // This call adds the DTrans passes.
     addDTransLegacyPasses(PM);
+  }
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 

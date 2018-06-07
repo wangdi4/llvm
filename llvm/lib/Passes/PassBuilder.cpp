@@ -1119,8 +1119,13 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans)
+  if (EnableDTrans) {
+    // These passes get the IR into a form that DTrans is able to analyze.
+    MPM.addPass(createModuleToFunctionPassAdaptor(InstSimplifierPass()));
+    MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass()));
+    // This call adds the DTrans passes.
     addDTransPasses(MPM);
+  }
 #endif // INTEL_INCLUDE_DTRANS
   // Optimize some dynamic_cast calls.
   MPM.addPass(OptimizeDynamicCastsPass());
