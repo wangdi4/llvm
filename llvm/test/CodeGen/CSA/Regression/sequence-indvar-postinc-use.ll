@@ -25,7 +25,7 @@ for.body:                                         ; preds = %for.body, %for.body
   %0 = trunc i64 %indvars.iv.next to i32
   %conv = sitofp i32 %0 to double
 ; CHECK: seqotne64 %[[indvar:[0-9a-z_]+]]
-; CHECK: add64 %[[indvarinc:[0-9a-z_]+]], %[[indvar]], 1
+; CHECK: add32 %[[indvarinc:[0-9a-z_]+]], %[[indvar]], 1
 ; CHECK: cvtf64s32 %[[result:[0-9a-z_]+]], %[[indvarinc]]
   %call = tail call double @sin(double %conv) #3
   %arrayidx = getelementptr inbounds double, double* %input_array, i64 %indvars.iv
