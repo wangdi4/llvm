@@ -2000,7 +2000,7 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
         HashLoc, IncludeTok,
         LangOpts.MSVCCompat ? NormalizedPath.c_str() : Filename, isAngled,
         FilenameRange, File, SearchPath, RelativePath,
-        ShouldEnter ? nullptr : SuggestedModule.getModule());
+        ShouldEnter ? nullptr : SuggestedModule.getModule(), FileCharacter);
     if (SkipHeader && !SuggestedModule.getModule())
       Callbacks->FileSkipped(*File, FilenameTok, FileCharacter);
   }
@@ -2474,7 +2474,7 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
         VersionString = VersionString.substr(1, SubTok.getLength() - 2);
 
         if (Version.tryParse(VersionString) || Version.getSubminor() ||
-            Version.getBuild() || Version.usesUnderscores()) {
+            Version.getBuild()) {
           Diag(SubTok, clang::diag::err_bad_import_value);
           DiscardUntilEndOfDirective();
           return;
@@ -2631,9 +2631,18 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
         CharSourceRange::getCharRange(FilenameTok.getLocation(), CharEnd);
 
     if (Callbacks) {
+      // The #imported file will be considered a system header if it is
+      // in a system include directory or if the #importer is a
+      // system header.
+      SrcMgr::CharacteristicKind FileCharacter =
+        SourceMgr.getFileCharacteristic(FilenameTok.getLocation());
+
+      FileCharacter = std::max(HeaderInfo.getFileDirFlavor(FE), FileCharacter);
+
       // Notify the callback object that we've seen an inclusion directive.
       Callbacks->InclusionDirective(HashLoc, ImportTok, HeaderFilename.c_str(),
-                                    false, FilenameRange, FE, "", "", nullptr);
+                                    false, FilenameRange, FE, "", "", nullptr,
+                                    FileCharacter);
     }
     FileID FID = SourceMgr.createFileID(FE, End, SrcMgr::C_System);
     EnterSourceFile(FID, /*Dir=*/nullptr, FilenameTok.getLocation());

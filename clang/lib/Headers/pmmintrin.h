@@ -1,11 +1,3 @@
-//
-// Copyright (C) 2015 Intel Corporation.  All rights reserved.
-//
-// The information and source code contained herein is the exclusive
-// property of Intel Corporation and may not be disclosed, examined
-// or reproduced in whole or in part without explicit written authorization
-// from the company.
-//
 /*===---- pmmintrin.h - SSE3 intrinsics ------------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -237,7 +229,7 @@ _mm_hsub_pd(__m128d __a, __m128d __b)
 /// \headerfile <x86intrin.h>
 ///
 /// \code
-/// __m128d _mm_loaddup_pd(double const * dp);
+/// __m128d _mm_loaddup_pd(double const *dp);
 /// \endcode
 ///
 /// This intrinsic corresponds to the <c> VMOVDDUP </c> instruction.

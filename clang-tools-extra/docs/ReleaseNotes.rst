@@ -76,6 +76,11 @@ Improvements to clang-tidy
   Detects and fixes calls to grand-...parent virtual methods instead of calls
   to overridden parent's virtual methods.
 
+- New :doc:`bugprone-terminating-continue
+  <clang-tidy/checks/bugprone-terminating-continue>` check
+
+  Checks if a ``continue`` statement terminates the loop.
+
 - New :doc:`bugprone-throw-keyword-missing
   <clang-tidy/checks/bugprone-throw-keyword-missing>` check.
 
@@ -94,10 +99,10 @@ Improvements to clang-tidy
   with looping constructs. Every backward jump is rejected. Forward jumps are
   only allowed in nested loops.
 
-- New alias :doc:`fuchsia-header-anon-namespaces
-  <clang-tidy/checks/fuchsia-header-anon-namespaces>` to :doc:`google-build-namespaces
-  <clang-tidy/checks/google-build-namespaces>`
-  added.
+- New :doc:`cppcoreguidelines-narrowing-conversions
+  <clang-tidy/checks/cppcoreguidelines-narrowing-conversions>` check
+
+  Checks for narrowing conversions, e. g. ``int i = 0; i += 0.1;``.
 
 - New :doc:`fuchsia-multiple-inheritance
   <clang-tidy/checks/fuchsia-multiple-inheritance>` check.
@@ -110,8 +115,13 @@ Improvements to clang-tidy
   Checks whether a ``std::string::find()`` result is compared with 0, and
   suggests replacing with ``absl::StartsWith()``.
 
-- New :doc:`fuchsia-statically-constructed-objects
-  <clang-tidy/checks/fuchsia-statically-constructed-objects>` check.
+- New `fuchsia-restrict-system-includes
+  <http://clang.llvm.org/extra/clang-tidy/checks/fuchsia-restrict-system-includes.html>`_ check
+
+  Checks for allowed system includes and suggests removal of any others.
+
+- New `fuchsia-statically-constructed-objects
+  <http://clang.llvm.org/extra/clang-tidy/checks/fuchsia-statically-constructed-objects.html>`_ check
 
   Warns if global, non-trivial objects with static storage are constructed,
   unless the object is statically initialized with a ``constexpr`` constructor
@@ -141,6 +151,11 @@ Improvements to clang-tidy
   Warns or suggests alternatives if SIMD intrinsics are used which can be replaced by
   ``std::experimental::simd`` operations.
 
+- New :doc:`readability-simplify-subscript-expr
+  <clang-tidy/checks/readability-simplify-subscript-expr>` check.
+
+  Simplifies subscript expressions like ``s.data()[i]`` into ``s[i]``.
+
 - New :doc:`zircon-temporary-objects
   <clang-tidy/checks/zircon-temporary-objects>` check.
 
@@ -164,6 +179,11 @@ Improvements to clang-tidy
 
 - The `AnalyzeTemporaryDtors` option was removed, since the corresponding
   `cfg-temporary-dtors` option of the Static Analyzer now defaults to `true`.
+
+- New alias :doc:`fuchsia-header-anon-namespaces
+  <clang-tidy/checks/fuchsia-header-anon-namespaces>` to :doc:`google-build-namespaces
+  <clang-tidy/checks/google-build-namespaces>`
+  added.
 
 - New alias :doc:`hicpp-avoid-goto
   <clang-tidy/checks/hicpp-avoid-goto>` to :doc:`cppcoreguidelines-avoid-goto

@@ -1324,7 +1324,15 @@ enum CXTranslationUnit_Flags {
   /**
    * Sets the preprocessor in a mode for parsing a single file only.
    */
-  CXTranslationUnit_SingleFileParse = 0x400
+  CXTranslationUnit_SingleFileParse = 0x400,
+
+  /**
+   * \brief Used in combination with CXTranslationUnit_SkipFunctionBodies to
+   * constrain the skipping of function bodies to the preamble.
+   *
+   * The function bodies of the main file are not skipped.
+   */
+  CXTranslationUnit_LimitSkipFunctionBodiesToPreamble = 0x800
 };
 
 /**
@@ -3586,6 +3594,7 @@ CINDEX_LINKAGE CXType clang_getResultType(CXType T);
 
 /**
  * Retrieve the exception specification type associated with a function type.
+ * This is a value of type CXCursor_ExceptionSpecificationKind.
  *
  * If a non-function type is passed in, an error code of -1 is returned.
  */
@@ -3621,6 +3630,7 @@ CINDEX_LINKAGE CXType clang_getCursorResultType(CXCursor C);
 
 /**
  * Retrieve the exception specification type associated with a given cursor.
+ * This is a value of type CXCursor_ExceptionSpecificationKind.
  *
  * This only returns a valid result if the cursor refers to a function or method.
  */

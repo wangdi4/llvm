@@ -1,11 +1,3 @@
-//
-// Copyright (C) 2015 Intel Corporation.  All rights reserved.
-//
-// The information and source code contained herein is the exclusive
-// property of Intel Corporation and may not be disclosed, examined
-// or reproduced in whole or in part without explicit written authorization
-// from the company.
-//
 /*===---- avxintrin.h - AVX intrinsics -------------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -2233,7 +2225,7 @@ _mm256_cvtepi32_pd(__m128i __a)
 static __inline __m256 __DEFAULT_FN_ATTRS
 _mm256_cvtepi32_ps(__m256i __a)
 {
-  return (__m256)__builtin_ia32_cvtdq2ps256((__v8si) __a);
+  return (__m256)__builtin_convertvector((__v8si)__a, __v8sf);
 }
 
 /// Converts a 256-bit vector of [4 x double] into a 128-bit vector of

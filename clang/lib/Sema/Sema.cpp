@@ -52,8 +52,8 @@ ModuleLoader &Sema::getModuleLoader() const { return PP.getModuleLoader(); }
 PrintingPolicy Sema::getPrintingPolicy(const ASTContext &Context,
                                        const Preprocessor &PP) {
   PrintingPolicy Policy = Context.getPrintingPolicy();
-  // Our printing policy is copied over the ASTContext printing policy whenever
-  // a diagnostic is emitted, so recompute it.
+  // In diagnostics, we print _Bool as bool if the latter is defined as the
+  // former.
   Policy.Bool = Context.getLangOpts().Bool;
   if (!Policy.Bool) {
     if (const MacroInfo *BoolMacro = PP.getMacroInfo(Context.getBoolName())) {
@@ -698,6 +698,11 @@ void Sema::getUndefinedButUsed(
           !isExternalWithNoLinkageType(VD) &&
           !VD->getMostRecentDecl()->isInline())
         continue;
+
+      // Skip VarDecls that lack formal definitions but which we know are in
+      // fact defined somewhere.
+      if (VD->isKnownToBeDefined())
+        continue;
     }
 
     Undefined.push_back(std::make_pair(ND, UndefinedUse.second));
@@ -1333,7 +1338,8 @@ void Sema::EmitCurrentDiagnostic(unsigned DiagID) {
     }
   }
 
-  // Set up the context's printing policy based on our current state.
+  // Copy the diagnostic printing policy over the ASTContext printing policy.
+  // TODO: Stop doing that.  See: https://reviews.llvm.org/D45093#1090292
   Context.setPrintingPolicy(getPrintingPolicy());
 
   // Emit the diagnostic.

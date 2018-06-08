@@ -184,7 +184,8 @@ class VersionArgument<string name, bit opt = 0> : Argument<name, opt>;
 class AlignedArgument<string name, bit opt = 0> : Argument<name, opt>;
 
 // A bool argument with a default value
-class DefaultBoolArgument<string name, bit default> : BoolArgument<name, 1> {
+class DefaultBoolArgument<string name, bit default, bit fake = 0>
+    : BoolArgument<name, 1, fake> {
   bit Default = default;
 }
 
@@ -1507,6 +1508,12 @@ def NotTailCalled : InheritableAttr {
   let Documentation = [NotTailCalledDocs];
 }
 
+def NoStackProtector : InheritableAttr {
+  let Spellings = [Clang<"no_stack_protector">];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [NoStackProtectorDocs];
+}
+
 def NoThrow : InheritableAttr {
   let Spellings = [GCC<"nothrow">, Declspec<"nothrow">];
   let Subjects = SubjectList<[Function]>;
@@ -2573,6 +2580,16 @@ def DLLImport : InheritableAttr, TargetSpecificAttr<TargetWindows> {
   let Spellings = [Declspec<"dllimport">, GCC<"dllimport">];
   let Subjects = SubjectList<[Function, Var, CXXRecord, ObjCInterface]>;
   let Documentation = [DLLImportDocs];
+
+
+  let AdditionalMembers = [{
+private:
+  bool PropagatedToBaseTemplate = false;
+
+public:
+  void setPropagatedToBaseTemplate() { PropagatedToBaseTemplate = true; }
+  bool wasPropagatedToBaseTemplate() { return PropagatedToBaseTemplate; }
+  }];
 }
 
 def SelectAny : InheritableAttr {
@@ -2614,7 +2631,7 @@ def UPtr : TypeAttr {
 
 def MSInheritance : InheritableAttr {
   let LangOpts = [MicrosoftExt];
-  let Args = [DefaultBoolArgument<"BestCase", 1>];
+  let Args = [DefaultBoolArgument<"BestCase", /*default*/1, /*fake*/1>];
   let Spellings = [Keyword<"__single_inheritance">,
                    Keyword<"__multiple_inheritance">,
                    Keyword<"__virtual_inheritance">,

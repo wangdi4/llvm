@@ -2897,9 +2897,10 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 #endif //INTEL_CUSTOMIZATION
 
   // Check if -fopenmp-simd is specified.
-  Opts.OpenMPSimd = !Opts.OpenMP && Args.hasFlag(options::OPT_fopenmp_simd,
-                                                 options::OPT_fno_openmp_simd,
-                                                 /*Default=*/false);
+  bool IsSimdSpecified =
+      Args.hasFlag(options::OPT_fopenmp_simd, options::OPT_fno_openmp_simd,
+                   /*Default=*/false);
+  Opts.OpenMPSimd = !Opts.OpenMP && IsSimdSpecified;
   Opts.OpenMPUseTLS =
 #if INTEL_CUSTOMIZATION
       !Args.hasArg(options::OPT_fopenmp_threadprivate_legacy) &&
@@ -2911,9 +2912,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   if (Opts.OpenMP || Opts.OpenMPSimd) {
     if (int Version =
             getLastArgIntValue(Args, OPT_fopenmp_version_EQ,
-                               Opts.OpenMPSimd ? 45 : Opts.OpenMP, Diags))
+                               IsSimdSpecified ? 45 : Opts.OpenMP, Diags))
       Opts.OpenMP = Version;
-    else if (Opts.OpenMPSimd)
+    else if (IsSimdSpecified)
       Opts.OpenMP = 45;
     // Provide diagnostic when a given target is not expected to be an OpenMP
     // device or host.
@@ -3176,6 +3177,17 @@ static void ParsePreprocessorArgs(PreprocessorOptions &Opts, ArgList &Args,
     }
   }
 
+  // Add the __CET__ macro if a CFProtection option is set.
+  if (const Arg *A = Args.getLastArg(OPT_fcf_protection_EQ)) {
+    StringRef Name = A->getValue();
+    if (Name == "branch")
+      Opts.addMacroDef("__CET__=1");
+    else if (Name == "return")
+      Opts.addMacroDef("__CET__=2");
+    else if (Name == "full")
+      Opts.addMacroDef("__CET__=3");
+  }
+
   // Add macros from the command line.
   for (const auto *A : Args.filtered(OPT_D, OPT_U)) {
     if (A->getOption().matches(OPT_D))
@@ -3269,6 +3281,8 @@ static void ParseTargetArgs(TargetOptions &Opts, ArgList &Args,
     Opts.Triple = llvm::sys::getDefaultTargetTriple();
   Opts.OpenCLExtensionsAsWritten = Args.getAllArgValues(OPT_cl_ext_EQ);
   Opts.ForceEnableInt128 = Args.hasArg(OPT_fforce_enable_int128);
+  Opts.NVPTXUseShortPointers = Args.hasFlag(
+      options::OPT_fcuda_short_ptr, options::OPT_fno_cuda_short_ptr, false);
 }
 
 bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
