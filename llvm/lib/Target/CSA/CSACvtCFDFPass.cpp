@@ -1148,14 +1148,9 @@ void CSACvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop *L) {
           if ((!dmloop || dmloop->contains(mloop)) &&
               DT->properlyDominates(dmbb, mbb)) {
             MachineBasicBlock *landingPad = mloop->getLoopPreheader();
-            // TODO:: create the landing pad if can't find one
-            // assert(landingPad && "can't find loop preheader as landing pad
-            // for renaming");
-            if (!landingPad) {
-              landingPad =
-                DT->getNode(mloop->getHeader())->getIDom()->getBlock();
-              assert(landingPad && landingPad != mloop->getHeader());
-            }
+            // data flow converter assume loop in natural form, simplifLoop has to be run
+            // as the last loop before ISEL.
+            assert(landingPad && "can't find loop preheader as landing pad for renaming");
             const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
             const unsigned moveOpcode      = TII->getMoveOpcode(TRC);
             unsigned cpyReg                = MRI->createVirtualRegister(TRC);
