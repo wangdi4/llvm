@@ -1155,6 +1155,13 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // Remove unused arguments from functions.
   MPM.addPass(DeadArgumentEliminationPass());
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans)
+    addLateDTransPasses(MPM);
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
   // Reduce the code after globalopt and ipsccp.  Both can open up significant
   // simplification opportunities, and both can propagate functions through
   // function pointers.  When this happens, we often have to resolve varargs
