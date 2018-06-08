@@ -24,6 +24,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <algorithm>
@@ -31,11 +32,15 @@
 #include <set>
 
 using namespace llvm;
+using namespace llvm::PatternMatch;
 
 #define DEBUG_TYPE "dtransanalysis"
 
 // Debug type for verbose local pointer analysis output.
 #define LPA_VERBOSE "dtrans-lpa-verbose"
+
+// Debug type for verbose partial pointer load/store analysis output.
+#define DTRANS_PARTIALPTR "dtrans-partialptr"
 
 static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
                                             cl::ReallyHidden);
@@ -101,6 +106,319 @@ inline bool isValueInt8PtrType(Value *V) {
   return (V->getType() == llvm::Type::getInt8PtrTy(V->getContext()));
 }
 
+// There is a very specific pattern that we need to be able to identify
+// where we have pointer-to-pointer values and the pointers being pointed
+// to are swapped by copying partial chunks of the pointer (either i8 or i32)
+// We don't want to track the loads, stores or any associated bitcasts as
+// potential safety violations in this case.
+//
+// The pattern we want to match looks like this for i32 swaps:
+//
+//   Block1:
+//     %Cast1 = bitcast i8* %PtrToPtr to i32*
+//     %Cast2 = bitcast i8* %OtherPtrToPtr to i32*
+//     br label %Block2
+//
+//   Block2:
+//     %Count = phi i64 [ 2, %Block1 ], [ %NextCount, %Block2 ]
+//     %HalfPtr1 = phi i32* [ %Cast1, %Block1 ], [ %NextHalf1, %Block2 ]
+//     %HalfPtr2 = phi i32* [ %Cast2, %Block1 ], [ %NextHalf2, %Block2 ]
+//     %HalfVal1 = load i32, i32* %HalfPtr1
+//     %HalfVal2 = load i32, i32* %HalfPtr2
+//     %NextHalf1 = getelementptr inbounds i32, i32* %HalfPtr1, i64 1
+//     store i32 %HalfVal2, i32* %HalfPtr1
+//     %NextHalf2 = getelementptr inbounds i32, i32* %HalfPtr2, i64 1
+//     store i32 %HalfVal1, i32* %HalfPtr2
+//     %NextCount = add nsw i64 %Count, -1
+//     %Cmp = icmp sgt i64 %Count, 1
+//     br i1 %Cmp, label %Block2, label %ExitBlock
+//
+// For i8 swaps, it looks similar without the bitcasts in Block1 and with
+// a count constant of 8 rather than two.
+//
+// (Note: Sometimes we can't identify the incoming count value for the
+//  32-bit case is not constant.)
+//
+// Even though the treatment of the two values is symmetric, we need to
+// check them both together because we need to be sure that the partial-values
+// are being written to adjacent memory locations.
+//
+// Here we attempt to match the pattern starting with one of the load
+// instructions. For the pattern to match, the following conditions must be met.
+//
+//   1. That pointer operand of the load must be a PHI node with two incoming
+//      values.
+//   2. One of the incoming values must be from the block containing the
+//      PHI, which loops back on itself.
+//   3. That incoming value must be a GEP which increments the PHI pointer.
+//   4. The PHI node must have three users, a load, a store, and a GEP.
+//   5. The store must be storing a value loaded from the "partner PHI"
+//   5. The load must have a single user, a store in the same block.
+//   6. The load must be stored to the "partner PHI"
+//   7. The GEP must be the other incoming value to the PHI.
+//   8. The block containing this code must loop back on itself based on
+//      an count value which is decremented each time the block executes.
+//
+bool isPartialPtrLoad(LoadInst *Load) {
+  // Since everything here needs to be checked twice, we'll implement the
+  // checks as lambdas.
+  auto verifyPHI = [](Value *V, BasicBlock *LoopBB) {
+    auto *PN = dyn_cast<PHINode>(V);
+    if (!PN)
+      return false;
+
+    // The PHI must have two incoming values. We know one is the
+    // value we're here to check. We'll check the other below.
+    if (PN->getNumIncomingValues() != 2)
+      return false;
+
+    // The block containing the PHI must loop back on itself and the incoming
+    // value from that block must be a GEP that increments the PHI pointer.
+    Value *SelfInVal = nullptr;
+    if (PN->getIncomingBlock(0) == LoopBB)
+      SelfInVal = PN->getIncomingValue(0);
+    else if (PN->getIncomingBlock(1) == LoopBB)
+      SelfInVal = PN->getIncomingValue(1);
+    if (!SelfInVal)
+      return false;
+    auto *GEP = dyn_cast<GetElementPtrInst>(SelfInVal);
+    if (!GEP || GEP->getNumIndices() != 1 || !GEP->hasAllConstantIndices())
+      return false;
+    auto *Idx = dyn_cast<ConstantInt>(*GEP->idx_begin());
+    if (!Idx || !Idx->isOne())
+      return false;
+
+    return true;
+  };
+
+  auto verifyBlockIsLoop = [](PHINode *PN) {
+    // Verify that the PHI node is used in a block that loops back on itself
+    // based on a counter value.
+    auto *LoopBB = PN->getParent();
+    auto *Branch = dyn_cast<BranchInst>(LoopBB->getTerminator());
+    if (!Branch || !Branch->isConditional()) {
+      DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                      dbgs() << "Not matched. No conditional branch!\n");
+      return false;
+    }
+    // This could be much more general, but it meets our current needs.
+    auto *Condition = dyn_cast<ICmpInst>(Branch->getCondition());
+    if (!Condition) {
+      DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                      dbgs() << "Not matched. Branch condition is not icmp!\n");
+      return false;
+    }
+    ICmpInst::Predicate Pred;
+    Instruction *Base;
+    // The condition should be a comparison based on a PHI node.
+    if (!match(Condition,
+               m_ICmp(Pred, m_Instruction(Base), m_SpecificInt(1)))) {
+      DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                      dbgs() << "Not matched. icmp not using constant int!\n");
+      return false;
+    }
+    if (Pred != CmpInst::Predicate::ICMP_SGT) {
+      DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                      dbgs() << "Not matched. icmp predicate isn't sgt!\n");
+      return false;
+    }
+    auto *BasePHI = dyn_cast<PHINode>(Base);
+    if (!BasePHI || BasePHI->getParent() != LoopBB) {
+      DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                      dbgs() << "Not matched. Branch condition isn't PHI!\n");
+      return false;
+    }
+    // The incoming value from the root block must be constant.
+    Value *OtherInVal;
+    if (BasePHI->getIncomingBlock(0) == LoopBB)
+      OtherInVal = BasePHI->getIncomingValue(0);
+    else
+      OtherInVal = BasePHI->getIncomingValue(1);
+    // The other incoming (from the loop block) must be a decrement of
+    // the BasePHI.
+    if (!(match(OtherInVal, m_Add(m_Specific(BasePHI), m_SpecificInt(-1))) ||
+          match(OtherInVal, m_Add(m_SpecificInt(-1), m_Specific(BasePHI))))) {
+      DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                      dbgs() << "Not matched. PHI decrement not matched!\n");
+      return false;
+    }
+    return true;
+  };
+
+  auto matchPHIUsers = [](PHINode *PN, LoadInst *&LoadUser,
+                          StoreInst *&StoreUser, GetElementPtrInst *&GEPUser) {
+    // The PHI must have three users.
+    if (!PN->hasNUses(3)) {
+      DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                      dbgs() << "Not matched. PHI doesn't have three users!\n");
+      return false;
+    }
+
+    LoadUser = nullptr;
+    StoreUser = nullptr;
+    GEPUser = nullptr;
+    for (auto *U : PN->users()) {
+      if (!LoadUser)
+        LoadUser = dyn_cast<LoadInst>(U);
+      if (!StoreUser)
+        StoreUser = dyn_cast<StoreInst>(U);
+      if (!GEPUser)
+        GEPUser = dyn_cast<GetElementPtrInst>(U);
+    }
+    if (!LoadUser || !StoreUser || !GEPUser) {
+      DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                      dbgs() << "Not matched. PHI users don't match!\n");
+      return false;
+    }
+
+    // The GEP must have a single use which is the PHI.
+    if (!GEPUser->hasOneUse() || (*GEPUser->user_begin() != PN)) {
+      DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                      dbgs() << "Not matched. "
+                             << "GEP isn't uniquely used by PHI!\n");
+      return false;
+    }
+
+    // The load user must have a single use. We'll check that elsewhere.
+    if (!LoadUser->hasOneUse()) {
+      DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                      dbgs() << "Not matched. "
+                             << "Secondary load isn't single use!\n");
+      return false;
+    }
+
+    // The phi must be the target of the store, not the value stored.
+    if (StoreUser->getPointerOperand() != PN) {
+      DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                      dbgs() << "Not matched. "
+                             << "Store doesn't write to PHI pointer!\n");
+      return false;
+    }
+
+    return true;
+  };
+
+  auto verifyLoadUsage = [](LoadInst *Load, Value *ExpectedDest) {
+    // We've already verified that the load user is only used once.
+    // That use must be a store instruction
+    auto *Store = dyn_cast<StoreInst>(*Load->user_begin());
+    if (!Store) {
+      DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                      dbgs() << "Not matched. "
+                             << "Loaded value isn't used by store!\n");
+      return false;
+    }
+
+    // The loaded value must be the stored value, not the destination
+    // of the store.
+    if (Store->getValueOperand() != Load) {
+      DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                      dbgs() << "Not matched. Loaded value isn't stored!\n");
+      return false;
+    }
+
+    // Check that the destination of the store is what we expect.
+    if (Store->getPointerOperand() != ExpectedDest) {
+      DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                      dbgs() << "Not matched. Unexpected store destination!\n");
+      return false;
+    }
+
+    return true;
+  };
+
+  //////////////////////////////////////////////
+  // The actual implementation begins here.
+  //////////////////////////////////////////////
+
+  // If we're not loading from a PHI node pointer, the whole this is a
+  // non-starter.
+  auto *PrimaryPHI = dyn_cast<PHINode>(Load->getPointerOperand());
+  if (!PrimaryPHI)
+    return false;
+
+  auto *LoopBB = PrimaryPHI->getParent();
+  if (!verifyPHI(PrimaryPHI, LoopBB))
+    return false;
+
+  // To reduce noise, don't report that we're even checking for the
+  // partial pointer pattern until we see that the load is from a suitable PHI.
+  DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                  dbgs() << "dtrans: Check for partial pointer load/store "
+                         << "idiom starting at: " << *Load << "\n");
+
+  // Make sure the block loops back on itself.
+  if (!verifyBlockIsLoop(PrimaryPHI))
+    return false;
+
+  // Try to match the PHI users as a load, a store, and a GEP.
+  LoadInst *LoadUser;
+  StoreInst *StoreUser;
+  GetElementPtrInst *GEPUser;
+  if (!matchPHIUsers(PrimaryPHI, LoadUser, StoreUser, GEPUser))
+    return false;
+
+  // The value stored should trace back to our partner value as such:
+  //   PartnerVal = bitcast
+  //   PartnerPHI = phi [PartnerVal....
+  //   StoredVal = load i32, i32* PartnerPHI
+  auto *ValStored = StoreUser->getValueOperand();
+  auto *PartnerLoad = dyn_cast<LoadInst>(ValStored);
+  if (!PartnerLoad) {
+    DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                    dbgs() << "Not matched. Can't find partner load!\n");
+    return false;
+  }
+  auto *PartnerPHI = dyn_cast<PHINode>(PartnerLoad->getPointerOperand());
+  if (!PartnerPHI || PartnerPHI->getParent() != PrimaryPHI->getParent()) {
+    DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                    dbgs() << "Not matched. Can't find partner PHI!\n");
+    return false;
+  }
+
+  if (!verifyPHI(PartnerPHI, LoopBB)) {
+    DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                    dbgs() << "Not matched. Partner PHI does match idiom!\n");
+    return false;
+  }
+
+  // Check that the value loaded from the PHI pointer is stored in the
+  // same place that the partner load was loaded from.
+  if (!verifyLoadUsage(LoadUser, PartnerPHI))
+    return false;
+
+  StoreInst *PartnerStore;
+  GetElementPtrInst *PartnerGEP;
+  if (!matchPHIUsers(PartnerPHI, PartnerLoad, PartnerStore, PartnerGEP))
+    return false;
+
+  DEBUG_WITH_TYPE(DTRANS_PARTIALPTR, dbgs() << "Idiom matched.\n");
+  return true;
+}
+
+// This checks the same pattern as above, but starts from one of the store
+// instructions, finds the associated load and then calls the function above.
+bool isPartialPtrStore(StoreInst *Store) {
+  // We're peeking ahead a bit here in checking for three users.
+  // We'll check that again in isPartPointerLoad() but checking it here
+  // avoids potentially wasteful loops over the PHI's users if it cann't
+  // match.
+  auto *PN = dyn_cast<PHINode>(Store->getPointerOperand());
+  if (!PN || !PN->hasNUses(3))
+    return false;
+
+  LoadInst *Load = nullptr;
+  for (auto *U : PN->users()) {
+    Load = dyn_cast<LoadInst>(U);
+    if (Load)
+      break;
+  }
+  if (!Load)
+    return false;
+
+  return isPartialPtrLoad(Load);
+}
+
 /// Information describing type alias information for temporary values used
 /// within a function.
 ///
@@ -136,7 +454,8 @@ public:
   typedef SmallPtrSetImpl<llvm::Type *> &PointerTypeAliasSetRef;
 
   LocalPointerInfo()
-      : AnalysisState(LPIS_NotAnalyzed), AliasesToAggregatePointer(false) {}
+      : AnalysisState(LPIS_NotAnalyzed), AliasesToAggregatePointer(false),
+        IsPartialPtrLoadStore(false) {}
 
   void setAnalyzed() { AnalysisState = LPIS_AnalysisComplete; }
   bool getAnalyzed() { return AnalysisState == LPIS_AnalysisComplete; }
@@ -264,6 +583,12 @@ public:
     return DomTy;
   }
 
+  // If we detect that a bitcast is the beginning of a partial pointer
+  // load/store idiom, we set this flag so the analysis knows to handle
+  // the bitcast differently.
+  void setPartialPtrLoadStore() { IsPartialPtrLoadStore = true; }
+  bool isPartialPtrLoadStore() { return IsPartialPtrLoadStore; }
+
   bool isPtrToPtr() {
     llvm::Type *DomTy = getDominantAggregateTy();
     if (!DomTy)
@@ -320,6 +645,7 @@ private:
   bool AliasesToAggregatePointer;
   PointerTypeAliasSet PointerTypeAliases;
   ElementPointeeSet ElementPointees;
+  bool IsPartialPtrLoadStore;
 };
 
 // Class to analyze and identify functions that are post-dominated by
@@ -1005,6 +1331,13 @@ private:
       return;
     }
 
+    if (isPartialPtrBitCast(V)) {
+      LLVM_DEBUG(dbgs() << "Partial pointer bitcast detected: " << *V << "\n");
+      Info.setPartialPtrLoadStore();
+      Info.setAnalyzed();
+      return;
+    }
+
     // If this value is derived from another local value, follow the
     // collect info from the source operand.
     if (isDerivedValue(V))
@@ -1035,6 +1368,39 @@ private:
     // If there were no unresolved dependencies, mark the info as analyzed.
     if (!Info.isPartialAnalysis())
       Info.setAnalyzed();
+  }
+
+  // Here we're looking for a bitcast to i32* that is passed into another block
+  // where it is used as part of the partial pointer load/store idiom. The
+  // idiom is generalized to handle 8-bit and 32-bit variants so here we're
+  // just checking that the bitcast might feed the pattern, then we call a
+  // helper function to do the rest of the check.
+  bool isPartialPtrBitCast(Value *V) {
+    llvm::Type *HalfPtrSizeIntPtrTy = llvm::Type::getIntNPtrTy(
+        V->getContext(), DL.getPointerSizeInBits() / 2);
+
+    auto *Cast = dyn_cast<BitCastInst>(V);
+    if (!Cast || Cast->getType() != HalfPtrSizeIntPtrTy || !Cast->hasOneUse())
+      return false;
+
+    // We're peeking ahead a bit here in checking for three users.
+    // We'll check that again in isPartPointerLoad() but checking it here
+    // avoids potentially wasteful loops over the PHI's users if it cann't
+    // match.
+    auto *PN = dyn_cast<PHINode>(*Cast->user_begin());
+    if (!PN || !PN->hasNUses(3))
+      return false;
+
+    LoadInst *Load = nullptr;
+    for (auto *U : PN->users()) {
+      Load = dyn_cast<LoadInst>(U);
+      if (Load)
+        break;
+    }
+    if (!Load)
+      return false;
+
+    return isPartialPtrLoad(Load);
   }
 
   CallInst *getCallInstIfAlloc(Value *V) {
@@ -1249,6 +1615,16 @@ private:
         DEBUG_WITH_TYPE(LPA_VERBOSE,
                         dbgs() << "Incomplete analysis collected from "
                                << *SrcVal << "\n");
+      }
+      // If the bitcast is part of an idiom where pointer values are copied
+      // in smaller chunks, don't treat it like other bitcasts.
+      if (isPartialPtrBitCast(V)) {
+        LLVM_DEBUG(dbgs() << "Partial pointer bitcast detected: " << *V
+                          << "\n");
+        Info.setPartialPtrLoadStore();
+        // Even if the input was partial, this is all we needed to know.
+        Info.setAnalyzed();
+        return;
       }
       // If this is a bitcast that would be a valid way to access element
       // zero of any type known to be aliased by SrcVal, then record this
@@ -1731,6 +2107,10 @@ private:
         continue;
       // If the user is a cast, that's what we're looking for.
       if (auto *Cast = dyn_cast<CastInst>(U)) {
+        if (isPartialPtrBitCast(U)) {
+          LLVM_DEBUG(dbgs() << "Found partial pointer bitcast: " << *U << "\n");
+          continue;
+        }
         // We want to follow the uses through PointerToInt casts, but they
         // don't tell us anything about aliases. The dyn_cast above catches
         // PtrToInt, IntToPtr, and BitCast. If the result is a pointer
@@ -2232,6 +2612,12 @@ public:
       return;
     }
 
+    // If this is the start of a partial pointer load/store idiom, don't
+    // report it as a safety violation.
+    LocalPointerInfo &SelfLPI = LPA.getLocalPointerInfo(&I);
+    if (SelfLPI.isPartialPtrLoadStore())
+      return;
+
     // If we get here, we have identified a single dominant type to which
     // the source operand points. We call a helper function to handle this
     // case because the details are the same as the casting of a pointer
@@ -2345,7 +2731,7 @@ public:
       // If we get here the value operand is not a pointer to an aggregate
       // type, but the pointer operand is. Unless the value operand is a
       // null pointer, this is a bad store.
-      if (!isa<ConstantPointerNull>(ValOperand)) {
+      if (!isa<ConstantPointerNull>(ValOperand) && !isPartialPtrStore(I)) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store:\n");
         if (I != nullptr)
           LLVM_DEBUG(dbgs() << "  " << *I << "\n");
