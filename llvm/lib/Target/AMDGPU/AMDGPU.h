@@ -50,7 +50,6 @@ FunctionPass *createSIOptimizeExecMaskingPreRAPass();
 FunctionPass *createSIFixSGPRCopiesPass();
 FunctionPass *createSIMemoryLegalizerPass();
 FunctionPass *createSIDebuggerInsertNopsPass();
-FunctionPass *createSIInsertWaitsPass();
 FunctionPass *createSIInsertWaitcntsPass();
 FunctionPass *createSIFixWWMLivenessPass();
 FunctionPass *createAMDGPUSimplifyLibCallsPass(const TargetOptions &);
@@ -144,7 +143,7 @@ FunctionPass *createAMDGPUISelDag(
   TargetMachine *TM = nullptr,
   CodeGenOpt::Level OptLevel = CodeGenOpt::Default);
 ModulePass *createAMDGPUAlwaysInlinePass(bool GlobalOpt = true);
-ModulePass *createAMDGPUOpenCLImageTypeLoweringPass();
+ModulePass *createR600OpenCLImageTypeLoweringPass();
 FunctionPass *createAMDGPUAnnotateUniformValues();
 
 ModulePass* createAMDGPUUnifyMetadataPass();
@@ -168,9 +167,6 @@ extern char &SIMemoryLegalizerID;
 
 void initializeSIDebuggerInsertNopsPass(PassRegistry&);
 extern char &SIDebuggerInsertNopsID;
-
-void initializeSIInsertWaitsPass(PassRegistry&);
-extern char &SIInsertWaitsID;
 
 void initializeSIInsertWaitcntsPass(PassRegistry&);
 extern char &SIInsertWaitcntsID;

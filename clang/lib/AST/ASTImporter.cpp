@@ -78,7 +78,7 @@ namespace clang {
 
   public:
     explicit ASTNodeImporter(ASTImporter &Importer) : Importer(Importer) {}
-    
+
     using TypeVisitor<ASTNodeImporter, QualType>::Visit;
     using DeclVisitor<ASTNodeImporter, Decl *>::Visit;
     using StmtVisitor<ASTNodeImporter, Stmt *>::Visit;
@@ -146,17 +146,17 @@ namespace clang {
 
     Optional<LambdaCapture> ImportLambdaCapture(const LambdaCapture &From);
                         
-    /// \brief What we should import from the definition.
+    /// What we should import from the definition.
     enum ImportDefinitionKind { 
-      /// \brief Import the default subset of the definition, which might be
+      /// Import the default subset of the definition, which might be
       /// nothing (if minimal import is set) or might be everything (if minimal
       /// import is not set).
       IDK_Default,
 
-      /// \brief Import everything.
+      /// Import everything.
       IDK_Everything,
 
-      /// \brief Import only the bare bones needed to establish a valid
+      /// Import only the bare bones needed to establish a valid
       /// DeclContext.
       IDK_Basic
     };
@@ -908,8 +908,14 @@ QualType ASTNodeImporter::VisitElaboratedType(const ElaboratedType *T) {
   if (ToNamedType.isNull())
     return {};
 
+  TagDecl *OwnedTagDecl =
+      cast_or_null<TagDecl>(Importer.Import(T->getOwnedTagDecl()));
+  if (!OwnedTagDecl && T->getOwnedTagDecl())
+    return {};
+
   return Importer.getToContext().getElaboratedType(T->getKeyword(),
-                                                   ToQualifier, ToNamedType);
+                                                   ToQualifier, ToNamedType,
+                                                   OwnedTagDecl);
 }
 
 QualType ASTNodeImporter::VisitPackExpansionType(const PackExpansionType *T) {
@@ -2687,8 +2693,8 @@ Decl *ASTNodeImporter::VisitIndirectFieldDecl(IndirectFieldDecl *D) {
       Importer.getToContext(), DC, Loc, Name.getAsIdentifierInfo(), T,
       {NamedChain, D->getChainingSize()});
 
-  for (const auto *Attr : D->attrs())
-    ToIndirectField->addAttr(Attr->clone(Importer.getToContext()));
+  for (const auto *A : D->attrs())
+    ToIndirectField->addAttr(Importer.Import(A));
 
   ToIndirectField->setAccess(D->getAccess());
   ToIndirectField->setLexicalDeclContext(LexicalDC);
@@ -4102,8 +4108,14 @@ Decl *ASTNodeImporter::VisitClassTemplateDecl(ClassTemplateDecl *D) {
       if (auto *FoundTemplate = dyn_cast<ClassTemplateDecl>(Found)) {
         if (IsStructuralMatch(D, FoundTemplate)) {
           // The class templates structurally match; call it the same template.
-          // FIXME: We may be filling in a forward declaration here. Handle
-          // this case!
+
+          // We found a forward declaration but the class to be imported has a
+          // definition.
+          // FIXME Add this forward declaration to the redeclaration chain.
+          if (D->isThisDeclarationADefinition() &&
+              !FoundTemplate->isThisDeclarationADefinition())
+            continue;
+
           Importer.Imported(D->getTemplatedDecl(), 
                             FoundTemplate->getTemplatedDecl());
           return Importer.Imported(D, FoundTemplate);
@@ -4766,15 +4778,8 @@ Stmt *ASTNodeImporter::VisitAttributedStmt(AttributedStmt *S) {
   SourceLocation ToAttrLoc = Importer.Import(S->getAttrLoc());
   ArrayRef<const Attr*> FromAttrs(S->getAttrs());
   SmallVector<const Attr *, 1> ToAttrs(FromAttrs.size());
-  ASTContext &_ToContext = Importer.getToContext();
-  std::transform(FromAttrs.begin(), FromAttrs.end(), ToAttrs.begin(),
-    [&_ToContext](const Attr *A) -> const Attr * {
-      return A->clone(_ToContext);
-    });
-  for (const auto *ToA : ToAttrs) {
-    if (!ToA)
-      return nullptr;
-  }
+  if (ImportContainerChecked(FromAttrs, ToAttrs))
+    return nullptr;
   Stmt *ToSubStmt = Importer.Import(S->getSubStmt());
   if (!ToSubStmt && S->getSubStmt())
     return nullptr;
@@ -6657,6 +6662,12 @@ TypeSourceInfo *ASTImporter::Import(TypeSourceInfo *FromTSI) {
            Import(FromTSI->getTypeLoc().getLocStart()));
 }
 
+Attr *ASTImporter::Import(const Attr *FromAttr) {
+  Attr *ToAttr = FromAttr->clone(ToContext);
+  ToAttr->setRange(Import(FromAttr->getRange()));
+  return ToAttr;
+}
+
 Decl *ASTImporter::GetAlreadyImportedOrNull(Decl *FromD) {
   llvm::DenseMap<Decl *, Decl *>::iterator Pos = ImportedDecls.find(FromD);
   if (Pos != ImportedDecls.end()) {
@@ -7290,8 +7301,8 @@ void ASTImporter::CompleteDecl (Decl *D) {
 
 Decl *ASTImporter::Imported(Decl *From, Decl *To) {
   if (From->hasAttrs()) {
-    for (auto *FromAttr : From->getAttrs())
-      To->addAttr(FromAttr->clone(To->getASTContext()));
+    for (const auto *FromAttr : From->getAttrs())
+      To->addAttr(Import(FromAttr));
   }
   if (From->isUsed()) {
     To->setIsUsed();

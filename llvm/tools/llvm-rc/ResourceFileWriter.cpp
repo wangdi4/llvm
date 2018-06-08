@@ -437,6 +437,10 @@ Error ResourceFileWriter::visitAcceleratorsResource(const RCResource *Res) {
   return writeResource(Res, &ResourceFileWriter::writeAcceleratorsBody);
 }
 
+Error ResourceFileWriter::visitBitmapResource(const RCResource *Res) {
+  return writeResource(Res, &ResourceFileWriter::writeBitmapBody);
+}
+
 Error ResourceFileWriter::visitCursorResource(const RCResource *Res) {
   return handleError(visitIconOrCursorResource(Res), Res);
 }
@@ -451,6 +455,11 @@ Error ResourceFileWriter::visitIconResource(const RCResource *Res) {
 
 Error ResourceFileWriter::visitCaptionStmt(const CaptionStmt *Stmt) {
   ObjectData.Caption = Stmt->Value;
+  return Error::success();
+}
+
+Error ResourceFileWriter::visitClassStmt(const ClassStmt *Stmt) {
+  ObjectData.Class = Stmt->Value;
   return Error::success();
 }
 
@@ -478,8 +487,8 @@ Error ResourceFileWriter::visitStringTableResource(const RCResource *Base) {
     if (Iter == BundleData.end()) {
       // Need to create a bundle.
       StringTableData.BundleList.push_back(Key);
-      auto EmplaceResult =
-          BundleData.emplace(Key, StringTableInfo::Bundle(ObjectData));
+      auto EmplaceResult = BundleData.emplace(
+          Key, StringTableInfo::Bundle(ObjectData, Res->MemoryFlags));
       assert(EmplaceResult.second && "Could not create a bundle");
       Iter = EmplaceResult.first;
     }
@@ -552,7 +561,7 @@ Error ResourceFileWriter::writeResource(
   padStream(sizeof(uint32_t));
   object::WinResHeaderSuffix HeaderSuffix{
       ulittle32_t(0), // DataVersion; seems to always be 0
-      ulittle16_t(Res->getMemoryFlags()), ulittle16_t(ObjectData.LanguageInfo),
+      ulittle16_t(Res->MemoryFlags), ulittle16_t(ObjectData.LanguageInfo),
       ulittle32_t(ObjectData.VersionInfo),
       ulittle32_t(ObjectData.Characteristics)};
   writeObject(HeaderSuffix);
@@ -684,6 +693,29 @@ Error ResourceFileWriter::writeAcceleratorsBody(const RCResource *Base) {
   return Error::success();
 }
 
+// --- BitmapResource helpers. --- //
+
+Error ResourceFileWriter::writeBitmapBody(const RCResource *Base) {
+  StringRef Filename = cast<BitmapResource>(Base)->BitmapLoc;
+  bool IsLong;
+  stripQuotes(Filename, IsLong);
+
+  auto File = loadFile(Filename);
+  if (!File)
+    return File.takeError();
+
+  StringRef Buffer = (*File)->getBuffer();
+
+  // Skip the 14 byte BITMAPFILEHEADER.
+  constexpr size_t BITMAPFILEHEADER_size = 14;
+  if (Buffer.size() < BITMAPFILEHEADER_size || Buffer[0] != 'B' ||
+      Buffer[1] != 'M')
+    return createError("Incorrect bitmap file.");
+
+  *FS << Buffer.substr(BITMAPFILEHEADER_size);
+  return Error::success();
+}
+
 // --- CursorResource and IconResource helpers. --- //
 
 // ICONRESDIR structure. Describes a single icon in resouce group.
@@ -758,15 +790,13 @@ public:
 
   SingleIconCursorResource(IconCursorGroupType ResourceType,
                            const ResourceDirEntryStart &HeaderEntry,
-                           ArrayRef<uint8_t> ImageData)
-      : Type(ResourceType), Header(HeaderEntry), Image(ImageData) {}
+                           ArrayRef<uint8_t> ImageData, uint16_t Flags)
+      : RCResource(Flags), Type(ResourceType), Header(HeaderEntry),
+        Image(ImageData) {}
 
   Twine getResourceTypeName() const override { return "Icon/cursor image"; }
   IntOrString getResourceType() const override {
     return Type == IconCursorGroupType::Icon ? RkSingleIcon : RkSingleCursor;
-  }
-  uint16_t getMemoryFlags() const override {
-    return MfDiscardable | MfMoveable;
   }
   ResourceKind getKind() const override { return RkSingleCursorOrIconRes; }
   static bool classof(const RCResource *Res) {
@@ -888,46 +918,57 @@ Error ResourceFileWriter::visitIconOrCursorResource(const RCResource *Base) {
     Reader.setOffset(ItemOffsets[ID]);
     ArrayRef<uint8_t> Image;
     RETURN_IF_ERROR(Reader.readArray(Image, ItemEntries[ID].Size));
-    SingleIconCursorResource SingleRes(Type, ItemEntries[ID], Image);
+    SingleIconCursorResource SingleRes(Type, ItemEntries[ID], Image,
+                                       Base->MemoryFlags);
     SingleRes.setName(IconCursorID + ID);
     RETURN_IF_ERROR(visitSingleIconOrCursor(&SingleRes));
   }
 
   // Now, write all the headers concatenated into a separate resource.
   for (size_t ID = 0; ID < NumItems; ++ID) {
-    if (Type == IconCursorGroupType::Icon) {
-      // rc.exe seems to always set NumPlanes to 1. No idea why it happens.
-      ItemEntries[ID].Planes = 1;
-      continue;
-    }
-
-    // We need to rewrite the cursor headers.
+    // We need to rewrite the cursor headers, and fetch actual values
+    // for Planes/BitCount.
     const auto &OldHeader = ItemEntries[ID];
-    ResourceDirEntryStart NewHeader;
-    NewHeader.Cursor.Width = OldHeader.Icon.Width;
-    // Each cursor in fact stores two bitmaps, one under another.
-    // Height provided in cursor definition describes the height of the
-    // cursor, whereas the value existing in resource definition describes
-    // the height of the bitmap. Therefore, we need to double this height.
-    NewHeader.Cursor.Height = OldHeader.Icon.Height * 2;
+    ResourceDirEntryStart NewHeader = OldHeader;
+
+    if (Type == IconCursorGroupType::Cursor) {
+      NewHeader.Cursor.Width = OldHeader.Icon.Width;
+      // Each cursor in fact stores two bitmaps, one under another.
+      // Height provided in cursor definition describes the height of the
+      // cursor, whereas the value existing in resource definition describes
+      // the height of the bitmap. Therefore, we need to double this height.
+      NewHeader.Cursor.Height = OldHeader.Icon.Height * 2;
+
+      // Two WORDs were written at the beginning of the resource (hotspot
+      // location). This is reflected in Size field.
+      NewHeader.Size += 2 * sizeof(uint16_t);
+    }
 
     // Now, we actually need to read the bitmap header to find
     // the number of planes and the number of bits per pixel.
     Reader.setOffset(ItemOffsets[ID]);
     const BitmapInfoHeader *BMPHeader;
     RETURN_IF_ERROR(Reader.readObject(BMPHeader));
-    NewHeader.Planes = BMPHeader->Planes;
-    NewHeader.BitCount = BMPHeader->BitCount;
-
-    // Two WORDs were written at the beginning of the resource (hotspot
-    // location). This is reflected in Size field.
-    NewHeader.Size = OldHeader.Size + 2 * sizeof(uint16_t);
+    if (BMPHeader->Size == sizeof(BitmapInfoHeader)) {
+      NewHeader.Planes = BMPHeader->Planes;
+      NewHeader.BitCount = BMPHeader->BitCount;
+    } else {
+      // A PNG .ico file.
+      // https://blogs.msdn.microsoft.com/oldnewthing/20101022-00/?p=12473
+      // "The image must be in 32bpp"
+      NewHeader.Planes = 1;
+      NewHeader.BitCount = 32;
+    }
 
     ItemEntries[ID] = NewHeader;
   }
 
   IconCursorGroupResource HeaderRes(Type, *Header, std::move(ItemEntries));
   HeaderRes.setName(ResName);
+  if (Base->MemoryFlags & MfPreload) {
+    HeaderRes.MemoryFlags |= MfPreload;
+    HeaderRes.MemoryFlags &= ~MfPure;
+  }
   RETURN_IF_ERROR(visitIconOrCursorGroup(&HeaderRes));
 
   return Error::success();
@@ -981,15 +1022,18 @@ Error ResourceFileWriter::writeSingleDialogControl(const Control &Ctl,
 
   // ID; it's 16-bit in DIALOG and 32-bit in DIALOGEX.
   if (!IsExtended) {
-    RETURN_IF_ERROR(checkNumberFits<uint16_t>(
-        Ctl.ID, "Control ID in simple DIALOG resource"));
+    // It's common to use -1, i.e. UINT32_MAX, for controls one doesn't
+    // want to refer to later.
+    if (Ctl.ID != static_cast<uint32_t>(-1))
+      RETURN_IF_ERROR(checkNumberFits<uint16_t>(
+          Ctl.ID, "Control ID in simple DIALOG resource"));
     writeInt<uint16_t>(Ctl.ID);
   } else {
     writeInt<uint32_t>(Ctl.ID);
   }
 
   // Window class - either 0xFFFF + 16-bit integer or a string.
-  RETURN_IF_ERROR(writeIntOrString(IntOrString(TypeInfo.CtlClass)));
+  RETURN_IF_ERROR(writeIntOrString(Ctl.Class));
 
   // Element caption/reference ID. ID is preceded by 0xFFFF.
   RETURN_IF_ERROR(checkIntOrString(Ctl.Title, "Control reference ID"));
@@ -1081,8 +1125,8 @@ Error ResourceFileWriter::writeDialogBody(const RCResource *Base) {
   // think there is no menu attached to the dialog.
   writeInt<uint16_t>(0);
 
-  // Window CLASS field. Not kept here.
-  writeInt<uint16_t>(0);
+  // Window CLASS field.
+  RETURN_IF_ERROR(writeIntOrString(ObjectData.Class));
 
   // Window title or a single word equal to 0.
   RETURN_IF_ERROR(writeCString(ObjectData.Caption));
@@ -1178,7 +1222,8 @@ public:
   using BundleType = ResourceFileWriter::StringTableInfo::Bundle;
   BundleType Bundle;
 
-  BundleResource(const BundleType &StrBundle) : Bundle(StrBundle) {}
+  BundleResource(const BundleType &StrBundle)
+      : RCResource(StrBundle.MemoryFlags), Bundle(StrBundle) {}
   IntOrString getResourceType() const override { return 6; }
 
   ResourceKind getKind() const override { return RkStringTableBundle; }
@@ -1285,6 +1330,7 @@ Error ResourceFileWriter::writeVersionInfoBlock(const VersionInfoBlock &Blk) {
   bool OutputHeader = Blk.Name != "";
   uint64_t LengthLoc;
 
+  padStream(sizeof(uint32_t));
   if (OutputHeader) {
     LengthLoc = writeInt<uint16_t>(0);
     writeInt<uint16_t>(0);
@@ -1310,7 +1356,6 @@ Error ResourceFileWriter::writeVersionInfoBlock(const VersionInfoBlock &Blk) {
     writeObjectAt(ulittle16_t(CurLoc - LengthLoc), LengthLoc);
   }
 
-  padStream(sizeof(uint32_t));
   return Error::success();
 }
 
@@ -1340,6 +1385,7 @@ Error ResourceFileWriter::writeVersionInfoValue(const VersionInfoValue &Val) {
     return createError(Twine("VALUE ") + Val.Key +
                        " cannot contain both strings and integers");
 
+  padStream(sizeof(uint32_t));
   auto LengthLoc = writeInt<uint16_t>(0);
   auto ValLengthLoc = writeInt<uint16_t>(0);
   writeInt<uint16_t>(HasStrings);
@@ -1369,7 +1415,6 @@ Error ResourceFileWriter::writeVersionInfoValue(const VersionInfoValue &Val) {
   }
   writeObjectAt(ulittle16_t(CurLoc - LengthLoc), LengthLoc);
   writeObjectAt(ulittle16_t(ValueLength), ValLengthLoc);
-  padStream(sizeof(uint32_t));
   return Error::success();
 }
 

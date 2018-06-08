@@ -168,7 +168,6 @@ extern "C" void LLVMInitializeAMDGPUTarget() {
   initializeAMDGPURewriteOutArgumentsPass(*PR);
   initializeAMDGPUUnifyMetadataPass(*PR);
   initializeSIAnnotateControlFlowPass(*PR);
-  initializeSIInsertWaitsPass(*PR);
   initializeSIInsertWaitcntsPass(*PR);
   initializeSIWholeQuadModePass(*PR);
   initializeSILowerControlFlowPass(*PR);
@@ -621,7 +620,8 @@ void AMDGPUPassConfig::addIRPasses() {
   }
 
   // Handle uses of OpenCL image2d_t, image3d_t and sampler_t arguments.
-  addPass(createAMDGPUOpenCLImageTypeLoweringPass());
+  if (TM.getTargetTriple().getArch() == Triple::r600)
+    addPass(createR600OpenCLImageTypeLoweringPass());
 
   // Replace OpenCL enqueued block function pointers with global variables.
   addPass(createAMDGPUOpenCLEnqueuedBlockLoweringPass());
@@ -876,10 +876,7 @@ void GCNPassConfig::addPreEmitPass() {
   addPass(&PostRAHazardRecognizerID);
 
   addPass(createSIMemoryLegalizerPass());
-  if (EnableSIInsertWaitcntsPass)
-    addPass(createSIInsertWaitcntsPass());
-  else
-    addPass(createSIInsertWaitsPass());
+  addPass(createSIInsertWaitcntsPass());
   addPass(createSIShrinkInstructionsPass());
   addPass(&SIInsertSkipsPassID);
   addPass(createSIDebuggerInsertNopsPass());

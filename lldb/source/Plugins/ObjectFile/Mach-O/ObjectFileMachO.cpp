@@ -1205,6 +1205,7 @@ AddressClass ObjectFileMachO::GetAddressClass(lldb::addr_t file_addr) {
           case eSectionTypeDWARFDebugRanges:
           case eSectionTypeDWARFDebugStr:
           case eSectionTypeDWARFDebugStrOffsets:
+          case eSectionTypeDWARFDebugTypes:
           case eSectionTypeDWARFAppleNames:
           case eSectionTypeDWARFAppleTypes:
           case eSectionTypeDWARFAppleNamespaces:
@@ -1458,6 +1459,7 @@ static lldb::SectionType GetSectionType(uint32_t flags,
   static ConstString g_sect_name_dwarf_debug_pubtypes("__debug_pubtypes");
   static ConstString g_sect_name_dwarf_debug_ranges("__debug_ranges");
   static ConstString g_sect_name_dwarf_debug_str("__debug_str");
+  static ConstString g_sect_name_dwarf_debug_types("__debug_types");
   static ConstString g_sect_name_dwarf_apple_names("__apple_names");
   static ConstString g_sect_name_dwarf_apple_types("__apple_types");
   static ConstString g_sect_name_dwarf_apple_namespaces("__apple_namespac");
@@ -1490,6 +1492,8 @@ static lldb::SectionType GetSectionType(uint32_t flags,
     return eSectionTypeDWARFDebugRanges;
   if (section_name == g_sect_name_dwarf_debug_str)
     return eSectionTypeDWARFDebugStr;
+  if (section_name == g_sect_name_dwarf_debug_types)
+    return eSectionTypeDWARFDebugTypes;
   if (section_name == g_sect_name_dwarf_apple_names)
     return eSectionTypeDWARFAppleNames;
   if (section_name == g_sect_name_dwarf_apple_types)
@@ -4815,7 +4819,7 @@ void ObjectFileMachO::Dump(Stream *s) {
     GetArchitecture(header_arch);
 
     *s << ", file = '" << m_file
-       << "', arch = " << header_arch.GetArchitectureName() << "\n";
+       << "', triple = " << header_arch.GetTriple().getTriple() << "\n";
 
     SectionList *sections = GetSectionList();
     if (sections)
@@ -4863,6 +4867,21 @@ bool ObjectFileMachO::GetUUID(const llvm::MachO::mach_header &header,
   return false;
 }
 
+static const char *GetOSName(uint32_t cmd) {
+  switch (cmd) {
+  case llvm::MachO::LC_VERSION_MIN_IPHONEOS:
+    return "ios";
+  case llvm::MachO::LC_VERSION_MIN_MACOSX:
+    return "macosx";
+  case llvm::MachO::LC_VERSION_MIN_TVOS:
+    return "tvos";
+  case llvm::MachO::LC_VERSION_MIN_WATCHOS:
+    return "watchos";
+  default:
+    llvm_unreachable("unexpected LC_VERSION load command");
+  }
+}
+
 bool ObjectFileMachO::GetArchitecture(const llvm::MachO::mach_header &header,
                                       const lldb_private::DataExtractor &data,
                                       lldb::offset_t lc_offset,
@@ -4901,23 +4920,29 @@ bool ObjectFileMachO::GetArchitecture(const llvm::MachO::mach_header &header,
         if (data.GetU32(&offset, &load_cmd, 2) == NULL)
           break;
 
+        uint32_t major, minor, patch;
+        struct version_min_command version_min;
+
+        llvm::SmallString<16> os_name;
+        llvm::raw_svector_ostream os(os_name);
+
         switch (load_cmd.cmd) {
         case llvm::MachO::LC_VERSION_MIN_IPHONEOS:
-          triple.setOS(llvm::Triple::IOS);
-          return true;
-
         case llvm::MachO::LC_VERSION_MIN_MACOSX:
-          triple.setOS(llvm::Triple::MacOSX);
-          return true;
-
         case llvm::MachO::LC_VERSION_MIN_TVOS:
-          triple.setOS(llvm::Triple::TvOS);
-          return true;
-
         case llvm::MachO::LC_VERSION_MIN_WATCHOS:
-          triple.setOS(llvm::Triple::WatchOS);
+          if (load_cmd.cmdsize != sizeof(version_min))
+            break;
+          data.ExtractBytes(cmd_offset,
+                            sizeof(version_min), data.GetByteOrder(),
+                            &version_min);
+          major = version_min.version >> 16;
+          minor = (version_min.version >> 8) & 0xffu;
+          patch = version_min.version & 0xffu;
+          os << GetOSName(load_cmd.cmd) << major << '.' << minor << '.'
+             << patch;
+          triple.setOSName(os.str());
           return true;
-
         default:
           break;
         }

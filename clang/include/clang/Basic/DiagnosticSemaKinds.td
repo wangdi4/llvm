@@ -2381,6 +2381,8 @@ def note_non_literal_user_provided_dtor : Note<
   "%0 is not literal because it has a user-provided destructor">;
 def note_non_literal_nontrivial_dtor : Note<
   "%0 is not literal because it has a non-trivial destructor">;
+def note_non_literal_lambda : Note<
+  "lambda closure types are non-literal types before C++17">;
 def warn_private_extern : Warning<
   "use of __private_extern__ on a declaration may not produce external symbol "
   "private to the linkage unit and is deprecated">, InGroup<PrivateExtern>;
@@ -2666,6 +2668,14 @@ def warn_mismatched_section : Warning<
 def warn_attribute_section_on_redeclaration : Warning<
   "section attribute is specified on redeclared variable">, InGroup<Section>;
 
+def err_mismatched_code_seg_base : Error<
+  "derived class must specify the same code segment as its base classes">;
+def err_mismatched_code_seg_override : Error<
+  "overriding virtual function must specify the same code segment as its overridden function">;
+def err_conflicting_codeseg_attribute : Error<
+  "conflicting code segment specifiers">;
+def warn_duplicate_codeseg_attribute : Warning<
+  "duplicate code segment specifiers">, InGroup<Section>;
 def err_anonymous_property: Error<
   "anonymous property is not supported">;
 def err_property_is_variably_modified : Error<
@@ -3140,13 +3150,18 @@ def warn_impcast_bitfield_precision_constant : Warning<
 def warn_impcast_literal_float_to_integer : Warning<
   "implicit conversion from %0 to %1 changes value from %2 to %3">,
   InGroup<LiteralConversion>;
+def warn_impcast_literal_float_to_integer_out_of_range : Warning<
+  "implicit conversion of out of range value from %0 to %1 is undefined">,
+  InGroup<LiteralConversion>;
 def warn_impcast_float_integer : Warning<
   "implicit conversion turns floating-point number into integer: %0 to %1">,
   InGroup<FloatConversion>, DefaultIgnore;
 
 def warn_impcast_float_to_integer : Warning<
-  "implicit conversion of out of range value from %0 to %1 changes value "
-  "from %2 to %3">,
+  "implicit conversion from %0 to %1 changes value from %2 to %3">,
+  InGroup<FloatOverflowConversion>, DefaultIgnore;
+def warn_impcast_float_to_integer_out_of_range : Warning<
+  "implicit conversion of out of range value from %0 to %1 is undefined">,
   InGroup<FloatOverflowConversion>, DefaultIgnore;
 def warn_impcast_float_to_integer_zero : Warning<
   "implicit conversion from %0 to %1 changes non-zero value from %2 to %3">,
@@ -4500,6 +4515,8 @@ def note_using_value_decl_missing_typename : Note<
 
 def err_template_kw_refers_to_non_template : Error<
   "%0 following the 'template' keyword does not refer to a template">;
+def note_template_kw_refers_to_non_template : Note<
+  "declared as a non-template here">;
 def err_template_kw_refers_to_class_template : Error<
   "'%0%1' instantiated to a class template, not a function template">;
 def note_referenced_class_template : Note<
@@ -5426,8 +5443,6 @@ def warn_block_capture_autoreleasing : Warning<
   "block captures an autoreleasing out-parameter, which may result in "
   "use-after-free bugs">,
   InGroup<BlockCaptureAutoReleasing>;
-def note_declare_parameter_autoreleasing : Note<
-  "declare the parameter __autoreleasing explicitly to suppress this warning">;
 def note_declare_parameter_strong : Note<
   "declare the parameter __strong or capture a __block __strong variable to "
   "keep values alive across autorelease pools">;
@@ -7120,6 +7135,8 @@ def err_atomic_op_needs_trivial_copy : Error<
 def err_atomic_op_needs_atomic_int_or_ptr : Error<
   "address argument to atomic operation must be a pointer to %select{|atomic }0"
   "integer or pointer (%1 invalid)">;
+def err_atomic_op_needs_int32_or_ptr : Error<
+  "address argument to atomic operation must be a pointer to signed or unsigned 32-bit integer">;
 def err_atomic_op_bitwise_needs_atomic_int : Error<
   "address argument to bitwise atomic operation must be a pointer to "
   "%select{|atomic }0integer (%1 invalid)">;
@@ -8604,7 +8621,8 @@ def note_opencl_typedef_access_qualifier : Note<
 
 // OpenCL Section 6.8.g
 def err_opencl_unknown_type_specifier : Error<
-  "OpenCL version %0 does not support the '%1' %select{type qualifier|storage class specifier}2">;
+  "OpenCL %select{C|C++}0 version %1 does not support the '%2' "
+  "%select{type qualifier|storage class specifier}3">;
 
 // OpenCL v2.0 s6.12.5 Blocks restrictions
 def err_opencl_block_storage_type : Error<
@@ -9418,4 +9436,18 @@ def err_multiversion_not_allowed_on_main : Error<
 def err_multiversion_not_supported : Error<
  "function multiversioning is not supported on the current target">;
 
+// three-way comparison operator diagnostics
+def err_implied_comparison_category_type_not_found : Error<
+  "cannot deduce return type of 'operator<=>' because type '%0' was not found; "
+  "include <compare>">;
+def err_spaceship_argument_narrowing : Error<
+  "argument to 'operator<=>' "
+  "%select{cannot be narrowed from type %1 to %2|"
+  "evaluates to %1, which cannot be narrowed to type %2}0">;
+def err_std_compare_type_not_supported : Error<
+  "standard library implementation of %0 is not supported; "
+   "%select{member '%2' does not have expected form|"
+   "member '%2' is missing|"
+   "the type is not trivially copyable|"
+   "the type does not have the expected form}1">;
 } // end of sema component.

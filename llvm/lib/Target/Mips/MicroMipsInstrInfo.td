@@ -797,9 +797,9 @@ let DecoderNamespace = "MicroMips", Predicates = [InMicroMips] in {
                  MMRel, LW_FM_MM<0x7>, ISA_MICROMIPS;
     def LBu_MM : LoadMemory<"lbu", GPR32Opnd, mem_mm_16, zextloadi8, II_LBU>,
                  MMRel, LW_FM_MM<0x5>, ISA_MICROMIPS;
-    def LH_MM  : LoadMemory<"lh", GPR32Opnd, mem_simm16, sextloadi16, II_LH,
+    def LH_MM  : LoadMemory<"lh", GPR32Opnd, mem_simmptr, sextloadi16, II_LH,
                             addrDefault>, MMRel, LW_FM_MM<0xf>, ISA_MICROMIPS;
-    def LHu_MM : LoadMemory<"lhu", GPR32Opnd, mem_simm16, zextloadi16, II_LHU>,
+    def LHu_MM : LoadMemory<"lhu", GPR32Opnd, mem_simmptr, zextloadi16, II_LHU>,
                  MMRel, LW_FM_MM<0xd>, ISA_MICROMIPS;
     def LW_MM  : Load<"lw", GPR32Opnd, null_frag, II_LW>, MMRel, LW_FM_MM<0x3f>,
                  ISA_MICROMIPS;
@@ -852,10 +852,9 @@ let DecoderNamespace = "MicroMips" in {
                   POOL32C_STEVA_LDEVA_FM_MM<0xa, 0x1>,
                   ISA_MICROMIPS32_NOT_MIPS32R6, ASE_EVA;
   }
-}
-let DecoderNamespace = "MicroMips" in {
-  let Predicates = [InMicroMips] in
-    def LWXS_MM : LoadWordIndexedScaledMM<"lwxs", GPR32Opnd>, LWXS_FM_MM<0x118>;
+
+  def LWXS_MM : LoadWordIndexedScaledMM<"lwxs", GPR32Opnd>, LWXS_FM_MM<0x118>,
+                ISA_MICROMIPS;
 
   /// Load and Store Instructions - unaligned
   def LWL_MM : MMRel, LoadLeftRightMM<"lwl", MipsLWL, GPR32Opnd, mem_mm_12,
@@ -873,12 +872,12 @@ let DecoderNamespace = "MicroMips" in {
 }
 let DecoderNamespace = "MicroMips", Predicates = [InMicroMips] in {
   /// Load and Store Instructions - multiple
-  def SWM32_MM  : StoreMultMM<"swm32", II_SWM>, LWM_FM_MM<0xd>;
-  def LWM32_MM  : LoadMultMM<"lwm32", II_LWM>, LWM_FM_MM<0x5>;
+  def SWM32_MM  : StoreMultMM<"swm32", II_SWM>, LWM_FM_MM<0xd>, ISA_MICROMIPS;
+  def LWM32_MM  : LoadMultMM<"lwm32", II_LWM>, LWM_FM_MM<0x5>, ISA_MICROMIPS;
 
   /// Load and Store Pair Instructions
-  def SWP_MM  : StorePairMM<"swp">, LWM_FM_MM<0x9>;
-  def LWP_MM  : LoadPairMM<"lwp">, LWM_FM_MM<0x1>;
+  def SWP_MM  : StorePairMM<"swp">, LWM_FM_MM<0x9>, ISA_MICROMIPS;
+  def LWP_MM  : LoadPairMM<"lwp">, LWM_FM_MM<0x1>, ISA_MICROMIPS;
 
   /// Load and Store multiple pseudo Instructions
   class LoadWordMultMM<string instr_asm > :
@@ -890,18 +889,20 @@ let DecoderNamespace = "MicroMips", Predicates = [InMicroMips] in {
                       !strconcat(instr_asm, "\t$rt, $addr")> ;
 
 
-  def SWM_MM  : StoreWordMultMM<"swm">;
-  def LWM_MM  : LoadWordMultMM<"lwm">;
+  def SWM_MM  : StoreWordMultMM<"swm">, ISA_MICROMIPS;
+  def LWM_MM  : LoadWordMultMM<"lwm">, ISA_MICROMIPS;
 
   /// Move Conditional
   def MOVZ_I_MM : MMRel, CMov_I_I_FT<"movz", GPR32Opnd, GPR32Opnd,
-                  NoItinerary>, ADD_FM_MM<0, 0x58>;
+                                     II_MOVZ>, ADD_FM_MM<0, 0x58>,
+                  ISA_MICROMIPS32_NOT_MIPS32R6;
   def MOVN_I_MM : MMRel, CMov_I_I_FT<"movn", GPR32Opnd, GPR32Opnd,
-                  NoItinerary>, ADD_FM_MM<0, 0x18>;
-  def MOVT_I_MM : MMRel, CMov_F_I_FT<"movt", GPR32Opnd, II_MOVT>,
-                  CMov_F_I_FM_MM<0x25>;
-  def MOVF_I_MM : MMRel, CMov_F_I_FT<"movf", GPR32Opnd, II_MOVF>,
-                  CMov_F_I_FM_MM<0x5>;
+                                     II_MOVN>, ADD_FM_MM<0, 0x18>,
+                  ISA_MICROMIPS32_NOT_MIPS32R6;
+  def MOVT_I_MM : MMRel, CMov_F_I_FT<"movt", GPR32Opnd, II_MOVT, MipsCMovFP_T>,
+                  CMov_F_I_FM_MM<0x25>, ISA_MICROMIPS32_NOT_MIPS32R6;
+  def MOVF_I_MM : MMRel, CMov_F_I_FT<"movf", GPR32Opnd, II_MOVF, MipsCMovFP_F>,
+                  CMov_F_I_FM_MM<0x5>, ISA_MICROMIPS32_NOT_MIPS32R6;
 
   /// Move to/from HI/LO
   def MTHI_MM : MMRel, MoveToLOHI<"mthi", GPR32Opnd, [HI0]>,
@@ -921,9 +922,9 @@ let DecoderNamespace = "MicroMips", Predicates = [InMicroMips] in {
 
   /// Count Leading
   def CLZ_MM : MMRel, CountLeading0<"clz", GPR32Opnd, II_CLZ>, CLO_FM_MM<0x16c>,
-               ISA_MIPS32;
+               ISA_MICROMIPS;
   def CLO_MM : MMRel, CountLeading1<"clo", GPR32Opnd, II_CLO>, CLO_FM_MM<0x12c>,
-               ISA_MIPS32;
+               ISA_MICROMIPS;
 
   /// Sign Ext In Register Instructions.
   def SEB_MM : MMRel, SignExtInReg<"seb", i8, GPR32Opnd, II_SEB>,
@@ -1228,6 +1229,29 @@ defm : SetlePats<GPR32, XORi_MM, SLT_MM, SLTu_MM>;
 defm : SetgtPats<GPR32, SLT_MM, SLTu_MM>;
 defm : SetgePats<GPR32, XORi_MM, SLT_MM, SLTu_MM>;
 defm : SetgeImmPats<GPR32, XORi_MM, SLTi_MM, SLTiu_MM>;
+
+// Select patterns
+
+// Instantiation of conditional move patterns.
+defm : MovzPats0<GPR32, GPR32, MOVZ_I_MM, SLT_MM, SLTu_MM, SLTi_MM, SLTiu_MM>,
+       ISA_MICROMIPS32_NOT_MIPS32R6;
+defm : MovzPats1<GPR32, GPR32, MOVZ_I_MM, XOR_MM>,
+       ISA_MICROMIPS32_NOT_MIPS32R6;
+defm : MovzPats2<GPR32, GPR32, MOVZ_I_MM, XORi_MM>,
+       ISA_MICROMIPS32_NOT_MIPS32R6;
+
+
+defm : MovnPats<GPR32, GPR32, MOVN_I_MM, XOR_MM>, INSN_MIPS4_32_NOT_32R6_64R6;
+
+// Instantiation of conditional move patterns.
+defm : MovzPats0<GPR32, GPR32, MOVZ_I_MM, SLT_MM, SLTu_MM, SLTi_MM, SLTiu_MM>,
+       ISA_MICROMIPS32_NOT_MIPS32R6;
+defm : MovzPats1<GPR32, GPR32, MOVZ_I_MM, XOR_MM>,
+       ISA_MICROMIPS32_NOT_MIPS32R6;
+defm : MovzPats2<GPR32, GPR32, MOVZ_I_MM, XORi_MM>,
+       ISA_MICROMIPS32_NOT_MIPS32R6;
+
+defm : MovnPats<GPR32, GPR32, MOVN_I_MM, XOR_MM>, ISA_MICROMIPS32_NOT_MIPS32R6;
 
 //===----------------------------------------------------------------------===//
 // MicroMips instruction aliases
