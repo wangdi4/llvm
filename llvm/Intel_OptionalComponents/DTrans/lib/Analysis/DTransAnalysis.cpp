@@ -4003,32 +4003,48 @@ private:
   void setBaseTypeInfoSafetyData(llvm::Type *Ty, dtrans::SafetyData Data) {
     llvm::Type *BaseTy = Ty;
     while (BaseTy->isPointerTy())
-      BaseTy = cast<PointerType>(BaseTy)->getElementType();
+      BaseTy = BaseTy->getPointerElementType();
     dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(BaseTy);
     TI->setSafetyData(Data);
     if (!isCascadingSafetyCondition(Data))
       return;
-    // Propagate this condition to any nested types.
-    if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-      for (dtrans::FieldInfo &FI : StInfo->getFields()) {
-        llvm::Type *FieldTy = FI.getLLVMType();
-        // Propagate the safety condition if this field is an instance of
-        // a type of interest, but not if it is merely a pointer to such
-        // a type. Call setBaseTypeInfoSafetyData to handle additional levels
-        // of nesting.
-        if (!FieldTy->isPointerTy() && DTInfo.isTypeOfInterest(FieldTy))
-          setBaseTypeInfoSafetyData(FieldTy, Data);
+
+    // This lambda encapsulates the logic for propagating safety conditions to
+    // structure field or array element types. If the field or element is an
+    // instance of a type of interest, and not if it is merely a pointer to
+    // such a type, the condition is propagated. If the field is a pointer,
+    // the condition is only propagated if it is AddressTaken. Propagation is
+    // done via a recursive call to setBaseTypeInfoSafetyData in order to
+    // handle additional levels of nesting.
+    auto maybePropagateSafetyCondition = [this](llvm::Type *FieldTy,
+                                                dtrans::SafetyData Data) {
+      // If FieldTy is not a type of interest, there's no need to propagate.
+      if (!DTInfo.isTypeOfInterest(FieldTy))
+        return;
+      // If the field is an instance of the type, propagate the condition.
+      if (!FieldTy->isPointerTy()) {
+        setBaseTypeInfoSafetyData(FieldTy, Data);
+      } else if (Data == dtrans::AddressTaken) {
+        // In the case of AddressTaken, we need to propagate the condition
+        // even to fields that are pointers to structures, but in order
+        // to avoid infinite loops in the case where two structures each
+        // have pointers to the other we need to avoid doing this for
+        // structures that already have the condition set.
+        llvm::Type *FieldBaseTy = FieldTy;
+        while (FieldBaseTy->isPointerTy())
+          FieldBaseTy = FieldBaseTy->getPointerElementType();
+        dtrans::TypeInfo *FieldTI = DTInfo.getOrCreateTypeInfo(FieldBaseTy);
+        if (!FieldTI->testSafetyData(Data))
+          setBaseTypeInfoSafetyData(FieldBaseTy, Data);
       }
-    } else if (auto *ArrInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
-      ArrInfo->setSafetyData(Data);
-      llvm::Type *ElementTy = BaseTy->getArrayElementType();
-      // Propagate the safety condition if this field is an instance of
-      // a type of interest, but not if it is merely a pointer to such
-      // a type. Call setBaseTypeInfoSafetyData to handle additional levels
-      // of nesting.
-      if (!ElementTy->isPointerTy() && DTInfo.isTypeOfInterest(ElementTy))
-        setBaseTypeInfoSafetyData(ElementTy, Data);
-    }
+    };
+
+    // Propagate this condition to any nested types.
+    if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI))
+      for (dtrans::FieldInfo &FI : StInfo->getFields())
+        maybePropagateSafetyCondition(FI.getLLVMType(), Data);
+    else if (isa<dtrans::ArrayInfo>(TI))
+      maybePropagateSafetyCondition(BaseTy->getArrayElementType(), Data);
   }
 };
 

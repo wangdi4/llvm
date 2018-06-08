@@ -77,7 +77,8 @@ private:
   TypeToTypeMap OrigToNewTypeMapping;
 
   // A mapping from original types to a vector which can be used to lookup
-  // the replacement index based on the original index. A replacement index
+  // Pointer the replacement index based on the original index. A replacement
+  // index
   // value of FIELD_DELETED indicates that the field was deleted.
   DenseMap<llvm::Type *, SmallVector<uint64_t, 16>> FieldIdxMap;
 
@@ -130,9 +131,11 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
     for (size_t i = 0; i < NumFields; ++i) {
       dtrans::FieldInfo &FI = StInfo->getField(i);
       if (!FI.isRead() && !FI.hasComplexUse()) {
-        LLVM_DEBUG(dbgs() << "  Found unread field: "
-                          << cast<StructType>(StInfo->getLLVMType())->getName()
-                          << " @ " << i << "\n");
+        LLVM_DEBUG({
+          dbgs() << "  Found unread field: ";
+          StInfo->getLLVMType()->print(dbgs(), true, true);
+          dbgs() << " @ " << i << "\n";
+        });
         CanDeleteField = true;
 #ifdef NDEBUG
         break;
@@ -144,15 +147,19 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       continue;
 
     if (StInfo->testSafetyData(DeleteFieldSafetyConditions)) {
-      LLVM_DEBUG(dbgs() << "  Rejecting "
-                        << cast<StructType>(StInfo->getLLVMType())->getName()
-                        << " based on safety data.\n");
+      LLVM_DEBUG({
+        dbgs() << "  Rejecting ";
+        StInfo->getLLVMType()->print(dbgs(), true, true);
+        dbgs() << " based on safety data.\n";
+      });
       continue;
     }
 
-    LLVM_DEBUG(dbgs() << "  Selected for deletion: "
-                      << cast<StructType>(StInfo->getLLVMType())->getName()
-                      << "\n");
+    LLVM_DEBUG({
+      dbgs() << "  Selected for deletion: ";
+      StInfo->getLLVMType()->print(dbgs(), true, true);
+      dbgs() << "\n";
+    });
 
     StructsToConvert.push_back(StInfo);
   }

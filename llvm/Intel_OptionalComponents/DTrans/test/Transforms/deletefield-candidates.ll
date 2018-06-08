@@ -60,11 +60,11 @@ define i32 @main(i32 %argc, i8** %argv) {
   ret i32 %valA
 }
 
-; CHECK1: Selected for deletion: struct.test
-; CHECK2: Selected for deletion: struct.test
-; CHECK3-NOT: Selected for deletion: struct.test
+; CHECK1: Selected for deletion: %struct.test
+; CHECK2: Selected for deletion: %struct.test
+; CHECK3-NOT: Selected for deletion: %struct.test
 ; CHECK3: No candidates found.
-; CHECK4-NOT: Selected for deletion: struct.test
+; CHECK4-NOT: Selected for deletion: %struct.test
 ; CHECK4: No candidates found.
 
 declare i8* @malloc(i64)
