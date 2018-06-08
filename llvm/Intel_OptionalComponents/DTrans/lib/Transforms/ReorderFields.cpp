@@ -130,6 +130,7 @@ public:
 
   virtual bool prepareTypes(Module &M) override;
   virtual void populateTypes(Module &M) override;
+  virtual void processFunction(Function &F) override;
   virtual void postprocessFunction(Function &Func, bool isCloned) override;
 
 private:
@@ -141,6 +142,7 @@ private:
   void processCallInst(CallInst &CI);
   void transformDivOp(BinaryOperator &I);
   void processGetElementPtrInst(GetElementPtrInst &GEP);
+  void processByteFlattenedGetElementPtrInst(GetElementPtrInst &GEP);
   void transformAllocCall(CallInst &CI, StructType *Ty);
   void transformMemfunc(CallInst &CI, StructType *Ty);
   bool replaceOldSizeWithNewSize(Value *Val, uint64_t OldSize, uint64_t NewSize,
@@ -311,6 +313,38 @@ void ReorderFieldsImpl::processGetElementPtrInst(GetElementPtrInst &GEP) {
   LLVM_DEBUG(dbgs() << "GEP After:" << GEP << "\n");
 }
 
+// Fix offset value in ByteFlattened GEP if it is computing address of
+// a field in any reordered struct.
+void ReorderFieldsImpl::processByteFlattenedGetElementPtrInst(
+                     GetElementPtrInst &GEP) {
+
+  // Only two operands are expected for ByteFlattened GEPs
+  if (GEP.getNumOperands() != 2)
+    return;
+  auto GEPInfo = DTInfo.getByteFlattenedGEPElement(&GEP);
+  if (!GEPInfo.first)
+    return;
+
+  Type *SourceTy = GEPInfo.first;
+  // Check if SourceTy is transformed.
+  Type *OrigTy = getOrigTyOfTransformedType(SourceTy);
+  if (!OrigTy)
+    return;
+
+  StructType *StructTy = cast<StructType>(OrigTy);
+  uint32_t OldIdx = GEPInfo.second;
+  uint32_t NewIdx = RTI.getTransformedIndex(StructTy, OldIdx);
+
+  // Get offset of the field in new layout.
+  StructType *NewSt = cast<StructType>(OrigToNewTypeMapping[StructTy]);
+  auto *SL = DL.getStructLayout(NewSt);
+  uint64_t NewOffset = SL->getElementOffset(NewIdx);
+
+  LLVM_DEBUG(dbgs() << "ByteFGEP Before:" << GEP << "\n");
+  GEP.setOperand(1, ConstantInt::get(GEP.getOperand(1)->getType(), NewOffset));
+  LLVM_DEBUG(dbgs() << "ByteFGEP After:" << GEP << "\n");
+}
+
 // Gets StructType associated with \p SubV if it is subtraction
 // of pointers to a structure. Otherwise, it returns nullptr.
 StructType *ReorderFieldsImpl::getAssociatedOrigTypeOfSub(Value *SubV) {
@@ -407,7 +441,8 @@ void ReorderFieldsImpl::processCallInst(CallInst &CI) {
   }
 }
 
-// Fix all necessary IR changes related to field-reordering transform.
+// Fix all necessary IR changes related to field-reordering transform except
+// for ByteFlattened GEPs, which are processed in processFunction.
 //   GEP Inst: Replace old index of a field with new index
 //   CallInst: Replace old size of struct with new size in malloc/calloc/
 //             realloc/memset/memcpy etc.
@@ -422,6 +457,17 @@ void ReorderFieldsImpl::postprocessFunction(Function &Func, bool isCloned) {
       processBinaryOperator(*BO);
     else if (CallInst *CI = dyn_cast<CallInst>(Inst))
       processCallInst(*CI);
+  }
+}
+
+// Only ByteFlattened GEPs related to field-reordering structs are processed
+// here.
+//   ByteFlattened GEP: Old offset of a field is replaced with new offset.
+void ReorderFieldsImpl::processFunction(Function &F) {
+  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+    Instruction *Inst = &*I;
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Inst))
+      processByteFlattenedGetElementPtrInst(*GEP);
   }
 }
 
