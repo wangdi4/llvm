@@ -55,6 +55,9 @@
 @ISA_FP16:SECRET@
 # end INTEL_FEATURE_ISA_FP16
 
+# INTEL_FEATURE_ISA_SERIALIZE
+@ISA_SERIALIZE:SECRET@
+# end INTEL_FEATURE_ISA_SERIALIZE
 # === New ISA features section end ===
 
 # Support for a new target is usually covered by a feature named after

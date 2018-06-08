@@ -5192,6 +5192,16 @@ let TargetPrefix = "x86" in {
               [llvm_v16f32_ty, llvm_v16i32_ty, llvm_v16i32_ty], [IntrNoMem]>;
 }
 #endif // INTEL_FEATURE_ISA_BF16
+
+#if INTEL_FEATURE_ISA_SERIALIZE
+//===----------------------------------------------------------------------===//
+// SERIALIZE - Serialize instruction fetch and execution
+
+let TargetPrefix = "x86" in {
+  def int_x86_serialize : GCCBuiltin<"__builtin_ia32_serialize">,
+              Intrinsic<[], [], []>;
+}
+#endif // INTEL_FEATURE_ISA_SERIALIZE
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
