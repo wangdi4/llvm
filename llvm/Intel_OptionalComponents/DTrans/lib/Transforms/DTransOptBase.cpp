@@ -651,17 +651,19 @@ void DTransOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
   // Fill in the initializers for all the new variables.
   for (auto &Mapping : LocalVMap) {
     GlobalVariable *OrigGV = Mapping.first;
-    if (OrigGV->hasInitializer()) {
-      GlobalVariable *NewGV = Mapping.second;
+    GlobalVariable *NewGV = Mapping.second;
 
+    if (OrigGV->hasInitializer()) {
       // If the derived class handled the replacement variable creation, then
       // the derived class needs to handle the initialization.
       if (SubclassHandledGVMap.count(OrigGV))
-        initializeGlobalVariableReplacement(OrigGV, NewGV);
+        initializeGlobalVariableReplacement(OrigGV, NewGV, Mapper);
       else
         NewGV->setInitializer(Mapper.mapConstant(*OrigGV->getInitializer()));
       NewGV->takeName(OrigGV);
     }
+
+    postprocessGlobalVariable(OrigGV, NewGV);
 
     LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Global Var replacement:\n  Orig: "
                       << *Mapping.first << "\n  New : " << *Mapping.second
