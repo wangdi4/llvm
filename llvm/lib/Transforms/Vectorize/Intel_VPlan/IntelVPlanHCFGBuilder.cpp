@@ -874,7 +874,12 @@ void PlainCFGBuilder::setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB) {
   }
 }
 
-// Add operands to VPInstructions representing phi nodes from the input IR.
+// Set operands to VPInstructions representing phi nodes from the input IR.
+// VPlan Phi nodes were created without operands in a previous step of the H-CFG
+// construction because those operands might not have been created in VPlan at
+// that time despite the RPO traversal. This function expects all the
+// instructions to have a representation in VPlan so operands of VPlan phis can
+// be properly set.
 void PlainCFGBuilder::fixPhiNodes() {
   for (auto *Phi : PhisToFix) {
     assert(IRDef2VPValue.count(Phi) && "Missing VPInstruction for PHINode.");
@@ -997,7 +1002,9 @@ VPValue *PlainCFGBuilder::createOrGetVPOperand(Value *IROp) {
 
 // Create new VPInstructions in a VPBasicBlock, given its BasicBlock
 // counterpart. This function must be invoked in RPO so that the operands of a
-// VPInstruction in \p BB have been visited before (except for Phi nodes).
+// VPInstruction in \p BB have been visited before. VPInstructions representing
+// Phi nodes are created without operands to honor the RPO traversal. They will
+// be fixed later by 'fixPhiNodes'.
 void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
                                                   BasicBlock *BB) {
   VPIRBuilder.setInsertPoint(VPBB);
@@ -1058,7 +1065,7 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
   // block after having visited its predecessor basic blocks.Create a VPBB for
   // each BB and link it to its successor and predecessor VPBBs. Note that
   // predecessors must be set in the same order as they are in the incomming IR.
-  // Otherwise, there might be problems with existing phi nodes and algorithm
+  // Otherwise, there might be problems with existing phi nodes and algorithms
   // based on predecessors traversal.
 
   // Loop PH needs to be explicitly visited since it's not taken into account by
