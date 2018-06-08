@@ -455,6 +455,18 @@ _storebe_i64(void * __P, long long __D) {
 #include <invpcidintrin.h>
 #endif
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_SERIALIZE */
+/*
+ * TODO: when SERIALIZE is public change the #if checks below to also check:
+ *        !defined(_MSC_VER) || __has_feature(modules)
+ */
+#if defined(__SERIALIZE__)
+#include <serializeintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_SERIALIZE */
+/* end INTEL_CUSTOMIZATION */
+
 #ifdef _MSC_VER
 /* Define the default attributes for these intrinsics */
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))

@@ -851,6 +851,12 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasPTWRITE = true;
     } else if (Feature == "+invpcid") {
       HasINVPCID = true;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_SERIALIZE
+    } else if (Feature == "+serialize") {
+      HasSERIALIZE = true;
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+#endif // INTEL_CUSTOMIZATION
     }
 
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
@@ -1230,6 +1236,12 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__PTWRITE__");
   if (HasINVPCID)
     Builder.defineMacro("__INVPCID__");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_SERIALIZE
+  if (HasSERIALIZE)
+    Builder.defineMacro("__SERIALIZE__");
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+#endif // INTEL_CUSTOMIZATION
 
   // Each case falls through to the previous one here.
   switch (SSELevel) {
@@ -1383,6 +1395,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("rdseed", true)
       .Case("rtm", true)
       .Case("sahf", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_SERIALIZE
+      .Case("serialize", true)
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+#endif // INTEL_CUSTOMIZATION
       .Case("sgx", true)
       .Case("sha", true)
       .Case("shstk", true)
@@ -1469,6 +1486,11 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("retpoline-external-thunk", HasRetpolineExternalThunk)
       .Case("rtm", HasRTM)
       .Case("sahf", HasLAHFSAHF)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_SERIALIZE
+      .Case("serialize", HasSERIALIZE)
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+#endif // INTEL_CUSTOMIZATION
       .Case("sgx", HasSGX)
       .Case("sha", HasSHA)
       .Case("shstk", HasSHSTK)

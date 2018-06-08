@@ -2710,6 +2710,12 @@ X86
 
 .. option:: -msahf, -mno-sahf
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_SERIALIZE
+.. option:: -mserialize, -mno-serialize
+.. end INTEL_FEATURE_ISA_SERIALIZE
+.. end INTEL_CUSTOMIZATION
+
 .. option:: -msgx, -mno-sgx
 
 .. option:: -msha, -mno-sha

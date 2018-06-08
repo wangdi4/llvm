@@ -2944,6 +2944,12 @@ def mrdseed : Flag<["-"], "mrdseed">, Group<m_x86_Features_Group>;
 def mno_rdseed : Flag<["-"], "mno-rdseed">, Group<m_x86_Features_Group>;
 def msahf : Flag<["-"], "msahf">, Group<m_x86_Features_Group>;
 def mno_sahf : Flag<["-"], "mno-sahf">, Group<m_x86_Features_Group>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_SERIALIZE
+def mserialize : Flag<["-"], "mserialize">, Group<m_x86_Features_Group>;
+def mno_serialize : Flag<["-"], "mno-serialize">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+#endif // INTEL_CUSTOMIZATION
 def msgx : Flag<["-"], "msgx">, Group<m_x86_Features_Group>;
 def mno_sgx : Flag<["-"], "mno-sgx">, Group<m_x86_Features_Group>;
 def msha : Flag<["-"], "msha">, Group<m_x86_Features_Group>;

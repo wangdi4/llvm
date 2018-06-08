@@ -35,6 +35,12 @@ intel_add_file(INTEL_HEADERS
   intel_avx512vlbf16intrin.h
   )
 # end INTEL_FEATURE_ISA_BF16
+# INTEL_FEATURE_ISA_SERIALIZE
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_SERIALIZE
+  Intel_Headers/serializeintrin.h
+  )
+# end INTEL_FEATURE_ISA_SERIALIZE
 # end INTEL_CUSTOMIZATION
 
 set(files

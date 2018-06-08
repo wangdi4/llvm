@@ -111,6 +111,11 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasMOVDIR64B = false;
   bool HasPTWRITE = false;
   bool HasINVPCID = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_SERIALIZE
+  bool HasSERIALIZE = false;
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+#endif // INTEL_CUSTOMIZATION
 
 protected:
   /// Enumeration of all of the X86 CPUs supported by Clang.

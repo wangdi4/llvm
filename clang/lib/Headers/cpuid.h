@@ -195,6 +195,11 @@
 /* Features in %edx for leaf 7 sub-leaf 0 */
 #define bit_AVX5124VNNIW  0x00000004
 #define bit_AVX5124FMAPS  0x00000008
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_SERIALIZE */
+#define bit_SERIALIZE     0x00004000
+/* end INTEL_FEATURE_ISA_SERIALIZE */
+/* end INTEL_CUSTOMIZATION */
 #define bit_PCONFIG       0x00040000
 #define bit_IBT           0x00100000
 
