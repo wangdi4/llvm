@@ -535,6 +535,10 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // Add OpenMP offloading linker script args if required.
   AddOpenMPLinkerScript(getToolChain(), C, Output, Inputs, Args, CmdArgs, JA);
 
+  // Add HIP offloading linker script args if required.
+  AddHIPLinkerScript(getToolChain(), C, Output, Inputs, Args, CmdArgs, JA,
+                     *this);
+
   C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
 }
 
@@ -1545,7 +1549,7 @@ static bool findBiarchMultilibs(const Driver &D,
 /// all subcommands; this relies on gcc translating the majority of
 /// command line options.
 
-/// \brief Less-than for GCCVersion, implementing a Strict Weak Ordering.
+/// Less-than for GCCVersion, implementing a Strict Weak Ordering.
 bool Generic_GCC::GCCVersion::isOlderThan(int RHSMajor, int RHSMinor,
                                           int RHSPatch,
                                           StringRef RHSPatchSuffix) const {
@@ -1579,7 +1583,7 @@ bool Generic_GCC::GCCVersion::isOlderThan(int RHSMajor, int RHSMinor,
   return false;
 }
 
-/// \brief Parse a GCCVersion object out of a string of text.
+/// Parse a GCCVersion object out of a string of text.
 ///
 /// This is the primary means of forming GCCVersion objects.
 /*static*/
@@ -1637,7 +1641,7 @@ static llvm::StringRef getGCCToolchainDir(const ArgList &Args) {
   return GCC_INSTALL_PREFIX;
 }
 
-/// \brief Initialize a GCCInstallationDetector from the driver.
+/// Initialize a GCCInstallationDetector from the driver.
 ///
 /// This performs all of the autodetection and sets up the various paths.
 /// Once constructed, a GCCInstallationDetector is essentially immutable.
@@ -2461,7 +2465,7 @@ Generic_GCC::addLibStdCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
   // FIXME: If we have a valid GCCInstallation, use it.
 }
 
-/// \brief Helper to add the variant paths of a libstdc++ installation.
+/// Helper to add the variant paths of a libstdc++ installation.
 bool Generic_GCC::addLibStdCXXIncludePaths(
     Twine Base, Twine Suffix, StringRef GCCTriple, StringRef GCCMultiarchTriple,
     StringRef TargetMultiarchTriple, Twine IncludeSuffix,

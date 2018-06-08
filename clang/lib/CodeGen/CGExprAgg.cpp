@@ -220,7 +220,7 @@ void AggExprEmitter::EmitAggLoadOfLValue(const Expr *E) {
   EmitFinalDestCopy(E->getType(), LV);
 }
 
-/// \brief True if the given aggregate type requires special GC API calls.
+/// True if the given aggregate type requires special GC API calls.
 bool AggExprEmitter::TypeRequiresGCollection(QualType T) {
   // Only record types have members that might require garbage collection.
   const RecordType *RecordTy = T->getAs<RecordType>();
@@ -253,6 +253,7 @@ void AggExprEmitter::withReturnValueSlot(
                  (RequiresDestruction && !Dest.getAddress().isValid());
 
   Address RetAddr = Address::invalid();
+  Address RetAllocaAddr = Address::invalid();
 
   EHScopeStack::stable_iterator LifetimeEndBlock;
   llvm::Value *LifetimeSizePtr = nullptr;
@@ -260,10 +261,10 @@ void AggExprEmitter::withReturnValueSlot(
   if (!UseTemp) {
     RetAddr = Dest.getAddress();
   } else {
-    RetAddr = CGF.CreateMemTemp(RetTy);
+    RetAddr = CGF.CreateMemTemp(RetTy, "tmp", &RetAllocaAddr);
     uint64_t Size =
         CGF.CGM.getDataLayout().getTypeAllocSize(CGF.ConvertTypeForMem(RetTy));
-    LifetimeSizePtr = CGF.EmitLifetimeStart(Size, RetAddr.getPointer());
+    LifetimeSizePtr = CGF.EmitLifetimeStart(Size, RetAllocaAddr.getPointer());
     if (LifetimeSizePtr) {
       LifetimeStartInst =
           cast<llvm::IntrinsicInst>(std::prev(Builder.GetInsertPoint()));
@@ -272,7 +273,7 @@ void AggExprEmitter::withReturnValueSlot(
              "Last insertion wasn't a lifetime.start?");
 
       CGF.pushFullExprCleanup<CodeGenFunction::CallLifetimeEnd>(
-          NormalEHLifetimeMarker, RetAddr, LifetimeSizePtr);
+          NormalEHLifetimeMarker, RetAllocaAddr, LifetimeSizePtr);
       LifetimeEndBlock = CGF.EHStack.stable_begin();
     }
   }
@@ -294,7 +295,7 @@ void AggExprEmitter::withReturnValueSlot(
     // Since we're not guaranteed to be in an ExprWithCleanups, clean up
     // eagerly.
     CGF.DeactivateCleanupBlock(LifetimeEndBlock, LifetimeStartInst);
-    CGF.EmitLifetimeEnd(LifetimeSizePtr, RetAddr.getPointer());
+    CGF.EmitLifetimeEnd(LifetimeSizePtr, RetAllocaAddr.getPointer());
   }
 }
 
@@ -369,7 +370,7 @@ void AggExprEmitter::EmitCopy(QualType type, const AggValueSlot &dest,
                         dest.isVolatile() || src.isVolatile());
 }
 
-/// \brief Emit the initializer for a std::initializer_list initialized with a
+/// Emit the initializer for a std::initializer_list initialized with a
 /// real initializer list.
 void
 AggExprEmitter::VisitCXXStdInitializerListExpr(CXXStdInitializerListExpr *E) {
@@ -434,7 +435,7 @@ AggExprEmitter::VisitCXXStdInitializerListExpr(CXXStdInitializerListExpr *E) {
   }
 }
 
-/// \brief Determine if E is a trivial array filler, that is, one that is
+/// Determine if E is a trivial array filler, that is, one that is
 /// equivalent to zero-initialization.
 static bool isTrivialFiller(Expr *E) {
   if (!E)
@@ -457,7 +458,7 @@ static bool isTrivialFiller(Expr *E) {
   return false;
 }
 
-/// \brief Emit initialization of an array from an initializer list.
+/// Emit initialization of an array from an initializer list.
 void AggExprEmitter::EmitArrayInit(Address DestPtr, llvm::ArrayType *AType,
                                    QualType ArrayQTy, InitListExpr *E) {
   uint64_t NumInitElements = E->getNumInits();

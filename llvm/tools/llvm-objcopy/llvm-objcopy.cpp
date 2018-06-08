@@ -87,10 +87,10 @@ enum StripID {
 static const opt::OptTable::Info StripInfoTable[] = {
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
                HELPTEXT, METAVAR, VALUES)                                      \
-  {PREFIX,          NAME,         HELPTEXT,                                    \
-   METAVAR,         STRIP_##ID, opt::Option::KIND##Class,                      \
-   PARAM,           FLAGS,        STRIP_##GROUP,                               \
-   STRIP_##ALIAS, ALIASARGS,    VALUES},
+  {PREFIX,        NAME,       HELPTEXT,                                        \
+   METAVAR,       STRIP_##ID, opt::Option::KIND##Class,                        \
+   PARAM,         FLAGS,      STRIP_##GROUP,                                   \
+   STRIP_##ALIAS, ALIASARGS,  VALUES},
 #include "StripOpts.inc"
 #undef OPTION
 };
@@ -147,6 +147,8 @@ struct CopyConfig {
   std::vector<StringRef> SymbolsToLocalize;
   std::vector<StringRef> SymbolsToGlobalize;
   std::vector<StringRef> SymbolsToWeaken;
+  std::vector<StringRef> SymbolsToRemove;
+  std::vector<StringRef> SymbolsToKeep;
   StringMap<StringRef> SymbolsToRename;
   bool StripAll = false;
   bool StripAllGNU = false;
@@ -158,6 +160,7 @@ struct CopyConfig {
   bool LocalizeHidden = false;
   bool Weaken = false;
   bool DiscardAll = false;
+  bool OnlyKeepDebug = false;
 };
 
 using SectionPred = std::function<bool(const SectionBase &Sec)>;
@@ -218,6 +221,55 @@ void HandleArgs(const CopyConfig &Config, Object &Obj, const Reader &Reader,
 
   if (!Config.SplitDWO.empty()) {
     SplitDWOToFile(Config, Reader, Config.SplitDWO, OutputElfType);
+  }
+  
+  // TODO: update or remove symbols only if there is an option that affects them.
+  if (Obj.SymbolTable) {
+    Obj.SymbolTable->updateSymbols([&](Symbol &Sym) {
+      if ((Config.LocalizeHidden &&
+           (Sym.Visibility == STV_HIDDEN || Sym.Visibility == STV_INTERNAL)) ||
+          (!Config.SymbolsToLocalize.empty() &&
+           is_contained(Config.SymbolsToLocalize, Sym.Name)))
+        Sym.Binding = STB_LOCAL;
+
+      if (!Config.SymbolsToGlobalize.empty() &&
+          is_contained(Config.SymbolsToGlobalize, Sym.Name))
+        Sym.Binding = STB_GLOBAL;
+
+      if (!Config.SymbolsToWeaken.empty() &&
+          is_contained(Config.SymbolsToWeaken, Sym.Name) &&
+          Sym.Binding == STB_GLOBAL)
+        Sym.Binding = STB_WEAK;
+
+      if (Config.Weaken && Sym.Binding == STB_GLOBAL &&
+          Sym.getShndx() != SHN_UNDEF)
+        Sym.Binding = STB_WEAK;
+
+      const auto I = Config.SymbolsToRename.find(Sym.Name);
+      if (I != Config.SymbolsToRename.end())
+        Sym.Name = I->getValue();
+    });
+
+    Obj.removeSymbols([&](const Symbol &Sym) {
+      if (!Config.SymbolsToKeep.empty() &&
+          is_contained(Config.SymbolsToKeep, Sym.Name))
+        return false;
+
+      if (Config.DiscardAll && Sym.Binding == STB_LOCAL &&
+          Sym.getShndx() != SHN_UNDEF && Sym.Type != STT_FILE &&
+          Sym.Type != STT_SECTION)
+        return true;
+
+      if (Config.StripAll || Config.StripAllGNU)
+        return true;
+
+      if (!Config.SymbolsToRemove.empty() &&
+          is_contained(Config.SymbolsToRemove, Sym.Name)) {
+        return true;
+      }
+
+      return false;
+    });
   }
 
   SectionPred RemovePred = [](const SectionBase &) { return false; };
@@ -324,6 +376,19 @@ void HandleArgs(const CopyConfig &Config, Object &Obj, const Reader &Reader,
     };
   }
 
+  // This has to be the last predicate assignment.
+  // If the option --keep-symbol has been specified
+  // and at least one of those symbols is present 
+  // (equivalently, the updated symbol table is not empty)
+  // the symbol table and the string table should not be removed.
+  if (!Config.SymbolsToKeep.empty() && !Obj.SymbolTable->empty()) {
+    RemovePred = [&Obj, RemovePred](const SectionBase &Sec) {
+      if (&Sec == Obj.SymbolTable || &Sec == Obj.SymbolTable->getStrTab())
+        return false;
+      return RemovePred(Sec);
+    };
+  }
+
   Obj.removeSections(RemovePred);
 
   if (!Config.AddSection.empty()) {
@@ -344,41 +409,6 @@ void HandleArgs(const CopyConfig &Config, Object &Obj, const Reader &Reader,
 
   if (!Config.AddGnuDebugLink.empty())
     Obj.addSection<GnuDebugLinkSection>(Config.AddGnuDebugLink);
-
-  if (Obj.SymbolTable) {
-    Obj.SymbolTable->updateSymbols([&](Symbol &Sym) {
-      if ((Config.LocalizeHidden &&
-           (Sym.Visibility == STV_HIDDEN || Sym.Visibility == STV_INTERNAL)) ||
-          (!Config.SymbolsToLocalize.empty() &&
-           is_contained(Config.SymbolsToLocalize, Sym.Name)))
-        Sym.Binding = STB_LOCAL;
-
-      if (!Config.SymbolsToGlobalize.empty() &&
-          is_contained(Config.SymbolsToGlobalize, Sym.Name))
-        Sym.Binding = STB_GLOBAL;
-
-      if (!Config.SymbolsToWeaken.empty() &&
-          is_contained(Config.SymbolsToWeaken, Sym.Name) &&
-          Sym.Binding == STB_GLOBAL)
-        Sym.Binding = STB_WEAK;
-
-      if (Config.Weaken && Sym.Binding == STB_GLOBAL &&
-          Sym.getShndx() != SHN_UNDEF)
-        Sym.Binding = STB_WEAK;
-
-      const auto I = Config.SymbolsToRename.find(Sym.Name);
-      if (I != Config.SymbolsToRename.end())
-        Sym.Name = I->getValue();
-    });
-
-    Obj.SymbolTable->removeSymbols([&](const Symbol &Sym) {
-      if (Config.DiscardAll && Sym.Binding == STB_LOCAL &&
-          Sym.getShndx() != SHN_UNDEF && Sym.Type != STT_FILE &&
-          Sym.Type != STT_SECTION)
-        return true;
-      return false;
-    });
-  }
 }
 
 std::unique_ptr<Reader> CreateReader(StringRef InputFilename,
@@ -409,12 +439,12 @@ CopyConfig ParseObjcopyOptions(ArrayRef<const char *> ArgsArr) {
   unsigned MissingArgumentIndex, MissingArgumentCount;
   llvm::opt::InputArgList InputArgs =
       T.ParseArgs(ArgsArr, MissingArgumentIndex, MissingArgumentCount);
-  
+
   if (InputArgs.size() == 0) {
     T.PrintHelp(errs(), "llvm-objcopy <input> [ <output> ]", "objcopy tool");
     exit(1);
   }
-  
+
   if (InputArgs.hasArg(OBJCOPY_help)) {
     T.PrintHelp(outs(), "llvm-objcopy <input> [ <output> ]", "objcopy tool");
     exit(0);
@@ -470,12 +500,17 @@ CopyConfig ParseObjcopyOptions(ArrayRef<const char *> ArgsArr) {
   Config.LocalizeHidden = InputArgs.hasArg(OBJCOPY_localize_hidden);
   Config.Weaken = InputArgs.hasArg(OBJCOPY_weaken);
   Config.DiscardAll = InputArgs.hasArg(OBJCOPY_discard_all);
+  Config.OnlyKeepDebug = InputArgs.hasArg(OBJCOPY_only_keep_debug);
   for (auto Arg : InputArgs.filtered(OBJCOPY_localize_symbol))
     Config.SymbolsToLocalize.push_back(Arg->getValue());
   for (auto Arg : InputArgs.filtered(OBJCOPY_globalize_symbol))
     Config.SymbolsToGlobalize.push_back(Arg->getValue());
   for (auto Arg : InputArgs.filtered(OBJCOPY_weaken_symbol))
     Config.SymbolsToWeaken.push_back(Arg->getValue());
+  for (auto Arg : InputArgs.filtered(OBJCOPY_strip_symbol))
+    Config.SymbolsToRemove.push_back(Arg->getValue());
+  for (auto Arg : InputArgs.filtered(OBJCOPY_keep_symbol))
+    Config.SymbolsToKeep.push_back(Arg->getValue());
 
   return Config;
 }
@@ -493,7 +528,7 @@ CopyConfig ParseStripOptions(ArrayRef<const char *> ArgsArr) {
     T.PrintHelp(errs(), "llvm-strip <input> [ <output> ]", "strip tool");
     exit(1);
   }
-  
+
   if (InputArgs.hasArg(STRIP_help)) {
     T.PrintHelp(outs(), "llvm-strip <input> [ <output> ]", "strip tool");
     exit(0);
@@ -519,6 +554,10 @@ CopyConfig ParseStripOptions(ArrayRef<const char *> ArgsArr) {
   Config.StripDebug = InputArgs.hasArg(STRIP_strip_debug);
   if (!Config.StripDebug)
     Config.StripAll = true;
+
+  for (auto Arg : InputArgs.filtered(STRIP_remove_section))
+    Config.ToRemove.push_back(Arg->getValue());
+
   return Config;
 }
 
