@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include "FrameworkTest.h"
 #include <gtest/gtest.h>
-
+#include <float.h>
 //
 // Testing note: This test case creates a dedicated process for each test. In order to test it in Visual Studio define the
 // following macro to forse running in the same process. GTEST will not work ok because of early exists but debugging is 
