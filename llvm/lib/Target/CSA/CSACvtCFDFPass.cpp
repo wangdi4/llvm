@@ -3546,6 +3546,7 @@ void CSACvtCFDFPass::generateDynamicPickTreeForFooter(MachineBasicBlock *mbb) {
   SmallVector<std::pair<unsigned, unsigned> *, 4> pred2values;
   unsigned predBB              = 0;
   MachineInstr *predMergeInstr = nullptr;
+  MachineBasicBlock *pickFalseBB = nullptr;
   std::list<MachineBasicBlock *> path;
   MachineBasicBlock::iterator iterI = mbb->begin();
   while (iterI != mbb->end()) {
@@ -3578,6 +3579,8 @@ void CSACvtCFDFPass::generateDynamicPickTreeForFooter(MachineBasicBlock *mbb) {
           predMergeInstr =
             getOrInsertPredMerge(mbb, MI, predBB, // last processed edge
                                  edgePred);       // current edge
+          if (!pickFalseBB)
+            pickFalseBB = MI->getOperand(2).getMBB();
         }
       }
     } // end of for MO
@@ -3589,6 +3592,9 @@ void CSACvtCFDFPass::generateDynamicPickTreeForFooter(MachineBasicBlock *mbb) {
       assert(MI->getNumOperands() == 5);
       unsigned reg1                  = MI->getOperand(1).getReg();
       unsigned reg2                  = MI->getOperand(3).getReg();
+      // Swap the registers if the order of basic blocks is reversed.
+      if (MI->getOperand(2).getMBB() != pickFalseBB)
+        std::swap(reg1, reg2);
       const TargetRegisterClass *TRC = MRI->getRegClass(reg1);
       unsigned pickPred              = predMergeInstr->getOperand(1).getReg();
       const unsigned pickOpcode      = TII->makeOpcode(CSA::Generic::PICK, TRC);
