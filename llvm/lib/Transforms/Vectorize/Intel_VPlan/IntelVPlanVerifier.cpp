@@ -1,4 +1,4 @@
-//===-- VPlanVerifier.cpp -------------------------------------------------===//
+//===-- IntelVPlanVerifier.cpp --------------------------------------------===//
 //
 //   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //

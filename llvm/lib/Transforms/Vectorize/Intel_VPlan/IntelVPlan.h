@@ -1,4 +1,4 @@
-//===- Intel_VPlan.h - Represent A Vectorizer Plan ------------------------===//
+//===- IntelVPlan.h - Represent A Vectorizer Plan -------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //

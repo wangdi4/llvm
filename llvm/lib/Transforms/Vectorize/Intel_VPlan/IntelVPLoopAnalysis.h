@@ -1,4 +1,4 @@
-//===- VPLoopAnalysis.h - --------------------------------------------------===/
+//===- IntelVPLoopAnalysis.h ----------------------------------------------===//
 //
 //   Copyright (C) 2018 Intel Corporation. All rights reserved.
 //

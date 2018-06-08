@@ -1,4 +1,4 @@
-//===-- VPlanHCFGBuilder.cpp ----------------------------------------------===//
+//===-- IntelVPlanHCFGBuilder.cpp -----------------------------------------===//
 //
 //   Copyright (C) 2017 Intel Corporation. All rights reserved.
 //

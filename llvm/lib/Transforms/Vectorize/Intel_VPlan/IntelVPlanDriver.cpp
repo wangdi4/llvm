@@ -1,4 +1,4 @@
-//===-- VPlanDriver.cpp ---------------------------------------------------===//
+//===-- IntelVPlanDriver.cpp ----------------------------------------------===//
 //
 //   Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //

@@ -1,4 +1,4 @@
-//===-- LoopVectorizationPlanner.cpp --------------------------------------===//
+//===-- IntelLoopVectorizationPlanner.cpp ---------------------------------===//
 //
 //   Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
 //

@@ -1,4 +1,4 @@
-//===-- VPlanHCFGBuilder.h --------------------------------------*- C++ -*-===//
+//===-- IntelVPlanHCFGBuilder.h ---------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //

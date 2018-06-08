@@ -1,4 +1,4 @@
-//===-- VPLoopInfo.h --------------------------------------------*- C++ -*-===//
+//===-- IntelVPLoopInfo.h ---------------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //

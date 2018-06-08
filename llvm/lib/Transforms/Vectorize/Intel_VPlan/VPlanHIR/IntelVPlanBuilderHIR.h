@@ -1,4 +1,4 @@
-//===- VPlanBuilderHIR.h - A VPlan utility for constructing VPInstructions ===//
+//===- IntelVPlanBuilderHIR.h - A utility for constructing VPInstructions -===//
 //
 //   Copyright (C) 2017 Intel Corporation. All rights reserved.
 //

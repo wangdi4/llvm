@@ -1,4 +1,4 @@
-//===- Intel_VPlan.cpp - Vectorizer Plan ----------------------------------===//
+//===- IntelVPlan.cpp - Vectorizer Plan -----------------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //

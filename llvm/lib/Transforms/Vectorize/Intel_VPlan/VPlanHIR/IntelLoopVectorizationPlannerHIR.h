@@ -1,4 +1,4 @@
-//===-- LoopVectorizationPlannerHIR.h ---------------------------*- C++ -*-===//
+//===-- IntelLoopVectorizationPlannerHIR.h ----------------------*- C++ -*-===//
 //
 //   Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
 //
