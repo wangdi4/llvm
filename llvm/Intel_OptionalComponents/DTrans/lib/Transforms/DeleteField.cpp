@@ -83,6 +83,7 @@ private:
 
   bool processGEPInst(GetElementPtrInst *GEP, uint64_t &NewIndex,
                       bool IsPreCloning);
+  bool processPossibleByteFlattenedGEP(GetElementPtrInst *GEP);
   void postprocessCallInst(Instruction *I);
   void postprocessSubInst(Instruction *I);
 };
@@ -122,23 +123,24 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       continue;
 
     // We're only interested in fields that are never read. Fields that are
-    // written but not read can be deleted.
-    bool HasUnreadFields = false;
+    // written but not read can be deleted. Fields with complex uses
+    // (phi, select, icmp, etc.) cannot be deleted.
+    bool CanDeleteField = false;
     size_t NumFields = StInfo->getNumFields();
     for (size_t i = 0; i < NumFields; ++i) {
       dtrans::FieldInfo &FI = StInfo->getField(i);
-      if (!FI.isRead()) {
+      if (!FI.isRead() && !FI.hasComplexUse()) {
         LLVM_DEBUG(dbgs() << "  Found unread field: "
                           << cast<StructType>(StInfo->getLLVMType())->getName()
                           << " @ " << i << "\n");
-        HasUnreadFields = true;
+        CanDeleteField = true;
 #ifdef NDEBUG
         break;
 #endif // NDEBUG
       }
     }
 
-    if (!HasUnreadFields)
+    if (!CanDeleteField)
       continue;
 
     if (StInfo->testSafetyData(DeleteFieldSafetyConditions)) {
@@ -185,7 +187,7 @@ void DeleteFieldImpl::populateTypes(Module &M) {
     uint64_t NewIdx = 0;
     for (size_t i = 0; i < NumFields; ++i) {
       dtrans::FieldInfo &FI = StInfo->getField(i);
-      if (FI.isRead()) {
+      if (FI.isRead() || FI.hasComplexUse()) {
         LLVM_DEBUG(dbgs() << OrigTy->getName() << "[" << i << "] = " << NewIdx
                           << "\n");
         NewIndices.push_back(NewIdx++);
@@ -214,22 +216,92 @@ void DeleteFieldImpl::processFunction(Function &F) {
 
   for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
     if (auto *GEP = dyn_cast<GetElementPtrInst>(&*I)) {
+      // If the GEP has a single index, it might be in the byte-flattened
+      // form. Check that, and delete the field if necessary.
+      // Otherwise, there's nothing more to do with this GEP.
+      if (GEP->getNumIndices() == 1) {
+        if (processPossibleByteFlattenedGEP(GEP))
+          GEPsToDelete.push_back(GEP);
+        continue;
+      }
+
+      // Otherwise, check the normal form of the GEP to see if it should
+      // be deleted.
       uint64_t Unused;
       if (processGEPInst(GEP, Unused, /*IsPreCloning=*/true))
         GEPsToDelete.push_back(GEP);
     }
   }
 
+  std::function<void(Value *)> deleteStoreAndCastUses =
+      [&deleteStoreAndCastUses](Value *V) {
+        for (auto *U : V->users()) {
+          assert((isa<CastInst>(U) || isa<StoreInst>(U)) &&
+                 "Unexpected use of deleted field!");
+          // There may be a bitcast between the GEP and any store instruction.
+          // If so, follow its uses and delete them (they must also be either
+          // casts or stores) then delete the cast instruction.
+          if (isa<CastInst>(U))
+            deleteStoreAndCastUses(U);
+          LLVM_DEBUG(dbgs() << "Delete field: erasing GEP user:\n"
+                            << *U << "\n");
+          cast<Instruction>(U)->eraseFromParent();
+        }
+      };
+
   for (auto *GEP : GEPsToDelete) {
+    deleteStoreAndCastUses(GEP);
     LLVM_DEBUG(dbgs() << "Delete field: erasing GEP of deleted field:\n"
                       << *GEP << "\n");
-    for (auto *U : GEP->users()) {
-      assert(isa<StoreInst>(U) && "Unexpected use of deleted field!");
-      LLVM_DEBUG(dbgs() << "Delete field: erasing GEP user:\n" << *U << "\n");
-      cast<Instruction>(U)->eraseFromParent();
-    }
     GEP->eraseFromParent();
   }
+}
+
+// This function processes a single index GEP instruction to see if it is
+// in the byte flattened form and accessing a field in a structure we are
+// optimizing. If it is, this function will check the index of the field
+// being accessed. If the field is being deleted, this function will return
+// true, indicating that the caller should delete the GEP. If the field is
+// not being deleted but its offset in the structure is changing, this function
+// will update the GEP to reflect the new offset. Because the GEP is in
+// byte-flattened form, the GEP can be updated prior to cloning.
+bool DeleteFieldImpl::processPossibleByteFlattenedGEP(GetElementPtrInst *GEP) {
+  auto InfoPair = DTInfo.getByteFlattenedGEPElement(GEP);
+  if (!InfoPair.first)
+    return false;
+
+  // We'll typically only have a few types from which we are deleting
+  // fields, so iterating over the map is a reasonable way to test
+  // whether or not this GEP needs updating.
+  llvm::Type *SrcTy = InfoPair.first;
+  for (auto &ONPair : OrigToNewTypeMapping) {
+    llvm::Type *OrigTy = ONPair.first;
+    if (OrigTy != SrcTy)
+      continue;
+    llvm::Type *ReplTy = ONPair.second;
+    uint64_t SrcIdx = InfoPair.second;
+    assert(OrigTy->getStructNumElements() &&
+           FieldIdxMap[OrigTy].size() > SrcIdx && "Unexpected GEP index");
+    uint64_t NewIdx = FieldIdxMap[OrigTy][SrcIdx];
+    if (NewIdx == FIELD_DELETED)
+      return true;
+    // If the index isn't changing, we don't need to update or delete this GEP.
+    if (NewIdx == SrcIdx)
+      return false;
+    // Otherwise, we need to get the offset of the updated index in the
+    // replacement type.
+    const StructLayout *SL = DL.getStructLayout(cast<StructType>(ReplTy));
+    uint64_t NewOffset = SL->getElementOffset(NewIdx);
+    LLVM_DEBUG(dbgs() << "Delete field: Replacing instruction\n"
+                      << *GEP << "\n");
+    GEP->setOperand(1,
+                    ConstantInt::get(GEP->getOperand(1)->getType(), NewOffset));
+    LLVM_DEBUG(dbgs() << "    with\n" << *GEP << "\n");
+    // We've updated this GEP and don't need to delete it.
+    return false;
+  }
+  // This doesn't match any type we're updating.
+  return false;
 }
 
 // This function processes a GetElementPtr instruction to determine

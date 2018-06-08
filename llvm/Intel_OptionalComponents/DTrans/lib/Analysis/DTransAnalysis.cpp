@@ -2031,9 +2031,52 @@ public:
                           << "  " << I << "\n");
         setAllAliasedTypeSafetyData(SrcLPI, dtrans::BadPtrManipulation);
       }
-    }
+    } else {
+      auto &PointeeSet = GEPLPI.getElementPointeeSet();
+      assert(
+          (SrcLPI.pointsToMultipleAggregateTypes() || PointeeSet.size() == 1) &&
+          "GEP with single aggregate type points to multiple elements?");
+      if (PointeeSet.size() == 1 && isInt8Ptr(Src)) {
+        // If the GEP is pointing to some element and it is in the
+        // byte-flattened form, store this information for later reference.
+        DTInfo.addByteFlattenedGEPMapping(&I, *PointeeSet.begin());
+      }
 
-    // Otherwise, the GEP instruction is safe.
+      // Check the uses of this GEP element. If it is used by anything other
+      // than casts, loads, and stores, treat it as address taken. We may need
+      // to revisit this, but if so we'll need to do more to figure out how
+      // the address is being used.
+      std::function<bool(Value *)> hasNonCastLoadStoreUses =
+          [&hasNonCastLoadStoreUses](Value *V) {
+            for (auto *U : V->users()) {
+              if (isa<LoadInst>(U) || isa<StoreInst>(U))
+                continue;
+              if (isa<CastInst>(U)) {
+                if (hasNonCastLoadStoreUses(U))
+                  return true;
+                continue;
+              }
+              // Anything else is the "other" use we were looking for.
+              LLVM_DEBUG(dbgs() << "dtrans-field-info: Complex use of GEP: "
+                                << *U << "\n");
+              return true;
+            }
+            // If we get here, all users were load, store, or cast.
+            return false;
+          };
+
+      if (hasNonCastLoadStoreUses(&I)) {
+        for (auto PointeePair : PointeeSet) {
+          llvm::Type *ParentTy = PointeePair.first;
+          if (ParentTy->isStructTy()) {
+            auto *ParentStInfo =
+                cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(ParentTy));
+            dtrans::FieldInfo &FI = ParentStInfo->getField(PointeePair.second);
+            FI.setComplexUse(true);
+          }
+        }
+      }
+    }
   }
 
   void visitPHINode(PHINode &I) {
@@ -4149,6 +4192,19 @@ llvm::Type *DTransAnalysisInfo::getResolvedPtrSubType(BinaryOperator *BinOp) {
   return It->second;
 }
 
+void DTransAnalysisInfo::addByteFlattenedGEPMapping(
+    GetElementPtrInst *GEP, std::pair<llvm::Type *, size_t> Pointee) {
+  ByteFlattenedGEPInfoMap[GEP] = Pointee;
+}
+
+std::pair<llvm::Type *, size_t>
+DTransAnalysisInfo::getByteFlattenedGEPElement(GetElementPtrInst *GEP) {
+  auto It = ByteFlattenedGEPInfoMap.find(GEP);
+  if (It == ByteFlattenedGEPInfoMap.end())
+    return std::make_pair(nullptr, 0);
+  return It->second;
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Print the cached call info data, the type of call, and the function
 /// making the call. This function is just for generating traces for testing.
@@ -4222,6 +4278,18 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
 }
 
 DTransAnalysisInfo::DTransAnalysisInfo() {}
+
+// Value map has a deleted move constructor, so we need a non-default
+// implementation of ours.
+DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
+    : TypeInfoMap(std::move(Other.TypeInfoMap)),
+      CallInfoMap(std::move(Other.CallInfoMap)) {
+  // These two maps don't actually own any pointers, so it's OK to just copy
+  // them.
+  PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
+  ByteFlattenedGEPInfoMap.insert(Other.ByteFlattenedGEPInfoMap.begin(),
+                                 Other.ByteFlattenedGEPInfoMap.end());
+}
 
 DTransAnalysisInfo::~DTransAnalysisInfo() { reset(); }
 
@@ -4359,6 +4427,8 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field) {
     outs() << " Read";
   if (Field.isWritten())
     outs() << " Written";
+  if (Field.hasComplexUse())
+    outs() << " ComplexUse";
   if (Field.isAddressTaken())
     outs() << " AddressTaken";
   outs() << "\n";
