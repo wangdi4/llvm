@@ -8,6 +8,10 @@
 #include "FrameworkTest.h"
 #include "common_utils.h"
 
+#ifndef _WIN32
+#include <sys/resource.h>
+#endif
+
 extern cl_device_type gDeviceType;
 
 cl_ulong trySetLocalMemSize(cl_ulong size)
