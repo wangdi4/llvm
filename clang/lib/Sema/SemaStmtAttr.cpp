@@ -95,6 +95,10 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
   bool PragmaDistributePoint =
       PragmaNameLoc->Ident->getName() == "distribute_point";
   bool PragmaNoFusion = PragmaNameLoc->Ident->getName() == "nofusion";
+  bool PragmaFusion = PragmaNameLoc->Ident->getName() == "fusion";
+  bool PragmaNoUnrollAndJam =
+      PragmaNameLoc->Ident->getName() == "nounroll_and_jam";
+  bool PragmaUnrollAndJam = PragmaNameLoc->Ident->getName() == "unroll_and_jam";
   bool PragmaNoVector = PragmaNameLoc->Ident->getName() == "novector";
   bool PragmaVector = PragmaNameLoc->Ident->getName() == "vector";
   bool NonLoopPragmaDistributePoint =
@@ -134,6 +138,9 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
             .Case("max_concurrency", "#pragma max_concurrency")
             .Case("ivdep", "#pragma ivdep")
             .Case("nofusion", "#pragma nofusion")
+            .Case("fusion", "#pragma fusion")
+            .Case("nounroll_and_jam", "#pragma nounroll_and_jam")
+            .Case("unroll_and_jam", "#pragma unroll_and_jam")
             .Case("novector", "#pragma novector")
 #endif // INTEL_CUSTOMIZATION
             .Default("#pragma clang loop");
@@ -226,8 +233,20 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
     Option = LoopHintAttr::Distribute;
     State = LoopHintAttr::Enable;
   } else if (PragmaNoFusion) {
-    Option = LoopHintAttr::NoFusion;
+    Option = LoopHintAttr::Fusion;
+    State = LoopHintAttr::Disable;
+  } else if (PragmaFusion) {
+    Option = LoopHintAttr::Fusion;
     State = LoopHintAttr::Enable;
+  } else if (PragmaNoUnrollAndJam) {
+    Option = LoopHintAttr::UnrollAndJam;
+    State = LoopHintAttr::Disable;
+  } else if (PragmaUnrollAndJam) {
+    Option = LoopHintAttr::UnrollAndJam;
+    if (ValueExpr != nullptr)
+      State = LoopHintAttr::Numeric;
+    else
+      State = LoopHintAttr::Enable;
   } else if (PragmaNoVector) {
     Option = LoopHintAttr::Vectorize;
     State = LoopHintAttr::Disable;
@@ -334,6 +353,7 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr},
                    {nullptr, nullptr},
                    {nullptr, nullptr},
+                   {nullptr, nullptr},
 #endif // INTEL_CUSTOMIZATION
                    {nullptr, nullptr},
                    {nullptr, nullptr},
@@ -359,8 +379,9 @@ CheckForIncompatibleAttributes(Sema &S,
       Interleave,
       Unroll,
       Distribute,
-      NoFusion,
-      VectorAlways,
+      Fusion,
+      UnrollAndJam,
+      VectorAlways
     } Category;
 #endif // INTEL_CUSTOMIZATION
     switch (Option) {
@@ -385,8 +406,11 @@ CheckForIncompatibleAttributes(Sema &S,
     case LoopHintAttr::MaxConcurrency:
       Category = MaxConcurrency;
       break;
-    case LoopHintAttr::NoFusion:
-      Category = NoFusion;
+    case LoopHintAttr::Fusion:
+      Category = Fusion;
+      break;
+    case LoopHintAttr::UnrollAndJam:
+      Category = UnrollAndJam;
       break;
     case LoopHintAttr::VectorizeAlways:
       Category = VectorAlways;
@@ -452,7 +476,8 @@ CheckForIncompatibleAttributes(Sema &S,
                Option == LoopHintAttr::LoopCoalesce ||
                Option == LoopHintAttr::MaxConcurrency ||
                Option == LoopHintAttr::VectorizeAlways ||
-               Option == LoopHintAttr::NoFusion) {
+               Option == LoopHintAttr::Fusion ||
+               Option == LoopHintAttr::UnrollAndJam) {
       switch (LH->getState()) {
       case LoopHintAttr::Numeric:
         PrevAttr = CategoryState.NumericAttr;
@@ -463,6 +488,9 @@ CheckForIncompatibleAttributes(Sema &S,
         CategoryState.StateAttr = LH;
         break;
       case LoopHintAttr::Disable:
+        PrevAttr = CategoryState.StateAttr;
+        CategoryState.StateAttr = LH;
+        break;
       case LoopHintAttr::LoopExpr:
       case LoopHintAttr::Full:
       case LoopHintAttr::AssumeSafety:

@@ -2713,6 +2713,9 @@ def LoopHint : Attr {
                    Pragma<"", "loop_coalesce">, Pragma<"", "max_concurrency">,
                    Pragma<"", "distribute_point">,
                    Pragma<"", "nofusion">,
+                   Pragma<"", "fusion">,
+                   Pragma<"", "nounroll_and_jam">,
+                   Pragma<"", "unroll_and_jam">,
                    Pragma<"", "novector">,
                    Pragma<"", "vector">];
 //endif INTEL_CUSTOMIZATION
@@ -2724,8 +2727,8 @@ def LoopHint : Attr {
                            "ii", "ivdep", "ivdep-loop", "ivdep-back",
                            "ivdep-hls", "ivdep-hls-intel",
                            "loop_coalesce", "max_concurrency",
-                           "distribute_point", "nofusion", "novector",
-                           "always"],
+                           "distribute_point", "fusion", "unroll_and_jam",
+                           "novector", "always"],
 //endif INTEL_CUSTOMIZATION
                           ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
 //if INTEL_CUSTOMIZATION
@@ -2733,7 +2736,7 @@ def LoopHint : Attr {
                            "II", "IVDep", "IVDepLoop", "IVDepBack",
                            "IVDepHLS", "IVDepHLSIntel",
                            "LoopCoalesce", "MaxConcurrency",
-                           "Distribute", "NoFusion", "Vectorize",
+                           "Distribute", "Fusion", "UnrollAndJam", "Vectorize",
                            "VectorizeAlways"]>,
 //endif INTEL_CUSTOMIZATION
               EnumArgument<"State", "LoopHintState",
@@ -2774,6 +2777,12 @@ def LoopHint : Attr {
     } else if (SpellingIndex == Pragma_distribute_point)
       return;
     else if (SpellingIndex == Pragma_nofusion)
+      return;
+    else if (SpellingIndex == Pragma_fusion)
+      return;
+    else if (SpellingIndex == Pragma_nounroll_and_jam)
+      return;
+    else if (SpellingIndex == Pragma_unroll_and_jam)
       return;
     else if (SpellingIndex == Pragma_novector)
       return;
@@ -2825,6 +2834,12 @@ def LoopHint : Attr {
       return "#pragma distribute_point";
     else if (SpellingIndex == Pragma_nofusion)
       return "#pragma nofusion";
+    else if (SpellingIndex == Pragma_fusion)
+      return "#pragma fusion";
+    else if (SpellingIndex == Pragma_nounroll_and_jam)
+      return "#pragma nounroll_and_jam";
+    else if (SpellingIndex == Pragma_unroll_and_jam)
+      return "#pragma unroll_and_jam";
     else if (SpellingIndex == Pragma_novector)
       return "#pragma novector";
     else if (SpellingIndex == Pragma_vector)
