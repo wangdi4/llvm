@@ -1541,7 +1541,16 @@ const SCEVUnknown *HIRParser::processTempBlob(const SCEVUnknown *TempBlob,
   if (auto Inst = dyn_cast<Instruction>(Temp)) {
     DefLevel = processInstBlob(Inst, cast<Instruction>(BaseTemp), Symbase);
   } else {
-    // Blob is some global value. Global values are not marked livein.
+    // Mark non-instruction blobs as livein to region and parent loops.
+    CurRegion->addLiveInTemp(Symbase, Temp);
+
+    HLLoop *UseLoop = isa<HLLoop>(CurNode) ? cast<HLLoop>(CurNode)
+                                           : CurNode->getLexicalParentLoop();
+
+    while (UseLoop) {
+      UseLoop->addLiveInTemp(Symbase);
+      UseLoop = UseLoop->getParentLoop();
+    }
   }
 
   setCanonExprDefLevel(CE, NestingLevel, DefLevel);

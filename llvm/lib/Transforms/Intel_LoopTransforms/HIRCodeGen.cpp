@@ -1021,11 +1021,26 @@ void CGVisitor::generateDeclareValue(AllocaInst *Alloca,
 }
 
 void CGVisitor::initializeLiveins() {
+
+  auto &BU = CurRegion->getBlobUtils();
+
   for (auto I = CurRegion->live_in_begin(), E = CurRegion->live_in_end();
        I != E; ++I) {
+
     DEBUG(dbgs() << "Symbase " << I->first << " is livein with initial value ");
     DEBUG(I->second->dump());
     DEBUG(dbgs() << " \n");
+
+    unsigned BlobIndex = BU.findTempBlobIndex(I->first);
+
+    // Some liveins are redundant as they are eliminated during parsing. IVs are
+    // an example.
+    // Also, there is no need to generate alloca for non-instruction liveins as
+    // the original value is used directly.
+    if ((BlobIndex == InvalidBlobIndex) || !BU.isInstBlob(BlobIndex)) {
+      continue;
+    }
+
     AllocaInst *SymSlot =
         getSymbaseAlloca(I->first, I->second->getType(), CurRegion);
 
@@ -1094,9 +1109,9 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
     // !7 = !{!"intel.optreport.remark", !"Loop completely unrolled"}
     //
     // Our aim now is to attach it to the function. We do that the same way as
-    // for the region. Except for the function may have multiple outermost loops.
-    // In this case all the following loops as stored as next siblings of the
-    // first child. E.g.
+    // for the region. Except for the function may have multiple outermost
+    // loops. In this case all the following loops as stored as next siblings of
+    // the first child. E.g.
     // !1 = distinct !{!"llvm.loop.optreport", !2}
     // !2 = distinct !{!"intel.loop.optreport", !3}
     // !3 = !{!"intel.optreport.first_child", !4}
