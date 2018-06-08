@@ -34,6 +34,9 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dtransanalysis"
 
+// Debug type for verbose local pointer analysis output.
+#define LPA_VERBOSE "dtrans-lpa-verbose"
+
 static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
                                             cl::ReallyHidden);
 
@@ -940,8 +943,9 @@ private:
     DependentVals.push_back(V);
     populateDependencyStack(V, DependentVals);
 
+    // This first line is intentionally left non-verbose.
     LLVM_DEBUG(dbgs() << "analyzeValue " << *V << "\n");
-    LLVM_DEBUG(dumpDependencyStack(DependentVals));
+    DEBUG_WITH_TYPE(LPA_VERBOSE, dumpDependencyStack(DependentVals));
 
     // Now attempt to analyze each of these values. Some may be left in a
     // partially analyzed state, but they will be fully resolved when
@@ -952,16 +956,18 @@ private:
       LocalPointerInfo &DepInfo = LocalMap[Dep];
       // If we have complete results for this value, don't repeat the analysis.
       if (DepInfo.getAnalyzed()) {
-        LLVM_DEBUG(dbgs() << "  Already analyzed: " << *Dep << "\n");
+        DEBUG_WITH_TYPE(LPA_VERBOSE,
+                        dbgs() << "  Already analyzed: " << *Dep << "\n");
         continue;
       }
       analyzeValueImpl(Dep, DepInfo);
     }
 
-    LLVM_DEBUG({
+    DEBUG_WITH_TYPE(LPA_VERBOSE, {
       if (Info.isPartialAnalysis())
         dbgs() << " Analysis completed but was reported as partial.\n";
     });
+    // These are intentionally left non-verbose.
     LLVM_DEBUG(Info.dump());
     LLVM_DEBUG(dbgs() << "\n");
 
@@ -1192,7 +1198,8 @@ private:
     TargetInfo.merge(OperandInfo);
     if (!OperandInfo.getAnalyzed()) {
       TargetInfo.setPartialAnalysis(true);
-      LLVM_DEBUG(dbgs() << "Incomplete analysis merged from " << *Op << "\n");
+      DEBUG_WITH_TYPE(LPA_VERBOSE, dbgs() << "Incomplete analysis merged from "
+                                          << *Op << "\n");
     }
   }
 
@@ -1219,8 +1226,9 @@ private:
       // incompleteness and continue.
       if (!SrcLPI.getAnalyzed()) {
         Info.setPartialAnalysis(true);
-        LLVM_DEBUG(dbgs() << "Incomplete analysis collected from " << *SrcVal
-                          << "\n");
+        DEBUG_WITH_TYPE(LPA_VERBOSE,
+                        dbgs() << "Incomplete analysis collected from "
+                               << *SrcVal << "\n");
       }
       // If this is a bitcast that would be a valid way to access element
       // zero of any type known to be aliased by SrcVal, then record this
@@ -1357,8 +1365,8 @@ private:
     // incompleteness and continue.
     if (!BaseLPI.getAnalyzed()) {
       Info.setPartialAnalysis(true);
-      LLVM_DEBUG(dbgs() << "Incomplete analysis derived from " << *BasePointer
-                        << "\n");
+      DEBUG_WITH_TYPE(LPA_VERBOSE, dbgs() << "Incomplete analysis derived from "
+                                          << *BasePointer << "\n");
     }
     for (auto *AliasTy : BaseLPI.getPointerTypeAliasSet()) {
       if (!AliasTy->isPointerTy())
