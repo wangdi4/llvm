@@ -376,7 +376,8 @@ public:
   void visit(HLDDNode *Node);
 
   void visit(HLNode *Node) {
-    DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - unsupported HLNode\n");
+    LLVM_DEBUG(
+        dbgs() << "VPLAN_OPTREPORT: Loop not handled - unsupported HLNode\n");
     IsHandled = false;
   }
 
@@ -393,8 +394,9 @@ public:
 
 void HandledCheck::visit(HLDDNode *Node) {
   if (!isa<HLInst>(Node) && !isa<HLIf>(Node)) {
-    DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - only HLInst/HLIf are "
-                    "supported\n");
+    LLVM_DEBUG(
+        dbgs() << "VPLAN_OPTREPORT: Loop not handled - only HLInst/HLIf are "
+                  "supported\n");
     IsHandled = false;
     return;
   }
@@ -404,9 +406,10 @@ void HandledCheck::visit(HLDDNode *Node) {
     auto LLInst = Inst->getLLVMInstruction();
 
     if (LLInst->mayThrow()) {
-      DEBUG(Inst->dump());
-      DEBUG(dbgs()
-            << "VPLAN_OPTREPORT: Loop not handled - instruction may throw\n");
+      LLVM_DEBUG(Inst->dump());
+      LLVM_DEBUG(
+          dbgs()
+          << "VPLAN_OPTREPORT: Loop not handled - instruction may throw\n");
       IsHandled = false;
       return;
     }
@@ -415,9 +418,9 @@ void HandledCheck::visit(HLDDNode *Node) {
     if ((Opcode == Instruction::UDiv || Opcode == Instruction::SDiv ||
          Opcode == Instruction::URem || Opcode == Instruction::SRem) &&
         (Inst->getParent() != OrigLoop)) {
-      DEBUG(Inst->dump());
-      DEBUG(dbgs()
-            << "VPLAN_OPTREPORT: Loop not handled - masked DIV/REM instruction\n");
+      LLVM_DEBUG(Inst->dump());
+      LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked DIV/REM "
+                           "instruction\n");
       IsHandled = false;
       return;
     }
@@ -427,9 +430,9 @@ void HandledCheck::visit(HLDDNode *Node) {
     if (TLval && TLval->isTerminalRef() &&
         OrigLoop->isLiveOut(TLval->getSymbase()) &&
         Inst->getParent() != OrigLoop) {
-      DEBUG(Inst->dump());
-      DEBUG(dbgs() << "VPLAN_OPTREPORT: Liveout conditional scalar assign "
-                      "not handled\n");
+      LLVM_DEBUG(Inst->dump());
+      LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Liveout conditional scalar assign "
+                           "not handled\n");
       IsHandled = false;
       return;
     }
@@ -442,8 +445,8 @@ void HandledCheck::visit(HLDDNode *Node) {
           (VF > 1 && !TLI->isFunctionVectorizable(CalledFunc, VF))) {
         // Masked svml calls are supported, but masked intrinsics are not at
         // the moment.
-        DEBUG(Inst->dump());
-        DEBUG(
+        LLVM_DEBUG(Inst->dump());
+        LLVM_DEBUG(
             dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked intrinsic\n");
         IsHandled = false;
         return;
@@ -455,17 +458,19 @@ void HandledCheck::visit(HLDDNode *Node) {
       // floor calls are also temporarily disabled until FeatureOutlining is
       // fixed (CQ410864)
       if (CalledFunc == "fabs" || CalledFunc == "floor") {
-        DEBUG(Inst->dump());
-        DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - fabs/floor call "
-                        "disabled\n");
+        LLVM_DEBUG(Inst->dump());
+        LLVM_DEBUG(
+            dbgs() << "VPLAN_OPTREPORT: Loop not handled - fabs/floor call "
+                      "disabled\n");
         IsHandled = false;
         return;
       }
 
       Intrinsic::ID ID = getVectorIntrinsicIDForCall(Call, TLI);
       if ((VF > 1 && !TLI->isFunctionVectorizable(CalledFunc, VF)) && !ID) {
-        DEBUG(dbgs()
-              << "VPLAN_OPTREPORT: Loop not handled - call not vectorizable\n");
+        LLVM_DEBUG(
+            dbgs()
+            << "VPLAN_OPTREPORT: Loop not handled - call not vectorizable\n");
         IsHandled = false;
         return;
       }
@@ -473,8 +478,8 @@ void HandledCheck::visit(HLDDNode *Node) {
       // These intrinsics need the second argument to remain scalar(consequently loop
       // invariant). Support to be added later.
       if (ID == Intrinsic::ctlz || ID == Intrinsic::cttz || ID == Intrinsic::powi) {
-        DEBUG(dbgs()
-              << "VPLAN_OPTREPORT: Loop not handled - ctlz/cttz/powi intrinsic\n");
+        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - "
+                             "ctlz/cttz/powi intrinsic\n");
         IsHandled = false;
         return;
       }
@@ -494,9 +499,9 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 
   if (!VectorType::isValidElementType(RegDD->getSrcType()) ||
       !VectorType::isValidElementType(RegDD->getDestType())) {
-    DEBUG(RegDD->getSrcType()->dump());
-    DEBUG(RegDD->getDestType()->dump());
-    DEBUG(
+    LLVM_DEBUG(RegDD->getSrcType()->dump());
+    LLVM_DEBUG(RegDD->getDestType()->dump());
+    LLVM_DEBUG(
         dbgs() << "VPLAN_OPTREPORT: Loop not handled - invalid element type\n");
     IsHandled = false;
     return;
@@ -524,8 +529,9 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
     auto BaseCE = RegDD->getBaseCE();
 
     if (!BaseCE->isInvariantAtLevel(LoopLevel)) {
-      DEBUG(dbgs()
-            << "VPLAN_OPTREPORT: Loop not handled - BaseCE not invariant\n");
+      LLVM_DEBUG(
+          dbgs()
+          << "VPLAN_OPTREPORT: Loop not handled - BaseCE not invariant\n");
       IsHandled = false;
       return;
     }
@@ -544,8 +550,9 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
       NegativeIVCoeffSeen = true;
   }
   if (!EnableBlobCoeffVec && CExpr->hasIVBlobCoeff(LoopLevel)) {
-    DEBUG(dbgs()
-          << "VPLAN_OPTREPORT: Loop not handled - IV with blob coefficient\n");
+    LLVM_DEBUG(
+        dbgs()
+        << "VPLAN_OPTREPORT: Loop not handled - IV with blob coefficient\n");
     IsHandled = false;
     return;
   }
@@ -564,7 +571,7 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
         ZeroCheck.visitAll(TopBlob);
 
         if (ZChk.isDivByZeroPossible()) {
-          DEBUG(dbgs() << "VPLAN_OPTREPORT: Masked divide support TBI\n");
+          LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Masked divide support TBI\n");
           IsHandled = false;
           return;
         }
@@ -578,8 +585,7 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
     auto TopBlob = CExpr->getBlobUtils().getBlob(BI);
 
     if (CExpr->getBlobUtils().isNestedBlob(TopBlob)) {
-      DEBUG(dbgs()
-            << "VPLAN_OPTREPORT: Loop not handled - nested blob\n");
+      LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - nested blob\n");
       IsHandled = false;
       return;
     }
@@ -591,7 +597,7 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
 
   // Only handle normalized loops
   if (!Loop->isNormalized()) {
-    DEBUG(
+    LLVM_DEBUG(
         dbgs()
         << "VPLAN_OPTREPORT: Loop not handled - loop not in normalized form\n");
     return false;
@@ -606,14 +612,15 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
 
     // Check for minimum trip count threshold
     if (TinyTripCountThreshold && ConstTripCount <= TinyTripCountThreshold) {
-      DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - loop with small "
-                      "trip count\n");
+      LLVM_DEBUG(
+          dbgs() << "VPLAN_OPTREPORT: Loop not handled - loop with small "
+                    "trip count\n");
       return false;
     }
 
     // Check that main vector loop will have at least one iteration
     if (ConstTripCount < VF) {
-      DEBUG(
+      LLVM_DEBUG(
           dbgs()
           << "VPLAN_OPTREPORT: Loop not handled - zero iteration main loop\n");
       return false;
@@ -634,15 +641,16 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
   // implemented.
   if (DisableStressTest && NodeCheck.getMemRefSeen() &&
       !NodeCheck.getUnitStrideRefSeen()) {
-    DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - all mem refs non "
-                    "unit-stride\n");
+    LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - all mem refs non "
+                         "unit-stride\n");
     return false;
   }
 
   // Workaround for performance regressions until cost model can be refined
   if (NodeCheck.getFieldAccessSeen() && NodeCheck.getNegativeIVCoeffSeen()) {
-    DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - combination of field "
-                    "accesses and negative IV coefficients seen\n");
+    LLVM_DEBUG(
+        dbgs() << "VPLAN_OPTREPORT: Loop not handled - combination of field "
+                  "accesses and negative IV coefficients seen\n");
     return false;
   }
 
@@ -653,10 +661,10 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   assert(VF > 1);
   setVF(VF);
 
-  DEBUG(dbgs() << "VPLAN_OPTREPORT: VPlan handled loop, VF = " << VF << " "
-               << Fn.getName() << "\n");
-  DEBUG(dbgs() << "Handled loop before vec codegen: \n");
-  DEBUG(OrigLoop->dump());
+  LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: VPlan handled loop, VF = " << VF << " "
+                    << Fn.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "Handled loop before vec codegen: \n");
+  LLVM_DEBUG(OrigLoop->dump());
 
   LoopsVectorized++;
   SRA->computeSafeReductionChains(OrigLoop);
@@ -678,10 +686,10 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
 }
 
 void VPOCodeGenHIR::finalizeVectorLoop(void) {
-  DEBUG(dbgs() << "\n\n\nHandled loop after: \n");
-  DEBUG(MainLoop->dump());
+  LLVM_DEBUG(dbgs() << "\n\n\nHandled loop after: \n");
+  LLVM_DEBUG(MainLoop->dump());
   if (NeedRemainderLoop)
-    DEBUG(OrigLoop->dump());
+    LLVM_DEBUG(OrigLoop->dump());
 
   if (!MainLoop->hasChildren()) {
     // TODO: Can this happen if HIR would never let "dead" loops to be in the
@@ -689,7 +697,7 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     //       containing a single call to @llvm.assume is not considered as empty
     //       by HIR framework, but once this is fixed this condition might be
     //       changed to an assert.
-    DEBUG(dbgs() << "\n\n\nRemoving empty loop\n");
+    LLVM_DEBUG(dbgs() << "\n\n\nRemoving empty loop\n");
     HLNodeUtils::removeEmptyNodes(MainLoop, true);
   } else {
     // Prevent LLVM from possibly unrolling vectorized loops with non-constant
@@ -1354,7 +1362,7 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
 
   HLInst *WideInst = nullptr;
 
-  DEBUG(INode->dump(true));
+  LLVM_DEBUG(INode->dump(true));
   bool InsertInMap = true;
 
   // Widen instruction operands

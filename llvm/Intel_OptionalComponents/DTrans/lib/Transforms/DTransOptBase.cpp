@@ -272,7 +272,7 @@ void DTransOptBase::buildTypeDependencyMapping(
   }
 
 #if !defined(NDEBUG)
-  DEBUG(dumpTypeDepenencyMapping(TypeToDependentTypes));
+  LLVM_DEBUG(dumpTypeDepenencyMapping(TypeToDependentTypes));
 #endif // !defined(NDEBUG)
 }
 
@@ -325,8 +325,9 @@ void DTransOptBase::collectDependenciesForTypeRecurse(
     if (!Dependee->isAggregateType())
       return;
 
-    DEBUG(dbgs() << "DTRANS-OPTBASE: Type dependency: Replacing " << *Depender
-                 << " will require replacing  " << *Dependee << "\n");
+    LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Type dependency: Replacing "
+                      << *Depender << " will require replacing  " << *Dependee
+                      << "\n");
     Map[Depender].insert(Dependee);
   };
 
@@ -417,8 +418,9 @@ void DTransOptBase::prepareDependentTypes(
       TypeRemapper->addTypeMapping(Ty, ReplacementTy);
       OrigToNewTypeReplacement[Ty] = ReplacementTy;
 
-      DEBUG(dbgs() << "DTRANS-OPTBASE: New type created: " << *ReplacementTy
-                   << " as replacement for " << *Ty << "\n");
+      LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: New type created: "
+                        << *ReplacementTy << " as replacement for " << *Ty
+                        << "\n");
     }
   }
 }
@@ -439,8 +441,8 @@ void DTransOptBase::populateDependentTypes(
 
       StructType *ReplStructTy = cast<StructType>(ReplTy);
       ReplStructTy->setBody(DataTypes, StructTy->isPacked());
-      DEBUG(dbgs() << "DTRANS-OPTBASE: New structure body: " << *ReplStructTy
-                   << "\n");
+      LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: New structure body: "
+                        << *ReplStructTy << "\n");
     }
   }
 }
@@ -574,9 +576,9 @@ void DTransOptBase::createCloneFunctionDeclarations(Module &M) {
         VMap[&I] = &*DestI++;
       }
 
-      DEBUG(dbgs() << "DTRANS-OPTBASE: Will clone: " << F->getName() << " "
-                   << *F->getType() << " into: " << NewF->getName() << " "
-                   << *NewF->getType() << "\n");
+      LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Will clone: " << F->getName() << " "
+                        << *F->getType() << " into: " << NewF->getName() << " "
+                        << *NewF->getType() << "\n");
     }
   }
 }

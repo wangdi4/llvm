@@ -162,8 +162,8 @@ static void appendPredicateToBlock(VPBlockBase *Block,
                                    VPPredicateRecipeBase *Recipe,
                                    VPlanUtils &PlanUtils) {
 
-  DEBUG(errs() << "Appending " << Recipe->getName() << " to "
-               << Block->getName() << "\n");
+  LLVM_DEBUG(errs() << "Appending " << Recipe->getName() << " to "
+                    << Block->getName() << "\n");
 
   if (isa<VPBasicBlock>(Block)) {
     assert(isa<VPBlockPredicateRecipe>(Block->getPredicateRecipe()) &&
@@ -325,7 +325,7 @@ void VPlanPredicator::genLitReport(VPRegionBlock *Region) {
 // regions.
 void VPlanPredicator::predicateRegionRec(VPRegionBlock *Region) {
 
-  DEBUG(dbgs() << "Predicating Region: " << Region->getName() << "\n");
+  LLVM_DEBUG(dbgs() << "Predicating Region: " << Region->getName() << "\n");
 
   assert(isa<VPBasicBlock>(Region->getEntry()) &&
          "Region entry is not a VPBasicBlock");
@@ -342,8 +342,8 @@ void VPlanPredicator::predicateRegionRec(VPRegionBlock *Region) {
       VPBB->addRecipe(BP, getFirstRecipeSafe(VPBB));
       VPBB->setPredicateRecipe(BP);
     } else if (auto SubRegion = dyn_cast<VPRegionBlock>(Block)) {
-      DEBUG(dbgs() << "Found subregion: " << SubRegion->getName() << "\n");
-      
+      LLVM_DEBUG(dbgs() << "Found subregion: " << SubRegion->getName() << "\n");
+
       assert(!SubRegion->getPredicateRecipe() && "Region predicate must be "
                                                  "nullptr. Input predicate "
                                                  "hasn't been propagated yet.");
@@ -471,7 +471,7 @@ static void optimizeAllOnesPredicates(
                         BPIncomings.end());
 
       if (BPIncomings.size() == 0) {
-        DEBUG(dbgs() << BlockPred->getName() << " became all-ones.\n");
+        LLVM_DEBUG(dbgs() << BlockPred->getName() << " became all-ones.\n");
 
         // BlockPred is empty so it's all-ones. Set Block's predicate to null.
         Block->setPredicateRecipe(nullptr);
@@ -488,10 +488,10 @@ static void optimizeAllOnesPredicates(
         VPRecipeBase *RecipePtr = &Recipe;
         if (auto EdgePred = dyn_cast<VPEdgePredicateRecipeBase>(RecipePtr)) {
           if (AllOnesPreds.count(EdgePred->getPredecessorPredicate())) {
-            DEBUG(dbgs() << "Setting " << EdgePred->getName()
-                         << "'s PredecessorPredicate ("
-                         << EdgePred->getPredecessorPredicate()->getName()
-                         << ") to nullptr\n");
+            LLVM_DEBUG(dbgs() << "Setting " << EdgePred->getName()
+                              << "'s PredecessorPredicate ("
+                              << EdgePred->getPredecessorPredicate()->getName()
+                              << ") to nullptr\n");
             EdgePred->setPredecessorPredicate(nullptr);
           }
         }
@@ -529,8 +529,8 @@ static void optimizeRegionPostOrder(
 
   for (auto PredRecipe : AllOnesPreds) {
     VPBasicBlock *ParentVPBB = PredRecipe->getParent();
-    DEBUG(dbgs() << "Destroying recipe " << PredRecipe->getName() << " from "
-                 << ParentVPBB->getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Destroying recipe " << PredRecipe->getName()
+                      << " from " << ParentVPBB->getName() << "\n");
 
     assert(ParentVPBB && "Expected parent for this recipe.");
     // Erase destroys the actual recipe opbject.
@@ -546,11 +546,11 @@ static void optimizeRegionPostOrder(
 void VPlanPredicator::optimizeRegionRec(
     VPRegionBlock *Region, VPPredicateRecipeBase *IncomingAllOnesPred) {
 
-  DEBUG(dbgs() << "Optimizing " << Region->getName()
-               << ". IncomingAllOnesPred = "
-               << (IncomingAllOnesPred ? IncomingAllOnesPred->getName()
-                                       : "nullptr")
-               << "\n");
+  LLVM_DEBUG(dbgs() << "Optimizing " << Region->getName()
+                    << ". IncomingAllOnesPred = "
+                    << (IncomingAllOnesPred ? IncomingAllOnesPred->getName()
+                                            : "nullptr")
+                    << "\n");
 
   // It contains all the predicates that are/become all-ones at this HCFG level.
   SmallPtrSet<VPPredicateRecipeBase *, 16> AllOnesPreds;
@@ -655,8 +655,8 @@ void VPlanPredicator::linearizeRegionRec(VPRegionBlock *Region) {
       if (PrevBlock && !VPLI->isLoopHeader(CurrBlock) &&
           !PlanUtils.blockIsLoopLatch(PrevBlock, VPLI)) {
 
-        DEBUG(dbgs() << "Linearizing: " << PrevBlock->getName() << "->"
-                     << CurrBlock->getName() << "\n");
+        LLVM_DEBUG(dbgs() << "Linearizing: " << PrevBlock->getName() << "->"
+                          << CurrBlock->getName() << "\n");
 
         PlanUtils.clearSuccessors(PrevBlock);
         PlanUtils.clearPredecessors(CurrBlock);

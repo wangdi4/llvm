@@ -127,10 +127,10 @@ void VPLoopCFU::getLoopProperties(VPLoop *Lp, Value **LoopIdx,
 
   *BackedgeCond = UniformCBRecipe->getScalarCondition();
 
-  DEBUG(dbgs() << "Incoming Loop Block: " << Incoming->getName() << "\n");
-  DEBUG(dbgs() << "Loop Header Block: " << Header->getName() << "\n");
-  DEBUG(dbgs() << "Loop Backedge Block: " << Backedge->getName() << "\n");
-  DEBUG(dbgs() << "Loop Backedge Condition: " << **BackedgeCond << "\n");
+  LLVM_DEBUG(dbgs() << "Incoming Loop Block: " << Incoming->getName() << "\n");
+  LLVM_DEBUG(dbgs() << "Loop Header Block: " << Header->getName() << "\n");
+  LLVM_DEBUG(dbgs() << "Loop Backedge Block: " << Backedge->getName() << "\n");
+  LLVM_DEBUG(dbgs() << "Loop Backedge Condition: " << **BackedgeCond << "\n");
 
   // This piece of code finds the loop index and its update, which should be in
   // the form of an add instruction. This add instruction is used as the split
@@ -253,10 +253,10 @@ void VPLoopCFU::getLoopProperties(VPLoop *Lp, Value **LoopIdx,
   assert(*LoopLB && "Could not find loop lower bound");
   assert(*LoopUB && "Could not find loop upper bound");
     
-  DEBUG(errs() << "Loop Index: " << **LoopIdx << "\n");
-  DEBUG(errs() << "Loop Index Inc: " << **LoopIdxInc << "\n");
-  DEBUG(errs() << "Loop Lower Bound: " << **LoopLB << "\n");
-  DEBUG(errs() << "Loop Upper Bound: " << **LoopUB << "\n");
+  LLVM_DEBUG(errs() << "Loop Index: " << **LoopIdx << "\n");
+  LLVM_DEBUG(errs() << "Loop Index Inc: " << **LoopIdxInc << "\n");
+  LLVM_DEBUG(errs() << "Loop Lower Bound: " << **LoopLB << "\n");
+  LLVM_DEBUG(errs() << "Loop Upper Bound: " << **LoopUB << "\n");
 }
 
 void VPLoopCFU::createBlockAndRecipeForTruePath(
@@ -499,12 +499,12 @@ void VPLoopCFU::makeInnerLoopControlFlowUniform() {
   for (auto It = VPLI->begin(), End = VPLI->end(); It != End; ++It) {
     const VPLoop *Lp = *It;
     VecLoop = Lp;
-    DEBUG(dbgs() << "Vectorizing at loop: " << *Lp << "\n");
+    LLVM_DEBUG(dbgs() << "Vectorizing at loop: " << *Lp << "\n");
     const std::vector<VPLoop*> SubLoops = Lp->getSubLoops();
     for (unsigned i = 0; i < SubLoops.size(); i++) {
       // Get the ZTT for the inner loop.
       Instruction *Ztt = getLoopZtt(Lp);
-      DEBUG(errs() << "Loop ZTT: " << *Ztt << "\n");
+      LLVM_DEBUG(errs() << "Loop ZTT: " << *Ztt << "\n");
 
       Value *LoopIdx = nullptr;
       Value *LoopIdxInc = nullptr;
@@ -556,8 +556,8 @@ void VPLoopCFU::makeInnerLoopControlFlowUniform() {
         // bottom of inner loops that contain non-uniform conditions on the
         // loop backedge?
 
-        DEBUG(errs() << "\nInst2Recipe Map:\n");
-        DEBUG(Plan->printInst2Recipe());
+        LLVM_DEBUG(errs() << "\nInst2Recipe Map:\n");
+        LLVM_DEBUG(Plan->printInst2Recipe());
       }
     }
   }

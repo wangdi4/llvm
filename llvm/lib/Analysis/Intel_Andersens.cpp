@@ -535,14 +535,14 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
 
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa-constraints"
-  DEBUG(PrintConstraints());
+  LLVM_DEBUG(PrintConstraints());
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa"
 
   OptimizeConstraints();
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa-constraints"
-      DEBUG(PrintConstraints());
+  LLVM_DEBUG(PrintConstraints());
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa"
 
@@ -561,7 +561,7 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   }
 
   SolveConstraints();
-  DEBUG(PrintPointsToGraph());
+  LLVM_DEBUG(PrintPointsToGraph());
   if (PrintAndersPointsTo) {
       errs() << " Points-to Graph Dump" << "\n";
       PrintPointsToGraph();
@@ -2782,12 +2782,12 @@ void AndersensAAResult::RewriteConstraints() {
     // First we try to eliminate constraints for things we can prove don't point
     // to anything.
     if (LHSLabel == 0) {
-      DEBUG(PrintNode(&GraphNodes[LHSNode]));
+      LLVM_DEBUG(PrintNode(&GraphNodes[LHSNode]));
       //errs() << " is a non-pointer, ignoring constraint.\n";
       continue;
     }
     if (RHSLabel == 0) {
-      DEBUG(PrintNode(&GraphNodes[RHSNode]));
+      LLVM_DEBUG(PrintNode(&GraphNodes[RHSNode]));
       //errs() << " is a non-pointer, ignoring constraint.\n";
       continue;
     }
@@ -3020,7 +3020,7 @@ void AndersensAAResult::OptimizeConstraints() {
   }
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa-labels"
-  DEBUG(PrintLabels());
+  LLVM_DEBUG(PrintLabels());
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa"
   RewriteConstraints();
@@ -3041,7 +3041,7 @@ void AndersensAAResult::OptimizeConstraints() {
   HU();
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa-labels"
-  DEBUG(PrintLabels());
+  LLVM_DEBUG(PrintLabels());
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa"
   RewriteConstraints();
@@ -3705,11 +3705,11 @@ unsigned AndersensAAResult::UniteNodes(unsigned First, unsigned Second,
   SecondNode->OldPointsTo = nullptr;
 
   NumUnified++;
-  //errs() << "Unified Node ";
-  //DEBUG(PrintNode(FirstNode));
-  //errs() << " and Node ";
-  //DEBUG(PrintNode(SecondNode));
-  //errs() << "\n";
+  // errs() << "Unified Node ";
+  // LLVM_DEBUG(PrintNode(FirstNode));
+  // errs() << " and Node ";
+  // LLVM_DEBUG(PrintNode(SecondNode));
+  // errs() << "\n";
 
   if (SDTActive)
     if (SDT[Second] >= 0) {

@@ -334,8 +334,8 @@ void dtrans::TypeInfo::printSafetyData() {
 
 void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
   SafetyInfo |= Conditions;
-  DEBUG(dbgs() << "dtrans-safety-detail: " << *getLLVMType() << " :: ");
-  DEBUG(printSafetyInfo(Conditions, dbgs()));
+  LLVM_DEBUG(dbgs() << "dtrans-safety-detail: " << *getLLVMType() << " :: ");
+  LLVM_DEBUG(printSafetyInfo(Conditions, dbgs()));
 }
 
 bool dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {

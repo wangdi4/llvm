@@ -160,7 +160,7 @@ public:
           /*insertbefore=*/nullptr, GlobalValue::NotThreadLocal,
           /*AddressSpace=*/0, /*isExternallyInitialized=*/false);
       PeeledTypeToVariable.insert(std::make_pair(PeelTy, PeelVar));
-      DEBUG(dbgs() << "DTRANS-AOSTOSOA: PeelVar: " << *PeelVar << "\n");
+      LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: PeelVar: " << *PeelVar << "\n");
     }
   }
 
@@ -422,7 +422,7 @@ void AOSToSOAPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
       continue;
 
     if (TI->testSafetyData(AOSToSOASafetyConditions)) {
-      DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported safety data: "
+      LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported safety data: "
                    << getStructName(TI->getLLVMType()) << "\n");
       continue;
     }
@@ -447,7 +447,7 @@ void AOSToSOAPass::qualifyCandidates(
   if (!qualifyHeuristics(CandidateTypes, M, DTInfo))
     return;
 
-  DEBUG({
+  LLVM_DEBUG({
     for (auto *Candidate : CandidateTypes)
       dbgs() << "DTRANS-AOSTOSOA: Passed qualification tests: "
              << getStructName(Candidate->getLLVMType()) << "\n";
@@ -486,7 +486,7 @@ bool AOSToSOAPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
   StructInfoVec Qualified;
   for (auto *Candidate : CandidateTypes) {
     if (ArrayElemTypes.find(Candidate) != ArrayElemTypes.end()) {
-      DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Array of type seen: "
+      LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Array of type seen: "
                    << getStructName(Candidate->getLLVMType()) << "\n");
       continue;
     }
@@ -507,7 +507,7 @@ bool AOSToSOAPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
     if (Supported)
       Qualified.push_back(Candidate);
     else
-      DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported structure "
+      LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported structure "
                       "element type: "
                    << getStructName(Candidate->getLLVMType()) << "\n");
   }
@@ -538,7 +538,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
         auto *Ty = AllocatedTy->getPointerElementType();
         auto *TI = DTInfo.getTypeInfo(Ty);
         if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-          DEBUG({
+          LLVM_DEBUG({
             if (std::find(CandidateTypes.begin(), CandidateTypes.end(),
                           StInfo) != CandidateTypes.end() &&
                 (!TypeToAllocInstr.count(StInfo) ||
@@ -563,7 +563,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
       auto *TI = DTInfo.getTypeInfo(Ty);
       if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
         if (TypeToAllocInstr.count(StInfo)) {
-          DEBUG({
+          LLVM_DEBUG({
             if (std::find(CandidateTypes.begin(), CandidateTypes.end(),
                           StInfo) != CandidateTypes.end() &&
                 TypeToAllocInstr[StInfo] != nullptr)
@@ -632,9 +632,10 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
       for (auto &InstTypePair : FuncToAllocPath.second)
         if (LI.getLoopFor(InstTypePair.first->getParent())) {
           StructInfo *StInfo = InstTypePair.second;
-          DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Allocation in loop: "
-                       << StInfo->getLLVMType()->getStructName()
-                       << "\n  Function: " << F->getName() << "\n");
+          LLVM_DEBUG(dbgs()
+                     << "DTRANS-AOSTOSOA: Rejecting -- Allocation in loop: "
+                     << StInfo->getLLVMType()->getStructName()
+                     << "\n  Function: " << F->getName() << "\n");
           auto *It =
               std::find(CandidateTypes.begin(), CandidateTypes.end(), StInfo);
           if (It != CandidateTypes.end())
@@ -691,7 +692,7 @@ bool AOSToSOAPass::qualifyHeuristics(StructInfoVecImpl &CandidateTypes,
     for (auto &Name : SubStrings) {
       Type *Ty = M.getTypeByName(Name);
       if (auto *StructTy = dyn_cast_or_null<StructType>(Ty)) {
-        DEBUG(dbgs()
+        LLVM_DEBUG(dbgs()
               << "DTRANS-AOSTOSOA: Skipped profitability heuristics for type: "
               << Name << "\n");
         dtrans::TypeInfo *Info = DTInfo.getTypeInfo(StructTy);

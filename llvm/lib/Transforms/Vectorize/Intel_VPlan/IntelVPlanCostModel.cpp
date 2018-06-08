@@ -433,7 +433,7 @@ void VPlanCostModel::print(raw_ostream &OS) const {
   OS << "Cost Model for VPlan " << Plan->getName() << " with VF = " << VF
      << ":\n";
   OS << "Total Cost: " << getCost() << '\n';
-  DEBUG(dbgs() << *Plan;);
+  LLVM_DEBUG(dbgs() << *Plan;);
 
   // TODO: match print order with "vector execution order".
   for (const VPBlockBase *Block : depth_first(Plan->getEntry()))

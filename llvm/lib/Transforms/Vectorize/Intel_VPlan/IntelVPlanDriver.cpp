@@ -66,8 +66,9 @@ static cl::opt<bool> DisableCodeGen(
     cl::desc(
         "Disable VPO codegen, when true, the pass stops at VPlan creation"));
 
+// TODO: Unify with LoopVectorize's vplan-build-stress-test?
 static cl::opt<bool> VPlanConstrStressTest(
-    "vplan-build-stress-test", cl::init(false),
+    "vpo-vplan-build-stress-test", cl::init(false),
     cl::desc("Construct VPlan for every loop (stress testing)"));
 
 static cl::opt<bool> VPlanStressOnlyInnermost(
@@ -340,13 +341,13 @@ template <class LoopType>
 bool VPlanDriverBase<LoopType>::runStandardMode(
     Function &Fn, WRegionCollection::InputIRKind IR) {
 
-  DEBUG(dbgs() << "VD: Stardard Vectorization mode\n");
+  LLVM_DEBUG(dbgs() << "VD: Stardard Vectorization mode\n");
 
   WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
   WR->buildWRGraph(IR);
   WRContainerImpl *WRGraph = WR->getWRGraph();
 
-  DEBUG(dbgs() << "WD: WRGraph #nodes= " << WRGraph->size() << "\n");
+  LLVM_DEBUG(dbgs() << "WD: WRGraph #nodes= " << WRGraph->size() << "\n");
 
   bool ModifiedFunc = false;
   for (auto WRNode : *WRGraph) {
@@ -359,8 +360,8 @@ bool VPlanDriverBase<LoopType>::runStandardMode(
       assert((VPlanForceBuild || isSupported(Lp)) &&
              "Loop is not supported by VPlan");
 
-      DEBUG(dbgs() << "VD: Starting VPlan for \n");
-      DEBUG(WRNode->dump());
+      LLVM_DEBUG(dbgs() << "VD: Starting VPlan for \n");
+      LLVM_DEBUG(WRNode->dump());
 
       ModifiedFunc |= processLoop(Lp, Fn, WRLp);
     }
@@ -375,7 +376,7 @@ bool VPlanDriverBase<LoopType>::runStandardMode(
 template <class LoopType>
 bool VPlanDriverBase<LoopType>::runConstructStressTestMode(Function &Fn) {
 
-  DEBUG(dbgs() << "VD: VPlan Construction Stress Test mode\n");
+  LLVM_DEBUG(dbgs() << "VD: VPlan Construction Stress Test mode\n");
 
   SmallVector<LoopType *, 8> Worklist;
   collectAllLoops(Worklist);
@@ -402,7 +403,7 @@ bool VPlanDriverBase<LoopType>::runConstructStressTestMode(Function &Fn) {
 template <class LoopType>
 bool VPlanDriverBase<LoopType>::runCGStressTestMode(Function &Fn) {
 
-  DEBUG(dbgs() << "VD: VPlan CG Stress Test mode\n");
+  LLVM_DEBUG(dbgs() << "VD: VPlan CG Stress Test mode\n");
 
   SmallVector<LoopType *, 8> Worklist;
   collectAllLoops(Worklist);
@@ -461,8 +462,8 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   if (skipFunction(Fn))
     return false;
 
-  DEBUG(dbgs() << "VPlan LLVM-IR Driver for Function: " << Fn.getName()
-               << "\n");
+  LLVM_DEBUG(dbgs() << "VPlan LLVM-IR Driver for Function: " << Fn.getName()
+                    << "\n");
 
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
@@ -498,7 +499,7 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   // and reduction variables. It also verifies that the loop vectorization
   // is fully supported.
   if (!LVL.canVectorize()) {
-    DEBUG(dbgs() << "VD: Not vectorizing: Cannot prove legality.\n");
+    LLVM_DEBUG(dbgs() << "VD: Not vectorizing: Cannot prove legality.\n");
 
     // Only bail out if we are generating code, we want to continue if
     // we are only stress testing VPlan builds below.
@@ -522,10 +523,10 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
 
   unsigned VF = LVP.selectBestPlan();
 
-  DEBUG(std::string PlanName; raw_string_ostream RSO(PlanName);
-        RSO << "VD: Initial VPlan for VF=" << VF; RSO.flush();
-        VPlan *Plan = LVP.getVPlanForVF(VF); Plan->setName(PlanName);
-        dbgs() << *Plan);
+  LLVM_DEBUG(std::string PlanName; raw_string_ostream RSO(PlanName);
+             RSO << "VD: Initial VPlan for VF=" << VF; RSO.flush();
+             VPlan *Plan = LVP.getVPlanForVF(VF); Plan->setName(PlanName);
+             dbgs() << *Plan);
 
 #if INTEL_CUSTOMIZATION
   if (VPlanPrintInit) {
@@ -538,8 +539,8 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
     if (VPlanVectCand)
-      DEBUG(dbgs() << "VD: VPlan Generating code in function: " << Fn.getName()
-                   << "\n");
+      LLVM_DEBUG(dbgs() << "VD: VPlan Generating code in function: "
+                        << Fn.getName() << "\n");
 
     VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, VF, 1, &LVL);
     VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
@@ -557,9 +558,9 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
 static bool isSupportedRec(Loop *Lp) {
 
   if (!Lp->getUniqueExitBlock()) {
-    DEBUG(dbgs() << "VD: loop form "
-                 << "(" << Lp->getName()
-                 << ") is not supported: multiple exit blocks.\n");
+    LLVM_DEBUG(dbgs() << "VD: loop form "
+                      << "(" << Lp->getName()
+                      << ") is not supported: multiple exit blocks.\n");
     return false;
   }
 
@@ -584,29 +585,29 @@ bool VPlanDriver::isSupported(Loop *Lp) {
 
   // Check for loop specific constraints
   if (!isSupportedRec(Lp)) {
-    DEBUG(dbgs() << "VD: loop nest "
-                 << "(" << Lp->getName() << ") is not supported.\n");
+    LLVM_DEBUG(dbgs() << "VD: loop nest "
+                      << "(" << Lp->getName() << ") is not supported.\n");
     return false;
   }
 
   // Check generic loop nest constraints
   if (isIrreducibleCFG(Lp, LI)) {
-    DEBUG(dbgs() << "VD: loop nest "
-                 << "(" << Lp->getName()
-                 << ") is not supported: irreducible CFG.\n");
+    LLVM_DEBUG(dbgs() << "VD: loop nest "
+                      << "(" << Lp->getName()
+                      << ") is not supported: irreducible CFG.\n");
     return false;
   }
 
   for (BasicBlock *BB : Lp->blocks()) {
     // We don't support switch statements inside loops.
     if (!isa<BranchInst>(BB->getTerminator())) {
-      DEBUG(dbgs() << "VD: loop nest contains a switch statement.\n");
+      LLVM_DEBUG(dbgs() << "VD: loop nest contains a switch statement.\n");
       return false;
     }
   }
 
-  DEBUG(dbgs() << "VD: loop nest "
-               << "(" << Lp->getName() << ") is supported.\n");
+  LLVM_DEBUG(dbgs() << "VD: loop nest "
+                    << "(" << Lp->getName() << ") is supported.\n");
 
   return true;
 }
@@ -666,7 +667,8 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
   if (skipFunction(Fn))
     return false;
 
-  DEBUG(dbgs() << "VPlan HIR Driver for Function: " << Fn.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "VPlan HIR Driver for Function: " << Fn.getName()
+                    << "\n");
 
   HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HIRLoopStats = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
@@ -738,7 +740,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   VPlan *Plan = LVP.getVPlanForVF(VF);
   Plan->setName(PlanName);
 
-  DEBUG(dbgs() << "VD:\n" << *Plan);
+  LLVM_DEBUG(dbgs() << "VD:\n" << *Plan);
 
 #if INTEL_CUSTOMIZATION
   if (VPlanPrintInit) {

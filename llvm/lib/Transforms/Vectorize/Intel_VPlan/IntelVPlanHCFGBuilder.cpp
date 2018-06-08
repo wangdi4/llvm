@@ -272,8 +272,8 @@ void VPlanHCFGBuilderBase::mergeLoopExits(VPLoop *VPL) {
   }
   // FixDominance(CascadedExit);
 
-  DEBUG(VPlan *Plan = PlanUtils.getVPlan();
-        Plan->setName("LVP: Plain CFG for VF=4\n"); dbgs() << *Plan);
+  LLVM_DEBUG(VPlan *Plan = PlanUtils.getVPlan();
+             Plan->setName("LVP: Plain CFG for VF=4\n"); dbgs() << *Plan);
   FixDominance(CascadedExit);
 }
 
@@ -425,11 +425,11 @@ void VPlanHCFGBuilderBase::simplifyPlainCFG() {
   splitLoopsPreheader(TopLoop);
 
   if (LoopMassagingEnabled) {
-    // DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
+    // LLVM_DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
     // VPDomTree.print(dbgs()));
     mergeLoopExits(TopLoop);
-    DEBUG(Verifier->verifyHierarchicalCFG(TopRegion));
-    // DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
+    LLVM_DEBUG(Verifier->verifyHierarchicalCFG(TopRegion));
+    // LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
     // VPDomTree.print(dbgs()));
   }
 
@@ -470,9 +470,9 @@ void VPlanHCFGBuilderBase::buildLoopRegions() {
     assert(VPL->getUniqueExitBlock() && "Only single-exit loops expected");
     VPBasicBlock *RegionExit = cast<VPBasicBlock>(VPL->getUniqueExitBlock());
 
-    DEBUG(dbgs() << "Creating new VPLoopRegion " << VPLR->getName() << "\n"
-                 << "   Entry: " << RegionEntry->getName() << "\n"
-                 << "   Exit: " << RegionExit->getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Creating new VPLoopRegion " << VPLR->getName() << "\n"
+                      << "   Entry: " << RegionEntry->getName() << "\n"
+                      << "   Exit: " << RegionExit->getName() << "\n");
 
     // Connect loop region to graph
     PlanUtils.insertRegion(VPLR, RegionEntry, RegionExit,
@@ -489,7 +489,7 @@ void VPlanHCFGBuilderBase::buildLoopRegions() {
       buildLoopRegionsImpl(SubVPL);
   };
 
-  DEBUG(dbgs() << "Building LoopRegion's\n");
+  LLVM_DEBUG(dbgs() << "Building LoopRegion's\n");
 
   for (VPLoop *VPL : make_range(VPLInfo->begin(), VPLInfo->end()))
     buildLoopRegionsImpl(VPL);
@@ -502,10 +502,11 @@ void VPlanHCFGBuilderBase::buildNonLoopRegions(VPRegionBlock *ParentRegion) {
 
   VPLoopInfo *VPLInfo = PlanUtils.getVPlan()->getVPLoopInfo();
 
-  DEBUG(dbgs() << "Building Non-Loop Regions for " << ParentRegion->getName()
-               << "\n"
-               << "   Entry: " << ParentRegion->getEntry()->getName() << "\n"
-               << "   Exit: " << ParentRegion->getExit()->getName() << "\n");
+  LLVM_DEBUG(
+      dbgs() << "Building Non-Loop Regions for " << ParentRegion->getName()
+             << "\n"
+             << "   Entry: " << ParentRegion->getEntry()->getName() << "\n"
+             << "   Exit: " << ParentRegion->getExit()->getName() << "\n");
 
   SmallVector<VPBlockBase *, 16> WorkList;
   SmallPtrSet<VPBlockBase *, 16> Visited;
@@ -523,9 +524,9 @@ void VPlanHCFGBuilderBase::buildNonLoopRegions(VPRegionBlock *ParentRegion) {
       continue;
 
     Visited.insert(Current);
-    DEBUG(dbgs() << "Visiting " << Current->getName()
-                 << "(Entry: " << Current->getEntryBasicBlock() << ")"
-                 << "\n";);
+    LLVM_DEBUG(dbgs() << "Visiting " << Current->getName()
+                      << "(Entry: " << Current->getEntryBasicBlock() << ")"
+                      << "\n";);
 
     // If you hit this assert, the input CFG is very likely to be not compliant
     // either because it contains a loop that is not supported or because loops
@@ -547,9 +548,10 @@ void VPlanHCFGBuilderBase::buildNonLoopRegions(VPRegionBlock *ParentRegion) {
       // Create new region and connect it to graph
       SubRegion = PlanUtils.createRegion(false /*isReplicator*/);
 
-      DEBUG(dbgs() << "Creating new VPRegion " << SubRegion->getName() << "\n"
-                   << "   Entry: " << Current->getName() << "\n"
-                   << "   Exit: " << RegionExit->getName() << "\n");
+      LLVM_DEBUG(dbgs() << "Creating new VPRegion " << SubRegion->getName()
+                        << "\n"
+                        << "   Entry: " << Current->getName() << "\n"
+                        << "   Exit: " << RegionExit->getName() << "\n");
       assert(RegionExit && "RegionExit cannot be null");
 
       PlanUtils.insertRegion(SubRegion, Current /*Entry*/, RegionExit,
@@ -568,8 +570,8 @@ void VPlanHCFGBuilderBase::buildNonLoopRegions(VPRegionBlock *ParentRegion) {
 
       // Add SubRegion's successors to worklist.
       for (auto Succ : SubRegion->getSuccessors()) {
-        DEBUG(dbgs() << "Adding " << Succ->getName() << " to WorkList"
-                     << "\n");
+        LLVM_DEBUG(dbgs() << "Adding " << Succ->getName() << " to WorkList"
+                          << "\n");
         WorkList.push_back(Succ);
       }
 
@@ -588,8 +590,8 @@ void VPlanHCFGBuilderBase::buildNonLoopRegions(VPRegionBlock *ParentRegion) {
 
       // No new region has been detected. Add Current's successors.
       for (auto Succ : Current->getSuccessors()) {
-        DEBUG(dbgs() << "Adding " << Succ->getName() << " to WorkList"
-                     << "\n");
+        LLVM_DEBUG(dbgs() << "Adding " << Succ->getName() << " to WorkList"
+                          << "\n");
         WorkList.push_back(Succ);
       }
     }
@@ -598,7 +600,8 @@ void VPlanHCFGBuilderBase::buildNonLoopRegions(VPRegionBlock *ParentRegion) {
   PlanUtils.setRegionSize(ParentRegion, ParentSize);
   PlanUtils.setRegionDivergent(ParentRegion, ParentIsDivergent);
 
-  DEBUG(dbgs() << "End of HCFG build for " << ParentRegion->getName() << "\n");
+  LLVM_DEBUG(dbgs() << "End of HCFG build for " << ParentRegion->getName()
+                    << "\n");
 }
 
 
@@ -634,28 +637,29 @@ void VPlanHCFGBuilderBase::buildHierarchicalCFG() {
 
   // Set Top Region as VPlan Entry
   Plan->setEntry(TopRegion);
-  DEBUG(Plan->setName("HCFGBuilder: Plain CFG\n"); dbgs() << *Plan);
+  LLVM_DEBUG(Plan->setName("HCFGBuilder: Plain CFG\n"); dbgs() << *Plan);
 
-  DEBUG(Verifier->verifyHierarchicalCFG(TopRegion));
+  LLVM_DEBUG(Verifier->verifyHierarchicalCFG(TopRegion));
 
   // Compute dom tree for the plain CFG for VPLInfo. We don't need post-dom tree
   // at this point.
   VPDomTree.recalculate(*TopRegion);
-  DEBUG(dbgs() << "Dominator Tree After buildPlainCFG\n";
-        VPDomTree.print(dbgs()));
+  LLVM_DEBUG(dbgs() << "Dominator Tree After buildPlainCFG\n";
+             VPDomTree.print(dbgs()));
 
   // TODO: If more efficient, we may want to "translate" LoopInfo to VPLoopInfo.
   // Compute VPLInfo and keep it in VPlan
   VPLoopInfo *VPLInfo = new VPLoopInfo();
   VPLInfo->analyze(VPDomTree);
   Plan->setVPLoopInfo(VPLInfo);
-  // DEBUG(dbgs() << "Loop Info:\n"; LI->print(dbgs()));
-  DEBUG(dbgs() << "VPLoop Info After buildPlainCFG:\n"; VPLInfo->print(dbgs()));
+  // LLVM_DEBUG(dbgs() << "Loop Info:\n"; LI->print(dbgs()));
+  LLVM_DEBUG(dbgs() << "VPLoop Info After buildPlainCFG:\n";
+             VPLInfo->print(dbgs()));
 
   // Compute postdom tree for the plain CFG.
   VPPostDomTree.recalculate(*TopRegion);
-  DEBUG(dbgs() << "PostDominator Tree After buildPlainCFG:\n";
-        VPPostDomTree.print(dbgs()));
+  LLVM_DEBUG(dbgs() << "PostDominator Tree After buildPlainCFG:\n";
+             VPPostDomTree.print(dbgs()));
 
   // Prepare/simplify CFG for hierarchical CFG construction
   simplifyPlainCFG();
@@ -667,16 +671,16 @@ void VPlanHCFGBuilderBase::buildHierarchicalCFG() {
   }
 #endif
 
-  DEBUG(Plan->setName("HCFGBuilder: After simplifyPlainCFG\n");
-        dbgs() << *Plan);
-  DEBUG(dbgs() << "Dominator Tree After simplifyPlainCFG\n";
-        VPDomTree.print(dbgs()));
-  DEBUG(dbgs() << "PostDominator Tree After simplifyPlainCFG:\n";
-        VPPostDomTree.print(dbgs()));
-  DEBUG(dbgs() << "VPLoop Info After simplifyPlainCFG:\n";
-        VPLInfo->print(dbgs()));
+  LLVM_DEBUG(Plan->setName("HCFGBuilder: After simplifyPlainCFG\n");
+             dbgs() << *Plan);
+  LLVM_DEBUG(dbgs() << "Dominator Tree After simplifyPlainCFG\n";
+             VPDomTree.print(dbgs()));
+  LLVM_DEBUG(dbgs() << "PostDominator Tree After simplifyPlainCFG:\n";
+             VPPostDomTree.print(dbgs()));
+  LLVM_DEBUG(dbgs() << "VPLoop Info After simplifyPlainCFG:\n";
+             VPLInfo->print(dbgs()));
 
-  DEBUG(Verifier->verifyHierarchicalCFG(TopRegion));
+  LLVM_DEBUG(Verifier->verifyHierarchicalCFG(TopRegion));
 
   // Build hierarchical CFG in two step: buildLoopRegions and
   // buildNonLoopRegions. There are two important things to notice:
@@ -691,10 +695,11 @@ void VPlanHCFGBuilderBase::buildHierarchicalCFG() {
   buildLoopRegions();
   buildNonLoopRegions(TopRegion);
 
-  DEBUG(Plan->setName("HCFGBuilder: After building HCFG\n"); dbgs() << *Plan;);
+  LLVM_DEBUG(Plan->setName("HCFGBuilder: After building HCFG\n");
+             dbgs() << *Plan;);
 
-  DEBUG(Verifier->setVPLoopInfo(VPLInfo);
-        Verifier->verifyHierarchicalCFG(TopRegion));
+  LLVM_DEBUG(Verifier->setVPLoopInfo(VPLInfo);
+             Verifier->verifyHierarchicalCFG(TopRegion));
 }
 
 // Return true if a non-loop region can be formed from \p Entry. If so, \p Exit
@@ -807,6 +812,7 @@ bool VPlanHCFGBuilderBase::isDivergentBlock(VPBlockBase *Block) {
   return false;
 }
 
+namespace {
 // Build plain CFG from incomming IR using only VPBasicBlock's that contain
 // VPInstructions. Return VPRegionBlock that encloses all the VPBasicBlock's
 // of the plain CFG.
@@ -859,6 +865,7 @@ public:
 
   VPRegionBlock *buildPlainCFG();
 };
+} // anonymous namespace
 
 // Return true if \p Inst is an incoming Instruction to be ignored in the VPlan
 // representation.
@@ -907,7 +914,7 @@ VPBasicBlock *PlainCFGBuilder::createOrGetVPBB(BasicBlock *BB) {
 
   if (BlockIt == BB2VPBB.end()) {
     // New VPBB
-    DEBUG(dbgs() << "Creating VPBasicBlock for " << BB->getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Creating VPBasicBlock for " << BB->getName() << "\n");
     VPBB = PlanUtils.createBasicBlock();
     BB2VPBB[BB] = VPBB;
     VPBB->setOriginalBB(BB);

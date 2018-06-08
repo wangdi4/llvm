@@ -106,23 +106,23 @@ public:
 };
 
 void VPOParoptTransform::gatherWRegionNodeList(bool &NeedTID, bool &NeedBID) {
-  DEBUG(dbgs() << "\nSTART: Gather WRegion Node List\n");
+  LLVM_DEBUG(dbgs() << "\nSTART: Gather WRegion Node List\n");
 
   NeedTID = NeedBID = false;
   VPOWRegionVisitor Visitor(WRegionList, NeedTID, NeedBID);
   WRegionUtils::forwardVisit(Visitor, WI->getWRGraph());
 
-  DEBUG(dbgs() << "\nEND: Gather WRegion Node List\n");
+  LLVM_DEBUG(dbgs() << "\nEND: Gather WRegion Node List\n");
   return;
 }
 
 static void debugPrintHeader(WRegionNode *W, bool IsPrepare) {
   if (IsPrepare)
-    DEBUG(dbgs() << "\n\n === VPOParopt Prepare: ");
+    LLVM_DEBUG(dbgs() << "\n\n === VPOParopt Prepare: ");
   else
-    DEBUG(dbgs() << "\n\n === VPOParopt Transform: ");
+    LLVM_DEBUG(dbgs() << "\n\n === VPOParopt Transform: ");
 
-  DEBUG(dbgs() << W->getName().upper() << " construct\n\n");
+  LLVM_DEBUG(dbgs() << W->getName().upper() << " construct\n\n");
 }
 
 //
@@ -192,7 +192,8 @@ bool VPOParoptTransform::paroptTransforms() {
   }
 
   if (WI->WRGraphIsEmpty()) {
-    DEBUG(dbgs() << "\n... No WRegion Candidates for Parallelization ...\n\n");
+    LLVM_DEBUG(
+        dbgs() << "\n... No WRegion Candidates for Parallelization ...\n\n");
     return RoutineChanged;
   }
 
@@ -511,11 +512,12 @@ bool VPOParoptTransform::paroptTransforms() {
 
     if (Changed) { // Code transformations happened for this WRN
       RoutineChanged = true;
-      DEBUG(dbgs() << "   === WRN #" << W->getNumber() << " transformed.\n\n");
+      LLVM_DEBUG(dbgs() << "   === WRN #" << W->getNumber()
+                        << " transformed.\n\n");
     }
     else
-      DEBUG(dbgs() << "   === WRN #" << W->getNumber()
-                                                   << " NOT transformed.\n\n");
+      LLVM_DEBUG(dbgs() << "   === WRN #" << W->getNumber()
+                        << " NOT transformed.\n\n");
   }
 
   for (WRegionNode *R : WRegionList)
@@ -1177,7 +1179,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
   BasicBlock *EntryBB = W->getEntryBBlock();
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genReductionCode\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genReductionCode\n");
 
   ReductionClause &RedClause = W->getRed();
   if (!RedClause.empty()) {
@@ -1205,7 +1207,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       BasicBlock *BeginBB;
       createEmptyPrivFiniBB(W, BeginBB);
       genReductionFini(RedI, RedI->getOrig(), BeginBB->getTerminator(), DT);
-      DEBUG(dbgs() << "genReductionCode: reduced " << *Orig << "\n");
+      LLVM_DEBUG(dbgs() << "genReductionCode: reduced " << *Orig << "\n");
     }
 
     // Wrap the reduction fini code inside a critical region.
@@ -1228,7 +1230,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
     W->resetBBSet(); // Invalidate BBSet after transformations
     Changed = true;
   }
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genReductionCode\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genReductionCode\n");
   return Changed;
 }
 
@@ -1252,7 +1254,7 @@ Value *
 VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
                                            Instruction *InsertPt,
                                            const StringRef VarNameSuff) {
-  // DEBUG(dbgs() << "Private Instruction Defs: " << *PrivInst << "\n");
+  // LLVM_DEBUG(dbgs() << "Private Instruction Defs: " << *PrivInst << "\n");
   // Generate a new Alloca instruction as privatization action
   AllocaInst *NewPrivInst;
 
@@ -1312,7 +1314,7 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
   while (!PrivUses.empty()) {
     Instruction *UI = PrivUses.pop_back_val();
     UI->replaceUsesOfWith(PrivValue, NewPrivInst);
-    // DEBUG(dbgs() << "New Instruction uses PrivItem: " << *UI << "\n");
+    // LLVM_DEBUG(dbgs() << "New Instruction uses PrivItem: " << *UI << "\n");
   }
 }
 
@@ -1320,7 +1322,8 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
 
   bool Changed = false;
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genFirstPrivatizationCode\n");
+  LLVM_DEBUG(
+      dbgs() << "\nEnter VPOParoptTransform::genFirstPrivatizationCode\n");
 
   assert(W->isBBSetEmpty() &&
          "genFirstPrivatizationCode: BBSET should start empty");
@@ -1370,22 +1373,23 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         FprivI->setNew(NewPrivInst);
       } else {
         FprivI->setNew(LprivI->getNew());
-        DEBUG(dbgs() << "\n  genFirstPrivatizationCode: (" << *Orig
-                     << ") is also lastprivate\n");
+        LLVM_DEBUG(dbgs() << "\n  genFirstPrivatizationCode: (" << *Orig
+                          << ") is also lastprivate\n");
       }
 
       if (!ForTask) {
         createEmptyPrvInitBB(W, PrivInitEntryBB);
         genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
       }
-      DEBUG(dbgs() << "genFirstPrivatizationCode: firstprivatized "
-                   << *Orig << "\n");
+      LLVM_DEBUG(dbgs() << "genFirstPrivatizationCode: firstprivatized "
+                        << *Orig << "\n");
     }
     Changed = true;
     W->resetBBSet(); // Invalidate BBSet
   }
 
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genFirstPrivatizationCode\n");
+  LLVM_DEBUG(
+      dbgs() << "\nExit VPOParoptTransform::genFirstPrivatizationCode\n");
   return Changed;
 }
 
@@ -1393,7 +1397,8 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
                                                   Value *IsLastVal) {
   bool Changed = false;
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genLastPrivatizationCode\n");
+  LLVM_DEBUG(
+      dbgs() << "\nEnter VPOParoptTransform::genLastPrivatizationCode\n");
 
   assert(W->isBBSetEmpty() &&
          "genLastPrivatizationCode: BBSET should start empty");
@@ -1467,18 +1472,18 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
     W->resetBBSet(); // Invalidate BBSet
   }
 
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genLastPrivatizationCode\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genLastPrivatizationCode\n");
   return Changed;
 }
 
 // Generate destructor calls for [first|last]private variables
 bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
   if (!WRegionUtils::needsDestructors(W)) {
-    DEBUG(dbgs() << "\nVPOParoptTransform::genDestructorCode: No dtors\n");
+    LLVM_DEBUG(dbgs() << "\nVPOParoptTransform::genDestructorCode: No dtors\n");
     return false;
   }
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genDestructorCode\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genDestructorCode\n");
 
   // Create a BB before ExitBB in which to insert dtor calls
   BasicBlock *NewBB = nullptr;
@@ -1510,7 +1515,7 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
                                         InsertBeforePt);
   */
 
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genDestructorCode\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDestructorCode\n");
   return true;
 }
 
@@ -1592,7 +1597,7 @@ bool VPOParoptTransform::clearCodemotionFenceIntrinsic(WRegionNode *W) {
 // Replace the occurrences of V within the region with the return value of the
 // intrinsic @llvm.invariant.group.barrier.
 void VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *V) {
-  // DEBUG(dbgs() << "replaceValueWithinRegion: " << *V << "\n");
+  // LLVM_DEBUG(dbgs() << "replaceValueWithinRegion: " << *V << "\n");
 
   // Find instructions in W that use V
   SmallVector<Instruction *, 8> Users;
@@ -1635,7 +1640,7 @@ void VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *V) {
       // so checking for the fence itself is not effective in this case.
       // To solve that, look at the next section of code dealing with BitCast.
       //
-      // DEBUG(dbgs() << "Skipping Fence: " << *User << "\n");
+      // LLVM_DEBUG(dbgs() << "Skipping Fence: " << *User << "\n");
       continue;
     }
 
@@ -1649,14 +1654,14 @@ void VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *V) {
             break;
           }
       if (Skip) {
-        // DEBUG(dbgs() << "Skipping BitCast: " << *BCI << "\n");
+        // LLVM_DEBUG(dbgs() << "Skipping BitCast: " << *BCI << "\n");
         continue;
       }
     }
 
-    // DEBUG(dbgs() << "Before Replacement: " << *User << "\n");
+    // LLVM_DEBUG(dbgs() << "Before Replacement: " << *User << "\n");
     User->replaceUsesOfWith(V, NewI);
-    // DEBUG(dbgs() << "After Replacement: " << *User << "\n");
+    // LLVM_DEBUG(dbgs() << "After Replacement: " << *User << "\n");
 
     // Some uses of V are in a ConstantExpr, in which case the User is the
     // instruction using the ConstantExpr. For example, the use of @u below is
@@ -1671,9 +1676,9 @@ void VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *V) {
     SmallVector<Instruction *, 2> NewInstArr;
     IntelGeneralUtils::breakExpressions(User, &NewInstArr);
     for (Instruction *NewInstr : NewInstArr) {
-      // DEBUG(dbgs() << "Before Replacement: " << *NewInstr << "\n");
+      // LLVM_DEBUG(dbgs() << "Before Replacement: " << *NewInstr << "\n");
       NewInstr->replaceUsesOfWith(V, NewI);
-      // DEBUG(dbgs() << "After Replacement: " << *NewInstr << "\n");
+      // LLVM_DEBUG(dbgs() << "After Replacement: " << *NewInstr << "\n");
     }
   }
 }
@@ -1901,7 +1906,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genPrivatizationCode\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genPrivatizationCode\n");
 
   // Process all PrivateItems in the private clause
   PrivateClause &PrivClause = W->getPriv();
@@ -1949,10 +1954,11 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
           Builder.CreateStore(Builder.CreateLoad(NewPrivInst), PrivI->getNew());
         }
 
-        DEBUG(dbgs() << "genPrivatizationCode: privatized " << *Orig << "\n");
+        LLVM_DEBUG(dbgs() << "genPrivatizationCode: privatized " << *Orig
+                          << "\n");
       } else
-        DEBUG(dbgs() << "genPrivatizationCode: " << *Orig
-                     << " is already private.\n");
+        LLVM_DEBUG(dbgs() << "genPrivatizationCode: " << *Orig
+                          << " is already private.\n");
     }
 
     Changed = true;
@@ -1966,7 +1972,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         SE->forgetLoop(L);
     }
   }
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genPrivatizationCode\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genPrivatizationCode\n");
   return Changed;
 }
 
@@ -2269,7 +2275,7 @@ void VPOParoptTransform::replaceUseWithinRegion(WRegionNode *W, Value *OldV,
 
 bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                                                AllocaInst *&IsLastVal) {
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genLoopSchedulingCode\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genLoopSchedulingCode\n");
 
   assert(W->getIsOmpLoop() && "genLoopSchedulingCode: not a loop-type WRN");
 
@@ -2277,17 +2283,18 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
   assert(L && "genLoopSchedulingCode: Loop not found");
 
-  DEBUG(dbgs() << "--- Parallel For LoopInfo: \n" << *L);
-  DEBUG(dbgs() << "--- Loop Preheader: " << *(L->getLoopPreheader()) << "\n");
-  DEBUG(dbgs() << "--- Loop Header: " << *(L->getHeader()) << "\n");
-  DEBUG(dbgs() << "--- Loop Latch: " << *(L->getLoopLatch()) << "\n\n");
+  LLVM_DEBUG(dbgs() << "--- Parallel For LoopInfo: \n" << *L);
+  LLVM_DEBUG(dbgs() << "--- Loop Preheader: " << *(L->getLoopPreheader())
+                    << "\n");
+  LLVM_DEBUG(dbgs() << "--- Loop Header: " << *(L->getHeader()) << "\n");
+  LLVM_DEBUG(dbgs() << "--- Loop Latch: " << *(L->getLoopLatch()) << "\n\n");
 
   bool IsDoacrossLoop =
       ((isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
        W->getOrdered() > 0);
 
 #if 0
-  DEBUG(dbgs() << "---- Loop Induction: "
+  LLVM_DEBUG(dbgs() << "---- Loop Induction: "
                << *(L->getCanonicalInductionVariable()) << "\n\n");
   L->dump();
 #endif
@@ -2438,7 +2445,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                      SchedKind == WRNScheduleOrderedStaticEven) ?
                                   ValueOne : W->getSchedule().getChunkExpr();
 
-  DEBUG(dbgs() << "--- Schedule Chunk Value: " << *ChunkVal << "\n\n");
+  LLVM_DEBUG(dbgs() << "--- Schedule Chunk Value: " << *ChunkVal << "\n\n");
 
   if (SchedKind == WRNScheduleStaticEven || SchedKind == WRNScheduleStatic) {
     // Generate __kmpc__for_static_init_4{u}/8{u} Call Instruction
@@ -2526,7 +2533,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   }
   else if (SchedKind == WRNScheduleStatic) {
 
-    //// DEBUG(dbgs() << "Before Loop Scheduling : "
+    //// LLVM_DEBUG(dbgs() << "Before Loop Scheduling : "
     ////              << *(LoopExitBB->getParent()) << "\n\n");
 
     BasicBlock *StaticInitBB = KmpcInitCI->getParent();
@@ -2650,7 +2657,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                                        ECs);
     rewriteUsesOfOutInstructions(ValueToLiveinMap, LiveOutVals, ECs);
 
-    //// DEBUG(dbgs() << "After Loop Scheduling : "
+    //// LLVM_DEBUG(dbgs() << "After Loop Scheduling : "
     ////              << *(LoopExitBB->getParent()) << "\n\n");
   }
   else {
@@ -2739,7 +2746,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
   // There are new BBlocks generated, so we need to reset BBSet
   W->resetBBSet();
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genLoopSchedulingCode\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genLoopSchedulingCode\n");
   return true;
 }
 
@@ -2765,7 +2772,7 @@ void VPOParoptTransform::getAllocFromTid(CallInst *Tid) {
 }
 
 bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genMultiThreadedCode\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genMultiThreadedCode\n");
   assert(W->isBBSetEmpty() &&
          "genMultiThreadedCode: BBSET should start empty");
 
@@ -2813,7 +2820,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
       if (*I == TidPtrHolder) {
         IsTidArg = true;
-        DEBUG(dbgs() << " NewF Tid Argument: " << *(*I) << "\n");
+        LLVM_DEBUG(dbgs() << " NewF Tid Argument: " << *(*I) << "\n");
         break;
       }
       ++TidArgNo;
@@ -2829,11 +2836,11 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     MTFnArgs.push_back(BidPtrHolder);
     genThreadedEntryActualParmList(W, MTFnArgs);
 
-    DEBUG(dbgs() << " New Call to MTFn: " << *NewCall << "\n");
+    LLVM_DEBUG(dbgs() << " New Call to MTFn: " << *NewCall << "\n");
     // Pass all the same arguments of the extracted function.
     for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
       if (*I != TidPtrHolder) {
-        DEBUG(dbgs() << " NewF Arguments: " << *(*I) << "\n");
+        LLVM_DEBUG(dbgs() << " NewF Arguments: " << *(*I) << "\n");
         MTFnArgs.push_back((*I));
       }
     }
@@ -2953,7 +2960,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     Changed = true;
   }
 
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genMultiThreadedCode\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genMultiThreadedCode\n");
   return Changed;
 }
 
@@ -3279,7 +3286,7 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
 // Generate code for master/end master construct and update LLVM control-flow
 // and dominator tree accordingly
 bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genMasterThreadCode\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genMasterThreadCode\n");
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
@@ -3290,7 +3297,7 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
       W, IdentTy, TidPtrHolder, InsertPt, true);
   MasterCI->insertBefore(InsertPt);
 
-  //DEBUG(dbgs() << " MasterCI: " << *MasterCI << "\n\n");
+  // LLVM_DEBUG(dbgs() << " MasterCI: " << *MasterCI << "\n\n");
 
   Instruction *InsertEndPt = ExitBB->getTerminator();
 
@@ -3340,7 +3347,7 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
                                MasterCI->getParent());
 
   W->resetBBSet(); // Invalidate BBSet
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genMasterThreadCode\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genMasterThreadCode\n");
   return true; // Changed
 }
 
@@ -3348,7 +3355,7 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
 // and dominator tree accordingly
 bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W,
                                              AllocaInst *&IsSingleThread) {
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genSingleThreadCode\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genSingleThreadCode\n");
   W->populateBBSet();
   BasicBlock *EntryBB = W->getEntryBBlock();
 
@@ -3436,14 +3443,14 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W,
                                SingleCI->getParent());
 
   W->resetBBSet(); // Invalidate BBSet
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genSingleThreadCode\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genSingleThreadCode\n");
   return true;  // Changed
 }
 
 // Generate code for ordered/end ordered construct for preserving ordered
 // region execution order
 bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genOrderedThreadCode\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genOrderedThreadCode\n");
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
@@ -3473,14 +3480,14 @@ bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
       W, IdentTy, TidPtrHolder, InsertEndPt, false);
   EndOrderedCI->insertBefore(InsertEndPt);
 
-  //BasicBlock *OrderedBB = OrderedCI->getParent();
-  //DEBUG(dbgs() << " Ordered Entry BBlock: " << *OrderedBB << "\n\n");
+  // BasicBlock *OrderedBB = OrderedCI->getParent();
+  // LLVM_DEBUG(dbgs() << " Ordered Entry BBlock: " << *OrderedBB << "\n\n");
 
-  //BasicBlock *EndOrderedBB = EndOrderedCI->getParent();
-  //DEBUG(dbgs() << " Ordered Exit BBlock: " << *EndOrderedBB << "\n\n");
+  // BasicBlock *EndOrderedBB = EndOrderedCI->getParent();
+  // LLVM_DEBUG(dbgs() << " Ordered Exit BBlock: " << *EndOrderedBB << "\n\n");
 
   W->resetBBSet(); // Invalidate BBSet
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genOrderedThreadCode\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genOrderedThreadCode\n");
   return true;  // Changed
 }
 
@@ -3488,7 +3495,7 @@ bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
 // construct.
 bool VPOParoptTransform::genDoacrossWaitOrPost(WRNOrderedNode *W) {
   assert(W &&"genDoacrossWaitOrPost: Null WRN");
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genDoacrossWaitOrPost\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genDoacrossWaitOrPost\n");
   BasicBlock *EntryBB = W->getEntryBBlock();
   Instruction *InsertPt = EntryBB->getTerminator();
 
@@ -3523,13 +3530,13 @@ bool VPOParoptTransform::genDoacrossWaitOrPost(WRNOrderedNode *W) {
   }
 
   W->resetBBSet(); // Invalidate BBSet
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genDoacrossWaitOrPost\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDoacrossWaitOrPost\n");
   return true; // Changed
 }
 
 // Generates code for the OpenMP critical construct.
 bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genCriticalCode\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genCriticalCode\n");
   assert(CriticalNode != nullptr && "Critical node is null.");
 
   assert(IdentTy != nullptr && "IdentTy is null.");
@@ -3551,21 +3558,22 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
           : VPOParoptUtils::genKmpcCriticalSection(
                 CriticalNode, IdentTy, TidPtrHolder, LockNameSuffix);
 
-  DEBUG(dbgs() << __FUNCTION__ << ": Handling of Critical Node: "
-               << (CriticalCallsInserted ? "Successful" : "Failed") << ".\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Handling of Critical Node: "
+                    << (CriticalCallsInserted ? "Successful" : "Failed")
+                    << ".\n");
 
   assert(CriticalCallsInserted && "Failed to create critical section. \n");
 
   CriticalNode->resetBBSet(); // Invalidate BBSet
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genCriticalCode\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genCriticalCode\n");
   return CriticalCallsInserted;
 }
 
 // Insert a call to __kmpc_barrier() at the end of the construct
 bool VPOParoptTransform::genBarrier(WRegionNode *W, bool IsExplicit) {
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genBarrier [explicit="
-               << IsExplicit << "]\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genBarrier [explicit="
+                    << IsExplicit << "]\n");
 
   // Create a new BB split from W's ExitBB to be used as InsertPt.
   // Reuse the util that does this for Reduction and Lastprivate fini code.
@@ -3576,20 +3584,20 @@ bool VPOParoptTransform::genBarrier(WRegionNode *W, bool IsExplicit) {
   VPOParoptUtils::genKmpcBarrier(W, TidPtrHolder, InsertPt, IdentTy,
                                  IsExplicit);
 
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genBarrier\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genBarrier\n");
   return true;
 }
 
 // Create a __kmpc_flush() call and insert it into W's EntryBB
 bool VPOParoptTransform::genFlush(WRegionNode *W) {
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genFlush\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genFlush\n");
 
   BasicBlock *EntryBB = W->getEntryBBlock();
   Instruction *InsertPt = EntryBB->getTerminator();
   VPOParoptUtils::genKmpcFlush(W, IdentTy, InsertPt);
 
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genFlush\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genFlush\n");
   return true;
 }
 
@@ -3597,7 +3605,7 @@ bool VPOParoptTransform::genFlush(WRegionNode *W) {
 // construct
 bool VPOParoptTransform::genCancelCode(WRNCancelNode *W) {
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genCancelCode\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genCancelCode\n");
 
   BasicBlock *EntryBB = W->getEntryBBlock();
   Instruction *InsertPt = EntryBB->getTerminator();
@@ -3620,9 +3628,10 @@ bool VPOParoptTransform::genCancelCode(WRNCancelNode *W) {
     assert(IfCancelThen && "genCancelCode: Cannot split BB at Cancel If");
 
     InsertPt = IfCancelThen;
-    DEBUG(dbgs() << "genCancelCode: Emitted If-Then-Else for IF EXPR: if (";
-          IfExpr->printAsOperand(dbgs());
-          dbgs() << ") then <%x = __kmpc_cancel[lationpoint]>.\n");
+    LLVM_DEBUG(
+        dbgs() << "genCancelCode: Emitted If-Then-Else for IF EXPR: if (";
+        IfExpr->printAsOperand(dbgs());
+        dbgs() << ") then <%x = __kmpc_cancel[lationpoint]>.\n");
   }
 
   CallInst *CancelCall = VPOParoptUtils::genKmpcCancelOrCancellationPointCall(
@@ -3632,7 +3641,7 @@ bool VPOParoptTransform::genCancelCode(WRNCancelNode *W) {
   (void)CancelCall;
   assert(CancelCall && "genCancelCode: Failed to emit call");
 
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genCancelCode\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genCancelCode\n");
   return true;
 }
 
@@ -3667,9 +3676,9 @@ bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
   CI = VPOParoptUtils::addOperandBundlesInCall(
       CI, {{"QUAL.OMP.CANCELLATION.POINTS", CancellationPointsAsValues}});
 
-  DEBUG(dbgs() << "propagateCancellationPointsToIR: Added "
-               << CancellationPoints.size() << " Cancellation Points to: "
-               << *CI << ".\n");
+  LLVM_DEBUG(dbgs() << "propagateCancellationPointsToIR: Added "
+                    << CancellationPoints.size()
+                    << " Cancellation Points to: " << *CI << ".\n");
   return true;
 
   // TODO: Add PHIs to avoid the issue of "Instruction does not dominate all uses".
@@ -3688,7 +3697,8 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
   if (CancellationPoints.empty())
     return false;
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genCancellationBranchingCode\n");
+  LLVM_DEBUG(
+      dbgs() << "\nEnter VPOParoptTransform::genCancellationBranchingCode\n");
   assert(W->isBBSetEmpty() &&
          "genCancellationBranchingCode: BBSET should start empty");
   W->populateBBSet();
@@ -3750,8 +3760,8 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
 
   assert(CancelExitBB &&
          "genCancellationBranchingCode: Failed to create Cancel Exit BB");
-  DEBUG(dbgs() << "genCancellationBranchingCode: Created CancelExitBB: [";
-        CancelExitBB->printAsOperand(dbgs()); dbgs() << "]\n");
+  LLVM_DEBUG(dbgs() << "genCancellationBranchingCode: Created CancelExitBB: [";
+             CancelExitBB->printAsOperand(dbgs()); dbgs() << "]\n");
 
   BasicBlock *CancelExitBBForNonBarriers = nullptr;
 
@@ -3805,13 +3815,14 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
         BranchInst::Create(CurrentCancelExitBB, NotCancelledBB, CondInst);
     ReplaceInstWithInst(TermInst, NewTermInst);
 
-    DEBUG(auto &OS = dbgs();
-          OS << "genCancellationBranchingCode: Inserted If-Then-Else: if (";
-          CancellationPoint->printAsOperand(OS); OS << ") then [";
-          OrgBB->printAsOperand(OS); OS << "] --> [";
-          CurrentCancelExitBB->printAsOperand(OS); OS << "], else [";
-          OrgBB->printAsOperand(OS); OS << "] --> [";
-          NotCancelledBB->printAsOperand(OS); OS << "].\n");
+    LLVM_DEBUG(
+        auto &OS = dbgs();
+        OS << "genCancellationBranchingCode: Inserted If-Then-Else: if (";
+        CancellationPoint->printAsOperand(OS); OS << ") then [";
+        OrgBB->printAsOperand(OS); OS << "] --> [";
+        CurrentCancelExitBB->printAsOperand(OS); OS << "], else [";
+        OrgBB->printAsOperand(OS); OS << "] --> [";
+        NotCancelledBB->printAsOperand(OS); OS << "].\n");
 
     // The IR now looks like:
     //
@@ -3890,10 +3901,11 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
 
       CancelExitBB = CancelExitBBWithStaticFini;
 
-      DEBUG(dbgs() << "genCancellationBranchingCode: Created predecessor of "
-                      "CancelExitBB: [";
-            CancelExitBBWithStaticFini->printAsOperand(dbgs());
-            dbgs() << "] containing '__kmpc_static_fini' call.\n");
+      LLVM_DEBUG(
+          dbgs() << "genCancellationBranchingCode: Created predecessor of "
+                    "CancelExitBB: [";
+          CancelExitBBWithStaticFini->printAsOperand(dbgs());
+          dbgs() << "] containing '__kmpc_static_fini' call.\n");
     }
 
     if (NeedCancelBarrierForNonBarriers && !CancelExitBBForNonBarriers &&
@@ -3927,10 +3939,10 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
                                          false /*not explicit*/,
                                          true /*cancel barrrier*/);
 
-      DEBUG(dbgs() << "genCancellationBranchingCode: Created BB for "
-                      "non-barrier cancellation points: [";
-            CancelExitBBForNonBarriers->printAsOperand(dbgs());
-            dbgs() << "] containing '__kmpc_cancel_barrier' call.\n");
+      LLVM_DEBUG(dbgs() << "genCancellationBranchingCode: Created BB for "
+                           "non-barrier cancellation points: [";
+                 CancelExitBBForNonBarriers->printAsOperand(dbgs());
+                 dbgs() << "] containing '__kmpc_cancel_barrier' call.\n");
     }
 
     // Finally, remove the cancellation point from the `end.region` directive.
@@ -3942,7 +3954,8 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
   }
 
   W->resetBBSet(); // Invalidate BBSet after transformations
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genCancellationBranchingCode\n");
+  LLVM_DEBUG(
+      dbgs() << "\nExit VPOParoptTransform::genCancellationBranchingCode\n");
 
   return Changed;
 }

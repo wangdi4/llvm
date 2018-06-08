@@ -688,7 +688,7 @@ void TempSubstituter::substituteTemps(HLRegion *Reg) {
 
 static void runTempCleanup(HIRFramework &HIRF) {
   if (DisableHIRTempCleanup) {
-    DEBUG(dbgs() << "HIR Temp Cleanup Disabled \n");
+    LLVM_DEBUG(dbgs() << "HIR Temp Cleanup Disabled \n");
     return;
   }
 
@@ -702,7 +702,7 @@ static void runTempCleanup(HIRFramework &HIRF) {
 
 bool HIRTempCleanup::runOnFunction(Function &F) {
   if (skipFunction(F)) {
-    DEBUG(dbgs() << "HIR Temp Cleanup Disabled \n");
+    LLVM_DEBUG(dbgs() << "HIR Temp Cleanup Disabled \n");
     return false;
   }
 

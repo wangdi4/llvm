@@ -750,7 +750,7 @@ SPIRVToLLVM::postProcessOCL() {
   for (auto I = M->begin(), E = M->end(); I != E;) {
     auto F = I++;
     if (F->hasName() && F->isDeclaration()) {
-      DEBUG(dbgs() << "[postProcessOCL sret] " << *F << '\n');
+      LLVM_DEBUG(dbgs() << "[postProcessOCL sret] " << *F << '\n');
       if (F->getReturnType()->isStructTy() &&
           oclIsBuiltin(F->getName(), &DemangledName, isCPP)) {
         if (!postProcessOCLBuiltinReturnStruct(&(*F)))
@@ -761,7 +761,7 @@ SPIRVToLLVM::postProcessOCL() {
   for (auto I = M->begin(), E = M->end(); I != E;) {
     auto F = I++;
     if (F->hasName() && F->isDeclaration()) {
-      DEBUG(dbgs() << "[postProcessOCL array arg] " << *F << '\n');
+      LLVM_DEBUG(dbgs() << "[postProcessOCL array arg] " << *F << '\n');
       if (hasArrayArg(&(*F)) && oclIsBuiltin(F->getName(), &DemangledName, isCPP))
         if (!postProcessOCLBuiltinWithArrayArguments(&(*F), DemangledName))
           return false;
@@ -800,7 +800,8 @@ SPIRVToLLVM::postProcessOCLBuiltinReturnStruct(Function *F) {
 bool
 SPIRVToLLVM::postProcessOCLBuiltinWithArrayArguments(Function* F,
     const std::string &DemangledName) {
-  DEBUG(dbgs() << "[postProcessOCLBuiltinWithArrayArguments] " << *F << '\n');
+  LLVM_DEBUG(dbgs() << "[postProcessOCLBuiltinWithArrayArguments] " << *F
+                    << '\n');
   auto Attrs = F->getAttributes();
   auto Name = F->getName();
   mutateFunction(F, [=](CallInst *CI, std::vector<Value *> &Args) {
@@ -1831,7 +1832,7 @@ SPIRVToLLVM::transEnqueueKernelBI(SPIRVInstruction *BI, BasicBlock *BB) {
   auto Ops = BI->getOperands();
   bool hasVaargs = Ops.size() > 10;
 
-  std::string FName = hasVaargs ? "__enqueue_kernel_events_vaargs"
+  std::string FName = hasVaargs ? "__enqueue_kernel_events_varargs"
                                 : "__enqueue_kernel_basic_events";
   Function* F = M->getFunction(FName);
   if (!F) {
@@ -1892,7 +1893,7 @@ SPIRVToLLVM::transWGSizeQueryBI(SPIRVInstruction *BI, BasicBlock *BB) {
   std::string FName =
     (BI->getOpCode() == OpGetKernelWorkGroupSize)
     ? "__get_kernel_work_group_size_impl"
-    : "__get_kernel_preferred_work_group_multiple_impl";
+    : "__get_kernel_preferred_work_group_size_multiple_impl";
 
   Function* F = M->getFunction(FName);
   if (!F) {
@@ -1983,9 +1984,7 @@ SPIRVToLLVM::transBuiltinFromInst(const std::string& FuncName,
   }
   )
   if (!Func || Func->getFunctionType() != FT) {
-    DEBUG(for (auto& I:ArgTys) {
-      dbgs() << *I << '\n';
-    });
+    LLVM_DEBUG(for (auto &I : ArgTys) { dbgs() << *I << '\n'; });
     Func = Function::Create(FT, GlobalValue::ExternalLinkage, MangledName, M);
     Func->setCallingConv(CallingConv::SPIR_FUNC);
     if (isFuncNoUnwind())

@@ -2,12 +2,13 @@
 ; one without, the one without locations doesn't have a DW_AT_stmt_list
 ; attribute, but the other one does and the .debug_line.dwo section is present.
 
+; RUN: llc -split-dwarf-file=foo.dwo -split-dwarf-output=%t.dwo \
 ; INTEL_CUSTOMIZATION BEGIN
 ; Added -dwarf-line-version=5 as workaround for ld.gold internal error until CMPLRS-48167 is fixed.
-; RUN: llc -split-dwarf-file=foo.dwo -dwarf-version=5 -dwarf-line-version=5 -generate-type-units \
+; RUN:     -dwarf-version=5 -dwarf-line-version=5 -generate-type-units \
 ; INTEL_CUSTOMIZATION END
-; RUN:     -filetype=obj -O0 -mtriple=x86_64-unknown-linux-gnu < %s \
-; RUN:     | llvm-dwarfdump -v - | FileCheck %s
+; RUN:     -filetype=obj -O0 -mtriple=x86_64-unknown-linux-gnu < %s
+; RUN: llvm-dwarfdump -v %t.dwo | FileCheck %s
 
 ; Currently the no-source-location type comes out first.
 ; FIXME: V5 wants type units in .debug_info.dwo not .debug_types.dwo.

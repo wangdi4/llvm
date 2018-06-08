@@ -138,7 +138,7 @@ static bool processSelect(SelectInst *S, LazyValueInfo *LVI) {
 /// -->
 ///   %r = %x
 static bool simplifyCommonValuePhi(PHINode *P, LazyValueInfo *LVI,
-                                   const SimplifyQuery &SQ) {
+                                   DominatorTree *DT) {
   // Collect incoming constants and initialize possible common value.
   SmallVector<std::pair<Constant *, unsigned>, 4> IncomingConstants;
   Value *CommonValue = nullptr;
@@ -161,7 +161,7 @@ static bool simplifyCommonValuePhi(PHINode *P, LazyValueInfo *LVI,
   // The common value must be valid in all incoming blocks.
   BasicBlock *ToBB = P->getParent();
   if (auto *CommonInst = dyn_cast<Instruction>(CommonValue))
-    if (!SQ.DT->dominates(CommonInst, ToBB))
+    if (!DT->dominates(CommonInst, ToBB))
       return false;
 
   // We have a phi with exactly 1 variable incoming value and 1 or more constant
@@ -182,7 +182,7 @@ static bool simplifyCommonValuePhi(PHINode *P, LazyValueInfo *LVI,
   return true;
 }
 
-static bool processPHI(PHINode *P, LazyValueInfo *LVI,
+static bool processPHI(PHINode *P, LazyValueInfo *LVI, DominatorTree *DT,
                        const SimplifyQuery &SQ) {
   bool Changed = false;
 
@@ -230,7 +230,7 @@ static bool processPHI(PHINode *P, LazyValueInfo *LVI,
         V = SI->getTrueValue();
       }
 
-      DEBUG(dbgs() << "CVP: Threading PHI over " << *SI << '\n');
+      LLVM_DEBUG(dbgs() << "CVP: Threading PHI over " << *SI << '\n');
     }
 
     P->setIncomingValue(i, V);
@@ -244,7 +244,7 @@ static bool processPHI(PHINode *P, LazyValueInfo *LVI,
   }
 
   if (!Changed)
-    Changed = simplifyCommonValuePhi(P, LVI, SQ);
+    Changed = simplifyCommonValuePhi(P, LVI, DT);
 
   if (Changed)
     ++NumPhis;
@@ -671,7 +671,8 @@ static Constant *getConstantAt(Value *V, Instruction *At, LazyValueInfo *LVI) {
     ConstantInt::getFalse(C->getContext());
 }
 
-static bool runImpl(Function &F, LazyValueInfo *LVI, const SimplifyQuery &SQ) {
+static bool runImpl(Function &F, LazyValueInfo *LVI, DominatorTree *DT,
+                    const SimplifyQuery &SQ) {
   bool FnChanged = false;
   // Visiting in a pre-order depth-first traversal causes us to simplify early
   // blocks before querying later blocks (which require us to analyze early
@@ -687,7 +688,7 @@ static bool runImpl(Function &F, LazyValueInfo *LVI, const SimplifyQuery &SQ) {
         BBChanged |= processSelect(cast<SelectInst>(II), LVI);
         break;
       case Instruction::PHI:
-        BBChanged |= processPHI(cast<PHINode>(II), LVI, SQ);
+        BBChanged |= processPHI(cast<PHINode>(II), LVI, DT, SQ);
         break;
       case Instruction::ICmp:
       case Instruction::FCmp:
@@ -752,14 +753,17 @@ bool CorrelatedValuePropagation::runOnFunction(Function &F) {
     return false;
 
   LazyValueInfo *LVI = &getAnalysis<LazyValueInfoWrapperPass>().getLVI();
-  return runImpl(F, LVI, getBestSimplifyQuery(*this, F));
+  DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+
+  return runImpl(F, LVI, DT, getBestSimplifyQuery(*this, F));
 }
 
 PreservedAnalyses
 CorrelatedValuePropagationPass::run(Function &F, FunctionAnalysisManager &AM) {
-
   LazyValueInfo *LVI = &AM.getResult<LazyValueAnalysis>(F);
-  bool Changed = runImpl(F, LVI, getBestSimplifyQuery(AM, F));
+  DominatorTree *DT = &AM.getResult<DominatorTreeAnalysis>(F);
+
+  bool Changed = runImpl(F, LVI, DT, getBestSimplifyQuery(AM, F));
 
   if (!Changed)
     return PreservedAnalyses::all();

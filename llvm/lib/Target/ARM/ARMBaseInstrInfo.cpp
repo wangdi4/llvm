@@ -935,6 +935,24 @@ void ARMBaseInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     Mov->addRegisterKilled(SrcReg, TRI);
 }
 
+bool ARMBaseInstrInfo::isCopyInstr(const MachineInstr &MI, MachineOperand &Src,
+                                   MachineOperand &Dest) const {
+  // VMOVRRD is also a copy instruction but it requires
+  // special way of handling. It is more complex copy version
+  // and since that we are not considering it. For recognition
+  // of such instruction isExtractSubregLike MI interface fuction
+  // could be used.
+  // VORRq is considered as a move only if two inputs are
+  // the same register.
+  if (!MI.isMoveReg() ||
+      (MI.getOpcode() == ARM::VORRq &&
+       MI.getOperand(1).getReg() != MI.getOperand(2).getReg()))
+    return false;
+  Dest = MI.getOperand(0);
+  Src = MI.getOperand(1);
+  return true;
+}
+
 const MachineInstrBuilder &
 ARMBaseInstrInfo::AddDReg(MachineInstrBuilder &MIB, unsigned Reg,
                           unsigned SubIdx, unsigned State,
@@ -1469,7 +1487,7 @@ bool ARMBaseInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return false;
 
   // All clear, widen the COPY.
-  DEBUG(dbgs() << "widening:    " << MI);
+  LLVM_DEBUG(dbgs() << "widening:    " << MI);
   MachineInstrBuilder MIB(*MI.getParent()->getParent(), MI);
 
   // Get rid of the old implicit-def of DstRegD.  Leave it if it defines a Q-reg
@@ -1498,7 +1516,7 @@ bool ARMBaseInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     MI.addRegisterKilled(SrcRegS, TRI, true);
   }
 
-  DEBUG(dbgs() << "replaced by: " << MI);
+  LLVM_DEBUG(dbgs() << "replaced by: " << MI);
   return true;
 }
 

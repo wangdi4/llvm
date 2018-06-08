@@ -114,7 +114,7 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       dtrans::NestedStruct | dtrans::ContainsNestedStruct |
       dtrans::MemFuncPartialWrite | dtrans::SystemObject;
 
-  DEBUG(dbgs() << "Delete field: looking for candidate structures.\n");
+  LLVM_DEBUG(dbgs() << "Delete field: looking for candidate structures.\n");
 
   for (dtrans::TypeInfo *TI : DTInfo.type_info_entries()) {
     auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
@@ -128,9 +128,9 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
     for (size_t i = 0; i < NumFields; ++i) {
       dtrans::FieldInfo &FI = StInfo->getField(i);
       if (!FI.isRead()) {
-        DEBUG(dbgs() << "  Found unread field: "
-                     << cast<StructType>(StInfo->getLLVMType())->getName()
-                     << " @ " << i << "\n");
+        LLVM_DEBUG(dbgs() << "  Found unread field: "
+                          << cast<StructType>(StInfo->getLLVMType())->getName()
+                          << " @ " << i << "\n");
         HasUnreadFields = true;
 #ifdef NDEBUG
         break;
@@ -142,20 +142,21 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       continue;
 
     if (StInfo->testSafetyData(DeleteFieldSafetyConditions)) {
-      DEBUG(dbgs() << "  Rejecting "
-                   << cast<StructType>(StInfo->getLLVMType())->getName()
-                   << " based on safety data.\n");
+      LLVM_DEBUG(dbgs() << "  Rejecting "
+                        << cast<StructType>(StInfo->getLLVMType())->getName()
+                        << " based on safety data.\n");
       continue;
     }
 
-    DEBUG(dbgs() << "  Selected for deletion: "
-                 << cast<StructType>(StInfo->getLLVMType())->getName() << "\n");
+    LLVM_DEBUG(dbgs() << "  Selected for deletion: "
+                      << cast<StructType>(StInfo->getLLVMType())->getName()
+                      << "\n");
 
     StructsToConvert.push_back(StInfo);
   }
 
   if (StructsToConvert.empty()) {
-    DEBUG(dbgs() << "  No candidates found.\n");
+    LLVM_DEBUG(dbgs() << "  No candidates found.\n");
     return false;
   }
 
@@ -185,17 +186,18 @@ void DeleteFieldImpl::populateTypes(Module &M) {
     for (size_t i = 0; i < NumFields; ++i) {
       dtrans::FieldInfo &FI = StInfo->getField(i);
       if (FI.isRead()) {
-        DEBUG(dbgs() << OrigTy->getName() << "[" << i << "] = " << NewIdx
-                     << "\n");
+        LLVM_DEBUG(dbgs() << OrigTy->getName() << "[" << i << "] = " << NewIdx
+                          << "\n");
         NewIndices.push_back(NewIdx++);
         DataTypes.push_back(TypeRemapper->remapType(FI.getLLVMType()));
       } else {
-        DEBUG(dbgs() << OrigTy->getName() << "[" << i << "] = DELETED\n");
+        LLVM_DEBUG(dbgs() << OrigTy->getName() << "[" << i << "] = DELETED\n");
         NewIndices.push_back(FIELD_DELETED);
       }
     }
     NewTy->setBody(DataTypes, OrigTy->isPacked());
-    DEBUG(dbgs() << "Delete field: New structure body: " << *NewTy << "\n");
+    LLVM_DEBUG(dbgs() << "Delete field: New structure body: " << *NewTy
+                      << "\n");
   }
 }
 
@@ -219,11 +221,11 @@ void DeleteFieldImpl::processFunction(Function &F) {
   }
 
   for (auto *GEP : GEPsToDelete) {
-    DEBUG(dbgs() << "Delete field: erasing GEP of deleted field:\n"
-                 << *GEP << "\n");
+    LLVM_DEBUG(dbgs() << "Delete field: erasing GEP of deleted field:\n"
+                      << *GEP << "\n");
     for (auto *U : GEP->users()) {
       assert(isa<StoreInst>(U) && "Unexpected use of deleted field!");
-      DEBUG(dbgs() << "Delete field: erasing GEP user:\n" << *U << "\n");
+      LLVM_DEBUG(dbgs() << "Delete field: erasing GEP user:\n" << *U << "\n");
       cast<Instruction>(U)->eraseFromParent();
     }
     GEP->eraseFromParent();

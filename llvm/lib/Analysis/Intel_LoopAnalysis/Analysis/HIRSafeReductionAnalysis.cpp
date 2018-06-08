@@ -322,7 +322,7 @@ bool HIRSafeReductionAnalysis::isRedTemp(CanonExpr *CE, unsigned BlobIndex) {
 void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
                                                           DDGraph DDG) {
 
-  DEBUG(dbgs() << "\nIn Sum Reduction Chain\n");
+  LLVM_DEBUG(dbgs() << "\nIn Sum Reduction Chain\n");
 
   for (auto It = Loop->child_begin(), E = Loop->child_end(); It != E; ++It) {
     FirstRvalSB = 0;
@@ -371,12 +371,13 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
       }
       if (FirstRvalSB == SinkDDRef->getSymbase()) {
         if (SingleStmtReduction) {
-          DEBUG(dbgs() << "\nSelf-reduction found\n");
+          LLVM_DEBUG(dbgs() << "\nSelf-reduction found\n");
         } else {
-          DEBUG(dbgs() << "\nSafe Reduction chain found\n");
+          LLVM_DEBUG(dbgs() << "\nSafe Reduction chain found\n");
         }
         setSafeRedChainList(RedInsts, Loop, FirstRvalSB, ReductionOpCode);
-        DEBUG(formatted_raw_ostream FOS(dbgs()); printAChain(FOS, 1, RedInsts));
+        LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+                   printAChain(FOS, 1, RedInsts));
         break;
       }
 

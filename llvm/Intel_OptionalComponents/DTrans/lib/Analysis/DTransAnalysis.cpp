@@ -750,7 +750,7 @@ bool DTransAllocAnalyzer::returnValueIsMallocAddress(Value *RV,
 bool DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
   if (F == nullptr)
     return false;
-  DEBUG(dbgs() << "Analyzing for MallocPostDom " << F->getName() << "\n");
+  LLVM_DEBUG(dbgs() << "Analyzing for MallocPostDom " << F->getName() << "\n");
   VisitedBlocks.clear();
   if (std::distance(F->arg_begin(), F->arg_end()) != 1 ||
       !F->arg_begin()->getType()->isIntegerTy()) {
@@ -763,22 +763,22 @@ bool DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
     if (auto RI = dyn_cast<ReturnInst>(BB.getTerminator())) {
       Value *RV = RI->getReturnValue();
       if (RV == nullptr) {
-        DEBUG(dbgs() << "Not MallocPostDom " << F->getName()
-                     << " Return is nullptr\n");
+        LLVM_DEBUG(dbgs() << "Not MallocPostDom " << F->getName()
+                          << " Return is nullptr\n");
         return false;
       }
       if (!returnValueIsMallocAddress(RV, &BB)) {
-        DEBUG(dbgs() << "Not MallocPostDom " << F->getName()
-                     << " Return is not malloc address\n");
+        LLVM_DEBUG(dbgs() << "Not MallocPostDom " << F->getName()
+                          << " Return is not malloc address\n");
         return false;
       }
       rv = true;
     }
   if (rv)
-    DEBUG(dbgs() << "Is MallocPostDom " << F->getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Is MallocPostDom " << F->getName() << "\n");
   else
-    DEBUG(dbgs() << "Not MallocPostDom " << F->getName()
-                 << " No malloc address returned\n");
+    LLVM_DEBUG(dbgs() << "Not MallocPostDom " << F->getName()
+                      << " No malloc address returned\n");
   return rv;
 }
 
@@ -827,27 +827,27 @@ bool DTransAllocAnalyzer::analyzeForFreeStatus(Function *F) {
     visitNullPtrBlocks(F);
     VisitedBlocks.clear();
   }
-  DEBUG(dbgs() << "Analyzing for FreePostDom " << F->getName() << "\n");
+  LLVM_DEBUG(dbgs() << "Analyzing for FreePostDom " << F->getName() << "\n");
   bool rv = false;
   for (BasicBlock &BB : *F)
     if (auto Ret = dyn_cast<ReturnInst>(BB.getTerminator())) {
       if (Ret->getReturnValue() != nullptr) {
-        DEBUG(dbgs() << "Not FreePostDom " << F->getName()
-                     << " Return is not nullptr\n");
+        LLVM_DEBUG(dbgs() << "Not FreePostDom " << F->getName()
+                          << " Return is not nullptr\n");
         return false;
       }
       if (!isPostDominatedByFreeCall(&BB)) {
-        DEBUG(dbgs() << "Not FreePostDom " << F->getName()
-                     << " Return is not post-dominated by call to free\n");
+        LLVM_DEBUG(dbgs() << "Not FreePostDom " << F->getName()
+                          << " Return is not post-dominated by call to free\n");
         return false;
       }
       rv = true;
     }
   if (rv)
-    DEBUG(dbgs() << "Is FreePostDom " << F->getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Is FreePostDom " << F->getName() << "\n");
   else
-    DEBUG(dbgs() << "Not FreePostDom " << F->getName()
-                 << " No return post-dominated by free\n");
+    LLVM_DEBUG(dbgs() << "Not FreePostDom " << F->getName()
+                      << " No return post-dominated by free\n");
   return rv;
 }
 
@@ -920,8 +920,8 @@ private:
     DependentVals.push_back(V);
     populateDependencyStack(V, DependentVals);
 
-    DEBUG(dbgs() << "analyzeValue " << *V << "\n");
-    DEBUG(dumpDependencyStack(DependentVals));
+    LLVM_DEBUG(dbgs() << "analyzeValue " << *V << "\n");
+    LLVM_DEBUG(dumpDependencyStack(DependentVals));
 
     // Now attempt to analyze each of these values. Some may be left in a
     // partially analyzed state, but they will be fully resolved when
@@ -932,18 +932,18 @@ private:
       LocalPointerInfo &DepInfo = LocalMap[Dep];
       // If we have complete results for this value, don't repeat the analysis.
       if (DepInfo.getAnalyzed()) {
-        DEBUG(dbgs() << "  Already analyzed: " << *Dep << "\n");
+        LLVM_DEBUG(dbgs() << "  Already analyzed: " << *Dep << "\n");
         continue;
       }
       analyzeValueImpl(Dep, DepInfo);
     }
 
-    DEBUG({
+    LLVM_DEBUG({
       if (Info.isPartialAnalysis())
         dbgs() << " Analysis completed but was reported as partial.\n";
     });
-    DEBUG(Info.dump());
-    DEBUG(dbgs() << "\n");
+    LLVM_DEBUG(Info.dump());
+    LLVM_DEBUG(dbgs() << "\n");
 
     // Some of the dependencies may have reported partial analysis, but
     // by the time we get here everything will have been complete for
@@ -1172,7 +1172,7 @@ private:
     TargetInfo.merge(OperandInfo);
     if (!OperandInfo.getAnalyzed()) {
       TargetInfo.setPartialAnalysis(true);
-      DEBUG(dbgs() << "Incomplete analysis merged from " << *Op << "\n");
+      LLVM_DEBUG(dbgs() << "Incomplete analysis merged from " << *Op << "\n");
     }
   }
 
@@ -1199,8 +1199,8 @@ private:
       // incompleteness and continue.
       if (!SrcLPI.getAnalyzed()) {
         Info.setPartialAnalysis(true);
-        DEBUG(dbgs() << "Incomplete analysis collected from " << *SrcVal
-                     << "\n");
+        LLVM_DEBUG(dbgs() << "Incomplete analysis collected from " << *SrcVal
+                          << "\n");
       }
       // If this is a bitcast that would be a valid way to access element
       // zero of any type known to be aliased by SrcVal, then record this
@@ -1337,8 +1337,8 @@ private:
     // incompleteness and continue.
     if (!BaseLPI.getAnalyzed()) {
       Info.setPartialAnalysis(true);
-      DEBUG(dbgs() << "Incomplete analysis derived from " << *BasePointer
-                   << "\n");
+      LLVM_DEBUG(dbgs() << "Incomplete analysis derived from " << *BasePointer
+                        << "\n");
     }
     for (auto *AliasTy : BaseLPI.getPointerTypeAliasSet()) {
       if (!AliasTy->isPointerTy())
@@ -1460,7 +1460,8 @@ private:
   // bitcast and, unless it looks like an element zero access, add that type
   // as an alias of the allocated pointer.
   void analyzeAllocationCallAliases(CallInst *CI, LocalPointerInfo &Info) {
-    DEBUG(dbgs() << "dtrans: Analyzing allocation call.\n  " << *CI << "\n");
+    LLVM_DEBUG(dbgs() << "dtrans: Analyzing allocation call.\n  " << *CI
+                      << "\n");
     SmallPtrSet<llvm::PointerType *, 4> CastTypes;
     SmallPtrSet<Value *, 4> VisitedUsers;
     bool IsPartial = false;
@@ -1519,7 +1520,7 @@ private:
         // would be done with the PtrToInt instruction.
         auto PtrTy = cast<PointerType>(BI->getType());
 
-        DEBUG(dbgs() << "  Associated bitcast: " << *BI << "\n");
+        LLVM_DEBUG(dbgs() << "  Associated bitcast: " << *BI << "\n");
 
         // Save the type information.
         CastTypes.insert(PtrTy);
@@ -1647,9 +1648,9 @@ public:
     // The intrinsic was not handled, mark all parameters as unhandled uses.
     for (Value *Arg : I.arg_operands()) {
       if (isValueOfInterest(Arg)) {
-        DEBUG(dbgs() << "dtrans-safety: Unhandled use --  IntrinsicInst: " << I
-                     << " value passed as argument.\n"
-                     << "  " << *Arg << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Unhandled use --  IntrinsicInst: "
+                          << I << " value passed as argument.\n"
+                          << "  " << *Arg << "\n");
         setValueTypeInfoSafetyData(Arg, dtrans::UnhandledUse);
       }
     }
@@ -1695,9 +1696,9 @@ public:
       LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
 
       if (LPI.pointsToSomeElement()) {
-        DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
-                     << "pointer to element passed as argument:\n"
-                     << "  " << CI << "\n  " << *Arg << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
+                          << "pointer to element passed as argument:\n"
+                          << "  " << CI << "\n  " << *Arg << "\n");
         // Selects and PHIs may have created a pointer that refers to
         // elements in multiple aggregate types. This sets the field
         // address taken condition for them all.
@@ -1725,9 +1726,9 @@ public:
           continue;
         if (IsFnLocal && (AliasTy == ArgTy))
           continue;
-        DEBUG(dbgs() << "dtrans-safety: Address taken -- "
-                     << "pointer to aggregate passed as argument:\n"
-                     << "  " << CI << "\n  " << *Arg << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Address taken -- "
+                          << "pointer to aggregate passed as argument:\n"
+                          << "  " << CI << "\n  " << *Arg << "\n");
 
         setBaseTypeInfoSafetyData(AliasTy, dtrans::AddressTaken);
       }
@@ -1744,9 +1745,9 @@ public:
       // If the destination type is a type of interest, then the cast is
       // unsafe since we don't know anything about the source value.
       if (DTInfo.isTypeOfInterest(DestTy)) {
-        DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
-                     << "unknown pointer cast to type of interest:\n"
-                     << "  " << I << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                          << "unknown pointer cast to type of interest:\n"
+                          << "  " << I << "\n");
         setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
       }
       return;
@@ -1760,9 +1761,9 @@ public:
     // as unsafe for all aliased types.
     if (isAliasSetOverloaded(LPI.getPointerTypeAliasSet(),
                              /*AllowElementZeroAccess=*/true)) {
-      DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
-                   << "cast of ambiguous pointer:\n"
-                   << "  " << I << "\n");
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                        << "cast of ambiguous pointer:\n"
+                        << "  " << I << "\n");
       setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
       setValueTypeInfoSafetyData(SrcVal, dtrans::BadCasting);
       return;
@@ -1860,13 +1861,13 @@ public:
         // structure, or we're loading a mismatch of element zero.
         BaseTypeFound = true;
         if (AliasTy == Ptr->getType()) {
-          DEBUG(dbgs() << "dtrans-safety: Whole structure reference:\n"
-                       << "  " << I << "\n");
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Whole structure reference:\n"
+                            << "  " << I << "\n");
           setBaseTypeInfoSafetyData(AliasTy, dtrans::WholeStructureReference);
         } else {
-          DEBUG(dbgs() << "dtrans-safety: Mismatched element access -- "
-                       << "  bad type for element zero load:\n"
-                       << "  " << I << "\n");
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access -- "
+                            << "  bad type for element zero load:\n"
+                            << "  " << I << "\n");
           setBaseTypeInfoSafetyData(AliasTy, dtrans::MismatchedElementAccess);
         }
       }
@@ -1874,9 +1875,9 @@ public:
       // or will fall through to the base type handling. If neither of those
       // happen, we can't handle this load.
       if (!SourceIsPtrToPtr && !BaseTypeFound) {
-        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                     << "  Unexpected pointer for load:"
-                     << "  " << I << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                          << "  Unexpected pointer for load:"
+                          << "  " << I << "\n");
         setValueTypeInfoSafetyData(&I, dtrans::UnhandledUse);
       }
     }
@@ -1900,12 +1901,12 @@ public:
         if (AliasTy == Int8PtrTy)
           continue;
         if (!PtrLPI.canPointToType(AliasTy)) {
-          DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store:\n");
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store:\n");
           if (I != nullptr)
-            DEBUG(dbgs() << "  " << *I << "\n");
+            LLVM_DEBUG(dbgs() << "  " << *I << "\n");
           else
-            DEBUG(dbgs() << " " << *ValOperand << " -> " << *PtrOperand
-                         << " \n");
+            LLVM_DEBUG(dbgs()
+                       << " " << *ValOperand << " -> " << *PtrOperand << " \n");
           setValueTypeInfoSafetyData(ValOperand, dtrans::UnsafePointerStore);
           setValueTypeInfoSafetyData(PtrOperand, dtrans::UnsafePointerStore);
         }
@@ -1915,11 +1916,12 @@ public:
       // type, but the pointer operand is. Unless the value operand is a
       // null pointer, this is a bad store.
       if (!isa<ConstantPointerNull>(ValOperand)) {
-        DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store:\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store:\n");
         if (I != nullptr)
-          DEBUG(dbgs() << "  " << *I << "\n");
+          LLVM_DEBUG(dbgs() << "  " << *I << "\n");
         else
-          DEBUG(dbgs() << " " << *ValOperand << " -> " << *PtrOperand << " \n");
+          LLVM_DEBUG(dbgs()
+                     << " " << *ValOperand << " -> " << *PtrOperand << " \n");
         setValueTypeInfoSafetyData(PtrOperand, dtrans::UnsafePointerStore);
       }
     }
@@ -1955,8 +1957,8 @@ public:
         DTInfo.isTypeOfInterest(ValOperand->getType())) {
       // I think this is generally true for store operations.
       assert(PtrOperand->getType() == ValOperand->getType()->getPointerTo());
-      DEBUG(dbgs() << "dtrans-safety: Whole structure reference:\n"
-                   << "  " << I << "\n");
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Whole structure reference:\n"
+                        << "  " << I << "\n");
       setBaseTypeInfoSafetyData(ValOperand->getType(),
                                 dtrans::WholeStructureReference);
       return;
@@ -1972,10 +1974,10 @@ public:
       for (auto PointeePair : ValPointees) {
         dtrans::TypeInfo *ParentTI =
             DTInfo.getOrCreateTypeInfo(PointeePair.first);
-        DEBUG(dbgs() << "dtrans-safety: Field address taken:\n"
-                     << "  " << *(ParentTI->getLLVMType()) << " @ "
-                     << PointeePair.second << "\n"
-                     << "  " << I << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken:\n"
+                          << "  " << *(ParentTI->getLLVMType()) << " @ "
+                          << PointeePair.second << "\n"
+                          << "  " << I << "\n");
         ParentTI->setSafetyData(dtrans::FieldAddressTaken);
         if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
           ParentStInfo->getField(PointeePair.second).setAddressTaken();
@@ -2005,9 +2007,9 @@ public:
     // result of some optimization which merged two element accesses.
     LocalPointerInfo &SrcLPI = LPA.getLocalPointerInfo(Src);
     if (SrcLPI.pointsToMultipleAggregateTypes()) {
-      DEBUG(dbgs() << "dtrans-safety: Ambiguous GEP:\n"
-                   << "  " << I << "\n");
-      DEBUG(SrcLPI.dump());
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Ambiguous GEP:\n"
+                        << "  " << I << "\n");
+      LLVM_DEBUG(SrcLPI.dump());
       setAllAliasedTypeSafetyData(SrcLPI, dtrans::AmbiguousGEP);
     }
 
@@ -2025,8 +2027,8 @@ public:
       // Otherwise, a single index element indicates a pointer is being treated
       // as an array.
       if (isInt8Ptr(Src) || I.getNumIndices() != 1) {
-        DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation:\n"
-                     << "  " << I << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation:\n"
+                          << "  " << I << "\n");
         setAllAliasedTypeSafetyData(SrcLPI, dtrans::BadPtrManipulation);
       }
     }
@@ -2067,9 +2069,9 @@ public:
     if (!isValueOfInterest(Src))
       return;
     if (I.getDestTy() != PtrSizeIntTy) {
-      DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
-                   << "Ptr to aggregate cast to a non-ptr-sized integer:\n"
-                   << "  " << I << "\n");
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                        << "Ptr to aggregate cast to a non-ptr-sized integer:\n"
+                        << "  " << I << "\n");
       setValueTypeInfoSafetyData(Src, dtrans::BadCasting);
     }
 
@@ -2087,9 +2089,9 @@ public:
     // is legal in LLVM IR.
     auto *RetTy = RetVal->getType();
     if (!RetTy->isPointerTy() && DTInfo.isTypeOfInterest(RetTy)) {
-      DEBUG(dbgs() << "dtrans-safety: Whole structure reference -- "
-                   << "Type is returned by function: "
-                   << I.getParent()->getParent()->getName() << "\n");
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Whole structure reference -- "
+                        << "Type is returned by function: "
+                        << I.getParent()->getParent()->getName() << "\n");
       setBaseTypeInfoSafetyData(RetTy, dtrans::WholeStructureReference);
       return;
     }
@@ -2108,9 +2110,9 @@ public:
       if (!DTInfo.isTypeOfInterest(AliasTy))
         continue;
       // Otherwise, the address is escaping our analysis.
-      DEBUG(dbgs() << "dtrans-safety: Address taken -- "
-                   << "Non-typed address is returned by function: "
-                   << I.getParent()->getParent()->getName() << "\n");
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Address taken -- "
+                        << "Non-typed address is returned by function: "
+                        << I.getParent()->getParent()->getName() << "\n");
       setBaseTypeInfoSafetyData(AliasTy, dtrans::AddressTaken);
     }
 
@@ -2119,9 +2121,9 @@ public:
     // field access tracking.
     if (LPI.pointsToSomeElement()) {
       for (auto PointeePair : LPI.getElementPointeeSet()) {
-        DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
-                     << "Address of a field is returned by function: "
-                     << I.getParent()->getParent()->getName() << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
+                          << "Address of a field is returned by function: "
+                          << I.getParent()->getParent()->getName() << "\n");
         setBaseTypeInfoSafetyData(PointeePair.first, dtrans::FieldAddressTaken);
         dtrans::TypeInfo *ParentTI =
             DTInfo.getOrCreateTypeInfo(PointeePair.first);
@@ -2149,9 +2151,9 @@ public:
       return;
 
     if (isa<PointerType>(Ty)) {
-      DEBUG(dbgs() << "dtrans-safety: Local pointer -- "
-                   << "Pointer to type used by an alloca instruction:\n"
-                   << "  " << I << "\n");
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Local pointer -- "
+                        << "Pointer to type used by an alloca instruction:\n"
+                        << "  " << I << "\n");
       setBaseTypeInfoSafetyData(Ty, dtrans::LocalPtr);
       return;
     }
@@ -2165,39 +2167,41 @@ public:
       // Arrays of pointers, including pointers to non-pointer arrays, are
       // effectively pointers to the type for the purposes of our analysis.
       if (isa<PointerType>(ElemTy)) {
-        DEBUG(dbgs() << "dtrans-safety: Local pointer -- "
-                     << "Array of pointers to type used by "
-                     << "an alloca instruction:\n"
-                     << "  " << I << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Local pointer -- "
+                          << "Array of pointers to type used by "
+                          << "an alloca instruction:\n"
+                          << "  " << I << "\n");
         setBaseTypeInfoSafetyData(ElemTy, dtrans::LocalPtr);
         return;
       }
       if (isa<VectorType>(ElemTy)) {
-        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                     << "Array of vectors allocated by an alloca instruction:\n"
-                     << "  " << I << "\n");
+        LLVM_DEBUG(
+            dbgs() << "dtrans-safety: Unhandled use -- "
+                   << "Array of vectors allocated by an alloca instruction:\n"
+                   << "  " << I << "\n");
         setBaseTypeInfoSafetyData(Ty, dtrans::UnhandledUse);
         return;
       }
-      DEBUG(dbgs() << "dtrans-safety: Local instance -- "
-                   << "Array of instance of type used by "
-                   << "an alloca instruction:\n"
-                   << "  " << I << "\n");
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Local instance -- "
+                        << "Array of instance of type used by "
+                        << "an alloca instruction:\n"
+                        << "  " << I << "\n");
       setBaseTypeInfoSafetyData(Ty, dtrans::LocalInstance);
       return;
     }
 
     if (isa<VectorType>(Ty)) {
-      DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                   << "Vector of type instantiated by an alloca instruction:\n"
-                   << "  " << I << "\n");
+      LLVM_DEBUG(
+          dbgs() << "dtrans-safety: Unhandled use -- "
+                 << "Vector of type instantiated by an alloca instruction:\n"
+                 << "  " << I << "\n");
       setBaseTypeInfoSafetyData(Ty, dtrans::UnhandledUse);
       return;
     }
 
-    DEBUG(dbgs() << "dtrans-safety: Local instance -- "
-                 << "Type instantiated by an alloca instruction:\n"
-                 << "  " << I << "\n");
+    LLVM_DEBUG(dbgs() << "dtrans-safety: Local instance -- "
+                      << "Type instantiated by an alloca instruction:\n"
+                      << "  " << I << "\n");
     setBaseTypeInfoSafetyData(Ty, dtrans::LocalInstance);
   }
 
@@ -2223,17 +2227,17 @@ public:
     // is of a type of interest.
     llvm::Type *Ty = I.getType();
     if (DTInfo.isTypeOfInterest(Ty)) {
-      DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                   << "Type returned by an unmodeled instruction:\n"
-                   << "  " << I << "\n");
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                        << "Type returned by an unmodeled instruction:\n"
+                        << "  " << I << "\n");
       setBaseTypeInfoSafetyData(Ty, dtrans::UnhandledUse);
     }
 
     for (Value *Arg : I.operands()) {
       if (isValueOfInterest(Arg)) {
-        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                     << "Type used by an unmodeled instruction:\n"
-                     << "  " << I << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                          << "Type used by an unmodeled instruction:\n"
+                          << "  " << I << "\n");
         setValueTypeInfoSafetyData(Arg, dtrans::UnhandledUse);
       }
     }
@@ -2286,21 +2290,21 @@ public:
         //   be handled.
         //
         if (!GV.hasLocalLinkage() || GV.isThreadLocal()) {
-          DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                       << "Unexpected global variable usage:\n"
-                       << "  " << GV << "\n");
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                            << "Unexpected global variable usage:\n"
+                            << "  " << GV << "\n");
           setBaseTypeInfoSafetyData(GVTy, dtrans::UnhandledUse);
           continue;
         }
         if (GVElemTy->isPointerTy()) {
-          DEBUG(dbgs() << "dtrans-safety: Global pointer\n"
-                       << "  " << GV << "\n");
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Global pointer\n"
+                            << "  " << GV << "\n");
           setBaseTypeInfoSafetyData(GVTy, dtrans::GlobalPtr);
           Constant *Initializer = GV.getInitializer();
           analyzeUnsafePointerStores(nullptr, Initializer, &GV);
         } else {
-          DEBUG(dbgs() << "dtrans-safety: Global instance\n"
-                       << "  " << GV << "\n");
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Global instance\n"
+                            << "  " << GV << "\n");
           setBaseTypeInfoSafetyData(GVTy, dtrans::GlobalInstance);
           // The local linkage check should guarantee a unique and definitive
           // initializer.
@@ -2309,8 +2313,8 @@ public:
           Constant *Initializer = GV.getInitializer();
           if (!isa<ConstantAggregateZero>(Initializer) &&
               !isa<UndefValue>(Initializer)) {
-            DEBUG(dbgs() << "dtrans-safety: Has initializer list\n"
-                         << "  " << GV << "\n");
+            LLVM_DEBUG(dbgs() << "dtrans-safety: Has initializer list\n"
+                              << "  " << GV << "\n");
             setBaseTypeInfoSafetyData(GVTy, dtrans::HasInitializerList);
           }
           analyzeGlobalStructSingleValue(GVElemTy, Initializer);
@@ -2484,7 +2488,7 @@ private:
 
     // Check to see if this structure is known to be a system type.
     if (dtrans::isSystemObjectType(Ty)) {
-      DEBUG(dbgs() << "dtrans-safety: System object:\n  " << *Ty << "\n");
+      LLVM_DEBUG(dbgs() << "dtrans-safety: System object:\n  " << *Ty << "\n");
       TI->setSafetyData(dtrans::SystemObject);
     }
 
@@ -2493,8 +2497,8 @@ private:
 
     // If the structure is empty, we can't need to try to optimize it.
     if (NumElements == 0) {
-      DEBUG(dbgs() << "dtrans-safety: No fields in structure:\n  " << *Ty
-                   << "\n");
+      LLVM_DEBUG(dbgs() << "dtrans-safety: No fields in structure:\n  " << *Ty
+                        << "\n");
       TI->setSafetyData(dtrans::NoFieldsInStruct);
       return;
     }
@@ -2505,8 +2509,9 @@ private:
     // It isn't clear to me under what circumstances a type will be reported
     // as unsized, but if one is we definitely can't do anything with it.
     if (!Ty->isSized()) {
-      DEBUG(dbgs() << "dtrans-safety: Unhandled use -- non-sized structure\n  "
-                   << *Ty << "\n");
+      LLVM_DEBUG(
+          dbgs() << "dtrans-safety: Unhandled use -- non-sized structure\n  "
+                 << *Ty << "\n");
       TI->setSafetyData(dtrans::UnhandledUse);
     }
 
@@ -2515,9 +2520,9 @@ private:
       // If the element is a non-pointer structure, set the nested type
       // safety conditions.
       if (ElementTy->isStructTy()) {
-        DEBUG(dbgs() << "dtrans-safety: Nested structure\n"
-                     << "  parent: " << *Ty << "\n"
-                     << "  child : " << *ElementTy << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Nested structure\n"
+                          << "  parent: " << *Ty << "\n"
+                          << "  child : " << *ElementTy << "\n");
         TI->setSafetyData(dtrans::ContainsNestedStruct);
         DTInfo.getOrCreateTypeInfo(ElementTy)->setSafetyData(
             dtrans::NestedStruct);
@@ -2533,9 +2538,9 @@ private:
         // If this was an array/vector of structures, set the nested type
         // safety conditions.
         if (NestedTy->isStructTy()) {
-          DEBUG(dbgs() << "dtrans-safety: Nested structure\n"
-                       << "  parent: " << *Ty << "\n"
-                       << "  child : " << *NestedTy << "\n");
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Nested structure\n"
+                            << "  parent: " << *Ty << "\n"
+                            << "  child : " << *NestedTy << "\n");
           TI->setSafetyData(dtrans::ContainsNestedStruct);
           DTInfo.getOrCreateTypeInfo(NestedTy)->setSafetyData(
               dtrans::NestedStruct);
@@ -2565,9 +2570,9 @@ private:
       return;
 
     // Otherwise, it's not safe.
-    DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
-                 << "unsafe cast of aliased pointer:\n"
-                 << "  " << I << "\n");
+    LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                      << "unsafe cast of aliased pointer:\n"
+                      << "  " << I << "\n");
     setValueTypeInfoSafetyData(I.getOperand(0), dtrans::BadCasting);
     if (DTInfo.isTypeOfInterest(DestTy))
       setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
@@ -2586,11 +2591,11 @@ private:
       int Count = 0;
       for (auto &FI : StInfo->getFields()) {
         Constant *NV = llvm::Constant::getNullValue(FI.getLLVMType());
-        DEBUG(dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " ["
-                     << Count << "] ");
-        DEBUG(NV->printAsOperand(dbgs()));
+        LLVM_DEBUG(dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " ["
+                          << Count << "] ");
+        LLVM_DEBUG(NV->printAsOperand(dbgs()));
         FI.processNewSingleValue(NV);
-        DEBUG(dbgs() << (FI.isMultipleValue() ? " <MULTIPLE>\n" : "\n"));
+        LLVM_DEBUG(dbgs() << (FI.isMultipleValue() ? " <MULTIPLE>\n" : "\n"));
         auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
         analyzeCallocSingleValue(ComponentTI);
         ++Count;
@@ -2639,8 +2644,9 @@ private:
       // If there are casts to multiple types of interest, they all get
       // handled as bad casts.
       if (WasCastToMultipleTypes) {
-        DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
-                     << "allocation cast to multiple types:\n  " << CI << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                          << "allocation cast to multiple types:\n  " << CI
+                          << "\n");
         setBaseTypeInfoSafetyData(Ty, dtrans::BadCasting);
       }
 
@@ -2669,7 +2675,7 @@ private:
   /// This is useful for transformations that need to rewrite allocation and
   /// free calls.
   void analyzeFreeCall(CallInst &CI, dtrans::FreeKind FK) {
-    DEBUG(dbgs() << "dtrans: Analyzing free call.\n  " << CI << "\n");
+    LLVM_DEBUG(dbgs() << "dtrans: Analyzing free call.\n  " << CI << "\n");
     dtrans::FreeCallInfo *FCI = DTInfo.createFreeCallInfo(&CI, FK);
 
     // If it's a standard free call, we can check for the type of the first
@@ -2753,8 +2759,8 @@ private:
     for (auto &PointeePair : PtrInfo.getElementPointeeSet()) {
       llvm::Type *ParentTy = PointeePair.first;
       if (IsVolatile) {
-        DEBUG(dbgs() << "dtrans-safety: Volatile data:\n");
-        DEBUG(dbgs() << "  " << I << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Volatile data:\n");
+        LLVM_DEBUG(dbgs() << "  " << I << "\n");
         setBaseTypeInfoSafetyData(ParentTy, dtrans::VolatileData);
       }
 
@@ -2764,8 +2770,8 @@ private:
         // If this field is an aggregate, and this is not a nested
         // element zero access, mark this as a whole structure reference.
         if (FieldTy->isAggregateType() && FieldTy == ValTy) {
-          DEBUG(dbgs() << "dtrans-safety: Whole structure reference:\n");
-          DEBUG(dbgs() << "  " << I << "\n");
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Whole structure reference:\n");
+          LLVM_DEBUG(dbgs() << "  " << I << "\n");
           setBaseTypeInfoSafetyData(FieldTy, dtrans::WholeStructureReference);
         }
 
@@ -2778,8 +2784,8 @@ private:
           // correct level of nesting.
           assert(!dtrans::isElementZeroAccess(FieldTy->getPointerTo(),
                                               ValTy->getPointerTo()));
-          DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
-          DEBUG(dbgs() << "  " << I << "\n");
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
+          LLVM_DEBUG(dbgs() << "  " << I << "\n");
           setBaseTypeInfoSafetyData(ParentTy, dtrans::MismatchedElementAccess);
         }
 
@@ -2791,15 +2797,15 @@ private:
             FI.setRead(true);
             if (!isSafeLoadForSingleAllocFunction(&I)) {
               if (!FI.isBottomAllocFunction())
-                DEBUG(dbgs()
-                      << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
-                      << " [" << PointeePair.second << "] <BOTTOM>\n");
+                LLVM_DEBUG(dbgs()
+                           << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
+                           << " [" << PointeePair.second << "] <BOTTOM>\n");
               FI.setBottomAllocFunction();
             }
           } else {
             if (auto *ConstVal = dyn_cast<llvm::Constant>(WriteVal)) {
               if (FI.processNewSingleValue(ConstVal)) {
-                DEBUG({
+                LLVM_DEBUG({
                   dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType());
                   if (FI.isSingleValue())
                     ConstVal->printAsOperand(dbgs());
@@ -2810,20 +2816,21 @@ private:
               }
               if (!isa<ConstantPointerNull>(WriteVal)) {
                 if (!FI.isBottomAllocFunction())
-                  DEBUG(dbgs()
-                        << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
-                        << " [" << PointeePair.second << "] <BOTTOM>\n");
+                  LLVM_DEBUG(dbgs() << "dtrans-fsaf: "
+                                    << *(ParentStInfo->getLLVMType()) << " ["
+                                    << PointeePair.second << "] <BOTTOM>\n");
                 FI.setBottomAllocFunction();
               }
             } else if (auto *CI = dyn_cast<CallInst>(WriteVal)) {
               if (!FI.isMultipleValue())
-                DEBUG(dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
-                             << " [" << PointeePair.second << "] <MULTIPLE>\n");
+                LLVM_DEBUG(dbgs()
+                           << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
+                           << " [" << PointeePair.second << "] <MULTIPLE>\n");
               FI.setMultipleValue();
               if (isSafeStoreForSingleAllocFunction(CI)) {
                 Function *Callee = CI->getCalledFunction();
                 if (FI.processNewSingleAllocFunction(Callee)) {
-                  DEBUG({
+                  LLVM_DEBUG({
                     dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
                            << " [" << PointeePair.second << "] ";
                     if (FI.isSingleAllocFunction())
@@ -2835,20 +2842,21 @@ private:
                 }
               } else {
                 if (!FI.isBottomAllocFunction())
-                  DEBUG(dbgs()
-                        << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
-                        << " [" << PointeePair.second << "] <BOTTOM>\n");
+                  LLVM_DEBUG(dbgs() << "dtrans-fsaf: "
+                                    << *(ParentStInfo->getLLVMType()) << " ["
+                                    << PointeePair.second << "] <BOTTOM>\n");
                 FI.setBottomAllocFunction();
               }
             } else {
               if (!FI.isMultipleValue())
-                DEBUG(dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
-                             << " [" << PointeePair.second << "] <MULTIPLE>\n");
+                LLVM_DEBUG(dbgs()
+                           << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
+                           << " [" << PointeePair.second << "] <MULTIPLE>\n");
               FI.setMultipleValue();
               if (!FI.isBottomAllocFunction())
-                DEBUG(dbgs()
-                      << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
-                      << " [" << PointeePair.second << "] <BOTTOM>\n");
+                LLVM_DEBUG(dbgs()
+                           << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
+                           << " [" << PointeePair.second << "] <BOTTOM>\n");
               FI.setBottomAllocFunction();
             }
             FI.setWritten(true);
@@ -2859,9 +2867,9 @@ private:
         // Otherwise, the parent type is either a vector or a pointer (which
         // would have been indexed as an array).
         // TODO: Handle this case.
-        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                        "unimplemented load/store:\n");
-        DEBUG(dbgs() << "  " << I << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                             "unimplemented load/store:\n");
+        LLVM_DEBUG(dbgs() << "  " << I << "\n");
         setBaseTypeInfoSafetyData(ParentTy, dtrans::UnhandledUse);
       }
     }
@@ -2912,9 +2920,9 @@ private:
     // should be marked as an unsafe merge.
     LocalPointerInfo &LPI = LPA.getLocalPointerInfo(&I);
     if (isAliasSetOverloaded(LPI.getPointerTypeAliasSet())) {
-      DEBUG(dbgs() << "dtrans-safety: Unsafe pointer merge -- "
-                   << "overloaded merge result\n"
-                   << "  " << I << "\n");
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer merge -- "
+                        << "overloaded merge result\n"
+                        << "  " << I << "\n");
       setValueTypeInfoSafetyData(&I, dtrans::UnsafePtrMerge);
       return;
     }
@@ -2954,9 +2962,9 @@ private:
         continue;
       LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValIn);
       if (!ValLPI.canPointToType(DomTy->getPointerElementType())) {
-        DEBUG(dbgs() << "dtrans-safety: Unsafe pointer merge -- "
-                     << "incompatible incoming value\n"
-                     << "  " << I << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer merge -- "
+                          << "incompatible incoming value\n"
+                          << "  " << I << "\n");
         setValueTypeInfoSafetyData(&I, dtrans::UnsafePtrMerge);
         return;
       }
@@ -3009,8 +3017,8 @@ private:
     }
 
     // Otherwise, we must assume the size arguments are not acceptable.
-    DEBUG(dbgs() << "dtrans-safety: Bad alloc size:\n"
-                 << "  " << CI << "\n");
+    LLVM_DEBUG(dbgs() << "dtrans-safety: Bad alloc size:\n"
+                      << "  " << CI << "\n");
     setBaseTypeInfoSafetyData(Ty, dtrans::BadAllocSizeArg);
   }
 
@@ -3051,7 +3059,7 @@ private:
   // For a safe call, the field information tracking of the aggregate type
   // will be updated to indicate the field is written to.
   void analyzeMemset(IntrinsicInst &I) {
-    DEBUG(dbgs() << "dtrans: Analyzing memset call:\n  " << I << "\n");
+    LLVM_DEBUG(dbgs() << "dtrans: Analyzing memset call:\n  " << I << "\n");
 
     assert(I.getNumArgOperands() >= 2);
     auto *DestArg = I.getArgOperand(0);
@@ -3070,9 +3078,9 @@ private:
       if (isAliasSetOverloaded(DstLPI.getPointerTypeAliasSet())) {
         // Cannot do anything for an aliased type. Declare them
         // to be unsafe.
-        DEBUG(dbgs() << "dtrans-safety: Ambiguous pointer target -- "
-                     << "Aliased type, could not identify dominant type:\n"
-                     << " " << I << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Ambiguous pointer target -- "
+                          << "Aliased type, could not identify dominant type:\n"
+                          << " " << I << "\n");
 
         setAllAliasedTypeSafetyData(DstLPI, dtrans::AmbiguousPointerTarget);
         return;
@@ -3129,18 +3137,18 @@ private:
       // of an array type, or the element pointee set contained multiple
       // entries.
       if (DstLPI.getElementPointeeSet().size() != 1) {
-        DEBUG(dbgs() << "dtrans-safety: Ambiguous pointer target -- "
-                     << "Pointer to member with multiple potential target "
-                        "members:\n"
-                     << "  " << I << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Ambiguous pointer target -- "
+                          << "Pointer to member with multiple potential target "
+                             "members:\n"
+                          << "  " << I << "\n");
 
         setValueTypeInfoSafetyData(DestArg, dtrans::AmbiguousPointerTarget);
       } else {
         // This could be extended in the future to handle the case that it was
         // member of an array.
-        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                     << "Pointer to member of array type:\n"
-                     << "  " << I << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                          << "Pointer to member of array type:\n"
+                          << "  " << I << "\n");
 
         setValueTypeInfoSafetyData(DestArg, dtrans::UnhandledUse);
       }
@@ -3185,9 +3193,9 @@ private:
       return;
     }
 
-    DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
-                 << "size is not a multiple of type size:\n"
-                 << "  " << I << "\n");
+    LLVM_DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
+                      << "size is not a multiple of type size:\n"
+                      << "  " << I << "\n");
 
     setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncSize);
   }
@@ -3217,7 +3225,8 @@ private:
   // to be eliminated if they are never directly read.
   void analyzeMemcpyOrMemmove(IntrinsicInst &I,
                               dtrans::MemfuncCallInfo::MemfuncKind Kind) {
-    DEBUG(dbgs() << "dtrans: Analyzing memcpy/memmove call:\n  " << I << "\n");
+    LLVM_DEBUG(dbgs() << "dtrans: Analyzing memcpy/memmove call:\n  " << I
+                      << "\n");
     assert(I.getNumArgOperands() >= 2);
 
     auto *DestArg = I.getArgOperand(0);
@@ -3234,10 +3243,11 @@ private:
     if (!DestOfInterest && !SrcOfInterest) {
       return;
     } else if (!SrcOfInterest || !DestOfInterest) {
-      DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation --  "
-                   << "Either source or destination operand is fundamental "
-                      "pointer type:\n"
-                   << "  " << I << "\n");
+      LLVM_DEBUG(
+          dbgs() << "dtrans-safety: Bad memfunc manipulation --  "
+                 << "Either source or destination operand is fundamental "
+                    "pointer type:\n"
+                 << "  " << I << "\n");
 
       setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncManipulation);
       setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
@@ -3253,18 +3263,18 @@ private:
     if (!DestParentTy || !SrcParentTy) {
       if (!DestParentTy &&
           isAliasSetOverloaded(DstLPI.getPointerTypeAliasSet())) {
-        DEBUG(dbgs() << "dtrans-safety: Ambiguous pointer target -- "
-                     << "Aliased type for destination operand:\n"
-                     << "  " << I << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Ambiguous pointer target -- "
+                          << "Aliased type for destination operand:\n"
+                          << "  " << I << "\n");
 
         setAllAliasedTypeSafetyData(DstLPI, dtrans::AmbiguousPointerTarget);
         setAllAliasedTypeSafetyData(SrcLPI, dtrans::BadMemFuncManipulation);
         return;
       } else if (!SrcParentTy &&
                  isAliasSetOverloaded(SrcLPI.getPointerTypeAliasSet())) {
-        DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
-                     << "Aliased type for source operand.\n"
-                     << "  " << I << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
+                          << "Aliased type for source operand.\n"
+                          << "  " << I << "\n");
 
         setAllAliasedTypeSafetyData(DstLPI, dtrans::BadMemFuncManipulation);
         setAllAliasedTypeSafetyData(SrcLPI, dtrans::AmbiguousPointerTarget);
@@ -3283,9 +3293,9 @@ private:
     }
 
     if (DestParentTy != SrcParentTy) {
-      DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
-                   << "Different types for source and destination:\n"
-                   << "  " << I << "\n");
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
+                        << "Different types for source and destination:\n"
+                        << "  " << I << "\n");
 
       setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
       setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncManipulation);
@@ -3398,10 +3408,11 @@ private:
 
         return;
       } else {
-        DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
-                     << "source and destination pointer to member types or "
-                        "offsets do not match:\n"
-                     << "  " << I << "\n");
+        LLVM_DEBUG(
+            dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
+                   << "source and destination pointer to member types or "
+                      "offsets do not match:\n"
+                   << "  " << I << "\n");
 
         setBaseTypeInfoSafetyData(DstStructTy, dtrans::BadMemFuncManipulation);
         setBaseTypeInfoSafetyData(SrcStructTy, dtrans::BadMemFuncManipulation);
@@ -3447,9 +3458,9 @@ private:
       return;
     }
 
-    DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
-                 << "size is not a multiple of type size:\n"
-                 << "  " << I << "\n");
+    LLVM_DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
+                      << "size is not a multiple of type size:\n"
+                      << "  " << I << "\n");
 
     setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncSize);
   }
@@ -3564,9 +3575,9 @@ private:
       // If not all members of the structure were set, mark it as
       // a partial write.
       if (!RegionDesc.IsCompleteAggregate) {
-        DEBUG(dbgs() << "dtrans-safety: Memfunc partial write -- "
-                     << "size is a subset of fields:\n"
-                     << "  " << I << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Memfunc partial write -- "
+                          << "size is a subset of fields:\n"
+                          << "  " << I << "\n");
 
         ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
       }
@@ -3580,9 +3591,9 @@ private:
         markAllFieldsMultipleValue(ParentTI);
     } else {
       // The size could not be matched to the fields of the structure.
-      DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
-                   << "size does not equal member field type(s) size:\n"
-                   << "  " << I << "\n");
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
+                        << "size does not equal member field type(s) size:\n"
+                        << "  " << I << "\n");
 
       setBaseTypeInfoSafetyData(StructTy, dtrans::BadMemFuncSize);
       return false;
@@ -3721,20 +3732,20 @@ private:
         llvm::Constant *ConstVal = Init->getAggregateElement(I);
         dtrans::FieldInfo &FI = StInfo->getField(I);
         analyzeGlobalStructSingleValue(FieldTy, ConstVal);
-        DEBUG(dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " [" << I
-                     << "] ");
+        LLVM_DEBUG(dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " ["
+                          << I << "] ");
         if (ConstVal->getType() == FieldTy) {
-          DEBUG(ConstVal->printAsOperand(dbgs()));
+          LLVM_DEBUG(ConstVal->printAsOperand(dbgs()));
           FI.processNewSingleValue(ConstVal);
-          DEBUG(dbgs() << (FI.isMultipleValue() ? " <MULTIPLE>\n" : "\n"));
+          LLVM_DEBUG(dbgs() << (FI.isMultipleValue() ? " <MULTIPLE>\n" : "\n"));
         } else {
-          DEBUG(dbgs() << "<MULTIPLE>\n");
+          LLVM_DEBUG(dbgs() << "<MULTIPLE>\n");
           FI.setMultipleValue();
         }
         if (!isa<ConstantPointerNull>(ConstVal)) {
           if (!FI.isBottomAllocFunction())
-            DEBUG(dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType()) << " ["
-                         << I << "] <BOTTOM>\n");
+            LLVM_DEBUG(dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType())
+                              << " [" << I << "] <BOTTOM>\n");
           FI.setBottomAllocFunction();
         }
       }
@@ -3760,8 +3771,8 @@ private:
     if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
       int Count = 0;
       for (auto &FI : StInfo->getFields()) {
-        DEBUG(dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " ["
-                     << Count << "] <MULTIPLE>\n");
+        LLVM_DEBUG(dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " ["
+                          << Count << "] <MULTIPLE>\n");
         FI.setMultipleValue();
         auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
         markAllFieldsMultipleValue(ComponentTI);
@@ -3786,9 +3797,9 @@ private:
     LocalPointerInfo &RHSLPI = LPA.getLocalPointerInfo(I.getOperand(1));
 
     if (LHSLPI.pointsToSomeElement()) {
-      DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
-                   << "pointer to element used in sub instruction:\n"
-                   << "  " << I << "\n");
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
+                        << "pointer to element used in sub instruction:\n"
+                        << "  " << I << "\n");
       // Selects and PHIs may have created a pointer that refers to
       // elements in multiple aggregate types. This sets the bad pointer
       // manipulation condition for them all.
@@ -3798,9 +3809,9 @@ private:
       }
     }
     if (RHSLPI.pointsToSomeElement()) {
-      DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
-                   << "pointer to element used in sub instruction:\n"
-                   << "  " << I << "\n");
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
+                        << "pointer to element used in sub instruction:\n"
+                        << "  " << I << "\n");
       // Selects and PHIs may have created a pointer that refers to
       // elements in multiple aggregate types. This sets the bad pointer
       // manipulation condition for them all.
@@ -3812,7 +3823,7 @@ private:
 
     if (!pointerAliasSetsAreEqual(LHSLPI.getPointerTypeAliasSet(),
                                   RHSLPI.getPointerTypeAliasSet())) {
-      DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
                    << "sub instruction operands do not match:\n"
                    << "  " << I << "\n");
       setValueTypeInfoSafetyData(I.getOperand(0), dtrans::UnhandledUse);
@@ -3843,7 +3854,7 @@ private:
       if (!ElementTy->isPointerTy()) {
         uint64_t ElementSize = DL.getTypeAllocSize(ElementTy);
         if (hasNonDivBySizeUses(&I, ElementSize)) {
-          DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
                        << "Pointer subtract result has non-div use:\n"
                        << "  " << I << "\n");
           // Both operands have the same alias set, so we only need to set the
@@ -3871,7 +3882,7 @@ private:
           return true;
         continue;
       }
-      DEBUG(dbgs() << "Non-div use found for pointer sub: " << *U << "\n");
+      LLVM_DEBUG(dbgs() << "Non-div use found for pointer sub: " << *U << "\n");
       return true;
     }
     return false;
@@ -3902,9 +3913,9 @@ private:
 
     for (Value *Arg : I.operands()) {
       if (isValueOfInterest(Arg)) {
-        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                     << "Type used by an unmodeled binary operator:\n"
-                     << "  " << I << "\n");
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                          << "Type used by an unmodeled binary operator:\n"
+                          << "  " << I << "\n");
         setValueTypeInfoSafetyData(Arg, dtrans::UnhandledUse);
       }
     }

@@ -140,8 +140,8 @@ unsigned LoopVectorizationPlannerBase::selectBestPlan() {
     // FIXME: this code should be revisited later to select best UF
     // even with forced VF.
     BestUF = 1;
-    DEBUG(dbgs() << "There is only VPlan with VF=" << BestVF
-                 << ", selecting it.\n");
+    LLVM_DEBUG(dbgs() << "There is only VPlan with VF=" << BestVF
+                      << ", selecting it.\n");
     return ForcedVF;
   }
 
@@ -160,7 +160,7 @@ unsigned LoopVectorizationPlannerBase::selectBestPlan() {
   // FIXME: Currently, unroll is not in VPlan, so set it to 1.
   BestUF = 1;
   unsigned BestCost = ScalarCost;
-  DEBUG(dbgs() << "Cost of Scalar VPlan: " << ScalarCost << '\n');
+  LLVM_DEBUG(dbgs() << "Cost of Scalar VPlan: " << ScalarCost << '\n');
 
   // FIXME: Currently limit this to VF = 16. Has to be fixed with more accurate
   // cost model.
@@ -182,7 +182,8 @@ unsigned LoopVectorizationPlannerBase::selectBestPlan() {
     // representation of peel/remainder not ready.
     unsigned VectorCost = VectorIterationCost * (TripCount / VF) +
                           ScalarIterationCost * (TripCount % VF);
-    DEBUG(dbgs() << "Cost of VPlan for VF=" << VF << ": " << VectorCost << '\n');
+    LLVM_DEBUG(dbgs() << "Cost of VPlan for VF=" << VF << ": " << VectorCost
+                      << '\n');
     if (VectorCost < BestCost) {
       BestCost = VectorCost;
       BestVF = VF;
@@ -193,7 +194,7 @@ unsigned LoopVectorizationPlannerBase::selectBestPlan() {
     if (It.first != BestVF)
       VPlans.erase(It.first);
   }
-  DEBUG(dbgs() << "Selecting VPlan with VF=" << BestVF << '\n');
+  LLVM_DEBUG(dbgs() << "Selecting VPlan with VF=" << BestVF << '\n');
   return BestVF;
 }
 

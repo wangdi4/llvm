@@ -272,7 +272,7 @@ void VPlanVerifier::verifyHierarchicalCFG(
   if (DisableHCFGVerification)
     return;
 
-  DEBUG(dbgs() << "Verifying Hierarchical CFG.\n");
+  LLVM_DEBUG(dbgs() << "Verifying Hierarchical CFG.\n");
 
   if (VPLInfo)
     verifyLoops(TopRegion);

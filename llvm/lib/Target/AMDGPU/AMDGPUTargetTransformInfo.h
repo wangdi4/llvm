@@ -21,6 +21,7 @@
 #include "AMDGPU.h"
 #include "AMDGPUSubtarget.h"
 #include "AMDGPUTargetMachine.h"
+#include "MCTargetDesc/AMDGPUMCTargetDesc.h"
 #include "Utils/AMDGPUBaseInfo.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -176,6 +177,9 @@ public:
   int getArithmeticReductionCost(unsigned Opcode,
                                  Type *Ty,
                                  bool IsPairwise);
+  int getMinMaxReductionCost(Type *Ty, Type *CondTy,
+                             bool IsPairwiseForm,
+                             bool IsUnsigned);
 };
 
 } // end namespace llvm

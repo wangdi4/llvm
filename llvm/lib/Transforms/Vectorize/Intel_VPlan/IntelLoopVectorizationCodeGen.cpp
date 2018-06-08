@@ -82,7 +82,7 @@ static bool hasOutsideLoopUser(const Loop *TheLoop, Instruction *Inst,
       Instruction *UI = cast<Instruction>(U);
       // This user may be a reduction exit value.
       if (!TheLoop->contains(UI)) {
-        DEBUG(dbgs() << "LV: Found an outside user for : " << *UI << '\n');
+        LLVM_DEBUG(dbgs() << "LV: Found an outside user for : " << *UI << '\n');
         return true;
       }
     }
@@ -378,7 +378,7 @@ void VPOVectorizationLegality::parseBinOpReduction(
     Value *CombinerV = (ReductionPhi->getIncomingValue(0) == StartV) ?
       ReductionPhi->getIncomingValue(1) : ReductionPhi->getIncomingValue(0);
     if (!checkCombinerOp(CombinerV, Kind)) {
-      DEBUG(dbgs() << "LV: Combiner op does not match reduction type ");
+      LLVM_DEBUG(dbgs() << "LV: Combiner op does not match reduction type ");
       return;
     }
     Instruction *Combiner = cast<Instruction>(CombinerV);
@@ -392,7 +392,7 @@ void VPOVectorizationLegality::parseBinOpReduction(
     InMemoryReductions[RedVarPtr] = { Kind, RecurrenceDescriptor::MRK_Invalid };
 
   if (!UsePhi  && !UseMemory)
-    DEBUG(dbgs() << "LV: Explicit reduction pattern is not recognized ");
+    LLVM_DEBUG(dbgs() << "LV: Explicit reduction pattern is not recognized ");
 }
 
 void VPOVectorizationLegality::parseExplicitReduction(
@@ -450,20 +450,20 @@ void VPOVectorizationLegality::addReductionMax(Value *V, bool IsSigned) {
 bool VPOVectorizationLegality::canVectorize() {
 
   if (TheLoop->getNumBackEdges() != 1 || !TheLoop->getExitingBlock()) {
-    DEBUG(dbgs() << "loop control flow is not understood by vectorizer");
+    LLVM_DEBUG(dbgs() << "loop control flow is not understood by vectorizer");
     return false;
   }
   // We only handle bottom-tested loops, i.e. loop in which the condition is
   // checked at the end of each iteration. With that we can assume that all
   // instructions in the loop are executed the same number of times.
   if (TheLoop->getExitingBlock() != TheLoop->getLoopLatch()) {
-    DEBUG(dbgs() << "loop control flow is not understood by vectorizer");
+    LLVM_DEBUG(dbgs() << "loop control flow is not understood by vectorizer");
     return false;
   }
   // ScalarEvolution needs to be able to find the exit count.
   const SCEV *ExitCount = PSE.getBackedgeTakenCount();
   if (ExitCount == PSE.getSE()->getCouldNotCompute()) {
-    DEBUG(dbgs() << "LV: SCEV could not compute the loop exit count.\n");
+    LLVM_DEBUG(dbgs() << "LV: SCEV could not compute the loop exit count.\n");
     return false;
   }
 
@@ -486,14 +486,14 @@ bool VPOVectorizationLegality::canVectorize() {
             continue;
           if (isUsedInReductionScheme(Phi, ExplicitReductions))
             continue;
-          DEBUG(dbgs() << "LV: PHI value could not be identified as" <<
-                " an induction or reduction \n");
+          LLVM_DEBUG(dbgs() << "LV: PHI value could not be identified as"
+                            << " an induction or reduction \n");
           return false;
         }
 
         // We only allow if-converted PHIs with exactly two incoming values.
         if (Phi->getNumIncomingValues() != 2) {
-          DEBUG(dbgs() << "LV: Found an invalid PHI.\n");
+          LLVM_DEBUG(dbgs() << "LV: Found an invalid PHI.\n");
           return false;
         }
  
@@ -513,7 +513,7 @@ bool VPOVectorizationLegality::canVectorize() {
           continue;
         }
 
-        DEBUG(dbgs() << "LV: Found an unidentified PHI." << *Phi << "\n");
+        LLVM_DEBUG(dbgs() << "LV: Found an unidentified PHI." << *Phi << "\n");
         return false;
       } // end of PHI handling
 
@@ -523,8 +523,8 @@ bool VPOVectorizationLegality::canVectorize() {
             isa<ConstantAggregateZero>(ShufInst->getMask()))
           continue;
 
-        DEBUG(dbgs() << "LV: Unsupported shufflevector instruction." <<
-              *ShufInst << "\n");
+        LLVM_DEBUG(dbgs() << "LV: Unsupported shufflevector instruction."
+                          << *ShufInst << "\n");
         return false;
       }
 
@@ -543,7 +543,7 @@ bool VPOVectorizationLegality::canVectorize() {
     }
   }
   if (!Induction && Inductions.empty()) {
-    DEBUG(dbgs() << "LV: Did not find one integer induction var.\n");
+    LLVM_DEBUG(dbgs() << "LV: Did not find one integer induction var.\n");
     return false;
   }
 
@@ -607,7 +607,7 @@ void VPOVectorizationLegality::addInductionPhi(
   AllowedExit.insert(Phi);
   AllowedExit.insert(Phi->getIncomingValueForBlock(TheLoop->getLoopLatch()));
 
-  DEBUG(dbgs() << "LV: Found an induction variable.\n");
+  LLVM_DEBUG(dbgs() << "LV: Found an induction variable.\n");
   return;
 }
 
@@ -1093,7 +1093,7 @@ void VPOCodeGen::updateAnalysis() {
   DT->changeImmediateDominator(LoopScalarBody, LoopScalarPreHeader);
   DT->changeImmediateDominator(LoopExitBlock, LoopBypassBlocks[0]);
 
-  //DEBUG(DT->verifyDomTree());
+  // LLVM_DEBUG(DT->verifyDomTree());
 }
 
 Value *VPOCodeGen::getBroadcastInstrs(Value *V) {
@@ -2599,10 +2599,12 @@ VectorVariant* VPOCodeGen::matchVectorVariant(Function *CalledFunc,
 
   VectorVariant *SelectedVariant = nullptr;
 
-  DEBUG(dbgs() << "Trying to find match for: " << CalledFunc->getName() << "\n");
-  DEBUG(dbgs() << "\nCall VF: " << VF << "\n");
+  LLVM_DEBUG(dbgs() << "Trying to find match for: " << CalledFunc->getName()
+                    << "\n");
+  LLVM_DEBUG(dbgs() << "\nCall VF: " << VF << "\n");
   unsigned TargetMaxRegWidth = TTI->getRegisterBitWidth(true);
-  DEBUG(dbgs() << "Target Max Register Width: " << TargetMaxRegWidth << "\n");
+  LLVM_DEBUG(dbgs() << "Target Max Register Width: " << TargetMaxRegWidth
+                    << "\n");
 
   VectorVariant::ISAClass TargetIsaClass;
   switch (TargetMaxRegWidth) {
@@ -2625,8 +2627,9 @@ VectorVariant* VPOCodeGen::matchVectorVariant(Function *CalledFunc,
     default:
       llvm_unreachable("Invalid target vector register width");
   }
-  DEBUG(dbgs() << "Target ISA Class: "
-               << VectorVariant::ISAClassToString(TargetIsaClass) << "\n\n");
+  LLVM_DEBUG(dbgs() << "Target ISA Class: "
+                    << VectorVariant::ISAClassToString(TargetIsaClass)
+                    << "\n\n");
 
   if (CalledFunc->hasFnAttribute("vector-variants")) {
     Attribute Attr = CalledFunc->getFnAttribute("vector-variants");
@@ -2638,20 +2641,22 @@ VectorVariant* VPOCodeGen::matchVectorVariant(Function *CalledFunc,
     for (unsigned i = 0; i < Variants.size(); i++) {
       VectorVariant *Variant = new VectorVariant(Variants[i]);
       VectorVariant::ISAClass VariantIsaClass = Variant->getISA();
-      DEBUG(dbgs() << "Variant ISA Class: "
-                   << VectorVariant::ISAClassToString(VariantIsaClass) << "\n");
+      LLVM_DEBUG(dbgs() << "Variant ISA Class: "
+                        << VectorVariant::ISAClassToString(VariantIsaClass)
+                        << "\n");
       unsigned IsaClassMaxRegWidth =
         VectorVariant::ISAClassMaxRegisterWidth(VariantIsaClass);
-      DEBUG(dbgs() << "Isa Class Max Vector Register Width: "
-                   << IsaClassMaxRegWidth << "\n");
+      LLVM_DEBUG(dbgs() << "Isa Class Max Vector Register Width: "
+                        << IsaClassMaxRegWidth << "\n");
       (void) IsaClassMaxRegWidth;
       unsigned FuncVF = Variant->getVlen();
-      DEBUG(dbgs() << "Func VF: " << FuncVF << "\n\n");
+      LLVM_DEBUG(dbgs() << "Func VF: " << FuncVF << "\n\n");
 
       // Select the largest supported ISA Class for this target.
       if (FuncVF == VF && VariantIsaClass <= TargetIsaClass &&
         Variant->isMasked() == Masked && VariantIsaClass >= SelectedIsaClass) {
-        DEBUG(dbgs() << "Candidate Function: " << Variant->encode() << "\n");
+        LLVM_DEBUG(dbgs() << "Candidate Function: " << Variant->encode()
+                          << "\n");
         SelectedIsaClass = VariantIsaClass;
         VariantIdx = i;
       }
@@ -2739,11 +2744,11 @@ Value* VPOCodeGen::vectorizeOpenCLWriteChannelSrc(CallInst *Call,
 
   for (auto *U : WriteSrcUsers) {
     if (StoreInst *StoreToWriteSrc = dyn_cast<StoreInst>(U)) {
-      DEBUG(dbgs() << "StoreToWriteSrc: " << *StoreToWriteSrc << "\n");
+      LLVM_DEBUG(dbgs() << "StoreToWriteSrc: " << *StoreToWriteSrc << "\n");
       Value *StoreVal = StoreToWriteSrc->getOperand(0);
-      DEBUG(dbgs() << "StoreVal: " << *StoreVal << "\n");
+      LLVM_DEBUG(dbgs() << "StoreVal: " << *StoreVal << "\n");
       VecWriteSrc = getVectorValue(StoreVal);
-      DEBUG(dbgs() << "VecWriteSrc: " << *VecWriteSrc << "\n");
+      LLVM_DEBUG(dbgs() << "VecWriteSrc: " << *VecWriteSrc << "\n");
       NumStoresToWriteSrc++;
     }
   }
@@ -2759,7 +2764,7 @@ void VPOCodeGen::vectorizeOpenCLReadChannelDest(CallInst *Call,
                                                 Value *CallOp) {
 
   Value *ReadDst = getOpenCLReadWriteChannelAlloc(Call);
-  DEBUG(dbgs() << "ReadDst: " << *ReadDst << "\n");
+  LLVM_DEBUG(dbgs() << "ReadDst: " << *ReadDst << "\n");
 
   // Write the return value from the vector call to the widened private pointer
   // for the read destination.
@@ -2952,7 +2957,8 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
     //    appropriate match.
     // 2) A SIMD function is not a library function.
     MatchedVariant = matchVectorVariant(CalledFunc, isMasked);
-    DEBUG(dbgs() << "Matched Variant: " << MatchedVariant->encode() << "\n");
+    LLVM_DEBUG(dbgs() << "Matched Variant: " << MatchedVariant->encode()
+                      << "\n");
   }
 
   vectorizeCallArgs(Call, MatchedVariant, VecArgs, VecArgTys);
@@ -3178,7 +3184,7 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
            isOpenCLWriteChannel(CalledFunc)))
       vectorizeCallInstruction(Call);
     else {
-      DEBUG(dbgs() << "Function " << CalledFunc << " is serialized\n");
+      LLVM_DEBUG(dbgs() << "Function " << CalledFunc << " is serialized\n");
       serializeWithPredication(Call);
     }
     break;
@@ -3429,7 +3435,7 @@ void VPOVectorizationLegality::collectLoopUniformsForAnyVF() {
   auto *Cmp = dyn_cast<Instruction>(Latch->getTerminator()->getOperand(0));
   if (Cmp && TheLoop->contains(Cmp) && Cmp->hasOneUse()) {
     Worklist.insert(Cmp);
-    DEBUG(dbgs() << "LV: Found uniform instruction: " << *Cmp << "\n");
+    LLVM_DEBUG(dbgs() << "LV: Found uniform instruction: " << *Cmp << "\n");
   }
 
   for (auto *BB : TheLoop->blocks())
@@ -3453,19 +3459,21 @@ void VPOVectorizationLegality::collectLoopUniformsForAnyVF() {
         const Loop *InnerLoop = nullptr;
         if (isInnerLoopInduction(Phi, InnerLoop)) {
           Worklist.insert(Phi);
-          DEBUG(dbgs() << "LV: Found uniform instruction: " << *Phi << "\n");
+          LLVM_DEBUG(dbgs()
+                     << "LV: Found uniform instruction: " << *Phi << "\n");
           BasicBlock *InnerLoopLatch = InnerLoop->getLoopLatch();
           BranchInst *Br = cast<BranchInst>(InnerLoopLatch->getTerminator());
           Worklist.insert(Br);
           auto *Cmp = dyn_cast<Instruction>(Br->getOperand(0));
           if (Cmp && InnerLoop->contains(Cmp) && Cmp->hasOneUse()) {
             Worklist.insert(Cmp);
-            DEBUG(dbgs() << "LV: Found uniform instruction: " << *Cmp << "\n");
+            LLVM_DEBUG(dbgs()
+                       << "LV: Found uniform instruction: " << *Cmp << "\n");
           }
           auto *IndUpdate =
             cast<Instruction>(Phi->getIncomingValueForBlock(InnerLoopLatch));
-          DEBUG(dbgs() << "LV: Found uniform instruction: " << *IndUpdate <<
-                "\n");
+          LLVM_DEBUG(dbgs() << "LV: Found uniform instruction: " << *IndUpdate
+                            << "\n");
           Worklist.insert(IndUpdate);
         }
       } else if (auto Br = dyn_cast<BranchInst>(&I)) {
@@ -3517,12 +3525,14 @@ void VPOVectorizationLegality::collectLoopUniformsForAnyVF() {
               return isOutOfScope(U) || Worklist.count(cast<Instruction>(U));
             })) {
           Worklist.insert(OI);
-          DEBUG(dbgs() << "LV: Found uniform instruction: " << *OI << "\n");
+          LLVM_DEBUG(dbgs()
+                     << "LV: Found uniform instruction: " << *OI << "\n");
           if (all_of(OV->users(), [&](User *U) -> bool {
                 return isOutOfScope(U) || Worklist.count(cast<Instruction>(U));
               })) {
             Worklist.insert(OI);
-            DEBUG(dbgs() << "LV: Found uniform instruction: " << *OI << "\n");
+            LLVM_DEBUG(dbgs()
+                       << "LV: Found uniform instruction: " << *OI << "\n");
           }
         }
       }
@@ -3613,7 +3623,7 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
   // aren't also identified as possibly non-uniform.
   for (auto *V : ConsecutiveLikePtrs)
     if (!PossibleNonUniformPtrs.count(V)) {
-      DEBUG(dbgs() << "LV: Found uniform instruction: " << *V << "\n");
+      LLVM_DEBUG(dbgs() << "LV: Found uniform instruction: " << *V << "\n");
       Worklist.insert(V);
     }
 
@@ -3631,7 +3641,8 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
               return isOutOfScope(U) || Worklist.count(cast<Instruction>(U));
             })) {
           Worklist.insert(OI);
-          DEBUG(dbgs() << "LV: Found uniform instruction: " << *OI << "\n");
+          LLVM_DEBUG(dbgs()
+                     << "LV: Found uniform instruction: " << *OI << "\n");
         }
       }
     }
@@ -3677,8 +3688,9 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
     // The induction variable and its update instruction will remain uniform.
     Worklist.insert(Ind);
     Worklist.insert(IndUpdate);
-    DEBUG(dbgs() << "LV: Found uniform instruction: " << *Ind << "\n");
-    DEBUG(dbgs() << "LV: Found uniform instruction: " << *IndUpdate << "\n");
+    LLVM_DEBUG(dbgs() << "LV: Found uniform instruction: " << *Ind << "\n");
+    LLVM_DEBUG(dbgs() << "LV: Found uniform instruction: " << *IndUpdate
+                      << "\n");
   }
 
   Uniforms[VF].insert(Worklist.begin(), Worklist.end());

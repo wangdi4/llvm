@@ -106,8 +106,8 @@ void WRegionNode::finalize(BasicBlock *ExitBB, DominatorTree *DT) {
            // Orig appears in both firstprivate and lastprivate clauses
            FprivI->setInLastprivate(LprivI);
            LprivI->setInFirstprivate(FprivI);
-           DEBUG(dbgs() << "Found (" << *Orig
-                        << ") in both Firstprivate and Lastprivate\n");
+           LLVM_DEBUG(dbgs() << "Found (" << *Orig
+                             << ") in both Firstprivate and Lastprivate\n");
         }
       }
       if (hasMap) {
@@ -116,8 +116,8 @@ void WRegionNode::finalize(BasicBlock *ExitBB, DominatorTree *DT) {
            // Orig appears in both firstprivate and map clauses
            FprivI->setInMap(MapI);
            MapI->setInFirstprivate(FprivI);
-           DEBUG(dbgs() << "Found (" << *Orig
-                        << ") in both Firstprivate and Map\n");
+           LLVM_DEBUG(dbgs() << "Found (" << *Orig
+                             << ") in both Firstprivate and Map\n");
         }
       }
     }
@@ -134,9 +134,10 @@ void WRegionNode::finalize(BasicBlock *ExitBB, DominatorTree *DT) {
     getWRNLoopInfo().setLoop(Lp);
 
     if (Lp)
-      DEBUG(dbgs() << "\n=== finalize WRN: found loop : " << *Lp << "\n");
+      LLVM_DEBUG(dbgs() << "\n=== finalize WRN: found loop : " << *Lp << "\n");
     else
-      DEBUG(dbgs() << "\n=== finalize WRN: loop not found. Optimized away?\n");
+      LLVM_DEBUG(
+          dbgs() << "\n=== finalize WRN: loop not found. Optimized away?\n");
 
     // For taskloop, the runtime has a parameter for either Grainsize or
     // NumTasks, which is chosen by the parameter SchedCode:
@@ -166,7 +167,7 @@ void WRegionNode::finalize(BasicBlock *ExitBB, DominatorTree *DT) {
         for (Instruction &I : *BB)
           if (VPOAnalysisUtils::isCallOfName(&I, "__read_pipe_2_bl_intel")) {
             CallInst *Call = dyn_cast<CallInst>(&I);
-            // DEBUG(dbgs() << "Found Call: " << *Call << "\n");
+            // LLVM_DEBUG(dbgs() << "Found Call: " << *Call << "\n");
             assert(Call->getNumArgOperands()==2 &&
                    "__read_pipe_2_bl_intel() is expected to have 2 operands");
             Value *V = Call->getArgOperand(1); // second operand
@@ -174,11 +175,11 @@ void WRegionNode::finalize(BasicBlock *ExitBB, DominatorTree *DT) {
             assert (Alloca &&
                     "Alloca not found for __read_pipe_2_bl_intel operand");
             if (Alloca) {
-              // DEBUG(dbgs() << "Found Alloca: " << *Alloca << "\n");
+              // LLVM_DEBUG(dbgs() << "Found Alloca: " << *Alloca << "\n");
               if (!contains(Alloca->getParent())) {
                 // Alloca is outside of the WRN, so privatize it
                 PC.add(Alloca);
-                // DEBUG(dbgs() << "Will privatize: " << *Alloca << "\n");
+                // LLVM_DEBUG(dbgs() << "Will privatize: " << *Alloca << "\n");
               }
               // else do nothing: the alloca is inside the WRN hence it is
               // already private
@@ -730,7 +731,8 @@ void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
   ConstantInt *CI = dyn_cast<ConstantInt>(ChunkArg);
   if (CI != nullptr) {
     ChunkSize = *((CI->getValue()).getRawData());
-    DEBUG(dbgs() << " Schedule chunk size is constant: " << ChunkSize << "\n");
+    LLVM_DEBUG(dbgs() << " Schedule chunk size is constant: " << ChunkSize
+                      << "\n");
   }
   Sched.setChunk(ChunkSize);
 
@@ -740,11 +742,11 @@ void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
   Sched.setIsSchedSimd(ClauseInfo.getIsScheduleSimd());
 
   // TODO: define the print() method for ScheduleClause to print stuff below
-  DEBUG(dbgs() << "=== "<< ClauseInfo.getBaseName());
-  DEBUG(dbgs() << "  Chunk=" << *Sched.getChunkExpr());
-  DEBUG(dbgs() << "  Monotonic=" << Sched.getIsSchedMonotonic());
-  DEBUG(dbgs() << "  Nonmonotonic=" << Sched.getIsSchedNonmonotonic());
-  DEBUG(dbgs() << "  Simd=" << Sched.getIsSchedSimd() << "\n");
+  LLVM_DEBUG(dbgs() << "=== " << ClauseInfo.getBaseName());
+  LLVM_DEBUG(dbgs() << "  Chunk=" << *Sched.getChunkExpr());
+  LLVM_DEBUG(dbgs() << "  Monotonic=" << Sched.getIsSchedMonotonic());
+  LLVM_DEBUG(dbgs() << "  Nonmonotonic=" << Sched.getIsSchedNonmonotonic());
+  LLVM_DEBUG(dbgs() << "  Simd=" << Sched.getIsSchedSimd() << "\n");
 
   return;
 }

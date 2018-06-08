@@ -96,7 +96,6 @@ private:
 
   bool parseDirectiveArch(SMLoc L);
   bool parseDirectiveCPU(SMLoc L);
-  bool parseDirectiveWord(unsigned Size, SMLoc L);
   bool parseDirectiveInst(SMLoc L);
 
   bool parseDirectiveTLSDescCall(SMLoc L);
@@ -128,6 +127,7 @@ private:
   OperandMatchResultTy tryParseMRSSystemRegister(OperandVector &Operands);
   OperandMatchResultTy tryParseSysReg(OperandVector &Operands);
   OperandMatchResultTy tryParseSysCROperand(OperandVector &Operands);
+  template <bool IsSVEPrefetch = false>
   OperandMatchResultTy tryParsePrefetch(OperandVector &Operands);
   OperandMatchResultTy tryParsePSBHint(OperandVector &Operands);
   OperandMatchResultTy tryParseAdrpLabel(OperandVector &Operands);
@@ -164,6 +164,13 @@ public:
     MCStreamer &S = getParser().getStreamer();
     if (S.getTargetStreamer() == nullptr)
       new AArch64TargetStreamer(S);
+
+    // Alias .hword/.word/xword to the target-independent .2byte/.4byte/.8byte
+    // directives as they have the same form and semantics:
+    ///  ::= (.hword | .word | .xword ) [ expression (, expression)* ]
+    Parser.addAliasForDirective(".hword", ".2byte");
+    Parser.addAliasForDirective(".word", ".4byte");
+    Parser.addAliasForDirective(".xword", ".8byte");
 
     // Initialize the set of available features.
     setAvailableFeatures(ComputeAvailableFeatures(getSTI().getFeatureBits()));
@@ -871,20 +878,36 @@ public:
   }
 
   template <int ElementWidth, unsigned Class>
-  bool isSVEVectorRegOfWidth() const {
-    return isSVEVectorReg<Class>() &&
-           (ElementWidth == 0 || Reg.ElementWidth == ElementWidth);
+  DiagnosticPredicate isSVEPredicateVectorRegOfWidth() const {
+    if (Kind != k_Register || Reg.Kind != RegKind::SVEPredicateVector)
+      return DiagnosticPredicateTy::NoMatch;
+
+    if (isSVEVectorReg<Class>() &&
+           (ElementWidth == 0 || Reg.ElementWidth == ElementWidth))
+      return DiagnosticPredicateTy::Match;
+
+    return DiagnosticPredicateTy::NearMatch;
+  }
+
+  template <int ElementWidth, unsigned Class>
+  DiagnosticPredicate isSVEDataVectorRegOfWidth() const {
+    if (Kind != k_Register || Reg.Kind != RegKind::SVEDataVector)
+      return DiagnosticPredicateTy::NoMatch;
+
+    if (isSVEVectorReg<Class>() &&
+           (ElementWidth == 0 || Reg.ElementWidth == ElementWidth))
+      return DiagnosticPredicateTy::Match;
+
+    return DiagnosticPredicateTy::NearMatch;
   }
 
   template <int ElementWidth, unsigned Class,
             AArch64_AM::ShiftExtendType ShiftExtendTy, int ShiftWidth,
             bool ShiftWidthAlwaysSame>
-  DiagnosticPredicate isSVEVectorRegWithShiftExtend() const {
-    if (Kind != k_Register || Reg.Kind != RegKind::SVEDataVector)
+  DiagnosticPredicate isSVEDataVectorRegWithShiftExtend() const {
+    auto VectorMatch = isSVEDataVectorRegOfWidth<ElementWidth, Class>();
+    if (!VectorMatch.isMatch())
       return DiagnosticPredicateTy::NoMatch;
-
-    if (!isSVEVectorRegOfWidth<ElementWidth, Class>())
-      return DiagnosticPredicateTy::NearMatch;
 
     // Give a more specific diagnostic when the user has explicitly typed in
     // a shift-amount that does not match what is expected, but for which
@@ -2033,11 +2056,32 @@ AArch64AsmParser::tryParseSysCROperand(OperandVector &Operands) {
 }
 
 /// tryParsePrefetch - Try to parse a prefetch operand.
+template <bool IsSVEPrefetch>
 OperandMatchResultTy
 AArch64AsmParser::tryParsePrefetch(OperandVector &Operands) {
   MCAsmParser &Parser = getParser();
   SMLoc S = getLoc();
   const AsmToken &Tok = Parser.getTok();
+
+  auto LookupByName = [](StringRef N) {
+    if (IsSVEPrefetch) {
+      if (auto Res = AArch64SVEPRFM::lookupSVEPRFMByName(N))
+        return Optional<unsigned>(Res->Encoding);
+    } else if (auto Res = AArch64PRFM::lookupPRFMByName(N))
+      return Optional<unsigned>(Res->Encoding);
+    return Optional<unsigned>();
+  };
+
+  auto LookupByEncoding = [](unsigned E) {
+    if (IsSVEPrefetch) {
+      if (auto Res = AArch64SVEPRFM::lookupSVEPRFMByEncoding(E))
+        return Optional<StringRef>(Res->Name);
+    } else if (auto Res = AArch64PRFM::lookupPRFMByEncoding(E))
+      return Optional<StringRef>(Res->Name);
+    return Optional<StringRef>();
+  };
+  unsigned MaxVal = IsSVEPrefetch ? 15 : 31;
+
   // Either an identifier for named values or a 5-bit immediate.
   // Eat optional hash.
   if (parseOptionalToken(AsmToken::Hash) ||
@@ -2052,31 +2096,32 @@ AArch64AsmParser::tryParsePrefetch(OperandVector &Operands) {
       return MatchOperand_ParseFail;
     }
     unsigned prfop = MCE->getValue();
-    if (prfop > 31) {
-      TokError("prefetch operand out of range, [0,31] expected");
+    if (prfop > MaxVal) {
+      TokError("prefetch operand out of range, [0," + utostr(MaxVal) +
+               "] expected");
       return MatchOperand_ParseFail;
     }
 
-    auto PRFM = AArch64PRFM::lookupPRFMByEncoding(MCE->getValue());
+    auto PRFM = LookupByEncoding(MCE->getValue());
     Operands.push_back(AArch64Operand::CreatePrefetch(
-        prfop, PRFM ? PRFM->Name : "", S, getContext()));
+        prfop, PRFM.getValueOr(""), S, getContext()));
     return MatchOperand_Success;
   }
 
   if (Tok.isNot(AsmToken::Identifier)) {
-    TokError("pre-fetch hint expected");
+    TokError("prefetch hint expected");
     return MatchOperand_ParseFail;
   }
 
-  auto PRFM = AArch64PRFM::lookupPRFMByName(Tok.getString());
+  auto PRFM = LookupByName(Tok.getString());
   if (!PRFM) {
-    TokError("pre-fetch hint expected");
+    TokError("prefetch hint expected");
     return MatchOperand_ParseFail;
   }
 
   Parser.Lex(); // Eat identifier token.
   Operands.push_back(AArch64Operand::CreatePrefetch(
-      PRFM->Encoding, Tok.getString(), S, getContext()));
+      *PRFM, Tok.getString(), S, getContext()));
   return MatchOperand_Success;
 }
 
@@ -3630,6 +3675,8 @@ bool AArch64AsmParser::showMatchError(SMLoc Loc, unsigned ErrCode,
     return Error(Loc, "index must be a multiple of 4 in range [-32, 28].");
   case Match_InvalidMemoryIndexed16SImm4:
     return Error(Loc, "index must be a multiple of 16 in range [-128, 112].");
+  case Match_InvalidMemoryIndexed1SImm6:
+    return Error(Loc, "index must be an integer in range [-32, 31].");
   case Match_InvalidMemoryIndexedSImm9:
     return Error(Loc, "index must be an integer in range [-256, 255].");
   case Match_InvalidMemoryIndexed8SImm10:
@@ -3792,6 +3839,14 @@ bool AArch64AsmParser::showMatchError(SMLoc Loc, unsigned ErrCode,
     return Error(Loc, "invalid shift/extend specified, expected 'z[0..31].d, lsl #2'");
   case Match_InvalidZPR64LSL64:
     return Error(Loc, "invalid shift/extend specified, expected 'z[0..31].d, lsl #3'");
+  case Match_InvalidZPR0:
+    return Error(Loc, "expected register without element width sufix");
+  case Match_InvalidZPR8:
+  case Match_InvalidZPR16:
+  case Match_InvalidZPR32:
+  case Match_InvalidZPR64:
+  case Match_InvalidZPR128:
+    return Error(Loc, "invalid element width");
   case Match_InvalidSVEPattern:
     return Error(Loc, "invalid predicate pattern");
   case Match_InvalidSVEPredicateAnyReg:
@@ -4210,6 +4265,7 @@ bool AArch64AsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   case Match_InvalidMemoryIndexed2SImm4:
   case Match_InvalidMemoryIndexed3SImm4:
   case Match_InvalidMemoryIndexed4SImm4:
+  case Match_InvalidMemoryIndexed1SImm6:
   case Match_InvalidMemoryIndexed16SImm4:
   case Match_InvalidMemoryIndexed4SImm7:
   case Match_InvalidMemoryIndexed8SImm7:
@@ -4273,6 +4329,12 @@ bool AArch64AsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   case Match_InvalidZPR64LSL16:
   case Match_InvalidZPR64LSL32:
   case Match_InvalidZPR64LSL64:
+  case Match_InvalidZPR0:
+  case Match_InvalidZPR8:
+  case Match_InvalidZPR16:
+  case Match_InvalidZPR32:
+  case Match_InvalidZPR64:
+  case Match_InvalidZPR128:
   case Match_InvalidSVEPredicateAnyReg:
   case Match_InvalidSVEPattern:
   case Match_InvalidSVEPredicateBReg:
@@ -4313,12 +4375,6 @@ bool AArch64AsmParser::ParseDirective(AsmToken DirectiveID) {
     parseDirectiveArch(Loc);
   else if (IDVal == ".cpu")
     parseDirectiveCPU(Loc);
-  else if (IDVal == ".hword")
-    parseDirectiveWord(2, Loc);
-  else if (IDVal == ".word")
-    parseDirectiveWord(4, Loc);
-  else if (IDVal == ".xword")
-    parseDirectiveWord(8, Loc);
   else if (IDVal == ".tlsdesccall")
     parseDirectiveTLSDescCall(Loc);
   else if (IDVal == ".ltorg" || IDVal == ".pool")
@@ -4480,22 +4536,6 @@ bool AArch64AsmParser::parseDirectiveCPU(SMLoc L) {
 
     CurLoc = incrementLoc(CurLoc, Name.size());
   }
-  return false;
-}
-
-/// parseDirectiveWord
-///  ::= .word [ expression (, expression)* ]
-bool AArch64AsmParser::parseDirectiveWord(unsigned Size, SMLoc L) {
-  auto parseOp = [&]() -> bool {
-    const MCExpr *Value;
-    if (getParser().parseExpression(Value))
-      return true;
-    getParser().getStreamer().EmitValue(Value, Size, L);
-    return false;
-  };
-
-  if (parseMany(parseOp))
-    return true;
   return false;
 }
 

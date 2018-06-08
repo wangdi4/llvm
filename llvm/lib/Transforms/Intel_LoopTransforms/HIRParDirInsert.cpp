@@ -48,18 +48,18 @@ public:
   /// \brief Analyze auto-parallelizability of the loops.
   bool runOnFunction(Function &F) override {
     if (!AutoPar) {
-      DEBUG(dbgs() << "Par Directive Insertion skipped"
-                      " due to lack of -hir-enable-par.\n");
+      LLVM_DEBUG(dbgs() << "Par Directive Insertion skipped"
+                           " due to lack of -hir-enable-par.\n");
       return false;
     }
     if (HIRParVecAnalysis::isSIMDEnabledFunction(F)) {
-      DEBUG(dbgs() << "Par Directive Insertion skipped"
-                      " for vector variants of SIMD Enabled Function : "
-                   << F.getName() << "\n");
+      LLVM_DEBUG(dbgs() << "Par Directive Insertion skipped"
+                           " for vector variants of SIMD Enabled Function : "
+                        << F.getName() << "\n");
       return false;
     }
-    DEBUG(dbgs() << "Par Directive Insertion for Function : " << F.getName()
-                 << "\n");
+    LLVM_DEBUG(dbgs() << "Par Directive Insertion for Function : "
+                      << F.getName() << "\n");
     return ParVecDirectiveInsertion::runOnFunction(F);
   }
 };

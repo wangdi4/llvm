@@ -215,7 +215,7 @@ FunctionPass *llvm::createHIRArrayTransposePass() {
 
 bool HIRArrayTranspose::runOnFunction(Function &F) {
   if (DisableTranspose || skipFunction(F)) {
-    DEBUG(dbgs() << "HIR array transpose disabled \n");
+    LLVM_DEBUG(dbgs() << "HIR array transpose disabled \n");
     return false;
   }
 

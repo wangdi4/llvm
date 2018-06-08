@@ -134,9 +134,10 @@ static void parseList(const StringRef &List, CalleeSetTy &CalleeList,
 
     // Record has too many fields.
     if (RecordItem.size() > 3) {
-      DEBUG(dbgs()
-            << "IPO: error 1: record <" << ListRecord
-            << "> has a wrong format. Should be <[caller,]callee[,line]>\n");
+      LLVM_DEBUG(
+          dbgs()
+          << "IPO: error 1: record <" << ListRecord
+          << "> has a wrong format. Should be <[caller,]callee[,line]>\n");
       return;
     }
 
@@ -153,7 +154,7 @@ static void parseList(const StringRef &List, CalleeSetTy &CalleeList,
         // <caller, callee, linenum> case
         // Inline specified callsites
         if (RecordItem[2].getAsInteger(10, LineNum)) {
-          DEBUG(
+          LLVM_DEBUG(
               dbgs()
               << "IPO: error 1: record <" << ListRecord
               << "> has a wrong format. Should be <[caller,]callee[,line]>\n");
@@ -197,30 +198,31 @@ static void parseList(const StringRef &List, CalleeSetTy &CalleeList,
       }
 
       if (Callee.empty())
-        DEBUG(dbgs()
-              << "IPO: error 2: \t record <" << ListRecord
-              << "> has a wrong format. Should be <[caller,]callee[,line]>\n");
+        LLVM_DEBUG(
+            dbgs()
+            << "IPO: error 2: \t record <" << ListRecord
+            << "> has a wrong format. Should be <[caller,]callee[,line]>\n");
     }
   }
 
-  DEBUG(printLists(dbgs(), CalleeList, CallerList));
+  LLVM_DEBUG(printLists(dbgs(), CalleeList, CallerList));
 }
 
 // Function to parse inline and noinline lists.
 static void parseOptions(InlineListsData &Data) {
   if (!IntelInlineLists.empty()) {
-    DEBUG(dbgs() << "IPO: Inline Lists \n");
+    LLVM_DEBUG(dbgs() << "IPO: Inline Lists \n");
     for (auto &InlineList : IntelInlineLists) {
-      DEBUG(dbgs() << "\tList: " << InlineList << "\n");
+      LLVM_DEBUG(dbgs() << "\tList: " << InlineList << "\n");
       parseList(StringRef(InlineList), Data.InlineCalleeList,
                 Data.InlineCallerList);
     }
   }
 
   if (!IntelNoinlineLists.empty()) {
-    DEBUG(dbgs() << "IPO: Noinline Lists \n");
+    LLVM_DEBUG(dbgs() << "IPO: Noinline Lists \n");
     for (auto &NoinlineList : IntelNoinlineLists) {
-      DEBUG(dbgs() << "\tList: " << NoinlineList << "\n");
+      LLVM_DEBUG(dbgs() << "\tList: " << NoinlineList << "\n");
       parseList(StringRef(NoinlineList), Data.NoinlineCalleeList,
                 Data.NoinlineCallerList);
     }
@@ -262,8 +264,8 @@ static bool isCallsiteInList(StringRef Caller, StringRef Callee,
   }
 
   if (LineNum < 0) {
-    DEBUG(dbgs() << "IPO warning: no line numbers available. "
-                 << "Try compiling with -gline-tables-only.\n");
+    LLVM_DEBUG(dbgs() << "IPO warning: no line numbers available. "
+                      << "Try compiling with -gline-tables-only.\n");
     return false;
   }
 
@@ -381,8 +383,8 @@ bool addListAttributesToFunction(Function &F, InlineListsData &Data) {
       Data.NoinlineCalleeList.find(FuncName) != Data.NoinlineCalleeList.end();
   if (inlineNeeded && noinlineNeeded) {
     // Function has both inline and noinline attributes: skip it.
-    DEBUG(dbgs() << "IPO warning: ignoring '" << FuncName
-                 << "' since it is in both inline and noinline lists\n");
+    LLVM_DEBUG(dbgs() << "IPO warning: ignoring '" << FuncName
+                      << "' since it is in both inline and noinline lists\n");
     return false;
   } else if (inlineNeeded) {
     Changed |= addForceInlineAttr(F);
@@ -424,8 +426,8 @@ static bool addListAttributesToCallsites(Function &F, InlineListsData &Data) {
         if (CallSite CS = CallSite(&I)) {
           if (NeedsInlineListAttr && NeedsNoinlineListAttr) {
             // Callsite has both inline and noinline attributes: skip it.
-            DEBUG(
-                dbgs() << "IPO warning: ignoring triple <" << CallerName << ","
+            LLVM_DEBUG(dbgs()
+                       << "IPO warning: ignoring triple <" << CallerName << ","
                        << CalleeName
                        << "> since it is in both inline and noinline lists\n");
           } else if (NeedsInlineListAttr) {

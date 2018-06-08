@@ -2854,10 +2854,10 @@ HLNodeUtils::VALType HLNodeUtils::getMinMaxBlobValue(unsigned BlobIdx,
     return VALType::IsUnknown;
   }
 
-  DEBUG(dbgs() << "\tin getMaxMinBlobValue: input args " << BlobIdx
-               << BoundCE->getSingleBlobCoeff() << " "
-               << BoundCE->getSingleBlobIndex() << " " << BoundCE->getConstant()
-               << "\n");
+  LLVM_DEBUG(dbgs() << "\tin getMaxMinBlobValue: input args " << BlobIdx
+                    << BoundCE->getSingleBlobCoeff() << " "
+                    << BoundCE->getSingleBlobIndex() << " "
+                    << BoundCE->getConstant() << "\n");
 
   auto BoundCoeff = BoundCE->getSingleBlobCoeff();
   auto BoundBlobIdx = BoundCE->getSingleBlobIndex();
@@ -4271,9 +4271,9 @@ static bool removeNodesRangeImpl(HLContainerTy::iterator Begin,
 
 #ifndef NDEBUG
   for (auto Iter = Begin; Iter != End; ++Iter) {
-    DEBUG(dbgs() << "While removing HIR nodes from <" << Iter->getNumber()
-                 << ">:\n");
-    DEBUG(Iter->dump());
+    LLVM_DEBUG(dbgs() << "While removing HIR nodes from <" << Iter->getNumber()
+                      << ">:\n");
+    LLVM_DEBUG(Iter->dump());
   }
 #endif
 

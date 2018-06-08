@@ -162,12 +162,9 @@ bool RGPassManager::runOnFunction(Function &F) {
   }
 
   // Print the region tree after all pass.
-  DEBUG(
-    dbgs() << "\nRegion tree of function " << F.getName()
-           << " after all region Pass:\n";
-    RI->dump();
-    dbgs() << "\n";
-    );
+  LLVM_DEBUG(dbgs() << "\nRegion tree of function " << F.getName()
+                    << " after all region Pass:\n";
+             RI->dump(); dbgs() << "\n";);
 
   return Changed;
 }
@@ -297,8 +294,8 @@ bool RegionPass::skipRegion(Region &R) const {
   if (F.hasFnAttribute(Attribute::OptimizeNone)) {
     // Report this only once per function.
     if (R.getEntry() == &F.getEntryBlock())
-      DEBUG(dbgs() << "Skipping pass '" << getPassName()
-            << "' on function " << F.getName() << "\n");
+      LLVM_DEBUG(dbgs() << "Skipping pass '" << getPassName()
+                        << "' on function " << F.getName() << "\n");
     return true;
   }
   return false;

@@ -214,7 +214,7 @@ void HIRFramework::runImpl() {
   PhaseScalarSA->run();
 
   if (HIRFrameworkDebugPhase == P4_ScalarSA) {
-    DEBUG(PhaseScalarSA->print(dbgs()));
+    LLVM_DEBUG(PhaseScalarSA->print(dbgs()));
     return;
   }
 
@@ -226,12 +226,12 @@ void HIRFramework::runImpl() {
 
   // Initialize symbase start value.
   MaxSymbase = PhaseScalarSA->getMaxScalarSymbase();
-  DEBUG(dbgs() << "Initialized max symbase to " << MaxSymbase << " \n");
+  LLVM_DEBUG(dbgs() << "Initialized max symbase to " << MaxSymbase << " \n");
 
   PhaseSA.run();
 
   if (HIRFrameworkDebugPhase == P6_SA) {
-    DEBUG(PhaseSA.print(dbgs()));
+    LLVM_DEBUG(PhaseSA.print(dbgs()));
     return;
   }
 
@@ -499,8 +499,8 @@ void HIRFramework::print(bool FrameworkDetails, raw_ostream &OS) const {
 void HIRFramework::verify() const {
   if (HIRVerify) {
     HIRVerifier::verifyAll(*this);
-    DEBUG(dbgs() << "Verification of HIR done"
-                 << "\n");
+    LLVM_DEBUG(dbgs() << "Verification of HIR done"
+                      << "\n");
   }
 }
 

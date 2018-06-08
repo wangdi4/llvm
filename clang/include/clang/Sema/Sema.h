@@ -1638,7 +1638,8 @@ public:
   }
 
   QualType getElaboratedType(ElaboratedTypeKeyword Keyword,
-                             const CXXScopeSpec &SS, QualType T);
+                             const CXXScopeSpec &SS, QualType T,
+                             TagDecl *OwnedTagDecl = nullptr);
 
   QualType BuildTypeofExprType(Expr *E, SourceLocation Loc);
   /// If AsUnevaluated is false, E is treated as though it were an evaluated
@@ -2113,12 +2114,12 @@ public:
   void checkPartialSpecializationVisibility(SourceLocation Loc,
                                             NamedDecl *Spec);
 
-  /// Retrieve a suitable printing policy.
+  /// Retrieve a suitable printing policy for diagnostics.
   PrintingPolicy getPrintingPolicy() const {
     return getPrintingPolicy(Context, PP);
   }
 
-  /// Retrieve a suitable printing policy.
+  /// Retrieve a suitable printing policy for diagnostics.
   static PrintingPolicy getPrintingPolicy(const ASTContext &Ctx,
                                           const Preprocessor &PP);
 
@@ -6090,9 +6091,10 @@ public:
   bool hasAnyAcceptableTemplateNames(LookupResult &R,
                                      bool AllowFunctionTemplates = true);
 
-  void LookupTemplateName(LookupResult &R, Scope *S, CXXScopeSpec &SS,
+  bool LookupTemplateName(LookupResult &R, Scope *S, CXXScopeSpec &SS,
                           QualType ObjectType, bool EnteringContext,
-                          bool &MemberOfUnknownSpecialization);
+                          bool &MemberOfUnknownSpecialization,
+                          SourceLocation TemplateKWLoc = SourceLocation());
 
   TemplateNameKind isTemplateName(Scope *S,
                                   CXXScopeSpec &SS,
@@ -10379,6 +10381,7 @@ private:
   bool CheckARMBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
 
   bool CheckAArch64BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
+  bool CheckHexagonBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckMipsBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckSystemZBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall);

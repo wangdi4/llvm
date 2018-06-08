@@ -58,19 +58,19 @@ public:
   /// \brief Analyze auto-vectorizability of the loops.
   bool runOnFunction(Function &F) override {
     if (NoAutoVec) {
-      DEBUG(dbgs() << "Vec Directive Insertion disabled"
-                      " due to -disable-hir-vec-dir-insert.\n");
+      LLVM_DEBUG(dbgs() << "Vec Directive Insertion disabled"
+                           " due to -disable-hir-vec-dir-insert.\n");
       return false;
     }
     if (HIRParVecAnalysis::isSIMDEnabledFunction(F)) {
-      DEBUG(dbgs() << "Vec Directive Insertion skipped"
-                      " for vector variants of SIMD Enabled Function : "
-                   << F.getName() << "\n");
+      LLVM_DEBUG(dbgs() << "Vec Directive Insertion skipped"
+                           " for vector variants of SIMD Enabled Function : "
+                        << F.getName() << "\n");
       return false;
     }
-    DEBUG(dbgs() << "Vec Directive Insertion (Outer Loop "
-                 << (OuterVec ? "Enabled" : "Disabled")
-                 << ") for Function : " << F.getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Vec Directive Insertion (Outer Loop "
+                      << (OuterVec ? "Enabled" : "Disabled")
+                      << ") for Function : " << F.getName() << "\n");
     return ParVecDirectiveInsertion::runOnFunction(F);
   }
 };

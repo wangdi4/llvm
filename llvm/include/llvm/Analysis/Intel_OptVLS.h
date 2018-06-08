@@ -58,7 +58,7 @@ class OVLSMap : public std::multimap<KeyT, ValueT> {};
 typedef class raw_ostream OVLSostream;
 #define OVLSdbgs() dbgs()
 
-#define OVLSDebug(x) DEBUG(x)
+#define OVLSDebug(x) LLVM_DEBUG(x)
 
 // Current maximum supported vector length is 64 bytes (512 bits).
 #define MAX_VECTOR_LENGTH 64

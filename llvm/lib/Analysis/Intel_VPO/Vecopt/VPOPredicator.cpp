@@ -358,7 +358,7 @@ bool VPOPredicatorBase::runOnFunction(Function &F) {
 
   // TODO: Enable SLEV
   //SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  DEBUG(dbgs() << "AVR Predicator Pass\n");
+  LLVM_DEBUG(dbgs() << "AVR Predicator Pass\n");
 
   for (auto AVRItr = AVRG->begin(), AVREnd = AVRG->end(); AVRItr != AVREnd;
        ++AVRItr) {
@@ -379,10 +379,9 @@ bool VPOPredicatorBase::runOnFunction(Function &F) {
 
 void VPOPredicatorBase::runOnAvr(AVRLoop* ALoop) {
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "Predicator running on:\n";
-        ALoop->print(FOS, 0, PrintNumber);
-        );
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+             FOS << "Predicator running on:\n";
+             ALoop->print(FOS, 0, PrintNumber););
 
   // Make all loops uniform.
 
@@ -394,17 +393,13 @@ void VPOPredicatorBase::runOnAvr(AVRLoop* ALoop) {
   for (AVRLoop* ALoop : OrderedLoops.Loops)
     predicateLoop(ALoop);
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "Predicator finished:\n";
-        ALoop->print(FOS, 0, PrintNumber);
-        );
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "Predicator finished:\n";
+             ALoop->print(FOS, 0, PrintNumber););
 }
 
 void VPOPredicatorBase::predicateLoop(AVRLoop* ALoop) {
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "Predicating loop ";
-        ALoop->shallowPrint(FOS);
-        FOS << "\n");
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "Predicating loop ";
+             ALoop->shallowPrint(FOS); FOS << "\n");
 
   AvrCFGBase CFG(ALoop->child_begin(),
                  ALoop->child_end(),
@@ -412,26 +407,25 @@ void VPOPredicatorBase::predicateLoop(AVRLoop* ALoop) {
                  false,
                  true);
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "Predicating DAG:\n";
-        CFG.print(FOS));
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "Predicating DAG:\n";
+             CFG.print(FOS));
 
   AvrDominatorTree DominatorTree;
   DominatorTree.recalculate(CFG);
   AvrPostDominatorTree PostDominatorTree;
   PostDominatorTree.recalculate(CFG);
 
-  DEBUG(dbgs() << "Dominator Tree:\n"; DominatorTree.print(dbgs()));
-  DEBUG(dbgs() << "PostDominator Tree:\n"; PostDominatorTree.print(dbgs()));
+  LLVM_DEBUG(dbgs() << "Dominator Tree:\n"; DominatorTree.print(dbgs()));
+  LLVM_DEBUG(dbgs() << "PostDominator Tree:\n";
+             PostDominatorTree.print(dbgs()));
 
   ConstructSESERegions CSR(ALoop, CFG, DominatorTree, PostDominatorTree);
   AVRVisitor<ConstructSESERegions> SESERegionsVisitor(CSR);
   SESERegionsVisitor.visit(ALoop, true, true, false /*RecursiveInsideValues*/,
                            true);
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "SESE regions:\n";
-        CSR.getRoot()->print(FOS));
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "SESE regions:\n";
+             CSR.getRoot()->print(FOS));
 
   // Recursively handle the SESE regions
   handleSESERegion(CSR.getRoot(), &CFG);
@@ -439,11 +433,11 @@ void VPOPredicatorBase::predicateLoop(AVRLoop* ALoop) {
 
 void VPOPredicatorBase::handleSESERegion(const SESERegion *Region, AvrCFGBase* CFG) {
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "Handling "
-        << (Region->isUniform() ? "UNIFORM" : "DIVERGENT")
-        << " SESE region:\n";
-        Region->getContainingNode()->print(FOS, 1, PrintNumber));
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+             FOS << "Handling "
+                 << (Region->isUniform() ? "UNIFORM" : "DIVERGENT")
+                 << " SESE region:\n";
+             Region->getContainingNode()->print(FOS, 1, PrintNumber));
 
   if (Region->isUniform()) {
 
@@ -467,10 +461,9 @@ void VPOPredicatorBase::handleSESERegion(const SESERegion *Region, AvrCFGBase* C
   // Handle all uniform subregions
   for (SESERegion* SubRegion : Region->getSubRegions())
     if (SubRegion->isUniform()) {
-      DEBUG(formatted_raw_ostream FOS(dbgs());
-            FOS << "Preserving ";
-	    SubRegion->getContainingNode()->shallowPrint(FOS);
-	    FOS << "\n");
+      LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "Preserving ";
+                 SubRegion->getContainingNode()->shallowPrint(FOS);
+                 FOS << "\n");
       DoNotDeconstruct[SubRegion->getContainingNode()] = SubRegion;
       handleSESERegion(SubRegion, CFG);
     }
@@ -501,10 +494,9 @@ void VPOPredicatorBase::handleSESERegion(const SESERegion *Region, AvrCFGBase* C
     AVRBlock* Block = AVRUtils::createAVRBlock();
     BlocksMap[Current] = Block;
     BlockSuccessorsDictatorMap[Block] = Current;
-    DEBUG(formatted_raw_ostream FOS(dbgs());
-	  FOS << "Mapping ";
-	  Current->print(FOS, false);
-	  FOS << " to AVRBlock " << Block->getNumber() << "\n");
+    LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "Mapping ";
+               Current->print(FOS, false);
+               FOS << " to AVRBlock " << Block->getNumber() << "\n");
 
     if (Current == RegionEntryBB) {
       EntryBlock = Block;
@@ -522,10 +514,9 @@ void VPOPredicatorBase::handleSESERegion(const SESERegion *Region, AvrCFGBase* C
     if (DoNotDeconstruct.count(Terminator)) {
       Current = DoNotDeconstruct[Terminator]->getExit(); // Jump to exit BB.
       BlocksMap[Current] = Block; // Exit BB map to the same block as entry.
-      DEBUG(formatted_raw_ostream FOS(dbgs());
-	    FOS << "Mapping ";
-	    Current->print(FOS, false);
-	    FOS << " to AVRBlock " << Block->getNumber() << "\n");
+      LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "Mapping ";
+                 Current->print(FOS, false);
+                 FOS << " to AVRBlock " << Block->getNumber() << "\n");
       BlockSuccessorsDictatorMap[Block] = Current; // Take successors from exit.
     }
 
@@ -593,10 +584,10 @@ void VPOPredicatorBase::handleSESERegion(const SESERegion *Region, AvrCFGBase* C
     AVRBlock* SecondBlock = dyn_cast<AVRBlock>(Pair.second->getParent());
     if (!SecondBlock)
       continue;
-    DEBUG(formatted_raw_ostream FOS(dbgs());
-          FOS << "Block " << FirstBlock->getNumber()
-	  << " lexically depends on block "
-	  << SecondBlock->getNumber() << "\n");
+    LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+               FOS << "Block " << FirstBlock->getNumber()
+                   << " lexically depends on block " << SecondBlock->getNumber()
+                   << "\n");
     AVRUtils::addSchedulingConstraint(FirstBlock, SecondBlock);
   }
 
@@ -613,16 +604,16 @@ void VPOPredicatorBase::handleSESERegion(const SESERegion *Region, AvrCFGBase* C
     // Examine top of stack: push into stack any constrainting block which has
     // not yet been scheduled. If there are no such blocks, schedule this block.
     AVRBlock* Top = BlockStack.top();
-    DEBUG(formatted_raw_ostream FOS(dbgs());
-          FOS << "Top AVRBlock now " << Top->getNumber() << " \n");
+    LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+               FOS << "Top AVRBlock now " << Top->getNumber() << " \n");
     const SmallVectorImpl<AVRBlock *> &SchedConstraints =
         Top->getSchedConstraints();
     bool CanSchedule = true;
     for (AVRBlock* Dependency : SchedConstraints) {
       if (!ScheduledBlocks.count(Dependency)) {
-	DEBUG(formatted_raw_ostream FOS(dbgs());
-	      FOS << "Pushing dependency AVRBlock " << Dependency->getNumber()
-	      << "\n");
+        LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+                   FOS << "Pushing dependency AVRBlock "
+                       << Dependency->getNumber() << "\n");
         BlockStack.push(Dependency);
         CanSchedule = false;
       }
@@ -635,30 +626,29 @@ void VPOPredicatorBase::handleSESERegion(const SESERegion *Region, AvrCFGBase* C
     if (ScheduledBlocks.count(Top))
       continue;
 
-    DEBUG(formatted_raw_ostream FOS(dbgs());
-          FOS << "Scheduling AVRBlock " << Top->getNumber() << " after AVRBlock "
-	  << NextBlockInsertionPos->getNumber() << "\n");
+    LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+               FOS << "Scheduling AVRBlock " << Top->getNumber()
+                   << " after AVRBlock " << NextBlockInsertionPos->getNumber()
+                   << "\n");
 
     AVRUtils::insertAfter(AvrItr(NextBlockInsertionPos), Top);
     NextBlockInsertionPos = Top;
     ScheduledBlocks.insert(Top);
   }
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "After liearization:\n";
-        EntryBlock->getParent()->getParent()->print(FOS, 0, PrintNumber));
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "After liearization:\n";
+             EntryBlock->getParent()->getParent()->print(FOS, 0, PrintNumber));
 
   predicate(EntryBlock);
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "After predication:\n";
-        EntryBlock->getParent()->getParent()->print(FOS, 0, PrintNumber));
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "After predication:\n";
+             EntryBlock->getParent()->getParent()->print(FOS, 0, PrintNumber));
 
   removeCFG(EntryBlock);
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "After removing CFG:\n";
-        ContainingNode->getParent()->getParent()->print(FOS, 0, PrintNumber));
+  LLVM_DEBUG(
+      formatted_raw_ostream FOS(dbgs()); FOS << "After removing CFG:\n";
+      ContainingNode->getParent()->getParent()->print(FOS, 0, PrintNumber));
 }
 
 void VPOPredicatorBase::predicate(AVRBlock* Entry) {
@@ -673,9 +663,9 @@ void VPOPredicatorBase::predicate(AVRBlock* Entry) {
     AVRPredicate *APredicate = AVRUtils::createAVRPredicate();
     AVRUtils::insertBefore(AvrItr(ABlock), APredicate);
     AVRUtils::setPredicate(ABlock, APredicate);
-    DEBUG(formatted_raw_ostream FOS(dbgs());
-          FOS << "Created predicate " << APredicate->getNumber() << " for block "
-	  << ABlock->getNumber() << "\n");
+    LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+               FOS << "Created predicate " << APredicate->getNumber()
+                   << " for block " << ABlock->getNumber() << "\n");
   }
 
   for (auto It = df_iterator<AVRBlock*>::begin(Entry),
@@ -683,15 +673,16 @@ void VPOPredicatorBase::predicate(AVRBlock* Entry) {
 
     AVRBlock* ABlock = *It;
 
-    DEBUG(formatted_raw_ostream FOS(dbgs());
-          FOS << "Predicating block " << ABlock->getNumber() << "\n");
+    LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+               FOS << "Predicating block " << ABlock->getNumber() << "\n");
 
     for (AVRBlock* Predecessor : ABlock->getPredecessors()) {
 
       unsigned Ordinal = Predecessor->getSuccessorOrdinal(ABlock);
-      DEBUG(formatted_raw_ostream FOS(dbgs());
-            FOS << "Handling predecessor block " << Predecessor->getNumber()
-	    << " with ordinal " << Ordinal << "\n");
+      LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+                 FOS << "Handling predecessor block "
+                     << Predecessor->getNumber() << " with ordinal " << Ordinal
+                     << "\n");
       SmallVector<AVR*, 2> Conditions;
       AVR* Terminator = &*Predecessor->child_rbegin();
       assert(Terminator && "Predecessor has no terminator");
@@ -812,8 +803,9 @@ void VPOPredicatorBase::removeCFG(AVRBlock* Entry) {
          End = df_iterator<AVRBlock*>::end(Entry); It != End; ++It) {
 
     AVRBlock* ABlock = *It;
-    DEBUG(formatted_raw_ostream FOS(dbgs());
-          FOS << "Extracting nodes from block " << ABlock->getNumber() << "\n");
+    LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+               FOS << "Extracting nodes from block " << ABlock->getNumber()
+                   << "\n");
 
     for (auto It = ABlock->child_rbegin();
          It != ABlock->child_rend();

@@ -414,7 +414,7 @@ void StdContainerOpt::initAliasMatrix(std::vector<Instruction *> &Insns,
       }
     }
   }
-  DEBUG(BM.dump(dbgs()));
+  LLVM_DEBUG(BM.dump(dbgs()));
 }
 
 // Process every std.container instruction and clean them up later.

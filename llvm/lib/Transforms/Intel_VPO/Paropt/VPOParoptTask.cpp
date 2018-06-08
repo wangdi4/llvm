@@ -55,7 +55,8 @@ bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
 
   bool Changed = false;
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genRedCodeForTaskGeneric\n");
+  LLVM_DEBUG(
+      dbgs() << "\nEnter VPOParoptTransform::genRedCodeForTaskGeneric\n");
 
   // Utility to replace the reduction variable specified in
   // the reduction/inreduction clause with the return value of
@@ -102,7 +103,7 @@ bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
       W->resetBBSet(); // Invalidate BBSet after transformations
     }
   }
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genRedCodeForTaskGeneric\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genRedCodeForTaskGeneric\n");
   return Changed;
 }
 
@@ -130,7 +131,8 @@ bool VPOParoptTransform::genSharedCodeForTaskGeneric(WRegionNode *W) {
 
   bool Changed = false;
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genSharedCodeForTaskGeneric\n");
+  LLVM_DEBUG(
+      dbgs() << "\nEnter VPOParoptTransform::genSharedCodeForTaskGeneric\n");
 
   SharedClause &ShaClause = W->getShared();
   if (!ShaClause.empty()) {
@@ -153,7 +155,8 @@ bool VPOParoptTransform::genSharedCodeForTaskGeneric(WRegionNode *W) {
     Changed = true;
     W->resetBBSet(); // Invalidate BBSet after transformations
   }
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genSharedCodeForTaskGeneric\n");
+  LLVM_DEBUG(
+      dbgs() << "\nExit VPOParoptTransform::genSharedCodeForTaskGeneric\n");
   return Changed;
 }
 
@@ -396,7 +399,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
     StructType *&KmpSharedTy, Value *&LBPtr, Value *&UBPtr, Value *&STPtr,
     Value *&LastIterGep, bool isLoop) {
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskLoopInitCode\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskLoopInitCode\n");
 
   Loop *L;
   if (isLoop) {
@@ -585,7 +588,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   }
 
   W->resetBBSet();
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genTaskLoopInitCode\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTaskLoopInitCode\n");
   return true;
 }
 
@@ -1003,7 +1006,7 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
 void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
                                            Instruction *InsertBefore) {
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genRedInitForTask\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genRedInitForTask\n");
 
   genTaskTRedType();
 
@@ -1072,7 +1075,7 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
   VPOParoptUtils::genKmpcTaskReductionInit(
       W, TidPtrHolder, Count, DummyTaskTRedRec, &*Builder.GetInsertPoint(),
       Mode & OmpTbb);
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genRedInitForTask\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genRedInitForTask\n");
 }
 
 bool VPOParoptTransform::genTaskCode(WRegionNode *W,
@@ -1159,7 +1162,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
                                             Value *LBPtr, Value *UBPtr,
                                             Value *STPtr, bool isLoop) {
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskGenericCode\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskGenericCode\n");
 
   assert(W->isBBSetEmpty() && "genTaskGenericCode: BBSET should start empty");
 
@@ -1311,7 +1314,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 
     Changed = true;
   }
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genTaskGenericCode\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTaskGenericCode\n");
   return Changed;
 }
 
@@ -1346,7 +1349,7 @@ void VPOParoptTransform::buildCFGForIfClause(Value *Cmp,
 // Generate code for OMP taskgroup construct.
 //   #pragma omp taskgroup
 bool VPOParoptTransform::genTaskgroupRegion(WRegionNode *W) {
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskgroupRegion\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskgroupRegion\n");
 
   W->populateBBSet();
   BasicBlock *EntryBB = W->getEntryBBlock();

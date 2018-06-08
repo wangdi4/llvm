@@ -80,9 +80,9 @@ entry:
 ; CHECK-SPIRV: PtrCastToGeneric [[Int8PtrGenTy]] [[BlockLit2:[0-9]+]] [[BlockLit2Tmp]]
 ; CHECK-SPIRV: GetKernelPreferredWorkGroupSizeMultiple [[Int32Ty]] {{[0-9]+}} [[BlockKer2]] [[BlockLit2]] [[ConstInt8]] [[ConstInt8]]
 
-; CHECK-LLVM: call i32 @__get_kernel_preferred_work_group_multiple_impl(i8 addrspace(4)* {{.*}}, i8 addrspace(4)* {{.*}}) #1
+; CHECK-LLVM: call i32 @__get_kernel_preferred_work_group_size_multiple_impl(i8 addrspace(4)* {{.*}}, i8 addrspace(4)* {{.*}}) #1
 
-  %1 = call i32 @__get_kernel_preferred_work_group_multiple_impl(i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*)* @__device_side_enqueue_block_invoke_2_kernel to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast ({ i32, i32 } addrspace(1)* @__block_literal_global.1 to i8 addrspace(1)*) to i8 addrspace(4)*))
+  %1 = call i32 @__get_kernel_preferred_work_group_size_multiple_impl(i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*)* @__device_side_enqueue_block_invoke_2_kernel to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast ({ i32, i32 } addrspace(1)* @__block_literal_global.1 to i8 addrspace(1)*) to i8 addrspace(4)*))
 
 ; CHECK-SPIRV: Bitcast {{[0-9]+}} [[BlockLit3Tmp:[0-9]+]] [[BlockGlb3]]
 ; CHECK-SPIRV: PtrCastToGeneric [[Int8PtrGenTy]] [[BlockLit3:[0-9]+]] [[BlockLit3Tmp]]
@@ -140,7 +140,7 @@ entry:
   ret void
 }
 
-declare i32 @__get_kernel_preferred_work_group_multiple_impl(i8 addrspace(4)*, i8 addrspace(4)*)
+declare i32 @__get_kernel_preferred_work_group_size_multiple_impl(i8 addrspace(4)*, i8 addrspace(4)*)
 
 ; Function Attrs: convergent noinline nounwind optnone
 define internal spir_func void @__device_side_enqueue_block_invoke_3(i8 addrspace(4)* %.block_descriptor) #1 {

@@ -439,7 +439,8 @@ public:
   void visit(HLDDNode *Node);
 
   void visit(HLNode *Node) {
-    DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - unsupported HLNode\n");
+    LLVM_DEBUG(
+        errs() << "VPO_OPTREPORT: Loop not handled - unsupported HLNode\n");
     IsHandled = false;
   }
 
@@ -455,8 +456,9 @@ public:
 void HandledCheck::visit(HLDDNode *Node) {
 
   if (!isa<HLInst>(Node) && !isa<HLIf>(Node)) {
-    DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - only HLInst/HLIf are "
-                    "supported\n");
+    LLVM_DEBUG(
+        errs() << "VPO_OPTREPORT: Loop not handled - only HLInst/HLIf are "
+                  "supported\n");
     IsHandled = false;
     return;
   }
@@ -471,8 +473,9 @@ void HandledCheck::visit(HLDDNode *Node) {
           (VL > 1 && !TLI->isFunctionVectorizable(CalledFunc, VL))) {
         // Masked svml calls are supported, but masked intrinsics are not at
         // the moment.
-        DEBUG(Inst->dump());
-        DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - masked intrinsic\n");
+        LLVM_DEBUG(Inst->dump());
+        LLVM_DEBUG(
+            errs() << "VPO_OPTREPORT: Loop not handled - masked intrinsic\n");
         IsHandled = false;
         return;
       }
@@ -483,17 +486,19 @@ void HandledCheck::visit(HLDDNode *Node) {
       // floor calls are also temporarily disabled until FeatureOutlining is
       // fixed (CQ410864)
       if (CalledFunc == "fabs" || CalledFunc == "floor") {
-        DEBUG(Inst->dump());
-        DEBUG(errs() <<
-          "VPO_OPTREPORT: Loop not handled - fabs/floor call disabled\n");
+        LLVM_DEBUG(Inst->dump());
+        LLVM_DEBUG(
+            errs()
+            << "VPO_OPTREPORT: Loop not handled - fabs/floor call disabled\n");
         IsHandled = false;
         return;
       }
 
       Intrinsic::ID ID = getVectorIntrinsicIDForCall(Call, TLI);
       if ((VL > 1 && !TLI->isFunctionVectorizable(CalledFunc, VL)) && !ID) {
-        DEBUG(errs()
-              << "VPO_OPTREPORT: Loop not handled - call not vectorizable\n");
+        LLVM_DEBUG(
+            errs()
+            << "VPO_OPTREPORT: Loop not handled - call not vectorizable\n");
         IsHandled = false;
         return;
       }
@@ -513,8 +518,9 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
   int64_t IVConstCoeff;
 
   if (!VectorType::isValidElementType(RegDD->getSrcType())) {
-    DEBUG(RegDD->getSrcType()->dump());
-    DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - invalid element type\n");
+    LLVM_DEBUG(RegDD->getSrcType()->dump());
+    LLVM_DEBUG(
+        errs() << "VPO_OPTREPORT: Loop not handled - invalid element type\n");
     IsHandled = false;
     return;
   }
@@ -536,7 +542,7 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
     auto BaseCE = RegDD->getBaseCE();
 
     if (!BaseCE->isInvariantAtLevel(LoopLevel)) {
-      DEBUG(
+      LLVM_DEBUG(
           errs() << "VPO_OPTREPORT: Loop not handled - BaseCE not invariant\n");
       IsHandled = false;
       return;
@@ -550,8 +556,9 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 // support blob IV coefficients
 void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
   if (CExpr->hasIVBlobCoeff(LoopLevel)) {
-    DEBUG(errs()
-          << "VPO_OPTREPORT: Loop not handled - IV with blob coefficient\n");
+    LLVM_DEBUG(
+        errs()
+        << "VPO_OPTREPORT: Loop not handled - IV with blob coefficient\n");
     IsHandled = false;
     return;
   }
@@ -569,7 +576,8 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
 
   // We expect avr to be a AVRWrn node
   if (!(AWrn = dyn_cast<AVRWrn>(Avr))) {
-    DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - expected AVRWrn node\n");
+    LLVM_DEBUG(
+        errs() << "VPO_OPTREPORT: Loop not handled - expected AVRWrn node\n");
     return false;
   }
 
@@ -580,8 +588,9 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
 
   // Check that we have an AVRLoop
   if (!ALoop) {
-    DEBUG(errs()
-          << "VPO_OPTREPORT: Loop not handled - AVRLoop child not found\n");
+    LLVM_DEBUG(
+        errs()
+        << "VPO_OPTREPORT: Loop not handled - AVRLoop child not found\n");
     return false;
   }
 
@@ -591,8 +600,9 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
 
   // Only handle normalized loops
   if (!OrigLoop->isNormalized()) {
-    DEBUG(errs()
-          << "VPO_OPTREPORT: Loop not handled - loop not in normalized form\n");
+    LLVM_DEBUG(
+        errs()
+        << "VPO_OPTREPORT: Loop not handled - loop not in normalized form\n");
     return false;
   }
 
@@ -605,7 +615,7 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
 
     // Check for minimum trip count threshold
     if (TinyTripCountThreshold && ConstTripCount <= TinyTripCountThreshold) {
-      DEBUG(
+      LLVM_DEBUG(
           errs()
           << "VPO_OPTREPORT: Loop not handled - loop with small trip count\n");
       return false;
@@ -613,8 +623,9 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
 
     // Check that main vector loop will have atleast one iteration
     if (ConstTripCount < VL) {
-      DEBUG(errs()
-            << "VPO_OPTREPORT: Loop not handled - zero iteration main loop\n");
+      LLVM_DEBUG(
+          errs()
+          << "VPO_OPTREPORT: Loop not handled - zero iteration main loop\n");
       return false;
     }
 
@@ -632,9 +643,10 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
       auto Inst = HInst->getLLVMInstruction();
 
       if (Inst->mayThrow()) {
-        DEBUG(HInst->dump());
-        DEBUG(errs()
-              << "VPO_OPTREPORT: Loop not handled - instruction may throw\n");
+        LLVM_DEBUG(HInst->dump());
+        LLVM_DEBUG(
+            errs()
+            << "VPO_OPTREPORT: Loop not handled - instruction may throw\n");
         return false;
       }
 
@@ -643,9 +655,10 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
       if ((Opcode == Instruction::UDiv || Opcode == Instruction::SDiv ||
            Opcode == Instruction::URem || Opcode == Instruction::SRem) &&
           (HInst->getParent() != OrigLoop)) {
-        DEBUG(HInst->dump());
-        DEBUG(errs()
-              << "VPO_OPTREPORT: Loop not handled - DIV/REM instruction\n");
+        LLVM_DEBUG(HInst->dump());
+        LLVM_DEBUG(
+            errs()
+            << "VPO_OPTREPORT: Loop not handled - DIV/REM instruction\n");
         return false;
       }
 
@@ -654,9 +667,9 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
       if (TLval && TLval->isTerminalRef() &&
           OrigLoop->isLiveOut(TLval->getSymbase()) &&
           HInst->getParent() != OrigLoop) {
-        DEBUG(HInst->dump());
-        DEBUG(errs() << "VPO_OPTREPORT: Liveout conditional scalar assign "
-                        "not handled\n");
+        LLVM_DEBUG(HInst->dump());
+        LLVM_DEBUG(errs() << "VPO_OPTREPORT: Liveout conditional scalar assign "
+                             "not handled\n");
         return false;
       }
 
@@ -682,8 +695,8 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
       if (!NodeCheck.isHandled())
         return false;
     } else {
-      DEBUG(Itr->dump());
-      DEBUG(
+      LLVM_DEBUG(Itr->dump());
+      LLVM_DEBUG(
           errs() << "VPO_OPTREPORT: Loop not handled - unsupported AVR kind\n");
       return false;
     }
@@ -694,7 +707,7 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
   // are seen. Remove this check once vectorizer cost model is fully
   // implemented.
   if (DisableStressTest && MemRefSeen && !UnitStrideSeen) {
-    DEBUG(
+    LLVM_DEBUG(
         errs()
         << "VPO_OPTREPORT: Loop not handled - all mem refs non unit-stride\n");
     return false;
@@ -703,7 +716,7 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
   setALoop(ALoop);
   setWVecNode(WVecNode);
 
-  // DEBUG(errs() << "Handled loop\n");
+  // LLVM_DEBUG(errs() << "Handled loop\n");
   return true;
 }
 
@@ -759,7 +772,7 @@ bool AVRCodeGenHIR::vectorize(unsigned int VL) {
   setVL(VL);
   assert(VL >= 1);
   if (VL == 1) {
-    DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - VL is 1\n");
+    LLVM_DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - VL is 1\n");
     return false;
   }
 
@@ -772,23 +785,24 @@ bool AVRCodeGenHIR::vectorize(unsigned int VL) {
   // Workaround for perf regressions - suppress vectorization of some small
   // loops with add reduction of short values until cost model can be refined.
   if (isSmallShortAddRedLoop()) {
-    DEBUG(errs()
-          << "VPO_OPTREPORT: Suppress vectorization - SmallShortAddRedLoop\n");
+    LLVM_DEBUG(
+        errs()
+        << "VPO_OPTREPORT: Suppress vectorization - SmallShortAddRedLoop\n");
     return false;
   }
 
-  DEBUG(errs() << "VPO_OPTREPORT: VPO handled loop, VF = " << VL << "\n");
-  DEBUG(errs() << "Handled loop before vec codegen: \n");
-  DEBUG(OrigLoop->dump());
+  LLVM_DEBUG(errs() << "VPO_OPTREPORT: VPO handled loop, VF = " << VL << "\n");
+  LLVM_DEBUG(errs() << "Handled loop before vec codegen: \n");
+  LLVM_DEBUG(OrigLoop->dump());
 
   RHM.mapHLNodes(OrigLoop);
 
   processLoop();
 
-  DEBUG(errs() << "\n\n\nHandled loop after: \n");
-  DEBUG(MainLoop->dump());
+  LLVM_DEBUG(errs() << "\n\n\nHandled loop after: \n");
+  LLVM_DEBUG(MainLoop->dump());
   if (!MainLoop->hasChildren()) {
-    DEBUG(errs() << "\n\n\nRemoving empty loop\n");
+    LLVM_DEBUG(errs() << "\n\n\nRemoving empty loop\n");
     MainLoop->getHLNodeUtils().remove(MainLoop);
   } else {
     // Prevent LLVM from possibly unrolling vectorized loops with non-constant
@@ -815,7 +829,7 @@ bool AVRCodeGenHIR::vectorize(unsigned int VL) {
   }
 
   if (NeedRemainderLoop)
-    DEBUG(OrigLoop->dump());
+    LLVM_DEBUG(OrigLoop->dump());
 
   return true;
 }
@@ -1582,8 +1596,8 @@ HLInst *AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode, RegDDRef *Mask) {
     }
   }
 
-  DEBUG(errs() << "DDRef ");
-  DEBUG(INode->dump());
+  LLVM_DEBUG(errs() << "DDRef ");
+  LLVM_DEBUG(INode->dump());
   bool InsertInMap = true;
   for (auto Iter = INode->op_ddref_begin(), End = INode->op_ddref_end();
        Iter != End; ++Iter) {
@@ -1595,7 +1609,7 @@ HLInst *AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode, RegDDRef *Mask) {
     WideOps.push_back(WideRef);
   }
 
-  DEBUG(Node->dump(true));
+  LLVM_DEBUG(Node->dump(true));
 
   if (auto BOp = dyn_cast<BinaryOperator>(CurInst)) {
     WideInst = Node->getHLNodeUtils().createBinaryHLInst(

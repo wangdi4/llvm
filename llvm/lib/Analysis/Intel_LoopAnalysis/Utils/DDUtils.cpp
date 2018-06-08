@@ -393,8 +393,8 @@ bool enablePerfectLPLegalityCheckPre(
     HLInst *StoreInst = nullptr;
     if (!canMoveLoadIntoLoop(LRef, RRef, InnermostLoop, PostLoopInsts,
                              &StoreInst, DDG)) {
-      DEBUG(dbgs() << "\n Fails at canMoveLoadIntoLoop \n");
-      DEBUG(Inst->dump());
+      LLVM_DEBUG(dbgs() << "\n Fails at canMoveLoadIntoLoop \n");
+      LLVM_DEBUG(Inst->dump());
       return false;
     }
     if (StoreInst) {
@@ -638,7 +638,7 @@ bool DDUtils::enablePerfectLoopNest(
   //  ForwarSub nodes are  copy stmts of the for  t2 = t0
   if (!enablePerfectLPGatherPrePostInsts(InnermostLoop, DDG, PreLoopInsts,
                                          PostLoopInsts, ForwardSubInsts)) {
-    DEBUG(dbgs() << "\n Fails in gatherprepost stmts \n");
+    LLVM_DEBUG(dbgs() << "\n Fails in gatherprepost stmts \n");
     return false;
   }
 
@@ -646,14 +646,14 @@ bool DDUtils::enablePerfectLoopNest(
   if (!enablePerfectLPLegalityCheckPre(InnermostLoop, DDG, PreLoopInsts,
                                        PostLoopInsts, ForwardSubInsts,
                                        ValidatedStores)) {
-    DEBUG(dbgs() << "\n Fails in legality pre stmt check \n");
+    LLVM_DEBUG(dbgs() << "\n Fails in legality pre stmt check \n");
     return false;
   }
 
   // (3) Perform legality check of PostLoop nodes
   if (!enablePerfectLPLegalityCheckPost(InnermostLoop, DDG, PostLoopInsts,
                                         ValidatedStores)) {
-    DEBUG(dbgs() << "\n Fails in legality post stmt check \n");
+    LLVM_DEBUG(dbgs() << "\n Fails in legality post stmt check \n");
     return false;
   }
 

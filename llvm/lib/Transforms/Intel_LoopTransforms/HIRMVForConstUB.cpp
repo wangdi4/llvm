@@ -215,7 +215,7 @@ bool HIRMVForConstUB::runOnFunction(Function &F) {
   BU = &HIRF.getBlobUtils();
   DRU = &HIRF.getDDRefUtils();
 
-  DEBUG(dbgs() << "HIRRuntimeDD for function: " << F.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "HIRRuntimeDD for function: " << F.getName() << "\n");
 
   // Multiversion for most probable constant UB.
   LoopVisitor V(*this);

@@ -76,7 +76,7 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
 // Generate the code for the directive omp target
 bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTargetOffloadingCode\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTargetOffloadingCode\n");
 
   W->populateBBSet();
 
@@ -205,7 +205,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
   Changed = true;
 
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genTargetOffloadingCode\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTargetOffloadingCode\n");
   return Changed;
 }
 
@@ -356,7 +356,7 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
 //
 CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
                                                 Instruction *InsertPt) {
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTargetInitCode\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTargetInitCode\n");
   IRBuilder<> Builder(F->getEntryBlock().getFirstNonPHI());
   TgDataInfo Info;
 
@@ -458,7 +458,7 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
         Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
 
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genTargetInitCode\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTargetInitCode\n");
   return TgtCall;
 }
 

@@ -1936,12 +1936,13 @@ FMAExprSP *FMAExpr::generateSP() const {
 void FMAExpr::compactTerms(FMAExprSP &SP) {
   unsigned *TermsMapping = SP.getTermsMappingToCompactTerms();
   if (TermsMapping) {
-    DEBUG(fmadbgs() << "  Need to compact terms in EXPR: " << *this << "\n");
-    DEBUG(fmadbgs() << "  SP before compact: " << SP << "\n");
+    LLVM_DEBUG(fmadbgs() << "  Need to compact terms in EXPR: " << *this
+                         << "\n");
+    LLVM_DEBUG(fmadbgs() << "  SP before compact: " << SP << "\n");
 
     SP.doTermsMapping(TermsMapping);
 
-    DEBUG(fmadbgs() << "  SP after compact: " << SP << "\n");
+    LLVM_DEBUG(fmadbgs() << "  SP after compact: " << SP << "\n");
 
     // Now delete the unused terms from the vector UsedTerms.
     unsigned TermsMappingIndex = 0;
@@ -1949,7 +1950,7 @@ void FMAExpr::compactTerms(FMAExprSP &SP) {
       // Terms mapping has the value ~0U if the corresponding term must be
       // removed.
       if (TermsMapping[TermsMappingIndex] == ~0U) {
-        DEBUG(fmadbgs() << "  Remove the term from UsedTerms: " << **I);
+        LLVM_DEBUG(fmadbgs() << "  Remove the term from UsedTerms: " << **I);
         I = UsedTerms.erase(I);
       } else
         I++;
@@ -1992,7 +1993,7 @@ void FMAExpr::consume(FMAExpr *FWSExpr) {
   addToUsedTerms(FWSExpr->UsedTerms);
   FWSExpr->UsedTerms.clear();
 
-  DEBUG(fmadbgs() << "  -->After consuming expr: " << *this << "\n");
+  LLVM_DEBUG(fmadbgs() << "  -->After consuming expr: " << *this << "\n");
 }
 
 unsigned FMAExpr::getLatency(unsigned AddSubLatency, unsigned MulLatency,
@@ -2268,7 +2269,7 @@ FMAExpr *FMABasicBlock::createFMA(MVT VT, const MachineInstr *MI,
 
 unsigned FMABasicBlock::parseBasicBlock(MachineRegisterInfo *MRI,
                                         bool LookForAVX512) {
-  DEBUG(fmadbgs() << "FMA-STEP1: FIND FMA OPERATIONS:\n");
+  LLVM_DEBUG(fmadbgs() << "FMA-STEP1: FIND FMA OPERATIONS:\n");
 
   for (const auto &MI : MBB) {
     MVT VT;
@@ -2339,7 +2340,7 @@ unsigned FMABasicBlock::parseBasicBlock(MachineRegisterInfo *MRI,
   }
   setDefHasUnknownUsersForRegisterTerms(MRI);
 
-  DEBUG(fmadbgs() << *this << "FMA-STEP1 DONE.\n");
+  LLVM_DEBUG(fmadbgs() << *this << "FMA-STEP1 DONE.\n");
   return FMAs.size();
 }
 
@@ -2421,15 +2422,16 @@ FMAExpr *FMAExpr::findFWSCandidate(FMABasicBlock &FMABB,
       iterator_range<MachineRegisterInfo::use_nodbg_iterator> RegUses =
           MRI->use_nodbg_operands(Reg);
       unsigned NumRegUses = std::distance(RegUses.begin(), RegUses.end());
-      DEBUG(fmadbgs() << "  The register vreg"
-                      << TargetRegisterInfo::virtReg2Index(Reg) << " has "
-                      << NumRegUses << " uses.\n");
+      LLVM_DEBUG(fmadbgs() << "  The register vreg"
+                           << TargetRegisterInfo::virtReg2Index(Reg) << " has "
+                           << NumRegUses << " uses.\n");
 
       // B. How many times 'Term' is used in 'this'?
       unsigned NumTermUses = countTermUses(Term);
-      DEBUG(fmadbgs()
-            << "  The term corresponding to register mentioned above is used "
-            << NumTermUses << " times.\n");
+      LLVM_DEBUG(
+          fmadbgs()
+          << "  The term corresponding to register mentioned above is used "
+          << NumTermUses << " times.\n");
 
       // C. Compare A and B.
       if (NumTermUses < NumRegUses)
@@ -2510,7 +2512,7 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
         Opcode == Instruction::FRem || Opcode == Instruction::FCmp ||
         Opcode == Instruction::Call;
     if (CheckedOp && isa<FPMathOperator>(&I) && !I.hasAllowReassoc()) {
-      DEBUG(fmadbgs() << "Exit because found mixed fast-math settings.\n");
+      LLVM_DEBUG(fmadbgs() << "Exit because found mixed fast-math settings.\n");
       return false;
     }
   }
@@ -2552,9 +2554,9 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
     if (optBasicBlock(*I))
       EverMadeChangeInFunc = true;
 
-  DEBUG(dbgs() << "********** X86 Global FMA **********\n");
+  LLVM_DEBUG(dbgs() << "********** X86 Global FMA **********\n");
   if (EverMadeChangeInFunc) {
-    DEBUG(MF->print(dbgs()));
+    LLVM_DEBUG(MF->print(dbgs()));
   }
 
   return EverMadeChangeInFunc;
@@ -2564,13 +2566,13 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
 /// MUL/ADD/FMA expressions. Return true iff any changes in the machine
 /// operation were done.
 bool X86GlobalFMA::optBasicBlock(MachineBasicBlock &MBB) {
-  DEBUG(fmadbgs() << "\n**** RUN FMA OPT FOR ANOTHER BASIC BLOCK ****\n");
+  LLVM_DEBUG(fmadbgs() << "\n**** RUN FMA OPT FOR ANOTHER BASIC BLOCK ****\n");
 
   // Save the dump of the basic block, we may want to print it after the basic
   // block is changed by this optimization.
   std::string LogBBStr = "";
   raw_string_ostream LogBB(LogBBStr);
-  DEBUG(LogBB << "Basic block before Global FMA opt:\n" << MBB << "\n");
+  LLVM_DEBUG(LogBB << "Basic block before Global FMA opt:\n" << MBB << "\n");
 
   FMABasicBlock FMABB(MBB);
 
@@ -2584,8 +2586,9 @@ bool X86GlobalFMA::optBasicBlock(MachineBasicBlock &MBB) {
   // produced any changes in IR.
   bool EverMadeChangeInBB = optParsedBasicBlock(FMABB, MBB);
   if (EverMadeChangeInBB) {
-    DEBUG(fmadbgs() << LogBB.str());
-    DEBUG(fmadbgs() << "\nBasic block after Global FMA opt:\n" << MBB << "\n");
+    LLVM_DEBUG(fmadbgs() << LogBB.str());
+    LLVM_DEBUG(fmadbgs() << "\nBasic block after Global FMA opt:\n"
+                         << MBB << "\n");
   }
   return EverMadeChangeInBB;
 }
@@ -2595,15 +2598,15 @@ bool X86GlobalFMA::optParsedBasicBlock(FMABasicBlock &FMABB,
   bool EverMadeChangeInBB = false;
   doFWS(FMABB);
 
-  DEBUG(fmadbgs() << "\nFMA-STEP3: DO PATTERN MATCHING AND CODE-GEN:\n");
+  LLVM_DEBUG(fmadbgs() << "\nFMA-STEP3: DO PATTERN MATCHING AND CODE-GEN:\n");
   for (FMAExpr *Expr : FMABB.getFMAs()) {
     if (Expr->isFullyConsumed())
       continue;
 
-    DEBUG(fmadbgs() << "  Optimize FMA EXPR:\n  " << *Expr);
+    LLVM_DEBUG(fmadbgs() << "  Optimize FMA EXPR:\n  " << *Expr);
     FMAExprSP *SP = Expr->generateSP();
     if (!SP) {
-      DEBUG(fmadbgs() << "  Could not compute SP.\n");
+      LLVM_DEBUG(fmadbgs() << "  Could not compute SP.\n");
       continue;
     }
 
@@ -2615,9 +2618,9 @@ bool X86GlobalFMA::optParsedBasicBlock(FMABasicBlock &FMABB,
     // Let's compact the terms in SP and in 'this' FMAExpr.
     Expr->compactTerms(*SP);
 
-    DEBUG(fmadbgs() << "  Computed SP is: ");
-    DEBUG(SP->print(fmadbgs()));
-    DEBUG(fmadbgs() << "  SHAPE: " << format_hex(SP->Shape, 2) << "\n\n");
+    LLVM_DEBUG(fmadbgs() << "  Computed SP is: ");
+    LLVM_DEBUG(SP->print(fmadbgs()));
+    LLVM_DEBUG(fmadbgs() << "  SHAPE: " << format_hex(SP->Shape, 2) << "\n\n");
 
     FMADag *Dag = Patterns->getDagForBestSPMatch(*SP);
     if (!Dag) {
@@ -2625,8 +2628,9 @@ bool X86GlobalFMA::optParsedBasicBlock(FMABasicBlock &FMABB,
       continue;
     }
 
-    DEBUG(fmadbgs() << "  CONGRATULATIONS! A searched DAG was found:\n    ");
-    DEBUG(Dag->print(fmadbgs()));
+    LLVM_DEBUG(
+        fmadbgs() << "  CONGRATULATIONS! A searched DAG was found:\n    ");
+    LLVM_DEBUG(Dag->print(fmadbgs()));
 
     // FIXME: Currently, the setting of the latency vs throughput priorities
     // is set only accordingly to the internal switch value.
@@ -2639,11 +2643,11 @@ bool X86GlobalFMA::optParsedBasicBlock(FMABasicBlock &FMABB,
     bool TuneForThroughput = checkAllFMAFeatures(FMAControlTuneForThroughput);
     if (!isDagBetterThanInitialExpr(*Dag, *Expr, TuneForLatency,
                                     TuneForThroughput)) {
-      DEBUG(fmadbgs() << "  DAG is NOT better than the initial EXPR.\n\n");
+      LLVM_DEBUG(fmadbgs() << "  DAG is NOT better than the initial EXPR.\n\n");
       Expr->unsetLastUseMIsForRegisterTerms();
       continue;
     }
-    DEBUG(fmadbgs() << "  DAG IS better than the initial EXPR.\n");
+    LLVM_DEBUG(fmadbgs() << "  DAG IS better than the initial EXPR.\n");
 
     EverMadeChangeInBB = true;
     generateOutputIR(*Expr, *Dag, FMABB, MBB);
@@ -2651,8 +2655,8 @@ bool X86GlobalFMA::optParsedBasicBlock(FMABasicBlock &FMABB,
 
   FMABB.setIsKilledAttributeForTerms();
 
-  DEBUG(fmadbgs() << "\nFMA-STEP3 IS DONE. Machine basic block IS "
-                  << (EverMadeChangeInBB ? "" : "NOT ") << "UPDATED.\n\n");
+  LLVM_DEBUG(fmadbgs() << "\nFMA-STEP3 IS DONE. Machine basic block IS "
+                       << (EverMadeChangeInBB ? "" : "NOT ") << "UPDATED.\n\n");
   return EverMadeChangeInBB;
 }
 
@@ -2706,8 +2710,8 @@ FMADag *FMAPatterns::getDagForBestSPMatch(const FMAExprSP &SP) {
   if (!DagsSet)
     return nullptr;
 
-  DEBUG(fmadbgs() << "  MATCHING: could find a set of DAGs for SHAPE("
-                  << format_hex(SP.Shape, 2) << ")\n");
+  LLVM_DEBUG(fmadbgs() << "  MATCHING: could find a set of DAGs for SHAPE("
+                       << format_hex(SP.Shape, 2) << ")\n");
 
   // Find the best DAG for the given SP.
   FMADagCommon *BestDag = nullptr;
@@ -2719,9 +2723,10 @@ FMADag *FMAPatterns::getDagForBestSPMatch(const FMAExprSP &SP) {
 
     FMAExprSP *CandidateSP = acquireSP(Dag64);
 
-    DEBUG(fmadbgs() << "  MATCHING: let's try to match 2 SPs:\n    actual: ");
+    LLVM_DEBUG(
+        fmadbgs() << "  MATCHING: let's try to match 2 SPs:\n    actual: ");
     SP.print(fmadbgs());
-    DEBUG(fmadbgs() << "    formal: ");
+    LLVM_DEBUG(fmadbgs() << "    formal: ");
     CandidateSP->print(fmadbgs());
 
     FMASPToSPMatcher SPMatcher;
@@ -2826,8 +2831,8 @@ MachineOperand X86GlobalFMA::generateMachineOperandForFMATerm(
   // In case of FMAMemoryTerm terms the new instruction must be inserted before
   // the original machine instruction performing the load from memory.
   MBB->insert(MI, NewMIs[0]);
-  DEBUG(fmadbgs() << "  GENERATE NEW LOAD FROM MEM for MemTerm: " << Term
-                  << "\n    " << *NewMIs[0]);
+  LLVM_DEBUG(fmadbgs() << "  GENERATE NEW LOAD FROM MEM for MemTerm: " << Term
+                       << "\n    " << *NewMIs[0]);
 
   // 3. This is the first time when the load to a virtual register was
   // generated. Save the register to avoid the load duplication when the same
@@ -2976,7 +2981,7 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag,
       ResultRegs[NodeInd] = NewMI->getOperand(0).getReg();
 
     MBB.insert(MI, NewMI);
-    DEBUG(fmadbgs() << "  GENERATE NEW INSTRUCTION:\n    " << *NewMI);
+    LLVM_DEBUG(fmadbgs() << "  GENERATE NEW INSTRUCTION:\n    " << *NewMI);
 
     if (NegateResult) {
       // Currently, for the expression -R we generate SUB(0, R).
@@ -2989,15 +2994,15 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag,
       NewMI = genInstruction(SubOpcode, MI->getOperand(0).getReg(), MOs, DL);
       Term->setLastUseMI(NewMI);
       MBB.insert(MI, NewMI);
-      DEBUG(fmadbgs() << "  GENERATE NEW INSTRUCTION:\n    " << *NewMI);
+      LLVM_DEBUG(fmadbgs() << "  GENERATE NEW INSTRUCTION:\n    " << *NewMI);
     }
   }
   for (auto MIToBeDeleted : Expr.getConsumedMIs()) {
-    DEBUG(fmadbgs() << "  DELETE the MI (it is replaced): \n    "
-                    << *MIToBeDeleted);
+    LLVM_DEBUG(fmadbgs() << "  DELETE the MI (it is replaced): \n    "
+                         << *MIToBeDeleted);
     MBB.erase(const_cast<MachineInstr *>(MIToBeDeleted));
   }
-  DEBUG(fmadbgs() << "  DELETE the MI (it is replaced): \n    " << *MI);
+  LLVM_DEBUG(fmadbgs() << "  DELETE the MI (it is replaced): \n    " << *MI);
   MBB.erase(MI);
 }
 
@@ -3146,9 +3151,9 @@ bool X86GlobalFMA::isDagBetterThanInitialExpr(const FMADag &Dag,
   FMAPerfDesc DagDesc = getDagPerfDesc(Dag);
   FMAPerfDesc ExprDesc = getExprPerfDesc(Expr);
 
-  DEBUG(fmadbgs() << "  Compare DAG and initial EXPR:\n"
-                  << "    DAG  has: " << DagDesc << "\n"
-                  << "    EXPR has: " << ExprDesc << "\n");
+  LLVM_DEBUG(fmadbgs() << "  Compare DAG and initial EXPR:\n"
+                       << "    DAG  has: " << DagDesc << "\n"
+                       << "    EXPR has: " << ExprDesc << "\n");
 
   // If the internal switch requires FMAs, then just return true.
   // This code is placed after the printings of the DAG/Expr properties
@@ -3161,7 +3166,7 @@ bool X86GlobalFMA::isDagBetterThanInitialExpr(const FMADag &Dag,
 
 void X86GlobalFMA::doFWS(FMABasicBlock &FMABB) {
 
-  DEBUG(fmadbgs() << "\nFMA-STEP2: DO FWS:\n");
+  LLVM_DEBUG(fmadbgs() << "\nFMA-STEP2: DO FWS:\n");
 
   bool Consumed = true;
   while (Consumed) {
@@ -3171,13 +3176,14 @@ void X86GlobalFMA::doFWS(FMABasicBlock &FMABB) {
       if (Expr->isFullyConsumedByKnownExpressions())
         continue;
 
-      DEBUG(fmadbgs() << "  FWS: try to find terms that could be substituted "
-                         "by expressions in: "
-                      << *Expr << "\n");
+      LLVM_DEBUG(
+          fmadbgs() << "  FWS: try to find terms that could be substituted "
+                       "by expressions in: "
+                    << *Expr << "\n");
       FMAExpr *FWSExpr = Expr->findFWSCandidate(FMABB, MRI);
       while (FWSExpr) {
-        DEBUG(fmadbgs() << "  -->Found such a term/expression:\n  " << *FWSExpr
-                        << "    to\n  " << *Expr << "\n");
+        LLVM_DEBUG(fmadbgs() << "  -->Found such a term/expression:\n  "
+                             << *FWSExpr << "    to\n  " << *Expr << "\n");
         Expr->consume(FWSExpr);
         Consumed = true;
 
@@ -3185,7 +3191,8 @@ void X86GlobalFMA::doFWS(FMABasicBlock &FMABB) {
       }
     }
   }
-  DEBUG(fmadbgs() << "\nFMA-STEP2 DONE. FMA basic block after FWS:\n" << FMABB);
+  LLVM_DEBUG(fmadbgs() << "\nFMA-STEP2 DONE. FMA basic block after FWS:\n"
+                       << FMABB);
 }
 
 unsigned

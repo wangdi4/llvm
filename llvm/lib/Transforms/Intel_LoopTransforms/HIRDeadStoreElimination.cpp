@@ -85,7 +85,7 @@ bool HIRDeadStoreElimination::runOnFunction(Function &F) {
     return false;
   }
 
-  DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
+  LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
 
   // Gather all inner-most Loop Candidates
   SmallVector<HLLoop *, 64> CandidateLoops;
@@ -94,7 +94,7 @@ bool HIRDeadStoreElimination::runOnFunction(Function &F) {
   HIRF->getHLNodeUtils().gatherOutermostLoops(CandidateLoops);
 
   if (CandidateLoops.empty()) {
-    DEBUG(dbgs() << F.getName() << "() has no outer-most loop\n ");
+    LLVM_DEBUG(dbgs() << F.getName() << "() has no outer-most loop\n ");
     return false;
   }
 

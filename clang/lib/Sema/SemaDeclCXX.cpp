@@ -5626,6 +5626,13 @@ void Sema::checkClassLevelDLLAttribute(CXXRecordDecl *Class) {
   // The class is either imported or exported.
   const bool ClassExported = ClassAttr->getKind() == attr::DLLExport;
 
+  // Check if this was a dllimport attribute propagated from a derived class to
+  // a base class template specialization. We don't apply these attributes to
+  // static data members.
+  const bool PropagatedImport =
+      !ClassExported &&
+      cast<DLLImportAttr>(ClassAttr)->wasPropagatedToBaseTemplate();
+
   TemplateSpecializationKind TSK = Class->getTemplateSpecializationKind();
 
   // Ignore explicit dllexport on explicit class template instantiation declarations.
@@ -5676,6 +5683,11 @@ void Sema::checkClassLevelDLLAttribute(CXXRecordDecl *Class) {
           continue;
       }
     }
+
+    // Don't apply dllimport attributes to static data members of class template
+    // instantiations when the attribute is propagated from a derived class.
+    if (VD && PropagatedImport)
+      continue;
 
     if (!cast<NamedDecl>(Member)->isExternallyVisible())
       continue;
@@ -5728,6 +5740,11 @@ void Sema::propagateDLLAttrToBaseClassTemplate(
     auto *NewAttr = cast<InheritableAttr>(ClassAttr->clone(getASTContext()));
     NewAttr->setInherited(true);
     BaseTemplateSpec->addAttr(NewAttr);
+
+    // If this was an import, mark that we propagated it from a derived class to
+    // a base class template specialization.
+    if (auto *ImportAttr = dyn_cast<DLLImportAttr>(NewAttr))
+      ImportAttr->setPropagatedToBaseTemplate();
 
     // If the template is already instantiated, checkDLLAttributeRedeclaration()
     // needs to be run again to work see the new attribute. Otherwise this will
@@ -5789,12 +5806,10 @@ static void DefineImplicitSpecialMember(Sema &S, CXXMethodDecl *MD,
   }
 }
 
-/// Determine whether a type would be destructed in the callee if it had a
-/// non-trivial destructor. The rules here are based on C++ [class.temporary]p3,
-/// which determines whether a struct can be passed to or returned from
-/// functions in registers.
-static bool paramCanBeDestroyedInCallee(Sema &S, CXXRecordDecl *D,
-                                        TargetInfo::CallingConvKind CCK) {
+/// Determine whether a type is permitted to be passed or returned in
+/// registers, per C++ [class.temporary]p3.
+static bool canPassInRegisters(Sema &S, CXXRecordDecl *D,
+                               TargetInfo::CallingConvKind CCK) {
   if (D->isDependentType() || D->isInvalidDecl())
     return false;
 
@@ -5803,6 +5818,63 @@ static bool paramCanBeDestroyedInCallee(Sema &S, CXXRecordDecl *D,
   if (CCK == TargetInfo::CCK_ClangABI4OrPS4)
     return !D->hasNonTrivialDestructorForCall() &&
            !D->hasNonTrivialCopyConstructorForCall();
+
+  if (CCK == TargetInfo::CCK_MicrosoftX86_64) {
+    bool CopyCtorIsTrivial = false, CopyCtorIsTrivialForCall = false;
+    bool DtorIsTrivialForCall = false;
+
+    // If a class has at least one non-deleted, trivial copy constructor, it
+    // is passed according to the C ABI. Otherwise, it is passed indirectly.
+    //
+    // Note: This permits classes with non-trivial copy or move ctors to be
+    // passed in registers, so long as they *also* have a trivial copy ctor,
+    // which is non-conforming.
+    if (D->needsImplicitCopyConstructor()) {
+      if (!D->defaultedCopyConstructorIsDeleted()) {
+        if (D->hasTrivialCopyConstructor())
+          CopyCtorIsTrivial = true;
+        if (D->hasTrivialCopyConstructorForCall())
+          CopyCtorIsTrivialForCall = true;
+      }
+    } else {
+      for (const CXXConstructorDecl *CD : D->ctors()) {
+        if (CD->isCopyConstructor() && !CD->isDeleted()) {
+          if (CD->isTrivial())
+            CopyCtorIsTrivial = true;
+          if (CD->isTrivialForCall())
+            CopyCtorIsTrivialForCall = true;
+        }
+      }
+    }
+
+    if (D->needsImplicitDestructor()) {
+      if (!D->defaultedDestructorIsDeleted() &&
+          D->hasTrivialDestructorForCall())
+        DtorIsTrivialForCall = true;
+    } else if (const auto *DD = D->getDestructor()) {
+      if (!DD->isDeleted() && DD->isTrivialForCall())
+        DtorIsTrivialForCall = true;
+    }
+
+    // If the copy ctor and dtor are both trivial-for-calls, pass direct.
+    if (CopyCtorIsTrivialForCall && DtorIsTrivialForCall)
+      return true;
+
+    // If a class has a destructor, we'd really like to pass it indirectly
+    // because it allows us to elide copies.  Unfortunately, MSVC makes that
+    // impossible for small types, which it will pass in a single register or
+    // stack slot. Most objects with dtors are large-ish, so handle that early.
+    // We can't call out all large objects as being indirect because there are
+    // multiple x64 calling conventions and the C++ ABI code shouldn't dictate
+    // how we pass large POD types.
+
+    // Note: This permits small classes with nontrivial destructors to be
+    // passed in registers, which is non-conforming.
+    if (CopyCtorIsTrivial &&
+        S.getASTContext().getTypeSize(D->getTypeForDecl()) <= 64)
+      return true;
+    return false;
+  }
 
   // Per C++ [class.temporary]p3, the relevant condition is:
   //   each copy constructor, move constructor, and destructor of X is
@@ -5843,77 +5915,6 @@ static bool paramCanBeDestroyedInCallee(Sema &S, CXXRecordDecl *D,
   }
 
   return HasNonDeletedCopyOrMove;
-}
-
-static RecordDecl::ArgPassingKind
-computeArgPassingRestrictions(bool DestroyedInCallee, const CXXRecordDecl *RD,
-                              TargetInfo::CallingConvKind CCK, Sema &S) {
-  if (RD->isDependentType() || RD->isInvalidDecl())
-    return RecordDecl::APK_CanPassInRegs;
-
-  // The param cannot be passed in registers if ArgPassingRestrictions is set to
-  // APK_CanNeverPassInRegs.
-  if (RD->getArgPassingRestrictions() == RecordDecl::APK_CanNeverPassInRegs)
-    return RecordDecl::APK_CanNeverPassInRegs;
-
-  if (CCK != TargetInfo::CCK_MicrosoftX86_64)
-    return DestroyedInCallee ? RecordDecl::APK_CanPassInRegs
-                             : RecordDecl::APK_CannotPassInRegs;
-
-  bool CopyCtorIsTrivial = false, CopyCtorIsTrivialForCall = false;
-  bool DtorIsTrivialForCall = false;
-
-  // If a class has at least one non-deleted, trivial copy constructor, it
-  // is passed according to the C ABI. Otherwise, it is passed indirectly.
-  //
-  // Note: This permits classes with non-trivial copy or move ctors to be
-  // passed in registers, so long as they *also* have a trivial copy ctor,
-  // which is non-conforming.
-  if (RD->needsImplicitCopyConstructor()) {
-    if (!RD->defaultedCopyConstructorIsDeleted()) {
-      if (RD->hasTrivialCopyConstructor())
-        CopyCtorIsTrivial = true;
-      if (RD->hasTrivialCopyConstructorForCall())
-        CopyCtorIsTrivialForCall = true;
-    }
-  } else {
-    for (const CXXConstructorDecl *CD : RD->ctors()) {
-      if (CD->isCopyConstructor() && !CD->isDeleted()) {
-        if (CD->isTrivial())
-          CopyCtorIsTrivial = true;
-        if (CD->isTrivialForCall())
-          CopyCtorIsTrivialForCall = true;
-      }
-    }
-  }
-
-  if (RD->needsImplicitDestructor()) {
-    if (!RD->defaultedDestructorIsDeleted() &&
-        RD->hasTrivialDestructorForCall())
-      DtorIsTrivialForCall = true;
-  } else if (const auto *D = RD->getDestructor()) {
-    if (!D->isDeleted() && D->isTrivialForCall())
-      DtorIsTrivialForCall = true;
-  }
-
-  // If the copy ctor and dtor are both trivial-for-calls, pass direct.
-  if (CopyCtorIsTrivialForCall && DtorIsTrivialForCall)
-    return RecordDecl::APK_CanPassInRegs;
-
-  // If a class has a destructor, we'd really like to pass it indirectly
-  // because it allows us to elide copies.  Unfortunately, MSVC makes that
-  // impossible for small types, which it will pass in a single register or
-  // stack slot. Most objects with dtors are large-ish, so handle that early.
-  // We can't call out all large objects as being indirect because there are
-  // multiple x64 calling conventions and the C++ ABI code shouldn't dictate
-  // how we pass large POD types.
-
-  // Note: This permits small classes with nontrivial destructors to be
-  // passed in registers, which is non-conforming.
-  if (CopyCtorIsTrivial &&
-      S.getASTContext().getTypeSize(RD->getTypeForDecl()) <= 64)
-    return RecordDecl::APK_CanPassInRegs;
-  return RecordDecl::APK_CannotPassInRegs;
 }
 
 /// Perform semantic checks on a class definition that has been
@@ -6083,13 +6084,23 @@ void Sema::CheckCompletedCXXClass(CXXRecordDecl *Record) {
       Context.getLangOpts().getClangABICompat() <= LangOptions::ClangABI::Ver4;
   TargetInfo::CallingConvKind CCK =
       Context.getTargetInfo().getCallingConvKind(ClangABICompat4);
-  bool DestroyedInCallee = paramCanBeDestroyedInCallee(*this, Record, CCK);
+  bool CanPass = canPassInRegisters(*this, Record, CCK);
 
-  if (Record->hasNonTrivialDestructor())
-    Record->setParamDestroyedInCallee(DestroyedInCallee);
+  // Do not change ArgPassingRestrictions if it has already been set to
+  // APK_CanNeverPassInRegs.
+  if (Record->getArgPassingRestrictions() != RecordDecl::APK_CanNeverPassInRegs)
+    Record->setArgPassingRestrictions(CanPass
+                                          ? RecordDecl::APK_CanPassInRegs
+                                          : RecordDecl::APK_CannotPassInRegs);
 
-  Record->setArgPassingRestrictions(
-      computeArgPassingRestrictions(DestroyedInCallee, Record, CCK, *this));
+  // If canPassInRegisters returns true despite the record having a non-trivial
+  // destructor, the record is destructed in the callee. This happens only when
+  // the record or one of its subobjects has a field annotated with trivial_abi
+  // or a field qualified with ObjC __strong/__weak.
+  if (Context.getTargetInfo().getCXXABI().areArgsDestroyedLeftToRightInCallee())
+    Record->setParamDestroyedInCallee(true);
+  else if (Record->hasNonTrivialDestructor())
+    Record->setParamDestroyedInCallee(CanPass);
 }
 
 /// Look up the special member function that would be called by a special

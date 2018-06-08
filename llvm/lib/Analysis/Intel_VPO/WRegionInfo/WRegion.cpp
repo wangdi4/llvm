@@ -57,7 +57,7 @@ WRNParallelNode::WRNParallelNode(BasicBlock *BB)
   setNumThreads(nullptr);
   setDefault(WRNDefaultAbsent);
   setProcBind(WRNProcBindAbsent);
-  DEBUG(dbgs() << "\nCreated WRNParallelNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNParallelNode<" << getNumber() << ">\n");
 }
 
 // printer
@@ -83,7 +83,8 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
   setCollapse(0);
   setOrdered(-1);
 
-  DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber()
+                    << ">\n");
 }
 
 // printer
@@ -111,7 +112,8 @@ WRNParallelSectionsNode::WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *Li)
   setDefault(WRNDefaultAbsent);
   setProcBind(WRNProcBindAbsent);
 
-  DEBUG(dbgs() << "\nCreated WRNParallelSectionsNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNParallelSectionsNode<" << getNumber()
+                    << ">\n");
 }
 
 // printer
@@ -135,8 +137,8 @@ WRNParallelWorkshareNode::WRNParallelWorkshareNode(BasicBlock *BB, LoopInfo *Li)
   setNumThreads(nullptr);
   setDefault(WRNDefaultAbsent);
   setProcBind(WRNProcBindAbsent);
-  DEBUG(dbgs() << "\nCreated WRNParallelWorkshareNode<" << getNumber()
-                                                        << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNParallelWorkshareNode<" << getNumber()
+                    << ">\n");
 }
 
 // printer
@@ -158,7 +160,7 @@ WRNTeamsNode::WRNTeamsNode(BasicBlock *BB)
   setNumThreads(nullptr);
   setDefault(WRNDefaultAbsent);
 
-  DEBUG(dbgs() << "\nCreated WRNTeamsNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNTeamsNode<" << getNumber() << ">\n");
 }
 
 // printer
@@ -188,7 +190,8 @@ WRNDistributeParLoopNode::WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *Li)
   setCollapse(0);
   setOrdered(-1);
 
-  DEBUG(dbgs() << "\nCreated WRNDistributeParLoopNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNDistributeParLoopNode<" << getNumber()
+                    << ">\n");
 }
 
 // printer
@@ -212,7 +215,7 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
   setNowait(false);
   setDefaultmapTofromScalar(false);
 
-  DEBUG(dbgs() << "\nCreated WRNTargetNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNTargetNode<" << getNumber() << ">\n");
 }
 
 // printer
@@ -232,7 +235,7 @@ WRNTargetDataNode::WRNTargetDataNode(BasicBlock *BB)
   setIf(nullptr);
   setDevice(nullptr);
 
-  DEBUG(dbgs() << "\nCreated WRNTargetDataNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNTargetDataNode<" << getNumber() << ">\n");
 }
 
 // printer
@@ -253,7 +256,8 @@ WRNTargetEnterDataNode::WRNTargetEnterDataNode(BasicBlock *BB)
   setDevice(nullptr);
   setNowait(false);
 
-  DEBUG(dbgs() << "\nCreated WRNTargetEnterDataNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNTargetEnterDataNode<" << getNumber()
+                    << ">\n");
 }
 
 // printer
@@ -275,7 +279,8 @@ WRNTargetExitDataNode::WRNTargetExitDataNode(BasicBlock *BB)
   setDevice(nullptr);
   setNowait(false);
 
-  DEBUG(dbgs() << "\nCreated WRNTargetExitDataNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNTargetExitDataNode<" << getNumber()
+                    << ">\n");
 }
 
 // printer
@@ -297,7 +302,8 @@ WRNTargetUpdateNode::WRNTargetUpdateNode(BasicBlock *BB)
   setDevice(nullptr);
   setNowait(false);
 
-  DEBUG(dbgs() << "\nCreated WRNTargetUpdateNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNTargetUpdateNode<" << getNumber()
+                    << ">\n");
 }
 
 // printer
@@ -322,7 +328,7 @@ WRNTaskNode::WRNTaskNode(BasicBlock *BB)
   setMergeable(false);
   setTaskFlag(WRNTaskFlag::Tied);
 
-  DEBUG(dbgs() << "\nCreated WRNTaskNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNTaskNode<" << getNumber() << ">\n");
 }
 
 // printer
@@ -356,7 +362,7 @@ WRNTaskloopNode::WRNTaskloopNode(BasicBlock *BB, LoopInfo *Li)
   //   setUntied(false);
   //   setMergeable(false);
 
-  DEBUG(dbgs() << "\nCreated WRNTaskloopNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNTaskloopNode<" << getNumber() << ">\n");
 }
 
 //
@@ -373,7 +379,7 @@ WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li,
   setCollapse(0);
   setIsAutoVec(isAutoVec);
 
-  DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() << ">\n");
 }
 
 // constructor for HIR representation
@@ -389,7 +395,7 @@ WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN, const bool isAutoVec)
   setExitHLNode(nullptr);
   setHLLoop(nullptr);
 
-  DEBUG(dbgs() << "\nCreated HIR-WRNVecLoopNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated HIR-WRNVecLoopNode<" << getNumber() << ">\n");
 }
 
 // Specify namespace for the template instantiation or the build will fail
@@ -443,7 +449,7 @@ WRNWksLoopNode::WRNWksLoopNode(BasicBlock *BB, LoopInfo *Li)
   setOrdered(-1);
   setNowait(false);
 
-  DEBUG(dbgs() << "\nCreated WRNWksLoopNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNWksLoopNode<" << getNumber() << ">\n");
 }
 
 // printer
@@ -464,7 +470,7 @@ WRNSectionsNode::WRNSectionsNode(BasicBlock *BB, LoopInfo *Li)
   setIsSections();
   setNowait(false);
 
-  DEBUG(dbgs() << "\nCreated WRNSectionsNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNSectionsNode<" << getNumber() << ">\n");
 }
 
 // printer
@@ -484,7 +490,7 @@ WRNWorkshareNode::WRNWorkshareNode(BasicBlock *BB, LoopInfo *Li)
   setIsOmpLoop();
   setNowait(false);
 
-  DEBUG(dbgs() << "\nCreated WRNWorkshareNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNWorkshareNode<" << getNumber() << ">\n");
 }
 
 // printer
@@ -505,7 +511,7 @@ WRNDistributeNode::WRNDistributeNode(BasicBlock *BB, LoopInfo *Li)
   setCollapse(0);
   setNowait(false);
 
-  DEBUG(dbgs() << "\nCreated WRNDistributeNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNDistributeNode<" << getNumber() << ">\n");
 }
 
 // printer
@@ -524,7 +530,7 @@ WRNAtomicNode::WRNAtomicNode(BasicBlock *BB)
   setAtomicKind(WRNAtomicUpdate); // Default Atomic Kind is WRNAtomicUpdate
   setHasSeqCstClause(false);
 
-  DEBUG(dbgs() << "\nCreated WRNAtomicNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNAtomicNode<" << getNumber() << ">\n");
 }
 
 //printer
@@ -543,7 +549,7 @@ void WRNAtomicNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 // constructor
 WRNBarrierNode::WRNBarrierNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNBarrier, BB) {
-  DEBUG(dbgs() << "\nCreated WRNBarrierNode <" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNBarrierNode <" << getNumber() << ">\n");
 }
 
 //
@@ -555,7 +561,7 @@ WRNCancelNode::WRNCancelNode(BasicBlock *BB, bool IsCP)
     : WRegionNode(WRegionNode::WRNCancel, BB), IsCancellationPoint(IsCP) {
   setCancelKind(WRNCancelError);
   setIf(nullptr);
-  DEBUG(dbgs() << "\nCreated WRNCancelNode <" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNCancelNode <" << getNumber() << ">\n");
 }
 
 //printer
@@ -576,7 +582,7 @@ void WRNCancelNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 // constructor
 WRNMasterNode::WRNMasterNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNMaster, BB) {
-  DEBUG(dbgs() << "\nCreated WRNMasterNode <" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNMasterNode <" << getNumber() << ">\n");
 }
 
 //
@@ -588,7 +594,7 @@ WRNOrderedNode::WRNOrderedNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNOrdered, BB) {
   setIsDoacross(false);
   setIsThreads(true);
-  DEBUG(dbgs() << "\nCreated WRNOrderedNode <" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNOrderedNode <" << getNumber() << ">\n");
 }
 
 //printer
@@ -614,7 +620,7 @@ void WRNOrderedNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 // constructor
 WRNSingleNode::WRNSingleNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNSingle, BB), Nowait(false) {
-  DEBUG(dbgs() << "\nCreated WRNSingleNode <" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNSingleNode <" << getNumber() << ">\n");
 }
 
 // printer
@@ -631,7 +637,7 @@ void WRNSingleNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 WRNCriticalNode::WRNCriticalNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNCritical, BB), UserLockName("") {
   // UserLockName is empty by default
-  DEBUG(dbgs() << "\nCreated WRNCriticalNode <" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNCriticalNode <" << getNumber() << ">\n");
 }
 
 // printer
@@ -646,7 +652,7 @@ void WRNCriticalNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 // constructor
 WRNFlushNode::WRNFlushNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNFlush, BB) {
-  DEBUG(dbgs() << "\nCreated WRNFlushNode<" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNFlushNode<" << getNumber() << ">\n");
 }
 
 //
@@ -656,7 +662,7 @@ WRNFlushNode::WRNFlushNode(BasicBlock *BB)
 // constructor
 WRNTaskgroupNode::WRNTaskgroupNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTaskgroup, BB) {
-  DEBUG(dbgs() << "\nCreated WRNTaskgroupNode <" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNTaskgroupNode <" << getNumber() << ">\n");
 }
 
 //
@@ -666,7 +672,7 @@ WRNTaskgroupNode::WRNTaskgroupNode(BasicBlock *BB)
 // constructor
 WRNTaskwaitNode::WRNTaskwaitNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTaskwait, BB) {
-  DEBUG(dbgs() << "\nCreated WRNTaskwaitNode <" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNTaskwaitNode <" << getNumber() << ">\n");
 }
 
 //
@@ -676,7 +682,7 @@ WRNTaskwaitNode::WRNTaskwaitNode(BasicBlock *BB)
 // constructor
 WRNTaskyieldNode::WRNTaskyieldNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTaskyield, BB) {
-  DEBUG(dbgs() << "\nCreated WRNTaskyieldNode <" << getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nCreated WRNTaskyieldNode <" << getNumber() << ">\n");
 }
 
 

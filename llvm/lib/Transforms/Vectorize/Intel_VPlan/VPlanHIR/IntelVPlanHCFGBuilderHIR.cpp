@@ -166,8 +166,8 @@ VPBasicBlock *PlainCFGBuilderHIR::createOrGetVPBB(HLNode *HNode) {
     if (BlockIt == HLN2VPBB.end()) {
       // New VPBB
       // TODO: Print something more useful.
-      DEBUG(dbgs() << "Creating VPBasicBlock for " << HNode->getNumber()
-                   << "\n");
+      LLVM_DEBUG(dbgs() << "Creating VPBasicBlock for " << HNode->getNumber()
+                        << "\n");
       VPBasicBlock *VPBB = createVPBB();
       HLN2VPBB[HNode] = VPBB;
       // NewVPBB->setOriginalBB(BB);
@@ -445,7 +445,7 @@ void PlainCFGBuilderHIR::buildVPOpsForDDNode(
 // are created and it's inserted in the active VPBasicBlock.
 VPInstruction *PlainCFGBuilderHIR::createOrFixVPInstr(HLDDNode *DDNode) {
 
-  DEBUG(dbgs() << "Creating or fixing:"; DDNode->dump(); dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "Creating or fixing:"; DDNode->dump(); dbgs() << "\n");
 
   // Translate HIR operands into VPValue operands. This needs to happen before
   // creating the VPInstruction because it may introduce new VPInstructions for
@@ -480,7 +480,7 @@ VPInstruction *PlainCFGBuilderHIR::createOrFixVPInstr(HLDDNode *DDNode) {
 void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
 
   // TODO: Print something more useful.
-  DEBUG(dbgs() << "Visiting HLLoop: " << HLp->getNumber() << "\n");
+  LLVM_DEBUG(dbgs() << "Visiting HLLoop: " << HLp->getNumber() << "\n");
 
   // - ZTT for inner loops -
   // TODO: isInnerMost(), ztt_pred_begin/end

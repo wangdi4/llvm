@@ -205,7 +205,7 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
   BasicBlock *PrevBB = CFG.PrevBB;
   BasicBlock *NewBB = BasicBlock::Create(PrevBB->getContext(), "VPlannedBB",
                                          PrevBB->getParent(), CFG.LastBB);
-  DEBUG(dbgs() << "LV: created " << NewBB->getName() << '\n');
+  LLVM_DEBUG(dbgs() << "LV: created " << NewBB->getName() << '\n');
 
 #if INTEL_CUSTOMIZATION
   // Hook up the new basic block to its predecessors. New predecessors that
@@ -221,7 +221,7 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
       CFG.EdgesToFix[PredVPBB] = NewBB;
     } else {
       BasicBlock *PredBB = CFG.VPBB2IRBB[PredVPBB];
-      DEBUG(dbgs() << "LV: draw edge from" << PredBB->getName() << '\n');
+      LLVM_DEBUG(dbgs() << "LV: draw edge from" << PredBB->getName() << '\n');
       if (isa<UnreachableInst>(PredBB->getTerminator())) {
         PredBB->getTerminator()->eraseFromParent();
         BranchInst::Create(NewBB, PredBB);
@@ -262,7 +262,7 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
     BasicBlock *PredBB = CFG.VPBB2IRBB[PredVPBB];
     assert(PredBB && "Predecessor basic-block not found building successor.");
     auto *PredBBTerminator = PredBB->getTerminator();
-    DEBUG(dbgs() << "LV: draw edge from" << PredBB->getName() << '\n');
+    LLVM_DEBUG(dbgs() << "LV: draw edge from" << PredBB->getName() << '\n');
     if (isa<UnreachableInst>(PredBBTerminator)) {
       assert(PredVPSuccessors.size() == 1 &&
              "Predecessor ending w/o branch must have single successor.");
@@ -345,8 +345,8 @@ void VPBasicBlock::execute(VPTransformState *State) {
   }
 
   // 2. Fill the IR basic block with IR instructions.
-  DEBUG(dbgs() << "LV: vectorizing VPBB:" << getName()
-               << " in BB:" << NewBB->getName() << '\n');
+  LLVM_DEBUG(dbgs() << "LV: vectorizing VPBB:" << getName()
+                    << " in BB:" << NewBB->getName() << '\n');
 
   State->CFG.VPBB2IRBB[this] = NewBB;
   State->CFG.PrevVPBB = this;
@@ -360,7 +360,7 @@ void VPBasicBlock::execute(VPTransformState *State) {
   // propagate its value to the next VPBasicBlock.
   State->ILV->setMaskValue(nullptr);
 
-  DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
+  LLVM_DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
 
 #else
 
@@ -395,8 +395,8 @@ void VPBasicBlock::execute(VPTransformState *State) {
   }
 
   // 2. Fill the IR basic block with IR instructions.
-  DEBUG(dbgs() << "LV: vectorizing VPBB:" << getName()
-               << " in BB:" << NewBB->getName() << '\n');
+  LLVM_DEBUG(dbgs() << "LV: vectorizing VPBB:" << getName()
+                    << " in BB:" << NewBB->getName() << '\n');
 
   State->CFG.VPBB2IRBB[this] = NewBB;
   State->CFG.PrevVPBB = this;
@@ -404,7 +404,7 @@ void VPBasicBlock::execute(VPTransformState *State) {
   for (VPRecipeBase &Recipe : Recipes)
     Recipe.execute(*State);
 
-  DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
+  LLVM_DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
 #endif
 }
 
@@ -414,7 +414,7 @@ void VPRegionBlock::execute(VPTransformState *State) {
   if (!isReplicator()) {
     // Visit the VPBlocks connected to "this", starting from it.
     for (VPBlockBase *Block : RPOT) {
-      DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
+      LLVM_DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
       Block->execute(State);
     }
     return;
@@ -431,7 +431,7 @@ void VPRegionBlock::execute(VPTransformState *State) {
       State->Instance->Lane = Lane;
       // Visit the VPBlocks connected to \p this, starting from it.
       for (VPBlockBase *Block : RPOT) {
-        DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
+        LLVM_DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
         Block->execute(State);
       }
     }
@@ -597,7 +597,7 @@ void VPRegionBlock::executeHIR(VPOCodeGenHIR *CG) {
 
   // Visit the VPBlocks connected to "this", starting from it.
   for (VPBlockBase *Block : RPOT) {
-    DEBUG(dbgs() << "HIRV: VPBlock in RPO " << Block->getName() << '\n');
+    LLVM_DEBUG(dbgs() << "HIRV: VPBlock in RPO " << Block->getName() << '\n');
     Block->executeHIR(CG);
   }
 }
@@ -1101,12 +1101,12 @@ void VPlanPrinter::printAsIngredient(raw_ostream &O, Value *V) {
 void VPlan::printInst2Recipe() {
   DenseMap<Instruction *, VPRecipeBase *>::iterator It, End;
   for (It = Inst2Recipe.begin(), End = Inst2Recipe.end(); It != End; ++It) {
-    DEBUG(errs() << "Instruction: " << *It->first << "\n");
+    LLVM_DEBUG(errs() << "Instruction: " << *It->first << "\n");
     std::string RecipeString;
     raw_string_ostream RSO(RecipeString);
     VPRecipeBase *Recipe = It->second;
     Recipe->print(RSO, Twine()); // TODO: Twine
-    DEBUG(errs() << "Recipe: " << RSO.str() << "\n");
+    LLVM_DEBUG(errs() << "Recipe: " << RSO.str() << "\n");
   }
 }
 #endif
