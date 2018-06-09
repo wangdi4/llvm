@@ -100,7 +100,7 @@ void OpenCLBackendRunner::BuildProgram(ICLDevBackendProgram_* pProgram,
     Sample buildTime;
 
     buildTime.Start();
-    DEBUG(llvm::dbgs() << "Build program started.\n");
+    LLVM_DEBUG(llvm::dbgs() << "Build program started.\n");
     BuildProgramOptions buildProgramOptions;
 
     std::string injectedObjectPath = runConfig->GetValue<std::string>(RC_BR_OBJECT_FILE, "");
@@ -124,7 +124,7 @@ void OpenCLBackendRunner::BuildProgram(ICLDevBackendProgram_* pProgram,
       buildProgramOptions.SetStopBeforeJIT();
 
     cl_int ret = pCompileService->BuildProgram(pProgram, &buildProgramOptions);
-    DEBUG(llvm::dbgs() << "Build program finished.\n");
+    LLVM_DEBUG(llvm::dbgs() << "Build program finished.\n");
     buildTime.Stop();
 
     if ( CL_DEV_FAILED(ret) )

@@ -368,7 +368,9 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
 
     // Build up all of the passes that we want to do to the module.
     llvm::legacy::PassManager pm;
-    pTargetMachine->addPassesToEmitFile(pm, out, TargetMachine::CGFT_AssemblyFile, /*DisableVerify*/ true);
+    pTargetMachine->addPassesToEmitFile(pm, out,
+        /*raw_pwrite_stream*/ nullptr, TargetMachine::CGFT_AssemblyFile,
+        /*DisableVerify*/ true);
     pm.run(*pModule);
 }
 

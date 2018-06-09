@@ -148,7 +148,7 @@ void NEATPlugIn::handlePostInstExecution(Instruction& I)
 {
     SetCurEvent(POST_INST);
     // Interpret a single instruction & increment the "PC".
-    DEBUG(dbgs() << "NEATPlugin is after running : " << I << "\n");
+    LLVM_DEBUG(dbgs() << "NEATPlugin is after running : " << I << "\n");
     visit(I);
 }
 
@@ -159,7 +159,7 @@ void NEATPlugIn::visitLoadInst(LoadInst &I)
     // if NEAT does not support this type - exit
     if(!m_NTD.IsNEATSupported(I.getType())) return;
 
-    DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+    LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
     NEATExecutionContext &SF = m_NECStack.back();
 
@@ -273,7 +273,7 @@ void NEATPlugIn::LoadValueFromMemory(NEATGenericValue &Result,
     Result.NEATVal = *((NEATValue*) NEATPtr);
     if(Result.NEATVal.IsUnwritten())
     {
-        DEBUG(dbgs() << "[NEATPlugin] warning : loaded UNWRITTEN value.\n");
+        LLVM_DEBUG(dbgs() << "[NEATPlugin] warning : loaded UNWRITTEN value.\n");
     }
     break;
   case Type::PointerTyID:
@@ -419,7 +419,7 @@ void NEATPlugIn::visitStoreInst( StoreInst &I )
     // if NEAT does not support this type - exit
     if(!m_NTD.IsNEATSupported(I.getPointerOperand()->getType())) return;
 
-    DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+    LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
     NEATExecutionContext &NSF = m_NECStack.back();
     NEATGenericValue Val = getOperandValue(I.getOperand(0), NSF);
@@ -484,7 +484,7 @@ void NEATPlugIn::StoreValueToMemory(const NEATGenericValue &Val,
       break;
                         }
   default:
-      DEBUG(dbgs() << "Cannot store value of type " << *Ty << "!\n");
+      LLVM_DEBUG(dbgs() << "Cannot store value of type " << *Ty << "!\n");
   }
 }
 
@@ -494,7 +494,7 @@ void NEATPlugIn::visitAllocaInst( AllocaInst &I )
     // if NEAT does not support this type - exit
     if(!m_NTD.IsNEATSupported(I.getType())) return;
 
-    DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+    LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
     NEATExecutionContext &NSF = m_NECStack.back();
     ExecutionContext &SF = m_pECStack->back();
@@ -512,7 +512,7 @@ void NEATPlugIn::visitAllocaInst( AllocaInst &I )
 
     void *Memory = malloc(MemToAlloc);
 
-    DEBUG(dbgs() << "NEATPlugin: Allocated Type: " << *Ty << " (" << TypeSize << " bytes) x "
+    LLVM_DEBUG(dbgs() << "NEATPlugin: Allocated Type: " << *Ty << " (" << TypeSize << " bytes) x "
         << NumElements << " (Total: " << MemToAlloc << ") at "
         << uintptr_t(Memory) << '\n');
 
@@ -540,7 +540,7 @@ void NEATPlugIn::visitGetElementPtrInst( GetElementPtrInst &I )
     HANDLE_EVENT(POST_INST);
     NEATExecutionContext &NSF = m_NECStack.back();
 
-    DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+    LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
     if ( m_NTD.IsNEATSupported(I.getPointerOperand()->getType()))
     SetValue(&I, executeGEPOperation(I.getPointerOperand(),
@@ -587,7 +587,7 @@ NEATGenericValue NEATPlugIn::executeGEPOperation( Value *Ptr,
 
     NEATGenericValue Result;
     Result.PointerVal = ((char*)(getOperandValue(Ptr, NSF).PointerVal)) + Total;
-    DEBUG(dbgs() << "[NEATPlugin]:GEP Index " << Total << " bytes.\n");
+    LLVM_DEBUG(dbgs() << "[NEATPlugin]:GEP Index " << Total << " bytes.\n");
     return Result;
 
 }
@@ -628,7 +628,7 @@ void NEATPlugIn::callFunction( Function *F,
               + F->getName().str() );
         }
 
-        DEBUG(dbgs() << "[NEATPlugin]: Skipped function " << F->getName() << "\n");
+        LLVM_DEBUG(dbgs() << "[NEATPlugin]: Skipped function " << F->getName() << "\n");
         // TODO: decide what to do with unsupported functions
         // throw Exception::NotImplemented("[NEATPlugin]: Not implemented external call in callFunction " + F->getNameStr() );
         return;
@@ -1115,7 +1115,7 @@ void NEATPlugIn::SwitchToNewBasicBlock(BasicBlock *Dest, ExecutionContext &inSF,
 void NEATPlugIn::visitBranchInst(BranchInst &I) {
   HANDLE_EVENT(PRE_INST);
 
-  DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+  LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
   NEATExecutionContext &NSF = m_NECStack.back();
   ExecutionContext &SF = m_pECStack->back();
   InterpreterPluggable &IP = *m_pInterp;
@@ -1160,7 +1160,7 @@ void NEATPlugIn::visitBinaryOperator( BinaryOperator &I )
   // if NEAT does not support this type - exit
   if(!m_NTD.IsNEATSupported(I.getType())) return;
 
-  DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+  LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
   NEATExecutionContext &SF = m_NECStack.back();
 
@@ -1243,7 +1243,7 @@ void NEATPlugIn::visitExtractElementInst( ExtractElementInst &I )
   // if NEAT does not support this type - exit
   if(!m_NTD.IsNEATSupported(I.getType())) return;
 
-  DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+  LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
   NEATExecutionContext &SF = m_NECStack.back();
 
@@ -1264,7 +1264,7 @@ void NEATPlugIn::visitInsertElementInst( InsertElementInst &I )
   // if NEAT does not support this type - exit
   if(!m_NTD.IsNEATSupported(I.getType())) return;
 
-  DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+  LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
   NEATExecutionContext &SF = m_NECStack.back();
 
@@ -1286,7 +1286,7 @@ void NEATPlugIn::visitShuffleVectorInst( ShuffleVectorInst &I )
   // if NEAT does not support this type - exit
   if(!m_NTD.IsNEATSupported(I.getType())) return;
 
-  DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+  LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
   NEATExecutionContext &SF = m_NECStack.back();
 
@@ -1341,7 +1341,7 @@ void NEATPlugIn::visitShuffleVectorInst( ShuffleVectorInst &I )
 void NEATPlugIn::visitFCmpInst( FCmpInst &I )
 {
   HANDLE_EVENT(PRE_INST);
-  DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+  LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
   NEATExecutionContext &SF = m_NECStack.back();
   NEATGenericValue Src1 = getOperandValue(I.getOperand(0), SF);
@@ -1398,7 +1398,7 @@ void NEATPlugIn::visitFCmpInst( FCmpInst &I )
 void NEATPlugIn::visitSelectInst( SelectInst &I )
 {
   HANDLE_EVENT(PRE_INST);
-  DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+  LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
   if (!m_NTD.IsNEATSupported(I.getOperand(1)->getType()))
       return;
@@ -1442,7 +1442,7 @@ void NEATPlugIn::visitSelectInst( SelectInst &I )
 void NEATPlugIn::visitFPTruncInst( FPTruncInst &I )
 {
   HANDLE_EVENT(PRE_INST);
-  DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+  LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
   NEATExecutionContext &SF = m_NECStack.back();
   const Type *Ty    = I.getOperand(0)->getType();
@@ -1459,7 +1459,7 @@ void NEATPlugIn::visitFPTruncInst( FPTruncInst &I )
 void NEATPlugIn::visitFPExtInst( FPExtInst &I )
 {
   HANDLE_EVENT(PRE_INST);
-  DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+  LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
   NEATExecutionContext &SF = m_NECStack.back();
   const Type *Ty    = I.getOperand(0)->getType();
@@ -1501,7 +1501,7 @@ APInt BitcastIntVectorToIntScalar(GenericValue& vec, unsigned int resBitLen, uns
 void NEATPlugIn::visitBitCastInst( BitCastInst &I )
 {
     HANDLE_EVENT(PRE_INST);
-    DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+    LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
     NEATExecutionContext &SF = m_NECStack.back();
     const Type *SrcTy    = I.getOperand(0)->getType();
@@ -1536,7 +1536,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
             if((localSrcTy->getTypeID() == Type::FloatTyID && localDstTy->getTypeID() == Type::FloatTyID) ||
                 (localSrcTy->getTypeID() == Type::DoubleTyID && localDstTy->getTypeID() == Type::DoubleTyID))
             {
-                DEBUG(dbgs() << "[NEATPlugin] warning : bitcast pointer to pointer\n");
+                LLVM_DEBUG(dbgs() << "[NEATPlugin] warning : bitcast pointer to pointer\n");
                 R.PointerVal = Src1.PointerVal;
                 SetValue(&I, R, SF);
                 return;
@@ -1547,7 +1547,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
                 Type::TypeID VecTypeID = dyn_cast<VectorType>(localSrcTy)->getElementType()->getTypeID();
                 if((VecTypeID == Type::FloatTyID && localDstTy->getTypeID() == Type::FloatTyID) ||
                     (VecTypeID == Type::DoubleTyID && localDstTy->getTypeID() == Type::DoubleTyID)){
-                        DEBUG(dbgs() << "[NEATPlugin] warning : bitcast pointer to pointer\n");
+                        LLVM_DEBUG(dbgs() << "[NEATPlugin] warning : bitcast pointer to pointer\n");
                         R.PointerVal = Src1.PointerVal;
                         SetValue(&I, R, SF);
                         return;
@@ -1559,7 +1559,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
                 Type::TypeID ArrTypeID = dyn_cast<ArrayType>(localSrcTy)->getElementType()->getTypeID();
                 if((ArrTypeID == Type::FloatTyID && localDstTy->getTypeID() == Type::FloatTyID) ||
                     (ArrTypeID == Type::DoubleTyID && localDstTy->getTypeID() == Type::DoubleTyID)) {
-                        DEBUG(dbgs() << "[NEATPlugin] warning : bitcast pointer to pointer\n");
+                        LLVM_DEBUG(dbgs() << "[NEATPlugin] warning : bitcast pointer to pointer\n");
                         R.PointerVal = Src1.PointerVal;
                         SetValue(&I, R, SF);
                         return;
@@ -1571,7 +1571,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
                 Type::TypeID VecTypeID = dyn_cast<VectorType>(localDstTy)->getElementType()->getTypeID();
                 if((VecTypeID == Type::FloatTyID && localSrcTy->getTypeID() == Type::FloatTyID) ||
                     (VecTypeID == Type::DoubleTyID && localSrcTy->getTypeID() == Type::DoubleTyID)){
-                        DEBUG(dbgs() << "[NEATPlugin] warning : bitcast pointer to pointer\n");
+                        LLVM_DEBUG(dbgs() << "[NEATPlugin] warning : bitcast pointer to pointer\n");
                         R.PointerVal = Src1.PointerVal;
                         SetValue(&I, R, SF);
                         return;
@@ -1583,7 +1583,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
                 Type::TypeID ArrTypeID = dyn_cast<ArrayType>(localDstTy)->getElementType()->getTypeID();
                 if((ArrTypeID == Type::FloatTyID && localSrcTy->getTypeID() == Type::FloatTyID) ||
                     (ArrTypeID == Type::DoubleTyID && localSrcTy->getTypeID() == Type::DoubleTyID)){
-                        DEBUG(dbgs() << "[NEATPlugin] warning : bitcast pointer to pointer\n");
+                        LLVM_DEBUG(dbgs() << "[NEATPlugin] warning : bitcast pointer to pointer\n");
                         R.PointerVal = Src1.PointerVal;
                         SetValue(&I, R, SF);
                         return;
@@ -1596,7 +1596,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
                 Type::TypeID VecDstTypeID = dyn_cast<VectorType>(localDstTy)->getElementType()->getTypeID();
                 if((VecSrcTypeID == Type::FloatTyID && VecDstTypeID == Type::FloatTyID) ||
                    (VecSrcTypeID == Type::DoubleTyID && VecDstTypeID == Type::DoubleTyID)) {
-                        DEBUG(dbgs() << "[NEATPlugin] warning : bitcast pointer to pointer\n");
+                        LLVM_DEBUG(dbgs() << "[NEATPlugin] warning : bitcast pointer to pointer\n");
                         R.PointerVal = Src1.PointerVal;
                         SetValue(&I, R, SF);
                         return;
@@ -1645,7 +1645,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
                 }
             } else if (SrcTypeID == Type::IntegerTyID)  {
 
-                DEBUG(dbgs() << "[NEATPlugin] warning : bitcast vector of integers to NEAT vector\n");
+                LLVM_DEBUG(dbgs() << "[NEATPlugin] warning : bitcast vector of integers to NEAT vector\n");
                 // <n x int32> to <n x float> or <n x int64> to <n x double>
                 const unsigned int srcNum = cast<VectorType>(SrcTy)->getNumElements();
                 const unsigned int srcBitWidth = cast<VectorType>(SrcTy)->getElementType()->getPrimitiveSizeInBits();
@@ -1827,7 +1827,7 @@ void NEATPlugIn::visitExtractValueInst( ExtractValueInst &I )
 {
   HANDLE_EVENT(PRE_INST);
 
-  DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+  LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
   // if NEAT does not support this type - exit
   if(!m_NTD.IsNEATSupported(I.getType())) return;
@@ -1872,7 +1872,7 @@ void NEATPlugIn::visitExtractValueInst( ExtractValueInst &I )
         case Type::IntegerTyID:
           break;
         default:
-          DEBUG(dbgs() << "Unhandled destination type for extractelement instruction: " << *IndexedType << "\n");
+          LLVM_DEBUG(dbgs() << "Unhandled destination type for extractelement instruction: " << *IndexedType << "\n");
           llvm_unreachable(0);
   }
 
@@ -1884,7 +1884,7 @@ void NEATPlugIn::visitInsertValueInst( InsertValueInst &I )
 {
   HANDLE_EVENT(PRE_INST);
 
-  DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+  LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
   // if NEAT does not support this type - exit
   if(!m_NTD.IsNEATSupported(I.getType())) return;
@@ -1941,7 +1941,7 @@ void NEATPlugIn::visitInsertValueInst( InsertValueInst &I )
       pDest->PointerVal = Src2.PointerVal;
       break;
     default:
-      DEBUG(dbgs() << "Unhandled dest type for extractelement instruction: " << *IndexedType << "\n");
+      LLVM_DEBUG(dbgs() << "Unhandled dest type for extractelement instruction: " << *IndexedType << "\n");
       llvm_unreachable(0);
   }
 
@@ -1954,7 +1954,7 @@ void NEATPlugIn::visitCallSite( CallSite CS )
     // handle call instruction before execution
     HANDLE_EVENT(PRE_INST);
 
-    DEBUG(dbgs() << "[NEATPlugin] running : CallSite: " << *CS.getCalledFunction() << "\n");
+    LLVM_DEBUG(dbgs() << "[NEATPlugin] running : CallSite: " << *CS.getCalledFunction() << "\n");
 
     NEATExecutionContext &SF = m_NECStack.back();
     ExecutionContext &EC = m_pECStack->back();
@@ -1967,7 +1967,7 @@ void NEATPlugIn::visitCallSite( CallSite CS )
     case Intrinsic::not_intrinsic:
         break;
     default:
-        DEBUG(dbgs() << "[NEATPlugin] Warning:: running unknown intrinsic: " << *CS.getCalledFunction() << "\n");
+        LLVM_DEBUG(dbgs() << "[NEATPlugin] Warning:: running unknown intrinsic: " << *CS.getCalledFunction() << "\n");
         return;
         }
         // Ignore execution of "printf" function in NEATPlugIn.
@@ -1999,7 +1999,7 @@ void NEATPlugIn::popStackAndReturnValueToCaller( const Type *RetTy, NEATGenericV
 
   if (m_NECStack.empty()) {  // Finished OpenCL kernel. Return type could be *only* void.
     if (RetTy && !RetTy->isVoidTy()) {
-      DEBUG(dbgs() << "OpenCL kernel returns non-void result!\n");
+      LLVM_DEBUG(dbgs() << "OpenCL kernel returns non-void result!\n");
     }
   } else if(m_NTD.IsNEATSupported(RetTy)) {
     // If we have a previous stack frame, and we have a previous call,
@@ -3298,7 +3298,7 @@ void NEATPlugIn::execute_read_imagef(Function *F,
        OCLBuiltins::getCoordsByImageType<int32_t,float>(objType,CoordGV,u,v,w);
     }
 
-    DEBUG(dbgs() << "[NEATPlugin] Coordinates u=" << u <<" v=" << v << " w=" << w << "\n");
+    LLVM_DEBUG(dbgs() << "[NEATPlugin] Coordinates u=" << u <<" v=" << v << " w=" << w << "\n");
 
     cl_image_format im_fmt;
     Conformance::image_descriptor desc = OCLBuiltins::CreateConfImageDesc(*memobj, im_fmt);
@@ -4099,7 +4099,7 @@ void NEATPlugIn::visitUIToFPInst( UIToFPInst &I )
 {
   HANDLE_EVENT(PRE_INST);
 
-  DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+  LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
   NEATExecutionContext &SF = m_NECStack.back();
   ExecutionContext &EC = m_pECStack->back();
@@ -4144,7 +4144,7 @@ void NEATPlugIn::visitSIToFPInst( SIToFPInst &I )
 {
   HANDLE_EVENT(PRE_INST);
 
-  DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
+  LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
   NEATExecutionContext &SF = m_NECStack.back();
   ExecutionContext &EC = m_pECStack->back();
@@ -4215,7 +4215,7 @@ void * NEATPlugIn::getOrEmitGlobalVariable( const GlobalVariable *GV )
         // Allocate enough memory to hold the type...
         Memory = new int8_t[TypeSize];
 
-        DEBUG(dbgs() << "NEATPlugin: getOrEmitGlobalVariable "
+        LLVM_DEBUG(dbgs() << "NEATPlugin: getOrEmitGlobalVariable "
             "Allocated global variable Type : "
             << *GlobalType << " (" << TypeSize << " bytes) x \n");
 

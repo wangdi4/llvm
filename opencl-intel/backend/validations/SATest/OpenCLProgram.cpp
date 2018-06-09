@@ -200,7 +200,7 @@ llvm::Module* OpenCLProgram::ParseToModule(void) const{
         throw Exception::TestReferenceRunnerException(
           "Unable to parse bytecode into LLVM module");
     }
-    DEBUG(llvm::dbgs() << "Module LLVM error: " << pModuleOrErr.getError().value() << "\n"
+    LLVM_DEBUG(llvm::dbgs() << "Module LLVM error: " << pModuleOrErr.getError().value() << "\n"
                        << "            message: " << pModuleOrErr.getError().message() << "\n");
     return pModuleOrErr.get().release();
 }

@@ -113,7 +113,7 @@ IPerformance& RunResult::GetPerformance()
 
 void RunResult::SetComparatorIgnoreList( const char* kernelName, const std::vector<bool>& ignoreList )
 {
-    DEBUG({
+    LLVM_DEBUG({
     if( m_comparatorIgnoreList.find( kernelName ) != m_comparatorIgnoreList.end() )
     {
         llvm::dbgs() << "Ignore list for " << kernelName << " was reset!";

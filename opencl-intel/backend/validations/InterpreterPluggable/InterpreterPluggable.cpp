@@ -191,13 +191,13 @@ InterpreterPluggable::RETCODE InterpreterPluggable::runWithPlugins()
         std::size_t found = fName.find("barrier");
         if (found!=std::string::npos)
         {
-            DEBUG(dbgs() << "Barrier Detected: " << I << '\n');
+            LLVM_DEBUG(dbgs() << "Barrier Detected: " << I << '\n');
             *SF.CurInst++;
             return InterpreterPluggable::BARRIER;
         }
         else if(m_WGBuiltinsNames.isWorkGroupBuiltin(fName))
         {
-            DEBUG(dbgs() << "Blocking Work Group function Detected: " << I << '\n');
+            LLVM_DEBUG(dbgs() << "Blocking Work Group function Detected: " << I << '\n');
             //*SF.CurInst++; do not increment instruction counter
             //if flag is false - break execution and wait for WI
             //true - continue
@@ -247,7 +247,7 @@ InterpreterPluggable::RETCODE InterpreterPluggable::runWithPlugins()
     for(PlugInIterator it = m_pPlugins.begin(); it != m_pPlugins.end(); ++it)
       (*it)->handlePreInstExecution(I);
 
-    DEBUG(dbgs() << "About to interpret: " << I << '\n');
+    LLVM_DEBUG(dbgs() << "About to interpret: " << I << '\n');
 
     // note: do not move following CurInst++ prior to calling NEAT plug-in
     // Plug ins depends on ExecutionContext unmodified prior to execution in interpreter

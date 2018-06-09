@@ -476,7 +476,7 @@ bool Prefetch::memAccessExists (memAccess &access, memAccessV &MAV,
     }
   }
 
-  DEBUG (dbgs() << "Found SCEV in this BB of type " <<
+  LLVM_DEBUG (dbgs() << "Found SCEV in this BB of type " <<
       (int)access.S->getSCEVType() << "\n";
       access.S->dump(););
 
@@ -711,7 +711,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       // if this is the first access detected for this BB insert it t the list
       BBAccesses::iterator it = m_addresses.find(BB);
       if (it == m_addresses.end()) {
-        DEBUG (dbgs() << "Found first SCEV in this BB of size " << accessSize <<
+        LLVM_DEBUG (dbgs() << "Found first SCEV in this BB of size " << accessSize <<
             " type " << (int)SAddr->getSCEVType() << "\n";
             SAddr->dump(););
         it = m_addresses.insert(std::make_pair(BB, memAccessV())).first;
@@ -738,7 +738,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
                 m_SE->getAddExpr(nextSAddr, m_SE->getConstant(m_i64, 64));
             access.S = nextSAddr;
             MAV.push_back(access);
-            DEBUG (dbgs() << "Added access at offset " << i <<
+            LLVM_DEBUG (dbgs() << "Added access at offset " << i <<
                 " bytes from base\n   ";
             access.S->dump(););
           }
@@ -753,7 +753,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       memAccess access (I, SAddr, 0, 0, isRandom, pfExclusive);
       if (!memAccessExists(access, MAV, false)) {
         MAV.push_back(access);
-        DEBUG (dbgs() << "Found new access of " << accessSize << " bytes\n   ";
+        LLVM_DEBUG (dbgs() << "Found new access of " << accessSize << " bytes\n   ";
                access.S->dump(););
       } else {
         Access_match_in_same_BB++;
@@ -770,7 +770,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
           access.S = nextSAddr;
           if (!memAccessExists(access, MAV, true)) {
             MAV.push_back(access);
-            DEBUG (dbgs() << "Added access at offset " << i <<
+            LLVM_DEBUG (dbgs() << "Added access at offset " << i <<
                   " bytes from base\n   ";
             access.S->dump(););
           } else {
@@ -1038,7 +1038,7 @@ unsigned int Prefetch::IterLength(Loop *L)
   len *= 2;
 
   m_iterLength[L] = len;
-  DEBUG (dbgs() << L->getHeader()->getName() << " length: " << len << "\n");
+  LLVM_DEBUG (dbgs() << L->getHeader()->getName() << " length: " << len << "\n");
   return len;
 }
 
@@ -1195,7 +1195,7 @@ void Prefetch::getPFDistance() {
       }
     }
 
-    DEBUG (dbgs() << "First Loop " << (void *)L << " Num Refs " << info.numRefs
+    LLVM_DEBUG (dbgs() << "First Loop " << (void *)L << " Num Refs " << info.numRefs
       << " (factor " << info.factor << " factored Num Refs " << info.factNumRefs
       << ") NumRandom Refs " << info.numRandom << " NumThreads " <<
       info.numThreads << " distL1 " << info.L1Distance <<
@@ -1219,7 +1219,7 @@ void Prefetch::getPFDistance() {
     if (info.numThreads > m_numThreads)
       getPFDistance(L, info);
 
-    DEBUG (dbgs() << "Final Loop " << (void *)L << " Num Refs " << info.numRefs
+    LLVM_DEBUG (dbgs() << "Final Loop " << (void *)L << " Num Refs " << info.numRefs
       << " (factor " << info.factor << " factored Num Refs " << info.factNumRefs
       << ") NumRandom Refs " << info.numRandom << " NumThreads " <<
       info.numThreads << " distL1 " << info.L1Distance <<
@@ -1267,7 +1267,7 @@ void Prefetch::insertPF (Instruction *I, Loop *L, int PFType,
     callInst->setDebugLoc(I->getDebugLoc());
   }
 
-  DEBUG(dbgs() << "Generated PF in BB " << I->getParent()->getName() <<
+  LLVM_DEBUG(dbgs() << "Generated PF in BB " << I->getParent()->getName() <<
       " type " << PFType << " distance " << count << "\n");
 }
 
@@ -1326,7 +1326,7 @@ bool Prefetch::autoPrefetch(Function &F) {
 
   // calculate prefetch distance for all loops in a function
   if (PFL1Distance == 0 || PFL2Distance == 0) {
-    DEBUG (dbgs() << "Function: " << F.getName() << "\n");
+    LLVM_DEBUG (dbgs() << "Function: " << F.getName() << "\n");
     getPFDistance();
   }
 
@@ -1338,7 +1338,7 @@ bool Prefetch::autoPrefetch(Function &F) {
 
 bool Prefetch::runOnFunction(Function &F) {
   // don't bother if prefetching is disabled.
-  DEBUG (dbgs() << "prefetch go " << F.getName() << "\n";);
+  LLVM_DEBUG (dbgs() << "prefetch go " << F.getName() << "\n";);
   if (m_level == APFLEVEL_0_DISAPF || m_disableAPF)
     return false;
 
@@ -1829,7 +1829,7 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
     callInst->setDebugLoc(I->getDebugLoc());
   }
 
-  DEBUG(dbgs() << "Generated PF in BB " << I->getParent()->getName() <<
+  LLVM_DEBUG(dbgs() << "Generated PF in BB " << I->getParent()->getName() <<
       " type " << (isExclusive ? "ScatterPF" : "GatherPF") << "\n");
 }
 

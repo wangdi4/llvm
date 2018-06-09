@@ -101,8 +101,8 @@ static std::vector<unsigned int> FindSamplers(llvm::Function *pKernel) {
     for (unsigned int i = 0; i < pArgTypeMD->getNumOperands(); ++i) {
       auto *pTypeName = llvm::cast<llvm::MDString>(pArgTypeMD->getOperand(i));
       std::string szTypeName = pTypeName->getString().str();
-      DEBUG(llvm::dbgs() << "kernel argument type " << (i)
-                         << " " << szTypeName << "\n");
+      LLVM_DEBUG(llvm::dbgs() << "kernel argument type " << (i)
+                              << " " << szTypeName << "\n");
       if (szTypeName == "sampler_t")
         res.push_back(i);
     }

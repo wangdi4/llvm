@@ -224,7 +224,7 @@ public:
 
         m_sample.Start();
 
-        DEBUG(llvm::dbgs() << "Starting execution of the " << x << ", " << y << ", " << z << " group.\n");
+        LLVM_DEBUG(llvm::dbgs() << "Starting execution of the " << x << ", " << y << ", " << z << " group.\n");
 
         cl_dev_err_code ret = m_pKernelRunner->RunGroup(reinterpret_cast<const void*>(m_pArgumentBuffer.get()),groupId,
                                                         (void*)1 /* doesn't have RT handle here, workaround for an assert */);
@@ -234,7 +234,7 @@ public:
             throw Exception::TestRunnerException("Execution failed.\n");
         }
 
-        DEBUG(llvm::dbgs() << "Finished execution of the " << x << ", " << y << ", " << z << " group.\n");
+        LLVM_DEBUG(llvm::dbgs() << "Finished execution of the " << x << ", " << y << ", " << z << " group.\n");
 
         m_sample.Stop();
 
@@ -418,7 +418,7 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
     ICLDevBackendCompileServicePtr   spCompileService(NULL);
     ICLDevBackendImageServicePtr     spImageService(NULL);
 
-    DEBUG(llvm::dbgs() << "Get execution service started.\n");
+    LLVM_DEBUG(llvm::dbgs() << "Get execution service started.\n");
     cl_dev_err_code ret = m_pServiceFactory->GetExecutionService(options.get(), spExecutionService.getOutPtr());
     if ( CL_DEV_FAILED(ret) )
     {
@@ -426,11 +426,11 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
             throw Exception::TestRunnerException("Can't create execution service for current device. Try build back-end with SDE support.\n");
         throw Exception::TestRunnerException("Create execution service failed\n");
     }
-    DEBUG(llvm::dbgs() << "Get execution service finished.\n");
+    LLVM_DEBUG(llvm::dbgs() << "Get execution service finished.\n");
 
     options->InitTargetDescriptionSession(spExecutionService.get());
 
-    DEBUG(llvm::dbgs() << "Get compilation service started.\n");
+    LLVM_DEBUG(llvm::dbgs() << "Get compilation service started.\n");
     ret = m_pServiceFactory->GetCompilationService(options.get(), spCompileService.getOutPtr());
     if ( CL_DEV_FAILED(ret) )
     {
@@ -440,15 +440,15 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
         }
         throw Exception::TestRunnerException("Create compilation service failed\n");
     }
-    DEBUG(llvm::dbgs() << "Get compilation service finished.\n");
+    LLVM_DEBUG(llvm::dbgs() << "Get compilation service finished.\n");
 
-    DEBUG(llvm::dbgs() << "Get image service started.\n");
+    LLVM_DEBUG(llvm::dbgs() << "Get image service started.\n");
     ret = m_pServiceFactory->GetImageService(options.get(), spImageService.getOutPtr());
     if ( CL_DEV_FAILED(ret) )
     {
         throw Exception::TestRunnerException("Create image service failed\n");
     }
-    DEBUG(llvm::dbgs() << "Get image service finished.\n");
+    LLVM_DEBUG(llvm::dbgs() << "Get image service finished.\n");
 
     {
     //
