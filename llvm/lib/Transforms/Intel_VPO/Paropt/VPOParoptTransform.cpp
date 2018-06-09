@@ -289,10 +289,12 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       case WRegionNode::WRNTask:
         if (Mode & ParPrepare) {
+          genCodemotionFenceforAggrData(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           debugPrintHeader(W, false);
+          Changed = clearCodemotionFenceIntrinsic(W);
           StructType *KmpTaskTTWithPrivatesTy;
           StructType *KmpSharedTy;
           Value *LastIterGep;
@@ -1695,6 +1697,15 @@ void VPOParoptTransform::genFenceIntrinsic(WRegionNode *W, Value *I) {
 
   } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(I)) {
     Type *Ty = GV->getValueType();
+    if (!Ty->isSingleValueType())
+      replaceValueWithinRegion(W, I);
+  }
+  else {
+    Type *Ty = I->getType();
+    PointerType *PtrTy = dyn_cast<PointerType>(Ty);
+    if (!PtrTy)
+      return;
+    Ty = PtrTy->getElementType();
     if (!Ty->isSingleValueType())
       replaceValueWithinRegion(W, I);
   }
