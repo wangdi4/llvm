@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //===----------------- WRegionClause.h - Clauses ----------------*- C++ -*-===//
 //
 //   Copyright (C) 2016 Intel Corporation. All rights reserved.
@@ -1051,4 +1052,5 @@ class ScheduleClause
 
 } // End namespace llvm
 
-#endif
+#endif // LLVM_ANALYSIS_VPO_WREGIONCLAUSE_H
+#endif // INTEL_COLLAB

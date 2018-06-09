@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===------- WRegionInfo.cpp - Build WRegion Graph ---------*- C++ -*------===//
 //
 //   Copyright (C) 2016 Intel Corporation. All rights reserved.
@@ -113,12 +114,19 @@ void WRegionInfo::buildWRGraph(WRegionCollection::InputIRKind IR) {
 }
 
 void WRegionInfo::print(raw_ostream &OS) const {
-#if !INTEL_PRODUCT_RELEASE
   formatted_raw_ostream FOS(OS);
 
   for (auto I = begin(), E = end(); I != E; ++I) {
+#if INTEL_CUSTOMIZATION
+  #if !INTEL_PRODUCT_RELEASE
     FOS << "\n";
     (*I)->print(FOS, 0);
+  #endif // !INTEL_PRODUCT_RELEASE
+#else
+    FOS << "\n";
+    (*I)->print(FOS, 0);
+#endif // INTEL_CUSTOMIZATION
   }
-#endif // !INTEL_PRODUCT_RELEASE
 }
+
+#endif // INTEL_COLLAB

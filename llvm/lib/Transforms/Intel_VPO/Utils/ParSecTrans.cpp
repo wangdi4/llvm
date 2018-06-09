@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===--- ParSecTrans.cpp - Pre-pass Transformations of Parallel Sections --===//
 //
 // Copyright (C) 2016 Intel Corporation. All rights reserved.
@@ -949,3 +950,4 @@ void VPOUtils::genParSectSwitch(
   return;
   //return SwitchInstruction;
 }
+#endif // INTEL_COLLAB

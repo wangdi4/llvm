@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===-------- VPOParopt.cpp - Paropt Pass for Auto-Par and OpenMP ---------===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -381,3 +382,4 @@ void VPOParoptPass::genCtorList(Module &M) {
                      GlobalValue::AppendingLinkage, CtorArrayInit,
                      "llvm.global_ctors");
 }
+#endif // INTEL_COLLAB

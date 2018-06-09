@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //==-- IntrinsicUtils.cpp - Utilities for VPO related intrinsics -*- C++ -*-==//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -36,7 +37,6 @@ bool VPOUtils::stripDirectives(WRegionNode *WRN) {
   bool success = true;
   BasicBlock *ExitBB = WRN->getExitBBlock();
 
-#if INTEL_CUSTOMIZATION // old representation should not to appear in COLLAB
   // Under the old representation, we still need to remove dirs from EntryBB
   BasicBlock *EntryBB = WRN->getEntryBBlock();
   bool SeenRegionDirective = false;
@@ -48,7 +48,6 @@ bool VPOUtils::stripDirectives(WRegionNode *WRN) {
     }
   if (!SeenRegionDirective)
     success = VPOUtils::stripDirectives(*EntryBB);
-#endif // INTEL_CUSTOMIZATION
 
   // Under the new region representation:
   //   %1 = call token @llvm.directive.region.entry() [...]
@@ -231,3 +230,4 @@ void VPOUtils::stripDebugInfoInstrinsics(Function &F)
     }
   }
 }
+#endif // INTEL_COLLAB

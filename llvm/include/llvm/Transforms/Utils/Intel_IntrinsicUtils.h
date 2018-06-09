@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //===-------- Intel_IntrinsicUtils.h - Class definition -*- C++ -*---------===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -67,7 +68,7 @@ public:
     return cast<MetadataAsValue>(createMetadataAsValueFromString(M, Str));
   }
 
-  /// \brief Return true if the instruction is an llvm.intel.directive*() 
+  /// \brief Return true if the instruction is an llvm.intel.directive*()
   /// intrinsic call
   static bool isIntelDirective(Instruction *I);
 };
@@ -75,3 +76,4 @@ public:
 } // end llvm namespace
 
 #endif // LLVM_TRANSFORM_UTILS_INTEL_INTRINSICUTILS_H
+#endif // INTEL_COLLAB

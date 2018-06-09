@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===- VPOParoptTpv.cpp - Paropt Tpv Transformation ----------------------===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -441,5 +442,4 @@ ModulePass *llvm::createVPOParoptTpvPass() {
   return new VPOParoptTpv();
 }
 
-
-
+#endif // INTEL_COLLAB

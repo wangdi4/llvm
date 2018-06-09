@@ -1258,8 +1258,8 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPOParoptPass(RunVPOParopt, OffloadTargets));
   }
-  #if INTEL_CUSTOMIZATION // TODO: VEC to COLLAB
-  // TODO: Temporal hook-up for VPlan VPO Vectorizer
+  #if INTEL_CUSTOMIZATION
+  // TODO: Temporary hook-up for VPlan VPO Vectorizer
   if (EnableVPlanDriver && RunVec) {
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPlanDriverPass());

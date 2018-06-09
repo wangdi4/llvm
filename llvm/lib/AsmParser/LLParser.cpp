@@ -593,7 +593,7 @@ bool LLParser::ParseNamedGlobal() {
                        DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
   return parseIndirectSymbol(Name, NameLoc, Linkage, Visibility,
                              DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
-#endif
+#endif // INTEL_COLLAB
 }
 
 bool LLParser::parseComdat() {

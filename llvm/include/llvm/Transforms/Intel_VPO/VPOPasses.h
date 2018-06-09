@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //========-- VPOPasses.h - Declarations for for VPO passes -*- C++ -*--=======//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
@@ -21,9 +22,12 @@ namespace llvm {
 class FunctionPass;
 class ModulePass;
 
+#if INTEL_CUSTOMIZATION
 FunctionPass *createVPODriverPass();
 FunctionPass *createVPODriverHIRPass();
 FunctionPass *createVPODirectiveCleanupPass();
+#endif // INTEL_CUSTOMIZATION
+
 FunctionPass *createVPOCFGRestructuringPass();
 // 0x5 is equivalent to ParPrepare | OmpPar
 FunctionPass *createVPOParoptPreparePass(unsigned Mode = 0x5u,
@@ -34,3 +38,4 @@ ModulePass   *createVPOParoptPass(unsigned Mode = 0x6u,
 }
 
 #endif // LLVM_TRANSFORMS_VPO_VPOPASSES_H
+#endif // INTEL_COLLAB

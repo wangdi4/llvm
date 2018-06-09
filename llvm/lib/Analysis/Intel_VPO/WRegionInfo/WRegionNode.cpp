@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===-- WRegionNode.cpp - Implements the WRegionNode class ----------------===//
 //
 //   Copyright (C) 2016 Intel Corporation. All rights reserved.
@@ -66,10 +67,13 @@ WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB)
   setNextNumber();
   setParent(nullptr);
   setExitBBlock(nullptr);
+#if INTEL_CUSTOMIZATION
   setIsFromHIR(false);
+#endif // INTEL_CUSTOMIZATION
   resetBBSet();
 }
 
+#if INTEL_CUSTOMIZATION
 // constructor for HIR representation
 WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
   setNextNumber();
@@ -79,6 +83,7 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
   resetBBSet();
   setIsFromHIR(true);
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Wrap up the WRN creation now that we have the ExitBB. Perform these
 /// tasks to finalize the WRN construction:
@@ -288,9 +293,12 @@ void WRegionNode::printBody(formatted_raw_ostream &OS, bool PrintChildren,
                             unsigned Depth, unsigned Verbosity) const {
   printClauses(OS, Depth, Verbosity);
 
+#if INTEL_CUSTOMIZATION
   if (getIsFromHIR())
     printHIR(OS, Depth, Verbosity); // defined by derived WRN
-  else {
+  else
+#endif // INTEL_CUSTOMIZATION
+  {
     printEntryExitBB(OS, Depth, Verbosity);
     if (getIsOmpLoop())
       printLoopBB(OS, Depth, Verbosity);
@@ -372,8 +380,10 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
 // Verbosity >= 4: above + print BB content for all BBs in BBSet
 void WRegionNode::printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth,
                                    unsigned Verbosity) const {
+#if INTEL_CUSTOMIZATION
   if (getIsFromHIR()) // HIR representation; no BBs to print
     return;
+#endif // INTEL_CUSTOMIZATION
 
   int Ind = 2*Depth;
 
@@ -1505,3 +1515,5 @@ void vpo::printStr(StringRef Title, StringRef Str, formatted_raw_ostream &OS,
   if (Verbosity!=0 || Str!="UNSPECIFIED")
     OS.indent(Indent) << Title << ": " << Str << "\n";
 }
+
+#endif // INTEL_COLLAB

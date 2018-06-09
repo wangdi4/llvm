@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===----------------------------------------------------------------------===//
 //
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -21,6 +22,7 @@ void llvm::initializeIntel_VPOAnalysis(PassRegistry &Registry) {
   initializeWRegionCollectionWrapperPassPass(Registry);
   initializeWRegionInfoWrapperPassPass(Registry);
 
+#if INTEL_CUSTOMIZATION
   initializeAVRGeneratePass(Registry);
   initializeAVRGenerateHIRPass(Registry);
   initializeAVRDecomposeHIRPass(Registry);
@@ -35,4 +37,6 @@ void llvm::initializeIntel_VPOAnalysis(PassRegistry &Registry) {
   initializeSIMDLaneEvolutionHIRPass(Registry);
   initializeVectorGraphInfoPass(Registry);
   initializeVectorGraphPredicatorPass(Registry); 
+#endif // INTEL_CUSTOMIZATION
 }
+#endif // INTEL_COLLAB

@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===------- VPOParoptPrepare.cpp - Paropt Prepare Pass for OpenMP --------===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -178,3 +179,4 @@ PreservedAnalyses VPOParoptPreparePass::run(Function &F,
 
   return PreservedAnalyses::none();;
 }
+#endif // INTEL_COLLAB

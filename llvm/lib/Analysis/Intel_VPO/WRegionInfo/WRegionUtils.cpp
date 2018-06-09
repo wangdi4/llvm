@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===----- WRegionNodeUtils.cpp - W-Region Node Utils class -----*- C++ -*-===//
 //
 //   Copyright (C) 2015 Intel Corporation. All rights reserved.
@@ -21,7 +22,9 @@
 #define DEBUG_TYPE "WRegionUtils"
 
 using namespace llvm;
+#if INTEL_CUSTOMIZATION
 using namespace loopopt;
+#endif // INTEL_CUSTOMIZATION
 using namespace vpo;
 
 /// \brief Create a specialized WRN based on the DirString.
@@ -78,10 +81,14 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
       W = new WRNTaskloopNode(EntryBB, LI);
       break;
     case DIR_OMP_SIMD:
+#if INTEL_CUSTOMIZATION
       W = new WRNVecLoopNode(EntryBB, LI, false /* auto vec */);
       break;
     case DIR_VPO_AUTO_VEC:
       W = new WRNVecLoopNode(EntryBB, LI, true /* auto vec */);
+#else
+      W = new WRNVecLoopNode(EntryBB, LI);
+#endif // INTEL_CUSTOMIZATION
       break;
     case DIR_OMP_LOOP:
       W = new WRNWksLoopNode(EntryBB, LI);
@@ -146,6 +153,7 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
   return W;
 }
 
+#if INTEL_CUSTOMIZATION
 /// \brief Similar to createWRegion, but for HIR vectorizer support
 WRegionNode *WRegionUtils::createWRegionHIR(
   int              DirID,
@@ -270,12 +278,10 @@ void HIRVisitor::visit(loopopt::HLNode *Node) {
       if (VLN && !(VLN->getHLLoop())) {
         VLN->setHLLoop(L);
 
-#if INTEL_CUSTOMIZATION
         // If the loop is marked with vector always pragma, mark that we
         // should ignore vectorization profitability in vectorizer cost
         // model.
         VLN->setIgnoreProfitability(L->hasVectorizeAlwaysPragma());
-#endif // INTEL_CUSTOMIZATION
       }
     }
   }
@@ -288,6 +294,7 @@ WRContainerImpl *WRegionUtils::buildWRGraphFromHIR(HIRFramework &HIRF)
   HIRF.getHLNodeUtils().visitAll(Visitor);
   return Visitor.getWRGraph();
 }
+#endif // INTEL_CUSTOMIZATION
 
 // Clause Utilities
 int WRegionUtils::getClauseIdFromAtomicKind(WRNAtomicKind Kind) {
@@ -728,3 +735,5 @@ bool WRegionUtils::hasCancelConstruct(WRegionNode *W) {
   }
   return false;
 }
+
+#endif // INTEL_COLLAB

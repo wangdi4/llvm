@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===----- WRegionClause.cpp - Implements the template Clause  class ------===// //
 //   Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
@@ -149,3 +150,4 @@ void printFnPtr(Function *Fn, formatted_raw_ostream &OS, bool PrintType) {
 
 } // End namespace llvm
 
+#endif // INTEL_COLLAB

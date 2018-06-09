@@ -6296,7 +6296,7 @@ bool SimplifyCFGOpt::run(BasicBlock *BB) {
     // conflicts becomes too cumbersome, we can try something different.
     Changed |= FoldPHIEntries(PN, TTI, DL);
   }
-#endif
+#endif //INTEL_CUSTOMIZATION
 
   Builder.SetInsertPoint(BB->getTerminator());
   if (auto *BI = dyn_cast<BranchInst>(BB->getTerminator())) {

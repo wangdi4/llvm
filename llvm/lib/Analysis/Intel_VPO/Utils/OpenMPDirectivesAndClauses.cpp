@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //=- OpenMPDirectivesAndClauses.cpp - Table of OpenMP directives -*- C++ -*-==//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -224,7 +225,9 @@ bool VPOAnalysisUtils::isBeginDirective(int DirID) {
   case DIR_OMP_TEAMS:
   case DIR_OMP_DISTRIBUTE:
   case DIR_OMP_DISTRIBUTE_PARLOOP:
+#if INTEL_CUSTOMIZATION
   case DIR_VPO_AUTO_VEC:
+#endif // INTEL_CUSTOMIZATION
     return true;
   }
   return false;
@@ -267,7 +270,9 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_OMP_END_TEAMS:
   case DIR_OMP_END_DISTRIBUTE:
   case DIR_OMP_END_DISTRIBUTE_PARLOOP:
+#if INTEL_CUSTOMIZATION
   case DIR_VPO_END_AUTO_VEC:
+#endif // INTEL_CUSTOMIZATION
     return true;
   }
   return false;
@@ -450,9 +455,11 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
   case DIR_OMP_DISTRIBUTE_PARLOOP:
     return DIR_OMP_END_DISTRIBUTE_PARLOOP;
 
+#if INTEL_CUSTOMIZATION
   // Non-OpenMP Directives
   case DIR_VPO_AUTO_VEC:
     return DIR_VPO_END_AUTO_VEC;
+#endif // INTEL_CUSTOMIZATION
 
   // StandAlone Directives
   case DIR_OMP_BARRIER:
@@ -599,3 +606,4 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
   }
   return 2; //everything else
 }
+#endif // INTEL_COLLAB

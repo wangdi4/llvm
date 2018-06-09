@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //===----------------- WRegion.h - W-Region node ----------------*- C++ -*-===//
 //
 //   Copyright (C) 2016 Intel Corporation. All rights reserved.
@@ -17,7 +18,9 @@
 #ifndef LLVM_ANALYSIS_VPO_WREGION_H
 #define LLVM_ANALYSIS_VPO_WREGION_H
 
+#if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
+#endif //INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionNode.h"
 
@@ -819,31 +822,35 @@ private:
   int Simdlen;
   int Safelen;
   int Collapse;
-  bool IsAutoVec;
-#if INTEL_CUSTOMIZATION
-  bool IgnoreProfitability;
-#endif // INTEL_CUSTOMIZATION
   WRNLoopInfo WRNLI;
+#if INTEL_CUSTOMIZATION
+  bool IsAutoVec;
+  bool IgnoreProfitability;
   loopopt::HLNode *EntryHLNode; // for HIR only
   loopopt::HLNode *ExitHLNode;  // for HIR only
   loopopt::HLLoop *HLp;         // for HIR only
+#endif //INTEL_CUSTOMIZATION
 
 public:
+#if INTEL_CUSTOMIZATION
   WRNVecLoopNode(BasicBlock *BB, LoopInfo *L,
                  const bool isAutoVec); // LLVM IR representation
   WRNVecLoopNode(loopopt::HLNode *EntryHLN,
                  const bool isAutoVec); // HIR representation
+#else
+  WRNVecLoopNode(BasicBlock *BB, LoopInfo *L);
+#endif //INTEL_CUSTOMIZATION
 
   void setSimdlen(int N) { Simdlen = N; }
   void setSafelen(int N) { Safelen = N; }
   void setCollapse(int N) { Collapse = N; }
-  void setIsAutoVec(bool Flag) { IsAutoVec = Flag; }
 #if INTEL_CUSTOMIZATION
+  void setIsAutoVec(bool Flag) { IsAutoVec = Flag; }
   void setIgnoreProfitability(bool Flag) { IgnoreProfitability = Flag; }
-#endif // INTEL_CUSTOMIZATION
   void setEntryHLNode(loopopt::HLNode *E) { EntryHLNode = E; }
   void setExitHLNode(loopopt::HLNode *X) { ExitHLNode = X; }
   void setHLLoop(loopopt::HLLoop *L) { HLp = L; }
+#endif //INTEL_CUSTOMIZATION
 
   DEFINE_GETTER(PrivateClause,     getPriv,    Priv)
   DEFINE_GETTER(LastprivateClause, getLpriv,   Lpriv)
@@ -856,19 +863,21 @@ public:
   int getSimdlen() const { return Simdlen; }
   int getSafelen() const { return Safelen; }
   int getCollapse() const { return Collapse; }
-  bool getIsAutoVec() const { return IsAutoVec; }
 #if INTEL_CUSTOMIZATION
+  bool getIsAutoVec() const { return IsAutoVec; }
   bool getIgnoreProfitability() const { return IgnoreProfitability; }
-#endif // INTEL_CUSTOMIZATION
   loopopt::HLNode *getEntryHLNode() const { return EntryHLNode; }
   loopopt::HLNode *getExitHLNode() const { return ExitHLNode; }
   loopopt::HLLoop *getHLLoop() const { return HLp; }
+#endif //INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
 
+#if INTEL_CUSTOMIZATION
   void printHIR(formatted_raw_ostream &OS, unsigned Depth,
                                            unsigned Verbosity=1) const;
+#endif //INTEL_CUSTOMIZATION
 
   template <class LoopType> LoopType *getTheLoop() const {
     llvm_unreachable("Unsupported LoopType");
@@ -881,8 +890,10 @@ public:
 };
 
 template <> Loop *WRNVecLoopNode::getTheLoop<Loop>() const;
+#if INTEL_CUSTOMIZATION
 template <>
 loopopt::HLLoop *WRNVecLoopNode::getTheLoop<loopopt::HLLoop>() const;
+#endif //INTEL_CUSTOMIZATION
 
 /// WRN for
 /// \code
@@ -1373,4 +1384,5 @@ extern void printExtraForCancellationPoints(WRegionNode const *W,
 
 } // End namespace llvm
 
-#endif
+#endif // LLVM_ANALYSIS_VPO_WREGION_H
+#endif // INTEL_COLLAB

@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===- VPOParoptTask.cpp - Transformation of W-Region for threading --===//
 //
 // Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
@@ -1369,3 +1370,4 @@ bool VPOParoptTransform::genTaskgroupRegion(WRegionNode *W) {
   W->resetBBSet();
   return true;
 }
+#endif // INTEL_COLLAB

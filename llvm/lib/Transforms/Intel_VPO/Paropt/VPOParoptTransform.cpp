@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===- VPOParoptTransform.cpp - Transformation of W-Region for threading --===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -4240,3 +4241,4 @@ Function *VPOParoptTransform::genCopyPrivateFunc(WRegionNode *W,
 
   return FnCopyPriv;
 }
+#endif // INTEL_COLLAB

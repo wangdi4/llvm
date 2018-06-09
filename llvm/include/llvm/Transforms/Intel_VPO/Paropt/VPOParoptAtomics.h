@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //===-- VPO/Paropt/VPOParoptAtomics.h - Paropt Atomics Class -*- C++ -*-===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -591,3 +592,4 @@ private:
 } /// namespace llvm
 
 #endif // LLVM_TRANSFORMS_VPO_PAROPT_ATOMICS_H
+#endif // INTEL_COLLAB

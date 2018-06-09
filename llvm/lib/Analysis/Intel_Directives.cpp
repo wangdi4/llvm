@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //==--- Intel_Directives.cpp - Table of directives and clauses -*- C++ -*---==//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -55,3 +56,4 @@ StringMap<int> IntelDirectives::ClauseIDs = {
   { "DIR.QUAL.LIST.END",
     QUAL_LIST_END } };
 #undef GET_CLAUSES_IDS_TABLE
+#endif // INTEL_COLLAB
