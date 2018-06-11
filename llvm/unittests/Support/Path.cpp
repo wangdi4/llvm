@@ -12,6 +12,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/BinaryFormat/Magic.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -23,7 +24,7 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 
-#ifdef LLVM_ON_WIN32
+#ifdef _WIN32
 #include "llvm/ADT/ArrayRef.h"
 #include <windows.h>
 #include <winerror.h>
@@ -59,7 +60,7 @@ TEST(is_separator, Works) {
   EXPECT_TRUE(path::is_separator('\\', path::Style::windows));
   EXPECT_FALSE(path::is_separator('\\', path::Style::posix));
 
-#ifdef LLVM_ON_WIN32
+#ifdef _WIN32
   EXPECT_TRUE(path::is_separator('\\'));
 #else
   EXPECT_FALSE(path::is_separator('\\'));
@@ -183,6 +184,12 @@ TEST(Support, FilenameParent) {
   EXPECT_EQ("\\", path::filename("c:\\", path::Style::windows));
   EXPECT_EQ("c:", path::parent_path("c:\\", path::Style::windows));
 
+  EXPECT_EQ("/", path::filename("///"));
+  EXPECT_EQ("", path::parent_path("///"));
+
+  EXPECT_EQ("\\", path::filename("c:\\\\", path::Style::windows));
+  EXPECT_EQ("c:", path::parent_path("c:\\\\", path::Style::windows));
+
   EXPECT_EQ("bar", path::filename("/foo/bar"));
   EXPECT_EQ("/foo", path::parent_path("/foo/bar"));
 
@@ -203,6 +210,19 @@ TEST(Support, FilenameParent) {
 
   EXPECT_EQ("foo", path::filename("//net/foo"));
   EXPECT_EQ("//net/", path::parent_path("//net/foo"));
+
+  // These checks are just to make sure we do something reasonable with the
+  // paths below. They are not meant to prescribe the one true interpretation of
+  // these paths. Other decompositions (e.g. "//" -> "" + "//") are also
+  // possible.
+  EXPECT_EQ("/", path::filename("//"));
+  EXPECT_EQ("", path::parent_path("//"));
+
+  EXPECT_EQ("\\", path::filename("\\\\", path::Style::windows));
+  EXPECT_EQ("", path::parent_path("\\\\", path::Style::windows));
+
+  EXPECT_EQ("\\", path::filename("\\\\\\", path::Style::windows));
+  EXPECT_EQ("", path::parent_path("\\\\\\", path::Style::windows));
 }
 
 static std::vector<StringRef>
@@ -213,6 +233,8 @@ GetComponents(StringRef Path, path::Style S = path::Style::native) {
 TEST(Support, PathIterator) {
   EXPECT_THAT(GetComponents("/foo"), testing::ElementsAre("/", "foo"));
   EXPECT_THAT(GetComponents("/"), testing::ElementsAre("/"));
+  EXPECT_THAT(GetComponents("//"), testing::ElementsAre("/"));
+  EXPECT_THAT(GetComponents("///"), testing::ElementsAre("/"));
   EXPECT_THAT(GetComponents("c/d/e/foo.txt"),
               testing::ElementsAre("c", "d", "e", "foo.txt"));
   EXPECT_THAT(GetComponents(".c/.d/../."),
@@ -233,10 +255,8 @@ TEST(Support, AbsolutePathIteratorEnd) {
   SmallVector<std::pair<StringRef, path::Style>, 4> Paths;
   Paths.emplace_back("/foo/", path::Style::native);
   Paths.emplace_back("/foo//", path::Style::native);
-  Paths.emplace_back("//net//", path::Style::native);
   Paths.emplace_back("//net/foo/", path::Style::native);
   Paths.emplace_back("c:\\foo\\", path::Style::windows);
-  Paths.emplace_back("c:\\\\", path::Style::windows);
 
   for (auto &Path : Paths) {
     SCOPED_TRACE(Path.first);
@@ -248,6 +268,8 @@ TEST(Support, AbsolutePathIteratorEnd) {
   RootPaths.emplace_back("/", path::Style::native);
   RootPaths.emplace_back("//net/", path::Style::native);
   RootPaths.emplace_back("c:\\", path::Style::windows);
+  RootPaths.emplace_back("//net//", path::Style::native);
+  RootPaths.emplace_back("c:\\\\", path::Style::windows);
 
   for (auto &Path : RootPaths) {
     SCOPED_TRACE(Path.first);
@@ -259,7 +281,7 @@ TEST(Support, AbsolutePathIteratorEnd) {
 
 TEST(Support, HomeDirectory) {
   std::string expected;
-#ifdef LLVM_ON_WIN32
+#ifdef _WIN32
   if (wchar_t const *path = ::_wgetenv(L"USERPROFILE")) {
     auto pathLen = ::wcslen(path);
     ArrayRef<char> ref{reinterpret_cast<char const *>(path),
@@ -348,7 +370,7 @@ TEST(Support, TempDirectory) {
   EXPECT_TRUE(!TempDir.empty());
 }
 
-#ifdef LLVM_ON_WIN32
+#ifdef _WIN32
 static std::string path2regex(std::string Path) {
   size_t Pos = 0;
   while ((Pos = Path.find('\\', Pos)) != std::string::npos) {
@@ -621,7 +643,7 @@ TEST_F(FileSystemTest, TempFiles) {
   ASSERT_EQ(fs::access(Twine(TempPath), sys::fs::AccessMode::Exist),
             errc::no_such_file_or_directory);
 
-#ifdef LLVM_ON_WIN32
+#ifdef _WIN32
   // Path name > 260 chars should get an error.
   const char *Path270 =
     "abcdefghijklmnopqrstuvwxyz9abcdefghijklmnopqrstuvwxyz8"
@@ -669,7 +691,7 @@ TEST_F(FileSystemTest, CreateDir) {
   ::umask(OldUmask);
 #endif
 
-#ifdef LLVM_ON_WIN32
+#ifdef _WIN32
   // Prove that create_directories() can handle a pathname > 248 characters,
   // which is the documented limit for CreateDirectory().
   // (248 is MAX_PATH subtracting room for an 8.3 filename.)
@@ -962,7 +984,7 @@ TEST_F(FileSystemTest, Remove) {
   ASSERT_FALSE(fs::exists(BaseDir));
 }
 
-#ifdef LLVM_ON_WIN32
+#ifdef _WIN32
 TEST_F(FileSystemTest, CarriageReturn) {
   SmallString<128> FilePathname(TestDirectory);
   std::error_code EC;
@@ -1080,7 +1102,7 @@ TEST(Support, NormalizePath) {
     EXPECT_EQ(std::get<2>(T), Posix);
   }
 
-#if defined(LLVM_ON_WIN32)
+#if defined(_WIN32)
   SmallString<64> PathHome;
   path::home_directory(PathHome);
 
@@ -1260,7 +1282,7 @@ TEST_F(FileSystemTest, permissions) {
   EXPECT_EQ(fs::setPermissions(TempPath, fs::all_read | fs::all_exe), NoError);
   EXPECT_TRUE(CheckPermissions(fs::all_read | fs::all_exe));
 
-#if defined(LLVM_ON_WIN32)
+#if defined(_WIN32)
   fs::perms ReadOnly = fs::all_read | fs::all_exe;
   EXPECT_EQ(fs::setPermissions(TempPath, fs::no_perms), NoError);
   EXPECT_TRUE(CheckPermissions(ReadOnly));

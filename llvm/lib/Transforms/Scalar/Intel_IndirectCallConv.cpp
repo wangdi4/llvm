@@ -44,6 +44,12 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
+
+#if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/DTransCommon.h"
+#endif // INTEL_INCLUDE_DTRANS
+
 using namespace llvm;
 
 #define DEBUG_TYPE "intel-ind-call-conv"
@@ -59,18 +65,41 @@ static cl::opt<bool> IndCallConvTrace("print-indirect-call-conv",
 // Option to control allowing InvokeInst for IndCallConv transformation
 static cl::opt<bool> IndCallConvAllowInvoke("intel-ind-call-conv-allow-invoke",
                                             cl::init(false), cl::ReallyHidden);
-//
+// Option to force AndersenAA to be available for indirect call conversion.
+// Useful for LIT tests.
+static cl::opt<bool> IndCallConvForceAndersen("intel-ind-call-force-andersen",
+                                              cl::init(false),
+                                              cl::ReallyHidden);
+
+// Option to force DTransAnalysis to be available for indirect call conversion.
+// Useful for LIT tests.
+static cl::opt<bool> IndCallConvForceDTrans("intel-ind-call-force-dtrans",
+                                            cl::init(false), cl::ReallyHidden);
 
 STATISTIC(NumIndirectCallsConv, "Number of Indirect calls Converted");
 
 namespace {
 // IndirectCallConv pass implementation
 struct IndirectCallConvImpl {
+#if INTEL_INCLUDE_DTRANS
+  IndirectCallConvImpl(AndersensAAResult *AnderPointsTo,
+                       DTransAnalysisInfo *DTransInfo)
+      : AnderPointsTo(AnderPointsTo), DTransInfo(DTransInfo){};
+#else
+  IndirectCallConvImpl(AndersensAAResult *AnderPointsTo)
+      : AnderPointsTo(AnderPointsTo){};
+#endif // INTEL_INCLUDE_DTRANS
   static bool isNotDirectCall(CallSite CS);
   static CallSite createDirectCallSite(CallSite CS, Value *F,
                                        BasicBlock *In_BB);
-  static bool convert(CallSite CS, AndersensAAResult &AnderPointsTo);
-  static bool run(Function &F, AndersensAAResult &AnderPointsTo);
+  bool convert(CallSite CS);
+  bool run(Function &F);
+
+private:
+  AndersensAAResult *AnderPointsTo;
+#if INTEL_INCLUDE_DTRANS
+  DTransAnalysisInfo *DTransInfo;
+#endif // INTEL_INCLUDE_DTRANS
 };
 } // namespace
 
@@ -157,9 +186,8 @@ CallSite IndirectCallConvImpl::createDirectCallSite(CallSite CS,
 //     }
 //     ...
 //
-bool IndirectCallConvImpl::convert(CallSite CS,
-                                   AndersensAAResult &AnderPointsTo) {
-  bool IsComplete;
+bool IndirectCallConvImpl::convert(CallSite CS) {
+  bool IsComplete = false;
   unsigned NumPossibleTargets = 0;
 
   if (IndCallConvTrace) {
@@ -170,9 +198,14 @@ bool IndirectCallConvImpl::convert(CallSite CS,
   // Get possible targets for 'CS' using points-to info.
   std::vector<llvm::Value *> PossibleTargets;
   Value *call_fptr = CS.getCalledValue()->stripPointerCasts();
-  IsComplete = AnderPointsTo.GetFuncPointerPossibleTargets(
-      call_fptr, PossibleTargets, CS, IndCallConvTrace);
-
+#if INTEL_INCLUDE_DTRANS
+  if (DTransInfo)
+    IsComplete = DTransInfo->GetFuncPointerPossibleTargets(
+        call_fptr, PossibleTargets, CS, IndCallConvTrace);
+#endif // INTEL_INCLUDE_DTRANS
+  if (!IsComplete && AnderPointsTo)
+    IsComplete = AnderPointsTo->GetFuncPointerPossibleTargets(
+        call_fptr, PossibleTargets, CS, IndCallConvTrace);
   if (!IsComplete) {
     if (IndCallConvTrace) {
       errs() << "    (Incomplete set) \n";
@@ -410,7 +443,7 @@ bool IndirectCallConvImpl::convert(CallSite CS,
   return true;
 }
 
-bool IndirectCallConvImpl::run(Function &F, AndersensAAResult &AnderPointsTo) {
+bool IndirectCallConvImpl::run(Function &F) {
   std::vector<CallSite> candidates;
   // Collect Indirect calls in current routine.
   for (inst_iterator II = inst_begin(F), EE = inst_end(F); II != EE; ++II) {
@@ -436,7 +469,7 @@ bool IndirectCallConvImpl::run(Function &F, AndersensAAResult &AnderPointsTo) {
   // Walk through the candidates and try to convert each indirect call
   bool Changed = false;
   for (auto &cs : candidates) {
-    Changed |= convert(cs, AnderPointsTo);
+    Changed |= convert(cs);
   }
 
   if (IndCallConvTrace) {
@@ -449,9 +482,14 @@ namespace {
 // IndirectCallConv legacy pass implementation
 struct IndirectCallConvLegacyPass : public FunctionPass {
   static char ID; // Pass identification, replacement for typeid
-  IndirectCallConvLegacyPass();
+  IndirectCallConvLegacyPass(bool UseAndersen = false,
+                             bool UseDTrans = false);
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+private:
+  bool UseAndersen;
+  bool UseDTrans;
 };
 } // namespace
 
@@ -460,44 +498,80 @@ INITIALIZE_PASS_BEGIN(IndirectCallConvLegacyPass, "indirectcallconv",
                       "Indirect Call Conv", false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AndersensAAWrapperPass)
+#if INTEL_INCLUDE_DTRANS
+INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
+#endif // INTEL_INCLUDE_DTRANS
 INITIALIZE_PASS_END(IndirectCallConvLegacyPass, "indirectcallconv",
                     "Indirect Call Conv", false, false)
 
-FunctionPass *llvm::createIndirectCallConvLegacyPass() {
-  return new IndirectCallConvLegacyPass();
+FunctionPass *llvm::createIndirectCallConvLegacyPass(bool UseAndersen,
+                                                     bool UseDTrans) {
+  return new IndirectCallConvLegacyPass(UseAndersen, UseDTrans);
 }
 
-IndirectCallConvLegacyPass::IndirectCallConvLegacyPass() : FunctionPass(ID) {
+IndirectCallConvLegacyPass::IndirectCallConvLegacyPass(bool UseAndersen,
+                                                       bool UseDTrans)
+    : FunctionPass(ID), UseAndersen(UseAndersen), UseDTrans(UseDTrans) {
   initializeIndirectCallConvLegacyPassPass(*PassRegistry::getPassRegistry());
 }
 
 void IndirectCallConvLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetLibraryInfoWrapperPass>();
-  AU.addRequired<AndersensAAWrapperPass>();
-  AU.addPreserved<AndersensAAWrapperPass>();
+  if (UseAndersen || IndCallConvForceAndersen) {
+    AU.addRequired<AndersensAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();
+  }
+#if INTEL_INCLUDE_DTRANS
+  if (UseDTrans || IndCallConvForceDTrans) {
+    AU.addRequired<DTransAnalysisWrapper>();
+    AU.addPreserved<DTransAnalysisWrapper>();
+  }
+#endif // INTEL_INCLUDE_DTRANS
   AU.addPreserved<WholeProgramWrapperPass>();
 }
 
 // Convert indirect calls to direct calls if possible using points-to info.
 //
 bool IndirectCallConvLegacyPass::runOnFunction(Function &F) {
-  auto &AnderPointsTo = getAnalysis<AndersensAAWrapperPass>().getResult();
-  return IndirectCallConvImpl::run(F, AnderPointsTo);
+  auto AnderPointsTo = (UseAndersen || IndCallConvForceAndersen)
+                           ? &getAnalysis<AndersensAAWrapperPass>().getResult()
+                           : nullptr;
+#if INTEL_INCLUDE_DTRANS
+  auto DTransInfo = (UseDTrans || IndCallConvForceDTrans)
+                        ? &getAnalysis<DTransAnalysisWrapper>().getDTransInfo()
+                        : nullptr;
+  IndirectCallConvImpl ImplObj(AnderPointsTo, DTransInfo);
+#else
+  IndirectCallConvImpl ImplObj(AnderPointsTo);
+#endif // INTEL_INCLUDE_DTRANS
+  return ImplObj.run(F);
 }
 
 PreservedAnalyses IndirectCallConvPass::run(Function &F,
                                             FunctionAnalysisManager &AM) {
   auto &MAM = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F).getManager();
-  auto AnderPointsTo = MAM.getCachedResult<AndersensAA>(*F.getParent());
-
+  auto *AnderPointsTo = (UseAndersen || IndCallConvForceAndersen)
+                            ? MAM.getCachedResult<AndersensAA>(*F.getParent())
+                            : nullptr;
+#if INTEL_INCLUDE_DTRANS
+  auto *DTransInfo = (UseDTrans || IndCallConvForceDTrans)
+                         ? MAM.getCachedResult<DTransAnalysis>(*F.getParent())
+                         : nullptr;
+  if (!AnderPointsTo && !DTransInfo)
+    return PreservedAnalyses::all();
+  IndirectCallConvImpl ImplObj(AnderPointsTo, DTransInfo);
+#else
   if (!AnderPointsTo)
     return PreservedAnalyses::all();
-
-  if (!IndirectCallConvImpl::run(F, *AnderPointsTo))
+  IndirectCallConvImpl ImplObj(AnderPointsTo);
+#endif // INTEL_INCLUDE_DTRANS
+  if (!ImplObj.run(F))
     return PreservedAnalyses::all();
-
   auto PA = PreservedAnalyses();
   PA.preserve<AndersensAA>();
+#if INTEL_INCLUDE_DTRANS
+  PA.preserve<DTransAnalysis>();
+#endif // INTEL_INCLUDE_DTRANS
   PA.preserve<WholeProgramAnalysis>();
   return PA;
 }

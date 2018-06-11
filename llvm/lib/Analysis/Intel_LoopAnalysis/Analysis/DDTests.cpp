@@ -1,6 +1,6 @@
 //===- DDTests.cpp - Data dependence testing between two DDRefs -*- C++ -*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -57,6 +57,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
+
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -233,8 +234,8 @@ const CanonExpr *DDTest::getCoeff(const CanonExpr *CE, unsigned int IVNum,
     int64_t ConstCoeff = CE->getIVConstCoeff(CurIVPair);
     unsigned BlobIdx = CE->getIVBlobCoeff(CurIVPair);
 
-    DEBUG(dbgs() << "\n\tConst coeff, Blobidx: " << ConstCoeff << " "
-                 << BlobIdx);
+    LLVM_DEBUG(dbgs() << "\n\tConst coeff, Blobidx: " << ConstCoeff << " "
+                      << BlobIdx);
 
     if (ConstCoeff == 0) {
       continue;
@@ -648,9 +649,9 @@ void DDTest::Constraint::dump(raw_ostream &OS) const {
 bool DependenceAnalysis::intersectConstraints(Constraint *X,
                                               const Constraint *Y) {
   ++DeltaApplications;
-  DEBUG(dbgs() << "\\nintersect constraints\n");
-  DEBUG(dbgs() << "\n    X ="; X->dump(dbgs()));
-  DEBUG(dbgs() << "\n    Y ="; Y->dump(dbgs()));
+  LLVM_DEBUG(dbgs() << "\\nintersect constraints\n");
+  LLVM_DEBUG(dbgs() << "\n    X ="; X->dump(dbgs()));
+  LLVM_DEBUG(dbgs() << "\n    Y ="; Y->dump(dbgs()));
   assert(!Y->isPoint() && "Y must not be a Point");
   if (X->isAny()) {
     if (Y->isAny())
@@ -666,7 +667,7 @@ bool DependenceAnalysis::intersectConstraints(Constraint *X,
   }
 
   if (X->isDistance() && Y->isDistance()) {
-    DEBUG(dbgs() << "\n    intersect 2 distances\n");
+    LLVM_DEBUG(dbgs() << "\n    intersect 2 distances\n");
     if (isKnownPredicate(CmpInst::ICMP_EQ, X->getD(), Y->getD()))
       return false;
     if (isKnownPredicate(CmpInst::ICMP_NE, X->getD(), Y->getD())) {
@@ -693,12 +694,12 @@ bool DependenceAnalysis::intersectConstraints(Constraint *X,
          "We shouldn't ever see X->isPoint() && Y->isPoint()");
 
   if (X->isLine() && Y->isLine()) {
-    DEBUG(dbgs() << "\n    intersect 2 lines\n");
+    LLVM_DEBUG(dbgs() << "\n    intersect 2 lines\n");
     const SCEV *Prod1 = SE->getMulExpr(X->getA(), Y->getB());
     const SCEV *Prod2 = SE->getMulExpr(X->getB(), Y->getA());
     if (isKnownPredicate(CmpInst::ICMP_EQ, Prod1, Prod2)) {
       // slopes are equal, so lines are parallel
-      DEBUG(dbgs() << "\t\tsame slope\n");
+      LLVM_DEBUG(dbgs() << "\t\tsame slope\n");
       Prod1 = SE->getMulExpr(X->getC(), Y->getB());
       Prod2 = SE->getMulExpr(X->getB(), Y->getC());
       if (isKnownPredicate(CmpInst::ICMP_EQ, Prod1, Prod2))
@@ -712,7 +713,7 @@ bool DependenceAnalysis::intersectConstraints(Constraint *X,
     }
     if (isKnownPredicate(CmpInst::ICMP_NE, Prod1, Prod2)) {
       // slopes differ, so lines intersect
-      DEBUG(dbgs() << "\t\tdifferent slopes\n");
+      LLVM_DEBUG(dbgs() << "\t\tdifferent slopes\n");
       const SCEV *C1B2 = SE->getMulExpr(X->getC(), Y->getB());
       const SCEV *C1A2 = SE->getMulExpr(X->getC(), Y->getA());
       const SCEV *C2B1 = SE->getMulExpr(Y->getC(), X->getB());
@@ -734,10 +735,10 @@ bool DependenceAnalysis::intersectConstraints(Constraint *X,
       APInt Xbot = A1B2_A2B1->getValue()->getValue();
       APInt Ytop = C1A2_C2A1->getValue()->getValue();
       APInt Ybot = A2B1_A1B2->getValue()->getValue();
-      DEBUG(dbgs() << "\t\tXtop = " << Xtop << "\n");
-      DEBUG(dbgs() << "\t\tXbot = " << Xbot << "\n");
-      DEBUG(dbgs() << "\t\tYtop = " << Ytop << "\n");
-      DEBUG(dbgs() << "\t\tYbot = " << Ybot << "\n");
+      LLVM_DEBUG(dbgs() << "\t\tXtop = " << Xtop << "\n");
+      LLVM_DEBUG(dbgs() << "\t\tXbot = " << Xbot << "\n");
+      LLVM_DEBUG(dbgs() << "\t\tYtop = " << Ytop << "\n");
+      LLVM_DEBUG(dbgs() << "\t\tYbot = " << Ybot << "\n");
       APInt Xq = Xtop; // these need to be initialized, even
       APInt Xr = Xtop; // though they're just going to be overwritten
       APInt::sdivrem(Xtop, Xbot, Xq, Xr);
@@ -749,7 +750,7 @@ bool DependenceAnalysis::intersectConstraints(Constraint *X,
         ++DeltaSuccesses;
         return true;
       }
-      DEBUG(dbgs() << "\t\tX = " << Xq << ", Y = " << Yq << "\n");
+      LLVM_DEBUG(dbgs() << "\t\tX = " << Xq << ", Y = " << Yq << "\n");
       if (Xq.slt(0) || Yq.slt(0)) {
         X->setEmpty();
         ++DeltaSuccesses;
@@ -758,7 +759,7 @@ bool DependenceAnalysis::intersectConstraints(Constraint *X,
       if (const SCEVConstant *CUB =
           collectConstantUpperBound(X->getAssociatedLoop(), Prod1->getType())) {
         APInt UpperBound = CUB->getValue()->getValue();
-        DEBUG(dbgs() << "\t\tupper bound = " << UpperBound << "\n");
+        LLVM_DEBUG(dbgs() << "\t\tupper bound = " << UpperBound << "\n");
         if (Xq.sgt(UpperBound) || Yq.sgt(UpperBound)) {
           X->setEmpty();
           ++DeltaSuccesses;
@@ -778,7 +779,7 @@ bool DependenceAnalysis::intersectConstraints(Constraint *X,
   assert(!(X->isLine() && Y->isPoint()) && "This case should never occur");
 
   if (X->isPoint() && Y->isLine()) {
-    DEBUG(dbgs() << "\t    intersect Point and Line\n");
+    LLVM_DEBUG(dbgs() << "\t    intersect Point and Line\n");
     const SCEV *A1X1 = SE->getMulExpr(Y->getA(), X->getX());
     const SCEV *B1Y1 = SE->getMulExpr(Y->getB(), X->getY());
     const SCEV *Sum = SE->getAddExpr(A1X1, B1Y1);
@@ -1119,7 +1120,7 @@ void DependenceAnalysis::unifySubscriptType(Subscript *Pair) {
 // the actual analysis.
 void DDTest::removeMatchingExtensions(Subscript *Pair) {
 
-// TODO:  will handle this later
+  // TODO:  will handle this later
 
 #if 0
   const CanonExpr *Src = Pair->Src;
@@ -1281,20 +1282,20 @@ const SCEVConstant *DependenceAnalysis::collectConstantUpperBound(const Loop *L,
 bool DDTest::testZIV(const CanonExpr *Src, const CanonExpr *Dst,
                      Dependences &Result) {
 
-  DEBUG(dbgs() << "\n    src = "; Src->dump());
-  DEBUG(dbgs() << "\n    dst = "; Dst->dump());
+  LLVM_DEBUG(dbgs() << "\n    src = "; Src->dump());
+  LLVM_DEBUG(dbgs() << "\n    dst = "; Dst->dump());
 
   ++ZIVapplications;
   if (isKnownPredicate(CmpInst::ICMP_EQ, Src, Dst)) {
-    DEBUG(dbgs() << "\n    provably dependent");
+    LLVM_DEBUG(dbgs() << "\n    provably dependent");
     return false; // provably dependent
   }
   if (isKnownPredicate(CmpInst::ICMP_NE, Src, Dst)) {
-    DEBUG(dbgs() << "\n    provably independent");
+    LLVM_DEBUG(dbgs() << "\n    provably independent");
     ++ZIVindependence;
     return true; // provably independent
   }
-  DEBUG(dbgs() << "\n    possibly dependent\n");
+  LLVM_DEBUG(dbgs() << "\n    possibly dependent\n");
   Result.Consistent = false;
   return false; // possibly dependent
 }
@@ -1331,10 +1332,10 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
                            const CanonExpr *DstConst, const HLLoop *CurLoop,
                            unsigned Level, Dependences &Result,
                            Constraint &NewConstraint) {
-  DEBUG(dbgs() << "\nStrong SIV test\n");
-  DEBUG(dbgs() << "\n    Coeff = "; Coeff->dump());
-  DEBUG(dbgs() << "\n    SrcConst = "; SrcConst->dump());
-  DEBUG(dbgs() << "\n    DstConst = "; DstConst->dump());
+  LLVM_DEBUG(dbgs() << "\nStrong SIV test\n");
+  LLVM_DEBUG(dbgs() << "\n    Coeff = "; Coeff->dump());
+  LLVM_DEBUG(dbgs() << "\n    SrcConst = "; SrcConst->dump());
+  LLVM_DEBUG(dbgs() << "\n    DstConst = "; DstConst->dump());
   ++StrongSIVapplications;
   assert(0 < Level && Level <= CommonLevels && "level out of range");
   Level--;
@@ -1345,7 +1346,7 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
     return false;
   }
 
-  DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
+  LLVM_DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
 
   // check that |Delta| < iteration count
   // TBD: get UB for CurLoop
@@ -1366,9 +1367,9 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
         HLNodeUtils::isKnownNonNegative(Coeff) ? Coeff : getNegative(Coeff);
     const CanonExpr *Product = getMulExpr(UpperBound, AbsCoeff);
 
-    DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
-    DEBUG(dbgs() << "\n    AbsDelta = "; AbsDelta->dump());
-    DEBUG(dbgs() << "\n    AbsCoeff = "; AbsCoeff->dump());
+    LLVM_DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
+    LLVM_DEBUG(dbgs() << "\n    AbsDelta = "; AbsDelta->dump());
+    LLVM_DEBUG(dbgs() << "\n    AbsCoeff = "; AbsCoeff->dump());
 
     // If Delta is zero and coeff is  non-zero then set
     // dv as =
@@ -1378,16 +1379,16 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
 
       Result.DV[Level].Distance = Delta;
       NewConstraint.setDistance(Delta, CurLoop);
-      DEBUG(dbgs() << "\n\t DV set as EQ - 1\n");
+      LLVM_DEBUG(dbgs() << "\n\t DV set as EQ - 1\n");
       Result.DV[Level].Direction &= DVKind::EQ;
     }
 
     if (Product && isKnownPredicate(CmpInst::ICMP_SGT, AbsDelta, Product)) {
-      DEBUG(dbgs() << "\n    Product = "; Product->dump());
+      LLVM_DEBUG(dbgs() << "\n    Product = "; Product->dump());
       // Distance greater than trip count - no dependence
       ++StrongSIVindependence;
       ++StrongSIVsuccesses;
-      DEBUG(dbgs() << "\n StrongSIV finds independence 1\n");
+      LLVM_DEBUG(dbgs() << "\n StrongSIV finds independence 1\n");
       return true;
     }
   }
@@ -1406,14 +1407,14 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
 
       // Note: Distance, Reminder are possibly updated after this util
       APInt::sdivrem(ConstDelta, ConstCoeff, Distance, Remainder);
-      DEBUG(dbgs() << "\n    Distance = " << Distance << "\n");
-      DEBUG(dbgs() << "\n    Remainder = " << Remainder << "\n");
+      LLVM_DEBUG(dbgs() << "\n    Distance = " << Distance << "\n");
+      LLVM_DEBUG(dbgs() << "\n    Remainder = " << Remainder << "\n");
       // Make sure Coeff divides Delta exactly
       if (Remainder != 0) {
         // Coeff doesn't divide Distance, no dependence
         ++StrongSIVindependence;
         ++StrongSIVsuccesses;
-        DEBUG(dbgs() << "\n StrongSIV finds independence 2\n");
+        LLVM_DEBUG(dbgs() << "\n StrongSIV finds independence 2\n");
         return true;
       }
 
@@ -1434,12 +1435,12 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
       // since 0/X == 0
       Result.DV[Level].Distance = Delta;
       NewConstraint.setDistance(Delta, CurLoop);
-      DEBUG(dbgs() << "\n\t DV set as EQ -2 \n");
+      LLVM_DEBUG(dbgs() << "\n\t DV set as EQ -2 \n");
       Result.DV[Level].Direction &= DVKind::EQ;
       ++StrongSIVsuccesses;
     } else {
       if (Coeff->isOne()) {
-        DEBUG(dbgs() << "\n    Distance = "; Delta->dump());
+        LLVM_DEBUG(dbgs() << "\n    Distance = "; Delta->dump());
         Result.DV[Level].Distance = Delta; // since X/1 == X
         NewConstraint.setDistance(Delta, CurLoop);
       } else {
@@ -1472,7 +1473,7 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
     }
   }
 
-  DEBUG(dbgs() << "\n StrongSIV finds dependence\n");
+  LLVM_DEBUG(dbgs() << "\n StrongSIV finds dependence\n");
   return false;
 }
 
@@ -1510,10 +1511,10 @@ bool DDTest::weakCrossingSIVtest(const CanonExpr *Coeff,
                                  const HLLoop *CurLoop, unsigned Level,
                                  Dependences &Result, Constraint &NewConstraint,
                                  const CanonExpr *&SplitIter) {
-  DEBUG(dbgs() << "\tWeak-Crossing SIV test\n");
-  DEBUG(dbgs() << "\n    Coeff = "; Coeff->dump());
-  DEBUG(dbgs() << "\n    SrcConst = "; SrcConst->dump());
-  DEBUG(dbgs() << "\n    DstConst = "; DstConst->dump());
+  LLVM_DEBUG(dbgs() << "\tWeak-Crossing SIV test\n");
+  LLVM_DEBUG(dbgs() << "\n    Coeff = "; Coeff->dump());
+  LLVM_DEBUG(dbgs() << "\n    SrcConst = "; SrcConst->dump());
+  LLVM_DEBUG(dbgs() << "\n    DstConst = "; DstConst->dump());
 
   ++WeakCrossingSIVapplications;
   assert(0 < Level && Level <= CommonLevels && "Level out of range");
@@ -1524,7 +1525,7 @@ bool DDTest::weakCrossingSIVtest(const CanonExpr *Coeff,
     return false;
   }
 
-  DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
+  LLVM_DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
   NewConstraint.setLine(Coeff, Coeff, Delta, CurLoop);
   if (Delta->isZero()) {
     Result.DV[Level].Direction &= ~DVKind::LT;
@@ -1532,7 +1533,7 @@ bool DDTest::weakCrossingSIVtest(const CanonExpr *Coeff,
     ++WeakCrossingSIVsuccesses;
     if (!Result.DV[Level].Direction) {
       ++WeakCrossingSIVindependence;
-      DEBUG(dbgs() << "\n\tWeakCrossingSIV INDEP-0!");
+      LLVM_DEBUG(dbgs() << "\n\tWeakCrossingSIV INDEP-0!");
       return true;
     }
     Result.DV[Level].Distance = Delta; // = 0
@@ -1561,7 +1562,7 @@ bool DDTest::weakCrossingSIVtest(const CanonExpr *Coeff,
       getSMaxExpr(getConstantWithType(Delta->getSrcType(), 0), Delta);
 
   if (MaxResult == nullptr) {
-    DEBUG(dbgs() << "\nNeed more support for Max!");
+    LLVM_DEBUG(dbgs() << "\nNeed more support for Max!");
     return false;
   }
 
@@ -1570,11 +1571,11 @@ bool DDTest::weakCrossingSIVtest(const CanonExpr *Coeff,
       getMulExpr(getConstantWithType(Delta->getSrcType(), 2), ConstCoeff));
 
   if (SplitIter == nullptr) {
-    DEBUG(dbgs() << "\nNeed more support for Divide!");
+    LLVM_DEBUG(dbgs() << "\nNeed more support for Divide!");
     return false;
   }
 
-  DEBUG(dbgs() << "\n    Split iter = "; SplitIter->dump());
+  LLVM_DEBUG(dbgs() << "\n    Split iter = "; SplitIter->dump());
 
   const CanonExpr *ConstantDelta = Delta;
   int64_t DeltaValue;
@@ -1584,21 +1585,21 @@ bool DDTest::weakCrossingSIVtest(const CanonExpr *Coeff,
 
   // We're certain that ConstCoeff > 0; therefore,
   // if Delta < 0, then no dependence.
-  DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
-  DEBUG(dbgs() << "\n    ConstCoeff = "; ConstCoeff->dump());
+  LLVM_DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
+  LLVM_DEBUG(dbgs() << "\n    ConstCoeff = "; ConstCoeff->dump());
 
   if (HLNodeUtils::isKnownNegative(Delta, CurLoop)) {
     // No dependence, Delta < 0s
     ++WeakCrossingSIVindependence;
     ++WeakCrossingSIVsuccesses;
-    DEBUG(dbgs() << "\n\tWeakCrossingSIV INDEP-1!");
+    LLVM_DEBUG(dbgs() << "\n\tWeakCrossingSIV INDEP-1!");
     return true;
   }
 
   // We're certain that Delta > 0 and ConstCoeff > 0.
   // Check Delta/(2*ConstCoeff) against upper loop bound
   if (const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr()) {
-    DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
+    LLVM_DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
     const CanonExpr *ConstantTwo =
         getConstantWithType(UpperBound->getSrcType(), 2);
     const CanonExpr *ML =
@@ -1608,12 +1609,12 @@ bool DDTest::weakCrossingSIVtest(const CanonExpr *Coeff,
       return false;
     }
 
-    DEBUG(dbgs() << "\n    ML = "; ML->dump());
+    LLVM_DEBUG(dbgs() << "\n    ML = "; ML->dump());
     if (isKnownPredicate(CmpInst::ICMP_SGT, Delta, ML)) {
       // Delta too big, no dependence
       ++WeakCrossingSIVindependence;
       ++WeakCrossingSIVsuccesses;
-      DEBUG(dbgs() << "\n\tWeakCrossingSIV INDEP-2!");
+      LLVM_DEBUG(dbgs() << "\n\tWeakCrossingSIV INDEP-2!");
       return true;
     }
     if (isKnownPredicate(CmpInst::ICMP_EQ, Delta, ML)) {
@@ -1623,7 +1624,7 @@ bool DDTest::weakCrossingSIVtest(const CanonExpr *Coeff,
       ++WeakCrossingSIVsuccesses;
       if (!Result.DV[Level].Direction) {
         ++WeakCrossingSIVindependence;
-        DEBUG(dbgs() << "\n\tWeakCrossingSIV INDEP-3!");
+        LLVM_DEBUG(dbgs() << "\n\tWeakCrossingSIV INDEP-3!");
         return true;
       }
       Result.DV[Level].Splitable = false;
@@ -1644,20 +1645,20 @@ bool DDTest::weakCrossingSIVtest(const CanonExpr *Coeff,
   APInt Remainder = APDelta;
 
   APInt::sdivrem(APDelta, APCoeff, Distance, Remainder);
-  DEBUG(dbgs() << "\n    Remainder = " << Remainder << "\n");
+  LLVM_DEBUG(dbgs() << "\n    Remainder = " << Remainder << "\n");
   if (Remainder != 0) {
     // Coeff doesn't divide Delta, no dependence
     ++WeakCrossingSIVindependence;
     ++WeakCrossingSIVsuccesses;
-    DEBUG(dbgs() << "\n\tWeakCrossingSIV INDEP-4!");
+    LLVM_DEBUG(dbgs() << "\n\tWeakCrossingSIV INDEP-4!");
     return true;
   }
-  DEBUG(dbgs() << "\n    Distance = " << Distance << "\n");
+  LLVM_DEBUG(dbgs() << "\n    Distance = " << Distance << "\n");
 
   // if 2*Coeff doesn't divide Delta, then the equal direction isn't possible
   APInt Two = APInt(Distance.getBitWidth(), 2, true);
   Remainder = Distance.srem(Two);
-  DEBUG(dbgs() << "\n    Remainder = " << Remainder << "\n");
+  LLVM_DEBUG(dbgs() << "\n    Remainder = " << Remainder << "\n");
   if (Remainder != 0) {
     // Equal direction isn't possible
     Result.DV[Level].Direction &= ~DVKind::EQ;
@@ -1697,7 +1698,7 @@ static bool findGCD(unsigned Bits, APInt AM, APInt BM, APInt Delta, APInt &G,
     APInt::sdivrem(G0, G1, Q, R);
   }
   G = G1;
-  DEBUG(dbgs() << "\t    GCD = " << G << "\n");
+  LLVM_DEBUG(dbgs() << "\t    GCD = " << G << "\n");
   X = AM.slt(0) ? -A1 : A1;
   Y = BM.slt(0) ? B1 : -B1;
 
@@ -1767,15 +1768,15 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
                           const HLLoop *CurLoop, unsigned Level,
                           Dependences &Result, Constraint &NewConstraint) {
 
-  DEBUG(dbgs() << "\nExact SIV test\n");
-  DEBUG(dbgs() << "\n    SrcCoeff = "; SrcCoeff->dump());
-  DEBUG(dbgs() << " = AM\n");
-  DEBUG(dbgs() << "\n    DstCoeff = "; DstCoeff->dump());
-  DEBUG(dbgs() << " = BM\n");
-  DEBUG(dbgs() << "\n    SrcConst = "; SrcConst->dump());
-  DEBUG(dbgs() << "\n");
-  DEBUG(dbgs() << "\n    DstConst = "; DstConst->dump());
-  DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "\nExact SIV test\n");
+  LLVM_DEBUG(dbgs() << "\n    SrcCoeff = "; SrcCoeff->dump());
+  LLVM_DEBUG(dbgs() << " = AM\n");
+  LLVM_DEBUG(dbgs() << "\n    DstCoeff = "; DstCoeff->dump());
+  LLVM_DEBUG(dbgs() << " = BM\n");
+  LLVM_DEBUG(dbgs() << "\n    SrcConst = "; SrcConst->dump());
+  LLVM_DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "\n    DstConst = "; DstConst->dump());
+  LLVM_DEBUG(dbgs() << "\n");
 
   ++ExactSIVapplications;
   assert(0 < Level && Level <= CommonLevels && "Level out of range");
@@ -1786,8 +1787,8 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   if (!Delta) {
     return false;
   }
-  DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
-  DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
+  LLVM_DEBUG(dbgs() << "\n");
 
   NewConstraint.setLine(SrcCoeff, getNegative(DstCoeff), Delta, CurLoop);
 
@@ -1798,8 +1799,8 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
     return false;
   }
 
-  DEBUG(dbgs() << "\tDelta, SrcCoeff, DstCoeff = " << ConstDeltaVal << ","
-               << SrcCoeffVal << "," << DstCoeffVal);
+  LLVM_DEBUG(dbgs() << "\tDelta, SrcCoeff, DstCoeff = " << ConstDeltaVal << ","
+                    << SrcCoeffVal << "," << DstCoeffVal);
 
   // find gcd
   APInt G, X, Y;
@@ -1815,7 +1816,8 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
     return true;
   }
 
-  DEBUG(dbgs() << "\t    X = " << X << ", Y = " << Y << ", G = " << G << "\n");
+  LLVM_DEBUG(dbgs() << "\t    X = " << X << ", Y = " << Y << ", G = " << G
+                    << "\n");
   //  Normalized CE implies LM = 0
 
   APInt UM(Bits, 1, true);
@@ -1825,7 +1827,7 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   if (const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr()) {
     if (UpperBound->isIntConstant(&UBVal)) {
       UM = llvm::APInt(64, UBVal, true);
-      DEBUG(dbgs() << "\t    UM = " << UM << "\n");
+      LLVM_DEBUG(dbgs() << "\t    UM = " << UM << "\n");
       UMValid = true;
     }
   }
@@ -1837,17 +1839,17 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   APInt TMUL = BM.sdiv(G);
   if (TMUL.sgt(0)) {
     TL = maxAPInt(TL, ceilingOfQuotient(-X, TMUL));
-    DEBUG(dbgs() << "\t    TL = " << TL << "\n");
+    LLVM_DEBUG(dbgs() << "\t    TL = " << TL << "\n");
     if (UMValid) {
       TU = minAPInt(TU, floorOfQuotient(UM - X, TMUL));
-      DEBUG(dbgs() << "\t    TU = " << TU << "\n");
+      LLVM_DEBUG(dbgs() << "\t    TU = " << TU << "\n");
     }
   } else {
     TU = minAPInt(TU, floorOfQuotient(-X, TMUL));
-    DEBUG(dbgs() << "\t    TU = " << TU << "\n");
+    LLVM_DEBUG(dbgs() << "\t    TU = " << TU << "\n");
     if (UMValid) {
       TL = maxAPInt(TL, ceilingOfQuotient(UM - X, TMUL));
-      DEBUG(dbgs() << "\t    TL = " << TL << "\n");
+      LLVM_DEBUG(dbgs() << "\t    TL = " << TL << "\n");
     }
   }
 
@@ -1855,17 +1857,17 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   TMUL = AM.sdiv(G);
   if (TMUL.sgt(0)) {
     TL = maxAPInt(TL, ceilingOfQuotient(-Y, TMUL));
-    DEBUG(dbgs() << "\t    TL = " << TL << "\n");
+    LLVM_DEBUG(dbgs() << "\t    TL = " << TL << "\n");
     if (UMValid) {
       TU = minAPInt(TU, floorOfQuotient(UM - Y, TMUL));
-      DEBUG(dbgs() << "\t    TU = " << TU << "\n");
+      LLVM_DEBUG(dbgs() << "\t    TU = " << TU << "\n");
     }
   } else {
     TU = minAPInt(TU, floorOfQuotient(-Y, TMUL));
-    DEBUG(dbgs() << "\t    TU = " << TU << "\n");
+    LLVM_DEBUG(dbgs() << "\t    TU = " << TU << "\n");
     if (UMValid) {
       TL = maxAPInt(TL, ceilingOfQuotient(UM - Y, TMUL));
-      DEBUG(dbgs() << "\t    TL = " << TL << "\n");
+      LLVM_DEBUG(dbgs() << "\t    TL = " << TL << "\n");
     }
   }
   if (TL.sgt(TU)) {
@@ -1880,14 +1882,14 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   // less than
   APInt SaveTU(TU); // save these
   APInt SaveTL(TL);
-  DEBUG(dbgs() << "\t    exploring LT direction\n");
+  LLVM_DEBUG(dbgs() << "\t    exploring LT direction\n");
   TMUL = AM - BM;
   if (TMUL.sgt(0)) {
     TL = maxAPInt(TL, ceilingOfQuotient(X - Y + 1, TMUL));
-    DEBUG(dbgs() << "\t\t    TL = " << TL << "\n");
+    LLVM_DEBUG(dbgs() << "\t\t    TL = " << TL << "\n");
   } else {
     TU = minAPInt(TU, floorOfQuotient(X - Y + 1, TMUL));
-    DEBUG(dbgs() << "\t\t    TU = " << TU << "\n");
+    LLVM_DEBUG(dbgs() << "\t\t    TU = " << TU << "\n");
   }
   if (TL.sle(TU)) {
     NewDirection |= DVKind::LT;
@@ -1908,18 +1910,18 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
 
   // if (TMUL.sgt(0)) {
   //   TL = maxAPInt(TL, ceilingOfQuotient(X - Y, TMUL));
-  //   DEBUG(dbgs() << "\t\t    TL = " << TL << "\n");
+  //   LLVM_DEBUG(dbgs() << "\t\t    TL = " << TL << "\n");
   //  } else {
   //    TU = minAPInt(TU, floorOfQuotient(X - Y, TMUL));
-  //   DEBUG(dbgs() << "\t\t    TU = " << TU << "\n");
+  //   LLVM_DEBUG(dbgs() << "\t\t    TU = " << TU << "\n");
   // }
   // TMUL = BM - AM;
   // if (TMUL.sgt(0)) {
   //   TL = maxAPInt(TL, ceilingOfQuotient(Y - X, TMUL));
-  //   DEBUG(dbgs() << "\t\t    TL = " << TL << "\n");
+  //   LLVM_DEBUG(dbgs() << "\t\t    TL = " << TL << "\n");
   // } else {
   //   TU = minAPInt(TU, floorOfQuotient(Y - X, TMUL));
-  //   DEBUG(dbgs() << "\t\t    TU = " << TU << "\n");
+  //   LLVM_DEBUG(dbgs() << "\t\t    TU = " << TU << "\n");
   // }
   // if (TL.sle(TU)) {
   //  NewDirection |= DVKind::EQ;
@@ -1931,7 +1933,7 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   // IV  = diff_of_the_constants / diff_of_coeffs
   // Check if IV is within this range:  [0, Upperbound]
 
-  DEBUG(dbgs() << "\t    exploring EQ direction\n");
+  LLVM_DEBUG(dbgs() << "\t    exploring EQ direction\n");
 
   int64_t CoeffDeltaVal = SrcCoeffVal - DstCoeffVal;
   assert(CoeffDeltaVal != 0 && "Coeffs not expected to be equal here");
@@ -1957,13 +1959,13 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   // greater than
   TU = SaveTU; // restore
   TL = SaveTL;
-  DEBUG(dbgs() << "\t    exploring GT direction\n");
+  LLVM_DEBUG(dbgs() << "\t    exploring GT direction\n");
   if (TMUL.sgt(0)) {
     TL = maxAPInt(TL, ceilingOfQuotient(Y - X + 1, TMUL));
-    DEBUG(dbgs() << "\t\t    TL = " << TL << "\n");
+    LLVM_DEBUG(dbgs() << "\t\t    TL = " << TL << "\n");
   } else {
     TU = minAPInt(TU, floorOfQuotient(Y - X + 1, TMUL));
-    DEBUG(dbgs() << "\t\t    TU = " << TU << "\n");
+    LLVM_DEBUG(dbgs() << "\t\t    TU = " << TU << "\n");
   }
   if (TL.sle(TU)) {
     NewDirection |= DVKind::GT;
@@ -2035,10 +2037,10 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
   // For the WeakSIV test, it's possible the loop isn't common to
   // the Src and Dst loops. If it isn't, then there's no need to
   // record a direction.
-  DEBUG(dbgs() << "\nWeak-Zero (src) SIV test\n");
-  DEBUG(dbgs() << "\n    DstCoeff = "; DstCoeff->dump());
-  DEBUG(dbgs() << "\n    SrcConst = "; SrcConst->dump());
-  DEBUG(dbgs() << "\n    DstConst = "; DstConst->dump());
+  LLVM_DEBUG(dbgs() << "\nWeak-Zero (src) SIV test\n");
+  LLVM_DEBUG(dbgs() << "\n    DstCoeff = "; DstCoeff->dump());
+  LLVM_DEBUG(dbgs() << "\n    SrcConst = "; SrcConst->dump());
+  LLVM_DEBUG(dbgs() << "\n    DstConst = "; DstConst->dump());
 
   ++WeakZeroSIVapplications;
   assert(0 < Level && Level <= MaxLevels && "Level out of range");
@@ -2059,7 +2061,7 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
   NewConstraint.setLine(getConstantWithType(Delta->getSrcType(), 0), DstCoeff,
                         Delta, CurLoop);
 
-  DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
+  LLVM_DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
   if (isKnownPredicate(CmpInst::ICMP_EQ, SrcConst, DstConst)) {
     if (Level < CommonLevels) {
       // Srce: A[2] ; Dst: A[2*i +2];  DV should be >=
@@ -2086,7 +2088,7 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
   // check that Delta/SrcCoeff < iteration count
   // really check NewDelta < count*AbsCoeff
   if (const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr()) {
-    DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
+    LLVM_DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
 
     const CanonExpr *Product = getMulExpr(AbsCoeff, UpperBound);
 
@@ -2172,10 +2174,10 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
                                 Constraint &NewConstraint) {
   // For the WeakSIV test, it's possible the loop isn't common to the
   // Src and Dst loops. If it isn't, then there's no need to record a direction.
-  DEBUG(dbgs() << "\nWeak-Zero (dst) SIV test\n");
-  DEBUG(dbgs() << "\nSrcCoeff = "; SrcCoeff->dump());
-  DEBUG(dbgs() << "\nSrcConst = "; SrcConst->dump());
-  DEBUG(dbgs() << "\nDstConst = "; DstConst->dump());
+  LLVM_DEBUG(dbgs() << "\nWeak-Zero (dst) SIV test\n");
+  LLVM_DEBUG(dbgs() << "\nSrcCoeff = "; SrcCoeff->dump());
+  LLVM_DEBUG(dbgs() << "\nSrcConst = "; SrcConst->dump());
+  LLVM_DEBUG(dbgs() << "\nDstConst = "; DstConst->dump());
 
   ++WeakZeroSIVapplications;
   assert(0 < Level && Level <= SrcLevels && "Level out of range");
@@ -2188,7 +2190,7 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
   }
   NewConstraint.setLine(SrcCoeff, getConstantWithType(Delta->getSrcType(), 0),
                         Delta, CurLoop);
-  DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
+  LLVM_DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
   if (isKnownPredicate(CmpInst::ICMP_EQ, DstConst, SrcConst)) {
     if (Level < CommonLevels) {
       Result.DV[Level].Direction &= DVKind::LE;
@@ -2216,7 +2218,7 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
   // check that Delta/SrcCoeff < iteration count
   // really check NewDelta < count*AbsCoeff
   if (const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr()) {
-    DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
+    LLVM_DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
     const CanonExpr *Product = getMulExpr(AbsCoeff, UpperBound);
 
     if (Product == nullptr) {
@@ -2276,13 +2278,13 @@ bool DDTest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
                            const HLLoop *SrcLoop, const HLLoop *DstLoop,
                            Dependences &Result) {
 
-  DEBUG(dbgs() << "\nExact RDIV test\n");
-  DEBUG(dbgs() << "\n    SrcCoeff = "; SrcCoeff->dump());
-  DEBUG(dbgs() << " = AM\n");
-  DEBUG(dbgs() << "\n    DstCoeff = "; DstCoeff->dump());
-  DEBUG(dbgs() << " = BM\n");
-  DEBUG(dbgs() << "\n    SrcConst = "; SrcConst->dump());
-  DEBUG(dbgs() << "\n    DstConst = "; DstConst->dump());
+  LLVM_DEBUG(dbgs() << "\nExact RDIV test\n");
+  LLVM_DEBUG(dbgs() << "\n    SrcCoeff = "; SrcCoeff->dump());
+  LLVM_DEBUG(dbgs() << " = AM\n");
+  LLVM_DEBUG(dbgs() << "\n    DstCoeff = "; DstCoeff->dump());
+  LLVM_DEBUG(dbgs() << " = BM\n");
+  LLVM_DEBUG(dbgs() << "\n    SrcConst = "; SrcConst->dump());
+  LLVM_DEBUG(dbgs() << "\n    DstConst = "; DstConst->dump());
   ++ExactRDIVapplications;
   Result.Consistent = false;
   const CanonExpr *Delta = getMinus(DstConst, SrcConst);
@@ -2290,7 +2292,7 @@ bool DDTest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   if (!Delta) {
     return false;
   }
-  DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
+  LLVM_DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
 
   int64_t deltaVal, srcCoeffVal, dstCoeffVal, ubVal;
 
@@ -2314,7 +2316,8 @@ bool DDTest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
     return true;
   }
 
-  DEBUG(dbgs() << "\n    X = " << X << ", Y = " << Y << ", G = " << G << "\n");
+  LLVM_DEBUG(dbgs() << "\n    X = " << X << ", Y = " << Y << ", G = " << G
+                    << "\n");
 
   // since CE construction is normalized, LM = 0
   APInt SrcUM(Bits, 1, true);
@@ -2324,7 +2327,7 @@ bool DDTest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   if (const CanonExpr *UpperBound = SrcLoop->getUpperCanonExpr()) {
     if (UpperBound->isIntConstant(&ubVal)) {
       SrcUM = llvm::APInt(64, ubVal, true);
-      DEBUG(dbgs() << "\t    SrcUM = " << SrcUM << "\n");
+      LLVM_DEBUG(dbgs() << "\t    SrcUM = " << SrcUM << "\n");
       SrcUMvalid = true;
     }
   }
@@ -2336,7 +2339,7 @@ bool DDTest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   if (const CanonExpr *UpperBound = DstLoop->getUpperCanonExpr()) {
     if (UpperBound->isIntConstant(&ubVal)) {
       DstUM = llvm::APInt(64, ubVal, true);
-      DEBUG(dbgs() << "\t    DstUM = " << DstUM << "\n");
+      LLVM_DEBUG(dbgs() << "\t    DstUM = " << DstUM << "\n");
       DstUMvalid = true;
     }
   }
@@ -2348,17 +2351,17 @@ bool DDTest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   APInt TMUL = BM.sdiv(G);
   if (TMUL.sgt(0)) {
     TL = maxAPInt(TL, ceilingOfQuotient(-X, TMUL));
-    DEBUG(dbgs() << "\t    TL = " << TL << "\n");
+    LLVM_DEBUG(dbgs() << "\t    TL = " << TL << "\n");
     if (SrcUMvalid) {
       TU = minAPInt(TU, floorOfQuotient(SrcUM - X, TMUL));
-      DEBUG(dbgs() << "\t    TU = " << TU << "\n");
+      LLVM_DEBUG(dbgs() << "\t    TU = " << TU << "\n");
     }
   } else {
     TU = minAPInt(TU, floorOfQuotient(-X, TMUL));
-    DEBUG(dbgs() << "\t    TU = " << TU << "\n");
+    LLVM_DEBUG(dbgs() << "\t    TU = " << TU << "\n");
     if (SrcUMvalid) {
       TL = maxAPInt(TL, ceilingOfQuotient(SrcUM - X, TMUL));
-      DEBUG(dbgs() << "\t    TL = " << TL << "\n");
+      LLVM_DEBUG(dbgs() << "\t    TL = " << TL << "\n");
     }
   }
 
@@ -2366,17 +2369,17 @@ bool DDTest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   TMUL = AM.sdiv(G);
   if (TMUL.sgt(0)) {
     TL = maxAPInt(TL, ceilingOfQuotient(-Y, TMUL));
-    DEBUG(dbgs() << "\t    TL = " << TL << "\n");
+    LLVM_DEBUG(dbgs() << "\t    TL = " << TL << "\n");
     if (DstUMvalid) {
       TU = minAPInt(TU, floorOfQuotient(DstUM - Y, TMUL));
-      DEBUG(dbgs() << "\t    TU = " << TU << "\n");
+      LLVM_DEBUG(dbgs() << "\t    TU = " << TU << "\n");
     }
   } else {
     TU = minAPInt(TU, floorOfQuotient(-Y, TMUL));
-    DEBUG(dbgs() << "\t    TU = " << TU << "\n");
+    LLVM_DEBUG(dbgs() << "\t    TU = " << TU << "\n");
     if (DstUMvalid) {
       TL = maxAPInt(TL, ceilingOfQuotient(DstUM - Y, TMUL));
-      DEBUG(dbgs() << "\t    TL = " << TL << "\n");
+      LLVM_DEBUG(dbgs() << "\t    TL = " << TL << "\n");
     }
   }
   if (TL.sgt(TU)) {
@@ -2434,22 +2437,22 @@ bool DDTest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
 
   ++SymbolicRDIVapplications;
 
-  DEBUG(dbgs() << "\ntry symbolic RDIV test\n");
-  DEBUG(dbgs() << "\n    A1 = "; A1->dump());
-  DEBUG(dbgs() << ", src type = " << *(A1->getSrcType()));
-  DEBUG(dbgs() << ", dest type = " << *(A1->getDestType()) << "\n");
-  DEBUG(dbgs() << "\n    A2 = "; A2->dump());
-  DEBUG(dbgs() << "\n    C1 = "; C1->dump());
-  DEBUG(dbgs() << "\n    C2 = "; C2->dump());
+  LLVM_DEBUG(dbgs() << "\ntry symbolic RDIV test\n");
+  LLVM_DEBUG(dbgs() << "\n    A1 = "; A1->dump());
+  LLVM_DEBUG(dbgs() << ", src type = " << *(A1->getSrcType()));
+  LLVM_DEBUG(dbgs() << ", dest type = " << *(A1->getDestType()) << "\n");
+  LLVM_DEBUG(dbgs() << "\n    A2 = "; A2->dump());
+  LLVM_DEBUG(dbgs() << "\n    C1 = "; C1->dump());
+  LLVM_DEBUG(dbgs() << "\n    C2 = "; C2->dump());
 
   const CanonExpr *N1 = Loop1->getUpperCanonExpr();
   const CanonExpr *N2 = Loop2->getUpperCanonExpr();
 
   if (N1) {
-    DEBUG(dbgs() << "\n    N1 = "; N1->dump());
+    LLVM_DEBUG(dbgs() << "\n    N1 = "; N1->dump());
   }
   if (N2) {
-    DEBUG(dbgs() << "\n    N2 = "; N2->dump());
+    LLVM_DEBUG(dbgs() << "\n    N2 = "; N2->dump());
   }
   const CanonExpr *C2_C1 = getMinus(C2, C1);
   if (!C2_C1) {
@@ -2457,8 +2460,8 @@ bool DDTest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
   }
   const CanonExpr *C1_C2 = getNegative(C2_C1);
 
-  DEBUG(dbgs() << "\n    C2 - C1 = "; C2_C1->dump());
-  DEBUG(dbgs() << "\n    C1 - C2 = "; C1_C2->dump());
+  LLVM_DEBUG(dbgs() << "\n    C2 - C1 = "; C2_C1->dump());
+  LLVM_DEBUG(dbgs() << "\n    C1 - C2 = "; C1_C2->dump());
 
   if (HLNodeUtils::isKnownNonNegative(A1, DeepestLoop)) {
     if (HLNodeUtils::isKnownNonNegative(A2, DeepestLoop)) {
@@ -2470,7 +2473,7 @@ bool DDTest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
           return false;
         }
 
-        DEBUG(dbgs() << "\n    A1*N1 = "; A1N1->dump());
+        LLVM_DEBUG(dbgs() << "\n    A1*N1 = "; A1N1->dump());
         if (isKnownPredicate(CmpInst::ICMP_SGT, C2_C1, A1N1)) {
           ++SymbolicRDIVindependence;
           return true;
@@ -2483,7 +2486,7 @@ bool DDTest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
           return false;
         }
 
-        DEBUG(dbgs() << "\n    A2*N2 = "; A2N2->dump());
+        LLVM_DEBUG(dbgs() << "\n    A2*N2 = "; A2N2->dump());
         if (isKnownPredicate(CmpInst::ICMP_SLT, A2N2, C1_C2)) {
           ++SymbolicRDIVindependence;
           return true;
@@ -2501,7 +2504,7 @@ bool DDTest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
           return false;
         }
 
-        DEBUG(dbgs() << "\n A1*N1 - A2*N2 = "; A1N1_A2N2->dump());
+        LLVM_DEBUG(dbgs() << "\n A1*N1 - A2*N2 = "; A1N1_A2N2->dump());
         if (isKnownPredicate(CmpInst::ICMP_SGT, C2_C1, A1N1_A2N2)) {
           ++SymbolicRDIVindependence;
           return true;
@@ -2526,7 +2529,7 @@ bool DDTest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
           return false;
         }
 
-        DEBUG(dbgs() << "\n A1*N1 - A2*N2 = "; A1N1_A2N2->dump());
+        LLVM_DEBUG(dbgs() << "\n A1*N1 - A2*N2 = "; A1N1_A2N2->dump());
         if (isKnownPredicate(CmpInst::ICMP_SGT, A1N1_A2N2, C2_C1)) {
           ++SymbolicRDIVindependence;
           return true;
@@ -2546,7 +2549,7 @@ bool DDTest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
           return false;
         }
 
-        DEBUG(dbgs() << "\n A1*N1 = "; A1N1->dump());
+        LLVM_DEBUG(dbgs() << "\n A1*N1 = "; A1N1->dump());
         if (isKnownPredicate(CmpInst::ICMP_SGT, A1N1, C2_C1)) {
           ++SymbolicRDIVindependence;
           return true;
@@ -2559,7 +2562,7 @@ bool DDTest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
           return false;
         }
 
-        DEBUG(dbgs() << "\t    A2*N2 = "; A2N2->dump());
+        LLVM_DEBUG(dbgs() << "\t    A2*N2 = "; A2N2->dump());
         if (isKnownPredicate(CmpInst::ICMP_SLT, C1_C2, A2N2)) {
           ++SymbolicRDIVindependence;
           return true;
@@ -2583,11 +2586,11 @@ bool DDTest::testSIV(const CanonExpr *Src, const CanonExpr *Dst,
                      Constraint &NewConstraint, const CanonExpr *&SplitIter,
                      const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop) {
 
-  DEBUG(dbgs() << "\n Test SIV \n");
-  DEBUG(dbgs() << "\n   src = "; Src->dump());
-  DEBUG(dbgs() << "\n");
-  DEBUG(dbgs() << "   dst = "; Dst->dump());
-  DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "\n Test SIV \n");
+  LLVM_DEBUG(dbgs() << "\n   src = "; Src->dump());
+  LLVM_DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "   dst = "; Dst->dump());
+  LLVM_DEBUG(dbgs() << "\n");
 
   const HLLoop *SrcLoop = getLoop(Src, SrcParentLoop);
   const HLLoop *DstLoop = getLoop(Dst, DstParentLoop);
@@ -2678,8 +2681,8 @@ bool DDTest::testRDIV(const CanonExpr *Src, const CanonExpr *Dst,
   const HLLoop *SrcLoop = nullptr;
   const HLLoop *DstLoop = nullptr;
 
-  DEBUG(dbgs() << "\n    src = "; Src->dump());
-  DEBUG(dbgs() << "\n    Dst = "; Dst->dump());
+  LLVM_DEBUG(dbgs() << "\n    src = "; Src->dump());
+  LLVM_DEBUG(dbgs() << "\n    Dst = "; Dst->dump());
 
   if (Src->hasIV() && Dst->hasIV()) {
     // case 1)
@@ -2724,8 +2727,8 @@ bool DDTest::testMIV(const CanonExpr *Src, const CanonExpr *Dst,
                      const SmallBitVector &Loops, Dependences &Result,
                      const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop) {
 
-  DEBUG(dbgs() << "\n   src = "; Src->dump());
-  DEBUG(dbgs() << "\n   dst = "; Dst->dump());
+  LLVM_DEBUG(dbgs() << "\n   src = "; Src->dump());
+  LLVM_DEBUG(dbgs() << "\n   dst = "; Dst->dump());
   Result.Consistent = false;
   return gcdMIVtest(Src, Dst, SrcParentLoop, DstParentLoop, Result) ||
          banerjeeMIVtest(Src, Dst, InputDV, Loops, Result, SrcParentLoop,
@@ -2771,9 +2774,9 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
                         const HLLoop *SrcParentLoop,
                         const HLLoop *DstParentLoop, Dependences &Result) {
 
-  DEBUG(dbgs() << "\nstarting gcd\n");
-  DEBUG(dbgs() << "\n   src = "; Src->dump());
-  DEBUG(dbgs() << "\n   dst = "; Dst->dump());
+  LLVM_DEBUG(dbgs() << "\nstarting gcd\n");
+  LLVM_DEBUG(dbgs() << "\n   src = "; Src->dump());
+  LLVM_DEBUG(dbgs() << "\n   dst = "; Dst->dump());
 
   ++GCDapplications;
 
@@ -2792,7 +2795,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
   // Because we're looking for the constant at the end of the chain,
   // we can't quit the loop just because the GCD == 1.
 
-  DEBUG(dbgs() << "\nRunningGCD  =" << RunningGCD);
+  LLVM_DEBUG(dbgs() << "\nRunningGCD  =" << RunningGCD);
   const CanonExpr *CE = Src;
   const CanonExpr *CE2;
 
@@ -2804,7 +2807,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     int64_t Coeff1;
     CE->getIVCoeff(CurIVPair, &Index, &Coeff1);
 
-    DEBUG(dbgs() << "\nindex, coeff  =" << Index << "  " << Coeff1);
+    LLVM_DEBUG(dbgs() << "\nindex, coeff  =" << Index << "  " << Coeff1);
 
     K1 = CE->getIVConstCoeff(CurIVPair);
     if (K1 == 0) {
@@ -2817,11 +2820,11 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     // returns INDEP (Tested already)
 
     APInt ConstCoeff = llvm::APInt(64, K1, true);
-    DEBUG(dbgs() << "\nRunningGCD in  =" << RunningGCD);
-    DEBUG(dbgs() << "\n k1  =" << K1);
+    LLVM_DEBUG(dbgs() << "\nRunningGCD in  =" << RunningGCD);
+    LLVM_DEBUG(dbgs() << "\n k1  =" << K1);
 
     RunningGCD = APIntOps::GreatestCommonDivisor(RunningGCD, ConstCoeff.abs());
-    DEBUG(dbgs() << "\nRunningGCD1  =" << RunningGCD);
+    LLVM_DEBUG(dbgs() << "\nRunningGCD1  =" << RunningGCD);
   }
 
   const CanonExpr *SrcConst = getInvariant(Src);
@@ -2844,7 +2847,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     K1 = CE->getIVConstCoeff(CurIVPair);
     APInt ConstCoeff = llvm::APInt(64, K1, true);
     RunningGCD = APIntOps::GreatestCommonDivisor(RunningGCD, ConstCoeff.abs());
-    DEBUG(dbgs() << "\nRunningGCD2  =" << RunningGCD);
+    LLVM_DEBUG(dbgs() << "\nRunningGCD2  =" << RunningGCD);
   }
 
   const CanonExpr *DstConst = getInvariant(Dst);
@@ -2855,10 +2858,10 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     return false;
   }
 
-  DEBUG(dbgs() << "    Delta = "; Delta->dump());
+  LLVM_DEBUG(dbgs() << "    Delta = "; Delta->dump());
   K1 = Delta->getConstant();
   APInt ConstDelta = llvm::APInt(64, K1, true);
-  DEBUG(dbgs() << "\n ConstDelta = " << ConstDelta << "\n");
+  LLVM_DEBUG(dbgs() << "\n ConstDelta = " << ConstDelta << "\n");
   if (ConstDelta == 0) {
     return false;
   }
@@ -2869,14 +2872,14 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     ExtraGCD = APIntOps::GreatestCommonDivisor(ExtraGCD, ConstCoeff.abs());
   }
   RunningGCD = APIntOps::GreatestCommonDivisor(RunningGCD, ExtraGCD);
-  DEBUG(dbgs() << "    RunningGCD = " << RunningGCD << "\n");
+  LLVM_DEBUG(dbgs() << "    RunningGCD = " << RunningGCD << "\n");
   APInt Remainder = ConstDelta.srem(RunningGCD);
 
   // e.g.  A[2i + 4j +6m +8n +1],  A[16i +4j +2m+6]
   // will derive Independence
 
   if (Remainder != 0) {
-    DEBUG(dbgs() << "GCD success\n");
+    LLVM_DEBUG(dbgs() << "GCD success\n");
     ++GCDindependence;
     return true;
   }
@@ -2893,7 +2896,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
   // Given A[5*i + 10*j*M + 9*M*N] and A[15*i + 20*j*M - 21*N*M + 5],
   // we need to remember that the constant part is 5 and the RunningGCD should
   // be initialized to ExtraGCD = 30.
-  DEBUG(dbgs() << "    ExtraGCD = " << ExtraGCD << '\n');
+  LLVM_DEBUG(dbgs() << "    ExtraGCD = " << ExtraGCD << '\n');
 
   bool Improved = false;
   CE = Src;
@@ -2978,13 +2981,13 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 
     APInt ConstCoeff = llvm::APInt(64, K1, true);
     RunningGCD = APIntOps::GreatestCommonDivisor(RunningGCD, ConstCoeff.abs());
-    DEBUG(dbgs() << "\tRunningGCD = " << RunningGCD << "\n");
+    LLVM_DEBUG(dbgs() << "\tRunningGCD = " << RunningGCD << "\n");
     if (RunningGCD != 0) {
       Remainder = ConstDelta.srem(RunningGCD);
-      DEBUG(dbgs() << "\tRemainder = " << Remainder << "\n");
+      LLVM_DEBUG(dbgs() << "\tRemainder = " << Remainder << "\n");
       if (Remainder != 0) {
         unsigned Level = mapSrcLoop(CurLoop);
-        DEBUG(dbgs() << "\tLevel=" << Level << "\n");
+        LLVM_DEBUG(dbgs() << "\tLevel=" << Level << "\n");
         Result.DV[Level - 1].Direction &= ~DVKind::EQ;
         Improved = true;
       }
@@ -2992,11 +2995,11 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
   }
 
   if (Improved) {
-    DEBUG(dbgs() << "GCD success\n");
+    LLVM_DEBUG(dbgs() << "GCD success\n");
     ++GCDsuccesses;
   }
 
-  DEBUG(dbgs() << "all done\n");
+  LLVM_DEBUG(dbgs() << "all done\n");
   return false;
 }
 
@@ -3040,9 +3043,9 @@ bool DDTest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
                              const HLLoop *SrcParentLoop,
                              const HLLoop *DstParentLoop) {
 
-  DEBUG(dbgs() << "\nstarting Banerjee\n");
+  LLVM_DEBUG(dbgs() << "\nstarting Banerjee\n");
   ++BanerjeeApplications;
-  DEBUG(dbgs() << "\n   Src = "; Src->dump());
+  LLVM_DEBUG(dbgs() << "\n   Src = "; Src->dump());
   const CanonExpr *A0;
   CoefficientInfo *ACoeff =
       collectCoeffInfo(Src, true, A0, SrcParentLoop, DstParentLoop);
@@ -3050,7 +3053,7 @@ bool DDTest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     return false;
   }
 
-  DEBUG(dbgs() << "\n   Dst = "; Dst->dump());
+  LLVM_DEBUG(dbgs() << "\n   Dst = "; Dst->dump());
   const CanonExpr *B0;
   CoefficientInfo *BCoeff =
       collectCoeffInfo(Dst, false, B0, SrcParentLoop, DstParentLoop);
@@ -3063,10 +3066,10 @@ bool DDTest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
   if (!Delta) {
     return false;
   }
-  DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
+  LLVM_DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
 
   // Compute bounds for all the * directions.
-  DEBUG(dbgs() << "\n\tBounds[*]\n");
+  LLVM_DEBUG(dbgs() << "\n\tBounds[*]\n");
   for (unsigned K = 1; K <= MaxLevels; ++K) {
     Bound[K].Iterations =
         ACoeff[K].Iterations ? ACoeff[K].Iterations : BCoeff[K].Iterations;
@@ -3074,18 +3077,18 @@ bool DDTest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     Bound[K].DirSet = DVKind::NONE;
     findBoundsALL(ACoeff, BCoeff, Bound, K);
 #ifndef NDEBUG
-    DEBUG(dbgs() << "\n    " << K << '\t');
+    LLVM_DEBUG(dbgs() << "\n    " << K << '\t');
     const CanonExpr *BL = Bound[K].Lower[DVKind::ALL];
     const CanonExpr *BU = Bound[K].Upper[DVKind::ALL];
     if (BL) {
-      DEBUG(dbgs() << " "; BL->dump());
+      LLVM_DEBUG(dbgs() << " "; BL->dump());
     } else {
-      DEBUG(dbgs() << "-inf\t");
+      LLVM_DEBUG(dbgs() << "-inf\t");
     }
     if (BU) {
-      DEBUG(dbgs() << " "; BU->dump());
+      LLVM_DEBUG(dbgs() << " "; BU->dump());
     } else {
-      DEBUG(dbgs() << "+inf\n");
+      LLVM_DEBUG(dbgs() << "+inf\n");
     }
 #endif
   }
@@ -3140,23 +3143,23 @@ unsigned DDTest::exploreDirections(unsigned Level, CoefficientInfo *A,
                                    const DirectionVector &InputDV) {
   if (Level > CommonLevels) {
     // record result
-    DEBUG(dbgs() << "\n\t[");
+    LLVM_DEBUG(dbgs() << "\n\t[");
     for (unsigned K = 1; K <= CommonLevels; ++K) {
       if (Loops[K]) {
         Bound[K].DirSet |= Bound[K].Direction;
 #ifndef NDEBUG
         switch (Bound[K].Direction) {
         case DVKind::LT:
-          DEBUG(dbgs() << " <");
+          LLVM_DEBUG(dbgs() << " <");
           break;
         case DVKind::EQ:
-          DEBUG(dbgs() << " =");
+          LLVM_DEBUG(dbgs() << " =");
           break;
         case DVKind::GT:
-          DEBUG(dbgs() << " >");
+          LLVM_DEBUG(dbgs() << " >");
           break;
         case DVKind::ALL:
-          DEBUG(dbgs() << " *");
+          LLVM_DEBUG(dbgs() << " *");
           break;
         default:
           llvm_unreachable("unexpected Bound[K].Direction");
@@ -3164,7 +3167,7 @@ unsigned DDTest::exploreDirections(unsigned Level, CoefficientInfo *A,
 #endif
       }
     }
-    DEBUG(dbgs() << " ]");
+    LLVM_DEBUG(dbgs() << " ]");
     return 1;
   }
   if (Loops[Level]) {
@@ -3175,52 +3178,52 @@ unsigned DDTest::exploreDirections(unsigned Level, CoefficientInfo *A,
       findBoundsGT(A, B, Bound, Level);
       findBoundsEQ(A, B, Bound, Level);
 #ifndef NDEBUG
-      DEBUG(dbgs() << "\n\tBound for level = " << Level << '\n');
-      DEBUG(dbgs() << "\n\t    <\t");
+      LLVM_DEBUG(dbgs() << "\n\tBound for level = " << Level << '\n');
+      LLVM_DEBUG(dbgs() << "\n\t    <\t");
       const CanonExpr *CE;
       CE = Bound[Level].Lower[DVKind::LT];
       if (CE) {
-        DEBUG(dbgs(); CE->dump());
-        DEBUG(dbgs() << "\t");
+        LLVM_DEBUG(dbgs(); CE->dump());
+        LLVM_DEBUG(dbgs() << "\t");
       } else {
-        DEBUG(dbgs() << "-inf\t");
+        LLVM_DEBUG(dbgs() << "-inf\t");
       }
       CE = Bound[Level].Upper[DVKind::LT];
       if (CE) {
-        DEBUG(dbgs(); CE->dump());
-        DEBUG(dbgs() << "\t");
+        LLVM_DEBUG(dbgs(); CE->dump());
+        LLVM_DEBUG(dbgs() << "\t");
       } else {
-        DEBUG(dbgs() << "+inf\n");
+        LLVM_DEBUG(dbgs() << "+inf\n");
       }
-      DEBUG(dbgs() << "\n\t    =\t");
+      LLVM_DEBUG(dbgs() << "\n\t    =\t");
       CE = Bound[Level].Lower[DVKind::EQ];
       if (CE) {
-        DEBUG(dbgs(); CE->dump());
-        DEBUG(dbgs() << "\t");
+        LLVM_DEBUG(dbgs(); CE->dump());
+        LLVM_DEBUG(dbgs() << "\t");
       } else {
-        DEBUG(dbgs() << "-inf\t");
+        LLVM_DEBUG(dbgs() << "-inf\t");
       }
       CE = Bound[Level].Upper[DVKind::EQ];
       if (CE) {
-        DEBUG(dbgs(); CE->dump());
-        DEBUG(dbgs() << "\t");
+        LLVM_DEBUG(dbgs(); CE->dump());
+        LLVM_DEBUG(dbgs() << "\t");
       } else {
-        DEBUG(dbgs() << "+inf\n");
+        LLVM_DEBUG(dbgs() << "+inf\n");
       }
-      DEBUG(dbgs() << "\n\t    >\t");
+      LLVM_DEBUG(dbgs() << "\n\t    >\t");
       CE = Bound[Level].Lower[DVKind::GT];
       if (CE) {
-        DEBUG(dbgs(); CE->dump());
-        DEBUG(dbgs() << "\t");
+        LLVM_DEBUG(dbgs(); CE->dump());
+        LLVM_DEBUG(dbgs() << "\t");
       } else {
-        DEBUG(dbgs() << "-inf\t");
+        LLVM_DEBUG(dbgs() << "-inf\t");
       }
       CE = Bound[Level].Upper[DVKind::GT];
       if (CE) {
-        DEBUG(dbgs(); CE->dump());
-        DEBUG(dbgs() << "\t");
+        LLVM_DEBUG(dbgs(); CE->dump());
+        LLVM_DEBUG(dbgs() << "\t");
       } else {
-        DEBUG(dbgs() << "+inf\n");
+        LLVM_DEBUG(dbgs() << "+inf\n");
       }
 #endif
     }
@@ -3257,8 +3260,8 @@ bool DDTest::testBounds(DVKind DirKind, unsigned Level, BoundInfo *Bound,
                         const DirectionVector &InputDV) {
 
   Bound[Level].Direction = DirKind;
-  DEBUG(dbgs() << "\n\tTestBound: Level,DirKind\t" << Level << " "
-               << (unsigned)DirKind);
+  LLVM_DEBUG(dbgs() << "\n\tTestBound: Level,DirKind\t" << Level << " "
+                    << (unsigned)DirKind);
 
   // Level = 0 is called banerjeeMIVTest before expanding the call for
   // all combinations of DV
@@ -3266,7 +3269,7 @@ bool DDTest::testBounds(DVKind DirKind, unsigned Level, BoundInfo *Bound,
   // with Level > 0
 
   if (Level && (DirKind & InputDV[Level - 1]) == 0) {
-    DEBUG(dbgs() << "\n\tSkip testBound because no match with inputDV");
+    LLVM_DEBUG(dbgs() << "\n\tSkip testBound because no match with inputDV");
     return false;
   }
 
@@ -3513,20 +3516,20 @@ DDTest::CoefficientInfo *DDTest::collectCoeffInfo(const CanonExpr *Subscript,
   Constant = getInvariant(CE);
 
 #ifndef NDEBUG
-  DEBUG(dbgs() << "\tCoefficient Info\n");
+  LLVM_DEBUG(dbgs() << "\tCoefficient Info\n");
   for (unsigned K = 1; K <= MaxLevels; ++K) {
-    DEBUG(dbgs() << "\n       " << K << "\t"; (CI[K].Coeff)->dump());
-    DEBUG(dbgs() << "\tPos Part = "; (CI[K].PosPart)->dump());
-    DEBUG(dbgs() << "\tNeg Part = "; (CI[K].NegPart)->dump());
-    DEBUG(dbgs() << "\tUpper Bound = ");
+    LLVM_DEBUG(dbgs() << "\n       " << K << "\t"; (CI[K].Coeff)->dump());
+    LLVM_DEBUG(dbgs() << "\tPos Part = "; (CI[K].PosPart)->dump());
+    LLVM_DEBUG(dbgs() << "\tNeg Part = "; (CI[K].NegPart)->dump());
+    LLVM_DEBUG(dbgs() << "\tUpper Bound = ");
     if (CI[K].Iterations)
-      DEBUG(dbgs(); (CI[K].Iterations)->dump());
+      LLVM_DEBUG(dbgs(); (CI[K].Iterations)->dump());
     else
-      DEBUG(dbgs() << "+inf");
-    DEBUG(dbgs() << '\n');
+      LLVM_DEBUG(dbgs() << "+inf");
+    LLVM_DEBUG(dbgs() << '\n');
   }
-  DEBUG(dbgs() << "\t   Constant = "; Constant->dump());
-  DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "\t   Constant = "; Constant->dump());
+  LLVM_DEBUG(dbgs() << "\n");
 
 #endif
   return CI;
@@ -3615,8 +3618,8 @@ bool DDTest::delinearizeTo2Dim(const RegDDRef *DDRef, const CanonExpr *CE,
     unsigned BlobIdx = CE->getIVBlobCoeff(CurIVPair);
     unsigned IVLevel = CE->getLevel(CurIVPair);
 
-    DEBUG(dbgs() << "\n\tConst coeff, Blobidx, IVLevel " << ConstCoeff << " "
-                 << BlobIdx << " " << IVLevel);
+    LLVM_DEBUG(dbgs() << "\n\tConst coeff, Blobidx, IVLevel " << ConstCoeff
+                      << " " << BlobIdx << " " << IVLevel);
     if (ConstCoeff == 0) {
       continue;
     }
@@ -3634,8 +3637,10 @@ bool DDTest::delinearizeTo2Dim(const RegDDRef *DDRef, const CanonExpr *CE,
     }
   }
 
-  assert(LoopLevelForUnitStride &&
-         "At least 1 IV with constant coeff expected");
+  if (!LoopLevelForUnitStride) {
+    // No constant coeffs. Cannot proceed further
+    return false;
+  }
 
   IVNum = 0;
 
@@ -3872,8 +3877,8 @@ bool DependenceAnalysis::propagate(const SCEV *&Src,
                                    bool &Consistent) {
   bool Result = false;
   for (int LI = Loops.find_first(); LI >= 0; LI = Loops.find_next(LI)) {
-    DEBUG(dbgs() << "\t    Constraint[" << LI << "] is");
-    DEBUG(Constraints[LI].dump(dbgs()));
+    LLVM_DEBUG(dbgs() << "\t    Constraint[" << LI << "] is");
+    LLVM_DEBUG(Constraints[LI].dump(dbgs()));
     if (Constraints[LI].isDistance())
       Result |= propagateDistance(Src, Dst, Constraints[LI], Consistent);
     else if (Constraints[LI].isLine())
@@ -3895,17 +3900,17 @@ bool DependenceAnalysis::propagateDistance(const SCEV *&Src,
                                            Constraint &CurConstraint,
                                            bool &Consistent) {
   const Loop *CurLoop = CurConstraint.getAssociatedLoop();
-  DEBUG(dbgs() << "\t\tSrc is " << *Src << "\n");
+  LLVM_DEBUG(dbgs() << "\t\tSrc is " << *Src << "\n");
   const SCEV *A_K = findCoefficient(Src, CurLoop);
   if (A_K->isZero())
     return false;
   const SCEV *DA_K = SE->getMulExpr(A_K, CurConstraint.getD());
   Src = SE->getMinusSCEV(Src, DA_K);
   Src = zeroCoefficient(Src, CurLoop);
-  DEBUG(dbgs() << "\t\tnew Src is " << *Src << "\n");
-  DEBUG(dbgs() << "\t\tDst is " << *Dst << "\n");
+  LLVM_DEBUG(dbgs() << "\t\tnew Src is " << *Src << "\n");
+  LLVM_DEBUG(dbgs() << "\t\tDst is " << *Dst << "\n");
   Dst = addToCoefficient(Dst, CurLoop, SE->getNegativeSCEV(A_K));
-  DEBUG(dbgs() << "\t\tnew Dst is " << *Dst << "\n");
+  LLVM_DEBUG(dbgs() << "\t\tnew Dst is " << *Dst << "\n");
   if (!findCoefficient(Dst, CurLoop)->isZero())
     Consistent = false;
   return true;
@@ -3925,9 +3930,9 @@ bool DependenceAnalysis::propagateLine(const SCEV *&Src,
   const SCEV *A = CurConstraint.getA();
   const SCEV *B = CurConstraint.getB();
   const SCEV *C = CurConstraint.getC();
-  DEBUG(dbgs() << "\t\tA = " << *A << ", B = " << *B << ", C = " << *C << "\n");
-  DEBUG(dbgs() << "\t\tSrc = " << *Src << "\n");
-  DEBUG(dbgs() << "\t\tDst = " << *Dst << "\n");
+  LLVM_DEBUG(dbgs() << "\t\tA = " << *A << ", B = " << *B << ", C = " << *C << "\n");
+  LLVM_DEBUG(dbgs() << "\t\tSrc = " << *Src << "\n");
+  LLVM_DEBUG(dbgs() << "\t\tDst = " << *Dst << "\n");
   if (A->isZero()) {
     const SCEVConstant *Bconst = dyn_cast<SCEVConstant>(B);
     const SCEVConstant *Cconst = dyn_cast<SCEVConstant>(C);
@@ -3983,8 +3988,8 @@ bool DependenceAnalysis::propagateLine(const SCEV *&Src,
     if (!findCoefficient(Dst, CurLoop)->isZero())
       Consistent = false;
   }
-  DEBUG(dbgs() << "\t\tnew Src = " << *Src << "\n");
-  DEBUG(dbgs() << "\t\tnew Dst = " << *Dst << "\n");
+  LLVM_DEBUG(dbgs() << "\t\tnew Src = " << *Src << "\n");
+  LLVM_DEBUG(dbgs() << "\t\tnew Dst = " << *Dst << "\n");
   return true;
 }
 
@@ -4000,13 +4005,13 @@ bool DependenceAnalysis::propagatePoint(const SCEV *&Src,
   const SCEV *AP_K = findCoefficient(Dst, CurLoop);
   const SCEV *XA_K = SE->getMulExpr(A_K, CurConstraint.getX());
   const SCEV *YAP_K = SE->getMulExpr(AP_K, CurConstraint.getY());
-  DEBUG(dbgs() << "\t\tSrc is " << *Src << "\n");
+  LLVM_DEBUG(dbgs() << "\t\tSrc is " << *Src << "\n");
   Src = SE->getAddExpr(Src, SE->getMinusSCEV(XA_K, YAP_K));
   Src = zeroCoefficient(Src, CurLoop);
-  DEBUG(dbgs() << "\t\tnew Src is " << *Src << "\n");
-  DEBUG(dbgs() << "\t\tDst is " << *Dst << "\n");
+  LLVM_DEBUG(dbgs() << "\t\tnew Src is " << *Src << "\n");
+  LLVM_DEBUG(dbgs() << "\t\tDst is " << *Dst << "\n");
   Dst = zeroCoefficient(Dst, CurLoop);
-  DEBUG(dbgs() << "\t\tnew Dst is " << *Dst << "\n");
+  LLVM_DEBUG(dbgs() << "\t\tnew Dst is " << *Dst << "\n");
   return true;
 }
 
@@ -4015,8 +4020,8 @@ bool DependenceAnalysis::propagatePoint(const SCEV *&Src,
 void DependenceAnalysis::updateDirection(Dependence::DVEntry &Level,
                                          const Constraint &CurConstraint
                                          ) const {
-  DEBUG(dbgs() << "\tUpdate direction, constraint =");
-  DEBUG(CurConstraint.dump(dbgs()));
+  LLVM_DEBUG(dbgs() << "\tUpdate direction, constraint =");
+  LLVM_DEBUG(CurConstraint.dump(dbgs()));
   if (CurConstraint.isAny())
     ; // use defaults
   else if (CurConstraint.isDistance()) {
@@ -4107,7 +4112,7 @@ bool DependenceAnalysis::tryDelinearize(const SCEV *SrcSCEV,
 
   int size = SrcSubscripts.size();
 
-  DEBUG({
+  LLVM_DEBUG({
       dbgs() << "\nSrcSubscripts: ";
     for (int i = 0; i < size; i++)
       dbgs() << *SrcSubscripts[i];
@@ -4155,17 +4160,17 @@ static void dumpSmallBitVector(SmallBitVector &BV) {
 }
 #endif
 
-DDTest::DDTest(AAResults &AAR, HLNodeUtils &HNU, HIRLoopStatistics &HLS)
-    : AAR(AAR), HNU(HNU), HLS(HLS) {
-  DEBUG(dbgs() << "DDTest initiated\n");
+DDTest::DDTest(AAResults &AAR, HLNodeUtils &HNU)
+    : AAR(AAR), HNU(HNU) {
+  LLVM_DEBUG(dbgs() << "DDTest initiated\n");
   WorkCE.clear();
 }
 
 DDTest::~DDTest() {
-  DEBUG(dbgs() << "\n ~DDTest called\n");
+  LLVM_DEBUG(dbgs() << "\n ~DDTest called\n");
   for (auto I = WorkCE.begin(), E = WorkCE.end(); I != E; ++I) {
     // const CanonExpr *CE = *I;
-    // DEBUG(dbgs() << "CE: " << CE << " "; CE->dump());
+    // LLVM_DEBUG(dbgs() << "CE: " << CE << " "; CE->dump());
     HNU.getCanonExprUtils().destroy(const_cast<CanonExpr *>(*I));
   }
 
@@ -4292,13 +4297,13 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   bool EqualBaseCE = false;
 
-  DEBUG(dbgs() << "\n Src, Dst DDRefs\n"; SrcDDRef->dump());
-  DEBUG(dbgs() << ",  "; DstDDRef->dump());
-  DEBUG(dbgs() << "\n"
-               << SrcDDRef->getHLDDNode()->getNumber() << ":"
-               << DstDDRef->getHLDDNode()->getNumber());
+  LLVM_DEBUG(dbgs() << "\n Src, Dst DDRefs\n"; SrcDDRef->dump());
+  LLVM_DEBUG(dbgs() << ",  "; DstDDRef->dump());
+  LLVM_DEBUG(dbgs() << "\n"
+                    << SrcDDRef->getHLDDNode()->getNumber() << ":"
+                    << DstDDRef->getHLDDNode()->getNumber());
 
-  DEBUG(dbgs() << "\n Input DV "; InputDV.print(dbgs(), MaxLoopNestLevel));
+  LLVM_DEBUG(dbgs() << "\n Input DV "; InputDV.print(dbgs(), MaxLoopNestLevel));
 
   assert(SrcDDRef->getSymbase() == DstDDRef->getSymbase() &&
          "Asking DDA for distinct references is useless");
@@ -4328,8 +4333,8 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     IsDstRval = true;
   }
 
-  DEBUG(dbgs() << "\nSrc/Dst Blob?  " << (SrcRegDDRef == nullptr) << " "
-               << (DstRegDDRef == nullptr) << "\n");
+  LLVM_DEBUG(dbgs() << "\nSrc/Dst Blob?  " << (SrcRegDDRef == nullptr) << " "
+                    << (DstRegDDRef == nullptr) << "\n");
 
   if ((IsSrcRval && IsDstRval)) {
     // if both instructions don't reference memory, there's no dependence
@@ -4346,12 +4351,12 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   if (TestingMemRefs) {
     // Inquire disam util to get INDEP based on type/scope based analysis.
-    DEBUG(dbgs() << "AA query: ");
+    LLVM_DEBUG(dbgs() << "AA query: ");
     if (queryAAIndep(SrcRegDDRef, DstRegDDRef)) {
-      DEBUG(dbgs() << "no alias\n");
+      LLVM_DEBUG(dbgs() << "no alias\n");
       return nullptr;
     }
-    DEBUG(dbgs() << "may alias\n");
+    LLVM_DEBUG(dbgs() << "may alias\n");
 
     auto SrcBaseCE = SrcRegDDRef->getBaseCE();
     auto DstBaseCE = DstRegDDRef->getBaseCE();
@@ -4363,8 +4368,8 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   // Set loop nesting levels, NoCommonNest flag
   establishNestingLevels(SrcDDRef, DstDDRef, ForFusion);
 
-  DEBUG(dbgs() << "\ncommon nesting levels = " << CommonLevels << "\n");
-  DEBUG(dbgs() << "\nmaximum nesting levels = " << MaxLevels << "\n");
+  LLVM_DEBUG(dbgs() << "\ncommon nesting levels = " << CommonLevels << "\n");
+  LLVM_DEBUG(dbgs() << "\nmaximum nesting levels = " << MaxLevels << "\n");
 
   if (NoCommonNest && (SrcDDRef == DstDDRef)) {
     // No edge needed
@@ -4382,7 +4387,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   //  Number of dimemsion are different or different base: need to bail out
   if (!EqualBaseCE || NumSrcDim != NumDstDim || (NoCommonNest && !ForFusion)) {
-    DEBUG(dbgs() << "\nDiff dim,  base, or no common nests\n");
+    LLVM_DEBUG(dbgs() << "\nDiff dim,  base, or no common nests\n");
     auto Final = make_unique<Dependences>(Result);
     Result.DV = nullptr;
     return std::move(Final);
@@ -4390,7 +4395,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   unsigned Pairs = NumSrcDim;
 
-  DEBUG(dbgs() << " # of Pairs " << Pairs << "\n");
+  LLVM_DEBUG(dbgs() << " # of Pairs " << Pairs << "\n");
 
   SmallVector<Subscript, 4> Pair(Pairs);
 
@@ -4435,7 +4440,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   if (TestingMemRefs &&
       tryDelinearize(SrcRegDDRef, DstRegDDRef, InputDV, Pair, ForDDGBuild)) {
-    DEBUG(dbgs() << "\nDelinearized!");
+    LLVM_DEBUG(dbgs() << "\nDelinearized!");
     Pairs = Pair.size();
   }
 
@@ -4448,12 +4453,12 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
         classifyPair(Pair[P].Src, SrcLoop, Pair[P].Dst, DstLoop, Pair[P].Loops);
     Pair[P].GroupLoops = Pair[P].Loops;
     Pair[P].Group.set(P);
-    DEBUG(dbgs() << "\n    subscript " << P << "\n");
-    DEBUG(dbgs() << "\nsrc = "; (Pair[P].Src)->dump());
-    DEBUG(dbgs() << "\ndst = "; (Pair[P].Dst)->dump());
-    DEBUG(dbgs() << "\nclass = " << Pair[P].Classification << "\n");
-    DEBUG(dbgs() << "\nloops = ");
-    DEBUG(dumpSmallBitVector(Pair[P].Loops));
+    LLVM_DEBUG(dbgs() << "\n    subscript " << P << "\n");
+    LLVM_DEBUG(dbgs() << "\nsrc = "; (Pair[P].Src)->dump());
+    LLVM_DEBUG(dbgs() << "\ndst = "; (Pair[P].Dst)->dump());
+    LLVM_DEBUG(dbgs() << "\nclass = " << Pair[P].Classification << "\n");
+    LLVM_DEBUG(dbgs() << "\nloops = ");
+    LLVM_DEBUG(dumpSmallBitVector(Pair[P].Loops));
   }
 
   SmallBitVector Separable(Pairs);
@@ -4552,10 +4557,10 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     }
   }
 
-  DEBUG(dbgs() << "    Separable = ");
-  DEBUG(dumpSmallBitVector(Separable));
-  DEBUG(dbgs() << "    Coupled = ");
-  DEBUG(dumpSmallBitVector(Coupled));
+  LLVM_DEBUG(dbgs() << "    Separable = ");
+  LLVM_DEBUG(dumpSmallBitVector(Separable));
+  LLVM_DEBUG(dbgs() << "    Coupled = ");
+  LLVM_DEBUG(dumpSmallBitVector(Coupled));
 
   Constraint NewConstraint;
 
@@ -4565,16 +4570,16 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     // test separable subscripts
     for (int SI = Separable.find_first(); SI >= 0;
          SI = Separable.find_next(SI)) {
-      DEBUG(dbgs() << "testing subscript " << SI);
+      LLVM_DEBUG(dbgs() << "testing subscript " << SI);
       switch (Pair[SI].Classification) {
       case Subscript::ZIV:
-        DEBUG(dbgs() << ", ZIV\n");
+        LLVM_DEBUG(dbgs() << ", ZIV\n");
         if (testZIV(Pair[SI].Src, Pair[SI].Dst, Result))
           return nullptr;
         break;
 
       case Subscript::SIV: {
-        DEBUG(dbgs() << ", SIV\n");
+        LLVM_DEBUG(dbgs() << ", SIV\n");
         unsigned Level;
         const CanonExpr *SplitIter = nullptr;
         if (testSIV(Pair[SI].Src, Pair[SI].Dst, Level, Result, NewConstraint,
@@ -4585,14 +4590,14 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
       }
 
       case Subscript::RDIV:
-        DEBUG(dbgs() << ", RDIV\n");
+        LLVM_DEBUG(dbgs() << ", RDIV\n");
         if (testRDIV(Pair[SI].Src, Pair[SI].Dst, Result, SrcLoop, DstLoop)) {
           return nullptr;
         }
         break;
       case Subscript::MIV:
 
-        DEBUG(dbgs() << ", MIV\n");
+        LLVM_DEBUG(dbgs() << ", MIV\n");
 
         if (testMIV(Pair[SI].Src, Pair[SI].Dst, InputDV, Pair[SI].Loops, Result,
                     SrcLoop, DstLoop)) {
@@ -4652,35 +4657,35 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 #if 0
   if (Coupled.count()) {
     // test coupled subscript groups
-    DEBUG(dbgs() << "starting on coupled subscripts\n");
-    DEBUG(dbgs() << "MaxLevels + 1 = " << MaxLevels + 1 << "\n");
+    LLVM_DEBUG(dbgs() << "starting on coupled subscripts\n");
+    LLVM_DEBUG(dbgs() << "MaxLevels + 1 = " << MaxLevels + 1 << "\n");
     SmallVector<Constraint, 4> Constraints(MaxLevels + 1);
 
     for (unsigned II = 0; II <= MaxLevels; ++II) {
       Constraints[II].setAny();
     }
     for (int SI = Coupled.find_first(); SI >= 0; SI = Coupled.find_next(SI)) {
-      DEBUG(dbgs() << "testing subscript group " << SI << " { ");
+      LLVM_DEBUG(dbgs() << "testing subscript group " << SI << " { ");
       SmallBitVector Group(Pair[SI].Group);
       SmallBitVector Sivs(Pairs);
       SmallBitVector Mivs(Pairs);
       SmallBitVector ConstrainedLevels(MaxLevels + 1);
       for (int SJ = Group.find_first(); SJ >= 0; SJ = Group.find_next(SJ)) {
-        DEBUG(dbgs() << SJ << " ");
+        LLVM_DEBUG(dbgs() << SJ << " ");
         if (Pair[SJ].Classification == Subscript::SIV)
           Sivs.set(SJ);
         else
           Mivs.set(SJ);
       }
-      DEBUG(dbgs() << "}\n");
+      LLVM_DEBUG(dbgs() << "}\n");
       while (Sivs.any()) {
         bool Changed = false;
         for (int SJ = Sivs.find_first(); SJ >= 0; SJ = Sivs.find_next(SJ)) {
-          DEBUG(dbgs() << "testing subscript " << SJ << ", SIV\n");
+          LLVM_DEBUG(dbgs() << "testing subscript " << SJ << ", SIV\n");
           // SJ is an SIV subscript that's part of the current coupled group
           unsigned Level;
           const CanonExpr *SplitIter = nullptr;
-          DEBUG(dbgs() << "SIV\n");
+          LLVM_DEBUG(dbgs() << "SIV\n");
           if (testSIV(Pair[SJ].Src, Pair[SJ].Dst, Level, Result, NewConstraint,
                       SplitIter, SrcLoop, DstLoop))
             return nullptr;
@@ -4696,21 +4701,21 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
         }
         if (Changed) {
           // propagate, possibly creating new SIVs and ZIVs
-          DEBUG(dbgs() << "    propagating\n");
-          DEBUG(dbgs() << "\tMivs = ");
-          DEBUG(dumpSmallBitVector(Mivs));
+          LLVM_DEBUG(dbgs() << "    propagating\n");
+          LLVM_DEBUG(dbgs() << "\tMivs = ");
+          LLVM_DEBUG(dumpSmallBitVector(Mivs));
           for (int SJ = Mivs.find_first(); SJ >= 0; SJ = Mivs.find_next(SJ)) {
             // SJ is an MIV subscript that's part of the current coupled group
-            DEBUG(dbgs() << "\tSJ = " << SJ << "\n");
+            LLVM_DEBUG(dbgs() << "\tSJ = " << SJ << "\n");
             if (propagate(Pair[SJ].Src, Pair[SJ].Dst, Pair[SJ].Loops,
                           Constraints, Result.Consistent)) {
-              DEBUG(dbgs() << "\t    Changed\n");
+              LLVM_DEBUG(dbgs() << "\t    Changed\n");
               ++DeltaPropagations;
               Pair[SJ].Classification = classifyPair(
                   Pair[SJ].Src, SrcLoop, Pair[SJ].Dst, DstLoop, Pair[SJ].Loops);
               switch (Pair[SJ].Classification) {
               case Subscript::ZIV:
-                DEBUG(dbgs() << "ZIV\n");
+                LLVM_DEBUG(dbgs() << "ZIV\n");
                 if (testZIV(Pair[SJ].Src, Pair[SJ].Dst, Result))
                   return nullptr;
                 Mivs.reset(SJ);
@@ -4733,7 +4738,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
       // test & propagate remaining RDIVs
       for (int SJ = Mivs.find_first(); SJ >= 0; SJ = Mivs.find_next(SJ)) {
         if (Pair[SJ].Classification == Subscript::RDIV) {
-          DEBUG(dbgs() << "RDIV test\n");
+          LLVM_DEBUG(dbgs() << "RDIV test\n");
           if (testRDIV(Pair[SJ].Src, Pair[SJ].Dst, Result, SrcLoop, DstLoop))
             return nullptr;
           // I don't yet understand how to propagate RDIV results
@@ -4746,7 +4751,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
       // Better to somehow test all remaining subscripts simultaneously.
       for (int SJ = Mivs.find_first(); SJ >= 0; SJ = Mivs.find_next(SJ)) {
         if (Pair[SJ].Classification == Subscript::MIV) {
-          DEBUG(dbgs() << "MIV test\n");
+          LLVM_DEBUG(dbgs() << "MIV test\n");
           if (testMIV(Pair[SJ].Src, Pair[SJ].Dst, InputDV, Pair[SJ].Loops, Result))
             return nullptr;
         } else
@@ -4754,7 +4759,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
       }
 
       // update Result.DV from constraint vector
-      DEBUG(dbgs() << "    updating\n");
+      LLVM_DEBUG(dbgs() << "    updating\n");
       for (int SJ = ConstrainedLevels.find_first(); SJ >= 0;
            SJ = ConstrainedLevels.find_next(SJ)) {
         updateDirection(Result.DV[SJ - 1], Constraints[SJ]);
@@ -4784,7 +4789,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     unsigned Level = II - 1;
     Result.DV[Level].Direction &= InputDV[Level];
     if (Result.DV[Level].Direction == DVKind::NONE) {
-      DEBUG(dbgs() << "\n\t return INDEP-09\n");
+      LLVM_DEBUG(dbgs() << "\n\t return INDEP-09\n");
       return nullptr;
     }
   }
@@ -4805,7 +4810,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     // If src & sink are the same ddref  and the DV are all =
     // there is no DEP.
     if (SrcDDRef == DstDDRef) {
-      DEBUG(dbgs() << "\n\t return INDEP-11\n" << SrcDDRef << DstDDRef);
+      LLVM_DEBUG(dbgs() << "\n\t return INDEP-11\n" << SrcDDRef << DstDDRef);
       return nullptr;
     }
   }
@@ -4839,7 +4844,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   if (NeedReversal) {
     Result.Reversed = true;
-    DEBUG(dbgs() << "\nDV based on reversing ddref src & sink!\n");
+    LLVM_DEBUG(dbgs() << "\nDV based on reversing ddref src & sink!\n");
     for (unsigned II = 1; II <= CommonLevels; ++II) {
       switch (Result.getDirection(II)) {
       case DVKind::LT:
@@ -4949,14 +4954,16 @@ static void printDirDistVectors(DirectionVector &ForwardDV,
                                 DistanceVector &BackwardDistV,
                                 unsigned Levels) {
 
-  DEBUG(dbgs() << "\nforward DV: "; ForwardDV.print(dbgs(), Levels));
+  LLVM_DEBUG(dbgs() << "\nforward DV: "; ForwardDV.print(dbgs(), Levels));
   if (ForwardDV[0] != DVKind::NONE) {
-    DEBUG(dbgs() << "\nforward DistV: "; ForwardDistV.print(dbgs(), Levels));
+    LLVM_DEBUG(dbgs() << "\nforward DistV: ";
+               ForwardDistV.print(dbgs(), Levels));
   }
 
-  DEBUG(dbgs() << "\nbackward DV: "; BackwardDV.print(dbgs(), Levels));
+  LLVM_DEBUG(dbgs() << "\nbackward DV: "; BackwardDV.print(dbgs(), Levels));
   if (BackwardDV[0] != DVKind::NONE) {
-    DEBUG(dbgs() << "\nbackward DistV: "; BackwardDistV.print(dbgs(), Levels));
+    LLVM_DEBUG(dbgs() << "\nbackward DistV: ";
+               BackwardDistV.print(dbgs(), Levels));
   }
 }
 
@@ -5051,7 +5058,7 @@ void DDTest::setDVForLoopIndependent(DirectionVector &ForwardDV,
                                      unsigned SrcNum, unsigned DstNum) {
   //  DV are all =
 
-  DEBUG(dbgs() << "\nTopSortNum: " << SrcNum << " " << DstNum);
+  LLVM_DEBUG(dbgs() << "\nTopSortNum: " << SrcNum << " " << DstNum);
   if (SrcNum <= DstNum) {
     for (unsigned II = 1; II <= Levels; ++II) {
       ForwardDV[II - 1] = Result.getDirection(II);
@@ -5131,10 +5138,10 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   *IsLoopIndepDepTemp = false;
 
   if (Result == nullptr) {
-    DEBUG(dbgs() << "\nIs Independent!\n");
+    LLVM_DEBUG(dbgs() << "\nIs Independent!\n");
     return false;
   } else {
-    DEBUG(Result->dump(dbgs()));
+    LLVM_DEBUG(Result->dump(dbgs()));
   }
 
   unsigned Levels = Result->getLevels();
@@ -5166,7 +5173,7 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
       }
       if (Direction == DVKind::ALL) {
         BiDirection = true;
-        DEBUG(dbgs() << "BiDirection needed!\n");
+        LLVM_DEBUG(dbgs() << "BiDirection needed!\n");
         break;
       }
     }
@@ -5225,7 +5232,7 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     //  and switch DVs when reversed.
 
     bool IsReversed = false;
-    DEBUG(dbgs() << " src/dst num " << SrcNum << " " << DstNum);
+    LLVM_DEBUG(dbgs() << " src/dst num " << SrcNum << " " << DstNum);
 
     if (DstNum < SrcNum || ((DstNum == SrcNum) && IsDstRval && !IsSrcRval)) {
       std::swap(SrcDDRef, DstDDRef);
@@ -5249,7 +5256,7 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
       return false;
     }
 
-    if (HLNodeUtils::dominates(SrcHIR, DstHIR, &HLS)) {
+    if (HLNodeUtils::dominates(SrcHIR, DstHIR)) {
       if (IsFlow) {
         // If src can reach Dst lexically
         //   assuming 2 level loop
@@ -5618,7 +5625,7 @@ const  SCEV *DependenceAnalysis::getSplitIteration(const Dependence &Dep,
 
   if (Delinearize && Pairs == 1 && CommonLevels > 1 &&
       tryDelinearize(Pair[0].Src, Pair[0].Dst, Pair, SE->getElementSize(Src))) {
-    DEBUG(dbgs() << "    delinerized GEP\n");
+    LLVM_DEBUG(dbgs() << "    delinerized GEP\n");
     Pairs = Pair.size();
   }
 

@@ -70,12 +70,8 @@ struct HIROptReportEmitVisitor final : public HLNodeVisitorBase {
 
   void visit(const HLLoop *Lp) {
     LoopOptReport OptReport = Lp->getOptReport();
-    printLoopHeader(FOS, Depth);
 
-    if (OptReport && OptReport.debugLoc())
-      printDebugLocation(FOS, Depth, OptReport.debugLoc());
-    else
-      FOS << "\n";
+    printLoopHeaderAndOrigin(FOS, Depth, OptReport, Lp->getDebugLoc());
 
     ++Depth;
     if (OptReport)
@@ -133,7 +129,8 @@ FunctionPass *llvm::createHIROptReportEmitterWrapperPass() {
 
 HIROptReportEmitterWrapperPass::HIROptReportEmitterWrapperPass()
     : HIRTransformPass(ID) {
-  initializeHIROptReportEmitterWrapperPassPass(*PassRegistry::getPassRegistry());
+  initializeHIROptReportEmitterWrapperPassPass(
+      *PassRegistry::getPassRegistry());
 }
 
 void HIROptReportEmitterWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {

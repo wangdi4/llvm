@@ -1,5 +1,4 @@
 ; RUN: opt %s -S -VPlanDriver 2>&1 | FileCheck %s
-; XFAIL: *
 
 ; CHECK: __write_pipe_2_bl_intel_v4i8
 
@@ -27,7 +26,7 @@ entry:
   %cmp4 = icmp eq i16 %image_height, 0
   br i1 %cmp4, label %for.end, label %for.body
 
-for.body:                                         ; preds = %entry, %for.inc
+for.body:                                         ; preds = %for.inc, %entry
   %i.06 = phi i32 [ %inc13, %for.inc ], [ 0, %entry ]
   %pointer.05 = phi i32 [ %pointer.2, %for.inc ], [ 0, %entry ]
   %conv2 = zext i16 %image_width to i32
@@ -39,7 +38,7 @@ omp.precond.then:                                 ; preds = %for.body
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   br label %omp.inner.for.body
 
-omp.inner.for.body:                               ; preds = %omp.precond.then, %omp.inner.for.body
+omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.precond.then
   %.omp.iv.03 = phi i32 [ %add12, %omp.inner.for.body ], [ 0, %omp.precond.then ]
   %pointer.12 = phi i32 [ %inc, %omp.inner.for.body ], [ %pointer.05, %omp.precond.then ]
   %idxprom = sext i32 %pointer.12 to i64
@@ -55,12 +54,16 @@ omp.inner.for.body:                               ; preds = %omp.precond.then, %
   br i1 %cmp9, label %omp.inner.for.body, label %DIR.OMP.END.SIMD.2
 
 DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.body
+  %inc.lcssa = phi i32 [ %inc, %omp.inner.for.body ]
+  br label %DIR.OMP.END.SIMD.1
+
+DIR.OMP.END.SIMD.1:                               ; preds = %DIR.OMP.END.SIMD.2
   call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   br label %for.inc
 
-for.inc:                                          ; preds = %for.body, %DIR.OMP.END.SIMD.2
-  %pointer.2 = phi i32 [ %inc, %DIR.OMP.END.SIMD.2 ], [ %pointer.05, %for.body ]
+for.inc:                                          ; preds = %DIR.OMP.END.SIMD.1, %for.body
+  %pointer.2 = phi i32 [ %inc.lcssa, %DIR.OMP.END.SIMD.1 ], [ %pointer.05, %for.body ]
   %inc13 = add nsw i32 %i.06, 1
   %cmp = icmp slt i32 %inc13, %conv
   br i1 %cmp, label %for.body, label %for.end

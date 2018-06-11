@@ -27,6 +27,7 @@ add_llvm_library(LLVMScalarOpts
   Intel_LoopOptMarker.cpp
   Intel_LoopOptReportEmitter.cpp
   Intel_LowerSubscriptIntrinsic.cpp
+  Intel_RemoveRegionDirectives.cpp
   Intel_StdContainerOpt.cpp
   Intel_TbaaMDPropagation.cpp
   Intel_MultiVersioning.cpp
@@ -84,3 +85,9 @@ add_llvm_library(LLVMScalarOpts
   DEPENDS
   intrinsics_gen
   )
+
+# INTEL_CUSTOMIZATION
+if(INTEL_INCLUDE_DTRANS)
+  target_link_libraries(LLVMScalarOpts PRIVATE LLVMIntel_DTransAnalysis)
+endif(INTEL_INCLUDE_DTRANS)
+# end INTEL_CUSTOMIZATION

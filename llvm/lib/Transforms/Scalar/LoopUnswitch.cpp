@@ -308,9 +308,9 @@ bool LUAnalysisCache::countLoop(const Loop *L, const TargetTransformInfo &TTI,
     MaxSize -= Props.SizeEstimation * Props.CanBeUnswitchedCount;
 
     if (Metrics.notDuplicatable) {
-      DEBUG(dbgs() << "NOT unswitching loop %"
-                   << L->getHeader()->getName() << ", contents cannot be "
-                   << "duplicated!\n");
+      LLVM_DEBUG(dbgs() << "NOT unswitching loop %" << L->getHeader()->getName()
+                        << ", contents cannot be "
+                        << "duplicated!\n");
       return false;
     }
   }
@@ -872,20 +872,20 @@ bool LoopUnswitch::UnswitchIfProfitable(Value *LoopCond, Constant *Val,
                                         TerminatorInst *TI) {
   // Check to see if it would be profitable to unswitch current loop.
   if (!BranchesInfo.CostAllowsUnswitching()) {
-    DEBUG(dbgs() << "NOT unswitching loop %"
-                 << currentLoop->getHeader()->getName()
-                 << " at non-trivial condition '" << *Val
-                 << "' == " << *LoopCond << "\n"
-                 << ". Cost too high.\n");
+    LLVM_DEBUG(dbgs() << "NOT unswitching loop %"
+                      << currentLoop->getHeader()->getName()
+                      << " at non-trivial condition '" << *Val
+                      << "' == " << *LoopCond << "\n"
+                      << ". Cost too high.\n");
     return false;
   }
   if (hasBranchDivergence &&
       getAnalysis<DivergenceAnalysis>().isDivergent(LoopCond)) {
-    DEBUG(dbgs() << "NOT unswitching loop %"
-                 << currentLoop->getHeader()->getName()
-                 << " at non-trivial condition '" << *Val
-                 << "' == " << *LoopCond << "\n"
-                 << ". Condition is divergent.\n");
+    LLVM_DEBUG(dbgs() << "NOT unswitching loop %"
+                      << currentLoop->getHeader()->getName()
+                      << " at non-trivial condition '" << *Val
+                      << "' == " << *LoopCond << "\n"
+                      << ". Condition is divergent.\n");
     return false;
   }
 
@@ -986,14 +986,19 @@ void LoopUnswitch::EmitPreheaderBranchOnCondition(Value *LIC, Constant *Val,
 void LoopUnswitch::UnswitchTrivialCondition(Loop *L, Value *Cond, Constant *Val,
                                             BasicBlock *ExitBlock,
                                             TerminatorInst *TI) {
-  DEBUG(dbgs() << "loop-unswitch: Trivial-Unswitch loop %"
-               << loopHeader->getName() << " [" << L->getBlocks().size()
-               << " blocks] in Function "
-               << L->getHeader()->getParent()->getName() << " on cond: " << *Val
-               << " == " << *Cond << "\n");
+  LLVM_DEBUG(dbgs() << "loop-unswitch: Trivial-Unswitch loop %"
+                    << loopHeader->getName() << " [" << L->getBlocks().size()
+                    << " blocks] in Function "
+                    << L->getHeader()->getParent()->getName()
+                    << " on cond: " << *Val << " == " << *Cond << "\n");
   LORBuilder(*L).addRemark(OptReportVerbosity::Low,           // INTEL
                            "Loop has been unswitched via %s", // INTEL
                            Cond->getName());                  // INTEL
+
+  // We are going to make essential changes to CFG. This may invalidate cached
+  // information for L or one of its parent loops in SCEV.
+  if (auto *SEWP = getAnalysisIfAvailable<ScalarEvolutionWrapperPass>())
+    SEWP->getSE().forgetTopmostLoop(L);
 
   // First step, split the preheader, so that we know that there is a safe place
   // to insert the conditional branch.  We will change loopPreheader to have a
@@ -1215,16 +1220,18 @@ void LoopUnswitch::SplitExitEdges(Loop *L,
 void LoopUnswitch::UnswitchNontrivialCondition(Value *LIC, Constant *Val,
                                                Loop *L, TerminatorInst *TI) {
   Function *F = loopHeader->getParent();
-  DEBUG(dbgs() << "loop-unswitch: Unswitching loop %"
-        << loopHeader->getName() << " [" << L->getBlocks().size()
-        << " blocks] in Function " << F->getName()
-        << " when '" << *Val << "' == " << *LIC << "\n");
+  LLVM_DEBUG(dbgs() << "loop-unswitch: Unswitching loop %"
+                    << loopHeader->getName() << " [" << L->getBlocks().size()
+                    << " blocks] in Function " << F->getName() << " when '"
+                    << *Val << "' == " << *LIC << "\n");
   LORBuilder(*L).addRemark(OptReportVerbosity::Low,           // INTEL
                            "Loop has been unswitched via %s", // INTEL
                            LIC->getName());                   // INTEL
 
+  // We are going to make essential changes to CFG. This may invalidate cached
+  // information for L or one of its parent loops in SCEV.
   if (auto *SEWP = getAnalysisIfAvailable<ScalarEvolutionWrapperPass>())
-    SEWP->getSE().forgetLoop(L);
+    SEWP->getSE().forgetTopmostLoop(L);
 
   LoopBlocks.clear();
   NewBlocks.clear();
@@ -1377,7 +1384,7 @@ static void RemoveFromWorklist(Instruction *I,
 static void ReplaceUsesOfWith(Instruction *I, Value *V,
                               std::vector<Instruction*> &Worklist,
                               Loop *L, LPPassManager *LPM) {
-  DEBUG(dbgs() << "Replace with '" << *V << "': " << *I << "\n");
+  LLVM_DEBUG(dbgs() << "Replace with '" << *V << "': " << *I << "\n");
 
   // Add uses to the worklist, which may be dead now.
   for (unsigned i = 0, e = I->getNumOperands(); i != e; ++i)
@@ -1546,7 +1553,7 @@ void LoopUnswitch::SimplifyCode(std::vector<Instruction*> &Worklist, Loop *L) {
 
     // Simple DCE.
     if (isInstructionTriviallyDead(I)) {
-      DEBUG(dbgs() << "Remove dead instruction '" << *I << "\n");
+      LLVM_DEBUG(dbgs() << "Remove dead instruction '" << *I << "\n");
 
       // Add uses to the worklist, which may be dead now.
       for (unsigned i = 0, e = I->getNumOperands(); i != e; ++i)
@@ -1579,8 +1586,8 @@ void LoopUnswitch::SimplifyCode(std::vector<Instruction*> &Worklist, Loop *L) {
         if (!SinglePred) continue;  // Nothing to do.
         assert(SinglePred == Pred && "CFG broken");
 
-        DEBUG(dbgs() << "Merging blocks: " << Pred->getName() << " <- "
-              << Succ->getName() << "\n");
+        LLVM_DEBUG(dbgs() << "Merging blocks: " << Pred->getName() << " <- "
+                          << Succ->getName() << "\n");
 
         // Resolve any single entry PHI nodes in Succ.
         while (PHINode *PN = dyn_cast<PHINode>(Succ->begin()))

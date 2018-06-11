@@ -1,6 +1,6 @@
 //===------ HIRGraph.h - Base graph data structure --------*-- C++ --*-----===//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -35,7 +35,12 @@ template <typename GraphNode, typename GraphEdge> class HIRGraph {
     OutEdges[EdgePtr.getSrc()].push_back(&EdgePtr);
   }
 
+  HIRGraph(const HIRGraph &) = delete;
+
 public:
+  HIRGraph(HIRGraph &&) = default;
+  HIRGraph() = default;
+
   // TODO: fix definition to return non-modifiable edge.
   typedef typename GraphEdgeContainerTy::const_iterator EdgeIterator;
 

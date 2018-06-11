@@ -1,6 +1,6 @@
 //===-- HIRParVecAnalysis.cpp ---------------------------------------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -192,8 +192,8 @@ INITIALIZE_PASS_BEGIN(HIRParVecAnalysis, "hir-parvec-analysis",
                       "HIR Parallel/Vector Candidate Analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRParVecAnalysis, "hir-parvec-analysis",
                     "HIR Parallel/Vector Candidate Analysis", false, true)
 
@@ -233,8 +233,8 @@ void HIRParVecAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysis>();
-  AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
 }
 
 bool HIRParVecAnalysis::runOnFunction(Function &F) {
@@ -245,16 +245,16 @@ bool HIRParVecAnalysis::runOnFunction(Function &F) {
   Enabled = true;
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  DDA = &getAnalysis<HIRDDAnalysis>();
-  SRA = &getAnalysis<HIRSafeReductionAnalysis>();
+  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
+  SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
 
   // ParVecAnalysis runs in on-demand mode. runOnFunction is almost no-op.
   // In the debug mode, run actual analysis in ParallelVector mode, print
   // the result, and releas memory as if nothing happened. "opt -analyze"
   // doesn't print anything.
-  DEBUG(analyze(ParVecInfo::ParallelVector));
-  DEBUG(print(dbgs()));
-  DEBUG(releaseMemory());
+  LLVM_DEBUG(analyze(ParVecInfo::ParallelVector));
+  LLVM_DEBUG(print(dbgs()));
+  LLVM_DEBUG(releaseMemory());
 
   return false;
 }
@@ -358,8 +358,8 @@ bool DDWalk::isSafeReductionFlowDep(const DDEdge *Edge) {
       // point reduction, and fast flag is off. FPInst can
       // be NULL for a copy instruction.
       if (FPRedn && (!FPInst || !FPInst->isFast())) {
-        DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
-                        "(FP reduction with fast flag off)\n");
+        LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
+                             "(FP reduction with fast flag off)\n");
         return false;
       }
 
@@ -372,16 +372,17 @@ bool DDWalk::isSafeReductionFlowDep(const DDEdge *Edge) {
 
 void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
 
-  DEBUG(Edge->dump());
+  LLVM_DEBUG(Edge->dump());
 
   unsigned NestLevel = CandidateLoop->getNestingLevel();
   if (!Edge->preventsParallelization(NestLevel)) {
-    DEBUG(dbgs() << "\tis safe to vectorize/parallelize\n");
+    LLVM_DEBUG(dbgs() << "\tis safe to vectorize/parallelize\n");
     return;
   }
   if (Info->isVectorMode()) {
     if (!Edge->preventsVectorization(NestLevel)) {
-      DEBUG(dbgs() << "\tis safe to vectorize but unsafe to parallelize\n");
+      LLVM_DEBUG(
+          dbgs() << "\tis safe to vectorize but unsafe to parallelize\n");
       // TODO: Set ParType/ParLoc. Call emitDiag().
       return;
     }
@@ -389,7 +390,7 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
 
   if (SrcRef && SrcRef->isTerminalRef() &&
       !CandidateLoop->isLiveIn(SrcRef->getSymbase())) {
-    DEBUG(dbgs() << "\tis safe to vectorize/parallelize (private)\n");
+    LLVM_DEBUG(dbgs() << "\tis safe to vectorize/parallelize (private)\n");
     return;
   }
 
@@ -397,7 +398,8 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
 
   if (Edge->isFLOWdep() &&
       isSafeReductionFlowDep(Edge)) {
-    DEBUG(dbgs() << "\tis safe to vectorize/parallelize (safe reduction)\n");
+    LLVM_DEBUG(
+        dbgs() << "\tis safe to vectorize/parallelize (safe reduction)\n");
     return;
   }
 
@@ -407,7 +409,7 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
     auto RefinedDep =
         DDA.refineDV(Edge->getSrc(), SinkRef, NestLevel, NestLevel, false);
     if (RefinedDep.isIndependent()) {
-      DEBUG(dbgs() << "\tis safe to vectorize (indep)\n");
+      LLVM_DEBUG(dbgs() << "\tis safe to vectorize (indep)\n");
       return;
     }
     if (RefinedDep.isRefined()) {
@@ -416,15 +418,16 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
       // Just need to check for DV. Other conditions are covered by
       // the call to preventsVectorization above
       DirectionVector DirV = RefinedDep.getDV();
-      DEBUG(DirV.print(dbgs()));
+      LLVM_DEBUG(DirV.print(dbgs()));
       if (!DirV.isCrossIterDepAtLevel(NestLevel)) {
-        DEBUG(dbgs() << "\tis DV improved by RefineDD: Safe to vectorize\n");
+        LLVM_DEBUG(
+            dbgs() << "\tis DV improved by RefineDD: Safe to vectorize\n");
         return;
       }
     }
-    DEBUG(dbgs() << "\tis unsafe to vectorize\n");
+    LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize\n");
   } else {
-    DEBUG(dbgs() << "\tDV is not refinable - unsafe to vectorize\n");
+    LLVM_DEBUG(dbgs() << "\tDV is not refinable - unsafe to vectorize\n");
   }
 
   Info->setVecType(ParVecInfo::FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE);

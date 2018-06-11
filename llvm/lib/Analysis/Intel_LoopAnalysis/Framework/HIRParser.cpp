@@ -1,6 +1,6 @@
 //===----- HIRParser.cpp - Parses SCEVs into CanonExprs -------------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1677,8 +1677,7 @@ const SCEV *HIRParser::getSCEVAtScope(const SCEV *SC) const {
 }
 
 bool HIRParser::parseAddRec(const SCEVAddRecExpr *RecSCEV, CanonExpr *CE,
-                            unsigned Level, bool UnderCast,
-                            bool IndicateFailure) {
+                            unsigned Level, bool IndicateFailure) {
   auto Lp = RecSCEV->getLoop();
   auto HLoop = LF.findHLLoop(Lp);
 
@@ -1738,8 +1737,7 @@ bool HIRParser::parseAddRec(const SCEVAddRecExpr *RecSCEV, CanonExpr *CE,
   } else {
     // Convert AddRec into CanonExpr IV.
 
-    if (!parseRecursive(BaseSCEV, CE, Level, false, UnderCast,
-                        IndicateFailure)) {
+    if (!parseRecursive(BaseSCEV, CE, Level, false, true, IndicateFailure)) {
       return false;
     }
 
@@ -1753,6 +1751,57 @@ bool HIRParser::parseAddRec(const SCEVAddRecExpr *RecSCEV, CanonExpr *CE,
       return parseBlob(StepSCEV, CE, Level, HLoop->getNestingLevel(),
                        IndicateFailure);
     }
+  }
+
+  return true;
+}
+
+bool HIRParser::parseMul(const SCEVMulExpr *MulSCEV, CanonExpr *CE,
+                         unsigned Level, bool IndicateFailure) {
+
+  // If mul looks like this:
+  // {0,+,1} * %a
+  //
+  // Then it can be parsed into a CanonExpr IV term like this:
+  // %a * i1.
+  //
+  // We create new auxiliary CEs to parse the IV and blob term. These two CEs
+  // are then multiplied and added to the original CE.
+
+  // The last CanonExpr::add() will not do the right thing in the presence of
+  // denominator so we skip the logic.
+  if ((CE->getDenominator() != 1) || (MulSCEV->getNumOperands() != 2)) {
+    return parseBlob(MulSCEV, CE, Level, 0, IndicateFailure);
+  }
+
+  auto AddRecSCEV = dyn_cast<SCEVAddRecExpr>(MulSCEV->getOperand(0));
+
+  if (!AddRecSCEV) {
+    return parseBlob(MulSCEV, CE, Level, 0, IndicateFailure);
+  }
+
+  std::unique_ptr<CanonExpr> AddRecCE(
+      getCanonExprUtils().createCanonExpr(CE->getSrcType()));
+
+  if (!parseAddRec(AddRecSCEV, AddRecCE.get(), Level, IndicateFailure)) {
+    return parseBlob(MulSCEV, CE, Level, 0, IndicateFailure);
+  }
+
+  std::unique_ptr<CanonExpr> BlobCE(
+      getCanonExprUtils().createCanonExpr(CE->getSrcType()));
+
+  if (!parseBlob(MulSCEV->getOperand(1), BlobCE.get(), Level, 0,
+                 IndicateFailure)) {
+    return parseBlob(MulSCEV, CE, Level, 0, IndicateFailure);
+  }
+
+  if (!AddRecCE->multiplyByConstant(BlobCE->getSingleBlobCoeff()) ||
+      !AddRecCE->multiplyByBlob(BlobCE->getSingleBlobIndex())) {
+    return parseBlob(MulSCEV, CE, Level, 0, IndicateFailure);
+  }
+
+  if (!CanonExprUtils::add(CE, AddRecCE.get())) {
+    return parseBlob(MulSCEV, CE, Level, 0, IndicateFailure);
   }
 
   return true;
@@ -1795,8 +1844,9 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
       return true;
     }
 
-  } else if (isa<SCEVMulExpr>(SC)) {
-    return parseBlob(SC, CE, Level, 0, IndicateFailure);
+  } else if (auto MulSCEV = dyn_cast<SCEVMulExpr>(SC)) {
+
+    return parseMul(MulSCEV, CE, Level, IndicateFailure);
 
   } else if (auto UDivSCEV = dyn_cast<SCEVUDivExpr>(SC)) {
     if (!IsTop) {
@@ -1819,7 +1869,7 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
     }
 
   } else if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
-    return parseAddRec(RecSCEV, CE, Level, UnderCast, IndicateFailure);
+    return parseAddRec(RecSCEV, CE, Level, IndicateFailure);
 
   } else if (isa<SCEVSMaxExpr>(SC) || isa<SCEVUMaxExpr>(SC)) {
     // TODO: extend DDRef representation to handle min/max.
@@ -2061,7 +2111,6 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
     Symbase = GenericRvalSymbase;
   }
 
-  auto Ref = getDDRefUtils().createRegDDRef(Symbase);
   auto CE = getCanonExprUtils().createCanonExpr(IVType);
   auto BETCType = BETC->getType();
 
@@ -2083,8 +2132,12 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
 
   // We pass underCast as 'true' as we don't want to hide the topmost cast for
   // upper.
-  parseRecursive(BETC, CE, Level, true, true);
+  if (!parseRecursive(BETC, CE, Level, true, true, true)) {
+    getCanonExprUtils().destroy(CE);
+    return nullptr;
+  }
 
+  auto Ref = getDDRefUtils().createRegDDRef(Symbase);
   Ref->setSingleCanonExpr(CE);
 
   int64_t UpperVal;
@@ -2134,29 +2187,40 @@ void HIRParser::parse(HLLoop *HLoop) {
   }
 
   auto BETC = SE.getBackedgeTakenCountForHIR(Lp, CurOutermostLoop);
-  if (!isa<SCEVCouldNotCompute>(BETC)) {
+  bool IsUnknown = isa<SCEVCouldNotCompute>(BETC);
 
-    // Initialize Lower to 0.
-    auto LowerRef = createLowerDDRef(IVType);
-    HLoop->setLowerDDRef(LowerRef);
-
-    // Initialize Stride to 1.
-    auto StrideRef = createStrideDDRef(IVType);
-    HLoop->setStrideDDRef(StrideRef);
-
-    // Set the upper bound
+  if (!IsUnknown) {
     auto UpperRef = createUpperDDRef(BETC, CurLevel, IVType, HLoop->isNSW());
-    HLoop->setUpperDDRef(UpperRef);
 
-    unsigned MaxTC;
+    if (!UpperRef) {
+      // Parsing for upper failed. Treat loop as unknown as a backup option.
+      IsUnknown = true;
 
-    // Set small max trip count if available from scalar evolution.
-    if (!UpperRef->isIntConstant() &&
-        (MaxTC = SE.getSmallConstantMaxTripCount(const_cast<Loop *>(Lp)))) {
-      HLoop->setMaxTripCountEstimate(MaxTC);
+      // Add the explicit loop label and bottom test back to the loop.
+      LF.reattachLoopLabelAndBottomTest(HLoop);
+
+    } else {
+      // Initialize Lower to 0.
+      auto LowerRef = createLowerDDRef(IVType);
+      HLoop->setLowerDDRef(LowerRef);
+
+      // Initialize Stride to 1.
+      auto StrideRef = createStrideDDRef(IVType);
+      HLoop->setStrideDDRef(StrideRef);
+
+      HLoop->setUpperDDRef(UpperRef);
+
+      unsigned MaxTC;
+
+      // Set small max trip count if available from scalar evolution.
+      if (!UpperRef->isIntConstant() &&
+          (MaxTC = SE.getSmallConstantMaxTripCount(const_cast<Loop *>(Lp)))) {
+        HLoop->setMaxTripCountEstimate(MaxTC);
+      }
     }
+  }
 
-  } else {
+  if (IsUnknown) {
     // Initialize Stride to 0 for unknown loops.
     auto ZeroRef = getDDRefUtils().createConstDDRef(IVType, 0);
 
@@ -3282,6 +3346,8 @@ void HIRParser::run() {
     // Start phase 2 of parsing.
     phase2Parse();
   }
+
+  LF.eraseStoredLoopLabelsAndBottomTests();
 
   IsReady = true;
 }

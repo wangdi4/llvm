@@ -1,6 +1,6 @@
 //===-------- DDUtils.h - Utilities for DD  -------------------------------===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -15,11 +15,14 @@
 
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDUTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDUTILS_H
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 
 namespace llvm {
 namespace loopopt {
+
+typedef SmallSet<unsigned, 16> InterchangeIgnorableSymbasesTy;
 
 /// \brief Defines utilities for DDUtils Class
 ///
@@ -36,55 +39,6 @@ private:
   friend class HIRParser;
   friend class HLNodeUtils;
 
-  /// \brief Return true if a load can move into the loop
-  ///  t0 = A[i1]; loop { };
-  ///  In some case, moving a load into a loop requires a corresponding store
-  ///  A[i1] = t0 to be moved into the loop also as in the case of sum reduction
-  static bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
-                                  HLLoop *InnermostLoop,
-                                  SmallVectorImpl<HLInst *> &PostLoopInsts,
-                                  HLInst **StoreInst, DDGraph DDG);
-
-  /// \brief Return true if a corresponding load is found
-  static bool findLoadInst(const DDRef *RRef,
-                           SmallVectorImpl<HLInst *> &PreLoopInsts,
-                           DDGraph DDG);
-
-  /// Find node receiving the load
-  /// e.g.   t0 = a[i] ;
-  ///         ...
-  ///        t1 = t0
-  ///  returns t1 = t0
-  static HLInst *findForwardSubInst(const DDRef *LRef,
-                             SmallVectorImpl<HLInst *> &ForwardSubInsts);
-
-  // \Brief Gather Pre / Post Nodes in Vectors
-  // Called from EnablePerfectLoopNest Util
-  // Return false if unwanted nodes are encountered (e.g  if)
-  static bool
-  enablePerfectLPGatherPrePostInsts(HLLoop *InnermostLoop, DDGraph DDG,
-                                    SmallVectorImpl<HLInst *> &PreLoopInsts,
-                                    SmallVectorImpl<HLInst *> &PostLoopInsts,
-                                    SmallVectorImpl<HLInst *> &ForwardSubInsts);
-
-  // \Brief Legality Check for nodes before Loop.
-  // Called from EnablePerfectLoopNest Util.
-  // Return true if legal
-  static bool
-  enablePerfectLPLegalityCheckPre(HLLoop *InnermostLoop, DDGraph DDG,
-                                  SmallVectorImpl<HLInst *> &PreLoopInsts,
-                                  SmallVectorImpl<HLInst *> &PostLoopInsts,
-                                  SmallVectorImpl<HLInst *> &ForwardSubInsts,
-                                  SmallVectorImpl<HLInst *> &ValidatedStores);
-
-  // \Brief Legality Check for nodes after Loop.
-  // Called from EnablePerfectLoopNest Util.
-  // Return true if legal
-  static bool
-  enablePerfectLPLegalityCheckPost(HLLoop *InnermostLoop, DDGraph DDG,
-                                   SmallVectorImpl<HLInst *> &PostLoopInsts,
-                                   SmallVectorImpl<HLInst *> &ValidatedStores);
-
 public:
   /// \brief Any incoming/outgoing edge into Loop?
   static bool anyEdgeToLoop(DDGraph DDG, const DDRef *Ref, HLLoop *Loop);
@@ -98,7 +52,16 @@ public:
 
   /// \brief  Enables Perfect Loop Nests
   /// Takes care of simple cases that are needed for Interchange
-  static bool enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG);
+  /// InnermostLoop is the loop into which instructions enclosinging it
+  /// (i.e. instructions of the loopbody of the parent loop of InnermostLoop)
+  /// DDG is the data dependency graph before instructions are sinked.
+  /// SinkedTempDDRefSymbases is a set of symbases of the temps
+  /// in the sinked instruction. These are ignored from DD edge checks
+  /// for loop interchange later. The same DDG before sinking will be used
+  /// later.
+  static bool enablePerfectLoopNest(
+      HLLoop *InnermostLoop, DDGraph DDG,
+      InterchangeIgnorableSymbasesTy &SinkedTempDDRefSymbases);
   /// \brief  Checks if a LvalRef has 'Threshold' uses in a loop
   static bool maxUsesInLoop(const RegDDRef *LvalRef, const HLLoop *Loop,
                             DDGraph DDG, const unsigned Threshold);

@@ -63,6 +63,28 @@ namespace llvm {
     }
   };
 
+#if INTEL_CUSTOMIZATION
+  /// This is the common base class for var.annotation intrinsic.
+  class VarAnnotIntrinsic : public IntrinsicInst {
+  public:
+    /// \brief Return true if the register attribute is set for var.annotation.
+    ///
+    /// When the HLS feature is on, var.annotation intrinsic is annotated with
+    /// a string which indicates whether the register attribute is set or not.
+    bool hasRegisterAttributeSet() const;
+
+    /// \name Casting methods
+    /// @{
+    static bool classof(const IntrinsicInst *I) {
+      return I->getIntrinsicID() == Intrinsic::var_annotation;
+    }
+    static bool classof(const Value *V) {
+      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+    }
+    /// @}
+  };
+#endif  //INTEL_CUSTOMIZATION
+
   /// This is the common base class for debug info intrinsics.
   class DbgInfoIntrinsic : public IntrinsicInst {
   public:
@@ -100,6 +122,7 @@ namespace llvm {
       case Intrinsic::dbg_declare:
       case Intrinsic::dbg_value:
       case Intrinsic::dbg_addr:
+      case Intrinsic::dbg_label:
         return true;
       default: return false;
       }
@@ -152,6 +175,32 @@ namespace llvm {
     /// @{
     static bool classof(const IntrinsicInst *I) {
       return I->getIntrinsicID() == Intrinsic::dbg_value;
+    }
+    static bool classof(const Value *V) {
+      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+    }
+    /// @}
+  };
+
+  /// This represents the llvm.dbg.label instruction.
+  class DbgLabelInst : public DbgInfoIntrinsic {
+  public:
+    DILabel *getLabel() const {
+      return cast<DILabel>(getRawVariable());
+    }
+
+    Metadata *getRawVariable() const {
+      return cast<MetadataAsValue>(getArgOperand(0))->getMetadata();
+    }
+
+    Metadata *getRawExpression() const {
+      return nullptr;
+    }
+
+    /// Methods for support type inquiry through isa, cast, and dyn_cast:
+    /// @{
+    static bool classof(const IntrinsicInst *I) {
+      return I->getIntrinsicID() == Intrinsic::dbg_label;
     }
     static bool classof(const Value *V) {
       return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
@@ -615,8 +664,35 @@ namespace llvm {
     }
   };
 
-#ifdef INTEL_CUSTOMIZATION
-  class SubscriptInst : public IntrinsicInst {
+#if INTEL_CUSTOMIZATION
+  class AddressInst : public IntrinsicInst {
+  public:
+    static bool classof(const IntrinsicInst *I) {
+      return I->getIntrinsicID() == Intrinsic::intel_fakeload ||
+             I->getIntrinsicID() == Intrinsic::intel_subscript;
+    }
+    static bool classof(const Value *V) {
+      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+    }
+
+    Value *getPointerOperand() const {
+      return getArgOperand(getPointerOperandIndex());
+    }
+
+    Type *getPointerOperandType() const {
+      return getPointerOperand()->getType();
+    }
+
+    unsigned getPointerAddressSpace() const {
+      return getPointerOperandType()->getPointerAddressSpace();
+    }
+  private:
+    int getPointerOperandIndex() const {
+      return getIntrinsicID() == Intrinsic::intel_fakeload ? 0 : 3;
+    }
+  };
+
+  class SubscriptInst : public AddressInst {
   public:
     static bool classof(const IntrinsicInst *I) {
       return I->getIntrinsicID() == Intrinsic::intel_subscript;
@@ -640,20 +716,13 @@ namespace llvm {
       return cast<Value>(const_cast<Value *>(getArgOperand(2)));
     }
 
-    Value *getPointerOperand() const {
-      return cast<Value>(const_cast<Value *>(getArgOperand(3)));
-    }
-
     Value *getIndex() const {
       return cast<Value>(const_cast<Value *>(getArgOperand(4)));
     }
 
-    Type *getPointerOperandType() const {
-      return getPointerOperand()->getType();
-    }
-
-    unsigned getPointerAddressSpace() const {
-      return getPointerOperandType()->getPointerAddressSpace();
+    bool hasAllConstantIndices() const {
+      return isa<ConstantInt>(getLowerBound()) &&
+             isa<ConstantInt>(getStride()) && isa<ConstantInt>(getIndex());
     }
 
     /// Computes number of elements in returned pointer.
@@ -663,6 +732,16 @@ namespace llvm {
     /// Computes number of elements in returned pointer
     /// For scalar pointer returns 0.
     static unsigned getResultVectorNumElements(ArrayRef<Type*> ArgTys);
+  };
+
+  class FakeloadInst : public AddressInst {
+  public:
+    static bool classof(const IntrinsicInst *I) {
+      return I->getIntrinsicID() == Intrinsic::intel_fakeload;
+    }
+    static bool classof(const Value *V) {
+      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+    }
   };
 #endif // INTEL_CUSTOMIZATION
 

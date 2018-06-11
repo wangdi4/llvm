@@ -47,9 +47,11 @@ add_llvm_library(LLVMAnalysis
   Intel_VectorVariant.cpp
   Intel_WP.cpp
   Intel_XmainOptLevelPass.cpp
+# end INTEL_CUSTOMIZATION
+# INTEL_COLLAB
   Intel_VPO/Utils/IntrinsicUtils.cpp             # TODO: Move to lib/Analysis
   Intel_VPO/Utils/OpenMPDirectivesAndClauses.cpp # TODO: Move to lib/Analysis
-# end INTEL_CUSTOMIZATION
+# end INTEL_COLLAB
   Interval.cpp
   IntervalPartition.cpp
   IteratedDominanceFrontier.cpp
@@ -107,11 +109,11 @@ add_llvm_library(LLVMAnalysis
 
   DEPENDS
   intrinsics_gen
-  intel_directives_gen    #INTEL
-  intel_svml_gen          #INTEL
-  intel_libmvec_gen       #INTEL
+  intel_directives_gen    #INTEL_COLLAB
+  intel_svml_gen          #INTEL_CUSTOMIZATION -- TODO: VEC to COLLAB
+  intel_libmvec_gen       #INTEL_CUSTOMIZATION
   )
 
-add_subdirectory(Intel_LoopAnalysis)  #INTEL
-add_subdirectory(Intel_VPO)           #INTEL
-add_subdirectory(Intel_OptReport)     #INTEL
+add_subdirectory(Intel_LoopAnalysis)  #INTEL_CUSTOMIZATION
+add_subdirectory(Intel_VPO)           #INTEL_COLLAB
+add_subdirectory(Intel_OptReport)     #INTEL_CUSTOMIZATION

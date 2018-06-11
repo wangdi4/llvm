@@ -1,6 +1,6 @@
 //===- HIRSymbaseAssignment.cpp - Assigns symbase to ddrefs ---------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -74,7 +74,7 @@ void HIRSymbaseAssignment::HIRSymbaseAssignmentVisitor::addToAST(
 
   Value *Ptr = SA.HIRP.getGEPRefPtr(Ref);
   assert(Ptr && "Could not find Value* ptr for mem load store ref");
-  DEBUG(dbgs() << "Got ptr " << *Ptr << "\n");
+  LLVM_DEBUG(dbgs() << "Got ptr " << *Ptr << "\n");
 
   PtrToRefs[Ptr].push_back(Ref);
 
@@ -103,15 +103,15 @@ void HIRSymbaseAssignment::run() {
     // Each ref in a set gets the same symbase
     for (auto &AliasSet : SV.getAST()) {
       unsigned CurSymbase = HIRF.getNewSymbase();
-      DEBUG(dbgs() << "Assigned following refs to Symbase " << CurSymbase
-                   << "\n");
+      LLVM_DEBUG(dbgs() << "Assigned following refs to Symbase " << CurSymbase
+                        << "\n");
 
       for (auto AV : AliasSet) {
         Value *Ptr = AV.getValue();
         auto &Refs = SV.getRefs(Ptr);
         for (auto CurRef : Refs) {
-          DEBUG(CurRef->dump());
-          DEBUG(dbgs() << "\n");
+          LLVM_DEBUG(CurRef->dump());
+          LLVM_DEBUG(dbgs() << "\n");
           CurRef->setSymbase(CurSymbase);
         }
       }

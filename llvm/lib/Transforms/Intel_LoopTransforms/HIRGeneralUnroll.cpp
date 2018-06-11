@@ -1,6 +1,6 @@
 //===-- HIRGeneralUnroll.cpp - Implements GeneralUnroll class -------------===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -82,7 +82,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
@@ -144,7 +143,6 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<OptReportOptionsPass>();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
@@ -153,9 +151,6 @@ public:
 private:
   HIRLoopResource *HLR;
   HIRLoopStatistics *HLS;
-
-  // Helper for generating optimization reports.
-  LoopOptReportBuilder LORBuilder;
 
   bool IsUnrollTriggered;
   bool Is32Bit;
@@ -190,7 +185,6 @@ private:
 char HIRGeneralUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRGeneralUnroll, "hir-general-unroll",
                       "HIR General Unroll", false, false)
-INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
@@ -204,17 +198,16 @@ FunctionPass *llvm::createHIRGeneralUnrollPass() {
 bool HIRGeneralUnroll::runOnFunction(Function &F) {
   // Skip if DisableHIRGeneralUnroll is enabled
   if (DisableHIRGeneralUnroll || skipFunction(F)) {
-    DEBUG(dbgs() << "HIR LOOP General Unroll Transformation Disabled \n");
+    LLVM_DEBUG(dbgs() << "HIR LOOP General Unroll Transformation Disabled \n");
     return false;
   }
 
-  DEBUG(dbgs() << "General unrolling for Function : " << F.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "General unrolling for Function : " << F.getName()
+                    << "\n");
 
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HLR = &getAnalysis<HIRLoopResourceWrapperPass>().getHLR();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  auto &OROP = getAnalysis<OptReportOptionsPass>();
-  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   IsUnrollTriggered = false;
 
@@ -290,7 +283,7 @@ void HIRGeneralUnroll::processGeneralUnroll(
         addUnrollDisablingPragma(Loop);
       }
 
-      unrollLoop(Loop, UnrollFactor, LORBuilder);
+      unrollLoop(Loop, UnrollFactor);
       IsUnrollTriggered = true;
       LoopsGenUnrolled++;
     }
@@ -304,15 +297,16 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
 
   // Exit if loop exceeds threshold.
   if (SelfCost > MaxLoopCost) {
-    DEBUG(dbgs()
-          << "Skipping unroll of loop as loop body cost exceeds threshold!\n");
+    LLVM_DEBUG(
+        dbgs()
+        << "Skipping unroll of loop as loop body cost exceeds threshold!\n");
     return 0;
   }
 
   // Exit if loop with minimum unroll factor of 2 exceeds threshold.
   if ((2 * SelfCost) > MaxUnrolledLoopCost) {
-    DEBUG(dbgs() << "Skipping unroll of loop as unrolled loop body cost "
-                    "exceeds threshold!\n");
+    LLVM_DEBUG(dbgs() << "Skipping unroll of loop as unrolled loop body cost "
+                         "exceeds threshold!\n");
     return 0;
   }
 
@@ -328,14 +322,15 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
     if (!UnrollFactor) {
       UnrollFactor = MaxUnrollFactor;
     } else if (UnrollFactor == 1) {
-      DEBUG(dbgs() << "Skipping unroll as pragma count is set to 1!\n");
+      LLVM_DEBUG(dbgs() << "Skipping unroll as pragma count is set to 1!\n");
       return 0;
     }
 
     if (IsConstTripLoop) {
       if (TripCount < 3) {
-        DEBUG(dbgs() << "Skipping unroll of loop with unroll pragma as trip "
-                        "count is too small!\n");
+        LLVM_DEBUG(
+            dbgs() << "Skipping unroll of loop with unroll pragma as trip "
+                      "count is too small!\n");
         return 0;
       }
 
@@ -354,7 +349,7 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
   } else {
     if ((IsConstTripLoop || (TripCount = HLoop->getMaxTripCountEstimate())) &&
         (TripCount < MinTripCountThreshold)) {
-      DEBUG(dbgs() << "Skipping unroll of small trip count loop!\n");
+      LLVM_DEBUG(dbgs() << "Skipping unroll of small trip count loop!\n");
       return 0;
     }
 
@@ -375,18 +370,18 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
 
 bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
   if (Loop->isVecLoop()) {
-    DEBUG(dbgs() << "Skipping unroll of vectorizable loop!\n");
+    LLVM_DEBUG(dbgs() << "Skipping unroll of vectorizable loop!\n");
     return false;
   }
 
   if (Loop->hasGeneralUnrollDisablingPragma()) {
-    DEBUG(dbgs() << "Skipping unroll of pragma disabled loop!\n");
+    LLVM_DEBUG(dbgs() << "Skipping unroll of pragma disabled loop!\n");
     return false;
   }
 
   // Loop should be normalized before this pass.
   if (!Loop->isNormalized()) {
-    DEBUG(dbgs() << "Skipping unroll of non-normalized loop!\n");
+    LLVM_DEBUG(dbgs() << "Skipping unroll of non-normalized loop!\n");
     return false;
   }
 
@@ -394,8 +389,8 @@ bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
 
   // Cannot unroll loop if it has calls with noduplicate attribute.
   if (LS.hasCallsWithNoDuplicate()) {
-    DEBUG(dbgs() << "Skipping unroll of loop containing call(s) with "
-                    "NoDuplicate attribute!\n");
+    LLVM_DEBUG(dbgs() << "Skipping unroll of loop containing call(s) with "
+                         "NoDuplicate attribute!\n");
     return false;
   }
 
@@ -410,8 +405,9 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
     // Unrolling too many loops leads to regression in the same benchmark which
     // is improved on 64-bit platform.
     if (Is32Bit && (Loop->getNumExits() > 1)) {
-      DEBUG(dbgs()
-            << "Skipping unroll of multi-exit loops on 32 bit platform!\n");
+      LLVM_DEBUG(
+          dbgs()
+          << "Skipping unroll of multi-exit loops on 32 bit platform!\n");
       return false;
     }
 
@@ -421,7 +417,7 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
     // in CMPLRS-41981). It is causing degradations in some benchmarks and the
     // reasons are not quite clear to me.
     if (Loop->isDoMultiExit()) {
-      DEBUG(dbgs() << "Skipping unroll of DO multi-exit loop!\n");
+      LLVM_DEBUG(dbgs() << "Skipping unroll of DO multi-exit loop!\n");
       return false;
     }
 
@@ -429,7 +425,8 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
 
     // TODO: remove this condition?
     if (LS.hasSwitches()) {
-      DEBUG(dbgs() << "Skipping unroll of loop containing switch statement!\n");
+      LLVM_DEBUG(
+          dbgs() << "Skipping unroll of loop containing switch statement!\n");
       return false;
     }
   }
@@ -467,15 +464,14 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
 // TODO: Add temporal locality analysis?
 class ReuseAnalyzer final : public HLNodeVisitorBase {
 private:
-  HIRLoopStatistics *HLS;
   const HLLoop *Loop;
   SmallSet<unsigned, 16> RvalTempBlobSymbases;
   int Reuse;
   bool CyclicalDefUse;
 
 public:
-  ReuseAnalyzer(HIRLoopStatistics *HLS, const HLLoop *Loop)
-      : HLS(HLS), Loop(Loop), Reuse(0), CyclicalDefUse(false) {}
+  ReuseAnalyzer(const HLLoop *Loop)
+      : Loop(Loop), Reuse(0), CyclicalDefUse(false) {}
 
   void analyze() {
     HLNodeUtils::visitRange(*this, Loop->child_begin(), Loop->child_end());
@@ -504,7 +500,7 @@ void ReuseAnalyzer::visit(const HLDDNode *Node) {
     if (cast<HLInst>(Node)->isCopyInst()) {
       // Only consider reuse for copies which dominate the backedge path.
       if (RvalTempBlobSymbases.count(LvalSymbase) &&
-          HLNodeUtils::dominates(Node, Loop->getLastChild(), HLS)) {
+          HLNodeUtils::dominates(Node, Loop->getLastChild())) {
         ++Reuse;
       }
       // No more processing needed for copy instructions.
@@ -547,7 +543,7 @@ unsigned HIRGeneralUnroll::refineUnrollFactorUsingReuseAnalysis(
     return CurUnrollFactor;
   }
 
-  ReuseAnalyzer RA(HLS, Loop);
+  ReuseAnalyzer RA(Loop);
 
   RA.analyze();
 

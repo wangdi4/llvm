@@ -1,6 +1,6 @@
 //===- HIRDummyTransformation.cpp - Implements Dummy Transformation class -===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -110,8 +110,8 @@ FunctionPass *llvm::createHIRDummyTransformationPass() {
 }
 
 bool HIRDummyTransformation::runOnFunction(Function &F) {
-  DEBUG(dbgs() << "Dummy Transformation for Function : " << F.getName()
-               << "\n");
+  LLVM_DEBUG(dbgs() << "Dummy Transformation for Function : " << F.getName()
+                    << "\n");
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   NodeVisitor V;
   HIRF->getHLNodeUtils().visitAll(V);

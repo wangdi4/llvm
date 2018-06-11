@@ -855,6 +855,10 @@ static bool isFunctionMallocLike(Function *F, const SCCNodeSet &SCCNodes) {
         break;
       case Instruction::Call:
       case Instruction::Invoke: {
+        if (auto *I = dyn_cast<AddressInst>(RVI)) {      // INTEL
+          FlowsToReturn.insert(I->getPointerOperand());  // INTEL
+          continue;                                      // INTEL
+        }                                                // INTEL
         CallSite CS(RVI);
         if (CS.hasRetAttr(Attribute::NoAlias))
           break;
@@ -964,6 +968,11 @@ static bool isReturnNonNull(Function *F, const SCCNodeSet &SCCNodes,
     }
     case Instruction::Call:
     case Instruction::Invoke: {
+      if (auto *I = dyn_cast<AddressInst>(RVI)) {      // INTEL
+        FlowsToReturn.insert(I->getPointerOperand());  // INTEL
+        continue;                                      // INTEL
+      }                                                // INTEL
+
       CallSite CS(RVI);
       Function *Callee = CS.getCalledFunction();
       // A call to a node within the SCC is assumed to return null until
@@ -1015,7 +1024,8 @@ static bool addNonNullAttrs(const SCCNodeSet &SCCNodes) {
       if (!Speculative) {
         // Mark the function eagerly since we may discover a function
         // which prevents us from speculating about the entire SCC
-        DEBUG(dbgs() << "Eagerly marking " << F->getName() << " as nonnull\n");
+        LLVM_DEBUG(dbgs() << "Eagerly marking " << F->getName()
+                          << " as nonnull\n");
         F->addAttribute(AttributeList::ReturnIndex, Attribute::NonNull);
         ++NumNonNullReturn;
         MadeChange = true;
@@ -1034,7 +1044,7 @@ static bool addNonNullAttrs(const SCCNodeSet &SCCNodes) {
           !F->getReturnType()->isPointerTy())
         continue;
 
-      DEBUG(dbgs() << "SCC marking " << F->getName() << " as nonnull\n");
+      LLVM_DEBUG(dbgs() << "SCC marking " << F->getName() << " as nonnull\n");
       F->addAttribute(AttributeList::ReturnIndex, Attribute::NonNull);
       ++NumNonNullReturn;
       MadeChange = true;
@@ -1220,8 +1230,8 @@ static bool inferAttrsFromFunctionBodies(const SCCNodeSet &SCCNodes) {
         return InstrBreaksNonConvergent(I, SCCNodes);
       },
       [](Function &F) {
-        DEBUG(dbgs() << "Removing convergent attr from fn " << F.getName()
-                     << "\n");
+        LLVM_DEBUG(dbgs() << "Removing convergent attr from fn " << F.getName()
+                          << "\n");
         F.setNotConvergent();
       },
       /* RequiresExactDefinition= */ false});
@@ -1241,7 +1251,8 @@ static bool inferAttrsFromFunctionBodies(const SCCNodeSet &SCCNodes) {
           return InstrBreaksNonThrowing(I, SCCNodes);
         },
         [](Function &F) {
-          DEBUG(dbgs() << "Adding nounwind attr to fn " << F.getName() << "\n");
+          LLVM_DEBUG(dbgs()
+                     << "Adding nounwind attr to fn " << F.getName() << "\n");
           F.setDoesNotThrow();
           ++NumNoUnwind;
         },

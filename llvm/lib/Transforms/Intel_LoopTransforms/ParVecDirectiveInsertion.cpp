@@ -2,7 +2,7 @@
 //-===//
 //                               Also Implements ParDirectionInsertion class
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -43,8 +43,8 @@ bool ParVecDirectiveInsertion::runOnFunction(Function &Func) {
   // debugging. Keep this here until we confirm that on-demand functionality
   // is rock solid.
   PVA->analyze(Mode);
-  DEBUG(dbgs() << "Analysis results for all regions\n");
-  DEBUG(PVA->print(dbgs()));
+  LLVM_DEBUG(dbgs() << "Analysis results for all regions\n");
+  LLVM_DEBUG(PVA->print(dbgs()));
 
   // Insert Directives where VecOkay/ParOkay are seen. Recompute
   // ParVecAnalysis result if stored info doesn't match the analysis
@@ -101,8 +101,8 @@ HLInst *ParVecDirectiveInsertion::Visitor::insertDirective(HLLoop *Lp,
 
 void ParVecDirectiveInsertion::Visitor::insertVecDirectives(
     HLLoop *Lp, const ParVecInfo *Info) {
-  DEBUG(dbgs() << "Inserting Vec directives for\n");
-  DEBUG(Info->print(dbgs()));
+  LLVM_DEBUG(dbgs() << "Inserting Vec directives for\n");
+  LLVM_DEBUG(Info->print(dbgs()));
   Inserted = true;
 
   // Insert SIMD directives and clauses
@@ -118,8 +118,8 @@ void ParVecDirectiveInsertion::Visitor::insertVecDirectives(
 
 void ParVecDirectiveInsertion::Visitor::insertParDirectives(
     HLLoop *Lp, const ParVecInfo *Info) {
-  DEBUG(dbgs() << "Inserting Par directives for\n");
-  DEBUG(Info->print(dbgs()));
+  LLVM_DEBUG(dbgs() << "Inserting Par directives for\n");
+  LLVM_DEBUG(Info->print(dbgs()));
   Inserted = true;
 
   // TODO: Implement!

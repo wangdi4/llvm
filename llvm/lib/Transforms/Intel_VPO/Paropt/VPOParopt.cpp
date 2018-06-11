@@ -72,7 +72,7 @@ VPOParopt::VPOParopt(unsigned MyMode,
 VPOParoptPass::VPOParoptPass(unsigned MyMode,
                              const std::vector<std::string> &MyOffloadTargets)
     : Mode(MyMode) {
-  DEBUG(dbgs() << "\n\n====== Start VPO Paropt Pass ======\n\n");
+  LLVM_DEBUG(dbgs() << "\n\n====== Start VPO Paropt Pass ======\n\n");
   for (const auto &T : MyOffloadTargets)
     OffloadTargets.emplace_back(Triple{T});
 }
@@ -120,7 +120,8 @@ bool VPOParoptPass::runImpl(
     // TODO: need Front-End to set F->hasOpenMPDirective()
     if (F->isDeclaration()) // if(!F->hasOpenMPDirective()))
       continue;
-    DEBUG(dbgs() << "\n=== VPOParoptPass func: " << F->getName() <<" {\n");
+    LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass func: " << F->getName()
+                      << " {\n");
     FnList.push_back(&*F);
   }
 
@@ -128,17 +129,18 @@ bool VPOParoptPass::runImpl(
   // transformation and generate MT-code
   for (auto F : FnList) {
 
-    DEBUG(dbgs() << "\n=== VPOParoptPass Process func: " << F->getName() <<" {\n");
+    LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass Process func: " << F->getName()
+                      << " {\n");
 
     // Walk the W-Region Graph top-down, and create W-Region List
     WRegionInfo &WI = WRegionInfoGetter(*F);
     WI.buildWRGraph(WRegionCollection::LLVMIR);
 
     if (WI.WRGraphIsEmpty()) {
-      DEBUG(dbgs() << "\nNo WRegion Candidates for Parallelization \n");
+      LLVM_DEBUG(dbgs() << "\nNo WRegion Candidates for Parallelization \n");
     }
 
-    DEBUG(WI.print(dbgs()));
+    LLVM_DEBUG(WI.print(dbgs()));
 
     //
     // Set up a function pass manager so that we can run some cleanup
@@ -146,10 +148,10 @@ bool VPOParoptPass::runImpl(
     //
     // legacy::FunctionPassManager FPM(&M);
 
-    DEBUG(errs() << "VPOParoptPass: ");
-    DEBUG(errs().write_escaped(F->getName()) << '\n');
+    LLVM_DEBUG(errs() << "VPOParoptPass: ");
+    LLVM_DEBUG(errs().write_escaped(F->getName()) << '\n');
 
-    DEBUG(dbgs() << "\n=== VPOParoptPass before ParoptTransformer{\n");
+    LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass before ParoptTransformer{\n");
 
     // AUTOPAR | OPENMP | SIMD | OFFLOAD
     VPOParoptTransform VP(F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
@@ -157,7 +159,7 @@ bool VPOParoptPass::runImpl(
                           WI.getTargetLibraryInfo(), Mode, OffloadTargets);
     Changed = Changed | VP.paroptTransforms();
 
-    DEBUG(dbgs() << "\n}=== VPOParoptPass after ParoptTransformer\n");
+    LLVM_DEBUG(dbgs() << "\n}=== VPOParoptPass after ParoptTransformer\n");
 
     // Remove calls to directive intrinsics since the LLVM back end does not
     // know how to translate them.
@@ -169,7 +171,7 @@ bool VPOParoptPass::runImpl(
     // FPM.add(createCFGSimplificationPass());
     // FPM.run(*F);
 
-    DEBUG(dbgs() << "\n}=== VPOParopt end func: " << F->getName() <<"\n");
+    LLVM_DEBUG(dbgs() << "\n}=== VPOParopt end func: " << F->getName() << "\n");
   }
 
   if ((Mode & OmpPar) && (Mode & ParTrans))
@@ -187,7 +189,7 @@ bool VPOParoptPass::runImpl(
     Changed = Changed | !PA.areAllPreserved();
   }
 
-  DEBUG(dbgs() << "\n====== End VPO ParoptPass ======\n\n");
+  LLVM_DEBUG(dbgs() << "\n====== End VPO ParoptPass ======\n\n");
   return Changed;
 }
 

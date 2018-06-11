@@ -108,8 +108,8 @@ static bool isDereferenceableAndAlignedPointer(
                                               DL, CtxI, DT, Visited);
 
   if (auto CS = ImmutableCallSite(V))
-    if (const Value *RV = CS.getReturnedArgOperand())
-      return isDereferenceableAndAlignedPointer(RV, Align, Size, DL, CtxI, DT,
+    if (auto *RP = getArgumentAliasingToReturnedPointer(CS))
+      return isDereferenceableAndAlignedPointer(RP, Align, Size, DL, CtxI, DT,
                                                 Visited);
 
   // If we don't know, assume the worst.
@@ -156,7 +156,7 @@ bool llvm::isDereferenceablePointer(const Value *V, const DataLayout &DL,
   return isDereferenceableAndAlignedPointer(V, 1, DL, CtxI, DT);
 }
 
-/// \brief Test if A and B will obviously have the same value.
+/// Test if A and B will obviously have the same value.
 ///
 /// This includes recognizing that %t0 and %t1 will have the same
 /// value in code like this:
@@ -178,6 +178,9 @@ static bool AreEquivalentAddressValues(const Value *A, const Value *B) {
   // other, which means that they'll always either have the same
   // value or one of them will have an undefined value.
   if (isa<BinaryOperator>(A) || isa<CastInst>(A) || isa<PHINode>(A) ||
+#if INTEL_CUSTOMIZATION
+      isa<AddressInst>(A) ||
+#endif // INTEL_CUSTOMIZATION
       isa<GetElementPtrInst>(A))
     if (const Instruction *BI = dyn_cast<Instruction>(B))
       if (cast<Instruction>(A)->isIdenticalToWhenDefined(BI))
@@ -187,7 +190,7 @@ static bool AreEquivalentAddressValues(const Value *A, const Value *B) {
   return false;
 }
 
-/// \brief Check if executing a load of this pointer value cannot trap.
+/// Check if executing a load of this pointer value cannot trap.
 ///
 /// If DT and ScanFrom are specified this method performs context-sensitive
 /// analysis and returns true if it is safe to load immediately before ScanFrom.

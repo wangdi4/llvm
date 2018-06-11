@@ -86,6 +86,7 @@ set(LLVM_TEST_DEPENDS
 # end INTEL_CUSTOMIZATION
           llvm-split
           llvm-strings
+          llvm-strip
           llvm-symbolizer
           llvm-tblgen
           llvm-xray

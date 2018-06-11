@@ -561,6 +561,7 @@ bool llvm::isAssumeLikeIntrinsic(const Instruction *I) {
       case Intrinsic::sideeffect:
       case Intrinsic::dbg_declare:
       case Intrinsic::dbg_value:
+      case Intrinsic::dbg_label:
       case Intrinsic::invariant_start:
       case Intrinsic::invariant_end:
       case Intrinsic::lifetime_start:
@@ -1042,12 +1043,9 @@ static void computeKnownBitsFromOperator(const Operator *I, KnownBits &Known,
     // matching the form add(x, add(x, y)) where y is odd.
     // TODO: This could be generalized to clearing any bit set in y where the
     // following bit is known to be unset in y.
-    Value *Y = nullptr;
+    Value *X = nullptr, *Y = nullptr;
     if (!Known.Zero[0] && !Known.One[0] &&
-        (match(I->getOperand(0), m_Add(m_Specific(I->getOperand(1)),
-                                       m_Value(Y))) ||
-         match(I->getOperand(1), m_Add(m_Specific(I->getOperand(0)),
-                                       m_Value(Y))))) {
+        match(I, m_c_BinOp(m_Value(X), m_Add(m_Deferred(X), m_Value(Y))))) {
       Known2.resetAll();
       computeKnownBits(Y, Known2, Depth + 1, Q);
       if (Known2.countMinTrailingOnes() > 0)
@@ -1817,7 +1815,7 @@ bool isKnownToBeAPowerOfTwo(const Value *V, bool OrZero, unsigned Depth,
   return false;
 }
 
-/// \brief Test whether a GEP's result is known to be non-null.
+/// Test whether a GEP's result is known to be non-null.
 ///
 /// Uses properties inherent in a GEP to try to determine whether it is known
 /// to be non-null.
@@ -2015,9 +2013,12 @@ bool isKnownNonZero(const Value *V, unsigned Depth, const Query &Q) {
       if (LI->getMetadata(LLVMContext::MD_nonnull))
         return true;
 
-    if (auto CS = ImmutableCallSite(V))
+    if (auto CS = ImmutableCallSite(V)) {
       if (CS.isReturnNonNull())
         return true;
+      if (const auto *RP = getArgumentAliasingToReturnedPointer(CS))
+        return isKnownNonZero(RP, Depth + 1, Q);
+    }
   }
 
   // The remaining tests are all recursive, so bail out if we hit the limit.
@@ -2032,6 +2033,25 @@ bool isKnownNonZero(const Value *V, unsigned Depth, const Query &Q) {
     if (const GEPOperator *GEP = dyn_cast<GEPOperator>(V))
       if (isGEPKnownNonNull(GEP, Depth, Q))
         return true;
+
+#if INTEL_CUSTOMIZATION
+    if (const SubscriptInst *SI = dyn_cast<SubscriptInst>(V))
+      if (SI->getPointerAddressSpace() == 0) {
+        if (isKnownNonZero(SI->getPointerOperand(), Depth, Q))
+          return true;
+        if (auto *LC = dyn_cast<ConstantInt>(SI->getLowerBound()))
+          if (LC->isZero() && isKnownNonZero(SI->getIndex(), Depth, Q))
+            return true;
+        if (auto *IC = dyn_cast<ConstantInt>(SI->getIndex()))
+          if (IC->isZero() && isKnownNonZero(SI->getLowerBound(), Depth, Q))
+            return true;
+      }
+    if (const FakeloadInst *FI = dyn_cast<FakeloadInst>(V))
+      if (FI->getPointerAddressSpace() == 0 &&
+          isKnownNonZero(FI->getPointerOperand(), Depth, Q))
+        return true;
+
+#endif // INTEL_CUSTOMIZATION
   }
 
   unsigned BitWidth = getBitWidth(V->getType()->getScalarType(), Q.DL);
@@ -3484,7 +3504,8 @@ static uint64_t GetStringLengthH(const Value *V,
 /// If we can compute the length of the string pointed to by
 /// the specified pointer, return 'len+1'.  If we can't, return 0.
 uint64_t llvm::GetStringLength(const Value *V, unsigned CharSize) {
-  if (!V->getType()->isPointerTy()) return 0;
+  if (!V->getType()->isPointerTy())
+    return 0;
 
   SmallPtrSet<const PHINode*, 32> PHIs;
   uint64_t Len = GetStringLengthH(V, PHIs, CharSize);
@@ -3493,7 +3514,23 @@ uint64_t llvm::GetStringLength(const Value *V, unsigned CharSize) {
   return Len == ~0ULL ? 1 : Len;
 }
 
-/// \brief \p PN defines a loop-variant pointer to an object.  Check if the
+const Value *llvm::getArgumentAliasingToReturnedPointer(ImmutableCallSite CS) {
+  assert(CS &&
+         "getArgumentAliasingToReturnedPointer only works on nonnull CallSite");
+  if (const Value *RV = CS.getReturnedArgOperand())
+    return RV;
+  // This can be used only as a aliasing property.
+  if (isIntrinsicReturningPointerAliasingArgumentWithoutCapturing(CS))
+    return CS.getArgOperand(0);
+  return nullptr;
+}
+
+bool llvm::isIntrinsicReturningPointerAliasingArgumentWithoutCapturing(
+      ImmutableCallSite CS) {
+  return CS.getIntrinsicID() == Intrinsic::launder_invariant_group;
+}
+
+/// \p PN defines a loop-variant pointer to an object.  Check if the
 /// previous iteration of the loop was referring to the same object as \p PN.
 static bool isSameUnderlyingObjectInLoop(const PHINode *PN,
                                          const LoopInfo *LI) {
@@ -3525,7 +3562,7 @@ Value *llvm::GetUnderlyingObject(Value *V, const DataLayout &DL,
   if (!V->getType()->isPointerTy())
     return V;
   for (unsigned Count = 0; MaxLookup == 0 || Count < MaxLookup; ++Count) {
-    if (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
+    if (auto *GEP = dyn_cast<AddressOperator>(V)) { // INTEL
       V = GEP->getPointerOperand();
     } else if (Operator::getOpcode(V) == Instruction::BitCast ||
                Operator::getOpcode(V) == Instruction::AddrSpaceCast) {
@@ -3538,11 +3575,19 @@ Value *llvm::GetUnderlyingObject(Value *V, const DataLayout &DL,
       // An alloca can't be further simplified.
       return V;
     } else {
-      if (auto CS = CallSite(V))
-        if (Value *RV = CS.getReturnedArgOperand()) {
-          V = RV;
+      if (auto CS = CallSite(V)) {
+        // Note: getArgumentAliasingToReturnedPointer keeps it in sync with
+        // CaptureTracking, which is needed for correctness.  This is because
+        // some intrinsics like launder.invariant.group returns pointers that
+        // are aliasing it's argument, which is known to CaptureTracking.
+        // If AliasAnalysis does not use the same information, it could assume
+        // that pointer returned from launder does not alias it's argument
+        // because launder could not return it if the pointer was not captured.
+        if (auto *RP = getArgumentAliasingToReturnedPointer(CS)) {
+          V = RP;
           continue;
         }
+      }
 
       // See if InstructionSimplify knows any relevant tricks.
       if (Instruction *I = dyn_cast<Instruction>(V))
@@ -3677,6 +3722,25 @@ bool llvm::onlyUsedByLifetimeMarkers(const Value *V) {
   }
   return true;
 }
+
+#if INTEL_CUSTOMIZATION
+/// Return true if the only users of this pointer are lifetime markers and
+/// var.annotation intrinsics with register attribute set.
+bool llvm::onlyUsedByLifetimeAndVarAnnot(const Value *V) {
+  for (const User *U : V->users()) {
+    const IntrinsicInst *II = dyn_cast<IntrinsicInst>(U);
+    if (!II) return false;
+
+    if (const auto *VAI = dyn_cast<VarAnnotIntrinsic>(II)) {
+      if (!VAI->hasRegisterAttributeSet())
+        return false;
+    } else if (II->getIntrinsicID() != Intrinsic::lifetime_start &&
+               II->getIntrinsicID() != Intrinsic::lifetime_end)
+      return false;
+  }
+  return true;
+}
+#endif  //INTEL_CUSTOMIZATION
 
 bool llvm::isSafeToSpeculativelyExecute(const Value *V,
                                         const Instruction *CtxI,
@@ -3816,6 +3880,48 @@ OverflowResult llvm::computeOverflowForUnsignedMul(const Value *LHS,
   return OverflowResult::MayOverflow;
 }
 
+OverflowResult llvm::computeOverflowForSignedMul(const Value *LHS,
+                                                 const Value *RHS,
+                                                 const DataLayout &DL,
+                                                 AssumptionCache *AC,
+                                                 const Instruction *CxtI,
+                                                 const DominatorTree *DT) {
+  // Multiplying n * m significant bits yields a result of n + m significant
+  // bits. If the total number of significant bits does not exceed the
+  // result bit width (minus 1), there is no overflow.
+  // This means if we have enough leading sign bits in the operands
+  // we can guarantee that the result does not overflow.
+  // Ref: "Hacker's Delight" by Henry Warren
+  unsigned BitWidth = LHS->getType()->getScalarSizeInBits();
+
+  // Note that underestimating the number of sign bits gives a more
+  // conservative answer.
+  unsigned SignBits = ComputeNumSignBits(LHS, DL, 0, AC, CxtI, DT) +
+                      ComputeNumSignBits(RHS, DL, 0, AC, CxtI, DT);
+
+  // First handle the easy case: if we have enough sign bits there's
+  // definitely no overflow.
+  if (SignBits > BitWidth + 1)
+    return OverflowResult::NeverOverflows;
+
+  // There are two ambiguous cases where there can be no overflow:
+  //   SignBits == BitWidth + 1    and
+  //   SignBits == BitWidth
+  // The second case is difficult to check, therefore we only handle the
+  // first case.
+  if (SignBits == BitWidth + 1) {
+    // It overflows only when both arguments are negative and the true
+    // product is exactly the minimum negative number.
+    // E.g. mul i16 with 17 sign bits: 0xff00 * 0xff80 = 0x8000
+    // For simplicity we just check if at least one side is not negative.
+    KnownBits LHSKnown = computeKnownBits(LHS, DL, /*Depth=*/0, AC, CxtI, DT);
+    KnownBits RHSKnown = computeKnownBits(RHS, DL, /*Depth=*/0, AC, CxtI, DT);
+    if (LHSKnown.isNonNegative() || RHSKnown.isNonNegative())
+      return OverflowResult::NeverOverflows;
+  }
+  return OverflowResult::MayOverflow;
+}
+
 OverflowResult llvm::computeOverflowForUnsignedAdd(const Value *LHS,
                                                    const Value *RHS,
                                                    const DataLayout &DL,
@@ -3842,7 +3948,7 @@ OverflowResult llvm::computeOverflowForUnsignedAdd(const Value *LHS,
   return OverflowResult::MayOverflow;
 }
 
-/// \brief Return true if we can prove that adding the two values of the
+/// Return true if we can prove that adding the two values of the
 /// knownbits will not overflow.
 /// Otherwise return false.
 static bool checkRippleForSignedAdd(const KnownBits &LHSKnown,
@@ -3942,6 +4048,47 @@ static OverflowResult computeOverflowForSignedAdd(const Value *LHS,
     }
   }
 
+  return OverflowResult::MayOverflow;
+}
+
+OverflowResult llvm::computeOverflowForUnsignedSub(const Value *LHS,
+                                                   const Value *RHS,
+                                                   const DataLayout &DL,
+                                                   AssumptionCache *AC,
+                                                   const Instruction *CxtI,
+                                                   const DominatorTree *DT) {
+  // If the LHS is negative and the RHS is non-negative, no unsigned wrap.
+  KnownBits LHSKnown = computeKnownBits(LHS, DL, /*Depth=*/0, AC, CxtI, DT);
+  KnownBits RHSKnown = computeKnownBits(RHS, DL, /*Depth=*/0, AC, CxtI, DT);
+  if (LHSKnown.isNegative() && RHSKnown.isNonNegative())
+    return OverflowResult::NeverOverflows;
+
+  return OverflowResult::MayOverflow;
+}
+
+OverflowResult llvm::computeOverflowForSignedSub(const Value *LHS,
+                                                 const Value *RHS,
+                                                 const DataLayout &DL,
+                                                 AssumptionCache *AC,
+                                                 const Instruction *CxtI,
+                                                 const DominatorTree *DT) {
+  // If LHS and RHS each have at least two sign bits, the subtraction
+  // cannot overflow.
+  if (ComputeNumSignBits(LHS, DL, 0, AC, CxtI, DT) > 1 &&
+      ComputeNumSignBits(RHS, DL, 0, AC, CxtI, DT) > 1)
+    return OverflowResult::NeverOverflows;
+
+  KnownBits LHSKnown = computeKnownBits(LHS, DL, 0, AC, CxtI, DT);
+
+  KnownBits RHSKnown = computeKnownBits(RHS, DL, 0, AC, CxtI, DT);
+
+  // Subtraction of two 2's complement numbers having identical signs will
+  // never overflow.
+  if ((LHSKnown.isNegative() && RHSKnown.isNegative()) ||
+      (LHSKnown.isNonNegative() && RHSKnown.isNonNegative()))
+    return OverflowResult::NeverOverflows;
+
+  // TODO: implement logic similar to checkRippleForAdd
   return OverflowResult::MayOverflow;
 }
 
@@ -4600,6 +4747,8 @@ static SelectPatternResult matchSelectPattern(CmpInst::Predicate Pred,
   if (match(CmpRHS, m_APInt(C1))) {
     if ((CmpLHS == TrueVal && match(FalseVal, m_Neg(m_Specific(CmpLHS)))) ||
         (CmpLHS == FalseVal && match(TrueVal, m_Neg(m_Specific(CmpLHS))))) {
+      // Set RHS to the negate operand. LHS was assigned to CmpLHS earlier.
+      RHS = (CmpLHS == TrueVal) ? FalseVal : TrueVal;
 
       // ABS(X) ==> (X >s 0) ? X : -X and (X >s -1) ? X : -X
       // NABS(X) ==> (X >s 0) ? -X : X and (X >s -1) ? -X : X

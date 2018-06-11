@@ -299,6 +299,14 @@ SystemObject
 ~~~~~~~~~~~~
 The type was identified as a known system structure type.
 
+LocalPtr
+~~~~~~~~~
+This indicates that a local variable was found that is a pointer to the type.
+
+LocalInstance
+~~~~~~~~~~~~~~
+This indicates that a local variable was found that is an instance of the type.
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we
@@ -381,10 +389,25 @@ describe what the analysis is doing.)
 Call
 ~~~~
 When a call instruction is encountered, the DTrans analysis will attempt to
-determine whether or not the call is allocating memory. Currently this is
-done by using LLVM's LibFunc mechanism to check for calls to malloc, calloc,
-and realloc. At some point this mechanism will be extended to handle additional
-functions, including user-defined allocation functions.
+determine whether or not the call is allocating memory. For LibFuncs,
+LLVM's LibFunc mechanism is used to check for calls to malloc, calloc,
+and realloc.
+
+Some user functions are also handled.  Right now, we distinguish two types:
+  AK_UserMalloc0: The user function may have any number of arguments, but the
+    first (0th argument) must specify the "size" of memory to be allocated
+    (the "size" argument). Each return of the user function must be post
+    dominated by a call to malloc, and the return must return a pointer to
+    the malloc'ed memory. (An exception is made for some returns that may
+    return nullptr if the user function is passed 0 in its "size" argument,
+    or if some call to malloc returns a nullptr.)
+  AK_UserMalloc: Same as AK_UserMalloc0, but there must be only 1 argument
+    (the "size" argument).
+At some point this mechanism will be extended to handle additional user
+functions, including those that call calloc and realloc.
+
+(Note: At this moment, there is no recognition of the AK_UserMalloc0 case,
+that will be taken care of shortly when the code is extended.)
 
 If the call is an allocation function, we look for uses that bitcast the
 returned value to a pointer to an aggregate type to determine the type of the
@@ -507,6 +530,47 @@ operand. A typical use will look like this:
 
 The index argument in this case can be a non-constant value. The DTransAnalysis
 will recognize this as a safe use.
+
+In many cases the address obtained using a GetElementPtr instruction will be
+passed directly to a load or store instruction to access the field value. In
+the case where a GEP is used with an i8* base pointer and an offset, there may
+be a bitcast between the GEP and the load or store. For any other uses, the
+field is marked with the ComplexUse flag in the FieldInfo. This does not mean
+that we are not able to analyze the uses of the pointer. The local pointer
+analysis will be able to track this value through any combination of
+instructions. The intent of the ComplexUse flag is to serve as a hint to
+optimizations (specifically the DeleteField optimization) that it will not be
+trivial to erase the uses of this field.
+
+Sub
+~~~
+The sub instruction cannot operate on pointer values directly, but it is
+frequently used to operate on pointer-size integers that have been created
+from pointers using the ptrtoint instruction.
+
+If a pointer is subtracted from another pointer the result is a scalar value
+that can have no association with any type, implicit or explicit, so this
+operation is safe for the input pointer type. An offset computed this way may
+be used in ways that present safety concerns but that will be handled when the
+instruction using the value is analyzed.
+
+However, because the offset depends on the size of the structure being pointed
+to, if the pointers are pointers to structures (as opposed to pointer to
+pointers) the result of the sub instruction must only be used by sdiv or udiv
+instructions that divide by the size of the structure or PHI nodes or select
+instructions that lead to such div instructions. If any other use is found
+the type being pointed to will be marked with the `BadPtrManipulation`_
+safety condition.
+
+If either operand of a sub instruction is a pointer to an element within a
+structure then the offset so computed is dependent on the layout of the
+parent structure and so this case is flagged with the `BadPtrManipulation`_
+safety condition.
+
+If the operands of a sub instruction are not known to both point to the same
+structure type, the types pointed to will be marked with the `UnhandledUse`_
+safety condition. This case is not expected and will require further
+consideration if it is found to occur.
 
 
 Bitcast
@@ -687,7 +751,12 @@ yet implemented.**
 Alloca
 ~~~~~~
 LLVM uses an explicit alloca instruction to allocate stack space for local
-variables. **This instruction type is currently not handled.**
+variables. If an alloca instruction is seen that allocates space for a type
+of interest, the type will be marked with the `LocalInstance`_ safety condition
+if the alloca is creating an instance of the type (including fixed sized arrays)
+or the `LocalPtr`_ safety condition if the alloca is creating a pointer to the
+type. (Note that the LLVM type of the alloca instruction is always a pointer
+type, so local pointer variables will appear as pointers to pointers.)
 
 
 Global variables
@@ -712,3 +781,64 @@ a simple zero-initializer, or it may be specific aggregate data. If the global
 variable is an instance of a type and not a pointer to that type and the
 initializer is non-zero aggregate data, the type will be marked with the
 `HasInitializerList`_ safety condition.
+
+Field Single Value Analysis
+===========================
+
+DTrans supports a Field Single Value Analysis that determines whether a field
+of a structure can have only one value during the execution of the program.
+Whole program is required. Values may be assigned via static initialization
+or during dynamic execution. Field Single Value Analysis is an important
+base analysis for Indirect Call Specialization.
+
+Query methods for Field Single Value Analysis are defined in the public
+member functions of the FieldInfo class in DTrans.h:
+
+  bool isNoValue() const
+    The field has not been assigned a value
+  bool isSingleValue() const
+    The field has been assigned a single value
+  bool isMultipleValue() const
+    The field has been assigned multiple values, or we have no idea what
+      value(s) the field has been assigned.
+
+Only one of these three will be true for any field at any point in time.
+The represent three classic states of a lattice: Top, Middle, and Bottom.
+In the case that isSingleValue() is true, the value can be obtained with
+
+  llvm::Constant *getSingleValue()
+
+Single Alloc Function Analysis
+==============================
+
+DTrans supports a Single Alloc Function Analysis which determines whether
+a field points to memory allocated by a specific function.
+
+Query methods for Single Alloc Function Analysis are defined in the public
+member functions of the FieldInfo class in DTrans.h:
+
+  bool isTopAllocFunction() const
+    The field has not been assigned a value
+  bool isSingleAllocFunction() const
+    The field is assigned either a nullptr or the return value of a specific
+    function which has returned a pointer to uniquely allocated memory.
+  bool isBottomAllocFunction() const
+    Everything else
+
+Only one of these three will be true for any field at any point in time.
+The represent three classic states of a lattice: Top, Middle, and Bottom.
+In the case of isSingleAllocFunction(), the specific function allocating
+the memory can be obtained with
+
+  llvm::Function *getSingleAllocFunction()
+
+There is no requirement that the return value of this function be assigned
+only once to the field value, or that the amount of memory assigned on
+successive calls be the same.  There also is no requirement that the specific
+function only be called to assign a pointer to the field.
+
+An escape analysis is performed to ensure that the pointer to memory in
+a field for which isSingleAllocFunction() is true is not manipulated in
+such a way to invalidate the isSingleAllocFunction() property.
+
+

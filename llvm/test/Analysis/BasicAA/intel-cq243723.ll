@@ -1,4 +1,6 @@
 ; RUN: opt -basicaa -licm -S < %s | FileCheck %s
+; INTEL
+; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -licm -S | FileCheck %s
 ;
 ; struct matrix {
 ;   float *ptr;
@@ -30,23 +32,13 @@
 ; y.ptr[(k * size) + j]), the LICM should sink the store out of the loop. 
 ; The store in the basic block %for.body.9.us.us will be removed.
 
+; INTEL
 ; CHECK:       @_ZN6matrixmlERS_
-; CHECK:       for.body.9.us.us:
-; CHECK-NEXT:  %6 = phi float [ %add26.us.us, %for.body.9.us.us ], [ 0.000000e+00, %for.body.9.lr.ph.us.us ]
-; CHECK-NEXT:  %indvars.iv = phi i64 [ %indvars.iv.next, %for.body.9.us.us ], [ 0, %for.body.9.lr.ph.us.us ]
-; CHECK-NEXT:  %7 = add nsw i64 %indvars.iv, %12
-; CHECK-NEXT:  %arrayidx14.us.us = getelementptr inbounds float, float* %4, i64 %7
-; CHECK-NEXT:  %8 = load float, float* %arrayidx14.us.us, align 4, !tbaa !8
-; CHECK-NEXT:  %9 = mul nsw i64 %indvars.iv, %conv.i
-; CHECK-NEXT:  %10 = add nsw i64 %9, %indvars.iv96
-; CHECK-NEXT:  %arrayidx19.us.us = getelementptr inbounds float, float* %3, i64 %10
-; CHECK-NEXT:  %11 = load float, float* %arrayidx19.us.us, align 4, !tbaa !8
-; CHECK-NEXT:  %mul20.us.us = fmul float %8, %11
-; CHECK-NEXT:  %add26.us.us = fadd float %mul20.us.us, %6
-; CHECK-NEXT:  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-; CHECK-NEXT:  %lftr.wideiv = trunc i64 %indvars.iv.next to i32
-; CHECK-NEXT:  %exitcond = icmp eq i32 %lftr.wideiv, %0
-; CHECK-NEXT:  br i1 %exitcond, label %for.cond.cleanup.8.us.us, label %for.body.9.us.us
+; CHECK-LABEL: for.body.9.us.us:
+; CHECK:       fmul
+; CHECK:       fadd
+; CHECK-NOT:   store
+; CHECK-LABEL: for.body.5.lr.ph.split.us.us:
 
 
 ; ModuleID = 'SepiaFilterCilkPlus.bc'

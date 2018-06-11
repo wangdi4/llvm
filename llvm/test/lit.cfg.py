@@ -135,6 +135,7 @@ tools = [
     ToolSubst('%ocamlopt', ocamlopt_command, unresolved='ignore'),
     ToolSubst('%opt-viewer', opt_viewer_cmd),
     ToolSubst('%llvm-objcopy', FindTool('llvm-objcopy')),
+    ToolSubst('%llvm-strip', FindTool('llvm-strip')),
 ]
 
 # FIXME: Why do we have both `lli` and `%lli` that do slightly different things?
@@ -145,7 +146,7 @@ tools.extend([
     'llvm-link', 'llvm-lto', 'llvm-lto2', 'llvm-mc', 'llvm-mca',
     'llvm-modextract', 'llvm-nm', 'llvm-objcopy', 'llvm-objdump',
     'llvm-pdbutil', 'llvm-profdata', 'llvm-ranlib', 'llvm-readobj',
-    'llvm-rtdyld', 'llvm-size', 'llvm-split', 'llvm-strings', 'llvm-tblgen',
+    'llvm-rtdyld', 'llvm-size', 'llvm-split', 'llvm-strings', 'llvm-strip', 'llvm-tblgen',
     #ifdef INTEL_CUSTOMIZATION
     "llvm-spirv",
     #endif // INTEL_CUSTOMIZATION
@@ -237,12 +238,12 @@ if not 'hexagon' in config.target_triple:
 if config.target_triple:
     config.available_features.add('default_triple')
 
-#if INTEL_OPENCL
+# INTEL_CUSTOMIZATION
 # Add 'intel_opencl' feature based on ICS_WSVARIANT value.
 ics_wsvariant = os.environ.get("ICS_WSVARIANT")
 if ics_wsvariant and ics_wsvariant.startswith('xmainocl'):
     config.available_features.add("intel_opencl")
-#endif INTEL_OPENCL
+# end INTEL_CUSTOMIZATION
 
 import subprocess
 

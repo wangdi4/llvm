@@ -14,26 +14,48 @@
 
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
-#include "llvm/PassRegistry.h"
+#include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/PassRegistry.h"
 
 using namespace llvm;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static cl::opt<bool> DumpModuleBeforeDTrans(
+    "dump-module-before-dtrans", cl::init(false), cl::Hidden,
+    cl::desc(
+        "Dumps LLVM module to dbgs() before first DTRANS transformation"));
+#else
+constexpr bool DumpModuleBeforeDTrans = false;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 void llvm::initializeDTransPasses(PassRegistry& PR) {
   initializeDTransAnalysisWrapperPass(PR);
   initializeDTransAOSToSOAWrapperPass(PR);
   initializeDTransDeleteFieldWrapperPass(PR);
   initializeDTransReorderFieldsWrapperPass(PR);
+
+#if !INTEL_PRODUCT_RELEASE
+  initializeDTransOptBaseTestWrapperPass(PR);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void llvm::addDTransPasses(ModulePassManager &MPM) {
+  if (DumpModuleBeforeDTrans) {
+    MPM.addPass(PrintModulePass(dbgs(), "; Module Before DTrans\n"));
+  }
+
   MPM.addPass(dtrans::DeleteFieldPass());
   MPM.addPass(dtrans::AOSToSOAPass());
   MPM.addPass(dtrans::ReorderFieldsPass());
 }
 
 void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
+  if (DumpModuleBeforeDTrans) {
+    PM.add(createPrintModulePass(dbgs(), "; Module Before DTrans\n"));
+  }
+
   PM.add(createDTransDeleteFieldWrapperPass());
   PM.add(createDTransAOSToSOAWrapperPass());
   PM.add(createDTransReorderFieldsWrapperPass());
@@ -46,4 +68,8 @@ void llvm::createDTransPasses() {
   (void) llvm::createDTransAOSToSOAWrapperPass();
   (void) llvm::createDTransReorderFieldsWrapperPass();
   (void) llvm::createDTransAnalysisWrapperPass();
+
+#if !INTEL_PRODUCT_RELEASE
+  (void) llvm::createDTransOptBaseTestWrapperPass();
+#endif // !INTEL_PRODUCT_RELEASE
 }

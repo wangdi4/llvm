@@ -1,6 +1,6 @@
 //===--- HIRLMM.cpp -Implements Loop Memory Motion Pass -*- C++ -*---===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -109,10 +109,9 @@ STATISTIC(
     HIRLIMMRefPromoted,
     "Number of HIR loop-invariant memory load(s)/store(s) References Promoted");
 
-MemRefGroup::MemRefGroup(RegDDRef *FirstRef, HIRLoopStatistics *HLS)
+MemRefGroup::MemRefGroup(RegDDRef *FirstRef)
     : IsProfitable(false), IsLegal(false), IsAnalyzed(false), HasLoad(false),
-      HasLoadOnDomPath(false), HasStore(false), HasStoreOnDomPath(false),
-      HLS(HLS) {
+      HasLoadOnDomPath(false), HasStore(false), HasStoreOnDomPath(false) {
   RefV.push_back(FirstRef);
 
   Lp = FirstRef->getHLDDNode()->getParentLoop();
@@ -141,7 +140,7 @@ void MemRefGroup::analyze(void) {
 
       // Load on DomPath
       if (!HasLoadOnDomPath &&
-          HLNodeUtils::dominates(Ref->getHLDDNode(), LoopTail, HLS)) {
+          HLNodeUtils::dominates(Ref->getHLDDNode(), LoopTail)) {
         HasLoadOnDomPath = true;
       }
     }
@@ -151,7 +150,7 @@ void MemRefGroup::analyze(void) {
 
       // Store on DomPath
       if (!HasStoreOnDomPath &&
-          HLNodeUtils::dominates(Ref->getHLDDNode(), LoopTail, HLS)) {
+          HLNodeUtils::dominates(Ref->getHLDDNode(), LoopTail)) {
         HasStoreOnDomPath = true;
       }
     }
@@ -237,7 +236,7 @@ void MemRefCollection::insert(RegDDRef *Ref) {
   if (find(Ref, Idx)) {
     MRVV[Idx].insert(Ref);
   } else {
-    MRVV.emplace_back(Ref, HLS);
+    MRVV.emplace_back(Ref);
   }
 }
 
@@ -309,15 +308,14 @@ void HIRLMM::CollectMemRefs::collectMemRef(RegDDRef *Ref) {
   // Collect: insert the RegDDRef* into MRC
   MRC.insert(Ref);
 
-  // DEBUG(MRC.print(););
+  // LLVM_DEBUG(MRC.print(););
 }
 
 char HIRLMM::ID = 0;
 
 INITIALIZE_PASS_BEGIN(HIRLMM, "hir-lmm", "HIR Loop Memory Motion", false, false)
-INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRLMM, "hir-lmm", "HIR Loop Memory Motion", false, false)
 
@@ -329,9 +327,8 @@ HIRLMM::HIRLMM(void) : HIRTransformPass(ID) {
 
 void HIRLMM::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysis>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  AU.addRequiredTransitive<OptReportOptionsPass>();
   AU.setPreservesAll();
 }
 
@@ -347,7 +344,7 @@ bool HIRLMM::doLoopPreliminaryChecks(const HLLoop *Lp) {
   }
 
   const LoopStatistics &LS = HLS->getSelfLoopStatistics(Lp);
-  // DEBUG(LS.dump(););
+  // LLVM_DEBUG(LS.dump(););
   if (LS.hasCallsWithUnsafeSideEffects()) {
     return false;
   }
@@ -357,7 +354,7 @@ bool HIRLMM::doLoopPreliminaryChecks(const HLLoop *Lp) {
 
 bool HIRLMM::handleCmdlineArgs(Function &F) {
   if (DisableHIRLMM || skipFunction(F)) {
-    DEBUG(dbgs() << "HIRLMM (Loop Memory Motion) Disabled or Skipped\n");
+    LLVM_DEBUG(dbgs() << "HIRLMM (Loop Memory Motion) Disabled or Skipped\n");
     return false;
   }
 
@@ -369,25 +366,23 @@ bool HIRLMM::runOnFunction(Function &F) {
     return false;
   }
 
-  DEBUG(dbgs() << "HIR LIMM on Function : " << F.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "HIR LIMM on Function : " << F.getName() << "\n");
 
   // Gather all inner-most Loop Candidates
   SmallVector<HLLoop *, 64> CandidateLoops;
 
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HIRF->getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
-  auto &OROP = getAnalysis<OptReportOptionsPass>();
-  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   if (CandidateLoops.empty()) {
-    DEBUG(dbgs() << F.getName() << "() has no inner-most loop\n ");
+    LLVM_DEBUG(dbgs() << F.getName() << "() has no inner-most loop\n ");
     return false;
   }
-  // DEBUG(dbgs() << " # Innermost Loops: " << CandidateLoops.size() << "\n");
+  // LLVM_DEBUG(dbgs() << " # Innermost Loops: " << CandidateLoops.size() <<
+  // "\n");
 
-  HDDA = &getAnalysis<HIRDDAnalysis>();
+  HDDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  MRC.HLS = HLS;
   bool Result = false;
 
   for (auto &Lp : CandidateLoops) {
@@ -412,7 +407,7 @@ bool HIRLMM::doLoopMemoryMotion(HLLoop *Lp, HIRDDAnalysis &DDA,
 
 // Conduct ALL HIR-LMM Tests to decide whether the loop is good for LMM
 bool HIRLMM::doAnalysis(HLLoop *Lp, HIRDDAnalysis &DDA, HIRLoopStatistics &LS) {
-  // DEBUG(dbgs() << "Current Loop: \n"; Lp->dump(););
+  // LLVM_DEBUG(dbgs() << "Current Loop: \n"; Lp->dump(););
   clearWorkingSetMemory();
   LoopLevel = Lp->getNestingLevel();
 
@@ -421,22 +416,22 @@ bool HIRLMM::doAnalysis(HLLoop *Lp, HIRDDAnalysis &DDA, HIRLoopStatistics &LS) {
   HNU = &(Lp->getHLNodeUtils());
 
   if (!doLoopPreliminaryChecks(Lp)) {
-    DEBUG(dbgs() << "HIRLMM: failed Loop Preliminary Checks\n";);
+    LLVM_DEBUG(dbgs() << "HIRLMM: failed Loop Preliminary Checks\n";);
     return false;
   }
 
   if (!doCollection(Lp)) {
-    DEBUG(dbgs() << "HIRLMM: failed DoCollection\n");
+    LLVM_DEBUG(dbgs() << "HIRLMM: failed DoCollection\n");
     return false;
   }
 
   if (!isProfitable(Lp)) {
-    DEBUG(dbgs() << "HIRLMM: failed profit test\n");
+    LLVM_DEBUG(dbgs() << "HIRLMM: failed profit test\n");
     return false;
   }
 
   if (!isLegal(Lp)) {
-    DEBUG(dbgs() << "HIRLMM: failed legal test\n");
+    LLVM_DEBUG(dbgs() << "HIRLMM: failed legal test\n");
     return false;
   }
 
@@ -451,7 +446,7 @@ bool HIRLMM::doCollection(HLLoop *Lp) {
   HNU->visitRange(Collector, Lp->getFirstChild(), Lp->getLastChild());
 
   // Examine the collection result
-  // DEBUG(MRC.print(););
+  // LLVM_DEBUG(MRC.print(););
 
   // Analyze each Group inside MRC
   MRC.analyze();
@@ -492,7 +487,7 @@ bool HIRLMM::isLegal(const HLLoop *Lp) {
   }
 
   // Check the MRC after legality analysis
-  // DEBUG(MRC.print(););
+  // LLVM_DEBUG(MRC.print(););
 
   return Result;
 }
@@ -519,7 +514,7 @@ bool HIRLMM::areDDEdgesLegal(const HLLoop *Lp, const RegDDRef *Ref,
   // Load: incoming-edge iterators
   // Store: outgoing-edge iterators
   for (const DDEdge *Edge : (IsLoad ? DDG.incoming(Ref) : DDG.outgoing(Ref))) {
-    DEBUG(Edge->print(dbgs()););
+    LLVM_DEBUG(Edge->print(dbgs()););
 
     // Setup OtherRef
     if (IsLoad) {
@@ -555,11 +550,11 @@ void HIRLMM::doTransform(HLLoop *Lp) {
       continue;
     }
 
-    // DEBUG(MRG.print(true); dbgs() << "Before LIMM on a MRG\n";
+    // LLVM_DEBUG(MRG.print(true); dbgs() << "Before LIMM on a MRG\n";
     // Lp->dump(););
     doLIMMRef(Lp, MRG);
     ++NumLIMM;
-    // DEBUG(dbgs() << "After LIMM on a MRG\n"; Lp->dump(););
+    // LLVM_DEBUG(dbgs() << "After LIMM on a MRG\n"; Lp->dump(););
   }
   HIRLIMMRefPromoted += NumLIMM;
 
@@ -591,7 +586,7 @@ bool HIRLMM::isLoadNeededInPrehder(HLLoop *Lp, MemRefGroup &MRG) {
     }
 
     // If hit a Store (on dominate path) 1st, no need of tmp
-    if (HLNodeUtils::dominates(CurRef->getHLDDNode(), LoopTail, HLS)) {
+    if (HLNodeUtils::dominates(CurRef->getHLDDNode(), LoopTail)) {
       return false;
     }
   }
@@ -625,7 +620,7 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG) {
   bool IsLoadOnly = MRG.isLoadOnly();
 
   // Debug: Examine the Loop BEFORE transformation
-  // DEBUG(Lp->dump(););
+  // LLVM_DEBUG(Lp->dump(););
 
   // *** Prepare LMM for the MRG ***
 
@@ -636,6 +631,9 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG) {
   NeedLoadInPrehdr = isLoadNeededInPrehder(Lp, MRG);
 
   // ### Promote LIMM for the MRG ###
+
+  LoopOptReportBuilder &LORBuilder =
+      Lp->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
   // Create a Load in prehdr if needed
   if (NeedLoadInPrehdr) {
@@ -663,7 +661,7 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG) {
   }
 
   // Debug: Examine the Loop AFTER transformation
-  // DEBUG(Lp->dump(););
+  // LLVM_DEBUG(Lp->dump(););
 }
 
 // Call setDefinedAtLevel(LoopLevel -1) to setLinear on a given RegDDRef*
@@ -685,7 +683,7 @@ void HIRLMM::setLinear(RegDDRef *TmpRef) {
 void HIRLMM::handleInLoopMemRef(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
                                 bool IsLoadOnly) {
   // Debug: Examine the Loop Before processing
-  // DEBUG(Lp->dump(););
+  // LLVM_DEBUG(Lp->dump(););
 
   HLDDNode *DDNode = Ref->getHLDDNode();
   RegDDRef *TmpRefClone = TmpRef->clone();
@@ -731,7 +729,7 @@ void HIRLMM::handleInLoopMemRef(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
 
   // Debug: Examine the Loop again, notice the LIMM promotion(s) for
   // load, store, and binaryOp types
-  // DEBUG(Lp->dump(););
+  // LLVM_DEBUG(Lp->dump(););
 }
 
 // Check if a LoadInst (E.g. t0 = A[0]) exists in Preheader
@@ -750,7 +748,7 @@ HLInst *HIRLMM::findOrCreateLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const {
   RegDDRef *TmpRef = nullptr;
 
   // Debug: Examine the Loop
-  // DEBUG(Lp->dump(););
+  // LLVM_DEBUG(Lp->dump(););
 
   // Check if a LoadInst (E.g. t0 = A[0]) exists in Preheader
   LoadInPrehdr = getLoadInLoopPreheader(Lp, Ref);
@@ -773,7 +771,7 @@ HLInst *HIRLMM::findOrCreateLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const {
   assert(LoadInPrehdr && "LoadInPrehdr can't be null\n");
 
   // Debug: Examine the Loop, notice the temp in prehdr
-  // DEBUG(Lp->dump(););
+  // LLVM_DEBUG(Lp->dump(););
 
   return LoadInPrehdr;
 }
@@ -790,7 +788,7 @@ void HIRLMM::findOrCreateStoreInPostexit(HLLoop *Lp, RegDDRef *Ref,
                                          RegDDRef *TmpRef) const {
   // HLInst *StoreInPostexit = nullptr;
   // Debug: Examine the Loop
-  // DEBUG(Lp->dump(););
+  // LLVM_DEBUG(Lp->dump(););
 
   // Check if a suitable store exists in postexit
   HLInst *StoreInPostexit = getStoreInLoopPostexit(Lp, Ref);
@@ -811,7 +809,7 @@ void HIRLMM::findOrCreateStoreInPostexit(HLLoop *Lp, RegDDRef *Ref,
   }
 
   // Debug: Examine the Loop, notice the tmp in postexit
-  // DEBUG(Lp->dump(););
+  // LLVM_DEBUG(Lp->dump(););
 
   assert(StoreInPostexit && "StoreInPostexit can't be null\n");
 }
@@ -823,7 +821,7 @@ HLInst *HIRLMM::getLoadInLoopPreheader(HLLoop *Lp, RegDDRef *MemRef) const {
     HLInst *HInst = cast<HLInst>(It);
 
     // Examine the HLInst*
-    // DEBUG(HInst->dump(););
+    // LLVM_DEBUG(HInst->dump(););
 
     // Only interested in LoadInst
     const Instruction *LLVMInst = HInst->getLLVMInstruction();
@@ -850,7 +848,7 @@ HLInst *HIRLMM::getStoreInLoopPostexit(HLLoop *Lp, RegDDRef *MemRef) const {
     HLInst *HInst = cast<HLInst>(It);
 
     // Examine the HLInst*
-    // DEBUG(HInst->dump(););
+    // LLVM_DEBUG(HInst->dump(););
 
     // Only interested in StoreInst
     const Instruction *LLVMInst = HInst->getLLVMInstruction();

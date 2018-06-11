@@ -1,6 +1,6 @@
 //===-- HIRTransformPass.h - Base class for HIR transformations -*- C++ -*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -45,14 +45,14 @@ class HIRTransformPass : public FunctionPass {
 public:
   HIRTransformPass(char &ID) : FunctionPass(ID) {}
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// \brief Overrides FunctionPass's printer pass to return one which prints
   /// HIR instead of LLVM IR.
   FunctionPass *createPrinterPass(raw_ostream &OS,
                                   const std::string &Banner) const override {
     return createHIRPrinterPass(OS, Banner);
   }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 };
 
 } // End namespace loopopt

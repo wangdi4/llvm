@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/Intel_WP.h" // INTEL
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/CodeGen/CommandFlags.inc"
@@ -204,8 +205,6 @@ namespace options {
   static bool new_pass_manager = false;
   // Debug new pass manager
   static bool debug_pass_manager = false;
-  // Objcopy for debug fission.
-  static std::string objcopy;
   // Directory to store the .dwo files.
   static std::string dwo_dir;
   /// Statistics output filename.
@@ -281,8 +280,6 @@ namespace options {
       new_pass_manager = true;
     } else if (opt == "debug-pass-manager") {
       debug_pass_manager = true;
-    } else if (opt.startswith("objcopy=")) {
-      objcopy = opt.substr(strlen("objcopy="));
     } else if (opt.startswith("dwo_dir=")) {
       dwo_dir = opt.substr(strlen("dwo_dir="));
     } else if (opt.startswith("opt-remarks-filename=")) {
@@ -348,6 +345,9 @@ ld_plugin_status onload(ld_plugin_tv *tv) {
         break;
       case LDPO_EXEC: // .exe
         IsExecutable = true;
+#if INTEL_CUSTOMIZATION
+        SetLinkingExecutable(true);
+#endif // INTEL_CUSTOMIZATION
         RelocationModel = Reloc::Static;
         break;
       default:
@@ -722,6 +722,10 @@ static void addModule(LTO &Lto, claimed_file &F, const void *View,
 
     ResolutionInfo &Res = ResInfo[Sym.name];
 
+#if INTEL_CUSTOMIZATION
+    R.ResolvedByLinker = Resolution != LDPR_UNDEF;
+#endif // INTEL_CUSTOMIZATION
+
     switch (Resolution) {
     case LDPR_UNKNOWN:
       llvm_unreachable("Unexpected resolution");
@@ -904,8 +908,6 @@ static std::unique_ptr<LTO> createLTO(IndexWriteCallback OnIndexWrite,
     Conf.SampleProfile = options::sample_profile;
 
   Conf.DwoDir = options::dwo_dir;
-
-  Conf.Objcopy = options::objcopy;
 
   // Set up optimization remarks handling.
   Conf.RemarksFilename = options::OptRemarksFilename;

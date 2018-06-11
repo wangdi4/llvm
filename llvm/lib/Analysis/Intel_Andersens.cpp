@@ -535,14 +535,14 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
 
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa-constraints"
-  DEBUG(PrintConstraints());
+  LLVM_DEBUG(PrintConstraints());
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa"
 
   OptimizeConstraints();
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa-constraints"
-      DEBUG(PrintConstraints());
+  LLVM_DEBUG(PrintConstraints());
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa"
 
@@ -561,7 +561,7 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   }
 
   SolveConstraints();
-  DEBUG(PrintPointsToGraph());
+  LLVM_DEBUG(PrintPointsToGraph());
   if (PrintAndersPointsTo) {
       errs() << " Points-to Graph Dump" << "\n";
       PrintPointsToGraph();
@@ -655,10 +655,18 @@ AndersensAAResult AndersensAA::run(Module &M, ModuleAnalysisManager &AM) {
 
 char AndersensAAWrapperPass::ID = 0;
 
+static cl::opt<unsigned> MaxAliasQuery(
+    "max-alias-query", cl::ReallyHidden,
+    cl::desc("This option should be used only with debug compiler. It helps to "
+             "debug any stability issues in AndersensAA by limiting the number "
+             "of alias queries."),
+    cl::init(std::numeric_limits<unsigned>::max()));
 static cl::opt<unsigned>
-MaxAliasQuery("max-alias-query", cl::ReallyHidden, cl::init(40000000));
-static cl::opt<unsigned>
-MaxPtrQuery("max-ptr-query", cl::ReallyHidden, cl::init(4000));
+    MaxPtrQuery("max-ptr-query", cl::ReallyHidden,
+                cl::desc("This option should be used only with debug compiler. "
+                         "It helps to debug any stability issues in "
+                         "AndersensAA by limiting the number of ptr queries."),
+                cl::init(std::numeric_limits<unsigned>::max()));
 
 INITIALIZE_PASS_BEGIN(AndersensAAWrapperPass, "anders-aa",
                    "Andersen Interprocedural AA", false, true)
@@ -825,15 +833,14 @@ static bool isAllUsesOfNoAliasPtrTracked(const Value *V1, const Value *V2) {
     const Instruction *Inst = cast<Instruction>(U);
     // For now, ignore complex GetElementPtr by limiting number of
     // operands.
-    if (!isa<GetElementPtrInst>(Inst) || Inst->getNumOperands() >= 3)
-      return false;
-
-    const GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(U);
+    if (!isa<AddressInst>(Inst))
+      if (!isa<GetElementPtrInst>(Inst) || Inst->getNumOperands() >= 3)
+        return false;
 
     // Check all uses of GetElementPtr are not escaped
-    for (const User *U1 : GEPI->users()) {
+    for (const User *U1 : U->users()) {
       const Value* AU = &*U1;
-      if (PtrUseMayBeEcaped(AU, GEPI))
+      if (PtrUseMayBeEcaped(AU, U))
         return false;
     }
   }
@@ -974,12 +981,26 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
 }
 
 // Get a printable name for the ModRef result.
-static const char* getModRefResultStr(ModRefInfo R)
-{
-  const char *Names[] = { "NoModRef", "Ref", "Mod", "ModRef" };
-
-  assert(R >= ModRefInfo::NoModRef && R <= ModRefInfo::ModRef);
-  return Names[static_cast<int>(R)];
+static const char *getModRefResultStr(ModRefInfo R) {
+  switch (R) {
+  case ModRefInfo::Must:
+    return "Must";
+  case ModRefInfo::MustRef:
+    return "MustRef";
+  case ModRefInfo::MustMod:
+    return "MustMod";
+  case ModRefInfo::MustModRef:
+    return "MustModRef";
+  case ModRefInfo::NoModRef:
+    return "NoModRef";
+  case ModRefInfo::Ref:
+    return "Ref";
+  case ModRefInfo::Mod:
+    return "Mod";
+  case ModRefInfo::ModRef:
+    return "ModRef";
+  }
+  llvm_unreachable("Unknown ModRef result!");
 }
 
 ModRefInfo
@@ -1182,9 +1203,8 @@ bool AndersensAAResult::analyzeGlobalEscape(
         if (analyzeGlobalEscape(I, PhiUsers, 
                                 SingleAcessingFunction))
           return true;
-      } else if (isa<GetElementPtrInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, 
-                                SingleAcessingFunction))
+      } else if (isa<GetElementPtrInst>(I) || isa<AddressInst>(I)) {
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
           return true;
       } else if (isa<SelectInst>(I)) {
         if (analyzeGlobalEscape(I, PhiUsers, 
@@ -1926,6 +1946,13 @@ void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   //errs() << "GetElementPtr: " << GEP << "\n";
   CreateConstraint(Constraint::Copy, getNodeValue(GEP),
                    getNode(GEP.getOperand(0)));
+}
+
+// Compare with visitGetElementPtrInst.
+void AndersensAAResult::visitAddressInst(AddressInst &I) {
+  // P1 = @llvm.intel.subscript P2, ... --> <Copy/P1/P2>
+  CreateConstraint(Constraint::Copy, getNodeValue(I),
+                   getNode(I.getPointerOperand()));
 }
 
 void AndersensAAResult::visitPHINode(PHINode &PN) {
@@ -2755,12 +2782,12 @@ void AndersensAAResult::RewriteConstraints() {
     // First we try to eliminate constraints for things we can prove don't point
     // to anything.
     if (LHSLabel == 0) {
-      DEBUG(PrintNode(&GraphNodes[LHSNode]));
+      LLVM_DEBUG(PrintNode(&GraphNodes[LHSNode]));
       //errs() << " is a non-pointer, ignoring constraint.\n";
       continue;
     }
     if (RHSLabel == 0) {
-      DEBUG(PrintNode(&GraphNodes[RHSNode]));
+      LLVM_DEBUG(PrintNode(&GraphNodes[RHSNode]));
       //errs() << " is a non-pointer, ignoring constraint.\n";
       continue;
     }
@@ -2993,7 +3020,7 @@ void AndersensAAResult::OptimizeConstraints() {
   }
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa-labels"
-  DEBUG(PrintLabels());
+  LLVM_DEBUG(PrintLabels());
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa"
   RewriteConstraints();
@@ -3014,7 +3041,7 @@ void AndersensAAResult::OptimizeConstraints() {
   HU();
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa-labels"
-  DEBUG(PrintLabels());
+  LLVM_DEBUG(PrintLabels());
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa"
   RewriteConstraints();
@@ -3678,11 +3705,11 @@ unsigned AndersensAAResult::UniteNodes(unsigned First, unsigned Second,
   SecondNode->OldPointsTo = nullptr;
 
   NumUnified++;
-  //errs() << "Unified Node ";
-  //DEBUG(PrintNode(FirstNode));
-  //errs() << " and Node ";
-  //DEBUG(PrintNode(SecondNode));
-  //errs() << "\n";
+  // errs() << "Unified Node ";
+  // LLVM_DEBUG(PrintNode(FirstNode));
+  // errs() << " and Node ";
+  // LLVM_DEBUG(PrintNode(SecondNode));
+  // errs() << "\n";
 
   if (SDTActive)
     if (SDT[Second] >= 0) {

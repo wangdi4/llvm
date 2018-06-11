@@ -51,13 +51,11 @@
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
-#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
-#include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
@@ -67,13 +65,17 @@
 #endif // INTEL_INCLUDE_DTRANS
 #endif //INTEL_CUSTOMIZATION
 
+#if INTEL_COLLAB
+#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
+#endif // INTEL_COLLAB
+
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool>
 EarlyJumpThreading("early-jump-threading", cl::init(true), cl::Hidden,
                    cl::desc("Run the early jump threading pass"));
-
 static cl::opt<bool>
 EnableLV("enable-lv", cl::init(false), cl::Hidden,
          cl::desc("Enable community loop vectorizer"));
@@ -130,22 +132,10 @@ static cl::opt<bool> EnableLoopInterchange(
     "enable-loopinterchange", cl::init(false), cl::Hidden,
     cl::desc("Enable the new, experimental LoopInterchange Pass"));
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
 static cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
                                    cl::Hidden, cl::desc("Runs all VPO passes"));
-
-static cl::opt<bool> RunVPOVecopt("vecopt",
-  cl::init(false), cl::Hidden,
-  cl::desc("Run VPO Vecopt Pass"));
-
-static cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(false),
-                                       cl::Hidden,
-                                       cl::desc("Enable VPlan Driver"));
-
-static cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(true),
-                                       cl::Hidden,
-                                       cl::desc("Enable VPlan Driver"));
 
 // The user can use -mllvm -paropt=<mode> to enable various paropt
 // transformations, where <mode> is a bit vector (see enum VPOParoptMode
@@ -159,11 +149,28 @@ static cl::list<std::string> VPOOffloadTargets("offload-targets",
   cl::value_desc("target triples"),
   cl::desc("Comma-separated list of target triples for offloading."),
   cl::CommaSeparated, cl::Hidden);
+#endif // INTEL_COLLAB
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> RunVPOVecopt("vecopt",
+  cl::init(false), cl::Hidden,
+  cl::desc("Run VPO Vecopt Pass"));
+
+static cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(false),
+                                       cl::Hidden,
+                                       cl::desc("Enable VPlan Driver"));
 
 static cl::opt<bool> RunVecClone("enable-vec-clone",
   cl::init(false), cl::Hidden,
   cl::desc("Run Vector Function Cloning"));
 
+static cl::opt<bool> RunMapIntrinToIml("enable-iml-trans",
+  cl::init(true), cl::Hidden,
+  cl::desc("Map vectorized math intrinsic calls to svml/libm."));
+
+static cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(true),
+                                       cl::Hidden,
+                                       cl::desc("Enable VPlan Driver"));
 // INTEL - HIR passes
 static cl::opt<bool> RunLoopOpts("loopopt", cl::init(true), cl::Hidden,
                                  cl::desc("Runs loop optimization passes"));
@@ -195,10 +202,6 @@ static cl::opt<bool> EnableTbaaProp("enable-tbaa-prop", cl::init(true),
 static cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true),
     cl::Hidden, cl::desc("Enable Andersen's Alias Analysis"));
 
-static cl::opt<bool> RunMapIntrinToIml("enable-iml-trans",
-  cl::init(true), cl::Hidden,
-  cl::desc("Map vectorized math intrinsic calls to svml/libm."));
-
 // Indirect call Conv
 static cl::opt<bool> EnableIndirectCallConv("enable-ind-call-conv",
     cl::init(true), cl::Hidden, cl::desc("Enable Indirect Call Conv"));
@@ -210,6 +213,10 @@ static cl::opt<bool> EnableWPA("enable-whole-program-analysis",
 // IP Cloning
 static cl::opt<bool> EnableIPCloning("enable-ip-cloning",
     cl::init(true), cl::Hidden, cl::desc("Enable IP Cloning"));
+
+// Call Tree Cloning
+static cl::opt<bool> EnableCallTreeCloning("enable-call-tree-cloning",
+    cl::init(false), cl::Hidden, cl::desc("Enable Call Tree Cloning"));
 
 // Inline Aggressive Analysis
 static cl::opt<bool>
@@ -309,8 +316,10 @@ PassManagerBuilder::PassManagerBuilder() {
     DivergentTarget = false;
 #if INTEL_CUSTOMIZATION
     DisableIntelProprietaryOpts = false;
-    OffloadTargets = VPOOffloadTargets;
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+    OffloadTargets = VPOOffloadTargets;
+#endif // INTEL_COLLAB
 }
 
 PassManagerBuilder::~PassManagerBuilder() {
@@ -401,7 +410,9 @@ void PassManagerBuilder::populateFunctionPassManager(
 
 #if INTEL_CUSTOMIZATION
   FPM.add(createXmainOptLevelWrapperPass(OptLevel));
-  if (RunVPOOpt && RunVPOParopt && !DisableIntelProprietaryOpts) {
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  if (RunVPOOpt && RunVPOParopt) {
     FPM.add(createVPOCFGRestructuringPass());
     FPM.add(createVPOParoptPreparePass(RunVPOParopt, OffloadTargets));
     if (OptLevel == 0) {
@@ -419,7 +430,7 @@ void PassManagerBuilder::populateFunctionPassManager(
       FPM.add(createCFGSimplificationPass());
     }
   }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   if (OptLevel == 0) return;
 
@@ -554,7 +565,19 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     MPM.add(NewGVN ? createNewGVNPass()
                    : createGVNPass(DisableGVNLoadPRE)); // Remove redundancies
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  // Skip MemCpyOpt when PrepareForLTO and EnableDTrans both flags are
+  // true to simplify handling of memcpy/memset/memmov calls in DTrans
+  // implementation.
+  // TODO: Remove this customization once DTrans handled partial memcpy/
+  // memset/memmov calls of struct types.
+  if (!PrepareForLTO || !EnableDTrans)
+    MPM.add(createMemCpyOptPass());           // Remove memcpy / form memset
+#else
   MPM.add(createMemCpyOptPass());             // Remove memcpy / form memset
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
   MPM.add(createSCCPPass());                  // Constant prop with SCCP
 
   // Delete dead bit computations (instcombine runs after to fold away the dead
@@ -632,23 +655,25 @@ void PassManagerBuilder::populateModulePassManager(
     // new unnamed globals.
     if (PrepareForThinLTO)
       MPM.add(createNameAnonGlobalPass());
-#if INTEL_CUSTOMIZATION
-    if (RunVPOOpt && !DisableIntelProprietaryOpts) {
+#if INTEL_COLLAB
+    if (RunVPOOpt) {
+      #if INTEL_CUSTOMIZATION
       if (RunVecClone) {
         MPM.add(createVecClonePass());
       }
+      #endif // INTEL_CUSTOMIZATION
       // Process OpenMP directives at -O0
       addVPOPasses(MPM, true);
     }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
     return;
   }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   // Process OpenMP directives at -O1 and above
-  if (RunVPOOpt == InvokeParoptBeforeInliner && !DisableIntelProprietaryOpts)
+  if (RunVPOOpt == InvokeParoptBeforeInliner)
     addVPOPasses(MPM, false);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   // Add LibraryInfo if we have some.
   if (LibraryInfo)
@@ -725,11 +750,11 @@ void PassManagerBuilder::populateModulePassManager(
     RunInliner = true;
   }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   // Process OpenMP directives at -O1 and above
-  if (RunVPOOpt == InvokeParoptAfterInliner && !DisableIntelProprietaryOpts)
+  if (RunVPOOpt == InvokeParoptAfterInliner)
     addVPOPasses(MPM, false);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   MPM.add(createPostOrderFunctionAttrsLegacyPass());
   if (OptLevel > 2)
     MPM.add(createArgumentPromotionPass()); // Scalarize uninlined fn args
@@ -1072,9 +1097,17 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableAndersen) {
     PM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
   }
-  if (EnableIndirectCallConv && EnableAndersen) {
-    PM.add(createIndirectCallConvLegacyPass()); // Indirect Call Conv
+#if INTEL_ENABLE_DTRANS
+  if (EnableIndirectCallConv && (EnableAndersen || EnableDTrans)) {
+    PM.add(createIndirectCallConvLegacyPass(EnableAndersen, EnableDtrans));
+        // Indirect Call Conv
   }
+#else
+  if (EnableIndirectCallConv && EnableAndersen) {
+    PM.add(createIndirectCallConvLegacyPass(EnableAndersen, false));
+        // Indirect Call Conv
+  }
+#endif // INTEL_ENABLE_DTRANS
   if (EnableInlineAggAnalysis) {
     PM.add(createInlineAggressiveWrapperPassPass()); // Aggressive Inline
   }
@@ -1093,9 +1126,13 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createGlobalOptimizerPass());
 
 #if INTEL_CUSTOMIZATION
-  if (EnableIPCloning) {
-    // Enable generic IPCloning after Inlining.
-    PM.add(createIPCloningLegacyPass(true));
+  if (EnableIPCloning || EnableCallTreeCloning) {
+    if (EnableIPCloning)
+      // Enable generic IPCloning after Inlining.
+      PM.add(createIPCloningLegacyPass(true));
+    if (EnableCallTreeCloning)
+      // Do function cloning along call trees
+      PM.add(createCallTreeCloningPass());
     // Call IPCP to propagate constants
     PM.add(createIPSCCPPass());
   }
@@ -1202,6 +1239,27 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
     PM.add(createMergeFunctionsPass());
 }
 
+#if INTEL_COLLAB
+void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
+                                      bool RunVec) const {
+  if (RunVPOParopt) {
+    PM.add(createVPOCFGRestructuringPass());
+    PM.add(createVPOParoptPass(RunVPOParopt, OffloadTargets));
+  }
+  #if INTEL_CUSTOMIZATION // TODO: VEC to COLLAB
+  // TODO: Temporal hook-up for VPlan VPO Vectorizer
+  if (EnableVPlanDriver && RunVec) {
+    PM.add(createVPOCFGRestructuringPass());
+    PM.add(createVPlanDriverPass());
+  }
+  if (RunVPOVecopt && RunVec) {
+    PM.add(createVPOCFGRestructuringPass());
+    PM.add(createVPODriverPass());
+  }
+  #endif // INTEL_CUSTOMIZATION
+}
+#endif // INTEL_COLLAB
+
 #if INTEL_CUSTOMIZATION // HIR passes
 
 bool PassManagerBuilder::isLoopOptEnabled() const {
@@ -1273,6 +1331,8 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       PM.add(createHIRArrayTransposePass());
     }
 
+    PM.add(createHIRDeadStoreEliminationPass());
+
     // TODO: refine cost model for individual transformations for code size.
     if (SizeLevel == 0) {
       // If VPO is disabled, we don't have to insert ParVec directives.
@@ -1327,32 +1387,6 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   PM.add(createHIRCodeGenWrapperPass());
 
   addLoopOptCleanupPasses(PM);
-}
-
-void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
-                                      bool RunVec) const {
-  // We should never get here if proprietary options are disabled,
-  // but it's a release-mode feature so we can't just assert.
-  if (DisableIntelProprietaryOpts)
-    return;
-
-  if (RunVPOParopt) {
-    PM.add(createVPOCFGRestructuringPass());
-    PM.add(createVPOParoptPass(RunVPOParopt, OffloadTargets));
-  }
-  // TODO: Temporal hook-up for VPlan VPO Vectorizer
-  if (EnableVPlanDriver && RunVec) {
-    // We are using the loop vectorize pass to generate tests for VPlan LLVM IR
-    // path. Do not use EnableLV to check if loop vectorize pass needs to be
-    // created.
-    PM.add(createLoopVectorizePass(true, LoopVectorize, true));
-    PM.add(createVPOCFGRestructuringPass());
-    PM.add(createVPlanDriverPass());
-  }
-  if (RunVPOVecopt && RunVec) {
-    PM.add(createVPOCFGRestructuringPass());
-    PM.add(createVPODriverPass());
-  }
 }
 
 void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(

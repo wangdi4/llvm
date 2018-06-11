@@ -140,7 +140,7 @@ struct HIRRuntimeDD::MemoryAliasAnalyzer final : public HLNodeVisitorBase {
 
   void visit(HLLoop *Loop) {
     LoopContext Context;
-    DEBUG(dbgs() << "Runtime DD for loop " << Loop->getNumber() << ":\n");
+    LLVM_DEBUG(dbgs() << "Runtime DD for loop " << Loop->getNumber() << ":\n");
 
     RuntimeDDResult Result = RDD->computeTests(Loop, Context);
     bool IsInnermost = Loop->isInnermost();
@@ -158,8 +158,8 @@ struct HIRRuntimeDD::MemoryAliasAnalyzer final : public HLNodeVisitorBase {
       SkipNode = Loop;
     }
 
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: [RTDD] Loop " << Loop->getNumber()
-                 << ": " << HIRRuntimeDD::getResultString(Result) << "\n");
+    LLVM_DEBUG(dbgs() << "LOOPOPT_OPTREPORT: [RTDD] Loop " << Loop->getNumber()
+                      << ": " << HIRRuntimeDD::getResultString(Result) << "\n");
   }
 
   bool skipRecursion(const HLNode *N) const { return N == SkipNode; }
@@ -435,9 +435,8 @@ void IVSegment::replaceIVWithBounds(const HLLoop *Loop,
 
 char HIRRuntimeDD::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
-INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
 
@@ -495,7 +494,7 @@ bool HIRRuntimeDD::isProfitable(const HLLoop *Loop) {
 
   const LoopStatistics &LS = HLS->getSelfLoopStatistics(Loop);
 
-  return (!LS.hasCalls() && !LS.hasSwitches() && !LS.hasIfs());
+  return (!LS.hasCalls() && !LS.hasSwitches());
 }
 
 void HIRRuntimeDD::processLoopnest(const HLLoop *OuterLoop,
@@ -652,16 +651,16 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   MemRefGatherer::VectorTy Refs;
   SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> Tests;
 
-  auto &DDA = getAnalysis<HIRDDAnalysis>();
+  auto &DDA = getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   DDGraph DDG = DDA.getGraph(Loop);
-  DEBUG(dbgs() << "Loop DDG:\n");
-  DEBUG(DDG.dump());
+  LLVM_DEBUG(dbgs() << "Loop DDG:\n");
+  LLVM_DEBUG(DDG.dump());
 
   // Gather references which are only inside a loop, excepting loop bounds,
   // pre-header and post-exit.
   MemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), Refs);
-  DEBUG(dbgs() << "Loop references:\n");
-  DEBUG(MemRefGatherer::dump(Refs));
+  LLVM_DEBUG(dbgs() << "Loop references:\n");
+  LLVM_DEBUG(MemRefGatherer::dump(Refs));
 
   for (RegDDRef *SrcRef : Refs) {
     unsigned GroupA = findAndGroup(Groups, SrcRef);
@@ -696,7 +695,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     std::sort(Group.begin(), Group.end(), DDRefUtils::compareMemRef);
   }
 
-  DEBUG(DDRefGrouping::dump(Groups));
+  LLVM_DEBUG(DDRefGrouping::dump(Groups));
 
   unsigned GroupSize = Groups.size();
 
@@ -797,8 +796,7 @@ static void applyForLoopnest(HLLoop *OuterLoop, FuncTy Func) {
   }
 }
 
-void HIRRuntimeDD::generateDDTest(LoopContext &Context,
-                                  LoopOptReportBuilder &LORBuilder) {
+void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   Context.Loop->extractZtt();
   Context.Loop->extractPreheaderAndPostexit();
 
@@ -829,6 +827,10 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context,
 
   HLLoop *ModifiedLoop = Context.Loop;
   HLLoop *OrigLoop = Context.Loop->clone(&LoopMapper);
+
+  LoopOptReportBuilder &LORBuilder =
+      ModifiedLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
   LORBuilder(*ModifiedLoop).addOrigin("Multiversioned loop");
   LORBuilder(*OrigLoop).addRemark(OptReportVerbosity::Low,
                                   "The loop has been multiversioned");
@@ -931,10 +933,7 @@ bool HIRRuntimeDD::runOnFunction(Function &F) {
   auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   auto &HNU = HIRF.getHLNodeUtils();
 
-  auto &OROP = getAnalysis<OptReportOptionsPass>();
-  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
-
-  DEBUG(dbgs() << "HIRRuntimeDD for function: " << F.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "HIRRuntimeDD for function: " << F.getName() << "\n");
 
   // Multiversion for memory aliasing.
   MemoryAliasAnalyzer AliasAnalyzer(this);
@@ -942,7 +941,7 @@ bool HIRRuntimeDD::runOnFunction(Function &F) {
 
   if (AliasAnalyzer.LoopContexts.size() != 0) {
     for (LoopContext &Candidate : AliasAnalyzer.LoopContexts) {
-      generateDDTest(Candidate, LORBuilder);
+      generateDDTest(Candidate);
     }
   }
 

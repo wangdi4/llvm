@@ -99,6 +99,16 @@ FunctionPass *createGuardWideningPass();
 
 //===----------------------------------------------------------------------===//
 //
+// LoopGuardWidening - Analogous to the GuardWidening pass, but restricted to a
+// single loop at a time for use within a LoopPassManager.  Desired effect is
+// to widen guards into preheader or a single guard within loop if that's not
+// possible.
+//
+Pass *createLoopGuardWideningPass();
+
+
+//===----------------------------------------------------------------------===//
+//
 // BitTrackingDCE - This pass uses a bit-tracking DCE algorithm in order to
 // remove computations of dead bits.
 //
@@ -235,6 +245,9 @@ FunctionPass *createJumpThreadingPass(int Threshold = -1,
 // scope global variables into the registers.
 FunctionPass *createNonLTOGlobalOptimizerPass();
 
+// RemoveRegionDirectivesLegacyPass is a pass which removes region directives.
+FunctionPass *createRemoveRegionDirectivesLegacyPass();
+
 // StdContainerOptPass is a pass which generates the std container
 // metadata based on the analysis of std container intrinisc.
 FunctionPass *createStdContainerOptPass();
@@ -248,8 +261,9 @@ FunctionPass *createTbaaMDPropagationLegacyPass();
 FunctionPass *createCleanupFakeLoadsPass();
 
 // IndirectCallConv - Converts indirect calls to direct calls using
-// points-to info if possible 
-FunctionPass *createIndirectCallConvLegacyPass();
+// points-to info and/or DTrans Field Single Value Info if possible
+FunctionPass *createIndirectCallConvLegacyPass(bool UseAndersen = false,
+                                               bool UseDTrans = false);
 
 // VPOParoptTpv - Supports the thread private legacy mode.
 ModulePass *createVPOParoptTpvPass();
@@ -404,6 +418,12 @@ FunctionPass *createLowerExpectIntrinsicPass();
 //
 // LowerSubscriptIntrinsics - Removes llvm.intel.subscript intrinsics.
 FunctionPass *createLowerSubscriptIntrinsicLegacyPass();
+
+//===----------------------------------------------------------------------===//
+//
+// ConvertGEPtoSubscriptIntrinsic - Converts getelementptr to
+// llvm.intel.subscript intrinsics.
+FunctionPass *createConvertGEPToSubscriptIntrinsicLegacyPass();
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

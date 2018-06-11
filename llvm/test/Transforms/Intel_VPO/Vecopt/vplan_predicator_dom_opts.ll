@@ -68,9 +68,17 @@
 ; BB15
 
 
+
+
+source_filename = "none"
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+; Function Attrs: noinline nounwind uwtable
+define void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b, i32* noalias nocapture %c, i32 %N) local_unnamed_addr #0 {
 ; NOOPT: [[loop_23:loop[0-9]+]]:
 ; NOOPT:   [[BB_18:BB[0-9]+]]:
-; NOOPT:     [[BP_27:BP[0-9]+]] = 
+; NOOPT:     [[BP_27:BP[0-9]+]] =
 ; NOOPT:   [[BB_2:BB[0-9]+]]:
 ; NOOPT:     [[BP_28:BP[0-9]+]] = [[BP_27]]
 ; NOOPT:   [[region_24:region[0-9]+]]:
@@ -162,14 +170,6 @@
 ; OPT:   [[region_24]]:
 ; OPT:   [[BB_22:BB[0-9]+]]:
 ; OPT:   [[BB_17:BB[0-9]+]]:
-
-
-source_filename = "none"
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
-
-; Function Attrs: noinline nounwind uwtable
-define void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b, i32* noalias nocapture %c, i32 %N) local_unnamed_addr #0 {
 entry:
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
   tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")

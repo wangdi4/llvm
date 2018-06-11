@@ -1,4 +1,6 @@
 ; RUN: opt < %s -basicaa -gvn -dse -S | FileCheck %s
+; INTEL
+; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -gvn -dse -S | FileCheck --check-prefix=CHECK-SUBS %s
 target datalayout = "E-p:64:64:64-a0:0:8-f32:32:32-f64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-v64:64:64-v128:128:128"
 
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture)
@@ -36,15 +38,21 @@ define i8 @test1() {
 
 define i8 @test2(i8* %P) {
 ; CHECK-LABEL: @test2
+; INTEL
+; CHECK-SUBS-LABEL: @test2
   %P2 = getelementptr i8, i8* %P, i32 127
   store i8 1, i8* %P2  ;; Not dead across memset
   call void @llvm.memset.p0i8.i8(i8* %P, i8 2, i8 127, i1 false)
   %A = load i8, i8* %P2
   ret i8 %A
 ; CHECK: ret i8 1
+; INTEL
+; CHECK-SUBS: ret i8 1
 }
 
 define i8 @test2a(i8* %P) {
+; INTEL
+; Explicit offset, not suitable for llvm.intel.subscript
 ; CHECK-LABEL: @test2
   %P2 = getelementptr i8, i8* %P, i32 126
 
@@ -59,6 +67,8 @@ define i8 @test2a(i8* %P) {
 }
 
 define void @test3(i8* %P, i8 %X) {
+; INTEL
+; Explicit offset, not suitable for llvm.intel.subscript
 ; CHECK-LABEL: @test3
 ; CHECK-NOT: store
 ; CHECK-NOT: %Y
@@ -75,6 +85,8 @@ define void @test3(i8* %P, i8 %X) {
 }
 
 define void @test3a(i8* %P, i8 %X) {
+; INTEL
+; Explicit offset, not suitable for llvm.intel.subscript
 ; CHECK-LABEL: @test3a
   %Y = add i8 %X, 1     ;; Dead, because the only use (the store) is dead.
 
@@ -143,6 +155,11 @@ entry:
 ; CHECK: store i32 0
 ; CHECK: call void @test7decl
 ; CHECK: load i32, i32*
+; INTEL
+; CHECK-SUBS-LABEL: @test7(
+; CHECK-SUBS: store i32 0
+; CHECK-SUBS: call void @test7decl
+; CHECK-SUBS: load i32, i32*
 }
 
 ;; Check that aa correctly handles functions marked with argmemonly

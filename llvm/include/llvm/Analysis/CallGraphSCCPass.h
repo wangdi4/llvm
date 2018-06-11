@@ -36,12 +36,12 @@ class CallGraphSCCPass : public Pass {
 public:
   explicit CallGraphSCCPass(char &pid) : Pass(PT_CallGraphSCC, pid) {}
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   /// createPrinterPass - Get a pass that prints the Module
   /// corresponding to a CallGraph.
   Pass *createPrinterPass(raw_ostream &OS,
                           const std::string &Banner) const override;
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   using llvm::Pass::doInitialization;
   using llvm::Pass::doFinalization;

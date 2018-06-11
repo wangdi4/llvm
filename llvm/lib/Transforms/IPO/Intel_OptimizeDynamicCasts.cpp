@@ -38,8 +38,8 @@ STATISTIC(OptimizedCounter, "Count of dynamic_cast calls optimized");
 static bool isTypeInfoGlobalForFinalClass(GlobalVariable *TypeInfoGlobal) {
   assert(TypeInfoGlobal && "Expected non-null pointer to type_info!");
 
-  DEBUG(dbgs() << "Analysis of type_info:"
-               << "  " << TypeInfoGlobal->getName() << "\n");
+  LLVM_DEBUG(dbgs() << "Analysis of type_info:"
+                    << "  " << TypeInfoGlobal->getName() << "\n");
   // Even when whole program is detected there could be library classes from
   // standard header files with descedants in some other parts of library.
   // In this case all information will be available for the linker, so we
@@ -50,7 +50,7 @@ static bool isTypeInfoGlobalForFinalClass(GlobalVariable *TypeInfoGlobal) {
   // linkage type is not internal then we could not say that a class is
   // final.
   if (!TypeInfoGlobal->hasInternalLinkage()) {
-    DEBUG(dbgs() << "Has not internal linkage. Could be NOT FINAL.\n\n");
+    LLVM_DEBUG(dbgs() << "Has not internal linkage. Could be NOT FINAL.\n\n");
     return false;
   }
 
@@ -88,9 +88,9 @@ static bool isTypeInfoGlobalForFinalClass(GlobalVariable *TypeInfoGlobal) {
   for (auto U1 : TypeInfoGlobal->users()) {
     auto BitCastExpr = dyn_cast<ConstantExpr>(U1);
     if (!BitCastExpr || !BitCastExpr->isCast()) {
-      DEBUG(dbgs() << "Found unexpected user: " << *U1 << "\n");
-      DEBUG(dbgs() << "So class could be NOT FINAL."
-                   << "\n\n");
+      LLVM_DEBUG(dbgs() << "Found unexpected user: " << *U1 << "\n");
+      LLVM_DEBUG(dbgs() << "So class could be NOT FINAL."
+                        << "\n\n");
       return false;
     }
 
@@ -101,9 +101,9 @@ static bool isTypeInfoGlobalForFinalClass(GlobalVariable *TypeInfoGlobal) {
         continue;
 
       if (!isa<Constant>(U2)) {
-        DEBUG(dbgs() << "Found unexpected user: " << *U2 << "\n");
-        DEBUG(dbgs() << "So class could be NOT FINAL."
-                     << "\n\n");
+        LLVM_DEBUG(dbgs() << "Found unexpected user: " << *U2 << "\n");
+        LLVM_DEBUG(dbgs() << "So class could be NOT FINAL."
+                          << "\n\n");
         return false;
       }
 
@@ -114,19 +114,19 @@ static bool isTypeInfoGlobalForFinalClass(GlobalVariable *TypeInfoGlobal) {
       for (auto U3 : U2->users()) {
         if (!isa<Constant>(U3)) {
           // We don't know what is it.
-          DEBUG(dbgs() << "Found unexpected user: " << *U1 << "\n");
-          DEBUG(dbgs() << "So class could be NOT FINAL."
-                       << "\n\n");
+          LLVM_DEBUG(dbgs() << "Found unexpected user: " << *U1 << "\n");
+          LLVM_DEBUG(dbgs() << "So class could be NOT FINAL."
+                            << "\n\n");
           return false;
         }
 
         if (isa<GlobalVariable>(U3)) {
           // Here we found the user which is another type_info or some unknown
           // user. In both cases we could not say that class is final.
-          DEBUG(dbgs() << "Found the user which is likely type_info: " << *U3
-                       << "\n");
-          DEBUG(dbgs() << "So class could be NOT FINAL."
-                       << "\n\n");
+          LLVM_DEBUG(dbgs() << "Found the user which is likely type_info: "
+                            << *U3 << "\n");
+          LLVM_DEBUG(dbgs() << "So class could be NOT FINAL."
+                            << "\n\n");
           return false;
         }
 
@@ -134,10 +134,11 @@ static bool isTypeInfoGlobalForFinalClass(GlobalVariable *TypeInfoGlobal) {
         for (auto U4 : U3->users()) {
           auto TI = dyn_cast<GlobalVariable>(U4);
           if (!TI) {
-            DEBUG(dbgs() << "Expected virtual table but found something else: "
-                         << *U4 << "\n");
-            DEBUG(dbgs() << "So class could be NOT FINAL."
-                         << "\n\n");
+            LLVM_DEBUG(dbgs()
+                       << "Expected virtual table but found something else: "
+                       << *U4 << "\n");
+            LLVM_DEBUG(dbgs() << "So class could be NOT FINAL."
+                              << "\n\n");
             return false;
           }
           if (TI->hasMetadata() &&
@@ -146,18 +147,18 @@ static bool isTypeInfoGlobalForFinalClass(GlobalVariable *TypeInfoGlobal) {
             continue;
           } else {
             // We don't know what is it.
-            DEBUG(dbgs() << "Found unexpected user: " << *U4 << "\n");
-            DEBUG(dbgs() << "So class could be NOT FINAL."
-                         << "\n\n");
+            LLVM_DEBUG(dbgs() << "Found unexpected user: " << *U4 << "\n");
+            LLVM_DEBUG(dbgs() << "So class could be NOT FINAL."
+                              << "\n\n");
             return false;
           }
         }
       }
     }
   }
-  DEBUG(dbgs() << "There are no users of this type_info.\n");
-  DEBUG(dbgs() << "So class is FINAL."
-               << "\n\n");
+  LLVM_DEBUG(dbgs() << "There are no users of this type_info.\n");
+  LLVM_DEBUG(dbgs() << "So class is FINAL."
+                    << "\n\n");
   return true;
 }
 
@@ -307,11 +308,12 @@ PreservedAnalyses OptimizeDynamicCastsPass::runImpl(Module &M,
         if (!isTransformationApplicable(Call))
           continue;
 
-        DEBUG(dbgs() << "Found dynamic_cast eligible for transformation:\n"
-                     << "  " << *Call << "\n");
-        DEBUG(dbgs() << "Users of dynamic_cast before the transformation:\n");
-        DEBUG(for (const auto &U : Call->users()) dbgs() << *U << "\n");
-        DEBUG(dbgs() << "\n");
+        LLVM_DEBUG(dbgs() << "Found dynamic_cast eligible for transformation:\n"
+                          << "  " << *Call << "\n");
+        LLVM_DEBUG(
+            dbgs() << "Users of dynamic_cast before the transformation:\n");
+        LLVM_DEBUG(for (const auto &U : Call->users()) dbgs() << *U << "\n");
+        LLVM_DEBUG(dbgs() << "\n");
 
         // Here we have an appropriate case. Generate comparison of pointers
         // to type_info objects.

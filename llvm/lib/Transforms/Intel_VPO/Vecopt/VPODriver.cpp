@@ -107,21 +107,21 @@ public:
   }
   bool runOnFunction(Function &F) override {
     AV = &getAnalysis<AVRGenerateHIR>();
-    DDA = &getAnalysis<HIRDDAnalysis>();
+    DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
     VLS = &getAnalysis<HIRVectVLSAnalysis>();
     DefUse = &getAnalysis<AvrDefUseHIR>();
     return VPODriverBase::runOnFunction(F);
   }
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// \brief Overrides FunctionPass's printer pass to return one which prints
   /// HIR instead of LLVM IR.
   FunctionPass *createPrinterPass(raw_ostream &OS,
                                   const std::string &Banner) const override {
     return createHIRPrinterPass(OS, Banner);
   }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn,
                                                 Function &F) override {
@@ -172,10 +172,10 @@ INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(AVRGenerateHIR)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRVectVLSAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AvrDefUseHIR)
@@ -196,8 +196,8 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
 
   bool ret_val = false;
 
-  DEBUG(errs() << "VPODriver: ");
-  DEBUG(errs().write_escaped(Fn.getName()) << '\n');
+  LLVM_DEBUG(errs() << "VPODriver: ");
+  LLVM_DEBUG(errs().write_escaped(Fn.getName()) << '\n');
 
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SC = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
@@ -238,13 +238,14 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
       // FORNOW: We pass CodeGen only the selected VF, since currently AvrWrn
       // contains only a single ALoop.
       int VF = VC.getVectFactor();
-      DEBUG(errs() << "VPODriver: Scenarios engine selected VF " << VF << "\n");
+      LLVM_DEBUG(errs() << "VPODriver: Scenarios engine selected VF " << VF
+                        << "\n");
 
       // Widen selected candidate
       ret_val = ret_val | AvrCGNode.vectorize(VF);
     } else {
       HIRSafeReductionAnalysis *SRA;
-      SRA = &getAnalysis<HIRSafeReductionAnalysis>();
+      SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
       AVRCodeGenHIR AvrCGNode(Avr, TLI, SRA, Fn, LORBuilder);
 
       assert(isa<VPOScenarioEvaluationHIR>(ScenariosEngine));
@@ -259,7 +260,8 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
       // FORNOW: We pass CodeGen only the selected VF, since currently AvrWrn
       // contains only a single ALoop.
       int VF = VC.getVectFactor();
-      DEBUG(errs() << "VPODriver: Scenarios engine selected VF " << VF << "\n");
+      LLVM_DEBUG(errs() << "VPODriver: Scenarios engine selected VF " << VF
+                        << "\n");
 
       // Widen selected candidate
       ret_val = ret_val | AvrCGNode.vectorize(VF);
@@ -351,7 +353,7 @@ void VPODriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AvrDefUseHIR>();
 
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRLocalityAnalysis>();
-  AU.addRequiredTransitive<HIRDDAnalysis>();
-  AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
+  AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
 }

@@ -171,10 +171,10 @@ public:
   /// Path of the sample Profile data file.
   std::string PGOSampleUse;
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   // List of target triples for offloading.
   std::vector<std::string> OffloadTargets;
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.
@@ -199,11 +199,13 @@ private:
   void addFunctionSimplificationPasses(legacy::PassManagerBase &MPM);
   void addInstructionCombiningPass(legacy::PassManagerBase &MPM) const;
 
+#if INTEL_COLLAB
+  void addVPOPasses(legacy::PassManagerBase &PM, bool RunVec) const;
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION // HIR passes
   bool isLoopOptEnabled() const;
   void addLoopOptPasses(legacy::PassManagerBase &PM) const;
   void addLoopOptCleanupPasses(legacy::PassManagerBase &PM) const;
-  void addVPOPasses(legacy::PassManagerBase &PM, bool RunVec) const;
   void addLoopOptAndAssociatedVPOPasses(legacy::PassManagerBase &PM) const;
 #endif // INTEL_CUSTOMIZATION
 

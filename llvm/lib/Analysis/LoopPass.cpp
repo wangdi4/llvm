@@ -151,6 +151,7 @@ void LPPassManager::markLoopAsDeleted(Loop &L) {
 bool LPPassManager::runOnFunction(Function &F) {
   auto &LIWP = getAnalysis<LoopInfoWrapperPass>();
   LI = &LIWP.getLoopInfo();
+  Module &M = *F.getParent();
 #if 0
   DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 #endif
@@ -202,8 +203,9 @@ bool LPPassManager::runOnFunction(Function &F) {
       {
         PassManagerPrettyStackEntry X(P, *CurrentLoop->getHeader());
         TimeRegion PassTimer(getPassTimer(P));
-
+        unsigned InstrCount = initSizeRemarkInfo(M);
         Changed |= P->runOnLoop(CurrentLoop, *this);
+        emitInstrCountChangedRemark(P, M, InstrCount);
       }
 
 #if !INTEL_PRODUCT_RELEASE
@@ -295,12 +297,12 @@ void LPPassManager::dumpPassStructure(unsigned Offset) {
 //===----------------------------------------------------------------------===//
 // LoopPass
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 Pass *LoopPass::createPrinterPass(raw_ostream &O,
                                   const std::string &Banner) const {
   return new PrintLoopPassWrapper(O, Banner);
 }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 // Check if this pass is suitable for the current LPPassManager, if
 // available. This pass P is not suitable for a LPPassManager if P
@@ -370,8 +372,8 @@ bool LoopPass::skipLoop(const Loop *L) const {
   // Check for the OptimizeNone attribute.
   if (F->hasFnAttribute(Attribute::OptimizeNone)) {
     // FIXME: Report this to dbgs() only once per function.
-    DEBUG(dbgs() << "Skipping pass '" << getPassName()
-          << "' in function " << F->getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Skipping pass '" << getPassName() << "' in function "
+                      << F->getName() << "\n");
     // FIXME: Delete loop from pass manager's queue?
     return true;
   }

@@ -160,8 +160,7 @@ convertSPIRVToLLVM() {
     return -1;
   }
 
-  DEBUG(dbgs() << "Converted LLVM module:\n" << *M);
-
+  LLVM_DEBUG(dbgs() << "Converted LLVM module:\n" << *M);
 
   raw_string_ostream ErrorOS(Err);
   if (verifyModule(*M, &ErrorOS)){

@@ -74,6 +74,10 @@ void initializeIntel_LoopTransforms(PassRegistry&);
 // Intel_OpenCLTransforms library
 void initializeIntel_OpenCLTransforms(PassRegistry&);
 
+void initializeInlineListsPass(PassRegistry&);
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
 // initializeIntel_VPOAnaylsis - Initialize all passes linked into the
 // Intel_VPOAnalysis library
 void initializeIntel_VPOAnalysis(PassRegistry&);
@@ -81,9 +85,7 @@ void initializeIntel_VPOAnalysis(PassRegistry&);
 // initializeIntel_VPOTransforms - Initialize all passes linked into the
 // Intel_VPOTransforms library
 void initializeIntel_VPOTransforms(PassRegistry&);
-
-void initializeInlineListsPass(PassRegistry&);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 void initializeAAEvalLegacyPassPass(PassRegistry&);
 void initializeAAResultsWrapperPassPass(PassRegistry&);
@@ -129,6 +131,7 @@ void initializeConstantHoistingLegacyPassPass(PassRegistry&);
 void initializeCalledValuePropagationLegacyPassPass(PassRegistry &);
 void initializeConstantMergeLegacyPassPass(PassRegistry&);
 void initializeConstantPropagationPass(PassRegistry&);
+void initializeConvertGEPToSubscriptIntrinsicLegacyPassPass(PassRegistry &); // INTEL
 void initializeCorrelatedValuePropagationPass(PassRegistry&);
 void initializeCostModelAnalysisPass(PassRegistry&);
 void initializeEarlyMachineLICMPass(PassRegistry&);
@@ -189,6 +192,7 @@ void initializeGlobalOptLegacyPassPass(PassRegistry&);
 void initializeGlobalSplitPass(PassRegistry&);
 void initializeGlobalsAAWrapperPassPass(PassRegistry&);
 void initializeGuardWideningLegacyPassPass(PassRegistry&);
+void initializeLoopGuardWideningLegacyPassPass(PassRegistry&);
 void initializeIPCPPass(PassRegistry&);
 void initializeIPSCCPLegacyPassPass(PassRegistry&);
 void initializeIRTranslatorPass(PassRegistry&);
@@ -444,16 +448,18 @@ void initializeLoopOptMarkerLegacyPassPass(PassRegistry&);
 // Pass to store the opt level.
 void initializeXmainOptLevelWrapperPassPass(PassRegistry&);
 void initializeOptReportOptionsPassPass(PassRegistry &);
+// Pass for removing region directives.
+void initializeRemoveRegionDirectivesLegacyPassPass(PassRegistry &);
 void initializeLoopOptReportEmitterLegacyPassPass(PassRegistry&);
 // HIR Passes
 void initializeHIRRegionIdentificationWrapperPassPass(PassRegistry&);
 void initializeHIRSCCFormationWrapperPassPass(PassRegistry&);
 void initializeHIRFrameworkWrapperPassPass(PassRegistry&);
 void initializeHIROptReportEmitterWrapperPassPass(PassRegistry&);
-void initializeHIRDDAnalysisPass(PassRegistry&);
-void initializeHIRLocalityAnalysisPass(PassRegistry&);
+void initializeHIRDDAnalysisWrapperPassPass(PassRegistry&);
+void initializeHIRLoopLocalityWrapperPassPass(PassRegistry&);
 void initializeHIRLoopResourceWrapperPassPass(PassRegistry&);
-void initializeHIRSafeReductionAnalysisPass(PassRegistry&);
+void initializeHIRSafeReductionAnalysisWrapperPassPass(PassRegistry&);
 void initializeHIRLoopStatisticsWrapperPassPass(PassRegistry&);
 void initializeHIRSSADeconstructionLegacyPassPass(PassRegistry&);
 void initializeHIRTempCleanupPass(PassRegistry&);
@@ -474,28 +480,17 @@ void initializeHIRRuntimeDDPass(PassRegistry&);
 void initializeHIRLoopReversalPass(PassRegistry&);
 void initializeHIRLMMPass(PassRegistry&);
 void initializeHIRLoopCollapsePass(PassRegistry&);
-void initializeHIRSymbolicTripCountCompleteUnrollPass(PassRegistry&);
+void initializeHIRSymbolicTripCountCompleteUnrollLegacyPassPass(PassRegistry&);
 void initializeHIRScalarReplArrayPass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);
 void initializeHIRCodeGenWrapperPassPass(PassRegistry&);
 void initializeHIROptVarPredicatePass(PassRegistry&);
 void initializeHIRIdiomRecognitionPass(PassRegistry&);
 void initializeHIRMVForConstUBPass(PassRegistry&);
-void initializeHIRLoopConcatenationPass(PassRegistry&);
+void initializeHIRLoopConcatenationLegacyPassPass(PassRegistry&);
 void initializeHIRArrayTransposePass(PassRegistry&);
 void initializeHIRLoopFusionPass(PassRegistry&);
-// VPO WRegion Passes
-void initializeWRegionCollectionWrapperPassPass(PassRegistry&);
-void initializeWRegionInfoWrapperPassPass(PassRegistry&);
-void initializeWRegionInfoAnalysisPass(PassRegistry&);
-// VPO Utility Pass
-void initializeVPOCFGRestructuringPass(PassRegistry&);
-// VPO Paropt Prepare Pass
-void initializeVPOParoptPreparePass(PassRegistry&);
-// VPO Parallelizer Pass
-void initializeVPOParoptPass(PassRegistry&);
-// VPO Tpv Transformation
-void initializeVPOParoptTpvPass(PassRegistry&);
+void initializeHIRDeadStoreEliminationPass(PassRegistry&);
 // VPO Vectorizer Passes
 void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);
@@ -516,8 +511,9 @@ void initializeVectorGraphInfoPass(PassRegistry&);
 void initializeVectorGraphPredicatorPass(PassRegistry&);
 void initializeWholeProgramWrapperPassPass(PassRegistry&);
 void initializeMultiVersioningWrapperPass(PassRegistry&);
-// VPO VPlan Vectorizer Passes
+// VPO VPlan Vectorizer Pass  --  TODO: VEC to COLLAB
 void initializeVPlanDriverPass(PassRegistry&);
+// VPO VPlan Vectorizer HIR Pass
 void initializeVPlanDriverHIRPass(PassRegistry&);
 // OpenCL Passes
 void initializeFMASplitterLegacyPassPass(PassRegistry&);
@@ -525,6 +521,22 @@ void initializeFMASplitterLegacyPassPass(PassRegistry&);
 void initializeOptimizeDynamicCastsWrapperPass(PassRegistry&);
 void initializeMachineLoopOptReportEmitterPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+// VPO WRegion Passes
+void initializeWRegionCollectionWrapperPassPass(PassRegistry&);
+void initializeWRegionInfoWrapperPassPass(PassRegistry&);
+void initializeWRegionInfoAnalysisPass(PassRegistry&);
+// VPO Utility Pass
+void initializeVPOCFGRestructuringPass(PassRegistry&);
+// VPO Paropt Prepare Pass
+void initializeVPOParoptPreparePass(PassRegistry&);
+// VPO Parallelizer Pass
+void initializeVPOParoptPass(PassRegistry&);
+// VPO Tpv Transformation
+void initializeVPOParoptTpvPass(PassRegistry&);
+#endif // INTEL_COLLAB
+
 void initializeMIRCanonicalizerPass(PassRegistry &);
 
 } // end namespace llvm

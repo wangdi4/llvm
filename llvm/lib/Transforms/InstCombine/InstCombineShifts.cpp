@@ -432,8 +432,10 @@ Instruction *InstCombiner::FoldShiftByConstant(Value *Op0, Constant *Op1,
   // cast of lshr(shl(x,c1),c2) as well as other more complex cases.
   if (I.getOpcode() != Instruction::AShr &&
       canEvaluateShifted(Op0, Op1C->getZExtValue(), isLeftShift, *this, &I)) {
-    DEBUG(dbgs() << "ICE: GetShiftedValue propagating shift through expression"
-              " to eliminate shift:\n  IN: " << *Op0 << "\n  SH: " << I <<"\n");
+    LLVM_DEBUG(
+        dbgs() << "ICE: GetShiftedValue propagating shift through expression"
+                  " to eliminate shift:\n  IN: "
+               << *Op0 << "\n  SH: " << I << "\n");
 
     return replaceInstUsesWith(
         I, getShiftedValue(Op0, Op1C->getZExtValue(), isLeftShift, *this, DL));
@@ -537,12 +539,12 @@ Instruction *InstCombiner::FoldShiftByConstant(Value *Op0, Constant *Op1,
                                         V1->getName()+".mask");
           return BinaryOperator::Create(Op0BO->getOpcode(), YS, XM);
         }
-       
-#if INTEL_CUSTOMIZATION 
+
+#if INTEL_CUSTOMIZATION
         // Turn ((X << C) + Y) >> C  ->  (X + (Y >> C)) & (~0 >> C) for lshr
         // This transformation reduces 1 instruction when Y is a ConstantInt, 
         // and creates potential for other simplifications. 
-        // 
+        //
         // For example, the following code 
         //     %1 = shl i32 %0, 24
         //     %2 = add i32 %1, 16777216
@@ -550,7 +552,7 @@ Instruction *InstCombiner::FoldShiftByConstant(Value *Op0, Constant *Op1,
         // will be simplified to:
         //     %1 = add i32 %0, 1
         //     %2 = and %1, 0xFF
-        if (I.getOpcode() == Instruction::LShr && 
+        if (I.getOpcode() == Instruction::LShr &&
             Op0BO->getOperand(0)->hasOneUse() &&
             match(Op0BO->getOperand(0), m_Shl(m_Value(V1), m_Specific(Op1)))) {
           Value *YS =        // (Y >> C)
@@ -559,7 +561,7 @@ Instruction *InstCombiner::FoldShiftByConstant(Value *Op0, Constant *Op1,
           Value *X = Builder.CreateBinOp(Op0BO->getOpcode(), V1, YS, 
                                           Op0BO->getOperand(0)->getName());
 
-          uint32_t Op1Val = Op1C->getLimitedValue(TypeBits);
+          unsigned Op1Val = Op1C->getLimitedValue(TypeBits);
           APInt Bits = APInt::getLowBitsSet(TypeBits, TypeBits - Op1Val);
           Constant *Mask = ConstantInt::get(I.getContext(), Bits);
 
@@ -607,7 +609,7 @@ Instruction *InstCombiner::FoldShiftByConstant(Value *Op0, Constant *Op1,
 
 #if INTEL_CUSTOMIZATION
         // Turn (Y + (X << C)) >> C  ->  ((Y >> C) + X) & (~0 >> C) for lshr
-        if (I.getOpcode() == Instruction::LShr && 
+        if (I.getOpcode() == Instruction::LShr &&
             Op0BO->getOperand(1)->hasOneUse() &&
             match(Op0BO->getOperand(1), m_Shl(m_Value(V1), m_Specific(Op1)))) {
           Value *YS =        // (Y >> C)
@@ -616,7 +618,7 @@ Instruction *InstCombiner::FoldShiftByConstant(Value *Op0, Constant *Op1,
           Value *X = Builder.CreateBinOp(Op0BO->getOpcode(), YS, V1, 
                                           Op0BO->getOperand(0)->getName());
 
-          uint32_t Op1Val = Op1C->getLimitedValue(TypeBits);
+          unsigned Op1Val = Op1C->getLimitedValue(TypeBits);
           APInt Bits = APInt::getLowBitsSet(TypeBits, TypeBits - Op1Val);
           Constant *Mask = ConstantInt::get(I.getContext(), Bits);
 

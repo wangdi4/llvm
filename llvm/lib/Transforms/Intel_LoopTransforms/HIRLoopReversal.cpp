@@ -1,6 +1,6 @@
 // ===- HIRLoopReversal.cpp - Implement HIR Loop Reversal Transformation -===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -61,9 +61,9 @@
 //      );
 //
 // if (LoopIsReversible) {
-//   DEBUG(dbgs() << "Loop is Reversible\n");
+//   LLVM_DEBUG(dbgs() << "Loop is Reversible\n");
 // } else {
-//   DEBUG(dbgs() << "Loop is Not Reversible\n");
+//   LLVM_DEBUG(dbgs() << "Loop is Not Reversible\n");
 // }
 //
 // //Revere the loop if it is reversible
@@ -102,7 +102,6 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 
 #define DEBUG_TYPE "hir-loop-reversal"
 
@@ -191,7 +190,7 @@ void HIRLoopReversal::MarkedCECollector::checkAndCollectMCE(
     assert(CE && "checkAndCollectMCE(.) -- CanonExpr* can't be null\n");
 
     // See the CE we are checking
-    // DEBUG(FOS << "Checking: "; CE->print(FOS); FOS << "\n";);
+    // LLVM_DEBUG(FOS << "Checking: "; CE->print(FOS); FOS << "\n";);
 
     // Check if the current CE has an IV on the matching loop level
     if (CE->hasIV(LoopLevel)) {
@@ -238,7 +237,7 @@ void HIRLoopReversal::MarkedCECollector::checkAndCollectMCE(
     // If control can reach here, it is good to collect.
 
     // Examine the CE we are collecting
-    // DEBUG(FOS << "Collect: "; CE->print(FOS); FOS << "\n";);
+    // LLVM_DEBUG(FOS << "Collect: "; CE->print(FOS); FOS << "\n";);
 
     uint64_t Stride = 1;     // Stride defaults to 1
     if (RegDD->isMemRef()) { // Non-uniform Stride is only available on MemRef
@@ -255,10 +254,9 @@ char HIRLoopReversal::ID = 0;
 
 INITIALIZE_PASS_BEGIN(HIRLoopReversal, "hir-loop-reversal", "HIR Loop Reversal",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRLoopReversal, "hir-loop-reversal", "HIR Loop Reversal",
                     false, false)
@@ -327,7 +325,7 @@ void HIRLoopReversal::AnalyzeDDInfo::visit(const HLDDNode *DDNode) {
   bool IsSafeReduction = false;
 
   // Examine the current HLInst
-  // DEBUG(DDNode->dump(););
+  // LLVM_DEBUG(DDNode->dump(););
 
   // Support for HLInst*
   if (const HLInst *Inst = dyn_cast<HLInst>(DDNode)) {
@@ -359,11 +357,11 @@ void HIRLoopReversal::AnalyzeDDInfo::visit(const HLDDNode *DDNode) {
 
       // Examine the DDEdge:
       const DDEdge *Edge = (*II);
-      // DEBUG(Edge->print(dbgs()););
+      // LLVM_DEBUG(Edge->print(dbgs()););
 
       // Check Current DV is legal to reverse
       const DirectionVector &DV = Edge->getDV();
-      // DEBUG(DV.print(dbgs(), true));
+      // LLVM_DEBUG(DV.print(dbgs(), true));
 
       // Abort Collection if invalid!
       if (!HLR->isLegal(DV, LoopLevel)) {
@@ -381,16 +379,16 @@ HIRLoopReversal::HIRLoopReversal(void) : HIRTransformPass(ID) {
 
 void HIRLoopReversal::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysis>();
-  AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  AU.addRequiredTransitive<OptReportOptionsPass>();
   AU.setPreservesAll();
 }
 
 bool HIRLoopReversal::handleCmdlineArgs(Function &F) {
   if (DisableHIRLoopReversal || skipFunction(F)) {
-    DEBUG(dbgs() << "HIR Loop Reversal Transformation Disabled or Skipped\n");
+    LLVM_DEBUG(
+        dbgs() << "HIR Loop Reversal Transformation Disabled or Skipped\n");
     return false;
   }
 
@@ -403,19 +401,18 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
     return false;
   }
 
-  DEBUG(dbgs() << "HIR LoopReversal on Function : " << F.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "HIR LoopReversal on Function : " << F.getName()
+                    << "\n");
 
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HDDA = &getAnalysis<HIRDDAnalysis>();
-  HSRA = &getAnalysis<HIRSafeReductionAnalysis>();
+  HDDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
+  HSRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  auto &OROP = getAnalysis<OptReportOptionsPass>();
-  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   // Gather ALL Innermost Loops as Candidates, use 64 increment
   SmallVector<HLLoop *, 64> CandidateLoops;
   HIRF->getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
-  // DEBUG(dbgs() << " # Innermost Loops: " << CandidateLoops.size()
+  // LLVM_DEBUG(dbgs() << " # Innermost Loops: " << CandidateLoops.size()
   // <<"\n");
   if (CandidateLoops.empty()) {
     return false;
@@ -423,6 +420,8 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
 
   // TODO:
   // Re-Build DDA on demand if needed
+
+  LoopOptReportBuilder &LORBuilder = HIRF->getLORBuilder();
 
   // Iterate Over Each Candidate Loop
   for (auto &Lp : CandidateLoops) {
@@ -443,8 +442,7 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
 
     // Reverse the loop
     bool LoopIsReversed = doHIRReversalTransform(Lp);
-    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                              "Loop was reversed");
+    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, "Loop was reversed");
 
     // Update Loops-Reversal-Triggered Counter
     if (LoopIsReversed) {
@@ -510,7 +508,7 @@ bool HIRLoopReversal::doLoopPreliminaryChecks(const HLLoop *Lp) {
   // - No goto
   const LoopStatistics &LS = HLS->getSelfLoopStatistics(Lp);
 
-  // DEBUG(LS.dump(););
+  // LLVM_DEBUG(LS.dump(););
   if (LS.hasCallsWithUnsafeSideEffects() || LS.hasForwardGotos()) {
     return false;
   }
@@ -527,12 +525,12 @@ bool HIRLoopReversal::doCollection(HLLoop *Lp) {
   // Check if Collection aborts prematurely
   bool MCECollectionAbortion = MCEC.getCollectionAborted();
   if (MCECollectionAbortion) {
-    DEBUG(dbgs() << "Reversal: Loop MCE collection failed\n";);
+    LLVM_DEBUG(dbgs() << "Reversal: Loop MCE collection failed\n";);
     return false;
   }
 
   // See all MCEs collected
-  // DEBUG(::dump(MCEAV, StringRef("All Collected MCEs:")););
+  // LLVM_DEBUG(::dump(MCEAV, StringRef("All Collected MCEs:")););
 
   // Save a flag into HIRReversal pass if there is any NegIVExpr from
   // collection.
@@ -574,7 +572,7 @@ bool HIRLoopReversal::isProfitable(const HLLoop *Lp) {
       continue;
     }
 
-    // DEBUG(MCE.dump());
+    // LLVM_DEBUG(MCE.dump());
 
     bool IsWrite = MCE.isWrite();
     uint64_t Stride = MCE.getStride();
@@ -596,9 +594,9 @@ bool HIRLoopReversal::isProfitable(const HLLoop *Lp) {
   // end_for: MCE
 
   // Examine the values of AccumuWeightNegIVs and AccumuWeightPosIVs:
-  DEBUG(dbgs() << "  AccumuWeightNegIVs :" << AccumuWeightNegIVs << "  "
-               << "  AccumuWeightPosIVs :" << AccumuWeightPosIVs << "  "
-               << "\n");
+  LLVM_DEBUG(dbgs() << "  AccumuWeightNegIVs :" << AccumuWeightNegIVs << "  "
+                    << "  AccumuWeightPosIVs :" << AccumuWeightPosIVs << "  "
+                    << "\n");
 
   // Decide: true if negative IVs have higher weight
   return (AccumuWeightNegIVs > AccumuWeightPosIVs);
@@ -610,7 +608,7 @@ bool HIRLoopReversal::isProfitable(const HLLoop *Lp) {
 /* ------------------------------------------------------------------- */
 bool HIRLoopReversal::isLegal(const HLLoop *Lp) {
   DDGraph DDG = HDDA->getGraph(Lp, false);
-  // DEBUG(dbgs() << "Dump the Full DDGraph:\n"; DDG.dump(););
+  // LLVM_DEBUG(dbgs() << "Dump the Full DDGraph:\n"; DDG.dump(););
 
   AnalyzeDDInfo ADDI(DDG, Lp, this, LoopLevel);
   Lp->getHLNodeUtils().visitRange(ADDI, Lp->child_begin(), Lp->child_end());
@@ -638,7 +636,7 @@ bool HIRLoopReversal::isLegal(const HLLoop *Lp) {
 //
 /* ------------------------------------------------------------------- */
 bool HIRLoopReversal::isLegal(const DirectionVector &DV, unsigned Level) {
-  // DEBUG(DV.print(dbgs(), true););
+  // LLVM_DEBUG(DV.print(dbgs(), true););
 
   // Case1: true if the DV at the given level is DVKind::EQ
   if (DV[Level - 1] == DVKind::EQ) {
@@ -663,11 +661,11 @@ bool HIRLoopReversal::isLegal(const DirectionVector &DV, unsigned Level) {
 void HIRLoopReversal::setupBeforeTests(HLLoop *Lp, HIRDDAnalysis &DDA,
                                        HIRSafeReductionAnalysis &SRA,
                                        HIRLoopStatistics &LS) {
-  // DEBUG(dbgs() << "Current Loop: \n"; Lp->dump(););
+  // LLVM_DEBUG(dbgs() << "Current Loop: \n"; Lp->dump(););
   clearWorkingSetMemory();
 
   // Show The Current Loop
-  // DEBUG(Lp->dump(););
+  // LLVM_DEBUG(Lp->dump(););
   LoopLevel = Lp->getNestingLevel();
 
   HDDA = &DDA;
@@ -696,7 +694,7 @@ bool HIRLoopReversal::isReversible(HLLoop *Lp, HIRDDAnalysis &DDA,
   if (!DoShortCircuitUtilityAPI) {
     // normal path: normal call to doLoopPreliminaryChecks()
     if (!doLoopPreliminaryChecks(Lp)) {
-      DEBUG(dbgs() << "Reversal: Loop Preliminary Checks failed\n";);
+      LLVM_DEBUG(dbgs() << "Reversal: Loop Preliminary Checks failed\n";);
       return false;
     }
   } else {
@@ -708,14 +706,14 @@ bool HIRLoopReversal::isReversible(HLLoop *Lp, HIRDDAnalysis &DDA,
   // Do collection and check result
   //(must do, can't control by a parameter)
   if (!doCollection(Lp)) {
-    DEBUG(dbgs() << "Reversal: collection failed\n");
+    LLVM_DEBUG(dbgs() << "Reversal: collection failed\n");
     return false;
   }
 
   // Check Profitability
   //(can be controlled by DoProfitTest)
   if (DoProfitTest && !isProfitable(Lp)) {
-    DEBUG(dbgs() << "Reversal: Loop Profitability Test failed\n");
+    LLVM_DEBUG(dbgs() << "Reversal: Loop Profitability Test failed\n");
     return false;
   }
 
@@ -724,7 +722,7 @@ bool HIRLoopReversal::isReversible(HLLoop *Lp, HIRDDAnalysis &DDA,
   if (!DoShortCircuitUtilityAPI) {
     // normal path: normal call to isLegal()
     if (DoLegalTest && !isLegal(Lp)) {
-      DEBUG(dbgs() << "Reversal: Loop Legality Test failed\n");
+      LLVM_DEBUG(dbgs() << "Reversal: Loop Legality Test failed\n");
       return false;
     }
   } else {
@@ -763,8 +761,8 @@ bool HIRLoopReversal::isReversible(HLLoop *Lp, HIRDDAnalysis &DDA,
 bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
   // Get Loop's UpperBound (UB)
   CanonExpr *UBCE = Lp->getUpperCanonExpr();
-  // DEBUG(::dump(UBCE, "Loop's UpperBound (UB) CE:"););
-  // DEBUG(dbgs() << "UBCEDenom: " << UBCE->getDenominator() << "\n");
+  // LLVM_DEBUG(::dump(UBCE, "Loop's UpperBound (UB) CE:"););
+  // LLVM_DEBUG(dbgs() << "UBCEDenom: " << UBCE->getDenominator() << "\n");
 
   //===  Do Loop Reversal Transformation for each MarkedCE  ===
   // For-each MCE in Collection:
@@ -779,7 +777,7 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
 
   // For each MCE in the MCEAV collection
   for (auto &MCE : MCEAV) {
-    // DEBUG(dbgs() << " MCE: "; MCE.dump());
+    // LLVM_DEBUG(dbgs() << " MCE: "; MCE.dump());
 
     CanonExpr *CE = MCE.getCE();
 

@@ -1,6 +1,6 @@
 //===------- HIRAnalysisPass.h - Base class for HIR analyses -*- C++ -*----===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -99,6 +99,7 @@ public:
   HIRAnalysis(HIRFramework &HIRF) : HIRF(HIRF) {}
   HIRAnalysis(HIRAnalysis &&Arg) : HIRF(Arg.HIRF) {}
   HIRAnalysis(const HIRAnalysis &) = delete;
+  virtual ~HIRAnalysis() {};
 
   void printAnalysis(raw_ostream &OS) const override;
 };

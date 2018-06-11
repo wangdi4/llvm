@@ -162,12 +162,9 @@ bool RGPassManager::runOnFunction(Function &F) {
   }
 
   // Print the region tree after all pass.
-  DEBUG(
-    dbgs() << "\nRegion tree of function " << F.getName()
-           << " after all region Pass:\n";
-    RI->dump();
-    dbgs() << "\n";
-    );
+  LLVM_DEBUG(dbgs() << "\nRegion tree of function " << F.getName()
+                    << " after all region Pass:\n";
+             RI->dump(); dbgs() << "\n";);
 
   return Changed;
 }
@@ -281,13 +278,13 @@ void RegionPass::assignPassManager(PMStack &PMS,
   RGPM->add(this);
 }
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 /// Get the printer pass
 Pass *RegionPass::createPrinterPass(raw_ostream &O,
                                   const std::string &Banner) const {
   return new PrintRegionPass(Banner, O);
 }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 bool RegionPass::skipRegion(Region &R) const {
   Function &F = *R.getEntry()->getParent();
@@ -297,8 +294,8 @@ bool RegionPass::skipRegion(Region &R) const {
   if (F.hasFnAttribute(Attribute::OptimizeNone)) {
     // Report this only once per function.
     if (R.getEntry() == &F.getEntryBlock())
-      DEBUG(dbgs() << "Skipping pass '" << getPassName()
-            << "' on function " << F.getName() << "\n");
+      LLVM_DEBUG(dbgs() << "Skipping pass '" << getPassName()
+                        << "' on function " << F.getName() << "\n");
     return true;
   }
   return false;

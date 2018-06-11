@@ -33,8 +33,22 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 bool VPOUtils::stripDirectives(WRegionNode *WRN) {
-  bool success = false;
+  bool success = true;
   BasicBlock *ExitBB = WRN->getExitBBlock();
+
+#if INTEL_CUSTOMIZATION // old representation should not to appear in COLLAB
+  // Under the old representation, we still need to remove dirs from EntryBB
+  BasicBlock *EntryBB = WRN->getEntryBBlock();
+  bool SeenRegionDirective = false;
+  for (Instruction &I : *ExitBB) // use ExitBB until EntryBB issue is fixed
+    if (VPOAnalysisUtils::isIntelDirective(&I)) {
+      if (VPOAnalysisUtils::isRegionDirective(&I))
+        SeenRegionDirective = true;
+      break;
+    }
+  if (!SeenRegionDirective)
+    success = VPOUtils::stripDirectives(*EntryBB);
+#endif // INTEL_CUSTOMIZATION
 
   // Under the new region representation:
   //   %1 = call token @llvm.directive.region.entry() [...]
@@ -44,7 +58,8 @@ bool VPOUtils::stripDirectives(WRegionNode *WRN) {
   // the BEGIN it will first remove the END (which is a use of the token
   // defined by the BEGIN intrinsic) and then later stripDirectives(*ExitBB)
   // would return false because there's nothing left in the ExitBB to remove.
-  success = VPOUtils::stripDirectives(*ExitBB);
+  success = VPOUtils::stripDirectives(*ExitBB) && success;
+
   return success;
 }
 
@@ -62,7 +77,7 @@ bool VPOUtils::stripDirectives(BasicBlock &BB) {
           if (Instruction *UI = dyn_cast<Instruction>(U))
             if (&I == UI) {
               IsUser = true;
-              break; 
+              break;
             }
         if (IsUser) break;
       }
@@ -139,8 +154,9 @@ bool VPOUtils::stripPrivateClauses(BasicBlock &BB) {
       Intrinsic::ID Id = Call->getIntrinsicID();
       if (Id == Intrinsic::directive_region_entry) {
         // TODO: add support for this representation
-        DEBUG(dbgs() << "** WARNING: stripPrivateClauses() support for the "
-                     << "OperandBundle representation will be done later.\n");
+        LLVM_DEBUG(
+            dbgs() << "** WARNING: stripPrivateClauses() support for the "
+                   << "OperandBundle representation will be done later.\n");
       }
       else if (Id == Intrinsic::intel_directive_qual_opndlist) {
         StringRef ClauseString = VPOAnalysisUtils::getDirOrClauseString(Call);
@@ -198,4 +214,20 @@ CallInst *VPOUtils::createMaskedStoreCall(Value *VecPtr,
   auto NewCallInst = Builder.CreateMaskedStore(VecData, VecPtr, Alignment,
                                                 Mask);
   return NewCallInst;
+}
+
+// Removes '@llvm.dbg.declare', '@llvm.dbg.value' calls from the Function F.
+// This is a workaround for now till CodeExtractor learns to handle these.
+void VPOUtils::stripDebugInfoInstrinsics(Function &F)
+{
+  for (auto &BB : F) {
+    for (BasicBlock::iterator BI = BB.begin(), BE = BB.end(); BI != BE;) {
+      Instruction *Insn = &*BI++;
+      if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(Insn)) {
+        DVI->eraseFromParent();
+      } else if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(Insn)) {
+        DDI->eraseFromParent();
+      }
+    }
+  }
 }

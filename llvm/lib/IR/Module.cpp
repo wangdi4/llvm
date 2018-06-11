@@ -487,6 +487,13 @@ void Module::setIntelProprietary() {
 }
 #endif // INTEL_CUSTOMIZATION
 
+unsigned Module::getInstructionCount() {
+  unsigned NumInstrs = 0;
+  for (Function &F : FunctionList)
+    NumInstrs += F.getInstructionCount();
+  return NumInstrs;
+}
+
 Comdat *Module::getOrInsertComdat(StringRef Name) {
   auto &Entry = *ComdatSymTab.insert(std::make_pair(Name, Comdat())).first;
   Entry.second.Name = &Entry;

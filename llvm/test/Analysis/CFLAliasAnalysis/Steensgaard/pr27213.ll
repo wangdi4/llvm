@@ -1,6 +1,11 @@
 ; RUN: opt < %s -disable-basicaa -cfl-steens-aa -aa-eval -print-may-aliases -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -aa-pipeline=cfl-steens-aa -passes=aa-eval -print-may-aliases -disable-output 2>&1 | FileCheck %s
 
+; INTEL_CUSTOMIZATION
+; RUN: opt < %s -convert-to-subscript -S | opt -disable-basicaa -cfl-steens-aa -aa-eval -print-may-aliases -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -convert-to-subscript -S | opt -aa-pipeline=cfl-steens-aa -passes=aa-eval -print-may-aliases -disable-output 2>&1 | FileCheck %s
+; end INTEL_CUSTOMIZATION
+
 ; CHECK-LABEL:     Function: foo
 ; CHECK: MayAlias: i32* %A, i32* %B
 define void @foo(i32* %A, i32* %B) {

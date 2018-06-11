@@ -306,10 +306,55 @@ define void @test18(%array.test18* %a, %array.test18* %b) {
   ret void
 }
 
+; In this case there is an array being copied from a global array to an
+; array member of a structure. In this case, both the source and
+; destination types have [8 x i8]* as their dominant types, and both
+; are pointer to member elements. However, the current analysis will
+; mark this as 'Unhandled use' because the memcpy pointer to member
+; support requires the member to be part of a structure. This could
+; be relaxed in the future.
+%struct.test19 = type { i32, i32, i32, [8 x i8], i32 }
+@test19.glob = private global %struct.test19* zeroinitializer
+@test19.str = private unnamed_addr constant [8 x i8] c"0123456\00"
+define void @test19(%struct.test19* %str_in) {
+  %blob = call i8* @malloc(i64 24)
+  store i8* %blob, i8** bitcast (%struct.test19** @test19.glob to i8**)
+  %str_data = getelementptr inbounds i8, i8* %blob, i64 12
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %str_data, i8*getelementptr inbounds ([8 x i8], [8 x i8]* @test19.str, i64 0, i64 0), i64 31, i1 false)
+  ret void
+}
+; CHECK: LLVMType: %struct.test19 = type { i32, i32, i32, [8 x i8], i32 }
+; CHECK: Safety data: Global pointer | Unhandled use
+
+
+; This case is equivalent to test19, but with the global array now being
+; the destination, and the structure member being the source array. This case
+; is also currently marked as unhandled use.
+%struct.test20 = type { i32, i32, i32, [9 x i8], i32 }
+@test20.glob = private global %struct.test20* zeroinitializer
+@test20.str = private unnamed_addr constant [9 x i8] c"01234567\00"
+define void @test20(%struct.test20* %str_in) {
+  %blob = call i8* @malloc(i64 28)
+  store i8* %blob, i8** bitcast (%struct.test20** @test20.glob to i8**)
+  %str_data = getelementptr inbounds i8, i8* %blob, i64 12
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8*getelementptr inbounds ([9 x i8], [9 x i8]* @test20.str, i64 0, i64 0), i8* %str_data, i64 5, i1 false)
+  ret void
+}
+; CHECK: LLVMType: %struct.test20 = type { i32, i32, i32, [9 x i8], i32 }
+; CHECK: Safety data: Global pointer | Unhandled use
+
 
 ; Array types get printed last so these checks aren't with their IR.
 
 ; CHECK: LLVMType: [6 x i32]
 ; CHECK: Safety data: Unhandled use
 
+; CHECK: LLVMType: [8 x i8]
+; CHECK: Safety data: Global pointer | Unhandled use
+
+; CHECK: LLVMType: [9 x i8]
+; CHECK: Safety data: Global pointer | Unhandled use
+
+
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)
+declare noalias i8* @malloc(i64)

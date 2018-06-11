@@ -1,8 +1,9 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-temp-cleanup -print-after=hir-temp-cleanup 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" 2>&1 | FileCheck %s
 
 ; Verify that we are able to get rid of the single load in preheaders of inner two loops.
 
-; CHECK: Dump Before HIR Temp Cleanup
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, 56, 1   <DO_LOOP>
 ; CHECK: |      %fs.promoted = (%fs)[0];
@@ -32,7 +33,7 @@
 ; CHECK: + END LOOP
 
 
-; CHECK: Dump After HIR Temp Cleanup
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, 56, 1   <DO_LOOP>
 ; CHECK: |      %add21136 = (%fs)[0];

@@ -1,14 +1,14 @@
-//==--- HIRSymbolicTripCountCompleteUnroll.cpp -       -*- C++-*---===//
+//==--- HIRSymbolicTripCountCompleteUnroll.cpp -----------------*- C++-*---===//
 // Implements HIR Loop Early Pattern Match Pass.
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
 // or reproduced in whole or in part without explicit written authorization
 // from the company.
 //
-//===-----------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // This file implements a special HIR Loop Pattern Matching Pass for Symbolic
 // TripCount 2-level loop nest.
@@ -20,6 +20,10 @@
 // -disable-hir-pm-symbolic-tripcount-completeunroll: Disable
 // HIR Symbolic TripCount CompleteUnroll Pattern-Matching pass
 //
+//===----------------------------------------------------------------------===//
+
+#include "llvm/Transforms/Intel_LoopTransforms/HIRSymbolicTripCountCompleteUnrollPass.h"
+
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
@@ -35,13 +39,13 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
-#include "HIRSymbolicTripCountCompleteUnroll.h"
+#include "HIRSymbolicTripCountCompleteUnrollImpl.h"
 
 #define DEBUG_TYPE "hir-pm-symbolic-tripcount-completeunroll"
 
 using namespace llvm;
 using namespace llvm::loopopt;
-using namespace llvm::loopopt::PatternMatchSymbolicTripCountCompleteUnroll;
+using namespace llvm::loopopt::unrollsymtc;
 
 const std::string TempName = "mv";
 
@@ -59,23 +63,6 @@ static cl::opt<bool> DisableHIRSymbolicTripCountCompleteUnroll(
 
 STATISTIC(NumHIRSymbolicTripCountCompleteUnroll,
           "Number of HIR Symbolic TripCount CompleteUnroll Pattern(s) Matched");
-
-char HIRSymbolicTripCountCompleteUnroll::ID = 0;
-
-INITIALIZE_PASS_BEGIN(
-    HIRSymbolicTripCountCompleteUnroll,
-    "hir-pm-symbolic-tripcount-completeunroll",
-    "HIR Symbolic TripCount CompleteUnroll Pattern Match Pass", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
-INITIALIZE_PASS_END(HIRSymbolicTripCountCompleteUnroll,
-                    "hir-pm-symbolic-tripcount-completeunroll",
-                    "HIR Symbolic TripCount CompleteUnroll Pattern Match Pass",
-                    false, false)
-
-FunctionPass *llvm::createHIRSymbolicTripCountCompleteUnrollPass() {
-  return new HIRSymbolicTripCountCompleteUnroll();
-}
 
 // *** BEGIN: StructuralCollector ***
 //
@@ -131,7 +118,7 @@ void HIRSymbolicTripCountCompleteUnroll::StructuralCollector::visit(
   formatted_raw_ostream FOS(dbgs());
 #endif
 
-  DEBUG(Node->dump(); FOS << "\n";);
+  LLVM_DEBUG(Node->dump(); FOS << "\n";);
 
   // Skip any HLLoop* or HLSwitch* type:
   if (dyn_cast<HLLoop>(Node) || dyn_cast<HLSwitch>(Node)) {
@@ -187,7 +174,7 @@ void HIRSymbolicTripCountCompleteUnroll::StructuralCollector::visit(
        ++I) {
     RegDDRef *Ref = (*I);
 
-    // DEBUG(Ref->dump(); FOS << "\n";);
+    // LLVM_DEBUG(Ref->dump(); FOS << "\n";);
     if (HIRSymbolicTripCountCompleteUnroll::isNonLocalMemRef(Ref)) {
       NonLocalRefVec.push_back(Ref);
     }
@@ -312,48 +299,25 @@ void HIRSymbolicTripCountCompleteUnroll::StructuralCollector::print(
 #endif
 // ### END: StructuralCollector ###
 
-HIRSymbolicTripCountCompleteUnroll::HIRSymbolicTripCountCompleteUnroll()
-    : HIRTransformPass(ID) {
-  initializeHIRSymbolicTripCountCompleteUnrollPass(
-      *PassRegistry::getPassRegistry());
-}
-
-void HIRSymbolicTripCountCompleteUnroll::getAnalysisUsage(
-    AnalysisUsage &AU) const {
-  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysis>();
-  AU.setPreservesAll();
-}
-
-bool HIRSymbolicTripCountCompleteUnroll::handleCmdlineArgs(Function &F) {
-  if (DisableHIRSymbolicTripCountCompleteUnroll || skipFunction(F)) {
-    DEBUG(dbgs() << "HIR Loop Pattern Match Early Disabled or Skipped\n");
+bool HIRSymbolicTripCountCompleteUnroll::run() {
+  if (DisableHIRSymbolicTripCountCompleteUnroll) {
+    LLVM_DEBUG(dbgs() << "HIR Loop Pattern Match Early Disabled\n");
     return false;
   }
 
-  return true;
-}
-
-bool HIRSymbolicTripCountCompleteUnroll::runOnFunction(Function &F) {
-  if (!handleCmdlineArgs(F)) {
-    return false;
-  }
-
-  DEBUG(dbgs() << "HIRSymbolicTripCountCompleteUnroll on Function : "
-               << F.getName() << "()\n");
+  LLVM_DEBUG(dbgs() << "HIRSymbolicTripCountCompleteUnroll on Function : "
+                    << HIRF.getFunction().getName() << "()\n");
 
   // Gather all innermost Loop Candidates:
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HDDA = &getAnalysis<HIRDDAnalysis>();
   SmallVector<HLLoop *, 64> InnermostLoops;
-  HNU = &(HIRF->getHLNodeUtils());
-  HNU->gatherInnermostLoops(InnermostLoops);
+  HNU.gatherInnermostLoops(InnermostLoops);
 
   if (InnermostLoops.empty()) {
-    DEBUG(dbgs() << F.getName() << "() has no Innermost loop\n ");
+    LLVM_DEBUG(dbgs() << HIRF.getFunction().getName()
+                      << "() has no Innermost loop\n ");
     return false;
   }
-  DEBUG(dbgs() << " # Innermost Loops: " << InnermostLoops.size() << "\n");
+  LLVM_DEBUG(dbgs() << " # Innermost Loops: " << InnermostLoops.size() << "\n");
 
   bool Result = false;
 
@@ -386,28 +350,31 @@ bool HIRSymbolicTripCountCompleteUnroll::doAnalysis(HLLoop *InnerLp) {
 
   // Do preliminary tests, filtering out unsuitable loops as early as possible
   if (!doPreliminaryChecks(InnerLp)) {
-    DEBUG(FOS << "HIRSymbolicTripCountCompleteUnroll: failed Preliminary "
-                 "Checks And Collection\n");
+    LLVM_DEBUG(FOS << "HIRSymbolicTripCountCompleteUnroll: failed Preliminary "
+                      "Checks And Collection\n");
     return false;
   }
-  DEBUG(dbgs() << "The entire Loop Nest: \n"; OuterLp->dump(););
+  LLVM_DEBUG(dbgs() << "The entire Loop Nest: \n"; OuterLp->dump(););
 
   // Collect relevant data, populate relevant containers
 
   if (!doCollection()) {
-    DEBUG(FOS << "HIRSymbolicTripCountCompleteUnroll: failed Collection\n");
+    LLVM_DEBUG(
+        FOS << "HIRSymbolicTripCountCompleteUnroll: failed Collection\n");
     return false;
   }
 
   // Check pattern:
   if (!isPattern()) {
-    DEBUG(FOS << "HIRSymbolicTripCountCompleteUnroll: failed Pattern Tests\n");
+    LLVM_DEBUG(
+        FOS << "HIRSymbolicTripCountCompleteUnroll: failed Pattern Tests\n");
     return false;
   }
 
   // Do legal tests:
   if (!isLegal()) {
-    DEBUG(FOS << "HIRSymbolicTripCountCompleteUnroll: failed Legal Tests\n");
+    LLVM_DEBUG(
+        FOS << "HIRSymbolicTripCountCompleteUnroll: failed Legal Tests\n");
     return false;
   }
 
@@ -441,7 +408,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doPreliminaryChecks(
 
   InnerLp = InnerLoop;
   OuterLp = InnerLp->getParentLoop();
-  DEBUG(FOS << "OuterLp: "; OuterLp->dump(); FOS << "\n";);
+  LLVM_DEBUG(FOS << "OuterLp: "; OuterLp->dump(); FOS << "\n";);
 
   // Check: expect both OuterLp and InnerLp are normalized
   if (!InnerLp->isNormalized() || !OuterLp->isNormalized()) {
@@ -450,13 +417,15 @@ bool HIRSymbolicTripCountCompleteUnroll::doPreliminaryChecks(
 
   // Check OuterLp:
   if (!doOuterLpTest()) {
-    DEBUG(FOS << "HIRSymbolicTripCountCompleteUnroll: failed OuterLp Test\n");
+    LLVM_DEBUG(
+        FOS << "HIRSymbolicTripCountCompleteUnroll: failed OuterLp Test\n");
     return false;
   }
 
   // Check InnerLp:
   if (!doInnerLpTest()) {
-    DEBUG(FOS << "HIRSymbolicTripCountCompleteUnroll: failed InnerLp Test\n");
+    LLVM_DEBUG(
+        FOS << "HIRSymbolicTripCountCompleteUnroll: failed InnerLp Test\n");
     return false;
   }
 
@@ -514,7 +483,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doInnerLpTest(void) {
   // Check: UB is unknown (in a temp linear to the loop)
   // RegDDRef *UBRef = InnerLp->getUpperDDRef();
   CanonExpr *UBCE = InnerLp->getUpperDDRef()->getSingleCanonExpr();
-  DEBUG(FOS << "UBCE: "; UBCE->dump(); FOS << "\n";);
+  LLVM_DEBUG(FOS << "UBCE: "; UBCE->dump(); FOS << "\n";);
 
   // Check: NO IV in UBCE
   if (UBCE->hasIV()) {
@@ -549,8 +518,9 @@ bool HIRSymbolicTripCountCompleteUnroll::doCollection(void) {
   SmallVector<HLIf *, 2> HLIfVec;
   StructuralCollector Collector(this, HLIfVec);
 
-  HNU->visitRange(Collector, OuterLp->getFirstChild(), OuterLp->getLastChild());
-  DEBUG(Collector.print(););
+  HLNodeUtils::visitRange(Collector, OuterLp->getFirstChild(),
+                          OuterLp->getLastChild());
+  LLVM_DEBUG(Collector.print(););
 
   // *** Check the HLIfs ***
   // Expect 2 HLIfs:
@@ -582,7 +552,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doHLIF0Test(void) {
 #ifndef NDEBUG
   formatted_raw_ostream FOS(dbgs());
 #endif
-  DEBUG(FOS << "HLIF0: "; HLIF0->dump(); FOS << "\n";);
+  LLVM_DEBUG(FOS << "HLIF0: "; HLIF0->dump(); FOS << "\n";);
 
   // On Predicate: Has 1 predicate only
   if (HLIF0->getNumPredicates() != 1) {
@@ -603,8 +573,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doHLIF0Test(void) {
   RegDDRef *LHSRef = HLIF0->getPredicateOperandDDRef(PredI, true);
   RegDDRef *RHSRef = HLIF0->getPredicateOperandDDRef(PredI, false);
   // Examine both operands:
-  DEBUG(FOS << "LHSRef: "; LHSRef->dump(); FOS << "\n";);
-  DEBUG(FOS << "RHSRef: "; RHSRef->dump(); FOS << "\n";);
+  LLVM_DEBUG(FOS << "LHSRef: "; LHSRef->dump(); FOS << "\n";);
+  LLVM_DEBUG(FOS << "RHSRef: "; RHSRef->dump(); FOS << "\n";);
 
   // Check: LHSRef is a temp
   if (!LHSRef->isSelfBlob()) {
@@ -660,7 +630,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doHLIF1Test(void) {
 #ifndef NDEBUG
   formatted_raw_ostream FOS(dbgs());
 #endif
-  DEBUG(FOS << "HLIF1: "; HLIF1->dump(); FOS << "\n";);
+  LLVM_DEBUG(FOS << "HLIF1: "; HLIF1->dump(); FOS << "\n";);
 
   // -Predicate:
   //  . operand0: a local memref;
@@ -679,8 +649,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doHLIF1Test(void) {
   RegDDRef *LHSRef = HLIF1->getPredicateOperandDDRef(PredI, true);
   RegDDRef *RHSRef = HLIF1->getPredicateOperandDDRef(PredI, false);
   // Examine both operands:
-  DEBUG(FOS << "LHSRef: "; LHSRef->dump(); FOS << "\n";);
-  DEBUG(FOS << "RHSRef: "; RHSRef->dump(); FOS << "\n";);
+  LLVM_DEBUG(FOS << "LHSRef: "; LHSRef->dump(); FOS << "\n";);
+  LLVM_DEBUG(FOS << "RHSRef: "; RHSRef->dump(); FOS << "\n";);
 
   // Check: LHSRef is a local memref
   if (!HIRSymbolicTripCountCompleteUnroll::isLocalMemRef(LHSRef)) {
@@ -734,7 +704,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
 #ifndef NDEBUG
   formatted_raw_ostream FOS(dbgs());
 #endif
-  // DEBUG(FOS << "OuterLpNodeVec: \n"; print(OuterLpNodeVec););
+  // LLVM_DEBUG(FOS << "OuterLpNodeVec: \n"; print(OuterLpNodeVec););
 
   // Expect a total of 15 HLNode* in OuterLp-only level:
   if (OuterLpNodeVec.size() != 15) {
@@ -1096,7 +1066,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   // Check: does OuterLp have any LiveOut temp?
   // Expect: OuterLp has no LiveOut
   if (OuterLp->hasLiveOutTemps()) {
-    DEBUG(FOS << "Failed OuterLp's LiveOutTemp test\n";);
+    LLVM_DEBUG(FOS << "Failed OuterLp's LiveOutTemp test\n";);
     return false;
   }
 
@@ -1110,7 +1080,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestInnerLp(void) {
 #ifndef NDEBUG
   formatted_raw_ostream FOS(dbgs());
 #endif
-  DEBUG(print(InnerLpNodeVec));
+  LLVM_DEBUG(print(InnerLpNodeVec));
 
   // Expect a total of 1 instruction in InnerLp-only level:
   if (InnerLpNodeVec.size() != 1) {
@@ -1123,7 +1093,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestInnerLp(void) {
     assert(0 && "Expect a valid entry on InnerLpNodeVec[0]\n");
     return false;
   }
-  // DEBUG(Goto->dump(); FOS << "\n";);
+  // LLVM_DEBUG(Goto->dump(); FOS << "\n";);
 
   // Check: the Goto's target is inside HLIF0;
   HLLabel *Label = Goto->getTargetLabel();
@@ -1147,24 +1117,26 @@ bool HIRSymbolicTripCountCompleteUnroll::isPattern(void) {
 #endif
 
   if (!doHLIF0Test()) {
-    DEBUG(FOS << "HIRSymbolicTripCountCompleteUnroll: failed HLIf0 Test\n");
+    LLVM_DEBUG(
+        FOS << "HIRSymbolicTripCountCompleteUnroll: failed HLIf0 Test\n");
     return false;
   }
 
   if (!doHLIF1Test()) {
-    DEBUG(FOS << "HIRSymbolicTripCountCompleteUnroll: failed HLIf1 Test\n");
+    LLVM_DEBUG(
+        FOS << "HIRSymbolicTripCountCompleteUnroll: failed HLIf1 Test\n");
     return false;
   }
 
   if (!doDeepPatternTestOuterLp()) {
-    DEBUG(FOS << "HIRSymbolicTripCountCompleteUnroll: failed "
-                 "DeepPatternTestOuterLp\n");
+    LLVM_DEBUG(FOS << "HIRSymbolicTripCountCompleteUnroll: failed "
+                      "DeepPatternTestOuterLp\n");
     return false;
   }
 
   if (!doDeepPatternTestInnerLp()) {
-    DEBUG(FOS << "HIRSymbolicTripCountCompleteUnroll: failed "
-                 "DeepPatternTestInnerLp\n");
+    LLVM_DEBUG(FOS << "HIRSymbolicTripCountCompleteUnroll: failed "
+                      "DeepPatternTestInnerLp\n");
     return false;
   }
 
@@ -1178,7 +1150,7 @@ bool HIRSymbolicTripCountCompleteUnroll::isLegal(void) {
 
   // Check: m_parent[ai] is READONLY (each ref appears as a Rval)
   if (!isMParentReadOnly()) {
-    DEBUG(FOS << "Failed MParent READ-ONLY test\n";);
+    LLVM_DEBUG(FOS << "Failed MParent READ-ONLY test\n";);
     return false;
   }
 
@@ -1189,7 +1161,7 @@ bool HIRSymbolicTripCountCompleteUnroll::isLegal(void) {
 // - more details are in the function's implementation.
 #if 0
   if (!checkMParentAndMLibs()) {
-    DEBUG(FOS << "Failed MParentAndMLibs test\n";);
+    LLVM_DEBUG(FOS << "Failed MParentAndMLibs test\n";);
     return false;
   }
 #endif
@@ -1203,7 +1175,7 @@ bool HIRSymbolicTripCountCompleteUnroll::isMParentReadOnly(void) {
   formatted_raw_ostream FOS(dbgs());
 #endif
 
-  DEBUG(print(NonLocalRefVec););
+  LLVM_DEBUG(print(NonLocalRefVec););
   // NonLocalRefVec<7>:
   // 0: (%this)[0].12.0[i1]
   // 1: (%this)[0].10.0[%2 + %i]
@@ -1218,7 +1190,7 @@ bool HIRSymbolicTripCountCompleteUnroll::isMParentReadOnly(void) {
   // The Size-1 index Ref* in NonLocalRefVec[] is a reference to m_parent[.]
   unsigned Size = NonLocalRefVec.size();
   RegDDRef *MParentRef = NonLocalRefVec[Size - 1];
-  DEBUG(MParentRef->dump(); FOS << "\n";);
+  LLVM_DEBUG(MParentRef->dump(); FOS << "\n";);
 
   // Collect all m_parent[.] Refs
   for (auto Ref : NonLocalRefVec) {
@@ -1227,7 +1199,7 @@ bool HIRSymbolicTripCountCompleteUnroll::isMParentReadOnly(void) {
     }
   }
 
-  DEBUG(print(MParentRefVec););
+  LLVM_DEBUG(print(MParentRefVec););
   // MParentRefVec:2
   // 3: (%this)[0].7.0[%2 + %i]
   // 6: (%this)[0].7.0[%2 + %i]
@@ -1267,7 +1239,7 @@ bool HIRSymbolicTripCountCompleteUnroll::checkMParentAndMLibs(void) {
   formatted_raw_ostream FOS(dbgs());
 #endif
 
-  DEBUG(print(NonLocalRefVec););
+  LLVM_DEBUG(print(NonLocalRefVec););
   // NonLocalRefVec<7>:
   // 0: (%this)[0].12.0[i1]
   // 1: (%this)[0].10.0[%2 + %i]
@@ -1281,7 +1253,7 @@ bool HIRSymbolicTripCountCompleteUnroll::checkMParentAndMLibs(void) {
   // The last-2 index Ref* in NonLocalRefVec is a reference to m_libs[.]
   unsigned Size = NonLocalRefVec.size();
   RegDDRef *MLibsRef = NonLocalRefVec[Size - 2];
-  DEBUG(MLibsRef->dump(); FOS << "\n";);
+  LLVM_DEBUG(MLibsRef->dump(); FOS << "\n";);
 
   // Collect: all m_libs[.] Refs
   for (auto Ref : NonLocalRefVec) {
@@ -1290,18 +1262,18 @@ bool HIRSymbolicTripCountCompleteUnroll::checkMParentAndMLibs(void) {
     }
   }
 
-  DEBUG(print(MParentRefVec););
+  LLVM_DEBUG(print(MParentRefVec););
   // MParentRefVec:2
   // 3: (%this)[0].7.0[%2 + %i]
   // 6: (%this)[0].7.0[%2 + %i]
 
-  DEBUG(print(MLibsRefVec););
+  LLVM_DEBUG(print(MLibsRefVec););
   // MLibs RefVec:2
   // 4: (%this)[0].8.0[%5]
   // 5: (%this)[0].8.0[%5]
 
-  DDGraph DDG = HDDA->getGraph(OuterLp, false);
-  // DEBUG(DDG.dump(););
+  DDGraph DDG = HDDA.getGraph(OuterLp, false);
+  // LLVM_DEBUG(DDG.dump(););
 
   // Check: each Ref in MParentRefVec vs. MLibsRefV
   for (auto Ref : MParentRefVec) {
@@ -1331,12 +1303,12 @@ bool HIRSymbolicTripCountCompleteUnroll::checkExclusiveEdge(
   bool IsLoad = Ref->isRval();
   DDRef *OtherRef = nullptr;
 
-  DEBUG(FOS << "Ref: "; Ref->dump(); FOS << "\n";);
-  DEBUG(print(RefV););
+  LLVM_DEBUG(FOS << "Ref: "; Ref->dump(); FOS << "\n";);
+  LLVM_DEBUG(print(RefV););
 
   // Iterate over each relevant DDEdge
   for (const DDEdge *Edge : (IsLoad ? DDG.incoming(Ref) : DDG.outgoing(Ref))) {
-    DEBUG(Edge->print(dbgs()););
+    LLVM_DEBUG(Edge->print(dbgs()););
 
     // Get OtherRef:
     if (IsLoad) {
@@ -1362,7 +1334,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doTransform(HLLoop *OuterLp) {
 
   HLRegion *Region = OuterLp->getParentRegion();
   assert(Region && "Region can't be a nullptr\n");
-  DEBUG(
+  LLVM_DEBUG(
       FOS << "BEFORE SymbolicTripCountCompleteUnroll Pattern Match CodeGen:\n";
       Region->dump(); FOS << "\n";);
 
@@ -1387,8 +1359,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doTransform(HLLoop *OuterLp) {
   Region->setGenCode();
   HIRInvalidationUtils::invalidateNonLoopRegion(Region);
 
-  DEBUG(FOS << "AFTER SymbolicTripCountCompleteUnroll Pattern Match:\n";
-        Region->dump(); FOS << "\n";);
+  LLVM_DEBUG(FOS << "AFTER SymbolicTripCountCompleteUnroll Pattern Match:\n";
+             Region->dump(); FOS << "\n";);
 
   return true;
 }
@@ -1444,7 +1416,8 @@ void HIRSymbolicTripCountCompleteUnroll::cleanOuterLpBody(void) {
   formatted_raw_ostream FOS(dbgs());
 #endif
 
-  DEBUG(FOS << "BEFORE cleanOuterLpBody:\n"; OuterLp->dump(); FOS << "\n";);
+  LLVM_DEBUG(FOS << "BEFORE cleanOuterLpBody:\n"; OuterLp->dump();
+             FOS << "\n";);
 
   // ** Remove any HLLabel* and/or HLGoto* in OuterLp **
   for (auto *Label : OuterLpLabelVec) {
@@ -1455,8 +1428,8 @@ void HIRSymbolicTripCountCompleteUnroll::cleanOuterLpBody(void) {
     HLNodeUtils::remove(Goto);
   }
 
-  DEBUG(FOS << "AFTER removal of any Label/Goto in OuterLp:\n"; OuterLp->dump();
-        FOS << "\n";);
+  LLVM_DEBUG(FOS << "AFTER removal of any Label/Goto in OuterLp:\n";
+             OuterLp->dump(); FOS << "\n";);
 
   // ** Remove any HLInst* that has load from/store to local data **
   for (HLInst *Inst : OuterLpInstVec) {
@@ -1465,15 +1438,15 @@ void HIRSymbolicTripCountCompleteUnroll::cleanOuterLpBody(void) {
     }
   }
 
-  DEBUG(FOS << "AFTER removal of Load/Store on local data in OuterLp:\n";
-        OuterLp->dump(); FOS << "\n";);
+  LLVM_DEBUG(FOS << "AFTER removal of Load/Store on local data in OuterLp:\n";
+             OuterLp->dump(); FOS << "\n";);
 
-  DDGraph DDG = HDDA->getGraph(OuterLp, false);
-  DEBUG(DDG.dump(););
+  DDGraph DDG = HDDA.getGraph(OuterLp, false);
+  LLVM_DEBUG(DDG.dump(););
 
   // Detect any Dead Load (a load without any use) on NON-Local Array:
   auto isDeadLoad = [&](HLInst *HInst, HLLoop *Lp, DDGraph &DDG) {
-    // DEBUG(HInst->dump(); FOS << "\n";);
+    // LLVM_DEBUG(HInst->dump(); FOS << "\n";);
 
     // Only interested in Load instructions:
     if (!isa<LoadInst>(HInst->getLLVMInstruction())) {
@@ -1482,7 +1455,7 @@ void HIRSymbolicTripCountCompleteUnroll::cleanOuterLpBody(void) {
 
     // Load can only have 1 RegDDRef * on its index 1:
     RegDDRef *Ref = HInst->getOperandDDRef(1);
-    // DEBUG(FOS << "Ref: "; Ref->dump(); FOS << "\n";);
+    // LLVM_DEBUG(FOS << "Ref: "; Ref->dump(); FOS << "\n";);
 
     // Only interested in Non-local Load:
     if (!HIRSymbolicTripCountCompleteUnroll::isNonLocalMemRef(Ref)) {
@@ -1507,8 +1480,9 @@ void HIRSymbolicTripCountCompleteUnroll::cleanOuterLpBody(void) {
     }
   }
 
-  DEBUG(FOS << "AFTER removal of Dead Load on Non-local data in OuterLp:\n";
-        OuterLp->dump(); FOS << "\n";);
+  LLVM_DEBUG(
+      FOS << "AFTER removal of Dead Load on Non-local data in OuterLp:\n";
+      OuterLp->dump(); FOS << "\n";);
 }
 
 void HIRSymbolicTripCountCompleteUnroll::fixLoopIvToConst(HLContainerTy &V,
@@ -1517,12 +1491,12 @@ void HIRSymbolicTripCountCompleteUnroll::fixLoopIvToConst(HLContainerTy &V,
 #ifndef NDEBUG
   formatted_raw_ostream FOS(dbgs());
 #endif
-  // DEBUG(print(V););
+  // LLVM_DEBUG(print(V););
 
   for (auto I = V.begin(), E = V.end(); I != E; ++I) {
     HLInst *HInst = dyn_cast<HLInst>(I);
     assert(HInst && "Expect HLInst* only\n");
-    // DEBUG(HInst->dump(); FOS << "\n";);
+    // LLVM_DEBUG(HInst->dump(); FOS << "\n";);
 
     // Replace each loop-level IV with the given integer IVConst:
     for (auto I = HInst->ddref_begin(), E = HInst->ddref_end(); I != E; ++I) {
@@ -1556,11 +1530,11 @@ void HIRSymbolicTripCountCompleteUnroll::collectTempDefition(
 #ifndef NDEBUG
   formatted_raw_ostream FOS(dbgs());
 #endif
-  // DEBUG(print(V););
+  // LLVM_DEBUG(print(V););
 
   for (auto I = V.begin(), E = V.end(); I != E; ++I) {
     HLInst *HInst = cast<HLInst>(I);
-    // DEBUG(HInst->dump(); FOS << "\n";);
+    // LLVM_DEBUG(HInst->dump(); FOS << "\n";);
 
     // Collect all Temp Definitions on Lval:
     RegDDRef *Lval = HInst->getOperandDDRef(0);
@@ -1569,7 +1543,7 @@ void HIRSymbolicTripCountCompleteUnroll::collectTempDefition(
     }
   }
 
-  // DEBUG(dbgs() << "DefVec: "; print(DefVec););
+  // LLVM_DEBUG(dbgs() << "DefVec: "; print(DefVec););
 }
 
 //[Original code]
@@ -1604,18 +1578,18 @@ void HIRSymbolicTripCountCompleteUnroll::buildTempDefMap(
 #ifndef NDEBUG
   formatted_raw_ostream FOS(dbgs());
 #endif
-  // DEBUG(print(V););
+  // LLVM_DEBUG(print(V););
 
   // Build a Map between OLD TempDef and NEW TempDef:
   // (Note: use explicit clone on OrigDef)
   for (auto Def : DefVec) {
     RegDDRef *OldDefClone = Def->clone();
-    RegDDRef *NewDef = HNU->createTemp(Def->getDestType(), TempName);
+    RegDDRef *NewDef = HNU.createTemp(Def->getDestType(), TempName);
     DefMap[OldDefClone] = NewDef;
   }
 
   // Examine the map we just created:
-  // DEBUG(dbgs() << " DefMap: "; print(DefMap););
+  // LLVM_DEBUG(dbgs() << " DefMap: "; print(DefMap););
 }
 
 void HIRSymbolicTripCountCompleteUnroll::updateTempUse(
@@ -1624,11 +1598,11 @@ void HIRSymbolicTripCountCompleteUnroll::updateTempUse(
 #ifndef NDEBUG
   formatted_raw_ostream FOS(dbgs());
 #endif
-  // DEBUG(print(V););
+  // LLVM_DEBUG(print(V););
 
   for (auto I = V.begin(), E = V.end(); I != E; ++I) {
     HLInst *HInst = cast<HLInst>(I);
-    // DEBUG(HInst->dump(); FOS << "\n";);
+    // LLVM_DEBUG(HInst->dump(); FOS << "\n";);
 
     for (auto Item : DefMap) {
       RegDDRef *OldDef = Item.first;
@@ -1636,10 +1610,10 @@ void HIRSymbolicTripCountCompleteUnroll::updateTempUse(
       unsigned OldIndex = OldDef->getSelfBlobIndex();
       unsigned NewIndex = NewDef->getSelfBlobIndex();
 
-      DEBUG(FOS << "OldDef: "; OldDef->dump(); FOS << "\t";
-            FOS << "OldIndex: " << OldIndex << "\t"; FOS << "NewDef: ";
-            NewDef->dump(); FOS << "\t"; FOS << "NewIndex: " << NewIndex;
-            FOS << "\n";);
+      LLVM_DEBUG(FOS << "OldDef: "; OldDef->dump(); FOS << "\t";
+                 FOS << "OldIndex: " << OldIndex << "\t"; FOS << "NewDef: ";
+                 NewDef->dump(); FOS << "\t"; FOS << "NewIndex: " << NewIndex;
+                 FOS << "\n";);
 
       // For each operand in HLInst*: Replace OldRef with NewRef using Index
       for (unsigned I = 0, E = HInst->getNumOperands(); I < E; ++I) {
@@ -1762,7 +1736,8 @@ void HIRSymbolicTripCountCompleteUnroll::doUnrollActions(void) {
   formatted_raw_ostream FOS(dbgs());
 #endif
   HLRegion *Region = OuterLp->getParentRegion();
-  DEBUG(FOS << "BEFORE doUnrollActions():\n"; Region->dump(); FOS << "\n";);
+  LLVM_DEBUG(FOS << "BEFORE doUnrollActions():\n"; Region->dump();
+             FOS << "\n";);
 
   const unsigned OuterLpLevel = 1;
   HLContainerTy LoopBody; // Container for cloning loop body per iteration
@@ -1777,7 +1752,7 @@ void HIRSymbolicTripCountCompleteUnroll::doUnrollActions(void) {
   HLNode *Marker = HNU.getOrCreateMarkerNode();
 
   // Replace OuterLp with marker node:
-  HNU.replace(OuterLp, Marker);
+  HLNodeUtils::replace(OuterLp, Marker);
 
   // Vector of only the Last Instruction per unrolled body:
   SmallVector<HLDDNode *, 4> LastInstVec;
@@ -1790,18 +1765,18 @@ void HIRSymbolicTripCountCompleteUnroll::doUnrollActions(void) {
     // Do complete unroll for current iteration, fix iv to I
 
     // Clone iteration:
-    HNU.cloneSequence(&LoopBody, OrigFirstChild, OrigLastChild);
-    DEBUG(FOS << "LoopBody without IV fixed:\n"; print(LoopBody););
+    HLNodeUtils::cloneSequence(&LoopBody, OrigFirstChild, OrigLastChild);
+    LLVM_DEBUG(FOS << "LoopBody without IV fixed:\n"; print(LoopBody););
 
     fixLoopIvToConst(LoopBody, OuterLpLevel, I);
 
-    DEBUG(FOS << "LoopBody with IV fixed:\n"; print(LoopBody););
+    LLVM_DEBUG(FOS << "LoopBody with IV fixed:\n"; print(LoopBody););
 
     // For any non-last Iteration unroll: collect the last Instruction node
     // (for the final Store-Sink step)
     HLInst *LastInst = dyn_cast<HLInst>(--LoopBody.end());
     assert(LastInst && "Expect HLInst* only\n");
-    DEBUG(FOS << "LastInst:"; LastInst->dump(););
+    LLVM_DEBUG(FOS << "LastInst:"; LastInst->dump(););
     if (!IsLastIter) {
       LastInstVec.push_back(LastInst);
     } else {
@@ -1822,44 +1797,47 @@ void HIRSymbolicTripCountCompleteUnroll::doUnrollActions(void) {
 
       // Collect all Tmp's definitions: into TmpDefVec
       collectTempDefition(LoopBody, TmpDefVec);
-      DEBUG(FOS << "TmpDefVec:\n"; print(TmpDefVec););
+      LLVM_DEBUG(FOS << "TmpDefVec:\n"; print(TmpDefVec););
 
       // Build Mapping between OldDef and NewDef: update DefMap
       buildTempDefMap(TmpDefVec, DefMap);
-      DEBUG(FOS << "DefMap:\n"; print(DefMap););
+      LLVM_DEBUG(FOS << "DefMap:\n"; print(DefMap););
 
       // Update use of OLDTmp to NEWTmp:
       updateTempUse(LoopBody, TmpDefVec, DefMap);
 
       // Examine AFTER map OldTmp to NewTmp in LoopBody:
-      DEBUG(FOS << "After map OldTmp->NewTmp in LoopBody:\n"; print(LoopBody););
+      LLVM_DEBUG(FOS << "After map OldTmp->NewTmp in LoopBody:\n";
+                 print(LoopBody););
     }
 
     // Insert the per-iteration unrolled code at the end of the OuterLp
     // Note: LoopBody is cleaned after each insert
-    HNU.insertAfter(OuterLp->getLastChild(), &LoopBody);
-    DEBUG(OuterLp->dump(););
+    HLNodeUtils::insertAfter(OuterLp->getLastChild(), &LoopBody);
+    LLVM_DEBUG(OuterLp->dump(););
   }
 
   // *** Do Code Sinking ***
   // Sink each collected last store to BEFORE LastStoreMarker
-  DEBUG(print(LastInstVec));
+  LLVM_DEBUG(print(LastInstVec));
   for (auto Inst : LastInstVec) {
-    HNU.moveBefore(LastInstMarker, Inst);
+    HLNodeUtils::moveBefore(LastInstMarker, Inst);
   }
-  DEBUG(OuterLp->dump(););
+  LLVM_DEBUG(OuterLp->dump(););
 
   // Remove the Original Nodes in OuterLp:
   HLNodeUtils::remove(OrigFirstChild, OrigLastChild);
-  DEBUG(FOS << "Completely Unrolled OuterLp (without those original nodes):\n";
-        OuterLp->dump(); FOS << "\n";);
+  LLVM_DEBUG(
+      FOS << "Completely Unrolled OuterLp (without those original nodes):\n";
+      OuterLp->dump(); FOS << "\n";);
 
   // Replace marker node with the unrolled loop body, remove the OuterLp
   // (Straight-line code is now produced!)
-  HNU.moveBefore(Marker, OuterLp->child_begin(), OuterLp->child_end());
-  HNU.remove(Marker);
+  HLNodeUtils::moveBefore(Marker, OuterLp->child_begin(), OuterLp->child_end());
+  HLNodeUtils::remove(Marker);
 
-  DEBUG(FOS << "AFTER doUnrollActions(.):\n"; Region->dump(); FOS << "\n";);
+  LLVM_DEBUG(FOS << "AFTER doUnrollActions(.):\n"; Region->dump();
+             FOS << "\n";);
   (void)Region;
 }
 
@@ -1867,7 +1845,7 @@ bool HIRSymbolicTripCountCompleteUnroll::hasLocalLoadOrStore(HLInst *HInst) {
 #ifndef NDEBUG
   formatted_raw_ostream FOS(dbgs());
 #endif
-  DEBUG(HInst->dump(););
+  LLVM_DEBUG(HInst->dump(););
 
   // Check: LoadInst, StoreInst, BinaryOperator, and CopyInst (4) types
   const Instruction *LLVMInst = HInst->getLLVMInstruction();
@@ -1884,7 +1862,7 @@ bool HIRSymbolicTripCountCompleteUnroll::hasLocalLoadOrStore(HLInst *HInst) {
 
   if (IsLoadInst) { // MemRef can only appear on RHS (pos:1) for a load
     RegDDRef *Ref = HInst->getOperandDDRef(1);
-    // DEBUG(Ref->dump(); FOS << "\n";);
+    // LLVM_DEBUG(Ref->dump(); FOS << "\n";);
 
     if (HIRSymbolicTripCountCompleteUnroll::isLocalMemRef(Ref)) {
       Result = true;
@@ -1894,7 +1872,7 @@ bool HIRSymbolicTripCountCompleteUnroll::hasLocalLoadOrStore(HLInst *HInst) {
 
     for (unsigned I = 0; I <= 1; ++I) {
       RegDDRef *Ref = HInst->getOperandDDRef(I);
-      // DEBUG(Ref->dump(); FOS << "\n";);
+      // LLVM_DEBUG(Ref->dump(); FOS << "\n";);
 
       if (HIRSymbolicTripCountCompleteUnroll::isLocalMemRef(Ref)) {
         Result = true;
@@ -1908,7 +1886,7 @@ bool HIRSymbolicTripCountCompleteUnroll::hasLocalLoadOrStore(HLInst *HInst) {
 
     for (unsigned I = 0, E = HInst->getNumOperands(); I < E; ++I) {
       RegDDRef *Ref = HInst->getOperandDDRef(I);
-      DEBUG(FOS << "Ref: "; Ref->dump(); FOS << "\n";);
+      LLVM_DEBUG(FOS << "Ref: "; Ref->dump(); FOS << "\n";);
 
       if (HIRSymbolicTripCountCompleteUnroll::isNonLocalMemRef(Ref)) {
         Result = false;
@@ -1930,7 +1908,7 @@ bool HIRSymbolicTripCountCompleteUnroll::hasEdgeInLoop(HLLoop *Lp,
 
   // Iterate over each relevant DDEdge
   for (const DDEdge *Edge : DDG.outgoing(Ref)) {
-    DEBUG(Edge->print(dbgs()););
+    LLVM_DEBUG(Edge->print(dbgs()););
 
     // Setup OtherRef:
     OtherRef = Edge->getSink();
@@ -1960,4 +1938,58 @@ void HIRSymbolicTripCountCompleteUnroll::clearWorkingSetMemory(void) {
   NonLocalRefVec.clear();
   MParentRefVec.clear();
   MLibsRefVec.clear();
+}
+
+class HIRSymbolicTripCountCompleteUnrollLegacyPass : public HIRTransformPass {
+public:
+  static char ID;
+
+  HIRSymbolicTripCountCompleteUnrollLegacyPass() : HIRTransformPass(ID) {
+    initializeHIRSymbolicTripCountCompleteUnrollLegacyPassPass(
+        *PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+    AU.setPreservesAll();
+  }
+
+  bool runOnFunction(Function &F) {
+    if (skipFunction(F)) {
+      LLVM_DEBUG(dbgs() << "HIR Loop Pattern Match Early Skipped\n");
+      return false;
+    }
+
+    return HIRSymbolicTripCountCompleteUnroll(
+               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA())
+        .run();
+  }
+};
+
+char HIRSymbolicTripCountCompleteUnrollLegacyPass::ID = 0;
+
+INITIALIZE_PASS_BEGIN(
+    HIRSymbolicTripCountCompleteUnrollLegacyPass,
+    "hir-pm-symbolic-tripcount-completeunroll",
+    "HIR Symbolic TripCount CompleteUnroll Pattern Match Pass", false, false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_END(HIRSymbolicTripCountCompleteUnrollLegacyPass,
+                    "hir-pm-symbolic-tripcount-completeunroll",
+                    "HIR Symbolic TripCount CompleteUnroll Pattern Match Pass",
+                    false, false)
+
+FunctionPass *llvm::createHIRSymbolicTripCountCompleteUnrollPass() {
+  return new HIRSymbolicTripCountCompleteUnrollLegacyPass();
+}
+
+PreservedAnalyses
+HIRSymbolicTripCountCompleteUnrollPass::run(llvm::Function &F,
+                                            llvm::FunctionAnalysisManager &AM) {
+  HIRSymbolicTripCountCompleteUnroll(AM.getResult<HIRFrameworkAnalysis>(F),
+                                     AM.getResult<HIRDDAnalysisPass>(F))
+      .run();
+  return PreservedAnalyses::all();
 }

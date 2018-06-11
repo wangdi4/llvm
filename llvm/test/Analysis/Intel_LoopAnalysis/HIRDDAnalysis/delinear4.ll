@@ -5,6 +5,7 @@
 ; This test  cannot be delinearized because  UB of k is not related to n1
 ; if delinearized, (* = =) is formed 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt  -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze  | FileCheck %s 
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 ; CHECK-NOT:  (%0)[%n1 * i2 + i3 + %n1 + 1] --> (%0)[%n1 * i2 + i3 + %n1 + 1] ANTI (* = =)  
 ;Module Before HIR; ModuleID = 'delinear4.c'
 source_filename = "delinear4.c"

@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/CGSCCPassManager.h"
+#include "llvm/Config/config.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
@@ -19,6 +20,8 @@
 
 #include "TestPlugin.h"
 
+#include <cstdint>
+
 using namespace llvm;
 
 void anchor() {}
@@ -27,24 +30,19 @@ static std::string LibPath(const std::string Name = "TestPlugin") {
   const std::vector<testing::internal::string> &Argvs =
       testing::internal::GetArgvs();
   const char *Argv0 = Argvs.size() > 0 ? Argvs[0].c_str() : "PluginsTests";
-
-#if INTEL_CUSTOMIZATION
-  // g++ prior to 4.9 will issue a warning for casting between
-  // pointer-to-function and pointer-to-object and this breaks pedantic build.
-  // "__extension__" keyword suppresses the warning.
-#if !defined(_MSC_VER) && __GNUG__ <= 4 && __GNUG_MINOR__ < 9
-  __extension__
-#endif
-      void *Ptr = (void *)anchor;
-#endif
-
+  void *Ptr = (void *)(intptr_t)anchor;
   std::string Path = sys::fs::getMainExecutable(Argv0, Ptr);
   llvm::SmallString<256> Buf{sys::path::parent_path(Path)};
-  sys::path::append(Buf, (Name + ".so").c_str());
+  sys::path::append(Buf, (Name + LTDL_SHLIB_EXT).c_str());
   return Buf.str();
 }
 
 TEST(PluginsTests, LoadPlugin) {
+#if !defined(LLVM_ENABLE_PLUGINS)
+  // Disable the test if plugins are disabled.
+  return;
+#endif
+
   auto PluginPath = LibPath();
   ASSERT_NE("", PluginPath);
 

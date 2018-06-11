@@ -69,6 +69,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
+#include "llvm/Transforms/Utils/SSAUpdaterBulk.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
 #include <cassert>
@@ -367,7 +368,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
                                 DeferredDominance *DDT_, bool HasProfileData_,
                                 std::unique_ptr<BlockFrequencyInfo> BFI_,
                                 std::unique_ptr<BranchProbabilityInfo> BPI_) {
-  DEBUG(dbgs() << "Jump threading on function '" << F.getName() << "'\n");
+  LLVM_DEBUG(dbgs() << "Jump threading on function '" << F.getName() << "'\n");
   TLI = TLI_;
   LVI = LVI_;
   AA = AA_;
@@ -413,8 +414,9 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
       if (pred_empty(&BB)) {
         // When ProcessBlock makes BB unreachable it doesn't bother to fix up
         // the instructions in it. We must remove BB to prevent invalid IR.
-        DEBUG(dbgs() << "  JT: Deleting dead block '" << BB.getName()
-                     << "' with terminator: " << *BB.getTerminator() << '\n');
+        LLVM_DEBUG(dbgs() << "  JT: Deleting dead block '" << BB.getName()
+                          << "' with terminator: " << *BB.getTerminator()
+                          << '\n');
         LoopHeaders.erase(&BB);
         CountableLoopLatches.erase(&BB);   // INTEL
         CountableLoopHeaders.erase(&BB);   // INTEL
@@ -952,6 +954,8 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
     CmpInst::Predicate Pred = Cmp->getPredicate();
 
     PHINode *PN = dyn_cast<PHINode>(CmpLHS);
+    if (!PN)
+      PN = dyn_cast<PHINode>(CmpRHS);
     if (PN && PN->getParent() == BB) {
       const DataLayout &DL = PN->getModule()->getDataLayout();
       // We can do this simplification if any comparisons fold to true or false.
@@ -962,8 +966,14 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
         LVI->enableDT();
       for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
         BasicBlock *PredBB = PN->getIncomingBlock(i);
-        Value *LHS = PN->getIncomingValue(i);
-        Value *RHS = CmpRHS->DoPHITranslation(BB, PredBB);
+        Value *LHS, *RHS;
+        if (PN == CmpLHS) {
+          LHS = PN->getIncomingValue(i);
+          RHS = CmpRHS->DoPHITranslation(BB, PredBB);
+        } else {
+          LHS = CmpLHS->DoPHITranslation(BB, PredBB);
+          RHS = PN->getIncomingValue(i);
+        }
 
 #if INTEL_CUSTOMIZATION
         // When BB is a loop header, LHS can be derived from a Value, %V,
@@ -991,6 +1001,11 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
         Value *Res = SimplifyCmpInst(Pred, LHS, RHS, {DL});
         if (!Res) {
           if (!isa<Constant>(RHS))
+            continue;
+
+          // getPredicateOnEdge call will make no sense if LHS is defined in BB.
+          auto LHSInst = dyn_cast<Instruction>(LHS);
+          if (LHSInst && LHSInst->getParent() == BB)
             continue;
 
           LazyValueInfo::Tristate
@@ -1180,10 +1195,10 @@ static unsigned GetBestDestForJumpOnUndef(BasicBlock *BB) {
   unsigned MinSucc = 0;
   BasicBlock *TestBB = BBTerm->getSuccessor(MinSucc);
   // Compute the successor with the minimum number of predecessors.
-  unsigned MinNumPreds = std::distance(pred_begin(TestBB), pred_end(TestBB));
+  unsigned MinNumPreds = pred_size(TestBB);
   for (unsigned i = 1, e = BBTerm->getNumSuccessors(); i != e; ++i) {
     TestBB = BBTerm->getSuccessor(i);
-    unsigned NumPreds = std::distance(pred_begin(TestBB), pred_end(TestBB));
+    unsigned NumPreds = pred_size(TestBB);
     if (NumPreds < MinNumPreds) {
       MinSucc = i;
       MinNumPreds = NumPreds;
@@ -1321,8 +1336,8 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
       Updates.push_back({DominatorTree::Delete, BB, Succ});
     }
 
-    DEBUG(dbgs() << "  In block '" << BB->getName()
-          << "' folding undef terminator: " << *BBTerm << '\n');
+    LLVM_DEBUG(dbgs() << "  In block '" << BB->getName()
+                      << "' folding undef terminator: " << *BBTerm << '\n');
     BranchInst::Create(BBTerm->getSuccessor(BestSucc), BBTerm);
     BBTerm->eraseFromParent();
     DDT->applyUpdates(Updates);
@@ -1333,8 +1348,9 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
   // terminator to an unconditional branch.  This can occur due to threading in
   // other blocks.
   if (getKnownConstant(Condition, Preference)) {
-    DEBUG(dbgs() << "  In block '" << BB->getName()
-          << "' folding terminator: " << *BB->getTerminator() << '\n');
+    LLVM_DEBUG(dbgs() << "  In block '" << BB->getName()
+                      << "' folding terminator: " << *BB->getTerminator()
+                      << '\n');
     ++NumFolds;
     ConstantFoldTerminator(BB, true, nullptr, DDT);
     return true;
@@ -1828,12 +1844,12 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
          "ComputeValueKnownInPredecessors returned true with no "       // INTEL
          "values or regions");                                          // INTEL
 
-  DEBUG(dbgs() << "IN BB: " << *BB;
-        for (const auto &PredValue : PredValues) {
-          dbgs() << "  BB '" << BB->getName() << "': FOUND condition = "
-            << *PredValue.first
-            << " for pred '" << PredValue.second->getName() << "'.\n";
-        });
+  LLVM_DEBUG(dbgs() << "IN BB: " << *BB; for (const auto &PredValue
+                                              : PredValues) {
+    dbgs() << "  BB '" << BB->getName()
+           << "': FOUND condition = " << *PredValue.first << " for pred '"
+           << PredValue.second->getName() << "'.\n";
+  });
 
   // Decide what we want to thread through.  Convert our list of known values to
   // a list of known destinations for each pred.  This also discards duplicate
@@ -1920,8 +1936,7 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
   if (OnlyDest && OnlyDest != MultipleDestSentinel &&                  // INTEL
       RegionInfo.size() == 1 &&                                        // INTEL
       RegionInfo.back().first == RegionInfo.back().second) {           // INTEL
-    if (PredWithKnownDest ==
-        (size_t)std::distance(pred_begin(BB), pred_end(BB))) {
+    if (PredWithKnownDest == (size_t)pred_size(BB)) {
       bool SeenFirstBranchToOnlyDest = false;
       std::vector <DominatorTree::UpdateType> Updates;
       Updates.reserve(BB->getTerminator()->getNumSuccessors() - 1);
@@ -2309,9 +2324,9 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
   // If threading this would thread into a loop header don't thread the edge.
   // See the comments above FindLoopHeaders for justifications and caveats.
   if (LoopHeaders.count(SuccBB) && !JumpThreadLoopHeader) {
-    DEBUG(dbgs() << "  Not threading to dest loop header BB '"
-                 << SuccBB->getName()
-                 << "' - it might create an irreducible loop!\n");
+    LLVM_DEBUG(dbgs() << "  Not threading to dest loop header BB '"
+                      << SuccBB->getName()
+                      << "' - it might create an irreducible loop!\n");
     return false;
   }
 
@@ -2326,8 +2341,9 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
     // check. In order to enable threading across loop headers by default, we
     // need a more robust fix for this problem.
     if (BB == SuccBB) {
-      DEBUG(dbgs() << "  Not threading across BB '" << RegionBottom->getName()
-            << "' - would thread to self!\n");
+      LLVM_DEBUG(dbgs() << "  Not threading across BB '"
+                        << RegionBottom->getName()
+                        << "' - would thread to self!\n");
       return false;
     }
 
@@ -2337,9 +2353,9 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
     if (BB != RegionBottom)
       for (succ_iterator SI = succ_begin(BB), SE = succ_end(BB); SI != SE; ++SI)
         if (*SI == RegionTop) {
-          DEBUG(dbgs() << "  Not threading across BB '"
-                       << RegionBottom->getName()
-                       << "' - internal edge back to RegionTop!\n");
+          LLVM_DEBUG(dbgs()
+                     << "  Not threading across BB '" << RegionBottom->getName()
+                     << "' - internal edge back to RegionTop!\n");
           return false;
         }
 
@@ -2348,17 +2364,18 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
     // caveats.
     if (LoopHeaders.count(BB)) {
       if (!JumpThreadLoopHeader) {
-        DEBUG(dbgs() << "  Not threading across loop header BB '"
-            << BB->getName()
-            << "' to dest BB '" << SuccBB->getName()
-            << "' - it might create an irreducible loop!\n");
+        LLVM_DEBUG(dbgs() << "  Not threading across loop header BB '"
+                          << BB->getName() << "' to dest BB '"
+                          << SuccBB->getName()
+                          << "' - it might create an irreducible loop!\n");
         return false;
       }
       ThreadingLoopHeader = true;
 
       if (BlockThreadCount[RegionBottom] >= MaxThreadsPerBlock) {
-        DEBUG(dbgs() << "  Not threading across loop header BB '"
-              << BB->getName() << "' - max thread count reached!\n");
+        LLVM_DEBUG(dbgs() << "  Not threading across loop header BB '"
+                          << BB->getName()
+                          << "' - max thread count reached!\n");
         return false;
       }
     }
@@ -2369,8 +2386,9 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
     //    are not true loop headers in LoopHeaders.
     if (CountableLoopHeaders.count(BB)
         && isa<SwitchInst>(BB->getTerminator())) {
-      DEBUG(dbgs() << "  Not threading across loop header BB '"
-          << BB->getName()
+      LLVM_DEBUG(
+          dbgs()
+          << "  Not threading across loop header BB '" << BB->getName()
           << "' - header has switch terminator and threading may convert it "
           << "into a latch. Such loops aren't supported by loopopt!\n");
       return false;
@@ -2381,8 +2399,8 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
                                                          RegionBottom,
                                                          BBDupThreshold);
   if (JumpThreadCost > BBDupThreshold) {
-    DEBUG(dbgs() << "  Not threading BB '" << RegionBottom->getName()
-          << "' - Cost is too high: " << JumpThreadCost << "\n");
+    LLVM_DEBUG(dbgs() << "  Not threading BB '" << RegionBottom->getName()
+                      << "' - Cost is too high: " << JumpThreadCost << "\n");
     return false;
   }
 
@@ -2390,8 +2408,10 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
     // Only allow multi-BB thread regions when threading across switches.
     if (RegionBlocks.size() != 1 &&
         !isa<SwitchInst>(RegionBottom->getTerminator())) {
-      DEBUG(dbgs() << "  Not threading BB '" << RegionBottom->getName()
-            << "' - Using conservative heuristics for distant threading.\n");
+      LLVM_DEBUG(
+          dbgs()
+          << "  Not threading BB '" << RegionBottom->getName()
+          << "' - Using conservative heuristics for distant threading.\n");
       return false;
     }
 
@@ -2400,8 +2420,9 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
     if (ThreadingLoopHeader) {
       if (!isa<ReturnInst>(SuccBB->getTerminator()) &&
           !isa<SwitchInst>(RegionBottom->getTerminator())) {
-        DEBUG(dbgs() << "  Not threading BB '" << RegionBottom->getName()
-              << "' - Using conservative heuristics loop headers.\n");
+        LLVM_DEBUG(
+            dbgs() << "  Not threading BB '" << RegionBottom->getName()
+                   << "' - Using conservative heuristics loop headers.\n");
         return false;
       }
     }
@@ -2412,19 +2433,20 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
   if (PredBBs.size() == 1)
     PredBB = PredBBs[0];
   else {
-    DEBUG(dbgs() << "  Factoring out " << PredBBs.size()
-          << " common predecessors.\n");
+    LLVM_DEBUG(dbgs() << "  Factoring out " << PredBBs.size()
+                      << " common predecessors.\n");
     PredBB = SplitBlockPreds(RegionTop, PredBBs, ".thr_comm");
   }
 
   // And finally, do it!
 #if INTEL_CUSTOMIZATION
-  DEBUG(dbgs() << "  Threading edge from '" << PredBB->getName() << "' to '"
-        << SuccBB->getName() << "' with cost: " << JumpThreadCost
-        << ", across blocks:\n    ";
-        for (auto BB : RegionBlocks)
-          dbgs() << " " << BB->getName();
-        dbgs() << "\n  Ending with" << *RegionBottom << "\n";);
+  LLVM_DEBUG(dbgs() << "  Threading edge from '" << PredBB->getName()
+                    << "' to '" << SuccBB->getName() << "' with cost: "
+                    << JumpThreadCost << ", across blocks:\n    ";
+             for (auto BB
+                  : RegionBlocks) dbgs()
+             << " " << BB->getName();
+             dbgs() << "\n  Ending with" << *RegionBottom << "\n";);
 #endif // INTEL_CUSTOMIZATION
 
   if (DDT->pending())
@@ -2627,6 +2649,7 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
 
   for (auto OldBB : RegionBlocks) {
     for (auto &I : *OldBB) {
+      UsesToRename.clear();
       // Scan all uses of this instruction to see if it is used outside of its
       // block, and if so, record them in UsesToRename.
       for (Use &U : I.uses()) {
@@ -2642,7 +2665,7 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
       if (UsesToRename.empty())
         continue;
 
-      DEBUG(dbgs() << "JT: Renaming non-local uses of: " << I << "\n");
+      LLVM_DEBUG(dbgs() << "JT: Renaming non-local uses of: " << I << "\n");
 
       // We found a use of I outside the region.  Rename all uses of I that are
       // outside the region to be uses of the appropriate PHI node etc.  Seed
@@ -2658,9 +2681,9 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
       if (ValueMapping.find(&I) != ValueMapping.end())
         SSAUpdate.AddAvailableValue(BlockMapping[OldBB], ValueMapping[&I]);
 
-      while (!UsesToRename.empty())
-        SSAUpdate.RewriteUse(*UsesToRename.pop_back_val());
-      DEBUG(dbgs() << "\n");
+      for (auto U : UsesToRename)
+        SSAUpdate.RewriteUse(*U);
+      LLVM_DEBUG(dbgs() << "\n");
     }
   }
 
@@ -2668,6 +2691,10 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
                       SuccBB},
                      {DominatorTree::Insert, PredBB, BlockMapping[RegionTop]},
                      {DominatorTree::Delete, PredBB, RegionTop}});
+
+  // Apply all updates we queued with DDT and get the updated Dominator Tree.
+  DominatorTree *DT = &DDT->flush();
+  (void)DT;
 
   // At this point, the IR is fully up to date and consistent.  Do a quick scan
   // over the new instructions and zap any that are constants or dead.  This
@@ -2916,9 +2943,9 @@ bool JumpThreadingPass::DuplicateCondBranchOnPHIIntoPred(
   // cause us to transform this into an irreducible loop, don't do this.
   // See the comments above FindLoopHeaders for justifications and caveats.
   if (LoopHeaders.count(BB)) {
-    DEBUG(dbgs() << "  Not duplicating loop header '" << BB->getName()
-          << "' into predecessor block '" << PredBBs[0]->getName()
-          << "' - it might create an irreducible loop!\n");
+    LLVM_DEBUG(dbgs() << "  Not duplicating loop header '" << BB->getName()
+                      << "' into predecessor block '" << PredBBs[0]->getName()
+                      << "' - it might create an irreducible loop!\n");
     return false;
   }
 
@@ -2948,9 +2975,10 @@ bool JumpThreadingPass::DuplicateCondBranchOnPHIIntoPred(
   pred_iterator PB = pred_begin(BB), PE = pred_end(BB);
   for (pred_iterator PI = PB; PI != PE; ++PI)
     if (*PI == BB) {
-      DEBUG(dbgs() << "  Not duplicating BB '" << BB->getName()
-            << "' into predecessor block '" << PredBBs[0]->getName()
-            << "' - it might prevent jump threading from converging!\n");
+      LLVM_DEBUG(
+          dbgs() << "  Not duplicating BB '" << BB->getName()
+                 << "' into predecessor block '" << PredBBs[0]->getName()
+                 << "' - it might prevent jump threading from converging!\n");
       return false;
     }
 #endif // INTEL_CUSTOMIZATION
@@ -2960,8 +2988,8 @@ bool JumpThreadingPass::DuplicateCondBranchOnPHIIntoPred(
   unsigned DuplicationCost =                                            // INTEL
     getJumpThreadDuplicationCost(RegionBlocks, BB, BBDupThreshold);     // INTEL
   if (DuplicationCost > BBDupThreshold) {
-    DEBUG(dbgs() << "  Not duplicating BB '" << BB->getName()
-          << "' - Cost is too high: " << DuplicationCost << "\n");
+    LLVM_DEBUG(dbgs() << "  Not duplicating BB '" << BB->getName()
+                      << "' - Cost is too high: " << DuplicationCost << "\n");
     return false;
   }
 
@@ -2971,17 +2999,18 @@ bool JumpThreadingPass::DuplicateCondBranchOnPHIIntoPred(
   if (PredBBs.size() == 1)
     PredBB = PredBBs[0];
   else {
-    DEBUG(dbgs() << "  Factoring out " << PredBBs.size()
-          << " common predecessors.\n");
+    LLVM_DEBUG(dbgs() << "  Factoring out " << PredBBs.size()
+                      << " common predecessors.\n");
     PredBB = SplitBlockPreds(BB, PredBBs, ".thr_comm");
   }
   Updates.push_back({DominatorTree::Delete, PredBB, BB});
 
   // Okay, we decided to do this!  Clone all the instructions in BB onto the end
   // of PredBB.
-  DEBUG(dbgs() << "  Duplicating block '" << BB->getName() << "' into end of '"
-        << PredBB->getName() << "' to eliminate branch on phi.  Cost: "
-        << DuplicationCost << " block is:" << *BB << "\n");
+  LLVM_DEBUG(dbgs() << "  Duplicating block '" << BB->getName()
+                    << "' into end of '" << PredBB->getName()
+                    << "' to eliminate branch on phi.  Cost: "
+                    << DuplicationCost << " block is:" << *BB << "\n");
 
   // Unless PredBB ends with an unconditional branch, split the edge so that we
   // can just clone the bits from BB into the end of the new PredBB.
@@ -3073,7 +3102,7 @@ bool JumpThreadingPass::DuplicateCondBranchOnPHIIntoPred(
     if (UsesToRename.empty())
       continue;
 
-    DEBUG(dbgs() << "JT: Renaming non-local uses of: " << I << "\n");
+    LLVM_DEBUG(dbgs() << "JT: Renaming non-local uses of: " << I << "\n");
 
     // We found a use of I outside of BB.  Rename all uses of I that are outside
     // its block to be uses of the appropriate PHI node etc.  See ValuesInBlocks
@@ -3084,7 +3113,7 @@ bool JumpThreadingPass::DuplicateCondBranchOnPHIIntoPred(
 
     while (!UsesToRename.empty())
       SSAUpdate.RewriteUse(*UsesToRename.pop_back_val());
-    DEBUG(dbgs() << "\n");
+    LLVM_DEBUG(dbgs() << "\n");
   }
 
   // PredBB no longer jumps to BB, remove entries in the PHI node for the edge
@@ -3377,8 +3406,8 @@ bool JumpThreadingPass::ThreadGuard(BasicBlock *BB, IntrinsicInst *Guard,
   BasicBlock *UnguardedBlock = DuplicateInstructionsInSplitBetween(
       BB, PredUnguardedBlock, Guard, UnguardedMapping);
   assert(UnguardedBlock && "Could not create the unguarded block?");
-  DEBUG(dbgs() << "Moved guard " << *Guard << " to block "
-               << GuardedBlock->getName() << "\n");
+  LLVM_DEBUG(dbgs() << "Moved guard " << *Guard << " to block "
+                    << GuardedBlock->getName() << "\n");
   // DuplicateInstructionsInSplitBetween inserts a new block "BB.split" between
   // PredBB and BB. We need to perform two inserts and one delete for each of
   // the above calls to update Dominators.

@@ -1,4 +1,6 @@
 ; RUN: opt < %s -basicaa -dse -S | FileCheck %s
+; INTEL
+; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -dse -S | FileCheck %s
 
 define void @test({i32,i32 }* %P) {
 ; CHECK: store i32 0, i32* %X

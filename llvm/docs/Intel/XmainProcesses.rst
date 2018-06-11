@@ -385,6 +385,10 @@ Of course, good judgment should always prevail. The gatekeeper may choose to
 permit less testing for low risk change sets and may choose to require extra
 testing for high risk change sets.
 
+Developers can also take advantage of integrated `AlloyGerrit
+<http://iclqa.sc.intel.com/BuildBoard/XmainDocs/Intel/XmainAlloyGerrit.html>`_
+testing infrastructure.
+
 Expectations Regarding New Stability Failures
 ---------------------------------------------
 

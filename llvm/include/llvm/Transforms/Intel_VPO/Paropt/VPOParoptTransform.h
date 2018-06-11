@@ -277,11 +277,12 @@ private:
                                    Value *NewPrivInst, Item *IT);
 
   /// \brief Generate the reduction initialization code.
-  void genReductionInit(ReductionItem *RedI, Instruction *InsertPt);
+  void genReductionInit(ReductionItem *RedI, Instruction *InsertPt,
+                        DominatorTree *DT);
 
   /// \brief Generate the reduction update code.
-  void genReductionFini(ReductionItem *RedI, Value *OldV,
-                        Instruction *InsertPt);
+  void genReductionFini(ReductionItem *RedI, Value *OldV, Instruction *InsertPt,
+                        DominatorTree *DT);
 
   /// \brief Generate the reduction initialization code for Min/Max.
   Value *genReductionMinMaxInit(ReductionItem *RedI, Type *Ty, bool IsMax);
@@ -312,7 +313,7 @@ private:
   /// \brief Generate the reduction initialization/update for array.
   void genRedAggregateInitOrFini(ReductionItem *RedI, AllocaInst *AI,
                                  Value *OldV, Instruction *InsertPt,
-                                 bool IsInit);
+                                 bool IsInit, DominatorTree *DT);
 
   /// \brief Generate the reduction fini code for bool and/or.
   Value *genReductionFiniForBoolOps(ReductionItem *RedI, Value *Rhs1,
@@ -373,7 +374,7 @@ private:
 
   /// \brief Generate the call __kmpc_task_reduction_init and the corresponding
   /// preparation.
-  void genRedInitForTaskLoop(WRegionNode *W, Instruction *InsertBefore);
+  void genRedInitForTask(WRegionNode *W, Instruction *InsertBefore);
 
   /// \brief Generate the initialization code for the depend clause
   AllocaInst *genDependInitForTask(WRegionNode *W, Instruction *InsertBefore);
@@ -573,6 +574,10 @@ private:
   /// Generate code for ordered/end ordered construct for preserving ordered
   /// region execution order
   bool genOrderedThreadCode(WRegionNode *W);
+
+  /// Emit __kmpc_doacross_post/wait call for an 'ordered depend(source/sink)'
+  /// construct.
+  bool genDoacrossWaitOrPost(WRNOrderedNode *W);
 
   /// \brief Generates code for the OpenMP critical construct:
   /// #pragma omp critical [(name)]

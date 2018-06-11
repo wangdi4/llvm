@@ -1,6 +1,6 @@
 //===---- HIRVLAAnalysis.cpp - Computes VLS Analysis ---------------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -51,7 +51,7 @@ char HIRVectVLSAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRVectVLSAnalysis, "hir-vect-vls-analysis",
                       "HIR Vect VLS Analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRVectVLSAnalysis, "hir-vect-vls-analysis",
                     "HIR Vect VLS Analysis", false, true)
 
@@ -59,7 +59,7 @@ void HIRVectVLSAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
   AU.addRequired<HIRFrameworkWrapperPass>();
-  AU.addRequired<HIRDDAnalysis>();
+  AU.addRequired<HIRDDAnalysisWrapperPass>();
 }
 
 void HIRVectVLSAnalysis::releaseMemory() {}
@@ -85,37 +85,37 @@ void HIRVectVLSAnalysis::testVLSMemrefAnalysis(VectVLSContext *VectContext,
                                                LoopMemrefsVector &RefVec) {
 
   unsigned Level = VectContext->getLoopLevel();
-  DEBUG(dbgs() << "\nVLS: Examining level " << Level);
+  LLVM_DEBUG(dbgs() << "\nVLS: Examining level " << Level);
 
   for (auto VecIt = RefVec.begin(), End = RefVec.end(); VecIt != End; ++VecIt) {
 
     const RegDDRef *Ref = *VecIt;
-    DEBUG(dbgs() << "\nExamine Ref "; Ref->dump());
+    LLVM_DEBUG(dbgs() << "\nExamine Ref "; Ref->dump());
 
     // Is it Strided at Level?
     CanonExpr *Stride = Ref->getStrideAtLevel(Level);
     bool strided = false;
     int64_t Val;
     if (Stride) {
-      //      DEBUG(dbgs() << "\n  Stride at Level is "; Stride->dump(1));
+      //      LLVM_DEBUG(dbgs() << "\n  Stride at Level is "; Stride->dump(1));
       if (Stride->isIntConstant(&Val)) {
         if (Val) {
           strided = true;
-          DEBUG(dbgs() << "   Strided Access at Level " << Level
-                       << ". Constant Stride = " << Val << ".\n");
+          LLVM_DEBUG(dbgs() << "   Strided Access at Level " << Level
+                            << ". Constant Stride = " << Val << ".\n");
         }
         //        else
-        //          DEBUG(dbgs() << "   Zero Stride.\n");
+        //          LLVM_DEBUG(dbgs() << "   Zero Stride.\n");
       } else {
         strided = true;
-        DEBUG(dbgs() << "   Strided Access at Level " << Level
-                     << ". Non Constant Stride.\n");
+        LLVM_DEBUG(dbgs() << "   Strided Access at Level " << Level
+                          << ". Non Constant Stride.\n");
       }
     }
 
     if (!strided) {
       // TODO: Is it an indexed mem access....?
-      //      DEBUG(dbgs() << "\n  Access not Strided.\n");
+      //      LLVM_DEBUG(dbgs() << "\n  Access not Strided.\n");
     }
 
     // Check relations between pairs of ddrefs
@@ -123,20 +123,20 @@ void HIRVectVLSAnalysis::testVLSMemrefAnalysis(VectVLSContext *VectContext,
          ++VecIt2) {
       const RegDDRef *Ref2 = *VecIt2;
       int64_t Distance;
-      DEBUG(dbgs() << "\n   Compare with Ref "; Ref2->dump());
+      LLVM_DEBUG(dbgs() << "\n   Compare with Ref "; Ref2->dump());
 
       // Compute Distances
       if (DDRefUtils::getConstByteDistance(Ref, Ref2, &Distance)) {
-        DEBUG(dbgs() << "     Distance  = " << Distance << ".\n");
+        LLVM_DEBUG(dbgs() << "     Distance  = " << Distance << ".\n");
       } else {
-        DEBUG(dbgs() << "     Could not compute Distance.\n");
+        LLVM_DEBUG(dbgs() << "     Could not compute Distance.\n");
       }
 
       // CanMoveTo?
       if (HIRVLSClientMemref::canAccessWith(Ref, Ref2, VectContext)) {
-        DEBUG(dbgs() << "     Can move to location of ref2\n");
+        LLVM_DEBUG(dbgs() << "     Can move to location of ref2\n");
       } else {
-        DEBUG(dbgs() << "     Illegal to move to location of ref2\n");
+        LLVM_DEBUG(dbgs() << "     Illegal to move to location of ref2\n");
       }
     }
   }
@@ -152,7 +152,7 @@ void HIRVectVLSAnalysis::getVLSMemrefs(VectVLSContext &VectContext,
                                        HIRToVLSMemrefsMap *MemrefsMap) {
 
   for (auto &Ref : RefVec) {
-    // DEBUG(dbgs() << "\nExamine Ref "; Ref->dump());
+    // LLVM_DEBUG(dbgs() << "\nExamine Ref "; Ref->dump());
 
     // FIXME: These 'new' operations in the loop are expensive and unnecessary.
     // The OVLSMemrefVector type should be changed to store objects rather than
@@ -175,8 +175,8 @@ void HIRVectVLSAnalysis::computeVLSGroups(
 
   unsigned GroupSize = MAX_VECTOR_LENGTH; // CHECKME
   unsigned VF = VectContext.getVectFactor();
-  DEBUG(dbgs() << "\nVLS: Examining level " << VectContext.getLoopLevel());
-  DEBUG(dbgs() << " with NumElements(VF) " << VF << "\n");
+  LLVM_DEBUG(dbgs() << "\nVLS: Examining level " << VectContext.getLoopLevel());
+  LLVM_DEBUG(dbgs() << " with NumElements(VF) " << VF << "\n");
 
   // FIXME: Need to decide if we want NumElements (currently a member field
   // of the base class OVLSMemref) to be a property of the vectorization context
@@ -229,7 +229,7 @@ void HIRVectVLSAnalysis::analyzeVLSInLoop(const HLLoop *Loop) {
 
   unsigned Level = Loop->getNestingLevel();
   DDGraph DDG = DDA->getGraph(Loop, false);
-  // DEBUG(DDG.dump());
+  // LLVM_DEBUG(DDG.dump());
 
   // 1. Gather MemRefs in Loop
   LoopMemrefsVector LoopMemrefs;
@@ -275,7 +275,7 @@ void HIRVectVLSAnalysis::analyzeVLSInLoop(const HLLoop *Loop) {
 void HIRVectVLSAnalysis::gatherMemrefsInLoop(HLLoop *Loop,
                                              LoopMemrefsVector &LoopMemrefs) {
 
-  DEBUG(dbgs() << "\nVLS: gather memrefs\n");
+  LLVM_DEBUG(dbgs() << "\nVLS: gather memrefs\n");
 
   unsigned Level = Loop->getNestingLevel();
   VectVLSDDRefVisitor V(Level, LoopMemrefs);
@@ -288,7 +288,7 @@ void HIRVectVLSAnalysis::analyzeVLSMemrefsInLoop(
     VectVLSContext &VectContext, LoopMemrefsVector &LoopMemrefs,
     OVLSMemrefVector &Mrfs, HIRToVLSMemrefsMap &MemrefsMap) {
 
-  DEBUG(dbgs() << "\nVLS: analyze memrefs\n");
+  LLVM_DEBUG(dbgs() << "\nVLS: analyze memrefs\n");
 
   getVLSMemrefs(VectContext, LoopMemrefs, &Mrfs, &MemrefsMap);
 }
@@ -311,7 +311,7 @@ void HIRVectVLSAnalysis::analyze(HIRFramework &HIRF) {
 bool HIRVectVLSAnalysis::runOnFunction(Function &F) {
 
   auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  DDA = &getAnalysis<HIRDDAnalysis>();
+  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
 
   if (debugHIRVectVLS) {
     analyze(HIRF);

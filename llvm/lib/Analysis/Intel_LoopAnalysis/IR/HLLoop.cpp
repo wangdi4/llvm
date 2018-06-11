@@ -1,6 +1,6 @@
 //===-------- HLLoop.cpp - Implements the HLLoop class --------------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -49,7 +49,8 @@ void HLLoop::initialize() {
 HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
     : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
       NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false),
-      LoopMetadata(LLVMLoop->getLoopID()), MaxTripCountEstimate(0) {
+      DistributedForMemRec(false), LoopMetadata(LLVMLoop->getLoopID()),
+      MaxTripCountEstimate(0) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   SmallVector<BasicBlock *, 8> Exits;
@@ -68,7 +69,8 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
 HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
                RegDDRef *UpperDDRef, RegDDRef *StrideDDRef, unsigned NumEx)
     : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
-      NestingLevel(0), IsInnermost(true), IsNSW(false), LoopMetadata(nullptr),
+      NestingLevel(0), IsInnermost(true), IsNSW(false),
+      DistributedForMemRec(false), LoopMetadata(nullptr),
       MaxTripCountEstimate(0) {
   initialize();
   setNumExits(NumEx);
@@ -100,6 +102,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       NumExits(HLLoopObj.NumExits), NestingLevel(0), IsInnermost(true),
       IVType(HLLoopObj.IVType), IsNSW(HLLoopObj.IsNSW),
       LiveInSet(HLLoopObj.LiveInSet), LiveOutSet(HLLoopObj.LiveOutSet),
+      DistributedForMemRec(HLLoopObj.DistributedForMemRec),
       LoopMetadata(HLLoopObj.LoopMetadata),
       MaxTripCountEstimate(HLLoopObj.MaxTripCountEstimate),
       CmpDbgLoc(HLLoopObj.CmpDbgLoc), BranchDbgLoc(HLLoopObj.BranchDbgLoc) {
@@ -131,6 +134,7 @@ HLLoop &HLLoop::operator=(HLLoop &&Lp) {
   OrigLoop = Lp.OrigLoop;
   IVType = Lp.IVType;
   IsNSW = Lp.IsNSW;
+  DistributedForMemRec = Lp.DistributedForMemRec;
   LoopMetadata = Lp.LoopMetadata;
   MaxTripCountEstimate = Lp.MaxTripCountEstimate;
 
@@ -908,7 +912,6 @@ void HLLoop::replaceByFirstIteration() {
   ForEach<RegDDRef>::visitRange(
       child_begin(), child_end(),
       [this, &HNU, Level, &Aux, LB, &ExplicitLB, IsInnermost](RegDDRef *Ref) {
-
         const CanonExpr *IVReplacement = nullptr;
 
         if (DDRefUtils::canReplaceIVByCanonExpr(Ref, Level,
@@ -1114,12 +1117,18 @@ void HLLoop::markDoNotVectorize() {
   addLoopMetadata(MDs);
 }
 
-bool HLLoop::canNormalize() const {
+bool HLLoop::canNormalize(const CanonExpr *LowerCE) const {
+
   if (isUnknown()) {
     return false;
   }
 
-  const CanonExpr *LowerCE = getLowerCanonExpr();
+  // If LB not supplied, get it from Loop
+  // For stripmining code, the LB is constructed later in the loop
+  // we know it can be normalized
+  if (!LowerCE) {
+    LowerCE = getLowerCanonExpr();
+  }
 
   assert(CanonExprUtils::mergeable(LowerCE, getUpperCanonExpr(), false) &&
          "Lower and Upper are expected to be always mergeable");
@@ -1244,6 +1253,44 @@ bool HLLoop::normalize() {
   return true;
 }
 
+bool HLLoop::canStripmine(unsigned StripmineSize, bool &NotRequired) {
+
+  uint64_t TripCount;
+
+  assert(isNormalized() &&
+         "Loop needs stripmine are expected to be normalized");
+
+  if (isConstTripLoop(&TripCount) && (TripCount <= StripmineSize)) {
+    NotRequired = true;
+    return true;
+  }
+
+  NotRequired = false;
+
+  unsigned Level = getNestingLevel();
+  if (Level == MaxLoopNestLevel) {
+    return false;
+  }
+
+  bool Result = true;
+  // Check out if loop can be mormalized before proceeding
+  // Need to create a new LB
+
+  CanonExpr *LBCE = getLowerDDRef()->getSingleCanonExpr();
+
+  CanonExpr *CE = LBCE->clone();
+  CE->clear();
+
+  //  64*i1
+  CE->setIVConstCoeff(Level, StripmineSize);
+  if (!canNormalize(CE)) {
+    Result = false;
+  }
+
+  getCanonExprUtils().destroy(CE);
+  return Result;
+}
+
 HLIf *HLLoop::getBottomTest() {
   if (!isUnknown()) {
     return nullptr;
@@ -1351,4 +1398,75 @@ unsigned HLLoop::getUnrollPragmaCount() const {
   }
 
   return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+}
+
+LoopOptReport LoopOptReportTraits<HLLoop>::getOrCreatePrevOptReport(
+    HLLoop &Loop, const LoopOptReportBuilder &Builder) {
+
+  struct PrevLoopFinder : public HLNodeVisitorBase {
+    const HLLoop *FoundLoop = nullptr;
+    const HLNode *FirstNode;
+
+    PrevLoopFinder(const HLNode *F) : FirstNode(F) {}
+    bool isDone() const { return FoundLoop; }
+    void visit(const HLLoop *Lp) {
+      if (Lp != FirstNode && Lp->getTopSortNum() < FirstNode->getTopSortNum())
+        FoundLoop = Lp;
+    }
+    void visit(const HLNode *Node) {}
+    void postVisit(const HLNode *Node) {}
+  };
+
+  PrevLoopFinder PLF(&Loop);
+  const HLNode *FirstNode;
+  const HLNode *LastNode;
+  const HLLoop *ParentLoop = Loop.getParentLoop();
+  if (ParentLoop) {
+    FirstNode = ParentLoop->getFirstChild();
+    LastNode = Loop.getHLNodeUtils().getImmediateChildContainingNode(ParentLoop,
+                                                                     &Loop);
+
+  } else {
+    const HLRegion *ParentRegion = Loop.getParentRegion();
+    FirstNode = ParentRegion->getFirstChild();
+    LastNode = Loop.getHLNodeUtils().getImmediateChildContainingNode(
+        ParentRegion, &Loop);
+  }
+
+  HLNodeUtils::visitRange<true, false, false>(PLF, FirstNode, LastNode);
+  if (!PLF.FoundLoop)
+    return nullptr;
+
+  HLLoop &Lp = const_cast<HLLoop &>(*PLF.FoundLoop);
+  return Builder(Lp).getOrCreateOptReport();
+}
+
+LoopOptReport LoopOptReportTraits<HLLoop>::getOrCreateParentOptReport(
+    HLLoop &Loop, const LoopOptReportBuilder &Builder) {
+  if (HLLoop *Dest = Loop.getParentLoop())
+    return Builder(*Dest).getOrCreateOptReport();
+
+  if (HLRegion *Dest = Loop.getParentRegion())
+    return Builder(*Dest).getOrCreateOptReport();
+
+  llvm_unreachable("Failed to find a parent");
+}
+
+void LoopOptReportTraits<HLLoop>::traverseChildLoopsBackward(
+    HLLoop &Loop, LoopVisitorTy Func) {
+  struct LoopVisitor : public HLNodeVisitorBase {
+    using LoopVisitorTy = LoopOptReportTraits<HLLoop>::LoopVisitorTy;
+    LoopVisitorTy Func;
+
+    LoopVisitor(LoopVisitorTy Func) : Func(Func) {}
+    void postVisit(HLLoop *Lp) { Func(*Lp); }
+    void visit(const HLNode *Node) {}
+    void postVisit(const HLNode *Node) {}
+  };
+
+  if (Loop.hasChildren()) {
+    LoopVisitor LV(Func);
+    HLNodeUtils::visitRange<true, false, false>(LV, Loop.getFirstChild(),
+                                                Loop.getLastChild());
+  }
 }

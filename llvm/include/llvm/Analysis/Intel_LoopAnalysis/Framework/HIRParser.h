@@ -1,6 +1,6 @@
 //===---------- HIRParser.h - Parses SCEVs into CanonExprs --*- C++ -*-----===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -44,6 +44,7 @@ class SCEV;
 class ScalarEvolution;
 class SCEVConstant;
 class SCEVAddRecExpr;
+class SCEVMulExpr;
 class SCEVUnknown;
 class GEPOperator;
 class Value;
@@ -287,7 +288,12 @@ class HIRParser {
   /// Parses an AddRec into CanonExpr. This and parseRecursive() can call each
   /// other.
   bool parseAddRec(const SCEVAddRecExpr *AddRec, CanonExpr *CE, unsigned Level,
-                   bool UnderCast, bool IndicateFailure);
+                   bool IndicateFailure);
+
+  /// Parses a Mul into CanonExpr. It can create an IV term by calling
+  /// parseAddRec().
+  bool parseMul(const SCEVMulExpr *MulSCEV, CanonExpr *CE, unsigned Level,
+                bool IndicateFailure);
 
   /// Recursively parses SCEV tree into CanonExpr. IsTop is true when we are at
   /// the top of the tree and UnderCast is true if we are under a cast type

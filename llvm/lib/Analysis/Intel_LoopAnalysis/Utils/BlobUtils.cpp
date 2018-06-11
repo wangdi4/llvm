@@ -1,6 +1,6 @@
 //===--- CanonExprUtils.cpp - Implements CanonExprUtils class -------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -19,6 +19,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -388,28 +389,45 @@ bool BlobUtils::isNestedBlob(BlobTy Blob) {
 
 class BlobOperationsCounter : public SCEVVisitor<BlobOperationsCounter> {
 private:
+  const TargetTransformInfo *TTI;
   unsigned NumOperations;
 
 public:
-  BlobOperationsCounter() : NumOperations(0) {}
+  BlobOperationsCounter(const TargetTransformInfo *TTI)
+      : TTI(TTI), NumOperations(0) {}
 
   void visitConstant(const SCEVConstant *Constant) {}
 
   void visitUnknown(const SCEVUnknown *Unknown) {}
 
   void visitTruncateExpr(const SCEVTruncateExpr *Trunc) {
-    ++NumOperations;
-    visit(Trunc->getOperand());
+    auto Op = Trunc->getOperand();
+    if (!TTI || (TTI->getOperationCost(Instruction::Trunc, Trunc->getType(),
+                                       Op->getType()) !=
+                 TargetTransformInfo::TargetCostConstants::TCC_Free)) {
+      ++NumOperations;
+    }
+    visit(Op);
   }
 
   void visitZeroExtendExpr(const SCEVZeroExtendExpr *ZExt) {
-    ++NumOperations;
-    visit(ZExt->getOperand());
+    auto Op = ZExt->getOperand();
+    if (!TTI || (TTI->getOperationCost(Instruction::ZExt, ZExt->getType(),
+                                       Op->getType()) !=
+                 TargetTransformInfo::TargetCostConstants::TCC_Free)) {
+      ++NumOperations;
+    }
+    visit(Op);
   }
 
   void visitSignExtendExpr(const SCEVSignExtendExpr *SExt) {
-    ++NumOperations;
-    visit(SExt->getOperand());
+    auto Op = SExt->getOperand();
+    if (!TTI || (TTI->getOperationCost(Instruction::SExt, SExt->getType(),
+                                       Op->getType()) !=
+                 TargetTransformInfo::TargetCostConstants::TCC_Free)) {
+      ++NumOperations;
+    }
+    visit(Op);
   }
 
   void visitNAryExpr(const SCEVNAryExpr *NAry) {
@@ -444,15 +462,12 @@ public:
   unsigned getNumOperations() const { return NumOperations; }
 };
 
-unsigned BlobUtils::getNumOperations(BlobTy Blob) {
-  BlobOperationsCounter BOC;
+unsigned BlobUtils::getNumOperations(BlobTy Blob,
+                                     const TargetTransformInfo *TTI) {
+  BlobOperationsCounter BOC(TTI);
   BOC.visit(Blob);
 
   return BOC.getNumOperations();
-}
-
-unsigned BlobUtils::getNumOperations(unsigned BlobIndex) const {
-  return getNumOperations(getBlob(BlobIndex));
 }
 
 bool BlobUtils::getTempBlobMostProbableConstValue(BlobTy Blob, int64_t &Val) {

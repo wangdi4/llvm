@@ -7,7 +7,9 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This library implements the functionality defined in llvm/IR/Writer.h
+// This library implements `print` family of functions in classes like
+// Module, Function, Value, etc. In-memory representation of those classes is
+// converted to IR strings.
 //
 // Note that these routines must be extremely tolerant of various errors in the
 // LLVM code, because it can be used for debugging transformations.
@@ -28,6 +30,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/BinaryFormat/Dwarf.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/Attributes.h"
@@ -89,7 +92,17 @@ using namespace llvm;
 // Make virtual table appear in this compilation unit.
 AssemblyAnnotationWriter::~AssemblyAnnotationWriter() = default;
 
-#if !INTEL_PRODUCT_RELEASE
+#if INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG)
+#error INTEL_PRODUCT_RELEASE requires that NDEBUG also be defined.
+#endif
+
+#if defined(LLVM_ENABLE_DUMP) // INTEL
+#error LLVM_ENABLE_DUMP cannot be used with INTEL_PRODUCT_RELEASE
+#endif
+#endif  // !INTEL_PRODUCT_RELEASE
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 //===----------------------------------------------------------------------===//
 // Helper Functions
 //===----------------------------------------------------------------------===//
@@ -764,7 +777,7 @@ private:
   /// CreateFunctionSlot - Insert the specified Value* into the slot table.
   void CreateFunctionSlot(const Value *V);
 
-  /// \brief Insert the specified AttributeSet into the slot table.
+  /// Insert the specified AttributeSet into the slot table.
   void CreateAttributeSetSlot(AttributeSet AS);
 
   /// Add all of the module level global variables (and their initializers)
@@ -1832,7 +1845,7 @@ static void writeDISubprogram(raw_ostream &Out, const DISubprogram *N,
   Printer.printMetadata("unit", N->getRawUnit());
   Printer.printMetadata("templateParams", N->getRawTemplateParams());
   Printer.printMetadata("declaration", N->getRawDeclaration());
-  Printer.printMetadata("variables", N->getRawVariables());
+  Printer.printMetadata("retainedNodes", N->getRawRetainedNodes());
   Printer.printMetadata("thrownTypes", N->getRawThrownTypes());
   Out << ")";
 }
@@ -1969,6 +1982,18 @@ static void writeDILocalVariable(raw_ostream &Out, const DILocalVariable *N,
   Printer.printMetadata("type", N->getRawType());
   Printer.printDIFlags("flags", N->getFlags());
   Printer.printInt("align", N->getAlignInBits());
+  Out << ")";
+}
+
+static void writeDILabel(raw_ostream &Out, const DILabel *N,
+                         TypePrinting *TypePrinter,
+                         SlotTracker *Machine, const Module *Context) {
+  Out << "!DILabel(";
+  MDFieldPrinter Printer(Out, TypePrinter, Machine, Context);
+  Printer.printMetadata("scope", N->getRawScope(), /* ShouldSkipNull */ false);
+  Printer.printString("name", N->getName());
+  Printer.printMetadata("file", N->getRawFile());
+  Printer.printInt("line", N->getLine());
   Out << ")";
 }
 
@@ -2237,7 +2262,7 @@ public:
   void printUseLists(const Function *F);
 
 private:
-  /// \brief Print out metadata attachments.
+  /// Print out metadata attachments.
   void printMetadataAttachments(
       const SmallVectorImpl<std::pair<unsigned, MDNode *>> &MDs,
       StringRef Separator);
@@ -3708,7 +3733,6 @@ void Metadata::print(raw_ostream &OS, ModuleSlotTracker &MST,
   printMetadataImpl(OS, *this, MST, M, /* OnlyAsOperand */ false);
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Value::dump - allow easy printing of Values from the debugger.
 LLVM_DUMP_METHOD
 void Value::dump() const { print(dbgs(), /*IsForDebug=*/true); dbgs() << '\n'; }
@@ -3724,7 +3748,7 @@ void Module::dump() const {
         /*ShouldPreserveUseListOrder=*/false, /*IsForDebug=*/true);
 }
 
-// \brief Allow printing of Comdats from the debugger.
+// Allow printing of Comdats from the debugger.
 LLVM_DUMP_METHOD
 void Comdat::dump() const { print(dbgs(), /*IsForDebug=*/true); }
 
@@ -3740,19 +3764,10 @@ void Metadata::dump(const Module *M) const {
   print(dbgs(), M, /*IsForDebug=*/true);
   dbgs() << '\n';
 }
-#endif
 
-#else // INTEL_PRODUCT_RELEASE
+#else // defined(NDEBUG) && !defined(LLVM_ENABLE_DUMP) // INTEL
 
 // TODO: Define stubs for the printing functions
-
-#if !defined(NDEBUG)
-#error INTEL_PRODUCT_RELEASE requires that NDEBUG also be defined.
-#endif
-
-#if defined(LLVM_ENABLE_DUMP)
-#error LLVM_ENABLE_DUMP cannot be used with INTEL_PRODUCT_RELEASE
-#endif
 
 void llvm::printLLVMNameWithoutPrefix(raw_ostream &OS, StringRef Name) {}
 
@@ -3808,5 +3823,5 @@ void Metadata::print(raw_ostream &OS, const Module *M,
 void Metadata::print(raw_ostream &OS, ModuleSlotTracker &MST,
                      const Module *M, bool /*IsForDebug*/) const {}
 
-#endif // INTEL_PRODUCT_RELEASE
+#endif // defined(NDEBUG) && !defined(LLVM_ENABLE_DUMP) // INTEL
 

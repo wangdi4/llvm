@@ -1,6 +1,6 @@
 //===- HIROptVarPredicate.cpp - Optimization of predicates containing IVs -===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -156,6 +156,9 @@ private:
 
   void updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
                             BlobTy SplitPointBlob, bool IsSigned);
+
+  void addVarPredicateReport(HLIf *If, HLLoop *Loop,
+                             LoopOptReportBuilder &LORBuilder);
 };
 } // namespace
 
@@ -369,8 +372,8 @@ bool HIROptVarPredicate::runOnFunction(Function &F) {
     return false;
   }
 
-  DEBUG(dbgs() << "Optimization of Variant Predicates Function: " << F.getName()
-               << "\n");
+  LLVM_DEBUG(dbgs() << "Optimization of Variant Predicates Function: "
+                    << F.getName() << "\n");
 
   HIR = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HLNodeUtilsObj = &HIR->getHLNodeUtils();
@@ -524,6 +527,26 @@ static bool isLoopRedundant(HLLoop *Loop) {
   return false;
 }
 
+void HIROptVarPredicate::addVarPredicateReport(
+    HLIf *If, HLLoop *Loop, LoopOptReportBuilder &LORBuilder) {
+  bool IsReportOn = LORBuilder.isLoopOptReportOn();
+
+  if (!IsReportOn || !Loop) {
+    return;
+  }
+
+  SmallString<32> LoopNum;
+  unsigned LineNum;
+  raw_svector_ostream VOS(LoopNum);
+  if (If->getDebugLoc()) {
+    LineNum = If->getDebugLoc().getLine();
+    VOS << " at line ";
+    VOS << LineNum;
+  }
+  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                              "Condition%s was optimized", LoopNum);
+}
+
 // The loop could be split into two loops:
 // for i = 0, min(%b - 1, %UB) ztt: %b > 0            <-- Loop
 // for i = max(%b, 0), %UB     ztt: %b <= %UB         <-- LoopClone
@@ -604,8 +627,9 @@ void HIROptVarPredicate::splitLoop(
                                        LoopUpperDDRef.get()};
 
   // Special case ==, != predicates..
+  HLLoop *ThirdLoop = nullptr;
   if (Pred == PredicateTy::ICMP_EQ || Pred == PredicateTy::ICMP_NE) {
-    HLLoop *ThirdLoop = Loop->clone();
+    ThirdLoop = Loop->clone();
 
     updateLoopUpperBound(SecondLoop, UpperBlob, SplitPointBlob, IsSigned);
     SecondLoop->getUpperDDRef()->makeConsistent(&Aux, Level);
@@ -653,6 +677,7 @@ void HIROptVarPredicate::splitLoop(
     SecondLoop->createZtt(false, true);
     SecondLoop->normalize();
     SecondLoopNeeded = true;
+
   } else {
     HLNodeUtils::remove(SecondLoop);
   }
@@ -664,18 +689,45 @@ void HIROptVarPredicate::splitLoop(
   if (SecondLoopNeeded && ThirdLoopNeeded) {
     HIRTransformUtils::addCloningInducedLiveouts(SecondLoop);
   }
+
+  LoopOptReportBuilder &LORBuilder =
+      Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+  HLLoop *OptReportLoop = nullptr;
+  unsigned VNum = 1;
+
+  if (FirstLoopNeeded) {
+    OptReportLoop = Loop;
+    LORBuilder(*Loop).addOrigin("Predicate Optimized v%d", VNum++);
+  }
+
+  if (SecondLoopNeeded) {
+    if (!OptReportLoop) {
+      OptReportLoop = SecondLoop;
+    }
+    LORBuilder(*SecondLoop).addOrigin("Predicate Optimized v%d", VNum++);
+  }
+
+  if (ThirdLoopNeeded) {
+    if (!OptReportLoop) {
+      OptReportLoop = ThirdLoop;
+    }
+    LORBuilder(*ThirdLoop).addOrigin("Predicate Optimized v%d", VNum++);
+  }
+
+  addVarPredicateReport(Candidate, OptReportLoop, LORBuilder);
 }
 
 bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
-  DEBUG(dbgs() << "Processing loop #" << Loop->getNumber() << "\n");
+  LLVM_DEBUG(dbgs() << "Processing loop #" << Loop->getNumber() << "\n");
 
   if (!Loop->isDo()) {
-    DEBUG(dbgs() << "Unknown/Multiexit loop skipped.\n");
+    LLVM_DEBUG(dbgs() << "Unknown/Multiexit loop skipped.\n");
     return false;
   }
 
   if (Loop->hasUnrollEnablingPragma()) {
-    DEBUG(dbgs() << "Loop with unroll pragma skipped\n");
+    LLVM_DEBUG(dbgs() << "Loop with unroll pragma skipped\n");
     return false;
   }
 
@@ -698,21 +750,21 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
 
   for (HLIf *Candidate :
        llvm::make_range(Candidates.begin(), Candidates.end())) {
-    DEBUG(dbgs() << "Processing: ");
-    DEBUG(Candidate->dumpHeader());
-    DEBUG(dbgs() << "\n");
+    LLVM_DEBUG(dbgs() << "Processing: ");
+    LLVM_DEBUG(Candidate->dumpHeader());
+    LLVM_DEBUG(dbgs() << "\n");
 
     if (!TransformNodes.empty()) {
       if (std::find(TransformNodes.begin(), TransformNodes.end(),
                     Candidate->getNumber()) == TransformNodes.end()) {
-        DEBUG(dbgs() << "Skipped due to the command line option\n");
+        LLVM_DEBUG(dbgs() << "Skipped due to the command line option\n");
         continue;
       }
     }
 
     // TODO: Skip complex HLIfs for now
     if (Candidate->getNumPredicates() > 1) {
-      DEBUG(dbgs() << "Complex predicate skipped\n");
+      LLVM_DEBUG(dbgs() << "Complex predicate skipped\n");
       continue;
     }
 
@@ -730,18 +782,19 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
 
     // Can not handle this candidate
     if (!SplitPoint) {
-      DEBUG(dbgs() << "Couldn't find a solution.\n");
+      LLVM_DEBUG(dbgs() << "Couldn't find a solution.\n");
       continue;
     }
 
-    DEBUG(dbgs() << "Loop break point: ");
-    DEBUG(SplitPoint->dump());
-    DEBUG(dbgs() << "\n");
+    LLVM_DEBUG(dbgs() << "Loop break point: ");
+    LLVM_DEBUG(SplitPoint->dump());
+    LLVM_DEBUG(dbgs() << "\n");
 
     if (!SplitPoint->convertToStandAloneBlob()) {
       // This is mostly due to IVs in the split point.
       // TODO: implement min/max ddrefs
-      DEBUG(dbgs() << "Could not convert split point to a stand-alone blob\n");
+      LLVM_DEBUG(
+          dbgs() << "Could not convert split point to a stand-alone blob\n");
       continue;
     }
 
@@ -756,16 +809,16 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
     NodesToInvalidate.insert(ParentLoop ? static_cast<HLNode *>(ParentLoop)
                                         : static_cast<HLNode *>(Region));
 
-    DEBUG(dbgs() << "While " OPT_DESC ":\n");
-    DEBUG(Region->dump(true));
-    DEBUG(dbgs() << "\n");
+    LLVM_DEBUG(dbgs() << "While " OPT_DESC ":\n");
+    LLVM_DEBUG(Region->dump(true));
+    LLVM_DEBUG(dbgs() << "\n");
 
     LoopsSplit++;
 
     return true;
   }
 
-  DEBUG(dbgs() << "No candidates\n");
+  LLVM_DEBUG(dbgs() << "No candidates\n");
   return false;
 }
 

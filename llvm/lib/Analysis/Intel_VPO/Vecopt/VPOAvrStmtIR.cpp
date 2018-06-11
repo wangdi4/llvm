@@ -52,14 +52,14 @@ std::string AVRAssignIR::getAvrValueName() const {
 void AVRAssignIR::codeGen() {
   Instruction *Inst;
 
-  DEBUG(Instruct->dump());
+  LLVM_DEBUG(Instruct->dump());
   Inst = Instruct->clone();
 
   if (!Inst->getType()->isVoidTy())
     Inst->setName(Instruct->getName() + ".VPOClone");
 
   ReplaceInstWithInst(Instruct, Inst);
-  DEBUG(Inst->dump());
+  LLVM_DEBUG(Inst->dump());
 }
 
 //----------AVR Expression for LLVM IR Implementation----------//
@@ -272,14 +272,14 @@ std::string AVRPhiIR::getAvrValueName() const {
 void AVRPhiIR::codeGen() {
   Instruction *Inst;
 
-  DEBUG(Instruct->dump());
+  LLVM_DEBUG(Instruct->dump());
   Inst = Instruct->clone();
 
   if (!Inst->getType()->isVoidTy())
     Inst->setName(Instruct->getName() + ".VPOClone");
 
   ReplaceInstWithInst(Instruct, Inst);
-  DEBUG(Inst->dump());
+  LLVM_DEBUG(Inst->dump());
 }
 
 //----------AVR Call for LLVM IR Implementation----------//
@@ -333,14 +333,14 @@ std::string AVRCallIR::getAvrValueName() const {
 void AVRCallIR::codeGen() {
   Instruction *Inst;
 
-  DEBUG(Instruct->dump());
+  LLVM_DEBUG(Instruct->dump());
   Inst = Instruct->clone();
 
   if (!Inst->getType()->isVoidTy())
     Inst->setName(Instruct->getName() + ".VPOClone");
 
   ReplaceInstWithInst(Instruct, Inst);
-  DEBUG(Inst->dump());
+  LLVM_DEBUG(Inst->dump());
 }
 
 //----------AVR Branch for LLVM IR Implementation----------//
@@ -408,14 +408,14 @@ std::string AVRBranchIR::getAvrValueName() const {
 void AVRBranchIR::codeGen() {
   Instruction *Inst;
 
-  DEBUG(Instruct->dump());
+  LLVM_DEBUG(Instruct->dump());
   Inst = Instruct->clone();
 
   if (!Inst->getType()->isVoidTy())
     Inst->setName(Instruct->getName() + ".VPOClone");
 
   ReplaceInstWithInst(Instruct, Inst);
-  DEBUG(Inst->dump());
+  LLVM_DEBUG(Inst->dump());
 }
 
 //----------AVR BackEdge for LLVM IR Implementation----------//
@@ -464,14 +464,14 @@ std::string AVRBackEdgeIR::getAvrValueName() const {
 void AVRBackEdgeIR::codeGen() {
   Instruction *Inst;
 
-  DEBUG(Instruct->dump());
+  LLVM_DEBUG(Instruct->dump());
   Inst = Instruct->clone();
 
   if (!Inst->getType()->isVoidTy())
     Inst->setName(Instruct->getName() + ".VPOClone");
 
   ReplaceInstWithInst(Instruct, Inst);
-  DEBUG(Inst->dump());
+  LLVM_DEBUG(Inst->dump());
 }
 
 //----------AVR Entry for LLVM IR Implementation----------//
@@ -522,14 +522,14 @@ std::string AVREntryIR::getAvrValueName() const {
 void AVREntryIR::codeGen() {
   Instruction *Inst;
 
-  DEBUG(Instruct->dump());
+  LLVM_DEBUG(Instruct->dump());
   Inst = Instruct->clone();
 
   if (!Inst->getType()->isVoidTy())
     Inst->setName(Instruct->getName() + ".VPOClone");
 
   ReplaceInstWithInst(Instruct, Inst);
-  DEBUG(Inst->dump());
+  LLVM_DEBUG(Inst->dump());
 }
 
 //----------AVR Return for LLVM IR Implementation----------//
@@ -582,14 +582,14 @@ std::string AVRReturnIR::getAvrValueName() const {
 void AVRReturnIR::codeGen() {
   Instruction *Inst;
 
-  DEBUG(Instruct->dump());
+  LLVM_DEBUG(Instruct->dump());
   Inst = Instruct->clone();
 
   if (!Inst->getType()->isVoidTy())
     Inst->setName(Instruct->getName() + ".VPOClone");
 
   ReplaceInstWithInst(Instruct, Inst);
-  DEBUG(Inst->dump());
+  LLVM_DEBUG(Inst->dump());
 }
 
 //----------------------------------------------------------------------------//
@@ -646,14 +646,14 @@ std::string AVRSelectIR::getAvrValueName() const {
 void AVRSelectIR::codeGen() {
   Instruction *Inst;
 
-  DEBUG(Instruct->dump());
+  LLVM_DEBUG(Instruct->dump());
   Inst = Instruct->clone();
 
   if (!Inst->getType()->isVoidTy())
     Inst->setName(Instruct->getName() + ".VPOClone");
 
   ReplaceInstWithInst(Instruct, Inst);
-  DEBUG(Inst->dump());
+  LLVM_DEBUG(Inst->dump());
 }
 
 //----------------------------------------------------------------------------//
@@ -714,14 +714,14 @@ std::string AVRCompareIR::getAvrValueName() const {
 void AVRCompareIR::codeGen() {
   Instruction *Inst;
 
-  DEBUG(Instruct->dump());
+  LLVM_DEBUG(Instruct->dump());
   Inst = Instruct->clone();
 
   if (!Inst->getType()->isVoidTy())
     Inst->setName(Instruct->getName() + ".VPOClone");
 
   ReplaceInstWithInst(Instruct, Inst);
-  DEBUG(Inst->dump());
+  LLVM_DEBUG(Inst->dump());
 }
 
 

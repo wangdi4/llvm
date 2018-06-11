@@ -1,6 +1,6 @@
 //==--- HIRLoopCollpase.cpp -Implements Loop Collapse Pass -*- C++ -*---===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -192,7 +192,6 @@ char HIRLoopCollapse::ID = 0;
 
 INITIALIZE_PASS_BEGIN(HIRLoopCollapse, "hir-loop-collapse", "HIR Loop Collapse",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIRLoopCollapse, "hir-loop-collapse", "HIR Loop Collapse",
                     false, false)
@@ -207,14 +206,13 @@ HIRLoopCollapse::HIRLoopCollapse(void) : HIRTransformPass(ID) {
 
 void HIRLoopCollapse::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<OptReportOptionsPass>();
   AU.setPreservesAll();
 }
 
 bool HIRLoopCollapse::handleCmdlineArgs(Function &F) {
   if (DisableHIRLoopCollapse || skipFunction(F)) {
-    DEBUG(dbgs() << F.getName()
-                 << ": HIR Loop Collapse (HLC) Disabled or Skipped\n");
+    LLVM_DEBUG(dbgs() << F.getName()
+                      << ": HIR Loop Collapse (HLC) Disabled or Skipped\n");
     return false;
   }
 
@@ -226,12 +224,11 @@ bool HIRLoopCollapse::runOnFunction(Function &F) {
     return false;
   }
 
-  DEBUG(dbgs() << "HIRLoopCollapse on Function : " << F.getName() << "()\n");
+  LLVM_DEBUG(dbgs() << "HIRLoopCollapse on Function : " << F.getName()
+                    << "()\n");
   auto *HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HNU = &(HIRF->getHLNodeUtils());
   BU = &(HIRF->getBlobUtils());
-  auto &OROP = getAnalysis<OptReportOptionsPass>();
-  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   // Collect all possible perfect-LoopNest candidate InnerOuterLoopPairs into
   // CandidateLoops. Each InnerOuterLoopPair marks (OutermostLp,InnermostLp),
@@ -257,7 +254,7 @@ bool HIRLoopCollapse::runOnFunction(Function &F) {
   HNU->visitAll(CCL);
 
   if (CandidateLoops.empty()) {
-    DEBUG(dbgs() << F.getName() << "() has no perfect loop nest\n";);
+    LLVM_DEBUG(dbgs() << F.getName() << "() has no perfect loop nest\n";);
     return false;
   }
 
@@ -316,22 +313,22 @@ void HIRLoopCollapse::setupEnvLoopNest(HLLoop *OutermostLp,
 bool HIRLoopCollapse::doAnalysis(void) {
 
   if (!doPreliminaryChecks()) {
-    DEBUG(dbgs() << "HIRLoopCollapse: failed PreliminaryChecks\n");
+    LLVM_DEBUG(dbgs() << "HIRLoopCollapse: failed PreliminaryChecks\n");
     return false;
   }
 
   if (!doCollection()) {
-    DEBUG(dbgs() << "HIRLoopCollapse: failed Collection\n");
+    LLVM_DEBUG(dbgs() << "HIRLoopCollapse: failed Collection\n");
     return false;
   }
 
   if (!areGEPRefsLegal()) {
-    DEBUG(dbgs() << "HIRLoopCollapse: failed legal test\n");
+    LLVM_DEBUG(dbgs() << "HIRLoopCollapse: failed legal test\n");
     return false;
   }
 
   if (!areNonGEPRefsProfitable()) {
-    DEBUG(dbgs() << "HIRLoopCollapse: failed profit test\n");
+    LLVM_DEBUG(dbgs() << "HIRLoopCollapse: failed profit test\n");
     return false;
   }
 
@@ -634,8 +631,8 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
 
   HLLoop *OrigOutermostLp =
       ToCollapseLp->getParentLoopAtLevel(OrigOutermostLevel);
-  DEBUG(dbgs() << "Before LoopCollase:\n"; OrigOutermostLp->dump();
-        dbgs() << "\n";);
+  LLVM_DEBUG(dbgs() << "Before LoopCollase:\n"; OrigOutermostLp->dump();
+             dbgs() << "\n";);
 
   OrigOutermostLp->extractPreheaderAndPostexit();
 
@@ -735,11 +732,15 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
 
   ++HIRLoopNestsCollapsed;
 
+  LoopOptReportBuilder &LORBuilder =
+      ToCollapseLp->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
   LORBuilder(*ToCollapseLp)
       .addRemark(OptReportVerbosity::Low, "%d loops have been collapsed",
                  NumCollapsableLoops);
 
-  DEBUG(dbgs() << "After Collapse:\n"; ToCollapseLp->dump(); dbgs() << "\n";);
+  LLVM_DEBUG(dbgs() << "After Collapse:\n"; ToCollapseLp->dump();
+             dbgs() << "\n";);
 
   return true;
 }

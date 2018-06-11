@@ -1,6 +1,6 @@
 //===- HIRMVForConstUB.cpp - Multiversioning for constant UB -================//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -215,7 +215,7 @@ bool HIRMVForConstUB::runOnFunction(Function &F) {
   BU = &HIRF.getBlobUtils();
   DRU = &HIRF.getDDRefUtils();
 
-  DEBUG(dbgs() << "HIRRuntimeDD for function: " << F.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "HIRRuntimeDD for function: " << F.getName() << "\n");
 
   // Multiversion for most probable constant UB.
   LoopVisitor V(*this);

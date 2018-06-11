@@ -2,6 +2,8 @@
 ; resolvable by basicaa, but require analysis of getelementptr constant exprs.
 
 ; RUN: opt < %s -basicaa -aa-eval -print-may-aliases -disable-output 2>&1 | FileCheck %s
+; INTEL
+; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -aa-eval -print-may-aliases -disable-output 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 

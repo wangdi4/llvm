@@ -21,6 +21,7 @@
 
 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-locality-analysis -hir-sorted-locality | FileCheck %s
+; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-locality-analysis>" -hir-sorted-locality -disable-output 2>&1 | FileCheck %s
 ;
 ; Verify loops in sorted order j(L2)-i(L1)
 ; CHECK: Loop level: 2

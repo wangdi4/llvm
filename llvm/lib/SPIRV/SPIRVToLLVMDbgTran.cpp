@@ -632,7 +632,7 @@ DINode *SPIRVToLLVMDbgTran::transInheritance(const SPIRVExtInst *DebugInst) {
   if ((Ops[FlagsIdx] & SPIRVDebug::FlagAccess) == SPIRVDebug::FlagIsPrivate)
     Flags |= llvm::DINode::FlagPrivate;
   uint64_t Offset = BM->get<SPIRVConstant>(Ops[OffsetIdx])->getZExtIntValue();
-  return Builder.createInheritance(Child, Parent, Offset, Flags);
+  return Builder.createInheritance(Child, Parent, Offset, 0, Flags);
 }
 
 DINode *

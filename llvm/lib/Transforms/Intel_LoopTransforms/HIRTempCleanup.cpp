@@ -1,6 +1,6 @@
 //===------- HIRTempCleanup.cpp - Implements Temp Cleanup pass ------------===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -48,6 +48,8 @@
 // END DO
 //
 //===----------------------------------------------------------------------===//
+
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTempCleanup.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
@@ -684,19 +686,32 @@ void TempSubstituter::substituteTemps(HLRegion *Reg) {
   HasEmptyNodes = false;
 }
 
-bool HIRTempCleanup::runOnFunction(Function &F) {
-  if (DisableHIRTempCleanup || skipFunction(F)) {
-    DEBUG(dbgs() << "HIR Temp Cleanup Disabled \n");
-    return false;
+static void runTempCleanup(HIRFramework &HIRF) {
+  if (DisableHIRTempCleanup) {
+    LLVM_DEBUG(dbgs() << "HIR Temp Cleanup Disabled \n");
+    return;
   }
 
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  TempSubstituter TS(HIRF);
+  TempSubstituter TS(&HIRF);
 
-  for (auto RegIt = HIRF->hir_begin(), End = HIRF->hir_end(); RegIt != End;
+  for (auto RegIt = HIRF.hir_begin(), End = HIRF.hir_end(); RegIt != End;
        ++RegIt) {
     TS.substituteTemps(cast<HLRegion>(&*RegIt));
   }
+}
 
+bool HIRTempCleanup::runOnFunction(Function &F) {
+  if (skipFunction(F)) {
+    LLVM_DEBUG(dbgs() << "HIR Temp Cleanup Disabled \n");
+    return false;
+  }
+
+  runTempCleanup(getAnalysis<HIRFrameworkWrapperPass>().getHIR());
   return false;
+}
+
+PreservedAnalyses HIRTempCleanupPass::run(llvm::Function &F,
+                                          llvm::FunctionAnalysisManager &AM) {
+  runTempCleanup(AM.getResult<HIRFrameworkAnalysis>(F));
+  return PreservedAnalyses::all();
 }

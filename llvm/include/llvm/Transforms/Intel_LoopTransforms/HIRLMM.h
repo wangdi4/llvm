@@ -1,6 +1,6 @@
 //===--- HIRLMM.h -HIR Loop Memory Motion Pass ----------------*- C++ -*---===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -17,7 +17,6 @@
 
 namespace llvm {
 class Function;
-class LoopOptReportBuilder;
 
 namespace loopopt {
 
@@ -36,10 +35,9 @@ class MemRefGroup {
   bool IsAnalyzed;
   bool HasLoad, HasLoadOnDomPath, HasStore, HasStoreOnDomPath;
   HLLoop *Lp = nullptr;
-  HIRLoopStatistics *HLS;
 
 public:
-  MemRefGroup(RegDDRef *FirstRef, HIRLoopStatistics *HLS);
+  MemRefGroup(RegDDRef *FirstRef);
 
   bool getProfitable(void) const { return IsProfitable; }
   void setProfitable(bool NewFlag) { IsProfitable = NewFlag; }
@@ -111,7 +109,6 @@ public:
 //
 struct MemRefCollection {
   SmallVector<MemRefGroup, 8> MRVV;
-  HIRLoopStatistics *HLS = nullptr;
 
   unsigned getSize(void) const { return MRVV.size(); }
   bool isEmpty(void) { return MRVV.empty(); }
@@ -154,9 +151,6 @@ private:
 
   class CollectMemRefs;
   unsigned LoopLevel = 0;
-
-  // Helper for generating optimization reports.
-  LoopOptReportBuilder LORBuilder;
 
 public:
   static char ID;

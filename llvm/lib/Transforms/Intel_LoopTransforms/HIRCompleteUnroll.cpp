@@ -1,6 +1,6 @@
 //===- HIRCompleteUnroll.cpp - Implements CompleteUnroll class ------------===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -49,6 +49,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
@@ -66,7 +67,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #define DEBUG_TYPE "hir-complete-unroll"
@@ -172,6 +173,17 @@ static cl::opt<bool>
                          cl::desc("Cost model will assume DD independence for "
                                   "all memrefs in the unroll loopnest"));
 
+// External interface
+namespace llvm {
+namespace loopopt {
+namespace unroll {
+
+void completeUnrollLoop(HLLoop *Loop) { HIRCompleteUnroll::doUnroll(Loop); }
+
+} // namespace unroll
+} // namespace loopopt
+} // namespace llvm
+
 HIRCompleteUnroll::HIRCompleteUnroll(char &ID, unsigned OptLevel, bool IsPreVec)
     : HIRTransformPass(ID), DT(nullptr), HLS(nullptr), IsPreVec(IsPreVec) {
 
@@ -221,12 +233,12 @@ HIRCompleteUnroll::HIRCompleteUnroll(char &ID, unsigned OptLevel, bool IsPreVec)
 
 void HIRCompleteUnroll::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequiredTransitive<OptReportOptionsPass>();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
+  AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysis>();
-  AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
 }
 
 /// Visitor to update the CanonExpr.
@@ -364,6 +376,13 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
     BlobInfo()
         : Invariant(true), Visited(false), VisitedAsUnrollableIVBlob(false),
           Simplified(false), NumOperations(0), IsNewCoeff(0) {}
+  };
+
+  struct CanonExprInfo {
+    unsigned NumSimplifiedTerms = 0;
+    unsigned NumNonLinearTerms = 0;
+    unsigned NumUnrollableIVBlobs = 0;
+    bool HasUnrollableStandAloneIV = false;
   };
 
   class InvalidAllocaRefFinder;
@@ -513,8 +532,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   /// Processes IVs in the CE. Returns true if they can be simplified to a
   /// constant.
   bool processIVs(const CanonExpr *CE, const RegDDRef *ParentRef,
-                  unsigned &NumSimplifiedTerms, unsigned &NumNonLinearTerms,
-                  unsigned &NumUnrollableIVBlobs);
+                  CanonExprInfo &CEInfo);
 
   /// Processes blobs in the CE. Returns true if they can be simplified to a
   /// constant.
@@ -786,18 +804,18 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isProfitable() const {
 
   auto SavingsPercentage = getSavingsInPercentage();
 
-  DEBUG(dbgs() << "Cost: " << Cost << "\n");
-  DEBUG(dbgs() << "ScaledCost: " << ScaledCost << "\n");
-  DEBUG(dbgs() << "GEPCost: " << GEPCost << "\n");
-  DEBUG(dbgs() << "Savings: " << Savings << "\n");
-  DEBUG(dbgs() << "ScaledSavings: " << ScaledSavings << "\n");
-  DEBUG(dbgs() << "GEPSavings: " << GEPSavings << "\n");
+  LLVM_DEBUG(dbgs() << "Cost: " << Cost << "\n");
+  LLVM_DEBUG(dbgs() << "ScaledCost: " << ScaledCost << "\n");
+  LLVM_DEBUG(dbgs() << "GEPCost: " << GEPCost << "\n");
+  LLVM_DEBUG(dbgs() << "Savings: " << Savings << "\n");
+  LLVM_DEBUG(dbgs() << "ScaledSavings: " << ScaledSavings << "\n");
+  LLVM_DEBUG(dbgs() << "GEPSavings: " << GEPSavings << "\n");
 
-  DEBUG(dbgs() << "Savings in percentage: " << SavingsPercentage << "\n");
+  LLVM_DEBUG(dbgs() << "Savings in percentage: " << SavingsPercentage << "\n");
 
-  DEBUG(dbgs() << "Number of memrefs: " << NumMemRefs << "\n");
-  DEBUG(dbgs() << "Number of ddrefs: " << NumDDRefs << "\n");
-  DEBUG(dbgs() << "Loop: \n"; CurLoop->dump(); dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "Number of memrefs: " << NumMemRefs << "\n");
+  LLVM_DEBUG(dbgs() << "Number of ddrefs: " << NumDDRefs << "\n");
+  LLVM_DEBUG(dbgs() << "Loop: \n"; CurLoop->dump(); dbgs() << "\n");
 
   float ScalingFactor;
 
@@ -808,7 +826,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isProfitable() const {
     // with clang's behavior described here-
     // http://clang.llvm.org/docs/LanguageExtensions.html#extensions-for-loop-hint-optimizations
     ScalingFactor = HCU.Limits.MaxThresholdScalingFactor;
-    DEBUG(
+    LLVM_DEBUG(
         dbgs()
         << "Using max scaling factor due to presence of unroll enabling pragma."
         << "\n");
@@ -904,7 +922,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isSimplifiedTempBlob(
   for (auto &Blob : SimplifiedTempBlobs) {
     if ((Blob.getIndex() == Index) &&
         (Blob.getDefLevel() >= CurNodeBlobLevel) &&
-        HLNodeUtils::dominates(Blob.getDefInst(), CurNode, HCU.HLS)) {
+        HLNodeUtils::dominates(Blob.getDefInst(), CurNode)) {
       if (Factor) {
         *Factor = Blob.getRemFactor();
       }
@@ -1515,7 +1533,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::
       const HLNode *LastRegionChild = PrevRegion->getLastChild();
 
       if ((PrevParentLoop->getParent() != PrevRegion) ||
-          !HLNodeUtils::dominates(PrevParentLoop, LastRegionChild, HCU.HLS)) {
+          !HLNodeUtils::dominates(PrevParentLoop, LastRegionChild)) {
         // Store is not executed unconditionally in previous region so we remove
         // its entry.
         HCU.PrevLoopnestAllocaStores.erase(It);
@@ -1539,7 +1557,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::
       LastNode = CurRegion;
 
     } else {
-      if (!HLNodeUtils::dominates(PrevParentLoop, LoadNode, HCU.HLS)) {
+      if (!HLNodeUtils::dominates(PrevParentLoop, LoadNode)) {
         // Since the simplified store does not dominate this ref, we are most
         // likely out of its lexical scope. Hence, we remove its entry.
         HCU.PrevLoopnestAllocaStores.erase(It);
@@ -1608,7 +1626,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::foundSimplifiedDominatingStore(
     }
 
     if (!HLNodeUtils::dominates(SimplifiedStore->getHLDDNode(),
-                                AllocaLoadRef->getHLDDNode(), HCU.HLS)) {
+                                AllocaLoadRef->getHLDDNode())) {
       // Since the simplified store does not dominate this ref, we are most
       // likely out of its lexical scope. Hence, we remove its entry.
       AllocaStores.erase(It);
@@ -1807,7 +1825,10 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::canEliminate(
       // Alloca stores can be eliminated after unrolling by propagating the
       // assigned value directly into corresponding loads.
       AllocaStores[BaseIndex] = MemRef;
-      return true;
+
+      // Restrict the optimistic assumption of considering alloca stores as
+      // optimizable to post-vec complete unroll.
+      return !HCU.IsPreVec;
     } else {
       // We encountered a non-simplifiable alloca store. Invalidate its entry
       // from the data structures.
@@ -2101,20 +2122,17 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processRef(const RegDDRef *Ref) {
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::processCanonExpr(
     const CanonExpr *CE, const RegDDRef *ParentRef) {
 
-  unsigned NumSimplifiedTerms = 0;
-  unsigned NumNonLinearTerms = 0;
-  unsigned NumUnrollableIVBlobs = 0;
+  CanonExprInfo CEInfo;
   bool IsLinear = CE->isLinearAtLevel();
 
   if (CE->isConstantData()) {
     return true;
   }
 
-  bool CanSimplifyIVs = processIVs(CE, ParentRef, NumSimplifiedTerms,
-                                   NumNonLinearTerms, NumUnrollableIVBlobs);
+  bool CanSimplifyIVs = processIVs(CE, ParentRef, CEInfo);
 
-  bool CanSimplifyBlobs =
-      processBlobs(CE, ParentRef, NumSimplifiedTerms, NumNonLinearTerms);
+  bool CanSimplifyBlobs = processBlobs(CE, ParentRef, CEInfo.NumSimplifiedTerms,
+                                       CEInfo.NumNonLinearTerms);
 
   bool NumeratorBecomesConstant = CanSimplifyIVs && CanSimplifyBlobs;
 
@@ -2122,29 +2140,35 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processCanonExpr(
   // first unrolled iteration when IV value is zero. For example, if i1 can be
   // unrolled and b2 can be simplified, CE: (b1*i1 + b2 + 2) has a total of 3
   // terms (2 additions) which can be folded when i1 is 0.
-  if (NumUnrollableIVBlobs) {
-    ScaledSavings += NumUnrollableIVBlobs + NumSimplifiedTerms +
+  if (CEInfo.NumUnrollableIVBlobs) {
+    ScaledSavings += CEInfo.NumUnrollableIVBlobs + CEInfo.NumSimplifiedTerms +
                      (CE->getConstant() ? 1 : 0) - 1;
   }
 
   // Add 1 to savings each, for number of simplified IV/Blob additions.
-  if (NumSimplifiedTerms) {
-    Savings += (NumSimplifiedTerms - 1);
+  if (CEInfo.NumSimplifiedTerms) {
+    Savings += (CEInfo.NumSimplifiedTerms - 1);
   }
 
   // Add 1 to cost each, for number of non-linear IV/Blob additions.
-  if (NumNonLinearTerms) {
-    Cost += (NumNonLinearTerms - 1);
+  if (CEInfo.NumNonLinearTerms) {
+    Cost += (CEInfo.NumNonLinearTerms - 1);
   }
 
   // Add 1 to cost/savings for the constant based on linearity and IV
   // simplifications.
   if (CE->getConstant()) {
-    if (NumSimplifiedTerms) {
+    if (CEInfo.NumSimplifiedTerms) {
       ++Savings;
     } else if (!IsLinear) {
       ++Cost;
     }
+  } else if ((CEInfo.NumSimplifiedTerms == 1) &&
+             CEInfo.HasUnrollableStandAloneIV) {
+    // Make sure we add at least 1 to savings for turning any IV into a
+    // constant. Otherwise converting simple expressions like A[i1] to A[0] will
+    // not be considered savings.
+    ++Savings;
   }
 
   // Add 1 to cost/savings for non-unit denominator based on linearity.
@@ -2158,6 +2182,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processCanonExpr(
 
   // Add 1 to cost/savings based on whether there is a hidden cast.
   if (CE->getSrcType() != CE->getDestType()) {
+    // TODO: ignore 'free' casts using TTI.
     if (NumeratorBecomesConstant) {
       ++Savings;
     } else if (!IsLinear) {
@@ -2169,9 +2194,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processCanonExpr(
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::processIVs(
-    const CanonExpr *CE, const RegDDRef *ParentRef,
-    unsigned &NumSimplifiedTerms, unsigned &NumNonLinearTerms,
-    unsigned &NumUnrollableIVBlobs) {
+    const CanonExpr *CE, const RegDDRef *ParentRef, CanonExprInfo &CEInfo) {
 
   bool CanSimplifyIVs = true;
   unsigned OuterLevel = OuterLoop->getNestingLevel();
@@ -2198,7 +2221,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processIVs(
 
       if (IsUnrollableLoopLevel) {
         if (BInfo.Simplified) {
-          ++NumSimplifiedTerms;
+          ++CEInfo.NumSimplifiedTerms;
         } else {
           CanSimplifyIVs = false;
         }
@@ -2219,7 +2242,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processIVs(
       }
 
       addBlobCost(BInfo, Coeff, IsUnrollableLoopLevel ? Level : 0,
-                  NumNonLinearTerms, nullptr);
+                  CEInfo.NumNonLinearTerms, nullptr);
 
       if (IsUnrollableLoopLevel) {
         // Add to loop level blob set to avoid duplicate cost.
@@ -2231,23 +2254,18 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processIVs(
       // Add one for simplfication of multiplication with coefficient.
       if (Coeff != 1) {
         ++Savings;
+      } else {
+        CEInfo.HasUnrollableStandAloneIV = true;
       }
 
-      ++NumSimplifiedTerms;
+      ++CEInfo.NumSimplifiedTerms;
 
     } else {
       CanSimplifyIVs = false;
     }
   }
 
-  // Make sure we add at least 1 to savings for turning any IV into a
-  // constant. Otherwise converting simple expressions like A[i1] to A[0] will
-  // not be considered savings.
-  if (NumSimplifiedTerms != 0) {
-    ++Savings;
-  }
-
-  NumUnrollableIVBlobs = CurrentUnrollableIVBlobs.size();
+  CEInfo.NumUnrollableIVBlobs = CurrentUnrollableIVBlobs.size();
 
   return CanSimplifyIVs;
 }
@@ -2353,11 +2371,11 @@ HIRCompleteUnroll::ProfitabilityAnalyzer::getBlobInfo(unsigned Index,
   // simplified.
   if (NumSimplifiedTempBlobs == Indices.size()) {
     BInfo.Simplified = true;
-    BInfo.NumOperations = BU.getNumOperations(Index);
+    BInfo.NumOperations = BU.getNumOperations(Index, HCU.TTI);
 
   } else if (!Invariant) {
     BInfo.Invariant = false;
-    BInfo.NumOperations = BU.getNumOperations(Index);
+    BInfo.NumOperations = BU.getNumOperations(Index, HCU.TTI);
 
     // Subtract operations based on contained simplified temps.
     if (NumSimplifiedTempBlobs) {
@@ -2479,19 +2497,19 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::addBlobCost(
 bool HIRCompleteUnroll::runOnFunction(Function &F) {
   // Skip if DisableHIRCompleteUnroll is enabled
   if (DisableHIRCompleteUnroll || skipFunction(F)) {
-    DEBUG(dbgs() << "HIR LOOP Complete Unroll Transformation Disabled \n");
+    LLVM_DEBUG(dbgs() << "HIR LOOP Complete Unroll Transformation Disabled \n");
     return false;
   }
 
-  DEBUG(dbgs() << "Complete unrolling for Function : " << F.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "Complete unrolling for Function : " << F.getName()
+                    << "\n");
 
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  DDA = &getAnalysis<HIRDDAnalysis>();
-  HSRA = &getAnalysis<HIRSafeReductionAnalysis>();
-  auto &OROP = getAnalysis<OptReportOptionsPass>();
-  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
+  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
+  HSRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
 
   // Storage for Outermost Loops
   SmallVector<HLLoop *, 64> OuterLoops;
@@ -2548,25 +2566,25 @@ bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
 
   // Throttle multi-exit/unknown loops.
   if (!Loop->isDo()) {
-    DEBUG(dbgs() << "Skipping complete unroll of non-DO loop!\n");
+    LLVM_DEBUG(dbgs() << "Skipping complete unroll of non-DO loop!\n");
     return false;
   }
 
   // Ignore vectorizable loops
   if (Loop->isVecLoop()) {
-    DEBUG(dbgs() << "Skipping complete unroll of vectorizable loop!\n");
+    LLVM_DEBUG(dbgs() << "Skipping complete unroll of vectorizable loop!\n");
     return false;
   }
 
   // Handle normalized loops only.
   if (!Loop->isNormalized()) {
-    DEBUG(dbgs() << "Skipping complete unroll of non-normalized loop!\n");
+    LLVM_DEBUG(dbgs() << "Skipping complete unroll of non-normalized loop!\n");
     return false;
   }
 
   if (Loop->hasCompleteUnrollDisablingPragma()) {
-    DEBUG(dbgs() << "Skipping complete unroll due to presence of unroll "
-                    "disabling pragma!\n");
+    LLVM_DEBUG(dbgs() << "Skipping complete unroll due to presence of unroll "
+                         "disabling pragma!\n");
     return false;
   }
 
@@ -2574,8 +2592,9 @@ bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
 
   // Cannot unroll loop if it has calls with noduplicate attribute.
   if (LS.hasCallsWithNoDuplicate()) {
-    DEBUG(dbgs() << "Skipping complete unroll of loop containing call(s) with "
-                    "NoDuplicate attribute!\n");
+    LLVM_DEBUG(
+        dbgs() << "Skipping complete unroll of loop containing call(s) with "
+                  "NoDuplicate attribute!\n");
     return false;
   }
 
@@ -2807,44 +2826,55 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop) {
   return false;
 }
 
+void HIRCompleteUnroll::doUnroll(HLLoop *Loop) {
+
+  LoopOptReportBuilder &LORBuilder =
+      Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+  if (Loop->isInnermost()) {
+    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                                "Loop completely unrolled");
+  } else {
+    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                                "Loopnest completely unrolled");
+  }
+
+  LORBuilder(*Loop).preserveLostLoopOptReport();
+
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
+  // Also invalidate analyses for the loops being unrolled. Since we reuse the
+  // instructions from the unrolled loops, not invalidating the analyses may
+  // leave them in an inconsistent state. This is the case for safe reduction
+  // analysis.
+  HIRInvalidationUtils::invalidateLoopNestBody(Loop);
+
+  Loop->getParentRegion()->setGenCode();
+
+  SmallVector<int64_t, MaxLoopNestLevel> IVValues;
+  CanonExprUpdater CEUpdater(Loop->getNestingLevel(), IVValues);
+
+  transformLoop(Loop, CEUpdater, true);
+
+  assert(IVValues.empty() && "IV values were not cleaned up!");
+}
+
 // Transform (Complete Unroll) each loop inside the CandidateLoops vector
 void HIRCompleteUnroll::transformLoops() {
-  SmallVector<int64_t, MaxLoopNestLevel> IVValues;
 
   LoopnestsCompletelyUnrolled += CandidateLoops.size();
 
   // Transform the loop nest from outer to inner.
   for (auto &Loop : CandidateLoops) {
-    if (Loop->isInnermost())
-      LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
-                                  "Loop completely unrolled");
-    else
-      LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
-                                  "Loopnest completely unrolled");
-    LORBuilder(*Loop).preserveLostLoopOptReport();
 
     auto &LS = HLS->getTotalLoopStatistics(Loop);
     bool HasIfsOrSwitches = LS.hasIfs() || LS.hasSwitches();
 
-    auto Reg = Loop->getParentRegion();
     HLNode *ParentNode = Loop->getParentLoop();
     if (!ParentNode) {
-      ParentNode = Reg;
+      ParentNode = Loop->getParentRegion();
     }
 
-    // Generate code for the parent region and invalidate parent
-    Reg->setGenCode();
-    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
-    // Also invalidate analyses for the loops being unrolled. Since we reuse the
-    // instructions from the unrolled loops, not invalidating the analyses may
-    // leave them in an inconsistent state. This is the case for safe reduction
-    // analysis.
-    HIRInvalidationUtils::invalidateLoopNestBody(Loop);
-
-    CanonExprUpdater CEUpdater(Loop->getNestingLevel(), IVValues);
-    transformLoop(Loop, CEUpdater, true);
-
-    assert(IVValues.empty() && "IV values were not cleaned up!");
+    doUnroll(Loop);
 
     if (HasIfsOrSwitches) {
       HLNodeUtils::removeRedundantNodes(ParentNode);
@@ -2892,6 +2922,9 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
   int64_t LB = Loop->getLowerCanonExpr()->getConstant();
   int64_t UB = computeUB(Loop, CEUpdater.TopLoopLevel, IVValues);
   int64_t Step = Loop->getStrideCanonExpr()->getConstant();
+
+  // This may be different than UB when Step is not 1.
+  int64_t LastIVVal = LB + (((UB - LB) / Step) * Step);
   bool ZttHasBlob = false;
 
   // At this point loop preheader has been visited already but postexit is
@@ -2942,7 +2975,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
 
   // Iterate over Loop Child for unrolling with trip value incremented
   // each time. Thus, loop body will be expanded by no. of stmts x TripCount.
-  for (int64_t IVVal = LB; IVVal < UB; IVVal += Step) {
+  for (int64_t IVVal = LB; IVVal < LastIVVal; IVVal += Step) {
     // Clone iteration
     HLNodeUtils::cloneSequence(&LoopBody, OrigFirstChild, OrigLastChild);
 
@@ -2962,7 +2995,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
   }
 
   // Reuse original children for last iteration.
-  IVValues.back() = UB;
+  IVValues.back() = LastIVVal;
   HLNodeUtils::visitRange<true, false>(CEUpdater, OrigFirstChild,
                                        OrigLastChild);
 

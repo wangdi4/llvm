@@ -57,11 +57,11 @@
 ;   int i;
 ; #pragma omp simd
 ;   for (i = 0; i < 300; i++) {
-;     if (b[i] <= 100 && a[i] != 0) 
+;     if (b[i] <= 100 && a[i] != 0)
 ;       b[i] = b[i] * 5;
 ;     else
 ;       a[i] = a[i] + 5;
-; 
+;
 ;     c[i] = c[i] * N;
 ;   }
 ; }
@@ -74,6 +74,62 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
 define void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b, i32* noalias nocapture %c, i32 %N) local_unnamed_addr #0 {
+; NOOPT: [[loop_16:loop[0-9]+]]:
+; NOOPT:   [[BB_11:BB[0-9]+]]:
+; NOOPT:     [[BP_19:BP[0-9]+]] =
+; NOOPT:   [[BB_2:BB[0-9]+]]:
+; NOOPT:     [[BP_20:BP[0-9]+]] = [[BP_19]]
+; NOOPT:   [[region_17:region[0-9]+]]:
+; NOOPT:     [[BP_20]] = [[BP_19]]
+; NOOPT:   [[BB_15:BB[0-9]+]]:
+; NOOPT:     [[BP_21:BP[0-9]+]] = [[BP_20]]
+; NOOPT:   [[BB_10:BB[0-9]+]]:
+; NOOPT:     [[BP_22:BP[0-9]+]] = [[BP_19]]
+
+; NOOPT: [[region_17]]:
+; NOOPT:   [[BB_14:BB[0-9]+]]:
+; NOOPT:     [[BP_23:BP[0-9]+]] = [[BP_20]]
+; NOOPT:     [[IfT_29:IfT[0-9]+]] = [[BP_23]] && [[VBR_28:%vp[0-9]+]]
+; NOOPT:     [[IfF_32:IfF[0-9]+]] = [[BP_23]] && ![[VBR_28]]
+; NOOPT:   [[BB_4:BB[0-9]+]]:
+; NOOPT:     [[BP_24:BP[0-9]+]] = [[IfT_29]]
+; NOOPT:     [[IfF_31:IfF[0-9]+]] = [[BP_24]] && ![[VBR_30:%vp[0-9]+]]
+; NOOPT:     [[IfT_33:IfT[0-9]+]] = [[BP_24]] && [[VBR_30]]
+; NOOPT:   [[BB_7:BB[0-9]+]]:
+; NOOPT:     [[BP_27:BP[0-9]+]] = [[IfF_31]]
+; NOOPT:   [[BB_5:BB[0-9]+]]:
+; NOOPT:     [[BP_25:BP[0-9]+]] = [[IfT_33]] || [[IfF_32]]
+; NOOPT:   [[BB_8:BB[0-9]+]]:
+; NOOPT:     [[BP_26:BP[0-9]+]] = [[BP_25]] || [[BP_27]]
+
+
+; OPT: [[region_17:region[0-9]+]]:
+; OPT:   [[BB_14:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
+; OPT:     [[IfT_29:IfT[0-9]+]] = [[VBR_28:%vp[0-9]+]]
+; OPT:     [[IfF_32:IfF[0-9]+]] = ![[VBR_28]]
+; OPT:   [[BB_4:BB[0-9]+]]:
+; OPT:     [[BP_24:BP[0-9]+]] = [[IfT_29]]
+; OPT:     [[IfF_31:IfF[0-9]+]] = [[BP_24]] && ![[VBR_30:%vp[0-9]+]]
+; OPT:     [[IfT_33:IfT[0-9]+]] = [[BP_24]] && [[VBR_30]]
+; OPT:   [[BB_7:BB[0-9]+]]:
+; OPT:     [[BP_27:BP[0-9]+]] = [[IfF_31]]
+; OPT:   [[BB_5:BB[0-9]+]]:
+; OPT:     [[BP_25:BP[0-9]+]] = [[IfT_33]] || [[IfF_32]]
+; OPT:   [[BB_8:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
+
+; OPT: [[loop_16:loop[0-9]+]]:
+; OPT:   [[BB_11:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
+; OPT:   [[BB_2:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
+; OPT:   [[region_17]]:
+; OPT-NOT: BP[0-9]+ =
+; OPT:   [[BB_15:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
+; OPT:   [[BB_10:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
 entry:
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
   tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
@@ -123,62 +179,3 @@ declare void @llvm.intel.directive(metadata) #1
 
 attributes #0 = { noinline nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }
-
-; NOOPT: [[loop_16:loop[0-9]+]]:
-; NOOPT:   [[BB_11:BB[0-9]+]]:
-; NOOPT:     [[BP_19:BP[0-9]+]] = 
-; NOOPT:   [[BB_2:BB[0-9]+]]:
-; NOOPT:     [[BP_20:BP[0-9]+]] = [[BP_19]]
-; NOOPT:   [[region_17:region[0-9]+]]:
-; NOOPT:     [[BP_20]] = [[BP_19]]
-; NOOPT:   [[BB_15:BB[0-9]+]]:
-; NOOPT:     [[BP_21:BP[0-9]+]] = [[BP_20]]
-; NOOPT:   [[BB_10:BB[0-9]+]]:
-; NOOPT:     [[BP_22:BP[0-9]+]] = [[BP_19]]
-
-; NOOPT: [[region_17]]:
-; NOOPT:   [[BB_14:BB[0-9]+]]:
-; NOOPT:     [[BP_23:BP[0-9]+]] = [[BP_20]]
-; NOOPT:     [[IfT_29:IfT[0-9]+]] = [[BP_23]] && [[VBR_28:%vp[0-9]+]]
-; NOOPT:     [[IfF_32:IfF[0-9]+]] = [[BP_23]] && ![[VBR_28]]
-; NOOPT:   [[BB_4:BB[0-9]+]]:
-; NOOPT:     [[BP_24:BP[0-9]+]] = [[IfT_29]]
-; NOOPT:     [[IfF_31:IfF[0-9]+]] = [[BP_24]] && ![[VBR_30:%vp[0-9]+]]
-; NOOPT:     [[IfT_33:IfT[0-9]+]] = [[BP_24]] && [[VBR_30]]
-; NOOPT:   [[BB_7:BB[0-9]+]]:
-; NOOPT:     [[BP_27:BP[0-9]+]] = [[IfF_31]]
-; NOOPT:   [[BB_5:BB[0-9]+]]:
-; NOOPT:     [[BP_25:BP[0-9]+]] = [[IfT_33]] || [[IfF_32]]
-; NOOPT:   [[BB_8:BB[0-9]+]]:
-; NOOPT:     [[BP_26:BP[0-9]+]] = [[BP_25]] || [[BP_27]]
-
-
-; OPT: [[region_17:region[0-9]+]]:
-; OPT:   [[BB_14:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ = 
-; OPT:     [[IfT_29:IfT[0-9]+]] = [[VBR_28:%vp[0-9]+]]
-; OPT:     [[IfF_32:IfF[0-9]+]] = ![[VBR_28]]
-; OPT:   [[BB_4:BB[0-9]+]]:
-; OPT:     [[BP_24:BP[0-9]+]] = [[IfT_29]]
-; OPT:     [[IfF_31:IfF[0-9]+]] = [[BP_24]] && ![[VBR_30:%vp[0-9]+]]
-; OPT:     [[IfT_33:IfT[0-9]+]] = [[BP_24]] && [[VBR_30]]
-; OPT:   [[BB_7:BB[0-9]+]]:
-; OPT:     [[BP_27:BP[0-9]+]] = [[IfF_31]]
-; OPT:   [[BB_5:BB[0-9]+]]:
-; OPT:     [[BP_25:BP[0-9]+]] = [[IfT_33]] || [[IfF_32]]
-; OPT:   [[BB_8:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ =
-
-; OPT: [[loop_16:loop[0-9]+]]:
-; OPT:   [[BB_11:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ =
-; OPT:   [[BB_2:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ =
-; OPT:   [[region_17]]:
-; OPT-NOT: BP[0-9]+ =
-; OPT:   [[BB_15:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ =
-; OPT:   [[BB_10:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ =
-
-

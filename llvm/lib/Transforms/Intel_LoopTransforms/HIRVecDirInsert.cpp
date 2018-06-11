@@ -1,6 +1,6 @@
 //===- HIRVecDirInsert.cpp - Implements HIRVecDirInsert class -------------===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -58,19 +58,19 @@ public:
   /// \brief Analyze auto-vectorizability of the loops.
   bool runOnFunction(Function &F) override {
     if (NoAutoVec) {
-      DEBUG(dbgs() << "Vec Directive Insertion disabled"
-                      " due to -disable-hir-vec-dir-insert.\n");
+      LLVM_DEBUG(dbgs() << "Vec Directive Insertion disabled"
+                           " due to -disable-hir-vec-dir-insert.\n");
       return false;
     }
     if (HIRParVecAnalysis::isSIMDEnabledFunction(F)) {
-      DEBUG(dbgs() << "Vec Directive Insertion skipped"
-                      " for vector variants of SIMD Enabled Function : "
-                   << F.getName() << "\n");
+      LLVM_DEBUG(dbgs() << "Vec Directive Insertion skipped"
+                           " for vector variants of SIMD Enabled Function : "
+                        << F.getName() << "\n");
       return false;
     }
-    DEBUG(dbgs() << "Vec Directive Insertion (Outer Loop "
-                 << (OuterVec ? "Enabled" : "Disabled")
-                 << ") for Function : " << F.getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Vec Directive Insertion (Outer Loop "
+                      << (OuterVec ? "Enabled" : "Disabled")
+                      << ") for Function : " << F.getName() << "\n");
     return ParVecDirectiveInsertion::runOnFunction(F);
   }
 };

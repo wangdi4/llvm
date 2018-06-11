@@ -1,6 +1,6 @@
 //===----- HIRLoopDistributionMemRec.cpp - to break memory recurrence -----===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -15,6 +15,7 @@
 
 using namespace llvm;
 using namespace llvm::loopopt;
+using namespace llvm::loopopt::distribute;
 
 cl::opt<bool>
     DisableDistMemRec("disable-hir-loop-distribute-memrec",
@@ -45,7 +46,7 @@ public:
     return HIRLoopDistribution::runOnFunction(F);
   }
 };
-}
+} // namespace
 
 char HIRLoopDistributionForMemRec::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopDistributionForMemRec,
@@ -53,7 +54,9 @@ INITIALIZE_PASS_BEGIN(HIRLoopDistributionForMemRec,
                       "HIR Loop Distribution MemRec", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRLoopDistributionForMemRec, "hir-loop-distribute-memrec",
                     "HIR Loop Distribution MemRec", false, false)
 

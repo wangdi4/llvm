@@ -143,6 +143,9 @@ static bool analyzeGlobalAux(const Value *V, GlobalStatus &GS,
         // of the pointer.
         if (analyzeGlobalAux(I, GS, VisitedUsers))
           return true;
+      } else if (isa<AddressInst>(I)) {             // INTEL
+        if (analyzeGlobalAux(I, GS, VisitedUsers))  // INTEL
+          return true;                              // INTEL
       } else if (isa<SelectInst>(I) || isa<PHINode>(I)) {
         // Look through selects and PHIs to find if the pointer is
         // conditionally accessed. Make sure we only visit an instruction
