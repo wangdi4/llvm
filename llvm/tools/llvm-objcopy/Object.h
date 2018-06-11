@@ -38,6 +38,7 @@ class GnuDebugLinkSection;
 class GroupSection;
 class Segment;
 class Object;
+struct Symbol;
 
 class SectionTableRef {
   MutableArrayRef<std::unique_ptr<SectionBase>> Sections;
@@ -209,6 +210,7 @@ public:
   virtual void initialize(SectionTableRef SecTable);
   virtual void finalize();
   virtual void removeSectionReferences(const SectionBase *Sec);
+  virtual void removeSymbols(function_ref<bool(const Symbol &)> ToRemove);
   virtual void accept(SectionVisitor &Visitor) const = 0;
 };
 
@@ -363,13 +365,16 @@ public:
                  SectionBase *DefinedIn, uint64_t Value, uint8_t Visibility,
                  uint16_t Shndx, uint64_t Sz);
   void addSymbolNames();
+  bool empty() const { return Symbols.empty(); }
   const SectionBase *getStrTab() const { return SymbolNames; }
   const Symbol *getSymbolByIndex(uint32_t Index) const;
+  void updateSymbols(function_ref<void(Symbol &)> Callable);
+
   void removeSectionReferences(const SectionBase *Sec) override;
-  void localize(std::function<bool(const Symbol &)> ToLocalize);
   void initialize(SectionTableRef SecTable) override;
   void finalize() override;
   void accept(SectionVisitor &Visitor) const override;
+  void removeSymbols(function_ref<bool(const Symbol &)> ToRemove) override;
 
   static bool classof(const SectionBase *S) {
     return S->Type == ELF::SHT_SYMTAB;
@@ -430,6 +435,7 @@ class RelocationSection
 public:
   void addRelocation(Relocation Rel) { Relocations.push_back(Rel); }
   void accept(SectionVisitor &Visitor) const override;
+  void removeSymbols(function_ref<bool(const Symbol &)> ToRemove) override;
 
   static bool classof(const SectionBase *S) {
     if (S->Flags & ELF::SHF_ALLOC)
@@ -463,6 +469,7 @@ public:
   void initialize(SectionTableRef SecTable) override{};
   void accept(SectionVisitor &) const override;
   void finalize() override;
+  void removeSymbols(function_ref<bool(const Symbol &)> ToRemove) override;
 
   static bool classof(const SectionBase *S) {
     return S->Type == ELF::SHT_GROUP;
@@ -617,6 +624,7 @@ public:
   ConstRange<Segment> segments() const { return make_pointee_range(Segments); }
 
   void removeSections(std::function<bool(const SectionBase &)> ToRemove);
+  void removeSymbols(function_ref<bool(const Symbol &)> ToRemove);
   template <class T, class... Ts> T &addSection(Ts &&... Args) {
     auto Sec = llvm::make_unique<T>(std::forward<Ts>(Args)...);
     auto Ptr = Sec.get();

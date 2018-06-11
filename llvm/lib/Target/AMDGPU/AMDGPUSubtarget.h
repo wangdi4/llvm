@@ -8,7 +8,7 @@
 //==-----------------------------------------------------------------------===//
 //
 /// \file
-/// \brief AMDGPU specific subclass of TargetSubtarget.
+/// AMDGPU specific subclass of TargetSubtarget.
 //
 //===----------------------------------------------------------------------===//
 
@@ -23,7 +23,6 @@
 #include "SIFrameLowering.h"
 #include "SIISelLowering.h"
 #include "SIInstrInfo.h"
-#include "SIMachineFunctionInfo.h"
 #include "Utils/AMDGPUBaseInfo.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
@@ -72,7 +71,9 @@ public:
     ISAVersion8_0_3,
     ISAVersion8_1_0,
     ISAVersion9_0_0,
-    ISAVersion9_0_2
+    ISAVersion9_0_2,
+    ISAVersion9_0_4,
+    ISAVersion9_0_6,
   };
 
   enum TrapHandlerAbi {
@@ -150,6 +151,7 @@ protected:
   bool HasIntClamp;
   bool HasVOP3PInsts;
   bool HasMadMixInsts;
+  bool HasFmaMixInsts;
   bool HasMovrel;
   bool HasVGPRIndexMode;
   bool HasScalarStores;
@@ -162,6 +164,8 @@ protected:
   bool HasSDWAMac;
   bool HasSDWAOutModsVOPC;
   bool HasDPP;
+  bool HasDLInsts;
+  bool D16PreservesUnusedBits;
   bool FlatAddressSpace;
   bool FlatInstOffsets;
   bool FlatGlobalInsts;
@@ -329,6 +333,10 @@ public:
     return HasMadMixInsts;
   }
 
+  bool hasFmaMixInsts() const {
+    return HasFmaMixInsts;
+  }
+
   bool hasCARRY() const {
     return (getGeneration() >= EVERGREEN);
   }
@@ -374,10 +382,7 @@ public:
   /// the given LDS memory size is the only constraint.
   unsigned getOccupancyWithLocalMemSize(uint32_t Bytes, const Function &) const;
 
-  unsigned getOccupancyWithLocalMemSize(const MachineFunction &MF) const {
-    const auto *MFI = MF.getInfo<SIMachineFunctionInfo>();
-    return getOccupancyWithLocalMemSize(MFI->getLDSSize(), MF.getFunction());
-  }
+  unsigned getOccupancyWithLocalMemSize(const MachineFunction &MF) const;
 
   bool hasFP16Denormals() const {
     return FP64FP16Denormals;
@@ -530,7 +535,19 @@ public:
     return HasSDWAOutModsVOPC;
   }
 
-  /// \brief Returns the offset in bytes from the start of the input buffer
+  bool vmemWriteNeedsExpWaitcnt() const {
+    return getGeneration() < SEA_ISLANDS;
+  }
+
+  bool hasDLInsts() const {
+    return HasDLInsts;
+  }
+
+  bool d16PreservesUnusedBits() const {
+    return D16PreservesUnusedBits;
+  }
+
+  /// Returns the offset in bytes from the start of the input buffer
   ///        of the first explicit kernel argument.
   unsigned getExplicitKernelArgOffset(const MachineFunction &MF) const {
     return isAmdCodeObjectV2(MF) ? 0 : 36;

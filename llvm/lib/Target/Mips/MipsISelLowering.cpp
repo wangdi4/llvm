@@ -200,6 +200,7 @@ const char *MipsTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case MipsISD::Ret:               return "MipsISD::Ret";
   case MipsISD::ERet:              return "MipsISD::ERet";
   case MipsISD::EH_RETURN:         return "MipsISD::EH_RETURN";
+  case MipsISD::FMS:               return "MipsISD::FMS";
   case MipsISD::FPBrcond:          return "MipsISD::FPBrcond";
   case MipsISD::FPCmp:             return "MipsISD::FPCmp";
   case MipsISD::FSELECT:           return "MipsISD::FSELECT";
@@ -1432,8 +1433,8 @@ MachineBasicBlock *MipsTargetLowering::emitAtomicBinary(MachineInstr &MI,
 
   if (Size == 4) {
     if (isMicroMips) {
-      LL = Mips::LL_MM;
-      SC = Mips::SC_MM;
+      LL = Subtarget.hasMips32r6() ? Mips::LL_MMR6 : Mips::LL_MM;
+      SC = Subtarget.hasMips32r6() ? Mips::SC_MMR6 : Mips::SC_MM;
     } else {
       LL = Subtarget.hasMips32r6()
                ? (ArePtrs64bit ? Mips::LL64_R6 : Mips::LL_R6)
@@ -1579,8 +1580,8 @@ MachineBasicBlock *MipsTargetLowering::emitAtomicBinaryPartword(
 
   unsigned LL, SC;
   if (isMicroMips) {
-    LL = Mips::LL_MM;
-    SC = Mips::SC_MM;
+    LL = Subtarget.hasMips32r6() ? Mips::LL_MMR6 : Mips::LL_MM;
+    SC = Subtarget.hasMips32r6() ? Mips::SC_MMR6 : Mips::SC_MM;
   } else {
     LL = Subtarget.hasMips32r6() ? (ArePtrs64bit ? Mips::LL64_R6 : Mips::LL_R6)
                                  : (ArePtrs64bit ? Mips::LL64 : Mips::LL);
@@ -1720,8 +1721,8 @@ MachineBasicBlock *MipsTargetLowering::emitAtomicCmpSwap(MachineInstr &MI,
 
   if (Size == 4) {
     if (isMicroMips) {
-      LL = Mips::LL_MM;
-      SC = Mips::SC_MM;
+      LL = Subtarget.hasMips32r6() ? Mips::LL_MMR6 : Mips::LL_MM;
+      SC = Subtarget.hasMips32r6() ? Mips::SC_MMR6 : Mips::SC_MM;
     } else {
       LL = Subtarget.hasMips32r6()
                ? (ArePtrs64bit ? Mips::LL64_R6 : Mips::LL_R6)
@@ -1834,8 +1835,8 @@ MachineBasicBlock *MipsTargetLowering::emitAtomicCmpSwapPartword(
   unsigned LL, SC;
 
   if (isMicroMips) {
-    LL = Mips::LL_MM;
-    SC = Mips::SC_MM;
+    LL = Subtarget.hasMips32r6() ? Mips::LL_MMR6 : Mips::LL_MM;
+    SC = Subtarget.hasMips32r6() ? Mips::SC_MMR6 : Mips::SC_MM;
   } else {
     LL = Subtarget.hasMips32r6() ? (ArePtrs64bit ? Mips::LL64_R6 : Mips::LL_R6)
                                  : (ArePtrs64bit ? Mips::LL64 : Mips::LL);

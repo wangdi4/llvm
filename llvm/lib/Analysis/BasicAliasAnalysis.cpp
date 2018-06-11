@@ -132,7 +132,10 @@ static bool isNonEscapingLocalObject(const Value *V) {
 /// Returns true if the pointer is one which would have been considered an
 /// escape by isNonEscapingLocalObject.
 static bool isEscapeSource(const Value *V) {
-  if (isa<CallInst>(V) || isa<InvokeInst>(V) || isa<Argument>(V))
+  if (ImmutableCallSite(V))
+    return true;
+
+  if (isa<Argument>(V))
     return true;
 
   // The load case works because isNonEscapingLocalObject considers all
@@ -427,11 +430,19 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
 
     const GEPOperator *GEPOp = dyn_cast<GEPOperator>(Op);
     if (!GEPOp) {
-      if (auto CS = ImmutableCallSite(V))
-        if (const Value *RV = CS.getReturnedArgOperand()) {
-          V = RV;
+      if (auto CS = ImmutableCallSite(V)) {
+        // Note: getArgumentAliasingToReturnedPointer keeps it in sync with
+        // CaptureTracking, which is needed for correctness.  This is because
+        // some intrinsics like launder.invariant.group returns pointers that
+        // are aliasing it's argument, which is known to CaptureTracking.
+        // If AliasAnalysis does not use the same information, it could assume
+        // that pointer returned from launder does not alias it's argument
+        // because launder could not return it if the pointer was not captured.
+        if (auto *RP = getArgumentAliasingToReturnedPointer(CS)) {
+          V = RP;
           continue;
         }
+      }
 
       // If it's not a GEP, hand it off to SimplifyInstruction to see if it
       // can come up with something. This matches what GetUnderlyingObject does.
@@ -985,8 +996,8 @@ static AliasResult aliasSameBasePointerGEPs(const GEPOperator *GEP1,
                                             const GEPOperator *GEP2,
                                             uint64_t V2Size,
                                             const DataLayout &DL) {
-  assert(GEP1->getPointerOperand()->stripPointerCastsAndBarriers() ==
-             GEP2->getPointerOperand()->stripPointerCastsAndBarriers() &&
+  assert(GEP1->getPointerOperand()->stripPointerCastsAndInvariantGroups() ==
+             GEP2->getPointerOperand()->stripPointerCastsAndInvariantGroups() &&
          GEP1->getPointerOperandType() == GEP2->getPointerOperandType() &&
          "Expected GEPs with the same pointer operand");
 
@@ -1264,8 +1275,8 @@ AliasResult BasicAAResult::aliasGEP(const GEPOperator *GEP1, uint64_t V1Size,
     // If we know the two GEPs are based off of the exact same pointer (and not
     // just the same underlying object), see if that tells us anything about
     // the resulting pointers.
-    if (GEP1->getPointerOperand()->stripPointerCastsAndBarriers() ==
-            GEP2->getPointerOperand()->stripPointerCastsAndBarriers() &&
+    if (GEP1->getPointerOperand()->stripPointerCastsAndInvariantGroups() ==
+            GEP2->getPointerOperand()->stripPointerCastsAndInvariantGroups() &&
         GEP1->getPointerOperandType() == GEP2->getPointerOperandType()) {
       AliasResult R = aliasSameBasePointerGEPs(GEP1, V1Size, GEP2, V2Size, DL);
       // If we couldn't find anything interesting, don't abandon just yet.
@@ -1578,8 +1589,8 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
     return NoAlias;
 
   // Strip off any casts if they exist.
-  V1 = V1->stripPointerCastsAndBarriers();
-  V2 = V2->stripPointerCastsAndBarriers();
+  V1 = V1->stripPointerCastsAndInvariantGroups();
+  V2 = V2->stripPointerCastsAndInvariantGroups();
 
   // If V1 or V2 is undef, the result is NoAlias because we can always pick a
   // value for undef that aliases nothing in the program.
