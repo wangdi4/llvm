@@ -162,6 +162,7 @@ public:
       // remove the single input phi and constant branch created from
       // StructurizeCFG
       addPass(createInstructionCombiningPass());
+      addPass(createCFGSimplificationPass());
     }
     // Add a pass to identify and prepare inner loops for pipelinling. This
     // only happens at O1+ so as to avoid requiring excessive additional
