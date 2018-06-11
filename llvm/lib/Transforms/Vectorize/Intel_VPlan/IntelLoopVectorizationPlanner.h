@@ -10,7 +10,7 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// This file defines LoopVectorizationPlannerBase and LoopVectorizationPlanner.
+/// This file defines LoopVectorizationPlanner.
 ///
 //===----------------------------------------------------------------------===//
 
@@ -57,14 +57,24 @@ class VPlanCostModel;
 /// In particular, represent the control-flow of the vectorized version,
 /// the replication of instructions that are to be scalarized, and interleave
 /// access groups.
-class LoopVectorizationPlannerBase {
+class LoopVectorizationPlanner {
 public:
+  LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
+                           ScalarEvolution *SE, const TargetLibraryInfo *TLI,
+                           const TargetTransformInfo *TTI, const DataLayout *DL,
+                           class DominatorTree *DT,
+                           VPOVectorizationLegality *Legal)
+      : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal), TheLoop(Lp),
+        LI(LI), SE(SE), DT(DT) {
+    VPLA = std::make_shared<VPLoopAnalysis>(SE, VPlanDefaultEstTrip);
+  }
+  virtual ~LoopVectorizationPlanner() {}
   /// Build initial VPlans according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop.
   /// Returns the number of VPlans built, zero if failed.
   unsigned buildInitialVPlans(void);
 
-  virtual void collectDeadInstructions() {}
+  virtual void collectDeadInstructions();
 
   /// On VPlan construction, each instruction marked for predication by Legal
   /// gets its own basic block guarded by an if-then. This initial planning
@@ -73,6 +83,18 @@ public:
   /// of other related instructions. The function applies these optimizations
   /// to all VPlans.
   // void optimizePredicatedInstructions();
+
+  /// Record CM's decision and dispose of all other VPlans.
+  // void setBestPlan(unsigned VF, unsigned UF);
+
+  /// Generate the IR code for the body of the vectorized loop according to the
+  /// best selected VPlan.
+  void executeBestPlan(VPOCodeGen &LB);
+
+  /// Feed information from explicit clauses to the loop Legality.
+  /// This information is necessary for initial loop analysis in the CodeGen.
+  static void EnterExplicitData(WRNVecLoopNode *WRLp,
+                                VPOVectorizationLegality &Legality);
 
   /// Select the best plan and dispose all other VPlans.
   /// \Returns the selected vectorization factor.
@@ -94,14 +116,6 @@ public:
   bool hasVPlanForVF(const unsigned VF) const { return VPlans.count(VF) != 0; }
 
 protected:
-  LoopVectorizationPlannerBase(WRNVecLoopNode *WRL,
-                               const TargetLibraryInfo *TLI,
-                               const TargetTransformInfo *TTI,
-                               const DataLayout *DL,
-                               VPOVectorizationLegality *Legal)
-      : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal) {}
-  virtual ~LoopVectorizationPlannerBase() {}
-
   /// Build an initial VPlan according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop. \return a VPlan
   /// that corresponds to vectorization factors starting from the given
@@ -109,12 +123,12 @@ protected:
   /// the given \p EndRangeVF.
   // TODO: If this function becomes more complicated, move common code to base
   // class.
-  virtual std::shared_ptr<VPlan>
-  buildInitialVPlan(unsigned StartRangeVF, unsigned &EndRangeVF) = 0;
+  virtual std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
+                                                   unsigned &EndRangeVF);
 
   /// \Returns a pair of the <min, max> types' width used in the underlying loop.
   /// Doesn't take into account i1 type.
-  virtual std::pair<unsigned, unsigned> getTypesWidthRangeInBits() const = 0;
+  virtual std::pair<unsigned, unsigned> getTypesWidthRangeInBits() const;
 
   /// WRegion info of the loop we evaluate. It can be null.
   WRNVecLoopNode *WRLp;
@@ -144,6 +158,8 @@ protected:
       return nullptr;
     }
   };
+  unsigned BestVF = 0;
+  unsigned BestUF = 0;
 
 private:
   /// Determine whether \p I will be scalarized in a given range of VFs.
@@ -160,84 +176,6 @@ private:
   /// variants the values its ingredients use. This may cause the defining
   /// recipe to generate that variant itself to serve all such users.
   // void assignScalarVectorConversions(Instruction *PredInst, VPlan *Plan);
-
-  /// The profitablity analysis.
-  // LoopVectorizationCostModel *CM;
-
-  // InnerLoopVectorizer *ILV = nullptr;
-
-  // Holds instructions from the original loop that we predicated. Such
-  // instructions reside in their own conditioned VPBasicBlock and represent
-  // an optimization opportunity for sinking their scalarized operands thus
-  // reducing their cost by the predicate's probability.
-  // SmallPtrSet<Instruction *, 4> PredicatedInstructions;
-
-  /// VPlans are shared between VFs, use smart pointers.
-  DenseMap<unsigned, std::shared_ptr<VPlan>> VPlans;
-
-protected:
-  unsigned BestVF = 0;
-  unsigned BestUF = 0;
-};
-
-class LoopVectorizationPlanner : public LoopVectorizationPlannerBase {
-public:
-  LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
-                           ScalarEvolution *SE, const TargetLibraryInfo *TLI,
-                           const TargetTransformInfo *TTI, const DataLayout *DL,
-                           class DominatorTree *DT,
-                           VPOVectorizationLegality *Legal)
-      : LoopVectorizationPlannerBase(WRL, TLI, TTI, DL, Legal), TheLoop(Lp),
-        LI(LI), SE(SE), DT(DT) {
-    VPLA = std::make_shared<VPLoopAnalysis>(SE, VPlanDefaultEstTrip);
-  }
-
-  /// On VPlan construction, each instruction marked for predication by Legal
-  /// gets its own basic block guarded by an if-then. This initial planning
-  /// is legal, but is not optimal. This function attempts to leverage the
-  /// necessary conditional execution of the predicated instruction in favor
-  /// of other related instructions. The function applies these optimizations
-  /// to all VPlans.
-  // void optimizePredicatedInstructions();
-
-  /// Record CM's decision and dispose of all other VPlans.
-  // void setBestPlan(unsigned VF, unsigned UF);
-
-  /// Generate the IR code for the body of the vectorized loop according to the
-  /// best selected VPlan.
-  void executeBestPlan(VPOCodeGen &LB);
-
-  void collectDeadInstructions() override;
-
-  /// Feed information from explicit clauses to the loop Legality.
-  /// This information is necessary for initial loop analysis in the CodeGen.
-  static void EnterExplicitData(WRNVecLoopNode *WRLp,
-                                VPOVectorizationLegality &Legality);
-
-private:
-  std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
-                                           unsigned &EndRangeVF) override;
-
-  std::pair<unsigned, unsigned> getTypesWidthRangeInBits(void) const final;
-
-  /// Determine whether \p I will be scalarized in a given range of VFs.
-  /// The returned value reflects the result for a prefix of the range, with
-  /// \p
-  /// EndRangeVF modified accordingly.
-  // bool willBeScalarized(Instruction *I, unsigned StartRangeVF,
-  //                      unsigned &EndRangeVF);
-
-  /// Iteratively sink the scalarized operands of a predicated instruction
-  /// into
-  /// the block that was created for it.
-  // void sinkScalarOperands(Instruction *PredInst, VPlan *Plan);
-
-  /// Determine whether a newly-created recipe adds a second user to one of
-  /// the
-  /// variants the values its ingredients use. This may cause the defining
-  /// recipe to generate that variant itself to serve all such users.
-  // void assignScalarVectorConversions(Instruction *PredInst, VPlan *Plan);
-
   /// The loop that we evaluate.
   Loop *TheLoop;
 
@@ -259,6 +197,8 @@ private:
   // TODO: Move to base class
   VPOCodeGen *ILV = nullptr;
 
+  // InnerLoopVectorizer *ILV = nullptr;
+
   // Holds instructions from the original loop that we predicated. Such
   // instructions reside in their own conditioned VPBasicBlock and represent
   // an optimization opportunity for sinking their scalarized operands thus
@@ -272,6 +212,9 @@ private:
   // Similarly, we create a new latch condition when setting up the structure
   // of the new loop, so the old one can become dead.
   SmallPtrSet<Instruction *, 4> DeadInstructions;
+
+  /// VPlans are shared between VFs, use smart pointers.
+  DenseMap<unsigned, std::shared_ptr<VPlan>> VPlans;
 };
 
 } // namespace vpo

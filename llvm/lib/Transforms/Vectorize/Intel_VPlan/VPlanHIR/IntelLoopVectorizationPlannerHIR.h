@@ -27,7 +27,7 @@ extern cl::opt<uint64_t> VPlanDefaultEstTripHIR;
 namespace llvm {
 namespace vpo {
 
-class LoopVectorizationPlannerHIR : public LoopVectorizationPlannerBase {
+class LoopVectorizationPlannerHIR : public LoopVectorizationPlanner {
 private:
   /// The loop that we evaluate.
   HLLoop *TheLoop;
@@ -38,7 +38,7 @@ private:
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
 
   std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
-                                                unsigned &EndRangeVF) {
+                                           unsigned &EndRangeVF) override {
     // Create new empty VPlan
     std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(VPLA);
     VPlan *Plan = SharedPlan.get();
@@ -57,21 +57,21 @@ public:
                               const DataLayout *DL,
                               VPOVectorizationLegality *Legal,
                               const DDGraph &DDG)
-      : LoopVectorizationPlannerBase(WRL, TLI, TTI, DL, Legal), TheLoop(Lp),
-        DDG(DDG) {
+      : LoopVectorizationPlanner(WRL, nullptr, nullptr, nullptr, TLI, TTI, DL,
+                                 nullptr, Legal),
+        TheLoop(Lp), DDG(DDG) {
     VPLA = std::make_shared<VPLoopAnalysisHIR>(VPlanDefaultEstTripHIR);
   }
 
   /// Generate the HIR code for the body of the vectorized loop according to the
   /// best selected VPlan.
   void executeBestPlan(VPOCodeGenHIR *CG);
-
+  void collectDeadInstructions() override {}
   /// Return a pair of the <min, max> types' width used in the underlying loop.
   std::pair<unsigned, unsigned> getTypesWidthRangeInBits() const final {
     // FIXME: Implement this!
     return {8, 64};
   }
-
 };
 
 } // namespace vpo
