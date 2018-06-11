@@ -1,5 +1,7 @@
 //RUN: %clang_cc1 -triple spir64-unknown-unknown-intelfpga -O0 -cl-std=CL2.0 -emit-llvm -o - %s | FileCheck %s
 //RUN: %clang_cc1 -triple spir64-unknown-unknown-intelfpga -O0 -cl-std=CL1.2 -emit-llvm -o - %s | FileCheck %s
+//RUN: %clang_cc1 -triple x86_64-unknown-unknown-intelfpga -O0 -cl-std=CL2.0 -emit-llvm -o - %s | FileCheck %s
+//RUN: %clang_cc1 -triple x86_64-unknown-unknown-intelfpga -O0 -cl-std=CL1.2 -emit-llvm -o - %s | FileCheck %s
 
 // This test file is a copy of CodeGenIntelHLS/pragmas.cpp adopted for OpenCL C
 // Main changes:
@@ -72,25 +74,24 @@ void foo_ivdep(int select)
 
   int myArray[32];
 
-  //CHECK: [[IVD_TOK1:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]* %myArray) ]
+  //CHECK: [[IVD_TOK1:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]* %myArray, i32 -1) ]
   //CHECK: region.exit(token [[IVD_TOK1]]) [ "DIR.PRAGMA.END.IVDEP"() ]
   #pragma ivdep array(myArray)
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
-  //CHECK: [[IVD_TOK2:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]* %myArray) ]
-  //CHECK: br{{.*}}!llvm.loop [[IVDEP3:![0-9]+]]
+  //CHECK: [[IVD_TOK2:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]* %myArray, i32 8) ]
   //CHECK: region.exit(token [[IVD_TOK2]]) [ "DIR.PRAGMA.END.IVDEP"() ]
   #pragma ivdep safelen(8) array(myArray)
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
-  //CHECK: [[IVD_TOK3:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]* %myArray) ]
+  //CHECK: [[IVD_TOK3:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]* %myArray, i32 8) ]
   //CHECK: br{{.*}}!llvm.loop [[IVDEP4:![0-9]+]]
   //CHECK: region.exit(token [[IVD_TOK3]]) [ "DIR.PRAGMA.END.IVDEP"() ]
   #pragma unroll 4
   #pragma ivdep safelen(8) array(myArray)
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
-  //CHECK: [[IVD_TOK4:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]* %myArray) ]
+  //CHECK: [[IVD_TOK4:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]* %myArray, i32 8) ]
   //CHECK: br{{.*}}!llvm.loop [[IVDEP5:![0-9]+]]
   //CHECK: region.exit(token [[IVD_TOK4]]) [ "DIR.PRAGMA.END.IVDEP"() ]
   #pragma ivdep safelen(8) array(myArray)
@@ -98,27 +99,27 @@ void foo_ivdep(int select)
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
   //CHECK: [[SVA:%A[0-9]*]] = getelementptr inbounds %struct.SIVDep, %struct.SIVDep* %SV, i32 0, i32 0
-  //CHECK: [[IVD_TOK5:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]* [[SVA]]) ]
+  //CHECK: [[IVD_TOK5:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]* [[SVA]], i32 -1) ]
   //CHECK: region.exit(token [[IVD_TOK5]]) [ "DIR.PRAGMA.END.IVDEP"() ]
   #pragma ivdep array(SV.A)
   for (int i=0;i<32;++i) { SV.A[i] = ibar(i); }
 
   //CHECK: load{{.*}}Sv2p
   //CHECK: [[LSV2P:%A[0-9]*]] = getelementptr{{.*}}%struct.SIVDep, %struct.SIVDep{{.*}}*
-  //CHECK: [[IVD_TOK6:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]{{.*}}* [[LSV2P]]) ]
+  //CHECK: [[IVD_TOK6:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]{{.*}}* [[LSV2P]], i32 -1) ]
   //CHECK: region.exit(token [[IVD_TOK6]]) [ "DIR.PRAGMA.END.IVDEP"() ]
   #pragma ivdep array(Sv2p->X[2][3].A)
   for (int i=0;i<32;++i) { Sv2p->X[2][3].A[i] = ibar(i); }
 
   int myArray2[32];
   int *ptr = select ? myArray : myArray2;
-  //CHECK: [[IVD_TOK7:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"(i32{{.*}}** %ptr{{.*}}) ]
+  //CHECK: [[IVD_TOK7:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"(i32{{.*}}** %ptr{{.*}}, i32 -1) ]
   //CHECK: region.exit(token [[IVD_TOK7]]) [ "DIR.PRAGMA.END.IVDEP"() ]
   #pragma ivdep array(ptr)
   for (int i=0;i<32;++i) { ptr[i] = ibar(i); }
 
   ptr = &myArray[16];
-  //CHECK: [[IVD_TOK8:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"(i32{{.*}}** %ptr{{.*}}) ]
+  //CHECK: [[IVD_TOK8:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"(i32{{.*}}** %ptr{{.*}}, i32 -1) ]
   //CHECK: region.exit(token [[IVD_TOK8]]) [ "DIR.PRAGMA.END.IVDEP"() ]
   #pragma ivdep array(ptr)
   for (int i=0;i<32;++i) { ptr[i] = ibar(i); }
@@ -140,8 +141,6 @@ void foo_ivdep(int select)
 //CHECK: [[IVDEP1A]] = !{!"llvm.loop.ivdep.enable"}
 //CHECK: [[IVDEP2]] = distinct !{[[IVDEP2]], [[IVDEP2A:![0-9]+]]}
 //CHECK: [[IVDEP2A]] = !{!"llvm.loop.ivdep.safelen", i32 4}
-//CHECK: [[IVDEP3]] = distinct !{[[IVDEP3]], [[IVDEP3A:![0-9]+]]}
-//CHECK: [[IVDEP3A]] = !{!"llvm.loop.ivdep.safelen", i32 8}
-//CHECK: [[IVDEP4]] = distinct !{[[IVDEP4]], [[IVDEP3A]], [[UNROLL2A]]}
-//CHECK: [[IVDEP5]] = distinct !{[[IVDEP5]], [[IVDEP3A]], [[UNROLL2A]]}
+//CHECK: [[IVDEP4]] = distinct !{[[IVDEP4]], [[UNROLL2A]]}
+//CHECK: [[IVDEP5]] = distinct !{[[IVDEP5]], [[UNROLL2A]]}
 

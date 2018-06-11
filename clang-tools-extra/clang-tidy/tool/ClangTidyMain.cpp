@@ -41,7 +41,6 @@ Configuration files:
     Checks:          '-*,some-check'
     WarningsAsErrors: ''
     HeaderFilterRegex: ''
-    AnalyzeTemporaryDtors: false
     FormatStyle:     none
     User:            user
     CheckOptions:
@@ -182,15 +181,13 @@ report to stderr.
                                         cl::init(false),
                                         cl::cat(ClangTidyCategory));
 
-static cl::opt<bool> AnalyzeTemporaryDtors("analyze-temporary-dtors",
-                                           cl::desc(R"(
-Enable temporary destructor-aware analysis in
-clang-analyzer- checks.
-This option overrides the value read from a
-.clang-tidy file.
-)"),
-                                           cl::init(false),
-                                           cl::cat(ClangTidyCategory));
+/// This option allows enabling the experimental alpha checkers from the static
+/// analyzer. This option is set to false and not visible in help, because it is
+/// highly not recommended for users.
+static cl::opt<bool>
+    AllowEnablingAnalyzerAlphaCheckers("allow-enabling-analyzer-alpha-checkers",
+                                       cl::init(false), cl::Hidden,
+                                       cl::cat(ClangTidyCategory));
 
 static cl::opt<std::string> ExportFixes("export-fixes", cl::desc(R"(
 YAML file to store suggested fixes in. The
@@ -247,45 +244,6 @@ static void printStats(const ClangTidyStats &Stats) {
   }
 }
 
-static void printProfileData(const ProfileData &Profile,
-                             llvm::raw_ostream &OS) {
-  // Time is first to allow for sorting by it.
-  std::vector<std::pair<llvm::TimeRecord, StringRef>> Timers;
-  TimeRecord Total;
-
-  for (const auto &P : Profile.Records) {
-    Timers.emplace_back(P.getValue(), P.getKey());
-    Total += P.getValue();
-  }
-
-  std::sort(Timers.begin(), Timers.end());
-
-  std::string Line = "===" + std::string(73, '-') + "===\n";
-  OS << Line;
-
-  if (Total.getUserTime())
-    OS << "   ---User Time---";
-  if (Total.getSystemTime())
-    OS << "   --System Time--";
-  if (Total.getProcessTime())
-    OS << "   --User+System--";
-  OS << "   ---Wall Time---";
-  if (Total.getMemUsed())
-    OS << "  ---Mem---";
-  OS << "  --- Name ---\n";
-
-  // Loop through all of the timing data, printing it out.
-  for (auto I = Timers.rbegin(), E = Timers.rend(); I != E; ++I) {
-    I->first.print(Total, OS);
-    OS << I->second << '\n';
-  }
-
-  Total.print(Total, OS);
-  OS << "Total\n";
-  OS << Line << "\n";
-  OS.flush();
-}
-
 static std::unique_ptr<ClangTidyOptionsProvider> createOptionsProvider(
    llvm::IntrusiveRefCntPtr<vfs::FileSystem> FS) {
   ClangTidyGlobalOptions GlobalOptions;
@@ -300,7 +258,6 @@ static std::unique_ptr<ClangTidyOptionsProvider> createOptionsProvider(
   DefaultOptions.WarningsAsErrors = "";
   DefaultOptions.HeaderFilterRegex = HeaderFilter;
   DefaultOptions.SystemHeaders = SystemHeaders;
-  DefaultOptions.AnalyzeTemporaryDtors = AnalyzeTemporaryDtors;
   DefaultOptions.FormatStyle = FormatStyle;
   DefaultOptions.User = llvm::sys::Process::GetEnv("USER");
   // USERNAME is used on Windows.
@@ -316,8 +273,6 @@ static std::unique_ptr<ClangTidyOptionsProvider> createOptionsProvider(
     OverrideOptions.HeaderFilterRegex = HeaderFilter;
   if (SystemHeaders.getNumOccurrences() > 0)
     OverrideOptions.SystemHeaders = SystemHeaders;
-  if (AnalyzeTemporaryDtors.getNumOccurrences() > 0)
-    OverrideOptions.AnalyzeTemporaryDtors = AnalyzeTemporaryDtors;
   if (FormatStyle.getNumOccurrences() > 0)
     OverrideOptions.FormatStyle = FormatStyle;
 
@@ -388,7 +343,8 @@ static int clangTidyMain(int argc, const char **argv) {
                  << EC.message() << "\n";
   }
   ClangTidyOptions EffectiveOptions = OptionsProvider->getOptions(FilePath);
-  std::vector<std::string> EnabledChecks = getCheckNames(EffectiveOptions);
+  std::vector<std::string> EnabledChecks =
+      getCheckNames(EffectiveOptions, AllowEnablingAnalyzerAlphaCheckers);
 
   if (ExplainConfig) {
     // FIXME: Show other ClangTidyOptions' fields, like ExtraArg.
@@ -419,7 +375,8 @@ static int clangTidyMain(int argc, const char **argv) {
   }
 
   if (DumpConfig) {
-    EffectiveOptions.CheckOptions = getCheckOptions(EffectiveOptions);
+    EffectiveOptions.CheckOptions =
+        getCheckOptions(EffectiveOptions, AllowEnablingAnalyzerAlphaCheckers);
     llvm::outs() << configurationAsText(
                         ClangTidyOptions::getDefaults().mergeWith(
                             EffectiveOptions))
@@ -438,15 +395,15 @@ static int clangTidyMain(int argc, const char **argv) {
     llvm::cl::PrintHelpMessage(/*Hidden=*/false, /*Categorized=*/true);
     return 1;
   }
-  ProfileData Profile;
 
   llvm::InitializeAllTargetInfos();
   llvm::InitializeAllTargetMCs();
   llvm::InitializeAllAsmParsers();
 
-  ClangTidyContext Context(std::move(OwningOptionsProvider));
+  ClangTidyContext Context(std::move(OwningOptionsProvider),
+                           AllowEnablingAnalyzerAlphaCheckers);
   runClangTidy(Context, OptionsParser.getCompilations(), PathList, BaseFS,
-               EnableCheckProfile ? &Profile : nullptr);
+               EnableCheckProfile);
   ArrayRef<ClangTidyError> Errors = Context.getErrors();
   bool FoundErrors = llvm::find_if(Errors, [](const ClangTidyError &E) {
                        return E.DiagLevel == ClangTidyError::Error;
@@ -477,9 +434,6 @@ static int clangTidyMain(int argc, const char **argv) {
           << "Found compiler errors, but -fix-errors was not specified.\n"
              "Fixes have NOT been applied.\n\n";
   }
-
-  if (EnableCheckProfile)
-    printProfileData(Profile, llvm::errs());
 
   if (WErrorCount) {
     if (!Quiet) {

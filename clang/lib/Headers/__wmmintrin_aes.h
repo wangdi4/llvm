@@ -1,11 +1,3 @@
-//
-// Copyright (C) 2015 Intel Corporation.  All rights reserved.
-//
-// The information and source code contained herein is the exclusive
-// property of Intel Corporation and may not be disclosed, examined
-// or reproduced in whole or in part without explicit written authorization
-// from the company.
-//
 /*===---- __wmmintrin_aes.h - AES intrinsics -------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,15 +20,18 @@
  *
  *===-----------------------------------------------------------------------===
  */
-#ifndef _WMMINTRIN_AES_H
-#define _WMMINTRIN_AES_H
 
-#include <emmintrin.h>
+#ifndef __WMMINTRIN_H
+#error "Never use <__wmmintrin_aes.h> directly; include <wmmintrin.h> instead."
+#endif
+
+#ifndef __WMMINTRIN_AES_H
+#define __WMMINTRIN_AES_H
 
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("aes")))
 
-/// \brief Performs a single round of AES encryption using the Equivalent
+/// Performs a single round of AES encryption using the Equivalent
 ///    Inverse Cipher, transforming the state value from the first source
 ///    operand using a 128-bit round key value contained in the second source
 ///    operand, and writes the result to the destination.
@@ -56,7 +51,7 @@ _mm_aesenc_si128(__m128i __V, __m128i __R)
   return (__m128i)__builtin_ia32_aesenc128((__v2di)__V, (__v2di)__R);
 }
 
-/// \brief Performs the final round of AES encryption using the Equivalent
+/// Performs the final round of AES encryption using the Equivalent
 ///    Inverse Cipher, transforming the state value from the first source
 ///    operand using a 128-bit round key value contained in the second source
 ///    operand, and writes the result to the destination.
@@ -76,7 +71,7 @@ _mm_aesenclast_si128(__m128i __V, __m128i __R)
   return (__m128i)__builtin_ia32_aesenclast128((__v2di)__V, (__v2di)__R);
 }
 
-/// \brief Performs a single round of AES decryption using the Equivalent
+/// Performs a single round of AES decryption using the Equivalent
 ///    Inverse Cipher, transforming the state value from the first source
 ///    operand using a 128-bit round key value contained in the second source
 ///    operand, and writes the result to the destination.
@@ -96,7 +91,7 @@ _mm_aesdec_si128(__m128i __V, __m128i __R)
   return (__m128i)__builtin_ia32_aesdec128((__v2di)__V, (__v2di)__R);
 }
 
-/// \brief Performs the final round of AES decryption using the Equivalent
+/// Performs the final round of AES decryption using the Equivalent
 ///    Inverse Cipher, transforming the state value from the first source
 ///    operand using a 128-bit round key value contained in the second source
 ///    operand, and writes the result to the destination.
@@ -116,7 +111,7 @@ _mm_aesdeclast_si128(__m128i __V, __m128i __R)
   return (__m128i)__builtin_ia32_aesdeclast128((__v2di)__V, (__v2di)__R);
 }
 
-/// \brief Applies the AES InvMixColumns() transformation to an expanded key
+/// Applies the AES InvMixColumns() transformation to an expanded key
 ///    contained in the source operand, and writes the result to the
 ///    destination.
 ///
@@ -133,7 +128,7 @@ _mm_aesimc_si128(__m128i __V)
   return (__m128i)__builtin_ia32_aesimc128((__v2di)__V);
 }
 
-/// \brief Generates a round key for AES encryption, operating on 128-bit data
+/// Generates a round key for AES encryption, operating on 128-bit data
 ///    specified in the first source operand and using an 8-bit round constant
 ///    specified by the second source operand, and writes the result to the
 ///    destination.
@@ -156,4 +151,4 @@ _mm_aesimc_si128(__m128i __V)
 
 #undef __DEFAULT_FN_ATTRS
 
-#endif  /* _WMMINTRIN_AES_H */
+#endif  /* __WMMINTRIN_AES_H */

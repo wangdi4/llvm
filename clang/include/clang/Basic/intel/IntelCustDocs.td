@@ -35,6 +35,7 @@ class DocumentationCategory<string name> {
 // New categories can be added by adding a new record here.
 def DocCatMSCompat : DocumentationCategory<"Microsoft Compatibility">;
 def DocCatIntelCompat : DocumentationCategory<"Intel Compatibility">;
+def DocCatIntelOptimization : DocumentationCategory<"Optimization">;
 
 // Specifies the documentation to be associated with the given category.
 class Documentation {
@@ -52,6 +53,8 @@ class Documentation {
   string Owner = "";
   string CompatVersions = "";
 }
+
+// Microsoft Compatibility
 
 def StringCharStarCatchableDocs : Documentation {
   let Category = DocCatMSCompat;
@@ -96,54 +99,7 @@ Microsoft allows you to catch a string literal with catch(char \*).
   }];
 }
 
-def UnrollExtensionsDocs : Documentation {
-  let Category = DocCatIntelCompat;
-  let Option = "IntelCompat";
-  let BugTracker = "CQ#371799,CMPLRS-36479";
-  let RegressionTest = "regC/tr50768";
-  let Owner = "mprice1";
-  let CompatVersions = "";
-  let Content = [{
-#pragma unroll applies to a loop.  The classic Intel compiler allows it on any
-statement and applies it to the first loop it encounters.  This would produce
-a diagnostic on most other compilers.
-
-Also allows the user to specify multiple #pragma unrolls on a single loop.  The
-compiler ignores all but that last one.
-
-In the classic Intel compiler the IL0 directive is emitted at the location the
-user specified and the back end does the work to get it applied to the loop.
-
-In clang the front end must deal with it. When an unroll is seen it is saved
-and applied when a loop statement is seen.
-
-.. code-block:: c++
-
-  void foo()
-  {
-    int i;
-    #pragma unroll
-    i = 100;
-    for( i = 0; i < 2; i++ ) { i++; }
-  }
-
-.. code-block:: console
-
-  $ icc -c t.c
-  $
-
-.. code-block:: console
-
-  $ clang -c t.c
-  t.c:5:5: error: expected a for, while, or do-while loop to follow
-        '#pragma unroll'
-      i = 100;
-      ^
-  1 error generated.
-  $
-
-  }];
-}
+// Intel Compatibility
 
 def AllowMissingTypenameDocs : Documentation {
   let Category = DocCatIntelCompat;
@@ -305,6 +261,246 @@ A correct usage of these builtin functions are as follows:
   }];
 }
 
+def PragmaNoVectorDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let BugTracker= "";
+  let RegressionTest = "test/Sema/intel/vector.cpp,test/CodeGenCXX/intel/vector.cpp";
+  let Owner = "jyu2";
+  let CompatVersions = "";
+  let Content = [{
+The ``novector`` pragma specifies that a particular loop should never be
+vectorized, even if it is legal to do so. When avoiding vectorization of a
+loop is desirable (when vectorization results in a performance regression
+rather than improvement), the ``novector`` pragma can be used in the source text
+to disable vectorization of a loop. This behavior is in contrast to the ``vector
+always`` pragma.
+
+the ``pragma novector`` will be recognized and map to existing
+
+.. code-block:: c
+
+  #pragma vectorize(disable)
+
+For :
+
+.. code-block:: c
+
+  #pragma novector
+  for(;;);
+
+AST:
+
+AttributedStmt
+      LoopHintAttr Implicit novector Vectorize Disable
+
+Metadata:
+
+.. code-block:: llvm
+
+  br label %for.cond, !llvm.loop !2
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.vector.vectorize.width", i32 1}
+
+A correct usage of this pragma:
+
+.. code-block:: c
+
+  void foo(int lb, int ub) {
+  #pragma novector
+  for(j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+  }
+
+  }];
+
+}
+
+def PragmaVectorDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let BugTracker= "";
+  let RegressionTest = "test/Sema/intel/vector.cpp,test/CodeGenCXX/intel/vector.cpp";
+  let Owner = "jyu2";
+  let CompatVersions = "";
+  let Content = [{
+The ''pragma vector'' indicates to the compiler that the loop should be vectorized according to the argument keywords.
+  "assert, aligned, unaligned, vecremainder, novecremainder">;
+
+.. code-block:: c
+
+  vector {always[assert]|aligned|unaligned|temporal|nontemporal|[no]vecremainder|[no]mask_readwrite}
+
+``pragma vector`` will be represented like the existing:
+
+.. code-block:: c
+
+  #pragma vectorize(enable)
+
+For :
+
+.. code-block:: c
+
+  #pragma vector
+  for(;;);
+
+AST:
+
+AttributedStmt
+      LoopHintAttr Implicit vector Vectorize Enable
+
+Metadata:
+
+.. code-block:: llvm
+
+  br label %for.cond, !llvm.loop !2
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.vector.vectorize.enable", i1 true}
+
+``#pragma vector always`` will be represented as two LoopHint attributes:
+
+.. code-block:: c
+
+  #pragma vector always
+  for(;;);
+
+AST:
+
+AttributedStmt
+      LoopHintAttr Implicit vector VectorizeAlways Enable
+
+      LoopHintAttr Implicit vector Vectorize Enable
+
+Metadata:
+
+.. code-block:: llvm
+
+  br label %for.cond, !llvm.loop !2
+  !2 = distinct !{!2, !3 !4}
+  !3 = !{!"llvm.loop.ignore_profitability"}
+  !4 = !{!"llvm.loop.vectorize.enable", i1 true}
+
+  }];
+
+}
+
+def PragmaIVDepDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Owner = "mprice1,pmrao";
+  let Content = [{
+The ``ivdep`` pragma instructs the compiler to ignore assumed vector
+dependencies in a loop.
+
+The HLS form (enabled with -fhls) is:
+
+.. code-block:: c
+
+  #pragma ivdep [safelen(n)] [array(<arrayname>)]
+
+The Intel form (enabled with -fintel-compatibility) is:
+
+.. code-block:: c
+
+  #pragma ivdep [back|loop]
+
+The implementation uses the existing clang LoopHint attribute framework.  We
+are using five new Options and four States and produce both LoopHint metadata
+and intrinsic directives.  The table below shows how they relate.
+
+.. csv-table::
+  :header: Syntax, Option, State, Metadata, Directive
+  :widths: 24,13,13,25,25
+
+  #pragma #ivdep, IVDep, Enable, llvm.loop.vectorize.ivdep_back,
+  "", IVDepHLS, Enable, llvm.loop.ivdep.enable, ""
+  "", IVDepHLSIntel, Enable, llvm.loop.vectorize.ivdep_back llvm.loop.ivdep.enable, ""
+
+  #pragma ivdep back, IVDepBack, Enable, llvm.loop.vectorize.ivdep_back, ""
+  #pragma ivdep loop, IVDepLoop, Enable, llvm.loop.vectorize.ivdep_loop, ""
+
+  #pragma ivdep safelen(4), IVDepHLS, Numeric, llvm.loop.ivdep.safelen(4), ""
+
+  #pragma ivdep array(Arr), IVDepHLS, LoopExpr, "", "QUAL.PRAGMA.ARRAY(%Arr, i32 -1)"
+
+  #pragma ivdep safelen(4) array(Arr), IVDepHLS, Full, "", "QUAL.PRAGMA.ARRAY(%Arr, i32 4)"
+
+  }];
+}
+
+// Optimization
+
+def FakeLoadDocs : Documentation {
+  let Category = DocCatIntelOptimization;
+  let Option = "IntelCompat";
+  let BugTracker= "CQ414386/CMPLRS-915";
+  let RegressionTest = "CodeGen/intel/tbaa-prop1.cpp,tbaa-prop2.cpp";
+  let Content = [{
+Adds an intrinsic to improve alias analysis for pointers returned from a
+function.
+
+For example, in the case below, it helps the compiler prove that s.getA(x)
+and s.getB(y) do not overlap.
+
+.. code-block:: c
+
+  struct S {
+    int A[4];
+    int B[4];
+    int& getA(int i) { return A[i]; }
+    int& getB(int i) { return B[i]; }
+  };
+
+  int foo(S& s, int i, int j) {
+    s.getA(i) = 0;
+    s.getB(j) = 1;
+    return s.getA(i);
+  }
+
+The output code generated for the return in getA() would normally be:
+
+.. code-block:: llvm
+
+  %arrayidx = getelementptr inbounds [4 x i32], [4 x i32]* %A, i64 0, i64 %idxprom
+  ret i32* %arrayidx
+
+The intrinsic is added between with tbaa metadata:
+
+.. code-block:: llvm
+
+  %arrayidx = getelementptr inbounds [4 x i32], [4 x i32]* %A, i64 0, i64 %idxprom
+  %1 = call i32* @llvm.intel.fakeload.p0i32(i32* %arrayidx, metadata !10) #2
+  ret i32* %1
+
+  !7 = !{!"int", !4, i64 0}
+  !10 = !{!11, !7, i64 0}
+  !11 = !{!"struct@_ZTS1S", !12, i64 0, !12, i64 16}
+  !12 = !{!"array@_ZTSA4_i", !7, i64 0}
+
+This is implemented during clang CodeGen of the ReturnStmt. Return statements
+are considered if the function returns a reference type or the return value is
+an addressof expression.
+
+.. code-block:: c++
+
+  int& getA(int i) { return A[i]; }
+  int* getB(int i) { return &B[i]; }
+
+The function IsFakeLoadCand further narrows the cases handled to array
+subscripts and member select expressions.
+
+.. code-block:: c++
+
+  int& getA(int i) { return A.b; }
+  int* getB(int i) { return &B.b; }
+  int& getC(int i) { return C->b; }
+  int* getD(int i) { return &D->b; }
+
+The function EmitFakeLoadForRetPtr is then called to generate a new load with
+metadata.  The load and metadata is saved in a map and the fakeload intrinsic
+is created and emitted during EmitFunctionEpilog.
+  }];
+}
+
+
 def GlobalDocumentation {
   code Intro =[{..
   -------------------------------------------------------------------
@@ -361,49 +557,91 @@ Using Tags
 Each documented item has a tag.  The tag can be used in the sources to point
 the reader to this documentation.
 
-So instead of::
+So instead of:
+
+.. code-block:: c
 
   #if INTEL_CUSTOMIZATION
-    <code implementing some extension>
+    <code implementing foobar extension>
   #endif // INTEL_CUSTOMIZATION
 
-We can add the tag along with the code::
+We can add the tag along with the code:
+
+.. code-block:: c
 
   #if INTEL_CUSTOMIZATION
-    // IntelBlahBlahFeature
-    <code implementing some extension>
+    // IntelFooBarExtension
+    <code implementing foobar extension>
   #endif // INTEL_CUSTOMIZATION
 
 If we come across this block reading code or resolving a merge conflict we can
 easily open the docs and find out why it is here.
 
 In addition when used with an option like IntelCompat we can use the tag as
-part of the condition that checks the flag::
+part of the condition that checks the flag:
 
-  if (getContext().getLangOpts().isIntelCompat(LangOptions::XYZ))
+.. code-block:: c
+
+  if (getContext().getLangOpts().isIntelCompat(LangOptions::IntelFooBarExtension))
 
 Not only does this identify the customization it allows us to individually
 control that customization.  If we are triaging a bug and think this one is
-to blame we can easily test it with a command line option::
+to blame we can easily test it with a command line option:
 
-  icx -Xclang -fintel-compatibility -fintel-compatibility-disable=XYZ
+.. code-block:: console
 
-Or if we want to just enable that one item::
+  $ icx -Xclang -fintel-compatibility -fintel-compatibility-disable=IntelFooBarExtension
 
-  icx -Xclang -fintel-compatibility-enable=XYZ
+Or if we want to just enable that one item:
+
+.. code-block:: console
+
+  $ icx -Xclang -fintel-compatibility-enable=IntelFooBarExtension
 
 These options are for internal use only.  They are for compiler developers to
 more easily understand and maintain the code.  We don't want customers using
 them and we don't want anyone relying on specific names.  We can expect to
 remove or rename them when it makes sense.
 
-A list of current tags can be shown with::
+A list of current tags can be shown with:
 
- icx -Xclang -fintel-compatibility-help
+.. code-block:: console
+
+  $ icx -Xclang -fintel-compatibility-help
 
 Using these in normal development should be very easy.  When implementing
 a new extension you add the documentation to IntelCustDocs.td and then just
 use the tag in your code.  The documentation and code are developed and
 reviewed together.
+
+Building The Documentation
+==========================
+
+The clang documentation is not built by default.  To build it along with the
+compiler use:
+
+.. code-block:: console
+
+  $ ics build -j<n> -sphinx
+
+Important: Our builds use makefiles generated by cmake. The makefiles are not
+regenerated every ics build.  To get documentation you need cmake to generate
+new makefiles with the sphinx targets.  The easiest way to accomplish that is
+to remove your builds directory and run the ics build command above.
+
+Writing Documentation
+============================
+Clang/LLVM documentation is written in reStructuredText format and placed in
+.rst files.  Sphinx is used to generate html from the .rst file.
+
+You can just use the existing documentation as examples and start writing.
+More details can be found in this documentation:
+
+https://media.readthedocs.org/pdf/sphinx/stable/sphinx.pdf
+
+There are also online sphinx editors that you can paste your rST into to see
+how it looks.  One is here:
+
+https://livesphinx.herokuapp.com/
 }];
 }

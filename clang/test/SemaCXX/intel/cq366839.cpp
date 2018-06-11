@@ -10,7 +10,7 @@ const unsigned char a = {-1}; // expected-error{{constant expression evaluates t
 // expected-note {{insert an explicit cast to silence this issue}}
 unsigned int b = {-1.0}; // expected-error{{type 'double' cannot be narrowed to 'unsigned int' in initializer list}} \
 // expected-note {{insert an explicit cast to silence this issue}} \
-// expected-warning {{implicit conversion from 'double' to 'unsigned int' changes value from -1 to 0}}
+// expected-warning {{implicit conversion of out of range value from 'double' to 'unsigned int' is undefined}}
 char c = {b}; // expected-error{{non-constant-expression cannot be narrowed from type 'unsigned int' to 'char' in initializer list}} \
 // expected-note {{insert an explicit cast to silence this issue}}
 
@@ -20,7 +20,7 @@ const unsigned char a = {-1}; // expected-warning{{constant expression evaluates
 // expected-note {{insert an explicit cast to silence this issue}}
 unsigned int b = {-1.0}; // expected-warning{{type 'double' cannot be narrowed to 'unsigned int' in initializer list in C++11}} \
 // expected-note {{insert an explicit cast to silence this issue}} \
-// expected-warning {{implicit conversion from 'double' to 'unsigned int' changes value from -1 to 0}}
+// expected-warning {{implicit conversion of out of range value from 'double' to 'unsigned int' is undefined}}
 char c = {b}; // expected-warning{{non-constant-expression cannot be narrowed from type 'unsigned int' to 'char' in initializer list}} \
 // expected-note {{insert an explicit cast to silence this issue}}
 

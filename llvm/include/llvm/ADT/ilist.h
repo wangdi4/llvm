@@ -84,21 +84,11 @@ template <typename NodeTy>
 struct ilist_node_traits : ilist_alloc_traits<NodeTy>,
                            ilist_callback_traits<NodeTy> {};
 
-/// Default template traits for intrusive list.
-///
-/// By inheriting from this, you can easily use default implementations for all
-/// common operations.
-///
-/// TODO: Remove this customization point.  Specializing ilist_traits is
-/// already fully general.
-template <typename NodeTy>
-struct ilist_default_traits : public ilist_node_traits<NodeTy> {};
-
 /// Template traits for intrusive list.
 ///
 /// Customize callbacks and allocation semantics.
 template <typename NodeTy>
-struct ilist_traits : public ilist_default_traits<NodeTy> {};
+struct ilist_traits : public ilist_node_traits<NodeTy> {};
 
 /// Const traits should never be instantiated.
 template <typename Ty> struct ilist_traits<const Ty> {};
@@ -366,26 +356,26 @@ public:
 
   using base_list_type::sort;
 
-  /// \brief Get the previous node, or \c nullptr for the list head.
+  /// Get the previous node, or \c nullptr for the list head.
   pointer getPrevNode(reference N) const {
     auto I = N.getIterator();
     if (I == begin())
       return nullptr;
     return &*std::prev(I);
   }
-  /// \brief Get the previous node, or \c nullptr for the list head.
+  /// Get the previous node, or \c nullptr for the list head.
   const_pointer getPrevNode(const_reference N) const {
     return getPrevNode(const_cast<reference >(N));
   }
 
-  /// \brief Get the next node, or \c nullptr for the list tail.
+  /// Get the next node, or \c nullptr for the list tail.
   pointer getNextNode(reference N) const {
     auto Next = std::next(N.getIterator());
     if (Next == end())
       return nullptr;
     return &*Next;
   }
-  /// \brief Get the next node, or \c nullptr for the list tail.
+  /// Get the next node, or \c nullptr for the list tail.
   const_pointer getNextNode(const_reference N) const {
     return getNextNode(const_cast<reference >(N));
   }

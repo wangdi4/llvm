@@ -149,7 +149,84 @@ void foo1()
   int __attribute__((__numbanks__(4), __bankwidth__(16))) E;
   int __attribute__((__bank_bits__(2,3), __bankwidth__(16))) F;
 
+  //CHECK: VarDecl{{.*}}G0
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: InternalMaxBlockRamDepthAttr
+  //CHECK: IntegerLiteral{{.*}}32{{$}}
+  int __attribute__((internal_max_block_ram_depth(32))) G0;
+  //CHECK: VarDecl{{.*}}G1
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: OptimizeFMaxAttr
+  int __attribute__((optimize_fmax)) G1;
+  //CHECK: VarDecl{{.*}}G2
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: OptimizeRamUsageAttr
+  int __attribute__((optimize_ram_usage)) G2;
+
   // diagnostics
+
+  //expected-warning@+1{{'internal_max_block_ram_depth' is already applied}}
+  __attribute__((internal_max_block_ram_depth(32)))
+  __attribute__((internal_max_block_ram_depth(32)))
+  int imbrd_one;
+
+  //expected-warning@+1{{'optimize_fmax' is already applied}}
+  __attribute__((optimize_fmax))
+  __attribute__((optimize_fmax))
+  int ofm_one;
+
+  //expected-warning@+1{{'optimize_ram_usage' is already applied}}
+  __attribute__((optimize_ram_usage))
+  __attribute__((optimize_ram_usage))
+  int oru_one;
+
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((internal_max_block_ram_depth(32)))
+  __attribute__((optimize_fmax))
+  //expected-note@-1 {{conflicting attribute is here}}
+  unsigned int imbrd_two[64];
+
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((internal_max_block_ram_depth(32)))
+  __attribute__((optimize_ram_usage))
+  //expected-note@-1 {{conflicting attribute is here}}
+  unsigned int imbrd_three[64];
+
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((optimize_fmax))
+  __attribute__((optimize_ram_usage))
+  //expected-note@-1 {{conflicting attribute is here}}
+  unsigned int ofm_two[64];
+
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((optimize_ram_usage))
+  __attribute__((optimize_fmax))
+  //expected-note@-1 {{conflicting attribute is here}}
+  unsigned int ofm_three[64];
+
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((optimize_fmax))
+  __attribute__((register))
+  //expected-note@-1 {{conflicting attribute is here}}
+  unsigned int ofm_four[64];
+
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((register))
+  __attribute__((optimize_fmax))
+  //expected-note@-1 {{conflicting attribute is here}}
+  unsigned int ofm_five[64];
+
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((internal_max_block_ram_depth(32)))
+  __attribute__((register))
+  //expected-note@-1 {{conflicting attribute is here}}
+  unsigned int imbrd_four[64];
+
+  //expected-error@+1{{attributes are not compatible}}
+  __attribute__((optimize_ram_usage))
+  __attribute__((register))
+  //expected-note@-1 {{conflicting attribute is here}}
+  unsigned int oru_two[64];
 
   // **doublepump
   //expected-error@+1{{attributes are not compatible}}

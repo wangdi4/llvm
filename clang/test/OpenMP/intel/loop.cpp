@@ -111,8 +111,8 @@ void foo(int *arr1, int **arr2) {
     int pr = 4;
     arr1[iter] = 42+iter+pr;
   }
- #pragma unroll(4)
  #pragma omp parallel for
+ #pragma unroll(4)
  for (iter = first1(); iter < last1(); ++iter) { }
  // CHECK-REGION: br label {{.*}}, !llvm.loop ![[LOOP_1:.*]]
 

@@ -20,6 +20,7 @@
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/CodeGen/CommandFlags.inc"
 #include "llvm/CodeGen/LinkAllCodegenComponents.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/ExecutionEngine/Interpreter.h"
 #include "llvm/ExecutionEngine/JITEventListener.h"
@@ -636,8 +637,8 @@ int main(int argc, char **argv, char * const *envp) {
     // FIXME: argv and envp handling.
     JITTargetAddress Entry = EE->getFunctionAddress(EntryFn->getName().str());
     EE->finalizeObject();
-    DEBUG(dbgs() << "Executing '" << EntryFn->getName() << "' at 0x"
-                 << format("%llx", Entry) << "\n");
+    LLVM_DEBUG(dbgs() << "Executing '" << EntryFn->getName() << "' at 0x"
+                      << format("%llx", Entry) << "\n");
     Result = ExitOnErr(R->callIntVoid(Entry));
 
     // Like static constructors, the remote target MCJIT support doesn't handle

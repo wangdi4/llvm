@@ -28,7 +28,7 @@ using namespace clang;
 // C99 6.8: Statements and Blocks.
 //===----------------------------------------------------------------------===//
 
-/// \brief Parse a standalone statement (for instance, as the body of an 'if',
+/// Parse a standalone statement (for instance, as the body of an 'if',
 /// 'while', or 'for').
 StmtResult Parser::ParseStatement(SourceLocation *TrailingElseLoc,
                                   bool AllowOpenMPStandalone) {
@@ -114,18 +114,6 @@ Parser::ParseStatementOrDeclaration(StmtVector &Stmts,
 
   assert((Attrs.empty() || Res.isInvalid() || Res.isUsable()) &&
          "attributes on empty statement");
-
-#if INTEL_CUSTOMIZATION
-  // CQ#371799 - let #pragma unroll precede non-loop statements.
-  // Apply pending unroll attribute once a loop is parsed.
-  if (getLangOpts().isIntelCompat(LangOptions::UnrollExtensions) &&
-      Res.isUsable()) {
-    auto StClass = Res.get()->getStmtClass();
-    if (StClass == Stmt::DoStmtClass || StClass == Stmt::WhileStmtClass ||
-        StClass == Stmt::ForStmtClass || StClass == Stmt::CXXForRangeStmtClass)
-      Attrs.takeAllFrom(*getPendingUnrollAttr());
-  }
-#endif // INTEL_CUSTOMIZATION
 
   if (Attrs.empty() || Res.isInvalid())
     return Res;
@@ -423,7 +411,7 @@ Retry:
   return Res;
 }
 
-/// \brief Parse an expression statement.
+/// Parse an expression statement.
 StmtResult Parser::ParseExprStatement() {
   // If a case keyword is missing, this is where it should be inserted.
   Token OldToken = Tok;
@@ -1402,11 +1390,6 @@ StmtResult Parser::ParseWhileStatement(SourceLocation *TrailingElseLoc) {
   SourceLocation WhileLoc = Tok.getLocation();
   ConsumeToken();  // eat the 'while'.
 
-#if INTEL_CUSTOMIZATION
-  // UnrollExtensions
-  PendingPragmaUnrollRAII PendingPragmaUnrollRAIIObject(*this);
-#endif // INTEL_CUSTOMIZATION
-
   if (Tok.isNot(tok::l_paren)) {
     Diag(Tok, diag::err_expected_lparen_after) << "while";
     SkipUntil(tok::semi);
@@ -1474,11 +1457,6 @@ StmtResult Parser::ParseWhileStatement(SourceLocation *TrailingElseLoc) {
 StmtResult Parser::ParseDoStatement() {
   assert(Tok.is(tok::kw_do) && "Not a do stmt!");
   SourceLocation DoLoc = ConsumeToken();  // eat the 'do'.
-
-#if INTEL_CUSTOMIZATION
-  // UnrollExtensions
-  PendingPragmaUnrollRAII PendingPragmaUnrollRAIIObject(*this);
-#endif // INTEL_CUSTOMIZATION
 
   // C99 6.8.5p5 - In C99, the do statement is a block.  This is not
   // the case for C90.  Start the loop scope.
@@ -1588,11 +1566,6 @@ bool Parser::isForRangeIdentifier() {
 StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
   assert(Tok.is(tok::kw_for) && "Not a for stmt!");
   SourceLocation ForLoc = ConsumeToken();  // eat the 'for'.
-
-#if INTEL_CUSTOMIZATION
-  // UnrollExtensions
-  PendingPragmaUnrollRAII PendingPragmaUnrollRAIIObject(*this);
-#endif // INTEL_CUSTOMIZATION
 
   SourceLocation CoawaitLoc;
   if (Tok.is(tok::kw_co_await))
@@ -1997,24 +1970,12 @@ StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts,
     if (!HandlePragmaLoopHint(Hint))
       continue;
 
-#if INTEL_CUSTOMIZATION
     ArgsUnion ArgHints[] = {Hint.PragmaNameLoc, Hint.OptionLoc, Hint.StateLoc,
-                            ArgsUnion(Hint.ValueExpr),
-                            ArgsUnion(Hint.ArrayExpr)};
+                            ArgsUnion(Hint.ValueExpr),      // INTEL
+                            ArgsUnion(Hint.ArrayExpr)};     // INTEL
     TempAttrs.addNew(Hint.PragmaNameLoc->Ident, Hint.Range, nullptr,
-                     Hint.PragmaNameLoc->Loc, ArgHints, 5,
+                     Hint.PragmaNameLoc->Loc, ArgHints, 5,  // INTEL
                      AttributeList::AS_Pragma);
-
-    // CQ#371799 - let loop #pragmas precede non-loop statements. Also fixes
-    // CQ#377523, allowing several #pragma unroll attributes, choosing the last.
-    if (getLangOpts().isIntelCompat(LangOptions::UnrollExtensions) &&
-        Hint.PragmaNameLoc->Ident->getName() != "loop" &&
-        Hint.PragmaNameLoc->Ident->getName() != "distribute_point") {
-      auto *PendingAttr = getPendingUnrollAttr();
-      PendingAttr->clear();
-      PendingAttr->takeAllFrom(TempAttrs);
-    }
-#endif // INTEL_CUSTOMIZATION
   }
 
   // Get the next statement.

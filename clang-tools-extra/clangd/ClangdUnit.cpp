@@ -25,6 +25,7 @@
 #include "clang/Sema/Sema.h"
 #include "clang/Serialization/ASTWriter.h"
 #include "clang/Tooling/CompilationDatabase.h"
+#include "clang/Basic/LangOptions.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/CrashRecoveryContext.h"
@@ -83,43 +84,13 @@ private:
   std::vector<const Decl *> TopLevelDecls;
 };
 
-class InclusionLocationsCollector : public PPCallbacks {
-public:
-  InclusionLocationsCollector(SourceManager &SourceMgr,
-                              InclusionLocations &IncLocations)
-      : SourceMgr(SourceMgr), IncLocations(IncLocations) {}
-
-  void InclusionDirective(SourceLocation HashLoc, const Token &IncludeTok,
-                          StringRef FileName, bool IsAngled,
-                          CharSourceRange FilenameRange, const FileEntry *File,
-                          StringRef SearchPath, StringRef RelativePath,
-                          const Module *Imported) override {
-    auto SR = FilenameRange.getAsRange();
-    if (SR.isInvalid() || !File || File->tryGetRealPathName().empty())
-      return;
-
-    if (SourceMgr.isInMainFile(SR.getBegin())) {
-      // Only inclusion directives in the main file make sense. The user cannot
-      // select directives not in the main file.
-      IncLocations.emplace_back(halfOpenToRange(SourceMgr, FilenameRange),
-                                File->tryGetRealPathName());
-    }
-  }
-
-private:
-  SourceManager &SourceMgr;
-  InclusionLocations &IncLocations;
-};
-
 class CppFilePreambleCallbacks : public PreambleCallbacks {
 public:
   std::vector<serialization::DeclID> takeTopLevelDeclIDs() {
     return std::move(TopLevelDeclIDs);
   }
 
-  InclusionLocations takeInclusionLocations() {
-    return std::move(IncLocations);
-  }
+  std::vector<Inclusion> takeInclusions() { return std::move(Inclusions); }
 
   void AfterPCHEmitted(ASTWriter &Writer) override {
     TopLevelDeclIDs.reserve(TopLevelDecls.size());
@@ -145,14 +116,15 @@ public:
 
   std::unique_ptr<PPCallbacks> createPPCallbacks() override {
     assert(SourceMgr && "SourceMgr must be set at this point");
-    return llvm::make_unique<InclusionLocationsCollector>(*SourceMgr,
-                                                          IncLocations);
+    return collectInclusionsInMainFileCallback(
+        *SourceMgr,
+        [this](Inclusion Inc) { Inclusions.push_back(std::move(Inc)); });
   }
 
 private:
   std::vector<Decl *> TopLevelDecls;
   std::vector<serialization::DeclID> TopLevelDeclIDs;
-  InclusionLocations IncLocations;
+  std::vector<Inclusion> Inclusions;
   SourceManager *SourceMgr = nullptr;
 };
 
@@ -190,15 +162,15 @@ ParsedAST::Build(std::unique_ptr<clang::CompilerInvocation> CI,
     return llvm::None;
   }
 
-  InclusionLocations IncLocations;
+  std::vector<Inclusion> Inclusions;
   // Copy over the includes from the preamble, then combine with the
   // non-preamble includes below.
   if (Preamble)
-    IncLocations = Preamble->IncLocations;
+    Inclusions = Preamble->Inclusions;
 
-  Clang->getPreprocessor().addPPCallbacks(
-      llvm::make_unique<InclusionLocationsCollector>(Clang->getSourceManager(),
-                                                     IncLocations));
+  Clang->getPreprocessor().addPPCallbacks(collectInclusionsInMainFileCallback(
+      Clang->getSourceManager(),
+      [&Inclusions](Inclusion Inc) { Inclusions.push_back(std::move(Inc)); }));
 
   if (!Action->Execute())
     log("Execute() failed when building AST for " + MainInput.getFile());
@@ -212,21 +184,8 @@ ParsedAST::Build(std::unique_ptr<clang::CompilerInvocation> CI,
   std::vector<const Decl *> ParsedDecls = Action->takeTopLevelDecls();
   return ParsedAST(std::move(Preamble), std::move(Clang), std::move(Action),
                    std::move(ParsedDecls), ASTDiags.take(),
-                   std::move(IncLocations));
+                   std::move(Inclusions));
 }
-
-namespace {
-
-SourceLocation getMacroArgExpandedLocation(const SourceManager &Mgr,
-                                           const FileEntry *FE, Position Pos) {
-  // The language server protocol uses zero-based line and column numbers.
-  // Clang uses one-based numbers.
-  SourceLocation InputLoc =
-      Mgr.translateFileLineCol(FE, Pos.line + 1, Pos.character + 1);
-  return Mgr.getMacroArgExpandedLocation(InputLoc);
-}
-
-} // namespace
 
 void ParsedAST::ensurePreambleDeclsDeserialized() {
   if (PreambleDeclsDeserialized || !Preamble)
@@ -291,27 +250,27 @@ std::size_t ParsedAST::getUsedBytes() const {
          ::getUsedBytes(TopLevelDecls) + ::getUsedBytes(Diags);
 }
 
-const InclusionLocations &ParsedAST::getInclusionLocations() const {
-  return IncLocations;
+const std::vector<Inclusion> &ParsedAST::getInclusions() const {
+  return Inclusions;
 }
 
 PreambleData::PreambleData(PrecompiledPreamble Preamble,
                            std::vector<serialization::DeclID> TopLevelDeclIDs,
                            std::vector<Diag> Diags,
-                           InclusionLocations IncLocations)
+                           std::vector<Inclusion> Inclusions)
     : Preamble(std::move(Preamble)),
       TopLevelDeclIDs(std::move(TopLevelDeclIDs)), Diags(std::move(Diags)),
-      IncLocations(std::move(IncLocations)) {}
+      Inclusions(std::move(Inclusions)) {}
 
 ParsedAST::ParsedAST(std::shared_ptr<const PreambleData> Preamble,
                      std::unique_ptr<CompilerInstance> Clang,
                      std::unique_ptr<FrontendAction> Action,
                      std::vector<const Decl *> TopLevelDecls,
-                     std::vector<Diag> Diags, InclusionLocations IncLocations)
+                     std::vector<Diag> Diags, std::vector<Inclusion> Inclusions)
     : Preamble(std::move(Preamble)), Clang(std::move(Clang)),
       Action(std::move(Action)), Diags(std::move(Diags)),
       TopLevelDecls(std::move(TopLevelDecls)), PreambleDeclsDeserialized(false),
-      IncLocations(std::move(IncLocations)) {
+      Inclusions(std::move(Inclusions)) {
   assert(this->Clang);
   assert(this->Action);
 }
@@ -358,6 +317,7 @@ llvm::Optional<std::vector<Diag>> CppFile::rebuild(ParseInputs &&Inputs) {
     }
     // createInvocationFromCommandLine sets DisableFree.
     CI->getFrontendOpts().DisableFree = false;
+    CI->getLangOpts()->CommentOpts.ParseAllComments = true;
   }
 
   std::unique_ptr<llvm::MemoryBuffer> ContentsBuffer =
@@ -460,8 +420,7 @@ CppFile::rebuildPreamble(CompilerInvocation &CI,
     return std::make_shared<PreambleData>(
         std::move(*BuiltPreamble),
         SerializedDeclsCollector.takeTopLevelDeclIDs(),
-        PreambleDiagnostics.take(),
-        SerializedDeclsCollector.takeInclusionLocations());
+        PreambleDiagnostics.take(), SerializedDeclsCollector.takeInclusions());
   } else {
     log("Could not build a preamble for file " + Twine(FileName));
     return nullptr;
@@ -470,40 +429,34 @@ CppFile::rebuildPreamble(CompilerInvocation &CI,
 
 SourceLocation clangd::getBeginningOfIdentifier(ParsedAST &Unit,
                                                 const Position &Pos,
-                                                const FileEntry *FE) {
+                                                const FileID FID) {
   const ASTContext &AST = Unit.getASTContext();
   const SourceManager &SourceMgr = AST.getSourceManager();
-
-  SourceLocation InputLocation =
-      getMacroArgExpandedLocation(SourceMgr, FE, Pos);
-  if (Pos.character == 0) {
-    return InputLocation;
+  auto Offset = positionToOffset(SourceMgr.getBufferData(FID), Pos);
+  if (!Offset) {
+    log("getBeginningOfIdentifier: " + toString(Offset.takeError()));
+    return SourceLocation();
   }
+  SourceLocation InputLoc = SourceMgr.getComposedLoc(FID, *Offset);
 
-  // This handle cases where the position is in the middle of a token or right
-  // after the end of a token. In theory we could just use GetBeginningOfToken
-  // to find the start of the token at the input position, but this doesn't
-  // work when right after the end, i.e. foo|.
-  // So try to go back by one and see if we're still inside an identifier
-  // token. If so, Take the beginning of this token.
-  // (It should be the same identifier because you can't have two adjacent
-  // identifiers without another token in between.)
-  Position PosCharBehind = Pos;
-  --PosCharBehind.character;
-
-  SourceLocation PeekBeforeLocation =
-      getMacroArgExpandedLocation(SourceMgr, FE, PosCharBehind);
-  Token Result;
-  if (Lexer::getRawToken(PeekBeforeLocation, Result, SourceMgr,
-                         AST.getLangOpts(), false)) {
-    // getRawToken failed, just use InputLocation.
-    return InputLocation;
-  }
-
-  if (Result.is(tok::raw_identifier)) {
-    return Lexer::GetBeginningOfToken(PeekBeforeLocation, SourceMgr,
-                                      AST.getLangOpts());
-  }
-
-  return InputLocation;
+  // GetBeginningOfToken(pos) is almost what we want, but does the wrong thing
+  // if the cursor is at the end of the identifier.
+  // Instead, we lex at GetBeginningOfToken(pos - 1). The cases are:
+  //  1) at the beginning of an identifier, we'll be looking at something
+  //  that isn't an identifier.
+  //  2) at the middle or end of an identifier, we get the identifier.
+  //  3) anywhere outside an identifier, we'll get some non-identifier thing.
+  // We can't actually distinguish cases 1 and 3, but returning the original
+  // location is correct for both!
+  if (*Offset == 0) // Case 1 or 3.
+    return SourceMgr.getMacroArgExpandedLocation(InputLoc);
+  SourceLocation Before =
+      SourceMgr.getMacroArgExpandedLocation(InputLoc.getLocWithOffset(-1));
+  Before = Lexer::GetBeginningOfToken(Before, SourceMgr, AST.getLangOpts());
+  Token Tok;
+  if (Before.isValid() &&
+      !Lexer::getRawToken(Before, Tok, SourceMgr, AST.getLangOpts(), false) &&
+      Tok.is(tok::raw_identifier))
+    return Before;                                        // Case 2.
+  return SourceMgr.getMacroArgExpandedLocation(InputLoc); // Case 1 or 3.
 }

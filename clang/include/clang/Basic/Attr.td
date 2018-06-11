@@ -184,7 +184,8 @@ class VersionArgument<string name, bit opt = 0> : Argument<name, opt>;
 class AlignedArgument<string name, bit opt = 0> : Argument<name, opt>;
 
 // A bool argument with a default value
-class DefaultBoolArgument<string name, bit default> : BoolArgument<name, 1> {
+class DefaultBoolArgument<string name, bit default, bit fake = 0>
+    : BoolArgument<name, 1, fake> {
   bit Default = default;
 }
 
@@ -499,6 +500,11 @@ class InheritableAttr : Attr {
   bit InheritEvenIfAlreadyPresent = 0;
 }
 
+/// Some attributes, like calling conventions, can appear in either the
+/// declaration or the type position. These attributes are morally type
+/// attributes, but have historically been written on declarations.
+class DeclOrTypeAttr : InheritableAttr;
+
 /// A target-specific attribute.  This class is meant to be used as a mixin
 /// with InheritableAttr or Attr depending on the attribute's needs.
 class TargetSpecificAttr<TargetSpec target> {
@@ -776,7 +782,7 @@ def CarriesDependency : InheritableParamAttr {
   let Documentation = [CarriesDependencyDocs];
 }
 
-def CDecl : InheritableAttr {
+def CDecl : DeclOrTypeAttr {
   let Spellings = [GCC<"cdecl">, Keyword<"__cdecl">, Keyword<"_cdecl">];
 //  let Subjects = [Function, ObjCMethod];
   let Documentation = [Undocumented];
@@ -1077,14 +1083,14 @@ def FallThrough : StmtAttr {
   let Documentation = [FallthroughDocs];
 }
 
-def FastCall : InheritableAttr {
+def FastCall : DeclOrTypeAttr {
   let Spellings = [GCC<"fastcall">, Keyword<"__fastcall">,
                    Keyword<"_fastcall">];
 //  let Subjects = [Function, ObjCMethod];
   let Documentation = [FastCallDocs];
 }
 
-def RegCall : InheritableAttr {
+def RegCall : DeclOrTypeAttr {
   // INTEL_CUSTOMIZATION - "_regcall" alternate spelling
   let Spellings = [GCC<"regcall">, Keyword<"__regcall">, Keyword<"_regcall">];
   let Documentation = [RegCallDocs];
@@ -1217,7 +1223,7 @@ def MayAlias : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
-def MSABI : InheritableAttr {
+def MSABI : DeclOrTypeAttr {
   let Spellings = [GCC<"ms_abi">];
 //  let Subjects = [Function, ObjCMethod];
   let Documentation = [MSABIDocs];
@@ -1502,6 +1508,12 @@ def NotTailCalled : InheritableAttr {
   let Documentation = [NotTailCalledDocs];
 }
 
+def NoStackProtector : InheritableAttr {
+  let Spellings = [Clang<"no_stack_protector">];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [NoStackProtectorDocs];
+}
+
 def NoThrow : InheritableAttr {
   let Spellings = [GCC<"nothrow">, Declspec<"nothrow">];
   let Subjects = SubjectList<[Function]>;
@@ -1701,13 +1713,13 @@ def Packed : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
-def IntelOclBicc : InheritableAttr {
+def IntelOclBicc : DeclOrTypeAttr {
   let Spellings = [Clang<"intel_ocl_bicc", 0>];
 //  let Subjects = [Function, ObjCMethod];
   let Documentation = [Undocumented];
 }
 
-def Pcs : InheritableAttr {
+def Pcs : DeclOrTypeAttr {
   let Spellings = [GCC<"pcs">];
   let Args = [EnumArgument<"PCS", "PCSType",
                            ["aapcs", "aapcs-vfp"],
@@ -1811,13 +1823,13 @@ def Sentinel : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
-def StdCall : InheritableAttr {
+def StdCall : DeclOrTypeAttr {
   let Spellings = [GCC<"stdcall">, Keyword<"__stdcall">, Keyword<"_stdcall">];
 //  let Subjects = [Function, ObjCMethod];
   let Documentation = [StdCallDocs];
 }
 
-def SwiftCall : InheritableAttr {
+def SwiftCall : DeclOrTypeAttr {
   let Spellings = [Clang<"swiftcall">];
 //  let Subjects = SubjectList<[Function]>;
   let Documentation = [SwiftCallDocs];
@@ -1844,38 +1856,38 @@ def Suppress : StmtAttr {
   let Documentation = [SuppressDocs];
 }
 
-def SysVABI : InheritableAttr {
+def SysVABI : DeclOrTypeAttr {
   let Spellings = [GCC<"sysv_abi">];
 //  let Subjects = [Function, ObjCMethod];
   let Documentation = [Undocumented];
 }
 
-def ThisCall : InheritableAttr {
+def ThisCall : DeclOrTypeAttr {
   let Spellings = [GCC<"thiscall">, Keyword<"__thiscall">,
                    Keyword<"_thiscall">];
 //  let Subjects = [Function, ObjCMethod];
   let Documentation = [ThisCallDocs];
 }
 
-def VectorCall : InheritableAttr {
+def VectorCall : DeclOrTypeAttr {
   let Spellings = [Clang<"vectorcall">, Keyword<"__vectorcall">,
                    Keyword<"_vectorcall">];
 //  let Subjects = [Function, ObjCMethod];
   let Documentation = [VectorCallDocs];
 }
 
-def Pascal : InheritableAttr {
+def Pascal : DeclOrTypeAttr {
   let Spellings = [Clang<"pascal">, Keyword<"__pascal">, Keyword<"_pascal">];
 //  let Subjects = [Function, ObjCMethod];
   let Documentation = [Undocumented];
 }
 
-def PreserveMost : InheritableAttr {
+def PreserveMost : DeclOrTypeAttr {
   let Spellings = [Clang<"preserve_most">];
   let Documentation = [PreserveMostDocs];
 }
 
-def PreserveAll : InheritableAttr {
+def PreserveAll : DeclOrTypeAttr {
   let Spellings = [Clang<"preserve_all">];
   let Documentation = [PreserveAllDocs];
 }
@@ -2568,6 +2580,16 @@ def DLLImport : InheritableAttr, TargetSpecificAttr<TargetWindows> {
   let Spellings = [Declspec<"dllimport">, GCC<"dllimport">];
   let Subjects = SubjectList<[Function, Var, CXXRecord, ObjCInterface]>;
   let Documentation = [DLLImportDocs];
+
+
+  let AdditionalMembers = [{
+private:
+  bool PropagatedToBaseTemplate = false;
+
+public:
+  void setPropagatedToBaseTemplate() { PropagatedToBaseTemplate = true; }
+  bool wasPropagatedToBaseTemplate() { return PropagatedToBaseTemplate; }
+  }];
 }
 
 def SelectAny : InheritableAttr {
@@ -2609,7 +2631,7 @@ def UPtr : TypeAttr {
 
 def MSInheritance : InheritableAttr {
   let LangOpts = [MicrosoftExt];
-  let Args = [DefaultBoolArgument<"BestCase", 1>];
+  let Args = [DefaultBoolArgument<"BestCase", /*default*/1, /*fake*/1>];
   let Spellings = [Keyword<"__single_inheritance">,
                    Keyword<"__multiple_inheritance">,
                    Keyword<"__virtual_inheritance">,
@@ -2689,21 +2711,30 @@ def LoopHint : Attr {
                    Pragma<"", "nounroll">,
                    Pragma<"", "ii">, Pragma<"", "ivdep">,
                    Pragma<"", "loop_coalesce">, Pragma<"", "max_concurrency">,
-                   Pragma<"", "distribute_point">];
+                   Pragma<"", "distribute_point">,
+                   Pragma<"", "nofusion">,
+                   Pragma<"", "novector">,
+                   Pragma<"", "vector">];
 //endif INTEL_CUSTOMIZATION
   /// State of the loop optimization specified by the spelling.
   let Args = [EnumArgument<"Option", "OptionType",
                           ["vectorize", "vectorize_width", "interleave", "interleave_count",
 //if INTEL_CUSTOMIZATION
                            "unroll", "unroll_count", "distribute",
-                           "ii", "ivdep", "loop_coalesce", "max_concurrency",
-                           "distribute_point"],
+                           "ii", "ivdep", "ivdep-loop", "ivdep-back",
+                           "ivdep-hls", "ivdep-hls-intel",
+                           "loop_coalesce", "max_concurrency",
+                           "distribute_point", "nofusion", "novector",
+                           "always"],
 //endif INTEL_CUSTOMIZATION
                           ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
 //if INTEL_CUSTOMIZATION
                            "Unroll", "UnrollCount", "Distribute",
-                           "II", "IVDep", "LoopCoalesce", "MaxConcurrency",
-                           "Distribute"]>,
+                           "II", "IVDep", "IVDepLoop", "IVDepBack",
+                           "IVDepHLS", "IVDepHLSIntel",
+                           "LoopCoalesce", "MaxConcurrency",
+                           "Distribute", "NoFusion", "Vectorize",
+                           "VectorizeAlways"]>,
 //endif INTEL_CUSTOMIZATION
               EnumArgument<"State", "LoopHintState",
 //if INTEL_CUSTOMIZATION
@@ -2723,6 +2754,9 @@ def LoopHint : Attr {
     case Unroll: return "unroll";
     case UnrollCount: return "unroll_count";
     case Distribute: return "distribute";
+//if INTEL_CUSTOMIZATION
+    case VectorizeAlways: return "vectorize_always";
+//endif INTEL_CUSTOMIZATION
     }
     llvm_unreachable("Unhandled LoopHint option.");
   }
@@ -2738,6 +2772,12 @@ def LoopHint : Attr {
       return;
 //if INTEL_CUSTOMIZATION
     } else if (SpellingIndex == Pragma_distribute_point)
+      return;
+    else if (SpellingIndex == Pragma_nofusion)
+      return;
+    else if (SpellingIndex == Pragma_novector)
+      return;
+    else if (SpellingIndex == Pragma_vector)
       return;
 //endif INTEL_CUSTOMIZATION
 
@@ -2783,6 +2823,12 @@ def LoopHint : Attr {
       return "#pragma max_concurrency";
     else if (SpellingIndex == Pragma_distribute_point)
       return "#pragma distribute_point";
+    else if (SpellingIndex == Pragma_nofusion)
+      return "#pragma nofusion";
+    else if (SpellingIndex == Pragma_novector)
+      return "#pragma novector";
+    else if (SpellingIndex == Pragma_vector)
+      return "#pragma vector";
 //endif INTEL_CUSTOMIZATION
 
     assert(SpellingIndex == Pragma_clang_loop && "Unexpected spelling");

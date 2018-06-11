@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir-unknown-unknown-intelfpga %s -verify
+// RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple x86_64-unknown-unknown-intelfpga %s -verify
 
 __kernel void k1(__local  __attribute__((local_mem_size(1042))) int *a ) {
 }

@@ -370,7 +370,7 @@ QualType QualType::IgnoreParens(QualType T) {
   return T;
 }
 
-/// \brief This will check for a T (which should be a Type which can act as
+/// This will check for a T (which should be a Type which can act as
 /// sugar, such as a TypedefType) by removing any existing sugar until it
 /// reaches a T or a non-sugared type.
 template<typename T> static const T *getAsSugar(const Type *Cur) {
@@ -1729,7 +1729,7 @@ bool Type::hasIntegerRepresentation() const {
     return isIntegerType();
 }
 
-/// \brief Determine whether this type is an integral type.
+/// Determine whether this type is an integral type.
 ///
 /// This routine determines whether the given type is an integral type per 
 /// C++ [basic.fundamental]p7. Although the C standard does not define the
@@ -1792,6 +1792,12 @@ bool Type::isWideCharType() const {
   return false;
 }
 
+bool Type::isChar8Type() const {
+  if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
+    return BT->getKind() == BuiltinType::Char8;
+  return false;
+}
+
 bool Type::isChar16Type() const {
   if (const auto *BT = dyn_cast<BuiltinType>(CanonicalType))
     return BT->getKind() == BuiltinType::Char16;
@@ -1804,7 +1810,7 @@ bool Type::isChar32Type() const {
   return false;
 }
 
-/// \brief Determine whether this type is any of the built-in character
+/// Determine whether this type is any of the built-in character
 /// types.
 bool Type::isAnyCharacterType() const {
   const auto *BT = dyn_cast<BuiltinType>(CanonicalType);
@@ -1814,6 +1820,7 @@ bool Type::isAnyCharacterType() const {
   case BuiltinType::Char_U:
   case BuiltinType::UChar:
   case BuiltinType::WChar_U:
+  case BuiltinType::Char8:
   case BuiltinType::Char16:
   case BuiltinType::Char32:
   case BuiltinType::Char_S:
@@ -2002,7 +2009,7 @@ Type::ScalarTypeKind Type::getScalarTypeKind() const {
   llvm_unreachable("unknown scalar type");
 }
 
-/// \brief Determines whether the type is a C++ aggregate type or C
+/// Determines whether the type is a C++ aggregate type or C
 /// aggregate or union type.
 ///
 /// An aggregate type is an array or a class type (struct, union, or
@@ -2479,6 +2486,7 @@ bool Type::isPromotableIntegerType() const {
     case BuiltinType::UShort:
     case BuiltinType::WChar_S:
     case BuiltinType::WChar_U:
+    case BuiltinType::Char8:
     case BuiltinType::Char16:
     case BuiltinType::Char32:
       return true;
@@ -2715,6 +2723,8 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case WChar_S:
   case WChar_U:
     return Policy.MSWChar ? "__wchar_t" : "wchar_t";
+  case Char8:
+    return "char8_t";
   case Char16:
     return "char16_t";
   case Char32:
@@ -2854,19 +2864,21 @@ FunctionProtoType::FunctionProtoType(QualType result, ArrayRef<QualType> params,
 
       exnSlot[I++] = ExceptionType;
     }
-  } else if (getExceptionSpecType() == EST_ComputedNoexcept) {
+  } else if (isComputedNoexcept(getExceptionSpecType())) {
+    assert(epi.ExceptionSpec.NoexceptExpr && "computed noexcept with no expr");
+    assert((getExceptionSpecType() == EST_DependentNoexcept) ==
+           epi.ExceptionSpec.NoexceptExpr->isValueDependent());
+
     // Store the noexcept expression and context.
     auto **noexSlot = reinterpret_cast<Expr **>(argSlot + NumParams);
     *noexSlot = epi.ExceptionSpec.NoexceptExpr;
 
-    if (epi.ExceptionSpec.NoexceptExpr) {
-      if (epi.ExceptionSpec.NoexceptExpr->isValueDependent() ||
-          epi.ExceptionSpec.NoexceptExpr->isInstantiationDependent())
-        setInstantiationDependent();
+    if (epi.ExceptionSpec.NoexceptExpr->isValueDependent() ||
+        epi.ExceptionSpec.NoexceptExpr->isInstantiationDependent())
+      setInstantiationDependent();
 
-      if (epi.ExceptionSpec.NoexceptExpr->containsUnexpandedParameterPack())
-        setContainsUnexpandedParameterPack();
-    }
+    if (epi.ExceptionSpec.NoexceptExpr->containsUnexpandedParameterPack())
+      setContainsUnexpandedParameterPack();
   } else if (getExceptionSpecType() == EST_Uninstantiated) {
     // Store the function decl from which we will resolve our
     // exception specification.
@@ -2886,7 +2898,7 @@ FunctionProtoType::FunctionProtoType(QualType result, ArrayRef<QualType> params,
   // then it's a dependent type. This only happens in C++17 onwards.
   if (isCanonicalUnqualified()) {
     if (getExceptionSpecType() == EST_Dynamic ||
-        getExceptionSpecType() == EST_ComputedNoexcept) {
+        getExceptionSpecType() == EST_DependentNoexcept) {
       assert(hasDependentExceptionSpec() && "type should not be canonical");
       setDependent();
     }
@@ -2924,52 +2936,36 @@ bool FunctionProtoType::hasInstantiationDependentExceptionSpec() const {
   return false;
 }
 
-FunctionProtoType::NoexceptResult
-FunctionProtoType::getNoexceptSpec(const ASTContext &ctx) const {
-  ExceptionSpecificationType est = getExceptionSpecType();
-  if (est == EST_BasicNoexcept)
-    return NR_Nothrow;
+CanThrowResult FunctionProtoType::canThrow() const {
+  switch (getExceptionSpecType()) {
+  case EST_Unparsed:
+  case EST_Unevaluated:
+  case EST_Uninstantiated:
+    llvm_unreachable("should not call this with unresolved exception specs");
 
-  if (est != EST_ComputedNoexcept)
-    return NR_NoNoexcept;
-
-  Expr *noexceptExpr = getNoexceptExpr();
-  if (!noexceptExpr)
-    return NR_BadNoexcept;
-  if (noexceptExpr->isValueDependent())
-    return NR_Dependent;
-
-  llvm::APSInt value;
-  bool isICE = noexceptExpr->isIntegerConstantExpr(value, ctx, nullptr,
-                                                   /*evaluated*/false);
-  (void)isICE;
-  assert(isICE && "AST should not contain bad noexcept expressions.");
-
-  return value.getBoolValue() ? NR_Nothrow : NR_Throw;
-}
-
-CanThrowResult FunctionProtoType::canThrow(const ASTContext &Ctx) const {
-  ExceptionSpecificationType EST = getExceptionSpecType();
-  assert(EST != EST_Unevaluated && EST != EST_Uninstantiated);
-  if (EST == EST_DynamicNone || EST == EST_BasicNoexcept)
+  case EST_DynamicNone:
+  case EST_BasicNoexcept:
+  case EST_NoexceptTrue:
     return CT_Cannot;
 
-  if (EST == EST_Dynamic) {
+  case EST_None:
+  case EST_MSAny:
+  case EST_NoexceptFalse:
+    return CT_Can;
+
+  case EST_Dynamic:
     // A dynamic exception specification is throwing unless every exception
     // type is an (unexpanded) pack expansion type.
     for (unsigned I = 0, N = NumExceptions; I != N; ++I)
       if (!getExceptionType(I)->getAs<PackExpansionType>())
         return CT_Can;
     return CT_Dependent;
+
+  case EST_DependentNoexcept:
+    return CT_Dependent;
   }
 
-  if (EST != EST_ComputedNoexcept)
-    return CT_Can;
-
-  NoexceptResult NR = getNoexceptSpec(Ctx);
-  if (NR == NR_Dependent)
-    return CT_Dependent;
-  return NR == NR_Nothrow ? CT_Cannot : CT_Can;
+  llvm_unreachable("unexpected exception specification kind");
 }
 
 bool FunctionProtoType::isTemplateVariadic() const {
@@ -3019,8 +3015,7 @@ void FunctionProtoType::Profile(llvm::FoldingSetNodeID &ID, QualType Result,
   if (epi.ExceptionSpec.Type == EST_Dynamic) {
     for (QualType Ex : epi.ExceptionSpec.Exceptions)
       ID.AddPointer(Ex.getAsOpaquePtr());
-  } else if (epi.ExceptionSpec.Type == EST_ComputedNoexcept &&
-             epi.ExceptionSpec.NoexceptExpr) {
+  } else if (isComputedNoexcept(epi.ExceptionSpec.Type)) {
     epi.ExceptionSpec.NoexceptExpr->Profile(ID, Context, Canonical);
   } else if (epi.ExceptionSpec.Type == EST_Uninstantiated ||
              epi.ExceptionSpec.Type == EST_Unevaluated) {
@@ -3430,7 +3425,7 @@ void ObjCTypeParamType::Profile(llvm::FoldingSetNodeID &ID) {
 
 namespace {
 
-/// \brief The cached properties of a type.
+/// The cached properties of a type.
 class CachedProperties {
   Linkage L;
   bool local;
@@ -3603,7 +3598,7 @@ static CachedProperties computeCachedProperties(const Type *T) {
   llvm_unreachable("unhandled type class");
 }
 
-/// \brief Determine the linkage of this type.
+/// Determine the linkage of this type.
 Linkage Type::getLinkage() const {
   Cache::ensure(this);
   return TypeBits.getLinkage();
@@ -3975,13 +3970,13 @@ bool Type::isObjCLifetimeType() const {
   return type->isObjCRetainableType();
 }
 
-/// \brief Determine whether the given type T is a "bridgable" Objective-C type,
+/// Determine whether the given type T is a "bridgable" Objective-C type,
 /// which is either an Objective-C object pointer type or an 
 bool Type::isObjCARCBridgableType() const {
   return isObjCObjectPointerType() || isBlockPointerType();
 }
 
-/// \brief Determine whether the given type T is a "bridgeable" C type.
+/// Determine whether the given type T is a "bridgeable" C type.
 bool Type::isCARCBridgableType() const {
   const auto *Pointer = getAs<PointerType>();
   if (!Pointer)

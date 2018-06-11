@@ -1,11 +1,3 @@
-//
-// Copyright (C) 2015 Intel Corporation.  All rights reserved.
-//
-// The information and source code contained herein is the exclusive
-// property of Intel Corporation and may not be disclosed, examined
-// or reproduced in whole or in part without explicit written authorization
-// from the company.
-//
 /*===---- wmmintrin.h - AES intrinsics ------------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,8 +21,8 @@
  *===-----------------------------------------------------------------------===
  */
 
-#ifndef _WMMINTRIN_H
-#define _WMMINTRIN_H
+#ifndef __WMMINTRIN_H
+#define __WMMINTRIN_H
 
 #include <emmintrin.h>
 
@@ -38,4 +30,4 @@
 
 #include <__wmmintrin_pclmul.h>
 
-#endif /* _WMMINTRIN_H */
+#endif /* __WMMINTRIN_H */
