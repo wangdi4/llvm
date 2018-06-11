@@ -9,6 +9,7 @@
 
 #include "ClangdServer.h"
 #include "CodeComplete.h"
+#include "FindSymbols.h"
 #include "Headers.h"
 #include "SourceCode.h"
 #include "XRefs.h"
@@ -160,6 +161,7 @@ void ClangdServer::codeComplete(PathRef File, Position Pos,
     // both the old and the new version in case only one of them matches.
     CompletionList Result = clangd::codeComplete(
         File, IP->Command, PreambleData ? &PreambleData->Preamble : nullptr,
+        PreambleData ? PreambleData->Inclusions : std::vector<Inclusion>(),
         IP->Contents, Pos, FS, PCHs, CodeCompleteOpts);
     CB(std::move(Result));
   };
@@ -231,14 +233,8 @@ void ClangdServer::rename(PathRef File, Position Pos, llvm::StringRef NewName,
 
     RefactoringResultCollector ResultCollector;
     const SourceManager &SourceMgr = AST.getASTContext().getSourceManager();
-    const FileEntry *FE =
-        SourceMgr.getFileEntryForID(SourceMgr.getMainFileID());
-    if (!FE)
-      return CB(llvm::make_error<llvm::StringError>(
-          "rename called for non-added document",
-          llvm::errc::invalid_argument));
     SourceLocation SourceLocationBeg =
-        clangd::getBeginningOfIdentifier(AST, Pos, FE);
+        clangd::getBeginningOfIdentifier(AST, Pos, SourceMgr.getMainFileID());
     tooling::RefactoringRuleContext Context(
         AST.getASTContext().getSourceManager());
     Context.setASTContext(AST.getASTContext());
@@ -277,66 +273,6 @@ void ClangdServer::rename(PathRef File, Position Pos, llvm::StringRef NewName,
       "Rename", File, Bind(Action, File.str(), NewName.str(), std::move(CB)));
 }
 
-/// Creates a `HeaderFile` from \p Header which can be either a URI or a literal
-/// include.
-static llvm::Expected<HeaderFile> toHeaderFile(StringRef Header,
-                                               llvm::StringRef HintPath) {
-  if (isLiteralInclude(Header))
-    return HeaderFile{Header.str(), /*Verbatim=*/true};
-  auto U = URI::parse(Header);
-  if (!U)
-    return U.takeError();
-
-  auto IncludePath = URI::includeSpelling(*U);
-  if (!IncludePath)
-    return IncludePath.takeError();
-  if (!IncludePath->empty())
-    return HeaderFile{std::move(*IncludePath), /*Verbatim=*/true};
-
-  auto Resolved = URI::resolve(*U, HintPath);
-  if (!Resolved)
-    return Resolved.takeError();
-  return HeaderFile{std::move(*Resolved), /*Verbatim=*/false};
-}
-
-Expected<tooling::Replacements>
-ClangdServer::insertInclude(PathRef File, StringRef Code,
-                            StringRef DeclaringHeader,
-                            StringRef InsertedHeader) {
-  assert(!DeclaringHeader.empty() && !InsertedHeader.empty());
-  std::string ToInclude;
-  auto ResolvedOrginal = toHeaderFile(DeclaringHeader, File);
-  if (!ResolvedOrginal)
-    return ResolvedOrginal.takeError();
-  auto ResolvedPreferred = toHeaderFile(InsertedHeader, File);
-  if (!ResolvedPreferred)
-    return ResolvedPreferred.takeError();
-  tooling::CompileCommand CompileCommand = CompileArgs.getCompileCommand(File);
-  auto Include =
-      calculateIncludePath(File, Code, *ResolvedOrginal, *ResolvedPreferred,
-                           CompileCommand, FSProvider.getFileSystem());
-  if (!Include)
-    return Include.takeError();
-  if (Include->empty())
-    return tooling::Replacements();
-  ToInclude = std::move(*Include);
-
-  auto Style = format::getStyle("file", File, "llvm");
-  if (!Style) {
-    llvm::consumeError(Style.takeError());
-    // FIXME(ioeric): needs more consistent style support in clangd server.
-    Style = format::getLLVMStyle();
-  }
-  // Replacement with offset UINT_MAX and length 0 will be treated as include
-  // insertion.
-  tooling::Replacement R(File, /*Offset=*/UINT_MAX, 0, "#include " + ToInclude);
-  auto Replaces =
-      format::cleanupAroundReplacements(Code, tooling::Replacements(R), *Style);
-  if (!Replaces)
-    return Replaces;
-  return formatReplacements(Code, *Replaces, *Style);
-}
-
 void ClangdServer::dumpAST(PathRef File,
                            UniqueFunction<void(std::string)> Callback) {
   auto Action = [](decltype(Callback) Callback,
@@ -360,11 +296,11 @@ void ClangdServer::dumpAST(PathRef File,
 void ClangdServer::findDefinitions(PathRef File, Position Pos,
                                    Callback<std::vector<Location>> CB) {
   auto FS = FSProvider.getFileSystem();
-  auto Action = [Pos, FS](Callback<std::vector<Location>> CB,
-                          llvm::Expected<InputsAndAST> InpAST) {
+  auto Action = [Pos, FS, this](Callback<std::vector<Location>> CB,
+                                llvm::Expected<InputsAndAST> InpAST) {
     if (!InpAST)
       return CB(InpAST.takeError());
-    CB(clangd::findDefinitions(InpAST->AST, Pos));
+    CB(clangd::findDefinitions(InpAST->AST, Pos, this->FileIdx.get()));
   };
 
   WorkScheduler.runWithAST("Definitions", File, Bind(Action, std::move(CB)));
@@ -497,6 +433,11 @@ void ClangdServer::consumeDiagnostics(PathRef File, DocVersion Version,
 void ClangdServer::onFileEvent(const DidChangeWatchedFilesParams &Params) {
   // FIXME: Do nothing for now. This will be used for indexing and potentially
   // invalidating other caches.
+}
+
+void ClangdServer::workspaceSymbols(
+    StringRef Query, int Limit, Callback<std::vector<SymbolInformation>> CB) {
+  CB(clangd::getWorkspaceSymbols(Query, Limit, Index));
 }
 
 std::vector<std::pair<Path, std::size_t>>

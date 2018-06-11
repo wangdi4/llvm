@@ -38,8 +38,7 @@ DWARFUnit::~DWARFUnit() {}
 //----------------------------------------------------------------------
 // ParseCompileUnitDIEsIfNeeded
 //
-// Parses a compile unit and indexes its DIEs if it hasn't already been
-// done.
+// Parses a compile unit and indexes its DIEs if it hasn't already been done.
 //----------------------------------------------------------------------
 size_t DWARFUnit::ExtractDIEsIfNeeded(bool cu_die_only) {
   const size_t initial_die_array_size = m_die_array.size();
@@ -71,18 +70,18 @@ size_t DWARFUnit::ExtractDIEsIfNeeded(bool cu_die_only) {
   }
 
   uint32_t depth = 0;
-  // We are in our compile unit, parse starting at the offset
-  // we were told to parse
-  const DWARFDataExtractor &debug_info_data = m_dwarf->get_debug_info_data();
+  // We are in our compile unit, parse starting at the offset we were told to
+  // parse
+  const DWARFDataExtractor &data = GetData();
   std::vector<uint32_t> die_index_stack;
   die_index_stack.reserve(32);
   die_index_stack.push_back(0);
   bool prev_die_had_children = false;
   DWARFFormValue::FixedFormSizes fixed_form_sizes =
       DWARFFormValue::GetFixedFormSizesForAddressSize(GetAddressByteSize(),
-                                                      m_is_dwarf64);
+                                                      IsDWARF64());
   while (offset < next_cu_offset &&
-         die.FastExtract(debug_info_data, this, fixed_form_sizes, &offset)) {
+         die.FastExtract(data, this, fixed_form_sizes, &offset)) {
     //        if (log)
     //            log->Printf("0x%8.8x: %*.*s%s%s",
     //                        die.GetOffset(),
@@ -105,11 +104,10 @@ size_t DWARFUnit::ExtractDIEsIfNeeded(bool cu_die_only) {
     } else {
       if (null_die) {
         if (prev_die_had_children) {
-          // This will only happen if a DIE says is has children
-          // but all it contains is a NULL tag. Since we are removing
-          // the NULL DIEs from the list (saves up to 25% in C++ code),
-          // we need a way to let the DIE know that it actually doesn't
-          // have children.
+          // This will only happen if a DIE says is has children but all it
+          // contains is a NULL tag. Since we are removing the NULL DIEs from
+          // the list (saves up to 25% in C++ code), we need a way to let the
+          // DIE know that it actually doesn't have children.
           if (!m_die_array.empty())
             m_die_array.back().SetEmptyChildren(true);
         }
@@ -148,9 +146,9 @@ size_t DWARFUnit::ExtractDIEsIfNeeded(bool cu_die_only) {
     }
   }
 
-  // Give a little bit of info if we encounter corrupt DWARF (our offset
-  // should always terminate at or before the start of the next compilation
-  // unit header).
+  // Give a little bit of info if we encounter corrupt DWARF (our offset should
+  // always terminate at or before the start of the next compilation unit
+  // header).
   if (offset > next_cu_offset) {
     m_dwarf->GetObjectFile()->GetModule()->ReportWarning(
         "DWARF compile unit extends beyond its bounds cu 0x%8.8x at "
@@ -158,10 +156,9 @@ size_t DWARFUnit::ExtractDIEsIfNeeded(bool cu_die_only) {
         GetOffset(), offset);
   }
 
-  // Since std::vector objects will double their size, we really need to
-  // make a new array with the perfect size so we don't end up wasting
-  // space. So here we copy and swap to make sure we don't have any extra
-  // memory taken up.
+  // Since std::vector objects will double their size, we really need to make a
+  // new array with the perfect size so we don't end up wasting space. So here
+  // we copy and swap to make sure we don't have any extra memory taken up.
 
   if (m_die_array.size() < m_die_array.capacity()) {
     DWARFDebugInfoEntry::collection exact_size_die_array(m_die_array.begin(),
@@ -196,8 +193,8 @@ void DWARFUnit::AddUnitDIE(DWARFDebugInfoEntry &die) {
   
   // Only reserve the memory if we are adding children of the main compile unit
   // DIE. The compile unit DIE is always the first entry, so if our size is 1,
-  // then we are adding the first compile unit child DIE and should reserve
-  // the memory.
+  // then we are adding the first compile unit child DIE and should reserve the
+  // memory.
   m_die_array.reserve(GetDebugInfoSize() / 24);
   m_die_array.push_back(die);
 
@@ -268,18 +265,13 @@ lldb::user_id_t DWARFUnit::GetID() const {
     return local_id;
 }
 
-uint32_t DWARFUnit::Size() const { return IsDWARF64() ? 23 : 11; }
-
 dw_offset_t DWARFUnit::GetNextCompileUnitOffset() const {
-  return m_offset + (IsDWARF64() ? 12 : 4) + GetLength();
+  return m_offset + GetLengthByteSize() + GetLength();
 }
 
 size_t DWARFUnit::GetDebugInfoSize() const {
-  return (IsDWARF64() ? 12 : 4) + GetLength() - Size();
+  return GetLengthByteSize() + GetLength() - GetHeaderByteSize();
 }
-
-uint32_t DWARFUnit::GetLength() const { return m_length; }
-uint16_t DWARFUnit::GetVersion() const { return m_version; }
 
 const DWARFAbbreviationDeclarationSet *DWARFUnit::GetAbbreviations() const {
   return m_abbrevs;
@@ -288,14 +280,6 @@ const DWARFAbbreviationDeclarationSet *DWARFUnit::GetAbbreviations() const {
 dw_offset_t DWARFUnit::GetAbbrevOffset() const {
   return m_abbrevs ? m_abbrevs->GetOffset() : DW_INVALID_OFFSET;
 }
-
-uint8_t DWARFUnit::GetAddressByteSize() const { return m_addr_size; }
-
-dw_addr_t DWARFUnit::GetBaseAddress() const { return m_base_addr; }
-
-dw_addr_t DWARFUnit::GetAddrBase() const { return m_addr_base; }
-
-dw_addr_t DWARFUnit::GetRangesBase() const { return m_ranges_base; }
 
 void DWARFUnit::SetAddrBase(dw_addr_t addr_base,
                             dw_addr_t ranges_base,
@@ -307,13 +291,12 @@ void DWARFUnit::SetAddrBase(dw_addr_t addr_base,
 
 void DWARFUnit::ClearDIEs(bool keep_compile_unit_die) {
   if (m_die_array.size() > 1) {
-    // std::vectors never get any smaller when resized to a smaller size,
-    // or when clear() or erase() are called, the size will report that it
-    // is smaller, but the memory allocated remains intact (call capacity()
-    // to see this). So we need to create a temporary vector and swap the
-    // contents which will cause just the internal pointers to be swapped
-    // so that when "tmp_array" goes out of scope, it will destroy the
-    // contents.
+    // std::vectors never get any smaller when resized to a smaller size, or
+    // when clear() or erase() are called, the size will report that it is
+    // smaller, but the memory allocated remains intact (call capacity() to see
+    // this). So we need to create a temporary vector and swap the contents
+    // which will cause just the internal pointers to be swapped so that when
+    // "tmp_array" goes out of scope, it will destroy the contents.
 
     // Save at least the compile unit DIE
     DWARFDebugInfoEntry::collection tmp_array;
@@ -328,9 +311,9 @@ void DWARFUnit::ClearDIEs(bool keep_compile_unit_die) {
 
 void DWARFUnit::BuildAddressRangeTable(SymbolFileDWARF *dwarf,
                                        DWARFDebugAranges *debug_aranges) {
-  // This function is usually called if there in no .debug_aranges section
-  // in order to produce a compile unit level set of address ranges that
-  // is accurate.
+  // This function is usually called if there in no .debug_aranges section in
+  // order to produce a compile unit level set of address ranges that is
+  // accurate.
 
   size_t num_debug_aranges = debug_aranges->GetNumRanges();
 
@@ -343,10 +326,10 @@ void DWARFUnit::BuildAddressRangeTable(SymbolFileDWARF *dwarf,
     const size_t num_ranges =
         die->GetAttributeAddressRanges(dwarf, this, ranges, false);
     if (num_ranges > 0) {
-      // This compile unit has DW_AT_ranges, assume this is correct if it
-      // is present since clang no longer makes .debug_aranges by default
-      // and it emits DW_AT_ranges for DW_TAG_compile_units. GCC also does
-      // this with recent GCC builds.
+      // This compile unit has DW_AT_ranges, assume this is correct if it is
+      // present since clang no longer makes .debug_aranges by default and it
+      // emits DW_AT_ranges for DW_TAG_compile_units. GCC also does this with
+      // recent GCC builds.
       for (size_t i = 0; i < num_ranges; ++i) {
         const DWARFRangeList::Entry &range = ranges.GetEntryRef(i);
         debug_aranges->AppendRange(cu_offset, range.GetRangeBase(),
@@ -359,9 +342,8 @@ void DWARFUnit::BuildAddressRangeTable(SymbolFileDWARF *dwarf,
   // We don't have a DW_AT_ranges attribute, so we need to parse the DWARF
 
   // If the DIEs weren't parsed, then we don't want all dies for all compile
-  // units
-  // to stay loaded when they weren't needed. So we can end up parsing the DWARF
-  // and then throwing them all away to keep memory usage down.
+  // units to stay loaded when they weren't needed. So we can end up parsing
+  // the DWARF and then throwing them all away to keep memory usage down.
   const bool clear_dies = ExtractDIEsIfNeeded(false) > 1;
 
   die = DIEPtr();
@@ -419,8 +401,8 @@ void DWARFUnit::BuildAddressRangeTable(SymbolFileDWARF *dwarf,
     }
   }
 
-  // Keep memory down by clearing DIEs if this generate function
-  // caused them to be parsed
+  // Keep memory down by clearing DIEs if this generate function caused them to
+  // be parsed
   if (clear_dies)
     ClearDIEs(true);
 }
@@ -456,10 +438,9 @@ static bool CompareDIEOffset(const DWARFDebugInfoEntry &die,
 //----------------------------------------------------------------------
 // GetDIE()
 //
-// Get the DIE (Debug Information Entry) with the specified offset by
-// first checking if the DIE is contained within this compile unit and
-// grabbing the DIE from this compile unit. Otherwise we grab the DIE
-// from the DWARF file.
+// Get the DIE (Debug Information Entry) with the specified offset by first
+// checking if the DIE is contained within this compile unit and grabbing the
+// DIE from this compile unit. Otherwise we grab the DIE from the DWARF file.
 //----------------------------------------------------------------------
 DWARFDIE
 DWARFUnit::GetDIE(dw_offset_t die_offset) {
@@ -469,9 +450,9 @@ DWARFUnit::GetDIE(dw_offset_t die_offset) {
 
     if (ContainsDIEOffset(die_offset)) {
       ExtractDIEsIfNeeded(false);
-      DWARFDebugInfoEntry::iterator end = m_die_array.end();
-      DWARFDebugInfoEntry::iterator pos =
-          lower_bound(m_die_array.begin(), end, die_offset, CompareDIEOffset);
+      DWARFDebugInfoEntry::const_iterator end = m_die_array.cend();
+      DWARFDebugInfoEntry::const_iterator pos =
+          lower_bound(m_die_array.cbegin(), end, die_offset, CompareDIEOffset);
       if (pos != end) {
         if (die_offset == (*pos).GetOffset())
           return DWARFDIE(this, &(*pos));
@@ -515,8 +496,8 @@ bool DWARFUnit::Supports_DW_AT_APPLE_objc_complete_type() {
 }
 
 bool DWARFUnit::DW_AT_decl_file_attributes_are_invalid() {
-  // llvm-gcc makes completely invalid decl file attributes and won't ever
-  // be fixed, so we need to know to ignore these.
+  // llvm-gcc makes completely invalid decl file attributes and won't ever be
+  // fixed, so we need to know to ignore these.
   return GetProducer() == eProducerLLVMGCC;
 }
 
@@ -602,8 +583,8 @@ uint32_t DWARFUnit::GetProducerVersionUpdate() {
   return m_producer_version_update;
 }
 LanguageType DWARFUnit::LanguageTypeFromDWARF(uint64_t val) {
-  // Note: user languages between lo_user and hi_user
-  // must be handled explicitly here.
+  // Note: user languages between lo_user and hi_user must be handled
+  // explicitly here.
   switch (val) {
   case DW_LANG_Mips_Assembler:
     return eLanguageTypeMipsAssembler;
@@ -624,8 +605,6 @@ LanguageType DWARFUnit::GetLanguageType() {
         die->GetAttributeValueAsUnsigned(m_dwarf, this, DW_AT_language, 0));
   return m_language_type;
 }
-
-bool DWARFUnit::IsDWARF64() const { return m_is_dwarf64; }
 
 bool DWARFUnit::GetIsOptimized() {
   if (m_is_optimized == eLazyBoolCalculate) {
@@ -801,6 +780,7 @@ void DWARFUnit::IndexPrivate(
                 break;
 
               case DW_TAG_compile_unit:
+              case DW_TAG_partial_unit:
                 is_global_or_static_variable = true;
                 parent_die = NULL; // Terminate the while loop.
                 break;
@@ -850,8 +830,8 @@ void DWARFUnit::IndexPrivate(
               func_fullnames.Insert(objc_fullname_no_category_name,
                                     DIERef(cu_offset, die.GetOffset()));
           }
-          // If we have a mangled name, then the DW_AT_name attribute
-          // is usually the method name without the class or any parameters
+          // If we have a mangled name, then the DW_AT_name attribute is
+          // usually the method name without the class or any parameters
           const DWARFDebugInfoEntry *parent = die.GetParent();
           bool is_method = false;
           if (parent) {
@@ -882,20 +862,15 @@ void DWARFUnit::IndexPrivate(
                                   DIERef(cu_offset, die.GetOffset()));
         }
         if (mangled_cstr) {
-          // Make sure our mangled name isn't the same string table entry
-          // as our name. If it starts with '_', then it is ok, else compare
-          // the string to make sure it isn't the same and we don't end up
-          // with duplicate entries
+          // Make sure our mangled name isn't the same string table entry as
+          // our name. If it starts with '_', then it is ok, else compare the
+          // string to make sure it isn't the same and we don't end up with
+          // duplicate entries
           if (name && name != mangled_cstr &&
               ((mangled_cstr[0] == '_') ||
                (::strcmp(name, mangled_cstr) != 0))) {
-            Mangled mangled(ConstString(mangled_cstr), true);
-            func_fullnames.Insert(mangled.GetMangledName(),
+            func_fullnames.Insert(ConstString(mangled_cstr),
                                   DIERef(cu_offset, die.GetOffset()));
-            ConstString demangled = mangled.GetDemangledName(cu_language);
-            if (demangled)
-              func_fullnames.Insert(demangled,
-                                    DIERef(cu_offset, die.GetOffset()));
           }
         }
       }
@@ -907,20 +882,15 @@ void DWARFUnit::IndexPrivate(
           func_basenames.Insert(ConstString(name),
                                 DIERef(cu_offset, die.GetOffset()));
         if (mangled_cstr) {
-          // Make sure our mangled name isn't the same string table entry
-          // as our name. If it starts with '_', then it is ok, else compare
-          // the string to make sure it isn't the same and we don't end up
-          // with duplicate entries
+          // Make sure our mangled name isn't the same string table entry as
+          // our name. If it starts with '_', then it is ok, else compare the
+          // string to make sure it isn't the same and we don't end up with
+          // duplicate entries
           if (name && name != mangled_cstr &&
               ((mangled_cstr[0] == '_') ||
                (::strcmp(name, mangled_cstr) != 0))) {
-            Mangled mangled(ConstString(mangled_cstr), true);
-            func_fullnames.Insert(mangled.GetMangledName(),
+            func_fullnames.Insert(ConstString(mangled_cstr),
                                   DIERef(cu_offset, die.GetOffset()));
-            ConstString demangled = mangled.GetDemangledName(cu_language);
-            if (demangled)
-              func_fullnames.Insert(demangled,
-                                    DIERef(cu_offset, die.GetOffset()));
           }
         } else
           func_fullnames.Insert(ConstString(name),
@@ -955,15 +925,15 @@ void DWARFUnit::IndexPrivate(
     case DW_TAG_variable:
       if (name && has_location_or_const_value && is_global_or_static_variable) {
         globals.Insert(ConstString(name), DIERef(cu_offset, die.GetOffset()));
-        // Be sure to include variables by their mangled and demangled
-        // names if they have any since a variable can have a basename
-        // "i", a mangled named "_ZN12_GLOBAL__N_11iE" and a demangled
-        // mangled name "(anonymous namespace)::i"...
+        // Be sure to include variables by their mangled and demangled names if
+        // they have any since a variable can have a basename "i", a mangled
+        // named "_ZN12_GLOBAL__N_11iE" and a demangled mangled name
+        // "(anonymous namespace)::i"...
 
-        // Make sure our mangled name isn't the same string table entry
-        // as our name. If it starts with '_', then it is ok, else compare
-        // the string to make sure it isn't the same and we don't end up
-        // with duplicate entries
+        // Make sure our mangled name isn't the same string table entry as our
+        // name. If it starts with '_', then it is ok, else compare the string
+        // to make sure it isn't the same and we don't end up with duplicate
+        // entries
         if (mangled_cstr && name != mangled_cstr &&
             ((mangled_cstr[0] == '_') || (::strcmp(name, mangled_cstr) != 0))) {
           Mangled mangled(ConstString(mangled_cstr), true);
@@ -1012,3 +982,4 @@ const DWARFDebugAranges &DWARFUnit::GetFunctionAranges() {
   }
   return *m_func_aranges_ap.get();
 }
+

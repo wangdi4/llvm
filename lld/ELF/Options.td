@@ -76,7 +76,7 @@ def color_diagnostics: F<"color-diagnostics">,
   HelpText<"Use colors in diagnostics">;
 
 def color_diagnostics_eq: J<"color-diagnostics=">,
-  HelpText<"Use colors in diagnostics">;
+  HelpText<"Use colors in diagnostics; one of 'always', 'never', 'auto'">;
 
 defm cref: B<"cref",
     "Output cross reference table",
@@ -192,6 +192,8 @@ defm init: Eq<"init">, HelpText<"Specify an initializer function">,
 
 defm just_symbols: Eq<"just-symbols">, HelpText<"Just link symbols">;
 
+defm keep_unique: Eq<"keep-unique">, HelpText<"Do not fold this symbol during ICF">;
+
 defm library: Eq<"library">, HelpText<"Root name of library to use">,
   MetaVarName<"<libName>">;
 
@@ -291,7 +293,7 @@ def strip_all: F<"strip-all">, HelpText<"Strip all symbols">;
 def strip_debug: F<"strip-debug">, HelpText<"Strip debugging information">;
 
 defm symbol_ordering_file: Eq<"symbol-ordering-file">,
-  HelpText<"Layout sections in the order specified by symbol file">;
+  HelpText<"Layout sections to place symbols in the order specified by symbol ordering file">;
 
 defm sysroot: Eq<"sysroot">, HelpText<"Set the system root">;
 

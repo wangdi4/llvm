@@ -16,7 +16,7 @@
 //      -o <file>
 //
 // The target defaults to the host target.
-// The cpu defaults to 'generic'.
+// The cpu defaults to the 'native' host cpu.
 // The output defaults to standard output.
 //
 //===----------------------------------------------------------------------===//
@@ -24,6 +24,7 @@
 #include "BackendPrinter.h"
 #include "CodeRegion.h"
 #include "DispatchStatistics.h"
+#include "FetchStage.h"
 #include "InstructionInfoView.h"
 #include "InstructionTables.h"
 #include "RegisterFileStatistics.h"
@@ -41,6 +42,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
@@ -50,6 +52,8 @@
 #include "llvm/Support/WithColor.h"
 
 using namespace llvm;
+
+static llvm::cl::OptionCategory ViewOptions("View Options");
 
 static cl::opt<std::string>
     InputFilename(cl::Positional, cl::desc("<input file>"), cl::init("-"));
@@ -69,11 +73,12 @@ static cl::opt<std::string>
 static cl::opt<std::string>
     MCPU("mcpu",
          cl::desc("Target a specific cpu type (-mcpu=help for details)"),
-         cl::value_desc("cpu-name"), cl::init("generic"));
+         cl::value_desc("cpu-name"), cl::init("native"));
 
-static cl::opt<unsigned>
+static cl::opt<int>
     OutputAsmVariant("output-asm-variant",
-                     cl::desc("Syntax variant to use for output printing"));
+                     cl::desc("Syntax variant to use for output printing"),
+                     cl::init(-1));
 
 static cl::opt<unsigned> Iterations("iterations",
                                     cl::desc("Number of iterations to run"),
@@ -93,46 +98,40 @@ static cl::opt<unsigned>
 static cl::opt<bool>
     PrintRegisterFileStats("register-file-stats",
                            cl::desc("Print register file statistics"),
-                           cl::init(false));
+                           cl::cat(ViewOptions), cl::init(false));
 
-static cl::opt<bool>
-    PrintDispatchStats("dispatch-stats",
-                       cl::desc("Print dispatch statistics"),
-                       cl::init(false));
+static cl::opt<bool> PrintDispatchStats("dispatch-stats",
+                                        cl::desc("Print dispatch statistics"),
+                                        cl::cat(ViewOptions), cl::init(false));
 
-static cl::opt<bool>
-    PrintSchedulerStats("scheduler-stats",
-                         cl::desc("Print scheduler statistics"),
-                         cl::init(false));
+static cl::opt<bool> PrintSchedulerStats("scheduler-stats",
+                                         cl::desc("Print scheduler statistics"),
+                                         cl::cat(ViewOptions), cl::init(false));
 
 static cl::opt<bool>
     PrintRetireStats("retire-stats",
-                      cl::desc("Print retire control unit statistics"),
-                      cl::init(false));
+                     cl::desc("Print retire control unit statistics"),
+                     cl::cat(ViewOptions), cl::init(false));
 
-static cl::opt<bool>
-    PrintResourcePressureView("resource-pressure",
-                              cl::desc("Print the resource pressure view"),
-                              cl::init(true));
+static cl::opt<bool> PrintResourcePressureView(
+    "resource-pressure",
+    cl::desc("Print the resource pressure view (enabled by default)"),
+    cl::cat(ViewOptions), cl::init(true));
 
 static cl::opt<bool> PrintTimelineView("timeline",
                                        cl::desc("Print the timeline view"),
-                                       cl::init(false));
+                                       cl::cat(ViewOptions), cl::init(false));
 
 static cl::opt<unsigned> TimelineMaxIterations(
     "timeline-max-iterations",
     cl::desc("Maximum number of iterations to print in timeline view"),
-    cl::init(0));
+    cl::cat(ViewOptions), cl::init(0));
 
 static cl::opt<unsigned> TimelineMaxCycles(
     "timeline-max-cycles",
     cl::desc(
         "Maximum number of cycles in the timeline view. Defaults to 80 cycles"),
-    cl::init(80));
-
-static cl::opt<bool> PrintModeVerbose("verbose",
-                                      cl::desc("Enable verbose output"),
-                                      cl::init(false));
+    cl::cat(ViewOptions), cl::init(80));
 
 static cl::opt<bool> AssumeNoAlias(
     "noalias",
@@ -150,10 +149,10 @@ static cl::opt<bool>
                            cl::desc("Print instruction tables"),
                            cl::init(false));
 
-static cl::opt<bool>
-    PrintInstructionInfoView("instruction-info",
-                             cl::desc("Print the instruction info view"),
-                             cl::init(true));
+static cl::opt<bool> PrintInstructionInfoView(
+    "instruction-info",
+    cl::desc("Print the instruction info view (enabled by default)"),
+    cl::cat(ViewOptions), cl::init(true));
 
 namespace {
 
@@ -221,8 +220,7 @@ int AssembleInput(const char *ProgName, MCAsmParser &Parser,
       TheTarget->createMCAsmParser(STI, Parser, MCII, MCOptions));
 
   if (!TAP) {
-    errs() << ProgName
-           << ": error: this target does not support assembly parsing.\n";
+    WithColor::error() << "this target does not support assembly parsing.\n";
     return 1;
   }
 
@@ -332,12 +330,16 @@ int main(int argc, char **argv) {
   MCStreamerWrapper Str(Ctx, Regions);
 
   std::unique_ptr<MCInstrInfo> MCII(TheTarget->createMCInstrInfo());
+
+  if (!MCPU.compare("native"))
+    MCPU = llvm::sys::getHostCPUName();
+
   std::unique_ptr<MCSubtargetInfo> STI(
       TheTarget->createMCSubtargetInfo(TripleName, MCPU, /* FeaturesStr */ ""));
   if (!STI->isCPUStringValid(MCPU))
     return 1;
 
-  if (!STI->getSchedModel().isOutOfOrder()) {
+  if (!PrintInstructionTables && !STI->getSchedModel().isOutOfOrder()) {
     WithColor::error() << "please specify an out-of-order cpu. '" << MCPU
                        << "' is an in-order cpu.\n";
     return 1;
@@ -353,16 +355,6 @@ int main(int argc, char **argv) {
       WithColor::note()
           << "cpu '" << MCPU << "' provides itineraries. However, "
           << "instruction itineraries are currently unsupported.\n";
-    return 1;
-  }
-
-  std::unique_ptr<MCInstPrinter> IP(TheTarget->createMCInstPrinter(
-      Triple(TripleName), OutputAsmVariant, *MAI, *MCII, *MRI));
-  if (!IP) {
-    WithColor::error()
-        << "unable to create instruction printer for target triple '"
-        << TheTriple.normalize() << "' with assembly variant "
-        << OutputAsmVariant << ".\n";
     return 1;
   }
 
@@ -383,6 +375,19 @@ int main(int argc, char **argv) {
   auto OF = getOutputStream();
   if (std::error_code EC = OF.getError()) {
     WithColor::error() << EC.message() << '\n';
+    return 1;
+  }
+
+  unsigned AssemblerDialect = P->getAssemblerDialect();
+  if (OutputAsmVariant >= 0)
+    AssemblerDialect = static_cast<unsigned>(OutputAsmVariant);
+  std::unique_ptr<MCInstPrinter> IP(TheTarget->createMCInstPrinter(
+      Triple(TripleName), AssemblerDialect, *MAI, *MCII, *MRI));
+  if (!IP) {
+    WithColor::error()
+        << "unable to create instruction printer for target triple '"
+        << TheTriple.normalize() << "' with assembly variant "
+        << AssemblerDialect << ".\n";
     return 1;
   }
 
@@ -431,8 +436,13 @@ int main(int argc, char **argv) {
       continue;
     }
 
-    mca::Backend B(*STI, *MRI, IB, S, Width, RegisterFileSize, LoadQueueSize,
-                   StoreQueueSize, AssumeNoAlias);
+    // Ideally, I'd like to expose the pipeline building here,
+    // by registering all of the Stage instances.
+    // But for now, it's just this single puppy.
+    std::unique_ptr<mca::FetchStage> Fetch =
+        llvm::make_unique<mca::FetchStage>(IB, S);
+    mca::Backend B(*STI, *MRI, std::move(Fetch), Width, RegisterFileSize,
+                   LoadQueueSize, StoreQueueSize, AssumeNoAlias);
     mca::BackendPrinter Printer(B);
 
     Printer.addView(llvm::make_unique<mca::SummaryView>(S, Width));

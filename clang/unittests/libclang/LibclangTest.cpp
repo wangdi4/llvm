@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang-c/Index.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -466,15 +467,17 @@ public:
     unsigned NumDiagnostics = clang_getNumDiagnostics(ClangTU);
     for (unsigned i = 0; i < NumDiagnostics; ++i) {
       auto Diag = clang_getDiagnostic(ClangTU, i);
-      DEBUG(llvm::dbgs() << clang_getCString(clang_formatDiagnostic(
-          Diag, clang_defaultDiagnosticDisplayOptions())) << "\n");
+      LLVM_DEBUG(llvm::dbgs()
+                 << clang_getCString(clang_formatDiagnostic(
+                        Diag, clang_defaultDiagnosticDisplayOptions()))
+                 << "\n");
       clang_disposeDiagnostic(Diag);
     }
   }
   bool ReparseTU(unsigned num_unsaved_files, CXUnsavedFile* unsaved_files) {
     if (clang_reparseTranslationUnit(ClangTU, num_unsaved_files, unsaved_files,
                                      clang_defaultReparseOptions(ClangTU))) {
-      DEBUG(llvm::dbgs() << "Reparse failed\n");
+      LLVM_DEBUG(llvm::dbgs() << "Reparse failed\n");
       return false;
     }
     DisplayDiagnostics();
@@ -490,11 +493,11 @@ TEST_F(LibclangReparseTest, FileName) {
   CXFile cxf = clang_getFile(ClangTU, CppName.c_str());
 
   CXString cxname = clang_getFileName(cxf);
-  ASSERT_TRUE(strstr(clang_getCString(cxname), CppName.c_str()));
+  ASSERT_STREQ(clang_getCString(cxname), CppName.c_str());
   clang_disposeString(cxname);
 
   cxname = clang_File_tryGetRealPathName(cxf);
-  ASSERT_TRUE(strstr(clang_getCString(cxname), CppName.c_str()));
+  ASSERT_TRUE(llvm::StringRef(clang_getCString(cxname)).endswith("main.cpp"));
   clang_disposeString(cxname);
 }
 
@@ -705,7 +708,7 @@ public:
     unsigned options = clang_defaultSaveOptions(ClangTU);
     if (clang_saveTranslationUnit(ClangTU, Filename.c_str(), options) !=
         CXSaveError_None) {
-      DEBUG(llvm::dbgs() << "Saving failed\n");
+      LLVM_DEBUG(llvm::dbgs() << "Saving failed\n");
       return false;
     }
 
@@ -714,7 +717,7 @@ public:
     ClangTU = clang_createTranslationUnit(Index, Filename.c_str());
 
     if (!ClangTU) {
-      DEBUG(llvm::dbgs() << "Loading failed\n");
+      LLVM_DEBUG(llvm::dbgs() << "Loading failed\n");
       return false;
     }
 

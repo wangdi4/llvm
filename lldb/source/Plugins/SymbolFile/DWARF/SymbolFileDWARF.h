@@ -246,10 +246,12 @@ public:
   const lldb_private::DWARFDataExtractor &get_debug_ranges_data();
   const lldb_private::DWARFDataExtractor &get_debug_str_data();
   const lldb_private::DWARFDataExtractor &get_debug_str_offsets_data();
+  const lldb_private::DWARFDataExtractor &get_debug_types_data();
   const lldb_private::DWARFDataExtractor &get_apple_names_data();
   const lldb_private::DWARFDataExtractor &get_apple_types_data();
   const lldb_private::DWARFDataExtractor &get_apple_namespaces_data();
   const lldb_private::DWARFDataExtractor &get_apple_objc_data();
+  const lldb_private::DWARFDataExtractor &get_gnu_debugaltlink();
 
   DWARFDebugAbbrev *DebugAbbrev();
 
@@ -491,10 +493,12 @@ protected:
   DWARFDataSegment m_data_debug_ranges;
   DWARFDataSegment m_data_debug_str;
   DWARFDataSegment m_data_debug_str_offsets;
+  DWARFDataSegment m_data_debug_types;
   DWARFDataSegment m_data_apple_names;
   DWARFDataSegment m_data_apple_types;
   DWARFDataSegment m_data_apple_namespaces;
   DWARFDataSegment m_data_apple_objc;
+  DWARFDataSegment m_data_gnu_debugaltlink;
 
   // The unique pointer items below are generated on demand if and when someone
   // accesses

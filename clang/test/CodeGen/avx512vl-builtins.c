@@ -4610,7 +4610,6 @@ __m256i test_mm256_maskz_set1_epi32(__mmask8 __M) {
   return _mm256_maskz_set1_epi32(__M, 5); 
 }
 
-#ifdef __x86_64__
 __m128i test_mm_mask_set1_epi64(__m128i __O, __mmask8 __M, long long __A) {
   // CHECK-LABEL: @test_mm_mask_set1_epi64
   // CHECK: insertelement <2 x i64> undef, i64 %{{.*}}, i32 0
@@ -4650,7 +4649,6 @@ __m256i test_mm256_maskz_set1_epi64(__mmask8 __M, long long __A) {
   // CHECK:  select <4 x i1> %{{.*}}, <4 x i64> %{{.*}}, <4 x i64> %{{.*}}
   return _mm256_maskz_set1_epi64(__M, __A); 
 }
-#endif
 
 __m128d test_mm_fixupimm_pd(__m128d __A, __m128d __B, __m128i __C) {
   // CHECK-LABEL: @test_mm_fixupimm_pd
@@ -6579,7 +6577,7 @@ void test_mm_mask_cvtepi32_storeu_epi16(void * __P, __mmask8 __M, __m128i __A) {
 
 __m128i test_mm256_cvtepi32_epi16(__m256i __A) {
   // CHECK-LABEL: @test_mm256_cvtepi32_epi16
-  // CHECK: @llvm.x86.avx512.mask.pmov.dw.256
+  // CHECK: trunc <8 x i32> %{{.*}} to <8 x i16>
   return _mm256_cvtepi32_epi16(__A); 
 }
 
@@ -6675,19 +6673,21 @@ void test_mm_mask_cvtepi64_storeu_epi32(void * __P, __mmask8 __M, __m128i __A) {
 
 __m128i test_mm256_cvtepi64_epi32(__m256i __A) {
   // CHECK-LABEL: @test_mm256_cvtepi64_epi32
-  // CHECK: @llvm.x86.avx512.mask.pmov.qd.256
+  // CHECK: trunc <4 x i64> %{{.*}} to <4 x i32>
   return _mm256_cvtepi64_epi32(__A); 
 }
 
 __m128i test_mm256_mask_cvtepi64_epi32(__m128i __O, __mmask8 __M, __m256i __A) {
   // CHECK-LABEL: @test_mm256_mask_cvtepi64_epi32
-  // CHECK: @llvm.x86.avx512.mask.pmov.qd.256
+  // CHECK: trunc <4 x i64> %{{.*}} to <4 x i32>
+  // CHECK: select <4 x i1> %{{.*}}, <4 x i32> %{{.*}}, <4 x i32> %{{.*}}
   return _mm256_mask_cvtepi64_epi32(__O, __M, __A); 
 }
 
 __m128i test_mm256_maskz_cvtepi64_epi32(__mmask8 __M, __m256i __A) {
   // CHECK-LABEL: @test_mm256_maskz_cvtepi64_epi32
-  // CHECK: @llvm.x86.avx512.mask.pmov.qd.256
+  // CHECK: trunc <4 x i64> %{{.*}} to <4 x i32>
+  // CHECK: select <4 x i1> %{{.*}}, <4 x i32> %{{.*}}, <4 x i32> %{{.*}}
   return _mm256_maskz_cvtepi64_epi32(__M, __A); 
 }
 

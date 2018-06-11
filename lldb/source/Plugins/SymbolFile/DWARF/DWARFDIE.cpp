@@ -262,7 +262,7 @@ void DWARFDIE::GetDWARFDeclContext(DWARFDeclContext &dwarf_decl_ctx) const {
 
 void DWARFDIE::GetDWOContext(std::vector<CompilerContext> &context) const {
   const dw_tag_t tag = Tag();
-  if (tag == DW_TAG_compile_unit)
+  if (tag == DW_TAG_compile_unit || tag == DW_TAG_partial_unit)
     return;
   DWARFDIE parent = GetParent();
   if (parent)
@@ -369,7 +369,7 @@ DWARFDIE::GetContainingDWOModuleDIE() const {
       const dw_tag_t tag = parent.Tag();
       if (tag == DW_TAG_module)
         top_module_die = parent;
-      else if (tag == DW_TAG_compile_unit)
+      else if (tag == DW_TAG_compile_unit || tag == DW_TAG_partial_unit)
         break;
     }
 
@@ -459,4 +459,10 @@ bool operator==(const DWARFDIE &lhs, const DWARFDIE &rhs) {
 
 bool operator!=(const DWARFDIE &lhs, const DWARFDIE &rhs) {
   return !(lhs == rhs);
+}
+
+const DWARFDataExtractor &DWARFDIE::GetData() const {
+  // Clients must check if this DIE is valid before calling this function.
+  assert(IsValid());
+  return m_cu->GetData();
 }

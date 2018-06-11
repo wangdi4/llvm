@@ -41,7 +41,6 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
-#include "llvm/Config/llvm-config.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
@@ -74,7 +73,7 @@ FrontendActionFactory::~FrontendActionFactory() = default;
 // code that sets up a compiler to run tools on it, and we should refactor
 // it to be based on the same framework.
 
-/// \brief Builds a clang driver initialized for running clang tools.
+/// Builds a clang driver initialized for running clang tools.
 static driver::Driver *newDriver(
     DiagnosticsEngine *Diagnostics, const char *BinaryName,
     IntrusiveRefCntPtr<vfs::FileSystem> VFS) {
@@ -85,7 +84,7 @@ static driver::Driver *newDriver(
   return CompilerDriver;
 }
 
-/// \brief Retrieves the clang CC1 specific flags out of the compilation's jobs.
+/// Retrieves the clang CC1 specific flags out of the compilation's jobs.
 ///
 /// Returns nullptr on error.
 static const llvm::opt::ArgStringList *getCC1Arguments(
@@ -115,7 +114,7 @@ static const llvm::opt::ArgStringList *getCC1Arguments(
 namespace clang {
 namespace tooling {
 
-/// \brief Returns a clang build invocation initialized from the CC1 flags.
+/// Returns a clang build invocation initialized from the CC1 flags.
 CompilerInvocation *newInvocation(
     DiagnosticsEngine *Diagnostics, const llvm::opt::ArgStringList &CC1Args) {
   assert(!CC1Args.empty() && "Must at least contain the program name!");
@@ -474,7 +473,7 @@ int ClangTool::run(ToolAction *Action) {
 
       // FIXME: We need a callback mechanism for the tool writer to output a
       // customized message for each file.
-      DEBUG({ llvm::dbgs() << "Processing: " << File << ".\n"; });
+      LLVM_DEBUG({ llvm::dbgs() << "Processing: " << File << ".\n"; });
       ToolInvocation Invocation(std::move(CommandLine), Action, Files.get(),
                                 PCHContainerOps);
       Invocation.setDiagnosticConsumer(DiagConsumer);

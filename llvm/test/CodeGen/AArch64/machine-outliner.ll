@@ -1,4 +1,5 @@
 ; RUN: llc -verify-machineinstrs -enable-machine-outliner -mtriple=aarch64-apple-darwin < %s | FileCheck %s
+; RUN: llc -verify-machineinstrs -enable-machine-outliner -mtriple=aarch64-apple-darwin -mcpu=cortex-a53 -enable-misched=false < %s | FileCheck %s
 ; RUN: llc -verify-machineinstrs -enable-machine-outliner -enable-linkonceodr-outlining -mtriple=aarch64-apple-darwin < %s | FileCheck %s -check-prefix=ODR
 
 define linkonce_odr void @fish() #0 {
@@ -6,6 +7,21 @@ define linkonce_odr void @fish() #0 {
   ; CHECK-NOT: OUTLINED
   ; ODR: [[OUTLINED:OUTLINED_FUNCTION_[0-9]+]]
   ; ODR-NOT: ret
+  %1 = alloca i32, align 4
+  %2 = alloca i32, align 4
+  %3 = alloca i32, align 4
+  %4 = alloca i32, align 4
+  store i32 0, i32* %1, align 4
+  store i32 1, i32* %2, align 4
+  store i32 2, i32* %3, align 4
+  store i32 3, i32* %4, align 4
+  ret void
+}
+
+define void @turtle() section "TURTLE,turtle" {
+  ; CHECK-LABEL: _turtle:
+  ; ODR-LABEL: _turtle:
+  ; CHECK-NOT: OUTLINED
   %1 = alloca i32, align 4
   %2 = alloca i32, align 4
   %3 = alloca i32, align 4
@@ -52,7 +68,8 @@ define void @dog() #0 {
 }
 
 ; ODR: [[OUTLINED]]:
-; CHECK: [[OUTLINED]]:
+; CHECK: .p2align 2
+; CHECK-NEXT: [[OUTLINED]]:
 ; CHECK-DAG: orr w8, wzr, #0x1
 ; CHECK-NEXT: stp w8, wzr, [sp, #8]
 ; CHECK-NEXT: orr w8, wzr, #0x2

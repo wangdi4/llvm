@@ -645,26 +645,6 @@ define <16 x i16> @test_x86_vcvtps2ph_256(<16 x float> %a0, <16 x i16> %src, i16
 
 declare <16 x i16> @llvm.x86.avx512.mask.vcvtps2ph.512(<16 x float>, i32, <16 x i16>, i16) nounwind readonly
 
-define <16 x float> @test_x86_vbroadcast_ss_512(i8* %a0) {
-; CHECK-LABEL: test_x86_vbroadcast_ss_512:
-; CHECK:       ## %bb.0:
-; CHECK-NEXT:    vbroadcastss (%rdi), %zmm0
-; CHECK-NEXT:    retq
-  %res = call <16 x float> @llvm.x86.avx512.vbroadcast.ss.512(i8* %a0) ; <<16 x float>> [#uses=1]
-  ret <16 x float> %res
-}
-declare <16 x float> @llvm.x86.avx512.vbroadcast.ss.512(i8*) nounwind readonly
-
-define <8 x double> @test_x86_vbroadcast_sd_512(i8* %a0) {
-; CHECK-LABEL: test_x86_vbroadcast_sd_512:
-; CHECK:       ## %bb.0:
-; CHECK-NEXT:    vbroadcastsd (%rdi), %zmm0
-; CHECK-NEXT:    retq
-  %res = call <8 x double> @llvm.x86.avx512.vbroadcast.sd.512(i8* %a0) ; <<8 x double>> [#uses=1]
-  ret <8 x double> %res
-}
-declare <8 x double> @llvm.x86.avx512.vbroadcast.sd.512(i8*) nounwind readonly
-
 define i16 @test_cmpps(<16 x float> %a, <16 x float> %b) {
 ; CHECK-LABEL: test_cmpps:
 ; CHECK:       ## %bb.0:
@@ -1953,17 +1933,6 @@ define <4 x float> @_mm_cvtu64_ss(<4 x float> %a, i64 %b)
   ret <4 x float> %res
 }
 declare <4 x float> @llvm.x86.avx512.cvtusi642ss(<4 x float>, i64, i32) nounwind readnone
-
-define <2 x double> @test_x86_avx512_mm_cvtu32_sd(<2 x double> %a, i32 %b)
-; CHECK-LABEL: test_x86_avx512_mm_cvtu32_sd:
-; CHECK:       ## %bb.0:
-; CHECK-NEXT:    vcvtusi2sdl %edi, %xmm0, %xmm0
-; CHECK-NEXT:    retq
-{
-  %res = call <2 x double> @llvm.x86.avx512.cvtusi2sd(<2 x double> %a, i32 %b) ; <<<2 x double>> [#uses=1]
-  ret <2 x double> %res
-}
-declare <2 x double> @llvm.x86.avx512.cvtusi2sd(<2 x double>, i32) nounwind readnone
 
 define <2 x double> @test_x86_avx512_mm_cvtu64_sd(<2 x double> %a, i64 %b)
 ; CHECK-LABEL: test_x86_avx512_mm_cvtu64_sd:
@@ -3404,8 +3373,8 @@ declare <16 x i32> @llvm.x86.avx512.mask.prorv.d.512(<16 x i32>, <16 x i32>, <16
 define <16 x i32>@test_int_x86_avx512_mask_prorv_d_512(<16 x i32> %x0, <16 x i32> %x1, <16 x i32> %x2, i16 %x3) {
 ; CHECK-LABEL: test_int_x86_avx512_mask_prorv_d_512:
 ; CHECK:       ## %bb.0:
-; CHECK-NEXT:    kmovw %edi, %k1
 ; CHECK-NEXT:    vprorvd %zmm1, %zmm0, %zmm3
+; CHECK-NEXT:    kmovw %edi, %k1
 ; CHECK-NEXT:    vprorvd %zmm1, %zmm0, %zmm2 {%k1}
 ; CHECK-NEXT:    vprorvd %zmm1, %zmm0, %zmm0 {%k1} {z}
 ; CHECK-NEXT:    vpaddd %zmm0, %zmm2, %zmm0
@@ -3424,8 +3393,8 @@ declare <8 x i64> @llvm.x86.avx512.mask.prorv.q.512(<8 x i64>, <8 x i64>, <8 x i
 define <8 x i64>@test_int_x86_avx512_mask_prorv_q_512(<8 x i64> %x0, <8 x i64> %x1, <8 x i64> %x2, i8 %x3) {
 ; CHECK-LABEL: test_int_x86_avx512_mask_prorv_q_512:
 ; CHECK:       ## %bb.0:
-; CHECK-NEXT:    kmovw %edi, %k1
 ; CHECK-NEXT:    vprorvq %zmm1, %zmm0, %zmm3
+; CHECK-NEXT:    kmovw %edi, %k1
 ; CHECK-NEXT:    vprorvq %zmm1, %zmm0, %zmm2 {%k1}
 ; CHECK-NEXT:    vprorvq %zmm1, %zmm0, %zmm0 {%k1} {z}
 ; CHECK-NEXT:    vpaddq %zmm0, %zmm2, %zmm0
