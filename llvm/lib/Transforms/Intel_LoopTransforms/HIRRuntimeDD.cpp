@@ -463,6 +463,8 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "Non DO loops are not supported";
   case UNROLL_PRAGMA_LOOP:
     return "Unroll pragma loops are not supported";
+  case IVDEP_PRAGMA_LOOP:
+    return "Loop has IVDEP pragma";
   case NON_PROFITABLE:
     return "Loop considered non-profitable";
   case NON_PROFITABLE_SUBS:
@@ -584,8 +586,7 @@ static RuntimeDDResult isTestSupported(const RegDDRef *RefA,
   }
 
   // Skip loops with different address space references.
-  if (RefA->getPointerAddressSpace() !=
-      RefB->getPointerAddressSpace()) {
+  if (RefA->getPointerAddressSpace() != RefB->getPointerAddressSpace()) {
     return DIFF_ADDR_SPACE;
   }
 
@@ -594,6 +595,10 @@ static RuntimeDDResult isTestSupported(const RegDDRef *RefA,
 
 RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   Context.Loop = Loop;
+
+  if (Loop->hasVectorizeIVDepPragma()) {
+    return IVDEP_PRAGMA_LOOP;
+  }
 
   if (Loop->getMVTag()) {
     return ALREADY_MV;

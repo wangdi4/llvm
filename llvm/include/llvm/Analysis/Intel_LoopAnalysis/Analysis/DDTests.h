@@ -375,6 +375,11 @@ class DDTest {
                               DistanceVector &ForwardDistV,
                               DistanceVector &BackwardDistV, unsigned Levels);
 
+  /// When IVDEP directive is present for a level, DV can be adjusted
+  /// SameBase indicates if the base pointer of src/dst DD_REF are the same
+  /// Returns true IVDEP is hit
+  bool adjustDVforIVDEP(Dependences &Result, bool SameBase);
+
   /// Map DV to distance
 
   DistTy mapDVToDist(DVKind DV, unsigned Level, const Dependences &Result);
@@ -500,12 +505,16 @@ class DDTest {
   };
   ///  CommonLevels - levels that need to set DV
   unsigned CommonLevels = 0;
+  ///  CommonLevelsForIVDEP - levels that affects DV when IVDEP is present
+  unsigned CommonLevelsForIVDEP = 0;
   unsigned SrcLevels = 0;
   unsigned DstLevels = 0;
   unsigned MaxLevels = 0;
   bool NoCommonNest = false;
 
   HLLoop *DeepestLoop;
+  ///  CommonIVDEPLoop, corrsponding to CommonLevelsForIVDEP
+  HLLoop *CommonIVDEPLoop = nullptr;
 
   /// establishNestingLevels - Examines the loop nesting of the Src and Dst
   /// instructions and establishes their shared loops. Sets the variables

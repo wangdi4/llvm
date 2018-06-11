@@ -27,6 +27,11 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
+// Next Option is used for performance headroom finding and stress testing
+static cl::opt<bool> AssumeIVDEPInnermostLoop(
+    "hir-assume-ivdep-innermost-loop", cl::init(false), cl::Hidden,
+    cl::desc("Assumes IVDEP is on for innermost loop"));
+
 #define DEBUG_NORMALIZE(X) DEBUG_WITH_TYPE("hir-loop-normalize", X)
 
 llvm::Statistic LoopsNormalized = {"hir-loop-normalize", "LoopsNormalized",
@@ -1013,6 +1018,11 @@ bool HLLoop::hasDirective(int DirectiveID) const {
   }
 
   return false;
+}
+
+bool HLLoop::hasVectorizeIVDepPragma() const {
+  return hasVectorizeIVDepLoopPragma() || hasVectorizeIVDepBackPragma() ||
+         (AssumeIVDEPInnermostLoop && isInnermost());
 }
 
 bool HLLoop::isTriangularLoop() const {

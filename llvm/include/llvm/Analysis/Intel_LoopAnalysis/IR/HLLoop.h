@@ -833,15 +833,13 @@ public:
   bool hasVectorizeIVDepLoopPragma() const {
     return getLoopStringMetadata("llvm.loop.vectorize.ivdep_loop");
   }
-  /// Returns true if loop has ivdep back pragma.
+  /// Returns true if loop has ivdep back pragma
   bool hasVectorizeIVDepBackPragma() const {
     return getLoopStringMetadata("llvm.loop.vectorize.ivdep_back");
   }
 
-  /// Returns true if loop has ivdep back or ivdep loop pragma.
-  bool hasVectorizeIVDepPragma() const {
-    return hasVectorizeIVDepLoopPragma() || hasVectorizeIVDepBackPragma();
-  }
+  /// Returns true if loop has ivdep back/loop pragma or assumeIVDEP option
+  bool hasVectorizeIVDepPragma() const;
 
   /// Returns true if loop has vectorize always pragma.
   bool hasVectorizeAlwaysPragma() const {

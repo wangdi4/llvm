@@ -1,5 +1,4 @@
-//===- DDTests.cpp - Data dependence testing between two DDRefs -*- C++ -*-===//
-//
+//===- DDTests.cpp - Data dependence testing between two DDRefs -----------===//
 // Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
@@ -1011,6 +1010,12 @@ void DDTest::establishNestingLevels(const DDRef *SrcDDRef,
 
   CommonLevels = SrcLevel;
   MaxLevels -= CommonLevels;
+
+  // CommonLevelsForIVDEP is different from CommonLevels.
+  // Refer to code below. Handled differently when IVDEP
+  // is not used, for Fusion and refs outside Loops
+  CommonLevelsForIVDEP = CommonLevels;
+  CommonIVDEPLoop = SrcLoop;
 
 AdjustLevels:
 
@@ -4346,7 +4351,14 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   ++TotalArrayPairs;
   WorkCE.clear();
 
-  //  Number of dimemsion are different or different base: need to bail out
+  //  Number of dimemsion are different or different base: need to bail out,
+  //  except for IVDEP
+  if (CommonIVDEPLoop && TestingMemRefs && !EqualBaseAndShape &&
+      adjustDVforIVDEP(Result, false)) { // SameBase = false
+    auto Final = make_unique<Dependences>(Result);
+    return std::move(Final);
+  }
+
   if (!EqualBaseAndShape || (NoCommonNest && !ForFusion)) {
     DEBUG(dbgs() << "\nDiff dim,  base, or no common nests\n");
     auto Final = make_unique<Dependences>(Result);
@@ -4776,6 +4788,8 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     }
   }
 
+  adjustDVforIVDEP(Result, true); // SameBase = true
+
   //
   //  Reverse DV when needed
   //
@@ -4967,6 +4981,42 @@ void DDTest::populateDistanceVector(const DirectionVector &ForwardDV,
       BackwardDistV[II - 1] = mapDVToDist(BackwardDV[II - 1], II, Result);
     }
   }
+}
+
+/// We will treat ivdep back and ivdep the same way.
+/// ivdep loop is for auto-parallel and ivdep back is
+/// for auto-vectorization.  Strictly speaking,
+/// DV for ivdep should be =, and DV for ivdep back
+/// should be <=. But in icc, for simplicity, both
+/// were set as =. Will do the same here.
+/// (1) If Base Exprs are different, set DV as =
+/// (2) For constant distance, do not override.
+///     IVDEP means distance >= trip count
+///     Vectorizer should choose VL <= Distance
+/// (3) Otherwise adjust DV
+
+bool DDTest::adjustDVforIVDEP(Dependences &Result, bool SameBase) {
+
+  const HLLoop *Lp = CommonIVDEPLoop;
+  bool IVDEPFound = false;
+  // Looping through parents allows IVDEP for more than 1 level
+  // to be supported. But multiple levels vectorization is not
+  // currently generated
+  for (unsigned II = CommonLevelsForIVDEP; II >= 1;
+       --II, Lp = Lp->getParentLoop()) {
+    if (Lp->hasVectorizeIVDepPragma()) {
+      IVDEPFound = true;
+      if (!SameBase) {
+        Result.setDirection(II, DVKind::EQ);
+        continue;
+      }
+      DistTy Distance = mapDVToDist(Result.getDirection(II), II, Result);
+      if (Distance == UnknownDistance) {
+        Result.setDirection(II, DVKind::EQ);
+      }
+    }
+  }
+  return IVDEPFound;
 }
 
 void DDTest::setDVForPeelFirstAndReversed(DirectionVector &ForwardDV,
@@ -5298,6 +5348,7 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
 L1:
+
   populateDistanceVector(ForwardDV, BackwardDV, *Result, ForwardDistV,
                          BackwardDistV, Levels);
   printDirDistVectors(ForwardDV, BackwardDV, ForwardDistV, BackwardDistV,
