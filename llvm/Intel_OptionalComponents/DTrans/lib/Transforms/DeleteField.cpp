@@ -93,7 +93,7 @@ private:
                       bool IsPreCloning);
   bool processPossibleByteFlattenedGEP(GetElementPtrInst *GEP);
   void postprocessCallInst(Instruction *I);
-  void postprocessSubInst(Instruction *I);
+  void processSubInst(Instruction *I);
 };
 
 } // end anonymous namespace
@@ -228,8 +228,12 @@ void DeleteFieldImpl::processFunction(Function &F) {
   // and delete everything after we've walked the function.
   SmallVector<GetElementPtrInst *, 4> GEPsToDelete;
 
-  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-    if (auto *GEP = dyn_cast<GetElementPtrInst>(&*I)) {
+  for (inst_iterator It = inst_begin(F), E = inst_end(F); It != E; ++It) {
+    switch (It->getOpcode()) {
+    default:
+      break;
+    case Instruction::GetElementPtr: {
+      auto *GEP = cast<GetElementPtrInst>(&*It);
       // If the GEP has a single index, it might be in the byte-flattened
       // form. Check that, and delete the field if necessary.
       // Otherwise, there's nothing more to do with this GEP.
@@ -244,6 +248,11 @@ void DeleteFieldImpl::processFunction(Function &F) {
       uint64_t Unused;
       if (processGEPInst(GEP, Unused, /*IsPreCloning=*/true))
         GEPsToDelete.push_back(GEP);
+      break;
+    }
+    case Instruction::Sub:
+      processSubInst(&*It);
+      break;
     }
   }
 
@@ -410,7 +419,6 @@ bool DeleteFieldImpl::processGEPInst(GetElementPtrInst *GEP, uint64_t &NewIndex,
 // accessing elements whose index was changing by field deletion and any
 // instructions that are referencing the structure size.
 void DeleteFieldImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
-  // TODO: Add code to update instructions using the size of our structs.
   Function *F = isCloned ? OrigFuncToCloneFuncMap[&OrigFunc] : &OrigFunc;
   for (inst_iterator It = inst_begin(F), E = inst_end(F); It != E; ++It) {
     switch (It->getOpcode()) {
@@ -429,9 +437,6 @@ void DeleteFieldImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
     } break;
     case Instruction::Call:
       postprocessCallInst(&*It);
-      break;
-    case Instruction::Sub:
-      postprocessSubInst(&*It);
       break;
     }
   }
@@ -464,7 +469,7 @@ void DeleteFieldImpl::postprocessCallInst(Instruction *I) {
   }
 }
 
-void DeleteFieldImpl::postprocessSubInst(Instruction *I) {
+void DeleteFieldImpl::processSubInst(Instruction *I) {
   auto *BinOp = cast<BinaryOperator>(I);
   assert(BinOp->getOpcode() == Instruction::Sub &&
          "postProcessSubInst called for non-sub instruction!");
@@ -474,11 +479,6 @@ void DeleteFieldImpl::postprocessSubInst(Instruction *I) {
   for (auto &ONPair : OrigToNewTypeMapping) {
     llvm::Type *OrigTy = ONPair.first;
     llvm::Type *ReplTy = ONPair.second;
-    // FIXME: We should be remapping these the ptr sub type.
-    //    assert(PtrSubTy != OrigTy &&
-    //           "Original type ptr sub found after type replacement!");
-    //    if (PtrSubTy != ReplTy)
-    //      continue;
     if (PtrSubTy != OrigTy)
       continue;
     // Call the base class to find and update all users that divide this result
