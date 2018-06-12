@@ -1758,6 +1758,10 @@ bool Type::isIntegralType(const ASTContext &Ctx) const {
     if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
       return ET->getDecl()->isComplete();
 
+#if INTEL_CUSTOMIZATION
+  if (isa<ArbPrecIntType>(CanonicalType))
+    return true;
+#endif // INTEL_CUSTOMIZATION
   return false;
 }
 
@@ -1772,6 +1776,11 @@ bool Type::isIntegralOrUnscopedEnumerationType() const {
   // considered complete.
   if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
     return ET->getDecl()->isComplete() && !ET->getDecl()->isScoped();
+
+#if INTEL_CUSTOMIZATION
+  if (isa<ArbPrecIntType>(CanonicalType))
+    return true;
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
@@ -1846,6 +1855,11 @@ bool Type::isSignedIntegerType() const {
       return ET->getDecl()->getIntegerType()->isSignedIntegerType();
   }
 
+#if INTEL_CUSTOMIZATION
+  if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
+    return AP->getUnderlyingType()->isSignedIntegerType();
+#endif // INTEL_CUSTOMIZATION
+
   return false;
 }
 
@@ -1890,6 +1904,11 @@ bool Type::isUnsignedIntegerType() const {
     if (ET->getDecl()->isComplete() && !ET->getDecl()->isScoped())
       return ET->getDecl()->getIntegerType()->isUnsignedIntegerType();
   }
+
+#if INTEL_CUSTOMIZATION
+  if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
+    return AP->getUnderlyingType()->isUnsignedIntegerType();
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
