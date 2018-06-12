@@ -751,7 +751,12 @@ bool DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
   if (F == nullptr)
     return false;
   LLVM_DEBUG(dbgs() << "Analyzing for MallocPostDom " << F->getName() << "\n");
+  // Make sure that VisitedBlocks and SkipTestBlocks are clear before
+  // visitNullPtrBlocks() is called. SkipTestBlocks are valid until we
+  // return from this function.  VisitedBlocks can be cleared immediately
+  // after visitNullPtrBlocks() is run.
   VisitedBlocks.clear();
+  SkipTestBlocks.clear();
   if (std::distance(F->arg_begin(), F->arg_end()) != 1 ||
       !F->arg_begin()->getType()->isIntegerTy()) {
     return false;
@@ -821,7 +826,12 @@ bool DTransAllocAnalyzer::isPostDominatedByFreeCall(BasicBlock *BB) {
 bool DTransAllocAnalyzer::analyzeForFreeStatus(Function *F) {
   if (F == nullptr)
     return false;
+  // Make sure that VisitedBlocks and SkipTestBlocks are clear before
+  // visitNullPtrBlocks() is called. SkipTestBlocks are valid until we
+  // return from this function.  VisitedBlocks can be cleared immediately
+  // after visitNullPtrBlocks() is run.
   VisitedBlocks.clear();
+  SkipTestBlocks.clear();
   if (std::distance(F->arg_begin(), F->arg_end()) == 1 &&
       F->arg_begin()->getType()->isPointerTy()) {
     visitNullPtrBlocks(F);
@@ -3853,8 +3863,8 @@ private:
     if (!pointerAliasSetsAreEqual(LHSLPI.getPointerTypeAliasSet(),
                                   RHSLPI.getPointerTypeAliasSet())) {
       LLVM_DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                   << "sub instruction operands do not match:\n"
-                   << "  " << I << "\n");
+                        << "sub instruction operands do not match:\n"
+                        << "  " << I << "\n");
       setValueTypeInfoSafetyData(I.getOperand(0), dtrans::UnhandledUse);
       setValueTypeInfoSafetyData(I.getOperand(1), dtrans::UnhandledUse);
       return;
@@ -3884,8 +3894,8 @@ private:
         uint64_t ElementSize = DL.getTypeAllocSize(ElementTy);
         if (hasNonDivBySizeUses(&I, ElementSize)) {
           LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
-                       << "Pointer subtract result has non-div use:\n"
-                       << "  " << I << "\n");
+                            << "Pointer subtract result has non-div use:\n"
+                            << "  " << I << "\n");
           // Both operands have the same alias set, so we only need to set the
           // safety condition once.
           setAllAliasedTypeSafetyData(LHSLPI, dtrans::BadPtrManipulation);
