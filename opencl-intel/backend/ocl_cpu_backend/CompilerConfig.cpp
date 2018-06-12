@@ -131,7 +131,7 @@ void CompilerConfig::LoadDefaults()
 void CompilerConfig::LoadConfig()
 {
     //TODO: Add validation code
-    if (const char *pEnv = getenv("VOLCANO_CPU_ARCH"))
+    if (const char *pEnv = getenv("CL_CONFIG_CPU_TARGET_ARCH"))
     {
         m_cpuArch = pEnv;
     }

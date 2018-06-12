@@ -1,5 +1,5 @@
 /*=================================================================================
-Copyright (c) 2012, Intel Corporation
+Copyright (c) 2012-2018, Intel Corporation
 Subject to the terms and conditions of the Master Development License
 Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
@@ -121,8 +121,8 @@ using namespace Intel::OpenCL::DeviceBackend::Utils;
 
 CPUDetect::CPUDetect(void)
 {
-    int viCPUInfo[4] = {-1};
-    int XCRInfo[2] = {0};
+    int viCPUInfo[4] = {-1, -1, -1, -1};
+    int XCRInfo[2] = {0, 0};
 
     __cpuid(viCPUInfo, 1);
 
