@@ -41,9 +41,6 @@
 // SIMD-ONLY2-NOT: {{__kmpc|__tgt}}
 
 // expected-no-diagnostics
-//
-// XFAIL: *
-// NOTE: This test is marked XFAIL until cmplrs-48947 and cmplrs-48941 are resolved
 #ifndef HEADER
 #define HEADER
 

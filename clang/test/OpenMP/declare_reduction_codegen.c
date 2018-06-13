@@ -7,9 +7,6 @@
 // RUN: %clang_cc1 -fopenmp-simd -x c -triple %itanium_abi_triple -include-pch %t -verify %s -emit-llvm -o - -femit-all-decls -disable-llvm-passes | FileCheck --check-prefix SIMD-ONLY0 %s
 // SIMD-ONLY0-NOT: {{__kmpc|__tgt}}
 // expected-no-diagnostics
-//
-// XFAIL: *
-// NOTE: This test is marked XFAIL until cmplrs-48947 and cmplrs-48941 are resolved
 
 #ifndef HEADER
 #define HEADER

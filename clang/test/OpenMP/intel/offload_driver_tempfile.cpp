@@ -3,9 +3,6 @@
 // RUN: FileCheck %s < %t
 // expected-no-diagnostics
 // REQUIRES: shell
-//
-// XFAIL: *
-// NOTE: This test is marked XFAIL until cmplrs-48947 and cmplrs-48941 are resolved
 
 void foo(int N, float input1[], float input2[], float result[]) {
 #pragma omp target map(to: input1[:N], input2[:N]) map(from: result[:N])

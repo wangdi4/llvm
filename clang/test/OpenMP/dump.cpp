@@ -1,9 +1,6 @@
 // RUN: %clang_cc1 -verify -fopenmp -ast-dump %s | FileCheck %s
 // RUN: %clang_cc1 -verify -fopenmp-simd -ast-dump %s | FileCheck %s
 // expected-no-diagnostics
-//
-// XFAIL: *
-// NOTE: This test is marked XFAIL until cmplrs-48947 and cmplrs-48941 are resolved
 
 int ga, gb;
 #pragma omp threadprivate(ga, gb)
