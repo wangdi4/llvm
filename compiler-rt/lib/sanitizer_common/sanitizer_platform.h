@@ -15,7 +15,8 @@
 
 #if !defined(__linux__) && !defined(__FreeBSD__) && !defined(__NetBSD__) && \
   !defined(__OpenBSD__) && !defined(__APPLE__) && !defined(_WIN32) && \
-  !defined(__Fuchsia__) && !(defined(__sun__) && defined(__svr4__))
+  !defined(__Fuchsia__) && !defined(__rtems__) && \
+  !(defined(__sun__) && defined(__svr4__))
 # error "This operating system is not supported"
 #endif
 
@@ -327,6 +328,13 @@
 # define SANITIZER_CACHE_LINE_SIZE 128
 #else
 # define SANITIZER_CACHE_LINE_SIZE 64
+#endif
+
+// Enable offline markup symbolizer for Fuchsia and RTEMS.
+#if SANITIZER_FUCHSIA || SANITIZER_RTEMS
+#define SANITIZER_SYMBOLIZER_MARKUP 1
+#else
+#define SANITIZER_SYMBOLIZER_MARKUP 0
 #endif
 
 #endif // SANITIZER_PLATFORM_H

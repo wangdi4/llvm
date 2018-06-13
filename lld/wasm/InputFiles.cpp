@@ -16,7 +16,6 @@
 #include "lld/Common/Memory.h"
 #include "llvm/Object/Binary.h"
 #include "llvm/Object/Wasm.h"
-#include "llvm/Support/LEB128.h"
 #include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE "lld"
@@ -41,12 +40,6 @@ Optional<MemoryBufferRef> lld::wasm::readFile(StringRef Path) {
   make<std::unique_ptr<MemoryBuffer>>(std::move(MB)); // take MB ownership
 
   return MBRef;
-}
-
-static size_t getFunctionCodeOffset(ArrayRef<uint8_t> FunctionBody) {
-  unsigned Count;
-  llvm::decodeULEB128(FunctionBody.data(), &Count);
-  return Count;
 }
 
 void ObjFile::dumpInfo() const {
@@ -105,10 +98,8 @@ uint32_t ObjFile::calcExpectedValue(const WasmRelocation &Reloc) const {
   }
   case R_WEBASSEMBLY_FUNCTION_OFFSET_I32:
     if (auto *Sym = dyn_cast<DefinedFunction>(getFunctionSymbol(Reloc.Index))) {
-      size_t FunctionCodeOffset =
-          getFunctionCodeOffset(Sym->Function->getFunctionBody());
-      return Sym->Function->getFunctionInputOffset() + FunctionCodeOffset +
-             Reloc.Addend;
+      return Sym->Function->getFunctionInputOffset() +
+             Sym->Function->getFunctionCodeOffset() + Reloc.Addend;
     }
     return 0;
   case R_WEBASSEMBLY_SECTION_OFFSET_I32:
@@ -135,7 +126,8 @@ uint32_t ObjFile::calcNewValue(const WasmRelocation &Reloc) const {
   case R_WEBASSEMBLY_MEMORY_ADDR_I32:
   case R_WEBASSEMBLY_MEMORY_ADDR_LEB:
     if (auto *Sym = dyn_cast<DefinedData>(getDataSymbol(Reloc.Index)))
-      return Sym->getVirtualAddress() + Reloc.Addend;
+      if (Sym->isLive())
+        return Sym->getVirtualAddress() + Reloc.Addend;
     return 0;
   case R_WEBASSEMBLY_TYPE_INDEX_LEB:
     return TypeMap[Reloc.Index];
@@ -145,9 +137,8 @@ uint32_t ObjFile::calcNewValue(const WasmRelocation &Reloc) const {
     return getGlobalSymbol(Reloc.Index)->getGlobalIndex();
   case R_WEBASSEMBLY_FUNCTION_OFFSET_I32:
     if (auto *Sym = dyn_cast<DefinedFunction>(getFunctionSymbol(Reloc.Index))) {
-      size_t FunctionCodeOffset =
-          getFunctionCodeOffset(Sym->Function->getFunctionBody());
-      return Sym->Function->OutputOffset + FunctionCodeOffset + Reloc.Addend;
+      return Sym->Function->OutputOffset +
+             Sym->Function->getFunctionCodeOffset() + Reloc.Addend;
     }
     return 0;
   case R_WEBASSEMBLY_SECTION_OFFSET_I32:
@@ -159,7 +150,7 @@ uint32_t ObjFile::calcNewValue(const WasmRelocation &Reloc) const {
 
 void ObjFile::parse() {
   // Parse a memory buffer as a wasm file.
-  DEBUG(dbgs() << "Parsing object: " << toString(this) << "\n");
+  LLVM_DEBUG(dbgs() << "Parsing object: " << toString(this) << "\n");
   std::unique_ptr<Binary> Bin = CHECK(createBinary(MB), toString(this));
 
   auto *Obj = dyn_cast<WasmObjectFile>(Bin.get());
@@ -339,7 +330,7 @@ Symbol *ObjFile::createUndefined(const WasmSymbol &Sym) {
 
 void ArchiveFile::parse() {
   // Parse a MemoryBufferRef as an archive file.
-  DEBUG(dbgs() << "Parsing library: " << toString(this) << "\n");
+  LLVM_DEBUG(dbgs() << "Parsing library: " << toString(this) << "\n");
   File = CHECK(Archive::create(MB), toString(this));
 
   // Read the symbol table to construct Lazy symbols.
@@ -348,7 +339,7 @@ void ArchiveFile::parse() {
     Symtab->addLazy(this, &Sym);
     ++Count;
   }
-  DEBUG(dbgs() << "Read " << Count << " symbols\n");
+  LLVM_DEBUG(dbgs() << "Read " << Count << " symbols\n");
 }
 
 void ArchiveFile::addMember(const Archive::Symbol *Sym) {
@@ -361,8 +352,8 @@ void ArchiveFile::addMember(const Archive::Symbol *Sym) {
   if (!Seen.insert(C.getChildOffset()).second)
     return;
 
-  DEBUG(dbgs() << "loading lazy: " << Sym->getName() << "\n");
-  DEBUG(dbgs() << "from archive: " << toString(this) << "\n");
+  LLVM_DEBUG(dbgs() << "loading lazy: " << Sym->getName() << "\n");
+  LLVM_DEBUG(dbgs() << "from archive: " << toString(this) << "\n");
 
   MemoryBufferRef MB =
       CHECK(C.getMemoryBufferRef(),
