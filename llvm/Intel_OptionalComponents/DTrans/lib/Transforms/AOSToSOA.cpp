@@ -1025,8 +1025,9 @@ void AOSToSOAPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
       continue;
 
     if (TI->testSafetyData(AOSToSOASafetyConditions)) {
-      LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported safety data: "
-                   << getStructName(TI->getLLVMType()) << "\n");
+      LLVM_DEBUG(
+          dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported safety data: "
+                 << getStructName(TI->getLLVMType()) << "\n");
       continue;
     }
 
@@ -1090,7 +1091,7 @@ bool AOSToSOAPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
   for (auto *Candidate : CandidateTypes) {
     if (ArrayElemTypes.find(Candidate) != ArrayElemTypes.end()) {
       LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Array of type seen: "
-                   << getStructName(Candidate->getLLVMType()) << "\n");
+                        << getStructName(Candidate->getLLVMType()) << "\n");
       continue;
     }
 
@@ -1110,9 +1111,10 @@ bool AOSToSOAPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
     if (Supported)
       Qualified.push_back(Candidate);
     else
-      LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported structure "
-                      "element type: "
-                   << getStructName(Candidate->getLLVMType()) << "\n");
+      LLVM_DEBUG(
+          dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported structure "
+                    "element type: "
+                 << getStructName(Candidate->getLLVMType()) << "\n");
   }
 
   std::swap(CandidateTypes, Qualified);
@@ -1199,12 +1201,23 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
       if (TypeToAllocInstr[TyInfo] == nullptr)
         continue;
 
-      // Verify the call chain to the instruction consists of a single path
       Instruction *I = TypeToAllocInstr[TyInfo];
+      Value *Unsupported;
+      if (!supportedAllocationUsers(I, TyInfo->getLLVMType(), &Unsupported)) {
+        LLVM_DEBUG(
+            dbgs()
+            << "DTRANS-AOSTOSOA: Rejecting -- Unsupported allocation usage: "
+            << getStructName(TyInfo->getLLVMType()) << "\n"
+            << "  " << *Unsupported << "\n");
+        continue;
+      }
+
+      // Verify the call chain to the instruction consists of a single path
       CallChain.clear();
       if (!collectCallChain(I, CallChain)) {
-        dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Multiple call paths: "
-               << TyInfo->getLLVMType()->getStructName() << "\n";
+        LLVM_DEBUG(
+            dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Multiple call paths: "
+                   << TyInfo->getLLVMType()->getStructName() << "\n");
         continue;
       }
 
@@ -1246,18 +1259,71 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
         }
   }
 
-  // TODO: Add qualification testing on the uses of the allocation call to
-  // guarantee that only uses that can be transformed in processAllocCalls
-  // will be allowed as candidates.
-  // Specifically, the following uses should be allowed, and all others
-  // rejected:
-  //   icmp eq i8* %call, null
-  //   bitcast i8* %call to %struct.type
-  //   store i8* %call, bitcast (@global to i8**)
-  // In the future, this may be extended to allow memset, memcpy, or memmove
-  // using the i8* result of the allocation directly.
-
   return !CandidateTypes.empty();
+}
+
+// The result of the allocation call is an i8* type. Because we are going to be
+// replacing the ultimate pointer assignment during the transformation with an
+// integer type, and storing the result of the allocation into a compiler
+// generated structure, we need to perform some additional checks to make sure
+// the allocation can be replaced. Specifically, the following uses will be
+// allowed, and all others rejected:
+//   icmp eq i8* %call, null   [also allow inequality, and reversed operands]
+//   bitcast i8* %call to %struct.type* [ only allow cast to candidate type ptr]
+//   store i8* %call, bitcast (@global to i8**)
+//
+// In the future, this may be extended to allow memset, memcpy, or memmove
+// using the i8* result of the allocation directly.
+// Using the result in a PHI/Select instructions could be safe, but will require
+// additional analysis, and handling when processing the allocation call, so is
+// not supported at this time.
+bool AOSToSOAPass::supportedAllocationUsers(Instruction *AllocCall,
+                                            llvm::Type *StructTy,
+                                            Value **Unsupported) {
+  assert(isa<CallInst>(AllocCall) &&
+         "Instruction expected to be allocation call");
+
+  *Unsupported = nullptr;
+  for (auto *User : AllocCall->users()) {
+    auto *I = dyn_cast<Instruction>(&*User);
+    if (!I) {
+      *Unsupported = User;
+      return false;
+    }
+
+    switch (I->getOpcode()) {
+    default:
+      *Unsupported = I;
+      return false;
+    case Instruction::ICmp:
+      if ((cast<ICmpInst>(I))->isRelational()) {
+        *Unsupported = I;
+        return false;
+      }
+      if (!(I->getOperand(0) ==
+                Constant::getNullValue(I->getOperand(0)->getType()) ||
+            I->getOperand(1) ==
+                Constant::getNullValue(I->getOperand(1)->getType()))) {
+        *Unsupported = I;
+        return false;
+      }
+      break;
+    case Instruction::Store:
+      if ((cast<StoreInst>(I))->getPointerOperand() == AllocCall) {
+        *Unsupported = I;
+        return false;
+      }
+      break;
+    case Instruction::BitCast:
+      if (I->getType() != StructTy->getPointerTo()) {
+        *Unsupported = I;
+        return false;
+      }
+      break;
+    }
+  }
+
+  return true;
 }
 
 // If there is a single call chain that reaches the instruction, \p I,
@@ -1306,9 +1372,10 @@ bool AOSToSOAPass::qualifyHeuristics(StructInfoVecImpl &CandidateTypes,
     for (auto &Name : SubStrings) {
       Type *Ty = M.getTypeByName(Name);
       if (auto *StructTy = dyn_cast_or_null<StructType>(Ty)) {
-        LLVM_DEBUG(dbgs()
-              << "DTRANS-AOSTOSOA: Skipped profitability heuristics for type: "
-              << Name << "\n");
+        LLVM_DEBUG(
+            dbgs()
+            << "DTRANS-AOSTOSOA: Skipped profitability heuristics for type: "
+            << Name << "\n");
         dtrans::TypeInfo *Info = DTInfo.getTypeInfo(StructTy);
         assert(Info &&
                "DTransAnalysisInfo does not contain info for structure");

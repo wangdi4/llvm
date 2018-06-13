@@ -70,6 +70,13 @@ private:
   bool qualifyHeuristics(StructInfoVecImpl &CandidateTypes, Module &M,
                          DTransAnalysisInfo &DTInfo);
 
+  // Helper routine to verify whether all the users of an allocation
+  // call \p AllocCall are supported for the transformation of \p StructTy. If
+  // an unsupported use is found, return false, and save the unsupported use in
+  // \p Unsupported.
+  bool supportedAllocationUsers(Instruction *AllocCall, llvm::Type *StructTy,
+                                Value **Unsupported);
+
   // Helper routine used when analyzing the call graph to reach the memory
   // allocation.
   bool collectCallChain(
