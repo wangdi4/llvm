@@ -200,6 +200,16 @@ names from both the *Processor* and *Alternative Processor* can be used.
                                                                       - Radeon Instinct MI25
      ``gfx902``                  ``amdgcn``   APU   - xnack           - Ryzen 3 2200G
                                                       [on]            - Ryzen 5 2400G
+     ``gfx904``                  ``amdgcn``   dGPU  - xnack           *TBA*
+                                                      [off]
+                                                                      .. TODO
+                                                                         Add product
+                                                                         names.
+     ``gfx906``                  ``amdgcn``   dGPU  - xnack           *TBA*
+                                                      [off]
+                                                                      .. TODO
+                                                                         Add product
+                                                                         names.
      =========== =============== ============ ===== ========= ======= ==================
 
 .. _amdgpu-target-features:
@@ -547,8 +557,8 @@ The AMDGPU backend uses the following ELF header:
      ``EF_AMDGPU_MACH_AMDGCN_GFX810``  0x02b      ``gfx810``
      ``EF_AMDGPU_MACH_AMDGCN_GFX900``  0x02c      ``gfx900``
      ``EF_AMDGPU_MACH_AMDGCN_GFX902``  0x02d      ``gfx902``
-     *reserved*                        0x02e      Reserved.
-     *reserved*                        0x02f      Reserved.
+     ``EF_AMDGPU_MACH_AMDGCN_GFX904``  0x02e      ``gfx904``
+     ``EF_AMDGPU_MACH_AMDGCN_GFX906``  0x02f      ``gfx906``
      *reserved*                        0x030      Reserved.
      ================================= ========== =============================
 
@@ -765,7 +775,7 @@ The following relocation types are supported:
      ``R_AMDGPU_ABS32_HI``      Static, 2      ``word32``  (S + A) >> 32
                                 Dynamic
      ``R_AMDGPU_ABS64``         Static, 3      ``word64``  S + A
-                                Dynamic 
+                                Dynamic
      ``R_AMDGPU_REL32``         Static  4      ``word32``  S + A - P
      ``R_AMDGPU_REL64``         Static  5      ``word64``  S + A - P
      ``R_AMDGPU_ABS32``         Static, 6      ``word32``  S + A
@@ -784,7 +794,7 @@ the ``mesa3d`` OS, which does not support ``R_AMDGPU_ABS64``.
 
 There is no current OS loader support for 32 bit programs and so
 ``R_AMDGPU_ABS32`` is not used.
-     
+
 .. _amdgpu-dwarf:
 
 DWARF
@@ -3778,14 +3788,33 @@ the ``s_trap`` instruction with the following usage:
                                            ``queue_ptr`` terminated and its
                                                          associated queue put
                                                          into the error state.
-     ``llvm.debugtrap``  ``s_trap 0x03`` ``SGPR0-1``:    If debugger not
-                                           ``queue_ptr`` installed handled
-                                                         same as ``llvm.trap``.
-     debugger breakpoint ``s_trap 0x07``                 Reserved for  debugger
+     ``llvm.debugtrap``  ``s_trap 0x03``                 - If debugger not
+                                                           installed then
+                                                           behaves as a
+                                                           no-operation. The
+                                                           trap handler is
+                                                           entered and
+                                                           immediately returns
+                                                           to continue
+                                                           execution of the
+                                                           wavefront.
+                                                         - If the debugger is
+                                                           installed, causes
+                                                           the debug trap to be
+                                                           reported by the
+                                                           debugger and the
+                                                           wavefront is put in
+                                                           the halt state until
+                                                           resumed by the
+                                                           debugger.
+     reserved            ``s_trap 0x04``                 Reserved.
+     reserved            ``s_trap 0x05``                 Reserved.
+     reserved            ``s_trap 0x06``                 Reserved.
+     debugger breakpoint ``s_trap 0x07``                 Reserved for debugger
                                                          breakpoints.
-     debugger            ``s_trap 0x08``                 Reserved for debugger.
-     debugger            ``s_trap 0xfe``                 Reserved for debugger.
-     debugger            ``s_trap 0xff``                 Reserved for debugger.
+     reserved            ``s_trap 0x08``                 Reserved.
+     reserved            ``s_trap 0xfe``                 Reserved.
+     reserved            ``s_trap 0xff``                 Reserved.
      =================== =============== =============== =======================
 
 AMDPAL

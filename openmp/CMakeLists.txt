@@ -53,12 +53,11 @@ set(OPENMP_TEST_OPENMP_FLAGS ${OPENMP_TEST_COMPILER_OPENMP_FLAGS} CACHE STRING
 
 
 # Build host runtime library.
-#INTEL_CUSTOMIZATION
-# Do not add runtime if Intel specific runtime is being used.
-if (NOT INTEL_SPECIFIC_OPENMP)
-  add_subdirectory(runtime)
-endif()
-#END INTEL_CUSTOMIZATION
+# INTEL_CUSTOMIZATION
+# Do not add runtime if Intel specific runtime is being used, which we now do
+# unconditionally.
+#  add_subdirectory(runtime)
+# end INTEL_CUSTOMIZATION
 
 
 set(ENABLE_LIBOMPTARGET ON)

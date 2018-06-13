@@ -72,16 +72,16 @@ size_t DWARFUnit::ExtractDIEsIfNeeded(bool cu_die_only) {
   uint32_t depth = 0;
   // We are in our compile unit, parse starting at the offset we were told to
   // parse
-  const DWARFDataExtractor &debug_info_data = m_dwarf->get_debug_info_data();
+  const DWARFDataExtractor &data = GetData();
   std::vector<uint32_t> die_index_stack;
   die_index_stack.reserve(32);
   die_index_stack.push_back(0);
   bool prev_die_had_children = false;
   DWARFFormValue::FixedFormSizes fixed_form_sizes =
       DWARFFormValue::GetFixedFormSizesForAddressSize(GetAddressByteSize(),
-                                                      m_is_dwarf64);
+                                                      IsDWARF64());
   while (offset < next_cu_offset &&
-         die.FastExtract(debug_info_data, this, fixed_form_sizes, &offset)) {
+         die.FastExtract(data, this, fixed_form_sizes, &offset)) {
     //        if (log)
     //            log->Printf("0x%8.8x: %*.*s%s%s",
     //                        die.GetOffset(),
@@ -265,18 +265,13 @@ lldb::user_id_t DWARFUnit::GetID() const {
     return local_id;
 }
 
-uint32_t DWARFUnit::Size() const { return IsDWARF64() ? 23 : 11; }
-
 dw_offset_t DWARFUnit::GetNextCompileUnitOffset() const {
-  return m_offset + (IsDWARF64() ? 12 : 4) + GetLength();
+  return m_offset + GetLengthByteSize() + GetLength();
 }
 
 size_t DWARFUnit::GetDebugInfoSize() const {
-  return (IsDWARF64() ? 12 : 4) + GetLength() - Size();
+  return GetLengthByteSize() + GetLength() - GetHeaderByteSize();
 }
-
-uint32_t DWARFUnit::GetLength() const { return m_length; }
-uint16_t DWARFUnit::GetVersion() const { return m_version; }
 
 const DWARFAbbreviationDeclarationSet *DWARFUnit::GetAbbreviations() const {
   return m_abbrevs;
@@ -285,14 +280,6 @@ const DWARFAbbreviationDeclarationSet *DWARFUnit::GetAbbreviations() const {
 dw_offset_t DWARFUnit::GetAbbrevOffset() const {
   return m_abbrevs ? m_abbrevs->GetOffset() : DW_INVALID_OFFSET;
 }
-
-uint8_t DWARFUnit::GetAddressByteSize() const { return m_addr_size; }
-
-dw_addr_t DWARFUnit::GetBaseAddress() const { return m_base_addr; }
-
-dw_addr_t DWARFUnit::GetAddrBase() const { return m_addr_base; }
-
-dw_addr_t DWARFUnit::GetRangesBase() const { return m_ranges_base; }
 
 void DWARFUnit::SetAddrBase(dw_addr_t addr_base,
                             dw_addr_t ranges_base,
@@ -463,9 +450,9 @@ DWARFUnit::GetDIE(dw_offset_t die_offset) {
 
     if (ContainsDIEOffset(die_offset)) {
       ExtractDIEsIfNeeded(false);
-      DWARFDebugInfoEntry::iterator end = m_die_array.end();
-      DWARFDebugInfoEntry::iterator pos =
-          lower_bound(m_die_array.begin(), end, die_offset, CompareDIEOffset);
+      DWARFDebugInfoEntry::const_iterator end = m_die_array.cend();
+      DWARFDebugInfoEntry::const_iterator pos =
+          lower_bound(m_die_array.cbegin(), end, die_offset, CompareDIEOffset);
       if (pos != end) {
         if (die_offset == (*pos).GetOffset())
           return DWARFDIE(this, &(*pos));
@@ -618,8 +605,6 @@ LanguageType DWARFUnit::GetLanguageType() {
         die->GetAttributeValueAsUnsigned(m_dwarf, this, DW_AT_language, 0));
   return m_language_type;
 }
-
-bool DWARFUnit::IsDWARF64() const { return m_is_dwarf64; }
 
 bool DWARFUnit::GetIsOptimized() {
   if (m_is_optimized == eLazyBoolCalculate) {
@@ -884,13 +869,8 @@ void DWARFUnit::IndexPrivate(
           if (name && name != mangled_cstr &&
               ((mangled_cstr[0] == '_') ||
                (::strcmp(name, mangled_cstr) != 0))) {
-            Mangled mangled(ConstString(mangled_cstr), true);
-            func_fullnames.Insert(mangled.GetMangledName(),
+            func_fullnames.Insert(ConstString(mangled_cstr),
                                   DIERef(cu_offset, die.GetOffset()));
-            ConstString demangled = mangled.GetDemangledName(cu_language);
-            if (demangled)
-              func_fullnames.Insert(demangled,
-                                    DIERef(cu_offset, die.GetOffset()));
           }
         }
       }
@@ -909,13 +889,8 @@ void DWARFUnit::IndexPrivate(
           if (name && name != mangled_cstr &&
               ((mangled_cstr[0] == '_') ||
                (::strcmp(name, mangled_cstr) != 0))) {
-            Mangled mangled(ConstString(mangled_cstr), true);
-            func_fullnames.Insert(mangled.GetMangledName(),
+            func_fullnames.Insert(ConstString(mangled_cstr),
                                   DIERef(cu_offset, die.GetOffset()));
-            ConstString demangled = mangled.GetDemangledName(cu_language);
-            if (demangled)
-              func_fullnames.Insert(demangled,
-                                    DIERef(cu_offset, die.GetOffset()));
           }
         } else
           func_fullnames.Insert(ConstString(name),
@@ -1007,3 +982,4 @@ const DWARFDebugAranges &DWARFUnit::GetFunctionAranges() {
   }
   return *m_func_aranges_ap.get();
 }
+

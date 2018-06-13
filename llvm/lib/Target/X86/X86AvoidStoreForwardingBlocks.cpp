@@ -97,15 +97,15 @@ private:
   SmallVector<MachineInstr *, 2> ForRemoval;
   AliasAnalysis *AA;
 
-  /// \brief Returns couples of Load then Store to memory which look
+  /// Returns couples of Load then Store to memory which look
   ///  like a memcpy.
   void findPotentiallylBlockedCopies(MachineFunction &MF);
-  /// \brief Break the memcpy's load and store into smaller copies
+  /// Break the memcpy's load and store into smaller copies
   /// such that each memory load that was blocked by a smaller store
   /// would now be copied separately.
   void breakBlockedCopies(MachineInstr *LoadInst, MachineInstr *StoreInst,
                           const DisplacementSizeMap &BlockingStoresDispSizeMap);
-  /// \brief Break a copy of size Size to smaller copies.
+  /// Break a copy of size Size to smaller copies.
   void buildCopies(int Size, MachineInstr *LoadInst, int64_t LdDispImm,
                    MachineInstr *StoreInst, int64_t StDispImm,
                    int64_t LMMOffset, int64_t SMMOffset);
@@ -407,7 +407,7 @@ void X86AvoidSFBPass::buildCopy(MachineInstr *LoadInst, unsigned NLoadOpcode,
               MBB->getParent()->getMachineMemOperand(LMMO, LMMOffset, Size));
   if (LoadBase.isReg())
     getBaseOperand(NewLoad).setIsKill(false);
-  DEBUG(NewLoad->dump());
+  LLVM_DEBUG(NewLoad->dump());
   // If the load and store are consecutive, use the loadInst location to
   // reduce register pressure.
   MachineInstr *StInst = StoreInst;
@@ -428,7 +428,7 @@ void X86AvoidSFBPass::buildCopy(MachineInstr *LoadInst, unsigned NLoadOpcode,
   MachineOperand &StoreSrcVReg = StoreInst->getOperand(X86::AddrNumOperands);
   assert(StoreSrcVReg.isReg() && "Expected virtual register");
   NewStore->getOperand(X86::AddrNumOperands).setIsKill(StoreSrcVReg.isKill());
-  DEBUG(NewStore->dump());
+  LLVM_DEBUG(NewStore->dump());
 }
 
 void X86AvoidSFBPass::buildCopies(int Size, MachineInstr *LoadInst,
@@ -674,7 +674,7 @@ bool X86AvoidSFBPass::runOnMachineFunction(MachineFunction &MF) {
   TII = MF.getSubtarget<X86Subtarget>().getInstrInfo();
   TRI = MF.getSubtarget<X86Subtarget>().getRegisterInfo();
   AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
-  DEBUG(dbgs() << "Start X86AvoidStoreForwardBlocks\n";);
+  LLVM_DEBUG(dbgs() << "Start X86AvoidStoreForwardBlocks\n";);
   // Look for a load then a store to XMM/YMM which look like a memcpy
   findPotentiallylBlockedCopies(MF);
 
@@ -711,10 +711,10 @@ bool X86AvoidSFBPass::runOnMachineFunction(MachineFunction &MF) {
     // into smaller copies such that each smaller store that was causing
     // a store block would now be copied separately.
     MachineInstr *StoreInst = LoadStoreInstPair.second;
-    DEBUG(dbgs() << "Blocked load and store instructions: \n");
-    DEBUG(LoadInst->dump());
-    DEBUG(StoreInst->dump());
-    DEBUG(dbgs() << "Replaced with:\n");
+    LLVM_DEBUG(dbgs() << "Blocked load and store instructions: \n");
+    LLVM_DEBUG(LoadInst->dump());
+    LLVM_DEBUG(StoreInst->dump());
+    LLVM_DEBUG(dbgs() << "Replaced with:\n");
     removeRedundantBlockingStores(BlockingStoresDispSizeMap);
     breakBlockedCopies(LoadInst, StoreInst, BlockingStoresDispSizeMap);
     updateKillStatus(LoadInst, StoreInst);
@@ -726,7 +726,7 @@ bool X86AvoidSFBPass::runOnMachineFunction(MachineFunction &MF) {
   }
   ForRemoval.clear();
   BlockedLoadsStoresPairs.clear();
-  DEBUG(dbgs() << "End X86AvoidStoreForwardBlocks\n";);
+  LLVM_DEBUG(dbgs() << "End X86AvoidStoreForwardBlocks\n";);
 
   return Changed;
 }

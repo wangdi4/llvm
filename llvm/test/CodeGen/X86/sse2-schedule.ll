@@ -1818,15 +1818,15 @@ define <2 x double> @test_cvtps2pd(<4 x float> %a0, <4 x float> *%a1) {
 ;
 ; BTVER2-SSE-LABEL: test_cvtps2pd:
 ; BTVER2-SSE:       # %bb.0:
-; BTVER2-SSE-NEXT:    cvtps2pd %xmm0, %xmm1 # sched: [3:1.00]
-; BTVER2-SSE-NEXT:    cvtps2pd (%rdi), %xmm0 # sched: [8:1.00]
+; BTVER2-SSE-NEXT:    cvtps2pd %xmm0, %xmm1 # sched: [2:1.00]
+; BTVER2-SSE-NEXT:    cvtps2pd (%rdi), %xmm0 # sched: [7:1.00]
 ; BTVER2-SSE-NEXT:    addpd %xmm1, %xmm0 # sched: [3:1.00]
 ; BTVER2-SSE-NEXT:    retq # sched: [4:1.00]
 ;
 ; BTVER2-LABEL: test_cvtps2pd:
 ; BTVER2:       # %bb.0:
-; BTVER2-NEXT:    vcvtps2pd (%rdi), %xmm1 # sched: [8:1.00]
-; BTVER2-NEXT:    vcvtps2pd %xmm0, %xmm0 # sched: [3:1.00]
+; BTVER2-NEXT:    vcvtps2pd (%rdi), %xmm1 # sched: [7:1.00]
+; BTVER2-NEXT:    vcvtps2pd %xmm0, %xmm0 # sched: [2:1.00]
 ; BTVER2-NEXT:    vaddpd %xmm1, %xmm0, %xmm0 # sched: [3:1.00]
 ; BTVER2-NEXT:    retq # sched: [4:1.00]
 ;
@@ -14247,15 +14247,15 @@ define <2 x double> @test_sqrtpd(<2 x double> %a0, <2 x double> *%a1) {
 ;
 ; ZNVER1-SSE-LABEL: test_sqrtpd:
 ; ZNVER1-SSE:       # %bb.0:
-; ZNVER1-SSE-NEXT:    sqrtpd %xmm0, %xmm1 # sched: [20:1.00]
-; ZNVER1-SSE-NEXT:    sqrtpd (%rdi), %xmm0 # sched: [27:1.00]
+; ZNVER1-SSE-NEXT:    sqrtpd %xmm0, %xmm1 # sched: [20:20.00]
+; ZNVER1-SSE-NEXT:    sqrtpd (%rdi), %xmm0 # sched: [27:20.00]
 ; ZNVER1-SSE-NEXT:    addpd %xmm1, %xmm0 # sched: [3:1.00]
 ; ZNVER1-SSE-NEXT:    retq # sched: [1:0.50]
 ;
 ; ZNVER1-LABEL: test_sqrtpd:
 ; ZNVER1:       # %bb.0:
-; ZNVER1-NEXT:    vsqrtpd (%rdi), %xmm1 # sched: [27:1.00]
-; ZNVER1-NEXT:    vsqrtpd %xmm0, %xmm0 # sched: [20:1.00]
+; ZNVER1-NEXT:    vsqrtpd (%rdi), %xmm1 # sched: [27:20.00]
+; ZNVER1-NEXT:    vsqrtpd %xmm0, %xmm0 # sched: [20:20.00]
 ; ZNVER1-NEXT:    vaddpd %xmm1, %xmm0, %xmm0 # sched: [3:1.00]
 ; ZNVER1-NEXT:    retq # sched: [1:0.50]
   %1 = call <2 x double> @llvm.x86.sse2.sqrt.pd(<2 x double> %a0)
@@ -14392,16 +14392,16 @@ define <2 x double> @test_sqrtsd(<2 x double> %a0, <2 x double> *%a1) {
 ; ZNVER1-SSE-LABEL: test_sqrtsd:
 ; ZNVER1-SSE:       # %bb.0:
 ; ZNVER1-SSE-NEXT:    movapd (%rdi), %xmm1 # sched: [8:0.50]
-; ZNVER1-SSE-NEXT:    sqrtsd %xmm0, %xmm0 # sched: [20:1.00]
-; ZNVER1-SSE-NEXT:    sqrtsd %xmm1, %xmm1 # sched: [20:1.00]
+; ZNVER1-SSE-NEXT:    sqrtsd %xmm0, %xmm0 # sched: [20:20.00]
+; ZNVER1-SSE-NEXT:    sqrtsd %xmm1, %xmm1 # sched: [20:20.00]
 ; ZNVER1-SSE-NEXT:    addpd %xmm1, %xmm0 # sched: [3:1.00]
 ; ZNVER1-SSE-NEXT:    retq # sched: [1:0.50]
 ;
 ; ZNVER1-LABEL: test_sqrtsd:
 ; ZNVER1:       # %bb.0:
 ; ZNVER1-NEXT:    vmovapd (%rdi), %xmm1 # sched: [8:0.50]
-; ZNVER1-NEXT:    vsqrtsd %xmm0, %xmm0, %xmm0 # sched: [20:1.00]
-; ZNVER1-NEXT:    vsqrtsd %xmm1, %xmm1, %xmm1 # sched: [20:1.00]
+; ZNVER1-NEXT:    vsqrtsd %xmm0, %xmm0, %xmm0 # sched: [20:20.00]
+; ZNVER1-NEXT:    vsqrtsd %xmm1, %xmm1, %xmm1 # sched: [20:20.00]
 ; ZNVER1-NEXT:    vaddpd %xmm1, %xmm0, %xmm0 # sched: [3:1.00]
 ; ZNVER1-NEXT:    retq # sched: [1:0.50]
   %1 = call <2 x double> @llvm.x86.sse2.sqrt.sd(<2 x double> %a0)

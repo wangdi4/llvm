@@ -88,6 +88,10 @@ private:
 };
 } // anonymous namespace
 
+static bool isSectionPrefix(StringRef Prefix, StringRef Name) {
+  return Name.startswith(Prefix) || Name == Prefix.drop_back();
+}
+
 StringRef elf::getOutputSectionName(InputSectionBase *S) {
   if (Config->Relocatable)
     return S->Name;
@@ -104,13 +108,25 @@ StringRef elf::getOutputSectionName(InputSectionBase *S) {
     }
   }
 
+  // This check is for -z keep-text-section-prefix.  This option separates text
+  // sections with prefix ".text.hot", ".text.unlikely", ".text.startup" or
+  // ".text.exit".
+  // When enabled, this allows identifying the hot code region (.text.hot) in
+  // the final binary which can be selectively mapped to huge pages or mlocked,
+  // for instance.
+  if (Config->ZKeepTextSectionPrefix)
+    for (StringRef V :
+         {".text.hot.", ".text.unlikely.", ".text.startup.", ".text.exit."}) {
+      if (isSectionPrefix(V, S->Name))
+        return V.drop_back();
+    }
+
   for (StringRef V :
        {".text.", ".rodata.", ".data.rel.ro.", ".data.", ".bss.rel.ro.",
         ".bss.", ".init_array.", ".fini_array.", ".ctors.", ".dtors.", ".tbss.",
         ".gcc_except_table.", ".tdata.", ".ARM.exidx.", ".ARM.extab."}) {
-    StringRef Prefix = V.drop_back();
-    if (S->Name.startswith(V) || S->Name == Prefix)
-      return Prefix;
+    if (isSectionPrefix(V, S->Name))
+      return V.drop_back();
   }
 
   // CommonSection is identified as "COMMON" in linker scripts.
@@ -681,15 +697,15 @@ enum RankFlags {
   RF_NOT_INTERP = 1 << 17,
   RF_NOT_ALLOC = 1 << 16,
   RF_WRITE = 1 << 15,
-  RF_EXEC_WRITE = 1 << 13,
-  RF_EXEC = 1 << 12,
-  RF_NON_TLS_BSS = 1 << 11,
-  RF_NON_TLS_BSS_RO = 1 << 10,
-  RF_NOT_TLS = 1 << 9,
+  RF_EXEC_WRITE = 1 << 14,
+  RF_EXEC = 1 << 13,
+  RF_NON_TLS_BSS = 1 << 12,
+  RF_NON_TLS_BSS_RO = 1 << 11,
+  RF_NOT_TLS = 1 << 10,
+  RF_ALLOC_FIRST = 1 << 9,
   RF_BSS = 1 << 8,
   RF_NOTE = 1 << 7,
   RF_PPC_NOT_TOCBSS = 1 << 6,
-  RF_PPC_OPD = 1 << 5,
   RF_PPC_TOCL = 1 << 4,
   RF_PPC_TOC = 1 << 3,
   RF_PPC_BRANCH_LT = 1 << 2,
@@ -716,6 +732,16 @@ static unsigned getSectionRank(const OutputSection *Sec) {
   // so debug info doesn't change addresses in actual code.
   if (!(Sec->Flags & SHF_ALLOC))
     return Rank | RF_NOT_ALLOC;
+
+  // Place .dynsym and .dynstr at the beginning of SHF_ALLOC
+  // sections. We want to do this to mitigate the possibility that
+  // huge .dynsym and .dynstr sections placed between ro-data and text
+  // sections cause relocation overflow.  Note: .dynstr has SHT_STRTAB
+  // type and SHF_ALLOC attribute, whereas sections that only have
+  // SHT_STRTAB but without SHF_ALLOC is placed at the end. All "Sec"
+  // reaching here has SHF_ALLOC bit set.
+  if (Sec->Type == SHT_DYNSYM || Sec->Type == SHT_STRTAB)
+    return Rank | RF_ALLOC_FIRST;
 
   // Sort sections based on their access permission in the following
   // order: R, RX, RWX, RW.  This order is based on the following
@@ -793,9 +819,6 @@ static unsigned getSectionRank(const OutputSection *Sec) {
     StringRef Name = Sec->Name;
     if (Name != ".tocbss")
       Rank |= RF_PPC_NOT_TOCBSS;
-
-    if (Name == ".opd")
-      Rank |= RF_PPC_OPD;
 
     if (Name == ".toc1")
       Rank |= RF_PPC_TOCL;
@@ -1854,7 +1877,7 @@ template <class ELFT> std::vector<PhdrEntry *> Writer<ELFT>::createPhdrs() {
   // Create one PT_NOTE per a group of contiguous .note sections.
   PhdrEntry *Note = nullptr;
   for (OutputSection *Sec : OutputSections) {
-    if (Sec->Type == SHT_NOTE) {
+    if (Sec->Type == SHT_NOTE && (Sec->Flags & SHF_ALLOC)) {
       if (!Note || Sec->LMAExpr)
         Note = AddHdr(PT_NOTE, PF_R);
       Note->add(Sec);
@@ -2295,14 +2318,6 @@ template <class ELFT> void Writer<ELFT>::writeTrapInstr() {
 template <class ELFT> void Writer<ELFT>::writeSections() {
   uint8_t *Buf = Buffer->getBufferStart();
 
-  // PPC64 needs to process relocations in the .opd section
-  // before processing relocations in code-containing sections.
-  if (auto *OpdCmd = findSection(".opd")) {
-    Out::Opd = OpdCmd;
-    Out::OpdBuf = Buf + Out::Opd->Offset;
-    OpdCmd->template writeTo<ELFT>(Buf + Out::Opd->Offset);
-  }
-
   OutputSection *EhFrameHdr = nullptr;
   if (InX::EhFrameHdr && !InX::EhFrameHdr->empty())
     EhFrameHdr = InX::EhFrameHdr->getParent();
@@ -2315,8 +2330,7 @@ template <class ELFT> void Writer<ELFT>::writeSections() {
       Sec->writeTo<ELFT>(Buf + Sec->Offset);
 
   for (OutputSection *Sec : OutputSections)
-    if (Sec != Out::Opd && Sec != EhFrameHdr && Sec->Type != SHT_REL &&
-        Sec->Type != SHT_RELA)
+    if (Sec != EhFrameHdr && Sec->Type != SHT_REL && Sec->Type != SHT_RELA)
       Sec->writeTo<ELFT>(Buf + Sec->Offset);
 
   // The .eh_frame_hdr depends on .eh_frame section contents, therefore
