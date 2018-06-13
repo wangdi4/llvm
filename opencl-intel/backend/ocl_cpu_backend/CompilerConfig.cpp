@@ -102,18 +102,23 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     m_infoOutputFile = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_TIME_PASSES, "");
     m_enableTiming = !m_infoOutputFile.empty();
     m_disableStackDump = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_DISABLE_STACKDUMP, false);
-#ifdef BUILD_FPGA_EMULATOR
-    int channelDepthEmulationMode = pBackendOptions->GetIntValue(
-        (int)CL_DEV_BACKEND_OPTION_CHANNEL_DEPTH_EMULATION_MODE,
-        (int)CHANNEL_DEPTH_MODE_STRICT);
-    m_LLVMOptions += " --channel-depth-emulation-mode="
-        + std::to_string(channelDepthEmulationMode);
-    m_LLVMOptions += " --remove-fpga-reg --remove-pipe-const-args";
-    if (channelDepthEmulationMode != CHANNEL_DEPTH_MODE_IGNORE_DEPTH)
+
+    m_targetDevice = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
+        (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
+
+    if (FPGA_EMU_DEVICE == m_targetDevice)
     {
-        m_LLVMOptions += " --use-simd-channels=0 ";
+        int channelDepthEmulationMode = pBackendOptions->GetIntValue(
+            (int)CL_DEV_BACKEND_OPTION_CHANNEL_DEPTH_EMULATION_MODE,
+            (int)CHANNEL_DEPTH_MODE_STRICT);
+        m_LLVMOptions += " --channel-depth-emulation-mode="
+            + std::to_string(channelDepthEmulationMode);
+        m_LLVMOptions += " --remove-fpga-reg --remove-pipe-const-args";
+        if (CHANNEL_DEPTH_MODE_IGNORE_DEPTH != channelDepthEmulationMode)
+        {
+            m_LLVMOptions += " --use-simd-channels=0 ";
+        }
     }
-#endif // BUILD_FPGA_EMULATOR
 }
 
 void CompilerConfig::LoadDefaults()
@@ -183,6 +188,8 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
     pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_BEFORE, &m_DumpIROptionBefore, 0);
     m_dumpIRDir     = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DUMP_IR_DIR, m_dumpIRDir.c_str());
     m_dumpHeuristicIR = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR, m_dumpHeuristicIR);
+    m_targetDevice = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
+        (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
 }
 
 }}}

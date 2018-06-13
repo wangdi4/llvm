@@ -24,7 +24,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
  */
 enum cl_dev_backend_options                            // Description                           | Type                   | Values/Format/Exampl
 {                                                      // --------------------------------------+------------------------+----------------------
-    CL_DEV_BACKEND_OPTION_DEVICE,                      //!< Device selection                    |string                  | "mic","cpu"
+    CL_DEV_BACKEND_OPTION_DEVICE,                      //!< Device selection                    |DeviceMode              | "CPU_DEVICE","FPGA_EMU_DEVICE"
     CL_DEV_BACKEND_OPTION_SUBDEVICE,                   //!< Sub-device selection                |string                  | "corei7","sandybride" for cpu or "knc" for mic
     CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES,          //!< Enable/Disable specific CPU features|string                  | "+avx,-avx256"
     CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE,              //!< Transpose size use in vectorizer    |ETranposeSize           |

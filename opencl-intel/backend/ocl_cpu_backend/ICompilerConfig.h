@@ -15,6 +15,7 @@
 #pragma once
 
 #include "ICLDevBackendOptions.h"
+#include "common_dev_limits.h"
 
 #include <string>
 #include <vector>
@@ -49,6 +50,8 @@ public:
      * Pass command line options to LLVM
      */
     virtual std::string LLVMOptions() const = 0;
+
+    virtual DeviceMode TargetDevice() const = 0;
 };
 
 /**
@@ -74,6 +77,8 @@ public:
     virtual std::string GetDumpIRDir() const = 0;
     virtual bool GetDumpHeuristicIRFlag() const = 0;
     virtual const std::string &GetStatFileBaseName() const = 0;
+
+    virtual DeviceMode TargetDevice() const = 0;
 };
 
 }}}
