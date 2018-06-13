@@ -76,8 +76,9 @@ public:
       Type *Ty = M.getTypeByName(Name);
       if (Ty) {
         if (auto *StructTy = dyn_cast<StructType>(Ty)) {
-          DEBUG(dbgs() << "DTRANS-OPTBASETEST: Type marked for conversion: "
-                       << Name << "\n");
+          LLVM_DEBUG(dbgs()
+                     << "DTRANS-OPTBASETEST: Type marked for conversion: "
+                     << Name << "\n");
           TypesToConvert.insert(StructTy);
         } else {
           errs() << "DTRANS-OPTBASETEST: Ignored: Type is not a struct type: "

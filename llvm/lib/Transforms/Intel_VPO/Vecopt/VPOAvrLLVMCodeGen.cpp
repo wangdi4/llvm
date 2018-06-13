@@ -320,7 +320,7 @@ void AVRLoopVectorizationLegality::addInductionPhi(
   AllowedExit.insert(Phi);
   AllowedExit.insert(Phi->getIncomingValueForBlock(TheLoop->getLoopLatch()));
 
-  DEBUG(dbgs() << "LV: Found an induction variable.\n");
+  LLVM_DEBUG(dbgs() << "LV: Found an induction variable.\n");
   return;
 }
 

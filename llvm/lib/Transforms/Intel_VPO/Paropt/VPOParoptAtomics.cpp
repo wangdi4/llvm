@@ -53,8 +53,8 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
   if (AtomicNode->getBBSetSize() < 3) {
     // It's possible that the middle BBlock is empty, in which case,
     // we don't need to do anything.
-    DEBUG(dbgs() << __FUNCTION__
-                 << ": AtomicNode has less than 3 BBlocks. Skipping...\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": AtomicNode has less than 3 BBlocks. Skipping...\n");
     handled = true;
   } else {
     switch (AtomicNode->getAtomicKind()) {
@@ -83,10 +83,11 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
 
   if (handled) {
     AtomicNode->resetBBSet(); // Invalidate BBSet if transformed
-    DEBUG(dbgs() << __FUNCTION__ << ": Handling of AtomicNode successful.\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": Handling of AtomicNode successful.\n");
   }
   else
-    DEBUG(dbgs() << __FUNCTION__ << ": Handling of AtomicNode failed.\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Handling of AtomicNode failed.\n");
 
   return handled;
 }
@@ -104,8 +105,9 @@ bool VPOParoptAtomics::handleAtomicRW(WRNAtomicNode *AtomicNode,
   assert(TidPtr != nullptr && "TidPtr is null.");
 
   if (AtomicNode->getBBSetSize() != 3) {
-    DEBUG(dbgs() << __FUNCTION__
-                 << ": AtomicNode for Read/Write does not have 3 BBlocks.\n");
+    LLVM_DEBUG(
+        dbgs() << __FUNCTION__
+               << ": AtomicNode for Read/Write does not have 3 BBlocks.\n");
     return false;
   }
 
@@ -118,8 +120,9 @@ bool VPOParoptAtomics::handleAtomicRW(WRNAtomicNode *AtomicNode,
   // We expect there to be one load/store inside this BBlock, followed by a
   // branch to the next BBlock. We're concerned with the first one.
   if (BB->size() != 2) {
-    DEBUG(dbgs() << __FUNCTION__ << ": Atomic Read/Write BBlock has more than"
-                                    " 2 Instructions. Returning...\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": Atomic Read/Write BBlock has more than"
+                         " 2 Instructions. Returning...\n");
     return false; // Handle using critical section.
   }
 
@@ -128,18 +131,19 @@ bool VPOParoptAtomics::handleAtomicRW(WRNAtomicNode *AtomicNode,
   assert(Inst != nullptr && "Inst is null.");
 
   if ((AtomicKind == WRNAtomicRead) && !isa<LoadInst>(Inst)) {
-    DEBUG(dbgs() << __FUNCTION__ << ": First instruction is not a load "
-                 << "for AtomicRead. Returning...\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": First instruction is not a load "
+                      << "for AtomicRead. Returning...\n");
     return false; // Handle using critical section.
   };
 
   if ((AtomicKind == WRNAtomicWrite) && !isa<StoreInst>(Inst)) {
-    DEBUG(dbgs() << __FUNCTION__ << ": First instruction is not a store "
-                 << "for AtomicWrite. Returning...\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": First instruction is not a store "
+                      << "for AtomicWrite. Returning...\n");
     return false; // Handle using critical section.
   };
 
-  DEBUG(dbgs() << __FUNCTION__ << ": Source Instruction: " << *Inst << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Source Instruction: " << *Inst
+                    << "\n");
 
   // Now that we have the load/store instruction, we need to extract the
   // operands from it. Load/Store instructions are of form:
@@ -176,7 +180,7 @@ bool VPOParoptAtomics::handleAtomicRW(WRNAtomicNode *AtomicNode,
   assert(AtomicCall != nullptr && "Generated KMPC call is null.");
 
   ReplaceInstWithInst(Inst, AtomicCall);
-  DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic call inserted.\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic call inserted.\n");
   return true;
 }
 
@@ -188,8 +192,8 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
   if (AtomicNode->getBBSetSize() != 3) {
-    DEBUG(dbgs() << __FUNCTION__
-                 << ": AtomicNode for Update does not have 3 BBlocks.\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": AtomicNode for Update does not have 3 BBlocks.\n");
     return false;
   }
 
@@ -203,8 +207,9 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
 
   // Make sure that the BBlock has enough Instructions to start with.
   if (BB->size() <= 3) {
-    DEBUG(dbgs() << __FUNCTION__ << ": Atomic update BBlock has less than 4"
-                 << " Instructions. Returning.\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": Atomic update BBlock has less than 4"
+                      << " Instructions. Returning.\n");
     return false; // Handle using critical section.
   }
 
@@ -213,8 +218,9 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
   // We start off with this Instruction to get the atomic operand.
   StoreInst *OpndStore = dyn_cast<StoreInst>(&*(++(BB->rbegin())));
   if (OpndStore == nullptr) {
-    DEBUG(dbgs() << __FUNCTION__
-                 << ": Unable to find store to atomic operand. Returning.\n");
+    LLVM_DEBUG(
+        dbgs() << __FUNCTION__
+               << ": Unable to find store to atomic operand. Returning.\n");
     return false; // Handle using critical section.
   }
 
@@ -257,8 +263,9 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
   // Now we know the atomic operand, the value operand, and the operation. We
   // now check whether an intrinsic exists which supports the given combination
   // of operation and operands.
-  DEBUG(dbgs() << __FUNCTION__ << ": Atomic Opnd: " << *AtomicOpnd << "\n");
-  DEBUG(dbgs() << __FUNCTION__ << ": Value Opnd: " << *ValueOpnd << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Atomic Opnd: " << *AtomicOpnd
+                    << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Value Opnd: " << *ValueOpnd << "\n");
   const std::string Name = getAtomicUCIntrinsicName<WRNAtomicUpdate>(
       *OpInst, Reversed, *AtomicOpnd, *ValueOpnd);
   if (Name.empty()) {
@@ -281,7 +288,7 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
   assert(AtomicCall != nullptr && "Generated KMPC call is null.");
 
   AtomicCall->insertBefore(OpndStore);
-  DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic call inserted.\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic call inserted.\n");
 
   // And finally, delete the instructions that are no longer needed.
   deleteInstructionsInList(InstsToDelete);
@@ -298,8 +305,8 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   assert(TidPtr != nullptr && "TidPtr is null.");
 
   if (AtomicNode->getBBSetSize() != 3) {
-    DEBUG(dbgs() << __FUNCTION__
-                 << ": AtomicNode for Capture does not have 3 BBlocks.\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": AtomicNode for Capture does not have 3 BBlocks.\n");
     return false;
   }
 
@@ -309,8 +316,9 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
 
   // Make sure that the BBlock has enough Instructions to start with.
   if (BB->size() <= 3) {
-    DEBUG(dbgs() << __FUNCTION__ << ": Atomic Capture BBlock has less than 4"
-                 << " Instructions. Returning.\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": Atomic Capture BBlock has less than 4"
+                      << " Instructions. Returning.\n");
     return false; // Handle using critical section.
   }
 
@@ -366,9 +374,11 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
 
   // We know the atomic operand, the value operand, and the operation. We can
   // find a compatible KMPC intrinsic now.
-  DEBUG(dbgs() << __FUNCTION__ << ": Atomic Opnd: " << *AtomicOpnd << "\n");
-  DEBUG(dbgs() << __FUNCTION__ << ": Capture Opnd: " << *CaptureOpnd << "\n");
-  DEBUG(dbgs() << __FUNCTION__ << ": Value Opnd: " << *ValueOpnd << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Atomic Opnd: " << *AtomicOpnd
+                    << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Capture Opnd: " << *CaptureOpnd
+                    << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Value Opnd: " << *ValueOpnd << "\n");
   assert(AtomicOpnd->getType()->isPointerTy() && "Unexpected AtomicOpnd.");
   assert(CaptureOpnd->getType()->isPointerTy() && "Unexpected CaptureOpnd.");
 
@@ -416,7 +426,7 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   assert(AtomicCall != nullptr && "Generated KMPC call is null.");
 
   AtomicCall->insertBefore(Anchor);
-  DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic call inserted.\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic call inserted.\n");
 
   // Now we need to store the result of this call to the capture operand,
   // which may have a different type than the value returned by the call.
@@ -467,9 +477,9 @@ bool VPOParoptAtomics::extractAtomicUpdateOp(
   // There should only be one.
   StoreInst *AtomicStore = getStoreToOpndIfUnique(*BB, *AtomicOpnd);
   if (AtomicStore == nullptr) {
-    DEBUG(dbgs() << __FUNCTION__
-                 << ": More than one stores in BB for AtomicOpnd:"
-                 << *AtomicOpnd << "\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": More than one stores in BB for AtomicOpnd:"
+                      << *AtomicOpnd << "\n");
     return false; // Handle using critical sections.
   }
 
@@ -489,7 +499,8 @@ bool VPOParoptAtomics::extractAtomicUpdateOp(
   Op = dyn_cast<Instruction>(OpResult);
 
   if (Op == nullptr || !isa<BinaryOperator>(Op)) {
-    DEBUG(dbgs() << __FUNCTION__ << ": Unexpected update Op:" << *OpResult << "\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Unexpected update Op:" << *OpResult
+                      << "\n");
     InstsToDelete.clear();
     return false;
   }
@@ -517,8 +528,8 @@ bool VPOParoptAtomics::extractAtomicUpdateOp(
   }
 
   if (Idx > 1) {
-    DEBUG(dbgs() << __FUNCTION__
-                 << ": Load of AtomicOpnd not used in Op:" << *Op << "\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": Load of AtomicOpnd not used in Op:" << *Op << "\n");
     InstsToDelete.clear();
     return false;
   }
@@ -550,9 +561,8 @@ VPOParoptAtomics::AtomicCaptureKind VPOParoptAtomics::extractAtomicCaptureOp(
       gatherFirstSecondToLastAndLastStores(*BB);
 
   if (StoreCandidates.size() < 3) {
-    DEBUG(dbgs()
-          << __FUNCTION__
-          << ": Unexpected: Less than two stores found in BB.\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": Unexpected: Less than two stores found in BB.\n");
     return CaptureUnknown;
   }
 
@@ -561,7 +571,7 @@ VPOParoptAtomics::AtomicCaptureKind VPOParoptAtomics::extractAtomicCaptureOp(
   // (A) CaptureBeforeOp:
   // First, try to process the capture-before-op case. Here, the last store of
   // BB should be the store to x, and the first store should be a store to v.
-  DEBUG(dbgs() << __FUNCTION__ << ": Processing as CaptureBeforeOp...\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Processing as CaptureBeforeOp...\n");
   AtomicOpnd = (*StoreCandidates.rbegin())->getPointerOperand();
   CaptureOpnd = (*StoreCandidates.begin())->getPointerOperand();
 
@@ -577,22 +587,23 @@ VPOParoptAtomics::AtomicCaptureKind VPOParoptAtomics::extractAtomicCaptureOp(
                                    InstsToDelete);                   // In, Out
 
   if (CaptureKind != CaptureUnknown) {
-    DEBUG(dbgs() << __FUNCTION__
-                 << ": CaptureBeforeOp identified. Op: " << *OpInst << "\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": CaptureBeforeOp identified. Op: "
+                      << *OpInst << "\n");
     return CaptureKind;
   } else if (UpdateOpFound) {
-    DEBUG(dbgs() << __FUNCTION__
-                 << ": Skipping processing as CaptureSwap/CaptureAfterOp since "
-                    "we found an Update Operation on the operand of the last "
-                    "store ("
-                 << *AtomicOpnd << ").\n");
+    LLVM_DEBUG(
+        dbgs() << __FUNCTION__
+               << ": Skipping processing as CaptureSwap/CaptureAfterOp since "
+                  "we found an Update Operation on the operand of the last "
+                  "store ("
+               << *AtomicOpnd << ").\n");
     return CaptureUnknown;
   }
 
   // (B) CaptureSwap
   // Second, try to process CaptureSwap. Here again, first store of BB will be
   // to v, and the last store to x.
-  DEBUG(dbgs() << __FUNCTION__ << ": Processing as CaptureSwap...\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Processing as CaptureSwap...\n");
   AtomicOpnd = (*StoreCandidates.rbegin())->getPointerOperand();
   CaptureOpnd = (*StoreCandidates.begin())->getPointerOperand();
 
@@ -602,14 +613,14 @@ VPOParoptAtomics::AtomicCaptureKind VPOParoptAtomics::extractAtomicCaptureOp(
                     InstsToDelete);                              // In, Out
 
   if (SwapOpFound) {
-    DEBUG(dbgs() << __FUNCTION__ << ": CaptureSwap identified.\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": CaptureSwap identified.\n");
     return CaptureSwap;
   }
 
   // (C) CaptureAfterOp
   // Last, try to process CaptureAfterOp. Here Last store of BB will be to v,
   // and second last to x.
-  DEBUG(dbgs() << __FUNCTION__ << ": Processing as CaptureAfterOp...\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Processing as CaptureAfterOp...\n");
   AtomicOpnd =(*(StoreCandidates.rbegin() + 1))->getPointerOperand();
   CaptureOpnd =(*StoreCandidates.rbegin())->getPointerOperand();
 
@@ -625,13 +636,13 @@ VPOParoptAtomics::AtomicCaptureKind VPOParoptAtomics::extractAtomicCaptureOp(
                                    InstsToDelete);                   // In, Out
 
   if (CaptureKind != CaptureUnknown) {
-    DEBUG(dbgs() << __FUNCTION__
-                 << ": CaptureAfterOp identified. Op: " << *OpInst << "\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": CaptureAfterOp identified. Op: "
+                      << *OpInst << "\n");
     return CaptureKind;
   }
 
   // (D) No Capture operation found.
-  DEBUG(dbgs() << __FUNCTION__ << ": Capture Op not found.\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Capture Op not found.\n");
   return CaptureUnknown;
 }
 
@@ -669,8 +680,8 @@ VPOParoptAtomics::identifyNonSwapCaptureKind(
   Value *AtomicOpnd = AtomicStore->getPointerOperand();
   StoreInst *CaptureStore = getStoreToOpndIfUnique(*BB, *CaptureOpnd);
   if (CaptureStore == nullptr) {
-    DEBUG(dbgs() << __FUNCTION__
-                 << ": Multiple stores to capture operand within BB.\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": Multiple stores to capture operand within BB.\n");
     return CaptureUnknown;
   }
 
@@ -688,9 +699,9 @@ VPOParoptAtomics::identifyNonSwapCaptureKind(
   auto *LoadX = dyn_cast<LoadInst>(ValV);
 
   if (LoadX != nullptr && LoadX->getPointerOperand() != AtomicOpnd) {
-    DEBUG(dbgs() << __FUNCTION__ << ": Value stored to capture operand ("
-                 << *(LoadX->getPointerOperand()) << ") is not atomic operand ("
-                 << *AtomicOpnd << ") \n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Value stored to capture operand ("
+                      << *(LoadX->getPointerOperand())
+                      << ") is not atomic operand (" << *AtomicOpnd << ") \n");
     return CaptureUnknown;
   } else if (LoadX != nullptr) {
     // Match found for `v = x`. We mark the instructions which assign `x` to `v`
@@ -725,7 +736,7 @@ VPOParoptAtomics::identifyNonSwapCaptureKind(
   Value* ValX = AtomicStore->getValueOperand();
 
   if (ValV != ValX) {
-    DEBUG(
+    LLVM_DEBUG(
         dbgs() << __FUNCTION__
                << ": Value stored to capture operand is not atomic operand: v: "
                << *ValV << "x: " << *ValX << " \n");
@@ -785,8 +796,9 @@ bool VPOParoptAtomics::extractSwapOp(
   StoreInst* CaptureStore = getStoreToOpndIfUnique(*BB, *CaptureOpnd);
 
   if(AtomicStore == nullptr || CaptureStore == nullptr) {
-    DEBUG(dbgs() << __FUNCTION__ << ": There should be only one store to "
-                                    "atomic and capture operands.\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": There should be only one store to "
+                         "atomic and capture operands.\n");
     return false;
   }
 
@@ -872,8 +884,8 @@ CastInst *VPOParoptAtomics::genTruncForValueOpnd(const Value &AtomicOpnd,
                                       // more bits than ValueOpnd.
     return nullptr;
 
-  DEBUG(dbgs() << __FUNCTION__
-               << ": Generating Trunc for ValueOpnd: " << ValueOpnd << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Generating Trunc for ValueOpnd: "
+                    << ValueOpnd << "\n");
 
   return new TruncInst(&ValueOpnd, AtomicOpndTy, "val.opnd.trunc");
 }
@@ -894,8 +906,8 @@ CastInst *VPOParoptAtomics::genFPExtForValueOpnd(const Instruction &Op,
       !(ValueOpndTy->isFloatTy() || ValueOpndTy->isX86_FP80Ty())) // F32 or F80
     return nullptr;
 
-  DEBUG(dbgs() << __FUNCTION__
-               << ": Generating FPExt for ValueOpnd: " << ValueOpnd << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Generating FPExt for ValueOpnd: "
+                    << ValueOpnd << "\n");
 
   const BasicBlock *B = Op.getParent();
   const Function *F = B->getParent();
@@ -938,8 +950,8 @@ CastInst *VPOParoptAtomics::genFPTruncForValueOpnd(const Value &AtomicOpnd,
       ValueOpndTy->isDoubleTy()) // float4-float8 update intrinsics exist.
     return nullptr;
 
-  DEBUG(dbgs() << __FUNCTION__
-               << ": Generating FPTrunc for ValueOpnd: " << ValueOpnd << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Generating FPTrunc for ValueOpnd: "
+                    << ValueOpnd << "\n");
 
   return CastInst::CreateFPCast(&ValueOpnd, AtomicOpndTy, "val.opnd.fptrunc");
 }
@@ -961,8 +973,8 @@ VPOParoptAtomics::gatherFirstSecondToLastAndLastStores(BasicBlock &BB) {
   }
 
   if (StoreList.size() != 1) {
-      DEBUG(dbgs() << __FUNCTION__ << " : No StoreInst found in BB\n.");
-      return StoreList;
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << " : No StoreInst found in BB\n.");
+    return StoreList;
   }
 
   for (auto It = BB.rbegin(), REnd = BB.rend();
@@ -992,8 +1004,9 @@ StoreInst *VPOParoptAtomics::getStoreToOpndIfUnique(BasicBlock &BB,
       continue;
 
     if(OpndStore != nullptr) {
-      DEBUG(dbgs() << __FUNCTION__ << " : More than one StoreInsts to operand: "
-                   << Opnd << " \n");
+      LLVM_DEBUG(dbgs() << __FUNCTION__
+                        << " : More than one StoreInsts to operand: " << Opnd
+                        << " \n");
       return nullptr; // Only one StoreInst should be storing to Opnd.
     }
 
@@ -1034,9 +1047,9 @@ bool VPOParoptAtomics::instructionsAreUsedOutsideBB(
       if (UserInst != nullptr && UserInst->getParent() != BB) {
 
 #ifndef NDEBUG
-        DEBUG(dbgs() << __FUNCTION__ << ": Instruction '" << *Inst
-                     << "' is used in '" << *UserInst
-                     << "', which is outside the given BB.\n");
+        LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Instruction '" << *Inst
+                          << "' is used in '" << *UserInst
+                          << "', which is outside the given BB.\n");
 #endif
         return true;
       }
@@ -1053,9 +1066,9 @@ void VPOParoptAtomics::deleteInstructionsInList(
     return;
 
 #ifndef NDEBUG
-  DEBUG(dbgs() << __FUNCTION__ << ": Instructions to be deleted:\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Instructions to be deleted:\n");
   for (auto *Inst: InstsToDelete) {
-    DEBUG(dbgs() << *Inst << "\n");
+    LLVM_DEBUG(dbgs() << *Inst << "\n");
   }
 #endif
 
@@ -1091,12 +1104,12 @@ VPOParoptAtomics::getAtomicRWSIntrinsicName(const BasicBlock &BB,
   auto MapEntry = MapToUse.find(Ty);
 
   if (MapEntry == MapToUse.end()) {
-    DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic not found.\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic not found.\n");
     return std::string();
   }
 
-  DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic found: " << MapEntry->second
-               << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic found: " << MapEntry->second
+                    << "\n");
   return adjustIntrinsicNameForArchitecture(BB, MapEntry->second);
 }
 
@@ -1158,12 +1171,12 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
   auto MapEntry = MapToUse.find(OpTy);
 
   if (MapEntry == MapToUse.end()) {
-    DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic not found.\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic not found.\n");
     return std::string();
   }
 
-  DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic found: " << MapEntry->second
-               << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic found: " << MapEntry->second
+                    << "\n");
   return adjustIntrinsicNameForArchitecture(*(Operation.getParent()),
                                             MapEntry->second);
 }
@@ -1228,8 +1241,8 @@ const std::string VPOParoptAtomics::adjustIntrinsicNameForArchitecture(
   const std::string ArchAdjustedIntrinsicName =
       IntrinsicName.substr(0, A16StartingPosition) +
       IntrinsicName.substr(A16StartingPosition + 4);
-  DEBUG(dbgs() << __FUNCTION__ << ": Adjusted intrinsic name: "
-               << ArchAdjustedIntrinsicName << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Adjusted intrinsic name: "
+                    << ArchAdjustedIntrinsicName << "\n");
   return ArchAdjustedIntrinsicName;
 }
 

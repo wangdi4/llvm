@@ -110,8 +110,8 @@ FunctionPass *llvm::createHIRDummyTransformationPass() {
 }
 
 bool HIRDummyTransformation::runOnFunction(Function &F) {
-  DEBUG(dbgs() << "Dummy Transformation for Function : " << F.getName()
-               << "\n");
+  LLVM_DEBUG(dbgs() << "Dummy Transformation for Function : " << F.getName()
+                    << "\n");
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   NodeVisitor V;
   HIRF->getHLNodeUtils().visitAll(V);

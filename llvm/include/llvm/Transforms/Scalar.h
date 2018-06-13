@@ -265,14 +265,17 @@ FunctionPass *createCleanupFakeLoadsPass();
 FunctionPass *createIndirectCallConvLegacyPass(bool UseAndersen = false,
                                                bool UseDTrans = false);
 
-// VPOParoptTpv - Supports the thread private legacy mode.
-ModulePass *createVPOParoptTpvPass();
-
 // LoopOptMarker - Indicates loopopt based throttling to subsequent passes.
 FunctionPass *createLoopOptMarkerLegacyPass();
 
 FunctionPass *createAggInlAALegacyPass();
 #endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+// VPOParoptTpv - Supports the thread private legacy mode.
+ModulePass *createVPOParoptTpvPass();
+#endif // INTEL_COLLAB
+
 
 //===----------------------------------------------------------------------===//
 //

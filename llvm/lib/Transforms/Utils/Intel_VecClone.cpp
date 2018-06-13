@@ -205,8 +205,8 @@ bool VecClone::hasComplexType(Function *F)
 Function* VecClone::CloneFunction(Function &F, VectorVariant &V)
 {
 
-  DEBUG(dbgs() << "Cloning Function: " << F.getName() << "\n");
-  DEBUG(F.dump());
+  LLVM_DEBUG(dbgs() << "Cloning Function: " << F.getName() << "\n");
+  LLVM_DEBUG(F.dump());
 
   FunctionType* OrigFunctionType = F.getFunctionType();
   Type *ReturnType = F.getReturnType();
@@ -293,8 +293,8 @@ Function* VecClone::CloneFunction(Function &F, VectorVariant &V)
   // Disable for now.
   //Clone->setCallingConv(CallingConv::X86_RegCall);
 
-  DEBUG(dbgs() << "After Cloning and Parameter/Return Expansion\n");
-  DEBUG(Clone->dump());
+  LLVM_DEBUG(dbgs() << "After Cloning and Parameter/Return Expansion\n");
+  LLVM_DEBUG(Clone->dump());
 
   return Clone;
 }
@@ -382,8 +382,8 @@ BasicBlock* VecClone::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
     Inst->insertBefore(EntryBlock->getTerminator());
   }
 
-  DEBUG(dbgs() << "After Entry Block Split\n");
-  DEBUG(Clone->dump());
+  LLVM_DEBUG(dbgs() << "After Entry Block Split\n");
+  LLVM_DEBUG(Clone->dump());
 
   return LoopBlock;
 }
@@ -528,8 +528,8 @@ PHINode* VecClone::createPhiAndBackedgeForLoop(
   Phi->addIncoming(IndInit, EntryBlock);
   Phi->addIncoming(Induction, LoopExitBlock);
 
-  DEBUG(dbgs() << "After Loop Insertion\n");
-  DEBUG(Clone->dump());
+  LLVM_DEBUG(dbgs() << "After Loop Insertion\n");
+  LLVM_DEBUG(Clone->dump());
 
   return Phi;
 }
@@ -891,8 +891,8 @@ Instruction* VecClone::expandVectorParametersAndReturn(
     insertInstruction(MaskStore, EntryBlock);
   }
 
-  DEBUG(dbgs() << "After Parameter/Return Expansion\n");
-  DEBUG(Clone->dump());
+  LLVM_DEBUG(dbgs() << "After Parameter/Return Expansion\n");
+  LLVM_DEBUG(Clone->dump());
 
   return ExpandedReturn;
 }
@@ -1039,8 +1039,8 @@ void VecClone::updateScalarMemRefsWithVector(
     }
   }
 
-  DEBUG(dbgs() << "After Alloca Replacement\n");
-  DEBUG(Clone->dump());
+  LLVM_DEBUG(dbgs() << "After Alloca Replacement\n");
+  LLVM_DEBUG(Clone->dump());
 }
 
 Instruction* VecClone::generateStrideForParameter(
@@ -1346,8 +1346,8 @@ void VecClone::updateLinearReferences(Function *Clone, Function &F,
     }
   }
 
-  DEBUG(dbgs() << "After Linear Updates\n");
-  DEBUG(Clone->dump());
+  LLVM_DEBUG(dbgs() << "After Linear Updates\n");
+  LLVM_DEBUG(Clone->dump());
 }
 
 void VecClone::updateReturnBlockInstructions(
@@ -1399,8 +1399,8 @@ void VecClone::updateReturnBlockInstructions(
   LoadInst *VecReturn = new LoadInst(Return, "vec.ret", ReturnBlock);
   ReturnInst::Create(Clone->getContext(), VecReturn, ReturnBlock);
 
-  DEBUG(dbgs() << "After Return Block Update\n");
-  DEBUG(Clone->dump());
+  LLVM_DEBUG(dbgs() << "After Return Block Update\n");
+  LLVM_DEBUG(Clone->dump());
 }
 
 int VecClone::getParmIndexInFunction(Function *F, Value *Parm)
@@ -1532,8 +1532,8 @@ void VecClone::insertDirectiveIntrinsics(Module& M, Function *Clone,
 {
   insertBeginRegion(M, Clone, F, V, EntryBlock);
   insertEndRegion(M, Clone, LoopExitBlock, ReturnBlock);
-  DEBUG(dbgs() << "After Directives Insertion\n");
-  DEBUG(Clone->dump());
+  LLVM_DEBUG(dbgs() << "After Directives Insertion\n");
+  LLVM_DEBUG(Clone->dump());
 }
 
 bool VecClone::isSimpleFunction(Function *Clone, VectorVariant &V,
@@ -1615,8 +1615,8 @@ void VecClone::insertSplitForMaskedVariant(Function *Clone,
   Term->eraseFromParent();
   BranchInst::Create(LoopThenBlock, LoopElseBlock, MaskCmp, LoopBlock);
 
-  DEBUG(dbgs() << "After Split Insertion For Masked Variant\n");
-  DEBUG(Clone->dump());
+  LLVM_DEBUG(dbgs() << "After Split Insertion For Masked Variant\n");
+  LLVM_DEBUG(Clone->dump());
 }
 
 void VecClone::removeScalarAllocasForVectorParams(
@@ -1679,7 +1679,7 @@ void VecClone::disableLoopUnrolling(BasicBlock *Latch)
 
 bool VecClone::runOnModule(Module &M) {
 
-  DEBUG(dbgs() << "\nExecuting SIMD Function Cloning ...\n\n");
+  LLVM_DEBUG(dbgs() << "\nExecuting SIMD Function Cloning ...\n\n");
 
   std::map<Function*, std::vector<StringRef> > FunctionsToVectorize;
   getFunctionsToVectorize(M, FunctionsToVectorize);
@@ -1713,8 +1713,8 @@ bool VecClone::runOnModule(Module &M) {
       VectorVariant Variant(Variants[i]);
 
       // Clone the original function.
-      DEBUG(dbgs() << "Before SIMD Function Cloning\n");
-      DEBUG(F.dump());
+      LLVM_DEBUG(dbgs() << "Before SIMD Function Cloning\n");
+      LLVM_DEBUG(F.dump());
       Function *Clone = CloneFunction(F, Variant);
       Function::iterator EntryBlock = Clone->begin();
       BasicBlock::iterator FirstInst = EntryBlock->begin();
@@ -1786,8 +1786,8 @@ bool VecClone::runOnModule(Module &M) {
                                 LoopExitBlock, ReturnBlock);
       PrivateAllocas.clear();
 
-      DEBUG(dbgs() << "After SIMD Function Cloning\n");
-      DEBUG(Clone->dump());
+      LLVM_DEBUG(dbgs() << "After SIMD Function Cloning\n");
+      LLVM_DEBUG(Clone->dump());
 
       // Disable unrolling from kicking in on the simd loop.
       disableLoopUnrolling(LoopExitBlock);

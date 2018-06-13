@@ -83,7 +83,9 @@ private:
 
   bool processGEPInst(GetElementPtrInst *GEP, uint64_t &NewIndex,
                       bool IsPreCloning);
-  void postProcessCallInst(Instruction *I);
+  bool processPossibleByteFlattenedGEP(GetElementPtrInst *GEP);
+  void postprocessCallInst(Instruction *I);
+  void postprocessSubInst(Instruction *I);
 };
 
 } // end anonymous namespace
@@ -113,7 +115,7 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       dtrans::NestedStruct | dtrans::ContainsNestedStruct |
       dtrans::MemFuncPartialWrite | dtrans::SystemObject;
 
-  DEBUG(dbgs() << "Delete field: looking for candidate structures.\n");
+  LLVM_DEBUG(dbgs() << "Delete field: looking for candidate structures.\n");
 
   for (dtrans::TypeInfo *TI : DTInfo.type_info_entries()) {
     auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
@@ -121,40 +123,42 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       continue;
 
     // We're only interested in fields that are never read. Fields that are
-    // written but not read can be deleted.
-    bool HasUnreadFields = false;
+    // written but not read can be deleted. Fields with complex uses
+    // (phi, select, icmp, etc.) cannot be deleted.
+    bool CanDeleteField = false;
     size_t NumFields = StInfo->getNumFields();
     for (size_t i = 0; i < NumFields; ++i) {
       dtrans::FieldInfo &FI = StInfo->getField(i);
-      if (!FI.isRead()) {
-        DEBUG(dbgs() << "  Found unread field: "
-                     << cast<StructType>(StInfo->getLLVMType())->getName()
-                     << " @ " << i << "\n");
-        HasUnreadFields = true;
+      if (!FI.isRead() && !FI.hasComplexUse()) {
+        LLVM_DEBUG(dbgs() << "  Found unread field: "
+                          << cast<StructType>(StInfo->getLLVMType())->getName()
+                          << " @ " << i << "\n");
+        CanDeleteField = true;
 #ifdef NDEBUG
         break;
 #endif // NDEBUG
       }
     }
 
-    if (!HasUnreadFields)
+    if (!CanDeleteField)
       continue;
 
     if (StInfo->testSafetyData(DeleteFieldSafetyConditions)) {
-      DEBUG(dbgs() << "  Rejecting "
-                   << cast<StructType>(StInfo->getLLVMType())->getName()
-                   << " based on safety data.\n");
+      LLVM_DEBUG(dbgs() << "  Rejecting "
+                        << cast<StructType>(StInfo->getLLVMType())->getName()
+                        << " based on safety data.\n");
       continue;
     }
 
-    DEBUG(dbgs() << "  Selected for deletion: "
-                 << cast<StructType>(StInfo->getLLVMType())->getName() << "\n");
+    LLVM_DEBUG(dbgs() << "  Selected for deletion: "
+                      << cast<StructType>(StInfo->getLLVMType())->getName()
+                      << "\n");
 
     StructsToConvert.push_back(StInfo);
   }
 
   if (StructsToConvert.empty()) {
-    DEBUG(dbgs() << "  No candidates found.\n");
+    LLVM_DEBUG(dbgs() << "  No candidates found.\n");
     return false;
   }
 
@@ -183,18 +187,19 @@ void DeleteFieldImpl::populateTypes(Module &M) {
     uint64_t NewIdx = 0;
     for (size_t i = 0; i < NumFields; ++i) {
       dtrans::FieldInfo &FI = StInfo->getField(i);
-      if (FI.isRead()) {
-        DEBUG(dbgs() << OrigTy->getName() << "[" << i << "] = " << NewIdx
-                     << "\n");
+      if (FI.isRead() || FI.hasComplexUse()) {
+        LLVM_DEBUG(dbgs() << OrigTy->getName() << "[" << i << "] = " << NewIdx
+                          << "\n");
         NewIndices.push_back(NewIdx++);
         DataTypes.push_back(TypeRemapper->remapType(FI.getLLVMType()));
       } else {
-        DEBUG(dbgs() << OrigTy->getName() << "[" << i << "] = DELETED\n");
+        LLVM_DEBUG(dbgs() << OrigTy->getName() << "[" << i << "] = DELETED\n");
         NewIndices.push_back(FIELD_DELETED);
       }
     }
     NewTy->setBody(DataTypes, OrigTy->isPacked());
-    DEBUG(dbgs() << "Delete field: New structure body: " << *NewTy << "\n");
+    LLVM_DEBUG(dbgs() << "Delete field: New structure body: " << *NewTy
+                      << "\n");
   }
 }
 
@@ -211,22 +216,92 @@ void DeleteFieldImpl::processFunction(Function &F) {
 
   for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
     if (auto *GEP = dyn_cast<GetElementPtrInst>(&*I)) {
+      // If the GEP has a single index, it might be in the byte-flattened
+      // form. Check that, and delete the field if necessary.
+      // Otherwise, there's nothing more to do with this GEP.
+      if (GEP->getNumIndices() == 1) {
+        if (processPossibleByteFlattenedGEP(GEP))
+          GEPsToDelete.push_back(GEP);
+        continue;
+      }
+
+      // Otherwise, check the normal form of the GEP to see if it should
+      // be deleted.
       uint64_t Unused;
       if (processGEPInst(GEP, Unused, /*IsPreCloning=*/true))
         GEPsToDelete.push_back(GEP);
     }
   }
 
+  std::function<void(Value *)> deleteStoreAndCastUses =
+      [&deleteStoreAndCastUses](Value *V) {
+        for (auto *U : V->users()) {
+          assert((isa<CastInst>(U) || isa<StoreInst>(U)) &&
+                 "Unexpected use of deleted field!");
+          // There may be a bitcast between the GEP and any store instruction.
+          // If so, follow its uses and delete them (they must also be either
+          // casts or stores) then delete the cast instruction.
+          if (isa<CastInst>(U))
+            deleteStoreAndCastUses(U);
+          LLVM_DEBUG(dbgs() << "Delete field: erasing GEP user:\n"
+                            << *U << "\n");
+          cast<Instruction>(U)->eraseFromParent();
+        }
+      };
+
   for (auto *GEP : GEPsToDelete) {
-    DEBUG(dbgs() << "Delete field: erasing GEP of deleted field:\n"
-                 << *GEP << "\n");
-    for (auto *U : GEP->users()) {
-      assert(isa<StoreInst>(U) && "Unexpected use of deleted field!");
-      DEBUG(dbgs() << "Delete field: erasing GEP user:\n" << *U << "\n");
-      cast<Instruction>(U)->eraseFromParent();
-    }
+    deleteStoreAndCastUses(GEP);
+    LLVM_DEBUG(dbgs() << "Delete field: erasing GEP of deleted field:\n"
+                      << *GEP << "\n");
     GEP->eraseFromParent();
   }
+}
+
+// This function processes a single index GEP instruction to see if it is
+// in the byte flattened form and accessing a field in a structure we are
+// optimizing. If it is, this function will check the index of the field
+// being accessed. If the field is being deleted, this function will return
+// true, indicating that the caller should delete the GEP. If the field is
+// not being deleted but its offset in the structure is changing, this function
+// will update the GEP to reflect the new offset. Because the GEP is in
+// byte-flattened form, the GEP can be updated prior to cloning.
+bool DeleteFieldImpl::processPossibleByteFlattenedGEP(GetElementPtrInst *GEP) {
+  auto InfoPair = DTInfo.getByteFlattenedGEPElement(GEP);
+  if (!InfoPair.first)
+    return false;
+
+  // We'll typically only have a few types from which we are deleting
+  // fields, so iterating over the map is a reasonable way to test
+  // whether or not this GEP needs updating.
+  llvm::Type *SrcTy = InfoPair.first;
+  for (auto &ONPair : OrigToNewTypeMapping) {
+    llvm::Type *OrigTy = ONPair.first;
+    if (OrigTy != SrcTy)
+      continue;
+    llvm::Type *ReplTy = ONPair.second;
+    uint64_t SrcIdx = InfoPair.second;
+    assert(OrigTy->getStructNumElements() &&
+           FieldIdxMap[OrigTy].size() > SrcIdx && "Unexpected GEP index");
+    uint64_t NewIdx = FieldIdxMap[OrigTy][SrcIdx];
+    if (NewIdx == FIELD_DELETED)
+      return true;
+    // If the index isn't changing, we don't need to update or delete this GEP.
+    if (NewIdx == SrcIdx)
+      return false;
+    // Otherwise, we need to get the offset of the updated index in the
+    // replacement type.
+    const StructLayout *SL = DL.getStructLayout(cast<StructType>(ReplTy));
+    uint64_t NewOffset = SL->getElementOffset(NewIdx);
+    LLVM_DEBUG(dbgs() << "Delete field: Replacing instruction\n"
+                      << *GEP << "\n");
+    GEP->setOperand(1,
+                    ConstantInt::get(GEP->getOperand(1)->getType(), NewOffset));
+    LLVM_DEBUG(dbgs() << "    with\n" << *GEP << "\n");
+    // We've updated this GEP and don't need to delete it.
+    return false;
+  }
+  // This doesn't match any type we're updating.
+  return false;
 }
 
 // This function processes a GetElementPtr instruction to determine
@@ -315,8 +390,11 @@ void DeleteFieldImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
   // TODO: Add code to update instructions using the size of our structs.
   Function *F = isCloned ? OrigFuncToCloneFuncMap[&OrigFunc] : &OrigFunc;
   for (inst_iterator It = inst_begin(F), E = inst_end(F); It != E; ++It) {
-    Instruction *I = &*It;
-    if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
+    switch (It->getOpcode()) {
+    default:
+      break;
+    case Instruction::GetElementPtr: {
+      auto *GEP = cast<GetElementPtrInst>(&*It);
       uint64_t NewIndex;
       if (processGEPInst(GEP, NewIndex, /*IsPreCloning=*/false)) {
         LLVM_DEBUG(dbgs() << "Delete field: Replacing instruction\n"
@@ -325,14 +403,18 @@ void DeleteFieldImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
             2, ConstantInt::get(Type::getInt32Ty(GEP->getContext()), NewIndex));
         LLVM_DEBUG(dbgs() << "    with\n" << *GEP << "\n");
       }
-      continue;
+    } break;
+    case Instruction::Call:
+      postprocessCallInst(&*It);
+      break;
+    case Instruction::Sub:
+      postprocessSubInst(&*It);
+      break;
     }
-    if (isa<CallInst>(I))
-      postProcessCallInst(I);
   }
 }
 
-void DeleteFieldImpl::postProcessCallInst(Instruction *I) {
+void DeleteFieldImpl::postprocessCallInst(Instruction *I) {
   auto *CInfo = DTInfo.getCallInfo(I);
   if (!CInfo || isa<dtrans::FreeCallInfo>(CInfo))
     return;
@@ -344,24 +426,41 @@ void DeleteFieldImpl::postProcessCallInst(Instruction *I) {
     if (!CallTy->isPointerTy())
       continue;
     auto *PointeeTy = CallTy->getPointerElementType();
-    // FIXME: For some reason MemfuncCallInfo seems to have an extra layer of
-    //        indirection.
-    if (isa<dtrans::MemfuncCallInfo>(CInfo) && PointeeTy->isPointerTy())
-      PointeeTy = PointeeTy->getPointerElementType();
     for (auto &ONPair : OrigToNewTypeMapping) {
       llvm::Type *OrigTy = ONPair.first;
       llvm::Type *ReplTy = ONPair.second;
-      // FIXME: Shouldn't the CallInfo have been updated?
-      //      assert(PointeeTy != OrigTy &&
-      //             "Original type found after type replacement!");
-      //      if (PointeeTy != ReplTy)
-      if (PointeeTy != OrigTy)
+      assert(PointeeTy != OrigTy &&
+             "Original type found after type replacement!");
+      if (PointeeTy != ReplTy)
         continue;
       LLVM_DEBUG(dbgs() << "Found call involving type with deleted fields:\n"
                         << *I << "\n"
                         << "  " << *OrigTy << "\n");
-      updateSizeOperand(I, CInfo, OrigTy, ReplTy);
+      updateCallSizeOperand(I, CInfo, OrigTy, ReplTy);
     }
+  }
+}
+
+void DeleteFieldImpl::postprocessSubInst(Instruction *I) {
+  auto *BinOp = cast<BinaryOperator>(I);
+  assert(BinOp->getOpcode() == Instruction::Sub &&
+         "postProcessSubInst called for non-sub instruction!");
+  llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
+  if (!PtrSubTy)
+    return;
+  for (auto &ONPair : OrigToNewTypeMapping) {
+    llvm::Type *OrigTy = ONPair.first;
+    llvm::Type *ReplTy = ONPair.second;
+    // FIXME: We should be remapping these the ptr sub type.
+    //    assert(PtrSubTy != OrigTy &&
+    //           "Original type ptr sub found after type replacement!");
+    //    if (PtrSubTy != ReplTy)
+    //      continue;
+    if (PtrSubTy != OrigTy)
+      continue;
+    // Call the base class to find and update all users that divide this result
+    // by the structure size.
+    updatePtrSubDivUserSizeOperand(BinOp, OrigTy, ReplTy);
   }
 }
 

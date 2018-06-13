@@ -408,8 +408,8 @@ PreservedAnalyses HIRCodeGenPass::run(Function &F,
 }
 
 bool HIRCodeGen::run() {
-  DEBUG(dbgs().write_escaped(HIRF.getFunction().getName()) << "\n");
-  DEBUG(HIRF.getFunction().dump());
+  LLVM_DEBUG(dbgs().write_escaped(HIRF.getFunction().getName()) << "\n");
+  LLVM_DEBUG(HIRF.getFunction().dump());
 
   // generate code
   CGVisitor CG(HIRF, SE, LORBuilder);
@@ -421,8 +421,8 @@ bool HIRCodeGen::run() {
     HLRegion *Reg = cast<HLRegion>(&*I);
 
     if (shouldGenCode(Reg, RegionIdx)) {
-      DEBUG(dbgs() << "Starting the code gen for " << RegionIdx << "\n");
-      DEBUG(Reg->dump());
+      LLVM_DEBUG(dbgs() << "Starting the code gen for " << RegionIdx << "\n");
+      LLVM_DEBUG(Reg->dump());
       CG.visit(Reg);
       Transformed = true;
     } else {
@@ -630,9 +630,9 @@ Value *CGVisitor::visitCanonExpr(CanonExpr *CE) {
 
   auto SrcType = CE->getSrcType();
 
-  DEBUG(dbgs() << "cg for CE ");
-  DEBUG(CE->dump());
-  DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "cg for CE ");
+  LLVM_DEBUG(CE->dump());
+  LLVM_DEBUG(dbgs() << "\n");
 
   if (CE->isNull()) {
     return ConstantPointerNull::get(cast<PointerType>(SrcType));
@@ -783,9 +783,9 @@ Value *CGVisitor::visitScalar(RegDDRef *Ref) {
 
 Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   assert(Ref && " Reference is null.");
-  DEBUG(dbgs() << "cg for RegRef ");
-  DEBUG(Ref->dump());
-  DEBUG(dbgs() << " Symbase: " << Ref->getSymbase() << " \n");
+  LLVM_DEBUG(dbgs() << "cg for RegRef ");
+  LLVM_DEBUG(Ref->dump());
+  LLVM_DEBUG(dbgs() << " Symbase: " << Ref->getSymbase() << " \n");
 
   if (Ref->isTerminalRef()) {
     return visitScalar(Ref);
@@ -1027,9 +1027,10 @@ void CGVisitor::initializeLiveins() {
   for (auto I = CurRegion->live_in_begin(), E = CurRegion->live_in_end();
        I != E; ++I) {
 
-    DEBUG(dbgs() << "Symbase " << I->first << " is livein with initial value ");
-    DEBUG(I->second->dump());
-    DEBUG(dbgs() << " \n");
+    LLVM_DEBUG(dbgs() << "Symbase " << I->first
+                      << " is livein with initial value ");
+    LLVM_DEBUG(I->second->dump());
+    LLVM_DEBUG(dbgs() << " \n");
 
     unsigned BlobIndex = BU.findTempBlobIndex(I->first);
 
@@ -1167,7 +1168,7 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
 
   replaceOldRegion(RegionEntry);
 
-  // DEBUG(F.dump());
+  // LLVM_DEBUG(F.dump());
   // Remove null value used for indexing
   CurIVValues.pop_back();
   return nullptr;

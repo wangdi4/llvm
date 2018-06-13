@@ -347,7 +347,7 @@ void MemRefGroup::identifyGaps(SmallVectorImpl<bool> &RWGap) {
     }
   }
 
-  DEBUG(FOS << "\nHasRWGap: " << HasRWGap << "\n";);
+  LLVM_DEBUG(FOS << "\nHasRWGap: " << HasRWGap << "\n";);
 }
 
 bool MemRefGroup::isCompleteStoreOnly(void) {
@@ -384,7 +384,7 @@ bool MemRefGroup::areDDEdgesInSameMRG(DDGraph &DDG) const {
 
     for (const DDEdge *Edge :
          (IsIncoming ? DDG.incoming(Ref) : DDG.outgoing(Ref))) {
-      DEBUG(Edge->print(dbgs()););
+      LLVM_DEBUG(Edge->print(dbgs()););
 
       if (IsIncoming) {
         OtherRef = Edge->getSrc();
@@ -575,7 +575,8 @@ void MemRefGroup::generateTempRotation(HLLoop *Lp) {
   formatted_raw_ostream FOS(dbgs());
 #endif
 
-  DEBUG(FOS << "BEFORE generateTempRotation(.): \n"; Lp->dump(); FOS << "\n");
+  LLVM_DEBUG(FOS << "BEFORE generateTempRotation(.): \n"; Lp->dump();
+             FOS << "\n");
   HLNodeUtils &HNU = HSRA->HNU;
 
   for (unsigned Idx = 0, IdxE = TmpV.size() - 1; Idx < IdxE; ++Idx) {
@@ -587,7 +588,8 @@ void MemRefGroup::generateTempRotation(HLLoop *Lp) {
     HLNodeUtils::insertAsLastChild(Lp, CopyInst);
   }
 
-  DEBUG(FOS << "AFTER generateTempRotation(.): \n"; Lp->dump(); FOS << "\n");
+  LLVM_DEBUG(FOS << "AFTER generateTempRotation(.): \n"; Lp->dump();
+             FOS << "\n");
 }
 
 void MemRefGroup::generateLoadToTmps(HLLoop *Lp, SmallVectorImpl<bool> &RWGap) {
@@ -595,9 +597,10 @@ void MemRefGroup::generateLoadToTmps(HLLoop *Lp, SmallVectorImpl<bool> &RWGap) {
   formatted_raw_ostream FOS(dbgs());
 #endif
 
-  DEBUG(FOS << "BEFORE generateLoadToTmps(.): \n"; Lp->dump(); FOS << "\n");
-  DEBUG(printRefTupleVec(true););
-  DEBUG(printTmpVec(true););
+  LLVM_DEBUG(FOS << "BEFORE generateLoadToTmps(.): \n"; Lp->dump();
+             FOS << "\n");
+  LLVM_DEBUG(printRefTupleVec(true););
+  LLVM_DEBUG(printTmpVec(true););
 
   // Iterate over each possible index:
   // - NO gap: generate a load use clone() from its matching MemRef;
@@ -611,11 +614,11 @@ void MemRefGroup::generateLoadToTmps(HLLoop *Lp, SmallVectorImpl<bool> &RWGap) {
   // Scan in [0 .. MaxDD): NOT to generate a load for MemRef[MaxDD](R)
   for (unsigned Idx = 0; Idx < MaxDepDist; ++Idx) {
     bool HasMemRef = RWGap[Idx];
-    DEBUG(FOS << "Idx: " << Idx << " HasMemRef: " << HasMemRef << "\n";);
+    LLVM_DEBUG(FOS << "Idx: " << Idx << " HasMemRef: " << HasMemRef << "\n";);
 
     if (HasMemRef) {
       const RefTuple *RT = getByDist(Idx);
-      DEBUG(RT->print(true););
+      LLVM_DEBUG(RT->print(true););
       MemRef = RT->getMemRef();
       TmpRef = RT->getTmpRef();
     } else {
@@ -623,15 +626,15 @@ void MemRefGroup::generateLoadToTmps(HLLoop *Lp, SmallVectorImpl<bool> &RWGap) {
       MemRef = BaseRef->clone();
       MemRef->shift(LoopLevel, Idx);
       TmpRef = TmpV[Idx];
-      DEBUG(MemRef->dump(); FOS << ", " << Idx << ", "; TmpRef->dump();
-            FOS << "\n";);
+      LLVM_DEBUG(MemRef->dump(); FOS << ", " << Idx << ", "; TmpRef->dump();
+                 FOS << "\n";);
     }
 
     // generate the load in loop's prehdr:
     generateLoadInPrehdr(Lp, MemRef, Idx, TmpRef, !HasMemRef, LBCE);
   }
 
-  DEBUG(FOS << "AFTER generateLoadToTmps(.): \n"; Lp->dump(); FOS << "\n");
+  LLVM_DEBUG(FOS << "AFTER generateLoadToTmps(.): \n"; Lp->dump(); FOS << "\n");
 }
 
 void MemRefGroup::generateLoadInPrehdr(HLLoop *Lp, RegDDRef *MemRef,
@@ -661,9 +664,10 @@ void MemRefGroup::generateStoreFromTmps(HLLoop *Lp) {
   formatted_raw_ostream FOS(dbgs());
 #endif
 
-  DEBUG(FOS << "BEFORE generateStoreFromTmps(.): \n"; Lp->dump(); FOS << "\n");
-  DEBUG(printRefTupleVec(true););
-  DEBUG(printTmpVec(true););
+  LLVM_DEBUG(FOS << "BEFORE generateStoreFromTmps(.): \n"; Lp->dump();
+             FOS << "\n");
+  LLVM_DEBUG(printRefTupleVec(true););
+  LLVM_DEBUG(printTmpVec(true););
 
   // Compute the store boundaries: [MinStorePos .. MaxStorePos]
   // E.g. for the following MemRefGroup:
@@ -695,13 +699,14 @@ void MemRefGroup::generateStoreFromTmps(HLLoop *Lp) {
     MemRef->shift(LoopLevel, Idx);
     TmpRef = TmpV[Idx + MinStoreOffset + AdjustIdx]->clone();
 
-    DEBUG(MemRef->dump(); FOS << ", " << Idx << ", "; TmpRef->dump();
-          FOS << "\n";);
+    LLVM_DEBUG(MemRef->dump(); FOS << ", " << Idx << ", "; TmpRef->dump();
+               FOS << "\n";);
 
     StoreInst = generateStoreInPostexit(Lp, MemRef, TmpRef, UBCE, StoreInst);
   }
 
-  DEBUG(FOS << "AFTER generateStoreFromTmps(.): \n"; Lp->dump(); FOS << "\n");
+  LLVM_DEBUG(FOS << "AFTER generateStoreFromTmps(.): \n"; Lp->dump();
+             FOS << "\n");
 }
 
 HLInst *MemRefGroup::generateStoreInPostexit(HLLoop *Lp, RegDDRef *MemRef,
@@ -915,7 +920,7 @@ HIRScalarReplArray::HIRScalarReplArray(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
 bool HIRScalarReplArray::handleCmdlineArgs() {
   // Check: ScalarReplArrayMaxDepDist is within bound
   if (ScalarReplArrayMaxDepDist > ScalarReplMaxNumReg) {
-    DEBUG(dbgs() << "ScalarReplArrayMaxDepDist is out of bound\n ");
+    LLVM_DEBUG(dbgs() << "ScalarReplArrayMaxDepDist is out of bound\n ");
     return false;
   }
 
@@ -924,8 +929,9 @@ bool HIRScalarReplArray::handleCmdlineArgs() {
 
 bool HIRScalarReplArray::run() {
   if (DisableHIRScalarReplArray) {
-    DEBUG(dbgs() << "HIR Scalar Replacement of Array Transformation Disabled "
-                    "or Skipped\n");
+    LLVM_DEBUG(
+        dbgs() << "HIR Scalar Replacement of Array Transformation Disabled "
+                  "or Skipped\n");
     return false;
   }
 
@@ -934,16 +940,17 @@ bool HIRScalarReplArray::run() {
     return false;
   }
 
-  DEBUG(dbgs() << "HIRScalarReplArray on Function : "
-               << HIRF.getFunction().getName() << "\n";);
+  LLVM_DEBUG(dbgs() << "HIRScalarReplArray on Function : "
+                    << HIRF.getFunction().getName() << "\n";);
 
   // Gather ALL Innermost Loops as Candidates, use 64 increment
   SmallVector<HLLoop *, 64> CandidateLoops;
   HNU.gatherInnermostLoops(CandidateLoops);
 
   if (CandidateLoops.empty()) {
-    DEBUG(dbgs() << HIRF.getFunction().getName()
-                 << "() has no inner-most loop for HIR scalar replacement\n ");
+    LLVM_DEBUG(
+        dbgs() << HIRF.getFunction().getName()
+               << "() has no inner-most loop for HIR scalar replacement\n ");
     return false;
   }
 
@@ -969,12 +976,12 @@ void HIRScalarReplArray::setupEnvForLoop(const HLLoop *Lp) {
 
 bool HIRScalarReplArray::doAnalysis(HLLoop *Lp) {
   if (!doPreliminaryChecks(Lp)) {
-    DEBUG(dbgs() << "ScalarRepl: Loop Preliminary Checks failed\n";);
+    LLVM_DEBUG(dbgs() << "ScalarRepl: Loop Preliminary Checks failed\n";);
     return false;
   }
 
   if (!doCollection(Lp)) {
-    DEBUG(dbgs() << "ScalarRepl: collection failed\n");
+    LLVM_DEBUG(dbgs() << "ScalarRepl: collection failed\n");
     return false;
   }
 
@@ -1008,7 +1015,7 @@ bool HIRScalarReplArray::doPreliminaryChecks(const HLLoop *Lp) {
   // - allow IF, as long as no relevant MemRef is inside the HLIf.
   // - allow Label: label is harmless if there is no GOTO(s).
   const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
-  // DEBUG(LS.dump(););
+  // LLVM_DEBUG(LS.dump(););
   if (LS.hasCallsWithUnsafeSideEffects() || LS.hasForwardGotos()) {
     return false;
   }
@@ -1079,7 +1086,7 @@ bool HIRScalarReplArray::doCollection(HLLoop *Lp) {
   RefGroupVecTy Groups;
   HIRLoopLocality::populateTemporalLocalityGroups(Lp, ScalarReplArrayMaxDepDist,
                                                   Groups);
-  DEBUG(DDRefGrouping::dump(Groups));
+  LLVM_DEBUG(DDRefGrouping::dump(Groups));
 
   // Examine each individual group, validate it, and save only the good ones.
   bool Result = false;
@@ -1094,7 +1101,7 @@ bool HIRScalarReplArray::doCollection(HLLoop *Lp) {
     // Reverse the group if its has any negative IVCoeff
     if (HasNegIVCoeff) {
       std::reverse(Group.begin(), Group.end());
-      DEBUG(printRefGroupTy(Group));
+      LLVM_DEBUG(printRefGroupTy(Group));
     }
 
     // Build a MemRefGroup and insert it into MemRefVec
@@ -1103,7 +1110,7 @@ bool HIRScalarReplArray::doCollection(HLLoop *Lp) {
     Result = true;
   }
 
-  DEBUG(print());
+  LLVM_DEBUG(print());
   return Result;
 }
 
@@ -1150,7 +1157,7 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp, MemRefGroup &MRG) {
 #ifndef NDEBUG
   formatted_raw_ostream FOS(dbgs());
 #endif
-  DEBUG(FOS << "BEFORE doTransform(.):\n"; Lp->dump(); MRG.print(););
+  LLVM_DEBUG(FOS << "BEFORE doTransform(.):\n"; Lp->dump(); MRG.print(););
 
   // Preparations:
   MRG.handleTemps();
@@ -1161,7 +1168,7 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp, MemRefGroup &MRG) {
   SmallVector<bool, 16> RWGap;
   MRG.identifyGaps(RWGap);
 
-  DEBUG(FOS << "AFTER Preparation:\n"; MRG.print(););
+  LLVM_DEBUG(FOS << "AFTER Preparation:\n"; MRG.print(););
 
   // 3-step scalar-repl transformation:
   doPreLoopProc(Lp, MRG, RWGap);
@@ -1170,7 +1177,7 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp, MemRefGroup &MRG) {
 
   ++HIRScalarReplArrayPerformed;
 
-  DEBUG(FOS << "AFTER doTransform(.):\n"; Lp->dump(););
+  LLVM_DEBUG(FOS << "AFTER doTransform(.):\n"; Lp->dump(););
 }
 
 // Pre-loop processing:
@@ -1192,7 +1199,7 @@ void HIRScalarReplArray::doPreLoopProc(HLLoop *Lp, MemRefGroup &MRG,
   formatted_raw_ostream FOS(dbgs());
 #endif
 
-  DEBUG(FOS << "BEFORE doPreLoopProc(.): \n"; Lp->dump(); FOS << "\n");
+  LLVM_DEBUG(FOS << "BEFORE doPreLoopProc(.): \n"; Lp->dump(); FOS << "\n");
 
   // Sanity: No need for any Complete StoreOnly MRG
   if (MRG.isCompleteStoreOnly()) {
@@ -1201,14 +1208,14 @@ void HIRScalarReplArray::doPreLoopProc(HLLoop *Lp, MemRefGroup &MRG,
 
   MRG.generateLoadToTmps(Lp, RWGap);
 
-  DEBUG(FOS << "AFTER doPreLoopProc(.): \n"; Lp->dump(); FOS << "\n");
+  LLVM_DEBUG(FOS << "AFTER doPreLoopProc(.): \n"; Lp->dump(); FOS << "\n");
 }
 
 void HIRScalarReplArray::doPostLoopProc(HLLoop *Lp, MemRefGroup &MRG) {
 #ifndef NDEBUG
   formatted_raw_ostream FOS(dbgs());
 #endif
-  DEBUG(FOS << "BEFORE doPostLoopProc(.): \n"; Lp->dump(); FOS << "\n");
+  LLVM_DEBUG(FOS << "BEFORE doPostLoopProc(.): \n"; Lp->dump(); FOS << "\n");
 
   if (!MRG.requiresStoreInPostexit()) {
     return;
@@ -1216,14 +1223,14 @@ void HIRScalarReplArray::doPostLoopProc(HLLoop *Lp, MemRefGroup &MRG) {
 
   MRG.generateStoreFromTmps(Lp);
 
-  DEBUG(FOS << "AFTER doPostLoopProc(.): \n"; Lp->dump(); FOS << "\n");
+  LLVM_DEBUG(FOS << "AFTER doPostLoopProc(.): \n"; Lp->dump(); FOS << "\n");
 }
 
 void HIRScalarReplArray::doInLoopProc(HLLoop *Lp, MemRefGroup &MRG) {
 #ifndef NDEBUG
   formatted_raw_ostream FOS(dbgs());
 #endif
-  DEBUG(FOS << "BEFORE doInLoopProc(.): \n"; Lp->dump(); FOS << "\n";);
+  LLVM_DEBUG(FOS << "BEFORE doInLoopProc(.): \n"; Lp->dump(); FOS << "\n";);
 
   // Generate a load if MaxIdxLoadRT is available
   if (MRG.hasMaxIdxLoadRT()) {
@@ -1253,11 +1260,12 @@ void HIRScalarReplArray::doInLoopProc(HLLoop *Lp, MemRefGroup &MRG) {
 
   // Replace each MemRef with its matching Temp
   for (auto &RT : MRG.getRefTupleVec()) {
-    // DEBUG(RT.print(true););
+    // LLVM_DEBUG(RT.print(true););
     replaceMemRefWithTmp(RT.getMemRef(), RT.getTmpRef());
   }
 
-  DEBUG(FOS << "AFTER handle MemRefs in loop: \n"; Lp->dump(); FOS << "\n");
+  LLVM_DEBUG(FOS << "AFTER handle MemRefs in loop: \n"; Lp->dump();
+             FOS << "\n");
 
   // Generate temp-rotation code
   // Note: Not need for any Complete Store-Only MRG
@@ -1265,7 +1273,7 @@ void HIRScalarReplArray::doInLoopProc(HLLoop *Lp, MemRefGroup &MRG) {
     MRG.generateTempRotation(Lp);
   }
 
-  DEBUG(FOS << "AFTER doInLoopProc(.): \n"; Lp->dump(); FOS << "\n";);
+  LLVM_DEBUG(FOS << "AFTER doInLoopProc(.): \n"; Lp->dump(); FOS << "\n";);
 }
 
 void HIRScalarReplArray::clearWorkingSetMemory(void) { MRGVec.clear(); }
@@ -1276,7 +1284,7 @@ void HIRScalarReplArray::replaceMemRefWithTmp(RegDDRef *MemRef,
   RegDDRef *TmpRefClone = TmpRef->clone();
 
   // Debug: Examine the DDNode's Parent BEFORE replacement
-  // DEBUG(ParentNode->getParent()->dump(););
+  // LLVM_DEBUG(ParentNode->getParent()->dump(););
 
   HLInst *HInst = dyn_cast<HLInst>(ParentNode);
   // Handle HLInst* special cases: LoadInst and StoreInst
@@ -1315,7 +1323,7 @@ void HIRScalarReplArray::replaceMemRefWithTmp(RegDDRef *MemRef,
   }
 
   // Debug: Examine the DDNode's Parent AFTER replacement
-  // DEBUG(ParentNode->getParent()->dump(););
+  // LLVM_DEBUG(ParentNode->getParent()->dump(););
 }
 
 #ifndef NDEBUG

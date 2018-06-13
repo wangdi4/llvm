@@ -259,7 +259,7 @@ bool HIRIdiomRecognition::isLegalGraph(const DDGraph &DDG, const HLLoop *Loop,
     }
 
     if (!isLegalEdge(Ref, *E, Level, IsStore)) {
-      DEBUG(E->dump());
+      LLVM_DEBUG(E->dump());
       return false;
     }
   }
@@ -269,7 +269,7 @@ bool HIRIdiomRecognition::isLegalGraph(const DDGraph &DDG, const HLLoop *Loop,
 
 bool HIRIdiomRecognition::isLegalCandidate(const HLLoop *Loop,
                                            const MemOpCandidate &Candidate) {
-  DEBUG(dbgs() << "R: ");
+  LLVM_DEBUG(dbgs() << "R: ");
   DDGraph DDG = DDA.getGraph(Loop);
 
   if (!isLegalGraph<true>(DDG, Loop, Candidate.StoreRef, true)) {
@@ -290,7 +290,7 @@ bool HIRIdiomRecognition::isLegalCandidate(const HLLoop *Loop,
     }
   }
 
-  DEBUG(dbgs() << "OK\n");
+  LLVM_DEBUG(dbgs() << "OK\n");
 
   return true;
 }
@@ -373,9 +373,10 @@ bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, RegDDRef *Ref,
 
   if (ForMemcpy) {
     if (!RHS->isMemRef()) {
-      DEBUG(dbgs() << "WARNING: Something like a[i] = %0 is found, this pass "
-                      "depends on the TempCleanup pass. Check if the input HIR "
-                      "is already clean.\n");
+      LLVM_DEBUG(
+          dbgs() << "WARNING: Something like a[i] = %0 is found, this pass "
+                    "depends on the TempCleanup pass. Check if the input HIR "
+                    "is already clean.\n");
       return false;
     }
 
@@ -395,7 +396,7 @@ bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, RegDDRef *Ref,
     return true;
   }
 
-  DEBUG(dbgs() << "Unsupported candidate\n");
+  LLVM_DEBUG(dbgs() << "Unsupported candidate\n");
   return false;
 }
 
@@ -413,7 +414,7 @@ bool HIRIdiomRecognition::makeStartRef(RegDDRef *Ref, HLLoop *Loop,
       // Try to merge upper bound with CE
       if (!CanonExprUtils::replaceIVByCanonExpr(CE, Level, OrigUpperCE,
                                                 Loop->isNSW(), true)) {
-        DEBUG(dbgs() << "Unable to replace i" << Level << " with UB.");
+        LLVM_DEBUG(dbgs() << "Unable to replace i" << Level << " with UB.");
         return false;
       }
 
@@ -439,8 +440,8 @@ bool HIRIdiomRecognition::makeStartRef(RegDDRef *Ref, HLLoop *Loop,
   Ref->setAddressOf(true);
 
   // Set destination address (i8*)
-  Ref->setBitCastDestType(Type::getInt8PtrTy(
-      HIRF.getContext(), Ref->getPointerAddressSpace()));
+  Ref->setBitCastDestType(
+      Type::getInt8PtrTy(HIRF.getContext(), Ref->getPointerAddressSpace()));
 
   return true;
 }
@@ -522,9 +523,9 @@ bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
 
   HNU.insertAsLastPreheaderNode(Loop, MemsetInst);
 
-  DEBUG(dbgs() << "G: ");
-  DEBUG(MemsetInst->dump());
-  DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "G: ");
+  LLVM_DEBUG(MemsetInst->dump());
+  LLVM_DEBUG(dbgs() << "\n");
 
   NumMemSet++;
 
@@ -550,9 +551,9 @@ bool HIRIdiomRecognition::processMemset(HLLoop *Loop,
     return true;
   }
 
-  DEBUG(dbgs() << "Failed to generate memset for chain:\n");
-  DEBUG(Candidate.StoreRef->dump());
-  DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "Failed to generate memset for chain:\n");
+  LLVM_DEBUG(Candidate.StoreRef->dump());
+  LLVM_DEBUG(dbgs() << "\n");
 
   return false;
 }
@@ -588,9 +589,9 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
   HLNodeUtils::remove(Candidate.DefInst);
   RemovedNodes.insert(Candidate.DefInst);
 
-  DEBUG(dbgs() << "G: ");
-  DEBUG(MemcpyInst->dump());
-  DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "G: ");
+  LLVM_DEBUG(MemcpyInst->dump());
+  LLVM_DEBUG(dbgs() << "\n");
 
   NumMemCpy++;
 
@@ -603,12 +604,13 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
 }
 
 bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
-  DEBUG(dbgs() << "\nProcessing Loop: <" << Loop->getNumber() << ">\n");
+  LLVM_DEBUG(dbgs() << "\nProcessing Loop: <" << Loop->getNumber() << ">\n");
 
   if (!Loop->isDo() || !Loop->isNormalized() || Loop->isVecLoop() ||
       Loop->hasUnrollEnablingPragma() || Loop->hasVectorizeEnablingPragma()) {
-    DEBUG(dbgs() << "Skipping - non-DO-Loop / non-Normalized / Vec / unroll "
-                    "pragma loop\n");
+    LLVM_DEBUG(
+        dbgs() << "Skipping - non-DO-Loop / non-Normalized / Vec / unroll "
+                  "pragma loop\n");
     return false;
   }
 
@@ -641,16 +643,16 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   }
 
   if (!Candidates.empty()) {
-    DEBUG(dbgs() << "Loop DD graph:\n");
-    DEBUG(DDA.getGraph(Loop).dump());
-    DEBUG(dbgs() << "\n");
+    LLVM_DEBUG(dbgs() << "Loop DD graph:\n");
+    LLVM_DEBUG(DDA.getGraph(Loop).dump());
+    LLVM_DEBUG(dbgs() << "\n");
   }
 
   bool Changed = false;
   for (MemOpCandidate &Candidate : Candidates) {
-    DEBUG(dbgs() << "A: ");
-    DEBUG(Candidate.DefInst->dump(true));
-    DEBUG(dbgs() << "\n");
+    LLVM_DEBUG(dbgs() << "A: ");
+    LLVM_DEBUG(Candidate.DefInst->dump(true));
+    LLVM_DEBUG(dbgs() << "\n");
 
     if (!isLegalCandidate(Loop, Candidate)) {
       continue;
@@ -682,14 +684,14 @@ bool HIRIdiomRecognition::run() {
     return false;
   }
 
-  DEBUG(dbgs() << OPT_DESC " for Function: " << HIRF.getFunction().getName()
-               << "\n");
+  LLVM_DEBUG(dbgs() << OPT_DESC " for Function: "
+                    << HIRF.getFunction().getName() << "\n");
 
   HasMemcopy = TLI.has(LibFunc_memcpy);
   HasMemset = TLI.has(LibFunc_memset);
 
   if (!HasMemcopy && !HasMemset) {
-    DEBUG(dbgs() << "Memcpy and Memset calls are not available\n");
+    LLVM_DEBUG(dbgs() << "Memcpy and Memset calls are not available\n");
     return false;
   }
 
@@ -701,7 +703,7 @@ bool HIRIdiomRecognition::run() {
         if (!TransformNodes.empty()) {
           if (std::find(TransformNodes.begin(), TransformNodes.end(),
                         Loop->getNumber()) == TransformNodes.end()) {
-            DEBUG(dbgs() << "Skipped due to the command line option\n");
+            LLVM_DEBUG(dbgs() << "Skipped due to the command line option\n");
             return;
           }
         }
@@ -735,7 +737,7 @@ bool HIRIdiomRecognition::run() {
     }
   }
 
-  DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "\n");
   return false;
 }
 

@@ -531,6 +531,16 @@ operand. A typical use will look like this:
 The index argument in this case can be a non-constant value. The DTransAnalysis
 will recognize this as a safe use.
 
+In many cases the address obtained using a GetElementPtr instruction will be
+passed directly to a load or store instruction to access the field value. In
+the case where a GEP is used with an i8* base pointer and an offset, there may
+be a bitcast between the GEP and the load or store. For any other uses, the
+field is marked with the ComplexUse flag in the FieldInfo. This does not mean
+that we are not able to analyze the uses of the pointer. The local pointer
+analysis will be able to track this value through any combination of
+instructions. The intent of the ComplexUse flag is to serve as a hint to
+optimizations (specifically the DeleteField optimization) that it will not be
+trivial to erase the uses of this field.
 
 Sub
 ~~~

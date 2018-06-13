@@ -318,9 +318,9 @@ public:
     if (CandidateI != CandidatesRef.end()) {
       NewCandidates.emplace_back(*CandidateI, CloneIf, *this);
 
-      DEBUG(dbgs() << "Found new candidate: ");
-      DEBUG(NewCandidates.back().dump());
-      DEBUG(dbgs() << "\n");
+      LLVM_DEBUG(dbgs() << "Found new candidate: ");
+      LLVM_DEBUG(NewCandidates.back().dump());
+      LLVM_DEBUG(dbgs() << "\n");
     }
   }
 
@@ -484,8 +484,8 @@ bool HIROptPredicate::isPUCandidate(const HLIf *If, const RegDDRef *Ref,
   assert(Ref->getHLDDNode() == If && "HLIf should be a parent of Ref");
 
   if (!EnablePartialUnswitch) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: skipping <" << If->getNumber()
-                 << "> candidate due to optlevel\n");
+    LLVM_DEBUG(dbgs() << "LOOPOPT_OPTREPORT: skipping <" << If->getNumber()
+                      << "> candidate due to optlevel\n");
     return false;
   }
 
@@ -498,7 +498,7 @@ bool HIROptPredicate::isPUCandidate(const HLIf *If, const RegDDRef *Ref,
 #ifndef NDEBUG
   static HLLoop *DDGShownForLoop = nullptr;
   if (DDGShownForLoop != ParentLoop) {
-    DEBUG(DDG.dump());
+    LLVM_DEBUG(DDG.dump());
     DDGShownForLoop = ParentLoop;
   }
 #endif
@@ -608,10 +608,10 @@ void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
     IsCandidate = PUC.isPUCandidate();
   }
 
-  DEBUG(dbgs() << "Opportunity: ");
-  DEBUG(If->dumpHeader());
-  DEBUG(dbgs() << " --> Level " << Level << ", Candidate: " << IsCandidate
-               << (PUC.isPURequired() ? "(PU)" : "") << "\n");
+  LLVM_DEBUG(dbgs() << "Opportunity: ");
+  LLVM_DEBUG(If->dumpHeader());
+  LLVM_DEBUG(dbgs() << " --> Level " << Level << ", Candidate: " << IsCandidate
+                    << (PUC.isPURequired() ? "(PU)" : "") << "\n");
 
   // Tell inner candidates that parent candidate will not be unswitched.
   // Do not unswitch inner candidates in case of partial unswitching.
@@ -655,19 +655,19 @@ bool HIROptPredicate::run() {
     return false;
   }
 
-  DEBUG(dbgs() << "Opt Predicate for Function: " << HIRF.getFunction().getName()
-               << "\n");
+  LLVM_DEBUG(dbgs() << "Opt Predicate for Function: "
+                    << HIRF.getFunction().getName() << "\n");
 
   for (HLNode &Node : make_range(HIRF.hir_begin(), HIRF.hir_end())) {
     HLRegion *Region = cast<HLRegion>(&Node);
 
-    DEBUG(dbgs() << "Region: " << Region->getNumber() << ":\n");
+    LLVM_DEBUG(dbgs() << "Region: " << Region->getNumber() << ":\n");
 
     CandidateLookup Lookup(*this);
     HLNodeUtils::visit(Lookup, Region);
     sortCandidates();
 
-    DEBUG(dumpCandidates());
+    LLVM_DEBUG(dumpCandidates());
 
     bool HasMultiexitLoop;
     if (processOptPredicate(HasMultiexitLoop)) {
@@ -788,7 +788,8 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
     HLLoop *ParentLoop = PilotIf->getParentLoop();
     assert(ParentLoop && "Candidate should have a parent loop");
 
-    DEBUG(dbgs() << "Unswitching loop <" << ParentLoop->getNumber() << ">:\n");
+    LLVM_DEBUG(dbgs() << "Unswitching loop <" << ParentLoop->getNumber()
+                      << ">:\n");
 
     // TODO: Implement partial predicate hoisting: if (%b > 50 && i < 50),
     // %b > 50 may be hoisted.
@@ -796,7 +797,7 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
     assert(TargetLoop && "Target loop should always exist for the candidate");
 
     if (ThresholdMap[TargetLoop] >= NumPredicateThreshold) {
-      DEBUG(dbgs() << "Skipped due to NumPredicateThreshold\n");
+      LLVM_DEBUG(dbgs() << "Skipped due to NumPredicateThreshold\n");
       Candidates.pop_back();
       continue;
     }
@@ -812,9 +813,9 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
     transformCandidate(TargetLoop, Candidate, VNum, OptReportVisitedSet,
                        IfVisitedSet);
 
-    DEBUG(dbgs() << "While " OPT_DESC ":\n");
-    DEBUG(ParentLoop->getParentRegion()->dump());
-    DEBUG(dbgs() << "\n");
+    LLVM_DEBUG(dbgs() << "While " OPT_DESC ":\n");
+    LLVM_DEBUG(ParentLoop->getParentRegion()->dump());
+    LLVM_DEBUG(dbgs() << "\n");
 
     // Calculate statistics
     if (Candidate.PUC.isPURequired()) {
@@ -823,7 +824,7 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
 
     IfsUnswitched++;
 
-    DEBUG(dumpCandidates());
+    LLVM_DEBUG(dumpCandidates());
   }
 
   HasMultiexitLoop = false;
@@ -903,9 +904,9 @@ void HIROptPredicate::transformCandidate(
       Candidates.begin(), Candidates.end(), std::not1(IsEquivCandidate));
 
   for (auto Iter = EquivCandidatesI, E = Candidates.end(); Iter != E; ++Iter) {
-    DEBUG(dbgs() << "H: ");
-    DEBUG(Iter->dump());
-    DEBUG(dbgs() << "\n");
+    LLVM_DEBUG(dbgs() << "H: ");
+    LLVM_DEBUG(Iter->dump());
+    LLVM_DEBUG(dbgs() << "\n");
 
     // Set HLIfs that will be tracked during the cloning.
     TrackClonedNodes.insert(Iter->getIf());

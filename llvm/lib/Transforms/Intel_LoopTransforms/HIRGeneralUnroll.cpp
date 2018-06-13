@@ -177,12 +177,12 @@ private:
 bool HIRGeneralUnroll::run() {
   // Skip if DisableHIRGeneralUnroll is enabled
   if (DisableHIRGeneralUnroll) {
-    DEBUG(dbgs() << "HIR LOOP General Unroll Transformation Disabled \n");
+    LLVM_DEBUG(dbgs() << "HIR LOOP General Unroll Transformation Disabled \n");
     return false;
   }
 
-  DEBUG(dbgs() << "General unrolling for Function : "
-               << HIRF.getFunction().getName() << "\n");
+  LLVM_DEBUG(dbgs() << "General unrolling for Function : "
+                    << HIRF.getFunction().getName() << "\n");
 
   IsUnrollTriggered = false;
 
@@ -269,15 +269,16 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
 
   // Exit if loop exceeds threshold.
   if (SelfCost > MaxLoopCost) {
-    DEBUG(dbgs()
-          << "Skipping unroll of loop as loop body cost exceeds threshold!\n");
+    LLVM_DEBUG(
+        dbgs()
+        << "Skipping unroll of loop as loop body cost exceeds threshold!\n");
     return 0;
   }
 
   // Exit if loop with minimum unroll factor of 2 exceeds threshold.
   if ((2 * SelfCost) > MaxUnrolledLoopCost) {
-    DEBUG(dbgs() << "Skipping unroll of loop as unrolled loop body cost "
-                    "exceeds threshold!\n");
+    LLVM_DEBUG(dbgs() << "Skipping unroll of loop as unrolled loop body cost "
+                         "exceeds threshold!\n");
     return 0;
   }
 
@@ -293,14 +294,15 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
     if (!UnrollFactor) {
       UnrollFactor = MaxUnrollFactor;
     } else if (UnrollFactor == 1) {
-      DEBUG(dbgs() << "Skipping unroll as pragma count is set to 1!\n");
+      LLVM_DEBUG(dbgs() << "Skipping unroll as pragma count is set to 1!\n");
       return 0;
     }
 
     if (IsConstTripLoop) {
       if (TripCount < 3) {
-        DEBUG(dbgs() << "Skipping unroll of loop with unroll pragma as trip "
-                        "count is too small!\n");
+        LLVM_DEBUG(
+            dbgs() << "Skipping unroll of loop with unroll pragma as trip "
+                      "count is too small!\n");
         return 0;
       }
 
@@ -319,7 +321,7 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
   } else {
     if ((IsConstTripLoop || (TripCount = HLoop->getMaxTripCountEstimate())) &&
         (TripCount < MinTripCountThreshold)) {
-      DEBUG(dbgs() << "Skipping unroll of small trip count loop!\n");
+      LLVM_DEBUG(dbgs() << "Skipping unroll of small trip count loop!\n");
       return 0;
     }
 
@@ -340,18 +342,18 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
 
 bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
   if (Loop->isVecLoop()) {
-    DEBUG(dbgs() << "Skipping unroll of vectorizable loop!\n");
+    LLVM_DEBUG(dbgs() << "Skipping unroll of vectorizable loop!\n");
     return false;
   }
 
   if (Loop->hasGeneralUnrollDisablingPragma()) {
-    DEBUG(dbgs() << "Skipping unroll of pragma disabled loop!\n");
+    LLVM_DEBUG(dbgs() << "Skipping unroll of pragma disabled loop!\n");
     return false;
   }
 
   // Loop should be normalized before this pass.
   if (!Loop->isNormalized()) {
-    DEBUG(dbgs() << "Skipping unroll of non-normalized loop!\n");
+    LLVM_DEBUG(dbgs() << "Skipping unroll of non-normalized loop!\n");
     return false;
   }
 
@@ -359,8 +361,8 @@ bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
 
   // Cannot unroll loop if it has calls with noduplicate attribute.
   if (LS.hasCallsWithNoDuplicate()) {
-    DEBUG(dbgs() << "Skipping unroll of loop containing call(s) with "
-                    "NoDuplicate attribute!\n");
+    LLVM_DEBUG(dbgs() << "Skipping unroll of loop containing call(s) with "
+                         "NoDuplicate attribute!\n");
     return false;
   }
 
@@ -375,8 +377,9 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
     // Unrolling too many loops leads to regression in the same benchmark which
     // is improved on 64-bit platform.
     if (Is32Bit && (Loop->getNumExits() > 1)) {
-      DEBUG(dbgs()
-            << "Skipping unroll of multi-exit loops on 32 bit platform!\n");
+      LLVM_DEBUG(
+          dbgs()
+          << "Skipping unroll of multi-exit loops on 32 bit platform!\n");
       return false;
     }
 
@@ -386,7 +389,7 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
     // in CMPLRS-41981). It is causing degradations in some benchmarks and the
     // reasons are not quite clear to me.
     if (Loop->isDoMultiExit()) {
-      DEBUG(dbgs() << "Skipping unroll of DO multi-exit loop!\n");
+      LLVM_DEBUG(dbgs() << "Skipping unroll of DO multi-exit loop!\n");
       return false;
     }
 
@@ -394,7 +397,8 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
 
     // TODO: remove this condition?
     if (LS.hasSwitches()) {
-      DEBUG(dbgs() << "Skipping unroll of loop containing switch statement!\n");
+      LLVM_DEBUG(
+          dbgs() << "Skipping unroll of loop containing switch statement!\n");
       return false;
     }
   }

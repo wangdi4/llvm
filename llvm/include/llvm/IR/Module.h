@@ -187,7 +187,9 @@ private:
   void *NamedMDSymTab;            ///< NamedMDNode names.
   DataLayout DL;                  ///< DataLayout associated with the module
 
-  std::string TargetDevices;      ///< Target devices    // INTEL
+#if INTEL_COLLAB
+  std::string TargetDevices;      ///< Target devices
+#endif // INTEL_COLLAB
 
   friend class Constant;
 
@@ -208,6 +210,11 @@ public:
   /// Get the module identifier which is, essentially, the name of the module.
   /// @returns the module identifier as a string
   const std::string &getModuleIdentifier() const { return ModuleID; }
+
+  /// Returns the number of non-debug IR instructions in the module.
+  /// This is equivalent to the sum of the IR instruction counts of each
+  /// function contained in the module.
+  unsigned getInstructionCount();
 
   /// Get the module's original source file name. When compiling from
   /// bitcode, this is taken from a bitcode record where it was recorded.
@@ -234,11 +241,11 @@ public:
   /// @returns a string containing the target triple.
   const std::string &getTargetTriple() const { return TargetTriple; }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   /// Get the target device information which is a comma-separated string
   /// describing one or more devices.
   const std::string &getTargetDevices() const { return TargetDevices; }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   /// Get the global data context.
   /// @returns LLVMContext - a container for LLVM's global information
@@ -276,10 +283,10 @@ public:
   /// Set the target triple.
   void setTargetTriple(StringRef T) { TargetTriple = T; }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   /// set the target device information.
   void setTargetDevices(StringRef T) { TargetDevices = T; }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   /// Set the module-scope inline assembly blocks.
   /// A trailing newline is added if the input doesn't have one.

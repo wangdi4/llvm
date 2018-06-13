@@ -192,8 +192,8 @@ bool HIRMVForConstUB::run() {
     return false;
   }
 
-  DEBUG(dbgs() << "HIRRuntimeDD for function: " << HIRF.getFunction().getName()
-               << "\n");
+  LLVM_DEBUG(dbgs() << "HIRRuntimeDD for function: "
+                    << HIRF.getFunction().getName() << "\n");
 
   // Multiversion for most probable constant UB.
   LoopVisitor V(*this);

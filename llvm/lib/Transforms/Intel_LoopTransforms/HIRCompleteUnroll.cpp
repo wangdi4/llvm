@@ -798,18 +798,18 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isProfitable() const {
 
   auto SavingsPercentage = getSavingsInPercentage();
 
-  DEBUG(dbgs() << "Cost: " << Cost << "\n");
-  DEBUG(dbgs() << "ScaledCost: " << ScaledCost << "\n");
-  DEBUG(dbgs() << "GEPCost: " << GEPCost << "\n");
-  DEBUG(dbgs() << "Savings: " << Savings << "\n");
-  DEBUG(dbgs() << "ScaledSavings: " << ScaledSavings << "\n");
-  DEBUG(dbgs() << "GEPSavings: " << GEPSavings << "\n");
+  LLVM_DEBUG(dbgs() << "Cost: " << Cost << "\n");
+  LLVM_DEBUG(dbgs() << "ScaledCost: " << ScaledCost << "\n");
+  LLVM_DEBUG(dbgs() << "GEPCost: " << GEPCost << "\n");
+  LLVM_DEBUG(dbgs() << "Savings: " << Savings << "\n");
+  LLVM_DEBUG(dbgs() << "ScaledSavings: " << ScaledSavings << "\n");
+  LLVM_DEBUG(dbgs() << "GEPSavings: " << GEPSavings << "\n");
 
-  DEBUG(dbgs() << "Savings in percentage: " << SavingsPercentage << "\n");
+  LLVM_DEBUG(dbgs() << "Savings in percentage: " << SavingsPercentage << "\n");
 
-  DEBUG(dbgs() << "Number of memrefs: " << NumMemRefs << "\n");
-  DEBUG(dbgs() << "Number of ddrefs: " << NumDDRefs << "\n");
-  DEBUG(dbgs() << "Loop: \n"; CurLoop->dump(); dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "Number of memrefs: " << NumMemRefs << "\n");
+  LLVM_DEBUG(dbgs() << "Number of ddrefs: " << NumDDRefs << "\n");
+  LLVM_DEBUG(dbgs() << "Loop: \n"; CurLoop->dump(); dbgs() << "\n");
 
   float ScalingFactor;
 
@@ -820,7 +820,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isProfitable() const {
     // with clang's behavior described here-
     // http://clang.llvm.org/docs/LanguageExtensions.html#extensions-for-loop-hint-optimizations
     ScalingFactor = HCU.Limits.MaxThresholdScalingFactor;
-    DEBUG(
+    LLVM_DEBUG(
         dbgs()
         << "Using max scaling factor due to presence of unroll enabling pragma."
         << "\n");
@@ -2507,12 +2507,12 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::addBlobCost(
 bool HIRCompleteUnroll::run() {
   // Skip if DisableHIRCompleteUnroll is enabled
   if (DisableHIRCompleteUnroll) {
-    DEBUG(dbgs() << "HIR LOOP Complete Unroll Transformation Disabled \n");
+    LLVM_DEBUG(dbgs() << "HIR LOOP Complete Unroll Transformation Disabled \n");
     return false;
   }
 
-  DEBUG(dbgs() << "Complete unrolling for Function : "
-               << HIRF.getFunction().getName() << "\n");
+  LLVM_DEBUG(dbgs() << "Complete unrolling for Function : "
+                    << HIRF.getFunction().getName() << "\n");
 
   // Storage for Outermost Loops
   SmallVector<HLLoop *, 64> OuterLoops;
@@ -2569,31 +2569,32 @@ bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
 
   // Throttle multi-exit/unknown loops.
   if (!Loop->isDo()) {
-    DEBUG(dbgs() << "Skipping complete unroll of non-DO loop!\n");
+    LLVM_DEBUG(dbgs() << "Skipping complete unroll of non-DO loop!\n");
     return false;
   }
 
   // Ignore vectorizable loops
   if (Loop->isVecLoop()) {
-    DEBUG(dbgs() << "Skipping complete unroll of vectorizable loop!\n");
+    LLVM_DEBUG(dbgs() << "Skipping complete unroll of vectorizable loop!\n");
     return false;
   }
 
   // Handle normalized loops only.
   if (!Loop->isNormalized()) {
-    DEBUG(dbgs() << "Skipping complete unroll of non-normalized loop!\n");
+    LLVM_DEBUG(dbgs() << "Skipping complete unroll of non-normalized loop!\n");
     return false;
   }
 
   if (Loop->hasCompleteUnrollDisablingPragma()) {
-    DEBUG(dbgs() << "Skipping complete unroll due to presence of unroll "
-                    "disabling pragma!\n");
+    LLVM_DEBUG(dbgs() << "Skipping complete unroll due to presence of unroll "
+                         "disabling pragma!\n");
     return false;
   }
 
   if (IsPreVec && Loop->hasVectorizeEnablingPragma()) {
-    DEBUG(dbgs()
-          << "Skipping complete unroll due to presence of vector pragma!\n");
+    LLVM_DEBUG(
+        dbgs()
+        << "Skipping complete unroll due to presence of vector pragma!\n");
     return false;
   }
 
@@ -2601,8 +2602,9 @@ bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
 
   // Cannot unroll loop if it has calls with noduplicate attribute.
   if (LS.hasCallsWithNoDuplicate()) {
-    DEBUG(dbgs() << "Skipping complete unroll of loop containing call(s) with "
-                    "NoDuplicate attribute!\n");
+    LLVM_DEBUG(
+        dbgs() << "Skipping complete unroll of loop containing call(s) with "
+                  "NoDuplicate attribute!\n");
     return false;
   }
 
@@ -3031,7 +3033,7 @@ void HIRCompleteUnrollLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
 
 bool HIRCompleteUnrollLegacyPass::runOnFunction(Function &F) {
   if (skipFunction(F)) {
-    DEBUG(dbgs() << "HIR LOOP Complete Unroll Transformation Disabled \n");
+    LLVM_DEBUG(dbgs() << "HIR LOOP Complete Unroll Transformation Disabled \n");
     return false;
   }
 

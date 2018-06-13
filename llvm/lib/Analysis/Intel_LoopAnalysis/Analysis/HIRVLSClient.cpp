@@ -46,8 +46,8 @@ bool HIRVLSClientMemref::canAccessWith(const RegDDRef *Ref,
                                        const RegDDRef *AtRef,
                                        const VectVLSContext *VectContext) {
 
-  // DEBUG(dbgs() << "\ncanMove: "; Ref->dump());
-  // DEBUG(dbgs() << " To: "; AtRef->dump());
+  // LLVM_DEBUG(dbgs() << "\ncanMove: "; Ref->dump());
+  // LLVM_DEBUG(dbgs() << " To: "; AtRef->dump());
 
   DDGraph DDG = VectContext->getDDG();
   const HLDDNode *DDNode = Ref->getHLDDNode();
@@ -95,12 +95,12 @@ bool HIRVLSClientMemref::canAccessWith(const RegDDRef *Ref,
     const DDEdge *Edge = *II;
     DDRef *SinkRef = Edge->getSink();
     HLDDNode *SinkNode = SinkRef->getHLDDNode();
-    // DEBUG(dbgs() << "\nmove past loc " << HNode->getTopSortNum() << ". ");
-    // Assuming structured code (no labels/gotos), we rely on the topological
-    // sort number to reflect if sink is accessed between Ref and AtRef. We
-    // don't care about a sink that is outside the range bordered by Ref and
-    // AtRef. In the example above, if Ref,AtRef are r1,r5 then the sink r3 is
-    // relevant, but the sink r0 and r6 are not relevant.
+    // LLVM_DEBUG(dbgs() << "\nmove past loc " << HNode->getTopSortNum() << ".
+    // "); Assuming structured code (no labels/gotos), we rely on the
+    // topological sort number to reflect if sink is accessed between Ref and
+    // AtRef. We don't care about a sink that is outside the range bordered by
+    // Ref and AtRef. In the example above, if Ref,AtRef are r1,r5 then the sink
+    // r3 is relevant, but the sink r0 and r6 are not relevant.
     // FIXME: Probably this check holds only for straight line code? may need a
     // stronger check for the general case
     if (!HLNodeUtils::isInTopSortNumRange(SinkNode, DDNode, AtDDNode) &&
@@ -128,11 +128,11 @@ bool HIRVLSClientMemref::setStridedAccess() {
 
   assert(LoopLevel > 0 && LoopLevel <= MaxLoopNestLevel &&
          " Level is invalid.");
-  DEBUG(dbgs() << "\nsetStridedAccess: Examine Ref "; Ref->dump());
+  LLVM_DEBUG(dbgs() << "\nsetStridedAccess: Examine Ref "; Ref->dump());
 
   // CHECKME: Not supposed to find invariant refs... turn into an assert?
   if (Ref->isStructurallyInvariantAtLevel(LoopLevel)) {
-    DEBUG(dbgs() << "\n  Invariant at Level\n");
+    LLVM_DEBUG(dbgs() << "\n  Invariant at Level\n");
     return false;
   }
 
@@ -140,7 +140,7 @@ bool HIRVLSClientMemref::setStridedAccess() {
   if (!Stride) {
     return false;
   }
-  DEBUG(dbgs() << "\n  Stride at Level is "; Stride->dump(1));
+  LLVM_DEBUG(dbgs() << "\n  Stride at Level is "; Stride->dump(1));
 
   if (Stride->isIntConstant(&ConstStride) && !ConstStride) {
     Stride->getCanonExprUtils().destroy(Stride);
@@ -154,12 +154,12 @@ bool HIRVLSClientMemref::setStridedAccess() {
     setAccessType(OVLSAccessType::getStridedStoreTy());
   }
 #if 0
-  DEBUG(dbgs() << "   Strided Access at Level " << LoopLevel << ".");
+  LLVM_DEBUG(dbgs() << "   Strided Access at Level " << LoopLevel << ".");
   if (ConstStride) {
-    DEBUG(dbgs() << " Constant Stride = " << ConstStride << ".\n"); 
+    LLVM_DEBUG(dbgs() << " Constant Stride = " << ConstStride << ".\n"); 
   }
   else {
-    DEBUG(dbgs() << ". Non Constant Stride.\n");
+    LLVM_DEBUG(dbgs() << ". Non Constant Stride.\n");
   }
 #endif
   return true;

@@ -130,6 +130,7 @@ public:
 
   virtual bool prepareTypes(Module &M) override;
   virtual void populateTypes(Module &M) override;
+  virtual void processFunction(Function &F) override;
   virtual void postprocessFunction(Function &Func, bool isCloned) override;
 
 private:
@@ -139,8 +140,9 @@ private:
 
   void processBinaryOperator(BinaryOperator &BO);
   void processCallInst(CallInst &CI);
-  void transformSDiv(BinaryOperator &I);
+  void transformDivOp(BinaryOperator &I);
   void processGetElementPtrInst(GetElementPtrInst &GEP);
+  void processByteFlattenedGetElementPtrInst(GetElementPtrInst &GEP);
   void transformAllocCall(CallInst &CI, StructType *Ty);
   void transformMemfunc(CallInst &CI, StructType *Ty);
   bool replaceOldSizeWithNewSize(Value *Val, uint64_t OldSize, uint64_t NewSize,
@@ -182,12 +184,13 @@ Type *ReorderFieldsImpl::getOrigTyOfTransformedType(Type *TType) {
 }
 
 // Sets \p NewVal as \p APos th operand of \p I. This routine expects
-// only CallInst and Instruction::SDiv instructions.
+// only CallInst and SDiv/UDiv instructions.
 void ReorderFieldsImpl::replaceOldValWithNewVal(Instruction *I, uint32_t APos,
                                                 Value *NewVal) {
   if (auto *CI = dyn_cast<CallInst>(I))
     CI->setArgOperand(APos, NewVal);
-  else if (I->getOpcode() == Instruction::SDiv)
+  else if (I->getOpcode() == Instruction::SDiv ||
+           I->getOpcode() == Instruction::UDiv)
     I->setOperand(APos, NewVal);
   else
     llvm_unreachable("Invalid Inst");
@@ -221,11 +224,9 @@ bool ReorderFieldsImpl::replaceOldSizeWithNewSize(Value *Val, uint64_t OldSize,
                                                   uint32_t APos) {
   if (!Val)
     return false;
-  // TODO: Make isValueMultipleOfSize as DTransUtils function so that
-  // it can be used in Transformations. Enable this code once it is
-  // moved to DTransUtils.
-  // if (!isValueMultipleOfSize(Val, OldSize))
-  //  return false;
+  // Check if Val is multiple of OldSize.
+  if (!isValueMultipleOfSize(Val, OldSize))
+    return false;
   if (replaceOldSizeWithNewSizeForConst(Val, OldSize, NewSize, I, APos))
     return true;
   Value *OldSizeVal = ConstantInt::get(Val->getType(), OldSize);
@@ -268,7 +269,7 @@ void ReorderFieldsImpl::transformAllocCall(CallInst &CI, StructType *Ty) {
   assert((Kind == AK_Calloc || Kind == AK_Malloc || Kind == AK_Realloc) &&
          "Unexpected alloc call");
   LLVM_DEBUG(dbgs() << "Alloc Before:" << CI << "\n");
-  getAllocSizeArgs(Kind, &CI, AllocCountVal, AllocSizeVal);
+  getAllocSizeArgs(Kind, &CI, AllocSizeVal, AllocCountVal);
   uint32_t SizeArgPos = (Kind == AK_Malloc) ? 0 : 1;
   uint64_t OldSize = DL.getTypeAllocSize(Ty);
   uint64_t NewSize = RTI.getTransformedTypeNewSize(Ty);
@@ -312,6 +313,38 @@ void ReorderFieldsImpl::processGetElementPtrInst(GetElementPtrInst &GEP) {
   LLVM_DEBUG(dbgs() << "GEP After:" << GEP << "\n");
 }
 
+// Fix offset value in ByteFlattened GEP if it is computing address of
+// a field in any reordered struct.
+void ReorderFieldsImpl::processByteFlattenedGetElementPtrInst(
+                     GetElementPtrInst &GEP) {
+
+  // Only two operands are expected for ByteFlattened GEPs
+  if (GEP.getNumOperands() != 2)
+    return;
+  auto GEPInfo = DTInfo.getByteFlattenedGEPElement(&GEP);
+  if (!GEPInfo.first)
+    return;
+
+  Type *SourceTy = GEPInfo.first;
+  // Check if SourceTy is transformed.
+  Type *OrigTy = getOrigTyOfTransformedType(SourceTy);
+  if (!OrigTy)
+    return;
+
+  StructType *StructTy = cast<StructType>(OrigTy);
+  uint32_t OldIdx = GEPInfo.second;
+  uint32_t NewIdx = RTI.getTransformedIndex(StructTy, OldIdx);
+
+  // Get offset of the field in new layout.
+  StructType *NewSt = cast<StructType>(OrigToNewTypeMapping[StructTy]);
+  auto *SL = DL.getStructLayout(NewSt);
+  uint64_t NewOffset = SL->getElementOffset(NewIdx);
+
+  LLVM_DEBUG(dbgs() << "ByteFGEP Before:" << GEP << "\n");
+  GEP.setOperand(1, ConstantInt::get(GEP.getOperand(1)->getType(), NewOffset));
+  LLVM_DEBUG(dbgs() << "ByteFGEP After:" << GEP << "\n");
+}
+
 // Gets StructType associated with \p SubV if it is subtraction
 // of pointers to a structure. Otherwise, it returns nullptr.
 StructType *ReorderFieldsImpl::getAssociatedOrigTypeOfSub(Value *SubV) {
@@ -348,15 +381,16 @@ StructType *ReorderFieldsImpl::getAssociatedOrigTypeOfSub(Value *SubV) {
 //
 //    size_of(str1) needs to be changed if reordering is applied to str1
 //
-void ReorderFieldsImpl::transformSDiv(BinaryOperator &I) {
-  assert(I.getOpcode() == Instruction::SDiv && "Unexpected opcode");
+void ReorderFieldsImpl::transformDivOp(BinaryOperator &I) {
+  assert((I.getOpcode() == Instruction::SDiv ||
+          I.getOpcode() == Instruction::UDiv) && "Unexpected opcode");
   Value *SubI = I.getOperand(0);
 
   StructType *STy = getAssociatedOrigTypeOfSub(SubI);
   if (!STy)
     return;
 
-  LLVM_DEBUG(dbgs() << "SDIV  Before:" << I << "\n");
+  LLVM_DEBUG(dbgs() << "SDiv/UDiv  Before:" << I << "\n");
   Value *SizeVal = I.getOperand(1);
   bool Replaced =
       replaceOldSizeWithNewSize(SizeVal, DL.getTypeAllocSize(STy),
@@ -365,16 +399,16 @@ void ReorderFieldsImpl::transformSDiv(BinaryOperator &I) {
          "Expecting oldSize should be replaced with NewSize");
 
   (void) Replaced;
-  LLVM_DEBUG(dbgs() << "SDIV  After:" << I << "\n");
+  LLVM_DEBUG(dbgs() << "SDiv/UDiv  After:" << I << "\n");
 }
 
 // Only Pointer arithmetic that is allowed in Analysis is Instruction::Sub
 // that is used by SDiv.
 void ReorderFieldsImpl::processBinaryOperator(BinaryOperator &BO) {
   switch (BO.getOpcode()) {
-  // TODO: Handle UDiv also.
   case Instruction::SDiv:
-    transformSDiv(BO);
+  case Instruction::UDiv:
+    transformDivOp(BO);
     break;
   default:
     break;
@@ -386,32 +420,20 @@ void ReorderFieldsImpl::processBinaryOperator(BinaryOperator &BO) {
 // to process GEPs that are passed as arguments to any calls since
 // Reordering is disabled as it is treated as AddressTaken.
 void ReorderFieldsImpl::processCallInst(CallInst &CI) {
-  CallInfo *CallInfo = DTInfo.getCallInfo(&CI);
-  if (CallInfo == nullptr)
+  CallInfo *CInfo = DTInfo.getCallInfo(&CI);
+  if (CInfo == nullptr)
     return;
-  switch (CallInfo->getCallInfoKind()) {
+  StructType *StrTy = getStructTyAssociatedWithCallInfo(CInfo);
+  if (!StrTy)
+    return;
+  switch (CInfo->getCallInfoKind()) {
   case CallInfo::CIK_Alloc: {
-    StructType *StrTy = getStructTyAssociatedWithCallInfo(CallInfo);
-    if (!StrTy)
-      return;
     transformAllocCall(CI, StrTy);
     break;
   }
 
   case CallInfo::CIK_Memfunc: {
-    // FIXME: Use CallInfo to get associated type once it is
-    // available for CIK_Memfunc.
-    Value *Dst = CI.getArgOperand(0)->stripPointerCasts();
-    if (!Dst->getType()->isPointerTy())
-      return;
-    Type *StrTy = cast<PointerType>(Dst->getType())->getElementType();
-    if (!dyn_cast<StructInfo>(DTInfo.getTypeInfo(StrTy)))
-      return;
-    Type *OrigStrTy = getOrigTyOfTransformedType(StrTy);
-    if (!OrigStrTy)
-      return;
-
-    transformMemfunc(CI, cast<StructType>(OrigStrTy));
+    transformMemfunc(CI, StrTy);
     break;
   }
   default:
@@ -419,11 +441,12 @@ void ReorderFieldsImpl::processCallInst(CallInst &CI) {
   }
 }
 
-// Fix all necessary IR changes related to field-reordering transform.
+// Fix all necessary IR changes related to field-reordering transform except
+// for ByteFlattened GEPs, which are processed in processFunction.
 //   GEP Inst: Replace old index of a field with new index
 //   CallInst: Replace old size of struct with new size in malloc/calloc/
 //             realloc/memset/memcpy etc.
-//   BinaryOp: Fix size that is used in SDiv.
+//   BinaryOp: Fix size that is used in SDiv/UDiv.
 void ReorderFieldsImpl::postprocessFunction(Function &Func, bool isCloned) {
   Function *F = isCloned ? OrigFuncToCloneFuncMap[&Func] : &Func;
   for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
@@ -434,6 +457,17 @@ void ReorderFieldsImpl::postprocessFunction(Function &Func, bool isCloned) {
       processBinaryOperator(*BO);
     else if (CallInst *CI = dyn_cast<CallInst>(Inst))
       processCallInst(*CI);
+  }
+}
+
+// Only ByteFlattened GEPs related to field-reordering structs are processed
+// here.
+//   ByteFlattened GEP: Old offset of a field is replaced with new offset.
+void ReorderFieldsImpl::processFunction(Function &F) {
+  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+    Instruction *Inst = &*I;
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Inst))
+      processByteFlattenedGetElementPtrInst(*GEP);
   }
 }
 

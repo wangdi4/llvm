@@ -279,9 +279,10 @@ static bool isShortenableAtTheEnd(Instruction *I) {
       default: return false;
       case Intrinsic::memset:
       case Intrinsic::memcpy:
+      case Intrinsic::memcpy_element_unordered_atomic:
+      case Intrinsic::memset_element_unordered_atomic:
         // Do shorten memory intrinsics.
         // FIXME: Add memmove if it's also safe to transform.
-        // TODO: Add atomic memcpy/memset
         return true;
     }
   }
@@ -296,9 +297,7 @@ static bool isShortenableAtTheEnd(Instruction *I) {
 static bool isShortenableAtTheBeginning(Instruction *I) {
   // FIXME: Handle only memset for now. Supporting memcpy/memmove should be
   // easily done by offsetting the source address.
-  // TODO: Handle atomic memory intrinsics
-  IntrinsicInst *II = dyn_cast<IntrinsicInst>(I);
-  return II && II->getIntrinsicID() == Intrinsic::memset;
+  return isa<AnyMemSetInst>(I);
 }
 
 /// Return the pointer that is being written to.
@@ -422,9 +421,10 @@ static OverwriteResult isOverwrite(const MemoryLocation &Later,
 
     // Insert our part of the overlap into the map.
     auto &IM = IOL[DepWrite];
-    DEBUG(dbgs() << "DSE: Partial overwrite: Earlier [" << EarlierOff << ", " <<
-                    int64_t(EarlierOff + Earlier.Size) << ") Later [" <<
-                    LaterOff << ", " << int64_t(LaterOff + Later.Size) << ")\n");
+    LLVM_DEBUG(dbgs() << "DSE: Partial overwrite: Earlier [" << EarlierOff
+                      << ", " << int64_t(EarlierOff + Earlier.Size)
+                      << ") Later [" << LaterOff << ", "
+                      << int64_t(LaterOff + Later.Size) << ")\n");
 
     // Make sure that we only insert non-overlapping intervals and combine
     // adjacent intervals. The intervals are stored in the map with the ending
@@ -461,11 +461,11 @@ static OverwriteResult isOverwrite(const MemoryLocation &Later,
     ILI = IM.begin();
     if (ILI->second <= EarlierOff &&
         ILI->first >= int64_t(EarlierOff + Earlier.Size)) {
-      DEBUG(dbgs() << "DSE: Full overwrite from partials: Earlier [" <<
-                      EarlierOff << ", " <<
-                      int64_t(EarlierOff + Earlier.Size) <<
-                      ") Composite Later [" <<
-                      ILI->second << ", " << ILI->first << ")\n");
+      LLVM_DEBUG(dbgs() << "DSE: Full overwrite from partials: Earlier ["
+                        << EarlierOff << ", "
+                        << int64_t(EarlierOff + Earlier.Size)
+                        << ") Composite Later [" << ILI->second << ", "
+                        << ILI->first << ")\n");
       ++NumCompletePartials;
       return OW_Complete;
     }
@@ -476,10 +476,11 @@ static OverwriteResult isOverwrite(const MemoryLocation &Later,
   if (EnablePartialStoreMerging && LaterOff >= EarlierOff &&
       int64_t(EarlierOff + Earlier.Size) > LaterOff &&
       uint64_t(LaterOff - EarlierOff) + Later.Size <= Earlier.Size) {
-    DEBUG(dbgs() << "DSE: Partial overwrite an earlier load [" << EarlierOff
-                 << ", " << int64_t(EarlierOff + Earlier.Size)
-                 << ") by a later store [" << LaterOff << ", "
-                 << int64_t(LaterOff + Later.Size) << ")\n");
+    LLVM_DEBUG(dbgs() << "DSE: Partial overwrite an earlier load ["
+                      << EarlierOff << ", "
+                      << int64_t(EarlierOff + Earlier.Size)
+                      << ") by a later store [" << LaterOff << ", "
+                      << int64_t(LaterOff + Later.Size) << ")\n");
     // TODO: Maybe come up with a better name?
     return OW_PartialEarlierWithFullLater;
   }
@@ -679,8 +680,9 @@ static bool handleFree(CallInst *F, AliasAnalysis *AA,
       if (!AA->isMustAlias(F->getArgOperand(0), DepPointer))
         break;
 
-      DEBUG(dbgs() << "DSE: Dead Store to soon to be freed memory:\n  DEAD: "
-                   << *Dependency << '\n');
+      LLVM_DEBUG(
+          dbgs() << "DSE: Dead Store to soon to be freed memory:\n  DEAD: "
+                 << *Dependency << '\n');
 
       // DCE instructions only used to calculate that store.
       BasicBlock::iterator BBI(Dependency);
@@ -789,15 +791,16 @@ static bool handleEndBlock(BasicBlock &BB, AliasAnalysis *AA,
       if (AllDead) {
         Instruction *Dead = &*BBI;
 
-        DEBUG(dbgs() << "DSE: Dead Store at End of Block:\n  DEAD: "
-                     << *Dead << "\n  Objects: ";
-              for (SmallVectorImpl<Value *>::iterator I = Pointers.begin(),
-                   E = Pointers.end(); I != E; ++I) {
-                dbgs() << **I;
-                if (std::next(I) != E)
-                  dbgs() << ", ";
-              }
-              dbgs() << '\n');
+        LLVM_DEBUG(dbgs() << "DSE: Dead Store at End of Block:\n  DEAD: "
+                          << *Dead << "\n  Objects: ";
+                   for (SmallVectorImpl<Value *>::iterator I = Pointers.begin(),
+                        E = Pointers.end();
+                        I != E; ++I) {
+                     dbgs() << **I;
+                     if (std::next(I) != E)
+                       dbgs() << ", ";
+                   } dbgs()
+                   << '\n');
 
         // DCE instructions only used to calculate that store.
         deleteDeadInstruction(Dead, &BBI, *MD, *TLI, IOL, InstrOrdering, &DeadStackObjects);
@@ -809,8 +812,8 @@ static bool handleEndBlock(BasicBlock &BB, AliasAnalysis *AA,
 
     // Remove any dead non-memory-mutating instructions.
     if (isInstructionTriviallyDead(&*BBI, TLI)) {
-      DEBUG(dbgs() << "DSE: Removing trivially dead instruction:\n  DEAD: "
-                   << *&*BBI << '\n');
+      LLVM_DEBUG(dbgs() << "DSE: Removing trivially dead instruction:\n  DEAD: "
+                        << *&*BBI << '\n');
       deleteDeadInstruction(&*BBI, &BBI, *MD, *TLI, IOL, InstrOrdering, &DeadStackObjects);
       ++NumFastOther;
       MadeChange = true;
@@ -898,7 +901,7 @@ static bool tryToShorten(Instruction *EarlierWrite, int64_t &EarlierOffset,
   // Power of 2 vector writes are probably always a bad idea to optimize
   // as any store/memset/memcpy is likely using vector instructions so
   // shortening it to not vector size is likely to be slower
-  MemIntrinsic *EarlierIntrinsic = cast<MemIntrinsic>(EarlierWrite);
+  auto *EarlierIntrinsic = cast<AnyMemIntrinsic>(EarlierWrite);
   unsigned EarlierWriteAlign = EarlierIntrinsic->getDestAlignment();
   if (!IsOverwriteEnd)
     LaterOffset = int64_t(LaterOffset + LaterSize);
@@ -907,14 +910,22 @@ static bool tryToShorten(Instruction *EarlierWrite, int64_t &EarlierOffset,
       !((EarlierWriteAlign != 0) && LaterOffset % EarlierWriteAlign == 0))
     return false;
 
-  DEBUG(dbgs() << "DSE: Remove Dead Store:\n  OW "
-               << (IsOverwriteEnd ? "END" : "BEGIN") << ": " << *EarlierWrite
-               << "\n  KILLER (offset " << LaterOffset << ", " << EarlierSize
-               << ")\n");
-
   int64_t NewLength = IsOverwriteEnd
                           ? LaterOffset - EarlierOffset
                           : EarlierSize - (LaterOffset - EarlierOffset);
+
+  if (auto *AMI = dyn_cast<AtomicMemIntrinsic>(EarlierWrite)) {
+    // When shortening an atomic memory intrinsic, the newly shortened
+    // length must remain an integer multiple of the element size.
+    const uint32_t ElementSize = AMI->getElementSizeInBytes();
+    if (0 != NewLength % ElementSize)
+      return false;
+  }
+
+  LLVM_DEBUG(dbgs() << "DSE: Remove Dead Store:\n  OW "
+                    << (IsOverwriteEnd ? "END" : "BEGIN") << ": "
+                    << *EarlierWrite << "\n  KILLER (offset " << LaterOffset
+                    << ", " << EarlierSize << ")\n");
 
   Value *EarlierWriteLength = EarlierIntrinsic->getLength();
   Value *TrimmedLength =
@@ -1019,8 +1030,9 @@ static bool eliminateNoopStore(Instruction *Inst, BasicBlock::iterator &BBI,
     if (SI->getPointerOperand() == DepLoad->getPointerOperand() &&
         isRemovable(SI) && memoryIsNotModifiedBetween(DepLoad, SI, AA)) {
 
-      DEBUG(dbgs() << "DSE: Remove Store Of Load from same pointer:\n  LOAD: "
-                   << *DepLoad << "\n  STORE: " << *SI << '\n');
+      LLVM_DEBUG(
+          dbgs() << "DSE: Remove Store Of Load from same pointer:\n  LOAD: "
+                 << *DepLoad << "\n  STORE: " << *SI << '\n');
 
       deleteDeadInstruction(SI, &BBI, *MD, *TLI, IOL, InstrOrdering);
       ++NumRedundantStores;
@@ -1036,7 +1048,7 @@ static bool eliminateNoopStore(Instruction *Inst, BasicBlock::iterator &BBI,
 
     if (UnderlyingPointer && isCallocLikeFn(UnderlyingPointer, TLI) &&
         memoryIsNotModifiedBetween(UnderlyingPointer, SI, AA)) {
-      DEBUG(
+      LLVM_DEBUG(
           dbgs() << "DSE: Remove null store to the calloc'ed object:\n  DEAD: "
                  << *Inst << "\n  OBJECT: " << *UnderlyingPointer << '\n');
 
@@ -1167,8 +1179,8 @@ static bool eliminateDeadStores(BasicBlock &BB, AliasAnalysis *AA,
         OverwriteResult OR = isOverwrite(Loc, DepLoc, DL, *TLI, DepWriteOffset,
                                          InstWriteOffset, DepWrite, IOL, *AA);
         if (OR == OW_Complete) {
-          DEBUG(dbgs() << "DSE: Remove Dead Store:\n  DEAD: "
-                << *DepWrite << "\n  KILLER: " << *Inst << '\n');
+          LLVM_DEBUG(dbgs() << "DSE: Remove Dead Store:\n  DEAD: " << *DepWrite
+                            << "\n  KILLER: " << *Inst << '\n');
 
           // Delete the store and now-dead instructions that feed it.
           deleteDeadInstruction(DepWrite, &BBI, *MD, *TLI, IOL, &InstrOrdering);
@@ -1226,9 +1238,9 @@ static bool eliminateDeadStores(BasicBlock &BB, AliasAnalysis *AA,
             // store, shifted appropriately.
             APInt Merged =
                 (EarlierValue & ~Mask) | (LaterValue << LShiftAmount);
-            DEBUG(dbgs() << "DSE: Merge Stores:\n  Earlier: " << *DepWrite
-                         << "\n  Later: " << *Inst
-                         << "\n  Merged Value: " << Merged << '\n');
+            LLVM_DEBUG(dbgs() << "DSE: Merge Stores:\n  Earlier: " << *DepWrite
+                              << "\n  Later: " << *Inst
+                              << "\n  Merged Value: " << Merged << '\n');
 
             auto *SI = new StoreInst(
                 ConstantInt::get(Earlier->getValueOperand()->getType(), Merged),

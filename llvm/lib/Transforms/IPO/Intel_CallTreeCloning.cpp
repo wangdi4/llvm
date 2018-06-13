@@ -165,7 +165,7 @@ static cl::opt<bool> CTCloningLeafsOnly(
     PASS_NAME_STR "-leafs-only", cl::init(false), cl::ReallyHidden,
     cl::desc("don't clone functions containing non-intrinsic calls"));
 
-#define DBGX(n, x) DEBUG(if (n <= CTCloningDbgLevel) { x; })
+#define DBGX(n, x) LLVM_DEBUG(if (n <= CTCloningDbgLevel) { x; })
 
 namespace {
 
@@ -1043,7 +1043,7 @@ const ConstantInt *ActualParamFormula::evaluateRec(
 #endif // NDEBUG
 
   if (const Argument *Arg = dyn_cast<Argument>(V)) {
-    DEBUG(IsArg = true);
+    LLVM_DEBUG(IsArg = true);
     // it is a formal paramter - replace it with a constant if possible
     const ConstantInt *C = Formals[Arg->getArgNo()];
     DBGX(2, dbgs().indent(Depth * 2 + 2) << "arg[" << Arg->getArgNo() << "]=");
@@ -1228,20 +1228,15 @@ SetOfParamIndSets CTCLoopBasedCostModel::assess(Function &F) {
 #endif // NDEBUG
 
   if (IRSize > CTCloningMaxIRSize) {
-    DEBUG(
-      std::ostringstream S;
-      S << "LLVM IR too big - " << IRSize;
-      Msg = S.str()
-    );
+    LLVM_DEBUG(std::ostringstream S; S << "LLVM IR too big - " << IRSize;
+               Msg = S.str());
   } else if (HasCalls && CTCloningLeafsOnly) {
-    DEBUG(Msg = "contains non-intrinsic calls");
+    LLVM_DEBUG(Msg = "contains non-intrinsic calls");
   } else {
     gatherParamDepsForFoldableLoopBounds(F, Res);
   }
-  DEBUG(
-    if (Msg.size() > 0)
-      dbgs() << "Skip " << F.getName() << ":" << Msg << "\n";
-  );
+  LLVM_DEBUG(if (Msg.size() > 0) dbgs()
+                 << "Skip " << F.getName() << ":" << Msg << "\n";);
   return Res;
 }
 
@@ -1429,7 +1424,7 @@ bool CallTreeCloningImpl::run(Module &M, Analyses &Anls,
   else
     CM = llvm::make_unique<CTCLoopBasedCostModel>(Anls);
 
-  DEBUG(dbgs() << "--- Seeds for cloning:\n");
+  LLVM_DEBUG(dbgs() << "--- Seeds for cloning:\n");
 
   for (auto &F : M) {
     if (!F.hasExactDefinition() || F.isDeclaration() || F.isIntrinsic())
@@ -1441,18 +1436,18 @@ bool CallTreeCloningImpl::run(Module &M, Analyses &Anls,
       continue;
 
     if (const DCGNodeList *callers = Cgraph->getNodesWithCallee(&F)) {
-      DEBUG(dbgs() << "  " << F.getName() << Psets.toString() << "\n");
+      LLVM_DEBUG(dbgs() << "  " << F.getName() << Psets.toString() << "\n");
 
       for (auto *N : *callers) {
         if (N->getCallInst()->cannotDuplicate()) {
-          DEBUG(dbgs() << "  skip " << N->toString()
-                       << ": can't duplicate call\n");
+          LLVM_DEBUG(dbgs() << "  skip " << N->toString()
+                            << ": can't duplicate call\n");
           continue;
         }
         assert(AlgSeeds.find(N) == AlgSeeds.end() && "seed duplication");
         AlgSeeds[N] = Psets;
-        DEBUG(dbgs() << "  added seed: " << N->toString() << "/"
-                     << Psets.toString() << "\n");
+        LLVM_DEBUG(dbgs() << "  added seed: " << N->toString() << "/"
+                          << Psets.toString() << "\n");
       }
     }
   }
@@ -1708,7 +1703,7 @@ bool CallTreeCloningImpl::findAndCloneCallSubtrees(
       }
     }
 
-  DEBUG(print_node_set("--- Clone roots:", CloneRoots));
+  LLVM_DEBUG(print_node_set("--- Clone roots:", CloneRoots));
 
   // At this point we have a detailed call graph annotated with:
   // - information about "clone roots" (see above) to start cloning with
@@ -1722,7 +1717,7 @@ bool CallTreeCloningImpl::findAndCloneCallSubtrees(
   // records all cloned functions
   CloneRegistry Clones;
 
-  DEBUG(dbgs() << "\n--- Top-down pass\n\n");
+  LLVM_DEBUG(dbgs() << "\n--- Top-down pass\n\n");
 
   // Edges which introduce cycles (isMarked() == true) are skipped in
   // cloneCallSubtreeRec below, so it is safe not to track visited nodes - this
@@ -1758,7 +1753,7 @@ bool CallTreeCloningImpl::findAndCloneCallSubtrees(
     }
   }
   NumClones = static_cast<unsigned>(Clones.size()) - NumClones;
-  DEBUG(dbgs() << "Number of clones: " << NumClones << "\n");
+  LLVM_DEBUG(dbgs() << "Number of clones: " << NumClones << "\n");
   return NumClones > 0;
 }
 
@@ -1771,8 +1766,8 @@ Function *CallTreeCloningImpl::cloneCallSubtreeRec(
   unsigned Depth = CallStack->size();
 #endif // NDEBUG
   Call2ClonedFunc Call2Clone;
-  DEBUG(dbgs().indent(Depth * 2) << Root->toString()
-    << " PARAMS:" << ConstParams.toString());
+  LLVM_DEBUG(dbgs().indent(Depth * 2)
+             << Root->toString() << " PARAMS:" << ConstParams.toString());
   DBGX(1, dbgs() << " || ");
 
   if (std::find(CallStack->begin(), CallStack->end(), Root) !=
@@ -1794,10 +1789,10 @@ Function *CallTreeCloningImpl::cloneCallSubtreeRec(
         HasLiveSet
             ? cloneFunction(Root->getCallee(), ConstParams, Call2Clone, Clones)
             : nullptr;
-    DEBUG(dbgs() << "\n");
+    LLVM_DEBUG(dbgs() << "\n");
     return Clone;
   }
-  DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "\n");
   CallStack->push_back(Root);
   // clone the subgraph starting with nodes where the callee is a caller and
   // update the call site to call the cloned callee
@@ -1850,9 +1845,9 @@ Function *CallTreeCloningImpl::cloneCallSubtreeRec(
     return nullptr;
 
   // clone current node's function and update the call site to call the clone
-  DEBUG(dbgs().indent(Depth * 2));
+  LLVM_DEBUG(dbgs().indent(Depth * 2));
   Function *C = cloneFunction(F, ConstParams, Call2Clone, Clones);
-  DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "\n");
   return C;
 }
 
@@ -1865,7 +1860,7 @@ Function *CallTreeCloningImpl::cloneFunction(Function *F,
   auto It = Clones.find(SearchKey);
 
   if (It != Clones.end()) {
-    DEBUG(dbgs() << "CLONE USED " << It->second->getName());
+    LLVM_DEBUG(dbgs() << "CLONE USED " << It->second->getName());
     return It->second;
   }
   if (Clones.size() >= CTCloningMaxClones) {
@@ -1948,7 +1943,7 @@ Function *CallTreeCloningImpl::cloneFunction(Function *F,
   // enjoy the newly created clone
   Clones[SearchKey] = Clone;
   ++NumCTCClones;
-  DEBUG(dbgs() << "CLONED " << Clone->getName());
+  LLVM_DEBUG(dbgs() << "CLONED " << Clone->getName());
   return Clone;
 }
 

@@ -479,20 +479,20 @@ FunctionSplitter::EvaluationT FunctionSplitter::evaluateCandidateRegion(
   SplinterRegionT &Region)
 {
   if (!isSingleEntrySingleExit(Region)) {
-    DEBUG(dbgs() << "Region has paths into it besides entry block: " <<
-      Region << "\n");
+    LLVM_DEBUG(dbgs() << "Region has paths into it besides entry block: "
+                      << Region << "\n");
     return std::make_pair(RegionNotSESE, 0);
   }
 
   CodeExtractor Extractor(Region.getArrayRef(), &DT);
   if (!Extractor.isEligible()) {
-    DEBUG(dbgs() << "Ineligible region: " << Region << "\n");
+    LLVM_DEBUG(dbgs() << "Ineligible region: " << Region << "\n");
     return std::make_pair(RegionIneligible, 0);
   }
 
   unsigned int RegionSize = estimateRegionSize(Region);
   if (RegionSize <= FunctionSplittingMinSize) {
-    DEBUG(dbgs() << "Region is too small: " << Region << "\n");
+    LLVM_DEBUG(dbgs() << "Region is too small: " << Region << "\n");
     return std::make_pair(RegionSmall, RegionSize);
   }
 
@@ -507,11 +507,11 @@ FunctionSplitter::EvaluationT FunctionSplitter::evaluateCandidateRegion(
   // statement. Check if the cost is "large" enough to justify the split.
   unsigned CallSize = 1 + NumInputs + NumOutputs;
   if (RegionSize < 2 * CallSize) {
-    DEBUG(dbgs() << "Region is too small: " << Region << "\n");
+    LLVM_DEBUG(dbgs() << "Region is too small: " << Region << "\n");
     return std::make_pair(RegionSmall, RegionSize);
   }
 
-  DEBUG(dbgs() << "Region ok for split: " << Region << "\n");
+  LLVM_DEBUG(dbgs() << "Region ok for split: " << Region << "\n");
   return std::make_pair(RegionOk, RegionSize);
 }
 
@@ -625,15 +625,15 @@ bool FunctionSplitter::splitRegions()
   RegionSplitter Splitter(DT, BFI);
 
   for (auto &R : RegionsToSplit) {
-    DEBUG(dbgs() << F.getName() << ": Extracting " << R.size() <<
-      " blocks\n");
+    LLVM_DEBUG(dbgs() << F.getName() << ": Extracting " << R.size()
+                      << " blocks\n");
     Function *ColdF = Splitter.splitRegion(R);
     if (ColdF) {
       Changed = true;
     }
     else {
-      DEBUG(dbgs() << "Function split of " << F.getName() << " @ " <<
-        R.front()->getName() << " was unsuccessful\n");
+      LLVM_DEBUG(dbgs() << "Function split of " << F.getName() << " @ "
+                        << R.front()->getName() << " was unsuccessful\n");
     }
   }
 

@@ -97,7 +97,8 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
       this->Operands.push_back(AvrVal);
     }
     else
-      DEBUG(dbgs() << "NO LHS\n"); // TODO: is this reachable (IsLHSExpr = ?)?
+      LLVM_DEBUG(
+          dbgs() << "NO LHS\n"); // TODO: is this reachable (IsLHSExpr = ?)?
   }
   else
     IsLHSExpr = false;

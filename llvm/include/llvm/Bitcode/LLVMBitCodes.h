@@ -119,10 +119,10 @@ enum ModuleCodes {
   // IFUNC: [ifunc value type, addrspace, resolver val#, linkage, visibility]
   MODULE_CODE_IFUNC = 18,
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   // TRIPLE:      [strchr x N, ..., strchr x N]
   MODULE_CODE_DEVICES = 19,
-#endif //INTEL_CUSTOMIZATION
+#endif //INTEL_COLLAB
 };
 
 /// PARAMATTR blocks have code for defining a parameter attribute set.

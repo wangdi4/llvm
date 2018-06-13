@@ -21,11 +21,15 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/IR/ValueMap.h"
 #include "llvm/Pass.h"
 
 namespace llvm {
 
+class BinaryOperator;
+
 class TargetLibraryInfo;
+class GetElementPtrInst;
 
 class DTransAnalysisInfo {
 public:
@@ -56,9 +60,14 @@ public:
     dtrans::CallInfo *&operator->() const { return operator*(); }
   };
 
+  using PtrSubInfoMapType = ValueMap<Value *, llvm::Type *>;
+
+  using ByteFlattenedGEPInfoMapType = ValueMap<Value *,
+                                               std::pair<llvm::Type*, size_t>>;
+
 public:
   DTransAnalysisInfo();
-  DTransAnalysisInfo(DTransAnalysisInfo &&) = default;
+  DTransAnalysisInfo(DTransAnalysisInfo&& Other);
   ~DTransAnalysisInfo();
 
   DTransAnalysisInfo(const DTransAnalysisInfo &) = delete;
@@ -94,6 +103,17 @@ public:
     return make_range(call_info_iterator(CallInfoMap.begin()),
                       call_info_iterator(CallInfoMap.end()));
   }
+
+  // If the specified BinaryOperator was identified as a subtraction of
+  // pointers to a type of interest, return the type that is pointed to
+  // by the pointers being subtracted. Otherwise, return nullptr.
+  llvm::Type *getResolvedPtrSubType(BinaryOperator *BinOp);
+
+  // If the specified GEP was identified as a byte flattened access of
+  // a structure element, return the type-index pair for the element accessed.
+  // Otherwise, return (nullptr, 0).
+  std::pair<llvm::Type *, size_t>
+  getByteFlattenedGEPElement(GetElementPtrInst *GEP);
 
   // Retrieve the CallInfo object for the instruction, if information exists.
   // Otherwise, return nullptr.
@@ -139,6 +159,10 @@ public:
   void printCallInfo(raw_ostream &OS);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+  void addPtrSubMapping(llvm::BinaryOperator *BinOp, llvm::Type *Ty);
+
+  void addByteFlattenedGEPMapping(GetElementPtrInst *GEP,
+                                  std::pair<llvm::Type*, size_t> Pointee);
 private:
   void printStructInfo(dtrans::StructInfo *AI);
   void printArrayInfo(dtrans::ArrayInfo *AI);
@@ -152,6 +176,16 @@ private:
   // A mapping from function calls that special information is collected for
   // (malloc, free, memset, etc) to the information stored about those calls.
   CallInfoMapType CallInfoMap;
+
+  // A mapping from BinaryOperator instructions that have been identified as
+  // subtracting two pointers to types of interest to the interesting type
+  // aliased by the operands.
+  PtrSubInfoMapType PtrSubInfoMap;
+
+  // A mapping from GetElementPtr instructions that have been identified as
+  // being structure element accesses in byte-flattened form to a type-index
+  // pair for the element being accessed.
+  ByteFlattenedGEPInfoMapType ByteFlattenedGEPInfoMap;
 };
 
 // Analysis pass providing a data transformation analysis result.

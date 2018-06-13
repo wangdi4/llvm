@@ -510,14 +510,14 @@ void HIRLoopLocality::computeLoopNestLocality(
                                    MemRefVec);
 
   // Debugging
-  DEBUG(LocalityRefGatherer::dump(MemRefVec));
+  LLVM_DEBUG(LocalityRefGatherer::dump(MemRefVec));
 
   // Sort the Memory References.
   LocalityRefGatherer::sortAndUnique(MemRefVec, true);
 
-  DEBUG(dbgs() << " After sorting and removing dups\n");
-  DEBUG(LocalityRefGatherer::dump(MemRefVec));
-  DEBUG(dbgs() << " End\n");
+  LLVM_DEBUG(dbgs() << " After sorting and removing dups\n");
+  LLVM_DEBUG(LocalityRefGatherer::dump(MemRefVec));
+  LLVM_DEBUG(dbgs() << " End\n");
 
   initTripCountByLevel(LoopVec);
 
@@ -525,11 +525,11 @@ void HIRLoopLocality::computeLoopNestLocality(
       RefGroups, MemRefVec,
       std::bind(isSpatialMatch, std::placeholders::_1, std::placeholders::_2));
 
-  DEBUG(DDRefGrouping::dump(RefGroups));
+  LLVM_DEBUG(DDRefGrouping::dump(RefGroups));
 
   for (auto CurLoop : LoopVec) {
     computeNumCacheLines(CurLoop, RefGroups);
-    DEBUG(printLocalityInfo(dbgs(), CurLoop));
+    LLVM_DEBUG(printLocalityInfo(dbgs(), CurLoop));
   }
 }
 

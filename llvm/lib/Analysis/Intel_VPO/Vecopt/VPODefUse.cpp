@@ -76,8 +76,8 @@ void IR2AVRVisitor::visit(AVRValueHIR *AValueHIR) {
         DDRef2AVR[*I] = AValueHIR;
     }
   } else if (AValueHIR->isIVValue()) {
-    DEBUG(dbgs() << "Warning: Ignoring IV (AVRValueHIR):");
-    DEBUG(AValueHIR->dump());
+    LLVM_DEBUG(dbgs() << "Warning: Ignoring IV (AVRValueHIR):");
+    LLVM_DEBUG(AValueHIR->dump());
   } else {
     llvm_unreachable("AVRValueHIR doesn't have DDRef or IVValueInfo");
   }
@@ -454,8 +454,8 @@ void AvrDefUseHIR::visit(AVRLoopHIR *ALoopHIR) {
   TopLevelLoop = ALoopHIR;
   DDG = DDA->getGraph(ALoopHIR->getLoop(), false);
 
-  DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "Top-Level loop DDG:\n";
-        DDG.print(FOS); FOS << "\n");
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "Top-Level loop DDG:\n";
+             DDG.print(FOS); FOS << "\n");
 }
 
 void AvrDefUseHIR::postVisit(AVRLoopHIR *ALoopHIR) {

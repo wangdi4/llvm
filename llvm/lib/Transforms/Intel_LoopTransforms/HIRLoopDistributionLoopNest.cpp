@@ -29,7 +29,8 @@ PreservedAnalyses
 HIRLoopDistributionForLoopNestPass::run(llvm::Function &F,
                                         llvm::FunctionAnalysisManager &AM) {
   if (DisableDistLoopNest) {
-    DEBUG(dbgs() << "LOOP DISTRIBUTION enable perfect Loop Nest Disabled\n");
+    LLVM_DEBUG(
+        dbgs() << "LOOP DISTRIBUTION enable perfect Loop Nest Disabled\n");
     return PreservedAnalyses::all();
   }
 
@@ -57,7 +58,8 @@ public:
 
   bool runOnFunction(Function &F) override {
     if (DisableDistLoopNest) {
-      DEBUG(dbgs() << "LOOP DISTRIBUTION enable perfect Loop Nest Disabled\n");
+      LLVM_DEBUG(
+          dbgs() << "LOOP DISTRIBUTION enable perfect Loop Nest Disabled\n");
       return false;
     }
 

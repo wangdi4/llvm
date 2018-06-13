@@ -354,8 +354,8 @@ bool HIROptVarPredicate::run() {
     return false;
   }
 
-  DEBUG(dbgs() << "Optimization of Variant Predicates Function: "
-               << HIRF.getFunction().getName() << "\n");
+  LLVM_DEBUG(dbgs() << "Optimization of Variant Predicates Function: "
+                    << HIRF.getFunction().getName() << "\n");
 
   ForPostEach<HLLoop>::visitRange(
       HIRF.hir_begin(), HIRF.hir_end(), [this](HLLoop *Loop) {
@@ -689,15 +689,15 @@ void HIROptVarPredicate::splitLoop(
 }
 
 bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
-  DEBUG(dbgs() << "Processing loop #" << Loop->getNumber() << "\n");
+  LLVM_DEBUG(dbgs() << "Processing loop #" << Loop->getNumber() << "\n");
 
   if (!Loop->isDo()) {
-    DEBUG(dbgs() << "Unknown/Multiexit loop skipped.\n");
+    LLVM_DEBUG(dbgs() << "Unknown/Multiexit loop skipped.\n");
     return false;
   }
 
   if (Loop->hasUnrollEnablingPragma() || Loop->hasVectorizeEnablingPragma()) {
-    DEBUG(dbgs() << "Loop with unroll/vector pragma skipped\n");
+    LLVM_DEBUG(dbgs() << "Loop with unroll/vector pragma skipped\n");
     return false;
   }
 
@@ -720,21 +720,21 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
 
   for (HLIf *Candidate :
        llvm::make_range(Candidates.begin(), Candidates.end())) {
-    DEBUG(dbgs() << "Processing: ");
-    DEBUG(Candidate->dumpHeader());
-    DEBUG(dbgs() << "\n");
+    LLVM_DEBUG(dbgs() << "Processing: ");
+    LLVM_DEBUG(Candidate->dumpHeader());
+    LLVM_DEBUG(dbgs() << "\n");
 
     if (!TransformNodes.empty()) {
       if (std::find(TransformNodes.begin(), TransformNodes.end(),
                     Candidate->getNumber()) == TransformNodes.end()) {
-        DEBUG(dbgs() << "Skipped due to the command line option\n");
+        LLVM_DEBUG(dbgs() << "Skipped due to the command line option\n");
         continue;
       }
     }
 
     // TODO: Skip complex HLIfs for now
     if (Candidate->getNumPredicates() > 1) {
-      DEBUG(dbgs() << "Complex predicate skipped\n");
+      LLVM_DEBUG(dbgs() << "Complex predicate skipped\n");
       continue;
     }
 
@@ -752,18 +752,19 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
 
     // Can not handle this candidate
     if (!SplitPoint) {
-      DEBUG(dbgs() << "Couldn't find a solution.\n");
+      LLVM_DEBUG(dbgs() << "Couldn't find a solution.\n");
       continue;
     }
 
-    DEBUG(dbgs() << "Loop break point: ");
-    DEBUG(SplitPoint->dump());
-    DEBUG(dbgs() << "\n");
+    LLVM_DEBUG(dbgs() << "Loop break point: ");
+    LLVM_DEBUG(SplitPoint->dump());
+    LLVM_DEBUG(dbgs() << "\n");
 
     if (!SplitPoint->convertToStandAloneBlob()) {
       // This is mostly due to IVs in the split point.
       // TODO: implement min/max ddrefs
-      DEBUG(dbgs() << "Could not convert split point to a stand-alone blob\n");
+      LLVM_DEBUG(
+          dbgs() << "Could not convert split point to a stand-alone blob\n");
       continue;
     }
 
@@ -778,21 +779,22 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
     NodesToInvalidate.insert(ParentLoop ? static_cast<HLNode *>(ParentLoop)
                                         : static_cast<HLNode *>(Region));
 
-    DEBUG(dbgs() << "While " OPT_DESC ":\n");
-    DEBUG(Region->dump(true));
-    DEBUG(dbgs() << "\n");
+    LLVM_DEBUG(dbgs() << "While " OPT_DESC ":\n");
+    LLVM_DEBUG(Region->dump(true));
+    LLVM_DEBUG(dbgs() << "\n");
 
     LoopsSplit++;
 
     return true;
   }
 
-  DEBUG(dbgs() << "No candidates\n");
+  LLVM_DEBUG(dbgs() << "No candidates\n");
   return false;
 }
 
-PreservedAnalyses HIROptVarPredicatePass::run(llvm::Function &F,
-                                              llvm::FunctionAnalysisManager &AM) {
+PreservedAnalyses
+HIROptVarPredicatePass::run(llvm::Function &F,
+                            llvm::FunctionAnalysisManager &AM) {
   HIROptVarPredicate(AM.getResult<HIRFrameworkAnalysis>(F)).run();
   return PreservedAnalyses::all();
 }

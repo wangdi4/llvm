@@ -43,8 +43,8 @@ AnalysisKey WRegionCollectionAnalysis::Key;
 WRegionCollection WRegionCollectionAnalysis::run(Function &F,
                                                  FunctionAnalysisManager &AM) {
 
-  DEBUG(dbgs() << "\nENTER WRegionCollectionAnalysis::run: " << F.getName()
-               << "{\n");
+  LLVM_DEBUG(dbgs() << "\nENTER WRegionCollectionAnalysis::run: " << F.getName()
+                    << "{\n");
 
   auto &DI = AM.getResult<DominatorTreeAnalysis>(F);
   auto &LI = AM.getResult<LoopAnalysis>(F);
@@ -56,8 +56,8 @@ WRegionCollection WRegionCollectionAnalysis::run(Function &F,
 
   WRegionCollection WRC(&F, &DI, &LI, &SE, &TTI, &AC, &TLI, HIRF);
 
-  DEBUG(dbgs() << "\n}EXIT WRegionCollectionAnalysis::run: " << F.getName()
-               << "\n");
+  LLVM_DEBUG(dbgs() << "\n}EXIT WRegionCollectionAnalysis::run: " << F.getName()
+                    << "\n");
   return WRC;
 }
 
@@ -94,8 +94,8 @@ void WRegionCollectionWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 bool WRegionCollectionWrapperPass::runOnFunction(Function &F) {
-  DEBUG(dbgs() << "\nENTER WRegionCollectionWrapperPass::runOnFunction: "
-               << F.getName() << "{\n");
+  LLVM_DEBUG(dbgs() << "\nENTER WRegionCollectionWrapperPass::runOnFunction: "
+                    << F.getName() << "{\n");
 
   auto &DI = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
@@ -109,8 +109,8 @@ bool WRegionCollectionWrapperPass::runOnFunction(Function &F) {
       new WRegionCollection(&F, &DI, &LI, &SE, &TTI, &AC, &TLI,
                             HIRFA != nullptr ? &HIRFA->getHIR() : nullptr));
 
-  DEBUG(dbgs() << "\n}EXIT WRegionCollectionWrapperPass::runOnFunction: "
-               << F.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "\n}EXIT WRegionCollectionWrapperPass::runOnFunction: "
+                    << F.getName() << "\n");
   return false;
 }
 
@@ -137,7 +137,7 @@ bool WRegionCollection::isCandidateLoop(Loop &Lp) {
 /// \brief Inspect the BB to identify and create W-Regions
 void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
                                          WRStack<WRegionNode *> *S) {
-  DEBUG(dbgs() << "\n=== getWRegionFromBB is processing this BB: " << *BB);
+  LLVM_DEBUG(dbgs() << "\n=== getWRegionFromBB is processing this BB: " << *BB);
   WRegionNode *W;
 
   //
@@ -156,7 +156,8 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
       // Name of the directive or clause represented by this intrinsic
       StringRef DirOrClause = VPOAnalysisUtils::getDirOrClauseString(Call);
 
-      DEBUG(dbgs() << "\n=== getWRegionFromBB found: " << DirOrClause << "\n");
+      LLVM_DEBUG(dbgs() << "\n=== getWRegionFromBB found: " << DirOrClause
+                        << "\n");
 
       if (VPOAnalysisUtils::isOpenMPDirective(DirOrClause)) {
 
@@ -184,8 +185,8 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
           }
 
           S->push(W);
-          DEBUG(dbgs() << "\n  === New WRegion. ");
-          DEBUG(dbgs() << "Stacksize after push = " << S->size() << "\n");
+          LLVM_DEBUG(dbgs() << "\n  === New WRegion. ");
+          LLVM_DEBUG(dbgs() << "Stacksize after push = " << S->size() << "\n");
         } else if (VPOAnalysisUtils::isEndDirective(DirID) ||
                    VPOAnalysisUtils::isStandAloneEndDirective(DirID)) {
           // The intrinsic represents the END directive for the WRN that is
@@ -204,8 +205,8 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
             W->getClausesFromOperandBundles(true);
 
           S->pop();
-          DEBUG(dbgs() << "\n  === Closed WRegion. ");
-          DEBUG(dbgs() << "Stacksize after pop = " << S->size() << "\n");
+          LLVM_DEBUG(dbgs() << "\n  === Closed WRegion. ");
+          LLVM_DEBUG(dbgs() << "Stacksize after pop = " << S->size() << "\n");
         } else if (VPOAnalysisUtils::isListEndDirective(DirID) &&
                  !(S->empty())) {
           // We reach here only if using the intel_directive representation.
@@ -216,8 +217,8 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
             // Current WRN is for a stand-alone directive, so
             // pop the stack as soon as DIR_QUAL_LIST_END is seen
             S->pop();
-            DEBUG(dbgs() << "\n  === Closed WRegion (standalone dir). ");
-            DEBUG(dbgs() << "Stacksize after pop = " << S->size() << "\n");
+            LLVM_DEBUG(dbgs() << "\n  === Closed WRegion (standalone dir). ");
+            LLVM_DEBUG(dbgs() << "Stacksize after pop = " << S->size() << "\n");
           }
         }
       } else if (VPOAnalysisUtils::isIntelClause(IntrinId)) {
@@ -255,7 +256,7 @@ void topSortBasicBlocks(
   bool DoVerifyBB
 )
 {
-  // DEBUG(dbgs() << "\n=== topSortBasicBlocks visiting this BB: " << *BB);
+  // LLVM_DEBUG(dbgs() << "\n=== topSortBasicBlocks visiting this BB: " << *BB);
 
   // Skip visited nodes.
   if (Visited.count(BB))
@@ -303,7 +304,7 @@ void topSortBasicBlocks(
   // BBs with OMP directives is small, this should result in net savings of
   // compile time.
   if (IsOmpDir) {
-    // DEBUG(dbgs() << "\n=== topSortBasicBlocks pushed this BB: " << *BB);
+    // LLVM_DEBUG(dbgs() << "\n=== topSortBasicBlocks pushed this BB: " << *BB);
     BBStack.push(BB);
 
     if (SeenRegionDir)
@@ -345,8 +346,8 @@ WRegionCollection::WRegionCollection(Function *F, DominatorTree *DT,
     : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI), HIRF(HIRF) {}
 
 void WRegionCollection::buildWRGraph(InputIRKind IR) {
-  DEBUG(dbgs() << "\nENTER WRegionCollection::buildWRGraph(InputIR="
-               << IR <<"){\n");
+  LLVM_DEBUG(dbgs() << "\nENTER WRegionCollection::buildWRGraph(InputIR=" << IR
+                    << "){\n");
   if (IR == HIR) {
     // TODO: move buildWRGraphFromHIR() from WRegionUtils to WRegionCollection
     //       after Vectorizer's HIR mode starts using this new interface
@@ -359,7 +360,7 @@ void WRegionCollection::buildWRGraph(InputIRKind IR) {
     llvm_unreachable("Unknown InputIRKind");
   }
 
-  DEBUG(dbgs() << "\n} EXIT WRegionCollection::buildWRGraph\n");
+  LLVM_DEBUG(dbgs() << "\n} EXIT WRegionCollection::buildWRGraph\n");
 }
 
 void WRegionCollectionWrapperPass::releaseMemory() {

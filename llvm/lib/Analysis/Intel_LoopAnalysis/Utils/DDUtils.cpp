@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Support/Debug.h"
 
@@ -394,8 +394,8 @@ bool enablePerfectLPLegalityCheckPre(
     HLInst *StoreInst = nullptr;
     if (!canMoveLoadIntoLoop(LRef, RRef, InnermostLoop, PostLoopInsts,
                              &StoreInst, DDG)) {
-      DEBUG(dbgs() << "\n Fails at canMoveLoadIntoLoop \n");
-      DEBUG(Inst->dump());
+      LLVM_DEBUG(dbgs() << "\n Fails at canMoveLoadIntoLoop \n");
+      LLVM_DEBUG(Inst->dump());
       return false;
     }
     if (StoreInst) {
@@ -639,7 +639,7 @@ bool DDUtils::enablePerfectLoopNest(
   //  ForwarSub nodes are  copy stmts of the for  t2 = t0
   if (!enablePerfectLPGatherPrePostInsts(InnermostLoop, DDG, PreLoopInsts,
                                          PostLoopInsts, ForwardSubInsts)) {
-    DEBUG(dbgs() << "\n Fails in gatherprepost stmts \n");
+    LLVM_DEBUG(dbgs() << "\n Fails in gatherprepost stmts \n");
     return false;
   }
 
@@ -647,14 +647,14 @@ bool DDUtils::enablePerfectLoopNest(
   if (!enablePerfectLPLegalityCheckPre(InnermostLoop, DDG, PreLoopInsts,
                                        PostLoopInsts, ForwardSubInsts,
                                        ValidatedStores)) {
-    DEBUG(dbgs() << "\n Fails in legality pre stmt check \n");
+    LLVM_DEBUG(dbgs() << "\n Fails in legality pre stmt check \n");
     return false;
   }
 
   // (3) Perform legality check of PostLoop nodes
   if (!enablePerfectLPLegalityCheckPost(InnermostLoop, DDG, PostLoopInsts,
                                         ValidatedStores)) {
-    DEBUG(dbgs() << "\n Fails in legality post stmt check \n");
+    LLVM_DEBUG(dbgs() << "\n Fails in legality post stmt check \n");
     return false;
   }
 
@@ -930,7 +930,7 @@ void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
 
   const HLInst *Inst = dyn_cast<HLInst>(DDNode);
   if (Inst && SRA.isSafeReduction(Inst)) {
-    DEBUG(dbgs() << "\n\tIs Safe Red");
+    LLVM_DEBUG(dbgs() << "\n\tIs Safe Red");
     return;
   }
 
@@ -954,8 +954,8 @@ void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
       if (ignoreEdgeForPermute(Edge, CandidateLoop)) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-        DEBUG(dbgs() << "\n\t<Edge dropped>");
-        DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+        LLVM_DEBUG(dbgs() << "\n\t<Edge dropped>");
+        LLVM_DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
 #endif
         continue;
       }
@@ -973,17 +973,17 @@ void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
                                   InnermostLevel, false);
 
         if (RefinedDep.isIndependent()) {
-          DEBUG(dbgs() << "\n\t<Edge dropped with DDTest Indep>");
-          DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+          LLVM_DEBUG(dbgs() << "\n\t<Edge dropped with DDTest Indep>");
+          LLVM_DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
           continue;
         }
 
         if (RefinedDep.isRefined()) {
-          DEBUG(dbgs() << "\n\t<Edge with refined DV>");
-          DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+          LLVM_DEBUG(dbgs() << "\n\t<Edge with refined DV>");
+          LLVM_DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
           if (ignoreEdgeForPermute(Edge, CandidateLoop, &RefinedDep.getDV())) {
-            DEBUG(dbgs() << "\n\t<Edge dropped with refined DV Ignore>");
-            DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+            LLVM_DEBUG(dbgs() << "\n\t<Edge dropped with refined DV Ignore>");
+            LLVM_DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
             continue;
           }
 
@@ -992,8 +992,8 @@ void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
       }
       if (ignoreDVWithNoLTGTForPermute(*TempDV, OutermostLevel,
                                        InnermostLevel)) {
-        DEBUG(dbgs() << "\n\t<Edge dropped with NoLTGT>");
-        DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+        LLVM_DEBUG(dbgs() << "\n\t<Edge dropped with NoLTGT>");
+        LLVM_DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
         continue;
       }
 
@@ -1001,8 +1001,8 @@ void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
       DVs.push_back(*TempDV);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      DEBUG(dbgs() << "\n\t<Edge selected>");
-      DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+      LLVM_DEBUG(dbgs() << "\n\t<Edge selected>");
+      LLVM_DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
 #endif
     }
   }

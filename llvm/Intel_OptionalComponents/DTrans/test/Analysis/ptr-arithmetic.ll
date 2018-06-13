@@ -138,7 +138,7 @@ div:
 }
 
 ; CHECK: LLVMType: %struct.test10 = type { i32, i32, i32, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Bad pointer manipulation
 
 ; Test the case where the divide is separated from the sub by a select.
 %struct.test11 = type { i32, i32, i32, i32 }
@@ -152,7 +152,7 @@ define void @test11(%struct.test11* %p1, %struct.test11* %p2, i64 %v) {
 }
 
 ; CHECK: LLVMType: %struct.test11 = type { i32, i32, i32, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Bad pointer manipulation
 
 ; Subtraction of pointers-to-pointers doesn't depend on the structure size.
 %struct.test12 = type { i32, i32, i32, i32 }
@@ -171,19 +171,11 @@ define void @test12(%struct.test12** %p1, %struct.test12** %p2) {
 ; have both a div and a non-div use.
 %struct.test13 = type { i32, i32, i32, i32 }
 define void @test13(%struct.test13* %p1, %struct.test13* %p2, i64 %v) {
-entry:
-  br i1 undef, label %sub, label %div
-
-sub:
   %t1 = ptrtoint %struct.test13* %p1 to i64
   %t2 = ptrtoint %struct.test13* %p2 to i64
   %offset = sub i64 %t2, %t1
   %idx_offset = sdiv i64 %offset, 16
-  br label %div
-
-div:
-  %pn_offset = phi i64 [%v, %entry], [%offset, %sub]
-  %sum = add i64 %pn_offset, 8
+  %sum = add i64 %offset, 8
   ret void
 }
 

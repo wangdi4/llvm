@@ -28,7 +28,9 @@
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h" // INTEL
+#if INTEL_COLLAB
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -75,7 +77,9 @@
 
 using namespace llvm;
 using namespace InlineReportTypes; // INTEL
-using namespace llvm::vpo;         // INTEL
+#if INTEL_COLLAB
+using namespace llvm::vpo;
+#endif // INTEL_COLLAB
 using ProfileCount = Function::ProfileCount;
 
 static cl::opt<bool>
@@ -1369,11 +1373,10 @@ static Value *HandleByValArgument(Value *Arg, Instruction *TheCall,
 
   Value *NewAlloca = new AllocaInst(
       AggTy, DL.getAllocaAddrSpace(), nullptr, Align, Arg->getName(),
-#if INTEL_CUSTOMIZATION
-      VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller)
-          ? TheCall
-          : &*Caller->begin()->begin());
-#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+      VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller) ? TheCall :
+#endif // INTEL_COLLAB
+                                               &*Caller->begin()->begin());
   IFI.StaticAllocas.push_back(cast<AllocaInst>(NewAlloca));
 
   // Uses of the argument in the function should use our new alloca
@@ -1806,7 +1809,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
   Instruction *CallSiteEHPad = nullptr;
   if (CallerPersonality) {
     EHPersonality Personality = classifyEHPersonality(CallerPersonality);
-    if (isFuncletEHPersonality(Personality)) {
+    if (isScopedEHPersonality(Personality)) {
       Optional<OperandBundleUse> ParentFunclet =
           CS.getOperandBundle(LLVMContext::OB_funclet);
       if (ParentFunclet)
@@ -2019,7 +2022,10 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
   // block for the callee, move them to the entry block of the caller.  First
   // calculate which instruction they should be inserted before.  We insert the
   // instructions at the end of the current alloca list.
-  if (!VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller)) { // INTEL
+#if INTEL_COLLAB
+  if (!VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller))
+#endif // INTEL_COLLAB
+  {
     BasicBlock::iterator InsertPoint = Caller->begin()->begin();
     for (BasicBlock::iterator I = FirstNewBlock->begin(),
          E = FirstNewBlock->end(); I != E; ) {
@@ -2421,8 +2427,12 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
   // return instruction, we splice the body of the inlined callee directly into
   // the calling basic block.
 
-  if (!VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller) && // INTEL
+#if INTEL_COLLAB
+  if (!VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller) &&
       Returns.size() == 1 && std::distance(FirstNewBlock, Caller->end()) == 1) {
+#else
+  if (Returns.size() == 1 && std::distance(FirstNewBlock, Caller->end()) == 1) {
+#endif // INTEL_COLLAB
     // Move all of the instructions right before the call.
     OrigBB->getInstList().splice(TheCall->getIterator(),
                                  FirstNewBlock->getInstList(),

@@ -446,11 +446,22 @@ private:
   }
 
   bool willNotOverflowSignedSub(const Value *LHS, const Value *RHS,
-                                const Instruction &CxtI) const;
+                                const Instruction &CxtI) const {
+    return computeOverflowForSignedSub(LHS, RHS, &CxtI) ==
+           OverflowResult::NeverOverflows;
+  }
+
   bool willNotOverflowUnsignedSub(const Value *LHS, const Value *RHS,
-                                  const Instruction &CxtI) const;
+                                  const Instruction &CxtI) const {
+    return computeOverflowForUnsignedSub(LHS, RHS, &CxtI) ==
+           OverflowResult::NeverOverflows;
+  }
+
   bool willNotOverflowSignedMul(const Value *LHS, const Value *RHS,
-                                const Instruction &CxtI) const;
+                                const Instruction &CxtI) const {
+    return computeOverflowForSignedMul(LHS, RHS, &CxtI) ==
+           OverflowResult::NeverOverflows;
+  }
 
   bool willNotOverflowUnsignedMul(const Value *LHS, const Value *RHS,
                                   const Instruction &CxtI) const {
@@ -529,8 +540,8 @@ public:
     if (&I == V)
       V = UndefValue::get(I.getType());
 
-    DEBUG(dbgs() << "IC: Replacing " << I << "\n"
-                 << "    with " << *V << '\n');
+    LLVM_DEBUG(dbgs() << "IC: Replacing " << I << "\n"
+                      << "    with " << *V << '\n');
 
     I.replaceAllUsesWith(V);
     return &I;
@@ -552,7 +563,7 @@ public:
   /// value, we can't rely on DCE to delete the instruction. Instead, visit
   /// methods should return the value returned by this function.
   Instruction *eraseInstFromFunction(Instruction &I) {
-    DEBUG(dbgs() << "IC: ERASE " << I << '\n');
+    LLVM_DEBUG(dbgs() << "IC: ERASE " << I << '\n');
     assert(I.use_empty() && "Cannot erase instruction that is used!");
     salvageDebugInfo(I);
 
@@ -601,6 +612,12 @@ public:
     return llvm::computeOverflowForUnsignedMul(LHS, RHS, DL, &AC, CxtI, &DT);
   }
 
+  OverflowResult computeOverflowForSignedMul(const Value *LHS,
+	                                         const Value *RHS,
+                                             const Instruction *CxtI) const {
+    return llvm::computeOverflowForSignedMul(LHS, RHS, DL, &AC, CxtI, &DT);
+  }
+
   OverflowResult computeOverflowForUnsignedAdd(const Value *LHS,
                                                const Value *RHS,
                                                const Instruction *CxtI) const {
@@ -611,6 +628,17 @@ public:
                                              const Value *RHS,
                                              const Instruction *CxtI) const {
     return llvm::computeOverflowForSignedAdd(LHS, RHS, DL, &AC, CxtI, &DT);
+  }
+
+  OverflowResult computeOverflowForUnsignedSub(const Value *LHS,
+                                               const Value *RHS,
+                                               const Instruction *CxtI) const {
+    return llvm::computeOverflowForUnsignedSub(LHS, RHS, DL, &AC, CxtI, &DT);
+  }
+
+  OverflowResult computeOverflowForSignedSub(const Value *LHS, const Value *RHS,
+                                             const Instruction *CxtI) const {
+    return llvm::computeOverflowForSignedSub(LHS, RHS, DL, &AC, CxtI, &DT);
   }
 
   /// Maximum size of array considered when transforming.
@@ -800,14 +828,13 @@ private:
   Instruction *MatchBSwap(BinaryOperator &I);
   bool SimplifyStoreAtEndOfBlock(StoreInst &SI);
 
-  Instruction *SimplifyElementUnorderedAtomicMemCpy(AtomicMemCpyInst *AMI);
-  Instruction *SimplifyMemTransfer(MemIntrinsic *MI);
+  Instruction *SimplifyAnyMemTransfer(AnyMemTransferInst *MI);
 #if INTEL_CUSTOMIZATION
   void GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI);
   bool ReduceICmpSizeIfPossible(ICmpInst &ICI, Value *Op0, Value *Op1,
                                 unsigned Size);
 #endif
-  Instruction *SimplifyMemSet(MemSetInst *MI);
+  Instruction *SimplifyAnyMemSet(AnyMemSetInst *MI);
 
   Value *EvaluateInDifferentType(Value *V, Type *Ty, bool isSigned);
 

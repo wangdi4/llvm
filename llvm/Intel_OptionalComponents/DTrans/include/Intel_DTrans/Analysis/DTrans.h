@@ -64,14 +64,15 @@ enum SingleAllocFunctionKind { SAFK_Top, SAFK_Single, SAFK_Bottom };
 class FieldInfo {
 public:
   FieldInfo(llvm::Type *Ty)
-      : LLVMType(Ty), Read(false), Written(false), AddressTaken(false),
-        SVKind(SVK_None), SingleValue(nullptr), SAFKind(SAFK_Top),
-        SingleAllocFunction(nullptr) {}
+      : LLVMType(Ty), Read(false), Written(false), ComplexUse(false),
+        AddressTaken(false), SVKind(SVK_None), SingleValue(nullptr),
+        SAFKind(SAFK_Top), SingleAllocFunction(nullptr) {}
 
   llvm::Type *getLLVMType() const { return LLVMType; }
 
   bool isRead() const { return Read; }
   bool isWritten() const { return Written; }
+  bool hasComplexUse() const { return ComplexUse; }
   bool isAddressTaken() const { return AddressTaken; }
   bool isNoValue() const { return SVKind == SVK_None; }
   bool isTopAllocFunction() const { return SAFKind == SAFK_Top; }
@@ -87,6 +88,7 @@ public:
   }
   void setRead(bool b) { Read = b; }
   void setWritten(bool b) { Written = b; }
+  void setComplexUse(bool b) { ComplexUse = b; }
   void setAddressTaken() { AddressTaken = true; }
   void setSingleValue(llvm::Constant *C) {
     SVKind = SVK_Single;
@@ -121,6 +123,7 @@ private:
   llvm::Type *LLVMType;
   bool Read;
   bool Written;
+  bool ComplexUse;
   bool AddressTaken;
   SingleValueKind SVKind;
   llvm::Constant *SingleValue;
@@ -646,7 +649,6 @@ private:
   SmallVector<MemfuncRegion, 2> Regions;
 };
 
-
 /// Determine whether the specified Function is an allocation function, and
 /// if so what kind of allocation function it is and the size of the allocation.
 AllocKind getAllocFnKind(Function *F, const TargetLibraryInfo &TLI);
@@ -660,6 +662,16 @@ void getAllocSizeArgs(AllocKind Kind, CallInst *CI, Value *&AllocSizeVal,
 /// Determine whether or not the specified Function is the free library
 /// function.
 bool isFreeFn(Function *F, const TargetLibraryInfo &TLI);
+
+/// This helper function checks if \p Val is a constant integer equal to
+/// \p Size. Allows for \p Val to be nullptr, and will return false in
+/// this case.
+bool isValueEqualToSize(Value *Val, uint64_t Size);
+
+/// This helper function checks \p Val to see if it is either (a) a constant
+/// whose value is a multiple of \p Size, or (b) an integer multiplication
+/// operator where either operand is a constant multiple of \p Size.
+bool isValueMultipleOfSize(Value *Val, uint64_t Size);
 
 /// Examine the specified types to determine if a bitcast from \p SrcTy to
 /// \p DestTy could be used to access the first element of SrcTy. The

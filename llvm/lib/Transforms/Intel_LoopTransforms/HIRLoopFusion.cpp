@@ -556,18 +556,19 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
     return;
   }
 
-  DEBUG(dbgs() << "runOnNodeRange(<" << ParentNode->getNumber() << ">, <"
-               << LV.getLoopRange().begin()->getNumber() << ">, <"
-               << std::prev(LV.getLoopRange().end())->getNumber() << ">);\n");
-  DEBUG(dbgs() << "Loop count: " << LV.getLoopCount() << "\n");
+  LLVM_DEBUG(dbgs() << "runOnNodeRange(<" << ParentNode->getNumber() << ">, <"
+                    << LV.getLoopRange().begin()->getNumber() << ">, <"
+                    << std::prev(LV.getLoopRange().end())->getNumber()
+                    << ">);\n");
+  LLVM_DEBUG(dbgs() << "Loop count: " << LV.getLoopCount() << "\n");
 
   // Shrink range to [FirstLoop, LastLoop] by getting LV.getLoopRange().
   FuseGraph FG = FuseGraph::create(DDA, HLS, ParentNode, LV.getLoopRange());
 
-  DEBUG(dbgs() << "\nFinal Fusion Graph dump:\n");
-  DEBUG(FG.dump());
+  LLVM_DEBUG(dbgs() << "\nFinal Fusion Graph dump:\n");
+  LLVM_DEBUG(FG.dump());
 
-  DEBUG(dbgs() << "\nFinal Fusion Nodes:\n");
+  LLVM_DEBUG(dbgs() << "\nFinal Fusion Nodes:\n");
 
   HLLoop *LastLoopFused = nullptr;
   for (const FuseNode &FNode : FG.getFuseNodes()) {
@@ -575,7 +576,7 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
       continue;
     }
 
-    DEBUG(FNode.dump());
+    LLVM_DEBUG(FNode.dump());
 
     bool LoopsFused = false;
     HLLoop *NextLoop;
@@ -620,8 +621,8 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
       // Fuse Loops
       NextLoop = fuseLoops(FNode.loops());
 
-      DEBUG(dbgs() << "While " OPT_DESC ":\n");
-      DEBUG(NextLoop->getParentRegion()->dump());
+      LLVM_DEBUG(dbgs() << "While " OPT_DESC ":\n");
+      LLVM_DEBUG(NextLoop->getParentRegion()->dump());
 
       LoopsFused = true;
       SmallString<32> FuseLoopNums;
@@ -668,8 +669,8 @@ bool HIRLoopFusion::run() {
     return false;
   }
 
-  DEBUG(dbgs() << OPT_DESC " for Function : " << HIRF.getFunction().getName()
-               << "\n");
+  LLVM_DEBUG(dbgs() << OPT_DESC " for Function : "
+                    << HIRF.getFunction().getName() << "\n");
 
   ForEach<HLRegion>::visitRange(
       HIRF.hir_begin(), HIRF.hir_end(), [this](HLRegion *Reg) {

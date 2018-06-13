@@ -114,6 +114,12 @@ public:
     static bool stripPrivateClauses(WRegionNode *WRN);
     static bool stripPrivateClauses(BasicBlock &BB);
 
+    /// \brief Removes '@llvm.dbg.declare', '@llvm.dbg.value' calls from \p F.
+    /// This is a temporary workaround needed because CodeExtractor does not
+    /// update these calls present in the region to be extracted. So they have
+    /// invalid metadata when present in the extracted function, causing
+    /// verification failure with "-fiopenmp -O0 -g".
+    static void stripDebugInfoInstrinsics(Function &F);
 
     ////////////////// MultiVersioning Transformation ////////////////////////
     //

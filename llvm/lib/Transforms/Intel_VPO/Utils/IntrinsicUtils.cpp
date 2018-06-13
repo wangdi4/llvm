@@ -154,8 +154,9 @@ bool VPOUtils::stripPrivateClauses(BasicBlock &BB) {
       Intrinsic::ID Id = Call->getIntrinsicID();
       if (Id == Intrinsic::directive_region_entry) {
         // TODO: add support for this representation
-        DEBUG(dbgs() << "** WARNING: stripPrivateClauses() support for the "
-                     << "OperandBundle representation will be done later.\n");
+        LLVM_DEBUG(
+            dbgs() << "** WARNING: stripPrivateClauses() support for the "
+                   << "OperandBundle representation will be done later.\n");
       }
       else if (Id == Intrinsic::intel_directive_qual_opndlist) {
         StringRef ClauseString = VPOAnalysisUtils::getDirOrClauseString(Call);
@@ -213,4 +214,20 @@ CallInst *VPOUtils::createMaskedStoreCall(Value *VecPtr,
   auto NewCallInst = Builder.CreateMaskedStore(VecData, VecPtr, Alignment,
                                                 Mask);
   return NewCallInst;
+}
+
+// Removes '@llvm.dbg.declare', '@llvm.dbg.value' calls from the Function F.
+// This is a workaround for now till CodeExtractor learns to handle these.
+void VPOUtils::stripDebugInfoInstrinsics(Function &F)
+{
+  for (auto &BB : F) {
+    for (BasicBlock::iterator BI = BB.begin(), BE = BB.end(); BI != BE;) {
+      Instruction *Insn = &*BI++;
+      if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(Insn)) {
+        DVI->eraseFromParent();
+      } else if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(Insn)) {
+        DDI->eraseFromParent();
+      }
+    }
+  }
 }

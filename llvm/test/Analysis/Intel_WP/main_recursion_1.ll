@@ -4,7 +4,7 @@
 ; is set to main only when whole-program-safe is detected and no uses of
 ; main are noticed.
 
-; RUN: opt < %s -wholeprogramanalysis -functionattrs -rpo-functionattrs -disable-output -stats 2>&1 | FileCheck %s
+; RUN: opt < %s -wholeprogramanalysis -whole-program-assume-read -whole-program-assume-executable -functionattrs -rpo-functionattrs -disable-output -stats 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; CHECK:   5 functionattrs - Number of functions marked as norecurse

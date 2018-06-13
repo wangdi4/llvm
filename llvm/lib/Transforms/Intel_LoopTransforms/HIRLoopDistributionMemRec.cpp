@@ -29,7 +29,7 @@ PreservedAnalyses
 HIRLoopDistributionForMemRecPass::run(llvm::Function &F,
                                       llvm::FunctionAnalysisManager &AM) {
   if (DisableDistMemRec) {
-    DEBUG(dbgs() << "LOOP DISTRIBUTION Break MemRec disabled\n");
+    LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION Break MemRec disabled\n");
     return PreservedAnalyses::all();
   }
 
@@ -58,7 +58,7 @@ public:
 
   bool runOnFunction(Function &F) override {
     if (DisableDistMemRec) {
-      DEBUG(dbgs() << "LOOP DISTRIBUTION Break MemRec disabled\n");
+      LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION Break MemRec disabled\n");
       return false;
     }
 

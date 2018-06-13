@@ -343,8 +343,8 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
   assert((isa<HLRegion>(Node) || isa<HLLoop>(Node)) &&
          "Node should be HLLoop or HLRegion");
 
-  DEBUG(dbgs() << "buildGraph() for:\n");
-  DEBUG(Node->dump());
+  LLVM_DEBUG(dbgs() << "buildGraph() for:\n");
+  LLVM_DEBUG(Node->dump());
 
   DDARefGatherer::MapTy RefMap;
 
@@ -354,8 +354,8 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
     DDARefGatherer::gather(Node, RefMap);
   }
 
-  DEBUG(dbgs() << "References:\n");
-  DEBUG(DDARefGatherer::dump(RefMap));
+  LLVM_DEBUG(dbgs() << "References:\n");
+  LLVM_DEBUG(DDARefGatherer::dump(RefMap));
 
   // pairwise testing among all refs sharing a symbase
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
@@ -411,16 +411,16 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
           if (OutputDVForward[0] != DVKind::NONE) {
             DDEdge Edge = DDEdge(Ref1, Ref2, OutputDVForward,
                                  OutputDistVForward, IsLoopIndepDepTemp);
-            // DEBUG(dbgs() << "Got edge of :");
-            // DEBUG(Edge.dump());
+            // LLVM_DEBUG(dbgs() << "Got edge of :");
+            // LLVM_DEBUG(Edge.dump());
             FunctionDDGraph.addEdge(std::move(Edge));
           }
 
           if (OutputDVBackward[0] != DVKind::NONE) {
             DDEdge Edge =
                 DDEdge(Ref2, Ref1, OutputDVBackward, OutputDistVBackward);
-            // DEBUG(dbgs() << "Got back edge of :");
-            // DEBUG(Edge.dump());
+            // LLVM_DEBUG(dbgs() << "Got back edge of :");
+            // LLVM_DEBUG(Edge.dump());
             FunctionDDGraph.addEdge(std::move(Edge));
           }
         }

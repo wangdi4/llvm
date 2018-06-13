@@ -72,17 +72,13 @@ class Value;
     /// sequence out into its new function. When a DominatorTree is also given,
     /// extra checking and transformations are enabled. If AllowVarArgs is true,
     /// vararg functions can be extracted. This is safe, if all vararg handling
-#if INTEL_CUSTOMIZATION // under community review D45904
     /// code is extracted, including vastart. If AllowAlloca is true, then
     /// extraction of blocks containing alloca instructions would be possible,
-    /// however code extractor won't validate whether extraction is legal.
-#endif // INTEL_CUSTOMIZATION
+    /// however code extractor won't validate whether extraction is legal. 
     CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT = nullptr,
                   bool AggregateArgs = false, BlockFrequencyInfo *BFI = nullptr,
                   BranchProbabilityInfo *BPI = nullptr,
-#if INTEL_CUSTOMIZATION // under community review D45904
                   bool AllowVarArgs = false, bool AllowAlloca = false);
-#endif // INTEL_CUSTOMIZATION
 
     /// Create a code extractor for a loop body.
     ///
@@ -91,16 +87,6 @@ class Value;
     CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs = false,
                   BlockFrequencyInfo *BFI = nullptr,
                   BranchProbabilityInfo *BPI = nullptr);
-
-#if !INTEL_CUSTOMIZATION // under community review D45904
-    /// Check to see if a block is valid for extraction.
-    ///
-    /// Blocks containing EHPads, allocas and invokes are not valid. If
-    /// AllowVarArgs is true, blocks with vastart can be extracted. This is
-    /// safe, if all vararg handling code is extracted, including vastart.
-    static bool isBlockValidForExtraction(const BasicBlock &BB,
-                                          bool AllowVarArgs);
-#endif // INTEL_CUSTOMIZATION
 
     /// Perform the extraction, returning the new function.
     ///
@@ -152,11 +138,11 @@ class Value;
     /// original block will be added to the outline region.
     BasicBlock *findOrCreateBlockForHoisting(BasicBlock *CommonExitBlock);
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
     // Hoisting the alloca instructions in the non-entry blocks to the entry
     // block.
     void hoistAlloca(Function &F);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   private:
     void severSplitPHINodes(BasicBlock *&Header);

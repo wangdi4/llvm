@@ -105,12 +105,13 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
   // Set the default VF according to any directives or user compiler switches,
   // or otherwise set it to 1.
   ForceVF = AWrn->getSimdVectorLength();
-  DEBUG(errs() << "VF = " << ForceVF << " DefaultVF = " << DefaultVF << "\n");
+  LLVM_DEBUG(errs() << "VF = " << ForceVF << " DefaultVF = " << DefaultVF
+                    << "\n");
   if (ForceVF == 0) {
     ForceVF = DefaultVF;
   }
   int initialVF = ForceVF ? ForceVF : 1;
-  //DEBUG(errs() << "Set dummy vectCand with VF = " << initialVF << "\n");
+  // LLVM_DEBUG(errs() << "Set dummy vectCand with VF = " << initialVF << "\n");
   VPOVecContextBase VectCand(initialVF);
 
 #if 1
@@ -232,13 +233,13 @@ void VPOScenarioEvaluationBase::findVFCandidates(VFsVector &VFCandidates) {
     MinVF = VecRegWidth / LargestTySize;
     MaxVF = VecRegWidth / SmallestTySize;
 
-    DEBUG(errs() << "Type Frequencies: \n");
-    DEBUG(errs() << " i1 Types: " << LoopTypeSizes[I1_TYPE_SIZE] << "\n");
-    DEBUG(errs() << " i8 Types: " << LoopTypeSizes[I8_TYPE_SIZE] << "\n");
-    DEBUG(errs() << "i16 Types: " << LoopTypeSizes[I16_TYPE_SIZE] << "\n");
-    DEBUG(errs() << "i32 Types: " << LoopTypeSizes[I32_TYPE_SIZE] << "\n");
-    DEBUG(errs() << "i64 Types: " << LoopTypeSizes[I64_TYPE_SIZE] << "\n");
-    DEBUG(errs() << "Target register width: " << VecRegWidth << "\n");
+    LLVM_DEBUG(errs() << "Type Frequencies: \n");
+    LLVM_DEBUG(errs() << " i1 Types: " << LoopTypeSizes[I1_TYPE_SIZE] << "\n");
+    LLVM_DEBUG(errs() << " i8 Types: " << LoopTypeSizes[I8_TYPE_SIZE] << "\n");
+    LLVM_DEBUG(errs() << "i16 Types: " << LoopTypeSizes[I16_TYPE_SIZE] << "\n");
+    LLVM_DEBUG(errs() << "i32 Types: " << LoopTypeSizes[I32_TYPE_SIZE] << "\n");
+    LLVM_DEBUG(errs() << "i64 Types: " << LoopTypeSizes[I64_TYPE_SIZE] << "\n");
+    LLVM_DEBUG(errs() << "Target register width: " << VecRegWidth << "\n");
   } else {
     MinVF = ForceVF;
     MaxVF = ForceVF;
@@ -248,7 +249,7 @@ void VPOScenarioEvaluationBase::findVFCandidates(VFsVector &VFCandidates) {
   std::string MaxVFStr = APInt(32, MaxVF).toString(10, false);
   StringRef VFRange = MinVF == MaxVF ? MinVFStr :
                                        MinVFStr + " - " + MaxVFStr;
-  DEBUG(errs() << "VF Candidates are: " << VFRange << "\n");
+  LLVM_DEBUG(errs() << "VF Candidates are: " << VFRange << "\n");
   (void) VFRange;
   assert(MinVF && MaxVF && "Unexpected zero min/max VF");
 
@@ -260,7 +261,7 @@ void VPOScenarioEvaluationBase::findVFCandidates(VFsVector &VFCandidates) {
 VPOVecContextBase
 VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop,
                                        uint64_t *BestCostForALoop) {
-  DEBUG(errs() << "Process Loop\n");
+  LLVM_DEBUG(errs() << "Process Loop\n");
 
   // Place holder for loop-level, VF-agnostic passes.
   //
@@ -279,8 +280,8 @@ VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop,
 #ifdef USE_EXPERIMENTAL_CODE
   // TODO: adapt to being called on a loop.
   getSLEVUtil().runOnAvr(AWrn->child_begin(), AWrn->child_end());
-  DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "After SLEV analysis:\n";
-        AWrn->print(FOS, 1, PrintNumber));
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "After SLEV analysis:\n";
+             AWrn->print(FOS, 1, PrintNumber));
 
 #endif
   VPOPredicator Predicator;
@@ -296,7 +297,7 @@ VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop,
   VPOVecContextBase BestCand(1);
   for (auto &VF : VFCandidates) {
 
-    DEBUG(errs() << "Evaluate candidate with VF = " << VF << "\n");
+    LLVM_DEBUG(errs() << "Evaluate candidate with VF = " << VF << "\n");
 
     // Currently VecContext is used to hold underlying-IR level information
     // required for some of the analyses in processCandidates (namely, for VLS
@@ -307,8 +308,8 @@ VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop,
     if (Cost < *BestCostForALoop || VF == ForceVF) {
       *BestCostForALoop = Cost;
       BestCand = VC;
-      DEBUG(errs() << "New Best Candidate Cost = " << *BestCostForALoop
-                   << " for VF = " << VF << " \n");
+      LLVM_DEBUG(errs() << "New Best Candidate Cost = " << *BestCostForALoop
+                        << " for VF = " << VF << " \n");
     }
   }
 
@@ -382,7 +383,7 @@ uint64_t VPOScenarioEvaluationBase::processCandidate(AVRLoop *ALoop,
   OVLSTTICostModelHIR VLSCM(TTI, LLVMCntxt); 
   for (OVLSGroup *Grp : VLSGrps) {
     int64_t Cost = OptVLSInterface::getGroupCost(*Grp, VLSCM); 
-    DEBUG(errs() << "Cost for Group = " << Cost << "\n");
+    LLVM_DEBUG(errs() << "Cost for Group = " << Cost << "\n");
   }
 #endif
 
@@ -472,53 +473,53 @@ int64_t getConsecutiveStride(AVR *PtrOp) {
 // TODO: Support Reductions, Inductions, Calls, Select, Compare, Branch, Phi. 
 // TODO: Move to a different module.
 void VPOCostGathererBase::visit(AVRLoop *Loop) {
-//  DEBUG(errs() << "visiting loop!\n");
+  //  LLVM_DEBUG(errs() << "visiting loop!\n");
 }
 
 // TODO: If this is an inner-loop inside the ALoop being vectorized: multiply
 // by the iteration-count
 void VPOCostGathererBase::postVisit(AVRLoop *Loop) {
-  //DEBUG(errs() << "visited loop!\n");
+  // LLVM_DEBUG(errs() << "visited loop!\n");
 }
 
 void VPOCostGathererBase::visit(AVRAssign *Assign) {
-  //DEBUG(errs() << "visiting assign!\n");
+  // LLVM_DEBUG(errs() << "visiting assign!\n");
 }
 
 // TODO: Take blend cost into account if masked.
 void VPOCostGathererBase::postVisit(AVRAssign *Assign) {
-  //DEBUG(errs() << "visited assign!\n");
+  // LLVM_DEBUG(errs() << "visited assign!\n");
 }
 
 // Following will soon move under handling of Expr
 #if 1
 void VPOCostGathererBase::visit(AVRLabel *Label) {
-  //DEBUG(errs() << "visit Label!\n");
+  // LLVM_DEBUG(errs() << "visit Label!\n");
 }
 
 void VPOCostGathererBase::visit(AVRCall *Call) {
-  DEBUG(errs() << "TODO: visit Call!\n");
+  LLVM_DEBUG(errs() << "TODO: visit Call!\n");
 }
 
 // CHECKME: Account for reduction cost here?
 void VPOCostGathererBase::visit(AVRPhi *Phi) {
-  DEBUG(errs() << "TODO: visit Phi!\n");
+  LLVM_DEBUG(errs() << "TODO: visit Phi!\n");
 }
 
 void VPOCostGathererBase::visit(AVRBranch *Branch) {
-  DEBUG(errs() << "TODO: visit Branch!\n");
+  LLVM_DEBUG(errs() << "TODO: visit Branch!\n");
 }
 
 void VPOCostGathererBase::visit(AVRCompare *Compare) {
-  DEBUG(errs() << "TODO: visit Compare!\n");
+  LLVM_DEBUG(errs() << "TODO: visit Compare!\n");
 }
 
 void VPOCostGathererBase::visit(AVRIf *If) {
-  //DEBUG(errs() << "TODO: visit If!\n");
+  // LLVM_DEBUG(errs() << "TODO: visit If!\n");
 }
 
 void VPOCostGathererBase::visit(AVRSelect *Select) {
-  DEBUG(errs() << "TODO: visit Select!\n");
+  LLVM_DEBUG(errs() << "TODO: visit Select!\n");
 }
 
 void VPOCostGathererBase::visit(AVRPredicate *Predicate) {
@@ -574,14 +575,14 @@ bool VPOCostGathererBase::skipRecursion (AVR *ANode) {
 }
 
 void VPOCostGathererBase::visit(AVR *ANode) {
-  DEBUG(errs() << "VPOCostModel: Unsupported AVR kind\n");
-  DEBUG(ANode->dump(PrintBase));
+  LLVM_DEBUG(errs() << "VPOCostModel: Unsupported AVR kind\n");
+  LLVM_DEBUG(ANode->dump(PrintBase));
   //llvm_unreachable("unsupported AVR kind");
 }
 #endif
 
 void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
-  //DEBUG(errs() << "visiting expr!\n");
+  // LLVM_DEBUG(errs() << "visiting expr!\n");
   if (Expr->isLHSExpr()) {
     // We assume that there is no operation here, just a Value
     return;
@@ -652,20 +653,20 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
   VectorTy = ToVectorTy(Expr->getType(), VF);
 #endif
 
-  //DEBUG(errs() << "visit expr: \n");
-  //DEBUG(Expr->dump(PrintDataType));
-  //DEBUG(errs() << "\n");
+  // LLVM_DEBUG(errs() << "visit expr: \n");
+  // LLVM_DEBUG(Expr->dump(PrintDataType));
+  // LLVM_DEBUG(errs() << "\n");
 
   if (Expr->isLHSExpr()) {
     // FORNOW: Not contributing any cost
     // TODO: What about costly address computations on HIR side?
-    // DEBUG(errs() << "visited expr: LHS: no cost contributed!\n");
+    // LLVM_DEBUG(errs() << "visited expr: LHS: no cost contributed!\n");
     return;
   }
 
   switch (Expr->getOperation()) {
   case Instruction::GetElementPtr: {
-    // DEBUG(errs() << "Query cost of getElementPtr\n");
+    // LLVM_DEBUG(errs() << "Query cost of getElementPtr\n");
     // "We mark this instruction as zero-cost because the cost of GEPs in
     // vectorized code depends on whether the corresponding memory instruction
     // is scalarized or not. Therefore, we handle GEPs with the memory
@@ -678,14 +679,14 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
 // so following code does not yet get exercised.
 #if 1
   case Instruction::Br: {
-    DEBUG(errs() << "Query cost of branch\n");
+    LLVM_DEBUG(errs() << "Query cost of branch\n");
     Cost = TTI.getCFInstrCost(Expr->getOperation());
     break;
   }
 
   // CHECKME: account for reduction cost here?
   case Instruction::PHI: {
-    DEBUG(errs() << "Query cost of phi\n");
+    LLVM_DEBUG(errs() << "Query cost of phi\n");
     Cost = 0;
     break;
   }
@@ -711,7 +712,7 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
       Cost = 20;
     } else if (TLI.isFunctionVectorizable(F->getName(), VF)) {
       // SVML call
-      DEBUG(errs()  << "SVML call cost = 2\n");
+      LLVM_DEBUG(errs() << "SVML call cost = 2\n");
       Cost = 2;
     } else {
       // LLVM cost model evaluates cost = 10 for calls to functions
@@ -741,7 +742,7 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
 
   // TODO. Not yet supported by Codegen; Does not yet exist as an Expr.
   case Instruction::Select: {
-    DEBUG(errs() << "TODO: Query cost of select instruction\n");
+    LLVM_DEBUG(errs() << "TODO: Query cost of select instruction\n");
     Cost = 10;
 #if 0
     Type *CondTy = Expr->getOperans(/*CHECKME*/)->getType();
@@ -769,7 +770,7 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
   case Instruction::And:
   case Instruction::Or:
   case Instruction::Xor: {
-    DEBUG(errs() << "Query cost of arithmetic instruction\n");
+    LLVM_DEBUG(errs() << "Query cost of arithmetic instruction\n");
     // "Certain instructions can be cheaper to vectorize if they have a constant
     // second vector operand. One example of this are shifts on x86."
     TargetTransformInfo::OperandValueKind Op1VK =
@@ -853,7 +854,7 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
         Cost = 1;
       }
     } else {
-      DEBUG(errs() << "TODO: Query cost of cast instruction\n");
+      LLVM_DEBUG(errs() << "TODO: Query cost of cast instruction\n");
       Cost = 10;
     }
     break;
@@ -869,7 +870,7 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
   case Instruction::Trunc:
   case Instruction::FPTrunc:
   case Instruction::BitCast: {
-    DEBUG(errs() << "TODO: Query cost of cast instruction\n");
+    LLVM_DEBUG(errs() << "TODO: Query cost of cast instruction\n");
     Cost = 10;
 #if 0 // TODO
     // TODO: Look at special cases
@@ -885,7 +886,7 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
 
   case Instruction::Load:
   case Instruction::Store: {
-    //DEBUG(errs() << "Query cost of load/store instruction\n");
+    // LLVM_DEBUG(errs() << "Query cost of load/store instruction\n");
 
     // 0. Get the pointer and value operands
     bool isStore = (Expr->getOperation() == Instruction::Store ? true : false);
@@ -954,7 +955,7 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
 #else
     if (VF == 1) {
 #endif
-      DEBUG(errs() << "Case1: Scalar Load/Store\n");
+      LLVM_DEBUG(errs() << "Case1: Scalar Load/Store\n");
       Cost = TTI.getAddressComputationCost(VectorTy) +
              TTI.getMemoryOpCost(Expr->getOperation(), VectorTy, Alignment, AS);
       break;
@@ -1037,8 +1038,8 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
       ConsecutiveStride = getConsecutiveStride(Op);
     }
 #endif
-    DEBUG(errs() << "Consecutive Stride = " << ConsecutiveStride << "\n");
-    DEBUG(errs() << "Stride = " << StrideInElements << "\n");
+    LLVM_DEBUG(errs() << "Consecutive Stride = " << ConsecutiveStride << "\n");
+    LLVM_DEBUG(errs() << "Stride = " << StrideInElements << "\n");
     bool Reverse = ConsecutiveStride < 0;
     bool isGatherOrScatterLegal = (isLoad && TTI.isLegalMaskedGather(DataTy)) ||
                                   (isStore && TTI.isLegalMaskedScatter(DataTy));
@@ -1051,19 +1052,19 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
     if (Mrf) 
       Grp = VLSInfo->getVLSGroupInfoForVLSMemref(Mrf);
     if (Grp && !ConsecutiveStride && EnableVectVLS) {
-      DEBUG(errs() << "Found a VLS group for the access!\n");
+      LLVM_DEBUG(errs() << "Found a VLS group for the access!\n");
       // The group cost is accounted in its entirety to the first Memref of Grp 
       if (Mrf == Grp->getFirstMemref()) {
         OVLSTTICostModel *TTICM = getVLSCostModel(); 
         int64_t GrpCost = OptVLSInterface::getGroupCost(*Grp, *TTICM); 
         Cost = GrpCost;
-        DEBUG(errs() << "Group Cost = " << Cost << "\n");
+        LLVM_DEBUG(errs() << "Group Cost = " << Cost << "\n");
         break;
       }
       // If this memref is in a VLS group but is not the first Memref of the 
       // group -- no cost is added (as the entire group cost is accounted to 
       // the first Memref of the group).
-      DEBUG(errs() << "skip -- not first access of the group!\n");
+      LLVM_DEBUG(errs() << "skip -- not first access of the group!\n");
       Cost = 0;
       break; 
     }
@@ -1080,7 +1081,8 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
 #endif
     bool GapInElemSize = false; // FIXME
     if ((!ConsecutiveStride && !UseGatherOrScatter) || GapInElemSize) {
-      DEBUG(errs() << "Case 2: Non-consecutive access Scalarization Cost.\n");
+      LLVM_DEBUG(
+          errs() << "Case 2: Non-consecutive access Scalarization Cost.\n");
       Cost = 0;
       // The cost of extracting from the value vector and pointer vector.
       Type *PtrsVecTy = ToVectorTy(PtrType, VF);
@@ -1126,13 +1128,13 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
     if (Op->getSLEV().isStrided()) {
       int64_t StrideInElements =
           Op->getSLEV().getStride().getInteger().getSExtValue();
-      DEBUG(errs() << "Stride = " << StrideInElements << "\n");
+      LLVM_DEBUG(errs() << "Stride = " << StrideInElements << "\n");
     } else
-      DEBUG(errs() << "Stride Unknown\n");
+      LLVM_DEBUG(errs() << "Stride Unknown\n");
 #endif
 
     if (UseGatherOrScatter) {
-      DEBUG(errs() << "Case 3: GatherScatterCost.\n");
+      LLVM_DEBUG(errs() << "Case 3: GatherScatterCost.\n");
       assert(ConsecutiveStride == 0 &&
              "Gather/Scatter are not used for consecutive stride");
       Cost += getGatherScatterOpCost(Expr->getOperation(), VectorTy, Op,
@@ -1141,7 +1143,7 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
     }
 
     // Case 5: Wide load/stores.
-    DEBUG(errs() << "Case 4: Wide Load/Store Cost.\n");
+    LLVM_DEBUG(errs() << "Case 4: Wide Load/Store Cost.\n");
     if (isMaskRequired)
       Cost += TTI.getMaskedMemoryOpCost(Expr->getOperation(), VectorTy,
                                         Alignment, AS);
@@ -1155,16 +1157,16 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
   }
 
   default:
-    DEBUG(errs() << "Unsupported expression kind.\n");
-    DEBUG(Expr->dump(PrintDataType));
+    LLVM_DEBUG(errs() << "Unsupported expression kind.\n");
+    LLVM_DEBUG(Expr->dump(PrintDataType));
     //llvm_unreachable("unsupported expression kind");
   }
 
   // Costs related to creating the operands were already counted when
   // operands were visited. Costs related to the operation itself:
-  //DEBUG(errs() << "visited expr: add cost of operation!\n");
-  //DEBUG(Expr->dump(PrintDataType));
-  //DEBUG(errs() << "added a cost of " << Cost << " to LoopBodyCost\n");
+  // LLVM_DEBUG(errs() << "visited expr: add cost of operation!\n");
+  // LLVM_DEBUG(Expr->dump(PrintDataType));
+  // LLVM_DEBUG(errs() << "added a cost of " << Cost << " to LoopBodyCost\n");
   LoopBodyCost += Cost;
   Expr->setCost(Cost);
 }
@@ -1172,11 +1174,11 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
 // TODO: Contribute the cost of producing this value if not already
 // available, according to the SLEV property.
 void VPOCostGathererBase::visit(AVRValue *AValue) {
-  //DEBUG(errs() << "visiting value!\n");
+  // LLVM_DEBUG(errs() << "visiting value!\n");
 }
 
 void VPOCostGathererBase::postVisit(AVRValue *AValue) {
-  //DEBUG(errs() << "Post-visiting value!\n");
+  // LLVM_DEBUG(errs() << "Post-visiting value!\n");
 }
 
 // This function visits all AVRValues and obtains the type information from each
@@ -1185,12 +1187,11 @@ void VPOScenarioEvaluationBase::visit(AVRValue *AValue) {
 
   Type *Ty;
 
-  DEBUG(errs() << "AValue: "; AValue->dump(); errs() << "\n");
-  DEBUG(errs() << "AValue Parent: "; AValue->getParent()->dump();
-        errs() << "\n");
-  DEBUG(errs() << "AValue Parent Parent: ";
-        AValue->getParent()->getParent()->dump();
-        errs() << "\n");
+  LLVM_DEBUG(errs() << "AValue: "; AValue->dump(); errs() << "\n");
+  LLVM_DEBUG(errs() << "AValue Parent: "; AValue->getParent()->dump();
+             errs() << "\n");
+  LLVM_DEBUG(errs() << "AValue Parent Parent: ";
+             AValue->getParent()->getParent()->dump(); errs() << "\n");
 
   if (isa<AVRPredicate>(AValue->getParent()->getParent())) {
     // Just skip gathering type information from predicate nodes.
@@ -1211,9 +1212,9 @@ void VPOScenarioEvaluationBase::visit(AVRValue *AValue) {
       // an element.
       Ty = Ref->getDestType();
       if (Ref->hasGEPInfo()) {
-        DEBUG(errs() << " (implicit load/store)");
+        LLVM_DEBUG(errs() << " (implicit load/store)");
       }
-      DEBUG(errs() << "\n");
+      LLVM_DEBUG(errs() << "\n");
     }
   } else if (isa<AVRValueIR>(AValue)) {
     Ty = AValue->getType();
@@ -1252,7 +1253,7 @@ void VPOScenarioEvaluationBase::visit(AVRValue *AValue) {
 uint64_t VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
                                    VPOVLSInfoBase *VLSInfo,
                                    HIRSafeReductionAnalysis *SRA) {
-  DEBUG(errs() << "\nEvaluating Loop Cost for VF = " << VF << "\n");
+  LLVM_DEBUG(errs() << "\nEvaluating Loop Cost for VF = " << VF << "\n");
   uint64_t Cost;
 
   // Calculate LoopBody Cost
@@ -1277,14 +1278,14 @@ uint64_t VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
   // Calculate OutOfLoop Costs. 
   uint64_t LoopCount;
   unsigned int RemainderLoopCost = getRemainderLoopCost(VF, LoopCount);
-  DEBUG(errs() << "RemainderLoopCost = " << RemainderLoopCost
-               << " LoopCount = " << LoopCount << "\n");
+  LLVM_DEBUG(errs() << "RemainderLoopCost = " << RemainderLoopCost
+                    << " LoopCount = " << LoopCount << "\n");
   CostGatherer->addOutOfLoopCost(RemainderLoopCost);
   unsigned int OutOfLoopCost = CostGatherer->getOutOfLoopCost();
   unsigned int ReductionCost = CostGatherer->getReductionCost();
-  DEBUG(errs() << "LoopBodyCost = " << LoopBodyCost
-               << " OutOfLoopCost = " << OutOfLoopCost
-               << " Reduction Cost = " << ReductionCost << "\n");
+  LLVM_DEBUG(errs() << "LoopBodyCost = " << LoopBodyCost
+                    << " OutOfLoopCost = " << OutOfLoopCost
+                    << " Reduction Cost = " << ReductionCost << "\n");
 
   if (LoopCount <= 0) {
     // Use max trip count estimate if available
@@ -1294,17 +1295,16 @@ uint64_t VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
   if (LoopCount <= 0) LoopCount = 100;
   Cost = (LoopBodyCost * LoopCount / VF) + OutOfLoopCost + ReductionCost;
 
-  DEBUG(ALoop->dump(PrintCost));
+  LLVM_DEBUG(ALoop->dump(PrintCost));
   if (VF == 1) {
-    DEBUG(errs() << "Scalar ");
+    LLVM_DEBUG(errs() << "Scalar ");
     ScalarIterCost = Cost / LoopCount;
   }
-  DEBUG(errs() << "Cost for candidate Loop = " << Cost << "\n");
-  DEBUG(errs() << "(" << LoopBodyCost << "(Loop Body) * " << LoopCount
-               << "(Loop Count) / " << VF << "(VF)) + " << OutOfLoopCost
-               << "(Remainder Loop Cost) + " << ReductionCost
-               << "(Reduction Cost)\n");
-
+  LLVM_DEBUG(errs() << "Cost for candidate Loop = " << Cost << "\n");
+  LLVM_DEBUG(errs() << "(" << LoopBodyCost << "(Loop Body) * " << LoopCount
+                    << "(Loop Count) / " << VF << "(VF)) + " << OutOfLoopCost
+                    << "(Remainder Loop Cost) + " << ReductionCost
+                    << "(Reduction Cost)\n");
 
   delete CostGatherer;
   return Cost;

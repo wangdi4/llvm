@@ -312,8 +312,8 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
     OrigLoop->setMaxTripCountEstimate(UnrollOrVecFactor - 1);
   }
 
-  DEBUG(dbgs() << "\n Remainder Loop \n");
-  DEBUG(OrigLoop->dump());
+  LLVM_DEBUG(dbgs() << "\n Remainder Loop \n");
+  LLVM_DEBUG(OrigLoop->dump());
 }
 
 namespace {

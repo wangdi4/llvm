@@ -53,7 +53,9 @@ std::unique_ptr<Module> llvm::CloneModule(
   New->setSourceFileName(M.getSourceFileName());
   New->setDataLayout(M.getDataLayout());
   New->setTargetTriple(M.getTargetTriple());
-  New->setTargetDevices(M.getTargetDevices());  // INTEL
+#if INTEL_COLLAB
+  New->setTargetDevices(M.getTargetDevices());
+#endif // INTEL_COLLAB
   New->setModuleInlineAsm(M.getModuleInlineAsm());
 
   // Loop over all of the global variables, making corresponding globals in the

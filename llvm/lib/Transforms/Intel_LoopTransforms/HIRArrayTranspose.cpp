@@ -199,7 +199,7 @@ private:
 
 bool HIRArrayTranspose::run() {
   if (DisableTranspose) {
-    DEBUG(dbgs() << "HIR array transpose disabled \n");
+    LLVM_DEBUG(dbgs() << "HIR array transpose disabled \n");
     return false;
   }
 
@@ -963,7 +963,7 @@ public:
 
   bool runOnFunction(Function &F) {
     if (skipFunction(F)) {
-      DEBUG(dbgs() << "HIR array transpose skipped\n");
+      LLVM_DEBUG(dbgs() << "HIR array transpose skipped\n");
       return false;
     }
 

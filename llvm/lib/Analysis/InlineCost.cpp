@@ -1010,14 +1010,14 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee, // INTEL
     BlockFrequencyInfo *CallerBFI = GetBFI ? &((*GetBFI)(*Caller)) : nullptr;
     auto HotCallSiteThreshold = getHotCallSiteThreshold(CS, CallerBFI);
     if (!Caller->optForSize() && HotCallSiteThreshold) {
-      DEBUG(dbgs() << "Hot callsite.\n");
+      LLVM_DEBUG(dbgs() << "Hot callsite.\n");
       // FIXME: This should update the threshold only if it exceeds the
       // current threshold, but AutoFDO + ThinLTO currently relies on this
       // behavior to prevent inlining of hot callsites during ThinLTO
       // compile phase.
       Threshold = HotCallSiteThreshold.getValue();
     } else if (isColdCallSite(CS, CallerBFI)) {
-      DEBUG(dbgs() << "Cold callsite.\n");
+      LLVM_DEBUG(dbgs() << "Cold callsite.\n");
       // Do not apply bonuses for a cold callsite including the
       // LastCallToStatic bonus. While this bonus might result in code size
       // reduction, it can cause the size of a non-cold caller to increase
@@ -1028,13 +1028,13 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee, // INTEL
       // Use callee's global profile information only if we have no way of
       // determining this via callsite information.
       if (PSI->isFunctionEntryHot(&Callee)) {
-        DEBUG(dbgs() << "Hot callee.\n");
+        LLVM_DEBUG(dbgs() << "Hot callee.\n");
         // If callsite hotness can not be determined, we may still know
         // that the callee is hot and treat it as a weaker hint for threshold
         // increase.
         Threshold = MaxIfValid(Threshold, Params.HintThreshold);
       } else if (PSI->isFunctionEntryCold(&Callee)) {
-        DEBUG(dbgs() << "Cold callee.\n");
+        LLVM_DEBUG(dbgs() << "Cold callee.\n");
         // Do not apply bonuses for a cold callee including the
         // LastCallToStatic bonus. While this bonus might result in code size
         // reduction, it can cause the size of a non-cold caller to increase
@@ -2347,8 +2347,8 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
   }
 
   if (!CallSitesForFusion) {
-    DEBUG(llvm::dbgs() <<
-          "IC: No inlining for fusion: no call site candidates.\n");
+    LLVM_DEBUG(llvm::dbgs()
+               << "IC: No inlining for fusion: no call site candidates.\n");
     return false;
   }
 
@@ -2388,9 +2388,10 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
   // If number of successive calls is relatively small or too big
   // then skip inlining
   if ((CSCount < MinCallSitesForFusion) || (CSCount > MaxCallSitesForFusion)) {
-    DEBUG(llvm::dbgs()
-          << "IC: No inlining for fusion: number of candidates is out of range:"
-          << CSCount << "\n");
+    LLVM_DEBUG(
+        llvm::dbgs()
+        << "IC: No inlining for fusion: number of candidates is out of range:"
+        << CSCount << "\n");
     return false;
   }
 
@@ -2402,8 +2403,8 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
         InvokeInst *II = dyn_cast_or_null<InvokeInst>(&I);
         auto InnerFunc = CI ? CI->getCalledFunction() : II->getCalledFunction();
         if (!InnerFunc || !InnerFunc->isIntrinsic()) {
-          DEBUG(llvm::dbgs() <<
-                "IC: No inlining for fusion: call inside candidate.\n");
+          LLVM_DEBUG(llvm::dbgs()
+                     << "IC: No inlining for fusion: call inside candidate.\n");
           return false;
         }
       }
@@ -2413,8 +2414,8 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
   // Check loops inside callee.
   LoopInfo *LI = ILIC.getLI(Callee);
   if (!LI) {
-    DEBUG(llvm::dbgs() <<
-          "IC: No inlining for fusion: no loop info for candidate.\n");
+    LLVM_DEBUG(llvm::dbgs()
+               << "IC: No inlining for fusion: no loop info for candidate.\n");
     return false;
   }
 
@@ -2423,8 +2424,8 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
     Loop *LL = *LB;
     if (!isConstantTripCount(LL)) {
       // Non-constant trip count. Skip inlining.
-      DEBUG(llvm::dbgs() <<
-            "IC: No inlining for fusion: non-constant TC in loop.\n");
+      LLVM_DEBUG(llvm::dbgs()
+                 << "IC: No inlining for fusion: non-constant TC in loop.\n");
       return false;
     }
     // Check how many array refs in GEP instructions are arguments of
@@ -2457,8 +2458,8 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
 
   // Not enough arguments-arrays were found in loop.
   if (ArgCnt < MinArgRefs) {
-    DEBUG(llvm::dbgs() <<
-          "IC: No inlining for fusion: not enough array refs.\n");
+    LLVM_DEBUG(llvm::dbgs()
+               << "IC: No inlining for fusion: not enough array refs.\n");
     return false;
   }
 
@@ -3132,8 +3133,8 @@ InlineCost llvm::getInlineCost(
 #endif // INTEL_CUSTOMIZATION
   } // INTEL
 
-  DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
-                     << "... (caller:" << Caller->getName() << ")\n");
+  LLVM_DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
+                          << "... (caller:" << Caller->getName() << ")\n");
 
   CallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE, *Callee, CS,
                   ILIC, AI, CallSitesForFusion, Params);  // INTEL
@@ -3143,7 +3144,7 @@ InlineCost llvm::getInlineCost(
   assert(Reason != InlrNoReason);
 #endif // INTEL_CUSTOMIZATION
 
-  DEBUG(CA.dump());
+  LLVM_DEBUG(CA.dump());
 
   // Check if there was a reason to force inlining or no inlining.
   if (!ShouldInline && CA.getCost() < CA.getThreshold())

@@ -99,8 +99,8 @@ bool AVRGenerateBase::runOnFunction(Function &F) {
 
     addLabelReferences();
 
-    DEBUG(dbgs() << "Abstract Layer:\n");
-    DEBUG(this->dump(PrintAvrType));
+    LLVM_DEBUG(dbgs() << "Abstract Layer:\n");
+    LLVM_DEBUG(this->dump(PrintAvrType));
   }
 
   // Insert AVRLoops into Abstract Layer
@@ -108,8 +108,8 @@ bool AVRGenerateBase::runOnFunction(Function &F) {
 
     optimizeLoopControl();
 
-    DEBUG(dbgs() << "Abstract Layer After Loop Formation:\n");
-    DEBUG(this->dump(PrintAvrType));
+    LLVM_DEBUG(dbgs() << "Abstract Layer After Loop Formation:\n");
+    LLVM_DEBUG(this->dump(PrintAvrType));
   }
 
   // Insert AVRIfs into Abstract Layer
@@ -121,8 +121,8 @@ bool AVRGenerateBase::runOnFunction(Function &F) {
     // AVR IFs are now constructed by default.
     optimizeAvrBranches();
 
-    DEBUG(dbgs() << "Abstract Layer After If Formation:\n");
-    DEBUG(this->dump(PrintAvrType));
+    LLVM_DEBUG(dbgs() << "Abstract Layer After If Formation:\n");
+    LLVM_DEBUG(this->dump(PrintAvrType));
 #endif
   }
 
@@ -133,8 +133,8 @@ bool AVRGenerateBase::runOnFunction(Function &F) {
     optimizeAvrExpressions();    // Add expressions and values
     optimizeAvrSubExpressions(); // Build sub-expressions
 
-    DEBUG(dbgs() << "Abstract Layer After Expression Tree Formation:\n");
-    DEBUG(this->dump(PrintAvrType));
+    LLVM_DEBUG(dbgs() << "Abstract Layer After Expression Tree Formation:\n");
+    LLVM_DEBUG(this->dump(PrintAvrType));
   }
 
   // Clean up unnecessary AVR nodes.
@@ -494,7 +494,7 @@ void AVRGenerateBase::optimizeLoopControl() {
 
   if (!isAbstractLayerEmpty()) {
 
-    DEBUG(dbgs() << "\nInserting Avr Loops.\n");
+    LLVM_DEBUG(dbgs() << "\nInserting Avr Loops.\n");
 
     // AVRGenerate has created a collection of AVR sequences which represent
     // candidate loops for vectorization. At this point these AVR sequences do
@@ -586,8 +586,8 @@ void AVRGenerateBase::optimizeAvrBranches() {
 
   if (!AC.isEmpty()) {
 
-    DEBUG(dbgs() << "\nIdentified " << AC.getNumberOfCandidates()
-                 << " candidates for AvrIf optimization\n");
+    LLVM_DEBUG(dbgs() << "\nIdentified " << AC.getNumberOfCandidates()
+                      << " candidates for AvrIf optimization\n");
 
     // Optimize AVRCompare: Replace AVRBranches with AVRIf and set
     // children as appropiate. Traverse bottom up.
@@ -636,7 +636,8 @@ void AVRGenerateBase::optimizeAvrBranches() {
       cleanupBranchOpt(*I);
     }
   } else {
-    DEBUG(dbgs() << "No AVRCompares identified for AvrIf transformation!\n");
+    LLVM_DEBUG(
+        dbgs() << "No AVRCompares identified for AvrIf transformation!\n");
   }
 }
 
@@ -754,14 +755,14 @@ bool AVRGenerate::runOnFunction(Function &F) {
 void AVRGenerate::buildAbstractLayer() {
   if (ScalarStressTest) {
 
-    DEBUG(dbgs() << "\nAVR: Generating AVRs for whole function.\n");
+    LLVM_DEBUG(dbgs() << "\nAVR: Generating AVRs for whole function.\n");
 
     // Build complete AVR node representation for function in stress testing
     // mode
     buildAvrsForFunction();
   } else {
 
-    DEBUG(dbgs() << "\nAVR: Generating AVRs for vector candidates.\n");
+    LLVM_DEBUG(dbgs() << "\nAVR: Generating AVRs for vector candidates.\n");
 
     // Build the WRGraph based on incoming LLVM IR
     WR->buildWRGraph(WRegionCollection::LLVMIR);
@@ -1015,8 +1016,8 @@ AvrItr AVRGenerate::generateAvrInstSeqForBB(BasicBlock *BB,
       NewNode = AVRUtilsIR::createAVRAssignIR(&*I);
     }
 
-    DEBUG(dbgs() << "VECREPORT: Generated New AVR = ");
-    DEBUG(NewNode->dump());
+    LLVM_DEBUG(dbgs() << "VECREPORT: Generated New AVR = ");
+    LLVM_DEBUG(NewNode->dump());
 
     // Add newly created avr and it's corresponding instruction to map.
     AvrInsts[&*I] = NewNode;
@@ -1152,12 +1153,12 @@ AVR *AVRGenerate::generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos) {
 
   } else {
 
-    DEBUG(Terminator->dump());
+    LLVM_DEBUG(Terminator->dump());
     llvm_unreachable("Unknown terminator type!");
   }
 
-  DEBUG(dbgs() << "VECREPORT: Generated New AVR = ");
-  DEBUG(InsertionPos->dump());
+  LLVM_DEBUG(dbgs() << "VECREPORT: Generated New AVR = ");
+  LLVM_DEBUG(InsertionPos->dump());
 
   return InsertionPos;
 }
@@ -1180,13 +1181,14 @@ bool AVRGenerate::isLoopALSupported(const Loop &Lp) {
   // Loops not in "normal" form. Loop must have a preheader, a single backedge,
   // and all of its exits have all of their predecessors inside the loop.
   if (!Lp.isLoopSimplifyForm()) {
-    DEBUG(dbgs() << "VECREPORT: Loop structure not supported.\n");
+    LLVM_DEBUG(dbgs() << "VECREPORT: Loop structure not supported.\n");
     return false;
   }
 
   // Multi-exit loop not yet supported.
   if (!Lp.getExitingBlock()) {
-    DEBUG(dbgs() << "VECREPORT: Multi-exit loops not currently supported.\n");
+    LLVM_DEBUG(
+        dbgs() << "VECREPORT: Multi-exit loops not currently supported.\n");
     return false;
   }
 
@@ -1216,8 +1218,8 @@ void AVRGenerate::formAvrLoopNest(AVRFunction *AvrFunction) {
     // formation. Absent info is usually due to infinite or
     // unreachable loops
     if (!DT->getNode(LoopLatchBB) || !PDT->getNode(LoopLatchBB)) {
-      DEBUG(dbgs() << "VECREPORT: Unreachable or infinite loops are not "
-                      "supported.\n");
+      LLVM_DEBUG(dbgs() << "VECREPORT: Unreachable or infinite loops are not "
+                           "supported.\n");
       continue;
     }
 
@@ -1229,8 +1231,9 @@ void AVRGenerate::formAvrLoopNest(AVRFunction *AvrFunction) {
 
       // We only handle bottom test loops.
       if (!ABranch->isConditional()) {
-        DEBUG(dbgs() << "VECREPORT: Unconditional loop branch instructions not "
-                        "currently supported.\n");
+        LLVM_DEBUG(
+            dbgs() << "VECREPORT: Unconditional loop branch instructions not "
+                      "currently supported.\n");
         continue;
       }
     }
@@ -1343,9 +1346,9 @@ void AVRGenerateHIR::buildAbstractLayer() {
 
   // Walk the HIR and build WRGraph based on HIR
   WRContainerImpl *WRGraph = WRegionUtils::buildWRGraphFromHIR(*HIRF);
-  DEBUG(errs() << "WRGraph #nodes= " << WRGraph->size() << "\n");
+  LLVM_DEBUG(errs() << "WRGraph #nodes= " << WRGraph->size() << "\n");
   for (auto I = WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
-    DEBUG((*I)->dump());
+    LLVM_DEBUG((*I)->dump());
   }
 
   // TBD: Using WRN nodes directly for now. This needs to be changed
@@ -1353,8 +1356,8 @@ void AVRGenerateHIR::buildAbstractLayer() {
   // AVRLoop variants for LLVM/HIR variants and use these going
   // forward.
   for (auto I = WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
-    DEBUG(errs() << "Starting AVR gen for \n");
-    DEBUG((*I)->dump());
+    LLVM_DEBUG(errs() << "Starting AVR gen for \n");
+    LLVM_DEBUG((*I)->dump());
     AVRWrn *AWrn;
     AVR *Avr;
     WRNVecLoopNode *WVecNode;
@@ -1396,9 +1399,9 @@ AVR *AVRGenerateHIR::AVRGenerateVisitor::visitLoop(HLLoop *L) {
   AVRLoopHIR *ALoop;
   AVR *ChildAVR;
 
-  DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "VISITING HLLOOP:\n";
-        L->print(FOS, 0, true);
-        FOS << "\n+++++++++++++++++++++++++++++++++++++++++++++++\n");
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "VISITING HLLOOP:\n";
+             L->print(FOS, 0, true);
+             FOS << "\n+++++++++++++++++++++++++++++++++++++++++++++++\n");
 
   ALoop = AVRUtilsHIR::createAVRLoopHIR(L);
 
@@ -1410,9 +1413,9 @@ AVR *AVRGenerateHIR::AVRGenerateVisitor::visitLoop(HLLoop *L) {
 
   // Visit loop children
   for (auto It = L->child_begin(), End = L->child_end(); It != End; ++It) {
-    DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "LOOP CHILD:\n";
-          It->print(FOS, 0, true);
-          FOS << "\n-----------------------------------------------\n");
+    LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "LOOP CHILD:\n";
+               It->print(FOS, 0, true);
+               FOS << "\n-----------------------------------------------\n");
     ChildAVR = visit(*It);
 
     AVRUtils::insertLastChild(ALoop, ChildAVR);

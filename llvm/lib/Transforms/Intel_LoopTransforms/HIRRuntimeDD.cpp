@@ -139,7 +139,7 @@ struct HIRRuntimeDD::MemoryAliasAnalyzer final : public HLNodeVisitorBase {
 
   void visit(HLLoop *Loop) {
     LoopContext Context;
-    DEBUG(dbgs() << "Runtime DD for loop " << Loop->getNumber() << ":\n");
+    LLVM_DEBUG(dbgs() << "Runtime DD for loop " << Loop->getNumber() << ":\n");
 
     RuntimeDDResult Result = RDD.computeTests(Loop, Context);
     bool IsInnermost = Loop->isInnermost();
@@ -157,8 +157,8 @@ struct HIRRuntimeDD::MemoryAliasAnalyzer final : public HLNodeVisitorBase {
       SkipNode = Loop;
     }
 
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: [RTDD] Loop " << Loop->getNumber()
-                 << ": " << HIRRuntimeDD::getResultString(Result) << "\n");
+    LLVM_DEBUG(dbgs() << "LOOPOPT_OPTREPORT: [RTDD] Loop " << Loop->getNumber()
+                      << ": " << HIRRuntimeDD::getResultString(Result) << "\n");
   }
 
   bool skipRecursion(const HLNode *N) const { return N == SkipNode; }
@@ -647,14 +647,14 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> Tests;
 
   DDGraph DDG = DDA.getGraph(Loop);
-  DEBUG(dbgs() << "Loop DDG:\n");
-  DEBUG(DDG.dump());
+  LLVM_DEBUG(dbgs() << "Loop DDG:\n");
+  LLVM_DEBUG(DDG.dump());
 
   // Gather references which are only inside a loop, excepting loop bounds,
   // pre-header and post-exit.
   MemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), Refs);
-  DEBUG(dbgs() << "Loop references:\n");
-  DEBUG(MemRefGatherer::dump(Refs));
+  LLVM_DEBUG(dbgs() << "Loop references:\n");
+  LLVM_DEBUG(MemRefGatherer::dump(Refs));
 
   for (RegDDRef *SrcRef : Refs) {
     unsigned GroupA = findAndGroup(Groups, SrcRef);
@@ -689,7 +689,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     std::sort(Group.begin(), Group.end(), DDRefUtils::compareMemRef);
   }
 
-  DEBUG(DDRefGrouping::dump(Groups));
+  LLVM_DEBUG(DDRefGrouping::dump(Groups));
 
   unsigned GroupSize = Groups.size();
 
@@ -923,8 +923,8 @@ bool HIRRuntimeDD::run() {
     return false;
   }
 
-  DEBUG(dbgs() << "HIRRuntimeDD for function: " << HIRF.getFunction().getName()
-               << "\n");
+  LLVM_DEBUG(dbgs() << "HIRRuntimeDD for function: "
+                    << HIRF.getFunction().getName() << "\n");
 
   // Multiversion for memory aliasing.
   MemoryAliasAnalyzer AliasAnalyzer(*this);

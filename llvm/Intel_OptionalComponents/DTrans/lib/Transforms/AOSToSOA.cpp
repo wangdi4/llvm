@@ -63,6 +63,8 @@ public:
   AOSToSOAMaterializer(ValueMapTypeRemapper &TypeRemapper)
       : TypeRemapper(TypeRemapper) {}
 
+  virtual ~AOSToSOAMaterializer() {}
+
   virtual Value *materialize(Value *V) override {
     // Check if a null value of a different type needs to be generated.
     auto *C = dyn_cast<Constant>(V);
@@ -108,7 +110,9 @@ public:
                       Materializer) {
     std::copy(Types.begin(), Types.end(), std::back_inserter(TypesToTransform));
 
-    PeelIndexType = Type::getIntNTy(Context, DL.getPointerSizeInBits());
+    PeelIndexWidth = DL.getPointerSizeInBits();
+    PeelIndexType = Type::getIntNTy(Context, PeelIndexWidth);
+    PtrSizedIntType = Type::getIntNTy(Context, DL.getPointerSizeInBits());
     IncompatiblePeelTypeAttrs = AttributeFuncs::typeIncompatible(PeelIndexType);
   }
 
@@ -143,12 +147,14 @@ public:
 
       StructType *NewStructTy = cast<StructType>(NewTy);
       NewStructTy->setBody(DataTypes);
+      LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Type replacement:\n  Old: "
+                        << *OrigTy << "\n  New: " << *NewStructTy << "\n");
     }
   }
 
   // Create a new global variable for each type peeled that will serve as the
   // base pointer to the peeled variable.
-  virtual void prepareModule(Module &M) {
+  virtual void prepareModule(Module &M) override {
     for (auto &ONPair : OrigToNewTypeMapping) {
       StructType *StType = cast<StructType>(ONPair.first);
       StructType *PeelTy = cast<StructType>(ONPair.second);
@@ -160,25 +166,259 @@ public:
           /*insertbefore=*/nullptr, GlobalValue::NotThreadLocal,
           /*AddressSpace=*/0, /*isExternallyInitialized=*/false);
       PeeledTypeToVariable.insert(std::make_pair(PeelTy, PeelVar));
-      DEBUG(dbgs() << "DTRANS-AOSTOSOA: PeelVar: " << *PeelVar << "\n");
+      LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: PeelVar: " << *PeelVar << "\n");
     }
   }
 
-  virtual void processFunction(Function &F) {
-    // TODO: Need to add conversion of GEP instructions, and
-    // rewriting of the allocation and free sites for converted types.
-    // For now, we just process the function call attributes.
-    for (auto I = inst_begin(&F), E = inst_end(F); I != E; ++I) {
-      if (isa<CallInst>(&*I) || isa<InvokeInst>(&*I)) {
-        CallSite CS(&*I);
+  virtual void processFunction(Function &F) override {
+    SmallVector<GetElementPtrInst *, 16> GEPsToConvert;
+
+    for (auto It = inst_begin(&F), E = inst_end(F); It != E; ++It) {
+      Instruction *I = &*It;
+      if (isa<CallInst>(I) || isa<InvokeInst>(I)) {
+        // TODO: Need to add rewriting of the allocation and free sites for
+        // converted types. Also need to add support for converted memfunc
+        // calls. For now, we just process the function call
+        // attributes.
+        CallSite CS(I);
         updateCallAttributes(CS);
+      } else if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
+        if (checkConversionNeeded(GEP))
+          GEPsToConvert.push_back(GEP);
+      } else if (auto *PTI = dyn_cast<PtrToIntInst>(I)) {
+        // A pointer may be cast to an integer type, and after the
+        // type remapping of the pointer to the structure this would be
+        // a PtrToInt instruction with an integer type as the source type.
+        // Collect this cast into the list of casts that need to be removed
+        // during post processing.
+        //
+        // The DTransAnalysis guarantees that the size of the target integer
+        // will be the same size as the pointer type.
+        // The DTransAnalysis guarantees that IntToPtr instructions do not
+        // need to be considered currently.
+        if (checkConversionNeeded(PTI))
+          PtrConverts.push_back(PTI);
       }
+
+      // TODO: add support for sdiv for pointer arithmetic.
+
+    }
+
+    for (auto *GEP : GEPsToConvert)
+      processGEP(GEP);
+  }
+
+  bool checkConversionNeeded(GetElementPtrInst *GEP) {
+    // The only cases that need to be converted are GEPs
+    // with 1 or 2 indices because nested structures are not supported.
+    if (GEP->getNumIndices() > 2)
+      return false;
+
+    Type *ElementTy = GEP->getSourceElementType();
+    return isTypeToTransform(ElementTy);
+  }
+
+  bool checkConversionNeeded(PtrToIntInst *PTI) {
+    Type *Ty = PTI->getOperand(0)->getType()->getPointerElementType();
+    return isTypeToTransform(Ty);
+  }
+
+  void processGEP(GetElementPtrInst *GEP) {
+    // There are 2 cases that need to be converted.
+    // 1: Getting the address of a structure within the array of structures.
+    //    %addr1 = getelementptr %struct.t, %struct.t* %base, i64 %n
+    //
+    // 2: Getting the address of a structure field within the array of
+    // structures.
+    //    %addr2 = getelementptr %struct.t, %struct.t* %base, i64 %n, i32 1
+    //
+    // These need to be processed prior to the type remapping process because
+    // the type remapping will change %struct.t* to be an integer type, which
+    // would prevent identification of the instructions that need to be
+    // rewritten.
+    //
+    // There will not be higher numbers of indices because nested structures are
+    // disqualified during the safety checks.
+    unsigned NumIndices = GEP->getNumIndices();
+    assert(NumIndices <= 2 && "Unexpected index count for GEP");
+
+    if (NumIndices == 1) {
+      // This will convert the GEP of case 1 from:
+      //    %arrayidx = getelementptr %struct.t, %struct.t* %base, i64 %idx_in
+      // To:
+      //    %peelIdxAsInt = ptrtoint %struct.t* %base to i64
+      //    %add = add i64 %peelIdxAsInt, %idx_in
+      //    %arrayidx = inttoptr i64 %add to %struct.t*
+      //
+      // Note: We do not use a named variable in the IR for this, the names are
+      // just shown here to make the following code transformation clearer.
+      //
+      // The ptrtoint and inttoptr instructions are temporary in order
+      // to support the type remapping process. During the type remapping
+      // process, the pointer type in those instructions will be converted
+      // into an integer type, resulting in an i64 to i64 cast, which must
+      // be removed during the function post processing. The use of the
+      // conversion instruction here allows for values into and out of affected
+      // instructions to be replaced without violating the type matching.
+      Value *Src = GEP->getPointerOperand();
+      CastInst *PeelIdxAsInt =
+          CastInst::CreateBitOrPointerCast(Src, getPeeledIndexType());
+      PeelIdxAsInt->insertBefore(GEP);
+      PtrConverts.push_back(PeelIdxAsInt);
+
+      // Indexing into an array allows the GEP index value to be an integer of
+      // any width, sign-extend the smaller of the GEP index and our peeling
+      // index to make the types compatible for addition.
+      Value *GEPBaseIdx = GEP->getOperand(1);
+      uint64_t PeelIdxWidth = getPeeledIndexWidth();
+      uint64_t BaseIdxWidth = DL.getTypeSizeInBits(GEPBaseIdx->getType());
+      if (BaseIdxWidth < PeelIdxWidth) {
+        CastInst *SE = CastInst::Create(CastInst::SExt, GEPBaseIdx,
+                                        PeelIdxAsInt->getType());
+        SE->insertBefore(GEP);
+        GEPBaseIdx = SE;
+      } else if (PeelIdxWidth < BaseIdxWidth) {
+        // We don't expect a GEP index parameter to ever be larger than a
+        // pointer, assert to be sure.
+        assert(BaseIdxWidth <= DL.getTypeSizeInBits(getPtrSizedIntType()) &&
+               "Unsupported GEP index type");
+        CastInst *SE = CastInst::Create(CastInst::SExt, PeelIdxAsInt,
+                                        GEPBaseIdx->getType());
+        SE->insertBefore(GEP);
+        PeelIdxAsInt = SE;
+      }
+
+      BinaryOperator *Add = BinaryOperator::CreateAdd(PeelIdxAsInt, GEPBaseIdx);
+
+      // We will steal the name of the GEP and put it on this instruction
+      // because even if the replacement is going to be done via a cast
+      // statement, the cast is going to eventually be eliminated anyway.
+      Add->takeName(GEP);
+      Add->insertBefore(GEP);
+
+      // Cast the computed peeled index back to the original pointer type, and
+      // substitute this into the users. When the type remapping occurs, the
+      // users will be converted to an integer type, and the cast instruction
+      // will be removed during post-processing.
+      //
+      // Note: Currently this requires the peeling index type to be the same
+      // bit width as the pointer type, when updates are made for using a
+      // smaller size, we will likely need to add some truncation here.
+      CastInst *ArrayIdx =
+          CastInst::CreateBitOrPointerCast(Add, Src->getType());
+      ArrayIdx->insertBefore(GEP);
+      PtrConverts.push_back(ArrayIdx);
+
+      GEP->replaceAllUsesWith(ArrayIdx);
+      GEP->eraseFromParent();
+    } else {
+      // This will convert the GEP of case 2 from:
+      //    %elem_addr = getelementptr %struct.t, %struct.t* %base, i64 %idx_n,
+      //    i32 1
+      //
+      // To:
+      //    %peel_base = getelementptr % __soa_struct.t,
+      //         %__soa_struct.tt* @__soa_struct.t, i64 0, i32 1
+      //    %soa_addr = load i32*, i32** %peel_base
+      //    %peelIdxAsInt = ptrtoint %struct.test01* %base to i64
+      //    %adjusted_idx = add i64 %peelIdxAsInt, %idx_n
+      //    %elem_addr = getelementptr i32, i32* %soa_addr, i64 %adjusted_idx
+      //
+      // In this case, the 2nd GEP index will always be the field number which
+      // is a constant integer.
+
+      Type *ElementTy = GEP->getSourceElementType();
+      StructType *PeelType = getTransformedType(ElementTy);
+      Value *PeelVar = PeeledTypeToVariable[PeelType];
+      assert(PeelVar && "Peeling variable should have already been created");
+
+      Value *Idx[2];
+      Idx[0] = Constant::getNullValue(getPtrSizedIntType());
+      Value *FieldNum = GEP->getOperand(2);
+      Idx[1] = FieldNum;
+      GetElementPtrInst *PeelBase =
+          GetElementPtrInst::Create(PeelType, PeelVar, Idx);
+      PeelBase->insertBefore(GEP);
+      LoadInst *SOAAddr = new LoadInst(PeelBase);
+      SOAAddr->insertBefore(GEP);
+
+      Value *Src = GEP->getPointerOperand();
+      CastInst *PeelIdxAsInt =
+          CastInst::CreateBitOrPointerCast(Src, getPeeledIndexType());
+      PeelIdxAsInt->insertBefore(GEP);
+      PtrConverts.push_back(PeelIdxAsInt);
+
+      Value *GEPBaseIdx = GEP->getOperand(1);
+      uint64_t PeelIdxWidth = getPeeledIndexWidth();
+      uint64_t BaseIdxWidth = DL.getTypeSizeInBits(GEPBaseIdx->getType());
+
+      if (PeelIdxWidth < BaseIdxWidth) {
+        // We don't expect a GEP index parameter to ever be larger than a
+        // pointer, assert to be sure.
+        assert(BaseIdxWidth <= DL.getTypeSizeInBits(getPtrSizedIntType()) &&
+               "Unsupported GEP index type");
+        CastInst *SE = CastInst::Create(CastInst::SExt, PeelIdxAsInt,
+                                        GEPBaseIdx->getType());
+        SE->insertBefore(GEP);
+        PeelIdxAsInt = SE;
+      }
+
+      Value *AdjustedPeelIdxAsInt = PeelIdxAsInt;
+      // If first index is not constant 0, then we need to index by that amount
+      if (!dtrans::isValueEqualToSize(GEPBaseIdx, 0)) {
+        if (BaseIdxWidth < PeelIdxWidth) {
+          CastInst *SE = CastInst::Create(CastInst::SExt, GEPBaseIdx,
+                                          PeelIdxAsInt->getType());
+          SE->insertBefore(GEP);
+          GEPBaseIdx = SE;
+        }
+
+        BinaryOperator *Add =
+            BinaryOperator::CreateAdd(PeelIdxAsInt, GEPBaseIdx);
+        Add->insertBefore(GEP);
+        AdjustedPeelIdxAsInt = Add;
+      }
+
+      // Identify the type in the new structure for the field being accessed.
+      unsigned FieldIdx = cast<ConstantInt>(FieldNum)->getLimitedValue();
+      llvm::Type *PeelFieldTy = PeelType->getElementType(FieldIdx);
+
+      // We know all elements of the peeled structure are pointer types.
+      // Get the type that it points to.
+      Type *FieldElementTy = cast<PointerType>(PeelFieldTy)->getElementType();
+      GetElementPtrInst *FieldGEP = GetElementPtrInst::Create(
+          FieldElementTy, SOAAddr, AdjustedPeelIdxAsInt);
+
+      // We will steal the name of the GEP and put it on this instruction
+      // because even if the replacement is going to be done via a cast
+      // statement, the cast is going to eventually be eliminated anyway.
+      FieldGEP->takeName(GEP);
+      FieldGEP->insertBefore(GEP);
+
+      // If the field type is pointer to a structure that is being transformed,
+      // generate a temporary cast to the original type so that the user
+      // instruction will have expected types. These casts will become casts
+      // from and to the same type after the remapping happens, and will be
+      // removed during post-processing.
+      Type *OrigFieldTy = GEP->getType();
+      Value *ReplVal = FieldGEP;
+
+      if (PeelFieldTy != OrigFieldTy) {
+        CastInst *CastToPtr =
+            CastInst::CreateBitOrPointerCast(FieldGEP, OrigFieldTy);
+        CastToPtr->insertBefore(GEP);
+        PtrConverts.push_back(CastToPtr);
+        ReplVal = CastToPtr;
+      }
+
+      GEP->replaceAllUsesWith(ReplVal);
+      GEP->eraseFromParent();
     }
   }
 
   // Update the signature of the function's clone and any instructions that need
   // to be modified after the type remapping of data types has taken place.
-  virtual void postprocessFunction(Function &OrigFunc, bool isCloned) {
+  virtual void postprocessFunction(Function &OrigFunc, bool isCloned) override {
     Function *Func = &OrigFunc;
     if (isCloned) {
       Func = cast<Function>(VMap[&OrigFunc]);
@@ -210,7 +450,6 @@ public:
         Func->removeAttributes(0, IncompatiblePeelTypeAttrs);
       }
 
-
       assert(OrigFunc.arg_size() == Func->arg_size() &&
              "Expected clone arg for each original arg");
       Function::arg_iterator OrigArgIt = OrigFunc.arg_begin();
@@ -238,13 +477,59 @@ public:
       });
     }
 
-    // TODO: Add code to clean up pointer-to-int instruction conversions.
+    for (auto *V : PtrConverts) {
+      if (auto *Conv = dyn_cast<CastInst>(V)) {
+        if (isCloned)
+          Conv = cast<CastInst>(VMap[V]);
+
+        assert(Conv->getType() == Conv->getOperand(0)->getType() &&
+               "Expected self-type in cast after remap");
+        Conv->replaceAllUsesWith(Conv->getOperand(0));
+        Conv->eraseFromParent();
+      }
+    }
+
+    PtrConverts.clear();
   }
 
 private:
   // Return an integer type that will be used as a replacement type for pointers
   // to the types being peeled.
   llvm::Type *getPeeledIndexType() const { return PeelIndexType; }
+  uint64_t getPeeledIndexWidth() const { return PeelIndexWidth; }
+  llvm::Type *getPtrSizedIntType() const { return PtrSizedIntType; }
+
+  bool isTypeToTransform(llvm::Type *Ty) {
+    if (!Ty->isStructTy())
+      return false;
+
+    // Since we expect to have very few types to check, just loop over them.
+    // This could be converted to OrigToNewTypeMapping.count(Ty) in the
+    // future, if it is found that is faster.
+    for (auto &ONPair : OrigToNewTypeMapping)
+      if (ONPair.first == Ty)
+        return true;
+
+    return false;
+  }
+
+  // Get the new type for a structure type being transformed. This function
+  // can only be used for types that are known to be transformed to avoid
+  // the need for nullptr checks on the return value, and to allow casting
+  // the result from the map to be a StructType.
+  llvm::StructType *getTransformedType(llvm::Type *OrigTy) {
+    assert(isTypeToTransform(OrigTy) &&
+           "Expected input type to be type being transformed");
+
+    // Since we expect to have very few types to check, just loop over them.
+    // This could be converted to OrigToNewTypeMapping.count(Ty) in the
+    // future, if it is found that is faster.
+    for (auto &ONPair : OrigToNewTypeMapping)
+      if (ONPair.first == OrigTy)
+        return cast<StructType>(ONPair.second);
+
+    llvm_unreachable("AOS-to-SOA transformation type not found");
+  }
 
   // When rewriting pointers to the transformed structure type to integer types,
   // attributes on the return type and function parameters may need to be
@@ -303,9 +588,14 @@ private:
   DenseMap<StructType *, GlobalVariable *> PeeledTypeToVariable;
 
   // Pointers to the peeled structure will be converted to an index
-  // value for the array element of the structure of arrays. This
-  // variable holds the integer type that will used for the index.
+  // value for the array element of the structure of arrays. These
+  // variables hold the integer width and type that will used for the index.
+  uint64_t PeelIndexWidth;
   llvm::Type *PeelIndexType;
+
+  // Integer type that has the same size as a pointer type. This may be
+  // different than the peel index type.
+  llvm::Type *PtrSizedIntType;
 
   // When the pointer to the peeled structure is converted, there are several
   // attributes that may have been used on function parameters or return
@@ -313,6 +603,13 @@ private:
   // holds the list of incompatible attributes that need to be removed
   // from function signatures and call sites for the cloned routines.
   AttrBuilder IncompatiblePeelTypeAttrs;
+
+  // A list of pointer conversion instructions (contains instructions that are
+  // pointer to int, int to pointer, or pointer of original type to pointer of
+  // remapped type) that after the remapping process should have the same source
+  // and destination types, and are to be removed during function post
+  // processing. This list is reset for each function processed.
+  SmallVector<CastInst *, 16> PtrConverts;
 };
 
 class DTransAOSToSOAWrapper : public ModulePass {
@@ -422,7 +719,7 @@ void AOSToSOAPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
       continue;
 
     if (TI->testSafetyData(AOSToSOASafetyConditions)) {
-      DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported safety data: "
+      LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported safety data: "
                    << getStructName(TI->getLLVMType()) << "\n");
       continue;
     }
@@ -447,7 +744,7 @@ void AOSToSOAPass::qualifyCandidates(
   if (!qualifyHeuristics(CandidateTypes, M, DTInfo))
     return;
 
-  DEBUG({
+  LLVM_DEBUG({
     for (auto *Candidate : CandidateTypes)
       dbgs() << "DTRANS-AOSTOSOA: Passed qualification tests: "
              << getStructName(Candidate->getLLVMType()) << "\n";
@@ -486,7 +783,7 @@ bool AOSToSOAPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
   StructInfoVec Qualified;
   for (auto *Candidate : CandidateTypes) {
     if (ArrayElemTypes.find(Candidate) != ArrayElemTypes.end()) {
-      DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Array of type seen: "
+      LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Array of type seen: "
                    << getStructName(Candidate->getLLVMType()) << "\n");
       continue;
     }
@@ -507,7 +804,7 @@ bool AOSToSOAPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
     if (Supported)
       Qualified.push_back(Candidate);
     else
-      DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported structure "
+      LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported structure "
                       "element type: "
                    << getStructName(Candidate->getLLVMType()) << "\n");
   }
@@ -538,7 +835,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
         auto *Ty = AllocatedTy->getPointerElementType();
         auto *TI = DTInfo.getTypeInfo(Ty);
         if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-          DEBUG({
+          LLVM_DEBUG({
             if (std::find(CandidateTypes.begin(), CandidateTypes.end(),
                           StInfo) != CandidateTypes.end() &&
                 (!TypeToAllocInstr.count(StInfo) ||
@@ -563,7 +860,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
       auto *TI = DTInfo.getTypeInfo(Ty);
       if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
         if (TypeToAllocInstr.count(StInfo)) {
-          DEBUG({
+          LLVM_DEBUG({
             if (std::find(CandidateTypes.begin(), CandidateTypes.end(),
                           StInfo) != CandidateTypes.end() &&
                 TypeToAllocInstr[StInfo] != nullptr)
@@ -632,9 +929,10 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
       for (auto &InstTypePair : FuncToAllocPath.second)
         if (LI.getLoopFor(InstTypePair.first->getParent())) {
           StructInfo *StInfo = InstTypePair.second;
-          DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Allocation in loop: "
-                       << StInfo->getLLVMType()->getStructName()
-                       << "\n  Function: " << F->getName() << "\n");
+          LLVM_DEBUG(dbgs()
+                     << "DTRANS-AOSTOSOA: Rejecting -- Allocation in loop: "
+                     << StInfo->getLLVMType()->getStructName()
+                     << "\n  Function: " << F->getName() << "\n");
           auto *It =
               std::find(CandidateTypes.begin(), CandidateTypes.end(), StInfo);
           if (It != CandidateTypes.end())
@@ -691,14 +989,24 @@ bool AOSToSOAPass::qualifyHeuristics(StructInfoVecImpl &CandidateTypes,
     for (auto &Name : SubStrings) {
       Type *Ty = M.getTypeByName(Name);
       if (auto *StructTy = dyn_cast_or_null<StructType>(Ty)) {
-        DEBUG(dbgs()
+        LLVM_DEBUG(dbgs()
               << "DTRANS-AOSTOSOA: Skipped profitability heuristics for type: "
               << Name << "\n");
         dtrans::TypeInfo *Info = DTInfo.getTypeInfo(StructTy);
         assert(Info &&
                "DTransAnalysisInfo does not contain info for structure");
 
+        // Only allow the heuristic override to enable cases that actually
+        // met the required safety conditions.
         dtrans::StructInfo *StInfo = cast<dtrans::StructInfo>(Info);
+        if (std::find(CandidateTypes.begin(), CandidateTypes.end(), StInfo) ==
+            CandidateTypes.end()) {
+          LLVM_DEBUG(dbgs()
+                     << "DTRANS-AOSTOSOA: Cannot force transformation on type "
+                        "that fails safety checks: "
+                     << Name << "\n");
+          continue;
+        }
         Qualified.push_back(StInfo);
       }
     }

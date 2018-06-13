@@ -123,12 +123,12 @@ class BoolMultiVersioningImpl {
       // 2. Check type consistency. All GEPs and loads are supposed to have
       //    matching types.
       if (getNumUses() < MultiVersioningThreshold) {
-        DEBUG(dbgs() << DEBUG_PREFIX "Not enough uses (pre-check) - "
-                     << getNumUses() << "\n");
+        LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Not enough uses (pre-check) - "
+                          << getNumUses() << "\n");
         return false;
       }
       if (!hasConsistentTypes()) {
-        DEBUG(dbgs() << DEBUG_PREFIX "(Unsafe) Inconsistent types\n");
+        LLVM_DEBUG(dbgs() << DEBUG_PREFIX "(Unsafe) Inconsistent types\n");
         return false;
       }
 
@@ -161,8 +161,8 @@ class BoolMultiVersioningImpl {
         for (auto LI = Loads.begin(), LE = Loads.end(); LI != LE;) {
           auto LoadIt = LI++;
           if (!isSafeToMoveToEntryBlock(LoadIt->first)) {
-            DEBUG(dbgs() << DEBUG_PREFIX "Removing unsafe-to-move load\n"
-                         << *LoadIt->first << "\n");
+            LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Removing unsafe-to-move load\n"
+                              << *LoadIt->first << "\n");
             Loads.erase(LoadIt);
           }
         }
@@ -175,8 +175,8 @@ class BoolMultiVersioningImpl {
       // After removing unsafe loads check again if the number of conditional
       // uses is still sufficient for the transfromation.
       if (getNumUses() < MultiVersioningThreshold) {
-        DEBUG(dbgs() << DEBUG_PREFIX "Not enough uses (post-check) - "
-                     << getNumUses() << "\n");
+        LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Not enough uses (post-check) - "
+                          << getNumUses() << "\n");
         return false;
       }
       return true;
@@ -211,8 +211,8 @@ class BoolMultiVersioningImpl {
     if (!Type || !Type->getElementType()->isStructTy())
       return;
 
-    DEBUG(dbgs() << DEBUG_PREFIX "Building closure for " << F.getName()
-                 << " argument " << Arg << " ...\n");
+    LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Building closure for " << F.getName()
+                      << " argument " << Arg << " ...\n");
 
     struct APIntCompare {
       bool operator()(const APInt &L, const APInt &R) const {
@@ -224,12 +224,12 @@ class BoolMultiVersioningImpl {
     // Iterate argument uses and build use chains which match the pattern
     // we are looking for.
     for (const auto &ArgU : Arg.uses()) {
-      DEBUG(dbgs() << DEBUG_PREFIX "Checking argument use\n"
-                   << *ArgU.getUser() << "\n");
+      LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Checking argument use\n"
+                        << *ArgU.getUser() << "\n");
 
       auto *GEP = dyn_cast<GetElementPtrInst>(ArgU.getUser());
       if (!GEP || !GEP->getResultElementType()->isIntegerTy()) {
-        DEBUG(dbgs() << DEBUG_PREFIX "(Skip) Does not match pattern\n");
+        LLVM_DEBUG(dbgs() << DEBUG_PREFIX "(Skip) Does not match pattern\n");
         continue;
       }
 
@@ -237,38 +237,41 @@ class BoolMultiVersioningImpl {
       const auto &DL = Arg.getParent()->getParent()->getDataLayout();
       APInt Offset(DL.getPointerSizeInBits(GEP->getPointerAddressSpace()), 0u);
       if (!GEP->accumulateConstantOffset(DL, Offset)) {
-        DEBUG(dbgs() << DEBUG_PREFIX "(Skip) Nonconstant GEP offset\n");
+        LLVM_DEBUG(dbgs() << DEBUG_PREFIX "(Skip) Nonconstant GEP offset\n");
         continue;
       }
 
       // Look at GEP uses and collect loads.
       BoolClosure::LoadList Loads;
       for (const auto &GEPU : GEP->uses()) {
-        DEBUG(dbgs() << DEBUG_PREFIX "Checking GEP use (offset " << Offset
-                     << ")\n" << *GEPU.getUser() << "\n");
+        LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Checking GEP use (offset " << Offset
+                          << ")\n"
+                          << *GEPU.getUser() << "\n");
 
         // Should be used by a load returning a scalar integer.
         auto *Load = dyn_cast<LoadInst>(GEPU.getUser());
         if (!Load || !Load->isSimple() || !Load->getType()->isIntegerTy()) {
-          DEBUG(dbgs() << DEBUG_PREFIX "(Skip) Does not match pattern\n");
+          LLVM_DEBUG(dbgs() << DEBUG_PREFIX "(Skip) Does not match pattern\n");
           continue;
         }
 
         // Collect compares.
         BoolClosure::CmpList Cmps;
         for (const auto &LoadU : Load->uses()) {
-          DEBUG(dbgs() << DEBUG_PREFIX "Checking load use\n"
-                       << *LoadU.getUser() << "\n");
+          LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Checking load use\n"
+                            << *LoadU.getUser() << "\n");
 
           // We are looking for integer EQ/NE compares with a zero.
           auto *Cmp = dyn_cast<ICmpInst>(LoadU.getUser());
           if (!Cmp || !Cmp->isEquality()) {
-            DEBUG(dbgs() << DEBUG_PREFIX "(Skip) Does not match pattern\n");
+            LLVM_DEBUG(dbgs()
+                       << DEBUG_PREFIX "(Skip) Does not match pattern\n");
             continue;
           }
           const auto *Zero = dyn_cast<ConstantInt>(Cmp->getOperand(1));
           if (!Zero || !Zero->isZero()) {
-            DEBUG(dbgs() << DEBUG_PREFIX "(Skip) Does not match pattern\n");
+            LLVM_DEBUG(dbgs()
+                       << DEBUG_PREFIX "(Skip) Does not match pattern\n");
             continue;
           }
 
@@ -282,18 +285,18 @@ class BoolMultiVersioningImpl {
                 ++NumCondUses;
 
           // Ok, this compare matches pattern - add it to the tree.
-          DEBUG(dbgs() << DEBUG_PREFIX "Adding compare with " << NumCondUses
-                       << " conditional uses\n");
+          LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Adding compare with "
+                            << NumCondUses << " conditional uses\n");
           Cmps.emplace_back(Cmp, NumCondUses);
         }
         if (!Cmps.empty()) {
-          DEBUG(dbgs() << DEBUG_PREFIX "Adding load to closure\n");
+          LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Adding load to closure\n");
           Loads.emplace_back(Load, std::move(Cmps));
         }
       }
       if (!Loads.empty()) {
-        DEBUG(dbgs() << DEBUG_PREFIX "Adding GEP to " << Arg << " (offset "
-                     << Offset << ") closure\n");
+        LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Adding GEP to " << Arg << " (offset "
+                          << Offset << ") closure\n");
         Fields[Offset].getGEPs().emplace_back(GEP, std::move(Loads));
       }
     }
@@ -302,15 +305,15 @@ class BoolMultiVersioningImpl {
     // all collected closures. If true, move closure to the list of candidates
     // for multi-versioning.
     for (auto &Field : Fields) {
-      DEBUG(dbgs() << DEBUG_PREFIX "Validating " << Arg << " (offset "
-                   << Field.first << ") closure ...\n");
+      LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Validating " << Arg << " (offset "
+                        << Field.first << ") closure ...\n");
 
       auto &Closure = Field.second;
       if (!Closure.validate(AAR))
         continue;
 
-      DEBUG(dbgs() << DEBUG_PREFIX "Is safe for bool multi-versioning. "
-                   << "Number of uses - " << Closure.getNumUses() << "\n");
+      LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Is safe for bool multi-versioning. "
+                        << "Number of uses - " << Closure.getNumUses() << "\n");
       Closures.emplace_back(std::move(Closure));
     }
   }
@@ -329,8 +332,8 @@ class BoolMultiVersioningImpl {
 
   // Multi-version function body for the given closure.
   void doMultiVersioning(BoolClosure &C) const {
-    DEBUG(dbgs() << DEBUG_PREFIX "Multi-versioning function "
-                 << F.getName() << "\n");
+    LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Multi-versioning function "
+                      << F.getName() << "\n");
 
     // Create a clone of the whole function body.
     SmallVector<BasicBlock *, 32> OrigBBs;

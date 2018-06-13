@@ -86,7 +86,7 @@ static void splitBB(Instruction *SplitPoint, DominatorTree *DT, LoopInfo *LI,
 ///
 void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
 
-  DEBUG(dbgs() << "VPO CFG Restructuring \n");
+  LLVM_DEBUG(dbgs() << "VPO CFG Restructuring \n");
 
   // Find all the intrinsic calls representing directive begin/end, and store
   // them in the set InstructionsToSplit.

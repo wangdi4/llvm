@@ -13,9 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "SIRegisterInfo.h"
+#include "AMDGPURegisterBankInfo.h"
 #include "AMDGPUSubtarget.h"
 #include "SIInstrInfo.h"
 #include "SIMachineFunctionInfo.h"
+#include "MCTargetDesc/AMDGPUMCTargetDesc.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
@@ -1561,4 +1563,35 @@ const int *SIRegisterInfo::getRegUnitPressureSets(unsigned RegUnit) const {
   if (hasRegUnit(AMDGPU::M0, RegUnit))
     return Empty;
   return AMDGPURegisterInfo::getRegUnitPressureSets(RegUnit);
+}
+
+unsigned SIRegisterInfo::getReturnAddressReg(const MachineFunction &MF) const {
+  // Not a callee saved register.
+  return AMDGPU::SGPR30_SGPR31;
+}
+
+const TargetRegisterClass *
+SIRegisterInfo::getConstrainedRegClassForOperand(const MachineOperand &MO,
+                                         const MachineRegisterInfo &MRI) const {
+  unsigned Size = getRegSizeInBits(MO.getReg(), MRI);
+  const RegisterBank *RB = MRI.getRegBankOrNull(MO.getReg());
+  if (!RB)
+    return nullptr;
+
+  switch (Size) {
+  case 32:
+    return RB->getID() == AMDGPU::VGPRRegBankID ? &AMDGPU::VGPR_32RegClass :
+                                                  &AMDGPU::SReg_32_XM0RegClass;
+  case 64:
+    return RB->getID() == AMDGPU::VGPRRegBankID ? &AMDGPU::VReg_64RegClass :
+                                                   &AMDGPU::SReg_64_XEXECRegClass;
+  case 96:
+    return RB->getID() == AMDGPU::VGPRRegBankID ? &AMDGPU::VReg_96RegClass :
+                                                  nullptr;
+  case 128:
+    return RB->getID() == AMDGPU::VGPRRegBankID ? &AMDGPU::VReg_128RegClass :
+                                                  &AMDGPU::SReg_128RegClass;
+  default:
+    llvm_unreachable("not implemented");
+  }
 }

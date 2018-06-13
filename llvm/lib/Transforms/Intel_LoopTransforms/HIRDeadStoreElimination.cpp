@@ -118,7 +118,7 @@ overlapsWithAnotherGroup(HIRLoopLocality::RefGroupTy &RefGroup,
     uint64_t Dist = std::abs(Distance);
 
     if (Dist < SizeofRef) {
-     return true;
+      return true;
     }
   }
   return false;
@@ -207,7 +207,7 @@ static bool doTransform(HLLoop *OutermostLp) {
 static bool runDeadStoreElimination(HIRFramework &HIRF,
                                     HIRLoopStatistics &HLS) {
   if (DisablePass) {
-    DEBUG(dbgs() << "HIR Dead Store Elimination Disabled \n");
+    LLVM_DEBUG(dbgs() << "HIR Dead Store Elimination Disabled \n");
     return false;
   }
 
@@ -216,8 +216,8 @@ static bool runDeadStoreElimination(HIRFramework &HIRF,
   HIRF.getHLNodeUtils().gatherOutermostLoops(CandidateLoops);
 
   if (CandidateLoops.empty()) {
-    DEBUG(dbgs() << HIRF.getFunction().getName()
-                 << "() has no outer-most loop\n ");
+    LLVM_DEBUG(dbgs() << HIRF.getFunction().getName()
+                      << "() has no outer-most loop\n ");
     return false;
   }
 
@@ -235,7 +235,7 @@ static bool runDeadStoreElimination(HIRFramework &HIRF,
 
 bool HIRDeadStoreElimination::runOnFunction(Function &F) {
   if (skipFunction(F)) {
-    DEBUG(dbgs() << "HIR Dead Store Elimination Disabled \n");
+    LLVM_DEBUG(dbgs() << "HIR Dead Store Elimination Disabled \n");
     return false;
   }
 

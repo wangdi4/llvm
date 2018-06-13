@@ -275,7 +275,7 @@ void VPOParoptUtils::genKmpcPushNumThreads(WRegionNode *W,
   GlobalVariable *Loc =
     genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
-  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+  LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
   SmallVector<Value *, 3> FnArgs {Loc, Tid, NumThreads};
 
@@ -582,8 +582,8 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
     FnArgTypes.push_back(Int32Ty);
   }
 
-  // DEBUG(dbgs() << "FnArgs.size= "<< FnArgs.size());
-  // DEBUG(dbgs() << "FnArgTypes.size() = "<< FnArgTypes.size());
+  // LLVM_DEBUG(dbgs() << "FnArgs.size= "<< FnArgs.size());
+  // LLVM_DEBUG(dbgs() << "FnArgTypes.size() = "<< FnArgTypes.size());
   CallInst *Call = genCall(FnName, ReturnTy, FnArgs, FnArgTypes,
                            InsertPt);
   return Call;
@@ -1100,7 +1100,7 @@ CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
   GlobalVariable *Loc =
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
-  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+  LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
   Type *Int32Ty = Type::getInt32Ty(C);
   Type *Int64Ty = Type::getInt64Ty(C);
@@ -1177,7 +1177,7 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
 
   GlobalVariable *Loc =
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
-  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+  LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
   Type *ParamsTy[] = {PointerType::getUnqual(IdentTy), IntTy};
 
@@ -1241,7 +1241,7 @@ CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
   GlobalVariable *Loc =
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
-  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+  LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
   StringRef FnName;
 
@@ -1315,7 +1315,7 @@ CallInst *VPOParoptUtils::genKmpcDispatchNext(WRegionNode *W,
   GlobalVariable *Loc =
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
-  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+  LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
   StringRef FnName;
 
@@ -1390,7 +1390,7 @@ CallInst *VPOParoptUtils::genKmpcDispatchFini(WRegionNode *W,
   GlobalVariable *Loc =
     genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
-  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+  LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
   SmallVector<Value *, 2> FnArgs {Loc, Tid};
 
@@ -1564,7 +1564,7 @@ VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
   // Allows merging of variables with same content.
   LocStringVar->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
 
-  DEBUG(dbgs() << "\nSource Location Info: " << LocString << "\n");
+  LLVM_DEBUG(dbgs() << "\nSource Location Info: " << LocString << "\n");
 
   // Get a pointer to the global variable containing loc string.
   Constant *Zeros[] = {ValueZero, ValueZero};
@@ -2014,7 +2014,7 @@ CallInst *VPOParoptUtils::genDoacrossWaitOrPostCall(
                                                      : "__kmpc_doacross_wait",
                                       nullptr, {DepVec});
 
-  DEBUG(dbgs() << __FUNCTION__ << ": Doacross wait/post call emitted.\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Doacross wait/post call emitted.\n");
 
   Call->insertBefore(InsertPt);
   return Call;
@@ -2116,7 +2116,7 @@ CallInst *VPOParoptUtils::genKmpcDoacrossInit(WRegionNode *W,
   CallInst *Call = genKmpcCall(W, IdentTy, InsertPt, "__kmpc_doacross_init",
                                nullptr, {Tid, One, DimsVec}); // (14)
 
-  DEBUG(dbgs() << __FUNCTION__ << ": Doacross init call emitted.\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Doacross init call emitted.\n");
 
   Call->insertBefore(InsertPt);
   return Call;
@@ -2136,7 +2136,7 @@ CallInst *VPOParoptUtils::genKmpcDoacrossFini(WRegionNode *W,
   CallInst *Fini = VPOParoptUtils::genKmpcCall(
       W, IdentTy, InsertPt, "__kmpc_doacross_fini", nullptr, {Tid});
 
-  DEBUG(dbgs() << __FUNCTION__ << ": Doacross fini call emitted.\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Doacross fini call emitted.\n");
 
   Fini->insertAfter(InsertPt);
   return Fini;
@@ -2192,7 +2192,7 @@ CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
   // Before emitting the KMPC call, we need the Loc information.
   GlobalVariable *Loc =
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
-  DEBUG(dbgs() << __FUNCTION__ << ": Loc: " << *Loc << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Loc: " << *Loc << "\n");
 
   // At this point, we have all the function args: loc + incoming Args. We bind
   // them together as FnArgs.
@@ -2223,7 +2223,7 @@ CallInst *VPOParoptUtils::genCall(Function *Fn, ArrayRef<Value *> FnArgs,
 
   Call->setCallingConv(CallingConv::C);
   Call->setTailCall(IsTail);
-  DEBUG(dbgs() << __FUNCTION__ << ": Function call: " << *Call << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Function call: " << *Call << "\n");
 
   return Call;
 }
@@ -2337,7 +2337,7 @@ VPOParoptUtils::genKmpcCriticalLockVar(WRegionNode *W,
   LockName += LockNameSuffix;
   LockName += ".var";
 
-  DEBUG(dbgs() << __FUNCTION__ << ": Lock name:" << LockName << ".\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Lock name:" << LockName << ".\n");
 
   // Now, the type for lock variable is an array of eight 32-bit integers.
   BasicBlock *BB = W->getEntryBBlock();
@@ -2352,8 +2352,8 @@ VPOParoptUtils::genKmpcCriticalLockVar(WRegionNode *W,
   GlobalVariable *GV =
       M->getGlobalVariable(LockName);
   if (GV != nullptr) {
-    DEBUG(dbgs() << __FUNCTION__ << ": Reusing existig lock var: " << *GV
-                 << ".\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Reusing existig lock var: " << *GV
+                      << ".\n");
 
     assert(GV->getType()->getContainedType(0) == LockVarTy &&
            "Lock variable name conflicts with an existing variable.");
@@ -2367,7 +2367,8 @@ VPOParoptUtils::genKmpcCriticalLockVar(WRegionNode *W,
                           ConstantAggregateZero::get(LockVarTy), LockName);
 
   assert(GV != nullptr && "Unable to generate Kmpc critical lock var.");
-  DEBUG(dbgs() << __FUNCTION__ << ": Lock var generated: " << *GV << ".\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Lock var generated: " << *GV
+                    << ".\n");
 
   return GV;
 }
@@ -2407,7 +2408,7 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(
   else
     EndCritical->insertAfter(EndInst);
 
-  DEBUG(dbgs() << __FUNCTION__ << ": Critical Section generated.\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Critical Section generated.\n");
   return true;
 }
 
@@ -2522,7 +2523,7 @@ CallInst *VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
   CallInst *Call = genCall(Ctor, {V}, {ValType}, nullptr);
   Instruction *InsertAfterPt = cast<Instruction>(PrivAlloca);
   Call->insertAfter(InsertAfterPt);
-  DEBUG(dbgs() << "CONSTRUCTOR: " << *Call << "\n");
+  LLVM_DEBUG(dbgs() << "CONSTRUCTOR: " << *Call << "\n");
   return Call;
 }
 
@@ -2535,7 +2536,7 @@ CallInst *VPOParoptUtils::genDestructorCall(Function *Dtor, Value *V,
   Type *ValType = V->getType();
   CallInst *Call = genCall(Dtor, {V}, {ValType}, nullptr);
   Call->insertBefore(InsertBeforePt);
-  DEBUG(dbgs() << "DESTRUCTOR: " << *Call << "\n");
+  LLVM_DEBUG(dbgs() << "DESTRUCTOR: " << *Call << "\n");
   return Call;
 }
 
@@ -2550,7 +2551,7 @@ CallInst *VPOParoptUtils::genCopyConstructorCall(Function *Cctor, Value *D,
 
   CallInst *Call = genCall(Cctor, {D,S}, {DTy, STy}, nullptr);
   Call->insertBefore(InsertBeforePt);
-  DEBUG(dbgs() << "COPY CONSTRUCTOR: " << *Call << "\n");
+  LLVM_DEBUG(dbgs() << "COPY CONSTRUCTOR: " << *Call << "\n");
   return Call;
 }
 
@@ -2565,7 +2566,7 @@ CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
 
   CallInst *Call = genCall(Cp, {D,S}, {DTy, STy}, nullptr);
   Call->insertBefore(InsertBeforePt);
-  DEBUG(dbgs() << "COPY ASSIGN: " << *Call << "\n");
+  LLVM_DEBUG(dbgs() << "COPY ASSIGN: " << *Call << "\n");
   return Call;
 }
 

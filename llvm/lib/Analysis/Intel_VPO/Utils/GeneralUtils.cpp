@@ -36,7 +36,7 @@ AllocaInst *VPOAnalysisUtils::findAllocaInst(Value *V) {
     return Alloca;
 
   if (CastInst *Cast = dyn_cast<CastInst>(V)) {
-    // DEBUG(dbgs() << "Found CastInst: " << *Cast << "\n");
+    // LLVM_DEBUG(dbgs() << "Found CastInst: " << *Cast << "\n");
     return findAllocaInst(Cast->getOperand(0));
   }
   return nullptr; // not found

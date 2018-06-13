@@ -196,8 +196,8 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
 
   bool ret_val = false;
 
-  DEBUG(errs() << "VPODriver: ");
-  DEBUG(errs().write_escaped(Fn.getName()) << '\n');
+  LLVM_DEBUG(errs() << "VPODriver: ");
+  LLVM_DEBUG(errs().write_escaped(Fn.getName()) << '\n');
 
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SC = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
@@ -238,7 +238,8 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
       // FORNOW: We pass CodeGen only the selected VF, since currently AvrWrn
       // contains only a single ALoop.
       int VF = VC.getVectFactor();
-      DEBUG(errs() << "VPODriver: Scenarios engine selected VF " << VF << "\n");
+      LLVM_DEBUG(errs() << "VPODriver: Scenarios engine selected VF " << VF
+                        << "\n");
 
       // Widen selected candidate
       ret_val = ret_val | AvrCGNode.vectorize(VF);
@@ -259,7 +260,8 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
       // FORNOW: We pass CodeGen only the selected VF, since currently AvrWrn
       // contains only a single ALoop.
       int VF = VC.getVectFactor();
-      DEBUG(errs() << "VPODriver: Scenarios engine selected VF " << VF << "\n");
+      LLVM_DEBUG(errs() << "VPODriver: Scenarios engine selected VF " << VF
+                        << "\n");
 
       // Widen selected candidate
       ret_val = ret_val | AvrCGNode.vectorize(VF);

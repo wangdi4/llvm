@@ -173,7 +173,10 @@ static bool isNonEscapingLocalObject(const Value *V) {
 /// Returns true if the pointer is one which would have been considered an
 /// escape by isNonEscapingLocalObject.
 static bool isEscapeSource(const Value *V) {
-  if (isa<CallInst>(V) || isa<InvokeInst>(V) || isa<Argument>(V))
+  if (ImmutableCallSite(V))
+    return true;
+
+  if (isa<Argument>(V))
     return true;
 
   // The load case works because isNonEscapingLocalObject considers all
@@ -542,11 +545,19 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
 
     const GEPOperator *GEPOp = dyn_cast<GEPOperator>(Op);
     if (!GEPOp) {
-      if (auto CS = ImmutableCallSite(V))
-        if (const Value *RV = CS.getReturnedArgOperand()) {
-          V = RV;
+      if (auto CS = ImmutableCallSite(V)) {
+        // Note: getArgumentAliasingToReturnedPointer keeps it in sync with
+        // CaptureTracking, which is needed for correctness.  This is because
+        // some intrinsics like launder.invariant.group returns pointers that
+        // are aliasing it's argument, which is known to CaptureTracking.
+        // If AliasAnalysis does not use the same information, it could assume
+        // that pointer returned from launder does not alias it's argument
+        // because launder could not return it if the pointer was not captured.
+        if (auto *RP = getArgumentAliasingToReturnedPointer(CS)) {
+          V = RP;
           continue;
         }
+      }
 
 #if INTEL_CUSTOMIZATION
       // Matches GetUnderlyingObject

@@ -192,12 +192,12 @@ public:
 
 bool HIRLoopCollapse::run() {
   if (DisableHIRLoopCollapse) {
-    DEBUG(dbgs() << "HIR Loop Collapse Disabled\n");
+    LLVM_DEBUG(dbgs() << "HIR Loop Collapse Disabled\n");
     return false;
   }
 
-  DEBUG(dbgs() << "HIRLoopCollapse on Function : "
-               << HIRF.getFunction().getName() << "()\n");
+  LLVM_DEBUG(dbgs() << "HIRLoopCollapse on Function : "
+                    << HIRF.getFunction().getName() << "()\n");
 
   HNU = &HIRF.getHLNodeUtils();
   BU = &HIRF.getBlobUtils();
@@ -226,8 +226,8 @@ bool HIRLoopCollapse::run() {
   HNU->visitAll(CCL);
 
   if (CandidateLoops.empty()) {
-    DEBUG(dbgs() << HIRF.getFunction().getName()
-                 << "() has no perfect loop nest\n";);
+    LLVM_DEBUG(dbgs() << HIRF.getFunction().getName()
+                      << "() has no perfect loop nest\n";);
     return false;
   }
 
@@ -286,22 +286,22 @@ void HIRLoopCollapse::setupEnvLoopNest(HLLoop *OutermostLp,
 bool HIRLoopCollapse::doAnalysis(void) {
 
   if (!doPreliminaryChecks()) {
-    DEBUG(dbgs() << "HIRLoopCollapse: failed PreliminaryChecks\n");
+    LLVM_DEBUG(dbgs() << "HIRLoopCollapse: failed PreliminaryChecks\n");
     return false;
   }
 
   if (!doCollection()) {
-    DEBUG(dbgs() << "HIRLoopCollapse: failed Collection\n");
+    LLVM_DEBUG(dbgs() << "HIRLoopCollapse: failed Collection\n");
     return false;
   }
 
   if (!areGEPRefsLegal()) {
-    DEBUG(dbgs() << "HIRLoopCollapse: failed legal test\n");
+    LLVM_DEBUG(dbgs() << "HIRLoopCollapse: failed legal test\n");
     return false;
   }
 
   if (!areNonGEPRefsProfitable()) {
-    DEBUG(dbgs() << "HIRLoopCollapse: failed profit test\n");
+    LLVM_DEBUG(dbgs() << "HIRLoopCollapse: failed profit test\n");
     return false;
   }
 
@@ -609,8 +609,8 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
 
   HLLoop *OrigOutermostLp =
       ToCollapseLp->getParentLoopAtLevel(OrigOutermostLevel);
-  DEBUG(dbgs() << "Before LoopCollase:\n"; OrigOutermostLp->dump();
-        dbgs() << "\n";);
+  LLVM_DEBUG(dbgs() << "Before LoopCollase:\n"; OrigOutermostLp->dump();
+             dbgs() << "\n";);
 
   OrigOutermostLp->extractPreheaderAndPostexit();
 
@@ -717,7 +717,8 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
       .addRemark(OptReportVerbosity::Low, "%d loops have been collapsed",
                  NumCollapsableLoops);
 
-  DEBUG(dbgs() << "After Collapse:\n"; ToCollapseLp->dump(); dbgs() << "\n";);
+  LLVM_DEBUG(dbgs() << "After Collapse:\n"; ToCollapseLp->dump();
+             dbgs() << "\n";);
 
   return true;
 }
@@ -921,7 +922,7 @@ public:
 
   bool runOnFunction(Function &F) override {
     if (skipFunction(F)) {
-      DEBUG(dbgs() << "HIR Loop Collapse Skipped\n");
+      LLVM_DEBUG(dbgs() << "HIR Loop Collapse Skipped\n");
       return false;
     }
 

@@ -5,21 +5,24 @@ add_llvm_library(LLVMVectorize
   SLPVectorizer.cpp
   Vectorize.cpp
   VPlan.cpp
+  VPlanHCFGBuilder.cpp
+  VPlanVerifier.cpp
 # INTEL_CUSTOMIZATION
-  Intel_VPlan.cpp
-  Intel_VPlan/LoopCFU.cpp
-  Intel_VPlan/LoopVectorizationCodeGen.cpp
-  Intel_VPlan/LoopVectorizationPlanner.cpp
-  Intel_VPlan/LoopVectorizationPlannerHIR.cpp
-  Intel_VPlan/VPlanCostModel.cpp
-  Intel_VPlan/VPlanCostModelProprietary.cpp
-  Intel_VPlan/VPlanDriver.cpp
-  Intel_VPlan/VPlanHCFGBuilder.cpp
-  Intel_VPlan/VPlanHCFGBuilderHIR.cpp
-  Intel_VPlan/VPlanPredicator.cpp
-  Intel_VPlan/VPlanVerifier.cpp
-  Intel_VPlan/VPlanVerifierHIR.cpp
-  Intel_VPlan/VPOCodeGenHIR.cpp
+  Intel_VPlan/IntelLoopCFU.cpp
+  Intel_VPlan/IntelLoopVectorizationCodeGen.cpp
+  Intel_VPlan/IntelLoopVectorizationPlanner.cpp
+  Intel_VPlan/IntelVPlan.cpp
+  Intel_VPlan/IntelVPlanCostModel.cpp
+  Intel_VPlan/IntelVPlanCostModelProprietary.cpp
+  Intel_VPlan/IntelVPlanDriver.cpp
+  Intel_VPlan/IntelVPlanHCFGBuilder.cpp
+  Intel_VPlan/IntelVPlanPredicator.cpp
+  Intel_VPlan/IntelVPlanVerifier.cpp
+  Intel_VPlan/VPlanHIR/IntelLoopVectorizationPlannerHIR.cpp
+  Intel_VPlan/VPlanHIR/IntelVPOCodeGenHIR.cpp
+  Intel_VPlan/VPlanHIR/IntelVPlanDecomposerHIR.cpp
+  Intel_VPlan/VPlanHIR/IntelVPlanHCFGBuilderHIR.cpp
+  Intel_VPlan/VPlanHIR/IntelVPlanVerifierHIR.cpp
 # end INTEL_CUSTOMIZATION
 
   ADDITIONAL_HEADER_DIRS
