@@ -26,6 +26,7 @@
 #include "Intel_DTrans/Transforms/DeleteField.h"
 #include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
 #include "Intel_DTrans/Transforms/ReorderFields.h"
+#include "Intel_DTrans/Transforms/EliminateROFieldAccess.h"
 
 #if !INTEL_PRODUCT_RELEASE
 #include "Intel_DTrans/Transforms/DTransOptBaseTest.h"
@@ -44,6 +45,8 @@ void initializeDTransAOSToSOAWrapperPass(PassRegistry&);
 void initializeDTransDeleteFieldWrapperPass(PassRegistry&);
 void initializeDTransPaddedMallocWrapperPass(PassRegistry&);
 void initializeDTransReorderFieldsWrapperPass(PassRegistry&);
+// Pass for elimination of unreacheble access to field which is only read.
+void initializeDTransEliminateROFieldAccessWrapperPass(PassRegistry&);
 
 #if !INTEL_PRODUCT_RELEASE
 void initializeDTransOptBaseTestWrapperPass(PassRegistry&);

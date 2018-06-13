@@ -50,10 +50,12 @@ MODULE_PASS("constmerge", ConstantMergePass())
 MODULE_PASS("cross-dso-cfi", CrossDSOCFIPass())
 MODULE_PASS("deadargelim", DeadArgumentEliminationPass())
 #if INTEL_INCLUDE_DTRANS
-MODULE_PASS("dtrans-aostosoa", dtrans::AOSToSOAPass()) // INTEL
-MODULE_PASS("dtrans-deletefield", dtrans::DeleteFieldPass()) // INTEL
+MODULE_PASS("dtrans-aostosoa", dtrans::AOSToSOAPass())           // INTEL
+MODULE_PASS("dtrans-deletefield", dtrans::DeleteFieldPass())     // INTEL
 MODULE_PASS("dtrans-reorderfields", dtrans::ReorderFieldsPass()) // INTEL
-MODULE_PASS("dtrans-paddedmalloc", dtrans::PaddedMallocPass()) // INTEL
+MODULE_PASS("dtrans-paddedmalloc", dtrans::PaddedMallocPass())   // INTEL
+MODULE_PASS("dtrans-elim-ro-field-access",                       // INTEL
+            dtrans::EliminateROFieldAccessPass())                // INTEL
 #if !INTEL_PRODUCT_RELEASE
 MODULE_PASS("dtrans-optbasetest", dtrans::OptBaseTestPass()) // INTEL
 #endif // !INTEL_PRODUCT_RELEASE

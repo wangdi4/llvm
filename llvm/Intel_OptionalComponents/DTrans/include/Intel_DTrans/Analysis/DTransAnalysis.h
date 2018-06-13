@@ -156,6 +156,20 @@ public:
                                      std::vector<llvm::Value *> &Targets,
                                      llvm::CallSite, bool);
 
+  // A helper routine to get a DTrans structure type and field index from the
+  // GEP instruction which is a pointer argument of the \p Load in the
+  // parameters.
+  // Ex.:
+  //  %b = getelementptr inbounds %struct.s, %struct.s* %a, i64 x, i32 y
+  //  %c = load i8* (i8*, i64, i64)*, i8* (i8*, i64, i64)** %b, align 8
+  //
+  // Given load instruction returns dtrans::StructInfo for %struct.s and y.
+  std::pair<dtrans::StructInfo *, uint64_t> getInfoFromLoad(LoadInst *Load);
+  // Interface routine to check if the field that supposed to be loaded in the
+  // instruction is only read and its parent structure has no safety data
+  // violations.
+  bool isReadOnlyFieldAccess(LoadInst *Load);
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printCallInfo(raw_ostream &OS);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

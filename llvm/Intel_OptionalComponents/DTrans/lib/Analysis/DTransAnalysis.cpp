@@ -5751,6 +5751,58 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field) {
   outs() << "\n";
 }
 
+// Interface routine to check if the field that is supposed to be loaded in the
+// instruction is only read and its parent structure has no safety data
+// violations.
+//
+bool DTransAnalysisInfo::isReadOnlyFieldAccess(LoadInst *Load) {
+  std::pair<dtrans::StructInfo*, uint64_t> Res = getInfoFromLoad(Load);
+  if (!Res.first)
+    return false;
+
+  if (Res.first->testSafetyData(dtrans::SDElimROFieldAccess))
+    return false;
+
+  dtrans::FieldInfo &FI = Res.first->getField(Res.second);
+  return FI.isRead() && !FI.isWritten();
+}
+
+// A helper routine to get a DTrans structure type and field index from the
+// GEP instruction which is a pointer argument of the \p Load in the
+// parameters.
+//
+std::pair<dtrans::StructInfo *, uint64_t>
+DTransAnalysisInfo::getInfoFromLoad(LoadInst *Load) {
+  uint64_t Index = 0;
+  llvm::Type *Ty = nullptr;
+  ConstantInt *CZ = nullptr;
+  ConstantInt *CI = nullptr;
+  if (!Load)
+    return std::make_pair(nullptr, 0);
+  auto GEP = dyn_cast<GEPOperator>(Load->getPointerOperand());
+  if (!GEP || GEP->getNumIndices() != 2 || !GEP->hasAllConstantIndices())
+    return std::make_pair(nullptr, 0);
+
+  CZ = cast<ConstantInt>(GEP->getOperand(1));
+  CI = cast<ConstantInt>(GEP->getOperand(2));
+  Ty = GEP->getSourceElementType();
+
+  if (!Ty->isStructTy())
+    return std::make_pair(nullptr, 0);
+  if (!CZ->isZeroValue())
+    return std::make_pair(nullptr, 0);
+  dtrans::TypeInfo *TI = getTypeInfo(Ty);
+  if (!TI)
+    return std::make_pair(nullptr, 0);
+  auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
+  if (!StInfo)
+    return std::make_pair(nullptr, 0);
+  Index = CI->getLimitedValue();
+  if (Index >= StInfo->getNumFields())
+    return std::make_pair(nullptr, 0);
+  return std::make_pair(StInfo, Index);
+}
+
 bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(
     llvm::Value *FP, std::vector<llvm::Value *> &Targets, llvm::CallSite,
     bool) {
@@ -5760,54 +5812,17 @@ bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(
     FP->dump();
   });
   auto LI = dyn_cast<LoadInst>(FP);
-  llvm::Type *Ty = nullptr;
-  ConstantInt *CZ = nullptr;
-  ConstantInt *CI = nullptr;
-  if (!LI)
+  std::pair<dtrans::StructInfo*, uint64_t> Res = getInfoFromLoad(LI);
+  if (!Res.first)
     return false;
-  auto *GEPI = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
-  GEPOperator *GEPO = nullptr;
-  if (GEPI) {
-    if (GEPI->getNumIndices() != 2 || !GEPI->hasAllConstantIndices())
-      return false;
-    CZ = cast<ConstantInt>(GEPI->getOperand(1));
-    CI = cast<ConstantInt>(GEPI->getOperand(2));
-    Ty = GEPI->getSourceElementType();
-  } else {
-    GEPO = dyn_cast<GEPOperator>(LI->getPointerOperand());
-    if (!GEPO)
-      return false;
-    if (GEPO->getNumIndices() != 2 || !GEPO->hasAllConstantIndices())
-      return false;
-    CZ = cast<ConstantInt>(GEPO->getOperand(1));
-    CI = cast<ConstantInt>(GEPO->getOperand(2));
-    Ty = GEPO->getSourceElementType();
-  }
-  if (!Ty->isStructTy())
-    return false;
-  if (!CZ->isZeroValue())
-    return false;
-  dtrans::TypeInfo *TI = getTypeInfo(Ty);
-  if (!TI)
-    return false;
-  auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
-  if (!StInfo)
-    return false;
-  uint64_t Index = CI->getLimitedValue();
-  if (Index >= StInfo->getNumFields())
-    return false;
-  dtrans::FieldInfo FI = StInfo->getField(Index);
+  dtrans::FieldInfo &FI = Res.first->getField(Res.second);
   auto F = dyn_cast_or_null<Function>(FI.getSingleValue());
   if (!F)
     return false;
   Targets.push_back(F);
-  LLVM_DEBUG({
-    dbgs() << "FSV ICS: Specialized TO " << F->getName() << " GEP ";
-    if (GEPI)
-      GEPI->dump();
-    else
-      GEPO->dump();
-  });
+
+  LLVM_DEBUG(dbgs() << "FSV ICS: Specialized TO " << F->getName() << " Load "
+                    << *LI << "\n");
   return true;
 }
 

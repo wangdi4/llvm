@@ -324,6 +324,12 @@ const SafetyData SDSingleAllocFunction =
     BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
     UnsafePtrMerge | AddressTaken | UnhandledUse;
 
+const SafetyData SDElimROFieldAccess =
+    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
+    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
+    BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
+    HasInitializerList | UnsafePtrMerge | AddressTaken | UnhandledUse;
+
 class NonAggregateTypeInfo : public TypeInfo {
 public:
   NonAggregateTypeInfo(llvm::Type *Ty)
