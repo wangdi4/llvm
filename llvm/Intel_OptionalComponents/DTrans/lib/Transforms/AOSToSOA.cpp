@@ -115,6 +115,8 @@ public:
     PeelIndexWidth = DL.getPointerSizeInBits();
     PeelIndexType = Type::getIntNTy(Context, PeelIndexWidth);
     PtrSizedIntType = Type::getIntNTy(Context, DL.getPointerSizeInBits());
+    Int8PtrType = llvm::Type::getInt8PtrTy(Context);
+
     IncompatiblePeelTypeAttrs = AttributeFuncs::typeIncompatible(PeelIndexType);
   }
 
@@ -174,6 +176,7 @@ public:
 
   virtual void processFunction(Function &F) override {
     SmallVector<GetElementPtrInst *, 16> GEPsToConvert;
+    SmallVector<BitCastInst *, 16> BCsToConvert;
     SmallVector<std::pair<AllocCallInfo *, StructInfo *>, 4> AllocsToConvert;
     SmallVector<std::pair<FreeCallInfo *, StructInfo *>, 4> FreesToConvert;
 
@@ -229,6 +232,9 @@ public:
         // need to be considered currently.
         if (checkConversionNeeded(PTI))
           PtrConverts.push_back(PTI);
+      } else if (auto *BC = dyn_cast<BitCastInst>(I)) {
+        if (checkConversionNeeded(BC))
+          BCsToConvert.push_back(BC);
       }
 
       // TODO: add support for sdiv for pointer arithmetic.
@@ -242,6 +248,12 @@ public:
 
     for (auto *GEP : GEPsToConvert)
       processGEP(GEP);
+
+    // The bitcasts should be processed after the 'free' calls and
+    // byte-flattened GEPs, because those conversions are expecting instructions
+    // with the bitcasts as an input.
+    for (auto *BC : BCsToConvert)
+      processBC(BC);
   }
 
   bool checkConversionNeeded(GetElementPtrInst *GEP) {
@@ -257,6 +269,21 @@ public:
   bool checkConversionNeeded(PtrToIntInst *PTI) {
     Type *Ty = PTI->getOperand(0)->getType()->getPointerElementType();
     return isTypeToTransform(Ty);
+  }
+
+  bool checkConversionNeeded(BitCastInst *BC) {
+    // Conversions of struct.t* to i8* need to be processed, because
+    // after rewriting the types, these would become "bitcast i64 to i8*"
+    Type *Ty = BC->getOperand(0)->getType()->getPointerElementType();
+    bool ShouldTransform = isTypeToTransform(Ty);
+    if (!ShouldTransform)
+      return false;
+
+    // We only expect bitcasts to be to i8* due to the safety checks, assert
+    // this to be sure.
+    assert(BC->getType() == getInt8PtrType() &&
+           "Only cast to i8* expected for transformed type");
+    return true;
   }
 
   void processGEP(GetElementPtrInst *GEP) {
@@ -513,16 +540,14 @@ public:
       });
     }
 
-    for (auto *V : PtrConverts) {
-      if (auto *Conv = dyn_cast<CastInst>(V)) {
-        if (isCloned)
-          Conv = cast<CastInst>(VMap[V]);
+    for (auto *Conv : PtrConverts) {
+      if (isCloned)
+        Conv = cast<CastInst>(VMap[Conv]);
 
-        assert(Conv->getType() == Conv->getOperand(0)->getType() &&
-               "Expected self-type in cast after remap");
-        Conv->replaceAllUsesWith(Conv->getOperand(0));
-        Conv->eraseFromParent();
-      }
+      assert(Conv->getType() == Conv->getOperand(0)->getType() &&
+             "Expected self-type in cast after remap");
+      Conv->replaceAllUsesWith(Conv->getOperand(0));
+      Conv->eraseFromParent();
     }
 
     PtrConverts.clear();
@@ -772,7 +797,60 @@ public:
   // The transformation of the call to free needs to change the parameter
   // passed to 'free' to be the address of our peeled global variable.
   void processFreeCall(FreeCallInfo *CInfo, StructInfo *StInfo) {
-    // TODO: Update call parameter for call to free.
+    Instruction *FreeCall = CInfo->getInstruction();
+    assert(FreeCall && isa<CallInst>(FreeCall) &&
+           "Instruction should be function call");
+
+    // To free the transformed data structure, we need to get the address
+    // of the first field stored within the global variable, and pass that
+    // to free.
+    StructType *StructTy = cast<StructType>(StInfo->getLLVMType());
+    StructType *PeelTy = getTransformedType(StructTy);
+    Value *PeelVar = PeeledTypeToVariable[PeelTy];
+    Value *Idx[2];
+    Idx[0] = Constant::getNullValue(Type::getInt64Ty(Context));
+    Idx[1] = ConstantInt::get(Type::getInt32Ty(Context), 0);
+    GetElementPtrInst *PeelBase =
+        GetElementPtrInst::Create(PeelTy, PeelVar, Idx);
+    PeelBase->insertBefore(FreeCall);
+    LoadInst *SOAAddr = new LoadInst(PeelBase);
+    SOAAddr->insertBefore(FreeCall);
+
+    // The peeled structure only contains pointer types, and the value of the
+    // first field is always the address that the allocation call returned. This
+    // will be safe even if the memory allocation failed, because the nullptr
+    // returned by the allocation call will be the value stored. Cast the value
+    // loaded to an i8*, and update the parameter to free.
+    CastInst *SOAAddrAsI8Ptr =
+        CastInst::CreateBitOrPointerCast(SOAAddr, getInt8PtrType());
+    SOAAddrAsI8Ptr->insertBefore(FreeCall);
+
+    LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Before modifying free call: "
+                      << *FreeCall << "\n");
+    FreeCall->setOperand(0, SOAAddrAsI8Ptr);
+    LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: After modifying free call: "
+                      << *FreeCall << "\n");
+  }
+
+  // For Bitcasts from pointers to the type being transformed, we
+  // need to update them because the pointer is going to be converted
+  // to an integer type during type reampping.
+  void processBC(BitCastInst *BC) {
+    // Convert: %y = bitcast %struct.ty* %x to i8*
+    // To be  : %cast1 = ptrtoint %struct.ty* %x to i64
+    //          %y = inttoptr i64 %cast1 to i8*
+    // This will makes the types consistent. During post-processing
+    // the ptrtoint instruction will be removed, because it will be a
+    // conversion from i64 to i64 after the types are remapped.
+    CastInst *ToInt = CastInst::CreateBitOrPointerCast(BC->getOperand(0),
+                                                       getPeeledIndexType());
+    ToInt->insertBefore(BC);
+    PtrConverts.push_back(ToInt);
+    CastInst *ToPtr = CastInst::CreateBitOrPointerCast(ToInt, BC->getType());
+    ToPtr->insertBefore(BC);
+    ToPtr->takeName(BC);
+    BC->replaceAllUsesWith(ToPtr);
+    BC->eraseFromParent();
   }
 
 private:
@@ -781,6 +859,7 @@ private:
   llvm::Type *getPeeledIndexType() const { return PeelIndexType; }
   uint64_t getPeeledIndexWidth() const { return PeelIndexWidth; }
   llvm::Type *getPtrSizedIntType() const { return PtrSizedIntType; }
+  llvm::Type *getInt8PtrType() const { return Int8PtrType; }
 
   bool isTypeToTransform(llvm::Type *Ty) {
     if (!Ty->isStructTy())
@@ -902,6 +981,9 @@ private:
   // Integer type that has the same size as a pointer type. This may be
   // different than the peel index type.
   llvm::Type *PtrSizedIntType;
+
+  // i8* Type
+  llvm::Type *Int8PtrType;
 
   // When the pointer to the peeled structure is converted, there are several
   // attributes that may have been used on function parameters or return

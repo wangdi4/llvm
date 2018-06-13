@@ -26,11 +26,14 @@ define void @test01(i64 %num) {
   %size = mul nsw i64 %num, 32
   %mem = call i8* @malloc(i64 %size)
 
-  ; Verify there is no impact to comparisons of the i8* pointer returned against null.
+  ; Verify there is no impact to comparisons of the i8* pointer returned
+  ; against null.
   %cmp1 = icmp eq i8* %mem, null
   %cmp2 = icmp eq i8* null, %mem
+  %cmp3 = icmp ne i8* %mem, null
 ; CHECK:  %cmp1 = icmp eq i8* %mem, null
 ; CHECK:  %cmp2 = icmp eq i8* null, %mem
+; CHECK:  %cmp3 = icmp ne i8* %mem, null
 
   ; Verify the pointer can be stored into a global variable
   store i8* %mem, i8** bitcast (%struct.test01** getelementptr (%struct.test01dep, %struct.test01dep* @g_test01depptr, i64 0, i32 1)  to i8**)
