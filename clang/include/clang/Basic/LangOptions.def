@@ -86,7 +86,7 @@ LANGOPT(C17               , 1, 0, "C17")
 #if INTEL_CUSTOMIZATION
 LANGOPT(IntelOpenMP, 1, 0, "Intel specific OpenMP codegen")
 LANGOPT(IntelOpenMPRegion, 1, 0, "Intel specific OpenMP codegen with regions")
-LANGOPT(IntelOpenMPOffload, 1, 0, "Intel specific OpenMP offload codegen")
+LANGOPT(IntelOpenMPOffload, 1, 1, "Intel specific OpenMP offload codegen")
 LANGOPT(OpenMPThreadPrivateLegacy, 1, 0, "Use legacy OpenMP threadprivate")
 LANGOPT(OpenMPSimdOnly,     1, 0, "Enable OpenMP SIMD only")
 LANGOPT(OpenMPSimdDisabled, 1, 0, "Disable OpenMP SIMD only")
