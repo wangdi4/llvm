@@ -93,7 +93,7 @@ static void AddImplicitIncludePTH(MacroBuilder &Builder, Preprocessor &PP,
   AddImplicitInclude(Builder, OriginalFile);
 }
 
-/// \brief Add an implicit \#include using the original file used to generate
+/// Add an implicit \#include using the original file used to generate
 /// a PCH file.
 static void AddImplicitIncludePCH(MacroBuilder &Builder, Preprocessor &PP,
                                   const PCHContainerReader &PCHContainerRdr,
@@ -301,7 +301,7 @@ static const char *getLockFreeValue(unsigned TypeWidth, unsigned TypeAlign,
   return "1"; // "sometimes lock free"
 }
 
-/// \brief Add definitions required for a smooth interaction between
+/// Add definitions required for a smooth interaction between
 /// Objective-C++ automated reference counting and libstdc++ (4.2).
 static void AddObjCXXARCLibstdcxxDefines(const LangOptions &LangOpts,
                                          MacroBuilder &Builder) {
@@ -559,6 +559,10 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_experimental_concepts", "1");
   if (LangOpts.CoroutinesTS)
     Builder.defineMacro("__cpp_coroutines", "201703L");
+
+  // Potential future breaking changes.
+  if (LangOpts.Char8)
+    Builder.defineMacro("__cpp_char8_t", "201803");
 }
 
 static void InitializePredefinedMacros(const TargetInfo &TI,
@@ -662,6 +666,19 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 
     if (LangOpts.ObjCRuntime.isNeXTFamily())
       Builder.defineMacro("__NEXT_RUNTIME__");
+
+    if (LangOpts.ObjCRuntime.getKind() == ObjCRuntime::GNUstep) {
+      auto version = LangOpts.ObjCRuntime.getVersion();
+      std::string versionString = "1";
+      // Don't rely on the tuple argument, because we can be asked to target
+      // later ABIs than we actually support, so clamp these values to those
+      // currently supported
+      if (version >= VersionTuple(2, 0))
+        Builder.defineMacro("__OBJC_GNUSTEP_RUNTIME_ABI__", "20");
+      else
+        Builder.defineMacro("__OBJC_GNUSTEP_RUNTIME_ABI__",
+            "1" + Twine(std::min(8U, version.getMinor().getValueOr(0))));
+    }
 
     if (LangOpts.ObjCRuntime.getKind() == ObjCRuntime::ObjFW) {
       VersionTuple tuple = LangOpts.ObjCRuntime.getVersion();
@@ -990,6 +1007,8 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
                                        InlineWidthBits));
     DEFINE_LOCK_FREE_MACRO(BOOL, Bool);
     DEFINE_LOCK_FREE_MACRO(CHAR, Char);
+    if (LangOpts.Char8)
+      DEFINE_LOCK_FREE_MACRO(CHAR8_T, Char); // Treat char8_t like char.
     DEFINE_LOCK_FREE_MACRO(CHAR16_T, Char16);
     DEFINE_LOCK_FREE_MACRO(CHAR32_T, Char32);
     DEFINE_LOCK_FREE_MACRO(WCHAR_T, WChar);
@@ -1072,19 +1091,21 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   //   macro name is defined to have the decimal value yyyymm where
   //   yyyy and mm are the year and the month designations of the
   //   version of the OpenMP API that the implementation support.
-  switch (LangOpts.OpenMP) {
-  case 0:
-    break;
-  case 40:
-    Builder.defineMacro("_OPENMP", "201307");
-    break;
-  case 45:
-    Builder.defineMacro("_OPENMP", "201511");
-    break;
-  default:
-    // Default version is OpenMP 3.1, in Simd only mode - 4.5
-    Builder.defineMacro("_OPENMP", LangOpts.OpenMPSimd ? "201511" : "201107");
-    break;
+  if (!LangOpts.OpenMPSimd) {
+    switch (LangOpts.OpenMP) {
+    case 0:
+      break;
+    case 40:
+      Builder.defineMacro("_OPENMP", "201307");
+      break;
+    case 45:
+      Builder.defineMacro("_OPENMP", "201511");
+      break;
+    default:
+      // Default version is OpenMP 3.1
+      Builder.defineMacro("_OPENMP", "201107");
+      break;
+    }
   }
   // CUDA device path compilaton
   if (LangOpts.CUDAIsDevice && !LangOpts.HIP) {

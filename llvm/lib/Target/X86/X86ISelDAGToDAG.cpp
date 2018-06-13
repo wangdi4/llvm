@@ -414,7 +414,7 @@ namespace {
       return Subtarget->getInstrInfo();
     }
 
-    /// \brief Address-mode matching performs shift-of-and to and-of-shift
+    /// Address-mode matching performs shift-of-and to and-of-shift
     /// reassociation in order to expose more scaled addressing
     /// opportunities.
     bool ComplexPatternFuncMutatesDAG() const override {
@@ -877,9 +877,14 @@ static bool isDispSafeForFrameIndex(int64_t Val) {
 
 bool X86DAGToDAGISel::foldOffsetIntoAddress(uint64_t Offset,
                                             X86ISelAddressMode &AM) {
+  // If there's no offset to fold, we don't need to do any work.
+  if (Offset == 0)
+    return false;
+
   // Cannot combine ExternalSymbol displacements with integer offsets.
-  if (Offset != 0 && (AM.ES || AM.MCSym))
+  if (AM.ES || AM.MCSym)
     return true;
+
   int64_t Val = AM.Disp + Offset;
   CodeModel::Model M = TM.getCodeModel();
   if (Subtarget->is64Bit()) {
@@ -933,94 +938,58 @@ bool X86DAGToDAGISel::matchWrapper(SDValue N, X86ISelAddressMode &AM) {
   if (AM.hasSymbolicDisplacement())
     return true;
 
-  SDValue N0 = N.getOperand(0);
+  bool IsRIPRel = N.getOpcode() == X86ISD::WrapperRIP;
+
+  // Only do this address mode folding for 64-bit if we're in the small code
+  // model.
+  // FIXME: But we can do GOTPCREL addressing in the medium code model.
   CodeModel::Model M = TM.getCodeModel();
+  if (Subtarget->is64Bit() && M != CodeModel::Small && M != CodeModel::Kernel)
+    return true;
 
-  // Handle X86-64 rip-relative addresses.  We check this before checking direct
-  // folding because RIP is preferable to non-RIP accesses.
-  if (Subtarget->is64Bit() && N.getOpcode() == X86ISD::WrapperRIP &&
-      // Under X86-64 non-small code model, GV (and friends) are 64-bits, so
-      // they cannot be folded into immediate fields.
-      // FIXME: This can be improved for kernel and other models?
-      (M == CodeModel::Small || M == CodeModel::Kernel)) {
-    // Base and index reg must be 0 in order to use %rip as base.
-    if (AM.hasBaseOrIndexReg())
-      return true;
-    if (GlobalAddressSDNode *G = dyn_cast<GlobalAddressSDNode>(N0)) {
-      X86ISelAddressMode Backup = AM;
-      AM.GV = G->getGlobal();
-      AM.SymbolFlags = G->getTargetFlags();
-      if (foldOffsetIntoAddress(G->getOffset(), AM)) {
-        AM = Backup;
-        return true;
-      }
-    } else if (ConstantPoolSDNode *CP = dyn_cast<ConstantPoolSDNode>(N0)) {
-      X86ISelAddressMode Backup = AM;
-      AM.CP = CP->getConstVal();
-      AM.Align = CP->getAlignment();
-      AM.SymbolFlags = CP->getTargetFlags();
-      if (foldOffsetIntoAddress(CP->getOffset(), AM)) {
-        AM = Backup;
-        return true;
-      }
-    } else if (ExternalSymbolSDNode *S = dyn_cast<ExternalSymbolSDNode>(N0)) {
-      AM.ES = S->getSymbol();
-      AM.SymbolFlags = S->getTargetFlags();
-    } else if (auto *S = dyn_cast<MCSymbolSDNode>(N0)) {
-      AM.MCSym = S->getMCSymbol();
-    } else if (JumpTableSDNode *J = dyn_cast<JumpTableSDNode>(N0)) {
-      AM.JT = J->getIndex();
-      AM.SymbolFlags = J->getTargetFlags();
-    } else if (BlockAddressSDNode *BA = dyn_cast<BlockAddressSDNode>(N0)) {
-      X86ISelAddressMode Backup = AM;
-      AM.BlockAddr = BA->getBlockAddress();
-      AM.SymbolFlags = BA->getTargetFlags();
-      if (foldOffsetIntoAddress(BA->getOffset(), AM)) {
-        AM = Backup;
-        return true;
-      }
-    } else
-      llvm_unreachable("Unhandled symbol reference node.");
+  // Base and index reg must be 0 in order to use %rip as base.
+  if (IsRIPRel && AM.hasBaseOrIndexReg())
+    return true;
 
-    if (N.getOpcode() == X86ISD::WrapperRIP)
-      AM.setBaseReg(CurDAG->getRegister(X86::RIP, MVT::i64));
-    return false;
+  // Make a local copy in case we can't do this fold.
+  X86ISelAddressMode Backup = AM;
+
+  int64_t Offset = 0;
+  SDValue N0 = N.getOperand(0);
+  if (GlobalAddressSDNode *G = dyn_cast<GlobalAddressSDNode>(N0)) {
+    AM.GV = G->getGlobal();
+    AM.SymbolFlags = G->getTargetFlags();
+    Offset = G->getOffset();
+  } else if (ConstantPoolSDNode *CP = dyn_cast<ConstantPoolSDNode>(N0)) {
+    AM.CP = CP->getConstVal();
+    AM.Align = CP->getAlignment();
+    AM.SymbolFlags = CP->getTargetFlags();
+    Offset = CP->getOffset();
+  } else if (ExternalSymbolSDNode *S = dyn_cast<ExternalSymbolSDNode>(N0)) {
+    AM.ES = S->getSymbol();
+    AM.SymbolFlags = S->getTargetFlags();
+  } else if (auto *S = dyn_cast<MCSymbolSDNode>(N0)) {
+    AM.MCSym = S->getMCSymbol();
+  } else if (JumpTableSDNode *J = dyn_cast<JumpTableSDNode>(N0)) {
+    AM.JT = J->getIndex();
+    AM.SymbolFlags = J->getTargetFlags();
+  } else if (BlockAddressSDNode *BA = dyn_cast<BlockAddressSDNode>(N0)) {
+    AM.BlockAddr = BA->getBlockAddress();
+    AM.SymbolFlags = BA->getTargetFlags();
+    Offset = BA->getOffset();
+  } else
+    llvm_unreachable("Unhandled symbol reference node.");
+
+  if (foldOffsetIntoAddress(Offset, AM)) {
+    AM = Backup;
+    return true;
   }
 
-  // Handle the case when globals fit in our immediate field: This is true for
-  // X86-32 always and X86-64 when in -mcmodel=small mode.  In 64-bit
-  // mode, this only applies to a non-RIP-relative computation.
-  if (!Subtarget->is64Bit() ||
-      M == CodeModel::Small || M == CodeModel::Kernel) {
-    assert(N.getOpcode() != X86ISD::WrapperRIP &&
-           "RIP-relative addressing already handled");
-    if (GlobalAddressSDNode *G = dyn_cast<GlobalAddressSDNode>(N0)) {
-      AM.GV = G->getGlobal();
-      AM.Disp += G->getOffset();
-      AM.SymbolFlags = G->getTargetFlags();
-    } else if (ConstantPoolSDNode *CP = dyn_cast<ConstantPoolSDNode>(N0)) {
-      AM.CP = CP->getConstVal();
-      AM.Align = CP->getAlignment();
-      AM.Disp += CP->getOffset();
-      AM.SymbolFlags = CP->getTargetFlags();
-    } else if (ExternalSymbolSDNode *S = dyn_cast<ExternalSymbolSDNode>(N0)) {
-      AM.ES = S->getSymbol();
-      AM.SymbolFlags = S->getTargetFlags();
-    } else if (auto *S = dyn_cast<MCSymbolSDNode>(N0)) {
-      AM.MCSym = S->getMCSymbol();
-    } else if (JumpTableSDNode *J = dyn_cast<JumpTableSDNode>(N0)) {
-      AM.JT = J->getIndex();
-      AM.SymbolFlags = J->getTargetFlags();
-    } else if (BlockAddressSDNode *BA = dyn_cast<BlockAddressSDNode>(N0)) {
-      AM.BlockAddr = BA->getBlockAddress();
-      AM.Disp += BA->getOffset();
-      AM.SymbolFlags = BA->getTargetFlags();
-    } else
-      llvm_unreachable("Unhandled symbol reference node.");
-    return false;
-  }
+  if (IsRIPRel)
+    AM.setBaseReg(CurDAG->getRegister(X86::RIP, MVT::i64));
 
-  return true;
+  // Commit the changes now that we know this fold is safe.
+  return false;
 }
 
 /// Add the specified node to the specified addressing mode, returning true if
@@ -1308,10 +1277,10 @@ static bool foldMaskAndShiftToScale(SelectionDAG &DAG, SDValue N,
 bool X86DAGToDAGISel::matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
                                               unsigned Depth) {
   SDLoc dl(N);
-  DEBUG({
-      dbgs() << "MatchAddress: ";
-      AM.dump(CurDAG);
-    });
+  LLVM_DEBUG({
+    dbgs() << "MatchAddress: ";
+    AM.dump(CurDAG);
+  });
   // Limit recursion.
   if (Depth > 5)
     return matchAddressBase(N, AM);
@@ -2744,7 +2713,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
   SDLoc dl(Node);
 
   if (Node->isMachineOpcode()) {
-    DEBUG(dbgs() << "== ";  Node->dump(CurDAG); dbgs() << '\n');
+    LLVM_DEBUG(dbgs() << "== "; Node->dump(CurDAG); dbgs() << '\n');
     Node->setNodeId(-1);
     return;   // Already selected.
   }
@@ -3025,7 +2994,8 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
         InFlag = ResLo.getValue(2);
       }
       ReplaceUses(SDValue(Node, 0), ResLo);
-      DEBUG(dbgs() << "=> "; ResLo.getNode()->dump(CurDAG); dbgs() << '\n');
+      LLVM_DEBUG(dbgs() << "=> "; ResLo.getNode()->dump(CurDAG);
+                 dbgs() << '\n');
     }
     // Copy the high half of the result, if it is needed.
     if (!SDValue(Node, 1).use_empty()) {
@@ -3036,7 +3006,8 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
         InFlag = ResHi.getValue(2);
       }
       ReplaceUses(SDValue(Node, 1), ResHi);
-      DEBUG(dbgs() << "=> "; ResHi.getNode()->dump(CurDAG); dbgs() << '\n');
+      LLVM_DEBUG(dbgs() << "=> "; ResHi.getNode()->dump(CurDAG);
+                 dbgs() << '\n');
     }
 
     CurDAG->RemoveDeadNode(Node);
@@ -3198,7 +3169,8 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
             CurDAG->getTargetExtractSubreg(X86::sub_8bit, dl, MVT::i8, Result);
       }
       ReplaceUses(SDValue(Node, 1), Result);
-      DEBUG(dbgs() << "=> "; Result.getNode()->dump(CurDAG); dbgs() << '\n');
+      LLVM_DEBUG(dbgs() << "=> "; Result.getNode()->dump(CurDAG);
+                 dbgs() << '\n');
     }
     // Copy the division (low) result, if it is needed.
     if (!SDValue(Node, 0).use_empty()) {
@@ -3206,7 +3178,8 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
                                                 LoReg, NVT, InFlag);
       InFlag = Result.getValue(2);
       ReplaceUses(SDValue(Node, 0), Result);
-      DEBUG(dbgs() << "=> "; Result.getNode()->dump(CurDAG); dbgs() << '\n');
+      LLVM_DEBUG(dbgs() << "=> "; Result.getNode()->dump(CurDAG);
+                 dbgs() << '\n');
     }
     // Copy the remainder (high) result, if it is needed.
     if (!SDValue(Node, 1).use_empty()) {
@@ -3214,7 +3187,8 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
                                               HiReg, NVT, InFlag);
       InFlag = Result.getValue(2);
       ReplaceUses(SDValue(Node, 1), Result);
-      DEBUG(dbgs() << "=> "; Result.getNode()->dump(CurDAG); dbgs() << '\n');
+      LLVM_DEBUG(dbgs() << "=> "; Result.getNode()->dump(CurDAG);
+                 dbgs() << '\n');
     }
     CurDAG->RemoveDeadNode(Node);
     return;

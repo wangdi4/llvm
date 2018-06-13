@@ -100,23 +100,41 @@ static Value *foldSelectICmpAnd(SelectInst &Sel, ICmpInst *Cmp,
     return nullptr;
   }
 
-  // If both select arms are non-zero see if we have a select of the form
-  // 'x ? 2^n + TC : FC'. Then we can offset both arms by C, use the logic
-  // for 'x ? 2^n : 0' and fix the thing up at the end.
+  // In general, when both constants are non-zero, we would need an offset to
+  // replace the select. This would require more instructions than we started
+  // with. But there's one special-case that we handle here because it can
+  // simplify/reduce the instructions.
   APInt TC = *SelTC;
   APInt FC = *SelFC;
-  APInt Offset(TC.getBitWidth(), 0);
   if (!TC.isNullValue() && !FC.isNullValue()) {
-    if ((TC - FC).isPowerOf2())
-      Offset = FC;
-    else if ((FC - TC).isPowerOf2())
-      Offset = TC;
-    else
+    // If the select constants differ by exactly one bit and that's the same
+    // bit that is masked and checked by the select condition, the select can
+    // be replaced by bitwise logic to set/clear one bit of the constant result.
+    if (TC.getBitWidth() != AndMask.getBitWidth() || (TC ^ FC) != AndMask)
       return nullptr;
-
-    // Adjust TC and FC by the offset.
-    TC -= Offset;
-    FC -= Offset;
+    if (CreateAnd) {
+      // If we have to create an 'and', then we must kill the cmp to not
+      // increase the instruction count.
+      if (!Cmp->hasOneUse())
+        return nullptr;
+      V = Builder.CreateAnd(V, ConstantInt::get(SelType, AndMask));
+    }
+    bool ExtraBitInTC = TC.ugt(FC);
+    if (Pred == ICmpInst::ICMP_EQ) {
+      // If the masked bit in V is clear, clear or set the bit in the result:
+      // (V & AndMaskC) == 0 ? TC : FC --> (V & AndMaskC) ^ TC
+      // (V & AndMaskC) == 0 ? TC : FC --> (V & AndMaskC) | TC
+      Constant *C = ConstantInt::get(SelType, TC);
+      return ExtraBitInTC ? Builder.CreateXor(V, C) : Builder.CreateOr(V, C);
+    }
+    if (Pred == ICmpInst::ICMP_NE) {
+      // If the masked bit in V is set, set or clear the bit in the result:
+      // (V & AndMaskC) != 0 ? TC : FC --> (V & AndMaskC) | FC
+      // (V & AndMaskC) != 0 ? TC : FC --> (V & AndMaskC) ^ FC
+      Constant *C = ConstantInt::get(SelType, FC);
+      return ExtraBitInTC ? Builder.CreateOr(V, C) : Builder.CreateXor(V, C);
+    }
+    llvm_unreachable("Only expecting equality predicates");
   }
 
   // Make sure one of the select arms is a power-of-2.
@@ -152,9 +170,6 @@ static Value *foldSelectICmpAnd(SelectInst &Sel, ICmpInst *Cmp,
   if (ShouldNotVal)
     V = Builder.CreateXor(V, ValC);
 
-  // Apply an offset if needed.
-  if (!Offset.isNullValue())
-    V = Builder.CreateAdd(V, ConstantInt::get(V->getType(), Offset));
   return V;
 }
 
@@ -779,6 +794,54 @@ canonicalizeMinMaxWithConstant(SelectInst &Sel, ICmpInst &Cmp,
   return &Sel;
 }
 
+/// There are 4 select variants for each of ABS/NABS (different compare
+/// constants, compare predicates, select operands). Canonicalize to 1 pattern.
+/// This makes CSE more likely.
+static Instruction *canonicalizeAbsNabs(SelectInst &Sel, ICmpInst &Cmp,
+                                        InstCombiner::BuilderTy &Builder) {
+  if (!Cmp.hasOneUse() || !isa<Constant>(Cmp.getOperand(1)))
+    return nullptr;
+
+  // Choose a sign-bit check for the compare (likely simpler for codegen).
+  // ABS:  (X <s 0) ? -X : X
+  // NABS: (X <s 0) ? X : -X
+  Value *LHS, *RHS;
+  SelectPatternFlavor SPF = matchSelectPattern(&Sel, LHS, RHS).Flavor;
+  if (SPF != SelectPatternFlavor::SPF_ABS &&
+      SPF != SelectPatternFlavor::SPF_NABS)
+    return nullptr;
+
+  // Is this already canonical?
+  if (match(Cmp.getOperand(1), m_ZeroInt()) &&
+      Cmp.getPredicate() == ICmpInst::ICMP_SLT)
+    return nullptr;
+
+  // Create the canonical compare.
+  Cmp.setPredicate(ICmpInst::ICMP_SLT);
+  Cmp.setOperand(1, ConstantInt::getNullValue(LHS->getType()));
+
+  // If the select operands do not change, we're done.
+  Value *TVal = Sel.getTrueValue();
+  Value *FVal = Sel.getFalseValue();
+  if (SPF == SelectPatternFlavor::SPF_NABS) {
+    if (TVal == LHS && match(FVal, m_Neg(m_Specific(TVal))))
+      return &Sel;
+    assert(FVal == LHS && match(TVal, m_Neg(m_Specific(FVal))) &&
+           "Unexpected results from matchSelectPattern");
+  } else {
+    if (FVal == LHS && match(TVal, m_Neg(m_Specific(FVal))))
+      return &Sel;
+    assert(TVal == LHS && match(FVal, m_Neg(m_Specific(TVal))) &&
+           "Unexpected results from matchSelectPattern");
+  }
+
+  // We are swapping the select operands, so swap the metadata too.
+  Sel.setTrueValue(FVal);
+  Sel.setFalseValue(TVal);
+  Sel.swapProfMetadata();
+  return &Sel;
+}
+
 /// Visit a SelectInst that has an ICmpInst as its first operand.
 Instruction *InstCombiner::foldSelectInstWithICmp(SelectInst &SI,
                                                   ICmpInst *ICI) {
@@ -788,53 +851,18 @@ Instruction *InstCombiner::foldSelectInstWithICmp(SelectInst &SI,
   if (Instruction *NewSel = canonicalizeMinMaxWithConstant(SI, *ICI, Builder))
     return NewSel;
 
+  if (Instruction *NewAbs = canonicalizeAbsNabs(SI, *ICI, Builder))
+    return NewAbs;
+
   bool Changed = adjustMinMax(SI, *ICI);
-
-  ICmpInst::Predicate Pred = ICI->getPredicate();
-  Value *CmpLHS = ICI->getOperand(0);
-  Value *CmpRHS = ICI->getOperand(1);
-
-  // Transform (X >s -1) ? C1 : C2 --> ((X >>s 31) & (C2 - C1)) + C1
-  // and       (X <s  0) ? C2 : C1 --> ((X >>s 31) & (C2 - C1)) + C1
-  // FIXME: Type and constness constraints could be lifted, but we have to
-  //        watch code size carefully. We should consider xor instead of
-  //        sub/add when we decide to do that.
-  // TODO: Merge this with foldSelectICmpAnd somehow.
-  if (CmpLHS->getType()->isIntOrIntVectorTy() &&
-      CmpLHS->getType() == TrueVal->getType()) {
-    const APInt *C1, *C2;
-    if (match(TrueVal, m_APInt(C1)) && match(FalseVal, m_APInt(C2))) {
-      ICmpInst::Predicate Pred = ICI->getPredicate();
-      Value *X;
-      APInt Mask;
-      if (decomposeBitTestICmp(CmpLHS, CmpRHS, Pred, X, Mask, false)) {
-        if (Mask.isSignMask()) {
-          assert(X == CmpLHS && "Expected to use the compare input directly");
-          assert(ICmpInst::isEquality(Pred) && "Expected equality predicate");
-
-          if (Pred == ICmpInst::ICMP_NE)
-            std::swap(C1, C2);
-
-          // This shift results in either -1 or 0.
-          Value *AShr = Builder.CreateAShr(X, Mask.getBitWidth() - 1);
-
-          // Check if we can express the operation with a single or.
-          if (C2->isAllOnesValue())
-            return replaceInstUsesWith(SI, Builder.CreateOr(AShr, *C1));
-
-          Value *And = Builder.CreateAnd(AShr, *C2 - *C1);
-          return replaceInstUsesWith(SI, Builder.CreateAdd(And,
-                                        ConstantInt::get(And->getType(), *C1)));
-        }
-      }
-    }
-  }
 
   if (Value *V = foldSelectICmpAnd(SI, ICI, Builder))
     return replaceInstUsesWith(SI, V);
 
   // NOTE: if we wanted to, this is where to detect integer MIN/MAX
-
+  ICmpInst::Predicate Pred = ICI->getPredicate();
+  Value *CmpLHS = ICI->getOperand(0);
+  Value *CmpRHS = ICI->getOperand(1);
   if (CmpRHS != CmpLHS && isa<Constant>(CmpRHS)) {
     if (CmpLHS == TrueVal && Pred == ICmpInst::ICMP_EQ) {
       // Transform (X == C) ? X : Y -> (X == C) ? C : Y
@@ -961,7 +989,7 @@ Instruction *InstCombiner::foldSPFofSPF(Instruction *Inner,
   if (C == A || C == B) {
     // MAX(MAX(A, B), B) -> MAX(A, B)
     // MIN(MIN(a, b), a) -> MIN(a, b)
-    if (SPF1 == SPF2)
+    if (SPF1 == SPF2 && SelectPatternResult::isMinOrMax(SPF1))
       return replaceInstUsesWith(Outer, Inner);
 
     // MAX(MIN(a, b), a) -> a

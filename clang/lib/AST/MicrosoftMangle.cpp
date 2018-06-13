@@ -76,7 +76,7 @@ getLambdaDefaultArgumentDeclContext(const Decl *D) {
   return nullptr;
 }
 
-/// \brief Retrieve the declaration context that should be used when mangling
+/// Retrieve the declaration context that should be used when mangling
 /// the given declaration.
 static const DeclContext *getEffectiveDeclContext(const Decl *D) {
   // The ABI assumes that lambda closure types that occur within
@@ -1955,7 +1955,17 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
     mangleArtificalTagType(TTK_Struct, "_Float16", {"__clang"});
     break;
 
-  case BuiltinType::Half: {
+  case BuiltinType::Half:
+    mangleArtificalTagType(TTK_Struct, "_Half", {"__clang"});
+    break;
+
+  case BuiltinType::Char8:
+#if INTEL_CUSTOMIZATION
+  // Float128 warning message is intentionally disabled, since we handle it
+  // above under an Intel Customization block.
+  // case BuiltinType::Float128:
+  {
+#endif // INTEL_CUSTOMIZATION
     DiagnosticsEngine &Diags = Context.getDiags();
     unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error, "cannot mangle this built-in %0 type yet");
@@ -2709,11 +2719,16 @@ void MicrosoftCXXNameMangler::mangleType(const PipeType *T, Qualifiers,
 #if INTEL_CUSTOMIZATION
 void MicrosoftCXXNameMangler::mangleType(const ChannelType *T, Qualifiers,
                                          SourceRange Range) {
-  DiagnosticsEngine &Diags = Context.getDiags();
-  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
-    "cannot mangle this OpenCL channel type yet");
-  Diags.Report(Range.getBegin(), DiagID)
-    << Range;
+  QualType ElementType = T->getElementType();
+
+  llvm::SmallString<64> TemplateMangling;
+  llvm::raw_svector_ostream Stream(TemplateMangling);
+  MicrosoftCXXNameMangler Extra(Context, Stream);
+  Stream << "?$";
+  Extra.mangleSourceName("ocl_channel");
+  Extra.mangleType(ElementType, Range, QMM_Escape);
+
+  mangleArtificalTagType(TTK_Struct, TemplateMangling, {"__clang"});
 }
 
 void MicrosoftCXXNameMangler::mangleType(const ArbPrecIntType *T, Qualifiers,

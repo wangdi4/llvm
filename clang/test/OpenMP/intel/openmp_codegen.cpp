@@ -211,7 +211,7 @@ int main(int argc, char **argv) {
 #pragma omp single
   n2 = n1;
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL.LOOP")
-// CHECK: opnd.i32(metadata !"QUAL.OMP.ORDERED", i32 1)
+// CHECK: opnd.i32(metadata !"QUAL.OMP.ORDERED", i32 0)
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.ORDERED")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")

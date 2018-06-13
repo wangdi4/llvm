@@ -392,7 +392,7 @@ bool llvm::sinkRegion(DomTreeNode *N, AliasAnalysis *AA, LoopInfo *LI,
       // If the instruction is dead, we would try to sink it because it isn't
       // used in the loop, instead, just delete it.
       if (isInstructionTriviallyDead(&I, TLI)) {
-        DEBUG(dbgs() << "LICM deleting dead inst: " << I << '\n');
+        LLVM_DEBUG(dbgs() << "LICM deleting dead inst: " << I << '\n');
         salvageDebugInfo(I);
         ++II;
         CurAST->deleteValue(&I);
@@ -449,6 +449,11 @@ bool llvm::hoistRegion(DomTreeNode *N, AliasAnalysis *AA, LoopInfo *LI,
     if (inSubLoop(BB, CurLoop, LI))
       continue;
 
+    // Keep track of whether the prefix of instructions visited so far are such
+    // that the next instruction visited is guaranteed to execute if the loop
+    // is entered.  
+    bool IsMustExecute = CurLoop->getHeader() == BB;
+
     for (BasicBlock::iterator II = BB->begin(), E = BB->end(); II != E;) {
       Instruction &I = *II++;
       // Try constant folding this instruction.  If all the operands are
@@ -456,7 +461,8 @@ bool llvm::hoistRegion(DomTreeNode *N, AliasAnalysis *AA, LoopInfo *LI,
       // just fold it.
       if (Constant *C = ConstantFoldInstruction(
               &I, I.getModule()->getDataLayout(), TLI)) {
-        DEBUG(dbgs() << "LICM folding inst: " << I << "  --> " << *C << '\n');
+        LLVM_DEBUG(dbgs() << "LICM folding inst: " << I << "  --> " << *C
+                          << '\n');
         CurAST->copyValue(&I, C);
         I.replaceAllUsesWith(C);
         if (isInstructionTriviallyDead(&I, TLI)) {
@@ -496,10 +502,16 @@ bool llvm::hoistRegion(DomTreeNode *N, AliasAnalysis *AA, LoopInfo *LI,
       //
       if (CurLoop->hasLoopInvariantOperands(&I) &&
           canSinkOrHoistInst(I, AA, DT, CurLoop, CurAST, SafetyInfo, ORE) &&
-          isSafeToExecuteUnconditionally(
-              I, DT, CurLoop, SafetyInfo, ORE,
-              CurLoop->getLoopPreheader()->getTerminator()))
+          (IsMustExecute ||
+           isSafeToExecuteUnconditionally(
+               I, DT, CurLoop, SafetyInfo, ORE,
+               CurLoop->getLoopPreheader()->getTerminator()))) {
         Changed |= hoist(I, DT, CurLoop, SafetyInfo, ORE);
+        continue;
+      }
+
+      if (IsMustExecute)
+        IsMustExecute = isGuaranteedToTransferExecutionToSuccessor(&I);
     }
   }
 
@@ -916,7 +928,7 @@ static void splitPredecessorsOfLoopExit(PHINode *PN, DominatorTree *DT,
 static bool sink(Instruction &I, LoopInfo *LI, DominatorTree *DT,
                  const Loop *CurLoop, LoopSafetyInfo *SafetyInfo,
                  OptimizationRemarkEmitter *ORE, bool FreeInLoop) {
-  DEBUG(dbgs() << "LICM sinking instruction: " << I << "\n");
+  LLVM_DEBUG(dbgs() << "LICM sinking instruction: " << I << "\n");
   ORE->emit([&]() {
     return OptimizationRemark(DEBUG_TYPE, "InstSunk", &I)
            << "sinking " << ore::NV("Inst", &I);
@@ -1018,8 +1030,8 @@ static bool hoist(Instruction &I, const DominatorTree *DT, const Loop *CurLoop,
                   const LoopSafetyInfo *SafetyInfo,
                   OptimizationRemarkEmitter *ORE) {
   auto *Preheader = CurLoop->getLoopPreheader();
-  DEBUG(dbgs() << "LICM hoisting to " << Preheader->getName() << ": " << I
-               << "\n");
+  LLVM_DEBUG(dbgs() << "LICM hoisting to " << Preheader->getName() << ": " << I
+                    << "\n");
   ORE->emit([&]() {
     return OptimizationRemark(DEBUG_TYPE, "Hoisted", &I) << "hoisting "
                                                          << ore::NV("Inst", &I);
@@ -1399,8 +1411,8 @@ bool llvm::promoteLoopAccessesToScalars(
     return false;
 
   // Otherwise, this is safe to promote, lets do it!
-  DEBUG(dbgs() << "LICM: Promoting value stored to in loop: " << *SomePtr
-               << '\n');
+  LLVM_DEBUG(dbgs() << "LICM: Promoting value stored to in loop: " << *SomePtr
+                    << '\n');
   ORE->emit([&]() {
     return OptimizationRemark(DEBUG_TYPE, "PromoteLoopAccessesToScalar",
                               LoopUses[0])

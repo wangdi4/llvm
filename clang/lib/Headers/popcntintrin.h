@@ -1,11 +1,3 @@
-//
-// Copyright (C) 2015 Intel Corporation.  All rights reserved.
-//
-// The information and source code contained herein is the exclusive
-// property of Intel Corporation and may not be disclosed, examined
-// or reproduced in whole or in part without explicit written authorization
-// from the company.
-//
 /*===---- popcntintrin.h - POPCNT intrinsics -------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,7 +27,7 @@
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("popcnt")))
 
-/// \brief Counts the number of bits in the source operand having a value of 1.
+/// Counts the number of bits in the source operand having a value of 1.
 ///
 /// \headerfile <x86intrin.h>
 ///
@@ -51,7 +43,7 @@ _mm_popcnt_u32(unsigned int __A)
   return __builtin_popcount(__A);
 }
 
-/// \brief Counts the number of bits in the source operand having a value of 1.
+/// Counts the number of bits in the source operand having a value of 1.
 ///
 /// \headerfile <x86intrin.h>
 ///
@@ -68,7 +60,7 @@ _popcnt32(int __A)
 }
 
 #ifdef __x86_64__
-/// \brief Counts the number of bits in the source operand having a value of 1.
+/// Counts the number of bits in the source operand having a value of 1.
 ///
 /// \headerfile <x86intrin.h>
 ///
@@ -84,7 +76,7 @@ _mm_popcnt_u64(unsigned long long __A)
   return __builtin_popcountll(__A);
 }
 
-/// \brief Counts the number of bits in the source operand having a value of 1.
+/// Counts the number of bits in the source operand having a value of 1.
 ///
 /// \headerfile <x86intrin.h>
 ///

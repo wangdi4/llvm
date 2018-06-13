@@ -111,10 +111,10 @@ define void @test_adc_8(i8 %a0, i8* %a1) optsize {
 ; BTVER2-LABEL: test_adc_8:
 ; BTVER2:       # %bb.0:
 ; BTVER2-NEXT:    #APP
-; BTVER2-NEXT:    adcb $7, %al # sched: [1:0.50]
-; BTVER2-NEXT:    adcb $7, %dil # sched: [1:0.50]
+; BTVER2-NEXT:    adcb $7, %al # sched: [1:1.00]
+; BTVER2-NEXT:    adcb $7, %dil # sched: [1:1.00]
 ; BTVER2-NEXT:    adcb $7, (%rsi) # sched: [5:1.00]
-; BTVER2-NEXT:    adcb %dil, %dil # sched: [1:0.50]
+; BTVER2-NEXT:    adcb %dil, %dil # sched: [1:1.00]
 ; BTVER2-NEXT:    adcb %dil, (%rsi) # sched: [5:1.00]
 ; BTVER2-NEXT:    adcb (%rsi), %dil # sched: [4:1.00]
 ; BTVER2-NEXT:    #NO_APP
@@ -275,14 +275,14 @@ define void @test_adc_16(i16 %a0, i16* %a1) optsize {
 ; BTVER2:       # %bb.0:
 ; BTVER2-NEXT:    #APP
 ; BTVER2-NEXT:    adcw $511, %ax # imm = 0x1FF
-; BTVER2-NEXT:    # sched: [1:0.50]
+; BTVER2-NEXT:    # sched: [1:1.00]
 ; BTVER2-NEXT:    adcw $511, %di # imm = 0x1FF
-; BTVER2-NEXT:    # sched: [1:0.50]
+; BTVER2-NEXT:    # sched: [1:1.00]
 ; BTVER2-NEXT:    adcw $511, (%rsi) # imm = 0x1FF
 ; BTVER2-NEXT:    # sched: [5:1.00]
-; BTVER2-NEXT:    adcw $7, %di # sched: [1:0.50]
+; BTVER2-NEXT:    adcw $7, %di # sched: [1:1.00]
 ; BTVER2-NEXT:    adcw $7, (%rsi) # sched: [5:1.00]
-; BTVER2-NEXT:    adcw %di, %di # sched: [1:0.50]
+; BTVER2-NEXT:    adcw %di, %di # sched: [1:1.00]
 ; BTVER2-NEXT:    adcw %di, (%rsi) # sched: [5:1.00]
 ; BTVER2-NEXT:    adcw (%rsi), %di # sched: [4:1.00]
 ; BTVER2-NEXT:    #NO_APP
@@ -448,14 +448,14 @@ define void @test_adc_32(i32 %a0, i32* %a1) optsize {
 ; BTVER2:       # %bb.0:
 ; BTVER2-NEXT:    #APP
 ; BTVER2-NEXT:    adcl $665536, %eax # imm = 0xA27C0
-; BTVER2-NEXT:    # sched: [1:0.50]
+; BTVER2-NEXT:    # sched: [1:1.00]
 ; BTVER2-NEXT:    adcl $665536, %edi # imm = 0xA27C0
-; BTVER2-NEXT:    # sched: [1:0.50]
+; BTVER2-NEXT:    # sched: [1:1.00]
 ; BTVER2-NEXT:    adcl $665536, (%rsi) # imm = 0xA27C0
 ; BTVER2-NEXT:    # sched: [5:1.00]
-; BTVER2-NEXT:    adcl $7, %edi # sched: [1:0.50]
+; BTVER2-NEXT:    adcl $7, %edi # sched: [1:1.00]
 ; BTVER2-NEXT:    adcl $7, (%rsi) # sched: [5:1.00]
-; BTVER2-NEXT:    adcl %edi, %edi # sched: [1:0.50]
+; BTVER2-NEXT:    adcl %edi, %edi # sched: [1:1.00]
 ; BTVER2-NEXT:    adcl %edi, (%rsi) # sched: [5:1.00]
 ; BTVER2-NEXT:    adcl (%rsi), %edi # sched: [4:1.00]
 ; BTVER2-NEXT:    #NO_APP
@@ -621,14 +621,14 @@ define void @test_adc_64(i64 %a0, i64* %a1) optsize {
 ; BTVER2:       # %bb.0:
 ; BTVER2-NEXT:    #APP
 ; BTVER2-NEXT:    adcq $665536, %rax # imm = 0xA27C0
-; BTVER2-NEXT:    # sched: [1:0.50]
+; BTVER2-NEXT:    # sched: [1:1.00]
 ; BTVER2-NEXT:    adcq $665536, %rdi # imm = 0xA27C0
-; BTVER2-NEXT:    # sched: [1:0.50]
+; BTVER2-NEXT:    # sched: [1:1.00]
 ; BTVER2-NEXT:    adcq $665536, (%rsi) # imm = 0xA27C0
 ; BTVER2-NEXT:    # sched: [5:1.00]
-; BTVER2-NEXT:    adcq $7, %rdi # sched: [1:0.50]
+; BTVER2-NEXT:    adcq $7, %rdi # sched: [1:1.00]
 ; BTVER2-NEXT:    adcq $7, (%rsi) # sched: [5:1.00]
-; BTVER2-NEXT:    adcq %rdi, %rdi # sched: [1:0.50]
+; BTVER2-NEXT:    adcq %rdi, %rdi # sched: [1:1.00]
 ; BTVER2-NEXT:    adcq %rdi, (%rsi) # sched: [5:1.00]
 ; BTVER2-NEXT:    adcq (%rsi), %rdi # sched: [4:1.00]
 ; BTVER2-NEXT:    #NO_APP
@@ -5275,13 +5275,13 @@ define void @test_div(i8 %a0, i16 %a1, i32 %a2, i64 %a3, i8 *%p0, i16 *%p1, i32 
 ; ZNVER1-NEXT:    movq {{[0-9]+}}(%rsp), %r10 # sched: [8:0.50]
 ; ZNVER1-NEXT:    movq {{[0-9]+}}(%rsp), %rax # sched: [8:0.50]
 ; ZNVER1-NEXT:    #APP
-; ZNVER1-NEXT:    divb %dil # sched: [15:1.00]
-; ZNVER1-NEXT:    divb (%r8) # sched: [45:41.00]
-; ZNVER1-NEXT:    divw %si # sched: [17:1.00]
-; ZNVER1-NEXT:    divw (%r9) # sched: [45:41.00]
-; ZNVER1-NEXT:    divl %edx # sched: [25:1.00]
-; ZNVER1-NEXT:    divl (%rax) # sched: [45:41.00]
-; ZNVER1-NEXT:    divq %rcx # sched: [41:1.00]
+; ZNVER1-NEXT:    divb %dil # sched: [15:15.00]
+; ZNVER1-NEXT:    divb (%r8) # sched: [19:15.00]
+; ZNVER1-NEXT:    divw %si # sched: [17:17.00]
+; ZNVER1-NEXT:    divw (%r9) # sched: [21:17.00]
+; ZNVER1-NEXT:    divl %edx # sched: [25:25.00]
+; ZNVER1-NEXT:    divl (%rax) # sched: [29:25.00]
+; ZNVER1-NEXT:    divq %rcx # sched: [41:41.00]
 ; ZNVER1-NEXT:    divq (%r10) # sched: [45:41.00]
 ; ZNVER1-NEXT:    #NO_APP
 ; ZNVER1-NEXT:    retq # sched: [1:0.50]
@@ -5523,13 +5523,13 @@ define void @test_idiv(i8 %a0, i16 %a1, i32 %a2, i64 %a3, i8 *%p0, i16 *%p1, i32
 ; ZNVER1-NEXT:    movq {{[0-9]+}}(%rsp), %r10 # sched: [8:0.50]
 ; ZNVER1-NEXT:    movq {{[0-9]+}}(%rsp), %rax # sched: [8:0.50]
 ; ZNVER1-NEXT:    #APP
-; ZNVER1-NEXT:    idivb %dil # sched: [15:1.00]
-; ZNVER1-NEXT:    idivb (%r8) # sched: [45:41.00]
-; ZNVER1-NEXT:    idivw %si # sched: [17:1.00]
-; ZNVER1-NEXT:    idivw (%r9) # sched: [45:41.00]
-; ZNVER1-NEXT:    idivl %edx # sched: [25:1.00]
-; ZNVER1-NEXT:    idivl (%rax) # sched: [45:41.00]
-; ZNVER1-NEXT:    idivq %rcx # sched: [41:1.00]
+; ZNVER1-NEXT:    idivb %dil # sched: [15:15.00]
+; ZNVER1-NEXT:    idivb (%r8) # sched: [19:15.00]
+; ZNVER1-NEXT:    idivw %si # sched: [17:17.00]
+; ZNVER1-NEXT:    idivw (%r9) # sched: [21:17.00]
+; ZNVER1-NEXT:    idivl %edx # sched: [25:25.00]
+; ZNVER1-NEXT:    idivl (%rax) # sched: [29:25.00]
+; ZNVER1-NEXT:    idivq %rcx # sched: [41:41.00]
 ; ZNVER1-NEXT:    idivq (%r10) # sched: [45:41.00]
 ; ZNVER1-NEXT:    #NO_APP
 ; ZNVER1-NEXT:    retq # sched: [1:0.50]
@@ -6080,14 +6080,14 @@ define void @test_imul_64(i64 %a0, i64* %a1) optsize {
 ; BTVER2-NEXT:    #APP
 ; BTVER2-NEXT:    imulq %rdi # sched: [6:4.00]
 ; BTVER2-NEXT:    imulq (%rsi) # sched: [9:4.00]
-; BTVER2-NEXT:    imulq %rdi, %rdi # sched: [3:1.00]
-; BTVER2-NEXT:    imulq (%rsi), %rdi # sched: [6:1.00]
+; BTVER2-NEXT:    imulq %rdi, %rdi # sched: [6:4.00]
+; BTVER2-NEXT:    imulq (%rsi), %rdi # sched: [9:4.00]
 ; BTVER2-NEXT:    imulq $665536, %rdi, %rdi # imm = 0xA27C0
-; BTVER2-NEXT:    # sched: [3:1.00]
+; BTVER2-NEXT:    # sched: [6:4.00]
 ; BTVER2-NEXT:    imulq $665536, (%rsi), %rdi # imm = 0xA27C0
-; BTVER2-NEXT:    # sched: [6:1.00]
-; BTVER2-NEXT:    imulq $7, %rdi, %rdi # sched: [3:1.00]
-; BTVER2-NEXT:    imulq $7, (%rsi), %rdi # sched: [6:1.00]
+; BTVER2-NEXT:    # sched: [9:4.00]
+; BTVER2-NEXT:    imulq $7, %rdi, %rdi # sched: [6:4.00]
+; BTVER2-NEXT:    imulq $7, (%rsi), %rdi # sched: [9:4.00]
 ; BTVER2-NEXT:    #NO_APP
 ; BTVER2-NEXT:    retq # sched: [4:1.00]
 ;
@@ -12873,10 +12873,10 @@ define void @test_sbb_8(i8 %a0, i8* %a1) optsize {
 ; BTVER2-LABEL: test_sbb_8:
 ; BTVER2:       # %bb.0:
 ; BTVER2-NEXT:    #APP
-; BTVER2-NEXT:    sbbb $7, %al # sched: [1:0.50]
-; BTVER2-NEXT:    sbbb $7, %dil # sched: [1:0.50]
+; BTVER2-NEXT:    sbbb $7, %al # sched: [1:1.00]
+; BTVER2-NEXT:    sbbb $7, %dil # sched: [1:1.00]
 ; BTVER2-NEXT:    sbbb $7, (%rsi) # sched: [5:1.00]
-; BTVER2-NEXT:    sbbb %dil, %dil # sched: [1:0.50]
+; BTVER2-NEXT:    sbbb %dil, %dil # sched: [1:1.00]
 ; BTVER2-NEXT:    sbbb %dil, (%rsi) # sched: [5:1.00]
 ; BTVER2-NEXT:    sbbb (%rsi), %dil # sched: [4:1.00]
 ; BTVER2-NEXT:    #NO_APP
@@ -13037,14 +13037,14 @@ define void @test_sbb_16(i16 %a0, i16* %a1) optsize {
 ; BTVER2:       # %bb.0:
 ; BTVER2-NEXT:    #APP
 ; BTVER2-NEXT:    sbbw $511, %ax # imm = 0x1FF
-; BTVER2-NEXT:    # sched: [1:0.50]
+; BTVER2-NEXT:    # sched: [1:1.00]
 ; BTVER2-NEXT:    sbbw $511, %di # imm = 0x1FF
-; BTVER2-NEXT:    # sched: [1:0.50]
+; BTVER2-NEXT:    # sched: [1:1.00]
 ; BTVER2-NEXT:    sbbw $511, (%rsi) # imm = 0x1FF
 ; BTVER2-NEXT:    # sched: [5:1.00]
-; BTVER2-NEXT:    sbbw $7, %di # sched: [1:0.50]
+; BTVER2-NEXT:    sbbw $7, %di # sched: [1:1.00]
 ; BTVER2-NEXT:    sbbw $7, (%rsi) # sched: [5:1.00]
-; BTVER2-NEXT:    sbbw %di, %di # sched: [1:0.50]
+; BTVER2-NEXT:    sbbw %di, %di # sched: [1:1.00]
 ; BTVER2-NEXT:    sbbw %di, (%rsi) # sched: [5:1.00]
 ; BTVER2-NEXT:    sbbw (%rsi), %di # sched: [4:1.00]
 ; BTVER2-NEXT:    #NO_APP
@@ -13210,14 +13210,14 @@ define void @test_sbb_32(i32 %a0, i32* %a1) optsize {
 ; BTVER2:       # %bb.0:
 ; BTVER2-NEXT:    #APP
 ; BTVER2-NEXT:    sbbl $665536, %eax # imm = 0xA27C0
-; BTVER2-NEXT:    # sched: [1:0.50]
+; BTVER2-NEXT:    # sched: [1:1.00]
 ; BTVER2-NEXT:    sbbl $665536, %edi # imm = 0xA27C0
-; BTVER2-NEXT:    # sched: [1:0.50]
+; BTVER2-NEXT:    # sched: [1:1.00]
 ; BTVER2-NEXT:    sbbl $665536, (%rsi) # imm = 0xA27C0
 ; BTVER2-NEXT:    # sched: [5:1.00]
-; BTVER2-NEXT:    sbbl $7, %edi # sched: [1:0.50]
+; BTVER2-NEXT:    sbbl $7, %edi # sched: [1:1.00]
 ; BTVER2-NEXT:    sbbl $7, (%rsi) # sched: [5:1.00]
-; BTVER2-NEXT:    sbbl %edi, %edi # sched: [1:0.50]
+; BTVER2-NEXT:    sbbl %edi, %edi # sched: [1:1.00]
 ; BTVER2-NEXT:    sbbl %edi, (%rsi) # sched: [5:1.00]
 ; BTVER2-NEXT:    sbbl (%rsi), %edi # sched: [4:1.00]
 ; BTVER2-NEXT:    #NO_APP
@@ -13383,14 +13383,14 @@ define void @test_sbb_64(i64 %a0, i64* %a1) optsize {
 ; BTVER2:       # %bb.0:
 ; BTVER2-NEXT:    #APP
 ; BTVER2-NEXT:    sbbq $665536, %rax # imm = 0xA27C0
-; BTVER2-NEXT:    # sched: [1:0.50]
+; BTVER2-NEXT:    # sched: [1:1.00]
 ; BTVER2-NEXT:    sbbq $665536, %rdi # imm = 0xA27C0
-; BTVER2-NEXT:    # sched: [1:0.50]
+; BTVER2-NEXT:    # sched: [1:1.00]
 ; BTVER2-NEXT:    sbbq $665536, (%rsi) # imm = 0xA27C0
 ; BTVER2-NEXT:    # sched: [5:1.00]
-; BTVER2-NEXT:    sbbq $7, %rdi # sched: [1:0.50]
+; BTVER2-NEXT:    sbbq $7, %rdi # sched: [1:1.00]
 ; BTVER2-NEXT:    sbbq $7, (%rsi) # sched: [5:1.00]
-; BTVER2-NEXT:    sbbq %rdi, %rdi # sched: [1:0.50]
+; BTVER2-NEXT:    sbbq %rdi, %rdi # sched: [1:1.00]
 ; BTVER2-NEXT:    sbbq %rdi, (%rsi) # sched: [5:1.00]
 ; BTVER2-NEXT:    sbbq (%rsi), %rdi # sched: [4:1.00]
 ; BTVER2-NEXT:    #NO_APP

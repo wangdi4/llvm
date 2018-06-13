@@ -241,6 +241,16 @@ struct PragmaNoFusionHandler : public PragmaHandler {
   void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
                     Token &Tok);
 };
+struct PragmaNoVectorHandler : public PragmaHandler {
+  PragmaNoVectorHandler(const char *name) : PragmaHandler(name) {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                    Token &Tok);
+};
+struct PragmaVectorHandler : public PragmaHandler {
+  PragmaVectorHandler(const char *name) : PragmaHandler(name) {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                    Token &Tok);
+};
 #endif // INTEL_CUSTOMIZATION
 
 struct PragmaMSRuntimeChecksHandler : public EmptyPragmaHandler {
@@ -380,9 +390,10 @@ void Parser::initializePragmaHandlers() {
 
 #if INTEL_CUSTOMIZATION
   initializeIntelPragmaHandlers ();
-  if (getLangOpts().HLS ||
-      (getLangOpts().OpenCL &&
-       getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
+  bool HLSCompat = getLangOpts().HLS ||
+                   (getLangOpts().OpenCL &&
+                    getTargetInfo().getTriple().isINTELFPGAEnvironment());
+  if (HLSCompat) {
     LoopCoalesceHandler.reset(new PragmaLoopCoalesceHandler("loop_coalesce"));
     PP.AddPragmaHandler(LoopCoalesceHandler.get());
     IIHandler.reset(new PragmaIIHandler("ii"));
@@ -390,15 +401,26 @@ void Parser::initializePragmaHandlers() {
     MaxConcurrencyHandler.reset(
         new PragmaMaxConcurrencyHandler("max_concurrency"));
     PP.AddPragmaHandler(MaxConcurrencyHandler.get());
-    IVDepHandler.reset(new PragmaIVDepHandler("ivdep"));
-    PP.AddPragmaHandler(IVDepHandler.get());
   }
-  if (getLangOpts().IntelCompat) {
+  bool IntelCompat = getLangOpts().IntelCompat;
+  if (IntelCompat) {
     DistributePointHandler.reset(
         new PragmaDistributePointHandler("distribute_point"));
     PP.AddPragmaHandler(DistributePointHandler.get());
     NoFusionHandler.reset(new PragmaNoFusionHandler("nofusion"));
     PP.AddPragmaHandler(NoFusionHandler.get());
+  }
+  if (getLangOpts().isIntelCompat(LangOptions::PragmaNoVector)) {
+    NoVectorHandler.reset(new PragmaNoVectorHandler("novector"));
+    PP.AddPragmaHandler(NoVectorHandler.get());
+  }
+  if (HLSCompat || IntelCompat) {
+    IVDepHandler.reset(new PragmaIVDepHandler("ivdep"));
+    PP.AddPragmaHandler(IVDepHandler.get());
+  }
+  if (getLangOpts().isIntelCompat(LangOptions::PragmaVector)) {
+    VectorHandler.reset(new PragmaVectorHandler("vector"));
+    PP.AddPragmaHandler(VectorHandler.get());
   }
 #endif // INTEL_CUSTOMIZATION
   UnrollHintHandler.reset(new PragmaUnrollHintHandler("unroll"));
@@ -502,23 +524,35 @@ void Parser::resetPragmaHandlers() {
 
 #if INTEL_CUSTOMIZATION
   resetIntelPragmaHandlers();
-  if (getLangOpts().HLS ||
-      (getLangOpts().OpenCL &&
-       getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
+  bool HLSCompat = getLangOpts().HLS ||
+                   (getLangOpts().OpenCL &&
+                    getTargetInfo().getTriple().isINTELFPGAEnvironment());
+  if (HLSCompat) {
     PP.RemovePragmaHandler(LoopCoalesceHandler.get());
     LoopCoalesceHandler.reset();
     PP.RemovePragmaHandler(IIHandler.get());
     IIHandler.reset();
     PP.RemovePragmaHandler(MaxConcurrencyHandler.get());
     MaxConcurrencyHandler.reset();
-    PP.RemovePragmaHandler(IVDepHandler.get());
-    IVDepHandler.reset();
   }
-  if (getLangOpts().IntelCompat) {
+  bool IntelCompat = getLangOpts().IntelCompat;
+  if (IntelCompat) {
     PP.RemovePragmaHandler(DistributePointHandler.get());
     DistributePointHandler.reset();
     PP.RemovePragmaHandler(NoFusionHandler.get());
     NoFusionHandler.reset();
+  }
+  if (getLangOpts().isIntelCompat(LangOptions::PragmaNoVector)) {
+    PP.RemovePragmaHandler(NoVectorHandler.get());
+    NoVectorHandler.reset();
+  }
+  if (HLSCompat || IntelCompat) {
+    PP.RemovePragmaHandler(IVDepHandler.get());
+    IVDepHandler.reset();
+  }
+  if (getLangOpts().isIntelCompat(LangOptions::PragmaVector)) {
+    PP.RemovePragmaHandler(VectorHandler.get());
+    VectorHandler.reset();
   }
 #endif // INTEL_CUSTOMIZATION
   PP.RemovePragmaHandler(UnrollHintHandler.get());
@@ -534,7 +568,7 @@ void Parser::resetPragmaHandlers() {
   AttributePragmaHandler.reset();
 }
 
-/// \brief Handle the annotation token produced for #pragma unused(...)
+/// Handle the annotation token produced for #pragma unused(...)
 ///
 /// Each annot_pragma_unused is followed by the argument token so e.g.
 /// "#pragma unused(x,y)" becomes:
@@ -1068,9 +1102,12 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
   bool PragmaIVDep = PragmaNameInfo->getName() == "ivdep";
   bool PragmaDistributePoint = PragmaNameInfo->getName() == "distribute_point";
   bool PragmaNoFusion = PragmaNameInfo->getName() == "nofusion";
+  bool PragmaNoVector = PragmaNameInfo->getName() == "novector";
+  bool PragmaVector = PragmaNameInfo->getName() == "vector";
   if (Toks.empty() && Info->ArrayToks.empty() &&
       (PragmaUnroll || PragmaNoUnroll || PragmaLoopCoalesce || PragmaIVDep ||
-       PragmaDistributePoint || PragmaNoFusion)) {
+       PragmaDistributePoint || PragmaNoFusion || PragmaNoVector ||
+       PragmaVector)) {
 #endif // INTEL_CUSTOMIZATION
     ConsumeAnnotationToken();
     Hint.Range = Info->PragmaName.getLocation();
@@ -2215,7 +2252,7 @@ PragmaOpenCLExtensionHandler::HandlePragma(Preprocessor &PP,
                                                StateLoc, State);
 }
 
-/// \brief Handle '#pragma omp ...' when OpenMP is disabled.
+/// Handle '#pragma omp ...' when OpenMP is disabled.
 ///
 void
 PragmaNoOpenMPHandler::HandlePragma(Preprocessor &PP,
@@ -2230,7 +2267,7 @@ PragmaNoOpenMPHandler::HandlePragma(Preprocessor &PP,
   PP.DiscardUntilEndOfDirective();
 }
 
-/// \brief Handle '#pragma omp ...' when OpenMP is enabled.
+/// Handle '#pragma omp ...' when OpenMP is enabled.
 ///
 void
 PragmaOpenMPHandler::HandlePragma(Preprocessor &PP,
@@ -2270,7 +2307,7 @@ PragmaOpenMPHandler::HandlePragma(Preprocessor &PP,
                       /*DisableMacroExpansion=*/false);
 }
 
-/// \brief Handle '#pragma pointers_to_members'
+/// Handle '#pragma pointers_to_members'
 // The grammar for this pragma is as follows:
 //
 // <inheritance model> ::= ('single' | 'multiple' | 'virtual') '_inheritance'
@@ -2368,7 +2405,7 @@ void PragmaMSPointersToMembers::HandlePragma(Preprocessor &PP,
   PP.EnterToken(AnnotTok);
 }
 
-/// \brief Handle '#pragma vtordisp'
+/// Handle '#pragma vtordisp'
 // The grammar for this pragma is as follows:
 //
 // <vtordisp-mode> ::= ('off' | 'on' | '0' | '1' | '2' )
@@ -2461,7 +2498,7 @@ void PragmaMSVtorDisp::HandlePragma(Preprocessor &PP,
   PP.EnterToken(AnnotTok);
 }
 
-/// \brief Handle all MS pragmas.  Simply forwards the tokens after inserting
+/// Handle all MS pragmas.  Simply forwards the tokens after inserting
 /// an annotation token.
 void PragmaMSPragma::HandlePragma(Preprocessor &PP,
                                   PragmaIntroducerKind Introducer,
@@ -2492,7 +2529,7 @@ void PragmaMSPragma::HandlePragma(Preprocessor &PP,
   PP.EnterToken(AnnotTok);
 }
 
-/// \brief Handle the Microsoft \#pragma detect_mismatch extension.
+/// Handle the Microsoft \#pragma detect_mismatch extension.
 ///
 /// The syntax is:
 /// \code
@@ -2549,7 +2586,7 @@ void PragmaDetectMismatchHandler::HandlePragma(Preprocessor &PP,
   Actions.ActOnPragmaDetectMismatch(DetectMismatchLoc, NameString, ValueString);
 }
 
-/// \brief Handle the microsoft \#pragma comment extension.
+/// Handle the microsoft \#pragma comment extension.
 ///
 /// The syntax is:
 /// \code
@@ -2798,7 +2835,7 @@ void Parser::HandlePragmaFP() {
   ConsumeAnnotationToken();
 }
 
-/// \brief Parses loop or unroll pragma hint value and fills in Info.
+/// Parses loop or unroll pragma hint value and fills in Info.
 static bool ParseLoopHintValue(Preprocessor &PP, Token &Tok, Token PragmaName,
                                Token Option, bool ValueInParens,
                                PragmaLoopHintInfo &Info) {
@@ -2840,7 +2877,7 @@ static bool ParseLoopHintValue(Preprocessor &PP, Token &Tok, Token PragmaName,
   return false;
 }
 
-/// \brief Handle the \#pragma clang loop directive.
+/// Handle the \#pragma clang loop directive.
 ///  #pragma clang 'loop' loop-hints
 ///
 ///  loop-hints:
@@ -2955,7 +2992,7 @@ void PragmaLoopHintHandler::HandlePragma(Preprocessor &PP,
                       /*DisableMacroExpansion=*/false);
 }
 
-/// \brief Handle the loop unroll optimization pragmas.
+/// Handle the loop unroll optimization pragmas.
 ///  #pragma unroll
 ///  #pragma unroll unroll-hint-value
 ///  #pragma unroll '(' unroll-hint-value ')'
@@ -3035,7 +3072,7 @@ void PragmaUnrollHintHandler::HandlePragma(Preprocessor &PP,
 }
 
 #if INTEL_CUSTOMIZATION
-/// \brief Handle the loop_coalesce pragma.
+/// Handle the loop_coalesce pragma.
 ///  #pragma loop_coalesce [(]hint-val[)]
 ///
 ///  hint-val:
@@ -3082,7 +3119,7 @@ void PragmaLoopCoalesceHandler::HandlePragma(Preprocessor &PP,
                       /*DisableMacroExpansion=*/false);
 }
 
-/// \brief Handle the ii pragma.
+/// Handle the ii pragma.
 ///  #pragma ii [(]hint-val[)]
 ///
 ///  hint-val:
@@ -3129,7 +3166,7 @@ void PragmaIIHandler::HandlePragma(Preprocessor &PP,
                       /*DisableMacroExpansion=*/false);
 }
 
-/// \brief Handle the max_concurrency pragma.
+/// Handle the max_concurrency pragma.
 ///  #pragma max_concurrency [(]hint-val[)]
 ///
 ///  hint-val:
@@ -3180,7 +3217,7 @@ void PragmaMaxConcurrencyHandler::HandlePragma(Preprocessor &PP,
                       /*DisableMacroExpansion=*/false);
 }
 
-/// \brief Handle the ivdep pragma.
+/// Handle the ivdep pragma.
 ///  #pragma ivdep [safelen(hint-val)] [array(<array-name>)]
 ///
 ///  hint-val:
@@ -3206,6 +3243,8 @@ void PragmaIVDepHandler::HandlePragma(Preprocessor &PP,
   SmallVector<Token, 4> ArrayValueList;
   bool HasSafelen = false;
   bool HasArray = false;
+  bool HasLoop = false;
+  bool HasBack = false;
   Token PragmaName = Tok;
   PP.Lex(Tok);
   auto *Info = new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
@@ -3214,13 +3253,23 @@ void PragmaIVDepHandler::HandlePragma(Preprocessor &PP,
     Info->PragmaName = PragmaName;
     Info->Option.startToken();
   } else {
+    bool isHLSCompat =
+        (PP.getLangOpts().HLS ||
+         (PP.getLangOpts().OpenCL &&
+          PP.getTargetInfo().getTriple().isINTELFPGAEnvironment()));
+    bool isIntelCompat = PP.getLangOpts().IntelCompat;
     while (Tok.isNot(tok::eod)) {
       if (Tok.isNot(tok::identifier)) {
-        PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_ivdep_clause);
+        if (isHLSCompat)
+          PP.Diag(Tok.getLocation(),
+                  diag::warn_pragma_expected_safelen_array_ivdep_clause);
+        else
+          PP.Diag(Tok.getLocation(),
+                  diag::warn_pragma_expected_loop_back_ivdep_clause);
         return;
       }
       IdentifierInfo *II = Tok.getIdentifierInfo();
-      if (II->isStr("safelen")) {
+      if (isHLSCompat && II->isStr("safelen")) {
         if (HasSafelen) {
           PP.Diag(Tok.getLocation(), diag::warn_multiple_ivdep_clause) << 0;
           return;
@@ -3237,7 +3286,7 @@ void PragmaIVDepHandler::HandlePragma(Preprocessor &PP,
         Option.startToken();
         if (ParseLoopHintValue(PP, Tok, PragmaName, Option, true, *Info))
           return;
-      } else if (II->isStr("array")) {
+      } else if (isHLSCompat && II->isStr("array")) {
         if (HasArray) {
           PP.Diag(Tok.getLocation(), diag::warn_multiple_ivdep_clause) << 1;
           return;
@@ -3266,8 +3315,37 @@ void PragmaIVDepHandler::HandlePragma(Preprocessor &PP,
             ArrayValueList.push_back(Tok);
           PP.Lex(Tok);
         }
+      } else if (isIntelCompat && II->isStr("loop")) {
+        if (HasLoop) {
+          PP.Diag(Tok.getLocation(), diag::warn_multiple_ivdep_clause) << 2;
+          return;
+        }
+        if (HasBack) {
+          PP.Diag(Tok.getLocation(), diag::warn_invalid_ivdep_combination) << 0;
+          return;
+        }
+        HasLoop = true;
+        Info->Option = Tok;
+        PP.Lex(Tok);
+      } else if (isIntelCompat && II->isStr("back")) {
+        if (HasBack) {
+          PP.Diag(Tok.getLocation(), diag::warn_multiple_ivdep_clause) << 3;
+          return;
+        }
+        if (HasLoop) {
+          PP.Diag(Tok.getLocation(), diag::warn_invalid_ivdep_combination) << 1;
+          return;
+        }
+        HasBack = true;
+        Info->Option = Tok;
+        PP.Lex(Tok);
       } else {
-        PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_ivdep_clause);
+        if (isHLSCompat)
+          PP.Diag(Tok.getLocation(),
+                  diag::warn_pragma_expected_safelen_array_ivdep_clause);
+        else
+          PP.Diag(Tok.getLocation(),
+                  diag::warn_pragma_expected_loop_back_ivdep_clause);
         return;
       }
     }
@@ -3353,9 +3431,90 @@ void PragmaNoFusionHandler::HandlePragma(Preprocessor &PP,
   PP.EnterTokenStream(std::move(TokenArray), 1,
                       /*DisableMacroExpansion=*/false);
 }
+
+void PragmaNoVectorHandler::HandlePragma(Preprocessor &PP,
+                                         PragmaIntroducerKind Introducer,
+                                         Token &Tok) {
+  // Incoming token is "novector" for "#pragma novector"
+  Token PragmaName = Tok;
+  PP.Lex(Tok);
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+        << "novector";
+    return;
+  }
+
+  // Generate the hint token.
+  PragmaLoopHintInfo *Info =
+      new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
+  Info->PragmaName = PragmaName;
+  Info->Option.startToken();
+  auto TokenArray = llvm::make_unique<Token[]>(1);
+  TokenArray[0].startToken();
+  TokenArray[0].setKind(tok::annot_pragma_loop_hint);
+  TokenArray[0].setLocation(PragmaName.getLocation());
+  TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
+  TokenArray[0].setAnnotationValue(Info);
+  PP.EnterTokenStream(std::move(TokenArray), 1,
+                      /*DisableMacroExpansion=*/false);
+}
+
+void PragmaVectorHandler::HandlePragma(Preprocessor &PP,
+                                         PragmaIntroducerKind Introducer,
+                                         Token &Tok) {
+  // Incoming token is "vector" for
+  // "#pragma vector {always[assert]|aligned|unaligned|
+  //  temporal|nontemporal|[no]vecremainder|[no]mask_readwrite}"
+  Token PragmaName = Tok;
+  SmallVector<Token, 2> TokenList;
+
+  if (Tok.isNot(tok::identifier) && Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::err_pragma_loop_invalid_option)
+        << "vector";
+    return;
+  }
+  do {
+    Token Option = Tok;
+    IdentifierInfo *OptionInfo = Tok.getIdentifierInfo();
+    bool OptionValid = llvm::StringSwitch<bool>(OptionInfo->getName())
+                           .Case("vector", true)
+                           .Case("always", true)
+                           .Default(false);
+    if (!OptionValid) {
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_vector_invalid_option)
+          << /*MissingOption=*/false << OptionInfo;
+      return;
+    }
+    auto *Info = new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
+    Info->PragmaName = PragmaName;
+    Info->Option = Option;
+    PP.Lex(Tok);
+    // Generate the loop hint token.
+    Token LoopHintTok;
+    LoopHintTok.startToken();
+    LoopHintTok.setKind(tok::annot_pragma_loop_hint);
+    LoopHintTok.setLocation(PragmaName.getLocation());
+    LoopHintTok.setAnnotationEndLoc(PragmaName.getLocation());
+    LoopHintTok.setAnnotationValue(static_cast<void *>(Info));
+    TokenList.push_back(LoopHintTok);
+  } while (Tok.is(tok::identifier) &&
+           Tok.getIdentifierInfo()->getName() != "vector");
+
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+        << "vector";
+    return;
+  }
+  auto TokenArray = llvm::make_unique<Token[]>(TokenList.size());
+  std::copy(TokenList.begin(), TokenList.end(), TokenArray.get());
+
+  PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),
+                      /*DisableMacroExpansion=*/false);
+}
+
 #endif // INTEL_CUSTOMIZATION
 
-/// \brief Handle the Microsoft \#pragma intrinsic extension.
+/// Handle the Microsoft \#pragma intrinsic extension.
 ///
 /// The syntax is:
 /// \code
@@ -3483,7 +3642,7 @@ void PragmaForceCUDAHostDeviceHandler::HandlePragma(
             diag::warn_pragma_force_cuda_host_device_bad_arg);
 }
 
-/// \brief Handle the #pragma clang attribute directive.
+/// Handle the #pragma clang attribute directive.
 ///
 /// The syntax is:
 /// \code

@@ -60,7 +60,7 @@ static bool isFunctionOrMethod(const Decl *D) {
   return (D->getFunctionType() != nullptr) || isa<ObjCMethodDecl>(D);
 }
 
-/// \brief Return true if the given decl has function type (function or
+/// Return true if the given decl has function type (function or
 /// function-typed variable) or an Objective-C method or a block.
 static bool isFunctionOrMethodOrBlock(const Decl *D) {
   return isFunctionOrMethod(D) || isa<BlockDecl>(D);
@@ -190,7 +190,7 @@ static bool checkAttributeNumArgsImpl(Sema &S, const AttributeList &AL,
   return true;
 }
 
-/// \brief Check if the attribute has exactly as many args as Num. May
+/// Check if the attribute has exactly as many args as Num. May
 /// output an error.
 static bool checkAttributeNumArgs(Sema &S, const AttributeList &AL,
                                   unsigned Num) {
@@ -199,7 +199,7 @@ static bool checkAttributeNumArgs(Sema &S, const AttributeList &AL,
                                    std::not_equal_to<unsigned>());
 }
 
-/// \brief Check if the attribute has at least as many args as Num. May
+/// Check if the attribute has at least as many args as Num. May
 /// output an error.
 static bool checkAttributeAtLeastNumArgs(Sema &S, const AttributeList &AL,
                                          unsigned Num) {
@@ -208,7 +208,7 @@ static bool checkAttributeAtLeastNumArgs(Sema &S, const AttributeList &AL,
                                    std::less<unsigned>());
 }
 
-/// \brief Check if the attribute has at most as many args as Num. May
+/// Check if the attribute has at most as many args as Num. May
 /// output an error.
 static bool checkAttributeAtMostNumArgs(Sema &S, const AttributeList &AL,
                                          unsigned Num) {
@@ -217,7 +217,7 @@ static bool checkAttributeAtMostNumArgs(Sema &S, const AttributeList &AL,
                                    std::greater<unsigned>());
 }
 
-/// \brief A helper function to provide Attribute Location for the Attr types
+/// A helper function to provide Attribute Location for the Attr types
 /// AND the AttributeList.
 template <typename AttrInfo>
 static typename std::enable_if<std::is_base_of<Attr, AttrInfo>::value,
@@ -229,7 +229,7 @@ static SourceLocation getAttrLoc(const AttributeList &AL) {
   return AL.getLoc();
 }
 
-/// \brief A helper function to provide Attribute Name for the Attr types
+/// A helper function to provide Attribute Name for the Attr types
 /// AND the AttributeList.
 template <typename AttrInfo>
 static typename std::enable_if<std::is_base_of<Attr, AttrInfo>::value,
@@ -241,7 +241,7 @@ static const IdentifierInfo *getAttrName(const AttributeList &AL) {
   return AL.getName();
 }
 
-/// \brief If Expr is a valid integer constant, get the value of the integer
+/// If Expr is a valid integer constant, get the value of the integer
 /// expression and return success or failure. May output an error.
 template <typename AttrInfo>
 static bool checkUInt32Argument(Sema &S, const AttrInfo &AI, const Expr *Expr,
@@ -270,7 +270,7 @@ static bool checkUInt32Argument(Sema &S, const AttrInfo &AI, const Expr *Expr,
   return true;
 }
 
-/// \brief Wrapper around checkUInt32Argument, with an extra check to be sure
+/// Wrapper around checkUInt32Argument, with an extra check to be sure
 /// that the result will fit into a regular (signed) int. All args have the same
 /// purpose as they do in checkUInt32Argument.
 template <typename AttrInfo>
@@ -292,7 +292,7 @@ static bool checkPositiveIntArgument(Sema &S, const AttrInfo &AI, const Expr *Ex
   return true;
 }
 
-/// \brief Diagnose mutually exclusive attributes when present on a given
+/// Diagnose mutually exclusive attributes when present on a given
 /// declaration. Returns true if diagnosed.
 template <typename AttrTy>
 static bool checkAttrMutualExclusion(Sema &S, Decl *D, SourceRange Range,
@@ -306,7 +306,7 @@ static bool checkAttrMutualExclusion(Sema &S, Decl *D, SourceRange Range,
   return false;
 }
 
-/// \brief Check if IdxExpr is a valid parameter index for a function or
+/// Check if IdxExpr is a valid parameter index for a function or
 /// instance method D.  May output an error.
 ///
 /// \returns true if IdxExpr is a valid index.
@@ -352,7 +352,7 @@ static bool checkFunctionOrMethodParameterIndex(
   return true;
 }
 
-/// \brief Check if the argument \p ArgNum of \p Attr is a ASCII string literal.
+/// Check if the argument \p ArgNum of \p Attr is a ASCII string literal.
 /// If not emit an error and return false. If the argument is an identifier it
 /// will emit an error with a fixit hint and treat it as if it was a string
 /// literal.
@@ -388,7 +388,7 @@ bool Sema::checkStringLiteralArgumentAttr(const AttributeList &AL,
   return true;
 }
 
-/// \brief Applies the given attribute to the Decl without performing any
+/// Applies the given attribute to the Decl without performing any
 /// additional semantic checking.
 template <typename AttrType>
 static void handleSimpleAttribute(Sema &S, Decl *D, const AttributeList &AL) {
@@ -402,7 +402,7 @@ static void handleSimpleAttributeWithExclusions(Sema &S, Decl *D,
   handleSimpleAttribute<AttrType>(S, D, AL);
 }
 
-/// \brief Applies the given attribute to the Decl so long as the Decl doesn't
+/// Applies the given attribute to the Decl so long as the Decl doesn't
 /// already have one of the given incompatible attributes.
 template <typename AttrType, typename IncompatibleAttrType,
           typename... IncompatibleAttrTypes>
@@ -415,7 +415,7 @@ static void handleSimpleAttributeWithExclusions(Sema &S, Decl *D,
                                                                           AL);
 }
 
-/// \brief Check if the passed-in expression is of type int or bool.
+/// Check if the passed-in expression is of type int or bool.
 static bool isIntOrBool(Expr *Exp) {
   QualType QT = Exp->getType();
   return QT->isBooleanType() || QT->isIntegerType();
@@ -438,7 +438,7 @@ static bool threadSafetyCheckIsSmartPointer(Sema &S, const RecordType* RT) {
   return true;
 }
 
-/// \brief Check if passed in Decl is a pointer type.
+/// Check if passed in Decl is a pointer type.
 /// Note that this function may produce an error message.
 /// \return true if the Decl is a pointer type; false otherwise
 static bool threadSafetyCheckIsPointer(Sema &S, const Decl *D,
@@ -464,7 +464,7 @@ static bool threadSafetyCheckIsPointer(Sema &S, const Decl *D,
   return false;
 }
 
-/// \brief Checks that the passed in QualType either is of RecordType or points
+/// Checks that the passed in QualType either is of RecordType or points
 /// to RecordType. Returns the relevant RecordType, null if it does not exit.
 static const RecordType *getRecordType(QualType QT) {
   if (const auto *RT = QT->getAs<RecordType>())
@@ -556,7 +556,7 @@ static bool isCapabilityExpr(Sema &S, const Expr *Ex) {
   return typeHasCapability(S, Ex->getType());
 }
 
-/// \brief Checks that all attribute arguments, starting from Sidx, resolve to
+/// Checks that all attribute arguments, starting from Sidx, resolve to
 /// a capability object.
 /// \param Sidx The attribute argument index to start checking with.
 /// \param ParamIdxOk Whether an argument can be indexing into a function
@@ -766,7 +766,7 @@ static void handleAssertExclusiveLockAttr(Sema &S, Decl *D,
       AL.getAttributeSpellingListIndex()));
 }
 
-/// \brief Checks to be sure that the given parameter number is in bounds, and
+/// Checks to be sure that the given parameter number is in bounds, and
 /// is an integral type. Will emit appropriate diagnostics if this returns
 /// false.
 ///
@@ -2142,7 +2142,7 @@ static bool checkAvailabilityAttr(Sema &S, SourceRange Range,
   return false;
 }
 
-/// \brief Check whether the two versions match.
+/// Check whether the two versions match.
 ///
 /// If either version tuple is empty, then they are assumed to match. If
 /// \p BeforeIsOkay is true, then \p X can be less than or equal to \p Y.
@@ -3034,8 +3034,30 @@ void Sema::AddSchedulerPipeliningEffortPctAttr(SourceRange AttrRange, Decl *D,
       AttrRange, Context, E, SpellingListIndex));
 }
 
+/// Give a warning for duplicate attributes, return true if duplicate.
+template <typename AttrType>
+static bool checkForDuplicateAttribute(Sema &S, Decl *D,
+                                       const AttributeList &Attr) {
+  // Give a warning for duplicates but not if it's one we've implicitly added.
+  auto *A = D->getAttr<AttrType>();
+  if (A && !A->isImplicit()) {
+    S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact)
+        << Attr.getName();
+    return true;
+  }
+  return false;
+}
+
 static void handleInternalMaxBlockRamDepthAttr(Sema &S, Decl *D,
                                                const AttributeList &Attr) {
+  if (checkForDuplicateAttribute<InternalMaxBlockRamDepthAttr>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr.getRange(),
+                                                 Attr.getName()))
+    return;
+  if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr.getRange(),
+                                                     Attr.getName()))
+    return;
   if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
                                              Attr.getName()))
     return;
@@ -3052,6 +3074,17 @@ static void handleInternalMaxBlockRamDepthAttr(Sema &S, Decl *D,
 
   if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/1))
     return;
+
+  if (const auto *AIA = D->getAttr<ArgumentInterfaceAttr>()) {
+    if (AIA->getType() == ArgumentInterfaceAttr::Slave) {
+      (void)checkAttrMutualExclusion<ArgumentInterfaceAttr>(
+          S, D, Attr.getRange(), Attr.getName());
+      return;
+    }
+  }
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context, MemoryAttr::Default));
 
   S.AddInternalMaxBlockRamDepthAttr(Attr.getRange(), D, Attr.getArgAsExpr(0),
                                     Attr.getAttributeSpellingListIndex());
@@ -3221,18 +3254,66 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
       Attr.getAttributeSpellingListIndex()));
 }
 
-/// \brief Give a warning for duplicate attributes, return true if duplicate.
-template <typename AttrType>
-static bool checkForDuplicateAttribute(Sema &S, Decl *D,
-                                       const AttributeList &Attr) {
-  // Give a warning for duplicates but not if it's one we've implicitly added.
-  auto *A = D->getAttr<AttrType>();
-  if (A && !A->isImplicit()) {
-    S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact)
-        << Attr.getName();
-    return true;
+static void handleOptimizeFMaxAttr(Sema &S, Decl *D,
+                                   const AttributeList &Attr) {
+  if (checkForDuplicateAttribute<OptimizeFMaxAttr>(S, D, Attr))
+    return;
+
+  if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr.getRange(),
+                                                     Attr.getName()))
+    return;
+
+  if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(
+          S, D, Attr.getRange(), Attr.getName()))
+    return;
+
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  if (const auto *AIA = D->getAttr<ArgumentInterfaceAttr>()) {
+    if (AIA->getType() == ArgumentInterfaceAttr::Slave) {
+      (void)checkAttrMutualExclusion<ArgumentInterfaceAttr>(
+          S, D, Attr.getRange(), Attr.getName());
+      return;
+    }
   }
-  return false;
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context, MemoryAttr::Default));
+
+  handleSimpleAttribute<OptimizeFMaxAttr>(S, D, Attr);
+}
+
+static void handleOptimizeRamUsageAttr(Sema &S, Decl *D,
+                                       const AttributeList &Attr) {
+  if (checkForDuplicateAttribute<OptimizeRamUsageAttr>(S, D, Attr))
+    return;
+
+  if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr.getRange(),
+                                                 Attr.getName()))
+    return;
+
+  if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(
+          S, D, Attr.getRange(), Attr.getName()))
+    return;
+
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  if (const auto *AIA = D->getAttr<ArgumentInterfaceAttr>()) {
+    if (AIA->getType() == ArgumentInterfaceAttr::Slave) {
+      (void)checkAttrMutualExclusion<ArgumentInterfaceAttr>(
+          S, D, Attr.getRange(), Attr.getName());
+      return;
+    }
+  }
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context, MemoryAttr::Default));
+
+  handleSimpleAttribute<OptimizeRamUsageAttr>(S, D, Attr);
 }
 
 /// \brief Handle the __doublepump__ and __singlepump__ attributes.
@@ -3340,6 +3421,14 @@ static bool checkRegisterAttrCompatibility(Sema &S, Decl *D,
                                                   Attr.getName()))
     InCompat = true;
   if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(
+          S, D, Attr.getRange(), Attr.getName()))
+    InCompat = true;
+
+  if (checkAttrMutualExclusion<OptimizeFMaxAttr>(
+          S, D, Attr.getRange(), Attr.getName()))
+    InCompat = true;
+
+  if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(
           S, D, Attr.getRange(), Attr.getName()))
     InCompat = true;
 
@@ -3645,6 +3734,17 @@ static void handleArgumentInterfaceAttr(Sema & S, Decl * D,
         << Attr.getName() << ValidStrings;
     return;
   }
+  if (Type == ArgumentInterfaceAttr::Slave) {
+    if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(
+            S, D, Attr.getRange(), Attr.getName()))
+      return;
+    if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr.getRange(),
+                                                   Attr.getName()))
+      return;
+    if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr.getRange(),
+                                                       Attr.getName()))
+      return;
+  }
 
   D->addAttr(::new (S.Context) ArgumentInterfaceAttr(
       Attr.getRange(), S.Context, Type, Attr.getAttributeSpellingListIndex()));
@@ -3755,6 +3855,28 @@ static void handleVecLenHint(Sema &S, Decl *D, const AttributeList &Attr) {
   D->addAttr(::new (S.Context)
                  VecLenHintAttr(Attr.getRange(), S.Context, VecLen,
                                 Attr.getAttributeSpellingListIndex()));
+}
+
+template <typename AttrTy>
+static bool diagnoseMemoryAttrs(Sema &S, Decl *D) {
+  if (const auto *A = D->getAttr<AttrTy>())
+    if (!A->isImplicit()) {
+      S.Diag(A->getLocation(), diag::err_memory_attribute_invalid)
+          << A << (S.getLangOpts().OpenCL ? 0 : 1);
+      return true;
+    }
+  return false;
+}
+
+template <typename AttrTy, typename AttrTy2, typename... AttrTys>
+static inline bool diagnoseMemoryAttrs(Sema &S, Decl *D) {
+  bool Diagnosed = diagnoseMemoryAttrs<AttrTy>(S, D);
+  return diagnoseMemoryAttrs<AttrTy2, AttrTys...>(S, D) || Diagnosed;
+}
+
+static bool IsSlaveMemory(Sema &S, Decl *D) {
+  return S.getLangOpts().HLS && D->hasAttr<OpenCLLocalMemSizeAttr>() &&
+         D->hasAttr<SlaveMemoryArgumentAttr>();
 }
 
 // Handles reqd_work_group_size, work_group_size_hint and max_work_group_size
@@ -7409,6 +7531,10 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_NoInstrumentFunction: // Interacts with -pg.
     handleSimpleAttribute<NoInstrumentFunctionAttr>(S, D, AL);
     break;
+  case AttributeList::AT_NoStackProtector:
+    // Interacts with -fstack-protector options.
+    handleSimpleAttribute<NoStackProtectorAttr>(S, D, AL);
+    break;
   case AttributeList::AT_StdCall:
   case AttributeList::AT_CDecl:
   case AttributeList::AT_FastCall:
@@ -7639,6 +7765,12 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleInternalMaxBlockRamDepthAttr(S, D, AL);
     break;
   // Intel HLS specific attributes
+  case AttributeList::AT_OptimizeFMax:
+    handleOptimizeFMaxAttr(S, D, AL);
+    break;
+  case AttributeList::AT_OptimizeRamUsage:
+    handleOptimizeRamUsageAttr(S, D, AL);
+    break;
   case AttributeList::AT_SinglePump:
     handlePumpAttr<SinglePumpAttr, DoublePumpAttr>(S, D, AL);
     break;
@@ -7810,6 +7942,16 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
           << A << "'reqd_work_group_size' or 'max_global_work_dim' attribute";
       D->setInvalidDecl();
     }
+  }
+  if ((getLangOpts().HLS || getLangOpts().OpenCL) &&
+      D->getKind() == Decl::ParmVar && !IsSlaveMemory(*this, D)) {
+    // Check that memory attributes are only added to slave memory.
+    if (diagnoseMemoryAttrs<MemoryAttr, NumBanksAttr, BankWidthAttr,
+                            SinglePumpAttr, DoublePumpAttr, BankBitsAttr,
+                            NumReadPortsAttr, NumWritePortsAttr,
+                            InternalMaxBlockRamDepthAttr, OptimizeFMaxAttr,
+                            OptimizeRamUsageAttr>(*this, D))
+      D->setInvalidDecl();
   }
 #endif // INTEL_CUSTOMIZATION
 }
@@ -8163,7 +8305,7 @@ ShouldDiagnoseAvailabilityOfDecl(const NamedDecl *D, std::string *Message) {
 }
 
 
-/// \brief whether we should emit a diagnostic for \c K and \c DeclVersion in
+/// whether we should emit a diagnostic for \c K and \c DeclVersion in
 /// the context of \c Ctx. For example, we should emit an unavailable diagnostic
 /// in a deprecated context, but not the other way around.
 static bool ShouldDiagnoseAvailabilityInContext(Sema &S, AvailabilityResult K,
@@ -8730,7 +8872,7 @@ public:
   }
 };
 
-/// \brief This class implements -Wunguarded-availability.
+/// This class implements -Wunguarded-availability.
 ///
 /// This is done with a traversal of the AST of a function that makes reference
 /// to a partially available declaration. Whenever we encounter an \c if of the

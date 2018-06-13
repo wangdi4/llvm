@@ -1,5 +1,5 @@
 //RUN: %clang_cc1 -fhls -emit-llvm -o - %s | FileCheck %s
-//RUN: %clang_cc1 -fhls -debug-info-kind=limited -emit-llvm -o - %s
+//RUN: %clang_cc1 -fhls -debug-info-kind=limited -emit-llvm -o %t %s
 
 //CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numbanks:4}{bank_bits:4,5}
 //CHECK: [[ANN2A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numbanks:4}{bank_bits:5,4}
@@ -13,6 +13,8 @@
 //CHECK: [[ANN8:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:2}
 //CHECK: [[ANN9:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:foo:depth}
 //CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:bar:width}
+//CHECK: [[ANN11:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{optimize_fmax:1}
+//CHECK: [[ANN12:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{optimize_ram_usage:1}
 //CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:1}{bankwidth:4}{numbanks:8}{numreadports:2}{numwriteports:3}{bank_bits:2,3,4}{merge:merge_foo_one:depth}
 //CHECK: [[ANN1A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numbanks:8}{bank_bits:4,3,2}
 
@@ -48,6 +50,10 @@ void foo_two() {
   int __attribute__((merge("foo","depth"))) var_twelve;
   //CHECK: llvm.var.annotation{{.*}}var_thirteen{{.*}}[[ANN10]]
   int __attribute__((merge("bar","width"))) var_thirteen;
+  //CHECK: llvm.var.annotation{{.*}}var_forteen{{.*}}[[ANN11]]
+  int __attribute__((optimize_fmax)) var_forteen;
+  //CHECK: llvm.var.annotation{{.*}}var_fifteen{{.*}}[[ANN12]]
+  int __attribute__((optimize_ram_usage)) var_fifteen;
 }
 
 template <int bankwidth, int numbanks, int readports, int writeports,

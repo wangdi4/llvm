@@ -28,37 +28,17 @@
 
 #include <immintrin.h>
 
-#ifndef __INTEL_COMPILER
+#if !defined(__INTEL_COMPILER) && !defined(__INTEL_LLVM_COMPILER)
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__3dNOW__)
 #include <mm3dnow.h>
 #endif
 #endif /* __INTEL_COMPILER */
 
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__BMI__)
-#include <bmiintrin.h>
-#endif
-
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__BMI2__)
-#include <bmi2intrin.h>
-#endif
-
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__LZCNT__)
-#include <lzcntintrin.h>
-#endif
-
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__POPCNT__)
-#include <popcntintrin.h>
-#endif
-
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__RDSEED__)
-#include <rdseedintrin.h>
-#endif
-
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__PRFCHW__)
 #include <prfchwintrin.h>
 #endif
 
-#ifndef __INTEL_COMPILER
+#if !defined(__INTEL_COMPILER) && !defined(__INTEL_LLVM_COMPILER)
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__SSE4A__)
 #include <ammintrin.h>
 #endif
@@ -78,32 +58,14 @@
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__LWP__)
 #include <lwpintrin.h>
 #endif
-#endif /* __INTEL_COMPILER */
 
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__F16C__)
 #include <f16cintrin.h>
 #endif
 
-#ifndef __INTEL_COMPILER
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__MWAITX__)
 #include <mwaitxintrin.h>
 #endif
 #endif /* __INTEL_COMPILER */
-
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__CLZERO__)
-#include <clzerointrin.h>
-#endif
-
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__WBNOINVD__)
-#include <wbnoinvdintrin.h>
-#endif
-
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__CLDEMOTE__)
-#include <cldemoteintrin.h>
-#endif
-
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__WAITPKG__)
-#include <waitpkgintrin.h>
-#endif
 
 #endif /* __X86INTRIN_H */

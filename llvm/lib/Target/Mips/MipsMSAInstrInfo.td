@@ -181,8 +181,28 @@ def vsplati16 : PatFrag<(ops node:$e0),
 def vsplati32 : PatFrag<(ops node:$e0),
                         (v4i32 (build_vector node:$e0, node:$e0,
                                              node:$e0, node:$e0))>;
+
+def vsplati64_imm_eq_1 : PatLeaf<(bitconvert (v4i32 (build_vector))), [{
+  APInt Imm;
+  SDNode *BV = N->getOperand(0).getNode();
+  EVT EltTy = N->getValueType(0).getVectorElementType();
+
+  return selectVSplat(BV, Imm, EltTy.getSizeInBits()) &&
+         Imm.getBitWidth() == EltTy.getSizeInBits() && Imm == 1;
+}]>;
+
 def vsplati64 : PatFrag<(ops node:$e0),
                         (v2i64 (build_vector node:$e0, node:$e0))>;
+
+def vsplati64_splat_d : PatFrag<(ops node:$e0),
+                                (v2i64 (bitconvert
+                                         (v4i32 (and
+                                           (v4i32 (build_vector node:$e0,
+                                                                node:$e0,
+                                                                node:$e0,
+                                                                node:$e0)),
+                                           vsplati64_imm_eq_1))))>;
+
 def vsplatf32 : PatFrag<(ops node:$e0),
                         (v4f32 (build_vector node:$e0, node:$e0,
                                              node:$e0, node:$e0))>;
@@ -196,7 +216,8 @@ def vsplati16_elt : PatFrag<(ops node:$v, node:$i),
 def vsplati32_elt : PatFrag<(ops node:$v, node:$i),
                             (MipsVSHF (vsplati32 node:$i), node:$v, node:$v)>;
 def vsplati64_elt : PatFrag<(ops node:$v, node:$i),
-                            (MipsVSHF (vsplati64 node:$i), node:$v, node:$v)>;
+                            (MipsVSHF (vsplati64_splat_d node:$i),
+                                      node:$v, node:$v)>;
 
 class SplatPatLeaf<Operand opclass, dag frag, code pred = [{}],
                    SDNodeXForm xform = NOOP_SDNodeXForm>
@@ -324,15 +345,6 @@ def vsplat_imm_eq_1 : PatLeaf<(build_vector), [{
   EVT EltTy = N->getValueType(0).getVectorElementType();
 
   return selectVSplat(N, Imm, EltTy.getSizeInBits()) &&
-         Imm.getBitWidth() == EltTy.getSizeInBits() && Imm == 1;
-}]>;
-
-def vsplati64_imm_eq_1 : PatLeaf<(bitconvert (v4i32 (build_vector))), [{
-  APInt Imm;
-  SDNode *BV = N->getOperand(0).getNode();
-  EVT EltTy = N->getValueType(0).getVectorElementType();
-
-  return selectVSplat(BV, Imm, EltTy.getSizeInBits()) &&
          Imm.getBitWidth() == EltTy.getSizeInBits() && Imm == 1;
 }]>;
 
@@ -1778,6 +1790,7 @@ class CFCMSA_DESC {
   string AsmString = "cfcmsa\t$rd, $cs";
   InstrItinClass Itinerary = NoItinerary;
   bit hasSideEffects = 1;
+  bit isMoveReg = 1;
 }
 
 class CLE_S_B_DESC : MSA_3R_DESC_BASE<"cle_s.b", vsetle_v16i8, MSA128BOpnd>;
@@ -1872,6 +1885,7 @@ class CTCMSA_DESC {
   string AsmString = "ctcmsa\t$cd, $rs";
   InstrItinClass Itinerary = NoItinerary;
   bit hasSideEffects = 1;
+  bit isMoveReg = 1;
 }
 
 class DIV_S_B_DESC : MSA_3R_DESC_BASE<"div_s.b", sdiv, MSA128BOpnd>;
@@ -2417,6 +2431,7 @@ class MOVE_V_DESC {
   string AsmString = "move.v\t$wd, $ws";
   list<dag> Pattern = [];
   InstrItinClass Itinerary = NoItinerary;
+  bit isMoveReg = 1;
 }
 
 class MSUB_Q_H_DESC : MSA_3RF_4RF_DESC_BASE<"msub_q.h", int_mips_msub_q_h,

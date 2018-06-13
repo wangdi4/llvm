@@ -97,6 +97,8 @@ class OpenMPCodeOutliner {
   void emitOMPPrivateClause(const OMPPrivateClause *Cl);
   void emitOMPLastprivateClause(const OMPLastprivateClause *Cl);
   void emitOMPLinearClause(const OMPLinearClause *Cl);
+  template <typename RedClause>
+  void emitOMPReductionClauseCommon(const RedClause *Cl, StringRef QualName);
   void emitOMPReductionClause(const OMPReductionClause *Cl);
   void emitOMPOrderedClause(const OMPOrderedClause *C);
   void emitOMPMapClause(const OMPMapClause *Cl);

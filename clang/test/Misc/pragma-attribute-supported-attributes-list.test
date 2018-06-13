@@ -4,7 +4,7 @@
 
 // if INTEL_CUSTOMIZATION
 // NOTE: The below value is currently Community value +10.
-// CHECK: #pragma clang attribute supports 78 attributes:
+// CHECK: #pragma clang attribute supports 79 attributes:
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: AMDGPUFlatWorkGroupSize (SubjectMatchRule_function)
 // CHECK-NEXT: AMDGPUNumSGPR (SubjectMatchRule_function)
@@ -53,6 +53,7 @@
 // CHECK-NEXT: NoSanitize (SubjectMatchRule_function, SubjectMatchRule_objc_method, SubjectMatchRule_variable_is_global)
 // CHECK-NEXT: NoSanitizeSpecific (SubjectMatchRule_function, SubjectMatchRule_variable_is_global)
 // CHECK-NEXT: NoSplitStack (SubjectMatchRule_function)
+// CHECK-NEXT: NoStackProtector (SubjectMatchRule_function)
 // CHECK-NEXT: NoThrow (SubjectMatchRule_function)
 // CHECK-NEXT: NotTailCalled (SubjectMatchRule_function)
 // if INTEL_CUSTOMIZATION

@@ -8,12 +8,9 @@
 //CHECK: FunctionDecl{{.*}}foo
 void foo()
 {
-  //CHECK: OMPSimdDirective
-  //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}Unroll Enable
-  #pragma unroll
-  #pragma omp simd simdlen(16)
-  for (int i=0;i<32;++i) {}
+  // Clang LoopHint pragmas must attach directly to the loop to work
+  // properly.  When using OpenMP pragmas specify them before the
+  // loop pragmas.
 
   //CHECK: OMPSimdDirective
   //CHECK: AttributedStmt
@@ -24,15 +21,8 @@ void foo()
 
   //CHECK: OMPSimdDirective
   //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDep Enable
+  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLSIntel Enable
   #pragma omp simd simdlen(16)
   #pragma ivdep
-  for (int i=0;i<32;++i) {}
-
-  //CHECK: OMPSimdDirective
-  //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDep Enable
-  #pragma ivdep
-  #pragma omp simd simdlen(16)
   for (int i=0;i<32;++i) {}
 }

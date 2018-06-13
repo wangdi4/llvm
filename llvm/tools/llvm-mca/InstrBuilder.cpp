@@ -16,6 +16,7 @@
 #include "llvm/MC/MCInst.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/WithColor.h"
 
 #define DEBUG_TYPE "llvm-mca"
 
@@ -112,7 +113,7 @@ static void initializeUsedResources(InstrDesc &ID,
     }
   }
 
-  DEBUG({
+  LLVM_DEBUG({
     for (const std::pair<uint64_t, ResourceUsage> &R : ID.Resources)
       dbgs() << "\t\tMask=" << R.first << ", cy=" << R.second.size() << '\n';
     for (const uint64_t R : ID.Buffers)
@@ -258,7 +259,7 @@ static void populateWrites(InstrDesc &ID, const MCInst &MCI,
     }
     Write.FullyUpdatesSuperRegs = FullyUpdatesSuperRegisters;
     Write.IsOptionalDef = false;
-    DEBUG({
+    LLVM_DEBUG({
       dbgs() << "\t\tOpIdx=" << Write.OpIndex << ", Latency=" << Write.Latency
              << ", WriteResourceID=" << Write.SClassOrWriteResourceID << '\n';
     });
@@ -289,10 +290,10 @@ static void populateWrites(InstrDesc &ID, const MCInst &MCI,
 
     Write.IsOptionalDef = false;
     assert(Write.RegisterID != 0 && "Expected a valid phys register!");
-    DEBUG(dbgs() << "\t\tOpIdx=" << Write.OpIndex << ", PhysReg="
-                 << Write.RegisterID << ", Latency=" << Write.Latency
-                 << ", WriteResourceID=" << Write.SClassOrWriteResourceID
-                 << '\n');
+    LLVM_DEBUG(dbgs() << "\t\tOpIdx=" << Write.OpIndex << ", PhysReg="
+                      << Write.RegisterID << ", Latency=" << Write.Latency
+                      << ", WriteResourceID=" << Write.SClassOrWriteResourceID
+                      << '\n');
   }
 
   if (MCDesc.hasOptionalDef()) {
@@ -351,7 +352,7 @@ static void populateReads(InstrDesc &ID, const MCInst &MCI,
     Read.UseIndex = CurrentUse;
     Read.HasReadAdvanceEntries = HasReadAdvanceEntries;
     Read.SchedClassID = SchedClassID;
-    DEBUG(dbgs() << "\t\tOpIdx=" << Read.OpIndex);
+    LLVM_DEBUG(dbgs() << "\t\tOpIdx=" << Read.OpIndex);
   }
 
   for (unsigned CurrentUse = 0; CurrentUse < NumImplicitUses; ++CurrentUse) {
@@ -361,12 +362,12 @@ static void populateReads(InstrDesc &ID, const MCInst &MCI,
     Read.RegisterID = MCDesc.getImplicitUses()[CurrentUse];
     Read.HasReadAdvanceEntries = HasReadAdvanceEntries;
     Read.SchedClassID = SchedClassID;
-    DEBUG(dbgs() << "\t\tOpIdx=" << Read.OpIndex
-                 << ", RegisterID=" << Read.RegisterID << '\n');
+    LLVM_DEBUG(dbgs() << "\t\tOpIdx=" << Read.OpIndex
+                      << ", RegisterID=" << Read.RegisterID << '\n');
   }
 }
 
-void InstrBuilder::createInstrDescImpl(const MCInst &MCI) {
+const InstrDesc &InstrBuilder::createInstrDescImpl(const MCInst &MCI) {
   assert(STI.getSchedModel().hasInstrSchedModel() &&
          "Itineraries are not yet supported!");
 
@@ -376,15 +377,15 @@ void InstrBuilder::createInstrDescImpl(const MCInst &MCI) {
   const MCSchedModel &SM = STI.getSchedModel();
 
   // Then obtain the scheduling class information from the instruction.
-  const MCSchedClassDesc &SCDesc =
-      *SM.getSchedClassDesc(MCDesc.getSchedClass());
+  unsigned SchedClassID = MCDesc.getSchedClass();
+  const MCSchedClassDesc &SCDesc = *SM.getSchedClassDesc(SchedClassID);
 
   // Create a new empty descriptor.
   std::unique_ptr<InstrDesc> ID = llvm::make_unique<InstrDesc>();
 
   if (SCDesc.isVariant()) {
-    errs() << "warning: don't know how to model variant opcodes.\n"
-           << "note: assume 1 micro opcode.\n";
+    WithColor::warning() << "don't know how to model variant opcodes.\n";
+    WithColor::note() << "assume 1 micro opcode.\n";
     ID->NumMicroOps = 1U;
   } else {
     ID->NumMicroOps = SCDesc.NumMicroOps;
@@ -392,15 +393,15 @@ void InstrBuilder::createInstrDescImpl(const MCInst &MCI) {
 
   if (MCDesc.isCall()) {
     // We don't correctly model calls.
-    errs() << "warning: found a call in the input assembly sequence.\n"
-           << "note: call instructions are not correctly modeled. Assume a "
-              "latency of 100cy.\n";
+    WithColor::warning() << "found a call in the input assembly sequence.\n";
+    WithColor::note() << "call instructions are not correctly modeled. "
+                      << "Assume a latency of 100cy.\n";
   }
 
   if (MCDesc.isReturn()) {
-    errs() << "warning: found a return instruction in the input assembly "
-              "sequence.\n"
-           << "note: program counter updates are ignored.\n";
+    WithColor::warning() << "found a return instruction in the input"
+                         << " assembly sequence.\n";
+    WithColor::note() << "program counter updates are ignored.\n";
   }
 
   ID->MayLoad = MCDesc.mayLoad();
@@ -412,21 +413,22 @@ void InstrBuilder::createInstrDescImpl(const MCInst &MCI) {
   populateWrites(*ID, MCI, MCDesc, SCDesc, STI);
   populateReads(*ID, MCI, MCDesc, SCDesc, STI);
 
-  DEBUG(dbgs() << "\t\tMaxLatency=" << ID->MaxLatency << '\n');
-  DEBUG(dbgs() << "\t\tNumMicroOps=" << ID->NumMicroOps << '\n');
+  LLVM_DEBUG(dbgs() << "\t\tMaxLatency=" << ID->MaxLatency << '\n');
+  LLVM_DEBUG(dbgs() << "\t\tNumMicroOps=" << ID->NumMicroOps << '\n');
 
   // Now add the new descriptor.
   Descriptors[Opcode] = std::move(ID);
+  return *Descriptors[Opcode];
 }
 
 const InstrDesc &InstrBuilder::getOrCreateInstrDesc(const MCInst &MCI) {
   if (Descriptors.find_as(MCI.getOpcode()) == Descriptors.end())
-    createInstrDescImpl(MCI);
+    return createInstrDescImpl(MCI);
   return *Descriptors[MCI.getOpcode()];
 }
 
 std::unique_ptr<Instruction>
-InstrBuilder::createInstruction(unsigned Idx, const MCInst &MCI) {
+InstrBuilder::createInstruction(const MCInst &MCI) {
   const InstrDesc &D = getOrCreateInstrDesc(MCI);
   std::unique_ptr<Instruction> NewIS = llvm::make_unique<Instruction>(D);
 

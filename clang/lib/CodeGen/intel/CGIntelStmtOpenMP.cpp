@@ -639,9 +639,14 @@ namespace CGIntelOpenMP {
     CGF.Builder.restoreIP(SavedIP);
     emitListClause();
   }
-  void OpenMPCodeOutliner::emitOMPReductionClause(
-                                      const OMPReductionClause *Cl) {
+
+  template <typename RedClause>
+  void OpenMPCodeOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
+                                                        StringRef QualName) {
     SmallString<64> Op;
+    Op += "QUAL.OMP.";
+    Op += QualName;
+    Op += ".";
     OverloadedOperatorKind OOK =
         Cl->getNameInfo().getName().getCXXOverloadedOperator();
     auto I = Cl->reduction_ops().begin();
@@ -650,28 +655,28 @@ namespace CGIntelOpenMP {
       assert(isa<BinaryOperator>((*I)->IgnoreImpCasts()));
       switch (OOK) {
       case OO_Plus:
-        Op = "QUAL.OMP.REDUCTION.ADD";
+        Op += "ADD";
         break;
       case OO_Minus:
-        Op = "QUAL.OMP.REDUCTION.SUB";
+        Op += "SUB";
         break;
       case OO_Star:
-        Op = "QUAL.OMP.REDUCTION.MUL";
+        Op += "MUL";
         break;
       case OO_Amp:
-        Op = "QUAL.OMP.REDUCTION.BAND";
+        Op += "BAND";
         break;
       case OO_Pipe:
-        Op = "QUAL.OMP.REDUCTION.BOR";
+        Op += "BOR";
         break;
       case OO_Caret:
-        Op = "QUAL.OMP.REDUCTION.BXOR";
+        Op += "BXOR";
         break;
       case OO_AmpAmp:
-        Op = "QUAL.OMP.REDUCTION.AND";
+        Op += "AND";
         break;
       case OO_PipePipe:
-        Op = "QUAL.OMP.REDUCTION.OR";
+        Op += "OR";
         break;
       case OO_New:
       case OO_Delete:
@@ -715,9 +720,9 @@ namespace CGIntelOpenMP {
       case OO_None:
         if (auto II = Cl->getNameInfo().getName().getAsIdentifierInfo()) {
           if (II->isStr("max"))
-            Op = "QUAL.OMP.REDUCTION.MAX";
+            Op += "MAX";
           else if (II->isStr("min"))
-            Op = "QUAL.OMP.REDUCTION.MIN";
+            Op += "MIN";
           QualType ElemType = E->getType();
           if (ElemType->isArrayType())
             ElemType = CGF.CGM.getContext().getBaseElementType(ElemType)
@@ -738,6 +743,21 @@ namespace CGIntelOpenMP {
     }
   }
 
+  void OpenMPCodeOutliner::emitOMPReductionClause(
+                                      const OMPReductionClause *Cl) {
+    emitOMPReductionClauseCommon(Cl, "REDUCTION");
+  }
+
+  void OpenMPCodeOutliner::emitOMPTaskReductionClause(
+      const OMPTaskReductionClause *Cl) {
+    emitOMPReductionClauseCommon(Cl, "REDUCTION");
+  }
+
+  void
+  OpenMPCodeOutliner::emitOMPInReductionClause(const OMPInReductionClause *Cl) {
+    emitOMPReductionClauseCommon(Cl, "INREDUCTION");
+  }
+
   void OpenMPCodeOutliner::emitOMPOrderedClause(const OMPOrderedClause *C) {
     addArg("QUAL.OMP.ORDERED");
     auto SavedIP = CGF.Builder.saveIP();
@@ -745,7 +765,7 @@ namespace CGIntelOpenMP {
     if (auto *E = C->getNumForLoops())
       addArg(CGF.EmitScalarExpr(E));
     else
-      addArg(CGF.Builder.getInt32(1));
+      addArg(CGF.Builder.getInt32(0));
     CGF.Builder.restoreIP(SavedIP);
     emitOpndClause();
   }
@@ -1193,10 +1213,6 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPSeqCstClause(const OMPSeqCstClause *) {}
   void OpenMPCodeOutliner::emitOMPThreadsClause(const OMPThreadsClause *) {}
   void OpenMPCodeOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {}
-  void OpenMPCodeOutliner::emitOMPTaskReductionClause(
-                                              const OMPTaskReductionClause *) {}
-  void OpenMPCodeOutliner::emitOMPInReductionClause(
-                                              const OMPInReductionClause *) {}
 
   OpenMPCodeOutliner::OpenMPCodeOutliner(CodeGenFunction &CGF,
                                          const OMPExecutableDirective &D)

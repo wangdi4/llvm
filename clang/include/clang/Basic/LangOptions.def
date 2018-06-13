@@ -141,6 +141,7 @@ LANGOPT(LineComment       , 1, 0, "'//' comments")
 LANGOPT(Bool              , 1, 0, "bool, true, and false keywords")
 LANGOPT(Half              , 1, 0, "half keyword")
 LANGOPT(WChar             , 1, CPlusPlus, "wchar_t keyword")
+LANGOPT(Char8             , 1, 0, "char8_t keyword")
 LANGOPT(DeclSpecKeyword   , 1, 0, "__declspec keyword")
 BENIGN_LANGOPT(DollarIdents   , 1, 1, "'$' in identifiers")
 BENIGN_LANGOPT(AsmPreprocessor, 1, 0, "preprocessor in asm mode")
@@ -239,6 +240,7 @@ LANGOPT(OpenMPImplicitDeclareTarget , 1, 0, "Enable implicit declare target exte
 #endif // INTEL_CUSTOMIZATION
 LANGOPT(OpenMPIsDevice    , 1, 0, "Generate code only for OpenMP target device")
 LANGOPT(OpenMPCUDAMode    , 1, 0, "Generate code for OpenMP pragmas in SIMT/SPMD mode")
+LANGOPT(OpenMPHostCXXExceptions    , 1, 0, "C++ exceptions handling in the host code.")
 LANGOPT(RenderScript      , 1, 0, "RenderScript")
 
 LANGOPT(CUDAIsDevice      , 1, 0, "compiling for CUDA device")
@@ -269,7 +271,7 @@ BENIGN_LANGOPT(DebuggerObjCLiteral , 1, 0, "debugger Objective-C literals and su
 BENIGN_LANGOPT(SpellChecking , 1, 1, "spell-checking")
 LANGOPT(SinglePrecisionConstants , 1, 0, "treating double-precision floating point constants as single precision constants")
 LANGOPT(FastRelaxedMath , 1, 0, "OpenCL fast relaxed math")
-/// \brief FP_CONTRACT mode (on/off/fast).
+/// FP_CONTRACT mode (on/off/fast).
 ENUM_LANGOPT(DefaultFPContractMode, FPContractModeKind, 2, FPC_Off, "FP contraction type")
 LANGOPT(NoBitFieldTypeAlign , 1, 0, "bit-field type alignment")
 LANGOPT(HexagonQdsp6Compat , 1, 0, "hexagon-qdsp6 backward compatibility")

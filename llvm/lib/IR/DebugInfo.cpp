@@ -568,7 +568,7 @@ void DebugTypeInfoRemoval::traverse(MDNode *N) {
   // parts of the graph.
   auto prune = [](MDNode *Parent, MDNode *Child) {
     if (auto *MDS = dyn_cast<DISubprogram>(Parent))
-      return Child == MDS->getVariables().get();
+      return Child == MDS->getRetainedNodes().get();
     return false;
   };
 
@@ -719,6 +719,10 @@ template <typename DIT> DIT *unwrapDI(LLVMMetadataRef Ref) {
 
 static DINode::DIFlags map_from_llvmDIFlags(LLVMDIFlags Flags) {
   return static_cast<DINode::DIFlags>(Flags);
+}
+
+static LLVMDIFlags map_to_llvmDIFlags(DINode::DIFlags Flags) {
+  return static_cast<LLVMDIFlags>(Flags);
 }
 
 unsigned LLVMDebugMetadataVersion() {
@@ -885,6 +889,18 @@ LLVMDIBuilderCreateDebugLocation(LLVMContextRef Ctx, unsigned Line,
                               unwrap(InlinedAt)));
 }
 
+unsigned LLVMDILocationGetLine(LLVMMetadataRef Location) {
+  return unwrapDI<DILocation>(Location)->getLine();
+}
+
+unsigned LLVMDILocationGetColumn(LLVMMetadataRef Location) {
+  return unwrapDI<DILocation>(Location)->getColumn();
+}
+
+LLVMMetadataRef LLVMDILocationGetScope(LLVMMetadataRef Location) {
+  return wrap(unwrapDI<DILocation>(Location)->getScope());
+}
+
 LLVMMetadataRef LLVMDIBuilderCreateEnumerationType(
   LLVMDIBuilderRef Builder, LLVMMetadataRef Scope, const char *Name,
   size_t NameLen, LLVMMetadataRef File, unsigned LineNumber,
@@ -997,9 +1013,58 @@ LLVMDIBuilderCreateStaticMemberType(
 }
 
 LLVMMetadataRef
+LLVMDIBuilderCreateObjCIVar(LLVMDIBuilderRef Builder,
+                            const char *Name, size_t NameLen,
+                            LLVMMetadataRef File, unsigned LineNo,
+                            uint64_t SizeInBits, uint32_t AlignInBits,
+                            uint64_t OffsetInBits, LLVMDIFlags Flags,
+                            LLVMMetadataRef Ty, LLVMMetadataRef PropertyNode) {
+  return wrap(unwrap(Builder)->createObjCIVar(
+                  {Name, NameLen}, unwrapDI<DIFile>(File), LineNo,
+                  SizeInBits, AlignInBits, OffsetInBits,
+                  map_from_llvmDIFlags(Flags), unwrapDI<DIType>(Ty),
+                  unwrapDI<MDNode>(PropertyNode)));
+}
+
+LLVMMetadataRef
+LLVMDIBuilderCreateObjCProperty(LLVMDIBuilderRef Builder,
+                                const char *Name, size_t NameLen,
+                                LLVMMetadataRef File, unsigned LineNo,
+                                const char *GetterName, size_t GetterNameLen,
+                                const char *SetterName, size_t SetterNameLen,
+                                unsigned PropertyAttributes,
+                                LLVMMetadataRef Ty) {
+  return wrap(unwrap(Builder)->createObjCProperty(
+                  {Name, NameLen}, unwrapDI<DIFile>(File), LineNo,
+                  {GetterName, GetterNameLen}, {SetterName, SetterNameLen},
+                  PropertyAttributes, unwrapDI<DIType>(Ty)));
+}
+
+LLVMMetadataRef
 LLVMDIBuilderCreateObjectPointerType(LLVMDIBuilderRef Builder,
                                      LLVMMetadataRef Type) {
   return wrap(unwrap(Builder)->createObjectPointerType(unwrapDI<DIType>(Type)));
+}
+
+LLVMMetadataRef
+LLVMDIBuilderCreateTypedef(LLVMDIBuilderRef Builder, LLVMMetadataRef Type,
+                           const char *Name, size_t NameLen,
+                           LLVMMetadataRef File, unsigned LineNo,
+                           LLVMMetadataRef Scope) {
+  return wrap(unwrap(Builder)->createTypedef(
+                  unwrapDI<DIType>(Type), {Name, NameLen},
+                  unwrapDI<DIFile>(File), LineNo,
+                  unwrapDI<DIScope>(Scope)));
+}
+
+LLVMMetadataRef
+LLVMDIBuilderCreateInheritance(LLVMDIBuilderRef Builder,
+                               LLVMMetadataRef Ty, LLVMMetadataRef BaseTy,
+                               uint64_t BaseOffset, uint32_t VBPtrOffset,
+                               LLVMDIFlags Flags) {
+  return wrap(unwrap(Builder)->createInheritance(
+                  unwrapDI<DIType>(Ty), unwrapDI<DIType>(BaseTy),
+                  BaseOffset, VBPtrOffset, map_from_llvmDIFlags(Flags)));
 }
 
 LLVMMetadataRef
@@ -1102,6 +1167,32 @@ LLVMDIBuilderCreateArtificialType(LLVMDIBuilderRef Builder,
   return wrap(unwrap(Builder)->createArtificialType(unwrapDI<DIType>(Type)));
 }
 
+const char *LLVMDITypeGetName(LLVMMetadataRef DType, size_t *Length) {
+  StringRef Str = unwrap<DIType>(DType)->getName();
+  *Length = Str.size();
+  return Str.data();
+}
+
+uint64_t LLVMDITypeGetSizeInBits(LLVMMetadataRef DType) {
+  return unwrapDI<DIType>(DType)->getSizeInBits();
+}
+
+uint64_t LLVMDITypeGetOffsetInBits(LLVMMetadataRef DType) {
+  return unwrapDI<DIType>(DType)->getOffsetInBits();
+}
+
+uint32_t LLVMDITypeGetAlignInBits(LLVMMetadataRef DType) {
+  return unwrapDI<DIType>(DType)->getAlignInBits();
+}
+
+unsigned LLVMDITypeGetLine(LLVMMetadataRef DType) {
+  return unwrapDI<DIType>(DType)->getLine();
+}
+
+LLVMDIFlags LLVMDITypeGetFlags(LLVMMetadataRef DType) {
+  return map_to_llvmDIFlags(unwrapDI<DIType>(DType)->getFlags());
+}
+
 LLVMMetadataRef LLVMDIBuilderGetOrCreateTypeArray(LLVMDIBuilderRef Builder,
                                                   LLVMMetadataRef *Types,
                                                   size_t Length) {
@@ -1150,6 +1241,23 @@ LLVMDIBuilderCreateGlobalVariableExpression(LLVMDIBuilderRef Builder,
                   unwrapDI<DIFile>(File), LineNo, unwrapDI<DIType>(Ty),
                   LocalToUnit, unwrap<DIExpression>(Expr),
                   unwrapDI<MDNode>(Decl), AlignInBits));
+}
+
+LLVMMetadataRef LLVMTemporaryMDNode(LLVMContextRef Ctx, LLVMMetadataRef *Data,
+                                    size_t Count) {
+  return wrap(
+      MDTuple::getTemporary(*unwrap(Ctx), {unwrap(Data), Count}).release());
+}
+
+void LLVMDisposeTemporaryMDNode(LLVMMetadataRef TempNode) {
+  MDNode::deleteTemporary(unwrapDI<MDNode>(TempNode));
+}
+
+void LLVMMetadataReplaceAllUsesWith(LLVMMetadataRef TargetMetadata,
+                                    LLVMMetadataRef Replacement) {
+  auto *Node = unwrapDI<MDNode>(TargetMetadata);
+  Node->replaceAllUsesWith(unwrap<Metadata>(Replacement));
+  MDNode::deleteTemporary(Node);
 }
 
 LLVMMetadataRef
