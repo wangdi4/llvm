@@ -371,11 +371,11 @@ private:
   std::map<Function *, AllocStatus> LocalMap;
   // A set to hold visited BasicBlocks.  This is a temporary set used
   // while we are determining the AllocStatus of a Function.
-  std::set<BasicBlock *> VisitedBlocks;
+  SmallPtrSet<BasicBlock *,20> VisitedBlocks;
   // A set to hold the BasicBlocks which do not need to be post-dominated
   // by malloc() to be considered isMallocPostDom() or free to be considered
   // isFreePostDom().
-  std::set<BasicBlock *> SkipTestBlocks;
+  SmallPtrSet<BasicBlock *, 4> SkipTestBlocks;
   // Needed to detrmine if a function is malloc()
   const TargetLibraryInfo &TLI;
 
@@ -537,13 +537,11 @@ void DTransAllocAnalyzer::visitAndSetSkipTestSuccessors(BasicBlock *BB) {
 void DTransAllocAnalyzer::visitAndResetSkipTestSuccessors(BasicBlock *BB) {
   if (BB == nullptr)
     return;
-  auto it = VisitedBlocks.find(BB);
-  if (it != VisitedBlocks.end())
+  if (!VisitedBlocks.insert(BB).second)
     return;
-  VisitedBlocks.insert(BB);
-  it = SkipTestBlocks.find(BB);
-  if (it != SkipTestBlocks.end())
-    SkipTestBlocks.erase(it);
+  auto jt = SkipTestBlocks.find(BB);
+  if (jt != SkipTestBlocks.end())
+    SkipTestBlocks.erase(*jt);
   for (auto BBS : successors(BB))
     visitAndResetSkipTestSuccessors(BBS);
 }
@@ -555,8 +553,8 @@ void DTransAllocAnalyzer::visitAndResetSkipTestSuccessors(BasicBlock *BB) {
 // skip test block.
 //
 void DTransAllocAnalyzer::visitNullPtrBlocks(Function *F) {
-  std::set<BasicBlock *> SkipBlockSet;
-  std::set<BasicBlock *> NoSkipBlockSet;
+  SmallPtrSet<BasicBlock *, 4> SkipBlockSet;
+  SmallPtrSet<BasicBlock *, 20> NoSkipBlockSet;
   SkipTestBlocks.clear();
   VisitedBlocks.clear();
   for (BasicBlock &BB : *F)
@@ -568,11 +566,10 @@ void DTransAllocAnalyzer::visitNullPtrBlocks(Function *F) {
         NoSkipBlockSet.insert(BI->getSuccessor(1 - rv));
       }
     }
-  std::set<BasicBlock *>::const_iterator it, ie;
-  for (it = SkipBlockSet.begin(), ie = SkipBlockSet.end(); it != ie; ++it)
-    visitAndSetSkipTestSuccessors(*it);
-  for (it = NoSkipBlockSet.begin(), ie = NoSkipBlockSet.end(); it != ie; ++it)
-    visitAndResetSkipTestSuccessors(*it);
+  for (auto *SBB: SkipBlockSet)
+    visitAndSetSkipTestSuccessors(SBB);
+  for (auto *NSBB: NoSkipBlockSet)
+    visitAndResetSkipTestSuccessors(NSBB);
 }
 
 //
@@ -1687,7 +1684,7 @@ public:
   // See typesMayBeCRuleCompatible() immediately below for explanation of
   // this function.
   static bool typesMayBeCRuleCompatibleX(llvm::Type *T1, llvm::Type *T2,
-                                         SmallPtrSet<llvm::Type *, 4> *Tstack) {
+                                         SmallPtrSetImpl<llvm::Type *> &Tstack) {
 
     // Enum indicating that on the particular predicate being compared for
     // T1 and T2, the types have the opposite value of the predicate
@@ -1754,12 +1751,12 @@ public:
       if (S == TME_YES) {
         if (T3->getStructNumElements() != T4->getStructNumElements())
           return false;
-        if (Tstack->find(T3) != Tstack->end())
+        if (Tstack.find(T3) != Tstack.end())
           return true;
-        if (Tstack->find(T4) != Tstack->end())
+        if (Tstack.find(T4) != Tstack.end())
           return true;
-        Tstack->insert(T3);
-        Tstack->insert(T4);
+        Tstack.insert(T3);
+        Tstack.insert(T4);
       }
       return typesMayBeCRuleCompatibleX(T1->getPointerElementType(),
                                         T2->getPointerElementType(), Tstack);
@@ -1812,7 +1809,7 @@ public:
   //       not doing it now because there is no immediate need.
   static bool typesMayBeCRuleCompatible(llvm::Type *T1, llvm::Type *T2) {
     SmallPtrSet<llvm::Type *, 4> Tstack;
-    return typesMayBeCRuleCompatibleX(T1, T2, &Tstack);
+    return typesMayBeCRuleCompatibleX(T1, T2, Tstack);
   }
 
   // Return true if the Type T may have a distinct compatible Type by
