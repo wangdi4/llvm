@@ -77,8 +77,7 @@ private:
   TypeToTypeMap OrigToNewTypeMapping;
 
   // A mapping from original types to a vector which can be used to lookup
-  // Pointer the replacement index based on the original index. A replacement
-  // index
+  // the replacement index based on the original index. A replacement index
   // value of FIELD_DELETED indicates that the field was deleted.
   DenseMap<llvm::Type *, SmallVector<uint64_t, 16>> FieldIdxMap;
 
@@ -242,6 +241,7 @@ void DeleteFieldImpl::processFunction(Function &F) {
 
   std::function<void(Value *)> deleteStoreAndCastUses =
       [&deleteStoreAndCastUses](Value *V) {
+        SmallPtrSet<Instruction *, 4> InstsToDelete;
         for (auto *U : V->users()) {
           assert((isa<CastInst>(U) || isa<StoreInst>(U)) &&
                  "Unexpected use of deleted field!");
@@ -250,9 +250,17 @@ void DeleteFieldImpl::processFunction(Function &F) {
           // casts or stores) then delete the cast instruction.
           if (isa<CastInst>(U))
             deleteStoreAndCastUses(U);
+          // Since this pointer is an iterator, we can't erase it here.
+          InstsToDelete.insert(cast<Instruction>(U));
+        }
+        // The instructions we're deleting won't ever share users so
+        // there's no reason to gather instructions to delete from the
+        // recursive calls. We can delete each level's instructions as
+        // we unwind.
+        for (auto *I : InstsToDelete) {
           LLVM_DEBUG(dbgs() << "Delete field: erasing GEP user:\n"
-                            << *U << "\n");
-          cast<Instruction>(U)->eraseFromParent();
+                            << *I << "\n");
+          I->eraseFromParent();
         }
       };
 
