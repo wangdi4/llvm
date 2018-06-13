@@ -20,10 +20,12 @@ set(LLVM_LINK_COMPONENTS
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml
-  Intel_VPOAnalysis
-  Intel_VPOTransforms
   Intel_OptReport
 # end INTEL_CUSTOMIZATION
+# INTEL_COLLAB
+  Intel_VPOAnalysis
+  Intel_VPOTransforms
+# end INTEL_COLLAB
   )
 
 # Support plugins.

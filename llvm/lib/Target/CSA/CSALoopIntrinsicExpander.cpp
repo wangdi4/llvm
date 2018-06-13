@@ -225,7 +225,8 @@ void CSALoopIntrinsicExpander::recurseLoops(Loop *L, BasicBlock *dummy_exit) {
   // an issue if LoopSimplify is run before this pass, but this is a check just
   // to make sure.
   if (not L->isLoopSimplifyForm()) {
-    DEBUG(errs() << "NON-LOOPSIMPLIFIED LOOP FOUND!\nDid LoopSimplify run?\n");
+    LLVM_DEBUG(errs() <<
+               "NON-LOOPSIMPLIFIED LOOP FOUND!\nDid LoopSimplify run?\n");
     return;
   }
 
@@ -339,17 +340,17 @@ bool CSALoopIntrinsicExpander::expandLoop(Loop *L, IntrinsicInst *intr,
     // It should also contain any blocks with possible memory operations.
     for (auto block_it = L->block_begin(); block_it != L->block_end();
          ++block_it) {
-      DEBUG(errs() << "Looking at " << (*block_it)->getName() << "\n");
+      LLVM_DEBUG(errs() << "Looking at " << (*block_it)->getName() << "\n");
 
       // Skip any blocks that are already in the section.
       if (isAlreadyInSection(*block_it)) {
-        DEBUG(errs() << " already in section\n");
+        LLVM_DEBUG(errs() << " already in section\n");
         continue;
       }
 
       for (const Instruction &instr : **block_it) {
         if (mayNeedOrdering(&instr)) {
-          DEBUG(errs() << " has memory operation:" << instr << "\n");
+          LLVM_DEBUG(errs() << " has memory operation:" << instr << "\n");
           if (not makeSectionInclude(*block_it))
             return false;
           break;
@@ -524,12 +525,12 @@ Re-run with -g to see more location information.
 
 bool CSALoopIntrinsicExpander::makeSectionInclude(BasicBlock *BB) {
 
-  DEBUG(errs() << "Trying to add " << BB->getName() << "...\n");
+  LLVM_DEBUG(errs() << "Trying to add " << BB->getName() << "...\n");
 
   // If there is no existing section, start a new one with just this block.
   if (not cur_section_begin or not cur_section_end) {
     cur_section_begin = cur_section_end = BB;
-    DEBUG(errs() << "Section started at " << BB->getName() << "\n");
+    LLVM_DEBUG(errs() << "Section started at " << BB->getName() << "\n");
     return true;
   }
 
@@ -541,8 +542,8 @@ bool CSALoopIntrinsicExpander::makeSectionInclude(BasicBlock *BB) {
   if (not cur_section_end or not cur_loop->contains(cur_section_end))
     return false;
 
-  DEBUG(errs() << "Section extended from " << cur_section_begin->getName()
-               << " to " << cur_section_end->getName() << "\n");
+  LLVM_DEBUG(errs() << "Section extended from " << cur_section_begin->getName()
+             << " to " << cur_section_end->getName() << "\n");
 
   return true;
 }

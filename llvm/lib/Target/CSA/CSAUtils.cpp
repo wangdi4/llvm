@@ -57,7 +57,7 @@ bool csa_utils::isAlwaysDataFlowLinkageSet(void) {
 }
 
 static MachineInstr *getPriorFormedInst(MachineInstr *currMI, MachineBasicBlock *mbb) {
-  DEBUG(errs() << "currMI = " << *currMI << "\n");
+  LLVM_DEBUG(errs() << "currMI = " << *currMI << "\n");
   for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); I++) {
     MachineInstr *MI = &*I;
     if (MI == currMI) continue;
@@ -67,11 +67,21 @@ static MachineInstr *getPriorFormedInst(MachineInstr *currMI, MachineBasicBlock 
     for (unsigned i = 0; i < MI->getNumOperands(); ++i) {
       MachineOperand &op = MI->getOperand(i);
       MachineOperand &curr_op = currMI->getOperand(i);
-      if (!op.isReg() || !curr_op.isReg()) { DEBUG(errs() << "op #" << i << " is not reg\n"); continue; }
+      if (!op.isReg() || !curr_op.isReg()) {
+        LLVM_DEBUG(errs() << "op #" << i << " is not reg\n");
+        continue;
+      }
       if (op.isDef()) continue;
-      if (op.getReg() != curr_op.getReg()) { DEBUG(errs() << "op #" << i << " is different\n"); allOpsSame = false; break; }
+      if (op.getReg() != curr_op.getReg()) {
+        LLVM_DEBUG(errs() << "op #" << i << " is different\n");
+        allOpsSame = false;
+        break;
+      }
     }
-    if (allOpsSame) { DEBUG(errs() << "Match found with MI = " << *MI << "\n"); return MI; }
+    if (allOpsSame) {
+      LLVM_DEBUG(errs() << "Match found with MI = " << *MI << "\n");
+      return MI;
+    }
   }
   return currMI;
 }
@@ -123,11 +133,11 @@ unsigned csa_utils::createUseTree(MachineBasicBlock *mbb, MachineBasicBlock::ite
     next.addReg(unusedReg);
   if (opcode == CSA::ANY0) next.addImm(0); //default mode for any0
   MachineInstr *nextMI = &*next;
-  DEBUG(errs() << "Use Tree Instruction = " << *nextMI << "\n");
+  LLVM_DEBUG(errs() << "Use Tree Instruction = " << *nextMI << "\n");
   MachineInstr *newNextMI = getPriorFormedInst(nextMI,mbb);
   if (nextMI == newNextMI) {
     // swap and try
-    DEBUG(errs() << "swap and try\n");
+    LLVM_DEBUG(errs() << "swap and try\n");
     unsigned temp = nextMI->getOperand(1).getReg(); 
     nextMI->getOperand(1).setReg(nextMI->getOperand(2).getReg());
     nextMI->getOperand(2).setReg(temp);
@@ -168,12 +178,12 @@ unsigned csa_utils::createPickTree(MachineBasicBlock *mbb, MachineBasicBlock::it
         .addReg(unusedReg)
         .addImm(0);
     anyInst->setFlag(MachineInstr::NonSequential);
-    DEBUG(errs() << "anyInst = " << *anyInst << "\n");
+    LLVM_DEBUG(errs() << "anyInst = " << *anyInst << "\n");
     MachineInstr *newAnyInst = getPriorFormedInst(anyInst,mbb);
     unsigned val0 = vals[0]; unsigned val1 = vals[1];
     if (anyInst == newAnyInst) {
       // swap and try
-      DEBUG(errs() << "swap and try\n");
+      LLVM_DEBUG(errs() << "swap and try\n");
       unsigned temp = val0; val0 = val1; val1 = temp;
       temp = anyInst->getOperand(1).getReg(); 
       anyInst->getOperand(1).setReg(anyInst->getOperand(2).getReg());
@@ -187,7 +197,7 @@ unsigned csa_utils::createPickTree(MachineBasicBlock *mbb, MachineBasicBlock::it
         .addReg(val0)
         .addReg(val1);
     pickInst->setFlag(MachineInstr::NonSequential);
-    DEBUG(errs() << "pickInst = " << *pickInst << "\n");
+    LLVM_DEBUG(errs() << "pickInst = " << *pickInst << "\n");
     return pickedVal;
   }
   
@@ -228,13 +238,14 @@ void csa_utils::createSwitchTree(MachineBasicBlock *mbb, MachineBasicBlock::iter
   
   unsigned n = select_signals.size();
   assert(n && "Can't combine 0 values");
-  DEBUG(errs() << "outvals_input_index = " << outvals_input_index << "\n");
+  LLVM_DEBUG(errs() <<
+             "outvals_input_index = " << outvals_input_index << "\n");
   if (n == 1) {
     MachineInstr *MI = BuildMI(*mbb, before, before->getDebugLoc(), TII->get(TII->getMoveOpcode(TRC)))
                                     .addReg(outvals[outvals_input_index],RegState::Define)
                                     .addReg(inval)
                                     .setMIFlag(MachineInstr::NonSequential);
-    DEBUG(errs() << "final switch mov MI = " << *MI << "\n");
+    LLVM_DEBUG(errs() << "final switch mov MI = " << *MI << "\n");
     (void) MI;
     return;
   }
@@ -264,7 +275,7 @@ void csa_utils::createSwitchTree(MachineBasicBlock *mbb, MachineBasicBlock::iter
       .addReg(unusedReg)
       .addImm(0);
   anyInst->setFlag(MachineInstr::NonSequential);
-  DEBUG(errs() << "anyInst = " << *anyInst << "\n");
+  LLVM_DEBUG(errs() << "anyInst = " << *anyInst << "\n");
   MachineInstr *newAnyInst = getPriorFormedInst(anyInst,mbb);
   bool swapped = false;
   if (anyInst == newAnyInst) {
@@ -285,7 +296,7 @@ void csa_utils::createSwitchTree(MachineBasicBlock *mbb, MachineBasicBlock::iter
       .addReg(inval);
   
   switchInst->setFlag(MachineInstr::NonSequential);
-  DEBUG(errs() << "switchInst = " << *switchInst << "\n");
+  LLVM_DEBUG(errs() << "switchInst = " << *switchInst << "\n");
   if (swapped) {
     createSwitchTree(mbb,before,TRC,select_signals_second_half,outvals,outval0,outvals_second_index,unusedReg);
     createSwitchTree(mbb,before,TRC,select_signals_first_half,outvals,outval1,outvals_first_index,unusedReg);

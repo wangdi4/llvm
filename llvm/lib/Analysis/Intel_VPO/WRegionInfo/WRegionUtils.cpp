@@ -191,7 +191,7 @@ void WRegionUtils::updateWRGraphFromHIR (
     // Otherwise, the W returned is a nullptr.
     W = WRegionUtils::createWRegionHIR(DirID, H, S.size());
     if (W) {
-      // DEBUG(dbgs() << "\n Starting New WRegion from HIR{\n");
+      // LLVM_DEBUG(dbgs() << "\n Starting New WRegion from HIR{\n");
       if (S.empty()) {
         WRGraph->push_back(W);
       }
@@ -203,7 +203,7 @@ void WRegionUtils::updateWRGraphFromHIR (
       S.push(W);
     }
     else if (VPOAnalysisUtils::isEndDirective(DirID)) {
-      // DEBUG(dbgs() << "\n} Ending WRegion.\n");
+      // LLVM_DEBUG(dbgs() << "\n} Ending WRegion.\n");
       if (!S.empty()) {
         W = S.top();
         if(WRNVecLoopNode *V = dyn_cast<WRNVecLoopNode>(W)) {
@@ -567,7 +567,8 @@ bool WRegionUtils::findUsersInRegion(WRegionNode *W, Value *V,
       if (ExcludeDirective && VPOAnalysisUtils::isIntelDirectiveOrClause(I))
         continue;
       if (W->contains(I->getParent())) {
-        // DEBUG(dbgs() << "findUsersInRegion ("<< *V <<") in ("<< *I <<")\n");
+        // LLVM_DEBUG(dbgs() << "findUsersInRegion ("<< *V <<") in ("<< *I
+        // <<")\n");
         if (Users == nullptr)
           return true; // no need to find more users
         Found = true;
@@ -575,7 +576,7 @@ bool WRegionUtils::findUsersInRegion(WRegionNode *W, Value *V,
       }
     }
     else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
-      // DEBUG(dbgs() << "  ConstantExpr: " << *CE << "\n");
+      // LLVM_DEBUG(dbgs() << "  ConstantExpr: " << *CE << "\n");
       //
       // The user may not be an Instruction, but a ConstantExpr used directly
       // in an instruction. Example (IR from ompoC/priv9a-4.c): the user of @u
@@ -593,7 +594,8 @@ bool WRegionUtils::findUsersInRegion(WRegionNode *W, Value *V,
       }
     }
     // else
-    //  DEBUG(dbgs() << "Not an Instruction or ConstantExpr:" << *U << "\n");
+    //  LLVM_DEBUG(dbgs() << "Not an Instruction or ConstantExpr:" << *U <<
+    //  "\n");
   }
   return Found;
 }

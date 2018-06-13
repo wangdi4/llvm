@@ -28,6 +28,7 @@ class Function;
 // on the call graph.
 class CallGraphReport {
 public:
+  virtual ~CallGraphReport() {};
   virtual void replaceFunctionWithFunction(Function *OldFunction,
                                            Function *NewFunction) = 0;
 };

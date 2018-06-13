@@ -68,9 +68,9 @@ void CSAFrameLowering::emitPrologue(MachineFunction &MF,
   //// This seems like a fix???
   ////  StackSize += CallFrameSize;
 
-  DEBUG(errs() << "Stack info:\n"
-               << "StackSize  : " << StackSize << "\n"
-               << "CallFrameSize : " << CallFrameSize << "\n");
+  LLVM_DEBUG(errs() << "Stack info:\n"
+             << "StackSize  : " << StackSize << "\n"
+             << "CallFrameSize : " << CallFrameSize << "\n");
 
   if (StackSize == 0)
     return;
@@ -89,7 +89,7 @@ void CSAFrameLowering::emitPrologue(MachineFunction &MF,
     // store64  stack_loc($sp), $ra
     int RAOffset = MFI.getObjectOffset(LMFI->getRAFrameIndex()) + CallFrameSize;
     assert(RAOffset % 8 == 0 && "RA offset not multiple of 8");
-    DEBUG(errs() << "RAOffset : " << RAOffset << "\n");
+    LLVM_DEBUG(errs() << "RAOffset : " << RAOffset << "\n");
 
     if (RAOffset >= (int)StackSize) {
       assert(RAOffset < (int)StackSize && "Bad RA offset");
@@ -113,10 +113,10 @@ void CSAFrameLowering::emitPrologue(MachineFunction &MF,
 
     assert(FPOffset % 8 == 0 && "FP offset not multiple of 8");
     if (FPOffset >= (int)StackSize) {
-      DEBUG(errs() << "Stack FPOffset bug!\n"
-                   << "FPOffset : " << FPOffset << "\n"
-                   << "StackSize  : " << StackSize << "\n"
-                   << "CallFrameSize : " << CallFrameSize << "\n");
+      LLVM_DEBUG(errs() << "Stack FPOffset bug!\n"
+                 << "FPOffset : " << FPOffset << "\n"
+                 << "StackSize  : " << StackSize << "\n"
+                 << "CallFrameSize : " << CallFrameSize << "\n");
       assert(FPOffset < (int)StackSize && "Bad FP offset");
     }
 

@@ -285,7 +285,7 @@ static bool isOptimizingForSize(PassBuilder::OptimizationLevel Level) {
 
 namespace {
 
-/// \brief No-op module pass which does nothing.
+/// No-op module pass which does nothing.
 struct NoOpModulePass {
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &) {
     return PreservedAnalyses::all();
@@ -293,7 +293,7 @@ struct NoOpModulePass {
   static StringRef name() { return "NoOpModulePass"; }
 };
 
-/// \brief No-op module analysis.
+/// No-op module analysis.
 class NoOpModuleAnalysis : public AnalysisInfoMixin<NoOpModuleAnalysis> {
   friend AnalysisInfoMixin<NoOpModuleAnalysis>;
   static AnalysisKey Key;
@@ -304,7 +304,7 @@ public:
   static StringRef name() { return "NoOpModuleAnalysis"; }
 };
 
-/// \brief No-op CGSCC pass which does nothing.
+/// No-op CGSCC pass which does nothing.
 struct NoOpCGSCCPass {
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &,
                         LazyCallGraph &, CGSCCUpdateResult &UR) {
@@ -313,7 +313,7 @@ struct NoOpCGSCCPass {
   static StringRef name() { return "NoOpCGSCCPass"; }
 };
 
-/// \brief No-op CGSCC analysis.
+/// No-op CGSCC analysis.
 class NoOpCGSCCAnalysis : public AnalysisInfoMixin<NoOpCGSCCAnalysis> {
   friend AnalysisInfoMixin<NoOpCGSCCAnalysis>;
   static AnalysisKey Key;
@@ -326,7 +326,7 @@ public:
   static StringRef name() { return "NoOpCGSCCAnalysis"; }
 };
 
-/// \brief No-op function pass which does nothing.
+/// No-op function pass which does nothing.
 struct NoOpFunctionPass {
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &) {
     return PreservedAnalyses::all();
@@ -334,7 +334,7 @@ struct NoOpFunctionPass {
   static StringRef name() { return "NoOpFunctionPass"; }
 };
 
-/// \brief No-op function analysis.
+/// No-op function analysis.
 class NoOpFunctionAnalysis : public AnalysisInfoMixin<NoOpFunctionAnalysis> {
   friend AnalysisInfoMixin<NoOpFunctionAnalysis>;
   static AnalysisKey Key;
@@ -345,7 +345,7 @@ public:
   static StringRef name() { return "NoOpFunctionAnalysis"; }
 };
 
-/// \brief No-op loop pass which does nothing.
+/// No-op loop pass which does nothing.
 struct NoOpLoopPass {
   PreservedAnalyses run(Loop &L, LoopAnalysisManager &,
                         LoopStandardAnalysisResults &, LPMUpdater &) {
@@ -354,7 +354,7 @@ struct NoOpLoopPass {
   static StringRef name() { return "NoOpLoopPass"; }
 };
 
-/// \brief No-op loop analysis.
+/// No-op loop analysis.
 class NoOpLoopAnalysis : public AnalysisInfoMixin<NoOpLoopAnalysis> {
   friend AnalysisInfoMixin<NoOpLoopAnalysis>;
   static AnalysisKey Key;
@@ -1147,9 +1147,20 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (EnableAndersen) {
     MPM.addPass(RequireAnalysisPass<AndersensAA, Module>());
   }
-  // Indirect to direct call convertion.
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans) {
+    MPM.addPass(RequireAnalysisPass<DTransAnalysis, Module>());
+  }
+#endif // INTEL_INCLUDE_DTRANS
+  // Indirect to direct call conversion.
   if (EnableIndirectCallConv)
-    MPM.addPass(createModuleToFunctionPassAdaptor(IndirectCallConvPass()));
+#if INTEL_INCLUDE_DTRANS
+    MPM.addPass(createModuleToFunctionPassAdaptor(
+        IndirectCallConvPass(EnableAndersen, EnableDTrans)));
+#else
+    MPM.addPass(createModuleToFunctionPassAdaptor(
+        IndirectCallConvPass(EnableAndersen, false)));
+#endif // INTEL_INCLUDE_DTRANS
   // Require the InlineAggAnalysis for the module so we can query it within
   // the inliner and AggInlAAPass.
   if (EnableInlineAggAnalysis) {

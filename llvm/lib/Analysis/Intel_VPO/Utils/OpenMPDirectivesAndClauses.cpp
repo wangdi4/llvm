@@ -101,15 +101,15 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       }
   }
 
-  DEBUG(dbgs() << "=== ClauseInfo: " << Base);
-  DEBUG(dbgs() << "  ID: " << getId());
-  DEBUG(dbgs() << "  Modifier: \"" << Mod << "\"");
-  DEBUG(dbgs() << "  ArrSect: " << getIsArraySection());
-  DEBUG(dbgs() << "  NonPod: " << getIsNonPod());
-  DEBUG(dbgs() << "  Monotonic: " << getIsScheduleMonotonic());
-  DEBUG(dbgs() << "  Nonmonotonic: " << getIsScheduleNonmonotonic());
-  DEBUG(dbgs() << "  Simd: " << getIsScheduleSimd());
-  DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "=== ClauseInfo: " << Base);
+  LLVM_DEBUG(dbgs() << "  ID: " << getId());
+  LLVM_DEBUG(dbgs() << "  Modifier: \"" << Mod << "\"");
+  LLVM_DEBUG(dbgs() << "  ArrSect: " << getIsArraySection());
+  LLVM_DEBUG(dbgs() << "  NonPod: " << getIsNonPod());
+  LLVM_DEBUG(dbgs() << "  Monotonic: " << getIsScheduleMonotonic());
+  LLVM_DEBUG(dbgs() << "  Nonmonotonic: " << getIsScheduleNonmonotonic());
+  LLVM_DEBUG(dbgs() << "  Simd: " << getIsScheduleSimd());
+  LLVM_DEBUG(dbgs() << "\n");
 }
 
 StringRef VPOAnalysisUtils::getDirOrClauseString(Instruction *I) {

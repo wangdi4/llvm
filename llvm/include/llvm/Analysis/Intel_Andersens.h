@@ -562,7 +562,7 @@ private:
   friend class InstVisitor<AndersensAAResult>;
   void visitReturnInst(ReturnInst &RI);
   void visitInvokeInst(InvokeInst &II) { visitCallSite(CallSite(&II)); }
-  void visitSubscriptInst(SubscriptInst &Subs);
+  void visitAddressInst(AddressInst &AI);
   void visitCallInst(CallInst &CI) { visitCallSite(CallSite(&CI)); }
   void visitCallSite(CallSite CS);
   void visitAllocaInst(AllocaInst &AI);

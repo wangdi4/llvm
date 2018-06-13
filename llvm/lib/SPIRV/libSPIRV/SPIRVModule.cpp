@@ -63,7 +63,9 @@ class SPIRVModuleImpl : public SPIRVModule {
 public:
   SPIRVModuleImpl():SPIRVModule(), NextId(1), BoolType(NULL),
     SPIRVVersion(SPIRV_1_0),
-    GeneratorId(SPIRVGEN_KhronosLLVMSPIRVTranslator),
+#if INTEL_CUSTOMIZATION
+    GeneratorId(SPIRVGEN_IntelLLVMSPIRVTranslator),
+#endif
     GeneratorVer(0),
     InstSchema(SPIRVISCH_Default),
     SrcLang(SourceLanguageOpenCL_C),

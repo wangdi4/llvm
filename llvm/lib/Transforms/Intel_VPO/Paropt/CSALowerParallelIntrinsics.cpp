@@ -384,7 +384,7 @@ bool CSALowerParallelIntrinsicsImpl::run() {
     return false;
   }
 
-  DEBUG(dbgs() << "Initial collection of sections.\n");
+  LLVM_DEBUG(dbgs() << "Initial collection of sections.\n");
 
   // Keep an ordered list of sections so that the processing order
   // is defined by the instructions ordering.
@@ -404,17 +404,17 @@ bool CSALowerParallelIntrinsicsImpl::run() {
   }
 
   if (AllSections.empty()) {
-    DEBUG(dbgs() << "No sections found.\n");
+    LLVM_DEBUG(dbgs() << "No sections found.\n");
     return false;
   }
 
-  DEBUG(dbgs() << "Reconstructing sections hierarchy.\n");
+  LLVM_DEBUG(dbgs() << "Reconstructing sections hierarchy.\n");
 
   for (auto *S : AllSections) {
     S->collectSectionRecursively(*this);
   }
 
-  DEBUG(dbgs() << "Replace intrinsics with metadata.\n");
+  LLVM_DEBUG(dbgs() << "Replace intrinsics with metadata.\n");
 
   // Create a fake section that encloses all top-level sections.
   Section *Top = new Section(*this);
@@ -448,7 +448,7 @@ Section::Section(CSALowerParallelIntrinsicsImpl &Context) :
   // The fake top-level section will not have entry/exit instructions
   // in the debug output.  For the real sections the entry/exit
   // instructions will be printed in the other constructor.
-  DEBUG(dbgs() << "Section " << ID << " created:\n");
+  LLVM_DEBUG(dbgs() << "Section " << ID << " created:\n");
 }
 
 Section::Section(IntrinsicInst *II, CSALowerParallelIntrinsicsImpl &Context) :
@@ -456,7 +456,7 @@ Section::Section(IntrinsicInst *II, CSALowerParallelIntrinsicsImpl &Context) :
 
   EntryCall = II;
 
-  DEBUG(dbgs() << "Entry: " << *EntryCall << "\n");
+  LLVM_DEBUG(dbgs() << "Entry: " << *EntryCall << "\n");
 
   for (auto *I : EntryCall->users()) {
     assert(!ExitCall && "Multiple users of llvm.csa.parallel.section.entry");
@@ -471,7 +471,7 @@ Section::Section(IntrinsicInst *II, CSALowerParallelIntrinsicsImpl &Context) :
            "Section entry does not dominate section exit.");
   }
 
-  DEBUG(dbgs() << "Exit: " << *ExitCall << "\n");
+  LLVM_DEBUG(dbgs() << "Exit: " << *ExitCall << "\n");
 }
 
 void Section::collectSectionRecursively(
@@ -479,10 +479,10 @@ void Section::collectSectionRecursively(
   if (isCollected())
     return;
 
-  DEBUG(dbgs() << std::string(Padding, ' ') <<
-        "Processing section " << ID << " {\n");
-  DEBUG(dbgs() << std::string(Padding + 1, ' ') <<
-        "Entry: " << *EntryCall << "\n");
+  LLVM_DEBUG(dbgs() << std::string(Padding, ' ') <<
+             "Processing section " << ID << " {\n");
+  LLVM_DEBUG(dbgs() << std::string(Padding + 1, ' ') <<
+             "Entry: " << *EntryCall << "\n");
 
   // Use BasicBlocks set to avoid loops during the walk.
   std::unordered_set<BasicBlock *> VisitedBlocks;
@@ -523,8 +523,8 @@ void Section::collectSectionRecursively(
         Section *SS = Context.getSectionFromInst(I);
 
         if (SS->isCollected())
-          DEBUG(dbgs() << std::string(Padding, ' ') <<
-                "Precomputed section " << SS->ID << "\n");
+          LLVM_DEBUG(dbgs() << std::string(Padding, ' ') <<
+                     "Precomputed section " << SS->ID << "\n");
 
         SS->collectSectionRecursively(Context, Padding + 1);
         addSubsection(SS);
@@ -545,8 +545,8 @@ void Section::collectSectionRecursively(
                "Wrong structure of section entry/exit calls.");
       } else if (instMustBeAnnotated(NextInst)) {
         addMemAccess(NextInst);
-        DEBUG(dbgs() << std::string(Padding, ' ') <<
-              "Mem: " << *NextInst << "\n");
+        LLVM_DEBUG(dbgs() << std::string(Padding, ' ') <<
+                   "Mem: " << *NextInst << "\n");
       }
 
       NextInst = NextInst->getNextNode();
@@ -569,14 +569,15 @@ void Section::collectSectionRecursively(
 
   IsCollected = true;
 
-  DEBUG(dbgs() << std::string(Padding + 1, ' ') << "Exit: " << *ExitCall << "\n");
-  DEBUG(dbgs() << std::string(Padding, ' ') << "}\n");
+  LLVM_DEBUG(dbgs() << std::string(Padding + 1, ' ') <<
+             "Exit: " << *ExitCall << "\n");
+  LLVM_DEBUG(dbgs() << std::string(Padding, ' ') << "}\n");
 }
 
 void Section::processSectionRecursively(
     llvm::CSALowerParallelIntrinsicsImpl &Context) {
 
-  DEBUG(dbgs() << "Processing section " << ID << ".\n");
+  LLVM_DEBUG(dbgs() << "Processing section " << ID << ".\n");
 
   // Process the enclosed sections first.
   for (auto *SS : EnclosedSections) {
@@ -653,12 +654,12 @@ void Section::processSectionRecursively(
       markSectionRecursively(SS);
     }
 
-    DEBUG(dbgs() <<
-          "Memory accesses annotated for subsections of section "
-          << ID << ".\n");
+    LLVM_DEBUG(dbgs() <<
+               "Memory accesses annotated for subsections of section "
+               << ID << ".\n");
   }
   else {
-    DEBUG(dbgs() << "No memory accesses in section " << ID << ".\n");
+    LLVM_DEBUG(dbgs() << "No memory accesses in section " << ID << ".\n");
   }
 
   // Setup loop metadata for loops containing the subsections
@@ -775,8 +776,8 @@ void Section::processSectionRecursively(
              NewLoopID->replaceOperandWith(0, NewLoopID);
              L->setLoopID(NewLoopID);
 
-             DEBUG(dbgs() << "Loop " << L->getName() <<
-                   " marked parallel by section " << SS->ID << ".\n");
+             LLVM_DEBUG(dbgs() << "Loop " << L->getName() <<
+                        " marked parallel by section " << SS->ID << ".\n");
 
              MarkedLoops.insert(L);
            });
@@ -867,8 +868,8 @@ void CSALowerParallelIntrinsicsImpl::deleteIntrinsicCalls(
   for (auto &I : instructions(F))
     if (auto *EntryCall = dyn_cast<IntrinsicInst>(&I))
       if (EntryCall->getIntrinsicID() == Intrinsic::csa_spmdization_entry) {
-        DEBUG(dbgs() << "SPMD entry intrinsic found: "
-              << *EntryCall << "\n");
+        LLVM_DEBUG(dbgs() << "SPMD entry intrinsic found: "
+                   << *EntryCall << "\n");
 
         for (auto *II : EntryCall->users()) {
           auto *ExitCall = dyn_cast<IntrinsicInst>(II);
@@ -892,6 +893,6 @@ void CSALowerParallelIntrinsicsImpl::deleteIntrinsicCalls(
   for (auto *CI : SPMDEntryCalls)
     CI->eraseFromParent();
 
-  DEBUG(dbgs() <<
-        "CSA spmdization/region/section entry/exit calls removed.\n");
+  LLVM_DEBUG(dbgs() <<
+             "CSA spmdization/region/section entry/exit calls removed.\n");
 }

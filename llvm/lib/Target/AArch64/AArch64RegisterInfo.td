@@ -612,13 +612,32 @@ defm VecListTwo   : VectorList<2, DD,    QQ>;
 defm VecListThree : VectorList<3, DDD,   QQQ>;
 defm VecListFour  : VectorList<4, DDDD,  QQQQ>;
 
+class FPRAsmOperand<string RC> : AsmOperandClass {
+  let Name = "FPRAsmOperand" # RC;
+  let PredicateMethod = "isGPR64<AArch64::" # RC # "RegClassID>";
+  let RenderMethod = "addRegOperands";
+}
 
 // Register operand versions of the scalar FP registers.
-def FPR16Op : RegisterOperand<FPR16, "printOperand">;
-def FPR32Op : RegisterOperand<FPR32, "printOperand">;
-def FPR64Op : RegisterOperand<FPR64, "printOperand">;
-def FPR128Op : RegisterOperand<FPR128, "printOperand">;
+def FPR8Op  : RegisterOperand<FPR8, "printOperand"> {
+  let ParserMatchClass = FPRAsmOperand<"FPR8">;
+}
 
+def FPR16Op  : RegisterOperand<FPR16, "printOperand"> {
+  let ParserMatchClass = FPRAsmOperand<"FPR16">;
+}
+
+def FPR32Op  : RegisterOperand<FPR32, "printOperand"> {
+  let ParserMatchClass = FPRAsmOperand<"FPR32">;
+}
+
+def FPR64Op  : RegisterOperand<FPR64, "printOperand"> {
+  let ParserMatchClass = FPRAsmOperand<"FPR64">;
+}
+
+def FPR128Op : RegisterOperand<FPR128, "printOperand"> {
+  let ParserMatchClass = FPRAsmOperand<"FPR128">;
+}
 
 //===----------------------------------------------------------------------===//
 // ARMv8.1a atomic CASP register operands
@@ -773,7 +792,7 @@ def PPR_3b : PPRClass<7>; // Restricted 3 bit SVE predicate register class.
 
 class PPRAsmOperand <string name, string RegClass, int Width>: AsmOperandClass {
   let Name = "SVE" # name # "Reg";
-  let PredicateMethod = "isSVEVectorRegOfWidth<"
+  let PredicateMethod = "isSVEPredicateVectorRegOfWidth<"
                             # Width # ", " # "AArch64::" # RegClass # "RegClassID>";
   let DiagnosticType = "InvalidSVE" # name # "Reg";
   let RenderMethod = "addRegOperands";
@@ -818,9 +837,10 @@ def ZPR : RegisterClass<"AArch64",
 
 class ZPRAsmOperand <string name, int Width>: AsmOperandClass {
   let Name = "SVE" # name # "Reg";
-  let PredicateMethod = "isSVEVectorRegOfWidth<"
+  let PredicateMethod = "isSVEDataVectorRegOfWidth<"
                             # Width # ", AArch64::ZPRRegClassID>";
   let RenderMethod = "addRegOperands";
+  let DiagnosticType = "InvalidZPR" # Width;
   let ParserMethod = "tryParseSVEDataVector<false, "
                                # !if(!eq(Width, 0), "false", "true") # ">";
 }
@@ -939,7 +959,7 @@ class ZPRExtendAsmOperand<string ShiftExtend, int RegWidth, int Scale,
   let Name = "ZPRExtend" # ShiftExtend # RegWidth # Scale
                          # !if(ScaleAlwaysSame, "Only", "");
 
-  let PredicateMethod = "isSVEVectorRegWithShiftExtend<"
+  let PredicateMethod = "isSVEDataVectorRegWithShiftExtend<"
                           # RegWidth # ", AArch64::ZPRRegClassID, "
                           # "AArch64_AM::" # ShiftExtend # ", "
                           # Scale # ", "

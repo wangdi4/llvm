@@ -173,7 +173,10 @@ static bool isNonEscapingLocalObject(const Value *V) {
 /// Returns true if the pointer is one which would have been considered an
 /// escape by isNonEscapingLocalObject.
 static bool isEscapeSource(const Value *V) {
-  if (isa<CallInst>(V) || isa<InvokeInst>(V) || isa<Argument>(V))
+  if (ImmutableCallSite(V))
+    return true;
+
+  if (isa<Argument>(V))
     return true;
 
   // The load case works because isNonEscapingLocalObject considers all
@@ -542,11 +545,19 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
 
     const GEPOperator *GEPOp = dyn_cast<GEPOperator>(Op);
     if (!GEPOp) {
-      if (auto CS = ImmutableCallSite(V))
-        if (const Value *RV = CS.getReturnedArgOperand()) {
-          V = RV;
+      if (auto CS = ImmutableCallSite(V)) {
+        // Note: getArgumentAliasingToReturnedPointer keeps it in sync with
+        // CaptureTracking, which is needed for correctness.  This is because
+        // some intrinsics like launder.invariant.group returns pointers that
+        // are aliasing it's argument, which is known to CaptureTracking.
+        // If AliasAnalysis does not use the same information, it could assume
+        // that pointer returned from launder does not alias it's argument
+        // because launder could not return it if the pointer was not captured.
+        if (auto *RP = getArgumentAliasingToReturnedPointer(CS)) {
+          V = RP;
           continue;
         }
+      }
 
 #if INTEL_CUSTOMIZATION
       // Matches GetUnderlyingObject
@@ -560,6 +571,10 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
 
         DecomposeSubscript(Subs, Decomposed, DL, AC, DT);
         V = Decomposed.Base;
+        continue;
+      }
+      if (auto *Fakeload = dyn_cast<FakeloadInst>(V)) {
+        V = Fakeload->getPointerOperand();
         continue;
       }
 #endif // INTEL_CUSTOMIZATION
@@ -1116,8 +1131,8 @@ static AliasResult aliasSameBasePointerGEPs(const GEPOperator *GEP1,
                                             const GEPOperator *GEP2,
                                             uint64_t V2Size,
                                             const DataLayout &DL) {
-  assert(GEP1->getPointerOperand()->stripPointerCastsAndBarriers() ==
-             GEP2->getPointerOperand()->stripPointerCastsAndBarriers() &&
+  assert(GEP1->getPointerOperand()->stripPointerCastsAndInvariantGroups() ==
+             GEP2->getPointerOperand()->stripPointerCastsAndInvariantGroups() &&
          GEP1->getPointerOperandType() == GEP2->getPointerOperandType() &&
          "Expected GEPs with the same pointer operand");
 
@@ -1288,12 +1303,19 @@ static AliasResult aliasSameBasePointerGEPs(const GEPOperator *GEP1,
 // point into the same object. But since %f0 points to the beginning of %alloca,
 // the highest %f1 can be is (%alloca + 3). This means %random can not be higher
 // than (%alloca - 1), and so is not inbounds, a contradiction.
-bool BasicAAResult::isGEPBaseAtNegativeOffset(const GEPOrSubsOperator *GEPOp, // INTEL
+bool BasicAAResult::isGEPBaseAtNegativeOffset(const AddressOperator *GEPOp, // INTEL
       const DecomposedGEP &DecompGEP, const DecomposedGEP &DecompObject, 
       uint64_t ObjectAccessSize) {
   // If the object access size is unknown, or the GEP isn't inbounds, bail.
-  if (ObjectAccessSize == MemoryLocation::UnknownSize || !GEPOp->isInBounds())
+  // INTEL:
+  // SubscriptInst, GetElementPtrInst and FakeloadInst are structured
+  // address computations and/or pointer annotations.
+  if (ObjectAccessSize == MemoryLocation::UnknownSize) // INTEL
     return false;
+
+  if (auto *S = dyn_cast<GEPOrSubsOperator>(GEPOp)) // INTEL
+    if (!S->isInBounds())                           // INTEL
+      return false;                                 // INTEL
 
   // We need the object to be an alloca or a globalvariable, and want to know
   // the offset of the pointer from the object precisely, so no variable
@@ -1324,7 +1346,7 @@ bool BasicAAResult::isGEPBaseAtNegativeOffset(const GEPOrSubsOperator *GEPOp, //
 /// We know that V1 is a GEP, but we don't know anything about V2.
 /// UnderlyingV1 is GetUnderlyingObject(GEP1, DL), UnderlyingV2 is the same for
 /// V2.
-AliasResult BasicAAResult::aliasGEP(const GEPOrSubsOperator *GEP1, // INTEL
+AliasResult BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
                                     uint64_t V1Size,
                                     const AAMDNodes &V1AAInfo, const Value *V2,
                                     uint64_t V2Size, const AAMDNodes &V2AAInfo,
@@ -1355,7 +1377,7 @@ AliasResult BasicAAResult::aliasGEP(const GEPOrSubsOperator *GEP1, // INTEL
   // If we have two gep instructions with must-alias or not-alias'ing base
   // pointers, figure out if the indexes to the GEP tell us anything about the
   // derived pointer.
-  if (const GEPOrSubsOperator *GEP2 = dyn_cast<GEPOrSubsOperator>(V2)) { // INTEL
+  if (const AddressOperator *GEP2 = dyn_cast<AddressOperator>(V2)) { // INTEL
     // Check for the GEP base being at a negative offset, this time in the other
     // direction.
     if (!GEP1MaxLookupReached && !GEP2MaxLookupReached &&
@@ -1400,8 +1422,8 @@ AliasResult BasicAAResult::aliasGEP(const GEPOrSubsOperator *GEP1, // INTEL
     // If we know the two GEPs are based off of the exact same pointer (and not
     // just the same underlying object), see if that tells us anything about
     // the resulting pointers.
-    if (GEP1->getPointerOperand()->stripPointerCastsAndBarriers() ==
-            GEP2->getPointerOperand()->stripPointerCastsAndBarriers() &&
+    if (GEP1->getPointerOperand()->stripPointerCastsAndInvariantGroups() ==
+            GEP2->getPointerOperand()->stripPointerCastsAndInvariantGroups() &&
         GEP1->getPointerOperandType() == GEP2->getPointerOperandType()) {
       const GEPOperator* GP1 = dyn_cast<GEPOperator>(GEP1); // INTEL
       const GEPOperator* GP2 = dyn_cast<GEPOperator>(GEP2); // INTEL
@@ -1718,12 +1740,17 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, uint64_t PNSize,
 #if INTEL_CUSTOMIZATION
     // FIXME: limited support of recursive updates. phi-loop.ll
     if (EnableRecPhiAnalysis)
-      if (SubscriptInst *PV1Subs = dyn_cast<SubscriptInst>(PV1))
+      if (auto *PV1Subs = dyn_cast<SubscriptInst>(PV1))
         if (isa<ConstantInt>(PV1Subs->getIndex()))
           if (PV1Subs->getPointerOperand() == PN) {
             isRecursive = true;
             continue;
           }
+      if (auto *PV1F = dyn_cast<FakeloadInst>(PV1))
+        if (PV1F->getPointerOperand() == PN) {
+          isRecursive = true;
+          continue;
+        }
 #endif // INTEL_CUSTOMIZATION
 
     if (UniqueSrc.insert(PV1).second)
@@ -1828,8 +1855,8 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
     return NoAlias;
 
   // Strip off any casts if they exist.
-  V1 = V1->stripPointerCastsAndBarriers();
-  V2 = V2->stripPointerCastsAndBarriers();
+  V1 = V1->stripPointerCastsAndInvariantGroups();
+  V2 = V2->stripPointerCastsAndInvariantGroups();
 
   // If V1 or V2 is undef, the result is NoAlias because we can always pick a
   // value for undef that aliases nothing in the program.
@@ -1943,13 +1970,13 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
 
   // FIXME: This isn't aggressively handling alias(GEP, PHI) for example: if the
   // GEP can't simplify, we don't even look at the PHI cases.
-  if (!isa<GEPOrSubsOperator>(V1) && isa<GEPOrSubsOperator>(V2)) { // INTEL
+  if (!isa<AddressOperator>(V1) && isa<AddressOperator>(V2)) { // INTEL
     std::swap(V1, V2);
     std::swap(V1Size, V2Size);
     std::swap(O1, O2);
     std::swap(V1AAInfo, V2AAInfo);
   }
-  if (const GEPOrSubsOperator *GV1 = dyn_cast<GEPOrSubsOperator>(V1)) { // INTEL
+  if (const AddressOperator *GV1 = dyn_cast<AddressOperator>(V1)) { // INTEL
     AliasResult Result =
         aliasGEP(GV1, V1Size, V1AAInfo, V2, V2Size, V2AAInfo, O1, O2);
     if (Result != MayAlias)

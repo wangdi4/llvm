@@ -226,7 +226,7 @@ MachineOp CSAStreamingMemoryConversionPass::getLength(
     return getLength(end, start, isEqual, -stride, isOneTrip, MI);
   if (stride != 1) {
     if (!isPowerOf2_64(stride)) {
-      DEBUG(dbgs() << "Stride is not a power of 2, bailing.\n");
+      LLVM_DEBUG(dbgs() << "Stride is not a power of 2, bailing.\n");
       return nullptr;
     }
 
@@ -248,7 +248,7 @@ MachineOp CSAStreamingMemoryConversionPass::getLength(
   if (isEqual && start.isImm()) {
     effectiveStart = MachineOperand::CreateImm(start.getImm() - 1);
   } else if (isEqual) {
-    DEBUG(dbgs() << "<= bounds not handled for non-immediate starts\n");
+    LLVM_DEBUG(dbgs() << "<= bounds not handled for non-immediate starts\n");
     return nullptr;
   }
 
@@ -332,12 +332,13 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
     unsigned opcodeSize            = TII->getLicSize(MI->getOpcode()) / 8;
     if (!strideOp.isImm()) {
       reportFailure("stride is not constant 1");
-      DEBUG(dbgs() << "Stride is not an immediate, cannot compute stride\n");
+      LLVM_DEBUG(dbgs() <<
+                 "Stride is not an immediate, cannot compute stride\n");
       return false;
     } else if (strideOp.getImm() % opcodeSize) {
       reportFailure("stride is not constant 1");
-      DEBUG(dbgs() << "Stride " << strideOp.getImm()
-                   << " is not a multiple of opcode size\n");
+      LLVM_DEBUG(dbgs() << "Stride " << strideOp.getImm()
+                 << " is not a multiple of opcode size\n");
       return false;
     }
     stride = strideOp.getImm() / opcodeSize;
@@ -431,11 +432,12 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
     case CSA::SEQOTLEU64:
       break; // These are the valid ones.
     default:
-      DEBUG(dbgs() << "Candidate indexed memory store failed to have valid "
-                   << "stream parameter. It may yet be valid.\n");
-      DEBUG(MI->print(dbgs()));
-      DEBUG(dbgs() << "Failed operator: ");
-      DEBUG(memIndex->print(dbgs()));
+      LLVM_DEBUG(dbgs() <<
+                 "Candidate indexed memory store failed to have valid "
+                 "stream parameter. It may yet be valid.\n");
+      LLVM_DEBUG(MI->print(dbgs()));
+      LLVM_DEBUG(dbgs() << "Failed operator: ");
+      LLVM_DEBUG(memIndex->print(dbgs()));
       return nullptr;
     }
 
@@ -444,7 +446,7 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
     const MachineOperand &strideOp = memIndex->getOperand(6);
     if (!strideOp.isImm()) {
       reportFailure("stride is not constant 1");
-      DEBUG(dbgs() << "Candidate instruction has non-constant stride.\n");
+      LLVM_DEBUG(dbgs() << "Candidate instruction has non-constant stride.\n");
       return nullptr;
     }
     stride = strideOp.getImm();
@@ -453,7 +455,7 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
       unsigned opcodeSize = TII->getLicSize(MI->getOpcode()) / 8;
       if (stride % opcodeSize) {
         reportFailure("stride is not constant 1");
-        DEBUG(dbgs() << "Candidate instruction has improper stride.\n");
+        LLVM_DEBUG(dbgs() << "Candidate instruction has improper stride.\n");
         return nullptr;
       }
       stride /= opcodeSize;
@@ -468,11 +470,12 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
     return nullptr;
   }
 
-  DEBUG(dbgs() << "Identified candidate for streaming memory conversion: ");
-  DEBUG(MI->print(dbgs()));
-  DEBUG(dbgs() << "Base: " << *base << "; stride: " << stride
-               << "; controlling stream: ");
-  DEBUG(stream->print(dbgs()));
+  LLVM_DEBUG(dbgs() <<
+             "Identified candidate for streaming memory conversion: ");
+  LLVM_DEBUG(MI->print(dbgs()));
+  LLVM_DEBUG(dbgs() << "Base: " << *base << "; stride: " << stride
+             << "; controlling stream: ");
+  LLVM_DEBUG(stream->print(dbgs()));
   CSAInstBuilder builder(*TII);
   builder.setInsertionPoint(MI);
 
@@ -480,13 +483,13 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
   MachineInstr *inSource = getDefinition(*inOrder);
   if (!inSource) {
     reportFailure("memory ordering tokens are not loop-invariant");
-    DEBUG(dbgs() << "Conversion failed due to bad in memory order.\n");
+    LLVM_DEBUG(dbgs() << "Conversion failed due to bad in memory order.\n");
     return nullptr;
   }
   auto mem_result = mirmatch::match(repeated_pat, inSource);
   if (!mem_result || MRI->getVRegDef(mem_result.reg(SEQ_LAST)) != stream) {
     reportFailure("memory ordering tokens are not loop-invariant");
-    DEBUG(dbgs() << "Conversion failed due to bad in memory order.\n");
+    LLVM_DEBUG(dbgs() << "Conversion failed due to bad in memory order.\n");
     return nullptr;
   }
 
@@ -494,8 +497,8 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
   if (!outSink ||
       TII->getGenericOpcode(outSink->getOpcode()) != CSA::Generic::FILTER) {
     reportFailure("memory ordering tokens are not loop-invariant");
-    DEBUG(dbgs()
-          << "Conversion failed because out memory order is not a switch.\n");
+    LLVM_DEBUG(dbgs() <<
+               "Conversion failed because out memory order is not a switch.\n");
     return nullptr;
   }
 
@@ -504,7 +507,8 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
   MachineInstr *sinkControl = getDefinition(outSink->getOperand(1));
   if (!sinkControl) {
     reportFailure("memory ordering tokens are not loop-invariant");
-    DEBUG(dbgs() << "Cannot found the definition of the output order switch");
+    LLVM_DEBUG(dbgs() <<
+               "Cannot found the definition of the output order switch");
     return nullptr;
   }
 
@@ -516,7 +520,7 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
   const MachineOperand &seqEnd   = stream->getOperand(5);
   const MachineOperand &seqStep  = stream->getOperand(6);
   if (!seqStep.isImm()) {
-    DEBUG(dbgs() << "Sequence step is not an immediate\n");
+    LLVM_DEBUG(dbgs() << "Sequence step is not an immediate\n");
     return nullptr;
   }
  
@@ -530,19 +534,20 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
     isEqual = true;
     break;
   default:
-    DEBUG(dbgs() << "Stream operand is of unknown form.\n");
+    LLVM_DEBUG(dbgs() << "Stream operand is of unknown form.\n");
     return nullptr;
   }
   const MachineOp length =
     getLength(seqStart, seqEnd, isEqual, seqStep.getImm(), true, stream);
   if (!length) {
-    DEBUG(dbgs() << "Stream operand is of unknown form.\n");
+    LLVM_DEBUG(dbgs() << "Stream operand is of unknown form.\n");
     return nullptr;
   }
 
   if (baseUsesStream) {
     if (seqStep.getImm() < 0) {
-      DEBUG(dbgs() << "Base using stream needs to have an incrementing step\n");
+      LLVM_DEBUG(dbgs() <<
+                 "Base using stream needs to have an incrementing step\n");
       return nullptr;
     }
     if (!isZero(seqStart)) {
@@ -561,8 +566,9 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
       MI->getDebugLoc(), MI->getParent());
   ORE->emit(R << "converted to streaming memory reference");
 
-  DEBUG(dbgs()
-        << "No reason to disqualify the memory operation found, converting\n");
+  LLVM_DEBUG(dbgs() <<
+             "No reason to disqualify the memory operation found, "
+             "converting\n");
 
   // Actually build the new instruction now.
   unsigned opcode = TII->adjustOpcode(

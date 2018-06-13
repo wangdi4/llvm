@@ -167,7 +167,8 @@ StringRef VPOAnalysisUtils::getScheduleModifierMDString(Value *Modifier) {
 
 /// \brief Auxiliary function for verifyBB to print out messages.
 static void verifyBBError(StringRef Msg, BasicBlock &BB, bool DoAssert) {
-  DEBUG(dbgs() << "\n\n === verifyBB error: " << Msg << ": \n\n" << BB <<"\n");
+  LLVM_DEBUG(dbgs() << "\n\n === verifyBB error: " << Msg << ": \n\n"
+                    << BB << "\n");
   if (DoAssert)
     llvm_unreachable(Msg.data());
 }

@@ -127,11 +127,11 @@ unsigned MapIntrinToIml::calculateNumReturns(TargetTransformInfo *TTI,
   // then we have less than full vector. Thus, just set NumRet = 1.
   NumRet = NumRet == 0 ? 1 : NumRet;
 
-  DEBUG(dbgs() << "Type Bit Width: " << TypeBitWidth << "\n");
-  DEBUG(dbgs() << "Legalizing VL: " << LogicalVL << "\n");
-  DEBUG(dbgs() << "Vector Bit Width: " << VectorBitWidth << "\n");
-  DEBUG(dbgs() << "Legal Target VL: " << *TargetVL << "\n");
-  DEBUG(dbgs() << "Num Regs: " << NumRet << "\n");
+  LLVM_DEBUG(dbgs() << "Type Bit Width: " << TypeBitWidth << "\n");
+  LLVM_DEBUG(dbgs() << "Legalizing VL: " << LogicalVL << "\n");
+  LLVM_DEBUG(dbgs() << "Vector Bit Width: " << VectorBitWidth << "\n");
+  LLVM_DEBUG(dbgs() << "Legal Target VL: " << *TargetVL << "\n");
+  LLVM_DEBUG(dbgs() << "Num Regs: " << NumRet << "\n");
 
   return NumRet;
 }
@@ -141,15 +141,15 @@ void MapIntrinToIml::splitArgs(
     SmallVectorImpl<SmallVector<Value *, 8>> &NewArgs, unsigned NumRet,
     unsigned TargetVL) {
 
-  DEBUG(dbgs() << "Splitting Args to match legal VL:\n");
+  LLVM_DEBUG(dbgs() << "Splitting Args to match legal VL:\n");
   NewArgs.resize(NumRet);
 
   for (unsigned I = 0; I < Args.size(); I++) {
 
-    DEBUG(dbgs() << "Arg Name: ");
-    DEBUG(Args[I]->dump());
-    DEBUG(dbgs() << "\n");
-    DEBUG(dbgs() << "Arg Type: " << *Args[I]->getType() << "\n");
+    LLVM_DEBUG(dbgs() << "Arg Name: ");
+    LLVM_DEBUG(Args[I]->dump());
+    LLVM_DEBUG(dbgs() << "\n");
+    LLVM_DEBUG(dbgs() << "Arg Type: " << *Args[I]->getType() << "\n");
 
     for (unsigned J = 0; J < NumRet; J++) {
 
@@ -264,9 +264,9 @@ void MapIntrinToIml::createImfAttributeList(CallInst *CI, ImfAttr **List) {
 
   // TODO: only debug mode
   ImfAttr *CurrAttr = *List;
-  DEBUG(dbgs() << "Attribute List for function:\n");
+  LLVM_DEBUG(dbgs() << "Attribute List for function:\n");
   while (CurrAttr) {
-    DEBUG(dbgs() << CurrAttr->name << " = " << CurrAttr->value << "\n");
+    LLVM_DEBUG(dbgs() << CurrAttr->name << " = " << CurrAttr->value << "\n");
     CurrAttr = CurrAttr->next;
   }
   // end debug
@@ -734,8 +734,8 @@ void MapIntrinToIml::scalarizeVectorCall(CallInst *CI, StringRef LibFuncName,
 
   StringRef ScalarLibFuncName = getScalarFunctionName(LibFuncName, LogicalVL);
 
-  DEBUG(dbgs() << "Scalarizing call to '" << LibFuncName << "' with '"
-               << ScalarLibFuncName << "'");
+  LLVM_DEBUG(dbgs() << "Scalarizing call to '" << LibFuncName << "' with '"
+                    << ScalarLibFuncName << "'");
 
   FunctionType *FT = FunctionType::get(RetType, FTArgTypes, false);
   Constant *FCache = M->getOrInsertFunction(ScalarLibFuncName, FT);
@@ -814,8 +814,8 @@ const char* MapIntrinToIml::findX86Variant(CallInst *CI, StringRef FuncName,
   char *ParentFuncName = new char[TempFuncName.size() + 1];
   std::strcpy(ParentFuncName, TempFuncName.c_str());
 
-  DEBUG(dbgs() << "Input Function: " << FuncName << "\n");
-  DEBUG(dbgs() << "Legal Function: " << TempFuncName << "\n");
+  LLVM_DEBUG(dbgs() << "Input Function: " << FuncName << "\n");
+  LLVM_DEBUG(dbgs() << "Legal Function: " << TempFuncName << "\n");
 
   ImfAttr *AttrList = nullptr;
   createImfAttributeList(CI, &AttrList);
@@ -849,10 +849,10 @@ StringRef MapIntrinToIml::getScalarFunctionName(StringRef FuncName,
 
 bool MapIntrinToIml::runOnFunction(Function &F) {
 
-  DEBUG(dbgs() << "\nExecuting MapIntrinToIml ...\n\n");
+  LLVM_DEBUG(dbgs() << "\nExecuting MapIntrinToIml ...\n\n");
   if (RunSvmlStressMode) {
-    DEBUG(dbgs() << "Stress Testing Mode Invoked - svml calls will be "
-                    "scalarized\n");
+    LLVM_DEBUG(dbgs() << "Stress Testing Mode Invoked - svml calls will be "
+                         "scalarized\n");
   }
 
   Func = &F;
@@ -909,7 +909,7 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
   for (; CallInstIt != CallInstEnd; ++CallInstIt) {
 
     CallInst *CI = cast<CallInst>(*CallInstIt);
-    DEBUG(dbgs() << "Call Inst: " << *CI << "\n");
+    LLVM_DEBUG(dbgs() << "Call Inst: " << *CI << "\n");
 
     StringRef FuncName = CI->getCalledFunction()->getName();
     unsigned ScalarBitWidth = 0;
@@ -948,7 +948,8 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
     // 2) the pass is running in stress testing mode.
     if (VariantFuncName && !RunSvmlStressMode) {
       StringRef VariantFuncNameRef = StringRef(VariantFuncName);
-      DEBUG(dbgs() << "Function Variant: " << VariantFuncNameRef << "\n\n");
+      LLVM_DEBUG(dbgs() << "Function Variant: " << VariantFuncNameRef
+                        << "\n\n");
 
       // Original arguments to the vector call.
       SmallVector<Value *, 8> Args;
@@ -1113,7 +1114,7 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
       Dirty = true; // LLVM-IR has been changed because the original vector call
                     // was replaced with scalar calls.
 
-      DEBUG(dbgs() << "\n\n");
+      LLVM_DEBUG(dbgs() << "\n\n");
     }
   }
 

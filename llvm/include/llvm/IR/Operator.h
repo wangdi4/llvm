@@ -508,7 +508,7 @@ public:
       });
   }
 
-  /// \brief Accumulate the constant address offset of this GEP if possible.
+  /// Accumulate the constant address offset of this GEP if possible.
   ///
   /// This routine accepts an APInt into which it will accumulate the constant
   /// offset of this GEP if the GEP is in fact constant. If the GEP is not
@@ -519,7 +519,7 @@ public:
   bool accumulateConstantOffset(const DataLayout &DL, APInt &Offset) const;
 };
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 class GEPOrSubsOperator : public Operator {
 public:
   static bool classof(const Instruction *I) {
@@ -552,6 +552,36 @@ public:
     if (const GEPOperator *GEP = dyn_cast<GEPOperator>(this))
       return GEP->isInBounds();
     return true;
+  }
+};
+
+class AddressOperator : public Operator {
+public:
+  static bool classof(const Instruction *I) {
+    return GetElementPtrInst::classof(I) || AddressInst::classof(I);
+  }
+  static bool classof(const ConstantExpr *CE) {
+    return CE->getOpcode() == Instruction::GetElementPtr;
+  }
+  static bool classof(const Value *V) {
+    return (isa<Instruction>(V) && classof(cast<Instruction>(V))) ||
+           (isa<ConstantExpr>(V) && classof(cast<ConstantExpr>(V)));
+  }
+  const Value *getPointerOperand() const {
+    return const_cast<AddressOperator *>(this)->getPointerOperand();
+  }
+  Value *getPointerOperand() {
+    if (GEPOperator *GEP = dyn_cast<GEPOperator>(this))
+      return GEP->getPointerOperand();
+    return cast<AddressInst>(this)->getPointerOperand();
+  }
+  /// Method to return the pointer operand as a PointerType.
+  Type *getPointerOperandType() const {
+    return getPointerOperand()->getType();
+  }
+  /// Method to return the address space of the pointer operand.
+  unsigned getPointerAddressSpace() const {
+    return getPointerOperandType()->getPointerAddressSpace();
   }
 };
 #endif // INTEL_CUSTOMIZATION

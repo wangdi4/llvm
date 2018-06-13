@@ -63,14 +63,14 @@ FunctionPass *llvm::createVPOParoptPreparePass(unsigned Mode,
 VPOParoptPrepare::VPOParoptPrepare(
     unsigned MyMode, const std::vector<std::string> &MyOffloadTargets)
     : FunctionPass(ID), Impl(MyMode, MyOffloadTargets) {
-  DEBUG(dbgs() << "\n\n====== Enter VPO Paropt Prepare ======\n\n");
+  LLVM_DEBUG(dbgs() << "\n\n====== Enter VPO Paropt Prepare ======\n\n");
   initializeVPOParoptPreparePass(*PassRegistry::getPassRegistry());
 }
 
 VPOParoptPreparePass::VPOParoptPreparePass(
     unsigned MyMode, const std::vector<std::string> &MyOffloadTargets)
     : Mode(MyMode) {
-  DEBUG(dbgs() << "\n\n====== Enter VPO Paropt Prepare Pass ======\n\n");
+  LLVM_DEBUG(dbgs() << "\n\n====== Enter VPO Paropt Prepare Pass ======\n\n");
   for (const auto &T : MyOffloadTargets)
     OffloadTargets.emplace_back(Triple{T});
 }
@@ -82,12 +82,13 @@ void VPOParoptPrepare::getAnalysisUsage(AnalysisUsage &AU) const {
 
 bool VPOParoptPrepare::runOnFunction(Function &F) {
 
-  DEBUG(dbgs() << "\n=== VPOParoptPrepare Start: " << F.getName() <<" {\n");
+  LLVM_DEBUG(dbgs() << "\n=== VPOParoptPrepare Start: " << F.getName()
+                    << " {\n");
 
   // TODO: need Front-End to set F.hasOpenMPDirective()
   if (F.isDeclaration()) { // if(!F.hasOpenMPDirective()))
-    DEBUG(dbgs() << "\n}=== VPOParoptPrepare End (no change): "
-                                                     << F.getName() <<"\n");
+    LLVM_DEBUG(dbgs() << "\n}=== VPOParoptPrepare End (no change): "
+                      << F.getName() << "\n");
     return false;
   }
 
@@ -95,8 +96,8 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
 
   bool Changed = Impl.runImpl(F, WI);
 
-  DEBUG(dbgs() << "\n}=== VPOParoptPrepare End: " << F.getName() <<"\n");
-  DEBUG(dbgs() << "\n====== Exit VPO Paropt Prepare ======\n\n");
+  LLVM_DEBUG(dbgs() << "\n}=== VPOParoptPrepare End: " << F.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "\n====== Exit VPO Paropt Prepare ======\n\n");
 
   return Changed;
 }
@@ -106,30 +107,34 @@ bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI) {
 
 
   if (Mode & ParPrepare) {
-    DEBUG(dbgs() << "VPOParoptPreparePass: Before Par Sections Transformation");
-    DEBUG(dbgs() << F <<" \n");
+    LLVM_DEBUG(
+        dbgs() << "VPOParoptPreparePass: Before Par Sections Transformation");
+    LLVM_DEBUG(dbgs() << F << " \n");
 
     Changed = VPOUtils::parSectTransformer(&F, WI.getDomTree());
 
-     DEBUG(dbgs() << "VPOParoptPreparePass: After Par Sections Transformation");
-    DEBUG(dbgs() << F <<" \n");
+    LLVM_DEBUG(
+        dbgs() << "VPOParoptPreparePass: After Par Sections Transformation");
+    LLVM_DEBUG(dbgs() << F << " \n");
   }
 
   // Walk the W-Region Graph top-down, and create W-Region List
   WI.buildWRGraph(WRegionCollection::LLVMIR);
 
-  DEBUG(dbgs() << "\n=== W-Region Graph Build Done: " << F.getName() <<"\n");
+  LLVM_DEBUG(dbgs() << "\n=== W-Region Graph Build Done: " << F.getName()
+                    << "\n");
 
   if (WI.WRGraphIsEmpty()) {
-    DEBUG(dbgs() << "\nNo WRegion Candidates for Parallelization \n");
+    LLVM_DEBUG(dbgs() << "\nNo WRegion Candidates for Parallelization \n");
   }
 
-  DEBUG(WI.print(dbgs()));
+  LLVM_DEBUG(WI.print(dbgs()));
 
-  DEBUG(errs() << "VPOParoptPreparePass: ");
-  DEBUG(errs().write_escaped(F.getName()) << '\n');
+  LLVM_DEBUG(errs() << "VPOParoptPreparePass: ");
+  LLVM_DEBUG(errs().write_escaped(F.getName()) << '\n');
 
-  DEBUG(dbgs() << "\n === VPOParoptPreparePass before Transformation === \n");
+  LLVM_DEBUG(
+      dbgs() << "\n === VPOParoptPreparePass before Transformation === \n");
 
   // AUTOPAR | OPENMP | SIMD | OFFLOAD
   VPOParoptTransform VP(&F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
@@ -137,7 +142,8 @@ bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI) {
                         WI.getTargetLibraryInfo(), Mode, OffloadTargets);
   Changed = Changed | VP.paroptTransforms();
 
-  DEBUG(dbgs() << "\n === VPOParoptPreparePass after Transformation === \n");
+  LLVM_DEBUG(
+      dbgs() << "\n === VPOParoptPreparePass after Transformation === \n");
 
   // Remove calls to directive intrinsics since the LLVM back end does not
   // know how to translate them.
@@ -149,13 +155,13 @@ bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI) {
 PreservedAnalyses VPOParoptPreparePass::run(Function &F,
                                             FunctionAnalysisManager &AM) {
 
-  DEBUG(dbgs() << "\n=== VPOParoptPreparePass Start: " << F.getName()
-               << " {\n");
+  LLVM_DEBUG(dbgs() << "\n=== VPOParoptPreparePass Start: " << F.getName()
+                    << " {\n");
 
   // TODO: need Front-End to set F.hasOpenMPDirective()
   if (F.isDeclaration()) { // if(!F.hasOpenMPDirective()))
-    DEBUG(dbgs() << "\n}=== VPOParoptPreparePass End (no change): "
-                 << F.getName() << "\n");
+    LLVM_DEBUG(dbgs() << "\n}=== VPOParoptPreparePass End (no change): "
+                      << F.getName() << "\n");
     return PreservedAnalyses::all();
   }
 
@@ -163,8 +169,9 @@ PreservedAnalyses VPOParoptPreparePass::run(Function &F,
 
   bool Changed = runImpl(F, WI);
 
-  DEBUG(dbgs() << "\n}=== VPOParoptPreparePass End: " << F.getName() << "\n");
-  DEBUG(dbgs() << "\n====== Exit VPO Paropt Prepare Pass======\n\n");
+  LLVM_DEBUG(dbgs() << "\n}=== VPOParoptPreparePass End: " << F.getName()
+                    << "\n");
+  LLVM_DEBUG(dbgs() << "\n====== Exit VPO Paropt Prepare Pass======\n\n");
 
   if (!Changed)
     return PreservedAnalyses::all();

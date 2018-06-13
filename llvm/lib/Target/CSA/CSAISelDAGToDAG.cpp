@@ -188,13 +188,13 @@ void CSADAGToDAGISel::Select(SDNode *Node) {
   SDLoc dl(Node);
 
   // Dump information about the Node being selected
-  DEBUG(errs() << "Selecting: ");
-  DEBUG(Node->dump(CurDAG));
-  DEBUG(errs() << "\n");
+  LLVM_DEBUG(errs() << "Selecting: ");
+  LLVM_DEBUG(Node->dump(CurDAG));
+  LLVM_DEBUG(errs() << "\n");
 
   // If we have a custom node, we already have selected!
   if (Node->isMachineOpcode()) {
-    DEBUG(errs() << "== "; Node->dump(CurDAG); errs() << "\n");
+    LLVM_DEBUG(errs() << "== "; Node->dump(CurDAG); errs() << "\n");
     Node->setNodeId(-1);
     return;
   }
@@ -215,9 +215,9 @@ void CSADAGToDAGISel::Select(SDNode *Node) {
   // Select the default instruction
   SelectCode(Node);
 
-  DEBUG(errs() << "=> ");
-  DEBUG(Node->dump(CurDAG));
-  DEBUG(errs() << "\n");
+  LLVM_DEBUG(errs() << "=> ");
+  LLVM_DEBUG(Node->dump(CurDAG));
+  LLVM_DEBUG(errs() << "\n");
 
   return;
 }

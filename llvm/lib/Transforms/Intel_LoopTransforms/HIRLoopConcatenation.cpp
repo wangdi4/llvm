@@ -397,7 +397,7 @@ private:
 
 bool HIRLoopConcatenation::run() {
   if (DisableConcatenation) {
-    DEBUG(dbgs() << "HIR Loop Concatenation disabled \n");
+    LLVM_DEBUG(dbgs() << "HIR Loop Concatenation disabled \n");
     return false;
   }
 
@@ -1378,7 +1378,7 @@ public:
 
   bool runOnFunction(Function &F) {
     if (skipFunction(F)) {
-      DEBUG(dbgs() << "HIR Loop Concatenation disabled \n");
+      LLVM_DEBUG(dbgs() << "HIR Loop Concatenation disabled \n");
       return false;
     }
 

@@ -132,7 +132,7 @@ getExtOp(StringRef OrigName, const std::string &GivenDemangledName) {
   std::string DemangledName = GivenDemangledName;
   if (!oclIsBuiltin(OrigName, DemangledName.empty() ? &DemangledName : nullptr))
     return ~0U;
-  DEBUG(dbgs() << "getExtOp: demangled name: " << DemangledName << '\n');
+  LLVM_DEBUG(dbgs() << "getExtOp: demangled name: " << DemangledName << '\n');
   OCLExtOpKind EOC;
   bool Found = OCLExtOpMap::rfind(DemangledName, &EOC);
   if (!Found) {
@@ -601,6 +601,19 @@ isSpecialTypeInitializer(Instruction* Inst) {
   return isSamplerInitializer(Inst) || isPipeStorageInitializer(Inst);
 }
 
+bool isEnqueueKernelBI(const StringRef MangledName) {
+  return MangledName == "__enqueue_kernel_basic" ||
+         MangledName == "__enqueue_kernel_basic_events" ||
+         MangledName == "__enqueue_kernel_varargs" ||
+         MangledName == "__enqueue_kernel_events_varargs";
+}
+
+bool isKernelQueryBI(const StringRef MangledName) {
+  return MangledName == "__get_kernel_work_group_size_impl" ||
+         MangledName == "__get_kernel_sub_group_count_for_ndrange_impl" ||
+         MangledName == "__get_kernel_max_sub_group_size_for_ndrange_impl" ||
+         MangledName == "__get_kernel_preferred_work_group_size_multiple_impl";
+}
 } // namespace OCLUtil
 
 void

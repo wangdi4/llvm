@@ -406,59 +406,59 @@ bool CSAOptDFPass::runOnMachineFunction(MachineFunction &MF) {
 //
 
 void CSAOptDFPass::seq_debug_print_header(CSASeqHeader &header) {
-  DEBUG(errs() << "CSASeqHeader: \npicker = " << header.pickerChannel);
-  DEBUG(errs() << "\nswitcher = " << header.switcherChannel << "\n");
+  LLVM_DEBUG(errs() << "CSASeqHeader: \npicker = " << header.pickerChannel);
+  LLVM_DEBUG(errs() << "\nswitcher = " << header.switcherChannel << "\n");
   if (header.pickerInit) {
-    DEBUG(errs() << " pickerInit: " << *header.pickerInit << "");
+    LLVM_DEBUG(errs() << " pickerInit: " << *header.pickerInit << "");
   } else {
-    DEBUG(errs() << " No pickerInit\n");
+    LLVM_DEBUG(errs() << " No pickerInit\n");
   }
   if (header.pickerMov1) {
-    DEBUG(errs() << " pickerMov1: " << *header.pickerMov1 << "");
+    LLVM_DEBUG(errs() << " pickerMov1: " << *header.pickerMov1 << "");
   } else {
-    DEBUG(errs() << " No pickerMov1\n");
+    LLVM_DEBUG(errs() << " No pickerMov1\n");
   }
   if (header.compareInst) {
-    DEBUG(errs() << " compareInst: " << *header.compareInst << "");
+    LLVM_DEBUG(errs() << " compareInst: " << *header.compareInst << "");
   } else {
-    DEBUG(errs() << " No compareInst\n");
+    LLVM_DEBUG(errs() << " No compareInst\n");
   }
 }
 
 void CSAOptDFPass::seq_debug_print_candidate(CSASeqCandidate &x) {
 
-  DEBUG(errs() << " pick = " << *x.pickInst);
-  DEBUG(errs() << " switch = " << *x.switchInst);
+  LLVM_DEBUG(errs() << " pick = " << *x.pickInst);
+  LLVM_DEBUG(errs() << " switch = " << *x.switchInst);
   if (x.transformInst) {
-    DEBUG(errs() << " transform = " << *x.transformInst << "\n");
+    LLVM_DEBUG(errs() << " transform = " << *x.transformInst << "\n");
   }
   switch (x.stype) {
   case CSASeqCandidate::SeqType::UNKNOWN:
-    DEBUG(errs() << "UNKNOWN type"
-                 << "\n");
+    LLVM_DEBUG(errs() << "UNKNOWN type"
+               << "\n");
     break;
   case CSASeqCandidate::SeqType::REPEAT:
-    DEBUG(errs() << "REPEAT: top = " << x.top << ", bottom = " << x.bottom
-                 << "\n");
+    LLVM_DEBUG(errs() << "REPEAT: top = " << x.top << ", bottom = " << x.bottom
+               << "\n");
     break;
   case CSASeqCandidate::SeqType::REDUCTION:
-    DEBUG(errs() << "REDUCTION: top = " << x.top << ", bottom = " << x.bottom
-                 << "\n");
+    LLVM_DEBUG(errs() << "REDUCTION: top = " << x.top << ", bottom = " << x.bottom
+               << "\n");
     break;
   case CSASeqCandidate::SeqType::STRIDE:
-    DEBUG(errs() << "STRIDE: top = " << x.top << ", bottom = " << x.bottom
-                 << "\n");
-    DEBUG(errs() << "stride op = " << *x.saved_op << "\n");
+    LLVM_DEBUG(errs() << "STRIDE: top = " << x.top << ", bottom = " << x.bottom
+               << "\n");
+    LLVM_DEBUG(errs() << "stride op = " << *x.saved_op << "\n");
     break;
   case CSASeqCandidate::SeqType::PARLOOP_MEM_DEP:
-    DEBUG(errs() << "PARLOOP_MEM_DEP: top = " << x.top
-                 << ", bottom = " << x.bottom << "\n");
+    LLVM_DEBUG(errs() << "PARLOOP_MEM_DEP: top = " << x.top
+               << ", bottom = " << x.bottom << "\n");
     break;
   case CSASeqCandidate::SeqType::INVALID:
-    DEBUG(errs() << "INVALID sequence type \n");
+    LLVM_DEBUG(errs() << "INVALID sequence type \n");
     break;
   }
-  DEBUG(errs() << "\n");
+  LLVM_DEBUG(errs() << "\n");
 }
 
 bool CSAOptDFPass::seq_is_picker_init_inst(MachineRegisterInfo *MRI,
@@ -483,8 +483,8 @@ bool CSAOptDFPass::seq_is_picker_init_inst(MachineRegisterInfo *MRI,
   }
 
   if (MI->getOpcode() == CSA::INIT1) {
-    DEBUG(errs() << "Found an init instruction " << *MI << "with "
-                 << MI->getNumOperands() << " operands \n");
+    LLVM_DEBUG(errs() << "Found an init instruction " << *MI << "with "
+               << MI->getNumOperands() << " operands \n");
     if (MI->getNumOperands() == 2) {
       MachineOperand &picker_def = MI->getOperand(0);
       MachineOperand &init_val   = MI->getOperand(1);
@@ -492,7 +492,7 @@ bool CSAOptDFPass::seq_is_picker_init_inst(MachineRegisterInfo *MRI,
       if (init_val.isImm()) {
         int ival = init_val.getImm();
         if ((ival == 0) || (ival == 1)) {
-          DEBUG(errs() << "Found an init " << ival << " \n");
+          LLVM_DEBUG(errs() << "Found an init " << ival << " \n");
           if (picker_def.isReg()) {
             int pickval = picker_def.getReg();
             // TBD(jsukha): I can't figure out how to query the register
@@ -501,7 +501,7 @@ bool CSAOptDFPass::seq_is_picker_init_inst(MachineRegisterInfo *MRI,
             // But I'm going to assume that knowing that the
             // opcode was INIT1 was enough...
             if (TII->isLIC(picker_def, *MRI)) {
-              DEBUG(errs() << "Matched %ival = init " << ival << " \n");
+              LLVM_DEBUG(errs() << "Matched %ival = init " << ival << " \n");
               *pickerChannel = pickval;
               *pickerSense   = ival;
               MATCH_ASSERT(pat_match);
@@ -512,13 +512,16 @@ bool CSAOptDFPass::seq_is_picker_init_inst(MachineRegisterInfo *MRI,
               MATCH_ASSERT(pat_match.reg(PICKER_DEF) == unsigned(pickval));
               return true;
             } else {
-              DEBUG(errs() << "Found picker in a virtual reg. Skipping...\n");
+              LLVM_DEBUG(errs() <<
+                         "Found picker in a virtual reg. Skipping...\n");
             }
           } else {
-            DEBUG(errs() << "Picker def " << picker_def << " is not a reg\n");
+            LLVM_DEBUG(errs() <<
+                       "Picker def " << picker_def << " is not a reg\n");
           }
         } else {
-          DEBUG(errs() << "Picker def " << picker_def << " is not a reg\n");
+          LLVM_DEBUG(errs() <<
+                     "Picker def " << picker_def << " is not a reg\n");
         }
       }
     }
@@ -582,8 +585,8 @@ bool CSAOptDFPass::seq_identify_header(MachineInstr *MI, CSASeqHeader *header) {
   unsigned pickerChannel;
   bool pickerSense = 0;
   if (seq_is_picker_init_inst(MRI, MI, &pickerChannel, &pickerSense)) {
-    DEBUG(errs() << "Found picker definition. Register= " << pickerChannel
-                 << " = " << printReg(pickerChannel) << "\n");
+    LLVM_DEBUG(errs() << "Found picker definition. Register= " << pickerChannel
+               << " = " << printReg(pickerChannel) << "\n");
 
     // Once we have a picker, then walk over and count the defs.  We
     // want to find exactly one (other) def != MI, which is a MOV1
@@ -599,7 +602,7 @@ bool CSAOptDFPass::seq_identify_header(MachineInstr *MI, CSASeqHeader *header) {
       def_count++;
     }
 
-    DEBUG(errs() << "Num defs found: " << def_count << "\n");
+    LLVM_DEBUG(errs() << "Num defs found: " << def_count << "\n");
     unsigned switcherChannel = 0;
 
     // TBD(jsukha): In theory, we should be able to deal with loops
@@ -613,8 +616,8 @@ bool CSAOptDFPass::seq_identify_header(MachineInstr *MI, CSASeqHeader *header) {
     }
     bool switcherSense = pickerSense;
 
-    DEBUG(errs() << "Found pickerMov1 instruction " << *pickerMov1);
-    DEBUG(errs() << " with switcher channel " << switcherChannel << "\n");
+    LLVM_DEBUG(errs() << "Found pickerMov1 instruction " << *pickerMov1);
+    LLVM_DEBUG(errs() << " with switcher channel " << switcherChannel << "\n");
 
     // If we make it here, then we have both a picker and a switcher.
     // Next, check if the switcher is defined by a compare.
@@ -627,16 +630,17 @@ bool CSAOptDFPass::seq_identify_header(MachineInstr *MI, CSASeqHeader *header) {
     }
 
     if (!((def2_count == 1) && TII.isCmp(compareInst))) {
-      DEBUG(errs() << "Stop. Found " << def2_count << " defs, with last instr "
-                   << *compareInst << "\n");
+      LLVM_DEBUG(errs() <<
+                 "Stop. Found " << def2_count << " defs, with last instr " <<
+                 *compareInst << "\n");
       MATCH_ASSERT(!pat_match);
       return false;
     }
-    DEBUG(errs() << "Found compare instruction " << compareInst << "\n");
+    LLVM_DEBUG(errs() << "Found compare instruction " << compareInst << "\n");
 
     if (compareInst->getNumOperands() != 3) {
-      DEBUG(errs() << " Stop. compare inst without 3 operands???"
-                   << "\n");
+      LLVM_DEBUG(errs() << " Stop. compare inst without 3 operands???"
+                 << "\n");
       MATCH_ASSERT(!pat_match);
       return false;
     }
@@ -644,7 +648,7 @@ bool CSAOptDFPass::seq_identify_header(MachineInstr *MI, CSASeqHeader *header) {
     // Finally, if we made it here, success!  Initialize the header.
     header->init(MI, pickerMov1, compareInst, pickerChannel, switcherChannel,
                  pickerSense, switcherSense);
-    DEBUG(errs() << "Found loop header\n");
+    LLVM_DEBUG(errs() << "Found loop header\n");
     MATCH_ASSERT(pat_match);
     MATCH_ASSERT(pat_match.instr(PICKER = mov1(SWITCHER)) == pickerMov1);
     MATCH_ASSERT(pat_match.instr(SWITCHER = cmpany(AnyOpnd, AnyOpnd)) ==
@@ -660,44 +664,45 @@ bool CSAOptDFPass::seq_identify_header(MachineInstr *MI, CSASeqHeader *header) {
 void CSAOptDFPass::seq_print_loop_info(
   SmallVector<CSASeqLoopInfo, SEQ_VEC_WIDTH> *loops) {
 
-  DEBUG(errs() << "************************\n");
-  DEBUG(errs() << "SEQ LOOP INFO:  " << loops->size() << " loops\n");
+  LLVM_DEBUG(errs() << "************************\n");
+  LLVM_DEBUG(errs() << "SEQ LOOP INFO:  " << loops->size() << " loops\n");
 
   for (unsigned i = 0; i < loops->size(); ++i) {
     CSASeqLoopInfo &current_loop = (*loops)[i];
 
-    DEBUG(errs() << "*****************\n");
-    DEBUG(errs() << "Loop " << i << "[ ");
-    DEBUG(errs() << current_loop.candidates.size() << " pairs]\n");
+    LLVM_DEBUG(errs() << "*****************\n");
+    LLVM_DEBUG(errs() << "Loop " << i << "[ ");
+    LLVM_DEBUG(errs() << current_loop.candidates.size() << " pairs]\n");
     seq_debug_print_header(current_loop.header);
 
     // Print matches to cmp0 and cmp1 uses, if they exist.
     if (current_loop.cmp0Idx() >= 0) {
 
-      DEBUG(errs() << "cmp0 matches candidate: \n");
+      LLVM_DEBUG(errs() << "cmp0 matches candidate: \n");
       seq_debug_print_candidate(
         current_loop.candidates[current_loop.cmp0Idx()]);
     } else {
-      DEBUG(errs() << "No cmp0_idx\n");
+      LLVM_DEBUG(errs() << "No cmp0_idx\n");
     }
     if (current_loop.cmp1Idx() >= 0) {
-      DEBUG(errs() << "cmp1 matches candidate: \n");
+      LLVM_DEBUG(errs() << "cmp1 matches candidate: \n");
       seq_debug_print_candidate(
         current_loop.candidates[current_loop.cmp1Idx()]);
     } else {
-      DEBUG(errs() << "No cmp1_idx\n");
+      LLVM_DEBUG(errs() << "No cmp1_idx\n");
     }
 
-    DEBUG(errs() << "Repeat channels: ");
+    LLVM_DEBUG(errs() << "Repeat channels: ");
     for (auto it = current_loop.repeat_channels.begin();
          it != current_loop.repeat_channels.end(); ++it) {
       unsigned reg = it->getFirst();
-      DEBUG(errs() << "(Reg= " << reg << ", idx= " << it->getSecond() << ") ");
+      LLVM_DEBUG(errs() <<
+                 "(Reg= " << reg << ", idx= " << it->getSecond() << ") ");
       (void) reg;
     }
-    DEBUG(errs() << "\n");
+    LLVM_DEBUG(errs() << "\n");
 
-    DEBUG(errs() << "\n** All candidates **\n");
+    LLVM_DEBUG(errs() << "\n** All candidates **\n");
     // Dump the pick/switch pairs that we found.
     for (auto it = current_loop.candidates.begin();
          it != current_loop.candidates.end(); ++it) {
@@ -705,9 +710,9 @@ void CSAOptDFPass::seq_print_loop_info(
       seq_debug_print_candidate(x);
     }
 
-    DEBUG(errs() << "*****************\n");
+    LLVM_DEBUG(errs() << "*****************\n");
   }
-  DEBUG(errs() << "************************\n");
+  LLVM_DEBUG(errs() << "************************\n");
 }
 
 // Returns MI if  MI is a pick instruction that matches the specified
@@ -745,12 +750,12 @@ MachineInstr *CSAOptDFPass::seq_candidate_match_pick(
       unsigned loopback_reg = loopbackOp.getReg();
       if (TII.isLIC(selectOp, *MRI) && TII.isLIC(loopbackOp, *MRI) &&
           select_reg == header.pickerChannel) {
-        DEBUG(errs() << "Found a pick candidate " << *MI
-                     << " with loopback reg " << loopback_reg << "\n");
+        LLVM_DEBUG(errs() << "Found a pick candidate " << *MI
+                   << " with loopback reg " << loopback_reg << "\n");
         if (pickMap.find(loopback_reg) != pickMap.end()) {
-          DEBUG(errs() << "WARNING: found an existing pick ins "
-                       << *pickMap[loopback_reg]
-                       << " with same loopback reg...\n");
+          LLVM_DEBUG(errs() << "WARNING: found an existing pick ins "
+                     << *pickMap[loopback_reg]
+                     << " with same loopback reg...\n");
         } else {
           // Success! save everything away.
           pickMap[loopback_reg] = MI;
@@ -790,12 +795,12 @@ MachineInstr *CSAOptDFPass::seq_candidate_match_switch(
       if (TII.isLIC(selectOp, *MRI) && TII.isLIC(loopbackOp, *MRI) &&
           select_reg == header.switcherChannel) {
 
-        DEBUG(errs() << "Found possible switch candidate " << *MI
-                     << " with loopback reg " << loopback_reg << "\n");
+        LLVM_DEBUG(errs() << "Found possible switch candidate " << *MI
+                   << " with loopback reg " << loopback_reg << "\n");
 
         if (pickMap.find(loopback_reg) == pickMap.end()) {
-          DEBUG(
-            errs() << "WARNING: No match. No matching pick for this switch\n");
+          LLVM_DEBUG(errs() <<
+                     "WARNING: No match. No matching pick for this switch\n");
         } else {
           MachineInstr *matching_pick = pickMap[loopback_reg];
 
@@ -805,7 +810,7 @@ MachineInstr *CSAOptDFPass::seq_candidate_match_switch(
           matching_pick = getSingleUse(loopback_reg, MRI);
 
           if (!matching_pick) {
-            DEBUG(
+            LLVM_DEBUG(
               errs()
               << "WARNING: No match.  Found other uses of loopback register "
               << loopback_reg << "\n");
@@ -835,8 +840,8 @@ void CSAOptDFPass::seq_find_candidate_loops(
       MachineInstr *MI = &*iterMI;
 
       if (seq_identify_header(MI, &tmp_header)) {
-        DEBUG(errs() << "Found a sequence header "
-                     << "\n");
+        LLVM_DEBUG(errs() << "Found a sequence header "
+                   << "\n");
         seq_debug_print_header(tmp_header);
 
         // Save the header information into the current loop.
@@ -891,7 +896,7 @@ void CSAOptDFPass::runSequenceOptimizations(SequenceOptMode seq_opt_mode) {
   if (seq_opt_mode != SequenceOptMode::off) {
 
     // Do analysis to identify candidates for sequence optimization.
-    DEBUG(errs() << "Running analysis for sequence optimizations\n");
+    LLVM_DEBUG(errs() << "Running analysis for sequence optimizations\n");
 
     // Look for the candidates we might replace with sequences.
     SmallVector<CSASeqLoopInfo, SEQ_VEC_WIDTH> loops;
@@ -900,12 +905,12 @@ void CSAOptDFPass::runSequenceOptimizations(SequenceOptMode seq_opt_mode) {
     // Only print after classification now.
     //    seq_print_loop_info(&loops);
 
-    DEBUG(errs() << "Classifying sequence op types\n");
+    LLVM_DEBUG(errs() << "Classifying sequence op types\n");
     seq_analyze_loops(&loops);
-    DEBUG(errs() << "After classification: \n");
+    LLVM_DEBUG(errs() << "After classification: \n");
     seq_print_loop_info(&loops);
 
-    DEBUG(errs() << "Done with sequence classification\n");
+    LLVM_DEBUG(errs() << "Done with sequence classification\n");
     if (seq_opt_mode > SequenceOptMode::analysis) {
       // Actually do the transforms.
 
@@ -917,23 +922,24 @@ void CSAOptDFPass::runSequenceOptimizations(SequenceOptMode seq_opt_mode) {
         if (loop.sequence_transform_is_valid()) {
           seq_do_transform_loop(loop);
           num_transformed++;
-          DEBUG(errs() << "Successful transform of loop " << loop_count
-                       << ".\n");
+          LLVM_DEBUG(errs() << "Successful transform of loop " << loop_count
+                     << ".\n");
         } else {
-          DEBUG(errs() << "Failed transform of loop " << loop_count << ".\n");
+          LLVM_DEBUG(errs() <<
+                     "Failed transform of loop " << loop_count << ".\n");
         }
         loop_count++;
 
         if (num_transformed > SequenceMaxPerLoop) {
-          DEBUG(errs() << "Reached transform loop limit. Stopping\n");
+          LLVM_DEBUG(errs() << "Reached transform loop limit. Stopping\n");
           break;
         }
       }
-      DEBUG(errs() << "Done with seq opt. Transformed " << num_transformed
-                   << " loops\n");
+      LLVM_DEBUG(errs() << "Done with seq opt. Transformed " << num_transformed
+                 << " loops\n");
     }
   } else {
-    DEBUG(errs() << "Sequence optimizations disabled\n");
+    LLVM_DEBUG(errs() << "Sequence optimizations disabled\n");
   }
 }
 
@@ -1049,9 +1055,9 @@ CSAOptDFPass::seq_classify_repeat_or_reduction(CSASeqCandidate &x) {
           MachineOperand *input0_op = NULL;
           if (is_fma) {
             if (!matched_last_use) {
-              DEBUG(errs() << "WARNING: FMA reduction with transform "
-                           << *def_bottom
-                           << " does not have last input == pick output.\n");
+              LLVM_DEBUG(errs() << "WARNING: FMA reduction with transform "
+                         << *def_bottom
+                         << " does not have last input == pick output.\n");
               return CSASeqCandidate::SeqType::UNKNOWN;
             }
             // For FMA, we don't care about setting input0_op.
@@ -1063,9 +1069,9 @@ CSAOptDFPass::seq_classify_repeat_or_reduction(CSASeqCandidate &x) {
             // Should be subtraction.
             assert(is_sub);
             if (!matched_last_use) {
-              DEBUG(errs() << "WARNING: FMA reduction with transform "
-                           << *def_bottom
-                           << " does not have last input == pick output.\n");
+              LLVM_DEBUG(errs() << "WARNING: FMA reduction with transform "
+                         << *def_bottom
+                         << " does not have last input == pick output.\n");
               return CSASeqCandidate::SeqType::UNKNOWN;
             }
             input0_op = prev_op;
@@ -1074,13 +1080,13 @@ CSAOptDFPass::seq_classify_repeat_or_reduction(CSASeqCandidate &x) {
           unsigned reduction_opcode =
             TII.convertTransformToReductionOp(def_bottom->getOpcode());
           if (reduction_opcode == CSA::INVALID_OPCODE) {
-            DEBUG(errs() << "WARNING: Potential reduction with transform "
-                         << *def_bottom << " invalid or not implemented.\n");
+            LLVM_DEBUG(errs() << "WARNING: Potential reduction with transform "
+                       << *def_bottom << " invalid or not implemented.\n");
             return CSASeqCandidate::SeqType::UNKNOWN;
           }
 
-          DEBUG(errs() << "Found reduction transform body " << *def_bottom
-                       << "\n");
+          LLVM_DEBUG(errs() << "Found reduction transform body " << *def_bottom
+                     << "\n");
           x.opcode        = reduction_opcode;
           x.stype         = CSASeqCandidate::SeqType::REDUCTION;
           x.transformInst = def_bottom;
@@ -1140,16 +1146,16 @@ CSASeqCandidate::SeqType CSAOptDFPass::seq_classify_stride(
             stride_idx = 1;
           } else {
             // Neither matches top. We have something weird.
-            DEBUG(errs() << "Add inst " << *def_bottom
-                         << " doesn't match sequence we expect.\n");
+            LLVM_DEBUG(errs() << "Add inst " << *def_bottom
+                       << " doesn't match sequence we expect.\n");
             return x.stype;
           }
 
           stride_opcode =
             TII.adjustOpcode(def_bottom->getOpcode(), CSA::Generic::STRIDE);
           if (stride_opcode == CSA::INVALID_OPCODE) {
-            DEBUG(errs() << "WARNING: stride operation for add transform "
-                         << *def_bottom << " not implemented yet...\n");
+            LLVM_DEBUG(errs() << "WARNING: stride operation for add transform "
+                       << *def_bottom << " not implemented yet...\n");
             return x.stype;
           }
         } else {
@@ -1161,15 +1167,15 @@ CSASeqCandidate::SeqType CSAOptDFPass::seq_classify_stride(
             stride_idx = 2;
           } else {
             // Neither matches top. We have something weird.
-            DEBUG(errs() << "Sub inst " << *def_bottom
-                         << " doesn't match sequence we expect.\n");
+            LLVM_DEBUG(errs() << "Sub inst " << *def_bottom
+                       << " doesn't match sequence we expect.\n");
             return x.stype;
           }
           stride_opcode =
             TII.adjustOpcode(def_bottom->getOpcode(), CSA::Generic::STRIDE);
           if (stride_opcode == CSA::INVALID_OPCODE) {
-            DEBUG(errs() << "WARNING: stride operation for sub transform "
-                         << *def_bottom << " not implemented yet...\n");
+            LLVM_DEBUG(errs() << "WARNING: stride operation for sub transform "
+                       << *def_bottom << " not implemented yet...\n");
             return x.stype;
           }
         }
@@ -1188,8 +1194,9 @@ CSASeqCandidate::SeqType CSAOptDFPass::seq_classify_stride(
           return CSASeqCandidate::SeqType::STRIDE;
         }
       } else {
-        DEBUG(errs() << "Classify stride found weird add/sub " << *def_bottom
-                     << " does not have 3 operands. Skipping\n");
+        LLVM_DEBUG(errs() <<
+                   "Classify stride found weird add/sub " << *def_bottom <<
+                   " does not have 3 operands. Skipping\n");
       }
     }
   }
@@ -1221,7 +1228,7 @@ CSAOptDFPass::seq_classify_memdep_graph(CSASeqCandidate &x) {
       if (srcInst && CSA::CSA_PARALLEL_MEMDEP == srcInst->getOpcode()) {
         assert(0 && "CSA::CSA_PARALLEL_MEMDEP is no longer in use");
         // TBD: Delete .memdep_sink here
-        DEBUG(errs() << "Remove back edge from memdep_sink\n");
+        LLVM_DEBUG(errs() << "Remove back edge from memdep_sink\n");
         x.stype         = CSASeqCandidate::SeqType::PARLOOP_MEM_DEP;
         x.transformInst = NULL;
         x.top           = sink_reg;
@@ -1235,9 +1242,9 @@ CSAOptDFPass::seq_classify_memdep_graph(CSASeqCandidate &x) {
     // we have one.  What could possibly go wrong here?
     // Our goal is to break that dependency.
     if (SeqBreakMemdep >= 2) {
-      DEBUG(errs() << "ASSUMED we have a memdep candidate.\n");
-      DEBUG(errs()
-            << "The flag was set.. it is not my fault if it doesn't work!\n");
+      LLVM_DEBUG(errs() << "ASSUMED we have a memdep candidate.\n");
+      LLVM_DEBUG(errs() <<
+                 "The flag was set.. it is not my fault if it doesn't work!\n");
       x.stype         = CSASeqCandidate::SeqType::PARLOOP_MEM_DEP;
       x.transformInst = NULL;
       x.top           = sink_reg;
@@ -1277,11 +1284,12 @@ CSAOptDFPass::seq_classify_memdep_graph(CSASeqCandidate &x) {
            it != p_current->end(); ++it) {
         MachineInstr *MI = *it;
 
-        DEBUG(errs() << " MemGraph processing: current ins = " << *MI << "\n");
+        LLVM_DEBUG(errs() <<
+                   " MemGraph processing: current ins = " << *MI << "\n");
 
         if (MI == x.pickInst) {
           if ((p_current->size() == 1) && (p_next->size() == 0)) {
-            DEBUG(errs() << "Found memdep candidate\n");
+            LLVM_DEBUG(errs() << "Found memdep candidate\n");
             x.stype         = CSASeqCandidate::SeqType::PARLOOP_MEM_DEP;
             x.transformInst = NULL;
             x.top           = sink_reg;
@@ -1291,8 +1299,9 @@ CSAOptDFPass::seq_classify_memdep_graph(CSASeqCandidate &x) {
             // Ignore this pick for now.  The pick can be reached from
             // multiple paths, and we want each one of them to end up
             // here.
-            DEBUG(errs() << "Reached pick, but frontier not empty yet. Maybe "
-                            "other paths\n");
+            LLVM_DEBUG(errs() <<
+                       "Reached pick, but frontier not empty yet. Maybe "
+                       "other paths\n");
           }
         } else {
           // Walk backwards from the current instruction, and look for
@@ -1347,13 +1356,13 @@ CSAOptDFPass::seq_classify_memdep_graph(CSASeqCandidate &x) {
                   }
                 }
               }
-              DEBUG(errs() << "Unknown op folloing chain, in " << *MI
-                           << ". Can't match\n");
+              LLVM_DEBUG(errs() << "Unknown op folloing chain, in " << *MI
+                         << ". Can't match\n");
               return CSASeqCandidate::SeqType::UNKNOWN;
             }
           } else {
-            DEBUG(errs() << "Could not follow chain of memory ops." << *MI
-                         << ".  Can't match\n");
+            LLVM_DEBUG(errs() << "Could not follow chain of memory ops." << *MI
+                       << ".  Can't match\n");
             return CSASeqCandidate::SeqType::UNKNOWN;
           }
         }
@@ -1365,8 +1374,8 @@ CSAOptDFPass::seq_classify_memdep_graph(CSASeqCandidate &x) {
       std::swap(p_current, p_next);
     }
 
-    DEBUG(errs() << "Falling through. stopping chain after " << num_levels
-                 << " levels of searching...\n");
+    LLVM_DEBUG(errs() << "Falling through. stopping chain after " << num_levels
+               << " levels of searching...\n");
   }
   return CSASeqCandidate::SeqType::UNKNOWN;
 }
@@ -1388,15 +1397,17 @@ inline bool update_header_cmp_channels(CSASeqLoopInfo &current_loop,
     return true;
 
   case CSASeqLoopInfo::CmpMatchType::Dup0:
-    DEBUG(errs() << "WARNING: Finding duplicate seq def for cmp0. Ignoring\n");
-    DEBUG(errs() << "Duplicate def of " << bottom << " is at idx "
-                 << current_loop.cmp0Idx() << "\n");
+    LLVM_DEBUG(errs() <<
+               "WARNING: Finding duplicate seq def for cmp0. Ignoring\n");
+    LLVM_DEBUG(errs() << "Duplicate def of " << bottom << " is at idx "
+               << current_loop.cmp0Idx() << "\n");
     return false;
 
   case CSASeqLoopInfo::CmpMatchType::Dup1:
-    DEBUG(errs() << "WARNING: Finding duplicate seq def for cmp1. Ignoring\n");
-    DEBUG(errs() << "Duplicate def of " << bottom << " is at idx "
-                 << current_loop.cmp1Idx() << "\n");
+    LLVM_DEBUG(errs() <<
+               "WARNING: Finding duplicate seq def for cmp1. Ignoring\n");
+    LLVM_DEBUG(errs() << "Duplicate def of " << bottom << " is at idx "
+               << current_loop.cmp1Idx() << "\n");
     return false;
 
   case CSASeqLoopInfo::CmpMatchType::NoMatch:
@@ -1404,7 +1415,8 @@ inline bool update_header_cmp_channels(CSASeqLoopInfo &current_loop,
 
   case CSASeqLoopInfo::CmpMatchType::OtherError:
   default:
-    DEBUG(errs() << "ERROR: encountering bad bottom channel in loop...\n");
+    LLVM_DEBUG(errs() <<
+               "ERROR: encountering bad bottom channel in loop...\n");
     assert(0);
     return false; // Should not be reached
   }
@@ -1449,14 +1461,14 @@ void CSAOptDFPass::seq_classify_loop_repeats(
     }
   }
 
-  DEBUG(errs() << "Repeat phase: Loop " << current_loop.loop_id << "\n");
-  DEBUG(errs() << "  Repeat candidates: " << repeats.size() << "\n");
-  DEBUG(errs() << "  Reduction candidates: " << reductions.size() << "\n");
-  DEBUG(errs() << "  Other candidates: " << other.size() << "\n");
-  DEBUG(errs() << "  Total candidates: " << current_loop.candidates.size()
-               << "\n");
-  DEBUG(errs() << "  Repeat channels found: "
-               << current_loop.repeat_channels.size() << "\n");
+  LLVM_DEBUG(errs() << "Repeat phase: Loop " << current_loop.loop_id << "\n");
+  LLVM_DEBUG(errs() << "  Repeat candidates: " << repeats.size() << "\n");
+  LLVM_DEBUG(errs() << "  Reduction candidates: " << reductions.size() << "\n");
+  LLVM_DEBUG(errs() << "  Other candidates: " << other.size() << "\n");
+  LLVM_DEBUG(errs() << "  Total candidates: " << current_loop.candidates.size()
+             << "\n");
+  LLVM_DEBUG(errs() << "  Repeat channels found: "
+             << current_loop.repeat_channels.size() << "\n");
 }
 
 // Classify the candidates in "reductions", (which are ideally
@@ -1487,10 +1499,11 @@ void CSAOptDFPass::seq_classify_loop_reductions_as_strides(
     }
   }
 
-  DEBUG(errs() << "Reduction phase:  Loop " << current_loop.loop_id << "\n");
-  DEBUG(errs() << "   Repeats, reductions, and strides: "
-               << current_loop.candidates.size() << "\n");
-  DEBUG(errs() << "   Remaining candidates: " << remaining.size() << "\n");
+  LLVM_DEBUG(errs() <<
+             "Reduction phase:  Loop " << current_loop.loop_id << "\n");
+  LLVM_DEBUG(errs() << "   Repeats, reductions, and strides: "
+             << current_loop.candidates.size() << "\n");
+  LLVM_DEBUG(errs() << "   Remaining candidates: " << remaining.size() << "\n");
 }
 
 // Classify any candidates in "remaining".
@@ -1566,14 +1579,15 @@ void CSAOptDFPass::seq_analyze_loops(
       // Remember the number of sequences that we can transform.
       current_loop.set_valid_sequence_count(current_loop.candidates.size());
 
-      DEBUG(errs() << "Final classification: Loop " << current_loop.loop_id
-                   << "\n");
-      DEBUG(errs() << "   Invalid candidates: " << other.size() << "\n");
-      DEBUG(errs() << "   Valid candidates: " << current_loop.candidates.size()
-                   << "\n");
+      LLVM_DEBUG(errs() << "Final classification: Loop " << current_loop.loop_id
+                 << "\n");
+      LLVM_DEBUG(errs() << "   Invalid candidates: " << other.size() << "\n");
+      LLVM_DEBUG(errs() <<
+                 "   Valid candidates: " << current_loop.candidates.size()
+                 << "\n");
 
       // Print the invalid candidates that we are ignoring.
-      DEBUG(errs() << "Invalid candidates: \n");
+      LLVM_DEBUG(errs() << "Invalid candidates: \n");
       for (unsigned j = 0; j < other.size(); ++j) {
         seq_debug_print_candidate(other[j]);
       }
@@ -1585,8 +1599,8 @@ void CSAOptDFPass::seq_analyze_loops(
       //                                 other.begin(), other.end());
 
       bool can_transform = seq_identify_induction_variable(current_loop);
-      DEBUG(errs() << "Loop " << current_loop.loop_id
-                   << ": can transform = " << can_transform << "\n");
+      LLVM_DEBUG(errs() << "Loop " << current_loop.loop_id
+                 << ": can transform = " << can_transform << "\n");
       (void) can_transform;
     }
   }
@@ -1599,16 +1613,16 @@ bool CSAOptDFPass::seq_identify_induction_variable(CSASeqLoopInfo &loop) {
   // Found a valid induction variable.
   bool found_indvar = loop.find_induction_variable();
   if (!found_indvar) {
-    DEBUG(errs() << "Seq transform failed: invalid induction variable.\n");
+    LLVM_DEBUG(errs() << "Seq transform failed: invalid induction variable.\n");
     return false;
   }
 
   bool found_bound = loop.has_valid_bound();
   if (!found_bound) {
     int boundIdx = loop.boundIdx();
-    DEBUG(errs() << "Seq transform failed: no valid bound (e.g., possible "
-                    "non-constant loop).\n");
-    DEBUG(errs() << "Boundidx = " << boundIdx << "\n");
+    LLVM_DEBUG(errs() << "Seq transform failed: no valid bound (e.g., possible "
+               "non-constant loop).\n");
+    LLVM_DEBUG(errs() << "Boundidx = " << boundIdx << "\n");
     (void) boundIdx;
     if (loop.boundIdx() >= 0) {
       seq_debug_print_candidate(loop.candidates[loop.boundIdx()]);
@@ -1619,10 +1633,10 @@ bool CSAOptDFPass::seq_identify_induction_variable(CSASeqLoopInfo &loop) {
   bool last_transform_check = loop.sequence_opcode_transform_check(TII);
   if (!last_transform_check) {
 
-    DEBUG(errs() << "Failing last seq transform check...\n");
-    DEBUG(errs() << "Indvar idx is " << loop.indvarIdx() << "\n");
+    LLVM_DEBUG(errs() << "Failing last seq transform check...\n");
+    LLVM_DEBUG(errs() << "Indvar idx is " << loop.indvarIdx() << "\n");
     if (loop.indvarIdx() >= 0) {
-      DEBUG(errs() << "Induction variable sequence is ...\n");
+      LLVM_DEBUG(errs() << "Induction variable sequence is ...\n");
       seq_debug_print_candidate(loop.candidates[loop.indvarIdx()]);
     }
   }
@@ -1797,7 +1811,7 @@ CSAOptDFPass::seq_lookup_stride_op(CSASeqLoopInfo &loop,
     } else {
       // We should have matched the register for this stride op with a
       // repeat earlier.
-      DEBUG(errs() << "ERROR: can't find repeat channel for stride...\n");
+      LLVM_DEBUG(errs() << "ERROR: can't find repeat channel for stride...\n");
       return NULL;
     }
   }
@@ -1864,8 +1878,8 @@ void CSAOptDFPass::seq_do_transform_loop_seq(
   int num_dependent_sequences = loop.get_valid_sequence_count() - 1;
   assert(num_dependent_sequences >= 0);
 
-  DEBUG(errs() << "For loop " << loop.loop_id << ", dependent sequences = "
-               << num_dependent_sequences << "\n");
+  LLVM_DEBUG(errs() << "For loop " << loop.loop_id << ", dependent sequences = "
+             << num_dependent_sequences << "\n");
 
   // We only need to define a predicate register if we have at least
   // one dependent sequence.
@@ -1921,13 +1935,15 @@ void CSAOptDFPass::seq_do_transform_loop_seq(
   insToDisconnect.push_back(indvarCandidate.pickInst);
   insToDisconnect.push_back(indvarCandidate.switchInst);
 
-  DEBUG(errs() << "Transform loop_seq: adding a new sequence instruction "
-               << *seqInfo->seq_inst << "\n");
-  DEBUG(errs() << "   Adding a new switcher def inst " << *switcher_def_inst
-               << "\n");
+  LLVM_DEBUG(errs() << "Transform loop_seq: adding a new sequence instruction "
+             << *seqInfo->seq_inst << "\n");
+  LLVM_DEBUG(errs() <<
+             "   Adding a new switcher def inst " << *switcher_def_inst
+             << "\n");
   if (output_switch) {
-    DEBUG(errs() << "   Adding a switch output instruction " << *output_switch
-                 << "\n");
+    LLVM_DEBUG(errs() <<
+               "   Adding a switch output instruction " << *output_switch
+               << "\n");
   }
 }
 
@@ -1942,11 +1958,11 @@ void CSAOptDFPass::seq_do_transform_loop_repeat(
   MachineInstr *out_switch = seq_add_output_switch_for_seq_candidate(
     scandidate, loop.header, seqInfo.last_reg, TII, *BB, repinst);
 
-  DEBUG(errs() << "do_transform_loop_repeat: adding repeat = " << *repinst
-               << "\n");
+  LLVM_DEBUG(errs() << "do_transform_loop_repeat: adding repeat = " << *repinst
+             << "\n");
   if (out_switch) {
-    DEBUG(errs() << "do_transform_loop_repeat: adding output switch = "
-                 << *out_switch << "\n");
+    LLVM_DEBUG(errs() << "do_transform_loop_repeat: adding output switch = "
+               << *out_switch << "\n");
   }
 
   insToDisconnect.push_back(scandidate.pickInst);
@@ -1979,11 +1995,11 @@ void CSAOptDFPass::seq_do_transform_loop_stride(
 
   MachineInstr *out_switch = seq_add_output_switch_for_seq_candidate(
     scandidate, loop.header, seqInfo.last_reg, TII, *BB, stride_inst);
-  DEBUG(errs() << "do_transform_loop_stride: adding stride = " << *stride_inst
-               << "\n");
+  LLVM_DEBUG(errs() << "do_transform_loop_stride: adding stride = " <<
+             *stride_inst << "\n");
   if (out_switch) {
-    DEBUG(errs() << "do_transform_loop_stride: adding output switch = "
-                 << *out_switch << "\n");
+    LLVM_DEBUG(errs() << "do_transform_loop_stride: adding output switch = "
+               << *out_switch << "\n");
   }
 
   insToDisconnect.push_back(scandidate.pickInst);
@@ -2003,8 +2019,8 @@ void CSAOptDFPass::seq_do_transform_loop_parloop_memdep(
   assert(!scandidate.transformInst);
   MachineInstr *onend_inst = seq_add_parloop_memdep(
     scandidate, loop.header, seqInfo.pred_reg, TII, *BB, seqInfo.seq_inst);
-  DEBUG(errs() << "do_transform_parloop_memdep: adding onend = " << *onend_inst
-               << "\n");
+  LLVM_DEBUG(errs() << "do_transform_parloop_memdep: adding onend = " <<
+             *onend_inst << "\n");
   (void) onend_inst;
 
   insToDisconnect.push_back(scandidate.pickInst);
@@ -2022,8 +2038,8 @@ void CSAOptDFPass::seq_do_transform_loop_reduction(
     seq_add_reduction(scandidate, loop.header, seqInfo.pred_reg, TII, *BB,
                       seqInfo.seq_inst, is_fma);
 
-  DEBUG(errs() << "do_transform_loop_reduction: adding reduction = "
-               << *red_inst << "\n");
+  LLVM_DEBUG(errs() << "do_transform_loop_reduction: adding reduction = "
+             << *red_inst << "\n");
   (void) red_inst;
 
   insToDisconnect.push_back(scandidate.pickInst);
@@ -2080,7 +2096,7 @@ void CSAOptDFPass::seq_do_transform_loop(CSASeqLoopInfo &loop) {
         break;
 
       default:
-        DEBUG(
+        LLVM_DEBUG(
           errs() << "do_transform: Ignoring sequence candidate in transform: ");
         seq_debug_print_candidate(scandidate);
       }

@@ -278,8 +278,9 @@ bool HIRLoopDistribution::arrayTempExceeded(
           if (SinkRef->isRval() &&
               TempRef->getSymbase() == SinkRef->getSymbase()) {
             if (++NumArrayTemps >= MaxArrayTempsAllowed) {
-              DEBUG(dbgs() << "Loop Dist  bail out because #of Array temps "
-                              "exceeded");
+              LLVM_DEBUG(dbgs()
+                         << "Loop Dist  bail out because #of Array temps "
+                            "exceeded");
               return true;
             }
             // Add to NumArrayTemp once per temp
@@ -723,5 +724,6 @@ void HIRLoopDistribution::findDistPoints(
     formPerfectLoopNests(PGraph, DistPoints);
   }
 
-  DEBUG(dbgs() << "Loop Dist proposes " << DistPoints.size() << " Loops\n");
+  LLVM_DEBUG(dbgs() << "Loop Dist proposes " << DistPoints.size()
+                    << " Loops\n");
 }

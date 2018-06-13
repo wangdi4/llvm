@@ -246,12 +246,13 @@ int X86TTIImpl::getArithmeticInstrCost(
   }
 
   if (ISD == ISD::SDIV &&
-      Op2Info == TargetTransformInfo::OK_UniformConstantValue &&
+      (Op2Info == TargetTransformInfo::OK_UniformConstantValue ||
+       Op2Info == TargetTransformInfo::OK_NonUniformConstantValue) &&
       Opd2PropInfo == TargetTransformInfo::OP_PowerOf2) {
     // On X86, vector signed division by constants power-of-two are
     // normally expanded to the sequence SRA + SRL + ADD + SRA.
-    // The OperandValue properties many not be same as that of previous
-    // operation;conservatively assume OP_None.
+    // The OperandValue properties may not be the same as that of the previous
+    // operation; conservatively assume OP_None.
     int Cost = 2 * getArithmeticInstrCost(Instruction::AShr, Ty, Op1Info,
                                           Op2Info, TargetTransformInfo::OP_None,
                                           TargetTransformInfo::OP_None);
@@ -2247,7 +2248,7 @@ int X86TTIImpl::getMinMaxReductionCost(Type *ValTy, Type *CondTy,
   return BaseT::getMinMaxReductionCost(ValTy, CondTy, IsPairwise, IsUnsigned);
 }
 
-/// \brief Calculate the cost of materializing a 64-bit value. This helper
+/// Calculate the cost of materializing a 64-bit value. This helper
 /// method might only calculate a fraction of a larger immediate. Therefore it
 /// is valid to return a cost of ZERO.
 int X86TTIImpl::getIntImmCost(int64_t Val) {

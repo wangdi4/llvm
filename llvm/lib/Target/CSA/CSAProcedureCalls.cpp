@@ -164,7 +164,10 @@ static bool isMovOpcode(unsigned opcode) {
 static int get_func_order(StringRef &name, const Module *M) {
   int id = 1;
   for (const Function &F : *M) {
-    if (F.getName() == name) { DEBUG(errs() << name << "::" << id << "\n"); return id; }
+    if (F.getName() == name) {
+      LLVM_DEBUG(errs() << name << "::" << id << "\n");
+      return id;
+    }
     ++id;
   }
   return -1;
@@ -212,7 +215,7 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
   std::vector<CALL_SITE_INFO> csilist;
 //RAVI  const TargetMachine &TM = thisMF->getTarget();
   for (const Function &F : *M) {
-    DEBUG(errs() << "function = " << F.getName() << "\n");
+    LLVM_DEBUG(errs() << "function = " << F.getName() << "\n");
     if (F.isDeclaration()) continue;
     int index = 1;
     typedef po_iterator<const BasicBlock *> po_cfg_iterator;
@@ -229,7 +232,7 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
       postk.pop();
       for (const Instruction &I : BB) {
         if (const CallInst *CI = dyn_cast<const CallInst>(&I)) {
-          DEBUG(errs() << "CallInst = " << I << "\n");
+          LLVM_DEBUG(errs() << "CallInst = " << I << "\n");
           if (!CI->isInlineAsm() && name == CI->getCalledFunction()->getName()) {
             CALL_SITE_INFO csi;
             csi.caller_func = F.getName();
@@ -239,9 +242,9 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
             getReturnArgs(csi, returnMI, isDeclared);
             csilist.push_back(csi);
             num_call_sites++;
-            DEBUG(errs() << name << " is called by " << csi.caller_func << " at index " << csi.call_site_index << "\n");
+            LLVM_DEBUG(errs() << name << " is called by " << csi.caller_func << " at index " << csi.call_site_index << "\n");
           }
-          if (!CI->isInlineAsm() &&  CI->getCalledFunction()->isDeclaration()) DEBUG(errs() << "Is decl\n"); 
+          if (!CI->isInlineAsm() &&  CI->getCalledFunction()->isDeclaration()) LLVM_DEBUG(errs() << "Is decl\n"); 
           else if (!CI->isInlineAsm()) index++;
         }
       }
@@ -249,9 +252,9 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
   }
   
   for (auto csi : csilist) {
-    DEBUG(errs() << name << " is called by " << csi.caller_func << " at index " << csi.call_site_index << "\n");
+    LLVM_DEBUG(errs() << name << " is called by " << csi.caller_func << " at index " << csi.call_site_index << "\n");
   }
-  DEBUG(errs() << "Number of call sites for " << name << " is " << num_call_sites << "\n");
+  LLVM_DEBUG(errs() << "Number of call sites for " << name << " is " << num_call_sites << "\n");
   LMFI->setNumCallSites(num_call_sites);
   if (!num_call_sites) return;
   const TargetInstrInfo *TII = thisMF->getSubtarget().getInstrInfo();
@@ -312,7 +315,7 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
                                     .addReg(src)
                                     .setMIFlag(MachineInstr::NonSequential);
     MachineInstr *MI = &*MIB;
-    DEBUG(errs() << "MI = " << *MI << "\n");
+    LLVM_DEBUG(errs() << "MI = " << *MI << "\n");
     (void) MI;
   }
   
@@ -375,7 +378,7 @@ MachineInstr* CSAProcCallsPass::addEntryInstruction(void) {
 	}
   MachineInstr *MI = &*MIB;
   MI->setFlag(MachineInstr::NonSequential);
-  DEBUG(errs() << "Entry instruction = " << *MI << "\n");
+  LLVM_DEBUG(errs() << "Entry instruction = " << *MI << "\n");
   
   // Deal with output mem ord edge from entry
   // MemOpOrdering introduces a SXU instruction to generate a memory ordering reg
@@ -390,7 +393,7 @@ MachineInstr* CSAProcCallsPass::addEntryInstruction(void) {
       if (copyMI->getOpcode() != CSA::MOV0) continue;
       if (copyMI->getOperand(1).isReg() && (copyMI->getOperand(1).getReg() == CSA::RA)) {
         MRI->replaceRegWith(copyMI->getOperand(0).getReg(),MI->getOperand(0).getReg());
-        DEBUG(errs() << "copy operation to be deleted = " << *copyMI << "\n");
+        LLVM_DEBUG(errs() << "copy operation to be deleted = " << *copyMI << "\n");
         copyMI->eraseFromParent();
         outerloop = false;
         break;
@@ -469,13 +472,13 @@ MachineInstr* CSAProcCallsPass::addReturnInstruction(MachineInstr *entryMI) {
   copyMI->eraseFromParent();
   MachineInstr *MI = &*MIB;
   MI->setFlag(MachineInstr::NonSequential);
-  DEBUG(errs() << "Return instruction = " << *MI << "\n");
+  LLVM_DEBUG(errs() << "Return instruction = " << *MI << "\n");
   
   // Deal with input memory ordering edge into return
   MachineBasicBlock::reverse_iterator RI_BEGIN(MI);
   for (MachineBasicBlock::reverse_iterator I1 = RI_BEGIN; I1 != (MI->getParent())->rend(); I1++) {
     copyMI = &*I1;
-    DEBUG(errs() << "copyMI = " << *copyMI << "\n");
+    LLVM_DEBUG(errs() << "copyMI = " << *copyMI << "\n");
     if (copyMI->getOpcode() != CSA::MOV0) continue;
     if (!copyMI->getOperand(0).isReg()) continue;
     const TargetRegisterClass *TRC = MRI->getRegClass(copyMI->getOperand(0).getReg());
@@ -509,13 +512,13 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
       ++I;
       nextMI = I;
       if ((MI->getOpcode() != CSA::JSR) && (MI->getOpcode() != CSA::JSRi)) continue;
-      DEBUG(errs() << "Input Call MI = " << *MI << "\n");
+      LLVM_DEBUG(errs() << "Input Call MI = " << *MI << "\n");
       const MachineOperand &MO = MI->getOperand(0);
       if (!MO.isGlobal()) continue;
       const Function *F = dyn_cast<Function>(MO.getGlobal());
       if (!F) continue;
-      DEBUG(errs() << "Called Function name = " << F->getName() << "\n");
-      if (F->getName() == name) DEBUG(errs() << "Recursive function call!!!\n");
+      LLVM_DEBUG(errs() << "Called Function name = " << F->getName() << "\n");
+      if (F->getName() == name) LLVM_DEBUG(errs() << "Recursive function call!!!\n");
       StringRef callee_name = F->getName();
       int callee_id = get_func_order(callee_name,M);
       int caller_id = get_func_order(name,M);
@@ -560,12 +563,12 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
       bool outerloop = true;
       for (MachineBasicBlock::iterator I1 = I; I1 != MBB->end() && outerloop; ++I1) {
         copyMI = &*I1;
-        DEBUG(errs() << "candidate copy instr for result is " << *copyMI << "\n");
+        LLVM_DEBUG(errs() << "candidate copy instr for result is " << *copyMI << "\n");
         if (!isMovOpcode(copyMI->getOpcode())) continue;
         auto top = copyMI->getOperand(1);
         if (top.isReg()) {
           if (top.getReg() == CSA::P64_0) {
-            DEBUG(errs() << "copy instr for result is " << *copyMI << "\n");
+            LLVM_DEBUG(errs() << "copy instr for result is " << *copyMI << "\n");
             unsigned resultReg = getParamReg(name, "result_", CallSiteIndex, 1,
                                             &CSA::CI64RegClass, isDeclared, true);
             Cont_MIB.addReg(resultReg,RegState::Define);
@@ -580,10 +583,10 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
       }
       Cont_MIB.addImm(CallSiteIndex++);
       MachineInstr *newCI = &*Call_MIB;
-      DEBUG(errs() << "new call instruction = " << *newCI << "\n");
+      LLVM_DEBUG(errs() << "new call instruction = " << *newCI << "\n");
       newCI->setFlag(MachineInstr::NonSequential);
       MachineInstr *newCoI = &*Cont_MIB;
-      DEBUG(errs() << "new continue instruction = " << *newCoI << "\n");
+      LLVM_DEBUG(errs() << "new continue instruction = " << *newCoI << "\n");
       newCoI->setFlag(MachineInstr::NonSequential);
       
       // Deal with input memory ordering edge into call
@@ -596,7 +599,7 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
         if (TRC != &CSA::RI1RegClass) continue;
         copyMI->getOperand(0).setReg(newCI->getOperand(2).getReg());
         copyMI->setFlag(MachineInstr::NonSequential);
-        DEBUG(errs() << "new mem op input instruction = " << *copyMI << "\n");
+        LLVM_DEBUG(errs() << "new mem op input instruction = " << *copyMI << "\n");
         break;
       }
       
@@ -608,7 +611,7 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
         if (copyMI->getOperand(1).isReg() && (copyMI->getOperand(1).getReg() == CSA::RA)) {
           copyMI->getOperand(1).setReg(newCoI->getOperand(0).getReg());
           copyMI->setFlag(MachineInstr::NonSequential);
-          DEBUG(errs() << "new mem op output instruction = " << *copyMI << "\n");
+          LLVM_DEBUG(errs() << "new mem op output instruction = " << *copyMI << "\n");
           break;
         }
       }
@@ -627,9 +630,9 @@ void CSAProcCallsPass::changeMovConstToGate(unsigned entry_mem_ord_lic) {
       nextMI = I;
       if (!isMovOpcode(MI->getOpcode())) continue;
       if (MI->getFlag(MachineInstr::NonSequential)) continue;
-      DEBUG(errs() << "1. MI = " << *MI << "\n");
+      LLVM_DEBUG(errs() << "1. MI = " << *MI << "\n");
       if (MI->getOperand(1).isImm() || MI->getOperand(1).isFPImm()) {
-        DEBUG(errs() << "2. MI = " << *MI << "\n");
+        LLVM_DEBUG(errs() << "2. MI = " << *MI << "\n");
         MachineInstrBuilder MIB = BuildMI(*(MI->getParent()), MI, MI->getDebugLoc(), TII->get(getGateOpcode(MI->getOpcode())))
                                     .addReg(MI->getOperand(0).getReg(),RegState::Define)
                                     .addReg(entry_mem_ord_lic);
@@ -648,7 +651,7 @@ void CSAProcCallsPass::changeMovConstToGate(unsigned entry_mem_ord_lic) {
 
 bool CSAProcCallsPass::runOnMachineFunction(MachineFunction &MF) {
   thisMF = &MF;
-  DEBUG(errs() << "Entering into CSA Procedure Calls Pass for " << MF.getFunction().getName() << "\n");
+  LLVM_DEBUG(errs() << "Entering into CSA Procedure Calls Pass for " << MF.getFunction().getName() << "\n");
   if (ProcCallsPass == 0) return false;
   LMFI   = MF.getInfo<CSAMachineFunctionInfo>();
 	MRI = &(MF.getRegInfo());

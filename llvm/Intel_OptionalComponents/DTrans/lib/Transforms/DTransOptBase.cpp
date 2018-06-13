@@ -272,7 +272,7 @@ void DTransOptBase::buildTypeDependencyMapping(
   }
 
 #if !defined(NDEBUG)
-  DEBUG(dumpTypeDepenencyMapping(TypeToDependentTypes));
+  LLVM_DEBUG(dumpTypeDepenencyMapping(TypeToDependentTypes));
 #endif // !defined(NDEBUG)
 }
 
@@ -325,8 +325,9 @@ void DTransOptBase::collectDependenciesForTypeRecurse(
     if (!Dependee->isAggregateType())
       return;
 
-    DEBUG(dbgs() << "DTRANS-OPTBASE: Type dependency: Replacing " << *Depender
-                 << " will require replacing  " << *Dependee << "\n");
+    LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Type dependency: Replacing "
+                      << *Depender << " will require replacing  " << *Dependee
+                      << "\n");
     Map[Depender].insert(Dependee);
   };
 
@@ -417,8 +418,9 @@ void DTransOptBase::prepareDependentTypes(
       TypeRemapper->addTypeMapping(Ty, ReplacementTy);
       OrigToNewTypeReplacement[Ty] = ReplacementTy;
 
-      DEBUG(dbgs() << "DTRANS-OPTBASE: New type created: " << *ReplacementTy
-                   << " as replacement for " << *Ty << "\n");
+      LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: New type created: "
+                        << *ReplacementTy << " as replacement for " << *Ty
+                        << "\n");
     }
   }
 }
@@ -439,13 +441,46 @@ void DTransOptBase::populateDependentTypes(
 
       StructType *ReplStructTy = cast<StructType>(ReplTy);
       ReplStructTy->setBody(DataTypes, StructTy->isPacked());
-      DEBUG(dbgs() << "DTRANS-OPTBASE: New structure body: " << *ReplStructTy
-                   << "\n");
+      LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: New structure body: "
+                        << *ReplStructTy << "\n");
     }
   }
 }
 
 void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
+  // Create a mapping of "Function -> { call info set }" objects.
+  // The CallInfo objects will need to have their types updated
+  // following cloning/remapping of the function. This map will
+  // be used to find which CallInfo objects need to be updated after
+  // processing each function.
+  DenseMap<Function *, SmallVector<dtrans::CallInfo *, 4>>
+      FunctionToCallInfoVec;
+
+  // This lambda function is used to update the CallInfo objects associated
+  // with a specific function. The type list of each call info will be
+  // updated to reflect the remapped types. For cloned functions, the
+  // instruction pointer in the call info will be updated to point
+  // to the instruction in the cloned function.
+  auto UpdateCallInfo = [this, &FunctionToCallInfoVec](Function *F,
+                                                       bool isCloned) {
+    if (FunctionToCallInfoVec.count(F))
+      for (auto *CInfo : FunctionToCallInfoVec[F]) {
+        if (isCloned)
+          DTInfo.replaceCallInfoInstruction(
+              CInfo, cast<Instruction>(VMap[CInfo->getInstruction()]));
+
+        dtrans::PointerTypeInfo &PTI = CInfo->getPointerTypeInfoRef();
+        size_t Num = PTI.getNumTypes();
+        for (size_t i = 0; i < Num; ++i)
+          PTI.setType(i, TypeRemapper->remapType(PTI.getType(i)));
+      }
+  };
+
+  for (auto *CInfo : DTInfo.call_info_entries()) {
+    Function *F = CInfo->getInstruction()->getParent()->getParent();
+    FunctionToCallInfoVec[F].push_back(CInfo);
+  }
+
   for (auto &F : M) {
     if (F.isDeclaration())
       continue;
@@ -471,6 +506,7 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
 
       CloneFunctionInto(CloneFunc, &F, VMap, true, Returns, "", &CodeInfo,
                         TypeRemapper, Materializer);
+      UpdateCallInfo(&F, /* IsCloned=*/true);
 
       // Let the derived class perform any additional actions needed on the
       // cloned function. For example, if the transformation is changing
@@ -486,12 +522,18 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
       // Perform the type remapping for the function
       ValueMapper(VMap, RF_IgnoreMissingLocals, TypeRemapper, Materializer)
           .remapFunction(F);
+      UpdateCallInfo(&F, /* IsCloned=*/false);
 
       // Let the derived class perform any additional actions needed on the
       // remapped function.
       postprocessFunction(F, /*is_clone=*/false);
     }
   }
+
+  LLVM_DEBUG({
+    dbgs() << "Call info after remapping\n";
+    DTInfo.printCallInfo(dbgs());
+  });
 }
 
 // Identify and create new function prototypes for dependent functions
@@ -534,26 +576,311 @@ void DTransOptBase::createCloneFunctionDeclarations(Module &M) {
         VMap[&I] = &*DestI++;
       }
 
-      DEBUG(dbgs() << "DTRANS-OPTBASE: Will clone: " << F->getName() << " "
-                   << *F->getType() << " into: " << NewF->getName() << " "
-                   << *NewF->getType() << "\n");
+      LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Will clone: " << F->getName() << " "
+                        << *F->getType() << " into: " << NewF->getName() << " "
+                        << *NewF->getType() << "\n");
     }
   }
 }
 
-// Remap global variables for new types
+// Remap global variables that are of types being converted to new types
 void DTransOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
-  // TODO: Subsequent change will implement remapping for global vars.
+  // Build a work list of global variables that are going to need to be
+  // remapped due to their types getting changed. Store the existing
+  // global variable and the type the replacement should be in the work list.
+  SmallVector<std::pair<GlobalVariable *, Type *>, 8> GlobalsWL;
+  for (auto &GV : M.globals()) {
+    // If the type changes as a result of the type remapping
+    // then a clone of the variable will be necessary.
+    Type *GVTy = GV.getType();
+    Type *RemapTy = TypeRemapper->remapType(GVTy);
+    if (RemapTy != GVTy) {
+      LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Need to replace global variable: "
+                        << GV << "\n");
+      GlobalsWL.push_back(std::make_pair(&GV, RemapTy));
+    }
+  }
+
+  // Create the new variables for the ones to be replaced. Some replacements
+  // will be managed by the derived class, so a list of those is kept as well to
+  // facilitate how the new variable will be initialized.
+  DenseMap<GlobalVariable *, GlobalVariable *> LocalVMap;
+  SmallPtrSet<GlobalVariable *, 4> SubclassHandledGVMap;
+  for (auto &GVTypePair : GlobalsWL) {
+    GlobalVariable *GV = GVTypePair.first;
+
+    // Give the derived class a chance to handle replacing the global variable.
+    // This is necessary for cases where only the derived class will know how to
+    // initialize the new variable, such as if fields are being deleted.
+    GlobalVariable *NewGV = createGlobalVariableReplacement(GV);
+    if (NewGV) {
+      SubclassHandledGVMap.insert(GV);
+    } else {
+      // Globals are always pointers, so the variable we want to create is
+      // the element type of the pointer.
+      Type *RemapType = GVTypePair.second->getPointerElementType();
+
+      // Create and set the properties of the variable. The initialization of
+      // the variable will not occur until all variables have been created
+      // because there may be references to other variables being replaced in
+      // the initializer list which have not been processed yet.
+      NewGV = new GlobalVariable(
+          M, RemapType, GV->isConstant(), GV->getLinkage(),
+          /*init=*/nullptr, GV->getName(),
+          /*insertbefore=*/nullptr, GV->getThreadLocalMode(),
+          GV->getType()->getAddressSpace(), GV->isExternallyInitialized());
+      NewGV->setAlignment(GV->getAlignment());
+      NewGV->copyAttributesFrom(GV);
+      NewGV->copyMetadata(GV, /*Offset=*/0);
+    }
+
+    // Save the mapping in our local list for use when filling in the
+    // initializers.
+    LocalVMap[GV] = NewGV;
+
+    // Save the mapping in the remapping that will be used for modifying the IR
+    // during cloning and function body remapping.
+    VMap[GV] = NewGV;
+
+    // The original global will no longer be referenced after all the IR is
+    // remapped. Save a list of variables that need to be completely removed
+    // after everything is processed.
+    GlobalsForRemoval.push_back(GV);
+  }
+
+  // Fill in the initializers for all the new variables.
+  for (auto &Mapping : LocalVMap) {
+    GlobalVariable *OrigGV = Mapping.first;
+    if (OrigGV->hasInitializer()) {
+      GlobalVariable *NewGV = Mapping.second;
+
+      // If the derived class handled the replacement variable creation, then
+      // the derived class needs to handle the initialization.
+      if (SubclassHandledGVMap.count(OrigGV))
+        initializeGlobalVariableReplacement(OrigGV, NewGV);
+      else
+        NewGV->setInitializer(Mapper.mapConstant(*OrigGV->getInitializer()));
+      NewGV->takeName(OrigGV);
+    }
+
+    LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Global Var replacement:\n  Orig: "
+                      << *Mapping.first << "\n  New : " << *Mapping.second
+                      << "\n");
+  }
 }
 
 // Update the module to remove objects that should no longer be referenced.
 void DTransOptBase::removeDeadValues() {
+
+  // An initialized global may hold references to other globals or functions
+  // being deleted. Let go of everything first so there are no dangling
+  // references when deleting the objects.
+  for (auto *GV : GlobalsForRemoval)
+    GV->dropAllReferences();
+
   for (auto &OTCPair : OrigFuncToCloneFuncMap)
     OTCPair.first->eraseFromParent();
 
   OrigFuncToCloneFuncMap.clear();
   CloneFuncToOrigFuncMap.clear();
 
-  // TODO: Subsequent change will implement removal for global variables that
-  // have been converted to new types.
+  for (auto *GV : GlobalsForRemoval)
+    GV->eraseFromParent();
+
+  GlobalsForRemoval.clear();
+}
+
+void DTransOptBase::updateCallSizeOperand(Instruction *I,
+                                          dtrans::CallInfo *CInfo,
+                                          llvm::Type *OrigTy,
+                                          llvm::Type *ReplTy) {
+  uint64_t OrigSize = DL.getTypeAllocSize(OrigTy);
+  uint64_t ReplSize = DL.getTypeAllocSize(ReplTy);
+
+  // Find the User value that has a constant integer multiple of the original
+  // structure size as an operand.
+  bool Found = false;
+  SmallVector<std::pair<User *, unsigned>, 4> SizeUseStack;
+  if (auto *AInfo = dyn_cast<dtrans::AllocCallInfo>(CInfo)) {
+    dtrans::AllocKind AK = AInfo->getAllocKind();
+    switch (AK) {
+    case dtrans::AK_NotAlloc:
+      llvm_unreachable("No AllocCallInfo for AK_NotAlloc!");
+    case dtrans::AK_UserMalloc0:
+      llvm_unreachable("AK_UserMalloc0 not yet supported!");
+    case dtrans::AK_Malloc:
+    case dtrans::AK_UserMalloc:
+      Found = findValueMultipleOfSizeInst(I, 0, OrigSize, SizeUseStack);
+      break;
+    case dtrans::AK_Realloc:
+      Found = findValueMultipleOfSizeInst(I, 1, OrigSize, SizeUseStack);
+      break;
+    case dtrans::AK_Calloc:
+      Found = findValueMultipleOfSizeInst(I, 0, OrigSize, SizeUseStack);
+      assert((Found || SizeUseStack.empty()) &&
+             "SizeUseStack not empty after failed value search!");
+      if (!Found)
+        Found = findValueMultipleOfSizeInst(I, 1, OrigSize, SizeUseStack);
+      break;
+    }
+  } else {
+    // This asserts because we only expect alloc info or memfunc info.
+    assert(isa<dtrans::MemfuncCallInfo>(CInfo) &&
+           "Expected either alloc or memfunc!");
+    // All memfunc calls have the size as operand 2.
+    Found = findValueMultipleOfSizeInst(I, 2, OrigSize, SizeUseStack);
+  }
+
+  // The safety conditions should guarantee that we can find this constant.
+  assert(Found && "Constant multiple of size not found!");
+
+  replaceSizeValue(I, SizeUseStack, OrigSize, ReplSize);
+}
+
+void DTransOptBase::updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
+                                                   llvm::Type *OrigTy,
+                                                   llvm::Type *ReplTy) {
+  uint64_t OrigSize = DL.getTypeAllocSize(OrigTy);
+  uint64_t ReplSize = DL.getTypeAllocSize(ReplTy);
+
+  for (auto *U : Sub->users()) {
+    auto *BinOp = cast<BinaryOperator>(U);
+    assert((BinOp->getOpcode() == Instruction::SDiv ||
+            BinOp->getOpcode() == Instruction::UDiv) &&
+           "Unexpected user in updatePtrSubDivUserSizeOperand!");
+    // The sub instruction must be operand zero.
+    assert(BinOp->getOperand(0) == Sub &&
+           "Unexpected operand use for ptr sub!");
+    // Look for the size in operand 1.
+    SmallVector<std::pair<User *, unsigned>, 4> SizeUseStack;
+    bool Found = findValueMultipleOfSizeInst(U, 1, OrigSize, SizeUseStack);
+    assert(Found && "Couldn't find size div for ptr sub!");
+    if (Found)
+      replaceSizeValue(BinOp, SizeUseStack, OrigSize, ReplSize);
+  }
+}
+
+void DTransOptBase::replaceSizeValue(
+    Instruction *BaseI,
+    SmallVectorImpl<std::pair<User *, unsigned>> &SizeUseStack,
+    uint64_t OrigSize, uint64_t ReplSize) {
+  // If we need to replace a constant in some instruction other than our
+  // call, we need to check all the values in our use stack before the call
+  // to see if they have other users. If they do, we'll need to clone all
+  // values before and including the first one with multiple uses.
+  // Note that we are walking from the bottom of the stack here -- that is
+  // from the call instruction back to the use where the constant was found.
+  bool NeedToClone = false;
+  std::pair<User *, unsigned> PrevPair;
+  for (auto &UsePair : SizeUseStack) {
+    // Skip over the base instruction, its number of users doesn't matter.
+    if (UsePair.first == BaseI) {
+      PrevPair = UsePair;
+      continue;
+    }
+
+    // If we haven't seen a value with multiple uses yet, and this value
+    // doesn't have multiple uses, don't clone it.
+    if (!NeedToClone && (UsePair.first->getNumUses() == 1)) {
+      PrevPair = UsePair;
+      continue;
+    }
+
+    // Otherwise, we need to clone.
+    NeedToClone = true;
+    auto *OrigUse = cast<Instruction>(UsePair.first);
+    auto *Clone = OrigUse->clone();
+    if (OrigUse->hasName())
+      Clone->setName(OrigUse->getName() + ".dt");
+    Clone->insertBefore(OrigUse);
+    UsePair.first = Clone;
+
+    // Also replace the use of this value in the previous instruction
+    // on the stack.
+    User *PrevUser = PrevPair.first;
+    unsigned PrevIdx = PrevPair.second;
+    assert((PrevUser->getOperand(PrevIdx) == OrigUse) &&
+           "Size use stack is broken!");
+    PrevUser->setOperand(PrevIdx, Clone);
+
+    // Get ready for the next iteration.
+    PrevPair = UsePair;
+  }
+
+  // Figure out the multiplier, if any, needed for the size constant.
+  std::pair<User *, unsigned> SizePair = SizeUseStack.back();
+  User *SizeUser = SizePair.first;
+  unsigned SizeOpIdx = SizePair.second;
+  auto *ConstVal = cast<ConstantInt>(SizeUser->getOperand(SizeOpIdx));
+  uint64_t ConstSize = ConstVal->getLimitedValue();
+  assert((ConstSize % OrigSize) == 0 && "Size multiplier search is broken");
+  uint64_t Multiplier = ConstSize / OrigSize;
+
+  LLVM_DEBUG(dbgs() << "Delete field: Updating size operand (" << SizeOpIdx
+                    << ") of " << *SizeUser << "\n");
+  llvm::Type *SizeOpTy = SizeUser->getOperand(SizeOpIdx)->getType();
+  SizeUser->setOperand(SizeOpIdx,
+                       ConstantInt::get(SizeOpTy, ReplSize * Multiplier));
+  LLVM_DEBUG(dbgs() << "  New value: " << *SizeUser << "\n");
+}
+
+// This helper function searches, starting with \p U opernad \p Idx and
+// following only multiply operations, for a User value with an operand that
+// is a constant integer and is an exact multiple of the specified size. If a
+// match is found, the \p UseStack vector will be populated with <User, Index>
+// pairs of the use chain between \p U and the value where the constant was
+// found.
+//
+// The return value indicates whether or not a match was found.
+bool DTransOptBase::findValueMultipleOfSizeInst(
+    User *U, unsigned Idx, uint64_t Size,
+    SmallVectorImpl<std::pair<User *, unsigned>> &UseStack) {
+  if (!U)
+    return false;
+
+  // Get the specified operand value.
+  Value *Val = U->getOperand(Idx);
+
+  // Is it a constant?
+  if (auto *ConstVal = dyn_cast<ConstantInt>(Val)) {
+    // If so, is it a multiple of the size?
+    uint64_t ConstSize = ConstVal->getLimitedValue();
+    if (ConstSize == ~0ULL || ((ConstSize % Size) != 0))
+      return false;
+    // If it is, this is what we were looking for.
+    UseStack.push_back(std::make_pair(U, Idx));
+    return true;
+  }
+
+  // Is it a binary operator?
+  if (auto *BinOp = dyn_cast<BinaryOperator>(Val)) {
+    // Not a mul? Then it's not what we're looking for.
+    if (BinOp->getOpcode() != Instruction::Mul)
+      return false;
+    // If it is a mul, speculatively push the current value operand pair
+    // on the use stack and then check both operands for a constant multiple.
+    UseStack.push_back(std::make_pair(U, Idx));
+    if (findValueMultipleOfSizeInst(BinOp, 0, Size, UseStack))
+      return true;
+    if (findValueMultipleOfSizeInst(BinOp, 1, Size, UseStack))
+      return true;
+    // If neither matched, get our pair off of the stack and return false.
+    UseStack.pop_back();
+    return false;
+  }
+
+  // Is it sext or zext?
+  if (isa<SExtInst>(Val) || isa<ZExtInst>(Val)) {
+    // If so, speculatively push the current value operand pair on the stack
+    // and check the operand for a constant multiple.
+    UseStack.push_back(std::make_pair(U, Idx));
+    if (findValueMultipleOfSizeInst(cast<User>(Val), 0, Size, UseStack))
+      return true;
+    // If it didn't match, get our pair off of the stack and return false.
+    UseStack.pop_back();
+    return false;
+  }
+
+  // Otherwise, it's definitely not what we were looking for.
+  return false;
 }

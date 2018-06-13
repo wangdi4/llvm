@@ -155,8 +155,8 @@ bool LLVMToSPIRV::isBuiltinTransToExtInst(Function *F,
   std::string DemangledName;
   if (!oclIsBuiltin(OrigName, &DemangledName))
     return false;
-  DEBUG(dbgs() << "[oclIsBuiltinTransToExtInst] CallInst: demangled name: "
-               << DemangledName << '\n');
+  LLVM_DEBUG(dbgs() << "[oclIsBuiltinTransToExtInst] CallInst: demangled name: "
+                    << DemangledName << '\n');
   StringRef S = DemangledName;
   if (!S.startswith(kSPIRVName::Prefix))
     return false;
@@ -1642,8 +1642,9 @@ void addPassesForSPIRV(legacy::PassManager &PassMgr) {
     PassMgr.add(createPromoteMemoryToRegisterPass());
   PassMgr.add(createTransOCLMD());
   PassMgr.add(createOCL21ToSPIRV());
-  PassMgr.add(createSPIRVLowerOCLBlocks());
+  PassMgr.add(createSPIRVLowerSPIRBlocks());
   PassMgr.add(createOCLTypeToSPIRV());
+  PassMgr.add(createSPIRVLowerOCLBLocks());
   PassMgr.add(createOCL20ToSPIRV());
   PassMgr.add(createSPIRVRegularizeLLVM());
   PassMgr.add(createSPIRVLowerConstExpr());

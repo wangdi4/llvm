@@ -729,8 +729,8 @@ bool LoopSPMDization::TransformLoopInitandBound(Loop *L, ScalarEvolution *SE,
   BasicBlock *Latch = L->getLoopLatch();
   BranchInst *LatchBR = cast<BranchInst>(Latch->getTerminator());
   if (!InductionPHI) {
-    DEBUG(dbgs() << "Failed to find the loop induction variable in one of the "
-                    "loops marked with SPMD intrinsic \n");
+    LLVM_DEBUG(dbgs() << "Failed to find the loop induction variable "
+               "in one of the loops marked with SPMD intrinsic \n");
     return false;
   }
   IRBuilder<> B(PreHeaderBR);
@@ -839,7 +839,7 @@ bool LoopSPMDization::TransformLoopInitandStep(Loop *L, ScalarEvolution *SE,
 Failed to find the loop induction variable.
 
 )help";
-    DEBUG(dbgs() << "Failed to find the loop induction variable \n");
+    LLVM_DEBUG(dbgs() << "Failed to find the loop induction variable \n");
     return false;
   }
   Instruction *OldInc;

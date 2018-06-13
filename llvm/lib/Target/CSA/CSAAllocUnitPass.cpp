@@ -176,14 +176,14 @@ bool CSAAllocUnitPass::runOnMachineFunction(MachineFunction &MF) {
           if (schedClass == 0) {
             // Print a warning message for instructions with unknown
             // schedule class.
-            DEBUG(
+            LLVM_DEBUG(
               errs()
               << "WARNING: Encountered machine instruction " << *MI
               << " with unknown schedule class. Assigning to virtual unit.\n");
           }
 
-          DEBUG(errs() << "MI " << *MI << ": schedClass " << schedClass
-                       << " maps to unit " << unit << "\n");
+          LLVM_DEBUG(errs() << "MI " << *MI << ": schedClass " << schedClass
+                     << " maps to unit " << unit << "\n");
           BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(CSA::UNIT)).addImm(unit);
           isSequential = (unit == CSA::FUNCUNIT::SXU);
         } else if (!isSequential) {

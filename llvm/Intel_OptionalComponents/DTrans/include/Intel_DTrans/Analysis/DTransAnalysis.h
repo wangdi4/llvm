@@ -19,33 +19,17 @@
 
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/IR/CallSite.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/IR/ValueMap.h"
 #include "llvm/Pass.h"
 
 namespace llvm {
 
+class BinaryOperator;
+
 class TargetLibraryInfo;
-
-namespace dtrans {
-// This structure is used to describe the affected portion of an aggregate type
-// passed as an argument of the memfunc call. This will be used to communicate
-// information collected during the analysis to the transforms about how
-// a memfunc call is impacting a structure.
-struct MemfuncRegion {
-  MemfuncRegion() : IsCompleteAggregate(true), FirstField(0), LastField(0) {}
-
-  // If this is 'false', the FirstField and LastField members must be set
-  // to indicate an inclusive set of fields within the structure that are
-  // affected. If this is 'true', the FieldField and LastField member values
-  // are undefined.
-  bool IsCompleteAggregate;
-
-  // If the region is a description of a partial structure modification, these
-  // members specify the first and last fields touched.
-  unsigned int FirstField;
-  unsigned int LastField;
-};
-} // end namespace dtrans
+class GetElementPtrInst;
 
 class DTransAnalysisInfo {
 public:
@@ -76,9 +60,20 @@ public:
     dtrans::CallInfo *&operator->() const { return operator*(); }
   };
 
+  using PtrSubInfoMapType = ValueMap<Value *, llvm::Type *>;
+
+  using ByteFlattenedGEPInfoMapType = ValueMap<Value *,
+                                               std::pair<llvm::Type*, size_t>>;
+
 public:
   DTransAnalysisInfo();
+  DTransAnalysisInfo(DTransAnalysisInfo&& Other);
   ~DTransAnalysisInfo();
+
+  DTransAnalysisInfo(const DTransAnalysisInfo &) = delete;
+  DTransAnalysisInfo &operator=(const DTransAnalysisInfo &) = delete;
+
+  DTransAnalysisInfo &operator=(DTransAnalysisInfo &&);
 
   bool analyzeModule(Module &M, TargetLibraryInfo &TLI);
   void reset();
@@ -109,6 +104,17 @@ public:
                       call_info_iterator(CallInfoMap.end()));
   }
 
+  // If the specified BinaryOperator was identified as a subtraction of
+  // pointers to a type of interest, return the type that is pointed to
+  // by the pointers being subtracted. Otherwise, return nullptr.
+  llvm::Type *getResolvedPtrSubType(BinaryOperator *BinOp);
+
+  // If the specified GEP was identified as a byte flattened access of
+  // a structure element, return the type-index pair for the element accessed.
+  // Otherwise, return (nullptr, 0).
+  std::pair<llvm::Type *, size_t>
+  getByteFlattenedGEPElement(GetElementPtrInst *GEP);
+
   // Retrieve the CallInfo object for the instruction, if information exists.
   // Otherwise, return nullptr.
   dtrans::CallInfo *getCallInfo(Instruction *I);
@@ -117,19 +123,18 @@ public:
   dtrans::AllocCallInfo *createAllocCallInfo(Instruction *I,
                                              dtrans::AllocKind AK);
 
-#if 0
-  // These will be enabled in a subsequent changeset when FreeCallInfo
-  // and MemfuncCallInfo are added.
-  dtrans::FreeCallInfo *createFreeCallInfo(Instruction *I);
+  // Create an entry in the CallInfoMap about a memory freeing call
+  dtrans::FreeCallInfo *createFreeCallInfo(Instruction *I, dtrans::FreeKind FK);
 
-  dtrans::MemfuncCallInfo *createMemfuncCallInfo(Instruction *I,
-    dtrans::MemfuncCallInfo::MemfuncKind MK,
-    dtrans::MemfuncRegion &MR);
-  dtrans::MemfuncCallInfo *createMemfuncCallInfo(Instruction *I,
-    dtrans::MemfuncCallInfo::MemfuncKind MK,
-    dtrans::MemfuncRegion &MR1,
-    dtrans::MemfuncRegion &MR2);
-#endif
+  // Create an entry in the CallInfoMap about a memory setting/copying/moving
+  // call.
+  dtrans::MemfuncCallInfo *
+  createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+                        dtrans::MemfuncRegion &MR);
+
+  dtrans::MemfuncCallInfo *
+  createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+                        dtrans::MemfuncRegion &MR1, dtrans::MemfuncRegion &MR2);
 
   // Destroy the CallInfo stored about the specific instruction.
   void deleteCallInfo(Instruction *I);
@@ -140,8 +145,24 @@ public:
   // newly created instruction of the cloned routine.
   void replaceCallInfoInstruction(dtrans::CallInfo *Info, Instruction *NewI);
 
-  void printCallInfo();
+  // Interface routine to get possible targets of given function pointer 'FP'.
+  // It computes all possible targets of 'FP' using field single value analysis
+  // and adds valid targets to 'Targets' vector. It skips adding unknown/
+  // invalid targets to 'Targets' vector and returns false if there are any
+  // unknown/invalid targets.
+  //
+  bool GetFuncPointerPossibleTargets(llvm::Value *FP,
+                                     std::vector<llvm::Value *> &Targets,
+                                     llvm::CallSite, bool);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printCallInfo(raw_ostream &OS);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+  void addPtrSubMapping(llvm::BinaryOperator *BinOp, llvm::Type *Ty);
+
+  void addByteFlattenedGEPMapping(GetElementPtrInst *GEP,
+                                  std::pair<llvm::Type*, size_t> Pointee);
 private:
   void printStructInfo(dtrans::StructInfo *AI);
   void printArrayInfo(dtrans::ArrayInfo *AI);
@@ -155,6 +176,16 @@ private:
   // A mapping from function calls that special information is collected for
   // (malloc, free, memset, etc) to the information stored about those calls.
   CallInfoMapType CallInfoMap;
+
+  // A mapping from BinaryOperator instructions that have been identified as
+  // subtracting two pointers to types of interest to the interesting type
+  // aliased by the operands.
+  PtrSubInfoMapType PtrSubInfoMap;
+
+  // A mapping from GetElementPtr instructions that have been identified as
+  // being structure element accesses in byte-flattened form to a type-index
+  // pair for the element being accessed.
+  ByteFlattenedGEPInfoMapType ByteFlattenedGEPInfoMap;
 };
 
 // Analysis pass providing a data transformation analysis result.
@@ -166,7 +197,7 @@ class DTransAnalysis : public AnalysisInfoMixin<DTransAnalysis> {
 public:
   typedef DTransAnalysisInfo Result;
 
-  Result run(Module &M, AnalysisManager<Module> &AM);
+  Result run(Module &M, ModuleAnalysisManager &AM);
 };
 
 // Legacy wrapper pass to provide DTrans analysis.

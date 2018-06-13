@@ -125,7 +125,7 @@ bool CSAExpandInlineAsm::runOnMachineFunction(MachineFunction &MF) {
         if (EnableExpandInlineAsm && expandInlineAsm(&MI))
           toRemove.push_back(&MI);
         else
-          DEBUG(
+          LLVM_DEBUG(
             errs() << "Found inline assembly, but expansion is disabled.\n");
       }
     }
@@ -201,7 +201,7 @@ bool CSAExpandInlineAsm::expandInlineAsm(MachineInstr *MI) {
   TAP->SetFrameRegister(
     MF->getSubtarget().getRegisterInfo()->getFrameRegister(*MF));
 
-  DEBUG(errs() << "Attempting to parse INLINEASM MI:\n" << *MI);
+  LLVM_DEBUG(errs() << "Attempting to parse INLINEASM MI:\n" << *MI);
 
   // We have a parser!
   bool Res = Parser->Run(/*NoInitialTextSection*/ true,
@@ -215,8 +215,8 @@ bool CSAExpandInlineAsm::expandInlineAsm(MachineInstr *MI) {
   }
 
   NumInlineAsmExpansions++;
-  DEBUG(errs() << "\t-> parsing resulted in " << InstStreamer.numMCInsts()
-               << " MCInsts.\n");
+  LLVM_DEBUG(errs() << "\t-> parsing resulted in " << InstStreamer.numMCInsts()
+             << " MCInsts.\n");
 
   // Finally, get the parsed instructions from the fake streamer and use them
   // to create some new MachineInstrs.
@@ -257,8 +257,8 @@ MachineOperand &CSAExpandInlineAsm::getDollarAsmOperand(MachineInstr *MI,
 
   unsigned defOp;
   if (InlineAsm::isUseOperandTiedToDef(OpFlags, defOp)) {
-    DEBUG(errs() << "NOTE: $" << dollarNum << " is a use tied to op " << defOp
-                 << "\n");
+    LLVM_DEBUG(errs() << "NOTE: $" << dollarNum << " is a use tied to op " <<
+               defOp << "\n");
   }
 
   // OpNo is now the operand number of the INLINEASM MachineInstr which we
@@ -418,10 +418,10 @@ void CSAExpandInlineAsm::buildMachineInstrFromMCInst(MachineInstr *MI,
         const unsigned alignment =
           DL.getABITypeAlignment(ptr_type->getElementType());
 
-        DEBUG(errs() << "mapping MC memory operand: " << op
-                     << "\n of: " << *parsedInst << "\n to IR value: " << *arg
-                     << "\n flags: " << flags << "\n size: " << access_size
-                     << "\n alignment: " << alignment << "\n");
+        LLVM_DEBUG(errs() << "mapping MC memory operand: " << op
+                   << "\n of: " << *parsedInst << "\n to IR value: " << *arg
+                   << "\n flags: " << flags << "\n size: " << access_size
+                   << "\n alignment: " << alignment << "\n");
 
         memop = new MachineMemOperand{MachinePointerInfo{arg}, flags,
                                       access_size, alignment};

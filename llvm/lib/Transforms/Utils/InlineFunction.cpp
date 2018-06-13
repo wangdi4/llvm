@@ -28,7 +28,9 @@
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h" // INTEL
+#if INTEL_COLLAB
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -75,7 +77,9 @@
 
 using namespace llvm;
 using namespace InlineReportTypes; // INTEL
-using namespace llvm::vpo;         // INTEL
+#if INTEL_COLLAB
+using namespace llvm::vpo;
+#endif // INTEL_COLLAB
 using ProfileCount = Function::ProfileCount;
 
 static cl::opt<bool>
@@ -1369,11 +1373,10 @@ static Value *HandleByValArgument(Value *Arg, Instruction *TheCall,
 
   Value *NewAlloca = new AllocaInst(
       AggTy, DL.getAllocaAddrSpace(), nullptr, Align, Arg->getName(),
-#if INTEL_CUSTOMIZATION
-      VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller)
-          ? TheCall
-          : &*Caller->begin()->begin());
-#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+      VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller) ? TheCall :
+#endif // INTEL_COLLAB
+                                               &*Caller->begin()->begin());
   IFI.StaticAllocas.push_back(cast<AllocaInst>(NewAlloca));
 
   // Uses of the argument in the function should use our new alloca
@@ -1723,16 +1726,16 @@ static void reassignCSAParallelRegionId(IntrinsicInst *intr) {
                            Twine{old_id->getSExtValue()};
   const int new_id = context.getMDKindID(new_id_name.str()) + 1000;
 #define DEBUG_TYPE "csa-region-id-renumberer"
-  DEBUG(dbgs() << "Updating region id of " << intr->getName() << " from "
-               << old_id->getSExtValue() << " to " << new_id << " ("
-               << new_id_name << ")\n");
+  LLVM_DEBUG(dbgs() << "Updating region id of " << intr->getName() << " from "
+             << old_id->getSExtValue() << " to " << new_id << " ("
+             << new_id_name << ")\n");
 #undef DEBUG_TYPE
 
   intr->setArgOperand(
     0, ConstantInt::get(IntegerType::get(context, 32), new_id)
   );
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 /// This function inlines the called function into the basic block of the
 /// caller. This returns false if it is not possible to inline this call.
@@ -1850,7 +1853,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
   Instruction *CallSiteEHPad = nullptr;
   if (CallerPersonality) {
     EHPersonality Personality = classifyEHPersonality(CallerPersonality);
-    if (isFuncletEHPersonality(Personality)) {
+    if (isScopedEHPersonality(Personality)) {
       Optional<OperandBundleUse> ParentFunclet =
           CS.getOperandBundle(LLVMContext::OB_funclet);
       if (ParentFunclet)
@@ -2063,7 +2066,10 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
   // block for the callee, move them to the entry block of the caller.  First
   // calculate which instruction they should be inserted before.  We insert the
   // instructions at the end of the current alloca list.
-  if (!VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller)) { // INTEL
+#if INTEL_COLLAB
+  if (!VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller))
+#endif // INTEL_COLLAB
+  {
     BasicBlock::iterator InsertPoint = Caller->begin()->begin();
     for (BasicBlock::iterator I = FirstNewBlock->begin(),
          E = FirstNewBlock->end(); I != E; ) {
@@ -2470,8 +2476,12 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
   // return instruction, we splice the body of the inlined callee directly into
   // the calling basic block.
 
-  if (!VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller) && // INTEL
+#if INTEL_COLLAB
+  if (!VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller) &&
       Returns.size() == 1 && std::distance(FirstNewBlock, Caller->end()) == 1) {
+#else
+  if (Returns.size() == 1 && std::distance(FirstNewBlock, Caller->end()) == 1) {
+#endif // INTEL_COLLAB
     // Move all of the instructions right before the call.
     OrigBB->getInstList().splice(TheCall->getIterator(),
                                  FirstNewBlock->getInstList(),

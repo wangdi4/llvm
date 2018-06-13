@@ -78,17 +78,10 @@ static cl::opt<bool>
 AggregateArgsOpt("aggregate-extracted-args", cl::Hidden,
                  cl::desc("Aggregate arguments to code-extracted functions"));
 
-/// \brief Test whether a block is valid for extraction.
-#if INTEL_CUSTOMIZATION // under community review D45904
+/// Test whether a block is valid for extraction.
 static bool isBlockValidForExtraction(const BasicBlock &BB,
                                       const SetVector<BasicBlock *> &Result,
                                       bool AllowVarArgs, bool AllowAlloca) {
-#endif // INTEL_CUSTOMIZATION
-#if !INTEL_CUSTOMIZATION // under community review D45904
-  // Landing pads must be in the function where they were inserted for cleanup.
-  if (BB.isEHPad())
-    return false;
-#endif // INTEL_CUSTOMIZATION
   // taking the address of a basic block moved to another function is illegal
   if (BB.hasAddressTaken())
     return false;
@@ -117,12 +110,9 @@ static bool isBlockValidForExtraction(const BasicBlock &BB,
     }
   }
 
-#if INTEL_CUSTOMIZATION // under community review D45904
   // If explicitly requested, allow vastart and alloca. For invoke instructions
   // verify that extraction is valid.
-#endif // INTEL_CUSTOMIZATION
   for (BasicBlock::const_iterator I = BB.begin(), E = BB.end(); I != E; ++I) {
-#if INTEL_CUSTOMIZATION // under community review D45904
     if (isa<AllocaInst>(I)) {
        if (!AllowAlloca)
          return false;
@@ -176,7 +166,6 @@ static bool isBlockValidForExtraction(const BasicBlock &BB,
           return false;
       continue;
     }
-#endif // INTEL_CUSTOMIZATION
 
     if (const CallInst *CI = dyn_cast<CallInst>(I))
       if (const Function *F = CI->getCalledFunction())
@@ -191,12 +180,10 @@ static bool isBlockValidForExtraction(const BasicBlock &BB,
   return true;
 }
 
-/// \brief Build a set of blocks to extract if the input blocks are viable.
+/// Build a set of blocks to extract if the input blocks are viable.
 static SetVector<BasicBlock *>
 buildExtractionBlockSet(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
-#if INTEL_CUSTOMIZATION // under community review D45904
                         bool AllowVarArgs, bool AllowAlloca) {
-#endif // INTEL_CUSTOMIZATION
   assert(!BBs.empty() && "The set of blocks to extract must be non-empty");
   SetVector<BasicBlock *> Result;
 
@@ -209,15 +196,8 @@ buildExtractionBlockSet(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
 
     if (!Result.insert(BB))
       llvm_unreachable("Repeated basic blocks in extraction input");
-#if !INTEL_CUSTOMIZATION // under community review D45904
-    if (!CodeExtractor::isBlockValidForExtraction(*BB, AllowVarArgs)) {
-      Result.clear();
-      return Result;
-    }
-#endif // INTEL_CUSTOMIZATION
   }
 
-#if INTEL_CUSTOMIZATION // under community review D45904
   for (auto *BB : Result) {
     if (!isBlockValidForExtraction(*BB, Result, AllowVarArgs, AllowAlloca))
       return {};
@@ -225,7 +205,7 @@ buildExtractionBlockSet(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
     // Make sure that the first block is not a landing pad.
     if (BB == Result.front()) {
       if (BB->isEHPad()) {
-        DEBUG(dbgs() << "The first block cannot be an unwind block\n");
+        LLVM_DEBUG(dbgs() << "The first block cannot be an unwind block\n");
         return {};
       }
       continue;
@@ -235,27 +215,23 @@ buildExtractionBlockSet(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
     // the subgraph which is being extracted.
     for (auto *PBB : predecessors(BB))
       if (!Result.count(PBB)) {
-        DEBUG(dbgs() << "No blocks in this region may have entries from "
-                         "outside the region except for the first block!\n");
+        LLVM_DEBUG(
+            dbgs() << "No blocks in this region may have entries from "
+                      "outside the region except for the first block!\n");
         return {};
       }
   }
-#endif // INTEL_CUSTOMIZATION
 
   return Result;
 }
 
 CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
                              bool AggregateArgs, BlockFrequencyInfo *BFI,
-#if INTEL_CUSTOMIZATION // under community review D45904
                              BranchProbabilityInfo *BPI, bool AllowVarArgs,
                              bool AllowAlloca)
-#endif // INTEL_CUSTOMIZATION
     : DT(DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
       BPI(BPI), AllowVarArgs(AllowVarArgs),
-#if INTEL_CUSTOMIZATION // under community review D45904
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca)) {}
-#endif // INTEL_CUSTOMIZATION
 
 CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
                              BlockFrequencyInfo *BFI,
@@ -263,10 +239,8 @@ CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
     : DT(&DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
       BPI(BPI), AllowVarArgs(false),
       Blocks(buildExtractionBlockSet(L.getBlocks(), &DT,
-#if INTEL_CUSTOMIZATION // under community review D45904
                                      /* AllowVarArgs */ false,
                                      /* AllowAlloca */ false)) {}
-#endif // INTEL_CUSTOMIZATION
 
 /// definedInRegion - Return true if the specified value is defined in the
 /// extracted region.
@@ -651,8 +625,8 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
                                            BasicBlock *newHeader,
                                            Function *oldFunction,
                                            Module *M) {
-  DEBUG(dbgs() << "inputs: " << inputs.size() << "\n");
-  DEBUG(dbgs() << "outputs: " << outputs.size() << "\n");
+  LLVM_DEBUG(dbgs() << "inputs: " << inputs.size() << "\n");
+  LLVM_DEBUG(dbgs() << "outputs: " << outputs.size() << "\n");
 
   // This function returns unsigned, outputs will go back by reference.
   switch (NumExitBlocks) {
@@ -666,20 +640,20 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
 
   // Add the types of the input values to the function's argument list
   for (Value *value : inputs) {
-    DEBUG(dbgs() << "value used in func: " << *value << "\n");
+    LLVM_DEBUG(dbgs() << "value used in func: " << *value << "\n");
     paramTy.push_back(value->getType());
   }
 
   // Add the types of the output values to the function's argument list.
   for (Value *output : outputs) {
-    DEBUG(dbgs() << "instr used in func: " << *output << "\n");
+    LLVM_DEBUG(dbgs() << "instr used in func: " << *output << "\n");
     if (AggregateArgs)
       paramTy.push_back(output->getType());
     else
       paramTy.push_back(PointerType::getUnqual(output->getType()));
   }
 
-  DEBUG({
+  LLVM_DEBUG({
     dbgs() << "Function type: " << *RetTy << " f(";
     for (Type *i : paramTy)
       dbgs() << *i << ", ";
@@ -845,7 +819,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
   return newFunction;
 }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 // Hoisting the alloca instructions in the non-entry blocks to the entry block.
 void CodeExtractor::hoistAlloca(Function &F) {
   Function::iterator I = F.begin();
@@ -859,7 +833,7 @@ void CodeExtractor::hoistAlloca(Function &F) {
     }
   }
 }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 /// emitCallAndSwitchStatement - This method sets up the caller side by adding
 /// the call instruction, splitting any PHI nodes in the header block as
@@ -1284,24 +1258,22 @@ Function *CodeExtractor::extractCodeRegion() {
 
   moveCodeToFunction(newFunction);
 
-#if INTEL_CUSTOMIZATION // under community review D45904
   // Propagate personality info to the new function if there is one.
   if (oldFunction->hasPersonalityFn())
     newFunction->setPersonalityFn(oldFunction->getPersonalityFn());
-#endif // INTEL_CUSTOMIZATION
 
   // Update the branch weights for the exit block.
   if (BFI && NumExitBlocks > 1)
     calculateNewCallTerminatorWeights(codeReplacer, ExitWeights, BPI);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   // CodeExtractor only partially updated the DT. This completes the update.
   // It needs to be contributed back to the community.
-  
+
   // Update the DT
   if (DT) {
     // Add the new block to the DT instead of the region header
-    DomTreeNode *ReplacerNode = 
+    DomTreeNode *ReplacerNode =
       DT->addNewBlock(codeReplacer, DT->getNode(header)->getIDom()->getBlock());
 
     SmallVector<DomTreeNode*, 16> Successors;
@@ -1324,7 +1296,7 @@ Function *CodeExtractor::extractCodeRegion() {
          e = Blocks.end(); i != e; ++i)
       DT->eraseNode(*i);
   }
-#endif //INTEL_CUSTOMIZATION
+#endif //INTEL_COLLAB
 
   // Loop over all of the PHI nodes in the header block, and change any
   // references to the old incoming edge to be the new incoming edge.
@@ -1357,8 +1329,10 @@ Function *CodeExtractor::extractCodeRegion() {
         }
     }
 
-  hoistAlloca(*newFunction); // INTEL
-  DEBUG(if (verifyFunction(*newFunction)) 
-        report_fatal_error("verifyFunction failed!"));
+#if INTEL_COLLAB
+  hoistAlloca(*newFunction);
+#endif // INTEL_COLLAB
+  LLVM_DEBUG(if (verifyFunction(*newFunction))
+                 report_fatal_error("verifyFunction failed!"));
   return newFunction;
 }

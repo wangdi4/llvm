@@ -383,7 +383,7 @@ private:
 
   /// \brief Generate the call __kmpc_task_reduction_init and the corresponding
   /// preparation.
-  void genRedInitForTaskLoop(WRegionNode *W, Instruction *InsertBefore);
+  void genRedInitForTask(WRegionNode *W, Instruction *InsertBefore);
 
   /// \brief Generate the initialization code for the depend clause
   AllocaInst *genDependInitForTask(WRegionNode *W, Instruction *InsertBefore);
@@ -583,6 +583,10 @@ private:
   /// Generate code for ordered/end ordered construct for preserving ordered
   /// region execution order
   bool genOrderedThreadCode(WRegionNode *W);
+
+  /// Emit __kmpc_doacross_post/wait call for an 'ordered depend(source/sink)'
+  /// construct.
+  bool genDoacrossWaitOrPost(WRNOrderedNode *W);
 
   /// \brief Generates code for the OpenMP critical construct:
   /// #pragma omp critical [(name)]

@@ -1167,7 +1167,7 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction &MF) {
   // them. If something goes wrong, print an obnoxious warning message and try
   // again without them.
   mopcfg.load(MF, AA, DT, MLI, ORE, not IgnoreAnnotations);
-  DEBUG(dbgs() << "pre ordering:\n\n" << mopcfg);
+  LLVM_DEBUG(dbgs() << "pre ordering:\n\n" << mopcfg);
   if (ViewPreOrderingMemopCFG)
     ViewGraph(mopcfg, MF.getName());
   if (not mopcfg.construct_chains()) {
@@ -1406,7 +1406,7 @@ static int find_normalized_region(const MachineInstr &MI,
 
   // No other kinds of intrinsics should be showing up here.
   default:
-    DEBUG(dbgs() << "Bad instruction is:" << MI << "\n");
+    LLVM_DEBUG(dbgs() << "Bad instruction is:" << MI << "\n");
     llvm_unreachable("Bad region/section markings");
   }
 }
@@ -1979,10 +1979,10 @@ bool MemopCFG::Node::calculate_deps(const Loop *loop) {
   tips.erase(unique(begin(tips), end(tips)), end(tips));
 
   if (loop) {
-    DEBUG(dbgs() << loop->depth << " " << *loop << " ");
+    LLVM_DEBUG(dbgs() << loop->depth << " " << *loop << " ");
   } else
-    DEBUG(dbgs() << "0 - ");
-  DEBUG(dbgs() << topo_num << ": " << tips.size() << "\n");
+    LLVM_DEBUG(dbgs() << "0 - ");
+  LLVM_DEBUG(dbgs() << topo_num << ": " << tips.size() << "\n");
 
   for (int memop_idx = 0; memop_idx != int(memops.size()); ++memop_idx) {
     Memop &memop = memops[memop_idx];
@@ -2853,14 +2853,14 @@ void MemopCFG::collect_loops(const MachineLoop *L) {
   // Check if this loop was transformed by CSALowerParallelIntrinsics pass.
   //
   if (auto *LoopID = L->getLoopID()) {
-    DEBUG(dbgs() << "Loop with metadata: "
-          << L->getHeader()->getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Loop with metadata: "
+               << L->getHeader()->getName() << "\n");
     for (unsigned Indx = 1; Indx < LoopID->getNumOperands(); ++Indx) {
       if (auto *T = dyn_cast<MDTuple>(LoopID->getOperand(Indx)))
         if (T->getNumOperands() != 0)
           if (auto *S = dyn_cast<MDString>(T->getOperand(0)))
             if (S->getString() == CSALoopTag::Parallel) {
-              DEBUG(dbgs() << "The loop is marked with Parallel.\n");
+              LLVM_DEBUG(dbgs() << "The loop is marked with Parallel.\n");
               new_loop.IsParallel = true;
             }
     }
@@ -3018,7 +3018,7 @@ bool MemopCFG::construct_chains() {
       return false;
   }
 
-  DEBUG(dbgs() << "after dependency calculation:\n\n" << *this);
+  LLVM_DEBUG(dbgs() << "after dependency calculation:\n\n" << *this);
   if (ViewDepMemopCFG) {
     assert(not nodes.empty());
     ViewGraph(*this, nodes.front()->BB->getParent()->getName());
@@ -3028,7 +3028,7 @@ bool MemopCFG::construct_chains() {
   for (const unique_ptr<Node> &node : nodes)
     node->construct_chains();
 
-  DEBUG(dbgs() << "after chain construction:\n\n" << *this);
+  LLVM_DEBUG(dbgs() << "after chain construction:\n\n" << *this);
 
   return true;
 }
@@ -3076,7 +3076,7 @@ void MemopCFG::emit_chains() {
     node->expand_merge_trees();
   }
 
-  DEBUG(dbgs() << "after merge expansion:\n\n" << *this);
+  LLVM_DEBUG(dbgs() << "after merge expansion:\n\n" << *this);
 
   // All of the extra ordering instructions should be ready now. Assign virtual
   // registers to everything.

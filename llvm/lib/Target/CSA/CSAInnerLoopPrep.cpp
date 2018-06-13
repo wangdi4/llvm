@@ -180,8 +180,9 @@ bool CSAInnerLoopPrep::runOnLoop(Loop *L) {
   uint64_t pipeliningDepth = 1;
 
   if (containsPipelinedLoop(L)) {
-    DEBUG(errs() << "Won't try to pipeline loop " << L->getHeader()->getName()
-                 << "; it contains a pipelined loop.\n");
+    LLVM_DEBUG(errs() << "Won't try to pipeline loop " <<
+               L->getHeader()->getName() <<
+               "; it contains a pipelined loop.\n");
     return Changed;
   }
 
@@ -189,10 +190,11 @@ bool CSAInnerLoopPrep::runOnLoop(Loop *L) {
                                 SelectionMode == ILPLSelectionMode::both)) {
     pipeliningDepth = programmerSpecifiedPipelineable(L);
     if (pipeliningDepth > 1) {
-      DEBUG(errs() << "Programmer has specified " << L->getName() << "(depth "
-                   << L->getLoopDepth() << ") as pipelineable with respect to "
-                   << outerLoop->getName() << " (depth "
-                   << outerLoop->getLoopDepth() << ").\n");
+      LLVM_DEBUG(errs() <<
+                 "Programmer has specified " << L->getName() << "(depth "
+                 << L->getLoopDepth() << ") as pipelineable with respect to "
+                 << outerLoop->getName() << " (depth "
+                 << outerLoop->getLoopDepth() << ").\n");
       IntrinsicDriven = true;
     }
   }
@@ -201,11 +203,11 @@ bool CSAInnerLoopPrep::runOnLoop(Loop *L) {
                                 SelectionMode == ILPLSelectionMode::both)) {
     pipeliningDepth = automaticallyPipelineable(L);
     if (pipeliningDepth > 1) {
-      DEBUG(errs() << "Automatically discovered loop " << L->getName()
-                   << "(depth " << L->getLoopDepth()
-                   << ") as pipelineable with respect to "
-                   << outerLoop->getName() << " (depth "
-                   << outerLoop->getLoopDepth() << ").\n");
+      LLVM_DEBUG(errs() << "Automatically discovered loop " << L->getName()
+                 << "(depth " << L->getLoopDepth()
+                 << ") as pipelineable with respect to "
+                 << outerLoop->getName() << " (depth "
+                 << outerLoop->getLoopDepth() << ").\n");
     }
   }
 
@@ -248,14 +250,14 @@ bool CSAInnerLoopPrep::runOnLoop(Loop *L) {
 
 bool CSAInnerLoopPrep::isLoopMarkedParallel(Loop *L) {
   if (auto *LoopID = L->getLoopID()) {
-    DEBUG(dbgs() << "Loop with metadata: "
-          << L->getHeader()->getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Loop with metadata: "
+               << L->getHeader()->getName() << "\n");
     for (unsigned Indx = 1; Indx < LoopID->getNumOperands(); ++Indx) {
       if (auto *T = dyn_cast<MDTuple>(LoopID->getOperand(Indx)))
         if (T->getNumOperands() != 0)
           if (auto *S = dyn_cast<MDString>(T->getOperand(0)))
             if (S->getString() == CSALoopTag::Parallel) {
-              DEBUG(dbgs() << "The loop is marked with Parallel.\n");
+              LLVM_DEBUG(dbgs() << "The loop is marked with Parallel.\n");
               return true;
             }
     }
@@ -278,10 +280,10 @@ bool CSAInnerLoopPrep::isLoopMarkedParallel(Loop *L) {
           LI->getLoopFor(section_exit->getParent()) == L) {
         if (DT->dominates(section_entry->getParent(), L->getHeader()) and
             PDT->dominates(section_exit->getParent(), L->getHeader())) {
-          DEBUG(errs() << "Found (region id is " << *regionId << "):\n"
-                       << "\t" << *region_entry << "\n"
-                       << "\t\t" << *section_entry << " (depth "
-                       << L->getLoopDepth() << ")\n"
+          LLVM_DEBUG(errs() << "Found (region id is " << *regionId << "):\n"
+                     << "\t" << *region_entry << "\n"
+                     << "\t\t" << *section_entry << " (depth "
+                     << L->getLoopDepth() << ")\n"
                        << "\t\t" << *section_exit << "\n");
           return true;
         }
@@ -384,7 +386,8 @@ bool CSAInnerLoopPrep::containsMemoryLifetimeMarkers(Loop *L) {
       Value *memory               = nullptr;
       if (match(lifetime_start, m_Intrinsic<Intrinsic::lifetime_start>(
                                   m_Value(allocSize), m_Value(memory)))) {
-        DEBUG(errs() << "Found lifetime.start:\n\t" << *lifetime_start << "\n");
+        LLVM_DEBUG(errs() << "Found lifetime.start:\n\t" <<
+                   *lifetime_start << "\n");
         return true;
       }
     }

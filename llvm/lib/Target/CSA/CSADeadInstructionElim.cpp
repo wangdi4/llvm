@@ -228,7 +228,7 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
 
   bool SubpassChanges;
   do {
-    DEBUG(dbgs() << "CSADeadInstructionElim: Begin sub-pass\n");
+    LLVM_DEBUG(dbgs() << "CSADeadInstructionElim: Begin sub-pass\n");
     SubpassChanges = false;
 
     // Loop over all instructions in all blocks, from bottom to top, so that
@@ -266,7 +266,7 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
 
         // If the instruction is dead, delete it!
         if (isDead(MI)) {
-          DEBUG(dbgs() << "CSADeadInstructionElim: DELETING: " << MI);
+          LLVM_DEBUG(dbgs() << "CSADeadInstructionElim: DELETING: " << MI);
           // It is possible that some DBG_VALUE instructions refer to this
           // instruction.  They get marked as undef and will be deleted
           // in the live debug variable analysis.
@@ -281,7 +281,7 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
       }
     } // end for each basic block
   } while (SubpassChanges);
-  DEBUG(dbgs() << "CSADeadInstructionElim: No more changes\n");
+  LLVM_DEBUG(dbgs() << "CSADeadInstructionElim: No more changes\n");
 
   // Cleanup: Loop over all instructions and replace any output to a dead
   // register with %ign
@@ -298,8 +298,9 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
               dead = MRI->use_nodbg_empty(Reg);
             if (dead) {
               // Replace output to dead LIC with output to %ign
-              DEBUG(dbgs() << "CSADeadInstructionElim: clean up dead LIC " << MO
-                           << " from " << MI << '\n');
+              LLVM_DEBUG(dbgs() <<
+                         "CSADeadInstructionElim: clean up dead LIC " <<
+                         MO << " from " << MI << '\n');
               MO.substPhysReg(CSA::IGN, *TRI);
             }
           }

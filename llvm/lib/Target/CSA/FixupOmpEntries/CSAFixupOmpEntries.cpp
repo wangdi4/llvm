@@ -54,7 +54,7 @@ static RegisterPass<CSAFixupOmpEntries> X("csa-fixup-omp-entries",
 
 bool CSAFixupOmpEntries::runOnModule(Module &M) {
 
-  DEBUG(dbgs() << "CSAFixupOmpEntries::runModule\n");
+  LLVM_DEBUG(dbgs() << "CSAFixupOmpEntries::runModule\n");
 
   bool Changed          = false;
   bool inEntriesSection = false;
@@ -64,7 +64,7 @@ bool CSAFixupOmpEntries::runOnModule(Module &M) {
 
     GlobalVariable *GV = &*GVI++;
 
-    DEBUG(dbgs() << "Found GlobalVariable " << GV->getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Found GlobalVariable " << GV->getName() << "\n");
 
     // The entry starts with a variable in the .omp_offloading.entries
     // section. All of the names we're interested start with the string
@@ -83,8 +83,8 @@ bool CSAFixupOmpEntries::runOnModule(Module &M) {
       } else {
         // If the linkage type is internal fix it
         if (GV->hasInternalLinkage()) {
-          DEBUG(dbgs() << "Converting " << GV->getName()
-                       << " to global linkage\n");
+          LLVM_DEBUG(dbgs() << "Converting " << GV->getName()
+                     << " to global linkage\n");
           GV->setLinkage(GlobalValue::ExternalLinkage);
           Changed = true;
         }

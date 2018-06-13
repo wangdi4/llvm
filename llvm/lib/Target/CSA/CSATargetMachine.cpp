@@ -186,11 +186,13 @@ public:
   void addPreRegAlloc() override {
     std::string Banner;
     Banner = std::string("Before Machine CDG Pass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
+                       false));
 
     addPass(createControlDepenceGraph(), false);
     Banner = std::string("After Machine CDG Pass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
+                       false));
 
     if (getOptLevel() != CodeGenOpt::None) {
       //
@@ -202,7 +204,8 @@ public:
       //
       addPass(createCSAMemopOrderingPass());
       Banner = std::string("After CSAMemopOrderingPass");
-      DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+      LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
+                         false));
     }
 
     addPass(createCSANameLICsPass(), false);
@@ -210,7 +213,8 @@ public:
     if (getOptLevel() != CodeGenOpt::None) {
       addPass(createCSACvtCFDFPass(), false);
       Banner = std::string("After CSACvtCFDFPass");
-      DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+      LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
+                         false));
     }
 
     if (RunCSAStatistics) {
@@ -219,42 +223,51 @@ public:
 
     addPass(createCSAOptDFPass(), false);
     Banner = std::string("After CSAOptDFPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
+                       false));
 
     addPass(createCSADataflowCanonicalizationPass(), false);
     Banner = std::string("After CSADataflowCanonicalizationPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
+                       false));
 
     addPass(createCSAStreamingMemoryConversionPass(), false);
     Banner = std::string("After CSAStreamingMemoryConversionPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
+                       false));
 
     addPass(createCSAMultiSeqPass(), false);
     Banner = std::string("After CSAMultiSeqPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
+                       false));
 
     
     addPass(createCSARedundantMovElimPass(), false);
     Banner = std::string("After CSARedundantMovElim");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
+                       false));
 
     addPass(createCSADeadInstructionElimPass(), false);
     Banner = std::string("After CSADeadInstructionElim");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
+                       false));
 
     if (csa_utils::isAlwaysDataFlowLinkageSet()) {
       addPass(createCSAProcCallsPass(), false);
       Banner = std::string("After CSAProcCallsPass");
-      DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+      LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
+                         false));
     }
 
     addPass(createCSAReassocReducPass(), false);
     Banner = std::string("After CSAReassocReducPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
+                       false));
 
     addPass(createCSANormalizeDebugPass(), false);
     Banner = std::string("After CSANormalizeDebug");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
+                       false));
 
     // Register coalescing causes issues with our def-after-use nature of
     // dataflow.

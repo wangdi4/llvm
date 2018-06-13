@@ -224,20 +224,20 @@ void SIMDLaneEvolutionAnalysisBase::runOnAvr(AvrItr B, AvrItr E,
 
   CFG = new AvrCFGBase(Begin, End, "SLEV", true, false);
 
-  DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "SLEV: Analyzing AVR:\n";
-        for (auto I = Begin, E = End; I != E; ++I)
-            I->print(FOS, 1, PrintNumber);
-        FOS << "SLEV: "; CFG->print(FOS); FOS << "SLEV: ";
-        DefUseBase->print(FOS));
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "SLEV: Analyzing AVR:\n";
+             for (auto I = Begin, E = End; I != E; ++I)
+                 I->print(FOS, 1, PrintNumber);
+             FOS << "SLEV: "; CFG->print(FOS); FOS << "SLEV: ";
+             DefUseBase->print(FOS));
 
   DominatorTree = new AvrDominatorTree();
   DominatorTree->recalculate(*CFG);
   PostDominatorTree = new AvrPostDominatorTree();
   PostDominatorTree->recalculate(*CFG);
 
-  DEBUG(dbgs() << "SLEV: Dominator Tree:\n"; DominatorTree->print(dbgs()));
-  DEBUG(dbgs() << "SLEV: PostDominator Tree:\n";
-        PostDominatorTree->print(dbgs()));
+  LLVM_DEBUG(dbgs() << "SLEV: Dominator Tree:\n"; DominatorTree->print(dbgs()));
+  LLVM_DEBUG(dbgs() << "SLEV: PostDominator Tree:\n";
+             PostDominatorTree->print(dbgs()));
 
   FirstCalcQueue = new std::vector<SLEVInstruction *>();
 
@@ -253,12 +253,13 @@ void SIMDLaneEvolutionAnalysisBase::runOnAvr(AvrItr B, AvrItr E,
       AVR *ReachingDef = AVRVarIt.first;
       const void *IRUse = AVRVarIt.second;
       SU->addReaching(SLEVs[ReachingDef], IRUse);
-      DEBUG(formatted_raw_ostream FOS(dbgs());
-            FOS << "SLEV: Added pending SLEV:\n";
-            FOS << "SLEV: ... Reaching Def: "; ReachingDef->shallowPrint(FOS);
-            FOS << "\n"; FOS << "SLEV: ... IR Use: ";
-            ValuePrinter->print(FOS, IRUse); FOS << "\n";
-            FOS << "SLEV: ... Now: "; SU->print(FOS, false); FOS << "\n");
+      LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+                 FOS << "SLEV: Added pending SLEV:\n";
+                 FOS << "SLEV: ... Reaching Def: ";
+                 ReachingDef->shallowPrint(FOS); FOS << "\n";
+                 FOS << "SLEV: ... IR Use: "; ValuePrinter->print(FOS, IRUse);
+                 FOS << "\n"; FOS << "SLEV: ... Now: "; SU->print(FOS, false);
+                 FOS << "\n");
     }
   }
   UsesPendingDefs.clear();
@@ -283,7 +284,7 @@ void SIMDLaneEvolutionAnalysisBase::runOnAvr(AvrItr B, AvrItr E,
     }
   }
 
-  DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "SLEV: Done\n");
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "SLEV: Done\n");
 
   DefUseBase = nullptr;
 }
@@ -481,17 +482,17 @@ void SIMDLaneEvolutionAnalysisBase::setSLEV(AVR *Avr, SLEVInstruction *Slev) {
   if (CFG->isBranchCondition(Avr))
     Slev->setBranchCondition();
 
-  DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "SLEV: Setting ";
-        Slev->print(FOS, false); FOS << " for "; Avr->shallowPrint(FOS);
-        FOS << "\n");
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "SLEV: Setting ";
+             Slev->print(FOS, false); FOS << " for "; Avr->shallowPrint(FOS);
+             FOS << "\n");
 
   SLEVs[Avr] = Slev;
 }
 
 void SIMDLaneEvolutionAnalysisBase::calculate(SLEVInstruction *Slev) {
 
-  DEBUG(dbgs() << "SLEV: Calculating "; Slev->print(dbgs(), false);
-        dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "SLEV: Calculating "; Slev->print(dbgs(), false);
+             dbgs() << "\n");
 
   SLEV LastSLEV(*Slev);
 
@@ -499,17 +500,18 @@ void SIMDLaneEvolutionAnalysisBase::calculate(SLEVInstruction *Slev) {
 
   if (LastSLEV == *Slev) {
 
-    DEBUG(dbgs() << "SLEV: ... No change\n");
+    LLVM_DEBUG(dbgs() << "SLEV: ... No change\n");
     return;
   }
 
   // This SLEV has changed - insert all its users into the work list.
-  DEBUG(dbgs() << "SLEV: ... Now: "; Slev->print(dbgs(), true); dbgs() << "\n";
-        dbgs() << "SLEV: ... Change affects:"; for (SLEVInstruction *User
-                                                    : Slev->Users) {
-          dbgs() << " ";
-          User->print(dbgs(), true);
-        } dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "SLEV: ... Now: "; Slev->print(dbgs(), true);
+             dbgs() << "\n";
+             dbgs() << "SLEV: ... Change affects:"; for (SLEVInstruction *User
+                                                         : Slev->Users) {
+               dbgs() << " ";
+               User->print(dbgs(), true);
+             } dbgs() << "\n");
 
   for (SLEVInstruction *User : Slev->Users)
     if (!User->isRANDOM())
@@ -524,18 +526,19 @@ void SIMDLaneEvolutionAnalysisBase::handleControlDivergence(
 
   AVR *Avr = Slev->getAVR();
   assert(Avr && "Control-diverging SLEV has no AVR");
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "SLEV: ... Control-flow is now diverging at: ";
-        Avr->shallowPrint(FOS); FOS << "\n");
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+             FOS << "SLEV: ... Control-flow is now diverging at: ";
+             Avr->shallowPrint(FOS); FOS << "\n");
 
   AvrBasicBlock *ConditionBB = getCFG()->getBasicBlock(Avr);
   InfluenceRegion IR = calculateInfluenceRegion(Avr);
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "SLEV: ...... Influence Region: "; IR.print(FOS); FOS << "\n");
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+             FOS << "SLEV: ...... Influence Region: "; IR.print(FOS);
+             FOS << "\n");
 
-// For each Def AVR in the Influence Region, check for Uses tainted by
-// the control-flow divergence introduced by the non-UNIFORM branch condition.
+  // For each Def AVR in the Influence Region, check for Uses tainted by
+  // the control-flow divergence introduced by the non-UNIFORM branch condition.
 
 #ifdef HAS_LOOP_INFO
   AVRLoop *DivergingBranchLoop =
@@ -609,13 +612,13 @@ void SIMDLaneEvolutionAnalysisBase::handleControlDivergence(
           if (!PartiallyKillingPath.empty()) {
 
             // Def's block is partially-killing: taint Use.
-            DEBUG(formatted_raw_ostream FOS(dbgs());
-                  FOS << "SLEV: ...... Partially-killing Def detected:\n";
-                  FOS << "SLEV: ......... Def: "; Def->shallowPrint(FOS);
-                  FOS << "\n"; FOS << "SLEV: ......... Use: ";
-                  Use->shallowPrint(FOS); FOS << "\n";
-                  FOS << "SLEV: ......... Path: ";
-                  getCFG()->print(FOS, PartiallyKillingPath); FOS << "\n");
+            LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+                       FOS << "SLEV: ...... Partially-killing Def detected:\n";
+                       FOS << "SLEV: ......... Def: "; Def->shallowPrint(FOS);
+                       FOS << "\n"; FOS << "SLEV: ......... Use: ";
+                       Use->shallowPrint(FOS); FOS << "\n";
+                       FOS << "SLEV: ......... Path: ";
+                       getCFG()->print(FOS, PartiallyKillingPath); FOS << "\n");
 
             taint(Use, It.second);
             continue; // to next Use
@@ -642,13 +645,14 @@ void SIMDLaneEvolutionAnalysisBase::taint(AVR *Use,
   for (const void *Var : Vars)
     Slev->taint(Var, Affected);
 
-  DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "SLEV: ......... Tainted: ";
-        Slev->print(FOS, true); FOS << "\n";
-        FOS << "SLEV: ............ Change affects:"; for (SLEVInstruction *T
-                                                          : Affected) {
-          FOS << " ";
-          T->print(FOS, true);
-        } FOS << "\n");
+  LLVM_DEBUG(
+      formatted_raw_ostream FOS(dbgs()); FOS << "SLEV: ......... Tainted: ";
+      Slev->print(FOS, true); FOS << "\n";
+      FOS << "SLEV: ............ Change affects:"; for (SLEVInstruction *T
+                                                        : Affected) {
+        FOS << " ";
+        T->print(FOS, true);
+      } FOS << "\n");
 
   // Every SLEV actually tainted (unless already RANDOM) needs recalculation.
   for (SLEVInstruction *T : Affected) {
@@ -728,12 +732,13 @@ bool SIMDLaneEvolutionAnalysisBase::isUseTaintedByLeakingIterations(
     if (!Path.empty()) {
 
       // Yes. Taint this use.
-      DEBUG(formatted_raw_ostream FOS(dbgs());
-            FOS << "SLEV: ...... Leaking iterations detected:\n";
-            FOS << "SLEV: ......... Def: "; Def->shallowPrint(FOS); FOS << "\n";
-            FOS << "SLEV: ......... Use: "; Use->shallowPrint(FOS); FOS << "\n";
-            FOS << "SLEV: ......... Path: "; getCFG()->print(FOS, Path);
-            FOS << "\n");
+      LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+                 FOS << "SLEV: ...... Leaking iterations detected:\n";
+                 FOS << "SLEV: ......... Def: "; Def->shallowPrint(FOS);
+                 FOS << "\n"; FOS << "SLEV: ......... Use: ";
+                 Use->shallowPrint(FOS); FOS << "\n";
+                 FOS << "SLEV: ......... Path: "; getCFG()->print(FOS, Path);
+                 FOS << "\n");
       return true;
     }
   }
@@ -796,16 +801,16 @@ bool SIMDLaneEvolutionAnalysisBase::isUseTaintedByTwoReachingDefs(
       if (std::get<0>(C_RD_UConflict)) {
 
         // Yes. Taint this Use.
-        DEBUG(formatted_raw_ostream FOS(dbgs());
-              FOS << "SLEV: ...... Conflicting Defs detected:\n";
-              FOS << "SLEV: ......... Def: "; Def->shallowPrint(FOS);
-              FOS << "\n"; FOS << "SLEV: ......... 2nd Def: ";
-              ReachingDef->shallowPrint(FOS); FOS << "\n";
-              FOS << "SLEV: ......... Use: "; Use->shallowPrint(FOS);
-              FOS << "\n"; FOS << "SLEV: ......... Path: ";
-              getCFG()->print(FOS, *std::get<1>(C_RD_UConflict)); FOS << "\n";
-              FOS << "SLEV: ......... 2nd Path: ";
-              getCFG()->print(FOS, *std::get<2>(C_RD_UConflict)); FOS << "\n");
+        LLVM_DEBUG(
+            formatted_raw_ostream FOS(dbgs());
+            FOS << "SLEV: ...... Conflicting Defs detected:\n";
+            FOS << "SLEV: ......... Def: "; Def->shallowPrint(FOS); FOS << "\n";
+            FOS << "SLEV: ......... 2nd Def: "; ReachingDef->shallowPrint(FOS);
+            FOS << "\n"; FOS << "SLEV: ......... Use: "; Use->shallowPrint(FOS);
+            FOS << "\n"; FOS << "SLEV: ......... Path: ";
+            getCFG()->print(FOS, *std::get<1>(C_RD_UConflict)); FOS << "\n";
+            FOS << "SLEV: ......... 2nd Path: ";
+            getCFG()->print(FOS, *std::get<2>(C_RD_UConflict)); FOS << "\n");
         return true;
       }
 
@@ -826,16 +831,16 @@ bool SIMDLaneEvolutionAnalysisBase::isUseTaintedByTwoReachingDefs(
       if (std::get<0>(RD_C_UConflict)) {
 
         // Yes. Taint this Use.
-        DEBUG(formatted_raw_ostream FOS(dbgs());
-              FOS << "SLEV: ...... Conflicting Defs detected:\n";
-              FOS << "SLEV: ......... Def: "; Def->shallowPrint(FOS);
-              FOS << "\n"; FOS << "SLEV: ......... 2nd Def: ";
-              Def->shallowPrint(FOS); FOS << "\n";
-              FOS << "SLEV: ......... Use: "; Use->shallowPrint(FOS);
-              FOS << "\n"; FOS << "SLEV: ......... Path: ";
-              getCFG()->print(FOS, *std::get<1>(RD_C_UConflict)); FOS << "\n";
-              FOS << "SLEV: ......... 2nd Path: ";
-              getCFG()->print(FOS, *std::get<2>(RD_C_UConflict)); FOS << "\n");
+        LLVM_DEBUG(
+            formatted_raw_ostream FOS(dbgs());
+            FOS << "SLEV: ...... Conflicting Defs detected:\n";
+            FOS << "SLEV: ......... Def: "; Def->shallowPrint(FOS); FOS << "\n";
+            FOS << "SLEV: ......... 2nd Def: "; Def->shallowPrint(FOS);
+            FOS << "\n"; FOS << "SLEV: ......... Use: "; Use->shallowPrint(FOS);
+            FOS << "\n"; FOS << "SLEV: ......... Path: ";
+            getCFG()->print(FOS, *std::get<1>(RD_C_UConflict)); FOS << "\n";
+            FOS << "SLEV: ......... 2nd Path: ";
+            getCFG()->print(FOS, *std::get<2>(RD_C_UConflict)); FOS << "\n");
 
         return true;
       }
@@ -1214,7 +1219,7 @@ bool SIMDLaneEvolution::runOnFunction(Function &F) {
     return false;
   }
 
-  DEBUG(AV->dump(PrintNumber));
+  LLVM_DEBUG(AV->dump(PrintNumber));
 
   AvrDefUse *DefUse = &getAnalysis<AvrDefUse>();
 

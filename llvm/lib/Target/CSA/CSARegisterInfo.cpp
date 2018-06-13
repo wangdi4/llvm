@@ -89,9 +89,10 @@ void CSARegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
            "Instr doesn't have FrameIndex operand!");
   }
 
-  DEBUG(llvm::errs() << "\nFunction : " << MF.getFunction().getName() << "\n";
-        llvm::errs() << "<--------->\n"
-                     << MI);
+  LLVM_DEBUG(llvm::errs() <<
+             "\nFunction : " << MF.getFunction().getName() << "\n";
+             llvm::errs() << "<--------->\n"
+             << MI);
 
   unsigned opc = MI.getOpcode();
 
@@ -114,11 +115,11 @@ void CSARegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     Offset += MI.getOperand(opndNum + 1).getImm();
   }
 
-  DEBUG(errs() << "FrameIndex : " << FrameIndex << "\n"
-               << "StackSize  : " << StackSize << "\n"
-               << "ArgSize    : " << ArgSize << "\n"
-               << "spOffset   : " << spOffset << "\n"
-               << "Offset     : " << Offset << "\n");
+  LLVM_DEBUG(errs() << "FrameIndex : " << FrameIndex << "\n"
+             << "StackSize  : " << StackSize << "\n"
+             << "ArgSize    : " << ArgSize << "\n"
+             << "spOffset   : " << spOffset << "\n"
+             << "Offset     : " << Offset << "\n");
 
   // Special handling of dbg_value instructions
   // REC: This is copied from ARM's code and hopefully will work
@@ -128,7 +129,7 @@ void CSARegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   if (MI.isDebugValue()) {
     MI.getOperand(opndNum).ChangeToRegister(CSA::SP, false /* isDef */);
     MI.getOperand(opndNum + 1).ChangeToImmediate(Offset);
-    DEBUG(errs() << "Debug value, changed to register and ignored\n");
+    LLVM_DEBUG(errs() << "Debug value, changed to register and ignored\n");
     return;
   }
 
@@ -144,7 +145,8 @@ void CSARegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
       MI.setDesc(TII.get(CSA::ADD64));
       MI.getOperand(opndNum).ChangeToRegister(getFrameRegister(MF), false);
       MI.addOperand(MachineOperand::CreateImm(Offset));
-      DEBUG(errs() << "Converted MOV to ADD immediate: " << Offset << "\n");
+      LLVM_DEBUG(errs() <<
+                 "Converted MOV to ADD immediate: " << Offset << "\n");
     }
     return;
     // These were ADD64i/SUB64i.  Is this still valid?
@@ -189,7 +191,7 @@ void CSARegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
             MI.getOperand(0).getReg())
       .addReg(getFrameRegister(MF));
     II->getParent()->erase(II);
-    DEBUG(errs() << "Changing to move\n");
+    LLVM_DEBUG(errs() << "Changing to move\n");
   } else {
     // If new_mem_opc is set, we need to convert from a non-displacement to
     // displacement form.  e.g.:
@@ -207,7 +209,7 @@ void CSARegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     }
     MI.getOperand(opndNum).ChangeToRegister(getFrameRegister(MF), false);
     MI.getOperand(opndNum + 1).ChangeToImmediate(Offset);
-    DEBUG(errs() << "Changed to immediate: " << Offset << "\n");
+    LLVM_DEBUG(errs() << "Changed to immediate: " << Offset << "\n");
   }
 }
 

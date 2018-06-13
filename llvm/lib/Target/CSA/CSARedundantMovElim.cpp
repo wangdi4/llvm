@@ -241,8 +241,9 @@ bool CSARedundantMovElim::isCandidateForSXUConstantReplacement(
         num_reg_inputs++;
         if (isConstantReplaceableOperand(use_MI, op_idx)) {
           if (MO.getReg() == dest_reg) {
-            DEBUG(errs() << "In instruction " << *use_MI << ": matches index "
-                         << op_idx << "\n");
+            LLVM_DEBUG(errs() <<
+                       "In instruction " << *use_MI << ": matches index "
+                       << op_idx << "\n");
             num_inputs_matching_dest++;
           }
         }
@@ -255,13 +256,15 @@ bool CSARedundantMovElim::isCandidateForSXUConstantReplacement(
   // constant propagate.
   if ((num_inputs_matching_dest > 0) &&
       (num_inputs_matching_dest < num_reg_inputs)) {
-    DEBUG(errs() << "RedundantMovElim: SXU Constant propagate on instruction "
-                 << *use_MI << " matching inputs = " << num_inputs_matching_dest
-                 << ", total reg inputs = " << num_reg_inputs << "\n");
+    LLVM_DEBUG(errs() <<
+               "RedundantMovElim: SXU Constant propagate on instruction "
+               << *use_MI << " matching inputs = " << num_inputs_matching_dest
+               << ", total reg inputs = " << num_reg_inputs << "\n");
     return true;
   } else {
-    DEBUG(errs() << "WARNING: skipping constant prop on instruction " << use_MI
-                 << " because all valid inputs would be replaced\n");
+    LLVM_DEBUG(errs() <<
+               "WARNING: skipping constant prop on instruction " << use_MI
+               << " because all valid inputs would be replaced\n");
     return false;
   }
 }
@@ -360,25 +363,27 @@ bool CSARedundantMovElim::sxuConstantPropMovAndDisconnect(MachineInstr &MI) {
 
     assert(total_changes <= total_use_count);
     if (total_changes == total_use_count) {
-      DEBUG(errs() << "Propagated all uses of constant. disconnecting " << MI
-                   << "\n");
+      LLVM_DEBUG(errs() <<
+                 "Propagated all uses of constant. disconnecting " << MI
+                 << "\n");
       // Eliminate all remaining uses of dest.
       MachineOperand &dest_to_edit = MI.getOperand(0);
       dest_to_edit.substPhysReg(CSA::IGN, *(this->TRI));
     } else {
-      DEBUG(errs() << "Only " << total_changes << " out of " << total_use_count
-                   << " converted.\n");
+      LLVM_DEBUG(errs() <<
+                 "Only " << total_changes << " out of " << total_use_count
+                 << " converted.\n");
     }
     return (total_changes > 0);
   } else {
     if (is_int) {
-      DEBUG(errs() << "WARNING: Not propagating an int constant " << cval
-                   << " to an output channel of bitwidth " << final_bitwidth
-                   << " \n");
+      LLVM_DEBUG(errs() << "WARNING: Not propagating an int constant " << cval
+                 << " to an output channel of bitwidth " << final_bitwidth
+                 << " \n");
     } else {
-      DEBUG(errs() << "WARNING: Not propagating a FP constant " << fval
-                   << " to an output channel of bitwidth " << final_bitwidth
-                   << " \n");
+      LLVM_DEBUG(errs() << "WARNING: Not propagating a FP constant " << fval
+                 << " to an output channel of bitwidth " << final_bitwidth
+                 << " \n");
     }
     return false;
   }
@@ -429,8 +434,8 @@ bool CSARedundantMovElim::isRedundantMov(const MachineInstr &MI) const {
   // eliminating this MOV instruction (by moving the INIT elsewhere).
   MachineInstr *dest_def_MI = getSingleDef(dest_reg, this->MRI);
   if (dest_def_MI != &MI) {
-    DEBUG(errs() << "RedundantMovElim: ignoring instruction " << MI
-                 << "; more than one definition of destination.\n");
+    LLVM_DEBUG(errs() << "RedundantMovElim: ignoring instruction " << MI
+               << "; more than one definition of destination.\n");
     return false;
   }
 
@@ -443,8 +448,8 @@ bool CSARedundantMovElim::isRedundantMov(const MachineInstr &MI) const {
   // definition, which we aren't doing for now.
   MachineInstr *src_def_MI = getSingleDef(src->getReg(), this->MRI);
   if (!src_def_MI) {
-    DEBUG(errs() << "RedundantMovElim: ignoring instruction " << MI
-                 << "; more than one definition of source.\n");
+    LLVM_DEBUG(errs() << "RedundantMovElim: ignoring instruction " << MI
+               << "; more than one definition of source.\n");
     return false;
   }
 
@@ -460,9 +465,9 @@ bool CSARedundantMovElim::isRedundantMov(const MachineInstr &MI) const {
   }
 
   if ((src_bitwidth < 0) || (mov_bitwidth < 0) || (dest_bitwidth < 0)) {
-    DEBUG(errs() << "ERROR: RedundantMovElim: Unknown bitwidth.  src = "
-                 << src_bitwidth << ", mov = " << mov_bitwidth
-                 << ", dest = " << dest_bitwidth << "\n");
+    LLVM_DEBUG(errs() << "ERROR: RedundantMovElim: Unknown bitwidth.  src = "
+               << src_bitwidth << ", mov = " << mov_bitwidth
+               << ", dest = " << dest_bitwidth << "\n");
     return false;
   }
 
@@ -488,7 +493,7 @@ bool CSARedundantMovElim::isRedundantMov(const MachineInstr &MI) const {
     // MOV0 as truncating its input down to a 0.  Technically
     // speaking, it seems wrong to care about the actual value of a
     // MOV0 operation anyway...
-    DEBUG(
+    LLVM_DEBUG(
       errs() << "WARNING: RedundantMovElim: Bypassing a MOV0 instruction\n");
     return true;
   }
@@ -497,7 +502,7 @@ bool CSARedundantMovElim::isRedundantMov(const MachineInstr &MI) const {
 }
 
 void CSARedundantMovElim::disconnectMovInstr(MachineInstr &MI) {
-  DEBUG(errs() << "TBD: Disconnect MOV instr " << MI << "\n");
+  LLVM_DEBUG(errs() << "TBD: Disconnect MOV instr " << MI << "\n");
 
   assert(TII->isMOV(&MI) || TII->isMemTokenMOV(&MI) || MI.isCopy());
   MachineOperand *dest = &MI.getOperand(0);
@@ -582,8 +587,9 @@ bool CSARedundantMovElim::runOnMachineFunction(MachineFunction &MF) {
       MachineInstr &MI = *MII++;
       if (TII->isMOV(&MI) || TII->isMemTokenMOV(&MI) || MI.isCopy()) {
         if (isRedundantMov(MI)) {
-          DEBUG(errs() << "RedundantMovElim: Found instruction to eliminate "
-                       << MI << "\n");
+          LLVM_DEBUG(errs() <<
+                     "RedundantMovElim: Found instruction to eliminate "
+                     << MI << "\n");
           if ((ElimMovLimit < 0) || (num_removed < ElimMovLimit)) {
             disconnectMovInstr(MI);
             LocalChanges = true;
@@ -592,14 +598,16 @@ bool CSARedundantMovElim::runOnMachineFunction(MachineFunction &MF) {
         } else {
           if (SXUMovConstantProp) {
             if (isSXUConstantMov(MI)) {
-              DEBUG(errs() << "RedundantMovElim: Checking constant mov " << MI
-                           << "\n");
+              LLVM_DEBUG(errs() <<
+                         "RedundantMovElim: Checking constant mov " << MI
+                         << "\n");
               // Try to propagate some MOV of constants when possible.
               // This is not always legal to do.
               bool changed = sxuConstantPropMovAndDisconnect(MI);
               LocalChanges = LocalChanges || changed;
             } else {
-              DEBUG(errs() << "RedundantMovElim: Ignoring mov " << MI << "\n");
+              LLVM_DEBUG(errs() <<
+                         "RedundantMovElim: Ignoring mov " << MI << "\n");
             }
           }
         }
@@ -608,7 +616,7 @@ bool CSARedundantMovElim::runOnMachineFunction(MachineFunction &MF) {
     AnyChanges = AnyChanges || LocalChanges;
   } // end for each basic block
 
-  DEBUG(errs() << "Redundant MOV: eliminated " << num_removed
-               << " MOV instructions\n");
+  LLVM_DEBUG(errs() << "Redundant MOV: eliminated " << num_removed
+             << " MOV instructions\n");
   return AnyChanges;
 }

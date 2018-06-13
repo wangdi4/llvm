@@ -257,7 +257,7 @@ static bool analyzeEscapeAux(const Value *V,
           return true;
 
       } else if (isa<BitCastInst>(I) || isa<GetElementPtrInst>(I) ||
-                 isa<SubscriptInst>(I) ||
+                 isa<AddressInst>(I) ||
                  isa<SelectInst>(I)) {
         if (analyzeEscapeAux(I, PhiUsers))
           return true;

@@ -38,7 +38,7 @@
 // FIXME: We should determine which getcwd to use during configuration and not
 //        at compile time.
 //
-#ifdef LLVM_ON_WIN32
+#ifdef _WIN32
 #include <direct.h>
 #define GETCWD _getcwd
 #else

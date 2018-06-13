@@ -6,9 +6,12 @@
 ; RUN: llvm-as < %s >%t1
 ; RUN: llvm-lto -exported-symbol=main -whole-program-trace -o %t2 %t1  2>&1 | FileCheck %s
 
-; CHECK:   dealloc    Not in intrinsic table
+; CHECK: dealloc    Is not a recognized LibFunc.
 ; CHECK:   1  FUNCTIONS UNRESOLVED
 ; CHECK:   WHOLE PROGRAM NOT DETECTED
+; CHECK:   WHOLE PROGRAM SAFE is *NOT* determined:
+; CHECK:      whole program not seen;
+; CHECK:      whole program not read;
 
 %struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, i8*, i8*, i8*, i8*, i64, i32, [20 x i8] }
 %struct._IO_marker = type { %struct._IO_marker*, %struct._IO_FILE*, i32 }

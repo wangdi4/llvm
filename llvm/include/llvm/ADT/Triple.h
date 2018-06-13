@@ -533,7 +533,10 @@ public:
 
   /// Checks if the environment is MSVC.
   bool isKnownWindowsMSVCEnvironment() const {
-    return getOS() == Triple::Win32 && getEnvironment() == Triple::MSVC;
+#if INTEL_CUSTOMIZATION
+    return getOS() == Triple::Win32 && (getEnvironment() == Triple::MSVC ||
+                                        getEnvironment() == Triple::IntelFPGA);
+#endif // INTEL_CUSTOMIZATION
   }
 
   bool isWindowsCoreCLREnvironment() const {

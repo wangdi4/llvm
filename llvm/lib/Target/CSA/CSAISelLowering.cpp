@@ -695,9 +695,9 @@ static void overwrite_operand(MachineOperand &mi_op, SDValue sd_op,
 void CSATargetLowering::AdjustInstrPostInstrSelection(MachineInstr &MI,
                                                       SDNode *Node) const {
 
-  DEBUG(errs() << "adjusting instruction: " << MI << "from node ");
-  DEBUG(Node->print(errs()));
-  DEBUG(errs() << "\n");
+  LLVM_DEBUG(errs() << "adjusting instruction: " << MI << "from node ");
+  LLVM_DEBUG(Node->print(errs()));
+  LLVM_DEBUG(errs() << "\n");
 
   // Instruction selection has a problem where it won't add any defs to an
   // instruction that doesn't have any non-chain results on its corresponding
@@ -713,7 +713,8 @@ void CSATargetLowering::AdjustInstrPostInstrSelection(MachineInstr &MI,
   if (Node->getNumValues() == 1 and II.getNumDefs() and
       not MI.memoperands_empty() and
       MI.getNumOperands() < II.getNumOperands()) {
-    DEBUG(errs() << "found defective instruction with too few operands!\n");
+    LLVM_DEBUG(errs() <<
+               "found defective instruction with too few operands!\n");
 
     // Pad out the operands until there are enough of them.
     assert(II.getNumDefs() == 1 && "This hook assumes only one def is missing");
@@ -730,7 +731,7 @@ void CSATargetLowering::AdjustInstrPostInstrSelection(MachineInstr &MI,
       last_reg = next_last_reg;
     }
 
-    DEBUG(errs() << "instruction corrected to: " << MI << "\n");
+    LLVM_DEBUG(errs() << "instruction corrected to: " << MI << "\n");
   }
 }
 
@@ -778,7 +779,7 @@ bool CSATargetLowering::isLegalAddressingMode(const DataLayout &DL,
 bool CSATargetLowering::IsEligibleForTailCallOptimization(
   unsigned NextStackOffset, const CSAMachineFunctionInfo &FI) const {
   if (csa_utils::isAlwaysDataFlowLinkageSet()) {
-    DEBUG(errs() << "Tail call not supported for data flow linkage\n");
+    LLVM_DEBUG(errs() << "Tail call not supported for data flow linkage\n");
     return false;
   }
         

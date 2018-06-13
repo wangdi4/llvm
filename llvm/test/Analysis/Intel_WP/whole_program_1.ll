@@ -1,13 +1,15 @@
-; This test expects LTO to detect whole program safe since IR
-; is available for all user defined routines. LTO doesn't 
-; expect IR for library routines like malloc, free, fprintf.
+; This test expects LTO to detect all used functions (0 funtions unresolved)
+; since IR is available for all user defined routines. LTO doesn't expect IR
+; for library routines like malloc, free, fprintf (known library functions).
 
 ; RUN: llvm-as < %s >%t1
 ; RUN: llvm-lto -exported-symbol=main -whole-program-trace -o %t2 %t1 2>&1 | FileCheck %s
 
 ; CHECK:   0  FUNCTIONS UNRESOLVED
 ; CHECK:   WHOLE PROGRAM DETECTED
-; CHECK:   WHOLE PROGRAM SAFE is determined
+; CHECK:   WHOLE PROGRAM SAFE is *NOT* determined:
+; CHECK:        whole program not read;
+; CHECK:        not linking an executable;
 
 %struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, i8*, i8*, i8*, i8*, i64, i32, [20 x i8] }
 %struct._IO_marker = type { %struct._IO_marker*, %struct._IO_FILE*, i32 }

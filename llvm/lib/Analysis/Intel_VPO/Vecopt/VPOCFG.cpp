@@ -85,7 +85,7 @@ AvrCFGBase::findSimplePaths(const PathTy& Schema,
   assert(Schema.size() >= 2 && "Looking for a path with less than 2 nodes?");
 
 #if 0
-  DEBUG(dbgs() << "Find simple paths:\n";
+  LLVM_DEBUG(dbgs() << "Find simple paths:\n";
         dbgs() << "  For: "; print(dbgs(), Schema); dbgs() << "\n";
         dbgs() << "  Just one: " << (JustOne ? "yes" : "no") << "\n";
         dbgs() << "  Skip fixed points siblings: "
@@ -114,7 +114,7 @@ AvrCFGBase::findSimplePaths(const PathTy& Schema,
                       PathSoFar, Result);
 
 #if 0
-  DEBUG(dbgs() << "Find simple paths results:\n";
+  LLVM_DEBUG(dbgs() << "Find simple paths results:\n";
         dbgs() << "  For: "; print(dbgs(), Schema); dbgs() << "\n";
         if (Result.empty())
           dbgs() << "  Got: {}\n";
@@ -140,7 +140,7 @@ bool AvrCFGBase::findSimplePathsImpl(const PathTy& Schema,
   AvrBasicBlock* CurrentNode;
 
 #if 0
-  DEBUG(dbgs() << "Finding simple path:\n";
+  LLVM_DEBUG(dbgs() << "Finding simple path:\n";
         dbgs() << "|-Path: "; print(dbgs(), Path); dbgs() << "\n";
         dbgs() << "|-Index: " << Index << "\n";
         dbgs() << "|-Disallowed:";

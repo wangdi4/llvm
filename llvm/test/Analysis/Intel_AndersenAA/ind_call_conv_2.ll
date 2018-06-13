@@ -2,9 +2,9 @@
 ; with direct call to "malloc" by eliminating other possible targets
 ; like "calloc" and "free" due to signature mismatches.
 
-; RUN: opt < %s -anders-aa -indirectcallconv -print-indirect-call-conv -disable-output  2>&1 | FileCheck %s
-; RUN: opt < %s -passes='require<anders-aa>,function(indirectcallconv)' -print-indirect-call-conv -disable-output  2>&1 | FileCheck %s
-; RUN: opt < %s -convert-to-subscript -S | opt -anders-aa -indirectcallconv -print-indirect-call-conv -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -intel-ind-call-force-andersen -anders-aa -indirectcallconv -print-indirect-call-conv -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -intel-ind-call-force-andersen -passes='require<anders-aa>,function(indirectcallconv)' -print-indirect-call-conv -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -convert-to-subscript -S | opt -intel-ind-call-force-andersen -anders-aa -indirectcallconv -print-indirect-call-conv -disable-output  2>&1 | FileCheck %s
 
 ; CHECK:   Replaced with Direct call
 

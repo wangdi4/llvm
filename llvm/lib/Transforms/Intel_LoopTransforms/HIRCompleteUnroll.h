@@ -55,6 +55,9 @@ public:
 
   typedef DDRefGatherer<const RegDDRef, MemRefs> MemRefGatherer;
 
+  /// Performs complete unroll on \p Loop;
+  static void doUnroll(HLLoop *Loop);
+
 private:
   struct CanonExprUpdater;
   class ProfitabilityAnalyzer;

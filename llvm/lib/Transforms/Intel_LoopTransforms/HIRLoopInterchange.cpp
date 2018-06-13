@@ -177,7 +177,7 @@ struct HIRLoopInterchange::CollectCandidateLoops final
       SkipNode = Loop;
       return;
     }
-    DEBUG(dbgs() << "In collect Perfect loopnest\n");
+    LLVM_DEBUG(dbgs() << "In collect Perfect loopnest\n");
     // Allow Triangular loop, allow Near Perfect loop (and return the result).
     bool IsNearPerfectLoop = false;
     bool IsPerfectNest = HLNodeUtils::isPerfectLoopNest(
@@ -193,7 +193,8 @@ struct HIRLoopInterchange::CollectCandidateLoops final
 
     if (LIP->HLS->getSelfLoopStatistics(InnermostLoop)
             .hasCallsWithUnsafeSideEffects()) {
-      DEBUG(dbgs() << "\nSkipping loop with calls that have side effects\n");
+      LLVM_DEBUG(
+          dbgs() << "\nSkipping loop with calls that have side effects\n");
       SkipNode = Loop;
       return;
     }
@@ -202,7 +203,7 @@ struct HIRLoopInterchange::CollectCandidateLoops final
                       *EndLoop = Loop->getParentLoop();
          TmpLoop != EndLoop; TmpLoop = TmpLoop->getParentLoop()) {
       if (TmpLoop->hasUnrollEnablingPragma()) {
-        DEBUG(dbgs() << "\nSkipping loop with unroll pragma\n");
+        LLVM_DEBUG(dbgs() << "\nSkipping loop with unroll pragma\n");
         SkipNode = Loop;
         return;
       }
@@ -213,12 +214,13 @@ struct HIRLoopInterchange::CollectCandidateLoops final
 
     if (IsPerfectNest) {
 
-      DEBUG(dbgs() << "\nIs Perfect Nest\n");
+      LLVM_DEBUG(dbgs() << "\nIs Perfect Nest\n");
 
       if (!HasNonUnitStrideRefs) {
-        DEBUG(dbgs() << "\nMemRefs are in unit stride or non-linear Defs\n");
+        LLVM_DEBUG(
+            dbgs() << "\nMemRefs are in unit stride or non-linear Defs\n");
       } else {
-        DEBUG(dbgs() << "\nHas non unit stride\n");
+        LLVM_DEBUG(dbgs() << "\nHas non unit stride\n");
         CandidateLoops.push_back(
             std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
       }
@@ -228,20 +230,20 @@ struct HIRLoopInterchange::CollectCandidateLoops final
 
     } else if (HasNonUnitStrideRefs || isBlockingCandidate(Loop)) {
 
-      DEBUG(dbgs() << "\n Is NearPerfect Loop:\n");
-      DEBUG(dbgs(); Loop->dump());
+      LLVM_DEBUG(dbgs() << "\n Is NearPerfect Loop:\n");
+      LLVM_DEBUG(dbgs(); Loop->dump());
 
       DDGraph DDG = DDA->getGraph(Loop);
-      DEBUG(dbgs() << "DDG's==\n");
-      DEBUG(DDG.dump());
+      LLVM_DEBUG(dbgs() << "DDG's==\n");
+      LLVM_DEBUG(DDG.dump());
 
       if (DDUtils::enablePerfectLoopNest(
               const_cast<HLLoop *>(InnermostLoop), DDG,
               LIP->CandLoopToIgnorableSymBases[Loop])) {
         CandidateLoops.push_back(
             std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
-        DEBUG(dbgs() << "Perfect Loopnest enabled\n");
-        DEBUG(dbgs(); Loop->dump());
+        LLVM_DEBUG(dbgs() << "Perfect Loopnest enabled\n");
+        LLVM_DEBUG(dbgs(); Loop->dump());
         // Save & invalidate later to avoid DDRebuild and safe reduction map
         // released
         LIP->PerfectLoopsEnabled.push_back(InnermostLoop);
@@ -268,7 +270,8 @@ bool HIRLoopInterchange::runOnFunction(Function &F) {
   if (skipFunction(F) || DisableHIRLoopInterchange)
     return false;
 
-  DEBUG(dbgs() << "Loop Interchange for Function : " << F.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "Loop Interchange for Function : " << F.getName()
+                    << "\n");
 
   this->F = &F;
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
@@ -289,7 +292,7 @@ bool HIRLoopInterchange::runOnFunction(Function &F) {
     InnermostLoop = Iter.second;
     InnermostNestingLevel = InnermostLoop->getNestingLevel();
 
-    DEBUG(dbgs() << "\nIn CandiateLoop\n"; Loop->dump());
+    LLVM_DEBUG(dbgs() << "\nIn CandiateLoop\n"; Loop->dump());
 
     if (shouldInterchange(Loop) && getPermutation(Loop)) {
       transformLoop(Loop);
@@ -322,8 +325,8 @@ bool HIRLoopInterchange::shouldInterchange(const HLLoop *Loop) {
     InterchangeNeeded = false;
   }
 
-  DEBUG(dbgs() << "\n\tBased on Locality Analysis:");
-  DEBUG(dbgs() << "\n\tInterchange Needed=" << InterchangeNeeded << "\n");
+  LLVM_DEBUG(dbgs() << "\n\tBased on Locality Analysis:");
+  LLVM_DEBUG(dbgs() << "\n\tInterchange Needed=" << InterchangeNeeded << "\n");
   return InterchangeNeeded;
 }
 
@@ -348,7 +351,7 @@ bool HIRLoopInterchange::getPermutation(const HLLoop *Loop) {
   // When returning legal == true, we can just interchange w/o
   // examining DV.
   if (isLegalForAnyPermutation(Loop)) {
-    DEBUG(dbgs() << "\n\tBest permutation available\n");
+    LLVM_DEBUG(dbgs() << "\n\tBest permutation available\n");
     CanInterchange = true;
   } else {
     // Check if largest locality can be moved as innermost loop
@@ -368,10 +371,10 @@ bool HIRLoopInterchange::getPermutation(const HLLoop *Loop) {
 
       LoopPermutation = NearByPerm;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      DEBUG(dbgs() << "\nNearby permutation obtained\n");
+      LLVM_DEBUG(dbgs() << "\nNearby permutation obtained\n");
       for (auto &I : LoopPermutation) {
         (void)I; // Variable is used in DEBUG only.
-        DEBUG(dbgs(); I->dump());
+        LLVM_DEBUG(dbgs(); I->dump());
       }
 #endif
       CanInterchange = true;
@@ -379,7 +382,7 @@ bool HIRLoopInterchange::getPermutation(const HLLoop *Loop) {
   }
 
   if (!CanInterchange) {
-    DEBUG(dbgs() << "\nNo legal permutation available\n");
+    LLVM_DEBUG(dbgs() << "\nNo legal permutation available\n");
   }
 
   return CanInterchange;
@@ -394,7 +397,7 @@ bool HIRLoopInterchange::isBestLocalityInInnermost(
       isLegalForPermutation(InnermostNestingLevel, SrcLevel)) {
     return true;
   }
-  DEBUG(dbgs() << "\nCannot move best locality loop as innermost\n");
+  LLVM_DEBUG(dbgs() << "\nCannot move best locality loop as innermost\n");
   return false;
 }
 
@@ -592,7 +595,7 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
 
     const HLInst *Inst = dyn_cast<HLInst>(DDNode);
     if (Inst && LIP.SRA->isSafeReduction(Inst)) {
-      DEBUG(dbgs() << "\n\tIs Safe Red");
+      LLVM_DEBUG(dbgs() << "\n\tIs Safe Red");
       return;
     }
 
@@ -620,8 +623,8 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
         if (ignoreEdge(Edge, CandidateLoop)) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-          DEBUG(dbgs() << "\n\t<Edge dropped>");
-          DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+          LLVM_DEBUG(dbgs() << "\n\t<Edge dropped>");
+          LLVM_DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
 #endif
           continue;
         }
@@ -640,17 +643,17 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
                                 LIP.InnermostNestingLevel, false);
 
           if (RefinedDep.isIndependent()) {
-            DEBUG(dbgs() << "\n\t<Edge dropped with DDTest Indep>");
-            DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+            LLVM_DEBUG(dbgs() << "\n\t<Edge dropped with DDTest Indep>");
+            LLVM_DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
             continue;
           }
 
           if (RefinedDep.isRefined()) {
-            DEBUG(dbgs() << "\n\t<Edge with refined DV>");
-            DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+            LLVM_DEBUG(dbgs() << "\n\t<Edge with refined DV>");
+            LLVM_DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
             if (ignoreEdge(Edge, CandidateLoop, &RefinedDep.getDV())) {
-              DEBUG(dbgs() << "\n\t<Edge dropped with refined DV Ignore>");
-              DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+              LLVM_DEBUG(dbgs() << "\n\t<Edge dropped with refined DV Ignore>");
+              LLVM_DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
               continue;
             }
 
@@ -659,8 +662,8 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
         }
         if (ignoreDVWithNoLTGT(*TempDV, LIP.OutmostNestingLevel,
                                LIP.InnermostNestingLevel)) {
-          DEBUG(dbgs() << "\n\t<Edge dropped with NoLTGT>");
-          DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+          LLVM_DEBUG(dbgs() << "\n\t<Edge dropped with NoLTGT>");
+          LLVM_DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
           continue;
         }
 
@@ -668,8 +671,8 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
         LIP.DVs.push_back(*TempDV);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-        DEBUG(dbgs() << "\n\t<Edge selected>");
-        DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
+        LLVM_DEBUG(dbgs() << "\n\t<Edge selected>");
+        LLVM_DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
 #endif
       }
     }
@@ -826,8 +829,8 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *Loop) {
   // We plan to avoid demand driven DD refining DV.
 
   HLLoop *Lp = const_cast<HLLoop *>(Loop);
-  DEBUG(dbgs() << "\n\tStart, End level\n"
-               << OutmostNestingLevel << " " << InnermostNestingLevel);
+  LLVM_DEBUG(dbgs() << "\n\tStart, End level\n"
+                    << OutmostNestingLevel << " " << InnermostNestingLevel);
 
   SRA->computeSafeReductionChains(Lp);
 
@@ -846,7 +849,7 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *Loop) {
   if (DVs.size() > 0) {
     return false;
   }
-  DEBUG(dbgs() << "\n\tDV array is empty\n");
+  LLVM_DEBUG(dbgs() << "\n\tDV array is empty\n");
   return true;
 }
 
@@ -877,7 +880,7 @@ void HIRLoopInterchange::reportTransformation(
   LORBuilder(*OutermostLp).addRemark(OptReportVerbosity::Low, OS.str().c_str());
 
   // This is needed for lit-tests for now.
-  DEBUG(dbgs() << OS.str() << '\n');
+  LLVM_DEBUG(dbgs() << OS.str() << '\n');
 }
 
 void HIRLoopInterchange::transformLoop(HLLoop *Loop) {
@@ -885,7 +888,7 @@ void HIRLoopInterchange::transformLoop(HLLoop *Loop) {
   // Invalidate all analysis for InnermostLoop.
   HIRInvalidationUtils::invalidateBounds(InnermostLoop);
   HIRInvalidationUtils::invalidateBody(InnermostLoop);
-  DEBUG(dbgs() << "\tBefore permuteloopNests:"; Loop->dump());
+  LLVM_DEBUG(dbgs() << "\tBefore permuteloopNests:"; Loop->dump());
 
   HIRTransformUtils::permuteLoopNests(Loop, LoopPermutation);
 

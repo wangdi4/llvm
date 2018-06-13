@@ -163,7 +163,7 @@ static int collapser_internal_count(int n) {
 
 MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
 
-  DEBUG(dbgs() << "Expanding reduction: " << MI);
+  LLVM_DEBUG(dbgs() << "Expanding reduction: " << MI);
 
   // NOTE: The following implements a generic version of this assembly
   // expansion for redaddf32 result, init, val, pred:

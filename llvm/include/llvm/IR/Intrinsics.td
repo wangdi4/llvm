@@ -631,6 +631,8 @@ let IntrProperties = [IntrNoMem, IntrSpeculatable] in {
                                        [llvm_metadata_ty,
                                         llvm_metadata_ty,
                                         llvm_metadata_ty]>;
+  def int_dbg_label        : Intrinsic<[],
+                                       [llvm_metadata_ty]>;
 }
 
 //===------------------ Exception Handling Intrinsics----------------------===//
@@ -742,18 +744,21 @@ def int_invariant_end   : Intrinsic<[],
                                      llvm_anyptr_ty],
                                     [IntrArgMemOnly, NoCapture<2>]>;
 
-// invariant.group.barrier can't be marked with 'readnone' (IntrNoMem),
+// launder.invariant.group can't be marked with 'readnone' (IntrNoMem),
 // because it would cause CSE of two barriers with the same argument.
-// Readonly and argmemonly says that barrier only reads its argument and
-// it can be CSE only if memory didn't change between 2 barriers call,
-// which is valid.
+// Inaccessiblememonly says that the barrier doesn't read the argument,
+// but it changes state not accessible to this module. This way
+// we can DSE through the barrier because it doesn't read the value
+// after store. Although the barrier doesn't modify any memory it
+// can't be marked as readonly, because it would be possible to
+// CSE 2 barriers with store in between.
 // The argument also can't be marked with 'returned' attribute, because
 // it would remove barrier.
 // Note that it is still experimental, which means that its semantics
 // might change in the future.
-def int_invariant_group_barrier : Intrinsic<[llvm_anyptr_ty],
+def int_launder_invariant_group : Intrinsic<[llvm_anyptr_ty],
                                             [LLVMMatchType<0>],
-                                            [IntrReadMem, IntrArgMemOnly]>;
+                                            [IntrInaccessibleMemOnly, IntrSpeculatable]>;
 
 //===------------------------ Stackmap Intrinsics -------------------------===//
 //
@@ -787,12 +792,12 @@ def int_experimental_gc_relocate : Intrinsic<[llvm_any_ty],
                                 [llvm_token_ty, llvm_i32_ty, llvm_i32_ty],
                                 [IntrReadMem]>;
 
-// INTEL_CUSTOMIZATION
+// INTEL_COLLAB
 //===------------------------ Directive Intrinsics ------------------------===//
 //
 def int_directive_region_entry : Intrinsic<[llvm_token_ty], [], []>;
 def int_directive_region_exit  : Intrinsic<[], [llvm_token_ty], []>;
-// end INTEL_CUSTOMIZATION
+// end INTEL_COLLAB
 
 //===------------------------ Coroutine Intrinsics ---------------===//
 // These are documented in docs/Coroutines.rst
@@ -915,7 +920,7 @@ def int_masked_compressstore: Intrinsic<[],
 def int_type_test : Intrinsic<[llvm_i1_ty], [llvm_ptr_ty, llvm_metadata_ty],
                               [IntrNoMem]>;
 
-// INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION // (to be obsoleted)
 //===--------------------- Intel Directive Intrinsics ---------------------===//
 
 def int_intel_directive : Intrinsic<[], [llvm_metadata_ty],
@@ -1082,10 +1087,10 @@ def int_intel_subscript : Intrinsic<[llvm_anyptr_ty],
      llvm_anyint_ty],
     [IntrSpeculatable, IntrNoMem]>;
 
-// Intrinsic generated for the return pointer. 
+// Intrinsic generated for the return pointer.
 def int_intel_fakeload   : Intrinsic<[llvm_anyptr_ty],
                                  [LLVMMatchType<0>, llvm_metadata_ty],
-                                 [IntrNoMem]>;
+                                 [IntrSpeculatable, IntrNoMem]>;
 // endif INTEL_CUSTOMIZATION
 
 include "llvm/IR/IntrinsicsPowerPC.td"

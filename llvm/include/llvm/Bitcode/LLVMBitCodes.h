@@ -119,10 +119,10 @@ enum ModuleCodes {
   // IFUNC: [ifunc value type, addrspace, resolver val#, linkage, visibility]
   MODULE_CODE_IFUNC = 18,
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   // TRIPLE:      [strchr x N, ..., strchr x N]
   MODULE_CODE_DEVICES = 19,
-#endif //INTEL_CUSTOMIZATION
+#endif //INTEL_COLLAB
 };
 
 /// PARAMATTR blocks have code for defining a parameter attribute set.
@@ -315,6 +315,7 @@ enum MetadataCodes {
   METADATA_GLOBAL_VAR_EXPR = 37,        // [distinct, var, expr]
   METADATA_INDEX_OFFSET = 38,           // [offset]
   METADATA_INDEX = 39,                  // [bitpos]
+  METADATA_LABEL = 40,                  // [distinct, scope, name, file, line]
 };
 
 // The constants block (CONSTANTS_BLOCK_ID) describes emission for each

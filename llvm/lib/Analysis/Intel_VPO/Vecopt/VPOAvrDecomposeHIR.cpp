@@ -290,9 +290,9 @@ AVR *HIRDecomposer::decompose(AVRValueHIR *AVal) {
 // IVs, etc. as conversions (DestType), if any, are handled independently.
 AVR *HIRDecomposer::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
 
-  DEBUG(dbgs() << "  Decomposing CanonExpr: ");
-  DEBUG(CE->dump());
-  DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "  Decomposing CanonExpr: ");
+  LLVM_DEBUG(CE->dump());
+  LLVM_DEBUG(dbgs() << "\n");
 
   // Special case for constant CanonExprs
   if (CE->isConstant()) {
@@ -367,35 +367,35 @@ AVRExpression *HIRDecomposer::decomposeMemoryOp(AVRValueHIR *AVal) {
   assert(isa<RegDDRef>(AVal->getValue()) && "Expected a RegDDRef" );
   RegDDRef *RDDR = cast<RegDDRef>(AVal->getValue());
 
-  DEBUG(dbgs() << "  Decomposing MemOp:  ");
-  DEBUG(RDDR->dump());
-  DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "  Decomposing MemOp:  ");
+  LLVM_DEBUG(RDDR->dump());
+  LLVM_DEBUG(dbgs() << "\n");
 
   assert (RDDR->hasGEPInfo() && "Expected a GEP RegDDRef");
   SmallVector<AVR *, 2> GepOperands;
 
-  DEBUG(dbgs() << "  Base: ");
-  DEBUG(RDDR->getBaseCE()->dump());
-  DEBUG(dbgs() << "\n");
- 
+  LLVM_DEBUG(dbgs() << "  Base: ");
+  LLVM_DEBUG(RDDR->getBaseCE()->dump());
+  LLVM_DEBUG(dbgs() << "\n");
+
   // Decompose Base
   AVR *BaseTree = decomposeCanonExpr(RDDR, RDDR->getBaseCE());
   GepOperands.push_back(BaseTree);
 
   unsigned numDims = RDDR->getNumDimensions();
-  DEBUG(dbgs() << "  NumDims: " << numDims << "\n");
+  LLVM_DEBUG(dbgs() << "  NumDims: " << numDims << "\n");
   assert (numDims > 0 && "The number of dimensions is 0");
 
   // Decompose Subscripts
   for (unsigned i = numDims; i > 0; --i) {
-    DEBUG(dbgs() << "  Decomposing Dim: " << i << "\n");
+    LLVM_DEBUG(dbgs() << "  Decomposing Dim: " << i << "\n");
     AVR *DimIdx = decomposeCanonExpr(RDDR, RDDR->getDimensionIndex(i));
     GepOperands.push_back(DimIdx);
   }
 
   // This expression is representing a GEP so we use the type of the BaseCE
   // (pointer)
-  DEBUG(dbgs() << "  Creating GEP\n");
+  LLVM_DEBUG(dbgs() << "  Creating GEP\n");
   AVRExpression *Result = AVRUtils::createAVRExpression(GepOperands, Instruction::GetElementPtr,
                                        RDDR->getBaseCE()->getDestType());
 
@@ -454,7 +454,7 @@ AVRExpression *HIRDecomposer::decomposeMemoryOp(AVRValueHIR *AVal) {
   if (RDDR->isRval() && !RDDR->isAddressOf() &&
       (Parent = dyn_cast<AVRExpression>(AVal->getParent())) &&
       Parent->getOperation() != Instruction::Load) {
-    DEBUG(dbgs() << "  Creating Load\n");
+    LLVM_DEBUG(dbgs() << "  Creating Load\n");
     Result = AVRUtils::createAVRExpression(Result, Instruction::Load,
                                            RDDR->getDestType());
   }
@@ -535,11 +535,12 @@ AVR *decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx, int64_t BlobCoeff,
 
 void HIRDecomposer::visit(AVRValueHIR *AVal) {
 
-  DEBUG(dbgs() << "Visiting AVRValueHIR: ");
-  DEBUG(AVal->dump());
-  DEBUG(dbgs() << "\n");
-  DEBUG(dbgs() << "  Needs decomp: " << (needsDecomposition(AVal) ? "Yes\n" : "No\n"));
- 
+  LLVM_DEBUG(dbgs() << "Visiting AVRValueHIR: ");
+  LLVM_DEBUG(AVal->dump());
+  LLVM_DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "  Needs decomp: "
+                    << (needsDecomposition(AVal) ? "Yes\n" : "No\n"));
+
   if (needsDecomposition(AVal)) {
     AVR *SubTree = decompose(AVal);
 
@@ -575,7 +576,7 @@ bool AVRDecomposeHIR::runOnFunction(Function &F) {
 
   AVRG = &getAnalysis<AVRGenerateHIR>();
 
-  DEBUG(dbgs() << "AVRDecomposerHIR\n");
+  LLVM_DEBUG(dbgs() << "AVRDecomposerHIR\n");
 
   const DataLayout& DL = F.getParent()->getDataLayout();
 
@@ -583,8 +584,8 @@ bool AVRDecomposeHIR::runOnFunction(Function &F) {
     runOnAvr(&*I, DL);
   }
 
-  DEBUG(dbgs() << "Abstract Layer After Decomposition:\n");
-  DEBUG(this->dump(PrintAvrDecomp));
+  LLVM_DEBUG(dbgs() << "Abstract Layer After Decomposition:\n");
+  LLVM_DEBUG(this->dump(PrintAvrDecomp));
 
   return false;
 }

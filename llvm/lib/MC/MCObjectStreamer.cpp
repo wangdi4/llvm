@@ -25,12 +25,11 @@ using namespace llvm;
 
 MCObjectStreamer::MCObjectStreamer(MCContext &Context,
                                    std::unique_ptr<MCAsmBackend> TAB,
-                                   raw_pwrite_stream &OS,
+                                   std::unique_ptr<MCObjectWriter> OW,
                                    std::unique_ptr<MCCodeEmitter> Emitter)
     : MCStreamer(Context),
-      Assembler(llvm::make_unique<MCAssembler>(Context, std::move(TAB),
-                                               std::move(Emitter),
-                                               TAB->createObjectWriter(OS))),
+      Assembler(llvm::make_unique<MCAssembler>(
+          Context, std::move(TAB), std::move(Emitter), std::move(OW))),
       EmitEHFrame(true), EmitDebugFrame(false) {}
 
 MCObjectStreamer::~MCObjectStreamer() {}
@@ -58,6 +57,32 @@ void MCObjectStreamer::flushPendingLabels(MCFragment *F, uint64_t FOffset) {
     Sym->setOffset(FOffset);
   }
   PendingLabels.clear();
+}
+
+void MCObjectStreamer::addFragmentAtoms() {
+  // First, scan the symbol table to build a lookup table from fragments to
+  // defining symbols.
+  DenseMap<const MCFragment *, const MCSymbol *> DefiningSymbolMap;
+  for (const MCSymbol &Symbol : getAssembler().symbols()) {
+    if (getAssembler().isSymbolLinkerVisible(Symbol) && Symbol.isInSection() &&
+        !Symbol.isVariable()) {
+      // An atom defining symbol should never be internal to a fragment.
+      assert(Symbol.getOffset() == 0 &&
+             "Invalid offset in atom defining symbol!");
+      DefiningSymbolMap[Symbol.getFragment()] = &Symbol;
+    }
+  }
+
+  // Set the fragment atom associations by tracking the last seen atom defining
+  // symbol.
+  for (MCSection &Sec : getAssembler()) {
+    const MCSymbol *CurrentAtom = nullptr;
+    for (MCFragment &Frag : Sec) {
+      if (const MCSymbol *Symbol = DefiningSymbolMap.lookup(&Frag))
+        CurrentAtom = Symbol;
+      Frag.setAtom(CurrentAtom);
+    }
+  }
 }
 
 // As a compile-time optimization, avoid allocating and evaluating an MCExpr
@@ -611,31 +636,37 @@ void MCObjectStreamer::emitFill(const MCExpr &NumBytes, uint64_t FillValue,
   flushPendingLabels(DF, DF->getContents().size());
 
   assert(getCurrentSectionOnly() && "need a section");
-  insert(new MCFillFragment(FillValue, NumBytes, Loc));
+  insert(new MCFillFragment(FillValue, 1, NumBytes, Loc));
 }
 
 void MCObjectStreamer::emitFill(const MCExpr &NumValues, int64_t Size,
                                 int64_t Expr, SMLoc Loc) {
   int64_t IntNumValues;
-  if (!NumValues.evaluateAsAbsolute(IntNumValues, getAssemblerPtr())) {
-    getContext().reportError(Loc, "expected absolute expression");
+  // Do additional checking now if we can resolve the value.
+  if (NumValues.evaluateAsAbsolute(IntNumValues, getAssemblerPtr())) {
+    if (IntNumValues < 0) {
+      getContext().getSourceManager()->PrintMessage(
+          Loc, SourceMgr::DK_Warning,
+          "'.fill' directive with negative repeat count has no effect");
+      return;
+    }
+    // Emit now if we can for better errors.
+    int64_t NonZeroSize = Size > 4 ? 4 : Size;
+    Expr &= ~0ULL >> (64 - NonZeroSize * 8);
+    for (uint64_t i = 0, e = IntNumValues; i != e; ++i) {
+      EmitIntValue(Expr, NonZeroSize);
+      if (NonZeroSize < Size)
+        EmitIntValue(0, Size - NonZeroSize);
+    }
     return;
   }
 
-  if (IntNumValues < 0) {
-    getContext().getSourceManager()->PrintMessage(
-        Loc, SourceMgr::DK_Warning,
-        "'.fill' directive with negative repeat count has no effect");
-    return;
-  }
+  // Otherwise emit as fragment.
+  MCDataFragment *DF = getOrCreateDataFragment();
+  flushPendingLabels(DF, DF->getContents().size());
 
-  int64_t NonZeroSize = Size > 4 ? 4 : Size;
-  Expr &= ~0ULL >> (64 - NonZeroSize * 8);
-  for (uint64_t i = 0, e = IntNumValues; i != e; ++i) {
-    EmitIntValue(Expr, NonZeroSize);
-    if (NonZeroSize < Size)
-      EmitIntValue(0, Size - NonZeroSize);
-  }
+  assert(getCurrentSectionOnly() && "need a section");
+  insert(new MCFillFragment(Expr, Size, NumValues, Loc));
 }
 
 void MCObjectStreamer::EmitFileDirective(StringRef Filename) {

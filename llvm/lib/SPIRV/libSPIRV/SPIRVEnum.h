@@ -71,6 +71,9 @@ enum SPIRVVersion : SPIRVWord {
 enum SPIRVGeneratorKind {
   SPIRVGEN_KhronosLLVMSPIRVTranslator   = 6,
   SPIRVGEN_KhronosSPIRVAssembler        = 7,
+#if INTEL_CUSTOMIZATION
+  SPIRVGEN_IntelLLVMSPIRVTranslator     = 11
+#endif
 };
 
 enum SPIRVInstructionSchemaKind {

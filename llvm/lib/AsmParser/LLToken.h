@@ -68,11 +68,11 @@ enum Kind {
   kw_extern_weak,
   kw_external,
   kw_thread_local,
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   kw_thread_private,
   kw_target_declare,
   kw_device_triples,
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   kw_localdynamic,
   kw_initialexec,
   kw_localexec,

@@ -2620,7 +2620,7 @@ void CSACvtCFDFPass::setEdgePred(MachineBasicBlock *mbb,
   nameLIC(ch, "", 0, "", mbb,
     (childType == ControlDependenceNode::FALSE ? ".false.pred" :
      childType == ControlDependenceNode::TRUE ? ".true.pred" : ".other.pred"));
-  DEBUG(dbgs() << "Edge predicate of "
+  LLVM_DEBUG(dbgs() << "Edge predicate of "
       << mbb->getName() << "->" << (*(mbb->succ_begin() + childType))->getName()
       << " is " << printReg(ch) << "\n");
 }
@@ -3775,7 +3775,7 @@ bool CSACvtCFDFPass::replaceUndefWithIgn() {
   const CSAInstrInfo &TII  = *static_cast<const CSAInstrInfo *>(
     thisMF->getSubtarget<CSASubtarget>().getInstrInfo());
   SmallPtrSet<MachineInstr *, 4> implicitDefs;
-  DEBUG(errs() << "Finding implicit defs:\n");
+  LLVM_DEBUG(errs() << "Finding implicit defs:\n");
   for (MachineFunction::iterator BB = thisMF->begin(); BB != thisMF->end();
        ++BB) {
     for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
@@ -3783,13 +3783,13 @@ bool CSACvtCFDFPass::replaceUndefWithIgn() {
       // We're looking for instructions like '%vreg26<def> = IMPLICIT_DEF;'.
       if (MI->isImplicitDef()) {
         implicitDefs.insert(MI);
-        DEBUG(errs() << "\tFound: " << *MI);
+        LLVM_DEBUG(errs() << "\tFound: " << *MI);
       }
     }
   }
 
   if (implicitDefs.empty()) {
-    DEBUG(errs() << "(No implicit defs found.)\n");
+    LLVM_DEBUG(errs() << "(No implicit defs found.)\n");
   }
 
   for (SmallPtrSet<MachineInstr *, 4>::iterator I = implicitDefs.begin(),
@@ -3814,7 +3814,7 @@ bool CSACvtCFDFPass::replaceUndefWithIgn() {
     modified = true;
   }
 
-  DEBUG(errs() << "Finished converting implicit defs to %IGN reads.\n\n");
+  LLVM_DEBUG(errs() << "Finished converting implicit defs to %IGN reads.\n\n");
   return modified;
 }
 
@@ -3842,8 +3842,9 @@ static unsigned getVregIndex(const MachineOperand &MO) {
 }
 
 void CSACvtCFDFPass::findLICGroups(bool preDFConversion) {
-  DEBUG(dbgs() << "Mapping groups for LICs" << (preDFConversion ? " and blocks" : "")
-      << "\n");
+  LLVM_DEBUG(dbgs() <<
+             "Mapping groups for LICs" << (preDFConversion ? " and blocks" : "")
+             << "\n");
   // Ensure that we can handle all of the virtual registers in the function.
   licGrouping.grow(MRI->getNumVirtRegs());
 
@@ -3949,7 +3950,7 @@ void CSACvtCFDFPass::findLICGroups(bool preDFConversion) {
         licGrouping.join(getVregIndex(MI.getOperand(0)),
             getVregIndex(MI.getOperand(1)));
       } else {
-        DEBUG({
+        LLVM_DEBUG({
           errs() << "Multi-triggered-op: ";
           MI.dump();
         });
@@ -3959,8 +3960,8 @@ void CSACvtCFDFPass::findLICGroups(bool preDFConversion) {
     // If we're pre-dataflow conversion, then note the representative vreg for
     // the basic block now.
     if (preDFConversion && joinGroupVreg != UNMAPPED_REG) {
-      DEBUG(dbgs() << "Assigning " << BB.getName() << " to group " <<
-          joinGroupVreg << "\n");
+      LLVM_DEBUG(dbgs() << "Assigning " << BB.getName() << " to group " <<
+                 joinGroupVreg << "\n");
       basicBlockRegs[BB.getNumber()] = joinGroupVreg;
     }
 
@@ -4003,7 +4004,7 @@ void CSACvtCFDFPass::findLICGroups(bool preDFConversion) {
 
   // For debug output, print the mapping of blocks and edges to LIC groups that
   // we have found.
-  DEBUG({
+  LLVM_DEBUG({
     for (auto &BB : *thisMF) {
       unsigned map = basicBlockRegs[BB.getNumber()];
       if (map == UNMAPPED_REG) {
@@ -4049,7 +4050,8 @@ void CSACvtCFDFPass::findLICGroups(bool preDFConversion) {
 }
 
 void CSACvtCFDFPass::assignLicFrequencies(MachineBlockFrequencyInfo &MBFI) {
-  DEBUG(dbgs() << "Propagating block frequency information to LIC groups.\n");
+  LLVM_DEBUG(dbgs() <<
+             "Propagating block frequency information to LIC groups.\n");
 
   // We've assigned everything into equivalence classes. Now, we're going to
   // convert the groups into objects that represent those groups, and we're
@@ -4112,7 +4114,7 @@ void CSACvtCFDFPass::assignLicFrequencies(MachineBlockFrequencyInfo &MBFI) {
 
   // Assign all of the groups we generated to the LMFI side table.
   unsigned empty = 0, count = 0;
-  DEBUG(dbgs() << "Unassigned lics:");
+  LLVM_DEBUG(dbgs() << "Unassigned lics:");
   for (unsigned i = 0, e = MRI->getNumVirtRegs(); i != e; i++) {
     auto vreg = TargetRegisterInfo::index2VirtReg(i);
     if (MRI->use_nodbg_empty(vreg))
@@ -4121,13 +4123,13 @@ void CSACvtCFDFPass::assignLicFrequencies(MachineBlockFrequencyInfo &MBFI) {
     if (group) {
       LMFI->setLICGroup(vreg, group);
     } else {
-      DEBUG(dbgs() << " " << i);
+      LLVM_DEBUG(dbgs() << " " << i);
     }
     count++;
     empty += !group;
   }
-  DEBUG(dbgs() << "\n" << empty << " of " << count <<
-      " LICs were not assigned to groups.\n");
+  LLVM_DEBUG(dbgs() << "\n" << empty << " of " << count <<
+             " LICs were not assigned to groups.\n");
 
   // We don't need the equivalence classes anymore, since it's all propagated
   // to LMFI. Clear this so it doesn't interfere with the next function in the

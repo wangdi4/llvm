@@ -32,7 +32,8 @@ AnalysisKey WRegionInfoAnalysis::Key;
 
 WRegionInfo WRegionInfoAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
 
-  DEBUG(dbgs() << "\nENTER WRegionInfoAnalysis::run: " << F.getName() << "{\n");
+  LLVM_DEBUG(dbgs() << "\nENTER WRegionInfoAnalysis::run: " << F.getName()
+                    << "{\n");
 
   auto &WRC  = AM.getResult<WRegionCollectionAnalysis>(F);
   auto *DT   = WRC.getDomTree();
@@ -44,7 +45,8 @@ WRegionInfo WRegionInfoAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
 
   WRegionInfo WRI(&F, DT, LI, SE, TTI, AC, TLI, &WRC);
 
-  DEBUG(dbgs() << "\n}EXIT WRegionInfoAnalysis::run: " << F.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "\n}EXIT WRegionInfoAnalysis::run: " << F.getName()
+                    << "\n");
   return WRI;
 }
 
@@ -61,7 +63,7 @@ FunctionPass *llvm::createWRegionInfoWrapperPassPass() {
 }
 
 WRegionInfoWrapperPass::WRegionInfoWrapperPass() : FunctionPass(ID) {
-  // DEBUG(dbgs() << "\nStart W-Region Information Collection Pass\n\n");
+  // LLVM_DEBUG(dbgs() << "\nStart W-Region Information Collection Pass\n\n");
   initializeWRegionInfoWrapperPassPass(*PassRegistry::getPassRegistry());
 }
 
@@ -71,8 +73,8 @@ void WRegionInfoWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 bool WRegionInfoWrapperPass::runOnFunction(Function &F) {
-  DEBUG(dbgs() << "\nENTER WRegionInfoWrapperPass::runOnFunction: "
-               << F.getName() << "{\n");
+  LLVM_DEBUG(dbgs() << "\nENTER WRegionInfoWrapperPass::runOnFunction: "
+                    << F.getName() << "{\n");
 
   auto &WRC  = getAnalysis<WRegionCollectionWrapperPass>().getWRegionCollection();
   auto *DT   = WRC.getDomTree();
@@ -84,8 +86,8 @@ bool WRegionInfoWrapperPass::runOnFunction(Function &F) {
 
   WRI.reset(new WRegionInfo(&F, DT, LI, SE, TTI, AC, TLI, &WRC));
 
-  DEBUG(dbgs() << "\n}EXIT WRegionInfoWrapperPass::runOnFunction: "
-               << F.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "\n}EXIT WRegionInfoWrapperPass::runOnFunction: "
+                    << F.getName() << "\n");
   return false;
 }
 
@@ -98,16 +100,16 @@ WRegionInfo::WRegionInfo(Function *F, DominatorTree *DT, LoopInfo *LI,
     : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI), WRC(WRC) {}
 
 void WRegionInfo::buildWRGraph(WRegionCollection::InputIRKind IR) {
-  DEBUG(dbgs() << "\nENTER WRegionInfo::buildWRGraph(InpuIR="
-               << IR <<"){\n");
+  LLVM_DEBUG(dbgs() << "\nENTER WRegionInfo::buildWRGraph(InpuIR=" << IR
+                    << "){\n");
 
   WRC->buildWRGraph(IR);
 
-  DEBUG(dbgs() << "\nRC Size = " << WRC->getWRGraphSize() << "\n");
+  LLVM_DEBUG(dbgs() << "\nRC Size = " << WRC->getWRGraphSize() << "\n");
   for (auto I = WRC->begin(), E = WRC->end(); I != E; ++I)
-    DEBUG((*I)->dump());
+    LLVM_DEBUG((*I)->dump());
 
-  DEBUG(dbgs() << "\n}EXIT WRegionInfo::buildWRGraph\n");
+  LLVM_DEBUG(dbgs() << "\n}EXIT WRegionInfo::buildWRGraph\n");
 }
 
 void WRegionInfo::print(raw_ostream &OS) const {

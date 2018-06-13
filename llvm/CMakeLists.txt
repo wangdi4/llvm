@@ -440,6 +440,7 @@ endif( LLVM_USE_OPROFILE )
 
 set(LLVM_USE_SANITIZER "" CACHE STRING
   "Define the sanitizer used to build binaries and tests.")
+option(LLVM_OPTIMIZE_SANITIZED_BUILDS "Pass -O1 on debug sanitizer builds" ON)
 set(LLVM_LIB_FUZZING_ENGINE "" CACHE PATH
   "Path to fuzzing library for linking with fuzz targets")
 
@@ -521,6 +522,7 @@ option (LLVM_INCLUDE_DOCS "Generate build targets for llvm documentation." ON)
 option (LLVM_ENABLE_DOXYGEN "Use doxygen to generate llvm API documentation." OFF)
 option (LLVM_ENABLE_SPHINX "Use Sphinx to generate llvm documentation." OFF)
 option (LLVM_ENABLE_OCAMLDOC "Build OCaml bindings documentation." ON)
+option (LLVM_ENABLE_BINDINGS "Build bindings." ON)
 
 set(LLVM_INSTALL_DOXYGEN_HTML_DIR "share/doc/llvm/doxygen-html"
     CACHE STRING "Doxygen-generated HTML documentation install directory")
@@ -647,7 +649,16 @@ if (LLVM_USE_OPROFILE)
   set(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS} OProfileJIT)
 endif (LLVM_USE_OPROFILE)
 
+SET(INTEL_COLLAB ON)
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_COLLAB=1")
+SET(INTEL_CUSTOMIZATION ON)
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_CUSTOMIZATION=1")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_OPENMP=1")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_CILKPLUS=1")
+
 if(INTEL_CUSTOMIZATION)
+  option(LLVM_BUILD_OPENMP  "Build the LLVM openmp libraries." ON)
+
   option(INTEL_INCLUDE_DTRANS "Include DTrans optimizations in builds." ON)
   if(INTEL_INCLUDE_DTRANS)
     # When there are multiple optional components, each of them should
@@ -841,12 +852,6 @@ if( ${CMAKE_SYSTEM_NAME} MATCHES SunOS )
    include_directories("${LLVM_MAIN_INCLUDE_DIR}/llvm/Support/Solaris")
 endif( ${CMAKE_SYSTEM_NAME} MATCHES SunOS )
 
-SET(INTEL_CUSTOMIZATION ON)
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_CUSTOMIZATION=1")
-option(LLVM_BUILD_OPENMP  "Build the LLVM openmp libraries." ON)
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_OPENMP=1")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_CILKPLUS=1")
-
 # Make sure we don't get -rdynamic in every binary. For those that need it,
 # use export_executable_symbols(target).
 set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
@@ -1032,7 +1037,7 @@ if(LLVM_DISTRIBUTION_COMPONENTS)
   add_custom_target(distribution)
   add_custom_target(install-distribution)
   add_custom_target(install-distribution-stripped)
-  foreach(target ${LLVM_DISTRIBUTION_COMPONENTS})
+  foreach(target ${LLVM_DISTRIBUTION_COMPONENTS} ${LLVM_RUNTIME_DISTRIBUTION_COMPONENTS})
     if(TARGET ${target})
       add_dependencies(distribution ${target})
     else()

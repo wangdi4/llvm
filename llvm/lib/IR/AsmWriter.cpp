@@ -777,7 +777,7 @@ private:
   /// CreateFunctionSlot - Insert the specified Value* into the slot table.
   void CreateFunctionSlot(const Value *V);
 
-  /// \brief Insert the specified AttributeSet into the slot table.
+  /// Insert the specified AttributeSet into the slot table.
   void CreateAttributeSetSlot(AttributeSet AS);
 
   /// Add all of the module level global variables (and their initializers)
@@ -1845,7 +1845,7 @@ static void writeDISubprogram(raw_ostream &Out, const DISubprogram *N,
   Printer.printMetadata("unit", N->getRawUnit());
   Printer.printMetadata("templateParams", N->getRawTemplateParams());
   Printer.printMetadata("declaration", N->getRawDeclaration());
-  Printer.printMetadata("variables", N->getRawVariables());
+  Printer.printMetadata("retainedNodes", N->getRawRetainedNodes());
   Printer.printMetadata("thrownTypes", N->getRawThrownTypes());
   Out << ")";
 }
@@ -1982,6 +1982,18 @@ static void writeDILocalVariable(raw_ostream &Out, const DILocalVariable *N,
   Printer.printMetadata("type", N->getRawType());
   Printer.printDIFlags("flags", N->getFlags());
   Printer.printInt("align", N->getAlignInBits());
+  Out << ")";
+}
+
+static void writeDILabel(raw_ostream &Out, const DILabel *N,
+                         TypePrinting *TypePrinter,
+                         SlotTracker *Machine, const Module *Context) {
+  Out << "!DILabel(";
+  MDFieldPrinter Printer(Out, TypePrinter, Machine, Context);
+  Printer.printMetadata("scope", N->getRawScope(), /* ShouldSkipNull */ false);
+  Printer.printString("name", N->getName());
+  Printer.printMetadata("file", N->getRawFile());
+  Printer.printInt("line", N->getLine());
   Out << ")";
 }
 
@@ -2250,7 +2262,7 @@ public:
   void printUseLists(const Function *F);
 
 private:
-  /// \brief Print out metadata attachments.
+  /// Print out metadata attachments.
   void printMetadataAttachments(
       const SmallVectorImpl<std::pair<unsigned, MDNode *>> &MDs,
       StringRef Separator);
@@ -2417,10 +2429,10 @@ void AssemblyWriter::printModule(const Module *M) {
   if (!M->getTargetTriple().empty())
     Out << "target triple = \"" << M->getTargetTriple() << "\"\n";
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   if (!M->getTargetDevices().empty())
     Out << "target device_triples = \"" << M->getTargetDevices() << "\"\n";
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   if (!M->getModuleInlineAsm().empty()) {
     Out << '\n';
@@ -2660,13 +2672,13 @@ void AssemblyWriter::printGlobal(const GlobalVariable *GV) {
   PrintVisibility(GV->getVisibility(), Out);
   PrintDLLStorageClass(GV->getDLLStorageClass(), Out);
   PrintThreadLocalModel(GV->getThreadLocalMode(), Out);
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   if (GV->isThreadPrivate())
     Out << "thread_private ";
 
   if (GV->isTargetDeclare())
     Out << "target_declare ";
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   StringRef UA = getUnnamedAddrEncoding(GV->getUnnamedAddr());
   if (!UA.empty())
       Out << UA << ' ';
@@ -3736,7 +3748,7 @@ void Module::dump() const {
         /*ShouldPreserveUseListOrder=*/false, /*IsForDebug=*/true);
 }
 
-// \brief Allow printing of Comdats from the debugger.
+// Allow printing of Comdats from the debugger.
 LLVM_DUMP_METHOD
 void Comdat::dump() const { print(dbgs(), /*IsForDebug=*/true); }
 

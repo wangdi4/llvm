@@ -105,7 +105,7 @@ bool CSAStatistics::runOnMachineFunction(MachineFunction &MF) {
   std::string Filename = MF.getName().str() + "_stats" + ".txt";
   std::error_code EC;
   StringRef srcFilename = MF.getFunction().getParent()->getSourceFileName();
-  DEBUG(errs() << "Writing '" << Filename << "'...");
+  LLVM_DEBUG(errs() << "Writing '" << Filename << "'...");
   raw_fd_ostream O(Filename, EC, sys::fs::F_Text);
   O << "CSA Statistics for function: " << MF.getName().str() << " in "
     << srcFilename << "\n";

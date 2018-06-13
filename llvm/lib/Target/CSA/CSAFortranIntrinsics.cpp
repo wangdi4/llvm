@@ -167,9 +167,9 @@ bool CSAFortranIntrinsics::runOnFunction(Function &F) {
       }
 
       // replace with the correct intrinsic if there is a match
-      DEBUG(errs() << "in function " << F.getName() << ":\n"
-                   << "replacing:" << *II << "\n"
-                   << "with intrinsic: " << intrinsic->getName() << "\n");
+      LLVM_DEBUG(errs() << "in function " << F.getName() << ":\n"
+                 << "replacing:" << *II << "\n"
+                 << "with intrinsic: " << intrinsic->getName() << "\n");
       IRBuilder<>{&*II}.CreateCall(intrinsic, args);
 
       II = II->eraseFromParent();

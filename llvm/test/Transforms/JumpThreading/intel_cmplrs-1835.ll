@@ -13,7 +13,6 @@ define void @cmplrs_1835() {
 ; CHECK-NEXT:    unreachable
 ; CHECK:       for.body.thread:
 ; CHECK-NEXT:    br label [[FOR_BODY_THREAD:%.*]]
-;
 entry:
   br label %for.inc.thread390
 

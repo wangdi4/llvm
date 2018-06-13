@@ -104,36 +104,15 @@ namespace {
 /// base class to provide several facilities such as array alloca merging.
 class AlwaysInlinerLegacyPass : public LegacyInlinerBase {
 
-#if INTEL_SPECIFIC_IL0_BACKEND
-  // This is used to enable/disable standard inliner pass for
-  // AlwaysInline attribute and perform it only for inline functions
-  // specifically marked with "INTEL_ALWAYS_INLINE".
-  bool Il0BackendMode;
-#endif // INTEL_SPECIFIC_IL0_BACKEND
-
 public:
   AlwaysInlinerLegacyPass() : LegacyInlinerBase(ID, /*InsertLifetime*/ true) {
     initializeAlwaysInlinerLegacyPassPass(*PassRegistry::getPassRegistry());
-#if INTEL_SPECIFIC_IL0_BACKEND
-    Il0BackendMode = false;
-#endif // INTEL_SPECIFIC_IL0_BACKEND
   }
 
   AlwaysInlinerLegacyPass(bool InsertLifetime)
       : LegacyInlinerBase(ID, InsertLifetime) {
     initializeAlwaysInlinerLegacyPassPass(*PassRegistry::getPassRegistry());
-#if INTEL_SPECIFIC_IL0_BACKEND
-    Il0BackendMode = false;
-#endif // INTEL_SPECIFIC_IL0_BACKEND
   }
-
-#if INTEL_SPECIFIC_IL0_BACKEND
-  AlwaysInlinerLegacyPass(bool InsertLifetime, bool Il0BackendMode)
-      : Inliner(ID, InsertLifetime) {
-    initializeAlwaysInlinerPass(*PassRegistry::getPassRegistry());
-    this->Il0BackendMode = Il0BackendMode;
-  }
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 
   /// Main run interface method.  We override here to avoid calling skipSCC().
   bool runOnSCC(CallGraphSCC &SCC) override { return inlineCalls(SCC); }
@@ -167,14 +146,7 @@ Pass *llvm::createAlwaysInlinerLegacyPass(bool InsertLifetime) {
   return new AlwaysInlinerLegacyPass(InsertLifetime);
 }
 
-#if INTEL_SPECIFIC_IL0_BACKEND
-Pass *llvm::createAlwaysInlinerLegacyPass(bool InsertLifetime,
-                                          bool Il0BackendMode) {
-  return new AlwaysInliner(InsertLifetime, Il0BackendMode);
-}
-#endif // INTEL_SPECIFIC_IL0_BACKEND
-
-/// \brief Get the inline cost for the always-inliner.
+/// Get the inline cost for the always-inliner.
 ///
 /// The always inliner *only* handles functions which are marked with the
 /// attribute to force inlining. As such, it is dramatically simpler and avoids
@@ -188,23 +160,6 @@ Pass *llvm::createAlwaysInlinerLegacyPass(bool InsertLifetime,
 /// likely not worth it in practice.
 InlineCost AlwaysInlinerLegacyPass::getInlineCost(CallSite CS) {
   Function *Callee = CS.getCalledFunction();
-
-#if INTEL_SPECIFIC_IL0_BACKEND
-  // Only specially marked functions are inlined here.
-  // The rest always_inline functions are processed by the IL0 backend.
-  // This is necessary due to current CilkPlus implementation, where front-end
-  // emits some code outlined, but it has to be inlined to have valid
-  // debug info in IL0 and also IL0 backend does not inline back functions
-  // with call to Cilk's setjmp.
-  if (Il0BackendMode) {
-    InlineReason Reason;
-    if (Callee && !Callee->isDeclaration() &&
-        Callee->hasFnAttribute("INTEL_ALWAYS_INLINE") &&
-        isInlineViable(*Callee, Reason))
-      return InlineCost::getAlways(InlrAlwaysInline);
-    return InlineCost::getNever(NinlrNotAlwaysInline);
-  }
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 
   // Only inline direct calls to functions with always-inline attributes
   // that are viable for inlining. FIXME: We shouldn't even get here for

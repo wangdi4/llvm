@@ -522,16 +522,16 @@ void ControlDependenceGraphBase::regionsForGraph(
 void ControlDependenceGraphBase::dumpRegions() {
   for (unsigned i = 0; i < regions.size(); i++) {
     CDGRegion *r = regions[i];
-    DEBUG(errs() << "Region" << i << ": ");
+    LLVM_DEBUG(errs() << "Region" << i << ": ");
     for (SetVector<ControlDependenceNode *>::iterator N = r->nodes.begin(),
                                                       E = r->nodes.end();
          N != E; ++N) {
       ControlDependenceNode *node = *N;
       assert(node);
       (void) node;
-      DEBUG(errs() << "BB" << cdg2bb[node]->getNumber() << ", ");
+      LLVM_DEBUG(errs() << "BB" << cdg2bb[node]->getNumber() << ", ");
     }
-    DEBUG(errs() << "\n");
+    LLVM_DEBUG(errs() << "\n");
   }
 }
 
@@ -679,7 +679,7 @@ void ControlDependenceGraph::writeDotGraph(StringRef fname) {
   std::string Filename = fname.str() + "_CDG" + ".dot";
   std::error_code EC;
 
-  DEBUG(errs() << "Writing '" << Filename << "'...");
+  LLVM_DEBUG(errs() << "Writing '" << Filename << "'...");
 
   raw_fd_ostream File(Filename, EC, sys::fs::F_Text);
   GraphWriter<ControlDependenceGraph *> gwr(File, this, false);

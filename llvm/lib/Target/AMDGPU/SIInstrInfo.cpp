@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 //
 /// \file
-/// \brief SI Implementation of TargetInstrInfo.
+/// SI Implementation of TargetInstrInfo.
 //
 //===----------------------------------------------------------------------===//
 
@@ -19,6 +19,7 @@
 #include "SIDefines.h"
 #include "SIMachineFunctionInfo.h"
 #include "SIRegisterInfo.h"
+#include "MCTargetDesc/AMDGPUMCTargetDesc.h"
 #include "Utils/AMDGPUBaseInfo.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -89,7 +90,7 @@ static SDValue findChainOperand(SDNode *Load) {
   return LastOp;
 }
 
-/// \brief Returns true if both nodes have the same value for the given
+/// Returns true if both nodes have the same value for the given
 ///        operand \p Op, or if both nodes do not have this operand.
 static bool nodesHaveSameOperandValue(SDNode *N0, SDNode* N1, unsigned OpName) {
   unsigned Opc0 = N0->getMachineOpcode();
@@ -2869,6 +2870,22 @@ bool SIInstrInfo::verifyInstruction(const MachineInstr &MI,
     }
   }
 
+  const MachineOperand *DppCt = getNamedOperand(MI, AMDGPU::OpName::dpp_ctrl);
+  if (DppCt) {
+    using namespace AMDGPU::DPP;
+
+    unsigned DC = DppCt->getImm();
+    if (DC == DppCtrl::DPP_UNUSED1 || DC == DppCtrl::DPP_UNUSED2 ||
+        DC == DppCtrl::DPP_UNUSED3 || DC > DppCtrl::DPP_LAST ||
+        (DC >= DppCtrl::DPP_UNUSED4_FIRST && DC <= DppCtrl::DPP_UNUSED4_LAST) ||
+        (DC >= DppCtrl::DPP_UNUSED5_FIRST && DC <= DppCtrl::DPP_UNUSED5_LAST) ||
+        (DC >= DppCtrl::DPP_UNUSED6_FIRST && DC <= DppCtrl::DPP_UNUSED6_LAST) ||
+        (DC >= DppCtrl::DPP_UNUSED7_FIRST && DC <= DppCtrl::DPP_UNUSED7_LAST)) {
+      ErrInfo = "Invalid dpp_ctrl value";
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -4901,4 +4918,17 @@ const MCInstrDesc &SIInstrInfo::getKillTerminatorFromPseudo(unsigned Opcode) con
   default:
     llvm_unreachable("invalid opcode, expected SI_KILL_*_PSEUDO");
   }
+}
+
+bool SIInstrInfo::isBufferSMRD(const MachineInstr &MI) const {
+  if (!isSMRD(MI))
+    return false;
+
+  // Check that it is using a buffer resource.
+  int Idx = AMDGPU::getNamedOperandIdx(MI.getOpcode(), AMDGPU::OpName::sbase);
+  if (Idx == -1) // e.g. s_memtime
+    return false;
+
+  const auto RCID = MI.getDesc().OpInfo[Idx].RegClass;
+  return RCID == AMDGPU::SReg_128RegClassID;
 }

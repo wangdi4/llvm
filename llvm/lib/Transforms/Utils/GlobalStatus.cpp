@@ -143,7 +143,7 @@ static bool analyzeGlobalAux(const Value *V, GlobalStatus &GS,
         // of the pointer.
         if (analyzeGlobalAux(I, GS, VisitedUsers))
           return true;
-      } else if (isa<SubscriptInst>(I)) {           // INTEL
+      } else if (isa<AddressInst>(I)) {             // INTEL
         if (analyzeGlobalAux(I, GS, VisitedUsers))  // INTEL
           return true;                              // INTEL
       } else if (isa<SelectInst>(I) || isa<PHINode>(I)) {

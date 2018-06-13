@@ -345,7 +345,7 @@ getCommonSuperRegClass(const TargetRegisterClass *RCA, unsigned SubA,
   return BestRC;
 }
 
-/// \brief Check if the registers defined by the pair (RegisterClass, SubReg)
+/// Check if the registers defined by the pair (RegisterClass, SubReg)
 /// share the same register file.
 static bool shareSameRegisterFile(const TargetRegisterInfo &TRI,
                                   const TargetRegisterClass *DefRC,
@@ -443,7 +443,8 @@ bool TargetRegisterInfo::needsStackRealignment(
   if (F.hasFnAttribute("stackrealign") || requiresRealignment) {
     if (canRealignStack(MF))
       return true;
-    DEBUG(dbgs() << "Can't realign function's stack: " << F.getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Can't realign function's stack: " << F.getName()
+                      << "\n");
   }
   return false;
 }

@@ -32,7 +32,7 @@ namespace llvm {
                visit##CLASS_TO_VISIT(static_cast<CLASS_TO_VISIT&>(I))
 
 
-/// @brief Base class for instruction visitors
+/// Base class for instruction visitors
 ///
 /// Instruction visitors are used when you want to perform different actions
 /// for different kinds of instructions without having to use lots of casts
@@ -213,14 +213,17 @@ public:
   // Handle the special instrinsic instruction classes.
   RetTy visitDbgDeclareInst(DbgDeclareInst &I)    { DELEGATE(DbgInfoIntrinsic);}
   RetTy visitDbgValueInst(DbgValueInst &I)        { DELEGATE(DbgInfoIntrinsic);}
+  RetTy visitDbgLabelInst(DbgLabelInst &I)        { DELEGATE(DbgInfoIntrinsic);}
   RetTy visitDbgInfoIntrinsic(DbgInfoIntrinsic &I) { DELEGATE(IntrinsicInst); }
   RetTy visitMemSetInst(MemSetInst &I)            { DELEGATE(MemIntrinsic); }
   RetTy visitMemCpyInst(MemCpyInst &I)            { DELEGATE(MemTransferInst); }
   RetTy visitMemMoveInst(MemMoveInst &I)          { DELEGATE(MemTransferInst); }
   RetTy visitMemTransferInst(MemTransferInst &I)  { DELEGATE(MemIntrinsic); }
   RetTy visitMemIntrinsic(MemIntrinsic &I)        { DELEGATE(IntrinsicInst); }
-#ifdef INTEL_CUSTOMIZATION
-  RetTy visitSubscriptInst(SubscriptInst &I)      { DELEGATE(IntrinsicInst); }
+#if INTEL_CUSTOMIZATION
+  RetTy visitAddressInst(AddressInst &I)          { DELEGATE(IntrinsicInst); }
+  RetTy visitSubscriptInst(SubscriptInst &I)      { DELEGATE(AddressInst); }
+  RetTy visitFakeloadInst(FakeloadInst &I)        { DELEGATE(AddressInst); }
 #endif // INTEL_CUSTOMIZATION
   RetTy visitVAStartInst(VAStartInst &I)          { DELEGATE(IntrinsicInst); }
   RetTy visitVAEndInst(VAEndInst &I)              { DELEGATE(IntrinsicInst); }
@@ -275,12 +278,15 @@ private:
       default:                     DELEGATE(IntrinsicInst);
       case Intrinsic::dbg_declare: DELEGATE(DbgDeclareInst);
       case Intrinsic::dbg_value:   DELEGATE(DbgValueInst);
+      case Intrinsic::dbg_label:   DELEGATE(DbgLabelInst);
       case Intrinsic::memcpy:      DELEGATE(MemCpyInst);
       case Intrinsic::memmove:     DELEGATE(MemMoveInst);
       case Intrinsic::memset:      DELEGATE(MemSetInst);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       case Intrinsic::intel_subscript:
                                    DELEGATE(SubscriptInst);
+      case Intrinsic::intel_fakeload:
+                                   DELEGATE(FakeloadInst);
 #endif // INTEL_CUSTOMIZATION
       case Intrinsic::vastart:     DELEGATE(VAStartInst);
       case Intrinsic::vaend:       DELEGATE(VAEndInst);

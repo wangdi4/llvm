@@ -20,6 +20,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
@@ -47,10 +48,24 @@ StringRef dtrans::AllocKindName(AllocKind Kind) {
     return "Calloc";
   case AK_Realloc:
     return "Realloc";
-  case AK_UserAlloc:
-    return "UserAlloc";
+  case AK_UserMalloc:
+    return "UserMalloc";
+  case AK_UserMalloc0:
+    return "UserMalloc0";
   }
   llvm_unreachable("Unexpected continuation past AllocKind switch.");
+}
+
+StringRef dtrans::FreeKindName(FreeKind Kind) {
+  switch (Kind) {
+  case FK_NotFree:
+    return "NotFree";
+  case FK_Free:
+    return "Free";
+  case FK_UserFree:
+    return "UserFree";
+  }
+  llvm_unreachable("Unexpected continuation past FreeKind switch.");
 }
 
 AllocKind dtrans::getAllocFnKind(Function *F, const TargetLibraryInfo &TLI) {
@@ -75,18 +90,18 @@ AllocKind dtrans::getAllocFnKind(Function *F, const TargetLibraryInfo &TLI) {
 
 void dtrans::getAllocSizeArgs(AllocKind Kind, CallInst *CI,
                               Value *&AllocSizeVal, Value *&AllocCountVal) {
-  assert(Kind != AK_NotAlloc && Kind != AK_UserAlloc &&
+  assert(Kind != AK_NotAlloc && Kind != AK_UserMalloc0 &&
          "Unexpected alloc kind passed to getAllocSizeArgs");
 
-  if (Kind == AK_Malloc) {
+  if (Kind == AK_Malloc || Kind == AK_UserMalloc) {
     AllocSizeVal = CI->getArgOperand(0);
     AllocCountVal = nullptr;
     return;
   }
 
   if (Kind == AK_Calloc) {
-    AllocSizeVal = CI->getArgOperand(0);
-    AllocCountVal = CI->getArgOperand(1);
+    AllocCountVal = CI->getArgOperand(0);
+    AllocSizeVal = CI->getArgOperand(1);
     return;
   }
 
@@ -106,6 +121,49 @@ bool dtrans::isFreeFn(Function *F, const TargetLibraryInfo &TLI) {
   if (!TLI.getLibFunc(*F, LF))
     return false;
   return (LF == LibFunc_free);
+}
+
+/// This helper function checks if \p Val is a constant integer equal to
+/// \p Size
+bool dtrans::isValueEqualToSize(Value *Val, uint64_t Size) {
+  if (!Val)
+    return false;
+
+  if (auto *ConstVal = dyn_cast<ConstantInt>(Val)) {
+    uint64_t ConstSize = ConstVal->getLimitedValue();
+    return ConstSize == Size;
+  }
+
+  return false;
+}
+
+// This helper function checks a value to see if it is either (a) a constant
+// whose value is a multiple of the specified size, or (b) an integer
+// multiplication operator where either operand is a constant multiple of the
+// specified size.
+bool dtrans::isValueMultipleOfSize(Value *Val, uint64_t Size) {
+  if (!Val)
+    return false;
+
+  // Is it a constant?
+  if (auto *ConstVal = dyn_cast<ConstantInt>(Val)) {
+    uint64_t ConstSize = ConstVal->getLimitedValue();
+    return ((ConstSize % Size) == 0);
+  }
+  // Is it a mul?
+  Value *LHS;
+  Value *RHS;
+  if (PatternMatch::match(Val,
+                          PatternMatch::m_Mul(PatternMatch::m_Value(LHS),
+                                              PatternMatch::m_Value(RHS)))) {
+    return (isValueMultipleOfSize(LHS, Size) ||
+            isValueMultipleOfSize(RHS, Size));
+  }
+  // Handle sext and zext
+  if (isa<SExtInst>(Val) || isa<ZExtInst>(Val))
+    return isValueMultipleOfSize(cast<Instruction>(Val)->getOperand(0), Size);
+  // Otherwise, it's not what we needed.
+  return false;
 }
 
 // This function is called to determine if a bitcast to the specified
@@ -198,22 +256,21 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
-  static_assert(ImplementedMask ==
-                    (dtrans::BadCasting ^ dtrans::BadAllocSizeArg ^
-                     dtrans::BadPtrManipulation ^ dtrans::AmbiguousGEP ^
-                     dtrans::VolatileData ^ dtrans::MismatchedElementAccess ^
-                     dtrans::WholeStructureReference ^
-                     dtrans::UnsafePointerStore ^ dtrans::FieldAddressTaken ^
-                     dtrans::GlobalPtr ^ dtrans::GlobalInstance ^
-                     dtrans::HasInitializerList ^ dtrans::BadMemFuncSize ^
-                     dtrans::MemFuncPartialWrite ^
-                     dtrans::BadMemFuncManipulation ^
-                     dtrans::AmbiguousPointerTarget ^ dtrans::UnsafePtrMerge ^
-                     dtrans::AddressTaken ^ dtrans::NoFieldsInStruct ^
-                     dtrans::NestedStruct ^ dtrans::ContainsNestedStruct ^
-                     dtrans::SystemObject ^ dtrans::LocalPtr ^
-                     dtrans::LocalInstance ^ dtrans::UnhandledUse),
-                "Duplicate value used in dtrans safety conditions");
+  static_assert(
+      ImplementedMask ==
+          (dtrans::BadCasting ^ dtrans::BadAllocSizeArg ^
+           dtrans::BadPtrManipulation ^ dtrans::AmbiguousGEP ^
+           dtrans::VolatileData ^ dtrans::MismatchedElementAccess ^
+           dtrans::WholeStructureReference ^ dtrans::UnsafePointerStore ^
+           dtrans::FieldAddressTaken ^ dtrans::GlobalPtr ^
+           dtrans::GlobalInstance ^ dtrans::HasInitializerList ^
+           dtrans::BadMemFuncSize ^ dtrans::MemFuncPartialWrite ^
+           dtrans::BadMemFuncManipulation ^ dtrans::AmbiguousPointerTarget ^
+           dtrans::UnsafePtrMerge ^ dtrans::AddressTaken ^
+           dtrans::NoFieldsInStruct ^ dtrans::NestedStruct ^
+           dtrans::ContainsNestedStruct ^ dtrans::SystemObject ^
+           dtrans::LocalPtr ^ dtrans::LocalInstance ^ dtrans::UnhandledUse),
+      "Duplicate value used in dtrans safety conditions");
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
     SafetyIssues.push_back("Bad casting");
@@ -277,7 +334,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
   // TODO: Make this unnecessary.
   if (SafetyInfo & ~ImplementedMask) {
     ostr << " + other issues that need format support ("
-           << (SafetyInfo & ~ImplementedMask) << ")";
+         << (SafetyInfo & ~ImplementedMask) << ")";
     ostr << "\nImplementedMask = " << ImplementedMask;
   }
 
@@ -291,20 +348,50 @@ void dtrans::TypeInfo::printSafetyData() {
 
 void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
   SafetyInfo |= Conditions;
-  DEBUG(dbgs() << "dtrans-safety-detail: " << *getLLVMType() << " :: ");
-  DEBUG(printSafetyInfo(Conditions, dbgs()));
+  LLVM_DEBUG(dbgs() << "dtrans-safety-detail: " << *getLLVMType() << " :: ");
+  LLVM_DEBUG(printSafetyInfo(Conditions, dbgs()));
 }
 
-void dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
-  if (isNoValue())
+bool dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
+  if (isNoValue()) {
     setSingleValue(C);
-  else if (isSingleValue() && getSingleValue() != C)
+    return true;
+  }
+  if (isSingleValue() && getSingleValue() != C) {
     setMultipleValue();
+    return true;
+  }
+  return false;
 }
 
+bool dtrans::FieldInfo::processNewSingleAllocFunction(llvm::Function *F) {
+  if (isTopAllocFunction()) {
+    if (F == nullptr)
+      setBottomAllocFunction();
+    else
+      setSingleAllocFunction(F);
+    return true;
+  }
+  if (isSingleAllocFunction() && getSingleAllocFunction() != F) {
+    setBottomAllocFunction();
+    return true;
+  }
+  return false;
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void PointerTypeInfo::dump() {
-  if (!AliasesToAggregatePointer) {
-    outs() << "    Type: Non-aggregate\n";
+  print(dbgs());
+}
+
+void PointerTypeInfo::print(raw_ostream &OS) {
+  if (!getAnalyzed()) {
+    OS << "    Type: Not analyzed\n";
+    return;
+  }
+
+  if (!getAliasesToAggregatePointer()) {
+    OS << "    Type: Non-aggregate\n";
     return;
   }
 
@@ -320,31 +407,70 @@ void PointerTypeInfo::dump() {
 
   std::sort(StrVec.begin(), StrVec.end());
   for (auto &S : StrVec)
-    outs() << S << "\n";
+    OS << S << "\n";
+}
+
+void CallInfo::dump() {
+  print(dbgs());
 }
 
 /// Dispatcher to invoke the appropriate dump method based on the specific type
 /// of call being tracked.
-void CallInfo::dump() {
+void CallInfo::print(raw_ostream &OS) {
   switch (getCallInfoKind()) {
   case CIK_Alloc:
-    cast<AllocCallInfo>(this)->dump();
+    cast<AllocCallInfo>(this)->print(OS);
     break;
   case CIK_Free:
-    // TODO: uncomment when FreeCallInfo class is added
-    // cast<FreeCallInfo>(this)->dump();
+    cast<FreeCallInfo>(this)->print(OS);
     break;
   case CIK_Memfunc:
-    // TODO: uncomment when MemfuncCallInfo class is added
-    // cast<MemfuncCallInfo>(this)->dump();
+    cast<MemfuncCallInfo>(this)->print(OS);
     break;
   }
 }
 
 void AllocCallInfo::dump() {
-  outs() << "AllocCallInfo:\n";
-  outs() << "  Kind: " << AllocKindName(AK) << "\n";
-  outs() << "  Aliased types:\n";
-
-  PTI.dump();
+  print(dbgs());
 }
+
+void AllocCallInfo::print(raw_ostream &OS) {
+  OS << "AllocCallInfo:\n";
+  OS << "  Kind: " << AllocKindName(AK) << "\n";
+  OS << "  Aliased types:\n";
+  PTI.print(OS);
+}
+
+void FreeCallInfo::dump() {
+  print(dbgs());
+}
+
+void FreeCallInfo::print(raw_ostream &OS) {
+  OS << "FreeCallInfo:\n";
+  OS << "  Kind: " << FreeKindName(FK) << "\n";
+  OS << "  Aliased types:\n";
+  PTI.print(OS);
+}
+
+void MemfuncCallInfo::dump() {
+  print(dbgs());
+}
+
+void MemfuncCallInfo::print(raw_ostream &OS) {
+  OS << "MemfuncInfo:\n";
+  OS << "    Kind: " << MemfuncKindName(MK) << "\n";
+
+  unsigned int NumRegions = getNumRegions();
+  for (unsigned int RN = 0; RN < NumRegions; ++RN) {
+    bool IsComplete = getIsCompleteAggregate(RN);
+    OS << "  Region " << RN << ":\n";
+    OS << "    Complete: " << (IsComplete ? "true" : "false") << "\n";
+    if (!IsComplete) {
+      OS << "    FirstField: " << getFirstField(RN) << "\n";
+      OS << "    LastField:  " << getLastField(RN) << "\n";
+    }
+
+    PTI.print(OS);
+  }
+}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

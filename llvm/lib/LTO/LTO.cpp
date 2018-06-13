@@ -13,6 +13,7 @@
 
 #include "llvm/LTO/LTO.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/Intel_WP.h" // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Bitcode/BitcodeReader.h"
@@ -461,6 +462,10 @@ void LTO::addModuleToGlobalRes(ArrayRef<InputFile::Symbol> Syms,
     // from a module that does not have a summary.
     GlobalRes.VisibleOutsideSummary |=
         (Res.VisibleToRegularObj || Sym.isUsed() || !InSummary);
+
+#if INTEL_CUSTOMIZATION
+    GlobalRes.ResolvedByLinker |= Res.ResolvedByLinker;
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -765,6 +770,7 @@ unsigned LTO::getMaxTasks() const {
 }
 
 Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
+  bool AllResolved = true; // INTEL
   // Compute "dead" symbols, we don't want to import/export these!
   DenseSet<GlobalValue::GUID> GUIDPreservedSymbols;
   DenseMap<GlobalValue::GUID, PrevailingType> GUIDPrevailingResolutions;
@@ -783,7 +789,10 @@ Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
 
     GUIDPrevailingResolutions[GUID] =
         Res.second.Prevailing ? PrevailingType::Yes : PrevailingType::No;
+
+    AllResolved &= Res.second.ResolvedByLinker; // INTEL
   }
+  SetWholeProgramRead(AllResolved); // INTEL
 
   auto isPrevailing = [&](GlobalValue::GUID G) {
     auto It = GUIDPrevailingResolutions.find(G);
@@ -1226,6 +1235,8 @@ Expected<std::unique_ptr<ToolOutputFile>>
 lto::setupOptimizationRemarks(LLVMContext &Context,
                               StringRef LTORemarksFilename,
                               bool LTOPassRemarksWithHotness, int Count) {
+  if (LTOPassRemarksWithHotness)
+    Context.setDiagnosticsHotnessRequested(true);
   if (LTORemarksFilename.empty())
     return nullptr;
 
@@ -1240,8 +1251,6 @@ lto::setupOptimizationRemarks(LLVMContext &Context,
     return errorCodeToError(EC);
   Context.setDiagnosticsOutputFile(
       llvm::make_unique<yaml::Output>(DiagnosticFile->os()));
-  if (LTOPassRemarksWithHotness)
-    Context.setDiagnosticsHotnessRequested(true);
   DiagnosticFile->keep();
   return std::move(DiagnosticFile);
 }

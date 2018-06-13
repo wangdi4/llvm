@@ -3954,13 +3954,14 @@ static bool isFrameLoadOpcode(int Opcode, unsigned &MemBytes) {
   case X86::MOV32rm:
   case X86::MOVSSrm:
   case X86::VMOVSSZrm:
+  case X86::VMOVSSrm:
   case X86::KMOVDkm:
     MemBytes = 4;
     return true;
   case X86::MOV64rm:
   case X86::LD_Fp64m:
   case X86::MOVSDrm:
-  case X86::VMOVSSrm:
+  case X86::VMOVSDrm:
   case X86::VMOVSDZrm:
   case X86::MMX_MOVD64rm:
   case X86::MMX_MOVQ64rm:
@@ -3973,7 +3974,6 @@ static bool isFrameLoadOpcode(int Opcode, unsigned &MemBytes) {
   case X86::MOVUPDrm:
   case X86::MOVDQArm:
   case X86::MOVDQUrm:
-  case X86::VMOVSDrm:
   case X86::VMOVAPSrm:
   case X86::VMOVUPSrm:
   case X86::VMOVAPDrm:
@@ -4340,8 +4340,8 @@ bool X86InstrInfo::isSafeToClobberEFLAGS(MachineBasicBlock &MBB,
       // This instruction defines EFLAGS, no need to look any further.
       return true;
     ++Iter;
-    // Skip over DBG_VALUE.
-    while (Iter != E && Iter->isDebugValue())
+    // Skip over debug instructions.
+    while (Iter != E && Iter->isDebugInstr())
       ++Iter;
   }
 
@@ -4363,8 +4363,8 @@ bool X86InstrInfo::isSafeToClobberEFLAGS(MachineBasicBlock &MBB,
       return !MBB.isLiveIn(X86::EFLAGS);
 
     --Iter;
-    // Skip over DBG_VALUE.
-    while (Iter != B && Iter->isDebugValue())
+    // Skip over debug instructions.
+    while (Iter != B && Iter->isDebugInstr())
       --Iter;
 
     bool SawKill = false;
@@ -6154,7 +6154,7 @@ unsigned X86::getCMovFromCond(CondCode CC, unsigned RegBytes,
   }
 }
 
-/// \brief Get the VPCMP immediate if the opcodes are swapped.
+/// Get the VPCMP immediate if the opcodes are swapped.
 unsigned X86::getSwappedVPCMPImm(unsigned Imm) {
   switch (Imm) {
   default: llvm_unreachable("Unreachable!");
@@ -6172,7 +6172,7 @@ unsigned X86::getSwappedVPCMPImm(unsigned Imm) {
   return Imm;
 }
 
-/// \brief Get the VPCOM immediate if the opcodes are swapped.
+/// Get the VPCOM immediate if the opcodes are swapped.
 unsigned X86::getSwappedVPCOMImm(unsigned Imm) {
   switch (Imm) {
   default: llvm_unreachable("Unreachable!");
@@ -6254,7 +6254,7 @@ void X86InstrInfo::replaceBranchWithTailCall(
   MachineBasicBlock::iterator I = MBB.end();
   while (I != MBB.begin()) {
     --I;
-    if (I->isDebugValue())
+    if (I->isDebugInstr())
       continue;
     if (!I->isBranch())
       assert(0 && "Can't find the branch to replace!");
@@ -6322,7 +6322,7 @@ bool X86InstrInfo::AnalyzeBranchImpl(
   MachineBasicBlock::iterator UnCondBrIter = MBB.end();
   while (I != MBB.begin()) {
     --I;
-    if (I->isDebugValue())
+    if (I->isDebugInstr())
       continue;
 
     // Working from the bottom, when we see a non-terminator instruction, we're
@@ -6559,7 +6559,7 @@ unsigned X86InstrInfo::removeBranch(MachineBasicBlock &MBB,
 
   while (I != MBB.begin()) {
     --I;
-    if (I->isDebugValue())
+    if (I->isDebugInstr())
       continue;
     if (I->getOpcode() != X86::JMP_1 &&
         X86::getCondFromBranchOpc(I->getOpcode()) == X86::COND_INVALID)
@@ -6847,9 +6847,19 @@ void X86InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     report_fatal_error("Unable to copy EFLAGS physical register!");
   }
 
-  DEBUG(dbgs() << "Cannot copy " << RI.getName(SrcReg)
-               << " to " << RI.getName(DestReg) << '\n');
+  LLVM_DEBUG(dbgs() << "Cannot copy " << RI.getName(SrcReg) << " to "
+                    << RI.getName(DestReg) << '\n');
   llvm_unreachable("Cannot emit physreg copy instruction");
+}
+
+bool X86InstrInfo::isCopyInstr(const MachineInstr &MI, MachineOperand &Src,
+                               MachineOperand &Dest) const {
+  if (MI.isMoveReg()) {
+    Dest = MI.getOperand(0);
+    Src = MI.getOperand(1);
+    return true;
+  }
+  return false;
 }
 
 static unsigned getLoadStoreRegOpcode(unsigned Reg,
@@ -11134,15 +11144,26 @@ X86InstrInfo::getOutlininingCandidateInfo(
   std::vector<
       std::pair<MachineBasicBlock::iterator, MachineBasicBlock::iterator>>
       &RepeatedSequenceLocs) const {
+  unsigned SequenceSize = std::accumulate(
+      RepeatedSequenceLocs[0].first, std::next(RepeatedSequenceLocs[0].second),
+      0, [](unsigned Sum, const MachineInstr &MI) {
+        // FIXME: x86 doesn't implement getInstSizeInBytes, so we can't
+        // tell the cost.  Just assume each instruction is one byte.
+        if (MI.isDebugInstr() || MI.isKill())
+          return Sum;
+        return Sum + 1;
+      });
 
+  // FIXME: Use real size in bytes for call and ret instructions.
   if (RepeatedSequenceLocs[0].second->isTerminator())
-    return MachineOutlinerInfo(1, // Number of instructions to emit call.
-                               0, // Number of instructions to emit frame.
+    return MachineOutlinerInfo(SequenceSize,
+                               1, // Number of bytes to emit call.
+                               0, // Number of bytes to emit frame.
                                MachineOutlinerTailCall, // Type of call.
                                MachineOutlinerTailCall // Type of frame.
                               );
 
-  return MachineOutlinerInfo(1, 1, MachineOutlinerDefault,
+  return MachineOutlinerInfo(SequenceSize, 1, 1, MachineOutlinerDefault,
                              MachineOutlinerDefault);
 }
 
@@ -11172,7 +11193,7 @@ X86GenInstrInfo::MachineOutlinerInstrType
 X86InstrInfo::getOutliningType(MachineBasicBlock::iterator &MIT,  unsigned Flags) const {
   MachineInstr &MI = *MIT;
   // Don't allow debug values to impact outlining type.
-  if (MI.isDebugValue() || MI.isIndirectDebugValue())
+  if (MI.isDebugInstr() || MI.isIndirectDebugValue())
     return MachineOutlinerInstrType::Invisible;
 
   // At this point, KILL instructions don't really tell us much so we can go

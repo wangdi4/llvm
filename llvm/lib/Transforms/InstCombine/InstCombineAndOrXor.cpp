@@ -75,7 +75,7 @@ static Value *getFCmpValue(unsigned Code, Value *LHS, Value *RHS,
   return Builder.CreateFCmp(Pred, LHS, RHS);
 }
 
-/// \brief Transform BITWISE_OP(BSWAP(A),BSWAP(B)) or
+/// Transform BITWISE_OP(BSWAP(A),BSWAP(B)) or
 /// BITWISE_OP(BSWAP(A), Constant) to BSWAP(BITWISE_OP(A, B))
 /// \param I Binary operator to transform.
 /// \return Pointer to node that must replace the original binary operator, or
@@ -747,6 +747,9 @@ static Value *foldLogOpOfMaskedICmps(ICmpInst *LHS, ICmpInst *RHS, bool IsAnd,
 
   return nullptr;
 }
+
+static Instruction *foldMaskedMerge(BinaryOperator &I,
+                                    InstCombiner::BuilderTy &Builder);
 
 /// Try to fold a signed range checked with lower bound 0 to an unsigned icmp.
 /// Example: (icmp sge x, 0) & (icmp slt x, n) --> icmp ult x, n
@@ -1648,6 +1651,9 @@ Instruction *InstCombiner::visitAnd(BinaryOperator &I) {
       A->getType()->isIntOrIntVectorTy(1))
     return SelectInst::Create(A, Op0, Constant::getNullValue(I.getType()));
 
+  if (Instruction *MM = foldMaskedMerge(I, Builder))
+    return MM;
+
   return Changed ? &I : nullptr;
 }
 
@@ -1675,7 +1681,18 @@ Instruction *InstCombiner::MatchBSwap(BinaryOperator &I) {
   bool OrOfAnds = match(Op0, m_And(m_Value(), m_Value())) &&
                   match(Op1, m_And(m_Value(), m_Value()));
 
-  if (!OrOfOrs && !OrOfShifts && !OrOfAnds)
+  // (A << B) | (C & D)                              -> bswap if possible.
+  // The bigger pattern here is ((A & C1) << C2) | ((B >> C2) & C1), which is a
+  // part of the bswap idiom for specific values of C1, C2 (e.g. C1 = 16711935,
+  // C2 = 8 for i32).
+  // This pattern can occur when the operands of the 'or' are not canonicalized
+  // for some reason (not having only one use, for example).
+  bool OrOfAndAndSh = (match(Op0, m_LogicalShift(m_Value(), m_Value())) &&
+                       match(Op1, m_And(m_Value(), m_Value()))) ||
+                      (match(Op0, m_And(m_Value(), m_Value())) &&
+                       match(Op1, m_LogicalShift(m_Value(), m_Value())));
+
+  if (!OrOfOrs && !OrOfShifts && !OrOfAnds && !OrOfAndAndSh)
     return nullptr;
 
   SmallVector<Instruction*, 4> Insts;
@@ -2276,6 +2293,9 @@ Instruction *InstCombiner::visitOr(BinaryOperator &I) {
     }
   }
 
+  if (Instruction *MM = foldMaskedMerge(I, Builder))
+    return MM;
+
   return Changed ? &I : nullptr;
 }
 
@@ -2407,6 +2427,33 @@ Value *InstCombiner::foldXorOfICmps(ICmpInst *LHS, ICmpInst *RHS) {
       }
     }
   }
+
+  return nullptr;
+}
+
+/// Bitwise masked merge (bitwise select) is typically coded as:
+/// (x & m) | (y & ~m)
+/// Another variant is:
+/// (x | ~m) & (y | m)
+/// Canonicalize those to a form with one less IR instruction:
+/// ((x ^ y) & m) ^ y
+static Instruction *foldMaskedMerge(BinaryOperator &I,
+                                    InstCombiner::BuilderTy &Builder) {
+  Value *X, *Y;
+
+  Value *M;
+  if (match(&I, m_c_Or(m_OneUse(m_c_And(m_Value(Y), m_Not(m_Value(M)))),
+                       m_OneUse(m_c_And(m_Value(X), m_Deferred(M))))) ||
+      match(&I, m_c_And(m_OneUse(m_c_Or(m_Value(X), m_Not(m_Value(M)))),
+                        m_OneUse(m_c_Or(m_Value(Y), m_Deferred(M)))))) {
+    assert(!isa<Constant>(M) && "Shouldn't have matched a constant.");
+
+    Value *D = Builder.CreateXor(X, Y);
+    Value *A = Builder.CreateAnd(D, M);
+    return BinaryOperator::CreateXor(A, Y);
+  }
+
+  // FIXME: we still want to canonicalize the patterns with constants somewhat.
 
   return nullptr;
 }
@@ -2737,7 +2784,11 @@ Instruction *InstCombiner::visitXor(BinaryOperator &I) {
     // xor (add A, B), B  ; add -1 and flip bits if negative
     // --> (A < 0) ? -A : A
     Value *Cmp = Builder.CreateICmpSLT(A, ConstantInt::getNullValue(Ty));
-    return SelectInst::Create(Cmp, Builder.CreateNeg(A), A);
+    // Copy the nuw/nsw flags from the add to the negate.
+    auto *Add = cast<BinaryOperator>(Op0);
+    Value *Neg = Builder.CreateNeg(A, "", Add->hasNoUnsignedWrap(),
+                                   Add->hasNoSignedWrap());
+    return SelectInst::Create(Cmp, Neg, A);
   }
 
   // Eliminate a bitwise 'not' op of 'not' min/max by inverting the min/max:

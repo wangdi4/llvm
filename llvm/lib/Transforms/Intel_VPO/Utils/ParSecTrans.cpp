@@ -407,26 +407,25 @@ void VPOUtils::printParSectTree(ParSectNode *Node)
 {
 
   if (!Node->EntryBB && !Node->ExitBB) {
-    DEBUG(dbgs() << "\nSectionTree: Root:\n");
+    LLVM_DEBUG(dbgs() << "\nSectionTree: Root:\n");
   }
   else if (Node->EntryBB && Node->ExitBB) {
-    DEBUG(dbgs() << "\n\n\nSectionTreeNode: EntryBB:\n"
-                 << *(Node->EntryBB)
-                 << "\nExitBB:\n"
-                 << *(Node->ExitBB));
+    LLVM_DEBUG(dbgs() << "\n\n\nSectionTreeNode: EntryBB:\n"
+                      << *(Node->EntryBB) << "\nExitBB:\n"
+                      << *(Node->ExitBB));
   }
 
   if (Node->Children.size() == 0) {
-    DEBUG(dbgs() << "\nNo Children:\n");
+    LLVM_DEBUG(dbgs() << "\nNo Children:\n");
     return;
   }
 
-  DEBUG(dbgs() << "\nStarting Chidren Printing:\n");
+  LLVM_DEBUG(dbgs() << "\nStarting Chidren Printing:\n");
 
   for (auto *Child: Node->Children)
     printParSectTree(Child);
 
-  DEBUG(dbgs() << "\nEnding Chidren Printing:\n");
+  LLVM_DEBUG(dbgs() << "\nEnding Chidren Printing:\n");
 }
 
 // Post-order traversal
@@ -526,10 +525,10 @@ void VPOUtils::parSectTransRecursive(
       // Just a check
       for (auto *Child: Node->Children) {
         if (!Child->EntryBB->getSinglePredecessor())
-          DEBUG(dbgs() << "Not a single-entry OMP Section\n");
+          LLVM_DEBUG(dbgs() << "Not a single-entry OMP Section\n");
 
         if (!Child->ExitBB->getSingleSuccessor())
-          DEBUG(dbgs() << "Not a single-exit OMP Section\n");
+          LLVM_DEBUG(dbgs() << "Not a single-exit OMP Section\n");
       }
 
       Counter++;

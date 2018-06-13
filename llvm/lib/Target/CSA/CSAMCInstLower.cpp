@@ -125,7 +125,7 @@ void CSAMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
     MCOperand MCOp;
     switch (MO.getType()) {
     default:
-      DEBUG(MI->dump());
+      LLVM_DEBUG(MI->dump());
       llvm_unreachable("unknown operand type");
     case MachineOperand::MO_Register: {
       // Ignore all implicit register operands.

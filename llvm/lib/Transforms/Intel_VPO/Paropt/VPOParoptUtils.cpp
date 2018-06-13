@@ -150,7 +150,7 @@ CallInst *VPOParoptUtils::genKmpcForkTest(WRegionNode *W, StructType *IdentTy,
 /// Update loop scheduling kind based on ordered clause and chunk
 /// size information
 WRNScheduleKind VPOParoptUtils::genScheduleKind(WRNScheduleKind Kind,
-                                                int IsOrdered, int Chunk)
+                                                bool IsOrdered, int Chunk)
 {
   if (IsOrdered) {
     switch (Kind) {
@@ -240,7 +240,7 @@ WRNScheduleKind VPOParoptUtils::getLoopScheduleKind(WRegionNode *W)
         return Kind;
     }
     else {
-      int IsOrdered = W->getOrdered();
+      bool IsOrdered = (W->getOrdered() == 0);
       return VPOParoptUtils::genScheduleKind(Kind, IsOrdered, Chunk);
     }
   }
@@ -275,7 +275,7 @@ void VPOParoptUtils::genKmpcPushNumThreads(WRegionNode *W,
   GlobalVariable *Loc =
     genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
-  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+  LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
   SmallVector<Value *, 3> FnArgs {Loc, Tid, NumThreads};
 
@@ -582,8 +582,8 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
     FnArgTypes.push_back(Int32Ty);
   }
 
-  // DEBUG(dbgs() << "FnArgs.size= "<< FnArgs.size());
-  // DEBUG(dbgs() << "FnArgTypes.size() = "<< FnArgTypes.size());
+  // LLVM_DEBUG(dbgs() << "FnArgs.size= "<< FnArgs.size());
+  // LLVM_DEBUG(dbgs() << "FnArgTypes.size() = "<< FnArgTypes.size());
   CallInst *Call = genCall(FnName, ReturnTy, FnArgs, FnArgTypes,
                            InsertPt);
   return Call;
@@ -1100,7 +1100,7 @@ CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
   GlobalVariable *Loc =
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
-  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+  LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
   Type *Int32Ty = Type::getInt32Ty(C);
   Type *Int64Ty = Type::getInt64Ty(C);
@@ -1177,7 +1177,7 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
 
   GlobalVariable *Loc =
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
-  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+  LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
   Type *ParamsTy[] = {PointerType::getUnqual(IdentTy), IntTy};
 
@@ -1241,7 +1241,7 @@ CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
   GlobalVariable *Loc =
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
-  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+  LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
   StringRef FnName;
 
@@ -1315,7 +1315,7 @@ CallInst *VPOParoptUtils::genKmpcDispatchNext(WRegionNode *W,
   GlobalVariable *Loc =
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
-  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+  LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
   StringRef FnName;
 
@@ -1390,7 +1390,7 @@ CallInst *VPOParoptUtils::genKmpcDispatchFini(WRegionNode *W,
   GlobalVariable *Loc =
     genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
-  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+  LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
   SmallVector<Value *, 2> FnArgs {Loc, Tid};
 
@@ -1564,7 +1564,7 @@ VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
   // Allows merging of variables with same content.
   LocStringVar->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
 
-  DEBUG(dbgs() << "\nSource Location Info: " << LocString << "\n");
+  LLVM_DEBUG(dbgs() << "\nSource Location Info: " << LocString << "\n");
 
   // Get a pointer to the global variable containing loc string.
   Constant *Zeros[] = {ValueZero, ValueZero};
@@ -1957,6 +1957,191 @@ CallInst *VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
   return OrderedOrEndCall;
 }
 
+// This function generates and inserts calls to kmpc_doacross_wait/post for
+// '#pragma omp ordered depend(source/sink)'.
+//
+//   %dep.vec = alloca i64, align 8                           ; (1)
+//   %dv.val = load i32, i32* %<dep.vec.value>                ; (2)
+//   %conv = sext i32 %dv.val to i64                          ; (3)
+//   store i64 %conv, i64* %dep.vec, align 8                  ; (4)
+//   %tid = load i32, i32* %tidptr, align 4
+//   call void @__kmpc_doacross_wait/post({ i32, i32, i32, i32, i8* }* %loc, i32
+//   %tid, i64* %dims)
+//
+// If DepVecValue is an alloca, a load is first done from it before
+// storing it to 'dims' for the runtime.
+//
+// The call is inserted before InsertPt.
+//
+CallInst *VPOParoptUtils::genDoacrossWaitOrPostCall(
+    WRNOrderedNode *W, StructType *IdentTy, Value *TidPtr,
+    Instruction *InsertPt, Value *DepVecValue, bool IsDoacrossPost) {
+
+  assert(DepVecValue && "Null Dependence Vector Value for doacross wait/post.");
+
+  BasicBlock *BB = InsertPt->getParent();
+  assert(BB && "InsertPt has no parent BB.");
+  Function *F = BB->getParent();
+  assert(F != nullptr && "insertpt has no parent Function");
+  Module *M = F->getParent();
+  assert(M != nullptr && ") has no parent Module");
+  LLVMContext &C = F->getContext();
+
+  Type *Int64Ty = Type::getInt64Ty(C);
+
+  // Since the frontend already collapses the loopnest, the depend vector (third
+  // argument of the runtime call), is just an i64 pointer.
+  // (1) Allocate space for the Dependence Vector.
+  const DataLayout &DL = M->getDataLayout();
+  AllocaInst *DepVec = new AllocaInst(
+      Int64Ty, DL.getAllocaAddrSpace(), nullptr, 8, "dep.vec");
+  DepVec->insertBefore(InsertPt);
+
+  // (2) If DepVecValue is an alloca, generate a load from it.
+  if (isa<AllocaInst>(DepVecValue))
+    DepVecValue = new LoadInst(DepVecValue, "dv.val", InsertPt);
+
+  // (3) Cast the value of the depend vector to I64.
+  CastInst *DepVecValueCast =
+      CastInst::CreateSExtOrBitCast(DepVecValue, Int64Ty, "conv", InsertPt);
+
+  // (4) Store to the dependence vector.
+  StoreInst *DepVecAssignment = new StoreInst(DepVecValueCast, DepVec);
+  DepVecAssignment->insertBefore(InsertPt);
+
+  CallInst *Call = genKmpcCallWithTid(W, IdentTy, TidPtr, InsertPt,
+                                      IsDoacrossPost ? "__kmpc_doacross_post"
+                                                     : "__kmpc_doacross_wait",
+                                      nullptr, {DepVec});
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Doacross wait/post call emitted.\n");
+
+  Call->insertBefore(InsertPt);
+  return Call;
+}
+
+// This function generates and inserts a call to kmpc_doacross_init,
+// for '#pragma omp [parallel] for ordered(n)'
+//
+//   %dims.vec = alloca { i64, i64, i64 }, align 16                      ; (1)
+//   %6 = load i32, i32* %lower.bnd                                      ; (2)
+//   %7 = sext i32 %6 to i64                                             ; (3)
+//   %8 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }*
+//   %dims.vec, i32 0, i32 0                                             ; (4)
+//
+//   store i64 %7, i64* %8                                               ; (5)
+//
+//   %9 = load i32, i32* %upper.bnd                                      ; (6)
+//   %10 = sext i32 %9 to i64                                            ; (7)
+//   %11 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }*
+//   %dims.vec, i32 0, i32 1                                             ; (8)
+//
+//   store i64 %10, i64* %11                                             ; (9)
+//
+//   %12 = load i32, i32* %stride                                        ; (10)
+//   %13 = sext i32 %12 to i64                                           ; (11)
+//   %14 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }*
+//   %dims.vec, i32 0, i32 2                                             ; (12)
+//
+//   store i64 %13, i64* %14                                             ; (13)
+//
+//   %my.tid32 = load i32, i32* %tid, align 4                            ; Tid
+//   call void @__kmpc_doacross_init({ i32, i32, i32, i32, i8* }*        ; (14)
+//   @.kmpc_loc.0.0.8, i32 %my.tid32, i32 1, { i64, i64, i64 }* %dims.vec)
+//
+//   The call along with the above initializations of dims.vec, are inserted
+//   before InsertPt.
+CallInst *VPOParoptUtils::genKmpcDoacrossInit(WRegionNode *W,
+                                              StructType *IdentTy, Value *Tid,
+                                              Instruction *InsertPt,
+                                              Value *LBound, Value *UBound,
+                                              Value *Stride) {
+
+  assert(LBound && "Null Lower Bound for doacross init.");
+  assert(UBound && "Null Upper Bound for doacross init.");
+  assert(Stride && "Null Stride for doacross init.");
+
+  BasicBlock *BB = InsertPt->getParent();
+  assert(BB && "InsertPt has no parent BB.");
+
+  Function *F = BB->getParent();
+  assert(F != nullptr && "InsertPt has no parent Function");
+
+  Module *M = F->getParent();
+  assert(M != nullptr && ") has no parent Module");
+
+  LLVMContext &C = F->getContext();
+
+  Type *Int64Ty = Type::getInt64Ty(C);
+  Type *Int32Ty = Type::getInt32Ty(C);
+  Value *Zero = ConstantInt::get(Int32Ty, 0);
+  Value *One = ConstantInt::get(Int32Ty, 1);
+  Value *Two = ConstantInt::get(Int32Ty, 2);
+
+  // The dims vector needs to be a struct of 3 i64s,  which should contain
+  // lb, ub and stride respectively. Note that since the incoming loop is
+  // already collapsed, there is only one struct needed, not an array of
+  // these structs.
+  StructType *DimsVecTy = StructType::get(C, {Int64Ty, Int64Ty, Int64Ty});
+
+  // (1) Create alloca for the struct.
+  const DataLayout &DL = M->getDataLayout();
+  AllocaInst *DimsVec = new AllocaInst(
+      DimsVecTy, DL.getAllocaAddrSpace(), nullptr, 16, "dims.vec");
+  DimsVec->insertBefore(InsertPt);
+
+  auto populateDimsVecAtIndex = [&](Value *Index, Value *ValPtr) {
+    assert(isa<AllocaInst>(ValPtr) &&
+           "populateDimsVecAtIndex: ValPtr is not an Alloca.");
+
+    Value *ValLoad = new LoadInst(ValPtr, "", InsertPt);   // (2), (6), (10)
+    CastInst *ValCast = CastInst::CreateSExtOrBitCast(
+        ValLoad, Int64Ty, "", InsertPt);                   // (3), (7), (11)
+    GetElementPtrInst *DstPtr = GetElementPtrInst::CreateInBounds(
+        DimsVec, {Zero, Index}, "", InsertPt);             // (4), (8), (12)
+    StoreInst *DstStore = new StoreInst(ValCast, DstPtr);  // (5), (9), (13)
+    DstStore->insertBefore(InsertPt);
+  };
+
+  // Store lbound to index 0 of the struct.
+  populateDimsVecAtIndex(Zero, LBound);  // (2), (3), (4), (5)
+
+  // Store ubound to index 1 of the struct.
+  populateDimsVecAtIndex(One, UBound);   // (6), (7), (8), (9)
+
+  // Store stride to index 2 of the struct.
+  populateDimsVecAtIndex(Two, Stride);   // (10), (11), (12), (13)
+
+  // Emit the call to __kmpc_doacross_init.
+  CallInst *Call = genKmpcCall(W, IdentTy, InsertPt, "__kmpc_doacross_init",
+                               nullptr, {Tid, One, DimsVec}); // (14)
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Doacross init call emitted.\n");
+
+  Call->insertBefore(InsertPt);
+  return Call;
+}
+
+// This function generates and inserts a call to kmpc_doacross_fini,
+// for '#pragma omp for ordered(n)'
+//
+//   call void @__kmpc_doacross_fini({ i32, i32, i32, i32, i8* }* @.kmpc_loc,
+//   i32 %my.tid)
+//
+//   The call is inserted \en after \p InsertPt.
+CallInst *VPOParoptUtils::genKmpcDoacrossFini(WRegionNode *W,
+                                              StructType *IdentTy, Value *Tid,
+                                              Instruction *InsertPt) {
+
+  CallInst *Fini = VPOParoptUtils::genKmpcCall(
+      W, IdentTy, InsertPt, "__kmpc_doacross_fini", nullptr, {Tid});
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Doacross fini call emitted.\n");
+
+  Fini->insertAfter(InsertPt);
+  return Fini;
+}
+
 // Create this call
 //
 //   call void @__kmpc_flush(%ident_t* %loc)
@@ -1982,7 +2167,7 @@ CallInst *VPOParoptUtils::genKmpcFlush(WRegionNode *W, StructType *IdentTy,
 // Generates KMPC calls to the intrinsic `IntrinsicName`.
 //
 // If \p Insert is true (default is false), then insert the call into the IR
-// at \p InsertPt
+// \b before \p InsertPt
 //
 // Note: \p InsertPt is also used to get the Loc, so it cannot be nullptr
 // when calling genKmpcCall, even when \p Insert is false.
@@ -2007,7 +2192,7 @@ CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
   // Before emitting the KMPC call, we need the Loc information.
   GlobalVariable *Loc =
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
-  DEBUG(dbgs() << __FUNCTION__ << ": Loc: " << *Loc << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Loc: " << *Loc << "\n");
 
   // At this point, we have all the function args: loc + incoming Args. We bind
   // them together as FnArgs.
@@ -2038,7 +2223,7 @@ CallInst *VPOParoptUtils::genCall(Function *Fn, ArrayRef<Value *> FnArgs,
 
   Call->setCallingConv(CallingConv::C);
   Call->setTailCall(IsTail);
-  DEBUG(dbgs() << __FUNCTION__ << ": Function call: " << *Call << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Function call: " << *Call << "\n");
 
   return Call;
 }
@@ -2152,7 +2337,7 @@ VPOParoptUtils::genKmpcCriticalLockVar(WRegionNode *W,
   LockName += LockNameSuffix;
   LockName += ".var";
 
-  DEBUG(dbgs() << __FUNCTION__ << ": Lock name:" << LockName << ".\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Lock name:" << LockName << ".\n");
 
   // Now, the type for lock variable is an array of eight 32-bit integers.
   BasicBlock *BB = W->getEntryBBlock();
@@ -2167,8 +2352,8 @@ VPOParoptUtils::genKmpcCriticalLockVar(WRegionNode *W,
   GlobalVariable *GV =
       M->getGlobalVariable(LockName);
   if (GV != nullptr) {
-    DEBUG(dbgs() << __FUNCTION__ << ": Reusing existig lock var: " << *GV
-                 << ".\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Reusing existig lock var: " << *GV
+                      << ".\n");
 
     assert(GV->getType()->getContainedType(0) == LockVarTy &&
            "Lock variable name conflicts with an existing variable.");
@@ -2182,7 +2367,8 @@ VPOParoptUtils::genKmpcCriticalLockVar(WRegionNode *W,
                           ConstantAggregateZero::get(LockVarTy), LockName);
 
   assert(GV != nullptr && "Unable to generate Kmpc critical lock var.");
-  DEBUG(dbgs() << __FUNCTION__ << ": Lock var generated: " << *GV << ".\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Lock var generated: " << *GV
+                    << ".\n");
 
   return GV;
 }
@@ -2222,7 +2408,7 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(
   else
     EndCritical->insertAfter(EndInst);
 
-  DEBUG(dbgs() << __FUNCTION__ << ": Critical Section generated.\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Critical Section generated.\n");
   return true;
 }
 
@@ -2337,7 +2523,7 @@ CallInst *VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
   CallInst *Call = genCall(Ctor, {V}, {ValType}, nullptr);
   Instruction *InsertAfterPt = cast<Instruction>(PrivAlloca);
   Call->insertAfter(InsertAfterPt);
-  DEBUG(dbgs() << "CONSTRUCTOR: " << *Call << "\n");
+  LLVM_DEBUG(dbgs() << "CONSTRUCTOR: " << *Call << "\n");
   return Call;
 }
 
@@ -2350,7 +2536,7 @@ CallInst *VPOParoptUtils::genDestructorCall(Function *Dtor, Value *V,
   Type *ValType = V->getType();
   CallInst *Call = genCall(Dtor, {V}, {ValType}, nullptr);
   Call->insertBefore(InsertBeforePt);
-  DEBUG(dbgs() << "DESTRUCTOR: " << *Call << "\n");
+  LLVM_DEBUG(dbgs() << "DESTRUCTOR: " << *Call << "\n");
   return Call;
 }
 
@@ -2365,7 +2551,7 @@ CallInst *VPOParoptUtils::genCopyConstructorCall(Function *Cctor, Value *D,
 
   CallInst *Call = genCall(Cctor, {D,S}, {DTy, STy}, nullptr);
   Call->insertBefore(InsertBeforePt);
-  DEBUG(dbgs() << "COPY CONSTRUCTOR: " << *Call << "\n");
+  LLVM_DEBUG(dbgs() << "COPY CONSTRUCTOR: " << *Call << "\n");
   return Call;
 }
 
@@ -2380,7 +2566,7 @@ CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
 
   CallInst *Call = genCall(Cp, {D,S}, {DTy, STy}, nullptr);
   Call->insertBefore(InsertBeforePt);
-  DEBUG(dbgs() << "COPY ASSIGN: " << *Call << "\n");
+  LLVM_DEBUG(dbgs() << "COPY ASSIGN: " << *Call << "\n");
   return Call;
 }
 

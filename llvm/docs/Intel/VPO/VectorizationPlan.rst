@@ -464,7 +464,7 @@ LoopVectorizePass::processLoop(Loop \*L):
   // additional fp-math flags can help.
   if (Hints.isPotentiallyUnsafe() &&
       TTI->isFPVectorizationPotentiallyUnsafe()) {
-    DEBUG(dbgs() << "LV: Potentially unsafe FP op prevents vectorization.\n");
+    LLVM_DEBUG(dbgs() << "LV: Potentially unsafe FP op prevents vectorization.\n");
     ORE->emit(
         createMissedAnalysis(Hints.vectorizeAnalysisPassName(), "UnsafeFP", L)
         << "loop not vectorized due to unsafe FP support.");
@@ -505,7 +505,7 @@ LoopVectorizePass::processLoop(Loop \*L):
   std::pair<StringRef, std::string> VecDiagMsg, IntDiagMsg;
 
   if (!UserVF && !VectorizeLoop) {
-    DEBUG(dbgs() << "LV: Vectorization is possible but not beneficial.\n");
+    LLVM_DEBUG(dbgs() << "LV: Vectorization is possible but not beneficial.\n");
     VecDiagMsg = std::make_pair(
         "VectorizationNotBeneficial",
         "the cost-model indicates that vectorization is not beneficial");
@@ -574,7 +574,7 @@ LoopVectorizePass::processLoop(Loop \*L):
   LoopVectorizationPlanner::plan(bool OptForSize, unsigned UserVF,
                                  unsigned MaxVF) {
     if (UserVF) {
-      DEBUG(dbgs() << "LV: Using user VF " << UserVF << ".\n");
+      LLVM_DEBUG(dbgs() << "LV: Using user VF " << UserVF << ".\n");
       if (UserVF == 1)
         return {UserVF, 0};
       assert(isPowerOf2_32(UserVF) && "VF needs to be a power of two");
@@ -582,9 +582,9 @@ LoopVectorizePass::processLoop(Loop \*L):
       // profitable to scalarize.
       CM->collectInstsToScalarize(UserVF);
       buildInitialVPlans(UserVF, UserVF);
-      DEBUG(printCurrentPlans("Initial VPlans", dbgs()));
+      LLVM_DEBUG(printCurrentPlans("Initial VPlans", dbgs()));
       optimizePredicatedInstructions();
-      DEBUG(printCurrentPlans("After optimize predicated instructions",dbgs()));
+      LLVM_DEBUG(printCurrentPlans("After optimize predicated instructions",dbgs()));
       return {UserVF, 0};
     }
     if (MaxVF == 1)
@@ -596,9 +596,9 @@ LoopVectorizePass::processLoop(Loop \*L):
     for (unsigned i = 2; i <= MaxVF; i = i+i)
       CM->collectInstsToScalarize(i);
     buildInitialVPlans(2, MaxVF);
-    DEBUG(printCurrentPlans("Initial VPlans", dbgs()));
+    LLVM_DEBUG(printCurrentPlans("Initial VPlans", dbgs()));
     optimizePredicatedInstructions();
-    DEBUG(printCurrentPlans("After optimize predicated instructions", dbgs()));
+    LLVM_DEBUG(printCurrentPlans("After optimize predicated instructions", dbgs()));
     // Select the optimal vectorization factor.
     return CM->selectVectorizationFactor(OptForSize, MaxVF);
   }

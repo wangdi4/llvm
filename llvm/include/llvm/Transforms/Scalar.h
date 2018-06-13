@@ -251,6 +251,9 @@ FunctionPass *createJumpThreadingPass(int Threshold = -1,
 // scope global variables into the registers.
 FunctionPass *createNonLTOGlobalOptimizerPass();
 
+// RemoveRegionDirectivesLegacyPass is a pass which removes region directives.
+FunctionPass *createRemoveRegionDirectivesLegacyPass();
+
 // StdContainerOptPass is a pass which generates the std container
 // metadata based on the analysis of std container intrinisc.
 FunctionPass *createStdContainerOptPass();
@@ -264,17 +267,21 @@ FunctionPass *createTbaaMDPropagationLegacyPass();
 FunctionPass *createCleanupFakeLoadsPass();
 
 // IndirectCallConv - Converts indirect calls to direct calls using
-// points-to info if possible 
-FunctionPass *createIndirectCallConvLegacyPass();
-
-// VPOParoptTpv - Supports the thread private legacy mode.
-ModulePass *createVPOParoptTpvPass();
+// points-to info and/or DTrans Field Single Value Info if possible
+FunctionPass *createIndirectCallConvLegacyPass(bool UseAndersen = false,
+                                               bool UseDTrans = false);
 
 // LoopOptMarker - Indicates loopopt based throttling to subsequent passes.
 FunctionPass *createLoopOptMarkerLegacyPass();
 
 FunctionPass *createAggInlAALegacyPass();
 #endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+// VPOParoptTpv - Supports the thread private legacy mode.
+ModulePass *createVPOParoptTpvPass();
+#endif // INTEL_COLLAB
+
 
 //===----------------------------------------------------------------------===//
 //

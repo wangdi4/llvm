@@ -153,7 +153,8 @@ MDNode *MachineLoop::getLoopID() const {
     const auto *BB = MBB->getBasicBlock();
     if (const auto *TI = BB->getTerminator()) {
       LoopID = TI->getMetadata(LLVMContext::MD_loop);
-      DEBUG(dbgs() << "Fetched MD_loop from the MachineLoop's single latch.");
+      LLVM_DEBUG(
+          dbgs() << "Fetched MD_loop from the MachineLoop's single latch.");
     }
   } else if (auto *MBB = getHeader()) {
     // There seem to be multiple latch blocks, so we have to
@@ -165,14 +166,15 @@ MDNode *MachineLoop::getLoopID() const {
         const auto *BB = MBB->getBasicBlock();
 
         if (!BB) {
-          DEBUG(dbgs() << "Invalid MachineBasicBlock -> BasicBlock mapping.");
+          LLVM_DEBUG(dbgs()
+                     << "Invalid MachineBasicBlock -> BasicBlock mapping.");
           return nullptr;
         }
 
         const auto *TI = BB->getTerminator();
 
         if (!TI) {
-          DEBUG(dbgs() << "Invalid (nullptr) terminating instruction.");
+          LLVM_DEBUG(dbgs() << "Invalid (nullptr) terminating instruction.");
           return nullptr;
         }
 
@@ -183,20 +185,21 @@ MDNode *MachineLoop::getLoopID() const {
           if (S == H) {
             // This is a jump to the header - gather the metadata from it.
             MD = TI->getMetadata(LLVMContext::MD_loop);
-            DEBUG(dbgs() << "Fetched MD_loop from the MachineLoop's latch.");
+            LLVM_DEBUG(dbgs()
+                       << "Fetched MD_loop from the MachineLoop's latch.");
             break;
           }
         }
 
         if (!MD) {
-          DEBUG(dbgs() << "Dropped inconsistent MD_loop (nullptr).");
+          LLVM_DEBUG(dbgs() << "Dropped inconsistent MD_loop (nullptr).");
           return nullptr;
         }
 
         if (!LoopID)
           LoopID = MD;
         else if (MD != LoopID) {
-          DEBUG(dbgs() << "Dropped inconsistent MD_loop (mismatch).");
+          LLVM_DEBUG(dbgs() << "Dropped inconsistent MD_loop (mismatch).");
           return nullptr;
         }
       }
@@ -206,13 +209,13 @@ MDNode *MachineLoop::getLoopID() const {
   if (LoopID &&
       (LoopID->getNumOperands() == 0 || LoopID->getOperand(0) != LoopID)) {
     LoopID = nullptr;
-    DEBUG(dbgs() << "Dropped inconsistent MD_loop (self-ref).");
+    LLVM_DEBUG(dbgs() << "Dropped inconsistent MD_loop (self-ref).");
   }
 
   if (!LoopID)
-    DEBUG(dbgs() << "Returning nullptr MD_loop.");
+    LLVM_DEBUG(dbgs() << "Returning nullptr MD_loop.");
   else
-    DEBUG(dbgs() << "Returning valid MD_loop.");
+    LLVM_DEBUG(dbgs() << "Returning valid MD_loop.");
 
   return LoopID;
 }

@@ -772,20 +772,20 @@ void FuseGraph::collapse(FuseEdgeHeap &Heap, unsigned NodeV,
   FuseNode &FNodeV = Vertex[NodeV];
 
 #ifndef NDEBUG
-  DEBUG(dbgs() << "Collapsing: ");
-  DEBUG(dbgs() << NodeV << ":");
-  DEBUG(FNodeV.print(dbgs()));
-  DEBUG(dbgs() << " <-- ");
+  LLVM_DEBUG(dbgs() << "Collapsing: ");
+  LLVM_DEBUG(dbgs() << NodeV << ":");
+  LLVM_DEBUG(FNodeV.print(dbgs()));
+  LLVM_DEBUG(dbgs() << " <-- ");
   for (unsigned NodeX : CollapseRangeVector) {
     if (NodeX == NodeV) {
       continue;
     }
 
-    DEBUG(dbgs() << NodeX << ":");
-    DEBUG(Vertex[NodeX].print(dbgs()));
-    DEBUG(dbgs() << " ");
+    LLVM_DEBUG(dbgs() << NodeX << ":");
+    LLVM_DEBUG(Vertex[NodeX].print(dbgs()));
+    LLVM_DEBUG(dbgs() << " ");
   }
-  DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "\n");
 #endif
 
   for (unsigned NodeX : CollapseRangeVector) {
@@ -832,17 +832,17 @@ RefinedDependence FuseGraph::refineDependency(DDRef *Src, DDRef *Dst,
                                               unsigned MaxLevel) const {
   auto RefinedDep = DDA.refineDV(Dst, Src, CommonLevel, MaxLevel, true);
 
-  DEBUG(dbgs() << "Forward dep: ");
-  DEBUG(DDA.refineDV(Src, Dst, CommonLevel, MaxLevel, true).dump());
-  DEBUG(dbgs() << "Backward dep: ");
-  DEBUG(RefinedDep.print(dbgs()));
+  LLVM_DEBUG(dbgs() << "Forward dep: ");
+  LLVM_DEBUG(DDA.refineDV(Src, Dst, CommonLevel, MaxLevel, true).dump());
+  LLVM_DEBUG(dbgs() << "Backward dep: ");
+  LLVM_DEBUG(RefinedDep.print(dbgs()));
 
   return RefinedDep;
 }
 
 bool FuseGraph::isLegalDependency(const DDEdge &Edge,
                                   unsigned CommonLevel) const {
-  DEBUG(Edge.dump());
+  LLVM_DEBUG(Edge.dump());
 
   auto *SrcRef = Edge.getSrc();
   auto *DstRef = Edge.getSink();
@@ -858,7 +858,7 @@ bool FuseGraph::isLegalDependency(const DDEdge &Edge,
   if (CommonLevel > MinMaxLevel.first) {
     // Condition means that at least one DDRef is outside of the loop.
 
-    DEBUG(dbgs() << "Preheader/postexit edge: ");
+    LLVM_DEBUG(dbgs() << "Preheader/postexit edge: ");
 
     // Possible edges before fusion are:
     //
@@ -1017,16 +1017,16 @@ void FuseGraph::constructDirectedEdges(
           unsigned CommonTC =
               areFusibleWithCommonTC(FusibleCache, SrcFuseNode, DstFuseNode);
 
-          DEBUG(SrcFuseNode.print(dbgs()));
-          DEBUG(dbgs() << " --> ");
-          DEBUG(DstFuseNode.print(dbgs()));
+          LLVM_DEBUG(SrcFuseNode.print(dbgs()));
+          LLVM_DEBUG(dbgs() << " --> ");
+          LLVM_DEBUG(DstFuseNode.print(dbgs()));
 
           if (CommonTC) {
-            DEBUG(dbgs() << "\n");
+            LLVM_DEBUG(dbgs() << "\n");
             Legal = isLegalDependency(*DDEdge, Level);
-            DEBUG(dbgs() << " < " << (Legal ? "OK" : "illegal") << " >\n");
+            LLVM_DEBUG(dbgs() << " < " << (Legal ? "OK" : "illegal") << " >\n");
           } else {
-            DEBUG(dbgs() << " may not be fused.\n");
+            LLVM_DEBUG(dbgs() << " may not be fused.\n");
           }
 
           if (CommonTC && Legal) {
@@ -1100,10 +1100,10 @@ void FuseGraph::weightedFusion() {
   FuseEdgeHeap Heap;
   initPathInfo(Heap);
 
-  DEBUG(dbgs() << "\nFuse Graph before optimization\n");
-  DEBUG(dump());
+  LLVM_DEBUG(dbgs() << "\nFuse Graph before optimization\n");
+  LLVM_DEBUG(dump());
 
-  DEBUG(dbgs() << "Processing edges from heap:\n");
+  LLVM_DEBUG(dbgs() << "Processing edges from heap:\n");
 
   while (!Heap.empty()) {
     auto &MaxEntity = Heap.top();
@@ -1169,10 +1169,11 @@ void FuseGraph::weightedFusion() {
 FuseGraph::FuseGraph(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS, DDGraph DDG,
                      HLNode *ParentNode, HLNodeRangeTy Children)
     : DDA(DDA), HLS(HLS) {
-  DEBUG(dbgs() << "Fusion Graph initialization\n");
-  DEBUG(dbgs() << "DDG for the node <" << ParentNode->getNumber() << ">:\n");
-  DEBUG(DDG.dump());
-  DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "Fusion Graph initialization\n");
+  LLVM_DEBUG(dbgs() << "DDG for the node <" << ParentNode->getNumber()
+                    << ">:\n");
+  LLVM_DEBUG(DDG.dump());
+  LLVM_DEBUG(dbgs() << "\n");
 
   GraphNodeMapTy GraphNodeMap;
   FusibleCacheTy FusibleCache;

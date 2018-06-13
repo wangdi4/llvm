@@ -322,7 +322,7 @@ bool LLParser::ParseTargetDefinition() {
       return true;
     M->setTargetTriple(Str);
     return false;
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   case lltok::kw_device_triples:
     Lex.Lex();
     if (ParseToken(lltok::equal, "expected '=' after target devices") ||
@@ -330,7 +330,7 @@ bool LLParser::ParseTargetDefinition() {
       return true;
     M->setTargetDevices(Str);
     return false;
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   case lltok::kw_datalayout:
     Lex.Lex();
     if (ParseToken(lltok::equal, "expected '=' after target datalayout") ||
@@ -521,27 +521,33 @@ bool LLParser::ParseUnnamedGlobal() {
   bool DSOLocal;
   GlobalVariable::ThreadLocalMode TLM;
   GlobalVariable::UnnamedAddr UnnamedAddr;
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   bool IsThreadPrivate = false;
   bool IsTargetDeclare = false;
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   if (ParseOptionalLinkage(Linkage, HasLinkage, Visibility, DLLStorageClass,
                            DSOLocal) ||
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
       ParseOptionalThreadPrivate(IsThreadPrivate) ||
       ParseOptionalTargetDeclare(IsTargetDeclare) ||
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
       ParseOptionalThreadLocal(TLM) || ParseOptionalUnnamedAddr(UnnamedAddr))
     return true;
 
   if (Lex.getKind() != lltok::kw_alias && Lex.getKind() != lltok::kw_ifunc)
+#if INTEL_COLLAB
     return ParseGlobal(Name, NameLoc, Linkage, HasLinkage, Visibility,
-                       DLLStorageClass, DSOLocal, TLM, UnnamedAddr, // INTEL
-                       IsThreadPrivate, IsTargetDeclare); // INTEL
-
+                       DLLStorageClass, DSOLocal, TLM, UnnamedAddr,
+                       IsThreadPrivate, IsTargetDeclare);
   return parseIndirectSymbol(Name, NameLoc, Linkage, Visibility,
                              DLLStorageClass, DSOLocal, TLM, UnnamedAddr,
-                             IsThreadPrivate, IsTargetDeclare); // INTEL
+                             IsThreadPrivate, IsTargetDeclare);
+#else
+    return ParseGlobal(Name, NameLoc, Linkage, HasLinkage, Visibility,
+                       DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
+  return parseIndirectSymbol(Name, NameLoc, Linkage, Visibility,
+                             DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
+#endif // INTEL_COLLAB
 }
 
 /// ParseNamedGlobal:
@@ -560,28 +566,34 @@ bool LLParser::ParseNamedGlobal() {
   bool DSOLocal;
   GlobalVariable::ThreadLocalMode TLM;
   GlobalVariable::UnnamedAddr UnnamedAddr;
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   bool IsThreadPrivate = false;
   bool IsTargetDeclare = false;
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   if (ParseToken(lltok::equal, "expected '=' in global variable") ||
       ParseOptionalLinkage(Linkage, HasLinkage, Visibility, DLLStorageClass,
                            DSOLocal) ||
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
       ParseOptionalThreadPrivate(IsThreadPrivate) ||
       ParseOptionalTargetDeclare(IsTargetDeclare) ||
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
       ParseOptionalThreadLocal(TLM) || ParseOptionalUnnamedAddr(UnnamedAddr))
     return true;
 
   if (Lex.getKind() != lltok::kw_alias && Lex.getKind() != lltok::kw_ifunc)
+#if INTEL_COLLAB
     return ParseGlobal(Name, NameLoc, Linkage, HasLinkage, Visibility,
-                       DLLStorageClass, DSOLocal, TLM, UnnamedAddr, // INTEL
-                       IsThreadPrivate, IsTargetDeclare);  // INTEL
-
+                       DLLStorageClass, DSOLocal, TLM, UnnamedAddr,
+                       IsThreadPrivate, IsTargetDeclare);
   return parseIndirectSymbol(Name, NameLoc, Linkage, Visibility,
                              DLLStorageClass, DSOLocal, TLM, UnnamedAddr,
-                             IsThreadPrivate, IsTargetDeclare);  // INTEL
+                             IsThreadPrivate, IsTargetDeclare);
+#else
+    return ParseGlobal(Name, NameLoc, Linkage, HasLinkage, Visibility,
+                       DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
+  return parseIndirectSymbol(Name, NameLoc, Linkage, Visibility,
+                             DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
+#endif
 }
 
 bool LLParser::parseComdat() {
@@ -767,9 +779,14 @@ bool LLParser::parseIndirectSymbol(const std::string &Name, LocTy NameLoc,
                                    unsigned L, unsigned Visibility,
                                    unsigned DLLStorageClass, bool DSOLocal,
                                    GlobalVariable::ThreadLocalMode TLM,
+#if INTEL_COLLAB
                                    GlobalVariable::UnnamedAddr UnnamedAddr,
-                                   bool IsThreadPrivate,   // INTEL
-                                   bool IsTargetDeclare) { // INTEL
+                                   bool IsThreadPrivate,
+                                   bool IsTargetDeclare) {
+#else
+                                   GlobalVariable::UnnamedAddr UnnamedAddr) {
+
+#endif // INTEL_COLLAB
   bool IsAlias;
   if (Lex.getKind() == lltok::kw_alias)
     IsAlias = true;
@@ -857,10 +874,10 @@ bool LLParser::parseIndirectSymbol(const std::string &Name, LocTy NameLoc,
                                  (GlobalValue::LinkageTypes)Linkage, Name,
                                  Aliasee, /*Parent*/ nullptr));
   GA->setThreadLocalMode(TLM);
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   GA->setThreadPrivate(IsThreadPrivate);
   GA->setTargetDeclare(IsTargetDeclare);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   GA->setVisibility((GlobalValue::VisibilityTypes)Visibility);
   GA->setDLLStorageClass((GlobalValue::DLLStorageClassTypes)DLLStorageClass);
   GA->setUnnamedAddr(UnnamedAddr);
@@ -912,9 +929,14 @@ bool LLParser::ParseGlobal(const std::string &Name, LocTy NameLoc,
                            unsigned Linkage, bool HasLinkage,
                            unsigned Visibility, unsigned DLLStorageClass,
                            bool DSOLocal, GlobalVariable::ThreadLocalMode TLM,
-                           GlobalVariable::UnnamedAddr UnnamedAddr, // INTEL
-                           bool IsThreadPrivate,   // INTEL
-                           bool IsTargetDeclare) { // INTEL
+#if INTEL_COLLAB
+                           GlobalVariable::UnnamedAddr UnnamedAddr,
+                           bool IsThreadPrivate,
+                           bool IsTargetDeclare) {
+#else
+                           GlobalVariable::UnnamedAddr UnnamedAddr) {
+#endif // INTEL_COLLAB
+
   if (!isValidVisibilityForLinkage(Visibility, Linkage))
     return Error(NameLoc,
                  "symbol with local linkage must have default visibility");
@@ -992,10 +1014,10 @@ bool LLParser::ParseGlobal(const std::string &Name, LocTy NameLoc,
   GV->setDLLStorageClass((GlobalValue::DLLStorageClassTypes)DLLStorageClass);
   GV->setExternallyInitialized(IsExternallyInitialized);
   GV->setThreadLocalMode(TLM);
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   GV->setThreadPrivate(IsThreadPrivate);
   GV->setTargetDeclare(IsTargetDeclare);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   GV->setUnnamedAddr(UnnamedAddr);
 
   // Parse attributes on the global.
@@ -1426,7 +1448,7 @@ bool LLParser::ParseOptionalThreadLocal(GlobalVariable::ThreadLocalMode &TLM) {
   return false;
 }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 /// ParseOptionalThreadPrivate
 ///   := 'thread_private'
 bool LLParser::ParseOptionalThreadPrivate(bool &IsThreadPrivate) {
@@ -1444,7 +1466,7 @@ bool LLParser::ParseOptionalTargetDeclare(bool &IsTargetDeclare) {
   IsTargetDeclare = true;
   return false;
 }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 /// ParseOptionalAddrSpace
 ///   := /*empty*/
@@ -4426,7 +4448,7 @@ bool LLParser::ParseDICompileUnit(MDNode *&Result, bool IsDistinct) {
 ///                     virtuality: DW_VIRTUALTIY_pure_virtual,
 ///                     virtualIndex: 10, thisAdjustment: 4, flags: 11,
 ///                     isOptimized: false, templateParams: !4, declaration: !5,
-///                     variables: !6, thrownTypes: !7)
+///                     retainedNodes: !6, thrownTypes: !7)
 bool LLParser::ParseDISubprogram(MDNode *&Result, bool IsDistinct) {
   auto Loc = Lex.getLoc();
 #define VISIT_MD_FIELDS(OPTIONAL, REQUIRED)                                    \
@@ -4448,7 +4470,7 @@ bool LLParser::ParseDISubprogram(MDNode *&Result, bool IsDistinct) {
   OPTIONAL(unit, MDField, );                                                   \
   OPTIONAL(templateParams, MDField, );                                         \
   OPTIONAL(declaration, MDField, );                                            \
-  OPTIONAL(variables, MDField, );                                              \
+  OPTIONAL(retainedNodes, MDField, );                                              \
   OPTIONAL(thrownTypes, MDField, );
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
@@ -4464,7 +4486,7 @@ bool LLParser::ParseDISubprogram(MDNode *&Result, bool IsDistinct) {
        type.Val, isLocal.Val, isDefinition.Val, scopeLine.Val,
        containingType.Val, virtuality.Val, virtualIndex.Val, thisAdjustment.Val,
        flags.Val, isOptimized.Val, unit.Val, templateParams.Val,
-       declaration.Val, variables.Val, thrownTypes.Val));
+       declaration.Val, retainedNodes.Val, thrownTypes.Val));
   return false;
 }
 
@@ -4644,6 +4666,22 @@ bool LLParser::ParseDILocalVariable(MDNode *&Result, bool IsDistinct) {
   Result = GET_OR_DISTINCT(DILocalVariable,
                            (Context, scope.Val, name.Val, file.Val, line.Val,
                             type.Val, arg.Val, flags.Val, align.Val));
+  return false;
+}
+
+/// ParseDILabel:
+///   ::= !DILabel(scope: !0, name: "foo", file: !1, line: 7)
+bool LLParser::ParseDILabel(MDNode *&Result, bool IsDistinct) {
+#define VISIT_MD_FIELDS(OPTIONAL, REQUIRED)                                    \
+  REQUIRED(scope, MDField, (/* AllowNull */ false));                           \
+  REQUIRED(name, MDStringField, );                                             \
+  REQUIRED(file, MDField, );                                                   \
+  REQUIRED(line, LineField, );
+  PARSE_MD_FIELDS();
+#undef VISIT_MD_FIELDS
+
+  Result = GET_OR_DISTINCT(DILabel,
+                           (Context, scope.Val, name.Val, file.Val, line.Val));
   return false;
 }
 
@@ -6819,8 +6857,8 @@ bool LLParser::sortUseListOrder(Value *V, ArrayRef<unsigned> Indexes,
   if (NumUses < 2)
     return Error(Loc, "value only has one use");
   if (Order.size() != Indexes.size() || NumUses > Indexes.size())
-    return Error(Loc, "wrong number of indexes, expected " +
-                          Twine(std::distance(V->use_begin(), V->use_end())));
+    return Error(Loc,
+                 "wrong number of indexes, expected " + Twine(V->getNumUses()));
 
   V->sortUseList([&](const Use &L, const Use &R) {
     return Order.lookup(&L) < Order.lookup(&R);

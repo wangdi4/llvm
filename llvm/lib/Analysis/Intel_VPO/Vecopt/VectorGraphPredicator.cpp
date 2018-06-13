@@ -226,33 +226,28 @@ bool VectorGraphPredicator::runOnFunction(Function &F) {
 
 void VectorGraphPredicator::runOnAvr(VGLoop* ALoop) {
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "Predicator running on:\n";
-        ALoop->print(FOS, 0);
-        );
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+             FOS << "Predicator running on:\n"; ALoop->print(FOS, 0););
 
   predicateLoop(ALoop);
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "Predicator finished:\n";
-        ALoop->print(FOS, 0);
-        );
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "Predicator finished:\n";
+             ALoop->print(FOS, 0););
 }
 
 void VectorGraphPredicator::predicateLoop(VGLoop* ALoop) {
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "Predicating loop ";
-        ALoop->print(FOS, 0);
-        FOS << "\n");
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "Predicating loop ";
+             ALoop->print(FOS, 0); FOS << "\n");
 
   VGDominatorTree DominatorTree;
   DominatorTree.recalculate(*ALoop);
   VGPostDominatorTree PostDominatorTree;
   PostDominatorTree.recalculate(*ALoop);
 
-  DEBUG(dbgs() << "Dominator Tree:\n"; DominatorTree.print(dbgs()));
-  DEBUG(dbgs() << "PostDominator Tree:\n"; PostDominatorTree.print(dbgs()));
+  LLVM_DEBUG(dbgs() << "Dominator Tree:\n"; DominatorTree.print(dbgs()));
+  LLVM_DEBUG(dbgs() << "PostDominator Tree:\n";
+             PostDominatorTree.print(dbgs()));
 
   ConstructVGSESERegions CSR(ALoop, DominatorTree, PostDominatorTree);
 
@@ -263,9 +258,8 @@ void VectorGraphPredicator::predicateLoop(VGLoop* ALoop) {
     CSR.processControlFlow(&*Itr, SE);
   }
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "SESE regions:\n";
-        CSR.getRoot()->print(FOS));
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "SESE regions:\n";
+             CSR.getRoot()->print(FOS));
 
   // Recursively handle the SESE regions
   handleVGSESERegion(CSR.getRoot(), ALoop, DominatorTree);
@@ -275,10 +269,9 @@ void VectorGraphPredicator::handleVGSESERegion(const VGSESERegion *Region,
                                                VGLoop *Loop,
                                                const VGDominatorTree &DomTree) {
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "Handling DIVERGENT"
-            << " SESE region:\n";
-        Region->getContainingNode()->print(FOS, 1));
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "Handling DIVERGENT"
+                                                    << " SESE region:\n";
+             Region->getContainingNode()->print(FOS, 1));
   //      << (Region->isUniform() ? "UNIFORM" : "DIVERGENT")
 
   //if (Region->isUniform()) {
@@ -314,9 +307,9 @@ void VectorGraphPredicator::handleVGSESERegion(const VGSESERegion *Region,
 //  DenseMap<VGNode*, VGSESERegion*> DoNotDeconstruct;
 
   // Handle all uniform subregions
-  //for (VGSESERegion* SubRegion : Region->getSubRegions())
+  // for (VGSESERegion* SubRegion : Region->getSubRegions())
   //  if (SubRegion->isUniform()) {
-  //    DEBUG(formatted_raw_ostream FOS(dbgs());
+  //    LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
   //          FOS << "Preserving ";
   //      SubRegion->getContainingNode()->print(FOS, 0);
   //      FOS << "\n");
@@ -325,19 +318,19 @@ void VectorGraphPredicator::handleVGSESERegion(const VGSESERegion *Region,
   //  }
 
   // Add lexical links scheduling constraints e.g. then before else.
-//  for (auto& Pair : CLL.getConstraints()) {
-//    VGBlock* FirstBlock = dyn_cast<VGBlock>(Pair.first->getParent());
-//    if (!FirstBlock)
-//      continue;
-//    VGBlock* SecondBlock = dyn_cast<VGBlock>(Pair.second->getParent());
-//    if (!SecondBlock)
-//      continue;
-//    DEBUG(formatted_raw_ostream FOS(dbgs());
-//          FOS << "Block " << FirstBlock->getNumber()
-//	  << " lexically depends on block "
-//	  << SecondBlock->getNumber() << "\n");
-//    VectorGraphUtils::addSchedulingConstraint(FirstBlock, SecondBlock);
-//  }
+  //  for (auto& Pair : CLL.getConstraints()) {
+  //    VGBlock* FirstBlock = dyn_cast<VGBlock>(Pair.first->getParent());
+  //    if (!FirstBlock)
+  //      continue;
+  //    VGBlock* SecondBlock = dyn_cast<VGBlock>(Pair.second->getParent());
+  //    if (!SecondBlock)
+  //      continue;
+  //    LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+  //          FOS << "Block " << FirstBlock->getNumber()
+  //	  << " lexically depends on block "
+  //	  << SecondBlock->getNumber() << "\n");
+  //    VectorGraphUtils::addSchedulingConstraint(FirstBlock, SecondBlock);
+  //  }
 
   VGBlock* EntryBlock = Region->getEntry();
 //  VGBlock* ExitBlock = Region->getExit();
@@ -346,55 +339,57 @@ void VectorGraphPredicator::handleVGSESERegion(const VGSESERegion *Region,
   // Insert the AVRBlocks into the parent of the region's entry. We use DFS
   // topological sort in order to get valid scheduling that preserves blocks
   // locality to improve the chances of later zero-bypass installations.
-//  SmallPtrSet<VGBlock*, 16> ScheduledBlocks;
-//  SmallVector<VGBlock*, 16> LinearizedBlocks;
-//  std::stack<VGBlock*> BlockStack;
-//
-//  ScheduledBlocks.insert(EntryBlock); // already scheduled.
-//  LinearizedBlocks.push_back(EntryBlock);
-//  BlockStack.push(ExitBlock);
-//  while (!BlockStack.empty()) {
-//
-//    // Examine top of stack: push into stack any constrainting block which has
-//    // not yet been scheduled. If there are no such blocks, schedule this block.
-//    VGBlock* Top = BlockStack.top();
-//    DEBUG(formatted_raw_ostream FOS(dbgs());
-//          FOS << "Top VGBlock now " << Top->getNumber() << " \n");
-//    const SmallPtrSetImpl<VGBlock*>& SchedConstraints
-//      = Top->getSchedConstraints();
-//    bool CanSchedule = true;
-//    for (VGBlock* Dependency : SchedConstraints) {
-//      if (!ScheduledBlocks.count(Dependency)) {
-//	DEBUG(formatted_raw_ostream FOS(dbgs());
-//	      FOS << "Pushing dependency AVRBlock " << Dependency->getNumber()
-//	      << "\n");
-//        BlockStack.push(Dependency);
-//        CanSchedule = false;
-//      }
-//    }
-//    if (!CanSchedule)
-//      continue; // at least one scheduling constraint has not been met yet
-//
-//    BlockStack.pop();
-//
-//    if (ScheduledBlocks.count(Top))
-//      continue;
-//
-//    DEBUG(formatted_raw_ostream FOS(dbgs());
-//          FOS << "Scheduling VGBlock " << Top->getNumber() << " after VGBlock "
-//	  << NextBlockInsertionPos->getNumber() << "\n");
-//
-//    //AVRUtils::insertAfter(AvrItr(NextBlockInsertionPos), Top);
-//    NextBlockInsertionPos = Top;
-//    ScheduledBlocks.insert(Top);
-//    LinearizedBlocks.push_back(Top);
-//  }
-//
-//  DEBUG(formatted_raw_ostream FOS(dbgs());
-//        FOS << "Linearized Block Sequence:\n";
-//        for (unsigned i = 0; i < LinearizedBlocks.size(); i++)
-//          FOS << "Block #: " << LinearizedBlocks[i]->getNumber() << "\n";);
-  
+  //  SmallPtrSet<VGBlock*, 16> ScheduledBlocks;
+  //  SmallVector<VGBlock*, 16> LinearizedBlocks;
+  //  std::stack<VGBlock*> BlockStack;
+  //
+  //  ScheduledBlocks.insert(EntryBlock); // already scheduled.
+  //  LinearizedBlocks.push_back(EntryBlock);
+  //  BlockStack.push(ExitBlock);
+  //  while (!BlockStack.empty()) {
+  //
+  //    // Examine top of stack: push into stack any constrainting block which
+  //    has
+  //    // not yet been scheduled. If there are no such blocks, schedule this
+  //    block. VGBlock* Top = BlockStack.top(); LLVM_DEBUG(formatted_raw_ostream
+  //    FOS(dbgs());
+  //          FOS << "Top VGBlock now " << Top->getNumber() << " \n");
+  //    const SmallPtrSetImpl<VGBlock*>& SchedConstraints
+  //      = Top->getSchedConstraints();
+  //    bool CanSchedule = true;
+  //    for (VGBlock* Dependency : SchedConstraints) {
+  //      if (!ScheduledBlocks.count(Dependency)) {
+  //	LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+  //	      FOS << "Pushing dependency AVRBlock " << Dependency->getNumber()
+  //	      << "\n");
+  //        BlockStack.push(Dependency);
+  //        CanSchedule = false;
+  //      }
+  //    }
+  //    if (!CanSchedule)
+  //      continue; // at least one scheduling constraint has not been met yet
+  //
+  //    BlockStack.pop();
+  //
+  //    if (ScheduledBlocks.count(Top))
+  //      continue;
+  //
+  //    LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+  //          FOS << "Scheduling VGBlock " << Top->getNumber() << " after
+  //          VGBlock "
+  //	  << NextBlockInsertionPos->getNumber() << "\n");
+  //
+  //    //AVRUtils::insertAfter(AvrItr(NextBlockInsertionPos), Top);
+  //    NextBlockInsertionPos = Top;
+  //    ScheduledBlocks.insert(Top);
+  //    LinearizedBlocks.push_back(Top);
+  //  }
+  //
+  //  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+  //        FOS << "Linearized Block Sequence:\n";
+  //        for (unsigned i = 0; i < LinearizedBlocks.size(); i++)
+  //          FOS << "Block #: " << LinearizedBlocks[i]->getNumber() << "\n";);
+
   predicate(EntryBlock, Loop, DomTree);
 
   // Remove the initial VGBlock ordering within the VGLoop and replace with the
@@ -421,17 +416,17 @@ void VectorGraphPredicator::handleVGSESERegion(const VGSESERegion *Region,
 //  VBlock->dump();
 //}
 
-/*
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "After predication:\n";
-        EntryBlock->getParent()->getParent()->print(FOS, 0, PrintNumber));
+  /*
+    LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+          FOS << "After predication:\n";
+          EntryBlock->getParent()->getParent()->print(FOS, 0, PrintNumber));
 
-  removeCFG(EntryBlock);
+    removeCFG(EntryBlock);
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "After removing CFG:\n";
-        ContainingNode->getParent()->getParent()->print(FOS, 0, PrintNumber));
-*/
+    LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+          FOS << "After removing CFG:\n";
+          ContainingNode->getParent()->getParent()->print(FOS, 0, PrintNumber));
+  */
 }
 
 void VectorGraphPredicator::predicate(VGBlock *Entry, VGLoop *Loop,
@@ -470,9 +465,9 @@ void VectorGraphPredicator::predicate(VGBlock *Entry, VGLoop *Loop,
     //    // Propagate predicate from immediate dominator
     //    if (PostDomAllPredecs) {
     //      VGBlock *IDom = DomTree.getImmediateDominator(VBlock);
-    //      VectorGraphUtils::setPredicate(VBlock, IDom->getPredicate()); 
+    //      VectorGraphUtils::setPredicate(VBlock, IDom->getPredicate());
     //
-    //      DEBUG(formatted_raw_ostream FOS(dbgs());
+    //      LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
     //      FOS << "Propagating predicate from Block " << IDom->getNumber()
     //          << " to Block " << VBlock->getNumber() << "\n";
     //    }
@@ -480,10 +475,9 @@ void VectorGraphPredicator::predicate(VGBlock *Entry, VGLoop *Loop,
     //    continue;
     // }
 
-    DEBUG(formatted_raw_ostream FOS(dbgs());
-          FOS << "Predicating block " << VBlock->getNumber() << "\n";
-          VBlock->dump();
-          FOS << "\n");
+    LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+               FOS << "Predicating block " << VBlock->getNumber() << "\n";
+               VBlock->dump(); FOS << "\n");
 
     for (VGBlock *Predecessor : VBlock->getPredecessors()) {
 
@@ -492,14 +486,15 @@ void VectorGraphPredicator::predicate(VGBlock *Entry, VGLoop *Loop,
       unsigned Ordinal = Predecessor->getSuccessorOrdinal(VBlock);
       bool CondNeedsNegation = Ordinal == 1;
 
-      DEBUG(formatted_raw_ostream FOS(dbgs());
-            FOS << "Handling predecessor block " << Predecessor->getNumber()
-                << " with ordinal " << Ordinal << "\n");
+      LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+                 FOS << "Handling predecessor block "
+                     << Predecessor->getNumber() << " with ordinal " << Ordinal
+                     << "\n");
 
       Value *PredCondition = Predecessor->getBranchCondition();
       if (PredCondition) {
-        DEBUG(formatted_raw_ostream FOS(dbgs());
-              FOS << "Incoming Condition: " << *PredCondition << "\n");
+        LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+                   FOS << "Incoming Condition: " << *PredCondition << "\n");
 
         VectorGraphUtils::addVGPredicateIncoming(
             VBlock->getPredicate(), Predecessor->getPredicate(), PredCondition,
@@ -508,8 +503,8 @@ void VectorGraphPredicator::predicate(VGBlock *Entry, VGLoop *Loop,
         assert(
             !cast<BranchInst>(Predecessor->getTerminator())->isConditional() &&
             "Did not expect conditional branches at this point");
-        DEBUG(formatted_raw_ostream FOS(dbgs());
-              FOS << "Unconditional Branch\n");
+        LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+                   FOS << "Unconditional Branch\n");
 
         VectorGraphUtils::addVGPredicateIncoming(VBlock->getPredicate(),
                                                  Predecessor->getPredicate(),
@@ -522,10 +517,10 @@ void VectorGraphPredicator::predicate(VGBlock *Entry, VGLoop *Loop,
     // scenarios. At least, loop entry, loop latch and loop exit will not hit
     // here.
     if (!DomTree.dominates(VBlock, Loop->getLoopLatch())) {
-      DEBUG(formatted_raw_ostream FOS(dbgs());
-            FOS << "Block " << VBlock->getNumber()
-                << " needs predication. Removing isAllOnes flag.\n";
-            VBlock->dump(); FOS << "\n");
+      LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+                 FOS << "Block " << VBlock->getNumber()
+                     << " needs predication. Removing isAllOnes flag.\n";
+                 VBlock->dump(); FOS << "\n");
 
       VectorGraphUtils::setAllOnes(VBlock->getPredicate(), false);
     } 
@@ -571,7 +566,7 @@ void VectorGraphPredicator::removeCFG(AVRBlock* Entry) {
          End = df_iterator<AVRBlock*>::end(Entry); It != End; ++It) {
 
     AVRBlock* ABlock = *It;
-    DEBUG(formatted_raw_ostream FOS(dbgs());
+    LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
           FOS << "Extracting nodes from block " << ABlock->getNumber() << "\n");
 
     for (auto It = ABlock->child_rbegin();
