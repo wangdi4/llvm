@@ -1,4 +1,5 @@
-; RUN: opt < %s -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransanalysis -dtrans-print-types -dtrans-outofboundsok=true -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-outofboundsok=true -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies the behavior of the DTransAnalysis of bitcast instructions.
 ; The test cases below present representative examples of bitcasts that
@@ -16,7 +17,7 @@ define void @test1() {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test01 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test01 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 
 ; Cast of arbitrary i8* to struct pointer.
@@ -29,7 +30,7 @@ define void @test2() {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test02.a = type { i32, i8 }
+; CHECK-LABEL: LLVMType: %struct.test02.a = type { i32, i8 }
 ; CHECK: Safety data: Bad casting | Global instance
 ; CHECK: LLVMType: %struct.test02.b = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
@@ -41,7 +42,7 @@ define void @test3(i8* %p) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test03 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test03 = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 
 ; Cast of pointer-to-pointer-to-struct cast as a pointer-sized integer.
@@ -54,7 +55,7 @@ define void @test4( %struct.test04.a** %ppa, %struct.test04.b* %pb ) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test04.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test04.a = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 ; CHECK: LLVMType: %struct.test04.b = type { i32, i32, %struct.test04.a* }
 ; CHECK: Safety data: No issues found
@@ -67,7 +68,7 @@ define void @test5( %struct.test05.a* %pa ) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test05.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test05.a = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 ; CHECK: LLVMType: %struct.test05.b = type { i32, i32, i32 }
 ; CHECK: Safety data: Bad casting
@@ -80,7 +81,7 @@ define void @test6( %struct.test06.a** %ppa ) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test06.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test06.a = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 ; CHECK: LLVMType: %struct.test06.b = type { i32, i32, i32 }
 ; CHECK: Safety data: Bad casting
@@ -92,7 +93,7 @@ define void @test7( %struct.test07** %pps ) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test07 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test07 = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 
 ; Safe element zero access through bitcast.
@@ -103,7 +104,7 @@ define void @test8( %struct.test08.b* %pb ) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test08.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test08.a = type { i32, i32 }
 ; CHECK: Safety data: Nested structure
 ; CHECK: LLVMType: %struct.test08.b = type { %struct.test08.a, i32, i32 }
 ; CHECK: Safety data: Contains nested structure
@@ -117,7 +118,7 @@ define void @test9( %struct.test09.b* %pb ) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test09.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test09.a = type { i32, i32 }
 ; CHECK: Safety data: Bad casting | Nested structure
 ; CHECK: LLVMType: %struct.test09.b = type { %struct.test09.a, i32, i32 }
 ; CHECK: Safety data: Bad casting | Contains nested structure
@@ -131,7 +132,7 @@ define void @test10( [16 x %struct.test10]* %parr ) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test10 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test10 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 ; (checked below): LLVMType: [16 x %struct.test10]
 
@@ -143,7 +144,7 @@ define void @test11( [16 x %struct.test11.a]* %parr ) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test11.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test11.a = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 ; CHECK: LLVMType: %struct.test11.b = type { i32, i32, i32, i32 }
 ; CHECK: Safety data: Bad casting
@@ -158,7 +159,7 @@ define void @test12() {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test12 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test12 = type { i32, i32 }
 ; CHECK: Safety data: Global instance
 
 ; Bad cast of global value through an intermediate i8*
@@ -171,7 +172,7 @@ define void @test13() {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test13.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test13.a = type { i32, i32 }
 ; CHECK: Safety data: Bad casting | Global instance
 ; CHECK: LLVMType: %struct.test13.b = type { i32, i32, i32 }
 ; CHECK: Safety data: Bad casting
@@ -184,7 +185,7 @@ define void @test14(%struct.test14* %p) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test14 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test14 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 
 ; Bad cast of argument through an intermediate i8*
@@ -196,7 +197,7 @@ define void @test15(%struct.test15.a* %p) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test15.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test15.a = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 ; CHECK: LLVMType: %struct.test15.b = type { i32, i32, i32 }
 ; CHECK: Safety data: Bad casting
@@ -210,7 +211,7 @@ define void @test16() {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test16 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test16 = type { i32, i32 }
 ; CHECK: Safety data: Local instance
 
 ; Bad cast of stack pointer through an intermediate i8*
@@ -223,7 +224,7 @@ define void @test17() {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test17.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test17.a = type { i32, i32 }
 ; CHECK: Safety data: Bad casting | Local instance
 ; CHECK: LLVMType: %struct.test17.b = type { i32, i32, i32 }
 ; CHECK: Safety data: Bad casting
@@ -237,7 +238,7 @@ define void @test18(%struct.test18** %mem) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test18 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test18 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 
 ; Bad cast of loaded pointer through an intermediate i8*
@@ -250,7 +251,7 @@ define void @test19(%struct.test19.a** %mem) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test19.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test19.a = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 ; CHECK: LLVMType: %struct.test19.b = type { i32, i32, i32 }
 ; CHECK: Safety data: Bad casting
@@ -265,7 +266,7 @@ define void @test20() {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test20 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test20 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 
 ; Bad cast of returned pointer through an intermediate i8*
@@ -279,7 +280,7 @@ define void @test21() {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test21.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test21.a = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 ; CHECK: LLVMType: %struct.test21.b = type { i32, i32, i32 }
 ; CHECK: Safety data: Bad casting
@@ -294,7 +295,7 @@ define void @test22(%struct.test22.b* %pb) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test22.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test22.a = type { i32, i32 }
 ; CHECK: Safety data: Nested structure
 ; CHECK: LLVMType: %struct.test22.b = type { i32, %struct.test22.a, i32 }
 ; CHECK: Safety data: Contains nested structure
@@ -309,7 +310,7 @@ define void @test23(%struct.test23.b* %pb) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test23.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test23.a = type { i32, i32 }
 ; CHECK: Safety data: Bad casting | Nested structure
 ; CHECK: LLVMType: %struct.test23.b = type { i32, %struct.test23.a, i32 }
 ; CHECK: Safety data: Bad casting | Contains nested structure
@@ -328,7 +329,7 @@ define void @test24() {
 }
 
 ; FIXME: The unhandled use here is inttoptr
-; CHECK: LLVMType: %struct.test24 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test24 = type { i32, i32 }
 ; CHECK: Safety data: Unhandled use
 
 ; Bad cast of inttoptr value through an intermediate i8*
@@ -341,7 +342,7 @@ define void @test25() {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test25.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test25.a = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 ; CHECK: LLVMType: %struct.test25.b = type { i32, i32, i32 }
 ; CHECK: Safety data: Bad casting
@@ -356,7 +357,7 @@ define void @test26(%struct.test26* %p1, %struct.test26* %p2) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test26 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test26 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 
 ; Follow unsafe cast through select instruction
@@ -370,7 +371,7 @@ define void @test27(%struct.test27.a* %pa, %struct.test27.b* %pb) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test27.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test27.a = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 ; CHECK: LLVMType: %struct.test27.b = type { i32, i32, i32 }
 ; CHECK: Safety data: Bad casting
@@ -394,7 +395,7 @@ end:
   ret void
 }
 
-; CHECK: LLVMType: %struct.test28 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test28 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 
 ; Follow unsafe cast through PHI node
@@ -417,7 +418,7 @@ end:
   ret void
 }
 
-; CHECK: LLVMType: %struct.test29.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test29.a = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 ; CHECK: LLVMType: %struct.test29.b = type { i32, i32, i32 }
 ; CHECK: Safety data: Bad casting
@@ -443,7 +444,7 @@ end:
   ret void
 }
 
-; CHECK: LLVMType: %struct.test30 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test30 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 
 ; Follow unsafe cast through PHI node with loop.
@@ -468,7 +469,7 @@ end:
   ret void
 }
 
-; CHECK: LLVMType: %struct.test31.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test31.a = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 ; CHECK: LLVMType: %struct.test31.b = type { i32, i32, i32 }
 
@@ -480,7 +481,7 @@ define void @test32( %struct.test32* %p ) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test32 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test32 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 
 ; Unsafe element zero access of an aliased value through bitcast.
@@ -491,7 +492,7 @@ define void @test33( %struct.test33* %p ) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test33 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test33 = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 
 ; Multiple cast of allocated pointer-to-pointer-to-pointer.
@@ -522,7 +523,7 @@ define void @test34() {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test34 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test34 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 
 ; Test that an element zero pointer cannot be cast back to the original type
@@ -540,7 +541,7 @@ define void @test35(%struct.test35* %p, i32* %p2) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test35 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test35 = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 
 ; Test that an element zero pointer cannot be cast back to the original type
@@ -554,7 +555,7 @@ define void @test36(%struct.test36* %p) {
   ret void
 }
 
-; CHECK: LLVMType: %struct.test36 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test36 = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 
 ; Test the case of a cyclic dependency among PHI nodes.
@@ -596,7 +597,7 @@ exit:
   ret void
 }
   
-; CHECK: LLVMType: %struct.test37.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test37.a = type { i32, i32 }
 ; CHECK: Safety data: Bad casting | Unsafe pointer merge
 ; CHECK: LLVMType: %struct.test37.b = type { i16, i16, i16, i16 }
 ; CHECK: Safety data: Bad casting | Unsafe pointer merge
@@ -636,7 +637,7 @@ exit:
   ret void
 }
 
-; CHECK: LLVMType: %struct.test38 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test38 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 
 ; Array types get printed last so theese checks aren't with their IR.

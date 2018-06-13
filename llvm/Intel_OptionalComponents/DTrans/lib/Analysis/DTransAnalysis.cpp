@@ -2841,9 +2841,17 @@ private:
     LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
                       << "unsafe cast of aliased pointer:\n"
                       << "  " << I << "\n");
-    setValueTypeInfoSafetyData(I.getOperand(0), dtrans::BadCasting);
-    if (DTInfo.isTypeOfInterest(DestTy))
-      setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
+    if (DTransOutOfBoundsOK)
+      setValueTypeInfoSafetyData(I.getOperand(0), dtrans::BadCasting);
+    else
+      (void)setValueTypeInfoSafetyDataBase(I.getOperand(0), dtrans::BadCasting);
+
+    if (DTInfo.isTypeOfInterest(DestTy)) {
+      if (DTransOutOfBoundsOK)
+        setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
+      else
+        (void)setValueTypeInfoSafetyDataBase(&I, dtrans::BadCasting);
+    }
   }
 
   //
@@ -4196,18 +4204,29 @@ private:
   // In many cases we need to set safety data based on a value that
   // was derived from a pointer to a type of interest, via a bitcast
   // or a ptrtoint cast. In those cases, this function is called to
-  // propogate safety data to the interesting type.
-  void setValueTypeInfoSafetyData(Value *V, dtrans::SafetyData Data) {
+  // propagate safety data to the interesting type.
+  // Return false if V was not a value of interest, true otherwise.
+  bool setValueTypeInfoSafetyDataBase(Value *V, dtrans::SafetyData Data) {
     // In some cases this function might have been called for multiple
     // operands, not all of which we are actually tracking.
     if (!isValueOfInterest(V))
-      return;
+      return false;
 
     LocalPointerInfo &LPI = LPA.getLocalPointerInfo(V);
     setAllAliasedTypeSafetyData(LPI, Data);
+    return true;
+  }
+
+  // Also propagate the safety data to sibling types and types nested
+  // within the siblings, when appropriate.
+  void setValueTypeInfoSafetyData(Value *V, dtrans::SafetyData Data) {
+
+    if (!setValueTypeInfoSafetyDataBase(V, Data))
+      return;
 
     // If the value is a pointer to an element in some aggregate type
     // set the safety info for that type also.
+    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(V);
     auto ElementPointees = LPI.getElementPointeeSet();
     if (ElementPointees.size() > 0)
       for (auto &PointeePair : ElementPointees)
