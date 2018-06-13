@@ -238,6 +238,7 @@ MicroMipsInst16<(outs movep_regpair:$dst_regs), (ins RO:$rs, RO:$rt),
                  !strconcat(opstr, "\t$dst_regs, $rs, $rt"), [],
                  NoItinerary, FrmR> {
   let isReMaterializable = 1;
+  let isMoveReg = 1;
 }
 
 /// A register pair used by load/store pair instructions.
@@ -415,12 +416,14 @@ class MoveFromHILOMM<string opstr, RegisterOperand RO, Register UseReg> :
   [], II_MFHI_MFLO, FrmR> {
   let Uses = [UseReg];
   let hasSideEffects = 0;
+  let isMoveReg = 1;
 }
 
 class MoveMM16<string opstr, RegisterOperand RO>
     :  MicroMipsInst16<(outs RO:$rd), (ins RO:$rs),
                        !strconcat(opstr, "\t$rd, $rs"), [], II_MOVE, FrmR> {
   let isReMaterializable = 1;
+  let isMoveReg = 1;
 }
 
 class LoadImmMM16<string opstr, Operand Od, RegisterOperand RO> :
@@ -797,9 +800,9 @@ let DecoderNamespace = "MicroMips", Predicates = [InMicroMips] in {
                  MMRel, LW_FM_MM<0x7>, ISA_MICROMIPS;
     def LBu_MM : LoadMemory<"lbu", GPR32Opnd, mem_mm_16, zextloadi8, II_LBU>,
                  MMRel, LW_FM_MM<0x5>, ISA_MICROMIPS;
-    def LH_MM  : LoadMemory<"lh", GPR32Opnd, mem_simm16, sextloadi16, II_LH,
+    def LH_MM  : LoadMemory<"lh", GPR32Opnd, mem_simmptr, sextloadi16, II_LH,
                             addrDefault>, MMRel, LW_FM_MM<0xf>, ISA_MICROMIPS;
-    def LHu_MM : LoadMemory<"lhu", GPR32Opnd, mem_simm16, zextloadi16, II_LHU>,
+    def LHu_MM : LoadMemory<"lhu", GPR32Opnd, mem_simmptr, zextloadi16, II_LHU>,
                  MMRel, LW_FM_MM<0xd>, ISA_MICROMIPS;
     def LW_MM  : Load<"lw", GPR32Opnd, null_frag, II_LW>, MMRel, LW_FM_MM<0x3f>,
                  ISA_MICROMIPS;
@@ -894,13 +897,15 @@ let DecoderNamespace = "MicroMips", Predicates = [InMicroMips] in {
 
   /// Move Conditional
   def MOVZ_I_MM : MMRel, CMov_I_I_FT<"movz", GPR32Opnd, GPR32Opnd,
-                  NoItinerary>, ADD_FM_MM<0, 0x58>;
+                                     II_MOVZ>, ADD_FM_MM<0, 0x58>,
+                  ISA_MICROMIPS32_NOT_MIPS32R6;
   def MOVN_I_MM : MMRel, CMov_I_I_FT<"movn", GPR32Opnd, GPR32Opnd,
-                  NoItinerary>, ADD_FM_MM<0, 0x18>;
-  def MOVT_I_MM : MMRel, CMov_F_I_FT<"movt", GPR32Opnd, II_MOVT>,
-                  CMov_F_I_FM_MM<0x25>;
-  def MOVF_I_MM : MMRel, CMov_F_I_FT<"movf", GPR32Opnd, II_MOVF>,
-                  CMov_F_I_FM_MM<0x5>;
+                                     II_MOVN>, ADD_FM_MM<0, 0x18>,
+                  ISA_MICROMIPS32_NOT_MIPS32R6;
+  def MOVT_I_MM : MMRel, CMov_F_I_FT<"movt", GPR32Opnd, II_MOVT, MipsCMovFP_T>,
+                  CMov_F_I_FM_MM<0x25>, ISA_MICROMIPS32_NOT_MIPS32R6;
+  def MOVF_I_MM : MMRel, CMov_F_I_FT<"movf", GPR32Opnd, II_MOVF, MipsCMovFP_F>,
+                  CMov_F_I_FM_MM<0x5>, ISA_MICROMIPS32_NOT_MIPS32R6;
 
   /// Move to/from HI/LO
   def MTHI_MM : MMRel, MoveToLOHI<"mthi", GPR32Opnd, [HI0]>,
@@ -1039,27 +1044,25 @@ let DecoderNamespace = "MicroMips" in {
                  TEQI_FM_MM<0x0a>, ISA_MICROMIPS32_NOT_MIPS32R6;
   def TNEI_MM  : MMRel, TEQI_FT<"tnei", GPR32Opnd, II_TNEI>, TEQI_FM_MM<0x0c>,
                  ISA_MICROMIPS32_NOT_MIPS32R6;
-}
-let DecoderNamespace = "MicroMips", Predicates = [InMicroMips] in {
+
   /// Load-linked, Store-conditional
-  def LL_MM : LLBaseMM<"ll", GPR32Opnd>, LL_FM_MM<0x3>;
-  def SC_MM : SCBaseMM<"sc", GPR32Opnd>, LL_FM_MM<0xb>;
-}
-let DecoderNamespace = "MicroMips" in {
+  def LL_MM : LLBaseMM<"ll", GPR32Opnd>, LL_FM_MM<0x3>,
+              ISA_MICROMIPS32_NOT_MIPS32R6;
+  def SC_MM : SCBaseMM<"sc", GPR32Opnd>, LL_FM_MM<0xb>,
+              ISA_MICROMIPS32_NOT_MIPS32R6;
+
   def LLE_MM : MMRel, LLEBaseMM<"lle", GPR32Opnd>, LLE_FM_MM<0x6>,
                ISA_MICROMIPS, ASE_EVA;
   def SCE_MM : MMRel, SCEBaseMM<"sce", GPR32Opnd>, LLE_FM_MM<0xA>,
                ISA_MICROMIPS, ASE_EVA;
-}
-let DecoderNamespace = "MicroMips", Predicates = [InMicroMips] in {
+
   let DecoderMethod = "DecodeCacheOpMM" in {
-  def CACHE_MM : MMRel, CacheOp<"cache", mem_mm_12, II_CACHE>,
-                 CACHE_PREF_FM_MM<0x08, 0x6>;
-  def PREF_MM  : MMRel, CacheOp<"pref", mem_mm_12, II_PREF>,
-                 CACHE_PREF_FM_MM<0x18, 0x2>;
+    def CACHE_MM : MMRel, CacheOp<"cache", mem_mm_12, II_CACHE>,
+                   CACHE_PREF_FM_MM<0x08, 0x6>, ISA_MICROMIPS32_NOT_MIPS32R6;
+    def PREF_MM  : MMRel, CacheOp<"pref", mem_mm_12, II_PREF>,
+                   CACHE_PREF_FM_MM<0x18, 0x2>, ISA_MICROMIPS32_NOT_MIPS32R6;
   }
-}
-let DecoderNamespace = "MicroMips" in {
+
   let DecoderMethod = "DecodePrefeOpMM" in {
     def PREFE_MM  : MMRel, CacheOp<"prefe", mem_mm_9, II_PREFE>,
                     CACHE_PREFE_FM_MM<0x18, 0x2>, ISA_MICROMIPS, ASE_EVA;
@@ -1227,6 +1230,29 @@ defm : SetlePats<GPR32, XORi_MM, SLT_MM, SLTu_MM>;
 defm : SetgtPats<GPR32, SLT_MM, SLTu_MM>;
 defm : SetgePats<GPR32, XORi_MM, SLT_MM, SLTu_MM>;
 defm : SetgeImmPats<GPR32, XORi_MM, SLTi_MM, SLTiu_MM>;
+
+// Select patterns
+
+// Instantiation of conditional move patterns.
+defm : MovzPats0<GPR32, GPR32, MOVZ_I_MM, SLT_MM, SLTu_MM, SLTi_MM, SLTiu_MM>,
+       ISA_MICROMIPS32_NOT_MIPS32R6;
+defm : MovzPats1<GPR32, GPR32, MOVZ_I_MM, XOR_MM>,
+       ISA_MICROMIPS32_NOT_MIPS32R6;
+defm : MovzPats2<GPR32, GPR32, MOVZ_I_MM, XORi_MM>,
+       ISA_MICROMIPS32_NOT_MIPS32R6;
+
+
+defm : MovnPats<GPR32, GPR32, MOVN_I_MM, XOR_MM>, INSN_MIPS4_32_NOT_32R6_64R6;
+
+// Instantiation of conditional move patterns.
+defm : MovzPats0<GPR32, GPR32, MOVZ_I_MM, SLT_MM, SLTu_MM, SLTi_MM, SLTiu_MM>,
+       ISA_MICROMIPS32_NOT_MIPS32R6;
+defm : MovzPats1<GPR32, GPR32, MOVZ_I_MM, XOR_MM>,
+       ISA_MICROMIPS32_NOT_MIPS32R6;
+defm : MovzPats2<GPR32, GPR32, MOVZ_I_MM, XORi_MM>,
+       ISA_MICROMIPS32_NOT_MIPS32R6;
+
+defm : MovnPats<GPR32, GPR32, MOVN_I_MM, XOR_MM>, ISA_MICROMIPS32_NOT_MIPS32R6;
 
 //===----------------------------------------------------------------------===//
 // MicroMips instruction aliases

@@ -450,7 +450,8 @@ def WBNOINVD : I<0x09, RawFrm, (outs), (ins), "wbnoinvd",
 
 //===----------------------------------------------------------------------===//
 // CET instructions
-let SchedRW = [WriteSystem], Predicates = [HasSHSTK]  in{
+// Use with caution, availability is not predicated on features.
+let SchedRW = [WriteSystem] in {
   let Uses = [SSP] in {
     let Defs = [SSP] in {
       def INCSSPD : I<0xAE, MRM5r, (outs), (ins GR32:$src), "incsspd\t$src",
@@ -500,12 +501,12 @@ let SchedRW = [WriteSystem], Predicates = [HasSHSTK]  in{
                      "clrssbsy\t$src",
                      [(int_x86_clrssbsy addr:$src)]>, XS;
   } // Defs SSP
-} // SchedRW && HasSHSTK
+} // SchedRW
 
-let SchedRW = [WriteSystem], Predicates = [HasIBT]  in {
+let SchedRW = [WriteSystem] in {
     def ENDBR64 : I<0x1E, MRM_FA, (outs), (ins), "endbr64", []>, XS;
     def ENDBR32 : I<0x1E, MRM_FB, (outs), (ins), "endbr32", []>, XS;
-} // SchedRW && HasIBT
+} // SchedRW
 
 //===----------------------------------------------------------------------===//
 // XSAVE instructions
@@ -688,18 +689,21 @@ let Predicates = [In64BitMode, HasRDPID] in {
 
 
 //===----------------------------------------------------------------------===//
-// PTWRITE Instruction
+// PTWRITE Instruction - Write Data to a Processor Trace Packet
 let SchedRW = [WriteSystem] in {
-
 def PTWRITEm: I<0xAE, MRM4m, (outs), (ins i32mem:$dst),
-                "ptwrite{l}\t$dst", []>, XS;
+                "ptwrite{l}\t$dst", [(int_x86_ptwrite32 (loadi32 addr:$dst))]>, XS,
+                Requires<[HasPTWRITE]>;
 def PTWRITE64m : RI<0xAE, MRM4m, (outs), (ins i64mem:$dst),
-                    "ptwrite{q}\t$dst", []>, XS, Requires<[In64BitMode]>;
+                    "ptwrite{q}\t$dst", [(int_x86_ptwrite64 (loadi64 addr:$dst))]>, XS,
+                    Requires<[In64BitMode, HasPTWRITE]>;
 
 def PTWRITEr : I<0xAE, MRM4r, (outs), (ins GR32:$dst),
-                 "ptwrite{l}\t$dst", []>, XS;
+                 "ptwrite{l}\t$dst", [(int_x86_ptwrite32 GR32:$dst)]>, XS,
+                    Requires<[HasPTWRITE]>;
 def PTWRITE64r : RI<0xAE, MRM4r, (outs), (ins GR64:$dst),
-                    "ptwrite{q}\t$dst", []>, XS, Requires<[In64BitMode]>;
+                    "ptwrite{q}\t$dst", [(int_x86_ptwrite64 GR64:$dst)]>, XS,
+                    Requires<[In64BitMode, HasPTWRITE]>;
 } // SchedRW
 
 //===----------------------------------------------------------------------===//

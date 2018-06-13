@@ -1,11 +1,3 @@
-//
-// Copyright (C) 2015 Intel Corporation.  All rights reserved.
-//
-// The information and source code contained herein is the exclusive
-// property of Intel Corporation and may not be disclosed, examined
-// or reproduced in whole or in part without explicit written authorization
-// from the company.
-//
 /*===---- __wmmintrin_aes.h - AES intrinsics -------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,10 +20,13 @@
  *
  *===-----------------------------------------------------------------------===
  */
+
+#ifndef __WMMINTRIN_H
+#error "Never use <__wmmintrin_aes.h> directly; include <wmmintrin.h> instead."
+#endif
+
 #ifndef __WMMINTRIN_AES_H
 #define __WMMINTRIN_AES_H
-
-#include <emmintrin.h>
 
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("aes")))

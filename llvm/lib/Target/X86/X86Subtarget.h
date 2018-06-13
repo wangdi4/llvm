@@ -215,6 +215,9 @@ protected:
   /// Processor has MOVDIR64B instruction (direct store 64 bytes).
   bool HasMOVDIR64B;
 
+  /// Processor has ptwrite instruction.
+  bool HasPTWRITE;
+
   /// Processor has Prefetch with intent to Write instruction
   bool HasPREFETCHWT1;
 
@@ -356,10 +359,6 @@ protected:
   /// Processor supports CET SHSTK - Control-Flow Enforcement Technology
   /// using Shadow Stack
   bool HasSHSTK;
-
-  /// Processor supports CET IBT - Control-Flow Enforcement Technology
-  /// using Indirect Branch Tracking
-  bool HasIBT;
 
   /// Processor has Software Guard Extensions
   bool HasSGX;
@@ -593,6 +592,7 @@ public:
   bool hasCLDEMOTE() const { return HasCLDEMOTE; }
   bool hasMOVDIRI() const { return HasMOVDIRI; }
   bool hasMOVDIR64B() const { return HasMOVDIR64B; }
+  bool hasPTWRITE() const { return HasPTWRITE; }
   bool isSHLDSlow() const { return IsSHLDSlow; }
   bool isPMULLDSlow() const { return IsPMULLDSlow; }
   bool isUnalignedMem16Slow() const { return IsUAMem16Slow; }
@@ -637,7 +637,6 @@ public:
   bool hasBITALG() const { return HasBITALG; }
   bool hasMPX() const { return HasMPX; }
   bool hasSHSTK() const { return HasSHSTK; }
-  bool hasIBT() const { return HasIBT; }
   bool hasCLFLUSHOPT() const { return HasCLFLUSHOPT; }
   bool hasCLWB() const { return HasCLWB; }
   bool hasWBNOINVD() const { return HasWBNOINVD; }

@@ -1,11 +1,3 @@
-//
-// Copyright (C) 2015 Intel Corporation.  All rights reserved.
-//
-// The information and source code contained herein is the exclusive
-// property of Intel Corporation and may not be disclosed, examined
-// or reproduced in whole or in part without explicit written authorization
-// from the company.
-//
 /*===---- bmiintrin.h - BMI intrinsics -------------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -108,6 +100,7 @@ __andn_u32(unsigned int __X, unsigned int __Y)
 ///    number of bits to be extracted.
 /// \returns An unsigned integer whose least significant bits contain the
 ///    extracted bits.
+/// \see _bextr_u32
 static __inline__ unsigned int __DEFAULT_FN_ATTRS
 __bextr_u32(unsigned int __X, unsigned int __Y)
 {
@@ -132,6 +125,7 @@ __bextr_u32(unsigned int __X, unsigned int __Y)
 ///    Bits [7:0] specify the number of bits.
 /// \returns An unsigned integer whose least significant bits contain the
 ///    extracted bits.
+/// \see __bextr_u32
 static __inline__ unsigned int __DEFAULT_FN_ATTRS
 _bextr_u32(unsigned int __X, unsigned int __Y, unsigned int __Z)
 {
@@ -269,6 +263,7 @@ __andn_u64 (unsigned long long __X, unsigned long long __Y)
 ///    the number of bits to be extracted.
 /// \returns An unsigned 64-bit integer whose least significant bits contain the
 ///    extracted bits.
+/// \see _bextr_u64
 static __inline__ unsigned long long __DEFAULT_FN_ATTRS
 __bextr_u64(unsigned long long __X, unsigned long long __Y)
 {
@@ -293,6 +288,7 @@ __bextr_u64(unsigned long long __X, unsigned long long __Y)
 ///    Bits [7:0] specify the number of bits.
 /// \returns An unsigned 64-bit integer whose least significant bits contain the
 ///    extracted bits.
+/// \see __bextr_u64
 static __inline__ unsigned long long __DEFAULT_FN_ATTRS
 _bextr_u64(unsigned long long __X, unsigned int __Y, unsigned int __Z)
 {

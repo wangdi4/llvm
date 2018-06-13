@@ -77,6 +77,10 @@ struct LoopAttributes {
 
   /// \brief Value for llvm.loop.vectorize.ivdep_back metadata.
   bool IVDepBack;
+
+  /// \brief Value for llvm.loop.vector_always.enable metadata.
+  bool VectorizeAlwaysEnable;
+
 #endif // INTEL_CUSTOMIZATION
 
   /// Value for llvm.loop.vectorize.enable metadata.
@@ -210,6 +214,10 @@ public:
 
   /// \brief Set the back flag for ivdep.
   void setIVDepBack() { StagedAttrs.IVDepBack = true; }
+  /// \brief Set next pushed loop  'vector_always.enable'
+  void setVectorizeAlwaysEnable() {
+    StagedAttrs.VectorizeAlwaysEnable = true;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   /// Set the next pushed loop 'vectorize.enable'

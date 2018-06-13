@@ -96,6 +96,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
       PragmaNameLoc->Ident->getName() == "distribute_point";
   bool PragmaNoFusion = PragmaNameLoc->Ident->getName() == "nofusion";
   bool PragmaNoVector = PragmaNameLoc->Ident->getName() == "novector";
+  bool PragmaVector = PragmaNameLoc->Ident->getName() == "vector";
   bool NonLoopPragmaDistributePoint =
       PragmaDistributePoint && St->getStmtClass() != Stmt::DoStmtClass &&
       St->getStmtClass() != Stmt::ForStmtClass &&
@@ -230,6 +231,14 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
   } else if (PragmaNoVector) {
     Option = LoopHintAttr::Vectorize;
     State = LoopHintAttr::Disable;
+  } else if (PragmaVector) {
+    State = LoopHintAttr::Enable;
+    assert(OptionLoc && OptionLoc->Ident &&
+           "Attribute must have valid option info.");
+    Option = llvm::StringSwitch<LoopHintAttr::OptionType>(
+                 OptionLoc->Ident->getName())
+                 .Case("always", LoopHintAttr::VectorizeAlways)
+                 .Default(LoopHintAttr::Vectorize);
 #endif // INTEL_CUSTOMIZATION
   } else {
     // #pragma clang loop ...
@@ -324,6 +333,7 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr},
                    {nullptr, nullptr},
                    {nullptr, nullptr},
+                   {nullptr, nullptr},
 #endif // INTEL_CUSTOMIZATION
                    {nullptr, nullptr},
                    {nullptr, nullptr},
@@ -350,7 +360,7 @@ CheckForIncompatibleAttributes(Sema &S,
       Unroll,
       Distribute,
       NoFusion,
-      NoVector
+      VectorAlways,
     } Category;
 #endif // INTEL_CUSTOMIZATION
     switch (Option) {
@@ -377,6 +387,9 @@ CheckForIncompatibleAttributes(Sema &S,
       break;
     case LoopHintAttr::NoFusion:
       Category = NoFusion;
+      break;
+    case LoopHintAttr::VectorizeAlways:
+      Category = VectorAlways;
       break;
 #endif // INTEL_CUSTOMIZATION
     case LoopHintAttr::Vectorize:
@@ -438,6 +451,7 @@ CheckForIncompatibleAttributes(Sema &S,
     } else if (Option == LoopHintAttr::II ||
                Option == LoopHintAttr::LoopCoalesce ||
                Option == LoopHintAttr::MaxConcurrency ||
+               Option == LoopHintAttr::VectorizeAlways ||
                Option == LoopHintAttr::NoFusion) {
       switch (LH->getState()) {
       case LoopHintAttr::Numeric:

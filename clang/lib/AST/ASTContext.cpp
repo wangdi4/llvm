@@ -2716,14 +2716,6 @@ void ASTContext::adjustExceptionSpec(
   }
 }
 
-bool ASTContext::isParamDestroyedInCallee(QualType T) const {
-  if (getTargetInfo().getCXXABI().areArgsDestroyedLeftToRightInCallee())
-    return true;
-  if (const auto *RT = T->getBaseElementTypeUnsafe()->getAs<RecordType>())
-    return RT->getDecl()->isParamDestroyedInCallee();
-  return false;
-}
-
 /// getComplexType - Return the uniqued reference to the type for a complex
 /// number with the specified element type.
 QualType ASTContext::getComplexType(QualType T) const {
@@ -3693,6 +3685,12 @@ QualType ASTContext::getPipeType(QualType T, bool ReadOnly) const {
   return QualType(New, 0);
 }
 
+QualType ASTContext::adjustStringLiteralBaseType(QualType Ty) const {
+  // OpenCL v1.1 s6.5.3: a string literal is in the constant address space.
+  return LangOpts.OpenCL ? getAddrSpaceQualType(Ty, LangAS::opencl_constant)
+                         : Ty;
+}
+
 QualType ASTContext::getReadPipeType(QualType T) const {
   return getPipeType(T, true);
 }
@@ -4137,12 +4135,12 @@ QualType ASTContext::getCanonicalTemplateSpecializationType(
   return QualType(Spec, 0);
 }
 
-QualType
-ASTContext::getElaboratedType(ElaboratedTypeKeyword Keyword,
-                              NestedNameSpecifier *NNS,
-                              QualType NamedType) const {
+QualType ASTContext::getElaboratedType(ElaboratedTypeKeyword Keyword,
+                                       NestedNameSpecifier *NNS,
+                                       QualType NamedType,
+                                       TagDecl *OwnedTagDecl) const {
   llvm::FoldingSetNodeID ID;
-  ElaboratedType::Profile(ID, Keyword, NNS, NamedType);
+  ElaboratedType::Profile(ID, Keyword, NNS, NamedType, OwnedTagDecl);
 
   void *InsertPos = nullptr;
   ElaboratedType *T = ElaboratedTypes.FindNodeOrInsertPos(ID, InsertPos);
@@ -4157,7 +4155,8 @@ ASTContext::getElaboratedType(ElaboratedTypeKeyword Keyword,
     (void)CheckT;
   }
 
-  T = new (*this, TypeAlignment) ElaboratedType(Keyword, NNS, NamedType, Canon);
+  T = new (*this, TypeAlignment)
+      ElaboratedType(Keyword, NNS, NamedType, Canon, OwnedTagDecl);
   Types.push_back(T);
   ElaboratedTypes.InsertNode(T, InsertPos);
   return QualType(T, 0);

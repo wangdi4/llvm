@@ -1271,7 +1271,7 @@ makeStandaloneDiagnostic(const LangOptions &LangOpts,
 std::unique_ptr<llvm::MemoryBuffer>
 ASTUnit::getMainBufferWithPrecompiledPreamble(
     std::shared_ptr<PCHContainerOperations> PCHContainerOps,
-    const CompilerInvocation &PreambleInvocationIn,
+    CompilerInvocation &PreambleInvocationIn,
     IntrusiveRefCntPtr<vfs::FileSystem> VFS, bool AllowRebuild,
     unsigned MaxLines) {
   auto MainFilePath =
@@ -1339,9 +1339,18 @@ ASTUnit::getMainBufferWithPrecompiledPreamble(
     SimpleTimer PreambleTimer(WantTiming);
     PreambleTimer.setOutput("Precompiling preamble");
 
+    const bool PreviousSkipFunctionBodies =
+        PreambleInvocationIn.getFrontendOpts().SkipFunctionBodies;
+    if (SkipFunctionBodies == SkipFunctionBodiesScope::Preamble)
+      PreambleInvocationIn.getFrontendOpts().SkipFunctionBodies = true;
+
     llvm::ErrorOr<PrecompiledPreamble> NewPreamble = PrecompiledPreamble::Build(
         PreambleInvocationIn, MainFileBuffer.get(), Bounds, *Diagnostics, VFS,
         PCHContainerOps, /*StoreInMemory=*/false, Callbacks);
+
+    PreambleInvocationIn.getFrontendOpts().SkipFunctionBodies =
+        PreviousSkipFunctionBodies;
+
     if (NewPreamble) {
       Preamble = std::move(*NewPreamble);
       PreambleRebuildCounter = 1;
@@ -1692,7 +1701,7 @@ ASTUnit *ASTUnit::LoadFromCommandLine(
     ArrayRef<RemappedFile> RemappedFiles, bool RemappedFilesKeepOriginalName,
     unsigned PrecompilePreambleAfterNParses, TranslationUnitKind TUKind,
     bool CacheCodeCompletionResults, bool IncludeBriefCommentsInCodeCompletion,
-    bool AllowPCHWithCompilerErrors, bool SkipFunctionBodies,
+    bool AllowPCHWithCompilerErrors, SkipFunctionBodiesScope SkipFunctionBodies,
     bool SingleFileParse, bool UserFilesAreVolatile, bool ForSerialization,
     llvm::Optional<StringRef> ModuleFormat, std::unique_ptr<ASTUnit> *ErrAST,
     IntrusiveRefCntPtr<vfs::FileSystem> VFS) {
@@ -1725,7 +1734,8 @@ ASTUnit *ASTUnit::LoadFromCommandLine(
   // Override the resources path.
   CI->getHeaderSearchOpts().ResourceDir = ResourceFilesPath;
 
-  CI->getFrontendOpts().SkipFunctionBodies = SkipFunctionBodies;
+  CI->getFrontendOpts().SkipFunctionBodies =
+      SkipFunctionBodies == SkipFunctionBodiesScope::PreambleAndMainFile;
 
   if (ModuleFormat)
     CI->getHeaderSearchOpts().ModuleFormat = ModuleFormat.getValue();
@@ -1751,6 +1761,7 @@ ASTUnit *ASTUnit::LoadFromCommandLine(
     = IncludeBriefCommentsInCodeCompletion;
   AST->UserFilesAreVolatile = UserFilesAreVolatile;
   AST->Invocation = CI;
+  AST->SkipFunctionBodies = SkipFunctionBodies;
   if (ForSerialization)
     AST->WriterData.reset(new ASTWriterData(*AST->PCMCache));
   // Zero out now to ease cleanup during crash recovery.

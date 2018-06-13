@@ -33,6 +33,9 @@ def warn_multiple_ivdep_clause : Warning<
 def warn_invalid_ivdep_combination : Warning<
   "%select{'loop'|'back'}0 may not appear in '#pragma ivdep' here - ignored">,
   InGroup<IgnoredPragmas>;
+def warn_pragma_vector_invalid_option : Warning<
+  "%select{invalid|missing}0 option%select{ %1|}0; expected always - ignored">,
+  InGroup<IgnoredPragmas>;
 
 // CQ#364426
 def warn_empty_enum : Warning<"use of empty enum">, InGroup<IntelCompat>;
