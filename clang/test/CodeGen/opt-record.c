@@ -1,8 +1,8 @@
 // INTEL - added -mllvm -enable-lv
-// RUN: %clang_cc1 -O3 -mllvm -enable-lv -triple x86_64-unknown-linux-gnu -target-cpu x86-64 %s -o %t -dwarf-column-info -opt-record-file %t.yaml -emit-obj
+// RUN: %clang_cc1 -O3 -mllvm -enable-lv -mllvm -loopopt=0 -triple x86_64-unknown-linux-gnu -target-cpu x86-64 %s -o %t -dwarf-column-info -opt-record-file %t.yaml -emit-obj
 // RUN: cat %t.yaml | FileCheck %s
 // RUN: llvm-profdata merge %S/Inputs/opt-record.proftext -o %t.profdata
-// RUN: %clang_cc1 -O3 -mllvm -enable-lv -triple x86_64-unknown-linux-gnu -target-cpu x86-64 -fprofile-instrument-use-path=%t.profdata %s -o %t -dwarf-column-info -opt-record-file %t.yaml -emit-obj
+// RUN: %clang_cc1 -O3 -mllvm -enable-lv -mllvm -loopopt=0 -triple x86_64-unknown-linux-gnu -target-cpu x86-64 -fprofile-instrument-use-path=%t.profdata %s -o %t -dwarf-column-info -opt-record-file %t.yaml -emit-obj
 // RUN: cat %t.yaml | FileCheck -check-prefix=CHECK -check-prefix=CHECK-PGO %s
 // REQUIRES: x86-registered-target
 
