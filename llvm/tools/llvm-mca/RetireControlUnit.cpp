@@ -1,6 +1,19 @@
+//===---------------------- RetireControlUnit.cpp ---------------*- C++ -*-===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+///
+/// This file implements methods declared by the RetireControlUnit interface.
+///
+//===----------------------------------------------------------------------===//
+
 #include "Dispatch.h"
 #include "RetireControlUnit.h"
-#include "llvm/MC/MCSchedule.h"
 #include "llvm/Support/Debug.h"
 
 using namespace llvm;
@@ -28,7 +41,8 @@ RetireControlUnit::RetireControlUnit(const llvm::MCSchedModel &SM,
 }
 
 // Reserves a number of slots, and returns a new token.
-unsigned RetireControlUnit::reserveSlot(unsigned Index, unsigned NumMicroOps) {
+unsigned RetireControlUnit::reserveSlot(const InstRef &IR,
+                                        unsigned NumMicroOps) {
   assert(isAvailable(NumMicroOps));
   unsigned NormalizedQuantity =
       std::min(NumMicroOps, static_cast<unsigned>(Queue.size()));
@@ -37,7 +51,7 @@ unsigned RetireControlUnit::reserveSlot(unsigned Index, unsigned NumMicroOps) {
   // resources, they still consume one slot in the retire queue.
   NormalizedQuantity = std::max(NormalizedQuantity, 1U);
   unsigned TokenID = NextAvailableSlotIdx;
-  Queue[NextAvailableSlotIdx] = {Index, NormalizedQuantity, false};
+  Queue[NextAvailableSlotIdx] = {IR, NormalizedQuantity, false};
   NextAvailableSlotIdx += NormalizedQuantity;
   NextAvailableSlotIdx %= Queue.size();
   AvailableSlots -= NormalizedQuantity;
@@ -54,9 +68,10 @@ void RetireControlUnit::cycleEvent() {
       break;
     RUToken &Current = Queue[CurrentInstructionSlotIdx];
     assert(Current.NumSlots && "Reserved zero slots?");
+    assert(Current.IR.isValid() && "Invalid RUToken in the RCU queue.");
     if (!Current.Executed)
       break;
-    Owner->notifyInstructionRetired(Current.Index);
+    Owner->notifyInstructionRetired(Current.IR);
     CurrentInstructionSlotIdx += Current.NumSlots;
     CurrentInstructionSlotIdx %= Queue.size();
     AvailableSlots += Current.NumSlots;
@@ -66,7 +81,7 @@ void RetireControlUnit::cycleEvent() {
 
 void RetireControlUnit::onInstructionExecuted(unsigned TokenID) {
   assert(Queue.size() > TokenID);
-  assert(Queue[TokenID].Executed == false && Queue[TokenID].Index != ~0U);
+  assert(Queue[TokenID].Executed == false && Queue[TokenID].IR.isValid());
   Queue[TokenID].Executed = true;
 }
 

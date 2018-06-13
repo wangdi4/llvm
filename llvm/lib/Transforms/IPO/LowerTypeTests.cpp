@@ -1026,7 +1026,7 @@ void LowerTypeTestsModule::lowerTypeTestCalls(
   for (Metadata *TypeId : TypeIds) {
     // Build the bitset.
     BitSetInfo BSI = buildBitSet(TypeId, GlobalLayout);
-    DEBUG({
+    LLVM_DEBUG({
       if (auto MDS = dyn_cast<MDString>(TypeId))
         dbgs() << MDS->getString() << ": ";
       else
@@ -1272,12 +1272,6 @@ void LowerTypeTestsModule::createJumpTable(
     createJumpTableEntry(AsmOS, ConstraintOS, JumpTableArch, AsmArgs,
                          cast<Function>(Functions[I]->getGlobal()));
 
-  // Try to emit the jump table at the end of the text segment.
-  // Jump table must come after __cfi_check in the cross-dso mode.
-  // FIXME: this magic section name seems to do the trick.
-  F->setSection(ObjectFormat == Triple::MachO
-                    ? "__TEXT,__text,regular,pure_instructions"
-                    : ".text.cfi");
   // Align the whole table by entry size.
   F->setAlignment(getJumpTableEntrySize());
   // Skip prologue.
