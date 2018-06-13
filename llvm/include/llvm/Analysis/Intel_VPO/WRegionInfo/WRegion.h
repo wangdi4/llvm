@@ -119,6 +119,7 @@ private:
   WRNDefaultKind Default;
   WRNProcBindKind ProcBind;
   SmallVector<Instruction *, 2> CancellationPoints;
+  SmallVector<AllocaInst *, 2> CancellationPointAllocas;
 
 public:
   WRNParallelNode(BasicBlock *BB);
@@ -144,6 +145,12 @@ public:
     return CancellationPoints;
   }
   void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
+  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const {
+    return CancellationPointAllocas;
+  }
+  void addCancellationPointAlloca(AllocaInst *I) {
+    CancellationPointAllocas.push_back(I);
+  }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -176,6 +183,7 @@ private:
   int Ordered;
   WRNLoopInfo WRNLI;
   SmallVector<Instruction *, 2> CancellationPoints;
+  SmallVector<AllocaInst *, 2> CancellationPointAllocas;
 
 public:
   WRNParallelLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -209,6 +217,12 @@ public:
     return CancellationPoints;
   }
   void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
+  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const {
+    return CancellationPointAllocas;
+  }
+  void addCancellationPointAlloca(AllocaInst *I) {
+    CancellationPointAllocas.push_back(I);
+  }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -237,6 +251,7 @@ private:
   WRNProcBindKind ProcBind;
   WRNLoopInfo WRNLI;
   SmallVector<Instruction *, 2> CancellationPoints;
+  SmallVector<AllocaInst *, 2> CancellationPointAllocas;
 
 public:
   WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *L);
@@ -264,6 +279,12 @@ public:
     return CancellationPoints;
   }
   void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
+  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const {
+    return CancellationPointAllocas;
+  }
+  void addCancellationPointAlloca(AllocaInst *I) {
+    CancellationPointAllocas.push_back(I);
+  }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -653,6 +674,7 @@ private:
   bool Mergeable;
   unsigned TaskFlag; // flag bit vector used to invoke tasking RTL
   SmallVector<Instruction *, 2> CancellationPoints;
+  SmallVector<AllocaInst *, 2> CancellationPointAllocas;
 
 public:
   WRNTaskNode(BasicBlock *BB);
@@ -684,6 +706,12 @@ public:
     return CancellationPoints;
   }
   void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
+  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const {
+    return CancellationPointAllocas;
+  }
+  void addCancellationPointAlloca(AllocaInst *I) {
+    CancellationPointAllocas.push_back(I);
+  }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -873,6 +901,7 @@ private:
   bool Nowait;
   WRNLoopInfo WRNLI;
   SmallVector<Instruction *, 2> CancellationPoints;
+  SmallVector<AllocaInst *, 2> CancellationPointAllocas;
 
 public:
   WRNWksLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -898,6 +927,12 @@ public:
     return CancellationPoints;
   }
   void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
+  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const {
+    return CancellationPointAllocas;
+  }
+  void addCancellationPointAlloca(AllocaInst *I) {
+    CancellationPointAllocas.push_back(I);
+  }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -922,6 +957,7 @@ private:
   bool Nowait;
   WRNLoopInfo WRNLI;
   SmallVector<Instruction *, 2> CancellationPoints;
+  SmallVector<AllocaInst *, 2> CancellationPointAllocas;
 
 public:
   WRNSectionsNode(BasicBlock *BB, LoopInfo *L);
@@ -942,6 +978,12 @@ public:
     return CancellationPoints;
   }
   void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
+  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const {
+    return CancellationPointAllocas;
+  }
+  void addCancellationPointAlloca(AllocaInst *I) {
+    CancellationPointAllocas.push_back(I);
+  }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;

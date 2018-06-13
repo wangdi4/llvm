@@ -936,16 +936,39 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     assert(canHaveCancellationPoints() &&
            "CANCELLATION.POINTS is not supported on this construct");
     for (unsigned I = 0; I < NumArgs; ++I) {
-      auto *V = dyn_cast<Instruction>(Args[I]);
+      assert(isa<AllocaInst>(Args[I]) &&
+             "Unexpected operand in CANCELLATION.POINTS bundle.");
+      auto *CPAlloca = cast<AllocaInst>(Args[I]);
+      addCancellationPointAlloca(CPAlloca);
 
-      // Cancellation point may have been removed/replaced with undef by
-      // some dead-code elimination optimization e.g.
-      // if (expr)
-      //   %1 = _kmpc_cancel(...)
+      // Cancellation Points in the IR look like:
       //
-      // 'expr' may be always false, and %1 can be optimized away.
-      if (V)
-        addCancellationPoint(V);
+      // %cp = alloca i32            ; CPAlloca
+      // ...
+      // llvm.region.entry(...) [..."QUAL.OMP.CANCELLATION.POINTS"(%cp) ]
+      // ...
+      // %1 = __kmpc_cancel(...)     ; CancellationPoint
+      // store %1, %cp               ; CPStore
+      // ...
+      for (auto &CPUse : CPAlloca->uses()) {
+        User *CPUser = CPUse.getUser();
+        if (StoreInst *CPStore = dyn_cast<StoreInst>(CPUser)) {
+          Value *CancellationPoint = CPStore->getValueOperand();
+          // Cancellation point may have been removed/replaced with undef by
+          // some dead-code elimination optimization e.g.
+          // if (expr)
+          //   %1 = _kmpc_cancel(...)
+          //
+          // 'expr' may be always false, and %1 can be optimized away.
+          if (!CancellationPoint)
+            continue;
+
+          assert(isa<CallInst>(CancellationPoint) &&
+                 "Cancellation Point is not a Call.");
+
+          addCancellationPoint(cast<CallInst>(CancellationPoint));
+        }
+      }
     }
     break;
   }
@@ -1097,23 +1120,15 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   }
 }
 
-void WRegionNode::getClausesFromOperandBundles(bool RegionExit) {
+void WRegionNode::getClausesFromOperandBundles() {
 
   Instruction *I;
 
-  if (!RegionExit) {
-    // Under the directive.region.entry/exit representation the intrinsic
-    // is alone in the EntryBB, so EntryBB->front() is the intrinsic call
-    I = &(getEntryBBlock()->front());
-    assert(isa<IntrinsicInst>(I) &&
-           "Call not found for directive.region.entry()");
-  } else {
-    // ExitBB can have PHIs, so we get the first non-PHI to access the
-    // directive.region.exit intrinsic.
-    I = getExitBBlock()->getFirstNonPHI();
-    assert(isa<IntrinsicInst>(I) &&
-           "Call not found for directive.region.exit()");
-  }
+  // Under the directive.region.entry/exit representation the intrinsic
+  // is alone in the EntryBB, so EntryBB->front() is the intrinsic call
+  I = &(getEntryBBlock()->front());
+  assert(isa<IntrinsicInst>(I) &&
+         "Call not found for directive.region.entry()");
 
   IntrinsicInst *Call = cast<IntrinsicInst>(I);
   unsigned i, NumOB = Call->getNumOperandBundles();

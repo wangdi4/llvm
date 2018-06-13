@@ -174,9 +174,7 @@ protected:
 
   /// \brief Update WRN for clauses from the OperandBundles under the
   /// directive.region.entry/exit representation
-  /// If \p RegionExit is \b true, process the 'region.exit' intrinsic,
-  /// otherwise process 'region.entry'.
-  void getClausesFromOperandBundles(bool RegionExit = false);
+  void getClausesFromOperandBundles();
 
 public:
   /// \brief Functions to check if the WRN allows a given clause type
@@ -325,6 +323,13 @@ public:
   }
   virtual void addCancellationPoint(Instruction *V) {
     WRNERROR("CANCELLATION_POINTS");
+  }
+  virtual const SmallVectorImpl<AllocaInst *> &
+  getCancellationPointAllocas() const {
+    WRNERROR("CANCELLATION_POINT_ALLOCAS");
+  }
+  virtual void addCancellationPointAlloca(AllocaInst *V) {
+    WRNERROR("CANCELLATION_POINT_ALLOCAS");
   }
   virtual WRNProcBindKind getProcBind()   const {WRNERROR("PROC_BIND");       }
   virtual void setSafelen(int N)                {WRNERROR(QUAL_OMP_SAFELEN);  }

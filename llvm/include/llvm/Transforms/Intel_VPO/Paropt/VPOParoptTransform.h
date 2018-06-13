@@ -615,8 +615,8 @@ private:
   bool genCancelCode(WRNCancelNode *W);
 
   /// \brief Add any cancellation points within \p W's body, to its
-  /// `region.exit` directive. This is done in the VPOParoptPrepare pass, and is
-  /// later consumed by the VPOParoptTransform pass.
+  /// `region.entry` directive. This is done in the vpo-paropt-prepare pass, and
+  /// is later consumed by the vpo-paropt transformation pass.
   ///
   /// A `cancellation point` can be one of these calls:
   /// \code
@@ -626,9 +626,45 @@ private:
   /// \endcode
   ///
   /// The IR after the transformation looks like:
-  /// call void @llvm.directive.region.exit(...) [ ...,
-  /// "QUAL.OMP.CANCELLATION.POINTS"(i32 %1, %2, %3) ]
+  /// \code
+  ///   %cp1 = alloca i32
+  ///   %cp2 = alloca i32
+  ///   %cp3 = alloca i32
+  ///   ...
+  ///   %0 = call token @llvm.directive.region.entry(...) [...,
+  ///   "QUAL.OMP.CANCELLATION.POINTS"(%cp1, %cp2, %cp3) ]
+  ///   ...
+  ///   %1 = __kmpc_cancel_barrier(...)
+  ///   store %1, %cp1
+  ///   %2 = __kmpc_cancel(...)
+  ///   store %1, %cp2
+  ///   %3 = __kmpc_cancellationpoint(...)
+  ///   store %1, %cp3
+  ///
+  ///   call void @llvm.directive.region.exit(%0)
+  /// \endcode
   bool propagateCancellationPointsToIR(WRegionNode *W);
+
+  /// Removes from IR, the allocas and stores created by
+  /// propagateCancellationPointsToIR(). This is done in the vpo-paropt
+  /// transformation pass after the information has already been consumed. The
+  /// function also removes these allocas from the
+  /// "QUAL.OMP.CANCELLATION.POINTS" clause on the region.entry intrinsic.
+  ///
+  /// \code
+  ///       Before                      |     After
+  ///  ---------------------------------+------------------------------------
+  ///  %cp = alloca i32                 |   <deleted>
+  ///  ...                              |   ...
+  ///                                   |
+  ///  directive.region.entry(...%cp...)|   directive.region.entry(...null...)
+  ///                                   |
+  ///  %x = kmpc_cancel(...)            |   %x = kmpc_cancel(...)
+  ///  store %x, %cp                    |   <deleted>
+  ///  ...                              |   ...
+  ///                                   |
+  /// \endcode
+  bool clearCancellationPointAllocasFromIR(WRegionNode *W);
 
   /// \brief Generate branches to jump to the end of a construct from
   /// every cancellation point within the construct.
