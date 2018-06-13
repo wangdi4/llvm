@@ -96,12 +96,12 @@ HIRFramework HIRFrameworkAnalysis::run(Function &F,
       AM.getResult<ScalarEvolutionAnalysis>(F), AM.getResult<AAManager>(F),
       AM.getResult<HIRRegionIdentificationAnalysis>(F),
       AM.getResult<HIRSCCFormationAnalysis>(F),
-      AM.getResult<OptReportOptionsAnalysis>(F).getLoopOptReportVerbosity(),
+      AM.getResult<OptReportOptionsAnalysis>(F).getVerbosity(),
       HIRAnalysisProvider(
           [&]() { return AM.getCachedResult<HIRDDAnalysisPass>(F); },
           [&]() { return AM.getCachedResult<HIRLoopLocalityAnalysis>(F); },
           [&]() { return AM.getCachedResult<HIRLoopResourceAnalysis>(F); },
-          [&]() { return &AM.getResult<HIRLoopStatisticsAnalysis>(F); },
+          [&]() { return AM.getCachedResult<HIRLoopStatisticsAnalysis>(F); },
           [&]() { return AM.getCachedResult<HIRSafeReductionAnalysisPass>(F); },
           [&]() { return nullptr; }));
 }
@@ -156,7 +156,7 @@ bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
       getAnalysis<AAResultsWrapperPass>().getAAResults(),
       getAnalysis<HIRRegionIdentificationWrapperPass>().getRI(),
       getAnalysis<HIRSCCFormationWrapperPass>().getSCCF(),
-      getAnalysis<OptReportOptionsPass>().getLoopOptReportVerbosity(),
+      getAnalysis<OptReportOptionsPass>().getVerbosity(),
       HIRAnalysisProvider(
           [&]() {
             auto *Wrapper =
@@ -300,7 +300,7 @@ struct HIRFramework::MaxTripCountEstimator final : public HLNodeVisitorBase {
   void visit(HLDDNode *Node);
 
   void visit(RegDDRef *Ref, HLDDNode *Node);
-  void visit(CanonExpr *CE, ArrayType *ArrTy, HLDDNode *Node);
+  void visit(CanonExpr *CE, unsigned NumElements, HLDDNode *Node);
 };
 
 void HIRFramework::MaxTripCountEstimator::visit(HLLoop *Lp) {
@@ -346,7 +346,7 @@ void HIRFramework::MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
   // Highest dimension is intentionally skipped as it doesn't contain
   // information about number of elements.
   for (unsigned I = 1; I < NumDims; ++I) {
-    visit(Ref->getDimensionIndex(I), cast<ArrayType>(Ref->getDimensionType(I)),
+    visit(Ref->getDimensionIndex(I), Ref->getNumDimensionElements(I),
           Node);
   }
 
@@ -368,24 +368,19 @@ void HIRFramework::MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
   auto BaseVal =
       BaseCE->getBlobUtils().getTempBlobValue(BaseCE->getSingleBlobIndex());
 
-  auto ArrTy = HIRF->PhaseParser->traceBackToArrayType(BaseVal);
+  auto NumElements = HIRF->PhaseParser->getPointerDimensionSize(BaseVal);
 
-  if (ArrTy) {
-    visit(HighestCE, ArrTy, Node);
+  if (NumElements) {
+    visit(HighestCE, NumElements, Node);
   }
 }
 
-void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE, ArrayType *ArrTy,
+void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE,
+                                                unsigned NumElements,
                                                 HLDDNode *Node) {
 
   // We cannot estimate the iteration space of the IV with a varying blob.
   if (CE->isNonLinear() || !CE->hasIV()) {
-    return;
-  }
-
-  uint64_t NumElements = ArrTy->getNumElements();
-
-  if (!NumElements) {
     return;
   }
 

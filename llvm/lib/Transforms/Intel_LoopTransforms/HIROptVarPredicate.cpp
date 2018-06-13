@@ -66,11 +66,11 @@
 //     a "self-IV".
 //
 //===----------------------------------------------------------------------===//
+#include "llvm/Transforms/Intel_LoopTransforms/HIROptVarPredicate.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
-
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
@@ -80,6 +80,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
@@ -106,27 +107,17 @@ STATISTIC(LoopsSplit, "Loops split during optimization of predicates.");
 
 namespace {
 
-class HIROptVarPredicate : public HIRTransformPass {
-  HIRFramework *HIR;
-  HLNodeUtils *HLNodeUtilsObj;
-  BlobUtils *BlobUtilsObj;
+class HIROptVarPredicate {
+  HIRFramework &HIRF;
+  BlobUtils &BU;
 
   SmallPtrSet<HLNode *, 8> NodesToInvalidate;
 
 public:
-  static char ID;
+  HIROptVarPredicate(HIRFramework &HIRF)
+      : HIRF(HIRF), BU(HIRF.getBlobUtils()) {}
 
-  HIROptVarPredicate() : HIRTransformPass(ID) {
-    initializeHIROptVarPredicatePass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.setPreservesAll();
-  }
+  bool run();
 
 private:
   static std::unique_ptr<CanonExpr>
@@ -161,15 +152,6 @@ private:
                              LoopOptReportBuilder &LORBuilder);
 };
 } // namespace
-
-char HIROptVarPredicate::ID = 0;
-INITIALIZE_PASS_BEGIN(HIROptVarPredicate, OPT_SWITCH, OPT_DESC, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIROptVarPredicate, OPT_SWITCH, OPT_DESC, false, false)
-
-FunctionPass *llvm::createHIROptVarPredicatePass() {
-  return new HIROptVarPredicate();
-}
 
 class IfLookup final : public HLNodeVisitorBase {
   SmallVectorImpl<HLIf *> &Candidates;
@@ -367,20 +349,16 @@ std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
   return std::move(Result);
 }
 
-bool HIROptVarPredicate::runOnFunction(Function &F) {
-  if (skipFunction(F) || DisablePass) {
+bool HIROptVarPredicate::run() {
+  if (DisablePass) {
     return false;
   }
 
   LLVM_DEBUG(dbgs() << "Optimization of Variant Predicates Function: "
-                    << F.getName() << "\n");
-
-  HIR = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HLNodeUtilsObj = &HIR->getHLNodeUtils();
-  BlobUtilsObj = &HIR->getBlobUtils();
+                    << HIRF.getFunction().getName() << "\n");
 
   ForPostEach<HLLoop>::visitRange(
-      HIR->hir_begin(), HIR->hir_end(), [this](HLLoop *Loop) {
+      HIRF.hir_begin(), HIRF.hir_end(), [this](HLLoop *Loop) {
         // Opt on non-innermost loops is likely to cause degradations.
         if (!DisableCostModel && !Loop->isInnermost()) {
           return;
@@ -416,8 +394,7 @@ BlobTy HIROptVarPredicate::castBlob(BlobTy Blob, Type *DesiredType,
     return Blob;
   }
 
-  return BlobUtilsObj->createCastBlob(Blob, IsSigned, DesiredType, true,
-                                      &BlobIndex);
+  return BU.createCastBlob(Blob, IsSigned, DesiredType, true, &BlobIndex);
 }
 
 void HIROptVarPredicate::setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob,
@@ -433,7 +410,7 @@ void HIROptVarPredicate::setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob,
     CE->setBlobCoeff(BlobIndex, 1);
 
     if (BlobUtils::isTempBlob(Blob)) {
-      Ref->setSymbase(BlobUtilsObj->findTempBlobSymbase(Blob));
+      Ref->setSymbase(BU.findTempBlobSymbase(Blob));
     } else {
       Ref->setSymbase(GenericRvalSymbase);
     }
@@ -458,11 +435,9 @@ void HIROptVarPredicate::makeBlobsTypeConsistent(BlobTy &BlobA, BlobTy &BlobB,
 
   unsigned BlobIndex;
   if (IsSigned) {
-    BlobA =
-        BlobUtilsObj->createSignExtendBlob(BlobA, BiggerType, true, &BlobIndex);
+    BlobA = BU.createSignExtendBlob(BlobA, BiggerType, true, &BlobIndex);
   } else {
-    BlobA =
-        BlobUtilsObj->createZeroExtendBlob(BlobA, BiggerType, true, &BlobIndex);
+    BlobA = BU.createZeroExtendBlob(BlobA, BiggerType, true, &BlobIndex);
   }
 }
 
@@ -475,11 +450,9 @@ void HIROptVarPredicate::updateLoopUpperBound(HLLoop *Loop, BlobTy UpperBlob,
   BlobTy MinBlob;
 
   if (IsSigned) {
-    MinBlob = BlobUtilsObj->createSMinBlob(SplitPointBlob, UpperBlob, true,
-                                           &MinBlobIndex);
+    MinBlob = BU.createSMinBlob(SplitPointBlob, UpperBlob, true, &MinBlobIndex);
   } else {
-    MinBlob = BlobUtilsObj->createUMinBlob(SplitPointBlob, UpperBlob, true,
-                                           &MinBlobIndex);
+    MinBlob = BU.createUMinBlob(SplitPointBlob, UpperBlob, true, &MinBlobIndex);
   }
 
   MinBlob = castBlob(MinBlob, Loop->getIVType(), IsSigned, MinBlobIndex);
@@ -496,11 +469,9 @@ void HIROptVarPredicate::updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
   BlobTy MaxBlob;
 
   if (IsSigned) {
-    MaxBlob = BlobUtilsObj->createSMaxBlob(SplitPointBlob, LowerBlob, true,
-                                           &MaxBlobIndex);
+    MaxBlob = BU.createSMaxBlob(SplitPointBlob, LowerBlob, true, &MaxBlobIndex);
   } else {
-    MaxBlob = BlobUtilsObj->createUMaxBlob(SplitPointBlob, LowerBlob, true,
-                                           &MaxBlobIndex);
+    MaxBlob = BU.createUMaxBlob(SplitPointBlob, LowerBlob, true, &MaxBlobIndex);
   }
 
   MaxBlob = castBlob(MaxBlob, Loop->getIVType(), IsSigned, MaxBlobIndex);
@@ -596,29 +567,28 @@ void HIROptVarPredicate::splitLoop(
   HLLoop *SecondLoop = Loop->clone(&CloneMapper);
   HLIf *CandidateClone = CloneMapper.getMapped(Candidate);
 
-  HLNodeUtilsObj->insertAfter(Loop, SecondLoop);
+  HLNodeUtils::insertAfter(Loop, SecondLoop);
 
   // Replace HIf with the statement body
   if (!ThenContainer.empty()) {
-    HLNodeUtilsObj->insertAfter(Candidate, &ThenContainer);
+    HLNodeUtils::insertAfter(Candidate, &ThenContainer);
   }
 
   if (!ElseContainer.empty()) {
     HIRTransformUtils::remapLabelsRange(CloneMapper, &ElseContainer.front(),
                                         &ElseContainer.back());
-    HLNodeUtilsObj->insertAfter(CandidateClone, &ElseContainer);
+    HLNodeUtils::insertAfter(CandidateClone, &ElseContainer);
   }
 
   HLNodeUtils::remove(Candidate);
   HLNodeUtils::remove(CandidateClone);
 
   // %b
-  BlobTy SplitPointBlob =
-      BlobUtilsObj->getBlob(SplitPoint->getSingleBlobIndex());
+  BlobTy SplitPointBlob = BU.getBlob(SplitPoint->getSingleBlobIndex());
   // %UB
-  BlobTy UpperBlob = BlobUtilsObj->getBlob(UpperCE->getSingleBlobIndex());
+  BlobTy UpperBlob = BU.getBlob(UpperCE->getSingleBlobIndex());
   // %LB
-  BlobTy LowerBlob = BlobUtilsObj->getBlob(LowerCE->getSingleBlobIndex());
+  BlobTy LowerBlob = BU.getBlob(LowerCE->getSingleBlobIndex());
 
   // Clone is required as we will be updating *Loop* upper ref and will be using
   // original ref to make it consistent.
@@ -635,13 +605,13 @@ void HIROptVarPredicate::splitLoop(
     SecondLoop->getUpperDDRef()->makeConsistent(&Aux, Level);
 
     // %b + 1
-    BlobTy SplitPointPlusBlob = BlobUtilsObj->createAddBlob(
-        SplitPointBlob, BlobUtilsObj->createBlob(1, SplitPointBlob->getType()));
+    BlobTy SplitPointPlusBlob = BU.createAddBlob(
+        SplitPointBlob, BU.createBlob(1, SplitPointBlob->getType()));
 
     updateLoopLowerBound(ThirdLoop, LowerBlob, SplitPointPlusBlob, IsSigned);
 
     if (!isLoopRedundant(ThirdLoop)) {
-      HLNodeUtilsObj->insertAfter(SecondLoop, ThirdLoop);
+      HLNodeUtils::insertAfter(SecondLoop, ThirdLoop);
       ThirdLoop->getLowerDDRef()->makeConsistent(&Aux, Level);
 
       ThirdLoop->createZtt(false, true);
@@ -651,8 +621,8 @@ void HIROptVarPredicate::splitLoop(
   }
 
   // %b - 1
-  BlobTy SplitPointMinusBlob = BlobUtilsObj->createMinusBlob(
-      SplitPointBlob, BlobUtilsObj->createBlob(1, SplitPointBlob->getType()));
+  BlobTy SplitPointMinusBlob = BU.createMinusBlob(
+      SplitPointBlob, BU.createBlob(1, SplitPointBlob->getType()));
 
   updateLoopUpperBound(Loop, UpperBlob, SplitPointMinusBlob, IsSigned);
   updateLoopLowerBound(SecondLoop, LowerBlob, SplitPointBlob, IsSigned);
@@ -726,8 +696,8 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
     return false;
   }
 
-  if (Loop->hasUnrollEnablingPragma()) {
-    LLVM_DEBUG(dbgs() << "Loop with unroll pragma skipped\n");
+  if (Loop->hasUnrollEnablingPragma() || Loop->hasVectorizeEnablingPragma()) {
+    LLVM_DEBUG(dbgs() << "Loop with unroll/vector pragma skipped\n");
     return false;
   }
 
@@ -822,4 +792,44 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
   return false;
 }
 
-void HIROptVarPredicate::releaseMemory() { NodesToInvalidate.clear(); }
+PreservedAnalyses
+HIROptVarPredicatePass::run(llvm::Function &F,
+                            llvm::FunctionAnalysisManager &AM) {
+  HIROptVarPredicate(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+  return PreservedAnalyses::all();
+}
+
+class HIROptVarPredicateLegacyPass : public HIRTransformPass {
+public:
+  static char ID;
+
+  HIROptVarPredicateLegacyPass() : HIRTransformPass(ID) {
+    initializeHIROptVarPredicateLegacyPassPass(
+        *PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesAll();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+  }
+
+  bool runOnFunction(Function &F) override {
+    if (skipFunction(F)) {
+      return false;
+    }
+
+    return HIROptVarPredicate(getAnalysis<HIRFrameworkWrapperPass>().getHIR())
+        .run();
+  }
+};
+
+char HIROptVarPredicateLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIROptVarPredicateLegacyPass, OPT_SWITCH, OPT_DESC, false,
+                      false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_END(HIROptVarPredicateLegacyPass, OPT_SWITCH, OPT_DESC, false,
+                    false)
+
+FunctionPass *llvm::createHIROptVarPredicatePass() {
+  return new HIROptVarPredicateLegacyPass();
+}

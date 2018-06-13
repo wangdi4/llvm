@@ -110,8 +110,12 @@ void HLSwitch::print(formatted_raw_ostream &OS, unsigned Depth,
   auto Ref = getConditionDDRef();
   Ref ? Ref->print(OS, Detailed) : (void)(OS << Ref);
 
-  OS << ")\n";
+  OS << ")";
+  printDistributePoint(OS);
+
+  OS << "\n";
   indent(OS, Depth);
+
   OS << "{\n";
 
   /// Print cases

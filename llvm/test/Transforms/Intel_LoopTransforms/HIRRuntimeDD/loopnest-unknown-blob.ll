@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -disable-output -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that the inner loop is multiversioned, while outer loops can not be transformed because of unknown %k.
 
@@ -12,7 +13,7 @@
 ;      + END LOOP
 ; END REGION
 
-; CHECK: After
+; CHECK: Function
 ; CHECK: %mv.test = &((%b)[zext.i32.i64(%n) + -1]) >=u &((%a)[-1 * (-1 + (-1 * smax(-1, (-1 + (-1 * sext.i32.i64(%k)))))) + (zext.i32.i64(%n) * (-1 + (-1 * smax(-1, (-1 + (-1 * sext.i32.i64(%k)))))))]);
 ; CHECK: %mv.test2 = &((%a)[zext.i32.i64(%n) + -1 * smax(0, sext.i32.i64(%k)) + (zext.i32.i64(%n) * smax(0, sext.i32.i64(%k))) + -1]) >=u &((%b)[0]);
 ; CHECK: %mv.and = %mv.test  &&  %mv.test2;

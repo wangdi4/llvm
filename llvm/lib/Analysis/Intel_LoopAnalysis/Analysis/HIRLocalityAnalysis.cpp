@@ -313,7 +313,8 @@ void HIRLoopLocality::computeNumNoLocalityCacheLines(LocalityInfo &LI,
     }
 
     auto DimSize = Ref->getDimensionSize(I);
-    // Dimension size is not available for pointer dimension.
+    // Dimension size is not available for pointer dimension
+    // and variable size arrays
     if (DimSize == 0) {
       // Use info from the CE to construct a more accurate stride.
       int64_t Coeff;
@@ -373,7 +374,7 @@ void HIRLoopLocality::computeNumTempInvCacheLines(LocalityInfo &LI,
 
   auto Ref = RefGroup.front();
   auto RefSize =
-      Ref->getCanonExprUtils().getTypeSizeInBits(Ref->getDestType()) / 8;
+      Ref->getCanonExprUtils().getTypeSizeInBytes(Ref->getDestType());
 
   updateTotalStrideAndRefs(LI, RefGroup, 0);
 
@@ -667,12 +668,14 @@ void HIRLoopLocality::populateTemporalLocalityGroups(
     SmallSet<unsigned, 8> *UniqueGroupSymbases) {
   assert(Lp && " Loop parameter is null!");
 
-  LocalityRefGatherer::MapTy MemRefMap;
+  typedef DDRefGatherer<const RegDDRef, MemRefs | FakeRefs> MemRefGatherer;
 
-  LocalityRefGatherer::gatherRange(Lp->child_begin(), Lp->child_end(),
+  MemRefGatherer::MapTy MemRefMap;
+
+  MemRefGatherer::gatherRange(Lp->child_begin(), Lp->child_end(),
                                    MemRefMap);
 
-  LocalityRefGatherer::sort(MemRefMap);
+  MemRefGatherer::sort(MemRefMap);
 
   DDRefGrouping::groupMap(TemporalGroups, MemRefMap,
                           std::bind(isTemporalMatch, std::placeholders::_1,

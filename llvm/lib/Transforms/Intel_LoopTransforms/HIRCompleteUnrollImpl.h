@@ -12,8 +12,8 @@
 // Complete unroll pass.
 //
 //===----------------------------------------------------------------------===//
-#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRCOMPLETE_UNROLL_H
-#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRCOMPLETE_UNROLL_H
+#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRCOMPLETE_UNROLLIMPL_H
+#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRCOMPLETE_UNROLLIMPL_H
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -44,14 +44,14 @@ struct UnrollThresholds {
   float MaxThresholdScalingFactor;
 };
 
-class HIRCompleteUnroll : public HIRTransformPass {
+class HIRCompleteUnroll {
 public:
-  HIRCompleteUnroll(char &ID, unsigned OptLevel, bool IsPreVec);
+  HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
+                    const TargetTransformInfo &TTI, HIRLoopStatistics &HLS,
+                    HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &HSRA,
+                    unsigned OptLevel, bool IsPreVec);
 
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  bool run();
 
   typedef DDRefGatherer<const RegDDRef, MemRefs> MemRefGatherer;
 
@@ -62,11 +62,12 @@ private:
   struct CanonExprUpdater;
   class ProfitabilityAnalyzer;
 
-  DominatorTree *DT;
-  const TargetTransformInfo *TTI;
-  HIRLoopStatistics *HLS;
-  HIRDDAnalysis *DDA;
-  HIRSafeReductionAnalysis *HSRA;
+  HIRFramework &HIRF;
+  DominatorTree &DT;
+  const TargetTransformInfo &TTI;
+  HIRLoopStatistics &HLS;
+  HIRDDAnalysis &DDA;
+  HIRSafeReductionAnalysis &HSRA;
 
   /// Indicates whether we are in pre or post vec mode.
   bool IsPreVec;
@@ -139,6 +140,22 @@ private:
   /// Routine to drive the transformation of candidate loops.
   void transformLoops();
 };
+
+class HIRCompleteUnrollLegacyPass : public HIRTransformPass {
+  unsigned OptLevel;
+  bool IsPreVec;
+
+public:
+  static char ID;
+
+  HIRCompleteUnrollLegacyPass(char &ID, unsigned OptLevel, bool IsPreVec)
+      : HIRTransformPass(ID), OptLevel(OptLevel), IsPreVec(IsPreVec) {}
+
+  void getAnalysisUsage(AnalysisUsage &AU) const;
+
+  bool runOnFunction(Function &F);
+};
+
 } // namespace loopopt
 } // namespace llvm
 

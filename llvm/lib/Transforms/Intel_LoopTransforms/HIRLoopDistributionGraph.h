@@ -23,7 +23,7 @@
 #ifndef INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_GRAPH
 #define INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_GRAPH
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopDistributionPreProcGraph.h"
+#include "HIRLoopDistributionPreProcGraph.h"
 
 namespace llvm {
 
@@ -167,7 +167,7 @@ class PiGraph : public HIRGraph<PiBlock, PiGraphEdge> {
   DistPPGraph *PPGraph;
 
 public:
-  PiGraph(HLLoop *Loop, HIRDDAnalysis *DDA, bool ForceCycleForLoopIndepDep) {
+  PiGraph(HLLoop *Loop, HIRDDAnalysis &DDA, bool ForceCycleForLoopIndepDep) {
 
     PPGraph = new DistPPGraph(Loop, DDA, ForceCycleForLoopIndepDep);
 

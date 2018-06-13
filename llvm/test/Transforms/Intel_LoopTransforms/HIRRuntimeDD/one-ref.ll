@@ -2,6 +2,7 @@
 
 ; REQUIRES: asserts
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -debug-only=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
 
 ; int foo(int N) {
 ;   int i, r = 0;

@@ -16,8 +16,8 @@
 #ifndef LLVM_ANALYSIS_INTEL_LOOPANALYSIS_STATISTICS_H
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_STATISTICS_H
 
-#include "llvm/Pass.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Pass.h"
 
 #include "llvm/ADT/DenseMap.h"
 
@@ -43,6 +43,7 @@ private:
   unsigned NumIntrinsics = 0;
   bool HasCallsWithUnsafeSideEffects = false;
   bool HasCallsWithNoDuplicate = false;
+  bool HasCallsWithUnknownMemoryAccess = false;
 
 public:
   LoopStatistics() {}
@@ -91,6 +92,12 @@ public:
     return HasCallsWithNoDuplicate;
   }
 
+  bool hasCallsWithUnknownMemoryAccess() const {
+    assert((!HasCallsWithUnknownMemoryAccess || hasCalls()) &&
+           "Number of calls and HasUnknownMemoryAccess are out of sync!");
+    return HasCallsWithUnknownMemoryAccess;
+  }
+
   /// Adds the loop statistics LS to this one.
   LoopStatistics &operator+=(const LoopStatistics &LS) {
     NumIfs += LS.NumIfs;
@@ -101,6 +108,7 @@ public:
     NumIntrinsics += LS.NumIntrinsics;
     HasCallsWithUnsafeSideEffects |= LS.HasCallsWithUnsafeSideEffects;
     HasCallsWithNoDuplicate |= LS.HasCallsWithNoDuplicate;
+    HasCallsWithUnknownMemoryAccess |= LS.HasCallsWithUnknownMemoryAccess;
 
     return *this;
   }
@@ -150,7 +158,6 @@ public:
   const LoopStatistics &getTotalLoopStatistics(const HLLoop *Loop);
 
   // TODO: provide an update interface.
-
 };
 
 class HIRLoopStatisticsWrapperPass : public FunctionPass {

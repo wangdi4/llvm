@@ -202,7 +202,7 @@ public:
 
   /// getLevels - Returns the number of common loops surrounding the
   /// source and destination of the dependence.
-  unsigned getLevels() const { return Levels; }
+  unsigned getLevels() const { return CommonLevels; }
 
   bool isReversed() const { return Reversed; }
 
@@ -237,8 +237,7 @@ public:
 
 private:
   DDRef *Src, *Dst;
-
-  unsigned short Levels; // commonLevels
+  unsigned CommonLevels; // Common Levels for the Src & Dst Refs
   bool LoopIndependent;
   bool Consistent; // Init to true, then refine.
   /// Reversed
@@ -248,9 +247,9 @@ private:
   /// Result returned:  anti (>), IsReversed=true,
   //  DD edge is from Dst->Src
   bool Reversed;
-  DVEntry *DV;
-  void setDirection(const unsigned Level, const DVKind dv) const;
-  void setDistance(const unsigned Level, const CanonExpr *CE) const;
+  DVEntry DV[MaxLoopNestLevel];
+  void setDirection(const unsigned Level, const DVKind dv);
+  void setDistance(const unsigned Level, const CanonExpr *CE);
   friend class DDTest;
 };
 
@@ -283,11 +282,12 @@ class DDTest {
   //  forwardDV[0:1]  is (0, 0)
   //  backwardDV[0:1] is (= ,<)
 
-  bool findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
-                       const DirectionVector &InputDV,
-                       DirectionVector &ForwardDV, DirectionVector &BackwardDV,
-                       DistanceVector &ForwardDistV,
-                       DistanceVector &BackwardDistV, bool *IsLoopIndepDepTemp);
+  bool findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
+                        const DirectionVector &InputDV,
+                        DirectionVector &ForwardDV, DirectionVector &BackwardDV,
+                        DistanceVector &ForwardDistV,
+                        DistanceVector &BackwardDistV,
+                        bool *IsLoopIndepDepTemp);
 
   /// getSplitIteration - Give a dependence that's splittable at some
   /// particular level, return the iteration that should be used to split
@@ -374,6 +374,11 @@ class DDTest {
                               const Dependences &Result,
                               DistanceVector &ForwardDistV,
                               DistanceVector &BackwardDistV, unsigned Levels);
+
+  /// When IVDEP directive is present for a level, DV can be adjusted
+  /// SameBase indicates if the base pointer of src/dst DD_REF are the same
+  /// Returns true IVDEP is hit
+  bool adjustDVforIVDEP(Dependences &Result, bool SameBase);
 
   /// Map DV to distance
 
@@ -498,14 +503,18 @@ class DDTest {
     /// out to OS.
     void dump(raw_ostream &OS) const;
   };
-
+  ///  CommonLevels - levels that need to set DV
   unsigned CommonLevels = 0;
+  ///  CommonLevelsForIVDEP - levels that affects DV when IVDEP is present
+  unsigned CommonLevelsForIVDEP = 0;
   unsigned SrcLevels = 0;
   unsigned DstLevels = 0;
   unsigned MaxLevels = 0;
   bool NoCommonNest = false;
 
   HLLoop *DeepestLoop;
+  ///  CommonIVDEPLoop, corrsponding to CommonLevelsForIVDEP
+  HLLoop *CommonIVDEPLoop = nullptr;
 
   /// establishNestingLevels - Examines the loop nesting of the Src and Dst
   /// instructions and establishes their shared loops. Sets the variables
@@ -828,10 +837,6 @@ class DDTest {
 
   /// return CE for srcCE  + dstCE
   const CanonExpr *getAdd(const CanonExpr *SrcConst, const CanonExpr *DstConst);
-
-  /// return true if 2 CE are equal
-  bool areCEEqual(const CanonExpr *CE1, const CanonExpr *CE2,
-                  bool RelaxedMode = true) const;
 
   /// return negation of CE
   const CanonExpr *getNegative(const CanonExpr *CE);

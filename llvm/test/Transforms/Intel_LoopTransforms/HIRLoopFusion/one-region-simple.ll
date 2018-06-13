@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -disable-output -hir-loop-fusion -print-after=hir-loop-fusion -hir-create-function-level-region < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-create-function-level-region < %s 2>&1 | FileCheck %s
 
 ; INPUT:
 ; BEGIN REGION { }
@@ -27,6 +28,7 @@
 ; CHECK: END REGION
 
 ;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-fusion -hir-cg -hir-create-function-level-region -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-fusion,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -hir-create-function-level-region -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
 ;
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT:     Remark #XXXXX: Loops have been fused

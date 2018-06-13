@@ -1,5 +1,6 @@
 
 ; RUN: opt -S -hir-ssa-deconstruction -hir-cg -force-hir-cg %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -S -force-hir-cg %s | FileCheck %s
 ; Crash in CG on following region 
 ;          BEGIN REGION { }
 ;<15>            + DO i1 = 0, %0 + smax(-2, (-1 + (-1 * %0))) + 1, 1   <DO_LOOP>

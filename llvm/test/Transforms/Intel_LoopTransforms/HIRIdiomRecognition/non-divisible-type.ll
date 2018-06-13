@@ -1,6 +1,7 @@
 ; Verify that we are not replacing the loop with a memset if the %a has a non-divisible by 8 type.
 
 ; RUN: opt -hir-ssa-deconstruction -disable-output -print-after=hir-idiom -hir-idiom < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-idiom,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; BEGIN REGION { }
 ;       + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
@@ -8,7 +9,7 @@
 ;       + END LOOP
 ; END REGION
 
-; CHECK: After
+; CHECK: Function
 
 ; CHECK: BEGIN REGION { }
 ; CHECK-NOT: memset

@@ -1,8 +1,9 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that we correctly remove redundant switch cases after complete unroll. We were not taking into account the truncation trunc.i32.i3() in the switch condition when returning the constant which resulted in incorrect switch case removal.
 
-; CHECK: Before HIR PostVec Complete Unroll
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, 7, 1   <DO_LOOP>
 ; CHECK: |   switch(i1)
@@ -28,7 +29,7 @@
 ; CHECK: |   }
 ; CHECK: + END LOOP
 
-; CHECK: After HIR PostVec Complete Unroll
+; CHECK: Function
 
 ; CHECK: %puts18 = @puts(&((@str.11)[0][0]));
 ; CHECK: %puts17 = @puts(&((@str.10)[0][0]));

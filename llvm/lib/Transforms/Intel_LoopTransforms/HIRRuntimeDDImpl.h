@@ -1,4 +1,4 @@
-//===- HIRRuntimeDD.h - Implements Multiversioning for Runtime DD *-- C++ --*-//
+//===- HIRRuntimeDDImpl.h - Implements MV for Runtime DD ---------*-- C++ --*-//
 //
 // Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
 //
@@ -12,8 +12,8 @@
 // This file implements a pass for the runtime data dependency multiversioning.
 //
 //===----------------------------------------------------------------------===//
-#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRRUNTIMEDD_H
-#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRRUNTIMEDD_H
+#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRRUNTIMEDDIMPL_H
+#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRRUNTIMEDDIMPL_H
 
 #include "llvm/Support/Debug.h"
 
@@ -53,6 +53,7 @@ enum RuntimeDDResult {
   SAME_BASE,
   NON_DO_LOOP,
   UNROLL_PRAGMA_LOOP,
+  IVDEP_PRAGMA_LOOP,
   NON_PROFITABLE,
   NON_PROFITABLE_SUBS,
   STRUCT_ACCESS,
@@ -146,29 +147,22 @@ struct LoopContext {
 #endif
 };
 
-class HIRRuntimeDD : public HIRTransformPass {
+class HIRRuntimeDD {
+  HIRFramework &HIRF;
+  HIRDDAnalysis &DDA;
+  HIRLoopStatistics &HLS;
+
   typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
 
 public:
   static char ID;
 
-  HIRRuntimeDD() : HIRTransformPass(ID) {
-    initializeHIRRuntimeDDPass(*PassRegistry::getPassRegistry());
-  }
+  HIRRuntimeDD(HIRFramework &HIRF, HIRDDAnalysis &DDA, HIRLoopStatistics &HLS)
+      : HIRF(HIRF), DDA(DDA), HLS(HLS) {}
 
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.setPreservesAll();
-  }
+  bool run();
 
 private:
-  HIRLoopStatistics *HLS;
-
 #ifndef NDEBUG
   static const char *getResultString(RuntimeDDResult Result);
 #endif
@@ -214,4 +208,4 @@ private:
 } // namespace loopopt
 } // namespace llvm
 
-#endif /* LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRRUNTIMEDD_H */
+#endif /* LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRRUNTIMEDDIMPL_H */

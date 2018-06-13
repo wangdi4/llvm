@@ -1,9 +1,9 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-details | FileCheck %s
 
 ; Verify that the load and store have metadata attached.
-; CHECK: <RVAL-REG> {al:4}(i32*)(LINEAR float* %B)[LINEAR i64 i1] !tbaa
+; CHECK: <RVAL-REG> {al:4}(i32*)(LINEAR float* %B)[LINEAR i64 i1] inbounds !tbaa
 
-; CHECK: <LVAL-REG> {al:4}(i32*)(LINEAR float* %A)[LINEAR i64 i1] !tbaa
+; CHECK: <LVAL-REG> {al:4}(i32*)(LINEAR float* %A)[LINEAR i64 i1] inbounds !tbaa
 
 
 ; ModuleID = 'metadata.ll'

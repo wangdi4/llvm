@@ -1,4 +1,5 @@
 ;RUN: opt -hir-cg -force-hir-cg -S %s | FileCheck %s
+;RUN: opt -passes="hir-cg" -force-hir-cg -S %s | FileCheck %s
 
 
 ;          BEGIN REGION { }

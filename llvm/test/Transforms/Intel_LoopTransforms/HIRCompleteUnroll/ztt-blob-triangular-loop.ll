@@ -1,8 +1,9 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that we hoist the ztt of the inner loop which contains a blob.
 
-; CHECK: Dump Before
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, 5, 1   <DO_LOOP>
 ; CHECK: |   %1 = (@s)[0][i1 + 4];
@@ -16,7 +17,7 @@
 ; CHECK: |      (@s)[0][i1 + 4] = %2;
 ; CHECK: + END LOOP
 
-; CHECK: Dump After
+; CHECK: Function
 
 ; CHECK: %1 = (@s)[0][4];
 ; CHECK: %cmp744 = 4 <u 8;

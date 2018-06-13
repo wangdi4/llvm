@@ -1,8 +1,9 @@
-; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-array-transpose -print-before=hir-array-transpose -print-after=hir-array-transpose 2>&1 < %s | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-array-transpose -print-before=hir-array-transpose -print-after=hir-array-transpose -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-array-transpose,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify that array transpose kicks in for this test case.
 
-; CHECK: Dump Before HIR Array Transpose
+; CHECK: Function
 
 ; CHECK: BEGIN REGION { }
 ; CHECK: %call = @malloc(80);
@@ -17,7 +18,7 @@
 ; CHECK: END REGION
 
 
-; CHECK: Dump After HIR Array Transpose
+; CHECK: Function
 
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: %call = @malloc(80);

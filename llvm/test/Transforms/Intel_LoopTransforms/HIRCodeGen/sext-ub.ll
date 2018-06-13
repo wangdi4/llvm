@@ -1,4 +1,5 @@
 ; RUN: opt -hir-cg -force-hir-cg -S < %s | FileCheck %s
+; RUN: opt -passes="hir-cg" -force-hir-cg -S < %s | FileCheck %s
 ; Verifies UB is calcualted once before loop
 ; Verifies UB is correctly sext
 ; Verifies UB is correctly used in bt

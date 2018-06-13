@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -hir-lmm -print-before=hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll,print<hir>,hir-lmm,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 ;
 ;int A[10000];
 ;int B[10000];
@@ -51,7 +52,7 @@
 ;
 ;
 ;  
-; CHECK: IR Dump Before HIR Loop Memory Motion
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:        + DO i1 = 0, 999, 1   <DO_LOOP>
@@ -72,7 +73,7 @@
 ;
 ; *** *** 
 ;          
-; CHECK: IR Dump After HIR Loop Memory Motion
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:           %limm = (@B)[0][1];

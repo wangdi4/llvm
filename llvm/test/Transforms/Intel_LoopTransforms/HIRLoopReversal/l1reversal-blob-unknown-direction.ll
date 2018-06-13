@@ -1,6 +1,7 @@
 ; l1reversal-posorneg-blobindex.ll
 ; (1-level loop, memory access on a blob with unknown direction (don't know if the BlobIndex is positive or negative)
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -print-after=hir-loop-reversal < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,print<hir>,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 ;  
 ; Loop is reverisble
 ;
@@ -24,7 +25,7 @@
 ;  return A[5];
 ;}
 ;
-; CHECK: IR Dump Before HIR Loop Reversal
+; CHECK: Function
 ;
 ; CHECK:      BEGIN REGION { }
 ; CHECK:           + DO i1 = 0, %n + -1, 1   <DO_LOOP>
@@ -32,7 +33,7 @@
 ; CHECK-NEXT:      + END LOOP
 ; CHECK-NEXT: END REGION
 ; 
-; CHECK: IR Dump After HIR Loop Reversal
+; CHECK: Function
 ;
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK:           + DO i1 = 0, %n + -1, 1   <DO_LOOP>
@@ -42,6 +43,7 @@
 ;
 ;
 ;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-reversal -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-reversal,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
 
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT:     Remark #XXXXX: Loop was reversed

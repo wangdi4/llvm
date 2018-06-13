@@ -36,6 +36,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
@@ -1940,6 +1941,16 @@ void HIRSymbolicTripCountCompleteUnroll::clearWorkingSetMemory(void) {
   MLibsRefVec.clear();
 }
 
+PreservedAnalyses
+HIRSymbolicTripCountCompleteUnrollPass::run(llvm::Function &F,
+                                            llvm::FunctionAnalysisManager &AM) {
+  HIRSymbolicTripCountCompleteUnroll(AM.getResult<HIRFrameworkAnalysis>(F),
+                                     AM.getResult<HIRDDAnalysisPass>(F))
+      .run();
+
+  return PreservedAnalyses::all();
+}
+
 class HIRSymbolicTripCountCompleteUnrollLegacyPass : public HIRTransformPass {
 public:
   static char ID;
@@ -1969,7 +1980,6 @@ public:
 };
 
 char HIRSymbolicTripCountCompleteUnrollLegacyPass::ID = 0;
-
 INITIALIZE_PASS_BEGIN(
     HIRSymbolicTripCountCompleteUnrollLegacyPass,
     "hir-pm-symbolic-tripcount-completeunroll",
@@ -1983,13 +1993,4 @@ INITIALIZE_PASS_END(HIRSymbolicTripCountCompleteUnrollLegacyPass,
 
 FunctionPass *llvm::createHIRSymbolicTripCountCompleteUnrollPass() {
   return new HIRSymbolicTripCountCompleteUnrollLegacyPass();
-}
-
-PreservedAnalyses
-HIRSymbolicTripCountCompleteUnrollPass::run(llvm::Function &F,
-                                            llvm::FunctionAnalysisManager &AM) {
-  HIRSymbolicTripCountCompleteUnroll(AM.getResult<HIRFrameworkAnalysis>(F),
-                                     AM.getResult<HIRDDAnalysisPass>(F))
-      .run();
-  return PreservedAnalyses::all();
 }

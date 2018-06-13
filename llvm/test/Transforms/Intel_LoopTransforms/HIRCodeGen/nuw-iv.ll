@@ -8,6 +8,7 @@
 ; CHECK: NSW: No
 
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck --check-prefix=CG %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg -S | FileCheck --check-prefix=CG %s
 
 ; Check that CG generatres nuw only IV for this loop
 ; CG: [[IV_UPDATE:%nextiv.*]] = add nuw i64 {{%.*}}, 1

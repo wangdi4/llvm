@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -disable-output -hir-loop-fusion -print-after=hir-loop-fusion -hir-create-function-level-region < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-create-function-level-region < %s 2>&1 | FileCheck %s
 
 ; INPUT:
 ; BEGIN REGION { }
@@ -15,8 +16,10 @@
 ;    ret ;
 ; END REGION
 
-; CHECK: After
+; CHECK: Function
 ; CHECK: BEGIN REGION { }
+; CHECK: DO i1
+; CHECK: DO i1
 ; CHECK: END REGION
 
 ;Module Before HIR; ModuleID = 'enclosed-simple.c'

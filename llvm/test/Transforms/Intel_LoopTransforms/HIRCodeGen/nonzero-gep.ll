@@ -1,4 +1,5 @@
 ;RUN: opt -hir-cg -force-hir-cg -S %s | FileCheck %s
+;RUN: opt -passes="hir-cg" -force-hir-cg -S %s | FileCheck %s
 
 ;;for this a[i], the gep does not need a leading 0 as %a is an argument,
 ;CHECK: loop.{{[0-9]+}}

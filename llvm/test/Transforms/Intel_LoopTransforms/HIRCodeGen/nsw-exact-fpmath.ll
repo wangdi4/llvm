@@ -1,13 +1,14 @@
 ; Check that nsw, exact flags and fpmath metadata attached to the LLVM instructions are preserved after HIR CG.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -print-before=hir-cg -print-after=hir-cg < %s 2>&1 | FileCheck %s 
+; RUN: opt -passes="hir-ssa-deconstruction,print,hir-cg,print" -force-hir-cg < %s 2>&1 | FileCheck %s 
 
-; CHECK: IR Dump Before
+; CHECK: define
 ; CHECK: !fpmath
 ; CHECK: exact
 ; CHECK: add nuw nsw i32 %c.05
 
-; CHECK: IR Dump After
+; CHECK: define
 ; CHECK: region.0:
 ; CHECK: !fpmath
 ; CHECK: exact

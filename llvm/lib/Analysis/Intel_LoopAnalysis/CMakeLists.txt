@@ -36,8 +36,6 @@ add_llvm_library(LLVMIntel_LoopAnalysis
   Analysis/HIRSafeReductionAnalysis.cpp 
   Analysis/HIRLocalityAnalysis.cpp
   Analysis/HIRParVecAnalysis.cpp
-  Analysis/HIRLoopDistributionPreProcGraph.cpp
-  Analysis/HIRLoopDistributionGraph.cpp
   Utils/BlobUtils.cpp
   Utils/DDUtils.cpp
   Utils/HLNodeUtils.cpp

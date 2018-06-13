@@ -79,6 +79,8 @@
 // Currently, we only handle the offset scenario as that is the benchmark case.
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Intel_LoopTransforms/HIRArrayTranspose.h"
+
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -102,24 +104,17 @@ static cl::opt<bool> DisableTranspose("disable-hir-array-transpose",
                                       cl::desc("Disable HIR Array Transpose"));
 
 namespace {
-class HIRArrayTranspose : public HIRTransformPass {
+
+class HIRArrayTranspose {
+  HIRFramework &HIRF;
+
 public:
-  static char ID;
-
-  HIRArrayTranspose()
-      : HIRTransformPass(ID), MallocArrayBaseTy(nullptr), MallocSizeInBytes(0),
+  HIRArrayTranspose(HIRFramework &HIRF)
+      : HIRF(HIRF), MallocArrayBaseTy(nullptr), MallocSizeInBytes(0),
         ArrayOffsetInBytes(0), ArrayElementSizeInBytes(0),
-        NumRowsInNumElements(0), NumColumnsInNumElements(0) {
-    initializeHIRArrayTransposePass(*PassRegistry::getPassRegistry());
-  }
+        NumRowsInNumElements(0), NumColumnsInNumElements(0) {}
 
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  }
+  bool run();
 
   bool hasValidMallocs(HLRegion *Reg);
 
@@ -202,31 +197,18 @@ private:
 };
 } // namespace
 
-char HIRArrayTranspose::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRArrayTranspose, "hir-array-transpose",
-                      "HIR Array Transpose", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRArrayTranspose, "hir-array-transpose",
-                    "HIR Array Transpose", false, false)
-
-FunctionPass *llvm::createHIRArrayTransposePass() {
-  return new HIRArrayTranspose();
-}
-
-bool HIRArrayTranspose::runOnFunction(Function &F) {
-  if (DisableTranspose || skipFunction(F)) {
+bool HIRArrayTranspose::run() {
+  if (DisableTranspose) {
     LLVM_DEBUG(dbgs() << "HIR array transpose disabled \n");
     return false;
   }
 
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-
   // Expect a function level region.
-  if (HIRF->hir_begin() == HIRF->hir_end()) {
+  if (HIRF.hir_begin() == HIRF.hir_end()) {
     return false;
   }
 
-  auto Reg = cast<HLRegion>(HIRF->hir_begin());
+  auto *Reg = cast<HLRegion>(HIRF.hir_begin());
   if (!Reg->isFunctionLevel()) {
     return false;
   }
@@ -400,7 +382,8 @@ void HIRArrayTranspose::MallocAnalyzer::processIntToPtrInst(
   }
 
   HAT.MallocArrayBaseTy = DestTy;
-  HAT.ArrayElementSizeInBytes = ArrElemTy->getPrimitiveSizeInBits() / 8;
+  HAT.ArrayElementSizeInBytes =
+      HInst->getCanonExprUtils().getTypeSizeInBytes(ArrElemTy);
 
   if ((HAT.MallocSizeInBytes % HAT.ArrayElementSizeInBytes) != 0) {
     // Cannot transpose if malloc size is not evenly divisible by array element
@@ -958,18 +941,44 @@ void HIRArrayTranspose::performTranspose() {
   transposeStridedRefs(TransposedOffset);
 }
 
-void HIRArrayTranspose::releaseMemory() {
-  AllLvalTempSymbases.clear();
-  MallocPtrSymbases.clear();
-  MallocPtrToIntSymbases.clear();
-  MallocOffsetRefs.clear();
-  MallocArrayBaseSymbases.clear();
-  FreePtrSymbases.clear();
-  StridedGEPRefUses.clear();
-  MallocArrayBaseTy = nullptr;
-  MallocSizeInBytes = 0;
-  ArrayOffsetInBytes = 0;
-  ArrayElementSizeInBytes = 0;
-  NumColumnsInNumElements = 0;
-  NumRowsInNumElements = 0;
+PreservedAnalyses
+HIRArrayTransposePass::run(llvm::Function &F,
+                           llvm::FunctionAnalysisManager &AM) {
+  HIRArrayTranspose(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+  return PreservedAnalyses::all();
+}
+
+class HIRArrayTransposeLegacyPass : public HIRTransformPass {
+public:
+  static char ID;
+
+  HIRArrayTransposeLegacyPass() : HIRTransformPass(ID) {
+    initializeHIRArrayTransposeLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.setPreservesAll();
+  }
+
+  bool runOnFunction(Function &F) {
+    if (skipFunction(F)) {
+      LLVM_DEBUG(dbgs() << "HIR array transpose skipped\n");
+      return false;
+    }
+
+    return HIRArrayTranspose(getAnalysis<HIRFrameworkWrapperPass>().getHIR())
+        .run();
+  }
+};
+
+char HIRArrayTransposeLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRArrayTransposeLegacyPass, "hir-array-transpose",
+                      "HIR Array Transpose", false, false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_END(HIRArrayTransposeLegacyPass, "hir-array-transpose",
+                    "HIR Array Transpose", false, false)
+
+FunctionPass *llvm::createHIRArrayTransposePass() {
+  return new HIRArrayTransposeLegacyPass();
 }

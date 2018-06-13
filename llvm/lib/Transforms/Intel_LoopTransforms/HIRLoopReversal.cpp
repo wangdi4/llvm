@@ -82,6 +82,8 @@
 // 2. Allow simple forward gotos in the same iteration
 // 3.
 //
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
+
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
@@ -93,15 +95,16 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
-
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
+
+#include "HIRLoopReversalImpl.h"
 
 #define DEBUG_TYPE "hir-loop-reversal"
 
@@ -250,36 +253,19 @@ void HIRLoopReversal::MarkedCECollector::checkAndCollectMCE(
   }
 }
 
-char HIRLoopReversal::ID = 0;
-
-INITIALIZE_PASS_BEGIN(HIRLoopReversal, "hir-loop-reversal", "HIR Loop Reversal",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRLoopReversal, "hir-loop-reversal", "HIR Loop Reversal",
-                    false, false)
-
-FunctionPass *llvm::createHIRLoopReversalPass() {
-  return new HIRLoopReversal();
-}
-
 struct HIRLoopReversal::AnalyzeDDInfo final : public HLNodeVisitorBase {
   DDGraph &DDG;
   const HLLoop *Lp;
-  HIRLoopReversal *HLR;
+  HIRLoopReversal &HLR;
   bool AbortCollector;
   unsigned LoopLevel;
   SmallSet<unsigned, 4> LvalSBSet; // Lval Symbase set from SafeReduction Chain
-  HIRSafeReductionAnalysis *HSRA = nullptr;
 
-  explicit AnalyzeDDInfo(DDGraph &DDG, const HLLoop *Lp, HIRLoopReversal *HLR,
+  explicit AnalyzeDDInfo(DDGraph &DDG, const HLLoop *Lp, HIRLoopReversal &HLR,
                          unsigned LoopLevel)
-      : DDG(DDG), Lp(Lp), HLR(HLR), AbortCollector(false), LoopLevel(LoopLevel),
-        HSRA(HLR->HSRA) {
-    assert(Lp && HLR && HSRA && "None of Lp, HLR, or HSRA can be null\n");
-    HSRA->computeSafeReductionChains(Lp);
+      : DDG(DDG), Lp(Lp), HLR(HLR), AbortCollector(false),
+        LoopLevel(LoopLevel) {
+    HLR.HSRA.computeSafeReductionChains(Lp);
     collectLvalSymbase(Lp);
   }
 
@@ -301,7 +287,7 @@ struct HIRLoopReversal::AnalyzeDDInfo final : public HLNodeVisitorBase {
 };
 
 void HIRLoopReversal::AnalyzeDDInfo::collectLvalSymbase(const HLLoop *Lp) {
-  const SafeRedChainList &SRCL = HSRA->getSafeReductionChain(Lp);
+  const SafeRedChainList &SRCL = HLR.HSRA.getSafeReductionChain(Lp);
 
   // Walk SafeReductionChain, collect each Inst's Lval Symbase into LvalSBSet
   for (auto &SafeRedInfo : SRCL) {
@@ -329,7 +315,7 @@ void HIRLoopReversal::AnalyzeDDInfo::visit(const HLDDNode *DDNode) {
 
   // Support for HLInst*
   if (const HLInst *Inst = dyn_cast<HLInst>(DDNode)) {
-    if (!(IsSafeReduction = HSRA->isSafeReduction(Inst))) {
+    if (!(IsSafeReduction = HLR.HSRA.isSafeReduction(Inst))) {
       // For any non-Safe-Reduction HLInst:
       // do LiveOut Temp test only if Lval exists
       const RegDDRef *LRef = Inst->getLvalDDRef();
@@ -364,7 +350,7 @@ void HIRLoopReversal::AnalyzeDDInfo::visit(const HLDDNode *DDNode) {
       // LLVM_DEBUG(DV.print(dbgs(), true));
 
       // Abort Collection if invalid!
-      if (!HLR->isLegal(DV, LoopLevel)) {
+      if (!HIRLoopReversal::isLegal(DV, LoopLevel)) {
         AbortCollector = true;
         return;
       }
@@ -373,45 +359,19 @@ void HIRLoopReversal::AnalyzeDDInfo::visit(const HLDDNode *DDNode) {
   }
 }
 
-HIRLoopReversal::HIRLoopReversal(void) : HIRTransformPass(ID) {
-  initializeHIRLoopReversalPass(*PassRegistry::getPassRegistry());
-}
-
-void HIRLoopReversal::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-  AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  AU.setPreservesAll();
-}
-
-bool HIRLoopReversal::handleCmdlineArgs(Function &F) {
-  if (DisableHIRLoopReversal || skipFunction(F)) {
+bool HIRLoopReversal::run() {
+  if (DisableHIRLoopReversal) {
     LLVM_DEBUG(
         dbgs() << "HIR Loop Reversal Transformation Disabled or Skipped\n");
     return false;
   }
 
-  return true;
-}
-
-bool HIRLoopReversal::runOnFunction(Function &F) {
-  bool CmdLineOptions = handleCmdlineArgs(F);
-  if (!CmdLineOptions) {
-    return false;
-  }
-
-  LLVM_DEBUG(dbgs() << "HIR LoopReversal on Function : " << F.getName()
-                    << "\n");
-
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HDDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-  HSRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
-  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
+  LLVM_DEBUG(dbgs() << "HIR LoopReversal on Function : "
+                    << HIRF.getFunction().getName() << "\n");
 
   // Gather ALL Innermost Loops as Candidates, use 64 increment
   SmallVector<HLLoop *, 64> CandidateLoops;
-  HIRF->getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
+  HIRF.getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
   // LLVM_DEBUG(dbgs() << " # Innermost Loops: " << CandidateLoops.size()
   // <<"\n");
   if (CandidateLoops.empty()) {
@@ -421,14 +381,14 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
   // TODO:
   // Re-Build DDA on demand if needed
 
-  LoopOptReportBuilder &LORBuilder = HIRF->getLORBuilder();
+  LoopOptReportBuilder &LORBuilder = HIRF.getLORBuilder();
 
   // Iterate Over Each Candidate Loop
   for (auto &Lp : CandidateLoops) {
 
     // Check the loop's suitability for reversal
     bool SuitableLoop =
-        isReversible(Lp, *HDDA, *HSRA, *HLS,
+        isReversible(Lp,
                      true, // always do profit test when running as a pass
                      true, // always do legal test when running as a pass
                      false // short-circuit off when running as a pass
@@ -506,7 +466,7 @@ bool HIRLoopReversal::doLoopPreliminaryChecks(const HLLoop *Lp) {
   // - No function call
   // - No label
   // - No goto
-  const LoopStatistics &LS = HLS->getSelfLoopStatistics(Lp);
+  const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
 
   // LLVM_DEBUG(LS.dump(););
   if (LS.hasCallsWithUnsafeSideEffects() || LS.hasForwardGotos()) {
@@ -607,10 +567,10 @@ bool HIRLoopReversal::isProfitable(const HLLoop *Lp) {
 // Launch legal test for each DV in the loop.
 /* ------------------------------------------------------------------- */
 bool HIRLoopReversal::isLegal(const HLLoop *Lp) {
-  DDGraph DDG = HDDA->getGraph(Lp, false);
+  DDGraph DDG = HDDA.getGraph(Lp, false);
   // LLVM_DEBUG(dbgs() << "Dump the Full DDGraph:\n"; DDG.dump(););
 
-  AnalyzeDDInfo ADDI(DDG, Lp, this, LoopLevel);
+  AnalyzeDDInfo ADDI(DDG, Lp, *this, LoopLevel);
   Lp->getHLNodeUtils().visitRange(ADDI, Lp->child_begin(), Lp->child_end());
 
   // Check DDInfoAnalysis's early abortion
@@ -651,28 +611,6 @@ bool HIRLoopReversal::isLegal(const DirectionVector &DV, unsigned Level) {
   return false;
 }
 
-/// \brief setup context
-//
-// Actions:
-// - ClearWorkingSet memory
-// - Setup LoopLevel
-// - Setup existing analysis result
-//
-void HIRLoopReversal::setupBeforeTests(HLLoop *Lp, HIRDDAnalysis &DDA,
-                                       HIRSafeReductionAnalysis &SRA,
-                                       HIRLoopStatistics &LS) {
-  // LLVM_DEBUG(dbgs() << "Current Loop: \n"; Lp->dump(););
-  clearWorkingSetMemory();
-
-  // Show The Current Loop
-  // LLVM_DEBUG(Lp->dump(););
-  LoopLevel = Lp->getNestingLevel();
-
-  HDDA = &DDA;
-  HSRA = &SRA;
-  HLS = &LS;
-}
-
 /// \brief Conduct necessary HIR-Loop-Reversal Tests and decide whether the
 /// given loop is suitable for reversal.
 //
@@ -683,12 +621,15 @@ void HIRLoopReversal::setupBeforeTests(HLLoop *Lp, HIRDDAnalysis &DDA,
 // 2. This function has been extended (with flags) to support both called by a
 //    normal pass and called through utility APIs.
 //
-bool HIRLoopReversal::isReversible(HLLoop *Lp, HIRDDAnalysis &DDA,
-                                   HIRSafeReductionAnalysis &SRA,
-                                   HIRLoopStatistics &LS, bool DoProfitTest,
+bool HIRLoopReversal::isReversible(HLLoop *Lp, bool DoProfitTest,
                                    bool DoLegalTest,
                                    bool DoShortCircuitUtilityAPI) {
-  setupBeforeTests(Lp, DDA, SRA, LS);
+  // LLVM_DEBUG(dbgs() << "Current Loop: \n"; Lp->dump(););
+  clearWorkingSetMemory();
+
+  // Show The Current Loop
+  // LLVM_DEBUG(Lp->dump(););
+  LoopLevel = Lp->getNestingLevel();
 
   // Do Preliminary Check on a loop, aim for early/rapid bail out
   if (!DoShortCircuitUtilityAPI) {
@@ -815,4 +756,55 @@ void HIRLoopReversal::clearWorkingSetMemory(void) {
   HasNegIVExpr = false;
 }
 
-void HIRLoopReversal::releaseMemory(void) { clearWorkingSetMemory(); }
+PreservedAnalyses HIRLoopReversalPass::run(llvm::Function &F,
+                                           llvm::FunctionAnalysisManager &AM) {
+  HIRLoopReversal(AM.getResult<HIRFrameworkAnalysis>(F),
+                  AM.getResult<HIRDDAnalysisPass>(F),
+                  AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                  AM.getResult<HIRSafeReductionAnalysisPass>(F))
+      .run();
+
+  return PreservedAnalyses::all();
+}
+
+class HIRLoopReversalLegacyPass : public HIRTransformPass {
+public:
+  static char ID;
+
+  HIRLoopReversalLegacyPass() : HIRTransformPass(ID) {}
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+    AU.setPreservesAll();
+  }
+
+  bool runOnFunction(Function &F) override {
+    if (skipFunction(F)) {
+      return false;
+    }
+
+    return HIRLoopReversal(
+               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
+               getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR())
+        .run();
+  }
+};
+
+char HIRLoopReversalLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRLoopReversalLegacyPass, "hir-loop-reversal",
+                      "HIR Loop Reversal", false, false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
+INITIALIZE_PASS_END(HIRLoopReversalLegacyPass, "hir-loop-reversal",
+                    "HIR Loop Reversal", false, false)
+
+FunctionPass *llvm::createHIRLoopReversalPass() {
+  return new HIRLoopReversalLegacyPass();
+}

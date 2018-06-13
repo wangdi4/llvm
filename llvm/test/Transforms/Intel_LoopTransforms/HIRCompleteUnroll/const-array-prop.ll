@@ -1,11 +1,12 @@
 ; REQUIRES: asserts
 
 ; RUN: opt -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -debug-only=hir-complete-unroll -print-before=hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-pre-vec-complete-unroll,print<hir>" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
 
 
 ; Verify that constant array propagation of @A makes this loop profitable for pre-vec complete unroll.
 
-; CHECK: Before HIR PreVec Complete Unroll
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, 3, 1   <DO_LOOP>
 ; CHECK: |   %0 = (@A)[0][i1];
@@ -16,7 +17,7 @@
 ; Check that we recognize occurence of (@A)[0][i1] as GEP savings.
 ; CHECK: GEPSavings: 12
 
-; CHECK: After HIR PreVec Complete Unroll
+; CHECK: Function
 
 ; CHECK: %0 = (@A)[0][0];
 ; CHECK: %1 = (%B)[0];

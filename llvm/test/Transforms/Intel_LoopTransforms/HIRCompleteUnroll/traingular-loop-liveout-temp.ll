@@ -1,11 +1,12 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that we suppress the unrolling of this loopnest because we do not clean
 ; up the liveout use of %4 when the inner loop is eliminated during unrolling.
 ; This leaves the liveout use uninitialized. The use can be eliminated by
 ; dead code removal after complete unroll but the functionality is missing.
 
-; CHECK: Dump Before HIR PostVec Complete Unroll
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, 4, 1   <DO_LOOP>
 ; CHECK: |   %2 = (@n)[0][i1];
@@ -35,7 +36,7 @@
 ; CHECK: |   }
 ; CHECK: + END LOOP
 
-; CHECK: Dump After HIR PostVec Complete Unroll
+; CHECK: Function
 
 ; CHECK: DO i1
 ; CHECK: DO i2

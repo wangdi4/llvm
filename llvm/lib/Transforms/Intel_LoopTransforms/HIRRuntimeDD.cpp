@@ -79,26 +79,25 @@
 //
 //
 //===----------------------------------------------------------------------===//
-
-#include "HIRRuntimeDD.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRRuntimeDD.h"
 
 #include "llvm/Pass.h"
 
 #include "llvm/ADT/Statistic.h"
-
 #include "llvm/IR/Function.h"
 #include "llvm/IR/MDBuilder.h"
-
+#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
-
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+
+#include "HIRRuntimeDDImpl.h"
 
 #include <memory>
 
@@ -131,9 +130,9 @@ STATISTIC(OuterLoopsMultiversioned,
 
 struct HIRRuntimeDD::MemoryAliasAnalyzer final : public HLNodeVisitorBase {
   SmallVector<LoopContext, 16> LoopContexts;
-  HIRRuntimeDD *RDD;
+  HIRRuntimeDD &RDD;
 
-  MemoryAliasAnalyzer(HIRRuntimeDD *RDD) : RDD(RDD), SkipNode(nullptr) {}
+  MemoryAliasAnalyzer(HIRRuntimeDD &RDD) : RDD(RDD), SkipNode(nullptr) {}
 
   void visit(HLNode *) {}
   void postVisit(HLNode *) {}
@@ -142,7 +141,7 @@ struct HIRRuntimeDD::MemoryAliasAnalyzer final : public HLNodeVisitorBase {
     LoopContext Context;
     LLVM_DEBUG(dbgs() << "Runtime DD for loop " << Loop->getNumber() << ":\n");
 
-    RuntimeDDResult Result = RDD->computeTests(Loop, Context);
+    RuntimeDDResult Result = RDD.computeTests(Loop, Context);
     bool IsInnermost = Loop->isInnermost();
 
     if (Result == OK) {
@@ -433,15 +432,6 @@ void IVSegment::replaceIVWithBounds(const HLLoop *Loop,
   replaceIVByBound(getUpper(), Loop, InnerLoop, false);
 }
 
-char HIRRuntimeDD::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
-
-FunctionPass *llvm::createHIRRuntimeDDPass() { return new HIRRuntimeDD(); }
-
 #ifndef NDEBUG
 const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
   switch (Result) {
@@ -473,6 +463,8 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "Non DO loops are not supported";
   case UNROLL_PRAGMA_LOOP:
     return "Unroll pragma loops are not supported";
+  case IVDEP_PRAGMA_LOOP:
+    return "Loop has IVDEP pragma";
   case NON_PROFITABLE:
     return "Loop considered non-profitable";
   case NON_PROFITABLE_SUBS:
@@ -492,7 +484,7 @@ bool HIRRuntimeDD::isProfitable(const HLLoop *Loop) {
     return true;
   }
 
-  const LoopStatistics &LS = HLS->getSelfLoopStatistics(Loop);
+  const LoopStatistics &LS = HLS.getSelfLoopStatistics(Loop);
 
   return (!LS.hasCalls() && !LS.hasSwitches());
 }
@@ -594,8 +586,7 @@ static RuntimeDDResult isTestSupported(const RegDDRef *RefA,
   }
 
   // Skip loops with different address space references.
-  if (RefA->getBaseType()->getPointerAddressSpace() !=
-      RefB->getBaseType()->getPointerAddressSpace()) {
+  if (RefA->getPointerAddressSpace() != RefB->getPointerAddressSpace()) {
     return DIFF_ADDR_SPACE;
   }
 
@@ -604,6 +595,10 @@ static RuntimeDDResult isTestSupported(const RegDDRef *RefA,
 
 RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   Context.Loop = Loop;
+
+  if (Loop->hasVectorizeIVDepPragma()) {
+    return IVDEP_PRAGMA_LOOP;
+  }
 
   if (Loop->getMVTag()) {
     return ALREADY_MV;
@@ -651,7 +646,6 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   MemRefGatherer::VectorTy Refs;
   SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> Tests;
 
-  auto &DDA = getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   DDGraph DDG = DDA.getGraph(Loop);
   LLVM_DEBUG(dbgs() << "Loop DDG:\n");
   LLVM_DEBUG(DDG.dump());
@@ -924,20 +918,17 @@ void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
   }
 }
 
-bool HIRRuntimeDD::runOnFunction(Function &F) {
-  if (DisableRuntimeDD || skipFunction(F)) {
+bool HIRRuntimeDD::run() {
+  if (DisableRuntimeDD) {
     return false;
   }
 
-  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  auto &HNU = HIRF.getHLNodeUtils();
-
-  LLVM_DEBUG(dbgs() << "HIRRuntimeDD for function: " << F.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "HIRRuntimeDD for function: "
+                    << HIRF.getFunction().getName() << "\n");
 
   // Multiversion for memory aliasing.
-  MemoryAliasAnalyzer AliasAnalyzer(this);
-  HNU.visitAll(AliasAnalyzer);
+  MemoryAliasAnalyzer AliasAnalyzer(*this);
+  HIRF.getHLNodeUtils().visitAll(AliasAnalyzer);
 
   if (AliasAnalyzer.LoopContexts.size() != 0) {
     for (LoopContext &Candidate : AliasAnalyzer.LoopContexts) {
@@ -948,4 +939,51 @@ bool HIRRuntimeDD::runOnFunction(Function &F) {
   return true;
 }
 
-void HIRRuntimeDD::releaseMemory() {}
+PreservedAnalyses HIRRuntimeDDPass::run(llvm::Function &F,
+                                        llvm::FunctionAnalysisManager &AM) {
+  HIRRuntimeDD(AM.getResult<HIRFrameworkAnalysis>(F),
+               AM.getResult<HIRDDAnalysisPass>(F),
+               AM.getResult<HIRLoopStatisticsAnalysis>(F))
+      .run();
+
+  return PreservedAnalyses::all();
+}
+
+class HIRRuntimeDDLegacyPass : public HIRTransformPass {
+public:
+  static char ID;
+
+  HIRRuntimeDDLegacyPass() : HIRTransformPass(ID) {
+    initializeHIRRuntimeDDLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+    AU.setPreservesAll();
+  }
+
+  bool runOnFunction(Function &F) override {
+    if (skipFunction(F)) {
+      return false;
+    }
+
+    return HIRRuntimeDD(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+                        getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+                        getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
+        .run();
+  }
+};
+
+char HIRRuntimeDDLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRRuntimeDDLegacyPass, OPT_SWITCH, OPT_DESCR, false,
+                      false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
+INITIALIZE_PASS_END(HIRRuntimeDDLegacyPass, OPT_SWITCH, OPT_DESCR, false, false)
+
+FunctionPass *llvm::createHIRRuntimeDDPass() {
+  return new HIRRuntimeDDLegacyPass();
+}

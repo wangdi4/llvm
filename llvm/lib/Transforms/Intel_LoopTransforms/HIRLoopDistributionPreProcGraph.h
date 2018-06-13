@@ -91,6 +91,7 @@
 #include "llvm/Support/Debug.h"
 
 #include <algorithm>
+
 namespace llvm {
 
 namespace loopopt {
@@ -200,7 +201,7 @@ public:
 
   DenseMap<HLNode *, DistPPNode *> &getNodeMap() { return HLToDistPPNodeMap; }
 
-  DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA, bool ForceCycleForLoopIndepDep);
+  DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA, bool ForceCycleForLoopIndepDep);
 
   // TODO destruction needs to be handled carefully if we want
   // to reuse graph from inner loop dist in outer loop distribution

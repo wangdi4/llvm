@@ -8,8 +8,10 @@
 // from the company.
 //
 
-#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_LOOPCOLLAPSE_H
-#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_LOOPCOLLAPSE_H
+#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_LOOPCOLLAPSEIMPL_H
+#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_LOOPCOLLAPSEIMPL_H
+
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -77,8 +79,9 @@ public:
 #endif
 };
 
-class HIRLoopCollapse : public HIRTransformPass {
-private:
+class HIRLoopCollapse {
+  HIRFramework &HIRF;
+
   SmallVector<RegDDRef *, 32> RefVec;    // non-MemRef Refs
   SmallVector<RegDDRef *, 32> GEPRefVec; // GEPRef Refs, include AddressOf ones
 
@@ -116,9 +119,8 @@ private:
   Type *IVType = nullptr;
 
 public:
-  static char ID;
-
-  HIRLoopCollapse(void);
+  HIRLoopCollapse(HIRFramework &HIRF) : HIRF(HIRF) {}
+  bool run();
 
   // The only entry for all caller(s) to do HIR Loop Collapse.
   //
@@ -144,8 +146,6 @@ public:
   bool doLoopCollapse(HLLoop *OutermostLp, HLLoop *InnermostLp);
 
 private:
-  bool runOnFunction(Function &F) override;
-
   // Do preliminary tests on the loop nest
   //
   // Check: each loop in the loop nest
@@ -393,12 +393,6 @@ private:
                    const unsigned OrigOutermostLevel);
 
   void clearWorkingSetMemory(void);
-
-  void releaseMemory(void) override { clearWorkingSetMemory(); }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const;
-
-  bool handleCmdlineArgs(Function &F);
 
   // *** Utility functions ***
 

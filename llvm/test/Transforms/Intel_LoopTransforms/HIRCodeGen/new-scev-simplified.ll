@@ -1,4 +1,5 @@
-;RUN: opt -hir-cg -force-hir-cg %s -S | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg %s -S | FileCheck %s
+;RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg %s -S | FileCheck %s
 
 ;in cg for CE (-1 * %row.031 + umax((4 + %row.031), ((4 * sext.i32.i64(%n1)) 
 ;+ %row.031)) + -1)/u4
@@ -36,8 +37,6 @@
 ;
 ;using the umax portion of CE as test, ignoring rest of CE
 ;CHECK: region.0:
-;other symbase shares same initial value, ignore it
-;CHECK: store float* %row.031, float** [[ROW_SYM_DEAD:%t[0-9]+]]
 
 ;CHECK: store float* %row.031, float** [[ROW_SYM:%t[0-9]+]]
 

@@ -1,8 +1,9 @@
 ; RUN: opt -hir-ssa-deconstruction -scoped-noalias -hir-temp-cleanup -hir-runtime-dd -hir-loop-interchange -hir-pre-vec-complete-unroll -print-before=hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-loop-interchange,print<hir>,hir-pre-vec-complete-unroll,print<hir>" -aa-pipeline="scoped-noalias-aa" 2>&1 < %s | FileCheck %s
 
 ; Check that loopnest was multiversioned and interchanged before complete unroll.
 
-; CHECK: Dump Before
+; CHECK: Function
 
 ; CHECK: if (%mv
 ; CHECK: {
@@ -30,7 +31,7 @@
 ; CHECK: }
 
 ; Check that i3 loop inside if is unrolled.
-; CHECK: Dump After
+; CHECK: Function
 
 ; CHECK: if (%mv
 ; CHECK: DO i2

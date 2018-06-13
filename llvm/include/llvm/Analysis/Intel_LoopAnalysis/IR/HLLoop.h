@@ -748,11 +748,19 @@ public:
   /// Remove !llvm.loop metadata that starts with \p ID.
   void removeLoopMetadata(StringRef ID) { addRemoveLoopMetadataImpl({}, &ID); }
 
+  /// Returns loop metadata corresponding to \p Name. Returns null if not found.
+  MDNode *getLoopStringMetadata(StringRef Name) const;
+
   /// Documentation for clang loop pragmas-
   /// http://clang.llvm.org/docs/LanguageExtensions.html#extensions-for-loop-hint-optimizations
 
   /// Returns true if loop has pragma to enable complete or general unrolling.
-  bool hasUnrollEnablingPragma() const;
+  bool hasUnrollEnablingPragma() const {
+    return (
+        getLoopStringMetadata("llvm.loop.unroll.enable") ||
+        getLoopStringMetadata("llvm.loop.unroll.count") ||
+        (isConstTripLoop() && getLoopStringMetadata("llvm.loop.unroll.full")));
+  }
 
   /// Returns true if loop has pragma to enable complete unrolling.
   bool hasCompleteUnrollEnablingPragma() const;
@@ -761,20 +769,100 @@ public:
   bool hasCompleteUnrollDisablingPragma() const;
 
   /// Returns true if loop has pragma to enable general unrolling.
-  bool hasGeneralUnrollEnablingPragma() const;
+  bool hasGeneralUnrollEnablingPragma() const {
+    return getLoopStringMetadata("llvm.loop.unroll.enable") ||
+           getLoopStringMetadata("llvm.loop.unroll.count");
+  }
 
   /// Returns true if loop has pragma to disable general unrolling.
-  bool hasGeneralUnrollDisablingPragma() const;
+  bool hasGeneralUnrollDisablingPragma() const {
+    return getLoopStringMetadata("llvm.loop.unroll.disable") ||
+           getLoopStringMetadata("llvm.loop.unroll.runtime.disable") ||
+           // 'full' metadata only implies complete unroll, not partial unroll.
+           getLoopStringMetadata("llvm.loop.unroll.full");
+  }
 
   /// Returns true if loop has pragma to enable unroll & jam.
-  bool hasUnrollAndJamEnablingPragma() const;
+  bool hasUnrollAndJamEnablingPragma() const {
+    // TODO: Use unroll & jam metadata when available. Also add the check to
+    // other passes such as loop interchange and loop distribution.
+    return hasGeneralUnrollEnablingPragma();
+  }
 
   /// Returns true if loop has pragma to disable unroll & jam.
-  bool hasUnrollAndJamDisablingPragma() const;
+  bool hasUnrollAndJamDisablingPragma() const {
+    // TODO: Use unroll & jam metadata when available.
+    return hasGeneralUnrollDisablingPragma();
+  }
 
-  /// Returns unroll count specified through a pragma if present, othweise
-  /// returns 0.
-  unsigned getUnrollPragmaCount() const;
+  /// Returns unroll count specified through pragma, otherwise returns 0.
+  unsigned getUnrollPragmaCount() const {
+    // Unroll if loop's trip count is less than unroll count.
+    auto *MD = getLoopStringMetadata("llvm.loop.unroll.count");
+
+    if (!MD) {
+      return 0;
+    }
+
+    return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+  }
+
+  /// Returns true if loop has pragma to enable distribution.
+  bool hasDistributionEnablingPragma() const {
+    auto *MD = getLoopStringMetadata("llvm.loop.distribute.enable");
+
+    // first operand is i1 type.
+    return MD && mdconst::extract<ConstantInt>(MD->getOperand(1))->isOne();
+  }
+
+  /// Returns true if loop has pragma to disable distribution.
+  bool hasDistributionDisablingPragma() const {
+    auto *MD = getLoopStringMetadata("llvm.loop.distribute.enable");
+
+    // first operand is i1 type.
+    return MD && mdconst::extract<ConstantInt>(MD->getOperand(1))->isZero();
+  }
+
+  /// Returns true if loop has pragma to enable vectorization.
+  bool hasVectorizeEnablingPragma() const;
+
+  /// Returns true if loop has pragma to disable vectorization.
+  bool hasVectorizeDisablingPragma() const;
+
+  /// Returns true if loop has ivdep loop pragma.
+  bool hasVectorizeIVDepLoopPragma() const {
+    return getLoopStringMetadata("llvm.loop.vectorize.ivdep_loop");
+  }
+  /// Returns true if loop has ivdep back pragma
+  bool hasVectorizeIVDepBackPragma() const {
+    return getLoopStringMetadata("llvm.loop.vectorize.ivdep_back");
+  }
+
+  /// Returns true if loop has ivdep back/loop pragma or assumeIVDEP option
+  bool hasVectorizeIVDepPragma() const;
+
+  /// Returns true if loop has vectorize always pragma.
+  bool hasVectorizeAlwaysPragma() const {
+    if (getLoopStringMetadata("llvm.loop.vectorize.ignore_profitability")) {
+      assert(hasVectorizeEnablingPragma() &&
+             "llvm.loop.vectorize.ignore_profitability metadata found without "
+             "llvm.loop.vectorize.enable metadata!");
+      return true;
+    }
+
+    return false;
+  }
+
+  /// Returns the vector width specified through pragma, otherwise returns 0.
+  unsigned getVectorizePragmaWidth() const {
+    auto *MD = getLoopStringMetadata("llvm.loop.vectorize.width");
+
+    if (!MD) {
+      return 0;
+    }
+
+    return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+  }
 
   uint64_t getMaxTripCountEstimate() const { return MaxTripCountEstimate; }
 

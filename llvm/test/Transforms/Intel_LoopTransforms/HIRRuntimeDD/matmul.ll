@@ -1,6 +1,7 @@
 ; Check for dd multiversioning for matmul loopnest
 
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
 
 ; float matmul(e_fp *px, e_fp *vy, e_fp *cx, int n, int loop) {
 ;  float ret;
@@ -16,7 +17,7 @@
 ;  return px[0];
 ; }
 
-; CHECK: IR Dump After
+; CHECK: Function
 ; CHECK-DAG: &((%vy)[624]) >=u &((%px)[0]);
 ; CHECK-DAG: &((%px)[624]) >=u &((%vy)[0]);
 ; CHECK: %mv.and = 
@@ -28,6 +29,7 @@
 ; Check that proper optreport is emitted for multiversioned loop.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd  -hir-post-vec-complete-unroll -hir-cg -S -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,hir-post-vec-complete-unroll,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa"  -S -intel-loop-optreport=low 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT-NEXT:     Remark #XXXXX: The loop has been multiversioned{{[[:space:]]}}

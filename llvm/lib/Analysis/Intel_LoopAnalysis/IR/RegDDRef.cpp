@@ -13,10 +13,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Debug.h"
@@ -54,15 +54,15 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
 
 RegDDRef::GEPInfo::GEPInfo()
     : BaseCE(nullptr), BitCastDestTy(nullptr), InBounds(false),
-      AddressOf(false), Volatile(false),
-      IsCollapsed(false), Alignment(0) {}
+      AddressOf(false), Volatile(false), IsCollapsed(false), Alignment(0) {}
 
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
     : BaseCE(Info.BaseCE->clone()), BitCastDestTy(Info.BitCastDestTy),
       InBounds(Info.InBounds), AddressOf(Info.AddressOf),
-      Volatile(Info.Volatile), IsCollapsed(Info.IsCollapsed), Alignment(Info.Alignment),
-      DimensionOffsets(Info.DimensionOffsets), MDNodes(Info.MDNodes),
-      GepDbgLoc(Info.GepDbgLoc), MemDbgLoc(Info.MemDbgLoc) {}
+      Volatile(Info.Volatile), IsCollapsed(Info.IsCollapsed),
+      Alignment(Info.Alignment), DimensionOffsets(Info.DimensionOffsets),
+      MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
+      MemDbgLoc(Info.MemDbgLoc) {}
 
 RegDDRef::GEPInfo::~GEPInfo() {}
 
@@ -310,6 +310,9 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
       }
 
       if (Detailed) {
+        if (isInBounds()) {
+          OS << " inbounds ";
+        }
         getDDRefUtils().printMDNodes(OS, GepInfo->MDNodes);
       }
     }
@@ -380,13 +383,32 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
 bool RegDDRef::accessesStruct() const {
   assert(hasGEPInfo() && "GEP ref expected!");
 
-  auto BaseTy = getBaseType()->getPointerElementType();
+  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
+    if (isa<StructType>(getDimensionElementType(I))) {
+      return true;
+    }
+  }
+  return false;
+}
 
-  while (isa<ArrayType>(BaseTy)) {
-    BaseTy = BaseTy->getArrayElementType();
-  };
+MemoryLocation RegDDRef::getMemoryLocation() const {
+  MemoryLocation Loc;
 
-  return BaseTy->isStructTy();
+  const CanonExpr *BaseCE = getBaseCE();
+
+  if (BaseCE->isNull()) {
+    Loc.Ptr = Constant::getNullValue(BaseCE->getDestType());
+  } else {
+    auto &BU = getBlobUtils();
+    auto Blob = BU.getBlob(getBaseCE()->getSingleBlobIndex());
+    Loc.Ptr = BU.getTempOrUndefBlobValue(Blob);
+  }
+
+  Loc.Size = MemoryLocation::UnknownSize;
+
+  getAAMetadata(Loc.AATags);
+
+  return Loc;
 }
 
 Value *RegDDRef::getTempBaseValue() const {
@@ -654,16 +676,15 @@ uint64_t RegDDRef::getDimensionStride(unsigned DimensionNum) const {
   assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
 
   auto DimElemType = getDimensionElementType(DimensionNum);
-  uint64_t Stride = getCanonExprUtils().getTypeSizeInBits(DimElemType) / 8;
+  uint64_t Stride = getCanonExprUtils().getTypeSizeInBytes(DimElemType);
 
   return Stride;
 }
 
 uint64_t RegDDRef::getDimensionSize(unsigned DimensionNum) const {
   auto DimTy = getDimensionType(DimensionNum);
-  return DimTy->isPointerTy()
-             ? 0
-             : getCanonExprUtils().getTypeSizeInBits(DimTy) / 8;
+  return DimTy->isPointerTy() ? 0
+                              : getCanonExprUtils().getTypeSizeInBytes(DimTy);
 }
 
 uint64_t RegDDRef::getNumDimensionElements(unsigned DimensionNum) const {

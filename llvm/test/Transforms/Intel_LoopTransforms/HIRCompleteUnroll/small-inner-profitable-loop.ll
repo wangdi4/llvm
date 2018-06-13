@@ -1,8 +1,9 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that the profitable inner i2 loop gets unrolled.
 
-; CHECK: Dump Before HIR PostVec Complete Unroll
+; CHECK: Function
 ; CHECK: + DO i1 = 0, %h + -1, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, 15, 1   <DO_LOOP>
 ; CHECK: |   |   %0 = (%p1.2469)[i2];
@@ -16,7 +17,7 @@
 ; CHECK: + END LOOP
 
 
-; CHECK: Dump After HIR PostVec Complete Unroll
+; CHECK: Function
 ; CHECK-NOT: DO i2
 
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
