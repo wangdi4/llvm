@@ -1,6 +1,6 @@
 ; Compiled from:
 ; ----------------------------------------------------
-; #pragma OPENCL EXTENSION cl_altera_channels: enable
+; #pragma OPENCL EXTENSION cl_intel_channels: enable
 ;
 ; channel int out;
 ;
@@ -13,7 +13,7 @@
 ;   }
 ; }
 ; ----------------------------------------------------
-; Clang options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -cl-std=CL2.0
+; Clang options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
 ; ----------------------------------------------------
 ; Opt passes: -spir-materializer -kernel-analysis -cl-loop-bound -cl-loop-creator
 ; ----------------------------------------------------
@@ -24,7 +24,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 
 %opencl.channel_t = type opaque
 
-@out = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
+@out = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
 
 ; CHECK: define void @test_autorun_1
 ; CHECK: br label %infinite_loop_entry
@@ -35,13 +35,13 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: br label %infinite_loop_entry
 ; CHECK-NEXT: }
 
-; Function Attrs: nounwind
-define void @test_autorun_1() #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !5 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !5 !task !8 !autorun !8 !no_barrier_path !8 {
+; Function Attrs: convergent nounwind
+define void @test_autorun_1() #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !4 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !4 !kernel_arg_pipe_depth !4 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !max_global_work_dim !7 !autorun !8 !no_barrier_path !8 {
   %a = alloca i32, align 4
   %early_exit_call = call [7 x i64] @WG.boundaries.test_autorun_1()
   %1 = extractvalue [7 x i64] %early_exit_call, 0
   %2 = trunc i64 %1 to i1
-  br i1 %2, label %WGLoopsEntry, label %15
+  br i1 %2, label %WGLoopsEntry, label %12
 
 WGLoopsEntry:                                     ; preds = %0
   %3 = extractvalue [7 x i64] %early_exit_call, 1
@@ -63,29 +63,30 @@ dim_0_pre_head:                                   ; preds = %dim_0_exit, %dim_1_
   %dim_1_ind_var = phi i64 [ 0, %dim_1_pre_head ], [ %dim_1_inc_ind_var, %dim_0_exit ]
   br label %scalar_kernel_entry
 
-scalar_kernel_entry:                              ; preds = %14, %dim_0_pre_head
-  %dim_0_ind_var = phi i64 [ 0, %dim_0_pre_head ], [ %dim_0_inc_ind_var, %14 ]
+scalar_kernel_entry:                              ; preds = %return, %dim_0_pre_head
+  %dim_0_ind_var = phi i64 [ 0, %dim_0_pre_head ], [ %dim_0_inc_ind_var, %return ]
   %9 = bitcast i32* %a to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %9) #3
   store i32 10, i32* %a, align 4, !tbaa !9
-  br label %10
+  br label %while.cond
 
-; <label>:10:                                     ; preds = %11, %scalar_kernel_entry
-  br label %11
+while.cond:                                       ; preds = %while.body, %scalar_kernel_entry
+  br label %while.body
 
-; <label>:11:                                     ; preds = %10
-  %12 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @out, align 4, !tbaa !13
-  %13 = load i32, i32* %a, align 4, !tbaa !9
-  %inc = add nsw i32 %13, 1
+while.body:                                       ; preds = %while.cond
+  %10 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @out, align 4, !tbaa !13
+  %11 = load i32, i32* %a, align 4, !tbaa !9
+  %inc = add nsw i32 %11, 1
   store i32 %inc, i32* %a, align 4, !tbaa !9
-  call void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)* %12, i32 %13)
-  br label %10
-                                                  ; No predecessors!
+  call void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)* %10, i32 %11) #4
+  br label %while.cond
+
+return:                                           ; No predecessors!
   %dim_0_inc_ind_var = add nuw nsw i64 %dim_0_ind_var, 1
   %dim_0_cmp.to.max = icmp eq i64 %dim_0_inc_ind_var, %4
   br i1 %dim_0_cmp.to.max, label %dim_0_exit, label %scalar_kernel_entry
 
-dim_0_exit:                                       ; preds = %14
+dim_0_exit:                                       ; preds = %return
   %dim_1_inc_ind_var = add nuw nsw i64 %dim_1_ind_var, 1
   %dim_1_cmp.to.max = icmp eq i64 %dim_1_inc_ind_var, %6
   br i1 %dim_1_cmp.to.max, label %dim_1_exit, label %dim_0_pre_head
@@ -96,15 +97,16 @@ dim_1_exit:                                       ; preds = %dim_0_exit
   br i1 %dim_2_cmp.to.max, label %dim_2_exit, label %dim_1_pre_head
 
 dim_2_exit:                                       ; preds = %dim_1_exit
-  br label %15
+  br label %12
 
-; <label>:15:                                     ; preds = %0, %dim_2_exit
+; <label>:12:                                     ; preds = %0, %dim_2_exit
   ret void
 }
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
 
+; Function Attrs: convergent
 declare void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)*, i32) #2
 
 define [7 x i64] @WG.boundaries.test_autorun_1() {
@@ -129,30 +131,30 @@ declare i64 @_Z14get_local_sizej(i32)
 
 declare i64 @get_base_global_id.(i32)
 
-attributes #0 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "uniform-work-group-size"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }
-attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #2 = { convergent "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #3 = { nounwind }
+attributes #4 = { convergent }
 
-!opencl.channels = !{!0}
-!llvm.module.flags = !{!3}
+!llvm.module.flags = !{!1}
 !opencl.enable.FP_CONTRACT = !{}
-!opencl.ocl.version = !{!4}
-!opencl.spir.version = !{!4}
-!opencl.used.extensions = !{!5}
-!opencl.used.optional.core.features = !{!5}
-!opencl.compiler.options = !{!5}
-!llvm.ident = !{!6}
-!opencl.kernels = !{!7}
+!opencl.ocl.version = !{!2}
+!opencl.spir.version = !{!3}
+!opencl.used.extensions = !{!4}
+!opencl.used.optional.core.features = !{!4}
+!opencl.compiler.options = !{!4}
+!llvm.ident = !{!5}
+!opencl.kernels = !{!6}
 
-!0 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @out, !1, !2}
-!1 = !{!"packet_size", i32 4}
-!2 = !{!"packet_align", i32 4}
-!3 = !{i32 1, !"wchar_size", i32 4}
-!4 = !{i32 2, i32 0}
-!5 = !{}
-!6 = !{!"clang version 5.0.0 "}
-!7 = !{void ()* @test_autorun_1}
+!0 = !{i32 4}
+!1 = !{i32 1, !"wchar_size", i32 4}
+!2 = !{i32 1, i32 0}
+!3 = !{i32 1, i32 2}
+!4 = !{}
+!5 = !{!"clang version 7.0.0 "}
+!6 = !{void ()* @test_autorun_1}
+!7 = !{i32 0}
 !8 = !{i1 true}
 !9 = !{!10, !10, i64 0}
 !10 = !{!"int", !11, i64 0}
