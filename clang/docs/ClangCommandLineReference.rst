@@ -2486,8 +2486,6 @@ X86
 
 .. option:: -mgfni, -mno-gfni
 
-.. option:: -mibt, -mno-ibt
-
 .. option:: -mlwp, -mno-lwp
 
 .. option:: -mlzcnt, -mno-lzcnt
@@ -2495,6 +2493,10 @@ X86
 .. option:: -mmmx, -mno-mmx
 
 .. option:: -mmovbe, -mno-movbe
+
+.. option:: -mmovdiri, -mno-movdiri
+
+.. option:: -mmovdir64b, -mno-movdir64b
 
 .. option:: -mmpx, -mno-mpx
 

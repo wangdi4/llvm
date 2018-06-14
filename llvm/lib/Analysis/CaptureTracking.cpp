@@ -22,6 +22,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/OrderedBasicBlock.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
@@ -215,18 +216,22 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker) {
   assert(V->getType()->isPointerTy() && "Capture is for pointers only!");
   SmallVector<const Use *, Threshold> Worklist;
   SmallSet<const Use *, Threshold> Visited;
-  int Count = 0;
 
-  for (const Use &U : V->uses()) {
-    // If there are lots of uses, conservatively say that the value
-    // is captured to avoid taking too much compile time.
-    if (Count++ >= Threshold)
-      return Tracker->tooManyUses();
-
-    if (!Tracker->shouldExplore(&U)) continue;
-    Visited.insert(&U);
-    Worklist.push_back(&U);
-  }
+  auto AddUses = [&](const Value *V) {
+    int Count = 0;
+    for (const Use &U : V->uses()) {
+      // If there are lots of uses, conservatively say that the value
+      // is captured to avoid taking too much compile time.
+      if (Count++ >= Threshold)
+        return Tracker->tooManyUses();
+      if (!Visited.insert(&U).second)
+        continue;
+      if (!Tracker->shouldExplore(&U))
+        continue;
+      Worklist.push_back(&U);
+    }
+  };
+  AddUses(V);
 
   while (!Worklist.empty()) {
     const Use *U = Worklist.pop_back_val();
@@ -242,6 +247,16 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker) {
       // by throwing an exception or not depending on the input value).
       if (CS.onlyReadsMemory() && CS.doesNotThrow() && I->getType()->isVoidTy())
         break;
+
+      // The pointer is not captured if returned pointer is not captured.
+      // NOTE: CaptureTracking users should not assume that only functions
+      // marked with nocapture do not capture. This means that places like
+      // GetUnderlyingObject in ValueTracking or DecomposeGEPExpression
+      // in BasicAA also need to know about this property.
+      if (isIntrinsicReturningPointerAliasingArgumentWithoutCapturing(CS)) {
+        AddUses(I);
+        break;
+      }
 
       // Volatile operations effectively capture the memory location that they
       // load and store to.
@@ -313,17 +328,7 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker) {
     case Instruction::Select:
     case Instruction::AddrSpaceCast:
       // The original value is not captured via this if the new value isn't.
-      Count = 0;
-      for (Use &UU : I->uses()) {
-        // If there are lots of uses, conservatively say that the value
-        // is captured to avoid taking too much compile time.
-        if (Count++ >= Threshold)
-          return Tracker->tooManyUses();
-
-        if (Visited.insert(&UU).second)
-          if (Tracker->shouldExplore(&UU))
-            Worklist.push_back(&UU);
-      }
+      AddUses(I);
       break;
     case Instruction::ICmp: {
       // Don't count comparisons of a no-alias return value against null as

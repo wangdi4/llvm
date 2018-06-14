@@ -130,7 +130,7 @@ private:
   // refactoring too.
   mutable SmallPtrSet<const MCSymbol *, 32> ThumbFuncs;
 
-  /// \brief The bundle alignment size currently set in the assembler.
+  /// The bundle alignment size currently set in the assembler.
   ///
   /// By default it's 0, which means bundling is disabled.
   unsigned BundleAlignSize;
@@ -162,12 +162,14 @@ private:
   /// evaluates to.
   /// \param Value [out] On return, the value of the fixup as currently laid
   /// out.
+  /// \param WasForced [out] On return, the value in the fixup is set to the
+  /// correct value if WasForced is true, even if evaluateFixup returns false.
   /// \return Whether the fixup value was fully resolved. This is true if the
   /// \p Value result is fixed, otherwise the value may change due to
   /// relocation.
   bool evaluateFixup(const MCAsmLayout &Layout, const MCFixup &Fixup,
                      const MCFragment *DF, MCValue &Target,
-                     uint64_t &Value) const;
+                     uint64_t &Value, bool &WasForced) const;
 
   /// Check whether a fixup can be satisfied, or whether it needs to be relaxed
   /// (increased in size, in order to hold its value correctly).
@@ -178,11 +180,11 @@ private:
   bool fragmentNeedsRelaxation(const MCRelaxableFragment *IF,
                                const MCAsmLayout &Layout) const;
 
-  /// \brief Perform one layout iteration and return true if any offsets
+  /// Perform one layout iteration and return true if any offsets
   /// were adjusted.
   bool layoutOnce(MCAsmLayout &Layout);
 
-  /// \brief Perform one layout iteration of the given section and return true
+  /// Perform one layout iteration of the given section and return true
   /// if any offsets were adjusted.
   bool layoutSectionOnce(MCAsmLayout &Layout, MCSection &Sec);
 
@@ -236,8 +238,8 @@ public:
   /// defining a separate atom.
   bool isSymbolLinkerVisible(const MCSymbol &SD) const;
 
-  /// Emit the section contents using the given object writer.
-  void writeSectionData(const MCSection *Section,
+  /// Emit the section contents to \p OS.
+  void writeSectionData(raw_ostream &OS, const MCSection *Section,
                         const MCAsmLayout &Layout) const;
 
   /// Check whether a given symbol has been flagged with .thumb_func.
@@ -431,17 +433,17 @@ public:
       FileNames.push_back(FileName);
   }
 
-  /// \brief Write the necessary bundle padding to the given object writer.
+  /// Write the necessary bundle padding to \p OS.
   /// Expects a fragment \p F containing instructions and its size \p FSize.
-  void writeFragmentPadding(const MCFragment &F, uint64_t FSize,
-                            MCObjectWriter *OW) const;
+  void writeFragmentPadding(raw_ostream &OS, const MCFragment &F,
+                            uint64_t FSize) const;
 
   /// @}
 
   void dump() const;
 };
 
-/// \brief Compute the amount of padding required before the fragment \p F to
+/// Compute the amount of padding required before the fragment \p F to
 /// obey bundling restrictions, where \p FOffset is the fragment's offset in
 /// its section and \p FSize is the fragment's size.
 uint64_t computeBundlePadding(const MCAssembler &Assembler, const MCFragment *F,

@@ -189,9 +189,9 @@ def SW64  : Store<"sw", GPR64Opnd, truncstorei32, II_SW>, LW_FM<0x2b>;
 let AdditionalPredicates = [NotInMicroMips] in {
   def LWu : MMRel, Load<"lwu", GPR64Opnd, zextloadi32, II_LWU>,
             LW_FM<0x27>, ISA_MIPS3;
-  def LD  : LoadMemory<"ld", GPR64Opnd, mem_simm16, load, II_LD>,
+  def LD  : LoadMemory<"ld", GPR64Opnd, mem_simmptr, load, II_LD>,
             LW_FM<0x37>, ISA_MIPS3;
-  def SD  : StoreMemory<"sd", GPR64Opnd, mem_simm16, store, II_SD>,
+  def SD  : StoreMemory<"sd", GPR64Opnd, mem_simmptr, store, II_SD>,
             LW_FM<0x3f>, ISA_MIPS3;
 }
 
@@ -216,7 +216,7 @@ def SDR   : StoreLeftRight<"sdr", MipsSDR, GPR64Opnd, II_SDR>, LW_FM<0x2d>,
 
 /// Load-linked, Store-conditional
 let AdditionalPredicates = [NotInMicroMips] in {
-  def LLD : LLBase<"lld", GPR64Opnd, mem_simm16>, LW_FM<0x34>,
+  def LLD : LLBase<"lld", GPR64Opnd, mem_simmptr>, LW_FM<0x34>,
             ISA_MIPS3_NOT_32R6_64R6;
 }
 def SCD : SCBase<"scd", GPR64Opnd>, LW_FM<0x3c>, ISA_MIPS3_NOT_32R6_64R6;
@@ -377,10 +377,12 @@ let isCodeGenOnly = 1, AdditionalPredicates = [NotInMicroMips] in {
 let isCodeGenOnly = 1, rs = 0, shamt = 0 in {
   def DSLL64_32 : FR<0x00, 0x3c, (outs GPR64:$rd), (ins GPR32:$rt),
                      "dsll\t$rd, $rt, 32", [], II_DSLL>;
-  def SLL64_32 : FR<0x0, 0x00, (outs GPR64:$rd), (ins GPR32:$rt),
-                    "sll\t$rd, $rt, 0", [], II_SLL>;
-  def SLL64_64 : FR<0x0, 0x00, (outs GPR64:$rd), (ins GPR64:$rt),
-                    "sll\t$rd, $rt, 0", [], II_SLL>;
+  let isMoveReg = 1 in {
+    def SLL64_32 : FR<0x0, 0x00, (outs GPR64:$rd), (ins GPR32:$rt),
+                      "sll\t$rd, $rt, 0", [], II_SLL>;
+    def SLL64_64 : FR<0x0, 0x00, (outs GPR64:$rd), (ins GPR64:$rt),
+                      "sll\t$rd, $rt, 0", [], II_SLL>;
+  }
 }
 
 // We need the following pseudo instruction to avoid offset calculation for

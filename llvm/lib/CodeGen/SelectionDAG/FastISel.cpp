@@ -261,7 +261,8 @@ void FastISel::sinkLocalValueMaterialization(MachineInstr &LocalMI,
   if (!UsedByPHI && MRI.use_nodbg_empty(DefReg)) {
     if (EmitStartPt == &LocalMI)
       EmitStartPt = EmitStartPt->getPrevNode();
-    DEBUG(dbgs() << "removing dead local value materialization " << LocalMI);
+    LLVM_DEBUG(dbgs() << "removing dead local value materialization "
+                      << LocalMI);
     OrderMap.Orders.erase(&LocalMI);
     LocalMI.eraseFromParent();
     return;
@@ -312,7 +313,7 @@ void FastISel::sinkLocalValueMaterialization(MachineInstr &LocalMI,
   }
 
   // Sink LocalMI before SinkPos and assign it the same DebugLoc.
-  DEBUG(dbgs() << "sinking local value to first use " << LocalMI);
+  LLVM_DEBUG(dbgs() << "sinking local value to first use " << LocalMI);
   FuncInfo.MBB->remove(&LocalMI);
   FuncInfo.MBB->insert(SinkPos, &LocalMI);
   if (SinkPos != FuncInfo.MBB->end())
@@ -848,7 +849,7 @@ bool FastISel::selectStackmap(const CallInst *I) {
   return true;
 }
 
-/// \brief Lower an argument list according to the target calling convention.
+/// Lower an argument list according to the target calling convention.
 ///
 /// This is a helper for lowering intrinsics that follow a target calling
 /// convention or require stack pointer adjustment. Only a subset of the
@@ -1329,13 +1330,13 @@ bool FastISel::selectIntrinsicCall(const IntrinsicInst *II) {
     const DbgDeclareInst *DI = cast<DbgDeclareInst>(II);
     assert(DI->getVariable() && "Missing variable");
     if (!FuncInfo.MF->getMMI().hasDebugInfo()) {
-      DEBUG(dbgs() << "Dropping debug info for " << *DI << "\n");
+      LLVM_DEBUG(dbgs() << "Dropping debug info for " << *DI << "\n");
       return true;
     }
 
     const Value *Address = DI->getAddress();
     if (!Address || isa<UndefValue>(Address)) {
-      DEBUG(dbgs() << "Dropping debug info for " << *DI << "\n");
+      LLVM_DEBUG(dbgs() << "Dropping debug info for " << *DI << "\n");
       return true;
     }
 
@@ -1387,7 +1388,7 @@ bool FastISel::selectIntrinsicCall(const IntrinsicInst *II) {
     } else {
       // We can't yet handle anything else here because it would require
       // generating code, thus altering codegen because of debug info.
-      DEBUG(dbgs() << "Dropping debug info for " << *DI << "\n");
+      LLVM_DEBUG(dbgs() << "Dropping debug info for " << *DI << "\n");
     }
     return true;
   }
@@ -1430,7 +1431,7 @@ bool FastISel::selectIntrinsicCall(const IntrinsicInst *II) {
     } else {
       // We can't yet handle anything else here because it would require
       // generating code, thus altering codegen because of debug info.
-      DEBUG(dbgs() << "Dropping debug info for " << *DI << "\n");
+      LLVM_DEBUG(dbgs() << "Dropping debug info for " << *DI << "\n");
     }
     return true;
   }
@@ -1444,7 +1445,7 @@ bool FastISel::selectIntrinsicCall(const IntrinsicInst *II) {
     updateValueMap(II, ResultReg);
     return true;
   }
-  case Intrinsic::invariant_group_barrier:
+  case Intrinsic::launder_invariant_group:
   case Intrinsic::expect: {
     unsigned ResultReg = getRegForValue(II->getArgOperand(0));
     if (!ResultReg)

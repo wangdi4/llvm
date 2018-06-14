@@ -21,6 +21,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/BinaryFormat/Wasm.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/Object/Binary.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/Error.h"
@@ -87,20 +88,10 @@ public:
     return Info.Flags & wasm::WASM_SYMBOL_VISIBILITY_MASK;
   }
 
-  void print(raw_ostream &Out) const {
-    Out << "Name=" << Info.Name << ", Kind=" << Info.Kind
-        << ", Flags=" << Info.Flags;
-    if (!isTypeData()) {
-      Out << ", ElemIndex=" << Info.ElementIndex;
-    } else if (isDefined()) {
-      Out << ", Segment=" << Info.DataRef.Segment;
-      Out << ", Offset=" << Info.DataRef.Offset;
-      Out << ", Size=" << Info.DataRef.Size;
-    }
-  }
+  void print(raw_ostream &Out) const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  LLVM_DUMP_METHOD void dump() const { print(dbgs()); }
+  LLVM_DUMP_METHOD void dump() const;
 #endif
 };
 

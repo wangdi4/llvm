@@ -378,10 +378,9 @@ class X86VMemOperand<RegisterClass RC, string printMethod,
 
 def anymem : X86MemOperand<"printanymem">;
 
-def opaque32mem : X86MemOperand<"printopaquemem">;
-def opaque48mem : X86MemOperand<"printopaquemem">;
-def opaque80mem : X86MemOperand<"printopaquemem">;
-def opaque512mem : X86MemOperand<"printopaquemem">;
+// FIXME: Right now we allow any size during parsing, but we might want to
+// restrict to only unsized memory.
+def opaquemem : X86MemOperand<"printopaquemem">;
 
 def i8mem   : X86MemOperand<"printi8mem",   X86Mem8AsmOperand>;
 def i16mem  : X86MemOperand<"printi16mem",  X86Mem16AsmOperand>;
@@ -882,6 +881,7 @@ def HasIFMA      : Predicate<"Subtarget->hasIFMA()">;
 def HasRTM       : Predicate<"Subtarget->hasRTM()">;
 def HasADX       : Predicate<"Subtarget->hasADX()">;
 def HasSHA       : Predicate<"Subtarget->hasSHA()">;
+def HasSGX       : Predicate<"Subtarget->hasSGX()">;
 def HasPRFCHW    : Predicate<"Subtarget->hasPRFCHW()">;
 def HasRDSEED    : Predicate<"Subtarget->hasRDSEED()">;
 def HasSSEPrefetch : Predicate<"Subtarget->hasSSEPrefetch()">;
@@ -892,17 +892,20 @@ def HasLAHFSAHF  : Predicate<"Subtarget->hasLAHFSAHF()">;
 def HasMWAITX    : Predicate<"Subtarget->hasMWAITX()">;
 def HasCLZERO    : Predicate<"Subtarget->hasCLZERO()">;
 def HasCLDEMOTE  : Predicate<"Subtarget->hasCLDEMOTE()">;
+def HasMOVDIRI   : Predicate<"Subtarget->hasMOVDIRI()">;
+def HasMOVDIR64B : Predicate<"Subtarget->hasMOVDIR64B()">;
+def HasPTWRITE   : Predicate<"Subtarget->hasPTWRITE()">;
 def FPStackf32   : Predicate<"!Subtarget->hasSSE1()">;
 def FPStackf64   : Predicate<"!Subtarget->hasSSE2()">;
 def HasMPX       : Predicate<"Subtarget->hasMPX()">;
 def HasSHSTK     : Predicate<"Subtarget->hasSHSTK()">;
-def HasIBT       : Predicate<"Subtarget->hasIBT()">;
 def HasCLFLUSHOPT : Predicate<"Subtarget->hasCLFLUSHOPT()">;
 def HasCLWB      : Predicate<"Subtarget->hasCLWB()">;
 def HasWBNOINVD  : Predicate<"Subtarget->hasWBNOINVD()">;
 def HasRDPID     : Predicate<"Subtarget->hasRDPID()">;
 def HasWAITPKG   : Predicate<"Subtarget->hasWAITPKG()">;
 def HasCmpxchg16b: Predicate<"Subtarget->hasCmpxchg16b()">;
+def HasPCONFIG   : Predicate<"Subtarget->hasPCONFIG()">;
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<"!Mode64Bit", "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
@@ -1452,7 +1455,7 @@ def CMPSQ : RI<0xA7, RawFrmDstSrc, (outs), (ins dstidx64:$dst, srcidx64:$src),
 //  Move Instructions.
 //
 let SchedRW = [WriteMove] in {
-let hasSideEffects = 0 in {
+let hasSideEffects = 0, isMoveReg = 1 in {
 def MOV8rr  : I<0x88, MRMDestReg, (outs GR8 :$dst), (ins GR8 :$src),
                 "mov{b}\t{$src, $dst|$dst, $src}", []>;
 def MOV16rr : I<0x89, MRMDestReg, (outs GR16:$dst), (ins GR16:$src),
@@ -1621,7 +1624,7 @@ def MOV64o64a : RIi64<0xA3, RawFrmMemOffs, (outs), (ins offset64_64:$dst),
 } // hasSideEffects = 0
 
 let isCodeGenOnly = 1, ForceDisassemble = 1, hasSideEffects = 0,
-    SchedRW = [WriteMove] in {
+    SchedRW = [WriteMove], isMoveReg = 1 in {
 def MOV8rr_REV : I<0x8A, MRMSrcReg, (outs GR8:$dst), (ins GR8:$src),
                    "mov{b}\t{$src, $dst|$dst, $src}", []>,
                    FoldGenData<"MOV8rr">;
@@ -1670,7 +1673,7 @@ def MOV64mr : RI<0x89, MRMDestMem, (outs), (ins i64mem:$dst, GR64:$src),
 // that they can be used for copying and storing h registers, which can't be
 // encoded when a REX prefix is present.
 let isCodeGenOnly = 1 in {
-let hasSideEffects = 0 in
+let hasSideEffects = 0, isMoveReg = 1 in
 def MOV8rr_NOREX : I<0x88, MRMDestReg,
                      (outs GR8_NOREX:$dst), (ins GR8_NOREX:$src),
                      "mov{b}\t{$src, $dst|$dst, $src}", []>,
@@ -2675,6 +2678,37 @@ let SchedRW = [WriteSystem] in {
 } // SchedRW
 
 //===----------------------------------------------------------------------===//
+// MOVDIRI - Move doubleword/quadword as direct store
+//
+let SchedRW = [WriteStore] in {
+def MOVDIRI32 : I<0xF9, MRMDestMem, (outs), (ins i32mem:$dst, GR32:$src),
+                  "movdiri\t{$src, $dst|$dst, $src}",
+                  [(int_x86_directstore32 addr:$dst, GR32:$src)]>,
+                 T8, Requires<[HasMOVDIRI]>;
+def MOVDIRI64 : RI<0xF9, MRMDestMem, (outs), (ins i64mem:$dst, GR64:$src),
+                   "movdiri\t{$src, $dst|$dst, $src}",
+                   [(int_x86_directstore64 addr:$dst, GR64:$src)]>,
+                  T8, Requires<[In64BitMode, HasMOVDIRI]>;
+} // SchedRW
+
+//===----------------------------------------------------------------------===//
+// MOVDIR64B - Move 64 bytes as direct store
+//
+let SchedRW = [WriteStore] in {
+def MOVDIR64B16 : I<0xF8, MRMSrcMem, (outs), (ins GR16:$dst, i512mem:$src),
+                    "movdir64b\t{$src, $dst|$dst, $src}", []>,
+                   T8PD, AdSize16, Requires<[HasMOVDIR64B, Not64BitMode]>;
+def MOVDIR64B32 : I<0xF8, MRMSrcMem, (outs), (ins GR32:$dst, i512mem:$src),
+                    "movdir64b\t{$src, $dst|$dst, $src}",
+                    [(int_x86_movdir64b GR32:$dst, addr:$src)]>,
+                   T8PD, AdSize32, Requires<[HasMOVDIR64B]>;
+def MOVDIR64B64 : I<0xF8, MRMSrcMem, (outs), (ins GR64:$dst, i512mem:$src),
+                    "movdir64b\t{$src, $dst|$dst, $src}",
+                    [(int_x86_movdir64b GR64:$dst, addr:$src)]>,
+                   T8PD, AdSize64, Requires<[HasMOVDIR64B, In64BitMode]>;
+} // SchedRW
+
+//===----------------------------------------------------------------------===//
 // CLZERO Instruction
 //
 let SchedRW = [WriteSystem] in {
@@ -3165,12 +3199,12 @@ def : InstAlias<"fnstsw"     , (FNSTSW16r), 0>;
 // this is compatible with what GAS does.
 def : InstAlias<"lcall\t$seg, $off", (FARCALL32i i32imm:$off, i16imm:$seg), 0>, Requires<[In32BitMode]>;
 def : InstAlias<"ljmp\t$seg, $off",  (FARJMP32i  i32imm:$off, i16imm:$seg), 0>, Requires<[In32BitMode]>;
-def : InstAlias<"lcall\t{*}$dst",    (FARCALL32m opaque48mem:$dst), 0>, Requires<[Not16BitMode]>;
-def : InstAlias<"ljmp\t{*}$dst",     (FARJMP32m  opaque48mem:$dst), 0>, Requires<[Not16BitMode]>;
+def : InstAlias<"lcall\t{*}$dst",    (FARCALL32m opaquemem:$dst), 0>, Requires<[Not16BitMode]>;
+def : InstAlias<"ljmp\t{*}$dst",     (FARJMP32m  opaquemem:$dst), 0>, Requires<[Not16BitMode]>;
 def : InstAlias<"lcall\t$seg, $off", (FARCALL16i i16imm:$off, i16imm:$seg), 0>, Requires<[In16BitMode]>;
 def : InstAlias<"ljmp\t$seg, $off",  (FARJMP16i  i16imm:$off, i16imm:$seg), 0>, Requires<[In16BitMode]>;
-def : InstAlias<"lcall\t{*}$dst",    (FARCALL16m opaque32mem:$dst), 0>, Requires<[In16BitMode]>;
-def : InstAlias<"ljmp\t{*}$dst",     (FARJMP16m  opaque32mem:$dst), 0>, Requires<[In16BitMode]>;
+def : InstAlias<"lcall\t{*}$dst",    (FARCALL16m opaquemem:$dst), 0>, Requires<[In16BitMode]>;
+def : InstAlias<"ljmp\t{*}$dst",     (FARJMP16m  opaquemem:$dst), 0>, Requires<[In16BitMode]>;
 
 def : InstAlias<"jmp\t{*}$dst",      (JMP64m  i64mem:$dst), 0, "att">, Requires<[In64BitMode]>;
 def : InstAlias<"jmp\t{*}$dst",      (JMP32m  i32mem:$dst), 0, "att">, Requires<[In32BitMode]>;
