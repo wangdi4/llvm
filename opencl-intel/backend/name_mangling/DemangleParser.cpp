@@ -153,7 +153,8 @@ DemangleParser::DemangleParser(TypeVector &parameters, bool isSpir12Name)
   m_imageTypeNameTranslate["ocl_event"] = PRIMITIVE_EVENT_T;
   m_imageTypeNameTranslate["ocl_clkevent"] = PRIMITIVE_CLK_EVENT_T;
   m_imageTypeNameTranslate["ocl_queue"] = PRIMITIVE_QUEUE_T;
-  m_imageTypeNameTranslate["ocl_pipe"] = PRIMITIVE_PIPE_T;
+  m_imageTypeNameTranslate["ocl_pipe_ro"] = PRIMITIVE_PIPE_RO_T;
+  m_imageTypeNameTranslate["ocl_pipe_wo"] = PRIMITIVE_PIPE_WO_T;
   m_imageTypeNameTranslate["ocl_sampler"] = PRIMITIVE_SAMPLER_T;
 }
 

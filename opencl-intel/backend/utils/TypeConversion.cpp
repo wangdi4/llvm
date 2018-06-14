@@ -86,7 +86,8 @@ public:
     case reflection::PRIMITIVE_EVENT_T:
     case reflection::PRIMITIVE_CLK_EVENT_T:
     case reflection::PRIMITIVE_QUEUE_T:
-    case reflection::PRIMITIVE_PIPE_T:
+    case reflection::PRIMITIVE_PIPE_RO_T:
+    case reflection::PRIMITIVE_PIPE_WO_T:
       {
          std::string Name = reflection::llvmPrimitiveString(Ty->getPrimitive());
          m_llvmTy = llvm::StructType::create(m_Ctx, Name);

@@ -444,9 +444,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                   curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
               else if (structName.startswith("image3d_"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_3D;
-              else if (structName.startswith("pipe_t"))
+              else if (structName.startswith("pipe_ro_t")) {
                   curArg.type = CL_KRNL_ARG_PTR_PIPE_T;
-              else if (structName.startswith("queue_t"))
+                  curArg.access = CL_KERNEL_ARG_ACCESS_READ_ONLY;
+              } else if (structName.startswith("pipe_wo_t")) {
+                  curArg.type = CL_KRNL_ARG_PTR_PIPE_T;
+                  curArg.access = CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
+              } else if (structName.startswith("queue_t"))
                   curArg.type = CL_KRNL_ARG_PTR_QUEUE_T;
               else if (structName.startswith("clk_event_t"))
                   curArg.type = CL_KRNL_ARG_PTR_CLK_EVENT_T;
@@ -472,11 +476,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                   curArg.access = (kmd.ArgAccessQualifierList.getItem(i) == READ_ONLY) ?
                                   CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
                   break;
-                // FIXME: what about Apple?
                 case CL_KRNL_ARG_PTR_PIPE_T:
-                  // The default access qualifier for pipes is read_only.
-                  curArg.access = (kmd.ArgAccessQualifierList.getItem(i) == WRITE_ONLY) ?
-                                  CL_KERNEL_ARG_ACCESS_WRITE_ONLY : CL_KERNEL_ARG_ACCESS_READ_ONLY;
                   isMemoryObject = true;
                   break;
                 case CL_KRNL_ARG_PTR_QUEUE_T:

@@ -241,12 +241,19 @@ TEST(ReflectionToLLVM, Queue){
 
 TEST(ReflectionToLLVM, Pipe){
   llvm::LLVMContext CTX;
-  reflection::RefParamType sTy(new reflection::PrimitiveType(reflection::PRIMITIVE_PIPE_T));
+  reflection::RefParamType sTy(new reflection::PrimitiveType(reflection::PRIMITIVE_PIPE_RO_T));
   llvm::Type* llvmSTy = intel::reflectionToLLVM(CTX, sTy);
   ASSERT_TRUE(llvmSTy->isStructTy());
   llvm::StructType *STy = llvm::dyn_cast<llvm::StructType>(llvmSTy);
   llvm::StringRef Name = STy->getName();
-  ASSERT_STREQ("opencl.pipe_t", Name.data());
+  ASSERT_STREQ("opencl.pipe_ro_t", Name.data());
+
+  reflection::RefParamType sTy2(new reflection::PrimitiveType(reflection::PRIMITIVE_PIPE_WO_T));
+  llvm::Type* llvmSTy2 = intel::reflectionToLLVM(CTX, sTy2);
+  ASSERT_TRUE(llvmSTy2->isStructTy());
+  llvm::StructType *STy2 = llvm::dyn_cast<llvm::StructType>(llvmSTy2);
+  llvm::StringRef Name2 = STy2->getName();
+  ASSERT_STREQ("opencl.pipe_wo_t", Name2.data());
 }
 
 TEST(ReflectionToLLVM, Sampler){
