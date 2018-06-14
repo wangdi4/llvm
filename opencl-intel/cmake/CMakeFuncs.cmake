@@ -395,7 +395,8 @@ function (add_ocl_unittest test_name)
     set(EXCLUDE_FROM_ALL ON)
   endif (NOT OPENCL_RT_BUILD_TESTS)
 
-  include_directories(${OCL_SOURCE_DIR}/externals/gtest/include)
+  include_directories(SYSTEM
+      ${OCL_SOURCE_DIR}/externals/gtest/googletest/include)
   include_directories(${CL_API_HEADERS})
 
   if (EXCLUDE_FROM_ALL)
@@ -404,7 +405,7 @@ function (add_ocl_unittest test_name)
     add_executable(${test_name} ${ARG_SOURCE_FILES})
   endif (EXCLUDE_FROM_ALL)
 
-  target_link_libraries(${test_name} googletest ${PTHREAD_LIB})
+  target_link_libraries(${test_name} gtest ${PTHREAD_LIB})
   if (NOT ARG_LINK_LIBRARIES STREQUAL "")
     target_link_libraries(${test_name} ${ARG_LINK_LIBRARIES})
   endif (NOT ARG_LINK_LIBRARIES STREQUAL "")

@@ -91,7 +91,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     bool IO = false;
     std::string SimdSuffix = "";
 
-    bool operator == (const PipeKind &LHS) {
+    bool operator == (const PipeKind &LHS) const {
       return Scope      == LHS.Scope    &&
              Access     == LHS.Access   &&
              Op         == LHS.Op       &&
@@ -100,7 +100,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
              SimdSuffix == LHS.SimdSuffix;
     }
 
-    operator bool () {
+    operator bool () const {
       return Op != OpKind::NONE;
     }
   };
@@ -115,12 +115,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     AccessKind Access;
     bool Blocking;
 
-    bool operator == (const ChannelKind &LHS) {
+    bool operator == (const ChannelKind &LHS) const {
       return Access   == LHS.Access   &&
              Blocking == LHS.Blocking;
     }
 
-    operator bool () {
+    operator bool () const {
       return Access != AccessKind::NONE;
     }
   };

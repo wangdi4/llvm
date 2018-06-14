@@ -4,7 +4,6 @@ set(TARGET_NAME name_mangling_test_type)
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
-  ${OCL_SOURCE_DIR}/externals/gtest/include
   ${OCL_SOURCE_DIR}/backend/name_mangling
 )
 
