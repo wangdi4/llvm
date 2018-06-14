@@ -330,7 +330,7 @@ namespace Validation
                     }
                     ReadWriteValueToStr<T>(VecStr, &ba.GetElem(cntVec, cntElem), rwtype);
                 }
-                DEBUG(
+                LLVM_DEBUG(
                 {
                     if (IXMLReadWriteBase::READ == rwtype && !VecStr.eof())
                     {

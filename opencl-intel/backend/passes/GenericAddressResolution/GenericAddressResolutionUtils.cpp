@@ -301,7 +301,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
                    llvm::SmallVectorImpl<int> &GASWarnings, LLVMContext *pLLVMContext) {
 
     // Print-out the message ...
-    DEBUG(
+    LLVM_DEBUG(
       dbgs() << "WARNING: " << warning << ": line# ";
       if (pInstr && pInstr->getDebugLoc()) {
         unsigned lineNo = pInstr->getDebugLoc().getLine();
