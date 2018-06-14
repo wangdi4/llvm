@@ -66,7 +66,8 @@ public:
   FieldInfo(llvm::Type *Ty)
       : LLVMType(Ty), Read(false), Written(false), ComplexUse(false),
         AddressTaken(false), SVKind(SVK_None), SingleValue(nullptr),
-        SAFKind(SAFK_Top), SingleAllocFunction(nullptr) {}
+        SAFKind(SAFK_Top), SingleAllocFunction(nullptr),
+        Frequency(0) {}
 
   llvm::Type *getLLVMType() const { return LLVMType; }
 
@@ -107,6 +108,9 @@ public:
     SAFKind = SAFK_Bottom;
     SingleAllocFunction = nullptr;
   }
+  void setFrequency(uint64_t Freq) { Frequency = Freq; }
+  uint64_t getFrequency() const { return Frequency; }
+
   //
   // Update the "single value" of the field, given that a constant value C
   // for the field has just been seen. Return true if the value is updated.
@@ -129,6 +133,13 @@ private:
   llvm::Constant *SingleValue;
   SingleAllocFunctionKind SAFKind;
   llvm::Function *SingleAllocFunction;
+  // It represents relative field access frequency and is used in
+  // heuristics to enable transformations. Load/Store is considered as
+  // field access. AddressTaken of struct or field is not considered as
+  // field access currently.
+  // TODO: Frequency is not computed correctly for aggregate fields. Need
+  // to compute more accurate Frequency for aggregate fields.
+  uint64_t Frequency;
 };
 
 /// DTrans optimization safety conditions for a structure type.
@@ -340,9 +351,13 @@ public:
   static inline bool classof(const TypeInfo *TI) {
     return TI->getTypeInfoKind() == TypeInfo::StructInfo;
   }
+  uint64_t getTotalFrequency() const { return TotalFrequency; }
+  void setTotalFrequency(uint64_t TFreq) { TotalFrequency = TFreq; }
 
 private:
   SmallVector<FieldInfo, 16> Fields;
+  // Total Frequency of all fields in struct.
+  uint64_t TotalFrequency;
 };
 
 class ArrayInfo : public TypeInfo {

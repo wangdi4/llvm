@@ -14,6 +14,7 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -47,6 +48,12 @@ static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
 
 static cl::opt<bool> DTransPrintAnalyzedTypes("dtrans-print-types",
                                               cl::ReallyHidden);
+// BlockFrequencyInfo is ignored while computing field frequency info
+// if this flag is true.
+// TODO: Disable this flag by default after doing more experiments and
+// tuning.
+static cl::opt<bool> DTransIgnoreBFI("dtrans-ignore-bfi", cl::init(true),
+  cl::ReallyHidden, cl::desc("Ignore using BFI while computing field freq"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Prints information that is saved during analysis about specific function
@@ -2197,8 +2204,10 @@ class DTransInstVisitor : public InstVisitor<DTransInstVisitor> {
 public:
   DTransInstVisitor(LLVMContext &Context, DTransAnalysisInfo &Info,
                     const DataLayout &DL, const TargetLibraryInfo &TLI,
-                    DTransAllocAnalyzer &DTAA)
-      : DTInfo(Info), DL(DL), TLI(TLI), LPA(DL, TLI, DTAA), DTAA(DTAA) {
+                    DTransAllocAnalyzer &DTAA,
+                    function_ref<BlockFrequencyInfo &(Function &)> &GetBFI)
+      : DTInfo(Info), DL(DL), TLI(TLI), LPA(DL, TLI, DTAA), DTAA(DTAA),
+        GetBFI(GetBFI), BFI(nullptr) {
     // Save pointers to some commonly referenced types.
     Int8PtrTy = llvm::Type::getInt8PtrTy(Context);
     PtrSizeIntTy = llvm::Type::getIntNTy(Context, DL.getPointerSizeInBits());
@@ -3236,9 +3245,37 @@ public:
         if (DTInfo.isTypeOfInterest(Arg.getType()))
           (void)DTInfo.getOrCreateTypeInfo(Arg.getType());
 
+    // Get BFI if available.
+    BFI = (!F.isDeclaration()) ? &(GetBFI(F)) : nullptr;
+
     // Call the base class to visit the instructions in the function.
     InstVisitor<DTransInstVisitor>::visitFunction(F);
   }
+
+  // Accumulate field frequency of \p FI that is accessed in \p I.
+  void accumulateFrequency(dtrans::FieldInfo &FI, Instruction& I) {
+    // BFI may not be related to the function that we are currently
+    // processing  due to cross function analysis.
+    // Fix BFI if it is not the info related to current processing
+    // function.
+    Function *F = I.getParent()->getParent();
+    if (BFI && BFI->getFunction() != F)
+      BFI = &(GetBFI(*F));
+
+    // If DTransIgnoreBFI is true, use 1 as frequency of field access.
+    // Otherwise, use BasicBlock's Frequency as frequency of field access.
+    uint64_t InstFreq;
+    if (BFI && !DTransIgnoreBFI)
+      InstFreq = BFI->getBlockFreq(I.getParent()).getFrequency();
+    else
+      InstFreq = 1;
+
+    uint64_t TFreq = InstFreq + FI.getFrequency();
+    // Set it to 64-bit unsigned Max value if there is overflow.
+    TFreq = TFreq < InstFreq ? std::numeric_limits<uint64_t>::max() : TFreq;
+    FI.setFrequency(TFreq);
+  }
+
 
 private:
   DTransAnalysisInfo &DTInfo;
@@ -3250,6 +3287,9 @@ private:
   // updated as needed.
   LocalPointerAnalyzer LPA;
   DTransAllocAnalyzer &DTAA;
+  function_ref<BlockFrequencyInfo &(Function &)> &GetBFI;
+  // Set this in visitFunction before visiting instructions in the function.
+  BlockFrequencyInfo *BFI;
 
   // We need these types often enough that it's worth keeping them around.
   llvm::Type *Int8PtrTy;
@@ -3744,6 +3784,7 @@ private:
           dtrans::FieldInfo &FI = ParentStInfo->getField(PointeePair.second);
           if (IsLoad) {
             FI.setRead(true);
+            accumulateFrequency(FI, I);
             if (!isSafeLoadForSingleAllocFunction(&I)) {
               if (!FI.isBottomAllocFunction())
                 LLVM_DEBUG(dbgs()
@@ -3809,6 +3850,7 @@ private:
               FI.setBottomAllocFunction();
             }
             FI.setWritten(true);
+            accumulateFrequency(FI, I);
           }
         }
         // TODO: Track array element access?
@@ -4107,7 +4149,7 @@ private:
     // aggregates is being set).
     if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
       // It is a safe use. Mark all the fields as being written.
-      markAllFieldsWritten(ParentTI);
+      markAllFieldsWritten(ParentTI, I);
 
       dtrans::MemfuncRegion RegionDesc;
       RegionDesc.IsCompleteAggregate = true;
@@ -4369,7 +4411,7 @@ private:
     if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
       // It is a safe use. Mark all the fields as being written.
       auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
-      markAllFieldsWritten(ParentTI);
+      markAllFieldsWritten(ParentTI, I);
 
       // The copy/move is the complete aggregate of the source and destination,
       // which are the same types/
@@ -4517,7 +4559,7 @@ private:
         ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
       }
       markStructFieldsWritten(ParentTI, RegionDesc.FirstField,
-                              RegionDesc.LastField);
+                              RegionDesc.LastField, I);
 
       // A copy is considered as preserving the single value analysis info.
       // However, for a memset, it is not known whether the value changed
@@ -4610,7 +4652,7 @@ private:
 
   // Mark all the fields of the type, and fields of aggregates the type contains
   // as written.
-  void markAllFieldsWritten(dtrans::TypeInfo *TI) {
+  void markAllFieldsWritten(dtrans::TypeInfo *TI, Instruction &I) {
     if (TI == nullptr)
       return;
 
@@ -4621,12 +4663,13 @@ private:
     if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
       for (auto &FI : StInfo->getFields()) {
         FI.setWritten(true);
+        accumulateFrequency(FI, I);
         auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
-        markAllFieldsWritten(ComponentTI);
+        markAllFieldsWritten(ComponentTI, I);
       }
     } else if (auto *AInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
       auto *ComponentTI = AInfo->getElementDTransInfo();
-      markAllFieldsWritten(ComponentTI);
+      markAllFieldsWritten(ComponentTI, I);
     }
 
     return;
@@ -4636,7 +4679,7 @@ private:
   // subset of fields of a structure type as written. Any contained aggregates
   // within the subset are marked as completely written.
   void markStructFieldsWritten(dtrans::TypeInfo *TI, unsigned int FirstField,
-                               unsigned int LastField) {
+                               unsigned int LastField, Instruction &I) {
     assert(TI && TI->getLLVMType()->isStructTy() &&
            "markStructFieldsWritten requires Structure type");
 
@@ -4647,8 +4690,9 @@ private:
     for (unsigned int Idx = FirstField; Idx <= LastField; ++Idx) {
       auto &FI = StInfo->getField(Idx);
       FI.setWritten(true);
+      accumulateFrequency(FI, I);
       auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
-      markAllFieldsWritten(ComponentTI);
+      markAllFieldsWritten(ComponentTI, I);
     }
 
     return;
@@ -5048,6 +5092,22 @@ private:
 
 } // end anonymous namespace
 
+// Computes total frequency of all fields and sets TotalFrequency of
+// \p StInfo.
+void DTransAnalysisInfo::computeStructFrequency(dtrans::StructInfo *StInfo) {
+  uint64_t StructFreq = 0;
+  for (dtrans::FieldInfo &FI : StInfo->getFields()) {
+    uint64_t TFreq = StructFreq + FI.getFrequency();
+    // Check for overflow.
+    if (TFreq < StructFreq) {
+      StructFreq = std::numeric_limits<uint64_t>::max();
+      break;
+    }
+    StructFreq = TFreq;
+  }
+  StInfo->setTotalFrequency(StructFreq);
+}
+
 // Return true if we are interested in tracking values of the specified type.
 //
 // For now, let's limit this to aggregates and various levels of indirection
@@ -5271,6 +5331,7 @@ void DTransAnalysisInfo::destructCallInfo(dtrans::CallInfo *Info) {
 INITIALIZE_PASS_BEGIN(DTransAnalysisWrapper, "dtransanalysis",
                       "Data transformation analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
 INITIALIZE_PASS_END(DTransAnalysisWrapper, "dtransanalysis",
                     "Data transformation analysis", false, true)
 
@@ -5290,12 +5351,17 @@ bool DTransAnalysisWrapper::doFinalization(Module &M) {
 }
 
 bool DTransAnalysisWrapper::runOnModule(Module &M) {
+
+  auto GetBFI = [this](Function &F) -> BlockFrequencyInfo & {
+    return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
+  };
+
   return Result.analyzeModule(
-      M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI());
+      M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(), GetBFI);
 }
 
 DTransAnalysisInfo::DTransAnalysisInfo() :
-  PaddedMallocSize(0), PaddedMallocInterface(nullptr) {}
+  PaddedMallocSize(0), PaddedMallocInterface(nullptr), MaxTotalFrequency(0) {}
 
 // Value map has a deleted move constructor, so we need a non-default
 // implementation of ours.
@@ -5307,6 +5373,7 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
   ByteFlattenedGEPInfoMap.insert(Other.ByteFlattenedGEPInfoMap.begin(),
                                  Other.ByteFlattenedGEPInfoMap.end());
+  MaxTotalFrequency = Other.MaxTotalFrequency;
 }
 
 DTransAnalysisInfo::~DTransAnalysisInfo() { reset(); }
@@ -5317,6 +5384,7 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
   CallInfoMap = std::move(Other.CallInfoMap);
   PaddedMallocSize = Other.getPaddedMallocSize();
   PaddedMallocInterface = Other.getPaddedMallocInterface();
+  MaxTotalFrequency = Other.MaxTotalFrequency;
   return *this;
 }
 
@@ -5346,11 +5414,24 @@ void DTransAnalysisInfo::reset() {
   TypeInfoMap.clear();
 }
 
-bool DTransAnalysisInfo::analyzeModule(Module &M, TargetLibraryInfo &TLI) {
+bool DTransAnalysisInfo::analyzeModule(Module &M, TargetLibraryInfo &TLI,
+                    function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
   DTransAllocAnalyzer DTAA(TLI);
   DTransInstVisitor Visitor(M.getContext(), *this, M.getDataLayout(), TLI,
-                            DTAA);
+                            DTAA, GetBFI);
   Visitor.visit(M);
+
+  // Computes TotalFrequency for each StructInfo and MaxTotalFrequency.
+  uint64_t MaxTFrequency = 0;
+  for (auto *TI : type_info_entries()) {
+    if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+      computeStructFrequency(StInfo);
+      // Trying to find MaxTotalFrequency here.
+      MaxTFrequency = std::max(MaxTFrequency,
+                               StInfo->getTotalFrequency());
+    }
+  }
+  setMaxTotalFrequency(MaxTFrequency);
 
   // Invalidate the fields for which the corresponding types do not pass
   // the SafetyData checks.
@@ -5408,6 +5489,7 @@ bool DTransAnalysisInfo::analyzeModule(Module &M, TargetLibraryInfo &TLI) {
         printStructInfo(SI);
       }
     }
+    outs() << "\n MaxTotalFrequency: " << getMaxTotalFrequency() << "\n\n";
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -5432,6 +5514,7 @@ void DTransAnalysisInfo::printStructInfo(dtrans::StructInfo *SI) {
   for (auto &Field : SI->getFields()) {
     printFieldInfo(Field);
   }
+  outs() << "  Total Frequency: " << SI->getTotalFrequency() << "\n";
   SI->printSafetyData();
   outs() << "\n";
 }
@@ -5460,6 +5543,8 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field) {
     outs() << " ComplexUse";
   if (Field.isAddressTaken())
     outs() << " AddressTaken";
+  outs() << "\n";
+  outs() << "    Frequency: " << Field.getFrequency();
   outs() << "\n";
   if (Field.isNoValue())
     outs() << "    No Value";
@@ -5542,6 +5627,7 @@ bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(
 void DTransAnalysisWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addRequired<BlockFrequencyInfoWrapperPass>();
 }
 
 char DTransAnalysis::PassID;
@@ -5550,7 +5636,13 @@ char DTransAnalysis::PassID;
 AnalysisKey DTransAnalysis::Key;
 
 DTransAnalysisInfo DTransAnalysis::run(Module &M, AnalysisManager<Module> &AM) {
+  auto &FAM =
+        AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetBFI = [&FAM](Function &F) -> BlockFrequencyInfo & {
+    return FAM.getResult<BlockFrequencyAnalysis>(F);
+  };
+
   DTransAnalysisInfo DTResult;
-  DTResult.analyzeModule(M, AM.getResult<TargetLibraryAnalysis>(M));
+  DTResult.analyzeModule(M, AM.getResult<TargetLibraryAnalysis>(M), GetBFI);
   return DTResult;
 }
