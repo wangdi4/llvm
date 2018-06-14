@@ -22,11 +22,13 @@
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
 using namespace llvm;
+using namespace dtrans;
 
 #define DEBUG_TYPE "dtrans-aostosoa"
 
@@ -172,16 +174,45 @@ public:
 
   virtual void processFunction(Function &F) override {
     SmallVector<GetElementPtrInst *, 16> GEPsToConvert;
+    SmallVector<std::pair<AllocCallInfo *, StructInfo *>, 4> AllocsToConvert;
+    SmallVector<std::pair<FreeCallInfo *, StructInfo *>, 4> FreesToConvert;
 
     for (auto It = inst_begin(&F), E = inst_end(F); It != E; ++It) {
       Instruction *I = &*It;
       if (isa<CallInst>(I) || isa<InvokeInst>(I)) {
-        // TODO: Need to add rewriting of the allocation and free sites for
-        // converted types. Also need to add support for converted memfunc
-        // calls. For now, we just process the function call
-        // attributes.
         CallSite CS(I);
         updateCallAttributes(CS);
+
+        // Check if the call needs to be transformed based on the CallInfo.
+        if (auto *CInfo = DTInfo.getCallInfo(I))
+          if (auto *CInfoElemTy = getCallInfoTypeToTransform(CInfo)) {
+            auto *TI = DTInfo.getTypeInfo(CInfoElemTy);
+            assert(TI && "Expected TypeInfo for structure type");
+
+            switch (CInfo->getCallInfoKind()) {
+            case dtrans::CallInfo::CIK_Alloc: {
+              auto *AInfo = cast<AllocCallInfo>(CInfo);
+              // The candidate qualification should have only allowed calloc or
+              // malloc calls.
+              assert((AInfo->getAllocKind() == AK_Calloc ||
+                      AInfo->getAllocKind() == AK_Malloc) &&
+                     "Only calloc or malloc expected for transformed types");
+
+              AllocsToConvert.push_back(
+                  std::make_pair(AInfo, cast<StructInfo>(TI)));
+              break;
+            }
+            case dtrans::CallInfo::CIK_Free: {
+              FreesToConvert.push_back(std::make_pair(cast<FreeCallInfo>(CInfo),
+                                                      cast<StructInfo>(TI)));
+              break;
+            }
+            case dtrans::CallInfo::CIK_Memfunc:
+              // TODO: Need to add support for converted memfunc
+              // calls.
+              break;
+            }
+          }
       } else if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
         if (checkConversionNeeded(GEP))
           GEPsToConvert.push_back(GEP);
@@ -201,8 +232,13 @@ public:
       }
 
       // TODO: add support for sdiv for pointer arithmetic.
-
     }
+
+    for (auto &Alloc : AllocsToConvert)
+      processAllocCall(Alloc.first, Alloc.second);
+
+    for (auto &Free : FreesToConvert)
+      processFreeCall(Free.first, Free.second);
 
     for (auto *GEP : GEPsToConvert)
       processGEP(GEP);
@@ -492,6 +528,253 @@ public:
     PtrConverts.clear();
   }
 
+  // The allocation call for a type being transformed into a structure of arrays
+  // needs to be converted to initialize the peeling variable to store the
+  // addresses that start each array in the new data structure.
+  //
+  // For example: struct t1 { int a, b, c};
+  // will have the new global structure: struct __AOS_t1 { int *a, *b, *c };
+  // This routine initializes the pointers of the global variable for a, b, c to
+  // point to the appropriate location of the allocated block of memory.
+  //
+  // The size of the allocation, and uses of the result of the allocation call
+  // will also be updated within the function.
+  //
+  // This function only operates on the pre-cloned version of a function.
+  void processAllocCall(dtrans::AllocCallInfo *AInfo, StructInfo *StInfo) {
+    auto *AllocCallInst = cast<CallInst>(AInfo->getInstruction());
+
+    StructType *StructTy = cast<StructType>(StInfo->getLLVMType());
+    uint64_t StructSize = DL.getTypeAllocSize(StructTy);
+    StructType *PeelTy = getTransformedType(StructTy);
+    Value *PeelVar = PeeledTypeToVariable[PeelTy];
+
+    // Set up an IR builder to insert instructions starting before the
+    // allocation statement. The IR builder will perform constant
+    // folding for us when the allocation count is a constant when
+    // computing new allocation sizes or offsets into the allocated memory
+    // block.
+    IRBuilder<> IRB(AllocCallInst);
+
+    // This will store the adjusted number of elements allocated by the call.
+    Value *NewAllocCountVal = nullptr;
+
+    AllocKind Kind = AInfo->getAllocKind();
+    Value *OrigAllocSizeVal;
+    Value *OrigAllocCountVal;
+    getAllocSizeArgs(Kind, AllocCallInst, OrigAllocSizeVal, OrigAllocCountVal);
+
+    if (Kind == dtrans::AK_Malloc) {
+      assert(OrigAllocSizeVal && "getAllocSizeArgs should return size value");
+
+      // Compute the number of elements being allocated. There is no need to
+      // special case this for an allocation size that exactly matches the size
+      // of a structure or check for constant values because the IR builder will
+      // constant fold the calculations for us, if possible.
+      llvm::Type *SizeType = OrigAllocSizeVal->getType();
+      Value *StructSizeVal = ConstantInt::get(SizeType, StructSize);
+      NewAllocCountVal = IRB.CreateSDiv(OrigAllocSizeVal, StructSizeVal);
+
+      // Update the size allocated to hold one additional structure element.
+      // This is necessary because a peeling index value of 0 will represent
+      // the nullptr, and the array accesses will be in the range of 1..N.
+      // Note: Rather than just adding 12 to the parameter size, we maintain the
+      // invariant that the allocation is a multiple of the structure size.
+      NewAllocCountVal =
+          IRB.CreateAdd(NewAllocCountVal, ConstantInt::get(SizeType, 1));
+      Value *NewAllocationSize = IRB.CreateMul(NewAllocCountVal, StructSizeVal);
+      AllocCallInst->setOperand(0, NewAllocationSize);
+    } else {
+      assert(Kind == dtrans::AK_Calloc && "Expected calloc");
+      assert(OrigAllocSizeVal && OrigAllocCountVal &&
+             "getAllocSizeArgs should return size and count value");
+
+      // Determine the values to use for the number of allocated objects, and
+      // size being allocated.
+      Value *AllocCountVal = nullptr;
+      Value *AllocSizeVal = nullptr;
+      if (isValueEqualToSize(OrigAllocSizeVal, StructSize)) {
+        AllocCountVal = OrigAllocCountVal;
+        AllocSizeVal = OrigAllocSizeVal;
+      } else if (isValueEqualToSize(OrigAllocCountVal, StructSize)) {
+        // Reverse the size and count parameters.
+        AllocCountVal = OrigAllocSizeVal;
+        AllocSizeVal = OrigAllocCountVal;
+      } else {
+        // At this point, we know that either the number allocated or the
+        // allocation size is a multiple of the structure size, but not
+        // how many elements are being allocated.
+        Value *TotalSize = IRB.CreateMul(OrigAllocCountVal, OrigAllocSizeVal);
+        AllocSizeVal = ConstantInt::get(TotalSize->getType(), StructSize);
+        AllocCountVal = IRB.CreateSDiv(TotalSize, AllocSizeVal);
+      }
+
+      // Compute new values for the allocation count and size parameters.
+      // We want the count to be 1 larger than the original number that
+      // were being allocated, and the size parameter to equal the structure
+      // size for the calloc parameters.
+      NewAllocCountVal = IRB.CreateAdd(
+          AllocCountVal, ConstantInt::get(AllocCountVal->getType(), 1));
+      AllocCallInst->setOperand(0, NewAllocCountVal);
+      AllocCallInst->setOperand(1, AllocSizeVal);
+    }
+
+    assert(NewAllocCountVal &&
+           "Expected alloc call processing to set NewAllocCountVal");
+
+    // Pointers in the peeled structure that corresponded to the base allocation
+    // address will be accessed via index 1 in the peeled structure.\Update the
+    // users of the allocation to refer to index 1. This loop collects the
+    // values to be updated to avoid changing the users while walking them.
+    SmallVector<StoreInst *, 4> StoresToFix;
+    SmallVector<BitCastInst *, 4> BitCastsToFix;
+
+    for (auto *User : AllocCallInst->users()) {
+      if (auto *U = dyn_cast<Instruction>(&*User)) {
+        if (auto *CmpI = dyn_cast<CmpInst>(U)) {
+          // There is nothing to be changed on a comparison of the allocated
+          // pointer against a null value. Both are i8* types, and will not
+          // be transformed.
+          (void)CmpI;
+          assert((CmpI->getOperand(0) ==
+                      Constant::getNullValue(AllocCallInst->getType()) ||
+                  CmpI->getOperand(1) ==
+                      Constant::getNullValue(AllocCallInst->getType())) &&
+                 "Allocation result used in non-null comparison");
+        } else if (auto *SI = dyn_cast<StoreInst>(U)) {
+          // We expect the value operand to have been the use, because writing
+          // to the allocated memory pointer should have set the safety flags
+          // that inhibit the transformation.
+          assert(SI->getValueOperand() == AllocCallInst &&
+                 "Expected allocation result to be stored value");
+          StoresToFix.push_back(SI);
+        } else if (auto *BC = dyn_cast<BitCastInst>(U)) {
+          // We expect the cast to only be to the type being transformed based
+          // on the safety flags.
+          assert(BC->getType() == StructTy->getPointerTo() &&
+                 "Expected allocation result cast to be to type being "
+                 "transformed");
+          BitCastsToFix.push_back(BC);
+        } else {
+          llvm_unreachable("Unexpected instruction using allocation result");
+        }
+      } else {
+        llvm_unreachable("Unexpected use of allocation result");
+      }
+    }
+
+    // Update the stored value to be an index value of 1.
+    for (auto *SI : StoresToFix) {
+      CastInst *IndexAsPtr = CastInst::CreateBitOrPointerCast(
+          ConstantInt::get(getPeeledIndexType(), 1),
+          SI->getOperand(0)->getType());
+      IndexAsPtr->insertBefore(SI);
+      SI->setOperand(0, IndexAsPtr);
+    }
+
+    // Replace the BitCast instructions with an IntToPtr instruction that casts
+    // index 1 to the original pointer type. After the type remapping
+    // completes, the destination type of the cast will be the peeled index
+    // type, and post processing will remove the instruction.
+    for (auto *BC : BitCastsToFix) {
+      CastInst *IndexAsPtr = CastInst::CreateBitOrPointerCast(
+          ConstantInt::get(getPeeledIndexType(), 1), BC->getType());
+      IndexAsPtr->insertBefore(BC);
+      BC->replaceAllUsesWith(IndexAsPtr);
+      BC->eraseFromParent();
+      PtrConverts.push_back(IndexAsPtr);
+    }
+
+    // Initialize the pointer fields of the peeled structure to store an
+    // address of the allocated memory block. Padding may be needed
+    // to align the start of the array for some elements. When padding
+    // is required, we can start the array at the next available aligned
+    // address, or we can leave a gap to simulate peeling of the original array
+    // padding to get to the aligned address of the field. As an example
+    // consider the structure {i32, i64, i32 }, padding may be required between
+    // the 1st and 2nd arrays depending on the number of elements being
+    // allocated. If we are allocating arrays of length 5 (after the adjustment
+    // for the null element), then the array of i64 elements can begin at offset
+    // 24 (minimal padding) or at offset 40 (original padding of i32 element is
+    // effectively peeled)
+    //
+    // This version minimizes the padding, but we may revisit this.
+    //
+    // The memory writes generated below are on the global variable, so will be
+    // safe even if the allocation call returns NULL.
+
+    // Use the same type as the allocation parameter for the offset
+    // calculations.
+    Type *ArithType = NewAllocCountVal->getType();
+
+    unsigned AccumElemSize = 0;
+    Value *AddrOffset = ConstantInt::get(ArithType, 0);
+    Type *PrevArrayElemType = nullptr;
+
+    // Insert the initialization of the field members to be right after the
+    // allocation call.
+    IRB.SetInsertPoint(AllocCallInst->getNextNode());
+    unsigned int NumElements = PeelTy->getNumElements();
+    for (unsigned FieldNum = 0; FieldNum < NumElements; ++FieldNum) {
+      Type *PeelFieldType = PeelTy->getElementType(FieldNum);
+      Type *ArrayElemType = PeelFieldType->getPointerElementType();
+
+      if (FieldNum != 0) {
+        // Compute the offset for the next array based on the size
+        // of the previous element's array.
+        unsigned PrevElemSize = DL.getTypeAllocSize(PrevArrayElemType);
+        AccumElemSize += PrevElemSize;
+        Value *Mul = IRB.CreateMul(NewAllocCountVal,
+                                   ConstantInt::get(ArithType, PrevElemSize));
+
+        if (AddrOffset == ConstantInt::get(ArithType, 0))
+          AddrOffset = Mul;
+        else
+          AddrOffset = IRB.CreateAdd(AddrOffset, Mul);
+
+        // Add padding, if needed.
+        uint64_t FieldAlign = DL.getABITypeAlignment(ArrayElemType);
+        uint64_t OldAccumElemSize = AccumElemSize;
+        if ((AccumElemSize & (FieldAlign - 1)) != 0)
+          AccumElemSize = alignTo(AccumElemSize, FieldAlign);
+
+        unsigned Padding = AccumElemSize - OldAccumElemSize;
+        if (Padding)
+          AddrOffset =
+              IRB.CreateAdd(AddrOffset, ConstantInt::get(ArithType, Padding));
+      }
+
+      // Compute the address in the memory block where the array for this field
+      // will begin:
+      //   %BlockAddr = getelementptr i8, i8* %AllocCallInst, i64/i32 %Offset
+      Value *BlockAddr = IRB.CreateGEP(AllocCallInst, AddrOffset);
+
+      // Cast to the pointer type that will be stored:
+      //   %CastToMemberTy = bitcast i8* %BlockAddr to %PeelFieldType
+      Value *CastToMemberTy = IRB.CreateBitCast(BlockAddr, PeelFieldType);
+
+      // Get the address in the global structure for the field to be stored:
+      //   %FieldAddr = getelementptr %PeelVarType, %PeelVarType* %PeelVar i32
+      //                %FieldNum
+      Value *Idx[2];
+      Idx[0] = Constant::getNullValue(Type::getInt64Ty(Context));
+      Idx[1] = ConstantInt::get(Type::getInt32Ty(Context), FieldNum);
+      Value *FieldAddr = IRB.CreateGEP(PeelTy, PeelVar, Idx);
+
+      // Save the pointer to the global structure field.
+      //   store %CastToMemberTy, %FieldAddr
+      IRB.CreateStore(CastToMemberTy, FieldAddr);
+
+      PrevArrayElemType = ArrayElemType;
+    }
+  }
+
+  // The transformation of the call to free needs to change the parameter
+  // passed to 'free' to be the address of our peeled global variable.
+  void processFreeCall(FreeCallInfo *CInfo, StructInfo *StInfo) {
+    // TODO: Update call parameter for call to free.
+  }
+
 private:
   // Return an integer type that will be used as a replacement type for pointers
   // to the types being peeled.
@@ -513,6 +796,29 @@ private:
     return false;
   }
 
+  // Helper function to get the Type for \p CallInfo cases
+  // that can be transformed. If the CallInfo is for a case that is not
+  // being transformed, return nullptr.
+  llvm::Type *getCallInfoTypeToTransform(dtrans::CallInfo *CInfo) {
+    auto &TypeList = CInfo->getPointerTypeInfoRef().getTypes();
+
+    // Only cases with a single type will be allowed during the transformation.
+    // If there's more than one, we don't need the type, because we won't be
+    // transforming it.
+    if (TypeList.size() != 1)
+      return nullptr;
+
+    llvm::Type *Ty = *TypeList.begin();
+    if (!Ty->isPointerTy())
+      return nullptr;
+
+    llvm::Type *ElemTy = Ty->getPointerElementType();
+    if (!isTypeToTransform(ElemTy))
+      return nullptr;
+
+    return ElemTy;
+  }
+
   // Get the new type for a structure type being transformed. This function
   // can only be used for types that are known to be transformed to avoid
   // the need for nullptr checks on the return value, and to allow casting
@@ -531,11 +837,11 @@ private:
     llvm_unreachable("AOS-to-SOA transformation type not found");
   }
 
-  // When rewriting pointers to the transformed structure type to integer types,
-  // attributes on the return type and function parameters may need to be
-  // updated because some attributes are only allowed on pointer parameters.
-  // This routine updates callsites in the original function prior to the clone
-  // function creation.
+  // When rewriting pointers to the transformed structure type to integer
+  // types, attributes on the return type and function parameters may need to
+  // be updated because some attributes are only allowed on pointer
+  // parameters. This routine updates callsites in the original function prior
+  // to the clone function creation.
   void updateCallAttributes(CallSite &CS) {
     bool Changed = false;
     AttributeList Attrs = CS.getAttributes();
@@ -939,6 +1245,17 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
             CandidateTypes.erase(It);
         }
   }
+
+  // TODO: Add qualification testing on the uses of the allocation call to
+  // guarantee that only uses that can be transformed in processAllocCalls
+  // will be allowed as candidates.
+  // Specifically, the following uses should be allowed, and all others
+  // rejected:
+  //   icmp eq i8* %call, null
+  //   bitcast i8* %call to %struct.type
+  //   store i8* %call, bitcast (@global to i8**)
+  // In the future, this may be extended to allow memset, memcpy, or memmove
+  // using the i8* result of the allocation directly.
 
   return !CandidateTypes.empty();
 }

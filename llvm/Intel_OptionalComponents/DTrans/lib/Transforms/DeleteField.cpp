@@ -130,9 +130,11 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
     for (size_t i = 0; i < NumFields; ++i) {
       dtrans::FieldInfo &FI = StInfo->getField(i);
       if (!FI.isRead() && !FI.hasComplexUse()) {
-        LLVM_DEBUG(dbgs() << "  Found unread field: "
-                          << cast<StructType>(StInfo->getLLVMType())->getName()
-                          << " @ " << i << "\n");
+        LLVM_DEBUG({
+          dbgs() << "  Found unread field: ";
+          StInfo->getLLVMType()->print(dbgs(), true, true);
+          dbgs() << " @ " << i << "\n";
+        });
         CanDeleteField = true;
 #ifdef NDEBUG
         break;
@@ -144,15 +146,19 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       continue;
 
     if (StInfo->testSafetyData(DeleteFieldSafetyConditions)) {
-      LLVM_DEBUG(dbgs() << "  Rejecting "
-                        << cast<StructType>(StInfo->getLLVMType())->getName()
-                        << " based on safety data.\n");
+      LLVM_DEBUG({
+        dbgs() << "  Rejecting ";
+        StInfo->getLLVMType()->print(dbgs(), true, true);
+        dbgs() << " based on safety data.\n";
+      });
       continue;
     }
 
-    LLVM_DEBUG(dbgs() << "  Selected for deletion: "
-                      << cast<StructType>(StInfo->getLLVMType())->getName()
-                      << "\n");
+    LLVM_DEBUG({
+      dbgs() << "  Selected for deletion: ";
+      StInfo->getLLVMType()->print(dbgs(), true, true);
+      dbgs() << "\n";
+    });
 
     StructsToConvert.push_back(StInfo);
   }
@@ -235,6 +241,7 @@ void DeleteFieldImpl::processFunction(Function &F) {
 
   std::function<void(Value *)> deleteStoreAndCastUses =
       [&deleteStoreAndCastUses](Value *V) {
+        SmallPtrSet<Instruction *, 4> InstsToDelete;
         for (auto *U : V->users()) {
           assert((isa<CastInst>(U) || isa<StoreInst>(U)) &&
                  "Unexpected use of deleted field!");
@@ -243,9 +250,17 @@ void DeleteFieldImpl::processFunction(Function &F) {
           // casts or stores) then delete the cast instruction.
           if (isa<CastInst>(U))
             deleteStoreAndCastUses(U);
+          // Since this pointer is an iterator, we can't erase it here.
+          InstsToDelete.insert(cast<Instruction>(U));
+        }
+        // The instructions we're deleting won't ever share users so
+        // there's no reason to gather instructions to delete from the
+        // recursive calls. We can delete each level's instructions as
+        // we unwind.
+        for (auto *I : InstsToDelete) {
           LLVM_DEBUG(dbgs() << "Delete field: erasing GEP user:\n"
-                            << *U << "\n");
-          cast<Instruction>(U)->eraseFromParent();
+                            << *I << "\n");
+          I->eraseFromParent();
         }
       };
 

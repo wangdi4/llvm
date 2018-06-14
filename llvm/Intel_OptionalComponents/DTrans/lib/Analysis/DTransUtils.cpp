@@ -56,6 +56,18 @@ StringRef dtrans::AllocKindName(AllocKind Kind) {
   llvm_unreachable("Unexpected continuation past AllocKind switch.");
 }
 
+StringRef dtrans::CRuleTypeKindName(CRuleTypeKind Kind) {
+  switch (Kind) {
+  case CRT_Unknown:
+    return "Unknown";
+  case CRT_False:
+    return "False";
+  case CRT_True:
+    return "True";
+  }
+  llvm_unreachable("Unexpected continuation past CRuleTypeKind switch.");
+}
+
 StringRef dtrans::FreeKindName(FreeKind Kind) {
   switch (Kind) {
   case FK_NotFree:
@@ -380,9 +392,7 @@ bool dtrans::FieldInfo::processNewSingleAllocFunction(llvm::Function *F) {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void PointerTypeInfo::dump() {
-  print(dbgs());
-}
+void PointerTypeInfo::dump() { print(dbgs()); }
 
 void PointerTypeInfo::print(raw_ostream &OS) {
   if (!getAnalyzed()) {
@@ -410,9 +420,7 @@ void PointerTypeInfo::print(raw_ostream &OS) {
     OS << S << "\n";
 }
 
-void CallInfo::dump() {
-  print(dbgs());
-}
+void CallInfo::dump() { print(dbgs()); }
 
 /// Dispatcher to invoke the appropriate dump method based on the specific type
 /// of call being tracked.
@@ -430,9 +438,7 @@ void CallInfo::print(raw_ostream &OS) {
   }
 }
 
-void AllocCallInfo::dump() {
-  print(dbgs());
-}
+void AllocCallInfo::dump() { print(dbgs()); }
 
 void AllocCallInfo::print(raw_ostream &OS) {
   OS << "AllocCallInfo:\n";
@@ -441,9 +447,7 @@ void AllocCallInfo::print(raw_ostream &OS) {
   PTI.print(OS);
 }
 
-void FreeCallInfo::dump() {
-  print(dbgs());
-}
+void FreeCallInfo::dump() { print(dbgs()); }
 
 void FreeCallInfo::print(raw_ostream &OS) {
   OS << "FreeCallInfo:\n";
@@ -452,9 +456,7 @@ void FreeCallInfo::print(raw_ostream &OS) {
   PTI.print(OS);
 }
 
-void MemfuncCallInfo::dump() {
-  print(dbgs());
-}
+void MemfuncCallInfo::dump() { print(dbgs()); }
 
 void MemfuncCallInfo::print(raw_ostream &OS) {
   OS << "MemfuncInfo:\n";
