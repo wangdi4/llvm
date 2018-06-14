@@ -26,6 +26,7 @@ add_llvm_target(CSACodeGen
   CSAInstBuilder.cpp
   CSAInstrInfo.cpp
   CSAIntrinsicCleaner.cpp
+  CSALicGrouping.cpp
   CSALoopIntrinsicExpander.cpp
   CSALowerAggrCopies.cpp
   CSAMCInstLower.cpp
