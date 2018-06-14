@@ -70,12 +70,13 @@ For individual change sets, the gatekeeping process is integrated into
 gatekeepers will be notified and will review your change set for xmain
 readiness. Gatekeepers may ask questions, request additional changes, request
 additional testing, etc. Once satisfied, a gatekeeper will give +2 and
-submit your changes to xmain. Changes might need to be rebased before
-submission. In most cases, the gatekeeper will do this and will submit the
-changes after a successful rebase. If there are conflicts during the rebase or
-if the gatekeeper has concerns about bad interactions with other xmain changes,
-the gatekeeper will ask the developer to do the rebase and possibly to run
-some additional testing.
+then you may submit your changes to xmain. Changes might need to be rebased
+before submission. If your changes rebase cleanly, you still have permission to
+submit your changes, but you will need to reinstate the code review +2 if
+Gerrit cleared it. If there are conflicts during rebase, you will need to
+resolve them and upload a new change set for further review. The amount of
+testing of the new change set is at your discretion but requires agreement
+from the gatekeeper.
 
 ..
     The following paragraph provides a link that automatically opens up an email
