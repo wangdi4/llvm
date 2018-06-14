@@ -19,12 +19,12 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
   set(CMAKE_SKIP_RPATH TRUE)
 
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
-    find_library(LibCSASIM csasim PATHS $ENV{CSASIM_SDK}/simulator/latest NO_DEFAULT_PATH)
+    find_library(LibCSASIM csasim PATHS $ENV{CSASIM_SDK}/comp/fsim/latest NO_DEFAULT_PATH)
     if(LibCSASIM)
       libomptarget_say("Building ${tmachine_name} offloading plugin.")
 
       include_directories(${LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIR})
-      include_directories($ENV{CSASIM_SDK}/include)
+      include_directories($ENV{CSASIM_SDK}/comp/fsim/latest)
 
       add_library("omptarget.rtl.${tmachine_libname}" SHARED
         ${CMAKE_CURRENT_SOURCE_DIR}/src/rtl.cpp)
