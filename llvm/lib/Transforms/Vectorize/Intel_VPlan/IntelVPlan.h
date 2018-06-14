@@ -38,7 +38,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "Intel_VPlan/IntelVPLoopAnalysis.h"
-#include "Intel_VPlan/IntelVPLoopInfo.h"
+#include "Intel_VPlan/IntelVPlanLoopInfo.h"
 #include "Intel_VPlan/VPlanHIR/IntelVPlanInstructionDataHIR.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"

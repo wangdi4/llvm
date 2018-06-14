@@ -19,7 +19,7 @@
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelLoopCFU.h"
 #include "IntelVPlanBuilder.h"
-#include "IntelVPLoopInfo.h"
+#include "IntelVPlanLoopInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/IntrinsicInst.h"

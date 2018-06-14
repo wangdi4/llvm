@@ -1,4 +1,4 @@
-//===-- IntelVPLoopInfo.h ---------------------------------------*- C++ -*-===//
+//===-- IntelVPlanLoopInfo.h ------------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
@@ -17,8 +17,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLOOPINFO_H 
-#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLOOPINFO_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANLOOPINFO_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANLOOPINFO_H
 
 #include "llvm/Analysis/LoopInfoImpl.h"
 
@@ -38,7 +38,7 @@ private:
 /// Hierarchical CFG. It is a specialization of LoopInfoBase class.
 typedef LoopInfoBase<VPBlockBase, VPLoop> VPLoopInfo;
 
-} // End VPO Vectorizer Namespace
-} // end llvm namespace
+} // namespace vpo
+} // namespace llvm
 
-#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLOOPINFO_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANLOOPINFO_H

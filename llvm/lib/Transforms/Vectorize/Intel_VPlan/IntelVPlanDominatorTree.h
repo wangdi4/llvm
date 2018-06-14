@@ -8,8 +8,8 @@
 //   from the company.
 //
 //===----------------------------------------------------------------------===//
-#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPDOMINATORTREE_H
-#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPDOMINATORTREE_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANDOMINATORTREE_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANDOMINATORTREE_H
 
 #include "../Intel_VPlan.h"
 #include "llvm/ADT/GraphTraits.h"
@@ -23,7 +23,7 @@ namespace llvm {
 // in which VPlan.h or this header was included from other files. Thus, this
 // code was moved to VPlan.h.
 
-//class VPBlockBase;
+// class VPBlockBase;
 /// \brief Template specialization of the standard LLVM dominator tree utility
 /// for VPBlocks.
 class VPDominatorTree : public DominatorTreeBase<VPBlockBase, false> {
@@ -44,4 +44,4 @@ struct GraphTraits<const VPDomTreeNode *>
     : public DomTreeGraphTraitsBase<const VPDomTreeNode,
                                     VPDomTreeNode::const_iterator> {};
 } // namespace llvm
-#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPDOMINATORTREE_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANDOMINATORTREE_H
