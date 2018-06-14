@@ -3,9 +3,6 @@
 #include <stdio.h>
 #include "FrameworkTest.h"
 #include "cl_device_api.h"
-#ifdef _WIN32
-#include <windows.h>
-#endif
 #include <string>
 
 extern cl_device_type gDeviceType;

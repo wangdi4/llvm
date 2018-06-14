@@ -26,11 +26,6 @@
 #include <string>
 #include <vector>
 
-#ifdef WIN32
-#include <stdafx.h>
-#include <Windows.h>
-#endif
-
 #include <cl_env.h>
 #include <cl_sys_defines.h>
 #include <cl_sys_info.h>
@@ -47,6 +42,11 @@
 #include "tbb_execution_schedulers.h"
 #include "cl_user_logger.h"
 #include "base_command_list.hpp"
+
+#ifdef WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 // no local atexit handler - only global
 USE_SHUTDOWN_HANDLER(NULL);

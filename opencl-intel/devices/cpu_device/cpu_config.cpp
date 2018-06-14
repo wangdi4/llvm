@@ -22,8 +22,6 @@
 //  cpu_config.cpp
 ///////////////////////////////////////////////////////////
 
-
-#include "stdafx.h"
 #include "cpu_config.h"
 #include "ICLDevBackendOptions.h"
 #include "ocl_supported_extensions.h"
@@ -32,6 +30,11 @@
 
 #include <string>
 #include <sstream>
+
+#if defined (_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::CPUDevice;

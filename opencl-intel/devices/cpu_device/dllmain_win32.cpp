@@ -22,8 +22,6 @@
 //  dllmain.cpp
 ///////////////////////////////////////////////////////////
 
-#include "stdafx.h"
-
 #pragma comment(lib, "cl_sys_utils.lib")
 #pragma comment(lib, "cl_logger" OPENCL_BINARIES_POSTFIX ".lib")
 #if defined(_M_X64)
@@ -35,6 +33,11 @@
 #include "cpu_device.h"
 #include "backend_wrapper.h"
 #include <stdlib.h>
+
+#if defined (_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 using namespace Intel::OpenCL::CPUDevice;
 

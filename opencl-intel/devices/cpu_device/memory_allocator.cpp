@@ -25,8 +25,6 @@
 //  Original author: efiksman
 ///////////////////////////////////////////////////////////
 
-#include "stdafx.h"
-
 #include "memory_allocator.h"
 #include "cpu_logger.h"
 #include "cpu_dev_limits.h"

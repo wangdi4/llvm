@@ -24,9 +24,6 @@
 #include <gtest/gtest.h>
 #include <stdio.h>
 #include "FrameworkTest.h"
-#ifdef _WIN32
-#include <windows.h>
-#endif
 
 /**
  * In this test the kernel is built with a macro defined through 'options'

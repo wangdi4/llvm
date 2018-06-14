@@ -25,9 +25,6 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Mutex.h"
 
-#if defined(_WIN32)
-#include <windows.h>
-#endif
 #include <ctime>
 #include <memory>
 #include <sstream>

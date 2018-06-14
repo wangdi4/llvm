@@ -25,8 +25,6 @@
 //  Intercats with the compiler backend
 ///////////////////////////////////////////////////////////
 
-#include "stdafx.h"
-
 #include "program_service.h"
 #include "program_config.h"
 #include "cpu_logger.h"
@@ -40,6 +38,11 @@
 #include <limits.h>
 #include <assert.h>
 #include <math.h>
+
+#if defined (_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::Utils;

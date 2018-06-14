@@ -23,8 +23,6 @@
 //  Implementation of the execution of internal task dispatcher commands
 /////////////////////////////////////////////////////////////////////////////
 
-#include "stdafx.h"
-
 #include "dispatcher_commands.h"
 #include "task_dispatcher.h"
 #include "cpu_logger.h"
@@ -35,6 +33,11 @@
 #include <cl_dev_backend_api.h>
 #include <cl_sys_defines.h>
 #include <ocl_itt.h>
+
+#if defined (_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 #define getR(color) ((color >> 16) & 0xFF)
 #define getG(color) ((color >> 8) & 0xFF)

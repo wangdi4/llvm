@@ -30,7 +30,6 @@
 #include <assert.h>
 
 #include "Logger.h"
-#include <windows.h>            // required by: GetCurrentThreadId()
 
 using namespace Intel::OpenCL::Utils;
 

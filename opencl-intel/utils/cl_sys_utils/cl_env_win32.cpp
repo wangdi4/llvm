@@ -29,7 +29,7 @@
 
 using namespace Intel::OpenCL::Utils;
 
-#include<windows.h>
+#include <windows.h>
 
 cl_err_code Intel::OpenCL::Utils::GetEnvVar(std::string & strVarValue, const std::string strVarName)
 {

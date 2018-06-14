@@ -56,9 +56,6 @@
 #include <map>
 #include <iostream>
 #include <sstream>
-#ifdef _WIN32
-#include <windows.h>
-#endif
 
 static const unsigned DEBUG_SERVER_PORT_DEFAULT = 56203;
 static const uint64_t MAX_MEMORY_RANGE_SIZE = 16 * 1024;

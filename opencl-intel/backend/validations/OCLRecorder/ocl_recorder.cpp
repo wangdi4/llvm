@@ -16,7 +16,6 @@ File Name:  ocl_recorder.cpp
 
 \*****************************************************************************/
 
-#include "stdafx.h"
 #include "ocl_recorder.h"
 #include "cl_device_api.h"
 #include "cl_device_api.h"
@@ -43,6 +42,11 @@ File Name:  ocl_recorder.cpp
 #include <atomic>
 #include <memory>
 #include <sstream>
+
+#if defined (_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 #define MAX_LOG_PATH 512
 

@@ -22,8 +22,6 @@
 //  cpu_device.cpp
 ///////////////////////////////////////////////////////////
 
-#include "stdafx.h"
-
 #include "cpu_device.h"
 #include "cpu_logger.h"
 #include "memory_allocator.h"
@@ -47,6 +45,11 @@
 #endif
 #if defined (__GNUC__) && !(__INTEL_COMPILER)  && !(_WIN32)
 #include "hw_utils.h"
+#endif
+
+#if defined (_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #endif
 
 using namespace Intel::OpenCL::CPUDevice;
