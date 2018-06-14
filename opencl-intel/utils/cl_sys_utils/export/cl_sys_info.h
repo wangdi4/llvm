@@ -2,7 +2,7 @@
 // cl_sys_info.h
 /////////////////////////////////////////////////////////////////////////
 // INTEL CONFIDENTIAL
-// Copyright 2007-2013 Intel Corporation All Rights Reserved.
+// Copyright 2007-2018 Intel Corporation All Rights Reserved.
 //
 // The source code contained or described herein and all documents related 
 // to the source code ("Material") are owned by Intel Corporation or its 
@@ -45,7 +45,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
     extern bool                  GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask, unsigned int* nodeSize = nullptr);
     extern unsigned int          GetCpuId();
     extern const char*           GetFullModuleNameForLoad(const char* moduleName);
-    extern bool                  GetModuleProductVersion(const void* someLocalFunc, int* major, int* minor, int* revision, int* build);
+    extern void                  GetModuleProductVersion(int* major, int* minor, int* revision, int* build);
     extern unsigned int          GetThreadId();
 }}}
 

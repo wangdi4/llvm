@@ -1,5 +1,6 @@
 #include "CL/cl.h"
 #include "cl_types.h"
+#include <gtest/gtest.h>
 #include <stdio.h>
 #include "FrameworkTest.h"
 
@@ -50,6 +51,17 @@ bool clGetDeviceInfoTest()
 	{
 		bResult &= CheckSize("check value", sizeof(cl_device_type), size_ret);
 	}
+
+    // CL_DRIVER_VERSION
+    // return driver version
+    // it's hardcoded "7.6.0.0", shall be fixed when it's changed
+    char buffer[1024];
+    iRes = clGetDeviceInfo(devices[0], CL_DRIVER_VERSION, sizeof(buffer), buffer, nullptr);
+    bResult &= Check("CL_DRIVER_VERSION, all OK", CL_SUCCESS, iRes);
+    if (CL_SUCCEEDED(iRes))
+    {
+        bResult &= CheckStr("CL_DRIVER_VERSION", "7.6.0.0", buffer);
+    }
 
 	// CL_DEVICE_TYPE
 	// all OK
