@@ -1852,6 +1852,12 @@ private:  //***INTEL
   std::unique_ptr<PragmaHandler> DistributePointHandler;
   // Pragma nofusion
   std::unique_ptr<PragmaHandler> NoFusionHandler;
+  // Pragma fusion
+  std::unique_ptr<PragmaHandler> FusionHandler;
+  // Pragma nounroll_and_jam
+  std::unique_ptr<PragmaHandler> NoUnrollAndJamHandler;
+  // Pragma unroll_and_jam
+  std::unique_ptr<PragmaHandler> UnrollAndJamHandler;
   // Pragma novector
   std::unique_ptr<PragmaHandler> NoVectorHandler;
   // Pragma vector
