@@ -5,10 +5,12 @@ target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "csa"
 
 ; Function Attrs: nounwind
-define void @.nondebug_wrapper.(double* noalias nocapture readonly %k) #0 {
+define void @.nondebug_wrapper.(double* noalias nocapture readonly %k, double* noalias nocapture %l) #0 {
 ; CHECK: sld64
 ; CHECK-SAME: -1
 entry:
+  %val = load double, double* %l, align 8
+  %N = bitcast double %val to i64
   br label %for.body.i
 
 for.body.i:                                       ; preds = %for.body.i, %entry
@@ -17,10 +19,10 @@ for.body.i:                                       ; preds = %for.body.i, %entry
   %0 = load double, double* %k.addr.03.i, align 8, !tbaa !1, !alias.scope !5, !noalias !8
   %mul19.i = fmul double %0, 0.1
   %add21.i = fadd double 1.0, %mul19.i
-  store double %add21.i, double* undef, align 8, !tbaa !11, !noalias !13
+  store double %add21.i, double* %l, align 8, !tbaa !11, !noalias !13
   %inc.i = add nuw nsw i64 %u.addr.04.i, 1
   %incdec.ptr.i = getelementptr inbounds double, double* %k.addr.03.i, i64 -1
-  %exitcond.i = icmp eq i64 %inc.i, undef
+  %exitcond.i = icmp eq i64 %inc.i, %N
   br i1 %exitcond.i, label %__omp_offloading_51_6d007e0_MorphologyPrimitive_l2982.exit, label %for.body.i
 
 __omp_offloading_51_6d007e0_MorphologyPrimitive_l2982.exit: ; preds = %for.body.i
