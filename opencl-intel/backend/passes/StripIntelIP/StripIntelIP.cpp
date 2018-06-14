@@ -139,7 +139,8 @@ bool StripIntelIP::runOnModule(Module &M) {
     NamedMDNodesToSpare.insert(MDNameToSpare);
   }
 
-  for (auto MDNameToSpare : ModuleMetadataAPI(&M).getMDNames()) {
+  ModuleMetadataAPI moduleMetadata(&M);
+  for (auto MDNameToSpare : moduleMetadata.getMDNames()) {
     NamedMDNodesToSpare.insert(MDNameToSpare);
   }
 
