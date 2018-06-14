@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2007 Intel Corporation
+// Copyright (c) 2006-2018 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -82,7 +82,7 @@ crt_err_code CrtConfig::Init()
 
 bool CrtConfig::emulatorEnabled()
 {
-#if defined( _WIN32 ) && defined( BUILD_EXPERIMENTAL_21 )
+#if defined( _WIN32 ) && defined( BUILD_OPENCL_21 )
     return true;
 #endif // defined( _WIN32 )
     return false;

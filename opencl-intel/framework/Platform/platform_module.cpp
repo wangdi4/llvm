@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2018 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -55,8 +55,8 @@ const char PlatformModule::m_vPlatformInfoStr[] = "FULL_PROFILE";
 #endif
 const unsigned int PlatformModule::m_uiPlatformInfoStrSize = sizeof(m_vPlatformInfoStr) / sizeof(char);
 
-#ifdef BUILD_EXPERIMENTAL_21
-const char PlatformModule::m_vPlatformNameStr[] = "Experimental OpenCL 2.1 CPU Only Platform";
+#ifdef BUILD_OPENCL_21
+const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) OpenCL 2.1 CPU Only Platform";
 #elif defined(BUILD_FPGA_EMULATOR)
 const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) FPGA Emulation Platform for OpenCL(TM) (preview)";
 #else
