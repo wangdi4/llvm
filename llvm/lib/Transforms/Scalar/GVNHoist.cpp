@@ -275,6 +275,13 @@ public:
         DFSNumber[&Inst] = ++I;
     }
 
+#ifdef INTEL_CUSTOMIZATION
+    // Self-build hangs. Restricting the optimization to be enabled only if
+    // the  number of BBs is <= 100 because incremental MemorySSA update
+    // takes a long time for large functions.
+    if (BBI > 100) return false;
+#endif //INTEL_CUSTOMIZATION
+
     int ChainLength = 0;
 
     // FIXME: use lazy evaluation of VN to avoid the fix-point computation.
@@ -601,6 +608,24 @@ private:
       Instruction *Insn = CHI.I;
       if (!Insn) // No instruction was inserted in this CHI.
         continue;
+
+#ifdef INTEL_CUSTOMIZATION
+      // JIRA 50169: Targetting simple diamond case in 525.x264 to
+      // avoid compile time and performance regression.
+      // Remove when community enables GVN Hoist pass by default.
+
+      // Immediate predecessor only.
+      bool isPred = false;
+      for (BasicBlock *Pred : predecessors(Insn->getParent())) {
+        if (BB == Pred)
+          isPred = true;
+      }
+
+      // Skip if the block hoisted to is not the immediate predecessor.
+      if (!isPred)
+        continue;
+#endif // INTEL_CUSTOMIZATION
+
       if (K == InsKind::Scalar) {
         if (safeToHoistScalar(BB, Insn->getParent(), NumBBsOnAllPaths))
           Safe.push_back(CHI);
