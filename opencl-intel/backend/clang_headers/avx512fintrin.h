@@ -719,4 +719,24 @@ _mm512_maskz_fmadd_ps(__mmask16 __U, __m512 __A, __m512 __B, __m512 __C)
                                                     (__mmask16) __U,
                                                     _MM_FROUND_CUR_DIRECTION);
 }
+
+static __inline__ __m512d __attribute__ ((__always_inline__, __nodebug__))
+_mm512_maskz_mov_pd (__mmask8 __U, __m512d __A)
+{
+  return (__m512d) __builtin_ia32_selectpd_512 ((__mmask8) __U,
+              (__v8df) __A,
+              (__v8df) _mm512_setzero_pd ());
+}
+
+static __inline__ __m512 __attribute__ ((__always_inline__, __nodebug__))
+_mm512_maskz_mov_ps (__mmask16 __U, __m512 __A)
+{
+  return (__m512) __builtin_ia32_selectps_512 ((__mmask16) __U,
+             (__v16sf) __A,
+             (__v16sf) _mm512_setzero_ps ());
+}
+
+__m512i __attribute__ ((__always_inline__, __nodebug__))
+_mm512_maskz_mov_epi64 (__mmask8 __U, __m512i __A);
+
 #endif // __AVX512FINTRIN_H
