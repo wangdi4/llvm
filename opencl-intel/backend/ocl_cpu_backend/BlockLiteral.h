@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2013).
+Copyright (c) Intel Corporation (2013 - 2018).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -25,84 +25,40 @@ File Name:  BlockLiteral.h
 #include "cl_sys_defines.h"
 
 /*
-  Declartion of Clang's block literal structure. Used in OCL20 Extended execution
-  Detailed doc is here:http://clang.llvm.org/docs/Block-ABI-Apple.html
-
-  LLVM example of block literal
-  %struct.__block_descriptor.10 = type { i64, i64 }
-  %struct.__block_literal_generic.11 = type { i8*, i32, i32, i8*, %struct.__block_descriptor.10* }
-
-  Block_literal contains following main things:
-    - invoke point of block function
-    - size of Block_literal 
-    - imported variables
-  
-  !!! Do not use sizeof() since block_literal may also contain imported variables
-
+  LLVM example of block literal:
+  -----------------------------------------------------
+                                  size alignment
+                                    |    |
+  %struct.__block_literal = type { i32, i32, ...}
+                                              |
+                                     captured variables
+  -----------------------------------------------------
 */
+
+// TODO: block literal structure got quite simple representation starting from
+// clang 6.0 version, so this class may be further simplified or removed
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-  /// structure representing clang's block_literal header
-  /// imported variables are located in memory after block_descriptor
-  /// clang generates automatically fields for imported variables 
-  /// this struct is not covering imported variable
-  /// Intended use:
-  ///     static_cast pointer to BlockLiteral *
-  ///     access invoke addr
-  ///     access size 
-  ///     copy to another memory location
-  /// All other usages are hidden to avoid misproper copy, create, etc ops
   struct BlockLiteral {
   private:
-    /// initialized to &_NSConcreteStackBlock or &_NSConcreteGlobalBlock
-    void *isa; 
-    int flags;
-    int reserved;
-    /// invoke address of Block function
-    void *invoke; 
-    struct Block_descriptor {
-      int64_t reserved;
-      /// size of BlockLiteral structure
-      int64_t size;
-      /// ctor
-      Block_descriptor():size(0){}
-    };
-    Block_descriptor *desc;
-    /// imported variables go here
+    int32_t size;
+    int32_t alignment;
+
+    /// imported (captured) variables go here
     /// int var1;
     /// float var;
   public:
-    /// @brief obtain size in bytes of BlockLiteral structure and Block descriptor structure
-    /// intended use is to obtain size for allocating memory for copying structure
-    size_t GetBufferSizeForSerialization() const {
-      assert(desc->size != 0 && 
-        "BlockLiteral::GetBufferSizeForSerialization size of block_literal is zero");
-      return static_cast<size_t>(desc->size) + sizeof(Block_descriptor);
-    }
-    
     /// @brief Serialize block_literal and blockdescriptor to destination address
-    /// Deserialization is done by byte copying buffer and calling UpdateBlockDescrPtr() function
-    /// It places in memory fixed size blockdescriptor and block_literal after it 
     /// @param dst - destination memory buffer pre-allocated with GetLiteralAndDescriptorSize() 
     void Serialize(void *dst, size_t dst_size) const {
-      // copy Block_descriptor
-      MEMCPY_S(dst, dst_size, desc, sizeof(Block_descriptor));
-      ((Block_descriptor*)dst)->reserved = BLOCKLITERAL_ID;
-      // copy BlockLiteral
-      void * newDescAddr = static_cast<char*>(dst) + sizeof(Block_descriptor);
-      MEMCPY_S(newDescAddr, dst_size - sizeof(Block_descriptor), this, desc->size);
+      MEMCPY_S(dst, dst_size, this, size);
     }
 
     /// @brief Deserialize BlockLiteral inplace in memory 
     /// @param src - memory address where serialized BlockLiteral is stored
     /// @return - ptr to correct BlockLiteral structure
     static BlockLiteral * DeserializeInBuffer(void *src) {
-      assert(((Block_descriptor*)src)->reserved == BLOCKLITERAL_ID &&
-        "BLOCKLITERAL_ID signature was not found ");
-      BlockLiteral * Addr = reinterpret_cast<BlockLiteral *>
-        (reinterpret_cast<char*>(src) + sizeof(Block_descriptor));
-      Addr->desc = reinterpret_cast<Block_descriptor*>(src);
-      return Addr;
+      return reinterpret_cast<BlockLiteral *>(src);
     }
     
     /// @brief clones BlockLiteral. Allocates memory and creates copy
@@ -110,41 +66,23 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @return created BlockLiteral
     static BlockLiteral * Clone(const BlockLiteral *src) {
       assert(src && "src is NULL");
-      const size_t SizeBytes = src->GetBufferSizeForSerialization();
+      const size_t SizeBytes = src->GetSize();
       char * mem = new char[SizeBytes];
       src->Serialize(mem, SizeBytes);
-      BlockLiteral * pBL = DeserializeInBuffer(mem);
-      return pBL;
+      return DeserializeInBuffer(mem);
     }
     
     /// @brief free memory for BlockLiteral allocated by Clone()
     /// @param p - valid BlockLiteral object created by Clone()
     static void FreeMem(BlockLiteral * p) {
       assert(p && "p is NULL");
-      assert(p->desc->reserved == BLOCKLITERAL_ID &&
-        "BLOCKLITERAL_ID signature was not found. "
-        "Seems this BlockLiteral was not created by Clone()."
-        "We can free memory only for BlockLiteral created by Clone())");
-      // move back pointer by size of Block_descriptor. It is stored before
-      char * ptr = reinterpret_cast<char*>(p) - sizeof(Block_descriptor);
-      delete [] ptr;
+      delete [] p;
     }
 
-    /// @brief get block function invoke address
-    void * GetInvoke() const {
-      return invoke;
-    }
-
-    /// @brief get block function invoke address
     int64_t GetSize() const {
-      return desc->size;
+      return size;
     }
 
-    void SetDescPtr(Block_descriptor *p) {
-      desc = p;
-    }
-    /// ID of blockLiteral serialized copy
-    static const int64_t BLOCKLITERAL_ID = 0xBFE04725;
   private:
     ////////////////////////////////////////////////////////////////
     /// hide default ctor

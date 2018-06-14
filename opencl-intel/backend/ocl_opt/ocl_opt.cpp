@@ -23,7 +23,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
-#include "llvm/CodeGen/CommandFlags.def"
+#include "llvm/CodeGen/CommandFlags.inc"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfo.h"
@@ -330,8 +330,6 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeLinearIdResolverPass(Registry);
     intel::initializePrepareKernelArgsPass(Registry);
     intel::initializeResolveWICallPass(Registry);
-    intel::initializeCloneBlockInvokeFuncToKernelPass(Registry);
-    intel::initializeResolveBlockToStaticCallPass(Registry);
     intel::initializeDetectRecursionPass(Registry);
     intel::initializeDebugInfoPassPass(Registry);
     intel::initializeSmartGVNPass(Registry);
@@ -553,7 +551,9 @@ int main(int argc, char **argv) {
   initializeIntel_OpenCLTransforms(Registry);
   initializeIntel_VPOAnalysis(Registry);
   initializeIntel_VPOTransforms(Registry);
+#if INTEL_INCLUDE_DTRANS
   initializeDTransAnalysisWrapperPass(Registry);
+#endif // INTEL_INCLUDE_DTRANS
   initializeOptimizeDynamicCastsWrapperPass(Registry);
 #endif  // INTEL_CUSTOMIZATION
 

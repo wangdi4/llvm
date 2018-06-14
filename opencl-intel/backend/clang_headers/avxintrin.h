@@ -480,7 +480,7 @@ _mm256_extract_epi8(__m256i a, int const imm)
 }
 
 #ifdef __x86_64__
-static __inline long long  __attribute__((__always_inline__, __nodebug__))
+static __inline __i64  __attribute__((__always_inline__, __nodebug__))
 _mm256_extract_epi64(__m256i a, const int imm)
 {
   __v4di b = (__v4di)a;
@@ -568,7 +568,7 @@ _mm256_cvtepi32_pd(__m128i a)
 static __inline __m256 __attribute__((__always_inline__, __nodebug__))
 _mm256_cvtepi32_ps(__m256i a)
 {
-  return (__m256)__builtin_ia32_cvtdq2ps256((__v8si) a);
+  return (__m256)__builtin_convertvector((__v8si) a, __v8sf);
 }
 
 static __inline __m128 __attribute__((__always_inline__, __nodebug__))

@@ -96,6 +96,7 @@ void CPUBuiltinLibrary::Load() {
   m_pRtlBufferSvmlShared = RTLBufferSharedOrErr.get().release();
 
 // INTEL VPO BEGIN
+#ifdef BUILD_FPGA_EMULATOR
   // Load OpenMP library
 #if defined (_WIN32)
   std::string RTLibOmpName = "libiomp5md.dll";
@@ -130,6 +131,7 @@ void CPUBuiltinLibrary::Load() {
             std::string("Failed to load OMP-TBB library ") + Err);
     }
 #endif
+#endif // BUILD_FPGA_EMULATOR
 // INTEL VPO END
 }
 

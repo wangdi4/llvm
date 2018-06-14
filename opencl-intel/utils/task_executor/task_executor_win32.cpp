@@ -17,7 +17,6 @@
 // 
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
-#include <stdafx.h>
 #include "task_executor.h"
 
 #if ! defined( __THREAD_EXECUTOR__) && ! defined( __TBB_EXECUTOR__ )
@@ -36,8 +35,9 @@
 #pragma comment (lib, "cl_logger" OPENCL_BINARIES_POSTFIX ".lib")
 #pragma comment (lib, "cl_sys_utils.lib")
 
-#include <Windows.h>
 #include <stdio.h>
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
 
 using namespace Intel::OpenCL::TaskExecutor;
 using namespace Intel::OpenCL::Utils;

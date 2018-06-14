@@ -5,9 +5,10 @@
 #include "FrameworkTest.h"
 #include <gtest/gtest.h>
 
+#ifdef BUILD_FPGA_EMULATOR
 extern cl_device_type gDeviceType;
 
-void FPGAPipeOrdering()
+TEST(FPGA, FPGAWorkItemsOrdering)
 {
     cl_int         iRet     = CL_SUCCESS;
     cl_platform_id platform = nullptr;
@@ -37,24 +38,20 @@ void FPGAPipeOrdering()
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateContext failed.";
 
     const char* kernel = "\
-        #pragma OPENCL EXTENSION cl_intel_channels : enable \n \
-        \n \
-        volatile __global int counter = 0; \n \
-        channel int ch;\n \
-        \n \
-        __kernel void channel_writer(__global int *iters) {\n \
-            size_t gid = get_global_id(0);\n \
-            for (int i = 0; i < *iters; ++i) {\n \
-                write_channel_intel(ch, i);\n \
-            }\n \
-        }\n \
-        \n \
-        __kernel void channel_reader(__global int *out_buf, __global int *iters) {\n \
-            for (int i = 0; i < *iters; ++i) {\n \
-                int ind = atomic_inc(&counter); \
-                out_buf[ind] = read_channel_intel(ch);\n \
-            }\n \
-        }\n \
+        #pragma OPENCL EXTENSION cl_intel_channels : enable                  \n\
+                                                                             \n\
+        atomic_int counter = ATOMIC_VAR_INIT(0);                             \n\
+        channel int ch;                                                      \n\
+                                                                             \n\
+        __kernel void channel_writer() {                                     \n\
+            size_t gid = get_global_linear_id();                             \n\
+            write_channel_intel(ch, gid);                                    \n\
+        }                                                                    \n\
+                                                                             \n\
+        __kernel void channel_reader(__global int *out_buf) {                \n\
+            int ind = atomic_fetch_add(&counter, 1);                         \n\
+            out_buf[ind] = read_channel_intel(ch);                           \n\
+        }                                                                    \n\
         ";
     cl_program program = clCreateProgramWithSource(context, /*count=*/1,
                                                    &kernel, /*length=*/nullptr,
@@ -64,6 +61,7 @@ void FPGAPipeOrdering()
     iRet = clBuildProgram(program, /*num_devices=*/0, /*device_list=*/nullptr,
                           /*options=*/"-cl-std=CL2.0", /*pfn_notify*/nullptr,
                           /*user_data=*/nullptr);
+    EXPECT_EQ(CL_SUCCESS, iRet) << "clBuildProgram failed.";
     if(CL_SUCCESS != iRet)
     {
         size_t logSize = 0;
@@ -73,9 +71,9 @@ void FPGAPipeOrdering()
         std::string log("", logSize);
         clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
                               log.size(), &log[0], /*value_size_ret=*/nullptr);
-        std::cout << log << std::endl;
+        FAIL() << log << "\n";
+        return;
     }
-    ASSERT_EQ(CL_SUCCESS, iRet) << " clBuildProgram failed.";
 
     cl_kernel kernelWriter = clCreateKernel(program, "channel_writer", &iRet);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateKernel failed.";
@@ -83,22 +81,17 @@ void FPGAPipeOrdering()
     cl_kernel kernelReader = clCreateKernel(program, "channel_reader", &iRet);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateKernel failed.";
 
-    size_t globalSize = 512;
-    size_t localSize  = 128;
-    int iterations = 50;
-    int numElements = globalSize * iterations;
-    size_t outBufferSize = sizeof(int) * numElements;
-    std::vector<int> outBufferHost;
+    const size_t numDims = 3;
+    size_t globalSize[numDims] = { 32, 16, 8 };
+    size_t localSize[numDims] = { 32, 16, 8 };
+    size_t numElements =
+        globalSize[0] * globalSize[1] * globalSize[2];
+    size_t outBufferSize = sizeof(cl_int) * numElements;
+    std::vector<cl_int> outBufferHost;
     outBufferHost.resize(numElements);
-    cl_mem outBuffer = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
-                                   /*size=*/outBufferSize, /*host_ptr=*/&outBufferHost[0],
-                                   &iRet);
-    ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateBuffer failed.";
-
-    cl_mem iterBuf = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR,
-                                    /*size=*/sizeof(iterations),
-                                    /*host_ptr=*/&iterations,
-                                    &iRet);
+    cl_mem outBuffer = clCreateBuffer(
+        context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
+        /*size=*/outBufferSize, /*host_ptr=*/&outBufferHost[0], &iRet);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateBuffer failed.";
 
     cl_command_queue queueWriter =
@@ -111,26 +104,20 @@ void FPGAPipeOrdering()
                                            /*properties=*/nullptr, &iRet);
     ASSERT_EQ(CL_SUCCESS, iRet) << "clCreateCommandQueueWithProperties failed.";
 
-    iRet = clSetKernelArg(kernelWriter, 0, sizeof(iterBuf), &iterBuf);
-    ASSERT_EQ(CL_SUCCESS, iRet) << "clSetKernelArg 0 failed.";
-
     iRet = clSetKernelArg(kernelReader, 0, sizeof(outBuffer), &outBuffer);
     ASSERT_EQ(CL_SUCCESS, iRet) << "clSetKernelArg 0 failed.";
 
-    iRet = clSetKernelArg(kernelReader, 1, sizeof(iterBuf), &iterBuf);
-    ASSERT_EQ(CL_SUCCESS, iRet) << "clSetKernelArg 1 failed.";
-
-    iRet = clEnqueueNDRangeKernel(queueWriter, kernelWriter, /*work_dim=*/1,
+    iRet = clEnqueueNDRangeKernel(queueWriter, kernelWriter, /*work_dim=*/numDims,
                                   /*global_work_offset=*/nullptr,
-                                  &globalSize, &localSize,
+                                  globalSize, localSize,
                                   /*num_events_in_wait_list=*/0,
                                   /*event_wait_list=*/nullptr,
                                   /*event=*/nullptr);
     ASSERT_EQ(CL_SUCCESS, iRet) << "clEnqueueNDRangeKernel failed.";
 
-    iRet = clEnqueueNDRangeKernel(queueReader, kernelReader, /*work_dim=*/1,
+    iRet = clEnqueueNDRangeKernel(queueReader, kernelReader, /*work_dim=*/numDims,
                                   /*global_work_offset=*/nullptr,
-                                  &globalSize, &localSize,
+                                  globalSize, localSize,
                                   /*num_events_in_wait_list=*/0,
                                   /*event_wait_list=*/nullptr,
                                   /*event=*/nullptr);
@@ -139,28 +126,18 @@ void FPGAPipeOrdering()
     clFinish(queueWriter);
     clFinish(queueReader);
 
-    for (int i = 0; i < iterations; ++i)
+    for (size_t gid = 0; gid < numElements; ++gid)
     {
-        for (size_t groupId = 0; groupId < globalSize/localSize; ++groupId)
-        {
-            for (size_t localId = 1; localId < localSize; ++localId)
-            {
-                // (shift by iterations) * (shift by wg)
-                int expectIndex = i*localSize + groupId*localSize*iterations;
-                int curIndex = expectIndex + localId;
-                ASSERT_EQ(outBufferHost[expectIndex], outBufferHost[curIndex])
-                    << "Incorrect result!";
-            }
-        }
+        ASSERT_EQ(gid, outBufferHost[gid])
+            << "Incorrect result at index " << gid;
     }
 
     clReleaseCommandQueue(queueWriter);
     clReleaseCommandQueue(queueReader);
     clReleaseMemObject(outBuffer);
-    clReleaseMemObject(iterBuf);
     clReleaseKernel(kernelWriter);
     clReleaseKernel(kernelWriter);
     clReleaseProgram(program);
     clReleaseContext(context);
-    clReleaseDevice(device);
 }
+#endif // BUILD_FPGA_EMULATOR

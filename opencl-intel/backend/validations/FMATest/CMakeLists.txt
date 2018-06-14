@@ -13,7 +13,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/ocl_cpu_backend
   ${BACKEND_ROOT_DIR}/common_runtime/icd
   ${BACKEND_ROOT_DIR}/ocl_cpu_backend
-  ${OCL_SOURCE_DIR}/externals/gtest/include
+  ${OCL_SOURCE_DIR}/externals/gtest/googletest/include
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
   )
 add_executable(${TARGET_NAME}
@@ -21,9 +21,9 @@ add_executable(${TARGET_NAME}
 )
 
 if (NOT WIN32)
-  set(LIBRARIES OclBackendUtils OpenCL googletest pthread)
+  set(LIBRARIES OclBackendUtils OpenCL gtest pthread)
 else (NOT WIN32)
-  set(LIBRARIES OclBackendUtils OpenCL googletest)
+  set(LIBRARIES OclBackendUtils OpenCL gtest)
 endif (NOT WIN32)
 
 target_link_libraries(${TARGET_NAME}

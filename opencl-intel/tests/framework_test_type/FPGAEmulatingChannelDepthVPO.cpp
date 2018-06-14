@@ -151,7 +151,7 @@ static void doTest(std::vector<cl_int> &data, int depth) {
   clReleaseContext(context);
 }
 
-void FPGAChannelDepthEmulationStrictWithDepthVPO() {
+static void FPGAChannelDepthEmulationStrictWithDepthVPO() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "strict");
   SETENV("VOLCANO_CLANG_OPTIONS",
          "-fopenmp -fintel-openmp -fopenmp-tbb -fintel-compatibility");
@@ -162,7 +162,7 @@ void FPGAChannelDepthEmulationStrictWithDepthVPO() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
-void FPGAChannelDepthEmulationStrictWithoutDepthVPO() {
+static void FPGAChannelDepthEmulationStrictWithoutDepthVPO() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "strict");
   SETENV("VOLCANO_CLANG_OPTIONS",
          "-fopenmp -fintel-openmp -fopenmp-tbb -fintel-compatibility");
@@ -173,7 +173,7 @@ void FPGAChannelDepthEmulationStrictWithoutDepthVPO() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
-void FPGAChannelDepthEmulationDefaultWithDepthVPO() {
+static void FPGAChannelDepthEmulationDefaultWithDepthVPO() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "default");
   SETENV("VOLCANO_CLANG_OPTIONS",
          "-fopenmp -fintel-openmp -fopenmp-tbb -fintel-compatibility");
@@ -184,7 +184,7 @@ void FPGAChannelDepthEmulationDefaultWithDepthVPO() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
-void FPGAChannelDepthEmulationDefaultWithoutDepthVPO() {
+static void FPGAChannelDepthEmulationDefaultWithoutDepthVPO() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "default");
   SETENV("VOLCANO_CLANG_OPTIONS",
          "-fopenmp -fintel-openmp -fopenmp-tbb -fintel-compatibility");
@@ -195,7 +195,7 @@ void FPGAChannelDepthEmulationDefaultWithoutDepthVPO() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
-void FPGAChannelDepthEmulationIgnoreDepthWithDepthVPO() {
+static void FPGAChannelDepthEmulationIgnoreDepthWithDepthVPO() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "ignore-depth");
   SETENV("VOLCANO_CLANG_OPTIONS",
          "-fopenmp -fintel-openmp -fopenmp-tbb -fintel-compatibility");
@@ -206,7 +206,7 @@ void FPGAChannelDepthEmulationIgnoreDepthWithDepthVPO() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
-void FPGAChannelDepthEmulationIgnoreDepthWithoutDepthVPO() {
+static void FPGAChannelDepthEmulationIgnoreDepthWithoutDepthVPO() {
   SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "ignore-depth");
   SETENV("VOLCANO_CLANG_OPTIONS",
          "-fopenmp -fintel-openmp -fopenmp-tbb -fintel-compatibility");
@@ -217,3 +217,23 @@ void FPGAChannelDepthEmulationIgnoreDepthWithoutDepthVPO() {
   UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
 }
 
+#ifdef BUILD_FPGA_EMULATOR
+TEST(FPGA, Test_ChannelDepthEmulationStrictVPO)
+{
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationStrictWithDepthVPO());
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationStrictWithoutDepthVPO());
+}
+
+TEST(FPGA, Test_ChannelDepthEmulationDefaultVPO)
+{
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationDefaultWithDepthVPO());
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationDefaultWithoutDepthVPO());
+}
+
+TEST(FPGA, Test_ChannelDepthEmulationIgnoreDepthVPO)
+{
+    ASSERT_NO_FATAL_FAILURE(FPGAChannelDepthEmulationIgnoreDepthWithDepthVPO());
+    ASSERT_NO_FATAL_FAILURE(
+        FPGAChannelDepthEmulationIgnoreDepthWithoutDepthVPO());
+}
+#endif // BUILD_FPGA_EMULATOR

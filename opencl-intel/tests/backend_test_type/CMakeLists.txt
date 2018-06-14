@@ -1,4 +1,4 @@
-set( INCLUDE_HEADERS_PATH ${LLVM_INCLUDE_DIRS}/cclang)
+set( INCLUDE_HEADERS_PATH ${CCLANG_INCLUDE_DIRS})
 
 if (BUILD_X64)
 set (
@@ -39,7 +39,6 @@ add_subdirectory(OCLSamplePlugin)
 set(BACKEND_ROOT_DIR ${OCL_SOURCE_DIR}/backend)
 include_directories(
     ${LLVM_INCLUDE_DIRS}
-    ${OCL_SOURCE_DIR}/externals/gtest/include
     ${OCL_SOURCE_DIR}/cl_api
     ${OCL_SOURCE_DIR}/tests/test_utils/export
     ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
@@ -61,7 +60,6 @@ add_ocl_unittest( ${TARGET_NAME}
     FactoryTest.cpp
     CompilationServiceTest.cpp
     PluginsTest.cpp
-    BlockLiteralTest.cpp
     KernelSubGroupInfoTest.cpp
     CompilationUtilsTest.cpp
 

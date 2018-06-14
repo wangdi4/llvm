@@ -33,7 +33,6 @@
 #include <climits> // INT_MAX
 
 #if defined(_WIN32)
-    #include <windows.h>
     #include <process.h>
     #include <stdint.h>
 #endif

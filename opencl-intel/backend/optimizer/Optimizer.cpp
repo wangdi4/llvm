@@ -30,11 +30,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 // TODO: vromanov to fix:
@@ -114,8 +116,6 @@ llvm::Pass *createSmartGVNPass(bool);
 llvm::ModulePass *createSinCosFoldPass();
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createDetectRecursionPass();
-llvm::ModulePass *createCloneBlockInvokeFuncToKernelPass();
-llvm::Pass *createResolveBlockToStaticCallPass();
 llvm::ModulePass *createPreLegalizeBoolsPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
 llvm::ModulePass *createPrintfArgumentsPromotionPass();
@@ -296,12 +296,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   PM.add(createFMASplitterPass());
   PM.add(createOclSyncFunctionAttrsPass());
   PM.add(createPrintfArgumentsPromotionPass());
-  if (isOcl20) {
-    // OCL2.0 resolve block to static call
-    PM.add(createResolveBlockToStaticCallPass());
-    // clone block_invoke functions to kernels
-    PM.add(createCloneBlockInvokeFuncToKernelPass());
-  }
 
   if (OptLevel > 0) {
     PM.add(llvm::createCFGSimplificationPass());
@@ -584,6 +578,10 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   if (isFpgaEmulator) {
     PM.add(createInfiniteLoopCreatorPass());
   }
+
+  // Barrier pass can't work with a token type, so here we remove region
+  // directives
+  PM.add(llvm::createRemoveRegionDirectivesLegacyPass());
 
   PM.add(createBarrierMainPass(debugType));
 

@@ -55,7 +55,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             m_rtLoopUnrollFactor(0),
             m_useVTune(false),
             m_forcedPrivateMemorySize(0),
-            m_channelDepthEmulationMode(CHANNEL_DEPTH_MODE_IGNORE_DEPTH)
+            m_channelDepthEmulationMode(CHANNEL_DEPTH_MODE_STRICT)
         {}
 
         void InitFromCpuConfig(const CPUDeviceConfig& cpuConfig);

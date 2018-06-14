@@ -22,9 +22,7 @@ if (NOT WIN32)
     add_definitions( "-Wno-unused-function" )
 endif(NOT WIN32)
 
-include_directories( 
-            ${LLVM_INCLUDE_DIRS}/cclang
-            )
+include_directories(${CCLANG_INCLUDE_DIRS})
 
 add_library (${TARGET_NAME} STATIC 
              ${TARGET_SOURCE_FILES}

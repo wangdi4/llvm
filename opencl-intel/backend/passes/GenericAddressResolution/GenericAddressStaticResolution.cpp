@@ -126,7 +126,7 @@ namespace intel {
       const AllocaInst *pAlloca = dyn_cast<const AllocaInst>(pInstr);
       if (pAlloca && isAllocaStructGASPointer(pAlloca->getAllocatedType(), false)) {
         // let the dynamic resolution handle it...
-        DEBUG( dbgs() << "No support for structs of generic address space pointers: "; pAlloca->dump(); );
+        LLVM_DEBUG( dbgs() << "No support for structs of generic address space pointers: "; pAlloca->dump(); );
         continue;
       }
 
@@ -141,7 +141,7 @@ namespace intel {
               !IS_ADDR_SPACE_GENERIC(pSrcPtrType->getAddressSpace())) {
             // If this is a conversion from named pointer type to GAS pointer:
             // store GAS pointer info into the collection (together with its uses - recursively)
-            DEBUG( dbgs() << "Added GAS pointer: "; pInstr->dump(); );
+            LLVM_DEBUG( dbgs() << "Added GAS pointer: "; pInstr->dump(); );
             addGASInstr(pInstr, (OCLAddressSpace::spaces) pSrcPtrType->getAddressSpace());
             continue;
           }

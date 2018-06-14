@@ -12,12 +12,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "VectorizerUtils.h"
 
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/Transforms/Utils/Local.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Support/raw_ostream.h"
 
 #define MAX_LOOP_SIZE 1024
 

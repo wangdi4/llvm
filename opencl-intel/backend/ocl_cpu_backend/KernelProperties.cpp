@@ -60,6 +60,7 @@ KernelProperties::KernelProperties():
     m_bIsBlock(false),
     m_bIsAutorun(false),
     m_bNeedSerializeWGs(false),
+    m_bIsTask(false),
     m_bIsNonUniformWGSizeSupported(false),
     m_canUniteWG(false),
     m_verctorizeOnDimention(0),
@@ -112,6 +113,7 @@ void KernelProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
     Serializer::SerialPrimitive<unsigned int>(&m_verctorizeOnDimention, ost);
     Serializer::SerialPrimitive<bool>(&m_bIsAutorun, ost);
     Serializer::SerialPrimitive<bool>(&m_bNeedSerializeWGs, ost);
+    Serializer::SerialPrimitive<bool>(&m_bIsTask, ost);
 }
 
 void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats)
@@ -161,6 +163,7 @@ void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats
     Serializer::DeserialPrimitive<unsigned int>(&m_verctorizeOnDimention, ist);
     Serializer::DeserialPrimitive<bool>(&m_bIsAutorun, ist);
     Serializer::DeserialPrimitive<bool>(&m_bNeedSerializeWGs, ist);
+    Serializer::DeserialPrimitive<bool>(&m_bIsTask, ist);
 }
 
 
@@ -275,6 +278,11 @@ bool KernelProperties::IsBlock() const
 bool KernelProperties::IsAutorun() const
 {
     return m_bIsAutorun;
+}
+
+bool KernelProperties::IsTask() const
+{
+    return m_bIsTask;
 }
 
 bool KernelProperties::NeedSerializeWGs() const

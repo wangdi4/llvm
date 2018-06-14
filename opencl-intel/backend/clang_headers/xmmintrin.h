@@ -403,7 +403,7 @@ _mm_cvt_ss2si(__m128 a)
 
 #ifdef __x86_64__
 
-static __inline__ long long __attribute__((__always_inline__, __nodebug__))
+static __inline__ __i64 __attribute__((__always_inline__, __nodebug__))
 _mm_cvtss_si64(__m128 a)
 {
   return __builtin_ia32_cvtss2si64(a);
@@ -435,7 +435,7 @@ _mm_cvtt_ss2si(__m128 a)
   return _mm_cvttss_si32(a);
 }
 
-static __inline__ long long __attribute__((__always_inline__, __nodebug__))
+static __inline__ __i64 __attribute__((__always_inline__, __nodebug__))
 _mm_cvttss_si64(__m128 a)
 {
   return a[0];
@@ -469,7 +469,7 @@ _mm_cvt_si2ss(__m128 a, int b)
 #ifdef __x86_64__
 
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
-_mm_cvtsi64_ss(__m128 a, long long b)
+_mm_cvtsi64_ss(__m128 a, __i64 b)
 {
   a[0] = b;
   return a;

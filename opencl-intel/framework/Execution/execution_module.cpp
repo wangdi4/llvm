@@ -1983,24 +1983,49 @@ cl_err_code ExecutionModule::RunAutorunKernels(
     {
         for (const auto& kernel: kernels)
         {
-            size_t compileWGSize[3] = {0};
+            size_t localSize[MAX_WORK_DIM] = {0};
             error = kernel->GetWorkGroupInfo(
                 program->GetContext()->GetDevice(devices[i]),
                 CL_KERNEL_COMPILE_WORK_GROUP_SIZE,
-                sizeof(compileWGSize), compileWGSize, nullptr);
+                sizeof(localSize), localSize, nullptr);
             if (CL_FAILED(error))
             {
                 return error;
             }
 
-            if (0 == compileWGSize[0] && 0 == compileWGSize[1] &&
-                0 == compileWGSize[2])
+            bool isTask = kernel->IsTask(program->GetContext()->GetDevice(
+                  devices[i]).GetPtr());
+
+            // According to spec from PSG:
+            //
+            // The following kernel:
+            // __atrribute__((reqd_work_group_size(X,Y,Z)))
+            // __attribute__((autorun))
+            // __kernel void test() { ... }
+            // Should be launched with
+            //  - global size = (2^32, 2^32, 2^32)
+            //  - local size = (X, Y, Z)
+            //
+            // The following kernel:
+            // __attribute__((max_global_work_dim(0)))
+            // __attribute__((autorun))
+            // __kernel void test() { ... }
+            // Should be launched with
+            //  - global size = (1, 1, 1)
+            //  - local size = (1, 1, 1)
+
+            size_t gsValue = (size_t)1 << (size_t)32;
+            size_t globalSize[MAX_WORK_DIM] = {gsValue, gsValue, gsValue};
+
+            if (isTask)
             {
-              compileWGSize[0] = compileWGSize[1] = compileWGSize[2] = 1;
+                globalSize[0] = globalSize[1] = globalSize[2] = 1;
+                localSize[0] = localSize[1] = localSize[2] = 1;
             }
-            error = EnqueueNDRangeKernel(queues[i], kernel->GetHandle(), 3,
-                                         nullptr, compileWGSize, compileWGSize,
-                                         0, nullptr, nullptr, apiLogger);
+
+            error = EnqueueNDRangeKernel(
+                queues[i], kernel->GetHandle(), MAX_WORK_DIM, nullptr,
+                globalSize, localSize, 0, nullptr, nullptr, apiLogger);
             if (CL_FAILED(error))
             {
                 return error;

@@ -33,7 +33,7 @@ endif(NOT WIN32)
 #
 include_directories( AFTER
             ${LLVM_INCLUDE_DIRS}
-            ${LLVM_INCLUDE_DIRS}/cclang
+            ${CCLANG_INCLUDE_DIRS}
             ${CL_API_HEADERS}
             ${OCL_SOURCE_DIR}/backend/name_mangling
             ${OCL_SOURCE_DIR}/backend/plugin_manager

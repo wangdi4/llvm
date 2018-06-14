@@ -12,7 +12,6 @@ set(OCL_BE_PASSES
     BuiltinLibInfo
     ChannelPipeTransformation
     CleanupWrappedKernels
-    CloneBlockInvokeFuncToKernel
     DebugInfoPass
     DetectRecursion
     GenericAddressResolution
@@ -38,7 +37,6 @@ set(OCL_BE_PASSES
     PrepareKernelArgs
     PreventDivCrashes
     RelaxedPass
-    ResolveBlockToStaticCall
     ResolveWICall
     ShiftZeroUpperBits
     SinCosFold

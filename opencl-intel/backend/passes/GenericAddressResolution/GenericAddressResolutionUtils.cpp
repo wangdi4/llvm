@@ -32,94 +32,69 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
   using namespace llvm;
 
   /// @brief Names of Address Space Qualifier OpenCL BI functions
-  static const char *addrQualifierFunctions[] = {
-                      "__to_global",
-                      "__to_local",
-                      "__to_private",
-                      "get_fence"
+  constexpr StringLiteral addrQualifierFunctions[] = {
+    "__to_global", "__to_local", "__to_private", "get_fence"
   };
 
   /// @brief Names of OpenCL BI functions which may use GAS pointers
-  static const char *genericAddrBiFunctions[] = {
-                      "fract",
-                      "frexp",
-                      "lgamma_r",
-                      "modf",
-                      "remquo",
-                      "sincos",
-                      "vload",
-                      "vstore",
-                      "atomic_init",
-                      "atomic_store",
-                      "atomic_store_explicit",
-                      "atomic_load",
-                      "atomic_load_explicit",
-                      "atomic_exchange",
-                      "atomic_exchange_explicit",
-                      "atomic_compare_exchange_strong",
-                      "atomic_compare_exchange_strong_explicit",
-                      "atomic_compare_exchange_weak",
-                      "atomic_compare_exchange_weak_explicit",
-                      "atomic_fetch_add",
-                      "atomic_fetch_add_explicit",
-                      "atomic_fetch_sub",
-                      "atomic_fetch_sub_explicit",
-                      "atomic_fetch_or",
-                      "atomic_fetch_or_explicit",
-                      "atomic_fetch_xor",
-                      "atomic_fetch_xor_explicit",
-                      "atomic_fetch_and",
-                      "atomic_fetch_and_explicit",
-                      "atomic_fetch_min",
-                      "atomic_fetch_min_explicit",
-                      "atomic_fetch_max",
-                      "atomic_fetch_max_explicit",
-                      "atomic_flag_test_and_set",
-                      "atomic_flag_test_and_set_explicit",
-                      "atomic_flag_clear",
-                      "atomic_flag_clear_explicit",
-                      "enqueue_kernel",
-                      "enqueue_marker",
-                      "read_pipe",
-                      "wait_group_events",
-                      "write_pipe"
+  constexpr StringLiteral genericAddrBiFunctions[] = {
+    "fract",                                   "frexp",
+    "lgamma_r",                                "modf",
+    "remquo",                                  "sincos",
+    "vload2",                                  "vload8",
+    "vload3",                                  "vload16",
+    "vload4",                                  "vstore2",
+    "vstore3",                                 "vstore8",
+    "vstore4",                                 "vstore16",
+    "vloada_half",                             "vloada_half2",
+    "vloada_half3",                            "vloada_half4",
+    "vloada_half8",                            "vloada_half16",
+    "vstore_half",                             "vstore_half2",
+    "vstore_half3",                            "vstore_half4",
+    "vstore_half8",                            "vstore_half16",
+    "atomic_init",                             "atomic_store",
+    "atomic_store_explicit",                   "atomic_load",
+    "atomic_load_explicit",                    "atomic_exchange",
+    "atomic_exchange_explicit",                "atomic_compare_exchange_strong",
+    "atomic_compare_exchange_strong_explicit", "atomic_compare_exchange_weak",
+    "atomic_compare_exchange_weak_explicit",   "atomic_fetch_add",
+    "atomic_fetch_add_explicit",               "atomic_fetch_sub",
+    "atomic_fetch_sub_explicit",               "atomic_fetch_or",
+    "atomic_fetch_or_explicit",                "atomic_fetch_xor",
+    "atomic_fetch_xor_explicit",               "atomic_fetch_and",
+    "atomic_fetch_and_explicit",               "atomic_fetch_min",
+    "atomic_fetch_min_explicit",               "atomic_fetch_max",
+    "atomic_fetch_max_explicit",               "atomic_flag_test_and_set",
+    "atomic_flag_test_and_set_explicit",       "atomic_flag_clear",
+    "atomic_flag_clear_explicit",              "enqueue_marker",
+    "wait_group_events",
   };
 
   bool isAddressQualifierBI(const Function *pFunc) {
-    StringRef funcName = pFunc->getName();
-    std::string tmp = funcName.str();
-    const char *funcNameStr = tmp.c_str();
-    funcName = isMangledName(funcNameStr)? stripName(funcNameStr) : funcName;
-    for (unsigned idx = 0; idx < sizeof(addrQualifierFunctions)/sizeof(char*); idx++) {
-      if (funcName == addrQualifierFunctions[idx]) {
-        return true;
-      }
-    }
-    return false;
+    StringRef FName = pFunc->getName();
+    FName = isMangledName(FName.data()) ? stripName(FName.data()) : FName;
+    return std::find(std::begin(addrQualifierFunctions),
+                     std::end(addrQualifierFunctions),
+                     FName) != std::end(addrQualifierFunctions);
   }
 
   bool isGenericAddrBI(const Function *pFunc) {
-    StringRef funcName = pFunc->getName();
-    std::string tmp = funcName.str();
-    const char *funcNameStr = tmp.c_str();
-    funcName = isMangledName(funcNameStr)? stripName(funcNameStr) : funcName;
-    for (unsigned idx = 0; idx < sizeof(genericAddrBiFunctions)/sizeof(char*); idx++) {
-      if (std::string::npos != funcName.find(genericAddrBiFunctions[idx])) {
-        return true;
-      }
-    }
-    return false;
+    StringRef FName = pFunc->getName();
+    FName = isMangledName(FName.data()) ? stripName(FName.data()) : FName;
+    return std::find(std::begin(genericAddrBiFunctions),
+                     std::end(genericAddrBiFunctions),
+                     FName) != std::end(genericAddrBiFunctions);
   }
 
   bool needToSkipResolution(const Function *F) {
     StringRef FName = F->getName();
+    using namespace Intel::OpenCL::DeviceBackend;
     // It isn't needed to process this extended execution BIs
-    if (FName.startswith("__enqueue_kernel") ||
+    if (CompilationUtils::isEnqueueKernel(FName.str()) ||
         FName.equals("__get_kernel_work_group_size_impl") ||
         FName.equals("__get_kernel_preferred_work_group_multiple_impl"))
       return true;
     // It isn't needed to process pipes BIs
-    using namespace Intel::OpenCL::DeviceBackend;
     if (CompilationUtils::isPipeBuiltin(FName))
       return true;
 
@@ -326,7 +301,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
                    llvm::SmallVectorImpl<int> &GASWarnings, LLVMContext *pLLVMContext) {
 
     // Print-out the message ...
-    DEBUG(
+    LLVM_DEBUG(
       dbgs() << "WARNING: " << warning << ": line# ";
       if (pInstr && pInstr->getDebugLoc()) {
         unsigned lineNo = pInstr->getDebugLoc().getLine();

@@ -33,6 +33,19 @@
 #define __OCL_PRIVATE_ADDR_SPACE
 #endif
 
+#ifdef __OPENCL__
+typedef long __i64;
+typedef unsigned long __u64;
+#else
+#ifdef _WIN32
+typedef __int64 __i64;
+typedef unsigned __int64 __u64;
+#else
+typedef long long __i64;
+typedef unsigned long long __u64;
+#endif
+#endif // __OPENCL__
+
 #ifdef __MMX__
 #include <mmintrin.h>
 #endif

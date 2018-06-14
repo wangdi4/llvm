@@ -39,12 +39,14 @@ class Pipe : public GenericMemObject
 		return new Pipe(pContext, clObjType);
 	}
 
+#ifdef BUILD_FPGA_EMULATOR
     long Release(void) override
     {
         void* pPipe = GetBackingStoreData();
         __pipe_release_intel(pPipe);
         return 0;
     }
+#endif // BUILD_FPGA_EMULATOR
 
     /**
      * @param uiPacketSize the size in byte of this Pipe's packet

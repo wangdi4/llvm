@@ -12,9 +12,6 @@
 #include "FrameworkTest.h"
 #include "cl_device_api.h"
 #include "cl_cpu_detect.h"
-#ifdef _WIN32
-#include <windows.h>
-#endif
 #include <iostream>
 #include <string>
 #include <vector>

@@ -5,8 +5,6 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 
-#define DEBUG_TYPE "Vectorizer"
-
 #include "VectorizerCore.h"
 #include "InstCounter.h"
 #include "VectorizerCommon.h"
@@ -14,18 +12,25 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "ChooseVectorizationDimension.h"
 #include "MetadataAPI.h"
 
-#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Pass.h"
-#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Pass.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 #include <iomanip>
 #include <sstream>
+
+#ifndef DEBUG_TYPE
+#define DEBUG_TYPE "Vectorizer"
+#endif
 
 using namespace llvm;
 using namespace Intel::MetadataAPI;

@@ -109,7 +109,7 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
 #ifdef BUILD_FPGA_EMULATOR
     int channelDepthEmulationMode = pBackendOptions->GetIntValue(
         (int)CL_DEV_BACKEND_OPTION_CHANNEL_DEPTH_EMULATION_MODE,
-        (int)CHANNEL_DEPTH_MODE_IGNORE_DEPTH);
+        (int)CHANNEL_DEPTH_MODE_STRICT);
     m_LLVMOptions += " --channel-depth-emulation-mode="
         + std::to_string(channelDepthEmulationMode);
     if (channelDepthEmulationMode != CHANNEL_DEPTH_MODE_IGNORE_DEPTH)

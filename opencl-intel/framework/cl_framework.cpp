@@ -19,7 +19,7 @@
 // problem reports or change requests be submitted to it directly
 
 #include <iomanip>
-#include "stdafx.h"
+
 
 #include <cl_cpu_detect.h>
 #include <ocl_itt.h>
@@ -30,7 +30,10 @@
 #include "framework_proxy.h"
 #include "cl_user_logger.h"
 #include "UserLoggerOutputParams.h"
-#ifndef _WIN32
+#if defined (_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
 #include <cl_linux_utils.h>
 #include "cl_framework_alias_linux.h"
 #endif

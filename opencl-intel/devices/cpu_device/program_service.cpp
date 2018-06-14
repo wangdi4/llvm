@@ -25,8 +25,6 @@
 //  Intercats with the compiler backend
 ///////////////////////////////////////////////////////////
 
-#include "stdafx.h"
-
 #include "program_service.h"
 #include "program_config.h"
 #include "cpu_logger.h"
@@ -40,6 +38,11 @@
 #include <limits.h>
 #include <assert.h>
 #include <math.h>
+
+#if defined (_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::Utils;
@@ -829,6 +832,12 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
     case CL_DEV_KERNEL_IS_AUTORUN:
     {
         *(cl_bool*)pValue = (cl_bool)pKernelProps->IsAutorun();
+        stValSize = (nullptr != value) ? sizeof(cl_bool) : 0;
+        break;
+    }
+    case CL_DEV_KERNEL_IS_TASK:
+    {
+        *(cl_bool*)pValue = (cl_bool)pKernelProps->IsTask();
         stValSize = (nullptr != value) ? sizeof(cl_bool) : 0;
         break;
     }

@@ -22,8 +22,6 @@
 //  cpu_config.cpp
 ///////////////////////////////////////////////////////////
 
-
-#include "stdafx.h"
 #include "cpu_config.h"
 #include "ICLDevBackendOptions.h"
 #include "ocl_supported_extensions.h"
@@ -32,6 +30,11 @@
 
 #include <string>
 #include <sstream>
+
+#if defined (_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::CPUDevice;
@@ -51,7 +54,8 @@ CPUDeviceConfig::~CPUDeviceConfig()
 cl_ulong CPUDeviceConfig::GetForcedGlobalMemSize() const
 {
     std::string strForcedSize;
-    if (!m_pConfigFile->ReadInto(strForcedSize, CL_CONFIG_CPU_FORCE_GLOBAL_MEM_SIZE))
+    if (!m_pConfigFile->ReadInto(strForcedSize,
+                                 CL_CONFIG_CPU_FORCE_GLOBAL_MEM_SIZE))
     {
         return 0;
     }
@@ -62,7 +66,8 @@ cl_ulong CPUDeviceConfig::GetForcedGlobalMemSize() const
 cl_ulong CPUDeviceConfig::GetForcedMaxMemAllocSize() const
 {
     std::string strForcedSize;
-    if (!m_pConfigFile->ReadInto(strForcedSize, CL_CONFIG_CPU_FORCE_MAX_MEM_ALLOC_SIZE))
+    if (!m_pConfigFile->ReadInto(strForcedSize,
+                                 CL_CONFIG_CPU_FORCE_MAX_MEM_ALLOC_SIZE))
     {
         return 0;
     }
@@ -113,7 +118,8 @@ bool CPUDeviceConfig::IsDoubleSupported() const
 
     // if we can't detect brand, fallback to AVX support check
     // enabled on CPUs with AVX support
-    bool isAVXSupported = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10);
+    bool isAVXSupported =
+        CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10);
     if (isAVXSupported)
     {
         return true;
@@ -149,7 +155,9 @@ const char* CPUDeviceConfig::GetExtensions() const
 
         // INTEL CPU execlusive extensions
         m_extensions += OCL_EXT_INTEL_EXEC_BY_LOCAL_THREAD " ";
-
+        #ifndef _WIN32
+            m_extensions += OCL_EXT_INTEL_DEVICE_PARTITION_BY_NAMES " ";
+        #endif
         // SPIR extension
         if (IsSpirSupported())
         {
@@ -172,7 +180,8 @@ const char* CPUDeviceConfig::GetExtensions() const
         }
 
         // OpenCL 2.0 extensions
-        if (OPENCL_VERSION_2_0 == GetOpenCLVersion() || OPENCL_VERSION_2_1 == GetOpenCLVersion())
+        if (OPENCL_VERSION_2_0 == GetOpenCLVersion() ||
+            OPENCL_VERSION_2_1 == GetOpenCLVersion())
         {
             m_extensions += OCL_EXT_KHR_IMAGE2D_FROM_BUFFER " ";
         }

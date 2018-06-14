@@ -106,6 +106,7 @@ protected:
         unsigned int GetMinGroupSizeFactorial() const { return 0;}
         bool IsBlock() const { return false;}
         bool IsAutorun() const { return false; }
+        bool IsTask() const { return false; }
         bool NeedSerializeWGs() const { return false; }
         const char* GetKernelAttributes() const { return attributes; }
     protected:

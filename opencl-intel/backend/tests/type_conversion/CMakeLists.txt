@@ -2,7 +2,7 @@ set(TARGET_NAME TestTypeConversion)
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
-  ${OCL_SOURCE_DIR}/externals/gtest/include
+  ${OCL_SOURCE_DIR}/externals/gtest/googletest/include
   ${OCL_SOURCE_DIR}/backend/utils
   ${OCL_SOURCE_DIR}/backend/name_mangling
 )
@@ -15,7 +15,7 @@ target_link_libraries(
   ${TARGET_NAME}
   name_mangle
   OclBackendUtils
-  googletest
+  gtest
   ${LLVM_MODULE_LIBS}
 )
 

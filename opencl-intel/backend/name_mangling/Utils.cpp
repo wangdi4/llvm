@@ -63,6 +63,8 @@ static const char *PrimitiveNames[PRIMITIVE_NUM] = {"bool",
                                                     "clk_event_t",
                                                     "queue_t",
                                                     "pipe_t",
+                                                    "pipe_ro_t",
+                                                    "pipe_wo_t",
                                                     "sampler_t"};
 
 const char *mangledTypes[PRIMITIVE_NUM] = {
@@ -116,6 +118,8 @@ const char *mangledTypes[PRIMITIVE_NUM] = {
     "12ocl_clkevent",               // PRIMITIVE_CLK_EVENT_T
     "9ocl_queue",                   // PRIMITIVE_QUEUE_T
     "8ocl_pipe",                    // PRIMITIVE_PIPE_T
+    "11ocl_pipe_ro",                // PRIMITIVE_PIPE_RO_T
+    "11ocl_pipe_wo",                // PRIMITIVE_PIPE_WO_T
     "11ocl_sampler"                 // PRIMITIVE_SAMPLER_T
 };
 

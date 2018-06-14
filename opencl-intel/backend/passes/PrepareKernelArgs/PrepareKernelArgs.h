@@ -72,6 +72,10 @@ namespace intel {
     /// @param  pFunc The kernel which is wrapped by the wrapper
     void createWrapperBody(Function* pWrapper, Function* pFunc);
 
+    /// @brief  Replaces function pointers to the original function by pointers
+    ///         to wrapper one in device execution built-in calls.
+    void replaceFunctionPointers(Function* pWrapper, Function* pFunc);
+
     /// @brief  Creates the body of the wrapper function:
     ///         creates load instructions that load the function arguments from the buffer,
     ///         creates a call to the given pFunc with the loaded arguments.

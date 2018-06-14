@@ -595,7 +595,7 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
             if (!m_pConfigFile->ReadInto(strDepthEmulationMode,
                   "CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE"))
             {
-                return CHANNEL_DEPTH_MODE_IGNORE_DEPTH;
+                return CHANNEL_DEPTH_MODE_STRICT;
             }
 
             if (strDepthEmulationMode == "ignore-depth")
@@ -606,7 +606,7 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
                 return CHANNEL_DEPTH_MODE_STRICT;
 
             assert(0 && "Unknown channel depth emulation mode!");
-            return CHANNEL_DEPTH_MODE_IGNORE_DEPTH;
+            return CHANNEL_DEPTH_MODE_STRICT;
         }
 
     private:

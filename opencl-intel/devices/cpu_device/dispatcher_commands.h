@@ -219,7 +219,7 @@ public:
 
     // Optimize By
     TASK_SET_OPTIMIZATION OptimizeBy()                        const { return TASK_SET_OPTIMIZE_DEFAULT; }
-    unsigned int          PreferredSequentialItemsPerThread() const;
+    size_t          PreferredSequentialItemsPerThread() const override;
 
     bool IsCompleted() const { return CommandBaseClass<ITaskSet>::IsCompleted(); }
 

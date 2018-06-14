@@ -45,7 +45,12 @@ bool InfiniteLoopCreator::runOnModule(Module &M) {
 
   for (auto *Kernel: KernelList(M)) {
     auto kmd = KernelMetadataAPI(Kernel);
-    if (kmd.Autorun.hasValue() && kmd.Autorun.get()) {
+    // Since work-group autorun kernels must be launched with global_size =
+    // (2^32, 2^32, 2^32), local_size = reqd_work_group_size and execution of
+    // work-groups inside autorun kernels is serialized we don't need to wrap
+    // kernel code with while true to allow all work-groups to be executed.
+    if (kmd.Autorun.hasValue() && kmd.Autorun.get() &&
+        kmd.MaxGlobalWorkDim.hasValue() && 0 == kmd.MaxGlobalWorkDim.get()) {
       hasChanges |= runOnFunction(Kernel);
     }
   }

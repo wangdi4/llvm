@@ -10,7 +10,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLAddressSpace.h"
 #include "common_dev_limits.h"
 #include "OCLPassSupport.h"
-#include "CallbackDesc.h"
 
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InstIterator.h"
@@ -40,14 +39,6 @@ namespace intel {
     false,
     false
     )
-
-    static bool isEnqueueKernelFunctionType(unsigned FuncType){
-      return FuncType == ICT_ENQUEUE_KERNEL_LOCALMEM ||
-             FuncType == ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM;
-    }
-    static bool NeedsRuntimeHandleParam(unsigned FuncType) {
-      return isEnqueueKernelFunctionType(FuncType) || FuncType == ICT_PRINTF;
-    }
 
     bool ResolveWICall::runOnModule(Module &M) {
       m_pModule = &M;
@@ -104,10 +95,8 @@ namespace intel {
       // Call instruction
       toHandleCalls.push_back(pCall);
     }
-    SmallVector<Value*, 16> ExtExecArgs;
     for ( std::vector<CallInst*>::iterator ii = toHandleCalls.begin(),
       ie = toHandleCalls.end(); ii != ie; ++ii ) {
-        ExtExecArgs.clear();
 
         CallInst *pCall = dyn_cast<CallInst>(*ii);
         assert(pCall && "Expected a CallInst");
@@ -144,19 +133,20 @@ namespace intel {
           break;
         case ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM:
         case ICT_ENQUEUE_KERNEL_LOCALMEM: {
-          const VarArgsCallbackDesc *Desc =
-              getVarArgsCallbackDesc(calledFuncType);
+          // TODO: It seems there is no need to handle these functions
+          // separately, since they are not variadics anymore. Move their
+          // implementation to built-in library
+          std::string CallbackName =
+              calledFuncType == ICT_ENQUEUE_KERNEL_LOCALMEM
+                  ? "ocl20_enqueue_kernel_localmem"
+                  : "ocl20_enqueue_kernel_events_localmem";
           if (!m_ExtExecDecls.count(calledFuncType)) {
             FunctionType *FT = 0;
             FT = getOrCreateEnqueueKernelFuncType(calledFuncType);
-            addExternFunctionDeclaration(calledFuncType, FT,
-                                         Desc->CallbackName);
+            addExternFunctionDeclaration(calledFuncType, FT, CallbackName);
           }
-          // Copy all non-variadic call operands
-          unsigned NonVariadicArgCount = Desc->NonVarArgCount;
-          ExtExecArgs.append(pCall->op_begin(),
-                             pCall->op_begin() + NonVariadicArgCount);
-          addLocalMemArgs(ExtExecArgs, pCall, NonVariadicArgCount);
+          // Copy original function operands
+          SmallVector<Value*, 16> ExtExecArgs(pCall->arg_operands());
           // Add the RuntimeInterface arg
           ExtExecArgs.push_back(getOrCreateRuntimeInterface());
           // Add the Block2KernelMapper arg
@@ -164,7 +154,7 @@ namespace intel {
           // Add the RuntimeHandle arg if needed
           ExtExecArgs.push_back(m_pRuntimeHandle);
           pNewRes =
-              updateEnqueueKernelFunction(ExtExecArgs, Desc->CallbackName, pCall);
+            updateEnqueueKernelFunction(ExtExecArgs, CallbackName, pCall);
           assert(pNewRes && "ExtExecution. Expected non-NULL results");
         } break;
         case ICT_PREFETCH:
@@ -551,78 +541,8 @@ namespace intel {
   }
 
   Type* ResolveWICall::getLocalMemBufType() const {
-    return IntegerType::get(*m_pLLVMContext, 32);
-  }
-
-  void ResolveWICall::addLocalMemArgs(SmallVectorImpl<Value *> &args,
-                                      CallInst *pCall,
-                                      const unsigned LocalMemArgsOffs) {
-
-      assert(pCall->getNumArgOperands() > LocalMemArgsOffs && "Expect enqueue_kernel to have local mem size arguments");
-      // get number of local buffers
-      const unsigned numLocalBuffers = pCall->getNumArgOperands() - LocalMemArgsOffs;
-
-      
-      const DataLayout &DL = m_pModule->getDataLayout();
-      
-      // array with local mem sizes
-      ArrayType *localbuf_arr_type = ArrayType::get(getLocalMemBufType(), numLocalBuffers);
-      // issue alloca for array
-      AllocaInst *localbuf_alloca_inst = new AllocaInst(localbuf_arr_type, 
-        DL.getAllocaAddrSpace(), "localmem_arg_buf",
-        &*pCall->getParent()->getParent()->getEntryBlock().begin());
-      // parse argument with local buf sizes
-      // fill in array with local buf sizes
-      for(unsigned numarg=LocalMemArgsOffs, cnt=0;
-        numarg < pCall->getNumArgOperands();
-        ++numarg, ++cnt) {
-          llvm::SmallVector<Value*, 2> index_args;
-          index_args.push_back(getConstZeroInt32Value());
-          assert(getLocalMemBufType() == IntegerType::get(*m_pLLVMContext, 32)
-                 && "Localmem size type assumed to be int");
-          index_args.push_back(ConstantInt::get(getLocalMemBufType(), cnt));
-          // issue GEP
-          GetElementPtrInst *gep_instr = GetElementPtrInst::CreateInBounds(
-            localbuf_alloca_inst, ArrayRef<Value*>(index_args), "", pCall);
-
-          // code below handles incorrect types of local buffer size argument in enqueue_kernel()
-          // TODO: revisit and remove code when following issue is fixed in clang
-          // CSSD100018602 elior [OpenCL 2.0] Clang should perform type check of variadic argument of enqueue_kernel built-in
-          //
-          Value *bufSize = pCall->getArgOperand(numarg);
-          Type *bufSizeTy = bufSize->getType();
-          assert(bufSizeTy->isIntegerTy() && "enqueue_kernel():: local buffer size argument expected to be uint type");
-          // replace noninteger with zero
-          if(!bufSizeTy->isIntegerTy()) {
-            errs() << "WARNING: " <<
-              "enqueue_kernel():: local buffer size argument expected to be uint type" <<
-              "setting argument " << bufSize << " to zero\n";
-            bufSize = ConstantInt::get(Type::getInt32Ty(m_pModule->getContext()), APInt(32, 0));
-          }
-
-          // If bufsize scalar size is not 32 then Zext or Trunc to get to 32
-          if (bufSizeTy->getScalarSizeInBits() < getLocalMemBufType()->getScalarSizeInBits()) {
-            bufSize = new ZExtInst(pCall->getArgOperand(numarg), getLocalMemBufType(), "", pCall);
-          }
-          else if (bufSizeTy->getScalarSizeInBits() > getLocalMemBufType()->getScalarSizeInBits()) {
-            bufSize = new TruncInst(pCall->getArgOperand(numarg), getLocalMemBufType(), "", pCall);
-          }
-          /////////////////////////////////////////////////////////////////////
-
-          // issue store of current local buf size
-          (void) new StoreInst(bufSize, gep_instr, false, 1, pCall);
-      }
-
-      // get pointer to first element in array
-      llvm::SmallVector<Value*, 2> index_args;
-      index_args.push_back(getConstZeroInt32Value());
-      index_args.push_back(getConstZeroInt32Value());
-      GetElementPtrInst *ptr_to_localmem_buf =
-          GetElementPtrInst::CreateInBounds(localbuf_alloca_inst, index_args,
-                                            "", pCall);
-
-      // add argument uint *localbuf_size
-      args.push_back(ptr_to_localmem_buf);
+    unsigned SizeT = m_pModule->getDataLayout().getPointerSizeInBits(0);
+    return IntegerType::get(*m_pLLVMContext, SizeT);
   }
 
   static bool isPointerToStructType(Type *Ty) {
@@ -723,13 +643,15 @@ Value *ResolveWICall::getOrCreateRuntimeInterface() {
 }
 
   // The prototype of ocl20_enqueue_kernel_events is:
-  // int ocl20_enqueue_kernel_events_localmem(queue_t*, int /*kernel_enqueue_flags_t*/,
-  //            ndrange_t,
-  //            uint num_events_in_wait_list, clk_event_t *in_wait_list,
-  //            clk_event_t *event_ret,
-  //            void * (local void*) /*block_literal ptr*/,
-  //            uint localbuf_size_len, uint *localbuf_size,
-  //            ExtendedExecutionContext * pEEC)
+  // int ocl20_enqueue_kernel_events_localmem(
+  //    queue_t*, int /*kernel_enqueue_flags_t*/,
+  //    ndrange_t,
+  //    uint num_events_in_wait_list,
+  //    clk_event_t *in_wait_list, clk_event_t *event_ret,
+  //    void * /*block_invoke*/,
+  //    void * /*block_literal*/,
+  //    uint localbuf_size_len, uint *localbuf_size,
+  //    ExtendedExecutionContext * pEEC)
   //
   // This function creates LLVM types for ALL 2 above enqueue_kernel callbacks
   FunctionType *ResolveWICall::getOrCreateEnqueueKernelFuncType(unsigned type) {
@@ -751,8 +673,8 @@ Value *ResolveWICall::getOrCreateRuntimeInterface() {
       // clk_event_t *event_ret
       params.push_back(PointerType::get(getClkEventType(), 0));
     }
-    // void * /*block_literal ptr*/
-    params.push_back(getBlockLocalMemType());
+    params.push_back(getBlockLocalMemType()); // block invoke function pointer
+    params.push_back(getBlockLocalMemType()); // block literal pointer
 
     // local memory
     // uint localbuf_size_len

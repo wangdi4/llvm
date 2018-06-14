@@ -26,11 +26,6 @@
 #include <string>
 #include <vector>
 
-#ifdef WIN32
-#include <stdafx.h>
-#include <Windows.h>
-#endif
-
 #include <cl_env.h>
 #include <cl_sys_defines.h>
 #include <cl_sys_info.h>
@@ -47,6 +42,11 @@
 #include "tbb_execution_schedulers.h"
 #include "cl_user_logger.h"
 #include "base_command_list.hpp"
+
+#ifdef WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 // no local atexit handler - only global
 USE_SHUTDOWN_HANDLER(NULL);
@@ -469,14 +469,20 @@ bool TBBTaskExecutor::LoadTBBLibrary()
     bool bLoadRes = true;
 
 #ifdef WIN32
-    // The loading on tbb.dll was delayed,
+    // The loading on ocltbb.dll was delayed,
     // Need to load manually before defualt dll is loaded
 
     std::string tbbPath(MAX_PATH, '\0');
 
     Intel::OpenCL::Utils::GetModuleDirectory(&tbbPath[0], MAX_PATH);
     tbbPath.resize(tbbPath.find_first_of('\0'));
-    tbbPath += "tbb\\tbb";
+    tbbPath += "tbb\\ocltbb";
+
+#ifdef _WIN64
+    tbbPath += "64";
+#else
+    tbbPath += "32";
+#endif // _WIN64
 
 #ifdef _DEBUG
     tbbPath += "_debug";

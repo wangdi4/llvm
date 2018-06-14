@@ -35,6 +35,7 @@
 #include "Device.h"
 #include "cl_sys_defines.h"
 #include <memory>
+#include <string>
 //#include "svm_buffer.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
@@ -125,6 +126,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t          GetKernelDispatchBufferSize() const { return m_sKernelPrototype.m_dispatchBufferProperties.size;}
         size_t          GetArgumentOffset() const { return m_sKernelPrototype.m_dispatchBufferProperties.argumentOffset;}
         size_t          GetKernelArgBufferAlignment() const { return m_sKernelPrototype.m_dispatchBufferProperties.alignment;}
+        bool            IsTask() const { return m_bIsTask; }
 
     private:
         bool            CacheRequiredInfo();
@@ -147,6 +149,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t                                  m_CL_KERNEL_COMPILE_WORK_GROUP_SIZE[MAX_WORK_DIM];
         cl_ulong                                m_CL_KERNEL_LOCAL_MEM_SIZE;
         cl_bool                                 m_CL_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT;
+        cl_bool                                 m_bIsTask;
 
         // logger client
         DECLARE_LOGGER_CLIENT;
@@ -361,7 +364,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ConstSharedPtr<Context> GetContext() const { return m_pContext; }
         const SharedPtr<Context>& GetContext()     { return m_pContext; }
 
-        const char *GetAttributes() const { return m_sKernelPrototype.m_szKernelAttributes.c_str(); }
+        const std::string& GetAttributes() const
+        {
+            return m_sKernelPrototype.m_szKernelAttributes;
+        }
+
+        bool IsTask(const FissionableDevice* pDevice) const
+        {
+            return GetDeviceKernel(pDevice)->IsTask();
+        }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
         // OpenCL 1.2 functions

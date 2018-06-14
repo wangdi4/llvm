@@ -4,11 +4,6 @@
 #include "FrameworkTest.h"
 #include <memory>
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
-
 extern cl_device_type gDeviceType;
 
 bool TestRun(cl_program& program, cl_context cxContext, cl_device_id device)

@@ -27,10 +27,6 @@
 #include "FrameworkTest.h"
 #include "common_utils.h"
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
 extern cl_device_type gDeviceType;
 
 static const char *ocl_test_program[] = {\

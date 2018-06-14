@@ -217,7 +217,7 @@ public:
 
     TASK_PRIORITY	        GetPriority()                       const	{ return TASK_PRIORITY_MEDIUM;}
     TASK_SET_OPTIMIZATION OptimizeBy()                        const { return TASK_SET_OPTIMIZE_DEFAULT; }
-    unsigned int          PreferredSequentialItemsPerThread() const { return 1; }
+    size_t PreferredSequentialItemsPerThread() const override { return 1; }
 
     void WaitForEndOfTask() const;
 

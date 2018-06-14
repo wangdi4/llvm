@@ -71,9 +71,15 @@ set_target_properties (${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME})
 if (WIN32)
     get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME} LINK_FLAGS_DEBUG)
     get_target_property(LK_FLAGS_RELEASE ${TARGET_NAME} LINK_FLAGS_RELEASE)
-    set_target_properties (${TARGET_NAME} PROPERTIES
-        LINK_FLAGS_DEBUG "${LK_FLAGS_DEBUG} tbbmalloc_debug.lib tbb_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbbmalloc_debug.dll /DELAYLOAD:tbb_debug${TBB_BINARIES_POSTFIX}.dll"
-        LINK_FLAGS_RELEASE "${LK_FLAGS_RELEASE} tbbmalloc.lib tbb${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbbmalloc.dll  /DELAYLOAD:tbb${TBB_BINARIES_POSTFIX}.dll")
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set_target_properties (${TARGET_NAME} PROPERTIES
+            LINK_FLAGS_DEBUG "${LK_FLAGS_DEBUG} ocltbbmalloc64_debug.lib ocltbb64_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:ocltbbmalloc64_debug.dll /DELAYLOAD:ocltbb64_debug${TBB_BINARIES_POSTFIX}.dll"
+            LINK_FLAGS_RELEASE "${LK_FLAGS_RELEASE} ocltbbmalloc64.lib ocltbb64${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:ocltbbmalloc64.dll  /DELAYLOAD:ocltbb64${TBB_BINARIES_POSTFIX}.dll")
+    else(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set_target_properties (${TARGET_NAME} PROPERTIES
+            LINK_FLAGS_DEBUG "${LK_FLAGS_DEBUG} ocltbbmalloc32_debug.lib ocltbb32_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:ocltbbmalloc32_debug.dll /DELAYLOAD:ocltbb32_debug${TBB_BINARIES_POSTFIX}.dll"
+            LINK_FLAGS_RELEASE "${LK_FLAGS_RELEASE} ocltbbmalloc32.lib ocltbb32${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:ocltbbmalloc32.dll  /DELAYLOAD:ocltbb32${TBB_BINARIES_POSTFIX}.dll")
+    endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 else ()
     SET_LINUX_EXPORTS_FILE (${TARGET_NAME} task_executor_linux_exports.txt)
 endif(WIN32)

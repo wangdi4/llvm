@@ -8,9 +8,7 @@
 #include "FrameworkTest.h"
 #include "common_utils.h"
 
-#ifdef _WIN32
-#include <windows.h>
-#else
+#ifndef _WIN32
 #include <sys/resource.h>
 #endif
 

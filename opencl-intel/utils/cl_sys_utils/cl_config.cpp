@@ -2,7 +2,7 @@
 // cl_utils.cpp:
 /////////////////////////////////////////////////////////////////////////
 // INTEL CONFIDENTIAL
-// Copyright 2007-2008 Intel Corporation All Rights Reserved.
+// Copyright 2007-2018 Intel Corporation All Rights Reserved.
 //
 // The source code contained or described herein and all documents related
 // to the source code ("Material") are owned by Intel Corporation or its
@@ -32,7 +32,7 @@
 
 #include <cassert>
 #ifdef _WIN32
-#include<Windows.h>
+#include <Windows.h>
 #else
 #include "hw_utils.h"
 #endif
@@ -490,7 +490,7 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
     }
 #endif // NDEBUG
 
-#ifdef BUILD_EXPERIMENTAL_21
+#ifdef BUILD_OPENCL_21
     s_ver = OPENCL_VERSION_2_1;
     return OPENCL_VERSION_2_1;
 #elif defined(BUILD_FPGA_EMULATOR)

@@ -22,7 +22,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/DataLayout.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "BlockUtils.h"
 
 using namespace Intel::MetadataAPI;
 
@@ -348,14 +347,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       //Get the scalarized version of the vectorized kernel
       pOriginalFunc = kimd.ScalarizedKernel.get();
     }
-    // Check is this is a block kernel (i.e. a kernel that is invoked from a
-    // NDRange from an other kernel), and if so what is the size of the block
-    // literal. This information exists only in metadata of the scalar version.
-    unsigned BlockLiteralSize = 0;
-    auto skimd = KernelInternalMetadataAPI(pOriginalFunc);
-    if (skimd.BlockLiteralSize.hasValue()) {
-      BlockLiteralSize = skimd.BlockLiteralSize.get();
-    }
 
     auto kernels = KernelList(pModule);
     if (std::find(kernels.begin(), kernels.end(), pOriginalFunc) == kernels.end()) {
@@ -399,11 +390,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           // in that case 0 argument is block_literal pointer
           // update with special type
           // should be before handling ptrs by addr space
-          if((i == 0) && BlockLiteralSize){
+          auto kimd = Intel::MetadataAPI::KernelInternalMetadataAPI(pFunc);
+          if ((i == 0) && kimd.BlockLiteralSize.hasValue()) {
+            auto *PTy = dyn_cast<PointerType>(pArg->getType());
+            if (!PTy || !PTy->getElementType()->isIntegerTy(8))
+              continue;
+
             curArg.type = CL_KRNL_ARG_PTR_BLOCK_LITERAL;
-            curArg.size_in_bytes = BlockLiteralSize;
+            curArg.size_in_bytes = kimd.BlockLiteralSize.get();
             break;
-          }
+           }
 
           llvm::PointerType *PTy = llvm::cast<llvm::PointerType>(arg_it->getType());
           if ( pArg->hasByValAttr() && PTy->getElementType()->getTypeID() == llvm::Type::VectorTyID )
@@ -448,9 +444,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                   curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
               else if (structName.startswith("image3d_"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_3D;
-              else if (structName.startswith("pipe_t"))
+              else if (structName.startswith("pipe_ro_t")) {
                   curArg.type = CL_KRNL_ARG_PTR_PIPE_T;
-              else if (structName.startswith("queue_t"))
+                  curArg.access = CL_KERNEL_ARG_ACCESS_READ_ONLY;
+              } else if (structName.startswith("pipe_wo_t")) {
+                  curArg.type = CL_KRNL_ARG_PTR_PIPE_T;
+                  curArg.access = CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
+              } else if (structName.startswith("queue_t"))
                   curArg.type = CL_KRNL_ARG_PTR_QUEUE_T;
               else if (structName.startswith("clk_event_t"))
                   curArg.type = CL_KRNL_ARG_PTR_CLK_EVENT_T;
@@ -476,11 +476,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                   curArg.access = (kmd.ArgAccessQualifierList.getItem(i) == READ_ONLY) ?
                                   CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
                   break;
-                // FIXME: what about Apple?
                 case CL_KRNL_ARG_PTR_PIPE_T:
-                  // The default access qualifier for pipes is read_only.
-                  curArg.access = (kmd.ArgAccessQualifierList.getItem(i) == WRITE_ONLY) ?
-                                  CL_KERNEL_ARG_ACCESS_WRITE_ONLY : CL_KERNEL_ARG_ACCESS_READ_ONLY;
                   isMemoryObject = true;
                   break;
                 case CL_KRNL_ARG_PTR_QUEUE_T:
@@ -947,6 +943,13 @@ bool CompilationUtils::isWaitGroupEvents(const std::string& S){
 
 bool CompilationUtils::isPrefetch(const std::string& S){
   return isMangleOf(S, NAME_PREFETCH);
+}
+
+bool CompilationUtils::isEnqueueKernel(const std::string& S) {
+  return S == "__enqueue_kernel_basic" ||
+         S == "__enqueue_kernel_basic_events" ||
+         S == "__enqueue_kernel_vaargs" ||
+         S == "__enqueue_kernel_events_vaargs";
 }
 
 bool CompilationUtils::isEnqueueKernelLocalMem(const std::string& S){
@@ -1509,4 +1512,12 @@ bool CompilationUtils::isGlobalCtorDtor(Function *F) {
          F->getName() == "__pipe_global_dtor";
 }
 
+bool CompilationUtils::isBlockInvocationKernel(Function *F) {
+  // TODO: Is there a better way to detect block invoke kernel?
+  if (F->getName().contains("_block_invoke_") &&
+      F->getName().endswith("_kernel_separated_args"))
+    return true;
+
+  return false;
+}
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

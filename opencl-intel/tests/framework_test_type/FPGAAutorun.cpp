@@ -496,4 +496,113 @@ TEST_F(FPGAAutorun, SWG811WithWhileTrueWithReplication) {
 
   ASSERT_NO_FATAL_FAILURE(VerifyResults(reference_data));
 }
+
+TEST_F(FPGAAutorun, SWG811WithoutReplicationCheckGID) {
+  std::string program_sources = "                                            \n\
+      #pragma OPENCL EXTENSION cl_intel_channels: enable                     \n\
+      channel int in, out;                                                   \n\
+                                                                             \n\
+      size_t get_global_linear_id() {                                        \n\
+        return ((get_global_id(2) - get_global_offset(2)) *                  \n\
+            get_global_size(1) * get_global_size(0)) +                       \n\
+            ((get_global_id(1) - get_global_offset(1)) *                     \n\
+            get_global_size(0)) + (get_global_id(0) -                        \n\
+            get_global_offset(0));                                           \n\
+      }                                                                      \n\
+                                                                             \n\
+      __attribute__((reqd_work_group_size(W, 1, 1)))                         \n\
+      __attribute__((autorun))                                               \n\
+      __kernel void single_plus() {                                          \n\
+        int a = read_channel_intel(in);                                      \n\
+        write_channel_intel(out, a + get_global_linear_id());                \n\
+      }                                                                      \n\
+                                                                             \n\
+      __kernel void reader(int n, __global int* data) {                      \n\
+        for (int i = 0; i < n; ++i) {                                        \n\
+          data[i] = read_channel_intel(out);                                 \n\
+        }                                                                    \n\
+      }                                                                      \n\
+                                                                             \n\
+      __kernel void writer(int n, __global int* data) {                      \n\
+        for (int i = 0; i < n; ++i) {                                        \n\
+          write_channel_intel(in, data[i]);                                  \n\
+        }                                                                    \n\
+      }                                                                      \n\
+  ";
+
+  const int W = 8;
+  ASSERT_NO_FATAL_FAILURE(
+      CreateAndBuildProgram(program_sources, "-DW=" + std::to_string(W)));
+
+  std::vector<cl_int> input_data(1000);
+  std::iota(input_data.begin(), input_data.end(), 0);
+
+  ASSERT_NO_FATAL_FAILURE(LaunchKernels(input_data));
+
+  std::vector<cl_int> reference_data;
+  std::transform(input_data.begin(), input_data.end(),
+                 std::back_inserter(reference_data), [](cl_int v) {
+                   static cl_int global_linear_id = 0;
+                   return v + global_linear_id++;
+                 });
+
+  ASSERT_NO_FATAL_FAILURE(VerifyResults(reference_data));
+}
+
+TEST_F(FPGAAutorun, SWG811WithReplicationCheckGID) {
+  std::string program_sources = "                                            \n\
+      #pragma OPENCL EXTENSION cl_intel_channels: enable                     \n\
+      channel int arr[N + 1];                                                \n\
+                                                                             \n\
+      size_t get_global_linear_id() {                                        \n\
+        return ((get_global_id(2) - get_global_offset(2)) *                  \n\
+            get_global_size(1) * get_global_size(0)) +                       \n\
+            ((get_global_id(1) - get_global_offset(1)) *                     \n\
+            get_global_size(0)) + (get_global_id(0) -                        \n\
+            get_global_offset(0));                                           \n\
+      }                                                                      \n\
+                                                                             \n\
+      __attribute__((reqd_work_group_size(W, 1, 1)))                         \n\
+      __attribute__((num_compute_units(N, 1, 1)))                            \n\
+      __attribute__((autorun))                                               \n\
+      __kernel void chained_plus() {                                         \n\
+        int a = read_channel_intel(arr[get_compute_id(0)]);                  \n\
+        write_channel_intel(arr[get_compute_id(0) + 1],                      \n\
+            a + get_global_linear_id());                                     \n\
+      }                                                                      \n\
+                                                                             \n\
+      __kernel void reader(int n, __global int* data) {                      \n\
+        for (int i = 0; i < n; ++i) {                                        \n\
+          data[i] = read_channel_intel(arr[N]);                              \n\
+        }                                                                    \n\
+      }                                                                      \n\
+                                                                             \n\
+      __kernel void writer(int n, __global int* data) {                      \n\
+        for (int i = 0; i < n; ++i) {                                        \n\
+          write_channel_intel(arr[0], data[i]);                              \n\
+        }                                                                    \n\
+      }                                                                      \n\
+  ";
+
+  const int N = 5;
+  const int W = 8;
+  std::string build_options =
+      "-DN=" + std::to_string(N) + " -DW=" + std::to_string(W);
+  ASSERT_NO_FATAL_FAILURE(
+      CreateAndBuildProgram(program_sources, build_options));
+
+  std::vector<cl_int> input_data(1000);
+  std::iota(input_data.begin(), input_data.end(), 0);
+
+  ASSERT_NO_FATAL_FAILURE(LaunchKernels(input_data));
+
+  std::vector<cl_int> reference_data;
+  std::transform(input_data.begin(), input_data.end(),
+                 std::back_inserter(reference_data), [N](cl_int v) {
+                   static cl_int global_linear_id = 0;
+                   return v + N * (global_linear_id++);
+                 });
+
+  ASSERT_NO_FATAL_FAILURE(VerifyResults(reference_data));
+}
 #endif // BUILD_FPGA_EMULATOR

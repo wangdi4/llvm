@@ -806,7 +806,7 @@ static std::vector<const GlobalVariable *> getLocalVariables(llvm::Module* pModu
        // then it is local
        if(I->getType()->getAddressSpace() == LOCAL_MEMORY_ADDR_SPACE)
        {
-            DEBUG(dbgs() << "local variable:\n " << *GV << "\n");
+            LLVM_DEBUG(dbgs() << "local variable:\n " << *GV << "\n");
             locList.push_back(GV);
        }
    }
@@ -1051,7 +1051,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                         if(NEATDataLayout ::IsNEATSupported(GlobalType) == false)
                             continue;
 
-                        DEBUG(dbgs() << "About to add NEAT supported "
+                        LLVM_DEBUG(dbgs() << "About to add NEAT supported "
                             "__local variable:\n " << *GV << "\n");
                         // zero WI allocate space
                         pNeat->getOrEmitGlobalVariable(GV);
@@ -1070,7 +1070,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                     // loop over work items
                     FOR3_LOCALWG
                     {
-                        DEBUG(dbgs() << "About to run local workitem idx :\n " << idx << "\n");
+                        LLVM_DEBUG(dbgs() << "About to run local workitem idx :\n " << idx << "\n");
 
                         // setup local work item IDs
                         wiStorage.SetLocalID(0, lid_x);

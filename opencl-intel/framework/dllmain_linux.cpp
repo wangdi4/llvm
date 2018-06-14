@@ -2,7 +2,6 @@
 #include <cassert>
 #include <libgen.h>
 
-#include "stdafx.h"
 #include "framework_proxy.h"
 #include "cl_secure_string_linux.h"
 #include "cl_sys_defines.h"

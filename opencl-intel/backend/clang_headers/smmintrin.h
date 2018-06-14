@@ -427,8 +427,8 @@ _mm_crc32_u32(unsigned int __C, unsigned int __D)
 }
 
 #ifdef __x86_64__
-static __inline__ unsigned long long __attribute__((__always_inline__, __nodebug__))
-_mm_crc32_u64(unsigned long long __C, unsigned long long __D)
+static __inline__ __u64 __attribute__((__always_inline__, __nodebug__))
+_mm_crc32_u64(__u64 __C, __u64 __D)
 {
   return __builtin_ia32_crc32di(__C, __D);
 }
@@ -442,8 +442,8 @@ _mm_popcnt_u32(unsigned int __A)
 }
 
 #ifdef __x86_64__
-__inline__ long __attribute__((__always_inline__, __nodebug__))
-_mm_popcnt_u64(unsigned long __A)
+__inline__ __i64 __attribute__((__always_inline__, __nodebug__))
+_mm_popcnt_u64(__u64 __A)
 {
   return __builtin_popcountll(__A);
 }

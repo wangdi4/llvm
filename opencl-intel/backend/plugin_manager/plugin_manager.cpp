@@ -33,10 +33,6 @@ File Name:  plugin_manager.cpp
 #include <functional>
 #include <exception>
 
-#ifdef WIN32
-#include <Windows.h>
-#endif
-
 using namespace Intel::OpenCL::DeviceBackend::Utils;
 
 namespace Intel { namespace OpenCL {
