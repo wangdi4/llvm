@@ -2971,7 +2971,9 @@ private:
   // following cases:
   //   (1) It can be used in a test against a nullptr.
   //   (2) It can be passed to "free" or something equivalent.
-  //   (3) It can be passed down to a load.
+  //   (3) It can be passed to a "mem" intrinsic.
+  //   (4) It can be passed down to a load.
+  //   (5) It is used by a GEP instruction whose uses are covered by (1-5)
   // The point here is to determine whether the pointer being assigned to
   // a field can escape.  If it does, the memory could be, for example, be
   // realloc'ed and it might not have the same properties that it had
@@ -2990,8 +2992,24 @@ private:
         Function *F = CI->getCalledFunction();
         if (F == nullptr)
           return false;
-        if (!dtrans::isFreeFn(F, TLI) && !DTAA.isFreePostDom(F))
+        if (dtrans::isFreeFn(F, TLI) || DTAA.isFreePostDom(F))
+          return true;
+        if (auto II = dyn_cast<IntrinsicInst>(U)) {
+          Intrinsic::ID Intrin = II->getIntrinsicID();
+          switch (Intrin) {
+          case Intrinsic::memset:
+          case Intrinsic::memcpy:
+          case Intrinsic::memmove:
+            return true;
+          default:
+            break;
+          }
           return false;
+        }
+        return false;
+      } else if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
+        return GEPI->getPointerOperand() == I &&
+               isSafeLoadForSingleAllocFunction(GEPI);
       } else if (!isa<LoadInst>(U))
         return false;
     }
