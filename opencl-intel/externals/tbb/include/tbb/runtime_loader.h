@@ -30,13 +30,23 @@
 
 #if _MSC_VER
     #if ! __TBB_NO_IMPLICIT_LINKAGE
-        #ifdef _DEBUG
-            #pragma comment( linker, "/nodefaultlib:tbb_debug.lib" )
-            #pragma comment( linker, "/defaultlib:tbbproxy_debug.lib" )
+        #ifdef _WIN64
+            #ifdef _DEBUG
+                #pragma comment( linker, "/nodefaultlib:ocltbb64_debug.lib" )
+                #pragma comment( linker, "/defaultlib:tbbproxy_debug.lib" )
+            #else
+                #pragma comment( linker, "/nodefaultlib:ocltbb64.lib" )
+                #pragma comment( linker, "/defaultlib:tbbproxy.lib" )
+            #endif
         #else
-            #pragma comment( linker, "/nodefaultlib:tbb.lib" )
-            #pragma comment( linker, "/defaultlib:tbbproxy.lib" )
-        #endif
+            #ifdef _DEBUG
+                #pragma comment( linker, "/nodefaultlib:ocltbb32_debug.lib" )
+                #pragma comment( linker, "/defaultlib:tbbproxy_debug.lib" )
+            #else
+                #pragma comment( linker, "/nodefaultlib:ocltbb32.lib" )
+                #pragma comment( linker, "/defaultlib:tbbproxy.lib" )
+            #endif
+        #endif // _WIN64
     #endif
 #endif
 

@@ -63,11 +63,19 @@ namespace std {
         #ifdef __TBB_LIB_NAME
 	        #pragma comment(lib, __TBB_STRING(__TBB_LIB_NAME))
         #else
-			#ifdef _DEBUG
-				#pragma comment(lib, "tbb_debug.lib")
-			#else
-				#pragma comment(lib, "tbb.lib")
-			#endif
+                        #ifdef _WIN64
+                            #ifdef _DEBUG
+                                    #pragma comment(lib, "ocltbb64_debug.lib")
+                            #else
+                                    #pragma comment(lib, "ocltbb64.lib")
+                            #endif
+                        #else
+                            #ifdef _DEBUG
+                                    #pragma comment(lib, "ocltbb32_debug.lib")
+                            #else
+                                    #pragma comment(lib, "ocltbb32.lib")
+                            #endif
+                        #endif // _WIN64
         #endif
     #endif
 #endif
