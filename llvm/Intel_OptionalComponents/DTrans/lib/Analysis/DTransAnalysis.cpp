@@ -264,6 +264,17 @@ public:
     return DomTy;
   }
 
+  bool isPtrToPtr() {
+    llvm::Type *DomTy = getDominantAggregateTy();
+    if (!DomTy)
+      return false;
+    if (!DomTy->isPointerTy())
+      return false;
+    if (!DomTy->getPointerElementType()->isPointerTy())
+      return false;
+    return true;
+  }
+
   PointerTypeAliasSetRef getPointerTypeAliasSet() { return PointerTypeAliases; }
   ElementPointeeSetRef getElementPointeeSet() { return ElementPointees; }
 
@@ -1279,9 +1290,10 @@ private:
     auto *Int8PtrTy = llvm::Type::getInt8PtrTy(GEP->getContext());
 
     // If the base pointer is an i8* we need to analyze this as a
-    // byte-flattened GEP.
+    // byte-flattened GEP unless the base pointer is a pointer-to-pointer.
     Value *BasePointer = GEP->getPointerOperand();
-    if (BasePointer->getType() == Int8PtrTy) {
+    LocalPointerInfo &BaseLPI = LocalMap[BasePointer];
+    if ((BasePointer->getType() == Int8PtrTy) && !BaseLPI.isPtrToPtr()) {
       analyzeByteFlattenedGEPAccess(GEP, Info);
       return;
     }
@@ -1289,8 +1301,19 @@ private:
     // A GEP with only one index argument is a special case where a pointer
     // is being used as an array. That doesn't get us a pointer to an element
     // within an aggregate type.
-    if (GEP->getNumIndices() == 1)
+    if (GEP->getNumIndices() == 1) {
+      // If the incoming analysis was incomplete, what we do below won't be
+      // complete, but the partial analysis may be necessary so we note the
+      // incompleteness and continue.
+      if (!BaseLPI.getAnalyzed()) {
+        Info.setPartialAnalysis(true);
+        DEBUG_WITH_TYPE(LPA_VERBOSE, dbgs()
+                                         << "Incomplete analysis derived from "
+                                         << *BasePointer << "\n");
+      }
+      Info.merge(BaseLPI);
       return;
+    }
 
     // There's an odd case where LLVM's constant folder will transform
     // a bitcast into a GEP if the first element of the structure at
@@ -1359,14 +1382,6 @@ private:
     assert(BasePointer->getType() ==
            llvm::Type::getInt8PtrTy(GEP->getContext()));
 
-    // If we can't compute a constant offset, we won't be able to
-    // figure out which element is being accessed.
-    unsigned BitWidth = DL.getPointerSizeInBits();
-    APInt APOffset(BitWidth, 0);
-    if (!GEP->accumulateConstantOffset(DL, APOffset))
-      return false;
-    uint64_t Offset = APOffset.getLimitedValue();
-
     // Check for types that the base pointer is known to alias.
     LocalPointerInfo &BaseLPI = LocalMap[BasePointer];
     // If the incoming analysis was incomplete, what we do below won't be
@@ -1377,13 +1392,34 @@ private:
       DEBUG_WITH_TYPE(LPA_VERBOSE, dbgs() << "Incomplete analysis derived from "
                                           << *BasePointer << "\n");
     }
+
+    // If we can't compute a constant offset, we won't be able to
+    // figure out which element is being accessed.
+    unsigned BitWidth = DL.getPointerSizeInBits();
+    APInt APOffset(BitWidth, 0);
+    if (!GEP->accumulateConstantOffset(DL, APOffset))
+      return false;
+    uint64_t Offset = APOffset.getLimitedValue();
+
+    bool HasPtrToPtrAlias = false;
     for (auto *AliasTy : BaseLPI.getPointerTypeAliasSet()) {
       if (!AliasTy->isPointerTy())
         continue;
-      if (analyzePossibleOffsetAggregateAccess(
+      // If this value aliases a pointer to a pointer, this isn't a
+      // byte-flattened GEP after all. It's indexing the pointer-to-pointer
+      // as a dynamic array.
+      if (AliasTy->getPointerElementType()->isPointerTy()) {
+        Info.addPointerTypeAlias(AliasTy);
+        HasPtrToPtrAlias = true;
+        continue;
+      }
+      if (!HasPtrToPtrAlias &&
+          analyzePossibleOffsetAggregateAccess(
               GEP, AliasTy->getPointerElementType(), Offset, Info))
         return true;
     }
+    if (HasPtrToPtrAlias)
+      return true;
     // If none of the aliased types was a match, we can't identify any field
     // that the GEP is trying to access.
     return false;
@@ -2108,6 +2144,18 @@ public:
           if (!F && DTransUseCRuleCompat &&
               !mayHaveDistinctCompatibleCType(AliasTy))
             continue;
+          // If the first element of the dominant type of the pointer is an
+          // an array of the actual argument, don't report address taken.
+          if (isElementZeroArrayOfType(AliasTy, ArgTy)) {
+            LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
+                              << "ptr to array element passed as argument:\n"
+                              << "  " << CI << "\n  " << *Arg << "\n");
+            setBaseTypeInfoSafetyData(AliasTy, dtrans::FieldAddressTaken);
+            dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(AliasTy);
+            if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
+              ParentStInfo->getField(0).setAddressTaken();
+            continue;
+          }
           LLVM_DEBUG(dbgs() << "dtrans-safety: Address taken -- "
                             << "pointer to aggregate passed as argument:\n"
                             << "  " << CI << "\n  " << *Arg << "\n");
@@ -2408,7 +2456,7 @@ public:
       // and we should have been able to figure out the field being accessed.
       // Otherwise, a single index element indicates a pointer is being treated
       // as an array.
-      if (isInt8Ptr(Src) || I.getNumIndices() != 1) {
+      if ((isInt8Ptr(Src) && !SrcLPI.isPtrToPtr()) || I.getNumIndices() != 1) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation:\n"
                           << "  " << I << "\n");
         setAllAliasedTypeSafetyData(SrcLPI, dtrans::BadPtrManipulation);
@@ -2637,6 +2685,11 @@ public:
     switch (I.getOpcode()) {
     case Instruction::Sub:
       analyzeSub(I);
+      break;
+    case Instruction::Or:
+    case Instruction::And:
+    case Instruction::Xor:
+      analyzeBitMask(I);
       break;
     default:
       setBinaryOperatorUnhandledUse(I);
@@ -2935,6 +2988,26 @@ private:
       }
     }
     return false;
+  }
+
+  // This is a helper function that determines whether \p ParentTy points to
+  // a type whose first element is a fixed size array of the type pointed to
+  // by \p ElementTy.
+  bool isElementZeroArrayOfType(llvm::Type *ParentTy, llvm::Type *ElementTy) {
+    // This may be called with a null type pointer.
+    if (!ParentTy || !ParentTy->isPointerTy() || !ElementTy->isPointerTy())
+      return false;
+
+    auto *BaseTy = ParentTy->getPointerElementType();
+    if (!BaseTy || (!BaseTy->isStructTy() && !BaseTy->isArrayTy()))
+      return false;
+
+    auto *ElementZeroTy = cast<CompositeType>(BaseTy)->getTypeAtIndex(0u);
+    if (!ElementZeroTy->isArrayTy())
+      return false;
+
+    return ElementZeroTy->getArrayElementType() ==
+           ElementTy->getPointerElementType();
   }
 
   // Analyze a structure definition, independent of its use in any
@@ -4356,6 +4429,87 @@ private:
       return true;
     }
     return false;
+  }
+
+  void analyzeBitMask(BinaryOperator &I) {
+    assert((I.getOpcode() == Instruction::Or ||
+            I.getOpcode() == Instruction::And ||
+            I.getOpcode() == Instruction::Xor) &&
+           "analyzeBitMask() called with unexpected opcode");
+
+    // If neither operand is of interest, we can ignore this instruction.
+    Value *Op0 = I.getOperand(0);
+    Value *Op1 = I.getOperand(1);
+    if (!isValueOfInterest(Op0) && !isValueOfInterest(Op1))
+      return;
+
+    // If both operands are values of interest, something is happening that
+    // we didn't expect.
+    if (isValueOfInterest(Op0) && isValueOfInterest(Op1)) {
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                        << "bitmask instruction with unexpected operands:\n"
+                        << "  " << I << "\n");
+      setValueTypeInfoSafetyData(Op0, dtrans::UnhandledUse);
+      setValueTypeInfoSafetyData(Op1, dtrans::UnhandledUse);
+      return;
+    }
+
+    // Check to see if this instruction is part of a chain of bitmasks that
+    // leads to a compare and has no other uses. If so, it's probably part of
+    // some kind of alignment check. Otherwise, mark it as an unhandled use.
+    if (!isBitmaskAndCompareSequenceOnly(&I)) {
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                        << "bitmask instruction has unexpected uses:\n"
+                        << "  " << I << "\n");
+      setValueTypeInfoSafetyData(Op0, dtrans::UnhandledUse);
+      setValueTypeInfoSafetyData(Op1, dtrans::UnhandledUse);
+      return;
+    }
+  }
+
+  bool isBitmaskAndCompareSequenceOnly(BinaryOperator *I) {
+    SmallVector<Instruction *, 4> WorkList;
+    WorkList.push_back(I);
+
+    auto hasInstConstOperands = [](Instruction *I) {
+      // For the pattern to be match, one operand must be an instruction
+      // and the other must be a constant.
+      Value *Op0 = I->getOperand(0);
+      Value *Op1 = I->getOperand(1);
+      return ((isa<Instruction>(Op0) && isa<ConstantInt>(Op1)) ||
+              (isa<Instruction>(Op1) && isa<ConstantInt>(Op0)));
+    };
+
+    while (!WorkList.empty()) {
+      Instruction *NextI = WorkList.back();
+      WorkList.pop_back();
+      switch (NextI->getOpcode()) {
+      default:
+        return false;
+      case Instruction::Or:
+      case Instruction::And:
+      case Instruction::Xor:
+        if (!hasInstConstOperands(NextI))
+          return false;
+        for (auto *U : NextI->users()) {
+          // We don't need to check the users of the ICmp.
+          if (auto *Cmp = dyn_cast<ICmpInst>(U)) {
+            if (!hasInstConstOperands(Cmp))
+              return false;
+            continue;
+          }
+          // We do need to check the users of binary operators.
+          if (isa<BinaryOperator>(U)) {
+            WorkList.push_back(cast<Instruction>(U));
+            continue;
+          }
+          // Anything else breaks the pattern.
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 
   bool pointerAliasSetsAreEqual(LocalPointerInfo::PointerTypeAliasSetRef Set1,
