@@ -121,7 +121,7 @@ void foo2()
 // CHECK: ![[LOOP_15]] = distinct !{![[LOOP_15]], ![[VENABLE]]}
 // CHECK: ![[LOOP_16]] = distinct !{![[LOOP_16]], ![[VENABLE]]}
 // CHECK: ![[LOOP_22]] = distinct !{![[LOOP_22]], ![[VALWAYS:.*]], ![[VENABLE]]}
-// CHECK: ![[VALWAYS]] = !{!"llvm.loop.ignore_profitability"}
+// CHECK: ![[VALWAYS]] = !{!"llvm.loop.vectorize.ignore_profitability"}
 // CHECK: ![[LOOP_24]] = distinct !{![[LOOP_24]], ![[VALWAYS]], ![[VENABLE]]}
 // CHECK: ![[LOOP_25]] = distinct !{![[LOOP_25]], ![[VALWAYS]], ![[VENABLE]]}
 // CHECK: ![[LOOP_26]] = distinct !{![[LOOP_26]], ![[VALWAYS]], ![[VENABLE]]}

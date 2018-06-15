@@ -147,7 +147,8 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
   }
   // Setting vector always
   if (Attrs.VectorizeAlwaysEnable) {
-    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.ignore_profitability")};
+    Metadata *Vals[] = {MDString::get(Ctx,
+                                  "llvm.loop.vectorize.ignore_profitability")};
     Args.push_back(MDNode::get(Ctx, Vals));
   }
 #endif // INTEL_CUSTOMIZATION
