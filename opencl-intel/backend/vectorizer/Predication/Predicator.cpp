@@ -2912,7 +2912,7 @@ BranchInst* Predicator::getAllOnesBranch(BasicBlock* BB) {
 static Predicator::AllOnesBlockType getAllOnesBlockTypeRec(BasicBlock* BB, int recursionLevel) {
   // allones blocks doesn't contain loops other than single block loops.
   // if recursion level is high, then we are in a loop, so
-  // this is not an allones blcok.
+  // this is not an allones block.
   if (recursionLevel > MAX_NUMBER_OF_BLOCKS_IN_AN_ALLONES_BYPASS+1) {
     return Predicator::NONE;
   }
@@ -2979,21 +2979,17 @@ static Predicator::AllOnesBlockType getAllOnesBlockTypeRec(BasicBlock* BB, int r
       return Predicator::SINGLE_BLOCK_LOOP_ENTRY_TO_ORIGINAL;
     }
     else if (predType == Predicator::SINGLE_BLOCK_LOOP_ALLONES) {
-      // could not be SINGLE_BLOCK_LOOP_ALLONES, because that
-      // is already handled when handling self-loop blocks.
       return Predicator::SINGLE_BLOCK_LOOP_TEST_ALLZEROES;
     }
+    else if (predType == Predicator::SINGLE_BLOCK_LOOP_ENTRY_TO_ORIGINAL) {
+      return Predicator::SINGLE_BLOCK_LOOP_ORIGINAL;
+    }
     else if (predType == Predicator::SINGLE_BLOCK_LOOP_ORIGINAL) {
-      // could not be SINGLE_BLOCK_LOOP_ORIGINAL, because that
-      // is already handled when handling self-loop blocks.
       return  Predicator::SINGLE_BLOCK_LOOP_EXIT;
     }
     else if (predType == Predicator::SINGLE_BLOCK_LOOP_EXIT) {
       return Predicator::NONE;
     }
-    V_ASSERT(predType !=
-     Predicator::SINGLE_BLOCK_LOOP_ENTRY_TO_ORIGINAL &&
-     "original should have been caught at self-loop blocks");
 
     // if pred is Predicator::SINGLE_BLOCK_LOOP_TEST_ALLZEROES,
     // then two options for type, we will find out using the other predecessor.
