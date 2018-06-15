@@ -656,8 +656,6 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_OPENMP=1")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_CILKPLUS=1")
 
 if(INTEL_CUSTOMIZATION)
-  option(LLVM_BUILD_OPENMP  "Build the LLVM openmp libraries." ON)
-
   option(INTEL_INCLUDE_DTRANS "Include DTrans optimizations in builds." ON)
   if(INTEL_INCLUDE_DTRANS)
     # When there are multiple optional components, each of them should
