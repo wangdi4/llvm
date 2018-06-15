@@ -21,6 +21,12 @@
 
 using namespace llvm;
 
+// This option is mapped to user option -opt-mem-layout-trans and is set
+// to 2 by default. DTransMemLayoutLevel is used to control transformations
+// by not adding the transformation passes.
+static cl::opt<unsigned> DTransMemLayoutLevel("dtrans-mem-layout-level",
+                                         cl::init(2), cl::ReallyHidden);
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool> DumpModuleBeforeDTrans(
     "dump-module-before-dtrans", cl::init(false), cl::Hidden,
