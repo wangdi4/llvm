@@ -265,7 +265,7 @@ LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
   VPlan *Plan = SharedPlan.get();
 
   // Build hierarchical CFG
-  VPlanHCFGBuilder HCFGBuilder(WRLp, TheLoop, Plan, LI, SE, Legal);
+  VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, SE, WRLp, Plan, Legal);
   HCFGBuilder.buildHierarchicalCFG();
 
   return SharedPlan;

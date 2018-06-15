@@ -57,7 +57,7 @@ static cl::opt<bool>
 #endif
 
 // Split loops' preheader block that are not in canonical form
-void VPlanHCFGBuilderBase::splitLoopsPreheader(VPLoop *VPL) {
+void VPlanHCFGBuilder::splitLoopsPreheader(VPLoop *VPL) {
 
   // TODO: So far, I haven't found a test case that hits one of these asserts.
   // The code commented out below should cover the second one.
@@ -137,7 +137,7 @@ void VPlanHCFGBuilderBase::splitLoopsPreheader(VPLoop *VPL) {
   }
 }
 
-void VPlanHCFGBuilderBase::mergeLoopExits(VPLoop *VPL) {
+void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
 
   VPLoopInfo *VPLInfo = PlanUtils.getVPlan()->getVPLoopInfo();
 
@@ -278,7 +278,7 @@ void VPlanHCFGBuilderBase::mergeLoopExits(VPLoop *VPL) {
 }
 
 // Split loops' exit block that are not in canonical form
-void VPlanHCFGBuilderBase::splitLoopsExit(VPLoop *VPL) {
+void VPlanHCFGBuilder::splitLoopsExit(VPLoop *VPL) {
 
   VPLoopInfo *VPLInfo = PlanUtils.getVPlan()->getVPLoopInfo();
 
@@ -303,7 +303,7 @@ void VPlanHCFGBuilderBase::splitLoopsExit(VPLoop *VPL) {
 
 // Split basic blocks to increase the number of non-loop regions detected during
 // the construction of the hierarchical CFG.
-void VPlanHCFGBuilderBase::simplifyNonLoopRegions() {
+void VPlanHCFGBuilder::simplifyNonLoopRegions() {
 
   VPlan *Plan = PlanUtils.getVPlan();
   assert(isa<VPRegionBlock>(Plan->getEntry()) &&
@@ -410,7 +410,7 @@ void VPlanHCFGBuilderBase::simplifyNonLoopRegions() {
 // Main function that canonicalizes the plain CFG and applyies transformations
 // that enable the detection of more regions during the hierarchical CFG
 // construction.
-void VPlanHCFGBuilderBase::simplifyPlainCFG() {
+void VPlanHCFGBuilder::simplifyPlainCFG() {
 
   VPlan *Plan = PlanUtils.getVPlan();
   assert(isa<VPRegionBlock>(Plan->getEntry()) &&
@@ -451,7 +451,7 @@ void VPlanHCFGBuilderBase::simplifyPlainCFG() {
 // hierarchical CFG. This function doesn't traverse the whole CFG and region's
 // size and block's parent are not properly updated. They are updated in
 // buildNonLoopRegions.
-void VPlanHCFGBuilderBase::buildLoopRegions() {
+void VPlanHCFGBuilder::buildLoopRegions() {
 
   VPLoopInfo *VPLInfo = PlanUtils.getVPlan()->getVPLoopInfo();
 
@@ -498,7 +498,7 @@ void VPlanHCFGBuilderBase::buildLoopRegions() {
 // Create new non-loop VPRegionBlock's and update the information of all the
 // blocks in the hierarchical CFG. The hierarchical CFG is stable and contains
 // consisten information after this step.
-void VPlanHCFGBuilderBase::buildNonLoopRegions(VPRegionBlock *ParentRegion) {
+void VPlanHCFGBuilder::buildNonLoopRegions(VPRegionBlock *ParentRegion) {
 
   VPLoopInfo *VPLInfo = PlanUtils.getVPlan()->getVPLoopInfo();
 
@@ -625,7 +625,7 @@ void VPlanHCFGBuilder::collectUniforms(VPRegionBlock *Region) {
   }
 }
 
-void VPlanHCFGBuilderBase::buildHierarchicalCFG() {
+void VPlanHCFGBuilder::buildHierarchicalCFG() {
 
   VPlan *Plan = PlanUtils.getVPlan();
 
@@ -633,7 +633,7 @@ void VPlanHCFGBuilderBase::buildHierarchicalCFG() {
   VPRegionBlock *TopRegion = buildPlainCFG();
 
   // Collecte divergence information
-  collectUniforms(TopRegion); 
+  collectUniforms(TopRegion);
 
   // Set Top Region as VPlan Entry
   Plan->setEntry(TopRegion);
@@ -704,9 +704,9 @@ void VPlanHCFGBuilderBase::buildHierarchicalCFG() {
 
 // Return true if a non-loop region can be formed from \p Entry. If so, \p Exit
 // returns region's exit for the detected region.
-bool VPlanHCFGBuilderBase::isNonLoopRegion(VPBlockBase *Entry,
-                                           VPRegionBlock *ParentRegion,
-                                           VPBlockBase *&Exit) {
+bool VPlanHCFGBuilder::isNonLoopRegion(VPBlockBase *Entry,
+                                       VPRegionBlock *ParentRegion,
+                                       VPBlockBase *&Exit) {
 
   // Region's entry must have multiple successors and must be a VPBasicBlock at
   // this point. Also skip ParentRegion's Entry to prevent infinite recursion
@@ -741,9 +741,9 @@ bool VPlanHCFGBuilderBase::isNonLoopRegion(VPBlockBase *Entry,
 // a VPLoopRegion). In order to detect such cases, we currently check whether
 // the loop header is reachable starting from region's entry block up to
 // region's exit block.
-bool VPlanHCFGBuilderBase::regionIsBackEdgeCompliant(
-    const VPBlockBase *Entry, const VPBlockBase *Exit,
-    VPRegionBlock *ParentRegion) {
+bool VPlanHCFGBuilder::regionIsBackEdgeCompliant(const VPBlockBase *Entry,
+                                                 const VPBlockBase *Exit,
+                                                 VPRegionBlock *ParentRegion) {
 
   // If the immediate parent region is not a loop region, current region won't
   // have any problem with loop cycles, so it's back edge compliant
@@ -787,7 +787,7 @@ bool VPlanHCFGBuilderBase::regionIsBackEdgeCompliant(
 // Return true if \p Block is a VPBasicBlock that contains a successor selector
 // (CondBit) that is not uniform. If Block is a VPRegionBlock,
 // it returns false since a region can only have a single successor (by now).
-bool VPlanHCFGBuilderBase::isDivergentBlock(VPBlockBase *Block) {
+bool VPlanHCFGBuilder::isDivergentBlock(VPBlockBase *Block) {
   if (DisableUniformRegions)
     return true;
 

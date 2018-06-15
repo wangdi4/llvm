@@ -392,5 +392,5 @@ VPLoopRegion *VPlanHCFGBuilderHIR::createLoopRegion(VPLoop *VPLp) {
          "Expected VPBasicBlock as Loop header.");
   HLLoop *HLLp = Header2HLLoop[cast<VPBasicBlock>(VPLp->getHeader())];
   assert(HLLp && "Expected HLLoop");
-  return VPlanHCFGBuilderBase::PlanUtils.createLoopRegionHIR(VPLp, HLLp);
+  return VPlanHCFGBuilder::PlanUtils.createLoopRegionHIR(VPLp, HLLp);
 }
