@@ -828,16 +828,14 @@ void WRegionUtils::extractLinearOpndList(const Use *Args, unsigned NumArgs,
   // is the Value in Args[NumArgs-1].
   assert(NumArgs >= 2 && "Missing 'step' for a LINEAR clause");
   Value *StepValue = (Value*) Args[NumArgs-1];
-  ConstantInt *CI = dyn_cast<ConstantInt>(StepValue);
-  assert (CI != nullptr && "LINEAR step must be a constant");
-  int64_t Step = *((CI->getValue()).getRawData());
+  assert(StepValue != nullptr && "Null LINEAR 'step'");
 
   // The linear list items are in Args[0..NumArgs-2]
   for (unsigned I = 0; I < NumArgs-1; ++I) {
     Value *V = (Value*) Args[I];
     C.add(V);
     LinearItem *LI = C.back();
-    LI->setStep(Step);
+    LI->setStep(StepValue);
   }
 }
 

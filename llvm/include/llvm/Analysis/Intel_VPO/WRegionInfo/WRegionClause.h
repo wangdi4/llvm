@@ -481,20 +481,24 @@ class CopyprivateItem : public Item
 class LinearItem : public Item
 {
   private:
-    int Step;   // default is 1
+    EXPR Step;
 
     // No need for ctor/dtor because OrigItem is either pointer or array base
 
   public:
-    LinearItem(VAR Orig) : Item(Orig), Step(1) {}
-    void setStep(int S) { Step = S; }
-    int getStep() const { return Step; }
+    LinearItem(VAR Orig) : Item(Orig), Step(nullptr) {}
+    void setStep(EXPR S) { Step = S; }
+    EXPR getStep() const { return Step; }
 
     // Specialized print() to output the stride as well
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       OS << "(";
       getOrig()->printAsOperand(OS, PrintType);
-      OS << ", " << getStep() << ") ";
+      OS << ", ";
+      auto *Step = getStep();
+      assert(Step && "Null 'Step' for LINEAR clause.");
+      Step->printAsOperand(OS, PrintType);
+      OS << ") ";
     }
 };
 

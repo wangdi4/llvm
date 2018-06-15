@@ -258,11 +258,25 @@ private:
   /// \brief Generate code for private variables
   bool genPrivatizationCode(WRegionNode *W);
 
+  /// Generate code for linear variables.
+  ///
+  /// The following needs to be done for handling a linear var:
+  ///
+  /// -# Create two local copies of the linear vars. One to capture the
+  /// starting value. Another to be the local linear variable which replaces all
+  /// uses of the original inside the region.
+  /// -# Capture original value of linear vars before entering the loop.
+  /// -# Use the captured value along with the specified step to initialize
+  /// the local linear var in each iteration of the loop.
+  /// -# At the end of the last loop iteration, copy the value of the local
+  /// var back to the original linear var.
+  bool genLinearCode(WRegionNode *W, BasicBlock *IfLastIterBB);
+
   /// \brief Generate code for firstprivate variables
   bool genFirstPrivatizationCode(WRegionNode *W);
 
   /// \brief Generate code for lastprivate variables
-  bool genLastPrivatizationCode(WRegionNode *W, Value *IsLastVal);
+  bool genLastPrivatizationCode(WRegionNode *W, BasicBlock *IfLastIterBB);
 
   /// \brief Generate destructor calls for [first|last]private variables
   bool genDestructorCode(WRegionNode *W);
@@ -598,6 +612,64 @@ private:
   /// \brief The data structure that is used to store the alloca or tid call
   ///  instruction that are used in the WRegion.
   SmallPtrSet<Instruction*, 8> TidAndBidInstructions;
+
+  /// Emits an implicit barrier at the end of WRegion \p W if W contains
+  /// variables that are linear, or both firstprivate-lastprivate. e.g.
+  ///
+  ///   #pragma omp for firstprivate(x) lastprivate(x) nowait
+  ///
+  /// Emitted pseudocode:
+  ///
+  ///   %x.local = @x                         ; (1) firstprivate copyin
+  ///   __kmpc_static_init(...)
+  ///   ...
+  ///   __kmpc_static_fini(...)
+  ///
+  ///   __kmpc_barrier(...)                   ; (2)
+  ///   @x = %x.local                         ; (3) lastprivate copyout
+  ///
+  ///  The barrier (2) is needed to prevent a race between (1) and (3), which
+  ///  read/write to/from @x.
+  bool genBarrierForFpLpAndLinears(WRegionNode *W);
+
+  /// Emits an if-then branch using \p IsLastVal and sets \p IfLastIterOut to
+  /// the if-then BBlock. This is used for emitting the final copy-out code for
+  /// linear and lastprivate clause operands.
+  ///
+  /// Code generated looks like:
+  ///
+  /// \code
+  ///       Before             |      After
+  /// -------------------------+----------------------------------------------
+  ///                          |   %15 = load i32, i32* %is.last
+  ///                          |   %16 = icmp ne i32 %15, 0
+  ///                          |   br i1 %16, label %last.then, label %last.done
+  ///                          |
+  ///                          |   last.then:        ; IfLastIterOut
+  ///                          |   ...
+  ///                          |   br last.done
+  ///                          |
+  ///                          |   last.done:
+  ///                          |   br exit.BB.predecessor
+  ///                          |
+  ///                          |   exit.BB.predecessor:
+  ///                          |   br exit.BB
+  ///                          |
+  /// exit.BB:                 |   exit.BB:
+  /// llvm.region.exit(...)    |   llvm.region.exit(...)
+  ///
+  /// \endcode
+  ///
+  /// \param [in] IsLastVal A stack variable which is non-zero if the current
+  /// iteration is the last one.
+  /// \param [out] IfLastIterOut The BasicBlock for when the last iteration
+  /// check is true.
+  ///
+  /// \returns \b true if the branch is emitted, \b false otherwise.
+  ///
+  /// The branch is not emitted if \p W has no Linear or Lastprivate var.
+  bool genLastIterationCheck(WRegionNode *W, Value *IsLastVal,
+                             BasicBlock *&IfLastIterOut);
 
   /// \brief Insert a barrier at the end of the construct
   bool genBarrier(WRegionNode *W, bool IsExplicit);

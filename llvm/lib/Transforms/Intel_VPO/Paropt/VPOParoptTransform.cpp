@@ -278,10 +278,14 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= clearCancellationPointAllocasFromIR(W);
           Changed |= regularizeOMPLoop(W, false);
           AllocaInst *IsLastVal = nullptr;
+          BasicBlock *IfLastIterBB = nullptr;
           Changed |= genLoopSchedulingCode(W, IsLastVal);
           // Privatization is enabled for both Prepare and Transform passes
           Changed |= genPrivatizationCode(W);
-          Changed |= genLastPrivatizationCode(W, IsLastVal);
+          Changed |= genBarrierForFpLpAndLinears(W);
+          Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB);
+          Changed |= genLinearCode(W, IfLastIterBB);
+          Changed |= genLastPrivatizationCode(W, IfLastIterBB);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genReductionCode(W);
           Changed |= genCancellationBranchingCode(W);
@@ -302,11 +306,14 @@ bool VPOParoptTransform::paroptTransforms() {
           StructType *KmpTaskTTWithPrivatesTy;
           StructType *KmpSharedTy;
           Value *LastIterGep;
+          BasicBlock *IfLastIterBB = nullptr;
           Changed = genTaskInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
                                     LastIterGep);
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
-          Changed |= genLastPrivatizationCode(W, LastIterGep);
+          Changed |= genBarrierForFpLpAndLinears(W);
+          Changed |= genLastIterationCheck(W, LastIterGep, IfLastIterBB);
+          Changed |= genLastPrivatizationCode(W, IfLastIterBB);
           Changed |= genSharedCodeForTaskGeneric(W);
           Changed |= genRedCodeForTaskGeneric(W);
           Changed |= genCancellationBranchingCode(W);
@@ -326,12 +333,15 @@ bool VPOParoptTransform::paroptTransforms() {
           StructType *KmpTaskTTWithPrivatesTy;
           StructType *KmpSharedTy;
           Value *LBPtr, *UBPtr, *STPtr, *LastIterGep;
+          BasicBlock *IfLastIterBB = nullptr;
           Changed |=
               genTaskLoopInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
                                   LBPtr, UBPtr, STPtr, LastIterGep);
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
-          Changed |= genLastPrivatizationCode(W, LastIterGep);
+          Changed |= genBarrierForFpLpAndLinears(W);
+          Changed |= genLastIterationCheck(W, LastIterGep, IfLastIterBB);
+          Changed |= genLastPrivatizationCode(W, IfLastIterBB);
           Changed |= genSharedCodeForTaskGeneric(W);
           Changed |= genRedCodeForTaskGeneric(W);
           Changed |= genTaskGenericCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
@@ -427,12 +437,16 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           AllocaInst *IsLastVal = nullptr;
+          BasicBlock *IfLastIterBB = nullptr;
           Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
           Changed |= regularizeOMPLoop(W, false);
           Changed |= genLoopSchedulingCode(W, IsLastVal);
           Changed |= genPrivatizationCode(W);
-          Changed |= genLastPrivatizationCode(W, IsLastVal);
+          Changed |= genBarrierForFpLpAndLinears(W);
+          Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB);
+          Changed |= genLinearCode(W, IfLastIterBB);
+          Changed |= genLastPrivatizationCode(W, IfLastIterBB);
           Changed |= genFirstPrivatizationCode(W);
           if (!W->getIsDistribute()) {
             Changed |= genReductionCode(W);
@@ -1328,6 +1342,185 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
   }
 }
 
+// Generates code for linear variables for the WRegion W.
+//
+// The following needs to be done for handling a linear var:
+//
+//
+// * (A) Create two local copies of the linear vars. One to capture the starting
+// value. Another to be the local linear variable which replaces all uses of the
+// original inside the region. (1), (2)
+//
+// * (B) Capture original value of linear vars before entering the loop. (1),
+// (3), (4)
+//
+// * (C) Use the captured value along with the specified step to initialize the
+// local linear var in each iteration of the loop. (5) - (11)
+//
+// * (D) At the end of the last loop iteration, copy the value of the local var
+// back to the original linear var. (12), (13)
+//
+//  +------------EntryBB----------------+
+//  |  %linear.start = alloca i16       |                            ; (1)
+//  |  %y = alloca i16                  |                            ; (2)
+//  +----------------+------------------+
+//                   |
+//  +-----------LinearInitBB------------+
+//  |  %2 = load i16, i16* @y           |                            ; (3)
+//  |  store i16 %2, i16* %linear.start |                            ; (4)
+//  +----------------+------------------+
+//                   |
+//         __kmpc_static_init(...)
+//                   |
+//  +-----------LoopBodyBB--------------+
+//  |  %omp.ivi.0 = phi ...             |
+//  |  %6 = load i16, i16* %linear.start|                            ; (5)
+//  |  %7 = sext i16 %step to i64       |                            ; (6)
+//  |  %8 = mul i64 %.omp.iv.0, i64 %7  |                            ; (7)
+//  |  %9 = sext i16 %6 to i64          |                            ; (8)
+//  |  %10 = add i64 %9, %8             |                            ; (9)
+//  |  %11 = trunc i64 %10 to i16       |                            ; (10)
+//  |  store i16 %11, i16* %y           |                            ; (11)
+//  |                ...                |
+//  +-----------------+-----------------+
+//                    |
+//         __kmpc_static_fini(...)
+//                    |
+//           __kmpc_barrier(...)    ; inserted by genBarrierForFpLpAndLinears()
+//                    |
+//               if(%is_last)       ; inserted by genLastIterationCheck()
+//                    |   \
+//                   yes   no
+//                    |     +---------+
+//                    |               |
+//     +--------LinearFiniBB------+   |
+//     |   %17 = load i16, i16* %y|   |                              ; (12)
+//     |   store i16 %17, i16* @y |   |                              ; (13)
+//     +--------------+-----------+   |
+//                    |               |
+//                    |               |
+//                    |  +------------+
+//                    |  |
+//     +--------------+--+--------+
+//     |   llvm.region.exit(...)  |
+//     +--------------------------+
+//
+bool VPOParoptTransform::genLinearCode(WRegionNode *W,
+                                       BasicBlock *LinearFiniBB) {
+
+  assert(W->isBBSetEmpty() && "genLinearCode: BBSET should start empty");
+
+  if (!W->canHaveLinear())
+    return false;
+
+  LinearClause &LrClause = W->getLinear();
+  if (LrClause.empty())
+    return false;
+
+  assert(LinearFiniBB && "genLinearCode: Null LinearFiniBB.");
+
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genLinearCode\n");
+
+  W->populateBBSet();
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  BasicBlock *LinearInitBB = nullptr;
+  BasicBlock *LoopBodyBB = nullptr;
+  Value *NewLinearVar = nullptr;
+  Value *LinearStartVar = nullptr;
+
+  // Create empty BBlocks for capturing linear operand's starting value.
+  createEmptyPrvInitBB(W, LinearInitBB);
+  assert(LinearInitBB && "genLinearCode: Couldn't create LinearInitBB.");
+  IRBuilder<> CaptureBuilder(LinearInitBB->getTerminator());
+
+  // Create IRBuilder for copying back local linear vars' final value to the
+  // original vars.
+  IRBuilder<> FiniBuilder(LinearFiniBB->getTerminator());
+
+  // Get the First BB for the loop body. The initialization of local linear vars
+  // per iteration, using the starting value, index and step will go here.
+  WRNLoopInfo &WRNLI = W->getWRNLoopInfo();
+  Loop *L = WRNLI.getLoop();
+  assert(L && "genLinearCode: Null Loop.");
+  assert(L->getNumBlocks() > 0 && "genLinearCode: No BBlocks in the loop.");
+  auto *LoopBodyBBIter = L->block_begin();
+  LoopBodyBB = *LoopBodyBBIter;
+  assert(LoopBodyBB && "genLinearCode: Null loop body.");
+  IRBuilder<> InitBuilder(LoopBodyBB->getFirstNonPHI());
+  Value *Index = WRegionUtils::getOmpCanonicalInductionVariable(L);
+  assert(Index && "genLinearCode: Null Loop index.");
+
+  for (LinearItem *LinearI : LrClause.items()) {
+    Value *Orig = LinearI->getOrig();
+
+    // (A) Create private copy of the linear var to be used instead of the
+    // original var inside the WRegion. (2)
+    NewLinearVar = genPrivatizationAlloca(W, Orig, EntryBB->getFirstNonPHI(),
+                                          ".linear");                   // (2)
+
+    // Create a copy of the linear variable to capture its starting value (1)
+    LinearStartVar =
+        genPrivatizationAlloca(W, Orig, EntryBB->getFirstNonPHI(), ""); // (1)
+    LinearStartVar->setName("linear.start");
+
+    // Replace original var with the new var inside the region.
+    genPrivatizationReplacement(W, Orig, NewLinearVar, LinearI);
+    LinearI->setNew(NewLinearVar);
+
+    // (B) Capture value of linear variable before entering the loop
+    LoadInst *LoadOrig = CaptureBuilder.CreateLoad(Orig);               // (3)
+    CaptureBuilder.CreateStore(LoadOrig, LinearStartVar);               // (4)
+
+    // (C) Initialize the linear variable using closed form inside the loop
+    // body: %y.linear = %y.linear.start + %omp.iv * %step
+
+    Value *LinearStart = InitBuilder.CreateLoad(LinearStartVar);        // (5)
+    Type *LinearTy = LinearStart->getType();
+
+    Value *Step = LinearI->getStep();
+
+    // If the sizes of step/index/linear var don't match, we need to create
+    // some type casts when doing the closed-form computation.
+    Type *IndexTy = Index->getType();
+    Type *StepTy = Step->getType();
+    assert(isa<IntegerType>(IndexTy) && "genLinearCode: Index is not an int.");
+    assert(isa<IntegerType>(StepTy) && "genLinearCode: Step is not an int.");
+
+    if (IndexTy->getIntegerBitWidth() < StepTy->getIntegerBitWidth())
+      Index = InitBuilder.CreateIntCast(Index, StepTy, true);
+    else if (IndexTy->getIntegerBitWidth() > StepTy->getIntegerBitWidth())
+      Step = InitBuilder.CreateIntCast(Step, IndexTy, true);            // (6)
+    auto *Mul = InitBuilder.CreateMul(Index, Step);                     // (7)
+
+    Value *Add = nullptr;
+    if (isa<PointerType>(LinearTy))
+      Add = InitBuilder.CreateInBoundsGEP(LinearStart, {Mul});
+    else {
+      Type *MulTy = Mul->getType();
+
+      if (LinearTy->getIntegerBitWidth() < MulTy->getIntegerBitWidth())
+        LinearStart = InitBuilder.CreateIntCast(LinearStart, MulTy, true); //(8)
+      else if (LinearTy->getIntegerBitWidth() > MulTy->getIntegerBitWidth())
+        Mul = InitBuilder.CreateIntCast(Mul, LinearTy, true);
+
+      Add = InitBuilder.CreateAdd(LinearStart, Mul);                    // (9)
+      Add = InitBuilder.CreateIntCast(Add, LinearTy, true);             // (10)
+    }
+
+    InitBuilder.CreateStore(Add, NewLinearVar);                         // (11)
+
+    // (D) Insert the final linear copy-out from local vars to the original.
+    LoadInst *FiniLoad = FiniBuilder.CreateLoad(NewLinearVar);          // (12)
+    FiniBuilder.CreateStore(FiniLoad, Orig);                            // (13)
+
+    LLVM_DEBUG(dbgs() << "genLinearCode: generated " << *Orig << "\n");
+  }
+  W->resetBBSet(); // Invalidate BBSet
+
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genLinearCode\n");
+  return true;
+}
+
 bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
 
   bool Changed = false;
@@ -1404,7 +1597,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
 }
 
 bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
-                                                  Value *IsLastVal) {
+                                                  BasicBlock *IfLastIterBB) {
   bool Changed = false;
 
   LLVM_DEBUG(
@@ -1418,40 +1611,14 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
 
   LastprivateClause &LprivClause = W->getLpriv();
   if (!LprivClause.empty()) {
+
     W->populateBBSet();
-    FirstprivateItem *FprivI = nullptr;
-    if (W->canHaveFirstprivate()) {
-      for (LastprivateItem *LprivI : LprivClause.items()) {
-        FprivI = LprivI->getInFirstprivate();
-        if (FprivI)
-          break;
-      }
-    }
-    // If a variable is marked as firstprivate and lastprivate, the
-    // compiler has to generate the barrier. Please note that it is
-    // unnecessary to generate the barrier if the firstprivate is
-    // scalar and it is passed by value.
-    if (FprivI)
-      genBarrier(W, false); // implicit barrier
+
+    assert(IfLastIterBB && "genLastPrivatizationCode: Null IfLastIterBB.");
 
     bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
                    W->getWRegionKindID() == WRegionNode::WRNTask;
     BasicBlock *EntryBB = W->getEntryBBlock();
-    BasicBlock *BeginBB = nullptr;
-    createEmptyPrivFiniBB(W, BeginBB);
-    IRBuilder<> Builder(BeginBB);
-    Builder.SetInsertPoint(BeginBB->getTerminator());
-
-    assert(IsLastVal && "genLastPrivatizationCode: IsLastVal not initialized");
-    LoadInst *LastLoad = Builder.CreateLoad(IsLastVal);
-    ConstantInt *ValueZero =
-        ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
-    Value *LastCompare = Builder.CreateICmpNE(LastLoad, ValueZero);
-    TerminatorInst *Term = SplitBlockAndInsertIfThen(
-        LastCompare, BeginBB->getTerminator(), false, nullptr, DT, LI);
-    Term->getParent()->setName("lastprivate.then");
-    BeginBB->getTerminator()->getSuccessor(1)->setName("lastprivate.done");
-    BeginBB = Term->getParent();
 
     for (LastprivateItem *LprivI : LprivClause.items()) {
       Value *Orig = LprivI->getOrig();
@@ -1473,10 +1640,10 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
         if (LprivI->getInFirstprivate() == nullptr)
           VPOParoptUtils::genConstructorCall(LprivI->getConstructor(),
                                              NewPrivInst, NewPrivInst);
-        genLprivFini(LprivI, BeginBB->getTerminator());
+        genLprivFini(LprivI, IfLastIterBB->getTerminator());
       } else
         genLprivFiniForTaskLoop(LprivI->getParm(), LprivI->getNew(),
-                                BeginBB->getTerminator());
+                                IfLastIterBB->getTerminator());
     }
     Changed = true;
     W->resetBBSet(); // Invalidate BBSet
@@ -3619,6 +3786,114 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
   CriticalNode->resetBBSet(); // Invalidate BBSet
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genCriticalCode\n");
   return CriticalCallsInserted;
+}
+
+// Emits an implicit barrier at the end of WRgion W if W contains
+// variables that are linear, or both firstprivate-lastprivate. e.g.
+//
+//   #pragma omp for firstprivate(x) lastprivate(x) nowait
+//
+// Emitted pseudocode:
+//
+//   %x.local = @x                         ; (1) firstpricate copyin
+//   __kmpc_static_init(...)
+//   ...
+//   __kmpc_static_fini(...)
+//
+//   __kmpc_barrier(...)                   ; (2)
+//   @x = %x.local                         ; (3) lastprivate copyout
+//
+//  The barrier (2) is needed to prevent a race between (1) and (3), which
+//  read/write to/from @x.
+bool VPOParoptTransform::genBarrierForFpLpAndLinears(WRegionNode *W) {
+
+  // A barrier is needed for capturing the initial value of linear
+  // variables.
+  bool BarrierNeeded = W->canHaveLinear() && !((W->getLinear()).empty());
+
+  // A barrier is also needed if a variable is marked as both firstprivate and
+  // lastprivate.
+  if (!BarrierNeeded && (W->canHaveLastprivate() && W->canHaveFirstprivate())) {
+    LastprivateClause &LprivClause = W->getLpriv();
+    for (LastprivateItem *LprivI : LprivClause.items()) {
+      if (LprivI->getInFirstprivate()) {
+        BarrierNeeded = true;
+        break;
+      }
+    }
+  }
+
+  if (!BarrierNeeded)
+    return false;
+
+  LLVM_DEBUG(
+      dbgs()
+      << __FUNCTION__
+      << ": Emitting implicit barrier for FP-LP/Linear clause operands.\n");
+
+  return genBarrier(W, false); // Implicit Barrier
+}
+
+// Emits an if-then branch using IsLastVal and sets IfLastIterOut to
+// the if-then BBlock. This is used for emitting the final copy-out code for
+// linear and lastprivate clause operands.
+//
+// Code generated looks like:
+//
+//                          |
+//                         (1)  %15 = load i32, i32* %is.last
+//                         (2)  %16 = icmp ne i32 %15, 0
+//                          |   br i1 %16, label %last.then, label %last.done
+//                          |
+//                          |   last.then:        ; IfLastIterOut
+//                          |   ...
+//                          |   br last.done
+//                          |
+//                          |   last.done:
+//                          |   br exit.BB.predecessor
+//                          |
+//                         (3)  exit.BB.predecessor:
+//                          |   br exit.BB
+//                          |
+// exit.BB:                 |   exit.BB:
+// llvm.region.exit(...)    |   llvm.region.exit(...)
+//                          |
+bool VPOParoptTransform::genLastIterationCheck(WRegionNode *W, Value *IsLastVal,
+                                               BasicBlock *&IfLastIterOut) {
+
+  // No need to emit the branch if W doesn't have any linear or lastprivate var.
+  if ((!W->canHaveLastprivate() || (W->getLpriv()).empty()) &&
+      (!W->canHaveLinear() || (W->getLinear()).empty()))
+    return false;
+
+  assert(IsLastVal && "genLastIterationCheck: IsLastVal is null.");
+
+  // First, create an empty predecessor BBlock for ExitBB of the WRegion.  (3)
+  BasicBlock *ExitBBPredecessor = nullptr;
+  createEmptyPrivFiniBB(W, ExitBBPredecessor);
+  assert(ExitBBPredecessor && "genLoopLastIterationCheck: Couldn't create "
+                              "empty BBlock before the exit BB.");
+
+  // Next, we insert the branching code in the newly created BBlock.
+  Instruction *BranchInsertPt = ExitBBPredecessor->getTerminator();
+  IRBuilder<> Builder(BranchInsertPt);
+
+  LoadInst *LastLoad = Builder.CreateLoad(IsLastVal);                   // (1)
+  ConstantInt *ValueZero =
+      ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
+  Value *LastCompare = Builder.CreateICmpNE(LastLoad, ValueZero);       // (2)
+
+  TerminatorInst *Term = SplitBlockAndInsertIfThen(LastCompare, BranchInsertPt,
+                                                   false, nullptr, DT, LI);
+  Term->getParent()->setName("last.then");
+  ExitBBPredecessor->getTerminator()->getSuccessor(1)->setName("last.done");
+
+  IfLastIterOut = Term->getParent();
+
+  LLVM_DEBUG(
+      dbgs() << __FUNCTION__
+             << ": Emitted if-then branch for checking last iteration.\n");
+  return true;
 }
 
 // Insert a call to __kmpc_barrier() at the end of the construct
