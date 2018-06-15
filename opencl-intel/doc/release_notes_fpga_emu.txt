@@ -1,10 +1,11 @@
 ================================================================================
 SUMMARY
 ================================================================================
-The Intel(R) FPGA Emulation Platform for OpenCL(TM) is an OpenCL(TM) runtime and
-compiler, which runs on an Intel(R) Core(TM) or Intel(R) Xeon(R). It is capable
-of compiling and running programs written with Intel(R) FPGA Emulation Platform
-for OpenCL(TM) extensions (e.g. with the FPGA channels extension).
+The Intel(R) FPGA Emulation Platform for OpenCL(TM) software is an OpenCL(TM)
+runtime and compiler, which runs on Intel(R) Core(TM) or Intel(R) Xeon(R)
+processors. It is capable of compiling and running programs written with
+Intel(R) FPGA Emulation Platform for OpenCL(TM) extensions (e.g. with the FPGA
+channels extension).
 
 The emulator aims to provide:
     - Rapid compilation time (seconds)
@@ -25,34 +26,33 @@ Supported operating systems:
   - Windows* 7, 8.1, 10 (64-bit)
 
 Supported hardware:
-  - Intel(R) Core(TM) CPU 5th generation (Intel(R) microarchitecture code name
-    Broadwell) or higher
-  - Intel(R) Xeon(R) CPU E5 v5 (Intel(R) microarchitecture code name Broadwell)
-    or higher
+  - 5th Generation Intel(R) Core(TM) Processor (formerly Broadwell) or higher
+  - 5th Generation Intel(R) Xeon(R) Processor E3 v4 (formerly Broadwell) or
+    higher
 
 ================================================================================
 INSTALLATION
 ================================================================================
 
 The emulator should be installed as part of the Intel(R) FPGA SDK for OpenCL(TM)
-package installation when the corresponding component is selected.
+software technology installation when the corresponding component is selected.
 
 If the installation succeeded, the following OpenCL(TM) platform will be
 available:
 
     Profile             : EMBEDDED_PROFILE
-    Version             : OpenCL 1.2 LINUX
+    Version             : OpenCL 1.0 Intel(R) FPGA SDK for OpenCL(TM), Version 18.0
     Name                : Intel(R) FPGA Emulation Platform for OpenCL(TM) (preview)
     Vendor              : Intel(R) Corporation
     Devices             : 1
     Device [#1]         :
         Type            : accelerator
         Profile         : EMBEDDED_PROFILE
-        Version         : OpenCL 1.2 (Build <build number>)
+        Version         : OpenCL 1.0
         Name            : Intel(R) FPGA Emulation Device (preview)
         Vendor          : Intel(R) Corporation
-        C version       : OpenCL C 1.2
-        Driver version  : 1.2.0.0
+        C version       : OpenCL C 1.0
+        Driver version  : 18.0
 
 ================================================================================
 DETAILS
@@ -85,7 +85,8 @@ The following sets of environment variables affect the emulator execution:
       + -ffast-math: Forces fast math built-ins.
 
   - The following are OpenCL(TM) related environment variables (see the Intel(R)
-    OpenCL(TM) CPU RT documentation for more details):
+    SDK for OpenCL(TM) - CPU only runtime package documentation for more
+    details):
 
     * CL_CONFIG_USE_VECTORIZER (True, False): Enables or disables the NDRange
       kernel vectorizer. It does not have an effect on the OpenMP* pragma
@@ -130,9 +131,9 @@ binaries compiled for FPGA devices and vice versa.
 ================================================================================
 DEBUGGING OPENCL(TM) KERNELS ON LINUX*
 ================================================================================
-The Intel(R) FPGA Emulation Platform for OpenCL(TM) supports debugging of
-OpenCL(TM) kernels using a GNU GDB* or LLDB* debugger on Linux*. It allows for
-debugging host code and OpenCL(TM) kernels in a single debug session.
+The Intel(R) FPGA Emulation Platform for OpenCL(TM) software supports debugging
+of OpenCL(TM) kernels using a GNU GDB* or LLDB* debugger on Linux*. It allows
+for debugging host code and OpenCL(TM) kernels in a single debug session.
 
 To enable debugging mode, specific options should be passed to the build options
 string parameter in the clBuildProgram() function:
@@ -204,6 +205,34 @@ GDB* debugging session example:
      $0 = 2
 
 ================================================================================
+EMULATING CHANNEL DEPTH
+================================================================================
+When you compile your OpenCL(TM) kernel for emulation, the channel depth is
+different from the channel depth generated when your kernel is compiled for
+hardware. You can change this behavior with the
+CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE environment variable.
+
+The CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE environment variable can take the
+following values:
+
+  - ignore-depth: All channels are given a channel depth chosen to provide the
+    fastest execution time for your kernel emulation. Any explicitly set channel
+    depth attribute is ignored. This value is used by default if
+    CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE environment variable is not set.
+
+  - default: Channels with an explicit depth attribute have their specified
+    depth. Channels without a specified depth are given a default channel depth
+    that is chosen to provide the fastest execution time for your kernel
+    emulation.
+
+  - strict: All channel depths in the emulation are given a depth that matches
+    the depth given for the FPGA compilation.
+
+For channels the CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE environment variable
+should be set for a kernel compilation. For pipes it should be set for a host
+program execution.
+
+================================================================================
 KNOWN ISSUES
 ================================================================================
 1. The current release is for preview only and should not be used in full
@@ -211,31 +240,19 @@ KNOWN ISSUES
    and not all of the features supported on the emulator are supported on FPGA
    hardware.
 
-2. The platform names and OpenCL(TM) properties differ between the OpenCL(TM)
-   platform for the FPGA device and the FPGA emulator.
-   | -------------- | --------------------------------- | --------------------  |
-   | Property       | Device                            | Emulator              |
-   | -------------- | --------------------------------- | --------------------  |
-   | Version        | OpenCL(TM) 1.0 Intel(R) FPGA SDK..| OpenCL 1.2 (Build #)  |
-   | Driver version | 18.0                              | 1.2.0.<build number>  |
-   | Name           | Intel(R) FPGA SDK for OpenCL(...  | Intel(R) FPGA Emu..   |
-   | C version      | OpenCL(TM) C 1.0                  | OpenCL C 1.2          |
-   | -------------- | --------------------------------- | --------------------  |
+2. This emulator is not optimized for kernel execution on an NDRange model.
 
-3. This emulator is not optimized for kernel execution on an NDRange model.
-
-4. Known issues with the AutoRun kernels feature are:
+3. Known issues with the AutoRun kernels feature are:
    - The NDRange kernels are not supported.
    - The autorun kernels shut down only after a host program exits, not after a
      clReleaseProgram() call.
 
-5. The max_work_group_size attribute requires three arguments to be specified
+4. The max_work_group_size attribute requires three arguments to be specified
    (one for each dimension in the NDRange) instead of only one argument.
 
-6. The unsupported features are:
+5. The unsupported features are:
    - FPGA library feature emulation
    - Compiler diagnostics for channels
-   - Depth attribute for pipes
 
 ================================================================================
 TROUBLESHOOTING
@@ -275,12 +292,19 @@ Changes from the Intel(R) SDK for OpenCL(TM) 2017 R2 release:
 
   - GDB* is supported for kernel debugging on Linux*.
 
-  - The supported OpenCL(TM) version changed from 2.0 to 1.2.
+  - The supported OpenCL(TM) version changed from 2.0 to 1.0.
 
   - A list of supported extensions is now aligned with the FPGA OpenCL(TM)
     driver.
 
   - Channels can now be passed to functions by value.
+
+  - Default value of CL_DEVICE_LOCAL_MEM_SIZE device property is increased from
+    32KB to 256KB. It can still be changed with
+    CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE environment variable.
+
+  - Value of CL_DEVICE_MAX_WORK_GROUP_SIZE device property is increased from
+    8192 to 64*1024*1024.
 
 Changes from the Intel(R) SDK for OpenCL(TM) 2017 R1 release:
 
@@ -316,7 +340,16 @@ REFERENCES
     https://software.intel.com/en-us/node/695804
 3. KMP_AFFINITY interface documentation:
     https://software.intel.com/en-us/node/695817
-4. Intel(R) OpenCL(TM) CPU RT documentation:
+4. Intel(R) SDK for OpenCL(TM) - CPU only runtime package documentation:
     https://software.intel.com/en-us/iocl_tec_opg
 5. The OpenCL(TM) Specification Version 1.2
     https://www.khronos.org/registry/OpenCL/specs/opencl-1.2.pdf
+
+================================================================================
+ACKNOWLEDGEMENT
+================================================================================
+Intel and Xeon are trademarks of Intel Corporation or its subsidiaries in the
+U.S. and/or other countries.
+
+OpenCL and the OpenCL logo are trademarks of Apple Inc. used by permission by
+Khronos.

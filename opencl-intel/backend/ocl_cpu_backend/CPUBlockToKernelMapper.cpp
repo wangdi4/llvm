@@ -36,8 +36,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   {
     assert(pModule && "Module is NULL");
     assert(pProgram && "Program is NULL");
-    DEBUG(llvm::dbgs() << "Entry point CPUBlockToKernelMapper ctor \n");
-    DEBUG(llvm::dbgs() << pProgram->GetKernelsCount() << " kernels in program \n");
+    LLVM_DEBUG(llvm::dbgs() << "Entry point CPUBlockToKernelMapper ctor \n");
+    LLVM_DEBUG(llvm::dbgs() << pProgram->GetKernelsCount() << " kernels in program \n");
 
 
     // loop over kernels in program
@@ -66,7 +66,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     } // for (int cnt = 0; cnt < pProgram->GetKernelsCount(); ++cnt)
     
-    DEBUG(llvm::dbgs() << "map <key, Kernel object> has " << m_map.size() << " elements \n");
+    LLVM_DEBUG(llvm::dbgs() << "map <key, Kernel object> has " << m_map.size() << " elements \n");
   }
   
   const ICLDevBackendKernel_ * CPUBlockToKernelMapper::Map(const void * key) const

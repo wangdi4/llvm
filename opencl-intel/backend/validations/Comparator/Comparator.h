@@ -254,13 +254,13 @@ namespace Validation
 
              if(NEATValue::UNKNOWN == st)
              {
-                 DEBUG(llvm::dbgs()<<"[COMPARATOR WARNING] Value with UNKNOWN status found!!\n");
+                 LLVM_DEBUG(llvm::dbgs()<<"[COMPARATOR WARNING] Value with UNKNOWN status found!!\n");
                  return PASSED;
              }
 
              if(NEATValue::UNWRITTEN == st)
              {
-                 DEBUG(llvm::dbgs()<<"[COMPARATOR WARNING] Value with UNWRITTEN status found!!\n");
+                 LLVM_DEBUG(llvm::dbgs()<<"[COMPARATOR WARNING] Value with UNWRITTEN status found!!\n");
                  return PASSED;
              }
 
@@ -270,18 +270,18 @@ namespace Validation
 
              if(Utils::IsNaN(maxVal) || Utils::IsNaN(minVal))
              {
-                 DEBUG(llvm::dbgs()<<"[COMPARATOR WARNING] NEAT intervals contain NaN.\n");
+                 LLVM_DEBUG(llvm::dbgs()<<"[COMPARATOR WARNING] NEAT intervals contain NaN.\n");
                  return PASSED;
              }
              /// Check infinities
              if((Utils::IsNInf(minVal)) && (Utils::IsPInf(maxVal)))
              {
-                 DEBUG(llvm::dbgs()<<"[COMPARATOR WARNING] NEAT interval is infinite.\n");
+                 LLVM_DEBUG(llvm::dbgs()<<"[COMPARATOR WARNING] NEAT interval is infinite.\n");
                  return PASSED;
              }
              if(maxVal < minVal)
              {
-                 DEBUG(llvm::dbgs()<<"[COMPARATOR WARNING] Neat interval is invalid.\n");
+                 LLVM_DEBUG(llvm::dbgs()<<"[COMPARATOR WARNING] Neat interval is invalid.\n");
                  return NOT_PASSED;
              }
              if(in_vd.GetStatus() == NEATValue::ACCURATE)

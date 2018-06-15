@@ -43,9 +43,9 @@ static void stripFunction(Function *Func) {
 
   SmallSet<unsigned, 16> MDKindIDsToSpare;
 
-  KernelMetadataAPI kernelMetadata(Func);
+  KernelMetadataAPI KernelMetadata(Func);
   KernelInternalMetadataAPI kernelInternalMetadata(Func);
-  const auto &KMDNames = kernelMetadata.getMDNames();
+  const auto &KMDNames = KernelMetadata.getMDNames();
   const auto &KIMDNames = kernelInternalMetadata.getMDNames();
 
   for (auto MDName : KMDNames)
@@ -134,12 +134,13 @@ bool StripIntelIP::runOnModule(Module &M) {
   // Collection stage 4. Spare only OpenCL-specific Metadata.
   // Note, that IntelProprietaryFlag will be scheduled for deletion as well.
   SmallSet<StringRef, 16> NamedMDNodesToSpare;
-  ModuleInternalMetadataAPI moduleInternalMetadata(&M);
-  for (auto MDNameToSpare : moduleInternalMetadata.getMDNames()) {
+  ModuleInternalMetadataAPI ModuleInternalMetadata(&M);
+  for (auto MDNameToSpare : ModuleInternalMetadata.getMDNames()) {
     NamedMDNodesToSpare.insert(MDNameToSpare);
   }
 
-  for (auto MDNameToSpare : ModuleMetadataAPI(&M).getMDNames()) {
+  ModuleMetadataAPI ModuleMetadata(&M);
+  for (auto MDNameToSpare : ModuleMetadata.getMDNames()) {
     NamedMDNodesToSpare.insert(MDNameToSpare);
   }
 
