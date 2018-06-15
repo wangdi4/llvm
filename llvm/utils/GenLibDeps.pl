@@ -97,7 +97,6 @@ if ($PEROBJ) {
     $libpath =~ s/^BitReader/Bitcode\/Reader/;
     $libpath =~ s/^BitWriter/Bitcode\/Writer/;
 # INTEL_CUSTOMIZATION
-    $libpath =~ s/^CBackend/Target\/CBackend/;
     $libpath =~ s/^CSA/Target\/CSA/;
 # END INTEL_CUSTOMIZATION
     $libpath =~ s/^MSIL/Target\/MSIL/;
@@ -141,7 +140,6 @@ if ($PEROBJ) {
     $libpath =~ s/^BitReader/Bitcode\/Reader/;
     $libpath =~ s/^BitWriter/Bitcode\/Writer/;
 # INTEL_CUSTOMIZATION
-    $libpath =~ s/^CBackend/Target\/CBackend/;
     $libpath =~ s/^CSA/Target\/CSA/;
 # END INTEL_CUSTOMIZATION
     $libpath =~ s/^MSIL/Target\/MSIL/;

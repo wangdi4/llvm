@@ -316,7 +316,6 @@ set(LLVM_ALL_TARGETS
   AMDGPU
   ARM
   BPF
-  CBackend
   Hexagon
   Lanai
   CSA
