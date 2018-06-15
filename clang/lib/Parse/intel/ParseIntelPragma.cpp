@@ -114,7 +114,8 @@ void PragmaInlineHandler::HandlePragma(Preprocessor &PP,
   Token Tok;
   SmallVector<Token, 4> Tokens;
   SourceLocation InlineLoc = FirstTok.getLocation();
-  PragmaInlineInfo *Info = new PragmaInlineInfo;
+  PragmaInlineInfo *Info =
+    new (PP.getPreprocessorAllocator()) PragmaInlineInfo;
 
   Tok.startToken();
   Tok.setKind(tok::annot_pragma_inline);
