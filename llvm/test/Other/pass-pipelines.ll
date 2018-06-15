@@ -52,9 +52,6 @@
 ; CHECK-O2-NOT: Manager
 ; CHECK-O2: Loop Pass Manager
 ; CHECK-O2-NOT: Manager
-; CHECK-O2: Loop Pass Manager
-; CHECK-O2-NEXT: Loop SPMDization
-; CHECK-O2-NOT: Manager
 ; FIXME: It isn't clear that we need yet another loop pass pipeline
 ; and run of LICM here.
 ; CHECK-O2-NOT: Manager
@@ -90,9 +87,6 @@
 ; CHECK-O2: SLP Vectorizer
 ; CHECK-O2-NOT: Manager
 ; After vectorization we do partial unrolling.
-; CHECK-O2: Loop Pass Manager
-; CHECK-O2-NEXT: Loop SPMDization
-; CHECK-O2-NOT: Manager
 ; CHECK-O2: Loop Pass Manager
 ; CHECK-O2-NEXT: Unroll loops
 ; CHECK-O2-NOT: Manager
