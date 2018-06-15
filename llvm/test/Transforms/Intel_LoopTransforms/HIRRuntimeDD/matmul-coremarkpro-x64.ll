@@ -42,8 +42,9 @@
 ;           END REGION
 
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -hir-details -print-after=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-details -S < %s 2>&1 | FileCheck %s
 
-; CHECK: IR Dump After
+; CHECK: Function
 ; CHECK-DAG: &((%2)[24 * sext.i32.i64(%4) + 24]) >=u &((%1)[0]);
 ; CHECK-DAG: &((%1)[25 * sext.i32.i64((-1 + %4)) + 24]) >=u &((%2)[0]);
 ; CHECK: %mv.and = 

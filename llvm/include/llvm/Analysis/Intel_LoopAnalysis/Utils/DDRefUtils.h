@@ -87,7 +87,7 @@ class DDRefUtils {
 
   /// Implements createMemRef()/createAddressOfRef().
   RegDDRef *createGEPRef(unsigned BasePtrBlobIndex, unsigned Level, unsigned SB,
-                         bool IsMemRef);
+                         bool IsMemRef, bool IsInBounds);
 
 public:
   // Returns reference to CanonExprUtils object.
@@ -124,7 +124,7 @@ public:
   /// dimensions are added to the ref. Caller is responsible for doing that
   /// using RegDDRef::addDimension().
   RegDDRef *createMemRef(unsigned BasePtrBlobIndex, unsigned Level = 0,
-                         unsigned SB = InvalidSymbase);
+                         unsigned SB = InvalidSymbase, bool IsInBounds = true);
 
   /// Create an addressOf ref using the \p BasePtrBlobIndex as the blob index of
   /// the base pointer. \p Level is the defined at level of the base pointer. If
@@ -132,7 +132,8 @@ public:
   /// dimensions are added to the ref. Caller is responsible for doing that
   /// using RegDDRef::addDimension().
   RegDDRef *createAddressOfRef(unsigned BasePtrBlobIndex, unsigned Level = 0,
-                               unsigned SB = InvalidSymbase);
+                               unsigned SB = InvalidSymbase,
+                               bool IsInBounds = true);
 
   /// Returns a new constant RegDDRef from a int value.
   /// This routine will automatically create a single canon expr from the val
@@ -249,6 +250,11 @@ public:
   /// are equal. For example, it will returns true for references like A[0].1
   /// and A[i1].1. Both refs should have same base and number of dimensions.
   static bool haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2);
+
+  /// Compares BaseCE and number of dimension.
+  /// Preliminary check for index comparison.
+  static bool haveEqualBaseAndShape(const RegDDRef *Ref1, const RegDDRef *Ref2,
+                                    bool RelaxedMode);
 
   // Sorting comparator operator for two Mem-RegDDRef.
   static bool compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2);

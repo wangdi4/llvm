@@ -69,8 +69,6 @@ SNode *SNodeAnalysis::genSNode(SNode::SNodeOp SnOp) {
   case SNode::SN_IF_THEN_ELSE:
     Snode = new IfThenElseSNode();
     break;
-  default:
-    llvm_unreachable("Unsupported SNode Type!");
   }
   Snode->setParentSn(Snode);
   SNodes.push_back(Snode);

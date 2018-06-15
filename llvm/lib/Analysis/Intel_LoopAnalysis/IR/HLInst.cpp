@@ -273,6 +273,8 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
     }
   }
 
+  printDistributePoint(OS);
+
   OS << "\n";
 
   HLDDNode::print(OS, Depth, Detailed);

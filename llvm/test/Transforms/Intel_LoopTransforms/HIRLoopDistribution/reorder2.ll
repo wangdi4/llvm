@@ -4,6 +4,7 @@
 ;   dist should not happen.  the DV is (<=) 
 ;   
 ;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-memrec -S -print-after=hir-loop-distribute-memrec  < %s 2>&1 | FileCheck %s
+;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -S  < %s 2>&1 | FileCheck %s
 ;
 ;Explicitly check contents of first loop
 ; CHECK: DO i1 = 0, 50, 1   

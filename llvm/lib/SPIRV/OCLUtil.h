@@ -392,6 +392,7 @@ isSpecialTypeInitializer(Instruction* Inst);
 
 bool isEnqueueKernelBI(const StringRef MangledName);
 bool isKernelQueryBI(const StringRef MangledName);
+bool isPipeBI(const StringRef MangledName);
 
 } // namespace OCLUtil
 
@@ -610,8 +611,10 @@ _SPIRV_OP(group_reserve_read_pipe, GroupReserveReadPipePackets)
 _SPIRV_OP(group_reserve_write_pipe, GroupReserveWritePipePackets)
 _SPIRV_OP(group_commit_read_pipe, GroupCommitReadPipe)
 _SPIRV_OP(group_commit_write_pipe, GroupCommitWritePipe)
-_SPIRV_OP(get_pipe_num_packets, GetNumPipePackets)
-_SPIRV_OP(get_pipe_max_packets, GetMaxPipePackets)
+_SPIRV_OP(get_pipe_num_packets_ro, GetNumPipePackets)
+_SPIRV_OP(get_pipe_num_packets_wo, GetNumPipePackets)
+_SPIRV_OP(get_pipe_max_packets_ro, GetMaxPipePackets)
+_SPIRV_OP(get_pipe_max_packets_wo, GetMaxPipePackets)
 // CL 2.0 workgroup builtins
 _SPIRV_OP(group_all, GroupAll)
 _SPIRV_OP(group_any, GroupAny)

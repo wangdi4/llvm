@@ -18,7 +18,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "xmain-opt-level-pass"
+#define DEBUG_TYPE "xmain-opt-level"
 
 static cl::opt<unsigned>
     ForceXmainOptLevel("xmain-opt-level", cl::init(-1), cl::Hidden,

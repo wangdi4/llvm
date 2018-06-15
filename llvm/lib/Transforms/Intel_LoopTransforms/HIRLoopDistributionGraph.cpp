@@ -20,7 +20,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopDistributionGraph.h"
+#include "HIRLoopDistributionGraph.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;

@@ -1,9 +1,10 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-unroll-and-jam -print-before=hir-unroll-and-jam -print-after=hir-unroll-and-jam 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-unroll-and-jam,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Verify that unroll & jam doesn't kick in for this case as it is illegal. The DV between A[i+1][j-1] and A[i][j] is (<, >) which yields an illegal DV after permutation.
 
 
-; CHECK: Dump Before HIR Unroll & Jam
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 99>
 ; CHECK: |   + DO i2 = 0, %m + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
@@ -15,7 +16,7 @@
 ; CHECK: + END LOOP
 
 
-; CHECK: Dump After HIR Unroll & Jam 
+; CHECK: Function
 
 ; CHECK: BEGIN REGION { }
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 99>

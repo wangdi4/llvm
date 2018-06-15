@@ -80,7 +80,9 @@ protected:
         ValueType(Ty), Visibility(DefaultVisibility),
         UnnamedAddrVal(unsigned(UnnamedAddr::None)),
         DllStorageClass(DefaultStorageClass), ThreadLocal(NotThreadLocal),
-        ThreadPrivate(0), TargetDeclare(0), // INTEL
+#if INTEL_COLLAB
+        ThreadPrivate(0), TargetDeclare(0),
+#endif // INTEL_COLLAB
         HasLLVMReservedName(false), IsDSOLocal(false), IntID((Intrinsic::ID)0U),
         Parent(nullptr) {
     setLinkage(Linkage);
@@ -89,10 +91,14 @@ protected:
 
   Type *ValueType;
 
+#if INTEL_COLLAB
   // INTEL - This needs to be two less than it is in the community version to
   // account for the ThreadPrivate bit and TargetDeclare bit.  See also
   // the comment at the SubClassData declaration.
-  static const unsigned GlobalValueSubClassDataBits = 15; // INTEL
+  static const unsigned GlobalValueSubClassDataBits = 15;
+#else
+  static const unsigned GlobalValueSubClassDataBits = 17;
+#endif // INTEL_COLLAB
 
   // All bitfields use unsigned as the underlying type so that MSVC will pack
   // them.
@@ -103,7 +109,7 @@ protected:
 
   unsigned ThreadLocal : 3; // Is this symbol "Thread Local", if so, what is
                             // the desired model?
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   unsigned ThreadPrivate : 1; // The thread_private attribute indicates
                               // if the global variable is associated
                               // with an OpenMP threadprivate directive
@@ -111,7 +117,7 @@ protected:
   unsigned TargetDeclare : 1; // The target declare attribute indicates
                               // if the global variable is associated
                               // with an OpenMP declare target directive.
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   /// True if the function's name starts with "llvm.".  This corresponds to the
   /// value of Function::isIntrinsic(), which may be true even if
@@ -256,13 +262,13 @@ public:
     maybeSetDsoLocal();
   }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   bool isThreadPrivate() const { return ThreadPrivate; }
   void setThreadPrivate(bool Val) { ThreadPrivate = Val; }
 
   bool isTargetDeclare() const { return TargetDeclare; }
   void setTargetDeclare(bool Val) { TargetDeclare = Val; }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   /// If the value is "Thread Local", its value isn't shared by the threads.
   bool isThreadLocal() const { return getThreadLocalMode() != NotThreadLocal; }

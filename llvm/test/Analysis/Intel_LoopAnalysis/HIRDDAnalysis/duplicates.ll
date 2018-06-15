@@ -4,7 +4,8 @@
 ;    a[2 *n * i] =   b[2 *n * i+ 1] +1; 
 ;  }
 ; (Note: test revised so it will not be skipped due to Distribution cost model)
-; RUN:  opt < %s -hir-ssa-deconstruction | opt -hir-temp-cleanup -hir-loop-distribute-memrec -hir-dd-analysis -analyze  | FileCheck %s 
+; RUN:  opt < %s -hir-ssa-deconstruction | opt -hir-temp-cleanup -hir-loop-distribute-memrec -hir-dd-analysis -analyze | FileCheck %s 
+
 ; Check that there are only two edges (one OUTPUT edge for (@a)[0][2 * %n * i1] and one FLOW edge for %add2).
 
 ; CHECK: 'HIR Data Dependence Analysis' for function 'sub8'

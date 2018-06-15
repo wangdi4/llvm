@@ -340,7 +340,8 @@ getOCLOpaqueTypeAddrSpace(SPIR::TypePrimitiveEnum prim) {
     return mapAddrSpaceEnums(SPIRV_CLK_EVENT_T_ADDR_SPACE);
   case SPIR::PRIMITIVE_RESERVE_ID_T:
     return mapAddrSpaceEnums(SPIRV_RESERVE_ID_T_ADDR_SPACE);
-  case SPIR::PRIMITIVE_PIPE_T:
+  case SPIR::PRIMITIVE_PIPE_RO_T:
+  case SPIR::PRIMITIVE_PIPE_WO_T:
     return mapAddrSpaceEnums(SPIRV_PIPE_ADDR_SPACE);
   case SPIR::PRIMITIVE_IMAGE_1D_T:
   case SPIR::PRIMITIVE_IMAGE_1D_ARRAY_T:
@@ -614,6 +615,28 @@ bool isKernelQueryBI(const StringRef MangledName) {
          MangledName == "__get_kernel_max_sub_group_size_for_ndrange_impl" ||
          MangledName == "__get_kernel_preferred_work_group_size_multiple_impl";
 }
+
+bool isPipeBI(const StringRef MangledName) {
+  return MangledName == "write_pipe_2" || MangledName == "read_pipe_2" ||
+         MangledName == "write_pipe_4" || MangledName == "read_pipe_4" ||
+         MangledName == "reserve_write_pipe" ||
+         MangledName == "reserve_read_pipe" ||
+         MangledName == "commit_write_pipe" ||
+         MangledName == "commit_read_pipe" ||
+         MangledName == "work_group_reserve_write_pipe" ||
+         MangledName == "work_group_reserve_read_pipe" ||
+         MangledName == "work_group_commit_write_pipe" ||
+         MangledName == "work_group_commit_read_pipe" ||
+         MangledName == "get_pipe_num_packets_ro" ||
+         MangledName == "get_pipe_max_packets_ro" ||
+         MangledName == "get_pipe_num_packets_wo" ||
+         MangledName == "get_pipe_max_packets_wo" ||
+         MangledName == "sub_group_reserve_write_pipe" ||
+         MangledName == "sub_group_reserve_read_pipe" ||
+         MangledName == "sub_group_commit_write_pipe" ||
+         MangledName == "sub_group_commit_read_pipe";
+  }
+
 } // namespace OCLUtil
 
 void

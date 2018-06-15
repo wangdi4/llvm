@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -hir-complete-unroll-assume-dd-independence -hir-complete-unroll-opt-level=3 -print-before=hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-pre-vec-complete-unroll,print<hir>" -hir-complete-unroll-assume-dd-independence -hir-complete-unroll-opt-level=3 2>&1 < %s | FileCheck %s
 
 ; XFAIL: *
 ; The incoming IR for this test case (from denbench/mp3playerfixeddata) has changed.
@@ -7,7 +8,7 @@
 
 ; Verify that this highly profitable loopnest is unrolled in prevec pass.
 
-; CHECK: Before HIR PreVec Complete Unroll
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, 35, 1   <DO_LOOP>
 ; CHECK: |   %3 = 2 * i1 + 1  +  18;
@@ -27,7 +28,7 @@
 ; CHECK: + END LOOP
 
 
-; CHECK: After HIR PreVec Complete Unroll
+; CHECK: Function
 
 ; CHECK-NOT: DO i1
 

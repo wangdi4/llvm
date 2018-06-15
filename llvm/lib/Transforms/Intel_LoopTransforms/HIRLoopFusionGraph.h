@@ -46,14 +46,14 @@ class FuseNode {
   SmallVector<HLLoop *, 4> LoopsVector;
   HLNode *BadNode = nullptr;
   bool IsRemovedFlag = false;
-  bool HasSideEffect = false;
+  bool HasUnknownMemoryAccess = false;
 
 public:
   // Good node constructor
-  FuseNode(HLLoop *Loop, bool HasUnsafeSideEffect);
+  FuseNode(HLLoop *Loop, bool HasUnknownMemoryAccess);
 
   // Bad node constructor
-  FuseNode(HLNode *BadNode, bool HasUnsafeSideEffect);
+  FuseNode(HLNode *BadNode, bool HasUnknownMemoryAccess);
 
   bool isGoodNode() const { return BadNode == nullptr && !isRemoved(); }
   bool isBadNode() const { return !isGoodNode(); }
@@ -89,7 +89,7 @@ public:
 
   HLNode *getHLNode() const;
 
-  bool hasSideEffect() const { return HasSideEffect; }
+  bool hasUnknownMemoryAccess() const { return HasUnknownMemoryAccess; }
 };
 
 struct FuseEdge {
@@ -254,12 +254,14 @@ private:
   // Returns true if \p Edge does not prevent fusion.
   bool isLegalDependency(const DDEdge &Edge, unsigned CommonLevel) const;
 
-  // It's illegal to fuse more than one node with unsafe side effect and it's
-  // also illegal to reorder them, so the fake dependency chain is created
-  // through the all unsafe nodes.
-  void constructUnsafeChain();
-
   void constructFuseNodes(GraphNodeMapTy &GraphNodeMap, HLNodeRangeTy Children);
+
+  // It's illegal to fuse nodes with unknown memory access and it's
+  // also illegal to reorder them, so the fake dependency chain is created.
+  void constructUnknownMemoryAccessChains();
+
+  template <typename Iter>
+  void constructUnknownMemoryAccessChainsOneWay(Iter Begin, Iter End);
 
   void constructDirectedEdges(DDGraph DDG, GraphNodeMapTy &GraphNodeMap,
                               FusibleCacheTy &FusibleCache, HLNode *ParentNode,

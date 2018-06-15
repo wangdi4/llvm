@@ -13,16 +13,17 @@
 ; 
 ; Check that we completely unroll inner loop and that no directive is added
 ; RUN: opt -S -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -print-after=hir-vec-dir-insert 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-post-vec-complete-unroll,print<hir>" -S -hir-vec-dir-insert 2>&1 < %s | FileCheck %s
 ;
-; CHECK: Dump Before HIR PostVec Complete Unroll
+; CHECK: Function
 ; CHECK: DO i1
 ; CHECK: DO i2
 
 
-; CHECK: Dump After HIR PostVec Complete Unroll
+; CHECK: Function
 ; CHECK-NOT: DO i2
 
-; CHECK: Dump After HIR Vec Directive Insertion
+; CHECK: Function
 ; CHECK-NOT: @llvm.intel.directive
 
 ; ModuleID = 't847_4.c'

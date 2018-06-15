@@ -37,13 +37,13 @@ define i32 @main(i32 %argc, i8** %argv) {
 }
 
 ; CHECK: Delete field: looking for candidate structures.
-; CHECK-DAG: Found unread field: struct.test @ 1
-; CHECK-DAG: Rejecting struct.test based on safety data.
-; CHECK-DAG: Found unread field: struct.other @ 0
-; CHECK-DAG: Found unread field: struct.other @ 1
-; CHECK-DAG: Found unread field: struct.other @ 2
-; CHECK-DAG: Found unread field: struct.other @ 3
-; CHECK-DAG: Rejecting struct.other based on safety data.
+; CHECK-DAG: Found unread field: %struct.test @ 1
+; CHECK-DAG: Rejecting %struct.test based on safety data.
+; CHECK-DAG: Found unread field: %struct.other @ 0
+; CHECK-DAG: Found unread field: %struct.other @ 1
+; CHECK-DAG: Found unread field: %struct.other @ 2
+; CHECK-DAG: Found unread field: %struct.other @ 3
+; CHECK-DAG: Rejecting %struct.other based on safety data.
 ; CHECK-NOT: Selected for deletion:
 ; CHECK: No candidates found.
 

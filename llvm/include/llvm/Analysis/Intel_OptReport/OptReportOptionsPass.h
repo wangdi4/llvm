@@ -1,4 +1,4 @@
-//===-------------------- OptReportOptionsPass.h ---------------------===//
+//===-------------------- OptReportOptionsPass.h --------------------------===//
 //
 // Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
@@ -25,19 +25,15 @@
 namespace llvm {
 
 class OptReportOptions {
-
-  OptReportVerbosity::Level LoopOptReportVerbosityLevel;
+  OptReportVerbosity::Level Verbosity;
 
 public:
+  OptReportOptions();
+
   enum LoopOptReportEmitterKind { None, IR, HIR, MIR /*, vtune */ };
 
-  OptReportOptions(OptReportVerbosity::Level Level)
-      : LoopOptReportVerbosityLevel(Level){};
-
-  bool isLoopOptReportOn() const { return LoopOptReportVerbosityLevel > 0; }
-  OptReportVerbosity::Level getLoopOptReportVerbosity() const {
-    return LoopOptReportVerbosityLevel;
-  }
+  bool isLoopOptReportOn() const { return Verbosity > 0; }
+  OptReportVerbosity::Level getVerbosity() const { return Verbosity; }
 };
 
 extern OptReportOptions::LoopOptReportEmitterKind IntelOptReportEmitter;
@@ -47,22 +43,13 @@ class OptReportOptionsAnalysis
   friend AnalysisInfoMixin<OptReportOptionsAnalysis>;
   static AnalysisKey Key;
 
-  OptReportVerbosity::Level Verbosity;
-
 public:
   typedef OptReportOptions Result;
 
-  OptReportOptionsAnalysis()
-      : OptReportOptionsAnalysis(OptReportVerbosity::None) {}
-  OptReportOptionsAnalysis(OptReportVerbosity::Level Level)
-      : Verbosity(Level) {}
+  OptReportOptionsAnalysis() {}
 
   Result run(Function &, FunctionAnalysisManager &) {
-    return OptReportOptions(Verbosity);
-  }
-
-  static void registerAnalysis(FunctionAnalysisManager &AM, OptReportVerbosity::Level Verbosity) {
-    AM.registerPass([&]() { return OptReportOptionsAnalysis(Verbosity); });
+    return OptReportOptions();
   }
 };
 
@@ -80,11 +67,11 @@ public:
     AU.setPreservesAll();
   }
 
-  bool doInitialization(Module &M) override;
+  bool doInitialization(Module &M) override { return false; }
 
   bool isLoopOptReportOn() const { return Impl.isLoopOptReportOn(); }
-  OptReportVerbosity::Level getLoopOptReportVerbosity() const {
-    return Impl.getLoopOptReportVerbosity();
+  OptReportVerbosity::Level getVerbosity() const {
+    return Impl.getVerbosity();
   }
 };
 

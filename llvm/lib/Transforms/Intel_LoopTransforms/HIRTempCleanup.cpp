@@ -356,12 +356,12 @@ public:
 };
 
 // Wrapper pass.
-class HIRTempCleanup : public HIRTransformPass {
+class HIRTempCleanupLegacyPass : public HIRTransformPass {
 public:
   static char ID;
 
-  HIRTempCleanup() : HIRTransformPass(ID) {
-    initializeHIRTempCleanupPass(*PassRegistry::getPassRegistry());
+  HIRTempCleanupLegacyPass() : HIRTransformPass(ID) {
+    initializeHIRTempCleanupLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
   bool runOnFunction(Function &F) override;
@@ -373,14 +373,16 @@ public:
 };
 } // namespace
 
-char HIRTempCleanup::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRTempCleanup, "hir-temp-cleanup", "HIR Temp Cleanup",
-                      false, false)
+char HIRTempCleanupLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRTempCleanupLegacyPass, "hir-temp-cleanup",
+                      "HIR Temp Cleanup", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRTempCleanup, "hir-temp-cleanup", "HIR Temp Cleanup",
-                    false, false)
+INITIALIZE_PASS_END(HIRTempCleanupLegacyPass, "hir-temp-cleanup",
+                    "HIR Temp Cleanup", false, false)
 
-FunctionPass *llvm::createHIRTempCleanupPass() { return new HIRTempCleanup(); }
+FunctionPass *llvm::createHIRTempCleanupPass() {
+  return new HIRTempCleanupLegacyPass();
+}
 
 void TempSubstituter::visit(HLDDNode *Node) {
 
@@ -700,7 +702,7 @@ static void runTempCleanup(HIRFramework &HIRF) {
   }
 }
 
-bool HIRTempCleanup::runOnFunction(Function &F) {
+bool HIRTempCleanupLegacyPass::runOnFunction(Function &F) {
   if (skipFunction(F)) {
     LLVM_DEBUG(dbgs() << "HIR Temp Cleanup Disabled \n");
     return false;

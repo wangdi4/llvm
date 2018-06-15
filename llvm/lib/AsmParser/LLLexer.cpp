@@ -517,11 +517,11 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(extern_weak);
   KEYWORD(external);
   KEYWORD(thread_local);
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   KEYWORD(thread_private);
   KEYWORD(target_declare);
   KEYWORD(device_triples);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   KEYWORD(localdynamic);
   KEYWORD(initialexec);
   KEYWORD(localexec);

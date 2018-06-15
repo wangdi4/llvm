@@ -382,9 +382,9 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
           //= = * for 3rd level inermost loops
           InputDV.setAsInput();
 
-          DT.findDependences(Ref1, Ref2, InputDV, OutputDVForward,
-                             OutputDVBackward, OutputDistVForward,
-                             OutputDistVBackward, &IsLoopIndepDepTemp);
+          DT.findDependencies(Ref1, Ref2, InputDV, OutputDVForward,
+                              OutputDVBackward, OutputDistVForward,
+                              OutputDistVBackward, &IsLoopIndepDepTemp);
 
           //  Sample code to check output:
           //  first check IsDependent

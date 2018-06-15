@@ -1,9 +1,10 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll -xmain-opt-level=3 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-general-unroll,print<hir>" < %s -xmain-opt-level=3 2>&1 | FileCheck %s
 
 ; Check that profitable multi-exit unknown loop is unrolled by 2.
 
 
-; CHECK: Dump Before 
+; CHECK: Function
 
 ; CHECK: + UNKNOWN LOOP i1
 ; CHECK: |   <i1 = 0>
@@ -26,7 +27,7 @@
 ; CHECK: + END LOOP
 
 
-; CHECK: Dump After
+; CHECK: Function
 
 ; CHECK: + UNKNOWN LOOP i1
 ; CHECK: |   <i1 = 0>

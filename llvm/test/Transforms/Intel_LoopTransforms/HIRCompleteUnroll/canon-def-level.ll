@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-complete-unroll-loop-trip-threshold=10 -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -hir-details 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-post-vec-complete-unroll,print<hir>" -hir-complete-unroll-loop-trip-threshold=10 -hir-details 2>&1 < %s | FileCheck %s
 
 ; Source code-
 ;  for(i=0; i<60; i++) {
@@ -18,7 +19,7 @@
 ; a + k*b {def@2} -> a {def@1}
 ; b {def@2} -> b {non-linear}
 
-; CHECK: Dump Before
+; CHECK: Function
 ; CHECK: (%A)[i3] = i1 + sext.i32.i64(%2) * i3
 ; CHECK: <RVAL-REG> LINEAR trunc.i64.i32(i1 + sext.i32.i64(%2) * i3){def@2}
 
@@ -29,7 +30,7 @@
 ; CHECK: <RVAL-REG> LINEAR i32 %2{def@2}
 
 
-; CHECK: Dump After
+; CHECK: Function
 ; CHECK: (%A)[0] = i1
 ; CHECK: <RVAL-REG> LINEAR trunc.i64.i32(i1)
 

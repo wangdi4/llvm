@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-scalarrepl-array -print-before=hir-scalarrepl-array -print-after=hir-scalarrepl-array -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-scalarrepl-array,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; Scalar Replacement Sanity Test: loads only (2 continue loads)
 ;
@@ -29,7 +30,7 @@
 ;            { r   ,   w   ,  w      }
 ;               0      1      2     
 ;
-; CHECK: IR Dump Before HIR Scalar Repl
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { }
 ; CHECK:        + DO i1 = 0, 100, 1   <DO_LOOP>
@@ -41,7 +42,7 @@
 ; CHECK:  END REGION
 ;
 ;  
-; CHECK: IR Dump After HIR Scalar Repl
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:           %scalarepl = (@A)[0][0];

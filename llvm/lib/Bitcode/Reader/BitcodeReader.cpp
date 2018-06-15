@@ -3268,7 +3268,7 @@ Error BitcodeReader::parseModule(uint64_t ResumeBit,
       TheModule->setTargetTriple(S);
       break;
     }
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
     case bitc::MODULE_CODE_DEVICES: { // TRIPLE: [strchr x N, ..., strchr x N]
       std::string S;
       if (convertToString(Record, 0, S))
@@ -3276,7 +3276,7 @@ Error BitcodeReader::parseModule(uint64_t ResumeBit,
       TheModule->setTargetDevices(S);
       break;
     }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
     case bitc::MODULE_CODE_DATALAYOUT: {  // DATALAYOUT: [strchr x N]
       std::string S;
       if (convertToString(Record, 0, S))

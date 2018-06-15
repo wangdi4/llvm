@@ -1,4 +1,5 @@
 ;RUN: opt -hir-loop-distribute-memrec -S -print-after=hir-loop-distribute-memrec   < %s 2>&1 | FileCheck %s
+;RUN: opt -passes="hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -S   < %s 2>&1 | FileCheck %s
 ;There is a breakable recurrence from 15:32 but we cannot distribute
 ;across if thenblocks
 ;          BEGIN REGION { }

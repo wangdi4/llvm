@@ -145,11 +145,9 @@ bool VPOParoptTransform::genSharedCodeForTaskGeneric(WRegionNode *W) {
 
       Value *Orig = ShaI->getOrig();
 
-      if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
-        Value *NewPrivInst = nullptr;
-        NewPrivInst = ShaI->getNew();
-        genPrivatizationReplacement(W, Orig, NewPrivInst, ShaI);
-      }
+      Value *NewPrivInst = nullptr;
+      NewPrivInst = ShaI->getNew();
+      genPrivatizationReplacement(W, Orig, NewPrivInst, ShaI);
     }
 
     Changed = true;
@@ -1341,9 +1339,9 @@ void VPOParoptTransform::buildCFGForIfClause(Value *Cmp,
 
   DT->changeImmediateDominator(ThenTerm->getParent(), SplitBeforeBB);
   DT->changeImmediateDominator(ElseTerm->getParent(), SplitBeforeBB);
-  DT->changeImmediateDominator(InsertPt->getParent(), SplitBeforeBB);
   BasicBlock *NextBB = InsertPt->getParent()->getSingleSuccessor();
-  DT->changeImmediateDominator(NextBB, InsertPt->getParent());
+  if (NextBB->getUniquePredecessor())
+    DT->changeImmediateDominator(NextBB, InsertPt->getParent());
 }
 
 // Generate code for OMP taskgroup construct.

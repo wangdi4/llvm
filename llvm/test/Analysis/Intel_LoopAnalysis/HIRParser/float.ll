@@ -1,13 +1,23 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the loop
-; CHECK: DO i1 = 0, sext.i32.i64((-1 + %n))
-; CHECK-NEXT: %0 = (%B)[i1]
-; CHECK-NEXT: %1 = (%A)[i1]
-; CHECK-NEXT: %add = %0  +  %1
-; CHECK-NEXT: (%A)[i1] = %add
-; CHECK-NEXT: END LOOP
+; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK: |   %0 = (%B)[i1];
+; CHECK: |   %1 = (%A)[i1];
+; CHECK: |   %add = %0  +  %1;
+; CHECK: |   (%A)[i1] = %add;
+; CHECK: + END LOOP
 
+; Verify that %A, %B and %n are marked as livein to region and loop.
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s --check-prefix=LIVEIN
+
+; LIVEIN: LiveIns: %A(%A), %B(%B), %n(%n)
+
+; LIVEIN: LiveIn symbases: [[NSYM:.*]], [[BSYM:.*]], [[ASYM:.*]]
+
+; LIVEIN: <BLOB> LINEAR i32 %n {sb:[[NSYM]]}
+; LIVEIN: <BLOB> LINEAR float* %B {sb:[[BSYM]]}
+; LIVEIN: <BLOB> LINEAR float* %A {sb:[[ASYM]]}
 
 ; ModuleID = 'float.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

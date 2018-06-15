@@ -24,6 +24,7 @@
 ; 46:46 (%q)[i2] --> (%q)[i2] OUTPUT (* =)
 
 ; RUN: opt -hir-ssa-deconstruction -disable-output -hir-temp-cleanup -hir-idiom -print-after=hir-idiom < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; HIR:
 ; + DO i1 = 0, %n + -1, 1   <DO_LOOP>
@@ -33,7 +34,7 @@
 ; |   + END LOOP
 ; + END LOOP
 
-; CHECK: IR Dump After
+; CHECK: Function
 ; CHECK-NOT: memcpy
 
 ;Module Before HIR; ModuleID = 'innermost-loopnest-workaround.c'

@@ -50,7 +50,8 @@ RegDDRef *DDRefUtils::createScalarRegDDRef(unsigned SB, CanonExpr *CE) {
 }
 
 RegDDRef *DDRefUtils::createGEPRef(unsigned BasePtrBlobIndex, unsigned Level,
-                                   unsigned SB, bool IsMemRef) {
+                                   unsigned SB, bool IsMemRef,
+                                   bool IsInBounds) {
   if (SB == InvalidSymbase) {
     SB = getNewSymbase();
   }
@@ -60,6 +61,7 @@ RegDDRef *DDRefUtils::createGEPRef(unsigned BasePtrBlobIndex, unsigned Level,
       getCanonExprUtils().createSelfBlobCanonExpr(BasePtrBlobIndex, Level);
 
   Ref->setBaseCE(BaseCE);
+  Ref->setInBounds(IsInBounds);
   Ref->addBlobDDRef(BasePtrBlobIndex, Level);
 
   if (!IsMemRef) {
@@ -70,13 +72,14 @@ RegDDRef *DDRefUtils::createGEPRef(unsigned BasePtrBlobIndex, unsigned Level,
 }
 
 RegDDRef *DDRefUtils::createMemRef(unsigned BasePtrBlobIndex, unsigned Level,
-                                   unsigned SB) {
-  return createGEPRef(BasePtrBlobIndex, Level, SB, true);
+                                   unsigned SB, bool IsInBounds) {
+  return createGEPRef(BasePtrBlobIndex, Level, SB, true, IsInBounds);
 }
 
 RegDDRef *DDRefUtils::createAddressOfRef(unsigned BasePtrBlobIndex,
-                                         unsigned Level, unsigned SB) {
-  return createGEPRef(BasePtrBlobIndex, Level, SB, false);
+                                         unsigned Level, unsigned SB,
+                                         bool IsInBounds) {
+  return createGEPRef(BasePtrBlobIndex, Level, SB, false, IsInBounds);
 }
 
 RegDDRef *DDRefUtils::createConstDDRef(Type *Ty, int64_t Val) {
@@ -218,12 +221,8 @@ int DDRefUtils::compareOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
 }
 
 bool DDRefUtils::haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2) {
-  assert(Ref1->hasGEPInfo() && "Ref1 is not a GEP DDRef!");
-  assert(Ref2->hasGEPInfo() && "Ref2 is not a GEP DDRef!");
-  assert(CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE()) &&
-         "Same base expected!");
-  assert((Ref1->getNumDimensions() == Ref2->getNumDimensions()) &&
-         "Ref1 and Ref2 have different number of dimensions!");
+  assert(haveEqualBaseAndShape(Ref1, Ref2, true) &&
+         "Same base and shape expected!");
 
   for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
     if (compareOffsets(Ref1, Ref2, I)) {
@@ -232,6 +231,19 @@ bool DDRefUtils::haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2) {
   }
 
   return true;
+}
+
+// TODO: merge with areEqualImpl.
+bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
+                                       const RegDDRef *Ref2, bool RelaxedMode) {
+  assert(Ref1->hasGEPInfo() && Ref2->hasGEPInfo() &&
+         "Ref1 and Ref2 should be GEP DDRef");
+  auto BaseCE1 = Ref1->getBaseCE();
+  auto BaseCE2 = Ref2->getBaseCE();
+
+  // TODO: check getBitCastDestType.
+  return CanonExprUtils::areEqual(BaseCE1, BaseCE2, RelaxedMode) &&
+         Ref1->getNumDimensions() == Ref2->getNumDimensions();
 }
 
 bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
@@ -260,17 +272,12 @@ bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
       return false;
     }
 
-    if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE(),
-                                  RelaxedMode)) {
+    if (!haveEqualBaseAndShape(Ref1, Ref2, RelaxedMode)) {
       return false;
     }
   }
 
   unsigned NumDims = Ref1->getNumDimensions();
-
-  if (NumDims != Ref2->getNumDimensions()) {
-    return false;
-  }
 
   for (unsigned I = NumDims; I > 0; --I) {
     const CanonExpr *Ref1CE = Ref1->getDimensionIndex(I);
@@ -330,10 +337,7 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
     return false;
   }
 
-  const CanonExpr *BaseCE1 = Ref1->getBaseCE();
-  const CanonExpr *BaseCE2 = Ref2->getBaseCE();
-
-  if (!CanonExprUtils::areEqual(BaseCE1, BaseCE2)) {
+  if (!haveEqualBaseAndShape(Ref1, Ref2, false)) {
     return false;
   }
 
@@ -343,10 +347,6 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
   // TODO: Remove this check and let the transformations decide what to do with
   // such refs.
   if (Ref1->getBitCastDestType() != Ref2->getBitCastDestType()) {
-    return false;
-  }
-
-  if (Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
     return false;
   }
 

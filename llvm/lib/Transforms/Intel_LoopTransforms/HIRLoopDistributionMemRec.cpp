@@ -11,45 +11,64 @@
 //===----------------------------------------------------------------------===//
 //
 
-#include "HIRLoopDistribution.h"
+#include "HIRLoopDistributionImpl.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForMemRec.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::loopopt::distribute;
+
+#define DEBUG_TYPE "hir-loop-distribute"
 
 cl::opt<bool>
     DisableDistMemRec("disable-hir-loop-distribute-memrec",
                       cl::desc("Disable HIR Loop Distribution MemRec"),
                       cl::Hidden, cl::init(false));
 
+PreservedAnalyses
+HIRLoopDistributionForMemRecPass::run(llvm::Function &F,
+                                      llvm::FunctionAnalysisManager &AM) {
+  if (DisableDistMemRec) {
+    LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION Break MemRec disabled\n");
+    return PreservedAnalyses::all();
+  }
+
+  HIRLoopDistribution(
+      AM.getResult<HIRFrameworkAnalysis>(F), AM.getResult<HIRDDAnalysisPass>(F),
+      AM.getResult<HIRSafeReductionAnalysisPass>(F),
+      AM.getResult<HIRLoopResourceAnalysis>(F), DistHeuristics::BreakMemRec)
+      .run();
+
+  return PreservedAnalyses::all();
+}
+
 namespace {
 
-class HIRLoopDistributionForMemRec : public HIRLoopDistribution {
+class HIRLoopDistributionForMemRecLegacyPass
+    : public HIRLoopDistributionLegacyPass {
 
 public:
   static char ID;
 
-  HIRLoopDistributionForMemRec()
-      : HIRLoopDistribution(ID, DistHeuristics::BreakMemRec) {
-    initializeHIRLoopDistributionForMemRecPass(
+  HIRLoopDistributionForMemRecLegacyPass()
+      : HIRLoopDistributionLegacyPass(ID, DistHeuristics::BreakMemRec) {
+    initializeHIRLoopDistributionForMemRecLegacyPassPass(
         *PassRegistry::getPassRegistry());
   }
 
   bool runOnFunction(Function &F) override {
-
-    if (DisableDistMemRec || skipFunction(F)) {
-      if (OptReportLevel >= 3) {
-        dbgs() << "LOOP DISTRIBUTION Break MemRec disabled \n";
-      }
+    if (DisableDistMemRec) {
+      LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION Break MemRec disabled\n");
       return false;
     }
-    return HIRLoopDistribution::runOnFunction(F);
+
+    return HIRLoopDistributionLegacyPass::runOnFunction(F);
   }
 };
 } // namespace
 
-char HIRLoopDistributionForMemRec::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLoopDistributionForMemRec,
+char HIRLoopDistributionForMemRecLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRLoopDistributionForMemRecLegacyPass,
                       "hir-loop-distribute-memrec",
                       "HIR Loop Distribution MemRec", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
@@ -57,9 +76,10 @@ INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
-INITIALIZE_PASS_END(HIRLoopDistributionForMemRec, "hir-loop-distribute-memrec",
+INITIALIZE_PASS_END(HIRLoopDistributionForMemRecLegacyPass,
+                    "hir-loop-distribute-memrec",
                     "HIR Loop Distribution MemRec", false, false)
 
 FunctionPass *llvm::createHIRLoopDistributionForMemRecPass() {
-  return new HIRLoopDistributionForMemRec();
+  return new HIRLoopDistributionForMemRecLegacyPass();
 }

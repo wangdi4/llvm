@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-scalarrepl-array -print-before=hir-scalarrepl-array -print-after=hir-scalarrepl-array -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-scalarrepl-array,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; Scalar Replacement Sanity Test: mix, 2 groups, working on group A[] only
 ;
@@ -32,7 +33,7 @@
 ;
 ;<4> { ((@A)[0][i1] (R), 0, %scalarepl ) , ((@A)[0][i1 + 1] (R), 1, %scalarepl1 ) , ((@A)[0][i1 + 1] (W), 1, %scalarepl1 ) min_idx , ((@A)[0][i1 + 2] (W), 2, %scalarepl2 ) ,  } 2W : 2R , profitable , legal , MaxDD: 2, Symbase: 23, TmpV:<3> [ %scalarepl, %scalarepl1, %scalarepl2] 
 ; 
-; CHECK: IR Dump Before HIR Scalar Repl
+; CHECK: Function
 ;
 ; CHECK:    BEGIN REGION { }
 ; CHECK:         + DO i1 = 0, 99, 1   <DO_LOOP>
@@ -47,7 +48,7 @@
 ; CHECK:   END REGION
 ;  
 ;
-; CHECK: IR Dump After HIR Scalar Repl
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
 ;
@@ -74,6 +75,7 @@
 ; CHECK:  END REGION
 ;
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-scalarrepl-array -disable-output -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-scalarrepl-array,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -disable-output -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ;
 ;OPTREPORT: Global loop optimization report for : foo
 ;

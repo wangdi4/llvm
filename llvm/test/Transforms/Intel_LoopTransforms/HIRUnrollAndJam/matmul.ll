@@ -1,8 +1,9 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-unroll-and-jam -print-before=hir-unroll-and-jam -print-after=hir-unroll-and-jam 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-unroll-and-jam,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Verify that we unroll i1 loop by 2 and i2 loop by 8.
 
-; CHECK: Dump Before HIR Unroll & Jam
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
 ; CHECK: |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
@@ -17,7 +18,7 @@
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 
-; CHECK: Dump After HIR Unroll & Jam
+; CHECK: Function
 
 ; CHECK: %tgu = (%N)/u2;
 ; CHECK: + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 512>

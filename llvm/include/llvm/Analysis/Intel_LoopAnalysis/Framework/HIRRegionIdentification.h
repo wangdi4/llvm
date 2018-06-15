@@ -51,6 +51,9 @@ namespace loopopt {
 /// information is then used by HIRCreation pass to create and populate
 /// HIR regions.
 class HIRRegionIdentification {
+  const unsigned MaxFusionTripCountDiff = 3;
+  const unsigned MaxIntermediateBBsForFusion = 10;
+
 public:
   typedef SmallVector<IRRegion, 16> IRRegionsTy;
 
@@ -137,14 +140,31 @@ private:
                   BasicBlock **RegEntryBB = nullptr,
                   BasicBlock **RegExitBB = nullptr) const;
 
-  /// Creates a Region out of Lp's basic blocks.
-  void createRegion(const Loop &Lp);
+  /// Creates a Region out of Loops' and \p IntermediateBlocks basic blocks.
+  void
+  createRegion(const ArrayRef<const Loop *> &Loops,
+               const SmallPtrSetImpl<const BasicBlock *> *IntermediateBlocks);
 
   /// Returns true if we can form a region around this loop. Returns the max
   /// loopnest depth in \p LoopnestDepth. \p GenerableLoops contains \p Lp if it
   /// is generable, otherwise it contains generable children loops of \p Lp.
   bool isGenerableLoopnest(const Loop &Lp, unsigned &LoopnestDepth,
                            SmallVectorImpl<const Loop *> &GenerableLoops);
+
+  typedef std::pair<SmallVector<const Loop *, 4>,
+                    SmallPtrSet<const BasicBlock *, 4>>
+      LoopSpanTy;
+
+  /// Compute \p Spans vector with successive loops together with intermediate
+  /// basic blocks to be combined into a single region.
+  void computeLoopSpansForFusion(const SmallVectorImpl<const Loop *> &Loops,
+                                 SmallVectorImpl<LoopSpanTy> &Spans);
+
+  /// Collect all basic blocks (\p BBs) that may be reached from the \p Loops
+  /// exits until it reaches another loop.
+  /// Returns true if the single Region may be created for \p Loops and \p BBs.
+  bool collectIntermediateBBs(const Loop *Loop1, const Loop *Loop2,
+                              SmallPtrSetImpl<const BasicBlock *> &BBs);
 
   /// Identifies regions in the incoming LLVM IR.
   void formRegions();
@@ -164,19 +184,6 @@ private:
 
   /// Checks whether the current function is loop concatenation candidate.
   bool isLoopConcatenationCandidate() const;
-
-  /// Returns true if \p Str refers to unroll related metadata.
-  static bool isUnrollMetadata(StringRef Str);
-
-  /// Returns true if \p Node refers to unroll related metadata.
-  static bool isUnrollMetadata(MDNode *Node);
-
-  /// Returns true if \p Node is a debug related metadata type.
-  static bool isDebugMetadata(MDNode *Node);
-
-  /// Returns true if metadata node \p Node only contains metadata supported in
-  /// HIR.
-  static bool isSupportedMetadata(MDNode *Node);
 
   void runImpl(Function &F);
 

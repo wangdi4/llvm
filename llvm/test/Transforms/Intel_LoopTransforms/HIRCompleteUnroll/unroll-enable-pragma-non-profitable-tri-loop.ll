@@ -1,8 +1,9 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,print<hir>,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that we unroll the i1-i2 non-profitable triangular loopnest due to presence of enabling metadata.
 
-; CHECK: Dump Before HIR PostVec Complete Unroll
+; CHECK: Function
  
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: + DO i1 = 0, 21, 1   <DO_LOOP>
@@ -45,7 +46,7 @@
 ; CHECK: + END LOOP
 
 
-; CHECK: Dump After HIR PostVec Complete Unroll
+; CHECK: Function
  
 ; CHECK-NOT DO i1
 

@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt -O2 -debug-only=hir-loop-interchange  -hir-loop-interchange -print-after=hir-loop-interchange < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-loop-interchange,print<hir>" -aa-pipeline="basic-aa" -O2 -debug-only=hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; TODO: ( 3 2 1 ) is the most preferrable permutation.  
 ;       Currently, interchanged into (2 3 1). 
 ;       Locality computation should be fixed.

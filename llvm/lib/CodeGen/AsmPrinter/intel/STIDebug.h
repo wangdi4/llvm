@@ -24,9 +24,6 @@ class AsmPrinter;
 //===----------------------------------------------------------------------===//
 
 class STIDebug : public AsmPrinterHandler {
-private:
-  AsmPrinter *_Asm;
-
 public:
   static STIDebug *create(AsmPrinter *Asm);
 

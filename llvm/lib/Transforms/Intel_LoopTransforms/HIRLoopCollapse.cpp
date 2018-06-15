@@ -61,6 +61,8 @@
 //    }
 //  }
 //
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopCollapse.h"
+
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
@@ -77,7 +79,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
-#include "HIRLoopCollapse.h"
+#include "HIRLoopCollapseImpl.h"
 
 #define DEBUG_TYPE "hir-loop-collapse"
 
@@ -188,47 +190,17 @@ public:
   }
 };
 
-char HIRLoopCollapse::ID = 0;
-
-INITIALIZE_PASS_BEGIN(HIRLoopCollapse, "hir-loop-collapse", "HIR Loop Collapse",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRLoopCollapse, "hir-loop-collapse", "HIR Loop Collapse",
-                    false, false)
-
-FunctionPass *llvm::createHIRLoopCollapsePass() {
-  return new HIRLoopCollapse();
-}
-
-HIRLoopCollapse::HIRLoopCollapse(void) : HIRTransformPass(ID) {
-  initializeHIRLoopCollapsePass(*PassRegistry::getPassRegistry());
-}
-
-void HIRLoopCollapse::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.setPreservesAll();
-}
-
-bool HIRLoopCollapse::handleCmdlineArgs(Function &F) {
-  if (DisableHIRLoopCollapse || skipFunction(F)) {
-    LLVM_DEBUG(dbgs() << F.getName()
-                      << ": HIR Loop Collapse (HLC) Disabled or Skipped\n");
+bool HIRLoopCollapse::run() {
+  if (DisableHIRLoopCollapse) {
+    LLVM_DEBUG(dbgs() << "HIR Loop Collapse Disabled\n");
     return false;
   }
 
-  return true;
-}
+  LLVM_DEBUG(dbgs() << "HIRLoopCollapse on Function : "
+                    << HIRF.getFunction().getName() << "()\n");
 
-bool HIRLoopCollapse::runOnFunction(Function &F) {
-  if (!handleCmdlineArgs(F)) {
-    return false;
-  }
-
-  LLVM_DEBUG(dbgs() << "HIRLoopCollapse on Function : " << F.getName()
-                    << "()\n");
-  auto *HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HNU = &(HIRF->getHLNodeUtils());
-  BU = &(HIRF->getBlobUtils());
+  HNU = &HIRF.getHLNodeUtils();
+  BU = &HIRF.getBlobUtils();
 
   // Collect all possible perfect-LoopNest candidate InnerOuterLoopPairs into
   // CandidateLoops. Each InnerOuterLoopPair marks (OutermostLp,InnermostLp),
@@ -254,7 +226,8 @@ bool HIRLoopCollapse::runOnFunction(Function &F) {
   HNU->visitAll(CCL);
 
   if (CandidateLoops.empty()) {
-    LLVM_DEBUG(dbgs() << F.getName() << "() has no perfect loop nest\n";);
+    LLVM_DEBUG(dbgs() << HIRF.getFunction().getName()
+                      << "() has no perfect loop nest\n";);
     return false;
   }
 
@@ -348,6 +321,11 @@ bool HIRLoopCollapse::doPreliminaryChecks(void) {
     }
 
     if (CurLp->getIVType() != IVType) {
+      break;
+    }
+
+    if (CurLp->hasUnrollEnablingPragma() ||
+        CurLp->hasVectorizeEnablingPragma()) {
       break;
     }
 
@@ -923,5 +901,51 @@ LLVM_DUMP_METHOD void HIRLoopCollapse::printUBTCArry(void) const {
     Item.print(true, true);
   }
 }
+
 #endif
-#undef DEBUG_TYPE
+
+PreservedAnalyses HIRLoopCollapsePass::run(llvm::Function &F,
+                                           llvm::FunctionAnalysisManager &AM) {
+  HIRLoopCollapse(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+  return PreservedAnalyses::all();
+}
+
+namespace {
+
+class HIRLoopCollapseLegacyPass : public HIRTransformPass {
+public:
+  static char ID;
+
+  HIRLoopCollapseLegacyPass() : HIRTransformPass(ID) {
+    initializeHIRLoopCollapseLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
+
+  bool runOnFunction(Function &F) override {
+    if (skipFunction(F)) {
+      LLVM_DEBUG(dbgs() << "HIR Loop Collapse Skipped\n");
+      return false;
+    }
+
+    return HIRLoopCollapse(getAnalysis<HIRFrameworkWrapperPass>().getHIR())
+        .run();
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.setPreservesAll();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+  }
+};
+
+} // namespace
+
+char HIRLoopCollapseLegacyPass::ID = 0;
+
+INITIALIZE_PASS_BEGIN(HIRLoopCollapseLegacyPass, "hir-loop-collapse",
+                      "HIR Loop Collapse", false, false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_END(HIRLoopCollapseLegacyPass, "hir-loop-collapse",
+                    "HIR Loop Collapse", false, false)
+
+FunctionPass *llvm::createHIRLoopCollapsePass() {
+  return new HIRLoopCollapseLegacyPass();
+}

@@ -1,4 +1,5 @@
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-post-vec-complete-unroll -hir-complete-unroll-loopnest-trip-threshold=50 -hir-lmm -print-before=hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-post-vec-complete-unroll,print<hir>,hir-lmm,print<hir>" -aa-pipeline="basic-aa" -hir-complete-unroll-loopnest-trip-threshold=50 < %s 2>&1 | FileCheck %s
 ; (This test is based on Interchange/matmul-coremark.ll)
 ;
 ;[LLIMM Analysis]
@@ -37,7 +38,7 @@
 ;
 ; ORIGINAL LOOP:
 ;
-; CHECK: IR Dump Before HIR Loop Memory Motion
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:           + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 40>
@@ -125,7 +126,7 @@
 ;
 ; *** 
 ;          
-; CHECK: IR Dump After HIR Loop Memory Motion
+; CHECK: Function
 ; CHECK: matmul
 ;
 ; CHECK:  BEGIN REGION { modified }

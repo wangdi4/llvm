@@ -34,6 +34,9 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dtransanalysis"
 
+// Debug type for verbose local pointer analysis output.
+#define LPA_VERBOSE "dtrans-lpa-verbose"
+
 static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
                                             cl::ReallyHidden);
 
@@ -81,6 +84,16 @@ static cl::opt<bool> DTransPrintAnalyzedCalls("dtrans-print-callinfo",
 static cl::opt<bool> DTransOutOfBoundsOK("dtrans-outofboundsok", cl::init(true),
                                          cl::ReallyHidden);
 
+// Use the C language compatibility rule to determine if two aggregate types
+// are compatible. This is used by the analysis of AddressTaken safety checks.
+// If the actual argument of a call is a pointer to an aggregate with type T,
+// and there is no type U distinct from T which is compatible with T, then
+// we know that the types of the formal and actual arguments must be identical.
+// So, in this case, we will not need to report an AddressTaken safety check
+// for a potential mismatch between formal and actual arguments.
+//
+static cl::opt<bool> DTransUseCRuleCompat("dtrans-usecrulecompat",
+                                          cl::init(false), cl::ReallyHidden);
 namespace {
 
 /// Information describing type alias information for temporary values used
@@ -751,7 +764,12 @@ bool DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
   if (F == nullptr)
     return false;
   LLVM_DEBUG(dbgs() << "Analyzing for MallocPostDom " << F->getName() << "\n");
+  // Make sure that VisitedBlocks and SkipTestBlocks are clear before
+  // visitNullPtrBlocks() is called. SkipTestBlocks are valid until we
+  // return from this function.  VisitedBlocks can be cleared immediately
+  // after visitNullPtrBlocks() is run.
   VisitedBlocks.clear();
+  SkipTestBlocks.clear();
   if (std::distance(F->arg_begin(), F->arg_end()) != 1 ||
       !F->arg_begin()->getType()->isIntegerTy()) {
     return false;
@@ -821,7 +839,12 @@ bool DTransAllocAnalyzer::isPostDominatedByFreeCall(BasicBlock *BB) {
 bool DTransAllocAnalyzer::analyzeForFreeStatus(Function *F) {
   if (F == nullptr)
     return false;
+  // Make sure that VisitedBlocks and SkipTestBlocks are clear before
+  // visitNullPtrBlocks() is called. SkipTestBlocks are valid until we
+  // return from this function.  VisitedBlocks can be cleared immediately
+  // after visitNullPtrBlocks() is run.
   VisitedBlocks.clear();
+  SkipTestBlocks.clear();
   if (std::distance(F->arg_begin(), F->arg_end()) == 1 &&
       F->arg_begin()->getType()->isPointerTy()) {
     visitNullPtrBlocks(F);
@@ -920,8 +943,9 @@ private:
     DependentVals.push_back(V);
     populateDependencyStack(V, DependentVals);
 
+    // This first line is intentionally left non-verbose.
     LLVM_DEBUG(dbgs() << "analyzeValue " << *V << "\n");
-    LLVM_DEBUG(dumpDependencyStack(DependentVals));
+    DEBUG_WITH_TYPE(LPA_VERBOSE, dumpDependencyStack(DependentVals));
 
     // Now attempt to analyze each of these values. Some may be left in a
     // partially analyzed state, but they will be fully resolved when
@@ -932,16 +956,18 @@ private:
       LocalPointerInfo &DepInfo = LocalMap[Dep];
       // If we have complete results for this value, don't repeat the analysis.
       if (DepInfo.getAnalyzed()) {
-        LLVM_DEBUG(dbgs() << "  Already analyzed: " << *Dep << "\n");
+        DEBUG_WITH_TYPE(LPA_VERBOSE,
+                        dbgs() << "  Already analyzed: " << *Dep << "\n");
         continue;
       }
       analyzeValueImpl(Dep, DepInfo);
     }
 
-    LLVM_DEBUG({
+    DEBUG_WITH_TYPE(LPA_VERBOSE, {
       if (Info.isPartialAnalysis())
         dbgs() << " Analysis completed but was reported as partial.\n";
     });
+    // These are intentionally left non-verbose.
     LLVM_DEBUG(Info.dump());
     LLVM_DEBUG(dbgs() << "\n");
 
@@ -1172,7 +1198,8 @@ private:
     TargetInfo.merge(OperandInfo);
     if (!OperandInfo.getAnalyzed()) {
       TargetInfo.setPartialAnalysis(true);
-      LLVM_DEBUG(dbgs() << "Incomplete analysis merged from " << *Op << "\n");
+      DEBUG_WITH_TYPE(LPA_VERBOSE, dbgs() << "Incomplete analysis merged from "
+                                          << *Op << "\n");
     }
   }
 
@@ -1199,8 +1226,9 @@ private:
       // incompleteness and continue.
       if (!SrcLPI.getAnalyzed()) {
         Info.setPartialAnalysis(true);
-        LLVM_DEBUG(dbgs() << "Incomplete analysis collected from " << *SrcVal
-                          << "\n");
+        DEBUG_WITH_TYPE(LPA_VERBOSE,
+                        dbgs() << "Incomplete analysis collected from "
+                               << *SrcVal << "\n");
       }
       // If this is a bitcast that would be a valid way to access element
       // zero of any type known to be aliased by SrcVal, then record this
@@ -1337,8 +1365,8 @@ private:
     // incompleteness and continue.
     if (!BaseLPI.getAnalyzed()) {
       Info.setPartialAnalysis(true);
-      LLVM_DEBUG(dbgs() << "Incomplete analysis derived from " << *BasePointer
-                        << "\n");
+      DEBUG_WITH_TYPE(LPA_VERBOSE, dbgs() << "Incomplete analysis derived from "
+                                          << *BasePointer << "\n");
     }
     for (auto *AliasTy : BaseLPI.getPointerTypeAliasSet()) {
       if (!AliasTy->isPointerTy())
@@ -1656,6 +1684,167 @@ public:
     }
   }
 
+  // See typesMayBeCRuleCompatible() immediately below for explanation of
+  // this function.
+  static bool typesMayBeCRuleCompatibleX(llvm::Type *T1, llvm::Type *T2,
+                                         SmallPtrSet<llvm::Type *, 4> *Tstack) {
+
+    // Enum indicating that on the particular predicate being compared for
+    // T1 and T2, the types have the opposite value of the predicate
+    // (TME_OPPOSITE), the types both have the predicate (TME_YES), or
+    // neither type has the predicate (TME_YES).
+    enum TME { TME_OPPOSITE, TME_YES, TME_NO };
+
+    // Lambda to match the result of testing the same predicate for T1 and T2
+    auto boolT = [](bool B1, bool B2) -> TME {
+      return (B1 && B2) ? TME_YES : (!B1 && !B2) ? TME_NO : TME_OPPOSITE;
+    };
+
+    // Typedef for const pointer to member function which returns a bool
+    typedef bool (llvm::Type::*MFP)() const;
+    // Lambda to compare an predicate indicated by Fp for T1 and T2
+    auto typeTest = [&boolT](llvm::Type *T1, llvm::Type *T2, MFP Fp) -> TME {
+      return boolT((T1->*Fp)(), (T2->*Fp)());
+    };
+
+    // An array of predicate conditions for which T1 and T2 will be tested
+    // for compatibility. The predicate "isIntegerTy" and "isFloatingPointTy"
+    // are base properties that cannot be further refined.  Testing for the
+    // predicate "isFunctionTy" can be refined if we want to sharpen the
+    // results of typesMayBeCRuleCompatible().
+    MFP F1Array[] = {&llvm::Type::isIntegerTy, &llvm::Type::isFloatingPointTy,
+                     &llvm::Type::isFunctionTy};
+
+    // A Type is always compatible with itself.
+    if (T1 == T2)
+      return true;
+
+    // Test some fundamental and complicated predicates. Return false if they
+    // don't match, true if they do.
+    for (auto Fx : F1Array) {
+      TME R = typeTest(T1, T2, Fx);
+      if (R == TME_OPPOSITE)
+        return false;
+      if (R == TME_YES)
+        return true;
+    }
+
+    // Two pointer Types are compatible if their element types are compatible.
+    TME R = typeTest(T1, T2, &llvm::Type::isPointerTy);
+    if (R == TME_OPPOSITE)
+      return false;
+    if (R == TME_YES) {
+      //
+      // Pointers to StructTypes are a tricky case, as the definition could
+      // be recursive.  This could be resolved by struct TAGs, but these are
+      // not structly preserved in LLVM. We could try to derive them from
+      // the StructType's name, but in LLVM even anonymous types get a name.
+      // (albeit a recognizable one because it is either %struct.anon or
+      // of the form %struct.anon.*).
+      //
+      // So we keep a stack of pointers to Types that we have already seen,
+      // and give up whenever we encounter one again. This is conservative
+      // and could be improved.
+      //
+      auto *T3 = T1->getPointerElementType();
+      auto *T4 = T2->getPointerElementType();
+      TME S = typeTest(T3, T4, &llvm::Type::isStructTy);
+      if (S == TME_OPPOSITE)
+        return false;
+      if (S == TME_YES) {
+        if (T3->getStructNumElements() != T4->getStructNumElements())
+          return false;
+        if (Tstack->find(T3) != Tstack->end())
+          return true;
+        if (Tstack->find(T4) != Tstack->end())
+          return true;
+        Tstack->insert(T3);
+        Tstack->insert(T4);
+      }
+      return typesMayBeCRuleCompatibleX(T1->getPointerElementType(),
+                                        T2->getPointerElementType(), Tstack);
+    }
+
+    // Two array Types are compatible if they have the same number of elements
+    // and their element types are compatible.
+    R = typeTest(T1, T2, &llvm::Type::isArrayTy);
+    if (R == TME_OPPOSITE)
+      return false;
+    if (R == TME_YES) {
+      if (T1->getArrayNumElements() != T2->getArrayNumElements())
+        return false;
+      return typesMayBeCRuleCompatibleX(T1->getArrayElementType(),
+                                        T2->getArrayElementType(), Tstack);
+    }
+
+    // Two struct Types are compatible if they have the same number of
+    // elements, and corresponding elements are compatible with one another.
+    R = typeTest(T1, T2, &llvm::Type::isStructTy);
+    if (R == TME_OPPOSITE)
+      return false;
+    if (R == TME_YES) {
+      if (T1->getStructNumElements() != T2->getStructNumElements())
+        return false;
+      for (unsigned I = 0; I < T1->getStructNumElements(); ++I)
+        if (!typesMayBeCRuleCompatibleX(T1->getStructElementType(I),
+                                        T2->getStructElementType(I), Tstack))
+          return false;
+      return true;
+    }
+
+    // None of the rules cited above were able to determine the Types are
+    // not compatible with one another. Conservatively assume they are.
+    return true;
+  }
+
+  // Return true if Types T1 and T2 may be compatible by C language rules.
+  // The full C language rules for Type compatibility are not implemented
+  // here.  This is a conservative test.  It will return true in some cases
+  // where the T1 and T2 are not compatible. Here are some examples:
+  //   (1) When the names of structure fields do not match. Since the LLVM
+  //       IR does not include info about the structure field names, this
+  //       function must return a conservative result here.
+  //   (2) When the structure tags do not match. (See the comment in the
+  //       code for typesMayBeCRuleCompatibleX.) In the absence of completely
+  //       reliable structure tags, we keep a stack (Tstack) of Types that
+  //       we have already seen to avoid recursion.
+  //   (3) Function types. This could be implemented in the future. We are
+  //       not doing it now because there is no immediate need.
+  static bool typesMayBeCRuleCompatible(llvm::Type *T1, llvm::Type *T2) {
+    SmallPtrSet<llvm::Type *, 4> Tstack;
+    return typesMayBeCRuleCompatibleX(T1, T2, &Tstack);
+  }
+
+  // Return true if the Type T may have a distinct compatible Type by
+  // C language rules. Before this function is executed, we must ensure
+  // that all Types against which we test it have TypeInfos created for
+  // them.  This is done in analyzeModule().
+  bool mayHaveDistinctCompatibleCType(llvm::Type *T) {
+    if (!DTInfo.isTypeOfInterest(T))
+      return true;
+    dtrans::TypeInfo *TIN = DTInfo.getOrCreateTypeInfo(T);
+    switch (TIN->getCRuleTypeKind()) {
+    case dtrans::CRT_False:
+      return false;
+    case dtrans::CRT_True:
+      return true;
+    case dtrans::CRT_Unknown:
+      for (auto *TI : DTInfo.type_info_entries()) {
+        llvm::Type *U = TI->getLLVMType();
+        if (U != T && typesMayBeCRuleCompatible(T, U)) {
+          LLVM_DEBUG(dbgs()
+                     << "dtrans-crule-compat: " << *T << " (X) " << *U << "\n");
+          TIN->setCRuleTypeKind(dtrans::CRT_True);
+          return true;
+        }
+      }
+      TIN->setCRuleTypeKind(dtrans::CRT_False);
+      LLVM_DEBUG(dbgs() << "dtrans-crule-nocompat: " << *T << "\n");
+      return false;
+    }
+    return true;
+  }
+
   void visitCallInst(CallInst &CI) {
     Function *F = CI.getCalledFunction();
 
@@ -1726,10 +1915,16 @@ public:
           continue;
         if (IsFnLocal && (AliasTy == ArgTy))
           continue;
+        // For indirect calls, Use the C language rule, if appropriate, to
+        // reject cases for which the Type of the formal and actual argument
+        // must match.  In such cases, there will be no "Address taken"
+        //  safety violation.
+        if (!F && DTransUseCRuleCompat &&
+            !mayHaveDistinctCompatibleCType(AliasTy))
+          continue;
         LLVM_DEBUG(dbgs() << "dtrans-safety: Address taken -- "
                           << "pointer to aggregate passed as argument:\n"
                           << "  " << CI << "\n  " << *Arg << "\n");
-
         setBaseTypeInfoSafetyData(AliasTy, dtrans::AddressTaken);
       }
     }
@@ -2294,8 +2489,41 @@ public:
     for (StructType *Ty : M.getIdentifiedStructTypes())
       analyzeStructureType(Ty);
 
+    // Before visiting each Function, ensure that the types of all of the
+    // Function arguments which are Types of interest are in the
+    // type_info_entries. This is needed so we can determine if any
+    // actual argument of an indirect or external call could be subject
+    // to an AddressTaken safety violation due to an actual/formal argument
+    // mismatch.
+    for (auto &F : M.functions())
+      for (auto &Arg : F.args())
+        if (DTInfo.isTypeOfInterest(Arg.getType()))
+          (void)DTInfo.getOrCreateTypeInfo(Arg.getType());
+
     // Call the base InstVisitor routine to visit each function.
     InstVisitor<DTransInstVisitor>::visitModule(M);
+
+    // If a pointer to an aggregate is passed as an argument to an address
+    // taken external function, that function could be a target of an
+    // indirect call. Mark the aggregate and any type nested in it as
+    // AddressTaken.
+    for (auto &F : M.functions())
+      if (F.hasAddressTaken() && F.isDeclaration())
+        for (auto &Arg : F.args()) {
+          LocalPointerInfo &LPI = LPA.getLocalPointerInfo(&Arg);
+          for (auto *AliasTy : LPI.getPointerTypeAliasSet()) {
+            if (!DTInfo.isTypeOfInterest(AliasTy))
+              continue;
+            LLVM_DEBUG({
+              dbgs() << "dtrans-safety: Address taken -- "
+                     << "pointer to aggregate passed as argument:\n"
+                     << " ";
+              F.printAsOperand(dbgs());
+              dbgs() << "\n  " << Arg << "\n";
+            });
+            setBaseTypeInfoSafetyData(AliasTy, dtrans::AddressTaken);
+          }
+        }
 
     // Now follow the uses of global variables (not functions or aliases).
     for (auto &GV : M.globals()) {
@@ -3853,8 +4081,8 @@ private:
     if (!pointerAliasSetsAreEqual(LHSLPI.getPointerTypeAliasSet(),
                                   RHSLPI.getPointerTypeAliasSet())) {
       LLVM_DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                   << "sub instruction operands do not match:\n"
-                   << "  " << I << "\n");
+                        << "sub instruction operands do not match:\n"
+                        << "  " << I << "\n");
       setValueTypeInfoSafetyData(I.getOperand(0), dtrans::UnhandledUse);
       setValueTypeInfoSafetyData(I.getOperand(1), dtrans::UnhandledUse);
       return;
@@ -3884,8 +4112,8 @@ private:
         uint64_t ElementSize = DL.getTypeAllocSize(ElementTy);
         if (hasNonDivBySizeUses(&I, ElementSize)) {
           LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
-                       << "Pointer subtract result has non-div use:\n"
-                       << "  " << I << "\n");
+                            << "Pointer subtract result has non-div use:\n"
+                            << "  " << I << "\n");
           // Both operands have the same alias set, so we only need to set the
           // safety condition once.
           setAllAliasedTypeSafetyData(LHSLPI, dtrans::BadPtrManipulation);
@@ -4003,32 +4231,48 @@ private:
   void setBaseTypeInfoSafetyData(llvm::Type *Ty, dtrans::SafetyData Data) {
     llvm::Type *BaseTy = Ty;
     while (BaseTy->isPointerTy())
-      BaseTy = cast<PointerType>(BaseTy)->getElementType();
+      BaseTy = BaseTy->getPointerElementType();
     dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(BaseTy);
     TI->setSafetyData(Data);
     if (!isCascadingSafetyCondition(Data))
       return;
-    // Propagate this condition to any nested types.
-    if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-      for (dtrans::FieldInfo &FI : StInfo->getFields()) {
-        llvm::Type *FieldTy = FI.getLLVMType();
-        // Propagate the safety condition if this field is an instance of
-        // a type of interest, but not if it is merely a pointer to such
-        // a type. Call setBaseTypeInfoSafetyData to handle additional levels
-        // of nesting.
-        if (!FieldTy->isPointerTy() && DTInfo.isTypeOfInterest(FieldTy))
-          setBaseTypeInfoSafetyData(FieldTy, Data);
+
+    // This lambda encapsulates the logic for propagating safety conditions to
+    // structure field or array element types. If the field or element is an
+    // instance of a type of interest, and not if it is merely a pointer to
+    // such a type, the condition is propagated. If the field is a pointer,
+    // the condition is only propagated if it is AddressTaken. Propagation is
+    // done via a recursive call to setBaseTypeInfoSafetyData in order to
+    // handle additional levels of nesting.
+    auto maybePropagateSafetyCondition = [this](llvm::Type *FieldTy,
+                                                dtrans::SafetyData Data) {
+      // If FieldTy is not a type of interest, there's no need to propagate.
+      if (!DTInfo.isTypeOfInterest(FieldTy))
+        return;
+      // If the field is an instance of the type, propagate the condition.
+      if (!FieldTy->isPointerTy()) {
+        setBaseTypeInfoSafetyData(FieldTy, Data);
+      } else if (Data == dtrans::AddressTaken) {
+        // In the case of AddressTaken, we need to propagate the condition
+        // even to fields that are pointers to structures, but in order
+        // to avoid infinite loops in the case where two structures each
+        // have pointers to the other we need to avoid doing this for
+        // structures that already have the condition set.
+        llvm::Type *FieldBaseTy = FieldTy;
+        while (FieldBaseTy->isPointerTy())
+          FieldBaseTy = FieldBaseTy->getPointerElementType();
+        dtrans::TypeInfo *FieldTI = DTInfo.getOrCreateTypeInfo(FieldBaseTy);
+        if (!FieldTI->testSafetyData(Data))
+          setBaseTypeInfoSafetyData(FieldBaseTy, Data);
       }
-    } else if (auto *ArrInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
-      ArrInfo->setSafetyData(Data);
-      llvm::Type *ElementTy = BaseTy->getArrayElementType();
-      // Propagate the safety condition if this field is an instance of
-      // a type of interest, but not if it is merely a pointer to such
-      // a type. Call setBaseTypeInfoSafetyData to handle additional levels
-      // of nesting.
-      if (!ElementTy->isPointerTy() && DTInfo.isTypeOfInterest(ElementTy))
-        setBaseTypeInfoSafetyData(ElementTy, Data);
-    }
+    };
+
+    // Propagate this condition to any nested types.
+    if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI))
+      for (dtrans::FieldInfo &FI : StInfo->getFields())
+        maybePropagateSafetyCondition(FI.getLLVMType(), Data);
+    else if (isa<dtrans::ArrayInfo>(TI))
+      maybePropagateSafetyCondition(BaseTy->getArrayElementType(), Data);
   }
 };
 
@@ -4307,8 +4551,6 @@ void DTransAnalysisInfo::reset() {
     case dtrans::TypeInfo::ArrayInfo:
       delete cast<dtrans::ArrayInfo>(Entry.second);
       break;
-    default:
-      llvm_unreachable("Missing case for appropriate TypeInfo destruction");
     }
   }
   TypeInfoMap.clear();
@@ -4389,6 +4631,13 @@ bool DTransAnalysisInfo::analyzeModule(Module &M, TargetLibraryInfo &TLI) {
 void DTransAnalysisInfo::printStructInfo(dtrans::StructInfo *SI) {
   outs() << "DTRANS_StructInfo:\n";
   outs() << "  LLVMType: " << *(SI->getLLVMType()) << "\n";
+  llvm::StructType *S = cast<llvm::StructType>(SI->getLLVMType());
+  if (S->hasName())
+    outs() << "  Name: " << S->getName() << "\n";
+  if (SI->getCRuleTypeKind() != dtrans::CRT_Unknown) {
+    outs() << "  CRuleTypeKind: ";
+    outs() << dtrans::CRuleTypeKindName(SI->getCRuleTypeKind()) << "\n";
+  }
   outs() << "  Number of fields: " << SI->getNumFields() << "\n";
   for (auto &Field : SI->getFields()) {
     printFieldInfo(Field);
@@ -4400,6 +4649,10 @@ void DTransAnalysisInfo::printStructInfo(dtrans::StructInfo *SI) {
 void DTransAnalysisInfo::printArrayInfo(dtrans::ArrayInfo *AI) {
   outs() << "DTRANS_ArrayInfo:\n";
   outs() << "  LLVMType: " << *(AI->getLLVMType()) << "\n";
+  if (AI->getCRuleTypeKind() != dtrans::CRT_Unknown) {
+    outs() << "  CRuleTypeKind: ";
+    outs() << dtrans::CRuleTypeKindName(AI->getCRuleTypeKind()) << "\n";
+  }
   outs() << "  Number of elements: " << AI->getNumElements() << "\n";
   outs() << "  Element LLVM Type: " << *(AI->getElementLLVMType()) << "\n";
   AI->printSafetyData();

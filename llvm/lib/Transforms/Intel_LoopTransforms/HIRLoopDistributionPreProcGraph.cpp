@@ -75,7 +75,7 @@
 // it would have already been done. This forces clients to analyze loops
 // innermost to outermost if considering all distribution possibilities
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopDistributionPreProcGraph.h"
+#include "HIRLoopDistributionPreProcGraph.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -331,7 +331,7 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
   void postVisit(const HLNode *Node) {}
 };
 
-DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA,
+DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
                          bool ForceCycleForLoopIndepDep) {
 
   const unsigned MaxDDEdges = 256;
@@ -341,7 +341,7 @@ DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA,
     return;
   }
 
-  DDGraph DDG = DDA->getGraph(Loop);
+  DDGraph DDG = DDA.getGraph(Loop);
   DistributionEdgeCreator EdgeCreator(&DDG, this, Loop,
                                       ForceCycleForLoopIndepDep);
 

@@ -10,24 +10,26 @@
 
 
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-complete-unroll-loop-trip-threshold=10 -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck --check-prefix=NO-UNROLL %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-post-vec-complete-unroll,print<hir>" -hir-complete-unroll-loop-trip-threshold=10 2>&1 < %s | FileCheck --check-prefix=NO-UNROLL %s
 
-; NO-UNROLL: Dump Before HIR PostVec Complete Unroll
+; NO-UNROLL: Function
 ; NO-UNROLL: DO i1
 ; NO-UNROLL: DO i2
 
 
-; NO-UNROLL: Dump After HIR PostVec Complete Unroll
+; NO-UNROLL: Function
 ; NO-UNROLL: DO i1
 ; NO-UNROLL: DO i2
 
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-complete-unroll-loop-trip-threshold=50 -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck --check-prefix=UNROLL %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-post-vec-complete-unroll,print<hir>" -hir-complete-unroll-loop-trip-threshold=50 2>&1 < %s | FileCheck --check-prefix=UNROLL %s
 
-; UNROLL: Dump Before HIR PostVec Complete Unroll
+; UNROLL: Function
 ; UNROLL: DO i1
 ; UNROLL: DO i2
 
 
-; UNROLL: Dump After HIR PostVec Complete Unroll
+; UNROLL: Function
 ; UNROLL-NOT: DO i1
 ; UNROLL-NOT: DO i2
 

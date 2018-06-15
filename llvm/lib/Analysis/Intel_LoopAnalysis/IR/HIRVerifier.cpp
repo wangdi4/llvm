@@ -258,19 +258,13 @@ public:
       // SelfBlob case
       auto Ref = *I;
       if (Ref->isSelfBlob() && !Ref->isLval()) {
-        unsigned Symbase = Ref->getSymbase();
-        unsigned Index = Ref->getSelfBlobIndex();
-
-        checkLoopLiveinLiveout(Index, Symbase, DDNode, UseLoop);
+        checkLoopLiveinLiveout(Ref->getSymbase(), DDNode, UseLoop);
 
         // Blob Case
       } else {
         for (auto Blob = Ref->blob_cbegin(), EB = Ref->blob_cend(); Blob != EB;
              ++Blob) {
-          unsigned Symbase = (*Blob)->getSymbase();
-          unsigned Index = (*Blob)->getBlobIndex();
-
-          checkLoopLiveinLiveout(Index, Symbase, DDNode, UseLoop);
+          checkLoopLiveinLiveout((*Blob)->getSymbase(), DDNode, UseLoop);
         }
       }
     }
@@ -284,8 +278,8 @@ public:
     visit(static_cast<const HLNode *>(DDNode));
   }
 
-  void checkLoopLiveinLiveout(unsigned Index, unsigned UseSB,
-                              const HLDDNode *UseNode, HLLoop *UseLoop);
+  void checkLoopLiveinLiveout(unsigned UseSB, const HLDDNode *UseNode,
+                              HLLoop *UseLoop);
 
   void visit(const HLRegion *Region) {
     TempSymbaseDefMap.clear();
@@ -357,14 +351,9 @@ public:
 } // namespace loopopt
 } // namespace llvm
 
-void HIRVerifierImpl::checkLoopLiveinLiveout(unsigned Index, unsigned UseSB,
+void HIRVerifierImpl::checkLoopLiveinLiveout(unsigned UseSB,
                                              const HLDDNode *UseNode,
                                              HLLoop *UseLoop) {
-  BlobTy Blob = UseNode->getBlobUtils().getBlob(Index);
-  if (!BlobUtils::isInstBlob(Blob)) {
-    return;
-  }
-
   HLLoop *DefLoop = nullptr;
   const HLNode *DefNode = nullptr;
   auto Iter = TempSymbaseDefMap.find(UseSB);

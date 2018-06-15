@@ -25,9 +25,6 @@ const char* toObjectKindString(STIObjectKind kind) {
 #define X(KIND, VALUE) case (KIND): string = #KIND; break;
     STI_OBJECT_KIND_LIST
 #undef  X
-  default:
-    string = "[unrecognized object kind]";
-    break;
   }
 
   return string;
@@ -218,9 +215,6 @@ size_t STIChecksumEntry::getChecksumSize() const {
     MAP(STI_FILECHECKSUM_ENTRY_TYPE_MD5, 16);
     MAP(STI_FILECHECKSUM_ENTRY_TYPE_SHA1, 20);
 #undef MAP
-  default:
-    assert(type != type); // unrecognized checksum type
-    break;
   }
 
   return size;

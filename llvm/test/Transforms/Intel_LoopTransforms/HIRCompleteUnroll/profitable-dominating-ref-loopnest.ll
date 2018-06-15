@@ -1,11 +1,12 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -tbaa -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-post-vec-complete-unroll" -aa-pipeline="type-based-aa" 2>&1 < %s | FileCheck %s
 
 ; TODO: This test will be fixed with a patch to enable complete unroll for multi-exit loops. Currently, it is used to verify that we were able to cleanup redundant goto/label in the loopnest. 
 
 ; Verify that the loopnest is profitable to unroll because of the load (%t9)[0].12.0[i1] which dominates the load (%t9)[0].12.0[i2]. 
 ; After unrolling the loopnest, many of the (%t9)[0].12.0[i2] loads will be eliminated as redundant.
 
-; CHECK: Dump Before HIR PostVec Complete Unroll
+; CHECK: Function
 
 ; CHECK:      + DO i1 = 0, 3, 1   <DO_LOOP>
 ; CHECK-NEXT: |   %t315 = (%t9)[0].12.0[i1];

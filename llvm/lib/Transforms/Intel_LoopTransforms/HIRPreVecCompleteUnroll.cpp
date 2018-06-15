@@ -14,8 +14,16 @@
 //===----------------------------------------------------------------------===//
 //
 
-#include "HIRCompleteUnroll.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPreVecCompleteUnroll.h"
+#include "HIRCompleteUnrollImpl.h"
+
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/Support/CommandLine.h"
+
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -24,29 +32,50 @@ cl::opt<bool> DisablePreVecUnroll("disable-hir-pre-vec-complete-unroll",
                                   cl::desc("Disables pre vec complete unroll"),
                                   cl::Hidden, cl::init(false));
 
+PreservedAnalyses
+HIRPreVecCompleteUnrollPass::run(llvm::Function &F,
+                                 llvm::FunctionAnalysisManager &AM) {
+  if (DisablePreVecUnroll) {
+    return PreservedAnalyses::all();
+  }
+
+  HIRCompleteUnroll(
+      AM.getResult<HIRFrameworkAnalysis>(F),
+      AM.getResult<DominatorTreeAnalysis>(F), AM.getResult<TargetIRAnalysis>(F),
+      AM.getResult<HIRLoopStatisticsAnalysis>(F),
+      AM.getResult<HIRDDAnalysisPass>(F),
+      AM.getResult<HIRSafeReductionAnalysisPass>(F), OptLevel, true)
+      .run();
+
+  return PreservedAnalyses::all();
+}
+
 namespace {
 
-class HIRPreVecCompleteUnroll : public HIRCompleteUnroll {
-
+class HIRPreVecCompleteUnrollLegacyPass : public HIRCompleteUnrollLegacyPass {
 public:
   static char ID;
 
-  HIRPreVecCompleteUnroll(unsigned OptLevel = 0)
-      : HIRCompleteUnroll(ID, OptLevel, true) {
-    initializeHIRPreVecCompleteUnrollPass(*PassRegistry::getPassRegistry());
+  HIRPreVecCompleteUnrollLegacyPass(unsigned OptLevel = 0)
+      : HIRCompleteUnrollLegacyPass(ID, OptLevel, true) {
+    initializeHIRPreVecCompleteUnrollLegacyPassPass(
+        *PassRegistry::getPassRegistry());
   }
 
   bool runOnFunction(Function &F) override {
     if (DisablePreVecUnroll) {
       return false;
     }
-    return HIRCompleteUnroll::runOnFunction(F);
+
+    return HIRCompleteUnrollLegacyPass::runOnFunction(F);
   }
 };
-}
 
-char HIRPreVecCompleteUnroll::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRPreVecCompleteUnroll, "hir-pre-vec-complete-unroll",
+} // namespace
+
+char HIRPreVecCompleteUnrollLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRPreVecCompleteUnrollLegacyPass,
+                      "hir-pre-vec-complete-unroll",
                       "HIR PreVec Complete Unroll", false, false)
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
@@ -55,9 +84,10 @@ INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
-INITIALIZE_PASS_END(HIRPreVecCompleteUnroll, "hir-pre-vec-complete-unroll",
-                    "HIR PreVec Complete Unroll", false, false)
+INITIALIZE_PASS_END(HIRPreVecCompleteUnrollLegacyPass,
+                    "hir-pre-vec-complete-unroll", "HIR PreVec Complete Unroll",
+                    false, false)
 
 FunctionPass *llvm::createHIRPreVecCompleteUnrollPass(unsigned OptLevel) {
-  return new HIRPreVecCompleteUnroll(OptLevel);
+  return new HIRPreVecCompleteUnrollLegacyPass(OptLevel);
 }

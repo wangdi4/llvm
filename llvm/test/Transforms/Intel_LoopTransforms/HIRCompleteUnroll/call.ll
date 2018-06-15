@@ -1,10 +1,11 @@
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,print<hir>,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Check that we can completely unroll loops with call statements.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
-; CHECK: Dump Before HIR PostVec Complete Unroll
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, 499, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, 4, 1   <DO_LOOP>
@@ -14,7 +15,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 
-; CHECK: Dump After HIR PostVec Complete Unroll
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, 499, 1   <DO_LOOP>
 ; CHECK: |   %1 = (@A)[0][0][i1];

@@ -1,4 +1,5 @@
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-collapse -print-before=hir-loop-collapse -print-after=hir-loop-collapse -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; HIR Loop Collapse Sanity Test: testcase reduced from icc's loopcollapse test - collaps_004.c
 ;
@@ -38,7 +39,7 @@
 ;}
 ;
 ;
-; CHECK: IR Dump Before HIR Loop Collapse
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { }
 ; CHECK:        + DO i1 = 0, 14, 1   <DO_LOOP>
@@ -54,7 +55,7 @@
 ; CHECK:  END REGION
 ;
 ;
-; CHECK: IR Dump After HIR Loop Collapse
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:        + DO i1 = 0, 14, 1   <DO_LOOP>

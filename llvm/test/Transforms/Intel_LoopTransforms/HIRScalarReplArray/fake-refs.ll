@@ -1,11 +1,12 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-idiom -hir-scalarrepl-array -hir-cg -print-before=hir-idiom -print-after=hir-idiom < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-idiom,print<hir>,hir-scalarrepl-array,hir-cg" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Verify that we successfully pass through scalar replacement for this test case. 
 ; It was failing because locality analysis formed a locality group out of fake refs (%A)[i1 + 1][undef] and (%A)[i1][undef] attached to memcpy instruction. 
 ; Scalar replacement then tried to replace them as if they were real memrefs leading to assertion.
 
 
-; CHECK: Dump Before HIR Loop Idiom Recognition
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, sext.i32.i64(%n) + -2, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, 4, 1   <DO_LOOP>
@@ -14,7 +15,7 @@
 ; CHECK: + END LOOP
 
 
-; CHECK: Dump After HIR Loop Idiom Recognition
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, sext.i32.i64(%n) + -2, 1   <DO_LOOP>
 ; CHECK: |   @llvm.memcpy.p0i8.p0i8.i64(&((i8*)(%A)[i1 + 1][0]),  &((i8*)(%A)[i1][0]),  20,  0);

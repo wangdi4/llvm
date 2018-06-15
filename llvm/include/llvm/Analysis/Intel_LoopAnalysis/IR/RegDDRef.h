@@ -24,6 +24,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/BlobDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/DDRef.h"
+#include "llvm/Analysis/MemoryLocation.h"
 
 namespace llvm {
 
@@ -204,6 +205,10 @@ private:
   /// Implements get*Type() functionality.
   Type *getTypeImpl(bool IsSrc) const;
 
+  /// Returns the src type of the base CanonExpr for GEP DDRefs, asserts for
+  /// non-GEP DDRefs.
+  Type *getBaseType() const { return getBaseCE()->getSrcType(); }
+
   /// Updates def level of CE based on the level of the blobs present in
   /// CE. DDRef is assumed to have the passed in NestingLevel.
   void updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel);
@@ -214,6 +219,24 @@ private:
   /// Implementes populateTempBlobIndices() and populateTempBlobSymbases().
   void populateTempBlobImpl(SmallVectorImpl<unsigned> &Blobs,
                             bool GetIndices) const;
+
+  /// Returns the type associated with \p DimensionNum. For example, consider
+  /// this case-
+  /// %struct.S2 = type { float, [100 x %struct.S1] }
+  /// %struct.S1 = type { i32, i32 }
+  /// @obj2 = [50 x %struct.S2]
+  ///
+  /// %t = GEP @obj2, 0, i, 1, j, 1
+  /// store to %t
+  ///
+  /// This reference looks like this in HIR-
+  /// (@obj2)[0][i].1[j].1
+  ///
+  /// This reference has the following dimension types (from lower to higher)-
+  /// Dimension1 - [100 x %struct.S1]
+  /// Dimension2 - [50 x %struct.S2]
+  /// Dimension3 - [50 x %struct.S2]*
+  Type *getDimensionType(unsigned DimensionNum) const;
 
 public:
   /// Returns HLDDNode this DDRef is attached to.
@@ -239,9 +262,24 @@ public:
   /// TODO: extend to handle struct types.
   Type *getDestType() const override { return getTypeImpl(false); }
 
-  /// Returns the src type of the base CanonExpr for GEP DDRefs, asserts for
-  /// non-GEP DDRefs.
-  Type *getBaseType() const { return getBaseCE()->getSrcType(); }
+  /// MemoryLocation for AA.
+  MemoryLocation getMemoryLocation() const;
+
+  /// Returns address spaces for GEP DDRefs.
+  /// Asserts for non-GEP DDRefs.
+  unsigned getPointerAddressSpace() const {
+    return getBaseType()->getPointerAddressSpace();
+  }
+
+  bool isOpaqueAddressOf() const {
+    if  (!isAddressOf()) {
+      return false;
+    }
+
+    auto StructElemTy = dyn_cast<StructType>(
+        getBaseType()->getPointerElementType());
+    return StructElemTy && StructElemTy->isOpaque();
+  }
 
   /// Returns the dest type of the bitcast applied to GEP DDRefs, asserts
   /// for non-GEP DDRefs. For example-
@@ -259,24 +297,6 @@ public:
   void setBitCastDestType(Type *DestTy) {
     getGEPInfo()->BitCastDestTy = DestTy;
   }
-
-  /// Returns the type associated with \p DimensionNum. For example, consider
-  /// this case-
-  /// %struct.S2 = type { float, [100 x %struct.S1] }
-  /// %struct.S1 = type { i32, i32 }
-  /// @obj2 = [50 x %struct.S2]
-  ///
-  /// %t = GEP @obj2, 0, i, 1, j, 1
-  /// store to %t
-  ///
-  /// This reference looks like this in HIR-
-  /// (@obj2)[0][i].1[j].1
-  ///
-  /// This reference has the following dimension types (from lower to higher)-
-  /// Dimension1 - [100 x %struct.S1]
-  /// Dimension2 - [50 x %struct.S2]
-  /// Dimension3 - [50 x %struct.S2]*
-  Type *getDimensionType(unsigned DimensionNum) const;
 
   /// Returns the element type of the dimension type associated with \p
   /// DimensionNum. For the example in description of getDimensionType() they

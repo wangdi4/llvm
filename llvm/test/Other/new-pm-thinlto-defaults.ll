@@ -187,7 +187,7 @@
 ; CHECK-POSTLINK-O-NEXT: Starting llvm::Module pass manager run.
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalDCEPass
-; CHECK-POSTLINK-O-NEXT: Running pass: ModuleToFunctionPassAdaptor<llvm::CleanupFakeLoadsPass>  ;INTEL
+; CHECK-POSTLINK-O-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}CleanupFakeLoadsPass{{.*}}> ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA                    ;INTEL

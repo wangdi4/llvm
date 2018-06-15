@@ -203,8 +203,8 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
   SC = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-  auto &OROP = getAnalysis<OptReportOptionsPass>();
-  LORBuilder.setup(Fn.getContext(), OROP.getLoopOptReportVerbosity());
+  LORBuilder.setup(Fn.getContext(),
+                   getAnalysis<OptReportOptionsPass>().getVerbosity());
   DL = &Fn.getParent()->getDataLayout();
 
   // We cannot rely on compiler driver not invoking vectorizer for

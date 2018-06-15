@@ -31,14 +31,22 @@
 ; CHECK: |   %t.026 = 2 * %t.026;
 ; CHECK: + END LOOP
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-after=hir-temp-cleanup -hir-details 2>&1 | FileCheck %s -check-prefix=CHECK-LIVEIN
-; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>" -hir-details -disable-output 2>&1 | FileCheck %s -check-prefix=CHECK-LIVEIN
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-temp-cleanup -print-after=hir-temp-cleanup -hir-details 2>&1 | FileCheck %s -check-prefix=CHECK-LIVEIN
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" -hir-details -disable-output 2>&1 | FileCheck %s -check-prefix=CHECK-LIVEIN
 
 ; Verify that %t.026 becomes livein to i2 loop after substitution.
 
+; First get symbase of %t.026
+
+; CHECK-LIVEIN: Function
+; CHECK-LIVEIN: <RVAL-REG> NON-LINEAR i32 %t.026 {sb:[[LIVEINSYM:.*]]
+
+; Now check it in i2 loop liveins.
+; CHECK-LIVEIN: Function
+
 ; CHECK-LIVEIN: DO i64 i1 = 0
-; CHECK-LIVEIN: LiveIn symbases: [[LIVEINSYM:.*]]
-; CHECK-LIVEIN: <BLOB> LINEAR i32 %t.026{def@1} {sb:[[LIVEINSYM]]}
+; CHECK-LIVEIN: LiveIn symbases:
+; CHECK-LIVEIN-SAME: [[LIVEINSYM:.*]]
 
 define void @foo(i32 %n, i32* nocapture %A, i32* nocapture %B) {
 entry:

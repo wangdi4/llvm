@@ -46,6 +46,8 @@
 //    the HLIf condition for OptPredicate.
 // 5. Add opt report messages.
 
+#include "llvm/Transforms/Intel_LoopTransforms/HIROptPredicate.h"
+
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
@@ -64,6 +66,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
@@ -189,31 +192,20 @@ struct HoistCandidate {
 #endif
 };
 
-class HIROptPredicate : public HIRTransformPass {
+class HIROptPredicate {
 public:
   static char ID;
 
-  HIROptPredicate(bool EnablePartialUnswitch = true)
-      : HIRTransformPass(ID), EnablePartialUnswitch(EnablePartialUnswitch &&
-                                                    !DisablePartialUnswitch) {
-    initializeHIROptPredicatePass(*PassRegistry::getPassRegistry());
-  }
+  HIROptPredicate(HIRFramework &HIRF, HIRDDAnalysis &DDA,
+                  bool EnablePartialUnswitch = true)
+      : HIRF(HIRF), DDA(DDA), EnablePartialUnswitch(EnablePartialUnswitch &&
+                                                    !DisablePartialUnswitch) {}
 
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    // Loop Statistics is not used by this pass directly but it used by
-    // HLNodeUtils::dominates() utility. This is a workaround to keep the pass
-    // manager from freeing it.
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  }
+  bool run();
 
 private:
-  HIRDDAnalysis *DDA;
+  HIRFramework &HIRF;
+  HIRDDAnalysis &DDA;
 
   bool EnablePartialUnswitch;
 
@@ -253,9 +245,8 @@ private:
   /// Transform the original loop.
   void transformCandidate(HLLoop *TargetLoop, HoistCandidate &Candidate,
                           unsigned &VNum,
-                          SmallPtrSetImpl<HLLoop *> &TargetLoopVisitedSet,
-                          SmallPtrSetImpl<HLLoop *> &ElseLoopVisitedSet,
-                          SmallSet<unsigned, 16> &IfVisitedSet);
+                          SmallPtrSetImpl<HLLoop *> &OptReportVisitedSet,
+                          SmallPtrSetImpl<HLIf *> &IfVisitedSet);
 
   /// Removes the Then and Else children of HLIf and stores them
   /// in the container.
@@ -270,8 +261,8 @@ private:
   void hoistIf(HLIf *&If, HLLoop *OrigLoop);
 
   void addPredicateOptReport(HLLoop *TargetLoop, HLIf *If,
-                             SmallPtrSetImpl<HLLoop *> &TargetLoopVisitedSet,
-                             SmallSet<unsigned, 16> &IfVisitedSet,
+                             SmallPtrSetImpl<HLLoop *> &OptReportVisitedSet,
+                             SmallPtrSetImpl<HLIf *> &IfVisitedSet,
                              unsigned &VNum);
 
 #ifndef NDEBUG
@@ -339,18 +330,16 @@ public:
 struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
   HLNode *SkipNode;
   HIROptPredicate &Pass;
-  bool HasLabel;
   unsigned MinLevel;
   bool TransformLoop;
 
   CandidateLookup(HIROptPredicate &Pass, bool TransformLoop = true,
                   unsigned MinLevel = 0)
-      : SkipNode(nullptr), Pass(Pass), HasLabel(false), MinLevel(MinLevel),
+      : SkipNode(nullptr), Pass(Pass), MinLevel(MinLevel),
         TransformLoop(TransformLoop) {}
 
   void visit(HLIf *If);
   void visit(HLLoop *Loop);
-  void visit(const HLLabel *) { HasLabel = true; }
 
   bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
 
@@ -504,7 +493,7 @@ bool HIROptPredicate::isPUCandidate(const HLIf *If, const RegDDRef *Ref,
 
   HLLoop *ParentLoop = If->getParentLoop();
   unsigned ParentLoopLevel = ParentLoop->getNestingLevel();
-  DDGraph DDG = DDA->getGraph(ParentLoop);
+  DDGraph DDG = DDA.getGraph(ParentLoop);
 
 #ifndef NDEBUG
   static HLLoop *DDGShownForLoop = nullptr;
@@ -619,6 +608,11 @@ void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
     IsCandidate = PUC.isPUCandidate();
   }
 
+  LLVM_DEBUG(dbgs() << "Opportunity: ");
+  LLVM_DEBUG(If->dumpHeader());
+  LLVM_DEBUG(dbgs() << " --> Level " << Level << ", Candidate: " << IsCandidate
+                    << (PUC.isPURequired() ? "(PU)" : "") << "\n");
+
   // Tell inner candidates that parent candidate will not be unswitched.
   // Do not unswitch inner candidates in case of partial unswitching.
   bool WillUnswitchParent = IsCandidate && !PUC.isPURequired();
@@ -628,14 +622,9 @@ void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
   HLNodeUtils::visitRange(Lookup, If->then_begin(), If->then_end());
   HLNodeUtils::visitRange(Lookup, If->else_begin(), If->else_end());
 
-  // TODO: remove HasLabel check?
-  if (!IsCandidate || Lookup.HasLabel) {
+  if (!IsCandidate) {
     return;
   }
-
-  LLVM_DEBUG(dbgs() << "Opportunity: ");
-  LLVM_DEBUG(If->dumpHeader());
-  LLVM_DEBUG(dbgs() << " --> Level " << Level << "\n");
 
   Pass.Candidates.emplace_back(If, Level, PUC);
 }
@@ -654,17 +643,6 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
                                     Loop->child_end());
 }
 
-char HIROptPredicate::ID = 0;
-INITIALIZE_PASS_BEGIN(HIROptPredicate, OPT_SWITCH, OPT_DESC, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIROptPredicate, OPT_SWITCH, OPT_DESC, false, false)
-
-FunctionPass *llvm::createHIROptPredicatePass(bool EnablePartialUnswitch) {
-  return new HIROptPredicate(EnablePartialUnswitch);
-}
-
 void HIROptPredicate::sortCandidates() {
   std::sort(Candidates.begin(), Candidates.end(),
             [](const HoistCandidate &A, const HoistCandidate &B) {
@@ -672,17 +650,15 @@ void HIROptPredicate::sortCandidates() {
             });
 }
 
-bool HIROptPredicate::runOnFunction(Function &F) {
-  if (skipFunction(F) || DisableLoopUnswitch) {
+bool HIROptPredicate::run() {
+  if (DisableLoopUnswitch) {
     return false;
   }
 
-  LLVM_DEBUG(dbgs() << "Opt Predicate for Function: " << F.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "Opt Predicate for Function: "
+                    << HIRF.getFunction().getName() << "\n");
 
-  HIRFramework &HIR = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-
-  for (HLNode &Node : make_range(HIR.hir_begin(), HIR.hir_end())) {
+  for (HLNode &Node : make_range(HIRF.hir_begin(), HIRF.hir_end())) {
     HLRegion *Region = cast<HLRegion>(&Node);
 
     LLVM_DEBUG(dbgs() << "Region: " << Region->getNumber() << ":\n");
@@ -709,8 +685,6 @@ bool HIROptPredicate::runOnFunction(Function &F) {
 
   return false;
 }
-
-void HIROptPredicate::releaseMemory() {}
 
 unsigned HIROptPredicate::getPossibleDefLevel(const CanonExpr *CE,
                                               bool &NonLinearBlob) {
@@ -757,15 +731,15 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLIf *If,
   }
 
   if (NonLinearRef || !Ref->isTerminalRef()) {
+    // Return current level of attachment.
+    Level = If->getNodeLevel();
+
     if (isPUCandidate(If, Ref, PUC)) {
       PUC.setPURequired();
 
-      // May hoist one level only.
-      Level = If->getNodeLevel() - 1;
-      return Level;
+      // May hoist one level up only.
+      Level -= 1;
     }
-
-    return NonLinearLevel;
   }
 
   return Level;
@@ -773,6 +747,7 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLIf *If,
 
 unsigned HIROptPredicate::getPossibleDefLevel(const HLIf *If, PUContext &PUC) {
   unsigned Level = 0;
+
   for (auto PI = If->pred_begin(), PE = If->pred_end(); PI != PE; ++PI) {
     const RegDDRef *Ref1 = If->getPredicateOperandDDRef(PI, true);
     const RegDDRef *Ref2 = If->getPredicateOperandDDRef(PI, false);
@@ -787,6 +762,7 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLIf *If, PUContext &PUC) {
       return Level;
     }
   }
+
   return Level;
 }
 
@@ -799,9 +775,8 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
   unsigned VNum = 1;
 
   // Sets including visited TargetLoop, visited NewElseLoop and If line nums
-  SmallPtrSet<HLLoop *, 8> TargetLoopVisitedSet;
-  SmallPtrSet<HLLoop *, 8> ElseLoopVisitedSet;
-  SmallSet<unsigned, 16> IfVisitedSet;
+  SmallPtrSet<HLLoop *, 8> OptReportVisitedSet;
+  SmallPtrSet<HLIf *, 8> IfVisitedSet;
 
   while (!Candidates.empty()) {
     HoistCandidate &Candidate = Candidates.back();
@@ -835,8 +810,8 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
     TargetLoop->extractPreheader();
 
     // TransformLoop and its clones.
-    transformCandidate(TargetLoop, Candidate, VNum, TargetLoopVisitedSet,
-                       ElseLoopVisitedSet, IfVisitedSet);
+    transformCandidate(TargetLoop, Candidate, VNum, OptReportVisitedSet,
+                       IfVisitedSet);
 
     LLVM_DEBUG(dbgs() << "While " OPT_DESC ":\n");
     LLVM_DEBUG(ParentLoop->getParentRegion()->dump());
@@ -896,9 +871,8 @@ static bool hasEqualParentIf(HLIf *FromIf, HLLoop *ToLoop) {
 // If-Then and other inside the Else.
 void HIROptPredicate::transformCandidate(
     HLLoop *TargetLoop, HoistCandidate &Candidate, unsigned &VNum,
-    SmallPtrSetImpl<HLLoop *> &TargetLoopVisitedSet,
-    SmallPtrSetImpl<HLLoop *> &ElseLoopVisitedSet,
-    SmallSet<unsigned, 16> &IfVisitedSet) {
+    SmallPtrSetImpl<HLLoop *> &OptReportVisitedSet,
+    SmallPtrSetImpl<HLIf *> &IfVisitedSet) {
 
   SmallDenseMap<HLIf *, std::pair<HLContainerTy, HLContainerTy>, 8> Containers;
   SmallPtrSet<HLNode *, 32> TrackClonedNodes;
@@ -1024,7 +998,7 @@ void HIROptPredicate::transformCandidate(
       }
     }
 
-    addPredicateOptReport(TargetLoop, If, TargetLoopVisitedSet, IfVisitedSet,
+    addPredicateOptReport(TargetLoop, If, OptReportVisitedSet, IfVisitedSet,
                           VNum);
 
     // Handle second loop - NewElseLoop
@@ -1070,15 +1044,8 @@ void HIROptPredicate::transformCandidate(
       }
     }
 
-    if (!ElseLoopVisitedSet.count(NewElseLoop)) {
-      LoopOptReportBuilder &LORBuilder =
-          NewElseLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
-
-      LORBuilder(*NewElseLoop).addOrigin("Predicate Optimized v%d", VNum);
-      VNum++;
-
-      ElseLoopVisitedSet.insert(NewElseLoop);
-    }
+    addPredicateOptReport(NewElseLoop, If, OptReportVisitedSet, IfVisitedSet,
+                          VNum);
   }
 
   assert(PivotIf && "should be defined");
@@ -1159,8 +1126,8 @@ void HIROptPredicate::hoistIf(HLIf *&If, HLLoop *OrigLoop) {
 
 void HIROptPredicate::addPredicateOptReport(
     HLLoop *TargetLoop, HLIf *If,
-    SmallPtrSetImpl<HLLoop *> &TargetLoopVisitedSet,
-    SmallSet<unsigned, 16> &IfVisitedSet, unsigned &VNum) {
+    SmallPtrSetImpl<HLLoop *> &OptReportVisitedSet,
+    SmallPtrSetImpl<HLIf *> &IfVisitedSet, unsigned &VNum) {
 
   LoopOptReportBuilder &LORBuilder =
       TargetLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
@@ -1168,6 +1135,16 @@ void HIROptPredicate::addPredicateOptReport(
   bool IsReportOn = LORBuilder.isLoopOptReportOn();
 
   if (!IsReportOn) {
+    return;
+  }
+
+  if (!OptReportVisitedSet.count(TargetLoop)) {
+    LORBuilder(*TargetLoop).addOrigin("Predicate Optimized v%d", VNum);
+    VNum++;
+    OptReportVisitedSet.insert(TargetLoop);
+  }
+
+  if (IfVisitedSet.count(If)) {
     return;
   }
 
@@ -1181,16 +1158,63 @@ void HIROptPredicate::addPredicateOptReport(
     VOS << LineNum;
   }
 
-  if (!TargetLoopVisitedSet.count(TargetLoop)) {
-    LORBuilder(*TargetLoop).addOrigin("Predicate Optimized v%d", VNum);
-    VNum++;
-    TargetLoopVisitedSet.insert(TargetLoop);
+  LORBuilder(*TargetLoop)
+      .addRemark(OptReportVerbosity::Low,
+                 "Invariant Condition%s hoisted out of this loop", IfNum);
+  IfVisitedSet.insert(If);
+}
+
+PreservedAnalyses HIROptPredicatePass::run(llvm::Function &F,
+                                           llvm::FunctionAnalysisManager &AM) {
+  HIROptPredicate(AM.getResult<HIRFrameworkAnalysis>(F),
+                  AM.getResult<HIRDDAnalysisPass>(F), EnablePartialUnswitch)
+      .run();
+
+  return PreservedAnalyses::all();
+}
+
+class HIROptPredicateLegacyPass : public HIRTransformPass {
+  bool EnablePartialUnswitch;
+
+public:
+  static char ID;
+
+  HIROptPredicateLegacyPass(bool EnablePartialUnswitch = true)
+      : HIRTransformPass(ID), EnablePartialUnswitch(EnablePartialUnswitch) {
+    initializeHIROptPredicateLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
-  if (!IfVisitedSet.count(LineNum)) {
-    LORBuilder(*TargetLoop)
-        .addRemark(OptReportVerbosity::Low,
-                   "Invariant Condition%s hoisted out of this loop", IfNum);
-    IfVisitedSet.insert(LineNum);
+  void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.setPreservesAll();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+    // Loop Statistics is not used by this pass directly but it used by
+    // HLNodeUtils::dominates() utility. This is a workaround to keep the pass
+    // manager from freeing it.
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   }
+
+  bool runOnFunction(Function &F) {
+    if (skipFunction(F)) {
+      return false;
+    }
+
+    return HIROptPredicate(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+                           getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+                           EnablePartialUnswitch)
+        .run();
+  }
+};
+
+char HIROptPredicateLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIROptPredicateLegacyPass, OPT_SWITCH, OPT_DESC, false,
+                      false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
+INITIALIZE_PASS_END(HIROptPredicateLegacyPass, OPT_SWITCH, OPT_DESC, false,
+                    false)
+
+FunctionPass *llvm::createHIROptPredicatePass(bool EnablePartialUnswitch) {
+  return new HIROptPredicateLegacyPass(EnablePartialUnswitch);
 }

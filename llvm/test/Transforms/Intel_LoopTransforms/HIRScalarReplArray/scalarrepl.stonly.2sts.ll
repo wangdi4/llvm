@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-scalarrepl-array -print-before=hir-scalarrepl-array -print-after=hir-scalarrepl-array -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-scalarrepl-array,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; Scalar Replacement Sanity Test: stores only (2 continue stores)
 ;
@@ -24,7 +25,7 @@
 ; GapTracker:  {W      W        }
 ;
 ; 
-; CHECK: IR Dump Before HIR Scalar Repl
+; CHECK: Function
 ;
 ; CHECK:   BEGIN REGION { }
 ; CHECK:         + DO i1 = 0, 100, 1   <DO_LOOP>
@@ -41,7 +42,7 @@
 ; =====================================================
 ;
 ;
-; CHECK: IR Dump After HIR Scalar Repl
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:        + DO i1 = 0, 100, 1   <DO_LOOP>
@@ -54,6 +55,7 @@
 ; CHECK:  END REGION
 ;
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-scalarrepl-array -disable-output -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-scalarrepl-array,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -disable-output -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ;
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT:     Remark #XXXXX: Number of Array Refs Scalar Replaced In Loop: 2

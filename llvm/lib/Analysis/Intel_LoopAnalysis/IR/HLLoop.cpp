@@ -23,10 +23,14 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-#include "llvm/Transforms/Utils/UnrollLoop.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
+
+// Next Option is used for performance headroom finding and stress testing
+static cl::opt<bool> AssumeIVDEPInnermostLoop(
+    "hir-assume-ivdep-innermost-loop", cl::init(false), cl::Hidden,
+    cl::desc("Assumes IVDEP is on for innermost loop"));
 
 #define DEBUG_NORMALIZE(X) DEBUG_WITH_TYPE("hir-loop-normalize", X)
 
@@ -332,6 +336,8 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
   if (getMVTag()) {
     OS << "  <MVTag: " << getMVTag() << ">";
   }
+
+  printDistributePoint(OS);
 
   OS << "\n";
 
@@ -1014,6 +1020,11 @@ bool HLLoop::hasDirective(int DirectiveID) const {
   return false;
 }
 
+bool HLLoop::hasVectorizeIVDepPragma() const {
+  return hasVectorizeIVDepLoopPragma() || hasVectorizeIVDepBackPragma() ||
+         (AssumeIVDEPInnermostLoop && isInnermost());
+}
+
 bool HLLoop::isTriangularLoop() const {
 
   const CanonExpr *LB = getLowerCanonExpr();
@@ -1317,24 +1328,33 @@ HLLabel *HLLoop::getHeaderLabel() {
   return cast<HLLabel>(FirstChild);
 }
 
-bool HLLoop::hasUnrollEnablingPragma() const {
+MDNode *HLLoop::getLoopStringMetadata(StringRef Name) const {
   if (!LoopMetadata) {
-    return false;
+    return nullptr;
   }
 
-  return (GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.enable") ||
-          GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.count") ||
-          (isConstTripLoop() &&
-           GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.full")));
+  for (unsigned I = 1, E = LoopMetadata->getNumOperands(); I < E; ++I) {
+    MDNode *MD = dyn_cast<MDNode>(LoopMetadata->getOperand(I));
+    if (!MD) {
+      continue;
+    }
+
+    MDString *StrMD = dyn_cast<MDString>(MD->getOperand(0));
+
+    if (!StrMD) {
+      continue;
+    }
+
+    if (Name.equals(StrMD->getString()))
+      return MD;
+  }
+
+  return nullptr;
 }
 
 bool HLLoop::hasCompleteUnrollEnablingPragma() const {
-  if (!LoopMetadata) {
-    return false;
-  }
-
-  if (GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.enable") ||
-      GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.full")) {
+  if (getLoopStringMetadata("llvm.loop.unroll.enable") ||
+      getLoopStringMetadata("llvm.loop.unroll.full")) {
     return true;
   }
 
@@ -1346,58 +1366,63 @@ bool HLLoop::hasCompleteUnrollEnablingPragma() const {
   // Unroll if loop's trip count is less than unroll count.
   auto PragmaTC = getUnrollPragmaCount();
 
-  return PragmaTC && (TC < PragmaTC);
+  return PragmaTC && (TC <= PragmaTC);
 }
 
 bool HLLoop::hasCompleteUnrollDisablingPragma() const {
-  return LoopMetadata &&
-         GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.disable");
+
+  if (getLoopStringMetadata("llvm.loop.unroll.disable")) {
+    return true;
+  }
+
+  auto PragmaTC = getUnrollPragmaCount();
+
+  if (PragmaTC) {
+    uint64_t TC;
+
+    if (!isConstTripLoop(&TC) || (PragmaTC < TC)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
-bool HLLoop::hasGeneralUnrollEnablingPragma() const {
-  if (!LoopMetadata) {
+bool HLLoop::hasVectorizeEnablingPragma() const {
+  // The logic is complicated due to the fact that both
+  // "llvm.loop.vectorize.width" and "llvm.loop.vectorize.enable" can be used as
+  // vectorization enablers/disablers.
+
+  auto *EnableMD = getLoopStringMetadata("llvm.loop.vectorize.enable");
+
+  if (EnableMD &&
+      mdconst::extract<ConstantInt>(EnableMD->getOperand(1))->isZero()) {
     return false;
   }
 
-  return GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.enable") ||
-         GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.count");
-}
+  auto *WidthMD = getLoopStringMetadata("llvm.loop.vectorize.width");
 
-bool HLLoop::hasGeneralUnrollDisablingPragma() const {
-  if (!LoopMetadata) {
+  if (WidthMD &&
+      mdconst::extract<ConstantInt>(WidthMD->getOperand(1))->isOne()) {
     return false;
   }
 
-  return GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.disable") ||
-         GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.runtime.disable") ||
-         // 'full' metadata only implies complete unroll, not partial unroll.
-         GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.full");
+  return (EnableMD || WidthMD);
 }
 
-bool HLLoop::hasUnrollAndJamEnablingPragma() const {
-  // TODO: Use unroll & jam metadata when available. Also add the check to other
-  // passes such as loop interchange and loop distribution.
-  return hasGeneralUnrollEnablingPragma();
-}
+bool HLLoop::hasVectorizeDisablingPragma() const {
+  // Return true if either the loop has "llvm.loop.vectorize.width" metadata
+  // with width of 1 or it has "llvm.loop.vectorize.enable" metadata with
+  // boolean operand set to false.
+  auto *MD = getLoopStringMetadata("llvm.loop.vectorize.width");
 
-bool HLLoop::hasUnrollAndJamDisablingPragma() const {
-  // TODO: Use unroll & jam metadata when available.
-  return hasGeneralUnrollDisablingPragma();
-}
-
-unsigned HLLoop::getUnrollPragmaCount() const {
-  if (!LoopMetadata) {
-    return 0;
+  if (MD && mdconst::extract<ConstantInt>(MD->getOperand(1))->isOne()) {
+    return true;
   }
 
-  // Unroll if loop's trip count is less than unroll count.
-  auto MD = GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.count");
+  MD = getLoopStringMetadata("llvm.loop.vectorize.enable");
 
-  if (!MD) {
-    return 0;
-  }
-
-  return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+  return MD && mdconst::extract<ConstantInt>(MD->getOperand(1))->isZero();
 }
 
 LoopOptReport LoopOptReportTraits<HLLoop>::getOrCreatePrevOptReport(

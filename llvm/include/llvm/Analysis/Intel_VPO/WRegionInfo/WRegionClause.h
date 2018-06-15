@@ -86,6 +86,7 @@ class Item
       OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr), IsNonPod(false),
       IsVla(false), VlaSize(nullptr), ThunkIdx(-1), AliasScope(nullptr),
       NoAlias(nullptr) {}
+    virtual ~Item() = default;
 
     void setOrig(VAR V)          { OrigItem = V;    }
     void setNew(VAR V)           { NewItem = V;     }
