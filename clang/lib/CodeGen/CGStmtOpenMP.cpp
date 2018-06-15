@@ -75,6 +75,15 @@ public:
         auto *VD = C.getCapturedVar();
         assert(VD == VD->getCanonicalDecl() &&
                "Canonical decl must be captured.");
+#if INTEL_CUSTOMIZATION
+        // Reduction descriptors used for early outlining may be captured but
+        // not declared, skip them. Eventually we will need a better way to
+        // deal with these.
+        if ((CGF.getLangOpts().IntelOpenMP ||
+             CGF.getLangOpts().IntelOpenMPRegion) &&
+            VD->getName() == ".task_red.")
+          continue;
+#endif // INTEL_CUSTOMIZATION
         DeclRefExpr DRE(
             const_cast<VarDecl *>(VD),
             isCapturedVar(CGF, VD) || (CGF.CapturedStmtInfo &&

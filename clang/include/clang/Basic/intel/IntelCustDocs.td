@@ -383,6 +383,139 @@ Metadata:
 
 }
 
+def PragmaFusionDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Owner = "pmrao";
+  let Content = [{
+The ``fusion`` pragma instructs the compiler to fuse the loop with adjacent loops.
+
+This is enabled with -fintel-compatibility as:
+
+.. code-block:: c
+
+  #pragma fusion
+
+AST:
+
+AttributedStmt
+      LoopHintAttr Implicit fusion Fusion Enable
+
+Metadata:
+
+.. code-block:: llvm
+
+  br label %for.cond, !llvm.loop !2
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.fusion.enable"}
+
+  }];
+}
+
+def PragmaNoFusionDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Owner = "pmrao";
+  let Content = [{
+The ``nofusion`` pragma instructs the compiler not to fuse the loop with adjacent loops.
+
+This is enabled with -fintel-compatibility as:
+
+.. code-block:: c
+
+  #pragma nofusion
+
+AST:
+
+AttributedStmt
+      LoopHintAttr Implicit nofusion Fusion Disable
+
+Metadata:
+
+.. code-block:: llvm
+
+  br label %for.cond, !llvm.loop !2
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.fusion.disable"}
+
+  }];
+}
+
+def PragmaUnrollAndJamDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Owner = "pmrao";
+  let Content = [{
+The ``unroll_and_jam`` pragma instructs the compiler to enable unrolling and jamming loops.
+
+This is enabled with -fintel-compatibility as:
+
+.. code-block:: c
+
+  #pragma unroll_and_jam
+
+AST:
+
+AttributedStmt
+      LoopHintAttr Implicit unroll_and_jam UnrollAndJam Enable
+
+Metadata:
+
+.. code-block:: llvm
+
+  br label %for.cond, !llvm.loop !2
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.unroll_and_jam.enable"}
+
+The pragma accepts an optional integer argument as:
+
+.. code-block:: c
+
+  #pragma unroll_and_jam (n)
+
+AST:
+
+AttributedStmt
+      LoopHintAttr Implicit unroll_and_jam UnrollAndJam Numeric
+        -IntegerLiteral 'int' n
+
+
+Metadata:
+
+.. code-block:: llvm
+
+  br label %for.cond, !llvm.loop !2
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.unroll_and_jam.count", i32 n}
+
+  }];
+}
+
+def PragmaNoUnrollAndJamDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Owner = "pmrao";
+  let Content = [{
+The ``nounroll_and_jam`` pragma instructs the compiler to disable unrolling and jamming loops.
+
+This is enabled with -fintel-compatibility as:
+
+.. code-block:: c
+
+  #pragma nounroll_and_jam
+
+AST:
+
+AttributedStmt
+      LoopHintAttr Implicit nounroll_and_jam NoUnrollAndJam Disable
+
+Metadata:
+
+.. code-block:: llvm
+
+  br label %for.cond, !llvm.loop !2
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.unroll_and_jam.disable"}
+
+  }];
+}
+
 def PragmaIVDepDocs : Documentation {
   let Category = DocCatIntelCompat;
   let Owner = "mprice1,pmrao";

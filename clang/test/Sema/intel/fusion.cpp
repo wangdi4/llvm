@@ -5,13 +5,13 @@ void foo() {
   int a[10], b[10];
 
   // CHECK: AttributedStmt
-  // CHECK-NEXT: LoopHintAttr{{.*}}Fusion Disable
-  #pragma nofusion
+  // CHECK-NEXT: LoopHintAttr{{.*}}Fusion Enable
+  #pragma fusion
   for (i = 0; i < 10; ++i) {  // this is OK
     a[i] = b[i] = 0;
   }
-  // expected-error@+2 {{expected a for, while, or do-while loop to follow '#pragma nofusion'}}
-  #pragma nofusion
+  // expected-error@+2 {{expected a for, while, or do-while loop to follow '#pragma fusion'}}
+  #pragma fusion
   i = 7;
   for (i = 0; i < 10; ++i) {
     a[i] = b[i] = 0;
