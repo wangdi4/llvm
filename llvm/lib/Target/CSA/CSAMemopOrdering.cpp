@@ -84,6 +84,12 @@ static cl::opt<bool> IgnoreSelfDeps{
            "ordering."),
   cl::init(false)};
 
+static cl::opt<bool> IgnoreDataDeps{
+  "csa-memop-ordering-explicit-data-deps", cl::Hidden,
+  cl::desc("CSA-specific: Explicitly enforce data dependencies during memop "
+           "ordering."),
+  cl::init(false)};
+
 static cl::opt<bool> ViewMemopCFG{"csa-view-memop-cfg", cl::Hidden,
                                   cl::desc("CSA-specific: view memop CFG"),
                                   cl::init(false)};
@@ -209,6 +215,10 @@ struct MemopCFG {
 
     // Whether another dependency is implied by this one.
     bool implies(const Dep &) const;
+
+    // Whether another dependency is implied by this one _and_ is different
+    // from it.
+    bool strictly_implies(const Dep &) const;
   };
 
   // A standard type for holding dependencies.
@@ -712,6 +722,14 @@ private:
 
   // Determines implicit dependencies. Also called inside of load.
   void calculate_imp_deps();
+
+  // Calculates self dependencies, appending any that it finds to memops'
+  // imp_deps field. Called as part of calculate_imp_deps.
+  void calculate_self_deps();
+
+  // Calculates data dependencies, appending any that it finds to memops'
+  // imp_deps field. Also called as part of calculate_imp_deps.
+  void calculate_data_deps();
 };
 
 // A pass for filling out memory ordering operands on memory operations. Full
@@ -1209,17 +1227,17 @@ sections correctly.
 
 bool MemopCFG::Dep::implies(const Dep &that) const {
 
-  // If this is not a phibit...
+  // Do a fast check to see if this and that are the same. If they are, they're
+  // certainly the same.
+  if (*this == that)
+    return true;
+
+  // If this is not a phibit, it can only imply that if they are the same or if
+  // that refers to this. The equality check has already been tried; just check
+  // the phibit reference condition here.
   if (type != phibit) {
-
-    // If that is also not a phibit, this only implies that if they are the same
-    // Dep.
-    if (that.type != phibit)
-      return *this == that;
-
-    // Otherwise, this only implies that if that refers to this.
-    else
-      return that.node->phibits[that.idx].orig_dep() == *this;
+    return that.type == phibit and
+           that.node->phibits[that.idx].orig_dep() == *this;
   }
 
   // If this is a phibit, it cannot imply a non-phibit.
@@ -1250,6 +1268,10 @@ bool MemopCFG::Dep::implies(const Dep &that) const {
 
   // If this does dominate that, recurse into that only.
   return implies(that_phibit.dep);
+}
+
+bool MemopCFG::Dep::strictly_implies(const Dep &that) const {
+  return *this != that and implies(that);
 }
 
 unsigned MemopCFG::OrdToken::reg_no() const {
@@ -2875,124 +2897,178 @@ void MemopCFG::collect_loops(const MachineLoop *L) {
 }
 
 void MemopCFG::calculate_imp_deps() {
-  using namespace std;
+  using llvm::sort;
+  using std::begin;
+  using std::end;
+  using std::unique;
+  using std::unique_ptr;
 
   // If we're using self dependencies, mark all of them.
-  if (not IgnoreSelfDeps) {
-    for (const Loop &loop : loops) {
-      for (Node *const node : loop.nodes) {
-        for (int memop_idx = 0; memop_idx != int(node->memops.size());
-             ++memop_idx) {
-          loop.collect_self_deps({node, Dep::memop, memop_idx});
-        }
+  if (not IgnoreSelfDeps)
+    calculate_self_deps();
+
+  // If we're using data dependencies, mark those too.
+  const MachineFunction *const MF = nodes.front()->BB->getParent();
+  const CSASubtarget &ST =
+    static_cast<const CSASubtarget &>(MF->getSubtarget());
+  if (not ST.canSpeculate() and not IgnoreDataDeps)
+    calculate_data_deps();
+
+  // Clean up each memop's imp_deps. Sort + unique and then remove redundant
+  // phibits.
+  for (const unique_ptr<Node> &node : nodes) {
+    for (Memop &memop : node->memops) {
+      DepVec &imp_deps = memop.imp_deps;
+      sort(begin(imp_deps), end(imp_deps));
+      imp_deps.erase(unique(begin(imp_deps), end(imp_deps)), end(imp_deps));
+      for (auto it = begin(imp_deps); it != end(imp_deps);) {
+        using namespace std::placeholders;
+        if (it->type == Dep::phibit and
+            any_of(begin(imp_deps), end(imp_deps),
+                   bind(&Dep::strictly_implies, _1, *it)))
+          it = imp_deps.erase(it);
+        else
+          ++it;
       }
     }
   }
+}
 
-  /*
-  // NOTE: Experimental code for calculating data dependencies. Do not resurrect
-  // until we get a good answer as to exactly which ones we are allowed to use.
+void MemopCFG::calculate_self_deps() {
+  for (const Loop &loop : loops) {
+    for (Node *const node : loop.nodes) {
+      for (int memop_idx = 0; memop_idx != int(node->memops.size());
+           ++memop_idx) {
+        loop.collect_self_deps({node, Dep::memop, memop_idx});
+      }
+    }
+  }
+}
 
-  const TargetRegisterInfo*const TRI
-    = nodes.front()->BB->getParent()->getSubtarget().getRegisterInfo();
-  const MachineRegisterInfo& MRI = nodes.front()->BB->getParent()->getRegInfo();
+void MemopCFG::calculate_data_deps() {
+  using llvm::sort;
+  using std::back_inserter;
+  using std::begin;
+  using std::end;
+  using std::unique;
+  using std::unique_ptr;
+  using std::upper_bound;
+
+  const MachineFunction *const MF = nodes.front()->BB->getParent();
+  const CSASubtarget &ST =
+    static_cast<const CSASubtarget &>(MF->getSubtarget());
+  const TargetRegisterInfo *const TRI = ST.getRegisterInfo();
+  const CSAInstrInfo *const TII =
+    static_cast<const CSAInstrInfo *>(ST.getInstrInfo());
+  const MachineRegisterInfo &MRI = MF->getRegInfo();
 
   // Keep track of which machine instructions have corresponding memops.
-  map<const MachineInstr*, OrdToken> memops_for_mis;
+  DenseMap<const MachineInstr *, Dep> memops_for_insts;
   for (const unique_ptr<Node>& node : nodes) {
     for (int idx = 0; idx != int(node->memops.size()); ++idx) {
       if (node->memops[idx].MI) {
-        memops_for_mis.emplace(
-          node->memops[idx].MI, OrdToken{node.get(), OrdToken::memop, idx}
-        );
+        memops_for_insts.insert(
+            {node->memops[idx].MI, {node.get(), Dep::memop, idx}});
       }
     }
   }
 
-  // And keep track of which memops each machine instruction depends on.
-  map<const MachineInstr*, set<OrdToken>> memop_deps;
+  // And keep track of which memops each machine instruction depends on. The
+  // DepVec values here are maintained in sorted order.
+  DenseMap<const MachineInstr *, DepVec> memop_deps;
 
-  // Adds dependencies to memop_deps for machine instructions in a given node's
-  // basic block.
-  const auto collect_deps = [this, &memops_for_mis, &memop_deps, TRI, &MRI](
-    Node* node
-  ) {
+  // Adds dependencies to memop_deps for machine instructions in a given
+  // node's basic block.
+  const auto collect_deps = [this, &memops_for_insts, &memop_deps, TRI, TII,
+                             &MRI](Node *node) {
     const MachineBasicBlock*const BB = node->BB;
     for (const MachineInstr& MI : *BB) {
+
+      // For phi nodes, look for phibit dependencies from predecessors.
       if (MI.isPHI()) {
         for (unsigned i = 1; i < MI.getNumOperands(); i += 2) {
           assert(i+1 < MI.getNumOperands());
           assert(MI.getOperand(i+1).isMBB());
           Node*const pred = nodes_for_bbs[MI.getOperand(i+1).getMBB()];
+          assert(pred);
           const MachineOperand& op = MI.getOperand(i);
+
+          // Only target uses of virtual registers that have a single
+          // non-multitriggered def.
           if (
             not op.isReg() or not op.isUse()
             or not TRI->isVirtualRegister(op.getReg())
           ) continue;
           const MachineInstr*const def = MRI.getUniqueVRegDef(op.getReg());
-          if (not def) continue;
-          const auto found_memop = memops_for_mis.find(def);
-          if (found_memop != end(memops_for_mis)) {
-            memop_deps[&MI].insert(node->get_phibit(pred, found_memop->second));
+          if (not def or TII->isMultiTriggered(def))
+            continue;
+
+          // If that def is a memop, add it directly. If not, add its memop
+          // dependencies. Drop deps that are crossing their second loop
+          // backedge.
+          const auto found_memop = memops_for_insts.find(def);
+          DepVec &deps           = memop_deps[&MI];
+          if (found_memop != end(memops_for_insts)) {
+            Dep new_dep = node->get_phibit(pred, found_memop->second);
+            deps.insert(upper_bound(begin(deps), end(deps), new_dep), new_dep);
           } else {
-            const auto& def_deps = memop_deps[def];
-            auto& deps = memop_deps[&MI];
-            for (const OrdToken& dep : def_deps) {
-              deps.insert(node->get_phibit(pred, dep));
+            const DepVec &def_deps = memop_deps[def];
+            for (const Dep &dep : def_deps) {
+              if (dep.type == Dep::phibit and
+                  dep.node->phibits[dep.idx].loop and
+                  pred->topo_num >= node->topo_num)
+                continue;
+              deps.push_back(node->get_phibit(pred, dep));
             }
+            sort(begin(deps), end(deps));
+            deps.erase(unique(begin(deps), end(deps)), end(deps));
           }
         }
-      } else {
+      }
+
+      // For other non-multitriggered instructions, look for normal
+      // dominating dependencies.
+      else if (not TII->isMultiTriggered(&MI)) {
         for (const MachineOperand& op : MI.operands()) {
           if (
             not op.isReg() or not op.isUse()
             or not TRI->isVirtualRegister(op.getReg())
           ) continue;
           const MachineInstr*const def = MRI.getUniqueVRegDef(op.getReg());
-          if (not def) continue;
-          const auto found_memop = memops_for_mis.find(def);
-          if (found_memop != end(memops_for_mis)) {
-            memop_deps[&MI].insert(found_memop->second);
+          if (not def)
+            continue;
+          const auto found_memop = memops_for_insts.find(def);
+          DepVec &deps           = memop_deps[&MI];
+          if (found_memop != end(memops_for_insts)) {
+            Dep &new_dep = found_memop->second;
+            deps.insert(upper_bound(begin(deps), end(deps), new_dep), new_dep);
           } else {
-            const auto& def_deps = memop_deps[def];
-            memop_deps[&MI].insert(begin(def_deps), end(def_deps));
+            const DepVec &def_deps = memop_deps[def];
+            const DepVec old_deps  = deps;
+            deps.clear();
+            set_union(begin(old_deps), end(old_deps), begin(def_deps),
+                      end(def_deps), back_inserter(deps));
           }
         }
       }
     }
   };
 
-  // Calculate dependencies in loops first.
-  for (Loop& loop : loops) for (Node*const node : loop.nodes) {
-    collect_deps(node);
-  }
+  // Look for data dependencies in loops first.
+  for (Loop& loop : loops)
+    for (Node*const node : loop.nodes)
+      collect_deps(node);
 
   // Then, go through the entire function.
-  for (const unique_ptr<Node>& node : nodes) collect_deps(node.get());
+  for (const unique_ptr<Node>& node : nodes)
+    collect_deps(node.get());
 
-  // Fill out the imp_deps fields on all of the memops.
-  for (const unique_ptr<Node>& node : nodes) for (Memop& memop : node->memops) {
-    auto& deps = memop_deps[memop.MI];
-
-    // Go ahead and eliminate redundant phibits first, though.
-    for (auto it = begin(deps); it != end(deps);) {
-      if (
-        it->type == OrdToken::phibit
-        and deps.count(it->node->phibits[it->idx].orig_val())
-      ) it = deps.erase(it);
-      else ++it;
-    }
-
-    memop.imp_deps.assign(begin(deps), end(deps));
-  }
-  */
-
+  // Add to the imp_deps fields on every memop that has a MachineInstr.
   for (const unique_ptr<Node> &node : nodes) {
     for (Memop &memop : node->memops)
-      if (not memop.imp_deps.empty()) {
-        std::sort(begin(memop.imp_deps), end(memop.imp_deps));
-        memop.imp_deps.erase(unique(begin(memop.imp_deps), end(memop.imp_deps)),
-                             end(memop.imp_deps));
+      if (memop.MI) {
+        const DepVec &deps = memop_deps[memop.MI];
+        memop.imp_deps.append(begin(deps), end(deps));
       }
   }
 }

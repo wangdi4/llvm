@@ -397,7 +397,7 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
     }
 
     // Fall through to handling this like a LDX.
-    LLVM_FALLTHROUGH
+    LLVM_FALLTHROUGH;
   }
   case CSA::Generic::LDX:
   case CSA::Generic::STX: {
@@ -480,40 +480,53 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
   builder.setInsertionPoint(MI);
 
   // Verify that the memory orders are properly constrained by the stream.
-  MachineInstr *inSource = getDefinition(*inOrder);
-  if (!inSource) {
-    reportFailure("memory ordering tokens are not loop-invariant");
-    LLVM_DEBUG(dbgs() << "Conversion failed due to bad in memory order.\n");
-    return nullptr;
-  }
-  auto mem_result = mirmatch::match(repeated_pat, inSource);
-  if (!mem_result || MRI->getVRegDef(mem_result.reg(SEQ_LAST)) != stream) {
-    reportFailure("memory ordering tokens are not loop-invariant");
-    LLVM_DEBUG(dbgs() << "Conversion failed due to bad in memory order.\n");
-    return nullptr;
-  }
-
-  MachineInstr *outSink = getSingleUse(*outOrder);
-  if (!outSink ||
-      TII->getGenericOpcode(outSink->getOpcode()) != CSA::Generic::FILTER) {
-    reportFailure("memory ordering tokens are not loop-invariant");
-    LLVM_DEBUG(dbgs() <<
-               "Conversion failed because out memory order is not a switch.\n");
-    return nullptr;
+  const bool inIsIgn = inOrder->isReg() && inOrder->getReg() == CSA::IGN;
+  const MachineOperand *realInSource = nullptr;
+  if (!inIsIgn) {
+    MachineInstr *const inSource = getDefinition(*inOrder);
+    if (!inSource) {
+      reportFailure("memory ordering tokens are not loop-invariant");
+      LLVM_DEBUG(dbgs() << "Conversion failed due to bad in memory order.\n");
+      return nullptr;
+    }
+    auto mem_result = mirmatch::match(repeated_pat, inSource);
+    if (!mem_result || MRI->getVRegDef(mem_result.reg(SEQ_LAST)) != stream) {
+      reportFailure("memory ordering tokens are not loop-invariant");
+      LLVM_DEBUG(dbgs() << "Conversion failed due to bad in memory order.\n");
+      return nullptr;
+    }
+    realInSource = &inSource->getOperand(2);
+  } else {
+    realInSource = inOrder;
   }
 
-  // The output memory order should be a switch that ignores the signal unless
-  // it's the last iteration of the stream.
-  MachineInstr *sinkControl = getDefinition(outSink->getOperand(1));
-  if (!sinkControl) {
-    reportFailure("memory ordering tokens are not loop-invariant");
-    LLVM_DEBUG(dbgs() <<
-               "Cannot found the definition of the output order switch");
-    return nullptr;
-  }
+  const bool outIsIgn   = outOrder->isReg() && outOrder->getReg() == CSA::IGN;
+  MachineInstr *outSink = nullptr;
+  const MachineOperand *realOutSink = nullptr;
+  if (!outIsIgn) {
+    outSink = getSingleUse(*outOrder);
+    if (!outSink ||
+        TII->getGenericOpcode(outSink->getOpcode()) != CSA::Generic::FILTER) {
+      reportFailure("memory ordering tokens are not loop-invariant");
+      LLVM_DEBUG(dbgs()
+            << "Conversion failed because out memory order is not a switch.\n");
+      return nullptr;
+    }
 
-  // TODO: check that we are using the last output of the stream.
-  const MachineOperand *realOutSink = &outSink->getOperand(0);
+    // The output memory order should be a switch that ignores the signal unless
+    // it's the last iteration of the stream.
+    MachineInstr *sinkControl = getDefinition(outSink->getOperand(1));
+    if (!sinkControl) {
+      reportFailure("memory ordering tokens are not loop-invariant");
+      LLVM_DEBUG(dbgs() << "Cannot found the definition of the output order switch");
+      return nullptr;
+    }
+
+    // TODO: check that we are using the last output of the stream.
+    realOutSink = &outSink->getOperand(0);
+  } else {
+    realOutSink = outOrder;
+  }
 
   // Compute the length of the stream from the stream parameter.
   const MachineOperand &seqStart = stream->getOperand(4);
@@ -523,7 +536,7 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
     LLVM_DEBUG(dbgs() << "Sequence step is not an immediate\n");
     return nullptr;
   }
- 
+
   bool isEqual = false;
   switch (TII->getGenericOpcode(stream->getOpcode())) {
   case CSA::Generic::SEQOTNE:
@@ -581,13 +594,14 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
     OpImm(stride),                              // Stride
     OpIf(!MI->mayLoad(), OpUse(*value)),        // Value (for store)
     *memOrder,                                  // Memory ordering
-    inSource->getOperand(2));                   // Input memory order
+    *realInSource);                             // Input memory order
 
-  // Delete the old instruction. Also delete the old output switch, since we
-  // added a second definition of its input. Dead instruction elimination should
-  // handle the rest.
+  // Delete the old instruction. Also delete the old output switch if needed,
+  // since we added a second definition of its input. Dead instruction
+  // elimination should handle the rest.
   to_delete.push_back(MI);
-  to_delete.push_back(outSink);
+  if (!outIsIgn)
+    to_delete.push_back(outSink);
 
   return newInst;
 }
@@ -640,15 +654,19 @@ void CSAStreamingMemoryConversionPass::formWideOps(
       }
 
       // Now check to see that the output memory operands go to the same ALL
-      // chain.
+      // chain or are both %ign.
       auto getTargetUse = [&](const MachineOperand *MO) {
         const MachineInstr *use;
         while ((use = getSingleUse(*MO)) && use->getOpcode() == CSA::ALL0)
           MO = &use->getOperand(0);
         return MO->getParent();
       };
-      if (getTargetUse(&first->getOperand(1)) !=
-          getTargetUse(&second->getOperand(1)))
+      if (!first->getOperand(1).isReg() || !second->getOperand(1).isReg())
+        continue;
+      const bool bothOutordsIgn = first->getOperand(1).getReg() == CSA::IGN &&
+                                  second->getOperand(1).getReg() == CSA::IGN;
+      if (!bothOutordsIgn && getTargetUse(&first->getOperand(1)) !=
+                               getTargetUse(&second->getOperand(1)))
         continue;
 
       // Now we know that we can combine these two streaming loads into a single
@@ -679,9 +697,10 @@ void CSAStreamingMemoryConversionPass::formWideOps(
       builder.add(first->getOperand(6)); // In memory order.
 
       // Replace the uses of all of the old second memory operands with the
-      // first one.
-      MRI->replaceRegWith(second->getOperand(1).getReg(),
-          first->getOperand(1).getReg());
+      // first one if they are not already both %ign.
+      if (!bothOutordsIgn)
+        MRI->replaceRegWith(second->getOperand(1).getReg(),
+                            first->getOperand(1).getReg());
 
       // Delete the old streaming loads.
       first->eraseFromParent();

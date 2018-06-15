@@ -40,6 +40,7 @@ class CSASubtarget : public CSAGenSubtargetInfo {
 
 protected:
   bool IsOrdered;
+  bool CanSpeculate;
   bool HasI0;
   bool HasI1;
   bool HasI8;
@@ -66,6 +67,7 @@ protected:
 public:
   std::string csaName() const { return CSAName; }
   bool isOrdered() const { return IsOrdered; }
+  bool canSpeculate() const { return CanSpeculate; }
   bool hasI0() const { return HasI0; }
   bool hasI1() const { return HasI1; }
   bool hasI8() const { return HasI8; }

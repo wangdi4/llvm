@@ -35,11 +35,11 @@ loop:
 ; CHECK: .unit
 ; CHECK: cmpne64 %[[OT:[a-z0-9_]+]], %[[LEN]], 0
 ; CHECK: merge64 %[[SAFELEN:[a-z0-9_]+]], %[[OT]], 1, %[[LEN]]
-; CHECK-DAG: sld64 %{{[a-z0-9_]+}}, %[[ADDRA]], %[[SAFELEN]], 1, %{{[a-z0-9_]+}}, %[[INORD]], MEMLEVEL_T0
-; CHECK-DAG: sld64 %{{[a-z0-9_]+}}, %[[ADDRB]], %[[SAFELEN]], 1, %{{[a-z0-9_]+}}, %[[INORD]], MEMLEVEL_T0
-; CHECK-DAG: sld64 %{{[a-z0-9_]+}}, %[[ADDRC]], %[[SAFELEN]], 1, %{{[a-z0-9_]+}}, %[[INORD]], MEMLEVEL_T0
-; CHECK-DAG: sld64 %{{[a-z0-9_]+}}, %[[ADDRD]], %[[SAFELEN]], 1, %{{[a-z0-9_]+}}, %[[INORD]], MEMLEVEL_T0
-; CHECK-DAG: sst64 %[[ADDRE]], %[[SAFELEN]], 1, %{{[a-z0-9_]+}}, %{{[a-z0-9_]+}}, %[[INORD]], MEMLEVEL_T0
+; CHECK-DAG: sld64 %{{[a-z0-9_]+}}, %[[ADDRA]], %[[SAFELEN]], 1, %ign, %[[INORD]], MEMLEVEL_T0
+; CHECK-DAG: sld64 %{{[a-z0-9_]+}}, %[[ADDRB]], %[[SAFELEN]], 1, %ign, %[[INORD]], MEMLEVEL_T0
+; CHECK-DAG: sld64 %{{[a-z0-9_]+}}, %[[ADDRC]], %[[SAFELEN]], 1, %ign, %[[INORD]], MEMLEVEL_T0
+; CHECK-DAG: sld64 %{{[a-z0-9_]+}}, %[[ADDRD]], %[[SAFELEN]], 1, %ign, %[[INORD]], MEMLEVEL_T0
+; CHECK-DAG: sst64 %[[ADDRE]], %[[SAFELEN]], 1, %{{[a-z0-9_]+}}, %{{[a-z0-9_]+}}, %ign, MEMLEVEL_T0
 
 exit:
   ret void

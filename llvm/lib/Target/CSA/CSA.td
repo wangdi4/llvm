@@ -24,6 +24,10 @@ include "CSASchedule.td"
 // Large scale features
 def FeatureOrdered : SubtargetFeature<"ordered", "IsOrdered", "true",
                             "All operations have ordered semantics - 1 unit">;
+def FeatureSpec    : SubtargetFeature<"speculation", "CanSpeculate", "true",
+                            "Memory references can be speculated as allowed by "
+                            "ordering edges, so ordering by data dependencies "
+                            "is not sufficient.">;
 
 // Operation type features
 // Not all of these can reasonably be disabled currently.   The intent
