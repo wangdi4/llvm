@@ -265,7 +265,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::UnsafePtrMerge | dtrans::AddressTaken | dtrans::NoFieldsInStruct |
       dtrans::NestedStruct | dtrans::ContainsNestedStruct |
       dtrans::SystemObject | dtrans::LocalPtr | dtrans::LocalInstance |
-      dtrans::UnhandledUse;
+      dtrans::MismatchedArgUse | dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
   static_assert(
@@ -281,7 +281,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::UnsafePtrMerge ^ dtrans::AddressTaken ^
            dtrans::NoFieldsInStruct ^ dtrans::NestedStruct ^
            dtrans::ContainsNestedStruct ^ dtrans::SystemObject ^
-           dtrans::LocalPtr ^ dtrans::LocalInstance ^ dtrans::UnhandledUse),
+           dtrans::LocalPtr ^ dtrans::LocalInstance ^ dtrans::MismatchedArgUse ^
+           dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
@@ -332,6 +333,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
     SafetyIssues.push_back("Local pointer");
   if (SafetyInfo & dtrans::LocalInstance)
     SafetyIssues.push_back("Local instance");
+  if (SafetyInfo & dtrans::MismatchedArgUse)
+    SafetyIssues.push_back("Mismatched argument use");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
   // Print the safety issues found

@@ -37,8 +37,8 @@ define void @test2() {
 
 ; Cast of non-alloc pointer value
 %struct.test03 = type { i32, i32 }
-define void @test3(i8* %p) {
-  %s = bitcast i8* %p to %struct.test03*
+define void @test3() {
+  %s = bitcast i8* undef to %struct.test03*
   ret void
 }
 

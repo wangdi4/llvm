@@ -96,6 +96,11 @@ static cl::opt<bool> DTransUseCRuleCompat("dtrans-usecrulecompat",
                                           cl::init(false), cl::ReallyHidden);
 namespace {
 
+// FIXME: Find a better home for this very generic utility function.
+inline bool isValueInt8PtrType(Value *V) {
+  return (V->getType() == llvm::Type::getInt8PtrTy(V->getContext()));
+}
+
 /// Information describing type alias information for temporary values used
 /// within a function.
 ///
@@ -982,6 +987,13 @@ private:
       return;
     }
 
+    // If the value is an i8* function argument, look ahead to its uses to
+    // infer its alias set.
+    if (isa<Argument>(V) && isValueInt8PtrType(V)) {
+      analyzePossibleVoidPtrArgument(V, Info);
+      return;
+    }
+
     // If this value is derived from another local value, follow the
     // collect info from the source operand.
     if (isDerivedValue(V))
@@ -1629,6 +1641,140 @@ private:
     for (auto *AliasTy : StoredLPI.getPointerTypeAliasSet())
       Types.insert(AliasTy->getPointerTo());
   }
+
+  // We need to handle i8* function arguments kind of backward.
+  // Because we don't know within the function what aliases the
+  // value passed in might have had, we look at the way the
+  // argument is used in the function and infer from that what
+  // its aliases need to be. When the function is called, we will
+  // compare the actual alias set of the values passed to the
+  // function against the inferred alias set and report any
+  // mismatches there.
+  void analyzePossibleVoidPtrArgument(Value *V, LocalPointerInfo &Info) {
+    DEBUG_WITH_TYPE(LPA_VERBOSE,
+                    dbgs() << "dtrans: Analyzing function argument.\n");
+    SmallPtrSet<llvm::PointerType *, 4> CastTypes;
+    SmallPtrSet<Value *, 4> VisitedUsers;
+    inferAliasedTypesFromUses(V, CastTypes, VisitedUsers);
+    // Eliminate casts that access element zero in other known types.
+    // This is an N^2 algorithm, but N will generally be very small.
+    if (CastTypes.size() > 1) {
+      SmallPtrSet<llvm::PointerType *, 4> TypesToRemove;
+      for (auto *Ty1 : CastTypes) {
+        if (!Ty1->getPointerElementType()->isAggregateType())
+          continue;
+        for (auto *Ty2 : CastTypes)
+          if (dtrans::isElementZeroAccess(Ty1, Ty2))
+            TypesToRemove.insert(Ty2);
+      }
+      for (auto *Ty : TypesToRemove)
+        CastTypes.erase(Ty);
+    }
+
+    for (auto *Ty : CastTypes)
+      Info.addPointerTypeAlias(Ty);
+    Info.setAnalyzed();
+  }
+
+  // FIXME: This is doing nearly the same thing as collectAllocatedPtrBitcasts.
+  //        Eventually they should be merged. Right now, we need to tolerate
+  //        the duplication for the sake of meeting schedule constraints.
+  // The notable differences between this function and
+  // collectAllocatedPtrBitcasts are that this function does not attempt to
+  // infer alias information from loads and stores (which would require
+  // building a dependency stack, and unlike collectAllocatedPtrBitcasts this
+  // function does attempt to infer alias types from called functions.
+  void inferAliasedTypesFromUses(Value *V,
+                                 SmallPtrSetImpl<PointerType *> &CastTypes,
+                                 SmallPtrSetImpl<Value *> &VisitedUsers) {
+    for (auto *U : V->users()) {
+      // If we've already visited this user, don't visit again.
+      // This prevents infinite loops as we follow the sub-users of PHI nodes
+      // and select instructions.
+      if (!VisitedUsers.insert(U).second)
+        continue;
+      // If the user is a cast, that's what we're looking for.
+      if (auto *Cast = dyn_cast<CastInst>(U)) {
+        // We want to follow the uses through PointerToInt casts, but they
+        // don't tell us anything about aliases. The dyn_cast above catches
+        // PtrToInt, IntToPtr, and BitCast. If the result is a pointer
+        // type, we want to add it to the alias set.
+        if (auto *PtrTy = dyn_cast<PointerType>(Cast->getType())) {
+          DEBUG_WITH_TYPE(LPA_VERBOSE,
+                          dbgs() << "  Argument cast: " << *Cast << "\n");
+          // Save the type information.
+          CastTypes.insert(PtrTy);
+        }
+
+        // Follow the uses of the cast to see what other types are used.
+        inferAliasedTypesFromUses(Cast, CastTypes, VisitedUsers);
+        continue;
+      }
+      // If the user is a PHI node or a select instruction, we need to follow
+      // the users of that instruction.
+      if (isa<PHINode>(U) || isa<SelectInst>(U)) {
+        inferAliasedTypesFromUses(U, CastTypes, VisitedUsers);
+        continue;
+      }
+      // If the user is a call instruction and the value we're currently
+      // following is an i8* value, follow the uses of the argument within
+      // the called function. (Note: while it may seem counter-intuitive
+      // to be able to cross function boundaries like this, the VisitedUsers
+      // set will continue to work as expected.)
+      if (auto *CI = dyn_cast<CallInst>(U)) {
+        if (isValueInt8PtrType(V)) {
+          DEBUG_WITH_TYPE(LPA_VERBOSE,
+                          dbgs() << "Analyzing use in call instruction: " << *CI
+                                 << "\n");
+          // Check all the arguments of the call as our value may be used more
+          // than once.
+          unsigned NumArgs = CI->getNumArgOperands();
+          if (Function *F = CI->getCalledFunction()) {
+            for (unsigned ArgNo = 0; ArgNo < NumArgs; ++ArgNo) {
+              if (CI->getArgOperand(ArgNo) == V) {
+                DEBUG_WITH_TYPE(LPA_VERBOSE,
+                                dbgs()
+                                    << "Analyzing function argument: "
+                                    << F->getName() << " @ " << ArgNo << "\n");
+                Argument *Arg = F->arg_begin();
+                std::advance(Arg, ArgNo);
+                inferAliasedTypesFromUses(Arg, CastTypes, VisitedUsers);
+              }
+            }
+          } else {
+            // This happens with an indirect function call or a call to
+            // a function that has been bitcast to a different type.
+            Value *Callee = CI->getCalledValue();
+            if (auto *Cast = dyn_cast<BitCastOperator>(Callee)) {
+              F = dyn_cast<Function>(Cast->getOperand(0));
+              for (unsigned ArgNo = 0; ArgNo < NumArgs; ++ArgNo) {
+                if (CI->getArgOperand(ArgNo) == V) {
+                  DEBUG_WITH_TYPE(LPA_VERBOSE,
+                                  dbgs() << "Analyzing function argument: "
+                                         << F->getName() << " @ " << ArgNo
+                                         << "\n");
+                  Argument *Arg = F->arg_begin();
+                  std::advance(Arg, ArgNo);
+                  // If the argument is still an i8* after the function bitcast
+                  // follow its uses. Otherwise, infer the type directly from
+                  // the argument type.
+                  if (isValueInt8PtrType(Arg))
+                    inferAliasedTypesFromUses(Arg, CastTypes, VisitedUsers);
+                  else if (auto *ArgPtrTy =
+                               dyn_cast<PointerType>(Arg->getType()))
+                    CastTypes.insert(ArgPtrTy);
+                }
+              }
+            } else {
+              DEBUG_WITH_TYPE(LPA_VERBOSE,
+                              dbgs() << "Unable to get called function!\n");
+            }
+          }
+        }
+        continue;
+      }
+    }
+  }
 };
 
 class DTransInstVisitor : public InstVisitor<DTransInstVisitor> {
@@ -1843,7 +1989,15 @@ public:
   }
 
   void visitCallInst(CallInst &CI) {
-    Function *F = CI.getCalledFunction();
+    auto *CV = CI.getCalledValue();
+    Function *F = dyn_cast<Function>(CV);
+
+    // If the Function wasn't found, then there is a possibility
+    // that it is inside a BitCast. In this case we need
+    // to strip the pointer casting from the Value and then
+    // access the Function.
+    if (!F)
+      F = dyn_cast<Function>(CI.getCalledValue()->stripPointerCasts());
 
     // If the called function is a known allocation function, we need to
     // analyze the allocation.
@@ -1875,7 +2029,11 @@ public:
     // argument to a function, the address of the field has escaped.
     // FIXME: Try to resolve indirect calls.
     bool IsFnLocal = F ? !F->isDeclaration() : false;
+    unsigned NextArgNo = 0;
     for (Value *Arg : CI.arg_operands()) {
+      // Keep track of the argument index we're working with.
+      unsigned ArgNo = NextArgNo++;
+
       if (!isValueOfInterest(Arg))
         continue;
 
@@ -1905,24 +2063,56 @@ public:
       // when we visit that function. If more than one aggregate type is
       // aliased, we will have flagged the overloaded pointer when we visited
       // the select or PHI that created this situation, so here we just need to
-      // worry about the types individually.
+      // worry about the types individually. However, if the function being
+      // called is varadic and the argument is not one of the fixed parameters
+      // we can't check its use from here.
       auto *ArgTy = Arg->getType();
-      for (auto *AliasTy : LPI.getPointerTypeAliasSet()) {
-        if (!DTInfo.isTypeOfInterest(AliasTy))
-          continue;
-        if (IsFnLocal && (AliasTy == ArgTy))
-          continue;
-        // For indirect calls, Use the C language rule, if appropriate, to
-        // reject cases for which the Type of the formal and actual argument
-        // must match.  In such cases, there will be no "Address taken"
-        //  safety violation.
-        if (!F && DTransUseCRuleCompat &&
-            !mayHaveDistinctCompatibleCType(AliasTy))
-          continue;
-        LLVM_DEBUG(dbgs() << "dtrans-safety: Address taken -- "
-                          << "pointer to aggregate passed as argument:\n"
-                          << "  " << CI << "\n  " << *Arg << "\n");
-        setBaseTypeInfoSafetyData(AliasTy, dtrans::AddressTaken);
+      if (IsFnLocal && (ArgTy == Int8PtrTy) &&
+          (!F->isVarArg() || (ArgNo < F->getFunctionType()->getNumParams()))) {
+        // If we're calling a local function that takes an i8* operand
+        // get the expected alias types from the local pointer analyzer.
+        auto Param = F->arg_begin();
+        std::advance(Param, ArgNo);
+        LocalPointerInfo &ParamLPI = LPA.getLocalPointerInfo(Param);
+
+        if (isAliasSetOverloaded(LPI.getPointerTypeAliasSet(),
+                                 /*AllowElementZeroAccess=*/true) ||
+            isAliasSetOverloaded(ParamLPI.getPointerTypeAliasSet(),
+                                 /*AllowElementZeroAccess=*/true)) {
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched argument use -- "
+                            << "overloaded alias set found at call site:\n"
+                            << "  " << CI << "\n  " << *Arg << "\n");
+          setAllAliasedTypeSafetyData(LPI, dtrans::MismatchedArgUse);
+          setAllAliasedTypeSafetyData(ParamLPI, dtrans::MismatchedArgUse);
+        } else {
+          llvm::Type *DomParamTy = ParamLPI.getDominantAggregateTy();
+          llvm::Type *DomArgTy = LPI.getDominantAggregateTy();
+          if (DomParamTy != DomArgTy) {
+            LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched argument use -- "
+                              << "overloaded alias set found at call site:\n"
+                              << "  " << CI << "\n  " << *Arg << "\n");
+            setAllAliasedTypeSafetyData(LPI, dtrans::MismatchedArgUse);
+            setAllAliasedTypeSafetyData(ParamLPI, dtrans::MismatchedArgUse);
+          }
+        }
+      } else {
+        for (auto *AliasTy : LPI.getPointerTypeAliasSet()) {
+          if (!DTInfo.isTypeOfInterest(AliasTy))
+            continue;
+          if (IsFnLocal && (AliasTy == ArgTy))
+            continue;
+          // For indirect calls, Use the C language rule, if appropriate, to
+          // reject cases for which the Type of the formal and actual argument
+          // must match.  In such cases, there will be no "Address taken"
+          //  safety violation.
+          if (!F && DTransUseCRuleCompat &&
+              !mayHaveDistinctCompatibleCType(AliasTy))
+            continue;
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Address taken -- "
+                            << "pointer to aggregate passed as argument:\n"
+                            << "  " << CI << "\n  " << *Arg << "\n");
+          setBaseTypeInfoSafetyData(AliasTy, dtrans::AddressTaken);
+        }
       }
     }
   }

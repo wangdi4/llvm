@@ -307,6 +307,13 @@ LocalInstance
 ~~~~~~~~~~~~~~
 This indicates that a local variable was found that is an instance of the type.
 
+MismatchedArgUse
+~~~~~~~~~~~~~~~~
+This indicates that a function with at least one i8* argument was called with
+a value passed as an i8* argument whose alias set did not match the expected
+alias set for the argument based on the uses of the argument within the
+function.
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we
