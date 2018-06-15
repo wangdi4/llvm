@@ -28,7 +28,6 @@ code Prolog = [{
 #include <intrin.h>
 #include "generic-builtin-defines.h"
 #include "cpu-builtin-defines.h"
-#include "pipes.h"
 #include "pipes-internal.h"
 }];
 

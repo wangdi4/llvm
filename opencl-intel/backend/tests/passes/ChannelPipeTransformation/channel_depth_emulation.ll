@@ -19,10 +19,10 @@ target triple = "spir64-unknown-unknown-intelfpga"
 %opencl.channel_t = type opaque
 
 @ch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
-; DEFAULT: @ch.pipe {{.*}} %opencl.pipe_t {{.*}} !depth_is_ignored ![[MD:[0-9]+]]
-; CHECK-NOT: @ch.pipe {{.*}] %opencl.pipe_t {{.*}} !depth_is_ignored ![[MD:[0-9]+]]
-; IGNOREDEPTH-NOT: @ch.pipe {{.*}] %opencl.pipe_t {{.*}} !depth_is_ignored ![[MD:[0-9]+]]
-; STRICT-NOT: @ch.pipe {{.*}] %opencl.pipe_t {{.*}} !depth_is_ignored ![[MD:[0-9]+]]
+; DEFAULT: @ch.pipe {{.*}} %opencl.pipe_rw_t {{.*}} !depth_is_ignored ![[MD:[0-9]+]]
+; CHECK-NOT: @ch.pipe {{.*}] %opencl.pipe_rw_t {{.*}} !depth_is_ignored ![[MD:[0-9]+]]
+; IGNOREDEPTH-NOT: @ch.pipe {{.*}] %opencl.pipe_rw_t {{.*}} !depth_is_ignored ![[MD:[0-9]+]]
+; STRICT-NOT: @ch.pipe {{.*}] %opencl.pipe_rw_t {{.*}} !depth_is_ignored ![[MD:[0-9]+]]
 
 ; CHECK: define {{.*}}@__pipe_global_ctor
 ; IGNOREDEPTH: call void @__pipe_init_intel({{.*}} @ch.pipe.bs {{.*}}, i32 4, i32 0, i32 2)

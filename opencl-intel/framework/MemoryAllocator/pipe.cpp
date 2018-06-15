@@ -266,7 +266,9 @@ void Pipe::MapRead(MapSegment seg)
     size_t numPackets = seg.size / m_uiPacketSize;
     for (size_t i = 0; i < numPackets; ++i)
     {
-        while (__read_pipe_2_intel(pPipe, seg.ptr + i * m_uiPacketSize))
+        while (__read_pipe_2_intel(pPipe, seg.ptr + i * m_uiPacketSize,
+                                   /*size=*/m_uiPacketSize,
+                                   /*align=*/m_uiPacketSize))
         {
             FlushRead();
         }
@@ -296,7 +298,9 @@ void Pipe::UnmapWrite(MapSegment seg)
     size_t numPackets = seg.size / m_uiPacketSize;
     for (size_t i = 0; i < numPackets; ++i)
     {
-        while (__write_pipe_2_intel(pPipe, seg.ptr + i * m_uiPacketSize))
+        while (__write_pipe_2_intel(pPipe, seg.ptr + i * m_uiPacketSize,
+                                    /*size=*/m_uiPacketSize,
+                                    /*align=*/m_uiPacketSize))
         {
             FlushWrite();
         }
@@ -341,7 +345,8 @@ cl_err_code Pipe::ReadPacket(void* pDst)
     }
 
     void* pPipe = GetBackingStoreData();
-    if (__read_pipe_2_intel(pPipe, pDst))
+    if (__read_pipe_2_intel(pPipe, pDst, /*size=*/m_uiPacketSize,
+                            /*align=*/m_uiPacketSize))
     {
         return CL_PIPE_EMPTY;
     }
@@ -388,7 +393,8 @@ cl_err_code Pipe::WritePacket(const void* pSrc)
     }
 
     void* pPipe = GetBackingStoreData();
-    if (__write_pipe_2_intel(pPipe, pSrc))
+    if (__write_pipe_2_intel(pPipe, pSrc, /*size=*/m_uiPacketSize,
+                             /*align=*/m_uiPacketSize))
     {
         return CL_PIPE_FULL;
     }

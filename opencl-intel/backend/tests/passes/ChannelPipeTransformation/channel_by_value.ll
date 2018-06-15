@@ -50,23 +50,23 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[B_PIPE1:.*]] = load {{.*}} @b.pipe
 ; CHECK: call void @sendData2{{.*}} %[[A_PIPE1]], {{.*}} %[[B_PIPE1]]
 ;
-; CHECK: define {{.*}} @sendData(%opencl.pipe_t {{.*}}*)
-; CHECK: %[[PIPE_ARG_ADDR:.*]] = alloca %opencl.pipe_t {{.*}}*
+; CHECK: define {{.*}} @sendData(%opencl.pipe_rw_t {{.*}}*)
+; CHECK: %[[PIPE_ARG_ADDR:.*]] = alloca %opencl.pipe_rw_t {{.*}}*
 ; CHECK: store {{.*}} %0, {{.*}} %[[PIPE_ARG_ADDR]]
 ; CHECK: %[[PIPE:.*]] = load {{.*}} %[[PIPE_ARG_ADDR]]
-; CHECK: %[[PIPE_BITCAST:.*]] = bitcast {{.*}} %[[PIPE]]
+; CHECK: %[[PIPE_BITCAST:.*]] = bitcast {{.*}} %[[PIPE]] to %opencl.pipe_wo_t
 ; CHECK: call i32 @__write_pipe_2{{.*}} %[[PIPE_BITCAST]]
 ;
-; CHECK: define {{.*}} @sendData2(%opencl.pipe_t {{.*}}*, %opencl.pipe_t {{.*}}*, i32)
-; CHECK: %[[PIPE_ARG0_ADDR:.*]] = alloca %opencl.pipe_t {{.*}}*
-; CHECK: %[[PIPE_ARG1_ADDR:.*]] = alloca %opencl.pipe_t {{.*}}*
+; CHECK: define {{.*}} @sendData2(%opencl.pipe_rw_t {{.*}}*, %opencl.pipe_rw_t {{.*}}*, i32)
+; CHECK: %[[PIPE_ARG0_ADDR:.*]] = alloca %opencl.pipe_rw_t {{.*}}*
+; CHECK: %[[PIPE_ARG1_ADDR:.*]] = alloca %opencl.pipe_rw_t {{.*}}*
 ; CHECK: store {{.*}} %0, {{.*}} %[[PIPE_ARG0_ADDR]]
 ; CHECK: store {{.*}} %1, {{.*}} %[[PIPE_ARG1_ADDR]]
 ; CHECK: %[[PIPE0:.*]] = load {{.*}} %[[PIPE_ARG0_ADDR]]
-; CHECK: %[[PIPE0_BITCAST:.*]] = bitcast {{.*}} %[[PIPE0]]
+; CHECK: %[[PIPE0_BITCAST:.*]] = bitcast {{.*}} %[[PIPE0]] to %opencl.pipe_wo_t
 ; CHECK: call i32 @__write_pipe{{.*}} %[[PIPE0_BITCAST]]
 ; CHECK: %[[PIPE1:.*]] = load {{.*}} %[[PIPE_ARG1_ADDR]]
-; CHECK: %[[PIPE1_BITCAST:.*]] = bitcast {{.*}} %[[PIPE1]]
+; CHECK: %[[PIPE1_BITCAST:.*]] = bitcast {{.*}} %[[PIPE1]] to %opencl.pipe_wo_t
 ; CHECK: call i32 @__write_pipe{{.*}} %[[PIPE1_BITCAST]]
 
 ; Function Attrs: convergent noinline nounwind

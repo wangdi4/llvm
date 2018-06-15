@@ -35,12 +35,12 @@ target triple = "spir64-unknown-unknown-intelfpga"
 @far_arr = common addrspace(1) global [5 x [4 x %opencl.channel_t addrspace(1)*]] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !2
 @star_arr = common addrspace(1) global [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] zeroinitializer, align 4, !packet_size !0, !packet_align !0
 
-; CHECK-DAG: @[[PIPE_BAR:bar.*]] = addrspace(1) global %opencl.pipe_t addrspace(1)*
-; CHECK-DAG: @[[PIPE_FAR:far.*]] = addrspace(1) global %opencl.pipe_t addrspace(1)*
-; CHECK-DAG: @[[PIPE_STAR:star.*]] = addrspace(1) global %opencl.pipe_t addrspace(1)*
-; CHECK-DAG: @[[PIPE_BAR_ARR:bar_arr.*]] = addrspace(1) global [5 x %opencl.pipe_t addrspace(1)*]
-; CHECK-DAG: @[[PIPE_FAR_ARR:far_arr.*]] = addrspace(1) global [5 x [4 x %opencl.pipe_t addrspace(1)*]]
-; CHECK-DAG: @[[PIPE_STAR_ARR:star_arr.*]] = addrspace(1) global [5 x [4 x [3 x %opencl.pipe_t addrspace(1)*]]]
+; CHECK-DAG: @[[PIPE_BAR:bar.*]] = addrspace(1) global %opencl.pipe_rw_t addrspace(1)*
+; CHECK-DAG: @[[PIPE_FAR:far.*]] = addrspace(1) global %opencl.pipe_rw_t addrspace(1)*
+; CHECK-DAG: @[[PIPE_STAR:star.*]] = addrspace(1) global %opencl.pipe_rw_t addrspace(1)*
+; CHECK-DAG: @[[PIPE_BAR_ARR:bar_arr.*]] = addrspace(1) global [5 x %opencl.pipe_rw_t addrspace(1)*]
+; CHECK-DAG: @[[PIPE_FAR_ARR:far_arr.*]] = addrspace(1) global [5 x [4 x %opencl.pipe_rw_t addrspace(1)*]]
+; CHECK-DAG: @[[PIPE_STAR_ARR:star_arr.*]] = addrspace(1) global [5 x [4 x [3 x %opencl.pipe_rw_t addrspace(1)*]]]
 ;
 ; size of pipe backing store is calculated as:
 ;   sizeof(__pipe_t) + packet_size * __get_pipe_max_packets(depth, mode)

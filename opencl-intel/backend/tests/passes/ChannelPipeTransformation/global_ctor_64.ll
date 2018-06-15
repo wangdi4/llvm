@@ -24,7 +24,7 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64-unknown-unknown-intelfpga"
 
 %opencl.channel_t = type opaque
-; CHECK: %opencl.pipe_t{{.*}} = type opaque
+; CHECK: %opencl.pipe_rw_t{{.*}} = type opaque
 ; CHECK: %struct.__pipe_t = type { i32, i32, i32, i32, i32, i32, [0 x i8] }
 
 @bar = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0, !depth !1
@@ -35,17 +35,17 @@ target triple = "spir64-unknown-unknown-intelfpga"
 @star_arr = common addrspace(1) global [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] zeroinitializer, align 4, !packet_size !0, !packet_align !0
 
 ; CHECK:      @llvm.global_ctors = {{.*}} @__pipe_global_ctor
-; CHECK:      @[[PIPE_BAR:.*]] = addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)* null, align 8, !packet_size !0, !packet_align !0, !depth !1
+; CHECK:      @[[PIPE_BAR:.*]] = addrspace(1) global %opencl.pipe_rw_t{{.*}} addrspace(1)* null, align 8, !packet_size !0, !packet_align !0, !depth !1
 ; CHECK-NEXT: @[[PIPE_BAR]].bs = addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
-; CHECK-NEXT: @[[PIPE_FAR:.*]] = addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)* null, align 8, !packet_size !0, !packet_align !0, !depth !2
+; CHECK-NEXT: @[[PIPE_FAR:.*]] = addrspace(1) global %opencl.pipe_rw_t{{.*}} addrspace(1)* null, align 8, !packet_size !0, !packet_align !0, !depth !2
 ; CHECK-NEXT: @[[PIPE_FAR]].bs = addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
-; CHECK-NEXT: @[[PIPE_STAR:.*]] = addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)* null, align 8, !packet_size !0, !packet_align !0
+; CHECK-NEXT: @[[PIPE_STAR:.*]] = addrspace(1) global %opencl.pipe_rw_t{{.*}} addrspace(1)* null, align 8, !packet_size !0, !packet_align !0
 ; CHECK-NEXT: @[[PIPE_STAR]].bs = addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
-; CHECK-NEXT: @[[PIPE_BAR_ARR:.*]] = addrspace(1) global [5 x %opencl.pipe_t{{.*}} addrspace(1)*] zeroinitializer, align 16, !packet_size !0, !packet_align !0, !depth !1
+; CHECK-NEXT: @[[PIPE_BAR_ARR:.*]] = addrspace(1) global [5 x %opencl.pipe_rw_t{{.*}} addrspace(1)*] zeroinitializer, align 16, !packet_size !0, !packet_align !0, !depth !1
 ; CHECK-NEXT: @[[PIPE_BAR_ARR]].bs = addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
-; CHECK-NEXT: @[[PIPE_FAR_ARR:.*]] = addrspace(1) global [5 x [4 x %opencl.pipe_t{{.*}} addrspace(1)*]] zeroinitializer, align 16, !packet_size !0, !packet_align !0, !depth !2
+; CHECK-NEXT: @[[PIPE_FAR_ARR:.*]] = addrspace(1) global [5 x [4 x %opencl.pipe_rw_t{{.*}} addrspace(1)*]] zeroinitializer, align 16, !packet_size !0, !packet_align !0, !depth !2
 ; CHECK-NEXT: @[[PIPE_FAR_ARR]].bs = addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
-; CHECK-NEXT: @[[PIPE_STAR_ARR:.*]] = addrspace(1) global [5 x [4 x [3 x %opencl.pipe_t{{.*}} addrspace(1)*]]] zeroinitializer, align 16, !packet_size !0, !packet_align !0
+; CHECK-NEXT: @[[PIPE_STAR_ARR:.*]] = addrspace(1) global [5 x [4 x [3 x %opencl.pipe_rw_t{{.*}} addrspace(1)*]]] zeroinitializer, align 16, !packet_size !0, !packet_align !0
 ; CHECK-NEXT: @[[PIPE_STAR_ARR]].bs = addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
 ;
 ; CHECK-DAG: call void @__pipe_init_intel({{.*}}* @[[PIPE_STAR]].bs {{.*}}, i32 4, i32 0
