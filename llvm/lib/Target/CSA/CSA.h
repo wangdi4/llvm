@@ -49,6 +49,7 @@ MachineFunctionPass *createCSANameLICsPass();
 MachineFunctionPass *createCSAReassocReducPass();
 // FunctionPass *createCSALowerStructArgsPass();
 Pass *createCSAInnerLoopPrepPass();
+Pass *createCSAReplaceAllocaWithMallocPass();
 Pass *createCSAStreamingMemoryPrepPass();
 
 } // namespace llvm

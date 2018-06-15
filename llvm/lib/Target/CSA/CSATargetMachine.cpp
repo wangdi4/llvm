@@ -73,6 +73,7 @@ namespace llvm {
 void initializeCSALowerAggrCopiesPass(PassRegistry &);
 void initializeCSAFortranIntrinsicsPass(PassRegistry &);
 void initializeCSAInnerLoopPrepPass(PassRegistry &);
+void initializeCSAReplaceAllocaWithMallocPass(PassRegistry &);
 } // namespace llvm
 
 extern "C" void LLVMInitializeCSATarget() {
@@ -84,6 +85,7 @@ extern "C" void LLVMInitializeCSATarget() {
   PassRegistry &PR = *PassRegistry::getPassRegistry();
   initializeCSAOptDFPassPass(PR);
   initializeCSAInnerLoopPrepPass(PR);
+  initializeCSAReplaceAllocaWithMallocPass(PR);
   initializeCSALowerAggrCopiesPass(PR);
   initializeCSAFortranIntrinsicsPass(PR);
 }
@@ -176,6 +178,8 @@ public:
     // Remove any remaining intrinsics which should not go through instruction
     // selection
     addPass(createCSAIntrinsicCleanerPass());
+    // Add pass to replace alloca instructions
+    addPass(createCSAReplaceAllocaWithMallocPass());
     // simplify loop has to be run last, data flow converter assume natural loop
     // format, with prehdr etc...
     addPass(createLoopSimplifyPass());
@@ -252,13 +256,6 @@ public:
     LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
                        false));
 
-    if (csa_utils::isAlwaysDataFlowLinkageSet()) {
-      addPass(createCSAProcCallsPass(), false);
-      Banner = std::string("After CSAProcCallsPass");
-      LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
-                         false));
-    }
-
     addPass(createCSAReassocReducPass(), false);
     Banner = std::string("After CSAReassocReducPass");
     LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
@@ -287,6 +284,15 @@ public:
     disablePass(&StackMapLivenessID);
     disablePass(&LiveDebugValuesID);
     disablePass(&PatchableFunctionID);
+  }
+
+  void addPreEmitPass2() override {
+    if (csa_utils::isAlwaysDataFlowLinkageSet()) {
+      addPass(createCSAProcCallsPass(), false);
+      std::string Banner = std::string("After CSAProcCallsPass");
+      LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    }
+
   }
 
   void addIRPasses() override {

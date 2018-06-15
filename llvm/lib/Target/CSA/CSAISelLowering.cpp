@@ -1061,23 +1061,24 @@ SDValue CSATargetLowering::LowerFormalArguments(
     if (VA.isRegLoc()) {
       // EVT RegVT = VA.getLocVT();
 
+      bool isDF = (csa_utils::isAlwaysDataFlowLinkageSet());
       // Transform the arguments stored in physical registers into virtual ones
-      const TargetRegisterClass *tClass = &CSA::RI64RegClass;
+      const TargetRegisterClass *tClass = isDF ? &CSA::CI64RegClass : &CSA::RI64RegClass;
       MVT tVT                           = VA.getValVT();
       if (tVT == MVT::i64) {
-        tClass = &CSA::I64RegClass;
+        tClass = isDF ? &CSA::CI64RegClass : &CSA::I64RegClass;
       } else if (tVT == MVT::i32) {
-        tClass = &CSA::I32RegClass;
+        tClass = isDF ? &CSA::CI32RegClass : &CSA::I32RegClass;
       } else if (tVT == MVT::i16) {
-        tClass = &CSA::I16RegClass;
+        tClass = isDF ? &CSA::CI16RegClass : &CSA::I16RegClass;
       } else if (tVT == MVT::i8) {
-        tClass = &CSA::I8RegClass;
+        tClass = isDF ? &CSA::CI8RegClass : &CSA::I8RegClass;
       } else if (tVT == MVT::i1) {
-        tClass = &CSA::I1RegClass;
+        tClass = isDF ? &CSA::CI1RegClass : &CSA::I1RegClass;
       } else if (tVT == MVT::f64) {
-        tClass = &CSA::I64RegClass;
+        tClass = isDF ? &CSA::CI64RegClass : &CSA::I64RegClass;
       } else if (tVT == MVT::f32) {
-        tClass = &CSA::I32RegClass;
+        tClass = isDF ? &CSA::CI32RegClass : &CSA::I32RegClass;
       } else {
         llvm_unreachable("WTC!!");
       }

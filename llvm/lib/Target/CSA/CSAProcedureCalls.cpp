@@ -233,7 +233,7 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
       for (const Instruction &I : BB) {
         if (const CallInst *CI = dyn_cast<const CallInst>(&I)) {
           LLVM_DEBUG(errs() << "CallInst = " << I << "\n");
-          if (!CI->isInlineAsm() && name == CI->getCalledFunction()->getName()) {
+          if (!CI->isInlineAsm() &&  !CI->getCalledFunction()->isIntrinsic() && name == CI->getCalledFunction()->getName()) {
             CALL_SITE_INFO csi;
             csi.caller_func = F.getName();
             bool isDeclared = (get_func_order(name,M) < get_func_order(csi.caller_func,M));
@@ -244,8 +244,11 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
             num_call_sites++;
             LLVM_DEBUG(errs() << name << " is called by " << csi.caller_func << " at index " << csi.call_site_index << "\n");
           }
-          if (!CI->isInlineAsm() &&  CI->getCalledFunction()->isDeclaration()) LLVM_DEBUG(errs() << "Is decl\n"); 
-          else if (!CI->isInlineAsm()) index++;
+          if (!CI->isInlineAsm() &&  !CI->getCalledFunction()->isIntrinsic() && CI->getCalledFunction()->isDeclaration()) {
+            errs() << "Func = " << CI->getCalledFunction()->getName() << "\n";
+            report_fatal_error("External calls not yet supported! Cannot be run on CSA!");
+          } else if (!CI->isInlineAsm() &&  !CI->getCalledFunction()->isIntrinsic()) 
+            index++;
         }
       }
     }
@@ -375,11 +378,11 @@ MachineInstr* CSAProcCallsPass::addEntryInstruction(void) {
 		MachineInstr *DefMI = MRI->getVRegDef(vReg);
     MIB.addReg(vReg,RegState::Define);
     DefMI->eraseFromParent();
-	}
+  }
   MachineInstr *MI = &*MIB;
   MI->setFlag(MachineInstr::NonSequential);
   LLVM_DEBUG(errs() << "Entry instruction = " << *MI << "\n");
-  
+
   // Deal with output mem ord edge from entry
   // MemOpOrdering introduces a SXU instruction to generate a memory ordering reg
   // That memory ordering reg is replaced by the input LIC here
@@ -457,32 +460,30 @@ MachineInstr* CSAProcCallsPass::addReturnInstruction(MachineInstr *entryMI) {
       }
     }
   }
-  
+
   unsigned returnReg;
   unsigned reg1 = LMFI->allocateLIC(&CSA::CI1RegClass, Twine("callee_out_caller_mem_ord"));
   MachineInstrBuilder MIB = BuildMI(*(lastMI->getParent()), lastMI, lastMI->getDebugLoc(), TII->get(CSA::CSA_RETURN))
                                     .addReg(reg1);
   if (copyMI->getOpcode() != CSA::RET) {
     returnReg = copyMI->getOperand(1).getReg();
-    assert(copyMI && copyMI->getOpcode() == TargetOpcode::COPY);
+    assert(copyMI && copyMI->getOpcode() == CSA::MOV64);
     MIB.addReg(returnReg);
   }
-                                    
+
   if (lastMI != copyMI) lastMI->eraseFromParent();
   copyMI->eraseFromParent();
   MachineInstr *MI = &*MIB;
   MI->setFlag(MachineInstr::NonSequential);
   LLVM_DEBUG(errs() << "Return instruction = " << *MI << "\n");
-  
+
   // Deal with input memory ordering edge into return
   MachineBasicBlock::reverse_iterator RI_BEGIN(MI);
   for (MachineBasicBlock::reverse_iterator I1 = RI_BEGIN; I1 != (MI->getParent())->rend(); I1++) {
     copyMI = &*I1;
-    LLVM_DEBUG(errs() << "copyMI = " << *copyMI << "\n");
     if (copyMI->getOpcode() != CSA::MOV0) continue;
     if (!copyMI->getOperand(0).isReg()) continue;
-    const TargetRegisterClass *TRC = MRI->getRegClass(copyMI->getOperand(0).getReg());
-    if (TRC != &CSA::RI1RegClass) continue;
+    if (copyMI->getOperand(0).getReg() != CSA::R0) continue;
     if (copyMI->getOperand(1).getReg() == entryMI->getOperand(0).getReg()) {
       copyMI->getOperand(0).setReg(MI->getOperand(0).getReg());
       copyMI->setFlag(MachineInstr::NonSequential);
@@ -518,7 +519,10 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
       const Function *F = dyn_cast<Function>(MO.getGlobal());
       if (!F) continue;
       LLVM_DEBUG(errs() << "Called Function name = " << F->getName() << "\n");
-      if (F->getName() == name) LLVM_DEBUG(errs() << "Recursive function call!!!\n");
+      if (F->getName() == name) {
+        errs() << "Called Function name = " << F->getName() << "\n";
+        report_fatal_error("Recursive function call not yet supported! Cannot be run on CSA!");
+      }
       StringRef callee_name = F->getName();
       int callee_id = get_func_order(callee_name,M);
       int caller_id = get_func_order(name,M);
@@ -529,29 +533,24 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
                                         .add(MI->getOperand(0))
                                         .addImm(CallSiteIndex)
                                         .addReg(reg1);
-                                        
-      for (unsigned int i = 1; i < MI->getNumOperands(); ++i) {
+      for (unsigned int i = 1; i < MI->getNumExplicitOperands(); ++i) {
         unsigned preg = MI->getOperand(i).getReg();
         MachineBasicBlock *MBB = MI->getParent();
-        
         MachineBasicBlock::reverse_iterator RI_BEGIN(I);
-        bool outerloop = true;
         MachineBasicBlock::reverse_iterator nextI1 = RI_BEGIN;
-        for (MachineBasicBlock::reverse_iterator I1 = RI_BEGIN; I1 != MBB->rend() && outerloop; I1 = nextI1) {
+        for (MachineBasicBlock::reverse_iterator I1 = RI_BEGIN; I1 != MBB->rend(); I1 = nextI1) {
           copyMI = &*I1;
           I1++;
           nextI1 = I1;
           if (!isMovOpcode(copyMI->getOpcode())) continue;
-          for (unsigned j = 0; j < copyMI->getNumOperands(); ++j) {
-            if (copyMI->getOperand(j).isReg()) {
-              if (copyMI->getOperand(j).isDef() && copyMI->getOperand(j).getReg() == preg) {
-                unsigned paramReg = getParamReg(name, "param_", CallSiteIndex, i,
+          if (copyMI->getOperand(0).isReg()) {
+            if (copyMI->getOperand(0).getReg() == preg) {
+              unsigned paramReg = getParamReg(name, "param_", CallSiteIndex, i,
                                             &CSA::CI64RegClass, isDeclared, true);
-                Call_MIB.addReg(paramReg);
-                copyMI->getOperand(0).setReg(paramReg);
-                outerloop = false;
-                break;
-              }
+              Call_MIB.addReg(paramReg);
+              copyMI->getOperand(0).setReg(paramReg);
+              copyMI->setFlag(MachineInstr::NonSequential);
+              break;
             }
           }
         }
@@ -588,15 +587,14 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
       MachineInstr *newCoI = &*Cont_MIB;
       LLVM_DEBUG(errs() << "new continue instruction = " << *newCoI << "\n");
       newCoI->setFlag(MachineInstr::NonSequential);
-      
+
       // Deal with input memory ordering edge into call
       MachineBasicBlock::reverse_iterator RI_BEGIN(MI);
       for (MachineBasicBlock::reverse_iterator I1 = RI_BEGIN; I1 != MI->getParent()->rend(); ++I1) {
         copyMI = &*I1;
         if (copyMI->getOpcode() != CSA::MOV0) continue;
         if (!copyMI->getOperand(0).isReg()) continue;
-        const TargetRegisterClass *TRC = MRI->getRegClass(copyMI->getOperand(0).getReg());
-        if (TRC != &CSA::RI1RegClass) continue;
+        if (copyMI->getOperand(0).getReg() != CSA::R0) continue;
         copyMI->getOperand(0).setReg(newCI->getOperand(2).getReg());
         copyMI->setFlag(MachineInstr::NonSequential);
         LLVM_DEBUG(errs() << "new mem op input instruction = " << *copyMI << "\n");
@@ -630,18 +628,17 @@ void CSAProcCallsPass::changeMovConstToGate(unsigned entry_mem_ord_lic) {
       nextMI = I;
       if (!isMovOpcode(MI->getOpcode())) continue;
       if (MI->getFlag(MachineInstr::NonSequential)) continue;
-      LLVM_DEBUG(errs() << "1. MI = " << *MI << "\n");
-      if (MI->getOperand(1).isImm() || MI->getOperand(1).isFPImm()) {
-        LLVM_DEBUG(errs() << "2. MI = " << *MI << "\n");
-        MachineInstrBuilder MIB = BuildMI(*(MI->getParent()), MI, MI->getDebugLoc(), TII->get(getGateOpcode(MI->getOpcode())))
+      if (MI->getOperand(1).isImm() || MI->getOperand(1).isFPImm() || MI->getOperand(1).isGlobal()) {
+         MachineInstrBuilder MIB = BuildMI(*(MI->getParent()), MI, MI->getDebugLoc(), TII->get(getGateOpcode(MI->getOpcode())))
                                     .addReg(MI->getOperand(0).getReg(),RegState::Define)
                                     .addReg(entry_mem_ord_lic);
         if (MI->getOperand(1).isImm())
           MIB.addImm(MI->getOperand(1).getImm());
-        else
+        else if (MI->getOperand(1).isFPImm())
           MIB.addFPImm(MI->getOperand(1).getFPImm());
-        MachineInstr *newMI = &*MIB;
-        newMI->setFlag(MachineInstr::NonSequential);
+        else
+          MIB.addGlobalAddress(MI->getOperand(1).getGlobal());
+        MIB.setMIFlag(MachineInstr::NonSequential);
         MI->eraseFromParent();
       }
     }
@@ -654,14 +651,12 @@ bool CSAProcCallsPass::runOnMachineFunction(MachineFunction &MF) {
   LLVM_DEBUG(errs() << "Entering into CSA Procedure Calls Pass for " << MF.getFunction().getName() << "\n");
   if (ProcCallsPass == 0) return false;
   LMFI   = MF.getInfo<CSAMachineFunctionInfo>();
-	MRI = &(MF.getRegInfo());
-  TII = static_cast<const CSAInstrInfo *>(MF.getSubtarget().getInstrInfo());  bool Modified = false;
-  
+  MRI = &(MF.getRegInfo());
+  TII = static_cast<const CSAInstrInfo *>(MF.getSubtarget().getInstrInfo());
   MachineInstr *entryMI = addEntryInstruction();
-  assert(entryMI && "entry instruction not found!! Cannot be run on CSA!!\n");
+  if (!entryMI) report_fatal_error("Entry instruction could not be created! Cannot be run on CSA!");
   MachineInstr *returnMI = addReturnInstruction(entryMI);
-  assert(returnMI && "return instruction not found!! Cannot be run on CSA!!\n");
-    
+  if (!returnMI) report_fatal_error("Return instruction could not be created! Cannot be run on CSA!");
   // Check if input mem order edge is used by any mem op in function
   // if not, then pipe it to the output mem order edge
   bool isInputMemOrdUsed = false;
@@ -689,16 +684,30 @@ bool CSAProcCallsPass::runOnMachineFunction(MachineFunction &MF) {
   addCallAndContinueInstructions();
   changeMovConstToGate(entry_mem_ord);
 
-// At this stage there should be no sequential instructions
-  for (MachineFunction::iterator MBB = thisMF->begin(), E = thisMF->end(); MBB != E; ++MBB) {
-    for (MachineBasicBlock::iterator I = MBB->begin(); I != MBB->end(); ++I) {
+  // At this stage there should be no sequential instructions
+  for (auto MBB = thisMF->begin(), E = thisMF->end(); MBB != E; ++MBB) {
+    for (auto I = MBB->begin(); I != MBB->end(); ++I) {
       MachineInstr *MI = &*I;
+      if (MI->getOpcode() == CSA::UNIT) continue;
       if (!MI->getFlag(MachineInstr::NonSequential)) {
-	      //DEBUG(errs() << "MI = " << *MI << "\n");
         errs() << "MI = " << *MI << "\n";
-        assert(0 && "Sequential instruction found!! Compilation for CSA terminated!!");
+        report_fatal_error("Sequential instruction found! Cannot be run on CSA!");
       }
     }
   }
-  return Modified;
+
+  // delete all UNIT SXU ops
+  for (auto MBB = thisMF->begin(), E = thisMF->end(); MBB != E; ++MBB) {
+    auto I1 = MBB->begin();
+    for (auto I = MBB->begin(); I != MBB->end(); I = I1) {
+      MachineInstr *MI = &*I;
+      I1 = I;
+      ++I1;
+      if (MI->getOpcode() == CSA::UNIT) {
+	if (MI->getOperand(0).getImm() == CSA::FUNCUNIT::SXU)
+	  MI->eraseFromParent();
+      }
+    }
+  }
+  return true;
 }

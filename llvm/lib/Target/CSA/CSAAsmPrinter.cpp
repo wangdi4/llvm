@@ -519,10 +519,6 @@ void CSAAsmPrinter::EmitEndOfAsmFile(Module &M) {
 }
 
 void CSAAsmPrinter::EmitFunctionEntryLabel() {
-  if (csa_utils::isAlwaysDataFlowLinkageSet()) {
-    setLICNames();
-    return;
-  }
   SmallString<128> Str;
   raw_svector_ostream O(Str);
 
@@ -570,6 +566,11 @@ void CSAAsmPrinter::EmitFunctionEntryLabel() {
     O << "\t.globl\t" << *CurrentFnSym;
     O << CSAInstPrinter::WrapCsaAsmLineSuffix();
     O << "\n";
+  }
+  if (csa_utils::isAlwaysDataFlowLinkageSet()) {
+    setLICNames();
+    OutStreamer->EmitRawText(O.str());
+    return;
   }
   O << CSAInstPrinter::WrapCsaAsmLinePrefix();
   O << "\t.entry\t" << *CurrentFnSym;
@@ -713,7 +714,7 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
         if (!csa_utils::isAlwaysDataFlowLinkageSet() && !AllowUndefRegs)
           assert(!MRI->def_empty(vreg) && "No definition for register");
         StringRef name = LMFI->getLICName(vreg);
-        if (!EmitRegNames || name.empty()) {
+        if ((!EmitRegNames && !(csa_utils::isAlwaysDataFlowLinkageSet())) || name.empty()) {
           LMFI->setLICName(vreg, Twine("cv") + Twine(LMFI->getLICSize(vreg)) +
                                    "_" + Twine(index));
         }
@@ -752,9 +753,12 @@ void CSAAsmPrinter::EmitCSAOperands(const MachineInstr *MI, raw_ostream &O, int 
 void CSAAsmPrinter::EmitSimpleEntryInstruction(void) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
+  O << CSAInstPrinter::WrapCsaAsmLinePrefix();
   O << "\t.entry\t";
   O << MF->getFunction().getName();
-  O << ", hybriddataflow\n";
+  O << ", hybriddataflow";
+  O << CSAInstPrinter::WrapCsaAsmLineSuffix();
+  O << "\n";
   OutStreamer->EmitRawText(O.str());
 }
 
@@ -765,18 +769,22 @@ void CSAAsmPrinter::EmitParamsResultsDecl(void) {
   const Function *F = &MF->getFunction();
   const MachineInstr *entryMI = LMFI->getEntryMI();
   const MachineInstr *returnMI = LMFI->getReturnMI();
-  
   // Emit CSA parameters
   if (returnMI)
     for (unsigned i = 0; i < returnMI->getNumOperands(); ++i) {
       unsigned reg = returnMI->getOperand(i).getReg();
-      O << "\t.result .lic .i" << LMFI->getLICSize(reg) << " %" << LMFI->getLICName(reg) << "\n";
+      O << CSAInstPrinter::WrapCsaAsmLinePrefix();
+      O << "\t.result .lic .i" << LMFI->getLICSize(reg) << " %" << LMFI->getLICName(reg);
+      O << CSAInstPrinter::WrapCsaAsmLineSuffix();
+      O << "\n";
       if (i == 1) resultReg = reg;
     }
-    
   if (entryMI) {
     unsigned reg = entryMI->getOperand(0).getReg();
-    O << "\t.param .lic .i" << LMFI->getLICSize(reg) << " %" << LMFI->getLICName(reg) << "\n";
+    O << CSAInstPrinter::WrapCsaAsmLinePrefix();
+    O << "\t.param .lic .i" << LMFI->getLICSize(reg) << " %" << LMFI->getLICName(reg);
+    O << CSAInstPrinter::WrapCsaAsmLineSuffix();
+    O << "\n";
     int i = 1;
     int dummyid = 0;
     Function::const_arg_iterator I, E;
@@ -785,10 +793,16 @@ void CSAAsmPrinter::EmitParamsResultsDecl(void) {
       bool ArgHasUses = !Arg.use_empty();
       if (ArgHasUses) {
         unsigned reg = entryMI->getOperand(i).getReg();
-        O << "\t.param .lic .i" << LMFI->getLICSize(reg) << " %" << LMFI->getLICName(reg) << "\n";
+        O << CSAInstPrinter::WrapCsaAsmLinePrefix();
+        O << "\t.param .lic .i" << LMFI->getLICSize(reg) << " %" << LMFI->getLICName(reg);
+        O << CSAInstPrinter::WrapCsaAsmLineSuffix();
+        O << "\n";
         ++i;
       } else {
-        O << "\t.param .lic .i64 %" << F->getName() << "_" << "_dummy" << dummyid++ << "\n";
+        O << CSAInstPrinter::WrapCsaAsmLinePrefix();
+        O << "\t.param .lic .i64 %" << F->getName() << "_" << "_dummy" << dummyid++;
+        O << CSAInstPrinter::WrapCsaAsmLineSuffix();
+        O << "\n";
       }
     }
   }

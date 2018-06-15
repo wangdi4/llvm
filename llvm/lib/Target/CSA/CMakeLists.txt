@@ -39,6 +39,7 @@ add_llvm_target(CSACodeGen
   CSAReassocReduc.cpp
   CSARedundantMovElim.cpp
   CSARegisterInfo.cpp
+  CSAReplaceAllocaWithMalloc.cpp
   CSASelectionDAGInfo.cpp
   CSASeqOpt.cpp
   CSAStatistics.cpp
