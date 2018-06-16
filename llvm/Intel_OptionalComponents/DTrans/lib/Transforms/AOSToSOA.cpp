@@ -324,10 +324,7 @@ public:
       // conversion instruction here allows for values into and out of affected
       // instructions to be replaced without violating the type matching.
       Value *Src = GEP->getPointerOperand();
-      CastInst *PeelIdxAsInt =
-          CastInst::CreateBitOrPointerCast(Src, getPeeledIndexType());
-      PeelIdxAsInt->insertBefore(GEP);
-      PtrConverts.push_back(PeelIdxAsInt);
+      CastInst *PeelIdxAsInt = createCastToPeelIndexType(Src, GEP);
 
       // Indexing into an array allows the GEP index value to be an integer of
       // any width, sign-extend the smaller of the GEP index and our peeling
@@ -376,14 +373,14 @@ public:
       GEP->eraseFromParent();
     } else {
       // This will convert the GEP of case 2 from:
-      //    %elem_addr = getelementptr %struct.t, %struct.t* %base, i64 %idx_n,
-      //    i32 1
+      //    %elem_addr =
+      //         getelementptr %struct.t, %struct.t* %base, i64 %idx_n, i32 1
       //
       // To:
-      //    %peel_base = getelementptr % __soa_struct.t,
-      //         %__soa_struct.tt* @__soa_struct.t, i64 0, i32 1
-      //    %soa_addr = load i32*, i32** %peel_base
       //    %peelIdxAsInt = ptrtoint %struct.test01* %base to i64
+      //    %peel_base = getelementptr % __soa_struct.t,
+      //                        %__soa_struct.t* @__soa_struct.t, i64 0, i32 1
+      //    %soa_addr = load i32*, i32** %peel_base
       //    %adjusted_idx = add i64 %peelIdxAsInt, %idx_n
       //    %elem_addr = getelementptr i32, i32* %soa_addr, i64 %adjusted_idx
       //
@@ -395,68 +392,18 @@ public:
       Value *PeelVar = PeeledTypeToVariable[PeelType];
       assert(PeelVar && "Peeling variable should have already been created");
 
-      Value *Idx[2];
-      Idx[0] = Constant::getNullValue(getPtrSizedIntType());
-      Value *FieldNum = GEP->getOperand(2);
-      Idx[1] = FieldNum;
-      GetElementPtrInst *PeelBase =
-          GetElementPtrInst::Create(PeelType, PeelVar, Idx);
-      PeelBase->insertBefore(GEP);
-      LoadInst *SOAAddr = new LoadInst(PeelBase);
-      SOAAddr->insertBefore(GEP);
-
-      Value *Src = GEP->getPointerOperand();
       CastInst *PeelIdxAsInt =
-          CastInst::CreateBitOrPointerCast(Src, getPeeledIndexType());
-      PeelIdxAsInt->insertBefore(GEP);
-      PtrConverts.push_back(PeelIdxAsInt);
+          createCastToPeelIndexType(GEP->getPointerOperand(), GEP);
+      Value *FieldNum = GEP->getOperand(2);
 
-      Value *GEPBaseIdx = GEP->getOperand(1);
-      uint64_t PeelIdxWidth = getPeeledIndexWidth();
-      uint64_t BaseIdxWidth = DL.getTypeSizeInBits(GEPBaseIdx->getType());
-
-      if (PeelIdxWidth < BaseIdxWidth) {
-        // We don't expect a GEP index parameter to ever be larger than a
-        // pointer, assert to be sure.
-        assert(BaseIdxWidth <= DL.getTypeSizeInBits(getPtrSizedIntType()) &&
-               "Unsupported GEP index type");
-        CastInst *SE = CastInst::Create(CastInst::SExt, PeelIdxAsInt,
-                                        GEPBaseIdx->getType());
-        SE->insertBefore(GEP);
-        PeelIdxAsInt = SE;
-      }
-
-      Value *AdjustedPeelIdxAsInt = PeelIdxAsInt;
-      // If first index is not constant 0, then we need to index by that amount
-      if (!dtrans::isValueEqualToSize(GEPBaseIdx, 0)) {
-        if (BaseIdxWidth < PeelIdxWidth) {
-          CastInst *SE = CastInst::Create(CastInst::SExt, GEPBaseIdx,
-                                          PeelIdxAsInt->getType());
-          SE->insertBefore(GEP);
-          GEPBaseIdx = SE;
-        }
-
-        BinaryOperator *Add =
-            BinaryOperator::CreateAdd(PeelIdxAsInt, GEPBaseIdx);
-        Add->insertBefore(GEP);
-        AdjustedPeelIdxAsInt = Add;
-      }
-
-      // Identify the type in the new structure for the field being accessed.
-      unsigned FieldIdx = cast<ConstantInt>(FieldNum)->getLimitedValue();
-      llvm::Type *PeelFieldTy = PeelType->getElementType(FieldIdx);
-
-      // We know all elements of the peeled structure are pointer types.
-      // Get the type that it points to.
-      Type *FieldElementTy = cast<PointerType>(PeelFieldTy)->getElementType();
-      GetElementPtrInst *FieldGEP = GetElementPtrInst::Create(
-          FieldElementTy, SOAAddr, AdjustedPeelIdxAsInt);
-
+      // Create and insert the instructions that get the address of the field in
+      // the transformed structure.
+      Instruction *FieldGEP = createGEPFieldAddressReplacement(
+          PeelType, PeelVar, PeelIdxAsInt, GEP->getOperand(1), FieldNum, GEP);
       // We will steal the name of the GEP and put it on this instruction
       // because even if the replacement is going to be done via a cast
       // statement, the cast is going to eventually be eliminated anyway.
       FieldGEP->takeName(GEP);
-      FieldGEP->insertBefore(GEP);
 
       // If the field type is pointer to a structure that is being transformed,
       // generate a temporary cast to the original type so that the user
@@ -465,6 +412,10 @@ public:
       // removed during post-processing.
       Type *OrigFieldTy = GEP->getType();
       Value *ReplVal = FieldGEP;
+
+      // Identify the type in the new structure for the field being accessed.
+      unsigned FieldIdx = cast<ConstantInt>(FieldNum)->getLimitedValue();
+      llvm::Type *PeelFieldTy = PeelType->getElementType(FieldIdx);
 
       if (PeelFieldTy != OrigFieldTy) {
         CastInst *CastToPtr =
@@ -477,6 +428,107 @@ public:
       GEP->replaceAllUsesWith(ReplVal);
       GEP->eraseFromParent();
     }
+  }
+
+  // Create an intermediate cast instruction to cast a pointer to a
+  // structure type being converted into the peeling index type. If
+  // \p InsertBefore is non-null the instruction will be inserted into the IR
+  // before it. This cast is added to the list of casts that are to be removed
+  // during post processing because it will end up being i64 to i64 after the
+  // type remapping.
+  CastInst *createCastToPeelIndexType(Value *V,
+                                      Instruction *InsertBefore = nullptr) {
+    CastInst *ToInt = CastInst::CreateBitOrPointerCast(V, getPeeledIndexType(),
+                                                       "", InsertBefore);
+    PtrConverts.push_back(ToInt);
+
+    return ToInt;
+  }
+
+  // Create and insert the instruction sequence that gets the address of a
+  // specific element in the peeled structure.
+  // \p PeelType is the peeled structure type.
+  // \p PeelVar is the global variable for the peeled structure.
+  // \p FieldNumVal is a constant integer for the field number.
+  // \p GEPBaseIdx and \p GEPFieldNum are the two GEP indices.
+  // The set of instructions will be inserted immediately before \p
+  // InsertBefore.
+  // Returns the getelementptr instruction that represents the address.
+  //
+  // Generates:
+  //    %peel_base = getelementptr % __soa_struct.t,
+  //                        %__soa_struct.t* @__soa_struct.t, i64 0, i32 1
+  //    %soa_addr = load i32*, i32** %peel_base
+  //    %adjusted_idx = add i64 %peelIdxAsInt, %idx_n
+  //    %elem_addr = getelementptr i32, i32* %soa_addr, i64 %adjusted_idx
+  Instruction *createGEPFieldAddressReplacement(
+      llvm::StructType *PeelType, Value *PeelVar, Value *PeelIdxAsInt,
+      Value *GEPBaseIdx, Value *GEPFieldNum, Instruction *InsertBefore) {
+
+    Instruction *SOAAddr =
+        createPeelFieldLoad(PeelType, PeelVar, GEPFieldNum, InsertBefore);
+    uint64_t PeelIdxWidth = getPeeledIndexWidth();
+    uint64_t BaseIdxWidth = DL.getTypeSizeInBits(GEPBaseIdx->getType());
+
+    if (PeelIdxWidth < BaseIdxWidth) {
+      // We don't expect a GEP index parameter to ever be larger than a
+      // pointer, assert to be sure.
+      assert(BaseIdxWidth <= DL.getTypeSizeInBits(getPtrSizedIntType()) &&
+             "Unsupported GEP index type");
+      CastInst *SE = CastInst::Create(CastInst::SExt, PeelIdxAsInt,
+                                      GEPBaseIdx->getType(), "", InsertBefore);
+      PeelIdxAsInt = SE;
+    }
+
+    Value *AdjustedPeelIdxAsInt = PeelIdxAsInt;
+    // If first index is not constant 0, then we need to index by that amount
+    if (!dtrans::isValueEqualToSize(GEPBaseIdx, 0)) {
+      if (BaseIdxWidth < PeelIdxWidth) {
+        CastInst *SE =
+            CastInst::Create(CastInst::SExt, GEPBaseIdx,
+                             PeelIdxAsInt->getType(), "", InsertBefore);
+        GEPBaseIdx = SE;
+      }
+
+      BinaryOperator *Add =
+          BinaryOperator::CreateAdd(PeelIdxAsInt, GEPBaseIdx, "", InsertBefore);
+      AdjustedPeelIdxAsInt = Add;
+    }
+
+    // Identify the type in the new structure for the field being accessed.
+    unsigned FieldIdx = cast<ConstantInt>(GEPFieldNum)->getLimitedValue();
+    llvm::Type *PeelFieldTy = PeelType->getElementType(FieldIdx);
+
+    // We know all elements of the peeled structure are pointer types.
+    // Get the type that it points to.
+    Type *FieldElementTy = cast<PointerType>(PeelFieldTy)->getElementType();
+    GetElementPtrInst *FieldGEP = GetElementPtrInst::Create(
+        FieldElementTy, SOAAddr, AdjustedPeelIdxAsInt, "", InsertBefore);
+
+    return FieldGEP;
+  }
+
+  // Create a load of the array address for a specific field of the peeled
+  // structure.
+  // \p PeelType is the peeled structure type
+  // \p PeelVar is the global variable for the peeled structure
+  // \p FieldNumVal is a constant integer for the field number.
+  // Instructions are inserted before \p InsertBefore
+  //
+  // Generates:
+  //    %peel_base = getelementptr % __soa_struct.t, %__soa_struct.t*
+  //                     @__soa_struct.t, i64 0, i32 1
+  //    %soa_addr = load i32*, i32** %peel_base
+  Instruction *createPeelFieldLoad(llvm::Type *PeelType, Value *PeelVar,
+                                   Value *FieldNumVal,
+                                   Instruction *InsertBefore) {
+    GetElementPtrInst *PeelBase = GetElementPtrInst::Create(
+        PeelType, PeelVar,
+        {Constant::getNullValue(getPtrSizedIntType()), FieldNumVal}, "",
+        InsertBefore);
+    LoadInst *SOAAddr = new LoadInst(PeelBase);
+    SOAAddr->insertBefore(InsertBefore);
+    return SOAAddr;
   }
 
   // Update the signature of the function's clone and any instructions that need
@@ -807,14 +859,9 @@ public:
     StructType *StructTy = cast<StructType>(StInfo->getLLVMType());
     StructType *PeelTy = getTransformedType(StructTy);
     Value *PeelVar = PeeledTypeToVariable[PeelTy];
-    Value *Idx[2];
-    Idx[0] = Constant::getNullValue(Type::getInt64Ty(Context));
-    Idx[1] = ConstantInt::get(Type::getInt32Ty(Context), 0);
-    GetElementPtrInst *PeelBase =
-        GetElementPtrInst::Create(PeelTy, PeelVar, Idx);
-    PeelBase->insertBefore(FreeCall);
-    LoadInst *SOAAddr = new LoadInst(PeelBase);
-    SOAAddr->insertBefore(FreeCall);
+    Instruction *SOAAddr = createPeelFieldLoad(
+        PeelTy, PeelVar, ConstantInt::get(Type::getInt32Ty(Context), 0),
+        FreeCall);
 
     // The peeled structure only contains pointer types, and the value of the
     // first field is always the address that the allocation call returned. This
