@@ -363,6 +363,27 @@ protected:
   // types due to the type remapping. The variables in this list need to be
   // destroyed once the entire module has been remapped.
   SmallVector<GlobalVariable *, 16> GlobalsForRemoval;
+
+private:
+  // A mapping of "Function -> { call info set }" objects.
+  // The CallInfo objects will need to have their types updated
+  // following cloning/remapping of the function. This map will
+  // be used to find which CallInfo objects need to be updated after
+  // processing each function. This map is kept private to prevent
+  // the derived classes from accessing it directly. Any updates
+  // needed must be done through this class's interface methods.
+  DenseMap<Function *, SmallVector<dtrans::CallInfo *, 4>>
+      FunctionToCallInfoVec;
+
+  // Set up the mapping of Functions to a set of CallInfo objects that need to
+  // be processed as each function is transformed.
+  void initializeFunctionCallInfoMapping();
+
+  // Updates the CallInfo objects associated with a specific function.
+  void updateCallInfoForFunction(Function *F, bool isCloned);
+
+  // Clear the Function to CallInfo mapping.
+  void resetFunctionCallInfoMapping();
 };
 
 } // namespace llvm
