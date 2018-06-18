@@ -631,6 +631,12 @@ static bool checkOpenCLPipeArg(Sema &S, CallExpr *Call) {
   // specified.
   switch (Call->getDirectCallee()->getBuiltinID()) {
   case Builtin::BIread_pipe:
+
+#if INTEL_CUSTOMIZATION
+  case X86::BIread_pipe:
+  case SPIRINTELFpga::BIread_pipe:
+#endif // INTEL_CUSTOMIZATION
+
   case Builtin::BIreserve_read_pipe:
   case Builtin::BIcommit_read_pipe:
   case Builtin::BIwork_group_reserve_read_pipe:
@@ -645,6 +651,12 @@ static bool checkOpenCLPipeArg(Sema &S, CallExpr *Call) {
     }
     break;
   case Builtin::BIwrite_pipe:
+
+#if INTEL_CUSTOMIZATION
+  case X86::BIwrite_pipe:
+  case SPIRINTELFpga::BIwrite_pipe:
+#endif // INTEL_CUSTOMIZATION
+
   case Builtin::BIreserve_write_pipe:
   case Builtin::BIcommit_write_pipe:
   case Builtin::BIwork_group_reserve_write_pipe:
