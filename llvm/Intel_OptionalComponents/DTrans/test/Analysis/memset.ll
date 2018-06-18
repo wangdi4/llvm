@@ -15,7 +15,7 @@ define void @test01(%struct.test01* %a) {
   tail call void @llvm.memset.p0i8.i64(i8* %p, i8 0, i64 8, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test01 = type { i32, i16, i8 }
+; CHECK-LABEL: LLVMType: %struct.test01 = type { i32, i16, i8 }
 ; CHECK: Safety data: No issues found
 
 
@@ -28,7 +28,7 @@ define void @test02(%struct.test02* %a) {
   tail call void @llvm.memset.p0i8.i64(i8* %p, i8 0, i64 32, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test02 = type { i32, i16, i8 }
+; CHECK-LABEL: LLVMType: %struct.test02 = type { i32, i16, i8 }
 ; CHECK: Safety data: No issues found
 
 
@@ -43,7 +43,7 @@ define void @test02b(%struct.test02b* %a, i32 %n) {
   tail call void @llvm.memset.p0i8.i64(i8* %p, i8 0, i64 %mul, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test02b = type { i32, i16, i8 }
+; CHECK-LABEL: LLVMType: %struct.test02b = type { i32, i16, i8 }
 ; CHECK: Safety data: No issues found
 
 
@@ -58,13 +58,13 @@ define void @test03(%struct.test03.c* %c) {
   tail call void @llvm.memset.p0i8.i64(i8* %c0, i8 0, i64 24, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test03.a = type { i32, i16, [2 x i32] }
+; CHECK-LABEL: LLVMType: %struct.test03.a = type { i32, i16, [2 x i32] }
 ; CHECK: Field LLVM Type: i32
 ; CHECK: Field info: Written
-; CHECK: LLVMType: %struct.test03.b = type { i32, i16, i8 }
+; CHECK-LABEL: LLVMType: %struct.test03.b = type { i32, i16, i8 }
 ; CHECK: Field LLVM Type: i16
 ; CHECK: Field info: Written
-; CHECK: LLVMType: %struct.test03.c = type { %struct.test03.a, %struct.test03.b }
+; CHECK-LABEL: LLVMType: %struct.test03.c = type { %struct.test03.a, %struct.test03.b }
 ; CHECK: Safety data: Contains nested structure
 
 
@@ -79,13 +79,13 @@ define void @test04(%struct.test04.c* %c) {
   tail call void @llvm.memset.p0i8.i64(i8* %c0, i8 0, i64 16, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test04.a = type { i32, i16, [2 x i32] }
+; CHECK-LABEL: LLVMType: %struct.test04.a = type { i32, i16, [2 x i32] }
 ; CHECK: Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
-; CHECK: LLVMType: %struct.test04.b = type { i32, i16, i8 }
+; CHECK-LABEL: LLVMType: %struct.test04.b = type { i32, i16, i8 }
 ; CHECK: Field LLVM Type: i16
 ; CHECK: Field info:{{ *$}}
-; CHECK: LLVMType: %struct.test04.c = type { %struct.test04.a*, %struct.test04.b* }
+; CHECK-LABEL: LLVMType: %struct.test04.c = type { %struct.test04.a*, %struct.test04.b* }
 ; CHECK: Number of fields: 2
 ; CHECK: Field LLVM Type: %struct.test04.a*
 ; CHECK: Field info: Written
@@ -102,7 +102,7 @@ define void @unsafe1(%struct.test05* %b) {
   tail call void @llvm.memset.p0i8.i64(i8* %p, i8 0, i64 6, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test05 = type { i32, i16, i16, i8 }
+; CHECK-LABEL: LLVMType: %struct.test05 = type { i32, i16, i16, i8 }
 ; CHECK: Safety data: Memfunc partial write
 
 
@@ -115,7 +115,7 @@ define void @unsafe2(%struct.test06* %b) {
   tail call void @llvm.memset.p0i8.i64(i8* %p, i8 0, i64 9, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test06 = type { i32, i16, i16, i8 }
+; CHECK-LABEL: LLVMType: %struct.test06 = type { i32, i16, i16, i8 }
 ; CHECK: Safety data: No issues found
 
 
@@ -128,7 +128,7 @@ define void @test07(%struct.test07* %a) {
   tail call void @llvm.memset.p0i8.i64(i8* getelementptr inbounds (%struct.test07, %struct.test07* @test07var, i64 0, i32 0, i64 0), i8 0, i64 408, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test07 = type { [200 x i8], [200 x i8], i64 }
+; CHECK-LABEL: LLVMType: %struct.test07 = type { [200 x i8], [200 x i8], i64 }
 ; CHECK: Safety data: Global instance
 
 
@@ -145,7 +145,7 @@ define void @test08(%struct.test08.b* %b) {
   tail call void @llvm.memset.p0i8.i64(i8* %buf, i8 0, i64 128, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test08.a = type { i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test08.a = type { i32, i32, i32, i32 }
 ; CHECK: Number of fields: 4
 ; CHECK: Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
@@ -163,9 +163,9 @@ define void @test09(%struct.test09.b* %b) {
   tail call void @llvm.memset.p0i8.i64(i8* %a0, i8 0, i64 20, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test09.a = type { i32, i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test09.a = type { i32, i32, i32, i32, i32 }
 ; CHECK: Safety data: Nested structure
-; CHECK: LLVMType: %struct.test09.b = type { i32, %struct.test09.a }
+; CHECK-LABEL: LLVMType: %struct.test09.b = type { i32, %struct.test09.a }
 ; CHECK: Safety data: Memfunc partial write | Contains nested structure
 
 
@@ -181,9 +181,9 @@ define void @test10(%struct.test10.b* %b) {
   tail call void @llvm.memset.p0i8.i64(i8* %a0, i8 0, i64 8, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test10.a = type { i32, i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test10.a = type { i32, i32, i32, i32, i32 }
 ; CHECK: Safety data: No issues found
-; CHECK: LLVMType: %struct.test10.b = type { i32, %struct.test10.a* }
+; CHECK-LABEL: LLVMType: %struct.test10.b = type { i32, %struct.test10.a* }
 ; CHECK: Safety data: Memfunc partial write
 
 
@@ -199,7 +199,7 @@ define void @test11(%struct.test11.b* %b) {
   tail call void @llvm.memset.p0i8.i64(i8* %a0, i8 0, i64 24, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test11.a = type { i32, i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test11.a = type { i32, i32, i32, i32, i32 }
 ; CHECK: Number of fields: 5
 ; CHECK: Field LLVM Type: i32
 ; CHECK: Field info: Written
@@ -212,7 +212,7 @@ define void @test11(%struct.test11.b* %b) {
 ; CHECK: Field LLVM Type: i32
 ; CHECK: Field info: Written
 ; CHECK: Safety data: Nested structure
-; CHECK: LLVMType: %struct.test11.b = type { i32, %struct.test11.a, i32 }
+; CHECK-LABEL: LLVMType: %struct.test11.b = type { i32, %struct.test11.a, i32 }
 ; CHECK: Number of fields: 3
 ; CHECK: Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
@@ -236,9 +236,9 @@ define void @test12(%struct.test12.b* %b) {
   tail call void @llvm.memset.p0i8.i64(i8* %a0, i8 0, i64 16, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test12.a = type { i32, i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test12.a = type { i32, i32, i32, i32, i32 }
 ; CHECK: Safety data: No issues found
-; CHECK: LLVMType: %struct.test12.b = type { i32, %struct.test12.a*, i64 }
+; CHECK-LABEL: LLVMType: %struct.test12.b = type { i32, %struct.test12.a*, i64 }
 ; CHECK: Safety data: Memfunc partial write
 
 
@@ -253,7 +253,7 @@ define void @test13(%struct.test13.b* %b) {
   tail call void @llvm.memset.p0i8.i64(i8* %t0, i8 0, i64 200, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test13.a = type { i32, i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test13.a = type { i32, i32, i32, i32, i32 }
 ; CHECK: Number of fields: 5
 ; CHECK: Field LLVM Type: i32
 ; CHECK: Field info: Written
@@ -266,7 +266,7 @@ define void @test13(%struct.test13.b* %b) {
 ; CHECK: Field LLVM Type: i32
 ; CHECK: Field info: Written
 ; CHECK: Safety data: Nested structure
-; CHECK: LLVMType: %struct.test13.b = type { i32, [10 x %struct.test13.a] }
+; CHECK-LABEL: LLVMType: %struct.test13.b = type { i32, [10 x %struct.test13.a] }
 ; CHECK: Number of fields: 2
 ; CHECK: Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
@@ -289,9 +289,14 @@ define void @test14(%struct.test14.b* %b) {
   tail call void @llvm.memset.p0i8.i64(i8* %t0, i8 0, i64 100, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test14.a = type { i32, i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test14.a = type { i32, i32, i32, i32, i32 }
+; CHECK: Multiple Value
+; CHECK: Multiple Value
+; CHECK: Multiple Value
+; CHECK: Multiple Value
+; CHECK: Multiple Value
 ; CHECK: Safety data: Bad memfunc size | Nested structure
-; CHECK: LLVMType: %struct.test14.b = type { i32, [10 x %struct.test14.a] }
+; CHECK-LABEL: LLVMType: %struct.test14.b = type { i32, [10 x %struct.test14.a] }
 ; CHECK: Safety data: Bad memfunc size | Contains nested structure
 
 
@@ -306,7 +311,7 @@ define void @test15(%struct.test15.a* %a) {
   tail call void @llvm.memset.p0i8.i64(i8* %t0, i8 0, i64 12, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test15.a = type { i32, i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test15.a = type { i32, i32, i32, i32, i32 }
 ; CHECK: Safety data: Memfunc partial write
 
 
@@ -319,7 +324,7 @@ define void @test16(%struct.test16.a* %a) {
   tail call void @llvm.memset.p0i8.i64(i8* %t0, i8 0, i64 0, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test16.a = type { i32, i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test16.a = type { i32, i32, i32, i32, i32 }
 ; CHECK: Safety data: No issues found
 
 ; This test checks using memset to write a subset of fields in the middle of a
@@ -331,7 +336,7 @@ define void @test17(%struct.test17* %a) {
   call void @llvm.memset.p0i8.i64(i8* %1, i8 0, i64 24, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test17 = type { %struct.test17*, %struct.test17*, %struct.test17*, %struct.test17*, %struct.test17* }
+; CHECK-LABEL: LLVMType: %struct.test17 = type { %struct.test17*, %struct.test17*, %struct.test17*, %struct.test17*, %struct.test17* }
 ; CHECK: Field LLVM Type: %struct.test17*
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Field LLVM Type: %struct.test17*
@@ -354,7 +359,7 @@ define void @test18(%struct.test18* %a) {
   call void @llvm.memset.p0i8.i64(i8* %1, i8 0, i64 24, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test18 = type { %struct.test18*, %struct.test18*, %struct.test18*, %struct.test18*, %struct.test18* }
+; CHECK-LABEL: LLVMType: %struct.test18 = type { %struct.test18*, %struct.test18*, %struct.test18*, %struct.test18*, %struct.test18* }
 ; CHECK: Field LLVM Type: %struct.test18*
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Field LLVM Type: %struct.test18*
@@ -377,7 +382,7 @@ define void @test19(%struct.test19* %a) {
   call void @llvm.memset.p0i8.i64(i8* %1, i8 0, i64 40, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test19 = type { %struct.test19*, %struct.test19*, %struct.test19*, %struct.test19*, %struct.test19* }
+; CHECK-LABEL: LLVMType: %struct.test19 = type { %struct.test19*, %struct.test19*, %struct.test19*, %struct.test19*, %struct.test19* }
 ; CHECK: Field LLVM Type: %struct.test19*
 ; CHECK: Field info: Written
 ; CHECK: Field LLVM Type: %struct.test19*
@@ -400,7 +405,7 @@ define void @test20(%struct.test20* %a) {
   call void @llvm.memset.p0i8.i64(i8* %1, i8 0, i64 10, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test20 = type { i16, %struct.test20*, i16, %struct.test20* }
+; CHECK-LABEL: LLVMType: %struct.test20 = type { i16, %struct.test20*, i16, %struct.test20* }
 ; CHECK: Field LLVM Type: i16
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Field LLVM Type: %struct.test20*
@@ -421,7 +426,7 @@ define void @test21(%struct.test21* %a) {
   call void @llvm.memset.p0i8.i64(i8* %1, i8 0, i64 16, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test21 = type { i16, %struct.test21*, i16, %struct.test21* }
+; CHECK-LABEL: LLVMType: %struct.test21 = type { i16, %struct.test21*, i16, %struct.test21* }
 ; CHECK: Field LLVM Type: i16
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Field LLVM Type: %struct.test21*
@@ -443,7 +448,7 @@ define void @test22(%struct.test22* %a) {
   call void @llvm.memset.p0i8.i64(i8* %1, i8 0, i64 10, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test22 = type { i16, %struct.test22*, i16, %struct.test22*, i16 }
+; CHECK-LABEL: LLVMType: %struct.test22 = type { i16, %struct.test22*, i16, %struct.test22*, i16 }
 ; CHECK: Field LLVM Type: i16
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Field LLVM Type: %struct.test22*
@@ -467,7 +472,7 @@ define void @test23(%struct.test23* %a) {
   call void @llvm.memset.p0i8.i64(i8* %1, i8 0, i64 16, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test23 = type { i16, %struct.test23*, i16, %struct.test23*, i16 }
+; CHECK-LABEL: LLVMType: %struct.test23 = type { i16, %struct.test23*, i16, %struct.test23*, i16 }
 ; CHECK: Field LLVM Type: i16
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Field LLVM Type: %struct.test23*
@@ -490,7 +495,12 @@ define void @test24(%struct.test24* %a) {
   call void @llvm.memset.p0i8.i64(i8* %1, i8 0, i64 32, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test24 = type { i16, %struct.test24*, i16, %struct.test24*, i16 }
+; CHECK-LABEL: LLVMType: %struct.test24 = type { i16, %struct.test24*, i16, %struct.test24*, i16 }
+; CHECK: Multiple Value
+; CHECK: Multiple Value
+; CHECK: Multiple Value
+; CHECK: Multiple Value
+; CHECK: Multiple Value
 ; CHECK: Safety data: Bad memfunc size
 
 
@@ -516,18 +526,18 @@ define void @test26(%array.test26* %a) {
   tail call void @llvm.memset.p0i8.i64(i8* %addr, i8 0, i64 8, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test26 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test26 = type { i32, i32 }
 ; CHECK: Safety data: Unhandled use
 
 
 ; Array types get printed last so these checks aren't with their IR.
 
 ; CHECK: DTRANS_ArrayInfo:
-; CHECK: LLVMType: [25 x i32]
+; CHECK-LABEL: LLVMType: [25 x i32]
 ; CHECK: Safety data: Unhandled use
 
 ; CHECK: DTRANS_ArrayInfo:
-; CHECK: LLVMType: [26 x %struct.test26]
+; CHECK-LABEL: LLVMType: [26 x %struct.test26]
 ; CHECK: Safety data: Unhandled use
 
 declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)

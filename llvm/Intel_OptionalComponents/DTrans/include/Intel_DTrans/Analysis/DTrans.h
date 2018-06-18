@@ -314,8 +314,7 @@ private:
 const SafetyData SDFieldSingleValue =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
     MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
-    BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
-    UnsafePtrMerge | AddressTaken | UnhandledUse;
+    AmbiguousPointerTarget | UnsafePtrMerge | AddressTaken | UnhandledUse;
 
 const SafetyData SDSingleAllocFunction =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
@@ -711,15 +710,18 @@ void getAllocSizeArgs(AllocKind Kind, CallInst *CI, Value *&AllocSizeVal,
 /// function.
 bool isFreeFn(Function *F, const TargetLibraryInfo &TLI);
 
+/// Checks if a \p Val is a constant integer and sets it to \p ConstValue.
+bool isValueConstant(const Value *Val, uint64_t *ConstValue = nullptr);
+
 /// This helper function checks if \p Val is a constant integer equal to
 /// \p Size. Allows for \p Val to be nullptr, and will return false in
 /// this case.
-bool isValueEqualToSize(Value *Val, uint64_t Size);
+bool isValueEqualToSize(const Value *Val, uint64_t Size);
 
 /// This helper function checks \p Val to see if it is either (a) a constant
 /// whose value is a multiple of \p Size, or (b) an integer multiplication
 /// operator where either operand is a constant multiple of \p Size.
-bool isValueMultipleOfSize(Value *Val, uint64_t Size);
+bool isValueMultipleOfSize(const Value *Val, uint64_t Size);
 
 /// Examine the specified types to determine if a bitcast from \p SrcTy to
 /// \p DestTy could be used to access the first element of SrcTy. The

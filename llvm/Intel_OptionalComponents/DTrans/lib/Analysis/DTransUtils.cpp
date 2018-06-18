@@ -135,14 +135,27 @@ bool dtrans::isFreeFn(Function *F, const TargetLibraryInfo &TLI) {
   return (LF == LibFunc_free);
 }
 
-/// This helper function checks if \p Val is a constant integer equal to
-/// \p Size
-bool dtrans::isValueEqualToSize(Value *Val, uint64_t Size) {
+bool dtrans::isValueConstant(const Value *Val, uint64_t *ConstValue) {
   if (!Val)
     return false;
 
   if (auto *ConstVal = dyn_cast<ConstantInt>(Val)) {
-    uint64_t ConstSize = ConstVal->getLimitedValue();
+    if (ConstValue)
+      *ConstValue = ConstVal->getLimitedValue();
+    return true;
+  }
+
+  return false;
+}
+
+/// This helper function checks if \p Val is a constant integer equal to
+/// \p Size
+bool dtrans::isValueEqualToSize(const Value *Val, uint64_t Size) {
+  if (!Val)
+    return false;
+
+  uint64_t ConstSize;
+  if (isValueConstant(Val, &ConstSize)) {
     return ConstSize == Size;
   }
 
@@ -153,13 +166,13 @@ bool dtrans::isValueEqualToSize(Value *Val, uint64_t Size) {
 // whose value is a multiple of the specified size, or (b) an integer
 // multiplication operator where either operand is a constant multiple of the
 // specified size.
-bool dtrans::isValueMultipleOfSize(Value *Val, uint64_t Size) {
+bool dtrans::isValueMultipleOfSize(const Value *Val, uint64_t Size) {
   if (!Val)
     return false;
 
   // Is it a constant?
-  if (auto *ConstVal = dyn_cast<ConstantInt>(Val)) {
-    uint64_t ConstSize = ConstVal->getLimitedValue();
+  uint64_t ConstSize;
+  if (isValueConstant(Val, &ConstSize)) {
     return ((ConstSize % Size) == 0);
   }
   // Is it a mul?

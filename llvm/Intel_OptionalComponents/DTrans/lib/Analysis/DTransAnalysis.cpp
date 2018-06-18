@@ -4081,6 +4081,81 @@ private:
     setBaseTypeInfoSafetyData(Ty, dtrans::BadAllocSizeArg);
   }
 
+  // Mark fields designated by \p Info pointer and the memory \p Size to have
+  // multiple values.
+  void markPointerWrittenWithMultipleValue(LocalPointerInfo &Info,
+                                           Value *Size) {
+    StructType *STy = nullptr;
+    size_t FieldNum;
+
+    // Identify the structure type that is pointed to by Info.
+    if (!Info.pointsToSomeElement() ||
+        !isSimpleStructureMember(Info, &STy, &FieldNum)) {
+
+      FieldNum = 0;
+
+      // Info doesn't point to a structure field, check if it points to a
+      // structure or to an array of structures.
+
+      // In case of multiple aliasing aggregate types, when it's not possible to
+      // determine a dominant type, the caller should set AmbiguousPointerTarget
+      // safety issue.
+      auto *DTy = Info.getDominantAggregateTy();
+      if (!DTy)
+        return;
+
+      // TODO: this is probably always a pointer type.
+      if (DTy->isPointerTy())
+        DTy = DTy->getPointerElementType();
+
+      if (!DTy->isAggregateType())
+        return;
+
+      // Get to the first non-array type.
+      while (auto *ATy = dyn_cast<ArrayType>(DTy))
+        DTy = ATy->getElementType();
+
+      STy = dyn_cast<StructType>(DTy);
+    }
+
+    // If the pointee type is not a structure we have no interest in it.
+    if (!STy)
+      return;
+
+    auto *SL = DL.getStructLayout(STy);
+    auto StructSize = SL->getSizeInBytes();
+
+    // Identify a size of the memory operation.
+    uint64_t WriteSize;
+    if (!dtrans::isValueConstant(Size, &WriteSize)) {
+      if (dtrans::isValueMultipleOfSize(Size, StructSize)) {
+        WriteSize = StructSize;
+      } else {
+        markAllFieldsMultipleValue(DTInfo.getOrCreateTypeInfo(STy));
+        return;
+      }
+    }
+
+    auto *SInfo = cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(STy));
+
+    auto WriteBound = SL->getElementOffset(FieldNum) + WriteSize;
+    if (WriteBound > StructSize) {
+      // Memory operation writes outside of the identified type
+      markAllFieldsMultipleValue(SInfo);
+      return;
+    }
+
+    // Mark every field touched by the memory operation.
+    auto LastField = SL->getElementContainingOffset(WriteBound - 1);
+    for (; FieldNum <= LastField; ++FieldNum) {
+      auto &FInfo = SInfo->getField(FieldNum);
+      LLVM_DEBUG(dbgs() << "dtrans-fsv: " << *(SInfo->getLLVMType()) << " ["
+                        << FieldNum << "] <MULTIPLE>\n");
+      FInfo.setMultipleValue();
+      markAllFieldsMultipleValue(DTInfo.getTypeInfo(FInfo.getLLVMType()));
+    }
+  }
+
   // Check the destination of a call to memset for safety.
   //
   // A safe call is one where it can be resolved that the operand to the
@@ -4174,6 +4249,8 @@ private:
                                                /*IsValuePreservingWrite=*/false,
                                                RegionDesc))
           createMemsetCallInfo(I, StructTy->getPointerTo(), RegionDesc);
+        else
+          markPointerWrittenWithMultipleValue(DstLPI, SetSize);
 
         return;
       }
@@ -4234,6 +4311,8 @@ private:
                                              /*IsValuePreservingWrite=*/false,
                                              RegionDesc))
         createMemsetCallInfo(I, StructTy->getPointerTo(), RegionDesc);
+      else
+        markPointerWrittenWithMultipleValue(DstLPI, SetSize);
 
       return;
     }
@@ -4285,9 +4364,17 @@ private:
 
     bool DestOfInterest = isValueOfInterest(DestArg);
     bool SrcOfInterest = isValueOfInterest(SrcArg);
+
+    LocalPointerInfo &DstLPI = LPA.getLocalPointerInfo(DestArg);
+    LocalPointerInfo &SrcLPI = LPA.getLocalPointerInfo(SrcArg);
+    auto *DestParentTy = DstLPI.getDominantAggregateTy();
+    auto *SrcParentTy = SrcLPI.getDominantAggregateTy();
+
     if (!DestOfInterest && !SrcOfInterest) {
       return;
-    } else if (!SrcOfInterest || !DestOfInterest) {
+    }
+
+    if (!SrcOfInterest || !DestOfInterest) {
       LLVM_DEBUG(
           dbgs() << "dtrans-safety: Bad memfunc manipulation --  "
                  << "Either source or destination operand is fundamental "
@@ -4296,15 +4383,11 @@ private:
 
       setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncManipulation);
       setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
+      markPointerWrittenWithMultipleValue(DstLPI, SetSize);
       return;
     }
 
     // If we get here, both parameters are types of interest.
-    LocalPointerInfo &DstLPI = LPA.getLocalPointerInfo(DestArg);
-    LocalPointerInfo &SrcLPI = LPA.getLocalPointerInfo(SrcArg);
-    auto *DestParentTy = DstLPI.getDominantAggregateTy();
-    auto *SrcParentTy = SrcLPI.getDominantAggregateTy();
-
     if (!DestParentTy || !SrcParentTy) {
       if (!DestParentTy &&
           isAliasSetOverloaded(DstLPI.getPointerTypeAliasSet())) {
@@ -4315,25 +4398,28 @@ private:
         setAllAliasedTypeSafetyData(DstLPI, dtrans::AmbiguousPointerTarget);
         setAllAliasedTypeSafetyData(SrcLPI, dtrans::BadMemFuncManipulation);
         return;
-      } else if (!SrcParentTy &&
-                 isAliasSetOverloaded(SrcLPI.getPointerTypeAliasSet())) {
+      }
+
+      if (!SrcParentTy &&
+          isAliasSetOverloaded(SrcLPI.getPointerTypeAliasSet())) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
                           << "Aliased type for source operand.\n"
                           << "  " << I << "\n");
 
         setAllAliasedTypeSafetyData(DstLPI, dtrans::BadMemFuncManipulation);
         setAllAliasedTypeSafetyData(SrcLPI, dtrans::AmbiguousPointerTarget);
+        markPointerWrittenWithMultipleValue(DstLPI, SetSize);
         return;
-      } else {
-        // If the dominant type was not identified, and the pointer is not
-        // an aliased type, we expect that we are dealing with a pointer
-        // to a member element. assert this to be sure.
-        if ((!DestParentTy && !DstLPI.pointsToSomeElement()) ||
-            (!SrcParentTy && !SrcLPI.pointsToSomeElement())) {
-          setAllAliasedTypeSafetyData(DstLPI, dtrans::UnhandledUse);
-          setAllAliasedTypeSafetyData(SrcLPI, dtrans::UnhandledUse);
-          return;
-        }
+      }
+
+      // If the dominant type was not identified, and the pointer is not
+      // an aliased type, we expect that we are dealing with a pointer
+      // to a member element. assert this to be sure.
+      if ((!DestParentTy && !DstLPI.pointsToSomeElement()) ||
+          (!SrcParentTy && !SrcLPI.pointsToSomeElement())) {
+        setAllAliasedTypeSafetyData(DstLPI, dtrans::UnhandledUse);
+        setAllAliasedTypeSafetyData(SrcLPI, dtrans::UnhandledUse);
+        return;
       }
     }
 
@@ -4344,6 +4430,7 @@ private:
 
       setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
       setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncManipulation);
+      markPointerWrittenWithMultipleValue(DstLPI, SetSize);
       return;
     }
 
@@ -4357,6 +4444,7 @@ private:
     if (DstPtrToMember != SrcPtrToMember) {
       setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
       setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncManipulation);
+      markPointerWrittenWithMultipleValue(DstLPI, SetSize);
       return;
     }
 
@@ -4450,6 +4538,8 @@ private:
                 /*IsValuePreservingWrite=*/true, RegionDesc))
           createMemcpyOrMemmoveCallInfo(I, DstStructTy->getPointerTo(), Kind,
                                         RegionDesc, RegionDesc);
+        else
+          markPointerWrittenWithMultipleValue(DstLPI, SetSize);
 
         return;
       } else {
@@ -4461,6 +4551,7 @@ private:
 
         setBaseTypeInfoSafetyData(DstStructTy, dtrans::BadMemFuncManipulation);
         setBaseTypeInfoSafetyData(SrcStructTy, dtrans::BadMemFuncManipulation);
+        markPointerWrittenWithMultipleValue(DstLPI, SetSize);
       }
 
       return;
@@ -4500,6 +4591,9 @@ private:
                                              RegionDesc))
         createMemcpyOrMemmoveCallInfo(I, StructTy->getPointerTo(), Kind,
                                       RegionDesc, RegionDesc);
+      else
+        markPointerWrittenWithMultipleValue(DstLPI, SetSize);
+
       return;
     }
 
@@ -4508,6 +4602,7 @@ private:
                       << "  " << I << "\n");
 
     setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncSize);
+    markPointerWrittenWithMultipleValue(DstLPI, SetSize);
   }
 
   // This function is used to set the type information captured in the
@@ -4613,10 +4708,10 @@ private:
                                           size_t FieldNum, Value *SetSize,
                                           bool IsValuePreservingWrite,
                                           dtrans::MemfuncRegion &RegionDesc) {
+    auto *ParentTI = DTInfo.getOrCreateTypeInfo(StructTy);
+
     // Try to determine if a set of fields in a structure is being written.
     if (analyzePartialStructUse(StructTy, FieldNum, SetSize, &RegionDesc)) {
-      auto *ParentTI = DTInfo.getOrCreateTypeInfo(StructTy);
-
       // If not all members of the structure were set, mark it as
       // a partial write.
       if (!RegionDesc.IsCompleteAggregate) {
@@ -4627,13 +4722,7 @@ private:
         ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
       }
       markStructFieldsWritten(ParentTI, RegionDesc.FirstField,
-                              RegionDesc.LastField, I);
-
-      // A copy is considered as preserving the single value analysis info.
-      // However, for a memset, it is not known whether the value changed
-      // without checking the value being set.
-      if (!IsValuePreservingWrite)
-        markAllFieldsMultipleValue(ParentTI);
+                              RegionDesc.LastField, I, IsValuePreservingWrite);
     } else {
       // The size could not be matched to the fields of the structure.
       LLVM_DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
@@ -4747,7 +4836,8 @@ private:
   // subset of fields of a structure type as written. Any contained aggregates
   // within the subset are marked as completely written.
   void markStructFieldsWritten(dtrans::TypeInfo *TI, unsigned int FirstField,
-                               unsigned int LastField, Instruction &I) {
+                               unsigned int LastField, Instruction &I,
+                               bool IsValuePreservingWrite) {
     assert(TI && TI->getLLVMType()->isStructTy() &&
            "markStructFieldsWritten requires Structure type");
 
@@ -4761,6 +4851,14 @@ private:
       accumulateFrequency(FI, I);
       auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
       markAllFieldsWritten(ComponentTI, I);
+
+      // A copy is considered as preserving the single value analysis info.
+      // However, for a memset, it is not known whether the value changed
+      // without checking the value being set.
+      if (!IsValuePreservingWrite) {
+        FI.setMultipleValue();
+        markAllFieldsMultipleValue(ComponentTI);
+      }
     }
 
     return;
