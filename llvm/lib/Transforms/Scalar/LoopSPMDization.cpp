@@ -32,7 +32,7 @@
 #include <vector>
 
 using namespace llvm;
-#define DEBUG_TYPE "spmdization"
+#define DEBUG_TYPE "csa-spmdization"
 
 #define SPMD_CYCLIC 1
 #define SPMD_BLOCKING 2
