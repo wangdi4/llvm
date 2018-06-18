@@ -1119,8 +1119,13 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans)
+  if (EnableDTrans) {
+    // These passes get the IR into a form that DTrans is able to analyze.
+    MPM.addPass(createModuleToFunctionPassAdaptor(InstSimplifierPass()));
+    MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass()));
+    // This call adds the DTrans passes.
     addDTransPasses(MPM);
+  }
 #endif // INTEL_INCLUDE_DTRANS
   // Optimize some dynamic_cast calls.
   MPM.addPass(OptimizeDynamicCastsPass());
@@ -1149,6 +1154,13 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   // Remove unused arguments from functions.
   MPM.addPass(DeadArgumentEliminationPass());
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans)
+    addLateDTransPasses(MPM);
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // Reduce the code after globalopt and ipsccp.  Both can open up significant
   // simplification opportunities, and both can propagate functions through

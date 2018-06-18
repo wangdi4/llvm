@@ -378,6 +378,9 @@ WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li,
   setSafelen(0);
   setCollapse(0);
   setIsAutoVec(isAutoVec);
+#if INTEL_CUSTOMIZATION
+  setIgnoreProfitability(false);
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() << ">\n");
 }
@@ -391,6 +394,9 @@ WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN, const bool isAutoVec)
   setSafelen(0);
   setCollapse(0);
   setIsAutoVec(isAutoVec);
+#if INTEL_CUSTOMIZATION
+  setIgnoreProfitability(false);
+#endif // INTEL_CUSTOMIZATION
 
   setExitHLNode(nullptr);
   setHLLoop(nullptr);

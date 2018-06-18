@@ -15,6 +15,10 @@
 ; CHECK-NEXT: Starting llvm::Module pass manager run.
 
 ; CHECK: Running analysis: CallGraphAnalysis
+; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}InstSimplifierPass{{.*}}>
+; CHECK: Running analysis: DominatorTreeAnalysis
+; CHECK: Running analysis: AssumptionAnalysis
+; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}SimplifyCFGPass{{.*}}>
 ; CHECK-NEXT: Running pass: dtrans::DeleteFieldPass
 ; CHECK-NEXT: Running analysis: DTransAnalysis
 ; CHECK-NEXT: Running pass: dtrans::AOSToSOAPass

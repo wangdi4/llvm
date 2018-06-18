@@ -792,6 +792,9 @@ private:
   int Safelen;
   int Collapse;
   bool IsAutoVec;
+#if INTEL_CUSTOMIZATION
+  bool IgnoreProfitability;
+#endif // INTEL_CUSTOMIZATION
   WRNLoopInfo WRNLI;
   loopopt::HLNode *EntryHLNode; // for HIR only
   loopopt::HLNode *ExitHLNode;  // for HIR only
@@ -807,6 +810,9 @@ public:
   void setSafelen(int N) { Safelen = N; }
   void setCollapse(int N) { Collapse = N; }
   void setIsAutoVec(bool Flag) { IsAutoVec = Flag; }
+#if INTEL_CUSTOMIZATION
+  void setIgnoreProfitability(bool Flag) { IgnoreProfitability = Flag; }
+#endif // INTEL_CUSTOMIZATION
   void setEntryHLNode(loopopt::HLNode *E) { EntryHLNode = E; }
   void setExitHLNode(loopopt::HLNode *X) { ExitHLNode = X; }
   void setHLLoop(loopopt::HLLoop *L) { HLp = L; }
@@ -823,6 +829,9 @@ public:
   int getSafelen() const { return Safelen; }
   int getCollapse() const { return Collapse; }
   bool getIsAutoVec() const { return IsAutoVec; }
+#if INTEL_CUSTOMIZATION
+  bool getIgnoreProfitability() const { return IgnoreProfitability; }
+#endif // INTEL_CUSTOMIZATION
   loopopt::HLNode *getEntryHLNode() const { return EntryHLNode; }
   loopopt::HLNode *getExitHLNode() const { return ExitHLNode; }
   loopopt::HLLoop *getHLLoop() const { return HLp; }

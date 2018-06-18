@@ -34,6 +34,7 @@ void llvm::initializeDTransPasses(PassRegistry& PR) {
   initializeDTransAnalysisWrapperPass(PR);
   initializeDTransAOSToSOAWrapperPass(PR);
   initializeDTransDeleteFieldWrapperPass(PR);
+  initializeDTransPaddedMallocWrapperPass(PR);
   initializeDTransReorderFieldsWrapperPass(PR);
 
 #if !INTEL_PRODUCT_RELEASE
@@ -61,12 +62,21 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
   PM.add(createDTransReorderFieldsWrapperPass());
 }
 
+void llvm::addLateDTransPasses(ModulePassManager &MPM) {
+  MPM.addPass(dtrans::PaddedMallocPass());
+}
+
+void llvm::addLateDTransLegacyPasses(legacy::PassManagerBase &PM) {
+  PM.add(createDTransPaddedMallocWrapperPass());
+}
+
 // This is used by LinkAllPasses.h. The passes are never actually used when
 // created this way.
 void llvm::createDTransPasses() {
   (void) llvm::createDTransDeleteFieldWrapperPass();
   (void) llvm::createDTransAOSToSOAWrapperPass();
   (void) llvm::createDTransReorderFieldsWrapperPass();
+  (void) llvm::createDTransPaddedMallocWrapperPass();
   (void) llvm::createDTransAnalysisWrapperPass();
 
 #if !INTEL_PRODUCT_RELEASE

@@ -269,6 +269,13 @@ void HIRVisitor::visit(loopopt::HLNode *Node) {
       WRNVecLoopNode *VLN = dyn_cast<WRNVecLoopNode>(W);
       if (VLN && !(VLN->getHLLoop())) {
         VLN->setHLLoop(L);
+
+#if INTEL_CUSTOMIZATION
+        // If the loop is marked with vector always pragma, mark that we
+        // should ignore vectorization profitability in vectorizer cost
+        // model.
+        VLN->setIgnoreProfitability(L->hasVectorizeAlwaysPragma());
+#endif // INTEL_CUSTOMIZATION
       }
     }
   }

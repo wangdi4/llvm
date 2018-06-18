@@ -371,11 +371,11 @@ private:
   std::map<Function *, AllocStatus> LocalMap;
   // A set to hold visited BasicBlocks.  This is a temporary set used
   // while we are determining the AllocStatus of a Function.
-  std::set<BasicBlock *> VisitedBlocks;
+  SmallPtrSet<BasicBlock *,20> VisitedBlocks;
   // A set to hold the BasicBlocks which do not need to be post-dominated
   // by malloc() to be considered isMallocPostDom() or free to be considered
   // isFreePostDom().
-  std::set<BasicBlock *> SkipTestBlocks;
+  SmallPtrSet<BasicBlock *, 4> SkipTestBlocks;
   // Needed to detrmine if a function is malloc()
   const TargetLibraryInfo &TLI;
 
@@ -537,13 +537,11 @@ void DTransAllocAnalyzer::visitAndSetSkipTestSuccessors(BasicBlock *BB) {
 void DTransAllocAnalyzer::visitAndResetSkipTestSuccessors(BasicBlock *BB) {
   if (BB == nullptr)
     return;
-  auto it = VisitedBlocks.find(BB);
-  if (it != VisitedBlocks.end())
+  if (!VisitedBlocks.insert(BB).second)
     return;
-  VisitedBlocks.insert(BB);
-  it = SkipTestBlocks.find(BB);
-  if (it != SkipTestBlocks.end())
-    SkipTestBlocks.erase(it);
+  auto jt = SkipTestBlocks.find(BB);
+  if (jt != SkipTestBlocks.end())
+    SkipTestBlocks.erase(*jt);
   for (auto BBS : successors(BB))
     visitAndResetSkipTestSuccessors(BBS);
 }
@@ -555,8 +553,8 @@ void DTransAllocAnalyzer::visitAndResetSkipTestSuccessors(BasicBlock *BB) {
 // skip test block.
 //
 void DTransAllocAnalyzer::visitNullPtrBlocks(Function *F) {
-  std::set<BasicBlock *> SkipBlockSet;
-  std::set<BasicBlock *> NoSkipBlockSet;
+  SmallPtrSet<BasicBlock *, 4> SkipBlockSet;
+  SmallPtrSet<BasicBlock *, 20> NoSkipBlockSet;
   SkipTestBlocks.clear();
   VisitedBlocks.clear();
   for (BasicBlock &BB : *F)
@@ -568,11 +566,10 @@ void DTransAllocAnalyzer::visitNullPtrBlocks(Function *F) {
         NoSkipBlockSet.insert(BI->getSuccessor(1 - rv));
       }
     }
-  std::set<BasicBlock *>::const_iterator it, ie;
-  for (it = SkipBlockSet.begin(), ie = SkipBlockSet.end(); it != ie; ++it)
-    visitAndSetSkipTestSuccessors(*it);
-  for (it = NoSkipBlockSet.begin(), ie = NoSkipBlockSet.end(); it != ie; ++it)
-    visitAndResetSkipTestSuccessors(*it);
+  for (auto *SBB: SkipBlockSet)
+    visitAndSetSkipTestSuccessors(SBB);
+  for (auto *NSBB: NoSkipBlockSet)
+    visitAndResetSkipTestSuccessors(NSBB);
 }
 
 //
@@ -1687,7 +1684,7 @@ public:
   // See typesMayBeCRuleCompatible() immediately below for explanation of
   // this function.
   static bool typesMayBeCRuleCompatibleX(llvm::Type *T1, llvm::Type *T2,
-                                         SmallPtrSet<llvm::Type *, 4> *Tstack) {
+                                         SmallPtrSetImpl<llvm::Type *> &Tstack) {
 
     // Enum indicating that on the particular predicate being compared for
     // T1 and T2, the types have the opposite value of the predicate
@@ -1754,12 +1751,12 @@ public:
       if (S == TME_YES) {
         if (T3->getStructNumElements() != T4->getStructNumElements())
           return false;
-        if (Tstack->find(T3) != Tstack->end())
+        if (Tstack.find(T3) != Tstack.end())
           return true;
-        if (Tstack->find(T4) != Tstack->end())
+        if (Tstack.find(T4) != Tstack.end())
           return true;
-        Tstack->insert(T3);
-        Tstack->insert(T4);
+        Tstack.insert(T3);
+        Tstack.insert(T4);
       }
       return typesMayBeCRuleCompatibleX(T1->getPointerElementType(),
                                         T2->getPointerElementType(), Tstack);
@@ -1812,7 +1809,7 @@ public:
   //       not doing it now because there is no immediate need.
   static bool typesMayBeCRuleCompatible(llvm::Type *T1, llvm::Type *T2) {
     SmallPtrSet<llvm::Type *, 4> Tstack;
-    return typesMayBeCRuleCompatibleX(T1, T2, &Tstack);
+    return typesMayBeCRuleCompatibleX(T1, T2, Tstack);
   }
 
   // Return true if the Type T may have a distinct compatible Type by
@@ -2971,7 +2968,9 @@ private:
   // following cases:
   //   (1) It can be used in a test against a nullptr.
   //   (2) It can be passed to "free" or something equivalent.
-  //   (3) It can be passed down to a load.
+  //   (3) It can be passed to a "mem" intrinsic.
+  //   (4) It can be passed down to a load.
+  //   (5) It is used by a GEP instruction whose uses are covered by (1-5)
   // The point here is to determine whether the pointer being assigned to
   // a field can escape.  If it does, the memory could be, for example, be
   // realloc'ed and it might not have the same properties that it had
@@ -2990,8 +2989,24 @@ private:
         Function *F = CI->getCalledFunction();
         if (F == nullptr)
           return false;
-        if (!dtrans::isFreeFn(F, TLI) && !DTAA.isFreePostDom(F))
+        if (dtrans::isFreeFn(F, TLI) || DTAA.isFreePostDom(F))
+          return true;
+        if (auto II = dyn_cast<IntrinsicInst>(U)) {
+          Intrinsic::ID Intrin = II->getIntrinsicID();
+          switch (Intrin) {
+          case Intrinsic::memset:
+          case Intrinsic::memcpy:
+          case Intrinsic::memmove:
+            return true;
+          default:
+            break;
+          }
           return false;
+        }
+        return false;
+      } else if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
+        return GEPI->getPointerOperand() == I &&
+               isSafeLoadForSingleAllocFunction(GEPI);
       } else if (!isa<LoadInst>(U))
         return false;
     }
@@ -4435,6 +4450,23 @@ DTransAnalysisInfo::getByteFlattenedGEPElement(GetElementPtrInst *GEP) {
   return It->second;
 }
 
+// Set the size used to increase the memory allocation for padded malloc
+// and the interface generated by the optimization
+void DTransAnalysisInfo::setPaddedMallocInfo(unsigned Size, Function *Fn) {
+  PaddedMallocSize = Size;
+  PaddedMallocInterface = Fn;
+}
+
+// Return the size used in the padded malloc optimizaton
+unsigned DTransAnalysisInfo::getPaddedMallocSize() {
+  return PaddedMallocSize;
+}
+
+// Return the interface generated by padded malloc function
+llvm::Function *DTransAnalysisInfo::getPaddedMallocInterface() {
+  return PaddedMallocInterface;
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Print the cached call info data, the type of call, and the function
 /// making the call. This function is just for generating traces for testing.
@@ -4507,7 +4539,8 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
       M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI());
 }
 
-DTransAnalysisInfo::DTransAnalysisInfo() {}
+DTransAnalysisInfo::DTransAnalysisInfo() :
+  PaddedMallocSize(0), PaddedMallocInterface(nullptr) {}
 
 // Value map has a deleted move constructor, so we need a non-default
 // implementation of ours.
@@ -4527,6 +4560,8 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
   reset();
   TypeInfoMap = std::move(Other.TypeInfoMap);
   CallInfoMap = std::move(Other.CallInfoMap);
+  PaddedMallocSize = Other.getPaddedMallocSize();
+  PaddedMallocInterface = Other.getPaddedMallocInterface();
   return *this;
 }
 

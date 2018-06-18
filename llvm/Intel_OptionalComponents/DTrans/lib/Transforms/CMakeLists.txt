@@ -17,6 +17,7 @@ add_llvm_library(LLVMIntel_DTransOpt
   ReorderFields.cpp
   DTransOptBase.cpp
   DTransOptBaseTest.cpp
+  DTransPaddedMalloc.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${DTRANS_MAIN_INCLUDE_DIR}/Transforms
