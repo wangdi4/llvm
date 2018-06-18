@@ -80,7 +80,7 @@
 ;OPTREPORT: Global loop optimization report for : foo
 ;
 ;OPTREPORT: LOOP BEGIN
-;OPTREPORT:     Remark #XXXXX: Number of Array Refs Scalar Replaced In Loop: 3
+;OPTREPORT:     Remark: Number of Array Refs Scalar Replaced In Loop: 3
 ;OPTREPORT: LOOP END
 
 ; === ---------------------------------------------------------------- ===

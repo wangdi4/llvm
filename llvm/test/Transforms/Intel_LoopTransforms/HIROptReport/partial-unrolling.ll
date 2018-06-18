@@ -11,7 +11,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:     Remark #XXXXX: Loop has been unrolled by {{.*}} factor
+; OPTREPORT-NEXT:     Remark: Loop has been unrolled by {{.*}} factor
 ; OPTREPORT-NEXT: LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT: LOOP BEGIN
 ; OPTREPORT-NEXT:     <Remainder loop for partial unrolling>
