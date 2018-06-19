@@ -506,18 +506,6 @@ TEST(FrameworkTestType, Test_clShutdownSVMTest)
     clShutdownSVMTest();
 }
 
-#ifdef BUILD_FPGA_EMULATOR
-TEST(FPGA, Test_checkFPGAExtension)
-{
-    checkFPGAExtension();
-}
-#endif // BUILD_FPGA_EMULATOR
-
-TEST(FPGA, Test_checkFPGAExtensionNEGATIVE)
-{
-    checkFPGAExtensionNEGATIVE();
-}
-
 TEST_F(CL, Test_CheckExtensions)
 {
     CheckExtensions();
