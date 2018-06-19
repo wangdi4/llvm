@@ -21,6 +21,7 @@ add_ocl_unittest(
     channel_depth_emulation.cpp
     local_mem_size_attribute.cpp
     tbb_num_workers.cpp
+    multiple_devices.cpp
 
   LINK_LIBRARIES
     OpenCL
