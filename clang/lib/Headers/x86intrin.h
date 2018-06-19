@@ -28,17 +28,14 @@
 
 #include <immintrin.h>
 
-#if !defined(__INTEL_COMPILER) && !defined(__INTEL_LLVM_COMPILER)
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__3dNOW__)
 #include <mm3dnow.h>
 #endif
-#endif /* __INTEL_COMPILER */
 
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__PRFCHW__)
 #include <prfchwintrin.h>
 #endif
 
-#if !defined(__INTEL_COMPILER) && !defined(__INTEL_LLVM_COMPILER)
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__SSE4A__)
 #include <ammintrin.h>
 #endif
@@ -59,13 +56,13 @@
 #include <lwpintrin.h>
 #endif
 
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__F16C__)
-#include <f16cintrin.h>
-#endif
-
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__MWAITX__)
 #include <mwaitxintrin.h>
 #endif
-#endif /* __INTEL_COMPILER */
+
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__CLZERO__)
+#include <clzerointrin.h>
+#endif
+
 
 #endif /* __X86INTRIN_H */

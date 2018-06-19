@@ -1,11 +1,3 @@
-//
-// Copyright (C) 2015 Intel Corporation.  All rights reserved.
-//
-// The information and source code contained herein is the exclusive
-// property of Intel Corporation and may not be disclosed, examined
-// or reproduced in whole or in part without explicit written authorization
-// from the company.
-//
 /*===---- immintrin.h - Intel intrinsics -----------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -290,25 +282,25 @@ _readgsbase_u64(void)
 static __inline__ void __attribute__((__always_inline__, __nodebug__, __target__("fsgsbase")))
 _writefsbase_u32(unsigned int __V)
 {
-  return __builtin_ia32_wrfsbase32(__V);
+  __builtin_ia32_wrfsbase32(__V);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__, __target__("fsgsbase")))
 _writefsbase_u64(unsigned long long __V)
 {
-  return __builtin_ia32_wrfsbase64(__V);
+  __builtin_ia32_wrfsbase64(__V);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__, __target__("fsgsbase")))
 _writegsbase_u32(unsigned int __V)
 {
-  return __builtin_ia32_wrgsbase32(__V);
+  __builtin_ia32_wrgsbase32(__V);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__, __target__("fsgsbase")))
 _writegsbase_u64(unsigned long long __V)
 {
-  return __builtin_ia32_wrgsbase64(__V);
+  __builtin_ia32_wrgsbase64(__V);
 }
 
 #endif
@@ -355,10 +347,6 @@ _writegsbase_u64(unsigned long long __V)
 #include <rdseedintrin.h>
 #endif
 
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__CLZERO__)
-#include <clzerointrin.h>
-#endif
-
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__WBNOINVD__)
 #include <wbnoinvdintrin.h>
 #endif
@@ -388,45 +376,8 @@ _writegsbase_u64(unsigned long long __V)
 #include <ptwriteintrin.h>
 #endif
 
-/* Definitions of feature list to be used by feature select intrinsics */
-#define _FEATURE_GENERIC_IA32        0x00000001ULL
-#define _FEATURE_FPU                 0x00000002ULL
-#define _FEATURE_CMOV                0x00000004ULL
-#define _FEATURE_MMX                 0x00000008ULL
-#define _FEATURE_FXSAVE              0x00000010ULL
-#define _FEATURE_SSE                 0x00000020ULL
-#define _FEATURE_SSE2                0x00000040ULL
-#define _FEATURE_SSE3                0x00000080ULL
-#define _FEATURE_SSSE3               0x00000100ULL
-#define _FEATURE_SSE4_1              0x00000200ULL
-#define _FEATURE_SSE4_2              0x00000400ULL
-#define _FEATURE_MOVBE               0x00000800ULL
-#define _FEATURE_POPCNT              0x00001000ULL
-#define _FEATURE_PCLMULQDQ           0x00002000ULL
-#define _FEATURE_AES                 0x00004000ULL
-#define _FEATURE_F16C                0x00008000ULL
-#define _FEATURE_AVX                 0x00010000ULL
-#define _FEATURE_RDRND               0x00020000ULL
-#define _FEATURE_FMA                 0x00040000ULL
-#define _FEATURE_BMI                 0x00080000ULL
-#define _FEATURE_LZCNT               0x00100000ULL
-#define _FEATURE_HLE                 0x00200000ULL
-#define _FEATURE_RTM                 0x00400000ULL
-#define _FEATURE_AVX2                0x00800000ULL
-#define _FEATURE_AVX512DQ            0x01000000ULL
-#define _FEATURE_KNCNI               0x04000000ULL
-#define _FEATURE_AVX512F             0x08000000ULL
-#define _FEATURE_ADX                 0x10000000ULL
-#define _FEATURE_RDSEED              0x20000000ULL
-#define _FEATURE_AVX512IFMA52        0x40000000ULL
-#define _FEATURE_AVX512ER            0x100000000ULL
-#define _FEATURE_AVX512PF            0x200000000ULL
-#define _FEATURE_AVX512CD            0x400000000ULL
-#define _FEATURE_SHA                 0x800000000ULL
-#define _FEATURE_MPX                 0x1000000000ULL
-#define _FEATURE_AVX512BW            0x2000000000ULL
-#define _FEATURE_AVX512VL            0x4000000000ULL
-#define _FEATURE_AVX512VBMI          0x8000000000ULL
-#define _FEATURE_CLFLUSHOPT          0x10000000000ULL
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__INVPCID__)
+#include <invpcidintrin.h>
+#endif
 
 #endif /* __IMMINTRIN_H */

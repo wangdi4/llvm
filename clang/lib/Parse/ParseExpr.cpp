@@ -337,7 +337,17 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
     // Special case handling for the ternary operator.
     ExprResult TernaryMiddle(true);
     if (NextTokPrec == prec::Conditional) {
-      if (Tok.isNot(tok::colon)) {
+      if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {
+        // Parse a braced-init-list here for error recovery purposes.
+        SourceLocation BraceLoc = Tok.getLocation();
+        TernaryMiddle = ParseBraceInitializer();
+        if (!TernaryMiddle.isInvalid()) {
+          Diag(BraceLoc, diag::err_init_list_bin_op)
+              << /*RHS*/ 1 << PP.getSpelling(OpToken)
+              << Actions.getExprRange(TernaryMiddle.get());
+          TernaryMiddle = ExprError();
+        }
+      } else if (Tok.isNot(tok::colon)) {
         // Don't parse FOO:BAR as if it were a typo for FOO::BAR.
         ColonProtectionRAIIObject X(*this);
 
@@ -346,11 +356,6 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
         // In particular, the RHS of the '?' is 'expression', not
         // 'logical-OR-expression' as we might expect.
         TernaryMiddle = ParseExpression();
-        if (TernaryMiddle.isInvalid()) {
-          Actions.CorrectDelayedTyposInExpr(LHS);
-          LHS = ExprError();
-          TernaryMiddle = nullptr;
-        }
       } else {
         // Special case handling of "X ? Y : Z" where Y is empty:
         //   logical-OR-expression '?' ':' conditional-expression   [GNU]
@@ -361,6 +366,12 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
       if (!LHS.isInvalid()) 
         LHS.get()->setIsCondition();
 #endif // INTEL_CUSTOMIZATION
+
+      if (TernaryMiddle.isInvalid()) {
+        Actions.CorrectDelayedTyposInExpr(LHS);
+        LHS = ExprError();
+        TernaryMiddle = nullptr;
+      }
 
       if (!TryConsumeToken(tok::colon, ColonLoc)) {
         // Otherwise, we're missing a ':'.  Assume that this was a typo that
@@ -480,6 +491,11 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
       if (ThisPrec == prec::Assignment) {
         Diag(OpToken, diag::warn_cxx98_compat_generalized_initializer_lists)
           << Actions.getExprRange(RHS.get());
+      } else if (ColonLoc.isValid()) {
+        Diag(ColonLoc, diag::err_init_list_bin_op)
+          << /*RHS*/1 << ":"
+          << Actions.getExprRange(RHS.get());
+        LHS = ExprError();
       } else {
         Diag(OpToken, diag::err_init_list_bin_op)
           << /*RHS*/1 << PP.getSpelling(OpToken)
@@ -1741,8 +1757,10 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       CXXScopeSpec SS;
       ParsedType ObjectType;
       bool MayBePseudoDestructor = false;
+      Expr* OrigLHS = !LHS.isInvalid() ? LHS.get() : nullptr;
+
       if (getLangOpts().CPlusPlus && !LHS.isInvalid()) {
-        Expr *Base = LHS.get();
+        Expr *Base = OrigLHS;
         const Type* BaseType = Base->getType().getTypePtrOrNull();
         if (BaseType && Tok.is(tok::l_paren) &&
             (BaseType->isFunctionType() ||
@@ -1767,11 +1785,25 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       }
 
       if (Tok.is(tok::code_completion)) {
+        tok::TokenKind CorrectedOpKind =
+            OpKind == tok::arrow ? tok::period : tok::arrow;
+        ExprResult CorrectedLHS(/*IsInvalid=*/true);
+        if (getLangOpts().CPlusPlus && OrigLHS) {
+          const bool DiagsAreSuppressed = Diags.getSuppressAllDiagnostics();
+          Diags.setSuppressAllDiagnostics(true);
+          CorrectedLHS = Actions.ActOnStartCXXMemberReference(
+              getCurScope(), OrigLHS, OpLoc, CorrectedOpKind, ObjectType,
+              MayBePseudoDestructor);
+          Diags.setSuppressAllDiagnostics(DiagsAreSuppressed);
+        }
+
+        Expr *Base = LHS.get();
+        Expr *CorrectedBase = CorrectedLHS.get();
+
         // Code completion for a member access expression.
-        if (Expr *Base = LHS.get())
-          Actions.CodeCompleteMemberReferenceExpr(
-              getCurScope(), Base, OpLoc, OpKind == tok::arrow,
-              ExprStatementTokLoc == Base->getLocStart());
+        Actions.CodeCompleteMemberReferenceExpr(
+            getCurScope(), Base, CorrectedBase, OpLoc, OpKind == tok::arrow,
+            Base && ExprStatementTokLoc == Base->getLocStart());
 
         cutOffParsing();
         return ExprError();

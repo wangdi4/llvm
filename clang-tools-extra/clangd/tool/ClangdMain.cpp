@@ -33,7 +33,7 @@ enum class PCHStorageFlag { Disk, Memory };
 // Build an in-memory static index for global symbols from a YAML-format file.
 // The size of global symbols should be relatively small, so that all symbols
 // can be managed in memory.
-std::unique_ptr<SymbolIndex> BuildStaticIndex(llvm::StringRef YamlSymbolFile) {
+std::unique_ptr<SymbolIndex> buildStaticIndex(llvm::StringRef YamlSymbolFile) {
   auto Buffer = llvm::MemoryBuffer::getFile(YamlSymbolFile);
   if (!Buffer) {
     llvm::errs() << "Can't open " << YamlSymbolFile << "\n";
@@ -223,7 +223,7 @@ int main(int argc, char *argv[]) {
   Opts.BuildDynamicSymbolIndex = EnableIndex;
   std::unique_ptr<SymbolIndex> StaticIdx;
   if (EnableIndex && !YamlSymbolFile.empty()) {
-    StaticIdx = BuildStaticIndex(YamlSymbolFile);
+    StaticIdx = buildStaticIndex(YamlSymbolFile);
     Opts.StaticIndex = StaticIdx.get();
   }
   Opts.AsyncThreadsCount = WorkerThreadsCount;
@@ -238,5 +238,5 @@ int main(int argc, char *argv[]) {
   llvm::set_thread_name("clangd.main");
   // Change stdin to binary to not lose \r\n on windows.
   llvm::sys::ChangeStdinToBinary();
-  return LSPServer.run(std::cin, InputStyle) ? 0 : NoShutdownRequestErrorCode;
+  return LSPServer.run(stdin, InputStyle) ? 0 : NoShutdownRequestErrorCode;
 }
