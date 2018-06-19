@@ -230,6 +230,9 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
   // but I don't think we'd get here with a vector type (unless we end
   // up wanting to track vector types).
   if (auto *CompTy = dyn_cast<CompositeType>(SrcPointeeTy)) {
+    // This avoids problems with opaque types.
+    if (!CompTy->indexValid(0u))
+      return false;
     auto *ElementZeroTy = CompTy->getTypeAtIndex(0u);
     if (DestPointeeTy == ElementZeroTy) {
       if (AccessedTy)

@@ -136,6 +136,10 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
     if (!StInfo)
       continue;
 
+    // Don't try to delete fields from literal structures.
+    if (cast<StructType>(StInfo->getLLVMType())->isLiteral())
+      continue;
+
     // We're only interested in fields that are never read. Fields that are
     // written but not read can be deleted. Fields with complex uses
     // (phi, select, icmp, etc.) cannot be deleted.

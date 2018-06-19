@@ -1350,6 +1350,7 @@ private:
     if (isa<PointerType>(VTy))
       Info.addPointerTypeAlias(VTy);
 
+    // FIXME: Also handle invoke instructions here.
     if (auto *CI = getCallInstIfAlloc(V)) {
       // If the value we're analyzing is a call to an allocation function
       // we need to look for bitcast users so that we can proactively assign
@@ -1364,6 +1365,7 @@ private:
       // may inherit some alias information from the load's pointer operand.
       analyzeLoadInstruction(Load, Info);
     }
+    // FIXME: Also analyze extract value instructions.
 
     // If there were no unresolved dependencies, mark the info as analyzed.
     if (!Info.isPartialAnalysis())
@@ -1526,6 +1528,8 @@ private:
       SmallPtrSet<User *, 8> VisitedUsers;
       addAllocUsesToDependencyStack(CI, DependentVals, VisitedUsers);
     }
+
+    // FIXME: Also handle invoke and extract value instructions.
   }
 
   void addAllocUsesToDependencyStack(Value *V,
@@ -1875,10 +1879,15 @@ private:
     // If the pointer operand aliases any pointers-to-pointers, the loaded
     // value will be considered to alias to the pointed-to pointer type.
     Value *Src = Load->getPointerOperand();
-    // We should have at least attempted to analyze this value already.
-    // If not, there is a problem in populateDependencyStack().
-    assert(LocalMap.count(Src) && "Load pointer operand missing from map!");
     LocalPointerInfo &SrcLPI = LocalMap[Src];
+    // If the incoming analysis was incomplete, what we do below won't be
+    // complete, but the partial analysis may be necessary so we note the
+    // incompleteness and continue.
+    if (!SrcLPI.getAnalyzed()) {
+      Info.setPartialAnalysis(true);
+      DEBUG_WITH_TYPE(LPA_VERBOSE, dbgs() << "Incomplete analysis derived from "
+                                          << *Src << "\n");
+    }
     for (auto *AliasTy : SrcLPI.getPointerTypeAliasSet())
       if (AliasTy->isPointerTy() &&
           AliasTy->getPointerElementType()->isPointerTy())
@@ -1900,7 +1909,14 @@ private:
     // This assert is here to catch cases that I haven't thought about.
     assert(isa<GlobalVariable>(V) || isa<Argument>(V) || isa<AllocaInst>(V) ||
            isa<LoadInst>(V) || isa<CallInst>(V) || isa<GetElementPtrInst>(V) ||
-           isa<Constant>(V) || isa<GEPOperator>(V));
+           isa<Constant>(V) || isa<GEPOperator>(V) || isa<InvokeInst>(V) ||
+           isa<ExtractValueInst>(V));
+
+    // Note that ExtractValueInst and InvokeInst are not handled by the main
+    // instruction visitor, so they will cause UnhandledUse safety conditions
+    // to be set. They are added to the assert here to prevent it from firing
+    // while compiling programs that we do not expect to be able to optimize.
+    // Additional implementation would be necessary to handle these correctly.
 
     return false;
   }
