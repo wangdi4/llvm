@@ -15,6 +15,7 @@ add_ocl_unittest(
     infinite_loops.cpp
     autorun.cpp
     channel_multiple_call_site.cpp
+    host_side_pipes.cpp
 
   LINK_LIBRARIES
     OpenCL
