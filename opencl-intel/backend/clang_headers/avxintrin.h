@@ -782,13 +782,17 @@ _mm256_broadcast_ss(float private const *a)
 static __inline __m256d __attribute__((__always_inline__, __nodebug__))
 _mm256_broadcast_pd(__m128d const *a)
 {
-  return (__m256d)__builtin_ia32_vbroadcastf128_pd256(a);
+  __m128d b = _mm_loadu_pd((const double *)a);
+  return (__m256d)__builtin_shufflevector((__v2df)b, (__v2df)b,
+                                          0, 1, 0, 1);
 }
 
 static __inline __m256 __attribute__((__always_inline__, __nodebug__))
 _mm256_broadcast_ps(__m128 const *a)
 {
-  return (__m256)__builtin_ia32_vbroadcastf128_ps256(a);
+  __m128 b = _mm_loadu_ps((const float *)a);
+  return (__m256)__builtin_shufflevector((__v4sf)b, (__v4sf)b,
+                                         0, 1, 2, 3, 0, 1, 2, 3);
 }
 
 /* SIMD load ops */
