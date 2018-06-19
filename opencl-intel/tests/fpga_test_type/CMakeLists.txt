@@ -18,6 +18,7 @@ add_ocl_unittest(
     host_side_pipes.cpp
     autorun_profiling.cpp
     io_attribute.cpp
+    channel_depth_emulation.cpp
 
   LINK_LIBRARIES
     OpenCL
