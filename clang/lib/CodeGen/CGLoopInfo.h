@@ -69,8 +69,14 @@ struct LoopAttributes {
   /// Value for llvm.loop.ivdep.safelen metadata.
   unsigned IVDepCount;
 
-  /// \brief Value for llvm.loop.nofusion.enable metadata.
-  bool NoFusionEnable;
+  /// \brief Value for llvm.loop.fusion.* metadata.
+  LVEnableState FusionEnable;
+
+  /// \brief Value for llvm.loop.unroll_and_jam.* metadata.
+  LVEnableState UnrollAndJamEnable;
+
+  /// \brief Value for llvm.loop.unroll_and_jam.* count metadata.
+  unsigned UnrollAndJamCount;
 
   /// \brief Value for llvm.loop.vectorize.ivdep_loop metadata.
   bool IVDepLoop;
@@ -204,9 +210,21 @@ public:
   /// Set the safelen count for the next loop pushed.
   void setIVDepCount(unsigned C) { StagedAttrs.IVDepCount = C; }
 
-  /// \brief Set the next pushed loop 'nofusion.enable'
-  void setNoFusionEnable() {
-    StagedAttrs.NoFusionEnable = true;
+  /// \brief Set the next pushed loop 'fusion.enable'
+  void setFusionEnable(bool Enable = true) {
+    StagedAttrs.FusionEnable =
+        Enable ? LoopAttributes::Enable : LoopAttributes::Disable;
+  }
+
+  /// \brief Set the next pushed loop 'unroll_and_jam.*' enable or disable
+  void setUnrollAndJamEnable(bool Enable = true) {
+    StagedAttrs.UnrollAndJamEnable =
+        Enable ? LoopAttributes::Enable : LoopAttributes::Disable;
+  }
+
+  /// \brief Set the next pushed loop 'unroll_and_jam.count'
+  void setUnrollAndJamCount(unsigned count) {
+    StagedAttrs.UnrollAndJamCount = count;
   }
 
   /// \brief Set the loop flag for ivdep.

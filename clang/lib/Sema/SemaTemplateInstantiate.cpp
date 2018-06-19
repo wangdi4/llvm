@@ -1243,8 +1243,10 @@ TemplateInstantiator::TransformLoopHintAttr(const LoopHintAttr *LH) {
   if (TransformedExpr &&
       getSema().CheckLoopHintExpr(TransformedExpr, LH->getLocation(),
                                   !getSema().getLangOpts().IntelCompat ||
-                                      LH->getSemanticSpelling() !=
-                                          LoopHintAttr::Pragma_unroll))
+                                  !((LH->getSemanticSpelling() ==
+                                      LoopHintAttr::Pragma_unroll) ||
+                                    (LH->getSemanticSpelling() ==
+                                      LoopHintAttr::Pragma_unroll_and_jam))))
 #endif // INTEL_CUSTOMIZATION
     return LH;
 

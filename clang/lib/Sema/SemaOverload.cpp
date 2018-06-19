@@ -1856,6 +1856,11 @@ static bool IsStandardConversion(Sema &S, Expr* From, QualType ToType,
     // Boolean conversions (C++ 4.12).
     SCS.Second = ICK_Boolean_Conversion;
     FromType = S.Context.BoolTy;
+#if INTEL_CUSTOMIZATION
+  } else if (IsArbPrecIntConversion(S, FromType, ToType, SecondICK)) {
+    SCS.Second = SecondICK;
+    FromType = ToType.getUnqualifiedType();
+#endif // INTEL_CUSTOMIZATION
   } else if (FromType->isIntegralOrUnscopedEnumerationType() &&
              ToType->isIntegralType(S.Context)) {
     // Integral conversions (C++ 4.7).
@@ -1913,11 +1918,6 @@ static bool IsStandardConversion(Sema &S, Expr* From, QualType ToType,
   } else if (IsVectorConversion(S, FromType, ToType, SecondICK)) {
     SCS.Second = SecondICK;
     FromType = ToType.getUnqualifiedType();
-#if INTEL_CUSTOMIZATION
-  } else if (IsArbPrecIntConversion(S, FromType, ToType, SecondICK)) {
-    SCS.Second = SecondICK;
-    FromType = ToType.getUnqualifiedType();
-#endif // INTEL_CUSTOMIZATION
   } else if (!S.getLangOpts().CPlusPlus &&
              S.Context.typesAreCompatible(ToType, FromType)) {
     // Compatible conversions (Clang extension for C function overloading)

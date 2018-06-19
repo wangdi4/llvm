@@ -34,7 +34,9 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
       Attrs.MaxConcurrencyCount == 0 && Attrs.IVDepCount == 0 &&
       !Attrs.IVDepEnable && !Attrs.IVDepHLSEnable &&
       !Attrs.IVDepHLSIntelEnable && !Attrs.IVDepLoop && !Attrs.IVDepBack &&
-      !Attrs.NoFusionEnable &&
+      Attrs.FusionEnable == LoopAttributes::Unspecified &&
+      Attrs.UnrollAndJamEnable == LoopAttributes::Unspecified &&
+      Attrs.UnrollAndJamCount == 0 &&
       !Attrs.VectorizeAlwaysEnable &&
 #endif // INTEL_CUSTOMIZATION
       !StartLoc && !EndLoc)
@@ -113,9 +115,26 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
     Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.vectorize.ivdep_back")};
     Args.push_back(MDNode::get(Ctx, Vals));
   }
-  // Setting nofusion
-  if (Attrs.NoFusionEnable) {
-    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.nofusion.enable")};
+  // Setting fusion.enable or fusion.disable
+  if (Attrs.FusionEnable != LoopAttributes::Unspecified) {
+    Metadata *Vals[] = {
+        MDString::get(Ctx, Attrs.FusionEnable == LoopAttributes::Enable
+                               ? "llvm.loop.fusion.enable"
+                               : "llvm.loop.fusion.disable")};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+  // Setting unroll_and_jam.enable or unroll_and_jam.disable
+  if (Attrs.UnrollAndJamEnable != LoopAttributes::Unspecified) {
+    Metadata *Vals[] = {
+        MDString::get(Ctx, Attrs.UnrollAndJamEnable == LoopAttributes::Enable
+                               ? "llvm.loop.unroll_and_jam.enable"
+                               : "llvm.loop.unroll_and_jam.disable")};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+  if (Attrs.UnrollAndJamCount > 0) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.unroll_and_jam.count"),
+                        ConstantAsMetadata::get(ConstantInt::get(
+                            Type::getInt32Ty(Ctx), Attrs.UnrollAndJamCount))};
     Args.push_back(MDNode::get(Ctx, Vals));
   }
   if (Attrs.IVDepLoop) {
@@ -182,7 +201,9 @@ LoopAttributes::LoopAttributes(bool IsParallel)
     : IsParallel(IsParallel), LoopCoalesceEnable(false),
       LoopCoalesceCount(0), IICount(0), MaxConcurrencyCount(0),
       IVDepEnable(false), IVDepHLSEnable(false), IVDepHLSIntelEnable(false),
-      IVDepCount(0), NoFusionEnable(false), IVDepLoop(false), IVDepBack(false),
+      IVDepCount(0), FusionEnable(LoopAttributes::Unspecified),
+      UnrollAndJamEnable(LoopAttributes::Unspecified), UnrollAndJamCount(0),
+      IVDepLoop(false), IVDepBack(false),
       VectorizeAlwaysEnable(false),
       VectorizeEnable(LoopAttributes::Unspecified),
 #endif // INTEL_CUSTOMIZATION
@@ -201,7 +222,9 @@ void LoopAttributes::clear() {
   IVDepHLSEnable = false;
   IVDepHLSIntelEnable = false;
   IVDepCount = 0;
-  NoFusionEnable = false;
+  FusionEnable = LoopAttributes::Unspecified;
+  UnrollAndJamEnable = LoopAttributes::Unspecified;
+  UnrollAndJamCount = 0;
   IVDepLoop = false;
   IVDepBack = false;
   VectorizeAlwaysEnable = false;
@@ -287,6 +310,14 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::Distribute:
         setDistributeState(false);
         break;
+#if INTEL_CUSTOMIZATION
+      case LoopHintAttr::Fusion:
+        setFusionEnable(false);
+        break;
+      case LoopHintAttr::UnrollAndJam:
+        setUnrollAndJamEnable(false);
+        break;
+#endif // INTEL_CUSTOMIZATION
       case LoopHintAttr::UnrollCount:
       case LoopHintAttr::VectorizeWidth:
       case LoopHintAttr::InterleaveCount:
@@ -299,7 +330,6 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::LoopCoalesce:
       case LoopHintAttr::MaxConcurrency:
-      case LoopHintAttr::NoFusion:
       case LoopHintAttr::VectorizeAlways:
 #endif // INTEL_CUSTOMIZATION
         llvm_unreachable("Options cannot be disabled.");
@@ -346,8 +376,11 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::LoopCoalesce:
         setLoopCoalesceEnable();
         break;
-      case LoopHintAttr::NoFusion:
-        setNoFusionEnable();
+      case LoopHintAttr::Fusion:
+        setFusionEnable(true);
+        break;
+      case LoopHintAttr::UnrollAndJam:
+        setUnrollAndJamEnable(true);
         break;
       case LoopHintAttr::VectorizeAlways:
         setVectorizeAlwaysEnable();
@@ -377,7 +410,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::LoopCoalesce:
       case LoopHintAttr::MaxConcurrency:
-      case LoopHintAttr::NoFusion:
+      case LoopHintAttr::Fusion:
+      case LoopHintAttr::UnrollAndJam:
       case LoopHintAttr::VectorizeAlways:
 #endif // INTEL_CUSTOMIZATION
         llvm_unreachable("Options cannot be used to assume mem safety.");
@@ -396,7 +430,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::II:
       case LoopHintAttr::LoopCoalesce:
       case LoopHintAttr::MaxConcurrency:
-      case LoopHintAttr::NoFusion:
+      case LoopHintAttr::Fusion:
+      case LoopHintAttr::UnrollAndJam:
       case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
       case LoopHintAttr::IVDepBack:
@@ -437,7 +472,10 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLS:
         setIVDepCount(ValueInt);
         break;
-      case LoopHintAttr::NoFusion:
+      case LoopHintAttr::UnrollAndJam:
+        setUnrollAndJamCount(ValueInt);
+        break;
+      case LoopHintAttr::Fusion:
       case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
       case LoopHintAttr::IVDepBack:
@@ -468,7 +506,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::Vectorize:
       case LoopHintAttr::Interleave:
       case LoopHintAttr::Distribute:
-      case LoopHintAttr::NoFusion:
+      case LoopHintAttr::Fusion:
+      case LoopHintAttr::UnrollAndJam:
       case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
       case LoopHintAttr::IVDepBack:
