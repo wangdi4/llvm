@@ -1,8 +1,8 @@
 /////////////////////////////////////////////////////////////////////////
-// cl_utils.cpp:
+// cl_sys_info_linux.cpp:
 /////////////////////////////////////////////////////////////////////////
 // INTEL CONFIDENTIAL
-// Copyright 2007-2013 Intel Corporation All Rights Reserved.
+// Copyright 2007-2018 Intel Corporation All Rights Reserved.
 //
 // The source code contained or described herein and all documents related
 // to the source code ("Material") are owned by Intel Corporation or its
@@ -420,18 +420,6 @@ unsigned int Intel::OpenCL::Utils::GetCpuId()
 const char* Intel::OpenCL::Utils::GetFullModuleNameForLoad(const char* moduleName)
 {
 	return moduleName;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////
-// return the product version:
-// On Windows: it returns the product version number that is stored in the version info of the shared object
-// On Linux:   not implemented TODO
-// Arguments - someLocalFunc - some function in the requested module
-//             major, minor, revision, build - output version numbers
-////////////////////////////////////////////////////////////////////
-bool Intel::OpenCL::Utils::GetModuleProductVersion(const void* someLocalFunc, int* major, int* minor, int* revision, int* build)
-{
-    return false;
 }
 
 unsigned int Intel::OpenCL::Utils::GetThreadId()
