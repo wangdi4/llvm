@@ -14,6 +14,7 @@ add_ocl_unittest(
     wg_ordering.cpp
     infinite_loops.cpp
     autorun.cpp
+    channel_multiple_call_site.cpp
 
   LINK_LIBRARIES
     OpenCL
