@@ -3131,8 +3131,31 @@ public:
     assert(M.isMaterialized());
 
     // Analyze the structure types declared in the module.
-    for (StructType *Ty : M.getIdentifiedStructTypes())
+    for (StructType *Ty : M.getIdentifiedStructTypes()) {
+      // This is a rather brittle workaround for the problem of types being
+      // uniqued during linking. When function bitcasts are handled that will
+      // be a better way of detecting the problem this is meant to fix.
+      // This is here rather than in analyzeStructureType() because it requires
+      // the Module and it should be temporary code so adding the Module as
+      // an argument seemed like overkill.
+      if (Ty->hasName()) {
+        StringRef TyName = Ty->getName();
+        StringRef BaseName = TyName.rtrim(".0123456789");
+        if (!TyName.equals(BaseName)) {
+          StructType *BaseTy = M.getTypeByName(BaseName);
+          if (BaseTy) {
+            LLVM_DEBUG(dbgs()
+                       << "dtrans-safety: Unhandled use -- aliased struct\n  "
+                       << TyName << " -> " << BaseName << "\n");
+            dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(Ty);
+            TI->setSafetyData(dtrans::UnhandledUse);
+            dtrans::TypeInfo *BaseTI = DTInfo.getOrCreateTypeInfo(BaseTy);
+            BaseTI->setSafetyData(dtrans::UnhandledUse);
+          }
+        }
+      }
       analyzeStructureType(Ty);
+    }
 
     // Before visiting each Function, ensure that the types of all of the
     // Function arguments which are Types of interest are in the
@@ -3529,6 +3552,26 @@ private:
           DTInfo.getOrCreateTypeInfo(NestedTy)->setSafetyData(
               dtrans::NestedStruct);
         }
+        continue;
+      }
+      // Fields matching this check might not actually be vtables, but
+      // we will treat them as though they are.
+      if (ElementTy->isPointerTy() &&
+          ElementTy->getPointerElementType()->isPointerTy() &&
+          ElementTy->getPointerElementType()
+              ->getPointerElementType()
+              ->isFunctionTy()) {
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Has vtable\n"
+                          << "  struct:  " << *Ty << "\n"
+                          << "  element: " << *ElementTy << "\n");
+        TI->setSafetyData(dtrans::HasVTable);
+        continue;
+      }
+      if (ElementTy->isPointerTy() &&
+          ElementTy->getPointerElementType()->isFunctionTy()) {
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Has function ptr:\n  " << *Ty
+                          << "\n");
+        TI->setSafetyData(dtrans::HasFnPtr);
       }
     }
   }

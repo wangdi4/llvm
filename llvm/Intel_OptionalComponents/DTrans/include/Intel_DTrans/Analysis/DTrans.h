@@ -248,6 +248,12 @@ const SafetyData MismatchedArgUse = 0x0000000000001000000;
 /// A global variable was found which is an array of the type.
 const SafetyData GlobalArray = 0x0000000000002000000;
 
+/// An element in the structure looks like a vtable.
+const SafetyData HasVTable = 0x0000000000004000000;
+
+/// An element in the structure points to a function.
+const SafetyData HasFnPtr = 0x0000000000008000000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.

@@ -127,10 +127,12 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       dtrans::AmbiguousPointerTarget | dtrans::UnsafePtrMerge |
       dtrans::AddressTaken | dtrans::NoFieldsInStruct | dtrans::NestedStruct |
       dtrans::ContainsNestedStruct | dtrans::MemFuncPartialWrite |
-      dtrans::SystemObject | dtrans::MismatchedArgUse | dtrans::GlobalArray;
+      dtrans::SystemObject | dtrans::MismatchedArgUse | dtrans::GlobalArray |
+      dtrans::HasVTable | dtrans::HasFnPtr;
 
   LLVM_DEBUG(dbgs() << "Delete field: looking for candidate structures.\n");
 
+  uint64_t DeleteableBytes = 0;
   for (dtrans::TypeInfo *TI : DTInfo.type_info_entries()) {
     auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
     if (!StInfo)
@@ -147,12 +149,26 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
     size_t NumFields = StInfo->getNumFields();
     for (size_t i = 0; i < NumFields; ++i) {
       dtrans::FieldInfo &FI = StInfo->getField(i);
+      auto *FieldTy = FI.getLLVMType();
+      if (FieldTy->isAggregateType()) {
+        LLVM_DEBUG({
+          dbgs() << "  Rejecting ";
+          StInfo->getLLVMType()->print(dbgs(), true, true);
+          dbgs() << " because it contains an aggregate field.\n";
+        });
+        CanDeleteField = false;
+        break;
+      }
       if (!FI.isRead() && !FI.hasComplexUse()) {
         LLVM_DEBUG({
           dbgs() << "  Found unread field: ";
           StInfo->getLLVMType()->print(dbgs(), true, true);
           dbgs() << " @ " << i << "\n";
         });
+        // Get the field size in bytes. If the field is an i1 this will
+        // return zero, but that keeps us from overestimating the size of
+        // bitfields.
+        DeleteableBytes += DL.getTypeSizeInBits(FieldTy) / 8;
         CanDeleteField = true;
 #ifdef NDEBUG
         break;
@@ -168,6 +184,16 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
         dbgs() << "  Rejecting ";
         StInfo->getLLVMType()->print(dbgs(), true, true);
         dbgs() << " based on safety data.\n";
+      });
+      continue;
+    }
+
+    if (((DeleteableBytes * 100) / DL.getTypeAllocSize(StInfo->getLLVMType()))
+            < 10) {
+      LLVM_DEBUG({
+        dbgs() << "  Rejecting ";
+        StInfo->getLLVMType()->print(dbgs(), true, true);
+        dbgs() << " based on size.\n";
       });
       continue;
     }

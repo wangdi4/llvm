@@ -320,6 +320,17 @@ a value passed as an i8* argument whose alias set did not match the expected
 alias set for the argument based on the uses of the argument within the
 function.
 
+HasVTable
+~~~~~~~~~
+This indicates that the type is a structure with at least one field that seems
+as though it may be a vtable. Any field that is a pointer to a pointer to a
+function will trigger this safety condition.
+
+HasFnPtr
+~~~~~~~~
+This indicates that the type is a structure with at least one field that is
+a pointer to a function.
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we

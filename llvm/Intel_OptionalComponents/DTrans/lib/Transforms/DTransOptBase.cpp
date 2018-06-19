@@ -413,7 +413,12 @@ void DTransOptBase::prepareDependentTypes(
     // been determined. For other types, such as arrays, we don't need to do
     // anything here, the replacements for them will be computed on demand.
     if (auto *StructTy = dyn_cast<StructType>(Ty)) {
-      Type *ReplacementTy = StructType::create(
+      // If StructTy is literal, don't give the replacement a name.
+      Type *ReplacementTy;
+      if (StructTy->isLiteral())
+        ReplacementTy = StructType::create(Context);
+      else
+        ReplacementTy = StructType::create(
           Context, Twine(DepTypePrefix + StructTy->getStructName()).str());
       TypeRemapper->addTypeMapping(Ty, ReplacementTy);
       OrigToNewTypeReplacement[Ty] = ReplacementTy;
