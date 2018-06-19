@@ -522,7 +522,7 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::addImplicitClauses() {
     auto DKind = Directive.getDirectiveKind();
     if (!isOpenMPLoopDirective(DKind) && !isOpenMPParallelDirective(DKind) &&
-        DKind != OMPD_target)
+        DKind != OMPD_task && DKind != OMPD_target)
       return;
 
     for (const auto *VD : VarRefs) {
@@ -1172,7 +1172,7 @@ namespace CGIntelOpenMP {
     SmallString<64> SchedString;
     switch (Cl->getDistScheduleKind()) {
     case OMPC_DIST_SCHEDULE_static:
-      SchedString = "QUAL.OMP.DIST.SCHEDULE.STATIC";
+      SchedString = "QUAL.OMP.DIST_SCHEDULE.STATIC";
       break;
     case OMPC_DIST_SCHEDULE_unknown:
       llvm_unreachable("Unknown schedule clause");
@@ -1476,6 +1476,16 @@ namespace CGIntelOpenMP {
   }
   void OpenMPCodeOutliner::emitOMPDistributeDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.DISTRIBUTE", "DIR.OMP.END.DISTRIBUTE");
+  }
+  void OpenMPCodeOutliner::emitOMPDistributeParallelForDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.DISTRIBUTE.PARLOOP",
+                               "DIR.OMP.END.DISTRIBUTE.PARLOOP");
+  }
+  void OpenMPCodeOutliner::emitOMPDistributeParallelForSimdDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.DISTRIBUTE.PARLOOP",
+                               "DIR.OMP.END.DISTRIBUTE.PARLOOP",
+                               OMPD_distribute_parallel_for);
+    startDirectiveIntrinsicSet("DIR.OMP.SIMD", "DIR.OMP.END.SIMD", OMPD_simd);
   }
   void OpenMPCodeOutliner::emitOMPSectionsDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.SECTIONS", "DIR.OMP.END.SECTIONS");

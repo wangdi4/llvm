@@ -432,7 +432,7 @@ int main(int argc, char **argv) {
   }
 // CHECK-REG: [[TARGTE_TV:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TARGET"()
 // CHECK-REG: [[TE_TV:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TEAMS"(){{.*}}"QUAL.OMP.NUM_TEAMS"(i32 16), "QUAL.OMP.THREAD_LIMIT"(i32 4)
-// CHECK-REG: [[DIST_TV:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.DISTRIBUTE"(){{.*}}"QUAL.OMP.DIST.SCHEDULE.STATIC"(i32 8)
+// CHECK-REG: [[DIST_TV:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.DISTRIBUTE"(){{.*}}"QUAL.OMP.DIST_SCHEDULE.STATIC"(i32 8)
 // CHECK-REG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb
 // CHECK-REG-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv
 // CHECK-REG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.ub

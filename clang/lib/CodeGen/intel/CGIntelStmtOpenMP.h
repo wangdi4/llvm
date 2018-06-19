@@ -202,6 +202,8 @@ public:
   void emitOMPFlushDirective();
   void emitOMPTeamsDirective();
   void emitOMPDistributeDirective();
+  void emitOMPDistributeParallelForDirective();
+  void emitOMPDistributeParallelForSimdDirective();
   void emitOMPSectionsDirective();
   void emitOMPSectionDirective();
   void emitOMPParallelSectionsDirective();

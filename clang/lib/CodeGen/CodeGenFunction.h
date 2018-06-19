@@ -3252,6 +3252,11 @@ private:
   void EmitIntelOMPTaskLoopDirective(const OMPTaskLoopDirective &S);
   void EmitIntelOMPTaskLoopSimdDirective(const OMPTaskLoopSimdDirective &S);
   void EmitIntelOMPDistributeDirective(const OMPDistributeDirective &S);
+  void EmitIntelOMPDistributeParallelForDirective(
+      const OMPDistributeParallelForDirective &S);
+  void EmitIntelOMPDistributeParallelForSimdDirective(
+      const OMPDistributeParallelForSimdDirective &S);
+
 public:
   void RemapInlinedPrivates(const OMPExecutableDirective &D,
                             OMPPrivateScope &PrivScope);

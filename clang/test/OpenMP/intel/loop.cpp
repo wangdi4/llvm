@@ -99,6 +99,29 @@ void foo(int *arr1, int **arr2) {
    arr1[iter] = 42+iter+pr;
    zii += 42+iter+pr;
  }
+
+//CHECK-REGION: DIR.OMP.DISTRIBUTE.PARLOOP
+//CHECK-REGION-SAME: "QUAL.OMP.NORMALIZED.IV"{{.*}}%.omp.iv
+//CHECK-REGION-SAME: "QUAL.OMP.PRIVATE"{{.*}}%zz1
+#pragma omp distribute parallel for
+for (int i=0; i<16; ++i) {
+  int zz1 = 1;
+  bar(i+zz1);
+}
+//CHECK-REGION: DIR.OMP.END.DISTRIBUTE.PARLOOP
+
+//CHECK-REGION: DIR.OMP.DISTRIBUTE.PARLOOP
+//CHECK-REGION-SAME: "QUAL.OMP.NORMALIZED.IV"{{.*}}%.omp.iv
+//CHECK-REGION-SAME: "QUAL.OMP.PRIVATE"{{.*}}%zz1
+//CHECK-REGION: DIR.OMP.SIMD
+#pragma omp distribute parallel for simd
+for (int i=0; i<16; ++i) {
+  int zz1 = 1;
+  bar(i+zz1);
+}
+//CHECK-REGION: DIR.OMP.END.SIMD
+//CHECK-REGION: DIR.OMP.END.DISTRIBUTE.PARLOOP
+
 // CHECK-REGION: DIR.OMP.PARALLEL.LOOP{{.*}}FIRSTPRIVATE{{.*}}%.omp.lb
   #pragma omp parallel for
   for (iter = first1(); iter < last1(); ++iter) {
