@@ -13,6 +13,7 @@ add_ocl_unittest(
     channel_by_value.cpp
     wg_ordering.cpp
     infinite_loops.cpp
+    autorun.cpp
 
   LINK_LIBRARIES
     OpenCL
