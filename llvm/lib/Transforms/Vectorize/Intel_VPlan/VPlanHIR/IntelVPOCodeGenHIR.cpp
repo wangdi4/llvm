@@ -390,6 +390,24 @@ public:
   bool getNegativeIVCoeffSeen() { return NegativeIVCoeffSeen; }
   bool getFieldAccessSeen() { return FieldAccessSeen; }
 };
+
+class HLInstCounter final : public HLNodeVisitorBase {
+private:
+  const HLLoop *OrigLoop;
+  unsigned NumInsts;
+
+public:
+  HLInstCounter(const HLLoop *OrigLoop) : OrigLoop(OrigLoop) { NumInsts = 0; }
+
+  unsigned getNumInsts() { return NumInsts; }
+
+  void postVisit(HLNode *Node) {}
+
+  void visit(HLNode *Node) {
+    if (isa<HLInst>(Node))
+      NumInsts++;
+  }
+};
 } // End anonymous namespace
 
 void HandledCheck::visit(HLDDNode *Node) {
@@ -657,6 +675,20 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
   return true;
 }
 
+HLLoop *VPOCodeGenHIR::findRednHoistInsertionPoint(HLLoop *Lp) {
+  // Inspired by hpo_huntHoist in icc - check to see at what loop it is safe
+  // to hoist the reduction initializer and sink the last value compute
+  // instructions. Basically a quick and dirty check to see that a parent
+  // loop only contains a child loop, so no dependences prevent hoisting.
+  if (!Lp->hasPreheader() && !Lp->hasPostexit()) {
+    HLLoop *Parent = dyn_cast<HLLoop>(Lp->getParent());
+    if (Parent && Parent->isDo() && Parent->getNumChildren() == 1) {
+      return findRednHoistInsertionPoint(Parent);
+    }
+  }
+  return Lp;
+}
+
 void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   assert(VF > 1);
   setVF(VF);
@@ -669,10 +701,28 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   LoopsVectorized++;
   SRA->computeSafeReductionChains(OrigLoop);
 
+  const SafeRedChainList &SRCL = SRA->getSafeReductionChain(OrigLoop);
+  for (auto &SafeRedInfo : SRCL) {
+    for (auto &Inst : SafeRedInfo.Chain) {
+      // Make sure all reduction instructions are part of the OrigLoop that
+      // was queried for safe reductions.
+      assert(OrigLoop == Inst->getParentLoop() &&
+             "Reduction inst should be in OrigLoop");
+      (void)Inst;
+    }
+  }
+  RednHoistLp = findRednHoistInsertionPoint(OrigLoop);
+
   // Setup main and remainder loops
   bool NeedRemainderLoop = false;
   auto MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(
       OrigLoop, VF, NeedRemainderLoop, LORBuilder, true /* VecMode */);
+
+  // The reduction initializer hoist loop should point to the vector loop and
+  // not the original scalar loop if it was found not to be safe to hoist
+  // further.
+  if (RednHoistLp == OrigLoop)
+    RednHoistLp = MainLoop;
 
   MainLoop->extractZtt();
   setNeedRemainderLoop(NeedRemainderLoop);
@@ -729,6 +779,19 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     HIRLoopVisitor LV(OrigLoop, this);
     LV.replaceCalls();
   } else {
+    // NeedRemainderLoop is false so trip count % VF == 0. Also check to see
+    // that the trip count is small and the loop body is small. If so, do
+    // complete unroll of the vector loop.
+    uint64_t TripCount = getTripCount();
+    bool KnownTripCount = TripCount > 0 ? true : false;
+    if (KnownTripCount && TripCount <= SmallTripThreshold &&
+        OrigLoop->isInnermost()) {
+      HLInstCounter InstCounter(OrigLoop);
+      HLNodeUtils::visitRange(InstCounter, OrigLoop->child_begin(),
+                              OrigLoop->child_end());
+      if (InstCounter.getNumInsts() <= SmallLoopBodyThreshold)
+        HIRTransformUtils::completeUnroll(MainLoop);
+    }
     HLNodeUtils::remove(OrigLoop);
   }
 }
@@ -1044,7 +1107,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
       auto RedOpVecInst = insertReductionInitializer(Identity);
 
       // Add to WidenMap and handle generating code for building reduction tail
-      addToMapAndHandleLiveOut(Ref, RedOpVecInst);
+      addToMapAndHandleLiveOut(Ref, RedOpVecInst, RednHoistLp);
 
       // LVAL ref of the initialization instruction is the widened reduction
       // ref.
@@ -1466,7 +1529,7 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
 
   // Add to WidenMap and handle generating code for any liveouts
   if (InsertInMap) {
-    addToMapAndHandleLiveOut(INode->getLvalDDRef(), WideInst);
+    addToMapAndHandleLiveOut(INode->getLvalDDRef(), WideInst, MainLoop);
     if (WideInst->getLvalDDRef()->isTerminalRef())
       WideInst->getLvalDDRef()->makeSelfBlob();
   }
@@ -1479,15 +1542,22 @@ HLInst *VPOCodeGenHIR::insertReductionInitializer(Constant *Iden) {
   auto IdentityVec = getConstantSplatDDRef(MainLoop->getDDRefUtils(), Iden, VF);
   HLInst *RedOpVecInst =
       MainLoop->getHLNodeUtils().createCopyInst(IdentityVec, "RedOp");
-  HLNodeUtils::insertBefore(MainLoop, RedOpVecInst);
+  HLNodeUtils::insertBefore(RednHoistLp, RedOpVecInst);
 
   auto LvalSymbase = RedOpVecInst->getLvalDDRef()->getSymbase();
-  MainLoop->addLiveInTemp(LvalSymbase);
+  // Add the reduction ref as a live-in for each loop up to and including
+  // the hoist loop.
+  HLLoop *ThisLoop = MainLoop;
+  while (ThisLoop != RednHoistLp->getParentLoop()) {
+    ThisLoop->addLiveInTemp(LvalSymbase);
+    ThisLoop = ThisLoop->getParentLoop();
+  }
   return RedOpVecInst;
 }
 
 void VPOCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
-                                             HLInst *WideInst) {
+                                             HLInst *WideInst,
+                                             HLLoop *HoistLp) {
   auto ScalSymbase = ScalRef->getSymbase();
 
   // If already in WidenMap, nothing further to do
@@ -1503,7 +1573,12 @@ void VPOCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
 
   auto VecRef = WideInst->getLvalDDRef();
 
-  MainLoop->addLiveOutTemp(VecRef->getSymbase());
+  // Add the ref as a live-out for each loop up to and including the hoist loop.
+  HLLoop *ThisLoop = MainLoop;
+  while (ThisLoop != HoistLp->getParentLoop()) {
+    ThisLoop->addLiveOutTemp(VecRef->getSymbase());
+    ThisLoop = ThisLoop->getParentLoop();
+  }
 
   unsigned OpCode;
 
@@ -1513,7 +1588,7 @@ void VPOCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
 
     buildReductionTail(Tail, OpCode, VecRef, ScalRef->clone(), MainLoop,
                        FinalLvalRef);
-    HLNodeUtils::insertAfter(MainLoop, &Tail);
+    HLNodeUtils::insertAfter(RednHoistLp, &Tail);
   } else {
     auto Extr = WideInst->getHLNodeUtils().createExtractElementInst(
         VecRef->clone(), VF - 1, "Last", FinalLvalRef);

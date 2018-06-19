@@ -5,7 +5,6 @@
 
 ; CHECK: fadd <4 x float>
 ; CHECK-NEXT: store <4 x float>
-; CHECK: nextiv{{.*}} = add {{.*}}, 4
 
 ; Generated from the following example using 
 ; clang -O1 -S -emit-llvm
