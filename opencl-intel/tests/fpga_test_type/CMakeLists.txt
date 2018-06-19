@@ -17,6 +17,7 @@ add_ocl_unittest(
     channel_multiple_call_site.cpp
     host_side_pipes.cpp
     autorun_profiling.cpp
+    io_attribute.cpp
 
   LINK_LIBRARIES
     OpenCL
