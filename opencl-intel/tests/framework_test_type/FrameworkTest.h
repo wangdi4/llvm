@@ -171,5 +171,4 @@ void minTBBNumWorkers();
 void moreThanMaxTBBNumWorkers();
 void lessThanMinTBBNumWorkers();
 void invalidTBBNumWorkers();
-void checkNumWorkers();
 //#define CUDA_DEVICE

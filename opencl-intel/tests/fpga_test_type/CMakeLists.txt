@@ -11,6 +11,7 @@ add_ocl_unittest(
     device_info.cpp
     test_pipes.cpp
     channel_by_value.cpp
+    wg_ordering.cpp
 
   LINK_LIBRARIES
     OpenCL
