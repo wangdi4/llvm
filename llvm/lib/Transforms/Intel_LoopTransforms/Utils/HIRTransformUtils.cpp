@@ -195,7 +195,7 @@ void HIRTransformUtils::updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
 HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, uint64_t NewTripCount,
     const RegDDRef *NewTCRef, LoopOptReportBuilder &LORBuilder, bool VecMode) {
-  HLLoop *NewLoop = OrigLoop->cloneEmptyLoop();
+  HLLoop *NewLoop = OrigLoop->cloneEmpty();
 
   // Number of exits do not change due to vectorization
   if (!VecMode) {
@@ -522,7 +522,7 @@ void HIRTransformUtils::permuteLoopNests(
 
   SmallVector<HLLoop *, MaxLoopNestLevel> OrigLoops;
   for (auto &Lp : LoopPermutation) {
-    HLLoop *LoopCopy = Lp->cloneEmptyLoop();
+    HLLoop *LoopCopy = Lp->cloneEmpty();
     LoopCopy->setNestingLevel(Lp->getNestingLevel());
     SavedLoops.push_back(LoopCopy);
 
@@ -666,7 +666,7 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
   HLNodeUtils *HNU = &(FirstLoop->getHLNodeUtils());
   unsigned Level = FirstLoop->getNestingLevel();
 
-  HLLoop *NewLoop = FirstLoop->cloneEmptyLoop();
+  HLLoop *NewLoop = FirstLoop->cloneEmpty();
 
   HLNodeUtils::insertBefore(FirstLoop, NewLoop);
 

@@ -161,8 +161,7 @@ HLLoop &HLLoop::operator=(HLLoop &&Lp) {
 HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
                           HLNodeMapper *NodeMapper) const {
 
-  // Call the Copy Constructor
-  HLLoop *NewHLLoop = new HLLoop(*this);
+  HLLoop *NewHLLoop = cloneEmpty();
 
   // Assert is placed here since empty loop cloning will not use it.
   assert(GotoList && " GotoList is null.");
@@ -197,7 +196,7 @@ HLLoop *HLLoop::clone(HLNodeMapper *NodeMapper) const {
   return cast<HLLoop>(HLNode::clone(NodeMapper));
 }
 
-HLLoop *HLLoop::cloneEmptyLoop() const {
+HLLoop *HLLoop::cloneEmpty() const {
   // Call the Copy Constructor
   return new HLLoop(*this);
 }

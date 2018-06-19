@@ -114,6 +114,9 @@ public:
   /// inside the cloned Switch.
   HLSwitch *clone(HLNodeMapper *NodeMapper = nullptr) const override;
 
+  /// Creates a clone without children nodes.
+  HLSwitch *cloneEmpty() const;
+
   /// \brief Returns the number of operands this node is supposed to have.
   unsigned getNumOperands() const override { return getNumOperandsInternal(); }
 

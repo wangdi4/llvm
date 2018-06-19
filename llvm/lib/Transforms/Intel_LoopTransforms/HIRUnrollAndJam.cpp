@@ -1145,7 +1145,7 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
       assert((CurFirstNode == CurLastNode) &&
              "Single node range expected for loops!");
 
-      HLLoop *NewInnerLoop = ChildLoop->cloneEmptyLoop();
+      HLLoop *NewInnerLoop = ChildLoop->cloneEmpty();
       UHelper.updateLoopMap(ChildLoop, NewInnerLoop);
 
       HLNodeUtils::insertAsLastChild(NewLoop, NewInnerLoop);

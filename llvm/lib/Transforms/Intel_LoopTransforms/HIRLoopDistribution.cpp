@@ -374,7 +374,7 @@ bool HIRLoopDistribution::distributeLoop(
     // postexit for last loop
     // TODO: Determine which loop needs preheader/postexit
 
-    LoopNode = Loop->cloneEmptyLoop();
+    LoopNode = Loop->cloneEmpty();
     NewLoops[I++] = LoopNode;
 
     if (CopyPreHeader) {

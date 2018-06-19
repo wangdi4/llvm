@@ -251,7 +251,7 @@ void HIRLoopFusion::generatePreOrPostLoops(
 
   auto CreateLoop = [&LORBuilder, FirstLoop](RegDDRef *LowerDDRef,
                                              RegDDRef *UpperDDRef) {
-    HLLoop *NewLoop = FirstLoop->cloneEmptyLoop();
+    HLLoop *NewLoop = FirstLoop->cloneEmpty();
 
     LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
                                    "Peeled loop after fusion");
