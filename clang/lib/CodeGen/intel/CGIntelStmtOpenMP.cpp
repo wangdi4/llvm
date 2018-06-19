@@ -521,9 +521,8 @@ namespace CGIntelOpenMP {
 
   void OpenMPCodeOutliner::addImplicitClauses() {
     auto DKind = Directive.getDirectiveKind();
-    if (DKind != OMPD_simd && DKind != OMPD_for && DKind != OMPD_taskloop &&
-        DKind != OMPD_task && DKind != OMPD_taskloop_simd &&
-        DKind != OMPD_target && !isOpenMPParallelDirective(DKind))
+    if (!isOpenMPLoopDirective(DKind) && !isOpenMPParallelDirective(DKind) &&
+        DKind != OMPD_target)
       return;
 
     for (const auto *VD : VarRefs) {
@@ -541,7 +540,11 @@ namespace CGIntelOpenMP {
           emitImplicit(VD, ICK_map_tofrom);
         else
           emitImplicit(VD, ICK_firstprivate);
-      } else if (DKind != OMPD_simd && DKind != OMPD_for) {
+      } else if (DKind == OMPD_simd || DKind == OMPD_for ||
+                 DKind == OMPD_for_simd || DKind == OMPD_distribute ||
+                 DKind == OMPD_distribute_simd) {
+        // Directives that do not get implicit shared.
+      } else {
         // Referenced but not defined in the region: shared
         emitImplicit(VD, ICK_shared);
       }
