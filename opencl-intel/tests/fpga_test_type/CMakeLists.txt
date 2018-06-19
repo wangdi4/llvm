@@ -19,6 +19,7 @@ add_ocl_unittest(
     autorun_profiling.cpp
     io_attribute.cpp
     channel_depth_emulation.cpp
+    local_mem_size_attribute.cpp
 
   LINK_LIBRARIES
     OpenCL
