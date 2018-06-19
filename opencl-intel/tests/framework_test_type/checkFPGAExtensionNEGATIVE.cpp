@@ -89,3 +89,10 @@ void checkFPGAExtensionNEGATIVE()
     clReleaseContext(context);
     clReleaseDevice(device);
 }
+
+#ifndef BUILD_FPGA_EMULATOR
+TEST(FrameworkTestType, Test_FPGAExtensionsNegative)
+{
+    ASSERT_NO_FATAL_FAILURE(checkFPGAExtensionNEGATIVE());
+}
+#endif // BUILD_FPGA_EMULATOR
