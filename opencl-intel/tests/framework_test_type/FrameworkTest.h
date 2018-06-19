@@ -159,7 +159,6 @@ bool CloneKernel();
 void checkFPGAExtension();
 void checkFPGAExtensionNEGATIVE();
 void FPGAInfiniteLoopsBasic();
-void FPGAPipes();
 void FPGAChannelsByValue();
 bool cl_device_local_mem_size_test();
 bool cl_device_private_mem_size_test();
