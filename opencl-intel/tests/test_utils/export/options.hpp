@@ -8,7 +8,9 @@
 //
 // ===--------------------------------------------------------------------=== //
 #include <cassert>
-#include <cstdio>
+#include <cstring>
+#include <string>
+#include <algorithm>
 
 template <typename T>
 class CommandLineOption{
@@ -24,19 +26,12 @@ public:
 template <typename T>
 bool CommandLineOption<T>::isMatch(const std::string& s)const{
   size_t size = m_name.size();
-  bool b = s.substr(0, size) == m_name;
-  if (!b){
-    printf("substr=%s\n", s.substr(0, size).c_str());
-    printf("m_name=%s\n", m_name.c_str());
-    printf("%s:%d\n", __FILE__, __LINE__);
+  bool b = (s.size() > size) && (s.substr(0, size) == m_name);
+  if (!b) {
     return false;
   }
-  b = s.at(size) == '=';
-  if (!b){
-    printf("%s:%d\n", __FILE__, __LINE__);
-    return false;
-  }
-  return true;
+
+  return (s.size() > size + ::strlen("=")) && (s.at(size) == '=');
 }
 
 template <typename T>
@@ -55,8 +50,10 @@ int CommandLineOption<int>::convertToT(const std::string& s)const{
 }
 
 template<>
-bool CommandLineOption<bool>::convertToT(const std::string& s)const{
-  return s == "true" ? true : false;
+bool CommandLineOption<bool>::convertToT(const std::string& s) const {
+  std::string t;
+  std::transform(s.begin(), s.end(), t.begin(), ::tolower);
+  return (t == "true" || t == "1") ? true : false;
 }
 
 template <typename T>
