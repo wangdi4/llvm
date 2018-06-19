@@ -66,6 +66,9 @@
 #include "llvm/ProfileData/InstrProfReader.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Compiler.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/DynamicLibrary.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/ErrorOr.h"
@@ -1900,6 +1903,11 @@ static void ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args,
 
   for (const auto *A : Args.filtered(OPT_ivfsoverlay))
     Opts.AddVFSOverlayFile(A->getValue());
+
+#if INTEL_CUSTOMIZATION
+  for (const auto *A : Args.filtered(OPT_ivfsoverlay_lib))
+    Opts.AddVFSOverlayLib(A->getValue());
+#endif // INTEL_CUSTOMIZATION
 }
 
 void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
@@ -3547,11 +3555,18 @@ createVFSFromCompilerInvocation(const CompilerInvocation &CI,
   return createVFSFromCompilerInvocation(CI, Diags, vfs::getRealFileSystem());
 }
 
+#if INTEL_CUSTOMIZATION
+using CreateLibraryFileSystem = vfs::FileSystem *(*)(void);
+#endif // INTEL_CUSTOMIZATION
+
 IntrusiveRefCntPtr<vfs::FileSystem>
 createVFSFromCompilerInvocation(const CompilerInvocation &CI,
                                 DiagnosticsEngine &Diags,
                                 IntrusiveRefCntPtr<vfs::FileSystem> BaseFS) {
-  if (CI.getHeaderSearchOpts().VFSOverlayFiles.empty())
+#if INTEL_CUSTOMIZATION
+  if (CI.getHeaderSearchOpts().VFSOverlayFiles.empty() &&
+      CI.getHeaderSearchOpts().VFSOverlayLibs.empty())
+#endif // INTEL_CUSTOMIZATION
     return BaseFS;
 
   IntrusiveRefCntPtr<vfs::OverlayFileSystem> Overlay(
@@ -3572,6 +3587,39 @@ createVFSFromCompilerInvocation(const CompilerInvocation &CI,
     else
       Diags.Report(diag::err_invalid_vfs_overlay) << File;
   }
+
+#if INTEL_CUSTOMIZATION
+  // Load shared libraries that provide a VFS.
+  for (const auto &LibFile : CI.getHeaderSearchOpts().VFSOverlayLibs) {
+    std::string Error;
+    auto Lib = llvm::sys::DynamicLibrary::getPermanentLibrary(
+        LibFile.c_str(), &Error);
+    if (!Lib.isValid()) {
+      Diags.Report(diag::err_unable_to_load_vfs_overlay) << LibFile << Error;
+      continue;
+    }
+
+    auto *CreateFS =
+      reinterpret_cast<CreateLibraryFileSystem>(
+          reinterpret_cast<intptr_t>(
+              Lib.getAddressOfSymbol("__clang_create_vfs")));
+
+    if (!CreateFS) {
+      Diags.Report(diag::err_unable_to_load_vfs_overlay)
+        << LibFile << "'__clang_create_vfs' function was not found";
+      continue;
+    }
+
+    IntrusiveRefCntPtr<vfs::FileSystem> FS = CreateFS();
+    if (!FS) {
+      Diags.Report(diag::err_invalid_vfs_overlay) << LibFile;
+      continue;
+    }
+
+    Overlay->pushOverlay(FS);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   return Overlay;
 }
 
