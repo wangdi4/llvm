@@ -41,7 +41,6 @@ bool CheckHandle(const char * name, cl_event expected, cl_event result);
 bool CheckHandle(const char * name, cl_sampler expected, cl_sampler result);
 bool CheckHandleImpl(const char * name, void* expected, void* result, bool bRes);
 
-void clGetProfileDataDeviceIntelFPGATest();
 bool clCreateContextTest();
 bool clGetPlatformInfoTest();
 bool clGetDeviceInfoTest();
