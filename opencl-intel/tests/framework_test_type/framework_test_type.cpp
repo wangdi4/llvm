@@ -522,11 +522,6 @@ TEST(FPGA, Test_checkFPGAExtension)
     checkFPGAExtension();
 }
 
-TEST(FPGA, Test_checkInfiniteLoopsBasic)
-{
-    FPGAInfiniteLoopsBasic();
-}
-
 TEST(FPGA, Test_MaxTBBNumWorkers)
 {
     maxTBBNumWorkers();
