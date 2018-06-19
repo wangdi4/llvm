@@ -1,0 +1,14 @@
+
+include_directories(include)
+
+add_ocl_unittest(
+  fpga_test_type
+
+  SOURCE_FILES
+    main.cpp
+    pretty_printers.cpp
+
+  LINK_LIBRARIES
+    OpenCL
+    test_utils
+)
