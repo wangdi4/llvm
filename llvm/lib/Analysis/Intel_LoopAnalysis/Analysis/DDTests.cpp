@@ -969,55 +969,22 @@ void DDTest::establishNestingLevels(const DDRef *SrcDDRef,
   HLLoop *SrcLoop = SrcDDRef->getHLDDNode()->getParentLoop();
   HLLoop *DstLoop = DstDDRef->getHLDDNode()->getParentLoop();
 
-  unsigned SrcLevel = 0;
-  unsigned DstLevel = 0;
+  HLLoop *LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(SrcLoop, DstLoop);
 
-  DeepestLoop = nullptr;
+  SrcLevels = SrcLoop ? SrcLoop->getNestingLevel() : 0;
+  DstLevels = DstLoop ? DstLoop->getNestingLevel() : 0;
 
-  if (!SrcLoop) {
-    if (!DstLoop) {
-      goto AdjustLevels;
-    }
-  } else if (!DstLoop) {
-    SrcLevel = SrcLoop->getNestingLevel();
-    MaxLevels = SrcLevel;
-    goto AdjustLevels;
-  }
+  CommonLevels = LCALoop ? LCALoop->getNestingLevel() : 0;
 
-  if (SrcLoop) {
-    SrcLevel = SrcLoop->getNestingLevel();
-  }
+  MaxLevels = SrcLevels + DstLevels - CommonLevels;
 
-  DstLevel = DstLoop->getNestingLevel();
-  DeepestLoop = (SrcLevel > DstLevel) ? SrcLoop : DstLoop;
-
-  SrcLevels = SrcLevel;
-  DstLevels = DstLevel;
-  MaxLevels = SrcLevel + DstLevel;
-  while (SrcLevel > DstLevel) {
-    SrcLoop = SrcLoop->getParentLoop();
-    SrcLevel--;
-  }
-  while (DstLevel > SrcLevel) {
-    DstLoop = DstLoop->getParentLoop();
-    DstLevel--;
-  }
-  while (SrcLoop != DstLoop) {
-    SrcLoop = SrcLoop->getParentLoop();
-    DstLoop = DstLoop->getParentLoop();
-    SrcLevel--;
-  }
-
-  CommonLevels = SrcLevel;
-  MaxLevels -= CommonLevels;
+  DeepestLoop = (SrcLevels > DstLevels) ? SrcLoop : DstLoop;
 
   // CommonLevelsForIVDEP is different from CommonLevels.
   // Refer to code below. Handled differently when IVDEP
   // is not used, for Fusion and refs outside Loops
   CommonLevelsForIVDEP = CommonLevels;
-  CommonIVDEPLoop = SrcLoop;
-
-AdjustLevels:
+  CommonIVDEPLoop = LCALoop;
 
   if (CommonLevels == 0) {
     // Need DD edge to connect
@@ -3040,21 +3007,20 @@ bool DDTest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
   ++BanerjeeApplications;
   LLVM_DEBUG(dbgs() << "\n   Src = "; Src->dump());
   const CanonExpr *A0;
-  CoefficientInfo *ACoeff =
-      collectCoeffInfo(Src, true, A0, SrcParentLoop, DstParentLoop);
-  if (!ACoeff) {
+  CoefficientInfo ACoeff[MaxPossibleLevels];
+
+  if (!collectCoeffInfo(Src, true, A0, SrcParentLoop, DstParentLoop, ACoeff)) {
     return false;
   }
 
   LLVM_DEBUG(dbgs() << "\n   Dst = "; Dst->dump());
   const CanonExpr *B0;
-  CoefficientInfo *BCoeff =
-      collectCoeffInfo(Dst, false, B0, SrcParentLoop, DstParentLoop);
-  if (!BCoeff) {
+  CoefficientInfo BCoeff[MaxPossibleLevels];
+  if (!collectCoeffInfo(Dst, false, B0, SrcParentLoop, DstParentLoop, BCoeff)) {
     return false;
   }
 
-  BoundInfo *Bound = new BoundInfo[MaxLevels + 1];
+  BoundInfo Bound[MaxPossibleLevels];
   const CanonExpr *Delta = getMinus(B0, A0);
   if (!Delta) {
     return false;
@@ -3117,9 +3083,6 @@ bool DDTest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     ++BanerjeeIndependence;
     Disproved = true;
   }
-  delete[] Bound;
-  delete[] ACoeff;
-  delete[] BCoeff;
   return Disproved;
 }
 
@@ -3461,14 +3424,13 @@ const CanonExpr *DDTest::getNegativePart(const CanonExpr *X) {
 // Walks through the subscript,
 // collecting each coefficient, the associated loop bounds,
 // and recording its positive and negative parts for later use.
-DDTest::CoefficientInfo *DDTest::collectCoeffInfo(const CanonExpr *Subscript,
-                                                  bool SrcFlag,
-                                                  const CanonExpr *&Constant,
-                                                  const HLLoop *SrcParentLoop,
-                                                  const HLLoop *DstParentLoop) {
+bool
+DDTest::collectCoeffInfo(const CanonExpr *Subscript, bool SrcFlag,
+                         const CanonExpr *&Constant,
+                         const HLLoop *SrcParentLoop,
+                         const HLLoop *DstParentLoop, CoefficientInfo CI[]) {
 
   const CanonExpr *Zero = getConstantWithType(Subscript->getSrcType(), 0);
-  CoefficientInfo *CI = new CoefficientInfo[MaxLevels + 1];
   for (unsigned K = 1; K <= MaxLevels; ++K) {
     CI[K].Coeff = Zero;
     CI[K].PosPart = Zero;
@@ -3487,7 +3449,7 @@ DDTest::CoefficientInfo *DDTest::collectCoeffInfo(const CanonExpr *Subscript,
       continue;
     }
     if (CE->getIVBlobCoeff(CurIVPair)) {
-      return nullptr;
+      return false;
     }
     if (SrcFlag) {
       L = SrcParentLoop->getParentLoopAtLevel(CE->getLevel(CurIVPair));
@@ -3525,7 +3487,7 @@ DDTest::CoefficientInfo *DDTest::collectCoeffInfo(const CanonExpr *Subscript,
   LLVM_DEBUG(dbgs() << "\n");
 
 #endif
-  return CI;
+  return true;
 }
 
 // Looks through all the bounds info and
