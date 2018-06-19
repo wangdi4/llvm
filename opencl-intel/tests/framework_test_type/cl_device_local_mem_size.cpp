@@ -95,7 +95,11 @@ bool cl_device_local_mem_size_unlimited_stack_test()
     cl_ulong stackSize = trySetStackSize(RLIM_INFINITY);
     EXIT_IF_FAILED(CheckCondition("trySetStackSize", stackSize != 0));
 
+#ifdef BUILD_FPGA_EMULATOR
+    return cl_device_local_mem_size_test_body(256 * 1024, programSources);
+#else
     return cl_device_local_mem_size_test_body(32 * 1024, programSources);
+#endif
 }
 #endif
 
