@@ -65,8 +65,7 @@ bool PrintIRPass::runOnModule(llvm::Module &M)
     fileName << m_IRDumpFolder.c_str() << "/dump." << m_IRDumpOption.c_str() 
                                        << ".ll" << std::ends;
     std::error_code ErrorInfo;
-    llvm::raw_fd_ostream FDTemp(fileName.str(), ErrorInfo,
-                sys::fs::F_RW);
+    llvm::raw_fd_ostream FDTemp(fileName.str(), ErrorInfo, sys::fs::FA_Write);
     if (ErrorInfo) {
        return false;
     }

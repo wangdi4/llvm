@@ -156,7 +156,8 @@ cl_dev_err_code CompileService::DumpCodeContainer( const ICLDevBackendCodeContai
         else
         {
             std::error_code ec;
-            llvm::raw_fd_ostream ostr(fname.c_str(), ec, llvm::sys::fs::F_RW);
+            llvm::raw_fd_ostream ostr(fname.c_str(), ec,
+                                      llvm::sys::fs::FA_Write);
             if(!ec)
             {
                 ((llvm::Module*)pContainer->GetModule())->print(ostr, 0);

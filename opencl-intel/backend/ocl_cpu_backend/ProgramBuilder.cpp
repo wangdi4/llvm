@@ -224,7 +224,7 @@ void ProgramBuilder::DumpModuleStats(llvm::Module* pModule)
         }
         // dump IR with stats
         std::error_code ec;
-        raw_fd_ostream IRFD(fileName.c_str(), ec, llvm::sys::fs::F_RW);
+        raw_fd_ostream IRFD(fileName.c_str(), ec, llvm::sys::fs::FA_Write);
         if (!ec)
           pModule->print(IRFD, 0);
         else

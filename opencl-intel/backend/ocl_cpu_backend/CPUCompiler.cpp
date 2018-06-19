@@ -359,7 +359,7 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
     }
 
     std::error_code ec;
-    llvm::raw_fd_ostream out(filename.c_str(), ec, llvm::sys::fs::F_RW);
+    llvm::raw_fd_ostream out(filename.c_str(), ec, llvm::sys::fs::FA_Write);
     if (ec)
     {
         throw Exceptions::CompilerException(

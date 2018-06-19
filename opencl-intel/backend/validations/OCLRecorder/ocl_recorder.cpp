@@ -663,7 +663,7 @@ namespace Validation
         strName.insert(0, (context.getBaseName() + "."));
         llvm::SmallString<128> path(m_logsDir);
         llvm::sys::path::append(path, strName);
-        llvm::raw_fd_ostream clStream(path.c_str(), error, llvm::sys::fs::F_RW);
+        llvm::raw_fd_ostream clStream(path.c_str(), error, llvm::sys::fs::FA_Write);
         clStream << sourceFile.getContents();
         clStream.close();
         TiXmlElement* pSourceNode = AddChildTextNode(
@@ -909,7 +909,8 @@ namespace Validation
     void OCLRecorder::RecordByteCode(const void* pBinary, size_t uiBinarySize, const RecorderContext& context)
     {
         std::error_code error;
-        llvm::raw_fd_ostream binStream( context.getByteCodeFilePath().c_str(), error, llvm::sys::fs::F_RW);
+        llvm::raw_fd_ostream binStream(context.getByteCodeFilePath().c_str(),
+                                       error, llvm::sys::fs::FA_Write);
 
         if( error )
         {
