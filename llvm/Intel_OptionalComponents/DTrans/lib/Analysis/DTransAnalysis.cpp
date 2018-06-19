@@ -2142,48 +2142,32 @@ private:
           DEBUG_WITH_TYPE(LPA_VERBOSE,
                           dbgs() << "Analyzing use in call instruction: " << *CI
                                  << "\n");
+          Function *F =
+              dyn_cast<Function>(CI->getCalledValue()->stripPointerCasts());
+          if (!F) {
+            DEBUG_WITH_TYPE(LPA_VERBOSE,
+                            dbgs() << "Unable to get called function!\n");
+            continue;
+          }
           // Check all the arguments of the call as our value may be used more
-          // than once.
-          unsigned NumArgs = CI->getNumArgOperands();
-          if (Function *F = CI->getCalledFunction()) {
-            for (unsigned ArgNo = 0; ArgNo < NumArgs; ++ArgNo) {
-              if (CI->getArgOperand(ArgNo) == V) {
-                DEBUG_WITH_TYPE(LPA_VERBOSE,
-                                dbgs()
-                                    << "Analyzing function argument: "
-                                    << F->getName() << " @ " << ArgNo << "\n");
-                Argument *Arg = F->arg_begin();
-                std::advance(Arg, ArgNo);
-                inferAliasedTypesFromUses(Arg, CastTypes, VisitedUsers);
-              }
-            }
-          } else {
-            // This happens with an indirect function call or a call to
-            // a function that has been bitcast to a different type.
-            Value *Callee = CI->getCalledValue();
-            if (auto *Cast = dyn_cast<BitCastOperator>(Callee)) {
-              F = dyn_cast<Function>(Cast->getOperand(0));
-              for (unsigned ArgNo = 0; ArgNo < NumArgs; ++ArgNo) {
-                if (CI->getArgOperand(ArgNo) == V) {
-                  DEBUG_WITH_TYPE(LPA_VERBOSE,
-                                  dbgs() << "Analyzing function argument: "
-                                         << F->getName() << " @ " << ArgNo
-                                         << "\n");
-                  Argument *Arg = F->arg_begin();
-                  std::advance(Arg, ArgNo);
-                  // If the argument is still an i8* after the function bitcast
-                  // follow its uses. Otherwise, infer the type directly from
-                  // the argument type.
-                  if (isValueInt8PtrType(Arg))
-                    inferAliasedTypesFromUses(Arg, CastTypes, VisitedUsers);
-                  else if (auto *ArgPtrTy =
-                               dyn_cast<PointerType>(Arg->getType()))
-                    CastTypes.insert(ArgPtrTy);
-                }
-              }
-            } else {
+          // than once. Use F->getNumParams() rather than CI->getNumArgs()
+          // because the function may be bitcast in a way that changes its
+          // argument count.
+          unsigned NumArgs = F->getFunctionType()->getNumParams();
+          for (unsigned ArgNo = 0; ArgNo < NumArgs; ++ArgNo) {
+            if (CI->getArgOperand(ArgNo) == V) {
               DEBUG_WITH_TYPE(LPA_VERBOSE,
-                              dbgs() << "Unable to get called function!\n");
+                              dbgs() << "Analyzing function argument: "
+                                     << F->getName() << " @ " << ArgNo << "\n");
+              Argument *Arg = F->arg_begin();
+              std::advance(Arg, ArgNo);
+              // If the argument is still an i8* after the function bitcast
+              // follow its uses. Otherwise, infer the type directly from
+              // the argument type.
+              if (isValueInt8PtrType(Arg))
+                inferAliasedTypesFromUses(Arg, CastTypes, VisitedUsers);
+              else if (auto *ArgPtrTy = dyn_cast<PointerType>(Arg->getType()))
+                CastTypes.insert(ArgPtrTy);
             }
           }
         }
@@ -2245,8 +2229,9 @@ public:
 
   // See typesMayBeCRuleCompatible() immediately below for explanation of
   // this function.
-  static bool typesMayBeCRuleCompatibleX(llvm::Type *T1, llvm::Type *T2,
-                                         SmallPtrSetImpl<llvm::Type *> &Tstack) {
+  static bool
+  typesMayBeCRuleCompatibleX(llvm::Type *T1, llvm::Type *T2,
+                             SmallPtrSetImpl<llvm::Type *> &Tstack) {
 
     // Enum indicating that on the particular predicate being compared for
     // T1 and T2, the types have the opposite value of the predicate
@@ -2481,10 +2466,12 @@ public:
       // the select or PHI that created this situation, so here we just need to
       // worry about the types individually. However, if the function being
       // called is varadic and the argument is not one of the fixed parameters
-      // we can't check its use from here.
+      // we can't check its use from here. It's possible to cast a non-variadic
+      // function to a varadic type for a call, so we always check the number of
+      // parameters rather than trusting isVarArg().
       auto *ArgTy = Arg->getType();
       if (IsFnLocal && (ArgTy == Int8PtrTy) &&
-          (!F->isVarArg() || (ArgNo < F->getFunctionType()->getNumParams()))) {
+          ArgNo < F->getFunctionType()->getNumParams()) {
         // If we're calling a local function that takes an i8* operand
         // get the expected alias types from the local pointer analyzer.
         auto Param = F->arg_begin();
@@ -2849,9 +2836,6 @@ public:
       }
     } else {
       auto &PointeeSet = GEPLPI.getElementPointeeSet();
-      assert(
-          (SrcLPI.pointsToMultipleAggregateTypes() || PointeeSet.size() == 1) &&
-          "GEP with single aggregate type points to multiple elements?");
       if (PointeeSet.size() == 1 && isInt8Ptr(Src)) {
         // If the GEP is pointing to some element and it is in the
         // byte-flattened form, store this information for later reference.
@@ -3388,7 +3372,13 @@ private:
     if (!BaseTy || (!BaseTy->isStructTy() && !BaseTy->isArrayTy()))
       return false;
 
-    auto *ElementZeroTy = cast<CompositeType>(BaseTy)->getTypeAtIndex(0u);
+    auto *CompositeTy = cast<CompositeType>(BaseTy);
+
+    // This happens with opaque structures and zero-element arrays.
+    if (!CompositeTy->indexValid(0u))
+      return false;
+
+    auto *ElementZeroTy = CompositeTy->getTypeAtIndex(0u);
     if (!ElementZeroTy->isArrayTy())
       return false;
 

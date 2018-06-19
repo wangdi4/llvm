@@ -403,6 +403,133 @@ define void @test14() {
 ; CHECK-LABEL: LLVMType: %struct.test14 = type { i32, i32 }
 ; CHECK: Safety data: Address taken
 
+
+; Test a case where the argument is passed through an intermediate function
+; that calls a varadic function with the i8* value in a fixed parameter.
+
+%struct.test15 = type { i32, i32 }
+define void @use_test15(i8* %p, ...) {
+  %p2 = bitcast i8* %p to %struct.test15*
+  ret void
+}
+define void @passthru15(i8* %p) {
+  call void (i8*, ...) @use_test15(i8* %p, i32 0, i32 1)
+  ret void
+}
+define void @test15() {
+  %p = call i8* @malloc(i64 8)
+  bitcast i8* %p to %struct.test15*
+  call void @passthru15(i8* %p)
+  call void @free(i8* %p)
+  ret void
+}
+
+; CHECK-LABEL: LLVMType: %struct.test15 = type { i32, i32 }
+; CHECK: Safety data: No issues found
+
+
+; Test a case where the argument is passed through an intermediate function
+; that calls a varadic function with the i8* value in a non-fixed parameter.
+
+%struct.test16 = type { i32, i32 }
+define void @use_test16(i32 %n, ...) {
+  ret void
+}
+define void @passthru16(i8* %p) {
+  call void (i32, ...) @use_test16(i32 1, i8* %p)
+  ret void
+}
+define void @test16() {
+  %p = call i8* @malloc(i64 8)
+  bitcast i8* %p to %struct.test16*
+  call void @passthru16(i8* %p)
+  call void @free(i8* %p)
+  ret void
+}
+
+; CHECK-LABEL: LLVMType: %struct.test16 = type { i32, i32 }
+; CHECK: Safety data: Mismatched argument use
+
+
+; Test a case where the argument is passed through an intermediate function
+; that calls a varadic function with a bitcast and an i8* value in a fixed
+; parameter.
+
+%struct.test17 = type { i32, i32 }
+define void @use_test17(%struct.test17* %p, ...) {
+  ret void
+}
+define void @passthru17(i8* %p) {
+  call void (i8*, ...) bitcast (void (%struct.test17 *, ...)*
+                                    @use_test17
+                                  to void (i8*, ...)*)
+                         (i8* %p, i32 0, i32 1)
+  ret void
+}
+define void @test17() {
+  %p = call i8* @malloc(i64 8)
+  bitcast i8* %p to %struct.test17*
+  call void @passthru17(i8* %p)
+  call void @free(i8* %p)
+  ret void
+}
+
+; CHECK-LABEL: LLVMType: %struct.test17 = type { i32, i32 }
+; CHECK: Safety data: No issues found
+
+
+; Test a case where the argument is passed through an intermediate function
+; that calls a varadic function with a bitcast and an i8* value in a non-fixed
+; parameter.
+
+%struct.test18 = type { i32, i32 }
+define void @use_test18(%struct.test18* %p, ...) {
+  ret void
+}
+define void @passthru18(i8* %p) {
+  call void (i8*, ...) bitcast (void (%struct.test18 *, ...)*
+                                    @use_test18
+                                  to void (i8*, ...)*)
+                         (i8* null, i8* %p)
+  ret void
+}
+define void @test18() {
+  %p = call i8* @malloc(i64 8)
+  bitcast i8* %p to %struct.test18*
+  call void @passthru18(i8* %p)
+  call void @free(i8* %p)
+  ret void
+}
+
+; CHECK-LABEL: LLVMType: %struct.test18 = type { i32, i32 }
+; CHECK: Safety data: Mismatched argument use
+
+
+; Test a case where a non-varadic function is bitcast as a varadic function.
+; This actually happens in one of the cpu2017 benchmarks.
+
+%struct.test19 = type { i32, i32 }
+define void @use_test19() {
+  ret void
+}
+define void @passthru19(i8* %p) {
+  call void (i32, i8*, ...) bitcast (void ()* @use_test19
+                                  to void (i32, i8*, ...)*)
+                         (i32 0, i8* %p, i32 1)
+  ret void
+}
+define void @test19() {
+  %p = call i8* @malloc(i64 8)
+  bitcast i8* %p to %struct.test19*
+  call void @passthru19(i8* %p)
+  call void @free(i8* %p)
+  ret void
+}
+
+; CHECK-LABEL: LLVMType: %struct.test19 = type { i32, i32 }
+; CHECK: Safety data: Mismatched argument use
+
+
 ; This is just here to complete the module.
 define void @main() {
   call void @test01()
@@ -419,6 +546,11 @@ define void @main() {
   call void @test12()
   call void @test13()
   call void @test14()
+  call void @test15()
+  call void @test16()
+  call void @test17()
+  call void @test18()
+  call void @test19()
   ret void
 }
 
