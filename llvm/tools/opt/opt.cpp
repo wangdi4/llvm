@@ -129,7 +129,11 @@ StripDebug("strip-debug",
            cl::desc("Strip debugger symbol info from translation unit"));
 
 static cl::opt<bool>
-DisableInline("disable-inlining", cl::desc("Do not run the inliner pass"));
+    StripNamedMetadata("strip-named-metadata",
+                       cl::desc("Strip module-level named metadata"));
+
+static cl::opt<bool> DisableInline("disable-inlining",
+                                   cl::desc("Do not run the inliner pass"));
 
 static cl::opt<bool>
 DisableOptimizations("disable-opt",
@@ -282,8 +286,8 @@ public:
   using super = legacy::PassManager;
 
   void add(Pass *P) override {
-    bool WrapWithDebugify =
-        DebugifyEach && !P->getAsImmutablePass() && !isIRPrintingPass(P);
+    bool WrapWithDebugify = DebugifyEach && !P->getAsImmutablePass() &&
+                            !isIRPrintingPass(P) && !isBitcodeWriterPass(P);
     if (!WrapWithDebugify) {
       super::add(P);
       return;
@@ -466,6 +470,7 @@ int main(int argc, char **argv) {
   initializePostInlineEntryExitInstrumenterPass(Registry);
   initializeUnreachableBlockElimLegacyPassPass(Registry);
   initializeExpandReductionsPass(Registry);
+  initializeWasmEHPreparePass(Registry);
   initializeWriteBitcodePassPass(Registry);
 
 #if INTEL_CUSTOMIZATION
@@ -534,6 +539,14 @@ int main(int argc, char **argv) {
   // Strip debug info before running the verifier.
   if (StripDebug)
     StripDebugInfo(*M);
+
+  // Erase module-level named metadata, if requested.
+  if (StripNamedMetadata) {
+    while (!M->named_metadata_empty()) {
+      NamedMDNode *NMD = &*M->named_metadata_begin();
+      M->eraseNamedMetadata(NMD);
+    }
+  }
 
   // If we are supposed to override the target triple or data layout, do so now.
   if (!TargetTriple.empty())

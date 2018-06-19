@@ -326,8 +326,8 @@ public:
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB);
 
   /// A convenience wrapper around the primary \c alias interface.
-  AliasResult alias(const Value *V1, uint64_t V1Size, const Value *V2,
-                    uint64_t V2Size) {
+  AliasResult alias(const Value *V1, LocationSize V1Size, const Value *V2,
+                    LocationSize V2Size) {
     return alias(MemoryLocation(V1, V1Size), MemoryLocation(V2, V2Size));
   }
 
@@ -344,8 +344,8 @@ public:
   }
 
   /// A convenience wrapper around the \c isNoAlias helper interface.
-  bool isNoAlias(const Value *V1, uint64_t V1Size, const Value *V2,
-                 uint64_t V2Size) {
+  bool isNoAlias(const Value *V1, LocationSize V1Size, const Value *V2,
+                 LocationSize V2Size) {
     return isNoAlias(MemoryLocation(V1, V1Size), MemoryLocation(V2, V2Size));
   }
 
@@ -505,7 +505,7 @@ public:
 
   /// getModRefInfo (for call sites) - A convenience wrapper.
   ModRefInfo getModRefInfo(ImmutableCallSite CS, const Value *P,
-                           uint64_t Size) {
+                           LocationSize Size) {
     return getModRefInfo(CS, MemoryLocation(P, Size));
   }
 
@@ -516,7 +516,8 @@ public:
   }
 
   /// getModRefInfo (for calls) - A convenience wrapper.
-  ModRefInfo getModRefInfo(const CallInst *C, const Value *P, uint64_t Size) {
+  ModRefInfo getModRefInfo(const CallInst *C, const Value *P,
+                           LocationSize Size) {
     return getModRefInfo(C, MemoryLocation(P, Size));
   }
 
@@ -527,7 +528,8 @@ public:
   }
 
   /// getModRefInfo (for invokes) - A convenience wrapper.
-  ModRefInfo getModRefInfo(const InvokeInst *I, const Value *P, uint64_t Size) {
+  ModRefInfo getModRefInfo(const InvokeInst *I, const Value *P,
+                           LocationSize Size) {
     return getModRefInfo(I, MemoryLocation(P, Size));
   }
 
@@ -536,7 +538,8 @@ public:
   ModRefInfo getModRefInfo(const LoadInst *L, const MemoryLocation &Loc);
 
   /// getModRefInfo (for loads) - A convenience wrapper.
-  ModRefInfo getModRefInfo(const LoadInst *L, const Value *P, uint64_t Size) {
+  ModRefInfo getModRefInfo(const LoadInst *L, const Value *P,
+                           LocationSize Size) {
     return getModRefInfo(L, MemoryLocation(P, Size));
   }
 
@@ -545,7 +548,8 @@ public:
   ModRefInfo getModRefInfo(const StoreInst *S, const MemoryLocation &Loc);
 
   /// getModRefInfo (for stores) - A convenience wrapper.
-  ModRefInfo getModRefInfo(const StoreInst *S, const Value *P, uint64_t Size) {
+  ModRefInfo getModRefInfo(const StoreInst *S, const Value *P,
+                           LocationSize Size) {
     return getModRefInfo(S, MemoryLocation(P, Size));
   }
 
@@ -554,7 +558,8 @@ public:
   ModRefInfo getModRefInfo(const FenceInst *S, const MemoryLocation &Loc);
 
   /// getModRefInfo (for fences) - A convenience wrapper.
-  ModRefInfo getModRefInfo(const FenceInst *S, const Value *P, uint64_t Size) {
+  ModRefInfo getModRefInfo(const FenceInst *S, const Value *P,
+                           LocationSize Size) {
     return getModRefInfo(S, MemoryLocation(P, Size));
   }
 
@@ -584,7 +589,8 @@ public:
   ModRefInfo getModRefInfo(const VAArgInst *I, const MemoryLocation &Loc);
 
   /// getModRefInfo (for va_args) - A convenience wrapper.
-  ModRefInfo getModRefInfo(const VAArgInst *I, const Value *P, uint64_t Size) {
+  ModRefInfo getModRefInfo(const VAArgInst *I, const Value *P,
+                           LocationSize Size) {
     return getModRefInfo(I, MemoryLocation(P, Size));
   }
 
@@ -594,7 +600,7 @@ public:
 
   /// getModRefInfo (for catchpads) - A convenience wrapper.
   ModRefInfo getModRefInfo(const CatchPadInst *I, const Value *P,
-                           uint64_t Size) {
+                           LocationSize Size) {
     return getModRefInfo(I, MemoryLocation(P, Size));
   }
 
@@ -604,7 +610,7 @@ public:
 
   /// getModRefInfo (for catchrets) - A convenience wrapper.
   ModRefInfo getModRefInfo(const CatchReturnInst *I, const Value *P,
-                           uint64_t Size) {
+                           LocationSize Size) {
     return getModRefInfo(I, MemoryLocation(P, Size));
   }
 
@@ -659,7 +665,7 @@ public:
 
   /// A convenience wrapper for constructing the memory location.
   ModRefInfo getModRefInfo(const Instruction *I, const Value *P,
-                           uint64_t Size) {
+                           LocationSize Size) {
     return getModRefInfo(I, MemoryLocation(P, Size));
   }
 
@@ -684,7 +690,7 @@ public:
 
   /// A convenience wrapper to synthesize a memory location.
   ModRefInfo callCapturesBefore(const Instruction *I, const Value *P,
-                                uint64_t Size, DominatorTree *DT,
+                                LocationSize Size, DominatorTree *DT,
                                 OrderedBasicBlock *OBB = nullptr) {
     return callCapturesBefore(I, MemoryLocation(P, Size), DT, OBB);
   }
@@ -700,7 +706,7 @@ public:
 
   /// A convenience wrapper synthesizing a memory location.
   bool canBasicBlockModify(const BasicBlock &BB, const Value *P,
-                           uint64_t Size) {
+                           LocationSize Size) {
     return canBasicBlockModify(BB, MemoryLocation(P, Size));
   }
 
@@ -715,7 +721,7 @@ public:
 
   /// A convenience wrapper synthesizing a memory location.
   bool canInstructionRangeModRef(const Instruction &I1, const Instruction &I2,
-                                 const Value *Ptr, uint64_t Size,
+                                 const Value *Ptr, LocationSize Size,
                                  const ModRefInfo Mode) {
     return canInstructionRangeModRef(I1, I2, MemoryLocation(Ptr, Size), Mode);
   }

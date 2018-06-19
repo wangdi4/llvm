@@ -21,10 +21,10 @@
 #include "llvm/IR/Operator.h"
 
 #include "llvm/Analysis/Intel_WP.h"
-#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/Pass.h"
 #include "llvm/PassAnalysisSupport.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/Local.h"
 
 using namespace llvm;
 

@@ -90,6 +90,10 @@
 #include <lzcntintrin.h>
 #endif
 
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__POPCNT__)
+#include <popcntintrin.h>
+#endif
+
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__FMA__)
 #include <fmaintrin.h>
 #endif
@@ -278,25 +282,25 @@ _readgsbase_u64(void)
 static __inline__ void __attribute__((__always_inline__, __nodebug__, __target__("fsgsbase")))
 _writefsbase_u32(unsigned int __V)
 {
-  return __builtin_ia32_wrfsbase32(__V);
+  __builtin_ia32_wrfsbase32(__V);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__, __target__("fsgsbase")))
 _writefsbase_u64(unsigned long long __V)
 {
-  return __builtin_ia32_wrfsbase64(__V);
+  __builtin_ia32_wrfsbase64(__V);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__, __target__("fsgsbase")))
 _writegsbase_u32(unsigned int __V)
 {
-  return __builtin_ia32_wrgsbase32(__V);
+  __builtin_ia32_wrgsbase32(__V);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__, __target__("fsgsbase")))
 _writegsbase_u64(unsigned long long __V)
 {
-  return __builtin_ia32_wrgsbase64(__V);
+  __builtin_ia32_wrgsbase64(__V);
 }
 
 #endif
@@ -338,5 +342,42 @@ _writegsbase_u64(unsigned long long __V)
 /* Some intrinsics inside adxintrin.h are available only on processors with ADX,
  * whereas others are also available at all times. */
 #include <adxintrin.h>
+
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__RDSEED__)
+#include <rdseedintrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__WBNOINVD__)
+#include <wbnoinvdintrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__CLDEMOTE__)
+#include <cldemoteintrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__WAITPKG__)
+#include <waitpkgintrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || \
+  defined(__MOVDIRI__) || defined(__MOVDIR64B__)
+#include <movdirintrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__PCONFIG__)
+#include <pconfigintrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__SGX__)
+#include <sgxintrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__PTWRITE__)
+#include <ptwriteintrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__INVPCID__)
+#include <invpcidintrin.h>
+#endif
 
 #endif /* __IMMINTRIN_H */
