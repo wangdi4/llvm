@@ -1055,7 +1055,7 @@ _mm_cvttsd_si64(__m128d a)
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_cvtepi32_ps(__m128i a)
 {
-  return __builtin_ia32_cvtdq2ps((__v4si)a);
+  return __builtin_convertvector((__v4si)a, __v4sf);
 }
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
