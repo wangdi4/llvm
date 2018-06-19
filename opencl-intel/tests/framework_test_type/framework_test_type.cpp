@@ -552,11 +552,6 @@ TEST(FPGA, Test_InvalidTBBNumWorkers)
     invalidTBBNumWorkers();
 }
 
-TEST(FPGA, Test_checkNumWorkers)
-{
-   checkNumWorkers();
-}
-
 TEST(FrameworkTestType, Test_clGetProfileDataDeviceIntelFPGATest)
 {
     clGetProfileDataDeviceIntelFPGATest();
