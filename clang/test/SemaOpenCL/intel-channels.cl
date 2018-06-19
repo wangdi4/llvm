@@ -37,6 +37,9 @@ struct incomplete;
 
 channel struct incomplete ch_arr[10]; // expected-error{{array has incomplete element type '__global channel struct incomplete'}}
 channel struct incomplete ch; // expected-error{{tentative definition has type '__global channel struct incomplete' that is never completed}}
+channel struct incomplete; // expected-warning{{declaration does not declare anything}}
+channel struct st; // expected-warning{{declaration does not declare anything}}
+channel int; // expected-warning{{declaration does not declare anything}}
 
 void write_wrapper(__global channel char *inp, char data) {
   write_channel_intel(*inp, data); // expected-error{{invalid argument type 'channel char *' to unary expression}}

@@ -1327,6 +1327,9 @@ void DeclSpec::Finish(Sema &S, const PrintingPolicy &Policy) {
 bool DeclSpec::isMissingDeclaratorOk() {
   TST tst = getTypeSpecType();
   return isDeclRep(tst) && getRepAsDecl() != nullptr &&
+#if INTEL_CUSTOMIZATION
+    !isTypeSpecChannel() &&
+#endif // INTEL_CUSTOMIZATION
     StorageClassSpec != DeclSpec::SCS_typedef;
 }
 
