@@ -269,6 +269,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 #define DEBUG_TYPE "hir-loop-concatenation"
@@ -774,35 +775,39 @@ bool HIRLoopConcatenation::isValidReadLoopSet() {
     return false;
   }
 
+  auto &BU = RefLp->getBlobUtils();
+
   // Perform cheap checks first
   for (auto Lp : AllocaReadLoops) {
 
-    // Checks that loop has two liveins and one liveouts. One of the liveins is
-    // the alloca and the other is a symbase unique to the loop. This confirms
-    // that there are no temp data dependencies between loops.
-    if (Lp->getNumLiveInTemps() != 2) {
-      return false;
-    }
-
+    // Checks that loop has only one instruction which is both livein and
+    // liveout to the loop. This is unique to each loop which confirms that
+    // there are no temp data dependencies between loops.
     if (Lp->getNumLiveOutTemps() != 1) {
       return false;
     }
 
-    unsigned NonAllocaSB = *(Lp->live_in_begin());
+    unsigned UniqueSB = *(Lp->live_out_begin());
 
-    if (NonAllocaSB == AllocaSymbase) {
-      NonAllocaSB = *(Lp->live_in_begin() + 1);
-    }
-
-    if (!Lp->isLiveOut(NonAllocaSB)) {
+    if (!Lp->isLiveIn(UniqueSB)) {
       return false;
     }
 
-    if (UniqueLivoutSet.count(NonAllocaSB)) {
-      return false;
+    for (unsigned SB : make_range(Lp->live_in_begin(), Lp->live_in_end())) {
+      if (UniqueLivoutSet.count(SB)) {
+        return false;
+      }
+
+      if ((SB == UniqueSB) || (SB == AllocaSymbase)) {
+        continue;
+      }
+
+      if (BU.isInstBlob(BU.findTempBlobIndex(SB))) {
+        return false;
+      }
     }
 
-    UniqueLivoutSet.insert(NonAllocaSB);
+    UniqueLivoutSet.insert(UniqueSB);
   }
 
   for (unsigned I = 1; I != 8; ++I) {
@@ -919,21 +924,25 @@ bool HIRLoopConcatenation::isValidWriteLoopSet() {
     return false;
   }
 
+  auto &BU = RefLp->getBlobUtils();
+
   // Perform cheap checks first
   for (auto Lp : AllocaWriteLoops) {
 
-    // Checks that loop has one livein which is the alloca and no liveouts. This
+    // Checks that loop has no instruction liveins and no liveouts. This
     // confirms that there are no temp data dependencies between loops.
-    if (Lp->getNumLiveInTemps() != 1) {
-      return false;
-    }
-
     if (Lp->hasLiveOutTemps()) {
       return false;
     }
 
-    if (*(Lp->live_in_begin()) != AllocaSymbase) {
-      return false;
+    for (unsigned SB : make_range(Lp->live_in_begin(), Lp->live_in_end())) {
+      if (SB == AllocaSymbase) {
+        continue;
+      }
+
+      if (BU.isInstBlob(BU.findTempBlobIndex(SB))) {
+        return false;
+      }
     }
   }
 
@@ -1362,6 +1371,13 @@ void HIRLoopConcatenation::createReductionLoop(
   RednLp->addLiveInTemp(AllocaSymbase);
 }
 
+PreservedAnalyses
+HIRLoopConcatenationPass::run(llvm::Function &F,
+                              llvm::FunctionAnalysisManager &AM) {
+  HIRLoopConcatenation(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+  return PreservedAnalyses::all();
+}
+
 class HIRLoopConcatenationLegacyPass : public HIRTransformPass {
 public:
   static char ID;
@@ -1386,13 +1402,6 @@ public:
         .run();
   }
 };
-
-PreservedAnalyses
-HIRLoopConcatenationPass::run(llvm::Function &F,
-                              llvm::FunctionAnalysisManager &AM) {
-  HIRLoopConcatenation(AM.getResult<HIRFrameworkAnalysis>(F)).run();
-  return PreservedAnalyses::all();
-}
 
 char HIRLoopConcatenationLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopConcatenationLegacyPass, "hir-loop-concatenation",

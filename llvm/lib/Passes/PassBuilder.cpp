@@ -189,8 +189,29 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 
 // Transformation passes
+#include "llvm/Transforms/Intel_LoopTransforms/HIRArrayTranspose.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRGeneralUnroll.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRIdiomRecognition.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopCollapse.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopConcatenation.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTempCleanup.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopConcatenation.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForLoopNest.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForMemRec.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreElimination.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopFusion.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopInterchange.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMVForConstUB.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIROptPredicate.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIROptVarPredicate.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPostVecCompleteUnroll.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPreVecCompleteUnroll.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRRuntimeDD.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRScalarReplArray.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJam.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRSymbolicTripCountCompleteUnrollPass.h"
 
 // Intel VPO
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
@@ -1098,8 +1119,13 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans)
+  if (EnableDTrans) {
+    // These passes get the IR into a form that DTrans is able to analyze.
+    MPM.addPass(createModuleToFunctionPassAdaptor(InstSimplifierPass()));
+    MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass()));
+    // This call adds the DTrans passes.
     addDTransPasses(MPM);
+  }
 #endif // INTEL_INCLUDE_DTRANS
   // Optimize some dynamic_cast calls.
   MPM.addPass(OptimizeDynamicCastsPass());
@@ -1128,6 +1154,13 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   // Remove unused arguments from functions.
   MPM.addPass(DeadArgumentEliminationPass());
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans)
+    addLateDTransPasses(MPM);
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // Reduce the code after globalopt and ipsccp.  Both can open up significant
   // simplification opportunities, and both can propagate functions through

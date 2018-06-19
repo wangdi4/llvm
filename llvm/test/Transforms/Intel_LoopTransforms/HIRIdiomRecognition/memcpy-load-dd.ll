@@ -1,6 +1,7 @@
 ; Check that DD in load prevents idiom hoisting
 
 ; RUN: opt -hir-ssa-deconstruction -disable-output -hir-temp-cleanup -hir-idiom -print-after=hir-idiom < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; HIR:
 ; + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>
@@ -8,7 +9,7 @@
 ; |   (%p)[i1] = (%q)[i1];
 ; + END LOOP
 
-; CHECK: IR Dump After
+; CHECK: Function
 ; CHECK-NOT: memcpy
 
 ;Module Before HIR; ModuleID = 'memcopy-load-dd.c'

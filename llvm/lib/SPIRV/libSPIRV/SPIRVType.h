@@ -642,7 +642,6 @@ class OCLOpaqueType;
 template<> inline void
 SPIRVMap<std::string, Op, OCLOpaqueType>::init() {
   add("opencl.event_t", OpTypeEvent);
-  add("opencl.pipe_t", OpTypePipe);
   add("opencl.clk_event_t", OpTypeDeviceEvent);
   add("opencl.reserve_id_t", OpTypeReserveId);
   add("opencl.queue_t", OpTypeQueue);

@@ -1,4 +1,5 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg -S | FileCheck %s
 
 ; Check that CG correctly handles the pointer comparison with null pointer.
 ; CHECK: region.0:

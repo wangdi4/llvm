@@ -6,6 +6,7 @@
 ;
 ; REQUIRES: asserts 
 ; RUN: opt -O2 -disable-hir-complete-unroll -debug-only=hir-loop-interchange -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-loop-interchange" -aa-pipeline="basic-aa" -O2 -disable-hir-complete-unroll -debug-only=hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 4 1 2 3 )
 ; TODO: Ztt recognition fails due to change in induction variable simplification phase. This needs to be looked into.

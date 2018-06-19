@@ -514,6 +514,14 @@ void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
     return;
   }
 
+  // If the loop is marked with novector pragma, set disabling reason and
+  // return.
+  if (isVectorMode() && Loop->hasVectorizeDisablingPragma()) {
+    setVecType(NOVECTOR_PRAGMA_LOOP);
+    emitDiag();
+    return;
+  }
+
   // DD Analysis is expensive. Be sure to run structural analysis first,
   // i.e., before coming here.
   if (isVectorMode() && Loop->isSIMD()) {

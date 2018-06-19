@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -simplifycfg -print-after=hir-general-unroll -print-after=simplifycfg -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,print<hir>,hir-cg,simplify-cfg,print" -S < %s 2>&1 | FileCheck %s
 
 ; Verify that we skip unrolling if the unroll pragma count is set to 1.
 

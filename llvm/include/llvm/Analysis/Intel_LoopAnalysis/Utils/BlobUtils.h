@@ -282,12 +282,21 @@ public:
   static Value *getTempBlobValue(BlobTy Blob);
   Value *getTempBlobValue(unsigned BlobIndex) const;
 
+  /// Returns underlying LLVM value for TempBlob or Undef blob
+  static Value *getTempOrUndefBlobValue(BlobTy Blob);
+  Value *getTempOrUndefBlobValue(unsigned BlobIndex) const;
+
   /// Returns true if the \p Blob most probable constant value is available.
   /// It will be stored in \p Value.
   static bool getTempBlobMostProbableConstValue(BlobTy Blob, int64_t &Value);
   bool getTempBlobMostProbableConstValue(unsigned BlobIndex,
                                          int64_t &Val) const;
+
+  /// Returns true if blob is an LLVM instruction.
   static bool isInstBlob(BlobTy Blob);
+  bool isInstBlob(unsigned BlobIndex) const {
+    return isInstBlob(getBlob(BlobIndex));
+  }
 };
 
 } // End namespace loopopt

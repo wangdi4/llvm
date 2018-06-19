@@ -259,9 +259,6 @@ static StringRef toString(STISubsectionID subsectionID) {
     break;
     STI_SUBSECTION_KINDS
 #undef X
-  default:
-    string = "<invalid subsection kind>";
-    break;
   }
 
   return string;
@@ -277,9 +274,6 @@ static StringRef toString(STIMachineID machineID) {
     break;
     STI_MACHINE_KINDS
 #undef X
-  default:
-    string = "<invalid machine kind>";
-    break;
   }
 
   return string;
@@ -331,8 +325,7 @@ static STIMachineID toMachineID(Triple::ArchType architecture) {
     MAP(x86_64, STI_MACHINE_INTEL64);
 #undef MAP
   default:
-    assert(!"Architecture cannot be mapped to an STI machine type!");
-    break;
+    llvm_unreachable("Architecture cannot be mapped to an STI machine type!");
   }
 
   return machineID;
@@ -1971,8 +1964,7 @@ STIRegID STIDebugImpl::toSTIRegID(unsigned int llvmID) const {
 
 #undef MAP
   default:
-    assert(llvmID != llvmID); // unrecognized llvm register number
-    break;
+    llvm_unreachable("unrecognized llvm register number");
   }
 
   return stiID;

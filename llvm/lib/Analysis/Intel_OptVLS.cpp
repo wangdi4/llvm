@@ -486,8 +486,7 @@ public:
     std::set<GraphNode *> VisitedSources;
     for (Edge *E : IncomingEdges) {
       GraphNode *Src = E->getSource();
-      std::set<GraphNode *>::iterator it = VisitedSources.find(Src);
-      assert(it == VisitedSources.end() &&
+      assert(VisitedSources.find(Src) == VisitedSources.end() &&
              "Unexpected dispersed edges from the same source!!!");
 
       // Keep track of the unique sources.
@@ -1646,7 +1645,7 @@ OVLSInstruction *genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
         // Compute any gap size between the accesses which will be used
         // during the load of the 1st element of next ith accesses.
         if (IthElem == 0)
-          Distance = abs(Stride) - LSSize;
+          Distance = std::abs(Stride) - LSSize;
 
         GapSize = Distance;
       } else {
@@ -1694,7 +1693,7 @@ void OVLSLoad::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << "mask.load." << getType().getElementSize() << ".";
   OS << getType().getNumElements();
   OS << " (";
-  Src.print(OS);
+  Src.print(OS, 0);
   OS << ", ";
   OptVLS::printMask(OS, getMask());
   OS << ")";
@@ -1711,7 +1710,7 @@ void OVLSStore::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << " (";
   Value->printAsOperand(OS);
   OS << ", ";
-  Dst.print(OS);
+  Dst.print(OS, 0);
   OS << ", ";
   OptVLS::printMask(OS, getMask());
   OS << ")";

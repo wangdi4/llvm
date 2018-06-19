@@ -3,6 +3,7 @@
 
 ; REQUIRES: asserts  
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -debug-only=hir-loop-interchange 2>&1 | FileCheck %s 
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange" -aa-pipeline="basic-aa" < %s -debug-only=hir-loop-interchange 2>&1 | FileCheck %s 
 ; 
 ;
 ; CHECK: Interchanged: ( 1 2 3 ) --> ( 2 3 1 ) 

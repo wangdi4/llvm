@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -disable-output -print-after=hir-runtime-dd -hir-runtime-dd < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; The test checks that RTDD is not triggering if there are references from different
 ; address spaces: %in and @bubble_local.lin.
@@ -10,7 +11,7 @@
 ; + END LOOP
 ; END REGION
 
-; CHECK: After
+; CHECK: Function
 ; CHECK: BEGIN REGION
 ; CHECK-NOT: if
 ; CHECK: END REGION

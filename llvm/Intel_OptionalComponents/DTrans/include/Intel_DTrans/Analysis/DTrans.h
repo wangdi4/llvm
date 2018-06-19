@@ -234,6 +234,15 @@ const SafetyData LocalInstance = 0x0000000000000800000;
 /// or unsafe, but we will conservatively assume it is unsafe.
 const SafetyData UnhandledUse = 0x8000000000000000;
 
+/// A three value enum that indicates whether for a particular Type of
+/// interest if a there is another distinct Type with which it is compatible
+/// by C language rules.
+///   CRT_Unknown: We don't know if there is such a type. If we need to
+///     know, we will do analysis to determine if there is.
+///   CRT_False: We know that there is no such compatible type.
+///   CRT_True: We know that there is such a compatible type.
+enum CRuleTypeKind { CRT_Unknown, CRT_False, CRT_True };
+
 /// An object describing the DTrans-related characteristics of an LLVM type.
 class TypeInfo {
 public:
@@ -244,7 +253,7 @@ public:
 protected:
   // This class should only be instantiated through its subclasses.
   TypeInfo(TypeInfoKind Kind, llvm::Type *Ty)
-      : LLVMTy(Ty), SafetyInfo(0), TIK(Kind) {}
+      : LLVMTy(Ty), SafetyInfo(0), TIK(Kind), CRTypeKind(CRT_Unknown) {}
 
 public:
   llvm::Type *getLLVMType() const { return LLVMTy; }
@@ -261,12 +270,17 @@ public:
 
   void printSafetyData();
 
+  CRuleTypeKind getCRuleTypeKind() { return CRTypeKind; }
+  void setCRuleTypeKind(CRuleTypeKind K) { CRTypeKind = K; }
+
 private:
   llvm::Type *LLVMTy;
   SafetyData SafetyInfo;
 
   // ID to support type inquiry through isa, cast, and dyn_cast
   TypeInfoKind TIK;
+  // Indicates whether the Type has a C language rule compatible Type
+  CRuleTypeKind CRTypeKind;
 };
 
 //
@@ -369,6 +383,9 @@ StringRef AllocKindName(AllocKind Kind);
 
 /// Get a printable string for the FreeKind
 StringRef FreeKindName(FreeKind Kind);
+
+/// Get a printable string for the CRuleTypeKind
+StringRef CRuleTypeKindName(CRuleTypeKind Kind);
 
 // This structure is used to describe the affected portion of an aggregate type
 // passed as an argument of the memfunc call. This will be used to communicate

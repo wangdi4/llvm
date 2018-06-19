@@ -457,7 +457,7 @@ public:
 
   OVLSOperand() {}
 
-  ~OVLSOperand() {}
+  virtual ~OVLSOperand() {}
 
   OperandKind getKind() const { return Kind; }
   OVLSType getType() const { return Type; }
@@ -565,7 +565,7 @@ public:
     return *this;
   }
 
-  void print(OVLSostream &OS) const {
+  void print(OVLSostream &OS, unsigned NumSpaces) const {
     OS << getType() << "* "
        << "<Base:" << Base << " Offset:" << Offset << ">";
   }
@@ -575,7 +575,7 @@ public:
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const {
-    print(OVLSdbgs());
+    print(OVLSdbgs(), 0);
     OVLSdbgs() << '\n';
   }
 #endif
@@ -950,6 +950,8 @@ protected:
 public:
   explicit OVLSCostModel(const TargetTransformInfo &TargetTI, LLVMContext &Ctx)
       : TTI(TargetTI), C(Ctx) {}
+
+  virtual ~OVLSCostModel() = default;
 
   /// \brief Returns target-specific cost for an OVLSInstruction, different
   /// cost parameters are defined by each specific target.

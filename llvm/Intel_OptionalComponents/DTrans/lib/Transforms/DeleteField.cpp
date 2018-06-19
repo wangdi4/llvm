@@ -20,6 +20,7 @@
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
 using namespace llvm;
@@ -61,10 +62,17 @@ public:
                   DTransTypeRemapper *TypeRemapper)
       : DTransOptBase(DTInfo, Context, DL, DepTypePrefix, TypeRemapper) {}
 
-  virtual bool prepareTypes(Module &M) override;
-  virtual void populateTypes(Module &M) override;
-  virtual void processFunction(Function &F) override;
-  virtual void postprocessFunction(Function &OrigFunc, bool isCloned) override;
+  bool prepareTypes(Module &M) override;
+  void populateTypes(Module &M) override;
+  void processFunction(Function &F) override;
+  void postprocessFunction(Function &OrigFunc, bool isCloned) override;
+
+  GlobalVariable *createGlobalVariableReplacement(GlobalVariable *GV) override;
+  void initializeGlobalVariableReplacement(GlobalVariable *OrigGV,
+                                           GlobalVariable *NewGV,
+                                           ValueMapper &Mapper) override;
+  void postprocessGlobalVariable(GlobalVariable *OrigGV,
+                                 GlobalVariable *NewGV) override;
 
 private:
   // The pointers in this vector are owned by the DTransAnalysisInfo.
@@ -109,11 +117,11 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       dtrans::BadPtrManipulation | dtrans::AmbiguousGEP | dtrans::VolatileData |
       dtrans::MismatchedElementAccess | dtrans::WholeStructureReference |
       dtrans::UnsafePointerStore | dtrans::FieldAddressTaken |
-      dtrans::HasInitializerList | dtrans::BadMemFuncSize |
-      dtrans::BadMemFuncManipulation | dtrans::AmbiguousPointerTarget |
-      dtrans::UnsafePtrMerge | dtrans::AddressTaken | dtrans::NoFieldsInStruct |
-      dtrans::NestedStruct | dtrans::ContainsNestedStruct |
-      dtrans::MemFuncPartialWrite | dtrans::SystemObject;
+      dtrans::BadMemFuncSize | dtrans::BadMemFuncManipulation |
+      dtrans::AmbiguousPointerTarget | dtrans::UnsafePtrMerge |
+      dtrans::AddressTaken | dtrans::NoFieldsInStruct | dtrans::NestedStruct |
+      dtrans::ContainsNestedStruct | dtrans::MemFuncPartialWrite |
+      dtrans::SystemObject;
 
   LLVM_DEBUG(dbgs() << "Delete field: looking for candidate structures.\n");
 
@@ -130,9 +138,11 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
     for (size_t i = 0; i < NumFields; ++i) {
       dtrans::FieldInfo &FI = StInfo->getField(i);
       if (!FI.isRead() && !FI.hasComplexUse()) {
-        LLVM_DEBUG(dbgs() << "  Found unread field: "
-                          << cast<StructType>(StInfo->getLLVMType())->getName()
-                          << " @ " << i << "\n");
+        LLVM_DEBUG({
+          dbgs() << "  Found unread field: ";
+          StInfo->getLLVMType()->print(dbgs(), true, true);
+          dbgs() << " @ " << i << "\n";
+        });
         CanDeleteField = true;
 #ifdef NDEBUG
         break;
@@ -144,15 +154,19 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       continue;
 
     if (StInfo->testSafetyData(DeleteFieldSafetyConditions)) {
-      LLVM_DEBUG(dbgs() << "  Rejecting "
-                        << cast<StructType>(StInfo->getLLVMType())->getName()
-                        << " based on safety data.\n");
+      LLVM_DEBUG({
+        dbgs() << "  Rejecting ";
+        StInfo->getLLVMType()->print(dbgs(), true, true);
+        dbgs() << " based on safety data.\n";
+      });
       continue;
     }
 
-    LLVM_DEBUG(dbgs() << "  Selected for deletion: "
-                      << cast<StructType>(StInfo->getLLVMType())->getName()
-                      << "\n");
+    LLVM_DEBUG({
+      dbgs() << "  Selected for deletion: ";
+      StInfo->getLLVMType()->print(dbgs(), true, true);
+      dbgs() << "\n";
+    });
 
     StructsToConvert.push_back(StInfo);
   }
@@ -235,6 +249,7 @@ void DeleteFieldImpl::processFunction(Function &F) {
 
   std::function<void(Value *)> deleteStoreAndCastUses =
       [&deleteStoreAndCastUses](Value *V) {
+        SmallPtrSet<Instruction *, 4> InstsToDelete;
         for (auto *U : V->users()) {
           assert((isa<CastInst>(U) || isa<StoreInst>(U)) &&
                  "Unexpected use of deleted field!");
@@ -243,9 +258,17 @@ void DeleteFieldImpl::processFunction(Function &F) {
           // casts or stores) then delete the cast instruction.
           if (isa<CastInst>(U))
             deleteStoreAndCastUses(U);
+          // Since this pointer is an iterator, we can't erase it here.
+          InstsToDelete.insert(cast<Instruction>(U));
+        }
+        // The instructions we're deleting won't ever share users so
+        // there's no reason to gather instructions to delete from the
+        // recursive calls. We can delete each level's instructions as
+        // we unwind.
+        for (auto *I : InstsToDelete) {
           LLVM_DEBUG(dbgs() << "Delete field: erasing GEP user:\n"
-                            << *U << "\n");
-          cast<Instruction>(U)->eraseFromParent();
+                            << *I << "\n");
+          I->eraseFromParent();
         }
       };
 
@@ -461,6 +484,151 @@ void DeleteFieldImpl::postprocessSubInst(Instruction *I) {
     // Call the base class to find and update all users that divide this result
     // by the structure size.
     updatePtrSubDivUserSizeOperand(BinOp, OrigTy, ReplTy);
+  }
+}
+
+GlobalVariable *
+DeleteFieldImpl::createGlobalVariableReplacement(GlobalVariable *GV) {
+  Type *GVTy = GV->getType();
+
+  // If we aren't deleting fields from this type, let the base class handle it.
+  if (!FieldIdxMap.count(GVTy->getPointerElementType()))
+    return nullptr;
+
+  Type *ReplTy = TypeRemapper->remapType(GVTy);
+
+  assert(GVTy != ReplTy &&
+         "createGlobalVariableReplacement called for unchanged type!");
+
+  // Globals are always pointers, so the variable we want to create is
+  // the element type of the pointer.
+  Type *RemapType = ReplTy->getPointerElementType();
+
+  // Let the base class handle replacing globals that are pointers.
+  if (RemapType->isPointerTy())
+    return nullptr;
+
+  // Create and set the properties of the variable. The initialization of
+  // the variable will not occur until all variables have been created
+  // because there may be references to other variables being replaced in
+  // the initializer list which have not been processed yet.
+  GlobalVariable *NewGV = new GlobalVariable(
+      *(GV->getParent()), RemapType, GV->isConstant(), GV->getLinkage(),
+      /*init=*/nullptr, GV->getName(),
+      /*insertbefore=*/nullptr, GV->getThreadLocalMode(),
+      GV->getType()->getAddressSpace(), GV->isExternallyInitialized());
+  NewGV->setAlignment(GV->getAlignment());
+  NewGV->copyAttributesFrom(GV);
+  NewGV->copyMetadata(GV, /*Offset=*/0);
+
+  return NewGV;
+}
+
+void DeleteFieldImpl::initializeGlobalVariableReplacement(
+    GlobalVariable *OrigGV, GlobalVariable *NewGV, ValueMapper &Mapper) {
+  Constant *OrigInit = OrigGV->getInitializer();
+  assert(
+      (isa<ConstantAggregateZero>(OrigInit) || isa<ConstantStruct>(OrigInit)) &&
+      "Unexpected global variable initializer!");
+  // If the original initializer is a zero initializer just remap it.
+  if (isa<ConstantAggregateZero>(OrigInit)) {
+    NewGV->setInitializer(Mapper.mapConstant(*OrigGV->getInitializer()));
+    return;
+  }
+
+  // Otherwise, we need to do an element by element copy.
+
+  // Because globals are always pointers, we need the type it's pointing to.
+  llvm::Type *OrigTy = OrigGV->getType()->getPointerElementType();
+
+  assert(FieldIdxMap.count(OrigTy) &&
+         "initializeGlobalVariableReplacement called for dependent type!");
+
+  unsigned OrigNumFields = OrigTy->getStructNumElements();
+  SmallVector<Constant *, 16> NewInitVals;
+  for (unsigned Idx = 0; Idx < OrigNumFields; ++Idx)
+    if (FieldIdxMap[OrigTy][Idx] != FIELD_DELETED)
+      NewInitVals.push_back(
+          Mapper.mapConstant(*OrigInit->getAggregateElement(Idx)));
+  auto *NewTy = cast<StructType>(NewGV->getType()->getPointerElementType());
+  assert(NewTy->getNumElements() == NewInitVals.size() &&
+         "Mismatched number of elements in global initializer creation!");
+  Constant *NewInit = ConstantStruct::get(NewTy, NewInitVals);
+  NewGV->setInitializer(NewInit);
+}
+
+void DeleteFieldImpl::postprocessGlobalVariable(GlobalVariable *OrigGV,
+                                                GlobalVariable *NewGV) {
+  // If we didn't delete fields from this type, don't do anything with the
+  // global variable. This happens with dependent types.
+  llvm::Type *OrigTy = OrigGV->getType()->getPointerElementType();
+  if (!FieldIdxMap.count(OrigTy))
+    return;
+  llvm::Type *ReplTy = NewGV->getType()->getPointerElementType();
+  SmallVector<GEPOperator *, 4> GEPsToErase;
+  for (auto *U : OrigGV->users()) {
+    // Instructions will be processed elsewhere.
+    if (isa<Instruction>(U))
+      continue;
+    if (auto *GEP = dyn_cast<GEPOperator>(U)) {
+      assert(isa<ConstantExpr>(GEP) && "Expected constant GEP");
+      assert(GEP->getOperand(0) == OrigGV && "Unexpected GV GEP use!");
+      assert(GEP->getNumIndices() == 2 && "Unexpected GV GEP index count!");
+      auto *FieldIdxConst = cast<ConstantInt>(GEP->getOperand(2));
+      uint64_t FieldIdx = FieldIdxConst->getLimitedValue();
+      uint64_t NewIdx = FieldIdxMap[OrigTy][FieldIdx];
+      // If the index for this GEP hasn't changed we don't need to do anything.
+      if (FieldIdx == NewIdx)
+        continue;
+      // Although each operator GEP looks like it appears directly in an
+      // instruction and therefore should have a single use, there is
+      // actually only one instance of each unique set of indices for
+      // the GEP because it is a constant.
+      if (NewIdx == FIELD_DELETED) {
+        GEPsToErase.push_back(GEP);
+      } else {
+        Constant *Indices[] = {
+            cast<Constant>(GEP->getOperand(1)),
+            ConstantInt::get(Type::getInt32Ty(GEP->getContext()), NewIdx)};
+        auto *NewGEP = ConstantExpr::getGetElementPtr(ReplTy, NewGV, Indices,
+                                                      GEP->isInBounds());
+        LLVM_DEBUG(dbgs() << "Delete field: Replacing GEP const expr: " << *GEP
+                          << " with " << *NewGEP << "\n");
+        // The functions have not been re-mapped yet at this point, so we
+        // can just add an entry to the map that will replace the use of this
+        // constant when the instruction is remapped.
+        VMap[GEP] = NewGEP;
+      }
+    }
+  }
+
+  std::function<void(User *)> eraseCastAndStoreUses = [&eraseCastAndStoreUses](
+                                                          User *U) {
+    assert((isa<StoreInst>(U) || isa<CastInst>(U) || isa<BitCastOperator>(U)) &&
+           "Unexpected GEP operator user");
+    if (isa<CastInst>(U) || isa<BitCastOperator>(U)) {
+      while (!U->user_empty()) {
+        auto *SubUser = U->user_back();
+        eraseCastAndStoreUses(SubUser);
+      }
+    }
+    if (auto *I = dyn_cast<Instruction>(U)) {
+      LLVM_DEBUG(dbgs() << "Delete field: erasing GEP const expr user: " << *I
+                        << "\n");
+      I->eraseFromParent();
+    } else {
+      auto *Const = cast<Constant>(U);
+      assert(!Const->isConstantUsed() &&
+             "Attempting to delete const GEP that still has uses!");
+      Const->destroyConstant();
+    }
+  };
+
+  for (auto *GEP : GEPsToErase) {
+    while (!GEP->user_empty()) {
+      auto *U = GEP->user_back();
+      eraseCastAndStoreUses(U);
+    }
   }
 }
 

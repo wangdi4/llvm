@@ -45,30 +45,28 @@
 //  (1) Extend it for non normalized loops.
 //  (2) Add opt report.
 
-#include "HIRCompleteUnroll.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
-
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
-
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LLVMContext.h"
-
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
+
+#include "HIRCompleteUnrollImpl.h"
 
 #define DEBUG_TYPE "hir-complete-unroll"
 
@@ -184,8 +182,13 @@ void completeUnrollLoop(HLLoop *Loop) { HIRCompleteUnroll::doUnroll(Loop); }
 } // namespace loopopt
 } // namespace llvm
 
-HIRCompleteUnroll::HIRCompleteUnroll(char &ID, unsigned OptLevel, bool IsPreVec)
-    : HIRTransformPass(ID), DT(nullptr), HLS(nullptr), IsPreVec(IsPreVec) {
+HIRCompleteUnroll::HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
+                                     const TargetTransformInfo &TTI,
+                                     HIRLoopStatistics &HLS, HIRDDAnalysis &DDA,
+                                     HIRSafeReductionAnalysis &HSRA,
+                                     unsigned OptLevel, bool IsPreVec)
+    : HIRF(HIRF), DT(DT), TTI(TTI), HLS(HLS), DDA(DDA), HSRA(HSRA),
+      IsPreVec(IsPreVec) {
 
   Limits.SavingsThreshold =
       IsPreVec ? PreVectorSavingsThreshold : PostVectorSavingsThreshold;
@@ -229,16 +232,6 @@ HIRCompleteUnroll::HIRCompleteUnroll(char &ID, unsigned OptLevel, bool IsPreVec)
                                            ? O3MaxThresholdScalingFactor
                                            : MaxThresholdScalingFactor;
   }
-}
-
-void HIRCompleteUnroll::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequiredTransitive<DominatorTreeWrapperPass>();
-  AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
-  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
 }
 
 /// Visitor to update the CanonExpr.
@@ -378,6 +371,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
           Simplified(false), NumOperations(0), IsNewCoeff(0) {}
   };
 
+  // Structure to store CanonExpr related info.
   struct CanonExprInfo {
     unsigned NumSimplifiedTerms = 0;
     unsigned NumNonLinearTerms = 0;
@@ -740,7 +734,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
     // compute safe reduction chain for innermost do loops if we are executing
     // before vectorizer. This is to add extra cost to the loops containing
     // reductions.
-    HCU.HSRA->computeSafeReductionChains(CurLoop);
+    HCU.HSRA.computeSafeReductionChains(CurLoop);
   }
 
   // TODO: Think about visiting the linear instructions at the end of the loop
@@ -1049,7 +1043,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
       // are executing before vectorizer. We should prefer vectorizing
       // reductions rather than unrolling them.
       Cost +=
-          (HCU.IsPreVec && LvalRef && HCU.HSRA->isSafeReduction(HInst)) ? 2 : 1;
+          (HCU.IsPreVec && LvalRef && HCU.HSRA.isSafeReduction(HInst)) ? 2 : 1;
     } else {
       // Add extra cost for ifs/switches.
       Cost += 2;
@@ -1283,7 +1277,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isDDIndependentInLoop(
 
     // Guard doRefsAlias() under cheaper conditions where we know how to handle
     // refs. These conditions are used later in the loop.
-    if (!AreEqual && !AreRval && !HCU.DDA->doRefsAlias(Ref, SymRef)) {
+    if (!AreEqual && !AreRval && !HCU.DDA.doRefsAlias(Ref, SymRef)) {
       continue;
     }
 
@@ -1336,8 +1330,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isDDIndependentInLoop(
     }
 
     // Give up if the refs do not look structurally similar: A[i1] and B[0].
-    if ((Ref->getNumDimensions() != SymRef->getNumDimensions()) ||
-        !CanonExprUtils::areEqual(Ref->getBaseCE(), SymRef->getBaseCE()) ||
+    if (!DDRefUtils::haveEqualBaseAndShape(Ref, SymRef, false) ||
         !DDRefUtils::haveEqualOffsets(Ref, SymRef)) {
       RefinedOccurences = 0;
       return false;
@@ -1522,8 +1515,8 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::
       // Since we are dealing with different regions, we can only perform
       // approximate checks.
 
-      if (!HCU.DT->dominates(PrevRegion->getExitBBlock(),
-                             CurRegion->getEntryBBlock())) {
+      if (!HCU.DT.dominates(PrevRegion->getExitBBlock(),
+                            CurRegion->getEntryBBlock())) {
         // Previous region does not dominate current region so we remove store's
         // entry.
         HCU.PrevLoopnestAllocaStores.erase(It);
@@ -1679,7 +1672,7 @@ public:
 void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidAllocaRefFinder::visit(
     const HLRegion *Reg) {
 
-  if (!PA.HCU.DT->dominates(StartBBlock, Reg->getEntryBBlock())) {
+  if (!PA.HCU.DT.dominates(StartBBlock, Reg->getEntryBBlock())) {
     IsDone = true;
   }
 }
@@ -1848,7 +1841,24 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::canEliminate(
   // If all else fails, check whether we can unconditionally reach alloca's
   // parent bblock from the region predecessor bblock. If so, assume there are
   // dominating alloca stores.
+
+  // First we check whether the current region has any alloca stores before
+  // this node. If so, we have invalidating stores so we have to give up.
+  //
+  if (AllocaStores.count(BaseIndex)) {
+    return false;
+  }
+
   auto CurRegion = OuterLoop->getParentRegion();
+  IntermediateAllocaStoreFinder IASF(BaseIndex, OuterLoop);
+
+  HLNodeUtils::visitRange(IASF, CurRegion->child_begin(),
+                          CurRegion->child_end());
+
+  if (IASF.foundIntermediateStore()) {
+    return false;
+  }
+
   unsigned BaseSymbase = MemRef->getBasePtrSymbase();
 
   if (!CurRegion->isLiveIn(BaseSymbase)) {
@@ -2371,11 +2381,11 @@ HIRCompleteUnroll::ProfitabilityAnalyzer::getBlobInfo(unsigned Index,
   // simplified.
   if (NumSimplifiedTempBlobs == Indices.size()) {
     BInfo.Simplified = true;
-    BInfo.NumOperations = BU.getNumOperations(Index, HCU.TTI);
+    BInfo.NumOperations = BU.getNumOperations(Index, &HCU.TTI);
 
   } else if (!Invariant) {
     BInfo.Invariant = false;
-    BInfo.NumOperations = BU.getNumOperations(Index, HCU.TTI);
+    BInfo.NumOperations = BU.getNumOperations(Index, &HCU.TTI);
 
     // Subtract operations based on contained simplified temps.
     if (NumSimplifiedTempBlobs) {
@@ -2494,27 +2504,20 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::addBlobCost(
 
 ///// ProfitabilityAnalyzer Visitor End
 
-bool HIRCompleteUnroll::runOnFunction(Function &F) {
+bool HIRCompleteUnroll::run() {
   // Skip if DisableHIRCompleteUnroll is enabled
-  if (DisableHIRCompleteUnroll || skipFunction(F)) {
+  if (DisableHIRCompleteUnroll) {
     LLVM_DEBUG(dbgs() << "HIR LOOP Complete Unroll Transformation Disabled \n");
     return false;
   }
 
-  LLVM_DEBUG(dbgs() << "Complete unrolling for Function : " << F.getName()
-                    << "\n");
-
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-  HSRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
+  LLVM_DEBUG(dbgs() << "Complete unrolling for Function : "
+                    << HIRF.getFunction().getName() << "\n");
 
   // Storage for Outermost Loops
   SmallVector<HLLoop *, 64> OuterLoops;
   // Gather the outermost loops
-  HIRF->getHLNodeUtils().gatherOutermostLoops(OuterLoops);
+  HIRF.getHLNodeUtils().gatherOutermostLoops(OuterLoops);
 
   // Process Loop Complete Unrolling
   processCompleteUnroll(OuterLoops);
@@ -2588,7 +2591,14 @@ bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
     return false;
   }
 
-  auto &LS = HLS->getSelfLoopStatistics(Loop);
+  if (IsPreVec && Loop->hasVectorizeEnablingPragma()) {
+    LLVM_DEBUG(
+        dbgs()
+        << "Skipping complete unroll due to presence of vector pragma!\n");
+    return false;
+  }
+
+  auto &LS = HLS.getSelfLoopStatistics(Loop);
 
   // Cannot unroll loop if it has calls with noduplicate attribute.
   if (LS.hasCallsWithNoDuplicate()) {
@@ -2866,7 +2876,7 @@ void HIRCompleteUnroll::transformLoops() {
   // Transform the loop nest from outer to inner.
   for (auto &Loop : CandidateLoops) {
 
-    auto &LS = HLS->getTotalLoopStatistics(Loop);
+    auto &LS = HLS.getTotalLoopStatistics(Loop);
     bool HasIfsOrSwitches = LS.hasIfs() || LS.hasSwitches();
 
     HLNode *ParentNode = Loop->getParentLoop();
@@ -3011,10 +3021,29 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
   }
 }
 
-void HIRCompleteUnroll::releaseMemory() {
-  CandidateLoops.clear();
-  AvgTripCount.clear();
-  TotalTripCount.clear();
-  TopLevelCandidates.clear();
-  PrevLoopnestAllocaStores.clear();
+void HIRCompleteUnrollLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.setPreservesAll();
+  AU.addRequiredTransitive<DominatorTreeWrapperPass>();
+  AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+  AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
+}
+
+bool HIRCompleteUnrollLegacyPass::runOnFunction(Function &F) {
+  if (skipFunction(F)) {
+    LLVM_DEBUG(dbgs() << "HIR LOOP Complete Unroll Transformation Disabled \n");
+    return false;
+  }
+
+  return HIRCompleteUnroll(
+             getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+             getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
+             getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
+             getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
+             getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+             getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
+             OptLevel, IsPreVec)
+      .run();
 }

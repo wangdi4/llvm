@@ -12,6 +12,7 @@
 ;    }
 
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
 
 ; Check the then loop.
 ; CHECK: REGION { modified }
@@ -27,6 +28,7 @@
 ; CHECK: END LOOP
 
 ;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-predicate -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-predicate,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 
 ; OPTREPORT: Global loop optimization report for : sub3
 ; OPTREPORT: LOOP BEGIN

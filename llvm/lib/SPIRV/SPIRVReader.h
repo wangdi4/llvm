@@ -244,8 +244,9 @@ private:
       CallInst* CI, BasicBlock* BB, const std::string &DemangledName);
   std::string transOCLImageTypeName(SPIRV::SPIRVTypeImage* ST);
   std::string transOCLSampledImageTypeName(SPIRV::SPIRVTypeSampledImage* ST);
-  std::string transOCLPipeTypeName(SPIRV::SPIRVTypePipe* ST,
-      bool UseSPIRVFriendlyFormat = false, int PipeAccess = 0);
+  std::string transOCLPipeTypeName(
+      SPIRV::SPIRVTypePipe *ST, bool UseSPIRVFriendlyFormat = false,
+      SPIRVAccessQualifierKind PipeAccess = AccessQualifierReadOnly);
   std::string transOCLPipeStorageTypeName(SPIRV::SPIRVTypePipeStorage* PST);
   std::string transOCLImageTypeAccessQualifier(SPIRV::SPIRVTypeImage* ST);
   std::string transOCLPipeTypeAccessQualifier(SPIRV::SPIRVTypePipe* ST);

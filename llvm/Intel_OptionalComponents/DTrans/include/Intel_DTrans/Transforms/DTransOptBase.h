@@ -210,10 +210,16 @@ protected:
   // this method to handle the initialization of any GlobalVariable objects the
   // derived class returned within that method
   virtual void initializeGlobalVariableReplacement(GlobalVariable *OrigGV,
-                                                   GlobalVariable *NewGV) {
+                                                   GlobalVariable *NewGV,
+                                                   ValueMapper &Mapper) {
     llvm_unreachable("Global variable replacement must be done by derived "
                      "class implementing createGlobalVariableReplacement");
   }
+
+  // Derived classes may implement this method to update uses of global
+  // variables after the global variables have been updated.
+  virtual void postprocessGlobalVariable(GlobalVariable *OrigGV,
+                                         GlobalVariable *NewGV) {}
 
   // Derived classes may implement this to perform the transformation on a
   // function.

@@ -1541,7 +1541,16 @@ const SCEVUnknown *HIRParser::processTempBlob(const SCEVUnknown *TempBlob,
   if (auto Inst = dyn_cast<Instruction>(Temp)) {
     DefLevel = processInstBlob(Inst, cast<Instruction>(BaseTemp), Symbase);
   } else {
-    // Blob is some global value. Global values are not marked livein.
+    // Mark non-instruction blobs as livein to region and parent loops.
+    CurRegion->addLiveInTemp(Symbase, Temp);
+
+    HLLoop *UseLoop = isa<HLLoop>(CurNode) ? cast<HLLoop>(CurNode)
+                                           : CurNode->getLexicalParentLoop();
+
+    while (UseLoop) {
+      UseLoop->addLiveInTemp(Symbase);
+      UseLoop = UseLoop->getParentLoop();
+    }
   }
 
   setCanonExprDefLevel(CE, NestingLevel, DefLevel);
@@ -2406,32 +2415,25 @@ unsigned HIRParser::getElementSize(Type *Ty) const {
 
   auto ElTy = cast<PointerType>(Ty)->getElementType();
 
-  return getDataLayout().getTypeSizeInBits(ElTy) / 8;
+  return getDataLayout().getTypeStoreSize(ElTy);
 }
 
 const Value *HIRParser::getHeaderPhiOperand(const PHINode *Phi,
                                             bool IsInit) const {
   assert(RI.isHeaderPhi(Phi) && "Phi is not a header phi!");
+  assert((Phi->getNumIncomingValues() == 2) &&
+         "Unexpected number of header phi predecessors!");
 
-  auto Lp = LI.getLoopFor(Phi->getParent());
+  auto *Lp = LI.getLoopFor(Phi->getParent());
+  auto *LatchBlock = Lp->getLoopLatch();
 
-  for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
-    auto PhiOp = Phi->getIncomingValue(I);
+  auto *IncomingBlock = Phi->getIncomingBlock(0);
 
-    auto Inst = dyn_cast<Instruction>(PhiOp);
-
-    if (IsInit) {
-      if (!Inst || (LI.getLoopFor(Inst->getParent()) != Lp)) {
-        return PhiOp;
-      }
-    } else {
-      if (Inst && (LI.getLoopFor(Inst->getParent()) == Lp)) {
-        return Inst;
-      }
-    }
+  if (IncomingBlock == LatchBlock) {
+    return IsInit ? Phi->getIncomingValue(1) : Phi->getIncomingValue(0);
+  } else {
+    return IsInit ? Phi->getIncomingValue(0) : Phi->getIncomingValue(1);
   }
-
-  llvm_unreachable("Could not find appropriate header phi operand!");
 }
 
 const Value *HIRParser::getHeaderPhiInitVal(const PHINode *Phi) const {
@@ -2781,7 +2783,21 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
                                            unsigned Level) {
   const PHINode *CurBasePhi = BasePhi;
   const Value *BaseVal = nullptr;
-  bool IsInBounds = GEPOp ? GEPOp->isInBounds() : false;
+  bool IsInBounds = false;
+
+  if (GEPOp) {
+    IsInBounds = GEPOp->isInBounds();
+  } else {
+    // Use tha phi update value to apply inbounds.
+    // Technically, it is possible for the initial val of phi (first iteration
+    // of loop) to not be 'inbounds' and the rest to be inbounds but not sure if
+    // it is even possible to generate such IR from the frontend.
+    auto *UpdateVal = getHeaderPhiUpdateVal(BasePhi);
+
+    if (auto *GEPInst = dyn_cast<GetElementPtrInst>(UpdateVal)) {
+      IsInBounds = GEPInst->isInBounds();
+    }
+  }
 
   RegDDRef *Ref = getDDRefUtils().createRegDDRef(0);
 
@@ -2815,10 +2831,6 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
           (BaseVal = getValidPhiBaseVal(PhiInitVal, &InitGEPOp))) {
         IndexCE = createHeaderPhiIndexCE(CurBasePhi, Level);
       }
-
-      // Use no wrap flags to set inbounds property.
-      IsInBounds = IsInBounds || (RecSCEV->getNoWrapFlags(SCEV::FlagNUW) ||
-                                  RecSCEV->getNoWrapFlags(SCEV::FlagNSW));
     }
 
     // Non-linear base is parsed as base + zero offset: (%p)[0].
@@ -3196,6 +3208,27 @@ void HIRParser::addFakeRef(HLInst *HInst, const RegDDRef *AddressRef,
   GEPRefToPointerMap.insert(std::make_pair(FakeRef, getGEPRefPtr(AddressRef)));
 }
 
+static bool isDistributePoint(const CallInst *CI, bool &IsBegin) {
+  if (!CI->hasOperandBundles()) {
+    return false;
+  }
+
+  OperandBundleUse BU = CI->getOperandBundleAt(0);
+
+  StringRef TagName = BU.getTagName();
+
+  if (TagName.equals("DIR.PRAGMA.DISTRIBUTE_POINT")) {
+    IsBegin = true;
+    return true;
+
+  } else if (TagName.equals("DIR.PRAGMA.END.DISTRIBUTE_POINT")) {
+    IsBegin = false;
+    return true;
+  }
+
+  return false;
+}
+
 void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   bool HasLval = false;
   auto Inst = HInst->getLLVMInstruction();
@@ -3239,6 +3272,19 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   bool FakeDDRefsRequired = (Call && !Call->doesNotAccessMemory());
   bool IsReadOnly =
       (FakeDDRefsRequired && Call->hasFnAttr(Attribute::ReadOnly));
+
+  bool IsBegin;
+  if (Call && isDistributePoint(Call, IsBegin)) {
+    if (IsBegin) {
+      // Delay processing after phase2 because at this point we don't know the
+      // 'next' node.
+      DistributePoints.push_back(HInst);
+    } else {
+      // Do not need region end directive.
+      HLNodeUtils::erase(HInst);
+    }
+    return;
+  }
 
   // Process rvals
   for (unsigned I = 0; I < NumRvalOp; ++I) {
@@ -3331,6 +3377,18 @@ void HIRParser::phase2Parse() {
   }
 
   UnclassifiedSymbaseInsts.clear();
+
+  for (auto *Call : DistributePoints) {
+    auto *NextNode = Call->getNextNode();
+    assert(NextNode &&
+           "Could not find next node of distribute point intrinsic!");
+    assert(isa<HLDDNode>(NextNode) &&
+           "Next node of distribute point intrinsic is not a HLDDNode!");
+
+    cast<HLDDNode>(NextNode)->setDistributePoint(true);
+
+    HLNodeUtils::erase(Call);
+  }
 }
 
 void HIRParser::run() {
@@ -3386,9 +3444,9 @@ void HIRParser::parseMetadata(const Instruction *Inst, CanonExpr *CE) {
   CE->setDebugLoc(Inst->getDebugLoc());
 }
 
-ArrayType *HIRParser::traceBackToArrayType(const Value *Ptr) const {
+unsigned HIRParser::getPointerDimensionSize(const Value *Ptr) const {
   if (!Ptr->getType()->isPointerTy()) {
-    return nullptr;
+    return 0;
   }
 
   // Trace back as far as possible, until we hit a GEP whose result type is an
@@ -3403,19 +3461,20 @@ ArrayType *HIRParser::traceBackToArrayType(const Value *Ptr) const {
 
       } else {
         // Give up on merge phis.
-        return nullptr;
+        return 0;
       }
     } else if (auto GEPOp = dyn_cast<GEPOperator>(Ptr)) {
       if (GEPOp->getNumOperands() == 2) {
         Ptr = GEPOp->getPointerOperand();
       } else {
-        return dyn_cast<ArrayType>(GEPOp->getSourceElementType());
+        auto *ArrTy = dyn_cast<ArrayType>(GEPOp->getSourceElementType());
+        return ArrTy ? ArrTy->getArrayNumElements() : 0;
       }
     } else {
       // Give up on other value types.
-      return nullptr;
+      return 0;
     }
   }
 
-  return nullptr;
+  return 0;
 }

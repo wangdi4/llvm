@@ -27,6 +27,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -58,6 +59,11 @@ static cl::opt<bool> CreateFunctionLevelRegion(
     "hir-create-function-level-region", cl::init(false), cl::Hidden,
     cl::desc("force HIR to create a single function level region instead of "
              "creating regions for individual loopnests"));
+
+static cl::opt<bool> DisableFusionRegions(
+    "disable-hir-create-fusion-regions", cl::init(true), cl::Hidden,
+    cl::desc("Disable HIR to create regions for multiple loops"
+             "suitable for loop fusion"));
 
 STATISTIC(RegionCount, "Number of regions created");
 
@@ -123,6 +129,205 @@ HIRRegionIdentificationWrapperPass::HIRRegionIdentificationWrapperPass()
     : FunctionPass(ID) {
   initializeHIRRegionIdentificationWrapperPassPass(
       *PassRegistry::getPassRegistry());
+}
+
+void HIRRegionIdentification::computeLoopSpansForFusion(
+    const SmallVectorImpl<const Loop *> &Loops,
+    SmallVectorImpl<LoopSpanTy> &Spans) {
+  // TODO: Skip loops with Unknown Memory Access
+
+  // Form the multiple top-level loop regions for fusion.
+  // Consider only DO loops.
+  unsigned Span = 0;
+  LoopSpanTy CurSpan;
+  for (int I = 0, E = Loops.size(); I < E;
+       I += Span, Spans.push_back(CurSpan)) {
+    Span = 1;
+    CurSpan = {};
+
+    auto *Lp1 = Loops[I];
+    CurSpan.first.push_back(Lp1);
+
+    if (!Lp1) {
+      continue;
+    }
+
+    const Loop *Lp1Parent = Lp1->getParentLoop();
+
+    if (isSIMDLoop(*Lp1)) {
+      continue;
+    }
+
+    auto *Lp1EB = Lp1->getExitBlock();
+    if (!Lp1EB) {
+      continue;
+    }
+
+    const SCEV *Lp1TC = SE.getBackedgeTakenCount(Lp1);
+    if (isa<SCEVCouldNotCompute>(Lp1TC)) {
+      continue;
+    }
+
+    for (int J = I + 1; J < E; ++J) {
+      auto *Lp2 = Loops[J];
+      if (!Lp2) {
+        break;
+      }
+
+      if (Lp2->getParentLoop() != Lp1Parent) {
+        break;
+      }
+
+      if (isSIMDLoop(*Lp2)) {
+        break;
+      }
+
+      if (!Lp2->getExitBlock()) {
+        break;
+      }
+
+      const SCEV *Lp2TC = SE.getBackedgeTakenCount(Lp2);
+      if (isa<SCEVCouldNotCompute>(Lp2TC)) {
+        break;
+      }
+
+      if (Lp1TC->getType() != Lp2TC->getType()) {
+        break;
+      }
+
+      const auto *Diff = dyn_cast<SCEVConstant>(SE.getMinusSCEV(Lp1TC, Lp2TC));
+      if (!Diff || Diff->getAPInt().abs().ugt(MaxFusionTripCountDiff)) {
+        break;
+      }
+
+      if (!DT.dominates(Lp1EB, Lp2->getHeader())) {
+        break;
+      }
+
+      if (!PDT.dominates(Lp2->getHeader(), Lp1EB)) {
+        break;
+      }
+
+      // Collect intermediate BBs between last loop in the current span and Lp2.
+      LoopSpanTy::second_type IntermediateBBs;
+      if (!collectIntermediateBBs(CurSpan.first.back(), Lp2, IntermediateBBs)) {
+        break;
+      }
+
+      Span++;
+      CurSpan.first.push_back(Lp2);
+      CurSpan.second.insert(IntermediateBBs.begin(), IntermediateBBs.end());
+    }
+  }
+}
+
+namespace {
+
+template <typename NodeRef, unsigned SmallSize>
+struct IBBIteratorSet : public SmallPtrSet<NodeRef, SmallSize> {
+  using BaseSet = SmallPtrSet<NodeRef, SmallSize>;
+  using iterator = typename BaseSet::iterator;
+
+  SmallPtrSetImpl<NodeRef> &BBs;
+  bool CycleFound;
+
+  IBBIteratorSet(SmallPtrSetImpl<NodeRef> &BBs) : BBs(BBs), CycleFound(false) {}
+
+  std::pair<iterator, bool> insert(NodeRef N) {
+    auto Pair = BaseSet::insert(N);
+    if (!Pair.second) {
+      CycleFound = true;
+    }
+
+    return Pair;
+  }
+
+  void completed(NodeRef N) {
+    if (BBs.count(N)) {
+      // Have to mark selected BBs as non-visited to make iterator possible to
+      // visit them again using different path.
+      BaseSet::erase(N);
+    }
+  }
+};
+
+} // namespace
+
+bool HIRRegionIdentification::collectIntermediateBBs(
+    const Loop *Loop1, const Loop *Loop2,
+    SmallPtrSetImpl<const BasicBlock *> &BBs) {
+
+  BasicBlock *ExitBB = Loop1->getExitBlock();
+  SmallPtrSet<const Loop *, 4> LoopsSet{Loop1, Loop2};
+
+  // Explore a depth-first paths from a loop exit blocks to loop headers.
+  IBBIteratorSet<const BasicBlock *, 8> Visited(BBs);
+  for (auto BBI = df_ext_begin(ExitBB, Visited),
+            BBE = df_ext_end(ExitBB, Visited);
+       BBI != BBE;) {
+
+    if (Visited.CycleFound) {
+      // Irreducible CFG detected.
+      return false;
+    }
+
+    // Save the path if reached the loop header or a block that proven to
+    // reach the loop header.
+    if (BBs.count(*BBI) || (*BBI == Loop2->getHeader())) {
+      // Do not include last BB in the path.
+      for (int N = BBI.getPathLength() - 2; N >= 0; --N) {
+        if (!BBs.insert(BBI.getPath(N)).second) {
+          break;
+        }
+      }
+
+      Visited.completed(*BBI);
+      BBI.skipChildren();
+      continue;
+    }
+
+    ++BBI;
+  }
+
+  if (BBs.size() > MaxIntermediateBBsForFusion) {
+    return false;
+  }
+
+  for (auto *BB : BBs) {
+    // Check that all BBs are generable.
+    if (!isGenerable(BB, nullptr)) {
+      return false;
+    }
+
+    for (const Instruction &Inst : *BB) {
+      // Check that there is no unknown memory access calls
+      if (isa<CallInst>(Inst) &&
+          HLInst::hasUnknownMemoryAccess(cast<CallInst>(&Inst))) {
+        return false;
+      }
+
+      // Check that there are no region live-outs within BBs.
+      if (!std::all_of(Inst.user_begin(), Inst.user_end(),
+                       [this, &BBs, &LoopsSet](const Value *V) {
+                         auto *UseBB = cast<Instruction>(V)->getParent();
+                         return BBs.count(UseBB) ||
+                                LoopsSet.count(LI.getLoopFor(UseBB));
+                       })) {
+        return false;
+      }
+    }
+
+    // Check for multiple entries to region. BB predecessors should all be
+    // either a part of BBs or LoopsSet.
+    assert(std::all_of(pred_begin(BB), pred_end(BB),
+                       [this, &BBs, &LoopsSet](const BasicBlock *PredBB) {
+                         return BBs.count(PredBB) ||
+                                LoopsSet.count(LI.getLoopFor(PredBB));
+                       }) &&
+           "Found unexpected region entry");
+  }
+
+  return true;
 }
 
 Type *HIRRegionIdentification::getPrimaryElementType(Type *PtrTy) const {
@@ -589,34 +794,39 @@ bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp,
   return !CMA.isProfitable();
 }
 
-bool HIRRegionIdentification::isUnrollMetadata(StringRef Str) {
-  return (Str.equals("llvm.loop.unroll.count") ||
-          Str.equals("llvm.loop.unroll.enable") ||
-          Str.equals("llvm.loop.unroll.disable") ||
-          Str.equals("llvm.loop.unroll.runtime.disable") ||
-          Str.equals("llvm.loop.unroll.full"));
-}
-
-bool HIRRegionIdentification::isUnrollMetadata(MDNode *Node) {
+static MDString *getStringMetadata(MDNode *Node) {
   assert(Node->getNumOperands() > 0 &&
          "metadata should have at least one operand!");
 
-  MDString *Str = dyn_cast<MDString>(Node->getOperand(0));
-
-  if (!Str) {
-    return false;
-  }
-
-  return isUnrollMetadata(Str->getString());
+  return dyn_cast<MDString>(Node->getOperand(0));
 }
 
-bool HIRRegionIdentification::isDebugMetadata(MDNode *Node) {
+static bool isUnrollMetadata(MDNode *Node) {
+  MDString *Str = getStringMetadata(Node);
+
+  return Str && Str->getString().startswith("llvm.loop.unroll");
+}
+
+static bool isDistributeMetadata(MDNode *Node) {
+  MDString *Str = getStringMetadata(Node);
+
+  return Str && Str->getString().equals("llvm.loop.distribute.enable");
+}
+
+static bool isVectorizeMetadata(MDNode *Node) {
+  MDString *Str = getStringMetadata(Node);
+
+  return Str && Str->getString().startswith("llvm.loop.vectorize");
+}
+
+static bool isDebugMetadata(MDNode *Node) {
   return isa<DILocation>(Node) || isa<DINode>(Node);
 }
 
-bool HIRRegionIdentification::isSupportedMetadata(MDNode *Node) {
+static bool isSupportedMetadata(MDNode *Node) {
 
   if (isDebugMetadata(Node) || isUnrollMetadata(Node) ||
+      isDistributeMetadata(Node) || isVectorizeMetadata(Node) ||
       LoopOptReport::isOptReportMetadata(Node)) {
     return true;
   }
@@ -686,7 +896,8 @@ namespace {
 //
 // See also Intel_VPlan/VPlanDriver.cpp isIrreducibleCFG()
 class DFLoopTraverse
-    : public SmallPtrSet<typename GraphTraits<const BasicBlock *>::NodeRef, 32> {
+    : public SmallPtrSet<typename GraphTraits<const BasicBlock *>::NodeRef,
+                         32> {
 public:
   typedef typename GraphTraits<const BasicBlock *>::NodeRef NodeRef;
   typedef SmallPtrSet<NodeRef, 32> Container;
@@ -717,7 +928,7 @@ private:
   const LoopInfo *LI;
   const Loop *Lp;
 };
-}
+} // namespace
 
 namespace llvm {
 // Specialization of po_iterator_storage to implement
@@ -771,10 +982,9 @@ private:
   // need quick check 'if basic block is on stack of depth-first traversal'
   DFLoopTraverse &DFLoopInfo;
 };
-}
+} // namespace llvm
 
-namespace
-{
+namespace {
 bool isIrreducible(const LoopInfo *LI, const Loop *Lp,
                    const BasicBlock *EntryBlock = nullptr) {
 
@@ -785,8 +995,7 @@ bool isIrreducible(const LoopInfo *LI, const Loop *Lp,
 
   DFLoopTraverse dfs(LI, Lp);
   auto Start = Lp ? Lp->getHeader() : EntryBlock;
-  for (auto PoIter = Iter::begin(Start, dfs),
-            PoEnd = Iter::end(Start, dfs);
+  for (auto PoIter = Iter::begin(Start, dfs), PoEnd = Iter::end(Start, dfs);
        PoIter != PoEnd; ++PoIter) {
     if (PoIter.getFoundCycle()) {
       LLVM_DEBUG(
@@ -797,6 +1006,19 @@ bool isIrreducible(const LoopInfo *LI, const Loop *Lp,
 
   return false;
 }
+} // namespace
+
+static bool hasUnsupportedOperandBundle(const CallInst *CI) {
+  if (!CI->hasOperandBundles()) {
+    return false;
+  }
+
+  OperandBundleUse BU = CI->getOperandBundleAt(0);
+
+  StringRef TagName = BU.getTagName();
+
+  return !TagName.equals("DIR.PRAGMA.DISTRIBUTE_POINT") &&
+         !TagName.equals("DIR.PRAGMA.END.DISTRIBUTE_POINT");
 }
 
 bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
@@ -890,10 +1112,9 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
         return false;
       }
 
-      if (CInst->hasOperandBundles()) {
+      if (hasUnsupportedOperandBundle(CInst)) {
         LLVM_DEBUG(
-            dbgs()
-            << "LOOPOPT_OPTREPORT: Operand bundles currently not supported.\n");
+            dbgs() << "LOOPOPT_OPTREPORT: Unsupported operand bundle.\n");
         return false;
       }
     }
@@ -1155,7 +1376,9 @@ bool HIRRegionIdentification::isSIMDLoop(const Loop &Lp,
   return true;
 }
 
-void HIRRegionIdentification::createRegion(const Loop &Lp) {
+void HIRRegionIdentification::createRegion(
+    const ArrayRef<const Loop *> &Loops,
+    const SmallPtrSetImpl<const BasicBlock *> *IntermediateBlocks) {
 
   if (RegionNumThreshold && (RegionCount == RegionNumThreshold)) {
     LLVM_DEBUG(
@@ -1164,13 +1387,23 @@ void HIRRegionIdentification::createRegion(const Loop &Lp) {
     return;
   }
 
-  IRRegion::RegionBBlocksTy BBlocks(Lp.getBlocks().begin(),
-                                    Lp.getBlocks().end());
+  IRRegion::RegionBBlocksTy BBlocks;
 
-  BasicBlock *EntryBB = nullptr, *ExitBB = nullptr;
+  if (IntermediateBlocks) {
+    BBlocks.append(IntermediateBlocks->begin(), IntermediateBlocks->end());
+  }
 
-  if (!isSIMDLoop(Lp, &BBlocks, &EntryBB, &ExitBB)) {
-    EntryBB = Lp.getHeader();
+  BasicBlock *EntryBB = Loops.front()->getHeader();
+  BasicBlock *ExitBB = nullptr;
+
+  for (auto *Lp : Loops) {
+    bool IsFirstLoop = (Lp == Loops.front());
+    bool IsLastLoop = (Lp == Loops.back());
+
+    isSIMDLoop(*Lp, &BBlocks, IsFirstLoop ? &EntryBB : nullptr,
+               IsLastLoop ? &ExitBB : nullptr);
+
+    BBlocks.append(Lp->getBlocks().begin(), Lp->getBlocks().end());
   }
 
   IRRegions.emplace_back(EntryBB, BBlocks);
@@ -1212,12 +1445,6 @@ bool HIRRegionIdentification::isGenerableLoopnest(
     GenerableLoops.push_back(&Lp);
   } else {
     // Add sub loops of Lp in generable set.
-
-    // TODO: add logic to merge fuseable loops. This might also require
-    // recognition of ztt and splitting basic blocks which needs to be done
-    // in a transformation pass.
-    // GenerableLoops structure needs to change to contain vector of loops
-    // instead.
     GenerableLoops.append(SubGenerableLoops.begin(), SubGenerableLoops.end());
   }
 
@@ -1227,6 +1454,10 @@ bool HIRRegionIdentification::isGenerableLoopnest(
 void HIRRegionIdentification::formRegions() {
   SmallVector<const Loop *, 32> GenerableLoops;
 
+  if (LI.empty()) {
+    return;
+  }
+
   // LoopInfo::iterator visits loops in reverse program order so we need to
   // use reverse_iterator here.
   for (LoopInfo::reverse_iterator I = LI.rbegin(), E = LI.rend(); I != E; ++I) {
@@ -1234,8 +1465,20 @@ void HIRRegionIdentification::formRegions() {
     isGenerableLoopnest(**I, Depth, GenerableLoops);
   }
 
-  for (auto Lp : GenerableLoops) {
-    createRegion(*Lp);
+  if (DisableFusionRegions) {
+    for (const Loop *Lp : GenerableLoops) {
+      createRegion(Lp, nullptr);
+    }
+
+    return;
+  }
+
+  SmallVector<LoopSpanTy, 8> LoopSpans;
+  computeLoopSpansForFusion(GenerableLoops, LoopSpans);
+
+  for (auto &LoopSpan : LoopSpans) {
+    // Create region for generable loop span.
+    createRegion(LoopSpan.first, &LoopSpan.second);
   }
 }
 

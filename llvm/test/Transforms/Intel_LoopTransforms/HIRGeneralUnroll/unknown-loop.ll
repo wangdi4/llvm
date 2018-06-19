@@ -1,8 +1,9 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-general-unroll,print<hir>" < %s 2>&1 | FileCheck %s
 
 ; Check unrolling of profitable unknown loop.
 
-; CHECK: Dump Before
+; CHECK: Function
 
 ; CHECK:      + UNKNOWN LOOP i1
 ; CHECK-NEXT: |   <i1 = 0>
@@ -22,7 +23,7 @@
 ; CHECK-NEXT: |   }
 ; CHECK-NEXT: + END LOOP
 
-; CHECK: Dump After
+; CHECK: Function
 
 ; Check for the first unrolled iteration and the bottom test.
 ; CHECK:      + UNKNOWN LOOP i1

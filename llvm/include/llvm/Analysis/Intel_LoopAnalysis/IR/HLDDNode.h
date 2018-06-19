@@ -162,6 +162,8 @@ protected:
   /// rvals.
   unsigned NumFakeLvals;
 
+  bool IsDistributePoint;
+
   /// Sets HLDDNode for Ref.
   static void setNode(RegDDRef *Ref, HLDDNode *HNode);
 
@@ -177,6 +179,8 @@ public:
                      bool Detailed = false) const override;
   /// Prints list of attached Reg and Blob DD Refs
   void printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const;
+
+  void printDistributePoint(formatted_raw_ostream &OS) const;
 
   /// DDRef iterator methods. This traversal includes fake DDRefs as well.
   ddref_iterator ddref_begin() { return RegDDRefs.begin(); }
@@ -442,6 +446,12 @@ public:
       (*RefIt)->shift(LoopLevel, Amount);
     }
   }
+
+  /// Returns true if this node represents loop distribution point.
+  bool isDistributePoint() const { return IsDistributePoint; }
+
+  /// Sets distribution point flag.
+  void setDistributePoint(bool Flag) { IsDistributePoint = Flag; }
 };
 
 } // End namespace loopopt

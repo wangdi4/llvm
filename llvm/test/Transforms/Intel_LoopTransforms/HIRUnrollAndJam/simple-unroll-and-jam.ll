@@ -1,8 +1,9 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-unroll-and-jam -print-before=hir-unroll-and-jam -print-after=hir-unroll-and-jam 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-unroll-and-jam,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Verify that we unroll i1 loop by 8.
 
-; CHECK: Dump Before HIR Unroll & Jam
+; CHECK: Function
 
 ; CHECK: BEGIN REGION { }
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
@@ -15,7 +16,7 @@
 ; CHECK: END REGION
 
 
-; CHECK: Dump After HIR Unroll & Jam
+; CHECK: Function
 
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: %tgu = (%n)/u8;
@@ -60,6 +61,7 @@
 
 ; Check that proper optreport is emitted for Unroll and Jam.
 ; RUN: opt -hir-ssa-deconstruction -hir-unroll-and-jam -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -passes="hir-ssa-deconstruction,hir-unroll-and-jam,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT-NEXT:         Remark #XXXXX: Loop has been unrolled and jammed by {{.*}}{{[[:space:]]}}

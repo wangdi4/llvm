@@ -297,13 +297,6 @@ static const char *(Andersens_Return_Arg_1_Intrinsics[]) = {
   nullptr
 };
 
-static const unsigned SelfRep = (unsigned)-1;
-static const unsigned Unvisited = (unsigned)-1;
-// Position of the function return node relative to the function node.
-static const unsigned CallReturnPos = 1;
-// Position of the function call node relative to the function node.
-static const unsigned CallFirstArgPos = 2;
-
 // Information DenseSet requires implemented in order to be able to do
 // it's thing
 struct AndersensAAResult::PairKeyInfo {
@@ -1694,8 +1687,6 @@ void AndersensAAResult::CollectConstraints(Module &M) {
        (IndirectCallList.size() <= (unsigned)std::numeric_limits<int>::max() &&
         (int)IndirectCallList.size() <= AndersIndirectCallsLimit));
   if (!DoIndirectCallProcess) {
-    std::vector<CallSite>::const_iterator calllist_itr;
-
     for (unsigned i = 0, e = IndirectCallList.size(); i != e; ++i) {
       AddConstraintsForInitActualsToUniversalSet(IndirectCallList[i]);
     }
@@ -2266,8 +2257,6 @@ void AndersensAAResult::ClumpAddressTaken() {
 //
 //
 void AndersensAAResult::CollectPossibleIndirectNodes(void) {
-  std::vector<CallSite>::const_iterator calllist_itr;
-
   PossibleSourceOfPointsToInfo.clear();
   for (unsigned i = 0, e = IndirectCallList.size(); i != e; ++i) {
     if (IndirectCallList[i].getType()->isPointerTy()) {
@@ -3183,7 +3172,7 @@ void AndersensAAResult::AddEdgeInGraph(unsigned N1, unsigned N2) {
   N2 = FindNode(N2);
 
   if (GraphNodes[N2].Edges->test_and_set(N1)) {
-    if (GraphNodes[N1].PointsTo |= *(GraphNodes[N2].PointsTo)) {
+    if ((GraphNodes[N1].PointsTo |= *(GraphNodes[N2].PointsTo))) {
       NextWL->insert(&GraphNodes[N1]);
     }
   }
@@ -3310,8 +3299,6 @@ void AndersensAAResult::ProcessIndirectCall(CallSite CS) {
 // Process all indirect calls during propagation of points-to sets.
 //
 void AndersensAAResult::ProcessIndirectCalls() {
-
-  std::vector<CallSite>::const_iterator calllist_itr;
 
   for (unsigned i = 0, e = IndirectCallList.size(); i != e; ++i) {
     ProcessIndirectCall(IndirectCallList[i]);
@@ -3512,7 +3499,7 @@ void AndersensAAResult::SolveConstraints() {
             if (*Dest < NumberSpecialNodes)
               continue;
             if (GraphNodes[*Src].Edges->test_and_set(*Dest))
-              if (GraphNodes[*Dest].PointsTo |= *(GraphNodes[*Src].PointsTo))
+              if ((GraphNodes[*Dest].PointsTo |= *(GraphNodes[*Src].PointsTo)))
                 NextWL->insert(&GraphNodes[*Dest]);
           }
 #endif
@@ -3556,7 +3543,7 @@ void AndersensAAResult::SolveConstraints() {
               continue;
 #endif
             if (GraphNodes[*Src].Edges->test_and_set(*Dest))
-              if (GraphNodes[*Dest].PointsTo |= *(GraphNodes[*Src].PointsTo))
+              if ((GraphNodes[*Dest].PointsTo |= *(GraphNodes[*Src].PointsTo)))
                 NextWL->insert(&GraphNodes[*Dest]);
 
           }
@@ -3598,7 +3585,7 @@ void AndersensAAResult::SolveConstraints() {
 #if !FULL_UNIVERSAL
         if (Rep >= NumberSpecialNodes)
 #endif
-        if (GraphNodes[Rep].PointsTo |= CurrPointsTo) {
+        if ((GraphNodes[Rep].PointsTo |= CurrPointsTo)) {
           NextWL->insert(&GraphNodes[Rep]);
         }
         // If this edge's destination was collapsed, rewrite the edge.

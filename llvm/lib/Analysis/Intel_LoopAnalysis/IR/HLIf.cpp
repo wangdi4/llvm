@@ -138,6 +138,8 @@ void HLIf::printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
       printFMF(OS, I->FMF);
     }
   }
+
+  printDistributePoint(OS);
 #endif // !INTEL_PRODUCT_RELEASE
 }
 

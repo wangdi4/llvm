@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-opt-var-predicate -S -print-after=hir-opt-var-predicate -print-before=hir-opt-var-predicate -disable-output  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -S -disable-output  < %s 2>&1 | FileCheck %s
 
 ; Source code:
 ;
@@ -43,6 +44,7 @@
 ; CHECK:    END REGION
 
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-var-predicate -disable-output -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT 
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-var-predicate,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -disable-output -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT 
 
 ;OPTREPORT: Global loop optimization report for : foo
 ;

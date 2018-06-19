@@ -161,6 +161,10 @@ public:
   /// NOTE: This function asserts that the incoming type is sized.
   uint64_t getTypeSizeInBits(Type *Ty) const;
 
+  /// Returns the size of the type in bytes.
+  /// NOTE: This function asserts that the incoming type is sized.
+  uint64_t getTypeSizeInBytes(Type *Ty) const;
+
   /// Returns true if the type of both Canon Expr matches.
   static bool isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,
                           bool RelaxedMode = false);

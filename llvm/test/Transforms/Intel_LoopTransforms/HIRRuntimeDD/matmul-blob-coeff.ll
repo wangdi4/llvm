@@ -1,6 +1,7 @@
 ; Check for dd multiversioning for matmul loopnest
 
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
 
 ; float matmul(float *px, float *vy, float *cx, int n, int loop) {
 ;   int i,j,k,l;
@@ -17,7 +18,7 @@
 ;   return px[0];
 ; }
 
-; CHECK: IR Dump After
+; CHECK: Function
 ; CHECK-DAG: &((%vy)[25 * %n + -1]) >=u &((%px)[0]);
 ; CHECK-DAG: &((%px)[%n + 599]) >=u &((%vy)[0]);
 ; CHECK: %mv.and = 

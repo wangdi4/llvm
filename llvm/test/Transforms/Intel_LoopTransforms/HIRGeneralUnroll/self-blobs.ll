@@ -1,6 +1,7 @@
 ; Check that self-blob symbases are set after general unroll
 
 ; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-general-unroll,print<hir>" -hir-details < %s 2>&1 | FileCheck %s
 
 ; No source available;
 ;
@@ -41,13 +42,13 @@
 ; <11>         + END LOOP
 ;           END REGION
 ;
-; CHECK: Before
+; CHECK: Function
 ; CHECK: BEGIN REGION { }
 ; CHECK: DO i32 i1 = 0, 8 * %0 + -1, 1
 ; CHECK-NEXT: <RVAL-REG> LINEAR i32 8 * %0 + -1 {sb:2}
 ; CHECK-NEXT: <BLOB> LINEAR i32 %0 {sb:[[BLOBSB:[0-9]+]]}
 
-; CHECK: After
+; CHECK: Function
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: %tgu = %0
 

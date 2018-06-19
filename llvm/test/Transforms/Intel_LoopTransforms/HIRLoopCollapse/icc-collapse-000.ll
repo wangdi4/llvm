@@ -1,4 +1,5 @@
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-collapse -print-before=hir-loop-collapse -print-after=hir-loop-collapse -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; HIR Loop Collapse Sanity Test: basic test for a suitable case.
 ; Note: This is a reduced testcase from ICC's loop-collapse collaps_000.c test file.
@@ -19,7 +20,7 @@
 ;}
 ;
 ;
-; CHECK: IR Dump Before HIR Loop Collapse
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { }
 ; CHECK:        + DO i1 = 0, 19, 1   <DO_LOOP>
@@ -32,7 +33,7 @@
 ; CHECK:  END REGION
 ;
 ;
-; CHECK: IR Dump After HIR Loop Collapse
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:        + DO i1 = 0, 12599, 1   <DO_LOOP>
@@ -42,6 +43,7 @@
 ;
 ;
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-collapse -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-collapse,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT:    Remark #XXXXX: 3 loops have been collapsed
 ; OPTREPORT: LOOP END

@@ -1,6 +1,7 @@
 ; Fix for a fuzzy-test bug on HIR Loop Reversal: original testcase provided by John. 
 ;
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-reversal -print-before=hir-loop-reversal -print-after=hir-loop-reversal < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 ; 
 ; [REASONS]
 ; - Applicable: YES
@@ -35,7 +36,7 @@
 ;
 ;
 ;
-; CHECK: IR Dump Before HIR Loop Reversal
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { }
 ; CHECK:        + DO i1 = 0, 64, 1   <DO_LOOP>
@@ -51,7 +52,7 @@
 ; *** --- ***
 ; 
 ; 
-; CHECK: IR Dump After HIR Loop Reversal
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { }
 ; CHECK:        + DO i1 = 0, 64, 1   <DO_LOOP>

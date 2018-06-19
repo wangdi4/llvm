@@ -6,6 +6,7 @@
 ;
 ; REQUIRES: asserts   
 ; RUN: opt -debug-only=hir-loop-interchange -hir-ssa-deconstruction -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK-NOT: Interchanged:
 ;
 ; ModuleID = 'interchange2.c'

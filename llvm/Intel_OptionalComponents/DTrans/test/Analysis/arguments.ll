@@ -140,3 +140,38 @@ define void @test10(%struct.test10* %p) {
 
 ; CHECK: LLVMType: %struct.test10 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
+
+; Call an external function with a properly typed pointer to a structure that
+; contain a pointer to another type.
+; This is unsafe for both the first type and the type pointed to by the first
+; type because we don't have the function's definition.
+%struct.test11.a = type { i32, i32, %struct.test11.b* }
+%struct.test11.b = type { i32, i32 }
+declare void @f11(%struct.test11.a*)
+define void @test11(%struct.test11.a* %s) {
+  call void @f11(%struct.test11.a* %s)
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test11.a = type { i32, i32, %struct.test11.b* }
+; CHECK: Safety data: Address taken
+; CHECK: LLVMType: %struct.test11.b = type { i32, i32 }
+; CHECK: Safety data: Address taken
+
+; Call an external function with a properly typed pointer to a structure that
+; contains a pointer to another type that also has a pointer to the original
+; type.
+; This is unsafe for both the first type and the type pointed to by the first
+; type because we don't have the function's definition.
+%struct.test12.a = type { i32, i32, %struct.test12.b* }
+%struct.test12.b = type { i32, i32, %struct.test12.a* }
+declare void @f12(%struct.test12.a*)
+define void @test12(%struct.test12.a* %s) {
+  call void @f12(%struct.test12.a* %s)
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test12.a = type { i32, i32, %struct.test12.b* }
+; CHECK: Safety data: Address taken
+; CHECK: LLVMType: %struct.test12.b = type { i32, i32, %struct.test12.a* }
+; CHECK: Safety data: Address taken

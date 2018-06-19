@@ -73,6 +73,8 @@
 // -hir-lmm:          Perform HIR Loop Memory Motion
 // -disable-hir-lmm:  Disable/Bypass HIR Loop Memory Motion
 //
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
+
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
@@ -87,9 +89,11 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
+
+#include "HIRLMMImpl.h"
 
 #define DEBUG_TYPE "hir-lmm"
 
@@ -311,27 +315,6 @@ void HIRLMM::CollectMemRefs::collectMemRef(RegDDRef *Ref) {
   // LLVM_DEBUG(MRC.print(););
 }
 
-char HIRLMM::ID = 0;
-
-INITIALIZE_PASS_BEGIN(HIRLMM, "hir-lmm", "HIR Loop Memory Motion", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRLMM, "hir-lmm", "HIR Loop Memory Motion", false, false)
-
-FunctionPass *llvm::createHIRLMMPass() { return new HIRLMM(); }
-
-HIRLMM::HIRLMM(void) : HIRTransformPass(ID) {
-  initializeHIRLMMPass(*PassRegistry::getPassRegistry());
-}
-
-void HIRLMM::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-  AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  AU.setPreservesAll();
-}
-
 // The following preliminary conditions are currently checked:
 // - Multiple exits
 // - Empty loop body
@@ -343,7 +326,7 @@ bool HIRLMM::doLoopPreliminaryChecks(const HLLoop *Lp) {
     return false;
   }
 
-  const LoopStatistics &LS = HLS->getSelfLoopStatistics(Lp);
+  const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
   // LLVM_DEBUG(LS.dump(););
   if (LS.hasCallsWithUnsafeSideEffects()) {
     return false;
@@ -352,51 +335,41 @@ bool HIRLMM::doLoopPreliminaryChecks(const HLLoop *Lp) {
   return true;
 }
 
-bool HIRLMM::handleCmdlineArgs(Function &F) {
-  if (DisableHIRLMM || skipFunction(F)) {
+bool HIRLMM::run() {
+  if (DisableHIRLMM) {
     LLVM_DEBUG(dbgs() << "HIRLMM (Loop Memory Motion) Disabled or Skipped\n");
     return false;
   }
 
-  return true;
-}
-
-bool HIRLMM::runOnFunction(Function &F) {
-  if (!handleCmdlineArgs(F)) {
-    return false;
-  }
-
-  LLVM_DEBUG(dbgs() << "HIR LIMM on Function : " << F.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "HIR LIMM on Function : " << HIRF.getFunction().getName()
+                    << "\n");
 
   // Gather all inner-most Loop Candidates
   SmallVector<HLLoop *, 64> CandidateLoops;
 
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HIRF->getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
+  HNU.gatherInnermostLoops(CandidateLoops);
 
   if (CandidateLoops.empty()) {
-    LLVM_DEBUG(dbgs() << F.getName() << "() has no inner-most loop\n ");
+    LLVM_DEBUG(dbgs() << HIRF.getFunction().getName()
+                      << "() has no inner-most loop\n ");
     return false;
   }
   // LLVM_DEBUG(dbgs() << " # Innermost Loops: " << CandidateLoops.size() <<
   // "\n");
 
-  HDDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-  HLS = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   bool Result = false;
 
   for (auto &Lp : CandidateLoops) {
-    Result = doLoopMemoryMotion(Lp, *HDDA, *HLS) || Result;
+    Result = doLoopMemoryMotion(Lp) || Result;
   }
 
   CandidateLoops.clear();
   return Result;
 }
 
-bool HIRLMM::doLoopMemoryMotion(HLLoop *Lp, HIRDDAnalysis &DDA,
-                                HIRLoopStatistics &LS) {
+bool HIRLMM::doLoopMemoryMotion(HLLoop *Lp) {
   // Analyze the loop and reject if unsuitable
-  if (!doAnalysis(Lp, DDA, LS)) {
+  if (!doAnalysis(Lp)) {
     return false;
   }
 
@@ -406,14 +379,10 @@ bool HIRLMM::doLoopMemoryMotion(HLLoop *Lp, HIRDDAnalysis &DDA,
 }
 
 // Conduct ALL HIR-LMM Tests to decide whether the loop is good for LMM
-bool HIRLMM::doAnalysis(HLLoop *Lp, HIRDDAnalysis &DDA, HIRLoopStatistics &LS) {
+bool HIRLMM::doAnalysis(HLLoop *Lp) {
   // LLVM_DEBUG(dbgs() << "Current Loop: \n"; Lp->dump(););
   clearWorkingSetMemory();
   LoopLevel = Lp->getNestingLevel();
-
-  HDDA = &DDA;
-  HLS = &LS;
-  HNU = &(Lp->getHLNodeUtils());
 
   if (!doLoopPreliminaryChecks(Lp)) {
     LLVM_DEBUG(dbgs() << "HIRLMM: failed Loop Preliminary Checks\n";);
@@ -443,7 +412,7 @@ bool HIRLMM::doAnalysis(HLLoop *Lp, HIRDDAnalysis &DDA, HIRLoopStatistics &LS) {
 bool HIRLMM::doCollection(HLLoop *Lp) {
   // Collect all loop-inv MemRefs within the loop's body
   CollectMemRefs Collector(MRC, LoopLevel);
-  HNU->visitRange(Collector, Lp->getFirstChild(), Lp->getLastChild());
+  HLNodeUtils::visitRange(Collector, Lp->getFirstChild(), Lp->getLastChild());
 
   // Examine the collection result
   // LLVM_DEBUG(MRC.print(););
@@ -474,7 +443,7 @@ bool HIRLMM::isProfitable(const HLLoop *Lp) {
 // A Loop is legal if there is it has at least 1 legal group
 bool HIRLMM::isLegal(const HLLoop *Lp) {
   bool Result = false;
-  DDGraph DDG = HDDA->getGraph(Lp, false);
+  DDGraph DDG = HDDA.getGraph(Lp, false);
 
   // Do legal test on any profitable MRG
   for (unsigned Idx = 0, IdxE = MRC.getSize(); Idx != IdxE; ++Idx) {
@@ -645,7 +614,7 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG) {
 
   // Create a TempDDRef if needed
   if (!TmpDDRef) {
-    TmpDDRef = HNU->createTemp(FirstRef->getDestType(), LIMMTempName);
+    TmpDDRef = HNU.createTemp(FirstRef->getDestType(), LIMMTempName);
   }
 
   // Create a Store in postexit if needed
@@ -703,17 +672,17 @@ void HIRLMM::handleInLoopMemRef(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
     if (isa<StoreInst>(LLVMInst) && Ref->isLval()) {
       OtherRef = DDNode->removeOperandDDRef(1);
       if (OtherRef->isMemRef()) {
-        auto LInst = HNU->createLoad(OtherRef, LIMMCopyName, TmpRefClone);
+        auto LInst = HNU.createLoad(OtherRef, LIMMCopyName, TmpRefClone);
         HLNodeUtils::replace(DDNode, LInst);
       } else {
-        CopyInst = HNU->createCopyInst(OtherRef, LIMMCopyName, TmpRefClone);
+        CopyInst = HNU.createCopyInst(OtherRef, LIMMCopyName, TmpRefClone);
         HLNodeUtils::replace(DDNode, CopyInst);
       }
     }
     // LoadInst: replace with a CopyInst
     else if (isa<LoadInst>(LLVMInst)) {
       OtherRef = DDNode->removeOperandDDRef(0);
-      CopyInst = HNU->createCopyInst(TmpRefClone, LIMMCopyName, OtherRef);
+      CopyInst = HNU.createCopyInst(TmpRefClone, LIMMCopyName, OtherRef);
       HLNodeUtils::replace(DDNode, CopyInst);
     }
     // Neither a Load nor a Store in HLInst*: do regular replacement
@@ -756,10 +725,10 @@ HLInst *HIRLMM::findOrCreateLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const {
   // If the LoadInst doesn't exit in prehdr, create it
   if (!LoadInPrehdr) {
     auto RvalRef = Ref->clone();
-    LoadInPrehdr = HNU->createLoad(RvalRef, LIMMTempName);
+    LoadInPrehdr = HNU.createLoad(RvalRef, LIMMTempName);
 
     // Insert the new Load as a last node into Loop's Prehdr
-    HNU->insertAsLastPreheaderNode(Lp, LoadInPrehdr);
+    HLNodeUtils::insertAsLastPreheaderNode(Lp, LoadInPrehdr);
 
     // Mark as Loop's LiveIn Temp
     TmpRef = LoadInPrehdr->getLvalDDRef();
@@ -799,10 +768,10 @@ void HIRLMM::findOrCreateStoreInPostexit(HLLoop *Lp, RegDDRef *Ref,
     Lp->addLiveOutTemp(TmpRefClone->getSymbase());
 
     auto LvalRef = Ref->clone();
-    StoreInPostexit = HNU->createStore(TmpRefClone, LIMMTempName, LvalRef);
+    StoreInPostexit = HNU.createStore(TmpRefClone, LIMMTempName, LvalRef);
 
     // Insert the new store as the 1st HLInst in Lp's Postexit
-    HNU->insertAsFirstPostexitNode(Lp, StoreInPostexit);
+    HLNodeUtils::insertAsFirstPostexitNode(Lp, StoreInPostexit);
 
     // Call updateDefLevel() for the newly-created store
     LvalRef->updateDefLevel(Lp->getNestingLevel() - 1);
@@ -867,3 +836,50 @@ HLInst *HIRLMM::getStoreInLoopPostexit(HLLoop *Lp, RegDDRef *MemRef) const {
 
   return nullptr;
 }
+
+PreservedAnalyses HIRLMMPass::run(llvm::Function &F,
+                                  llvm::FunctionAnalysisManager &AM) {
+  HIRLMM(AM.getResult<HIRFrameworkAnalysis>(F),
+         AM.getResult<HIRDDAnalysisPass>(F),
+         AM.getResult<HIRLoopStatisticsAnalysis>(F))
+      .run();
+  return PreservedAnalyses::all();
+}
+
+class HIRLMMLegacyPass : public HIRTransformPass {
+public:
+  static char ID;
+
+  HIRLMMLegacyPass() : HIRTransformPass(ID) {
+    initializeHIRLMMLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+    AU.setPreservesAll();
+  }
+
+  bool runOnFunction(Function &F) override {
+    if (skipFunction(F)) {
+      return false;
+    }
+
+    return HIRLMM(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+                  getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+                  getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
+        .run();
+  }
+};
+
+char HIRLMMLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRLMMLegacyPass, "hir-lmm", "HIR Loop Memory Motion",
+                      false, false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
+INITIALIZE_PASS_END(HIRLMMLegacyPass, "hir-lmm", "HIR Loop Memory Motion",
+                    false, false)
+
+FunctionPass *llvm::createHIRLMMPass() { return new HIRLMMLegacyPass(); }

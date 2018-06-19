@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -disable-output -disable-hir-runtime-dd-cost-model -print-after=hir-runtime-dd -hir-runtime-dd < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -disable-output -disable-hir-runtime-dd-cost-model < %s 2>&1 | FileCheck %s
 
 ; Source:
 ; void foo(int *a, int *b, int n, int stride) {
@@ -15,7 +16,7 @@
 ;   + END LOOP
 ; END REGION
 
-; CHECL: After
+; CHECL: Function
 ; CHECK: BEGIN REGION
 ; CHECK:      %mv.test = &((%b)[sext.i32.i64(%n) + -1]) >=u &((%a)[-1 * (-1 + (-1 * smax(-1, (-1 + (-1 * sext.i32.i64(%stride)))))) + (sext.i32.i64(%n) * (-1 + (-1 * smax(-1, (-1 + (-1 * sext.i32.i64(%stride)))))))]);
 ; CHECK:      %mv.test1 = &((%a)[-1 * smax(0, sext.i32.i64(%stride)) + (sext.i32.i64(%n) * smax(0, sext.i32.i64(%stride)))]) >=u &((%b)[0]);

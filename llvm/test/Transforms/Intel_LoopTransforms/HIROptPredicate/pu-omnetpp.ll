@@ -1,4 +1,5 @@
 ; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-opt-predicate -disable-output -print-after=hir-opt-predicate < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -xmain-opt-level=3 -disable-output < %s 2>&1 | FileCheck %s
 
 ; BEGIN REGION { }
 ; + UNKNOWN LOOP i1
@@ -21,7 +22,7 @@
 ; + END LOOP
 ; END REGION
 
-; CHECK: After
+; CHECK: Function
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: %7 = (@_ZN11cSimulation5evPtrE)[0];
 ; CHECK: if ((%7)[0].1 == 0)

@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-loop-collapse -print-before=hir-loop-collapse -print-after=hir-loop-collapse -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; HIR Loop Collapse Sanity Test: access a variable array
 ;
@@ -26,7 +27,7 @@
 ;}
 ;
 ;
-; CHECK: IR Dump Before HIR Loop Collapse
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { }
 ; CHECK:        + DO i1 = 0, zext.i32.i64(%O) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
@@ -40,7 +41,7 @@
 ; CHECK:  END REGION
 ;
 ;
-; CHECK: IR Dump After HIR Loop Collapse
+; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:        + DO i1 = 0, (zext.i32.i64(%O) * zext.i32.i64(%P) * zext.i32.i64(%Q)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>

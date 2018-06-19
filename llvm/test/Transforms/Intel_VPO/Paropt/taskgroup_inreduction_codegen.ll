@@ -1,7 +1,7 @@
 ; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 ;
-; It test whethe the OMP backend outlining supports the task group
+; It tests whether the OMP backend outlining supports the task group
 ; as well as the inreduction clause.
 ;
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

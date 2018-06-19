@@ -27,8 +27,12 @@
 // END DO
 //
 //===----------------------------------------------------------------------===//
+#include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreElimination.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 
 #include "llvm/ADT/SmallSet.h"
@@ -50,21 +54,19 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
 namespace {
 
 class HIRDeadStoreElimination : public HIRTransformPass {
-  HIRFramework *HIR;
 
 public:
   static char ID;
-
   HIRDeadStoreElimination() : HIRTransformPass(ID) {
     initializeHIRDeadStoreEliminationPass(*PassRegistry::getPassRegistry());
   }
 
   bool runOnFunction(Function &F) override;
-  bool doTransform(HLLoop *Lp);
   void releaseMemory() override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
     AU.setPreservesAll();
   }
 };
@@ -74,40 +76,55 @@ char HIRDeadStoreElimination::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRDeadStoreElimination, OPT_SWITCH, OPT_DESC, false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRDeadStoreElimination, OPT_SWITCH, OPT_DESC, false, false)
 
 FunctionPass *llvm::createHIRDeadStoreEliminationPass() {
   return new HIRDeadStoreElimination();
 }
 
-bool HIRDeadStoreElimination::runOnFunction(Function &F) {
-  if (DisablePass || skipFunction(F)) {
-    return false;
+// Check whether the DDRefs in other groups have the same symbase as the
+// current DDRef group and then check the distance between each other. If
+// the distance is less than the size of current DDRef, return true and
+// skip this case. If false, then send this DDRef group to process in dead
+// store elimination. The following is an example
+// A[i] =
+// A[i+1] =
+// A[i] =
+static bool
+overlapsWithAnotherGroup(HIRLoopLocality::RefGroupTy &RefGroup,
+                         HIRLoopLocality::RefGroupVecTy &TemporalGroups,
+                         const RegDDRef *FirstRef) {
+  uint64_t SizeofRef =
+      FirstRef->getCanonExprUtils().getTypeSizeInBytes(FirstRef->getDestType());
+
+  for (auto &TmpRefGroup : TemporalGroups) {
+    auto *CurRef = TmpRefGroup.front();
+
+    if (FirstRef == CurRef) {
+      continue;
+    }
+
+    if (CurRef->getSymbase() != FirstRef->getSymbase()) {
+      continue;
+    }
+
+    int64_t Distance;
+
+    if (!DDRefUtils::getConstByteDistance(FirstRef, CurRef, &Distance)) {
+      return true;
+    }
+
+    uint64_t Dist = std::abs(Distance);
+
+    if (Dist < SizeofRef) {
+      return true;
+    }
   }
-
-  LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
-
-  // Gather all inner-most Loop Candidates
-  SmallVector<HLLoop *, 64> CandidateLoops;
-
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HIRF->getHLNodeUtils().gatherOutermostLoops(CandidateLoops);
-
-  if (CandidateLoops.empty()) {
-    LLVM_DEBUG(dbgs() << F.getName() << "() has no outer-most loop\n ");
-    return false;
-  }
-
-  bool Result = false;
-
-  for (auto &Lp : CandidateLoops) {
-    Result = doTransform(Lp) || Result;
-  }
-
-  return Result;
+  return false;
 }
 
-bool HIRDeadStoreElimination::doTransform(HLLoop *OutermostLp) {
+static bool doTransform(HLLoop *OutermostLp) {
   bool Result = false;
 
   HIRLoopLocality::RefGroupVecTy TemporalGroups;
@@ -123,48 +140,57 @@ bool HIRDeadStoreElimination::doTransform(HLLoop *OutermostLp) {
            Ref2->getHLDDNode()->getTopSortNum();
   };
 
-  for (auto &RefVec : TemporalGroups) {
-    auto *Ref = RefVec.front();
+  for (auto &RefGroup : TemporalGroups) {
+    auto *Ref = RefGroup.front();
 
-    if (!UniqueGroupSymbases.count(Ref->getSymbase())) {
-      // TODO: improve logic when we have references like-
-      //
-      // A[i] =
-      // A[i+1] =
-      // A[i] =
+    if (Ref->isNonLinear()) {
       continue;
     }
 
-    std::sort(RefVec.begin(), RefVec.end(), HigherTopSortNum);
+    if (!UniqueGroupSymbases.count(Ref->getSymbase())) {
+      if (overlapsWithAnotherGroup(RefGroup, TemporalGroups, Ref)) {
+        continue;
+      }
+    }
+
+    std::sort(RefGroup.begin(), RefGroup.end(), HigherTopSortNum);
 
     // For each store, check whether it post-dominates other stores and there is
     // no load in between two stores.
-    for (unsigned Index = 0; Index != RefVec.size(); ++Index) {
+    for (unsigned Index = 0; Index != RefGroup.size(); ++Index) {
 
-      if (!RefVec[Index]->isLval()) {
+      auto *PostDominatingRef = RefGroup[Index];
+
+      if (!PostDominatingRef->isLval() || PostDominatingRef->isFake()) {
         continue;
       }
 
-      const HLDDNode *DDNode = RefVec[Index]->getHLDDNode();
+      const HLDDNode *DDNode = PostDominatingRef->getHLDDNode();
 
-      for (unsigned I = Index + 1; I != RefVec.size();) {
+      for (unsigned I = Index + 1; I != RefGroup.size();) {
 
-        // Skip if we encounter a load in between two stores.
-        if (RefVec[I]->isRval()) {
+        auto *PrevRef = RefGroup[I];
+
+        // Skip if we encounter a load or fake ref in between two stores.
+        if (PrevRef->isRval() || PrevRef->isFake()) {
           break;
         }
 
         // Check whether the DDRef with high top sort number post-dominates the
         // DDRef with lower top sort number. If Yes, remove the instruction with
         // lower top sort number.
-        if (!HLNodeUtils::postDominates(DDNode, RefVec[I]->getHLDDNode())) {
+        const HLDDNode *PrevDDNode = PrevRef->getHLDDNode();
+        if (!HLNodeUtils::postDominates(DDNode, PrevDDNode)) {
           I++;
           continue;
         }
 
-        HLNodeUtils::remove(const_cast<HLDDNode *>(RefVec[I]->getHLDDNode()));
+        auto ParentNode = PrevDDNode->getParent();
+        HLNodeUtils::remove(const_cast<HLDDNode *>(PrevDDNode));
+        HLNodeUtils::removeEmptyNodes(ParentNode, true);
+
         Result = true;
-        RefVec.erase(RefVec.begin() + I);
+        RefGroup.erase(RefGroup.begin() + I);
       }
     }
   }
@@ -172,10 +198,59 @@ bool HIRDeadStoreElimination::doTransform(HLLoop *OutermostLp) {
   // Mark the loop and its parent loop/region have been changed
   if (Result) {
     OutermostLp->getParentRegion()->setGenCode();
-    HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(OutermostLp);
+    HIRInvalidationUtils::invalidateBody(OutermostLp);
   }
 
   return Result;
+}
+
+static bool runDeadStoreElimination(HIRFramework &HIRF,
+                                    HIRLoopStatistics &HLS) {
+  if (DisablePass) {
+    LLVM_DEBUG(dbgs() << "HIR Dead Store Elimination Disabled \n");
+    return false;
+  }
+
+  SmallVector<HLLoop *, 64> CandidateLoops;
+
+  HIRF.getHLNodeUtils().gatherOutermostLoops(CandidateLoops);
+
+  if (CandidateLoops.empty()) {
+    LLVM_DEBUG(dbgs() << HIRF.getFunction().getName()
+                      << "() has no outer-most loop\n ");
+    return false;
+  }
+
+  bool Result = false;
+
+  for (auto &Lp : CandidateLoops) {
+    if (HLS.getTotalLoopStatistics(Lp).hasCallsWithUnknownMemoryAccess()) {
+      continue;
+    }
+    Result = doTransform(Lp) || Result;
+  }
+
+  return Result;
+}
+
+bool HIRDeadStoreElimination::runOnFunction(Function &F) {
+  if (skipFunction(F)) {
+    LLVM_DEBUG(dbgs() << "HIR Dead Store Elimination Disabled \n");
+    return false;
+  }
+
+  bool Result = runDeadStoreElimination(
+      getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+      getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS());
+  return Result;
+}
+
+PreservedAnalyses
+HIRDeadStoreEliminationPass::run(llvm::Function &F,
+                                 llvm::FunctionAnalysisManager &AM) {
+  runDeadStoreElimination(AM.getResult<HIRFrameworkAnalysis>(F),
+                          AM.getResult<HIRLoopStatisticsAnalysis>(F));
+  return PreservedAnalyses::all();
 }
 
 void HIRDeadStoreElimination::releaseMemory() {}

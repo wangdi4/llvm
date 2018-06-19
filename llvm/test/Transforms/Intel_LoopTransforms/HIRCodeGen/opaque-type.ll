@@ -1,4 +1,5 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-after=hir-temp-cleanup -hir-cg -force-hir-cg -S 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-cg" < %s -force-hir-cg -S 2>&1 | FileCheck %s
 
 ; Verify that CG can correctly handle opaque types. %3 is a pointer to an opaque type. Make sure &((%3)[0]) is lowered correctly to a pointer without a GEP.
 

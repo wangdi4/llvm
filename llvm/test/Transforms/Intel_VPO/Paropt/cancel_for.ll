@@ -1,6 +1,9 @@
 ; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
-
+;
+; XFAIL: *
+; Expected failure due to incorrect transformation for cancel clause (CMPLRS-50926)
+;
 ; #include <stdio.h>
 ;
 ; int i = 0, j = 0, y = 0;

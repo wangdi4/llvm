@@ -856,7 +856,6 @@ Instruction* VecClone::expandVectorParametersAndReturn(
   // to ensure that any initial stores of vector parameters have been done
   // before the cast.
 
-  std::vector<ParmRef*>::iterator MapIt;
   for (auto MapIt : VectorParmMap) {
     Instruction *ExpandedCast = MapIt->VectorParmCast;
     if (!ExpandedCast->getParent()) {
@@ -977,8 +976,6 @@ void VecClone::updateScalarMemRefsWithVector(
   // in the entry block and any uses of the parameter are replaced with this
   // gep. The only users that will not be updated are those in the entry block
   // that do the initial store to the vector alloca of the parameter.
-
-  std::vector<ParmRef*>::iterator VectorParmMapIt;
 
   for (auto VectorParmMapIt : VectorParmMap) {
 
@@ -1608,7 +1605,7 @@ void VecClone::insertSplitForMaskedVariant(Function *Clone,
     MaskCmp = new FCmpInst(LoopBlock->getTerminator(), CmpInst::FCMP_UNE,
                            MaskLoad, Zero, "mask.cond");
   } else {
-    assert(0 && "Unsupported mask compare");
+    llvm_unreachable("Unsupported mask compare");
   }
 
   TerminatorInst *Term = LoopBlock->getTerminator();
@@ -1622,8 +1619,6 @@ void VecClone::insertSplitForMaskedVariant(Function *Clone,
 void VecClone::removeScalarAllocasForVectorParams(
     std::vector<ParmRef*> &VectorParmMap)
 {
-  std::vector<ParmRef*>::iterator VectorParmMapIt;
-
   for (auto VectorParmMapIt : VectorParmMap) {
     Value *Parm = VectorParmMapIt->VectorParm;
     if (AllocaInst *ScalarAlloca = dyn_cast<AllocaInst>(Parm)) {

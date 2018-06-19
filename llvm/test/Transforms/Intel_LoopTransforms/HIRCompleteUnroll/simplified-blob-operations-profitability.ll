@@ -1,8 +1,9 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that the appearence of simplified temp blob %3 (due to constant array access of @input_buf) in sext blobs makes this loop profitable.
 
-; CHECK: Dump Before
+; CHECK: Function
 
 ; CHECK: + DO i1 = 0, 19, 1   <DO_LOOP>
 ; CHECK: |   %3 = (@input_buf)[0][i1];
@@ -21,7 +22,7 @@
 ; CHECK: |   %1 = %18  +  %1;
 ; CHECK: + END LOOP
 
-; CHECK: Dump After
+; CHECK: Function
 
 ; CHECK-NOT: DO i1
 

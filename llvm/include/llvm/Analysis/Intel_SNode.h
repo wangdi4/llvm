@@ -718,7 +718,7 @@ public:
   ~SNodeAnalysis() {};
   void releaseMemory() override;
   bool runOnFunction(Function &F) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
   
   // Returns the corresponding SNode for the given basic block.
   BlockSNode *getSNodeForBlock(BasicBlock *Block) const;
