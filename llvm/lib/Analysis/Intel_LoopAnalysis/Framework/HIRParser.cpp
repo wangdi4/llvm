@@ -3404,6 +3404,10 @@ void HIRParser::phase2Parse() {
 
     cast<HLDDNode>(NextNode)->setDistributePoint(true);
 
+    auto *ParentLoop = NextNode->getParentLoop();
+    assert(ParentLoop && "Distribute point does not have parent loop!");
+
+    ParentLoop->setHasDistributePoint(true);
     HLNodeUtils::erase(Call);
   }
 }

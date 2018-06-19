@@ -126,6 +126,8 @@ private:
   // Optimization report for the loop.
   LoopOptReport OptReport;
 
+  bool HasDistributePoint;
+
 protected:
   HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop);
   HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
@@ -925,6 +927,9 @@ public:
   const HLLabel *getHeaderLabel() const {
     return const_cast<HLLoop *>(this)->getHeaderLabel();
   }
+
+  bool hasDistributePoint() const { return HasDistributePoint; }
+  void setHasDistributePoint(bool Flag) { HasDistributePoint = Flag; }
 };
 
 } // End namespace loopopt
