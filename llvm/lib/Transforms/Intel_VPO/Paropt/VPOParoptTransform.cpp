@@ -1063,8 +1063,8 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
   else if (!AllocaTy->isSingleValueType() ||
       !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
       DL.getTypeSizeInBits(ScalarTy) % 8 != 0 || AI->isArrayAllocation())
-    VPOParoptUtils::genMemcpy(AI, FprivI->getOrig(), DL, AI->getAlignment(),
-                              InsertPt->getParent());
+    VPOUtils::genMemcpy(AI, FprivI->getOrig(), DL, AI->getAlignment(),
+                        InsertPt->getParent());
   else {
     LoadInst *Load = Builder.CreateLoad(FprivI->getOrig());
     Builder.CreateStore(Load, AI);
@@ -1099,8 +1099,8 @@ void VPOParoptTransform::genLprivFini(Value *NewV, Value *OldV,
   if (!AllocaTy->isSingleValueType() ||
       !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
       DL.getTypeSizeInBits(ScalarTy) % 8 != 0) {
-    VPOParoptUtils::genMemcpy(OldV, AI, DL, AI->getAlignment(),
-                              InsertPt->getParent());
+    VPOUtils::genMemcpy(OldV, AI, DL, AI->getAlignment(),
+                        InsertPt->getParent());
   } else {
     LoadInst *Load = Builder.CreateLoad(AI);
     Builder.CreateStore(Load, OldV);
@@ -1274,7 +1274,7 @@ void VPOParoptTransform::collectGlobalUseInsnsRecursively(
 }
 
 // A utility to privatize the variables within the region.
-Value *
+AllocaInst *
 VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
                                            Instruction *InsertPt,
                                            const StringRef VarNameSuff) {
@@ -3381,7 +3381,7 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
            CopyinEndBB->getTerminator(), IdentTy, true);
 
       }
-      VPOParoptUtils::genMemcpy(
+      VPOUtils::genMemcpy(
           C->getOrig(), &*NewArgI, NDL,
           dyn_cast<GlobalVariable>(C->getOrig())->getAlignment(),
           Term->getParent());

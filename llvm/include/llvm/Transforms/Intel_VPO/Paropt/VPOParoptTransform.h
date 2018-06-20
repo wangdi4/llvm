@@ -283,9 +283,9 @@ private:
 
   /// \brief A utility to privatize a variable within the region.
   /// It creates and returns an AllocaInst for \p PrivValue.
-  Value *genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
-                                Instruction *InsertPt,
-                                const StringRef VarNameSuff);
+  AllocaInst *genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
+                                     Instruction *InsertPt,
+                                     const StringRef VarNameSuff);
 
   /// \brief Replace the variable with the privatized variable
   void genPrivatizationReplacement(WRegionNode *W, Value *PrivValue,

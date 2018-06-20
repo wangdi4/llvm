@@ -76,13 +76,20 @@ bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
 
       if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
         Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
-        Value *NewPrivInst =
+        AllocaInst *NewPrivInst =
             genPrivatizationAlloca(W, Orig, AllocaInsertPt, ".red");
         genPrivatizationReplacement(W, Orig, NewPrivInst, RedI);
+
+        Type *AllocaTy = NewPrivInst->getAllocatedType();
+        const DataLayout &DL = EntryBB->getModule()->getDataLayout();
         IRBuilder<> Builder(EntryBB->getTerminator());
-        Builder.CreateStore(Builder.CreateLoad(RedI->getNew()), NewPrivInst);
+        VPOUtils::genCopyFromSrcToDst(AllocaTy, DL, Builder, NewPrivInst,
+                                      RedI->getNew(),
+                                      NewPrivInst, EntryBB);
         Builder.SetInsertPoint(ExitBB->getTerminator());
-        Builder.CreateStore(Builder.CreateLoad(NewPrivInst), RedI->getNew());
+        VPOUtils::genCopyFromSrcToDst(AllocaTy, DL, Builder, NewPrivInst,
+                                      NewPrivInst,
+                                      RedI->getNew(), ExitBB);
       }
     }
   };
@@ -118,8 +125,8 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(Value *Dst, Value *Src,
   IRBuilder<> Builder(InsertPt);
   if (!DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
       DL.getTypeSizeInBits(ScalarTy) % 8 != 0) {
-    VPOParoptUtils::genMemcpy(Dst, Src, DL, DL.getABITypeAlignment(ScalarTy),
-                              InsertPt->getParent());
+    VPOUtils::genMemcpy(Dst, Src, DL, DL.getABITypeAlignment(ScalarTy),
+                        InsertPt->getParent());
   } else {
     LoadInst *Load = Builder.CreateLoad(Src);
     Builder.CreateStore(Load, Dst);
