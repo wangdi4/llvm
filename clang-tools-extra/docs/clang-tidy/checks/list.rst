@@ -78,6 +78,7 @@ Clang-Tidy Checks
    cppcoreguidelines-avoid-goto
    cppcoreguidelines-c-copy-assignment-signature (redirects to misc-unconventional-assign-operator) <cppcoreguidelines-c-copy-assignment-signature>
    cppcoreguidelines-interfaces-global-init
+   cppcoreguidelines-narrowing-conversions
    cppcoreguidelines-no-malloc
    cppcoreguidelines-owning-memory
    cppcoreguidelines-pro-bounds-array-to-pointer-decay
@@ -227,6 +228,7 @@ Clang-Tidy Checks
    readability-redundant-string-cstr
    readability-redundant-string-init
    readability-simplify-boolean-expr
+   readability-simplify-subscript-expr
    readability-static-accessed-through-instance
    readability-static-definition-in-anonymous-namespace
    readability-string-compare
