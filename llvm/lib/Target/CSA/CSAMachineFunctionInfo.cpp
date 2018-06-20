@@ -105,10 +105,8 @@ void CSAMachineFunctionInfo::setLICName(unsigned vreg,
   if (TargetRegisterInfo::isPhysicalRegister(vreg))
     return;
   std::string composed;  
-  Twine new_name;
   if (!name.isTriviallyEmpty()) {
     composed = name.str();
-    //std::string composed = new_name.str();
     for (auto &ch : composed) {
       if ('a' <= ch && ch <= 'z') continue;
       if ('A' <= ch && ch <= 'Z') continue;
@@ -124,8 +122,7 @@ void CSAMachineFunctionInfo::setLICName(unsigned vreg,
     else
       fname_str = fname.str();
     if (csa_utils::isAlwaysDataFlowLinkageSet() && (composed.find(fname_str) != 0)) {
-      Twine new_name(Twine(fname_str) + Twine("_") + Twine(composed));
-      composed = new_name.str();
+      composed = fname_str + "_" + composed;
     }   
     while (!namedLICs.insert(composed).second) {
       composed.resize(baseIndex);
