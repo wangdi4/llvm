@@ -52,7 +52,9 @@ static llvm::Error makeError(llvm::Twine Msg) {
 
 LatencyBenchmarkRunner::~LatencyBenchmarkRunner() = default;
 
-const char *LatencyBenchmarkRunner::getDisplayName() const { return "latency"; }
+InstructionBenchmark::ModeE LatencyBenchmarkRunner::getMode() const {
+  return InstructionBenchmark::Latency;
+}
 
 llvm::Expected<std::vector<llvm::MCInst>>
 LatencyBenchmarkRunner::createSnippet(RegisterAliasingTrackerCache &RATC,

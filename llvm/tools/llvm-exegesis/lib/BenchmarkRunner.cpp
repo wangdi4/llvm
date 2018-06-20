@@ -37,7 +37,7 @@ InstructionBenchmark BenchmarkRunner::run(unsigned Opcode,
   InstructionBenchmark InstrBenchmark;
 
   InstrBenchmark.Key.OpcodeName = State.getInstrInfo().getName(Opcode);
-  InstrBenchmark.Key.Mode = getDisplayName();
+  InstrBenchmark.Mode = getMode();
   InstrBenchmark.CpuName = State.getCpuName();
   InstrBenchmark.LLVMTriple = State.getTriple();
   InstrBenchmark.NumRepetitions = NumRepetitions;
@@ -63,7 +63,9 @@ InstructionBenchmark BenchmarkRunner::run(unsigned Opcode,
     InstrBenchmark.Error = "Empty snippet";
     return InstrBenchmark;
   }
-
+  for (const auto &MCInst : Snippet) {
+    InstrBenchmark.Key.Instructions.push_back(MCInst);
+  }
   InfoStream << "Snippet:\n";
   for (const auto &MCInst : Snippet) {
     DumpMCInst(MCRegisterInfo, MCInstrInfo, MCInst, InfoStream);

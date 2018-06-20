@@ -2,7 +2,7 @@
 // RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +sse2 -fno-signed-char -emit-llvm -o - -Wall -Werror | FileCheck %s
 
 
-#include <x86intrin.h>
+#include <immintrin.h>
 
 // NOTE: This should match the tests in llvm/test/CodeGen/X86/sse2-intrinsics-fast-isel.ll
 
@@ -613,17 +613,15 @@ __m128d test_mm_div_sd(__m128d A, __m128d B) {
 // Lowering to pextrw requires optimization.
 int test_mm_extract_epi16(__m128i A) {
   // CHECK-LABEL: test_mm_extract_epi16
-  // CHECK: [[x:%.*]] = and i32 %{{.*}}, 7
-  // CHECK: extractelement <8 x i16> %{{.*}}, i32 [[x]]
+  // CHECK: extractelement <8 x i16> %{{.*}}, i32 1
   // CHECK: zext i16 %{{.*}} to i32
-  return _mm_extract_epi16(A, 9);
+  return _mm_extract_epi16(A, 1);
 }
 
 __m128i test_mm_insert_epi16(__m128i A, int B) {
   // CHECK-LABEL: test_mm_insert_epi16
-  // CHECK: [[x:%.*]] = and i32 %{{.*}}, 7
-  // CHECK: insertelement <8 x i16> %{{.*}}, i32 [[x]]
-  return _mm_insert_epi16(A, B, 8);
+  // CHECK: insertelement <8 x i16> %{{.*}}, i32 0
+  return _mm_insert_epi16(A, B, 0);
 }
 
 void test_mm_lfence() {

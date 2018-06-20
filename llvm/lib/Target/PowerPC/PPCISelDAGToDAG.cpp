@@ -1161,6 +1161,10 @@ class BitPermutationSelector {
         return true;
       else if (NumGroups < Other.NumGroups)
         return false;
+      else if (RLAmt == 0 && Other.RLAmt != 0)
+        return true;
+      else if (RLAmt != 0 && Other.RLAmt == 0)
+        return false;
       else if (FirstGroupStartIdx < Other.FirstGroupStartIdx)
         return true;
       return false;
@@ -1374,7 +1378,9 @@ class BitPermutationSelector {
   }
 
   // Take all (SDValue, RLAmt) pairs and sort them by the number of groups
-  // associated with each. If there is a degeneracy, pick the one that occurs
+  // associated with each. If the number of groups are same, we prefer a group
+  // which does not require rotate, i.e. RLAmt is 0, to avoid the first rotate
+  // instruction. If there is a degeneracy, pick the one that occurs
   // first (in the final value).
   void collectValueRotInfo() {
     ValueRots.clear();
@@ -2253,7 +2259,7 @@ public:
     // set of bit groups, and then mask in the zeros at the end. With early
     // masking, we only insert the non-zero parts of the result at every step.
 
-    unsigned InstCnt, InstCntLateMask;
+    unsigned InstCnt = 0, InstCntLateMask = 0;
     LLVM_DEBUG(dbgs() << "\tEarly masking:\n");
     SDNode *RN = Select(N, false, &InstCnt);
     LLVM_DEBUG(dbgs() << "\t\tisel would use " << InstCnt << " instructions\n");
@@ -5169,8 +5175,7 @@ void PPCDAGToDAGISel::foldBoolExts(SDValue &Res, SDNode *&N) {
 }
 
 void PPCDAGToDAGISel::PreprocessISelDAG() {
-  SelectionDAG::allnodes_iterator Position(CurDAG->getRoot().getNode());
-  ++Position;
+  SelectionDAG::allnodes_iterator Position = CurDAG->allnodes_end();
 
   bool MadeChange = false;
   while (Position != CurDAG->allnodes_begin()) {
@@ -5858,8 +5863,7 @@ void PPCDAGToDAGISel::PeepholePPC64ZExt() {
   // unnecessary. When that happens, we remove it here, and redefine the
   // relevant 32-bit operation to be a 64-bit operation.
 
-  SelectionDAG::allnodes_iterator Position(CurDAG->getRoot().getNode());
-  ++Position;
+  SelectionDAG::allnodes_iterator Position = CurDAG->allnodes_end();
 
   bool MadeChange = false;
   while (Position != CurDAG->allnodes_begin()) {
@@ -6016,8 +6020,7 @@ void PPCDAGToDAGISel::PeepholePPC64() {
   if (PPCSubTarget->isDarwin() || !PPCSubTarget->isPPC64())
     return;
 
-  SelectionDAG::allnodes_iterator Position(CurDAG->getRoot().getNode());
-  ++Position;
+  SelectionDAG::allnodes_iterator Position = CurDAG->allnodes_end();
 
   while (Position != CurDAG->allnodes_begin()) {
     SDNode *N = &*--Position;

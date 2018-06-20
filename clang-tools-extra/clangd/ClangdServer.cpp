@@ -17,6 +17,7 @@
 #include "clang/Format/Format.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/CompilerInvocation.h"
+#include "clang/Lex/Preprocessor.h"
 #include "clang/Tooling/CompilationDatabase.h"
 #include "clang/Tooling/Refactoring/RefactoringResultConsumer.h"
 #include "clang/Tooling/Refactoring/Rename/RenamingAction.h"
@@ -92,12 +93,14 @@ ClangdServer::ClangdServer(GlobalCompilationDatabase &CDB,
       // is parsed.
       // FIXME(ioeric): this can be slow and we may be able to index on less
       // critical paths.
-      WorkScheduler(Opts.AsyncThreadsCount, Opts.StorePreamblesInMemory,
-                    FileIdx
-                        ? [this](PathRef Path,
-                                 ParsedAST *AST) { FileIdx->update(Path, AST); }
-                        : ASTParsedCallback(),
-                    Opts.UpdateDebounce) {
+      WorkScheduler(
+          Opts.AsyncThreadsCount, Opts.StorePreamblesInMemory,
+          FileIdx
+              ? [this](PathRef Path, ASTContext &AST,
+                       std::shared_ptr<Preprocessor>
+                           PP) { FileIdx->update(Path, &AST, std::move(PP)); }
+              : PreambleParsedCallback(),
+          Opts.UpdateDebounce, Opts.RetentionPolicy) {
   if (FileIdx && Opts.StaticIndex) {
     MergedIndex = mergeIndex(FileIdx.get(), Opts.StaticIndex);
     Index = MergedIndex.get();
@@ -295,9 +298,8 @@ void ClangdServer::dumpAST(PathRef File,
 
 void ClangdServer::findDefinitions(PathRef File, Position Pos,
                                    Callback<std::vector<Location>> CB) {
-  auto FS = FSProvider.getFileSystem();
-  auto Action = [Pos, FS, this](Callback<std::vector<Location>> CB,
-                                llvm::Expected<InputsAndAST> InpAST) {
+  auto Action = [Pos, this](Callback<std::vector<Location>> CB,
+                            llvm::Expected<InputsAndAST> InpAST) {
     if (!InpAST)
       return CB(InpAST.takeError());
     CB(clangd::findDefinitions(InpAST->AST, Pos, this->FileIdx.get()));
@@ -388,10 +390,8 @@ ClangdServer::formatCode(llvm::StringRef Code, PathRef File,
 
 void ClangdServer::findDocumentHighlights(
     PathRef File, Position Pos, Callback<std::vector<DocumentHighlight>> CB) {
-
-  auto FS = FSProvider.getFileSystem();
-  auto Action = [FS, Pos](Callback<std::vector<DocumentHighlight>> CB,
-                          llvm::Expected<InputsAndAST> InpAST) {
+  auto Action = [Pos](Callback<std::vector<DocumentHighlight>> CB,
+                      llvm::Expected<InputsAndAST> InpAST) {
     if (!InpAST)
       return CB(InpAST.takeError());
     CB(clangd::findDocumentHighlights(InpAST->AST, Pos));
@@ -400,10 +400,10 @@ void ClangdServer::findDocumentHighlights(
   WorkScheduler.runWithAST("Highlights", File, Bind(Action, std::move(CB)));
 }
 
-void ClangdServer::findHover(PathRef File, Position Pos, Callback<Hover> CB) {
-  auto FS = FSProvider.getFileSystem();
-  auto Action = [Pos, FS](Callback<Hover> CB,
-                          llvm::Expected<InputsAndAST> InpAST) {
+void ClangdServer::findHover(PathRef File, Position Pos,
+                             Callback<llvm::Optional<Hover>> CB) {
+  auto Action = [Pos](Callback<llvm::Optional<Hover>> CB,
+                      llvm::Expected<InputsAndAST> InpAST) {
     if (!InpAST)
       return CB(InpAST.takeError());
     CB(clangd::getHover(InpAST->AST, Pos));
