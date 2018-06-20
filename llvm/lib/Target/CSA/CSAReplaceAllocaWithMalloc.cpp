@@ -238,10 +238,10 @@ bool CSAReplaceAllocaWithMalloc::runOnModule(Module &M) {
     return false;
   }
   Function *CSAMalloc = M.getFunction("csa_malloc");
-  if (!CSAMalloc && !CSAMalloc->isDeclaration())
+  if (!CSAMalloc || !CSAMalloc->isDeclaration())
     report_fatal_error("CSAMalloc function definition not found!");
   Function *CSAFree = M.getFunction("csa_free");
-  if (!CSAFree && !CSAFree->isDeclaration())
+  if (!CSAFree || !CSAFree->isDeclaration())
     report_fatal_error("CSAFree function definition not found!");
   for (auto &F : M) {
     LLVM_DEBUG(errs() << "Looking at " << F.getName() << "\n");
