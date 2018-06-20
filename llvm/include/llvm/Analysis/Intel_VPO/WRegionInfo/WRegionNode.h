@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //===--------- WRegionNode.h - W-Region Graph Node --------------*- C++ -*-===//
 //
 //   Copyright (C) 2016 Intel Corporation. All rights reserved.
@@ -103,17 +104,19 @@ private:
   /// Children container
   WRContainerTy Children;
 
-  /// True if the WRN came from HIR; false otherwise
-  bool IsFromHIR;
-
   /// Counter used for assigning unique numbers to WRegionNodes.
   static unsigned UniqueNum;
 
   /// \brief Sets the unique number associated with this WRegionNode.
   void setNextNumber() { Number = ++UniqueNum; }
 
+#if INTEL_CUSTOMIZATION
+  /// True if the WRN came from HIR; false otherwise
+  bool IsFromHIR;
+
   /// \brief Sets the flag to indicate if WRN came from HIR
   void setIsFromHIR(bool flag) { IsFromHIR = flag; }
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief Destroys all objects of this class. Should only be
   /// called after code gen.
@@ -123,7 +126,9 @@ protected:
 
   /// \brief constructors
   WRegionNode(unsigned SCID, BasicBlock *BB); // for LLVM IR
+#if INTEL_CUSTOMIZATION
   WRegionNode(unsigned SCID);                 // for HIR only
+#endif // INTEL_CUSTOMIZATION
   WRegionNode(WRegionNode *W);                // for both
 
   // copy constructor not needed (at least for now)
@@ -174,9 +179,7 @@ protected:
 
   /// \brief Update WRN for clauses from the OperandBundles under the
   /// directive.region.entry/exit representation
-  /// If \p RegionExit is \b true, process the 'region.exit' intrinsic,
-  /// otherwise process 'region.entry'.
-  void getClausesFromOperandBundles(bool RegionExit = false);
+  void getClausesFromOperandBundles();
 
 public:
   /// \brief Functions to check if the WRN allows a given clause type
@@ -326,6 +329,13 @@ public:
   virtual void addCancellationPoint(Instruction *V) {
     WRNERROR("CANCELLATION_POINTS");
   }
+  virtual const SmallVectorImpl<AllocaInst *> &
+  getCancellationPointAllocas() const {
+    WRNERROR("CANCELLATION_POINT_ALLOCAS");
+  }
+  virtual void addCancellationPointAlloca(AllocaInst *V) {
+    WRNERROR("CANCELLATION_POINT_ALLOCAS");
+  }
   virtual WRNProcBindKind getProcBind()   const {WRNERROR("PROC_BIND");       }
   virtual void setSafelen(int N)                {WRNERROR(QUAL_OMP_SAFELEN);  }
   virtual int getSafelen()                const {WRNERROR(QUAL_OMP_SAFELEN);  }
@@ -372,8 +382,10 @@ public:
   /// \brief Returns the nesting level of this WRegionNode.
   unsigned getLevel() const { return Level; }
 
+#if INTEL_CUSTOMIZATION
   /// \brief Returns the flag that indicates if WRN came from HIR
   bool getIsFromHIR() const { return IsFromHIR; }
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief Dumps WRegionNode.
   void dump(unsigned Verbosity=0) const;
@@ -407,11 +419,13 @@ public:
   void printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth,
                         unsigned Verbosity=1) const;
 
+#if INTEL_CUSTOMIZATION
   /// \brief When IsFromHIR==true, prints EntryHLNode, ExitHLNode, and HLLoop
   /// This is virtual here; the derived WRNs supporting HIR have to provide the
   /// actual routine. Currently only WRNVecLoopNode uses HIR.
   virtual void printHIR(formatted_raw_ostream &OS, unsigned Depth,
                         unsigned Verbosity=1) const {}
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief If IsOmpLoop==true, prints loop preheader, header, and latch BBs
   void printLoopBB(formatted_raw_ostream &OS, unsigned Depth,
@@ -665,4 +679,5 @@ extern void printStr(StringRef Title, StringRef Str, formatted_raw_ostream &OS,
 
 } // End llvm namespace
 
-#endif
+#endif // LLVM_ANALYSIS_VPO_WREGIONNODE_H
+#endif // INTEL_COLLAB

@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===------ WRegionCollection.cpp - Build WRN Graph -----*- C++ -*---------===//
 //
 //   Copyright (C) 2015-1016 Intel Corporation. All rights reserved.
@@ -52,9 +53,12 @@ WRegionCollection WRegionCollectionAnalysis::run(Function &F,
   auto &TTI = AM.getResult<TargetIRAnalysis>(F);
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
+#if INTEL_CUSTOMIZATION
   auto *HIRF = AM.getCachedResult<loopopt::HIRFrameworkAnalysis>(F);
-
   WRegionCollection WRC(&F, &DI, &LI, &SE, &TTI, &AC, &TLI, HIRF);
+#else
+  WRegionCollection WRC(&F, &DI, &LI, &SE, &TTI, &AC, &TLI);
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "\n}EXIT WRegionCollectionAnalysis::run: " << F.getName()
                     << "\n");
@@ -103,11 +107,13 @@ bool WRegionCollectionWrapperPass::runOnFunction(Function &F) {
   auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
   auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+#if INTEL_CUSTOMIZATION
   auto *HIRFA = getAnalysisIfAvailable<loopopt::HIRFrameworkWrapperPass>();
-
-  WRC.reset(
-      new WRegionCollection(&F, &DI, &LI, &SE, &TTI, &AC, &TLI,
+  WRC.reset( new WRegionCollection(&F, &DI, &LI, &SE, &TTI, &AC, &TLI,
                             HIRFA != nullptr ? &HIRFA->getHIR() : nullptr));
+#else
+  WRC.reset( new WRegionCollection(&F, &DI, &LI, &SE, &TTI, &AC, &TLI));
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "\n}EXIT WRegionCollectionWrapperPass::runOnFunction: "
                     << F.getName() << "\n");
@@ -198,11 +204,6 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
 
           W = S->top();
           W->finalize(BB, DT); // set the ExitBB and wrap up the WRN
-
-          // Cancellation Points are on the end.region directive. Parse it
-          // here if applicable.
-          if (W->canHaveCancellationPoints())
-            W->getClausesFromOperandBundles(true);
 
           S->pop();
           LLVM_DEBUG(dbgs() << "\n  === Closed WRegion. ");
@@ -341,20 +342,26 @@ WRegionCollection::WRegionCollection(Function *F, DominatorTree *DT,
                                      LoopInfo *LI, ScalarEvolution *SE,
                                      const TargetTransformInfo *TTI,
                                      AssumptionCache *AC,
+#if INTEL_CUSTOMIZATION
                                      const TargetLibraryInfo *TLI,
                                      loopopt::HIRFramework *HIRF)
     : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI), HIRF(HIRF) {}
+#else
+                                     const TargetLibraryInfo *TLI)
+    : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI) {}
+#endif // INTEL_CUSTOMIZATION
 
 void WRegionCollection::buildWRGraph(InputIRKind IR) {
   LLVM_DEBUG(dbgs() << "\nENTER WRegionCollection::buildWRGraph(InputIR=" << IR
                     << "){\n");
+#if INTEL_CUSTOMIZATION
   if (IR == HIR) {
-    // TODO: move buildWRGraphFromHIR() from WRegionUtils to WRegionCollection
-    //       after Vectorizer's HIR mode starts using this new interface
     assert(HIRF && "HIR framework not available!");
 
     WRGraph = WRegionUtils::buildWRGraphFromHIR(*HIRF);
-  } else if (IR == LLVMIR) {
+  } else
+#endif // INTEL_CUSTOMIZATION
+  if (IR == LLVMIR) {
     buildWRGraphFromLLVMIR(*Func);
   } else {
     llvm_unreachable("Unknown InputIRKind");
@@ -374,8 +381,12 @@ void WRegionCollectionWrapperPass::releaseMemory() {
 }
 
 void WRegionCollection::print(raw_ostream &OS) const {
+#if INTEL_CUSTOMIZATION
 #if !INTEL_PRODUCT_RELEASE
   /// TODO: implement later
   /// WR.print(OS);
 #endif // !INTEL_PRODUCT_RELEASE
+#endif // INTEL_CUSTOMIZATION
 }
+
+#endif // INTEL_COLLAB

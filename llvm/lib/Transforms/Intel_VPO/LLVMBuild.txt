@@ -1,3 +1,4 @@
+; INTEL_COLLAB   -*- Conf -*-
 ;===---- ./lib/Transforms/Intel_VPO/LLVMBuild.txt ---*- Conf -*--===;
 ;
 ; Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -18,11 +19,23 @@
 ;===------------------------------------------------------------------------===;
 
 [common]
-#subdirectories = 
+#subdirectories =
 
 [component_0]
 type = Library
 name = Intel_VPOTransforms
 parent = Transforms
 library_name = Intel_VPOTransforms
+
+; INTEL_CUSTOMIZATION
+
+;Intel_Loop* and IntelOptReport libs are needed by Vecopt only, not Paropt
 required_libraries = Analysis Core Scalar Support TransformUtils Intel_VPOAnalysis Intel_LoopAnalysis Intel_LoopTransforms Intel_OptReport
+
+; else
+
+;UNCOMMENT;required_libraries = Analysis Core Scalar Support TransformUtils Intel_VPOAnalysis
+
+; end INTEL_CUSTOMIZATION
+
+; end INTEL_COLLAB

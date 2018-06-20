@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===- VPOParoptTransform.cpp - Transformation of W-Region for threading --===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -253,6 +254,7 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
+          Changed |= clearCancellationPointAllocasFromIR(W);
           // Privatization is enabled for both Prepare and Transform passes
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
@@ -273,6 +275,7 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
+          Changed |= clearCancellationPointAllocasFromIR(W);
           Changed |= regularizeOMPLoop(W, false);
           AllocaInst *IsLastVal = nullptr;
           Changed |= genLoopSchedulingCode(W, IsLastVal);
@@ -293,6 +296,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          Changed |= clearCancellationPointAllocasFromIR(W);
           debugPrintHeader(W, false);
           Changed = clearCodemotionFenceIntrinsic(W);
           StructType *KmpTaskTTWithPrivatesTy;
@@ -421,6 +425,7 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           AllocaInst *IsLastVal = nullptr;
           Changed = clearCodemotionFenceIntrinsic(W);
+          Changed |= clearCancellationPointAllocasFromIR(W);
           Changed |= regularizeOMPLoop(W, false);
           Changed |= genLoopSchedulingCode(W, IsLastVal);
           Changed |= genPrivatizationCode(W);
@@ -3656,7 +3661,7 @@ bool VPOParoptTransform::genCancelCode(WRNCancelNode *W) {
   return true;
 }
 
-// Propagate all cancellation points from the body of W, to the 'region.exit'
+// Propagate all cancellation points from the body of W, to the 'region.entry'
 // directive for the region.
 bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
 
@@ -3667,8 +3672,9 @@ bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
   if (CancellationPoints.empty())
     return false;
 
-  // Find the end.region() directive intrinsic.
-  Instruction *Inst = W->getExitBBlock()->getFirstNonPHI();
+  // Find the region.entry() directive intrinsic.
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  Instruction *Inst = EntryBB->getFirstNonPHI();
   CallInst *CI = dyn_cast<CallInst>(Inst);
 
   assert(CI && "propagateCancellationPointsToIR: Exit BBlocks's first "
@@ -3677,24 +3683,136 @@ bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
       VPOAnalysisUtils::isIntelDirectiveOrClause(CI) &&
       "propagateCancellationPointsToIR: Cannot find region.exit() directive");
 
-  // OpndBundles take Values, so need to cast the SmallVector of Instructions to
-  // SmallVector of Values.
-  SmallVector<Value *, 2> CancellationPointsAsValues(CancellationPoints.begin(),
-                                                     CancellationPoints.end());
+  // We first create Allocas to store the return values of the runtime calls.
+  // The allocas (e.g. '%cp') are used in the region entry directive to provide
+  // a handle on the cancellation points (e.g. '%1') inside the region. The
+  // alloca '%cp' is needed because:
+  //   (i) '%1' is defined after the region entry directive.
+  //   (ii) Adding '%1' to the region exit directive needs 'polluting' the IR
+  //   with unnecessary PHIs.
+  //
+  // So %cp is used in the directive, and %1 is stored to '%cp'.
+  //
+  // The IR after propagateCancellationPointsToIR will look like:
+  //
+  //    %cp = alloca i32                                              ; (1)
+  //    ...
+  //    region.entry(..., %cp, ...)                                   ; (2)
+  //    ...
+  //    %1 = call i32 __kmpc_cancel_barrier(...)                      ; (3)
+  //    store i32 %1, i32* %cp                                        ; (4)
+  //    ...
+  SmallVector<Value *, 2> CancellationPointAllocas;
+  Function *F = EntryBB->getParent();
+  LLVMContext &C = F->getContext();
+  Type *I32Type = Type::getInt32Ty(C);
 
-  // Add the list of cancellation points as an operand bundle in the
-  // end.region() directive.
+  BasicBlock &FunctionEntry = F->getEntryBlock();
+  IRBuilder<> AllocaBuilder(FunctionEntry.getFirstNonPHI());
+
+  for (auto *CancellationPoint : CancellationPoints) {               // (3)
+    AllocaInst *CPAlloca =
+        AllocaBuilder.CreateAlloca(I32Type, nullptr, "cp");          // (1)
+
+    StoreInst *CPStore = new StoreInst(CancellationPoint, CPAlloca); // (4)
+    CPStore->insertAfter(CancellationPoint);
+    CancellationPointAllocas.push_back(CPAlloca);
+  }
+
+  // (1) Add the list of allocas where cancellation points' return values are
+  // stored, as an operand bundle in the region.entry() directive.
   CI = VPOParoptUtils::addOperandBundlesInCall(
-      CI, {{"QUAL.OMP.CANCELLATION.POINTS", CancellationPointsAsValues}});
+      CI, {{"QUAL.OMP.CANCELLATION.POINTS", CancellationPointAllocas}});
 
   LLVM_DEBUG(dbgs() << "propagateCancellationPointsToIR: Added "
                     << CancellationPoints.size()
                     << " Cancellation Points to: " << *CI << ".\n");
   return true;
+}
 
-  // TODO: Add PHIs to avoid the issue of "Instruction does not dominate all uses".
-  // That is seen if we use opt and dump IR after vpo-paropt-prepare and before
-  // vpo-paropt.
+// Removes from IR, the allocas and stores created by
+// propagateCancellationPointsToIR(). This is done in the vpo-paropt
+// transformation pass after the information has already been consumed. The
+// function also removes these allocas from the "QUAL.OMP.CANCELLATION.POINTS"
+// clause on the region.entry intrinsic.
+bool VPOParoptTransform::clearCancellationPointAllocasFromIR(WRegionNode *W) {
+  if (!W->canHaveCancellationPoints())
+    return false;
+
+  auto &CancellationPointAllocas = W->getCancellationPointAllocas();
+  if (CancellationPointAllocas.empty())
+    return false;
+
+  LLVM_DEBUG(
+      dbgs()
+      << "\nEnter VPOParoptTransform::clearCancellationPointAllocasFromIR\n");
+
+  bool Changed = false;
+
+  // The IR at this point looks like:
+  //
+  //    %cp = alloca i32                                              ; (1)
+  //    ...
+  //    region.entry(..., %cp, ...)                                   ; (2)
+  //    ...
+  //    %1 = call i32 __kmpc_cancel_barrier(...)
+  //    store i32 %1, i32* %cp                                        ; (3)
+  //    ...
+  for (AllocaInst *CPAlloca : CancellationPointAllocas) {            // (1)
+
+    resetValueInIntelClauseGeneric(W, CPAlloca);
+
+    // The only uses of CPAlloca (1) should be in the intrinsic (2) and the
+    // store (2).
+    assert(CPAlloca->getNumUses() <= 2 &&
+           "Unexpected number of uses for cancellation point alloca.");
+
+    IntrinsicInst *RegionEntry = nullptr;                            // (2)
+    StoreInst *CPStore = nullptr;                                    // (3)
+
+    for (auto It = CPAlloca->user_begin(), IE = CPAlloca->user_end(); It != IE;
+         ++It) {
+      if (IntrinsicInst *Intrinsic = dyn_cast<IntrinsicInst>(*It))
+        RegionEntry = Intrinsic;
+      else if (StoreInst *Store = dyn_cast<StoreInst>(*It))
+        CPStore = Store;
+      else
+        llvm_unreachable("Unexpected user of cancellation point alloca.");
+    }
+
+    assert(RegionEntry &&
+           "Unable to find intrinsic using cancellation point alloca.");
+    assert(VPOAnalysisUtils::isIntelDirectiveOrClause(RegionEntry) &&
+           "Unexpected user of cancellation point alloca.");
+
+    LLVMContext &C = F->getContext();
+
+    // Remove the cancellation point alloca from the `region.entry` directive.
+    //    region.entry(..., null, ...)                                  ; (2)
+    RegionEntry->replaceUsesOfWith(
+        CPAlloca, ConstantPointerNull::get(Type::getInt8PtrTy(C)));
+
+    // Next, we delete (1) and (3). Now, CPStore may have been removed by some
+    // dead-code elimination optimization. e.g.
+    //
+    //   if (expr) {
+    //     %1 = __kmpc_cancel(...)
+    //     store %1, %cp
+    //   }
+    //
+    // 'expr' may be always false, and %1 and the store can be optimized away.
+    if (CPStore)
+      CPStore->eraseFromParent();
+
+    CPAlloca->eraseFromParent();
+    Changed = true;
+  }
+
+  LLVM_DEBUG(
+      dbgs()
+      << "\nExit VPOParoptTransform::clearCancellationPointAllocasFromIR\n");
+
+  return Changed;
 }
 
 // Insert If-Then-Else branches from each Cancellation Point in W, to
@@ -3798,7 +3916,7 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
     //    +-----------+-----------+
     //                |
     //    +-----------+-----------+
-    //    | region.exit(... %x)   |
+    //    | region.exit(...)      |
     //    +-----------------------+
     BasicBlock *OrgBB = CancellationPoint->getParent();
 
@@ -3854,7 +3972,7 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
     //    +--------------+----------------+
     //                   |
     //    +--------------+----------------+
-    //    | region.exit(..., %x)          |
+    //    | region.exit(...)              |
     //    +-------------------------------+
     //
 
@@ -3956,11 +4074,6 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
                  dbgs() << "] containing '__kmpc_cancel_barrier' call.\n");
     }
 
-    // Finally, remove the cancellation point from the `end.region` directive.
-    //    +---------------+---------------+
-    //    | region.exit(..., null)        |
-    //    +-------------------------------+
-    resetValueInIntelClauseGeneric(W, CancellationPoint);
     Changed = true;
   }
 
@@ -3996,8 +4109,7 @@ void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
   SmallVector<Instruction *, 8> IfUses;
   for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
     if (Instruction *User = dyn_cast<Instruction>(*IB))
-      if (W->contains(User->getParent()) ||
-          W->getExitBBlock() == User->getParent())
+      if (W->contains(User->getParent()))
         IfUses.push_back(User);
   }
 
@@ -4129,3 +4241,4 @@ Function *VPOParoptTransform::genCopyPrivateFunc(WRegionNode *W,
 
   return FnCopyPriv;
 }
+#endif // INTEL_COLLAB

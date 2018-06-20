@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //==-- VPOParoptUtils.cpp - Utilities for VPO Paropt Transforms -*- C++ -*--==//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -2885,5 +2886,6 @@ uint64_t VPOParoptUtils::getMinInt(Type *Ty, bool IsUnsigned) {
 
   return MinInt;
 }
-#endif
+#endif // if 0
 
+#endif // INTEL_COLLAB

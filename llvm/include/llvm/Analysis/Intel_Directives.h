@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //===---------- Intel_Directives.h - Class definition -*- C++ -*-----------===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -61,3 +62,4 @@ static StringMap<int> ClauseIDs;
 } // end llvm namespace
 
 #endif // LLVM_TRANSFORM_UTILS_INTEL_DIRECTIVES_H
+#endif // INTEL_COLLAB

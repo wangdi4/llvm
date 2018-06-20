@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===- VPOParoptTarget.cpp - Transformation of W-Region for offloading --===//
 //
 // Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
@@ -1067,3 +1068,4 @@ bool VPOParoptTransform::hasParentTarget(WRegionNode *W) {
 
   return false;
 }
+#endif // INTEL_COLLAB

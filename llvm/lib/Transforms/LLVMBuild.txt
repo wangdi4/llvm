@@ -16,7 +16,13 @@
 ;===------------------------------------------------------------------------===;
 
 [common]
+; INTEL_COLLAB
+; INTEL_CUSTOMIZATION
 subdirectories = AggressiveInstCombine Coroutines IPO InstCombine Instrumentation Scalar Utils Vectorize ObjCARC Intel_LoopTransforms Intel_MapIntrinToIml Intel_VPO Intel_OpenCLTransforms
+; else
+;UNCOMMENT;subdirectories = AggressiveInstCombine Coroutines IPO InstCombine Instrumentation Scalar Utils Vectorize ObjCARC Intel_VPO
+; end INTEL_CUSTOMIZATION
+; end INTEL_COLLAB
 
 [component_0]
 type = Group

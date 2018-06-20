@@ -1,3 +1,4 @@
+// INTEL_COLLAB   -*- tablegen -*-
 //==- Intel_Directives.td - Defines all parallelization and -*- tablegen -*-==//
 //                          vectorization directives and clauses.
 //
@@ -10,7 +11,7 @@
 // ===--------------------------------------------------------------------=== //
 ///
 /// \file
-/// This file defines the classes used to represent parallelization and 
+/// This file defines the classes used to represent parallelization and
 /// vectorization directives and clauses. Each different type of directive and
 /// clause is then instantiated accordingly. TableGen parses these records and
 /// generates enums for both classes, as well as tables which provide an
@@ -136,6 +137,7 @@ def "DIR.OMP.END.CANCEL" : Directive;
 def "DIR.OMP.CANCELLATION.POINT" : Directive;
 def "DIR.OMP.END.CANCELLATION.POINT" : Directive;
 
+// INTEL_CUSTOMIZATION
 // *** Begin non-OpenMP Directives ***
 
 // Directives used to mark begin/end of a loop determined by VPO vectorizer
@@ -145,6 +147,7 @@ def "DIR.VPO.END.AUTO.VEC" : Directive;
 
 def "DIR.PRAGMA.IVDEP" : Directive;
 def "DIR.PRAGMA.END.IVDEP" : Directive;
+//end INTEL_CUSTOMIZATION
 
 // *** Begin OpenMP Clauses ***
 
@@ -257,4 +260,8 @@ def "QUAL.OMP.NAME" : Clause;
 def "QUAL.OMP.NORMALIZED.IV" : Clause;
 def "QUAL.OMP.NORMALIZED.UB" : Clause;
 def "QUAL.OMP.CANCELLATION.POINTS" : Clause;
+// INTEL_CUSTOMIZATION
 def "QUAL.PRAGMA.ARRAY" : Clause;
+// end INTEL_CUSTOMIZATION
+
+// end INTEL_COLLAB

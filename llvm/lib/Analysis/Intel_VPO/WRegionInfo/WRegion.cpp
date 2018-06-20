@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===----- WRegion.cpp - Implements the WRegion class ---------------------===//
 //
 //   Copyright (C) 2016 Intel Corporation. All rights reserved.
@@ -370,21 +371,26 @@ WRNTaskloopNode::WRNTaskloopNode(BasicBlock *BB, LoopInfo *Li)
 //
 
 // constructor for LLVM IR representation
+#if INTEL_CUSTOMIZATION
 WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li,
                                const bool isAutoVec)
+#else
+WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
+#endif // INTEL_CUSTOMIZATION
     : WRegionNode(WRegionNode::WRNVecLoop, BB), WRNLI(Li) {
   setIsOmpLoop();
   setSimdlen(0);
   setSafelen(0);
   setCollapse(0);
-  setIsAutoVec(isAutoVec);
 #if INTEL_CUSTOMIZATION
+  setIsAutoVec(isAutoVec);
   setIgnoreProfitability(false);
 #endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() << ">\n");
 }
 
+#if INTEL_CUSTOMIZATION
 // constructor for HIR representation
 WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN, const bool isAutoVec)
                                       : WRegionNode(WRegionNode::WRNVecLoop),
@@ -394,15 +400,14 @@ WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN, const bool isAutoVec)
   setSafelen(0);
   setCollapse(0);
   setIsAutoVec(isAutoVec);
-#if INTEL_CUSTOMIZATION
   setIgnoreProfitability(false);
-#endif // INTEL_CUSTOMIZATION
 
   setExitHLNode(nullptr);
   setHLLoop(nullptr);
 
   LLVM_DEBUG(dbgs() << "\nCreated HIR-WRNVecLoopNode<" << getNumber() << ">\n");
 }
+#endif // INTEL_CUSTOMIZATION
 
 // Specify namespace for the template instantiation or the build will fail
 namespace llvm {
@@ -410,12 +415,14 @@ namespace vpo {
 template <> Loop *WRNVecLoopNode::getTheLoop<Loop>() const {
   return getWRNLoopInfo().getLoop();
 }
+#if INTEL_CUSTOMIZATION
 template <>
 loopopt::HLLoop *WRNVecLoopNode::getTheLoop<loopopt::HLLoop>() const {
   return getHLLoop();
 }
-}
-}
+#endif // INTEL_CUSTOMIZATION
+} // vpo
+} // llvm
 
 // printer
 void WRNVecLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -426,6 +433,7 @@ void WRNVecLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printInt("COLLAPSE", getCollapse(), OS, Indent, Verbosity);
 }
 
+#if INTEL_CUSTOMIZATION
 void WRNVecLoopNode::printHIR(formatted_raw_ostream &OS, unsigned Depth,
                               unsigned Verbosity) const {
   if (!getIsFromHIR()) // using LLVM-IR representation; no HIR to print
@@ -442,6 +450,7 @@ void WRNVecLoopNode::printHIR(formatted_raw_ostream &OS, unsigned Depth,
   OS.indent(2*Depth) << "ExitHLNode:\n";
   getExitHLNode()->print(OS, 1);
 }
+#endif // INTEL_CUSTOMIZATION
 
 //
 // Methods for WRNWksLoopNode
@@ -798,3 +807,4 @@ void vpo::printExtraForTask(WRegionNode const *W, formatted_raw_ostream &OS,
     vpo::printBool("NOGROUP", W->getNogroup(), OS, Indent, Verbosity);
   }
 }
+#endif // INTEL_COLLAB

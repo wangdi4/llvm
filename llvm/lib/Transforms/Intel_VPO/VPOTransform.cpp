@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===----------------------------------------------------------------------===//
 //
 //   Copyright (C) 2016 Intel Corporation. All rights reserved.
@@ -18,9 +19,11 @@
 using namespace llvm;
 
 void llvm::initializeIntel_VPOTransforms(PassRegistry &Registry) {
+#if INTEL_CUSTOMIZATION
   initializeVPODriverPass(Registry);
   initializeVPODriverHIRPass(Registry);
   initializeVPODirectiveCleanupPass(Registry);
+#endif // INTEL_CUSTOMIZATION
 
   initializeVPOParoptPreparePass(Registry);
   initializeVPOParoptPass(Registry);
@@ -29,3 +32,4 @@ void llvm::initializeIntel_VPOTransforms(PassRegistry &Registry) {
   initializeVPOCFGRestructuringPass(Registry);
 }
 
+#endif // INTEL_COLLAB

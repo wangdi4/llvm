@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //===-- WRegionCollection.h ------------------------------------*- C++ --*-===//
 //
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -19,6 +20,7 @@
 #define LLVM_ANALYSIS_VPO_WREGIONCOLLECTION_H
 
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Pass.h"
 #include <set>
@@ -31,9 +33,11 @@ class LoopInfo;
 class DominatorTree;
 class ScalarEvolution;
 
+#if INTEL_CUSTOMIZATION
 namespace loopopt {
 class HIRFramework;
 }
+#endif // INTEL_CUSTOMIZATION
 
 namespace vpo {
 
@@ -91,24 +95,33 @@ private:
   const TargetTransformInfo *TTI;
   AssumptionCache *AC;
   const TargetLibraryInfo *TLI;
+#if INTEL_CUSTOMIZATION
   loopopt::HIRFramework *HIRF;
+#endif // INTEL_CUSTOMIZATION
 
 public:
   enum InputIRKind{
-    LLVMIR,
-    HIR
+    LLVMIR
+#if INTEL_CUSTOMIZATION
+    , HIR
+#endif // INTEL_CUSTOMIZATION
   };
   friend class WRegionNode;
 
   WRegionCollection(Function *F, DominatorTree *DT, LoopInfo *LI,
                     ScalarEvolution *SE, const TargetTransformInfo *TTI,
-                    AssumptionCache *AC, const TargetLibraryInfo *TLI,
-                    loopopt::HIRFramework *HIRF);
+                    AssumptionCache *AC, const TargetLibraryInfo *TLI
+#if INTEL_CUSTOMIZATION
+                    , loopopt::HIRFramework *HIRF
+#endif // INTEL_CUSTOMIZATION
+                   );
 
   void print(raw_ostream &OS) const;
 
   /// \brief Entry point for on-demand call to build the WRGraph.
-  /// If FromHIR==true, it walks the HIR; else, it walks the LLVM IR
+#if INTEL_CUSTOMIZATION
+  /// If IR==HIR, it walks the HIR; else, it walks the LLVM IR
+#endif // INTEL_CUSTOMIZATION
   void buildWRGraph(InputIRKind IR);
 
   /// \brief Returns true if ParOpt/VecOpt is able to handle this loop.
@@ -119,8 +132,6 @@ public:
 
   /// \brief Identifies WRegionNodes and builds WRGraph for LLVM Dom-Tree
   void buildWRGraphFromLLVMIR(Function &F);
-
-  //TODO: move buildWRGraphFromHIR() from WRegionUtils to WRegionCollection
 
   /// \brief Getter methods
   WRContainerImpl *getWRGraph() { return WRGraph; }
@@ -188,3 +199,4 @@ public:
 } // End namespace llvm
 
 #endif // LLVM_ANALYSIS_VPO_WREGIONCOLLECTION_H
+#endif // INTEL_COLLAB

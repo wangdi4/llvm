@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===- VPOParoptTpv.cpp - Paropt Tpv Transformation ----------------------===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -33,7 +34,7 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "VPOParoptTpv"
 
-// The driver to support the threadprivate intel compatible implementation.
+// The driver to support the threadprivate intel legacy mode.
 
 class VPOParoptTpvLegacy {
 public:
@@ -77,6 +78,12 @@ private:
                  Function *F,
                  Instruction *TidV,
                  const DataLayout &DL);
+
+  /// Utility to collect the instructions which use the incoming value V
+  /// recursively.
+  void collectGlobalVarRecursively(Value *V,
+                                   SmallVectorImpl<Instruction *> &RewriteCons,
+                                   bool ExpectConstExprFlag);
 };
 
 class VPOParoptTpv : public ModulePass {
@@ -351,6 +358,32 @@ Value *VPOParoptTpvLegacy::getTpvRef(Value *V, Instruction *I,
   return TpvAcc[std::make_pair(V, F)];
 }
 
+// Utility to collect the instructions which use the incoming value V
+// recursively.
+void VPOParoptTpvLegacy::collectGlobalVarRecursively(
+    Value *V, SmallVectorImpl<Instruction *> &RewriteCons,
+    bool ExpectConstExprFlag) {
+  Instruction *I;
+
+  for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
+    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(*IB)) {
+      for (Use &U1 : CE->uses()) {
+        User *UR = U1.getUser();
+        I = dyn_cast<Instruction>(UR);
+        if (I)
+          RewriteCons.push_back(I);
+        else
+          collectGlobalVarRecursively(UR, RewriteCons, false);
+      }
+    }
+    else if (!ExpectConstExprFlag) {
+      I = dyn_cast<Instruction>(*IB);
+      if (I)
+        RewriteCons.push_back(I);
+    }
+  }
+}
+
 // For each threadprivate globals, converts the reference into
 // the reference of threadprivate local global pointer.
 //
@@ -361,22 +394,12 @@ void VPOParoptTpvLegacy::processTpv(Value *V,
   SmallVector<Instruction*, 8> RewriteCons;
   SmallVector<Instruction*, 8> RewriteIns;
 
-  for (auto IB = V->user_begin(), IE = V->user_end();
-       IB != IE; ++IB) {
-    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(*IB)) {
-      for (Use &U1 : CE->uses()) {
-        User *UR = U1.getUser();
-        Instruction *I = dyn_cast<Instruction>(UR);
-        RewriteCons.push_back(I);
-      }
-    }
-  }
+  collectGlobalVarRecursively(V, RewriteCons, true);
 
   while (!RewriteCons.empty()) {
     Instruction *I = RewriteCons.pop_back_val();
     IntelGeneralUtils::breakExpressions(I);
   }
-
 
   for (auto IB = V->user_begin(), IE = V->user_end();
        IB != IE; IB++) {
@@ -419,5 +442,4 @@ ModulePass *llvm::createVPOParoptTpvPass() {
   return new VPOParoptTpv();
 }
 
-
-
+#endif // INTEL_COLLAB

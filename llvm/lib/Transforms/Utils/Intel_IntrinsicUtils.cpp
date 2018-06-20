@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //==-- Intel_IntrinsicUtils.cpp - Utilities for directives-based -*- C++ -*-==//
 //                                intrinsics.
 //
@@ -133,7 +134,7 @@ StringRef IntelIntrinsicUtils::getClauseString(int Id) {
 }
 
 bool IntelIntrinsicUtils::isIntelDirective(Instruction *I) {
-  if (I==nullptr) 
+  if (I==nullptr)
     return false;
   IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
   if (Call) {
@@ -155,3 +156,4 @@ bool IntelIntrinsicUtils::isIntelDirective(Instruction *I) {
   }
   return false;
 }
+#endif // INTEL_COLLAB

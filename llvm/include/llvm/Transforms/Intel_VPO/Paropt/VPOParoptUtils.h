@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //=-- VPOParoptUtils.h - Class definition for VPO Paropt utilites -*- C++ -*-=//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -899,4 +900,4 @@ public:
 } // End llvm namespace
 
 #endif // LLVM_TRANSFORMS_VPO_PAROPT_UTILS_H
-
+#endif // INTEL_COLLAB

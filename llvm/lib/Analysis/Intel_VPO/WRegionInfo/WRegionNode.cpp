@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===-- WRegionNode.cpp - Implements the WRegionNode class ----------------===//
 //
 //   Copyright (C) 2016 Intel Corporation. All rights reserved.
@@ -66,10 +67,13 @@ WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB)
   setNextNumber();
   setParent(nullptr);
   setExitBBlock(nullptr);
+#if INTEL_CUSTOMIZATION
   setIsFromHIR(false);
+#endif // INTEL_CUSTOMIZATION
   resetBBSet();
 }
 
+#if INTEL_CUSTOMIZATION
 // constructor for HIR representation
 WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
   setNextNumber();
@@ -79,6 +83,7 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
   resetBBSet();
   setIsFromHIR(true);
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Wrap up the WRN creation now that we have the ExitBB. Perform these
 /// tasks to finalize the WRN construction:
@@ -288,9 +293,12 @@ void WRegionNode::printBody(formatted_raw_ostream &OS, bool PrintChildren,
                             unsigned Depth, unsigned Verbosity) const {
   printClauses(OS, Depth, Verbosity);
 
+#if INTEL_CUSTOMIZATION
   if (getIsFromHIR())
     printHIR(OS, Depth, Verbosity); // defined by derived WRN
-  else {
+  else
+#endif // INTEL_CUSTOMIZATION
+  {
     printEntryExitBB(OS, Depth, Verbosity);
     if (getIsOmpLoop())
       printLoopBB(OS, Depth, Verbosity);
@@ -372,8 +380,10 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
 // Verbosity >= 4: above + print BB content for all BBs in BBSet
 void WRegionNode::printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth,
                                    unsigned Verbosity) const {
+#if INTEL_CUSTOMIZATION
   if (getIsFromHIR()) // HIR representation; no BBs to print
     return;
+#endif // INTEL_CUSTOMIZATION
 
   int Ind = 2*Depth;
 
@@ -936,16 +946,39 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     assert(canHaveCancellationPoints() &&
            "CANCELLATION.POINTS is not supported on this construct");
     for (unsigned I = 0; I < NumArgs; ++I) {
-      auto *V = dyn_cast<Instruction>(Args[I]);
+      assert(isa<AllocaInst>(Args[I]) &&
+             "Unexpected operand in CANCELLATION.POINTS bundle.");
+      auto *CPAlloca = cast<AllocaInst>(Args[I]);
+      addCancellationPointAlloca(CPAlloca);
 
-      // Cancellation point may have been removed/replaced with undef by
-      // some dead-code elimination optimization e.g.
-      // if (expr)
-      //   %1 = _kmpc_cancel(...)
+      // Cancellation Points in the IR look like:
       //
-      // 'expr' may be always false, and %1 can be optimized away.
-      if (V)
-        addCancellationPoint(V);
+      // %cp = alloca i32            ; CPAlloca
+      // ...
+      // llvm.region.entry(...) [..."QUAL.OMP.CANCELLATION.POINTS"(%cp) ]
+      // ...
+      // %1 = __kmpc_cancel(...)     ; CancellationPoint
+      // store %1, %cp               ; CPStore
+      // ...
+      for (auto &CPUse : CPAlloca->uses()) {
+        User *CPUser = CPUse.getUser();
+        if (StoreInst *CPStore = dyn_cast<StoreInst>(CPUser)) {
+          Value *CancellationPoint = CPStore->getValueOperand();
+          // Cancellation point may have been removed/replaced with undef by
+          // some dead-code elimination optimization e.g.
+          // if (expr)
+          //   %1 = _kmpc_cancel(...)
+          //
+          // 'expr' may be always false, and %1 can be optimized away.
+          if (!CancellationPoint)
+            continue;
+
+          assert(isa<CallInst>(CancellationPoint) &&
+                 "Cancellation Point is not a Call.");
+
+          addCancellationPoint(cast<CallInst>(CancellationPoint));
+        }
+      }
     }
     break;
   }
@@ -1097,23 +1130,15 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   }
 }
 
-void WRegionNode::getClausesFromOperandBundles(bool RegionExit) {
+void WRegionNode::getClausesFromOperandBundles() {
 
   Instruction *I;
 
-  if (!RegionExit) {
-    // Under the directive.region.entry/exit representation the intrinsic
-    // is alone in the EntryBB, so EntryBB->front() is the intrinsic call
-    I = &(getEntryBBlock()->front());
-    assert(isa<IntrinsicInst>(I) &&
-           "Call not found for directive.region.entry()");
-  } else {
-    // ExitBB can have PHIs, so we get the first non-PHI to access the
-    // directive.region.exit intrinsic.
-    I = getExitBBlock()->getFirstNonPHI();
-    assert(isa<IntrinsicInst>(I) &&
-           "Call not found for directive.region.exit()");
-  }
+  // Under the directive.region.entry/exit representation the intrinsic
+  // is alone in the EntryBB, so EntryBB->front() is the intrinsic call
+  I = &(getEntryBBlock()->front());
+  assert(isa<IntrinsicInst>(I) &&
+         "Call not found for directive.region.entry()");
 
   IntrinsicInst *Call = cast<IntrinsicInst>(I);
   unsigned i, NumOB = Call->getNumOperandBundles();
@@ -1490,3 +1515,5 @@ void vpo::printStr(StringRef Title, StringRef Str, formatted_raw_ostream &OS,
   if (Verbosity!=0 || Str!="UNSPECIFIED")
     OS.indent(Indent) << Title << ": " << Str << "\n";
 }
+
+#endif // INTEL_COLLAB

@@ -1,3 +1,4 @@
+# INTEL_COLLAB
 #
 #    Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 #
@@ -14,6 +15,8 @@
 add_llvm_library(LLVMIntel_VPOAnalysis
   VPOAnalysis.cpp
   Utils/GeneralUtils.cpp
+  # Utils/IntrinsicUtils.cpp             # Moved to lib/Analysis/CMakeLists.txt
+  # Utils/OpenMPDirectivesAndClauses.cpp # Moved to lib/Analysis/CMakeLists.txt
 
   WRegionInfo/WRegionNode.cpp
   WRegionInfo/WRegion.cpp
@@ -23,6 +26,7 @@ add_llvm_library(LLVMIntel_VPOAnalysis
   WRegionInfo/WRegionUtils.cpp
   WRegionInfo/WRegionInfoAnalysis.cpp
 
+# INTEL_CUSTOMIZATION
   Vecopt/VPOAvrGenerate.cpp
   Vecopt/VPOAvrDecomposeHIR.cpp
   Vecopt/VPOAvr.cpp
@@ -52,8 +56,9 @@ add_llvm_library(LLVMIntel_VPOAnalysis
   Vecopt/VectorGraphUtils.cpp
   Vecopt/VectorGraphInfo.cpp
   Vecopt/VectorGraphPredicator.cpp
+# end INTEL_CUSTOMIZATION
 )
 
 add_dependencies(LLVMIntel_VPOAnalysis intrinsics_gen intel_directives_gen)
 
-
+# end INTEL_COLLAB
