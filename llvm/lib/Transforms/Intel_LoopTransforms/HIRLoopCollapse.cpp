@@ -658,8 +658,16 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
        Level >= EndLevel; --Level) {
     UpperBoundRefs.push_back(LoopNest[Level]->getUpperDDRef());
   }
-  ToCollapseLp->getUpperDDRef()->makeConsistent(
-      &UpperBoundRefs, ToCollapseLp->getNestingLevel());
+
+  auto *UBRef = ToCollapseLp->getUpperDDRef();
+
+  UBRef->makeConsistent(&UpperBoundRefs, ToCollapseLp->getNestingLevel());
+
+  // Upper bound may have new temp blobs. Add them as livein to loop.
+  for (auto BRefIt = UBRef->blob_cbegin(), E = UBRef->blob_cend(); BRefIt != E;
+       ++BRefIt) {
+    ToCollapseLp->addLiveInTemp((*BRefIt)->getSymbase());
+  }
 
   // Collapse each relevant Ref from collection:
   // E.g.
