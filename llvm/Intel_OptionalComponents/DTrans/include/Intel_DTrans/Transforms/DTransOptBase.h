@@ -306,11 +306,20 @@ protected:
   // Given a pointer to a sub instruction that is known to subtract two
   // pointers, find all users of the instruction that divide the result by
   // a constant multiple of the original type and replace them with a divide
-  // by the a constant that is the same multiple of the replacement type.
+  // by a constant that is the same multiple of the replacement type.
   // This function requires that all uses of this instruction be either
   // sdiv or udiv instructions.
   void updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
                                       llvm::Type *OrigTy, llvm::Type *ReplTy);
+
+  // Given a pointer to a sub instruction that is known to subtract two
+  // pointers, find all users of the instruction that divide the result by
+  // a constant multiple of the \p OrigSize and replace them with a divide
+  // by a constant that is the same multiple of the \p ReplSize.
+  // This function requires that all uses of this instruction be either
+  // sdiv or udiv instructions.
+  void updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
+                                      uint64_t OrigSize, uint64_t ReplSize);
 
   // Derived classes may use this function to find a constant input value,
   // searching from the specified operand and following the use-def chain

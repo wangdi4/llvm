@@ -177,6 +177,8 @@ public:
   virtual void processFunction(Function &F) override {
     SmallVector<GetElementPtrInst *, 16> GEPsToConvert;
     SmallVector<BitCastInst *, 16> BCsToConvert;
+    SmallVector<BinaryOperator *, 16> BinOpsToConvert;
+
     SmallVector<std::pair<AllocCallInfo *, StructInfo *>, 4> AllocsToConvert;
     SmallVector<std::pair<FreeCallInfo *, StructInfo *>, 4> FreesToConvert;
 
@@ -235,9 +237,11 @@ public:
       } else if (auto *BC = dyn_cast<BitCastInst>(I)) {
         if (checkConversionNeeded(BC))
           BCsToConvert.push_back(BC);
+      } else if (auto *BinOp = dyn_cast<BinaryOperator>(I)) {
+        if (checkConversionNeeded(BinOp)) {
+          BinOpsToConvert.push_back(BinOp);
+        }
       }
-
-      // TODO: add support for sdiv for pointer arithmetic.
     }
 
     for (auto &Alloc : AllocsToConvert)
@@ -249,9 +253,12 @@ public:
     for (auto *GEP : GEPsToConvert)
       processGEP(GEP);
 
+    for (auto *BinOp : BinOpsToConvert)
+      processBinOp(BinOp);
+
     // The bitcasts should be processed after the 'free' calls and
-    // byte-flattened GEPs, because those conversions are expecting instructions
-    // with the bitcasts as an input.
+    // byte-flattened GEPs, because those conversions are expecting
+    // instructions with the bitcasts as an input.
     for (auto *BC : BCsToConvert)
       processBC(BC);
   }
@@ -284,6 +291,17 @@ public:
     assert(BC->getType() == getInt8PtrType() &&
            "Only cast to i8* expected for transformed type");
     return true;
+  }
+
+  bool checkConversionNeeded(BinaryOperator *BinOp) {
+    if (BinOp->getOpcode() != Instruction::Sub)
+      return false;
+
+    llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
+    if (!PtrSubTy)
+      return false;
+
+    return isTypeToTransform(PtrSubTy);
   }
 
   void processGEP(GetElementPtrInst *GEP) {
@@ -529,6 +547,19 @@ public:
     LoadInst *SOAAddr = new LoadInst(PeelBase);
     SOAAddr->insertBefore(InsertBefore);
     return SOAAddr;
+  }
+
+  // The analysis phase has resolved that the use of this subtract instruction
+  // is used to divide by the structure size or some multiple of it.
+  // Because the pointer to the structure has been converted to be an
+  // integer index, the result of the subtract is the distance between
+  // the pointers that the divide was going to compute when the divisor
+  // equaled the structure size. Update the divide instruction to replace the
+  // divisor.
+  void processBinOp(BinaryOperator *BinOp) {
+    llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
+    uint64_t OrigSize = DL.getTypeAllocSize(PtrSubTy);
+    updatePtrSubDivUserSizeOperand(BinOp, OrigSize, 1);
   }
 
   // Update the signature of the function's clone and any instructions that need
