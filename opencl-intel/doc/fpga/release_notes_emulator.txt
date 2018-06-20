@@ -33,7 +33,6 @@ Supported hardware:
 ================================================================================
 INSTALLATION
 ================================================================================
-
 The emulator should be installed as part of the Intel(R) FPGA SDK for OpenCL(TM)
 software technology installation when the corresponding component is selected.
 
@@ -41,7 +40,7 @@ If the installation succeeded, the following OpenCL(TM) platform will be
 available:
 
     Profile             : EMBEDDED_PROFILE
-    Version             : OpenCL 1.0 Intel(R) FPGA SDK for OpenCL(TM), Version 18.0
+    Version             : OpenCL 1.0 Intel(R) FPGA SDK for OpenCL(TM), Version 18.1
     Name                : Intel(R) FPGA Emulation Platform for OpenCL(TM) (preview)
     Vendor              : Intel(R) Corporation
     Devices             : 1
@@ -52,7 +51,7 @@ available:
         Name            : Intel(R) FPGA Emulation Device (preview)
         Vendor          : Intel(R) Corporation
         C version       : OpenCL C 1.0
-        Driver version  : 18.0
+        Driver version  : 18.1
 
 ================================================================================
 DETAILS
@@ -77,11 +76,13 @@ The following sets of environment variables affect the emulator execution:
       force a SIMD instruction set used for OpenCL(TM) kernel compilation, where
       skx corresponds to Intel(R) Advanced Vector Extensions 512 support.
 
+    * CL_CONFIG_CPU_EMULATE_DEVICES ([1..]): This variable controls a
+      number of emulator devices provided by Intel(R) FPGA Emulation
+      platform.
+
     * VOLCANO_CLANG_OPTIONS: This internal environment variable allows you to
       force specific options to the OpenCL(TM) compiler:
 
-      + -fopenmp, -fintel-openmp, -fopenmp-tbb, and -fintel-compatibility:
-        All enable OpenMP* support.
       + -ffast-math: Forces fast math built-ins.
 
   - The following are OpenCL(TM) related environment variables (see the Intel(R)
@@ -89,24 +90,13 @@ The following sets of environment variables affect the emulator execution:
     details):
 
     * CL_CONFIG_USE_VECTORIZER (True, False): Enables or disables the NDRange
-      kernel vectorizer. It does not have an effect on the OpenMP* pragma
-      vectorization of single work-item kernels.
+      kernel vectorizer.
 
     * CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE (e.g 256 KB): Is the amount of
       available OpenCL(TM) local memory.
 
     * CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE (e.g 256 KB): Is the amount of
       available OpenCL(TM) private memory.
-
-  - The following are OpenMP* environment variables (see the OpenMP*
-    documentation for details):
-
-    * KMP_AFFINITY: Is the affinity settings for OpenMP* threads,
-      e.g. norespect, physical, 20.
-
-    * OMP_NUM_THREADS ([1..]): Is the number of available OpenMP* threads. The
-      optimization guide using OpenMP* is available in the same directory as the
-      binaries (Optimization_guide.pdf).
 
 ================================================================================
 OFFLINE COMPILATION
@@ -217,8 +207,7 @@ following values:
 
   - ignore-depth: All channels are given a channel depth chosen to provide the
     fastest execution time for your kernel emulation. Any explicitly set channel
-    depth attribute is ignored. This value is used by default if
-    CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE environment variable is not set.
+    depth attribute is ignored.
 
   - default: Channels with an explicit depth attribute have their specified
     depth. Channels without a specified depth are given a default channel depth
@@ -226,7 +215,8 @@ following values:
     emulation.
 
   - strict: All channel depths in the emulation are given a depth that matches
-    the depth given for the FPGA compilation.
+    the depth given for the FPGA compilation. This value is used by default if
+    CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE environment variable is not set.
 
 For channels the CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE environment variable
 should be set for a kernel compilation. For pipes it should be set for a host
@@ -240,18 +230,13 @@ KNOWN ISSUES
    and not all of the features supported on the emulator are supported on FPGA
    hardware.
 
-2. This emulator is not optimized for kernel execution on an NDRange model.
+2. The autorun kernels shut down only after a host program exits, not
+   after a clReleaseProgram() call.
 
-3. Known issues with the AutoRun kernels feature are:
-   - The NDRange kernels are not supported.
-   - The autorun kernels shut down only after a host program exits, not after a
-     clReleaseProgram() call.
-
-4. The max_work_group_size attribute requires three arguments to be specified
+3. The max_work_group_size attribute requires three arguments to be specified
    (one for each dimension in the NDRange) instead of only one argument.
 
-5. The unsupported features are:
-   - FPGA library feature emulation
+4. The unsupported features are:
    - Compiler diagnostics for channels
 
 ================================================================================
@@ -282,6 +267,54 @@ https://software.intel.com/en-us/forums/opencl
 ================================================================================
 CHANGELOG
 ================================================================================
+Changes from the Intel(R) FPGA SDK for OpenCL(TM) 18.0 release:
+
+  - Support for OpenMP* directives was removed.
+
+  - New environment variable was added: CL_CONFIG_CPU_EMULATE_DEVICES.
+
+  - Default channel emulation mode was switched from 'ignore-depth' to 'strict'.
+
+  - Arbitrary precision integers feature is supported.
+
+  - IO channels feature is supported.
+
+  - Autorun NDRange kernels feature is supported.
+
+  - The following attributes are supported:
+    - stall_free
+    - scheduler_pipelining_effort_pct
+    - internal_max_block_ram_depth
+    - optimize_fmax
+    - register
+    - optimize_ram_usage
+    - doublepump
+    - memory
+    - register
+    - singlepump
+    - bankwidth
+    - numbanks
+    - numreadports
+    - numwriteports
+    - numports_readonly_writeonly
+    - merge
+    - bank_bits
+    - numports_readonly_writeonly
+    - max_concurrency
+
+  - The following #pragmas are supported:
+    - ivdep, ivdep array, ivdep safelen
+    - loop_coalesce
+    - max_concurrency
+    - ii
+
+  - __fpga_reg built-in is supported.
+
+  - Diagnostic messages related to channels have generally been improved.
+
+  - clGetProfileDataDeviceIntelFPGA extension is supported.
+
+
 Changes from the Intel(R) SDK for OpenCL(TM) 2017 R2 release:
 
   - Partial support for the cl_khr_fp16 extension. The supported features are:
@@ -305,6 +338,7 @@ Changes from the Intel(R) SDK for OpenCL(TM) 2017 R2 release:
 
   - Value of CL_DEVICE_MAX_WORK_GROUP_SIZE device property is increased from
     8192 to 64*1024*1024.
+
 
 Changes from the Intel(R) SDK for OpenCL(TM) 2017 R1 release:
 
@@ -336,13 +370,9 @@ REFERENCES
 ================================================================================
 1. Link to Intel(R) FPGA SDK for OpenCL(TM) Programming Guide:
     https://www.altera.com/products/design-software/embedded-software-developers/opencl/documentation.html
-2. OpenMP* documentation:
-    https://software.intel.com/en-us/node/695804
-3. KMP_AFFINITY interface documentation:
-    https://software.intel.com/en-us/node/695817
-4. Intel(R) SDK for OpenCL(TM) - CPU only runtime package documentation:
+2. Intel(R) OpenCL(TM) CPU RT documentation:
     https://software.intel.com/en-us/iocl_tec_opg
-5. The OpenCL(TM) Specification Version 1.2
+3. The OpenCL(TM) Specification Version 1.2
     https://www.khronos.org/registry/OpenCL/specs/opencl-1.2.pdf
 
 ================================================================================
