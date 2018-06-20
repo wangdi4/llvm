@@ -197,6 +197,9 @@ public:
     return Node->getHLNodeClassID() == HLNode::HLIfVal;
   }
 
+  /// Creates a clone without children nodes.
+  HLIf *cloneEmpty() const;
+
   /// clone() - Create a copy of 'this' HLIf that is identical in all
   /// ways except the following:
   ///   * The HLIf has no parent

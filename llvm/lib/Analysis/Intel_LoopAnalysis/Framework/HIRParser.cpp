@@ -2262,7 +2262,9 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
                              SmallVectorImpl<RegDDRef *> &Refs,
                              bool AllowMultiplePreds) {
 
-  if (auto CInst = dyn_cast<CmpInst>(Cond)) {
+  assert(Cond->getType()->isIntegerTy(1) && "Condition should be i1 type!");
+
+  if (auto *CInst = dyn_cast<CmpInst>(Cond)) {
 
     // Suppress traceback if CInst's operand's type is not supported.
     if (RI.isSupported(CInst->getOperand(0)->getType()) &&
@@ -2297,22 +2299,34 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
     Preds.push_back(UNDEFINED_PREDICATE);
     Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
     Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
-  } else if (auto ConstVal = dyn_cast<Constant>(Cond)) {
+    return;
+  }
+
+  if (auto *ConstVal = dyn_cast<ConstantInt>(Cond)) {
     if (ConstVal->isOneValue()) {
       Preds.push_back(PredicateTy::FCMP_TRUE);
-    } else if (ConstVal->isZeroValue()) {
-      Preds.push_back(PredicateTy::FCMP_FALSE);
     } else {
-      llvm_unreachable("Unexpected conditional branch value");
+      assert (ConstVal->isZeroValue() && "Unexpected compare condition!");
+      Preds.push_back(PredicateTy::FCMP_FALSE);
     }
     Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
     Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
-  } else {
-    assert(Cond->getType()->isIntegerTy(1) && "Cond should be an i1 type");
-    Preds.push_back(PredicateTy::ICMP_NE);
-    Refs.push_back(createScalarDDRef(Cond, Level));
-    Refs.push_back(getDDRefUtils().createConstDDRef(Cond->getType(), 0));
+    return;
   }
+
+  auto *CompareExpr = dyn_cast<ConstantExpr>(Cond);
+  if (CompareExpr && CompareExpr->isCompare()) {
+    Preds.push_back(static_cast<PredicateTy>(CompareExpr->getPredicate()));
+    Refs.push_back(createScalarDDRef(CompareExpr->getOperand(0), Level));
+    Refs.push_back(createScalarDDRef(CompareExpr->getOperand(1), Level));
+    return;
+  }
+
+  // We do not understand the condition. Fall back to parsing it as-
+  // (Cond != 0)
+  Preds.push_back(PredicateTy::ICMP_NE);
+  Refs.push_back(createScalarDDRef(Cond, Level));
+  Refs.push_back(getDDRefUtils().createConstDDRef(Cond->getType(), 0));
 }
 
 void HIRParser::parseCompare(const Value *Cond, unsigned Level,

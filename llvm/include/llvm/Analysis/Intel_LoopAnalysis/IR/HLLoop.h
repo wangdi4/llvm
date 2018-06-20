@@ -132,8 +132,6 @@ protected:
          RegDDRef *UpperDDRef, RegDDRef *StrideDDRef, unsigned NumEx);
 
   /// Copy constructor used by cloning.
-  /// CloneChildren parameter denotes if we want to clone
-  /// children and preheader/postexit.
   HLLoop(const HLLoop &HLLoopObj);
 
   /// Move assignment operator used by HLNodeUtils::permuteLoopNests() to move
@@ -622,7 +620,7 @@ public:
   /// such as exits, ub, lb, etc. Data members that depend on where the cloned
   /// loop lives in HIR (like parent, nesting level) are not copied. They will
   /// be updated by HLNode insertion/removal utilities.
-  HLLoop *cloneEmptyLoop() const;
+  HLLoop *cloneEmpty() const;
 
   /// Returns the number of operands associated with the loop ztt.
   unsigned getNumZttOperands() const;

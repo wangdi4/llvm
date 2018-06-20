@@ -89,6 +89,12 @@ private:
   // value of FIELD_DELETED indicates that the field was deleted.
   DenseMap<llvm::Type *, SmallVector<uint64_t, 16>> FieldIdxMap;
 
+  bool typeContainsDeletedFields(llvm::Type *Ty);
+
+  Constant *getStructReplacement(ConstantStruct *StInit, ValueMapper &Mapper);
+  Constant *getArrayReplacement(ConstantArray *ArInit, ValueMapper &Mapper);
+  Constant *getReplacement(Constant *Init, ValueMapper &Mapper);
+
   bool processGEPInst(GetElementPtrInst *GEP, uint64_t &NewIndex,
                       bool IsPreCloning);
   bool processPossibleByteFlattenedGEP(GetElementPtrInst *GEP);
@@ -487,12 +493,23 @@ void DeleteFieldImpl::processSubInst(Instruction *I) {
   }
 }
 
+// Check to see if we have deleted fields from this type at any level.
+bool DeleteFieldImpl::typeContainsDeletedFields(llvm::Type *Ty) {
+  if (!Ty->isAggregateType())
+    return false;
+  if (Ty->isStructTy())
+    return FieldIdxMap.count(Ty);
+  if (Ty->isArrayTy())
+    return typeContainsDeletedFields(Ty->getArrayElementType());
+  llvm_unreachable("Unexpected aggregate type");
+}
+
 GlobalVariable *
 DeleteFieldImpl::createGlobalVariableReplacement(GlobalVariable *GV) {
   Type *GVTy = GV->getType();
 
   // If we aren't deleting fields from this type, let the base class handle it.
-  if (!FieldIdxMap.count(GVTy->getPointerElementType()))
+  if (!typeContainsDeletedFields(GVTy->getPointerElementType()))
     return nullptr;
 
   Type *ReplTy = TypeRemapper->remapType(GVTy);
@@ -524,37 +541,49 @@ DeleteFieldImpl::createGlobalVariableReplacement(GlobalVariable *GV) {
   return NewGV;
 }
 
-void DeleteFieldImpl::initializeGlobalVariableReplacement(
-    GlobalVariable *OrigGV, GlobalVariable *NewGV, ValueMapper &Mapper) {
-  Constant *OrigInit = OrigGV->getInitializer();
-  assert(
-      (isa<ConstantAggregateZero>(OrigInit) || isa<ConstantStruct>(OrigInit)) &&
-      "Unexpected global variable initializer!");
-  // If the original initializer is a zero initializer just remap it.
-  if (isa<ConstantAggregateZero>(OrigInit)) {
-    NewGV->setInitializer(Mapper.mapConstant(*OrigGV->getInitializer()));
-    return;
-  }
+Constant *DeleteFieldImpl::getArrayReplacement(ConstantArray *ArInit,
+                                               ValueMapper &Mapper) {
+  llvm::Type *OrigTy = ArInit->getType();
+  unsigned OrigNumElements = OrigTy->getArrayNumElements();
+  SmallVector<Constant *, 16> NewInitVals;
+  for (unsigned Idx = 0; Idx < OrigNumElements; ++Idx)
+    NewInitVals.push_back(getReplacement(ArInit->getAggregateElement(Idx),
+                          Mapper));
+  Type *NewTy = TypeRemapper->remapType(OrigTy);
+  assert(NewTy->getArrayNumElements() == NewInitVals.size() &&
+         "Mismatched number of elements in array initializer creation!");
+  return ConstantArray::get(cast<ArrayType>(NewTy), NewInitVals);
+}
 
-  // Otherwise, we need to do an element by element copy.
-
-  // Because globals are always pointers, we need the type it's pointing to.
-  llvm::Type *OrigTy = OrigGV->getType()->getPointerElementType();
-
+Constant *DeleteFieldImpl::getStructReplacement(ConstantStruct *StInit,
+                                                ValueMapper &Mapper) {
+  llvm::Type *OrigTy = StInit->getType();
   assert(FieldIdxMap.count(OrigTy) &&
          "initializeGlobalVariableReplacement called for dependent type!");
-
   unsigned OrigNumFields = OrigTy->getStructNumElements();
   SmallVector<Constant *, 16> NewInitVals;
   for (unsigned Idx = 0; Idx < OrigNumFields; ++Idx)
     if (FieldIdxMap[OrigTy][Idx] != FIELD_DELETED)
-      NewInitVals.push_back(
-          Mapper.mapConstant(*OrigInit->getAggregateElement(Idx)));
-  auto *NewTy = cast<StructType>(NewGV->getType()->getPointerElementType());
-  assert(NewTy->getNumElements() == NewInitVals.size() &&
-         "Mismatched number of elements in global initializer creation!");
-  Constant *NewInit = ConstantStruct::get(NewTy, NewInitVals);
-  NewGV->setInitializer(NewInit);
+      NewInitVals.push_back(getReplacement(StInit->getAggregateElement(Idx),
+                            Mapper));
+  auto *NewTy = OrigToNewTypeMapping[OrigTy];
+  assert(NewTy->getStructNumElements() == NewInitVals.size() &&
+         "Mismatched number of elements in struct initializer creation!");
+  return ConstantStruct::get(cast<StructType>(NewTy), NewInitVals);
+}
+
+Constant *DeleteFieldImpl::getReplacement(Constant *Init, ValueMapper &Mapper) {
+  if (auto *StInit = dyn_cast<ConstantStruct>(Init))
+    return getStructReplacement(StInit, Mapper);
+  if (auto *ArInit = dyn_cast<ConstantArray>(Init))
+    return getArrayReplacement(ArInit, Mapper);
+  return Mapper.mapConstant(*Init);
+}
+
+void DeleteFieldImpl::initializeGlobalVariableReplacement(
+    GlobalVariable *OrigGV, GlobalVariable *NewGV, ValueMapper &Mapper) {
+  Constant *OrigInit = OrigGV->getInitializer();
+  NewGV->setInitializer(getReplacement(OrigInit, Mapper));
 }
 
 void DeleteFieldImpl::postprocessGlobalVariable(GlobalVariable *OrigGV,

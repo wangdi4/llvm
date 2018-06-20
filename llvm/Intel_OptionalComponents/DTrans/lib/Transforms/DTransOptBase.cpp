@@ -755,6 +755,12 @@ void DTransOptBase::updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
   uint64_t OrigSize = DL.getTypeAllocSize(OrigTy);
   uint64_t ReplSize = DL.getTypeAllocSize(ReplTy);
 
+  updatePtrSubDivUserSizeOperand(Sub, OrigSize, ReplSize);
+}
+
+void DTransOptBase::updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
+                                                   uint64_t OrigSize,
+                                                   uint64_t ReplSize) {
   for (auto *U : Sub->users()) {
     auto *BinOp = cast<BinaryOperator>(U);
     assert((BinOp->getOpcode() == Instruction::SDiv ||
