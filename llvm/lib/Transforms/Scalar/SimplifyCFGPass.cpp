@@ -28,7 +28,9 @@
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
-#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h" // INTEL
+#if INTEL_COLLAB
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/IR/Attributes.h"
@@ -44,7 +46,9 @@
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include <utility>
 using namespace llvm;
-using namespace llvm::vpo;           // INTEL
+#if INTEL_COLLAB
+using namespace llvm::vpo;
+#endif // INTEL_COLLAB
 
 #define DEBUG_TYPE "simplifycfg"
 
@@ -266,12 +270,12 @@ struct CFGSimplifyPass : public FunctionPass {
   }
 
   bool runOnFunction(Function &F) override {
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 // For VPO OpenMP handling we need SimplifyCFG even at -O0; calling this util
 // ensures it for functions with OpenMP directives. For other passes needed by
 // OpenMP even at -O0, see PassManagerBuilder::populateFunctionPassManager()
     if (VPOAnalysisUtils::skipFunctionForOpenmp(F))
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
       if (skipFunction(F) || (PredicateFtor && !PredicateFtor(F)))
         return false;
 
