@@ -879,7 +879,7 @@ void DTransOptBase::replaceSizeValue(
   LLVM_DEBUG(dbgs() << "  New value: " << *SizeUser << "\n");
 }
 
-// This helper function searches, starting with \p U opernad \p Idx and
+// This helper function searches, starting with \p U operand \p Idx and
 // following only multiply operations, for a User value with an operand that
 // is a constant integer and is an exact multiple of the specified size. If a
 // match is found, the \p UseStack vector will be populated with <User, Index>

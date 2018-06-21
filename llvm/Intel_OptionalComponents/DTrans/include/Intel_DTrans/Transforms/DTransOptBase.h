@@ -32,6 +32,7 @@
 namespace llvm {
 
 class BinaryOperator;
+class TargetLibraryInfo;
 
 namespace dtrans {
 class CallInfo;
@@ -140,11 +141,12 @@ public:
   // \param Materializer Optional class that works with ValueMapper to create
   // new Values during type remapping
   DTransOptBase(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
-                const DataLayout &DL, StringRef DepTypePrefix,
-                DTransTypeRemapper *TypeRemapper,
+                const DataLayout &DL, const TargetLibraryInfo &TLI,
+                StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper,
                 ValueMaterializer *Materializer = nullptr)
-      : DTInfo(DTInfo), Context(Context), DL(DL), DepTypePrefix(DepTypePrefix),
-        TypeRemapper(TypeRemapper), Materializer(Materializer) {}
+      : DTInfo(DTInfo), Context(Context), DL(DL), TLI(TLI),
+        DepTypePrefix(DepTypePrefix), TypeRemapper(TypeRemapper),
+        Materializer(Materializer) {}
 
   DTransOptBase(const DTransOptBase &) = delete;
   DTransOptBase &operator=(const DTransOptBase &) = delete;
@@ -340,6 +342,7 @@ protected:
   DTransAnalysisInfo &DTInfo;
   LLVMContext &Context;
   const DataLayout &DL;
+  const TargetLibraryInfo &TLI;
 
   // Optional string to precede names of dependent types that get renamed.
   std::string DepTypePrefix;

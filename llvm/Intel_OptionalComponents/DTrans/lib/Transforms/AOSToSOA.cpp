@@ -104,11 +104,12 @@ public:
   // Constructor that takes parameters needed for the base class, plus a list of
   // types that have been qualified for the transformation.
   AOSToSOATransformImpl(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
-                        const DataLayout &DL, StringRef DepTypePrefix,
+                        const DataLayout &DL, const TargetLibraryInfo &TLI,
+                        StringRef DepTypePrefix,
                         DTransTypeRemapper *TypeRemapper,
                         AOSToSOAMaterializer *Materializer,
                         SmallVectorImpl<dtrans::StructInfo *> &Types)
-      : DTransOptBase(DTInfo, Context, DL, DepTypePrefix, TypeRemapper,
+      : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper,
                       Materializer) {
     std::copy(Types.begin(), Types.end(), std::back_inserter(TypesToTransform));
 
@@ -1365,8 +1366,8 @@ bool AOSToSOAPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
   DTransTypeRemapper TypeRemapper;
   AOSToSOAMaterializer Materializer(TypeRemapper);
   AOSToSOATransformImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(),
-                                    "__SOADT_", &TypeRemapper, &Materializer,
-                                    CandidateTypes);
+                                    TLI, "__SOADT_", &TypeRemapper,
+                                    &Materializer, CandidateTypes);
   return Transformer.run(M);
 }
 
@@ -1788,7 +1789,6 @@ PreservedAnalyses AOSToSOAPass::run(Module &M, ModuleAnalysisManager &AM) {
   // TODO: Mark the actual preserved analyses.
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
-  PA.preserve<DTransAnalysis>();
   return PA;
 }
 

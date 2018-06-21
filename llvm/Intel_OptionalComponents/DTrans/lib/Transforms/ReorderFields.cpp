@@ -121,12 +121,12 @@ namespace dtrans {
 //    DTransOptBase do the actual type replacement.
 class ReorderFieldsImpl : public DTransOptBase {
 public:
-  ReorderFieldsImpl(TargetLibraryInfo &TLI, ReorderTransInfo &RTI,
-                    DTransAnalysisInfo &DTInfo, LLVMContext &Context,
-                    const DataLayout &DL, StringRef DepTypePrefix,
+  ReorderFieldsImpl(ReorderTransInfo &RTI, DTransAnalysisInfo &DTInfo,
+                    LLVMContext &Context, const DataLayout &DL,
+                    const TargetLibraryInfo &TLI, StringRef DepTypePrefix,
                     DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(DTInfo, Context, DL, DepTypePrefix, TypeRemapper),
-        TLI(TLI), RTI(RTI) {}
+      : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper),
+        RTI(RTI) {}
 
   virtual bool prepareTypes(Module &M) override;
   virtual void populateTypes(Module &M) override;
@@ -134,7 +134,6 @@ public:
   virtual void postprocessFunction(Function &Func, bool isCloned) override;
 
 private:
-  TargetLibraryInfo &TLI;
   ReorderTransInfo &RTI;
   TypeToTypeMap OrigToNewTypeMapping;
 
@@ -708,7 +707,7 @@ bool ReorderFieldsPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
 }
 
 bool ReorderFieldsPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                                TargetLibraryInfo &TLI) {
+                                const TargetLibraryInfo &TLI) {
   auto &DL = M.getDataLayout();
 
   if (!gatherCandidateTypes(DTInfo, DL))
@@ -723,7 +722,7 @@ bool ReorderFieldsPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 
   // Apply IR and type transformations using ReorderFieldsImpl.
   DTransTypeRemapper TypeRemapper;
-  ReorderFieldsImpl ReorderFieldsImpl(TLI, RTI, DTInfo, M.getContext(), DL,
+  ReorderFieldsImpl ReorderFieldsImpl(RTI, DTInfo, M.getContext(), DL, TLI,
                                       "__BDFR_", &TypeRemapper);
   ReorderFieldsImpl.run(M);
   return true;
@@ -738,7 +737,6 @@ PreservedAnalyses ReorderFieldsPass::run(Module &M, ModuleAnalysisManager &AM) {
   // TODO: Mark the actual preserved analyses.
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
-  PA.preserve<DTransAnalysis>();
   return PA;
 }
 

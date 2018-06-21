@@ -18,6 +18,7 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
@@ -45,12 +46,15 @@ public:
       return false;
     DTransAnalysisInfo &DTInfo =
         getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
-    return Impl.runImpl(M, DTInfo);
+    const TargetLibraryInfo &TLI =
+        getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+    return Impl.runImpl(M, DTInfo, TLI);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     // TODO: Mark the actual required and preserved analyses.
     AU.addRequired<DTransAnalysisWrapper>();
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
@@ -58,9 +62,9 @@ public:
 class DeleteFieldImpl : public DTransOptBase {
 public:
   DeleteFieldImpl(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
-                  const DataLayout &DL, StringRef DepTypePrefix,
-                  DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(DTInfo, Context, DL, DepTypePrefix, TypeRemapper) {}
+                  const DataLayout &DL, const TargetLibraryInfo &TLI,
+                  StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
+      : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper) {}
 
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
@@ -108,6 +112,7 @@ char DTransDeleteFieldWrapper::ID = 0;
 INITIALIZE_PASS_BEGIN(DTransDeleteFieldWrapper, "dtrans-deletefield",
                       "DTrans delete field", false, false)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(DTransDeleteFieldWrapper, "dtrans-deletefield",
                     "DTrans delete field", false, false)
 
@@ -691,10 +696,11 @@ void DeleteFieldImpl::postprocessGlobalVariable(GlobalVariable *OrigGV,
   }
 }
 
-bool dtrans::DeleteFieldPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo) {
+bool dtrans::DeleteFieldPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
+                                      const TargetLibraryInfo &TLI) {
 
   DTransTypeRemapper TypeRemapper;
-  DeleteFieldImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(),
+  DeleteFieldImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(), TLI,
                               "__DFDT_", &TypeRemapper);
   return Transformer.run(M);
 }
@@ -702,13 +708,13 @@ bool dtrans::DeleteFieldPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo) {
 PreservedAnalyses dtrans::DeleteFieldPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
+  auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
 
-  if (!runImpl(M, DTransInfo))
+  if (!runImpl(M, DTransInfo, TLI))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
-  PA.preserve<DTransAnalysis>();
   return PA;
 }

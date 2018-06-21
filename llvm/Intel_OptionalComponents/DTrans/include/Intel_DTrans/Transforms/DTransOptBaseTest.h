@@ -30,6 +30,7 @@
 namespace llvm {
 
 class DTransAnalysisInfo;
+class TargetLibraryInfo;
 
 namespace dtrans {
 
@@ -42,7 +43,8 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // This is used to share the core implementation with the legacy pass.
-  bool runImpl(Module &M, DTransAnalysisInfo &DTInfo);
+  bool runImpl(Module &M, DTransAnalysisInfo &DTInfo,
+               const TargetLibraryInfo &TLI);
 };
 
 } // namespace dtrans
