@@ -635,6 +635,8 @@ public:
     Regions.push_back(MRSrc);
   }
 
+  MemfuncKind getMemfuncCallInfoKind() const { return MK; }
+
   static StringRef MemfuncKindName(MemfuncKind MK) {
     switch (MK) {
     case MK_Memset:

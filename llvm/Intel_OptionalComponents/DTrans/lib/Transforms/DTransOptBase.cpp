@@ -747,6 +747,17 @@ void DTransOptBase::updateCallSizeOperand(Instruction *I,
   uint64_t OrigSize = DL.getTypeAllocSize(OrigTy);
   uint64_t ReplSize = DL.getTypeAllocSize(ReplTy);
 
+  updateCallSizeOperand(I, CInfo, OrigSize, ReplSize);
+}
+
+// This function performs the actual replacement for the size parameter
+// of a function call, by finding the original constant that is a
+// multiple of \p OrigSize, and replacing that value with a multiple
+// of \p ReplSize.
+void DTransOptBase::updateCallSizeOperand(Instruction *I,
+                                          dtrans::CallInfo *CInfo,
+                                          uint64_t OrigSize,
+                                          uint64_t ReplSize) {
   // Find the User value that has a constant integer multiple of the original
   // structure size as an operand.
   bool Found = false;
@@ -939,4 +950,14 @@ bool DTransOptBase::findValueMultipleOfSizeInst(
 
   // Otherwise, it's definitely not what we were looking for.
   return false;
+}
+
+void DTransOptBase::deleteCallInfo(dtrans::CallInfo *CInfo) {
+  Instruction *I = CInfo->getInstruction();
+  Function *F = I->getParent()->getParent();
+  auto &InfoVec = FunctionToCallInfoVec[F];
+
+  auto It = std::find(InfoVec.begin(), InfoVec.end(), CInfo);
+  InfoVec.erase(It);
+  DTInfo.deleteCallInfo(I);
 }

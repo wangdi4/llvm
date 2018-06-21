@@ -183,6 +183,8 @@ public:
 
     SmallVector<std::pair<AllocCallInfo *, StructInfo *>, 4> AllocsToConvert;
     SmallVector<std::pair<FreeCallInfo *, StructInfo *>, 4> FreesToConvert;
+    SmallVector<std::pair<MemfuncCallInfo *, StructInfo *>, 4>
+        MemfuncsToConvert;
 
     for (auto It = inst_begin(&F), E = inst_end(F); It != E; ++It) {
       Instruction *I = &*It;
@@ -209,14 +211,13 @@ public:
                   std::make_pair(AInfo, cast<StructInfo>(TI)));
               break;
             }
-            case dtrans::CallInfo::CIK_Free: {
+            case dtrans::CallInfo::CIK_Free:
               FreesToConvert.push_back(std::make_pair(cast<FreeCallInfo>(CInfo),
                                                       cast<StructInfo>(TI)));
               break;
-            }
             case dtrans::CallInfo::CIK_Memfunc:
-              // TODO: Need to add support for converted memfunc
-              // calls.
+              MemfuncsToConvert.push_back(std::make_pair(
+                  cast<MemfuncCallInfo>(CInfo), cast<StructInfo>(TI)));
               break;
             }
           }
@@ -253,6 +254,9 @@ public:
 
     for (auto &Free : FreesToConvert)
       processFreeCall(Free.first, Free.second);
+
+    for (auto &MemCall : MemfuncsToConvert)
+      processMemfuncCall(MemCall.first, MemCall.second);
 
     for (auto *GEP : ByteGEPsToConvert)
       processByteFlattendGEP(GEP);
@@ -1078,6 +1082,211 @@ public:
     FreeCall->setOperand(0, SOAAddrAsI8Ptr);
     LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: After modifying free call: "
                       << *FreeCall << "\n");
+  }
+
+    // The transformation of the memfunc call needs to replace the original
+    // call with a set of calls, one for each field being touched. This routine
+    // dispatches to the appropriate routine based on the type of call.
+  void processMemfuncCall(MemfuncCallInfo *CInfo, StructInfo *StInfo) {
+    switch (CInfo->getMemfuncCallInfoKind()) {
+    case MemfuncCallInfo::MK_Memset:
+      processMemset(CInfo, StInfo);
+      break;
+    case MemfuncCallInfo::MK_Memcpy:
+    case MemfuncCallInfo::MK_Memmove:
+      // Because the supported cases only allow an exact match of the source
+      // and destination structure types for the pointer parameters, the only
+      // case where an overlap could occur is when the source and destination
+      // are the same address, which means we can use the same code for
+      // handling both memcpyy and memmove calls.
+      processMemCpyOrMemmove(CInfo, StInfo);
+      break;
+    }
+  }
+
+  // Conversion of the memset requires that each field of the structure be set
+  // individually because they are no longer adjacent to one another. This
+  // routine will replace the original call with a set of memset calls which
+  // operate on the arrays of each field that is being set.
+  void processMemset(MemfuncCallInfo *CInfo, StructInfo *StInfo) {
+    // Compute the number of elements that are going to be set.
+    // Partial memfuncs can only operate on a single structure element, so
+    // we don't update the size multiple for those.
+    IntrinsicInst *I = cast<IntrinsicInst>(CInfo->getInstruction());
+    StructType *StructTy = cast<StructType>(StInfo->getLLVMType());
+    llvm::Type *SizeType = I->getArgOperand(2)->getType();
+    Value *CountToSet = nullptr;
+    if (!CInfo->getIsCompleteAggregate(0)) {
+      CountToSet = ConstantInt::get(SizeType, 1);
+    } else {
+      // Replace the size computation as if the size were effectively 1 to
+      // make the computation equal the number of elements being modified.
+      // Each memset created will multiply the size of the field by this
+      // new value to set the expected number of bytes in the array.
+      uint64_t OrigSize = DL.getTypeAllocSize(StructTy);
+      updateCallSizeOperand(I, CInfo, OrigSize, 1);
+      CountToSet = I->getOperand(2);
+    }
+
+    // Find the peeling index value to use for indexing into the arrays.
+    Value *DestPeelIndex = getPeelIndexFromValue(I->getArgOperand(0), StructTy,
+                                                 /*ForMemfunc/*/ true);
+    assert(DestPeelIndex->getType() == getPeeledIndexType() &&
+           "DestPeelIndex expected to match peeling type");
+
+    StructType *PeelTy = getTransformedType(StructTy);
+    unsigned FromField = 0;
+    unsigned ToField = PeelTy->getNumElements();
+    if (!CInfo->getIsCompleteAggregate(0)) {
+      FromField = CInfo->getFirstField(0);
+      ToField = CInfo->getLastField(0) + 1;
+    }
+
+    Value *PeelVar = PeeledTypeToVariable[PeelTy];
+    IRBuilder<> IRB(I);
+    llvm::Type *Int32Ty = Type::getIntNTy(I->getContext(), 32);
+
+    for (unsigned FieldNum = FromField; FieldNum < ToField; ++FieldNum) {
+      // Generate the load of the array address for the field, and then index
+      // into that by the peeling index.
+      Value *FieldNumVal = ConstantInt::get(Int32Ty, FieldNum);
+      Instruction *FieldGEP = createGEPFieldAddressReplacement(
+          PeelTy, PeelVar, DestPeelIndex,
+          ConstantInt::get(getPtrSizedIntType(), 0), FieldNumVal, I);
+
+      // Create the parameter to use for the pointer parameter of the memset
+      Value *PtrI8 = IRB.CreateBitCast(FieldGEP, getInt8PtrType());
+
+      // Compute the number of bytes to be written: CountToSet * sizeof(field)
+      llvm::Type *FieldType =
+          cast<llvm::PointerType>(PeelTy->getElementType(FieldNum))
+              ->getPointerElementType();
+      Value *BytesToSet = IRB.CreateMul(
+          CountToSet,
+          ConstantInt::get(SizeType, DL.getTypeStoreSize(FieldType)));
+
+      // Create a clone of the original call that will maintain all the
+      // original attributes, but on which we will modify the pointer and size
+      // parameters. We maintain the same value being written because the value
+      // being written is a byte, so will be the same for each field even if
+      // there is padding between fields. We do not currently preserve DTrans
+      // analysis info between transformation passes, and we did not add the
+      // peeling structure to the list of analysis data types, so we do not
+      // create new a CallInfo object for it. We only need the CallInfo when
+      // we start processing the function to identify which ones to update.
+      Instruction *CloneCall = I->clone();
+      CloneCall->setOperand(0, PtrI8);
+      CloneCall->setOperand(2, BytesToSet);
+      IRB.Insert(CloneCall);
+    }
+
+    // Inform the base class the call info for the original call is no longer
+    // valid. This is required because for cloned functions, the base class will
+    // update the CallInfo instruction pointer after the cloning is done.
+    deleteCallInfo(CInfo);
+    InstructionsToDelete.insert(I);
+  }
+
+  // Conversion of the memcpy/memmove requires that each field of the structure be processed
+  // individually because they are no longer adjacent to one another. This
+  // routine will replace the original call with memcpy/memmove calls that
+  // operate on the array for each field that is being processed.
+  void processMemCpyOrMemmove(MemfuncCallInfo *CInfo, StructInfo *StInfo) {
+    assert(CInfo->getIsCompleteAggregate(0) ==
+               CInfo->getIsCompleteAggregate(1) &&
+           "Expected source and destination to both be complete or both be "
+           "partial aggregates");
+    assert((CInfo->getIsCompleteAggregate(0) ||
+            (CInfo->getFirstField(0) == CInfo->getFirstField(0) &&
+             CInfo->getLastField(0) == CInfo->getLastField(1))) &&
+           "Expected source and destination to be same field range for partial "
+           "aggregates");
+
+    IntrinsicInst *I = cast<IntrinsicInst>(CInfo->getInstruction());
+    StructType *StructTy = cast<StructType>(StInfo->getLLVMType());
+
+    // Compute the number of elements that are going to be set.
+    // Partial memfuncs can only operate on a single structure element, so
+    // we don't update the size multiple for those.
+    llvm::Type *SizeType = I->getArgOperand(2)->getType();
+    Value *CountToSet = nullptr;
+    if (!CInfo->getIsCompleteAggregate(0)) {
+      CountToSet = ConstantInt::get(SizeType, 1);
+    } else {
+      // Replace the size computation as if the size were effectively 1 to
+      // make the computation equal the number of elements being modified.
+      // Each memcpy/memmove created will multiply the size of the field by this
+      // new value to set the expected number of bytes in the array.
+      uint64_t OrigSize = DL.getTypeAllocSize(StructTy);
+      updateCallSizeOperand(I, CInfo, OrigSize, 1);
+      CountToSet = I->getOperand(2);
+    }
+
+    // Find the peeling index value to use for indexing into the arrays.
+    Value *DestPeelIndex = getPeelIndexFromValue(I->getArgOperand(0), StructTy,
+                                                 /*ForMemfunc/*/ true);
+    assert(DestPeelIndex->getType() == getPeeledIndexType() &&
+           "DestPeelIndex expected to match peeling type");
+
+    Value *SrcPeelIndex = getPeelIndexFromValue(I->getArgOperand(1), StructTy,
+                                                /*ForMemfunc/*/ true);
+    assert(SrcPeelIndex->getType() == getPeeledIndexType() &&
+           "SrcPeelIndex expected to match peeling type");
+
+    StructType *PeelTy = getTransformedType(StructTy);
+    unsigned FromField = 0;
+    unsigned ToField = PeelTy->getNumElements();
+    if (!CInfo->getIsCompleteAggregate(0)) {
+      FromField = CInfo->getFirstField(0);
+      ToField = CInfo->getLastField(0) + 1;
+    }
+
+    Value *PeelVar = PeeledTypeToVariable[PeelTy];
+    IRBuilder<> IRB(I);
+    llvm::Type *Int32Ty = Type::getIntNTy(I->getContext(), 32);
+
+    for (unsigned FieldNum = FromField; FieldNum < ToField; ++FieldNum) {
+      // Generate the load of the array address for the field, and then index
+      // into that by the peeling index. This only needs to be done once,
+      // since both the source and destination pointers will just be different offsets from that array because the only support cases are when the types are the same.
+
+      Value *FieldNumVal = ConstantInt::get(Int32Ty, FieldNum);
+      Instruction *FieldAddr = createPeelFieldLoad(
+        PeelTy, PeelVar, FieldNumVal, I);
+
+      // Offset the address from the start of the array to the index
+      Value *DestPtrAddr = IRB.CreateGEP(FieldAddr, DestPeelIndex);
+      Value *DestPtrI8 = IRB.CreateBitCast(DestPtrAddr, getInt8PtrType());
+
+      // The source element is from the same array as the destination
+      Value *SrcPtrAddr = IRB.CreateGEP(FieldAddr, SrcPeelIndex);
+      Value *SrcPtrI8 = IRB.CreateBitCast(SrcPtrAddr, getInt8PtrType());
+
+      llvm::Type *FieldType =
+          cast<llvm::PointerType>(PeelTy->getElementType(FieldNum))
+              ->getPointerElementType();
+      Value *BytesToSet = IRB.CreateMul(
+          CountToSet, ConstantInt::get(CountToSet->getType(),
+                                       DL.getTypeStoreSize(FieldType)));
+
+      // Create a clone of the original call that will maintain all the
+      // original attributes, but on which we can modify the pointer and size
+      // parameters. We do not currently preserve DTrans analysis info between
+      // transformation passes, and the new call is not  a form that the
+      // memfunc analysis would support, so we do not create new CallInfo
+      // objects.
+      Instruction *CloneCall = I->clone();
+      CloneCall->setOperand(0, DestPtrI8);
+      CloneCall->setOperand(1, SrcPtrI8);
+      CloneCall->setOperand(2, BytesToSet);
+      IRB.Insert(CloneCall);
+    }
+
+    // Inform the base class the call info for the original call is no longer
+    // valid. This is required because for cloned f, the base class will
+    // update the CallInfo after the cloning is done.
+    deleteCallInfo(CInfo);
+    InstructionsToDelete.insert(I);
   }
 
   // For bitcasts from pointers to the type being transformed, we

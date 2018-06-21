@@ -306,6 +306,13 @@ protected:
   void updateCallSizeOperand(Instruction *I, dtrans::CallInfo *CInfo,
                              llvm::Type *OrigTy, llvm::Type *ReplTy);
 
+  // This is an overloaded version of the above function that allows the
+  // derived classes to pass in an original structure size in the \p OrigSize
+  // parameter and a new structure size in the \p ReplSize parameter to use for
+  // replacing the size operand in the function call contained within \p CInfo.
+  void updateCallSizeOperand(Instruction *I, dtrans::CallInfo *CInfo,
+                             uint64_t OrigSize, uint64_t ReplSize);
+
   // Given a pointer to a sub instruction that is known to subtract two
   // pointers, find all users of the instruction that divide the result by
   // a constant multiple of the original type and replace them with a divide
@@ -337,6 +344,8 @@ protected:
   bool findValueMultipleOfSizeInst(
       User *U, unsigned Idx, uint64_t Size,
       SmallVectorImpl<std::pair<User *, unsigned>> &UseStack);
+
+  void deleteCallInfo(dtrans::CallInfo *CInfo);
 
 protected:
   DTransAnalysisInfo &DTInfo;
