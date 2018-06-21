@@ -28,10 +28,9 @@ define void @test01(%struct.test01* %st_mem) {
 ; CHECK: define void @test01
 
   ; The pointer to structure being transformed will be converted to
-  ; an i64 type, so this needs to be converted to be inttoptr instead
-  ; of bitcast.
+  ; an i64 type, but this will be dead once the free call is
+  ; transformed
   %ptr = bitcast %struct.test01* %st_mem to i8*
-; CHECK: %ptr = inttoptr i64 %st_mem to i8*
 
   ; Verify the parameter passed to 'free' is changed to be the address
   ; stored in the first field of the peeled structure variable.

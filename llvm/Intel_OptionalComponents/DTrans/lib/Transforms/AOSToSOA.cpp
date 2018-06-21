@@ -176,6 +176,7 @@ public:
 
   virtual void processFunction(Function &F) override {
     SmallVector<GetElementPtrInst *, 16> GEPsToConvert;
+    SmallVector<GetElementPtrInst *, 16> ByteGEPsToConvert;
     SmallVector<BitCastInst *, 16> BCsToConvert;
     SmallVector<BinaryOperator *, 16> BinOpsToConvert;
 
@@ -219,7 +220,9 @@ public:
             }
           }
       } else if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
-        if (checkConversionNeeded(GEP))
+        if (checkByteGEPConversionNeeded(GEP))
+          ByteGEPsToConvert.push_back(GEP);
+        else if (checkConversionNeeded(GEP))
           GEPsToConvert.push_back(GEP);
       } else if (auto *PTI = dyn_cast<PtrToIntInst>(I)) {
         // A pointer may be cast to an integer type, and after the
@@ -250,6 +253,9 @@ public:
     for (auto &Free : FreesToConvert)
       processFreeCall(Free.first, Free.second);
 
+    for (auto *GEP : ByteGEPsToConvert)
+      processByteFlattendGEP(GEP);
+
     for (auto *GEP : GEPsToConvert)
       processGEP(GEP);
 
@@ -260,7 +266,13 @@ public:
     // byte-flattened GEPs, because those conversions are expecting
     // instructions with the bitcasts as an input.
     for (auto *BC : BCsToConvert)
-      processBC(BC);
+      processBitcast(BC);
+
+    for (auto *I : InstructionsToDelete)
+      I->eraseFromParent();
+
+    PeelIndexCache.clear();
+    InstructionsToDelete.clear();
   }
 
   bool checkConversionNeeded(GetElementPtrInst *GEP) {
@@ -273,22 +285,42 @@ public:
     return isTypeToTransform(ElementTy);
   }
 
+  bool checkByteGEPConversionNeeded(GetElementPtrInst *GEP) {
+    if (GEP->getNumIndices() != 1)
+      return false;
+
+    auto InfoPair = DTInfo.getByteFlattenedGEPElement(GEP);
+    if (!InfoPair.first)
+      return false;
+
+    return isTypeToTransform(InfoPair.first);
+  }
+
   bool checkConversionNeeded(PtrToIntInst *PTI) {
     Type *Ty = PTI->getOperand(0)->getType()->getPointerElementType();
     return isTypeToTransform(Ty);
   }
 
   bool checkConversionNeeded(BitCastInst *BC) {
-    // Conversions of struct.t* to i8* need to be processed, because
-    // after rewriting the types, these would become "bitcast i64 to i8*"
-    Type *Ty = BC->getOperand(0)->getType()->getPointerElementType();
+    // Conversions to or from pointers to the struct type being converted need
+    // to be processed, because after rewriting the types, these would become
+    // a bitcast from or to an i64 type.
+    if (isTypeToTransform(BC->getDestTy()->getPointerElementType())) {
+      // We only expect bitcasts to be with i8* due to the safety checks, assert
+      // this to be sure.
+      assert(BC->getSrcTy() == getInt8PtrType() &&
+             "Only cast from i8* expected for transformed type");
+      return true;
+    }
+
+    Type *Ty = BC->getSrcTy()->getPointerElementType();
     bool ShouldTransform = isTypeToTransform(Ty);
     if (!ShouldTransform)
       return false;
 
     // We only expect bitcasts to be to i8* due to the safety checks, assert
     // this to be sure.
-    assert(BC->getType() == getInt8PtrType() &&
+    assert(BC->getDestTy() == getInt8PtrType() &&
            "Only cast to i8* expected for transformed type");
     return true;
   }
@@ -388,7 +420,7 @@ public:
       PtrConverts.push_back(ArrayIdx);
 
       GEP->replaceAllUsesWith(ArrayIdx);
-      GEP->eraseFromParent();
+      InstructionsToDelete.insert(GEP);
     } else {
       // This will convert the GEP of case 2 from:
       //    %elem_addr =
@@ -444,7 +476,7 @@ public:
       }
 
       GEP->replaceAllUsesWith(ReplVal);
-      GEP->eraseFromParent();
+      InstructionsToDelete.insert(GEP);
     }
   }
 
@@ -560,6 +592,143 @@ public:
     llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
     uint64_t OrigSize = DL.getTypeAllocSize(PtrSubTy);
     updatePtrSubDivUserSizeOperand(BinOp, OrigSize, 1);
+  }
+
+  // The byte-flattened GEP needs to be transformed from getting the address as:
+  //    %p8_B = getelementptr i8, i8* %p, i64 8
+  // (In this case field 1 is offset 8 bytes from the start of the structure)
+  //
+  // To:
+  //    %peelIdxAsInt = ptrtoint %struct.test01* %p to i64
+  //    %peel_base = getelementptr % __soa_struct.t,
+  //                        %__soa_struct.t* @__soa_struct.t, i64 0, i32 1
+  //    %soa_addr = load i32*, i32** %peel_base
+  //    %field_gep = getelementptr i32, i32* %soa_addr, i64 %peelIdxAsInt
+  //    %p8_B = bitcast i32* %elem_addr to i8*
+  void processByteFlattendGEP(GetElementPtrInst *GEP) {
+    auto InfoPair = DTInfo.getByteFlattenedGEPElement(GEP);
+    auto *OrigStructTy = cast<llvm::StructType>(InfoPair.first);
+
+    // Trace the pointer operand to find the base value that is needed
+    // for indexing into the field's array.
+    Value *IndexAsInt =
+        getPeelIndexFromValue(GEP->getPointerOperand(), OrigStructTy,
+                              /*ForMemfunc=*/false);
+
+    StructType *PeelType = getTransformedType(OrigStructTy);
+    Value *PeelVar = PeeledTypeToVariable[PeelType];
+    Value *FieldNum =
+        ConstantInt::get(Type::getInt32Ty(GEP->getContext()), InfoPair.second);
+    Instruction *FieldGEP = createGEPFieldAddressReplacement(
+        PeelType, PeelVar, IndexAsInt,
+        ConstantInt::get(getPtrSizedIntType(), 0), FieldNum, GEP);
+
+    llvm::Type *PeelFieldTy = PeelType->getElementType(InfoPair.second);
+    if (PeelFieldTy != GEP->getType())
+      FieldGEP =
+          CastInst::CreateBitOrPointerCast(FieldGEP, GEP->getType(), "", GEP);
+
+    FieldGEP->takeName(GEP);
+    GEP->replaceAllUsesWith(FieldGEP);
+    InstructionsToDelete.insert(GEP);
+  }
+
+  // This is a helper function for identifying the peeling index to use
+  // for byte-flattened GEPs and for memfunc transformations. For memfunc
+  // transformations there is an additional pattern allowed which looks at
+  // GEPs that get the address of a field within the original structure when
+  // \p ForMemfunc is true.
+  Value *getPeelIndexFromValue(Value *Op, StructType *OrigStructTy,
+                               bool ForMemfunc) {
+    if (!PeelIndexCache[Op])
+      PeelIndexCache[Op] =
+          createPeelIndexFromValue(Op, OrigStructTy, ForMemfunc);
+
+    return PeelIndexCache[Op];
+  }
+
+  // This walks the definitions through bitcasts, selects and PHI nodes for
+  // \p Op to find the index value to use for peeling index.
+  Value *createPeelIndexFromValue(Value *Op, StructType *OrigStructTy,
+                                  bool ForMemfunc) {
+    // If \p Op is a bitcast from a pointer to the type being transformed to an
+    // i8*, then we can directly use the source operand of bitcast, since we
+    // know this is going to be turned into the peeling index type.
+    if (auto *BC = dyn_cast<BitCastInst>(Op)) {
+      if (BC->getOperand(0)->getType() == OrigStructTy->getPointerTo())
+        return createCastToPeelIndexType(BC->getOperand(0), BC);
+      else
+        return getPeelIndexFromValue(BC->getOperand(0), OrigStructTy,
+                                     ForMemfunc);
+    }
+
+    // For select and PHI nodes, create new instructions that will act on the
+    // peeling index type, instead of the pointer type.
+    if (auto *Sel = dyn_cast<SelectInst>(Op)) {
+      Value *NewTrue =
+          getPeelIndexFromValue(Sel->getTrueValue(), OrigStructTy, ForMemfunc);
+      Value *NewFalse =
+          getPeelIndexFromValue(Sel->getFalseValue(), OrigStructTy, ForMemfunc);
+      Instruction *NewSel =
+          SelectInst::Create(Sel->getCondition(), NewTrue, NewFalse, "", Sel);
+      return NewSel;
+    }
+
+    if (auto *PHI = dyn_cast<PHINode>(Op)) {
+      PHINode *NewPhi = PHINode::Create(getPeeledIndexType(), 0, "", PHI);
+
+      // Save the new PHI so that if another reference to is found while walking
+      // the definitions this one will be used.
+      PeelIndexCache[PHI] = NewPhi;
+
+      SmallVector<Value *, 4> NewPhiVals;
+      for (Value *Val : PHI->incoming_values())
+        NewPhiVals.push_back(
+            getPeelIndexFromValue(Val, OrigStructTy, ForMemfunc));
+
+      unsigned NumIncoming = PHI->getNumIncomingValues();
+      for (unsigned Num = 0; Num < NumIncoming; ++Num)
+        NewPhi->addIncoming(NewPhiVals[Num], PHI->getIncomingBlock(Num));
+
+      return NewPhi;
+    }
+
+    // When back tracing for the index used in a memfunc, we need to also
+    // consider the case where the address of the field is used to form
+    // the i8* pointer passed to the call.
+    // For example:
+    //    %p = getelementptr %struct.ty, %struct.ty* %S, i64 %n, i32 0
+    //
+    // If %p were passed to a memfunc, we cannot simply convert the pointer to
+    // an integer to get the peeling index. %S will be the peeling index, and we
+    // need to offset this by the value of %n to get &S.field0[n]. In this case,
+    // we return the expression (ptrtoint %S) + %n so that the conversion of the
+    // memfunc call will start with that index value in all the fields being
+    // touched. If %n equals 0, we can just return (ptrtoint %S)
+    if (ForMemfunc)
+      if (auto *GEP = dyn_cast<GetElementPtrInst>(Op))
+        if (GEP->getSourceElementType() == OrigStructTy &&
+            GEP->getNumIndices() == 2) {
+          Instruction *PeelIdxAsInt =
+              createCastToPeelIndexType(GEP->getPointerOperand(), GEP);
+
+          Value *GEPBaseIdx = GEP->getOperand(1);
+          if (!dtrans::isValueEqualToSize(GEPBaseIdx, 0)) {
+            uint64_t PeelIdxWidth = getPeeledIndexWidth();
+            uint64_t BaseIdxWidth = DL.getTypeSizeInBits(GEPBaseIdx->getType());
+            if (BaseIdxWidth < PeelIdxWidth)
+              GEPBaseIdx = CastInst::Create(CastInst::SExt, GEPBaseIdx,
+                                            PeelIdxAsInt->getType(), "", GEP);
+
+            PeelIdxAsInt =
+                BinaryOperator::CreateAdd(PeelIdxAsInt, GEPBaseIdx, "", GEP);
+          }
+          return PeelIdxAsInt;
+        }
+
+    // We should not get here, but assert if we do in case there are additional
+    // cases that require a conversion of the pointer type to the peeling index.
+    llvm_unreachable("Not handled");
   }
 
   // Update the signature of the function's clone and any instructions that need
@@ -789,7 +958,7 @@ public:
           ConstantInt::get(getPeeledIndexType(), 1), BC->getType());
       IndexAsPtr->insertBefore(BC);
       BC->replaceAllUsesWith(IndexAsPtr);
-      BC->eraseFromParent();
+      InstructionsToDelete.insert(BC);
       PtrConverts.push_back(IndexAsPtr);
     }
 
@@ -910,25 +1079,48 @@ public:
                       << *FreeCall << "\n");
   }
 
-  // For Bitcasts from pointers to the type being transformed, we
+  // For bitcasts from pointers to the type being transformed, we
   // need to update them because the pointer is going to be converted
-  // to an integer type during type reampping.
-  void processBC(BitCastInst *BC) {
-    // Convert: %y = bitcast %struct.ty* %x to i8*
-    // To be  : %cast1 = ptrtoint %struct.ty* %x to i64
-    //          %y = inttoptr i64 %cast1 to i8*
+  // to an integer type during type remapping. We also need to do this
+  // if the cast is to the type being converted.
+  void processBitcast(BitCastInst *BC) {
+
+    // The bitcast may no longer be needed after processing the byte flattened
+    // GEPs.
+    if (BC->user_empty()) {
+      InstructionsToDelete.insert(BC);
+      return;
+    }
+
+    // Convert a bitcast from or to a pointer of the type being transformed:
+    //
+    // From: %y = bitcast %struct.ty* %x to i8*
+    // To  : %cast1 = ptrtoint %struct.ty* %x to i64
+    //        %y = inttoptr i64 %cast1 to i8*
+    //
+    // From: %y = bitcast i8* %x to %struct.ty*
+    // To  : %cast1 = ptrtoint i8* %x to i64
+    //       %y = inttoptr i64 %cast1 to struct.ty*
+    //
     // This will makes the types consistent. During post-processing
-    // the ptrtoint instruction will be removed, because it will be a
-    // conversion from i64 to i64 after the types are remapped.
-    CastInst *ToInt = CastInst::CreateBitOrPointerCast(BC->getOperand(0),
-                                                       getPeeledIndexType());
-    ToInt->insertBefore(BC);
-    PtrConverts.push_back(ToInt);
-    CastInst *ToPtr = CastInst::CreateBitOrPointerCast(ToInt, BC->getType());
-    ToPtr->insertBefore(BC);
-    ToPtr->takeName(BC);
+    // the one of the int-ptr conversions will just be a conversion
+    // from i64 to i64, and will be removed.
+    CastInst *ToInt = CastInst::CreateBitOrPointerCast(
+        BC->getOperand(0), getPeeledIndexType(), "", BC);
+    CastInst *ToPtr =
+        CastInst::CreateBitOrPointerCast(ToInt, BC->getType(), "", BC);
+
+    // Mark one of the casts for remove, and steal the name for the other
+    if (isTypeToTransform(BC->getType()->getPointerElementType())) {
+      PtrConverts.push_back(ToPtr);
+      ToInt->takeName(BC);
+    } else {
+      PtrConverts.push_back(ToInt);
+      ToPtr->takeName(BC);
+    }
+
     BC->replaceAllUsesWith(ToPtr);
-    BC->eraseFromParent();
+    InstructionsToDelete.insert(BC);
   }
 
 private:
@@ -1076,6 +1268,18 @@ private:
   // and destination types, and are to be removed during function post
   // processing. This list is reset for each function processed.
   SmallVector<CastInst *, 16> PtrConverts;
+
+  // When processing byte-flattened GEPs and memfuncs some instructions may be
+  // processed to get the peeling index. This cache is used to get the
+  // processed values so they do not need to be recomputed for multiple
+  // instructions being processed. This is also necessary to avoid cycles when
+  // walking PHI nodes. This map needs be cleared after processing each
+  // function.
+  DenseMap<Value *, Value *> PeelIndexCache;
+
+  // List of instructions that are to be removed at the end of
+  // processFunction().
+  SmallPtrSet<Instruction *, 16> InstructionsToDelete;
 };
 
 class DTransAOSToSOAWrapper : public ModulePass {
@@ -1140,6 +1344,9 @@ bool AOSToSOAPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
   // Check whether there are any candidate structures that can be transformed.
   StructInfoVec CandidateTypes;
   gatherCandidateTypes(DTInfo, CandidateTypes);
+  if (CandidateTypes.empty())
+    return false;
+
   qualifyCandidates(CandidateTypes, M, DTInfo, GetDT);
 
   if (CandidateTypes.empty())
