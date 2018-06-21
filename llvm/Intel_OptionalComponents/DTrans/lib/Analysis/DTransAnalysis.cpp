@@ -3833,13 +3833,17 @@ private:
         if ((FieldTy != ValTy) &&
             (!FieldTy->isPointerTy() ||
              (ValTy != PtrSizeIntTy && ValTy != Int8PtrTy))) {
-          // The local pointer analyzer should have directed us to the
-          // correct level of nesting.
-          assert(!dtrans::isElementZeroAccess(FieldTy->getPointerTo(),
-                                              ValTy->getPointerTo()));
-          LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
-          LLVM_DEBUG(dbgs() << "  " << I << "\n");
-          setBaseTypeInfoSafetyData(ParentTy, dtrans::MismatchedElementAccess);
+          // This normally won't be an element zero access, but in the case
+          // where element zero of a nested type is an i8* that determination
+          // is ambiguous, so the check here prevents us from being intolerant
+          // of that situation.
+          if (!dtrans::isElementZeroAccess(FieldTy->getPointerTo(),
+                                           ValTy->getPointerTo())) {
+            LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
+            LLVM_DEBUG(dbgs() << "  " << I << "\n");
+            setBaseTypeInfoSafetyData(ParentTy,
+                                      dtrans::MismatchedElementAccess);
+          }
         }
 
         if (ParentTy->isStructTy()) {
