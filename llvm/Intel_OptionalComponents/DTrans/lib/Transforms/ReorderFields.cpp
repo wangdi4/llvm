@@ -36,7 +36,7 @@ static cl::opt<bool> DTransReoderFieldsPaddingHeuristic(
 // Minimum unused space (padding) percent threshold to select candidate
 // structure for reorder fields.
 static cl::opt<unsigned> DTransReorderFieldsUnusedSpacePercentThreshold(
-    "dtrans-reorder-fields-unused-space-percent-threshold", cl::init(20),
+    "dtrans-reorder-fields-unused-space-percent-threshold", cl::init(16),
     cl::ReallyHidden);
 
 // Field reordering may not help to utilize all unused space in the original
@@ -44,7 +44,7 @@ static cl::opt<unsigned> DTransReorderFieldsUnusedSpacePercentThreshold(
 // transformation if reordering is not profitable. Minimum saved space
 // percent threshold with field reordering to enable the transformation.
 static cl::opt<unsigned> DTransReorderFieldsSavedSpacePercentThreshold(
-    "dtrans-reorder-fields-saved-space-percent-threshold", cl::init(16),
+    "dtrans-reorder-fields-saved-space-percent-threshold", cl::init(13),
     cl::ReallyHidden);
 
 // Limit size of structs that are selected for reordering fields based
@@ -550,6 +550,9 @@ bool ReorderFieldsPass::isCandidateType(StructType *StructT,
     return true;
 
   // Check more heuristics here if needed.
+
+  LLVM_DEBUG(dbgs() << "  Rejecting " << getStName(StructT)
+                    << " based on heuristics.\n");
 
   return false;
 }
