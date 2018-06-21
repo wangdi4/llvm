@@ -1,3 +1,38 @@
+# INTEL_CUSTOMIZATION
+set(INTEL_SOURCE_FILES
+  Intel_AggInlAA.cpp
+  Intel_GlobalOpt.cpp
+  Intel_IndirectCallConv.cpp
+  Intel_LoopOptMarker.cpp
+  Intel_LoopOptReportEmitter.cpp
+  Intel_LowerSubscriptIntrinsic.cpp
+  Intel_RemoveRegionDirectives.cpp
+  Intel_StdContainerOpt.cpp
+  Intel_TbaaMDPropagation.cpp
+  Intel_MultiVersioning.cpp
+  )
+
+set(INTEL_CSA_SOURCE_FILES
+  LoopSPMDization.cpp
+  )
+
+set(INTEL_SOURCE_FILES_TO_BUILD)
+if (INTEL_CUSTOMIZATION)
+#  if(";${LLVM_TARGETS_TO_BUILD};" MATCHES ";CSA;")
+    list(APPEND INTEL_SOURCE_FILES ${INTEL_CSA_SOURCE_FILES})
+#  else()
+#    list(APPEND LLVM_OPTIONAL_SOURCES ${INTEL_CSA_SOURCE_FILES})
+#  endif()
+
+  set(INTEL_SOURCE_FILES_TO_BUILD ${INTEL_SOURCE_FILES})
+else()
+  list(APPEND LLVM_OPTIONAL_SOURCES
+    ${INTEL_SOURCE_FILES}
+    ${INTEL_CSA_SOURCE_FILES}
+    )
+endif()
+# end INTEL_CUSTOMIZATION
+
 add_llvm_library(LLVMScalarOpts
   ADCE.cpp
   AlignmentFromAssumptions.cpp
@@ -21,16 +56,7 @@ add_llvm_library(LLVMScalarOpts
   IndVarSimplify.cpp
   InferAddressSpaces.cpp
 # INTEL_CUSTOMIZATION
-  Intel_AggInlAA.cpp
-  Intel_GlobalOpt.cpp
-  Intel_IndirectCallConv.cpp
-  Intel_LoopOptMarker.cpp
-  Intel_LoopOptReportEmitter.cpp
-  Intel_LowerSubscriptIntrinsic.cpp
-  Intel_RemoveRegionDirectives.cpp
-  Intel_StdContainerOpt.cpp
-  Intel_TbaaMDPropagation.cpp
-  Intel_MultiVersioning.cpp
+  ${INTEL_SOURCE_FILES_TO_BUILD}
 # end INTEL_CUSTOMIZATION
   JumpThreading.cpp
   LICM.cpp
@@ -47,7 +73,6 @@ add_llvm_library(LLVMScalarOpts
   LoopRerollPass.cpp
   LoopRotation.cpp
   LoopSimplifyCFG.cpp
-  LoopSPMDization.cpp
   LoopStrengthReduce.cpp
   LoopUnrollPass.cpp
   LoopUnswitch.cpp

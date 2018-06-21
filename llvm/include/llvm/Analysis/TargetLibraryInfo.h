@@ -280,7 +280,7 @@ public:
     case LibFunc_tan:          case LibFunc_tanf:       case LibFunc_tanl:
     case LibFunc_atan:         case LibFunc_atanf:      case LibFunc_atanl:
     case LibFunc_atan2:        case LibFunc_atan2f:     case LibFunc_atan2l:
-#endif
+#endif  // INTEL_CUSTOMIZATION
     case LibFunc_sqrt:         case LibFunc_sqrtf:      case LibFunc_sqrtl:
     case LibFunc_sqrt_finite:  case LibFunc_sqrtf_finite:
                                                    case LibFunc_sqrtl_finite:
@@ -297,7 +297,7 @@ public:
 #if INTEL_CUSTOMIZATION
     case LibFunc_log:          case LibFunc_logf:       case LibFunc_logl:
     case LibFunc_exp:          case LibFunc_expf:       case LibFunc_expl:
-#endif
+#endif  // INTEL_CUSTOMIZATION
     case LibFunc_memcmp:       case LibFunc_strcmp:     case LibFunc_strcpy:
     case LibFunc_stpcpy:       case LibFunc_strlen:     case LibFunc_strnlen:
     case LibFunc_memchr:       case LibFunc_mempcpy:

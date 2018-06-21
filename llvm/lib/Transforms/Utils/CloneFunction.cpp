@@ -723,20 +723,26 @@ void llvm::remapInstructionsInBlocks(
 #if INTEL_CUSTOMIZATION
 /// \brief Clones the original loop \p OrigLoop structure
 /// and keeps it ready to add the basic blocks.
-static void createNewLoops(Loop *OrigLoop, LoopInfo *LI, Loop *ParentLoop,
+///
+/// \p NewLoop is an shallow copy of \p OrigLoop.  The routine recursively
+/// copies the structure of Loops enclosed in \p OrigLoop by creating
+/// copies for the descendant Loops and update \p LI LoopInfo.
+/// \p ClonedLoopMap is updated to keep the mapping between the original
+/// descendant Loops and the newly created ones.
+static void createNewLoops(Loop *OrigLoop, LoopInfo *LI, Loop *NewLoop,
                            std::map<Loop*, Loop*>  &ClonedLoopMap) {
   if (OrigLoop->empty()) return;
 
   for (auto CurrLoop :  OrigLoop->getSubLoops()) {
-    Loop *NewLoop = LI->AllocateLoop();
-    ParentLoop->addChildLoop(NewLoop);
-    ClonedLoopMap[CurrLoop] = NewLoop;
+    Loop *NewChildLoop = LI->AllocateLoop();
+    NewLoop->addChildLoop(NewChildLoop);
+    ClonedLoopMap[CurrLoop] = NewChildLoop;
 
     // Recursively add the new loops.
-    createNewLoops(CurrLoop, LI, NewLoop, ClonedLoopMap);
+    createNewLoops(CurrLoop, LI, NewChildLoop, ClonedLoopMap);
   }
 }
-#endif //INTEL_CUSTOMIZATION
+#endif  // INTEL_CUSTOMIZATION
 
 /// Clones a loop \p OrigLoop.  Returns the loop and the blocks in \p
 /// Blocks.
@@ -790,7 +796,7 @@ Loop *llvm::cloneLoopWithPreheader(BasicBlock *Before, BasicBlock *LoopDomBB,
     Loop* L = LI->getLoopFor(BB);
     // Get the corresponding cloned loop.
     Loop* NewClonedLoop = ClonedLoopMap[L];
-    assert(NewClonedLoop && "Could not find the corresponding cloned loop");
+    assert(NewClonedLoop && "Could not find the corresponding cloned loop.");
     // Update LoopInfo.
     NewClonedLoop->addBasicBlockToLoop(NewBB, *LI);
 #endif // INTEL_CUSTOMIZATION

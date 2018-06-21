@@ -96,9 +96,6 @@ if ($PEROBJ) {
     $libpath =~ s/^AsmPrinter/CodeGen\/AsmPrinter/;
     $libpath =~ s/^BitReader/Bitcode\/Reader/;
     $libpath =~ s/^BitWriter/Bitcode\/Writer/;
-# INTEL_CUSTOMIZATION
-    $libpath =~ s/^CSA/Target\/CSA/;
-# END INTEL_CUSTOMIZATION
     $libpath =~ s/^MSIL/Target\/MSIL/;
     $libpath =~ s/^Core/IR/;
     $libpath =~ s/^Instrumentation/Transforms\/Instrumentation/;
@@ -139,9 +136,6 @@ if ($PEROBJ) {
     $libpath =~ s/^AsmPrinter/CodeGen\/AsmPrinter/;
     $libpath =~ s/^BitReader/Bitcode\/Reader/;
     $libpath =~ s/^BitWriter/Bitcode\/Writer/;
-# INTEL_CUSTOMIZATION
-    $libpath =~ s/^CSA/Target\/CSA/;
-# END INTEL_CUSTOMIZATION
     $libpath =~ s/^MSIL/Target\/MSIL/;
     $libpath =~ s/^Core/VMCore/;
     $libpath =~ s/^Instrumentation/Transforms\/Instrumentation/;

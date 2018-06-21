@@ -1,3 +1,27 @@
+# INTEL_CUSTOMIZATION
+set(INTEL_SOURCE_FILES
+  )
+set(INTEL_CSA_SOURCE_FILES
+  CSAOpSizes.cpp
+  )
+
+set(INTEL_SOURCE_FILES_TO_BUILD)
+if (INTEL_CUSTOMIZATION)
+#  if(";${LLVM_TARGETS_TO_BUILD};" MATCHES ";CSA;")
+    list(APPEND INTEL_SOURCE_FILES ${INTEL_CSA_SOURCE_FILES})
+#  else()
+#    list(APPEND LLVM_OPTIONAL_SOURCES ${INTEL_CSA_SOURCE_FILES})
+#  endif()
+
+  set(INTEL_SOURCE_FILES_TO_BUILD ${INTEL_SOURCE_FILES})
+else()
+  list(APPEND LLVM_OPTIONAL_SOURCES
+    ${INTEL_SOURCE_FILES}
+    ${INTEL_CSA_SOURCE_FILES}
+    )
+endif()
+# end INTEL_CUSTOMIZATION
+
 set(LLVM_LINK_COMPONENTS Support)
 
 add_tablegen(llvm-tblgen LLVM
@@ -14,7 +38,9 @@ add_tablegen(llvm-tblgen LLVM
   CodeGenRegisters.cpp
   CodeGenSchedule.cpp
   CodeGenTarget.cpp
-  CSAOpSizes.cpp
+# INTEL_CUSTOMIZATION
+  ${INTEL_SOURCE_FILES_TO_BUILD}
+# end INTEL_CUSTOMIZATION
   DAGISelEmitter.cpp
   DAGISelMatcherEmitter.cpp
   DAGISelMatcherGen.cpp

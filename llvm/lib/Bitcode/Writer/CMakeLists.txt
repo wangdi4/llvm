@@ -1,9 +1,35 @@
+# INTEL_CUSTOMIZATION
+set(INTEL_SOURCE_FILES
+  )
+set(INTEL_CSA_SOURCE_FILES
+    CSASaveRawBC.cpp
+  )
+
+set(INTEL_SOURCE_FILES_TO_BUILD)
+if (INTEL_CUSTOMIZATION)
+#  if(";${LLVM_TARGETS_TO_BUILD};" MATCHES ";CSA;")
+    list(APPEND INTEL_SOURCE_FILES ${INTEL_CSA_SOURCE_FILES})
+#  else()
+#    list(APPEND LLVM_OPTIONAL_SOURCES ${INTEL_CSA_SOURCE_FILES})
+#  endif()
+
+  set(INTEL_SOURCE_FILES_TO_BUILD ${INTEL_SOURCE_FILES})
+else()
+  list(APPEND LLVM_OPTIONAL_SOURCES
+    ${INTEL_SOURCE_FILES}
+    ${INTEL_CSA_SOURCE_FILES}
+    )
+endif()
+# end INTEL_CUSTOMIZATION
+
 add_llvm_library(LLVMBitWriter
   BitWriter.cpp
   BitcodeWriter.cpp
   BitcodeWriterPass.cpp
   ValueEnumerator.cpp
-  CSASaveRawBC.cpp
+# INTEL_CUSTOMIZATION
+  ${INTEL_SOURCE_FILES_TO_BUILD}
+# end INTEL_CUSTOMIZATION
   DEPENDS
   intrinsics_gen
   )

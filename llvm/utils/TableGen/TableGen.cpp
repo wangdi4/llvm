@@ -27,7 +27,6 @@ enum ActionType {
   GenEmitter,
   GenRegisterInfo,
   GenInstrInfo,
-  GenCSAOpTypes,
   GenInstrDocs,
   GenAsmWriter,
   GenAsmMatcher,
@@ -52,6 +51,7 @@ enum ActionType {
   GenSVMLVariants,     // TODO: VEC to COLLAB
   GenLibmvecVariants,
   GenMAPatterns,
+  GenCSAOpTypes,
 #endif // INTEL_CUSTOMIZATION
   GenAttributes,
   GenSearchableTables,
@@ -72,8 +72,6 @@ namespace {
                                "Generate registers and register classes info"),
                     clEnumValN(GenInstrInfo, "gen-instr-info",
                                "Generate instruction descriptions"),
-                    clEnumValN(GenCSAOpTypes, "gen-csa-op-size",
-                               "Generate op size matches for CSA"),
                     clEnumValN(GenInstrDocs, "gen-instr-docs",
                                "Generate instruction documentation"),
                     clEnumValN(GenCallingConv, "gen-callingconv",
@@ -122,6 +120,8 @@ namespace {
                                "Generate Libmvec variant function names"),
                     clEnumValN(GenMAPatterns, "gen-ma-patterns",
                                "Generate MUL/ADD patterns"),
+                    clEnumValN(GenCSAOpTypes, "gen-csa-op-size",
+                               "Generate op size matches for CSA"),
 #endif // INTEL_CUSTOMIZATION
                     clEnumValN(GenSearchableTables, "gen-searchable-tables",
                                "Generate generic binary-searchable table"),
@@ -152,9 +152,6 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
     break;
   case GenInstrInfo:
     EmitInstrInfo(Records, OS);
-    break;
-  case GenCSAOpTypes:
-    EmitCSAOpTypes(Records, OS);
     break;
   case GenInstrDocs:
     EmitInstrDocs(Records, OS);
@@ -239,6 +236,9 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
     break;
   case GenMAPatterns:
     EmitMAPatterns(Records, OS);
+    break;
+  case GenCSAOpTypes:
+    EmitCSAOpTypes(Records, OS);
     break;
 #endif // INTEL_CUSTOMIZATION
   case GenSearchableTables:

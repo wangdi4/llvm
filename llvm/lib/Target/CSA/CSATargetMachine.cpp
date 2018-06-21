@@ -134,6 +134,8 @@ public:
       : TargetPassConfig(TM, PM) {
     disablePass(&MachineLICMID);
     disablePass(&MachineCopyPropagationID);
+    // TailDuplication destroys natural loop form, don't do it for CSA.
+    disablePass(&EarlyTailDuplicateID);
   }
 
   CSATargetMachine &getCSATargetMachine() const {

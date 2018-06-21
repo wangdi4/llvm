@@ -67,7 +67,6 @@ void EmitAsmMatcher(RecordKeeper &RK, raw_ostream &OS);
 void EmitAsmWriter(RecordKeeper &RK, raw_ostream &OS);
 void EmitCallingConv(RecordKeeper &RK, raw_ostream &OS);
 void EmitCodeEmitter(RecordKeeper &RK, raw_ostream &OS);
-void EmitCSAOpTypes(RecordKeeper &RK, raw_ostream &OS);
 void EmitDAGISel(RecordKeeper &RK, raw_ostream &OS);
 void EmitDFAPacketizer(RecordKeeper &RK, raw_ostream &OS);
 void EmitDisassembler(RecordKeeper &RK, raw_ostream &OS);
@@ -89,6 +88,7 @@ void EmitDirectives(RecordKeeper &RK, raw_ostream &OS);
 void EmitSVMLVariants(RecordKeeper &RK, raw_ostream &OS); //TODO: VEC to COLLAB
 void EmitLibmvecVariants(RecordKeeper &RK, raw_ostream &OS);
 void EmitMAPatterns(RecordKeeper &RK, raw_ostream &OS);
+void EmitCSAOpTypes(RecordKeeper &RK, raw_ostream &OS);
 #endif // INTEL_CUSTOMIZATION
 void EmitSearchableTables(RecordKeeper &RK, raw_ostream &OS);
 void EmitGlobalISel(RecordKeeper &RK, raw_ostream &OS);

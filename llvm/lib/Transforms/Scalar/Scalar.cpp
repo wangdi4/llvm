@@ -70,7 +70,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopStrengthReducePass(Registry);
   initializeLoopRerollPass(Registry);
   initializeLoopUnrollPass(Registry);
-  initializeLoopSPMDizationPass(Registry);
   initializeLoopUnswitchPass(Registry);
   initializeLoopVersioningLICMPass(Registry);
   initializeLoopIdiomRecognizeLegacyPassPass(Registry);
@@ -110,6 +109,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopOptMarkerLegacyPassPass(Registry);
   initializeLoopOptReportEmitterLegacyPassPass(Registry);
   initializeRemoveRegionDirectivesLegacyPassPass(Registry);
+  initializeLoopSPMDizationPass(Registry);
 #endif // INTEL_CUSTOMIZATION
   initializeAggInlAALegacyPassPass(Registry); // INTEL
   initializeLoopLoadEliminationPass(Registry);
@@ -199,10 +199,6 @@ void LLVMAddLoopUnrollPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createLoopUnrollPass());
 }
 
-void LLVMAddLoopSPMDizationPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createLoopSPMDizationPass());
-}
-
 void LLVMAddLoopUnswitchPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createLoopUnswitchPass());
 }
@@ -283,6 +279,10 @@ void LLVMAddScopedNoAliasAAPass(LLVMPassManagerRef PM) {
 #if INTEL_CUSTOMIZATION
 void LLVMAddStdContainerAAPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createStdContainerAAWrapperPass());
+}
+
+void LLVMAddLoopSPMDizationPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createLoopSPMDizationPass());
 }
 #endif // INTEL_CUSTOMIZATION
 

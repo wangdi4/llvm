@@ -6,8 +6,6 @@ foreach(entry ${entries})
   if(IS_DIRECTORY ${entry} AND EXISTS ${entry}/CMakeLists.txt)
     if((NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/compiler-rt) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/opencl) AND #INTEL - exclude opencl from the build by default
-       (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/cclang OR #INTEL - exclude cclang, if any target besides
-        LLVM_TARGETS_TO_BUILD STREQUAL "X86") AND                   #INTEL - X86 is required.
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/dragonegg) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libcxx) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libcxxabi) AND

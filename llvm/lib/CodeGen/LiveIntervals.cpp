@@ -509,7 +509,6 @@ bool LiveIntervals::computeDeadValues(LiveInterval &LI,
 
     if (I->end != Def.getDeadSlot())
       continue;
-
     if (VNI->isPHIDef()) {
       // This is a dead PHI. Remove it.
       VNI->markUnused();

@@ -206,7 +206,6 @@ bool llvm::DisplayGraph(StringRef FilenameRef, bool wait,
   }
 
 #if INTEL_CUSTOMIZATION
-  // NOTE: this is a CSA addition*.
   // X11 directly via Graphviz. (No "viewer" necessary.) This probably can work
   // on Windows with Cygwin/X, even if the LLVM build itself is done with MSVC.
   std::string XDrawerPath;
@@ -231,8 +230,7 @@ bool llvm::DisplayGraph(StringRef FilenameRef, bool wait,
       XDrawerPath << ". Falling back to PostScript/PDF.\n";
     ErrMsg.clear();
   }
-  // *End CSA addition.
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
   enum ViewerKind {
     VK_None,

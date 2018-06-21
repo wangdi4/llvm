@@ -1958,27 +1958,20 @@ static void emitConvertFuncs(CodeGenTarget &Target, StringRef ClassName,
     for (const auto &MI : Infos) {
       MaxNumOperands = std::max(MaxNumOperands, MI->AsmOperands.size());
     }
+    CvtOS << "  unsigned DefaultsOffset[" << (MaxNumOperands + 1)
+          << "] = { 0 };\n";
     CvtOS << "  assert(OptionalOperandsMask.size() == " << (MaxNumOperands)
           << ");\n";
     CvtOS << "  for (unsigned i = 0, NumDefaults = 0; i < " << (MaxNumOperands)
           << "; ++i) {\n";
+    CvtOS << "    DefaultsOffset[i + 1] = NumDefaults;\n";
     CvtOS << "    NumDefaults += (OptionalOperandsMask[i] ? 1 : 0);\n";
     CvtOS << "  }\n";
   }
   CvtOS << "  unsigned OpIdx;\n";
   CvtOS << "  Inst.setOpcode(Opcode);\n";
   CvtOS << "  for (const uint8_t *p = Converter; *p; p+= 2) {\n";
-#if INTEL_CUSTOMIZATION
-  // CSA EDIT:
-  // Subtracting NumDefaults here seems to be the wrong behavior because the
-  // indices are all absolute and so whenever a defaulted operand is encountered
-  // the operands that come after that one in MachineInstr order will have their
-  // values pulled from the wrong asm operand. Therefore, this behavior has been
-  // disabled for CSA.
-  if (HasOptionalOperands && Target.getName() != "CSA") {
-#else
   if (HasOptionalOperands) {
-#endif
     CvtOS << "    OpIdx = *(p + 1) - DefaultsOffset[*(p + 1)];\n";
   } else {
     CvtOS << "    OpIdx = *(p + 1);\n";
