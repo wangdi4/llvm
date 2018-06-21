@@ -127,7 +127,7 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       dtrans::AmbiguousPointerTarget | dtrans::UnsafePtrMerge |
       dtrans::AddressTaken | dtrans::NoFieldsInStruct | dtrans::NestedStruct |
       dtrans::ContainsNestedStruct | dtrans::MemFuncPartialWrite |
-      dtrans::SystemObject | dtrans::MismatchedArgUse;
+      dtrans::SystemObject | dtrans::MismatchedArgUse | dtrans::GlobalArray;
 
   LLVM_DEBUG(dbgs() << "Delete field: looking for candidate structures.\n");
 

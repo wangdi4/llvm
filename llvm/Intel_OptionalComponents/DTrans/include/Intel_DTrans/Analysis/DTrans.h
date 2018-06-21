@@ -245,6 +245,9 @@ const SafetyData LocalInstance = 0x0000000000000800000;
 /// within the function..
 const SafetyData MismatchedArgUse = 0x0000000000001000000;
 
+/// A global variable was found which is an array of the type.
+const SafetyData GlobalArray = 0x0000000000002000000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.

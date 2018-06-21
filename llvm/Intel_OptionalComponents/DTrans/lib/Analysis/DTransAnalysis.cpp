@@ -2455,6 +2455,16 @@ public:
     // argument to a function, the address of the field has escaped.
     // FIXME: Try to resolve indirect calls.
     bool IsFnLocal = F ? !F->isDeclaration() : false;
+
+    // Mark structures returned by non-local functions as system types.
+    auto *RetTy = CI.getType();
+    if (!IsFnLocal && DTInfo.isTypeOfInterest(RetTy)) {
+      LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
+                        << "type returned by extern function\n  " << *RetTy
+                        << "\n");
+      setBaseTypeInfoSafetyData(RetTy, dtrans::SystemObject);
+    }
+
     unsigned NextArgNo = 0;
     for (Value *Arg : CI.arg_operands()) {
       // Keep track of the argument index we're working with.
@@ -3176,6 +3186,17 @@ public:
       if (GVElemTy->isArrayTy() &&
           !DTInfo.isTypeOfInterest(GVElemTy->getArrayElementType()))
         continue;
+
+      // If this is an array of a type of interest, set a safety condition
+      // on that type. The DeleteField optimization has a problem updating
+      // uses of global arrays, so we'll want to disable it when that happens
+      // until the problem is fixed.
+      if (GVElemTy->isArrayTy() &&
+          DTInfo.isTypeOfInterest(GVElemTy->getArrayElementType())) {
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Global array\n"
+                          << "  " << GV << "\n");
+        setBaseTypeInfoSafetyData(GVTy, dtrans::GlobalArray);
+      }
 
       // If this is an interesting type, analyze its uses.
       if (DTInfo.isTypeOfInterest(GVTy)) {

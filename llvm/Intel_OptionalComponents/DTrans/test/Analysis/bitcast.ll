@@ -258,7 +258,7 @@ define void @test19(%struct.test19.a** %mem) {
 
 ; Cast of returned pointer through an intermediate i8*
 %struct.test20 = type { i32, i32 }
-declare %struct.test20* @test20Helper()
+define %struct.test20* @test20Helper() { ret %struct.test20* undef }
 define void @test20() {
   %p = call %struct.test20* @test20Helper()
   %t = bitcast %struct.test20* %p to i8*

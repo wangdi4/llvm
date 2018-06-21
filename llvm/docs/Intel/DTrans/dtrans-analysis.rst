@@ -225,6 +225,12 @@ GlobalInstance
 ~~~~~~~~~~~~~~
 This indicates that a global variable was found that is an instance of the type.
 
+GlobalArray
+~~~~~~~~~~~
+This indicates that a global variable was found that is a fixed size array
+containing elements of the type. The elements of the array may be pointers
+or instances.
+
 HasInitializerList
 ~~~~~~~~~~~~~~~~~~
 This indicates that a global variable was found that is an instance of the type
