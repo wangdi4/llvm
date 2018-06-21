@@ -16,6 +16,7 @@
 
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
@@ -52,6 +53,8 @@ StringRef dtrans::AllocKindName(AllocKind Kind) {
     return "UserMalloc";
   case AK_UserMalloc0:
     return "UserMalloc0";
+  case AK_New:
+    return "new/new[]";
   }
   llvm_unreachable("Unexpected continuation past AllocKind switch.");
 }
@@ -76,63 +79,61 @@ StringRef dtrans::FreeKindName(FreeKind Kind) {
     return "Free";
   case FK_UserFree:
     return "UserFree";
+  case FK_Delete:
+    return "delete/delete[]";
   }
   llvm_unreachable("Unexpected continuation past FreeKind switch.");
 }
 
-AllocKind dtrans::getAllocFnKind(Function *F, const TargetLibraryInfo &TLI) {
-  // TODO: Make this implementation more comprehensive.
-  if (!F)
-    return AK_NotAlloc;
-  LibFunc LF;
-  if (!TLI.getLibFunc(*F, LF))
-    return AK_NotAlloc;
-  switch (LF) {
-  default:
-    return AK_NotAlloc;
-  case LibFunc_malloc:
-    return AK_Malloc;
-  case LibFunc_calloc:
+AllocKind dtrans::getAllocFnKind(CallSite CS, const TargetLibraryInfo &TLI) {
+  auto *I = CS.getInstruction();
+  if (isMallocLikeFn(I, &TLI))
+    return isNewLikeFn(I, &TLI) ? AK_New : AK_Malloc;
+  if (isCallocLikeFn(I, &TLI))
     return AK_Calloc;
-  case LibFunc_realloc:
+  if (isReallocLikeFn(I, &TLI))
     return AK_Realloc;
-  }
-  llvm_unreachable("Unexpected continuation past LibFunc switch.");
+  return AK_NotAlloc;
 }
 
-void dtrans::getAllocSizeArgs(AllocKind Kind, CallInst *CI,
-                              Value *&AllocSizeVal, Value *&AllocCountVal) {
+void dtrans::getAllocSizeArgs(AllocKind Kind, CallSite CS,
+                              unsigned &AllocSizeInd, unsigned &AllocCountInd,
+                              const TargetLibraryInfo &TLI) {
   assert(Kind != AK_NotAlloc && Kind != AK_UserMalloc0 &&
          "Unexpected alloc kind passed to getAllocSizeArgs");
 
-  if (Kind == AK_Malloc || Kind == AK_UserMalloc) {
-    AllocSizeVal = CI->getArgOperand(0);
-    AllocCountVal = nullptr;
+  switch (Kind) {
+  case AK_UserMalloc:
+    AllocSizeInd = 0;
+    AllocCountInd = -1U;
     return;
+  case AK_New:
+  case AK_Calloc:
+  case AK_Malloc:
+  case AK_Realloc: {
+    /// All functions except calloc return -1 as a second argument.
+    auto Inds = getAllocSizeArgumentIndices(CS.getInstruction(), &TLI);
+    if (Inds.second == -1U) {
+      AllocSizeInd = Inds.first;
+      AllocCountInd = -1U;
+    } else {
+      assert(Kind == AK_Calloc && "Only calloc has two size arguments");
+      AllocCountInd = Inds.first;
+      AllocSizeInd = Inds.second;
+    }
+    break;
   }
-
-  if (Kind == AK_Calloc) {
-    AllocCountVal = CI->getArgOperand(0);
-    AllocSizeVal = CI->getArgOperand(1);
-    return;
+  default:
+    llvm_unreachable("Unexpected alloc kind passed to getAllocSizeArgs");
   }
-
-  if (Kind == AK_Realloc) {
-    AllocSizeVal = CI->getArgOperand(1);
-    AllocCountVal = nullptr;
-    return;
-  }
-
-  llvm_unreachable("Unexpected alloc kind passed to getAllocSizeArgs");
 }
 
-bool dtrans::isFreeFn(Function *F, const TargetLibraryInfo &TLI) {
-  if (!F)
-    return false;
-  LibFunc LF;
-  if (!TLI.getLibFunc(*F, LF))
-    return false;
-  return (LF == LibFunc_free);
+bool dtrans::isFreeFn(CallSite CS, const TargetLibraryInfo &TLI) {
+  return isFreeCall(CS.getInstruction(), &TLI);
+}
+
+bool dtrans::isDeleteFn(CallSite CS, const TargetLibraryInfo &TLI) {
+  return isDeleteCall(CS.getInstruction(), &TLI);
 }
 
 bool dtrans::isValueConstant(const Value *Val, uint64_t *ConstValue) {
@@ -282,7 +283,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::NestedStruct | dtrans::ContainsNestedStruct |
       dtrans::SystemObject | dtrans::LocalPtr | dtrans::LocalInstance |
       dtrans::MismatchedArgUse | dtrans::GlobalArray | dtrans::HasVTable |
-      dtrans::HasFnPtr | dtrans::UnhandledUse;
+      dtrans::HasFnPtr | dtrans::HasCppHandling | dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
   static_assert(
@@ -300,7 +301,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::ContainsNestedStruct ^ dtrans::SystemObject ^
            dtrans::LocalPtr ^ dtrans::LocalInstance ^ dtrans::MismatchedArgUse ^
            dtrans::GlobalArray ^ dtrans::HasVTable ^ dtrans::HasFnPtr ^
-           dtrans::UnhandledUse),
+           dtrans::HasCppHandling ^ dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
@@ -359,6 +360,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
     SafetyIssues.push_back("Has vtable");
   if (SafetyInfo & dtrans::HasFnPtr)
     SafetyIssues.push_back("Has function ptr");
+  if (SafetyInfo & dtrans::HasCppHandling)
+    SafetyIssues.push_back("Has C++ handling");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
   // Print the safety issues found

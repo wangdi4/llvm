@@ -838,10 +838,12 @@ public:
     Value *NewAllocCountVal = nullptr;
 
     AllocKind Kind = AInfo->getAllocKind();
-    Value *OrigAllocSizeVal;
-    Value *OrigAllocCountVal;
-    getAllocSizeArgs(Kind, AllocCallInst, OrigAllocSizeVal, OrigAllocCountVal);
+    unsigned OrigAllocSizeInd = 0;
+    unsigned OrigAllocCountInd = 0;
+    getAllocSizeArgs(Kind, AllocCallInst, OrigAllocSizeInd, OrigAllocCountInd,
+                     TLI);
 
+    auto *OrigAllocSizeVal = AllocCallInst->getArgOperand(OrigAllocSizeInd);
     if (Kind == dtrans::AK_Malloc) {
       assert(OrigAllocSizeVal && "getAllocSizeArgs should return size value");
 
@@ -861,9 +863,10 @@ public:
       NewAllocCountVal =
           IRB.CreateAdd(NewAllocCountVal, ConstantInt::get(SizeType, 1));
       Value *NewAllocationSize = IRB.CreateMul(NewAllocCountVal, StructSizeVal);
-      AllocCallInst->setOperand(0, NewAllocationSize);
+      AllocCallInst->setOperand(OrigAllocSizeInd, NewAllocationSize);
     } else {
       assert(Kind == dtrans::AK_Calloc && "Expected calloc");
+      auto *OrigAllocCountVal = AllocCallInst->getArgOperand(OrigAllocCountInd);
       assert(OrigAllocSizeVal && OrigAllocCountVal &&
              "getAllocSizeArgs should return size and count value");
 
@@ -893,8 +896,8 @@ public:
       // size for the calloc parameters.
       NewAllocCountVal = IRB.CreateAdd(
           AllocCountVal, ConstantInt::get(AllocCountVal->getType(), 1));
-      AllocCallInst->setOperand(0, NewAllocCountVal);
-      AllocCallInst->setOperand(1, AllocSizeVal);
+      AllocCallInst->setOperand(OrigAllocCountInd, NewAllocCountVal);
+      AllocCallInst->setOperand(OrigAllocSizeInd, AllocSizeVal);
     }
 
     assert(NewAllocCountVal &&
@@ -1243,7 +1246,9 @@ public:
     for (unsigned FieldNum = FromField; FieldNum < ToField; ++FieldNum) {
       // Generate the load of the array address for the field, and then index
       // into that by the peeling index. This only needs to be done once,
-      // since both the source and destination pointers will just be different offsets from that array because the only support cases are when the types are the same.
+      // since both the source and destination pointers will just be different
+      // offsets from that array because the only support cases are when the
+      // types are the same.
 
       Value *FieldNumVal = ConstantInt::get(Int32Ty, FieldNum);
       Instruction *FieldAddr = createPeelFieldLoad(

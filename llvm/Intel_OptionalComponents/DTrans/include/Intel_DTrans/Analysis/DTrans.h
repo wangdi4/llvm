@@ -23,6 +23,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/CallSite.h"
 #include "llvm/Support/Casting.h"
 
 namespace llvm {
@@ -33,7 +34,6 @@ class Instruction;
 class Type;
 class StructType;
 class PointerType;
-class CallInst;
 class Value;
 class Constant;
 class raw_ostream;
@@ -257,6 +257,10 @@ const SafetyData HasVTable = 0x0000000000004000000;
 /// An element in the structure points to a function.
 const SafetyData HasFnPtr = 0x0000000000008000000;
 
+/// A type has C++ processing:
+///   allocation/deallocation with new/delete.
+const SafetyData HasCppHandling = 0x0000000000010000000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.
@@ -283,7 +287,7 @@ const SafetyData SDReorderFields =
     HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
-    LocalInstance | UnhandledUse;
+    LocalInstance | HasCppHandling | UnhandledUse;
 //
 // Safety conditions for field single value analysis
 //
@@ -311,7 +315,8 @@ const SafetyData SDAOSToSOA =
     HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
-    LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr;
+    LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
+    HasCppHandling;
 
 //
 // TODO: Update the list each time we add a new safety conditions check for a
@@ -452,21 +457,24 @@ private:
 
 /// Kind of allocation associated with a Function.
 /// The malloc, calloc, and realloc allocation kinds each correspond to a call
-/// to the standard library function of the same name.  C++ new operators are
-/// not currently supported.
-enum AllocKind {
+/// to the standard library function of the same name.
+///
+/// See MemoryBuiltins.cpp:AllocType
+enum AllocKind : uint8_t {
   AK_NotAlloc,
   AK_Malloc,
   AK_Calloc,
   AK_Realloc,
   AK_UserMalloc,
-  AK_UserMalloc0
+  AK_UserMalloc0,
+  AK_New
 };
 
 /// Kind of free function call.
 /// - FK_Free represents a direct call to the standard library function 'free'
 /// - FK_UserFree represents a call to a user-wrapper function of 'free''
-enum FreeKind { FK_NotFree, FK_Free, FK_UserFree };
+/// - FK_Delete represents a call to C++ delete/deletep[] functions.
+enum FreeKind { FK_NotFree, FK_Free, FK_UserFree, FK_Delete };
 
 /// Get a printable string for the AllocKind
 StringRef AllocKindName(AllocKind Kind);
@@ -758,19 +766,24 @@ private:
   SmallVector<MemfuncRegion, 2> Regions;
 };
 
-/// Determine whether the specified Function is an allocation function, and
-/// if so what kind of allocation function it is and the size of the allocation.
-AllocKind getAllocFnKind(Function *F, const TargetLibraryInfo &TLI);
+/// Determine whether the specified CallSite is a call to allocation function,
+/// and if so what kind of allocation function it is and the size of the
+/// allocation.
+AllocKind getAllocFnKind(CallSite CS, const TargetLibraryInfo &TLI);
 
-/// Get the size and count arguments for the allocation call. AllocCountiVal is
-/// used for calloc allocations.  For all other allocation kinds it will be set
-/// to nullptr.
-void getAllocSizeArgs(AllocKind Kind, CallInst *CI, Value *&AllocSizeVal,
-                      Value *&AllocCountVal);
+/// Get the indices of size and count arguments for the allocation call.
+/// AllocCountInd is used for calloc allocations.  For all other allocation
+/// kinds it will be set to -1U
+void getAllocSizeArgs(AllocKind Kind, CallSite CS, unsigned &AllocSizeInd,
+                      unsigned &AllocCountInd, const TargetLibraryInfo &TLI);
 
-/// Determine whether or not the specified Function is the free library
-/// function.
-bool isFreeFn(Function *F, const TargetLibraryInfo &TLI);
+/// Determine whether or not the specified CallSite is a call to the free-like
+/// library function.
+bool isFreeFn(CallSite CS, const TargetLibraryInfo &TLI);
+
+/// Determine whether or not the specified CallSite is a call to the
+/// delete-like library function.
+bool isDeleteFn(CallSite CS, const TargetLibraryInfo &TLI);
 
 /// Checks if a \p Val is a constant integer and sets it to \p ConstValue.
 bool isValueConstant(const Value *Val, uint64_t *ConstValue = nullptr);

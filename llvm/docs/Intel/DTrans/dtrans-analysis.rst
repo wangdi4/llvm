@@ -331,6 +331,11 @@ HasFnPtr
 This indicates that the type is a structure with at least one field that is
 a pointer to a function.
 
+HasCppHandling
+~~~~~~~~
+This indicates that the type has C++ processing: there is memory allocation
+and/or deallocation with C++ operators new/new[] and or delete/delete[].
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we
@@ -414,8 +419,9 @@ Call
 ~~~~
 When a call instruction is encountered, the DTrans analysis will attempt to
 determine whether or not the call is allocating memory. For LibFuncs,
-LLVM's LibFunc mechanism is used to check for calls to malloc, calloc,
-and realloc.
+LLVM's LibFunc mechanism is used to check for calls to malloc, calloc, realloc
+and for calls to standard new and new[] operators allocating memory.
+Note, that standard placement new operators do not allocate memory.
 
 Some user functions are also handled.  Right now, we distinguish two types:
   AK_UserMalloc0: The user function may have any number of arguments, but the
@@ -456,6 +462,7 @@ exact multiple of the aggregate type size. **Currently, only constant arguments
 are handled.**
 
 If the called function is the "free" function, the call is viewed as safe.
+Calls to standard delete/delete[] operators are viewed as safe too.
 
 If the called function is an unknown externally defined function and any of the
 arguments is a pointer to an aggregate type, that type is marked with the

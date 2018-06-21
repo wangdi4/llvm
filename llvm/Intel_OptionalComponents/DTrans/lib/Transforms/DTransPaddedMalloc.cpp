@@ -542,7 +542,7 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
       continue;
 
     // Check that the instruction is a call site to malloc
-    if (dtrans::getAllocFnKind(CS.getCalledFunction(), TLInfo) !=
+    if (dtrans::getAllocFnKind(CS, TLInfo) !=
         dtrans::AK_Malloc) {
       continue;
     }

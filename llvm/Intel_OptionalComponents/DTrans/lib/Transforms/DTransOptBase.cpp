@@ -769,20 +769,28 @@ void DTransOptBase::updateCallSizeOperand(Instruction *I,
       llvm_unreachable("No AllocCallInfo for AK_NotAlloc!");
     case dtrans::AK_UserMalloc0:
       llvm_unreachable("AK_UserMalloc0 not yet supported!");
+    case dtrans::AK_New:
     case dtrans::AK_Malloc:
-    case dtrans::AK_UserMalloc:
-      Found = findValueMultipleOfSizeInst(I, 0, OrigSize, SizeUseStack);
-      break;
     case dtrans::AK_Realloc:
-      Found = findValueMultipleOfSizeInst(I, 1, OrigSize, SizeUseStack);
-      break;
     case dtrans::AK_Calloc:
-      Found = findValueMultipleOfSizeInst(I, 0, OrigSize, SizeUseStack);
-      assert((Found || SizeUseStack.empty()) &&
-             "SizeUseStack not empty after failed value search!");
-      if (!Found)
-        Found = findValueMultipleOfSizeInst(I, 1, OrigSize, SizeUseStack);
+    case dtrans::AK_UserMalloc: {
+      unsigned SizeArgPos = 0;
+      unsigned CountArgPos = 0;
+      getAllocSizeArgs(AK, CallSite(I), SizeArgPos, CountArgPos, TLI);
+      if (AK == dtrans::AK_Calloc) {
+        Found =
+            findValueMultipleOfSizeInst(I, CountArgPos, OrigSize, SizeUseStack);
+        assert((Found || SizeUseStack.empty()) &&
+               "SizeUseStack not empty after failed value search!");
+        if (!Found)
+          Found = findValueMultipleOfSizeInst(I, SizeArgPos, OrigSize,
+                                              SizeUseStack);
+      } else {
+        Found =
+            findValueMultipleOfSizeInst(I, SizeArgPos, OrigSize, SizeUseStack);
+      }
       break;
+    }
     }
   } else {
     // This asserts because we only expect alloc info or memfunc info.

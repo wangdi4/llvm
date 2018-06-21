@@ -869,9 +869,9 @@ int DTransAllocAnalyzer::skipTestSuccessor(BranchInst *BI) const {
   if (isa<Argument>(V))
     return ICI->getPredicate() == ICmpInst::ICMP_EQ ? 0 : 1;
   if (auto CCI = dyn_cast<CallInst>(V))
-    if (dtrans::getAllocFnKind(CCI->getCalledFunction(), TLI) ==
-        dtrans::AK_Malloc)
-      return ICI->getPredicate() == ICmpInst::ICMP_EQ ? 0 : 1;
+    if (auto Kind = dtrans::getAllocFnKind(CCI, TLI))
+      if (Kind == dtrans::AK_Malloc || Kind == dtrans::AK_New)
+        return ICI->getPredicate() == ICmpInst::ICMP_EQ ? 0 : 1;
   return -1;
 }
 
@@ -961,7 +961,8 @@ bool DTransAllocAnalyzer::mallocBasedGEPChain(GetElementPtrInst *GV,
   auto CI = dyn_cast<CallInst>(V->getPointerOperand());
   if (!CI)
     return false;
-  if (dtrans::getAllocFnKind(CI->getCalledFunction(), TLI) != dtrans::AK_Malloc)
+  auto Kind = dtrans::getAllocFnKind(CI, TLI);
+  if (Kind != dtrans::AK_Malloc && Kind != dtrans::AK_New)
     return false;
   *GBV = V;
   *GCI = CI;
@@ -1081,9 +1082,10 @@ bool DTransAllocAnalyzer::returnValueIsMallocAddress(Value *RV,
   if (isVisitedBlock(BB))
     return false;
   VisitedBlocks.insert(BB);
-  if (auto *CI = dyn_cast<CallInst>(RV))
-    return dtrans::getAllocFnKind(CI->getCalledFunction(), TLI) ==
-           dtrans::AK_Malloc;
+  if (auto *CI = dyn_cast<CallInst>(RV)) {
+    auto Kind = dtrans::getAllocFnKind(CI, TLI);
+    return Kind == dtrans::AK_Malloc || Kind == dtrans::AK_New;
+  }
   if (auto *PI = dyn_cast<PHINode>(RV)) {
     bool rv = false;
     for (unsigned I = 0; I < PI->getNumIncomingValues(); ++I) {
@@ -1164,7 +1166,7 @@ bool DTransAllocAnalyzer::hasFreeCall(BasicBlock *BB) const {
   for (auto BI = BB->rbegin(), BE = BB->rend(); BI != BE;) {
     Instruction *I = &*BI++;
     if (auto *CI = dyn_cast<CallInst>(I))
-      if (dtrans::isFreeFn(CI->getCalledFunction(), TLI))
+      if (dtrans::isFreeFn(CallSite(CI), TLI))
         return true;
   }
   return false;
@@ -1428,7 +1430,7 @@ private:
     if (!CI)
       return nullptr;
     Function *Callee = CI->getCalledFunction();
-    dtrans::AllocKind Kind = dtrans::getAllocFnKind(Callee, TLI);
+    auto Kind = dtrans::getAllocFnKind(CallSite(CI), TLI);
     if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(Callee))
       Kind = dtrans::AK_Malloc;
     if (Kind != dtrans::AK_NotAlloc)
@@ -2475,7 +2477,7 @@ public:
 
     // If the called function is a known allocation function, we need to
     // analyze the allocation.
-    dtrans::AllocKind Kind = dtrans::getAllocFnKind(F, TLI);
+    auto Kind = dtrans::getAllocFnKind(CallSite(&CI), TLI);
     if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(F))
       Kind = dtrans::AK_UserMalloc;
     if (Kind != dtrans::AK_NotAlloc) {
@@ -2487,8 +2489,10 @@ public:
     // we analyze the instruction for the purpose of capturing the argument
     // TypeInfo, which will be needed by some of the transformations when
     // rewriting allocations and frees.
-    if (dtrans::isFreeFn(F, TLI)) {
-      analyzeFreeCall(CI, dtrans::FK_Free);
+    if (dtrans::isFreeFn(CallSite(&CI), TLI)) {
+      analyzeFreeCall(CI, dtrans::isDeleteFn(CallSite(&CI), TLI)
+                              ? dtrans::FK_Delete
+                              : dtrans::FK_Free);
       return;
     }
 
@@ -3707,6 +3711,13 @@ private:
       if (!DTInfo.isTypeOfInterest(Ty))
         continue;
 
+      if (Kind == dtrans::AK_New) {
+        LLVM_DEBUG(dbgs() << "dtrans-safety: C++ handling -- "
+                          << "new/new[] function call:\n  "
+                          << CI << "\n");
+        setBaseTypeInfoSafetyData(Ty, dtrans::HasCppHandling);
+      }
+
       // If there are casts to multiple types of interest, they all get
       // handled as bad casts.
       if (WasCastToMultipleTypes) {
@@ -3747,7 +3758,7 @@ private:
     // If it's a standard free call, we can check for the type of the first
     // argument for the potential pointer types. If it's a user free call, there
     // is currently no guarantee to know which argument contains the TypeInfo.
-    if (FK == dtrans::FK_Free) {
+    if (FK == dtrans::FK_Free || FK == dtrans::FK_Delete) {
       Value *Arg = CI.getOperand(0);
       LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
       LocalPointerInfo::PointerTypeAliasSetRef &AliasSet =
@@ -3756,6 +3767,16 @@ private:
         return;
       }
       populateCallInfoFromLPI(LPI, FCI);
+      if (FK == dtrans::FK_Delete)
+        for (auto *Ty : AliasSet) {
+          if (!DTInfo.isTypeOfInterest(Ty))
+            continue;
+
+          LLVM_DEBUG(dbgs()
+                     << "dtrans-safety: C++ handling -- "
+                     << "delete/delete[] function call:\n  " << CI << "\n");
+          setBaseTypeInfoSafetyData(Ty, dtrans::HasCppHandling);
+        }
     } else {
       FCI->setAnalyzed(false);
     }
@@ -3783,11 +3804,11 @@ private:
           V = ICI->getOperand(0);
         if (V == nullptr)
           return false;
-      } else if (auto CI = dyn_cast<CallInst>(U)) {
+      } else if (auto *CI = dyn_cast<CallInst>(U)) {
         Function *F = CI->getCalledFunction();
         if (F == nullptr)
           return false;
-        if (dtrans::isFreeFn(F, TLI) || DTAA.isFreePostDom(F))
+        if (dtrans::isFreeFn(CallSite(CI), TLI) || DTAA.isFreePostDom(F))
           return true;
         if (auto II = dyn_cast<IntrinsicInst>(U)) {
           Intrinsic::ID Intrin = II->getIntrinsicID();
@@ -3817,7 +3838,7 @@ private:
     Function *F = CI->getCalledFunction();
     if (F == nullptr)
       return false;
-    dtrans::AllocKind Kind = dtrans::getAllocFnKind(F, TLI);
+    auto Kind = dtrans::getAllocFnKind(CallSite(CI), TLI);
     if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(F))
       Kind = dtrans::AK_UserMalloc;
     return Kind != dtrans::AK_NotAlloc;
@@ -4080,10 +4101,13 @@ private:
     // within the type and between successive elements of the same type
     // if multiple elements are being allocated.
     uint64_t ElementSize = DL.getTypeAllocSize(Ty->getElementType());
-    Value *AllocSizeVal;
-    Value *AllocCountVal;
-    getAllocSizeArgs(Kind, &CI, AllocSizeVal, AllocCountVal);
+    unsigned AllocSizeInd = 0;
+    unsigned AllocCountInd = 0;
+    getAllocSizeArgs(Kind, &CI, AllocSizeInd, AllocCountInd, TLI);
 
+    auto *AllocSizeVal = CI.getArgOperand(AllocSizeInd);
+    auto *AllocCountVal =
+        AllocCountInd != -1U ? CI.getArgOperand(AllocCountInd) : nullptr;
     // If either AllocSizeVal or AllocCountVal can be proven to be a multiple
     // of the element size, the size arguments are acceptable.
     if (dtrans::isValueMultipleOfSize(AllocSizeVal, ElementSize) ||

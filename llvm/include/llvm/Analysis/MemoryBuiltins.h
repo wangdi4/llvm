@@ -74,6 +74,17 @@ bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
 bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
                     bool LookThroughBitCast = false);
 
+#if INTEL_CUSTOMIZATION
+/// Tests if a value is a call or invoke to a library function that
+/// reallocates memory (such as realloc).
+bool isReallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
+                    bool LookThroughBitCast = false);
+
+/// Tests if a value is a call or invoke to a library C++ function new/new[].
+bool isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI,
+                 bool LookThroughBitCast = false);
+#endif // INTEL_CUSTOMIZATION
+
 /// Tests if a value is a call or invoke to a library function that
 /// allocates memory similar to malloc or calloc.
 bool isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
@@ -83,6 +94,13 @@ bool isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
 /// allocates memory (either malloc, calloc, or strdup like).
 bool isAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
                    bool LookThroughBitCast = false);
+
+#if INTEL_CUSTOMIZATION
+/// Returns indices of size arguments of Malloc-like functions.
+/// All functions except calloc return -1 as a second argument.
+std::pair<unsigned, unsigned>
+getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 //  malloc Call Utility Functions.
@@ -141,6 +159,16 @@ const CallInst *isFreeCall(const Value *I, const TargetLibraryInfo *TLI);
 inline CallInst *isFreeCall(Value *I, const TargetLibraryInfo *TLI) {
   return const_cast<CallInst*>(isFreeCall((const Value*)I, TLI));
 }
+
+#if INTEL_CUSTOMIZATION
+/// isDeleteCall - Returns non-null if the value is a call to the builtin
+/// delete/delete[] function.
+const CallInst *isDeleteCall(const Value *V, const TargetLibraryInfo *TLI);
+
+inline CallInst *isDeleteCall(Value *I, const TargetLibraryInfo *TLI) {
+  return const_cast<CallInst *>(isDeleteCall((const Value *)I, TLI));
+}
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 //  Utility functions to compute size of objects.

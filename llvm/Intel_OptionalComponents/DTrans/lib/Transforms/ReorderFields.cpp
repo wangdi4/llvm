@@ -261,24 +261,25 @@ void ReorderFieldsImpl::transformMemfunc(CallInst &CI, StructType *Ty) {
 
 // Fix size argument of calloc/malloc/realloc
 void ReorderFieldsImpl::transformAllocCall(CallInst &CI, StructType *Ty) {
-  Function *F = CI.getCalledFunction();
-  AllocKind Kind = getAllocFnKind(F, TLI);
-  Value *AllocSizeVal;
-  Value *AllocCountVal;
+  AllocKind Kind = getAllocFnKind(&CI, TLI);
   assert((Kind == AK_Calloc || Kind == AK_Malloc || Kind == AK_Realloc) &&
          "Unexpected alloc call");
   LLVM_DEBUG(dbgs() << "Alloc Before:" << CI << "\n");
-  getAllocSizeArgs(Kind, &CI, AllocSizeVal, AllocCountVal);
-  uint32_t SizeArgPos = (Kind == AK_Malloc) ? 0 : 1;
+
+  unsigned SizeArgPos = 0;
+  unsigned CountArgPos = 0;
+  getAllocSizeArgs(Kind, &CI, SizeArgPos, CountArgPos, TLI);
+
   uint64_t OldSize = DL.getTypeAllocSize(Ty);
   uint64_t NewSize = RTI.getTransformedTypeNewSize(Ty);
-  bool Replaced = replaceOldSizeWithNewSize(AllocSizeVal, OldSize, NewSize, &CI,
-                                            SizeArgPos);
+  auto *AllocSizeVal = CI.getArgOperand(SizeArgPos);
+  bool Replaced = replaceOldSizeWithNewSize(AllocSizeVal,
+                                            OldSize, NewSize, &CI, SizeArgPos);
   // If AllocSizeVal is not multiple of size of struct, try to fix
-  // AllocCountVal.
-  if (AllocCountVal && !Replaced)
-    Replaced =
-        replaceOldSizeWithNewSize(AllocCountVal, OldSize, NewSize, &CI, 0);
+  // count argument.
+  if (CountArgPos != -1U && !Replaced)
+    Replaced = replaceOldSizeWithNewSize(CI.getArgOperand(CountArgPos),
+                                         OldSize, NewSize, &CI, CountArgPos);
 
   assert(Replaced == true &&
          "Expecting oldSize should be replaced with NewSize");
