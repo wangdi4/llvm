@@ -42,12 +42,10 @@ namespace dtrans {
 
 //
 // Enum to indicate the "single value" status of a field:
-//   None: No write to field seen
-//   Single: Only a single value for the field.  The value is obtained with
-//     getSingleValue()
-//   Multiple: Potentially or actually multiple values for the field
+//   Complete: All values of the field are constant and known.
+//   Incomplete: Potentially or actually unknown values for the field.
 //
-enum SingleValueKind { SVK_None, SVK_Single, SVK_Multiple };
+enum SingleValueKind { SVK_Complete, SVK_Incomplete };
 
 //
 // Enum to indicate the "single value" status of a field:
@@ -65,9 +63,8 @@ class FieldInfo {
 public:
   FieldInfo(llvm::Type *Ty)
       : LLVMType(Ty), Read(false), Written(false), ComplexUse(false),
-        AddressTaken(false), SVKind(SVK_None), SingleValue(nullptr),
-        SAFKind(SAFK_Top), SingleAllocFunction(nullptr),
-        Frequency(0) {}
+        AddressTaken(false), SVKind(SVK_Complete), SAFKind(SAFK_Top),
+        SingleAllocFunction(nullptr), Frequency(0) {}
 
   llvm::Type *getLLVMType() const { return LLVMType; }
 
@@ -75,14 +72,20 @@ public:
   bool isWritten() const { return Written; }
   bool hasComplexUse() const { return ComplexUse; }
   bool isAddressTaken() const { return AddressTaken; }
-  bool isNoValue() const { return SVKind == SVK_None; }
+  bool isNoValue() const {
+    return SVKind == SVK_Complete && ConstantValues.empty();
+  }
   bool isTopAllocFunction() const { return SAFKind == SAFK_Top; }
-  bool isSingleValue() const { return SVKind == SVK_Single; }
+  bool isSingleValue() const {
+    return SVKind == SVK_Complete && ConstantValues.size() == 1;
+  }
   bool isSingleAllocFunction() const { return SAFKind == SAFK_Single; }
-  bool isMultipleValue() const { return SVKind == SVK_Multiple; }
+  bool isMultipleValue() const {
+    return SVKind == SVK_Incomplete || ConstantValues.size() > 1;
+  }
   bool isBottomAllocFunction() const { return SAFKind == SAFK_Bottom; }
   llvm::Constant *getSingleValue() {
-    return SVKind == SVK_Single ? SingleValue : nullptr;
+    return isSingleValue() ? *ConstantValues.begin() : nullptr;
   }
   llvm::Function *getSingleAllocFunction() {
     return SAFKind == SAFK_Single ? SingleAllocFunction : nullptr;
@@ -91,25 +94,24 @@ public:
   void setWritten(bool b) { Written = b; }
   void setComplexUse(bool b) { ComplexUse = b; }
   void setAddressTaken() { AddressTaken = true; }
-  void setSingleValue(llvm::Constant *C) {
-    SVKind = SVK_Single;
-    SingleValue = C;
-  }
   void setSingleAllocFunction(llvm::Function *F) {
     assert((SAFKind == SAFK_Top) && "Expecting lattice at top");
     SAFKind = SAFK_Single;
     SingleAllocFunction = F;
   }
-  void setMultipleValue() {
-    SVKind = SVK_Multiple;
-    SingleValue = nullptr;
-  }
+  void setMultipleValue() { SVKind = SVK_Incomplete; }
   void setBottomAllocFunction() {
     SAFKind = SAFK_Bottom;
     SingleAllocFunction = nullptr;
   }
   void setFrequency(uint64_t Freq) { Frequency = Freq; }
   uint64_t getFrequency() const { return Frequency; }
+
+  // Returns a set of possible constant values.
+  llvm::SmallPtrSetImpl<llvm::Constant *> &values() { return ConstantValues; }
+
+  // Returns true if the set of possible values is complete.
+  bool isValueSetComplete() const { return SVKind == SVK_Complete; }
 
   //
   // Update the "single value" of the field, given that a constant value C
@@ -130,7 +132,7 @@ private:
   bool ComplexUse;
   bool AddressTaken;
   SingleValueKind SVKind;
-  llvm::Constant *SingleValue;
+  llvm::SmallPtrSet<llvm::Constant *, 2> ConstantValues;
   SingleAllocFunctionKind SAFKind;
   llvm::Function *SingleAllocFunction;
   // It represents relative field access frequency and is used in

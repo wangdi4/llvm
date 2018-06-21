@@ -392,15 +392,10 @@ void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
 }
 
 bool dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
-  if (isNoValue()) {
-    setSingleValue(C);
-    return true;
-  }
-  if (isSingleValue() && getSingleValue() != C) {
-    setMultipleValue();
-    return true;
-  }
-  return false;
+  if (!C)
+    return false;
+
+  return ConstantValues.insert(C).second;
 }
 
 bool dtrans::FieldInfo::processNewSingleAllocFunction(llvm::Function *F) {

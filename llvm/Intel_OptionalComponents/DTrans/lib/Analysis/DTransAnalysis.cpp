@@ -4082,9 +4082,9 @@ private:
   }
 
   // Mark fields designated by \p Info pointer and the memory \p Size to have
-  // multiple values.
-  void markPointerWrittenWithMultipleValue(LocalPointerInfo &Info,
-                                           Value *Size) {
+  // multiple values. IsNullValue indicates that the null value is written.
+  void markPointerWrittenWithMultipleValue(LocalPointerInfo &Info, Value *Size,
+                                           bool IsNullValue = false) {
     StructType *STy = nullptr;
     size_t FieldNum;
 
@@ -4147,12 +4147,29 @@ private:
 
     // Mark every field touched by the memory operation.
     auto LastField = SL->getElementContainingOffset(WriteBound - 1);
+
+    uint64_t LastFieldStart = SL->getElementOffset(LastField);
+    uint64_t LastFieldSize =
+        DL.getTypeStoreSize(STy->getElementType(LastField));
+    bool LastFieldPartialAccess =
+        (WriteBound < (LastFieldStart + LastFieldSize - 1));
+
     for (; FieldNum <= LastField; ++FieldNum) {
       auto &FInfo = SInfo->getField(FieldNum);
       LLVM_DEBUG(dbgs() << "dtrans-fsv: " << *(SInfo->getLLVMType()) << " ["
                         << FieldNum << "] <MULTIPLE>\n");
-      FInfo.setMultipleValue();
-      markAllFieldsMultipleValue(DTInfo.getTypeInfo(FInfo.getLLVMType()));
+
+      if (IsNullValue && (FieldNum != LastField || !LastFieldPartialAccess)) {
+        // If setting a null value and the last field is not accessed
+        // partially.
+        FInfo.processNewSingleValue(
+            Constant::getNullValue(FInfo.getLLVMType()));
+        markAllFieldsMultipleValue(DTInfo.getTypeInfo(FInfo.getLLVMType()),
+                                   true);
+      } else {
+        FInfo.setMultipleValue();
+        markAllFieldsMultipleValue(DTInfo.getTypeInfo(FInfo.getLLVMType()));
+      }
     }
   }
 
@@ -4181,9 +4198,9 @@ private:
   void analyzeMemset(IntrinsicInst &I) {
     LLVM_DEBUG(dbgs() << "dtrans: Analyzing memset call:\n  " << I << "\n");
 
-    assert(I.getNumArgOperands() >= 2);
-    auto *DestArg = I.getArgOperand(0);
-    Value *SetSize = I.getArgOperand(2);
+    MemSetInst &Inst = cast<MemSetInst>(I);
+    auto *DestArg = Inst.getRawDest();
+    Value *SetSize = Inst.getLength();
 
     // A memset of 0 bytes will not affect the safety of any data structure.
     if (dtrans::isValueEqualToSize(SetSize, 0))
@@ -4214,6 +4231,10 @@ private:
         return;
       }
     }
+
+    // Identify if the memset value is zero, propagate zero value to the fields.
+    bool IsNullValue = dtrans::isValueEqualToSize(Inst.getValue(), 0);
+    markPointerWrittenWithMultipleValue(DstLPI, SetSize, IsNullValue);
 
     // Verify the size being is valid for the type of the pointer:
     //  - When an aggregate type is passed, check if the size parameter
@@ -4246,11 +4267,8 @@ private:
         // analysis later by analyzing the value being set.
         dtrans::MemfuncRegion RegionDesc;
         if (analyzeMemfuncStructureMemberParam(I, StructTy, FieldNum, SetSize,
-                                               /*IsValuePreservingWrite=*/false,
                                                RegionDesc))
           createMemsetCallInfo(I, StructTy->getPointerTo(), RegionDesc);
-        else
-          markPointerWrittenWithMultipleValue(DstLPI, SetSize);
 
         return;
       }
@@ -4285,10 +4303,7 @@ private:
     if (!DestPointeeTy->isAggregateType())
       return;
 
-    // Conservatively mark all fields as having been written by the memset.
-    // We can improve this analysis later.
     auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
-    markAllFieldsMultipleValue(ParentTI);
 
     // Consider the case where the complete aggregate (or an array of
     // aggregates is being set).
@@ -4308,12 +4323,8 @@ private:
     if (auto *StructTy = dyn_cast<StructType>(DestPointeeTy)) {
       dtrans::MemfuncRegion RegionDesc;
       if (analyzeMemfuncStructureMemberParam(I, StructTy, 0, SetSize,
-                                             /*IsValuePreservingWrite=*/false,
                                              RegionDesc))
         createMemsetCallInfo(I, StructTy->getPointerTo(), RegionDesc);
-      else
-        markPointerWrittenWithMultipleValue(DstLPI, SetSize);
-
       return;
     }
 
@@ -4533,9 +4544,8 @@ private:
         // The structures for the source and destination match, so we only need
         // to populate a RegionDesc structure for the destination.
         dtrans::MemfuncRegion RegionDesc;
-        if (analyzeMemfuncStructureMemberParam(
-                I, DstStructTy, DstFieldNum, SetSize,
-                /*IsValuePreservingWrite=*/true, RegionDesc))
+        if (analyzeMemfuncStructureMemberParam(I, DstStructTy, DstFieldNum,
+                                               SetSize, RegionDesc))
           createMemcpyOrMemmoveCallInfo(I, DstStructTy->getPointerTo(), Kind,
                                         RegionDesc, RegionDesc);
         else
@@ -4587,7 +4597,6 @@ private:
     if (auto *StructTy = dyn_cast<StructType>(DestPointeeTy)) {
       dtrans::MemfuncRegion RegionDesc;
       if (analyzeMemfuncStructureMemberParam(I, StructTy, 0, SetSize,
-                                             /*IsValuePreservingWrite=*/true,
                                              RegionDesc))
         createMemcpyOrMemmoveCallInfo(I, StructTy->getPointerTo(), Kind,
                                       RegionDesc, RegionDesc);
@@ -4706,7 +4715,6 @@ private:
   // usage, and populate the \p RegionDesc with the results.
   bool analyzeMemfuncStructureMemberParam(Instruction &I, StructType *StructTy,
                                           size_t FieldNum, Value *SetSize,
-                                          bool IsValuePreservingWrite,
                                           dtrans::MemfuncRegion &RegionDesc) {
     auto *ParentTI = DTInfo.getOrCreateTypeInfo(StructTy);
 
@@ -4722,7 +4730,7 @@ private:
         ParentTI->setSafetyData(dtrans::MemFuncPartialWrite);
       }
       markStructFieldsWritten(ParentTI, RegionDesc.FirstField,
-                              RegionDesc.LastField, I, IsValuePreservingWrite);
+                              RegionDesc.LastField, I);
     } else {
       // The size could not be matched to the fields of the structure.
       LLVM_DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
@@ -4836,8 +4844,7 @@ private:
   // subset of fields of a structure type as written. Any contained aggregates
   // within the subset are marked as completely written.
   void markStructFieldsWritten(dtrans::TypeInfo *TI, unsigned int FirstField,
-                               unsigned int LastField, Instruction &I,
-                               bool IsValuePreservingWrite) {
+                               unsigned int LastField, Instruction &I) {
     assert(TI && TI->getLLVMType()->isStructTy() &&
            "markStructFieldsWritten requires Structure type");
 
@@ -4851,14 +4858,6 @@ private:
       accumulateFrequency(FI, I);
       auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
       markAllFieldsWritten(ComponentTI, I);
-
-      // A copy is considered as preserving the single value analysis info.
-      // However, for a memset, it is not known whether the value changed
-      // without checking the value being set.
-      if (!IsValuePreservingWrite) {
-        FI.setMultipleValue();
-        markAllFieldsMultipleValue(ComponentTI);
-      }
     }
 
     return;
@@ -4906,9 +4905,12 @@ private:
   }
 
   //
-  // Mark all fields of TI to have multiple values.
+  // Mark all fields of TI to have multiple or null values, depending on the
+  // IsNullValue flag. It's used in the memset() analysis to handle null value
+  // case.
   //
-  void markAllFieldsMultipleValue(dtrans::TypeInfo *TI) {
+  void markAllFieldsMultipleValue(dtrans::TypeInfo *TI,
+                                  bool IsNullValue = false) {
     if (TI == nullptr)
       return;
     if (!TI->getLLVMType()->isAggregateType())
@@ -4918,14 +4920,18 @@ private:
       for (auto &FI : StInfo->getFields()) {
         LLVM_DEBUG(dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " ["
                           << Count << "] <MULTIPLE>\n");
-        FI.setMultipleValue();
+        if (IsNullValue)
+          FI.processNewSingleValue(Constant::getNullValue(FI.getLLVMType()));
+        else
+          FI.setMultipleValue();
+
         auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
-        markAllFieldsMultipleValue(ComponentTI);
+        markAllFieldsMultipleValue(ComponentTI, IsNullValue);
         ++Count;
       }
     } else if (auto *AInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
       auto *ComponentTI = AInfo->getElementDTransInfo();
-      markAllFieldsMultipleValue(ComponentTI);
+      markAllFieldsMultipleValue(ComponentTI, IsNullValue);
     }
   }
 
@@ -5701,25 +5707,39 @@ void DTransAnalysisInfo::printArrayInfo(dtrans::ArrayInfo *AI) {
 void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field) {
   outs() << "  Field LLVM Type: " << *(Field.getLLVMType()) << "\n";
   outs() << "    Field info:";
+
   if (Field.isRead())
     outs() << " Read";
+
   if (Field.isWritten())
     outs() << " Written";
+
   if (Field.hasComplexUse())
     outs() << " ComplexUse";
+
   if (Field.isAddressTaken())
     outs() << " AddressTaken";
+
   outs() << "\n";
   outs() << "    Frequency: " << Field.getFrequency();
   outs() << "\n";
+
   if (Field.isNoValue())
     outs() << "    No Value";
   else if (Field.isSingleValue()) {
     outs() << "    Single Value: ";
     Field.getSingleValue()->printAsOperand(outs());
-  } else if (Field.isMultipleValue())
-    outs() << "    Multiple Value";
+  } else if (Field.isMultipleValue()) {
+    outs() << "    Multiple Value: [ ";
+    for (auto *C : Field.values()) {
+      C->printAsOperand(outs(), false);
+      outs() << " ";
+    }
+    outs() << "] <" << (Field.isValueSetComplete() ? "complete" : "incomplete")
+           << ">";
+  }
   outs() << "\n";
+
   if (Field.isTopAllocFunction())
     outs() << "    Top Alloc Function";
   else if (Field.isSingleAllocFunction()) {
@@ -5727,6 +5747,7 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field) {
     Field.getSingleAllocFunction()->printAsOperand(outs());
   } else if (Field.isBottomAllocFunction())
     outs() << "    Bottom Alloc Function";
+
   outs() << "\n";
 }
 
