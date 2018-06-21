@@ -525,6 +525,25 @@ namespace CGIntelOpenMP {
         DKind != OMPD_task && DKind != OMPD_target)
       return;
 
+    // Add clause for implicit use of the 'this' pointer.
+    if (Directive.hasAssociatedStmt() &&
+        isAllowedClauseForDirective(DKind, OMPC_shared)) {
+      if (const Stmt *AS = Directive.getAssociatedStmt()) {
+        auto CS = cast<CapturedStmt>(AS);
+        for (auto &C : CS->captures()) {
+          if (!C.capturesThis())
+            continue;
+
+          CurrentClauseKind = OMPC_shared;
+          addArg("QUAL.OMP.SHARED");
+          addArg(CGF.LoadCXXThis());
+          emitListClause();
+          CurrentClauseKind = OMPC_unknown;
+          break;
+        }
+      }
+    }
+
     for (const auto *VD : VarRefs) {
       if (isExplicit(VD)) continue;
       if (isImplicit(VD)) {
@@ -540,11 +559,7 @@ namespace CGIntelOpenMP {
           emitImplicit(VD, ICK_map_tofrom);
         else
           emitImplicit(VD, ICK_firstprivate);
-      } else if (DKind == OMPD_simd || DKind == OMPD_for ||
-                 DKind == OMPD_for_simd || DKind == OMPD_distribute ||
-                 DKind == OMPD_distribute_simd) {
-        // Directives that do not get implicit shared.
-      } else {
+      } else if (isAllowedClauseForDirective(DKind, OMPC_shared)) {
         // Referenced but not defined in the region: shared
         emitImplicit(VD, ICK_shared);
       }
