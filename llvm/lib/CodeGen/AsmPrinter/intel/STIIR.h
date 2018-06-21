@@ -186,7 +186,7 @@ public:
   typedef uint32_t Offset;
 
 private:
-  StringRef _string;
+  std::string _string;
   Offset _offset;
 
 protected:
@@ -195,7 +195,7 @@ protected:
 public:
   ~STIStringEntry();
 
-  static STIStringEntry *create();
+  static STIStringEntry* create();
 
   StringRef getString() const;
   void setString(StringRef string);
@@ -209,7 +209,7 @@ public:
 
 class STIStringTable {
 public:
-  typedef std::vector<STIStringEntry *> EntryList;
+  typedef std::vector<STIStringEntry*> EntryList;
 
 private:
   EntryList _entries;
@@ -459,7 +459,7 @@ public:
 class STISymbol : public STIObject {
 public:
   STISymbol(STIObjectKind kind);
-  ~STISymbol();
+  virtual ~STISymbol();
 };
 
 //===----------------------------------------------------------------------===//
@@ -480,7 +480,7 @@ protected:
 
 public:
   static STISymbolModule *create();
-  ~STISymbolModule();
+  virtual ~STISymbolModule();
 
   STISymbolsSignatureID getSymbolsSignatureID() const;
   void setSymbolsSignatureID(STISymbolsSignatureID signatureID);
@@ -507,7 +507,7 @@ protected:
 public:
   static STISymbolCompileUnit *create();
 
-  ~STISymbolCompileUnit();
+  virtual ~STISymbolCompileUnit();
 
   STIMachineID getMachineID() const;
   void setMachineID(STIMachineID machineID);
@@ -529,7 +529,7 @@ class STISymbolConstant : public STISymbol {
 public:
   static STISymbolConstant *create();
 
-  ~STISymbolConstant();
+  virtual ~STISymbolConstant();
 
   StringRef getName() const;
   void setName(StringRef name);
@@ -571,7 +571,7 @@ protected:
 public:
   static STISymbolProcedure *create();
 
-  ~STISymbolProcedure();
+  virtual ~STISymbolProcedure();
 
   STISymbolID getSymbolID() const;
   void setSymbolID(STISymbolID symbolID);
@@ -621,7 +621,7 @@ protected:
 public:
   static STISymbolThunk *create();
 
-  ~STISymbolThunk();
+  virtual ~STISymbolThunk();
 
   Ordinal getOrdinal() const;
   void setOrdinal(Ordinal ordinal);
@@ -647,7 +647,7 @@ protected:
 public:
   static STISymbolFrameProc *create();
 
-  ~STISymbolFrameProc();
+  virtual ~STISymbolFrameProc();
 
   STISymbolProcedure *getProcedure() const;
   void setProcedure(STISymbolProcedure *procedure);
@@ -671,7 +671,7 @@ protected:
 public:
   static STISymbolBlock *create();
 
-  ~STISymbolBlock();
+  virtual ~STISymbolBlock();
 
   StringRef getName() const;
   void setName(StringRef name);
@@ -701,7 +701,7 @@ protected:
 public:
   static STISymbolVariable *create();
 
-  ~STISymbolVariable();
+  virtual ~STISymbolVariable();
 
   StringRef getName() const;
   void setName(StringRef name);
@@ -727,7 +727,7 @@ protected:
   STIType(STIObjectKind kind);
 
 public:
-  ~STIType();
+  virtual ~STIType();
 
   STIType::Index getIndex() const;
   void setIndex(STIType::Index index);
@@ -750,7 +750,7 @@ protected:
   STITypeBasic();
 
 public:
-  ~STITypeBasic();
+  virtual ~STITypeBasic();
 
   static STITypeBasic *create();
 
@@ -773,7 +773,7 @@ protected:
   STITypeModifier();
 
 public:
-  ~STITypeModifier();
+  virtual ~STITypeModifier();
 
   static STITypeModifier *create();
 
@@ -808,7 +808,7 @@ protected:
   STITypePointer();
 
 public:
-  ~STITypePointer();
+  virtual ~STITypePointer();
 
   static STITypePointer *create();
 
@@ -845,7 +845,7 @@ protected:
   STITypeArray();
 
 public:
-  ~STITypeArray();
+  virtual ~STITypeArray();
 
   static STITypeArray *create();
 
@@ -873,7 +873,7 @@ protected:
   STITypeBitfield();
 
 public:
-  ~STITypeBitfield();
+  virtual ~STITypeBitfield();
 
   static STITypeBitfield *create();
 
@@ -899,7 +899,7 @@ protected:
   STITypeFieldListItem(STIObjectKind kind);
 
 public:
-  ~STITypeFieldListItem();
+  virtual ~STITypeFieldListItem();
 };
 
 //===----------------------------------------------------------------------===//
@@ -917,7 +917,7 @@ protected:
   STITypeFieldList();
 
 public:
-  ~STITypeFieldList();
+  virtual ~STITypeFieldList();
 
   static STITypeFieldList *create();
 
@@ -938,7 +938,7 @@ protected:
   STITypeIndex();
 
 public:
-  ~STITypeIndex();
+  virtual ~STITypeIndex();
 
   static STITypeIndex *create();
 
@@ -962,7 +962,7 @@ protected:
   STITypeMember();
 
 public:
-  ~STITypeMember();
+  virtual ~STITypeMember();
 
   static STITypeMember *create();
 
@@ -999,7 +999,7 @@ protected:
   STITypeVBaseClass(bool indirect);
 
 public:
-  ~STITypeVBaseClass();
+  virtual ~STITypeVBaseClass();
 
   static STITypeVBaseClass *create(bool indirect);
 
@@ -1035,7 +1035,7 @@ protected:
   STITypeMethod();
 
 public:
-  ~STITypeMethod();
+  virtual ~STITypeMethod();
 
   static STITypeMethod *create();
 
@@ -1065,7 +1065,7 @@ protected:
   STITypeOneMethod();
 
 public:
-  ~STITypeOneMethod();
+  virtual ~STITypeOneMethod();
 
   static STITypeOneMethod *create();
 
@@ -1099,7 +1099,7 @@ protected:
   STITypeEnumerator();
 
 public:
-  ~STITypeEnumerator();
+  virtual ~STITypeEnumerator();
 
   static STITypeEnumerator *create();
 
@@ -1127,7 +1127,7 @@ protected:
   STITypeBaseClass();
 
 public:
-  ~STITypeBaseClass();
+  virtual ~STITypeBaseClass();
 
   static STITypeBaseClass *create();
 
@@ -1153,7 +1153,7 @@ protected:
   STITypeVFuncTab();
 
 public:
-  ~STITypeVFuncTab();
+  virtual ~STITypeVFuncTab();
 
   static STITypeVFuncTab *create();
 
@@ -1176,7 +1176,7 @@ protected:
   STITypeMethodListEntry();
 
 public:
-  ~STITypeMethodListEntry();
+  virtual ~STITypeMethodListEntry();
 
   static STITypeMethodListEntry *create();
 
@@ -1208,7 +1208,7 @@ protected:
   STITypeMethodList();
 
 public:
-  ~STITypeMethodList();
+  virtual ~STITypeMethodList();
 
   static STITypeMethodList *create();
 
@@ -1240,7 +1240,7 @@ protected:
   STITypeStructure();
 
 public:
-  ~STITypeStructure();
+  virtual ~STITypeStructure();
 
   static STITypeStructure *create();
 
@@ -1289,7 +1289,7 @@ protected:
   STITypeEnumeration();
 
 public:
-  ~STITypeEnumeration();
+  virtual ~STITypeEnumeration();
 
   static STITypeEnumeration *create();
 
@@ -1322,7 +1322,7 @@ protected:
   STITypeVShape();
 
 public:
-  ~STITypeVShape();
+  virtual ~STITypeVShape();
 
   static STITypeVShape *create();
 
@@ -1345,7 +1345,7 @@ protected:
   STITypeFunctionID();
 
 public:
-  ~STITypeFunctionID();
+  virtual ~STITypeFunctionID();
 
   static STITypeFunctionID *create();
 
@@ -1378,7 +1378,7 @@ protected:
   STITypeProcedure(STIObjectKind kind);
 
 public:
-  ~STITypeProcedure();
+  virtual ~STITypeProcedure();
 
   static STITypeProcedure *create();
 
@@ -1409,7 +1409,7 @@ protected:
   STITypeMemberFunction();
 
 public:
-  ~STITypeMemberFunction();
+  virtual ~STITypeMemberFunction();
 
   static STITypeMemberFunction *create();
 
@@ -1438,7 +1438,7 @@ protected:
   STITypeArgumentList();
 
 public:
-  ~STITypeArgumentList();
+  virtual ~STITypeArgumentList();
 
   static STITypeArgumentList *create();
 
@@ -1462,7 +1462,7 @@ protected:
   STITypeServer();
 
 public:
-  ~STITypeServer();
+  virtual ~STITypeServer();
 
   static STITypeServer *create();
 
@@ -1483,7 +1483,7 @@ protected:
   STISymbolUserDefined();
 
 public:
-  ~STISymbolUserDefined();
+  virtual ~STISymbolUserDefined();
 
   static STISymbolUserDefined *create();
 
@@ -1500,7 +1500,7 @@ public:
 
 class STIScope : public STIObject {
 public:
-  typedef std::vector<std::pair<unsigned, STIObject *> > ObjectList;
+  typedef std::vector<std::pair<unsigned, STISymbol *> > ObjectList;
 
 private:
   STIScope *_parent;
@@ -1509,7 +1509,7 @@ private:
 
 public:
   STIScope(STISymbol *symbol);
-  ~STIScope();
+  virtual ~STIScope();
 
   static STIScope *create(STISymbol *symbol);
 
@@ -1519,7 +1519,7 @@ public:
   void setSymbol(STISymbol *symbol);
   const ObjectList &getObjects() const;
 
-  void add(STIObject *object, unsigned ArgNum = 0);
+  void add(STISymbol *symbol, unsigned ArgNum = 0);
 };
 
 //===----------------------------------------------------------------------===//

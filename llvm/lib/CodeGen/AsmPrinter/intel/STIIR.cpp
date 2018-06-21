@@ -8,6 +8,8 @@
 
 #include "STIIR.h"
 
+#include <iostream> // FIXME
+
 using namespace llvm;
 
 //===----------------------------------------------------------------------===//
@@ -96,7 +98,7 @@ void STILocation::setLabel(MCSymbol *label) { _label = label; }
 
 STIStringEntry::STIStringEntry() : _string(), _offset(0) {}
 
-STIStringEntry::~STIStringEntry() {}
+STIStringEntry::~STIStringEntry() { }
 
 STIStringEntry *STIStringEntry::create() { return new STIStringEntry(); }
 
@@ -1281,7 +1283,8 @@ STITypeStructure::STITypeStructure() :
     _fieldType  (nullptr),
     _derivedType(nullptr),
     _vshapeType (nullptr),
-    _size       (nullptr) {
+    _size       (nullptr),
+    _name       () {
 }
 
 STITypeStructure::~STITypeStructure() {
@@ -1338,7 +1341,7 @@ void STITypeStructure::setSize(const STINumeric *size) {
 
 StringRef STITypeStructure::getName() const { return _name; }
 
-void STITypeStructure::setName(StringRef name) { _name = name; }
+void STITypeStructure::setName(StringRef name) { _name = name.str().c_str(); }
 
 //===----------------------------------------------------------------------===//
 // STITypeEnumeration
@@ -1616,7 +1619,7 @@ STISymbol *STIScope::getSymbol() const { return _symbol; }
 
 void STIScope::setSymbol(STISymbol *symbol) { _symbol = symbol; }
 
-void STIScope::add(STIObject *object, unsigned ArgNum) {
+void STIScope::add(STISymbol *symbol, unsigned ArgNum) {
   if (ArgNum) {
     // Keep all parameters in order at the start of the variable list to ensure
     // function types are correct (no out-of-order parameters)
@@ -1640,11 +1643,11 @@ void STIScope::add(STIObject *object, unsigned ArgNum) {
       //       "Duplicate argument for top level (non-inlined) function");
       ++I;
     }
-    _objects.insert(I, std::pair<unsigned, STIObject *>(ArgNum, object));
+    _objects.insert(I, std::pair<unsigned, STISymbol *>(ArgNum, symbol));
     return;
   }
 
-  _objects.push_back(std::pair<unsigned, STIObject *>(ArgNum, object));
+  _objects.push_back(std::pair<unsigned, STISymbol *>(ArgNum, symbol));
 }
 
 const STIScope::ObjectList &STIScope::getObjects() const { return _objects; }
