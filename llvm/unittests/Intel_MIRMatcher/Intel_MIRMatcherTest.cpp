@@ -1,9 +1,9 @@
-/* MIMatcher.t.cpp                  -*-C++-*-
+/* Intel_MIRMatcherTest.cpp                  -*-C++-*-
  *
  *************************************************************************
  *                         INTEL CONFIDENTIAL
  *
- *  Copyright 2017 Intel Corporation.  All Rights Reserved.
+ *  Copyright 2017-2018 Intel Corporation.  All Rights Reserved.
  *
  *  The source code contained or described herein and all documents related
  *  to the source code ("Material") are owned by Intel Corporation or its
@@ -25,7 +25,6 @@
 // Test the mimatcher library, currently specific to CSA, but eventually
 // portable to all architectures.
 
-//#include "llvm/CodeGen/MIRMatcher.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -36,8 +35,6 @@
 #include "../lib/Target/CSA/CSA.h"
 #include "../lib/Target/CSA/CSARegisterInfo.h"
 #include "../lib/Target/CSA/CSAMatcher.h"
-//#include "../lib/Target/CSA/CSAInstrInfo.h"
-//#include "../lib/Target/CSA/CSATargetMachine.h"
 #include "gtest/gtest.h"
 
 #include <iostream>
@@ -164,7 +161,7 @@ constexpr auto pat =
                   LIC1_D      = init1(TRUE_OPND)                 ,
                   LICx_IN     = pick_N(LIC1_D, LICx_C, X));
 
-TEST(MIRMatcher, ComplexPattern) {
+TEST(Intel_MIRMatcher, ComplexPattern) {
   using namespace llvm;
 
   MIFuncBuilder builder("foo");
@@ -207,7 +204,7 @@ TEST(MIRMatcher, ComplexPattern) {
   EXPECT_EQ(pkx, result.instr(LICx_IN     = pick_N(LIC1_D, LICx_C, X)    ));
 }
 
-TEST(MIRMatcher, FailMatch) {
+TEST(Intel_MIRMatcher, FailMatch) {
   using namespace llvm;
 
   MIFuncBuilder builder("bar");

@@ -1,9 +1,11 @@
-//===- MIRMatcher.cpp - MIR pattern matcher -------------------------------===//
+//===- Intel_MIRMatcher.cpp - MIR pattern matcher -------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
+// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
 //
 //===----------------------------------------------------------------------===//
 //
@@ -11,7 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/CodeGen/MIRMatcher.h"
+#include "llvm/CodeGen/Intel_MIRMatcher.h"
 
 namespace llvm {
 
@@ -52,4 +54,4 @@ llvm::MachineInstr* mirmatch::MatchResult::instr(const void* instrId) const {
 
 } // Close namespace llvm
 
-/* End MIRMatcher.cpp */
+// End Intel_MIRMatcher.cpp

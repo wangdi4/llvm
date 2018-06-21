@@ -1,3 +1,19 @@
+# INTEL_CUSTOMIZATION
+set(INTEL_SOURCE_FILES
+  Intel_MIRMatcher.cpp
+  Intel_MachineLoopOptReportEmitter.cpp
+  )
+
+set(INTEL_SOURCE_FILES_TO_BUILD)
+if (INTEL_CUSTOMIZATION)
+  set(INTEL_SOURCE_FILES_TO_BUILD ${INTEL_SOURCE_FILES})
+else()
+  list(APPEND LLVM_OPTIONAL_SOURCES
+    ${INTEL_SOURCE_FILES}
+    )
+endif()
+# end INTEL_CUSTOMIZATION
+
 add_llvm_library(LLVMCodeGen
   AggressiveAntiDepBreaker.cpp
   AllocationOrder.cpp
@@ -94,7 +110,6 @@ add_llvm_library(LLVMCodeGen
   MachineTraceMetrics.cpp
   MachineVerifier.cpp
   PatchableFunction.cpp
-  MIRMatcher.cpp
   MIRPrinter.cpp
   MIRPrintingPass.cpp
   MacroFusion.cpp
@@ -162,7 +177,7 @@ add_llvm_library(LLVMCodeGen
   WinEHPrepare.cpp
   XRayInstrumentation.cpp
 # INTEL_CUSTOMIZATION
-  Intel_MachineLoopOptReportEmitter.cpp
+  ${INTEL_SOURCE_FILES_TO_BUILD}
 # end INTEL_CUSTOMIZATION
 
   ADDITIONAL_HEADER_DIRS

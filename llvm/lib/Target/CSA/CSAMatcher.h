@@ -18,7 +18,7 @@
 #define INCLUDED_CSAMATCHER_DOT_H
 
 #include "CSAInstrInfo.h"
-#include "llvm/CodeGen/MIRMatcher.h"
+#include "llvm/CodeGen/Intel_MIRMatcher.h"
 
 #include <cassert>
 
