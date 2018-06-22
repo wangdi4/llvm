@@ -1,9 +1,16 @@
-/**********************************************************************************************
- * Copyright ? 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
+// INTEL CONFIDENTIAL
+//
+// Copyright 2010-2018 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
 
 // This pass is a development utility that replaces the IR in an existing module With
 // IR that is in some file. This can be helpful if we want to measure the implications
