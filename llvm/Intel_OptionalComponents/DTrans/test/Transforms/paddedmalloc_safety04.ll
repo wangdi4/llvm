@@ -1,9 +1,9 @@
 ; REQUIRES: asserts
 
-; Test that identifies if the DTrans padded malloc optimization was applied. In order to apply
-; padded malloc, the optimization must find a malloc function and a search loop.
+; Test that identifies if the DTrans padded malloc optimization was applied outside the
+; OpenMP region.
 
-; RUN: opt < %s -dtrans-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -vpo-paropt -dtrans-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
 
 %struct.testStruct = type { i8* }
 
@@ -12,6 +12,9 @@
 @arr2 = internal global [10 x i32] zeroinitializer, align 16
 
 declare noalias i8* @malloc(i64)
+
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
 
 declare void @free(i8* nocapture)
 
@@ -44,14 +47,32 @@ define internal zeroext i1 @searchloop() #5 {
   ret i1 %12
 }
 
+define void @doNothing() {
+  ret void
+}
+
 define i32 @main() {
-  %1 = tail call noalias i8* @mallocFunc(i64 100)
-  store i8* %1, i8** getelementptr inbounds (%struct.testStruct,
+
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"() ]
+  br label %DIR.OMP.PARALLEL.START
+
+DIR.OMP.PARALLEL.START:
+  call void @doNothing()
+  br label %DIR.OMP.END.PARALLEL.EXIT
+
+DIR.OMP.END.PARALLEL.EXIT:
+  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.PARALLEL"() ]
+  br label %AFTER.OMP
+
+AFTER.OMP:
+  %2 = tail call noalias i8* @mallocFunc(i64 100)
+  store i8* %2, i8** getelementptr inbounds (%struct.testStruct,
     %struct.testStruct* @globalstruct, i64 0, i32 0), align 8
-  tail call void @free(i8* %1)
+  tail call void @free(i8* %2)
   store i8* null, i8** getelementptr inbounds (%struct.testStruct,
     %struct.testStruct* @globalstruct, i64 0, i32 0), align 8
   call zeroext i1 @searchloop()
+
   ret i32 0
 }
 

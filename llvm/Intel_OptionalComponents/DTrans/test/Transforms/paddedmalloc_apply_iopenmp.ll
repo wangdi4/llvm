@@ -1,9 +1,9 @@
 ; REQUIRES: asserts
 
-; Test that identifies if the DTrans padded malloc optimization was applied. In order to apply
-; padded malloc, the optimization must find a malloc function and a search loop.
+; Test that identifies if the DTrans padded malloc optimization was applied with -fiopenmp.
+; In order to apply padded malloc, the optimization must find a malloc function and a search loop.
 
-; RUN: opt < %s -dtrans-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -vpo-paropt -dtrans-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
 
 %struct.testStruct = type { i8* }
 
@@ -12,6 +12,9 @@
 @arr2 = internal global [10 x i32] zeroinitializer, align 16
 
 declare noalias i8* @malloc(i64)
+
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
 
 declare void @free(i8* nocapture)
 
@@ -45,13 +48,23 @@ define internal zeroext i1 @searchloop() #5 {
 }
 
 define i32 @main() {
-  %1 = tail call noalias i8* @mallocFunc(i64 100)
-  store i8* %1, i8** getelementptr inbounds (%struct.testStruct,
+
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"() ]
+  br label %DIR.OMP.PARALLEL.START
+
+DIR.OMP.PARALLEL.START:
+  %2 = tail call noalias i8* @mallocFunc(i64 100)
+  store i8* %2, i8** getelementptr inbounds (%struct.testStruct,
     %struct.testStruct* @globalstruct, i64 0, i32 0), align 8
-  tail call void @free(i8* %1)
+  tail call void @free(i8* %2)
   store i8* null, i8** getelementptr inbounds (%struct.testStruct,
     %struct.testStruct* @globalstruct, i64 0, i32 0), align 8
   call zeroext i1 @searchloop()
+  br label %DIR.OMP.END.PARALLEL.EXIT
+
+DIR.OMP.END.PARALLEL.EXIT:
+  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.PARALLEL"() ]
+
   ret i32 0
 }
 
@@ -63,5 +76,5 @@ define i32 @main() {
 ; CHECK: dtrans-paddedmalloc: Global variable: PaddedMallocCounter
 ; CHECK: dtrans-paddedmalloc: Interface function: PaddedMallocInterface
 ; CHECK: dtrans-paddedmalloc: Applying padded malloc
-; CHECK: Function updated: mallocFunc
+; CHECK: Function updated: mallocFunc with atomic operation
 
