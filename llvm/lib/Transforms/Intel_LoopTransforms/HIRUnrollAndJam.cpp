@@ -508,14 +508,12 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
       LLVM_DEBUG(dbgs() << "Skipping unroll & jam of vector pragma loop!\n");
       HUAJ.throttle(Lp);
       return;
+    } else if (Lp->hasUnrollEnablingPragma()) {
+      LLVM_DEBUG(
+          dbgs() << "Skipping unroll & jam as loop has unroll pragma!\n");
+      HUAJ.throttle(Lp);
+      return;
     }
-  } else if (Lp->hasUnrollEnablingPragma()) {
-    // TODO: Check this for all loops when we have unroll & jam metadata.
-    LLVM_DEBUG(
-        dbgs()
-        << "Skipping unroll & jam as innermost loop has unroll pragma!\n");
-    HUAJ.throttleRecursively(Lp);
-    return;
   }
 
   // Throttle unroll of outer loop whose inner loop's bounds varies within the
@@ -601,8 +599,7 @@ unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
   unsigned UnrollFactor;
 
   if (HasEnablingPragma) {
-    // TODO: fix this when frontend implements unroll & jam pragma.
-    UnrollFactor = Lp->getUnrollPragmaCount();
+    UnrollFactor = Lp->getUnrollAndJamPragmaCount();
 
     if (!UnrollFactor) {
       UnrollFactor = MaxUnrollFactor;

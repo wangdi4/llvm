@@ -780,23 +780,32 @@ public:
            getLoopStringMetadata("llvm.loop.unroll.full");
   }
 
+  /// Returns unroll count specified through pragma, otherwise returns 0.
+  unsigned getUnrollPragmaCount() const {
+    auto *MD = getLoopStringMetadata("llvm.loop.unroll.count");
+
+    if (!MD) {
+      return 0;
+    }
+
+    return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+  }
+
+  /// Returns true if loop has pragma to enable distribution.
   /// Returns true if loop has pragma to enable unroll & jam.
   bool hasUnrollAndJamEnablingPragma() const {
-    // TODO: Use unroll & jam metadata when available. Also add the check to
-    // other passes such as loop interchange and loop distribution.
-    return hasGeneralUnrollEnablingPragma();
+    return getLoopStringMetadata("llvm.loop.unroll_and_jam.enable") ||
+           getLoopStringMetadata("llvm.loop.unroll_and_jam.count");
   }
 
   /// Returns true if loop has pragma to disable unroll & jam.
   bool hasUnrollAndJamDisablingPragma() const {
-    // TODO: Use unroll & jam metadata when available.
-    return hasGeneralUnrollDisablingPragma();
+    return getLoopStringMetadata("llvm.loop.unroll_and_jam.disable");
   }
 
-  /// Returns unroll count specified through pragma, otherwise returns 0.
-  unsigned getUnrollPragmaCount() const {
-    // Unroll if loop's trip count is less than unroll count.
-    auto *MD = getLoopStringMetadata("llvm.loop.unroll.count");
+  /// Returns unroll & jam count specified through pragma, otherwise returns 0.
+  unsigned getUnrollAndJamPragmaCount() const {
+    auto *MD = getLoopStringMetadata("llvm.loop.unroll_and_jam.count");
 
     if (!MD) {
       return 0;
