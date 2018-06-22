@@ -53,8 +53,8 @@
 //
 // TODO: Add opt-report messages.
 //===----------------------------------------------------------------------===//
-#include "HIRUnroll.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJam.h"
+#include "HIRUnroll.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
@@ -1055,7 +1055,10 @@ void UnrollHelper::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
   CExpr->shift(UHelper.UnrollLevel, UHelper.UnrollIteration);
 
   CExpr->multiplyIVByConstant(UHelper.UnrollLevel, UHelper.UnrollFactor);
-  CExpr->simplify(true);
+  // Cannot simplify unsigned division unless numerator is known to be
+  // non-negative. Can use HLNodeUtils::isKnownNonNegative() if simplification
+  // is required for performance.
+  // CExpr->simplify(true);
 }
 
 static void createUnrolledNodeRange(HLNode *FirstNode, HLNode *LastNode,
