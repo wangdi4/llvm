@@ -24,6 +24,7 @@
 #define INTEL_OPTIONALCOMPONENTS_INTEL_DTRANS_TRANSFORMS_DTRANSOPTBASE_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -366,12 +367,12 @@ protected:
 
   // A mapping from the clone function to the original function to enable
   // lookups of the original function based on a clone function pointer.
-  DenseMap<Function *, Function *> CloneFuncToOrigFuncMap;
+  MapVector<Function *, Function *> CloneFuncToOrigFuncMap;
 
   // List of global variables that are being replaced with variables of the new
   // types due to the type remapping. The variables in this list need to be
   // destroyed once the entire module has been remapped.
-  SmallVector<GlobalVariable *, 16> GlobalsForRemoval;
+  SmallVector<GlobalValue *, 16> GlobalsForRemoval;
 
 private:
   // A mapping of "Function -> { call info set }" objects.
