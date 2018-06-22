@@ -282,7 +282,8 @@ void DTransOptBase::buildTypeDependencyMapping(
 void DTransOptBase::dumpTypeDepenencyMapping(
     TypeDependencyMapping &TypeToDependentTypes) {
   auto PrintNameOrType = [](Type *Ty) {
-    if (auto *StructTy = dyn_cast<StructType>(Ty))
+    auto *StructTy = dyn_cast<StructType>(Ty);
+    if (StructTy && StructTy->hasName())
       dbgs() << StructTy->getName();
     else
       dbgs() << *Ty;
@@ -322,7 +323,7 @@ void DTransOptBase::collectDependenciesForTypeRecurse(
     if (Depender == Dependee)
       return;
 
-    if (!Dependee->isAggregateType())
+    if (!Dependee->isAggregateType() || !Depender->isAggregateType())
       return;
 
     LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Type dependency: Replacing "
@@ -355,7 +356,7 @@ void DTransOptBase::collectDependenciesForTypeRecurse(
   if (auto *FuncTy = dyn_cast<FunctionType>(Ty)) {
     Type *RetTy = FuncTy->getReturnType();
     Type *BaseTy = unwrapType(RetTy);
-    UpdateTypeToDependentTypeMap(Dependee, BaseTy);
+    UpdateTypeToDependentTypeMap(BaseTy, Dependee);
 
     unsigned Total = FuncTy->getNumParams();
     for (unsigned Idx = 0; Idx < Total; ++Idx) {
