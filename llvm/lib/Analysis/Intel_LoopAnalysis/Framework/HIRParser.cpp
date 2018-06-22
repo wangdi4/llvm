@@ -1813,6 +1813,9 @@ bool HIRParser::parseMul(const SCEVMulExpr *MulSCEV, CanonExpr *CE,
     return parseBlob(MulSCEV, CE, Level, 0, IndicateFailure);
   }
 
+  // Update def level of CE using blob's def level.
+  setCanonExprDefLevel(CE, Level, BlobCE->getDefinedAtLevel());
+
   return true;
 }
 

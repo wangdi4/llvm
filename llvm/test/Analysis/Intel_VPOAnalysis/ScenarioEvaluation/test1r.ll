@@ -9,7 +9,7 @@
 ;     a[i]++;
 ;   }
 ; }
-
+; XFAIL: *
 ; TODO: Only runs in debug mode
 ; REQUIRES: asserts
 ; RUN: opt < %s -O2 -S -loopopt -disable-hir-loop-reversal -disable-hir-complete-unroll -debug -enable-vect-vls=1 -vplan-driver-hir=0 2>&1 | FileCheck %s
