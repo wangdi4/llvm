@@ -944,10 +944,10 @@ private:
   /// codeRepl:
   ///   %1 = bitcast i32* %aaa to i8*
   ///   %2 = getelementptr inbounds [1 x i8*],
-  //         [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
+  ///        [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
   ///   store i8* %1, i8** %2
   ///   %3 = getelementptr inbounds [1 x i8*],
-  //         [1 x i8*]* %.offload_ptrs, i32 0, i32 0
+  ///        [1 x i8*]* %.offload_ptrs, i32 0, i32 0
   ///   %4 = bitcast i32* %aaa to i8*
   ///   store i8* %4, i8** %3
   ///
@@ -962,7 +962,7 @@ private:
   /// codeRepl:
   ///   %1 = bitcast i32* @aaa to i8*
   ///   %2 = getelementptr inbounds [1 x i8*],
-  //         [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
+  ///        [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
   ///   store i8* %1, i8** %2
   ///   %3 = getelementptr inbounds [1 x i8*],
   ///        [1 x i8*]* %.offload_ptrs, i32 0, i32 0

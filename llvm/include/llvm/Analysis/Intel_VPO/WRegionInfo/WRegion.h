@@ -432,7 +432,7 @@ public:
   DEFINE_GETTER(LinearClause,       getLinear, Linear)
   DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
   DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
-  DEFINE_GETTER(ScheduleClause,     getDistSchedule, Schedule)
+  DEFINE_GETTER(ScheduleClause,     getDistSchedule, DistSchedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   EXPR getIf() const { return IfExpr; }

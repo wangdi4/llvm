@@ -236,6 +236,8 @@ public:
   virtual ReductionClause &getRed()          {WRNERROR("REDUCTION");          }
   virtual ScheduleClause &getSchedule()      {WRNERROR("SCHEDULE");           }
        // ScheduleClause is not list-type, but has similar API so put here too
+  virtual ScheduleClause &getDistSchedule()   {WRNERROR("DIST_SCHEDULE");     }
+
   virtual SharedClause &getShared()          {WRNERROR(QUAL_OMP_SHARED);      }
   virtual UniformClause &getUniform()        {WRNERROR(QUAL_OMP_UNIFORM);     }
   virtual UseDevicePtrClause &getUseDevicePtr()
@@ -271,6 +273,8 @@ public:
                                            {WRNERROR("REDUCTION");          }
   virtual const ScheduleClause &getSchedule() const
                                            {WRNERROR("SCHEDULE");           }
+  virtual const ScheduleClause &getDistSchedule() const
+                                           {WRNERROR("DIST_SCHEDULE");      }
   virtual const SharedClause &getShared() const
                                            {WRNERROR(QUAL_OMP_SHARED);      }
   virtual const UniformClause &getUniform() const

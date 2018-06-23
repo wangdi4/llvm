@@ -162,6 +162,19 @@ public:
                                       Value *Tid, Value *NumThreads,
                                       Instruction *InsertPt);
 
+    /// \brief Generate a call to notify the runtime system that the team
+    /// level static loop scheduling is started
+    /// call void @__kmpc_team_static_init_4(%ident_t* %loc, i32 %tid,
+    ///             i32 schedtype, i32* %islast,i32* %lb, i32* %ub, i32* %st,
+    ///             i32 inc, i32 chunk)
+    static CallInst* genKmpcTeamStaticInit(WRegionNode *W,
+                                      StructType *IdentTy,
+                                      Value *Tid, Value *IsLastVal,
+                                      Value *LB, Value *UB, Value *ST,
+                                      Value *Inc, Value *Chunk,
+                                      int Size, bool IsUnsigned,
+                                      Instruction *InsertPt);
+
     /// \brief Generate a call to notify the runtime system that the static
     /// loop scheduling is started
     /// call void @__kmpc_for_static_init_4(%ident_t* %loc, i32 %tid,
@@ -170,7 +183,8 @@ public:
     static CallInst* genKmpcStaticInit(WRegionNode *W,
                                        StructType *IdentTy,
                                        Value *Tid, Value *SchedType,
-                                       Value *IsLastVal, Value *LB, Value *UB,
+                                       Value *IsLastVal, Value *LB,
+                                       Value *UB, Value *DistUB,
                                        Value *ST, Value *Inc, Value *Chunk,
                                        int Size, bool IsUnsigned,
                                        Instruction *InsertPt);
@@ -193,7 +207,7 @@ public:
     static CallInst* genKmpcDispatchInit(WRegionNode *W,
                                          StructType *IdentTy,
                                          Value *Tid, Value *SchedType,
-                                         Value *LB, Value *UB,
+                                         Value *IsLastVal, Value *LB, Value *UB,
                                          Value *ST, Value *Chunk,
                                          int Size, bool IsUnsigned,
                                          Instruction *InsertPt);
@@ -231,6 +245,12 @@ public:
     /// \Brief Query loop scheduling kind based on ordered clause and chunk
     /// size information
     static WRNScheduleKind getLoopScheduleKind(WRegionNode *W);
+
+
+    /// \Brief Query distribute loop scheduling kind based on schedule
+    /// and chunk size information
+    static WRNScheduleKind getDistLoopScheduleKind(WRegionNode *W);
+
 
     /// \brief Generate source location information for Explicit barrier
     static GlobalVariable* genKmpcLocforExplicitBarrier(Instruction *InsertPt,

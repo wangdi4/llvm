@@ -313,10 +313,10 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
                                unsigned Depth, unsigned Verbosity) const {
   bool PrintedSomething = false;
 
-  if (canHaveSchedule())
-    PrintedSomething |= getSchedule().print(OS, Depth, Verbosity);
-
   if (canHaveDistSchedule())
+    PrintedSomething |= getDistSchedule().print(OS, Depth, Verbosity);
+
+  if (canHaveSchedule())
     PrintedSomething |= getSchedule().print(OS, Depth, Verbosity);
 
   if (canHaveShared())
@@ -1078,7 +1078,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_DIST_SCHEDULE_STATIC: {
-    WRegionUtils::extractScheduleOpndList(getSchedule(), Args, ClauseInfo,
+    WRegionUtils::extractScheduleOpndList(getDistSchedule(), Args, ClauseInfo,
                                           WRNScheduleDistributeStatic);
     break;
   }

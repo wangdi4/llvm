@@ -524,7 +524,6 @@ WRNDistributeNode::WRNDistributeNode(BasicBlock *BB, LoopInfo *Li)
   setIsOmpLoop();
   setIsDistribute();
   setCollapse(0);
-  setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNDistributeNode<" << getNumber() << ">\n");
 }

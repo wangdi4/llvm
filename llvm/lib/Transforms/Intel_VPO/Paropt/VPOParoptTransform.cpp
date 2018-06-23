@@ -267,6 +267,7 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       case WRegionNode::WRNParallelSections:
       case WRegionNode::WRNParallelLoop:
+      case WRegionNode::WRNDistributeParLoop:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           regularizeOMPLoop(W);
@@ -1545,10 +1546,10 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
 
     for (FirstprivateItem *FprivI : FprivClause.items()) {
       Value *Orig = FprivI->getOrig();
-/*
-      assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
-             "genFirstPrivatizationCode: Unexpected firstprivate variable");
-*/
+      //
+      // assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
+      //      "genFirstPrivatizationCode: Unexpected firstprivate variable");
+      //
       LastprivateItem *LprivI = FprivI->getInLastprivate();
 
       if (!LprivI) {
@@ -2509,8 +2510,29 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   LLVM_DEBUG(dbgs() << "--- Loop Latch: " << *(L->getLoopLatch()) << "\n\n");
 
   bool IsDoacrossLoop =
-      ((isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
-       W->getOrdered() > 0);
+       ((isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
+         W->getOrdered() > 0);
+
+  bool IsDistParLoop = isa<WRNDistributeParLoopNode>(W);
+  bool IsDistForLoop = isa<WRNDistributeNode>(W);
+
+  bool IsDistChunkedParLoop = false;
+
+  Value *DistChunkVal = NULL;
+
+  WRNScheduleKind DistSchedKind;
+
+  if (IsDistParLoop) {
+
+    // Get dist_schedule kind and chunk information from W-Region node
+    // Default: DistributeStaticEven.
+    DistSchedKind = VPOParoptUtils::getDistLoopScheduleKind(W);
+
+    if (DistSchedKind == WRNScheduleDistributeStatic) {
+      DistChunkVal = W->getDistSchedule().getChunkExpr();
+      IsDistChunkedParLoop = true;
+    }
+  }
 
 #if 0
   LLVM_DEBUG(dbgs() << "---- Loop Induction: "
@@ -2609,6 +2631,39 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
   ConstantInt *SchedType = ConstantInt::getSigned(Int32Ty, SchedKind);
 
+  AllocaInst *TeamIsLast;
+  AllocaInst *TeamLowerBnd;
+  AllocaInst *TeamUpperBnd;
+  AllocaInst *TeamStride;
+  AllocaInst *TeamUpperD;
+
+  if (IsDistChunkedParLoop) {
+    TeamIsLast = new AllocaInst(Int32Ty, DL.getAllocaAddrSpace(),
+                                "team.is.last",
+                                &(W->getEntryBBlock()->front()));
+    TeamIsLast->setAlignment(4);
+
+    TeamLowerBnd = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
+                                  "team.lower.bnd", InsertPt);
+    TeamLowerBnd->setAlignment(4);
+
+    TeamUpperBnd = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
+                                  "team.upper.bnd", InsertPt);
+    TeamUpperBnd->setAlignment(4);
+
+    TeamStride = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
+                                "team.stride", InsertPt);
+    TeamStride->setAlignment(4);
+
+    TeamUpperD = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
+                                "team.upperD", InsertPt);
+    TeamUpperD->setAlignment(4);
+
+    StoreInst *Tmp = new StoreInst(ValueZero, TeamIsLast);
+    Tmp->insertAfter(TeamIsLast);
+    Tmp->setAlignment(4);
+  }
+
   IRBuilder<> B(InsertPt);
   if (InitVal->getType()->getIntegerBitWidth() !=
       IndValTy->getIntegerBitWidth())
@@ -2660,24 +2715,97 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   CallInst* KmpcFiniCI;
   CallInst* KmpcNextCI;
 
+  LoadInst *TeamLB;
+  LoadInst *TeamUB;
+  LoadInst *TeamST;
+  LoadInst *TeamUD;
+
+  CallInst* KmpcTeamInitCI;
+
   Value *ChunkVal = (SchedKind == WRNScheduleStaticEven ||
                      SchedKind == WRNScheduleOrderedStaticEven) ?
                                   ValueOne : W->getSchedule().getChunkExpr();
 
+
   LLVM_DEBUG(dbgs() << "--- Schedule Chunk Value: " << *ChunkVal << "\n\n");
 
-  if (SchedKind == WRNScheduleStaticEven || SchedKind == WRNScheduleStatic) {
-    // Generate __kmpc__for_static_init_4{u}/8{u} Call Instruction
+  if (IsDistChunkedParLoop) {
+    StoreInst *Tmp0 = new StoreInst(InitVal, TeamLowerBnd, false, InsertPt);
+    Tmp0->setAlignment(4);
+
+    StoreInst *Tmp1 = new StoreInst(UpperBndVal, TeamUpperBnd, false, InsertPt);
+    Tmp1->setAlignment(4);
+
+    StoreInst *Tmp2 = new StoreInst(StrideVal, TeamStride, false, InsertPt);
+    Tmp2->setAlignment(4);
+
+    StoreInst *Tmp3 = new StoreInst(UpperBndVal, TeamUpperD, false, InsertPt);
+    Tmp3->setAlignment(4);
+
+    // Generate __kmpc_team_static_init_4{u}/8{u} Call Instruction
+    KmpcTeamInitCI = VPOParoptUtils::genKmpcTeamStaticInit(W, IdentTy,
+                               LoadTid, TeamIsLast, TeamLowerBnd,
+                               TeamUpperBnd, TeamStride, StrideVal,
+                               DistChunkVal, Size, IsUnsigned, InsertPt);
+
+    TeamLB = new LoadInst(TeamLowerBnd, "team.new.lb", InsertPt);
+    TeamLB->setAlignment(4);
+
+    TeamUB = new LoadInst(TeamUpperBnd, "team.new.ub", InsertPt);
+    TeamUB->setAlignment(4);
+
+    TeamST = new LoadInst(TeamStride, "team.new.st", InsertPt);
+    TeamST->setAlignment(4);
+
+    TeamUD = new LoadInst(TeamUpperBnd, "team.new.ud", InsertPt);
+    TeamUD->setAlignment(4);
+
+    Tmp0 = new StoreInst(TeamLB, LowerBnd, false, InsertPt);
+    Tmp0->setAlignment(4);
+
+    Tmp1 = new StoreInst(TeamUB, UpperBnd, false, InsertPt);
+    Tmp1->setAlignment(4);
+
+    Tmp2 = new StoreInst(TeamST, Stride, false, InsertPt);
+    Tmp2->setAlignment(4);
+
+    Tmp3 = new StoreInst(TeamUB, UpperD, false, InsertPt);
+    Tmp3->setAlignment(4);
+
+  }
+
+  if (IsDistParLoop && !IsDistChunkedParLoop) {
+    ConstantInt *DistSchedType = ConstantInt::getSigned(Int32Ty, DistSchedKind);
+    // Generate __kmpc_dist_for_static_init_4{u}/8{u} Call Instruction
+    KmpcInitCI = VPOParoptUtils::genKmpcStaticInit(W, IdentTy,
+                               LoadTid, DistSchedType, IsLastVal, LowerBnd,
+                               UpperBnd, UpperD, Stride, StrideVal,
+                               DistChunkVal, Size, IsUnsigned, InsertPt);
+  }
+  else if (SchedKind == WRNScheduleStatic ||
+           SchedKind == WRNScheduleStaticEven) {
+    // Generate __kmpc_for_static_init_4{u}/8{u} Call Instruction
     KmpcInitCI = VPOParoptUtils::genKmpcStaticInit(W, IdentTy,
                                LoadTid, SchedType, IsLastVal, LowerBnd,
-                               UpperBnd, Stride, StrideVal, ChunkVal,
+                               UpperBnd, UpperD, Stride, StrideVal, ChunkVal,
                                Size, IsUnsigned, InsertPt);
   }
   else {
     // Generate __kmpc_dispatch_init_4{u}/8{u} Call Instruction
-    KmpcInitCI = VPOParoptUtils::genKmpcDispatchInit(W, IdentTy,
-                               LoadTid, SchedType, InitVal, UpperBndVal,
-                               StrideVal, ChunkVal, Size, IsUnsigned, InsertPt);
+    if (IsDistForLoop) {
+      ConstantInt *DistSchedType =
+                     ConstantInt::getSigned(Int32Ty, DistSchedKind);
+
+      KmpcInitCI = VPOParoptUtils::genKmpcDispatchInit(W, IdentTy,
+                               LoadTid, DistSchedType, IsLastVal,
+                               InitVal, UpperBndVal, StrideVal,
+                               ChunkVal, Size, IsUnsigned, InsertPt);
+    }
+    else
+      KmpcInitCI = VPOParoptUtils::genKmpcDispatchInit(W, IdentTy,
+                               LoadTid, SchedType, IsLastVal,
+                               InitVal, UpperBndVal, StrideVal,
+                               ChunkVal, Size, IsUnsigned, InsertPt);
 
     // Generate __kmpc_dispatch_next_4{u}/8{u} Call Instruction
     KmpcNextCI = VPOParoptUtils::genKmpcDispatchNext(W, IdentTy,
@@ -2961,6 +3089,146 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     wrnUpdateSSAPreprocessForOuterLoop(OuterLoop, ValueToLiveinMap, LiveOutVals,
                                        ECs);
     rewriteUsesOfOutInstructions(ValueToLiveinMap, LiveOutVals, ECs);
+  }
+
+  if (IsDistChunkedParLoop) {
+    BasicBlock *TeamInitBB = KmpcTeamInitCI->getParent();
+    BasicBlock *TeamExitBB = KmpcFiniCI->getParent();
+
+    //                          |
+    //                team.dispatch.header <---------------+
+    //                       |       |                     |
+    //                       |   team.dispatch.min.ub      |
+    //                       |       |                     |
+    //   +------------- team.dispatch.body                 |
+    //   |                   |                             |
+    //   |                   |                             |
+    //   |           team.dispatch.inner.body              |
+    //   |                      |                          |
+    //   |                  par loop  <------_+            |
+    //   |                      |             |            |
+    //   |                    .....           |            |
+    //   |                      |             |            |
+    //   |            par loop bottom test ---+            |
+    //   |                      |                          |
+    //   |                      |                          |
+    //   |               team.dispatch.inc                 |
+    //   |                      |                          |
+    //   |                      +--------------------------+
+    //   |
+    //   +------------> team dispatch.latch
+    //                          |
+
+    // Generate dispatch header BBlock
+    BasicBlock *TeamDispHeaderBB = SplitBlock(TeamInitBB, TeamLB, DT, LI);
+    TeamDispHeaderBB->setName("team.dispatch.header");
+
+    // Generate a upper bound load instruction at top of TeamDispHeaderBB
+    LoadInst *TmpUB = new LoadInst(TeamUpperBnd, "team.ub.tmp", TeamLB);
+
+    // Generate a upper bound load instruction at top of TeamDispHeaderBB
+    LoadInst *TmpUD = new LoadInst(TeamUpperD, "team.ud.tmp", TeamLB);
+
+    BasicBlock *TeamDispBodyBB = SplitBlock(TeamDispHeaderBB, TeamLB, DT, LI);
+    TeamDispBodyBB->setName("team.dispatch.body");
+
+    ICmpInst* MinUB;
+
+    TerminatorInst *TermInst = TeamDispHeaderBB->getTerminator();
+
+    if (IsLeft)
+      MinUB = new ICmpInst(TermInst, PD, TmpUB, TmpUD, "team.ub.min");
+    else
+      MinUB = new ICmpInst(TermInst, PD, TmpUD, TmpUB, "team.ub.min");
+
+    StoreInst *NewUB = new StoreInst(TmpUD, TeamUpperBnd, false, TermInst);
+
+    BasicBlock *TeamDispMinUBB = SplitBlock(TeamDispHeaderBB, NewUB, DT, LI);
+    TeamDispMinUBB->setName("team.dispatch.min.ub");
+
+    TermInst = TeamDispHeaderBB->getTerminator();
+
+    // Generate branch for team.dispatch.cond for get MIN upper bound
+    TerminatorInst *NewTermInst = BranchInst::Create(TeamDispBodyBB,
+                                                     TeamDispMinUBB, MinUB);
+    ReplaceInstWithInst(TermInst, NewTermInst);
+
+    BasicBlock *TeamInnerBodyBB = SplitBlock(TeamDispBodyBB, TeamST, DT, LI);
+    TeamInnerBodyBB->setName("team.dispatch.inner.body");
+
+    ICmpInst* TeamTopTest;
+
+    TermInst = TeamDispBodyBB->getTerminator();
+
+    if (IsLeft)
+      TeamTopTest = new ICmpInst(TermInst, PD, TeamLB, TeamUB, "team.top.test");
+    else
+      TeamTopTest = new ICmpInst(TermInst, PD, TeamUB, TeamLB, "team.top.test");
+
+    // Generate branch for team.dispatch.cond for get MIN upper bound
+    TerminatorInst *TeamTopTestBI = BranchInst::Create(TeamInnerBodyBB,
+                                                       TeamExitBB, TeamTopTest);
+    ReplaceInstWithInst(TermInst, TeamTopTestBI);
+
+    // Generate dispatch chunk increment BBlock
+    BasicBlock *TeamDispLatchBB = SplitBlock(TeamExitBB,
+                                             &(TeamExitBB->front()), DT, LI);
+
+    TermInst = TeamExitBB->getTerminator();
+    TeamExitBB->setName("team.dispatch.inc");
+
+    // Generate team.inc.lb = team.new.lb + team.new.st
+    BinaryOperator *IncLB = BinaryOperator::CreateAdd(
+                                            TeamLB, TeamST, "team.inc.lb");
+    IncLB->insertBefore(TermInst);
+
+    // Generate team.inc.ub = team.new.lb + team.new.st
+    BinaryOperator *IncUB = BinaryOperator::CreateAdd(
+                                            TeamUB, TeamST, "team.inc.ub");
+    IncUB->insertBefore(TermInst);
+
+    StoreInst *NewIncLB = new StoreInst(IncLB, TeamLowerBnd, false, TermInst);
+    NewIncLB->setAlignment(4);
+
+    StoreInst *NewIncUB = new StoreInst(IncUB, TeamUpperBnd, false, TermInst);
+    NewIncUB->setAlignment(4);
+
+    TermInst->setSuccessor(0, TeamDispHeaderBB);
+
+    TeamDispLatchBB->setName("team.dispatch.latch");
+
+    TermInst = TeamDispBodyBB->getTerminator();
+
+    TermInst->setSuccessor(1, TeamDispLatchBB);
+
+    if (DT) {
+      DT->changeImmediateDominator(TeamDispHeaderBB, TeamInitBB);
+      DT->changeImmediateDominator(TeamDispBodyBB, TeamDispHeaderBB);
+      DT->changeImmediateDominator(TeamDispMinUBB, TeamDispHeaderBB);
+      DT->changeImmediateDominator(TeamInnerBodyBB, TeamDispBodyBB);
+      DT->changeImmediateDominator(TeamDispLatchBB, TeamDispBodyBB);
+    }
+
+    Loop *OuterLoop = WRegionUtils::createLoop(L, L->getParentLoop(), LI);
+    WRegionUtils::updateBBForLoop(TeamDispHeaderBB, OuterLoop,
+                                  L->getParentLoop(), LI);
+    WRegionUtils::updateBBForLoop(TeamDispMinUBB, OuterLoop, L->getParentLoop(),
+                                  LI);
+    WRegionUtils::updateBBForLoop(TeamDispBodyBB, OuterLoop, L->getParentLoop(),
+                                  LI);
+    WRegionUtils::updateBBForLoop(TeamExitBB, OuterLoop, L->getParentLoop(),
+                                  LI);
+    WRegionUtils::updateBBForLoop(LoopRegionExitBB, OuterLoop,
+                                  L->getParentLoop(), LI);
+    OuterLoop->moveToHeader(TeamDispHeaderBB);
+
+    wrnUpdateLiveOutVals(OuterLoop, LoopRegionExitBB, LiveOutVals, ECs);
+    wrnUpdateSSAPreprocessForOuterLoop(OuterLoop, ValueToLiveinMap, LiveOutVals,
+                                       ECs);
+    rewriteUsesOfOutInstructions(ValueToLiveinMap, LiveOutVals, ECs);
+
+    //// LLVM_DEBUG(dbgs() << "After distribute par Loop scheduling: "
+    ////                   << *TeamInitBB->getParent() << "\n\n");
   }
 
   // There are new BBlocks generated, so we need to reset BBSet
