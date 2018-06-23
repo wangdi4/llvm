@@ -52,8 +52,9 @@ static cl::opt<bool> DTransPrintAnalyzedTypes("dtrans-print-types",
 // if this flag is true.
 // TODO: Disable this flag by default after doing more experiments and
 // tuning.
-static cl::opt<bool> DTransIgnoreBFI("dtrans-ignore-bfi", cl::init(true),
-  cl::ReallyHidden, cl::desc("Ignore using BFI while computing field freq"));
+static cl::opt<bool>
+    DTransIgnoreBFI("dtrans-ignore-bfi", cl::init(true), cl::ReallyHidden,
+                    cl::desc("Ignore using BFI while computing field freq"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Prints information that is saved during analysis about specific function
@@ -720,7 +721,7 @@ private:
   std::map<Function *, AllocStatus> LocalMap;
   // A set to hold visited BasicBlocks.  This is a temporary set used
   // while we are determining the AllocStatus of a Function.
-  SmallPtrSet<BasicBlock *,20> VisitedBlocks;
+  SmallPtrSet<BasicBlock *, 20> VisitedBlocks;
   // A set to hold the BasicBlocks which do not need to be post-dominated
   // by malloc() to be considered isMallocPostDom() or free to be considered
   // isFreePostDom().
@@ -915,9 +916,9 @@ void DTransAllocAnalyzer::visitNullPtrBlocks(Function *F) {
         NoSkipBlockSet.insert(BI->getSuccessor(1 - rv));
       }
     }
-  for (auto *SBB: SkipBlockSet)
+  for (auto *SBB : SkipBlockSet)
     visitAndSetSkipTestSuccessors(SBB);
-  for (auto *NSBB: NoSkipBlockSet)
+  for (auto *NSBB : NoSkipBlockSet)
     visitAndResetSkipTestSuccessors(NSBB);
 }
 
@@ -2414,6 +2415,43 @@ public:
     return true;
   }
 
+  // Return true if CI represents an indirect call site, and there is a
+  // an address taken external function that matches it.
+  bool hasICMatch(CallInst &CI) {
+    // No point in doing this if the C language compatibility rule is not
+    // enforced.
+    if (!DTransUseCRuleCompat)
+      return true;
+    // Check if this is an indirect call site.
+    if (isa<Function>(CI.getCalledValue()))
+      return false;
+    // Look for a matching address taken external call.
+    for (auto &F : CI.getModule()->functions())
+      if (F.hasAddressTaken() && F.isDeclaration())
+        if ((F.arg_size() == CI.getNumArgOperands()) ||
+            (F.isVarArg() && (F.arg_size() <= CI.getNumArgOperands()))) {
+          unsigned I = 0;
+          bool IsFunctionMatch = true;
+          for (auto &Arg : F.args()) {
+            Value *VCI = CI.getArgOperand(I);
+            if (!typesMayBeCRuleCompatible(VCI->getType(), Arg.getType())) {
+              IsFunctionMatch = false;
+              break;
+            }
+            ++I;
+          }
+          if (IsFunctionMatch) {
+            LLVM_DEBUG({
+              dbgs() << "dtrans-ic-match: ";
+              F.printAsOperand(dbgs());
+              dbgs() << ":: " << I << "\n";
+            });
+            return true;
+          }
+        }
+    return false;
+  }
+
   void visitCallInst(CallInst &CI) {
     auto *CV = CI.getCalledValue();
     Function *F = dyn_cast<Function>(CV);
@@ -2464,6 +2502,12 @@ public:
                         << "\n");
       setBaseTypeInfoSafetyData(RetTy, dtrans::SystemObject);
     }
+
+    // If this is an indirect call site, find out if there is a matching
+    // address taken external call.  In this case, the indirect call must
+    // be treated like an external call for the purpose of generating
+    // the AddressTaken safety check.
+    bool HasICMatch = hasICMatch(CI);
 
     unsigned NextArgNo = 0;
     for (Value *Arg : CI.arg_operands()) {
@@ -2543,7 +2587,7 @@ public:
           // reject cases for which the Type of the formal and actual argument
           // must match.  In such cases, there will be no "Address taken"
           //  safety violation.
-          if (!F && DTransUseCRuleCompat &&
+          if (!F && DTransUseCRuleCompat && !HasICMatch &&
               !mayHaveDistinctCompatibleCType(AliasTy))
             continue;
           // If the first element of the dominant type of the pointer is an
@@ -3171,28 +3215,6 @@ public:
     // Call the base InstVisitor routine to visit each function.
     InstVisitor<DTransInstVisitor>::visitModule(M);
 
-    // If a pointer to an aggregate is passed as an argument to an address
-    // taken external function, that function could be a target of an
-    // indirect call. Mark the aggregate and any type nested in it as
-    // AddressTaken.
-    for (auto &F : M.functions())
-      if (F.hasAddressTaken() && F.isDeclaration())
-        for (auto &Arg : F.args()) {
-          LocalPointerInfo &LPI = LPA.getLocalPointerInfo(&Arg);
-          for (auto *AliasTy : LPI.getPointerTypeAliasSet()) {
-            if (!DTInfo.isTypeOfInterest(AliasTy))
-              continue;
-            LLVM_DEBUG({
-              dbgs() << "dtrans-safety: Address taken -- "
-                     << "pointer to aggregate passed as argument:\n"
-                     << " ";
-              F.printAsOperand(dbgs());
-              dbgs() << "\n  " << Arg << "\n";
-            });
-            setBaseTypeInfoSafetyData(AliasTy, dtrans::AddressTaken);
-          }
-        }
-
     // Now follow the uses of global variables (not functions or aliases).
     for (auto &GV : M.globals()) {
       // No initializer indicates a declaration. We'll see the definition
@@ -3297,7 +3319,7 @@ public:
   }
 
   // Accumulate field frequency of \p FI that is accessed in \p I.
-  void accumulateFrequency(dtrans::FieldInfo &FI, Instruction& I) {
+  void accumulateFrequency(dtrans::FieldInfo &FI, Instruction &I) {
     // BFI may not be related to the function that we are currently
     // processing  due to cross function analysis.
     // Fix BFI if it is not the info related to current processing
@@ -3319,7 +3341,6 @@ public:
     TFreq = TFreq < InstFreq ? std::numeric_limits<uint64_t>::max() : TFreq;
     FI.setFrequency(TFreq);
   }
-
 
 private:
   DTransAnalysisInfo &DTInfo;
@@ -5445,9 +5466,7 @@ void DTransAnalysisInfo::setPaddedMallocInfo(unsigned Size, Function *Fn) {
 }
 
 // Return the size used in the padded malloc optimizaton
-unsigned DTransAnalysisInfo::getPaddedMallocSize() {
-  return PaddedMallocSize;
-}
+unsigned DTransAnalysisInfo::getPaddedMallocSize() { return PaddedMallocSize; }
 
 // Return the interface generated by padded malloc function
 llvm::Function *DTransAnalysisInfo::getPaddedMallocInterface() {
@@ -5532,8 +5551,9 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
       M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(), GetBFI);
 }
 
-DTransAnalysisInfo::DTransAnalysisInfo() :
-  PaddedMallocSize(0), PaddedMallocInterface(nullptr), MaxTotalFrequency(0) {}
+DTransAnalysisInfo::DTransAnalysisInfo()
+    : PaddedMallocSize(0), PaddedMallocInterface(nullptr),
+      MaxTotalFrequency(0) {}
 
 // Value map has a deleted move constructor, so we need a non-default
 // implementation of ours.
@@ -5586,11 +5606,12 @@ void DTransAnalysisInfo::reset() {
   TypeInfoMap.clear();
 }
 
-bool DTransAnalysisInfo::analyzeModule(Module &M, TargetLibraryInfo &TLI,
-                    function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
+bool DTransAnalysisInfo::analyzeModule(
+    Module &M, TargetLibraryInfo &TLI,
+    function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
   DTransAllocAnalyzer DTAA(TLI);
-  DTransInstVisitor Visitor(M.getContext(), *this, M.getDataLayout(), TLI,
-                            DTAA, GetBFI);
+  DTransInstVisitor Visitor(M.getContext(), *this, M.getDataLayout(), TLI, DTAA,
+                            GetBFI);
   Visitor.visit(M);
 
   // Computes TotalFrequency for each StructInfo and MaxTotalFrequency.
@@ -5599,8 +5620,7 @@ bool DTransAnalysisInfo::analyzeModule(Module &M, TargetLibraryInfo &TLI,
     if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
       computeStructFrequency(StInfo);
       // Trying to find MaxTotalFrequency here.
-      MaxTFrequency = std::max(MaxTFrequency,
-                               StInfo->getTotalFrequency());
+      MaxTFrequency = std::max(MaxTFrequency, StInfo->getTotalFrequency());
     }
   }
   setMaxTotalFrequency(MaxTFrequency);
@@ -5838,8 +5858,7 @@ char DTransAnalysis::PassID;
 AnalysisKey DTransAnalysis::Key;
 
 DTransAnalysisInfo DTransAnalysis::run(Module &M, AnalysisManager<Module> &AM) {
-  auto &FAM =
-        AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto GetBFI = [&FAM](Function &F) -> BlockFrequencyInfo & {
     return FAM.getResult<BlockFrequencyAnalysis>(F);
   };
