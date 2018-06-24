@@ -1584,6 +1584,9 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isIntegerTy());
 
+  case LibFunc_cxa_bad_cast:
+    return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
   case LibFunc_cxa_bad_typeid:
     return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
 
@@ -1752,6 +1755,26 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(6)->isPointerTy());
 
   case LibFunc_kmpc_serialized_parallel:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_kmpc_single:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_kmpc_end_single:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_kmpc_master:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_kmpc_end_master:
     return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isIntegerTy());
@@ -2150,12 +2173,12 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy()); // this pointer
 
+  // static call (not a member function)
   case LibFunc_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l:
-    return (NumParams == 4 && FTy.getReturnType()->isPointerTy() &&
-            FTy.getParamType(0)->isPointerTy() && // this pointer
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy() &&
-            FTy.getParamType(2)->isPointerTy() &&
-            FTy.getParamType(3)->isIntegerTy());
+            FTy.getParamType(2)->isIntegerTy());
 
   // static call (not a member function)
   case LibFunc_ZSt16__throw_bad_castv:
@@ -2553,6 +2576,14 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_omp_unset_lock:
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_omp_set_num_threads:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_omp_set_nested:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isIntegerTy());
 
   case LibFunc_pipe:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&

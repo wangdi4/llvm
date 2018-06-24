@@ -548,6 +548,9 @@ TLI_DEFINE_ENUM_INTERNAL(cxa_atexit)
 TLI_DEFINE_STRING_INTERNAL("__cxa_atexit")
 
 #if INTEL_CUSTOMIZATION
+/// void __cxa_bad_cast();
+TLI_DEFINE_ENUM_INTERNAL(cxa_bad_cast)
+TLI_DEFINE_STRING_INTERNAL("__cxa_bad_cast")
 /// void __cxa_bad_typeid();
 TLI_DEFINE_ENUM_INTERNAL(cxa_bad_typeid)
 TLI_DEFINE_STRING_INTERNAL("__cxa_bad_typeid")
@@ -666,12 +669,18 @@ TLI_DEFINE_STRING_INTERNAL("__kmpc_dispatch_next_4")
 /// void __kmpc_end_ctitical(indent_t *loc, kmp_int32 global_tid, kmp_cricital_name *crit);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_end_critical)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_end_critical")
+/// void __kmpc_end_master(kmp_Indent *loc, int32_t global_tid)
+TLI_DEFINE_ENUM_INTERNAL(kmpc_end_master)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_end_master")
 /// void __kmpc_end_reduce_nowait(ident_t *loc, kmp_int32 global_tid, kmp_critical_name *lck);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_end_reduce_nowait)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_end_reduce_nowait")
 /// void __kmpc_end_serialized_parallel(ident_t *loc, kmp_int32 global_tid);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_end_serialized_parallel)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_end_serialized_parallel")
+/// void __kmpc_end_single(kmp_Indent *loc, int32_t global_tid);
+TLI_DEFINE_ENUM_INTERNAL(kmpc_end_single)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_end_single")
 /// void __kmpc_for_static_fini(ident_t *loc, kmp_int32 global_tid);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_for_static_fini)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_for_static_fini")
@@ -687,6 +696,9 @@ TLI_DEFINE_STRING_INTERNAL("__kmpc_fork_call")
 /// kmp_int32 __kmpc_global_thread_num(ident_t * loc);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_global_thread_num)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_global_thread_num")
+/// int32_t __kmpc_master(kmp_Indent *loc, int32_t global_tid)
+TLI_DEFINE_ENUM_INTERNAL(kmpc_master)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_master")
 /// void __kmpc_push_num_threads(ident_t * loc, kmp_int32 global_tid, kmp_int32 num_threads);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_push_num_threads)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_push_num_threads")
@@ -696,6 +708,9 @@ TLI_DEFINE_STRING_INTERNAL("__kmpc_reduce_nowait")
 /// void __kmpc_serialized_parallel(ident_t *loc, kmp_int32 global_tid);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_serialized_parallel)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_serialized_parallel")
+/// int32_t __kmpc_single(kmp_Indent *loc, int32_t global_tid);
+TLI_DEFINE_ENUM_INTERNAL(kmpc_single)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_single")
 #endif // INTEL_CUSTOMIZATION
 
 /// double __log10_finite(double x);
@@ -1735,6 +1750,12 @@ TLI_DEFINE_STRING_INTERNAL("omp_init_lock")
 /// void omp_set_lock(omp_lock_t *lock);
 TLI_DEFINE_ENUM_INTERNAL(omp_set_lock)
 TLI_DEFINE_STRING_INTERNAL("omp_set_lock")
+/// void omp_set_nested(int val);
+TLI_DEFINE_ENUM_INTERNAL(omp_set_nested)
+TLI_DEFINE_STRING_INTERNAL("omp_set_nested")
+/// void omp_set_num_threads(int num_threads);
+TLI_DEFINE_ENUM_INTERNAL(omp_set_num_threads)
+TLI_DEFINE_STRING_INTERNAL("omp_set_num_threads")
 /// void omp_unset_lock(omp_lock_t *lock);
 TLI_DEFINE_ENUM_INTERNAL(omp_unset_lock)
 TLI_DEFINE_STRING_INTERNAL("omp_unset_lock")

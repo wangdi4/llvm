@@ -766,6 +766,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setRetNonNull(F);
     return Changed;
   case LibFunc_cxa_bad_typeid:
+    Changed |= setDoesNotReturn(F);
+    return Changed;
+  case LibFunc_cxa_bad_cast:
+    Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_cxa_begin_catch:
     return Changed;
@@ -842,6 +846,18 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_kmpc_reduce_nowait:
     return Changed;
   case LibFunc_kmpc_serialized_parallel:
+    return Changed;
+  case LibFunc_kmpc_single:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_kmpc_end_single:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_kmpc_master:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_kmpc_end_master:
+    Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_lxstat:
     Changed |= setDoesNotThrow(F);
@@ -1293,6 +1309,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_omp_unset_lock:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_set_num_threads:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_set_nested:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_pipe:
