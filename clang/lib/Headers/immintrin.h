@@ -464,4 +464,8 @@ _InterlockedCompareExchange64_HLERelease(__int64 volatile *_Destination,
 
 #endif /* _MSC_VER */
 
+#if !defined(_MSC_VER) || __has_feature(modules)
+#include <svmlintrin.h>
+#endif
+
 #endif /* __IMMINTRIN_H */
