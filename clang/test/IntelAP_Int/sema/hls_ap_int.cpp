@@ -33,7 +33,7 @@ int foo() {
   int3_tt a = 9;
   // expected-warning@+1{{implicit conversion changes signedness: 'int3_tt' (aka '__ap_int(3) int') to 'uint3_tt' (aka '__ap_int(3) unsigned int'}}
   uint3_tt b = a;
-  // expected-warning@+1{{implicit conversion loses integer precision}}
+  // expected-warning@+1{{implicit conversion from 'uint3_tt' (aka '__ap_int(3) unsigned int') to 'uint1_tt' (aka '__ap_int(1) unsigned int') changes value from 2 to 0}}
   uint1_tt c = (uint3_tt)2;
   return 0;
 }
