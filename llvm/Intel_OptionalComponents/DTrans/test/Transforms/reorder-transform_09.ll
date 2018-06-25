@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-reorderfields | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-reorderfields | FileCheck %s
+; RUN: opt -whole-program-assume < %s -S -dtrans-reorderfields | FileCheck %s
+; RUN: opt -whole-program-assume < %s -S -passes=dtrans-reorderfields | FileCheck %s
 
 ; Field reordering should not be performed for new/delete.
 ; CHECK-NOT: %__DFR_struct.test = type { i64, i64, i64, i32, i32, i32, i16 }

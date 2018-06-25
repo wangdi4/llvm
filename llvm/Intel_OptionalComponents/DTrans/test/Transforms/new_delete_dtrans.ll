@@ -1,36 +1,36 @@
 ; RUN: sed -e s/^.new64:// %s | \
-; RUN:      opt -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64 %s
+; RUN:      opt -whole-program-assume -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64 %s
 ; RUN: sed -e s/^.newa64:// %s | \
-; RUN:      opt -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64 %s
+; RUN:      opt -whole-program-assume -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64 %s
 ; RUN: sed -e s/^.new64nt:// %s | \
-; RUN:      opt -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64nt %s
+; RUN:      opt -whole-program-assume -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64nt %s
 ; RUN: sed -e s/^.newa64nt:// %s | \
-; RUN:      opt -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64nt %s
+; RUN:      opt -whole-program-assume -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64nt %s
 ; RUN: sed -e s/^.new64al:// %s | \
-; RUN:      opt -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64al %s
+; RUN:      opt -whole-program-assume -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64al %s
 ; RUN: sed -e s/^.newa64al:// %s | \
-; RUN:      opt -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64al %s
+; RUN:      opt -whole-program-assume -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64al %s
 ; RUN: sed -e s/^.new64alnt:// %s | \
-; RUN:      opt -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64alnt %s
+; RUN:      opt -whole-program-assume -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64alnt %s
 ; RUN: sed -e s/^.newa64alnt:// %s | \
-; RUN:      opt -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64alnt %s
+; RUN:      opt -whole-program-assume -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64alnt %s
 
 ; RUN: sed -e s/^.new64:// %s | \
-; RUN:      opt -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64 %s
+; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64 %s
 ; RUN: sed -e s/^.newa64:// %s | \
-; RUN:      opt -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64 %s
+; RUN:      opt -whole-program-assume -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64 %s
 ; RUN: sed -e s/^.new64nt:// %s | \
-; RUN:      opt -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64nt %s
+; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64nt %s
 ; RUN: sed -e s/^.newa64nt:// %s | \
-; RUN:      opt -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64nt %s
+; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64nt %s
 ; RUN: sed -e s/^.new64al:// %s | \
-; RUN:      opt -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64al %s
+; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64al %s
 ; RUN: sed -e s/^.newa64al:// %s | \
-; RUN:      opt -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64al %s
+; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64al %s
 ; RUN: sed -e s/^.new64alnt:// %s | \
-; RUN:      opt -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64alnt %s
+; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64alnt %s
 ; RUN: sed -e s/^.newa64alnt:// %s | \
-; RUN:      opt -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64alnt %s
+; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64alnt %s
 
 ; This test verifies that the dtrans delete pass correctly transforms new/delete routines.
 

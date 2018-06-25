@@ -258,7 +258,9 @@ const SafetyData HasVTable = 0x0000000000004000000;
 const SafetyData HasFnPtr = 0x0000000000008000000;
 
 /// A type has C++ processing:
-///   allocation/deallocation with new/delete.
+///   allocation/deallocation with new/delete;
+///   invoke instruction returns or takes structure/
+///     pointer to structure.
 const SafetyData HasCppHandling = 0x0000000000010000000;
 
 /// This is a catch-all flag that will be used to mark any usage pattern

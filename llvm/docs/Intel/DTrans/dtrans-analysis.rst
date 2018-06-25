@@ -333,8 +333,10 @@ a pointer to a function.
 
 HasCppHandling
 ~~~~~~~~
-This indicates that the type has C++ processing: there is memory allocation
-and/or deallocation with C++ operators new/new[] and or delete/delete[].
+This indicates that the type has C++ processing:
+    - there is a memory allocation and/or deallocation with C++ operators
+      new/new[] and or delete/delete[];
+    - there is an invoke instructions related to the type.
 
 UnhandledUse
 ~~~~~~~~~~~~
@@ -480,6 +482,11 @@ the argument can be tracked when the function is analyzed. However, if a
 %struct.A* value is cast to an i8* and then passed to a function call, we
 cannot know what the argument's original type was when we are analyzing the
 called function.
+
+Invoke
+~~~~
+Processing is the same as for call instructions. HasCppHandling is set among
+safety conditions for a type.
 
 Intrinsic
 ~~~~~~~~~
