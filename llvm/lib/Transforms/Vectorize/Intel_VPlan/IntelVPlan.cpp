@@ -182,10 +182,10 @@ void VPBlockBase::deleteCFG(VPBlockBase *Entry) {
 }
 
 #if INTEL_CUSTOMIZATION
-void VPBlockBase::setCondBitVPVal(VPValue *CV, VPlan *Plan) {
-  CondBitVPVal = CV;
-  if (CV)
-    Plan->setCondBitVPValUser(CV, this);
+void VPBlockBase::setCondBit(VPValue *CB, VPlan *Plan) {
+  CondBit = CB;
+  if (CB)
+    Plan->setCondBitUser(CB, this);
 }
 #endif
 
@@ -240,8 +240,8 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
         }
 
         PredBB->getTerminator()->eraseFromParent();
-        VPValue *CBV = PredVPBlock->getCondBitVPVal();
-        assert(CBV && "Expected CondBitVPVal");
+        VPValue *CBV = PredVPBlock->getCondBit();
+        assert(CBV && "Expected condition bit!");
         Value *Bit = nullptr;
         if (State->CBVToConditionBitMap.count(CBV)) {
           Bit = State->CBVToConditionBitMap[CBV];
@@ -442,17 +442,18 @@ void VPRegionBlock::execute(VPTransformState *State) {
 }
 
 #if INTEL_CUSTOMIZATION
+// TODO: Please, remove this interface once C/T/F blocks have been removed.
 void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB, VPlan *Plan) {
-  // Set CondBitVPVal in NewBlock. Note that we are only setting the
-  // successor selector pointer. The CondBitVPVal is kept in its
+  // Set CondBit in NewBlock. Note that we are only setting the
+  // successor selector pointer. The CondBit is kept in its
   // original VPBB recipe list.
   if (getNumSuccessors() > 1) {
-    assert(getCondBitVPVal() && "Missing CondBitVPVal");
-    ToBB->setCondBitVPVal(getCondBitVPVal(), Plan);
+    assert(getCondBit() && "Missing CondBit");
+    ToBB->setCondBit(getCondBit(), Plan);
     ToBB->setCBlock(CBlock);
     ToBB->setTBlock(TBlock);
     ToBB->setFBlock(FBlock);
-    setCondBitVPVal(nullptr, Plan);
+    setCondBit(nullptr, Plan);
     CBlock = TBlock = FBlock = nullptr;
   }
 }
@@ -480,7 +481,7 @@ void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
       OS << StrIndent << " " << Recipe;
     }
   }
-  const VPValue *CB = getCondBitVPVal();
+  const VPValue *CB = getCondBit();
   if (CB) {
     const VPInstruction *CBI = dyn_cast<VPInstruction>(CB);
     if (CBI && CBI->getNumOperands()) {
@@ -805,7 +806,7 @@ void VPlan::execute(VPTransformState *State) {
 
     BasicBlock *FirstSuccBB = FromBB->getSingleSuccessor();
     FromBB->getTerminator()->eraseFromParent();
-    VPValue *CBV = FromVPBB->getCondBitVPVal();
+    VPValue *CBV = FromVPBB->getCondBit();
     assert(State->CBVToConditionBitMap.count(CBV) && "Must be in map.");
     Value *NCondBit = State->CBVToConditionBitMap[CBV];
     assert(NCondBit && "Null scalar value for condition bit.");
@@ -1037,8 +1038,8 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BasicBlock) {
   for (const VPRecipeBase &Recipe : *BasicBlock)
     Recipe.print(OS, Indent);
 #if INTEL_CUSTOMIZATION
-  const VPValue *CBV = BasicBlock->getCondBitVPVal();
-  // Dump the CondBitVPVal
+  const VPValue *CBV = BasicBlock->getCondBit();
+  // Dump the CondBit
   if (CBV) {
     OS << " +\n" << Indent << " \"CondBit: ";
     if (const VPInstruction *CBI = dyn_cast<VPInstruction>(CBV)) {

@@ -614,7 +614,7 @@ void VPlanHCFGBuilder::collectUniforms(VPRegionBlock *Region) {
       if (Block->getNumSuccessors() >= 2) {
         // Multiple successors. Checking uniformity of Condition Bit
         // Instruction.
-        VPValue *CBV = VPBB->getCondBitVPVal();
+        VPValue *CBV = VPBB->getCondBit();
         assert(CBV && "Expected condition bit value.");
 
         bool isUniform = Legal->isUniformForTheLoop(CBV->getUnderlyingValue());
@@ -785,7 +785,7 @@ bool VPlanHCFGBuilderBase::regionIsBackEdgeCompliant(
 
 // TODO
 // Return true if \p Block is a VPBasicBlock that contains a successor selector
-// (CondBitVPVal) that is not uniform. If Block is a VPRegionBlock,
+// (CondBit) that is not uniform. If Block is a VPRegionBlock,
 // it returns false since a region can only have a single successor (by now).
 bool VPlanHCFGBuilderBase::isDivergentBlock(VPBlockBase *Block) {
   if (DisableUniformRegions)
@@ -794,12 +794,11 @@ bool VPlanHCFGBuilderBase::isDivergentBlock(VPBlockBase *Block) {
   if (auto *VPBB = dyn_cast<VPBasicBlock>(Block)) {
     unsigned NumSuccs = Block->getNumSuccessors();
     if (NumSuccs < 2) {
-      assert(!VPBB->getCondBitVPVal() &&
-             "Unexpected condition bit instruction");
+      assert(!VPBB->getCondBit() && "Unexpected condition bit instruction");
       return false;
     } else {
       // Multiple successors. Checking uniformity of Condition Bit Instruction.
-      VPValue *CBV = VPBB->getCondBitVPVal();
+      VPValue *CBV = VPBB->getCondBit();
       assert(CBV && "Expected condition bit value.");
 
       // TODO: Temporal implementation for HIR
@@ -850,7 +849,6 @@ private:
   SmallVector<PHINode *, 8> PhisToFix;
 
   // Auxiliary functions
-  bool isConditionForBranch(Instruction *I);
   void setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB);
   void fixPhiNodes();
   VPBasicBlock *createOrGetVPBB(BasicBlock *BB);
@@ -866,20 +864,6 @@ public:
   VPRegionBlock *buildPlainCFG();
 };
 } // anonymous namespace
-
-// Return true if \p Inst is an incoming Instruction to be ignored in the VPlan
-// representation.
-static bool isInstructionToIgnore(Instruction *Inst) {
-  return isa<BranchInst>(Inst);
-}
-
-bool PlainCFGBuilder::isConditionForBranch(Instruction *I) {
-  auto isBranchInst = [&](User *U) -> bool {
-    return isa<BranchInst>(U) && TheLoop->contains(cast<Instruction>(U));
-  };
-  return TheLoop->contains(I) && /*Legal->isUniformForTheLoop(I)&&*/
-         any_of(I->users(), isBranchInst);
-}
 
 // Set predecessors of \p VPBB in the same order as they are in LLVM \p BB.
 void PlainCFGBuilder::setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB) {
@@ -1019,16 +1003,23 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
   VPIRBuilder.setInsertPoint(VPBB);
   for (Instruction &InstRef : *BB) {
     Instruction *Inst = &InstRef;
-    if (isInstructionToIgnore(Inst))
-      continue;
-
-    // There should't be any VPValue for Inst at this point. Otherwise, we
+    // There shouldn't be any VPValue for Inst at this point. Otherwise, we
     // visited Inst when we shouldn't, breaking the RPO traversal order.
     assert(!IRDef2VPValue.count(Inst) &&
            "Instruction shouldn't have been visited.");
 
+    if (auto *Br = dyn_cast<BranchInst>(Inst)) {
+      // Branch instruction is not explicitly represented in VPlan but we need
+      // to represent its condition bit when it's conditional.
+      if (Br->isConditional())
+        createOrGetVPOperand(Br->getCondition());
+
+      // Skip the rest of the Instruction processing for Branch instructions.
+      continue;
+    }
+
     VPInstruction *NewVPInst;
-    if (PHINode *Phi = dyn_cast<PHINode>(Inst)) {
+    if (auto *Phi = dyn_cast<PHINode>(Inst)) {
       // Phi node's operands may have not been visited at this point. We create
       // an empty VPInstruction that we will fix once the whole plain CFG has
       // been built.
@@ -1055,31 +1046,7 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
     }
 
     IRDef2VPValue[Inst] = NewVPInst;
-
-#if INTEL_CUSTOMIZATION
-    // If 'Inst' is a branch condition, map the branches with the conditions.
-    // Note that we don't have to add the recipe as successor selector at this
-    // point. The branch using this condition might not be necessarily in this
-    // VPBB.
-    if (isConditionForBranch(Inst)) {
-      // NOTE: This used to be a UniformConditionBitRecipe
-      for (User *U : Inst->users()) {
-        if (isa<BranchInst>(U) && TheLoop->contains(cast<Instruction>(U)))
-          BranchCondMap[cast<BranchInst>(U)] = NewVPInst;
-      }
-    }
-#endif
-
   }
-#if INTEL_CUSTOMIZATION
-
-  // The previous loop doesn't visit BB's terminator since we are not explicitly
-  // representing branches in VPlan. However, we do need VPValues for its
-  // operands. If an operand is an external definition only used by this
-  // terminator, this is the only way to create a VPValue for it.
-  for (Value *Op : BB->getTerminator()->operands())
-    createOrGetVPOperand(Op);
-#endif
 }
 
 VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
@@ -1134,26 +1101,17 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
       VPBasicBlock *SuccVPBB1 = createOrGetVPBB(TI->getSuccessor(1));
       assert(SuccVPBB1 && "Successor 1 not found");
 
-      // Set VPBB's ConditionBit Instruction
-      BranchInst *Br = cast<BranchInst>(TI);
-      // Look up the BranchCondMap to get the corresponding condition
-      // VPInstruction (which may be in another BB).
-      VPValue *VPCondition = nullptr;
-      auto It = BranchCondMap.find(Br);
-      if (It != BranchCondMap.end()) {
-        VPCondition = It->second;
-      } else {
-        // Live-in value
-        Value *CondValue = Br->getCondition();
-        assert(isa<Instruction>(CondValue) && "ExternalDefs are instructions");
-        // Look for definition in 1)ExternalDefs, 2)InternalDefs
-        assert(IRDef2VPValue.count(CondValue) && "Missing from IRDef2VPValue");
-        VPCondition = IRDef2VPValue[CondValue];
-      }
-      assert(VPCondition && "expected non-null VPValue");
-      VPBB->setCondBitVPVal(VPCondition, PlanUtils.getVPlan());
+      // Set VPBB's condition bit.
+      assert(isa<BranchInst>(TI) && "Unsupported terminator!");
+      auto *Br = cast<BranchInst>(TI);
+      Value *BrCond = Br->getCondition();
+      // Look up the branch condition to get the corresponding VPValue
+      // representing the condition bit in VPlan (which may be in another VPBB).
+      assert(IRDef2VPValue.count(BrCond) &&
+             "Missing condition bit in IRDef2VPValue!");
+      VPValue *VPCondBit = IRDef2VPValue[BrCond];
+      PlanUtils.setBlockTwoSuccessors(VPBB, VPCondBit, SuccVPBB0, SuccVPBB1);
 
-      PlanUtils.setBlockTwoSuccessors(VPBB, VPCondition, SuccVPBB0, SuccVPBB1);
       VPBB->setCBlock(BB);
       VPBB->setTBlock(TI->getSuccessor(0));
       VPBB->setFBlock(TI->getSuccessor(1));

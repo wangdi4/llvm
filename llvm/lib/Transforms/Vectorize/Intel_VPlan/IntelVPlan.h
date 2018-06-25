@@ -1172,7 +1172,7 @@ private:
 
   /// The immediate VPRegionBlock which this VPBlockBase belongs to, or null if
   /// it is a topmost VPBlockBase.
-  class VPRegionBlock *Parent;
+  class VPRegionBlock *Parent = nullptr;
 
   /// List of predecessor blocks.
   SmallVector<VPBlockBase *, 2> Predecessors;
@@ -1180,13 +1180,11 @@ private:
   /// List of successor blocks.
   SmallVector<VPBlockBase *, 2> Successors;
 
-#if INTEL_CUSTOMIZATION
-  /// \brief Successor selector, null for zero or single successor blocks.
-  VPValue *CondBitVPVal;
-#endif
+  /// Successor selector, null for zero or single successor blocks.
+  VPValue *CondBit = nullptr;
 
   /// holds a predicate for a VPBlock.
-  VPPredicateRecipeBase *PredicateRecipe;
+  VPPredicateRecipeBase *PredicateRecipe = nullptr;
 
   /// \brief Add \p Successor as the last successor to this block.
   void appendSuccessor(VPBlockBase *Successor) {
@@ -1215,14 +1213,8 @@ private:
   }
 
 protected:
-#if INTEL_CUSTOMIZATION
   VPBlockBase(const unsigned char SC, const std::string &N)
-      : VBID(SC), Name(N), Parent(nullptr), CondBitVPVal(nullptr),
-        PredicateRecipe(nullptr) {}
-#else
-  VPBlockBase(const unsigned char SC, const std::string &N)
-      : VBID(SC), Name(N), Parent(nullptr), PredicateRecipe(nullptr) {}
-#endif
+      : VBID(SC), Name(N) {}
 
 public:
   /// An enumeration for keeping track of the concrete subclass of VPBlockBase
@@ -1348,19 +1340,15 @@ public:
     return getAncestorWithPredecessors()->getSinglePredecessor();
   }
 
-  /// If a VPBlockBase has two successors, this is the Recipe that will generate
-  /// the condition bit selecting the successor, and feeding the terminating
-  /// conditional branch. Otherwise this is null.
+  /// \return the condition bit selecting the successor.
+  VPValue *getCondBit() { return CondBit; }
+
+  const VPValue *getCondBit() const { return CondBit; }
+
 #if INTEL_CUSTOMIZATION
-  VPValue *getCondBitVPVal() {
-    return CondBitVPVal;
-  }
-
-  const VPValue *getCondBitVPVal() const {
-    return CondBitVPVal;
-  }
-
-  void setCondBitVPVal(VPValue *V, VPlan *Plan);
+  void setCondBit(VPValue *CB, VPlan *Plan);
+#else
+  void setCondBit(VPValue *CB) { CondBit = CB; }
 #endif
 
   VPPredicateRecipeBase *getPredicateRecipe() const { return PredicateRecipe; }
@@ -2066,8 +2054,8 @@ protected:
   /// serves optimizations that operate on the VPlan.
   DenseMap<Instruction *, VPRecipeBase *> Inst2Recipe;
 
-  /// Keep track of the VPBasicBlock users of a CondBitVPVal.
-  DenseMap<VPValue *, std::set<const VPBlockBase *>> CondBitVPValUsers;
+  /// Keep track of the VPBasicBlock users of a CondBit.
+  DenseMap<VPValue *, std::set<const VPBlockBase *>> CondBitUsers;
 #endif // INTEL_CUSTOMIZATION
 
   /// Holds the VFs applicable to this VPlan.
@@ -2153,17 +2141,16 @@ public:
     }
   }
 
-  std::set<const VPBlockBase *> &
-  getCondBitVPValUsers(VPValue *ConditionV) {
-    return CondBitVPValUsers[ConditionV];
+  std::set<const VPBlockBase *> &getCondBitUsers(VPValue *ConditionV) {
+    return CondBitUsers[ConditionV];
   }
 
-  void removeCondBitVPValUsers(VPValue *ConditionV) {
-    CondBitVPValUsers[ConditionV].clear();
+  void removeCondBitUsers(VPValue *ConditionV) {
+    CondBitUsers[ConditionV].clear();
   }
 
-  void setCondBitVPValUser(VPValue *ConditionV, const VPBlockBase *Block) {
-    CondBitVPValUsers[ConditionV].insert(Block);
+  void setCondBitUser(VPValue *ConditionV, const VPBlockBase *Block) {
+    CondBitUsers[ConditionV].insert(Block);
   }
 
   void printInst2Recipe();
@@ -2565,13 +2552,12 @@ public:
 
   /// connectBlocks should be used instead of this function when possible.
   /// Set two given VPBlockBases \p IfTrue and \p IfFalse to be the two
-  /// successors of another VPBlockBase \p Block. A given
-  /// VPCondBitVPVal provides the control selector. Block is not added
-  /// as IfTrue/IfFalse's predecessor.
+  /// successors of another VPBlockBase \p Block. \p ConditionV is set as
+  /// successor selector. Block is not added as IfTrue/IfFalse's predecessor.
   void setBlockTwoSuccessors(VPBlockBase *Block, VPValue *ConditionV,
                              VPBlockBase *IfTrue, VPBlockBase *IfFalse) {
     assert(Block->getSuccessors().empty() && "Block successors already set.");
-    Block->setCondBitVPVal(ConditionV, Plan);
+    Block->setCondBit(ConditionV, Plan);
     appendBlockSuccessor(Block, IfTrue);
     appendBlockSuccessor(Block, IfFalse);
   }
@@ -2612,11 +2598,11 @@ public:
   }
 
   /// Insert NewBlock in the HCFG after BlockPtr and update parent region
-  /// accordingly. If BlockPtr has more that two successors, its
-  /// CondBitVPVal is propagated to NewBlock.
+  /// accordingly. If BlockPtr has more that one successors, its CondBit is
+  /// propagated to NewBlock.
   void insertBlockAfter(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
 
-    if (isa<VPBasicBlock>(BlockPtr) && isa<VPBasicBlock>(NewBlock)) {
+    if (BlockPtr->getNumSuccessors() > 1) {
       VPBasicBlock *ThisBB = cast<VPBasicBlock>(BlockPtr);
       VPBasicBlock *ToBB = cast<VPBasicBlock>(NewBlock);
       ThisBB->moveConditionalEOBTo(ToBB, Plan);
@@ -2640,10 +2626,10 @@ public:
     Block->Parent = Parent;
   }
 
-  /// \brief Set the CondBitVPVal of this block.
-  void setBlockCondBitVPVal(VPBlockBase *Block, VPValue *Condition) {
+  /// \brief Set the CondBit of this block.
+  void setBlockCondBit(VPBlockBase *Block, VPValue *Condition) {
     assert(Condition && "Don't allow NULL conditions.");
-    Block->setCondBitVPVal(Condition, Plan);
+    Block->setCondBit(Condition, Plan);
   }
 
   /// \brief Remove all the predecessor of this block.
@@ -2653,7 +2639,7 @@ public:
   /// condition bit recipe.
   void clearSuccessors(VPBlockBase *Block) {
     Block->Successors.clear();
-    Block->CondBitVPVal = nullptr;
+    Block->CondBit = nullptr;
   }
 
   // Replace \p OldSuccessor by \p NewSuccessor in Block's successor list.
