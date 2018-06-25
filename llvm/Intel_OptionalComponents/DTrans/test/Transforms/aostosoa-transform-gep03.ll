@@ -15,6 +15,12 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 @g_test02ptr = internal unnamed_addr global %struct.test02* zeroinitializer
 
 define i32 @main(i32 %argc, i8** %argv) {
+  %alloc01 = call i8* @calloc(i64 10, i64 480)
+  %struct01_mem = bitcast i8* %alloc01 to %struct.test01*
+
+  %alloc02 = call i8* @calloc(i64 10, i64 160)
+  %struct02_mem = bitcast i8* %alloc02 to %struct.test02*
+
   call void @test01(i64 0)
   ret i32 0
 }
@@ -48,3 +54,5 @@ define void @test01(i64 %idx1) {
 
   ret void
 }
+
+declare i8* @calloc(i64, i64)

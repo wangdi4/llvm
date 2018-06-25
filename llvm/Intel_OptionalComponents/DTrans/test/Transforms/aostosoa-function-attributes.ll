@@ -10,6 +10,22 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 %struct.test01 = type { i32, i64, %struct.test01*, %struct.test02*, i16** }
 %struct.test02 = type { %struct.test01*, %struct.test01*, %struct.test01** }
 
+define i32 @main(i32 %argc, i8** %argv) {
+  %alloc01 = call i8* @calloc(i64 10, i64 40)
+  %struct01_mem = bitcast i8* %alloc01 to %struct.test01*
+
+  %alloc02 = call i8* @calloc(i64 10, i64 24)
+  %struct02_mem = bitcast i8* %alloc02 to %struct.test02*
+
+  call void @test01caller();
+  call void @test02caller();
+  call void @test03caller();
+  call void @test04caller();
+  call void @test05caller();
+  call void @test06caller(i32 0);
+  ret i32 0
+}
+
 
 ; Verify the pointer parameters at the call site get their attributes
 ; updated for the arguments that are changed from pointers to the structure
@@ -170,5 +186,5 @@ define void @test06callee(%struct.test01* noalias nonnull %in1) {
   ret void
 }
 
-declare noalias i8* @malloc(i64)
+declare i8* @calloc(i64, i64)
 declare i32 @__gxx_personality_v0(...)

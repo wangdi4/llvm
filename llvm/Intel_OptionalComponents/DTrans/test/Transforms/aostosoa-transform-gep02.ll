@@ -20,6 +20,8 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 
 define i32 @main(i32 %argc, i8** %argv) {
+  %alloc01 = call i8* @calloc(i64 10, i64 480)
+  %struct01_mem = bitcast i8* %alloc01 to %struct.test01*
   call void @test01(i32 1)
   ret i32 0
 }
@@ -52,3 +54,5 @@ define void @test01(i32 %idx1) {
 
   ret void
 }
+
+declare i8* @calloc(i64, i64)

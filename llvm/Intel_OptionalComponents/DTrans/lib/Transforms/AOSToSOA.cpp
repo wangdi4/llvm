@@ -43,14 +43,6 @@ using namespace dtrans;
 static cl::opt<std::string>
     DTransAOSToSOAHeurOverride("dtrans-aostosoa-heur-override",
                                cl::ReallyHidden);
-
-// This is a temporary flag to allow testing of the selection/qualification of
-// candidates without the transformation code being available to completely
-// transform the IR contained within those tests. Once the transformation code
-// is complete, this flag will be removed.
-static cl::opt<bool>
-    DTransAOSToSOAQualificationOnly("dtrans-aostosoa-qualification-only",
-                                    cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 namespace {
@@ -306,10 +298,13 @@ public:
     return isTypeToTransform(Ty);
   }
 
+  // Conversions to or from pointers to the struct type being converted need
+  // to be processed, because after rewriting the types, these would become
+  // a bitcast from or to an i64 type.
   bool checkConversionNeeded(BitCastInst *BC) {
-    // Conversions to or from pointers to the struct type being converted need
-    // to be processed, because after rewriting the types, these would become
-    // a bitcast from or to an i64 type.
+    if (!BC->getType()->isPointerTy())
+      return false;
+
     if (isTypeToTransform(BC->getDestTy()->getPointerElementType())) {
       // We only expect bitcasts to be with i8* due to the safety checks, assert
       // this to be sure.
@@ -1562,15 +1557,6 @@ bool AOSToSOAPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
   if (CandidateTypes.empty())
     return false;
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  // Temporary code to allow testing of qualification criteria without having
-  // implemented transformation code. Currently, there is no profitability
-  // heuristic so only cases specified with the dtrans-aostosoa-heur-override
-  // option will reach this point.
-  if (DTransAOSToSOAQualificationOnly)
-    return false;
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
   // Perform the actual transformation.
   DTransTypeRemapper TypeRemapper;
   AOSToSOAMaterializer Materializer(TypeRemapper);
@@ -1594,11 +1580,15 @@ void AOSToSOAPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
       dtrans::BadMemFuncManipulation | dtrans::AmbiguousPointerTarget |
       dtrans::AddressTaken | dtrans::NoFieldsInStruct | dtrans::NestedStruct |
       dtrans::ContainsNestedStruct | dtrans::SystemObject |
-      dtrans::LocalInstance;
+      dtrans::LocalInstance | dtrans::MismatchedArgUse | dtrans::GlobalArray |
+      dtrans::HasVTable | dtrans::HasFnPtr;
 
   for (dtrans::TypeInfo *TI : DTInfo.type_info_entries()) {
     auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
     if (!StInfo)
+      continue;
+
+    if (cast<StructType>(TI->getLLVMType())->isLiteral())
       continue;
 
     if (TI->testSafetyData(AOSToSOASafetyConditions)) {
@@ -1765,10 +1755,9 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
   // populate a set of instructions  by function that need to be checked to
   // verify the allocation is not within a loop. We group these by function so
   // that the LoopInfo for a function only needs to be calculated one time.
-  //
-  // Note: Currently this does not reject a type if there is no dynamic
-  // allocation of the  type. This may need to be revisited when implementing
-  // the transformation.
+  // This will reject any type that does not have a dynamic allocation because
+  // currently the only way for the pointers in the peeled structure to be
+  // initialized is by modifying the allocation site.
   StructInfoVec Qualified;
   DenseMap<Function *, DenseSet<std::pair<Instruction *, dtrans::StructInfo *>>>
       AllocPathMap;
@@ -1805,9 +1794,9 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
       for (auto &FuncInstrPair : CallChain)
         AllocPathMap[FuncInstrPair.first].insert(
             std::make_pair(FuncInstrPair.second, TyInfo));
-    }
 
-    Qualified.push_back(TyInfo);
+      Qualified.push_back(TyInfo);
+    }
   }
 
   std::swap(CandidateTypes, Qualified);
@@ -1941,8 +1930,8 @@ bool AOSToSOAPass::qualifyHeuristics(StructInfoVecImpl &CandidateTypes,
   StructInfoVec Qualified;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  // Check for any command line structures that do not need to meet the
-  // profitability heuristics, and add them to the Qualified list.
+  // Check for any structures specified on the command line, and use these
+  // instead of the profitability heuristics.
   SmallVector<StringRef, 4> SubStrings;
   if (!DTransAOSToSOAHeurOverride.empty()) {
     SplitString(DTransAOSToSOAHeurOverride, SubStrings, ",");
@@ -1971,6 +1960,9 @@ bool AOSToSOAPass::qualifyHeuristics(StructInfoVecImpl &CandidateTypes,
         Qualified.push_back(StInfo);
       }
     }
+
+    std::swap(CandidateTypes, Qualified);
+    return !CandidateTypes.empty();
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 

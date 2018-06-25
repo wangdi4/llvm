@@ -23,6 +23,19 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; converted.
 ; CHECK: @__soa_struct.test01 = internal global %__SOA_struct.test01 zeroinitializer
 
+define i32 @main(i32 %argc, i8** %argv) {
+  %alloc01 = call i8* @calloc(i64 10, i64 40)
+  %struct01_mem = bitcast i8* %alloc01 to %struct.test01*
+
+  %alloc02 = call i8* @calloc(i64 10, i64 24)
+  %struct02_mem = bitcast i8* %alloc02 to %struct.test02*
+
+  call void @test01();
+  call void @test02(%struct.test02*  %struct02_mem);
+
+  ret i32 0
+}
+
 
 ; Uses of the pointers to the type will be converted to pointers to the index
 ; type. This is a basic test that relies on the DTransOptBase class to
@@ -58,3 +71,5 @@ define void @test02(%struct.test02* %in1) {
 ; CHECK:   %field2_val = load i64, i64* %field2_addr
 ; CHECK:   store i64 %field2_val, i64* %field1_addr
 ; CHECK:   store i64 %field1_val, i64* %field2_addr
+
+declare i8* @calloc(i64, i64)
