@@ -483,14 +483,10 @@ void DDUtils::updateDDRefsLinearity(SmallVectorImpl<HLInst *> &HLInsts,
       assert(ParentLoop && ParentLoop->isInnermost() &&
              "Unexpected stmt outside loop");
       RegDDRef *RegRef = dyn_cast<RegDDRef>(DDRefSink);
-      CanonExpr *SinkCE = nullptr;
+      (void)RegRef;
+      assert(!RegRef || (RegRef->isTerminalRef() && "Unexpected memrefs"));
+      auto *SinkCE = DDRefSink->getSingleCanonExpr();
 
-      if (RegRef) {
-        assert(RegRef->isTerminalRef() && "Unexpected memrefs");
-        SinkCE = RegRef->getSingleCanonExpr();
-      } else {
-        SinkCE = cast<BlobDDRef>(DDRefSink)->getMutableSingleCanonExpr();
-      }
       // There might be defs which are non-linear encountered here,
       // update it anyway
       SinkCE->setNonLinear();

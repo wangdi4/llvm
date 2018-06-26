@@ -52,13 +52,7 @@ private:
   void setParentDDRef(RegDDRef *Ref) { ParentDDRef = Ref; }
 
   /// Only const-method is allowed
-  CanonExpr *getSingleCanonExpr() override { return CE; }
-
-  /// Only const-method is allowed
   HLDDNode *getHLDDNode() override;
-
-  /// Returns modifiable canonical form associated with the blob.
-  CanonExpr *getMutableSingleCanonExpr() { return CE; }
 
   /// Restrict access to base class's public member. Blob DDRef can be modified
   /// to represent a different blob using the interface replaceBlob(). The
@@ -75,6 +69,7 @@ public:
 
   /// Returns the canonical form associated with the blob.
   const CanonExpr *getSingleCanonExpr() const override { return CE; }
+  CanonExpr *getSingleCanonExpr() override { return CE; }
 
   /// Returns the blob index associated with this BlobDDRef.
   unsigned getBlobIndex() const { return CE->getSingleBlobIndex(); }

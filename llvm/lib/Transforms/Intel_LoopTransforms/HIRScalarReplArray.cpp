@@ -14,7 +14,7 @@
 // [ORIGINAL]                       [AFTER ScalarRepl Array]
 //                                  t0 = A[0];
 // for (int i=0;i<=100;++i) {       for (int i = 0; i <= 100; ++i) {
-//   B[i] = A[i] + A[i1];             t1   = A[i+1];
+//   B[i] = A[i] + A[i+1];            t1   = A[i+1];
 //}                                   B[i] = t0 + t1;
 //                                    t0   = t1;
 //                                  }

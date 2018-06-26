@@ -225,7 +225,7 @@ void RegDDRef::updateDefLevelInternal(unsigned NewLevel) {
 
   // Update attached blob DDRefs' def level first.
   for (auto It = blob_begin(), EndIt = blob_end(); It != EndIt; ++It) {
-    auto CE = (*It)->getMutableSingleCanonExpr();
+    auto CE = (*It)->getSingleCanonExpr();
 
     if (CE->isNonLinear()) {
       continue;
