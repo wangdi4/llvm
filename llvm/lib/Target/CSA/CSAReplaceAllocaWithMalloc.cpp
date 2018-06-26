@@ -142,7 +142,7 @@ void CSAReplaceAllocaWithMalloc::coalesceMallocs(Function &F, Function *CSAMallo
 
   // Modify the first csa_malloc to allocate totalSize bytes
   LLVMContext &Context = F.getContext();
-  Value *SizeV = llvm::ConstantInt::get(Context, llvm::APInt(64, Size, false));
+  Value *SizeV = llvm::ConstantInt::get(Context, llvm::APInt(32, Size, true));
   if (SizeV->getType() != CSAMalloc->arg_begin()->getType())
     SizeV = new BitCastInst(SizeV, CSAMalloc->arg_begin()->getType(), "tmp", &*FirstCSAMallocInst);
   FirstCSAMallocInst->setOperand(0, SizeV);
@@ -157,9 +157,11 @@ void CSAReplaceAllocaWithMalloc::coalesceMallocs(Function &F, Function *CSAMallo
         if (CI == FirstCSAMallocInst) continue;
 	if (CI->isInlineAsm()) continue;
         if (CI->getCalledFunction() == CSAMalloc) {
-          Size += dyn_cast<ConstantInt>(CI->getOperand(0))->getZExtValue();
-          Value *Offset = llvm::ConstantInt::get(Context, llvm::APInt(64, Size, false));
-          Value *NewGEP = IRBuilder<>{CI}.CreateGEP(cast<PointerType>(FirstCSAMallocInst->getType())->getElementType(), FirstCSAMallocInst, Offset, "tmp");
+          Size += dyn_cast<ConstantInt>(CI->getOperand(0))->getSExtValue();
+          Value *Offset = llvm::ConstantInt::get(Context, llvm::APInt(32, Size, true));
+          Value *NewGEP = IRBuilder<>{CI}
+                          .CreateGEP(cast<PointerType>(FirstCSAMallocInst->getType())->getElementType(), 
+                                                       FirstCSAMallocInst, Offset, "tmp");
           CI->replaceAllUsesWith(NewGEP);
           addToDelete(CI);
         }
@@ -225,24 +227,64 @@ static bool isLifeTimeInst(Instruction *I) {
   return false;
 }
 
+// @llvm.used is an array of global constants created by llvm.
+// It contains all globals marked with llvm.used attribute
+// csa_mem_malloc, csa_mem_free, and csa_mem_initialize functions are marked with this attribute
+// so that they are not internalized and deleted by dead code elimination before their references
+// are introduced in this pass
+// However, there are cases when these functions are not required (SXU compilation or no alloca's)
+// In these cases, these functions should be removed from the @llvm.used array and then deleted
+static void deleteCSAMemoryFunctions(Module &M, Function *CSAMalloc,
+                                     Function *CSAFree, Function *CSAInitialize) {
+  SmallVector<Constant *, 32> Elts;
+  GlobalVariable *GV = M.getGlobalVariable("llvm.used");
+  if (!GV || !GV->hasInitializer()) return;
+  // Should be an array of 'i8*'.
+  const ConstantArray *InitList = cast<ConstantArray>(GV->getInitializer());
+  for (unsigned i = 0, e = InitList->getNumOperands(); i != e; ++i)
+    if (Function *F =
+        dyn_cast<Function>(InitList->getOperand(i)->stripPointerCasts())) {
+      if (F != CSAMalloc && F != CSAFree && F != CSAInitialize)
+        Elts.push_back(InitList->getOperand(i));
+    } else
+      Elts.push_back(InitList->getOperand(i));
+  auto Linkage = GV->getLinkage();
+  auto Name = GV->getName();
+  GV->eraseFromParent();
+  if (Elts.size()) {
+    ArrayType *ArrTy = ArrayType::get(InitList->getType()->getElementType(),Elts.size());
+    auto *NewGV = new GlobalVariable(M,ArrTy,true,Linkage,0,Name);
+    NewGV->setInitializer(ConstantArray::get(ArrTy,Elts));
+  }
+  if (CSAMalloc) { CSAMalloc->eraseFromParent(); }
+  if (CSAFree) { CSAFree->eraseFromParent(); }
+  if (CSAInitialize) { CSAInitialize->eraseFromParent(); }
+}
+
 bool CSAReplaceAllocaWithMalloc::runOnModule(Module &M) {
   const DataLayout &DL = M.getDataLayout();
   LLVMContext &Context = M.getContext();
+  bool IsAllocaPresent = isAllocaPresent(M);
+  Function *CSAMalloc = M.getFunction("csa_mem_malloc");
+  Function *CSAFree = M.getFunction("csa_mem_free");
+  Function *CSAInitialize = M.getFunction("csa_mem_initialize");
   if (!csa_utils::isAlwaysDataFlowLinkageSet()) {
     LLVM_DEBUG(errs() << "Data flow linkage not set\n");
+    deleteCSAMemoryFunctions(M,CSAMalloc,CSAFree,CSAInitialize);
     return false;
   }
-  bool IsAllocaPresent = isAllocaPresent(M);
   if (!IsAllocaPresent) {
     LLVM_DEBUG(errs() << "No stack allocations found. No need to run this pass\n");
+    deleteCSAMemoryFunctions(M,CSAMalloc,CSAFree,CSAInitialize);
     return false;
   }
-  Function *CSAMalloc = M.getFunction("csa_malloc");
   if (!CSAMalloc || CSAMalloc->isDeclaration())
     report_fatal_error("CSAMalloc function definition not found!");
-  Function *CSAFree = M.getFunction("csa_free");
   if (!CSAFree || CSAFree->isDeclaration())
     report_fatal_error("CSAFree function definition not found!");
+  if (!CSAInitialize || CSAInitialize->isDeclaration())
+    report_fatal_error("CSAInitialize function definition not found!");
+
   for (auto &F : M) {
     LLVM_DEBUG(errs() << "Looking at " << F.getName() << "\n");
     if (F.isDeclaration()) {
@@ -252,7 +294,7 @@ bool CSAReplaceAllocaWithMalloc::runOnModule(Module &M) {
     // Look for retInst
     ReturnInst *RI = getReturnInst(F);
     if (!RI)
-      assert(0 && "Return Inst not found!!!!\n");
+      report_fatal_error("Return Inst not found!!!!\n");
     // look at all of the instructions in each function
     for (BasicBlock &BB : F)
       for (auto II = std::begin(BB), E = std::end(BB); II != E;) {
@@ -263,7 +305,7 @@ bool CSAReplaceAllocaWithMalloc::runOnModule(Module &M) {
           LLVM_DEBUG(errs() << "Alloca Inst found; AI = " << *AI << "\n");
           Type *ty = AI->getAllocatedType();
           uint64_t Size = DL.getTypeAllocSize(ty);
-          Value *SizeV = llvm::ConstantInt::get(Context, llvm::APInt(64, Size, false));
+          Value *SizeV = llvm::ConstantInt::get(Context, llvm::APInt(32, Size, true));
           if (SizeV->getType() != CSAMalloc->arg_begin()->getType())
             SizeV = new BitCastInst(SizeV, CSAMalloc->arg_begin()->getType(), "tmp", &*AI);
           CallInst *NewMallocCI = IRBuilder<>{AI}.CreateCall(CSAMalloc,SizeV,"tmp");

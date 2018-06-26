@@ -724,7 +724,7 @@ void CSAAsmPrinter::EmitCSAOperands(const MachineInstr *MI, raw_ostream &O, int 
 
 void CSAAsmPrinter::EmitSimpleEntryInstruction(void) {
   OutStreamer->EmitRawText("\t.entry\t" + MF->getFunction().getName() +
-                           ", hybriddataflow");
+                           ", dataflow");
 }
 
 void CSAAsmPrinter::EmitParamsResultsDecl(void) {
@@ -773,7 +773,7 @@ void CSAAsmPrinter::EmitEntryInstruction(void) {
   const MachineInstr *entryMI = LMFI->getEntryMI();
   O << "\t#.entry\t";
   O << MF->getFunction().getName();
-  O << ", hybriddataflow, ";
+  O << ", dataflow, ";
   EmitCSAOperands(entryMI,O,0,entryMI->getNumOperands());
   O << "\n";
   OutStreamer->EmitRawText(O.str());
