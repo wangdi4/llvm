@@ -102,6 +102,13 @@ void dtrans::getAllocSizeArgs(AllocKind Kind, CallSite CS,
   assert(Kind != AK_NotAlloc && Kind != AK_UserMalloc0 &&
          "Unexpected alloc kind passed to getAllocSizeArgs");
 
+  if (!dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts())) {
+    assert(Kind == AK_UserMalloc);
+    AllocSizeInd = 1;
+    AllocCountInd = -1U;
+    return;
+  }
+
   switch (Kind) {
   case AK_UserMalloc:
     AllocSizeInd = 0;

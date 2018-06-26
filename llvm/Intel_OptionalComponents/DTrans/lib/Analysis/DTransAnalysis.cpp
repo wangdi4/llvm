@@ -71,6 +71,22 @@ static cl::list<std::string> DTransNoSafetyChecksList(
 /// calls (malloc, free, memset, etc) that may be useful to the transformations.
 static cl::opt<bool> DTransPrintAnalyzedCalls("dtrans-print-callinfo",
                                               cl::ReallyHidden);
+
+// ';'-separated list of items:
+// - <function name>
+//  Direct calls to function <function name> is considered as free/delete.
+// - <type name>,<offset>
+//  See DTransAll::analyzeForIndirectStatus
+static cl::list<std::string> DTransFreeFunctions("dtrans-free-functions",
+                                                 cl::ReallyHidden);
+
+// ';'-separated list of items:
+// - <function name>
+//  Direct calls to function <function name> is considered as malloc/new.
+// - <type name>,<offset>
+//  See DTransAll::analyzeForIndirectStatus
+static cl::list<std::string> DTransMallocFunctions("dtrans-malloc-functions",
+                                                   cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 //
@@ -710,11 +726,18 @@ private:
 //
 class DTransAllocAnalyzer {
 public:
-  DTransAllocAnalyzer(const TargetLibraryInfo &TLI) : TLI(TLI) {}
-  bool isMallocPostDom(Function *F);
-  bool isFreePostDom(Function *F);
+  DTransAllocAnalyzer(const TargetLibraryInfo &TLI, const Module &M)
+      : TLI(TLI) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    parseListOptions(M);
+#endif
+    Int8PtrTy = Type::getInt8PtrTy(M.getContext(), 0 /*AS*/);
+  }
+  bool isMallocPostDom(CallSite CS);
+  bool isFreePostDom(CallSite CS);
 
 private:
+  typedef PointerIntPair<StructType *, 1, bool> PtrBoolPair;
   // An enum recording the current status of a function. The status is
   // updated each time we need to know if the function is isMallocPostDom()
   // or isFreePostDom(), until the function is determined to be one or
@@ -729,6 +752,9 @@ private:
   };
   // Mapping for the AllocStatus of each Function we have queried.
   std::map<Function *, AllocStatus> LocalMap;
+  // Offsets inside vtable.
+  // Key is (pointer to some type, true = allocation/false = deallocation).
+  std::map<PtrBoolPair, int32_t> VTableOffs;
   // A set to hold visited BasicBlocks.  This is a temporary set used
   // while we are determining the AllocStatus of a Function.
   SmallPtrSet<BasicBlock *, 20> VisitedBlocks;
@@ -738,6 +764,8 @@ private:
   SmallPtrSet<BasicBlock *, 4> SkipTestBlocks;
   // Needed to detrmine if a function is malloc()
   const TargetLibraryInfo &TLI;
+  // Needed to check argument types
+  PointerType *Int8PtrTy;
 
   bool isSkipTestBlock(BasicBlock *BB) const;
   bool isVisitedBlock(BasicBlock *BB) const;
@@ -756,6 +784,11 @@ private:
   bool hasFreeCall(BasicBlock *BB) const;
   bool isPostDominatedByFreeCall(BasicBlock *BB);
   bool analyzeForFreeStatus(Function *F);
+
+  bool analyzeForIndirectStatus(CallSite CS, bool Alloc);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void parseListOptions(const Module &M);
+#endif
 };
 
 //
@@ -775,10 +808,21 @@ bool DTransAllocAnalyzer::isVisitedBlock(BasicBlock *BB) const {
 }
 
 //
-// Return true if 'F' is post-dominated by a call to malloc() on all paths
+// Return true if 'CS' is post-dominated by a call to malloc() on all paths
 // that do not include skip blocks.
+// Trivial wrappers are important special cases.
 //
-bool DTransAllocAnalyzer::isMallocPostDom(Function *F) {
+bool DTransAllocAnalyzer::isMallocPostDom(CallSite CS) {
+  // If the Function wasn't found, then there is a possibility
+  // that it is inside a BitCast. In this case we need
+  // to strip the pointer casting from the Value and then
+  // access the Function.
+  Function *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
+
+  if (!F)
+    // Check for allocation routine.
+    return analyzeForIndirectStatus(CS, true);
+
   AllocStatus AS = LocalMap[F];
   switch (AS) {
   case AKS_Malloc:
@@ -806,10 +850,21 @@ bool DTransAllocAnalyzer::isMallocPostDom(Function *F) {
 }
 
 //
-// Return true if 'F' is post-dominated by a call to free() on all paths
-// that do not include skip blocks.
+// Return true if 'CS' is post-dominated by a call to free() on all paths that
+// do not include skip blocks.
+// Trivial wrappers are important special cases.
 //
-bool DTransAllocAnalyzer::isFreePostDom(Function *F) {
+bool DTransAllocAnalyzer::isFreePostDom(CallSite CS) {
+  // If the Function wasn't found, then there is a possibility
+  // that it is inside a BitCast. In this case we need
+  // to strip the pointer casting from the Value and then
+  // access the Function.
+  Function *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
+
+  if (!F)
+    // Check for deallocation routine.
+    return analyzeForIndirectStatus(CS, false);
+
   AllocStatus AS = LocalMap[F];
   switch (AS) {
   case AKS_Free:
@@ -1161,6 +1216,81 @@ bool DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
   return rv;
 }
 
+//  Indirect calls through vtable. Matched sequence for 'allocate' is as
+//  follows.
+//      %0 = bitcast <type name>* %m to i8* (<type name>*, i64)***
+//      %vtable = load i8* (<type name>*, i64)**,
+//        i8* (<type name>*, i64)*** %0
+//      %vfn = getelementptr inbounds i8* (<type name>*, i64)*,
+//        i8* (<type name>*, i64)** %vtable, i64 <offset>
+//      %1 = load i8* (<type name>*, i64)*, i8* (<type name>*, i64)** %vfn
+//      %call = call i8* %1(<type name>* %m, i64 size)
+//
+//  Indirect calls through vtable. Matched sequence for 'deallocate' is as
+//  follows.
+//      %4 = bitcast <type name>* %m to void (<type name>*, i8*)***
+//      %vtable1 = load void (<type name>*, i8*)**,
+//          void (<type name>*, i8*)*** %4
+//      %vfn2 = getelementptr inbounds void (<type name>*, i8*)*,
+//          void (<type name>*, i8*)** %vtable1, i64 <offset>
+//      %5 = load void (<type name>*, i8*)*, void (<type name>*, i8*)** %vfn2
+//      call void %5(<type name>* %m, i8* %3)
+bool DTransAllocAnalyzer::analyzeForIndirectStatus(CallSite CS, bool Malloc) {
+
+  if (CS.getNumArgOperands() < 2)
+    return false;
+
+  // First argument is 'this' pointer.
+  Type *ObjType = CS.getArgOperand(0)->getType();
+  if (!isa<PointerType>(ObjType))
+    return false;
+
+  StructType *SObjType =
+      dyn_cast<StructType>(cast<PointerType>(ObjType)->getElementType());
+
+  if (!SObjType)
+    return false;
+
+  auto It = VTableOffs.find(PtrBoolPair(SObjType, Malloc));
+  if (It == VTableOffs.end())
+    return false;
+
+  // Check size_t or void* argument.
+  if (Malloc ? !CS.getArgOperand(1)->getType()->isIntegerTy(32) &&
+                   !CS.getArgOperand(1)->getType()->isIntegerTy(64)
+             : CS.getArgOperand(1)->getType() != Int8PtrTy)
+    return false;
+
+  // Search for definition of called Value
+  auto *Callee = dyn_cast<LoadInst>(CS.getCalledValue());
+  if (!Callee)
+    return false;
+
+  auto *VFn = dyn_cast<GetElementPtrInst>(Callee->getPointerOperand());
+  int64_t IdxVal = 0;
+  if (VFn) {
+    if (VFn->getNumIndices() != 1)
+      return false;
+    if (auto *Opc = dyn_cast<ConstantInt>(*VFn->idx_begin()))
+      IdxVal = Opc->getSExtValue();
+    else
+      return false;
+  }
+  if (IdxVal != It->second)
+    return false;
+
+  auto *VTable = dyn_cast<LoadInst>(VFn ? VFn->getPointerOperand() :
+                                    Callee->getPointerOperand());
+  if (!VTable)
+    return false;
+
+  auto *ObjCast = dyn_cast<BitCastInst>(VTable->getPointerOperand());
+  if (!ObjCast || ObjCast->getOperand(0) != CS.getArgOperand(0))
+    return false;
+
+  return true;
+}
+
 //
 // Return true if 'BB' has a call to free().
 //
@@ -1234,6 +1364,93 @@ bool DTransAllocAnalyzer::analyzeForFreeStatus(Function *F) {
                       << " No return post-dominated by free\n");
   return rv;
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void DTransAllocAnalyzer::parseListOptions(const Module &M) {
+  auto &LM = LocalMap;
+  auto &VT = VTableOffs;
+
+  auto F = [&LM, &VT, &M](cl::list<std::string> &Options, AllocStatus AKS,
+                          bool Malloc, StringRef Banner) -> void {
+    if (Options.empty())
+      return;
+
+    LLVM_DEBUG(dbgs() << "IPO: DTrans " << Banner << " functions\n");
+
+    for (auto &Opt : Options) {
+      if (Opt.empty())
+        continue;
+
+      LLVM_DEBUG(dbgs() << "\tList: " << Opt << "\n");
+
+      StringRef OptRef(Opt);
+      SmallVector<StringRef, 8> ListRecords;
+      OptRef.split(ListRecords, ';');
+
+      for (auto Record : ListRecords) {
+
+        SmallVector<StringRef, 2> RecordItem;
+        Record.split(RecordItem, ',');
+
+        if (RecordItem.size() == 0)
+          continue;
+
+        if (RecordItem.size() > 2) {
+          LLVM_DEBUG(dbgs() << "IPO: error 1: record <" << Record
+                            << "> has a wrong format. Should be "
+                               "<funcname> or <typename,offset>\n");
+          continue;
+        }
+
+        if (RecordItem.size() == 1) {
+          // Explicit function name case.
+          if (auto *F = M.getFunction(RecordItem[0]))
+            LM[F] = AKS;
+          else
+            LLVM_DEBUG(dbgs() << "IPO: error 1: record <" << Record
+                              << "> specifies invalid function name '"
+                              << RecordItem[0] << "'\n");
+          continue;
+        }
+
+        // Indirect call through vptr.
+        int64_t Offset = -1;
+        if (RecordItem[1].getAsInteger(10, Offset)) {
+          LLVM_DEBUG(dbgs() << "IPO: error 1: record <" << Record
+                            << "> has a wrong format. Should be "
+                               "<funcname> or <typename,offset>\n");
+          continue;
+        }
+
+        if (auto *Ty = M.getTypeByName(RecordItem[0])) {
+          if (Ty->element_begin() == Ty->element_end() ||
+              !isa<PointerType>(Ty->getElementType(0))) {
+            LLVM_DEBUG(dbgs() << "IPO: error 1: record <" << Record
+                              << "> specifies type '" << Ty
+                              << "', "
+                                 "which does not have pointer first field\n");
+            continue;
+          }
+
+          auto Key = PtrBoolPair(Ty, Malloc);
+          if (VT.find(Key) != VT.end())
+            LLVM_DEBUG(dbgs() << "IPO: error 1: record <" << Record
+                              << "> overrides previous " << Banner
+                              << " for type '" << Ty << "' \n");
+
+          VT[Key] = Offset;
+        } else
+          LLVM_DEBUG(dbgs() << "IPO: error 1: record <" << Record
+                            << "> specifies invalid type name '"
+                            << RecordItem[0] << "'\n");
+      }
+    }
+  };
+
+  F(DTransFreeFunctions, AKS_Free, false, "free");
+  F(DTransMallocFunctions, AKS_Malloc, true, "malloc");
+}
+#endif
 
 // End of member functions for class DTransAllocAnalyzer
 
@@ -1429,9 +1646,8 @@ private:
 
   CallSite getCallSiteIfAlloc(Value *V) {
     if (auto CS = CallSite(V)) {
-      Function *Callee = CS.getCalledFunction();
       auto Kind = dtrans::getAllocFnKind(CS, TLI);
-      if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(Callee))
+      if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(CS))
         Kind = dtrans::AK_Malloc;
       if (Kind != dtrans::AK_NotAlloc)
         return CS;
@@ -2468,16 +2684,10 @@ public:
   }
 
   void visitCallSite(CallSite CS) {
-    // If the Function wasn't found, then there is a possibility
-    // that it is inside a BitCast. In this case we need
-    // to strip the pointer casting from the Value and then
-    // access the Function.
-    Function *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
-
     // If the called function is a known allocation function, we need to
     // analyze the allocation.
     auto Kind = dtrans::getAllocFnKind(CS, TLI);
-    if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(F))
+    if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(CS))
       Kind = dtrans::AK_UserMalloc;
     if (Kind != dtrans::AK_NotAlloc) {
       analyzeAllocationCall(CS, Kind);
@@ -2495,10 +2705,16 @@ public:
       return;
     }
 
-    if (DTAA.isFreePostDom(F)) {
+    if (DTAA.isFreePostDom(CS)) {
       analyzeFreeCall(CS, dtrans::FK_UserFree);
       return;
     }
+
+    // If the Function wasn't found, then there is a possibility
+    // that it is inside a BitCast. In this case we need
+    // to strip the pointer casting from the Value and then
+    // access the Function.
+    Function *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
 
     // Check for BitCast functions
     if (isa<ConstantExpr>(CS.getCalledValue())) {
@@ -4131,10 +4347,7 @@ private:
         if (V == nullptr)
           return false;
       } else if (auto CS = CallSite(U)) {
-        Function *F = CS.getCalledFunction();
-        if (F == nullptr)
-          return false;
-        if (dtrans::isFreeFn(CS, TLI) || DTAA.isFreePostDom(F))
+        if (dtrans::isFreeFn(CS, TLI) || DTAA.isFreePostDom(CS))
           return true;
         if (auto II = dyn_cast<IntrinsicInst>(U)) {
           Intrinsic::ID Intrin = II->getIntrinsicID();
@@ -4161,11 +4374,8 @@ private:
   // Return true if the CallSite CS is to a suitably identified alloc
   // function.
   bool isSafeStoreForSingleAllocFunction(CallSite CS) {
-    Function *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
-    if (F == nullptr)
-      return false;
     auto Kind = dtrans::getAllocFnKind(CS, TLI);
-    if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(F))
+    if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(CS))
       Kind = dtrans::AK_UserMalloc;
     return Kind != dtrans::AK_NotAlloc;
   }
@@ -6080,7 +6290,7 @@ bool DTransAnalysisInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
 bool DTransAnalysisInfo::analyzeModule(
     Module &M, TargetLibraryInfo &TLI,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
-  DTransAllocAnalyzer DTAA(TLI);
+  DTransAllocAnalyzer DTAA(TLI, M);
   DTransInstVisitor Visitor(M.getContext(), *this, M.getDataLayout(), TLI, DTAA,
                             GetBFI);
   parseIgnoreList();
