@@ -6,16 +6,15 @@
 // property of Intel Corporation and may not be disclosed, examined
 // or reproduced in whole or in part without explicit written authorization
 // from the company.
+//===----------------------------------------------------------------------===//
 //
-///===---------------------------------------------------------------------===//
-/// \file
-///
-/// This pass implements the Loop SPMDization transformation that generates
-/// multiple loops from one loop. These loops can run in parallel.
-/// Two approaches are implemented here: the cyclic approach where each loop
-/// has a stride of k and the blocking approach where each loop iterates
-/// over contiguous #iterations/NPEs iterations.
-///
+// This pass implements the Loop SPMDization transformation that distributes loop
+// iterations and assigns them to multiple loops. These loops can run in
+// parallel. Three approaches are implemented: the cyclic approach where each
+// loop has an iteration stride of k, the blocking approach where each loop
+// iterates over contiguous #iterations/NPEs iterations, and the hybrid approach
+// where each loop iterates over a chunk size of iterations.
+//
 //===----------------------------------------------------------------------===//
 
 #include "Intel_CSA/CSAIRPasses.h"
@@ -26,9 +25,9 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
 
@@ -39,6 +38,7 @@ using namespace llvm;
 
 #define SPMD_CYCLIC 1
 #define SPMD_BLOCKING 2
+#define SPMD_HYBRID 3
 
 namespace {
 class LoopSPMDization : public LoopPass {
@@ -51,6 +51,8 @@ public:
   }
 
 private:
+  int Chunk_Size; // will be removed as it will be added as an argument to the
+                  // intrinsics. Will implement this as a separate commit
   int next_token;
   unsigned spmd_approach;
   Value *steptimesk;
@@ -67,12 +69,15 @@ private:
                           std::vector<Instruction *> *ReduceVarOrig,
                           std::vector<Instruction *> *OldInst);
   void setLoopAlreadySPMDized(Loop *L);
+  void AddUnrollDisableMetadata(Loop *L);
   bool FindReductionVariables(Loop *L, std::vector<Value *> *ReduceVarExitOrig,
                               std::vector<Instruction *> *ReduceVarOrig);
   PHINode *getInductionVariable(Loop *L, ScalarEvolution *SE);
   bool TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int PE, int NPEs);
   bool TransformLoopInitandBound(Loop *L, ScalarEvolution *SE, int PE,
                                  int NPEs);
+  void AddHybridLoopLevel(Loop *L, int Chunk_Size, PHINode *ClonedInductionPHI,
+                          ScalarEvolution *SE, DominatorTree *DT, LoopInfo *LI);
   bool ZeroTripCountCheck(Loop *L, ScalarEvolution *SE, int PE, int NPEs,
                           BasicBlock *AfterLoop, DominatorTree *DT,
                           LoopInfo *LI);
@@ -138,12 +143,11 @@ private:
                        user_approach.compare_lower("block") == 0) {
               spmd_approach = SPMD_BLOCKING;
             } else if (user_approach.compare_lower("hybrid") == 0) {
-              errs() << "\n";
-              errs().changeColor(raw_ostream::BLUE, true);
-              errs() << "!! WARNING: Hybrid Approach of SPMD is not supported "
-                        "yet !!";
-              errs().resetColor();
-              return false;
+              // To be fixed:
+              // We assume a fixed chunk size of 8. This will be fixed once I
+              // add the appropriate arguments for the hybrid approach
+              Chunk_Size = 8;
+              spmd_approach = SPMD_HYBRID;
             } else {
               errs() << "\n";
               errs().changeColor(raw_ostream::BLUE, true);
@@ -208,6 +212,31 @@ Branches to or from an OpenMP structured block are illegal
         if (!TransformLoopInitandStep(L, SE, 0, NPEs)) {
           return false;
         }
+      } else if (spmd_approach == SPMD_HYBRID) {
+        // Save the loop iterator before it gets modified to be used for the
+        // creation of the inner loop
+        PHINode *InductionPHI = getInductionVariable(L, SE);
+	if (!InductionPHI) {
+	  errs() << "\n";
+	  errs().changeColor(raw_ostream::BLUE, true);
+	  errs() << "!! WARNING: COULD NOT PERFORM SPMDization !!\n";
+	  errs().resetColor();
+	  errs() << R"help(
+Failed to find the loop induction variable.
+
+)help";
+	  LLVM_DEBUG(dbgs() << "Failed to find the loop induction variable \n");
+	  return false;
+	}
+	PHINode *ClonedInductionPHI =
+            cast<PHINode>((cast<Instruction>(InductionPHI))->clone());
+
+        if (!TransformLoopInitandStep(L, SE, 0, NPEs)) {
+          return false;
+        }
+        // Create a loop inside L that goes from L iterator to
+        // iterator+chunk_size
+        AddHybridLoopLevel(L, Chunk_Size, ClonedInductionPHI, SE, DT, LI);
       } else if (spmd_approach == SPMD_BLOCKING) {
         const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
         SCEVExpander Expander(*SE, DL, "loop-SPMDization");
@@ -286,10 +315,11 @@ try a different SPMDization strategy instead.
         Instruction *ExitTerm = Exit->getTerminator();
         BranchInst::Create(NewLoop->getLoopPreheader(), Exit);
         ExitTerm->eraseFromParent();
-
         if (spmd_approach == SPMD_CYCLIC)
           TransformLoopInitandStep(NewLoop, SE, 1, NPEs);
-        else if (spmd_approach == SPMD_BLOCKING)
+        else if (spmd_approach == SPMD_HYBRID) {
+          TransformLoopInitandStep(NewLoop, SE, 1, NPEs);
+        } else if (spmd_approach == SPMD_BLOCKING)
           TransformLoopInitandBound(NewLoop, SE, PE, NPEs);
 
         ZeroTripCountCheck(NewLoop, SE, PE, NPEs, AfterLoop, DT, LI);
@@ -386,10 +416,28 @@ void LoopSPMDization::setLoopAlreadySPMDized(Loop *L) {
   return;
 }
 
+void LoopSPMDization::AddUnrollDisableMetadata(Loop *L) {
+  SmallVector<Metadata *, 4> MDs;
+  // Reserve first location for self reference to the LoopID metadata node.
+  MDs.push_back(nullptr);
+
+  LLVMContext &Context = L->getHeader()->getContext();
+  SmallVector<Metadata *, 1> DisableOperands;
+  DisableOperands.push_back(MDString::get(Context, "llvm.loop.unroll.disable"));
+  MDNode *DisableNode = MDNode::get(Context, DisableOperands);
+  MDs.push_back(DisableNode);
+
+  MDNode *NewLoopID = MDNode::get(Context, MDs);
+  // Set operand 0 to refer to the loop id itself.
+  NewLoopID->replaceOperandWith(0, NewLoopID);
+  L->setLoopID(NewLoopID);
+  return;
+}
+
 bool LoopSPMDization::FindReductionVariables(
     Loop *L, std::vector<Value *> *ReduceVarExitOrig,
     std::vector<Instruction *> *ReduceVarOrig) {
-  int r = 0;
+  unsigned r = 0;
   for (Instruction &I : *L->getHeader()) {
     PHINode *Phi = dyn_cast<PHINode>(&I);
     if (!Phi)
@@ -435,8 +483,9 @@ bool LoopSPMDization::FindReductionVariables(
           (*ReduceVarExitOrig)[r] = dyn_cast<Value>(PhiExit);
         }
       }
-      r++;
+      // r++;
     }
+    r++; // count also the non reduction phis
   }
   return true;
 }
@@ -496,13 +545,36 @@ bool LoopSPMDization::FixReductionsIfAny(
     std::vector<Instruction *> *OldInsts) {
   BasicBlock *pred_AfterLoop;
   pred_AfterLoop = L->getExitBlock();
+  // This can be used in the future when preheader of the inner created loop is
+  // properly propagated after cloning which is not the case: clone loop
+  // function is buggy, preheader of inner loop is not found properly
+  /*Loop *ReductionLoop;
+    if (spmd_approach == SPMD_HYBRID) {
+    Header = Header->getSingleSuccessor();
+    Preheader = Preheader->getSingleSuccessor();
+    for (Loop *SL : L->getSubLoops()) {
+      ReductionLoop = SL;
+      Header = ReductionLoop->getHeader();
+      //This generate null currently because clone loop function did not
+  properly keep the preheader info for the inner loop
+      //Preheader = ReductionLoop->getLoopPreheader();
+    }
+  }
+  else
+    ReductionLoop = L; // then use reduction loop instead of L
+  */
+  unsigned r = 0;
   for (Instruction &I : *L->getHeader()) {
     PHINode *Phi = dyn_cast<PHINode>(&I);
     if (!Phi)
       continue;
-    RecurrenceDescriptor RedDes;
-    unsigned r = 0;
-    if (RecurrenceDescriptor::isReductionPHI(Phi, L, RedDes)) {
+    // This (isReductionPHI) does not work with  the hybrid approach. Normally,
+    // we would test the reduction in the inner loop (reductionloop) but since
+    // clone loop function is buggy, preheader of inner loop is not found
+    // properly. That's why I added a hack using the r reductions found
+    // previously in find reduction function RecurrenceDescriptor RedDes; if
+    // (RecurrenceDescriptor::isReductionPHI(Phi, ReductionLoop, RedDes)) {
+    if ((*ReduceVarOrig)[r]) {
       Instruction *ReduceVar;
       if (Phi->getIncomingBlock(0) == L->getLoopPreheader()) {
         ReduceVar = dyn_cast<Instruction>(Phi->getIncomingValue(1));
@@ -616,8 +688,10 @@ bool LoopSPMDization::FixReductionsIfAny(
           break;
         }
       }
-      r++;
+      // r++;
     } // end for r
+    // Because we counted also non reduction phis for the hybrid approach
+    r++;
   }
   return true;
 }
@@ -723,6 +797,189 @@ PHINode *LoopSPMDization::getInductionVariable(Loop *L, ScalarEvolution *SE) {
   return nullptr;
 }
 
+// Add a second loop level that processes chunk size iterations
+// Change loop cond and branch of the outer loop as the following
+//
+//
+// for (i=0; i<n; i+=k) {
+//    a[i] = b[i];
+// }
+// to
+//  for(j=0; j<n; j+=chunk_size*k)  //cyclic loop
+//      for(i=j; i<min(j+chunk_size, n); i+=1) //blocked loop
+//          a[i] = b[i];
+
+void LoopSPMDization::AddHybridLoopLevel(Loop *L, int Chunk_Size,
+                                         PHINode *ClonedInductionPHI,
+                                         ScalarEvolution *SE, DominatorTree *DT,
+                                         LoopInfo *LI) {
+  PHINode *InductionPHI = getInductionVariable(L, SE);
+  BasicBlock *PreHeader = L->getLoopPreheader();
+  BasicBlock *Header = L->getHeader();
+  BasicBlock *Latch = L->getLoopLatch();
+  BranchInst *LatchBR = cast<BranchInst>(Latch->getTerminator());
+  BasicBlock *CondBlock;
+  // retrieve the looping condition
+  if (LatchBR->isConditional()) {
+    CondBlock = Latch;
+    Cond = LatchBR->getCondition();
+  } else {
+    CondBlock = Header;
+    Cond = (cast<BranchInst>(Header->getTerminator()))->getCondition();
+  }
+  Instruction *CondI = dyn_cast<Instruction>(Cond);
+
+  // retrieve the increment variable
+  Instruction *NewInc;
+  Instruction *OldInc;
+  if (InductionPHI->getIncomingBlock(0) == PreHeader) {
+    NewInc = dyn_cast<Instruction>(InductionPHI->getIncomingValue(1));
+    OldInc = dyn_cast<Instruction>(ClonedInductionPHI->getIncomingValue(1));
+  } else {
+    NewInc = dyn_cast<Instruction>(InductionPHI->getIncomingValue(0));
+    OldInc = dyn_cast<Instruction>(ClonedInductionPHI->getIncomingValue(0));
+  }
+  BranchInst *OldCondBlockBR = cast<BranchInst>(CondBlock->getTerminator());
+
+  // Split the loop header into two blocks: the old loop header and the new
+  // header (for the new loop)
+  BasicBlock *NewHeader =
+      SplitBlock(Header, dyn_cast<Instruction>(InductionPHI), DT, LI);
+  Header->setName(L->getHeader()->getName() + ".hybrid.hr");
+
+  // Update condblock based on the inner loop
+  if (LatchBR->isConditional() && Latch != Header)
+    CondBlock = Latch;
+  else
+    CondBlock = NewHeader;
+  /* Split the latch into two blocks: new header and LLatch that is the old loop
+   * latch */
+  BasicBlock *LLatch = SplitBlock(
+      CondBlock, dyn_cast<Instruction>(CondBlock->getTerminator()), DT, LI);
+  LLatch->setName(CondBlock->getName() + ".hybrid.latch");
+  IRBuilder<> Cblock(LLatch->getFirstNonPHI());
+  NewInc->removeFromParent();
+  Cblock.Insert(NewInc);
+  CondI->removeFromParent();
+  Cblock.Insert(CondI);
+
+  // Update loop info with the created new loop
+  Loop *NewLoop = LI->AllocateLoop();
+  // Insert the new loop into the loop nest and register the new basic blocks
+  // before calling any utilities such as SCEV that require valid LoopInfo.
+  L->addChildLoop(NewLoop);
+  LI->removeBlock(NewHeader);
+  NewLoop->addBasicBlockToLoop(NewHeader, *LI);
+  for (Loop::block_iterator I = L->block_begin(), E = L->block_end(); I != E;
+       ++I) {
+    if (*I != LLatch && *I != Header) {
+      if (!NewLoop->contains(*I)) {
+        NewLoop->addBlockEntry(*I);
+      }
+    }
+  }
+  // Disable full unrolling on NewLoop as it will just mean that we applied
+  // cyclic plus unroll of chunk size on L. The decision might be revised for
+  // wide st ld/st generation AddUnrollDisableMetadata(L);
+  AddUnrollDisableMetadata(NewLoop);
+
+  Instruction *ClonedOldInc = OldInc->clone();
+  Instruction *ClonedBr = OldCondBlockBR->clone();
+  // We use  original loop init and step (before transformloopinitandstep) and
+  // convert them to the following for i=j; i<min(j+chunk_size*step, n); i+=step
+  // this is the inserted blocking loop for the hybrid approach
+  IRBuilder<> Bcondblock(CondBlock->getTerminator());
+  IRBuilder<> Bheader(Header->getTerminator());
+
+  CondBlock->getInstList().insert(Bcondblock.GetInsertPoint(), ClonedOldInc);
+  /* calculate BlockUpper = min(OldInc+chunk_size*step, N)*/
+  Value *steptimeschunk =
+      Bheader.CreateMul(OldInc->getOperand(1),
+                        ConstantInt::get(InductionPHI->getType(), Chunk_Size),
+                        InductionPHI->getName() + ".steptimeschunk");
+  Value *BlockUpper = Bheader.CreateAdd(
+      InductionPHI, steptimeschunk, InductionPHI->getName() + ".pluschunksize");
+  /* Use signed to take into account signed values of iterators*/
+  auto *min = Bheader.CreateICmpSLT(BlockUpper, CondI->getOperand(1));
+  BlockUpper = Bheader.CreateSelect(min, BlockUpper, CondI->getOperand(1));
+
+  Instruction *ClonedCondI = CondI->clone();
+  if (ClonedCondI->getOperand(0) == dyn_cast<Value>(NewInc)) {
+    ClonedCondI->setOperand(0, ClonedOldInc);
+    ClonedCondI->setOperand(1, BlockUpper);
+  } else {
+    ClonedCondI->setOperand(1, ClonedOldInc);
+    ClonedCondI->setOperand(0, BlockUpper);
+  }
+  CondBlock->getInstList().insert(Bcondblock.GetInsertPoint(), ClonedCondI);
+  if (OldCondBlockBR->getSuccessor(0) == L->getHeader()) {
+    (cast<BranchInst>(ClonedBr))->setSuccessor(0, NewHeader);
+    (cast<BranchInst>(ClonedBr))->setSuccessor(1, LLatch);
+  } else {
+    (cast<BranchInst>(ClonedBr))->setSuccessor(0, LLatch);
+    (cast<BranchInst>(ClonedBr))->setSuccessor(1, NewHeader);
+  }
+  (cast<BranchInst>(ClonedBr))->setCondition(ClonedCondI);
+  ReplaceInstWithInst(CondBlock->getTerminator(), ClonedBr);
+  // Add induction phi to the new header (header of newloop)
+  ClonedOldInc->setOperand(0, ClonedInductionPHI);
+  if (ClonedInductionPHI->getIncomingBlock(0) == PreHeader) {
+    ClonedInductionPHI->setIncomingValue(1, ClonedOldInc);
+    ClonedInductionPHI->setIncomingBlock(1, CondBlock);
+    ClonedInductionPHI->setIncomingValue(0, InductionPHI);
+    ClonedInductionPHI->setIncomingBlock(0, Header);
+  } else {
+    ClonedInductionPHI->setIncomingValue(0, ClonedOldInc);
+    ClonedInductionPHI->setIncomingBlock(0, CondBlock);
+    ClonedInductionPHI->setIncomingValue(1, InductionPHI);
+    ClonedInductionPHI->setIncomingBlock(1, Header);
+  }
+  ClonedInductionPHI->insertBefore(NewHeader->getFirstNonPHI());
+
+  // simply doing this (replacealluseswith) will break SSA in inductionPHI
+  // (introduce recursive use). So we will have to do the replacement use by use
+  // in the second coming loop
+  // InductionPHI->replaceAllUsesWith(ClonedInductionPHI);
+  // Move also other phis to NewHeader
+  IRBuilder<> Bblock(NewHeader->getFirstNonPHI());
+  BasicBlock::iterator bi, bie;
+  for (bi = Header->begin(), bie = Header->end(); (bi != bie); ++bi) {
+    PHINode *OtherPhi = dyn_cast<PHINode>(&*bi);
+    if (!OtherPhi)
+      break;
+    if (OtherPhi != InductionPHI) {
+      Instruction *BlockPhiInst = OtherPhi->clone();
+      PHINode *BlockPhi = cast<PHINode>(BlockPhiInst);
+      OtherPhi->replaceAllUsesWith(BlockPhi);
+      NewHeader->getInstList().insert(Bblock.GetInsertPoint(), BlockPhi);
+      if (BlockPhi->getIncomingBlock(0) == PreHeader) {
+        BlockPhi->setIncomingBlock(0, Header);
+        BlockPhi->setIncomingValue(0, OtherPhi);
+        BlockPhi->setIncomingBlock(1, CondBlock);
+      } else {
+        BlockPhi->setIncomingBlock(1, Header);
+        BlockPhi->setIncomingValue(1, OtherPhi);
+        BlockPhi->setIncomingBlock(0, CondBlock);
+      }
+    }
+  }
+  for (auto UA = InductionPHI->user_begin(), EA = InductionPHI->user_end();
+       UA != EA;) {
+    Instruction *User_liveotherphi = cast<Instruction>(*UA++);
+    // we replace uses of the induction variable in the blocks of the new inner
+    // loop only
+    if (User_liveotherphi->getParent() != Header &&
+        User_liveotherphi->getParent() != LLatch) {
+      for (unsigned m = 0; m < User_liveotherphi->getNumOperands(); m++)
+        if (User_liveotherphi->getOperand(m) == dyn_cast<Value>(InductionPHI) &&
+            User_liveotherphi != ClonedInductionPHI) {
+          User_liveotherphi->setOperand(m, ClonedInductionPHI);
+        }
+    }
+  }
+  return;
+}
+
 bool LoopSPMDization::TransformLoopInitandBound(Loop *L, ScalarEvolution *SE,
                                                 int PE, int NPEs) {
   PHINode *InductionPHI = getInductionVariable(L, SE);
@@ -733,7 +990,7 @@ bool LoopSPMDization::TransformLoopInitandBound(Loop *L, ScalarEvolution *SE,
   BranchInst *LatchBR = cast<BranchInst>(Latch->getTerminator());
   if (!InductionPHI) {
     LLVM_DEBUG(dbgs() << "Failed to find the loop induction variable "
-               "in one of the loops marked with SPMD intrinsic \n");
+                         "in one of the loops marked with SPMD intrinsic \n");
     return false;
   }
   IRBuilder<> B(PreHeaderBR);
@@ -860,17 +1117,28 @@ Failed to find the loop induction variable.
     steptimesk = B2.CreateMul(OldInc->getOperand(1),
                               ConstantInt::get(InductionPHI->getType(), NPEs),
                               InductionPHI->getName() + ".steptimesk");
+    if (spmd_approach == SPMD_HYBRID)
+      steptimesk = B2.CreateMul(
+          steptimesk, ConstantInt::get(InductionPHI->getType(), Chunk_Size),
+          InductionPHI->getName() + ".timeschunksize");
   }
   Value *NewInc = B2.CreateAdd(InductionPHI, steptimesk,
                                InductionPHI->getName() + ".next.spmd");
 
   IRBuilder<> B(PreHeaderBR);
-  Value *steptimespe =
-      B.CreateMul(StepPE0, ConstantInt::get(InductionPHI->getType(), PE),
-                  InductionPHI->getName() + ".steptimesPE");
-  /*Value **/ NewInitV =
-      B.CreateAdd(InitVar, steptimespe, InductionPHI->getName() + ".init",
-                  dyn_cast<Instruction>(NewInc));
+  if (PE > 0) {
+    Value *steptimespe =
+        B.CreateMul(StepPE0, ConstantInt::get(InductionPHI->getType(), PE),
+                    InductionPHI->getName() + ".steptimesPE");
+    if (spmd_approach == SPMD_HYBRID)
+      steptimespe = B.CreateMul(
+          steptimespe, ConstantInt::get(InductionPHI->getType(), Chunk_Size),
+          InductionPHI->getName() + ".timeschunksize");
+    /*Value **/ NewInitV =
+        B.CreateAdd(InitVar, steptimespe, InductionPHI->getName() + ".init",
+                    dyn_cast<Instruction>(NewInc));
+  } else
+    NewInitV = InitVar;
   if (InductionPHI->getIncomingBlock(0) == PreHeader) {
     InductionPHI->setIncomingValue(0, NewInitV);
     InductionPHI->setIncomingValue(1, NewInc);
@@ -944,6 +1212,7 @@ Failed to find the loop latch condition.
       else
         IdxCmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_SGE,
                                  NewCondOp0, NewCondOp1, Cond->getName());
+      // Cond = dyn_cast<Value>(IdxCmp);
       ReplaceInstWithInst(CondI, dyn_cast<Instruction>(IdxCmp));
     } else { // in other cases, we keep the same predicate
       if (CondI->getOperand(0) == dyn_cast<Value>(OldInc))
@@ -982,11 +1251,11 @@ bool LoopSPMDization::ZeroTripCountCheck(Loop *L, ScalarEvolution *SE, int PE,
     NewInitV = Trunc;
   }
 
-  if (spmd_approach == SPMD_CYCLIC) {
+  if (spmd_approach == SPMD_CYCLIC || spmd_approach == SPMD_HYBRID) {
     NewCondOp1 = NewInitV;
     NewCondOp0 = TripCount;
   }
-  if (spmd_approach == SPMD_BLOCKING) {
+  else if (spmd_approach == SPMD_BLOCKING) {
     NewCondOp1 = ConstantInt::get(TripCountV->getType(), PE);
     NewCondOp0 = TripCountV;
   }
