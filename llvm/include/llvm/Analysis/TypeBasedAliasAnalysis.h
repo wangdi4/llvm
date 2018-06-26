@@ -50,19 +50,11 @@ public:
 
 private:
 #if INTEL_CUSTOMIZATION
-  bool Aliases(const MDNode *A, const MDNode *B,
-               bool DirectRefA = false, bool DirectRefB = false) const;
-  enum CheckKind {
-    CheckA = 1,
-    CheckB = 2,
-    CheckBoth = 3
-  };
+  bool Aliases(const MDNode *A, const MDNode *B) const;
 
-  bool PathAliases(const MDNode *A, const MDNode *B,
-                   enum CheckKind Mask = CheckBoth) const;
+  bool PathAliases(const MDNode *A, const MDNode *B) const;
     
-  bool ScalarAliases(const MDNode *A, const MDNode *B, 
-                     enum CheckKind Mask = CheckBoth) const; 
+  bool ScalarAliases(const MDNode *A, const MDNode *B) const; 
 #endif // INTEL_CUSTOMIZATION
 };
 
