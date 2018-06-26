@@ -640,11 +640,12 @@ public:
   // \p ForMemfunc is true.
   Value *getPeelIndexFromValue(Value *Op, StructType *OrigStructTy,
                                bool ForMemfunc) {
-    if (!PeelIndexCache[Op])
-      PeelIndexCache[Op] =
-          createPeelIndexFromValue(Op, OrigStructTy, ForMemfunc);
+    auto &V = PeelIndexCache[Op];
 
-    return PeelIndexCache[Op];
+    if (!V)
+      V = createPeelIndexFromValue(Op, OrigStructTy, ForMemfunc);
+
+    return V;
   }
 
   // This walks the definitions through bitcasts, selects and PHI nodes for
